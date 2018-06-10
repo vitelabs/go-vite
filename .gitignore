@@ -4,9 +4,13 @@
 *.dll
 *.so
 *.dylib
+.idea
 
 # Test binary, build with `go test -c`
 *.test
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+# Leveldb database files for test, put it here temporarily
+vite_leveldb_database

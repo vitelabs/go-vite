@@ -1,0 +1,11 @@
+syntax="proto3";
+
+package vitepb;
+
+message SnapshotBlock {
+    bytes prevHash = 1;
+    bytes blockNum = 2;
+    bytes producer = 3;
+    map<string, bytes> snapshot = 4;
+    bytes signature = 5;
+}

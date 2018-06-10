@@ -1,0 +1,13 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "TJV50D0q8E3vtc90ibC+qOYdjrw=",
+			"path": "github.com/syndtr/goleveldb/leveldb",
+			"revision": "5d6fca44a948d2be89a9702de7717f0168403d3d",
+			"revisionTime": "2018-05-21T04:50:21Z"
+		}
+	],
+	"rootPath": "go-vite"
+}
