@@ -32,7 +32,7 @@ func NewDataBase (file string) ( *DataBase, error ){
 
 var dataBaseCache = map[string]* DataBase{}
 
-func GetDataBase (file string) ( *DataBase) {
+func GetDataBase (file string) (*DataBase) {
 	if dataBase, ok := dataBaseCache[file]; ok {
 		return dataBase
 	}

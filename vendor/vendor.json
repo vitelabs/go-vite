@@ -3,6 +3,12 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "X7g98YfLr+zM7aN76AZvAfpZyfk=",
+			"path": "github.com/julienschmidt/httprouter",
+			"revision": "adbc77eec0d91467376ca515bc3a14b8434d0f18",
+			"revisionTime": "2018-04-11T15:45:01Z"
+		},
+		{
 			"checksumSHA1": "TJV50D0q8E3vtc90ibC+qOYdjrw=",
 			"path": "github.com/syndtr/goleveldb/leveldb",
 			"revision": "5d6fca44a948d2be89a9702de7717f0168403d3d",
