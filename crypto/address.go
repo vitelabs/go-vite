@@ -3,6 +3,8 @@ package crypto
 import (
 	"encoding/hex"
 	"bytes"
+	"crypto/rand"
+	"go-vite/crypto/ed25519"
 )
 
 const (
@@ -76,12 +78,19 @@ func (a *Address) SetBytes(b []byte) {
 	copy(a[AddressSize-len(b):], b)
 }
 
-func (addr Address) Str() (string) { return string(addr[:]) }
+func (addr Address) Str() string { return string(addr[:]) }
+func (addr Address) Bytes() []byte { return addr[:] }
 
-func CreateRandomAddress() (Address, string, error) {
-	pub, pri, error := GenerateKey()
-	return PubkeyToAddress(pub), hex.EncodeToString(pri), error
+func CreateRandomAddress() (Address, ed25519.PrivateKey, error) {
+	pub, pri, error := ed25519.GenerateKey(rand.Reader)
+	return PubkeyToAddress(pub), pri, error
 }
+
+func CreateAddress(privSeed [32]byte) (Address, ed25519.PrivateKey, error) {
+	pub, pri, error := ed25519.GenerateKeyFromD(privSeed)
+	return PubkeyToAddress(pub), pri, error
+}
+
 
 func getPubkeyHash(address Address) ([PubkeyHashSize]byte, error) {
 	var b [PubkeyHashSize]byte

@@ -1,0 +1,1 @@
+this is Ed25519 Go implementation that uses blake2b hash function instead of sha512

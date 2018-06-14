@@ -27,7 +27,7 @@ func TestCreateRandomAddress(t *testing.T) {
 	addr_, priv, _ := CreateRandomAddress()
 	println(addr_.Str())
 
-	pubkey := recoverPubKey(priv)
+	pubkey := priv.PubByte()
 
 	addr2 := PubkeyToAddress(pubkey[:])
 	println(addr2.Str())
@@ -37,13 +37,31 @@ func TestCreateRandomAddress(t *testing.T) {
 	}
 }
 
+func TestCreateDAddress(t *testing.T) {
+	var zero [32]byte
+	addr_, priv, _ := CreateAddress(zero)
+	addr_1, priv1, _ := CreateAddress(zero)
+
+
+	if !bytes.Equal(addr_[:], addr_1[:]) {
+		t.Fatalf("addr create error")
+	}
+
+
+	if !bytes.Equal(priv[:], priv1[:]) {
+		t.Fatalf("priv create error")
+	}
+}
+
 func TestAddressValid(t *testing.T) {
+
 	{
 		fakeAddr := "1231231"
 		if isValidAddress([]byte(fakeAddr)) {
 			t.Fail()
 		}
 	}
+
 	{
 		if isValidAddress(nil) {
 			t.Fail()
@@ -57,6 +75,7 @@ func TestAddressValid(t *testing.T) {
 		}
 
 	}
+
 	{
 		fakeAddr := "vite_asdc5b9dd0ed0de7de2f0e97c36638e108aa64a2bedc22c0e6"
 		if isValidAddress([]byte(fakeAddr)) {

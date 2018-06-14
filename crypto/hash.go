@@ -18,3 +18,4 @@ func Hash(size int, data ...[]byte) []byte{
 	}
 	return d.Sum(nil)
 }
+

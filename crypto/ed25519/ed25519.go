@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"go-vite/crypto/ed25519/internal/edwards25519"
 	"golang.org/x/crypto/blake2b"
+	"encoding/hex"
 )
 
 const (
@@ -43,10 +44,20 @@ type PrivateKey []byte
 
 // Public returns the PublicKey corresponding to priv.
 func (priv PrivateKey) Public() crypto.PublicKey {
+	return PublicKey(priv.PubByte())
+}
+
+// Public returns the PublicKey in []byte type corresponding to priv.
+func (priv PrivateKey) PubByte() []byte {
 	publicKey := make([]byte, PublicKeySize)
 	copy(publicKey, priv[32:])
-	return PublicKey(publicKey)
+	return publicKey
 }
+
+func (priv PrivateKey) HexStr() string {
+	return hex.EncodeToString(priv)
+}
+
 
 // Sign signs the given message with priv.
 // Ed25519 performs two passes over messages to be signed and therefore cannot
@@ -68,12 +79,22 @@ func GenerateKey(rand io.Reader) (publicKey PublicKey, privateKey PrivateKey, er
 		rand = cryptorand.Reader
 	}
 
-	privateKey = make([]byte, PrivateKeySize)
-	publicKey = make([]byte, PublicKeySize)
-	_, err = io.ReadFull(rand, privateKey[:32])
+	var randD [32]byte
+
+	_, err = io.ReadFull(rand, randD[:])
 	if err != nil {
 		return nil, nil, err
 	}
+
+	return GenerateKeyFromD(randD)
+}
+
+// GenerateKeyFromD generates a public/private key pair using user given Deterministic value called d
+func GenerateKeyFromD(d [32]byte) (publicKey PublicKey, privateKey PrivateKey, err error) {
+	privateKey = make([]byte, PrivateKeySize)
+	copy(privateKey[:32], d[:])
+
+	publicKey = make([]byte, PublicKeySize)
 
 	digest := blake2b.Sum512(privateKey[:32])
 	digest[0] &= 248
@@ -196,4 +217,3 @@ func Verify(publicKey PublicKey, message, sig []byte) bool {
 	R.ToBytes(&checkR)
 	return bytes.Equal(sig[:32], checkR[:])
 }
-
