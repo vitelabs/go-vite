@@ -1,8 +1,12 @@
 package rpc
 
 import (
-	"net/http"
 	"log"
+	"net"
+	"github.com/powerman/rpc-codec/jsonrpc2"
+	"net/rpc"
+	"net/http"
+	"go-vite/rpc/service"
 )
 
 var (
@@ -10,9 +14,19 @@ var (
 	port  = "8080"
 )
 
-
 func StartServer () {
-	router := GetRouter()
+	rpc.Register(&service.ExampleSvc{})
 
-	log.Fatal(http.ListenAndServe(host + ":" + port, router))
+	listener, err := net.Listen("tcp", ":" + port)
+
+	if err != nil {
+		log.Fatal("Server listen error: ", err.Error())
+	}
+
+	defer listener.Close()
+
+	log.Println("Server listen on " + port)
+
+	http.Serve(listener, jsonrpc2.HTTPHandler(nil))
+
 }
