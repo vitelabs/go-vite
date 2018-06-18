@@ -16,6 +16,7 @@ var (
 
 func StartServer () {
 	rpc.Register(&service.ExampleSvc{})
+	rpc.Register(&service.AccountChain{})
 
 	listener, err := net.Listen("tcp", ":" + port)
 
