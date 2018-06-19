@@ -19,6 +19,8 @@ const (
 
 type Address [AddressSize]byte
 
+var InvalidAddress = Address{}
+
 func BytesToAddress(b []byte) Address {
 	var a Address
 	a.SetBytes(b)
