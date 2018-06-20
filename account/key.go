@@ -4,18 +4,16 @@ import (
 	"github.com/pborman/uuid"
 	"go-vite/crypto/ed25519"
 	"go-vite/common"
-	"time"
-	"fmt"
-	"encoding/hex"
 )
 
+const (
+	version = 1
+)
 type keyStore interface {
-	// Loads and decrypts the key from disk.
-	GetKey(addr common.Address, filename string, auth string) (*Key, error)
-	// Writes and encrypts the key.
-	StoreKey(filename string, k *Key, auth string) error
-	// Joins filename with the key directory unless it is already absolute.
-	JoinPath(filename string) string
+	// Returns the key associated with the given address , using the given password to recover it from a file.
+	ExtractKey(address common.Address, password string) (*Key, error)
+
+	StoreKey(k *Key, password string) error
 }
 
 type Key struct {
@@ -28,16 +26,16 @@ type encryptedKeyJSON struct {
 	Address string     `json:"address"`
 	Crypto  cryptoJSON `json:"crypto"`
 	Id      string     `json:"id"`
-	Version string     `json:"version"`
+	Version int     `json:"version"`
 }
 
 type cryptoJSON struct {
-	Cipher     string                 `json:"cipher"`
-	CipherText string                 `json:"ciphertext"`
-	IV         string                 `json:"iv"`
-	KDF        string                 `json:"kdf"`
-	KDFParams  map[string]interface{} `json:"kdfparams"`
-	MAC        string                 `json:"mac"`
+	Cipher     string `json:"cipher"`
+	CipherText string `json:"ciphertext"`
+	Nonce      string `json:"nonce"`
+	KDF        string `json:"kdf"`
+	KDFParams map[string]interface {
+	} `json:"kdfparams"`
 }
 
 func newKeyFromEd25519(priv *ed25519.PrivateKey) *Key {
@@ -59,31 +57,14 @@ func newKey() (*Key, error) {
 }
 
 func storeNewKey(ks keyStore, pwd string) (*Key, common.Address, error) {
-	key, err := newKey()
+	_, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, common.InvalidAddress, err
 	}
+	key := newKeyFromEd25519(&priv)
 
-	if err := ks.StoreKey("~/" +keyFileName(key.Address) , key, pwd); err != nil {
+	if err := ks.StoreKey(key, pwd); err != nil {
 		return nil, common.InvalidAddress, err
 	}
 	return key, key.Address, err
-}
-
-// keyFileName implements the naming convention for keyfiles:
-// UTC--<created_at UTC ISO8601>-<address hex>
-func keyFileName(keyAddr common.Address) string {
-	ts := time.Now().UTC()
-	return fmt.Sprintf("UTC--%s--%s", toISO8601(ts), hex.EncodeToString(keyAddr[:]))
-}
-
-func toISO8601(t time.Time) string {
-	var tz string
-	name, offset := t.Zone()
-	if name == "UTC" {
-		tz = "Z"
-	} else {
-		tz = fmt.Sprintf("%03d00", offset/3600)
-	}
-	return fmt.Sprintf("%04d-%02d-%02dT%02d-%02d-%02d.%09d%s", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
 }
