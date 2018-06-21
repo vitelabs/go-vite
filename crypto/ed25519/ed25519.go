@@ -19,12 +19,12 @@ import (
 	"crypto"
 
 	cryptorand "crypto/rand"
+	"encoding/hex"
 	"errors"
-	"io"
-	"strconv"
 	"go-vite/crypto/ed25519/internal/edwards25519"
 	"golang.org/x/crypto/blake2b"
-	"encoding/hex"
+	"io"
+	"strconv"
 )
 
 const (
@@ -57,7 +57,6 @@ func (priv PrivateKey) PubByte() []byte {
 func (priv PrivateKey) HexStr() string {
 	return hex.EncodeToString(priv)
 }
-
 
 // Sign signs the given message with priv.
 // Ed25519 performs two passes over messages to be signed and therefore cannot

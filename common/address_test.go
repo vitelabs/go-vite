@@ -1,8 +1,8 @@
 package common
 
 import (
-	"testing"
 	"bytes"
+	"testing"
 )
 
 func TestCreateRandomAddress(t *testing.T) {
@@ -24,11 +24,9 @@ func TestCreateDAddress(t *testing.T) {
 	addr_, priv, _ := CreateAddressWithDeterministic(zero)
 	addr_1, priv1, _ := CreateAddressWithDeterministic(zero)
 
-
 	if !bytes.Equal(addr_[:], addr_1[:]) {
 		t.Fatalf("addr create error")
 	}
-
 
 	if !bytes.Equal(priv[:], priv1[:]) {
 		t.Fatalf("priv create error")
@@ -43,7 +41,6 @@ func TestAddressValid(t *testing.T) {
 			t.Fail()
 		}
 	}
-
 
 	{
 		fakeAddr := "vite_bcdc5b9dd0ed0de7de2f0e97c36638e108aa64a2bedc22c0e7"

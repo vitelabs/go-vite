@@ -1,12 +1,12 @@
 package common
 
 import (
-	"encoding/hex"
-	"crypto/rand"
-	"go-vite/crypto/ed25519"
-	hash "go-vite/crypto"
-	"strings"
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
+	hash "go-vite/crypto"
+	"go-vite/crypto/ed25519"
+	"strings"
 )
 
 const (
@@ -50,8 +50,6 @@ func IsValidHexAddress(hexStr string) bool {
 	return true
 }
 
-
-
 func PubkeyToAddress(pubkey []byte) Address {
 	return BytesToAddress(hash.Hash(AddressSize, pubkey))
 }
@@ -67,7 +65,7 @@ func (a *Address) SetBytes(b []byte) {
 	copy(a[AddressSize-len(b):], b)
 }
 
-func (addr Address) Hex() string   {
+func (addr Address) Hex() string {
 	return AddressPrefix + hex.EncodeToString(addr[:]) + hex.EncodeToString(hash.Hash(AddressChecksumSize, addr[:]))
 }
 func (addr Address) Bytes() []byte { return addr[:] }

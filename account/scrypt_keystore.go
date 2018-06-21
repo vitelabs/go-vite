@@ -2,17 +2,17 @@ package account
 
 import (
 	"encoding/hex"
-	"fmt"
-	"time"
-	"go-vite/common"
-	"io/ioutil"
-	"github.com/pborman/uuid"
-	"go-vite/crypto/ed25519"
-	"path/filepath"
-	"os"
-	"golang.org/x/crypto/scrypt"
-	vcrypto "go-vite/crypto"
 	"encoding/json"
+	"fmt"
+	"github.com/pborman/uuid"
+	"go-vite/common"
+	vcrypto "go-vite/crypto"
+	"go-vite/crypto/ed25519"
+	"golang.org/x/crypto/scrypt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"time"
 )
 
 const (
@@ -68,12 +68,42 @@ func (ks keyStorePassphrase) StoreKey(key *Key, password string) error {
 
 func DecryptKey(keyjson []byte, password string) (*Key, error) {
 	k := new(encryptedKeyJSON)
-	priv := new(ed25519.PrivateKey)
+	if err := json.Unmarshal(keyjson, k); err != nil {
+		return nil, err
+	}
+
+	ciphertxt, err := hex.DecodeString(k.Crypto.CipherText)
+	if err != nil {
+		return nil, err
+	}
+
+	salt, err := hex.DecodeString(k.Crypto.KDFParams["salt"].(string))
+	if err != nil {
+		return nil, err
+	}
+
+	derivedKey, err := scrypt.Key([]byte(password), salt, StandardScryptN, scryptR, StandardScryptP, scryptDKLen)
+
+	var pribyte = make([]byte, ed25519.PrivateKeySize)
+	if k.Crypto.Cipher == "aes-128-gcm" {
+
+		nonce, err := hex.DecodeString(k.Crypto.Nonce)
+		if err != nil {
+			return nil, err
+		}
+
+		pribyte, err = vcrypto.AesGCMDecrypt(derivedKey[:32], ciphertxt, []byte(nonce))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	privKey := ed25519.PrivateKey(pribyte)
 
 	return &Key{
 		Id:         uuid.UUID(k.Id),
-		Address:    common.PubkeyToAddress([]byte(k.Crypto.CipherText)),
-		PrivateKey: priv,
+		Address:    common.PrikeyToAddress([]byte(k.Crypto.CipherText)),
+		PrivateKey: &privKey,
 	}, nil
 }
 

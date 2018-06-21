@@ -126,7 +126,6 @@ func TestCryptoSigner(t *testing.T) {
 	}
 }
 
-
 func TestMalleability(t *testing.T) {
 	// https://tools.ietf.org/html/rfc8032#section-5.1.7 adds an additional test
 	// that s be in [0, order). This prevents someone from adding a multiple of
