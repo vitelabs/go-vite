@@ -22,22 +22,20 @@ func newKeyFromEd25519(priv *ed25519.PrivateKey) *Key {
 	return key
 }
 
-func StoreNewKey(ks keyStore, pwd string) (*Key, common.Address, error) {
+func (kp *KeyPool) StoreNewKey(pwd string) (*Key, common.Address, error) {
 	_, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, common.InvalidAddress, err
 	}
 	key := newKeyFromEd25519(&priv)
 
-	if err := ks.StoreKey(key, pwd); err != nil {
+	if err := kp.ks.StoreKey(key, pwd); err != nil {
 		return nil, common.InvalidAddress, err
 	}
 	return key, key.Address, err
 }
 
-
-func (kp *KeyPool) getDecryptKey(a common.Address, auth string) (common.Address, *Key, error) {
-
-	key, err := kp.ks.ExtractKey(a, auth)
+func (kp *KeyPool) ExtractKey(a common.Address, pwd string) (common.Address, *Key, error) {
+	key, err := kp.ks.ExtractKey(a, pwd)
 	return a, key, err
 }

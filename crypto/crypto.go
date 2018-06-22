@@ -11,6 +11,7 @@ const (
 	gcmAdditionData = "vite"
 )
 
+// AesCTRXOR(plainText) = cipherText AesCTRXOR(cipherText) = plainText
 func AesCTRXOR(key, inText, iv []byte) ([]byte, error) {
 
 	aesBlock, err := aes.NewCipher(key)
