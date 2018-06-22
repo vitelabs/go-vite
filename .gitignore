@@ -15,3 +15,6 @@
 
 # Leveldb database files for test, put it here temporarily
 vite_leveldb_database
+
+# idea files
+.idea/
