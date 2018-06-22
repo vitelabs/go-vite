@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	version = 1
+	keystoreVersion = 1
 )
 
 type keyStore interface {
@@ -26,19 +26,26 @@ type Key struct {
 }
 
 type encryptedKeyJSON struct {
-	Address string     `json:"address"`
-	Crypto  cryptoJSON `json:"crypto"`
-	Id      string     `json:"id"`
-	Version int        `json:"version"`
+	HexAddress string     `json:"hexaddress"`
+	Crypto     cryptoJSON `json:"crypto"`
+	Id         string     `json:"id"`
+	Version    int        `json:"keystoreversion"`
 }
 
 type cryptoJSON struct {
-	Cipher     string `json:"cipher"`
-	CipherText string `json:"ciphertext"`
-	Nonce      string `json:"nonce"`
-	KDF        string `json:"kdf"`
-	KDFParams  map[string]interface {
-	} `json:"kdfparams"`
+	CipherName   string       `json:"ciphername"`
+	CipherText   string       `json:"ciphertext"`
+	Nonce        string       `json:"nonce"`
+	KDF          string       `json:"kdf"`
+	ScryptParams scryptParams `json:"scryptparams"`
+}
+
+type scryptParams struct {
+	N      int    `json:"n"`
+	R      int    `json:"r"`
+	P      int    `json:"p"`
+	KeyLen int    `json:"keylen"`
+	Salt   string `json:"salt"`
 }
 
 func (key *Key) Sign(data []byte) ([]byte, error) {

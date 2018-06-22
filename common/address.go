@@ -32,7 +32,7 @@ func IsValidHexAddress(hexStr string) bool {
 		return false
 	}
 
-	address, err := getAddressFromHex(hexStr)
+	address, err := GetAddressFromHex(hexStr)
 	if err != nil {
 		return false
 	}
@@ -83,7 +83,7 @@ func CreateAddressWithDeterministic(d [32]byte) (Address, ed25519.PrivateKey, er
 	return PubkeyToAddress(pub), pri, error
 }
 
-func getAddressFromHex(hexStr string) ([AddressSize]byte, error) {
+func GetAddressFromHex(hexStr string) ([AddressSize]byte, error) {
 	var b [AddressSize]byte
 	_, err := hex.Decode(b[:], []byte(hexStr[AddressPrefixLen:2*AddressSize+AddressPrefixLen]))
 	return b, err
