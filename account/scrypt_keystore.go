@@ -17,8 +17,6 @@ import (
 )
 
 const (
-	keyHeaderKDF = "scrypt"
-
 	// StandardScryptN is the N parameter of Scrypt encryption algorithm, using 256MB
 	// memory and taking approximately 1s CPU time on a modern processor.
 	StandardScryptN = 1 << 18
@@ -38,7 +36,7 @@ const (
 	scryptR      = 8
 	scryptKeyLen = 32
 
-	aesMode    = "aes-128-gcm"
+	aesMode    = "aes-256-gcm"
 	scryptName = "scrypt"
 )
 

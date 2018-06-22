@@ -27,8 +27,8 @@ type Key struct {
 
 type encryptedKeyJSON struct {
 	HexAddress string     `json:"hexaddress"`
-	Crypto     cryptoJSON `json:"crypto"`
 	Id         string     `json:"id"`
+	Crypto     cryptoJSON `json:"crypto"`
 	Version    int        `json:"keystoreversion"`
 }
 
