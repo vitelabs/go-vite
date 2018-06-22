@@ -1,8 +1,8 @@
 package crypto
 
 import (
-	"testing"
 	"encoding/hex"
+	"testing"
 
 	"bytes"
 )
