@@ -30,6 +30,7 @@ type encryptedKeyJSON struct {
 	Id         string     `json:"id"`
 	Crypto     cryptoJSON `json:"crypto"`
 	Version    int        `json:"keystoreversion"`
+	Timestamp  int64      `json:"timestamp"`
 }
 
 type cryptoJSON struct {

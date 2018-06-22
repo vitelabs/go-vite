@@ -179,6 +179,7 @@ func EncryptKey(key *Key, password string) ([]byte, error) {
 		Crypto:     cryptoJSON,
 		Id:         key.Id.String(),
 		Version:    keystoreVersion,
+		Timestamp:  time.Now().UTC().Unix(),
 	}
 
 	return json.Marshal(encryptedKeyJSON)
@@ -206,19 +207,6 @@ func writeKeyFile(file string, content []byte) error {
 	return os.Rename(f.Name(), file)
 }
 
-// todo NOW we use Eth file name rule to generate filename, In Late we will use our custom rule
 func (ks keyStorePassphrase) fullKeyFileName(keyAddr common.Address) string {
-	ts := time.Now().UTC()
-	return ks.keysDirPath + "/" + fmt.Sprintf("UTC--%s--%s", toISO8601(ts), hex.EncodeToString(keyAddr[:]))
-}
-
-func toISO8601(t time.Time) string {
-	var tz string
-	name, offset := t.Zone()
-	if name == "UTC" {
-		tz = "Z"
-	} else {
-		tz = fmt.Sprintf("%03d00", offset/3600)
-	}
-	return fmt.Sprintf("%04d-%02d-%02dT%02d-%02d-%02d.%09d%s", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
+	return ks.keysDirPath + "/v-i-t-e-" + hex.EncodeToString(keyAddr[:])
 }

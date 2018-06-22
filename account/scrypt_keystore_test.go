@@ -13,7 +13,6 @@ const (
 )
 
 func TestDecrypt(t *testing.T) {
-
 	{
 		key1, err := DecryptKey([]byte(TEST_KEY_JSON), "123456")
 		if err != nil {
