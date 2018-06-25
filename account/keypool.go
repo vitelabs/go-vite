@@ -10,16 +10,11 @@ import (
 
 type KeyPool struct {
 	ks keyStore
+	kc KeyConfig
 }
 
-func newKeyFromEd25519(priv *ed25519.PrivateKey) *Key {
-	id := uuid.NewRandom()
-	key := &Key{
-		Id:         id,
-		Address:    common.PrikeyToAddress(*priv),
-		PrivateKey: priv,
-	}
-	return key
+func NewKeyPool() {
+
 }
 
 func (kp *KeyPool) StoreNewKey(pwd string) (*Key, common.Address, error) {
@@ -38,4 +33,14 @@ func (kp *KeyPool) StoreNewKey(pwd string) (*Key, common.Address, error) {
 func (kp *KeyPool) ExtractKey(a common.Address, pwd string) (common.Address, *Key, error) {
 	key, err := kp.ks.ExtractKey(a, pwd)
 	return a, key, err
+}
+
+func newKeyFromEd25519(priv *ed25519.PrivateKey) *Key {
+	id := uuid.NewRandom()
+	key := &Key{
+		Id:         id,
+		Address:    common.PrikeyToAddress(*priv),
+		PrivateKey: priv,
+	}
+	return key
 }

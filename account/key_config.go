@@ -7,16 +7,14 @@ import (
 )
 
 type KeyConfig struct {
-	KeyStoreDir string
+	KeyStoreDir       string
 	UseLightweightKDF bool
 }
 
 var DefaultKeyConfig = KeyConfig{
-	KeyStoreDir: DefaultDataDir(),
+	KeyStoreDir:       DefaultDataDir(),
 	UseLightweightKDF: false,
-
 }
-
 
 func DefaultDataDir() string {
 	home := homeDir()
