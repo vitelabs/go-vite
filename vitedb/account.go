@@ -20,6 +20,9 @@ func (account Account) New () *Account {
 func (account *Account) GetAccountMeta (accountAddress []byte) *ledger.AccountMeta {
 	return &ledger.AccountMeta {
 		AccountId: big.NewInt(1),
-		TokenList: []string{"vite", "mym"},
+		TokenList: []*ledger.AccountSimpleToken{{
+			TokenId: []byte{1, 2, 3},
+			LastAccountBlockHeight: big.NewInt(1),
+		}},
 	}
 }
