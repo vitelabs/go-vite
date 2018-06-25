@@ -1,0 +1,19 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "PGv3Cdw5XiBgovHTqrBTEeM34yg=",
+			"path": "github.com/powerman/rpc-codec/jsonrpc2",
+			"revision": "3e1ab3b635b7b0d5f771028cd45aa9a827fd9f31",
+			"revisionTime": "2018-03-01T08:01:45Z"
+		},
+		{
+			"checksumSHA1": "TJV50D0q8E3vtc90ibC+qOYdjrw=",
+			"path": "github.com/syndtr/goleveldb/leveldb",
+			"revision": "5d6fca44a948d2be89a9702de7717f0168403d3d",
+			"revisionTime": "2018-05-21T04:50:21Z"
+		}
+	],
+	"rootPath": "go-vite"
+}
