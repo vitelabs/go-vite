@@ -1,8 +1,9 @@
-package ledger
+package vitedb
 
 import (
 	"go-vite/vitedb"
 	"fmt"
+	"go-vite/ledger"
 )
 
 type SnapshotBlockChain struct {
@@ -17,7 +18,7 @@ func (SnapshotBlockChain) New () *SnapshotBlockChain {
 	}
 }
 
-func (sbc * SnapshotBlockChain) WriteBlock (block *SnapshotBlock) error {
+func (sbc * SnapshotBlockChain) WriteBlock (block *ledger.SnapshotBlock) error {
 	// 模拟key, 需要改
 	key :=  []byte("snapshot_test")
 
@@ -33,13 +34,13 @@ func (sbc * SnapshotBlockChain) WriteBlock (block *SnapshotBlock) error {
 	return nil
 }
 
-func (sbc * SnapshotBlockChain) GetBlock (key []byte) (*SnapshotBlock, error) {
+func (sbc * SnapshotBlockChain) GetBlock (key []byte) (*ledger.SnapshotBlock, error) {
 	block, err := sbc.db.Get(key)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	snapshotBlock := &SnapshotBlock{}
+	snapshotBlock := &ledger.SnapshotBlock{}
 
 	snapshotBlock.Deserialize(block)
 

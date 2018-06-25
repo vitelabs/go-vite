@@ -7,27 +7,60 @@ import (
 	"go-vite/vitepb"
 )
 
+type AccountBlockMeta struct {
+	// Account id
+	AccountId *big.Int
+
+	// AccountBlock height
+	Height *big.Int
+
+	// AccountBlock status
+	Status int
+}
+
+
 type AccountBlock struct {
-	// self account
-	Account []byte
+	// AccountBlock height
+	Height *big.Int
+
+	// Self account
+	AccountAddress []byte
 
 	// Receiver account, exists in send block
 	To []byte
 
-	// Last block hash
-	PrevHash []byte
-
 	// Correlative send block hash, exists in receive block
 	FromHash []byte
 
-	// Height of account chain
-	BlockNum *big.Int
+	// Last block hash
+	PrevHash []byte
 
 	// Balance of current account
 	Balance map[uint32]*big.Int
 
+	// Number of tokens received or sent
+	Amount *big.Int
+
+	// Name of token received or sent
+	TokenName string
+
+	// Data requested or repsonsed
+	Data string
+
+	// Snapshot timestamp
+	SnapshotTimestamp []byte
+
 	// Signature of current block
 	Signature []byte
+
+	// PoW nounce
+	Nounce []byte
+
+	// PoW difficulty
+	Difficulty []byte
+
+	// Service fee
+	fAmount *big.Int
 }
 
 func (ab *AccountBlock) getBalanceInBytes () map[uint32][]byte{

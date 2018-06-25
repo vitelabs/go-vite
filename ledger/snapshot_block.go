@@ -7,15 +7,23 @@ import (
 )
 
 type SnapshotBlock struct {
+	// Previous snapshot block hash
 	PrevHash []byte
 
-	BlockNum *big.Int
+	// Height of current snapshot block
+	Height *big.Int
 
+	// Producer create the block
 	Producer []byte
 
+	// Current accountblock chain snapshot
 	Snapshot map[string][]byte
 
+	// Signature
 	Signature []byte
+
+	// Reward fee
+	Amount *big.Int
 }
 
 

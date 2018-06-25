@@ -1,22 +1,38 @@
-package ledger
+package vitedb
 
 import (
-	"go-vite/vitedb"
 	"fmt"
+	"go-vite/ledger"
 )
 
 type AccountBlockChain struct {
-	db *vitedb.DataBase
+	db *DataBase
+	accountStore *Account
 }
 
 func (bc AccountBlockChain) New () *AccountBlockChain {
-	db := vitedb.GetDataBase(vitedb.DB_BLOCK)
+	db := GetDataBase(DB_BLOCK)
 	return &AccountBlockChain{
 		db: db,
+		accountStore: Account{}.New(),
 	}
 }
 
-func (bc * AccountBlockChain) WriteBlock (block *AccountBlock) error {
+func (bc * AccountBlockChain) WriteBlock (block *ledger.AccountBlock) error {
+	accountMeta := bc.accountStore.GetAccountMeta(block.AccountAddress)
+
+	if accountMeta == nil {
+	}
+
+
+	if block.FromHash == nil {
+		// It is send block
+
+	} else {
+		// It is receive block
+
+	}
+
 	// 模拟key, 需要改
 	key :=  []byte("test")
 
@@ -32,13 +48,13 @@ func (bc * AccountBlockChain) WriteBlock (block *AccountBlock) error {
 	return nil
 }
 
-func (bc * AccountBlockChain) GetBlock (key []byte) (*AccountBlock, error) {
+func (bc * AccountBlockChain) GetBlock (key []byte) (*ledger.AccountBlock, error) {
 	block, err := bc.db.Get(key)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	accountBlock := &AccountBlock{}
+	accountBlock := &ledger.AccountBlock{}
 	accountBlock.Deserialize(block)
 
 	return accountBlock, nil
