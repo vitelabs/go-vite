@@ -86,7 +86,7 @@ func DecryptKey(keyjson []byte, password string) (*Key, error) {
 	if !common.IsValidHexAddress(k.HexAddress) {
 		return nil, fmt.Errorf("Address invalid ： %v", k.HexAddress)
 	}
-	kAddress, err := common.GetAddressFromHex(k.HexAddress)
+	kAddress, err := common.HexToAddress(k.HexAddress)
 	if err != nil {
 		return nil, err
 	}

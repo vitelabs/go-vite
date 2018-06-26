@@ -29,28 +29,46 @@ func TestHash256(t *testing.T) {
 }
 
 func TestAesGCMEncrypt(t *testing.T) {
-	keyArray := []byte(gcm_dummy_key_16)
-	plainArray := []byte(gcm_dummy_plain_text)
-	out, nonce, err := AesGCMEncrypt(keyArray, plainArray)
+	keyArray := []byte(gcm_dummy_key_32)
+	plain := []byte(gcm_dummy_plain_text)
+	out, nonce, err := AesGCMEncrypt(keyArray, plain)
 	println(hex.EncodeToString(out))
 	println(hex.EncodeToString(nonce))
+	println("Encrypt finish")
 	if err != nil {
-		t.Fatalf("AES GCM Encrypt ERROR %s", err.Error())
+		t.Fatal(err)
 	}
 
-	plain, err := AesGCMDecrypt(keyArray, out, nonce)
+	plain1, err := AesGCMDecrypt(keyArray, out, nonce)
 	if err != nil {
-		t.Fatalf("AES GCM Decrypt ERROR %s", err.Error())
+		t.Fatal(err)
 	}
-	if !bytes.Equal(plain, plainArray) {
-		t.Fatal("AES GCM Decrypt ERROR NOT EQUAL")
+	if !bytes.Equal(plain1, plain) {
+		t.Fatal("Mis content")
 	}
 
 }
 
-func TestGoSyntax(t *testing.T) {
-	b := []byte{'1', '2', '3'}
+func TestAesCTRXOR(t *testing.T) {
+	keyArray := []byte(gcm_dummy_key_32)
+	plainArray := []byte(gcm_dummy_plain_text)
+	iv := []byte(gcm_dummy_key_16)
+	cipher, err := AesCTRXOR(keyArray, plainArray, iv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	println("Encrypt finish")
+	plainArray1, err := AesCTRXOR(keyArray, cipher, iv)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	println(string(b[:2]))
-	println(string(b[1:3]))
+	if !bytes.Equal(plainArray, plainArray1) {
+		t.Fatal("mis content")
+	}
+
+	println("plainArray :", string(plainArray))
+	println("plainArray1:", string(plainArray1))
+	println(hex.EncodeToString(cipher))
+
 }

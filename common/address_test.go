@@ -35,42 +35,34 @@ func TestCreateDAddress(t *testing.T) {
 
 func TestAddressValid(t *testing.T) {
 
-	{
-		fakeAddr := "1231231"
-		if IsValidHexAddress(fakeAddr) {
-			t.Fail()
-		}
+	fakeAddr := "1231231"
+	if IsValidHexAddress(fakeAddr) {
+		t.Fail()
 	}
 
-	{
-		fakeAddr := "vite_bcdc5b9dd0ed0de7de2f0e97c36638e108aa64a2bedc22c0e7"
-		if IsValidHexAddress(fakeAddr) {
-			t.Fail()
-		}
-
+	fakeAddr = "vite_bcdc5b9dd0ed0de7de2f0e97c36638e108aa64a2bedc22c0e7"
+	if IsValidHexAddress(fakeAddr) {
+		t.Fail()
 	}
 
-	{
-		fakeAddr := "vite_asdc5b9dd0ed0de7de2f0e97c36638e108aa64a2bedc22c0e6"
-		if IsValidHexAddress(fakeAddr) {
-			t.Fail()
-		}
-
+	fakeAddr = "vite_asdc5b9dd0ed0de7de2f0e97c36638e108aa64a2bedc22c0e6"
+	if IsValidHexAddress(fakeAddr) {
+		t.Fail()
 	}
 
-	{
-		fakeAddr := "aite_asdc5b9dd0ed0de7de2f0e97c36638e108aa64a2bedc22c0e6"
-		if IsValidHexAddress(fakeAddr) {
-			t.Fail()
-		}
-
+	fakeAddr = "aite_asdc5b9dd0ed0de7de2f0e97c36638e108aa64a2bedc22c0e6"
+	if IsValidHexAddress(fakeAddr) {
+		t.Fail()
 	}
 
-	{
-		realAddr := "vite_bcdc5b9dd0ed0de7de2f0e97c36638e108aa64a2bedc22c0e6"
-		if !IsValidHexAddress(realAddr) {
-			t.Fail()
-		}
-
+	realAddr := "vite_bcdc5b9dd0ed0de7de2f0e97c36638e108aa64a2bedc22c0e6"
+	if !IsValidHexAddress(realAddr) {
+		t.Fail()
 	}
+
+}
+
+func BenchmarkCreateAddress(b *testing.B) {
+	addr, _, _ := CreateAddress()
+	println(addr.Hex())
 }
