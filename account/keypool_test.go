@@ -7,7 +7,7 @@ import (
 func TestStoreAndExtractNewKey(t *testing.T) {
 
 	ks := keyStorePassphrase{keysDirPath: DefaultDataDir()}
-	kp := KeyPool{ks}
+	kp := KeyPool{ks, DefaultKeyConfig}
 
 	key1, addr1, err := kp.StoreNewKey("123456")
 	if err != nil {

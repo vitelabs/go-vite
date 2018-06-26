@@ -20,12 +20,12 @@ func NewKeyPool() {
 func (kp *KeyPool) StoreNewKey(pwd string) (*Key, common.Address, error) {
 	_, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
-		return nil, common.InvalidAddress, err
+		return nil, common.Address{}, err
 	}
 	key := newKeyFromEd25519(&priv)
 
 	if err := kp.ks.StoreKey(key, pwd); err != nil {
-		return nil, common.InvalidAddress, err
+		return nil, common.Address{}, err
 	}
 	return key, key.Address, err
 }
