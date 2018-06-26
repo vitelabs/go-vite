@@ -121,15 +121,30 @@ func (bc * AccountBlockChain) WriteBlock (block *ledger.AccountBlock) error {
 	return nil
 }
 
+func (bc * AccountBlockChain) WriteSendBlock () error {
+
+
+	return nil
+}
+
+func (bc * AccountBlockChain) WriteReceiveBlock () error {
+
+
+	return nil
+}
+
 func (bc * AccountBlockChain) WriteAccountMeta (accountAddress []byte, accountMeta *ledger.AccountMeta) error {
+
 	return nil
 }
 
 func (bc * AccountBlockChain) WriteAccountIdIndex (accountId *big.Int, accountAddress []byte) error {
+
 	return nil
 }
 
 func (bc * AccountBlockChain) WriteAccountBlockMeta (accountBlockHash []byte, accountBlockMeta *ledger.AccountBlockMeta) error {
+
 	return nil
 }
 
