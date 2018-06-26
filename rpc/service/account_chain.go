@@ -21,7 +21,6 @@ func (*AccountChain) GetBlockList (blockQuery *AccountBlockQuery, blockList []*l
 	return nil
 }
 
-
 // response
 //func (*Chain) receive () {
 //

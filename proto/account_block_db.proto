@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package vitepb;
+
+message AccountBlockDb {
+    bytes to = 2;
+    bytes prevHash = 3;
+    bytes fromHash = 4;
+
+    bytes tokenId = 5;
+    bytes balance = 6;
+
+    string data = 7;
+    bytes snapshotTimestamp = 8;
+
+    bytes signature = 9;
+
+    bytes nounce = 10;
+
+    bytes difficulty = 11;
+
+    bytes fAmount = 12;
+}
