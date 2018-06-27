@@ -16,6 +16,7 @@ type AccountMeta struct {
 
 type Account struct {
 	AccountMeta
+	blockHeight *big.Int
 }
 
 func (account *Account) GetBlockHeight () *big.Int {

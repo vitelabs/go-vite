@@ -8,26 +8,32 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-type AccountBlockChain struct {
+type AccountChain struct {
 	db *DataBase
 	accountStore *Account
 }
 
-func (bc AccountBlockChain) New () *AccountBlockChain {
+var _accountchain *AccountChain
+func (ac AccountChain) GetInstance () *AccountChain {
 	db := GetDataBase(DB_BLOCK)
-	return &AccountBlockChain{
-		db: db,
-		accountStore: Account{}.New(),
+	if _accountchain == nil {
+		_accountchain = &AccountChain{
+			db: db,
+			accountStore: Account{}.New(),
+		}
 	}
+
+
+	return _accountchain
 }
 
-func (bc * AccountBlockChain) WriteBlock (block *ledger.AccountBlock) error {
+func (ac * AccountChain) WriteBlock (block *ledger.AccountBlock) error {
 	if (block.AccountAddress == nil) {
 		return errors.New("Write block failed, because accountAddress is not exist")
 	}
 
 
-	accountMeta := bc.accountStore.GetAccountMeta(block.AccountAddress)
+	accountMeta := ac.accountStore.GetAccountMeta(block.AccountAddress)
 
 	lastAccountBlockHeight := big.NewInt(-2)
 
@@ -52,7 +58,7 @@ func (bc * AccountBlockChain) WriteBlock (block *ledger.AccountBlock) error {
 			return errors.New("Write send block failed, because the account does not have this token")
 		}
 
-		lastAccountBlock, err := bc.GetBlockByHeight(lastAccountBlockHeight)
+		lastAccountBlock, err := ac.GetBlockByHeight(lastAccountBlockHeight)
 
 		if err != nil {
 			return errors.New(fmt.Sprintln("Write send block failed, because GetBlockByHeight failed. Error is ", err))
@@ -63,7 +69,7 @@ func (bc * AccountBlockChain) WriteBlock (block *ledger.AccountBlock) error {
 		}
 	} else {
 		// It is receive block
-		fromBlockMeta, err:= bc.GetBlockMeta(block.FromHash)
+		fromBlockMeta, err:= ac.GetBlockMeta(block.FromHash)
 
 		if fromBlockMeta == nil {
 			return errors.New("Write receive block failed, because the from block is not exist")
@@ -89,12 +95,12 @@ func (bc * AccountBlockChain) WriteBlock (block *ledger.AccountBlock) error {
 				LastAccountBlockHeight: big.NewInt(-1),
 			})
 
-			bc.WriteAccountMeta(block.AccountAddress, accountMeta)
-			bc.WriteAccountIdIndex(accountId, block.AccountAddress)
+			ac.WriteAccountMeta(block.AccountAddress, accountMeta)
+			ac.WriteAccountIdIndex(accountId, block.AccountAddress)
 		}
 
 		// Write self block meta
-		bc.WriteAccountBlockMeta(block.Hash, &ledger.AccountBlockMeta{
+		ac.WriteAccountBlockMeta(block.Hash, &ledger.AccountBlockMeta{
 			AccountId: accountId,
 			Height: big.NewInt(456),
 			Status: 2,
@@ -102,7 +108,7 @@ func (bc * AccountBlockChain) WriteBlock (block *ledger.AccountBlock) error {
 
 		// Write from block meta
 		fromBlockMeta.Status = 2 // Closed
-		bc.WriteAccountBlockMeta(block.FromHash, fromBlockMeta)
+		ac.WriteAccountBlockMeta(block.FromHash, fromBlockMeta)
 
 	}
 
@@ -116,41 +122,41 @@ func (bc * AccountBlockChain) WriteBlock (block *ledger.AccountBlock) error {
 		return errors.New(fmt.Sprintln("Write send block failed. Error is ", err))
 	}
 
-	bc.db.Put(key, data)
+	ac.db.Put(key, data)
 
 	return nil
 }
 
-func (bc * AccountBlockChain) WriteSendBlock () error {
-
-
-	return nil
-}
-
-func (bc * AccountBlockChain) WriteReceiveBlock () error {
+func (ac * AccountChain) WriteSendBlock () error {
 
 
 	return nil
 }
 
-func (bc * AccountBlockChain) WriteAccountMeta (accountAddress []byte, accountMeta *ledger.AccountMeta) error {
+func (ac * AccountChain) WriteReceiveBlock () error {
+
 
 	return nil
 }
 
-func (bc * AccountBlockChain) WriteAccountIdIndex (accountId *big.Int, accountAddress []byte) error {
+func (ac * AccountChain) WriteAccountMeta (accountAddress []byte, accountMeta *ledger.AccountMeta) error {
 
 	return nil
 }
 
-func (bc * AccountBlockChain) WriteAccountBlockMeta (accountBlockHash []byte, accountBlockMeta *ledger.AccountBlockMeta) error {
+func (ac * AccountChain) WriteAccountIdIndex (accountId *big.Int, accountAddress []byte) error {
+
+	return nil
+}
+
+func (ac * AccountChain) WriteAccountBlockMeta (accountBlockHash []byte, accountBlockMeta *ledger.AccountBlockMeta) error {
 
 	return nil
 }
 
 
-func (bc * AccountBlockChain) GetBlock (key []byte) (*ledger.AccountBlock, error) {
-	//block, err := bc.db.Get(key)
+func (ac * AccountChain) GetBlockByBlockHash (blockHash []byte) (*ledger.AccountBlock, error) {
+	//block, err := ac.db.Get(key)
 	//if err != nil {
 	//	fmt.Println(err)
 	//	return nil, err
@@ -161,24 +167,26 @@ func (bc * AccountBlockChain) GetBlock (key []byte) (*ledger.AccountBlock, error
 	return nil, nil
 }
 
-func (bc * AccountBlockChain) GetBlockNumberByHash (account []byte, hash []byte) {
+
+
+func (ac * AccountChain) GetBlockNumberByHash (account []byte, hash []byte) {
 
 }
 
-func (bc * AccountBlockChain) GetBlockByHeight (blockHeight *big.Int) (*ledger.AccountBlock, error) {
+func (ac * AccountChain) GetBlockByHeight (blockHeight *big.Int) (*ledger.AccountBlock, error) {
 	return nil, nil
 }
 
 
-func (bc * AccountBlockChain) GetBlockMeta (blockHash []byte) (*ledger.AccountBlockMeta, error) {
+func (ac * AccountChain) GetBlockMeta (blockHash []byte) (*ledger.AccountBlockMeta, error) {
 	return nil, nil
 }
 
 
-func (bc * AccountBlockChain) Iterate (account []byte, startHash []byte, endHash []byte) {
+func (ac * AccountChain) Iterate (account []byte, startHash []byte, endHash []byte) {
 
 }
 
-func (bc * AccountBlockChain) RevertIterate (account []byte, startHash []byte, endHash []byte) {
+func (ac * AccountChain) RevertIterate (account []byte, startHash []byte, endHash []byte) {
 
 }

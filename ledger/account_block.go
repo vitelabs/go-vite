@@ -99,26 +99,37 @@ func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 
 	return serializedBytes, nil
 }
-//
-//
-//func (ab *AccountBlock) Deserialize (buf []byte) error {
-//	accountBlockPB := &vitepb.AccountBlock{}
-//	if err := proto.Unmarshal(buf, accountBlockPB); err != nil {
-//		return err
-//	}
-//
-//	ab.Account = accountBlockPB.Account
-//	ab.To = accountBlockPB.To
-//
-//	ab.PrevHash = accountBlockPB.PrevHash
-//	ab.FromHash = accountBlockPB.FromHash
-//
-//	ab.BlockNum = &big.Int{}
-//	ab.BlockNum.SetBytes(accountBlockPB.BlockNum)
-//
-//	ab.setBalanceByBytes(accountBlockPB.Balance)
-//
-//	ab.Signature = accountBlockPB.Signature
-//
-//	return nil
-//}
+
+
+
+func (ab *AccountBlock) DbDeserialize (buf []byte) error {
+	accountBlockPB := &vitepb.AccountBlockDb{}
+	if err := proto.Unmarshal(buf, accountBlockPB); err != nil {
+		return err
+	}
+
+	ab.To = accountBlockPB.To
+
+	ab.PrevHash = accountBlockPB.PrevHash
+	ab.FromHash = accountBlockPB.FromHash
+
+	ab.TokenId = accountBlockPB.TokenId
+
+	ab.Balance = &big.Int{}
+	ab.Balance.SetBytes(accountBlockPB.Balance)
+
+	ab.Data = accountBlockPB.Data
+
+	ab.SnapshotTimestamp = accountBlockPB.SnapshotTimestamp
+
+	ab.Signature = accountBlockPB.Signature
+
+	ab.Nounce = accountBlockPB.Nounce
+
+	ab.Difficulty = accountBlockPB.Difficulty
+
+	ab.FAmount = &big.Int{}
+	ab.FAmount.SetBytes(accountBlockPB.FAmount)
+
+	return nil
+}
