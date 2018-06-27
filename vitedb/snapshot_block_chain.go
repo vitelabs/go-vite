@@ -1,7 +1,7 @@
 package vitedb
 
 import (
-	"go-vite/ledger"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type SnapshotBlockChain struct {

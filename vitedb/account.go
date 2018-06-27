@@ -1,8 +1,8 @@
 package vitedb
 
 import (
-	"go-vite/ledger"
 	"math/big"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type Account struct {

@@ -1,11 +1,11 @@
 package vitedb
 
 import (
-	"go-vite/ledger"
 	"errors"
 	"math/big"
 	"bytes"
 	"fmt"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type AccountBlockChain struct {

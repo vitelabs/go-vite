@@ -3,8 +3,8 @@ package ledger
 import (
 	"math/big"
 
-	"go-vite/vitepb"
 	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/vitepb"
 )
 
 type AccountBlockMeta struct {
@@ -70,7 +70,7 @@ type AccountBlock struct {
 }
 
 func (ab *AccountBlock) DbSerialize () ([]byte, error) {
-	accountBlockPB := & vitepb.AccountBlockDb{
+	accountBlockPB := &vitepb.AccountBlockDb{
 		To: ab.To,
 
 		PrevHash: ab.PrevHash,
