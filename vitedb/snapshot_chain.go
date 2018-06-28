@@ -2,21 +2,31 @@ package vitedb
 
 import (
 	"github.com/vitelabs/go-vite/ledger"
+	"log"
 )
 
-type SnapshotBlockChain struct {
+type SnapshotChain struct {
 	db *DataBase
 }
 
-func (SnapshotBlockChain) New () *SnapshotBlockChain {
-	db:= GetDataBase(DB_BLOCK)
+var _snapshotChain *SnapshotChain
+func (SnapshotChain) GetInstance () *SnapshotChain {
+	if _snapshotChain == nil {
+		db, err:= GetLDBDataBase(DB_BLOCK)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	return &SnapshotBlockChain{
-		db: db,
+		_snapshotChain = &SnapshotChain{
+			db: db,
+		}
 	}
+
+	return _snapshotChain
+
 }
 
-func (sbc * SnapshotBlockChain) WriteBlock (block *ledger.SnapshotBlock) error {
+func (sbc * SnapshotChain) WriteBlock (block *ledger.SnapshotBlock) error {
 	//// 模拟key, 需要改
 	//key :=  []byte("snapshot_test")
 	//
@@ -32,7 +42,7 @@ func (sbc * SnapshotBlockChain) WriteBlock (block *ledger.SnapshotBlock) error {
 	return nil
 }
 
-func (sbc * SnapshotBlockChain) GetBlock (key []byte) (*ledger.SnapshotBlock, error) {
+func (sbc * SnapshotChain) GetBlock (key []byte) (*ledger.SnapshotBlock, error) {
 	//block, err := sbc.db.Get(key)
 	//if err != nil {
 	//	fmt.Println(err)

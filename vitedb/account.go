@@ -3,17 +3,29 @@ package vitedb
 import (
 	"math/big"
 	"github.com/vitelabs/go-vite/ledger"
+	"log"
 )
 
 type Account struct {
 	db *DataBase
 }
 
-func (account Account) New () *Account {
-	db := GetDataBase(DB_BLOCK)
-	return &Account{
-		db: db,
+var _account *Account
+
+func (account Account) GetInstance () *Account {
+	if _account == nil {
+		db, err:= GetLDBDataBase(DB_BLOCK)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		_account = &Account{
+			db: db,
+		}
 	}
+
+	return _account
+
 }
 
 
