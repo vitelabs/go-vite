@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	vcrypto "go-vite/crypto"
+	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"strings"
 )
 

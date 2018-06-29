@@ -64,10 +64,19 @@ func (ta *TokenAccess) GetByTokenId (tokenId []byte) (*ledger.Token, error)  {
 		return nil, err
 	}
 
-
 	return &ledger.Token{
 		MintageBlock: mintageBlock,
 	}, nil
+}
+
+func (ta *TokenAccess) GetList (index int, num int, count int) ([]*ledger.Token, error) {
+	tokenIdList, err:= ta.store.GetTokenIdList(index, num, count)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ta.getListByTokenIdList(tokenIdList)
 }
 
 

@@ -69,6 +69,33 @@ func (token *Token) GetTokenIdListByTokenSymbol (tokenSymbol string) ([][]byte, 
 	return token.getTokenIdList(createKey(DBKP_TOKENSYMBOL_INDEX, []byte(tokenSymbol), nil))
 }
 
+// 等vite-explorer-server从自己的数据库查数据时，这个方法就要删掉了，所以当前是hack实现
+func (token *Token) GetTokenIdList (index int, num int, count int) ([][]byte, error) {
+	reader := token.db.Leveldb
+
+	iter := reader.NewIterator(util.BytesPrefix(DBKP_TOKENID_INDEX), nil)
+	defer iter.Release()
+
+	for i:=0; i < index * count; i++ {
+		if iter.Next() {
+			return nil, nil
+		}
+	}
+
+	var tokenIdList [][]byte
+	for i:=0; i < count * num ; i++ {
+
+		tokenIdList = append(tokenIdList, iter.Value())
+
+		if iter.Next() {
+			break
+		}
+	}
+
+	return tokenIdList, nil
+
+}
+
 func (token *Token) getTopId (key []byte) *big.Int {
 	iter := token.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
