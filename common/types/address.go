@@ -1,12 +1,12 @@
-package common
+package types
 
 import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	vcrypto "go-vite/crypto"
-	"go-vite/crypto/ed25519"
+	vcrypto "github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"strings"
 )
 
