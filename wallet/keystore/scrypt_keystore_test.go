@@ -1,9 +1,9 @@
-package account
+package keystore
 
 import (
-	"go-vite/common"
-	"go-vite/crypto/ed25519"
 	"testing"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 const (
@@ -51,7 +51,7 @@ func TestEncryptAndDecrypt(t *testing.T) {
 	}
 
 	println("K0 generate Address:" + key.Address.Hex())
-	println("K1 generate Address:" + common.PrikeyToAddress(*key1.PrivateKey).Hex())
+	println("K1 generate Address:" + types.PrikeyToAddress(*key1.PrivateKey).Hex())
 
 	println("K0 generate Prikey:" + key.PrivateKey.HexStr())
 	println("K1 generate Prikey:" + key1.PrivateKey.HexStr())
