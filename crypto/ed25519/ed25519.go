@@ -21,7 +21,7 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"errors"
-	"go-vite/crypto/ed25519/internal/edwards25519"
+	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
 	"golang.org/x/crypto/blake2b"
 	"io"
 	"strconv"

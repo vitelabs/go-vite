@@ -6,14 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pborman/uuid"
-	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"golang.org/x/crypto/scrypt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
 const (
@@ -44,7 +44,7 @@ type keyStorePassphrase struct {
 	keysDirPath string
 }
 
-func (ks keyStorePassphrase) ExtractKey(addr common.Address, password string) (*Key, error) {
+func (ks keyStorePassphrase) ExtractKey(addr types.Address, password string) (*Key, error) {
 	keyjson, err := ioutil.ReadFile(ks.fullKeyFileName(addr))
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (ks keyStorePassphrase) ExtractKey(addr common.Address, password string) (*
 		return nil, err
 	}
 
-	if key.Address != addr || common.PrikeyToAddress(*key.PrivateKey) != addr {
+	if key.Address != addr || types.PrikeyToAddress(*key.PrivateKey) != addr {
 		return nil, fmt.Errorf("key content mismatch: have HexAddress %x, want %x", key.Address, addr)
 	}
 	return key, nil
@@ -83,10 +83,10 @@ func DecryptKey(keyjson []byte, password string) (*Key, error) {
 		return nil, fmt.Errorf("uuid  error : %v", kid)
 	}
 
-	if !common.IsValidHexAddress(k.HexAddress) {
+	if !types.IsValidHexAddress(k.HexAddress) {
 		return nil, fmt.Errorf("Address invalid ： %v", k.HexAddress)
 	}
-	kAddress, err := common.HexToAddress(k.HexAddress)
+	kAddress, err := types.HexToAddress(k.HexAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func DecryptKey(keyjson []byte, password string) (*Key, error) {
 	}
 
 	privKey := ed25519.PrivateKey(pribyte)
-	generateAddr := common.PrikeyToAddress(privKey)
+	generateAddr := types.PrikeyToAddress(privKey)
 	if !bytes.Equal(generateAddr[:], kAddress[:]) {
 		return nil,
 			fmt.Errorf("address content not equal. In file it is : %s  but generated is : %s",
@@ -207,6 +207,6 @@ func writeKeyFile(file string, content []byte) error {
 	return os.Rename(f.Name(), file)
 }
 
-func (ks keyStorePassphrase) fullKeyFileName(keyAddr common.Address) string {
+func (ks keyStorePassphrase) fullKeyFileName(keyAddr types.Address) string {
 	return ks.keysDirPath + "/v-i-t-e-" + hex.EncodeToString(keyAddr[:])
 }

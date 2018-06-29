@@ -1,13 +1,13 @@
 package wallet
 
 import (
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/wallet/keystore"
-	"github.com/vitelabs/go-vite/common"
 )
 
 // keystorewallet is a simple soft wallet that  only owns one address
 type keystoreWallet struct {
-	address common.Address
+	address types.Address
 	keyPoll *keystore.KeyPool // Keystore where the account originates from
 }
 
@@ -25,14 +25,14 @@ func (ksw *keystoreWallet) Open(passphrase string) error {
 	return nil
 }
 
-func (ksw *keystoreWallet) ListAddress() []common.Address {
+func (ksw *keystoreWallet) ListAddress() []types.Address {
 	panic("implement me")
 }
 
-func (ksw *keystoreWallet) SignData(a common.Address, data []byte) ([]byte, error) {
+func (ksw *keystoreWallet) SignData(a types.Address, data []byte) ([]byte, error) {
 	panic("implement me")
 }
 
-func (ksw *keystoreWallet) SignDataWithPassphrase(a common.Address, passphrase, data []byte) ([]byte, error) {
+func (ksw *keystoreWallet) SignDataWithPassphrase(a types.Address, passphrase, data []byte) ([]byte, error) {
 	panic("implement me")
 }

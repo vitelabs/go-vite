@@ -4,8 +4,8 @@ import (
 	"errors"
 	"github.com/pborman/uuid"
 	"strconv"
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 const (
@@ -14,14 +14,14 @@ const (
 
 type keyStore interface {
 	// Returns the key associated with the given address , using the given password to recover it from a file.
-	ExtractKey(address common.Address, password string) (*Key, error)
+	ExtractKey(address types.Address, password string) (*Key, error)
 
 	StoreKey(k *Key, password string) error
 }
 
 type Key struct {
 	Id         uuid.UUID
-	Address    common.Address
+	Address    types.Address
 	PrivateKey *ed25519.PrivateKey
 }
 
