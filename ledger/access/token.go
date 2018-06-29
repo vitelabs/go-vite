@@ -7,7 +7,7 @@ import (
 
 type TokenAccess struct {
 	store *vitedb.Token
-
+	accountChainStore *vitedb.AccountChain
 }
 
 var _tokenAccess *TokenAccess
@@ -16,6 +16,7 @@ func (TokenAccess) GetInstance () *TokenAccess {
 	if _tokenAccess == nil {
 		_tokenAccess = &TokenAccess {
 			store: vitedb.Token{}.GetInstance(),
+			accountChainStore: vitedb.AccountChain{}.GetInstance(),
 		}
 	}
 	return _tokenAccess
@@ -54,11 +55,19 @@ func (ta *TokenAccess) GetListByTokenSymbol (tokenSymbol string) ([]*ledger.Toke
 
 
 func (ta *TokenAccess) GetByTokenId (tokenId []byte) (*ledger.Token, error)  {
-	mintageBlock, err:= ta.store.GetMintageBlockByTokenId(tokenId)
+	mintageBlockHash, err:= ta.store.GetMintageBlockHashByTokenId(tokenId)
+	if err != nil {
+		return nil, err
+	}
+	mintageBlock, err:= ta.accountChainStore.GetBlockByBlockHash(mintageBlockHash)
+	if err != nil {
+		return nil, err
+	}
+
 
 	return &ledger.Token{
 		MintageBlock: mintageBlock,
-	}, err
+	}, nil
 }
 
 

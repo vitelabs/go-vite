@@ -2,7 +2,6 @@ package vitedb
 
 import (
 	"errors"
-	"github.com/vitelabs/go-vite/ledger"
 	"log"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"math/big"
@@ -12,7 +11,6 @@ import (
 
 type Token struct {
 	db *DataBase
-	accountchainStore *AccountChain
 }
 
 var _token *Token
@@ -26,27 +24,21 @@ func (Token) GetInstance () *Token {
 	if _token == nil {
 		_token = &Token{
 			db: db,
-			accountchainStore: AccountChain{}.GetInstance(),
 		}
 	}
 	return _token
 }
 
-func (token *Token) GetMintageBlockByTokenId(tokenId []byte) (*ledger.AccountBlock, error){
+func (token *Token) GetMintageBlockHashByTokenId(tokenId []byte) ([]byte, error){
 	reader := token.db.Leveldb
 	// Get mintage block hash
 	key := createKey(DBKP_TOKENID_INDEX, tokenId, big.NewInt(0))
-	accountBlockHash, err := reader.Get(key, nil)
+	mintageBlockHash, err := reader.Get(key, nil)
 	if err != nil {
 		return nil, errors.New("Fail to query mintage block hash, Error is " + err.Error())
 	}
 
-	mintageBlock, err := token.accountchainStore.GetBlockByBlockHash(accountBlockHash)
-	if err != nil {
-		return nil, errors.New("Fail to query account block by block hash, Error is " + err.Error())
-	}
-
-	return mintageBlock, nil
+	return mintageBlockHash, nil
 }
 
 func (token *Token) getTokenIdList (key []byte) ([][]byte, error) {

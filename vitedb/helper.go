@@ -40,7 +40,6 @@ func createKey (keyPartionList... interface{}) []byte {
 
 		case *big.Int:
 			bytes = append(DBK_DOT, keyPartion.(*big.Int).Bytes()...)
-
 		}
 
 		key = append(key, bytes...)

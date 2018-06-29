@@ -7,13 +7,10 @@ import (
 	"log"
 	"github.com/syndtr/goleveldb/leveldb"
 	"bytes"
-	"errors"
 )
 
 type AccountChain struct {
 	db *DataBase
-	accountStore *Account
-	tokenStore *Token
 }
 
 var _accountchain *AccountChain
@@ -26,8 +23,6 @@ func (ac AccountChain) GetInstance () *AccountChain {
 	if _accountchain == nil {
 		_accountchain = &AccountChain{
 			db: db,
-			accountStore: Account{}.GetInstance(),
-			tokenStore: Token{}.GetInstance(),
 		}
 	}
 
@@ -154,33 +149,33 @@ func (ac *AccountChain) WriteMintageBlock (batch *leveldb.Batch, block *ledger.A
 		}
 
 
-		testTokenId := []byte("testTokenId")
+		//testTokenId := []byte("testTokenId")
 
 		// Write TokenId Index
-		if err := ac.tokenStore.WriteTokenIdIndex(batch, testTokenId, big.NewInt(111), block.Hash); err != nil{
-			return err
-		}
-
-		// Write TokenName body
-		if err := ac.tokenStore.WriteTokenNameIndex(batch, "testTokenName", testTokenId); err != nil{
-			return err
-		}
-
-
-		// Write TokenSymbol body
-		if err := ac.tokenStore.WriteTokenSymbolIndex(batch, "testTokenSymbol", testTokenId); err != nil{
-			return err
-		}
+		//if err := ac.tokenStore.WriteTokenIdIndex(batch, testTokenId, big.NewInt(111), block.Hash); err != nil{
+		//	return err
+		//}
+		//
+		//// Write TokenName body
+		//if err := ac.tokenStore.WriteTokenNameIndex(batch, "testTokenName", testTokenId); err != nil{
+		//	return err
+		//}
+		//
+		//
+		//// Write TokenSymbol body
+		//if err := ac.tokenStore.WriteTokenSymbolIndex(batch, "testTokenSymbol", testTokenId); err != nil{
+		//	return err
+		//}
 		return nil
 	})
 }
 
 func (ac * AccountChain) WriteSendBlock (batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	return batchWrite(batch, ac.db.Leveldb, func(context *batchContext) error {
-		accountMeta := ac.accountStore.GetAccountMeta(block.AccountAddress)
-		if accountMeta == nil {
-			return errors.New("Write send block failed, because account is not exist")
-		}
+		//accountMeta := ac.accountStore.GetAccountMeta(block.AccountAddress)
+		//if accountMeta == nil {
+		//	return errors.New("Write send block failed, because account is not exist")
+		//}
 
 		if bytes.Equal(block.To, []byte{0}) {
 			// Mintage block
