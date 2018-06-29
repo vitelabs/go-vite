@@ -2,12 +2,16 @@ package vitedb
 
 import (
 	"github.com/syndtr/goleveldb/leveldb"
-	"fmt"
+	"log"
+	"math/big"
+	"github.com/syndtr/goleveldb/leveldb/comparer"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 type DataBase struct {
 	filename string
-	db *leveldb.DB
+
+	Leveldb *leveldb.DB
 }
 
 const (
@@ -15,55 +19,91 @@ const (
 )
 
 
+var ldbDataBaseCache = map[string]* DataBase{}
 
-func NewDataBase (file string) ( *DataBase, error ){
-	db, err := leveldb.OpenFile(file, nil)
-	if err != nil {
-		fmt.Println(err)
-		return  nil, err
+type viteComparer struct {}
+
+func (*viteComparer) Name() string {
+	return "vite.cmp.v1"
+}
+
+func (*viteComparer) Separator(dst, a, b []byte) []byte {
+	return comparer.DefaultComparer.Separator(dst, a, b)
+}
+
+func (*viteComparer) Successor (dst, b []byte) []byte {
+	return comparer.DefaultComparer.Successor(dst, b)
+}
+
+func GetBigIntBytesList (key []byte) [][]byte {
+	var temp, tempKey []byte
+	var bigIntBytesList [][]byte
+	for _, oneByte := range key {
+		tempLength := len(temp)
+		if oneByte == DBK_DOT[0] {
+			if tempLength == 2 {
+				bigIntBytesList = append(bigIntBytesList, tempKey)
+
+				temp = nil
+				tempKey = nil
+			} else {
+				temp = append(temp, oneByte)
+			}
+		} else if tempLength == 1 {
+			temp = nil
+		} else if tempLength == 2 {
+			tempKey = append(tempKey, oneByte)
+		}
 	}
 
-	return &DataBase{
-		filename: file,
-		db: db,
-	}, nil
+	return bigIntBytesList
 }
 
+func cmpTwoBigInt (a []byte, b[]byte) int {
+	aBigInt := &big.Int{}
+	bBigInt := &big.Int{}
 
-var dataBaseCache = map[string]* DataBase{}
+	aBigInt.SetBytes(a)
+	bBigInt.SetBytes(b)
+	return aBigInt.Cmp(bBigInt)
+}
 
-func GetDataBase (file string) (*DataBase) {
-	if dataBase, ok := dataBaseCache[file]; ok {
-		return dataBase
+func (* viteComparer) Compare (a, b []byte) int {
+	aBigIntBytesList, bBigIntBytesList:=  GetBigIntBytesList(a), GetBigIntBytesList(b)
+	for index, aBigIntBytes := range aBigIntBytesList {
+		result := cmpTwoBigInt(aBigIntBytes, bBigIntBytesList[index])
+		if result != 0 {
+			return result
+		}
 	}
 
-	dataBase, _ := NewDataBase(file)
-	dataBaseCache[file] = dataBase
-
-	return dataBase
-}
-
-func (db *DataBase) Put(key []byte, value []byte) error {
-	return db.db.Put(key, value, nil)
-}
-
-func (db *DataBase) Delete(key []byte) error {
-	return db.db.Delete(key, nil)
-}
-
-func (db *DataBase) Get(key []byte) ([]byte, error) {
-	data, err := db.db.Get(key, nil)
-	if err != nil {
-		return nil, err
+	if aBigIntBytesList == nil {
+		return comparer.DefaultComparer.Compare(a, b)
 	}
-	return data, err
+
+	return 0
 }
 
-func (db *DataBase) Close () {
-	err := db.db.Close()
-	if err != nil {
-		fmt.Println("Failed to close database, err: ", err)
+
+func GetLDBDataBase (file string) ( *DataBase, error ){
+	if _, ok := ldbDataBaseCache[file]; !ok {
+		cmp := new(viteComparer)
+		options := &opt.Options {
+			Comparer: cmp,
+		}
+		db, err := leveldb.OpenFile(file, options)
+		if err != nil {
+			log.Println(err)
+			return  nil, err
+		}
+
+		dataBase := &DataBase{
+			filename: file,
+			Leveldb: db,
+		}
+
+		ldbDataBaseCache[file] = dataBase
 	}
+
+	return ldbDataBaseCache[file], nil
 }
-
-
