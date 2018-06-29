@@ -1,19 +1,43 @@
-package wallet
+package keystore
 
 import (
 	"github.com/pborman/uuid"
-	"go-vite/common"
-	"go-vite/crypto/ed25519"
+	"sync"
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
-// Manage keys
+// Manage keys from various wallet in here we will cache account
 
 type KeyPool struct {
-	ks keyStore
-	kc KeyConfig
+	ks           keyStore
+	kc           *KeyConfig
+	unlockedAddr map[common.Address]*unlocked
+	mutex        sync.RWMutex
+	isInited     bool
 }
 
-func NewKeyPool() {
+type unlocked struct {
+	*Key
+	abort chan struct{}
+}
+
+func NewKeyPoll(kcc *KeyConfig) *KeyPool {
+	kp := KeyPool{ks: &keyStorePassphrase{kcc.KeyStoreDir}, kc: kcc}
+
+	return &kp
+}
+
+func (kp *KeyPool) init() {
+	if kp.isInited {
+		return
+	}
+	kp.mutex.Lock()
+	defer kp.mutex.Unlock()
+
+	kp.unlockedAddr = make(map[common.Address]*unlocked)
+
+	kp.isInited = true
 
 }
 

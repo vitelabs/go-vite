@@ -1,4 +1,4 @@
-package wallet
+package keystore
 
 import (
 	"bytes"
@@ -6,14 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pborman/uuid"
-	"go-vite/common"
-	vcrypto "go-vite/crypto"
-	"go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/common"
+	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"golang.org/x/crypto/scrypt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
 const (

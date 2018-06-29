@@ -1,11 +1,11 @@
-package wallet
+package keystore
 
 import (
 	"errors"
 	"github.com/pborman/uuid"
-	"go-vite/common"
-	"go-vite/crypto/ed25519"
 	"strconv"
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
 const (

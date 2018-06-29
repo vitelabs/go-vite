@@ -1,4 +1,4 @@
-package wallet
+package keystore
 
 import (
 	"os"
