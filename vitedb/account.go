@@ -1,7 +1,6 @@
 package vitedb
 
 import (
-	"math/big"
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
 )
@@ -26,15 +25,23 @@ func (account Account) GetInstance () *Account {
 
 	return _account
 
+
 }
 
-
-func (account *Account) GetAccountMeta (accountAddress []byte) *ledger.AccountMeta {
-	return &ledger.AccountMeta {
-		AccountId: big.NewInt(1),
-		TokenList: []*ledger.AccountSimpleToken{{
-			TokenId: []byte{1, 2, 3},
-			LastAccountBlockHeight: big.NewInt(1),
-		}},
-	}
+func (account *Account) GetAccountMeta (accountAddress []byte) (*ledger.AccountMeta, error){
+	//return &ledger.AccountMeta {
+	//	AccountId: big.NewInt(1),
+	//	TokenList: []*ledger.AccountSimpleToken{{
+	//		TokenId: []byte{1, 2, 3},
+	//		LastAccountBlockHeight: big.NewInt(1),
+	//	}},
+	//}
+	//data, err := account.Get(accountAddress)
+	//if err != nil {
+	//	log.Println(err)
+	//	return nil, err
+	//}
+	//return &data, nil
+	return nil, nil
 }
+
