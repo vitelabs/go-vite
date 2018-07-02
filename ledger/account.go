@@ -22,3 +22,4 @@ type Account struct {
 func (account *Account) GetBlockHeight () *big.Int {
 	return big.NewInt(456)
 }
+

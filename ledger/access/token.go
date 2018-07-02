@@ -60,7 +60,7 @@ func (ta *TokenAccess) GetByTokenId (tokenId []byte) (*ledger.Token, error)  {
 	if err != nil {
 		return nil, err
 	}
-	mintageBlock, err:= ta.accountChainStore.GetBlockByBlockHash(mintageBlockHash)
+	mintageBlock, err:= ta.accountChainStore.GetBlockByHash(mintageBlockHash)
 	if err != nil {
 		return nil, err
 	}

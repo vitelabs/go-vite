@@ -2,11 +2,11 @@ package vitedb
 
 import (
 	"math/big"
-	"fmt"
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
 	"github.com/syndtr/goleveldb/leveldb"
 	"bytes"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 type AccountChain struct {
@@ -209,18 +209,55 @@ func (ac * AccountChain) WriteBlockMeta (batch *leveldb.Batch, accountBlockHash 
 }
 
 
-func (ac * AccountChain) GetBlockByBlockHash (blockHash []byte) (*ledger.AccountBlock, error) {
+func (ac * AccountChain) GetBlockByHash (blockHash []byte) (*ledger.AccountBlock, error) {
 	reader := ac.db.Leveldb
 
 	block, err := reader.Get(blockHash, nil)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	accountBlock := &ledger.AccountBlock{}
 	accountBlock.DbDeserialize(block)
 
 	return accountBlock, nil
+}
+
+func (ac *AccountChain) GetLatestBlockHeightByAccountId (accountId *big.Int) (* big.Int, error){
+	return nil, nil
+}
+
+func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int, meta *ledger.AccountMeta) ([]*ledger.AccountBlock, error) {
+	latestBlockHeight, err := ac.GetLatestBlockHeightByAccountId(meta.AccountId)
+	if err != nil {
+		return nil, nil
+	}
+	startIndex := latestBlockHeight.Sub(latestBlockHeight, big.NewInt(int64(index * count)))
+	key := createKey(DBKP_ACCOUNTBLOCK, meta.AccountId, startIndex)
+
+	iter := ac.db.Leveldb.NewIterator(&util.Range{Start: key}, nil)
+	defer iter.Release()
+
+	var blockList []*ledger.AccountBlock
+	for i:=0; i < num * count; i ++ {
+		if iter.Prev() {
+			break
+		}
+
+		if err := iter.Error(); err != nil {
+			return nil, err
+		}
+		block := &ledger.AccountBlock{}
+
+		err := block.DbDeserialize(iter.Value())
+		if err != nil {
+			return nil, err
+		}
+
+		blockList = append(blockList, block)
+	}
+
+
+	return blockList, nil
 }
 
 

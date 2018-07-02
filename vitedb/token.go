@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"github.com/syndtr/goleveldb/leveldb"
 	"bytes"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type Token struct {
@@ -49,6 +50,7 @@ func (token *Token) getTokenIdList (key []byte) ([][]byte, error) {
 	defer iter.Release()
 
 	var tokenIdList [][]byte
+
 	for iter.Next() {
 		tokenIdList = append(tokenIdList, iter.Value())
 	}
@@ -94,6 +96,43 @@ func (token *Token) GetTokenIdList (index int, num int, count int) ([][]byte, er
 
 	return tokenIdList, nil
 
+}
+
+func (token *Token) GetLatestBlockHeightByTokenId (tokenId *types.TokenTypeId)(* big.Int, error) {
+	return nil, nil
+}
+
+func (token *Token) GetAccountBlockHashListByTokenId (index int, num int, count int, tokenId *types.TokenTypeId)([][]byte, error) {
+	latestBlockHeight, err:= token.GetLatestBlockHeightByTokenId(tokenId)
+	if err != nil {
+		return nil, err
+	}
+
+
+	startIndex := latestBlockHeight.Sub(latestBlockHeight, big.NewInt(int64(index * count)))
+
+	key := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), startIndex)
+	iter := token.db.Leveldb.NewIterator(&util.Range{Start: key}, nil)
+	defer iter.Release()
+
+	if !iter.Last() {
+		return nil, errors.New("GetAccountBlockHashList failed, because token " + tokenId.String() + " doesn't exist.")
+	}
+
+	var blockHashList [][]byte
+	for i:=0 ;i < num * count; i++ {
+		if iter.Prev() {
+			break
+		}
+
+		if err := iter.Error(); err != nil {
+			return nil, err
+		}
+		blockHash := iter.Value()
+		blockHashList = append(blockHashList, blockHash)
+	}
+
+	return blockHashList, nil
 }
 
 func (token *Token) getTopId (key []byte) *big.Int {

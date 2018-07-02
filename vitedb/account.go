@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type Account struct {
@@ -29,7 +30,7 @@ func GetAccount () *Account {
 }
 
 
-func (account *Account) GetAccountMeta (accountAddress []byte) *ledger.AccountMeta {
+func (account *Account) GetAccountMeta (accountAddress *types.Address) *ledger.AccountMeta {
 	return &ledger.AccountMeta {
 		AccountId: big.NewInt(1),
 		TokenList: []*ledger.AccountSimpleToken{{
