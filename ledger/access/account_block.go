@@ -16,8 +16,17 @@ func (AccountChainAccess) New () *AccountChainAccess {
 	}
 }
 
-// add by sanjin
-func (AccountChain)GetAccountBalanceByKeyValue (accountBlockKey []byte) (*big.Int, error) {
-	balance := big.NewInt(0)
-	return balance, nil
+func (acca *AccountChainAccess) GetAccountBlock (key []byte) (*ledger.AccountBlock, error) {
+	//acca.store.Iterate()
+	return nil, nil
+}
+
+func (acca *AccountChainAccess) GetAccountBalance (keyPartionList ...interface{}) (*big.Int, error) {
+	// createkey
+	key := vitedb.createKey(vitedb.DBKP_ACCOUNTBLOCK, keyPartionList,nil)
+	accountBLock, err := acca.GetAccountBlock(key)
+	if err != nil {
+		return nil, nil
+	}
+	return accountBLock.Balance, nil
 }

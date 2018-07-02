@@ -1,8 +1,8 @@
 package vitedb
 
 import (
-	"github.com/vitelabs/go-vite/ledger"
 	"log"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type Account struct {
@@ -28,20 +28,6 @@ func (account Account) GetInstance () *Account {
 
 }
 
-func (account *Account) GetAccountMeta (accountAddress []byte) (*ledger.AccountMeta, error){
-	//return &ledger.AccountMeta {
-	//	AccountId: big.NewInt(1),
-	//	TokenList: []*ledger.AccountSimpleToken{{
-	//		TokenId: []byte{1, 2, 3},
-	//		LastAccountBlockHeight: big.NewInt(1),
-	//	}},
-	//}
-	//data, err := account.Get(accountAddress)
-	//if err != nil {
-	//	log.Println(err)
-	//	return nil, err
-	//}
-	//return &data, nil
+func (a *Account) GetAccountMetaByAddress (accountAddress []byte) (*ledger.AccountMeta, error) {
 	return nil, nil
 }
-

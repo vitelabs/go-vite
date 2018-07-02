@@ -12,8 +12,6 @@ import (
 
 type AccountChain struct {
 	db *DataBase
-	accountStore *Account
-	tokenStore *Token
 }
 
 var _accountchain *AccountChain
@@ -26,8 +24,6 @@ func (ac AccountChain) GetInstance () *AccountChain {
 	if _accountchain == nil {
 		_accountchain = &AccountChain{
 			db: db,
-			accountStore: Account{}.GetInstance(),
-			tokenStore: Token{}.GetInstance(),
 		}
 	}
 
@@ -177,7 +173,7 @@ func (ac *AccountChain) WriteMintageBlock (batch *leveldb.Batch, block *ledger.A
 
 func (ac * AccountChain) WriteSendBlock (batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	return batchWrite(batch, ac.db.Leveldb, func(context *batchContext) error {
-		accountMeta := ac.accountStore.GetAccountMeta(block.AccountAddress)
+		accountMeta, err := ac.accountStore.GetAccountMeta(block.AccountAddress)
 		if accountMeta == nil {
 			return errors.New("Write send block failed, because account is not exist")
 		}
