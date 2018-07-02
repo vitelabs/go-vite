@@ -10,13 +10,14 @@ type TokenAccess struct {
 	accountChainStore *vitedb.AccountChain
 }
 
+
 var _tokenAccess *TokenAccess
 
-func (TokenAccess) GetInstance () *TokenAccess {
+func GetTokenAccess () *TokenAccess {
 	if _tokenAccess == nil {
 		_tokenAccess = &TokenAccess {
-			store: vitedb.Token{}.GetInstance(),
-			accountChainStore: vitedb.AccountChain{}.GetInstance(),
+			store: vitedb.GetToken(),
+			accountChainStore: vitedb.GetAccountChain(),
 		}
 	}
 	return _tokenAccess

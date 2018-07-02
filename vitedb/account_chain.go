@@ -14,7 +14,7 @@ type AccountChain struct {
 }
 
 var _accountchain *AccountChain
-func (ac AccountChain) GetInstance () *AccountChain {
+func GetAccountChain () *AccountChain {
 	db, err := GetLDBDataBase(DB_BLOCK)
 	if err != nil {
 		log.Fatal(err)
@@ -46,7 +46,7 @@ func (ac * AccountChain) WriteBlock (batch *leveldb.Batch, block *ledger.Account
 	//}
 	//
 	//accountMeta := ac.accountStore.GetAccountMeta(block.AccountAddress)
-	//
+	//GetBigIntBytesList
 	//lastAccountBlockHeight := big.NewInt(-2)
 	//
 	//if accountMeta != nil {

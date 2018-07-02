@@ -16,6 +16,8 @@ var (
 
 	DBKP_ACCOUNTBLOCK = []byte("c")
 
+	DBKP_SNAPSHOTBLOCKHASH = []byte("d")
+
 	DBKP_SNAPSHOTBLOCK = []byte("e")
 
 	DBKP_TOKENNAME_INDEX = []byte("f")

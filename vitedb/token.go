@@ -15,7 +15,7 @@ type Token struct {
 
 var _token *Token
 
-func (Token) GetInstance () *Token {
+func GetToken () *Token {
 	db, err := GetLDBDataBase(DB_BLOCK)
 	if err != nil {
 		log.Fatal(err)

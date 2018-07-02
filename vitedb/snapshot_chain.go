@@ -3,6 +3,7 @@ package vitedb
 import (
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
+	"math/big"
 )
 
 type SnapshotChain struct {
@@ -10,7 +11,7 @@ type SnapshotChain struct {
 }
 
 var _snapshotChain *SnapshotChain
-func (SnapshotChain) GetInstance () *SnapshotChain {
+func GetSnapshotChain () *SnapshotChain {
 	if _snapshotChain == nil {
 		db, err:= GetLDBDataBase(DB_BLOCK)
 		if err != nil {
@@ -24,6 +25,26 @@ func (SnapshotChain) GetInstance () *SnapshotChain {
 
 	return _snapshotChain
 
+}
+
+func (sbc *SnapshotChain) GetHeightByHash (blockHash []byte) (*big.Int, error) {
+	key := createKey(DBKP_SNAPSHOTBLOCKHASH, blockHash)
+	heightBytes, err := sbc.db.Leveldb.Get(key, nil)
+	if err != nil {
+		return nil, nil
+	}
+
+	height := &big.Int{}
+	height.SetBytes(heightBytes)
+	return height, nil
+}
+
+func (sbc *SnapshotChain) GetBlockByHash (blockHash []byte) (*ledger.SnapshotBlock, error){
+	return nil, nil
+}
+
+func (sbc *SnapshotChain) GetBlockList (index int, num int, count int) ([]*ledger.SnapshotBlock, error) {
+	return nil, nil
 }
 
 func (sbc * SnapshotChain) WriteBlock (block *ledger.SnapshotBlock) error {
@@ -40,17 +61,4 @@ func (sbc * SnapshotChain) WriteBlock (block *ledger.SnapshotBlock) error {
 	//
 	//sbc.db.Put(key, data)
 	return nil
-}
-
-func (sbc * SnapshotChain) GetBlock (key []byte) (*ledger.SnapshotBlock, error) {
-	//block, err := sbc.db.Get(key)
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return nil, err
-	//}
-	//snapshotBlock := &ledger.SnapshotBlock{}
-	//
-	//snapshotBlock.Deserialize(block)
-
-	return nil, nil
 }

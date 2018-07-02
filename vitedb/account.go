@@ -12,7 +12,7 @@ type Account struct {
 
 var _account *Account
 
-func (account Account) GetInstance () *Account {
+func GetAccount () *Account {
 	if _account == nil {
 		db, err:= GetLDBDataBase(DB_BLOCK)
 		if err != nil {
