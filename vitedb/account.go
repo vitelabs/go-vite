@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type Account struct {
@@ -38,4 +38,8 @@ func (account *Account) GetAccountMeta (accountAddress *types.Address) *ledger.A
 			LastAccountBlockHeight: big.NewInt(1),
 		}},
 	}
+}
+
+func (account *Account) GetAddressById (accountId *big.Int) (*types.Address, error) {
+	return nil, nil
 }

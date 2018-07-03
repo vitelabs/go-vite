@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
 	"math/big"
+	"encoding/hex"
 )
 
 type SnapshotChain struct {
@@ -28,7 +29,8 @@ func GetSnapshotChain () *SnapshotChain {
 }
 
 func (sbc *SnapshotChain) GetHeightByHash (blockHash []byte) (*big.Int, error) {
-	key := createKey(DBKP_SNAPSHOTBLOCKHASH, blockHash)
+	key, err:= createKey(DBKP_SNAPSHOTBLOCKHASH, hex.EncodeToString(blockHash))
+
 	heightBytes, err := sbc.db.Leveldb.Get(key, nil)
 	if err != nil {
 		return nil, nil

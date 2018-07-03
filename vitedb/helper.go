@@ -3,6 +3,9 @@ package vitedb
 import (
 	"math/big"
 	"github.com/syndtr/goleveldb/leveldb"
+	"errors"
+	"strings"
+	"encoding/hex"
 )
 
 // DBK = database key, DBKP = database key prefix
@@ -30,18 +33,28 @@ var (
 )
 
 
-func createKey (keyPartionList... interface{}) []byte {
+func createKey (keyPartionList... interface{}) ([]byte, error){
 	key := []byte{}
 	len := len(keyPartionList)
+
+	// Temporary: converting ascii code of hex string to bytes, takes up twice as much space,
+	// to avoid dot ascii code appear that are separator of leveldb key.
 	for index, keyPartion := range keyPartionList {
 		var bytes []byte
 
 		switch keyPartion.(type) {
-		case []byte:
-			bytes = keyPartion.([]byte)
+		case string:
+			keyPartionString := keyPartion.(string)
+			if strings.Contains(keyPartionString, ".") {
+				return nil, errors.New("createKey failed. Key must not contains dot(\".\")")
+			}
+			bytes = []byte(keyPartionString)
 
 		case *big.Int:
-			bytes = append(DBK_DOT, keyPartion.(*big.Int).Bytes()...)
+			hex.Encode(bytes, keyPartion.(*big.Int).Bytes())
+			bytes = append(DBK_DOT, bytes...)
+		default:
+			return nil, errors.New("createKey failed. Key must be big.Int or string type")
 		}
 
 		key = append(key, bytes...)
@@ -50,7 +63,7 @@ func createKey (keyPartionList... interface{}) []byte {
 		}
 	}
 
-	return key
+	return key, nil
 }
 
 type batchContext struct {

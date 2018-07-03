@@ -28,7 +28,28 @@ func GeAccountChainAccess () *AccountChainAccess {
 }
 
 func (aca *AccountChainAccess) GetBlockByHash (blockHash []byte) (*ledger.AccountBlock, error){
-	return aca.store.GetBlockByHash(blockHash)
+	accountBlock, err:= aca.store.GetBlockByHash(blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	if accountBlock.FromHash != nil{
+		fromAccountBlockMeta, err := aca.store.GetBlockMeta(accountBlock.FromHash)
+
+		if err != nil {
+			return nil, err
+		}
+
+
+		fromAddress, err:= aca.accountStore.GetAddressById(fromAccountBlockMeta.AccountId)
+		if err != nil {
+			return nil, err
+		}
+
+		accountBlock.From = fromAddress
+	}
+
+	return accountBlock, nil
 }
 
 func (aca *AccountChainAccess) GetBlockListByAccountAddress (index int, num int, count int, accountAddress *types.Address) ([]*ledger.AccountBlock, error){

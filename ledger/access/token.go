@@ -3,6 +3,7 @@ package access
 import (
 	"github.com/vitelabs/go-vite/vitedb"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type TokenAccess struct {
@@ -23,7 +24,7 @@ func GetTokenAccess () *TokenAccess {
 	return _tokenAccess
 }
 
-func (ta *TokenAccess) getListByTokenIdList (tokenIdList [][]byte) ([]*ledger.Token, error) {
+func (ta *TokenAccess) getListByTokenIdList (tokenIdList []*types.TokenTypeId) ([]*ledger.Token, error) {
 	var tokenList []*ledger.Token
 	for _, tokenId := range tokenIdList {
 		token, err := ta.GetByTokenId(tokenId)
@@ -55,7 +56,7 @@ func (ta *TokenAccess) GetListByTokenSymbol (tokenSymbol string) ([]*ledger.Toke
 }
 
 
-func (ta *TokenAccess) GetByTokenId (tokenId []byte) (*ledger.Token, error)  {
+func (ta *TokenAccess) GetByTokenId (tokenId *types.TokenTypeId) (*ledger.Token, error)  {
 	mintageBlockHash, err:= ta.store.GetMintageBlockHashByTokenId(tokenId)
 	if err != nil {
 		return nil, err
