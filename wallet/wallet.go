@@ -1,6 +1,6 @@
 package wallet
 
-import "github.com/vitelabs/go-vite/common"
+import "github.com/vitelabs/go-vite/common/types"
 
 type Wallet interface {
 	Status() (string, error)

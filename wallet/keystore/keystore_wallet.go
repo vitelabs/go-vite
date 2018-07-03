@@ -1,14 +1,13 @@
-package wallet
+package keystore
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/wallet/keystore"
 )
 
 // keystorewallet is a simple soft wallet that  only owns one address
 type keystoreWallet struct {
 	address types.Address
-	keyPoll *keystore.KeyPool // Keystore where the account originates from
+	keyPoll *Manager // Keystore where the account originates from
 }
 
 func (ksw *keystoreWallet) Status() (string, error) {

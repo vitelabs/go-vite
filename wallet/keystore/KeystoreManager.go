@@ -2,14 +2,14 @@ package keystore
 
 import (
 	"github.com/pborman/uuid"
-	"sync"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"sync"
 )
 
 // Manage keys from various wallet in here we will cache account
 
-type KeyPool struct {
+type Manager struct {
 	ks           keyStore
 	kc           *KeyConfig
 	unlockedAddr map[types.Address]*unlocked
@@ -22,13 +22,12 @@ type unlocked struct {
 	abort chan struct{}
 }
 
-func NewKeyPoll(kcc *KeyConfig) *KeyPool {
-	kp := KeyPool{ks: &keyStorePassphrase{kcc.KeyStoreDir}, kc: kcc}
-
+func NewManager(kcc *KeyConfig) *Manager {
+	kp := Manager{ks: KeyStorePassphrase{kcc.KeyStoreDir}, kc: kcc}
 	return &kp
 }
 
-func (kp *KeyPool) init() {
+func (kp *Manager) init() {
 	if kp.isInited {
 		return
 	}
@@ -41,7 +40,7 @@ func (kp *KeyPool) init() {
 
 }
 
-func (kp *KeyPool) StoreNewKey(pwd string) (*Key, types.Address, error) {
+func (kp *Manager) StoreNewKey(pwd string) (*Key, types.Address, error) {
 	_, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, types.Address{}, err
@@ -54,7 +53,7 @@ func (kp *KeyPool) StoreNewKey(pwd string) (*Key, types.Address, error) {
 	return key, key.Address, err
 }
 
-func (kp *KeyPool) ExtractKey(a types.Address, pwd string) (types.Address, *Key, error) {
+func (kp *Manager) ExtractKey(a types.Address, pwd string) (types.Address, *Key, error) {
 	key, err := kp.ks.ExtractKey(a, pwd)
 	return a, key, err
 }

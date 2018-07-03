@@ -40,11 +40,11 @@ const (
 	scryptName = "scrypt"
 )
 
-type keyStorePassphrase struct {
+type KeyStorePassphrase struct {
 	keysDirPath string
 }
 
-func (ks keyStorePassphrase) ExtractKey(addr types.Address, password string) (*Key, error) {
+func (ks KeyStorePassphrase) ExtractKey(addr types.Address, password string) (*Key, error) {
 	keyjson, err := ioutil.ReadFile(ks.fullKeyFileName(addr))
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (ks keyStorePassphrase) ExtractKey(addr types.Address, password string) (*K
 	return key, nil
 }
 
-func (ks keyStorePassphrase) StoreKey(key *Key, password string) error {
+func (ks KeyStorePassphrase) StoreKey(key *Key, password string) error {
 	keyjson, err := EncryptKey(key, password)
 	if err != nil {
 		return err
@@ -207,6 +207,6 @@ func writeKeyFile(file string, content []byte) error {
 	return os.Rename(f.Name(), file)
 }
 
-func (ks keyStorePassphrase) fullKeyFileName(keyAddr types.Address) string {
-	return ks.keysDirPath + "/v-i-t-e-" + hex.EncodeToString(keyAddr[:])
+func (ks KeyStorePassphrase) fullKeyFileName(keyAddr types.Address) string {
+	return filepath.Join(ks.keysDirPath, "/v-i-t-e-"+hex.EncodeToString(keyAddr[:]))
 }

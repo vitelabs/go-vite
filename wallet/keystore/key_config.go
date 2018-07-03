@@ -1,9 +1,7 @@
 package keystore
 
 import (
-	"os"
-	"os/user"
-	"path/filepath"
+	"github.com/vitelabs/go-vite/common"
 )
 
 type KeyConfig struct {
@@ -12,24 +10,6 @@ type KeyConfig struct {
 }
 
 var DefaultKeyConfig = KeyConfig{
-	KeyStoreDir:       DefaultDataDir(),
+	KeyStoreDir:       common.DefaultDataDir(),
 	UseLightweightKDF: false,
-}
-
-func DefaultDataDir() string {
-	home := homeDir()
-	if home != "" {
-		return filepath.Join(home, ".viteisbest")
-	}
-	return ""
-}
-
-func homeDir() string {
-	if home := os.Getenv("HOME"); home != "" {
-		return home
-	}
-	if usr, err := user.Current(); err == nil {
-		return usr.HomeDir
-	}
-	return ""
 }

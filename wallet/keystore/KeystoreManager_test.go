@@ -2,12 +2,13 @@ package keystore
 
 import (
 	"testing"
+	"github.com/vitelabs/go-vite/common"
 )
 
 func TestStoreAndExtractNewKey(t *testing.T) {
 
-	ks := keyStorePassphrase{keysDirPath: DefaultDataDir()}
-	kp := NewKeyPoll(&DefaultKeyConfig)
+	ks := KeyStorePassphrase{keysDirPath: common.DefaultDataDir()}
+	kp := NewManager(&DefaultKeyConfig)
 
 	key1, addr1, err := kp.StoreNewKey("123456")
 	if err != nil {
