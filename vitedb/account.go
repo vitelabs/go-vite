@@ -62,13 +62,3 @@ func (account *Account) GetAddressById (accountId *big.Int) (*types.Address, err
 	}
 	return &b2Address, nil
 }
-
-//func (account *Account) GetAccountMeta (accountAddress *types.Address) *ledger.AccountMeta {
-//	return &ledger.AccountMeta {
-//		AccountId: big.NewInt(1),
-//		TokenList: []*ledger.AccountSimpleToken{{
-//			TokenId: []byte{1, 2, 3},
-//			LastAccountBlockHeight: big.NewInt(1),
-//		}},
-//	}
-//}

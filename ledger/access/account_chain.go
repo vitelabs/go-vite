@@ -10,9 +10,9 @@ import (
 type AccountChainAccess struct {
 	store *vitedb.AccountChain
 	accountStore *vitedb.Account
+	snapshotStore *vitedb.SnapshotChain
 	tokenStore *vitedb.Token
 }
-
 
 var _accountChainAccess *AccountChainAccess
 
@@ -21,6 +21,7 @@ func GetAccountChainAccess () *AccountChainAccess {
 		_accountChainAccess = &AccountChainAccess {
 			store: vitedb.GetAccountChain(),
 			accountStore: vitedb.GetAccount(),
+			snapshotStore: vitedb.GetSnapshotChain(),
 			tokenStore: vitedb.GetToken(),
 		}
 	}
@@ -77,8 +78,57 @@ func (aca *AccountChainAccess) GetBlockListByTokenId (index int, num int, count 
 	return accountBlockList, nil
 }
 
-func (aca *AccountChainAccess) GetBlockList (index int, num int, count int) ([]*ledger.AccountBlock, error){
-	return nil, nil
+func (aca *AccountChainAccess) GetBlockList (index, num, count int) ([]*ledger.AccountBlock, error) {
+	blockHashList, err := aca.store.GetBlockHashList(index, num, count)
+	if err != nil {
+		return nil, err
+	}
+
+	var blockList []*ledger.AccountBlock
+	for _,  blockHash := range blockHashList {
+		block, err:= aca.GetBlockByHash(blockHash)
+		if err != nil {
+			return nil, err
+		}
+		blockList = append(blockList, block)
+	}
+
+	return blockList, nil
+}
+
+func (aca *AccountChainAccess) GetConfirmBlock (accountBlock *ledger.AccountBlock) (*ledger.SnapshotBlock, error) {
+	var err error
+	var confirmSnapshotBlock *ledger.SnapshotBlock
+
+	aca.snapshotStore.Iterate(func(snapshotBlock *ledger.SnapshotBlock) bool {
+		if itemAccountBlockHash, ok := snapshotBlock.Snapshot[accountBlock.AccountAddress.String()]; ok {
+			var itemAccountBlockMeta *ledger.AccountBlockMeta
+			itemAccountBlockMeta, err = aca.store.GetBlockMeta(itemAccountBlockHash)
+			if itemAccountBlockMeta.Height.Cmp(accountBlock.Meta.Height) > 0 {
+				confirmSnapshotBlock = snapshotBlock
+				return false
+			}
+		}
+		return false
+	}, accountBlock.SnapshotTimestamp)
+
+	return confirmSnapshotBlock, err
+
+}
+
+func (aca *AccountChainAccess) GetConfirmTimes (confirmSnapshotBlock *ledger.SnapshotBlock) (*big.Int, error) {
+	if confirmSnapshotBlock == nil {
+		return nil, nil
+	}
+
+	latestBlockHeight, err := aca.snapshotStore.GetLatestBlockHeight()
+	if err != nil {
+		return nil,  err
+	}
+
+	result := &big.Int{}
+	result = result.Sub(latestBlockHeight, confirmSnapshotBlock.Height)
+	return result, nil
 }
 
 func (aca *AccountChainAccess) GetAccountBalance (accountId *big.Int, blockHeight *big.Int) (*big.Int, error) {

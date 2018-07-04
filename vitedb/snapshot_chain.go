@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/big"
 	"encoding/hex"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 type SnapshotChain struct {
@@ -12,9 +13,10 @@ type SnapshotChain struct {
 }
 
 var _snapshotChain *SnapshotChain
-func GetSnapshotChain () *SnapshotChain {
+
+func GetSnapshotChain() *SnapshotChain {
 	if _snapshotChain == nil {
-		db, err:= GetLDBDataBase(DB_BLOCK)
+		db, err := GetLDBDataBase(DB_BLOCK)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -28,8 +30,8 @@ func GetSnapshotChain () *SnapshotChain {
 
 }
 
-func (sbc *SnapshotChain) GetHeightByHash (blockHash []byte) (*big.Int, error) {
-	key, err:= createKey(DBKP_SNAPSHOTBLOCKHASH, hex.EncodeToString(blockHash))
+func (sbc *SnapshotChain) GetHeightByHash(blockHash []byte) (*big.Int, error) {
+	key, err := createKey(DBKP_SNAPSHOTBLOCKHASH, hex.EncodeToString(blockHash))
 
 	heightBytes, err := sbc.db.Leveldb.Get(key, nil)
 	if err != nil {
@@ -41,15 +43,42 @@ func (sbc *SnapshotChain) GetHeightByHash (blockHash []byte) (*big.Int, error) {
 	return height, nil
 }
 
-func (sbc *SnapshotChain) GetBlockByHash (blockHash []byte) (*ledger.SnapshotBlock, error){
+func (sbc *SnapshotChain) GetBlockByHash(blockHash []byte) (*ledger.SnapshotBlock, error) {
 	return nil, nil
 }
 
-func (sbc *SnapshotChain) GetBlockList (index int, num int, count int) ([]*ledger.SnapshotBlock, error) {
+func (sbc *SnapshotChain) GetBlockList(index, num, count int) ([]*ledger.SnapshotBlock, error) {
 	return nil, nil
 }
 
-func (sbc * SnapshotChain) WriteBlock (block *ledger.SnapshotBlock) error {
+func (sbc *SnapshotChain) GetLatestBlockHeight() (*big.Int, error) {
+	return nil, nil
+}
+
+
+func (sbc *SnapshotChain) Iterate (iterateFunc func(snapshotBlock *ledger.SnapshotBlock) bool, startBlockHash []byte) error {
+	startHeight, err := sbc.GetHeightByHash(startBlockHash)
+	if err != nil {
+		return err
+	}
+
+	startKey, err := createKey(DBKP_SNAPSHOTBLOCK, startHeight)
+
+	iter := sbc.db.Leveldb.NewIterator(&util.Range{Start: startKey}, nil)
+	defer iter.Release()
+
+	for value := iter.Value(); value != nil; iter.Next() {
+		var snapshotBlock *ledger.SnapshotBlock
+		snapshotBlock.DbDeserialize(value)
+		if !iterateFunc(snapshotBlock) {
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func (sbc *SnapshotChain) WriteBlock(block *ledger.SnapshotBlock) error {
 	//// 模拟key, 需要改
 	//key :=  []byte("snapshot_test")
 	//

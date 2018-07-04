@@ -41,3 +41,4 @@ func (sca *SnapshotChainAccess) GetBlockList (index int, num int, count int) ([]
 
 	return blockList, nil
 }
+
