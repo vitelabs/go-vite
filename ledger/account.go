@@ -2,10 +2,11 @@ package ledger
 
 import (
 	"math/big"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type AccountSimpleToken struct {
-	TokenId []byte
+	TokenId *types.TokenTypeId
 	LastAccountBlockHeight *big.Int
 }
 
@@ -22,3 +23,4 @@ type Account struct {
 func (account *Account) GetBlockHeight () *big.Int {
 	return big.NewInt(456)
 }
+

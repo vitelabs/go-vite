@@ -3,6 +3,7 @@ package access
 import (
 	"github.com/vitelabs/go-vite/vitedb"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type TokenAccess struct {
@@ -10,19 +11,20 @@ type TokenAccess struct {
 	accountChainStore *vitedb.AccountChain
 }
 
+
 var _tokenAccess *TokenAccess
 
-func (TokenAccess) GetInstance () *TokenAccess {
+func GetTokenAccess () *TokenAccess {
 	if _tokenAccess == nil {
 		_tokenAccess = &TokenAccess {
-			store: vitedb.Token{}.GetInstance(),
-			accountChainStore: vitedb.AccountChain{}.GetInstance(),
+			store: vitedb.GetToken(),
+			accountChainStore: vitedb.GetAccountChain(),
 		}
 	}
 	return _tokenAccess
 }
 
-func (ta *TokenAccess) getListByTokenIdList (tokenIdList [][]byte) ([]*ledger.Token, error) {
+func (ta *TokenAccess) getListByTokenIdList (tokenIdList []*types.TokenTypeId) ([]*ledger.Token, error) {
 	var tokenList []*ledger.Token
 	for _, tokenId := range tokenIdList {
 		token, err := ta.GetByTokenId(tokenId)
@@ -54,21 +56,26 @@ func (ta *TokenAccess) GetListByTokenSymbol (tokenSymbol string) ([]*ledger.Toke
 }
 
 
-func (ta *TokenAccess) GetByTokenId (tokenId []byte) (*ledger.Token, error)  {
+func (ta *TokenAccess) GetByTokenId (tokenId *types.TokenTypeId) (*ledger.Token, error)  {
 	mintageBlockHash, err:= ta.store.GetMintageBlockHashByTokenId(tokenId)
 	if err != nil {
 		return nil, err
 	}
-	mintageBlock, err:= ta.accountChainStore.GetBlockByBlockHash(mintageBlockHash)
+	mintageBlock, err:= ta.accountChainStore.GetBlockByHash(mintageBlockHash)
 	if err != nil {
 		return nil, err
 	}
 
-
-	return &ledger.Token{
-		MintageBlock: mintageBlock,
-	}, nil
+	token, err := ledger.NewToken(mintageBlock)
+	return token, nil
 }
 
+func (ta *TokenAccess) GetList (index int, num int, count int) ([]*ledger.Token, error) {
+	tokenIdList, err:= ta.store.GetTokenIdList(index, num, count)
 
+	if err != nil {
+		return nil, err
+	}
 
+	return ta.getListByTokenIdList(tokenIdList)
+}

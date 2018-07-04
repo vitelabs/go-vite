@@ -1,8 +1,8 @@
 package service
 
 import (
-	"go-vite/ledger"
 	"fmt"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type AccountChain struct {}

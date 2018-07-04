@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type Account struct {
@@ -12,7 +13,7 @@ type Account struct {
 
 var _account *Account
 
-func (account Account) GetInstance () *Account {
+func GetAccount () *Account {
 	if _account == nil {
 		db, err:= GetLDBDataBase(DB_BLOCK)
 		if err != nil {
@@ -29,7 +30,7 @@ func (account Account) GetInstance () *Account {
 }
 
 
-func (account *Account) GetAccountMeta (accountAddress []byte) *ledger.AccountMeta {
+func (account *Account) GetAccountMeta (accountAddress *types.Address) *ledger.AccountMeta {
 	return &ledger.AccountMeta {
 		AccountId: big.NewInt(1),
 		TokenList: []*ledger.AccountSimpleToken{{
@@ -37,4 +38,8 @@ func (account *Account) GetAccountMeta (accountAddress []byte) *ledger.AccountMe
 			LastAccountBlockHeight: big.NewInt(1),
 		}},
 	}
+}
+
+func (account *Account) GetAddressById (accountId *big.Int) (*types.Address, error) {
+	return nil, nil
 }

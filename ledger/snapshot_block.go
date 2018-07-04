@@ -5,6 +5,9 @@ import (
 )
 
 type SnapshotBlock struct {
+	// Snapshot block hash
+	Hash []byte
+
 	// Previous snapshot block hash
 	PrevHash []byte
 
@@ -14,7 +17,7 @@ type SnapshotBlock struct {
 	// Producer create the block
 	Producer []byte
 
-	// Current accountblock chain snapshot
+	// Current snapshot
 	Snapshot map[string][]byte
 
 	// Signature
@@ -24,6 +27,9 @@ type SnapshotBlock struct {
 	Amount *big.Int
 }
 
+func (sb *SnapshotBlock) DbDeserialize (buf []byte) error {
+	return nil
+}
 
 //func (sb * SnapshotBlock) Serialize () ([]byte, error) {
 //	snapshotBlockPB := & vitepb.SnapshotBlock{

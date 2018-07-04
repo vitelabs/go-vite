@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/vitepb"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type AccountBlockMeta struct {
@@ -14,20 +15,50 @@ type AccountBlockMeta struct {
 	// AccountBlock height
 	Height *big.Int
 
-	// AccountBlock status
+	// Block status, 0 means unknow, 1 means open, 2 means closed
 	Status int
+}
+
+func (ab *AccountBlockMeta) DbSerialize () ([]byte, error) {
+	accountBlockMetaPb := &vitepb.AccountBlockMeta{
+		AccountId: ab.AccountId.Bytes(),
+		Height: ab.Height.Bytes(),
+		Status: uint32(ab.Status),
+	}
+
+	return proto.Marshal(accountBlockMetaPb)
+}
+
+func (abm *AccountBlockMeta) DbDeserialize (buf []byte) (error) {
+	accountBlockMetaPb := &vitepb.AccountBlockMeta{}
+	if err := proto.Unmarshal(buf, accountBlockMetaPb); err != nil {
+		return err
+	}
+
+	abm.AccountId = &big.Int{}
+	abm.AccountId.SetBytes(accountBlockMetaPb.AccountId)
+
+	abm.Height = &big.Int{}
+	abm.Height.SetBytes(accountBlockMetaPb.Height)
+
+	abm.Status = int(accountBlockMetaPb.Status)
+
+	return nil
 }
 
 
 type AccountBlock struct {
-	// AccountBlock height
-	Height *big.Int
+	// [Optional] AccountBlockMeta
+	Meta *AccountBlockMeta
 
 	// Self account
-	AccountAddress []byte
+	AccountAddress *types.Address
 
 	// Receiver account, exists in send block
-	To []byte
+	To *types.Address
+
+	// [Optional] Sender account, exists in receive block
+	From *types.Address
 
 	// Correlative send block hash, exists in receive block
 	FromHash []byte
@@ -44,10 +75,13 @@ type AccountBlock struct {
 	// Amount of this transaction
 	Amount *big.Int
 
-	// Id of token received or sent
-	TokenId []byte
+	// Timestamp
+	Timestamp uint64
 
-	// Height of last transaction block in this token
+	// Id of token received or sent
+	TokenId *types.TokenTypeId
+
+	// [Optional] Height of last transaction block in this token
 	LastBlockHeightInToken *big.Int
 
 	// Data requested or repsonsed
@@ -69,17 +103,19 @@ type AccountBlock struct {
 	FAmount *big.Int
 }
 
+
 func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 	accountBlockPB := &vitepb.AccountBlockDb{
-		To: ab.To,
+		To: ab.To.Bytes(),
 
 		PrevHash: ab.PrevHash,
 		FromHash: ab.FromHash,
 
-		TokenId: ab.TokenId,
+		TokenId: ab.TokenId.Bytes(),
 
 		Balance: ab.Balance.Bytes(),
 
+		Timestamp: ab.Timestamp,
 		Data: ab.Data,
 		SnapshotTimestamp: ab.SnapshotTimestamp,
 
@@ -91,13 +127,7 @@ func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 		FAmount: ab.FAmount.Bytes(),
 	}
 
-	serializedBytes, err := proto.Marshal(accountBlockPB)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return serializedBytes, nil
+	return proto.Marshal(accountBlockPB)
 }
 
 
@@ -108,12 +138,24 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 		return err
 	}
 
-	ab.To = accountBlockPB.To
+	toAddress, err := types.BytesToAddress(accountBlockPB.To)
+	if err != nil {
+		return err
+	}
+
+	ab.To = &toAddress
 
 	ab.PrevHash = accountBlockPB.PrevHash
 	ab.FromHash = accountBlockPB.FromHash
 
-	ab.TokenId = accountBlockPB.TokenId
+	tokenId, err := types.BytesToTokenTypeId(accountBlockPB.TokenId)
+	if err != nil {
+		return err
+	}
+
+	ab.TokenId = &tokenId
+
+	ab.Timestamp =  accountBlockPB.Timestamp
 
 	ab.Balance = &big.Int{}
 	ab.Balance.SetBytes(accountBlockPB.Balance)

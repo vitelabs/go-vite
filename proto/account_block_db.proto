@@ -3,15 +3,17 @@ syntax = "proto3";
 package vitepb;
 
 message AccountBlockDb {
-    bytes to = 2;
-    bytes prevHash = 3;
-    bytes fromHash = 4;
+    bytes to = 1;
+    bytes prevHash = 2;
+    bytes fromHash = 3;
 
-    bytes tokenId = 5;
-    bytes balance = 6;
+    bytes tokenId = 4;
+    bytes balance = 5;
 
-    string data = 7;
-    bytes snapshotTimestamp = 8;
+    string data = 6;
+    bytes snapshotTimestamp = 7;
+
+    uint64 timestamp = 8;
 
     bytes signature = 9;
 
@@ -20,4 +22,10 @@ message AccountBlockDb {
     bytes difficulty = 11;
 
     bytes fAmount = 12;
+}
+
+message AccountBlockMeta {
+    bytes accountId = 1;
+    bytes height = 2;
+    uint32 Status = 3;
 }

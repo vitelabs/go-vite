@@ -3,6 +3,9 @@ package vitedb
 import (
 	"math/big"
 	"github.com/syndtr/goleveldb/leveldb"
+	"errors"
+	"strings"
+	"encoding/hex"
 )
 
 // DBK = database key, DBKP = database key prefix
@@ -10,36 +13,51 @@ var (
 	DBK_DOT = []byte(".")
 
 
-	DBKP_ACCOUNTID_INDEX = []byte("j")
+	DBKP_ACCOUNTID_INDEX = "j"
 
-	DBKP_ACCOUNTBLOCKMETA = []byte("b")
+	DBKP_ACCOUNTBLOCKMETA = "b"
 
-	DBKP_ACCOUNTBLOCK = []byte("c")
+	DBKP_ACCOUNTBLOCK = "c"
 
-	DBKP_SNAPSHOTBLOCK = []byte("e")
+	DBKP_SNAPSHOTBLOCKHASH = "d"
 
-	DBKP_TOKENNAME_INDEX = []byte("f")
+	DBKP_SNAPSHOTBLOCK = "e"
 
-	DBKP_TOKENSYMBOL_INDEX = []byte("g")
+	DBKP_TOKENNAME_INDEX = "f"
 
-	DBKP_TOKENID_INDEX = []byte("h")
+	DBKP_TOKENSYMBOL_INDEX = "g"
 
-	DBKP_SNAPSHOTTIMESTAMP_INDEX = []byte("i")
+	DBKP_TOKENID_INDEX = "h"
+
+	DBKP_SNAPSHOTTIMESTAMP_INDEX = "i"
 )
 
 
-func createKey (keyPartionList... interface{}) []byte {
+func createKey (keyPartionList... interface{}) ([]byte, error){
 	key := []byte{}
 	len := len(keyPartionList)
+
+	// Temporary: converting ascii code of hex string to bytes, takes up twice as much space,
+	// to avoid dot ascii code appear that are separator of leveldb key.
 	for index, keyPartion := range keyPartionList {
 		var bytes []byte
 
 		switch keyPartion.(type) {
 		case []byte:
-			bytes = keyPartion.([]byte)
+			hex.Encode(bytes, keyPartion.([]byte))
+
+		case string:
+			keyPartionString := keyPartion.(string)
+			if strings.Contains(keyPartionString, ".") {
+				return nil, errors.New("createKey failed. Key must not contains dot(\".\")")
+			}
+			bytes = []byte(keyPartionString)
 
 		case *big.Int:
-			bytes = append(DBK_DOT, keyPartion.(*big.Int).Bytes()...)
+			hex.Encode(bytes, keyPartion.(*big.Int).Bytes())
+			bytes = append(DBK_DOT, bytes...)
+		default:
+			return nil, errors.New("createKey failed. Key must be big.Int or string type")
 		}
 
 		key = append(key, bytes...)
@@ -48,7 +66,7 @@ func createKey (keyPartionList... interface{}) []byte {
 		}
 	}
 
-	return key
+	return key, nil
 }
 
 type batchContext struct {
