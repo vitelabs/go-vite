@@ -43,6 +43,9 @@ func createKey (keyPartionList... interface{}) ([]byte, error){
 		var bytes []byte
 
 		switch keyPartion.(type) {
+		case []byte:
+			hex.Encode(bytes, keyPartion.([]byte))
+
 		case string:
 			keyPartionString := keyPartion.(string)
 			if strings.Contains(keyPartionString, ".") {

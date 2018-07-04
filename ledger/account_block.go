@@ -48,7 +48,7 @@ func (abm *AccountBlockMeta) DbDeserialize (buf []byte) (error) {
 
 
 type AccountBlock struct {
-	// AccountBlockMeta
+	// [Optional] AccountBlockMeta
 	Meta *AccountBlockMeta
 
 	// Self account
@@ -57,7 +57,7 @@ type AccountBlock struct {
 	// Receiver account, exists in send block
 	To *types.Address
 
-	// Sender account, exists in receive block
+	// [Optional] Sender account, exists in receive block
 	From *types.Address
 
 	// Correlative send block hash, exists in receive block
@@ -75,10 +75,13 @@ type AccountBlock struct {
 	// Amount of this transaction
 	Amount *big.Int
 
-	// Id of token received or sent
-	TokenId []byte
+	// Timestamp
+	Timestamp uint64
 
-	// Height of last transaction block in this token
+	// Id of token received or sent
+	TokenId *types.TokenTypeId
+
+	// [Optional] Height of last transaction block in this token
 	LastBlockHeightInToken *big.Int
 
 	// Data requested or repsonsed
@@ -108,10 +111,11 @@ func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 		PrevHash: ab.PrevHash,
 		FromHash: ab.FromHash,
 
-		TokenId: ab.TokenId,
+		TokenId: ab.TokenId.Bytes(),
 
 		Balance: ab.Balance.Bytes(),
 
+		Timestamp: ab.Timestamp,
 		Data: ab.Data,
 		SnapshotTimestamp: ab.SnapshotTimestamp,
 
@@ -144,7 +148,14 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 	ab.PrevHash = accountBlockPB.PrevHash
 	ab.FromHash = accountBlockPB.FromHash
 
-	ab.TokenId = accountBlockPB.TokenId
+	tokenId, err := types.BytesToTokenTypeId(accountBlockPB.TokenId)
+	if err != nil {
+		return err
+	}
+
+	ab.TokenId = &tokenId
+
+	ab.Timestamp =  accountBlockPB.Timestamp
 
 	ab.Balance = &big.Int{}
 	ab.Balance.SetBytes(accountBlockPB.Balance)

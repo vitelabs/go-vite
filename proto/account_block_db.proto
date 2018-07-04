@@ -13,13 +13,15 @@ message AccountBlockDb {
     string data = 6;
     bytes snapshotTimestamp = 7;
 
-    bytes signature = 8;
+    uint64 timestamp = 8;
 
-    bytes nounce = 9;
+    bytes signature = 9;
 
-    bytes difficulty = 10;
+    bytes nounce = 10;
 
-    bytes fAmount = 11;
+    bytes difficulty = 11;
+
+    bytes fAmount = 12;
 }
 
 message AccountBlockMeta {
