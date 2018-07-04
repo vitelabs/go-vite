@@ -2,20 +2,23 @@ package vitedb
 
 import (
 	"math/big"
-	"fmt"
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
 	"github.com/syndtr/goleveldb/leveldb"
 	"bytes"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"errors"
+	"encoding/hex"
 )
 
 type AccountChain struct {
 	db *DataBase
 }
 
+
 var _accountchain *AccountChain
-func (ac AccountChain) GetInstance () *AccountChain {
+
+func GetAccountChain () *AccountChain {
 	db, err := GetLDBDataBase(DB_BLOCK)
 	if err != nil {
 		log.Fatal(err)
@@ -47,7 +50,7 @@ func (ac * AccountChain) WriteBlock (batch *leveldb.Batch, block *ledger.Account
 	//}
 	//
 	//accountMeta := ac.accountStore.GetAccountMeta(block.AccountAddress)
-	//
+	//GetBigIntBytesList
 	//lastAccountBlockHeight := big.NewInt(-2)
 	//
 	//if accountMeta != nil {
@@ -150,35 +153,35 @@ func (ac *AccountChain) WriteMintageBlock (batch *leveldb.Batch, block *ledger.A
 		}
 
 
-		testTokenId := []byte("testTokenId")
+		//testTokenId := []byte("testTokenId")
 
 		// Write TokenId Index
-		if err := ac.tokenStore.WriteTokenIdIndex(batch, testTokenId, big.NewInt(111), block.Hash); err != nil{
-			return err
-		}
-
-		// Write TokenName body
-		if err := ac.tokenStore.WriteTokenNameIndex(batch, "testTokenName", testTokenId); err != nil{
-			return err
-		}
-
-
-		// Write TokenSymbol body
-		if err := ac.tokenStore.WriteTokenSymbolIndex(batch, "testTokenSymbol", testTokenId); err != nil{
-			return err
-		}
+		//if err := ac.tokenStore.WriteTokenIdIndex(batch, testTokenId, big.NewInt(111), block.Hash); err != nil{
+		//	return err
+		//}
+		//
+		//// Write TokenName body
+		//if err := ac.tokenStore.WriteTokenNameIndex(batch, "testTokenName", testTokenId); err != nil{
+		//	return err
+		//}
+		//
+		//
+		//// Write TokenSymbol body
+		//if err := ac.tokenStore.WriteTokenSymbolIndex(batch, "testTokenSymbol", testTokenId); err != nil{
+		//	return err
+		//}
 		return nil
 	})
 }
 
 func (ac * AccountChain) WriteSendBlock (batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	return batchWrite(batch, ac.db.Leveldb, func(context *batchContext) error {
-		accountMeta, err := ac.accountStore.GetAccountMeta(block.AccountAddress)
-		if accountMeta == nil {
-			return errors.New("Write send block failed, because account is not exist")
-		}
+		//accountMeta := ac.accountStore.GetAccountMeta(block.AccountAddress)
+		//if accountMeta == nil {
+		//	return errors.New("Write send block failed, because account is not exist")
+		//}
 
-		if bytes.Equal(block.To, []byte{0}) {
+		if bytes.Equal(block.To.Bytes(), []byte{0}) {
 			// Mintage block
 			return ac.WriteMintageBlock(batch, block)
 		}
@@ -210,61 +213,110 @@ func (ac * AccountChain) WriteBlockMeta (batch *leveldb.Batch, accountBlockHash 
 }
 
 
-func (ac * AccountChain) GetBlockByBlockHash (blockHash []byte) (*ledger.AccountBlock, error) {
-	reader := ac.db.Leveldb
-
-	block, err := reader.Get(blockHash, nil)
+func (ac * AccountChain) GetBlockByHash (blockHash []byte) (*ledger.AccountBlock, error) {
+	accountBlockMeta, err := ac.GetBlockMeta(blockHash)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
+
+	return ac.GetBlockByHeight(accountBlockMeta.AccountId, accountBlockMeta.Height)
+}
+
+
+func (ac * AccountChain) GetBlockByHeight (accountId *big.Int, blockHeight *big.Int) (*ledger.AccountBlock, error) {
+
+	key, err:= createKey(DBKP_ACCOUNTBLOCK, accountId, blockHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := ac.db.Leveldb.Get(key, nil)
+
 	accountBlock := &ledger.AccountBlock{}
 	accountBlock.DbDeserialize(block)
 
-	return accountBlock, nil
+	accountBlockMeta, err:= ac.GetBlockMeta(accountBlock.Hash)
+	if err != nil {
+		return nil, err
+	}
+
+
+	accountBlock.Meta = accountBlockMeta
+
+	return accountBlock, err
 }
 
+func (ac *AccountChain) GetLatestBlockHeightByAccountId (accountId *big.Int) (* big.Int, error){
+	key, err:= createKey(DBKP_ACCOUNTBLOCK, accountId, nil)
+	if err != nil {
+		return nil, err
+	}
 
+	iter := ac.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
+	defer iter.Release()
 
-func (ac * AccountChain) GetBlockHeightByHash (account []byte, hash []byte) {
+	if iter.Last() {
+		return nil, errors.New("GetLatestBlockHeightByAccountId failed, because account " + accountId.String() + " doesn't exist.")
+	}
 
+	latestBlockHeight := &big.Int{}
+	latestBlockHeight.SetBytes(iter.Value())
+	return latestBlockHeight, nil
 }
 
-func (ac * AccountChain) GetBlockByHeight (blockHeight *big.Int) (*ledger.AccountBlock, error) {
-	return nil, nil
+func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int, meta *ledger.AccountMeta) ([]*ledger.AccountBlock, error) {
+	latestBlockHeight, err := ac.GetLatestBlockHeightByAccountId(meta.AccountId)
+	if err != nil {
+		return nil, err
+	}
+	startIndex := latestBlockHeight.Sub(latestBlockHeight, big.NewInt(int64(index * count)))
+	key, err := createKey(DBKP_ACCOUNTBLOCK, meta.AccountId, startIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	iter := ac.db.Leveldb.NewIterator(&util.Range{Start: key}, nil)
+	defer iter.Release()
+
+	var blockList []*ledger.AccountBlock
+	for i:=0; i < num * count; i ++ {
+		if iter.Prev() {
+			break
+		}
+
+		if err := iter.Error(); err != nil {
+			return nil, err
+		}
+		block := &ledger.AccountBlock{}
+
+		err := block.DbDeserialize(iter.Value())
+		if err != nil {
+			return nil, err
+		}
+
+		blockList = append(blockList, block)
+	}
+
+
+	return blockList, nil
 }
+
 
 
 func (ac * AccountChain) GetBlockMeta (blockHash []byte) (*ledger.AccountBlockMeta, error) {
-	return nil, nil
-}
-
-
-func (ac * AccountChain) Iterate (account []byte, startHash []byte, endHash []byte) {
-
-}
-
-func (ac * AccountChain) RevertIterate (account []byte, startHash []byte, endHash []byte) {
-
-}
-
-func (ac * AccountChain) GetAccountBlock (key []byte) (*ledger.AccountBlock, error) {
-	iter := ac.db.NewIteratorWithPrefix(key)
-	for iter.Next() {
-		log.Fatalf("GetAccountBlock result: key:%s, value:%s\n", iter.Key(), iter.Value())
-		break
-	}
-	iter.Release()
-	err := iter.Error()
+	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, hex.EncodeToString(blockHash))
 	if err != nil {
-		log.Fatalln("Iterator error: ", err)
 		return nil, err
 	}
-	accountBlock := &ledger.AccountBlock{}
-	dsErr := accountBlock.DbDeserialize(iter.Value())
-	if dsErr != nil {
-		log.Fatal(dsErr)
-		return nil, dsErr
+	blockMetaBytes, err:= ac.db.Leveldb.Get(key, nil)
+	if err != nil {
+		return nil, err
 	}
-	return accountBlock, nil
+
+	blockMeta := &ledger.AccountBlockMeta{}
+	if err := blockMeta.DbDeserialize(blockMetaBytes); err != nil {
+		return nil, err
+	}
+
+	return blockMeta, nil
 }

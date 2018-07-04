@@ -4,7 +4,7 @@ import (
 	"log"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
-	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type Account struct {
@@ -13,24 +13,21 @@ type Account struct {
 
 var _account *Account
 
-func (account Account) GetInstance () *Account {
-	if _account == nil {
-		db, err:= GetLDBDataBase(DB_BLOCK)
-		if err != nil {
-			log.Fatal(err)
-		}
+func GetAccount () *Account {
+	db, err:= GetLDBDataBase(DB_BLOCK)
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	if _account	== nil{
 		_account = &Account{
 			db: db,
 		}
 	}
-
 	return _account
-
-
 }
 
-func (account *Account) GetAccountMetaByAddress (hexAddress *common.Address) (*ledger.AccountMeta, error) {
+func (account *Account) GetAccountMetaByAddress (hexAddress *types.Address) (*ledger.AccountMeta, error) {
 	keyAccountMeta, ckErr := createKey(DBKP_ACCOUNTMETA, hexAddress.String())
 	if ckErr != nil {
 		return nil, ckErr
@@ -49,7 +46,7 @@ func (account *Account) GetAccountMetaByAddress (hexAddress *common.Address) (*l
 	return accountMeter, nil
 }
 
-func (account *Account) GetAddressById (accountId *big.Int) (*common.Address, error) {
+func (account *Account) GetAddressById (accountId *big.Int) (*types.Address, error) {
 	keyAccountAddress, ckErr := createKey(DBKP_ACCOUNTID_INDEX, accountId)
 	if ckErr != nil {
 		return nil, ckErr
@@ -59,9 +56,19 @@ func (account *Account) GetAddressById (accountId *big.Int) (*common.Address, er
 		log.Fatalln("GetAddressById func db.Get() error:", dgErr)
 		return nil, dgErr
 	}
-	b2Address, b2Err := common.BytesToAddress(data)
+	b2Address, b2Err := types.BytesToAddress(data)
 	if b2Err != nil {
 		return nil, b2Err
 	}
 	return &b2Address, nil
 }
+
+//func (account *Account) GetAccountMeta (accountAddress *types.Address) *ledger.AccountMeta {
+//	return &ledger.AccountMeta {
+//		AccountId: big.NewInt(1),
+//		TokenList: []*ledger.AccountSimpleToken{{
+//			TokenId: []byte{1, 2, 3},
+//			LastAccountBlockHeight: big.NewInt(1),
+//		}},
+//	}
+//}

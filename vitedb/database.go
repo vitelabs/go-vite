@@ -8,6 +8,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"encoding/hex"
 )
 
 type DataBase struct {
@@ -44,7 +45,9 @@ func GetBigIntBytesList (key []byte) [][]byte {
 		tempLength := len(temp)
 		if oneByte == DBK_DOT[0] {
 			if tempLength == 2 {
-				bigIntBytesList = append(bigIntBytesList, tempKey)
+				var bigIntBytes []byte
+				hex.Decode(bigIntBytes, tempKey)
+				bigIntBytesList = append(bigIntBytesList, bigIntBytes)
 
 				temp = nil
 				tempKey = nil

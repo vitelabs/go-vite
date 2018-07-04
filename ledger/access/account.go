@@ -4,17 +4,23 @@ import (
 	"github.com/vitelabs/go-vite/vitedb"
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
-	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type AccountAccess struct {
 	store *vitedb.Account
 }
 
-func (AccountAccess) New () *AccountAccess {
-	return &AccountAccess{
-		store: vitedb.Account{}.GetInstance(),
+var _accountAccess *AccountAccess
+
+func GetAccountAccess () *AccountAccess {
+	if _accountAccess == nil {
+		_accountAccess = &AccountAccess {
+			store: vitedb.GetAccount(),
+		}
 	}
+
+	return _accountAccess
 }
 
 func (aa *AccountAccess) GetAccountMeta (accountAddress string) (*ledger.AccountMeta, error){
@@ -25,7 +31,7 @@ func (aa *AccountAccess) GetAccountMeta (accountAddress string) (*ledger.Account
 	//		LastAccountBlockHeight: big.NewInt(1),
 	//	}},
 	//}
-	hexAddress, h2Err := common.HexToAddress(accountAddress)
+	hexAddress, h2Err := types.HexToAddress(accountAddress)
 	if h2Err != nil {
 		return nil, h2Err
 	}

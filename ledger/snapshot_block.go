@@ -14,7 +14,7 @@ type SnapshotBlock struct {
 	// Producer create the block
 	Producer []byte
 
-	// Current accountblock chain snapshot
+	// Current snapshot
 	Snapshot map[string][]byte
 
 	// Signature
