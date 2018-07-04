@@ -6,6 +6,10 @@ import (
 	"encoding/hex"
 	"strings"
 	"fmt"
+	"bufio"
+	"os"
+	"encoding/json"
+	"github.com/vitelabs/go-vite/log"
 )
 
 func fullKeyFileName(keysDirPath string, keyAddr types.Address) string {
@@ -39,4 +43,31 @@ func addressFromKeyPathV0(keyfile string) (types.Address, error) {
 		return types.Address{}, fmt.Errorf("not valid key file name %v error %v", keyfile, err)
 	}
 	return a, nil
+}
+
+func readAndFixAddressFile(path string) *types.Address {
+	buf := new(bufio.Reader)
+	key := encryptedKeyJSON{}
+
+	fd, err := os.Open(path)
+	if err != nil {
+		log.Trace("Can not to open ", "path", path, "err", err)
+		return nil
+	}
+	defer fd.Close()
+	buf.Reset(fd)
+	key.HexAddress = ""
+	err = json.NewDecoder(buf).Decode(&key)
+	if err != nil {
+		log.Trace("Decode keystore file failed ", "path", path, "err", err)
+		return nil
+	}
+	addr, err := types.HexToAddress(key.HexAddress)
+	if err != nil {
+		log.Trace("Address is invalid ", "path", path, "err", err)
+		return nil
+	}
+	os.Rename(fd.Name(), fullKeyFileName(filepath.Dir(path), addr))
+	return &addr
+
 }

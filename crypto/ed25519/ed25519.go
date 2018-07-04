@@ -58,6 +58,12 @@ func (priv PrivateKey) HexStr() string {
 	return hex.EncodeToString(priv)
 }
 
+func (pri PrivateKey) Clear() {
+	for i, _ := range pri {
+		pri[i] = 0
+	}
+}
+
 // Sign signs the given message with priv.
 // Ed25519 performs two passes over messages to be signed and therefore cannot
 // handle pre-hashed messages. Thus opts.HashFunc() must return zero to

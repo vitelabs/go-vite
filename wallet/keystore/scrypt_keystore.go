@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+//TODO  We don`t support user-defined keystore filename temporarily
+
 const (
 	// StandardScryptN is the N parameter of Scrypt encryption algorithm, using 256MB
 	// memory and taking approximately 1s CPU time on a modern processor.

@@ -72,7 +72,7 @@ func (w *keystoreObserver) loop() {
 			}
 
 		case <-t.C:
-			w.kc.refresh()
+			w.kc.refreshAndFixAddressFile()
 			refreshTriggered = false
 
 		case <-w.exit:

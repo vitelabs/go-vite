@@ -1,13 +1,10 @@
 package keystore
 
 import (
-	"bufio"
-	"encoding/json"
 	"github.com/deckarep/golang-set"
 	"github.com/vitelabs/go-vite/common/fileutils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log"
-	"os"
 	"sync"
 	"time"
 )
@@ -48,7 +45,7 @@ func (kc *keyCache) ListAllAddress() mapset.Set {
 	return kc.cacheAddr.Clone()
 }
 
-func (kc *keyCache) refresh() error {
+func (kc *keyCache) refreshAndFixAddressFile() error {
 	creates, deletes, updates, err := kc.fileC.RefreshCache(kc.keydir)
 	if err != nil {
 		log.Info("Failed refreshCache keydir", "err", err)
@@ -60,20 +57,23 @@ func (kc *keyCache) refresh() error {
 		return nil
 	}
 
-	for _, c := range creates.ToSlice() {
-		if a := readAddressFromFile(c.(string)); a != nil {
+	creates.Each(func(c interface{}) bool {
+		if a := readAndFixAddressFile(c.(string)); a != nil {
 			kc.add(*a)
 		}
-	}
-	for _, d := range deletes.ToSlice() {
-		kc.deleteByFile(d.(string))
-	}
-	for _, u := range updates.ToSlice() {
-		kc.deleteByFile(u.(string))
-		if a := readAddressFromFile(u.(string)); a != nil {
+		return false
+	})
+	deletes.Each(func(c interface{}) bool {
+		kc.deleteByFile(c.(string))
+		return false
+	})
+	updates.Each(func(c interface{}) bool {
+		kc.deleteByFile(c.(string))
+		if a := readAndFixAddressFile(c.(string)); a != nil {
 			kc.add(*a)
 		}
-	}
+		return false
+	})
 
 	return nil
 }
@@ -91,32 +91,6 @@ func (kc *keyCache) deleteByFile(fullfilename string) {
 	kc.mutex.Lock()
 	defer kc.mutex.Unlock()
 	kc.cacheAddr.Remove(a)
-}
-
-func readAddressFromFile(path string) *types.Address {
-	buf := new(bufio.Reader)
-	key := encryptedKeyJSON{}
-
-	fd, err := os.Open(path)
-	if err != nil {
-		log.Trace("Can not to open ", "path", path, "err", err)
-		return nil
-	}
-	defer fd.Close()
-	buf.Reset(fd)
-	key.HexAddress = ""
-	err = json.NewDecoder(buf).Decode(&key)
-	if err != nil {
-		log.Trace("Decode keystore file failed ", "path", path, "err", err)
-		return nil
-	}
-	addr, err := types.HexToAddress(key.HexAddress)
-	if err != nil {
-		log.Trace("Address is invalid ", "path", path, "err", err)
-		return nil
-	}
-	return &addr
-
 }
 
 // min reload time is 2s that means if
@@ -141,7 +115,7 @@ func (kc *keyCache) intervalRefresh() {
 	kc.kob.start()
 	kc.throttle.Reset(2 * time.Second)
 	kc.mutex.Unlock()
-	kc.refresh()
+	kc.refreshAndFixAddressFile()
 }
 
 func (kc *keyCache) close() {
