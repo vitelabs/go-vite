@@ -100,6 +100,7 @@ type AccountBlock struct {
 	FAmount *big.Int
 }
 
+
 func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 	accountBlockPB := &vitepb.AccountBlockDb{
 		To: ab.To.Bytes(),

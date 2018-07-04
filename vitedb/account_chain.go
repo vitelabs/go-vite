@@ -279,6 +279,7 @@ func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int
 	defer iter.Release()
 
 	var blockList []*ledger.AccountBlock
+
 	for i:=0; i < num * count; i ++ {
 		if iter.Prev() {
 			break
@@ -297,11 +298,8 @@ func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int
 		blockList = append(blockList, block)
 	}
 
-
 	return blockList, nil
 }
-
-
 
 func (ac * AccountChain) GetBlockMeta (blockHash []byte) (*ledger.AccountBlockMeta, error) {
 	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, hex.EncodeToString(blockHash))
@@ -319,4 +317,34 @@ func (ac * AccountChain) GetBlockMeta (blockHash []byte) (*ledger.AccountBlockMe
 	}
 
 	return blockMeta, nil
+}
+
+func (ac *AccountChain) GetBlockHashList (index, num, count int) ([][]byte, error) {
+	key, err:= createKey(DBKP_SNAPSHOTTIMESTAMP_INDEX)
+	if err != nil {
+		return nil, err
+	}
+
+	iter := ac.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
+	if !iter.Last() {
+		return nil, nil
+	}
+
+	for i:=0; i < index * count; i++ {
+		if iter.Prev() {
+			return nil, nil
+		}
+	}
+
+	var blocHashList [][]byte
+	for i:=0; i < num * count; i++ {
+		if iter.Prev() {
+			break
+		}
+
+		blocHashList = append(blocHashList, iter.Value())
+	}
+
+
+	return blocHashList, nil
 }
