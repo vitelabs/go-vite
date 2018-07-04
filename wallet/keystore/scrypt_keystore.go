@@ -45,7 +45,7 @@ type KeyStorePassphrase struct {
 }
 
 func (ks KeyStorePassphrase) ExtractKey(addr types.Address, password string) (*Key, error) {
-	keyjson, err := ioutil.ReadFile(ks.fullKeyFileName(addr))
+	keyjson, err := ioutil.ReadFile(fullKeyFileName(ks.keysDirPath, addr))
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (ks KeyStorePassphrase) StoreKey(key *Key, password string) error {
 	if err != nil {
 		return err
 	}
-	return writeKeyFile(ks.fullKeyFileName(key.Address), keyjson)
+	return writeKeyFile(fullKeyFileName(ks.keysDirPath, key.Address), keyjson)
 }
 
 func DecryptKey(keyjson []byte, password string) (*Key, error) {
@@ -207,6 +207,4 @@ func writeKeyFile(file string, content []byte) error {
 	return os.Rename(f.Name(), file)
 }
 
-func (ks KeyStorePassphrase) fullKeyFileName(keyAddr types.Address) string {
-	return filepath.Join(ks.keysDirPath, "/v-i-t-e-"+hex.EncodeToString(keyAddr[:]))
-}
+
