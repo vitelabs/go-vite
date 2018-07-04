@@ -121,10 +121,3 @@ func (db *DataBase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator {
 	return db.Leveldb.NewIterator(util.BytesPrefix(prefix), nil)
 }
 
-func (db *DataBase) Get(key []byte) ([]byte, error) {
-	data, err := db.Leveldb.Get(key, nil)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}

@@ -19,14 +19,7 @@ type AccountMeta struct {
 
 type Account struct {
 	AccountMeta
-	blockHeight *big.Int
-}
-
-
-// has to be query from accountBlockMeta?????
-func (account *Account) GetBlockHeight () *big.Int {
-	//return big.NewInt(456)
-	return account.blockHeight
+	BlockHeight *big.Int
 }
 
 func (am *AccountMeta) GetTokenList () []*AccountSimpleToken {
@@ -71,8 +64,8 @@ func (am *AccountMeta) DbDeserialize (buf []byte) error {
 			return ttErr
 		}
 		lAccountSimpleToken := &AccountSimpleToken{
-			&tTokenIdType,
-			labHeight.SetBytes(pbAccountSimpleToken.LastAccountBlockHeight),
+			TokenId: &tTokenIdType,
+			LastAccountBlockHeight: labHeight.SetBytes(pbAccountSimpleToken.LastAccountBlockHeight),
 		}
 		lTokenList = append(lTokenList, lAccountSimpleToken)
 	}

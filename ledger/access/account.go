@@ -3,8 +3,8 @@ package access
 import (
 	"github.com/vitelabs/go-vite/vitedb"
 	"github.com/vitelabs/go-vite/ledger"
-	"log"
 	"github.com/vitelabs/go-vite/common/types"
+	"fmt"
 )
 
 type AccountAccess struct {
@@ -23,7 +23,7 @@ func GetAccountAccess () *AccountAccess {
 	return _accountAccess
 }
 
-func (aa *AccountAccess) GetAccountMeta (accountAddress string) (*ledger.AccountMeta, error){
+func (aa *AccountAccess) GetAccountMeta (accountAddress *types.Address) (*ledger.AccountMeta, error){
 	//return &ledger.AccountMeta {
 	//	AccountId: big.NewInt(1),
 	//	TokenList: []*ledger.AccountSimpleToken{{
@@ -31,13 +31,9 @@ func (aa *AccountAccess) GetAccountMeta (accountAddress string) (*ledger.Account
 	//		LastAccountBlockHeight: big.NewInt(1),
 	//	}},
 	//}
-	hexAddress, h2Err := types.HexToAddress(accountAddress)
-	if h2Err != nil {
-		return nil, h2Err
-	}
-	data, err := aa.store.GetAccountMetaByAddress(&hexAddress)
+	data, err := aa.store.GetAccountMetaByAddress(accountAddress)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 		return nil, err
 	}
 	return data, nil
