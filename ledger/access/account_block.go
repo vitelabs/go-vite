@@ -2,7 +2,6 @@ package access
 
 import (
 	"github.com/vitelabs/go-vite/vitedb"
-	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 )
 
@@ -16,17 +15,15 @@ func (AccountChainAccess) New () *AccountChainAccess {
 	}
 }
 
-func (acca *AccountChainAccess) GetAccountBlock (key []byte) (*ledger.AccountBlock, error) {
-	//acca.store.Iterate()
-	return nil, nil
-}
 
 func (acca *AccountChainAccess) GetAccountBalance (keyPartionList ...interface{}) (*big.Int, error) {
-	// createkey
-	key := vitedb.createKey(vitedb.DBKP_ACCOUNTBLOCK, keyPartionList,nil)
-	accountBLock, err := acca.GetAccountBlock(key)
+	key, err := vitedb.createKey(vitedb.DBKP_ACCOUNTBLOCK, keyPartionList,nil)
 	if err != nil {
-		return nil, nil
+		return nil, err
+	}
+	accountBLock, err := acca.store.GetAccountBlock(key)
+	if err != nil {
+		return nil, err
 	}
 	return accountBLock.Balance, nil
 }

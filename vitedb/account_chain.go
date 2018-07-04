@@ -226,7 +226,7 @@ func (ac * AccountChain) GetBlockByBlockHash (blockHash []byte) (*ledger.Account
 
 
 
-func (ac * AccountChain) GetBlockNumberByHash (account []byte, hash []byte) {
+func (ac * AccountChain) GetBlockHeightByHash (account []byte, hash []byte) {
 
 }
 
@@ -246,4 +246,25 @@ func (ac * AccountChain) Iterate (account []byte, startHash []byte, endHash []by
 
 func (ac * AccountChain) RevertIterate (account []byte, startHash []byte, endHash []byte) {
 
+}
+
+func (ac * AccountChain) GetAccountBlock (key []byte) (*ledger.AccountBlock, error) {
+	iter := ac.db.NewIteratorWithPrefix(key)
+	for iter.Next() {
+		log.Fatalf("GetAccountBlock result: key:%s, value:%s\n", iter.Key(), iter.Value())
+		break
+	}
+	iter.Release()
+	err := iter.Error()
+	if err != nil {
+		log.Fatalln("Iterator error: ", err)
+		return nil, err
+	}
+	accountBlock := &ledger.AccountBlock{}
+	dsErr := accountBlock.DbDeserialize(iter.Value())
+	if dsErr != nil {
+		log.Fatal(dsErr)
+		return nil, dsErr
+	}
+	return accountBlock, nil
 }

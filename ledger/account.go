@@ -2,6 +2,8 @@ package ledger
 
 import (
 	"math/big"
+	"github.com/vitelabs/go-vite/vitepb"
+	"github.com/golang/protobuf/proto"
 )
 
 type AccountSimpleToken struct {
@@ -28,12 +30,26 @@ func (account *Account) GetBlockHeight () *big.Int {
 	return account.blockHeight
 }
 
-// add by sanjin
-func (accountmeta *AccountMeta) GetTokenList () []*AccountSimpleToken {
-	//tokenlist := []*AccountSimpleToken //make([]byte,0)
-	//for _, accountsimpletoken := range accountmeta.TokenList{
-	//	tokenlist = append(tokenlist,accountsimpletoken)
-	//}
-	//return tokenlist
-	return accountmeta.TokenList
+func (am *AccountMeta) GetTokenList () []*AccountSimpleToken {
+	return am.TokenList
+}
+
+func (am *AccountMeta) DbSerialize () ([]byte, error) {
+	accountMetaPB := &vitepb.AccountMeta{
+	}
+	serializedBytes, err := proto.Marshal(accountMetaPB)
+
+	if err != nil {
+		return nil, err
+	}
+	return serializedBytes, nil
+}
+
+
+func (am *AccountMeta) DbDeserialize (buf []byte) error {
+	accountMetaPB := &vitepb.AccountMeta{}
+	if err := proto.Unmarshal(buf, accountMetaPB ); err != nil {
+		return err
+	}
+	return nil
 }
