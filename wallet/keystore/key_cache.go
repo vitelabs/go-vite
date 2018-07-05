@@ -5,10 +5,13 @@ import (
 	"github.com/vitelabs/go-vite/common/fileutils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
 
+// Every two seconds, it will check if there is a file in the keydir changed
 type keyCache struct {
 	keydir          string
 	kob             *keystoreObserver
@@ -24,9 +27,12 @@ func newKeyCache(keydir string) (*keyCache, chan struct{}) {
 	kc := &keyCache{
 		keydir: keydir,
 		notify: make(chan struct{}, 1),
-		fileC: fileutils.FileChangeRecord{AllCached: mapset.NewThreadUnsafeSet(), FileFilter: func(filepath string) bool {
-			if _, err := addressFromKeyPath(filepath); err != nil {
-				log.Info("Not address file path", filepath)
+		fileC: fileutils.FileChangeRecord{AllCached: mapset.NewThreadUnsafeSet(), FileFilter: func(dir string, file os.FileInfo) bool {
+			if file.IsDir() || file.Mode()&os.ModeType != 0 {
+				return true
+			}
+			fn := file.Name()
+			if strings.HasPrefix(fn, ".") || strings.HasSuffix(fn, "~") {
 				return true
 			}
 			return false
@@ -58,7 +64,7 @@ func (kc *keyCache) refreshAndFixAddressFile() error {
 	}
 
 	creates.Each(func(c interface{}) bool {
-		if a := readAndFixAddressFile(c.(string)); a != nil {
+		if a, _ := readAndFixAddressFile(c.(string)); a != nil {
 			kc.add(*a)
 		}
 		return false
@@ -69,7 +75,7 @@ func (kc *keyCache) refreshAndFixAddressFile() error {
 	})
 	updates.Each(func(c interface{}) bool {
 		kc.deleteByFile(c.(string))
-		if a := readAndFixAddressFile(c.(string)); a != nil {
+		if a, _ := readAndFixAddressFile(c.(string)); a != nil {
 			kc.add(*a)
 		}
 		return false

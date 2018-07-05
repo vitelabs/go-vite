@@ -21,6 +21,7 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
 	"golang.org/x/crypto/blake2b"
 	"io"
@@ -54,10 +55,22 @@ func (priv PrivateKey) PubByte() []byte {
 	return publicKey
 }
 
-func (priv PrivateKey) HexStr() string {
+func (priv PrivateKey) Hex() string {
 	return hex.EncodeToString(priv)
 }
-
+func (pub PublicKey) Hex() string {
+	return hex.EncodeToString(pub)
+}
+func HexToPublicKey(hexstr string) (PublicKey, error) {
+	b, e := hex.DecodeString(hexstr)
+	if e != nil {
+		return nil, e
+	}
+	if len(b) != PublicKeySize {
+		return nil, fmt.Errorf("wrong pubkey size %v", len(b))
+	}
+	return b, nil
+}
 func (pri PrivateKey) Clear() {
 	for i, _ := range pri {
 		pri[i] = 0

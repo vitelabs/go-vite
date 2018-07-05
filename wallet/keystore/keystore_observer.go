@@ -49,8 +49,8 @@ func (w *keystoreObserver) loop() {
 		return
 	}
 	defer notify.Stop(w.event)
-	log.Trace("Started watching keystore folder")
-	defer log.Trace("Stopped watching keystore folder")
+	log.Info("Started watching keystore folder")
+	defer log.Info("Stopped watching keystore folder")
 
 	w.kc.mutex.Lock()
 	w.running = true

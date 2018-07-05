@@ -178,6 +178,7 @@ func EncryptKey(key *Key, password string) ([]byte, error) {
 	encryptedKeyJSON := encryptedKeyJSON{
 
 		HexAddress: key.Address.Hex(),
+		HexPubKey:  key.PublicKey.Hex(),
 		Crypto:     cryptoJSON,
 		Id:         key.Id.String(),
 		Version:    keystoreVersion,
@@ -188,25 +189,20 @@ func EncryptKey(key *Key, password string) ([]byte, error) {
 }
 
 func writeKeyFile(file string, content []byte) error {
-	// Create the keystore directory with appropriate permissions
-	// in case it is not present yet.
-	const dirPerm = 0700
-	if err := os.MkdirAll(filepath.Dir(file), dirPerm); err != nil {
+
+	if err := os.MkdirAll(filepath.Dir(file), 0700); err != nil {
 		return err
 	}
-	// Atomic write: create a temporary hidden file first
-	// then move it into place. TempFile assigns mode 0600.
+
 	f, err := ioutil.TempFile(filepath.Dir(file), "."+filepath.Base(file)+".tmp")
+	defer f.Close()
 	if err != nil {
 		return err
 	}
+
 	if _, err := f.Write(content); err != nil {
-		f.Close()
 		os.Remove(f.Name())
 		return err
 	}
-	f.Close()
 	return os.Rename(f.Name(), file)
 }
-
-

@@ -1,15 +1,15 @@
 package keystore
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"path/filepath"
-	"encoding/hex"
-	"strings"
-	"fmt"
 	"bufio"
-	"os"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 func fullKeyFileName(keysDirPath string, keyAddr types.Address) string {
@@ -45,29 +45,34 @@ func addressFromKeyPathV0(keyfile string) (types.Address, error) {
 	return a, nil
 }
 
-func readAndFixAddressFile(path string) *types.Address {
+func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
 	buf := new(bufio.Reader)
-	key := encryptedKeyJSON{}
+	keyJSON := encryptedKeyJSON{}
 
 	fd, err := os.Open(path)
 	if err != nil {
 		log.Trace("Can not to open ", "path", path, "err", err)
-		return nil
+		return nil, nil
 	}
 	defer fd.Close()
 	buf.Reset(fd)
-	key.HexAddress = ""
-	err = json.NewDecoder(buf).Decode(&key)
+	keyJSON.HexAddress = ""
+	err = json.NewDecoder(buf).Decode(&keyJSON)
 	if err != nil {
 		log.Trace("Decode keystore file failed ", "path", path, "err", err)
-		return nil
+		return nil, nil
 	}
-	addr, err := types.HexToAddress(key.HexAddress)
+	addr, err := types.HexToAddress(keyJSON.HexAddress)
 	if err != nil {
 		log.Trace("Address is invalid ", "path", path, "err", err)
-		return nil
+		return nil, nil
 	}
-	os.Rename(fd.Name(), fullKeyFileName(filepath.Dir(path), addr))
-	return &addr
+
+	// fix the file name
+	standFileName := fullKeyFileName(filepath.Dir(path), addr)
+	if standFileName != fd.Name() {
+		os.Rename(fd.Name(), standFileName)
+	}
+	return &addr, &keyJSON
 
 }

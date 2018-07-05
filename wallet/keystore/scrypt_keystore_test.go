@@ -1,9 +1,9 @@
 package keystore
 
 import (
-	"testing"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"testing"
 )
 
 const (
@@ -19,7 +19,7 @@ func TestDecrypt(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if TEST_PRIKEY != key1.PrivateKey.HexStr() {
+		if TEST_PRIKEY != key1.PrivateKey.Hex() {
 			t.Fatalf("key not equal")
 		}
 	}
@@ -33,12 +33,12 @@ func TestDecrypt(t *testing.T) {
 }
 
 func TestEncryptAndDecrypt(t *testing.T) {
-	_, priv, err := ed25519.GenerateKey(nil)
+	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	key := newKeyFromEd25519(&priv)
+	key := newKeyFromEd25519(&pub, &priv)
 
 	json, err := EncryptKey(key, "123456")
 	if err != nil {
@@ -53,10 +53,10 @@ func TestEncryptAndDecrypt(t *testing.T) {
 	println("K0 generate Address:" + key.Address.Hex())
 	println("K1 generate Address:" + types.PrikeyToAddress(*key1.PrivateKey).Hex())
 
-	println("K0 generate Prikey:" + key.PrivateKey.HexStr())
-	println("K1 generate Prikey:" + key1.PrivateKey.HexStr())
+	println("K0 generate Prikey:" + key.PrivateKey.Hex())
+	println("K1 generate Prikey:" + key1.PrivateKey.Hex())
 
-	if key.PrivateKey.HexStr() != key1.PrivateKey.HexStr() {
+	if key.PrivateKey.Hex() != key1.PrivateKey.Hex() {
 		t.Fatalf("key not equal")
 	}
 

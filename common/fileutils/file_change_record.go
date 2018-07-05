@@ -6,12 +6,13 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+	"os"
 )
 
 // this is an file system cache
 type FileChangeRecord struct {
-	AllCached     mapset.Set // all cached file
-	FileFilter    func(filepath string) bool
+	AllCached     mapset.Set                              // all cached file
+	FileFilter    func(dir string, file os.FileInfo) bool //  if cb return true  represents cb digest the file
 	mutex         sync.RWMutex
 	latestModTime time.Time // the latest modified file`s modify time
 }
@@ -32,7 +33,7 @@ func (fc *FileChangeRecord) RefreshCache(keyDir string) (creates mapset.Set, del
 	var latestModTime time.Time
 	for _, f := range files {
 		path := filepath.Join(keyDir, f.Name())
-		if fc.FileFilter(path) {
+		if fc.FileFilter(keyDir, f) {
 			continue
 		}
 

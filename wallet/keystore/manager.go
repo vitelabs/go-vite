@@ -16,7 +16,7 @@ var (
 )
 
 // Manage keys from various wallet in here we will cache account
-
+// Manager is a keystore wallet and an interface
 type Manager struct {
 	ks           keyStore
 	keyConfig    *KeyConfig
@@ -61,8 +61,10 @@ func (km *Manager) ListAddress() []types.Address {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 	result := make([]types.Address, km.addrs.Cardinality())
-	for v := range km.addrs.Iterator().C {
-		result = append(result, v.(types.Address))
+	i := 0
+	for v := range km.addrs.Iter() {
+		result[i] = v.(types.Address)
+		i++
 	}
 	return result
 }
@@ -83,11 +85,15 @@ func (km *Manager) SignDataWithPassphrase(a types.Address, passphrase string, da
 		return nil, err
 	}
 	_, key, err := km.ExtractKey(a, passphrase)
-	defer key.PrivateKey.Clear()
-
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if key != nil && key.PrivateKey != nil {
+			key.PrivateKey.Clear()
+		}
+	}()
+
 	return key.Sign(data)
 }
 
@@ -114,7 +120,7 @@ func NewManager(kcc *KeyConfig) *Manager {
 	return &kp
 }
 
-func (km *Manager) init() {
+func (km *Manager) Init() {
 	if km.isInited {
 		return
 	}
@@ -131,11 +137,11 @@ func (km *Manager) init() {
 }
 
 func (km *Manager) StoreNewKey(pwd string) (*Key, types.Address, error) {
-	_, priv, err := ed25519.GenerateKey(nil)
+	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, types.Address{}, err
 	}
-	key := newKeyFromEd25519(&priv)
+	key := newKeyFromEd25519(&pub, &priv)
 
 	if err := km.ks.StoreKey(key, pwd); err != nil {
 		return nil, types.Address{}, err
@@ -148,11 +154,12 @@ func (km *Manager) ExtractKey(a types.Address, pwd string) (types.Address, *Key,
 	return a, key, err
 }
 
-func newKeyFromEd25519(priv *ed25519.PrivateKey) *Key {
+func newKeyFromEd25519(pub *ed25519.PublicKey, priv *ed25519.PrivateKey) *Key {
 	id := uuid.NewRandom()
 	key := &Key{
 		Id:         id,
 		Address:    types.PrikeyToAddress(*priv),
+		PublicKey:  pub,
 		PrivateKey: priv,
 	}
 	return key
