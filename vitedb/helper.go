@@ -30,6 +30,9 @@ var (
 	DBKP_TOKENID_INDEX = "h"
 
 	DBKP_SNAPSHOTTIMESTAMP_INDEX = "i"
+
+	DBKP_ACCOUNTMETA = "a"
+
 )
 
 

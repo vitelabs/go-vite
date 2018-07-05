@@ -1,3 +1,4 @@
 #!/bin/bash
 
-protoc --proto_path=proto --go_out=vitepb account_block_db.proto snapshot_block_db.proto
+protoc --proto_path=proto --go_out=vitepb account_block_db.proto snapshot_block_db.proto account_meta.proto
+

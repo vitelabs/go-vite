@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"encoding/hex"
 )
 
@@ -110,3 +112,12 @@ func GetLDBDataBase (file string) ( *DataBase, error ){
 
 	return ldbDataBaseCache[file], nil
 }
+
+func (db *DataBase) NewIterator() iterator.Iterator {
+	return db.Leveldb.NewIterator(nil, nil)
+}
+
+func (db *DataBase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator {
+	return db.Leveldb.NewIterator(util.BytesPrefix(prefix), nil)
+}
+

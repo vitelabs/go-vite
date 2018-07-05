@@ -288,3 +288,11 @@ func (aca *AccountChainAccess) GetConfirmTimes(confirmSnapshotBlock *ledger.Snap
 	result = result.Sub(latestBlockHeight, confirmSnapshotBlock.Height)
 	return result, nil
 }
+
+func (aca *AccountChainAccess) GetAccountBalance (accountId *big.Int, blockHeight *big.Int) (*big.Int, error) {
+	accountBLock, err := aca.store.GetBlockByHeight(accountId, blockHeight)
+	if err != nil {
+		return nil, err
+	}
+	return accountBLock.Balance, nil
+}
