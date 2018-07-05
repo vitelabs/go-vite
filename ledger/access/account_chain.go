@@ -17,19 +17,15 @@ type AccountChainAccess struct {
 	tokenStore    *vitedb.Token
 }
 
-var _accountChainAccess *AccountChainAccess
+var accountChainAccess = &AccountChainAccess{
+	store:         vitedb.GetAccountChain(),
+	accountStore:  vitedb.GetAccount(),
+	snapshotStore: vitedb.GetSnapshotChain(),
+	tokenStore:    vitedb.GetToken(),
+}
 
 func GetAccountChainAccess() *AccountChainAccess {
-	if _accountChainAccess == nil {
-		_accountChainAccess = &AccountChainAccess{
-			store:         vitedb.GetAccountChain(),
-			accountStore:  vitedb.GetAccount(),
-			snapshotStore: vitedb.GetSnapshotChain(),
-			tokenStore:    vitedb.GetToken(),
-		}
-	}
-
-	return _accountChainAccess
+	return accountChainAccess
 }
 
 func (aca *AccountChainAccess) WriteBlockList(blockList []*ledger.AccountBlock) error {
@@ -52,31 +48,48 @@ func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock) error {
 }
 
 func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
+	accountMeta, err := aca.accountStore.GetAccountMetaByAddress(block.AccountAddress)
+	if err != nil {
+		return err
+	}
 
-	accountMeta := aca.accountStore.GetAccountMeta(block.AccountAddress)
-
-	var lastAccountToken *ledger.AccountSimpleToken
+	var currentAccountToken *ledger.AccountSimpleToken
 	if accountMeta != nil {
 		for _, token := range accountMeta.TokenList {
 			if token.TokenId.String() == block.TokenId.String() {
-				lastAccountToken = token
+				currentAccountToken = token
 				break
 			}
+		}
+	} else if block.FromHash != nil {
+		// Receive block
+		latestAccountID := big.NewInt(1)
+		newAccountId := &big.Int{}
+		newAccountId.Add(latestAccountID, big.NewInt(1))
+
+		currentAccountToken = &ledger.AccountSimpleToken{
+			TokenId: block.TokenId,
+			LastAccountBlockHeight: big.NewInt(1),
+		}
+
+		accountMeta = &ledger.AccountMeta{
+			AccountId: newAccountId,
+			TokenList: []*ledger.AccountSimpleToken{currentAccountToken},
 		}
 	}
 
 	if block.FromHash == nil {
-		// send block
+		// Send block
 		if accountMeta == nil {
 			return errors.New("Write send block failed, because the account does not exist.")
 		}
 
 
-		if lastAccountToken == nil {
+		if currentAccountToken == nil {
 			return errors.New("Write send block failed, because the account does not have this token")
 		}
 
-		lastAccountBlock, err := aca.store.GetBlockByHeight(accountMeta.AccountId, lastAccountToken.LastAccountBlockHeight)
+		lastAccountBlock, err := aca.store.GetBlockByHeight(accountMeta.AccountId, currentAccountToken.LastAccountBlockHeight)
 		if err != nil {
 			return err
 		}
@@ -85,13 +98,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			return errors.New("Write send block failed, because the balance is not enough")
 		}
 	} else {
-		// receive block
-		if accountMeta == nil {
-			accountMeta = &ledger.AccountMeta{}
-			// Write account meta
-			// Write account index
-		}
-
+		// Receive block
 		if bytes.Equal(block.To.Bytes(), []byte{0}) {
 			mintage, err := ledger.NewMintage(block)
 			if err != nil {
@@ -115,7 +122,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 		}
 	}
 
-	// aca.accountStore.WriteAccountMeta()
+	// Write account block
 	latestBlockHeight, err := aca.store.GetLatestBlockHeightByAccountId(accountMeta.AccountId)
 	if err != nil {
 		return err
@@ -127,8 +134,14 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 		return err
 	}
 
+	// Write account meta
+	currentAccountToken.LastAccountBlockHeight = newBlockHeight
+	if err := aca.accountStore.WriteMeta(batch, block.AccountAddress, accountMeta); err != nil {
+		return err
+	}
 
-	// write block meta
+
+	// Write account block meta
 	newBlockMeta := &ledger.AccountBlockMeta {
 		Height: newBlockHeight,
 		AccountId: accountMeta.AccountId,
@@ -159,18 +172,17 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 		return err
 	}
 
-
-	// Write TokenId index
-	latestBlockHeightInToken, err := aca.tokenStore.GetLatestBlockHeightByTokenId(block.TokenId)
-	if err != nil {
-		return err
-	}
-	newBlockHeightInToken := latestBlockHeightInToken.Add(latestBlockHeightInToken, big.NewInt(1))
-
-	if err := aca.tokenStore.WriteTokenIdIndex(batch, block.TokenId, newBlockHeightInToken, block.Hash); err != nil {
-		return err
+	if err := tokenAccess.WriteTokenIdIndex(batch, block); err != nil {
+		return nil
 	}
 
+	if err:= aca.writeStIndex(batch, block); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (aca *AccountChainAccess) writeStIndex (batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	// Write st index
 	stHeight, err := aca.snapshotStore.GetHeightByHash(block.SnapshotTimestamp)
 	if err != nil {
@@ -214,7 +226,10 @@ func (aca *AccountChainAccess) GetBlockByHash(blockHash []byte) (*ledger.Account
 }
 
 func (aca *AccountChainAccess) GetBlockListByAccountAddress(index int, num int, count int, accountAddress *types.Address) ([]*ledger.AccountBlock, error) {
-	accountMeta := aca.accountStore.GetAccountMeta(accountAddress)
+	accountMeta, err := aca.accountStore.GetAccountMetaByAddress(accountAddress)
+	if err != nil {
+		return nil, err
+	}
 
 	return aca.store.GetBlockListByAccountMeta(index, num, count, accountMeta)
 }

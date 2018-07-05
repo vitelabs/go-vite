@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"fmt"
 	"log"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type Account struct {
@@ -28,12 +29,26 @@ func GetAccount () *Account {
 	return _account
 }
 
+func (account *Account) WriteMeta (batch *leveldb.Batch, accountAddress *types.Address, meta *ledger.AccountMeta) error {
+	key, err := createKey(DBKP_ACCOUNTMETA, accountAddress.Bytes())
+	if err != nil {
+		return err
+	}
+	data, err := meta.DbSerialize()
+	if err != nil {
+		return err
+	}
+
+	batch.Put(key, data)
+	return nil
+}
+
 func (account *Account) GetAccountMetaByAddress (hexAddress *types.Address) (*ledger.AccountMeta, error) {
 	keyAccountMeta, ckErr := createKey(DBKP_ACCOUNTMETA, hexAddress.String())
 	if ckErr != nil {
 		return nil, ckErr
 	}
-	data, dgErr := account.db.Leveldb.Get(keyAccountMeta,nil)
+	data, dgErr := account.db.Leveldb.Get(keyAccountMeta, nil)
 	if dgErr != nil {
 		fmt.Println("GetAccountMetaByAddress func db.Get() error:", dgErr)
 		return nil, dgErr
@@ -45,6 +60,17 @@ func (account *Account) GetAccountMetaByAddress (hexAddress *types.Address) (*le
 		return nil, dsErr
 	}
 	return accountMeter, nil
+}
+
+
+func (account *Account) WriteAccountIdIndex (batch *leveldb.Batch, accountId *big.Int, accountAddress *types.Address) error {
+	key, err := createKey(DBKP_ACCOUNTID_INDEX, accountId)
+	if err != nil {
+		return err
+	}
+
+	batch.Put(key, accountAddress.Bytes())
+	return nil
 }
 
 func (account *Account) GetAddressById (accountId *big.Int) (*types.Address, error) {

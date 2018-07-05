@@ -32,7 +32,6 @@ var (
 	DBKP_SNAPSHOTTIMESTAMP_INDEX = "i"
 
 	DBKP_ACCOUNTMETA = "a"
-
 )
 
 
