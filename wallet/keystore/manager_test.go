@@ -39,6 +39,8 @@ func TestStoreAndExtractNewKey(t *testing.T) {
 func TestSignAndVerfify(t *testing.T) {
 	kp := NewManager(&DefaultKeyConfig)
 	kp.Init()
+	status, _ := kp.Status()
+	println(status)
 	for _, v := range kp.ListAddress() {
 		println(v.Hex())
 		outdata, err := kp.SignDataWithPassphrase(v, "123456", []byte(DummySignData))

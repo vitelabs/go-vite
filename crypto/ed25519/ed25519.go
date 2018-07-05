@@ -35,6 +35,8 @@ const (
 	PrivateKeySize = 64
 	// SignatureSize is the size, in bytes, of signatures generated and verified by this package.
 	SignatureSize = 64
+
+	dummyMessage = "vite is best"
 )
 
 // PublicKey is the type of Ed25519 public keys.
@@ -71,6 +73,29 @@ func HexToPublicKey(hexstr string) (PublicKey, error) {
 	}
 	return b, nil
 }
+
+func HexToPrivateKey(hexstr string) (PrivateKey, error) {
+	b, e := hex.DecodeString(hexstr)
+	if e != nil {
+		return nil, e
+	}
+	if len(b) != PrivateKeySize {
+		return nil, fmt.Errorf("wrong private key size %v", len(b))
+	}
+	return b, nil
+}
+
+func IsValidPrivateKey(priv PrivateKey) bool {
+	if l := len(priv); l != PrivateKeySize {
+		return false
+	}
+
+	if Verify(priv.PubByte(), []byte(dummyMessage), Sign(priv, []byte(dummyMessage))) {
+		return true
+	}
+	return false
+}
+
 func (pri PrivateKey) Clear() {
 	for i, _ := range pri {
 		pri[i] = 0

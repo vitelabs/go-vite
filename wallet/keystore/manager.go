@@ -2,6 +2,7 @@ package keystore
 
 import (
 	"errors"
+	"fmt"
 	"github.com/deckarep/golang-set"
 	"github.com/pborman/uuid"
 	"github.com/vitelabs/go-vite/common/types"
@@ -147,6 +148,46 @@ func (km *Manager) StoreNewKey(pwd string) (*Key, types.Address, error) {
 		return nil, types.Address{}, err
 	}
 	return key, key.Address, err
+}
+
+func (km *Manager) ImportPriv(hexPrikey, pwd string) (*Key, types.Address, error) {
+	priv, err := ed25519.HexToPrivateKey(hexPrikey)
+	if err != nil {
+		return nil, types.Address{}, err
+	}
+	if !ed25519.IsValidPrivateKey(priv) {
+		return nil, types.Address{}, fmt.Errorf("invalid prikey")
+	}
+	pub := ed25519.PublicKey(priv.PubByte())
+	key := newKeyFromEd25519(&pub, &priv)
+	addr := types.PrikeyToAddress(priv)
+
+	if err := km.ks.StoreKey(key, pwd); err != nil {
+		return nil, types.Address{}, err
+	}
+	return key, addr, nil
+
+}
+
+func (km *Manager) ExportPriv(address, pwd string) (string, error) {
+	return "", nil
+}
+
+func (km *Manager) Import(json, pwd string) (*Key, types.Address, error) {
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		return nil, types.Address{}, err
+	}
+	key := newKeyFromEd25519(&pub, &priv)
+
+	if err := km.ks.StoreKey(key, pwd); err != nil {
+		return nil, types.Address{}, err
+	}
+	return key, key.Address, err
+}
+
+func (km *Manager) Export(pwd string) (string, error) {
+	return "", nil
 }
 
 func (km *Manager) ExtractKey(a types.Address, pwd string) (types.Address, *Key, error) {

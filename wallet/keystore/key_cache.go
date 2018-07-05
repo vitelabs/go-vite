@@ -52,6 +52,7 @@ func (kc *keyCache) ListAllAddress() mapset.Set {
 }
 
 func (kc *keyCache) refreshAndFixAddressFile() error {
+	log.Debug("refreshAndFixAddressFile")
 	creates, deletes, updates, err := kc.fileC.RefreshCache(kc.keydir)
 	if err != nil {
 		log.Info("Failed refreshCache keydir", "err", err)
@@ -64,18 +65,23 @@ func (kc *keyCache) refreshAndFixAddressFile() error {
 	}
 
 	creates.Each(func(c interface{}) bool {
+		log.Debug("creates ", c)
 		if a, _ := readAndFixAddressFile(c.(string)); a != nil {
+			log.Debug("Get new address", a.Hex())
 			kc.add(*a)
 		}
 		return false
 	})
 	deletes.Each(func(c interface{}) bool {
+		log.Debug("delete ", c)
 		kc.deleteByFile(c.(string))
 		return false
 	})
 	updates.Each(func(c interface{}) bool {
+		log.Debug("updates ", c)
 		kc.deleteByFile(c.(string))
 		if a, _ := readAndFixAddressFile(c.(string)); a != nil {
+			log.Debug("update address", a.Hex())
 			kc.add(*a)
 		}
 		return false
