@@ -29,9 +29,8 @@ func (am *AccountMeta) GetTokenList () []*AccountSimpleToken {
 func (am *AccountMeta) DbSerialize () ([]byte, error) {
 	var pbTokenList []*vitepb.AccountSimpleToken
 	for _, lAccountSimpleToken := range am.TokenList {
-		var sTokenId []byte = lAccountSimpleToken.TokenId[:]
 		pbAccountSimpleToken := &vitepb.AccountSimpleToken{
-			TokenId: sTokenId,
+			TokenId: lAccountSimpleToken.TokenId.Bytes(),
 			LastAccountBlockHeight: lAccountSimpleToken.LastAccountBlockHeight.Bytes(),
 		}
 		pbTokenList = append(pbTokenList, pbAccountSimpleToken)
