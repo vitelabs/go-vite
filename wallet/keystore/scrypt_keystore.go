@@ -56,10 +56,6 @@ func (ks KeyStorePassphrase) ExtractKey(addr types.Address, password string) (*K
 	if err != nil {
 		return nil, err
 	}
-
-	if key.Address != addr || types.PrikeyToAddress(*key.PrivateKey) != addr {
-		return nil, fmt.Errorf("key content mismatch: have HexAddress %x, want %x", key.Address, addr)
-	}
 	return key, nil
 }
 
@@ -135,11 +131,12 @@ func DecryptKey(keyjson []byte, password string) (*Key, error) {
 			fmt.Errorf("address content not equal. In file it is : %s  but generated is : %s",
 				k.HexAddress, generateAddr.Hex())
 	}
-
+	pub := ed25519.PublicKey([]byte(k.HexPubKey))
 	return &Key{
 		Id:         kid,
 		Address:    generateAddr,
 		PrivateKey: &privKey,
+		PublicKey:  &pub,
 	}, nil
 }
 

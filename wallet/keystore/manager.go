@@ -2,7 +2,6 @@ package keystore
 
 import (
 	"errors"
-	"fmt"
 	"github.com/deckarep/golang-set"
 	"github.com/pborman/uuid"
 	"github.com/vitelabs/go-vite/common/types"
@@ -12,8 +11,9 @@ import (
 )
 
 var (
-	ErrLocked  = errors.New("need password or unlock")
-	ErrNotFind = errors.New("not found the give address in any file")
+	ErrLocked        = errors.New("need password or unlock")
+	ErrNotFind       = errors.New("not found the give address in any file")
+	ErrInvalidPrikey = errors.New("invalid prikey")
 )
 
 // Manage keys from various wallet in here we will cache account
@@ -147,47 +147,64 @@ func (km *Manager) StoreNewKey(pwd string) (*Key, types.Address, error) {
 	if err := km.ks.StoreKey(key, pwd); err != nil {
 		return nil, types.Address{}, err
 	}
-	return key, key.Address, err
+	return key, key.Address, nil
 }
 
-func (km *Manager) ImportPriv(hexPrikey, pwd string) (*Key, types.Address, error) {
+func (km *Manager) ImportPriv(hexPrikey, newpwd string) (*Key, types.Address, error) {
 	priv, err := ed25519.HexToPrivateKey(hexPrikey)
 	if err != nil {
 		return nil, types.Address{}, err
 	}
 	if !ed25519.IsValidPrivateKey(priv) {
-		return nil, types.Address{}, fmt.Errorf("invalid prikey")
+		return nil, types.Address{}, ErrInvalidPrikey
 	}
 	pub := ed25519.PublicKey(priv.PubByte())
 	key := newKeyFromEd25519(&pub, &priv)
 	addr := types.PrikeyToAddress(priv)
 
-	if err := km.ks.StoreKey(key, pwd); err != nil {
+	if err := km.ks.StoreKey(key, newpwd); err != nil {
 		return nil, types.Address{}, err
 	}
 	return key, addr, nil
 
 }
 
-func (km *Manager) ExportPriv(address, pwd string) (string, error) {
-	return "", nil
+func (km *Manager) ExportPriv(hexaddr, pwd string) (string, error) {
+	addr, err := types.HexToAddress(hexaddr)
+	if err != nil {
+		return "", err
+	}
+	_, key, err := km.ExtractKey(addr, pwd)
+	if err != nil {
+		return "", err
+	}
+
+	return key.PrivateKey.Hex(), nil
 }
 
-func (km *Manager) Import(json, pwd string) (*Key, types.Address, error) {
-	pub, priv, err := ed25519.GenerateKey(nil)
+func (km *Manager) Import(keyjson, originPwd, newPwd string) (*Key, types.Address, error) {
+	key, err := DecryptKey([]byte(keyjson), originPwd)
 	if err != nil {
 		return nil, types.Address{}, err
 	}
-	key := newKeyFromEd25519(&pub, &priv)
-
-	if err := km.ks.StoreKey(key, pwd); err != nil {
-		return nil, types.Address{}, err
-	}
-	return key, key.Address, err
+	km.ks.StoreKey(key, newPwd)
+	return key, key.Address, nil
 }
 
-func (km *Manager) Export(pwd string) (string, error) {
-	return "", nil
+func (km *Manager) Export(hexaddr, originPwd, newPwd string) (string, error) {
+	addr, err := types.HexToAddress(hexaddr)
+	if err != nil {
+		return "", err
+	}
+	_, key, err := km.ExtractKey(addr, originPwd)
+	if err != nil {
+		return "", err
+	}
+	keyjson, err := EncryptKey(key, newPwd)
+	if err != nil {
+		return "", err
+	}
+	return string(keyjson), nil
 }
 
 func (km *Manager) ExtractKey(a types.Address, pwd string) (types.Address, *Key, error) {
