@@ -21,6 +21,7 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
 	"golang.org/x/crypto/blake2b"
 	"io"
@@ -34,6 +35,8 @@ const (
 	PrivateKeySize = 64
 	// SignatureSize is the size, in bytes, of signatures generated and verified by this package.
 	SignatureSize = 64
+
+	dummyMessage = "vite is best"
 )
 
 // PublicKey is the type of Ed25519 public keys.
@@ -54,8 +57,49 @@ func (priv PrivateKey) PubByte() []byte {
 	return publicKey
 }
 
-func (priv PrivateKey) HexStr() string {
+func (priv PrivateKey) Hex() string {
 	return hex.EncodeToString(priv)
+}
+func (pub PublicKey) Hex() string {
+	return hex.EncodeToString(pub)
+}
+func HexToPublicKey(hexstr string) (PublicKey, error) {
+	b, e := hex.DecodeString(hexstr)
+	if e != nil {
+		return nil, e
+	}
+	if len(b) != PublicKeySize {
+		return nil, fmt.Errorf("wrong pubkey size %v", len(b))
+	}
+	return b, nil
+}
+
+func HexToPrivateKey(hexstr string) (PrivateKey, error) {
+	b, e := hex.DecodeString(hexstr)
+	if e != nil {
+		return nil, e
+	}
+	if len(b) != PrivateKeySize {
+		return nil, fmt.Errorf("wrong private key size %v", len(b))
+	}
+	return b, nil
+}
+
+func IsValidPrivateKey(priv PrivateKey) bool {
+	if l := len(priv); l != PrivateKeySize {
+		return false
+	}
+
+	if Verify(priv.PubByte(), []byte(dummyMessage), Sign(priv, []byte(dummyMessage))) {
+		return true
+	}
+	return false
+}
+
+func (pri PrivateKey) Clear() {
+	for i, _ := range pri {
+		pri[i] = 0
+	}
 }
 
 // Sign signs the given message with priv.

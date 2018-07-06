@@ -11,7 +11,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"go-vite/crypto/ed25519/internal/edwards25519"
+	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
 )
 
 type zeroReader struct{}
@@ -38,6 +38,19 @@ func UnmarshalMarshal(pub []byte, t *testing.T) {
 
 	if pubBytes != pub2 {
 		t.Errorf("FromBytes(%v)->ToBytes does not round-trip, got %x\n", pubBytes, pub2)
+	}
+}
+
+func TestIsValidPrivateKey(t *testing.T) {
+	if IsValidPrivateKey([]byte("123")) {
+		t.Fatal()
+	}
+	if IsValidPrivateKey([]byte("1234567812345678123456781234567812345678123456781234567812345678")) {
+		t.Fatal()
+	}
+	_, pri, _ := GenerateKey(rand.Reader)
+	if !IsValidPrivateKey(pri) {
+		t.Fatal()
 	}
 }
 
