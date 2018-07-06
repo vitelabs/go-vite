@@ -64,12 +64,11 @@ func (sbc *SnapshotChain) GetBlockList (index, num, count int) ([]*ledger.Snapsh
 	iter := sbc.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
 	var blockList []*ledger.SnapshotBlock
-	i := 0
-	for iter.Next() {
+	if !iter.Last() {
+		return nil, errors.New("GetBlockList failed. Cause the SnapshotChain has no block")
+	}
+	for i := 0; i < (index+num)*count; i++ {
 		if i >= index*count {
-			if i >= (index+num)*count {
-				break
-			}
 			snapshotBLock := &ledger.SnapshotBlock{}
 			dsErr := snapshotBLock.DbDeserialize(iter.Value())
 			if dsErr != nil {
@@ -77,7 +76,12 @@ func (sbc *SnapshotChain) GetBlockList (index, num, count int) ([]*ledger.Snapsh
 			}
 			blockList = append(blockList, snapshotBLock)
 		}
-		i++
+		if !iter.Prev() {
+			if err := iter.Error(); err != nil {
+				return nil, err
+			}
+			break
+		}
 	}
 	return blockList, nil
 }
@@ -153,6 +157,10 @@ func (sbc *SnapshotChain) WriteBlock (block *ledger.SnapshotBlock) error {
 	//}
 	//
 	//sbc.db.Put(key, data)
+	return nil
+}
+
+func (sbc *SnapshotChain) WriteBlockHeight (block *ledger.SnapshotBlock, ) error {
 	return nil
 }
 
