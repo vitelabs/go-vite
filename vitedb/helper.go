@@ -6,12 +6,13 @@ import (
 	"errors"
 	"strings"
 	"encoding/hex"
+	"bytes"
 )
 
 // DBK = database key, DBKP = database key prefix
 var (
 	DBK_DOT = []byte(".")
-
+	DBK_UNDERLINE = []byte("_")
 
 	DBKP_ACCOUNTID_INDEX = "j"
 
@@ -51,15 +52,15 @@ func createKey (keyPartionList... interface{}) ([]byte, error){
 		case string:
 			keyPartionString := keyPartion.(string)
 			if strings.Contains(keyPartionString, ".") {
-				return nil, errors.New("createKey failed. Key must not contains dot(\".\")")
+				return nil, errors.New("CreateKey failed. Key must not contains dot(\".\")")
 			}
 			bytes = []byte(keyPartionString)
 
 		case *big.Int:
 			hex.Encode(bytes, keyPartion.(*big.Int).Bytes())
-			bytes = append(DBK_DOT, bytes...)
+			bytes = append(DBK_UNDERLINE, bytes...)
 		default:
-			return nil, errors.New("createKey failed. Key must be big.Int or string type")
+			return nil, errors.New("CreateKey failed. Key must be big.Int or string type")
 		}
 
 		key = append(key, bytes...)
@@ -69,6 +70,24 @@ func createKey (keyPartionList... interface{}) ([]byte, error){
 	}
 
 	return key, nil
+}
+
+func deserializeKey(key []byte) [][]byte  {
+	bytesList := bytes.Split(key, DBK_DOT)
+	var parsedBytesList [][]byte
+	for i := 1; i < len(bytesList); i++ {
+		bytes := bytesList[i]
+		if bytes[0] == DBK_UNDERLINE[0] {
+			// big.Int
+			bytes = bytes[1:]
+		}
+
+		var parsedBytes []byte
+		hex.Decode(parsedBytes, bytes)
+
+		parsedBytesList = append(parsedBytesList, parsedBytes)
+	}
+	return parsedBytesList
 }
 
 type batchContext struct {

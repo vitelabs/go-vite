@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 type Account struct {
@@ -60,6 +61,32 @@ func (account *Account) GetAccountMetaByAddress (hexAddress *types.Address) (*le
 		return nil, dsErr
 	}
 	return accountMeter, nil
+}
+
+func (account *Account) GetLastAccountId () (*big.Int, error){
+	key, err:= createKey(DBKP_ACCOUNTID_INDEX, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	iter := account.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
+
+	if !iter.Last() {
+		return nil, nil
+	}
+
+
+	lastKey := iter.Key()
+	partionList := deserializeKey(lastKey)
+
+	if partionList == nil {
+		return big.NewInt(0), nil
+	}
+
+	accountId := &big.Int{}
+	accountId.SetBytes(partionList[0])
+
+	return accountId, nil
 }
 
 

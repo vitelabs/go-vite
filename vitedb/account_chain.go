@@ -96,6 +96,16 @@ func (ac * AccountChain) GetBlockByHeight (accountId *big.Int, blockHeight *big.
 	return accountBlock, err
 }
 
+func (ac *AccountChain) GetLatestBlockByAccountId (accountId *big.Int) (*ledger.AccountBlock, error){
+
+	latestBlockHeight, err := ac.GetLatestBlockHeightByAccountId(accountId)
+	if err != nil {
+		return nil, err
+	}
+
+	return ac.GetBlockByHeight(accountId, latestBlockHeight)
+}
+
 func (ac *AccountChain) GetLatestBlockHeightByAccountId (accountId *big.Int) (* big.Int, error){
 	key, err:= createKey(DBKP_ACCOUNTBLOCK, accountId, nil)
 	if err != nil {
@@ -105,7 +115,7 @@ func (ac *AccountChain) GetLatestBlockHeightByAccountId (accountId *big.Int) (* 
 	iter := ac.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
 
-	if iter.Last() {
+	if !iter.Last() {
 		return nil, errors.New("GetLatestBlockHeightByAccountId failed, because account " + accountId.String() + " doesn't exist.")
 	}
 
@@ -131,7 +141,7 @@ func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int
 	var blockList []*ledger.AccountBlock
 
 	for i:=0; i < num * count; i ++ {
-		if iter.Prev() {
+		if !iter.Prev() {
 			break
 		}
 
@@ -188,6 +198,7 @@ func (ac *AccountChain) GetLastIdByStHeight (stHeight *big.Int) (*big.Int, error
 	}
 
 	iter := ac.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
+	defer iter.Release()
 	if !iter.Last() {
 		return nil, nil
 	}
@@ -205,19 +216,21 @@ func (ac *AccountChain) GetBlockHashList (index, num, count int) ([][]byte, erro
 	}
 
 	iter := ac.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
+	defer iter.Release()
+
 	if !iter.Last() {
 		return nil, nil
 	}
 
 	for i:=0; i < index * count; i++ {
-		if iter.Prev() {
+		if !iter.Prev() {
 			return nil, nil
 		}
 	}
 
 	var blocHashList [][]byte
 	for i:=0; i < num * count; i++ {
-		if iter.Prev() {
+		if !iter.Prev() {
 			break
 		}
 

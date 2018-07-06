@@ -6,7 +6,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"math/big"
 	"github.com/syndtr/goleveldb/leveldb"
-	"bytes"
 	"github.com/vitelabs/go-vite/common/types"
 )
 
@@ -153,13 +152,12 @@ func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count i
 		return nil, err
 	}
 
-	startIndex := latestBlockHeight.Sub(latestBlockHeight, big.NewInt(int64(index*count)))
-
-	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.String(), startIndex)
+	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.String(), latestBlockHeight)
 
 	if err != nil {
 		return nil, err
 	}
+
 	iter := token.db.Leveldb.NewIterator(&util.Range{Start: key}, nil)
 	defer iter.Release()
 
@@ -168,14 +166,19 @@ func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count i
 	}
 
 	var blockHashList [][]byte
+	for i := 0; i < (num + index) * count; i ++ {
+		if !iter.Prev() {
+			return blockHashList, nil
+		}
+	}
 	for i := 0; i < num*count; i++ {
-		if iter.Prev() {
+		if !iter.Prev() {
+			if err := iter.Error(); err != nil {
+				return nil, err
+			}
 			break
 		}
 
-		if err := iter.Error(); err != nil {
-			return nil, err
-		}
 		blockHash := iter.Value()
 		blockHashList = append(blockHashList, blockHash)
 	}
@@ -192,14 +195,14 @@ func (token *Token) getTopId(key []byte) *big.Int {
 	}
 
 	lastKey := iter.Key()
-	partionList := bytes.Split(lastKey, []byte(".."))
+	partionList := deserializeKey(lastKey)
 
-	if len(partionList) == 1 {
+	if partionList == nil {
 		return big.NewInt(0)
 	}
 
 	count := &big.Int{}
-	count.SetBytes(partionList[1])
+	count.SetBytes(partionList[0])
 
 	return count
 }
@@ -221,7 +224,6 @@ func (token *Token) getTokenSymbolCurrentTopId(tokenSymbol string) (*big.Int, er
 	}
 
 	return token.getTopId(key), nil
-
 }
 
 func (token *Token) WriteTokenIdIndex(batch *leveldb.Batch, tokenId *types.TokenTypeId, blockHeightInToken *big.Int, accountBlockHash []byte) error {

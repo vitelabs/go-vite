@@ -17,10 +17,6 @@ type AccountMeta struct {
 	TokenList []*AccountSimpleToken
 }
 
-func (*AccountMeta) DbSerialize () ([]byte, error)  {
-	return nil, nil
-}
-
 type Account struct {
 	AccountMeta
 	BlockHeight *big.Int

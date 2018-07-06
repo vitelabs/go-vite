@@ -41,10 +41,11 @@ func (*viteComparer) Successor (dst, b []byte) []byte {
 func GetBigIntBytesList (key []byte) [][]byte {
 	var temp, tempKey []byte
 	var bigIntBytesList [][]byte
-	for _, oneByte := range key {
+	keyMaxIndex := len(key) - 1
+	for index, oneByte := range key {
 		tempLength := len(temp)
-		if oneByte == DBK_DOT[0] {
-			if tempLength == 2 {
+		if oneByte == DBK_UNDERLINE[0] || index == keyMaxIndex {
+			if tempLength == 1 {
 				var bigIntBytes []byte
 				hex.Decode(bigIntBytes, tempKey)
 				bigIntBytesList = append(bigIntBytesList, bigIntBytes)
@@ -55,8 +56,6 @@ func GetBigIntBytesList (key []byte) [][]byte {
 				temp = append(temp, oneByte)
 			}
 		} else if tempLength == 1 {
-			temp = nil
-		} else if tempLength == 2 {
 			tempKey = append(tempKey, oneByte)
 		}
 	}
