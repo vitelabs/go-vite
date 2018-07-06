@@ -110,3 +110,4 @@ func GetLDBDataBase (file string) ( *DataBase, error ){
 
 	return ldbDataBaseCache[file], nil
 }
+

@@ -98,7 +98,7 @@ func (token *Token) GetTokenIdList(index int, num int, count int) ([]*types.Toke
 
 	key, err := createKey(DBKP_TOKENID_INDEX, nil)
 	if err != nil {
-		return nil, err;
+		return nil, err
 	}
 	iter := reader.NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()

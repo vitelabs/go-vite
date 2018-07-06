@@ -175,3 +175,4 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 
 	return nil
 }
+
