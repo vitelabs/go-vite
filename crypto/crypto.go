@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	crand "crypto/rand"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"io"
 )
 
@@ -68,4 +69,8 @@ func GetEntropyCSPRNG(n int) []byte {
 		panic("reading from crypto/rand failed: " + err.Error())
 	}
 	return mainBuff
+}
+
+func VerifySig(pubkey *ed25519.PublicKey, message, data []byte) bool {
+	return ed25519.Verify(*pubkey, message, data)
 }

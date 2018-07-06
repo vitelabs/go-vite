@@ -12,13 +12,13 @@ import (
 
 const (
 	AddressPrefix       = "vite_"
-	addressSize         = 20
+	AddressSize         = 20
 	addressChecksumSize = 5
 	addressPrefixLen    = len(AddressPrefix)
-	hexAddressLength    = addressPrefixLen + 2*addressSize + 2*addressChecksumSize
+	hexAddressLength    = addressPrefixLen + 2*AddressSize + 2*addressChecksumSize
 )
 
-type Address [addressSize]byte
+type Address [AddressSize]byte
 
 func BytesToAddress(b []byte) (Address, error) {
 	var a Address
@@ -59,7 +59,7 @@ func IsValidHexAddress(hexStr string) bool {
 }
 
 func PubkeyToAddress(pubkey []byte) Address {
-	addr, _ := BytesToAddress(vcrypto.Hash(addressSize, pubkey))
+	addr, _ := BytesToAddress(vcrypto.Hash(AddressSize, pubkey))
 	return addr
 }
 
@@ -67,11 +67,11 @@ func PrikeyToAddress(key ed25519.PrivateKey) Address {
 	return PubkeyToAddress(key.PubByte())
 }
 
-func (a *Address) SetBytes(b []byte) error {
-	if length := len(b); length != addressSize {
+func (addr *Address) SetBytes(b []byte) error {
+	if length := len(b); length != AddressSize {
 		return fmt.Errorf("address bytes length error %v", length)
 	}
-	copy(a[:], b)
+	copy(addr[:], b)
 	return nil
 }
 
@@ -79,8 +79,8 @@ func (addr Address) Hex() string {
 	return AddressPrefix + hex.EncodeToString(addr[:]) + hex.EncodeToString(vcrypto.Hash(addressChecksumSize, addr[:]))
 }
 func (addr Address) Bytes() []byte { return addr[:] }
-func (a Address) String() string {
-	return a.Hex()
+func (addr Address) String() string {
+	return addr.Hex()
 }
 
 func CreateAddress() (Address, ed25519.PrivateKey, error) {
@@ -93,14 +93,14 @@ func CreateAddressWithDeterministic(d [32]byte) (Address, ed25519.PrivateKey, er
 	return PubkeyToAddress(pub), pri, error
 }
 
-func getAddressFromHex(hexStr string) ([addressSize]byte, error) {
-	var b [addressSize]byte
-	_, err := hex.Decode(b[:], []byte(hexStr[addressPrefixLen:2*addressSize+addressPrefixLen]))
+func getAddressFromHex(hexStr string) ([AddressSize]byte, error) {
+	var b [AddressSize]byte
+	_, err := hex.Decode(b[:], []byte(hexStr[addressPrefixLen:2*AddressSize+addressPrefixLen]))
 	return b, err
 }
 
 func getAddressChecksumFromHex(hexStr string) ([addressChecksumSize]byte, error) {
 	var b [addressChecksumSize]byte
-	_, err := hex.Decode(b[:], []byte(hexStr[2*addressSize+addressPrefixLen:]))
+	_, err := hex.Decode(b[:], []byte(hexStr[2*AddressSize+addressPrefixLen:]))
 	return b, err
 }

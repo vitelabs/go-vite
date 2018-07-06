@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+//TODO  We don`t support user-defined keystore filename temporarily
+
 const (
 	// StandardScryptN is the N parameter of Scrypt encryption algorithm, using 256MB
 	// memory and taking approximately 1s CPU time on a modern processor.
@@ -40,12 +42,12 @@ const (
 	scryptName = "scrypt"
 )
 
-type keyStorePassphrase struct {
+type KeyStorePassphrase struct {
 	keysDirPath string
 }
 
-func (ks keyStorePassphrase) ExtractKey(addr types.Address, password string) (*Key, error) {
-	keyjson, err := ioutil.ReadFile(ks.fullKeyFileName(addr))
+func (ks KeyStorePassphrase) ExtractKey(addr types.Address, password string) (*Key, error) {
+	keyjson, err := ioutil.ReadFile(fullKeyFileName(ks.keysDirPath, addr))
 	if err != nil {
 		return nil, err
 	}
@@ -54,19 +56,15 @@ func (ks keyStorePassphrase) ExtractKey(addr types.Address, password string) (*K
 	if err != nil {
 		return nil, err
 	}
-
-	if key.Address != addr || types.PrikeyToAddress(*key.PrivateKey) != addr {
-		return nil, fmt.Errorf("key content mismatch: have HexAddress %x, want %x", key.Address, addr)
-	}
 	return key, nil
 }
 
-func (ks keyStorePassphrase) StoreKey(key *Key, password string) error {
+func (ks KeyStorePassphrase) StoreKey(key *Key, password string) error {
 	keyjson, err := EncryptKey(key, password)
 	if err != nil {
 		return err
 	}
-	return writeKeyFile(ks.fullKeyFileName(key.Address), keyjson)
+	return writeKeyFile(fullKeyFileName(ks.keysDirPath, key.Address), keyjson)
 }
 
 func DecryptKey(keyjson []byte, password string) (*Key, error) {
@@ -133,11 +131,12 @@ func DecryptKey(keyjson []byte, password string) (*Key, error) {
 			fmt.Errorf("address content not equal. In file it is : %s  but generated is : %s",
 				k.HexAddress, generateAddr.Hex())
 	}
-
+	pub := ed25519.PublicKey([]byte(k.HexPubKey))
 	return &Key{
 		Id:         kid,
 		Address:    generateAddr,
 		PrivateKey: &privKey,
+		PublicKey:  &pub,
 	}, nil
 }
 
@@ -176,6 +175,7 @@ func EncryptKey(key *Key, password string) ([]byte, error) {
 	encryptedKeyJSON := encryptedKeyJSON{
 
 		HexAddress: key.Address.Hex(),
+		HexPubKey:  key.PublicKey.Hex(),
 		Crypto:     cryptoJSON,
 		Id:         key.Id.String(),
 		Version:    keystoreVersion,
@@ -186,27 +186,20 @@ func EncryptKey(key *Key, password string) ([]byte, error) {
 }
 
 func writeKeyFile(file string, content []byte) error {
-	// Create the keystore directory with appropriate permissions
-	// in case it is not present yet.
-	const dirPerm = 0700
-	if err := os.MkdirAll(filepath.Dir(file), dirPerm); err != nil {
+
+	if err := os.MkdirAll(filepath.Dir(file), 0700); err != nil {
 		return err
 	}
-	// Atomic write: create a temporary hidden file first
-	// then move it into place. TempFile assigns mode 0600.
+
 	f, err := ioutil.TempFile(filepath.Dir(file), "."+filepath.Base(file)+".tmp")
+	defer f.Close()
 	if err != nil {
 		return err
 	}
+
 	if _, err := f.Write(content); err != nil {
-		f.Close()
 		os.Remove(f.Name())
 		return err
 	}
-	f.Close()
 	return os.Rename(f.Name(), file)
-}
-
-func (ks keyStorePassphrase) fullKeyFileName(keyAddr types.Address) string {
-	return ks.keysDirPath + "/v-i-t-e-" + hex.EncodeToString(keyAddr[:])
 }

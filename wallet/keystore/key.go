@@ -3,9 +3,9 @@ package keystore
 import (
 	"errors"
 	"github.com/pborman/uuid"
-	"strconv"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"strconv"
 )
 
 const (
@@ -22,11 +22,13 @@ type keyStore interface {
 type Key struct {
 	Id         uuid.UUID
 	Address    types.Address
+	PublicKey  *ed25519.PublicKey
 	PrivateKey *ed25519.PrivateKey
 }
 
 type encryptedKeyJSON struct {
 	HexAddress string     `json:"hexaddress"`
+	HexPubKey  string     `json:"hexpubkey"`
 	Id         string     `json:"id"`
 	Crypto     cryptoJSON `json:"crypto"`
 	Version    int        `json:"keystoreversion"`

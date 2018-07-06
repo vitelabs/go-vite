@@ -1,6 +1,6 @@
 package wallet
 
-import "github.com/vitelabs/go-vite/common"
+import "github.com/vitelabs/go-vite/common/types"
 
 type Wallet interface {
 	Status() (string, error)
@@ -14,5 +14,5 @@ type Wallet interface {
 	// use cached priv to sign data if the priv of address binding has`t evet
 	SignData(a types.Address, data []byte) ([]byte, error)
 
-	SignDataWithPassphrase(a types.Address, passphrase, data []byte) ([]byte, error)
+	SignDataWithPassphrase(a types.Address, passphrase string, data []byte) ([]byte, error)
 }

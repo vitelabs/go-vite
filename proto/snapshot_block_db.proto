@@ -3,9 +3,12 @@ syntax="proto3";
 package vitepb;
 
 message SnapshotBlock {
-    bytes prevHash = 1;
-    bytes blockNum = 2;
-    bytes producer = 3;
-    map<string, bytes> snapshot = 4;
-    bytes signature = 5;
+    bytes hash = 1;
+    bytes prevHash = 2;
+    bytes height = 3;
+    bytes producer = 4;
+    map<string, bytes> snapshot = 5;
+    bytes signature = 6;
+    uint64 timestamp = 7;
+    bytes amount = 8;
 }
