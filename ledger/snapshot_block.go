@@ -39,11 +39,13 @@ func (sb *SnapshotBlock) DbDeserialize (buf []byte) error {
 	}
 	sb.Hash = snapshotBlockPB.Hash
 	sb.PrevHash = snapshotBlockPB.PrevHash
+	sb.Height = &big.Int{}
 	sb.Height.SetBytes(snapshotBlockPB.Height)
 	sb.Producer = snapshotBlockPB.Producer
 	sb.Snapshot = snapshotBlockPB.Snapshot
 	sb.Signature = snapshotBlockPB.Signature
 	sb.Timestamp = snapshotBlockPB.Timestamp
+	sb.Amount = &big.Int{}
 	sb.Amount.SetBytes(snapshotBlockPB.Amount)
 	return nil
 }
