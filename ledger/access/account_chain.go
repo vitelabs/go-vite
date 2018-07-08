@@ -139,7 +139,7 @@ func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock) error {
 
 func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.AccountBlock) (result error) {
 	accountMeta, err := aca.accountStore.GetAccountMetaByAddress(block.AccountAddress)
-	if err != nil {
+	if err != nil && err != leveldb.ErrNotFound{
 		return err
 	}
 
@@ -152,6 +152,9 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	defer aca.bwMutex.UnLock(block, result)
 
 	var currentAccountToken *ledger.AccountSimpleToken
+
+	isGenesisBlock :=  block.AccountAddress.String() == ledger.GenesisAccount.String()
+
 	if accountMeta != nil {
 		// Get token info of account
 		for _, token := range accountMeta.TokenList {
@@ -160,57 +163,78 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 				break
 			}
 		}
-	} else if block.FromHash != nil {
+	} else if block.FromHash != nil || isGenesisBlock {
 		// If account doesn't exist and the block is a response block, we must create account
-		latestAccountID, err := aca.accountStore.GetLastAccountId()
+		lastAccountID, err := aca.accountStore.GetLastAccountId()
 		if err != nil {
 			return  err
 		}
 
+		if lastAccountID == nil {
+			lastAccountID = big.NewInt(0)
+		}
+
 		newAccountId := &big.Int{}
-		newAccountId.Add(latestAccountID, big.NewInt(1))
+		newAccountId.Add(lastAccountID, big.NewInt(1))
 
 		// Set currentAccountToken when create account
-		currentAccountToken = &ledger.AccountSimpleToken{
-			TokenId: block.TokenId,
-			LastAccountBlockHeight: big.NewInt(1),
+		if block.TokenId != nil {
+			currentAccountToken = &ledger.AccountSimpleToken{
+				TokenId: block.TokenId,
+				LastAccountBlockHeight: big.NewInt(1),
+			}
 		}
 
 		// Create account meta which will be write to database later
 		accountMeta = &ledger.AccountMeta{
 			AccountId: newAccountId,
-			TokenList: []*ledger.AccountSimpleToken{currentAccountToken},
+			TokenList: []*ledger.AccountSimpleToken{},
+		}
+
+		if currentAccountToken != nil {
+			accountMeta.TokenList = append(accountMeta.TokenList, currentAccountToken)
 		}
 	}
 
-	if block.FromHash == nil {
-		// Send block
-		if accountMeta == nil {
-			return errors.New("Write send block failed, because the account does not exist.")
-		}
+	var prevAccountBlockInToken *ledger.AccountBlock
 
-		if currentAccountToken == nil {
-			return errors.New("Write send block failed, because the account does not have this token")
-		}
+	if currentAccountToken != nil {
+		prevAccountBlockInToken, err = aca.store.GetBlockByHeight(accountMeta.AccountId, currentAccountToken.LastAccountBlockHeight)
 
-		lastAccountBlock, err := aca.store.GetBlockByHeight(accountMeta.AccountId, currentAccountToken.LastAccountBlockHeight)
 		if err != nil {
 			return err
 		}
+	}
 
-		if lastAccountBlock == nil || block.Amount.Cmp(lastAccountBlock.Balance) > 0 {
-			return errors.New("Write send block failed, because the balance is not enough")
-		}
-	} else {
-		// Response block
-		if bytes.Equal(block.To.Bytes(), []byte{0}) {
-			mintage, err := ledger.NewMintage(block)
-			if err != nil {
-				return err
+
+
+	if block.FromHash == nil {
+		// Send block
+
+		if !isGenesisBlock {
+			if accountMeta == nil  {
+				return errors.New("Write send block failed, because the account does not exist.")
 			}
 
-			// Write Mintage
-			if err := aca.tokenStore.WriteTokenIdIndex(batch, mintage.Id, big.NewInt(0), block.Hash); err != nil {
+			if currentAccountToken == nil {
+				return errors.New("Write send block failed, because the account does not have this token")
+			}
+
+
+			if  prevAccountBlockInToken == nil || block.Amount.Cmp(prevAccountBlockInToken.Balance) > 0 {
+				return errors.New("Write send block failed, because the balance is not enough")
+			}
+		}
+
+
+		// Sub balance
+		if block.Amount != nil {
+			block.Balance.Sub(prevAccountBlockInToken.Balance, block.Amount)
+		}
+
+		if bytes.Equal(block.To.Bytes(), ledger.MintageAddress.Bytes()) {
+			mintage, err := ledger.NewMintage(block)
+			if err != nil {
 				return err
 			}
 
@@ -223,13 +247,57 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			if err := aca.tokenStore.WriteTokenSymbolIndex(batch, mintage.Symbol, mintage.Id); err != nil{
 				return err
 			}
+
 		}
+
+	} else {
+		// Response block
+		fromBlock, err := aca.store.GetBlockByHash(block.FromHash)
+		if err != nil {
+			return err
+		}
+		if fromBlock == nil{
+			return errors.New("Write receive block failed, because the from block is not exist")
+		}
+
+		amount :=  fromBlock.Amount
+		if bytes.Equal(fromBlock.To.Bytes(), ledger.MintageAddress.Bytes()) {
+			mintage, err := ledger.NewMintage(fromBlock)
+
+			if err != nil {
+				return err
+			}
+
+			if mintage.Owner != block.AccountAddress {
+				return errors.New("You are not the owner of this token.")
+			}
+
+
+			amount = mintage.TotalSupply
+			for i :=0 ; i < mintage.Decimals; i++ {
+				amount.Mul(amount, big.NewInt(10))
+			}
+		}
+
+		// Add balance
+		prevBalance := big.NewInt(0)
+		if prevAccountBlockInToken != nil {
+			prevBalance = prevAccountBlockInToken.Balance
+		}
+
+
+
+		block.Balance.Add(prevBalance, amount)
 	}
 
 	// Write account block
 	latestBlockHeight, err := aca.store.GetLatestBlockHeightByAccountId(accountMeta.AccountId)
 	if err != nil {
 		return err
+	}
+
+	if latestBlockHeight == nil {
+		latestBlockHeight = big.NewInt(0)
 	}
 
 	newBlockHeight := latestBlockHeight.Add(latestBlockHeight, big.NewInt(1))
@@ -239,7 +307,9 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	}
 
 	// Write account meta
-	currentAccountToken.LastAccountBlockHeight = newBlockHeight
+	if currentAccountToken != nil {
+		currentAccountToken.LastAccountBlockHeight = newBlockHeight
+	}
 	if err := aca.accountStore.WriteMeta(batch, block.AccountAddress, accountMeta); err != nil {
 		return err
 	}
@@ -300,9 +370,13 @@ func (aca *AccountChainAccess) writeBlockMeta (batch *leveldb.Batch, block *ledg
 func (aca *AccountChainAccess) writeTii (batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	// Write TokenId index
 	latestBlockHeightInToken, err := aca.tokenStore.GetLatestBlockHeightByTokenId(block.TokenId)
-	if err != nil {
+
+	if err == leveldb.ErrNotFound {
+		latestBlockHeightInToken = big.NewInt(-1)
+	} else if err != nil {
 		return err
 	}
+
 	newBlockHeightInToken := latestBlockHeightInToken.Add(latestBlockHeightInToken, big.NewInt(1))
 
 	if err := aca.tokenStore.WriteTokenIdIndex(batch, block.TokenId, newBlockHeightInToken, block.Hash); err != nil {
@@ -311,7 +385,7 @@ func (aca *AccountChainAccess) writeTii (batch *leveldb.Batch, block *ledger.Acc
 	return nil
 }
 
-// Temporay code
+// Temporary code
 type stIdCacheBody struct {
 	LastStId *big.Int
 }
@@ -346,9 +420,6 @@ func (aca *AccountChainAccess) getNewLastStId (block *ledger.AccountBlock) (*big
 	}
 
 	// Write st index
-
-
-
 	cacheBody.LastStId.Add(cacheBody.LastStId, big.NewInt(1))
 
 	return cacheBody.LastStId, nil

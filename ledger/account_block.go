@@ -111,10 +111,6 @@ func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 		PrevHash: ab.PrevHash,
 		FromHash: ab.FromHash,
 
-		TokenId: ab.TokenId.Bytes(),
-
-		Balance: ab.Balance.Bytes(),
-
 		Timestamp: ab.Timestamp,
 		Data: ab.Data,
 		SnapshotTimestamp: ab.SnapshotTimestamp,
@@ -123,8 +119,18 @@ func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 
 		Nounce: ab.Nounce,
 		Difficulty: ab.Difficulty,
+	}
 
-		FAmount: ab.FAmount.Bytes(),
+	if ab.TokenId != nil {
+		accountBlockPB.TokenId = ab.TokenId.Bytes()
+	}
+
+	if ab.Balance != nil {
+		accountBlockPB.Balance = ab.Balance.Bytes()
+	}
+
+	if ab.FAmount != nil {
+		accountBlockPB.FAmount = ab.FAmount.Bytes()
 	}
 
 	return proto.Marshal(accountBlockPB)
@@ -174,5 +180,31 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 	ab.FAmount.SetBytes(accountBlockPB.FAmount)
 
 	return nil
+}
+
+func GetGenesisBlocks () ([]*AccountBlock){
+	viteMintageBlock := &AccountBlock{
+		AccountAddress: &GenesisAccount,
+		To: 			&MintageAddress,
+
+		Hash:           []byte("000000000000000000"),             // mock
+		Data: "{" +
+			"\"tokenName\": \"vite\"," +
+			"\"tokenSymbol\": \"VITE\"," +
+			"\"owner\":\""+ GenesisAccount.String() +"\"," +
+			"\"decimals\": 18," +
+			"\"totalSupply\": \"1000000000\"" +
+			"}",
+	}
+
+	genesisAccountBlock := &AccountBlock{
+		AccountAddress: &GenesisAccount,
+		FromHash: []byte("000000000000000000"),
+		PrevHash: []byte("000000000000000000"),
+
+		Hash: []byte("000000000000000001"),
+	}
+
+	return []*AccountBlock{viteMintageBlock, genesisAccountBlock}
 }
 

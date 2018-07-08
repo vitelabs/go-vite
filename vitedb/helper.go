@@ -38,33 +38,48 @@ var (
 
 func createKey (keyPartionList... interface{}) ([]byte, error){
 	key := []byte{}
-	len := len(keyPartionList)
+	keyPartionListLen := len(keyPartionList)
 
 	// Temporary: converting ascii code of hex string to bytes, takes up twice as much space,
 	// to avoid dot ascii code appear that are separator of leveldb key.
 	for index, keyPartion := range keyPartionList {
-		var bytes []byte
+		var bytes *[]byte
 
 		switch keyPartion.(type) {
 		case []byte:
-			hex.Encode(bytes, keyPartion.([]byte))
+			src := keyPartion.([]byte)
+
+			dst := make([]byte, hex.EncodedLen(len(src)))
+			hex.Encode(dst, src)
+			bytes = &dst
 
 		case string:
 			keyPartionString := keyPartion.(string)
 			if strings.Contains(keyPartionString, ".") {
 				return nil, errors.New("CreateKey failed. Key must not contains dot(\".\")")
 			}
-			bytes = []byte(keyPartionString)
+			dst := []byte(keyPartionString)
+			bytes = &dst
 
 		case *big.Int:
-			hex.Encode(bytes, keyPartion.(*big.Int).Bytes())
-			bytes = append(DBK_UNDERLINE, bytes...)
+			src := keyPartion.(*big.Int).Bytes()
+
+			dst := make([]byte, hex.EncodedLen(len(src)))
+			hex.Encode(dst, src)
+
+			dst = append(DBK_UNDERLINE, dst...)
+			bytes = &dst
+
+		case nil:
+			dst := []byte{}
+
+			bytes = &dst
 		default:
 			return nil, errors.New("CreateKey failed. Key must be big.Int or string type")
 		}
 
-		key = append(key, bytes...)
-		if index < len - 1 {
+		key = append(key, *bytes...)
+		if index < keyPartionListLen - 1 {
 			key = append(key, DBK_DOT...)
 		}
 	}

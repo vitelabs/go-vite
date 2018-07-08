@@ -6,8 +6,8 @@ import (
 	"log"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"errors"
 	"encoding/hex"
+	"fmt"
 )
 
 type AccountChain struct {
@@ -74,13 +74,15 @@ func (ac * AccountChain) GetBlockByHash (blockHash []byte) (*ledger.AccountBlock
 
 
 func (ac * AccountChain) GetBlockByHeight (accountId *big.Int, blockHeight *big.Int) (*ledger.AccountBlock, error) {
-
 	key, err:= createKey(DBKP_ACCOUNTBLOCK, accountId, blockHeight)
 	if err != nil {
 		return nil, err
 	}
 
 	block, err := ac.db.Leveldb.Get(key, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	accountBlock := &ledger.AccountBlock{}
 	accountBlock.DbDeserialize(block)
@@ -93,7 +95,7 @@ func (ac * AccountChain) GetBlockByHeight (accountId *big.Int, blockHeight *big.
 
 	accountBlock.Meta = accountBlockMeta
 
-	return accountBlock, err
+	return accountBlock, nil
 }
 
 func (ac *AccountChain) GetLatestBlockByAccountId (accountId *big.Int) (*ledger.AccountBlock, error){
@@ -116,7 +118,8 @@ func (ac *AccountChain) GetLatestBlockHeightByAccountId (accountId *big.Int) (* 
 	defer iter.Release()
 
 	if !iter.Last() {
-		return nil, errors.New("GetLatestBlockHeightByAccountId failed, because account " + accountId.String() + " doesn't exist.")
+		fmt.Println("GetLatestBlockHeightByAccountId failed, because account " + accountId.String() + " doesn't exist.")
+		return nil, nil
 	}
 
 	latestBlockHeight := &big.Int{}
