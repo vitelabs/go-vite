@@ -27,7 +27,7 @@ func newKeyCache(keydir string) (*keyCache, chan struct{}) {
 	kc := &keyCache{
 		keydir: keydir,
 		notify: make(chan struct{}, 1),
-		fileC: fileutils.FileChangeRecord{AllCached: mapset.NewThreadUnsafeSet(), FileFilter: func(dir string, file os.FileInfo) bool {
+		fileC: fileutils.NewFileChangeRecord(func(dir string, file os.FileInfo) bool {
 			if file.IsDir() || file.Mode()&os.ModeType != 0 {
 				return true
 			}
@@ -36,7 +36,7 @@ func newKeyCache(keydir string) (*keyCache, chan struct{}) {
 				return true
 			}
 			return false
-		}},
+		}),
 		cacheAddr: mapset.NewThreadUnsafeSet(),
 	}
 	kc.kob = newObserver(kc)
@@ -55,12 +55,12 @@ func (kc *keyCache) refreshAndFixAddressFile() error {
 	log.Debug("refreshAndFixAddressFile")
 	creates, deletes, updates, err := kc.fileC.RefreshCache(kc.keydir)
 	if err != nil {
-		log.Info("Failed refreshCache keydir", "err", err)
+		log.Debug("Failed refreshCache keydir", "err", err)
 		return err
 	}
 
 	if creates.Cardinality() == 0 && deletes.Cardinality() == 0 && updates.Cardinality() == 0 {
-		log.Info("Nothing Changed")
+		log.Debug("Nothing Changed")
 		return nil
 	}
 
@@ -97,7 +97,7 @@ func (kc *keyCache) add(addr types.Address) {
 }
 func (kc *keyCache) deleteByFile(fullfilename string) {
 	a, err := addressFromKeyPath(fullfilename)
-	if err == nil {
+	if err != nil {
 		return
 	}
 	kc.mutex.Lock()
