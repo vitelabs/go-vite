@@ -34,6 +34,27 @@ type unlocked struct {
 	abort chan struct{}
 }
 
+func NewManager(kcc *KeyConfig) *Manager {
+	kp := Manager{ks: KeyStorePassphrase{kcc.KeyStoreDir}, keyConfig: kcc}
+	return &kp
+}
+
+func (km *Manager) Init() {
+	if km.isInited {
+		return
+	}
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+
+	km.unlockedAddr = make(map[types.Address]*unlocked)
+	km.kc, km.kcListener = newKeyCache(km.keyConfig.KeyStoreDir)
+
+	km.addrs = km.kc.ListAllAddress()
+
+	km.isInited = true
+
+}
+
 func (km *Manager) Status() (string, error) {
 	var sb strings.Builder
 
@@ -58,7 +79,7 @@ func (km *Manager) Open(passphrase string) error {
 	return nil
 }
 
-func (km *Manager) ListAddress() []types.Address {
+func (km *Manager) Addresses() []types.Address {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 	result := make([]types.Address, km.addrs.Cardinality())
@@ -70,28 +91,29 @@ func (km *Manager) ListAddress() []types.Address {
 	return result
 }
 
-func (km *Manager) SignData(a types.Address, data []byte) ([]byte, error) {
+func (km *Manager) SignData(a types.Address, data []byte) (signedData []byte, pubkey []byte, err error) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 	unlockedKey, found := km.unlockedAddr[a]
 	if !found {
-		return nil, ErrLocked
+		return nil, nil, ErrLocked
 	}
 	return unlockedKey.Sign(data)
 }
 
-func (km *Manager) SignDataWithPassphrase(a types.Address, passphrase string, data []byte) ([]byte, error) {
-	_, err := km.Find(a)
+func (km *Manager) SignDataWithPassphrase(a types.Address, passphrase string, data []byte) (signedData []byte, pubkey []byte, err error) {
+	_, err = km.Find(a)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	_, key, err := km.ExtractKey(a, passphrase)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer func() {
 		if key != nil && key.PrivateKey != nil {
 			key.PrivateKey.Clear()
+			passphrase = ""
 		}
 	}()
 
@@ -114,27 +136,6 @@ func (km *Manager) Find(a types.Address) (string, error) {
 // if a keystore file name is changed it will read the file content if then content is a legal the function will fix the filename
 func (km *Manager) FixAll() {
 	km.kc.intervalRefresh()
-}
-
-func NewManager(kcc *KeyConfig) *Manager {
-	kp := Manager{ks: KeyStorePassphrase{kcc.KeyStoreDir}, keyConfig: kcc}
-	return &kp
-}
-
-func (km *Manager) Init() {
-	if km.isInited {
-		return
-	}
-	km.mutex.Lock()
-	defer km.mutex.Unlock()
-
-	km.unlockedAddr = make(map[types.Address]*unlocked)
-	km.kc, km.kcListener = newKeyCache(km.keyConfig.KeyStoreDir)
-
-	km.addrs = km.kc.ListAllAddress()
-
-	km.isInited = true
-
 }
 
 func (km *Manager) StoreNewKey(pwd string) (*Key, types.Address, error) {
@@ -217,7 +218,6 @@ func newKeyFromEd25519(pub *ed25519.PublicKey, priv *ed25519.PrivateKey) *Key {
 	key := &Key{
 		Id:         id,
 		Address:    types.PrikeyToAddress(*priv),
-		PublicKey:  pub,
 		PrivateKey: priv,
 	}
 	return key

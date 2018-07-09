@@ -2,11 +2,10 @@ package keystore
 
 import (
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"testing"
+	"runtime"
 )
 
 const (
@@ -16,8 +15,8 @@ const (
 
 func TestStoreAndExtractNewKey(t *testing.T) {
 
-	ks := KeyStorePassphrase{keysDirPath: common.DefaultDataDir()}
-	kp := NewManager(&DefaultKeyConfig)
+	ks := KeyStorePassphrase{keysDirPath: TestKeyConfig.KeyStoreDir}
+	kp := NewManager(&TestKeyConfig)
 
 	key1, addr1, err := kp.StoreNewKey(DummyPwd)
 	if err != nil {
@@ -41,39 +40,39 @@ func TestStoreAndExtractNewKey(t *testing.T) {
 }
 
 func TestSignAndVerfify(t *testing.T) {
-	kp := NewManager(&DefaultKeyConfig)
+	kp := NewManager(&TestKeyConfig)
 	kp.Init()
 	status, _ := kp.Status()
 	println(status)
-	for _, v := range kp.ListAddress() {
+	for _, v := range kp.Addresses() {
 		println(v.Hex())
-		outdata, err := kp.SignDataWithPassphrase(v, DummyPwd, []byte(DummySignData))
+		outdata, pubkey, err := kp.SignDataWithPassphrase(v, DummyPwd, []byte(DummySignData))
 		if err != nil {
 			t.Fatal(err)
 		}
 		println(hex.EncodeToString(outdata))
-		_, ek := readAndFixAddressFile(fullKeyFileName(kp.keyConfig.KeyStoreDir, v))
-		pub, err := ed25519.HexToPublicKey(ek.HexPubKey)
+		readAndFixAddressFile(fullKeyFileName(kp.keyConfig.KeyStoreDir, v))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !vcrypto.VerifySig(&pub, []byte(DummySignData), outdata) {
+
+		if !vcrypto.VerifySig(pubkey, []byte(DummySignData), outdata) {
 			t.Fatal("Verify wrong")
 		}
 	}
 }
 
 func TestManager_ImportPriv(t *testing.T) {
-	kp := NewManager(&DefaultKeyConfig)
+	kp := NewManager(&TestKeyConfig)
 	kp.Init()
-	hexPri, err := kp.ExportPriv("vite_452cab46cf322a85e4390984e43f69d6f32dd8352bf46cd870", DummyPwd)
+	hexPri, err := kp.ExportPriv("vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416", DummyPwd)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	kp.ImportPriv(hexPri, "654321")
 
-	hexpri1, err := kp.ExportPriv("vite_452cab46cf322a85e4390984e43f69d6f32dd8352bf46cd870", "654321")
+	hexpri1, err := kp.ExportPriv("vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416", "654321")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,9 +83,9 @@ func TestManager_ImportPriv(t *testing.T) {
 }
 
 func TestManager_Import(t *testing.T) {
-	kp := NewManager(&DefaultKeyConfig)
+	kp := NewManager(&TestKeyConfig)
 	kp.Init()
-	hexaddr := "vite_452cab46cf322a85e4390984e43f69d6f32dd8352bf46cd870"
+	hexaddr := "vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416"
 	addr, _ := types.HexToAddress(hexaddr)
 
 	_, key0, err := kp.ExtractKey(addr, DummyPwd)
@@ -113,4 +112,10 @@ func TestManager_Import(t *testing.T) {
 	}
 	kp.Import(json1, "123111", DummyPwd)
 
+}
+
+func TestDir(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+
+	println(filename)
 }

@@ -71,6 +71,6 @@ func GetEntropyCSPRNG(n int) []byte {
 	return mainBuff
 }
 
-func VerifySig(pubkey *ed25519.PublicKey, message, data []byte) bool {
-	return ed25519.Verify(*pubkey, message, data)
+func VerifySig(pubkey ed25519.PublicKey, message, data []byte) bool {
+	return ed25519.Verify(pubkey, message, data)
 }
