@@ -39,6 +39,112 @@
 			"revisionTime": "2018-05-21T04:50:21Z"
 		},
 		{
+			"path": "github.com/vitelabs/go-vite",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "tPlPBidunFDzhChdvneMEspVvFk=",
+			"path": "github.com/vitelabs/go-vite/cmd/gvite",
+			"revision": "3da28823acd270528ead6e1e0f12c2620466f4d3",
+			"revisionTime": "2018-07-09T11:11:17Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "xyG46qpf4a/b6gVy0P8eUiidRUs=",
+			"path": "github.com/vitelabs/go-vite/cmd/ledger",
+			"revision": "3da28823acd270528ead6e1e0f12c2620466f4d3",
+			"revisionTime": "2018-07-09T11:11:17Z",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/common",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/common/fileutils",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/common/types",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/crypto",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/crypto/ed25519",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/ledger",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/ledger/access",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/ledger/cache",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "me635o8ywAoYb9ZvJ1j8XY3WCt8=",
+			"path": "github.com/vitelabs/go-vite/log",
+			"revision": "3da28823acd270528ead6e1e0f12c2620466f4d3",
+			"revisionTime": "2018-07-09T11:11:17Z",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/rpc",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/rpc/service",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/vitedb",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/vitepb",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/wallet",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/wallet/keystore",
+			"revision": "",
+			"tree": true
+		},
+		{
+			"path": "github.com/vitelabs/go-vite/wallet/keystore/main",
+			"revision": "",
+			"tree": true
+		},
+		{
 			"checksumSHA1": "ejjxT0+wDWWncfh0Rt3lSH4IbXQ=",
 			"path": "golang.org/x/crypto/blake2b",
 			"revision": "a49355c7e3f8fe157a85be2f77e6e269a0f89602",

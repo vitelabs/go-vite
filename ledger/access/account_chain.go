@@ -623,13 +623,13 @@ func (aca *AccountChainAccess) GetConfirmTimes(confirmSnapshotBlock *ledger.Snap
 		return nil, nil
 	}
 
-	latestBlockHeight, err := aca.snapshotStore.GetLatestBlockHeight()
+	latestBlock, err := aca.snapshotStore.GetLatestBlock()
 	if err != nil {
 		return nil, err
 	}
 
 	result := &big.Int{}
-	result = result.Sub(latestBlockHeight, confirmSnapshotBlock.Height)
+	result = result.Sub(latestBlock.Height, confirmSnapshotBlock.Height)
 	return result, nil
 }
 
@@ -640,3 +640,8 @@ func (aca *AccountChainAccess) GetAccountBalance (accountId *big.Int, blockHeigh
 	}
 	return accountBLock.Balance, nil
 }
+
+func (aca *AccountChainAccess) GetLatestBlockHeightByAccountId (accountId *big.Int) (* big.Int, error){
+	return aca.store.GetLatestBlockHeightByAccountId(accountId)
+}
+

@@ -7,6 +7,9 @@ import (
 	"encoding/hex"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"errors"
+	"github.com/syndtr/goleveldb/leveldb"
+	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type SnapshotChain struct {
@@ -15,7 +18,7 @@ type SnapshotChain struct {
 
 var _snapshotChain *SnapshotChain
 
-func GetSnapshotChain() *SnapshotChain {
+func GetSnapshotChain () *SnapshotChain {
 	if _snapshotChain == nil {
 		db, err := GetLDBDataBase(DB_BLOCK)
 		if err != nil {
@@ -31,7 +34,7 @@ func GetSnapshotChain() *SnapshotChain {
 
 }
 
-func (sbc *SnapshotChain) GetHeightByHash(blockHash []byte) (*big.Int, error) {
+func (sbc *SnapshotChain) GetHeightByHash (blockHash []byte) (*big.Int, error) {
 	key, err := createKey(DBKP_SNAPSHOTBLOCKHASH, hex.EncodeToString(blockHash))
 
 	heightBytes, err := sbc.db.Leveldb.Get(key, nil)
@@ -65,7 +68,7 @@ func (sbc *SnapshotChain) GetBlockList (index, num, count int) ([]*ledger.Snapsh
 	defer iter.Release()
 	var blockList []*ledger.SnapshotBlock
 	if !iter.Last() {
-		return nil, errors.New("GetBlockList failed. Cause the SnapshotChain has no block")
+		return nil, errors.New("GetBlockList failed. Cause the SnapshotChain has no block" + iter.Error().Error())
 	}
 	for i := 0; i < (index+num)*count; i++ {
 		if i >= index*count {
@@ -103,22 +106,22 @@ func (sbc * SnapshotChain) GetBLockByHeight (blockHeight *big.Int) (*ledger.Snap
 	return sb, nil
 }
 
-func (sbc *SnapshotChain) GetLatestBlockHeight () (*big.Int, error) {
-	key, ckErr := createKey(DBKP_SNAPSHOTBLOCK,nil)
+func (sbc *SnapshotChain) GetLatestBlock () (*ledger.SnapshotBlock, error) {
+	key, ckErr := createKey(DBKP_SNAPSHOTBLOCK, nil)
 	if ckErr != nil {
 		return nil, ckErr
 	}
-	iter := sbc.db.Leveldb.NewIterator(util.BytesPrefix(key),nil)
+	iter := sbc.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
 	if !iter.Last() {
-		return nil, errors.New("GetLatestBlockHeight failed.")
+		return nil, errors.New("GetLatestBlock failed: " + iter.Error().Error())
 	}
 	sb := &ledger.SnapshotBlock{}
 	sdErr := sb.DbDeserialize(iter.Value())
 	if sdErr != nil {
 		return nil, sdErr
 	}
-	return sb.Height, nil
+	return sb, nil
 }
 
 
@@ -153,7 +156,7 @@ func (sbc *SnapshotChain) Iterate (iterateFunc func(snapshotBlock *ledger.Snapsh
 	return nil
 }
 
-func (sbc *SnapshotChain) WriteBlock (block *ledger.SnapshotBlock) error {
+func (sbc *SnapshotChain) WriteBlock (batch *leveldb.Batch, block *ledger.SnapshotBlock) error {
 	//// 模拟key, 需要改
 	//key :=  []byte("snapshot_test")
 	//
@@ -166,10 +169,51 @@ func (sbc *SnapshotChain) WriteBlock (block *ledger.SnapshotBlock) error {
 	//}
 	//
 	//sbc.db.Put(key, data)
+	key, ckErr := createKey(DBKP_SNAPSHOTBLOCK, block.Height)
+	if ckErr != nil {
+		return ckErr
+	}
+	data, sErr := block.DbSerialize()
+	if sErr != nil {
+		fmt.Println(sErr)
+		return sErr
+	}
+	//sbc.db.Leveldb.Put(key, data, nil)
+	batch.Put(key, data)
 	return nil
 }
 
-func (sbc *SnapshotChain) WriteBlockHeight (block *ledger.SnapshotBlock, ) error {
+func (sbc *SnapshotChain) WriteBlockHeight (batch *leveldb.Batch, block *ledger.SnapshotBlock, ) error {
+	key, ckErr := createKey(DBKP_SNAPSHOTBLOCKHASH, block.Hash)
+	if ckErr != nil {
+		return ckErr
+	}
+	//sbc.db.Leveldb.Put(key, block.Height.Bytes(), nil)
+	batch.Put(key, block.Height.Bytes())
 	return nil
 }
 
+func (sbc *SnapshotChain) BatchWrite (batch *leveldb.Batch, writeFunc func (batch *leveldb.Batch) error) error {
+	return batchWrite(batch, sbc.db.Leveldb, func (context *batchContext) error {
+		return writeFunc(context.Batch)
+	})
+}
+
+func (sbc *SnapshotChain) GetAccountList () ([]*types.Address, error){
+	key, ckErr := createKey(DBKP_ACCOUNTID_INDEX, nil)
+	if ckErr != nil {
+		return nil, ckErr
+	}
+	iter := sbc.db.Leveldb.NewIterator(util.BytesPrefix(key),nil)
+	defer iter.Release()
+	fmt.Print(iter.Error())
+	var accountList []*types.Address
+	for iter.Next() {
+		address, err := types.BytesToAddress(iter.Value())
+		if err != nil {
+			return nil, err
+		}
+		accountList = append(accountList, &address)
+	}
+	return accountList, nil
+}
