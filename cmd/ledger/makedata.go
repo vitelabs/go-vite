@@ -7,16 +7,11 @@ import (
 )
 
 func main() {
-	//var isInit= false
-	//flag.BoolVar(&isInit, "init", false, "Init ledger")
-	//
-	//flag.Parse()
-	//if isInit {
-	//	writeGenesisBlocks()
-	//}
-	test()
-	//testCompare()
-	//testWrite()
+	writeGenesisBlocks()
+	writeAccoutChain()
+	//test()
+
+
 }
 
 //func testWrite()  {
