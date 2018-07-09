@@ -4,6 +4,8 @@ import (
 	"github.com/vitelabs/go-vite/vitedb"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/syndtr/goleveldb/leveldb"
+	"math/big"
 )
 
 type TokenAccess struct {
@@ -12,17 +14,34 @@ type TokenAccess struct {
 }
 
 
-var _tokenAccess *TokenAccess
+var tokenAccess = &TokenAccess {
+	store: vitedb.GetToken(),
+	accountChainStore: vitedb.GetAccountChain(),
+}
 
 func GetTokenAccess () *TokenAccess {
-	if _tokenAccess == nil {
-		_tokenAccess = &TokenAccess {
-			store: vitedb.GetToken(),
-			accountChainStore: vitedb.GetAccountChain(),
-		}
-	}
-	return _tokenAccess
+	return tokenAccess
 }
+
+func (ta *TokenAccess) WriteMintage (batch *leveldb.Batch, mintage *ledger.Mintage, bloch *ledger.AccountBlock) (error) {
+	// Write TokenIdIndex
+	if err := ta.store.WriteTokenIdIndex(batch, mintage.Id, big.NewInt(0), bloch.Hash); err != nil{
+		return err
+	}
+
+	// Write TokenNameIndex
+	if err := ta.store.WriteTokenNameIndex(batch, mintage.Name, mintage.Id); err != nil{
+		return err
+	}
+
+	// Write TokenSymbolIndex
+	if err := ta.store.WriteTokenSymbolIndex(batch, mintage.Symbol, mintage.Id); err != nil{
+		return err
+	}
+
+	return nil
+}
+
 
 func (ta *TokenAccess) getListByTokenIdList (tokenIdList []*types.TokenTypeId) ([]*ledger.Token, error) {
 	var tokenList []*ledger.Token

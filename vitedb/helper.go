@@ -6,12 +6,13 @@ import (
 	"errors"
 	"strings"
 	"encoding/hex"
+	"bytes"
 )
 
 // DBK = database key, DBKP = database key prefix
 var (
 	DBK_DOT = []byte(".")
-
+	DBK_BIGINT = []byte("%")
 
 	DBKP_ACCOUNTID_INDEX = "j"
 
@@ -32,44 +33,80 @@ var (
 	DBKP_SNAPSHOTTIMESTAMP_INDEX = "i"
 
 	DBKP_ACCOUNTMETA = "a"
-
 )
 
 
 func createKey (keyPartionList... interface{}) ([]byte, error){
 	key := []byte{}
-	len := len(keyPartionList)
+	keyPartionListLen := len(keyPartionList)
 
 	// Temporary: converting ascii code of hex string to bytes, takes up twice as much space,
 	// to avoid dot ascii code appear that are separator of leveldb key.
 	for index, keyPartion := range keyPartionList {
-		var bytes []byte
+		var bytes *[]byte
 
 		switch keyPartion.(type) {
 		case []byte:
-			hex.Encode(bytes, keyPartion.([]byte))
+			src := keyPartion.([]byte)
+
+			dst := make([]byte, hex.EncodedLen(len(src)))
+			hex.Encode(dst, src)
+
+			bytes = &dst
 
 		case string:
 			keyPartionString := keyPartion.(string)
 			if strings.Contains(keyPartionString, ".") {
-				return nil, errors.New("createKey failed. Key must not contains dot(\".\")")
+				return nil, errors.New("CreateKey failed. Key must not contains dot(\".\")")
 			}
-			bytes = []byte(keyPartionString)
+			dst := []byte(keyPartionString)
+
+			bytes = &dst
 
 		case *big.Int:
-			hex.Encode(bytes, keyPartion.(*big.Int).Bytes())
-			bytes = append(DBK_DOT, bytes...)
+			src := keyPartion.(*big.Int).Bytes()
+
+			dst := make([]byte, hex.EncodedLen(len(src)))
+			hex.Encode(dst, src)
+
+			dst = append(DBK_BIGINT, dst...)
+
+
+			bytes = &dst
+
+		case nil:
+			dst := []byte{}
+			bytes = &dst
+
 		default:
-			return nil, errors.New("createKey failed. Key must be big.Int or string type")
+			return nil, errors.New("CreateKey failed. Key must be big.Int or string type")
 		}
 
-		key = append(key, bytes...)
-		if index < len - 1 {
+		key = append(key, *bytes...)
+		if index < keyPartionListLen - 1 {
 			key = append(key, DBK_DOT...)
 		}
 	}
 
 	return key, nil
+}
+
+func deserializeKey(key []byte) [][]byte  {
+	bytesList := bytes.Split(key, DBK_DOT)
+	var parsedBytesList [][]byte
+	for i := 1; i < len(bytesList); i++ {
+		bytes := bytesList[i]
+		if bytes[0] == DBK_BIGINT[0] {
+			// big.Int
+			bytes = bytes[1:]
+		}
+
+		parsedBytes := make([]byte,hex.DecodedLen(len(bytes)))
+		hex.Decode(parsedBytes, bytes)
+
+		parsedBytesList = append(parsedBytesList, parsedBytes)
+	}
+	return parsedBytesList
 }
 
 type batchContext struct {

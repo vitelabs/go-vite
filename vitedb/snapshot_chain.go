@@ -133,11 +133,16 @@ func (sbc *SnapshotChain) Iterate (iterateFunc func(snapshotBlock *ledger.Snapsh
 	iter := sbc.db.Leveldb.NewIterator(&util.Range{Start: startKey}, nil)
 	defer iter.Release()
 
-	for value := iter.Value(); value != nil; iter.Next() {
+	for {
+		value := iter.Value()
 		var snapshotBlock *ledger.SnapshotBlock
 		snapshotBlock.DbDeserialize(value)
 		if !iterateFunc(snapshotBlock) {
 			return nil
+		}
+
+		if !iter.Next() {
+			break
 		}
 	}
 

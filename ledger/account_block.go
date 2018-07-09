@@ -106,14 +106,9 @@ type AccountBlock struct {
 
 func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 	accountBlockPB := &vitepb.AccountBlockDb{
-		To: ab.To.Bytes(),
-
+		Hash: ab.Hash,
 		PrevHash: ab.PrevHash,
 		FromHash: ab.FromHash,
-
-		TokenId: ab.TokenId.Bytes(),
-
-		Balance: ab.Balance.Bytes(),
 
 		Timestamp: ab.Timestamp,
 		Data: ab.Data,
@@ -123,8 +118,22 @@ func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 
 		Nounce: ab.Nounce,
 		Difficulty: ab.Difficulty,
+	}
 
-		FAmount: ab.FAmount.Bytes(),
+	if ab.To != nil {
+		accountBlockPB.To = ab.To.Bytes()
+	}
+
+	if ab.TokenId != nil {
+		accountBlockPB.TokenId = ab.TokenId.Bytes()
+	}
+
+	if ab.Balance != nil {
+		accountBlockPB.Balance = ab.Balance.Bytes()
+	}
+
+	if ab.FAmount != nil {
+		accountBlockPB.FAmount = ab.FAmount.Bytes()
 	}
 
 	return proto.Marshal(accountBlockPB)
@@ -138,22 +147,29 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 		return err
 	}
 
-	toAddress, err := types.BytesToAddress(accountBlockPB.To)
-	if err != nil {
-		return err
+	if accountBlockPB.To != nil {
+		toAddress, err := types.BytesToAddress(accountBlockPB.To)
+		if err != nil {
+			return err
+		}
+
+		ab.To = &toAddress
 	}
 
-	ab.To = &toAddress
 
+	ab.Hash = accountBlockPB.Hash
 	ab.PrevHash = accountBlockPB.PrevHash
 	ab.FromHash = accountBlockPB.FromHash
 
-	tokenId, err := types.BytesToTokenTypeId(accountBlockPB.TokenId)
-	if err != nil {
-		return err
+	if accountBlockPB.TokenId != nil {
+		tokenId, err := types.BytesToTokenTypeId(accountBlockPB.TokenId)
+		if err != nil {
+			return err
+		}
+
+		ab.TokenId = &tokenId
 	}
 
-	ab.TokenId = &tokenId
 
 	ab.Timestamp =  accountBlockPB.Timestamp
 
@@ -174,5 +190,36 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 	ab.FAmount.SetBytes(accountBlockPB.FAmount)
 
 	return nil
+}
+
+func GetGenesisBlocks () ([]*AccountBlock){
+	firstBlockHash := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	secondBlockHash := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+
+	viteMintageBlock := &AccountBlock{
+		AccountAddress: &GenesisAccount,
+		To: 			&MintageAddress,
+
+		SnapshotTimestamp: GenesisSnapshotBlockHash,
+		Hash:           firstBlockHash,             // mock
+		Data: "{" +
+			"\"tokenName\": \"vite\"," +
+			"\"tokenSymbol\": \"VITE\"," +
+			"\"owner\":\""+ GenesisAccount.String() +"\"," +
+			"\"decimals\": 18," +
+			"\"totalSupply\": \"1000000000\"" +
+			"}",
+	}
+
+	genesisAccountBlock := &AccountBlock{
+		AccountAddress: &GenesisAccount,
+		FromHash: firstBlockHash,
+		PrevHash: firstBlockHash,
+
+		SnapshotTimestamp: GenesisSnapshotBlockHash,
+		Hash: secondBlockHash,
+	}
+
+	return []*AccountBlock{viteMintageBlock, genesisAccountBlock}
 }
 

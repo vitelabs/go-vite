@@ -7,6 +7,8 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
+var GenesisAccount, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
+
 type AccountSimpleToken struct {
 	TokenId *types.TokenTypeId
 	LastAccountBlockHeight *big.Int
@@ -97,6 +99,3 @@ func (am *AccountMeta) DbDeserialize (buf []byte) error {
 //
 //	return nil
 //}
-
-
-
