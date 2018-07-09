@@ -38,7 +38,7 @@ func (token *Token) BatchWrite(batch *leveldb.Batch, writeFunc func(batch *level
 func (token *Token) GetMintageBlockHashByTokenId(tokenId *types.TokenTypeId) ([]byte, error) {
 	reader := token.db.Leveldb
 	// Get mintage block hash
-	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.String(), big.NewInt(0))
+	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), big.NewInt(0))
 	if err != nil {
 		return nil, err
 	}
@@ -93,33 +93,34 @@ func (token *Token) GetTokenIdListByTokenSymbol(tokenSymbol string) ([]*types.To
 
 // 等vite-explorer-server从自己的数据库查数据时，这个方法就要删掉了，所以当前是hack实现
 func (token *Token) GetTokenIdList(index int, num int, count int) ([]*types.TokenTypeId, error) {
-	reader := token.db.Leveldb
-
-	key, err := createKey(DBKP_TOKENID_INDEX, nil)
+	iterKey, err := createKey(DBKP_TOKENNAME_INDEX, nil)
 	if err != nil {
 		return nil, err
 	}
-	iter := reader.NewIterator(util.BytesPrefix(key), nil)
+
+	iter := token.db.Leveldb.NewIterator(util.BytesPrefix(iterKey), nil)
+
 	defer iter.Release()
 
 	for i := 0; i < index*count; i++ {
-		if iter.Next() {
+		if !iter.Next() {
 			return nil, nil
 		}
 	}
 
 	var tokenIdList []*types.TokenTypeId
+
 	for i := 0; i < count*num; i++ {
+		if !iter.Next() {
+			break
+		}
 
 		tokenId, err := types.BytesToTokenTypeId(iter.Value())
 		if err != nil {
 			return nil, err
 		}
-		tokenIdList = append(tokenIdList, &tokenId)
 
-		if iter.Next() {
-			break
-		}
+		tokenIdList = append(tokenIdList, &tokenId)
 	}
 
 	return tokenIdList, nil
@@ -127,7 +128,7 @@ func (token *Token) GetTokenIdList(index int, num int, count int) ([]*types.Toke
 }
 
 func (token *Token) GetLatestBlockHeightByTokenId(tokenId *types.TokenTypeId) (*big.Int, error) {
-	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.String())
+	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +153,7 @@ func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count i
 		return nil, err
 	}
 
-	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.String(), latestBlockHeight)
+	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), latestBlockHeight)
 
 	if err != nil {
 		return nil, err
@@ -227,7 +228,7 @@ func (token *Token) getTokenSymbolCurrentTopId(tokenSymbol string) (*big.Int, er
 }
 
 func (token *Token) WriteTokenIdIndex(batch *leveldb.Batch, tokenId *types.TokenTypeId, blockHeightInToken *big.Int, accountBlockHash []byte) error {
-	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.String(), blockHeightInToken)
+	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), blockHeightInToken)
 	if err != nil {
 		return err
 	}

@@ -15,6 +15,12 @@
 			"revisionTime": "2018-01-22T19:00:07Z"
 		},
 		{
+			"checksumSHA1": "ljd3FhYRJ91cLZz3wsH9BQQ2JbA=",
+			"path": "github.com/pkg/errors",
+			"revision": "816c9085562cd7ee03e7f8188a1cfd942858cded",
+			"revisionTime": "2018-03-11T21:45:15Z"
+		},
+		{
 			"checksumSHA1": "PGv3Cdw5XiBgovHTqrBTEeM34yg=",
 			"path": "github.com/powerman/rpc-codec/jsonrpc2",
 			"revision": "3e1ab3b635b7b0d5f771028cd45aa9a827fd9f31",

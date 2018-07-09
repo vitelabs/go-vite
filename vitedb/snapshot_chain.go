@@ -128,6 +128,10 @@ func (sbc *SnapshotChain) Iterate (iterateFunc func(snapshotBlock *ledger.Snapsh
 		return err
 	}
 
+	if startHeight == nil {
+		return nil
+	}
+
 	startKey, err := createKey(DBKP_SNAPSHOTBLOCK, startHeight)
 
 	iter := sbc.db.Leveldb.NewIterator(&util.Range{Start: startKey}, nil)

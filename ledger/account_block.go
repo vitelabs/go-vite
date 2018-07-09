@@ -207,6 +207,7 @@ func GetGenesisBlocks () ([]*AccountBlock){
 			"\"tokenSymbol\": \"VITE\"," +
 			"\"owner\":\""+ GenesisAccount.String() +"\"," +
 			"\"decimals\": 18," +
+			"\"tokenId\":\"" + MockViteTokenId.String() + "\"," +
 			"\"totalSupply\": \"1000000000\"" +
 			"}",
 	}
@@ -215,6 +216,7 @@ func GetGenesisBlocks () ([]*AccountBlock){
 		AccountAddress: &GenesisAccount,
 		FromHash: firstBlockHash,
 		PrevHash: firstBlockHash,
+		TokenId: &MockViteTokenId,
 
 		SnapshotTimestamp: GenesisSnapshotBlockHash,
 		Hash: secondBlockHash,

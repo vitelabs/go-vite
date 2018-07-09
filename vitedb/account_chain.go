@@ -92,7 +92,6 @@ func (ac * AccountChain) GetBlockByHeight (accountId *big.Int, blockHeight *big.
 		return nil, err
 	}
 
-
 	accountBlock.Meta = accountBlockMeta
 
 	return accountBlock, nil
@@ -137,25 +136,27 @@ func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int
 	if err != nil {
 		return nil, err
 	}
-	startIndex := latestBlockHeight.Sub(latestBlockHeight, big.NewInt(int64(index * count)))
-	key, err := createKey(DBKP_ACCOUNTBLOCK, meta.AccountId, startIndex)
+	limitIndex := latestBlockHeight.Sub(latestBlockHeight, big.NewInt(int64(index * count) - 1))
+	limitKey, err := createKey(DBKP_ACCOUNTBLOCK, meta.AccountId, limitIndex)
 	if err != nil {
 		return nil, err
 	}
 
-	iter := ac.db.Leveldb.NewIterator(&util.Range{Start: key}, nil)
+	startKey, err := createKey(DBKP_ACCOUNTBLOCK, meta.AccountId, big.NewInt(1))
+	if err != nil {
+		return nil, err
+	}
+
+	iter := ac.db.Leveldb.NewIterator(&util.Range{Start: startKey, Limit: limitKey}, nil)
 	defer iter.Release()
+
+	if !iter.Last() {
+		return nil, nil
+	}
 
 	var blockList []*ledger.AccountBlock
 
 	for i:=0; i < num * count; i ++ {
-		if !iter.Prev() {
-			break
-		}
-
-		if err := iter.Error(); err != nil {
-			return nil, err
-		}
 		block := &ledger.AccountBlock{}
 
 		err := block.DbDeserialize(iter.Value())
@@ -164,6 +165,10 @@ func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int
 		}
 
 		blockList = append(blockList, block)
+
+		if !iter.Prev() {
+			break
+		}
 	}
 
 	return blockList, nil
@@ -244,13 +249,10 @@ func (ac *AccountChain) GetBlockHashList (index, num, count int) ([][]byte, erro
 
 		blocHashList = append(blocHashList, value)
 
-		fmt.Println(value)
 		if !iter.Prev() {
 			break
 		}
 	}
-
-	fmt.Println(blocHashList)
 
 
 	return blocHashList, nil

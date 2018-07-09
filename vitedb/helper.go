@@ -66,6 +66,9 @@ func createKey (keyPartionList... interface{}) ([]byte, error){
 		case *big.Int:
 			src := keyPartion.(*big.Int).Bytes()
 
+			if len(src) == 0 {
+				src = []byte{0}
+			}
 			dst := make([]byte, hex.EncodedLen(len(src)))
 			hex.Encode(dst, src)
 
