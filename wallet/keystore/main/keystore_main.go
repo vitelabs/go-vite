@@ -8,7 +8,8 @@ import (
 )
 
 func main() {
-	kc := keystore.DefaultKeyConfig
+
+	kc := keystore.TestKeyConfig
 	km := keystore.NewManager(&kc)
 	km.Init()
 	printStatus(km)
@@ -23,6 +24,7 @@ func main() {
 }
 
 func printStatus(km *keystore.Manager) {
+
 	s, _ := km.Status()
 	println(s)
 }

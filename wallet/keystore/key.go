@@ -22,13 +22,11 @@ type keyStore interface {
 type Key struct {
 	Id         uuid.UUID
 	Address    types.Address
-	PublicKey  *ed25519.PublicKey
 	PrivateKey *ed25519.PrivateKey
 }
 
 type encryptedKeyJSON struct {
 	HexAddress string     `json:"hexaddress"`
-	HexPubKey  string     `json:"hexpubkey"`
 	Id         string     `json:"id"`
 	Crypto     cryptoJSON `json:"crypto"`
 	Version    int        `json:"keystoreversion"`
@@ -51,9 +49,9 @@ type scryptParams struct {
 	Salt   string `json:"salt"`
 }
 
-func (key *Key) Sign(data []byte) ([]byte, error) {
+func (key *Key) Sign(data []byte) ([]byte, []byte, error) {
 	if l := len(*key.PrivateKey); l != ed25519.PrivateKeySize {
-		return nil, errors.New("ed25519: bad private key length: " + strconv.Itoa(l))
+		return nil, nil, errors.New("ed25519: bad private key length: " + strconv.Itoa(l))
 	}
-	return ed25519.Sign(*key.PrivateKey, data), nil
+	return ed25519.Sign(*key.PrivateKey, data), key.PrivateKey.PubByte(), nil
 }
