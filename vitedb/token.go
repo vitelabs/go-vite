@@ -153,13 +153,14 @@ func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count i
 		return nil, err
 	}
 
-	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), latestBlockHeight)
+	limitKey, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), latestBlockHeight)
+	startKey, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), big.NewInt(0))
 
 	if err != nil {
 		return nil, err
 	}
 
-	iter := token.db.Leveldb.NewIterator(&util.Range{Start: key}, nil)
+	iter := token.db.Leveldb.NewIterator(&util.Range{Start: startKey, Limit: limitKey}, nil)
 	defer iter.Release()
 
 	if !iter.Last() {
@@ -167,21 +168,18 @@ func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count i
 	}
 
 	var blockHashList [][]byte
-	for i := 0; i < (num + index) * count; i ++ {
+	for i := 0; i <  index * count; i ++ {
 		if !iter.Prev() {
 			return blockHashList, nil
 		}
 	}
-	for i := 0; i < num*count; i++ {
-		if !iter.Prev() {
-			if err := iter.Error(); err != nil {
-				return nil, err
-			}
-			break
-		}
 
+	for i := 0; i < num*count; i++ {
 		blockHash := iter.Value()
 		blockHashList = append(blockHashList, blockHash)
+		if !iter.Prev() {
+			break
+		}
 	}
 
 	return blockHashList, nil
