@@ -12,7 +12,7 @@ import (
 // DBK = database key, DBKP = database key prefix
 var (
 	DBK_DOT = []byte(".")
-	DBK_UNDERLINE = []byte("_")
+	DBK_BIGINT = []byte("%")
 
 	DBKP_ACCOUNTID_INDEX = "j"
 
@@ -51,6 +51,7 @@ func createKey (keyPartionList... interface{}) ([]byte, error){
 
 			dst := make([]byte, hex.EncodedLen(len(src)))
 			hex.Encode(dst, src)
+
 			bytes = &dst
 
 		case string:
@@ -59,6 +60,7 @@ func createKey (keyPartionList... interface{}) ([]byte, error){
 				return nil, errors.New("CreateKey failed. Key must not contains dot(\".\")")
 			}
 			dst := []byte(keyPartionString)
+
 			bytes = &dst
 
 		case *big.Int:
@@ -67,13 +69,15 @@ func createKey (keyPartionList... interface{}) ([]byte, error){
 			dst := make([]byte, hex.EncodedLen(len(src)))
 			hex.Encode(dst, src)
 
-			dst = append(DBK_UNDERLINE, dst...)
+			dst = append(DBK_BIGINT, dst...)
+
+
 			bytes = &dst
 
 		case nil:
 			dst := []byte{}
-
 			bytes = &dst
+
 		default:
 			return nil, errors.New("CreateKey failed. Key must be big.Int or string type")
 		}
@@ -92,12 +96,12 @@ func deserializeKey(key []byte) [][]byte  {
 	var parsedBytesList [][]byte
 	for i := 1; i < len(bytesList); i++ {
 		bytes := bytesList[i]
-		if bytes[0] == DBK_UNDERLINE[0] {
+		if bytes[0] == DBK_BIGINT[0] {
 			// big.Int
 			bytes = bytes[1:]
 		}
 
-		var parsedBytes []byte
+		parsedBytes := make([]byte,hex.DecodedLen(len(bytes)))
 		hex.Decode(parsedBytes, bytes)
 
 		parsedBytesList = append(parsedBytesList, parsedBytes)

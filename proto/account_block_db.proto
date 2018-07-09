@@ -7,21 +7,23 @@ message AccountBlockDb {
     bytes prevHash = 2;
     bytes fromHash = 3;
 
-    bytes tokenId = 4;
-    bytes balance = 5;
+    bytes hash = 4;
 
-    string data = 6;
-    bytes snapshotTimestamp = 7;
+    bytes tokenId = 5;
+    bytes balance = 6;
 
-    uint64 timestamp = 8;
+    string data = 7;
+    bytes snapshotTimestamp = 8;
 
-    bytes signature = 9;
+    uint64 timestamp = 9;
 
-    bytes nounce = 10;
+    bytes signature = 10;
 
-    bytes difficulty = 11;
+    bytes nounce = 11;
 
-    bytes fAmount = 12;
+    bytes difficulty = 12;
+
+    bytes fAmount = 13;
 }
 
 message AccountBlockMeta {

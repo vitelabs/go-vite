@@ -45,7 +45,7 @@ func (account *Account) WriteMeta (batch *leveldb.Batch, accountAddress *types.A
 }
 
 func (account *Account) GetAccountMetaByAddress (hexAddress *types.Address) (*ledger.AccountMeta, error) {
-	keyAccountMeta, ckErr := createKey(DBKP_ACCOUNTMETA, hexAddress.String())
+	keyAccountMeta, ckErr := createKey(DBKP_ACCOUNTMETA, hexAddress.Bytes())
 	if ckErr != nil {
 		return nil, ckErr
 	}

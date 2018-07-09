@@ -237,16 +237,10 @@ func (token *Token) WriteTokenIdIndex(batch *leveldb.Batch, tokenId *types.Token
 }
 
 func (token *Token) writeIndex(batch *leveldb.Batch, keyPrefix string, indexName string, currentTopId *big.Int, tokenId *types.TokenTypeId) error {
-	currentTopIdStr := currentTopId.String()
-	var key []byte
-	var err error
-	if currentTopIdStr != "-1" {
-		topId := &big.Int{}
-		topId.Add(currentTopId, big.NewInt(1))
-		key, err = createKey(keyPrefix, indexName, topId)
-	} else {
-		key, err = createKey(keyPrefix, indexName, nil)
-	}
+
+	topId := &big.Int{}
+	topId.Add(currentTopId, big.NewInt(1))
+	key, err := createKey(keyPrefix, indexName, topId)
 
 	if err != nil {
 		return err

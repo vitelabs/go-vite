@@ -37,7 +37,6 @@ func NewMintage (mintageBlock *AccountBlock) (*Mintage, error){
 		return nil, err
 	}
 
-
 	var id types.TokenTypeId
 
 	if mintageData.Id != "" {

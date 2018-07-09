@@ -36,51 +36,125 @@ func (*viteComparer) Successor (dst, b []byte) []byte {
 	return comparer.DefaultComparer.Successor(dst, b)
 }
 
-func GetBigIntBytesList (key []byte) [][]byte {
-	var temp, tempKey []byte
-	var bigIntBytesList [][]byte
-	keyMaxIndex := len(key) - 1
-	for index, oneByte := range key {
-		tempLength := len(temp)
-		if oneByte == DBK_UNDERLINE[0] || index == keyMaxIndex {
-			if tempLength == 1 {
-				var bigIntBytes []byte
-				hex.Decode(bigIntBytes, tempKey)
-				bigIntBytesList = append(bigIntBytesList, bigIntBytes)
 
-				temp = nil
-				tempKey = nil
+func GetBigInt (src []byte) *big.Int {
+
+	bigIntBytes := make([]byte, hex.DecodedLen(len(src)))
+
+	hex.Decode(bigIntBytes, src)
+
+	bigInt := &big.Int{}
+	bigInt.SetBytes(bigIntBytes)
+	return bigInt
+}
+
+func (* viteComparer) Compare (a, b []byte) (result int) {
+	//defer func() {
+	//	//if result == -1 {
+	//		fmt.Println("===")
+	//		fmt.Println(string(a))
+	//		fmt.Println(string(b))
+	//		fmt.Println(result)
+	//		fmt.Println("===")
+	//	//}
+	//}()
+	lenA := len(a)
+	lenB := len(b)
+
+	aCurrentState := 0 // 0 means byte comparing, 1 means bigInt comparing
+	bCurrentState := 0 // 0 means byte comparing, 1 means bigInt comparing
+
+	aIndex := 0
+	bIndex := 0
+
+	var aBigIntBytes []byte
+	var bBigIntBytes []byte
+
+	for  {
+		if aCurrentState == 0 {
+			if bCurrentState == 0 {
+				if aIndex >= lenA && bIndex >= lenB {
+					return 0
+				} else if bIndex >= lenB {
+					return 1
+				} else if aIndex >= lenA {
+					return -1
+				}
+
+				aByte := a[aIndex]
+				bByte := b[bIndex]
+
+				if aByte == DBK_BIGINT[0] {
+					aCurrentState = 1
+				}
+
+				if bByte == DBK_BIGINT[0] {
+					bCurrentState = 1
+				}
+
+				if aByte > bByte {
+					return 1
+				}
+
+				if aByte < bByte {
+					return -1
+				}
+
+				aIndex ++
+				bIndex ++
 			} else {
-				temp = append(temp, oneByte)
+				return 1
 			}
-		} else if tempLength == 1 {
-			tempKey = append(tempKey, oneByte)
+		} else {
+			if bCurrentState == 0 {
+				return -1
+			} else {
+				aIsEnd := aIndex == lenA
+				bIsEnd := bIndex == lenB
+
+				var aByte, bByte byte
+				if !aIsEnd {
+					aByte = a[aIndex]
+
+					if aByte != DBK_DOT[0] &&
+						aByte != DBK_DOT[0] + 1{
+						aBigIntBytes = append(aBigIntBytes, aByte)
+						aIndex++
+					}
+				}
+
+				if !bIsEnd {
+					bByte = b[bIndex]
+
+					if bByte != DBK_DOT[0] &&
+						bByte != DBK_DOT[0] + 1{
+						bBigIntBytes = append(bBigIntBytes, bByte)
+						bIndex++
+					}
+				}
+
+				if aIsEnd || aByte == DBK_DOT[0] || aByte == DBK_DOT[0] + 1 &&
+					bIsEnd || bByte == DBK_DOT[0] || bByte == DBK_DOT[0] + 1 {
+
+					aBigInt := GetBigInt(aBigIntBytes)
+					bBigInt := GetBigInt(bBigIntBytes)
+
+					bigIntCmpResult := aBigInt.Cmp(bBigInt)
+					if bigIntCmpResult != 0 {
+						return bigIntCmpResult
+					}
+
+					aBigIntBytes = []byte{}
+					bBigIntBytes = []byte{}
+
+					aCurrentState = 0
+					bCurrentState = 0
+
+					continue
+				}
+
+			}
 		}
-	}
-
-	return bigIntBytesList
-}
-
-func cmpTwoBigInt (a []byte, b[]byte) int {
-	aBigInt := &big.Int{}
-	bBigInt := &big.Int{}
-
-	aBigInt.SetBytes(a)
-	bBigInt.SetBytes(b)
-	return aBigInt.Cmp(bBigInt)
-}
-
-func (* viteComparer) Compare (a, b []byte) int {
-	aBigIntBytesList, bBigIntBytesList:=  GetBigIntBytesList(a), GetBigIntBytesList(b)
-	for index, aBigIntBytes := range aBigIntBytesList {
-		result := cmpTwoBigInt(aBigIntBytes, bBigIntBytesList[index])
-		if result != 0 {
-			return result
-		}
-	}
-
-	if aBigIntBytesList == nil {
-		return comparer.DefaultComparer.Compare(a, b)
 	}
 
 	return 0

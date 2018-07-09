@@ -6,6 +6,9 @@ import (
 	"github.com/vitelabs/go-vite/vitepb"
 )
 
+var GenesisSnapshotBlockHash = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}
+
+
 type SnapshotBlock struct {
 	// Snapshot block hash
 	Hash []byte

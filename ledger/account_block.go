@@ -106,8 +106,7 @@ type AccountBlock struct {
 
 func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 	accountBlockPB := &vitepb.AccountBlockDb{
-		To: ab.To.Bytes(),
-
+		Hash: ab.Hash,
 		PrevHash: ab.PrevHash,
 		FromHash: ab.FromHash,
 
@@ -119,6 +118,10 @@ func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 
 		Nounce: ab.Nounce,
 		Difficulty: ab.Difficulty,
+	}
+
+	if ab.To != nil {
+		accountBlockPB.To = ab.To.Bytes()
 	}
 
 	if ab.TokenId != nil {
@@ -144,22 +147,29 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 		return err
 	}
 
-	toAddress, err := types.BytesToAddress(accountBlockPB.To)
-	if err != nil {
-		return err
+	if accountBlockPB.To != nil {
+		toAddress, err := types.BytesToAddress(accountBlockPB.To)
+		if err != nil {
+			return err
+		}
+
+		ab.To = &toAddress
 	}
 
-	ab.To = &toAddress
 
+	ab.Hash = accountBlockPB.Hash
 	ab.PrevHash = accountBlockPB.PrevHash
 	ab.FromHash = accountBlockPB.FromHash
 
-	tokenId, err := types.BytesToTokenTypeId(accountBlockPB.TokenId)
-	if err != nil {
-		return err
+	if accountBlockPB.TokenId != nil {
+		tokenId, err := types.BytesToTokenTypeId(accountBlockPB.TokenId)
+		if err != nil {
+			return err
+		}
+
+		ab.TokenId = &tokenId
 	}
 
-	ab.TokenId = &tokenId
 
 	ab.Timestamp =  accountBlockPB.Timestamp
 
@@ -183,11 +193,15 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 }
 
 func GetGenesisBlocks () ([]*AccountBlock){
+	firstBlockHash := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	secondBlockHash := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+
 	viteMintageBlock := &AccountBlock{
 		AccountAddress: &GenesisAccount,
 		To: 			&MintageAddress,
 
-		Hash:           []byte("000000000000000000"),             // mock
+		SnapshotTimestamp: GenesisSnapshotBlockHash,
+		Hash:           firstBlockHash,             // mock
 		Data: "{" +
 			"\"tokenName\": \"vite\"," +
 			"\"tokenSymbol\": \"VITE\"," +
@@ -199,10 +213,11 @@ func GetGenesisBlocks () ([]*AccountBlock){
 
 	genesisAccountBlock := &AccountBlock{
 		AccountAddress: &GenesisAccount,
-		FromHash: []byte("000000000000000000"),
-		PrevHash: []byte("000000000000000000"),
+		FromHash: firstBlockHash,
+		PrevHash: firstBlockHash,
 
-		Hash: []byte("000000000000000001"),
+		SnapshotTimestamp: GenesisSnapshotBlockHash,
+		Hash: secondBlockHash,
 	}
 
 	return []*AccountBlock{viteMintageBlock, genesisAccountBlock}

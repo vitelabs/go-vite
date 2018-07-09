@@ -4,6 +4,8 @@ import (
 	"github.com/vitelabs/go-vite/vitedb"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/syndtr/goleveldb/leveldb"
+	"math/big"
 )
 
 type TokenAccess struct {
@@ -20,6 +22,26 @@ var tokenAccess = &TokenAccess {
 func GetTokenAccess () *TokenAccess {
 	return tokenAccess
 }
+
+func (ta *TokenAccess) WriteMintage (batch *leveldb.Batch, mintage *ledger.Mintage, bloch *ledger.AccountBlock) (error) {
+	// Write TokenIdIndex
+	if err := ta.store.WriteTokenIdIndex(batch, mintage.Id, big.NewInt(0), bloch.Hash); err != nil{
+		return err
+	}
+
+	// Write TokenNameIndex
+	if err := ta.store.WriteTokenNameIndex(batch, mintage.Name, mintage.Id); err != nil{
+		return err
+	}
+
+	// Write TokenSymbolIndex
+	if err := ta.store.WriteTokenSymbolIndex(batch, mintage.Symbol, mintage.Id); err != nil{
+		return err
+	}
+
+	return nil
+}
+
 
 func (ta *TokenAccess) getListByTokenIdList (tokenIdList []*types.TokenTypeId) ([]*ledger.Token, error) {
 	var tokenList []*ledger.Token

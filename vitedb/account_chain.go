@@ -101,7 +101,9 @@ func (ac * AccountChain) GetBlockByHeight (accountId *big.Int, blockHeight *big.
 func (ac *AccountChain) GetLatestBlockByAccountId (accountId *big.Int) (*ledger.AccountBlock, error){
 
 	latestBlockHeight, err := ac.GetLatestBlockHeightByAccountId(accountId)
-	if err != nil {
+	fmt.Println(latestBlockHeight.String())
+
+	if err != nil || latestBlockHeight == nil{
 		return nil, err
 	}
 
@@ -122,8 +124,11 @@ func (ac *AccountChain) GetLatestBlockHeightByAccountId (accountId *big.Int) (* 
 		return nil, nil
 	}
 
+	lastKey := iter.Key()
+	partionList := deserializeKey(lastKey)
+
 	latestBlockHeight := &big.Int{}
-	latestBlockHeight.SetBytes(iter.Value())
+	latestBlockHeight.SetBytes(partionList[1])
 	return latestBlockHeight, nil
 }
 
@@ -213,7 +218,7 @@ func (ac *AccountChain) GetLastIdByStHeight (stHeight *big.Int) (*big.Int, error
 
 
 func (ac *AccountChain) GetBlockHashList (index, num, count int) ([][]byte, error) {
-	key, err:= createKey(DBKP_SNAPSHOTTIMESTAMP_INDEX)
+	key, err:= createKey(DBKP_SNAPSHOTTIMESTAMP_INDEX, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -233,12 +238,19 @@ func (ac *AccountChain) GetBlockHashList (index, num, count int) ([][]byte, erro
 
 	var blocHashList [][]byte
 	for i:=0; i < num * count; i++ {
+
+		value := make([]byte, len(iter.Value()))
+		copy(value, iter.Value())
+
+		blocHashList = append(blocHashList, value)
+
+		fmt.Println(value)
 		if !iter.Prev() {
 			break
 		}
-
-		blocHashList = append(blocHashList, iter.Value())
 	}
+
+	fmt.Println(blocHashList)
 
 
 	return blocHashList, nil
