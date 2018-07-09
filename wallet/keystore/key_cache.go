@@ -27,7 +27,7 @@ func newKeyCache(keydir string) (*keyCache, chan struct{}) {
 	kc := &keyCache{
 		keydir: keydir,
 		notify: make(chan struct{}, 1),
-		fileC: fileutils.FileChangeRecord{AllCached: mapset.NewThreadUnsafeSet(), FileFilter: func(dir string, file os.FileInfo) bool {
+		fileC: fileutils.NewFileChangeRecord(func(dir string, file os.FileInfo) bool {
 			if file.IsDir() || file.Mode()&os.ModeType != 0 {
 				return true
 			}
@@ -36,7 +36,7 @@ func newKeyCache(keydir string) (*keyCache, chan struct{}) {
 				return true
 			}
 			return false
-		}},
+		}),
 		cacheAddr: mapset.NewThreadUnsafeSet(),
 	}
 	kc.kob = newObserver(kc)

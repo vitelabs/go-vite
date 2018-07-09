@@ -34,6 +34,28 @@ type unlocked struct {
 	abort chan struct{}
 }
 
+func NewManager(kcc *KeyConfig) *Manager {
+	kp := Manager{ks: KeyStorePassphrase{kcc.KeyStoreDir}, keyConfig: kcc}
+	return &kp
+}
+
+func (km *Manager) Init() {
+	if km.isInited {
+		return
+	}
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+
+	km.unlockedAddr = make(map[types.Address]*unlocked)
+	km.kc, km.kcListener = newKeyCache(km.keyConfig.KeyStoreDir)
+
+	km.addrs = km.kc.ListAllAddress()
+
+	km.isInited = true
+
+}
+
+
 func (km *Manager) Status() (string, error) {
 	var sb strings.Builder
 
@@ -58,7 +80,7 @@ func (km *Manager) Open(passphrase string) error {
 	return nil
 }
 
-func (km *Manager) ListAddress() []types.Address {
+func (km *Manager) Addresses() []types.Address {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 	result := make([]types.Address, km.addrs.Cardinality())
@@ -114,27 +136,6 @@ func (km *Manager) Find(a types.Address) (string, error) {
 // if a keystore file name is changed it will read the file content if then content is a legal the function will fix the filename
 func (km *Manager) FixAll() {
 	km.kc.intervalRefresh()
-}
-
-func NewManager(kcc *KeyConfig) *Manager {
-	kp := Manager{ks: KeyStorePassphrase{kcc.KeyStoreDir}, keyConfig: kcc}
-	return &kp
-}
-
-func (km *Manager) Init() {
-	if km.isInited {
-		return
-	}
-	km.mutex.Lock()
-	defer km.mutex.Unlock()
-
-	km.unlockedAddr = make(map[types.Address]*unlocked)
-	km.kc, km.kcListener = newKeyCache(km.keyConfig.KeyStoreDir)
-
-	km.addrs = km.kc.ListAllAddress()
-
-	km.isInited = true
-
 }
 
 func (km *Manager) StoreNewKey(pwd string) (*Key, types.Address, error) {

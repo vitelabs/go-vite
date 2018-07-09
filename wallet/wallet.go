@@ -9,10 +9,14 @@ type Wallet interface {
 
 	Open(passphrase string) error
 
-	ListAddress() []types.Address
+	Addresses() []types.Address
 
 	// use cached priv to sign data if the priv of address binding has`t evet
 	SignData(a types.Address, data []byte) ([]byte, error)
 
 	SignDataWithPassphrase(a types.Address, passphrase string, data []byte) ([]byte, error)
+}
+
+type Provider interface {
+	Wallets() []Wallet
 }
