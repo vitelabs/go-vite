@@ -4,14 +4,27 @@ import (
 	"github.com/vitelabs/go-vite/vitedb"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"flag"
 )
 
 func main() {
+	var isInit= false
+	flag.BoolVar(&isInit, "init", false, "Init ledger")
+
+	flag.Parse()
+	if isInit {
+		writeGenesisBlocks()
+		writeGenesisSnapshotBlock()
+	}
+	//test()
+	//testCompare()
+	//testWrite()
+	//writeSnapshotChain()
+	//getSnapshotChainTest()
 	writeGenesisBlocks()
 	writeAccoutChain()
 	//test()
-
-
+	getAccountChain()
 }
 
 //func testWrite()  {
@@ -40,5 +53,3 @@ func test () {
 		fmt.Println(iter.Value())
 	}
 }
-
-
