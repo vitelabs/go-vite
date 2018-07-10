@@ -4,8 +4,8 @@ import (
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/types"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
-	"testing"
 	"runtime"
+	"testing"
 )
 
 const (
@@ -15,7 +15,7 @@ const (
 
 func TestStoreAndExtractNewKey(t *testing.T) {
 
-	ks := KeyStorePassphrase{keysDirPath: TestKeyConfig.KeyStoreDir}
+	ks := keyStorePassphrase{keysDirPath: TestKeyConfig.KeyStoreDir}
 	kp := NewManager(&TestKeyConfig)
 
 	key1, addr1, err := kp.StoreNewKey(DummyPwd)
@@ -50,13 +50,15 @@ func TestSignAndVerfify(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		println(hex.EncodeToString(outdata))
+		println("##" + hex.EncodeToString(outdata))
 		readAndFixAddressFile(fullKeyFileName(kp.keyConfig.KeyStoreDir, v))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if !vcrypto.VerifySig(pubkey, []byte(DummySignData), outdata) {
+		ok, err := vcrypto.VerifySig(pubkey, []byte(DummySignData), outdata)
+
+		if !ok || err != nil {
 			t.Fatal("Verify wrong")
 		}
 	}

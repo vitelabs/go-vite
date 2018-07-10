@@ -19,7 +19,7 @@ var (
 // Manage keys from various wallet in here we will cache account
 // Manager is a keystore wallet and an interface
 type Manager struct {
-	ks           keyStore
+	ks           keyStorePassphrase
 	keyConfig    *KeyConfig
 	kc           *keyCache
 	kcListener   chan struct{}
@@ -35,7 +35,7 @@ type unlocked struct {
 }
 
 func NewManager(kcc *KeyConfig) *Manager {
-	kp := Manager{ks: KeyStorePassphrase{kcc.KeyStoreDir}, keyConfig: kcc}
+	kp := Manager{ks: keyStorePassphrase{kcc.KeyStoreDir}, keyConfig: kcc}
 	return &kp
 }
 
@@ -121,7 +121,7 @@ func (km *Manager) SignDataWithPassphrase(a types.Address, passphrase string, da
 }
 
 func (km *Manager) Find(a types.Address) (string, error) {
-	km.kc.intervalRefresh()
+	km.kc.refresh()
 	km.mutex.Lock()
 	exist := km.kc.cacheAddr.Contains(a)
 	km.mutex.Unlock()
@@ -135,7 +135,7 @@ func (km *Manager) Find(a types.Address) (string, error) {
 
 // if a keystore file name is changed it will read the file content if then content is a legal the function will fix the filename
 func (km *Manager) FixAll() {
-	km.kc.intervalRefresh()
+	km.kc.refresh()
 }
 
 func (km *Manager) StoreNewKey(pwd string) (*Key, types.Address, error) {

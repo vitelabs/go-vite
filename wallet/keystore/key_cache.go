@@ -44,7 +44,7 @@ func newKeyCache(keydir string) (*keyCache, chan struct{}) {
 }
 
 func (kc *keyCache) ListAllAddress() mapset.Set {
-	kc.intervalRefresh()
+	kc.refresh()
 	kc.mutex.Lock()
 	defer kc.mutex.Unlock()
 
@@ -105,14 +105,9 @@ func (kc *keyCache) deleteByFile(fullfilename string) {
 	kc.cacheAddr.Remove(a)
 }
 
-// min reload time is 2s that means if
-func (kc *keyCache) intervalRefresh() {
+// min reload time is 2s
+func (kc *keyCache) refresh() {
 	kc.mutex.Lock()
-
-	if kc.kob.running {
-		kc.mutex.Unlock()
-		return // A watcher is running and will keep the cache up-to-date.
-	}
 
 	if kc.throttle == nil {
 		kc.throttle = time.NewTimer(0)
@@ -127,6 +122,7 @@ func (kc *keyCache) intervalRefresh() {
 	kc.kob.start()
 	kc.throttle.Reset(2 * time.Second)
 	kc.mutex.Unlock()
+
 	kc.refreshAndFixAddressFile()
 }
 

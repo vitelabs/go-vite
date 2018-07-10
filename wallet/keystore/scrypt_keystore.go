@@ -16,7 +16,6 @@ import (
 	"time"
 )
 
-//TODO  We don`t support user-defined keystore filename temporarily
 
 const (
 	// StandardScryptN is the N parameter of Scrypt encryption algorithm, using 256MB
@@ -27,14 +26,6 @@ const (
 	// memory and taking approximately 1s CPU time on a modern processor.
 	StandardScryptP = 1
 
-	// LightScryptN is the N parameter of Scrypt encryption algorithm, using 4MB
-	// memory and taking approximately 100ms CPU time on a modern processor.
-	LightScryptN = 1 << 12
-
-	// LightScryptP is the P parameter of Scrypt encryption algorithm, using 4MB
-	// memory and taking approximately 100ms CPU time on a modern processor.
-	LightScryptP = 6
-
 	scryptR      = 8
 	scryptKeyLen = 32
 
@@ -42,11 +33,11 @@ const (
 	scryptName = "scrypt"
 )
 
-type KeyStorePassphrase struct {
+type keyStorePassphrase struct {
 	keysDirPath string
 }
 
-func (ks KeyStorePassphrase) ExtractKey(addr types.Address, password string) (*Key, error) {
+func (ks keyStorePassphrase) ExtractKey(addr types.Address, password string) (*Key, error) {
 	keyjson, err := ioutil.ReadFile(fullKeyFileName(ks.keysDirPath, addr))
 	if err != nil {
 		return nil, err
@@ -59,7 +50,7 @@ func (ks KeyStorePassphrase) ExtractKey(addr types.Address, password string) (*K
 	return key, nil
 }
 
-func (ks KeyStorePassphrase) StoreKey(key *Key, password string) error {
+func (ks keyStorePassphrase) StoreKey(key *Key, password string) error {
 	keyjson, err := EncryptKey(key, password)
 	if err != nil {
 		return err

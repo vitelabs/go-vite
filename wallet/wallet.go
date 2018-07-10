@@ -19,4 +19,22 @@ type Wallet interface {
 
 type Provider interface {
 	Wallets() []Wallet
+	Subscribe(event chan<- Event)
+}
+
+type EventType int
+
+const (
+	WalletArrived EventType = iota
+
+	WalletOpened
+
+	WalletUpdate
+
+	WalletDropped
+)
+
+type Event struct {
+	Wallet Wallet
+	Kind   EventType
 }
