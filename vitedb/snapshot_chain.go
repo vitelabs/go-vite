@@ -161,28 +161,15 @@ func (sbc *SnapshotChain) Iterate (iterateFunc func(snapshotBlock *ledger.Snapsh
 }
 
 func (sbc *SnapshotChain) WriteBlock (batch *leveldb.Batch, block *ledger.SnapshotBlock) error {
-	//// 模拟key, 需要改
-	//key :=  []byte("snapshot_test")
-	//
-	//// Block serialize by protocol buffer
-	//data, err := block.Serialize()
-	//
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return err
-	//}
-	//
-	//sbc.db.Put(key, data)
 	key, ckErr := createKey(DBKP_SNAPSHOTBLOCK, block.Height)
 	if ckErr != nil {
 		return ckErr
 	}
 	data, sErr := block.DbSerialize()
 	if sErr != nil {
-		fmt.Println(sErr)
+		fmt.Println("SnapshotBlock DbSerialize error.")
 		return sErr
 	}
-	//sbc.db.Leveldb.Put(key, data, nil)
 	batch.Put(key, data)
 	return nil
 }
@@ -192,7 +179,6 @@ func (sbc *SnapshotChain) WriteBlockHeight (batch *leveldb.Batch, block *ledger.
 	if ckErr != nil {
 		return ckErr
 	}
-	//sbc.db.Leveldb.Put(key, block.Height.Bytes(), nil)
 	batch.Put(key, block.Height.Bytes())
 	return nil
 }
@@ -210,7 +196,9 @@ func (sbc *SnapshotChain) GetAccountList () ([]*types.Address, error){
 	}
 	iter := sbc.db.Leveldb.NewIterator(util.BytesPrefix(key),nil)
 	defer iter.Release()
-	fmt.Print(iter.Error())
+	if itErr := iter.Error(); itErr != nil {
+		return nil, itErr
+	}
 	var accountList []*types.Address
 	for iter.Next() {
 		address, err := types.BytesToAddress(iter.Value())
