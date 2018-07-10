@@ -6,6 +6,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/vitepb"
 	"github.com/vitelabs/go-vite/common/types"
+	"time"
 )
 
 type AccountBlockMeta struct {
@@ -213,6 +214,7 @@ func GetGenesisBlocks () ([]*AccountBlock){
 		To: 			&MintageAddress,
 
 		SnapshotTimestamp: GenesisSnapshotBlockHash,
+		Timestamp: uint64(time.Now().Unix()),
 		Hash:           firstBlockHash,             // mock
 		Data: "{" +
 			"\"tokenName\": \"vite\"," +
@@ -230,6 +232,7 @@ func GetGenesisBlocks () ([]*AccountBlock){
 		PrevHash: firstBlockHash,
 		TokenId: &MockViteTokenId,
 
+		Timestamp: uint64(time.Now().Unix()),
 		SnapshotTimestamp: GenesisSnapshotBlockHash,
 		Hash: secondBlockHash,
 	}

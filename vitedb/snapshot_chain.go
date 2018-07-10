@@ -142,6 +142,10 @@ func (sbc *SnapshotChain) Iterate (iterateFunc func(snapshotBlock *ledger.Snapsh
 
 	for {
 		value := iter.Value()
+		if value == nil {
+			return nil
+		}
+
 		var snapshotBlock *ledger.SnapshotBlock
 		snapshotBlock.DbDeserialize(value)
 		if !iterateFunc(snapshotBlock) {

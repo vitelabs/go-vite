@@ -94,7 +94,7 @@ func GetGenesisSnapshot () *SnapshotBlock {
 		Hash: GenesisSnapshotBlockHash,
 		PrevHash: GenesisSnapshotBlockHash,
 		Height: big.NewInt(1),
-		Timestamp: uint64(time.Time{}.Unix()),
+		Timestamp: uint64(time.Now().Unix()),
 		Producer: GenesisProducer,
 	}
 	return snapshotBLock
