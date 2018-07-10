@@ -73,22 +73,6 @@ func (sb *SnapshotBlock) DbSerialize () ([]byte, error) {
 	return proto.Marshal(snapshotBlock)
 }
 
-//func GetGenesisSnapshotBlock () *SnapshotBlock{
-//	var snapshot map[string] [] byte
-//	genesisAddress := &GenesisAccount
-//	snapshot[genesisAddress.String()] = []byte("000000000000000000")
-//
-//	genesisSnapshotBlock := &SnapshotBlock{
-//		Hash: []byte("000000000000000001"),
-//		PrevHash: []byte("000000000000000000"),
-//		Height: big.NewInt(1),
-//		Producer: GenesisAccount.Bytes(),
-//		Snapshot: snapshot,
-//		Timestamp: uint64(time.Time{}.Unix()),
-//	}
-//	return genesisSnapshotBlock
-//}
-
 func GetGenesisSnapshot () *SnapshotBlock {
 	snapshotBLock := &SnapshotBlock{
 		Hash: GenesisSnapshotBlockHash,
