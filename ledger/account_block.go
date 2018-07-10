@@ -120,6 +120,10 @@ func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 		Difficulty: ab.Difficulty,
 	}
 
+	if ab.Amount != nil {
+		accountBlockPB.Amount = ab.Amount.Bytes()
+	}
+
 	if ab.To != nil {
 		accountBlockPB.To = ab.To.Bytes()
 	}
@@ -170,11 +174,19 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 		ab.TokenId = &tokenId
 	}
 
+	if accountBlockPB.Amount != nil {
+		ab.Amount = &big.Int{}
+		ab.Amount.SetBytes(accountBlockPB.Amount)
+	}
+
 
 	ab.Timestamp =  accountBlockPB.Timestamp
 
-	ab.Balance = &big.Int{}
-	ab.Balance.SetBytes(accountBlockPB.Balance)
+	if accountBlockPB.Balance != nil {
+		ab.Balance = &big.Int{}
+		ab.Balance.SetBytes(accountBlockPB.Balance)
+	}
+
 
 	ab.Data = accountBlockPB.Data
 

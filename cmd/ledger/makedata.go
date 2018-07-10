@@ -19,9 +19,12 @@ func main() {
 	//test()
 	//testCompare()
 	//testWrite()
-	getAccountChain()
 	//writeSnapshotChain()
 	//getSnapshotChainTest()
+	writeGenesisBlocks()
+	writeAccoutChain()
+	//test()
+	getAccountChain()
 }
 
 //func testWrite()  {

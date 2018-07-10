@@ -10,6 +10,7 @@ import (
 	"sync"
 	"fmt"
 	"github.com/pkg/errors"
+	"encoding/hex"
 )
 
 type blockWriteMutexBody struct {
@@ -135,10 +136,10 @@ func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock) error {
 	})
 
 	if err != nil {
-		fmt.Println("Write block failed, block data is ")
+		fmt.Println("Write block " + hex.EncodeToString(block.Hash) + " failed, block data is ")
 		fmt.Printf("%+v\n", block)
 	} else {
-		fmt.Println("Write block " + string(block.Hash) + " succeed")
+		fmt.Println("Write block " + hex.EncodeToString(block.Hash) + " succeed.")
 	}
 
 	return err
@@ -160,7 +161,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 
 	var currentAccountToken *ledger.AccountSimpleToken
 
-	isGenesisBlock :=  block.AccountAddress.String() == ledger.GenesisAccount.String()
+	isGenesisBlock :=  block.AccountAddress.String() == ledger.GenesisAccount.String() && block.PrevHash == nil
 	if block.SnapshotTimestamp == nil {
 		return errors.New("Fail to write block, because block.SnapshotTimestamp is uncorrect.")
 	}
@@ -215,7 +216,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	if currentAccountToken != nil {
 		prevAccountBlockInToken, err = aca.store.GetBlockByHeight(accountMeta.AccountId, currentAccountToken.LastAccountBlockHeight)
 
-		if err != nil {
+		if err != nil && err != leveldb.ErrNotFound {
 			return err
 		}
 	}
@@ -243,6 +244,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 
 		// Sub balance
 		if block.Amount != nil {
+			block.Balance = &big.Int{}
 			block.Balance.Sub(prevAccountBlockInToken.Balance, block.Amount)
 		}
 
@@ -279,6 +281,14 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 
 			if mintage.Owner.String() != block.AccountAddress.String() {
 				return errors.New("You are not the owner of this token.")
+			}
+
+			if currentAccountToken == nil {
+				currentAccountToken = &ledger.AccountSimpleToken{
+					TokenId: mintage.Id,
+				}
+
+				accountMeta.TokenList = append(accountMeta.TokenList, currentAccountToken)
 			}
 
 
