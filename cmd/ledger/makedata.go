@@ -19,8 +19,9 @@ func main() {
 	//test()
 	//testCompare()
 	//testWrite()
-
-	writeSnapshotChain()
+	getAccountChain()
+	//writeSnapshotChain()
+	//getSnapshotChainTest()
 }
 
 //func testWrite()  {

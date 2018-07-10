@@ -8,6 +8,7 @@ import (
 	"time"
 	"github.com/vitelabs/go-vite/ledger/access"
 	"log"
+	"fmt"
 )
 
 var accountChainAccess = access.GetAccountChainAccess()
@@ -102,3 +103,14 @@ func createDifficulty () []byte {
 	return []byte("IamDifficulty")
 }
 
+func getAccountChain () {
+	accountChain, gbErr := accountChainAccess.GetBlockList(0,1,2)
+	if gbErr !=nil {
+		log.Fatal(gbErr)
+	}
+	fmt.Println("Length of the snapshotblockchain: ", len(accountChain))
+	for _, block := range accountChain {
+		fmt.Printf("Data{ AccountAddress: %s, Hash: %s, PrevHash: %s }\n",
+			block.AccountAddress, string(block.Hash), block.PrevHash)
+	}
+}

@@ -513,7 +513,7 @@ func (aca *AccountChainAccess) processBlock (accountBlock *ledger.AccountBlock, 
 
 		fromAddress, err := aca.accountStore.GetAddressById(fromAccountBlockMeta.AccountId)
 		if err != nil {
-			return nil, err
+			return nil, errors.New("GetAddressById func error ")
 		}
 
 		accountBlock.From = fromAddress

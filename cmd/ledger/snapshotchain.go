@@ -22,15 +22,6 @@ func writeGenesisSnapshotBlock () {
 	if err != nil {
 		log.Fatal(err)
 	}
-	snapshotblockchain, gbErr := snapshotblockchain.GetBlockList(0,1,2)
-	if gbErr !=nil {
-		log.Fatal(gbErr)
-	}
-	fmt.Println("Length of the snapshotblockchain: ", len(snapshotblockchain))
-	for _, block := range snapshotblockchain {
-		fmt.Printf("Data{ Height: %d, Hash: %s, PrevHash: %s }\n",
-			block.Height, string(block.Hash), block.PrevHash)
-	}
 }
 
 func writeSnapshotChain()  {
@@ -44,15 +35,6 @@ func writeSnapshotChain()  {
 	err := snapshotblockchain.WriteBlock(block)
 	if err != nil {
 		log.Fatal(err)
-	}
-	snapshotblockchain, gbErr := snapshotblockchain.GetBlockList(0,1,4)
-	if gbErr !=nil {
-		log.Fatal(gbErr)
-	}
-	fmt.Println("Length of the snapshotblockchain: ", len(snapshotblockchain))
-	for _, block := range snapshotblockchain {
-		fmt.Printf("Data{ Height: %d, Hash: %s, PrevHash: %s }\n",
-			block.Height, string(block.Hash), block.PrevHash)
 	}
 }
 
@@ -71,9 +53,6 @@ func createSnapshotBlock (hash []byte, prevHash []byte, height *big.Int) *ledger
 
 func createSnapshot () map[string] []byte{
 	var snapshot map[string] [] byte
-	// genesisAddress := &ledger.GenesisAccount
-	// snapshot[genesisAddress.String()] = []byte("000000000000000000")
-
 	accountList, err := snapshotblockchain.GetAccountList()
 	if err != nil {
 		fmt.Println("GetAccountList error")
@@ -113,8 +92,20 @@ func getAccountAddressList () []*types.Address {
 	}
 	for _, accountAddress := range accountList {
 		accountAddressList = append(accountAddressList, accountAddress)
+		fmt.Println("accountAddress: }\n", accountAddress)
 	}
 
 	return accountAddressList
 }
 
+func getSnapshotChainTest () {
+	snapshotblockchain, gbErr := snapshotblockchain.GetBlockList(0,1,4)
+	if gbErr !=nil {
+		log.Fatal(gbErr)
+	}
+	fmt.Println("Length of the snapshotblockchain: ", len(snapshotblockchain))
+	for _, block := range snapshotblockchain {
+		fmt.Printf("Data{ Height: %d, Hash: %s, PrevHash: %s, Producer: %s }\n",
+			block.Height, string(block.Hash), block.PrevHash, string(block.Producer))
+	}
+}
