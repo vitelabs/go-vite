@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 	"github.com/vitelabs/go-vite/common/types"
+	"encoding/hex"
 )
 
 type SnapshotChainAccess struct {
@@ -66,7 +67,7 @@ func (sca *SnapshotChainAccess) WriteBlock (block *ledger.SnapshotBlock) error{
 		fmt.Println("Write block failed, block data is ")
 		fmt.Printf("%+v\n", block)
 	} else {
-		fmt.Println("Write block " + string(block.Hash) + " succeed")
+		fmt.Println("Write Snapshot block " + hex.EncodeToString(block.Hash) + " succeed")
 		//fmt.Print(block.Hash)
 	}
 	return err

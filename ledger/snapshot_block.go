@@ -7,7 +7,8 @@ import (
 	"time"
 )
 
-var GenesisSnapshotBlockHash = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}
+var GenesisSnapshotBlockHash = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+var GenesisProducer = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 
 
 type SnapshotBlock struct {
@@ -94,6 +95,7 @@ func GetGenesisSnapshot () *SnapshotBlock {
 		PrevHash: GenesisSnapshotBlockHash,
 		Height: big.NewInt(1),
 		Timestamp: uint64(time.Time{}.Unix()),
+		Producer: GenesisProducer,
 	}
 	return snapshotBLock
 }
