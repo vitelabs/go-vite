@@ -17,7 +17,7 @@ type keyCache struct {
 	kob             *keystoreObserver
 	mutex           sync.Mutex
 	throttle        *time.Timer
-	notify          chan struct{}
+	changed         chan struct{}
 	fileC           fileutils.FileChangeRecord
 	cacheAddr       mapset.Set
 	lasttryloadtime time.Time
@@ -25,8 +25,8 @@ type keyCache struct {
 
 func newKeyCache(keydir string) (*keyCache, chan struct{}) {
 	kc := &keyCache{
-		keydir: keydir,
-		notify: make(chan struct{}, 1),
+		keydir:  keydir,
+		changed: make(chan struct{}, 1),
 		fileC: fileutils.NewFileChangeRecord(func(dir string, file os.FileInfo) bool {
 			if file.IsDir() || file.Mode()&os.ModeType != 0 {
 				return true
@@ -40,7 +40,7 @@ func newKeyCache(keydir string) (*keyCache, chan struct{}) {
 		cacheAddr: mapset.NewThreadUnsafeSet(),
 	}
 	kc.kob = newObserver(kc)
-	return kc, kc.notify
+	return kc, kc.changed
 }
 
 func (kc *keyCache) ListAllAddress() mapset.Set {
@@ -87,6 +87,7 @@ func (kc *keyCache) refreshAndFixAddressFile() error {
 		return false
 	})
 
+	kc.changed <- struct{}{}
 	return nil
 }
 func (kc *keyCache) add(addr types.Address) {
@@ -134,9 +135,9 @@ func (kc *keyCache) close() {
 	if kc.throttle != nil {
 		kc.throttle.Stop()
 	}
-	if kc.notify != nil {
-		close(kc.notify)
-		kc.notify = nil
+	if kc.changed != nil {
+		close(kc.changed)
+		kc.changed = nil
 	}
 
 }

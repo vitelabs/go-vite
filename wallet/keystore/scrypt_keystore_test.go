@@ -33,12 +33,12 @@ func TestDecrypt(t *testing.T) {
 }
 
 func TestEncryptAndDecrypt(t *testing.T) {
-	pub, priv, err := ed25519.GenerateKey(nil)
+	_, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	key := newKeyFromEd25519(&pub, &priv)
+	key := newKeyFromEd25519(&priv)
 
 	json, err := EncryptKey(key, "123456")
 	if err != nil {

@@ -6,12 +6,10 @@ import (
 	"github.com/pborman/uuid"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"strings"
 	"sync"
 )
 
 var (
-	ErrLocked        = errors.New("need password or unlock")
 	ErrNotFind       = errors.New("not found the give address in any file")
 	ErrInvalidPrikey = errors.New("invalid prikey")
 )
@@ -19,19 +17,13 @@ var (
 // Manage keys from various wallet in here we will cache account
 // Manager is a keystore wallet and an interface
 type Manager struct {
-	ks           keyStorePassphrase
-	keyConfig    *KeyConfig
-	kc           *keyCache
-	kcListener   chan struct{}
-	unlockedAddr map[types.Address]*unlocked
-	addrs        mapset.Set
-	mutex        sync.RWMutex
-	isInited     bool
-}
-
-type unlocked struct {
-	*Key
-	abort chan struct{}
+	ks        keyStorePassphrase
+	keyConfig *KeyConfig
+	kc        *keyCache
+	kcChanged chan struct{}
+	addrs     mapset.Set
+	mutex     sync.RWMutex
+	isInited  bool
 }
 
 func NewManager(kcc *KeyConfig) *Manager {
@@ -46,37 +38,12 @@ func (km *Manager) Init() {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
-	km.unlockedAddr = make(map[types.Address]*unlocked)
-	km.kc, km.kcListener = newKeyCache(km.keyConfig.KeyStoreDir)
+	km.kc, km.kcChanged = newKeyCache(km.keyConfig.KeyStoreDir)
 
 	km.addrs = km.kc.ListAllAddress()
 
 	km.isInited = true
 
-}
-
-func (km *Manager) Status() (string, error) {
-	var sb strings.Builder
-
-	km.addrs.Each(func(v interface{}) bool {
-		a := v.(types.Address)
-		if _, ok := km.unlockedAddr[a]; ok {
-			sb.WriteString(a.Hex() + " Unlocked\n")
-		} else {
-			sb.WriteString(a.Hex() + " Locked\n")
-		}
-		return false
-	})
-	return sb.String(), nil
-
-}
-
-func (km *Manager) Close() error {
-	return nil
-}
-
-func (km *Manager) Open(passphrase string) error {
-	return nil
 }
 
 func (km *Manager) Addresses() []types.Address {
@@ -89,16 +56,6 @@ func (km *Manager) Addresses() []types.Address {
 		i++
 	}
 	return result
-}
-
-func (km *Manager) SignData(a types.Address, data []byte) (signedData []byte, pubkey []byte, err error) {
-	km.mutex.Lock()
-	defer km.mutex.Unlock()
-	unlockedKey, found := km.unlockedAddr[a]
-	if !found {
-		return nil, nil, ErrLocked
-	}
-	return unlockedKey.Sign(data)
 }
 
 func (km *Manager) SignDataWithPassphrase(a types.Address, passphrase string, data []byte) (signedData []byte, pubkey []byte, err error) {
@@ -139,11 +96,11 @@ func (km *Manager) FixAll() {
 }
 
 func (km *Manager) StoreNewKey(pwd string) (*Key, types.Address, error) {
-	pub, priv, err := ed25519.GenerateKey(nil)
+	_, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, types.Address{}, err
 	}
-	key := newKeyFromEd25519(&pub, &priv)
+	key := newKeyFromEd25519(&priv)
 
 	if err := km.ks.StoreKey(key, pwd); err != nil {
 		return nil, types.Address{}, err
@@ -159,8 +116,7 @@ func (km *Manager) ImportPriv(hexPrikey, newpwd string) (*Key, types.Address, er
 	if !ed25519.IsValidPrivateKey(priv) {
 		return nil, types.Address{}, ErrInvalidPrikey
 	}
-	pub := ed25519.PublicKey(priv.PubByte())
-	key := newKeyFromEd25519(&pub, &priv)
+	key := newKeyFromEd25519(&priv)
 	addr := types.PrikeyToAddress(priv)
 
 	if err := km.ks.StoreKey(key, newpwd); err != nil {
@@ -213,7 +169,7 @@ func (km *Manager) ExtractKey(a types.Address, pwd string) (types.Address, *Key,
 	return a, key, err
 }
 
-func newKeyFromEd25519(pub *ed25519.PublicKey, priv *ed25519.PrivateKey) *Key {
+func newKeyFromEd25519(priv *ed25519.PrivateKey) *Key {
 	id := uuid.NewRandom()
 	key := &Key{
 		Id:         id,
