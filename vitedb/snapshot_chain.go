@@ -114,7 +114,7 @@ func (sbc *SnapshotChain) GetLatestBlock () (*ledger.SnapshotBlock, error) {
 	iter := sbc.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
 	if !iter.Last() {
-		return nil, errors.New("GetLatestBlock failed: " + iter.Error().Error())
+		return nil, errors.New("GetLatestBlock failed. Cause the SnapshotChain has no block" + iter.Error().Error())
 	}
 	sb := &ledger.SnapshotBlock{}
 	sdErr := sb.DbDeserialize(iter.Value())
