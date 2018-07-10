@@ -5,12 +5,12 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"sync"
 	"github.com/syndtr/goleveldb/leveldb"
-	"bytes"
 	"errors"
 	"fmt"
-	"math/big"
 	"github.com/vitelabs/go-vite/common/types"
 	"encoding/hex"
+	"bytes"
+	"math/big"
 )
 
 type SnapshotChainAccess struct {
@@ -81,7 +81,7 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 	sca.bwMutex.Lock()
 	defer sca.bwMutex.Unlock()
 	//judge whether the prehash is valid
-	if !bytes.Equal(block.PrevHash, ledger.GenesisSnapshotBlockHash) {
+	if !bytes.Equal(block.Hash, ledger.GenesisSnapshotBlockHash) {
 		preSnapshotBlock, err := sca.store.GetLatestBlock()
 		if err != nil {
 			return err
@@ -96,7 +96,6 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 	if wbhErr := sca.store.WriteBlockHeight(batch, block); wbhErr != nil {
 		return wbhErr
 	}
-
 	//snapshotBlock:e.[snapshotBlockHeight]:[snapshotBlock]
 	if wbErr := sca.store.WriteBlock(batch, block); wbErr != nil {
 		return wbErr
