@@ -8,9 +8,9 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"bytes"
 	"sync"
-	"fmt"
 	"github.com/pkg/errors"
 	"encoding/hex"
+	"fmt"
 )
 
 type blockWriteMutexBody struct {
@@ -119,6 +119,7 @@ var accountChainAccess = &AccountChainAccess{
 func GetAccountChainAccess() *AccountChainAccess {
 	return accountChainAccess
 }
+
 
 func (aca *AccountChainAccess) WriteBlockList(blockList []*ledger.AccountBlock) error {
 	for _, block := range blockList {

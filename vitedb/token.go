@@ -39,6 +39,7 @@ func (token *Token) GetMintageBlockHashByTokenId(tokenId *types.TokenTypeId) ([]
 	reader := token.db.Leveldb
 	// Get mintage block hash
 	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), big.NewInt(0))
+
 	if err != nil {
 		return nil, err
 	}
