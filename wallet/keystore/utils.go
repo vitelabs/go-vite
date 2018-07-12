@@ -12,6 +12,38 @@ import (
 	"strings"
 )
 
+func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
+	buf := new(bufio.Reader)
+	keyJSON := encryptedKeyJSON{}
+
+	fd, err := os.Open(path)
+	if err != nil {
+		log.Trace("Can not to open ", "path", path, "err", err)
+		return nil, nil
+	}
+	defer fd.Close()
+	buf.Reset(fd)
+	keyJSON.HexAddress = ""
+	err = json.NewDecoder(buf).Decode(&keyJSON)
+	if err != nil {
+		log.Trace("Decode keystore file failed ", "path", path, "err", err)
+		return nil, nil
+	}
+	addr, err := types.HexToAddress(keyJSON.HexAddress)
+	if err != nil {
+		log.Trace("Address is invalid ", "path", path, "err", err)
+		return nil, nil
+	}
+
+	// fix the file name
+	standFileName := fullKeyFileName(filepath.Dir(path), addr)
+	if standFileName != fd.Name() {
+		os.Rename(fd.Name(), standFileName)
+	}
+	return &addr, &keyJSON
+
+}
+
 func fullKeyFileName(keysDirPath string, keyAddr types.Address) string {
 	return filepath.Join(keysDirPath, keyAddr.Hex())
 }
@@ -43,36 +75,4 @@ func addressFromKeyPathV0(keyfile string) (types.Address, error) {
 		return types.Address{}, fmt.Errorf("not valid key file name %v error %v", keyfile, err)
 	}
 	return a, nil
-}
-
-func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
-	buf := new(bufio.Reader)
-	keyJSON := encryptedKeyJSON{}
-
-	fd, err := os.Open(path)
-	if err != nil {
-		log.Trace("Can not to open ", "path", path, "err", err)
-		return nil, nil
-	}
-	defer fd.Close()
-	buf.Reset(fd)
-	keyJSON.HexAddress = ""
-	err = json.NewDecoder(buf).Decode(&keyJSON)
-	if err != nil {
-		log.Trace("Decode keystore file failed ", "path", path, "err", err)
-		return nil, nil
-	}
-	addr, err := types.HexToAddress(keyJSON.HexAddress)
-	if err != nil {
-		log.Trace("Address is invalid ", "path", path, "err", err)
-		return nil, nil
-	}
-
-	// fix the file name
-	standFileName := fullKeyFileName(filepath.Dir(path), addr)
-	if standFileName != fd.Name() {
-		os.Rename(fd.Name(), standFileName)
-	}
-	return &addr, &keyJSON
-
 }

@@ -3,16 +3,16 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"os"
 )
 
 func main() {
 
-	kc := keystore.TestKeyConfig
+	kc := wallet.TestKeyConfig
 	km := keystore.NewManager(&kc)
 	km.Init()
-	printStatus(km)
 
 	inputReader := bufio.NewReader(os.Stdin)
 	fmt.Println("Enter any key to stop ")
@@ -21,10 +21,4 @@ func main() {
 		fmt.Printf("The input was: %s\n", input)
 	}
 
-}
-
-func printStatus(km *keystore.Manager) {
-
-	s, _ := km.Status()
-	println(s)
 }

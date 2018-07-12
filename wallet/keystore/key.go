@@ -12,13 +12,6 @@ const (
 	keystoreVersion = 1
 )
 
-type keyStore interface {
-	// Returns the key associated with the given address , using the given password to recover it from a file.
-	ExtractKey(address types.Address, password string) (*Key, error)
-
-	StoreKey(k *Key, password string) error
-}
-
 type Key struct {
 	Id         uuid.UUID
 	Address    types.Address
@@ -49,9 +42,17 @@ type scryptParams struct {
 	Salt   string `json:"salt"`
 }
 
-func (key *Key) Sign(data []byte) ([]byte, []byte, error) {
+func (key *Key) Sign(data []byte) (signedData []byte, pubkey []byte, err error) {
 	if l := len(*key.PrivateKey); l != ed25519.PrivateKeySize {
 		return nil, nil, errors.New("ed25519: bad private key length: " + strconv.Itoa(l))
 	}
 	return ed25519.Sign(*key.PrivateKey, data), key.PrivateKey.PubByte(), nil
+}
+
+func newKeyFromEd25519(priv *ed25519.PrivateKey) *Key {
+	return &Key{
+		Id:         uuid.NewRandom(),
+		Address:    types.PrikeyToAddress(*priv),
+		PrivateKey: priv,
+	}
 }

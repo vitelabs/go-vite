@@ -198,3 +198,21 @@ func BenchmarkVerification(b *testing.B) {
 		Verify(pub, message, signature)
 	}
 }
+
+func TestPrivateKey_Clear(t *testing.T) {
+	priv := make([]byte, PrivateKeySize)
+	for i := range priv {
+		priv[i] = 1
+	}
+	var P PrivateKey
+	P = priv
+	P.Clear()
+	if IsValidPrivateKey(P) {
+		t.Fatal()
+	}
+	for i := range priv {
+		if priv[i] == 1 {
+			t.Fatal()
+		}
+	}
+}

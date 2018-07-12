@@ -6,6 +6,8 @@ import (
 	crand "crypto/rand"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"io"
+	"errors"
+	"strconv"
 )
 
 const (
@@ -71,6 +73,9 @@ func GetEntropyCSPRNG(n int) []byte {
 	return mainBuff
 }
 
-func VerifySig(pubkey ed25519.PublicKey, message, data []byte) bool {
-	return ed25519.Verify(pubkey, message, data)
+func VerifySig(pubkey ed25519.PublicKey, message, signdata []byte) (bool, error) {
+	if l := len(pubkey); l != ed25519.PublicKeySize {
+		return false, errors.New("ed25519: bad public key length: " + strconv.Itoa(l))
+	}
+	return ed25519.Verify(pubkey, message, signdata), nil
 }
