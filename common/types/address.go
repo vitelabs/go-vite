@@ -69,7 +69,7 @@ func PrikeyToAddress(key ed25519.PrivateKey) Address {
 
 func (addr *Address) SetBytes(b []byte) error {
 	if length := len(b); length != AddressSize {
-		return fmt.Errorf("address bytes length error %v", length)
+		return fmt.Errorf("error address size  %v", length)
 	}
 	copy(addr[:], b)
 	return nil

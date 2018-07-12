@@ -20,7 +20,7 @@ type TokenTypeId [tokenTypeIdSize]byte
 
 func (tid *TokenTypeId) SetBytes(b []byte) error {
 	if length := len(b); length != tokenTypeIdSize {
-		return fmt.Errorf("tokenid bytes length error %v", length)
+		return fmt.Errorf("error tokentypeid size error %v", length)
 	}
 	copy(tid[:], b)
 	return nil
