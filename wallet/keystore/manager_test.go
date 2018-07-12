@@ -6,6 +6,7 @@ import (
 	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"runtime"
 	"testing"
+	"github.com/vitelabs/go-vite/common"
 )
 
 const (
@@ -15,17 +16,17 @@ const (
 
 func TestStoreAndExtractNewKey(t *testing.T) {
 
-	ks := keyStorePassphrase{keysDirPath: TestKeyConfig.KeyStoreDir}
-	kp := NewManager(&TestKeyConfig)
+	ks := keyStorePassphrase{keysDirPath: common.TestDataDir()}
+	kp := NewManager(common.TestDataDir())
 
-	key1, addr1, err := kp.StoreNewKey(DummyPwd)
+	key1, err := kp.StoreNewKey(DummyPwd)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	println("Encrypt finish")
 
-	key2, err := ks.ExtractKey(addr1, DummyPwd)
+	key2, err := ks.ExtractKey(key1.Address, DummyPwd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,11 +40,9 @@ func TestStoreAndExtractNewKey(t *testing.T) {
 
 }
 
-func TestSignAndVerfify(t *testing.T) {
-	kp := NewManager(&TestKeyConfig)
+func TestSignAndVerify(t *testing.T) {
+	kp := NewManager(common.TestDataDir())
 	kp.Init()
-	status, _ := kp.Status()
-	println(status)
 	for _, v := range kp.Addresses() {
 		println(v.Hex())
 		outdata, pubkey, err := kp.SignDataWithPassphrase(v, DummyPwd, []byte(DummySignData))
@@ -51,7 +50,7 @@ func TestSignAndVerfify(t *testing.T) {
 			t.Fatal(err)
 		}
 		println("##" + hex.EncodeToString(outdata))
-		readAndFixAddressFile(fullKeyFileName(kp.keyConfig.KeyStoreDir, v))
+		readAndFixAddressFile(fullKeyFileName(common.TestDataDir(), v))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -65,7 +64,7 @@ func TestSignAndVerfify(t *testing.T) {
 }
 
 func TestManager_ImportPriv(t *testing.T) {
-	kp := NewManager(&TestKeyConfig)
+	kp := NewManager(common.TestDataDir())
 	kp.Init()
 	hexPri, err := kp.ExportPriv("vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416", DummyPwd)
 	if err != nil {
@@ -85,7 +84,7 @@ func TestManager_ImportPriv(t *testing.T) {
 }
 
 func TestManager_Import(t *testing.T) {
-	kp := NewManager(&TestKeyConfig)
+	kp := NewManager(common.TestDataDir())
 	kp.Init()
 	hexaddr := "vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416"
 	addr, _ := types.HexToAddress(hexaddr)

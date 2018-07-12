@@ -1,7 +1,7 @@
 package service
 
 import (
-	"go-vite/ledger"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type SnapshotChain struct {}

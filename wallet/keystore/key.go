@@ -48,3 +48,11 @@ func (key *Key) Sign(data []byte) (signedData []byte, pubkey []byte, err error) 
 	}
 	return ed25519.Sign(*key.PrivateKey, data), key.PrivateKey.PubByte(), nil
 }
+
+func newKeyFromEd25519(priv *ed25519.PrivateKey) *Key {
+	return &Key{
+		Id:         uuid.NewRandom(),
+		Address:    types.PrikeyToAddress(*priv),
+		PrivateKey: priv,
+	}
+}

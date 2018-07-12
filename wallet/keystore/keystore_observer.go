@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-const scanInterval = 3000 * time.Millisecond
+const scanInterval = 3 * time.Second
 
 // every scanInterval it will read the files which in keydir
 type keystoreObserver struct {

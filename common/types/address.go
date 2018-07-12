@@ -31,7 +31,7 @@ func HexToAddress(hexStr string) (Address, error) {
 		addr, _ := getAddressFromHex(hexStr)
 		return addr, nil
 	} else {
-		return Address{}, fmt.Errorf("Not valid hex Address")
+		return Address{}, fmt.Errorf("not valid hex address")
 	}
 }
 

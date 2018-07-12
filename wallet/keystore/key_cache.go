@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 )
 
 // Every two seconds, it will check if there is a file in the keydir changed
@@ -16,11 +15,9 @@ type keyCache struct {
 	keydir          string
 	kob             *keystoreObserver
 	mutex           sync.Mutex
-	throttle        *time.Timer
 	changed         chan struct{}
 	fileC           fileutils.FileChangeRecord
 	cacheAddr       mapset.Set
-	lasttryloadtime time.Time
 }
 
 func newKeyCache(keydir string) (*keyCache, chan struct{}) {
@@ -44,7 +41,7 @@ func newKeyCache(keydir string) (*keyCache, chan struct{}) {
 }
 
 func (kc *keyCache) ListAllAddress() mapset.Set {
-	kc.refresh()
+	kc.maybeReload()
 	kc.mutex.Lock()
 	defer kc.mutex.Unlock()
 
@@ -87,7 +84,7 @@ func (kc *keyCache) refreshAndFixAddressFile() error {
 		return false
 	})
 
-	kc.changed <- struct{}{}
+	//kc.changed <- struct{}{}
 	return nil
 }
 func (kc *keyCache) add(addr types.Address) {
@@ -106,22 +103,14 @@ func (kc *keyCache) deleteByFile(fullfilename string) {
 	kc.cacheAddr.Remove(a)
 }
 
-// min reload time is 2s
-func (kc *keyCache) refresh() {
+// This may not reloadAndFixAddressFile data from disk
+func (kc *keyCache) maybeReload() {
 	kc.mutex.Lock()
-
-	if kc.throttle == nil {
-		kc.throttle = time.NewTimer(0)
-	} else {
-		select {
-		case <-kc.throttle.C:
-		default:
-			kc.mutex.Unlock()
-			return
-		}
+	if kc.kob.running {
+		kc.mutex.Unlock()
+		return // key observer is running means that cache is almost new
 	}
 	kc.kob.start()
-	kc.throttle.Reset(2 * time.Second)
 	kc.mutex.Unlock()
 
 	kc.refreshAndFixAddressFile()
@@ -132,9 +121,7 @@ func (kc *keyCache) close() {
 	defer kc.mutex.Unlock()
 
 	kc.kob.close()
-	if kc.throttle != nil {
-		kc.throttle.Stop()
-	}
+
 	if kc.changed != nil {
 		close(kc.changed)
 		kc.changed = nil
