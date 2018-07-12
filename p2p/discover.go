@@ -302,8 +302,8 @@ type bucket struct {
 
 func NewBucket() *bucket {
 	return &bucket{
-		nodes: make([]*Node, 0, K),
-		candidates: make([]*Node, 0, Candidates),
+		nodes: make([]*Node, K),
+		candidates: make([]*Node, Candidates),
 	}
 }
 
@@ -713,7 +713,7 @@ type discover struct {
 	stopped chan struct{}
 }
 
-func newDiscover(cfg *DiscvConfig) *discover {
+func newDiscover(cfg *DiscvConfig) (*table, error) {
 	addr, err := net.ResolveUDPAddr("udp", cfg.Addr)
 	if err != nil {
 		log.Fatal(err)
@@ -735,13 +735,13 @@ func newDiscover(cfg *DiscvConfig) *discover {
 	discv.tab, err = newTable(node, discv, cfg.DBPath, cfg.BootNodes)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	go discv.loop()
 	go discv.readLoop()
 
-	return discv
+	return discv.tab, nil
 }
 
 // after send query. wating for reply.
@@ -917,7 +917,7 @@ func (d *discover) loop() {
 func (d *discover) readLoop() {
 	defer d.conn.Close()
 
-	buf := make([]byte, 0, maxPacketLength)
+	buf := make([]byte, maxPacketLength)
 	for {
 		nbytes, addr, err := d.conn.ReadFromUDP(buf)
 

@@ -194,8 +194,8 @@ func (p *Neighbors) getID() *NodeID {
 
 func (n *Neighbors) Serialize() ([]byte, error) {
 	nodepbs := make([]*protos.Node, 0, len(n.Nodes))
-	for i, node := range n.Nodes {
-		nodepbs[i] = node.toProto()
+	for _, node := range n.Nodes {
+		nodepbs = append(nodepbs, node.toProto())
 	}
 
 	neighborspb := &protos.Neighbors{
@@ -216,8 +216,8 @@ func (n *Neighbors) Deserialize(buf []byte) error {
 
 	nodes := make([]*Node, 0, len(neighborspb.Nodes))
 
-	for i, nodepb := range neighborspb.Nodes {
-		nodes[i] = protoToNode(nodepb)
+	for _, nodepb := range neighborspb.Nodes {
+		nodes = append(nodes, protoToNode(nodepb))
 	}
 
 	n.Nodes = nodes
