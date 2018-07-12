@@ -13,7 +13,16 @@ import (
 )
 
 func main() {
-	ipcapiURL := filepath.Join(common.TestDataDir(), "unixrpc.ipc")
+
+	fmt.Println("Enter D for Default or any others for Test ")
+	inputReader := bufio.NewReader(os.Stdin)
+	input, err := inputReader.ReadString('\n')
+	dir := common.TestDataDir()
+	if strings.HasPrefix(input, "D") {
+		dir = common.DefaultDataDir()
+	}
+
+	ipcapiURL := filepath.Join(dir, "unixrpc.ipc")
 	client, err := rpc.DialIPC(context.Background(), ipcapiURL)
 	if err != nil {
 		panic(err)
