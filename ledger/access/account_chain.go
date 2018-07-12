@@ -6,9 +6,10 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 	"github.com/syndtr/goleveldb/leveldb"
-	"errors"
 	"bytes"
 	"sync"
+	"github.com/pkg/errors"
+	"encoding/hex"
 	"fmt"
 )
 
@@ -119,6 +120,7 @@ func GetAccountChainAccess() *AccountChainAccess {
 	return accountChainAccess
 }
 
+
 func (aca *AccountChainAccess) WriteBlockList(blockList []*ledger.AccountBlock) error {
 	for _, block := range blockList {
 		err := aca.WriteBlock(block)
@@ -135,10 +137,10 @@ func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock) error {
 	})
 
 	if err != nil {
-		fmt.Println("Write block failed, block data is ")
+		fmt.Println("Write block " + hex.EncodeToString(block.Hash) + " failed, block data is ")
 		fmt.Printf("%+v\n", block)
 	} else {
-		fmt.Println("Write block " + string(block.Hash) + " succeed")
+		fmt.Println("Write block " + hex.EncodeToString(block.Hash) + " succeed.")
 	}
 
 	return err
@@ -160,7 +162,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 
 	var currentAccountToken *ledger.AccountSimpleToken
 
-	isGenesisBlock :=  block.AccountAddress.String() == ledger.GenesisAccount.String()
+	isGenesisBlock :=  block.AccountAddress.String() == ledger.GenesisAccount.String() && block.PrevHash == nil
 	if block.SnapshotTimestamp == nil {
 		return errors.New("Fail to write block, because block.SnapshotTimestamp is uncorrect.")
 	}
@@ -204,6 +206,10 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 		if currentAccountToken != nil {
 			accountMeta.TokenList = append(accountMeta.TokenList, currentAccountToken)
 		}
+
+		if err := aca.accountStore.WriteAccountIdIndex(batch, newAccountId, block.AccountAddress); err != nil {
+			return err
+		}
 	}
 
 	var prevAccountBlockInToken *ledger.AccountBlock
@@ -211,7 +217,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	if currentAccountToken != nil {
 		prevAccountBlockInToken, err = aca.store.GetBlockByHeight(accountMeta.AccountId, currentAccountToken.LastAccountBlockHeight)
 
-		if err != nil {
+		if err != nil && err != leveldb.ErrNotFound {
 			return err
 		}
 	}
@@ -239,6 +245,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 
 		// Sub balance
 		if block.Amount != nil {
+			block.Balance = &big.Int{}
 			block.Balance.Sub(prevAccountBlockInToken.Balance, block.Amount)
 		}
 
@@ -252,7 +259,6 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			if err := tokenAccess.WriteMintage(batch, mintage, block); err != nil{
 				return err
 			}
-
 		}
 
 	} else {
@@ -276,6 +282,14 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 
 			if mintage.Owner.String() != block.AccountAddress.String() {
 				return errors.New("You are not the owner of this token.")
+			}
+
+			if currentAccountToken == nil {
+				currentAccountToken = &ledger.AccountSimpleToken{
+					TokenId: mintage.Id,
+				}
+
+				accountMeta.TokenList = append(accountMeta.TokenList, currentAccountToken)
 			}
 
 
@@ -319,6 +333,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	if currentAccountToken != nil {
 		currentAccountToken.LastAccountBlockHeight = newBlockHeight
 	}
+
 	if err := aca.accountStore.WriteMeta(batch, block.AccountAddress, accountMeta); err != nil {
 		return err
 	}
@@ -393,7 +408,7 @@ func (aca *AccountChainAccess) writeTii (batch *leveldb.Batch, block *ledger.Acc
 
 	cacheBody, ok := tokenIdCache[block.TokenId.String()]
 
-	var newBlockHeightInToken *big.Int
+	newBlockHeightInToken := &big.Int{}
 	// Write TokenId index
 	if !ok {
 		latestBlockHeightInToken, err := aca.tokenStore.GetLatestBlockHeightByTokenId(block.TokenId)
@@ -484,11 +499,23 @@ func (aca *AccountChainAccess) writeStIndex (batch *leveldb.Batch, block *ledger
 
 func (aca *AccountChainAccess) GetBlockByHash(blockHash []byte) (*ledger.AccountBlock, error) {
 	accountBlock, err := aca.store.GetBlockByHash(blockHash)
+
 	if err != nil {
 		return nil, err
 	}
 
-	if accountBlock.FromHash != nil {
+	return aca.processBlock(accountBlock, nil)
+}
+
+func (aca *AccountChainAccess) processBlock (accountBlock *ledger.AccountBlock, accountAddress *types.Address) (*ledger.AccountBlock, error) {
+	if accountBlock.Meta == nil {
+		var err error
+		accountBlock.Meta, err = aca.store.GetBlockMeta(accountBlock.Hash)
+		if err != nil{
+			return nil, err
+		}
+	}
+	if accountBlock.FromHash != nil &&  accountBlock.From == nil{
 		fromAccountBlockMeta, err := aca.store.GetBlockMeta(accountBlock.FromHash)
 
 		if err != nil {
@@ -497,14 +524,34 @@ func (aca *AccountChainAccess) GetBlockByHash(blockHash []byte) (*ledger.Account
 
 		fromAddress, err := aca.accountStore.GetAddressById(fromAccountBlockMeta.AccountId)
 		if err != nil {
-			return nil, err
+			return nil, errors.New("GetAddressById func error ")
 		}
 
 		accountBlock.From = fromAddress
 	}
 
+	if accountBlock.AccountAddress == nil {
+		if accountAddress != nil {
+			accountBlock.AccountAddress = accountAddress
+		} else {
+			accountId := accountBlock.Meta.AccountId
+			var err error
+			accountBlock.AccountAddress, err = aca.accountStore.GetAddressById(accountId)
+			if err != nil {
+				return nil, errors.Wrap(err, "[AccountChainAccess.GetBlockByHash]")
+			}
+
+			if err != nil {
+				return nil, errors.Wrap(err, "[AccountChainAccess.GetBlockByHash]")
+			}
+		}
+
+	}
+
 	return accountBlock, nil
 }
+
+
 
 func (aca *AccountChainAccess) GetBlockListByAccountAddress(index int, num int, count int, accountAddress *types.Address) ([]*ledger.AccountBlock, error) {
 	accountMeta, err := aca.accountStore.GetAccountMetaByAddress(accountAddress)
@@ -512,7 +559,19 @@ func (aca *AccountChainAccess) GetBlockListByAccountAddress(index int, num int, 
 		return nil, err
 	}
 
-	return aca.store.GetBlockListByAccountMeta(index, num, count, accountMeta)
+	blockList, err := aca.store.GetBlockListByAccountMeta(index, num, count, accountMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	var processedBlockList = make([]*ledger.AccountBlock, len(blockList))
+	for index, block := range blockList {
+		processedBlockList[index], err = aca.processBlock(block, accountAddress)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return processedBlockList, nil
 }
 
 func (aca *AccountChainAccess) GetBlockListByTokenId(index int, num int, count int, tokenId *types.TokenTypeId) ([]*ledger.AccountBlock, error) {
@@ -522,7 +581,7 @@ func (aca *AccountChainAccess) GetBlockListByTokenId(index int, num int, count i
 	}
 	var accountBlockList []*ledger.AccountBlock
 	for _, blockHash := range blockHashList {
-		block, err := aca.store.GetBlockByHash(blockHash)
+		block, err := aca.GetBlockByHash(blockHash)
 		if err != nil {
 			return nil, err
 		}
@@ -575,13 +634,13 @@ func (aca *AccountChainAccess) GetConfirmTimes(confirmSnapshotBlock *ledger.Snap
 		return nil, nil
 	}
 
-	latestBlockHeight, err := aca.snapshotStore.GetLatestBlockHeight()
+	latestBlock, err := aca.snapshotStore.GetLatestBlock()
 	if err != nil {
 		return nil, err
 	}
 
 	result := &big.Int{}
-	result = result.Sub(latestBlockHeight, confirmSnapshotBlock.Height)
+	result = result.Sub(latestBlock.Height, confirmSnapshotBlock.Height)
 	return result, nil
 }
 
@@ -592,3 +651,8 @@ func (aca *AccountChainAccess) GetAccountBalance (accountId *big.Int, blockHeigh
 	}
 	return accountBLock.Balance, nil
 }
+
+func (aca *AccountChainAccess) GetLatestBlockHeightByAccountId (accountId *big.Int) (* big.Int, error){
+	return aca.store.GetLatestBlockHeightByAccountId(accountId)
+}
+

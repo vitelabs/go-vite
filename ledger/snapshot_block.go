@@ -4,9 +4,11 @@ import (
 	"math/big"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/vitepb"
+	"time"
 )
 
-var GenesisSnapshotBlockHash = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}
+var GenesisSnapshotBlockHash = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+var GenesisProducer = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 
 
 type SnapshotBlock struct {
@@ -57,16 +59,27 @@ func (sb *SnapshotBlock) DbSerialize () ([]byte, error) {
 	snapshotBlock := &vitepb.SnapshotBlock{
 		Hash: sb.Hash,
 		PrevHash: sb.PrevHash,
-		Height: sb.Height.Bytes(),
 		Producer: sb.Producer,
 		Snapshot: sb.Snapshot,
 		Signature: sb.Signature,
 		Timestamp: sb.Timestamp,
-		Amount: sb.Amount.Bytes(),
 	}
-	serializedBytes, err := proto.Marshal(snapshotBlock)
-	if err != nil {
-		return nil, err
+	if sb.Amount != nil {
+		snapshotBlock.Amount = sb.Amount.Bytes()
 	}
-	return serializedBytes, nil
+	if sb.Height != nil {
+		snapshotBlock.Height = sb.Height.Bytes()
+	}
+	return proto.Marshal(snapshotBlock)
+}
+
+func GetGenesisSnapshot () *SnapshotBlock {
+	snapshotBLock := &SnapshotBlock{
+		Hash: GenesisSnapshotBlockHash,
+		PrevHash: GenesisSnapshotBlockHash,
+		Height: big.NewInt(1),
+		Timestamp: uint64(time.Now().Unix()),
+		Producer: GenesisProducer,
+	}
+	return snapshotBLock
 }

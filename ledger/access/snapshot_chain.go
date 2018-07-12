@@ -3,22 +3,27 @@ package access
 import (
 	"github.com/vitelabs/go-vite/vitedb"
 	"github.com/vitelabs/go-vite/ledger"
+	"sync"
+	"github.com/syndtr/goleveldb/leveldb"
+	"errors"
+	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
+	"encoding/hex"
+	"bytes"
+	"math/big"
 )
 
 type SnapshotChainAccess struct {
 	store *vitedb.SnapshotChain
+	bwMutex sync.RWMutex
 }
 
-var _snapshotChainAccess *SnapshotChainAccess
-
+var snapshotChainAccess = &SnapshotChainAccess{
+	store: vitedb.GetSnapshotChain(),
+}
 
 func GetSnapshotChainAccess () *SnapshotChainAccess {
-	if _snapshotChainAccess == nil {
-		_snapshotChainAccess = &SnapshotChainAccess {
-			store: vitedb.GetSnapshotChain(),
-		}
-	}
-	return _snapshotChainAccess
+	return snapshotChainAccess
 }
 
 func (sca *SnapshotChainAccess) GetBlockByHash (blockHash []byte) (*ledger.SnapshotBlock, error) {
@@ -38,3 +43,65 @@ func (sca *SnapshotChainAccess) GetBlockList (index int, num int, count int) ([]
 	return blockList, nil
 }
 
+func (sca *SnapshotChainAccess) GetLatestBlock() (*ledger.SnapshotBlock, error){
+	return sca.store.GetLatestBlock()
+}
+
+func (sca *SnapshotChainAccess) WriteBlockList (blockList []*ledger.SnapshotBlock) error {
+	batch := new(leveldb.Batch)
+	var err error
+	for _, block := range blockList {
+		err = sca.writeBlock(batch, block)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (sca *SnapshotChainAccess) WriteBlock (block *ledger.SnapshotBlock) error{
+	err := sca.store.BatchWrite(nil, func(batch *leveldb.Batch) error {
+		return sca.writeBlock(batch, block)
+	})
+	if err != nil {
+		fmt.Println("Write block failed, block data is ")
+		fmt.Printf("%+v\n", block)
+	} else {
+		fmt.Println("Write Snapshot block " + hex.EncodeToString(block.Hash) + " succeed")
+	}
+	return err
+}
+
+func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.SnapshotBlock) error {
+	if block == nil {
+		return errors.New("The written block is not available.")
+	}
+	//mutex.lock
+	sca.bwMutex.Lock()
+	defer sca.bwMutex.Unlock()
+	//judge whether the prehash is valid
+	if !bytes.Equal(block.Hash, ledger.GenesisSnapshotBlockHash) {
+		preSnapshotBlock, err := sca.store.GetLatestBlock()
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(block.PrevHash, preSnapshotBlock.Hash){
+			return errors.New("PreHash of the written block doesn't direct to the latest block hash.")
+		}
+		newSnapshotHeight := &big.Int{}
+		block.Height = newSnapshotHeight.Add(preSnapshotBlock.Height, big.NewInt(1))
+	}
+	//snapshotBlockHeight:d.[snapshotBlockHash]:[snapshotBlockHeight]
+	if wbhErr := sca.store.WriteBlockHeight(batch, block); wbhErr != nil {
+		return wbhErr
+	}
+	//snapshotBlock:e.[snapshotBlockHeight]:[snapshotBlock]
+	if wbErr := sca.store.WriteBlock(batch, block); wbErr != nil {
+		return wbErr
+	}
+	return nil
+}
+
+func (sca *SnapshotChainAccess) GetAccountList () ([]*types.Address, error){
+	return sca.store.GetAccountList()
+}

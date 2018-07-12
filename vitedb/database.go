@@ -50,13 +50,13 @@ func GetBigInt (src []byte) *big.Int {
 
 func (* viteComparer) Compare (a, b []byte) (result int) {
 	//defer func() {
-	//	//if result == -1 {
-	//		fmt.Println("===")
-	//		fmt.Println(string(a))
-	//		fmt.Println(string(b))
-	//		fmt.Println(result)
-	//		fmt.Println("===")
-	//	//}
+		//if result == -1 {
+		//	fmt.Println("===")
+		//	fmt.Println(string(a))
+		//	fmt.Println(string(b))
+		//	fmt.Println(result)
+		//	fmt.Println("===")
+		//}
 	//}()
 	lenA := len(a)
 	lenB := len(b)
@@ -133,8 +133,8 @@ func (* viteComparer) Compare (a, b []byte) (result int) {
 					}
 				}
 
-				if aIsEnd || aByte == DBK_DOT[0] || aByte == DBK_DOT[0] + 1 &&
-					bIsEnd || bByte == DBK_DOT[0] || bByte == DBK_DOT[0] + 1 {
+				if (aIsEnd || aByte == DBK_DOT[0] || aByte == DBK_DOT[0] + 1 )&&
+					(bIsEnd || bByte == DBK_DOT[0] || bByte == DBK_DOT[0] + 1 ){
 
 					aBigInt := GetBigInt(aBigIntBytes)
 					bBigInt := GetBigInt(bBigIntBytes)

@@ -38,15 +38,12 @@ func (am *AccountMeta) DbSerialize () ([]byte, error) {
 		pbTokenList = append(pbTokenList, pbAccountSimpleToken)
 	}
 	accountMetaPB := &vitepb.AccountMeta{
-		AccountId: am.AccountId.Bytes(),
 		TokenList: pbTokenList,
 	}
-	serializedBytes, err := proto.Marshal(accountMetaPB)
-
-	if err != nil {
-		return nil, err
+	if am.AccountId != nil {
+		accountMetaPB.AccountId = am.AccountId.Bytes()
 	}
-	return serializedBytes, nil
+	return proto.Marshal(accountMetaPB)
 }
 
 func (am *AccountMeta) DbDeserialize (buf []byte) error {

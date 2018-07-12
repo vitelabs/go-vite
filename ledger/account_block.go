@@ -6,6 +6,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/vitepb"
 	"github.com/vitelabs/go-vite/common/types"
+	"time"
 )
 
 type AccountBlockMeta struct {
@@ -120,6 +121,10 @@ func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 		Difficulty: ab.Difficulty,
 	}
 
+	if ab.Amount != nil {
+		accountBlockPB.Amount = ab.Amount.Bytes()
+	}
+
 	if ab.To != nil {
 		accountBlockPB.To = ab.To.Bytes()
 	}
@@ -170,11 +175,19 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 		ab.TokenId = &tokenId
 	}
 
+	if accountBlockPB.Amount != nil {
+		ab.Amount = &big.Int{}
+		ab.Amount.SetBytes(accountBlockPB.Amount)
+	}
+
 
 	ab.Timestamp =  accountBlockPB.Timestamp
 
-	ab.Balance = &big.Int{}
-	ab.Balance.SetBytes(accountBlockPB.Balance)
+	if accountBlockPB.Balance != nil {
+		ab.Balance = &big.Int{}
+		ab.Balance.SetBytes(accountBlockPB.Balance)
+	}
+
 
 	ab.Data = accountBlockPB.Data
 
@@ -201,12 +214,14 @@ func GetGenesisBlocks () ([]*AccountBlock){
 		To: 			&MintageAddress,
 
 		SnapshotTimestamp: GenesisSnapshotBlockHash,
+		Timestamp: uint64(time.Now().Unix()),
 		Hash:           firstBlockHash,             // mock
 		Data: "{" +
 			"\"tokenName\": \"vite\"," +
 			"\"tokenSymbol\": \"VITE\"," +
 			"\"owner\":\""+ GenesisAccount.String() +"\"," +
 			"\"decimals\": 18," +
+			"\"tokenId\":\"" + MockViteTokenId.String() + "\"," +
 			"\"totalSupply\": \"1000000000\"" +
 			"}",
 	}
@@ -215,7 +230,9 @@ func GetGenesisBlocks () ([]*AccountBlock){
 		AccountAddress: &GenesisAccount,
 		FromHash: firstBlockHash,
 		PrevHash: firstBlockHash,
+		TokenId: &MockViteTokenId,
 
+		Timestamp: uint64(time.Now().Unix()),
 		SnapshotTimestamp: GenesisSnapshotBlockHash,
 		Hash: secondBlockHash,
 	}
