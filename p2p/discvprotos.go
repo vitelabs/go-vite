@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"net"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 const version byte = 1
@@ -30,14 +31,12 @@ var errUnmatchedVersion = errors.New("unmatched version.")
 var errWrongHash = errors.New("validate packet error: wrong hash.")
 var errInvalidSig = errors.New("validate packet error: invalid signature.")
 
-type Hash [32]byte
-
 type Message interface {
 	getID() NodeID
 	Serialize() ([]byte, error)
 	Deserialize([]byte) error
-	Pack(ed25519.PrivateKey) ([]byte, Hash, error)
-	Handle(*discover, *net.UDPAddr, Hash) error
+	Pack(ed25519.PrivateKey) ([]byte, types.Hash, error)
+	Handle(*discover, *net.UDPAddr, types.Hash) error
 }
 
 // message Ping
@@ -66,7 +65,7 @@ func (p *Ping) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (p *Ping) Pack(key ed25519.PrivateKey) (data []byte, hash Hash, err error) {
+func (p *Ping) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err error) {
 	buf, err := p.Serialize()
 	if err != nil {
 		return nil, hash, err
@@ -76,7 +75,7 @@ func (p *Ping) Pack(key ed25519.PrivateKey) (data []byte, hash Hash, err error) 
 	return data, hash, nil
 }
 
-func (p *Ping) Handle(d *discover, origin *net.UDPAddr, hash Hash) error {
+func (p *Ping) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
 	pong := &Pong{
 		ID: d.getID(),
 		Ping: hash,
@@ -91,7 +90,7 @@ func (p *Ping) Handle(d *discover, origin *net.UDPAddr, hash Hash) error {
 // message Pong
 type Pong struct {
 	ID NodeID
-	Ping Hash
+	Ping types.Hash
 }
 
 func (p *Pong) getID() NodeID {
@@ -117,7 +116,7 @@ func (p *Pong) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (p *Pong) Pack(key ed25519.PrivateKey) (data []byte, hash Hash, err error) {
+func (p *Pong) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err error) {
 	buf, err := p.Serialize()
 	if err != nil {
 		return nil, hash, err
@@ -127,7 +126,7 @@ func (p *Pong) Pack(key ed25519.PrivateKey) (data []byte, hash Hash, err error) 
 	return data, hash,nil
 }
 
-func (p *Pong) Handle(d *discover, origin *net.UDPAddr, hash Hash) error {
+func (p *Pong) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
 	return d.receive(pongCode, p)
 }
 
@@ -160,7 +159,7 @@ func (f *FindNode) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (p *FindNode) Pack(priv ed25519.PrivateKey) (data []byte, hash Hash, err error) {
+func (p *FindNode) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, err error) {
 	buf, err := p.Serialize()
 	if err != nil {
 		return nil, hash, err
@@ -170,14 +169,29 @@ func (p *FindNode) Pack(priv ed25519.PrivateKey) (data []byte, hash Hash, err er
 	return data, hash,nil
 }
 
-func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash Hash) error {
-	closet := d.tab.closest(p.ID, maxNeighborsNodes)
-	if len(closet.nodes) > 0 {
+func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
+	closet := d.tab.closest(p.ID, K)
+	count := len(closet.nodes)
+
+	if count > 0 {
+		nodes := make([]*Node, 0, maxNeighborsNodes)
 		m := &Neighbors{
 			ID: d.getID(),
-			Nodes: closet.nodes,
 		}
-		d.send(origin, neighborsCode, m)
+
+		for i := 0; i < count; i++ {
+			nodes = append(nodes, closet.nodes[i])
+
+			if len(nodes) == cap(nodes) {
+				m.Nodes = nodes
+				d.send(origin, neighborsCode, m)
+				nodes = nodes[:0]
+			}
+		}
+		if len(nodes) > 0 {
+			m.Nodes = nodes
+			d.send(origin, neighborsCode, m)
+		}
 	}
 
 	return nil
@@ -225,7 +239,7 @@ func (n *Neighbors) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (p *Neighbors) Pack(priv ed25519.PrivateKey) (data []byte, hash Hash, err error) {
+func (p *Neighbors) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, err error) {
 	buf, err := p.Serialize()
 	if err != nil {
 		return nil, hash, err
@@ -235,12 +249,12 @@ func (p *Neighbors) Pack(priv ed25519.PrivateKey) (data []byte, hash Hash, err e
 	return data, hash,nil
 }
 
-func (p *Neighbors) Handle(d *discover, origin *net.UDPAddr, hash Hash) error {
+func (p *Neighbors) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
 	return d.receive(neighborsCode, p)
 }
 
 // version code checksum signature payload
-func composePacket(priv ed25519.PrivateKey, code byte, payload []byte) (data []byte, hash Hash) {
+func composePacket(priv ed25519.PrivateKey, code byte, payload []byte) (data []byte, hash types.Hash) {
 	data = []byte{version, code}
 
 	sig := ed25519.Sign(priv, payload)
@@ -254,7 +268,7 @@ func composePacket(priv ed25519.PrivateKey, code byte, payload []byte) (data []b
 	return data, hash
 }
 
-func unPacket(packet []byte) (m Message, hash Hash, err error) {
+func unPacket(packet []byte) (m Message, hash types.Hash, err error) {
 	pktVersion := packet[0]
 
 	if pktVersion != version {
@@ -282,7 +296,11 @@ func unPacket(packet []byte) (m Message, hash Hash, err error) {
 	// verify signature
 	id := m.getID()
 	pub := id[:]
-	if crypto.VerifySig(pub, payload, pktSig) {
+	valid, err := crypto.VerifySig(pub, payload, pktSig)
+	if err != nil {
+		return nil, hash, err
+	}
+	if valid {
 		copy(hash[:], pktHash)
 		return m, hash, nil
 	}

@@ -208,4 +208,3 @@ func nextNode(iterator iterator.Iterator) (node *Node) {
 
 	return node
 }
-

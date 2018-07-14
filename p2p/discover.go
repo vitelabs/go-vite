@@ -27,7 +27,7 @@ const NodeURLScheme = "vnode"
 type NodeID [32]byte
 
 func (id NodeID) String() string {
-	return fmt.Sprintf("%x", id)
+	return hex.EncodeToString(id[:])
 }
 
 func HexStr2NodeID(str string) (NodeID, error) {
@@ -187,7 +187,7 @@ func disCmp(target, a, b NodeID) int {
 	return 0
 }
 
-func findHashFromDistance(a NodeID, d int) NodeID {
+func findNodeIDFromDistance(a NodeID, d int) NodeID {
 	if d == 0 {
 		return a
 	}
@@ -279,7 +279,7 @@ func ParseNode(u string) (*Node, error) {
 
 	var port uint16
 	if i64, err := strconv.ParseUint(portstr, 10, 16); err != nil {
-		return nil, fmt.Errorf("invalid port. ", err)
+		return nil, fmt.Errorf("invalid port: %v\n", err)
 	} else {
 		port = uint16(i64)
 	}
@@ -484,6 +484,9 @@ func (tb *table) loop() {
 	defer checkTicker.Stop()
 	defer refreshTimer.Stop()
 	defer storeTimer.Stop()
+
+	// initial refresh
+	go tb.refresh(refreshDone)
 
 loop:
 	for {
@@ -698,7 +701,7 @@ var errTimeout = errors.New("timeout.")
 var watingTimeout = 3 * time.Minute
 
 type DiscvConfig struct {
-	Priv *ed25519.PrivateKey
+	Priv ed25519.PrivateKey
 	DBPath string
 	BootNodes []*Node
 	Addr string
@@ -707,7 +710,7 @@ type DiscvConfig struct {
 type discover struct {
 	conn net.UDPConn
 	tab *table
-	priv *ed25519.PrivateKey
+	priv ed25519.PrivateKey
 	reqing chan *req
 	getres chan *res
 	stopped chan struct{}
@@ -727,6 +730,7 @@ func newDiscover(cfg *DiscvConfig) (*table, error) {
 		stopped: make(chan struct{}),
 	}
 
+	// todo nat
 	node := &Node{
 		ID: priv2ID(cfg.Priv),
 		IP: addr.IP,
@@ -950,7 +954,7 @@ func (d *discover) receive(code byte, m Message) error {
 	case <- d.stopped:
 		return errors.New("discover stopped.")
 	case d.getres <- &res{
-		senderID: *m.getID(),
+		senderID: m.getID(),
 		proto: code,
 		data: m,
 		done: done,
@@ -959,7 +963,7 @@ func (d *discover) receive(code byte, m Message) error {
 	}
 }
 
-func priv2ID(priv *ed25519.PrivateKey) (id NodeID) {
+func priv2ID(priv ed25519.PrivateKey) (id NodeID) {
 	pub := priv.PubByte()
 	copy(id[:], pub)
 	return
