@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/crypto"
 	"bytes"
-	"github.com/syndtr/goleveldb/leveldb/errors"
+	"errors"
 	"net"
 )
 
@@ -33,10 +33,10 @@ var errInvalidSig = errors.New("validate packet error: invalid signature.")
 type Hash [32]byte
 
 type Message interface {
-	getID() *NodeID
+	getID() NodeID
 	Serialize() ([]byte, error)
 	Deserialize([]byte) error
-	Pack(*ed25519.PrivateKey) ([]byte, Hash, error)
+	Pack(ed25519.PrivateKey) ([]byte, Hash, error)
 	Handle(*discover, *net.UDPAddr, Hash) error
 }
 
@@ -45,8 +45,8 @@ type Ping struct {
 	ID NodeID
 }
 
-func (p *Ping) getID() *NodeID {
-	return &p.ID
+func (p *Ping) getID() NodeID {
+	return p.ID
 }
 
 func (p *Ping) Serialize() ([]byte, error) {
@@ -66,7 +66,7 @@ func (p *Ping) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (p *Ping) Pack(key *ed25519.PrivateKey) (data []byte, hash Hash, err error) {
+func (p *Ping) Pack(key ed25519.PrivateKey) (data []byte, hash Hash, err error) {
 	buf, err := p.Serialize()
 	if err != nil {
 		return nil, hash, err
@@ -94,8 +94,8 @@ type Pong struct {
 	Ping Hash
 }
 
-func (p *Pong) getID() *NodeID {
-	return &p.ID
+func (p *Pong) getID() NodeID {
+	return p.ID
 }
 
 func (p *Pong) Serialize() ([]byte, error) {
@@ -117,7 +117,7 @@ func (p *Pong) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (p *Pong) Pack(key *ed25519.PrivateKey) (data []byte, hash Hash, err error) {
+func (p *Pong) Pack(key ed25519.PrivateKey) (data []byte, hash Hash, err error) {
 	buf, err := p.Serialize()
 	if err != nil {
 		return nil, hash, err
@@ -136,8 +136,8 @@ type FindNode struct {
 	Target NodeID
 }
 
-func (p *FindNode) getID() *NodeID {
-	return &p.ID
+func (p *FindNode) getID() NodeID {
+	return p.ID
 }
 
 func (f *FindNode) Serialize() ([]byte, error) {
@@ -160,7 +160,7 @@ func (f *FindNode) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (p *FindNode) Pack(priv *ed25519.PrivateKey) (data []byte, hash Hash, err error) {
+func (p *FindNode) Pack(priv ed25519.PrivateKey) (data []byte, hash Hash, err error) {
 	buf, err := p.Serialize()
 	if err != nil {
 		return nil, hash, err
@@ -188,8 +188,8 @@ type Neighbors struct {
 	Nodes []*Node
 }
 
-func (p *Neighbors) getID() *NodeID {
-	return &p.ID
+func (p *Neighbors) getID() NodeID {
+	return p.ID
 }
 
 func (n *Neighbors) Serialize() ([]byte, error) {
@@ -225,7 +225,7 @@ func (n *Neighbors) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (p *Neighbors) Pack(priv *ed25519.PrivateKey) (data []byte, hash Hash, err error) {
+func (p *Neighbors) Pack(priv ed25519.PrivateKey) (data []byte, hash Hash, err error) {
 	buf, err := p.Serialize()
 	if err != nil {
 		return nil, hash, err
@@ -240,10 +240,10 @@ func (p *Neighbors) Handle(d *discover, origin *net.UDPAddr, hash Hash) error {
 }
 
 // version code checksum signature payload
-func composePacket(priv *ed25519.PrivateKey, code byte, payload []byte) (data []byte, hash Hash) {
+func composePacket(priv ed25519.PrivateKey, code byte, payload []byte) (data []byte, hash Hash) {
 	data = []byte{version, code}
 
-	sig := ed25519.Sign(*priv, payload)
+	sig := ed25519.Sign(priv, payload)
 	checksum := crypto.Hash(32, append(sig, payload...))
 
 	data = append(data, checksum...)
@@ -268,7 +268,7 @@ func unPacket(packet []byte) (m Message, hash Hash, err error) {
 	payload := packet[98:]
 
 	// compare checksum
-	reHash := crypto.Hash(23, payloadWithSig)
+	reHash := crypto.Hash(32, payloadWithSig)
 	if !bytes.Equal(reHash, pktHash) {
 		return nil, hash, errWrongHash
 	}
@@ -280,8 +280,9 @@ func unPacket(packet []byte) (m Message, hash Hash, err error) {
 	}
 
 	// verify signature
-	pub := (m.getID())[:]
-	if crypto.VerifySig(pub, pktSig, payload) {
+	id := m.getID()
+	pub := id[:]
+	if crypto.VerifySig(pub, payload, pktSig) {
 		copy(hash[:], pktHash)
 		return m, hash, nil
 	}
