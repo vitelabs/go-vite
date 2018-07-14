@@ -88,8 +88,6 @@ type Server struct {
 
 	createTransport func(conn net.Conn) transport
 
-	//nodeTable *Table
-
 	// Indicate whether the server has stopped. If stopped, zero-value can be read from this channel.
 	stopped chan struct{}
 
@@ -418,6 +416,10 @@ func (svr *Server) Stop() {
 
 	if svr.listener != nil {
 		svr.listener.Close()
+	}
+
+	if svr.ntab != nil {
+		svr.ntab.stop()
 	}
 
 	close(svr.stopped)

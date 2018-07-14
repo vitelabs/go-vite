@@ -4,8 +4,6 @@ import (
 	"time"
 	"sync"
 	"fmt"
-	"errors"
-	"io"
 )
 
 var pingInterval = 15 * time.Second
@@ -17,39 +15,6 @@ const (
 )
 
 // @section peer error
-const (
-	errInvalidMsgCode = iota
-	errInvalidMsg
-)
-
-var errorToString = map[int]string{
-	errInvalidMsgCode: "invalid message code",
-	errInvalidMsg:     "invalid message",
-}
-
-type peerError struct {
-	code    int
-	message string
-}
-
-func newPeerError(code int, format string, v ...interface{}) *peerError {
-	desc, ok := errorToString[code]
-	if !ok {
-		panic("invalid error code")
-	}
-	err := &peerError{code, desc}
-	if format != "" {
-		err.message += ": " + fmt.Sprintf(format, v...)
-	}
-	return err
-}
-
-func (pe *peerError) Error() string {
-	return pe.message
-}
-
-var errProtocolReturned = errors.New("protocol returned")
-
 type DiscReason uint
 
 const (
@@ -95,24 +60,6 @@ func (d DiscReason) Error() string {
 	return d.String()
 }
 
-func discReasonForError(err error) DiscReason {
-	if reason, ok := err.(DiscReason); ok {
-		return reason
-	}
-	if err == errProtocolReturned {
-		return DiscQuitting
-	}
-	peerError, ok := err.(*peerError)
-	if ok {
-		switch peerError.code {
-		case errInvalidMsgCode, errInvalidMsg:
-			return DiscProtocolError
-		default:
-			return DiscSubprotocolError
-		}
-	}
-	return DiscSubprotocolError
-}
 
 // @section Peer
 type Peer struct {
@@ -122,7 +69,7 @@ type Peer struct {
 	errch 	chan error
 	closed  chan struct{}
 	disc    chan DiscReason
-	readMsg chan Msg
+	protoMsg chan Msg
 }
 
 func NewPeer(ts *TSConn) *Peer {
@@ -131,53 +78,29 @@ func NewPeer(ts *TSConn) *Peer {
 		errch: 		make(chan error),
 		closed:		make(chan struct{}),
 		disc: 		make(chan DiscReason),
-		readMsg:	make(chan Msg),
+		protoMsg:	make(chan Msg),
 		created: 	time.Now(),
 	}
 }
 
 func (p *Peer) run() (err error) {
-	var (
-		writeStart = make(chan struct{}, 1)
-		writeErr   = make(chan error, 1)
-		readErr    = make(chan error, 1)
-		reason     DiscReason // sent to the peer
-	)
 	p.wg.Add(2)
-	go p.readLoop(readErr)
+	go p.readLoop()
 	go p.pingLoop()
-
-	// Start all protocol handlers.
-	writeStart <- struct{}{}
 
 	// Wait for an error or disconnect.
 loop:
 	for {
 		select {
-		case err = <-writeErr:
-			if err != nil {
-				reason = DiscNetworkError
-				break loop
-			}
-			writeStart <- struct{}{}
-		case err = <-readErr:
-			if r, ok := err.(DiscReason); ok {
-				reason = r
-			} else {
-				reason = DiscNetworkError
-			}
-			break loop
 		case err = <-p.errch:
-			reason = discReasonForError(err)
 			break loop
 		case err = <-p.disc:
-			reason = discReasonForError(err)
 			break loop
 		}
 	}
 
 	close(p.closed)
-	p.ts.Close(reason)
+	p.ts.Close(err)
 	p.wg.Wait()
 	return err
 }
@@ -186,18 +109,18 @@ func (p *Peer) ID() NodeID {
 	return p.ts.id
 }
 
-func (p *Peer) readLoop(cherr chan<- error) {
+func (p *Peer) readLoop() {
 	defer p.wg.Done()
 
 	for {
 		msg, err := p.ts.ReadMsg()
 		if err != nil {
-			cherr <- err
+			p.errch <- err
 			return
 		}
 		err = p.handleMsg(msg)
 		if err != nil {
-			cherr <- err
+			p.errch <- err
 			return
 		}
 	}
@@ -230,16 +153,16 @@ func (p *Peer) handleMsg(msg Msg) error {
 	case msg.Code == pongMsg:
 		// ignore
 	case msg.Code == discMsg:
-		// todo extract discReason from msg
+		// todo: extract discReason from msg
+		var discReason DiscReason
+		return discReason
 	default:
 		// higher protocol
-		select {
-		case p.readMsg <- msg:
-			return nil
-		case <- p.closed:
-			return io.EOF
-		}
+		// todo: use goroutine handle higher message
+		// error must write to p.errch
+		//p.protoMsg <- msg
 	}
+
 	return nil
 }
 

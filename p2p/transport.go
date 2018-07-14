@@ -37,5 +37,6 @@ func Send(w MsgWriter, msg *Msg) error {
 }
 
 func protobufTS(conn net.Conn) transport {
-
+// todo
+	return nil
 }
