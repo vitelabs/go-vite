@@ -187,10 +187,22 @@ func (svr *Server) Start() error {
 
 	svr.SetHandleshake()
 
-	go svr.Discovery()
-	// accept connection
-	go svr.Listen()
+	// udp discover
+	udpAddr, err := net.ResolveUDPAddr("udp", svr.Addr)
+	if err != nil {
+		return err
+	}
+	go svr.Discovery(udpAddr)
 
+	// tcp listener
+	tcpAddr, err := net.ResolveTCPAddr("tcp", svr.Addr)
+	if err != nil {
+		return err
+	}
+	go svr.Listen(tcpAddr)
+
+	// task
+	svr.waitDown.Add(1)
 	go svr.ManageTask()
 
 	return nil
@@ -206,12 +218,18 @@ func (svr *Server) SetHandleshake() {
 	}
 }
 
-func (svr *Server) Discovery() {
+func (svr *Server) Discovery(addr *net.UDPAddr) {
+	ip, err := getExtIP()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	cfg := &DiscvConfig{
 		Priv: svr.PrivateKey,
 		DBPath: svr.Database,
 		BootNodes: svr.BootNodes,
-		Addr: svr.Addr,
+		Addr: addr,
+		ExternalIP: ip,
 	}
 	tab, err := newDiscover(cfg)
 
@@ -219,26 +237,36 @@ func (svr *Server) Discovery() {
 		log.Fatal(err)
 	}
 
+	if !addr.IP.IsLoopback() {
+		go natMap(svr.stopped, "udp", addr.Port, addr.Port, 0, nil)
+	}
+
 	svr.ntab = tab
 }
 
-func (svr *Server) Listen() error {
-	addr, err := net.ResolveTCPAddr("tcp", svr.Addr)
-	if err != nil {
-		return err
-	}
-
+func (svr *Server) Listen(addr *net.TCPAddr) {
 	listener, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		return err
+		log.Fatal("tcp listen error: ", err)
 	}
 
 	svr.listener = listener
+
+	if !addr.IP.IsLoopback() {
+		svr.waitDown.Add(1)
+		go func() {
+			natMap(svr.stopped, "tcp", addr.Port, addr.Port, 0, nil)
+			svr.waitDown.Done()
+		}()
+	}
+
+	svr.waitDown.Add(1)
 	go svr.handleConn()
-	return nil
 }
 
 func (svr *Server) handleConn() {
+	defer svr.waitDown.Done()
+
 	for {
 		var conn net.Conn
 		var err error
@@ -296,6 +324,8 @@ func (svr *Server) CheckConn(peers map[NodeID]*Peer, passivePeersCount uint32) e
 }
 
 func (svr *Server) ManageTask() {
+	defer svr.waitDown.Done()
+
 	dm := NewDialManager(svr.MaxActivePeers(), svr.BootNodes)
 	var peers = make(map[NodeID]*Peer)
 	var taskHasDone = make(chan Task, defaultMaxActiveDail)

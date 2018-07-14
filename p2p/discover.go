@@ -18,7 +18,6 @@ import (
 	"time"
 	"sort"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"log"
 )
 
 const NodeURLScheme = "vnode"
@@ -704,7 +703,8 @@ type DiscvConfig struct {
 	Priv ed25519.PrivateKey
 	DBPath string
 	BootNodes []*Node
-	Addr string
+	Addr *net.UDPAddr
+	ExternalIP net.IP
 }
 
 type discover struct {
@@ -717,11 +717,8 @@ type discover struct {
 }
 
 func newDiscover(cfg *DiscvConfig) (*table, error) {
-	addr, err := net.ResolveUDPAddr("udp", cfg.Addr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	conn, err := net.ListenUDP("udp", addr)
+	laddr := cfg.Addr
+	conn, err := net.ListenUDP("udp", laddr)
 	discv := &discover{
 		conn: *conn,
 		priv: cfg.Priv,
@@ -730,11 +727,15 @@ func newDiscover(cfg *DiscvConfig) (*table, error) {
 		stopped: make(chan struct{}),
 	}
 
-	// todo nat
+	exIp := cfg.ExternalIP
+	if exIp == nil {
+		exIp = laddr.IP
+	}
+
 	node := &Node{
 		ID: priv2ID(cfg.Priv),
-		IP: addr.IP,
-		Port: uint16(addr.Port),
+		IP: exIp,
+		Port: uint16(laddr.Port),
 	}
 	discv.tab, err = newTable(node, discv, cfg.DBPath, cfg.BootNodes)
 

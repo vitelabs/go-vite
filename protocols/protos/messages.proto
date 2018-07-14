@@ -1,0 +1,34 @@
+syntax="proto3";
+
+package protos;
+
+import "../proto/account_block_db.proto";
+import "../proto/snapshot_block_db.proto";
+
+message StatusMsg {
+    uint64 NetworkId = 1;
+    uint32 ProtocolVersion = 2;
+    uint64 Height = 3;
+    bytes CurrentBlock = 4;
+    bytes GenesisBlock = 5;
+}
+
+message GetSnapshotBlocksMsg {
+    bytes Origin = 1;
+    uint64 Count = 2;
+    bool Forward = 3;
+}
+
+message SnapshotBlocksMsg {
+    repeated vitepb.SnapshotBlock blocks = 1;
+}
+
+message GetAccountBlocksMsg {
+    bytes Origin = 1;
+    uint64 Count = 2;
+    bool Forward = 3;
+}
+
+message AccountBlocksMsg {
+    repeated vitepb.AccountBlockDb blocks = 3;
+}

@@ -1,5 +1,7 @@
 package p2p
 
+import "net"
+
 type Msg struct {
 	Code       uint64
 	Payload    []byte
@@ -32,4 +34,8 @@ type transport interface {
 func Send(w MsgWriter, msg *Msg) error {
 // todo
 	return nil
+}
+
+func protobufTS(conn net.Conn) transport {
+
 }
