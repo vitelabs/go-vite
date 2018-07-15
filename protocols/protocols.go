@@ -4,7 +4,19 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
+	"sync"
 )
+
+// @section Peer for protocol handle, not p2p Peer.
+type Peer struct {
+	id 		string
+	head 	types.Hash
+	version int
+	rw 		MsgReadWriter
+	lock 	sync.RWMutex
+	closed 	chan struct{}
+	errch 	chan struct{}
+}
 
 // @section Msg
 type Serializable interface {
