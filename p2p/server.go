@@ -180,8 +180,9 @@ func (svr *Server) Start() error {
 
 	svr.pendingPeers = make(chan struct{}, maxPendingPeers)
 
-	// todo
-	//svr.createTransport =
+	if svr.createTransport == nil {
+		svr.createTransport = NewPBTS
+	}
 
 	svr.SetHandleshake()
 
@@ -207,9 +208,8 @@ func (svr *Server) Start() error {
 }
 
 func (svr *Server) SetHandleshake() {
-	var id NodeID
-	pub := svr.PrivateKey.PubByte()
-	copy(id[:], pub)
+	id := priv2ID(svr.PrivateKey)
+
 	svr.ourHandshake = &protoHandshake{
 		Name: svr.Name,
 		ID: id,
