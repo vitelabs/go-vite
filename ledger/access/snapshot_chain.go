@@ -26,7 +26,7 @@ func GetSnapshotChainAccess () *SnapshotChainAccess {
 	return snapshotChainAccess
 }
 
-func (sca *SnapshotChainAccess) GetBlockByHash (blockHash []byte) (*ledger.SnapshotBlock, error) {
+func (sca *SnapshotChainAccess) GetBlockByHash (blockHash *types.Hash) (*ledger.SnapshotBlock, error) {
 	block, err:= sca.store.GetBlockByHash(blockHash)
 	if err != nil {
 		return nil, err

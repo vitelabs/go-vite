@@ -3,6 +3,8 @@ package handler
 import (
 	"github.com/vitelabs/go-vite/protocols"
 	"github.com/vitelabs/go-vite/ledger/access"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type AccountChain struct {
@@ -35,3 +37,10 @@ func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *
 	return nil
 }
 
+func (ac *AccountChain) CreateTx (a types.Address, block *ledger.AccountBlock) {
+	
+}
+
+func (ac *AccountChain) CreateTxWithPassphrase (a types.Address, passphrase string, block *ledger.AccountBlock) {
+
+}

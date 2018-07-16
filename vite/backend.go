@@ -6,12 +6,14 @@ import (
 	"github.com/vitelabs/go-vite/protocols"
 	"github.com/micro/go-config"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/wallet"
 )
 
 type Vite struct {
 	ledger *ledger.Ledger
 	p2p *p2p.Server
 	pm *protocols.ProtocolManager
+	walletManager *wallet.Manager
 }
 
 func NewP2pConfig () (p2p.Config){
@@ -28,6 +30,7 @@ func New () (*Vite, error){
 	vite := &Vite{}
 
 	vite.ledger = ledger.NewLedger(vite)
+	vite.walletManager = wallet.NewManager("fromConfig")
 
 	vite.pm = protocols.NewProtocolManager(vite.ledger)
 
@@ -36,6 +39,17 @@ func New () (*Vite, error){
 	}
 
 	vite.p2p.Start()
-	vite.pm.Start()
+	return vite, nil
+}
 
+func (v *Vite) Ledger () (*ledger.Ledger){
+	return v.ledger
+}
+
+func (v *Vite) P2p () (*p2p.Server){
+	return v.p2p
+}
+
+func (v *Vite) Pm () (*protocols.ProtocolManager)  {
+	return v.pm
 }
