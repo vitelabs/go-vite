@@ -8,19 +8,24 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
 func main() {
-	fmt.Println("Enter D for Default or any others for Test ")
+	fmt.Println("Enter d for Default or any others for Test ")
 	inputReader := bufio.NewReader(os.Stdin)
 	input, err := inputReader.ReadString('\n')
 	dir := common.TestDataDir()
-	if strings.HasPrefix(input, "D") {
+	if strings.HasPrefix(input, "d") {
 		dir = common.DefaultDataDir()
 	}
 
-	ipcapiURL := filepath.Join(dir, "unixrpc.ipc")
+	ipcapiURL := filepath.Join(dir, rpc.DefaultIpcFile())
+	if runtime.GOOS == "windows" {
+		ipcapiURL = rpc.DefaultIpcFile()
+	}
+
 	m := wallet.NewManager(filepath.Join(dir, "wallet"))
 	m.Init()
 
@@ -31,15 +36,13 @@ func main() {
 			Service:   m,
 			Version:   "1.0"},
 	}
-	listener, _, err := rpc.StartIPCEndpoint(ipcapiURL, rpcAPI)
+	lis, err := rpc.IpcListen(ipcapiURL)
 	defer func() {
-		if listener != nil {
-			listener.Close()
+		if lis != nil {
+			lis.Close()
 		}
 	}()
-	if err != nil {
-		panic(err.Error())
-	}
+	go rpc.StartIPCEndpoint(lis, rpcAPI)
 
 	inputReader = bufio.NewReader(os.Stdin)
 	fmt.Println("Enter any key to stop ")

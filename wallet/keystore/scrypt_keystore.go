@@ -65,7 +65,7 @@ func DecryptKey(keyjson []byte, password string) (*Key, error) {
 		return nil, err
 	}
 	if k.Version != keystoreVersion {
-		return nil, fmt.Errorf("Version number error : %v", k.Version)
+		return nil, fmt.Errorf("version number error : %v", k.Version)
 	}
 	kid := uuid.Parse(k.Id)
 	if kid == nil {
@@ -73,7 +73,7 @@ func DecryptKey(keyjson []byte, password string) (*Key, error) {
 	}
 
 	if !types.IsValidHexAddress(k.HexAddress) {
-		return nil, fmt.Errorf("Address invalid ： %v", k.HexAddress)
+		return nil, fmt.Errorf("address invalid ： %v", k.HexAddress)
 	}
 	kAddress, err := types.HexToAddress(k.HexAddress)
 	if err != nil {
@@ -82,10 +82,10 @@ func DecryptKey(keyjson []byte, password string) (*Key, error) {
 
 	// parse and check  cryptoJSON params
 	if k.Crypto.CipherName != aesMode {
-		return nil, fmt.Errorf("CipherName  error : %v", k.Crypto.CipherName)
+		return nil, fmt.Errorf("cipherName  error : %v", k.Crypto.CipherName)
 	}
 	if k.Crypto.KDF != scryptName {
-		return nil, fmt.Errorf("ScryptName  error : %v", k.Crypto.KDF)
+		return nil, fmt.Errorf("scryptName  error : %v", k.Crypto.KDF)
 	}
 	cipherPriv, err := hex.DecodeString(k.Crypto.CipherText)
 	if err != nil {
@@ -181,14 +181,15 @@ func writeKeyFile(file string, content []byte) error {
 	}
 
 	f, err := ioutil.TempFile(filepath.Dir(file), "."+filepath.Base(file)+".tmp")
-	defer f.Close()
 	if err != nil {
 		return err
 	}
 
 	if _, err := f.Write(content); err != nil {
+		f.Close()
 		os.Remove(f.Name())
 		return err
 	}
+	f.Close()
 	return os.Rename(f.Name(), file)
 }

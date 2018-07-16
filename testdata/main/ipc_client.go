@@ -9,20 +9,24 @@ import (
 	rpc2 "net/rpc"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
 func main() {
 
-	fmt.Println("Enter D for Default or any others for Test ")
+	fmt.Println("Enter d for Default or any others for Test ")
 	inputReader := bufio.NewReader(os.Stdin)
 	input, err := inputReader.ReadString('\n')
 	dir := common.TestDataDir()
-	if strings.HasPrefix(input, "D") {
+	if strings.HasPrefix(input, "d") {
 		dir = common.DefaultDataDir()
 	}
 
-	ipcapiURL := filepath.Join(dir, "unixrpc.ipc")
+	ipcapiURL := filepath.Join(dir, rpc.DefaultIpcFile())
+	if runtime.GOOS == "windows" {
+		ipcapiURL = rpc.DefaultIpcFile()
+	}
 	client, err := rpc.DialIPC(context.Background(), ipcapiURL)
 	if err != nil {
 		panic(err)
