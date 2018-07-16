@@ -1,3 +1,5 @@
+// +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris
+
 package rpc
 
 import (
@@ -12,7 +14,7 @@ const (
 	heartbeatInterval = 30 * time.Second
 )
 
-func ipcListen(endpoint string) (net.Listener, error) {
+func IpcListen(endpoint string) (net.Listener, error) {
 	if err := os.MkdirAll(filepath.Dir(endpoint), 0751); err != nil {
 		return nil, err
 	}

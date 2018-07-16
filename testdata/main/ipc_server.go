@@ -8,33 +8,47 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 )
 
 func main() {
-	ipcapiURL := filepath.Join(common.TestDataDir(), "unixrpc.ipc")
-	m := wallet.NewManager(filepath.Join(common.TestDataDir(), "wallet"))
-	m.Init()
+	fmt.Println("Enter d for Default or any others for Test ")
+	inputReader := bufio.NewReader(os.Stdin)
+	input, err := inputReader.ReadString('\n')
+	dir := common.TestDataDir()
+	if strings.HasPrefix(input, "d") {
+		dir = common.DefaultDataDir()
+	}
+
+	ipcapiURL := filepath.Join(dir, rpc.DefaultIpcFile())
+	if runtime.GOOS == "windows" {
+		ipcapiURL = rpc.DefaultIpcFile()
+	}
+
+	var wapi wallet.JsonApi
+	m := wallet.NewManager(filepath.Join(dir, "wallet"))
+	wapi = m.JsonApi
 
 	rpcAPI := []rpc.API{
 		{
 			Namespace: "wallet",
 			Public:    true,
-			Service:   m,
+			Service:   wapi,
 			Version:   "1.0"},
 	}
-	listener, _, err := rpc.StartIPCEndpoint(ipcapiURL, rpcAPI)
+
+	lis, err := rpc.IpcListen(ipcapiURL)
 	defer func() {
-		if listener != nil {
-			listener.Close()
+		if lis != nil {
+			lis.Close()
 		}
 	}()
-	if err != nil {
-		panic(err.Error())
-	}
+	go rpc.StartIPCEndpoint(lis, rpcAPI)
 
-	inputReader := bufio.NewReader(os.Stdin)
+	inputReader = bufio.NewReader(os.Stdin)
 	fmt.Println("Enter any key to stop ")
-	input, err := inputReader.ReadString('\n')
+	input, err = inputReader.ReadString('\n')
 	if err == nil {
 		fmt.Printf("The input was: %s\n", input)
 	}

@@ -7,11 +7,11 @@ import (
 	"runtime"
 )
 
-// DefaultDataDir is  $HOME/.viteisbest/
+// DefaultDataDir is  $HOME/viteisbest/
 func DefaultDataDir() string {
 	home := homeDir()
 	if home != "" {
-		return filepath.Join(home, ".viteisbest")
+		return filepath.Join(home, "viteisbest")
 	}
 	return ""
 }
