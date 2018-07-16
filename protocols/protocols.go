@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"github.com/vitelabs/go-vite/protocols/protos"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"sync"
 	"github.com/vitelabs/go-vite/p2p"
 )
