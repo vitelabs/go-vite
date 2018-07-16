@@ -69,7 +69,7 @@ func list(client *rpc2.Client) error {
 
 func createAddress(client *rpc2.Client, pwd string) {
 	var s string
-	err := client.Call("wallet.NewAddress", [...]string{pwd}, &s)
+	err := client.Call("wallet.NewAddress", pwd, &s)
 	if err != nil {
 		println(err.Error())
 	}

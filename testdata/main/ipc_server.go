@@ -26,16 +26,19 @@ func main() {
 		ipcapiURL = rpc.DefaultIpcFile()
 	}
 
+	var wapi wallet.ExternalAPI
 	m := wallet.NewManager(filepath.Join(dir, "wallet"))
 	m.Init()
+	wapi = m
 
 	rpcAPI := []rpc.API{
 		{
 			Namespace: "wallet",
 			Public:    true,
-			Service:   m,
+			Service:   wapi,
 			Version:   "1.0"},
 	}
+
 	lis, err := rpc.IpcListen(ipcapiURL)
 	defer func() {
 		if lis != nil {
