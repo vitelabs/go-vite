@@ -100,7 +100,11 @@ func (p *Peer) run(protoHandler func(*Peer)) (err error) {
 
 	// higher protocol
 	if protoHandler != nil {
-		go protoHandler(p)
+		p.wg.Add(1)
+		go func() {
+			protoHandler(p)
+			p.wg.Done()
+		}()
 	}
 
 	// Wait for an error or disconnect.

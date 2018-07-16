@@ -6,7 +6,19 @@ import (
 	"math/big"
 	"github.com/vitelabs/go-vite/protocols/protos"
 	"github.com/gogo/protobuf/proto"
+	"sync"
+	"github.com/vitelabs/go-vite/p2p"
 )
+
+// @section Peer for protocol handle, not p2p Peer.
+type Peer struct {
+	*p2p.Peer
+	ID 		string
+	Head 	types.Hash
+	Version int
+	RW 		MsgReadWriter
+	Lock 	sync.RWMutex
+}
 
 // @section Msg
 type Serializable interface {
