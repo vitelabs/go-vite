@@ -9,6 +9,12 @@
 			"revisionTime": "2018-06-03T19:32:48Z"
 		},
 		{
+			"checksumSHA1": "m2/Bwo4dXYB/Iw2AdotdxuOW7SA=",
+			"path": "github.com/micro/go-config",
+			"revision": "3904282c3ef78454df3c3c0b880fb780778ad16a",
+			"revisionTime": "2018-07-07T08:13:36Z"
+		},
+		{
 			"checksumSHA1": "As1PSFJop3xi3W8tAYSm/8YesAQ=",
 			"path": "github.com/pborman/uuid",
 			"revision": "c65b2f87fee37d1c7854c9164a450713c28d50cd",

@@ -8,7 +8,6 @@ import (
 	"net"
 	"errors"
 	"log"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"crypto/rand"
 )
 
@@ -48,8 +47,6 @@ func (c *TSConn) is(flag connFlag) bool {
 }
 
 type Config struct {
-	// mandatory, `PrivateKey` must be set
-	PrivateKey ed25519.PrivateKey
 
 	// `MaxPeers` is the maximum number of peers that can be connected.
 	MaxPeers uint32

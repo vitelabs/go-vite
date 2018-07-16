@@ -106,6 +106,54 @@ func (sbc * SnapshotChain) GetBLockByHeight (blockHeight *big.Int) (*ledger.Snap
 	return sb, nil
 }
 
+func (sbc *SnapshotChain) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.SnapshotBlock, error) {
+	originBlock, err := sbc.GetBlockByHash(originBlockHash.Bytes())
+
+	if err != nil {
+		return nil, err
+	}
+
+
+	var startHeight, endHeight, gap = &big.Int{}, &big.Int{}, &big.Int{}
+	gap.SetUint64(count)
+
+	if forward {
+		startHeight = originBlock.Height
+		endHeight.Add(startHeight, gap)
+	} else {
+		endHeight = originBlock.Height
+		startHeight.Sub(endHeight, gap)
+	}
+
+	startKey, err := createKey(DBKP_SNAPSHOTBLOCK, startHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	limitKey, err := createKey(DBKP_SNAPSHOTBLOCK, endHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	iter := sbc.db.Leveldb.NewIterator(&util.Range{Start: startKey, Limit: limitKey}, nil)
+	defer iter.Release()
+
+
+	var sbList []*ledger.SnapshotBlock
+
+	for iter.Next() {
+		sb := &ledger.SnapshotBlock{}
+		sdErr := sb.DbDeserialize(iter.Value())
+		if sdErr != nil {
+			return nil, sdErr
+		}
+
+		sbList = append(sbList, sb)
+	}
+
+	return sbList, nil
+}
+
 func (sbc *SnapshotChain) GetLatestBlock () (*ledger.SnapshotBlock, error) {
 	key, ckErr := createKey(DBKP_SNAPSHOTBLOCK, nil)
 	if ckErr != nil {

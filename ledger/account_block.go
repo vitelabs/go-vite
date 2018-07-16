@@ -62,13 +62,13 @@ type AccountBlock struct {
 	From *types.Address
 
 	// Correlative send block hash, exists in receive block
-	FromHash []byte
+	FromHash *types.Hash
 
 	// Last block hash
-	PrevHash []byte
+	PrevHash *types.Hash
 
 	// Block hash
-	Hash []byte
+	Hash *types.Hash
 
 	// Balance of current account
 	Balance *big.Int
@@ -107,10 +107,6 @@ type AccountBlock struct {
 
 func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 	accountBlockPB := &vitepb.AccountBlockDb{
-		Hash: ab.Hash,
-		PrevHash: ab.PrevHash,
-		FromHash: ab.FromHash,
-
 		Timestamp: ab.Timestamp,
 		Data: ab.Data,
 		SnapshotTimestamp: ab.SnapshotTimestamp,
@@ -119,6 +115,16 @@ func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 
 		Nounce: ab.Nounce,
 		Difficulty: ab.Difficulty,
+	}
+
+	if ab.Hash != nil {
+		accountBlockPB.Hash = ab.Hash.Bytes()
+	}
+	if ab.PrevHash != nil {
+		accountBlockPB.Hash = ab.PrevHash.Bytes()
+	}
+	if ab.FromHash != nil {
+		accountBlockPB.Hash = ab.FromHash.Bytes()
 	}
 
 	if ab.Amount != nil {

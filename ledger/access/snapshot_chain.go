@@ -34,6 +34,9 @@ func (sca *SnapshotChainAccess) GetBlockByHash (blockHash []byte) (*ledger.Snaps
 	return block, nil
 }
 
+func (sca *SnapshotChainAccess) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.SnapshotBlock, error) {
+	return sca.store.GetBlocksFromOrigin(originBlockHash, count, forward)
+}
 
 func (sca *SnapshotChainAccess) GetBlockList (index int, num int, count int) ([]*ledger.SnapshotBlock, error) {
 	blockList, err:= sca.store.GetBlockList(index, num, count)

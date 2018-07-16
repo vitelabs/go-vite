@@ -497,7 +497,11 @@ func (aca *AccountChainAccess) writeStIndex (batch *leveldb.Batch, block *ledger
 	return nil
 }
 
-func (aca *AccountChainAccess) GetBlockByHash(blockHash []byte) (*ledger.AccountBlock, error) {
+func (aca *AccountChainAccess) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error) {
+	return aca.store.GetBlocksFromOrigin(originBlockHash, count, forward)
+}
+
+func (aca *AccountChainAccess) GetBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
 	accountBlock, err := aca.store.GetBlockByHash(blockHash)
 
 	if err != nil {

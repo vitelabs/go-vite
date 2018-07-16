@@ -113,15 +113,16 @@ type SnapshotBlocksMsg []*ledger.SnapshotBlock
 
 func (s *SnapshotBlocksMsg) Serialize() ([]byte, error) {
 	//todo
-	bs := make([])
-	for i, b := range *s {
-		b.DbSerialize()
-	}
-	spb := &protos.SnapshotBlocksMsg{
-		Blocks: ,
-	}
-
-	return proto.Marshal(spb)
+	//bs := make([])
+	//for i, b := range *s {
+	//	b.DbSerialize()
+	//}
+	//spb := &protos.SnapshotBlocksMsg{
+	//	Blocks: ,
+	//}
+	//
+	//return proto.Marshal(spb)
+	return nil, nil
 }
 
 func (s *SnapshotBlocksMsg) Deserialize(data []byte) error {
@@ -131,6 +132,7 @@ func (s *SnapshotBlocksMsg) Deserialize(data []byte) error {
 		return err
 	}
 	// todo
+	return nil
 }
 
 // @message get multiple account blocks.
