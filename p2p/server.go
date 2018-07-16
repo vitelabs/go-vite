@@ -13,8 +13,9 @@ import (
 )
 
 const (
+	defaultMaxPeers = 50
 	defaultDialTimeout = 10 * time.Second
-	defaultMaxPendingPeers uint32 = 30
+	defaultMaxPendingPeers uint32 = 20
 	defaultMaxActiveDail uint32 = 16
 )
 
@@ -25,9 +26,7 @@ type connFlag int
 
 const (
 	dynDialedConn connFlag = 1 << iota
-	staticDialedConn
 	inboundConn
-	trustedConn
 )
 
 func (f connFlag) is(f2 connFlag) bool {
@@ -48,7 +47,7 @@ func (c *TSConn) is(flag connFlag) bool {
 }
 
 type Config struct {
-	// mandatory, `PrivateKey` must be set
+	// the counterpart publicKey is use for NodeID.
 	PrivateKey ed25519.PrivateKey
 
 	// `MaxPeers` is the maximum number of peers that can be connected.
@@ -72,6 +71,8 @@ type Config struct {
 
 	NetID uint32
 }
+
+type peerHandler func(*Peer)
 
 type Server struct {
 	Config
@@ -108,7 +109,60 @@ type Server struct {
 
 	ourHandshake *Handshake
 
-	ProtoHandler func(*Peer)
+	ProtoHandler peerHandler
+}
+
+func NewServer(cfg *Config, handler peerHandler) (svr *Server, err error) {
+	svr = &Server{}
+
+	if svr.PrivateKey == nil {
+		_, priv, err := ed25519.GenerateKey(nil)
+		if err != nil {
+			log.Fatal("generate privKey error: ", err)
+		}
+		svr.PrivateKey = priv
+	}
+
+	if svr.NetID == 0 {
+		svr.NetID = MainNet
+	}
+
+	if svr.Addr == "" {
+		svr.Addr = "localhost:8483"
+	}
+
+	if svr.Dialer == nil {
+		svr.Dialer = &NodeDailer{
+			&net.Dialer{
+				Timeout: defaultDialTimeout,
+			},
+		}
+	}
+
+	svr.stopped = make(chan struct{})
+	svr.addPeer = make(chan *TSConn)
+	svr.delPeer = make(chan *Peer)
+	svr.peersOps = make(chan peersOperator)
+	svr.peersOpsDone = make(chan struct{})
+
+	if svr.MaxPeers == 0 {
+		svr.MaxPeers = defaultMaxPeers
+	}
+
+	if svr.MaxPendingPeers == 0 {
+		svr.MaxPendingPeers = defaultMaxPendingPeers
+	}
+	maxPendingPeers := svr.MaxPendingPeers
+
+	svr.pendingPeers = make(chan struct{}, maxPendingPeers)
+
+	if svr.createTransport == nil {
+		svr.createTransport = NewPBTS
+	}
+
+	svr.SetHandshake()
+
+	return svr, nil
 }
 
 type peersOperator func(nodeTable map[NodeID]*Peer)
@@ -158,37 +212,6 @@ func (svr *Server) Start() error {
 		return errors.New("Server is already running.")
 	}
 	svr.running = true
-
-	if svr.PrivateKey == nil {
-		return errors.New("Server.PrivateKey must set, but get nil.")
-	}
-
-	if svr.Dialer == nil {
-		svr.Dialer = &NodeDailer{
-			&net.Dialer{
-				Timeout: defaultDialTimeout,
-			},
-		}
-	}
-
-	svr.stopped = make(chan struct{})
-	svr.addPeer = make(chan *TSConn)
-	svr.delPeer = make(chan *Peer)
-	svr.peersOps = make(chan peersOperator)
-	svr.peersOpsDone = make(chan struct{})
-
-	maxPendingPeers := defaultMaxPendingPeers
-	if svr.MaxPendingPeers > 0 {
-		maxPendingPeers = svr.MaxPendingPeers
-	}
-
-	svr.pendingPeers = make(chan struct{}, maxPendingPeers)
-
-	if svr.createTransport == nil {
-		svr.createTransport = NewPBTS
-	}
-
-	svr.SetHandshake()
 
 	// udp discover
 	udpAddr, err := net.ResolveUDPAddr("udp", svr.Addr)
