@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	MainNet uint32 = iota
+	MainNet uint32 = iota + 1
 	TestNet
 )
 
@@ -150,7 +150,7 @@ func (pt *PBTS) ReadMsg() (m Msg, err error) {
 }
 
 func (pt *PBTS) WriteMsg(m Msg) error {
-	if len(m.Payload) > int(maxPayloadSize) {
+	if uint64(len(m.Payload)) > maxPayloadSize {
 		return fmt.Errorf("too large msg payload: %d / %d\n", len(m.Payload), maxPayloadSize)
 	}
 	data, err := pack(m)

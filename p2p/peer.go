@@ -80,6 +80,7 @@ type Peer struct {
 	Closed  chan struct{}
 	disc    chan DiscReason
 	ProtoMsg chan Msg
+	protoHandler peerHandler
 }
 
 func NewPeer(ts *TSConn) *Peer {
@@ -93,13 +94,14 @@ func NewPeer(ts *TSConn) *Peer {
 	}
 }
 
-func (p *Peer) run(protoHandler func(*Peer)) (err error) {
+func (p *Peer) run(protoHandler peerHandler) (err error) {
 	p.wg.Add(2)
 	go p.readLoop()
 	go p.pingLoop()
 
 	// higher protocol
 	if protoHandler != nil {
+		p.protoHandler = protoHandler
 		p.wg.Add(1)
 		go func() {
 			protoHandler(p)
@@ -172,7 +174,11 @@ func (p *Peer) handleMsg(msg Msg) {
 		// ignore
 	default:
 		// higher protocol
-		p.ProtoMsg <- msg
+		if p.protoHandler != nil {
+			p.ProtoMsg <- msg
+		} else {
+			p.Errch <- fmt.Errorf("cannot handle msg %d,  missing protoHandler\n", msg.Code)
+		}
 	}
 }
 

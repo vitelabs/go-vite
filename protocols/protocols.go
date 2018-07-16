@@ -117,12 +117,11 @@ func (s *SnapshotBlocksMsg) Serialize() ([]byte, error) {
 	//for i, b := range *s {
 	//	b.DbSerialize()
 	//}
-	//spb := &protos.SnapshotBlocksMsg{
-	//	Blocks: ,
-	//}
-	//
-	//return proto.Marshal(spb)
-	return nil, nil
+	spb := &protos.SnapshotBlocksMsg{
+		//Blocks: ,
+	}
+
+	return proto.Marshal(spb)
 }
 
 func (s *SnapshotBlocksMsg) Deserialize(data []byte) error {
@@ -170,7 +169,7 @@ type AccountBlocksMsg []*ledger.AccountBlock
 func (a *AccountBlocksMsg) Serialize() ([]byte, error) {
 	// todo
 	apb := &protos.AccountBlocksMsg{
-		Blocks: a,
+		//Blocks: a,
 	}
 
 	return proto.Marshal(apb)
@@ -183,6 +182,8 @@ func (ga *AccountBlocksMsg) Deserialize(data []byte) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
 }
 
 // @section
