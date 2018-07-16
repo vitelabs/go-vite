@@ -203,3 +203,17 @@ func (m *walletApiImpl) ExportPriv(extractPair []string, reply *string) error {
 	*reply = s
 	return nil
 }
+
+func (m *walletApiImpl) IsMayValidKeystoreFile(path []string, reply *string) error {
+	log.Debug("IsValidKeystoreFile")
+	if len(path) != 1 {
+		return fmt.Errorf("wrong params len %v. you should pass [0] path", len(path))
+	}
+	b, _ := keystore.IsMayValidKeystoreFile(path[0])
+	if b {
+		*reply = "true"
+	} else {
+		*reply = "false"
+	}
+	return nil
+}

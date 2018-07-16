@@ -7,7 +7,6 @@ type HexSignedTuple struct {
 }
 
 type JsonApi interface {
-
 	ListAddress(v interface{}, reply *string) error
 
 	// it will create a address and store in a dir and return address in hex form
@@ -43,4 +42,6 @@ type JsonApi interface {
 
 	// hexaddr := extractPair[0] pass := extractPair[1] the return value is prikey in hex form
 	ExportPriv(extractPair []string, reply *string) error
+
+	IsMayValidKeystoreFile(path []string, reply *string) error
 }
