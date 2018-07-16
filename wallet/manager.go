@@ -13,17 +13,34 @@ import (
 
 type Manager struct {
 	KeystoreManager *keystore.Manager
+	JsonApi         JsonApi
 }
 
-func (m Manager) ListAddress(v interface{}, reply *string) error {
+func NewManager(walletdir string) *Manager {
+	km := keystore.NewManager(walletdir)
+	km.Init()
+	return &Manager{
+		KeystoreManager: km,
+		JsonApi:         &walletApiImpl{KeystoreManager: km},
+	}
+}
+
+type walletApiImpl struct {
+	KeystoreManager *keystore.Manager
+}
+
+func (m walletApiImpl) ListAddress(v interface{}, reply *string) error {
 	log.Debug("ListAddress")
 	*reply = types.Addresses(m.KeystoreManager.Addresses()).String()
 	return nil
 }
 
-func (m *Manager) NewAddress(passphrase string, reply *string) error {
+func (m *walletApiImpl) NewAddress(passphrase []string, reply *string) error {
 	log.Debug("NewAddress")
-	key, err := m.KeystoreManager.StoreNewKey(passphrase)
+	if len(passphrase) != 1 {
+		return fmt.Errorf("wrong params len %v. you should pass [0] passphrase, ", len(passphrase))
+	}
+	key, err := m.KeystoreManager.StoreNewKey(passphrase[0])
 	if err != nil {
 		return err
 	}
@@ -32,7 +49,7 @@ func (m *Manager) NewAddress(passphrase string, reply *string) error {
 	return nil
 }
 
-func (m Manager) Status(v interface{}, reply *string) error {
+func (m walletApiImpl) Status(v interface{}, reply *string) error {
 	log.Debug("Status")
 	s, err := m.KeystoreManager.Status()
 	if err != nil {
@@ -42,7 +59,7 @@ func (m Manager) Status(v interface{}, reply *string) error {
 	return nil
 }
 
-func (m *Manager) UnLock(unlockParams []string, reply *string) error {
+func (m *walletApiImpl) UnLock(unlockParams []string, reply *string) error {
 	log.Debug("UnLock")
 	if len(unlockParams) != 3 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] hexaddress, "+
@@ -68,16 +85,20 @@ func (m *Manager) UnLock(unlockParams []string, reply *string) error {
 	return nil
 }
 
-func (m *Manager) Lock(hexaddr string, reply *string) error {
+func (m *walletApiImpl) Lock(hexaddr []string, reply *string) error {
 	log.Debug("Lock")
-	addr, err := types.HexToAddress(hexaddr)
+	if len(hexaddr) != 1 {
+		return fmt.Errorf("wrong params len %v. you should pass [0] hexaddr, ", len(hexaddr))
+	}
+	addr, err := types.HexToAddress(hexaddr[0])
 	if err != nil {
 		return err
 	}
 	m.KeystoreManager.Lock(addr)
 	return nil
 }
-func (m *Manager) SignData(signDataParams []string, reply *string) error {
+func (m *walletApiImpl) SignData(signDataParams []string, reply *string) error {
+	log.Debug("SignData")
 	if len(signDataParams) != 2 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] hexaddress,"+
 			" [1]message ", len(signDataParams))
@@ -87,12 +108,14 @@ func (m *Manager) SignData(signDataParams []string, reply *string) error {
 		return err
 	}
 	hexMsg := signDataParams[1]
-	passphrase := signDataParams[2]
-	msgbytes, err := hex.DecodeString(signDataParams[2])
+	msgbytes, err := hex.DecodeString(signDataParams[1])
 	if err != nil {
 		return fmt.Errorf("wrong hex message %v", err)
 	}
-	signedData, pubkey, err := m.KeystoreManager.SignDataWithPassphrase(addr, passphrase, msgbytes)
+	signedData, pubkey, err := m.KeystoreManager.SignData(addr, msgbytes)
+	if err != nil {
+		return err
+	}
 
 	t := HexSignedTuple{
 		Message:    hexMsg,
@@ -108,7 +131,8 @@ func (m *Manager) SignData(signDataParams []string, reply *string) error {
 	return nil
 }
 
-func (m *Manager) SignDataWithPassphrase(signDataParams []string, reply *string) error {
+func (m *walletApiImpl) SignDataWithPassphrase(signDataParams []string, reply *string) error {
+	log.Debug("SignDataWithPassphrase")
 	if len(signDataParams) != 3 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] hexaddress,"+
 			" [1]message, [2] address releated passphrase", len(signDataParams))
@@ -119,6 +143,7 @@ func (m *Manager) SignDataWithPassphrase(signDataParams []string, reply *string)
 	}
 	hexMsg := signDataParams[1]
 	passphrase := signDataParams[2]
+	println("passphrase " + passphrase)
 	msgbytes, err := hex.DecodeString(signDataParams[2])
 	if err != nil {
 		return fmt.Errorf("wrong hex message %v", err)
@@ -139,14 +164,14 @@ func (m *Manager) SignDataWithPassphrase(signDataParams []string, reply *string)
 	return nil
 }
 
-func (m *Manager) ReloadAndFixAddressFile(v interface{}, reply *string) error {
+func (m *walletApiImpl) ReloadAndFixAddressFile(v interface{}, reply *string) error {
 	log.Debug("ReloadAndFixAddressFile")
 	m.KeystoreManager.ReloadAndFixAddressFile()
 	*reply = "success"
 	return nil
 }
 
-func (m *Manager) ImportPriv(hexkeypair []string, reply *string) error {
+func (m *walletApiImpl) ImportPriv(hexkeypair []string, reply *string) error {
 	log.Debug("ImportPriv")
 	if len(hexkeypair) != 2 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] hexhexprikey,"+
@@ -163,7 +188,7 @@ func (m *Manager) ImportPriv(hexkeypair []string, reply *string) error {
 	return nil
 }
 
-func (m *Manager) ExportPriv(extractPair []string, reply *string) error {
+func (m *walletApiImpl) ExportPriv(extractPair []string, reply *string) error {
 	log.Debug("ExportPriv")
 	if len(extractPair) != 2 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] hexaddr,"+
@@ -177,14 +202,4 @@ func (m *Manager) ExportPriv(extractPair []string, reply *string) error {
 	s, err := m.KeystoreManager.ExportPriv(addr.Hex(), pass)
 	*reply = s
 	return nil
-}
-
-func NewManager(walletdir string) *Manager {
-	return &Manager{
-		KeystoreManager: keystore.NewManager(walletdir),
-	}
-}
-
-func (m *Manager) Init() {
-	m.KeystoreManager.Init()
 }

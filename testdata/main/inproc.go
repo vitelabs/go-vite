@@ -12,7 +12,6 @@ import (
 func main() {
 
 	m := wallet.NewManager(filepath.Join(common.TestDataDir(), "wallet"))
-	m.Init()
 	rpcAPI := []vrpc.API{
 		{
 			Namespace: "wallet",

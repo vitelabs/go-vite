@@ -26,10 +26,9 @@ func main() {
 		ipcapiURL = rpc.DefaultIpcFile()
 	}
 
-	var wapi wallet.ExternalAPI
+	var wapi wallet.JsonApi
 	m := wallet.NewManager(filepath.Join(dir, "wallet"))
-	m.Init()
-	wapi = m
+	wapi = m.JsonApi
 
 	rpcAPI := []rpc.API{
 		{

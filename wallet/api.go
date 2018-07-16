@@ -6,12 +6,12 @@ type HexSignedTuple struct {
 	Pubkey     string `json:"Pubkey"`
 }
 
-type ExternalAPI interface {
+type JsonApi interface {
 
 	ListAddress(v interface{}, reply *string) error
 
 	// it will create a address and store in a dir and return address in hex form
-	NewAddress(pwd string, reply *string) error
+	NewAddress(pwd []string, reply *string) error
 
 	// return value is all the address with  Locked  or Unlocked state
 	// example
@@ -24,6 +24,8 @@ type ExternalAPI interface {
 	// for the duration of timeout (seconds)
 	// if the timeout is <0 we will keep the unlock state until the program exit.
 	UnLock(unlockParams []string, reply *string) error
+
+	Lock(lockParams []string, reply *string) error
 
 	// hexAddress := signDataParams[0] hexMsg := signDataParams[1]
 	// if the given address has not been unlocked it will return an ErrUnlocked
