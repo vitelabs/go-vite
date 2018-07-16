@@ -4,17 +4,20 @@ import (
 	"net"
 	"log"
 	"fmt"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"encoding/binary"
+	"github.com/vitelabs/go-vite/p2p/protos"
+	"github.com/gogo/protobuf/proto"
+)
+
+const (
+	MainNet uint32 = iota
+	TestNet
 )
 
 // @section Msg
-type Serializable interface {
-	Serialize() ([]byte, error)
-}
-
 type Msg struct {
 	Code uint64
-	Payload Serializable
+	Payload []byte
 }
 
 type MsgReader interface {
@@ -30,13 +33,64 @@ type MsgReadWriter interface {
 	MsgWriter
 }
 
-type protoHandshake struct {
+// handshake message
+type Handshake struct {
+	NetID	uint32
 	Name    string
 	ID      NodeID
 }
 
+func (hs *Handshake) Serialize() ([]byte, error) {
+	hspb := &protos.Handshake{
+		NetID: hs.NetID,
+		Name: hs.Name,
+		ID: hs.ID[:],
+	}
+
+	return proto.Marshal(hspb)
+}
+
+func (hs *Handshake) Deserialize(buf []byte) error {
+	hspb := &protos.Handshake{}
+	err := proto.Unmarshal(buf, hspb)
+	if err != nil {
+		return err
+	}
+
+	copy(hs.ID[:], hspb.ID)
+	hs.Name = hspb.Name
+	hs.NetID = hspb.NetID
+	return nil
+}
+
+// disc message
+type DiscMsg struct {
+	reason DiscReason
+}
+
+func (d *DiscMsg) Serialize() ([]byte, error) {
+	discpb := &protos.Disc{
+		Reason: uint32(d.reason),
+	}
+
+	return proto.Marshal(discpb)
+}
+
+func (d *DiscMsg) Deserialize(buf []byte) error {
+	discpb := &protos.Disc{}
+	err := proto.Unmarshal(buf, discpb)
+	if err != nil {
+		return err
+	}
+
+	d.reason = DiscReason(discpb.Reason)
+	return nil
+}
+
+
+// mean the msg transport link of peers.
 type transport interface {
-	Handshake(our *protoHandshake) (*protoHandshake, error)
+	Handshake(our *Handshake) (*Handshake, error)
 	MsgReadWriter
 	Close(error)
 }
@@ -46,33 +100,59 @@ func Send(w MsgWriter, msg *Msg) error {
 }
 
 // transport use protobuf to serialize/deserialize message.
-func NewPBTS(priv ed25519.PrivateKey, peerID NodeID, conn net.Conn) transport {
+func NewPBTS(conn net.Conn) transport {
 	return &PBTS{
-		peerID: peerID,
-		priv: priv,
 		conn: conn,
 	}
 }
 
-
 // @section PBTS
-//
-const headerLenth = 100
-const bodyLenth = 32
-const maxBodySize uint = ^(0 << 32)
-
+const headerLenth = 20
+const maxPayloadSize = ^uint64(0)
 
 type PBTS struct {
-	peerID NodeID
-	priv ed25519.PrivateKey
+	//peerID NodeID
+	//priv ed25519.PrivateKey
 	conn net.Conn
 }
 
-func (pt *PBTS) ReadMsg() (Msg, error) {
+func (pt *PBTS) ReadMsg() (m Msg, err error) {
+	header := make([]byte, headerLenth)
+	n, err := pt.conn.Read(header)
+	if err != nil {
+		return m, fmt.Errorf("read msg header error: %v\n", err)
+	}
+	if n != headerLenth {
+		return m, fmt.Errorf("read msg incompelete header %d / %d\n", n, headerLenth)
+	}
 
+	// extract msg.Code
+	m.Code = binary.BigEndian.Uint64(header[:8])
+
+	// extract length of payload
+	size := binary.BigEndian.Uint64(header[8:16])
+
+	// read payload according to size
+	if size > 0 {
+		payload := make([]byte, size)
+		size2, err := pt.conn.Read(payload)
+		if err != nil {
+			return m, fmt.Errorf("read msg payload error: %v\n", err)
+		}
+		if uint64(size2) != size {
+			return m, fmt.Errorf("read incomplete msg payload %d / %d\n", size2, size)
+		}
+
+		m.Payload = payload
+	}
+
+	return m, nil
 }
 
 func (pt *PBTS) WriteMsg(m Msg) error {
+	if len(m.Payload) > int(maxPayloadSize) {
+		return fmt.Errorf("too large msg payload: %d / %d\n", len(m.Payload), maxPayloadSize)
+	}
 	data, err := pack(m)
 
 	if err != nil {
@@ -90,19 +170,121 @@ func (pt *PBTS) WriteMsg(m Msg) error {
 	return nil
 }
 
-func (pt *PBTS) Handshake(our *protoHandshake) (*protoHandshake, error) {
+func (pt *PBTS) Handshake(our *Handshake) (*Handshake, error) {
+	data, err := our.Serialize()
+	if err != nil {
+		return nil, fmt.Errorf("handshake serialize error: %v\n", err)
+	}
 
+	sendErr := make(chan error, 1)
+	go func() {
+		sendErr <- pt.WriteMsg(Msg{
+			Code: handshakeMsg,
+			Payload: data,
+		})
+	}()
+
+	msg, err := pt.ReadMsg()
+	if err != nil {
+		<- sendErr
+		return nil, fmt.Errorf("read handshake msg error: %v\n", err)
+	}
+
+	if msg.Code != handshakeMsg {
+		return nil, fmt.Errorf("need handshake msg, got %d\n", msg.Code)
+	}
+
+
+	hs := &Handshake{}
+	err = hs.Deserialize(msg.Payload)
+	if err != nil {
+		return nil, fmt.Errorf("handshake deserialize error: %v\n", err)
+	}
+
+	if hs.NetID != our.NetID {
+		return nil, fmt.Errorf("unmatched network id: %d / %d\n", hs.NetID, our.NetID)
+	}
+
+	if err := <- sendErr; err != nil {
+		return nil, fmt.Errorf("send handshake error: %v\n", err)
+	}
+
+	return hs, nil
 }
 
 func (pt *PBTS) Close(err error) {
+	reason := errTodiscReason(err)
+	data := make([]byte, 8)
+	binary.BigEndian.PutUint64(data, uint64(reason))
+
+	err = pt.WriteMsg(Msg{
+		Code: discMsg,
+		Payload: data,
+	})
+	if err != nil {
+		log.Printf("send disc msg error: %v\n", err)
+	}
+
 	pt.conn.Close()
-	log.Printf("pbts %s close, reason: %v\n", pt.peerID, err)
+	log.Printf("pbts close, reason: %v\n", err)
 }
 
 func pack(m Msg) ([]byte, error) {
+	header := make([]byte, headerLenth)
 
+	// add code to header
+	binary.BigEndian.PutUint64(header[:8], m.Code)
+
+	// sign payload length to header
+	var size uint64
+	if m.Payload == nil {
+		size = 0
+	} else {
+		size = uint64(len(m.Payload))
+	}
+	binary.BigEndian.PutUint64(header[8:16], size)
+
+	// concat header and payload
+	data := make([]byte, headerLenth + size)
+	copy(data, header)
+	if m.Payload != nil {
+		copy(data[headerLenth:], m.Payload)
+	}
+
+	return data, nil
 }
 
-func unpackMsg([]byte) (Msg, error) {
-
-}
+//func unpackMsg(code uint64, buf []byte) (m Msg, err error) {
+//	var payload protocols.Serializable
+//
+//	trueCode := code - baseProtocolBand
+//	switch trueCode {
+//	case protocols.StatusMsgCode:
+//		payload = &protocols.StatusMsg{
+//
+//		}
+//	case protocols.GetSnapshotBlocksMsgCode:
+//		payload = &protocols.GetSnapshotBlocksMsg{
+//
+//		}
+//	case protocols.SnapshotBlocksMsgCode:
+//		payload = &protocols.SnapshotBlocksMsg{
+//
+//		}
+//	case protocols.GetAccountBlocksMsgCode:
+//		payload = &protocols.GetAccountBlocksMsg{
+//
+//		}
+//	case protocols.AccountBlocksMsgCode:
+//		payload = &protocols.AccountBlocksMsg{
+//
+//		}
+//	default:
+//		return m, fmt.Errorf("unknown msg code %d\n", code)
+//	}
+//
+//	return Msg{
+//		code,
+//		payload,
+//	}, nil
+//}

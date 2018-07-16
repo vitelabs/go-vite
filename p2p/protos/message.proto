@@ -2,7 +2,7 @@ syntax="proto3";
 
 package protos;
 
-// all messages must attach NodeID of sender.
+// all udp messages must attach NodeID of sender.
 
 message Node {
     bytes ID = 1;
@@ -27,4 +27,15 @@ message FindNode {
 message Neighbors {
     bytes ID = 1;
     repeated Node Nodes = 2;
+}
+
+// tcp message
+message Disc {
+    uint32 reason = 1;
+}
+
+message Handshake {
+    uint32 NetID = 1;
+    string Name = 2;
+    bytes ID = 3;
 }

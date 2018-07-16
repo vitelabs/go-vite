@@ -4,14 +4,17 @@ import (
 	"time"
 	"sync"
 	"fmt"
+	"encoding/binary"
 )
 
 var pingInterval = 15 * time.Second
 
 const (
-	discMsg      = 0x01
-	pingMsg      = 0x02
-	pongMsg      = 0x03
+	baseProtocolBand = 16
+	discMsg      = 1
+	pingMsg      = 2
+	pongMsg      = 3
+	handshakeMsg = 4
 )
 
 // @section peer error
@@ -60,46 +63,58 @@ func (d DiscReason) Error() string {
 	return d.String()
 }
 
+func errTodiscReason(err error) DiscReason {
+	if reason, ok := err.(DiscReason); ok {
+		return reason
+	}
+	return DiscSubprotocolError
+}
+
 
 // @section Peer
 type Peer struct {
 	ts		*TSConn
 	created	time.Time
 	wg      sync.WaitGroup
-	errch 	chan error
-	closed  chan struct{}
+	Errch 	chan error
+	Closed  chan struct{}
 	disc    chan DiscReason
-	protoMsg chan Msg
+	ProtoMsg chan Msg
 }
 
 func NewPeer(ts *TSConn) *Peer {
 	return &Peer{
 		ts: 		ts,
-		errch: 		make(chan error),
-		closed:		make(chan struct{}),
+		Errch: 		make(chan error),
+		Closed:		make(chan struct{}),
 		disc: 		make(chan DiscReason),
-		protoMsg:	make(chan Msg),
+		ProtoMsg:	make(chan Msg),
 		created: 	time.Now(),
 	}
 }
 
-func (p *Peer) run() (err error) {
+func (p *Peer) run(protoHandler func(*Peer)) (err error) {
 	p.wg.Add(2)
 	go p.readLoop()
 	go p.pingLoop()
+
+	// higher protocol
+	if protoHandler != nil {
+		go protoHandler(p)
+	}
 
 	// Wait for an error or disconnect.
 loop:
 	for {
 		select {
-		case err = <-p.errch:
+		case err = <-p.Errch:
 			break loop
 		case err = <-p.disc:
 			break loop
 		}
 	}
 
-	close(p.closed)
+	close(p.Closed)
 	p.ts.Close(err)
 	p.wg.Wait()
 	return err
@@ -115,14 +130,10 @@ func (p *Peer) readLoop() {
 	for {
 		msg, err := p.ts.ReadMsg()
 		if err != nil {
-			p.errch <- err
+			p.Errch <- err
 			return
 		}
-		err = p.handleMsg(msg)
-		if err != nil {
-			p.errch <- err
-			return
-		}
+		go p.handleMsg(msg)
 	}
 }
 
@@ -136,39 +147,34 @@ func (p *Peer) pingLoop() {
 		select {
 		case <- timer.C:
 			if err := Send(p.ts, &Msg{Code: pingMsg}); err != nil {
-				p.errch <- err
+				p.Errch <- err
 				return
 			}
 			timer.Reset(pingInterval)
-		case <- p.closed:
+		case <- p.Closed:
 			return
 		}
 	}
 }
 
-func (p *Peer) handleMsg(msg Msg) error {
+func (p *Peer) handleMsg(msg Msg) {
 	switch {
 	case msg.Code == pingMsg:
 		go Send(p.ts, &Msg{Code: pongMsg})
-	case msg.Code == pongMsg:
-		// ignore
 	case msg.Code == discMsg:
-		// todo: extract discReason from msg
-		var discReason DiscReason
-		return discReason
+		discReason := binary.BigEndian.Uint64(msg.Payload)
+		p.Errch <- DiscReason(discReason)
+	case msg.Code < baseProtocolBand:
+		// ignore
 	default:
 		// higher protocol
-		// todo: use goroutine handle higher message
-		// error must write to p.errch
-		//p.protoMsg <- msg
+		p.ProtoMsg <- msg
 	}
-
-	return nil
 }
 
 func (p *Peer) Disconnect(reason DiscReason) {
 	select {
 	case p.disc <- reason:
-	case <-p.closed:
+	case <-p.Closed:
 	}
 }

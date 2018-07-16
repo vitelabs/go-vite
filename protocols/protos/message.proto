@@ -2,13 +2,13 @@ syntax="proto3";
 
 package protos;
 
-import "../proto/account_block_db.proto";
-import "../proto/snapshot_block_db.proto";
+import "proto/account_block_db.proto";
+import "proto/snapshot_block_db.proto";
 
 message StatusMsg {
     uint64 NetworkId = 1;
     uint32 ProtocolVersion = 2;
-    uint64 Height = 3;
+    bytes Height = 3;
     bytes CurrentBlock = 4;
     bytes GenesisBlock = 5;
 }

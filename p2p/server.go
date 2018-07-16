@@ -69,6 +69,8 @@ type Config struct {
 	Database string
 
 	Name string
+
+	NetID uint32
 }
 
 type Server struct {
@@ -104,7 +106,9 @@ type Server struct {
 
 	ntab *table
 
-	ourHandshake *protoHandshake
+	ourHandshake *Handshake
+
+	ProtoHandler func(*Peer)
 }
 
 type peersOperator func(nodeTable map[NodeID]*Peer)
@@ -184,7 +188,7 @@ func (svr *Server) Start() error {
 		svr.createTransport = NewPBTS
 	}
 
-	svr.SetHandleshake()
+	svr.SetHandshake()
 
 	// udp discover
 	udpAddr, err := net.ResolveUDPAddr("udp", svr.Addr)
@@ -207,10 +211,11 @@ func (svr *Server) Start() error {
 	return nil
 }
 
-func (svr *Server) SetHandleshake() {
+func (svr *Server) SetHandshake() {
 	id := priv2ID(svr.PrivateKey)
 
-	svr.ourHandshake = &protoHandshake{
+	svr.ourHandshake = &Handshake{
+		NetID: svr.NetID,
 		Name: svr.Name,
 		ID: id,
 	}
@@ -397,7 +402,7 @@ schedule:
 }
 
 func (svr *Server) runPeer(p *Peer) {
-	err := p.run()
+	err := p.run(svr.ProtoHandler)
 	if err != nil {
 		log.Println("peer error: ", err)
 	}
