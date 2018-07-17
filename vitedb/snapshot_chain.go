@@ -4,7 +4,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
 	"math/big"
-	"encoding/hex"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -107,7 +106,7 @@ func (sbc * SnapshotChain) GetBLockByHeight (blockHeight *big.Int) (*ledger.Snap
 }
 
 func (sbc *SnapshotChain) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.SnapshotBlock, error) {
-	originBlock, err := sbc.GetBlockByHash(originBlockHash.Bytes())
+	originBlock, err := sbc.GetBlockByHash(originBlockHash)
 
 	if err != nil {
 		return nil, err
@@ -173,7 +172,7 @@ func (sbc *SnapshotChain) GetLatestBlock () (*ledger.SnapshotBlock, error) {
 }
 
 
-func (sbc *SnapshotChain) Iterate (iterateFunc func(snapshotBlock *ledger.SnapshotBlock) bool, startBlockHash []byte) error {
+func (sbc *SnapshotChain) Iterate (iterateFunc func(snapshotBlock *ledger.SnapshotBlock) bool, startBlockHash *types.Hash) error {
 	startHeight, err := sbc.GetHeightByHash(startBlockHash)
 	if err != nil {
 		return err

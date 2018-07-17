@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger/access"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"log"
 )
 
 type AccountChain struct {
@@ -23,8 +24,16 @@ func NewAccountChain (vite Vite) (*AccountChain) {
 // HandleBlockHash
 func (ac *AccountChain) HandleGetBlocks (msg *protocols.GetAccountBlocksMsg, peer *protocols.Peer) error {
 	go func() {
-		ac.acAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
+		blocks, err := ac.acAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 		// send out
+		ac.vite.Pm().SendMsg(peer, &protocols.Msg{
+			Code: protocols.AccountBlocksMsgCode,
+			Payload: blocks,
+		})
 	}()
 	return nil
 }
@@ -38,7 +47,7 @@ func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *
 }
 
 func (ac *AccountChain) CreateTx (a types.Address, block *ledger.AccountBlock) {
-	
+
 }
 
 func (ac *AccountChain) CreateTxWithPassphrase (a types.Address, passphrase string, block *ledger.AccountBlock) {

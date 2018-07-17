@@ -447,11 +447,11 @@ func (aca *AccountChainAccess) getNewLastStId (block *ledger.AccountBlock) (*big
 	stIdMutex.Lock()
 	defer stIdMutex.Unlock()
 
-	cacheBody, ok := stIdCache[string(block.SnapshotTimestamp)]
+	cacheBody, ok := stIdCache[block.SnapshotTimestamp.String()]
 
 	if !ok {
 		var stHeight *big.Int
-		if bytes.Equal(block.SnapshotTimestamp, ledger.GenesisSnapshotBlockHash) {
+		if block.SnapshotTimestamp.String() == ledger.GenesisSnapshotBlockHash.String() {
 			stHeight = big.NewInt(0)
 		}  else  {
 			var err error
@@ -474,7 +474,7 @@ func (aca *AccountChainAccess) getNewLastStId (block *ledger.AccountBlock) (*big
 		cacheBody = &stIdCacheBody{
 			LastStId:  lastStId,
 		}
-		stIdCache[string(block.SnapshotTimestamp)] = cacheBody
+		stIdCache[block.SnapshotTimestamp.String()] = cacheBody
 	}
 
 	// Write st index
@@ -491,13 +491,13 @@ func (aca *AccountChainAccess) writeStIndex (batch *leveldb.Batch, block *ledger
 		return err
 	}
 
-	if err := aca.store.WriteStIndex(batch, block.SnapshotTimestamp, newStId, block.Hash); err != nil {
+	if err := aca.store.WriteStIndex(batch, block.SnapshotTimestamp.Bytes(), newStId, block.Hash); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (aca *AccountChainAccess) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error) {
+func (aca *AccountChainAccess) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) (ledger.AccountBlockList, error) {
 	return aca.store.GetBlocksFromOrigin(originBlockHash, count, forward)
 }
 

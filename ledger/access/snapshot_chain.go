@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
-	"encoding/hex"
 	"bytes"
 	"math/big"
 )
@@ -34,7 +33,7 @@ func (sca *SnapshotChainAccess) GetBlockByHash (blockHash *types.Hash) (*ledger.
 	return block, nil
 }
 
-func (sca *SnapshotChainAccess) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.SnapshotBlock, error) {
+func (sca *SnapshotChainAccess) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) (ledger.SnapshotBlockList, error) {
 	return sca.store.GetBlocksFromOrigin(originBlockHash, count, forward)
 }
 
@@ -70,7 +69,7 @@ func (sca *SnapshotChainAccess) WriteBlock (block *ledger.SnapshotBlock) error{
 		fmt.Println("Write block failed, block data is ")
 		fmt.Printf("%+v\n", block)
 	} else {
-		fmt.Println("Write Snapshot block " + hex.EncodeToString(block.Hash) + " succeed")
+		fmt.Println("Write Snapshot block " + block.Hash.String() + " succeed")
 	}
 	return err
 }
@@ -83,12 +82,12 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 	sca.bwMutex.Lock()
 	defer sca.bwMutex.Unlock()
 	//judge whether the prehash is valid
-	if !bytes.Equal(block.Hash, ledger.GenesisSnapshotBlockHash) {
+	if !bytes.Equal(block.Hash.Bytes(), ledger.GenesisSnapshotBlockHash.Bytes()) {
 		preSnapshotBlock, err := sca.store.GetLatestBlock()
 		if err != nil {
 			return err
 		}
-		if !bytes.Equal(block.PrevHash, preSnapshotBlock.Hash){
+		if !bytes.Equal(block.PrevHash.Bytes(), preSnapshotBlock.Hash.Bytes()){
 			return errors.New("PreHash of the written block doesn't direct to the latest block hash.")
 		}
 		newSnapshotHeight := &big.Int{}

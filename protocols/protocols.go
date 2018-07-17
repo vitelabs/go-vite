@@ -22,8 +22,8 @@ type Peer struct {
 
 // @section Msg
 type Serializable interface {
-	Serialize() ([]byte, error)
-	Deserialize([]byte) error
+	NetSerialize() ([]byte, error)
+	NetDeserialize([]byte) error
 }
 
 type Msg struct {

@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"github.com/vitelabs/go-vite/common/types"
+	"log"
 )
 
 type SnapshotChain struct {
@@ -25,9 +26,16 @@ func NewSnapshotChain (vite Vite) (*SnapshotChain) {
 // HandleGetBlock
 func (sc *SnapshotChain) HandleGetBlocks (msg *protocols.GetSnapshotBlocksMsg, peer *protocols.Peer) error {
 	go func() {
-		sc.scAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
-		// send out
-		// pm := sc.vite.Pm()
+		blocks, err := sc.scAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		sc.vite.Pm().SendMsg(peer, &protocols.Msg{
+			Code: protocols.SnapshotBlocksMsgCode,
+			Payload: blocks,
+		})
 	}()
 	return nil
 }

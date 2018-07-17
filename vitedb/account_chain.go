@@ -130,7 +130,7 @@ func (ac *AccountChain) GetLatestBlockHeightByAccountId (accountId *big.Int) (* 
 	latestBlockHeight.SetBytes(partionList[1])
 	return latestBlockHeight, nil
 }
-func (ac *AccountChain) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error) {
+func (ac *AccountChain) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) (ledger.AccountBlockList, error) {
 	originBlockMeta, err := ac.GetBlockMeta(originBlockHash)
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (ac *AccountChain) GetBlocksFromOrigin (originBlockHash *types.Hash, count 
 		return nil, nil
 	}
 
-	var blockList []*ledger.AccountBlock
+	var blockList ledger.AccountBlockList
 
 	for iter.Next() {
 		block := &ledger.AccountBlock{}
