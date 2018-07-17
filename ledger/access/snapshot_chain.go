@@ -17,7 +17,7 @@ type SnapshotChainAccess struct {
 	bwMutex sync.RWMutex
 }
 
-var snapshotChainAccess = &SnapshotChainAccess{
+var snapshotChainAccess = &SnapshotChainAccess {
 	store: vitedb.GetSnapshotChain(),
 }
 
@@ -61,7 +61,7 @@ func (sca *SnapshotChainAccess) WriteBlockList (blockList []*ledger.SnapshotBloc
 	return nil
 }
 
-func (sca *SnapshotChainAccess) WriteBlock (block *ledger.SnapshotBlock) error{
+func (sca *SnapshotChainAccess) WriteBlock (block *ledger.SnapshotBlock) error {
 	err := sca.store.BatchWrite(nil, func(batch *leveldb.Batch) error {
 		return sca.writeBlock(batch, block)
 	})

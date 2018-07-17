@@ -6,18 +6,23 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
+	"github.com/vitelabs/go-vite/crypto"
+	"errors"
+	"time"
 )
 
 type AccountChain struct {
 	vite Vite
 	// Handle block
 	acAccess *access.AccountChainAccess
+	aAccess *access.AccountAccess
 }
 
 func NewAccountChain (vite Vite) (*AccountChain) {
 	return &AccountChain{
 		vite: vite,
 		acAccess: access.GetAccountChainAccess(),
+		aAccess: access.GetAccountAccess(),
 	}
 }
 
@@ -41,15 +46,58 @@ func (ac *AccountChain) HandleGetBlocks (msg *protocols.GetAccountBlocksMsg, pee
 // HandleBlockHash
 func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *protocols.Peer) error {
 	go func() {
-		ac.acAccess.WriteBlockList(msg)
+		for _, block := range msg {
+			// Verify signature
+			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
+
+			if verifyErr != nil {
+				log.Println(verifyErr)
+				continue
+			}
+
+			if !isVerified {
+				continue
+			}
+
+			// Write block
+			writeErr := ac.acAccess.WriteBlock(block)
+			if writeErr != nil {
+				log.Println(writeErr)
+				continue
+			}
+		}
 	}()
 	return nil
 }
 
-func (ac *AccountChain) CreateTx (a types.Address, block *ledger.AccountBlock) {
+func (ac *AccountChain) CreateTx (addr *types.Address, block *ledger.AccountBlock) (error) {
+	accountMeta, err := ac.aAccess.GetAccountMeta(addr)
+	if err != nil {
+		return err
+	}
 
+	if accountMeta == nil {
+		return errors.New("CreateTx failed, because account " + addr.String() + " is not existed.")
+	}
+
+
+	block.AccountAddress = addr
+
+	// Set Snapshot Timestamp
+	block.Timestamp = uint64(time.Now().Unix())
+
+	// Set Meta: Height, Status, AccountId
+
+	// Set Timestamp
+
+
+	// Set Pow params: Nounce、Difficulty
+
+	// Set Balance or Amount
+
+	// Set Hash
 }
 
-func (ac *AccountChain) CreateTxWithPassphrase (a types.Address, passphrase string, block *ledger.AccountBlock) {
+func (ac *AccountChain) CreateTxWithPassphrase (addr *types.Address, passphrase string, block *ledger.AccountBlock) {
 
 }

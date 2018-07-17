@@ -43,6 +43,7 @@ func (sc *SnapshotChain) HandleGetBlocks (msg *protocols.GetSnapshotBlocksMsg, p
 // HandleBlockHash
 func (sc *SnapshotChain) HandleSendBlocks (msg protocols.SnapshotBlocksMsg, peer *protocols.Peer) error {
 	go func() {
+
 		sc.scAccess.WriteBlockList(msg)
 	}()
 

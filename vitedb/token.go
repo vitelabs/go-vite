@@ -148,7 +148,7 @@ func (token *Token) GetLatestBlockHeightByTokenId(tokenId *types.TokenTypeId) (*
 	return latestBlockHeight, nil
 }
 
-func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count int, tokenId *types.TokenTypeId) ([][]byte, error) {
+func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count int, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
 	latestBlockHeight, err := token.GetLatestBlockHeightByTokenId(tokenId)
 	if err != nil {
 		return nil, err
@@ -168,7 +168,7 @@ func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count i
 		return nil, errors.New("GetAccountBlockHashList failed, because token " + tokenId.String() + " doesn't exist.")
 	}
 
-	var blockHashList [][]byte
+	var blockHashList []*types.Hash
 	for i := 0; i <  index * count; i ++ {
 		if !iter.Prev() {
 			return blockHashList, nil
@@ -177,7 +177,11 @@ func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count i
 
 	for i := 0; i < num*count; i++ {
 		blockHash := iter.Value()
-		blockHashList = append(blockHashList, blockHash)
+		typeHash, err := types.BytesToHash(blockHash)
+		if err != nil {
+			return nil, err
+		}
+		blockHashList = append(blockHashList, &typeHash)
 		if !iter.Prev() {
 			break
 		}

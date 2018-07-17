@@ -51,7 +51,7 @@ func (ac * AccountChain) WriteBlock (batch *leveldb.Batch, accountId *big.Int, a
 	return nil
 }
 
-func (ac * AccountChain) WriteBlockMeta (batch *leveldb.Batch, accountBlockHash []byte, accountBlockMeta *ledger.AccountBlockMeta) error {
+func (ac * AccountChain) WriteBlockMeta (batch *leveldb.Batch, accountBlockHash *types.Hash, accountBlockMeta *ledger.AccountBlockMeta) error {
 	buf, err :=  accountBlockMeta.DbSerialize()
 	if err != nil {
 		return err

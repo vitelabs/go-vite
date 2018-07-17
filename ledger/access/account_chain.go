@@ -137,10 +137,10 @@ func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock) error {
 	})
 
 	if err != nil {
-		fmt.Println("Write block " + hex.EncodeToString(block.Hash) + " failed, block data is ")
+		fmt.Println("Write block " + block.Hash.String() + " failed, block data is ")
 		fmt.Printf("%+v\n", block)
 	} else {
-		fmt.Println("Write block " + hex.EncodeToString(block.Hash) + " succeed.")
+		fmt.Println("Write block " + block.Hash.String() + " succeed.")
 	}
 
 	return err

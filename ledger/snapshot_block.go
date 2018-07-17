@@ -65,6 +65,13 @@ type SnapshotBlock struct {
 	Amount *big.Int
 }
 
+func (ab *SnapshotBlock) SetHash () error {
+	// Hash source data:
+	//var source []byte
+
+	return nil
+}
+
 func (sb *SnapshotBlock) GetDbPB () (*vitepb.SnapshotBlock) {
 	snapshotBlockPB := &vitepb.SnapshotBlock{
 		Producer: sb.Producer,

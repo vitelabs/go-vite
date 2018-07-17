@@ -4,9 +4,11 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/vitepb"
 	"github.com/vitelabs/go-vite/common/types"
 	"time"
+	"github.com/vitelabs/go-vite/vitepb/proto"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/crypto"
 )
 
 type AccountBlockMeta struct {
@@ -89,6 +91,9 @@ type AccountBlock struct {
 	// Self account
 	AccountAddress *types.Address
 
+	// Public key
+	PublicKey ed25519.PublicKey
+
 	// Receiver account, exists in send block
 	To *types.Address
 
@@ -136,6 +141,40 @@ type AccountBlock struct {
 
 	// Service fee
 	FAmount *big.Int
+}
+
+func (ab *AccountBlock) SetHash () error {
+	// Hash source data:
+	// PrevHash|Height|AccountAddress|PublicKey|To or FromHash|Timestamp|TokenId|Amount|Data|SnapshotTimestamp|Nounce|Difficulty|FAmount
+	var source []byte
+	source = append(source, ab.PrevHash.Bytes()...)
+	source = append(source, []byte(ab.Meta.Height.String())...)
+	source = append(source, ab.AccountAddress.Bytes()...)
+	source = append(source, ab.PublicKey...)
+
+	if ab.To != nil {
+		source = append(source, ab.To.Bytes()...)
+	} else {
+		source = append(source, ab.FromHash.Bytes()...)
+	}
+
+	source = append(source, []byte(string(ab.Timestamp))...)
+	source = append(source, ab.TokenId.Bytes()...)
+	source = append(source, []byte(ab.Amount.String())...)
+	source = append(source, []byte(ab.Data)...)
+	source = append(source, ab.SnapshotTimestamp.Bytes()...)
+
+	source = append(source, ab.Nounce...)
+	source = append(source, ab.Difficulty...)
+	source = append(source, []byte(ab.FAmount.String())...)
+
+	hash, err := types.BytesToHash(crypto.Hash(len(source), source))
+	if err != nil {
+		return err
+	}
+
+	ab.Hash = &hash
+	return nil
 }
 
 func (ab *AccountBlock) GetNetPB () *vitepb.AccountBlockNet {
