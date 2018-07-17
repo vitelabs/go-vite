@@ -41,6 +41,10 @@ type walletApiImpl struct {
 	KeystoreManager *keystore.Manager
 }
 
+func (m walletApiImpl) String() string {
+	return "walletApiImpl"
+}
+
 func (m walletApiImpl) ListAddress(v interface{}, reply *string) error {
 	log.Debug("ListAddress")
 	as := m.KeystoreManager.Addresses()
