@@ -20,7 +20,7 @@ func StartIPCEndpoint(lis net.Listener, apis []API) (*rpc.Server, error) {
 		if err := srv.RegisterName(api.Namespace, api.Service); err != nil {
 			return nil, err
 		}
-		log.Debug("IPC registered", "namespace", api.Namespace)
+		log.Debug("IPC registered", " namespace", api.Namespace, " Service", api.Service)
 	}
 	if err := ServeListener(srv, lis); err != nil {
 		return nil, err

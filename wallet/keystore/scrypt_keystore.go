@@ -16,7 +16,6 @@ import (
 	"time"
 )
 
-
 const (
 	// StandardScryptN is the N parameter of Scrypt encryption algorithm, using 256MB
 	// memory and taking approximately 1s CPU time on a modern processor.
@@ -58,50 +57,58 @@ func (ks keyStorePassphrase) StoreKey(key *Key, password string) error {
 	return writeKeyFile(fullKeyFileName(ks.keysDirPath, key.Address), keyjson)
 }
 
-func DecryptKey(keyjson []byte, password string) (*Key, error) {
-	k := new(encryptedKeyJSON)
-	// parse and check  encryptedKeyJSON params
+func parseJson(keyjson []byte) (k *encryptedKeyJSON, kAddress *types.Address, cipherPriv, nonce, salt []byte, err error) {
+	k = new(encryptedKeyJSON)
+	// parse and check encryptedKeyJSON params
 	if err := json.Unmarshal(keyjson, k); err != nil {
-		return nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	if k.Version != keystoreVersion {
-		return nil, fmt.Errorf("version number error : %v", k.Version)
+		return nil, nil, nil, nil, nil, fmt.Errorf("version number error : %v", k.Version)
 	}
 	kid := uuid.Parse(k.Id)
 	if kid == nil {
-		return nil, fmt.Errorf("uuid  error : %v", kid)
+		return nil, nil, nil, nil, nil, fmt.Errorf("uuid  error : %v", kid)
 	}
 
 	if !types.IsValidHexAddress(k.HexAddress) {
-		return nil, fmt.Errorf("address invalid ： %v", k.HexAddress)
+		return nil, nil, nil, nil, nil, fmt.Errorf("address invalid ： %v", k.HexAddress)
 	}
-	kAddress, err := types.HexToAddress(k.HexAddress)
+	addr, err := types.HexToAddress(k.HexAddress)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	// parse and check  cryptoJSON params
 	if k.Crypto.CipherName != aesMode {
-		return nil, fmt.Errorf("cipherName  error : %v", k.Crypto.CipherName)
+		return nil, nil, nil, nil, nil, fmt.Errorf("cipherName  error : %v", k.Crypto.CipherName)
 	}
 	if k.Crypto.KDF != scryptName {
-		return nil, fmt.Errorf("scryptName  error : %v", k.Crypto.KDF)
+		return nil, nil, nil, nil, nil, fmt.Errorf("scryptName  error : %v", k.Crypto.KDF)
 	}
-	cipherPriv, err := hex.DecodeString(k.Crypto.CipherText)
+	cipherPriv, err = hex.DecodeString(k.Crypto.CipherText)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, nil, err
 	}
-	nonce, err := hex.DecodeString(k.Crypto.Nonce)
+	nonce, err = hex.DecodeString(k.Crypto.Nonce)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	// parse and check  scryptParams params
 	scryptParams := k.Crypto.ScryptParams
-	salt, err := hex.DecodeString(scryptParams.Salt)
+	salt, err = hex.DecodeString(scryptParams.Salt)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, nil, err
 	}
+
+	return k, &addr, cipherPriv, nonce, salt, nil
+}
+
+func DecryptKey(keyjson []byte, password string) (*Key, error) {
+	k, kAddress, cipherPriv, nonce, salt, err := parseJson(keyjson)
+	scryptParams := k.Crypto.ScryptParams
+	kid := uuid.Parse(k.Id)
 
 	// begin decrypt
 	derivedKey, err := scrypt.Key([]byte(password), salt, scryptParams.N, scryptParams.R, scryptParams.P, scryptParams.KeyLen)

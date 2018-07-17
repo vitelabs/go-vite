@@ -26,17 +26,7 @@ func main() {
 		ipcapiURL = rpc.DefaultIpcFile()
 	}
 
-	var wapi wallet.JsonApi
 	m := wallet.NewManager(filepath.Join(dir, "wallet"))
-	wapi = m.JsonApi
-
-	rpcAPI := []rpc.API{
-		{
-			Namespace: "wallet",
-			Public:    true,
-			Service:   wapi,
-			Version:   "1.0"},
-	}
 
 	lis, err := rpc.IpcListen(ipcapiURL)
 	defer func() {
@@ -44,7 +34,7 @@ func main() {
 			lis.Close()
 		}
 	}()
-	go rpc.StartIPCEndpoint(lis, rpcAPI)
+	go rpc.StartIPCEndpoint(lis, m.Apis())
 
 	inputReader = bufio.NewReader(os.Stdin)
 	fmt.Println("Enter any key to stop ")

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"strings"
 	"sync"
 	"time"
 )
@@ -52,19 +51,18 @@ func (km *Manager) Init() {
 	km.isInited = true
 }
 
-func (km Manager) Status() (string, error) {
-	var sb strings.Builder
-
+func (km Manager) Status() (map[types.Address]string, error) {
+	m := make(map[types.Address]string)
 	km.kc.ListAllAddress().Each(func(v interface{}) bool {
 		a := v.(types.Address)
 		if _, ok := km.unlocked[a]; ok {
-			sb.WriteString(a.Hex() + " Unlocked\n")
+			m[a] = "Unlocked"
 		} else {
-			sb.WriteString(a.Hex() + " Locked\n")
+			m[a] = "Locked"
 		}
 		return false
 	})
-	return sb.String(), nil
+	return m, nil
 }
 
 // if the timeout is <0 we will keep the unlock state until the program exit
@@ -120,6 +118,10 @@ func (km *Manager) Addresses() []types.Address {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 	addrs := km.kc.ListAllAddress()
+	if addrs.Cardinality() == 0 {
+		return []types.Address{}
+	}
+
 	result := make([]types.Address, addrs.Cardinality())
 	i := 0
 	for v := range addrs.Iter() {
