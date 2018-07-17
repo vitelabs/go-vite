@@ -10,6 +10,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"crypto/rand"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"log"
 )
 
 type nodeDB struct {
@@ -153,17 +154,14 @@ func (db *nodeDB) randomNodes(count int) []*Node {
 	defer iterator.Release()
 
 	nodes := make([]*Node, 0, count)
-	maxRounds := count * 5
-
 	id := NodeID{}
-	var node *Node
 
-	for i := 0; len(nodes) < count && i < maxRounds; i++ {
+	for i := 0; len(nodes) < count && i < count * 5; i++ {
 		h := id[0]
 		rand.Read(id[:])
 		id[0] = h + id[0] % 16
-		node = nextNode(iterator)
-		if contains(nodes, node) || node.ID == db.id {
+		node := nextNode(iterator)
+		if node == nil || contains(nodes, node) || node.ID == db.id {
 			continue
 		}
 		nodes = append(nodes, node)
@@ -179,18 +177,19 @@ func (db *nodeDB) close() {
 // helper functions
 func contains(nodes []*Node, node *Node) bool {
 	for _, n := range nodes {
-		if n.ID == node.ID {
+		if n != nil && n.ID == node.ID {
 			return true
 		}
 	}
 	return false
 }
 
-func nextNode(iterator iterator.Iterator) (node *Node) {
+func nextNode(iterator iterator.Iterator) *Node {
 	var field string
 	var data []byte
 	var err error
 
+	node := new(Node)
 	for iterator.Next() {
 		_, field = parseKey(iterator.Key())
 
@@ -202,6 +201,7 @@ func nextNode(iterator iterator.Iterator) (node *Node) {
 		err = node.Deserialize(data)
 
 		if err != nil {
+			log.Printf("discover iterator error: %v\n", err)
 			continue
 		}
 	}

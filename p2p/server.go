@@ -60,7 +60,7 @@ type Config struct {
 	// `MaxPendingPeers` is the maximum number of peers that wait to connect.
 	MaxPendingPeers uint32
 
-	BootNodes []*Node
+	BootNodes []string
 
 	Addr string
 
@@ -75,7 +75,7 @@ type Config struct {
 type peerHandler func(*Peer)
 
 type Server struct {
-	Config
+	*Config
 
 	running bool
 
@@ -110,15 +110,20 @@ type Server struct {
 	ourHandshake *Handshake
 
 	ProtoHandler peerHandler
+
+	BootNodes []*Node
 }
 
 func NewServer(cfg *Config, handler peerHandler) (svr *Server, err error) {
-	svr = &Server{}
+	svr = &Server{
+		Config: cfg,
+		ProtoHandler: handler,
+	}
 
 	if svr.PrivateKey == nil {
 		_, priv, err := ed25519.GenerateKey(nil)
 		if err != nil {
-			log.Fatal("generate privKey error: ", err)
+			log.Fatal("generate self NodeID error: ", err)
 		}
 		svr.PrivateKey = priv
 	}
@@ -138,6 +143,16 @@ func NewServer(cfg *Config, handler peerHandler) (svr *Server, err error) {
 			},
 		}
 	}
+
+	// parse svr.Config.BootNodes to []*Node
+	nodes := make([]*Node, 0, len(svr.Config.BootNodes))
+	for _, str := range svr.Config.BootNodes {
+		node, err := ParseNode(str)
+		if err == nil {
+			nodes = append(nodes, node)
+		}
+	}
+	svr.BootNodes = nodes
 
 	svr.stopped = make(chan struct{})
 	svr.addPeer = make(chan *TSConn)
@@ -161,6 +176,8 @@ func NewServer(cfg *Config, handler peerHandler) (svr *Server, err error) {
 	}
 
 	svr.SetHandshake()
+
+	log.Printf("server created: id: %s, at network %d, name: %s, db: %s, address: %s\n", svr.ourHandshake.ID, svr.NetID, svr.Name, svr.Database, svr.Addr)
 
 	return svr, nil
 }
@@ -227,7 +244,7 @@ func (svr *Server) Start() error {
 	}
 	go svr.Listen(tcpAddr)
 
-	// task
+	// task loop
 	svr.waitDown.Add(1)
 	go svr.ManageTask()
 
@@ -247,7 +264,7 @@ func (svr *Server) SetHandshake() {
 func (svr *Server) Discovery(addr *net.UDPAddr) {
 	ip, err := getExtIP()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("discover get external ip error: %v\n", err)
 	}
 
 	cfg := &DiscvConfig{
@@ -264,7 +281,11 @@ func (svr *Server) Discovery(addr *net.UDPAddr) {
 	}
 
 	if !addr.IP.IsLoopback() {
-		go natMap(svr.stopped, "udp", addr.Port, addr.Port, 0, nil)
+		svr.waitDown.Add(1)
+		go func() {
+			natMap(svr.stopped, "udp", addr.Port, addr.Port, 0, nil)
+			svr.waitDown.Done()
+		}()
 	}
 
 	svr.ntab = tab

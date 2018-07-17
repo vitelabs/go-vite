@@ -18,6 +18,7 @@ import (
 	"time"
 	"sort"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"log"
 )
 
 const NodeURLScheme = "vnode"
@@ -311,6 +312,10 @@ func NewBucket() *bucket {
 // if consider n as a candidate, then unshift n to b.candidates.
 // return false.
 func (b *bucket) check(n *Node) bool {
+	if n == nil {
+		return false
+	}
+
 	var i = 0
 	for i, node := range b.nodes {
 		if node == nil {
@@ -373,6 +378,10 @@ func removeNode(nodes []*Node, node *Node) []*Node {
 
 // put node at first place of nodes without increase capacity, return the obsolete node.
 func unshiftNode(nodes []*Node, node *Node) *Node {
+	if node == nil {
+		return nil
+	}
+
 	// if node exist in nodes, then move to first.
 	var i = 0
 	for i, n := range nodes {
@@ -426,14 +435,14 @@ type agent interface {
 	close()
 }
 
-func newTable(n *Node, net agent, dbPath string, bootNodes []*Node) (*table, error) {
-	nodeDB, err := newDB(dbPath, dbCurrentVersion, n.ID)
+func newTable(self *Node, net agent, dbPath string, bootNodes []*Node) (*table, error) {
+	nodeDB, err := newDB(dbPath, dbCurrentVersion, self.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	tb := &table{
-		self: n,
+		self: self,
 		db: nodeDB,
 		agent: net,
 		bootNodes: bootNodes,
@@ -467,6 +476,8 @@ func (tb *table) resetRand() {
 func (tb *table) loadSeedNodes() {
 	nodes := tb.db.randomNodes(seedCount)
 	nodes = append(nodes, tb.bootNodes...)
+	log.Printf("discover table load %d seed nodes\n", len(nodes))
+
 	for _, node := range nodes {
 		tb.addNode(node)
 	}
@@ -515,6 +526,10 @@ loop:
 }
 
 func (tb *table) addNode(node *Node) {
+	if node == nil {
+		return
+	}
+
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
 
@@ -674,6 +689,10 @@ type closest struct {
 }
 
 func (c *closest) push(n *Node, count int)  {
+	if n == nil {
+		return
+	}
+
 	length := len(c.nodes)
 	furtherNodeIndex := sort.Search(length, func(i int) bool {
 		return disCmp(c.target, c.nodes[i].ID, n.ID) > 0
@@ -686,6 +705,8 @@ func (c *closest) push(n *Node, count int)  {
 			c.nodes[furtherNodeIndex] = n
 		}
 	} else {
+		// increase c.nodes length first.
+		c.nodes = append(c.nodes, nil)
 		// insert n to furtherNodeIndex
 		copy(c.nodes[furtherNodeIndex + 1:], c.nodes[furtherNodeIndex:])
 		c.nodes[furtherNodeIndex] = n
@@ -838,7 +859,7 @@ func (d *discover) ping(node *Node) error {
 	}
 	data, hash, err := ping.Pack(d.priv)
 	if err != nil {
-		return err
+		return fmt.Errorf("discover ping msg pack errors: %v\n", err)
 	}
 
 	errch := d.wait(node.ID, pongCode, func(m Message) error {
@@ -855,18 +876,23 @@ func (d *discover) ping(node *Node) error {
 	return <- errch
 }
 func (d *discover) findnode(ID NodeID, n *Node) ([]*Node, error) {
+	log.Printf("findnode: targetId %s to %s\n", ID, n.ID)
+
 	var nodes []*Node
 	errch := d.wait(n.ID, neighborsCode, func(m Message) error {
-		neighbors := m.(*Neighbors)
+		neighbors, ok := m.(*Neighbors)
+		if !ok {
+			return fmt.Errorf("receive unmatched msg, should be neighbors\n")
+		}
 		nodes = neighbors.Nodes
+		log.Printf("receive neighbors from %s , got %d nodes\n", n.ID, len(nodes))
 		return nil
 	})
 
-	find := &FindNode{
-		ID: ID,
+	d.send(n.addr(), findnodeCode, &FindNode{
+		ID: d.getID(),
 		Target: ID,
-	}
-	d.send(n.addr(), findnodeCode, find)
+	})
 
 	return nodes, <- errch
 }
@@ -925,6 +951,11 @@ func (d *discover) readLoop() {
 	buf := make([]byte, maxPacketLength)
 	for {
 		nbytes, addr, err := d.conn.ReadFromUDP(buf)
+
+		if nbytes == 0 {
+			log.Println("discover ReadFromUDP 0 bytes")
+			continue
+		}
 
 		m, hash, err := unPacket(buf[:nbytes])
 		if err != nil {
