@@ -9,8 +9,8 @@ type HexSignedTuple struct {
 type JsonApi interface {
 	// list all address in keystore file, the reply string will split addresses with \n
 	// example:
-	// "vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416\n
-	// vite_48c5a659e37a9a462b96ff49ef3d30f10137c600417ce05cda"
+	// ["vite_15dac990004ae1cbf1af913091092f7c45205b88d905881d97",
+	// "vite_48c5a659e37a9a462b96ff49ef3d30f10137c600417ce05cda"]
 	ListAddress(v interface{}, reply *string) error
 
 	// it will create a address and store in a dir
@@ -19,8 +19,8 @@ type JsonApi interface {
 
 	// return value is all the address with  Locked  or Unlocked state
 	// example:
-	// "vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416 Locked\n
-	//  vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416 Unlocked"
+	// {"vite_15dac990004ae1cbf1af913091092f7c45205b88d905881d97":"Locked",
+	// "vite_48c5a659e37a9a462b96ff49ef3d30f10137c600417ce05cda":"Unlocked"}
 	Status(v interface{}, reply *string) error
 
 	// hexAddress := unlockParams[0] passphrase := unlockParams[1] unlocktime := unlockParams[2]

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log"
+	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"strconv"
 	"time"
@@ -25,13 +26,34 @@ func NewManager(walletdir string) *Manager {
 	}
 }
 
+func (m Manager) Apis() []rpc.API {
+	return []rpc.API{
+		{
+			Namespace: "wallet",
+			Public:    true,
+			Service:   m.JsonApi,
+			Version:   "1.0",
+		},
+	}
+}
+
 type walletApiImpl struct {
 	KeystoreManager *keystore.Manager
 }
 
 func (m walletApiImpl) ListAddress(v interface{}, reply *string) error {
 	log.Debug("ListAddress")
-	*reply = types.Addresses(m.KeystoreManager.Addresses()).String()
+	as := m.KeystoreManager.Addresses()
+	s := make([]string, len(as))
+	for i, v := range as {
+		s[i] = v.String()
+	}
+	json, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	*reply = string(json)
+
 	return nil
 }
 
@@ -55,7 +77,16 @@ func (m walletApiImpl) Status(v interface{}, reply *string) error {
 	if err != nil {
 		return err
 	}
-	*reply = s
+	stringMap := make(map[string]string)
+
+	for k, v := range s {
+		stringMap[k.String()] = v
+	}
+	json, err := json.Marshal(stringMap)
+	if err != nil {
+		return err
+	}
+	*reply = string(json)
 	return nil
 }
 

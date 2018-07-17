@@ -33,7 +33,7 @@ func main() {
 	}
 
 	list(client)
-	fmt.Println("input ls to show addressed\ninput 'ca' to create a address with password 123456  ")
+	fmt.Println("input List to show addressed\ninput 'Create' to create a address with password 123456  ")
 
 	for {
 		inputReader := bufio.NewReader(os.Stdin)
@@ -119,5 +119,5 @@ func doRpcCall(client *rpc2.Client, method string, param []string) {
 	if err != nil {
 		println(err.Error())
 	}
-	println("status\n " + s)
+	println(method + "\n " + s)
 }
