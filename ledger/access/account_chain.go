@@ -617,14 +617,14 @@ func (aca *AccountChainAccess) GetConfirmBlock(accountBlock *ledger.AccountBlock
 		if itemAccountBlockHash, ok := snapshotBlock.Snapshot[accountBlock.AccountAddress.String()]; ok {
 			var itemAccountBlockMeta *ledger.AccountBlockMeta
 			itemAccountBlockMeta, err = aca.store.GetBlockMeta(itemAccountBlockHash)
-			if itemAccountBlockMeta.Height.Cmp(accountBlock.Meta.Height) > 0 {
+			if itemAccountBlockMeta.Height.Cmp(accountBlock.Meta.Height) >= 0 {
 				confirmSnapshotBlock = snapshotBlock
 				return false
 			}
 		}
-		return false
+		return true
 	}, accountBlock.SnapshotTimestamp)
-
+	
 	return confirmSnapshotBlock, err
 
 }
@@ -633,6 +633,8 @@ func (aca *AccountChainAccess) GetConfirmTimes(confirmSnapshotBlock *ledger.Snap
 	if confirmSnapshotBlock == nil {
 		return nil, nil
 	}
+
+
 
 	latestBlock, err := aca.snapshotStore.GetLatestBlock()
 	if err != nil {
