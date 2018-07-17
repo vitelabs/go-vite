@@ -35,7 +35,8 @@ func main() {
 			Namespace: "wallet",
 			Public:    true,
 			Service:   wapi,
-			Version:   "1.0"},
+			Version:   "1.0",
+		},
 	}
 
 	lis, err := rpc.IpcListen(ipcapiURL)
