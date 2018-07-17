@@ -302,8 +302,8 @@ type bucket struct {
 
 func NewBucket() *bucket {
 	return &bucket{
-		nodes: make([]*Node, K),
-		candidates: make([]*Node, Candidates),
+		nodes: make([]*Node, 0, K),
+		candidates: make([]*Node, 0, Candidates),
 	}
 }
 
@@ -333,7 +333,7 @@ func (b *bucket) check(n *Node) bool {
 
 	// if nodes is not full, set n to the first item
 	if i < cap(b.nodes) {
-		unshiftNode(b.nodes, n)
+		b.nodes = unshiftNode(b.nodes, n)
 		b.candidates = removeNode(b.candidates, n)
 		return true
 	}
@@ -343,22 +343,22 @@ func (b *bucket) check(n *Node) bool {
 func (b *bucket) checkOrCandidate(n *Node) {
 	used := b.check(n)
 	if !used {
-		unshiftNode(b.candidates, n)
+		b.candidates = unshiftNode(b.candidates, n)
 	}
 }
 
-// obsolete the last node in b.nodes
+// obsolete the last node in b.nodes and return replacer.
 func (b *bucket) obsolete(last *Node) *Node {
 	if len(b.nodes) == 0 || b.nodes[len(b.nodes) - 1].ID != last.ID {
 		return nil
 	}
 	if len(b.candidates) == 0 {
-		b.nodes = removeNode(b.nodes, last)
+		b.nodes = b.nodes[:len(b.nodes)-1]
 		return nil
 	}
 
 	candidate := b.candidates[0]
-	copy(b.candidates, b.candidates[1:])
+	b.candidates = b.candidates[1:]
 	b.nodes[len(b.nodes) - 1] = candidate
 	return candidate
 }
@@ -368,8 +368,12 @@ func (b *bucket) remove(n *Node) {
 }
 
 func removeNode(nodes []*Node, node *Node) []*Node {
+	if node == nil {
+		return nodes
+	}
+
 	for i, n := range nodes {
-		if n.ID == node.ID {
+		if n != nil && n.ID == node.ID {
 			return append(nodes[:i], nodes[i+1:]...)
 		}
 	}
@@ -377,33 +381,32 @@ func removeNode(nodes []*Node, node *Node) []*Node {
 }
 
 // put node at first place of nodes without increase capacity, return the obsolete node.
-func unshiftNode(nodes []*Node, node *Node) *Node {
+func unshiftNode(nodes []*Node, node *Node) []*Node {
 	if node == nil {
 		return nil
 	}
 
 	// if node exist in nodes, then move to first.
-	var i = 0
-	for i, n := range nodes {
-		if n.ID == node.ID {
+	i := 0
+	for _, n := range nodes {
+		i++
+		if n != nil && n.ID == node.ID {
 			nodes[0], nodes[i] = nodes[i], nodes[0]
-			return nil
+			return nodes
 		}
 	}
 
+	// i equals len(nodes)
 	if i < cap(nodes) {
-		copy(nodes[1:], nodes)
-		nodes[0] = node
-		return nil
+		return append([]*Node{node}, nodes...)
 	}
 
 	// nodes is full, obsolete the last one.
-	obs := nodes[i - 1]
-	for i := i - 1; i > 0; i-- {
+	for i = i - 1; i > 0; i-- {
 		nodes[i] = nodes[i - 1]
 	}
 	nodes[0] = node
-	return obs
+	return nodes
 }
 
 
