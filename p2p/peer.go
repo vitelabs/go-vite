@@ -73,7 +73,7 @@ func errTodiscReason(err error) DiscReason {
 
 // @section Peer
 type Peer struct {
-	ts		*TSConn
+	TS		*TSConn
 	created	time.Time
 	wg      sync.WaitGroup
 	Errch 	chan error
@@ -85,7 +85,7 @@ type Peer struct {
 
 func NewPeer(ts *TSConn) *Peer {
 	return &Peer{
-		ts: 		ts,
+		TS: 		ts,
 		Errch: 		make(chan error),
 		Closed:		make(chan struct{}),
 		disc: 		make(chan DiscReason),
@@ -121,20 +121,20 @@ loop:
 	}
 
 	close(p.Closed)
-	p.ts.Close(err)
+	p.TS.Close(err)
 	p.wg.Wait()
 	return err
 }
 
 func (p *Peer) ID() NodeID {
-	return p.ts.id
+	return p.TS.id
 }
 
 func (p *Peer) readLoop() {
 	defer p.wg.Done()
 
 	for {
-		msg, err := p.ts.ReadMsg()
+		msg, err := p.TS.ReadMsg()
 		if err != nil {
 			p.Errch <- err
 			return
@@ -152,7 +152,7 @@ func (p *Peer) pingLoop() {
 	for {
 		select {
 		case <- timer.C:
-			if err := Send(p.ts, &Msg{Code: pingMsg}); err != nil {
+			if err := Send(p.TS, &Msg{Code: pingMsg}); err != nil {
 				p.Errch <- err
 				return
 			}
@@ -166,7 +166,7 @@ func (p *Peer) pingLoop() {
 func (p *Peer) handleMsg(msg Msg) {
 	switch {
 	case msg.Code == pingMsg:
-		go Send(p.ts, &Msg{Code: pongMsg})
+		go Send(p.TS, &Msg{Code: pongMsg})
 	case msg.Code == discMsg:
 		discReason := binary.BigEndian.Uint64(msg.Payload)
 		p.Errch <- DiscReason(discReason)

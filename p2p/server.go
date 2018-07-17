@@ -539,7 +539,7 @@ func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer) []Task {
 
 	dials := dm.maxDials
 	for _, p := range peers {
-		if p.ts.is(dynDialedConn) {
+		if p.TS.is(dynDialedConn) {
 			dials--
 		}
 	}

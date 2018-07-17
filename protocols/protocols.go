@@ -202,6 +202,7 @@ type MsgReadWriter interface {
 }
 
 // @section
-type NetSender interface {
-	SendMsg(MsgWriter, Msg) error
-}
+//type NetSender interface {
+//	SendMsg(MsgWriter, Msg) error
+//}
+

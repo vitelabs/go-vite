@@ -80,6 +80,19 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 	}
 }
 
+func (pm *ProtocolManager) SendMsg(p *Peer, msg *Msg) error {
+	payload, err := msg.Payload.Serialize()
+	if err != nil {
+		return fmt.Errorf("protocolManager Send error: %v\n", err)
+	}
+	m := &p2p.Msg{
+		Code: msg.Code,
+		Payload: payload,
+	}
+
+	return p2p.Send(p.TS, m)
+}
+
 func NewProtocolManager(bc blockchain) *ProtocolManager {
 	return &ProtocolManager {
 		currentBlock: bc.GetLatestBlock(),
