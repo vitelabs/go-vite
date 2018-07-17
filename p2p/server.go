@@ -246,7 +246,7 @@ func (svr *Server) Start() error {
 
 	// task loop
 	svr.waitDown.Add(1)
-	go svr.ManageTask()
+	go svr.ScheduleTask()
 
 	return nil
 }
@@ -337,10 +337,14 @@ func (svr *Server) handleConn() {
 }
 
 func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
+	defer func() {
+		<- svr.pendingPeers
+	}()
+
 	c := &TSConn{
 		fd: conn,
 		transport: svr.createTransport(conn),
-		flags: inboundConn,
+		flags: flag,
 	}
 
 	peerhandshake, err := c.Handshake(svr.ourHandshake)
@@ -354,7 +358,6 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 	c.id = peerhandshake.ID
 	c.name = peerhandshake.Name
 
-	<- svr.pendingPeers
 	svr.addPeer <- c
 
 	return nil
@@ -362,15 +365,15 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 
 func (svr *Server) CheckConn(peers map[NodeID]*Peer, passivePeersCount uint32) error {
 	if uint32(len(peers)) >= svr.MaxPeers {
-		return errors.New("to many peers.")
+		return errors.New("too many peers")
 	}
 	if passivePeersCount >= svr.MaxPassivePeers() {
-		return errors.New("to many passive peers.")
+		return errors.New("too many passive peers")
 	}
 	return nil
 }
 
-func (svr *Server) ManageTask() {
+func (svr *Server) ScheduleTask() {
 	defer svr.waitDown.Done()
 
 	dm := NewDialManager(svr.MaxActivePeers(), svr.BootNodes)
@@ -415,16 +418,26 @@ schedule:
 		case t := <- taskHasDone:
 			delTask(t)
 		case c := <- svr.addPeer:
+			log.Printf("will create new peer %s@%s\n", c.id, c.fd.RemoteAddr())
+
 			err := svr.CheckConn(peers, passivePeersCount)
 			if err == nil {
 				p := NewPeer(c)
 				peers[p.ID()] = p
 				go svr.runPeer(p)
-				passivePeersCount++
+
+				if c.is(inboundConn) {
+					passivePeersCount++
+				}
+			} else {
+				log.Printf("cannot create new peer: %v\n", err)
 			}
 		case p := <- svr.delPeer:
 			delete(peers, p.ID())
-			passivePeersCount--
+
+			if p.TS.is(inboundConn) {
+				passivePeersCount--
+			}
 		case fn := <- svr.peersOps:
 			fn(peers)
 			svr.peersOpsDone <- struct{}{}
@@ -513,13 +526,13 @@ type dialTask struct {
 func (t *dialTask) Perform(svr *Server) {
 	conn, err := svr.Dialer.DailNode(t.target)
 	if err != nil {
-		log.Println(err)
+		log.Printf("dial node %s error: %v\n", t.target, err)
 		return
 	}
+
 	err = svr.SetupConn(conn, dynDialedConn)
 	if err != nil {
-		log.Println(err)
-		return
+		log.Printf("setup connect to %s error: %v\n", t.target, err)
 	}
 }
 
