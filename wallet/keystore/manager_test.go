@@ -89,7 +89,7 @@ func TestManager_Import(t *testing.T) {
 	hexaddr := "vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416"
 	addr, _ := types.HexToAddress(hexaddr)
 
-	_, key0, err := kp.ExtractKey(addr, DummyPwd)
+	key0, err := kp.ExtractKey(addr, DummyPwd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestManager_Import(t *testing.T) {
 	}
 
 	kp.Import(json, "654321", "123123")
-	_, key1, err := kp.ExtractKey(addr, "123123")
+	key1, err := kp.ExtractKey(addr, "123123")
 	if err != nil {
 		t.Fatal(err)
 	}

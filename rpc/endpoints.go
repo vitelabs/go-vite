@@ -14,20 +14,26 @@ type API struct {
 	Public    bool        // indication if the methods must be considered safe for public use
 }
 
-func StartIPCEndpoint(ipcEndpoint string, apis []API) (net.Listener, *rpc.Server, error) {
+func StartIPCEndpoint(lis net.Listener, apis []API) (*rpc.Server, error) {
 	srv := rpc.NewServer()
 	for _, api := range apis {
 		if err := srv.RegisterName(api.Namespace, api.Service); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		log.Debug("IPC registered", "namespace", api.Namespace)
+		log.Debug("IPC registered", " namespace", api.Namespace, " Service", api.Service)
 	}
-	lis, err := ipcListen(ipcEndpoint)
-	if err != nil {
-		return nil, nil, err
+	if err := ServeListener(srv, lis); err != nil {
+		return nil, err
 	}
-	if err = ServeListener(srv, lis); err != nil {
-		return nil, nil, err
+	return srv, nil
+}
+
+func StartInProc(apis []API) (*rpc.Server, error) {
+	handler := rpc.NewServer()
+	for _, api := range apis {
+		if err := handler.RegisterName(api.Namespace, api.Service); err != nil {
+			return nil, err
+		}
 	}
-	return lis, srv, nil
+	return handler, nil
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/log"
 	"net"
 	"net/rpc"
+	"runtime"
 )
 
 func ServeListener(srv *rpc.Server, l net.Listener) error {
@@ -27,4 +28,12 @@ func DialIPC(ctx context.Context, endpoint string) (*rpc.Client, error) {
 	}
 	return rpc.NewClientWithCodec(jsonrpc2.NewClientCodec(conn)), nil
 
+}
+
+func DefaultIpcFile() string {
+	endpoint := "vite.ipc"
+	if runtime.GOOS == "windows" {
+		endpoint = `\\.\pipe\vite.ipc`
+	}
+	return endpoint
 }
