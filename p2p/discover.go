@@ -110,7 +110,7 @@ func (n *Node) Deserialize(bytes []byte) error {
 
 func (n *Node) addr() *net.UDPAddr {
 	portStr := strconv.Itoa(int(n.Port))
-	addr := n.IP.String() + portStr
+	addr := n.IP.String() + ":" + portStr
 
 	udpAddr, _ := net.ResolveUDPAddr("udp", addr)
 
@@ -761,6 +761,7 @@ func newDiscover(cfg *DiscvConfig) (*table, error) {
 		IP: exIp,
 		Port: uint16(laddr.Port),
 	}
+	log.Printf("self nodeInfo: %s\n", node)
 	discv.tab, err = newTable(node, discv, cfg.DBPath, cfg.BootNodes)
 
 	if err != nil {
@@ -878,10 +879,17 @@ func (d *discover) ping(node *Node) error {
 	d.conn.WriteToUDP(data, node.addr())
 	return <- errch
 }
-func (d *discover) findnode(ID NodeID, n *Node) ([]*Node, error) {
+func (d *discover) findnode(ID NodeID, n *Node) (nodes []*Node, err error) {
 	log.Printf("findnode: targetId %s to %s\n", ID, n.ID)
 
-	var nodes []*Node
+	err = d.send(n.addr(), findnodeCode, &FindNode{
+		ID: d.getID(),
+		Target: ID,
+	})
+	if err != nil {
+		return nodes, err
+	}
+
 	errch := d.wait(n.ID, neighborsCode, func(m Message) error {
 		neighbors, ok := m.(*Neighbors)
 		if !ok {
@@ -892,12 +900,8 @@ func (d *discover) findnode(ID NodeID, n *Node) ([]*Node, error) {
 		return nil
 	})
 
-	d.send(n.addr(), findnodeCode, &FindNode{
-		ID: d.getID(),
-		Target: ID,
-	})
-
-	return nodes, <- errch
+	err = <- errch
+	return nodes, err
 }
 
 func (d *discover) wait(ID NodeID, code byte, done func(Message) error) (errch chan error) {
@@ -979,8 +983,17 @@ func (d *discover) send(addr *net.UDPAddr, code byte, m Message) (err error) {
 		return err
 	}
 
-	_, err = d.conn.WriteToUDP(data, addr)
-	return err
+	n, err := d.conn.WriteToUDP(data, addr)
+	if err != nil {
+		return fmt.Errorf("send msg %d to %s error: %v\n", code, addr, err)
+	}
+	if n != len(data) {
+		return fmt.Errorf("send incomplete msg to %s: %d / %d\n", addr, n, len(data))
+	}
+
+	log.Printf("send msg %d (%d bytes) to %s done\n", code, n, addr)
+
+	return nil
 }
 
 func (d *discover) receive(code byte, m Message) error {

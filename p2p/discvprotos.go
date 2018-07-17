@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net"
 	"github.com/vitelabs/go-vite/common/types"
+	"log"
 )
 
 const version byte = 1
@@ -76,12 +77,18 @@ func (p *Ping) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err e
 }
 
 func (p *Ping) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
+	log.Printf("receive ping from %s\n", origin.String())
+
 	pong := &Pong{
 		ID: d.getID(),
 		Ping: hash,
 	}
 
-	d.send(origin, pongCode, pong)
+	err := d.send(origin, pongCode, pong)
+	if err != nil {
+		return fmt.Errorf("send pong to %s error: ", origin)
+	}
+
 	n := NewNode(p.ID, origin.IP, uint16(origin.Port))
 	d.tab.addNode(n)
 	return nil
@@ -127,6 +134,7 @@ func (p *Pong) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err e
 }
 
 func (p *Pong) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
+	log.Printf("receive pong from %s\n", origin.String())
 	return d.receive(pongCode, p)
 }
 
@@ -170,6 +178,8 @@ func (p *FindNode) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, 
 }
 
 func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
+	log.Printf("receive findnode from %s\n", origin)
+
 	closet := d.tab.closest(p.ID, K)
 	count := len(closet.nodes)
 
@@ -184,13 +194,21 @@ func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) err
 
 			if len(nodes) == cap(nodes) {
 				m.Nodes = nodes
-				d.send(origin, neighborsCode, m)
-				nodes = nodes[:0]
+				err := d.send(origin, neighborsCode, m)
+				if err != nil {
+					log.Printf("send neighbors to %s error: %v\n", origin, err)
+				} else {
+					nodes = nodes[:0]
+				}
 			}
 		}
 		if len(nodes) > 0 {
 			m.Nodes = nodes
-			d.send(origin, neighborsCode, m)
+
+			err := d.send(origin, neighborsCode, m)
+			if err != nil {
+				return fmt.Errorf("send neighbors to %s error: %v\n", origin, err)
+			}
 		}
 	}
 
@@ -250,6 +268,8 @@ func (p *Neighbors) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash,
 }
 
 func (p *Neighbors) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
+	log.Printf("receive neighbors from %s\n", origin.String())
+
 	return d.receive(neighborsCode, p)
 }
 
