@@ -40,12 +40,12 @@ func (ac * AccountChain) BatchWrite (batch *leveldb.Batch, writeFunc func (batch
 
 
 
-func (ac * AccountChain) WriteBlock (batch *leveldb.Batch, accountId *big.Int, accountBlockHeight *big.Int, accountBlock *ledger.AccountBlock) error {
+func (ac * AccountChain) WriteBlock (batch *leveldb.Batch, accountId *big.Int, accountBlock *ledger.AccountBlock) error {
 	buf, err :=  accountBlock.DbSerialize()
 	if err != nil {
 		return err
 	}
-	key, err := createKey(DBKP_ACCOUNTBLOCK, accountId, accountBlockHeight)
+	key, err := createKey(DBKP_ACCOUNTBLOCK, accountId, accountBlock.Meta.Height)
 	batch.Put(key, buf)
 
 	return nil
@@ -271,7 +271,7 @@ func (ac *AccountChain) GetLastIdByStHeight (stHeight *big.Int) (*big.Int, error
 }
 
 
-func (ac *AccountChain) GetBlockHashList (index, num, count int) ([][]byte, error) {
+func (ac *AccountChain) GetBlockHashList (index, num, count int) ([]*types.Hash, error) {
 	key, err:= createKey(DBKP_SNAPSHOTTIMESTAMP_INDEX, nil)
 	if err != nil {
 		return nil, err
@@ -290,13 +290,14 @@ func (ac *AccountChain) GetBlockHashList (index, num, count int) ([][]byte, erro
 		}
 	}
 
-	var blocHashList [][]byte
+	var blocHashList []*types.Hash
 	for i:=0; i < num * count; i++ {
+		blockHash, err := types.BytesToHash(iter.Value())
+		if err != nil {
+			return nil, err
+		}
 
-		value := make([]byte, len(iter.Value()))
-		copy(value, iter.Value())
-
-		blocHashList = append(blocHashList, value)
+		blocHashList = append(blocHashList, &blockHash)
 
 		if !iter.Prev() {
 			break

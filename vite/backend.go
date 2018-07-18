@@ -53,3 +53,7 @@ func (v *Vite) P2p () (*p2p.Server){
 func (v *Vite) Pm () (*protocols.ProtocolManager)  {
 	return v.pm
 }
+
+func (v *Vite) WalletManager () (*wallet.Manager)  {
+	return v.walletManager
+}

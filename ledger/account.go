@@ -26,19 +26,27 @@ type Account struct {
 	BlockHeight *big.Int
 }
 
-func (am *AccountMeta) SetTokenInfoByTokenId (tokenId *types.TokenTypeId, tokenInfo *AccountSimpleToken) {
+func (am *AccountMeta) SetTokenInfo (tokenInfo *AccountSimpleToken) {
+	if am.TokenList == nil {
+		am.TokenList = []*AccountSimpleToken{}
+	}
 
 	// Get token info of account
 	for index, token := range am.TokenList {
-		if bytes.Equal(token.TokenId.Bytes(), tokenId.Bytes()) {
+		if bytes.Equal(token.TokenId.Bytes(), tokenInfo.TokenId.Bytes()) {
 			am.TokenList[index] = tokenInfo
 			break
 		}
 	}
+
+	am.TokenList = append(am.TokenList, tokenInfo)
 }
 
 
 func (am *AccountMeta) GetTokenInfoByTokenId (tokenId *types.TokenTypeId) *AccountSimpleToken {
+	if am.TokenList == nil {
+		return nil
+	}
 	var tokenInfo *AccountSimpleToken
 
 	// Get token info of account

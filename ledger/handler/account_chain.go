@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"errors"
 	"time"
+	"math/big"
 )
 
 type AccountChain struct {
@@ -16,6 +17,7 @@ type AccountChain struct {
 	// Handle block
 	acAccess *access.AccountChainAccess
 	aAccess *access.AccountAccess
+	scAccess *access.SnapshotChainAccess
 }
 
 func NewAccountChain (vite Vite) (*AccountChain) {
@@ -60,7 +62,7 @@ func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *
 			}
 
 			// Write block
-			writeErr := ac.acAccess.WriteBlock(block)
+			writeErr := ac.acAccess.WriteBlock(block, nil)
 			if writeErr != nil {
 				log.Println(writeErr)
 				continue
@@ -82,6 +84,10 @@ func (ac *AccountChain) GetBlocksByAccAddr (addr *types.Address, index, num, cou
 }
 
 func (ac *AccountChain) CreateTx (addr *types.Address, block *ledger.AccountBlock) (error) {
+	return ac.CreateTxWithPassphrase(addr, "", block)
+}
+
+func (ac *AccountChain) CreateTxWithPassphrase (addr *types.Address, passphrase string, block *ledger.AccountBlock) (err) {
 	accountMeta, err := ac.aAccess.GetAccountMeta(addr)
 
 	if err != nil {
@@ -92,23 +98,46 @@ func (ac *AccountChain) CreateTx (addr *types.Address, block *ledger.AccountBloc
 		return errors.New("CreateTx failed, because account " + addr.String() + " is not existed.")
 	}
 
+
+	// Set addr
 	block.AccountAddress = addr
 
-	// Set Snapshot Timestamp
-	block.Timestamp = uint64(time.Now().Unix())
+	// Set prevHash
+	latestBlock, err := ac.acAccess.GetLatestBlockByAccountAddress(addr)
+	if err != nil {
+		return err
+	}
 
-	// Set Meta: Height, Status, AccountId
+	if latestBlock != nil {
+		block.PrevHash = latestBlock.PrevHash
+	}
+
+	// Set Snapshot Timestamp
+	currentSnapshotBlock, err := ac.scAccess.GetLatestBlock()
+	if err != nil {
+		return err
+	}
+
+	block.SnapshotTimestamp = currentSnapshotBlock.Hash
 
 	// Set Timestamp
-
+	block.Timestamp = uint64(time.Now().Unix())
 
 	// Set Pow params: Nounce、Difficulty
+	block.Nounce = []byte{0, 0, 0, 0, 0}
+	block.Difficulty = []byte{0, 0, 0, 0, 0}
+	block.FAmount = big.NewInt(0)
 
-	// Set Balance or Amount
+	return ac.acAccess.WriteBlock(block, func(accountBlock *ledger.AccountBlock) (*ledger.AccountBlock, error) {
+		var signErr error
+		if passphrase == "" {
+			accountBlock.Signature, accountBlock.PublicKey, signErr =
+				ac.vite.WalletManager().KeystoreManager.SignData(*addr, block.Hash.Bytes())
+		} else {
+			accountBlock.Signature, accountBlock.PublicKey, signErr =
+				ac.vite.WalletManager().KeystoreManager.SignDataWithPassphrase(*addr, passphrase, block.Hash.Bytes())
+		}
 
-	// Set Hash
-}
-
-func (ac *AccountChain) CreateTxWithPassphrase (addr *types.Address, passphrase string, block *ledger.AccountBlock) {
-
+		return accountBlock, signErr
+	})
 }
