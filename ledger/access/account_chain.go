@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"sync"
 	"github.com/pkg/errors"
-	"encoding/hex"
 	"fmt"
 )
 
@@ -71,7 +70,7 @@ func (bwm *blockWriteMutex) Lock (block *ledger.AccountBlock, meta *ledger.Accou
 	}
 
 	if mutexBody.LatestBlock != nil &&
-		!bytes.Equal(mutexBody.LatestBlock.Hash, block.PrevHash) {
+		!bytes.Equal(mutexBody.LatestBlock.Hash.Bytes(), block.PrevHash.Bytes()) {
 		return errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block.")
 	}
 
@@ -104,7 +103,9 @@ type AccountChainAccess struct {
 	accountStore  *vitedb.Account
 	snapshotStore *vitedb.SnapshotChain
 	tokenStore    *vitedb.Token
+
 	bwMutex 	  *blockWriteMutex
+	writeNewAccountMutex sync.Mutex
 }
 
 
@@ -114,6 +115,7 @@ var accountChainAccess = &AccountChainAccess{
 	snapshotStore: vitedb.GetSnapshotChain(),
 	tokenStore:    vitedb.GetToken(),
 	bwMutex:	   &blockWriteMutex{},
+	writeNewAccountMutex: sync.Mutex{},
 }
 
 func GetAccountChainAccess() *AccountChainAccess {
@@ -146,7 +148,140 @@ func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock) error {
 	return err
 }
 
+func (aca *AccountChainAccess) writeSendBlock(batch *leveldb.Batch, block *ledger.AccountBlock, accountMeta *ledger.AccountMeta) (result error) {
+	isGenesisBlock :=  block.IsGenesisBlock()
+
+	if accountMeta == nil && !isGenesisBlock {
+		return errors.New("Write the send block failed, because the account does not exist.")
+	}
+
+	if block.TokenId == nil {
+		return errors.New("Write the send block failed, because the token id of block is nil.")
+	}
+
+	accountTokenInfo := accountMeta.GetTokenInfoByTokenId(block.TokenId)
+
+	if accountTokenInfo == nil {
+		return errors.New("Write the send block failed, because the account does not have this token.")
+	}
+
+	prevAccountBlockInToken, prevAbErr := aca.store.GetBlockByHeight(accountMeta.AccountId, accountTokenInfo.LastAccountBlockHeight)
+	if prevAbErr != nil || prevAccountBlockInToken == nil{
+		return errors.New("Write the send block failed, because the balance is not enough.")
+	}
+
+	if block.Amount == nil {
+		return errors.New("Write the send block failed, because the block.Amount does not exist.")
+	}
+
+
+	if block.Amount.Cmp(prevAccountBlockInToken.Balance) >= 0 {
+		return errors.New("Write the send block failed, because the balance is not enough.")
+	}
+
+
+	block.Balance = &big.Int{}
+	block.Balance.Sub(prevAccountBlockInToken.Balance, block.Amount)
+
+	latestBlockHeight, err := aca.store.GetLatestBlockHeightByAccountId(accountMeta.AccountId)
+	if err != nil || latestBlockHeight == nil {
+		return errors.New("Write the send block failed, because the latestBlockHeight is error.")
+	}
+
+	newBlockHeight := latestBlockHeight.Add(latestBlockHeight, big.NewInt(1))
+
+	// Write account block
+	if err := aca.store.WriteBlock(batch, accountMeta.AccountId, newBlockHeight, block); err != nil {
+		return errors.New("Write the send block failed, error is " + err.Error())
+	}
+
+
+	// Modify account meta
+	accountTokenInfo.LastAccountBlockHeight = newBlockHeight
+	accountMeta.SetTokenInfoByTokenId(block.TokenId, accountTokenInfo)
+
+	if err := aca.accountStore.WriteMeta(batch, block.AccountAddress, accountMeta); err != nil {
+		return err
+	}
+
+	newBlockMeta := &ledger.AccountBlockMeta {
+		Height: newBlockHeight,
+		AccountId: accountMeta.AccountId,
+	}
+
+	if err := aca.writeBlockMeta(batch, block, newBlockMeta); err != nil {
+		return err
+	}
+
+	if err := aca.writeTii(batch, block); err != nil {
+		return err
+	}
+
+	if err:= aca.writeStIndex(batch, block); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *ledger.AccountBlock, accountMeta *ledger.AccountMeta) (result error) {
+	if accountMeta == nil {
+		// Write new account lock
+		aca.writeNewAccountMutex.Lock()
+		defer aca.writeNewAccountMutex.Unlock()
+	}
+
+	if block.FromHash == nil {
+		return errors.New("Write the receive block failed, because the fromHash does not exist.")
+	}
+
+	fromBlock, err := aca.store.GetBlockByHash(block.FromHash)
+
+	if err != nil {
+		return errors.New("Write receive block failed, because getting the from block failed. Error is " + err.Error())
+	}
+	if fromBlock == nil{
+		return errors.New("Write receive block failed, because the from block is not exist")
+	}
+
+	accountTokenInfo := accountMeta.GetTokenInfoByTokenId(fromBlock.TokenId)
+	if accountTokenInfo == nil {
+		accountTokenInfo = &ledger.AccountSimpleToken{
+			TokenId: block.TokenId,
+		}
+	}
+
+	amount :=  fromBlock.Amount
+
+	// Add balance
+	prevBalance := big.NewInt(0)
+
+	prevAccountBlockInToken, prevAbErr := aca.store.GetBlockByHeight(accountMeta.AccountId, accountTokenInfo.LastAccountBlockHeight)
+	if prevAbErr != nil || prevAccountBlockInToken == nil{
+		return errors.New("Write the send block failed, because the balance is not enough.")
+	}
+
+	if prevAccountBlockInToken != nil {
+		prevBalance = prevAccountBlockInToken.Balance
+	}
+
+
+	if block.Balance == nil {
+		block.Balance = big.NewInt(0)
+	}
+
+	block.Balance.Add(prevBalance, amount)
+
+	return nil
+}
+
 func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.AccountBlock) (result error) {
+	// AccountBlock must have the snapshotTimestamp
+	if block.SnapshotTimestamp == nil {
+		return errors.New("Fail to write block, because block.SnapshotTimestamp is uncorrect.")
+	}
+
+
 	accountMeta, err := aca.accountStore.GetAccountMetaByAddress(block.AccountAddress)
 	if err != nil && err != leveldb.ErrNotFound{
 		return err
@@ -158,14 +293,21 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 		return err
 	}
 
+	// Unlock mutex
 	defer aca.bwMutex.UnLock(block, result)
+
+	if block.IsSendBlock() {
+		return aca.writeSendBlock(batch, block, accountMeta)
+	} else if block.IsReceiveBlock() {
+		return aca.writeReceiveBlock(batch, block, accountMeta)
+	}
+
+
+
 
 	var currentAccountToken *ledger.AccountSimpleToken
 
-	isGenesisBlock :=  block.AccountAddress.String() == ledger.GenesisAccount.String() && block.PrevHash == nil
-	if block.SnapshotTimestamp == nil {
-		return errors.New("Fail to write block, because block.SnapshotTimestamp is uncorrect.")
-	}
+
 
 	if accountMeta != nil {
 		// Get token info of account
@@ -198,7 +340,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 		}
 
 		// Create account meta which will be write to database later
-		accountMeta = &ledger.AccountMeta{
+		accountMeta = &ledger.AccountMeta {
 			AccountId: newAccountId,
 			TokenList: []*ledger.AccountSimpleToken{},
 		}
@@ -367,6 +509,7 @@ func (aca *AccountChainAccess) writeBlockMeta (batch *leveldb.Batch, block *ledg
 	} else {
 		meta.Status = 2 // closed
 		fromBlockMeta, err := aca.store.GetBlockMeta(block.FromHash)
+
 		if fromBlockMeta == nil {
 			return errors.New("Write receive block failed, because the from block is not exist")
 		}

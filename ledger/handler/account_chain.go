@@ -70,8 +70,19 @@ func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *
 	return nil
 }
 
+// AccAddr = account address
+func (ac *AccountChain) GetAccountByAccAddr (addr *types.Address) (*ledger.Account){
+	return nil
+}
+
+// AccAddr = account address
+func (ac *AccountChain) GetBlocksByAccAddr (addr *types.Address, index, num, count int) (ledger.AccountBlockList){
+	return nil
+}
+
 func (ac *AccountChain) CreateTx (addr *types.Address, block *ledger.AccountBlock) (error) {
 	accountMeta, err := ac.aAccess.GetAccountMeta(addr)
+
 	if err != nil {
 		return err
 	}
@@ -79,7 +90,6 @@ func (ac *AccountChain) CreateTx (addr *types.Address, block *ledger.AccountBloc
 	if accountMeta == nil {
 		return errors.New("CreateTx failed, because account " + addr.String() + " is not existed.")
 	}
-
 
 	block.AccountAddress = addr
 

@@ -6,6 +6,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vitepb/proto"
+	"bytes"
 )
 
 var GenesisAccount, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
@@ -23,6 +24,31 @@ type AccountMeta struct {
 type Account struct {
 	AccountMeta
 	BlockHeight *big.Int
+}
+
+func (am *AccountMeta) SetTokenInfoByTokenId (tokenId *types.TokenTypeId, tokenInfo *AccountSimpleToken) {
+
+	// Get token info of account
+	for index, token := range am.TokenList {
+		if bytes.Equal(token.TokenId.Bytes(), tokenId.Bytes()) {
+			am.TokenList[index] = tokenInfo
+			break
+		}
+	}
+}
+
+
+func (am *AccountMeta) GetTokenInfoByTokenId (tokenId *types.TokenTypeId) *AccountSimpleToken {
+	var tokenInfo *AccountSimpleToken
+
+	// Get token info of account
+	for _, token := range am.TokenList {
+		if bytes.Equal(token.TokenId.Bytes(), tokenId.Bytes()) {
+			tokenInfo = token
+			break
+		}
+	}
+	return tokenInfo
 }
 
 func (am *AccountMeta) GetTokenList () []*AccountSimpleToken {
