@@ -5,6 +5,8 @@ import (
 	"sync"
 	"github.com/vitelabs/go-vite/ledger"
 	"fmt"
+	"log"
+	"errors"
 )
 
 type ProtoHandler func(Serializable, *Peer) error
@@ -32,6 +34,15 @@ type ProtocolManager struct {
 }
 
 func (pm *ProtocolManager) HandleMsg(code uint64, s Serializable, peer *Peer) error {
+	if code == StatusMsgCode {
+		status, ok := s.(*StatusMsg)
+		if ok {
+			return pm.HandleStatusMsg(status, peer)
+		} else {
+			return errors.New("status msg payload unmatched")
+		}
+	}
+
 	pm.mutex.RLock()
 	handler := pm.handlers[code]
 	pm.mutex.RUnlock()
@@ -43,11 +54,54 @@ func (pm *ProtocolManager) HandleMsg(code uint64, s Serializable, peer *Peer) er
 	return handler(s, peer)
 }
 
+func (pm *ProtocolManager) HandleStatusMsg(status *StatusMsg, peer *Peer) error {
+	peer.Version = int(status.ProtocolVersion)
+	peer.Height = status.Height
+	peer.Head = status.CurrentBlock
+	ourHeight := pm.currentBlock.Height
+
+	cmp := ourHeight.Cmp(peer.Height)
+	if cmp < 0 {
+		getblocks := &GetSnapshotBlocksMsg{
+			Origin: *pm.currentBlock.Hash,
+			Count: 20,
+			Forward: true,
+		}
+		return pm.SendMsg(peer, &Msg{
+			Code: GetSnapshotBlocksMsgCode,
+			Payload: getblocks,
+		})
+	}
+
+	return nil
+	// todo: push block to peer, if our height greater than peers`
+}
+
 func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 	protoPeer := &Peer{
 		Peer: peer,
 		ID: peer.ID().String(),
 	}
+
+	go func() {
+		// todo get genesis block hash
+		status := &StatusMsg{
+			ProtocolVersion: vite1,
+			Height: pm.currentBlock.Height,
+			CurrentBlock: *pm.currentBlock.Hash,
+		}
+		err := pm.SendMsg(protoPeer, &Msg{
+			Code: StatusMsgCode,
+			Payload: status,
+		})
+
+		if err != nil {
+			peer.Errch <- err
+			log.Printf("send status msg to %s error: %v\n", protoPeer.ID, err)
+		} else {
+			log.Printf("send status msg to %s\n", protoPeer.ID)
+		}
+	}()
 
 	for {
 		var m Serializable
@@ -71,7 +125,8 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 				return
 			}
 
-			m.Deserialize(msg.Payload)
+			m.NetDeserialize(msg.Payload)
+
 			if err := pm.HandleMsg(msg.Code, m, protoPeer); err != nil {
 				peer.Errch <- err
 			}
@@ -81,7 +136,7 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 }
 
 func (pm *ProtocolManager) SendMsg(p *Peer, msg *Msg) error {
-	payload, err := msg.Payload.Serialize()
+	payload, err := msg.Payload.NetSerialize()
 	if err != nil {
 		return fmt.Errorf("protocolManager Send error: %v\n", err)
 	}

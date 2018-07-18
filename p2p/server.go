@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log"
 	"crypto/rand"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
 const (
