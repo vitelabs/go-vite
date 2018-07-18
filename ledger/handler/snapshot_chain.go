@@ -73,3 +73,7 @@ func (sc *SnapshotChain) GetBlockByHash (hash *types.Hash) (*ledger.SnapshotBloc
 func (sc *SnapshotChain) GetBlockByHeight (height *big.Int) (*ledger.SnapshotBlock, error) {
 	return sc.scAccess.GetLatestBlock()
 }
+
+func (sc *SnapshotChain) GetFirstSyncInfo () {
+
+}

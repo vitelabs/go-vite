@@ -70,6 +70,7 @@ func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *
 	return nil
 }
 
+
 // AccAddr = account address
 func (ac *AccountChain) GetAccountByAccAddr (addr *types.Address) (*ledger.Account){
 	return nil
