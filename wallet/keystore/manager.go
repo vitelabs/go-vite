@@ -43,11 +43,8 @@ func (km *Manager) Init() {
 	}
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
-
 	km.kc, km.kcChanged = newKeyCache(km.keyStoreDir)
-
 	km.unlocked = make(map[types.Address]*unlocked)
-
 	km.isInited = true
 }
 

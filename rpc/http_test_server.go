@@ -14,7 +14,7 @@ var (
 	port = "8080"
 )
 
-func StartServer() {
+func StartHttpTestServer() {
 	rpc.Register(&service.ExampleSvc{})
 	rpc.Register(&service.AccountChain{})
 
