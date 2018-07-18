@@ -36,10 +36,9 @@ func GetSnapshotChain () *SnapshotChain {
 
 func (sbc *SnapshotChain) GetHeightByHash (blockHash []byte) (*big.Int, error) {
 	key, err := createKey(DBKP_SNAPSHOTBLOCKHASH, hex.EncodeToString(blockHash))
-
 	heightBytes, err := sbc.db.Leveldb.Get(key, nil)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	height := &big.Int{}
