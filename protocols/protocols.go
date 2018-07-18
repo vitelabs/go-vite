@@ -23,6 +23,14 @@ type Peer struct {
 	Lock 	sync.RWMutex
 }
 
+func (p *Peer) Update(status *StatusMsg) {
+	p.Lock.Lock()
+	defer p.Lock.Unlock()
+
+	p.Height = status.Height
+	p.Head = status.CurrentBlock
+}
+
 // @section Msg
 type Serializable interface {
 	NetSerialize() ([]byte, error)

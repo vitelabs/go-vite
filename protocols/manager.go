@@ -7,14 +7,20 @@ import (
 	"fmt"
 	"log"
 	"errors"
+	"time"
+	"math/big"
 )
 
+var waitEnoughPeers = 3 * time.Minute
+const enoughPeers = 5
+
 type ProtoHandler func(Serializable, *Peer) error
+type SyncPeer func(*Peer)
 
 type ProtoHandlers struct {
 	mutex sync.RWMutex
 	handlers map[uint64]ProtoHandler
-	currentBlock ledger.SnapshotBlock
+	sync SyncPeer
 }
 
 func (pm *ProtoHandlers) RegHandler(code uint64, fn ProtoHandler) {
@@ -24,20 +30,32 @@ func (pm *ProtoHandlers) RegHandler(code uint64, fn ProtoHandler) {
 	pm.handlers[code] = fn
 }
 
+func (pm *ProtoHandlers) RegSync(fn SyncPeer) {
+	pm.mutex.Lock()
+	defer pm.mutex.Unlock()
+
+	pm.sync = fn
+}
+
 type blockchain interface {
-	GetLatestBlock() ledger.SnapshotBlock
+	GetLatestBlock() (*ledger.SnapshotBlock, error)
 }
 
 type ProtocolManager struct {
-	currentBlock ledger.SnapshotBlock
 	ProtoHandlers
+	Peers *PeersMap
+	Start time.Time
+	Syncing bool
+	chain blockchain
 }
 
 func (pm *ProtocolManager) HandleMsg(code uint64, s Serializable, peer *Peer) error {
 	if code == StatusMsgCode {
 		status, ok := s.(*StatusMsg)
 		if ok {
-			return pm.HandleStatusMsg(status, peer)
+			// update peer`s height and head
+			peer.Update(status)
+			return nil
 		} else {
 			return errors.New("status msg payload unmatched")
 		}
@@ -54,27 +72,30 @@ func (pm *ProtocolManager) HandleMsg(code uint64, s Serializable, peer *Peer) er
 	return handler(s, peer)
 }
 
-func (pm *ProtocolManager) HandleStatusMsg(status *StatusMsg, peer *Peer) error {
-	peer.Version = int(status.ProtocolVersion)
-	peer.Height = status.Height
-	peer.Head = status.CurrentBlock
-	ourHeight := pm.currentBlock.Height
+func (pm *ProtocolManager) HandleStatusMsg(status *StatusMsg, peer *Peer) {
+	peer.Update(status)
+	pm.Sync()
+}
 
-	cmp := ourHeight.Cmp(peer.Height)
-	if cmp < 0 {
-		getblocks := &GetSnapshotBlocksMsg{
-			Origin: *pm.currentBlock.Hash,
-			Count: 20,
-			Forward: true,
-		}
-		return pm.SendMsg(peer, &Msg{
-			Code: GetSnapshotBlocksMsgCode,
-			Payload: getblocks,
-		})
+func (pm *ProtocolManager) SendStatusMsg(peer *Peer) {
+	// todo get genesis block hash
+	currentBlock := pm.CurrentBlock()
+	status := &StatusMsg{
+		ProtocolVersion: vite1,
+		Height: currentBlock.Height,
+		CurrentBlock: *currentBlock.Hash,
 	}
+	err := pm.SendMsg(peer, &Msg{
+		Code: StatusMsgCode,
+		Payload: status,
+	})
 
-	return nil
-	// todo: push block to peer, if our height greater than peers`
+	if err != nil {
+		peer.Errch <- err
+		log.Printf("send status msg to %s error: %v\n", peer.ID, err)
+	} else {
+		log.Printf("send status msg to %s\n", peer.ID)
+	}
 }
 
 func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
@@ -82,31 +103,18 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 		Peer: peer,
 		ID: peer.ID().String(),
 	}
+	pm.Peers.AddPeer(protoPeer)
 
-	go func() {
-		// todo get genesis block hash
-		status := &StatusMsg{
-			ProtocolVersion: vite1,
-			Height: pm.currentBlock.Height,
-			CurrentBlock: *pm.currentBlock.Hash,
-		}
-		err := pm.SendMsg(protoPeer, &Msg{
-			Code: StatusMsgCode,
-			Payload: status,
-		})
+	go pm.SendStatusMsg(protoPeer)
 
-		if err != nil {
-			peer.Errch <- err
-			log.Printf("send status msg to %s error: %v\n", protoPeer.ID, err)
-		} else {
-			log.Printf("send status msg to %s\n", protoPeer.ID)
-		}
-	}()
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
 
 	for {
 		var m Serializable
 		select {
 		case <- peer.Closed:
+			pm.Peers.DelPeer(protoPeer)
 			return
 		case msg := <- peer.ProtoMsg:
 			switch msg.Code {
@@ -130,8 +138,9 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 			if err := pm.HandleMsg(msg.Code, m, protoPeer); err != nil {
 				peer.Errch <- err
 			}
+		case <- ticker.C:
+			go pm.SendStatusMsg(protoPeer)
 		}
-
 	}
 }
 
@@ -148,11 +157,107 @@ func (pm *ProtocolManager) SendMsg(p *Peer, msg *Msg) error {
 	return p2p.Send(p.TS, m)
 }
 
+func (pm *ProtocolManager) Sync() {
+	pm.mutex.RLock()
+	if pm.Syncing {
+		pm.mutex.RUnlock()
+		return
+	}
+	pm.mutex.RUnlock()
+
+	if pm.Peers.Count() < enoughPeers {
+		wait := time.Now().Sub(pm.Start)
+		if wait < waitEnoughPeers {
+			time.Sleep(waitEnoughPeers - wait)
+		}
+	}
+
+	bestPeer := pm.Peers.BestPeer()
+	currentBlock := pm.CurrentBlock()
+	if bestPeer.Height.Cmp(currentBlock.Height) > 0 {
+		pm.mutex.Lock()
+		if pm.Syncing {
+			pm.mutex.Unlock()
+			return
+		} else {
+			pm.Syncing = true
+			pm.mutex.Unlock()
+		}
+
+		// begin sync
+		pm.sync(bestPeer)
+	}
+}
+
+func (pm *ProtocolManager) SyncDone() {
+	pm.mutex.Lock()
+	pm.Syncing = false
+	pm.mutex.Unlock()
+}
+
+func (pm *ProtocolManager) CurrentBlock() (block *ledger.SnapshotBlock) {
+	block, err :=  pm.chain.GetLatestBlock()
+	if err != nil {
+		log.Fatalf("pm.chain.GetLatestBlock error: %v\n", err)
+	}
+
+	return block
+}
+
 func NewProtocolManager(bc blockchain) *ProtocolManager {
 	return &ProtocolManager {
-		currentBlock: bc.GetLatestBlock(),
 		ProtoHandlers: ProtoHandlers{
 			handlers: make(map[uint64]ProtoHandler),
 		},
+		Peers: NewPeersMap(),
+		Start: time.Now(),
+		chain: bc,
 	}
+}
+
+// @section PeersMap
+type PeersMap struct {
+	peers map[string]*Peer
+	rw sync.RWMutex
+}
+
+func NewPeersMap() *PeersMap {
+	return &PeersMap{
+		peers: make(map[string]*Peer),
+	}
+}
+
+func (m *PeersMap) BestPeer() (best *Peer) {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+
+	maxHeight := new(big.Int)
+	for _, peer := range m.peers {
+		cmp := peer.Height.Cmp(maxHeight)
+		if cmp > 0 {
+			maxHeight = peer.Height
+			best = peer
+		}
+	}
+
+	return
+}
+
+func (m *PeersMap) AddPeer(peer *Peer) {
+	m.rw.Lock()
+	m.peers[peer.ID] = peer
+	m.rw.Unlock()
+}
+
+func (m *PeersMap) DelPeer(peer *Peer) {
+	m.rw.Lock()
+	delete(m.peers, peer.ID)
+	m.rw.Unlock()
+}
+
+func (m *PeersMap) Count() int {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+
+	return len(m.peers)
 }

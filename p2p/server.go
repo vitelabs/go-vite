@@ -210,6 +210,11 @@ func (svr *Server) PeersCount() (amount int) {
 	return
 }
 
+func (svr *Server) Available() bool {
+	count := svr.PeersCount()
+	return count > 0
+}
+
 func (svr *Server) MaxActivePeers() uint32 {
 	return svr.MaxPeers - svr.MaxPassivePeers()
 }
