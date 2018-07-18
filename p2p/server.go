@@ -377,8 +377,8 @@ func (svr *Server) ScheduleTask() {
 	defer svr.waitDown.Done()
 
 	dm := NewDialManager(svr.MaxActivePeers(), svr.BootNodes)
-	var peers = make(map[NodeID]*Peer)
-	var taskHasDone = make(chan Task, defaultMaxActiveDail)
+	peers := make(map[NodeID]*Peer)
+	taskHasDone := make(chan Task, defaultMaxActiveDail)
 	var passivePeersCount uint32 = 0
 	var activeTasks []Task
 	var taskQueue []Task

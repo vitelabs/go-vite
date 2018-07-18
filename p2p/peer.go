@@ -177,7 +177,7 @@ func (p *Peer) handleMsg(msg Msg) {
 		if p.protoHandler != nil {
 			p.ProtoMsg <- msg
 		} else {
-			p.Errch <- fmt.Errorf("cannot handle msg %d,  missing protoHandler\n", msg.Code)
+			p.Errch <- fmt.Errorf("cannot handle msg %d, missing protoHandler\n", msg.Code)
 		}
 	}
 }

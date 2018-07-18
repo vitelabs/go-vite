@@ -178,9 +178,9 @@ func (p *FindNode) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, 
 }
 
 func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
-	log.Printf("receive findnode from %s\n", origin)
+	log.Printf("receive findnode %s from %s\n", p.Target, origin)
 
-	closet := d.tab.closest(p.ID, K)
+	closet := d.tab.closest(p.Target, K)
 	count := len(closet.nodes)
 
 	if count > 0 {
@@ -188,7 +188,7 @@ func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) err
 		m := &Neighbors{
 			ID: d.getID(),
 		}
-
+		// send closet.nodes several times
 		for i := 0; i < count; i++ {
 			nodes = append(nodes, closet.nodes[i])
 
@@ -196,8 +196,9 @@ func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) err
 				m.Nodes = nodes
 				err := d.send(origin, neighborsCode, m)
 				if err != nil {
-					log.Printf("send neighbors to %s error: %v\n", origin, err)
+					log.Printf("send %d neighbors to %s error: %v\n", len(nodes), origin, err)
 				} else {
+					log.Printf("send %d neighbors to %s\n", len(nodes), origin)
 					nodes = nodes[:0]
 				}
 			}
@@ -207,9 +208,13 @@ func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) err
 
 			err := d.send(origin, neighborsCode, m)
 			if err != nil {
-				return fmt.Errorf("send neighbors to %s error: %v\n", origin, err)
+				return fmt.Errorf("send %d neighbors to %s error: %v\n", len(nodes), origin, err)
+			} else {
+				log.Printf("send %d neighbors to %s\n", len(nodes), origin)
 			}
 		}
+	} else {
+		log.Printf("findnode %s got 0 closet nodes", p.Target)
 	}
 
 	return nil
@@ -268,8 +273,7 @@ func (p *Neighbors) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash,
 }
 
 func (p *Neighbors) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
-	log.Printf("receive neighbors from %s\n", origin.String())
-
+	log.Printf("receive %d neighbors from %s\n", len(p.Nodes), p.getID())
 	return d.receive(neighborsCode, p)
 }
 
@@ -339,7 +343,7 @@ func decode(code byte, payload []byte) (m Message, err error) {
 	case neighborsCode:
 		m = new(Neighbors)
 	default:
-		fmt.Errorf("unknown code %d", code)
+		return nil, fmt.Errorf("decode packet error: unknown code %d", code)
 	}
 
 	m.Deserialize(payload)

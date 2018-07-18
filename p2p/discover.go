@@ -37,7 +37,7 @@ func HexStr2NodeID(str string) (NodeID, error) {
 		return id, err
 	}
 	if len(bytes) != len(id) {
-		return id, fmt.Errorf("unmatch length, needs %d hex chars.", len(id) * 2)
+		return id, fmt.Errorf("unmatch length, needs %d hex chars", len(id) * 2)
 	}
 	copy(id[:], bytes)
 	return id, nil
@@ -76,11 +76,14 @@ func NewNode(id NodeID, ip net.IP, port uint16) *Node {
 }
 
 func (n *Node) Validate() error {
-	if n.IP == nil || n.IP.IsMulticast() || n.IP.IsUnspecified() {
-		return errors.New("invalid ip.")
+	if n.IP == nil {
+		return errors.New("missing ip")
+	}
+	if n.IP.IsMulticast() || n.IP.IsUnspecified() {
+		return errors.New("invalid ip")
 	}
 	if n.Port == 0 {
-		return errors.New("must has tcp port.")
+		return errors.New("missing port")
 	}
 
 	return nil
@@ -259,22 +262,22 @@ func ParseNode(u string) (*Node, error) {
 		return nil, errors.New(`invalid scheme, should be "vnode"`)
 	}
 	if nodeURL.User == nil {
-		return nil, errors.New("missing node id.")
+		return nil, errors.New("missing NodeID")
 	}
 
 	id, err := HexStr2NodeID(nodeURL.User.String())
 	if err != nil {
-		return nil, fmt.Errorf("invalid node id. %v", err)
+		return nil, fmt.Errorf("invalid node id: %v", err)
 	}
 
 	host, portstr, err := net.SplitHostPort(nodeURL.Host)
 	if err != nil {
-		return nil, fmt.Errorf("invalid host. %v", err)
+		return nil, fmt.Errorf("invalid host: %v", err)
 	}
 
 	ip := net.ParseIP(host)
 	if ip == nil {
-		return nil, errors.New("invalid ip.")
+		return nil, errors.New("invalid ip")
 	}
 
 	var port uint16
@@ -460,8 +463,6 @@ func newTable(self *Node, net agent, dbPath string, bootNodes []*Node) (*table, 
 
 	tb.resetRand()
 
-	tb.loadSeedNodes()
-
 	go tb.loop()
 
 	return tb, nil
@@ -487,16 +488,16 @@ func (tb *table) loadSeedNodes() {
 }
 
 func (tb *table) loop() {
-	var checkTicker = time.NewTicker(checkInterval)
-	var refreshTimer = time.NewTimer(refreshDuration)
-	var storeTimer = time.NewTimer(storeDuration)
-
-	var refreshDone = make(chan struct{})
-	var storeDone = make(chan struct{})
+	checkTicker := time.NewTicker(checkInterval)
+	refreshTimer := time.NewTimer(refreshDuration)
+	storeTimer := time.NewTimer(storeDuration)
 
 	defer checkTicker.Stop()
 	defer refreshTimer.Stop()
 	defer storeTimer.Stop()
+
+	refreshDone := make(chan struct{})
+	storeDone := make(chan struct{})
 
 	// initial refresh
 	go tb.refresh(refreshDone)
@@ -589,8 +590,6 @@ func (tb *table) pickLastNode() (*Node, int) {
 }
 
 func (tb *table) refresh(done chan struct{}) {
-	defer close(done)
-
 	tb.loadSeedNodes()
 
 	tb.lookup(tb.self.ID)
@@ -600,6 +599,8 @@ func (tb *table) refresh(done chan struct{}) {
 		crand.Read(target[:])
 		tb.lookup(target)
 	}
+
+	done <- struct{}{}
 }
 
 func (tb *table) storeNodes(done chan struct{}) {
@@ -611,6 +612,8 @@ func (tb *table) storeNodes(done chan struct{}) {
 			tb.db.updateNode(n)
 		}
 	}
+
+	done <- struct{}{}
 }
 
 func (tb *table) stop() {
@@ -718,8 +721,8 @@ func (c *closest) push(n *Node, count int)  {
 
 
 // @section agent
-var errStopped = errors.New("udp server has stopped.")
-var errTimeout = errors.New("timeout.")
+var errStopped = errors.New("discv server has stopped")
+var errTimeout = errors.New("timeout")
 
 var watingTimeout = 3 * time.Minute
 
@@ -761,7 +764,8 @@ func newDiscover(cfg *DiscvConfig) (*table, error) {
 		IP: exIp,
 		Port: uint16(laddr.Port),
 	}
-	log.Printf("self nodeInfo: %s\n", node)
+	log.Printf("self: %s\n", node)
+
 	discv.tab, err = newTable(node, discv, cfg.DBPath, cfg.BootNodes)
 
 	if err != nil {
@@ -863,7 +867,15 @@ func (d *discover) ping(node *Node) error {
 	}
 	data, hash, err := ping.Pack(d.priv)
 	if err != nil {
-		return fmt.Errorf("discover ping msg pack errors: %v\n", err)
+		return fmt.Errorf("pack discv ping msg error: %v\n", err)
+	}
+
+	n, err := d.conn.WriteToUDP(data, node.addr())
+	if err != nil {
+		return fmt.Errorf("send ping to %s error: %v\n", node, err)
+	}
+	if n != len(data) {
+		return fmt.Errorf("send incomplete ping to %s: %d/%d\n", node, n, len(data))
 	}
 
 	errch := d.wait(node.ID, pongCode, func(m Message) error {
@@ -873,14 +885,13 @@ func (d *discover) ping(node *Node) error {
 				return nil
 			}
 		}
-		return errors.New("unmatched pong.")
+		return errors.New("unmatched pong")
 	})
 
-	d.conn.WriteToUDP(data, node.addr())
 	return <- errch
 }
 func (d *discover) findnode(ID NodeID, n *Node) (nodes []*Node, err error) {
-	log.Printf("findnode: targetId %s to %s\n", ID, n.ID)
+	log.Printf("findnode %s to %s\n", ID, n)
 
 	err = d.send(n.addr(), findnodeCode, &FindNode{
 		ID: d.getID(),
@@ -896,7 +907,6 @@ func (d *discover) findnode(ID NodeID, n *Node) (nodes []*Node, err error) {
 			return fmt.Errorf("receive unmatched msg, should be neighbors\n")
 		}
 		nodes = neighbors.Nodes
-		log.Printf("receive neighbors from %s , got %d nodes\n", n.ID, len(nodes))
 		return nil
 	})
 
@@ -966,14 +976,17 @@ func (d *discover) readLoop() {
 
 		m, hash, err := unPacket(buf[:nbytes])
 		if err != nil {
-			fmt.Println("udp unpack error: ", err)
+			log.Println("udp unpack error: ", err)
 			continue
 		}
 
 		// todo
 		// hash is just use for construct pong message,
 		// could be optimize latter.
-		m.Handle(d, addr, hash)
+		err = m.Handle(d, addr, hash)
+		if err != nil {
+			log.Printf("handle discv msg from %s error: %v\n", m.getID(), err)
+		}
 	}
 }
 
@@ -988,10 +1001,10 @@ func (d *discover) send(addr *net.UDPAddr, code byte, m Message) (err error) {
 		return fmt.Errorf("send msg %d to %s error: %v\n", code, addr, err)
 	}
 	if n != len(data) {
-		return fmt.Errorf("send incomplete msg to %s: %d / %d\n", addr, n, len(data))
+		return fmt.Errorf("send incomplete msg to %s: %d/%d\n", addr, n, len(data))
 	}
 
-	log.Printf("send msg %d (%d bytes) to %s done\n", code, n, addr)
+	log.Printf("send msg %d (%d bytes) to %s\n", code, n, addr)
 
 	return nil
 }
@@ -1000,7 +1013,7 @@ func (d *discover) receive(code byte, m Message) error {
 	done := make(chan error, 1)
 	select {
 	case <- d.stopped:
-		return errors.New("discover stopped.")
+		return errors.New("discover stopped")
 	case d.getres <- &res{
 		senderID: m.getID(),
 		proto: code,
