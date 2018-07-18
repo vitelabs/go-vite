@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"strings"
 	"sync"
 	"time"
 )
@@ -52,19 +51,18 @@ func (km *Manager) Init() {
 	km.isInited = true
 }
 
-func (km Manager) Status() (string, error) {
-	var sb strings.Builder
-
+func (km Manager) Status() (map[types.Address]string, error) {
+	m := make(map[types.Address]string)
 	km.kc.ListAllAddress().Each(func(v interface{}) bool {
 		a := v.(types.Address)
 		if _, ok := km.unlocked[a]; ok {
-			sb.WriteString(a.Hex() + " Unlocked\n")
+			m[a] = "Unlocked"
 		} else {
-			sb.WriteString(a.Hex() + " Locked\n")
+			m[a] = "Locked"
 		}
 		return false
 	})
-	return sb.String(), nil
+	return m, nil
 }
 
 // if the timeout is <0 we will keep the unlock state until the program exit
@@ -90,6 +88,17 @@ func (km *Manager) Unlock(addr types.Address, passphrase string, timeout time.Du
 	return nil
 }
 
+func (km *Manager) Lock(addr types.Address) error {
+	km.mutex.Lock()
+	if unl, found := km.unlocked[addr]; found {
+		km.mutex.Unlock()
+		km.expire(addr, unl, time.Duration(0)*time.Nanosecond)
+	} else {
+		km.mutex.Unlock()
+	}
+	return nil
+}
+
 func (km *Manager) expire(addr types.Address, u *unlocked, timeout time.Duration) {
 	t := time.NewTimer(timeout)
 	defer t.Stop()
@@ -109,6 +118,10 @@ func (km *Manager) Addresses() []types.Address {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 	addrs := km.kc.ListAllAddress()
+	if addrs.Cardinality() == 0 {
+		return []types.Address{}
+	}
+
 	result := make([]types.Address, addrs.Cardinality())
 	i := 0
 	for v := range addrs.Iter() {
@@ -133,7 +146,7 @@ func (km *Manager) SignDataWithPassphrase(a types.Address, passphrase string, da
 	if err != nil {
 		return nil, nil, err
 	}
-	_, key, err := km.ExtractKey(a, passphrase)
+	key, err := km.ExtractKey(a, passphrase)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -159,7 +172,7 @@ func (km *Manager) Find(a types.Address) (string, error) {
 	}
 }
 
-// if a keystore file name is changed it will read the file content if then content is a legal the function will fix the filename
+
 func (km *Manager) ReloadAndFixAddressFile() {
 	km.kc.refreshAndFixAddressFile()
 }
@@ -181,21 +194,20 @@ func (km *Manager) StoreNewKey(pwd string) (*Key, error) {
 	return key, nil
 }
 
-func (km *Manager) ImportPriv(hexPrikey, newpwd string) (*Key, types.Address, error) {
+func (km *Manager) ImportPriv(hexPrikey, newpwd string) (*Key, error) {
 	priv, err := ed25519.HexToPrivateKey(hexPrikey)
 	if err != nil {
-		return nil, types.Address{}, err
+		return nil, err
 	}
 	if !ed25519.IsValidPrivateKey(priv) {
-		return nil, types.Address{}, ErrInvalidPrikey
+		return nil, ErrInvalidPrikey
 	}
 	key := newKeyFromEd25519(&priv)
-	addr := types.PrikeyToAddress(priv)
 
 	if err := km.ks.StoreKey(key, newpwd); err != nil {
-		return nil, types.Address{}, err
+		return nil, err
 	}
-	return key, addr, nil
+	return key, nil
 
 }
 
@@ -204,7 +216,7 @@ func (km *Manager) ExportPriv(hexaddr, pwd string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, key, err := km.ExtractKey(addr, pwd)
+	key, err := km.ExtractKey(addr, pwd)
 	if err != nil {
 		return "", err
 	}
@@ -212,13 +224,13 @@ func (km *Manager) ExportPriv(hexaddr, pwd string) (string, error) {
 	return key.PrivateKey.Hex(), nil
 }
 
-func (km *Manager) Import(keyjson, originPwd, newPwd string) (*Key, types.Address, error) {
+func (km *Manager) Import(keyjson, originPwd, newPwd string) (*Key, error) {
 	key, err := DecryptKey([]byte(keyjson), originPwd)
 	if err != nil {
-		return nil, types.Address{}, err
+		return nil, err
 	}
 	km.ks.StoreKey(key, newPwd)
-	return key, key.Address, nil
+	return key, nil
 }
 
 func (km *Manager) Export(hexaddr, originPwd, newPwd string) (string, error) {
@@ -226,7 +238,7 @@ func (km *Manager) Export(hexaddr, originPwd, newPwd string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, key, err := km.ExtractKey(addr, originPwd)
+	key, err := km.ExtractKey(addr, originPwd)
 	if err != nil {
 		return "", err
 	}
@@ -237,9 +249,9 @@ func (km *Manager) Export(hexaddr, originPwd, newPwd string) (string, error) {
 	return string(keyjson), nil
 }
 
-func (km *Manager) ExtractKey(a types.Address, pwd string) (types.Address, *Key, error) {
+func (km *Manager) ExtractKey(a types.Address, pwd string) (*Key, error) {
 	key, err := km.ks.ExtractKey(a, pwd)
-	return a, key, err
+	return key, err
 }
 
 func zeroKey(priv *ed25519.PrivateKey) {

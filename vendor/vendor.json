@@ -9,6 +9,12 @@
 			"revisionTime": "2018-06-03T19:32:48Z"
 		},
 		{
+			"checksumSHA1": "m2/Bwo4dXYB/Iw2AdotdxuOW7SA=",
+			"path": "github.com/micro/go-config",
+			"revision": "3904282c3ef78454df3c3c0b880fb780778ad16a",
+			"revisionTime": "2018-07-07T08:13:36Z"
+		},
+		{
 			"checksumSHA1": "As1PSFJop3xi3W8tAYSm/8YesAQ=",
 			"path": "github.com/pborman/uuid",
 			"revision": "c65b2f87fee37d1c7854c9164a450713c28d50cd",
@@ -55,6 +61,12 @@
 			"path": "golang.org/x/crypto/scrypt",
 			"revision": "ab813273cd59e1333f7ae7bff5d027d4aadf528c",
 			"revisionTime": "2018-05-26T08:55:52Z"
+		},
+		{
+			"checksumSHA1": "0xgs8lwcWLUffemlj+SsgKlxvDU=",
+			"path": "gopkg.in/natefinch/npipe.v2",
+			"revision": "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6",
+			"revisionTime": "2016-06-21T03:49:01Z"
 		},
 		{
 			"checksumSHA1": "Yx1MU40fyGe7hhqW9+dkv8kXa60=",

@@ -8,7 +8,6 @@ import (
 	"net"
 	"errors"
 	"log"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"crypto/rand"
 )
 

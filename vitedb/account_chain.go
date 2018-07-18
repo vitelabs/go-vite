@@ -6,8 +6,8 @@ import (
 	"log"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"encoding/hex"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type AccountChain struct {
@@ -51,7 +51,7 @@ func (ac * AccountChain) WriteBlock (batch *leveldb.Batch, accountId *big.Int, a
 	return nil
 }
 
-func (ac * AccountChain) WriteBlockMeta (batch *leveldb.Batch, accountBlockHash []byte, accountBlockMeta *ledger.AccountBlockMeta) error {
+func (ac * AccountChain) WriteBlockMeta (batch *leveldb.Batch, accountBlockHash *types.Hash, accountBlockMeta *ledger.AccountBlockMeta) error {
 	buf, err :=  accountBlockMeta.DbSerialize()
 	if err != nil {
 		return err
@@ -63,7 +63,7 @@ func (ac * AccountChain) WriteBlockMeta (batch *leveldb.Batch, accountBlockHash 
 }
 
 
-func (ac * AccountChain) GetBlockByHash (blockHash []byte) (*ledger.AccountBlock, error) {
+func (ac * AccountChain) GetBlockByHash (blockHash *types.Hash) (*ledger.AccountBlock, error) {
 	accountBlockMeta, err := ac.GetBlockMeta(blockHash)
 	if err != nil {
 		return nil, err
@@ -130,6 +130,55 @@ func (ac *AccountChain) GetLatestBlockHeightByAccountId (accountId *big.Int) (* 
 	latestBlockHeight.SetBytes(partionList[1])
 	return latestBlockHeight, nil
 }
+func (ac *AccountChain) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) (ledger.AccountBlockList, error) {
+	originBlockMeta, err := ac.GetBlockMeta(originBlockHash)
+	if err != nil {
+		return nil, err
+	}
+	var startHeight, endHeight, gap = &big.Int{}, &big.Int{}, &big.Int{}
+	gap.SetUint64(count)
+
+	if forward {
+		startHeight = originBlockMeta.Height
+		endHeight.Add(startHeight, gap)
+	} else {
+		endHeight = originBlockMeta.Height
+		startHeight.Sub(endHeight, gap)
+	}
+
+	startKey, err := createKey(DBKP_ACCOUNTBLOCK, originBlockMeta.AccountId, startHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	limitKey, err := createKey(DBKP_ACCOUNTBLOCK, originBlockMeta.AccountId, endHeight)
+	if err != nil {
+		return nil, err
+	}
+
+
+	iter := ac.db.Leveldb.NewIterator(&util.Range{Start: startKey, Limit: limitKey}, nil)
+	defer iter.Release()
+
+	if !iter.Last() {
+		return nil, nil
+	}
+
+	var blockList ledger.AccountBlockList
+
+	for iter.Next() {
+		block := &ledger.AccountBlock{}
+
+		err := block.DbDeserialize(iter.Value())
+		if err != nil {
+			return nil, err
+		}
+
+		blockList = append(blockList, block)
+	}
+
+	return blockList, nil
+}
 
 func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int, meta *ledger.AccountMeta) ([]*ledger.AccountBlock, error) {
 	latestBlockHeight, err := ac.GetLatestBlockHeightByAccountId(meta.AccountId)
@@ -174,8 +223,8 @@ func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int
 	return blockList, nil
 }
 
-func (ac * AccountChain) GetBlockMeta (blockHash []byte) (*ledger.AccountBlockMeta, error) {
-	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, hex.EncodeToString(blockHash))
+func (ac * AccountChain) GetBlockMeta (blockHash *types.Hash) (*ledger.AccountBlockMeta, error) {
+	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, blockHash.String())
 	if err != nil {
 		return nil, err
 	}
@@ -192,13 +241,13 @@ func (ac * AccountChain) GetBlockMeta (blockHash []byte) (*ledger.AccountBlockMe
 	return blockMeta, nil
 }
 
-func (ac *AccountChain) WriteStIndex (batch *leveldb.Batch, stHash []byte, id *big.Int, accountBlockHash []byte) error {
+func (ac *AccountChain) WriteStIndex (batch *leveldb.Batch, stHash []byte, id *big.Int, accountBlockHash *types.Hash) error {
 	key, err:= createKey(DBKP_SNAPSHOTTIMESTAMP_INDEX, stHash, id)
 	if err != nil {
 		return err
 	}
 
-	batch.Put(key, accountBlockHash)
+	batch.Put(key, accountBlockHash.Bytes())
 
 	return nil
 }

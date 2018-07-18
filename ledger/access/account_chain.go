@@ -137,10 +137,10 @@ func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock) error {
 	})
 
 	if err != nil {
-		fmt.Println("Write block " + hex.EncodeToString(block.Hash) + " failed, block data is ")
+		fmt.Println("Write block " + block.Hash.String() + " failed, block data is ")
 		fmt.Printf("%+v\n", block)
 	} else {
-		fmt.Println("Write block " + hex.EncodeToString(block.Hash) + " succeed.")
+		fmt.Println("Write block " + block.Hash.String() + " succeed.")
 	}
 
 	return err
@@ -447,11 +447,11 @@ func (aca *AccountChainAccess) getNewLastStId (block *ledger.AccountBlock) (*big
 	stIdMutex.Lock()
 	defer stIdMutex.Unlock()
 
-	cacheBody, ok := stIdCache[string(block.SnapshotTimestamp)]
+	cacheBody, ok := stIdCache[block.SnapshotTimestamp.String()]
 
 	if !ok {
 		var stHeight *big.Int
-		if bytes.Equal(block.SnapshotTimestamp, ledger.GenesisSnapshotBlockHash) {
+		if block.SnapshotTimestamp.String() == ledger.GenesisSnapshotBlockHash.String() {
 			stHeight = big.NewInt(0)
 		}  else  {
 			var err error
@@ -474,7 +474,7 @@ func (aca *AccountChainAccess) getNewLastStId (block *ledger.AccountBlock) (*big
 		cacheBody = &stIdCacheBody{
 			LastStId:  lastStId,
 		}
-		stIdCache[string(block.SnapshotTimestamp)] = cacheBody
+		stIdCache[block.SnapshotTimestamp.String()] = cacheBody
 	}
 
 	// Write st index
@@ -491,13 +491,17 @@ func (aca *AccountChainAccess) writeStIndex (batch *leveldb.Batch, block *ledger
 		return err
 	}
 
-	if err := aca.store.WriteStIndex(batch, block.SnapshotTimestamp, newStId, block.Hash); err != nil {
+	if err := aca.store.WriteStIndex(batch, block.SnapshotTimestamp.Bytes(), newStId, block.Hash); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (aca *AccountChainAccess) GetBlockByHash(blockHash []byte) (*ledger.AccountBlock, error) {
+func (aca *AccountChainAccess) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) (ledger.AccountBlockList, error) {
+	return aca.store.GetBlocksFromOrigin(originBlockHash, count, forward)
+}
+
+func (aca *AccountChainAccess) GetBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
 	accountBlock, err := aca.store.GetBlockByHash(blockHash)
 
 	if err != nil {
@@ -617,14 +621,14 @@ func (aca *AccountChainAccess) GetConfirmBlock(accountBlock *ledger.AccountBlock
 		if itemAccountBlockHash, ok := snapshotBlock.Snapshot[accountBlock.AccountAddress.String()]; ok {
 			var itemAccountBlockMeta *ledger.AccountBlockMeta
 			itemAccountBlockMeta, err = aca.store.GetBlockMeta(itemAccountBlockHash)
-			if itemAccountBlockMeta.Height.Cmp(accountBlock.Meta.Height) > 0 {
+			if itemAccountBlockMeta.Height.Cmp(accountBlock.Meta.Height) >= 0 {
 				confirmSnapshotBlock = snapshotBlock
 				return false
 			}
 		}
-		return false
+		return true
 	}, accountBlock.SnapshotTimestamp)
-
+	
 	return confirmSnapshotBlock, err
 
 }
@@ -633,6 +637,8 @@ func (aca *AccountChainAccess) GetConfirmTimes(confirmSnapshotBlock *ledger.Snap
 	if confirmSnapshotBlock == nil {
 		return nil, nil
 	}
+
+
 
 	latestBlock, err := aca.snapshotStore.GetLatestBlock()
 	if err != nil {

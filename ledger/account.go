@@ -2,9 +2,10 @@ package ledger
 
 import (
 	"math/big"
-	"github.com/vitelabs/go-vite/vitepb"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vitepb/proto"
 )
 
 var GenesisAccount, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
@@ -70,29 +71,4 @@ func (am *AccountMeta) DbDeserialize (buf []byte) error {
 	am.TokenList = lTokenList
 
 	return nil
-	//return big.NewInt(456)
 }
-
-//func (ast *AccountSimpleToken) DbSerialize () ([]byte, error) {
-//	accountSimpleTokenPB := &vitepb.AccountSimpleToken{
-//		TokenId: ast.TokenId,
-//		LastAccountBlockHeight: ast.LastAccountBlockHeight.Bytes(),
-//	}
-//	serializedBytes, err := proto.Marshal(accountSimpleTokenPB)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return serializedBytes, nil
-//}
-//
-//func (ast *AccountSimpleToken) DbDeserialize (buf []byte) error {
-//	accountSimpleTokenPB := &vitepb.AccountSimpleToken{}
-//	if err := proto.Unmarshal(buf, accountSimpleTokenPB); err != nil {
-//		return err
-//	}
-//	ast.TokenId =  accountSimpleTokenPB.TokenId
-//	ast.LastAccountBlockHeight = &big.Int{}
-//	ast.LastAccountBlockHeight.SetBytes(accountSimpleTokenPB.LastAccountBlockHeight)
-//
-//	return nil
-//}

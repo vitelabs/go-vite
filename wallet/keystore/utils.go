@@ -7,10 +7,34 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// it it return false it must not be a valid keystore file
+// if it return a true it only means that might be true
+func IsMayValidKeystoreFile(path string) (bool, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+
+	// out keystore file size is about 500 so if a file is very large it must not be a keystore file
+	if fi.Size() > 2*1024 {
+		return false, nil
+	}
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	_, _, _, _, _, err = parseJson(b)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
 
 func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
 	buf := new(bufio.Reader)
