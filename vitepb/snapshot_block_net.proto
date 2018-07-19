@@ -2,7 +2,7 @@ syntax="proto3";
 
 package vitepb;
 
-import "proto/snapshot_block_db.proto";
+import "vitepb/snapshot_block_db.proto";
 
 message SnapshotBlockListNet {
     repeated SnapshotBlock blocks = 1;
