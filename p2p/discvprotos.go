@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net"
 	"github.com/vitelabs/go-vite/common/types"
+	"log"
 )
 
 const version byte = 1
@@ -27,9 +28,9 @@ const maxPacketLength = 1400
 const maxPayloadLength = 1200
 const maxNeighborsNodes = 10
 
-var errUnmatchedVersion = errors.New("unmatched version.")
-var errWrongHash = errors.New("validate packet error: wrong hash.")
-var errInvalidSig = errors.New("validate packet error: invalid signature.")
+var errUnmatchedVersion = errors.New("unmatched version")
+var errWrongHash = errors.New("validate packet error: wrong hash")
+var errInvalidSig = errors.New("validate packet error: invalid signature")
 
 type Message interface {
 	getID() NodeID
@@ -76,12 +77,18 @@ func (p *Ping) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err e
 }
 
 func (p *Ping) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
+	log.Printf("receive ping from %s\n", origin)
+
 	pong := &Pong{
 		ID: d.getID(),
 		Ping: hash,
 	}
 
-	d.send(origin, pongCode, pong)
+	err := d.send(origin, pongCode, pong)
+	if err != nil {
+		return fmt.Errorf("send pong to %s error: %v\n", origin, err)
+	}
+
 	n := NewNode(p.ID, origin.IP, uint16(origin.Port))
 	d.tab.addNode(n)
 	return nil
@@ -127,6 +134,7 @@ func (p *Pong) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err e
 }
 
 func (p *Pong) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
+	log.Printf("receive pong from %s\n", origin)
 	return d.receive(pongCode, p)
 }
 
@@ -170,7 +178,9 @@ func (p *FindNode) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, 
 }
 
 func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
-	closet := d.tab.closest(p.ID, K)
+	log.Printf("receive findnode %s from %s\n", p.Target, origin)
+
+	closet := d.tab.closest(p.Target, K)
 	count := len(closet.nodes)
 
 	if count > 0 {
@@ -178,20 +188,33 @@ func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) err
 		m := &Neighbors{
 			ID: d.getID(),
 		}
-
+		// send closet.nodes several times
 		for i := 0; i < count; i++ {
 			nodes = append(nodes, closet.nodes[i])
 
 			if len(nodes) == cap(nodes) {
 				m.Nodes = nodes
-				d.send(origin, neighborsCode, m)
-				nodes = nodes[:0]
+				err := d.send(origin, neighborsCode, m)
+				if err != nil {
+					log.Printf("send %d neighbors to %s error: %v\n", len(nodes), origin, err)
+				} else {
+					log.Printf("send %d neighbors to %s\n", len(nodes), origin)
+					nodes = nodes[:0]
+				}
 			}
 		}
 		if len(nodes) > 0 {
 			m.Nodes = nodes
-			d.send(origin, neighborsCode, m)
+
+			err := d.send(origin, neighborsCode, m)
+			if err != nil {
+				return fmt.Errorf("send %d neighbors to %s error: %v\n", len(nodes), origin, err)
+			} else {
+				log.Printf("send %d neighbors to %s\n", len(nodes), origin)
+			}
 		}
+	} else {
+		log.Printf("findnode %s got 0 closet nodes", p.Target)
 	}
 
 	return nil
@@ -250,6 +273,7 @@ func (p *Neighbors) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash,
 }
 
 func (p *Neighbors) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
+	log.Printf("receive %d neighbors from %s\n", len(p.Nodes), p.getID())
 	return d.receive(neighborsCode, p)
 }
 
@@ -319,7 +343,7 @@ func decode(code byte, payload []byte) (m Message, err error) {
 	case neighborsCode:
 		m = new(Neighbors)
 	default:
-		fmt.Errorf("unknown code %d", code)
+		return nil, fmt.Errorf("decode packet error: unknown code %d", code)
 	}
 
 	m.Deserialize(payload)

@@ -36,6 +36,7 @@ func (ac *AccountChain) HandleGetBlocks (msg *protocols.GetAccountBlocksMsg, pee
 			log.Println(err)
 			return
 		}
+
 		// send out
 		ac.vite.Pm().SendMsg(peer, &protocols.Msg{
 			Code: protocols.AccountBlocksMsgCode,
@@ -45,9 +46,13 @@ func (ac *AccountChain) HandleGetBlocks (msg *protocols.GetAccountBlocksMsg, pee
 	return nil
 }
 
+
 // HandleBlockHash
 func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *protocols.Peer) error {
 	go func() {
+		globalRWMutex.RLock()
+		defer globalRWMutex.RUnlock()
+
 		for _, block := range msg {
 			// Verify signature
 			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
@@ -64,6 +69,26 @@ func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *
 			// Write block
 			writeErr := ac.acAccess.WriteBlock(block, nil)
 			if writeErr != nil {
+				if writeErr.Code == access.WacPrevHashUncorrectErr {
+					errData := writeErr.Data.(ledger.AccountBlock)
+
+					if block.Meta.Height.Cmp(errData.Meta.Height) <= 0 {
+						return
+					}
+					// Download fragment
+					count := &big.Int{}
+					count.Sub(block.Meta.Height, errData.Meta.Height)
+					ac.vite.Pm().SendMsg(peer, &protocols.Msg {
+						Code: protocols.GetAccountBlocksMsgCode,
+						Payload: &protocols.GetAccountBlocksMsg{
+							Origin: *errData.Hash,
+							Forward: true,
+							Count: count.Uint64(),
+						},
+					})
+
+					break
+				}
 				log.Println(writeErr)
 				continue
 			}
@@ -74,20 +99,23 @@ func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *
 
 
 // AccAddr = account address
-func (ac *AccountChain) GetAccountByAccAddr (addr *types.Address) (*ledger.Account){
-	return nil
+func (ac *AccountChain) GetAccountByAccAddr (addr *types.Address) (*ledger.AccountMeta, error) {
+	return ac.aAccess.GetAccountMeta(addr)
 }
 
 // AccAddr = account address
-func (ac *AccountChain) GetBlocksByAccAddr (addr *types.Address, index, num, count int) (ledger.AccountBlockList){
-	return nil
+func (ac *AccountChain) GetBlocksByAccAddr (addr *types.Address, index, num, count int) (ledger.AccountBlockList, error) {
+	return ac.acAccess.GetBlockListByAccountAddress(index, num, count, addr)
 }
 
 func (ac *AccountChain) CreateTx (addr *types.Address, block *ledger.AccountBlock) (error) {
 	return ac.CreateTxWithPassphrase(addr, "", block)
 }
 
-func (ac *AccountChain) CreateTxWithPassphrase (addr *types.Address, passphrase string, block *ledger.AccountBlock) (err) {
+func (ac *AccountChain) CreateTxWithPassphrase (addr *types.Address, passphrase string, block *ledger.AccountBlock) error {
+	globalRWMutex.RLock()
+	defer globalRWMutex.RUnlock()
+
 	accountMeta, err := ac.aAccess.GetAccountMeta(addr)
 
 	if err != nil {
@@ -133,7 +161,9 @@ func (ac *AccountChain) CreateTxWithPassphrase (addr *types.Address, passphrase 
 		if passphrase == "" {
 			accountBlock.Signature, accountBlock.PublicKey, signErr =
 				ac.vite.WalletManager().KeystoreManager.SignData(*addr, block.Hash.Bytes())
+
 		} else {
+
 			accountBlock.Signature, accountBlock.PublicKey, signErr =
 				ac.vite.WalletManager().KeystoreManager.SignDataWithPassphrase(*addr, passphrase, block.Hash.Bytes())
 		}

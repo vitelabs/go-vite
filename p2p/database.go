@@ -154,14 +154,22 @@ func (db *nodeDB) randomNodes(count int) []*Node {
 	defer iterator.Release()
 
 	nodes := make([]*Node, 0, count)
-	id := NodeID{}
+	var id NodeID
 
 	for i := 0; len(nodes) < count && i < count * 5; i++ {
 		h := id[0]
 		rand.Read(id[:])
 		id[0] = h + id[0] % 16
+
+		iterator.Seek(genKey(id, dbDiscover))
+
 		node := nextNode(iterator)
-		if node == nil || contains(nodes, node) || node.ID == db.id {
+
+		if node == nil {
+			id[0] = 0
+			continue
+		}
+		if contains(nodes, node) || node.ID == db.id {
 			continue
 		}
 		nodes = append(nodes, node)
@@ -204,7 +212,9 @@ func nextNode(iterator iterator.Iterator) *Node {
 			log.Printf("discover iterator error: %v\n", err)
 			continue
 		}
+
+		return node
 	}
 
-	return node
+	return nil
 }

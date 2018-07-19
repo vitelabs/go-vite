@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vitepb/proto"
 	"bytes"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
 var GenesisAccount, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
@@ -18,13 +19,10 @@ type AccountSimpleToken struct {
 
 type AccountMeta struct {
 	AccountId *big.Int
+	PublicKey ed25519.PublicKey
 	TokenList []*AccountSimpleToken
 }
 
-type Account struct {
-	AccountMeta
-	BlockHeight *big.Int
-}
 
 func (am *AccountMeta) SetTokenInfo (tokenInfo *AccountSimpleToken) {
 	if am.TokenList == nil {
@@ -75,6 +73,9 @@ func (am *AccountMeta) DbSerialize () ([]byte, error) {
 	accountMetaPB := &vitepb.AccountMeta{
 		TokenList: pbTokenList,
 	}
+	if am.PublicKey != nil {
+		accountMetaPB.PublicKey = []byte(am.PublicKey)
+	}
 	if am.AccountId != nil {
 		accountMetaPB.AccountId = am.AccountId.Bytes()
 	}
@@ -86,6 +87,8 @@ func (am *AccountMeta) DbDeserialize (buf []byte) error {
 	if err := proto.Unmarshal(buf, accountMetaPB); err != nil {
 		return err
 	}
+
+	am.PublicKey = ed25519.PublicKey(accountMetaPB.PublicKey)
 	am.AccountId = &big.Int{}
 	am.AccountId.SetBytes(accountMetaPB.AccountId)
 

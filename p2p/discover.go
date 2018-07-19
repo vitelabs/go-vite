@@ -37,7 +37,7 @@ func HexStr2NodeID(str string) (NodeID, error) {
 		return id, err
 	}
 	if len(bytes) != len(id) {
-		return id, fmt.Errorf("unmatch length, needs %d hex chars.", len(id) * 2)
+		return id, fmt.Errorf("unmatch length, needs %d hex chars", len(id) * 2)
 	}
 	copy(id[:], bytes)
 	return id, nil
@@ -48,6 +48,8 @@ type Node struct {
 	ID NodeID
 	IP net.IP
 	Port uint16
+	lastping time.Time
+	lastpong time.Time
 }
 
 func (n *Node) toProto() *protos.Node {
@@ -76,11 +78,14 @@ func NewNode(id NodeID, ip net.IP, port uint16) *Node {
 }
 
 func (n *Node) Validate() error {
-	if n.IP == nil || n.IP.IsMulticast() || n.IP.IsUnspecified() {
-		return errors.New("invalid ip.")
+	if n.IP == nil {
+		return errors.New("missing ip")
+	}
+	if n.IP.IsMulticast() || n.IP.IsUnspecified() {
+		return errors.New("invalid ip")
 	}
 	if n.Port == 0 {
-		return errors.New("must has tcp port.")
+		return errors.New("missing port")
 	}
 
 	return nil
@@ -110,7 +115,7 @@ func (n *Node) Deserialize(bytes []byte) error {
 
 func (n *Node) addr() *net.UDPAddr {
 	portStr := strconv.Itoa(int(n.Port))
-	addr := n.IP.String() + portStr
+	addr := n.IP.String() + ":" + portStr
 
 	udpAddr, _ := net.ResolveUDPAddr("udp", addr)
 
@@ -259,22 +264,22 @@ func ParseNode(u string) (*Node, error) {
 		return nil, errors.New(`invalid scheme, should be "vnode"`)
 	}
 	if nodeURL.User == nil {
-		return nil, errors.New("missing node id.")
+		return nil, errors.New("missing NodeID")
 	}
 
 	id, err := HexStr2NodeID(nodeURL.User.String())
 	if err != nil {
-		return nil, fmt.Errorf("invalid node id. %v", err)
+		return nil, fmt.Errorf("invalid node id: %v", err)
 	}
 
 	host, portstr, err := net.SplitHostPort(nodeURL.Host)
 	if err != nil {
-		return nil, fmt.Errorf("invalid host. %v", err)
+		return nil, fmt.Errorf("invalid host: %v", err)
 	}
 
 	ip := net.ParseIP(host)
 	if ip == nil {
-		return nil, errors.New("invalid ip.")
+		return nil, errors.New("invalid ip")
 	}
 
 	var port uint16
@@ -302,8 +307,8 @@ type bucket struct {
 
 func NewBucket() *bucket {
 	return &bucket{
-		nodes: make([]*Node, K),
-		candidates: make([]*Node, Candidates),
+		nodes: make([]*Node, 0, K),
+		candidates: make([]*Node, 0, Candidates),
 	}
 }
 
@@ -333,7 +338,7 @@ func (b *bucket) check(n *Node) bool {
 
 	// if nodes is not full, set n to the first item
 	if i < cap(b.nodes) {
-		unshiftNode(b.nodes, n)
+		b.nodes = unshiftNode(b.nodes, n)
 		b.candidates = removeNode(b.candidates, n)
 		return true
 	}
@@ -343,22 +348,22 @@ func (b *bucket) check(n *Node) bool {
 func (b *bucket) checkOrCandidate(n *Node) {
 	used := b.check(n)
 	if !used {
-		unshiftNode(b.candidates, n)
+		b.candidates = unshiftNode(b.candidates, n)
 	}
 }
 
-// obsolete the last node in b.nodes
+// obsolete the last node in b.nodes and return replacer.
 func (b *bucket) obsolete(last *Node) *Node {
 	if len(b.nodes) == 0 || b.nodes[len(b.nodes) - 1].ID != last.ID {
 		return nil
 	}
 	if len(b.candidates) == 0 {
-		b.nodes = removeNode(b.nodes, last)
+		b.nodes = b.nodes[:len(b.nodes)-1]
 		return nil
 	}
 
 	candidate := b.candidates[0]
-	copy(b.candidates, b.candidates[1:])
+	b.candidates = b.candidates[1:]
 	b.nodes[len(b.nodes) - 1] = candidate
 	return candidate
 }
@@ -368,8 +373,12 @@ func (b *bucket) remove(n *Node) {
 }
 
 func removeNode(nodes []*Node, node *Node) []*Node {
+	if node == nil {
+		return nodes
+	}
+
 	for i, n := range nodes {
-		if n.ID == node.ID {
+		if n != nil && n.ID == node.ID {
 			return append(nodes[:i], nodes[i+1:]...)
 		}
 	}
@@ -377,33 +386,32 @@ func removeNode(nodes []*Node, node *Node) []*Node {
 }
 
 // put node at first place of nodes without increase capacity, return the obsolete node.
-func unshiftNode(nodes []*Node, node *Node) *Node {
+func unshiftNode(nodes []*Node, node *Node) []*Node {
 	if node == nil {
 		return nil
 	}
 
 	// if node exist in nodes, then move to first.
-	var i = 0
-	for i, n := range nodes {
-		if n.ID == node.ID {
+	i := 0
+	for _, n := range nodes {
+		i++
+		if n != nil && n.ID == node.ID {
 			nodes[0], nodes[i] = nodes[i], nodes[0]
-			return nil
+			return nodes
 		}
 	}
 
+	// i equals len(nodes)
 	if i < cap(nodes) {
-		copy(nodes[1:], nodes)
-		nodes[0] = node
-		return nil
+		return append([]*Node{node}, nodes...)
 	}
 
 	// nodes is full, obsolete the last one.
-	obs := nodes[i - 1]
-	for i := i - 1; i > 0; i-- {
+	for i = i - 1; i > 0; i-- {
 		nodes[i] = nodes[i - 1]
 	}
 	nodes[0] = node
-	return obs
+	return nodes
 }
 
 
@@ -413,9 +421,11 @@ const dbCurrentVersion = 1
 const seedCount = 30
 const alpha = 3
 
-var refreshDuration = 1 * time.Hour
-var storeDuration = 30 * time.Minute
-var checkInterval = 5 * time.Minute
+var refreshDuration = 30 * time.Minute
+var storeDuration = 5 * time.Minute
+var checkInterval = 3 * time.Minute
+var watingTimeout = 2 * time.Minute	// watingTimeout must be enough little, at least than checkInterval
+var pingInvervalPerNode = 10 * time.Minute
 
 type table struct {
 	mutex   sync.Mutex
@@ -457,8 +467,6 @@ func newTable(self *Node, net agent, dbPath string, bootNodes []*Node) (*table, 
 
 	tb.resetRand()
 
-	tb.loadSeedNodes()
-
 	go tb.loop()
 
 	return tb, nil
@@ -484,16 +492,16 @@ func (tb *table) loadSeedNodes() {
 }
 
 func (tb *table) loop() {
-	var checkTicker = time.NewTicker(checkInterval)
-	var refreshTimer = time.NewTimer(refreshDuration)
-	var storeTimer = time.NewTimer(storeDuration)
-
-	var refreshDone = make(chan struct{})
-	var storeDone = make(chan struct{})
+	checkTicker := time.NewTicker(checkInterval)
+	refreshTimer := time.NewTimer(refreshDuration)
+	storeTimer := time.NewTimer(storeDuration)
 
 	defer checkTicker.Stop()
 	defer refreshTimer.Stop()
 	defer storeTimer.Stop()
+
+	refreshDone := make(chan struct{})
+	storeDone := make(chan struct{})
 
 	// initial refresh
 	go tb.refresh(refreshDone)
@@ -527,6 +535,9 @@ loop:
 
 func (tb *table) addNode(node *Node) {
 	if node == nil {
+		return
+	}
+	if node.ID == tb.self.ID {
 		return
 	}
 
@@ -565,8 +576,10 @@ func (tb *table) checkLastNode() {
 	b := tb.buckets[bi]
 
 	if err != nil {
+		log.Printf("obsolete %s: %v\n", last.ID, err)
 		b.obsolete(last)
 	} else {
+		log.Printf("check %s\n", last.ID)
 		b.check(last)
 	}
 }
@@ -579,14 +592,16 @@ func (tb *table) pickLastNode() (*Node, int) {
 		b := tb.buckets[i]
 		if len(b.nodes) > 0 {
 			last := b.nodes[len(b.nodes) - 1]
-			return last, i
+			if time.Now().Sub(last.lastping) > pingInvervalPerNode {
+				return last, i
+			}
 		}
 	}
 	return nil, 0
 }
 
 func (tb *table) refresh(done chan struct{}) {
-	defer close(done)
+	log.Println("discv table begin refresh")
 
 	tb.loadSeedNodes()
 
@@ -597,6 +612,8 @@ func (tb *table) refresh(done chan struct{}) {
 		crand.Read(target[:])
 		tb.lookup(target)
 	}
+
+	done <- struct{}{}
 }
 
 func (tb *table) storeNodes(done chan struct{}) {
@@ -608,9 +625,12 @@ func (tb *table) storeNodes(done chan struct{}) {
 			tb.db.updateNode(n)
 		}
 	}
+
+	done <- struct{}{}
 }
 
 func (tb *table) stop() {
+	log.Println("discv table stop")
 	close(tb.stopped)
 }
 
@@ -715,10 +735,8 @@ func (c *closest) push(n *Node, count int)  {
 
 
 // @section agent
-var errStopped = errors.New("udp server has stopped.")
-var errTimeout = errors.New("timeout.")
-
-var watingTimeout = 3 * time.Minute
+var errStopped = errors.New("discv server has stopped")
+var errTimeout = errors.New("timeout")
 
 type DiscvConfig struct {
 	Priv ed25519.PrivateKey
@@ -758,6 +776,8 @@ func newDiscover(cfg *DiscvConfig) (*table, error) {
 		IP: exIp,
 		Port: uint16(laddr.Port),
 	}
+	log.Printf("self: %s\n", node)
+
 	discv.tab, err = newTable(node, discv, cfg.DBPath, cfg.BootNodes)
 
 	if err != nil {
@@ -775,70 +795,43 @@ type req struct {
 	senderID NodeID
 	proto byte
 	// if the query has been handled correctly, then return true.
-	done func(Message) error
+	callback func(Message) error
 	expire time.Time
 	errch chan error
 }
 type reqList []*req
 
-func (rql reqList) remove(wt *req) {
-	for i, w := range rql {
-		if w == wt {
-			copy(rql[i:], rql[i+1:])
-			return
-		}
-	}
-}
-
-func (rql reqList) handle(rp *res) (err error) {
-	var finish reqList
-	for _, req := range rql {
+func handleRes(rql reqList, rp *res) (rest reqList) {
+	var err error
+	for i, req := range rql {
 		if req.senderID == rp.senderID && req.proto == rp.proto {
-			err = req.done(rp.data)
-			if err == nil {
-				req.errch <- nil
-				finish = append(finish, req)
+			if req.callback != nil {
+				err = req.callback(rp.data)
 			}
-		}
-	}
-	
-	// remove matched req
-	for _, w := range finish {
-		rql.remove(w)
-	}
-	
-	return err
-}
 
-func (rql reqList) nextDuration() time.Duration {
-	var expire time.Time
+			rp.done <- err
+			req.errch <- err
 
-	if len(rql) == 0 {
-		return 10 * time.Minute
-	}
-
-	for _, req := range rql {
-		if req.expire.After(expire) {
-			expire = req.expire
+			rest = rql[:i]
+			rest = append(rest, rql[i+1:]...)
+			return rql
 		}
 	}
 
-	return expire.Sub(time.Now())
+	return rql
 }
 
-func (rql reqList) cleanStales() {
+func cleanStaleReq(rql reqList) reqList {
 	now := time.Now()
-	var stales reqList
+	rest := make(reqList, 0, len(rql))
 	for _, req := range rql {
 		if req.expire.Before(now) {
 			req.errch <- errTimeout
-			stales = append(stales, req)
+		} else {
+			rest = append(rest, req)
 		}
 	}
-
-	for _, w := range stales {
-		rql.remove(w)
-	}
+	return rest
 }
 
 type res struct {
@@ -859,50 +852,63 @@ func (d *discover) ping(node *Node) error {
 	}
 	data, hash, err := ping.Pack(d.priv)
 	if err != nil {
-		return fmt.Errorf("discover ping msg pack errors: %v\n", err)
+		return fmt.Errorf("pack discv ping msg error: %v\n", err)
 	}
+
+	n, err := d.conn.WriteToUDP(data, node.addr())
+	if err != nil {
+		return fmt.Errorf("send ping to %s error: %v\n", node, err)
+	}
+	if n != len(data) {
+		return fmt.Errorf("send incomplete ping to %s: %d/%d\n", node, n, len(data))
+	}
+	log.Printf("send ping to %s\n", node)
+	node.lastping = time.Now()
 
 	errch := d.wait(node.ID, pongCode, func(m Message) error {
 		pong, ok := m.(*Pong)
 		if ok {
 			if pong.Ping == hash {
+				node.lastping = time.Now()
 				return nil
 			}
 		}
-		return errors.New("unmatched pong.")
+		return errors.New("unmatched pong")
 	})
 
-	d.conn.WriteToUDP(data, node.addr())
 	return <- errch
 }
-func (d *discover) findnode(ID NodeID, n *Node) ([]*Node, error) {
-	log.Printf("findnode: targetId %s to %s\n", ID, n.ID)
+func (d *discover) findnode(ID NodeID, n *Node) (nodes []*Node, err error) {
+	log.Printf("findnode %s to %s\n", ID, n)
 
-	var nodes []*Node
+	err = d.send(n.addr(), findnodeCode, &FindNode{
+		ID: d.getID(),
+		Target: ID,
+	})
+	if err != nil {
+		return nodes, err
+	}
+
 	errch := d.wait(n.ID, neighborsCode, func(m Message) error {
 		neighbors, ok := m.(*Neighbors)
 		if !ok {
 			return fmt.Errorf("receive unmatched msg, should be neighbors\n")
 		}
 		nodes = neighbors.Nodes
-		log.Printf("receive neighbors from %s , got %d nodes\n", n.ID, len(nodes))
 		return nil
 	})
 
-	d.send(n.addr(), findnodeCode, &FindNode{
-		ID: d.getID(),
-		Target: ID,
-	})
-
-	return nodes, <- errch
+	err = <- errch
+	log.Printf("findnode got %d nodes, error: %v\n", len(nodes), err)
+	return nodes, err
 }
 
-func (d *discover) wait(ID NodeID, code byte, done func(Message) error) (errch chan error) {
+func (d *discover) wait(ID NodeID, code byte, callback func(Message) error) (errch chan error) {
 	errch = make(chan error, 1)
 	p := &req{
 		senderID: ID,
 		proto: code,
-		done: done,
+		callback: callback,
 		expire: time.Now().Add(watingTimeout),
 		errch: errch,
 	}
@@ -923,8 +929,8 @@ func (d *discover) close() {
 func (d *discover) loop() {
 	var rql reqList
 
-	checkTimer := time.NewTimer(10 * time.Minute)
-	defer checkTimer.Stop()
+	checkTicker := time.NewTicker(watingTimeout / 2)
+	defer checkTicker.Stop()
 
 	for {
 		select {
@@ -933,14 +939,13 @@ func (d *discover) loop() {
 				w.errch <- errStopped
 			}
 		case req := <- d.reqing:
-			req.expire = time.Now().Add(watingTimeout)
+			log.Printf("wating msg %d from %s expire %s\n", req.proto, req.senderID, req.expire)
 			rql = append(rql, req)
 		case res := <- d.getres:
-			err := rql.handle(res)
-			res.done <- err
-		case <- checkTimer.C:
-			rql.cleanStales()
-			checkTimer.Reset(rql.nextDuration())
+			rql = handleRes(rql, res)
+			log.Printf("handle msg %d from %s\n", res.proto, res.senderID)
+		case <- checkTicker.C:
+			rql = cleanStaleReq(rql)
 		}
 	}
 }
@@ -953,20 +958,25 @@ func (d *discover) readLoop() {
 		nbytes, addr, err := d.conn.ReadFromUDP(buf)
 
 		if nbytes == 0 {
-			log.Println("discover ReadFromUDP 0 bytes")
+			log.Printf("discv read from %s 0 bytes\n", addr)
 			continue
 		}
 
 		m, hash, err := unPacket(buf[:nbytes])
 		if err != nil {
-			fmt.Println("udp unpack error: ", err)
+			log.Printf("udp unpack from %s error: %v\n", addr, err)
 			continue
 		}
+
+		log.Printf("udp read from %s@%s\n", m.getID(), addr)
 
 		// todo
 		// hash is just use for construct pong message,
 		// could be optimize latter.
-		m.Handle(d, addr, hash)
+		err = m.Handle(d, addr, hash)
+		if err != nil {
+			log.Printf("handle discv msg from %s@%s error: %v\n", m.getID(), addr, err)
+		}
 	}
 }
 
@@ -976,15 +986,24 @@ func (d *discover) send(addr *net.UDPAddr, code byte, m Message) (err error) {
 		return err
 	}
 
-	_, err = d.conn.WriteToUDP(data, addr)
-	return err
+	n, err := d.conn.WriteToUDP(data, addr)
+	if err != nil {
+		return fmt.Errorf("send msg %d to %s error: %v\n", code, addr, err)
+	}
+	if n != len(data) {
+		return fmt.Errorf("send incomplete msg to %s: %d/%d\n", addr, n, len(data))
+	}
+
+	log.Printf("send msg %d (%d bytes) to %s\n", code, n, addr)
+
+	return nil
 }
 
 func (d *discover) receive(code byte, m Message) error {
 	done := make(chan error, 1)
 	select {
 	case <- d.stopped:
-		return errors.New("discover stopped.")
+		return errors.New("discover stopped")
 	case d.getres <- &res{
 		senderID: m.getID(),
 		proto: code,

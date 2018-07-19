@@ -5,6 +5,7 @@ import (
 	"sync"
 	"fmt"
 	"encoding/binary"
+	"log"
 )
 
 var pingInterval = 15 * time.Second
@@ -136,6 +137,7 @@ func (p *Peer) readLoop() {
 	for {
 		msg, err := p.TS.ReadMsg()
 		if err != nil {
+			log.Printf("peer read error: %v\n", err)
 			p.Errch <- err
 			return
 		}
@@ -152,6 +154,8 @@ func (p *Peer) pingLoop() {
 	for {
 		select {
 		case <- timer.C:
+			log.Printf("tcp ping %s\n", p.ID())
+
 			if err := Send(p.TS, &Msg{Code: pingMsg}); err != nil {
 				p.Errch <- err
 				return
@@ -164,6 +168,8 @@ func (p *Peer) pingLoop() {
 }
 
 func (p *Peer) handleMsg(msg Msg) {
+	log.Printf("receive msg %d from %s\n", msg.Code, p.ID())
+
 	switch {
 	case msg.Code == pingMsg:
 		go Send(p.TS, &Msg{Code: pongMsg})
@@ -177,12 +183,14 @@ func (p *Peer) handleMsg(msg Msg) {
 		if p.protoHandler != nil {
 			p.ProtoMsg <- msg
 		} else {
-			p.Errch <- fmt.Errorf("cannot handle msg %d,  missing protoHandler\n", msg.Code)
+			p.Errch <- fmt.Errorf("cannot handle msg %d, missing protoHandler\n", msg.Code)
 		}
 	}
 }
 
 func (p *Peer) Disconnect(reason DiscReason) {
+	log.Printf("disconnect %s\n", p.ID())
+
 	select {
 	case p.disc <- reason:
 	case <-p.Closed:
