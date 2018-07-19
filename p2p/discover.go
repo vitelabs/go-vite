@@ -537,6 +537,9 @@ func (tb *table) addNode(node *Node) {
 	if node == nil {
 		return
 	}
+	if node.ID == tb.self.ID {
+		return
+	}
 
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
@@ -866,7 +869,7 @@ func (d *discover) ping(node *Node) error {
 		pong, ok := m.(*Pong)
 		if ok {
 			if pong.Ping == hash {
-				node.lastpong = time.Now()
+				node.lastping = time.Now()
 				return nil
 			}
 		}
@@ -955,24 +958,24 @@ func (d *discover) readLoop() {
 		nbytes, addr, err := d.conn.ReadFromUDP(buf)
 
 		if nbytes == 0 {
-			log.Println("discv ReadFromUDP 0 bytes")
+			log.Printf("discv read from %s 0 bytes\n", addr)
 			continue
 		}
 
 		m, hash, err := unPacket(buf[:nbytes])
 		if err != nil {
-			log.Println("udp unpack error: ", err)
+			log.Printf("udp unpack from %s error: %v\n", addr, err)
 			continue
 		}
 
-		log.Printf("udp read from %s\n", m.getID())
+		log.Printf("udp read from %s@%s\n", m.getID(), addr)
 
 		// todo
 		// hash is just use for construct pong message,
 		// could be optimize latter.
 		err = m.Handle(d, addr, hash)
 		if err != nil {
-			log.Printf("handle discv msg from %s error: %v\n", m.getID(), err)
+			log.Printf("handle discv msg from %s@%s error: %v\n", m.getID(), addr, err)
 		}
 	}
 }
