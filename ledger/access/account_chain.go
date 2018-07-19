@@ -37,7 +37,7 @@ func (bwm *blockWriteMutex) release () {
 	}
 }
 
-func (bwm *blockWriteMutex) Lock (block *ledger.AccountBlock, meta *ledger.AccountMeta) error {
+func (bwm *blockWriteMutex) Lock (block *ledger.AccountBlock, meta *ledger.AccountMeta) *AcWriteError {
 	bwMutexMutex.Lock()
 	defer bwMutexMutex.Unlock()
 
@@ -58,7 +58,11 @@ func (bwm *blockWriteMutex) Lock (block *ledger.AccountBlock, meta *ledger.Accou
 			var err error
 			mutexBody.LatestBlock, err = accountChainAccess.store.GetLatestBlockByAccountId(meta.AccountId)
 			if err != nil {
-				return err
+				return &AcWriteError {
+					Code: WacDefaultErr,
+					Err: err,
+				}
+
 			}
 		}
 
@@ -66,12 +70,19 @@ func (bwm *blockWriteMutex) Lock (block *ledger.AccountBlock, meta *ledger.Accou
 	}
 
 	if mutexBody.Reference {
-		return errors.New("Lock failed")
+		return &AcWriteError {
+			Code: WacDefaultErr,
+			Err: errors.New("Lock failed"),
+		}
 	}
 
 	if mutexBody.LatestBlock != nil &&
 		!bytes.Equal(mutexBody.LatestBlock.Hash.Bytes(), block.PrevHash.Bytes()) {
-		return errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block.")
+		return &AcWriteError {
+			Code: WacPrevHashUncorrectErr,
+			Err: errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block."),
+			Data: mutexBody.LatestBlock,
+		}
 	}
 
 	mutexBody.Reference = true
@@ -79,7 +90,7 @@ func (bwm *blockWriteMutex) Lock (block *ledger.AccountBlock, meta *ledger.Accou
 	return nil
 }
 
-func (bwm *blockWriteMutex) UnLock (block *ledger.AccountBlock, writeErr error) {
+func (bwm *blockWriteMutex) UnLock (block *ledger.AccountBlock, writeErr *AcWriteError) {
 	bwMutexMutex.Lock()
 	defer bwMutexMutex.Unlock()
 
@@ -134,7 +145,7 @@ func (aca *AccountChainAccess) WriteBlockList(blockList []*ledger.AccountBlock) 
 }
 
 type signFuncType func(*ledger.AccountBlock)(*ledger.AccountBlock, error)
-func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock, beforeWriteBlockHook signFuncType) error {
+func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock, beforeWriteBlockHook signFuncType) *AcWriteError {
 	err := aca.store.BatchWrite(nil, func(batch *leveldb.Batch) error {
 		return aca.writeBlock(batch, block, beforeWriteBlockHook)
 	})
@@ -146,7 +157,9 @@ func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock, beforeWrit
 		fmt.Println("Write block " + block.Hash.String() + " succeed.")
 	}
 
-	return err
+	return &AcWriteError{
+		Err: err,
+	}
 }
 
 func (aca *AccountChainAccess) writeSendBlock(batch *leveldb.Batch, block *ledger.AccountBlock, accountMeta *ledger.AccountMeta) error {
@@ -269,16 +282,22 @@ func (aca *AccountChainAccess) writeMintageBlock(batch *leveldb.Batch, block *le
 	return nil
 }
 
-func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.AccountBlock, signFunc signFuncType) (result error) {
+func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.AccountBlock, signFunc signFuncType) (result *AcWriteError) {
 	// AccountBlock must have the snapshotTimestamp
 	if block.SnapshotTimestamp == nil {
-		return errors.New("Fail to write block, because block.SnapshotTimestamp is uncorrect.")
+		return &AcWriteError{
+			Code: WacDefaultErr,
+			Err: errors.New("Fail to write block, because block.SnapshotTimestamp is uncorrect."),
+		}
 	}
 
 
 	accountMeta, err := aca.accountStore.GetAccountMetaByAddress(block.AccountAddress)
 	if err != nil && err != leveldb.ErrNotFound{
-		return err
+		return &AcWriteError{
+			Code: WacDefaultErr,
+			Err: err,
+		}
 	}
 
 	// Mutex for a accountAddress
@@ -310,14 +329,20 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	}
 
 	if err != nil {
-		return err
+		return &AcWriteError{
+			Code: WacDefaultErr,
+			Err: err,
+		}
 	}
 
 	// Set new block height
 	if latestBlockHeight == nil {
 		latestBlockHeight, err = aca.store.GetLatestBlockHeightByAccountId(accountMeta.AccountId)
 		if err != nil || latestBlockHeight == nil {
-			return errors.New("Write the block failed, because the latestBlockHeight is error.")
+			return &AcWriteError{
+				Code: WacDefaultErr,
+				Err: errors.New("Write the block failed, because the latestBlockHeight is error."),
+			}
 		}
 	}
 
@@ -355,32 +380,50 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 		block, signErr = signFunc(block)
 
 		if signErr != nil {
-			return signErr
+			return &AcWriteError{
+				Code: WacDefaultErr,
+				Err: signErr,
+			}
 		}
 	}
 	// Write account meta
 	if err := aca.accountStore.WriteMeta(batch, block.AccountAddress, accountMeta); err != nil {
-		return err
+		return &AcWriteError{
+			Code: WacDefaultErr,
+			Err: err,
+		}
 	}
 
 	// Write account block meta
 	if err := aca.writeBlockMeta(batch, block, newBlockMeta); err != nil {
-		return err
+		return &AcWriteError{
+			Code: WacDefaultErr,
+			Err: err,
+		}
 	}
 
 	// Write account block
 	if err := aca.store.WriteBlock(batch, accountMeta.AccountId, block); err != nil {
-		return errors.New("Write the block failed, error is " + err.Error())
+		return &AcWriteError{
+			Code: WacDefaultErr,
+			Err: errors.New("Write the block failed, error is " + err.Error()),
+		}
 	}
 
 	// Write tii
 	if err := aca.writeTii(batch, block); err != nil {
-		return err
+		return &AcWriteError{
+			Code: WacDefaultErr,
+			Err: err,
+		}
 	}
 
 	// Write st index
 	if err:= aca.writeStIndex(batch, block); err != nil {
-		return err
+		return &AcWriteError{
+			Code: WacDefaultErr,
+			Err: err,
+		}
 	}
 
 	return nil

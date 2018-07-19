@@ -135,6 +135,19 @@ func (ac *AccountChain) GetBlocksFromOrigin (originBlockHash *types.Hash, count 
 	if err != nil {
 		return nil, err
 	}
+
+	accountDb := GetAccount()
+	address, err := accountDb.GetAddressById(originBlockMeta.AccountId)
+	if err != nil {
+		return nil, err
+	}
+
+	account, err := accountDb.GetAccountMetaByAddress(address)
+	if err != nil {
+		return nil, err
+	}
+
+
 	var startHeight, endHeight, gap = &big.Int{}, &big.Int{}, &big.Int{}
 	gap.SetUint64(count)
 
@@ -166,7 +179,8 @@ func (ac *AccountChain) GetBlocksFromOrigin (originBlockHash *types.Hash, count 
 
 	var blockList ledger.AccountBlockList
 
-	for iter.Next() {
+
+	for count := int64(0); iter.Next(); count++{
 		block := &ledger.AccountBlock{}
 
 		err := block.DbDeserialize(iter.Value())
@@ -174,6 +188,11 @@ func (ac *AccountChain) GetBlocksFromOrigin (originBlockHash *types.Hash, count 
 			return nil, err
 		}
 
+		currentHeight := &big.Int{}
+		block.Meta = &ledger.AccountBlockMeta{
+			Height: currentHeight.Add(startHeight, big.NewInt(count)),
+		}
+		block.PublicKey = account.PublicKey
 		blockList = append(blockList, block)
 	}
 
