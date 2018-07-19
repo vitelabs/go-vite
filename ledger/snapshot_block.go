@@ -5,7 +5,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"time"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vitepb/proto"
+	"github.com/vitelabs/go-vite/vitepb"
 )
 
 var GenesisSnapshotBlockHash, _ = types.BytesToHash([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
