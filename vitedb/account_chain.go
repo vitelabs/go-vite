@@ -242,6 +242,20 @@ func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int
 	return blockList, nil
 }
 
+func (ac *AccountChain) IsBlockExist (blockHash *types.Hash) (bool) {
+	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, blockHash.String())
+	if err != nil {
+		return false
+	}
+
+	blockMetaBytes, err:= ac.db.Leveldb.Get(key, nil)
+	if err != nil || blockMetaBytes == nil{
+		return false
+	}
+
+	return true
+}
+
 func (ac * AccountChain) GetBlockMeta (blockHash *types.Hash) (*ledger.AccountBlockMeta, error) {
 	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, blockHash.String())
 	if err != nil {

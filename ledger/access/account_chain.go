@@ -145,7 +145,7 @@ func (aca *AccountChainAccess) WriteBlockList(blockList []*ledger.AccountBlock) 
 }
 
 type signFuncType func(*ledger.AccountBlock)(*ledger.AccountBlock, error)
-func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock, beforeWriteBlockHook signFuncType) *AcWriteError {
+func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock, beforeWriteBlockHook signFuncType) error {
 	err := aca.store.BatchWrite(nil, func(batch *leveldb.Batch) error {
 		return aca.writeBlock(batch, block, beforeWriteBlockHook)
 	})
@@ -157,9 +157,7 @@ func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock, beforeWrit
 		fmt.Println("Write block " + block.Hash.String() + " succeed.")
 	}
 
-	return &AcWriteError{
-		Err: err,
-	}
+	return err
 }
 
 func (aca *AccountChainAccess) writeSendBlock(batch *leveldb.Batch, block *ledger.AccountBlock, accountMeta *ledger.AccountMeta) error {
@@ -698,9 +696,9 @@ func (aca *AccountChainAccess) GetConfirmBlock(accountBlock *ledger.AccountBlock
 	var confirmSnapshotBlock *ledger.SnapshotBlock
 
 	aca.snapshotStore.Iterate(func(snapshotBlock *ledger.SnapshotBlock) bool {
-		if itemAccountBlockHash, ok := snapshotBlock.Snapshot[accountBlock.AccountAddress.String()]; ok {
+		if snapshotItem, ok := snapshotBlock.Snapshot[accountBlock.AccountAddress.String()]; ok {
 			var itemAccountBlockMeta *ledger.AccountBlockMeta
-			itemAccountBlockMeta, err = aca.store.GetBlockMeta(itemAccountBlockHash)
+			itemAccountBlockMeta, err = aca.store.GetBlockMeta(snapshotItem.AccountBlockHash)
 			if itemAccountBlockMeta.Height.Cmp(accountBlock.Meta.Height) >= 0 {
 				confirmSnapshotBlock = snapshotBlock
 				return false
@@ -742,3 +740,7 @@ func (aca *AccountChainAccess) GetLatestBlockHeightByAccountId (accountId *big.I
 	return aca.store.GetLatestBlockHeightByAccountId(accountId)
 }
 
+
+func (aca *AccountChainAccess) isBlockExist (blockHash *types.Hash) (bool) {
+	return aca.store.IsBlockExist(blockHash)
+}
