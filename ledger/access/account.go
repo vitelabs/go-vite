@@ -13,23 +13,19 @@ type AccountAccess struct {
 	store *vitedb.Account
 }
 
-var _accountAccess *AccountAccess
-
-func GetAccountAccess () *AccountAccess {
-	if _accountAccess == nil {
-		_accountAccess = &AccountAccess {
-			store: vitedb.GetAccount(),
-		}
-	}
-
-	return _accountAccess
+var accountAccess = &AccountAccess {
+	store: vitedb.GetAccount(),
 }
 
-func (aa *AccountAccess) WriteNewAccount (batch *leveldb.Batch, accountAddress *types.Address) error {
+func GetAccountAccess () *AccountAccess {
+	return accountAccess
+}
+
+func (aa *AccountAccess) CreateNewAccountMeta (batch *leveldb.Batch, accountAddress *types.Address) (*ledger.AccountMeta, error) {
 	// If account doesn't exist and the block is a response block, we must create account
 	lastAccountID, err := aa.store.GetLastAccountId()
 	if err != nil {
-		return  err
+		return  nil, err
 	}
 
 
@@ -40,20 +36,13 @@ func (aa *AccountAccess) WriteNewAccount (batch *leveldb.Batch, accountAddress *
 	newAccountId := &big.Int{}
 	newAccountId.Add(lastAccountID, big.NewInt(1))
 
-	// Set currentAccountToken when create account
-	if block.TokenId != nil {
-		currentAccountToken = &ledger.AccountSimpleToken{
-			TokenId: block.TokenId,
-			LastAccountBlockHeight: big.NewInt(1),
-		}
-	}
-
 	// Create account meta which will be write to database later
-	accountMeta = &ledger.AccountMeta {
+	accountMeta := &ledger.AccountMeta {
 		AccountId: newAccountId,
 		TokenList: []*ledger.AccountSimpleToken{},
 	}
 
+	return accountMeta, nil
 
 }
 
