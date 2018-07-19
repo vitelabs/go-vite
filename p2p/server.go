@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log"
 	"crypto/rand"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
 const (
@@ -209,6 +210,11 @@ func (svr *Server) PeersCount() (amount int) {
 	return
 }
 
+func (svr *Server) Available() bool {
+	count := svr.PeersCount()
+	return count > 0
+}
+
 func (svr *Server) MaxActivePeers() uint32 {
 	return svr.MaxPeers - svr.MaxPassivePeers()
 }
@@ -245,7 +251,7 @@ func (svr *Server) Start() error {
 
 	// task loop
 	svr.waitDown.Add(1)
-	go svr.ManageTask()
+	go svr.ScheduleTask()
 
 	return nil
 }
@@ -336,16 +342,22 @@ func (svr *Server) handleConn() {
 }
 
 func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
+	defer func() {
+		<- svr.pendingPeers
+	}()
+
 	c := &TSConn{
 		fd: conn,
 		transport: svr.createTransport(conn),
-		flags: inboundConn,
+		flags: flag,
 	}
+
+	log.Printf("begin handshake with %s\n", conn.RemoteAddr())
 
 	peerhandshake, err := c.Handshake(svr.ourHandshake)
 
 	if err != nil {
-		log.Println("handshake error: ", err)
+		log.Println("handshake with %s error: ", conn.RemoteAddr(), err)
 		conn.Close()
 		return err
 	}
@@ -353,7 +365,6 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 	c.id = peerhandshake.ID
 	c.name = peerhandshake.Name
 
-	<- svr.pendingPeers
 	svr.addPeer <- c
 
 	return nil
@@ -361,20 +372,20 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 
 func (svr *Server) CheckConn(peers map[NodeID]*Peer, passivePeersCount uint32) error {
 	if uint32(len(peers)) >= svr.MaxPeers {
-		return errors.New("to many peers.")
+		return errors.New("too many peers")
 	}
 	if passivePeersCount >= svr.MaxPassivePeers() {
-		return errors.New("to many passive peers.")
+		return errors.New("too many passive peers")
 	}
 	return nil
 }
 
-func (svr *Server) ManageTask() {
+func (svr *Server) ScheduleTask() {
 	defer svr.waitDown.Done()
 
 	dm := NewDialManager(svr.MaxActivePeers(), svr.BootNodes)
-	var peers = make(map[NodeID]*Peer)
-	var taskHasDone = make(chan Task, defaultMaxActiveDail)
+	peers := make(map[NodeID]*Peer)
+	taskHasDone := make(chan Task, defaultMaxActiveDail)
 	var passivePeersCount uint32 = 0
 	var activeTasks []Task
 	var taskQueue []Task
@@ -414,16 +425,27 @@ schedule:
 		case t := <- taskHasDone:
 			delTask(t)
 		case c := <- svr.addPeer:
+
 			err := svr.CheckConn(peers, passivePeersCount)
 			if err == nil {
 				p := NewPeer(c)
 				peers[p.ID()] = p
 				go svr.runPeer(p)
-				passivePeersCount++
+				log.Printf("create new peer %s@%s\n", c.id, c.fd.RemoteAddr())
+
+				if c.is(inboundConn) {
+					passivePeersCount++
+				}
+			} else {
+				log.Printf("cannot create new peer: %v\n", err)
 			}
 		case p := <- svr.delPeer:
 			delete(peers, p.ID())
-			passivePeersCount--
+			log.Printf("delete peer %s\n", p.ID())
+
+			if p.TS.is(inboundConn) {
+				passivePeersCount--
+			}
 		case fn := <- svr.peersOps:
 			fn(peers)
 			svr.peersOpsDone <- struct{}{}
@@ -447,7 +469,7 @@ schedule:
 func (svr *Server) runPeer(p *Peer) {
 	err := p.run(svr.ProtoHandler)
 	if err != nil {
-		log.Println("peer error: ", err)
+		log.Println("run peer error: ", err)
 	}
 	svr.delPeer <- p
 }
@@ -512,13 +534,13 @@ type dialTask struct {
 func (t *dialTask) Perform(svr *Server) {
 	conn, err := svr.Dialer.DailNode(t.target)
 	if err != nil {
-		log.Println(err)
+		log.Printf("dial node %s error: %v\n", t.target, err)
 		return
 	}
+
 	err = svr.SetupConn(conn, dynDialedConn)
 	if err != nil {
-		log.Println(err)
-		return
+		log.Printf("setup connect to %s error: %v\n", t.target, err)
 	}
 }
 
