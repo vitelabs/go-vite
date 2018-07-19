@@ -6,7 +6,7 @@ package protos
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import proto1 "proto"
+import proto1 "github.com/vitelabs/go-vite/vitepb/proto"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal

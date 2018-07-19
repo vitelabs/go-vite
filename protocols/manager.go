@@ -11,7 +11,7 @@ import (
 	"math/big"
 )
 
-var waitEnoughPeers = 3 * time.Minute
+var enoughPeersTimeout = 3 * time.Minute
 const enoughPeers = 5
 
 type ProtoHandler func(Serializable, *Peer) error
@@ -167,8 +167,8 @@ func (pm *ProtocolManager) Sync() {
 
 	if pm.Peers.Count() < enoughPeers {
 		wait := time.Now().Sub(pm.Start)
-		if wait < waitEnoughPeers {
-			time.Sleep(waitEnoughPeers - wait)
+		if wait < enoughPeersTimeout {
+			time.Sleep(enoughPeersTimeout - wait)
 		}
 	}
 
