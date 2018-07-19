@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package vitepb;
 
-import "proto/account_block_db.proto";
+import "vitepb/account_block_db.proto";
 
 message AccountBlockNet {
     AccountBlockMeta meta = 1;

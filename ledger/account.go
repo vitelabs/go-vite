@@ -5,9 +5,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vitepb/proto"
 	"bytes"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/vitepb"
 )
 
 var GenesisAccount, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})

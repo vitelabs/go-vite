@@ -35,7 +35,7 @@ func (token *Token) BatchWrite(batch *leveldb.Batch, writeFunc func(batch *level
 	})
 }
 
-func (token *Token) GetMintageBlockHashByTokenId(tokenId *types.TokenTypeId) ([]byte, error) {
+func (token *Token) GetMintageBlockHashByTokenId(tokenId *types.TokenTypeId) (*types.Hash, error) {
 	reader := token.db.Leveldb
 	// Get mintage block hash
 	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), big.NewInt(0))
@@ -43,12 +43,16 @@ func (token *Token) GetMintageBlockHashByTokenId(tokenId *types.TokenTypeId) ([]
 	if err != nil {
 		return nil, err
 	}
-	mintageBlockHash, err := reader.Get(key, nil)
+	mintageBlockHashBytes, err := reader.Get(key, nil)
 	if err != nil {
 		return nil, errors.New("Fail to query mintage block hash, Error is " + err.Error())
 	}
 
-	return mintageBlockHash, nil
+	mintageBlockHash, err := types.BytesToHash(mintageBlockHashBytes)
+	if err != nil {
+		return nil, errors.New("Fail to query mintage block hash, Error is " + err.Error())
+	}
+	return &mintageBlockHash, nil
 }
 
 func (token *Token) getTokenIdList(key []byte) ([]*types.TokenTypeId, error) {

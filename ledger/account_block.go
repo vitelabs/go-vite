@@ -6,10 +6,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"time"
-	"github.com/vitelabs/go-vite/vitepb/proto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/crypto"
 	"bytes"
+	"github.com/vitelabs/go-vite/vitepb"
 )
 
 type AccountBlockMeta struct {

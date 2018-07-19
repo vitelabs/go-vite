@@ -1,16 +1,16 @@
 package vite
 
 import (
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/protocols"
 	"github.com/micro/go-config"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/wallet"
+	ledgerHandler "github.com/vitelabs/go-vite/ledger/handler"
 )
 
 type Vite struct {
-	ledger *ledger.Ledger
+	ledger *ledgerHandler.Ledger
 	p2p *p2p.Server
 	pm *protocols.ProtocolManager
 	walletManager *wallet.Manager
@@ -29,7 +29,7 @@ func New () (*Vite, error){
 
 	vite := &Vite{}
 
-	vite.ledger = ledger.NewLedger(vite)
+	vite.ledger = ledgerHandler.NewLedger(vite)
 	vite.walletManager = wallet.NewManager("fromConfig")
 
 	vite.pm = protocols.NewProtocolManager(vite.ledger)
@@ -42,7 +42,7 @@ func New () (*Vite, error){
 	return vite, nil
 }
 
-func (v *Vite) Ledger () (*ledger.Ledger){
+func (v *Vite) Ledger () (*ledgerHandler.Ledger){
 	return v.ledger
 }
 
