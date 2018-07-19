@@ -1,9 +1,9 @@
 syntax="proto3";
 
-package protos;
+package vitepb;
 
-import "proto/account_block_db.proto";
-import "proto/snapshot_block_db.proto";
+import "vitepb/account_block_net.proto";
+import "vitepb/snapshot_block_db.proto";
 
 message StatusMsg {
     uint64 NetworkId = 1;
@@ -30,5 +30,5 @@ message GetAccountBlocksMsg {
 }
 
 message AccountBlocksMsg {
-    repeated vitepb.AccountBlockDb blocks = 3;
+    repeated vitepb.AccountBlockNet blocks = 3;
 }
