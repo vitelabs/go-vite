@@ -7,7 +7,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"encoding/hex"
 	"bytes"
 	"math/big"
@@ -100,8 +99,4 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 		return wbErr
 	}
 	return nil
-}
-
-func (sca *SnapshotChainAccess) GetAccountList () ([]*types.Address, error){
-	return sca.store.GetAccountList()
 }

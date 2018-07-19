@@ -551,7 +551,17 @@ func (aca *AccountChainAccess) processBlock (accountBlock *ledger.AccountBlock, 
 	return accountBlock, nil
 }
 
+func (aca *AccountChainAccess) GetLatestBlockByAccountAddress (addr *types.Address) (*ledger.AccountBlock, error) {
+	accountMeta, err := aca.accountStore.GetAccountMetaByAddress(addr)
+	if err != nil && err != leveldb.ErrNotFound {
+		return nil, err
+	}
+	if accountMeta == nil {
+		return nil, nil
+	}
 
+	return aca.store.GetLatestBlockByAccountId(accountMeta.AccountId)
+}
 
 func (aca *AccountChainAccess) GetBlockListByAccountAddress(index int, num int, count int, accountAddress *types.Address) ([]*ledger.AccountBlock, error) {
 	accountMeta, err := aca.accountStore.GetAccountMetaByAddress(accountAddress)
@@ -658,3 +668,6 @@ func (aca *AccountChainAccess) GetLatestBlockHeightByAccountId (accountId *big.I
 	return aca.store.GetLatestBlockHeightByAccountId(accountId)
 }
 
+func (aca *AccountChainAccess) GetAccountList () ([]*types.Address, error){
+	return aca.store.GetAccountList()
+}
