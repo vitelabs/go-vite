@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/vitepb/proto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/crypto"
+	"bytes"
 )
 
 type AccountBlockMeta struct {
@@ -175,6 +176,26 @@ func (ab *AccountBlock) SetHash () error {
 
 	ab.Hash = &hash
 	return nil
+}
+
+// Genesis block
+func (ab *AccountBlock) IsGenesisBlock () bool {
+	return ab.IsSendBlock() && bytes.Equal(ab.AccountAddress.Bytes(), GenesisAccount.Bytes()) && ab.PrevHash == nil
+}
+
+// Send block
+func (ab *AccountBlock) IsSendBlock () bool {
+	return ab.To != nil
+}
+
+// Receive block
+func (ab *AccountBlock) IsReceiveBlock () bool {
+	return ab.FromHash != nil
+}
+
+// Mintage block
+func (ab * AccountBlock) IsMintageBlock () bool {
+	return ab.IsSendBlock() && bytes.Equal(ab.To.Bytes(), MintageAddress.Bytes())
 }
 
 func (ab *AccountBlock) GetNetPB () *vitepb.AccountBlockNet {

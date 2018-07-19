@@ -5,32 +5,48 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/common/types"
 	"fmt"
+	"github.com/syndtr/goleveldb/leveldb"
+	"math/big"
 )
 
 type AccountAccess struct {
 	store *vitedb.Account
 }
 
-var _accountAccess *AccountAccess
+var accountAccess = &AccountAccess {
+	store: vitedb.GetAccount(),
+}
 
 func GetAccountAccess () *AccountAccess {
-	if _accountAccess == nil {
-		_accountAccess = &AccountAccess {
-			store: vitedb.GetAccount(),
-		}
+	return accountAccess
+}
+
+func (aa *AccountAccess) CreateNewAccountMeta (batch *leveldb.Batch, accountAddress *types.Address) (*ledger.AccountMeta, error) {
+	// If account doesn't exist and the block is a response block, we must create account
+	lastAccountID, err := aa.store.GetLastAccountId()
+	if err != nil {
+		return  nil, err
 	}
 
-	return _accountAccess
+
+	if lastAccountID == nil {
+		lastAccountID = big.NewInt(0)
+	}
+
+	newAccountId := &big.Int{}
+	newAccountId.Add(lastAccountID, big.NewInt(1))
+
+	// Create account meta which will be write to database later
+	accountMeta := &ledger.AccountMeta {
+		AccountId: newAccountId,
+		TokenList: []*ledger.AccountSimpleToken{},
+	}
+
+	return accountMeta, nil
+
 }
 
 func (aa *AccountAccess) GetAccountMeta (accountAddress *types.Address) (*ledger.AccountMeta, error){
-	//return &ledger.AccountMeta {
-	//	AccountId: big.NewInt(1),
-	//	TokenList: []*ledger.AccountSimpleToken{{
-	//		TokenId: []byte{1, 2, 3},
-	//		LastAccountBlockHeight: big.NewInt(1),
-	//	}},
-	//}
 	data, err := aa.store.GetAccountMetaByAddress(accountAddress)
 	if err != nil {
 		fmt.Println(err)
