@@ -48,6 +48,8 @@ type Node struct {
 	ID NodeID
 	IP net.IP
 	Port uint16
+	lastping time.Time
+	lastpong time.Time
 }
 
 func (n *Node) toProto() *protos.Node {
@@ -420,8 +422,10 @@ const seedCount = 30
 const alpha = 3
 
 var refreshDuration = 1 * time.Hour
-var storeDuration = 30 * time.Minute
-var checkInterval = 5 * time.Minute
+var storeDuration = 15 * time.Minute
+var checkInterval = 3 * time.Minute
+var watingTimeout = 2 * time.Minute	// watingTimeout must be enough little, at least than checkInterval
+var pingInvervalPerNode = 10 * time.Minute
 
 type table struct {
 	mutex   sync.Mutex
@@ -569,8 +573,10 @@ func (tb *table) checkLastNode() {
 	b := tb.buckets[bi]
 
 	if err != nil {
+		log.Printf("obsolete %s: %v\n", last.ID, err)
 		b.obsolete(last)
 	} else {
+		log.Printf("check %s\n", last.ID)
 		b.check(last)
 	}
 }
@@ -583,13 +589,17 @@ func (tb *table) pickLastNode() (*Node, int) {
 		b := tb.buckets[i]
 		if len(b.nodes) > 0 {
 			last := b.nodes[len(b.nodes) - 1]
-			return last, i
+			if time.Now().Sub(last.lastping) > pingInvervalPerNode {
+				return last, i
+			}
 		}
 	}
 	return nil, 0
 }
 
 func (tb *table) refresh(done chan struct{}) {
+	log.Println("discv table begin refresh")
+
 	tb.loadSeedNodes()
 
 	tb.lookup(tb.self.ID)
@@ -617,6 +627,7 @@ func (tb *table) storeNodes(done chan struct{}) {
 }
 
 func (tb *table) stop() {
+	log.Println("discv table stop")
 	close(tb.stopped)
 }
 
@@ -724,8 +735,6 @@ func (c *closest) push(n *Node, count int)  {
 var errStopped = errors.New("discv server has stopped")
 var errTimeout = errors.New("timeout")
 
-var watingTimeout = 3 * time.Minute
-
 type DiscvConfig struct {
 	Priv ed25519.PrivateKey
 	DBPath string
@@ -802,14 +811,18 @@ func (rql reqList) handle(rp *res) (err error) {
 	var finish reqList
 	for _, req := range rql {
 		if req.senderID == rp.senderID && req.proto == rp.proto {
-			err = req.done(rp.data)
+			if req.done != nil {
+				err = req.done(rp.data)
+			}
+
 			if err == nil {
-				req.errch <- nil
 				finish = append(finish, req)
 			}
+
+			req.errch <- nil
 		}
 	}
-	
+
 	// remove matched req
 	for _, w := range finish {
 		rql.remove(w)
@@ -877,11 +890,14 @@ func (d *discover) ping(node *Node) error {
 	if n != len(data) {
 		return fmt.Errorf("send incomplete ping to %s: %d/%d\n", node, n, len(data))
 	}
+	log.Printf("send ping to %s\n", node)
+	node.lastping = time.Now()
 
 	errch := d.wait(node.ID, pongCode, func(m Message) error {
 		pong, ok := m.(*Pong)
 		if ok {
 			if pong.Ping == hash {
+				node.lastpong = time.Now()
 				return nil
 			}
 		}
@@ -940,7 +956,7 @@ func (d *discover) close() {
 func (d *discover) loop() {
 	var rql reqList
 
-	checkTimer := time.NewTimer(10 * time.Minute)
+	checkTimer := time.NewTimer(watingTimeout)
 	defer checkTimer.Stop()
 
 	for {
@@ -970,7 +986,7 @@ func (d *discover) readLoop() {
 		nbytes, addr, err := d.conn.ReadFromUDP(buf)
 
 		if nbytes == 0 {
-			log.Println("discover ReadFromUDP 0 bytes")
+			log.Println("discv ReadFromUDP 0 bytes")
 			continue
 		}
 
@@ -979,6 +995,8 @@ func (d *discover) readLoop() {
 			log.Println("udp unpack error: ", err)
 			continue
 		}
+
+		log.Printf("udp read from %s\n", m.getID())
 
 		// todo
 		// hash is just use for construct pong message,

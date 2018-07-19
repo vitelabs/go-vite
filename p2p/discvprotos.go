@@ -28,9 +28,9 @@ const maxPacketLength = 1400
 const maxPayloadLength = 1200
 const maxNeighborsNodes = 10
 
-var errUnmatchedVersion = errors.New("unmatched version.")
-var errWrongHash = errors.New("validate packet error: wrong hash.")
-var errInvalidSig = errors.New("validate packet error: invalid signature.")
+var errUnmatchedVersion = errors.New("unmatched version")
+var errWrongHash = errors.New("validate packet error: wrong hash")
+var errInvalidSig = errors.New("validate packet error: invalid signature")
 
 type Message interface {
 	getID() NodeID
@@ -77,7 +77,7 @@ func (p *Ping) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err e
 }
 
 func (p *Ping) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
-	log.Printf("receive ping from %s\n", origin.String())
+	log.Printf("receive ping from %s\n", origin)
 
 	pong := &Pong{
 		ID: d.getID(),
@@ -86,7 +86,7 @@ func (p *Ping) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
 
 	err := d.send(origin, pongCode, pong)
 	if err != nil {
-		return fmt.Errorf("send pong to %s error: ", origin)
+		return fmt.Errorf("send pong to %s error: %v\n", origin, err)
 	}
 
 	n := NewNode(p.ID, origin.IP, uint16(origin.Port))
@@ -134,7 +134,7 @@ func (p *Pong) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err e
 }
 
 func (p *Pong) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
-	log.Printf("receive pong from %s\n", origin.String())
+	log.Printf("receive pong from %s\n", origin)
 	return d.receive(pongCode, p)
 }
 

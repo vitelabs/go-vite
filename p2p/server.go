@@ -352,10 +352,12 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 		flags: flag,
 	}
 
+	log.Printf("begin handshake with %s\n", conn.RemoteAddr())
+
 	peerhandshake, err := c.Handshake(svr.ourHandshake)
 
 	if err != nil {
-		log.Println("handshake error: ", err)
+		log.Println("handshake with %s error: ", conn.RemoteAddr(), err)
 		conn.Close()
 		return err
 	}
@@ -423,13 +425,13 @@ schedule:
 		case t := <- taskHasDone:
 			delTask(t)
 		case c := <- svr.addPeer:
-			log.Printf("will create new peer %s@%s\n", c.id, c.fd.RemoteAddr())
 
 			err := svr.CheckConn(peers, passivePeersCount)
 			if err == nil {
 				p := NewPeer(c)
 				peers[p.ID()] = p
 				go svr.runPeer(p)
+				log.Printf("create new peer %s@%s\n", c.id, c.fd.RemoteAddr())
 
 				if c.is(inboundConn) {
 					passivePeersCount++
@@ -439,6 +441,7 @@ schedule:
 			}
 		case p := <- svr.delPeer:
 			delete(peers, p.ID())
+			log.Printf("delete peer %s\n", p.ID())
 
 			if p.TS.is(inboundConn) {
 				passivePeersCount--
@@ -466,7 +469,7 @@ schedule:
 func (svr *Server) runPeer(p *Peer) {
 	err := p.run(svr.ProtoHandler)
 	if err != nil {
-		log.Println("peer error: ", err)
+		log.Println("run peer error: ", err)
 	}
 	svr.delPeer <- p
 }
