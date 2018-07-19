@@ -154,6 +154,12 @@ func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int
 		return nil, nil
 	}
 
+	for i:=0; i < index * count; i ++ {
+		if !iter.Prev() {
+			return nil, nil
+		}
+	}
+
 	var blockList []*ledger.AccountBlock
 
 	for i:=0; i < num * count; i ++ {

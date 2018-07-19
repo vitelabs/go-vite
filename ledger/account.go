@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/vitepb"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
+	"bytes"
 )
 
 var GenesisAccount, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
@@ -22,6 +23,22 @@ type AccountMeta struct {
 type Account struct {
 	AccountMeta
 	BlockHeight *big.Int
+}
+
+func (am *AccountMeta) GetTokenInfoByTokenId (tokenId *types.TokenTypeId) *AccountSimpleToken {
+	if am.TokenList == nil {
+		return nil
+	}
+	var tokenInfo *AccountSimpleToken
+
+	// Get token info of account
+	for _, token := range am.TokenList {
+		if bytes.Equal(token.TokenId.Bytes(), tokenId.Bytes()) {
+			tokenInfo = token
+			break
+		}
+	}
+	return tokenInfo
 }
 
 func (am *AccountMeta) GetTokenList () []*AccountSimpleToken {
@@ -72,27 +89,3 @@ func (am *AccountMeta) DbDeserialize (buf []byte) error {
 	return nil
 	//return big.NewInt(456)
 }
-
-//func (ast *AccountSimpleToken) DbSerialize () ([]byte, error) {
-//	accountSimpleTokenPB := &vitepb.AccountSimpleToken{
-//		TokenId: ast.TokenId,
-//		LastAccountBlockHeight: ast.LastAccountBlockHeight.Bytes(),
-//	}
-//	serializedBytes, err := proto.Marshal(accountSimpleTokenPB)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return serializedBytes, nil
-//}
-//
-//func (ast *AccountSimpleToken) DbDeserialize (buf []byte) error {
-//	accountSimpleTokenPB := &vitepb.AccountSimpleToken{}
-//	if err := proto.Unmarshal(buf, accountSimpleTokenPB); err != nil {
-//		return err
-//	}
-//	ast.TokenId =  accountSimpleTokenPB.TokenId
-//	ast.LastAccountBlockHeight = &big.Int{}
-//	ast.LastAccountBlockHeight.SetBytes(accountSimpleTokenPB.LastAccountBlockHeight)
-//
-//	return nil
-//}
