@@ -8,6 +8,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"sync"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/vitepb/proto"
+	"log"
 )
 
 // @section Peer for protocol handle, not p2p Peer.
@@ -15,9 +17,18 @@ type Peer struct {
 	*p2p.Peer
 	ID 		string
 	Head 	types.Hash
+	Height	*big.Int
 	Version int
 	RW 		MsgReadWriter
 	Lock 	sync.RWMutex
+}
+
+func (p *Peer) Update(status *StatusMsg) {
+	p.Lock.Lock()
+	defer p.Lock.Unlock()
+
+	p.Height = status.Height
+	p.Head = status.CurrentBlock
 }
 
 // @section Msg
@@ -52,7 +63,7 @@ type StatusMsg struct {
 	GenesisBlock types.Hash
 }
 
-func (st *StatusMsg) Serialize() ([]byte, error) {
+func (st *StatusMsg) NetSerialize() ([]byte, error) {
 	stpb := &protos.StatusMsg{
 		ProtocolVersion: st.ProtocolVersion,
 		Height: st.Height.Bytes(),
@@ -63,7 +74,7 @@ func (st *StatusMsg) Serialize() ([]byte, error) {
 	return proto.Marshal(stpb)
 }
 
-func (st *StatusMsg) Deserialize(data []byte) error {
+func (st *StatusMsg) NetDeserialize(data []byte) error {
 	stpb := &protos.StatusMsg{}
 	err := proto.Unmarshal(data, stpb)
 	if err != nil {
@@ -86,7 +97,7 @@ type GetSnapshotBlocksMsg struct {
 	Forward bool
 }
 
-func (gs *GetSnapshotBlocksMsg) Serialize() ([]byte, error) {
+func (gs *GetSnapshotBlocksMsg) NetSerialize() ([]byte, error) {
 	gspb := &protos.GetSnapshotBlocksMsg{
 		Origin: gs.Origin[:],
 		Count: gs.Count,
@@ -96,7 +107,7 @@ func (gs *GetSnapshotBlocksMsg) Serialize() ([]byte, error) {
 	return proto.Marshal(gspb)
 }
 
-func (gs *GetSnapshotBlocksMsg) Deserialize(data []byte) error {
+func (gs *GetSnapshotBlocksMsg) NetDeserialize(data []byte) error {
 	gspb := &protos.GetSnapshotBlocksMsg{}
 	err := proto.Unmarshal(data, gspb)
 	if err != nil {
@@ -111,26 +122,35 @@ func (gs *GetSnapshotBlocksMsg) Deserialize(data []byte) error {
 // @message send multiple snapshot block data.
 type SnapshotBlocksMsg []*ledger.SnapshotBlock
 
-func (s *SnapshotBlocksMsg) Serialize() ([]byte, error) {
-	//todo
-	//bs := make([])
-	//for i, b := range *s {
-	//	b.DbSerialize()
-	//}
+func (s *SnapshotBlocksMsg) NetSerialize() ([]byte, error) {
+	bs := make([]*vitepb.SnapshotBlock, len(*s))
+
+	for i, b := range *s {
+		bs[i] = b.GetNetPB()
+	}
 	spb := &protos.SnapshotBlocksMsg{
-		//Blocks: ,
+		Blocks: bs,
 	}
 
 	return proto.Marshal(spb)
 }
 
-func (s *SnapshotBlocksMsg) Deserialize(data []byte) error {
+func (s *SnapshotBlocksMsg) NetDeserialize(data []byte) error {
 	spb := &protos.SnapshotBlocksMsg{}
 	err := proto.Unmarshal(data, spb)
 	if err != nil {
 		return err
 	}
-	// todo
+
+	for _, pb := range spb.Blocks {
+		b := new(ledger.SnapshotBlock)
+		if err := b.SetByNetPB(pb); err == nil {
+			*s = append(*s, b)
+		} else {
+			log.Printf("AccountBlock.SetByNetPB error: %v\n", err)
+		}
+	}
+
 	return nil
 }
 
@@ -141,7 +161,7 @@ type GetAccountBlocksMsg struct {
 	Forward bool
 }
 
-func (ga *GetAccountBlocksMsg) Serialize() ([]byte, error) {
+func (ga *GetAccountBlocksMsg) NetSerialize() ([]byte, error) {
 	gapb := &protos.GetAccountBlocksMsg{
 		Origin: ga.Origin[:],
 		Count: ga.Count,
@@ -151,7 +171,7 @@ func (ga *GetAccountBlocksMsg) Serialize() ([]byte, error) {
 	return proto.Marshal(gapb)
 }
 
-func (ga *GetAccountBlocksMsg) Deserialize(data []byte) error {
+func (ga *GetAccountBlocksMsg) NetDeserialize(data []byte) error {
 	gapb := &protos.GetAccountBlocksMsg{}
 	err := proto.Unmarshal(data, gapb)
 	if err != nil {
@@ -166,21 +186,34 @@ func (ga *GetAccountBlocksMsg) Deserialize(data []byte) error {
 // @message send multiple account block data.
 type AccountBlocksMsg []*ledger.AccountBlock
 
-func (a *AccountBlocksMsg) Serialize() ([]byte, error) {
-	// todo
+func (a *AccountBlocksMsg) NetSerialize() ([]byte, error) {
+	bs := make([]*vitepb.AccountBlockNet, len(*a))
+
+	for i, b := range *a {
+		bs[i] = b.GetNetPB()
+	}
+
 	apb := &protos.AccountBlocksMsg{
-		//Blocks: a,
+		Blocks: bs,
 	}
 
 	return proto.Marshal(apb)
 }
 
-func (ga *AccountBlocksMsg) Deserialize(data []byte) error {
-	// todo
+func (a *AccountBlocksMsg) NetDeserialize(data []byte) error {
 	apb := &protos.AccountBlocksMsg{}
 	err := proto.Unmarshal(data, apb)
 	if err != nil {
 		return err
+	}
+
+	for _, b := range apb.Blocks {
+		ab := new(ledger.AccountBlock)
+		if err := ab.SetByNetPB(b); err == nil {
+			*a = append(*a, ab)
+		} else {
+			log.Printf("AccountBlock.SetByNetPB error: %v\n", err)
+		}
 	}
 
 	return nil
@@ -199,9 +232,3 @@ type MsgReadWriter interface {
 	MsgReader
 	MsgWriter
 }
-
-// @section
-//type NetSender interface {
-//	SendMsg(MsgWriter, Msg) error
-//}
-

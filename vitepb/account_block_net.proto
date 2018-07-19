@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package vitepb;
+
+import "vitepb/account_block_db.proto";
+
+message AccountBlockNet {
+    AccountBlockMeta meta = 1;
+    bytes publicKey = 2;
+
+    bytes to = 3;
+    bytes prevHash = 4;
+    bytes fromHash = 5;
+
+    bytes hash = 6;
+
+    bytes tokenId = 7;
+    bytes amount = 8;
+    bytes balance = 9;
+
+    string data = 10;
+    bytes snapshotTimestamp = 11;
+
+    uint64 timestamp = 12;
+
+    bytes signature = 13;
+
+    bytes nounce = 14;
+
+    bytes difficulty = 15;
+
+    bytes fAmount = 16;
+}
+
+message AccountBlockListNet {
+    repeated AccountBlockNet blocks = 1;
+}
