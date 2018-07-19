@@ -101,6 +101,8 @@ type Server struct {
 
 	delPeer chan *Peer
 
+	blocknode chan *Node
+
 	// execute operations to peers by sequences.
 	peersOps chan peersOperator
 	// wait for operation done.
@@ -160,6 +162,7 @@ func NewServer(cfg *Config, handler peerHandler) (svr *Server, err error) {
 	svr.delPeer = make(chan *Peer)
 	svr.peersOps = make(chan peersOperator)
 	svr.peersOpsDone = make(chan struct{})
+	svr.blocknode = make(chan *Node)
 
 	if svr.MaxPeers == 0 {
 		svr.MaxPeers = defaultMaxPeers
@@ -395,6 +398,12 @@ func (svr *Server) CheckConn(peers map[NodeID]*Peer, passivePeersCount uint32) e
 	return nil
 }
 
+type blockNode struct {
+	node *Node
+	blockTime time.Time
+}
+var defaultBlockTimeout = 20 * time.Minute
+
 func (svr *Server) ScheduleTask() {
 	defer svr.waitDown.Done()
 
@@ -405,6 +414,10 @@ func (svr *Server) ScheduleTask() {
 	var passivePeersCount uint32 = 0
 	var activeTasks []Task
 	var taskQueue []Task
+
+	blocknodes := make(map[NodeID]*blockNode)
+	cleanBlockTicker := time.NewTicker(defaultBlockTimeout)
+	defer cleanBlockTicker.Stop()
 
 	delActiveTask := func(t Task) {
 		for i, at := range activeTasks {
@@ -430,7 +443,7 @@ func (svr *Server) ScheduleTask() {
 		log.Println("schedule tasks")
 		taskQueue = runTasks(taskQueue)
 		if uint32(len(activeTasks)) < defaultMaxActiveDail {
-			newTasks := dm.CreateTasks(peers)
+			newTasks := dm.CreateTasks(peers, blocknodes)
 			log.Printf("create %d tasks\n", len(newTasks))
 			if len(newTasks) > 0 {
 				taskQueue = append(taskQueue, runTasks(newTasks)...)
@@ -471,6 +484,19 @@ schedule:
 		case fn := <- svr.peersOps:
 			fn(peers)
 			svr.peersOpsDone <- struct{}{}
+		case node := <- svr.blocknode:
+			log.Printf("block node: %s\n", node)
+			blocknodes[node.ID] = &blockNode{
+				node,
+				time.Now(),
+			}
+		case <- cleanBlockTicker.C:
+			now := time.Now()
+			for id, blockNode := range blocknodes {
+				if now.Sub(blockNode.blockTime) > defaultBlockTimeout {
+					delete(blocknodes, id)
+				}
+			}
 		}
 	}
 
@@ -559,12 +585,14 @@ func (t *dialTask) Perform(svr *Server) {
 	conn, err := svr.Dialer.DailNode(t.target)
 	if err != nil {
 		log.Printf("dial node %s error: %v\n", t.target, err)
+		svr.blocknode <- t.target
 		return
 	}
 
 	err = svr.SetupConn(conn, dynDialedConn)
 	if err != nil {
 		log.Printf("setup connect to %s error: %v\n", t.target, err)
+		svr.blocknode <- t.target
 	}
 }
 
@@ -586,16 +614,21 @@ type DialManager struct {
 	lookResults []*Node
 }
 
-func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer) []Task {
+func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]*blockNode) []Task {
 	if dm.start.IsZero() {
 		dm.start = time.Now()
 	}
 
 	var tasks []Task
 	addDailTask := func(flag connFlag, n *Node) bool {
+		if _, ok := blockList[n.ID]; ok {
+			return false
+		}
+
 		if err := dm.checkDial(n, peers); err != nil {
 			return false
 		}
+
 		dm.dialing[n.ID] = flag
 		tasks = append(tasks, &dialTask{
 			flag: flag,

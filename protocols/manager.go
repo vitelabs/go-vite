@@ -53,8 +53,7 @@ func (pm *ProtocolManager) HandleMsg(code uint64, s Serializable, peer *Peer) er
 	if code == StatusMsgCode {
 		status, ok := s.(*StatusMsg)
 		if ok {
-			// update peer`s height and head
-			peer.Update(status)
+			pm.HandleStatusMsg(status, peer)
 			return nil
 		} else {
 			return errors.New("status msg payload unmatched")
@@ -73,6 +72,8 @@ func (pm *ProtocolManager) HandleMsg(code uint64, s Serializable, peer *Peer) er
 }
 
 func (pm *ProtocolManager) HandleStatusMsg(status *StatusMsg, peer *Peer) {
+	log.Printf("receive status from %s height %d \n", peer.ID, status.Height)
+
 	peer.Update(status)
 	pm.Sync()
 }
@@ -136,7 +137,10 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 			m.NetDeserialize(msg.Payload)
 
 			if err := pm.HandleMsg(msg.Code, m, protoPeer); err != nil {
+				log.Printf("pm handle msg %d error: %v\n", msg.Code, err)
 				peer.Errch <- err
+			} else {
+				log.Printf("pm handle msg %d\n", msg.Code)
 			}
 		case <- ticker.C:
 			go pm.SendStatusMsg(protoPeer)
@@ -177,15 +181,15 @@ func (pm *ProtocolManager) Sync() {
 	if bestPeer.Height.Cmp(currentBlock.Height) > 0 {
 		pm.mutex.Lock()
 		if pm.Syncing {
-			pm.mutex.Unlock()
-			return
-		} else {
+			// do nothing.
+		} else if pm.sync != nil {
 			pm.Syncing = true
-			pm.mutex.Unlock()
+			pm.sync(bestPeer)
+			log.Printf("begin sync from %s to height \n", bestPeer.ID, bestPeer.Height)
+		} else {
+			log.Println("missing sync method")
 		}
-
-		// begin sync
-		pm.sync(bestPeer)
+		pm.mutex.Unlock()
 	}
 }
 

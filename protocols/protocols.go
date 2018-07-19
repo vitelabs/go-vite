@@ -81,7 +81,7 @@ func (st *StatusMsg) NetDeserialize(data []byte) error {
 	}
 	st.ProtocolVersion = stpb.ProtocolVersion
 
-	var bi *big.Int
+	bi := new(big.Int)
 	st.Height = bi.SetBytes(stpb.Height)
 	copy(st.GenesisBlock[:], stpb.GenesisBlock)
 	copy(st.CurrentBlock[:], stpb.CurrentBlock)
