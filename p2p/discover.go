@@ -421,8 +421,8 @@ const dbCurrentVersion = 1
 const seedCount = 30
 const alpha = 3
 
-var refreshDuration = 1 * time.Hour
-var storeDuration = 15 * time.Minute
+var refreshDuration = 30 * time.Minute
+var storeDuration = 5 * time.Minute
 var checkInterval = 3 * time.Minute
 var watingTimeout = 2 * time.Minute	// watingTimeout must be enough little, at least than checkInterval
 var pingInvervalPerNode = 10 * time.Minute
@@ -792,74 +792,43 @@ type req struct {
 	senderID NodeID
 	proto byte
 	// if the query has been handled correctly, then return true.
-	done func(Message) error
+	callback func(Message) error
 	expire time.Time
 	errch chan error
 }
 type reqList []*req
 
-func (rql reqList) remove(wt *req) {
-	for i, w := range rql {
-		if w == wt {
-			copy(rql[i:], rql[i+1:])
-			return
-		}
-	}
-}
-
-func (rql reqList) handle(rp *res) (err error) {
-	var finish reqList
-	for _, req := range rql {
+func handleRes(rql reqList, rp *res) (rest reqList) {
+	var err error
+	for i, req := range rql {
 		if req.senderID == rp.senderID && req.proto == rp.proto {
-			if req.done != nil {
-				err = req.done(rp.data)
+			if req.callback != nil {
+				err = req.callback(rp.data)
 			}
 
-			if err == nil {
-				finish = append(finish, req)
-			}
+			rp.done <- err
+			req.errch <- err
 
-			req.errch <- nil
+			rest = rql[:i]
+			rest = append(rest, rql[i+1:]...)
+			return rql
 		}
 	}
 
-	// remove matched req
-	for _, w := range finish {
-		rql.remove(w)
-	}
-	
-	return err
+	return rql
 }
 
-func (rql reqList) nextDuration() time.Duration {
-	var expire time.Time
-
-	if len(rql) == 0 {
-		return 10 * time.Minute
-	}
-
-	for _, req := range rql {
-		if req.expire.After(expire) {
-			expire = req.expire
-		}
-	}
-
-	return expire.Sub(time.Now())
-}
-
-func (rql reqList) cleanStales() {
+func cleanStaleReq(rql reqList) reqList {
 	now := time.Now()
-	var stales reqList
+	rest := make(reqList, 0, len(rql))
 	for _, req := range rql {
 		if req.expire.Before(now) {
 			req.errch <- errTimeout
-			stales = append(stales, req)
+		} else {
+			rest = append(rest, req)
 		}
 	}
-
-	for _, w := range stales {
-		rql.remove(w)
-	}
+	return rest
 }
 
 type res struct {
@@ -927,15 +896,16 @@ func (d *discover) findnode(ID NodeID, n *Node) (nodes []*Node, err error) {
 	})
 
 	err = <- errch
+	log.Printf("findnode got %d nodes, error: %v\n", len(nodes), err)
 	return nodes, err
 }
 
-func (d *discover) wait(ID NodeID, code byte, done func(Message) error) (errch chan error) {
+func (d *discover) wait(ID NodeID, code byte, callback func(Message) error) (errch chan error) {
 	errch = make(chan error, 1)
 	p := &req{
 		senderID: ID,
 		proto: code,
-		done: done,
+		callback: callback,
 		expire: time.Now().Add(watingTimeout),
 		errch: errch,
 	}
@@ -956,8 +926,8 @@ func (d *discover) close() {
 func (d *discover) loop() {
 	var rql reqList
 
-	checkTimer := time.NewTimer(watingTimeout)
-	defer checkTimer.Stop()
+	checkTicker := time.NewTicker(watingTimeout / 2)
+	defer checkTicker.Stop()
 
 	for {
 		select {
@@ -966,14 +936,13 @@ func (d *discover) loop() {
 				w.errch <- errStopped
 			}
 		case req := <- d.reqing:
-			req.expire = time.Now().Add(watingTimeout)
+			log.Printf("wating msg %d from %s expire %s\n", req.proto, req.senderID, req.expire)
 			rql = append(rql, req)
 		case res := <- d.getres:
-			err := rql.handle(res)
-			res.done <- err
-		case <- checkTimer.C:
-			rql.cleanStales()
-			checkTimer.Reset(rql.nextDuration())
+			rql = handleRes(rql, res)
+			log.Printf("handle msg %d from %s\n", res.proto, res.senderID)
+		case <- checkTicker.C:
+			rql = cleanStaleReq(rql)
 		}
 	}
 }
