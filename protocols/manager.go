@@ -13,6 +13,7 @@ import (
 
 var enoughPeersTimeout = 3 * time.Minute
 const enoughPeers = 5
+const broadcastConcurrency = 10
 
 type ProtoHandler func(Serializable, *Peer) error
 type SyncPeer func(*Peer)
@@ -160,17 +161,49 @@ func (pm *ProtocolManager) SendMsg(p *Peer, msg *Msg) error {
 
 	// broadcast to all peers
 	if p == nil {
-		for _, peer := range pm.Peers.peers {
-			go p2p.Send(peer.TS, m)
-		}
-
-		log.Printf("pm broadcast msg %d\n", msg.Code)
+		pm.BroadcastMsg(msg)
 		return nil
 	}
 
 	// send to the specified peer
 	log.Printf("pm send msg %d to %s\n", msg.Code, p.ID)
 	return p2p.Send(p.TS, m)
+}
+
+func (pm *ProtocolManager) BroadcastMsg(msg *Msg) (fails []*Peer) {
+	log.Printf("pm broadcast msg %d\n", msg.Code)
+
+	sent := make(map[*Peer]bool)
+
+	pending := make(chan struct{}, broadcastConcurrency)
+
+	broadcastPeer := func(p *Peer) {
+		err := pm.SendMsg(p, msg)
+		if err != nil {
+			sent[p] = false
+			log.Printf("pm broadcast msg %d to %s error: %v\n", msg.Code, p.ID, err)
+		}
+		<- pending
+	}
+
+	for _, peer := range pm.Peers.peers {
+		_, ok := sent[peer]
+		if ok {
+			continue
+		}
+
+		pending <- struct{}{}
+		sent[peer] = true
+		go broadcastPeer(peer)
+	}
+
+	for peer, ok := range sent {
+		if !ok {
+			fails = append(fails, peer)
+		}
+	}
+
+	return fails
 }
 
 func (pm *ProtocolManager) Sync() {
