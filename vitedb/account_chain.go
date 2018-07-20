@@ -8,6 +8,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"encoding/hex"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type AccountChain struct {
@@ -100,7 +101,6 @@ func (ac * AccountChain) GetBlockByHeight (accountId *big.Int, blockHeight *big.
 func (ac *AccountChain) GetLatestBlockByAccountId (accountId *big.Int) (*ledger.AccountBlock, error){
 
 	latestBlockHeight, err := ac.GetLatestBlockHeightByAccountId(accountId)
-	fmt.Println(latestBlockHeight.String())
 
 	if err != nil || latestBlockHeight == nil{
 		return nil, err
@@ -262,4 +262,26 @@ func (ac *AccountChain) GetBlockHashList (index, num, count int) ([][]byte, erro
 
 
 	return blocHashList, nil
+}
+
+// to get the latest existing account addresses of the accountChain
+func (ac *AccountChain) GetAccountList () ([]*types.Address, error){
+	key, ckErr := createKey(DBKP_ACCOUNTID_INDEX, nil)
+	if ckErr != nil {
+		return nil, ckErr
+	}
+	iter := ac.db.Leveldb.NewIterator(util.BytesPrefix(key),nil)
+	defer iter.Release()
+	if itErr := iter.Error(); itErr != nil {
+		return nil, itErr
+	}
+	var accountList []*types.Address
+	for iter.Next() {
+		address, err := types.BytesToAddress(iter.Value())
+		if err != nil {
+			return nil, err
+		}
+		accountList = append(accountList, &address)
+	}
+	return accountList, nil
 }
