@@ -1,15 +1,3 @@
 #!/bin/bash
 
-protoc --go_out=vitepb \
-    proto/account_block_db.proto \
-     proto/snapshot_block_db.proto \
-     proto/account_meta_db.proto \
-     proto/account_block_net.proto \
-     proto/snapshot_block_net.proto \
-     proto/unconfirmed_block_db.proto \
-     proto/unconfirmed_meta_db.proto \
-
-protoc --go_out=. p2p/protos/*.proto
-
-protoc --proto_path=. --go_out=. protocols/protos/*.proto
-
+protoc --go_out=. vitepb/*.proto

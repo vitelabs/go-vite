@@ -79,6 +79,7 @@ func (am *AccountMeta) DbSerialize () ([]byte, error) {
 	if am.AccountId != nil {
 		accountMetaPB.AccountId = am.AccountId.Bytes()
 	}
+
 	return proto.Marshal(accountMetaPB)
 }
 

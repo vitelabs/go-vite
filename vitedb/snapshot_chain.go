@@ -35,10 +35,9 @@ func GetSnapshotChain () *SnapshotChain {
 
 func (sbc *SnapshotChain) GetHeightByHash (blockHash *types.Hash) (*big.Int, error) {
 	key, err := createKey(DBKP_SNAPSHOTBLOCKHASH, blockHash.Bytes())
-
 	heightBytes, err := sbc.db.Leveldb.Get(key, nil)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	height := &big.Int{}
@@ -229,25 +228,4 @@ func (sbc *SnapshotChain) BatchWrite (batch *leveldb.Batch, writeFunc func (batc
 	return batchWrite(batch, sbc.db.Leveldb, func (context *batchContext) error {
 		return writeFunc(context.Batch)
 	})
-}
-
-func (sbc *SnapshotChain) GetAccountList () ([]*types.Address, error){
-	key, ckErr := createKey(DBKP_ACCOUNTID_INDEX, nil)
-	if ckErr != nil {
-		return nil, ckErr
-	}
-	iter := sbc.db.Leveldb.NewIterator(util.BytesPrefix(key),nil)
-	defer iter.Release()
-	if itErr := iter.Error(); itErr != nil {
-		return nil, itErr
-	}
-	var accountList []*types.Address
-	for iter.Next() {
-		address, err := types.BytesToAddress(iter.Value())
-		if err != nil {
-			return nil, err
-		}
-		accountList = append(accountList, &address)
-	}
-	return accountList, nil
 }

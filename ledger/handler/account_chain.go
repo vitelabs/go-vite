@@ -114,30 +114,30 @@ func (ac *AccountChain) GetBlocksByAccAddr (addr *types.Address, index, num, cou
 	return ac.acAccess.GetBlockListByAccountAddress(index, num, count, addr)
 }
 
-func (ac *AccountChain) CreateTx (addr *types.Address, block *ledger.AccountBlock) (error) {
-	return ac.CreateTxWithPassphrase(addr, "", block)
+func (ac *AccountChain) CreateTx (block *ledger.AccountBlock) (error) {
+	return ac.CreateTxWithPassphrase(block, "")
 }
 
-func (ac *AccountChain) CreateTxWithPassphrase (addr *types.Address, passphrase string, block *ledger.AccountBlock) error {
+func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, passphrase string) error {
 	globalRWMutex.RLock()
 	defer globalRWMutex.RUnlock()
 
-	accountMeta, err := ac.aAccess.GetAccountMeta(addr)
+	accountMeta, err := ac.aAccess.GetAccountMeta(block.AccountAddress)
 
 	if err != nil {
 		return err
 	}
 
 	if accountMeta == nil {
-		return errors.New("CreateTx failed, because account " + addr.String() + " is not existed.")
+		return errors.New("CreateTx failed, because account " + block.AccountAddress.String() + " is not existed.")
 	}
 
 
 	// Set addr
-	block.AccountAddress = addr
+	block.AccountAddress = block.AccountAddress
 
 	// Set prevHash
-	latestBlock, err := ac.acAccess.GetLatestBlockByAccountAddress(addr)
+	latestBlock, err := ac.acAccess.GetLatestBlockByAccountAddress(block.AccountAddress)
 	if err != nil {
 		return err
 	}
@@ -166,12 +166,12 @@ func (ac *AccountChain) CreateTxWithPassphrase (addr *types.Address, passphrase 
 		var signErr error
 		if passphrase == "" {
 			accountBlock.Signature, accountBlock.PublicKey, signErr =
-				ac.vite.WalletManager().KeystoreManager.SignData(*addr, block.Hash.Bytes())
+				ac.vite.WalletManager().KeystoreManager.SignData(*block.AccountAddress, block.Hash.Bytes())
 
 		} else {
 
 			accountBlock.Signature, accountBlock.PublicKey, signErr =
-				ac.vite.WalletManager().KeystoreManager.SignDataWithPassphrase(*addr, passphrase, block.Hash.Bytes())
+				ac.vite.WalletManager().KeystoreManager.SignDataWithPassphrase(*block.AccountAddress, passphrase, block.Hash.Bytes())
 		}
 
 		return accountBlock, signErr
@@ -181,6 +181,10 @@ func (ac *AccountChain) CreateTxWithPassphrase (addr *types.Address, passphrase 
 	}
 
 	// Broadcast
+	ac.vite.Pm().SendMsg(nil, &protocols.Msg {
+		Code: protocols.AccountBlocksMsgCode,
+		Payload: &protocols.AccountBlocksMsg{block},
+	})
 	return nil
 }
 

@@ -25,6 +25,14 @@ func GetSnapshotChainAccess () *SnapshotChainAccess {
 	return snapshotChainAccess
 }
 
+func (sca *SnapshotChainAccess) GetBlockByHeight (height *big.Int) (*ledger.SnapshotBlock, error) {
+	block, err:= sca.store.GetBLockByHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	return block, nil
+}
+
 func (sca *SnapshotChainAccess) GetBlockByHash (blockHash *types.Hash) (*ledger.SnapshotBlock, error) {
 	block, err:= sca.store.GetBlockByHash(blockHash)
 	if err != nil {
@@ -110,14 +118,19 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 	snapshot := block.Snapshot
 
 	var needSyncAccountBlocks []*WscNeedSyncErrData
+
 	for addr, snapshotItem := range snapshot {
-		if !accountChainAccess.isBlockExist(snapshotItem.AccountBlockHash) {
-			accountAddress, _ := types.HexToAddress(addr)
+		blockMeta, err := accountChainAccess.GetBlockMetaByHash(snapshotItem.AccountBlockHash)
+		accountAddress, _ := types.HexToAddress(addr)
+		if err != nil || blockMeta == nil {
 			needSyncAccountBlocks = append(needSyncAccountBlocks, &WscNeedSyncErrData{
 				AccountAddress: &accountAddress,
 				TargetBlockHash: snapshotItem.AccountBlockHash,
 				TargetBlockHeight: snapshotItem.AccountBlockHeight,
 			})
+		}  else {
+			// Modify block meta status.
+			accountChainAccess.store.WriteBlockMeta(batch, snapshotItem.AccountBlockHash, blockMeta)
 		}
 	}
 
@@ -144,8 +157,4 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 		}
 	}
 	return nil
-}
-
-func (sca *SnapshotChainAccess) GetAccountList () ([]*types.Address, error){
-	return sca.store.GetAccountList()
 }

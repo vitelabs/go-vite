@@ -192,10 +192,15 @@ func (sc *SnapshotChain) WriteMiningBlock (block *ledger.SnapshotBlock) error {
 	}
 
 	// Broadcast
+	sc.vite.Pm().SendMsg(nil, &protocols.Msg {
+		Code: protocols.SnapshotBlocksMsgCode,
+		Payload: &protocols.SnapshotBlocksMsg{block},
+	})
 	return nil
 }
 
 func (sc *SnapshotChain) GetNeedSnapshot () ([]*ledger.SnapshotItem) {
+
 	return nil
 }
 
@@ -216,7 +221,7 @@ func (sc *SnapshotChain) GetBlockByHash (hash *types.Hash) (*ledger.SnapshotBloc
 }
 
 func (sc *SnapshotChain) GetBlockByHeight (height *big.Int) (*ledger.SnapshotBlock, error) {
-	return nil, nil
+	return sc.scAccess.GetBlockByHeight(height)
 }
 
 func (sc *SnapshotChain) GetFirstSyncInfo () (*SyncInfo) {

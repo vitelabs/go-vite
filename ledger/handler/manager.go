@@ -1,14 +1,15 @@
 package handler
 
 
-type Ledger struct {
+type Manager struct {
 	vite Vite
 	Ac *AccountChain
 	Sc *SnapshotChain
+
 }
 
-func NewLedger (vite Vite) (*Ledger)  {
-	return &Ledger{
+func NewManager(vite Vite) (*Manager)  {
+	return &Manager{
 		vite: vite,
 
 		Ac: NewAccountChain(vite),
