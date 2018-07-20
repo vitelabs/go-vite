@@ -21,21 +21,25 @@ type AccountBlockMeta struct {
 
 	// Block status, 0 means unknow, 1 means open, 2 means closed
 	Status int
+
+	// Is snapshotted
+	IsSnapshotted bool
 }
 
-func (ab *AccountBlockMeta) NetSerialize () ([]byte, error) {
-	return ab.DbSerialize()
+func (abm *AccountBlockMeta) NetSerialize () ([]byte, error) {
+	return abm.DbSerialize()
 }
 
-func (ab *AccountBlockMeta) NetDeserialize (buf []byte) (error) {
-	return ab.DbDeserialize(buf)
+func (abm *AccountBlockMeta) NetDeserialize (buf []byte) (error) {
+	return abm.DbDeserialize(buf)
 }
 
-func (ab *AccountBlockMeta) DbSerialize () ([]byte, error) {
+func (abm *AccountBlockMeta) DbSerialize () ([]byte, error) {
 	accountBlockMetaPb := &vitepb.AccountBlockMeta{
-		AccountId: ab.AccountId.Bytes(),
-		Height: ab.Height.Bytes(),
-		Status: uint32(ab.Status),
+		AccountId: abm.AccountId.Bytes(),
+		Height: abm.Height.Bytes(),
+		Status: uint32(abm.Status),
+		IsSnapshotted: abm.IsSnapshotted,
 	}
 
 	return proto.Marshal(accountBlockMetaPb)
@@ -54,6 +58,7 @@ func (abm *AccountBlockMeta) DbDeserialize (buf []byte) (error) {
 	abm.Height.SetBytes(accountBlockMetaPb.Height)
 
 	abm.Status = int(accountBlockMetaPb.Status)
+	abm.IsSnapshotted = accountBlockMetaPb.IsSnapshotted
 
 	return nil
 }

@@ -281,6 +281,7 @@ func (aca *AccountChainAccess) writeMintageBlock(batch *leveldb.Batch, block *le
 }
 
 func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.AccountBlock, signFunc signFuncType) (result *AcWriteError) {
+
 	// AccountBlock must have the snapshotTimestamp
 	if block.SnapshotTimestamp == nil {
 		return &AcWriteError{
@@ -567,6 +568,16 @@ func (aca *AccountChainAccess) writeStIndex (batch *leveldb.Batch, block *ledger
 
 func (aca *AccountChainAccess) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) (ledger.AccountBlockList, error) {
 	return aca.store.GetBlocksFromOrigin(originBlockHash, count, forward)
+}
+
+func (aca *AccountChainAccess) GetBlockMetaByHash(blockHash *types.Hash) (*ledger.AccountBlockMeta, error) {
+	accountBlockMeta, err := aca.store.GetBlockMeta(blockHash)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return accountBlockMeta, nil
 }
 
 func (aca *AccountChainAccess) GetBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
