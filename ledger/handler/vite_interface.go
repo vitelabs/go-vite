@@ -1,11 +1,11 @@
 package handler
 
 import (
-	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"github.com/vitelabs/go-vite/wallet"
+	protoInterface "github.com/vitelabs/go-vite/protocols/interfaces"
 )
 
 type Vite interface {
-	Pm () *protoTypes.ProtocolManager
+	Pm () protoInterface.ProtocolManager
 	WalletManager() *wallet.Manager
 }

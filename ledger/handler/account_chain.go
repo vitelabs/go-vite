@@ -75,14 +75,19 @@ func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer
 				case access.AcWriteError:
 					err := writeErr.(access.AcWriteError)
 					if writeErr.(access.AcWriteError).Code == access.WacPrevHashUncorrectErr {
-						errData := err.Data.(ledger.AccountBlock)
+						errData := err.Data.(*ledger.AccountBlock)
 
-						if block.Meta.Height.Cmp(errData.Meta.Height) <= 0 {
+						currentHeight := big.NewInt(0)
+						if errData != nil {
+							currentHeight = errData.Meta.Height
+						}
+
+						if block.Meta.Height.Cmp(currentHeight) <= 0 {
 							return
 						}
 						// Download fragment
 						count := &big.Int{}
-						count.Sub(block.Meta.Height, errData.Meta.Height)
+						count.Sub(block.Meta.Height, currentHeight)
 						ac.vite.Pm().SendMsg(peer, &protoTypes.Msg {
 							Code: protoTypes.GetAccountBlocksMsgCode,
 							Payload: &protoTypes.GetAccountBlocksMsg{
