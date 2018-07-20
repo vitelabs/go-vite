@@ -254,7 +254,7 @@ func (pm *ProtocolManager) CurrentBlock() (block *ledger.SnapshotBlock) {
 	return block
 }
 
-func NewProtocolManager(bc blockchain) *ProtocolManager {
+func NewProtocolManager(vite Vite) *ProtocolManager {
 	return &ProtocolManager {
 		ProtoHandlers: ProtoHandlers{
 			handlers: make(map[uint64]ProtoHandler),
