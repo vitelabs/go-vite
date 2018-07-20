@@ -11,8 +11,9 @@ import (
 	"math/big"
 )
 
-var waitEnoughPeers = 3 * time.Minute
+var enoughPeersTimeout = 3 * time.Minute
 const enoughPeers = 5
+const broadcastConcurrency = 10
 
 type ProtoHandler func(Serializable, *Peer) error
 type SyncPeer func(*Peer)
@@ -53,8 +54,7 @@ func (pm *ProtocolManager) HandleMsg(code uint64, s Serializable, peer *Peer) er
 	if code == StatusMsgCode {
 		status, ok := s.(*StatusMsg)
 		if ok {
-			// update peer`s height and head
-			peer.Update(status)
+			pm.HandleStatusMsg(status, peer)
 			return nil
 		} else {
 			return errors.New("status msg payload unmatched")
@@ -73,6 +73,8 @@ func (pm *ProtocolManager) HandleMsg(code uint64, s Serializable, peer *Peer) er
 }
 
 func (pm *ProtocolManager) HandleStatusMsg(status *StatusMsg, peer *Peer) {
+	log.Printf("receive status from %s height %d \n", peer.ID, status.Height)
+
 	peer.Update(status)
 	pm.Sync()
 }
@@ -136,7 +138,10 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 			m.NetDeserialize(msg.Payload)
 
 			if err := pm.HandleMsg(msg.Code, m, protoPeer); err != nil {
+				log.Printf("pm handle msg %d error: %v\n", msg.Code, err)
 				peer.Errch <- err
+			} else {
+				log.Printf("pm handle msg %d\n", msg.Code)
 			}
 		case <- ticker.C:
 			go pm.SendStatusMsg(protoPeer)
@@ -154,7 +159,51 @@ func (pm *ProtocolManager) SendMsg(p *Peer, msg *Msg) error {
 		Payload: payload,
 	}
 
+	// broadcast to all peers
+	if p == nil {
+		pm.BroadcastMsg(msg)
+		return nil
+	}
+
+	// send to the specified peer
+	log.Printf("pm send msg %d to %s\n", msg.Code, p.ID)
 	return p2p.Send(p.TS, m)
+}
+
+func (pm *ProtocolManager) BroadcastMsg(msg *Msg) (fails []*Peer) {
+	log.Printf("pm broadcast msg %d\n", msg.Code)
+
+	sent := make(map[*Peer]bool)
+
+	pending := make(chan struct{}, broadcastConcurrency)
+
+	broadcastPeer := func(p *Peer) {
+		err := pm.SendMsg(p, msg)
+		if err != nil {
+			sent[p] = false
+			log.Printf("pm broadcast msg %d to %s error: %v\n", msg.Code, p.ID, err)
+		}
+		<- pending
+	}
+
+	for _, peer := range pm.Peers.peers {
+		_, ok := sent[peer]
+		if ok {
+			continue
+		}
+
+		pending <- struct{}{}
+		sent[peer] = true
+		go broadcastPeer(peer)
+	}
+
+	for peer, ok := range sent {
+		if !ok {
+			fails = append(fails, peer)
+		}
+	}
+
+	return fails
 }
 
 func (pm *ProtocolManager) Sync() {
@@ -167,8 +216,8 @@ func (pm *ProtocolManager) Sync() {
 
 	if pm.Peers.Count() < enoughPeers {
 		wait := time.Now().Sub(pm.Start)
-		if wait < waitEnoughPeers {
-			time.Sleep(waitEnoughPeers - wait)
+		if wait < enoughPeersTimeout {
+			time.Sleep(enoughPeersTimeout - wait)
 		}
 	}
 
@@ -177,15 +226,15 @@ func (pm *ProtocolManager) Sync() {
 	if bestPeer.Height.Cmp(currentBlock.Height) > 0 {
 		pm.mutex.Lock()
 		if pm.Syncing {
-			pm.mutex.Unlock()
-			return
-		} else {
+			// do nothing.
+		} else if pm.sync != nil {
 			pm.Syncing = true
-			pm.mutex.Unlock()
+			pm.sync(bestPeer)
+			log.Printf("begin sync from %s to height \n", bestPeer.ID, bestPeer.Height)
+		} else {
+			log.Println("missing sync method")
 		}
-
-		// begin sync
-		pm.sync(bestPeer)
+		pm.mutex.Unlock()
 	}
 }
 

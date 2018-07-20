@@ -10,6 +10,7 @@ import (
 	"log"
 	"crypto/rand"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"reflect"
 )
 
 const (
@@ -69,7 +70,7 @@ type Config struct {
 
 	Name string
 
-	NetID uint32
+	NetID NetworkID
 }
 
 type peerHandler func(*Peer)
@@ -99,6 +100,8 @@ type Server struct {
 	addPeer chan *TSConn
 
 	delPeer chan *Peer
+
+	blocknode chan *Node
 
 	// execute operations to peers by sequences.
 	peersOps chan peersOperator
@@ -159,6 +162,7 @@ func NewServer(cfg *Config, handler peerHandler) (svr *Server, err error) {
 	svr.delPeer = make(chan *Peer)
 	svr.peersOps = make(chan peersOperator)
 	svr.peersOpsDone = make(chan struct{})
+	svr.blocknode = make(chan *Node)
 
 	if svr.MaxPeers == 0 {
 		svr.MaxPeers = defaultMaxPeers
@@ -171,13 +175,24 @@ func NewServer(cfg *Config, handler peerHandler) (svr *Server, err error) {
 
 	svr.pendingPeers = make(chan struct{}, maxPendingPeers)
 
+	if svr.MaxPassivePeersRatio == 0 {
+		svr.MaxPassivePeersRatio = 3
+	}
+
 	if svr.createTransport == nil {
 		svr.createTransport = NewPBTS
 	}
 
 	svr.SetHandshake()
 
-	log.Printf("server created: id: %s, at network %d, name: %s, db: %s, address: %s\n", svr.ourHandshake.ID, svr.NetID, svr.Name, svr.Database, svr.Addr)
+	log.Printf(`server created.
+name: %s
+network: %s
+db: %s
+maxPeers: %d
+maxPendingPeers: %d
+maxActivePeers: %d
+maxPassivePeers: %d`, svr.Name, svr.NetID, svr.Database, svr.MaxPeers, svr.MaxPendingPeers, svr.MaxActivePeers(), svr.MaxPassivePeers())
 
 	return svr, nil
 }
@@ -220,9 +235,6 @@ func (svr *Server) MaxActivePeers() uint32 {
 }
 
 func (svr *Server) MaxPassivePeers() uint32 {
-	if svr.MaxPassivePeersRatio == 0 {
-		svr.MaxPassivePeersRatio = 3
-	}
 	return svr.MaxPeers / svr.MaxPassivePeersRatio
 }
 
@@ -240,7 +252,7 @@ func (svr *Server) Start() error {
 	if err != nil {
 		return err
 	}
-	go svr.Discovery(udpAddr)
+	svr.Discovery(udpAddr)
 
 	// tcp listener
 	tcpAddr, err := net.ResolveTCPAddr("tcp", svr.Addr)
@@ -300,6 +312,8 @@ func (svr *Server) Listen(addr *net.TCPAddr) {
 	listener, err := net.ListenTCP("tcp", addr)
 	if err != nil {
 		log.Fatal("tcp listen error: ", err)
+	} else {
+		log.Printf("tcp listen at %s\n", addr)
 	}
 
 	svr.listener = listener
@@ -319,21 +333,21 @@ func (svr *Server) Listen(addr *net.TCPAddr) {
 func (svr *Server) handleConn() {
 	defer svr.waitDown.Done()
 
-	for {
-		var conn net.Conn
-		var err error
+	var conn net.Conn
+	var err error
 
+	for {
 		select {
 		case svr.pendingPeers <- struct{}{}:
 			for {
 				conn, err = svr.listener.Accept()
-				if err != nil {
-					log.Fatal(err)
-				} else {
-					break
-				}
-			}
 
+				if err != nil {
+					log.Printf("tcp accept error: %v\n", err)
+					continue
+				}
+				break
+			}
 			go svr.SetupConn(conn, inboundConn)
 		case <- svr.stopped:
 			close(svr.pendingPeers)
@@ -342,6 +356,8 @@ func (svr *Server) handleConn() {
 }
 
 func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
+	log.Printf("new tcp conn from %s\n", conn.RemoteAddr())
+
 	defer func() {
 		<- svr.pendingPeers
 	}()
@@ -360,6 +376,8 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 		log.Println("handshake with %s error: ", conn.RemoteAddr(), err)
 		conn.Close()
 		return err
+	} else {
+		log.Printf("handshake with %s@%s\n", peerhandshake.ID, c.fd.RemoteAddr())
 	}
 
 	c.id = peerhandshake.ID
@@ -380,27 +398,40 @@ func (svr *Server) CheckConn(peers map[NodeID]*Peer, passivePeersCount uint32) e
 	return nil
 }
 
+type blockNode struct {
+	node *Node
+	blockTime time.Time
+}
+var defaultBlockTimeout = 20 * time.Minute
+
 func (svr *Server) ScheduleTask() {
 	defer svr.waitDown.Done()
 
 	dm := NewDialManager(svr.MaxActivePeers(), svr.BootNodes)
 	peers := make(map[NodeID]*Peer)
 	taskHasDone := make(chan Task, defaultMaxActiveDail)
+
 	var passivePeersCount uint32 = 0
 	var activeTasks []Task
 	var taskQueue []Task
-	delTask := func(d Task) {
-		for i, t := range activeTasks {
-			if t == d {
+
+	blocknodes := make(map[NodeID]*blockNode)
+	cleanBlockTicker := time.NewTicker(defaultBlockTimeout)
+	defer cleanBlockTicker.Stop()
+
+	delActiveTask := func(t Task) {
+		for i, at := range activeTasks {
+			if at == t {
 				activeTasks = append(activeTasks[:i], activeTasks[i+1:]...)
 			}
 		}
 	}
-	runTasks := func(ts []Task) []Task {
+	runTasks := func(ts []Task) (rest []Task) {
 		i := 0
 		for ; uint32(len(activeTasks)) < defaultMaxActiveDail && i < len(ts); i++ {
 			t := ts[i]
 			go func() {
+				log.Printf("perform task %s\n", reflect.TypeOf(t))
 				t.Perform(svr)
 				taskHasDone <- t
 			}()
@@ -409,10 +440,14 @@ func (svr *Server) ScheduleTask() {
 		return ts[i:]
 	}
 	scheduleTasks := func() {
+		log.Println("schedule tasks")
 		taskQueue = runTasks(taskQueue)
 		if uint32(len(activeTasks)) < defaultMaxActiveDail {
-			newTasks := dm.CreateTasks(peers)
-			taskQueue = append(taskQueue, newTasks...)
+			newTasks := dm.CreateTasks(peers, blocknodes)
+			log.Printf("create %d tasks\n", len(newTasks))
+			if len(newTasks) > 0 {
+				taskQueue = append(taskQueue, runTasks(newTasks)...)
+			}
 		}
 	}
 
@@ -423,21 +458,21 @@ schedule:
 		case <- svr.stopped:
 			break schedule
 		case t := <- taskHasDone:
-			delTask(t)
+			dm.TaskDone(t)
+			delActiveTask(t)
 		case c := <- svr.addPeer:
-
 			err := svr.CheckConn(peers, passivePeersCount)
 			if err == nil {
 				p := NewPeer(c)
 				peers[p.ID()] = p
+				log.Printf("create new peer %s\n", c.id)
 				go svr.runPeer(p)
-				log.Printf("create new peer %s@%s\n", c.id, c.fd.RemoteAddr())
 
 				if c.is(inboundConn) {
 					passivePeersCount++
 				}
 			} else {
-				log.Printf("cannot create new peer: %v\n", err)
+				log.Printf("create new peer error: %v\n", err)
 			}
 		case p := <- svr.delPeer:
 			delete(peers, p.ID())
@@ -449,8 +484,23 @@ schedule:
 		case fn := <- svr.peersOps:
 			fn(peers)
 			svr.peersOpsDone <- struct{}{}
+		case node := <- svr.blocknode:
+			log.Printf("block node: %s\n", node)
+			blocknodes[node.ID] = &blockNode{
+				node,
+				time.Now(),
+			}
+		case <- cleanBlockTicker.C:
+			now := time.Now()
+			for id, blockNode := range blocknodes {
+				if now.Sub(blockNode.blockTime) > defaultBlockTimeout {
+					delete(blocknodes, id)
+				}
+			}
 		}
 	}
+
+	log.Println("out of tcp task loop")
 
 	if svr.ntab != nil {
 		svr.ntab.stop()
@@ -535,12 +585,14 @@ func (t *dialTask) Perform(svr *Server) {
 	conn, err := svr.Dialer.DailNode(t.target)
 	if err != nil {
 		log.Printf("dial node %s error: %v\n", t.target, err)
+		svr.blocknode <- t.target
 		return
 	}
 
 	err = svr.SetupConn(conn, dynDialedConn)
 	if err != nil {
 		log.Printf("setup connect to %s error: %v\n", t.target, err)
+		svr.blocknode <- t.target
 	}
 }
 
@@ -558,19 +610,25 @@ type DialManager struct {
 	start time.Time
 	bootNodes []*Node
 	looking bool
+	wating bool
 	lookResults []*Node
 }
 
-func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer) []Task {
+func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]*blockNode) []Task {
 	if dm.start.IsZero() {
 		dm.start = time.Now()
 	}
 
 	var tasks []Task
 	addDailTask := func(flag connFlag, n *Node) bool {
+		if _, ok := blockList[n.ID]; ok {
+			return false
+		}
+
 		if err := dm.checkDial(n, peers); err != nil {
 			return false
 		}
+
 		dm.dialing[n.ID] = flag
 		tasks = append(tasks, &dialTask{
 			flag: flag,
@@ -594,7 +652,7 @@ func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer) []Task {
 	if len(peers) == 0 && len(dm.bootNodes) > 0 && dials > 0 {
 		bootNode := dm.bootNodes[0]
 		copy(dm.bootNodes, dm.bootNodes[1:])
-		dm.bootNodes = append(dm.bootNodes, bootNode)
+		dm.bootNodes[len(dm.bootNodes) - 1] = bootNode
 
 		if addDailTask(dynDialedConn, bootNode) {
 			dials--
@@ -614,21 +672,25 @@ func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer) []Task {
 		dm.looking = true
 	}
 
-	if len(tasks) == 0 {
+	if len(tasks) == 0 && !dm.wating {
 		tasks = append(tasks, &waitTask{
 			Duration: 3 * time.Minute,
 		})
+		dm.wating = true
 	}
 
 	return tasks
 }
-func (dm *DialManager) TaskDone(t Task, time time.Time) {
+
+func (dm *DialManager) TaskDone(t Task) {
 	switch t2 := t.(type) {
 	case *dialTask:
 		delete(dm.dialing, t2.target.ID)
 	case *discoverTask:
 		dm.looking = false
 		dm.lookResults = append(dm.lookResults, t2.results...)
+	case *waitTask:
+		dm.wating = false
 	}
 }
 
@@ -653,12 +715,11 @@ func NewDialManager(maxDials uint32, bootNodes []*Node) *DialManager {
 }
 
 func copyNodes(nodes []*Node) []*Node {
-	cpnodes := make([]*Node, 0, len((nodes)))
+	cpnodes := make([]*Node, len((nodes)))
 
-	var node Node
-	for _, nodep := range nodes {
-		node = *nodep
-		cpnodes = append(cpnodes, &node)
+	for i, nodep := range nodes {
+		node := *nodep
+		cpnodes[i] = &node
 	}
 
 	return cpnodes
