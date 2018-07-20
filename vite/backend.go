@@ -7,6 +7,10 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/wallet"
 	ledgerHandler "github.com/vitelabs/go-vite/ledger/handler"
+
+	"github.com/vitelabs/go-vite/ledger/handler_interface"
+	protoInterface "github.com/vitelabs/go-vite/protocols/interfaces"
+
 )
 
 type Vite struct {
@@ -32,7 +36,7 @@ func New () (*Vite, error){
 	vite.ledger = ledgerHandler.NewManager(vite)
 	vite.walletManager = wallet.NewManager("fromConfig")
 
-	vite.pm = protocols.NewProtocolManager(vite.ledger)
+	vite.pm = protocols.NewProtocolManager(vite)
 
 	vite.p2p = &p2p.Server{
 		Config: NewP2pConfig(),
@@ -42,7 +46,7 @@ func New () (*Vite, error){
 	return vite, nil
 }
 
-func (v *Vite) Ledger () (*ledgerHandler.Manager){
+func (v *Vite) Ledger () (handler_interface.Manager){
 	return v.ledger
 }
 
@@ -50,7 +54,7 @@ func (v *Vite) P2p () (*p2p.Server){
 	return v.p2p
 }
 
-func (v *Vite) Pm () (*protocols.ProtocolManager)  {
+func (v *Vite) Pm () (protoInterface.ProtocolManager)  {
 	return v.pm
 }
 
