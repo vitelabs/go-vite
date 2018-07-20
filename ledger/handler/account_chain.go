@@ -71,26 +71,30 @@ func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *
 			// Write block
 			writeErr := ac.acAccess.WriteBlock(block, nil)
 			if writeErr != nil {
-				if writeErr.Code == access.WacPrevHashUncorrectErr {
-					errData := writeErr.Data.(ledger.AccountBlock)
+				switch writeErr.(type) {
+				case access.AcWriteError:
+					err := writeErr.(access.AcWriteError)
+					if writeErr.(access.AcWriteError).Code == access.WacPrevHashUncorrectErr {
+						errData := err.Data.(ledger.AccountBlock)
 
-					if block.Meta.Height.Cmp(errData.Meta.Height) <= 0 {
+						if block.Meta.Height.Cmp(errData.Meta.Height) <= 0 {
+							return
+						}
+						// Download fragment
+						count := &big.Int{}
+						count.Sub(block.Meta.Height, errData.Meta.Height)
+						ac.vite.Pm().SendMsg(peer, &protocols.Msg {
+							Code: protocols.GetAccountBlocksMsgCode,
+							Payload: &protocols.GetAccountBlocksMsg{
+								Origin: *errData.Hash,
+								Forward: true,
+								Count: count.Uint64(),
+							},
+						})
 						return
 					}
-					// Download fragment
-					count := &big.Int{}
-					count.Sub(block.Meta.Height, errData.Meta.Height)
-					ac.vite.Pm().SendMsg(peer, &protocols.Msg {
-						Code: protocols.GetAccountBlocksMsgCode,
-						Payload: &protocols.GetAccountBlocksMsg{
-							Origin: *errData.Hash,
-							Forward: true,
-							Count: count.Uint64(),
-						},
-					})
-
-					break
 				}
+
 				log.Println(writeErr)
 				continue
 			}
@@ -158,7 +162,7 @@ func (ac *AccountChain) CreateTxWithPassphrase (addr *types.Address, passphrase 
 	block.Difficulty = []byte{0, 0, 0, 0, 0}
 	block.FAmount = big.NewInt(0)
 
-	return ac.acAccess.WriteBlock(block, func(accountBlock *ledger.AccountBlock) (*ledger.AccountBlock, error) {
+	writeErr := ac.acAccess.WriteBlock(block, func(accountBlock *ledger.AccountBlock) (*ledger.AccountBlock, error) {
 		var signErr error
 		if passphrase == "" {
 			accountBlock.Signature, accountBlock.PublicKey, signErr =
@@ -172,7 +176,14 @@ func (ac *AccountChain) CreateTxWithPassphrase (addr *types.Address, passphrase 
 
 		return accountBlock, signErr
 	})
+	if err != nil {
+		return writeErr
+	}
+
+	// Broadcast
+	return nil
 }
+
 
 func (ac *AccountChain) GetUnconfirmedAccountMeta (addr *types.Address) (*ledger.UnconfirmedMeta, error) {
 	return ac.uAccess.GetUnconfirmedAccountMeta(addr)
