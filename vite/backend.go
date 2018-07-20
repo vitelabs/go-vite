@@ -3,7 +3,6 @@ package vite
 import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/protocols"
-	"github.com/micro/go-config"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/wallet"
 	ledgerHandler "github.com/vitelabs/go-vite/ledger/handler"
@@ -11,6 +10,9 @@ import (
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
 	protoInterface "github.com/vitelabs/go-vite/protocols/interfaces"
 
+	"github.com/micro/go-config"
+	"log"
+	"fmt"
 )
 
 type Vite struct {
@@ -20,26 +22,27 @@ type Vite struct {
 	walletManager *wallet.Manager
 }
 
-func NewP2pConfig () (p2p.Config){
-	peerServer := config.Get("peerServer").StringMap(map[string]string{"name": "test-go-vite"})
-	return p2p.Config{
-		Name: peerServer["name"],
-	}
+func NewP2pConfig () *p2p.Config {
+	return &p2p.Config{}
 }
-
 
 func New () (*Vite, error){
 	viteconfig.LoadConfig("gvite")
+	fmt.Printf("%+v\n", config.Map())
+
 
 	vite := &Vite{}
+
 
 	vite.ledger = ledgerHandler.NewManager(vite)
 	vite.walletManager = wallet.NewManager("fromConfig")
 
 	vite.pm = protocols.NewProtocolManager(vite)
 
-	vite.p2p = &p2p.Server{
-		Config: NewP2pConfig(),
+	var initP2pErr error
+	vite.p2p, initP2pErr = p2p.NewServer(NewP2pConfig(), vite.pm.HandlePeer)
+	if initP2pErr != nil {
+		log.Fatal(initP2pErr)
 	}
 
 	vite.p2p.Start()

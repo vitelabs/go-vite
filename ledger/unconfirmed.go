@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/vitepb/proto"
 	"github.com/vitelabs/go-vite/vitepb"
 )
 
