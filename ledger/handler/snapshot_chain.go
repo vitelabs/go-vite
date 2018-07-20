@@ -172,7 +172,6 @@ func (sc *SnapshotChain) SyncPeer (peer *protocols.Peer) {
 	if err != nil {
 		log.Println(err)
 		// If the first syncing goes wrong, try to sync again.
-		//if !firstSyncDone {
 		go func() {
 			time.Sleep(time.Duration(1000))
 			sc.vite.Pm().Sync()
