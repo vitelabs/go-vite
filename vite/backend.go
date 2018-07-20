@@ -10,7 +10,7 @@ import (
 )
 
 type Vite struct {
-	ledger *ledgerHandler.Ledger
+	ledger *ledgerHandler.Manager
 	p2p *p2p.Server
 	pm *protocols.ProtocolManager
 	walletManager *wallet.Manager
@@ -29,7 +29,7 @@ func New () (*Vite, error){
 
 	vite := &Vite{}
 
-	vite.ledger = ledgerHandler.NewLedger(vite)
+	vite.ledger = ledgerHandler.NewManager(vite)
 	vite.walletManager = wallet.NewManager("fromConfig")
 
 	vite.pm = protocols.NewProtocolManager(vite.ledger)
@@ -42,7 +42,7 @@ func New () (*Vite, error){
 	return vite, nil
 }
 
-func (v *Vite) Ledger () (*ledgerHandler.Ledger){
+func (v *Vite) Ledger () (*ledgerHandler.Manager){
 	return v.ledger
 }
 
