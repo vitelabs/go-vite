@@ -9,14 +9,15 @@ import (
 	"errors"
 	"time"
 	"math/big"
+	protoType "github.com/vitelabs/go-vite/protocols/types"
 )
 
 var enoughPeersTimeout = 3 * time.Minute
 const enoughPeers = 5
 const broadcastConcurrency = 10
 
-type ProtoHandler func(Serializable, *Peer) error
-type SyncPeer func(*Peer)
+type ProtoHandler func(protoType.Serializable, *protoType.Peer) error
+type SyncPeer func(*protoType.Peer)
 
 type ProtoHandlers struct {
 	mutex sync.RWMutex
@@ -50,9 +51,9 @@ type ProtocolManager struct {
 	chain blockchain
 }
 
-func (pm *ProtocolManager) HandleMsg(code uint64, s Serializable, peer *Peer) error {
-	if code == StatusMsgCode {
-		status, ok := s.(*StatusMsg)
+func (pm *ProtocolManager) HandleMsg(code uint64, s protoType.Serializable, peer *protoType.Peer) error {
+	if code == protoType.StatusMsgCode {
+		status, ok := s.(*protoType.StatusMsg)
 		if ok {
 			pm.HandleStatusMsg(status, peer)
 			return nil
@@ -72,23 +73,23 @@ func (pm *ProtocolManager) HandleMsg(code uint64, s Serializable, peer *Peer) er
 	return handler(s, peer)
 }
 
-func (pm *ProtocolManager) HandleStatusMsg(status *StatusMsg, peer *Peer) {
+func (pm *ProtocolManager) HandleStatusMsg(status *protoType.StatusMsg, peer *protoType.Peer) {
 	log.Printf("receive status from %s height %d \n", peer.ID, status.Height)
 
 	peer.Update(status)
 	pm.Sync()
 }
 
-func (pm *ProtocolManager) SendStatusMsg(peer *Peer) {
+func (pm *ProtocolManager) SendStatusMsg(peer *protoType.Peer) {
 	// todo get genesis block hash
 	currentBlock := pm.CurrentBlock()
-	status := &StatusMsg{
-		ProtocolVersion: vite1,
+	status := &protoType.StatusMsg{
+		ProtocolVersion: protoType.Vite1,
 		Height: currentBlock.Height,
 		CurrentBlock: *currentBlock.Hash,
 	}
-	err := pm.SendMsg(peer, &Msg{
-		Code: StatusMsgCode,
+	err := pm.SendMsg(peer, &protoType.Msg{
+		Code: protoType.StatusMsgCode,
 		Payload: status,
 	})
 
@@ -101,7 +102,7 @@ func (pm *ProtocolManager) SendStatusMsg(peer *Peer) {
 }
 
 func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
-	protoPeer := &Peer{
+	protoPeer := &protoType.Peer{
 		Peer: peer,
 		ID: peer.ID().String(),
 	}
@@ -113,23 +114,23 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 	defer ticker.Stop()
 
 	for {
-		var m Serializable
+		var m protoType.Serializable
 		select {
 		case <- peer.Closed:
 			pm.Peers.DelPeer(protoPeer)
 			return
 		case msg := <- peer.ProtoMsg:
 			switch msg.Code {
-			case StatusMsgCode:
-				m = new(StatusMsg)
-			case GetSnapshotBlocksMsgCode:
-				m = new(GetSnapshotBlocksMsg)
-			case SnapshotBlocksMsgCode:
-				m = new(SnapshotBlocksMsg)
-			case GetAccountBlocksMsgCode:
-				m = new(GetAccountBlocksMsg)
-			case AccountBlocksMsgCode:
-				m = new(AccountBlocksMsg)
+			case protoType.StatusMsgCode:
+				m = new(protoType.StatusMsg)
+			case protoType.GetSnapshotBlocksMsgCode:
+				m = new(protoType.GetSnapshotBlocksMsg)
+			case protoType.SnapshotBlocksMsgCode:
+				m = new(protoType.SnapshotBlocksMsg)
+			case protoType.GetAccountBlocksMsgCode:
+				m = new(protoType.GetAccountBlocksMsg)
+			case protoType.AccountBlocksMsgCode:
+				m = new(protoType.AccountBlocksMsg)
 			default:
 				peer.Errch <- fmt.Errorf("unknown message code %d\n", msg.Code)
 				return
@@ -149,7 +150,7 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 	}
 }
 
-func (pm *ProtocolManager) SendMsg(p *Peer, msg *Msg) error {
+func (pm *ProtocolManager) SendMsg(p *protoType.Peer, msg *protoType.Msg) error {
 	payload, err := msg.Payload.NetSerialize()
 	if err != nil {
 		return fmt.Errorf("protocolManager Send error: %v\n", err)
@@ -170,14 +171,14 @@ func (pm *ProtocolManager) SendMsg(p *Peer, msg *Msg) error {
 	return p2p.Send(p.TS, m)
 }
 
-func (pm *ProtocolManager) BroadcastMsg(msg *Msg) (fails []*Peer) {
+func (pm *ProtocolManager) BroadcastMsg(msg *protoType.Msg) (fails []*protoType.Peer) {
 	log.Printf("pm broadcast msg %d\n", msg.Code)
 
-	sent := make(map[*Peer]bool)
+	sent := make(map[*protoType.Peer]bool)
 
 	pending := make(chan struct{}, broadcastConcurrency)
 
-	broadcastPeer := func(p *Peer) {
+	broadcastPeer := func(p *protoType.Peer) {
 		err := pm.SendMsg(p, msg)
 		if err != nil {
 			sent[p] = false
@@ -266,17 +267,17 @@ func NewProtocolManager(bc blockchain) *ProtocolManager {
 
 // @section PeersMap
 type PeersMap struct {
-	peers map[string]*Peer
+	peers map[string]*protoType.Peer
 	rw sync.RWMutex
 }
 
 func NewPeersMap() *PeersMap {
 	return &PeersMap{
-		peers: make(map[string]*Peer),
+		peers: make(map[string]*protoType.Peer),
 	}
 }
 
-func (m *PeersMap) BestPeer() (best *Peer) {
+func (m *PeersMap) BestPeer() (best *protoType.Peer) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
@@ -292,13 +293,13 @@ func (m *PeersMap) BestPeer() (best *Peer) {
 	return
 }
 
-func (m *PeersMap) AddPeer(peer *Peer) {
+func (m *PeersMap) AddPeer(peer *protoType.Peer) {
 	m.rw.Lock()
 	m.peers[peer.ID] = peer
 	m.rw.Unlock()
 }
 
-func (m *PeersMap) DelPeer(peer *Peer) {
+func (m *PeersMap) DelPeer(peer *protoType.Peer) {
 	m.rw.Lock()
 	delete(m.peers, peer.ID)
 	m.rw.Unlock()
