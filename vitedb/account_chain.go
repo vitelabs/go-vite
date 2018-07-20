@@ -100,7 +100,6 @@ func (ac * AccountChain) GetBlockByHeight (accountId *big.Int, blockHeight *big.
 func (ac *AccountChain) GetLatestBlockByAccountId (accountId *big.Int) (*ledger.AccountBlock, error){
 
 	latestBlockHeight, err := ac.GetLatestBlockHeightByAccountId(accountId)
-	fmt.Println(latestBlockHeight.String())
 
 	if err != nil || latestBlockHeight == nil{
 		return nil, err
