@@ -176,7 +176,8 @@ func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count i
 	}
 
 	for i := 0; i < num*count; i++ {
-		blockHash := iter.Value()
+		blockHash := make([]byte, len(iter.Value()))
+		copy(blockHash, iter.Value())
 		blockHashList = append(blockHashList, blockHash)
 		if !iter.Prev() {
 			break
