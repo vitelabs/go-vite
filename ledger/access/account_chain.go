@@ -745,7 +745,5 @@ func (aca *AccountChainAccess) isBlockExist (blockHash *types.Hash) (bool) {
 	return aca.store.IsBlockExist(blockHash)
 }
 
-func (aca *AccountChainAccess) GetAccountList () ([]*types.Address, error){
-	return aca.store.GetAccountList()
-}
+
 

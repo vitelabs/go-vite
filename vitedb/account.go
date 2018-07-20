@@ -116,3 +116,25 @@ func (account *Account) GetAddressById (accountId *big.Int) (*types.Address, err
 	}
 	return &b2Address, nil
 }
+
+// to get the latest existing account addresses of the accountChain
+func (account *Account) GetAccountList () ([]*types.Address, error){
+	key, ckErr := createKey(DBKP_ACCOUNTID_INDEX, nil)
+	if ckErr != nil {
+		return nil, ckErr
+	}
+	iter := account.db.Leveldb.NewIterator(util.BytesPrefix(key),nil)
+	defer iter.Release()
+	if itErr := iter.Error(); itErr != nil {
+		return nil, itErr
+	}
+	var accountList []*types.Address
+	for iter.Next() {
+		address, err := types.BytesToAddress(iter.Value())
+		if err != nil {
+			return nil, err
+		}
+		accountList = append(accountList, &address)
+	}
+	return accountList, nil
+}
