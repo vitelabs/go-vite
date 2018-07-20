@@ -9,13 +9,9 @@ import (
 	"log"
 	"github.com/vitelabs/go-vite/ledger/cache/pending"
 	"time"
+	"github.com/vitelabs/go-vite/ledger/handler_interface"
 )
 
-type SyncInfo struct {
-	BeginHeight *big.Int
-	TargetHeight *big.Int
-	CurrentHeight *big.Int
-}
 
 
 type SnapshotChain struct {
@@ -131,7 +127,7 @@ func (sc *SnapshotChain) HandleSendBlocks (msg protocols.SnapshotBlocksMsg, peer
 }
 
 var firstSyncDone = false
-var syncInfo = &SyncInfo{}
+var syncInfo = &handler_interface.SyncInfo{}
 
 func (sc *SnapshotChain) syncPeer (peer *protocols.Peer) error {
 	latestBlock, err := sc.scAccess.GetLatestBlock()
@@ -242,6 +238,6 @@ func (sc *SnapshotChain) GetBlockByHeight (height *big.Int) (*ledger.SnapshotBlo
 	return sc.scAccess.GetBlockByHeight(height)
 }
 
-func (sc *SnapshotChain) GetFirstSyncInfo () (*SyncInfo) {
+func (sc *SnapshotChain) GetFirstSyncInfo () (*handler_interface.SyncInfo) {
 	return syncInfo
 }
