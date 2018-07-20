@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/vitelabs/go-vite/protocols"
+	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"github.com/vitelabs/go-vite/ledger/access"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -31,7 +31,7 @@ func NewAccountChain (vite Vite) (*AccountChain) {
 }
 
 // HandleBlockHash
-func (ac *AccountChain) HandleGetBlocks (msg *protocols.GetAccountBlocksMsg, peer *protocols.Peer) error {
+func (ac *AccountChain) HandleGetBlocks (msg *protoTypes.GetAccountBlocksMsg, peer *protoTypes.Peer) error {
 	go func() {
 		blocks, err := ac.acAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
 		if err != nil {
@@ -40,8 +40,8 @@ func (ac *AccountChain) HandleGetBlocks (msg *protocols.GetAccountBlocksMsg, pee
 		}
 
 		// send out
-		ac.vite.Pm().SendMsg(peer, &protocols.Msg{
-			Code: protocols.AccountBlocksMsgCode,
+		ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+			Code: protoTypes.AccountBlocksMsgCode,
 			Payload: blocks,
 		})
 	}()
@@ -50,12 +50,12 @@ func (ac *AccountChain) HandleGetBlocks (msg *protocols.GetAccountBlocksMsg, pee
 
 
 // HandleBlockHash
-func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *protocols.Peer) error {
+func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer) error {
 	go func() {
 		globalRWMutex.RLock()
 		defer globalRWMutex.RUnlock()
 
-		for _, block := range msg {
+		for _, block := range *msg {
 			// Verify signature
 			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
 
@@ -83,9 +83,9 @@ func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *
 						// Download fragment
 						count := &big.Int{}
 						count.Sub(block.Meta.Height, errData.Meta.Height)
-						ac.vite.Pm().SendMsg(peer, &protocols.Msg {
-							Code: protocols.GetAccountBlocksMsgCode,
-							Payload: &protocols.GetAccountBlocksMsg{
+						ac.vite.Pm().SendMsg(peer, &protoTypes.Msg {
+							Code: protoTypes.GetAccountBlocksMsgCode,
+							Payload: &protoTypes.GetAccountBlocksMsg{
 								Origin: *errData.Hash,
 								Forward: true,
 								Count: count.Uint64(),
@@ -181,9 +181,9 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 	}
 
 	// Broadcast
-	ac.vite.Pm().SendMsg(nil, &protocols.Msg {
-		Code: protocols.AccountBlocksMsgCode,
-		Payload: &protocols.AccountBlocksMsg{block},
+	ac.vite.Pm().SendMsg(nil, &protoTypes.Msg {
+		Code: protoTypes.AccountBlocksMsgCode,
+		Payload: &protoTypes.AccountBlocksMsg{block},
 	})
 	return nil
 }

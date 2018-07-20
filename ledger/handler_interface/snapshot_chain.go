@@ -1,10 +1,11 @@
 package handler_interface
 
 import (
-	"github.com/vitelabs/go-vite/protocols"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
+	protoTypes "github.com/vitelabs/go-vite/protocols/types"
+
 )
 
 type SyncInfo struct {
@@ -13,10 +14,10 @@ type SyncInfo struct {
 	CurrentHeight *big.Int
 }
 
-type Snapshot_chain interface {
-	HandleGetBlocks(msg *protocols.GetSnapshotBlocksMsg, peer *protocols.Peer) error
-	HandleSendBlocks (msg protocols.SnapshotBlocksMsg, peer *protocols.Peer) error
-	SyncPeer (peer *protocols.Peer)
+type SnapshotChain interface {
+	HandleGetBlocks(msg *protoTypes.GetSnapshotBlocksMsg, peer *protoTypes.Peer) error
+	HandleSendBlocks (msg *protoTypes.SnapshotBlocksMsg, peer *protoTypes.Peer) error
+	SyncPeer (peer *protoTypes.Peer)
 	WriteMiningBlock (block *ledger.SnapshotBlock) error
 	GetNeedSnapshot () ([]*ledger.AccountBlock, error)
 	StopAllWrite ()
