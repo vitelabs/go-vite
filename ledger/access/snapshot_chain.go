@@ -145,7 +145,3 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 	}
 	return nil
 }
-
-func (sca *SnapshotChainAccess) GetAccountList () ([]*types.Address, error){
-	return sca.store.GetAccountList()
-}

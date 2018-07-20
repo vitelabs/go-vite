@@ -24,7 +24,7 @@ func (ufb *UnconfirmedAccess) GetUnconfirmedBlocks (index int, num int, count in
 }
 
 func (ufb *UnconfirmedAccess) GetUnconfirmedAccountMeta (addr *types.Address) (*ledger.UnconfirmedMeta, error) {
-	return nil, nil
+	return ufb.store.GetUnconfirmedMeta(addr)
 }
 
 func (ufb *UnconfirmedAccess) WriteBlock (addr *types.Address, hash *types.Hash) error {

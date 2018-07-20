@@ -221,6 +221,12 @@ func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int
 		return nil, nil
 	}
 
+	for i:=0; i < index * count; i ++ {
+		if !iter.Prev() {
+			return nil, nil
+		}
+	}
+
 	var blockList []*ledger.AccountBlock
 
 	for i:=0; i < num * count; i ++ {
@@ -338,4 +344,26 @@ func (ac *AccountChain) GetBlockHashList (index, num, count int) ([]*types.Hash,
 
 
 	return blocHashList, nil
+}
+
+// to get the latest existing account addresses of the accountChain
+func (ac *AccountChain) GetAccountList () ([]*types.Address, error){
+	key, ckErr := createKey(DBKP_ACCOUNTID_INDEX, nil)
+	if ckErr != nil {
+		return nil, ckErr
+	}
+	iter := ac.db.Leveldb.NewIterator(util.BytesPrefix(key),nil)
+	defer iter.Release()
+	if itErr := iter.Error(); itErr != nil {
+		return nil, itErr
+	}
+	var accountList []*types.Address
+	for iter.Next() {
+		address, err := types.BytesToAddress(iter.Value())
+		if err != nil {
+			return nil, err
+		}
+		accountList = append(accountList, &address)
+	}
+	return accountList, nil
 }
