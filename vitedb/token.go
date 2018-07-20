@@ -234,13 +234,13 @@ func (token *Token) getTokenSymbolCurrentTopId(tokenSymbol string) (*big.Int, er
 	return token.getTopId(key), nil
 }
 
-func (token *Token) WriteTokenIdIndex(batch *leveldb.Batch, tokenId *types.TokenTypeId, blockHeightInToken *big.Int, accountBlockHash []byte) error {
+func (token *Token) WriteTokenIdIndex(batch *leveldb.Batch, tokenId *types.TokenTypeId, blockHeightInToken *big.Int, accountBlockHash *types.Hash) error {
 	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), blockHeightInToken)
 	if err != nil {
 		return err
 	}
 
-	batch.Put(key, accountBlockHash)
+	batch.Put(key, accountBlockHash.Bytes())
 	return nil
 }
 

@@ -744,3 +744,6 @@ func (aca *AccountChainAccess) GetLatestBlockHeightByAccountId (accountId *big.I
 func (aca *AccountChainAccess) isBlockExist (blockHash *types.Hash) (bool) {
 	return aca.store.IsBlockExist(blockHash)
 }
+
+
+
