@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger/cache/pending"
 	"time"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
+	"github.com/vitelabs/go-vite/crypto"
 )
 
 
@@ -55,7 +56,18 @@ func (sc *SnapshotChain) HandleSendBlocks (msg *protoTypes.SnapshotBlocksMsg, pe
 			globalRWMutex.RLock()
 			defer globalRWMutex.RUnlock()
 
-			err := sc.scAccess.WriteBlock(block)
+			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
+				// Let the pool discard the block.
+				return true
+			}
+			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
+			if !isVerified || verifyErr != nil{
+				// Let the pool discard the block.
+				return true
+			}
+
+			err := sc.scAccess.WriteBlock(block, nil)
+
 			if err != nil {
 				log.Println(err)
 
@@ -183,7 +195,16 @@ func (sc *SnapshotChain) WriteMiningBlock (block *ledger.SnapshotBlock) error {
 	globalRWMutex.RLock()
 	defer globalRWMutex.RUnlock()
 
-	err := sc.scAccess.WriteBlock(block)
+	err := sc.scAccess.WriteBlock(block, func(block *ledger.SnapshotBlock) (*ledger.SnapshotBlock, error) {
+		var signErr error
+
+		block.Signature, block.PublicKey, signErr =
+				sc.vite.WalletManager().KeystoreManager.SignData(*block.Producer, block.Hash.Bytes())
+
+
+		return block, signErr
+	})
+
 	if err != nil {
 		return err
 	}

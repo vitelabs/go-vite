@@ -56,15 +56,17 @@ func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer
 		defer globalRWMutex.RUnlock()
 
 		for _, block := range *msg {
-			// Verify signature
-			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
 
-			if verifyErr != nil {
-				log.Println(verifyErr)
+			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
+				// Discard the block.
 				continue
 			}
 
-			if !isVerified {
+			// Verify signature
+			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
+
+			if verifyErr != nil || !isVerified{
+				// Discard the block.
 				continue
 			}
 
@@ -166,6 +168,9 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 	block.Nounce = []byte{0, 0, 0, 0, 0}
 	block.Difficulty = []byte{0, 0, 0, 0, 0}
 	block.FAmount = big.NewInt(0)
+
+	// Set PublicKey
+	block.PublicKey = accountMeta.PublicKey
 
 	writeErr := ac.acAccess.WriteBlock(block, func(accountBlock *ledger.AccountBlock) (*ledger.AccountBlock, error) {
 		var signErr error

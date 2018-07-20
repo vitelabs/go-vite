@@ -5,7 +5,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
-	"time"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/crypto"
 	"bytes"
@@ -506,39 +505,29 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 }
 
 
-
-func GetGenesisBlocks () ([]*AccountBlock){
-	firstBlockHash, _ := types.BytesToHash([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
-	secondBlockHash, _ := types.BytesToHash([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
-
-	viteMintageBlock := &AccountBlock{
-		AccountAddress: &GenesisAccount,
+func GetGenesisBlockFirst () (*AccountBlock){
+	return &AccountBlock{
+		AccountAddress: GenesisSnapshotBlock.Producer,
 		To: 			&MintageAddress,
 
-		SnapshotTimestamp: &GenesisSnapshotBlockHash,
-		Timestamp: uint64(time.Now().Unix()),
-		Hash:           &firstBlockHash,             // mock
+		SnapshotTimestamp: GenesisSnapshotBlock.Hash,
+		Timestamp: uint64(1532084800),
 		Data: "{" +
 			"\"tokenName\": \"vite\"," +
 			"\"tokenSymbol\": \"VITE\"," +
-			"\"owner\":\""+ GenesisAccount.String() +"\"," +
+			"\"owner\":\""+ GenesisSnapshotBlock.Producer.String() +"\"," +
 			"\"decimals\": 18," +
 			"\"tokenId\":\"" + MockViteTokenId.String() + "\"," +
 			"\"totalSupply\": \"1000000000\"" +
 			"}",
 	}
-
-	genesisAccountBlock := &AccountBlock{
-		AccountAddress: &GenesisAccount,
-		FromHash: &firstBlockHash,
-		PrevHash: &firstBlockHash,
-		TokenId: &MockViteTokenId,
-
-		Timestamp: uint64(time.Now().Unix()),
-		SnapshotTimestamp: &GenesisSnapshotBlockHash,
-		Hash: &secondBlockHash,
-	}
-
-	return []*AccountBlock{viteMintageBlock, genesisAccountBlock}
 }
+func GetGenesisBlockSecond (fromHash *types.Hash) (*AccountBlock){
+	return &AccountBlock{
+		AccountAddress: GenesisSnapshotBlock.Producer,
+		FromHash: fromHash,
 
+		Timestamp: uint64(1532084900),
+		SnapshotTimestamp: GenesisSnapshotBlock.Hash,
+	}
+}
