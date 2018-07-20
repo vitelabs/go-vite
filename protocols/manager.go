@@ -6,71 +6,25 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"fmt"
 	"log"
-	"errors"
 	"time"
 	"math/big"
 	protoType "github.com/vitelabs/go-vite/protocols/types"
+	"github.com/vitelabs/go-vite/protocols/interfaces"
+	ledgerHandler "github.com/vitelabs/go-vite/ledger/handler_interface"
 )
 
 var enoughPeersTimeout = 3 * time.Minute
 const enoughPeers = 5
 const broadcastConcurrency = 10
 
-type ProtoHandler func(protoType.Serializable, *protoType.Peer) error
-type SyncPeer func(*protoType.Peer)
-
-type ProtoHandlers struct {
-	mutex sync.RWMutex
-	handlers map[uint64]ProtoHandler
-	sync SyncPeer
-}
-
-func (pm *ProtoHandlers) RegHandler(code uint64, fn ProtoHandler) {
-	pm.mutex.Lock()
-	defer pm.mutex.Unlock()
-
-	pm.handlers[code] = fn
-}
-
-func (pm *ProtoHandlers) RegSync(fn SyncPeer) {
-	pm.mutex.Lock()
-	defer pm.mutex.Unlock()
-
-	pm.sync = fn
-}
-
-type blockchain interface {
-	GetLatestBlock() (*ledger.SnapshotBlock, error)
-}
-
 type ProtocolManager struct {
-	ProtoHandlers
 	Peers *PeersMap
 	Start time.Time
 	Syncing bool
-	chain blockchain
-}
-
-func (pm *ProtocolManager) HandleMsg(code uint64, s protoType.Serializable, peer *protoType.Peer) error {
-	if code == protoType.StatusMsgCode {
-		status, ok := s.(*protoType.StatusMsg)
-		if ok {
-			pm.HandleStatusMsg(status, peer)
-			return nil
-		} else {
-			return errors.New("status msg payload unmatched")
-		}
-	}
-
-	pm.mutex.RLock()
-	handler := pm.handlers[code]
-	pm.mutex.RUnlock()
-
-	if handler == nil {
-		return fmt.Errorf("missing handler for msg code: %d\n", code)
-	}
-
-	return handler(s, peer)
+	vite interfaces.Vite
+	schain ledgerHandler.SnapshotChain
+	achain ledgerHandler.AccountChain
+	mutex sync.RWMutex
 }
 
 func (pm *ProtocolManager) HandleStatusMsg(status *protoType.StatusMsg, peer *protoType.Peer) {
@@ -113,8 +67,9 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
+	var err error
+
 	for {
-		var m protoType.Serializable
 		select {
 		case <- peer.Closed:
 			pm.Peers.DelPeer(protoPeer)
@@ -122,23 +77,31 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 		case msg := <- peer.ProtoMsg:
 			switch msg.Code {
 			case protoType.StatusMsgCode:
-				m = new(protoType.StatusMsg)
+				m := new(protoType.StatusMsg)
+				m.NetDeserialize(msg.Payload)
+				pm.HandleStatusMsg(m, protoPeer)
 			case protoType.GetSnapshotBlocksMsgCode:
-				m = new(protoType.GetSnapshotBlocksMsg)
+				m := new(protoType.GetSnapshotBlocksMsg)
+				m.NetDeserialize(msg.Payload)
+				err = pm.schain.HandleGetBlocks(m, protoPeer)
 			case protoType.SnapshotBlocksMsgCode:
-				m = new(protoType.SnapshotBlocksMsg)
+				m := new(protoType.SnapshotBlocksMsg)
+				m.NetDeserialize(msg.Payload)
+				err = pm.schain.HandleSendBlocks(m, protoPeer)
 			case protoType.GetAccountBlocksMsgCode:
-				m = new(protoType.GetAccountBlocksMsg)
+				m := new(protoType.GetAccountBlocksMsg)
+				m.NetDeserialize(msg.Payload)
+				err = pm.achain.HandleGetBlocks(m, protoPeer)
 			case protoType.AccountBlocksMsgCode:
-				m = new(protoType.AccountBlocksMsg)
+				m := new(protoType.AccountBlocksMsg)
+				m.NetDeserialize(msg.Payload)
+				err = pm.achain.HandleSendBlocks(m, protoPeer)
 			default:
 				peer.Errch <- fmt.Errorf("unknown message code %d\n", msg.Code)
 				return
 			}
 
-			m.NetDeserialize(msg.Payload)
-
-			if err := pm.HandleMsg(msg.Code, m, protoPeer); err != nil {
+			if err != nil {
 				log.Printf("pm handle msg %d error: %v\n", msg.Code, err)
 				peer.Errch <- err
 			} else {
@@ -225,17 +188,22 @@ func (pm *ProtocolManager) Sync() {
 	bestPeer := pm.Peers.BestPeer()
 	currentBlock := pm.CurrentBlock()
 	if bestPeer.Height.Cmp(currentBlock.Height) > 0 {
-		pm.mutex.Lock()
-		if pm.Syncing {
-			// do nothing.
-		} else if pm.sync != nil {
-			pm.Syncing = true
-			pm.sync(bestPeer)
+		if pm.schain.SyncPeer != nil {
+			pm.mutex.Lock()
+			if pm.Syncing {
+				log.Println("is already syncing")
+				pm.mutex.Unlock()
+				return
+			} else {
+				pm.Syncing = true
+				pm.mutex.Unlock()
+			}
+
+			pm.schain.SyncPeer(bestPeer)
 			log.Printf("begin sync from %s to height \n", bestPeer.ID, bestPeer.Height)
 		} else {
 			log.Println("missing sync method")
 		}
-		pm.mutex.Unlock()
 	}
 }
 
@@ -246,7 +214,7 @@ func (pm *ProtocolManager) SyncDone() {
 }
 
 func (pm *ProtocolManager) CurrentBlock() (block *ledger.SnapshotBlock) {
-	block, err :=  pm.chain.GetLatestBlock()
+	block, err :=  pm.schain.GetLatestBlock()
 	if err != nil {
 		log.Fatalf("pm.chain.GetLatestBlock error: %v\n", err)
 	}
@@ -254,14 +222,13 @@ func (pm *ProtocolManager) CurrentBlock() (block *ledger.SnapshotBlock) {
 	return block
 }
 
-func NewProtocolManager(vite Vite) *ProtocolManager {
+func NewProtocolManager(vite interfaces.Vite) *ProtocolManager {
 	return &ProtocolManager {
-		ProtoHandlers: ProtoHandlers{
-			handlers: make(map[uint64]ProtoHandler),
-		},
 		Peers: NewPeersMap(),
 		Start: time.Now(),
-		chain: bc,
+		schain: vite.Ledger().Sc(),
+		achain: vite.Ledger().Ac(),
+		vite: vite,
 	}
 }
 
