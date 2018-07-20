@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/vitelabs/go-vite/protocols"
+	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"github.com/vitelabs/go-vite/ledger/access"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
@@ -30,7 +30,7 @@ func NewSnapshotChain (vite Vite) (*SnapshotChain) {
 }
 
 // HandleGetBlock
-func (sc *SnapshotChain) HandleGetBlocks (msg *protocols.GetSnapshotBlocksMsg, peer *protocols.Peer) error {
+func (sc *SnapshotChain) HandleGetBlocks (msg *protoTypes.GetSnapshotBlocksMsg, peer *protoTypes.Peer) error {
 	go func() {
 		blocks, err := sc.scAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
 		if err != nil {
@@ -38,8 +38,8 @@ func (sc *SnapshotChain) HandleGetBlocks (msg *protocols.GetSnapshotBlocksMsg, p
 			return
 		}
 
-		sc.vite.Pm().SendMsg(peer, &protocols.Msg{
-			Code: protocols.SnapshotBlocksMsgCode,
+		sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+			Code: protoTypes.SnapshotBlocksMsgCode,
 			Payload: blocks,
 		})
 	}()
@@ -49,7 +49,7 @@ func (sc *SnapshotChain) HandleGetBlocks (msg *protocols.GetSnapshotBlocksMsg, p
 var pendingPool *pending.SnapshotchainPool
 
 // HandleBlockHash
-func (sc *SnapshotChain) HandleSendBlocks (msg protocols.SnapshotBlocksMsg, peer *protocols.Peer) error {
+func (sc *SnapshotChain) HandleSendBlocks (msg *protoTypes.SnapshotBlocksMsg, peer *protoTypes.Peer) error {
 	if pendingPool == nil {
 		pendingPool = pending.NewSnapshotchainPool(func (block *ledger.SnapshotBlock) bool {
 			globalRWMutex.RLock()
@@ -83,9 +83,9 @@ func (sc *SnapshotChain) HandleSendBlocks (msg protocols.SnapshotBlocksMsg, peer
 							gap := &big.Int{}
 							gap = gap.Sub(item.TargetBlockHeight, currentBlockHeight)
 
-							sc.vite.Pm().SendMsg(peer, &protocols.Msg{
-								Code: protocols.GetAccountBlocksMsgCode,
-								Payload: &protocols.GetAccountBlocksMsg{
+							sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+								Code: protoTypes.GetAccountBlocksMsgCode,
+								Payload: &protoTypes.GetAccountBlocksMsg{
 									Origin: *item.TargetBlockHash,
 									Count: gap.Uint64(),
 									Forward: false,
@@ -121,7 +121,7 @@ func (sc *SnapshotChain) HandleSendBlocks (msg protocols.SnapshotBlocksMsg, peer
 		})
 	}
 
-	pendingPool.Add(msg)
+	pendingPool.Add(*msg)
 
 	return nil
 }
@@ -129,7 +129,7 @@ func (sc *SnapshotChain) HandleSendBlocks (msg protocols.SnapshotBlocksMsg, peer
 var firstSyncDone = false
 var syncInfo = &handler_interface.SyncInfo{}
 
-func (sc *SnapshotChain) syncPeer (peer *protocols.Peer) error {
+func (sc *SnapshotChain) syncPeer (peer *protoTypes.Peer) error {
 	latestBlock, err := sc.scAccess.GetLatestBlock()
 	if err != nil {
 		return err
@@ -147,9 +147,9 @@ func (sc *SnapshotChain) syncPeer (peer *protocols.Peer) error {
 	count := &big.Int{}
 	count.Sub(peer.Height, latestBlock.Height)
 
-	sc.vite.Pm().SendMsg(peer, &protocols.Msg {
-		Code: protocols.GetSnapshotBlocksMsgCode,
-		Payload: &protocols.GetSnapshotBlocksMsg{
+	sc.vite.Pm().SendMsg(peer, &protoTypes.Msg {
+		Code: protoTypes.GetSnapshotBlocksMsgCode,
+		Payload: &protoTypes.GetSnapshotBlocksMsg{
 			Origin: *latestBlock.Hash,
 			Count: count.Uint64(),
 			Forward: true,
@@ -159,7 +159,7 @@ func (sc *SnapshotChain) syncPeer (peer *protocols.Peer) error {
 	return nil
 }
 
-func (sc *SnapshotChain) SyncPeer (peer *protocols.Peer) {
+func (sc *SnapshotChain) SyncPeer (peer *protoTypes.Peer) {
 	// Do syncing
 	err := sc.syncPeer(peer)
 
@@ -189,9 +189,9 @@ func (sc *SnapshotChain) WriteMiningBlock (block *ledger.SnapshotBlock) error {
 	}
 
 	// Broadcast
-	sc.vite.Pm().SendMsg(nil, &protocols.Msg {
-		Code: protocols.SnapshotBlocksMsgCode,
-		Payload: &protocols.SnapshotBlocksMsg{block},
+	sc.vite.Pm().SendMsg(nil, &protoTypes.Msg {
+		Code: protoTypes.SnapshotBlocksMsgCode,
+		Payload: &protoTypes.SnapshotBlocksMsg{block},
 	})
 	return nil
 }
