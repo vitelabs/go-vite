@@ -8,8 +8,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"sync"
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vitepb/proto"
 	"log"
+	"github.com/vitelabs/go-vite/vitepb"
 )
 
 // @section Peer for protocol handle, not p2p Peer.

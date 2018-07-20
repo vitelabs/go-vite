@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"github.com/vitelabs/go-vite/common/types"
 	"log"
+	"github.com/vitelabs/go-vite/ledger/cache/pending"
+	"time"
 )
 
 type SyncInfo struct {
@@ -16,11 +18,11 @@ type SyncInfo struct {
 }
 
 
-
 type SnapshotChain struct {
 	// Handle block
 	vite Vite
 	scAccess *access.SnapshotChainAccess
+	acAccess *access.AccountChainAccess
 }
 
 func NewSnapshotChain (vite Vite) (*SnapshotChain) {
@@ -47,28 +49,82 @@ func (sc *SnapshotChain) HandleGetBlocks (msg *protocols.GetSnapshotBlocksMsg, p
 	return nil
 }
 
-//func sortSnapshotBlocks (msg protocols.SnapshotBlocksMsg) (protocols.SnapshotBlocksMsg) {
-//	newMsg :=  protocols.SnapshotBlocksMsg{}
-//	for e := range msg {
-//
-//	}
-//}
+var pendingPool *pending.SnapshotchainPool
 
 // HandleBlockHash
 func (sc *SnapshotChain) HandleSendBlocks (msg protocols.SnapshotBlocksMsg, peer *protocols.Peer) error {
-	go func() {
-		globalRWMutex.RLock()
-		defer globalRWMutex.RUnlock()
+	if pendingPool == nil {
+		pendingPool = pending.NewSnapshotchainPool(func (block *ledger.SnapshotBlock) bool {
+			globalRWMutex.RLock()
+			defer globalRWMutex.RUnlock()
 
-		for _, block := range msg {
 			err := sc.scAccess.WriteBlock(block)
 			if err != nil {
 				log.Println(err)
+
+				switch err.(type) {
+				case access.ScWriteError:
+					scWriteError := err.(access.ScWriteError)
+					if scWriteError.Code == access.WscNeedSyncErr {
+						needSyncData := scWriteError.Data.([]*access.WscNeedSyncErrData)
+						for _, item := range needSyncData {
+							latestBlock, err := sc.acAccess.GetLatestBlockByAccountAddress(item.AccountAddress)
+							if err != nil {
+								// Sync in the next time
+								continue
+							}
+
+							currentBlockHeight := big.NewInt(0)
+							if latestBlock != nil {
+								currentBlockHeight = latestBlock.Meta.Height
+							}
+							if item.TargetBlockHeight.Cmp(currentBlockHeight) <= 0{
+								// Don't sync when the height of target block is lower
+								continue
+							}
+
+							gap := &big.Int{}
+							gap = gap.Sub(item.TargetBlockHeight, currentBlockHeight)
+
+							sc.vite.Pm().SendMsg(peer, &protocols.Msg{
+								Code: protocols.GetAccountBlocksMsgCode,
+								Payload: &protocols.GetAccountBlocksMsg{
+									Origin: *item.TargetBlockHash,
+									Count: gap.Uint64(),
+									Forward: false,
+								},
+							})
+						}
+						return false
+					} else if scWriteError.Code == access.WscPrevHashErr {
+						preBlock := scWriteError.Data.(*ledger.SnapshotBlock)
+
+						gap := &big.Int{}
+						gap.Sub(block.Height, preBlock.Height)
+
+						if gap.Cmp(big.NewInt(1)) <= 0 {
+							// Let the pool discard the block.
+							return true
+						}
+						return false
+					}
+				}
+
+				return false
 			}
 
+			if !firstSyncDone {
+				syncInfo.CurrentHeight = block.Height
+				if syncInfo.CurrentHeight.Cmp(syncInfo.TargetHeight) >= 0 {
+					firstSyncDone = true
+				}
+			}
 
-		}
-	}()
+			return true
+		})
+	}
+
+	pendingPool.Add(msg)
 
 	return nil
 }
@@ -94,7 +150,7 @@ func (sc *SnapshotChain) syncPeer (peer *protocols.Peer) error {
 	count := &big.Int{}
 	count.Sub(peer.Height, latestBlock.Height)
 
-	sc.vite.Pm().SendMsg(peer, &protocols.Msg{
+	sc.vite.Pm().SendMsg(peer, &protocols.Msg {
 		Code: protocols.GetSnapshotBlocksMsgCode,
 		Payload: &protocols.GetSnapshotBlocksMsg{
 			Origin: *latestBlock.Hash,
@@ -103,7 +159,6 @@ func (sc *SnapshotChain) syncPeer (peer *protocols.Peer) error {
 		},
 	})
 
-
 	return nil
 }
 
@@ -111,41 +166,45 @@ func (sc *SnapshotChain) SyncPeer (peer *protocols.Peer) {
 	// Do syncing
 	err := sc.syncPeer(peer)
 
-
-	// Syncing done
+	// Syncing done, modify in future
 	sc.vite.Pm().SyncDone()
 
 	if err != nil {
 		log.Println(err)
 		// If the first syncing goes wrong, try to sync again.
-		if !firstSyncDone {
+		go func() {
+			time.Sleep(time.Duration(1000))
 			sc.vite.Pm().Sync()
-		}
-	} else {
-		firstSyncDone = true
+		}()
 	}
-
 
 }
 
 
 
-func (sc *SnapshotChain) WriteMiningBlock () error {
+func (sc *SnapshotChain) WriteMiningBlock (block *ledger.SnapshotBlock) error {
 	globalRWMutex.RLock()
 	defer globalRWMutex.RUnlock()
 
+	err := sc.scAccess.WriteBlock(block)
+	if err != nil {
+		return err
+	}
 
+	// Broadcast
 	return nil
 }
 
-func (sc *SnapshotChain) StopAllWrite () error {
+func (sc *SnapshotChain) GetNeedSnapshot () ([]*ledger.SnapshotItem) {
+	return nil
+}
+
+func (sc *SnapshotChain) StopAllWrite () {
 	globalRWMutex.Lock()
-	return nil
 }
 
-func (sc *SnapshotChain) StartAllWrite () error {
+func (sc *SnapshotChain) StartAllWrite () {
 	globalRWMutex.Unlock()
-	return nil
 }
 
 func (sc *SnapshotChain) GetLatestBlock () (*ledger.SnapshotBlock, error) {
@@ -157,7 +216,7 @@ func (sc *SnapshotChain) GetBlockByHash (hash *types.Hash) (*ledger.SnapshotBloc
 }
 
 func (sc *SnapshotChain) GetBlockByHeight (height *big.Int) (*ledger.SnapshotBlock, error) {
-	return sc.scAccess.GetLatestBlock()
+	return nil, nil
 }
 
 func (sc *SnapshotChain) GetFirstSyncInfo () (*SyncInfo) {

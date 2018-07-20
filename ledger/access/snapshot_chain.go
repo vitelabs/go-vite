@@ -71,35 +71,77 @@ func (sca *SnapshotChainAccess) WriteBlock (block *ledger.SnapshotBlock) error {
 	} else {
 		fmt.Println("Write Snapshot block " + block.Hash.String() + " succeed")
 	}
+
 	return err
 }
 
-func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.SnapshotBlock) error {
+func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.SnapshotBlock) *ScWriteError {
 	if block == nil {
-		return errors.New("The written block is not available.")
+		return &ScWriteError {
+			Code: WscDefaultErr,
+			Err: errors.New("The written block is not available."),
+		}
 	}
-	//mutex.lock
+	// Mutex.lock
 	sca.bwMutex.Lock()
 	defer sca.bwMutex.Unlock()
-	//judge whether the prehash is valid
+
+	// Judge whether the prehash is valid
 	if !bytes.Equal(block.Hash.Bytes(), ledger.GenesisSnapshotBlockHash.Bytes()) {
 		preSnapshotBlock, err := sca.store.GetLatestBlock()
 		if err != nil {
-			return err
+			return &ScWriteError {
+				Code: WscDefaultErr,
+				Err: err,
+			}
 		}
 		if !bytes.Equal(block.PrevHash.Bytes(), preSnapshotBlock.Hash.Bytes()){
-			return errors.New("PreHash of the written block doesn't direct to the latest block hash.")
+			return &ScWriteError {
+				Code: WscPrevHashErr,
+				Err: errors.New("PreHash of the written block doesn't direct to the latest block hash."),
+				Data: preSnapshotBlock,
+			}
 		}
 		newSnapshotHeight := &big.Int{}
 		block.Height = newSnapshotHeight.Add(preSnapshotBlock.Height, big.NewInt(1))
 	}
+
+	// Check account block availability
+	snapshot := block.Snapshot
+
+	var needSyncAccountBlocks []*WscNeedSyncErrData
+	for addr, snapshotItem := range snapshot {
+		if !accountChainAccess.isBlockExist(snapshotItem.AccountBlockHash) {
+			accountAddress, _ := types.HexToAddress(addr)
+			needSyncAccountBlocks = append(needSyncAccountBlocks, &WscNeedSyncErrData{
+				AccountAddress: &accountAddress,
+				TargetBlockHash: snapshotItem.AccountBlockHash,
+				TargetBlockHeight: snapshotItem.AccountBlockHeight,
+			})
+		}
+	}
+
+	if needSyncAccountBlocks != nil{
+		return  &ScWriteError {
+			Code: WscNeedSyncErr,
+			Data: needSyncAccountBlocks,
+		}
+	}
+
+
 	//snapshotBlockHeight:d.[snapshotBlockHash]:[snapshotBlockHeight]
 	if wbhErr := sca.store.WriteBlockHeight(batch, block); wbhErr != nil {
-		return wbhErr
+		return &ScWriteError {
+			Code: WscDefaultErr,
+			Err: wbhErr,
+		}
 	}
 	//snapshotBlock:e.[snapshotBlockHeight]:[snapshotBlock]
 	if wbErr := sca.store.WriteBlock(batch, block); wbErr != nil {
-		return wbErr
+		return &ScWriteError {
+			Code: WscDefaultErr,
+			Err: wbErr,
+		}
 	}
 	return nil
 }

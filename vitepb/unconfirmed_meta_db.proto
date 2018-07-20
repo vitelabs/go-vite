@@ -1,0 +1,15 @@
+syntax="proto3";
+
+package vitepb;
+
+message UnconfirmedMeta {
+    bytes accountId = 1;
+    bytes totalNumber = 2;
+    repeated UnconfirmedByToken unconfirmedList = 3;
+}
+
+message UnconfirmedByToken {
+    bytes tokenId = 1;
+    bytes totalBalance = 2;
+    repeated bytes hashList = 3;
+}

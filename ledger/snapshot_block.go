@@ -39,6 +39,11 @@ func (sblist SnapshotBlockList) NetDeserialize (buf []byte) (error) {
 	return nil
 }
 
+type SnapshotItem struct {
+	AccountBlockHash *types.Hash
+	AccountBlockHeight *big.Int
+}
+
 type SnapshotBlock struct {
 	// Snapshot block hash
 	Hash *types.Hash
@@ -53,7 +58,7 @@ type SnapshotBlock struct {
 	Producer []byte
 
 	// Current snapshot
-	Snapshot map[string]*types.Hash
+	Snapshot map[string]*SnapshotItem
 
 	// Signature
 	Signature []byte
@@ -141,23 +146,34 @@ func (sb *SnapshotBlock) SetByNetPB (pb *vitepb.SnapshotBlock) (error) {
 	return sb.SetByDbPB(pb)
 }
 
-func (sb *SnapshotBlock) GetSnapshotPB () (map[string][]byte) {
-	snapshotPB := make(map[string][]byte)
-	for key, hash := range sb.Snapshot {
-		snapshotPB[key] = hash.Bytes()
+func (sb *SnapshotBlock) GetSnapshotPB () (map[string]*vitepb.SnapshotItem) {
+	snapshotPB := make(map[string]*vitepb.SnapshotItem)
+	for key, snapshotItem := range sb.Snapshot {
+		snapshotPB[key] = &vitepb.SnapshotItem {
+			AccountBlockHash: snapshotItem.AccountBlockHash.Bytes(),
+			AccountBlockHeight: snapshotItem.AccountBlockHeight.Bytes(),
+		}
 	}
 
 	return snapshotPB
 }
 
-func (sb *SnapshotBlock) SetSnapshotByPB (snapshotPB map[string][]byte) (error) {
-	sb.Snapshot = make(map[string]*types.Hash)
-	for key, hashBytes := range snapshotPB {
-		hash, err := types.BytesToHash(hashBytes)
+func (sb *SnapshotBlock) SetSnapshotByPB (snapshotPB map[string]*vitepb.SnapshotItem) (error) {
+	sb.Snapshot = make(map[string]*SnapshotItem)
+
+	for key, snapshotItem := range snapshotPB {
+		hash, err := types.BytesToHash(snapshotItem.AccountBlockHash)
 		if err != nil {
 			return err
 		}
-		sb.Snapshot[key] = &hash
+
+		height := &big.Int{}
+		height.SetBytes(snapshotItem.AccountBlockHeight)
+
+		sb.Snapshot[key] = &SnapshotItem{
+			AccountBlockHash: &hash,
+			AccountBlockHeight: height,
+		}
 	}
 
 	return nil

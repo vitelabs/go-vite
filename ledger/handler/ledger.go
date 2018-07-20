@@ -7,7 +7,7 @@ type Ledger struct {
 	Sc *SnapshotChain
 }
 
-func NewLedger (vite handler.Vite) (*Ledger)  {
+func NewLedger (vite Vite) (*Ledger)  {
 	return &Ledger{
 		vite: vite,
 
