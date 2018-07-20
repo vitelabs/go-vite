@@ -27,14 +27,18 @@ func GetUnconfirmed () *Unconfirmed {
 	return _unconfirmed
 }
 
-func (ucf *Unconfirmed) GetUnconfirmedAccount (accountAddress *types.Address) ([]*ledger.UnconfirmedAccount, error) {
-	//key, err := createKey(DBKP_UNCONFIRMED, accountAddress)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//data, dbErr := ucf.db.Leveldb.Get(key, nil)
-	//if dbErr != nil {
-	//	return nil, dbErr
-	//}
-	return nil, nil
+func (ucf *Unconfirmed) GetUnconfirmedMeta (accountAddress *types.Address) (*ledger.UnconfirmedMeta, error) {
+	key, err := createKey(DBKP_UNCONFIRMED, accountAddress)
+	if err != nil {
+		return nil, err
+	}
+	data, dbErr := ucf.db.Leveldb.Get(key, nil)
+	if dbErr != nil {
+		return nil, dbErr
+	}
+	var ucfm = &ledger.UnconfirmedMeta{}
+	if dsErr := ucfm.DbDeserialize(data); err != nil {
+		return nil, dsErr
+	}
+	return ucfm, nil
 }
