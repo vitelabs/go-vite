@@ -158,6 +158,18 @@ func (pm *ProtocolManager) SendMsg(p *Peer, msg *Msg) error {
 		Payload: payload,
 	}
 
+	// broadcast to all peers
+	if p == nil {
+		for _, peer := range pm.Peers.peers {
+			go p2p.Send(peer.TS, m)
+		}
+
+		log.Printf("pm broadcast msg %d\n", msg.Code)
+		return nil
+	}
+
+	// send to the specified peer
+	log.Printf("pm send msg %d to %s\n", msg.Code, p.ID)
 	return p2p.Send(p.TS, m)
 }
 
