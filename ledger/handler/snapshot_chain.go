@@ -11,6 +11,7 @@ import (
 	"time"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
 	"github.com/vitelabs/go-vite/crypto"
+	"bytes"
 )
 
 
@@ -60,18 +61,34 @@ func (sc *SnapshotChain) HandleSendBlocks (msg *protoTypes.SnapshotBlocksMsg, pe
 				// Let the pool discard the block.
 				return true
 			}
+
+			// Verify hash
+			computedHash, err := block.ComputeHash()
+			if err != nil {
+				// Discard the block.
+				log.Println(err)
+				return true
+			}
+
+			if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()){
+				// Discard the block.
+				log.Println(err)
+				return true
+			}
+
+			// Verify signature
 			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
 			if !isVerified || verifyErr != nil{
 				// Let the pool discard the block.
 				return true
 			}
 
-			err := sc.scAccess.WriteBlock(block, nil)
+			wbErr := sc.scAccess.WriteBlock(block, nil)
 
-			if err != nil {
-				log.Println(err)
+			if wbErr != nil {
+				log.Println(wbErr)
 
-				switch err.(type) {
+				switch wbErr.(type) {
 				case access.ScWriteError:
 					scWriteError := err.(access.ScWriteError)
 					if scWriteError.Code == access.WscNeedSyncErr {

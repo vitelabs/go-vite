@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/vitepb"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"encoding/hex"
 )
 
 
@@ -83,27 +84,31 @@ func (sb *SnapshotBlock) getSnapshotBytes () []byte {
 	return source
 }
 
-func (sb *SnapshotBlock) SetHash () error {
+func (sb *SnapshotBlock) ComputeHash () (*types.Hash, error) {
 	// Hash source data:
 	// PrevHash|Height|Producer|Snapshot|Timestamp|Amount
 	var source []byte
-	source = append(source, sb.PrevHash.Bytes()...)
+	if sb.PrevHash != nil {
+		source = append(source, sb.PrevHash.Bytes()...)
+	}
 	source = append(source, []byte(sb.Height.String())...)
 	source = append(source, []byte(sb.Producer.String())...)
-	source = append(source, sb.getSnapshotBytes()...)
+
+	if sb.Snapshot != nil {
+		source = append(source, sb.getSnapshotBytes()...)
+	}
 
 
 	source = append(source, []byte(string(sb.Timestamp))...)
 	source = append(source, []byte(sb.Amount.String())...)
 
 
-	hash, err := types.BytesToHash(crypto.Hash(len(source), source))
+	hash, err := types.BytesToHash(crypto.Hash256(source))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	sb.Hash = &hash
-	return nil
+	return &hash, nil
 }
 
 
@@ -309,11 +314,13 @@ func (sb *SnapshotBlock) DbSerialize () ([]byte, error) {
 }
 
 
-func GetGenesisSnapshot () *SnapshotBlock {
-	var genesisSnapshotBlockHash, _ = types.BytesToHash([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
-	var genesisProducer, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
-	var genesisSignature = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
-	var genesisPublicKey = ed25519.PublicKey([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
+func GetSnapshotGenesisBlock() *SnapshotBlock {
+	var genesisSnapshotBlockHash, _ = types.HexToHash("8ac89d692c42dda43e596ca6908e113b3fa882fcec300fe9beac13edf4e543d6")
+	var genesisProducer, _ = types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
+	var genesisSignature = []byte{1,26,214,26,96,233,83,46,77,84,7,129,184,209,149,71,127,91,70,196,224,177,55,239,31,206,86,37,192,212,181,111,95,41,239,46,179,127,108,72,52,56,187,53,61,142,127,80,118,164,61,93,23,216,207,102,75,216,72,70,222,251,122,1}
+
+	publicKey, _ := hex.DecodeString("3af9a47a11140c681c2b2a85a4ce987fab0692589b2ce233bf7e174bd430177a")
+	var genesisPublicKey = ed25519.PublicKey(publicKey)
 
 	snapshotBLock := &SnapshotBlock{
 		Hash: &genesisSnapshotBlockHash,
@@ -327,4 +334,4 @@ func GetGenesisSnapshot () *SnapshotBlock {
 	return snapshotBLock
 }
 
-var GenesisSnapshotBlock = GetGenesisSnapshot()
+var SnapshotGenesisBlock = GetSnapshotGenesisBlock()

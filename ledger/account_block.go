@@ -148,38 +148,46 @@ type AccountBlock struct {
 	FAmount *big.Int
 }
 
-func (ab *AccountBlock) SetHash () error {
+func (ab *AccountBlock) ComputeHash () (*types.Hash, error) {
 	// Hash source data:
-	// PrevHash|Height|AccountAddress|PublicKey|To or FromHash|Timestamp|TokenId|Amount|Data|SnapshotTimestamp|Nounce|Difficulty|FAmount
 	var source []byte
-	source = append(source, ab.PrevHash.Bytes()...)
+	if ab.PrevHash != nil {
+		source = append(source, ab.PrevHash.Bytes()...)
+	}
 	source = append(source, []byte(ab.Meta.Height.String())...)
 	source = append(source, ab.AccountAddress.Bytes()...)
 	source = append(source, ab.PublicKey...)
 
 	if ab.To != nil {
 		source = append(source, ab.To.Bytes()...)
+		if ab.TokenId != nil {
+			source = append(source, ab.TokenId.Bytes()...)
+		}
+		if ab.Amount != nil {
+			source = append(source, []byte(ab.Amount.String())...)
+		}
 	} else {
 		source = append(source, ab.FromHash.Bytes()...)
 	}
 
 	source = append(source, []byte(string(ab.Timestamp))...)
-	source = append(source, ab.TokenId.Bytes()...)
-	source = append(source, []byte(ab.Amount.String())...)
-	source = append(source, []byte(ab.Data)...)
+
+
+	if ab.Data != "" {
+		source = append(source, []byte(ab.Data)...)
+	}
 	source = append(source, ab.SnapshotTimestamp.Bytes()...)
 
 	source = append(source, ab.Nounce...)
 	source = append(source, ab.Difficulty...)
 	source = append(source, []byte(ab.FAmount.String())...)
 
-	hash, err := types.BytesToHash(crypto.Hash(len(source), source))
+	hash, err := types.BytesToHash(crypto.Hash256(source))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	ab.Hash = &hash
-	return nil
+	return &hash, nil
 }
 
 // Genesis block
@@ -506,28 +514,45 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 
 
 func GetGenesisBlockFirst () (*AccountBlock){
+	hash, _ := types.HexToHash("dea522da8f23293a02fdb805b54aa131146031e3c65ef2a8bcec54985b5fa4b9")
 	return &AccountBlock{
-		AccountAddress: GenesisSnapshotBlock.Producer,
-		To: 			&MintageAddress,
-
-		SnapshotTimestamp: GenesisSnapshotBlock.Hash,
-		Timestamp: uint64(1532084800),
+		Hash: &hash,
+		//Signature: ,
+		Meta: &AccountBlockMeta{
+			Height:	big.NewInt(1),
+		},
+		Signature:         []byte{159, 47, 204, 220, 246, 65, 16, 33, 61, 64, 159, 109, 164, 248, 99, 179, 61, 116, 190, 167, 188, 192, 185, 36, 92, 22, 141, 62, 40, 123, 6, 230, 50, 4, 201, 245, 251, 225, 32, 178, 102, 37, 169, 55, 18, 194, 249, 29, 94, 46, 39, 197, 177, 6, 74, 173, 24, 239, 197, 191, 2, 159, 163, 4},
+		AccountAddress:    SnapshotGenesisBlock.Producer,
+		To:                &MintageAddress,
+		SnapshotTimestamp: SnapshotGenesisBlock.Hash,
+		Timestamp:         uint64(1532084800),
 		Data: "{" +
 			"\"tokenName\": \"vite\"," +
 			"\"tokenSymbol\": \"VITE\"," +
-			"\"owner\":\""+ GenesisSnapshotBlock.Producer.String() +"\"," +
+			"\"owner\":\""+ SnapshotGenesisBlock.Producer.String() +"\"," +
 			"\"decimals\": 18," +
 			"\"tokenId\":\"" + MockViteTokenId.String() + "\"," +
 			"\"totalSupply\": \"1000000000\"" +
 			"}",
 	}
 }
-func GetGenesisBlockSecond (fromHash *types.Hash) (*AccountBlock){
-	return &AccountBlock{
-		AccountAddress: GenesisSnapshotBlock.Producer,
-		FromHash: fromHash,
+func GetGenesisBlockSecond (prevHash *types.Hash, fromHash *types.Hash) (*AccountBlock){
+	hash, _ := types.HexToHash("1461ec0ac3e55164767f9e116920d7fe0129535d49310b34d641da8fc764248f")
 
-		Timestamp: uint64(1532084900),
-		SnapshotTimestamp: GenesisSnapshotBlock.Hash,
+	return &AccountBlock{
+		Hash: &hash,
+		Meta: &AccountBlockMeta{
+			Height:	big.NewInt(2),
+		},
+		Signature:      []byte{2,10,234,156,56,2,46,89,156,249,211,241,253,11,214,24,254,95,230,200,19,119,120,7,61,54,188,165,104,190,196,25,35,164,46,26,135,138,150,4,191,103,74,62,186,107,43,247,121,61,215,117,96,224,216,128,4,127,213,235,186,210,161,10},
+		AccountAddress: SnapshotGenesisBlock.Producer,
+		FromHash:       fromHash,
+		PrevHash:       prevHash,
+
+		Timestamp:         uint64(1532084900),
+		SnapshotTimestamp: SnapshotGenesisBlock.Hash,
 	}
 }
+
+var AccountGenesisBlockFirst = GetGenesisBlockFirst()
+var AccountGenesisBlockSecond = GetGenesisBlockSecond(AccountGenesisBlockFirst.Hash, AccountGenesisBlockFirst.Hash)

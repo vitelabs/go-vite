@@ -10,6 +10,7 @@ import (
 	"errors"
 	"time"
 	"math/big"
+	"bytes"
 )
 
 type AccountChain struct {
@@ -61,7 +62,19 @@ func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer
 				// Discard the block.
 				continue
 			}
+			// Verify hash
+			computedHash, err := block.ComputeHash()
+			if err != nil {
+				// Discard the block.
+				log.Println(err)
+				continue
+			}
 
+			if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()){
+				// Discard the block.
+				log.Println(err)
+				continue
+			}
 			// Verify signature
 			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
 

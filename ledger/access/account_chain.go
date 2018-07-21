@@ -369,7 +369,15 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 
 	// Set hash
 	if block.Hash == nil {
-		block.SetHash()
+		hash, err := block.ComputeHash()
+		if err != nil {
+			return &AcWriteError{
+				Code: WacDefaultErr,
+				Err: err,
+			}
+		}
+
+		block.Hash = hash
 	}
 
 	// Sign
@@ -521,7 +529,7 @@ func (aca *AccountChainAccess) getNewLastStId (block *ledger.AccountBlock) (*big
 
 	if !ok {
 		var stHeight *big.Int
-		if block.SnapshotTimestamp.String() == ledger.GenesisSnapshotBlock.Hash.String() {
+		if block.SnapshotTimestamp.String() == ledger.SnapshotGenesisBlock.Hash.String() {
 			stHeight = big.NewInt(1)
 		}  else  {
 			var err error

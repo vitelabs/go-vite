@@ -44,9 +44,14 @@ func (sca *SnapshotChainAccess) CheckAndCreateGenesisBlock () {
 }
 
 func (sca *SnapshotChainAccess) createGenesisBlock () {
-	genesisBlock := ledger.GetGenesisSnapshot()
 	err := sca.store.BatchWrite(nil, func(batch *leveldb.Batch) error {
-		 if err := sca.writeBlock(batch, genesisBlock , nil); err != nil {
+		 if err := sca.writeBlock(batch, ledger.SnapshotGenesisBlock , nil); err != nil {
+			return err
+		 }
+		 if err := accountChainAccess.writeBlock(batch, ledger.AccountGenesisBlockFirst, nil); err != nil {
+			return err
+		 }
+		 if err := accountChainAccess.writeBlock(batch, ledger.AccountGenesisBlockFirst,nil); err != nil {
 			return err
 		 }
 		 return nil
@@ -59,11 +64,11 @@ func (sca *SnapshotChainAccess) createGenesisBlock () {
 
 func (sca *SnapshotChainAccess) checkGenesisBlock (genesisBlock *ledger.SnapshotBlock) bool {
 	return genesisBlock.PrevHash == nil &&
-		bytes.Equal(genesisBlock.Producer.Bytes(), ledger.GenesisSnapshotBlock.Producer.Bytes()) &&
-		bytes.Equal(genesisBlock.Signature, ledger.GenesisSnapshotBlock.Signature) &&
-		bytes.Equal(genesisBlock.Hash.Bytes(), ledger.GenesisSnapshotBlock.Hash.Bytes()) &&
-		bytes.Equal(genesisBlock.PublicKey, ledger.GenesisSnapshotBlock.PublicKey) &&
-		genesisBlock.Timestamp == ledger.GenesisSnapshotBlock.Timestamp &&
+		bytes.Equal(genesisBlock.Producer.Bytes(), ledger.SnapshotGenesisBlock.Producer.Bytes()) &&
+		bytes.Equal(genesisBlock.Signature, ledger.SnapshotGenesisBlock.Signature) &&
+		bytes.Equal(genesisBlock.Hash.Bytes(), ledger.SnapshotGenesisBlock.Hash.Bytes()) &&
+		bytes.Equal(genesisBlock.PublicKey, ledger.SnapshotGenesisBlock.PublicKey) &&
+		genesisBlock.Timestamp == ledger.SnapshotGenesisBlock.Timestamp &&
 		genesisBlock.Height.Cmp( big.NewInt(1)) == 0
 }
 
@@ -141,15 +146,17 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 	defer sca.bwMutex.Unlock()
 
 	if block.Hash == nil {
-		if err := block.SetHash(); err != nil {
+		hash, err := block.ComputeHash()
+		if err != nil {
 			return &ScWriteError{
 				Code: WscSetHashErr,
 				Err: err,
 			}
 		}
+		block.Hash = hash
 	}
 
-	isGenesisBlock := bytes.Equal(block.Hash.Bytes(), ledger.GenesisSnapshotBlock.Hash.Bytes())
+	isGenesisBlock := bytes.Equal(block.Hash.Bytes(), ledger.SnapshotGenesisBlock.Hash.Bytes())
 	// Judge whether the prehash is valid
 	if !isGenesisBlock {
 		preSnapshotBlock, err := sca.store.GetLatestBlock()
