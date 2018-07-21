@@ -743,11 +743,10 @@ type DiscvConfig struct {
 	DBPath string
 	BootNodes []*Node
 	Addr *net.UDPAddr
-	ExternalIP net.IP
 }
 
 type discover struct {
-	conn net.UDPConn
+	conn *net.UDPConn
 	tab *table
 	priv ed25519.PrivateKey
 	reqing chan *req
@@ -755,25 +754,36 @@ type discover struct {
 	stopped chan struct{}
 }
 
-func newDiscover(cfg *DiscvConfig) (*table, error) {
+func newDiscover(cfg *DiscvConfig) (*table, *net.UDPAddr, error) {
 	laddr := cfg.Addr
 	conn, err := net.ListenUDP("udp", laddr)
+	if err != nil {
+		log.Fatalf("discv listen udp error: %v\n", err)
+	}
 	discv := &discover{
-		conn: *conn,
+		conn: conn,
 		priv: cfg.Priv,
 		reqing: make(chan *req),
 		getres: make(chan *res),
 		stopped: make(chan struct{}),
 	}
 
-	exIp := cfg.ExternalIP
-	if exIp == nil {
-		exIp = laddr.IP
+	// get the real local address. eg. 127.0.0.1:8483
+	laddr = conn.LocalAddr().(*net.UDPAddr)
+
+	// get the publicIP announced to other nodes.
+	var publicIP net.IP
+	extIP, err := getExtIP()
+	if err != nil {
+		log.Printf("got external ip error: %v\n", err)
+		publicIP = laddr.IP
+	} else {
+		publicIP = extIP
 	}
 
 	node := &Node{
 		ID: priv2ID(cfg.Priv),
-		IP: exIp,
+		IP: publicIP,
 		Port: uint16(laddr.Port),
 	}
 	log.Printf("self: %s\n", node)
@@ -781,13 +791,13 @@ func newDiscover(cfg *DiscvConfig) (*table, error) {
 	discv.tab, err = newTable(node, discv, cfg.DBPath, cfg.BootNodes)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	go discv.loop()
 	go discv.readLoop()
 
-	return discv.tab, nil
+	return discv.tab, laddr, nil
 }
 
 // after send query. wating for reply.
