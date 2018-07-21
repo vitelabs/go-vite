@@ -10,6 +10,8 @@ import (
 	"github.com/vitelabs/go-vite/ledger/cache/pending"
 	"time"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
+	"github.com/vitelabs/go-vite/crypto"
+	"bytes"
 )
 
 
@@ -55,11 +57,38 @@ func (sc *SnapshotChain) HandleSendBlocks (msg *protoTypes.SnapshotBlocksMsg, pe
 			globalRWMutex.RLock()
 			defer globalRWMutex.RUnlock()
 
-			err := sc.scAccess.WriteBlock(block)
-			if err != nil {
-				log.Println(err)
+			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
+				// Let the pool discard the block.
+				return true
+			}
 
-				switch err.(type) {
+			// Verify hash
+			computedHash, err := block.ComputeHash()
+			if err != nil {
+				// Discard the block.
+				log.Println(err)
+				return true
+			}
+
+			if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()){
+				// Discard the block.
+				log.Println(err)
+				return true
+			}
+
+			// Verify signature
+			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
+			if !isVerified || verifyErr != nil{
+				// Let the pool discard the block.
+				return true
+			}
+
+			wbErr := sc.scAccess.WriteBlock(block, nil)
+
+			if wbErr != nil {
+				log.Println(wbErr)
+
+				switch wbErr.(type) {
 				case access.ScWriteError:
 					scWriteError := err.(access.ScWriteError)
 					if scWriteError.Code == access.WscNeedSyncErr {
@@ -183,7 +212,16 @@ func (sc *SnapshotChain) WriteMiningBlock (block *ledger.SnapshotBlock) error {
 	globalRWMutex.RLock()
 	defer globalRWMutex.RUnlock()
 
-	err := sc.scAccess.WriteBlock(block)
+	err := sc.scAccess.WriteBlock(block, func(block *ledger.SnapshotBlock) (*ledger.SnapshotBlock, error) {
+		var signErr error
+
+		block.Signature, block.PublicKey, signErr =
+				sc.vite.WalletManager().KeystoreManager.SignData(*block.Producer, block.Hash.Bytes())
+
+
+		return block, signErr
+	})
+
 	if err != nil {
 		return err
 	}

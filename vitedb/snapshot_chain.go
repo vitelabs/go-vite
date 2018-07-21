@@ -146,6 +146,14 @@ func (sbc *SnapshotChain) GetBlocksFromOrigin (originBlockHash *types.Hash, coun
 			return nil, sdErr
 		}
 
+		accountDb := GetAccount()
+
+		account, err := accountDb.GetAccountMetaByAddress(sb.Producer)
+		if err != nil {
+			return nil, err
+		}
+
+		sb.PublicKey = account.PublicKey
 		sbList = append(sbList, sb)
 	}
 

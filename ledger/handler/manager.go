@@ -10,12 +10,16 @@ type Manager struct {
 }
 
 func NewManager(vite Vite) (*Manager)  {
-	return &Manager{
+	manager := &Manager{
 		vite: vite,
 
 		ac: NewAccountChain(vite),
 		sc: NewSnapshotChain(vite),
 	}
+
+	// Check if the genesis blocks exists and if it doesn't, create the genesis blocks
+	manager.sc.scAccess.CheckAndCreateGenesisBlock()
+	return manager
 }
 
 func (m *Manager) Ac () handler_interface.AccountChain{

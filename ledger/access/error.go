@@ -36,6 +36,8 @@ const  (
 	WscDefaultErr = iota
 	WscNeedSyncErr
 	WscPrevHashErr
+	WscSetHashErr
+	WscSignErr
 )
 
 type WscNeedSyncErrData struct {
