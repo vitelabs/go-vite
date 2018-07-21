@@ -454,6 +454,7 @@ func (svr *Server) ScheduleTask() {
 schedule:
 	for {
 		scheduleTasks()
+
 		select {
 		case <- svr.stopped:
 			break schedule
