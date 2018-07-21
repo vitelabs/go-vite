@@ -99,7 +99,7 @@ func (gs *GetSnapshotBlocksMsg) NetDeserialize(data []byte) error {
 type SnapshotBlocksMsg []*ledger.SnapshotBlock
 
 func (s *SnapshotBlocksMsg) NetSerialize() ([]byte, error) {
-	bs := make([]*vitepb.SnapshotBlock, len(*s))
+	bs := make([]*vitepb.SnapshotBlockNet, len(*s))
 
 	for i, b := range *s {
 		bs[i] = b.GetNetPB()
