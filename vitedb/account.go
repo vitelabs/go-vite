@@ -8,6 +8,7 @@ import (
 	"log"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/pkg/errors"
 )
 
 type Account struct {
@@ -37,7 +38,7 @@ func (account *Account) WriteMeta (batch *leveldb.Batch, accountAddress *types.A
 	}
 	data, err := meta.DbSerialize()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "vitedb.Account.WriteMeta")
 	}
 
 	batch.Put(key, data)

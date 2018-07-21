@@ -18,7 +18,7 @@ func NewManager(vite Vite) (*Manager)  {
 	}
 
 	// Check if the genesis blocks exists and if it doesn't, create the genesis blocks
-	manager.sc.scAccess.CheckAndCreateGenesisBlock()
+	manager.sc.scAccess.CheckAndCreateGenesisBlocks()
 	return manager
 }
 

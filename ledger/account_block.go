@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"bytes"
 	"github.com/vitelabs/go-vite/vitepb"
+	"fmt"
 )
 
 type AccountBlockMeta struct {
@@ -192,8 +193,26 @@ func (ab *AccountBlock) ComputeHash () (*types.Hash, error) {
 
 // Genesis block
 func (ab *AccountBlock) IsGenesisBlock () bool {
-	return ab.IsSendBlock() && bytes.Equal(ab.AccountAddress.Bytes(), GenesisAccount.Bytes()) && ab.PrevHash == nil
+	return ab.PrevHash == nil &&
+		bytes.Equal(ab.AccountAddress.Bytes(), AccountGenesisBlockFirst.AccountAddress.Bytes()) &&
+		bytes.Equal(ab.Signature, AccountGenesisBlockFirst.Signature) &&
+		bytes.Equal(ab.Hash.Bytes(), AccountGenesisBlockFirst.Hash.Bytes())
 }
+
+// Genesis second block
+func (ab *AccountBlock) IsGenesisSecondBlock () bool {
+	fmt.Println(bytes.Equal(ab.AccountAddress.Bytes(), AccountGenesisBlockSecond.AccountAddress.Bytes()))
+	fmt.Println(bytes.Equal(ab.Signature, AccountGenesisBlockSecond.Signature))
+	fmt.Println(bytes.Equal(ab.Hash.Bytes(), AccountGenesisBlockSecond.Hash.Bytes()))
+
+	fmt.Println(ab.Hash.String())
+	fmt.Println(AccountGenesisBlockSecond.Hash.String())
+
+	return bytes.Equal(ab.AccountAddress.Bytes(), AccountGenesisBlockSecond.AccountAddress.Bytes()) &&
+		bytes.Equal(ab.Signature, AccountGenesisBlockSecond.Signature) &&
+		bytes.Equal(ab.Hash.Bytes(), AccountGenesisBlockSecond.Hash.Bytes())
+}
+
 
 // Send block
 func (ab *AccountBlock) IsSendBlock () bool {

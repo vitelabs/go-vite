@@ -6,106 +6,114 @@ import (
 	"sync"
 	"github.com/syndtr/goleveldb/leveldb"
 	"errors"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"bytes"
 	"math/big"
 	"log"
+	errors2 "github.com/pkg/errors"
 )
 
 type SnapshotChainAccess struct {
-	store *vitedb.SnapshotChain
-	accountStore  *vitedb.Account
-	bwMutex sync.RWMutex
+	store        *vitedb.SnapshotChain
+	accountStore *vitedb.Account
+	bwMutex      sync.RWMutex
 }
 
-var snapshotChainAccess = &SnapshotChainAccess {
-	store: vitedb.GetSnapshotChain(),
-	accountStore:  vitedb.GetAccount(),
+var snapshotChainAccess = &SnapshotChainAccess{
+	store:        vitedb.GetSnapshotChain(),
+	accountStore: vitedb.GetAccount(),
 }
 
-func GetSnapshotChainAccess () *SnapshotChainAccess {
+func GetSnapshotChainAccess() *SnapshotChainAccess {
 	return snapshotChainAccess
 }
 
-func (sca *SnapshotChainAccess) CheckAndCreateGenesisBlock () {
-	genesisBlock, err := sca.store.GetBLockByHeight(big.NewInt(1))
-	if err != nil && err != leveldb.ErrNotFound{
-		log.Fatal(errors.New("Create genesis block failed. Error is " + err.Error()))
+func (sca *SnapshotChainAccess) CheckAndCreateGenesisBlocks() {
+
+	// Check snapshotGenesisBlock
+	snapshotGenesisBlock, err := sca.store.GetBLockByHeight(big.NewInt(1))
+	if err != nil && err != leveldb.ErrNotFound {
+		log.Fatal(errors2.Wrap(err, "CheckAndCreateGenesisBlocks"))
 	}
 
-	if genesisBlock == nil {
-		sca.createGenesisBlock()
+	if snapshotGenesisBlock == nil {
+		sca.WriteGenesisBlock()
 	} else {
-		if ok := sca.checkGenesisBlock(genesisBlock); !ok {
-			log.Fatal("Genesis block is invalid.")
+		if ok := snapshotGenesisBlock.IsGenesisBlock(); !ok {
+			log.Fatal(errors2.Wrap(errors.New("SnapshotGenesisBlock is not valid."), "CheckAndCreateGenesisBlocks"))
 		}
 	}
-}
 
-func (sca *SnapshotChainAccess) createGenesisBlock () {
-	err := sca.store.BatchWrite(nil, func(batch *leveldb.Batch) error {
-		 if err := sca.writeBlock(batch, ledger.SnapshotGenesisBlock , nil); err != nil {
-			return err
-		 }
-		 if err := accountChainAccess.writeBlock(batch, ledger.AccountGenesisBlockFirst, nil); err != nil {
-			return err
-		 }
-		 if err := accountChainAccess.writeBlock(batch, ledger.AccountGenesisBlockFirst,nil); err != nil {
-			return err
-		 }
-		 return nil
-	})
-
-	if err != nil {
-		log.Fatal("Create genesis block failed. Error is " + err.Error())
+	// Check accountGenesisBlockFirst
+	accountGenesisBlockFirst, err := accountChainAccess.GetBlockByHash(ledger.AccountGenesisBlockFirst.Hash)
+	if err != nil && err != leveldb.ErrNotFound {
+		log.Fatal(errors2.Wrap(err, "CheckAccountGenesisBlockFirst"))
 	}
-}
 
-func (sca *SnapshotChainAccess) checkGenesisBlock (genesisBlock *ledger.SnapshotBlock) bool {
-	return genesisBlock.PrevHash == nil &&
-		bytes.Equal(genesisBlock.Producer.Bytes(), ledger.SnapshotGenesisBlock.Producer.Bytes()) &&
-		bytes.Equal(genesisBlock.Signature, ledger.SnapshotGenesisBlock.Signature) &&
-		bytes.Equal(genesisBlock.Hash.Bytes(), ledger.SnapshotGenesisBlock.Hash.Bytes()) &&
-		bytes.Equal(genesisBlock.PublicKey, ledger.SnapshotGenesisBlock.PublicKey) &&
-		genesisBlock.Timestamp == ledger.SnapshotGenesisBlock.Timestamp &&
-		genesisBlock.Height.Cmp( big.NewInt(1)) == 0
-}
-
-
-func (sca *SnapshotChainAccess) GetBlockByHeight (height *big.Int) (*ledger.SnapshotBlock, error) {
-	block, err:= sca.store.GetBLockByHeight(height)
-	if err != nil {
-		return nil, err
+	if accountGenesisBlockFirst == nil {
+		accountChainAccess.WriteGenesisBlock()
+	} else {
+		if ok := accountGenesisBlockFirst.IsGenesisBlock(); !ok {
+			log.Fatal(errors2.Wrap(errors.New("AccountGenesisBlockFirst is not valid."), "CheckAndCreateAccountGenesisBlockFirst"))
+		}
 	}
-	return block, nil
+
+	// Check accountGenesisBlockSecond
+	accountGenesisBlockSecond, err := accountChainAccess.GetBlockByHash(ledger.AccountGenesisBlockSecond.Hash)
+	if err != nil && err != leveldb.ErrNotFound {
+		log.Fatal(errors2.Wrap(err, "CheckAccountGenesisBlockSecond"))
+	}
+
+	if accountGenesisBlockSecond == nil {
+		accountChainAccess.WriteGenesisSecondBlock()
+	} else {
+		if ok := accountGenesisBlockSecond.IsGenesisSecondBlock(); !ok {
+			log.Fatal(errors2.Wrap(errors.New("AccountGenesisBlockSecond is not valid."), "CheckAndCreateAccountGenesisBlockSecond"))
+		}
+	}
+
 }
 
-func (sca *SnapshotChainAccess) GetBlockByHash (blockHash *types.Hash) (*ledger.SnapshotBlock, error) {
-	block, err:= sca.store.GetBlockByHash(blockHash)
+func (sca *SnapshotChainAccess) WriteGenesisBlock() {
+	if err := sca.WriteBlock(ledger.SnapshotGenesisBlock, nil); err != nil {
+		log.Fatal(errors2.Wrap(err, "snapshotChain.WriteGenesisBlock"))
+	}
+	log.Println("snapshotChain.WriteGenesisBlock success.")
+}
+
+func (sca *SnapshotChainAccess) GetBlockByHeight(height *big.Int) (*ledger.SnapshotBlock, error) {
+	block, err := sca.store.GetBLockByHeight(height)
 	if err != nil {
 		return nil, err
 	}
 	return block, nil
 }
 
-func (sca *SnapshotChainAccess) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) (ledger.SnapshotBlockList, error) {
+func (sca *SnapshotChainAccess) GetBlockByHash(blockHash *types.Hash) (*ledger.SnapshotBlock, error) {
+	block, err := sca.store.GetBlockByHash(blockHash)
+	if err != nil {
+		return nil, err
+	}
+	return block, nil
+}
+
+func (sca *SnapshotChainAccess) GetBlocksFromOrigin(originBlockHash *types.Hash, count uint64, forward bool) (ledger.SnapshotBlockList, error) {
 	return sca.store.GetBlocksFromOrigin(originBlockHash, count, forward)
 }
 
-func (sca *SnapshotChainAccess) GetBlockList (index int, num int, count int) ([]*ledger.SnapshotBlock, error) {
-	blockList, err:= sca.store.GetBlockList(index, num, count)
+func (sca *SnapshotChainAccess) GetBlockList(index int, num int, count int) ([]*ledger.SnapshotBlock, error) {
+	blockList, err := sca.store.GetBlockList(index, num, count)
 	if err != nil {
 		return nil, err
 	}
 	return blockList, nil
 }
 
-func (sca *SnapshotChainAccess) GetLatestBlock() (*ledger.SnapshotBlock, error){
+func (sca *SnapshotChainAccess) GetLatestBlock() (*ledger.SnapshotBlock, error) {
 	return sca.store.GetLatestBlock()
 }
 
-func (sca *SnapshotChainAccess) WriteBlockList (blockList []*ledger.SnapshotBlock, signFunc signSnapshotBlockFuncType) error {
+func (sca *SnapshotChainAccess) WriteBlockList(blockList []*ledger.SnapshotBlock, signFunc signSnapshotBlockFuncType) error {
 	batch := new(leveldb.Batch)
 	var err error
 	for _, block := range blockList {
@@ -117,28 +125,30 @@ func (sca *SnapshotChainAccess) WriteBlockList (blockList []*ledger.SnapshotBloc
 	return nil
 }
 
-func (sca *SnapshotChainAccess) WriteBlock (block *ledger.SnapshotBlock, signFunc signSnapshotBlockFuncType) error {
+func (sca *SnapshotChainAccess) WriteBlock(block *ledger.SnapshotBlock, signFunc signSnapshotBlockFuncType) error {
 	err := sca.store.BatchWrite(nil, func(batch *leveldb.Batch) error {
-		return sca.writeBlock(batch, block, signFunc)
+		// When *ScWriteError data type convert to error interface, nil become non-nil. So need return nil manually
+		if err := sca.writeBlock(batch, block, signFunc); err != nil {
+			return err
+		}
+		return nil
 	})
 	if err != nil {
-		fmt.Println("Write block failed, block data is ")
-		fmt.Printf("%+v\n", block)
+		log.Println("Write snapshot block failed, Error is " + err.Error())
 	} else {
-		fmt.Println("Write Snapshot block " + block.Hash.String() + " succeed")
+		log.Println("Write Snapshot block " + block.Hash.String() + " succeed")
 	}
 
 	return err
 }
 
-type signSnapshotBlockFuncType func(*ledger.SnapshotBlock)(*ledger.SnapshotBlock, error)
+type signSnapshotBlockFuncType func(*ledger.SnapshotBlock) (*ledger.SnapshotBlock, error)
 
-
-func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.SnapshotBlock, signFunc signSnapshotBlockFuncType) *ScWriteError {
+func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.SnapshotBlock, signFunc signSnapshotBlockFuncType) *ScWriteError {
 	if block == nil {
-		return &ScWriteError {
+		return &ScWriteError{
 			Code: WscDefaultErr,
-			Err: errors.New("The written block is not available."),
+			Err:  errors.New("The written block is not available."),
 		}
 	}
 	// Mutex.lock
@@ -150,7 +160,7 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 		if err != nil {
 			return &ScWriteError{
 				Code: WscSetHashErr,
-				Err: err,
+				Err:  err,
 			}
 		}
 		block.Hash = hash
@@ -161,15 +171,15 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 	if !isGenesisBlock {
 		preSnapshotBlock, err := sca.store.GetLatestBlock()
 		if err != nil {
-			return &ScWriteError {
+			return &ScWriteError{
 				Code: WscDefaultErr,
-				Err: err,
+				Err:  err,
 			}
 		}
-		if !bytes.Equal(block.PrevHash.Bytes(), preSnapshotBlock.Hash.Bytes()){
-			return &ScWriteError {
+		if !bytes.Equal(block.PrevHash.Bytes(), preSnapshotBlock.Hash.Bytes()) {
+			return &ScWriteError{
 				Code: WscPrevHashErr,
-				Err: errors.New("PreHash of the written block doesn't direct to the latest block hash."),
+				Err:  errors.New("PreHash of the written block doesn't direct to the latest block hash."),
 				Data: preSnapshotBlock,
 			}
 		}
@@ -188,25 +198,23 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 			accountAddress, _ := types.HexToAddress(addr)
 			if err != nil || blockMeta == nil {
 				needSyncAccountBlocks = append(needSyncAccountBlocks, &WscNeedSyncErrData{
-					AccountAddress: &accountAddress,
-					TargetBlockHash: snapshotItem.AccountBlockHash,
+					AccountAddress:    &accountAddress,
+					TargetBlockHash:   snapshotItem.AccountBlockHash,
 					TargetBlockHeight: snapshotItem.AccountBlockHeight,
 				})
-			}  else {
+			} else {
 				// Modify block meta status.
 				accountChainAccess.store.WriteBlockMeta(batch, snapshotItem.AccountBlockHash, blockMeta)
 			}
 		}
 
-
-		if needSyncAccountBlocks != nil{
-			return  &ScWriteError {
+		if needSyncAccountBlocks != nil {
+			return &ScWriteError{
 				Code: WscNeedSyncErr,
 				Data: needSyncAccountBlocks,
 			}
 		}
 	}
-
 
 	if signFunc != nil && block.Signature == nil {
 		var signErr error
@@ -216,24 +224,23 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 		if signErr != nil {
 			return &ScWriteError{
 				Code: WscSignErr,
-				Err: signErr,
+				Err:  signErr,
 			}
 		}
 	}
-
 
 	// Get producer account
 	producerAccountMeta, gAccMetaErr := sca.accountStore.GetAccountMetaByAddress(block.Producer)
-	if gAccMetaErr != nil && gAccMetaErr != leveldb.ErrNotFound{
+	if gAccMetaErr != nil && gAccMetaErr != leveldb.ErrNotFound {
 		if gAccMetaErr != nil {
-			return &ScWriteError {
+			return &ScWriteError{
 				Code: WscDefaultErr,
-				Err: gAccMetaErr,
+				Err:  gAccMetaErr,
 			}
 		}
 	}
 
-	// If producer account doen't exist, create it
+	// If producer account doesn't exist, create it
 	if producerAccountMeta == nil {
 		writeNewAccountMutex.Lock()
 		defer writeNewAccountMutex.Unlock()
@@ -241,32 +248,42 @@ func (sca *SnapshotChainAccess) writeBlock (batch *leveldb.Batch, block *ledger.
 		var err error
 		producerAccountMeta, err = accountAccess.CreateNewAccountMeta(batch, block.Producer, block.PublicKey)
 		if err != nil {
-			return &ScWriteError {
+			return &ScWriteError{
 				Code: WscDefaultErr,
-				Err: err,
+				Err:  err,
 			}
 		}
 
+		// Write account meta
 		if err = sca.accountStore.WriteMeta(batch, block.Producer, producerAccountMeta); err != nil {
+			return &ScWriteError{
+				Code: WscDefaultErr,
+				Err:  err,
+			}
+		}
+
+		// Write account id index
+		if err := sca.accountStore.WriteAccountIdIndex(batch, producerAccountMeta.AccountId, block.Producer); err != nil {
 			return &ScWriteError{
 				Code: WscDefaultErr,
 				Err: err,
 			}
 		}
+
 	}
 
 	//snapshotBlockHeight:d.[snapshotBlockHash]:[snapshotBlockHeight]
 	if wbhErr := sca.store.WriteBlockHeight(batch, block); wbhErr != nil {
-		return &ScWriteError {
+		return &ScWriteError{
 			Code: WscDefaultErr,
-			Err: wbhErr,
+			Err:  errors2.Wrap(wbhErr, "WriteBlockHeight"),
 		}
 	}
 	//snapshotBlock:e.[snapshotBlockHeight]:[snapshotBlock]
 	if wbErr := sca.store.WriteBlock(batch, block); wbErr != nil {
-		return &ScWriteError {
+		return &ScWriteError{
 			Code: WscDefaultErr,
-			Err: wbErr,
+			Err:  errors2.Wrap(wbErr, "WriteBlock"),
 		}
 	}
 	return nil

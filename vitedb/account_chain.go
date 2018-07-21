@@ -57,7 +57,7 @@ func (ac * AccountChain) WriteBlockMeta (batch *leveldb.Batch, accountBlockHash 
 		return err
 	}
 
-	key, err := createKey(DBKP_ACCOUNTBLOCKMETA, accountBlockHash)
+	key, err := createKey(DBKP_ACCOUNTBLOCKMETA, accountBlockHash.Bytes())
 	batch.Put(key, buf)
 	return nil
 }
@@ -248,7 +248,7 @@ func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int
 }
 
 func (ac *AccountChain) IsBlockExist (blockHash *types.Hash) (bool) {
-	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, blockHash.String())
+	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, blockHash.Bytes())
 	if err != nil {
 		return false
 	}
@@ -262,7 +262,7 @@ func (ac *AccountChain) IsBlockExist (blockHash *types.Hash) (bool) {
 }
 
 func (ac * AccountChain) GetBlockMeta (blockHash *types.Hash) (*ledger.AccountBlockMeta, error) {
-	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, blockHash.String())
+	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, blockHash.Bytes())
 	if err != nil {
 		return nil, err
 	}

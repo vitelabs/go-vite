@@ -68,6 +68,7 @@ func (sbc *SnapshotChain) GetBlockList (index, num, count int) ([]*ledger.Snapsh
 	if !iter.Last() {
 		return nil, errors.New("GetBlockList failed. Cause the SnapshotChain has no block" + iter.Error().Error())
 	}
+
 	for i := 0; i < (index+num)*count; i++ {
 		if i >= index*count {
 			snapshotBLock := &ledger.SnapshotBlock{}
@@ -224,7 +225,7 @@ func (sbc *SnapshotChain) WriteBlock (batch *leveldb.Batch, block *ledger.Snapsh
 }
 
 func (sbc *SnapshotChain) WriteBlockHeight (batch *leveldb.Batch, block *ledger.SnapshotBlock, ) error {
-	key, ckErr := createKey(DBKP_SNAPSHOTBLOCKHASH, block.Hash)
+	key, ckErr := createKey(DBKP_SNAPSHOTBLOCKHASH, block.Hash.Bytes())
 	if ckErr != nil {
 		return ckErr
 	}
@@ -234,6 +235,7 @@ func (sbc *SnapshotChain) WriteBlockHeight (batch *leveldb.Batch, block *ledger.
 
 func (sbc *SnapshotChain) BatchWrite (batch *leveldb.Batch, writeFunc func (batch *leveldb.Batch) error) error {
 	return batchWrite(batch, sbc.db.Leveldb, func (context *batchContext) error {
-		return writeFunc(context.Batch)
+		err :=  writeFunc(context.Batch)
+		return err
 	})
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"encoding/hex"
+	"bytes"
 )
 
 
@@ -72,6 +73,15 @@ type SnapshotBlock struct {
 	PublicKey ed25519.PublicKey
 }
 
+
+func (sb *SnapshotBlock) IsGenesisBlock () bool {
+	return sb.PrevHash == nil &&
+		bytes.Equal(sb.Producer.Bytes(), SnapshotGenesisBlock.Producer.Bytes()) &&
+		bytes.Equal(sb.Signature, SnapshotGenesisBlock.Signature) &&
+		bytes.Equal(sb.Hash.Bytes(), SnapshotGenesisBlock.Hash.Bytes()) &&
+		sb.Timestamp == SnapshotGenesisBlock.Timestamp &&
+		sb.Height.Cmp( big.NewInt(1)) == 0
+}
 func (sb *SnapshotBlock) getSnapshotBytes () []byte {
 	var source []byte
 	for addr, snapshotItem := range sb.Snapshot {

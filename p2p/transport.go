@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"encoding/binary"
 	"github.com/vitelabs/go-vite/p2p/protos"
-	"github.com/gogo/protobuf/proto"
+
+	"github.com/golang/protobuf/proto"
 )
 
 type NetworkID uint32
