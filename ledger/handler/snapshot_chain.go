@@ -23,6 +23,7 @@ type SnapshotChain struct {
 	vite Vite
 	scAccess *access.SnapshotChainAccess
 	acAccess *access.AccountChainAccess
+	aAccess *access.AccountAccess
 }
 
 func NewSnapshotChain (vite Vite) (*SnapshotChain) {
@@ -199,9 +200,26 @@ func (sc *SnapshotChain) WriteMiningBlock (block *ledger.SnapshotBlock) error {
 	return nil
 }
 
-func (sc *SnapshotChain) GetNeedSnapshot () ([]*ledger.SnapshotItem) {
+func (sc *SnapshotChain) GetNeedSnapshot () ([]*ledger.AccountBlock, error) {
+	accountAddressList, err := sc.aAccess.GetAccountList()
+	if err != nil {
+		return nil, err
+	}
 
-	return nil
+	// Scan all accounts. Optimize in the future.
+	var needSnapshot []*ledger.AccountBlock
+	for _, accountAddress := range accountAddressList {
+		latestBlock, err := sc.acAccess.GetLatestBlockByAccountAddress(accountAddress)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		if !latestBlock.Meta.IsSnapshotted {
+			needSnapshot = append(needSnapshot, latestBlock)
+		}
+	}
+
+	return needSnapshot, nil
 }
 
 func (sc *SnapshotChain) StopAllWrite () {
