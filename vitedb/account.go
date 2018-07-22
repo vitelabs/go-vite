@@ -118,7 +118,7 @@ func (account *Account) GetAddressById (accountId *big.Int) (*types.Address, err
 	return &b2Address, nil
 }
 
-// to get the latest existing account addresses of the accountChain
+// To get the latest existing account addresses of the accountChain
 func (account *Account) GetAccountList () ([]*types.Address, error){
 	key, ckErr := createKey(DBKP_ACCOUNTID_INDEX, nil)
 	if ckErr != nil {

@@ -660,7 +660,6 @@ func (aca *AccountChainAccess) processBlock (accountBlock *ledger.AccountBlock, 
 
 		accountBlock.From = fromAddress
 	}
-
 	if accountBlock.AccountAddress == nil {
 		if accountAddress != nil {
 			accountBlock.AccountAddress = accountAddress

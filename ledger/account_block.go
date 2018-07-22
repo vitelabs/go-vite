@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"bytes"
 	"github.com/vitelabs/go-vite/vitepb"
-	"fmt"
 )
 
 type AccountBlockMeta struct {
@@ -201,13 +200,6 @@ func (ab *AccountBlock) IsGenesisBlock () bool {
 
 // Genesis second block
 func (ab *AccountBlock) IsGenesisSecondBlock () bool {
-	fmt.Println(bytes.Equal(ab.AccountAddress.Bytes(), AccountGenesisBlockSecond.AccountAddress.Bytes()))
-	fmt.Println(bytes.Equal(ab.Signature, AccountGenesisBlockSecond.Signature))
-	fmt.Println(bytes.Equal(ab.Hash.Bytes(), AccountGenesisBlockSecond.Hash.Bytes()))
-
-	fmt.Println(ab.Hash.String())
-	fmt.Println(AccountGenesisBlockSecond.Hash.String())
-
 	return bytes.Equal(ab.AccountAddress.Bytes(), AccountGenesisBlockSecond.AccountAddress.Bytes()) &&
 		bytes.Equal(ab.Signature, AccountGenesisBlockSecond.Signature) &&
 		bytes.Equal(ab.Hash.Bytes(), AccountGenesisBlockSecond.Hash.Bytes())
@@ -410,10 +402,10 @@ func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 		accountBlockPB.Hash = ab.Hash.Bytes()
 	}
 	if ab.PrevHash != nil {
-		accountBlockPB.Hash = ab.PrevHash.Bytes()
+		accountBlockPB.PrevHash = ab.PrevHash.Bytes()
 	}
 	if ab.FromHash != nil {
-		accountBlockPB.Hash = ab.FromHash.Bytes()
+		accountBlockPB.FromHash = ab.FromHash.Bytes()
 	}
 
 	if ab.Amount != nil {

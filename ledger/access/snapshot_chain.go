@@ -151,9 +151,19 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 			Err:  errors.New("The written block is not available."),
 		}
 	}
+
+
+	if block.Snapshot == nil || len(block.Snapshot) <= 0 {
+		return &ScWriteError{
+			Code: WscDefaultErr,
+			Err:  errors.New("The written block snapshot is nil."),
+		}
+	}
+
 	// Mutex.lock
 	sca.bwMutex.Lock()
 	defer sca.bwMutex.Unlock()
+
 
 	if block.Hash == nil {
 		hash, err := block.ComputeHash()
@@ -187,6 +197,8 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 		block.Height = newSnapshotHeight.Add(preSnapshotBlock.Height, big.NewInt(1))
 	}
 
+
+
 	// Check account block availability
 	if !isGenesisBlock {
 		snapshot := block.Snapshot
@@ -204,6 +216,7 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 				})
 			} else {
 				// Modify block meta status.
+				blockMeta.IsSnapshotted = true
 				accountChainAccess.store.WriteBlockMeta(batch, snapshotItem.AccountBlockHash, blockMeta)
 			}
 		}

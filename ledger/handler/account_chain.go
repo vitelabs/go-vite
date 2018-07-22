@@ -27,6 +27,7 @@ func NewAccountChain (vite Vite) (*AccountChain) {
 		vite: vite,
 		acAccess: access.GetAccountChainAccess(),
 		aAccess: access.GetAccountAccess(),
+		scAccess: access.GetSnapshotChainAccess(),
 		uAccess: access.GetUnconfirmedAccess(),
 	}
 }
@@ -163,7 +164,7 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 	}
 
 	if latestBlock != nil {
-		block.PrevHash = latestBlock.PrevHash
+		block.PrevHash = latestBlock.Hash
 	}
 
 	// Set Snapshot Timestamp
@@ -192,9 +193,9 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 				ac.vite.WalletManager().KeystoreManager.SignData(*block.AccountAddress, block.Hash.Bytes())
 
 		} else {
-
 			accountBlock.Signature, accountBlock.PublicKey, signErr =
 				ac.vite.WalletManager().KeystoreManager.SignDataWithPassphrase(*block.AccountAddress, passphrase, block.Hash.Bytes())
+
 		}
 
 		return accountBlock, signErr

@@ -30,6 +30,6 @@ message AccountBlockDb {
 message AccountBlockMeta {
     bytes accountId = 1;
     bytes height = 2;
-    uint32 Status = 3;
+    uint32 status = 3;
     bool isSnapshotted = 4;
 }

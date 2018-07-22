@@ -12,6 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
 	"github.com/vitelabs/go-vite/crypto"
 	"bytes"
+	"github.com/pkg/errors"
 )
 
 
@@ -28,6 +29,8 @@ func NewSnapshotChain (vite Vite) (*SnapshotChain) {
 	return &SnapshotChain{
 		vite: vite,
 		scAccess: access.GetSnapshotChainAccess(),
+		acAccess: access.GetAccountChainAccess(),
+		aAccess: access.GetAccountAccess(),
 	}
 }
 
@@ -209,8 +212,14 @@ func (sc *SnapshotChain) SyncPeer (peer *protoTypes.Peer) {
 
 
 func (sc *SnapshotChain) WriteMiningBlock (block *ledger.SnapshotBlock) error {
-	globalRWMutex.RLock()
-	defer globalRWMutex.RUnlock()
+	globalRWMutex.Lock()
+	defer globalRWMutex.Unlock()
+
+	latestBlock, glbErr := sc.GetLatestBlock()
+	if glbErr != nil {
+		return errors.Wrap(glbErr, "WriteMiningBlock")
+	}
+	block.PrevHash = latestBlock.Hash
 
 	err := sc.scAccess.WriteBlock(block, func(block *ledger.SnapshotBlock) (*ledger.SnapshotBlock, error) {
 		var signErr error
@@ -241,9 +250,15 @@ func (sc *SnapshotChain) GetNeedSnapshot () ([]*ledger.AccountBlock, error) {
 	}
 
 	// Scan all accounts. Optimize in the future.
-	var needSnapshot []*ledger.AccountBlock
+	needSnapshot := []*ledger.AccountBlock{}
+
 	for _, accountAddress := range accountAddressList {
 		latestBlock, err := sc.acAccess.GetLatestBlockByAccountAddress(accountAddress)
+		if latestBlock.Meta.IsSnapshotted {
+			continue
+		}
+
+		latestBlock.AccountAddress = accountAddress
 		if err != nil {
 			log.Println(err)
 			continue
@@ -254,14 +269,6 @@ func (sc *SnapshotChain) GetNeedSnapshot () ([]*ledger.AccountBlock, error) {
 	}
 
 	return needSnapshot, nil
-}
-
-func (sc *SnapshotChain) StopAllWrite () {
-	globalRWMutex.Lock()
-}
-
-func (sc *SnapshotChain) StartAllWrite () {
-	globalRWMutex.Unlock()
 }
 
 func (sc *SnapshotChain) GetLatestBlock () (*ledger.SnapshotBlock, error) {
