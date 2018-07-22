@@ -279,28 +279,22 @@ func (svr *Server) SetHandshake() {
 }
 
 func (svr *Server) Discovery(addr *net.UDPAddr) {
-	ip, err := getExtIP()
-	if err != nil {
-		log.Printf("discover get external ip error: %v\n", err)
-	}
-
 	cfg := &DiscvConfig{
 		Priv: svr.PrivateKey,
 		DBPath: svr.Database,
 		BootNodes: svr.BootNodes,
 		Addr: addr,
-		ExternalIP: ip,
 	}
-	tab, err := newDiscover(cfg)
+	tab, laddr, err := newDiscover(cfg)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("udp discv error: %v\n", err)
 	}
 
-	if !addr.IP.IsLoopback() {
+	if !laddr.IP.IsLoopback() {
 		svr.waitDown.Add(1)
 		go func() {
-			natMap(svr.stopped, "udp", addr.Port, addr.Port, 0, nil)
+			natMap(svr.stopped, "udp", laddr.Port, laddr.Port, 0)
 			svr.waitDown.Done()
 		}()
 	}
@@ -318,10 +312,11 @@ func (svr *Server) Listen(addr *net.TCPAddr) {
 
 	svr.listener = listener
 
-	if !addr.IP.IsLoopback() {
+	realaddr := listener.Addr().(*net.TCPAddr)
+	if !realaddr.IP.IsLoopback() {
 		svr.waitDown.Add(1)
 		go func() {
-			natMap(svr.stopped, "tcp", addr.Port, addr.Port, 0, nil)
+			natMap(svr.stopped, "tcp", addr.Port, addr.Port, 0)
 			svr.waitDown.Done()
 		}()
 	}

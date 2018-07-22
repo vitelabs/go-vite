@@ -1,34 +1,32 @@
 package p2p
 
 import (
-	"github.com/jackpal/gateway"
-	"github.com/jackpal/go-nat-pmp"
 	"fmt"
 	"time"
 	"net"
 	"sync"
+	"github.com/syaka-yin/go-nat"
 )
 
 type natClient struct {
 	mutex sync.Mutex
-	client *natpmp.Client
+	nat nat.NAT
 }
 
-func (c *natClient) getClient() (*natpmp.Client, error) {
+func (c *natClient) getClient() (nat.NAT, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if c.client == nil {
-		gateway.DiscoverGateway()
-		gatewayIP, err := gateway.DiscoverGateway()
+	if c.nat == nil {
+		nat, err := nat.DiscoverGateway()
 		if err != nil {
 			return nil, err
 		}
 
-		c.client = natpmp.NewClient(gatewayIP)
+		c.nat = nat
 	}
 
-	return c.client, nil
+	return c.nat, nil
 }
 
 var gclt natClient
@@ -42,32 +40,13 @@ func getExtIP() (net.IP, error) {
 		return nil, err
 	}
 
-	response, err := client.GetExternalAddress()
-	if err != nil {
-		return nil, err
-	}
-
-	ext := response.ExternalIPAddress
-
-	ip := net.ParseIP(string(ext[:]))
-
-	if ip == nil {
-		return nil, fmt.Errorf("get invalid external ip: %v\n", ext)
-	}
-
-	return ip, nil
+	return client.GetExternalAddress()
 }
 
-func natMap(stop <- chan struct{}, protocol string, localIp, extIP int, lifetime time.Duration, errch chan<- error) {
+func natMap(stop <- chan struct{}, protocol string, lPort, ePort int, lifetime time.Duration) {
 	client, err := gclt.getClient()
 
-	hasErrch := errch != nil
-	if hasErrch {
-		defer close(errch)
-	}
-
-	if err != nil && hasErrch {
-		errch <- err
+	if err != nil {
 		return
 	}
 
@@ -75,12 +54,12 @@ func natMap(stop <- chan struct{}, protocol string, localIp, extIP int, lifetime
 		lifetime = defaultLifetime
 	}
 
-	if _, err = client.AddPortMapping(protocol, localIp, extIP, int(lifetime.Seconds())); err != nil {
-		fmt.Printf("nat map error %v\n", err)
-		if hasErrch {
-			errch <- err
+	mp := func() {
+		if err = client.AddPortMapping(protocol, lPort, ePort, "vite", lifetime); err != nil {
+			fmt.Printf("nat map error %v\n", err)
 		}
 	}
+	mp()
 
 	timer := time.NewTimer(lifetime)
 	defer timer.Stop()
@@ -90,12 +69,7 @@ func natMap(stop <- chan struct{}, protocol string, localIp, extIP int, lifetime
 		case <- stop:
 			return
 		case <- timer.C:
-			if _, err = client.AddPortMapping(protocol, localIp, extIP, int(lifetime.Seconds())); err != nil {
-				fmt.Printf("nat map error %v\n", err)
-				if hasErrch {
-					errch <- err
-				}
-			}
+			mp()
 			timer.Reset(lifetime)
 		}
 	}
