@@ -41,6 +41,8 @@ func New(cfg *p2p.Config) (*Vite, error) {
 	coinbase, _ := types.HexToAddress("vite_2ad1b8f936f015fc80a2a5857dffb84b39f7675ab69ae31fc8")
 	vite.miner = miner.NewMiner(vite.ledger.Sc(), coinbase)
 	vite.walletManager.KeystoreManager.Unlock(coinbase, pwd, time.Second*10)
+	vite.miner.Init()
+	vite.miner.Start()
 	//vite.pm = protocols.NewProtocolManager(vite)
 	//
 	//var initP2pErr error

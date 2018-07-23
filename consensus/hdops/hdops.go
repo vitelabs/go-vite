@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var defaultMembers = []string{
+var DefaultMembers = []string{
 	"vite_2ad661b3b5fa90af7703936ba36f8093ef4260aaaeb5f15cf8",
 	"vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c3a",
 	"vite_2ad1b8f936f015fc80a2a5857dffb84b39f7675ab69ae31fc8",
@@ -148,8 +148,8 @@ func (self *Committee) update() {
 				break
 			}
 		}
-		lastIndex = electionResult.index
-		if current != nil {
+
+		if current != nil && lastIndex != -1 {
 			time.Sleep(current.sTime.Sub(time.Now()))
 
 			// write timeout
@@ -163,6 +163,7 @@ func (self *Committee) update() {
 		} else {
 			time.Sleep(electionResult.eTime.Sub(time.Now()))
 		}
+		lastIndex = electionResult.index
 
 		// clear ever hour
 		removeTime := time.Now().Add(-time.Hour)
@@ -230,7 +231,7 @@ func newTeller(genesisTime time.Time, interval int32, memberCnt int32) *teller {
 
 func (self *teller) voteResults() ([]types.Address, error) {
 	// record vote and elect
-	return conv(defaultMembers), nil
+	return conv(DefaultMembers), nil
 }
 
 func (self *teller) electionIndex(index int32) *electionResult {
