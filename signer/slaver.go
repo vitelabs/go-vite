@@ -4,7 +4,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log"
-	"github.com/vitelabs/go-vite/vite"
 	"sync"
 )
 
@@ -15,7 +14,7 @@ type sendTask struct {
 }
 
 type signSlave struct {
-	vite          *vite.Vite
+	vite          Vite
 	address       types.Address
 	breaker       chan struct{}
 	newSignedTask chan struct{}

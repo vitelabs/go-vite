@@ -5,13 +5,12 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log"
-	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"sync"
 )
 
 type Master struct {
-	Vite                *vite.Vite
+	Vite                Vite
 	signSlaves          map[types.Address]*signSlave
 	unlockEventListener chan keystore.UnlockEvent
 	coreMutex           sync.Mutex
