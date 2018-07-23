@@ -63,10 +63,7 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 	pm.Peers.AddPeer(protoPeer)
 	log.Printf("now wei have %d peers\n", pm.Peers.Count())
 
-	go pm.SendStatusMsg(protoPeer)
-
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
+	go pm.CheckStatus(protoPeer)
 
 	var err error
 
@@ -108,8 +105,20 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 			} else {
 				log.Printf("pm handle msg %d from %s done\n", msg.Code, peer.ID())
 			}
+		}
+	}
+}
+
+func (pm *ProtocolManager) CheckStatus(peer *protoType.Peer) {
+	pm.SendStatusMsg(peer)
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
 		case <- ticker.C:
-			go pm.SendStatusMsg(protoPeer)
+			pm.SendStatusMsg(peer)
+		case <- peer.Closed:
+			return
 		}
 	}
 }
@@ -174,6 +183,7 @@ func (pm *ProtocolManager) BroadcastMsg(msg *protoType.Msg) (fails []*protoType.
 }
 
 func (pm *ProtocolManager) Sync() {
+	fmt.Println("pm.sync")
 	pm.mutex.RLock()
 	if pm.Syncing {
 		pm.mutex.RUnlock()
@@ -190,11 +200,12 @@ func (pm *ProtocolManager) Sync() {
 
 	bestPeer := pm.Peers.BestPeer()
 	currentBlock := pm.CurrentBlock()
+	fmt.Printf("bestPeer %s at Height %d, self Height %d\n", bestPeer.ID, bestPeer.Height, currentBlock.Height)
 	if bestPeer.Height.Cmp(currentBlock.Height) > 0 {
 		if pm.schain.SyncPeer != nil {
 			pm.mutex.Lock()
 			if pm.Syncing {
-				log.Println("is already syncing")
+				log.Println("already syncing")
 				pm.mutex.Unlock()
 				return
 			} else {
@@ -206,6 +217,11 @@ func (pm *ProtocolManager) Sync() {
 			log.Printf("begin sync from %s to height %d\n", bestPeer.ID, bestPeer.Height.Uint64())
 		} else {
 			log.Println("missing sync method")
+		}
+	} else {
+		// tell blockchain no need sync
+		if pm.schain.SyncPeer != nil {
+			pm.schain.SyncPeer(nil)
 		}
 	}
 }
@@ -220,6 +236,8 @@ func (pm *ProtocolManager) CurrentBlock() (block *ledger.SnapshotBlock) {
 	block, err :=  pm.schain.GetLatestBlock()
 	if err != nil {
 		log.Fatalf("pm.chain.GetLatestBlock error: %v\n", err)
+	} else {
+		log.Printf("self latestblock: %s at height %d\n", block.Hash, block.Height)
 	}
 
 	return block
