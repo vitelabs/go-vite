@@ -30,12 +30,8 @@ func (ac *AccountChain) GetUnconfirmedAccountMeta(addr *types.Address) (*ledger.
 //	return ac.uAccess.GetUnconfirmedBlocks(index, num, count, acMeta.AccountId, tokenId)
 //}
 
-func (ac *AccountChain) GetUnconfirmedHashs(index int, num int, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
-	acMeta, err := ac.aAccess.GetAccountMeta(addr)
-	if err != nil {
-		return nil, err
-	}
-	return ac.uAccess.GetUnconfirmedHashs(index, num, count, acMeta.AccountId, tokenId)
+func (ac *AccountChain) GetHashListByPaging(index int, num int, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+	return ac.uAccess.GetHashListByPaging(index, num, count, addr, tokenId)
 }
 
 func (ac *AccountChain) GetUnconfirmedAccount(addr *types.Address) (*UnconfirmedAccount, error) {
@@ -64,10 +60,10 @@ func (ac *AccountChain) GetUnconfirmedAccount(addr *types.Address) (*Unconfirmed
 	return UnconfirmedAccount, nil
 }
 
-func (ac *AccountChain) Listener(addr *types.Address) chan int {
-	return ac.uAccess.GetListener(addr)
+func (ac *AccountChain) AddListener(addr types.Address, change chan<- int) {
+	ac.uAccess.AddListener(addr, change)
 }
 
-func (ac *AccountChain) RemoveListener(addr *types.Address) {
+func (ac *AccountChain) RemoveListener(addr types.Address) {
 	ac.uAccess.RemoveListener(addr)
 }
