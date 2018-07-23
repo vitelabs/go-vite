@@ -11,6 +11,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/miner"
 	"time"
 )
@@ -21,7 +22,7 @@ type Vite struct {
 	pm            *protocols.ProtocolManager
 	walletManager *wallet.Manager
 	miner         *miner.Miner
-	verifier      *consensus.Verifier
+	verifier      consensus.Verifier
 }
 
 func NewP2pConfig() *p2p.Config {
@@ -37,12 +38,19 @@ func New(cfg *p2p.Config) (*Vite, error) {
 	vite.ledger = ledgerHandler.NewManager(vite)
 	vite.walletManager = wallet.NewManager("fromConfig")
 
+	genesisTime := time.Unix(int64(ledger.GetSnapshotGenesisBlock().Timestamp), 0)
+	committee := consensus.NewCommittee(genesisTime, 6, int32(len(consensus.DefaultMembers)))
+	vite.verifier = committee
+
 	pwd := "123"
 	coinbase, _ := types.HexToAddress("vite_2ad1b8f936f015fc80a2a5857dffb84b39f7675ab69ae31fc8")
-	vite.miner = miner.NewMiner(vite.ledger.Sc(), coinbase)
+	vite.miner = miner.NewMiner(vite.ledger.Sc(), coinbase, committee)
+
 	vite.walletManager.KeystoreManager.Unlock(coinbase, pwd, time.Second*10)
 	vite.miner.Init()
+	committee.Init()
 	vite.miner.Start()
+	committee.Start()
 	//vite.pm = protocols.NewProtocolManager(vite)
 	//
 	//var initP2pErr error
