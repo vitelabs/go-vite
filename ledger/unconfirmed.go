@@ -1,10 +1,10 @@
 package ledger
 
 import (
-	"math/big"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vitepb"
+	"math/big"
 )
 
 type TokenInfo struct {

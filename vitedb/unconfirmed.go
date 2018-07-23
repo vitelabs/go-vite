@@ -104,3 +104,10 @@ func (ucf *Unconfirmed) DeleteHashList(batch *leveldb.Batch, accountId *big.Int,
 	batch.Delete(key)
 	return nil
 }
+
+func (ucf *Unconfirmed) BatchWrite(batch *leveldb.Batch, writeFunc func(batch *leveldb.Batch) error) error {
+	return batchWrite(batch, ucf.db.Leveldb, func(context *batchContext) error {
+		err := writeFunc(context.Batch)
+		return err
+	})
+}

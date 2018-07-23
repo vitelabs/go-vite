@@ -3,9 +3,9 @@ package ledger
 import (
 	"math/big"
 
+	"bytes"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
-	"bytes"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/vitepb"
 )
@@ -13,7 +13,7 @@ import (
 var GenesisAccount, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
 
 type AccountSimpleToken struct {
-	TokenId *types.TokenTypeId
+	TokenId                *types.TokenTypeId
 	LastAccountBlockHeight *big.Int
 }
 
@@ -23,8 +23,7 @@ type AccountMeta struct {
 	TokenList []*AccountSimpleToken
 }
 
-
-func (am *AccountMeta) SetTokenInfo (tokenInfo *AccountSimpleToken) {
+func (am *AccountMeta) SetTokenInfo(tokenInfo *AccountSimpleToken) {
 	if am.TokenList == nil {
 		am.TokenList = []*AccountSimpleToken{}
 	}
@@ -40,8 +39,7 @@ func (am *AccountMeta) SetTokenInfo (tokenInfo *AccountSimpleToken) {
 	am.TokenList = append(am.TokenList, tokenInfo)
 }
 
-
-func (am *AccountMeta) GetTokenInfoByTokenId (tokenId *types.TokenTypeId) *AccountSimpleToken {
+func (am *AccountMeta) GetTokenInfoByTokenId(tokenId *types.TokenTypeId) *AccountSimpleToken {
 	if am.TokenList == nil {
 		return nil
 	}
@@ -57,15 +55,15 @@ func (am *AccountMeta) GetTokenInfoByTokenId (tokenId *types.TokenTypeId) *Accou
 	return tokenInfo
 }
 
-func (am *AccountMeta) GetTokenList () []*AccountSimpleToken {
+func (am *AccountMeta) GetTokenList() []*AccountSimpleToken {
 	return am.TokenList
 }
 
-func (am *AccountMeta) DbSerialize () ([]byte, error) {
+func (am *AccountMeta) DbSerialize() ([]byte, error) {
 	var pbTokenList []*vitepb.AccountSimpleToken
 	for _, lAccountSimpleToken := range am.TokenList {
 		pbAccountSimpleToken := &vitepb.AccountSimpleToken{
-			TokenId: lAccountSimpleToken.TokenId.Bytes(),
+			TokenId:                lAccountSimpleToken.TokenId.Bytes(),
 			LastAccountBlockHeight: lAccountSimpleToken.LastAccountBlockHeight.Bytes(),
 		}
 		pbTokenList = append(pbTokenList, pbAccountSimpleToken)
@@ -83,10 +81,8 @@ func (am *AccountMeta) DbSerialize () ([]byte, error) {
 	return proto.Marshal(accountMetaPB)
 }
 
-func (am *AccountMeta) DbDeserialize (buf []byte) error {
-	accountMetaPB := &vitepb.AccountMeta{
-
-	}
+func (am *AccountMeta) DbDeserialize(buf []byte) error {
+	accountMetaPB := &vitepb.AccountMeta{}
 	if err := proto.Unmarshal(buf, accountMetaPB); err != nil {
 		return err
 	}
@@ -103,7 +99,7 @@ func (am *AccountMeta) DbDeserialize (buf []byte) error {
 			return ttErr
 		}
 		lAccountSimpleToken := &AccountSimpleToken{
-			TokenId: &tTokenIdType,
+			TokenId:                &tTokenIdType,
 			LastAccountBlockHeight: labHeight.SetBytes(pbAccountSimpleToken.LastAccountBlockHeight),
 		}
 		lTokenList = append(lTokenList, lAccountSimpleToken)

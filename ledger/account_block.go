@@ -3,11 +3,11 @@ package ledger
 import (
 	"math/big"
 
+	"bytes"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/crypto"
-	"bytes"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/vitepb"
 )
 
@@ -25,26 +25,26 @@ type AccountBlockMeta struct {
 	IsSnapshotted bool
 }
 
-func (abm *AccountBlockMeta) NetSerialize () ([]byte, error) {
+func (abm *AccountBlockMeta) NetSerialize() ([]byte, error) {
 	return abm.DbSerialize()
 }
 
-func (abm *AccountBlockMeta) NetDeserialize (buf []byte) (error) {
+func (abm *AccountBlockMeta) NetDeserialize(buf []byte) error {
 	return abm.DbDeserialize(buf)
 }
 
-func (abm *AccountBlockMeta) DbSerialize () ([]byte, error) {
+func (abm *AccountBlockMeta) DbSerialize() ([]byte, error) {
 	accountBlockMetaPb := &vitepb.AccountBlockMeta{
-		AccountId: abm.AccountId.Bytes(),
-		Height: abm.Height.Bytes(),
-		Status: uint32(abm.Status),
+		AccountId:     abm.AccountId.Bytes(),
+		Height:        abm.Height.Bytes(),
+		Status:        uint32(abm.Status),
 		IsSnapshotted: abm.IsSnapshotted,
 	}
 
 	return proto.Marshal(accountBlockMetaPb)
 }
 
-func (abm *AccountBlockMeta) DbDeserialize (buf []byte) (error) {
+func (abm *AccountBlockMeta) DbDeserialize(buf []byte) error {
 	accountBlockMetaPb := &vitepb.AccountBlockMeta{}
 	if err := proto.Unmarshal(buf, accountBlockMetaPb); err != nil {
 		return err
@@ -64,7 +64,7 @@ func (abm *AccountBlockMeta) DbDeserialize (buf []byte) (error) {
 
 type AccountBlockList []*AccountBlock
 
-func (ablist AccountBlockList) NetSerialize () ([]byte, error) {
+func (ablist AccountBlockList) NetSerialize() ([]byte, error) {
 	accountBlockListNetPB := &vitepb.AccountBlockListNet{}
 	accountBlockListNetPB.Blocks = []*vitepb.AccountBlockNet{}
 
@@ -74,7 +74,7 @@ func (ablist AccountBlockList) NetSerialize () ([]byte, error) {
 	return proto.Marshal(accountBlockListNetPB)
 }
 
-func (ablist AccountBlockList) NetDeserialize (buf []byte) (error) {
+func (ablist AccountBlockList) NetDeserialize(buf []byte) error {
 	accountBlockListNetPB := &vitepb.AccountBlockListNet{}
 	if err := proto.Unmarshal(buf, accountBlockListNetPB); err != nil {
 		return err
@@ -148,7 +148,7 @@ type AccountBlock struct {
 	FAmount *big.Int
 }
 
-func (ab *AccountBlock) ComputeHash () (*types.Hash, error) {
+func (ab *AccountBlock) ComputeHash() (*types.Hash, error) {
 	// Hash source data:
 	var source []byte
 	if ab.PrevHash != nil {
@@ -171,7 +171,6 @@ func (ab *AccountBlock) ComputeHash () (*types.Hash, error) {
 
 	source = append(source, []byte(string(ab.Timestamp))...)
 
-
 	if ab.Data != "" {
 		source = append(source, []byte(ab.Data)...)
 	}
@@ -190,7 +189,7 @@ func (ab *AccountBlock) ComputeHash () (*types.Hash, error) {
 }
 
 // Genesis block
-func (ab *AccountBlock) IsGenesisBlock () bool {
+func (ab *AccountBlock) IsGenesisBlock() bool {
 	return ab.PrevHash == nil &&
 		bytes.Equal(ab.AccountAddress.Bytes(), AccountGenesisBlockFirst.AccountAddress.Bytes()) &&
 		bytes.Equal(ab.Signature, AccountGenesisBlockFirst.Signature) &&
@@ -198,38 +197,36 @@ func (ab *AccountBlock) IsGenesisBlock () bool {
 }
 
 // Genesis second block
-func (ab *AccountBlock) IsGenesisSecondBlock () bool {
+func (ab *AccountBlock) IsGenesisSecondBlock() bool {
 	return bytes.Equal(ab.AccountAddress.Bytes(), AccountGenesisBlockSecond.AccountAddress.Bytes()) &&
 		bytes.Equal(ab.Signature, AccountGenesisBlockSecond.Signature) &&
 		bytes.Equal(ab.Hash.Bytes(), AccountGenesisBlockSecond.Hash.Bytes())
 }
 
-
 // Send block
-func (ab *AccountBlock) IsSendBlock () bool {
+func (ab *AccountBlock) IsSendBlock() bool {
 	return ab.To != nil
 }
 
 // Receive block
-func (ab *AccountBlock) IsReceiveBlock () bool {
+func (ab *AccountBlock) IsReceiveBlock() bool {
 	return ab.FromHash != nil
 }
 
 // Mintage block
-func (ab * AccountBlock) IsMintageBlock () bool {
+func (ab *AccountBlock) IsMintageBlock() bool {
 	return ab.IsSendBlock() && bytes.Equal(ab.To.Bytes(), MintageAddress.Bytes())
 }
 
-func (ab *AccountBlock) GetNetPB () *vitepb.AccountBlockNet {
+func (ab *AccountBlock) GetNetPB() *vitepb.AccountBlockNet {
 	accountBlockNetPB := &vitepb.AccountBlockNet{
-		Data: ab.Data,
+		Data:      ab.Data,
 		Timestamp: ab.Timestamp,
 		PublicKey: ab.PublicKey,
 		Signature: ab.Signature,
-		Nounce: ab.Nounce,
+		Nounce:    ab.Nounce,
 
 		Difficulty: ab.Difficulty,
-
 	}
 
 	if ab.AccountAddress != nil {
@@ -239,7 +236,7 @@ func (ab *AccountBlock) GetNetPB () *vitepb.AccountBlockNet {
 	if ab.Meta != nil {
 		accountBlockNetPB.Meta = &vitepb.AccountBlockMeta{
 			AccountId: ab.Meta.AccountId.Bytes(),
-			Height: ab.Meta.Height.Bytes(),
+			Height:    ab.Meta.Height.Bytes(),
 		}
 	}
 
@@ -281,9 +278,9 @@ func (ab *AccountBlock) GetNetPB () *vitepb.AccountBlockNet {
 	return accountBlockNetPB
 }
 
-func (ab *AccountBlock) SetByNetPB (accountBlockNetPB *vitepb.AccountBlockNet) (error) {
+func (ab *AccountBlock) SetByNetPB(accountBlockNetPB *vitepb.AccountBlockNet) error {
 	if accountBlockNetPB.Meta != nil {
-		ab.Meta = &AccountBlockMeta {}
+		ab.Meta = &AccountBlockMeta{}
 
 		ab.Meta.AccountId = &big.Int{}
 		ab.Meta.AccountId.SetBytes(accountBlockNetPB.Meta.AccountId)
@@ -354,7 +351,6 @@ func (ab *AccountBlock) SetByNetPB (accountBlockNetPB *vitepb.AccountBlockNet) (
 		ab.SnapshotTimestamp = &snapshotTimestamp
 	}
 
-
 	if accountBlockNetPB.AccountAddress != nil {
 		address, err := types.BytesToAddress(accountBlockNetPB.AccountAddress)
 		if err != nil {
@@ -381,8 +377,7 @@ func (ab *AccountBlock) SetByNetPB (accountBlockNetPB *vitepb.AccountBlockNet) (
 	return nil
 }
 
-
-func (ab *AccountBlock) NetDeserialize (buf []byte) (error)  {
+func (ab *AccountBlock) NetDeserialize(buf []byte) error {
 	accountBlockNetPB := &vitepb.AccountBlockNet{}
 	if err := proto.Unmarshal(buf, accountBlockNetPB); err != nil {
 		return err
@@ -393,19 +388,18 @@ func (ab *AccountBlock) NetDeserialize (buf []byte) (error)  {
 	return nil
 }
 
-
-func (ab *AccountBlock) NetSerialize () ([]byte, error)  {
+func (ab *AccountBlock) NetSerialize() ([]byte, error) {
 	return proto.Marshal(ab.GetNetPB())
 }
 
-func (ab *AccountBlock) DbSerialize () ([]byte, error) {
+func (ab *AccountBlock) DbSerialize() ([]byte, error) {
 	accountBlockPB := &vitepb.AccountBlockDb{
 		Timestamp: ab.Timestamp,
-		Data: ab.Data,
+		Data:      ab.Data,
 
 		Signature: ab.Signature,
 
-		Nounce: ab.Nounce,
+		Nounce:     ab.Nounce,
 		Difficulty: ab.Difficulty,
 	}
 
@@ -443,13 +437,10 @@ func (ab *AccountBlock) DbSerialize () ([]byte, error) {
 		accountBlockPB.FAmount = ab.FAmount.Bytes()
 	}
 
-
 	return proto.Marshal(accountBlockPB)
 }
 
-
-
-func (ab *AccountBlock) DbDeserialize (buf []byte) error {
+func (ab *AccountBlock) DbDeserialize(buf []byte) error {
 	accountBlockPB := &vitepb.AccountBlockDb{}
 	if err := proto.Unmarshal(buf, accountBlockPB); err != nil {
 		return err
@@ -463,7 +454,6 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 
 		ab.To = &toAddress
 	}
-
 
 	if accountBlockPB.Hash != nil {
 		hash, err := types.BytesToHash(accountBlockPB.Hash)
@@ -503,14 +493,12 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 		ab.Amount.SetBytes(accountBlockPB.Amount)
 	}
 
-
-	ab.Timestamp =  accountBlockPB.Timestamp
+	ab.Timestamp = accountBlockPB.Timestamp
 
 	if accountBlockPB.Balance != nil {
 		ab.Balance = &big.Int{}
 		ab.Balance.SetBytes(accountBlockPB.Balance)
 	}
-
 
 	ab.Data = accountBlockPB.Data
 
@@ -534,14 +522,13 @@ func (ab *AccountBlock) DbDeserialize (buf []byte) error {
 	return nil
 }
 
-
-func GetGenesisBlockFirst () (*AccountBlock){
+func GetGenesisBlockFirst() *AccountBlock {
 	hash, _ := types.HexToHash("dea522da8f23293a02fdb805b54aa131146031e3c65ef2a8bcec54985b5fa4b9")
 	return &AccountBlock{
 		Hash: &hash,
 		//Signature: ,
 		Meta: &AccountBlockMeta{
-			Height:	big.NewInt(1),
+			Height: big.NewInt(1),
 		},
 		Signature:         []byte{159, 47, 204, 220, 246, 65, 16, 33, 61, 64, 159, 109, 164, 248, 99, 179, 61, 116, 190, 167, 188, 192, 185, 36, 92, 22, 141, 62, 40, 123, 6, 230, 50, 4, 201, 245, 251, 225, 32, 178, 102, 37, 169, 55, 18, 194, 249, 29, 94, 46, 39, 197, 177, 6, 74, 173, 24, 239, 197, 191, 2, 159, 163, 4},
 		AccountAddress:    SnapshotGenesisBlock.Producer,
@@ -551,22 +538,22 @@ func GetGenesisBlockFirst () (*AccountBlock){
 		Data: "{" +
 			"\"tokenName\": \"vite\"," +
 			"\"tokenSymbol\": \"VITE\"," +
-			"\"owner\":\""+ SnapshotGenesisBlock.Producer.String() +"\"," +
+			"\"owner\":\"" + SnapshotGenesisBlock.Producer.String() + "\"," +
 			"\"decimals\": 18," +
 			"\"tokenId\":\"" + MockViteTokenId.String() + "\"," +
 			"\"totalSupply\": \"1000000000\"" +
 			"}",
 	}
 }
-func GetGenesisBlockSecond (prevHash *types.Hash, fromHash *types.Hash) (*AccountBlock){
+func GetGenesisBlockSecond(prevHash *types.Hash, fromHash *types.Hash) *AccountBlock {
 	hash, _ := types.HexToHash("1461ec0ac3e55164767f9e116920d7fe0129535d49310b34d641da8fc764248f")
 
 	return &AccountBlock{
 		Hash: &hash,
 		Meta: &AccountBlockMeta{
-			Height:	big.NewInt(2),
+			Height: big.NewInt(2),
 		},
-		Signature:      []byte{2,10,234,156,56,2,46,89,156,249,211,241,253,11,214,24,254,95,230,200,19,119,120,7,61,54,188,165,104,190,196,25,35,164,46,26,135,138,150,4,191,103,74,62,186,107,43,247,121,61,215,117,96,224,216,128,4,127,213,235,186,210,161,10},
+		Signature:      []byte{2, 10, 234, 156, 56, 2, 46, 89, 156, 249, 211, 241, 253, 11, 214, 24, 254, 95, 230, 200, 19, 119, 120, 7, 61, 54, 188, 165, 104, 190, 196, 25, 35, 164, 46, 26, 135, 138, 150, 4, 191, 103, 74, 62, 186, 107, 43, 247, 121, 61, 215, 117, 96, 224, 216, 128, 4, 127, 213, 235, 186, 210, 161, 10},
 		AccountAddress: SnapshotGenesisBlock.Producer,
 		FromHash:       fromHash,
 		PrevHash:       prevHash,

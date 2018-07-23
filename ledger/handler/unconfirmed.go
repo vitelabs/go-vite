@@ -3,56 +3,40 @@ package handler
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
+	"github.com/vitelabs/go-vite/ledger/handler_interface"
 )
-
-// pack the data for handler
-type TokenInfo struct {
-	Token       *ledger.Token
-	TotalAmount *big.Int
-}
-
-type UnconfirmedAccount struct {
-	AccountAddress *types.Address
-	TotalNumber    *big.Int
-	TokenInfoList  []*TokenInfo
-}
 
 func (ac *AccountChain) GetUnconfirmedAccountMeta(addr *types.Address) (*ledger.UnconfirmedMeta, error) {
 	return ac.uAccess.GetUnconfirmedAccountMeta(addr)
 }
 
-//func (ac *AccountChain) GetUnconfirmedBlocks (index int, num int, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*ledger.AccountBlock, error) {
-//	acMeta, err := ac.aAccess.GetAccountMeta(addr)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return ac.uAccess.GetUnconfirmedBlocks(index, num, count, acMeta.AccountId, tokenId)
-//}
-
-func (ac *AccountChain) GetHashListByPaging(index int, num int, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
-	return ac.uAccess.GetHashListByPaging(index, num, count, addr, tokenId)
+func (ac *AccountChain) GetUnconfirmedTxHashs(index, num, count int, addr *types.Address) ([]*types.Hash, error) {
+	return nil, nil
 }
 
-func (ac *AccountChain) GetUnconfirmedAccount(addr *types.Address) (*UnconfirmedAccount, error) {
+func (ac *AccountChain) GetUnconfirmedTxHashsByTkId(index, num, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+	return ac.uAccess.GetUnconfirmedTxHashs(index, num, count, addr, tokenId)
+}
+
+func (ac *AccountChain) GetUnconfirmedAccount(addr *types.Address) (*handler_interface.UnconfirmedAccount, error) {
 	unconfirmedMeta, err := ac.GetUnconfirmedAccountMeta(addr)
 	if err != nil {
 		return nil, err
 	}
-	var tokenInfoList []*TokenInfo
+	var tokenInfoList []*handler_interface.TokenInfo
 	for _, ti := range unconfirmedMeta.TokenInfoList {
 		token, tkErr := ac.tAccess.GetByTokenId(ti.TokenId)
 		if tkErr != nil {
 			return nil, tkErr
 		}
-		tokenInfo := &TokenInfo{
+		tokenInfo := &handler_interface.TokenInfo{
 			Token:       token,
 			TotalAmount: ti.TotalAmount,
 		}
 
 		tokenInfoList = append(tokenInfoList, tokenInfo)
 	}
-	var UnconfirmedAccount = &UnconfirmedAccount{
+	var UnconfirmedAccount = &handler_interface.UnconfirmedAccount{
 		AccountAddress: addr,
 		TotalNumber:    unconfirmedMeta.TotalNumber,
 		TokenInfoList:  tokenInfoList,

@@ -1,36 +1,35 @@
 package ledger
 
 import (
+	"encoding/json"
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
-	"encoding/json"
 )
 
 var MintageAddress, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
-var MockViteTokenId, _= types.BytesToTokenTypeId([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) // mock
+var MockViteTokenId, _ = types.BytesToTokenTypeId([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) // mock
 
 type mintageJSON struct {
-	Name string 			`json:"tokenName"`
-	Id string				`json:"tokenId"`
-	Symbol string			`json:"tokenSymbol"`
+	Name   string `json:"tokenName"`
+	Id     string `json:"tokenId"`
+	Symbol string `json:"tokenSymbol"`
 
-	Owner string			`json:"owner"`
-	Decimals int			`json:"decimals"`
-	TotalSupply string		`json:"totalSupply"`
+	Owner       string `json:"owner"`
+	Decimals    int    `json:"decimals"`
+	TotalSupply string `json:"totalSupply"`
 }
 
-
 type Mintage struct {
-	Name string
-	Id *types.TokenTypeId
+	Name   string
+	Id     *types.TokenTypeId
 	Symbol string
 
-	Owner *types.Address
-	Decimals int
+	Owner       *types.Address
+	Decimals    int
 	TotalSupply *big.Int
 }
 
-func NewMintage (mintageBlock *AccountBlock) (*Mintage, error){
+func NewMintage(mintageBlock *AccountBlock) (*Mintage, error) {
 
 	var mintageData *mintageJSON
 	if err := json.Unmarshal([]byte(mintageBlock.Data), &mintageData); err != nil {
@@ -47,7 +46,6 @@ func NewMintage (mintageBlock *AccountBlock) (*Mintage, error){
 		}
 	}
 
-
 	if &id == nil {
 		id = MockViteTokenId
 	}
@@ -61,12 +59,12 @@ func NewMintage (mintageBlock *AccountBlock) (*Mintage, error){
 	totalSupply.SetString(mintageData.TotalSupply, 10)
 
 	mintage := &Mintage{
-		Name: mintageData.Name,
-		Id: &id,
+		Name:   mintageData.Name,
+		Id:     &id,
 		Symbol: mintageData.Symbol,
 
-		Owner: &owner,
-		Decimals: mintageData.Decimals,
+		Owner:       &owner,
+		Decimals:    mintageData.Decimals,
 		TotalSupply: totalSupply,
 	}
 
@@ -75,13 +73,13 @@ func NewMintage (mintageBlock *AccountBlock) (*Mintage, error){
 
 type Token struct {
 	MintageBlock *AccountBlock
-	Mintage *Mintage
+	Mintage      *Mintage
 }
 
-func NewToken (mintageBlock *AccountBlock) (*Token, error){
+func NewToken(mintageBlock *AccountBlock) (*Token, error) {
 	mintage, err := NewMintage(mintageBlock)
-	return &Token {
+	return &Token{
 		MintageBlock: mintageBlock,
-		Mintage: mintage,
+		Mintage:      mintage,
 	}, err
 }

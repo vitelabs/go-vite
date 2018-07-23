@@ -4,12 +4,11 @@ import "github.com/vitelabs/go-vite/ledger/handler_interface"
 
 type Manager struct {
 	vite Vite
-	ac *AccountChain
-	sc *SnapshotChain
-
+	ac   *AccountChain
+	sc   *SnapshotChain
 }
 
-func NewManager(vite Vite) (*Manager)  {
+func NewManager(vite Vite) *Manager {
 	manager := &Manager{
 		vite: vite,
 
@@ -22,9 +21,9 @@ func NewManager(vite Vite) (*Manager)  {
 	return manager
 }
 
-func (m *Manager) Ac () handler_interface.AccountChain{
+func (m *Manager) Ac() handler_interface.AccountChain {
 	return m.ac
 }
-func (m *Manager) Sc () handler_interface.SnapshotChain{
+func (m *Manager) Sc() handler_interface.SnapshotChain {
 	return m.sc
 }

@@ -1,16 +1,16 @@
 package access
 
 import (
-	"github.com/vitelabs/go-vite/vitedb"
-	"github.com/vitelabs/go-vite/ledger"
-	"sync"
-	"github.com/syndtr/goleveldb/leveldb"
-	"errors"
-	"github.com/vitelabs/go-vite/common/types"
 	"bytes"
-	"math/big"
-	"log"
+	"errors"
 	errors2 "github.com/pkg/errors"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vitedb"
+	"log"
+	"math/big"
+	"sync"
 )
 
 type SnapshotChainAccess struct {

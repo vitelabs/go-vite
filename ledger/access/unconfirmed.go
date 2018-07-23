@@ -1,15 +1,15 @@
 package access
 
 import (
-	"github.com/vitelabs/go-vite/vitedb"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/common/types"
-	"math/big"
-	"github.com/vitelabs/go-vite/log"
-	"github.com/syndtr/goleveldb/leveldb"
-	"sync"
-	"github.com/pkg/errors"
 	"bytes"
+	"github.com/pkg/errors"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log"
+	"github.com/vitelabs/go-vite/vitedb"
+	"math/big"
+	"sync"
 )
 
 type unconfirmedListener map[types.Address]chan<- struct{}
@@ -73,7 +73,7 @@ func (uwm *ucfmWriteMutex) UnLock(block *ledger.AccountBlock) {
 	uwmBody.Reference = false
 }
 
-func (ucfa *UnconfirmedAccess) GetHashListByPaging(index int, num int, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+func (ucfa *UnconfirmedAccess) GetUnconfirmedTxHashs(index, num, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
 	var hList []*types.Hash
 
 	hashList, err := ucfa.GetHashListByAddr(addr, tokenId)
@@ -108,7 +108,16 @@ func (ucfa *UnconfirmedAccess) GetHashListByAccId(accountId *big.Int, tokenId *t
 	return ucfa.store.GetUnconfirmedHashList(accountId, tokenId)
 }
 
-func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, addr *types.Address, block *ledger.AccountBlock) error {
+func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
+	return ucfa.store.BatchWrite(batch, func(batch *leveldb.Batch) error {
+		if err := ucfa.writeBlock(batch, block); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (ucfa *UnconfirmedAccess) writeBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	// judge whether the block exists
 	//block, err := accountChainAccess.GetBlockByHash(hash)
 	//if err != nil {
@@ -119,7 +128,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, addr *types.Addr
 	//}
 
 	// judge whether the address exists
-	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(addr)
+	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(block.AccountAddress)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
 			Code: WacDefaultErr,
@@ -157,7 +166,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, addr *types.Addr
 		ucfa.writeAccountMutex.Lock()
 		defer ucfa.writeAccountMutex.Unlock()
 
-		uAccMeta, err = ucfa.CreateNewUcfmMeta(addr, block)
+		uAccMeta, err = ucfa.CreateNewUcfmMeta(block)
 		if err != nil {
 			return &AcWriteError{
 				Code: WacDefaultErr,
@@ -174,7 +183,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, addr *types.Addr
 	}
 	hashList = append(hashList, block.Hash)
 
-	if err := ucfa.store.WriteMeta(batch, addr, uAccMeta); err != nil {
+	if err := ucfa.store.WriteMeta(batch, block.AccountAddress, uAccMeta); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
 			Err:  err,
@@ -188,16 +197,16 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, addr *types.Addr
 	}
 
 	// Add to the Listener
-	_, ok := (*ucfa.listener)[*addr]
+	_, ok := (*ucfa.listener)[*block.AccountAddress]
 	if ok {
-		ucfa.SendSignalToListener(*addr)
+		ucfa.SendSignalToListener(*block.AccountAddress)
 	}
 	return nil
 }
 
-func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(addr *types.Address, block *ledger.AccountBlock) (*ledger.UnconfirmedMeta, error) {
+func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(block *ledger.AccountBlock) (*ledger.UnconfirmedMeta, error) {
 	// Get the accountId
-	accMeta, err := accountAccess.GetAccountMeta(addr)
+	accMeta, err := accountAccess.GetAccountMeta(block.AccountAddress)
 	if err != nil {
 		return nil, errors.New("[CreateNewUcfmMeta.GetAccountMeta]：" + err.Error())
 	}
@@ -214,9 +223,9 @@ func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(addr *types.Address, block *led
 	return accountMeta, nil
 }
 
-func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, addr *types.Address, block *ledger.AccountBlock) error {
+func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 
-	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(addr)
+	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(block.AccountAddress)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
 			Code: WacDefaultErr,
@@ -227,7 +236,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, addr *types.Add
 		ucfa.writeAccountMutex.Lock()
 		defer ucfa.writeAccountMutex.Unlock()
 
-		err := ucfa.store.DeleteMeta(batch, addr)
+		err := ucfa.store.DeleteMeta(batch, block.AccountAddress)
 		return errors.New("Delete unconfirmed failed, because uAccMeta is empty. Log:" + err.Error())
 	}
 
@@ -289,7 +298,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, addr *types.Add
 		}
 	}
 
-	if err := ucfa.store.WriteMeta(batch, addr, uAccMeta); err != nil {
+	if err := ucfa.store.WriteMeta(batch, block.AccountAddress, uAccMeta); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
 			Err:  err,

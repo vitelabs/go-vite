@@ -7,10 +7,11 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 	"path/filepath"
 	"strings"
+	"github.com/vitelabs/go-vite/vite"
 )
 
 func main() {
-
+	vite.New(nil)
 	m := wallet.NewManager(filepath.Join(common.TestDataDir(), "wallet"))
 	rpcAPI := []vrpc.API{
 		{

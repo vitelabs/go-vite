@@ -1,42 +1,42 @@
 package handler
 
 import (
-	protoTypes "github.com/vitelabs/go-vite/protocols/types"
-	"github.com/vitelabs/go-vite/ledger/access"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"log"
-	"github.com/vitelabs/go-vite/crypto"
-	"errors"
-	"time"
-	"math/big"
 	"bytes"
+	"errors"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/ledger/access"
+	protoTypes "github.com/vitelabs/go-vite/protocols/types"
+	"log"
+	"math/big"
+	"time"
 )
 
 type AccountChain struct {
 	vite Vite
 	// Handle block
 	acAccess *access.AccountChainAccess
-	aAccess *access.AccountAccess
+	aAccess  *access.AccountAccess
 	scAccess *access.SnapshotChainAccess
-	uAccess *access.UnconfirmedAccess
-	tAccess *access.TokenAccess
+	uAccess  *access.UnconfirmedAccess
+	tAccess  *access.TokenAccess
 }
 
-func NewAccountChain (vite Vite) (*AccountChain) {
+func NewAccountChain(vite Vite) *AccountChain {
 	return &AccountChain{
-		vite: vite,
+		vite:     vite,
 		acAccess: access.GetAccountChainAccess(),
-		aAccess: access.GetAccountAccess(),
+		aAccess:  access.GetAccountAccess(),
 		scAccess: access.GetSnapshotChainAccess(),
-		uAccess: access.GetUnconfirmedAccess(),
+		uAccess:  access.GetUnconfirmedAccess(),
 	}
 }
 
 // HandleBlockHash
-func (ac *AccountChain) HandleGetBlocks (msg *protoTypes.GetAccountBlocksMsg, peer *protoTypes.Peer) error {
+func (ac *AccountChain) HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, peer *protoTypes.Peer) error {
 	go func() {
-		log.Printf("HandleGetBlocks: Origin: %s, Count: %d, Forward: %v.\n",  msg.Origin, msg.Count, msg.Forward)
+		log.Printf("HandleGetBlocks: Origin: %s, Count: %d, Forward: %v.\n", msg.Origin, msg.Count, msg.Forward)
 		blocks, err := ac.acAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
 		if err != nil {
 			log.Println(err)
@@ -45,7 +45,7 @@ func (ac *AccountChain) HandleGetBlocks (msg *protoTypes.GetAccountBlocksMsg, pe
 
 		// send out
 		ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
-			Code: protoTypes.AccountBlocksMsgCode,
+			Code:    protoTypes.AccountBlocksMsgCode,
 			Payload: blocks,
 		})
 	}()
@@ -53,7 +53,7 @@ func (ac *AccountChain) HandleGetBlocks (msg *protoTypes.GetAccountBlocksMsg, pe
 }
 
 // HandleBlockHash
-func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer) error {
+func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer) error {
 	go func() {
 		globalRWMutex.RLock()
 		defer globalRWMutex.RUnlock()
@@ -74,7 +74,7 @@ func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer
 				continue
 			}
 
-			if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()){
+			if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()) {
 				// Discard the block.
 				log.Println("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because the computed hash is " + computedHash.String() + " and the block hash is " + block.Hash.String())
 				continue
@@ -82,7 +82,7 @@ func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer
 			// Verify signature
 			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
 
-			if verifyErr != nil || !isVerified{
+			if verifyErr != nil || !isVerified {
 				// Discard the block.
 				log.Println("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because verify signature failed.")
 				continue
@@ -111,12 +111,12 @@ func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer
 						// Download fragment
 						count := &big.Int{}
 						count.Sub(block.Meta.Height, currentHeight)
-						ac.vite.Pm().SendMsg(peer, &protoTypes.Msg {
+						ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 							Code: protoTypes.GetAccountBlocksMsgCode,
 							Payload: &protoTypes.GetAccountBlocksMsg{
-								Origin: *errData.Hash,
+								Origin:  *errData.Hash,
 								Forward: true,
-								Count: count.Uint64(),
+								Count:   count.Uint64(),
 							},
 						})
 						return
@@ -133,22 +133,21 @@ func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer
 	return nil
 }
 
-
 // AccAddr = account address
-func (ac *AccountChain) GetAccountByAccAddr (addr *types.Address) (*ledger.AccountMeta, error) {
+func (ac *AccountChain) GetAccountByAccAddr(addr *types.Address) (*ledger.AccountMeta, error) {
 	return ac.aAccess.GetAccountMeta(addr)
 }
 
 // AccAddr = account address
-func (ac *AccountChain) GetBlocksByAccAddr (addr *types.Address, index, num, count int) (ledger.AccountBlockList, error) {
+func (ac *AccountChain) GetBlocksByAccAddr(addr *types.Address, index, num, count int) (ledger.AccountBlockList, error) {
 	return ac.acAccess.GetBlockListByAccountAddress(index, num, count, addr)
 }
 
-func (ac *AccountChain) CreateTx (block *ledger.AccountBlock) (error) {
+func (ac *AccountChain) CreateTx(block *ledger.AccountBlock) error {
 	return ac.CreateTxWithPassphrase(block, "")
 }
 
-func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, passphrase string) error {
+func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error {
 	globalRWMutex.RLock()
 	defer globalRWMutex.RUnlock()
 
@@ -161,7 +160,6 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 	if accountMeta == nil {
 		return errors.New("CreateTx failed, because account " + block.AccountAddress.String() + " is not existed.")
 	}
-
 
 	// Set prevHash
 	latestBlock, err := ac.acAccess.GetLatestBlockByAccountAddress(block.AccountAddress)
@@ -212,11 +210,10 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 	}
 
 	// Broadcast
-	sendErr := ac.vite.Pm().SendMsg(nil, &protoTypes.Msg {
-		Code: protoTypes.AccountBlocksMsgCode,
+	sendErr := ac.vite.Pm().SendMsg(nil, &protoTypes.Msg{
+		Code:    protoTypes.AccountBlocksMsgCode,
 		Payload: &protoTypes.AccountBlocksMsg{block},
 	})
-
 
 	if sendErr != nil {
 		log.Printf("CreateTx broadcast failed, error is " + sendErr.Error())

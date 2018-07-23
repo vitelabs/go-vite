@@ -55,7 +55,7 @@ var pendingPool *pending.SnapshotchainPool
 func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, peer *protoTypes.Peer) error {
 	if pendingPool == nil {
 		log.Println("SnapshotChain HandleSendBlocks: Init pending.SnapshotchainPool.")
-		pendingPool = pending.NewSnapshotchainPool(func (block *ledger.SnapshotBlock) bool {
+		pendingPool = pending.NewSnapshotchainPool(func(block *ledger.SnapshotBlock) bool {
 
 			globalRWMutex.RLock()
 			defer globalRWMutex.RUnlock()
@@ -240,8 +240,8 @@ func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
 	}
 
 	// Broadcast
-	sendErr := sc.vite.Pm().SendMsg(nil, &protoTypes.Msg {
-		Code: protoTypes.SnapshotBlocksMsgCode,
+	sendErr := sc.vite.Pm().SendMsg(nil, &protoTypes.Msg{
+		Code:    protoTypes.SnapshotBlocksMsgCode,
 		Payload: &protoTypes.SnapshotBlocksMsg{block},
 	})
 
