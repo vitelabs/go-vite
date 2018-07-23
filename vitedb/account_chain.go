@@ -57,7 +57,7 @@ func (ac * AccountChain) WriteBlockMeta (batch *leveldb.Batch, accountBlockHash 
 		return err
 	}
 
-	key, err := createKey(DBKP_ACCOUNTBLOCKMETA, accountBlockHash)
+	key, err := createKey(DBKP_ACCOUNTBLOCKMETA, accountBlockHash.Bytes())
 	batch.Put(key, buf)
 	return nil
 }
@@ -132,19 +132,26 @@ func (ac *AccountChain) GetLatestBlockHeightByAccountId (accountId *big.Int) (* 
 func (ac *AccountChain) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) (ledger.AccountBlockList, error) {
 	originBlockMeta, err := ac.GetBlockMeta(originBlockHash)
 	if err != nil {
+		log.Println("AccountChain.GetBlocksFromOrigin: Get OriginBlockMeta failed.")
 		return nil, err
 	}
+	log.Println("AccountChain.GetBlocksFromOrigin: Get OriginBlockMeta success.")
 
 	accountDb := GetAccount()
 	address, err := accountDb.GetAddressById(originBlockMeta.AccountId)
 	if err != nil {
+		log.Println("AccountChain.GetBlocksFromOrigin: Get Address failed.")
+
 		return nil, err
 	}
+	log.Println("AccountChain.GetBlocksFromOrigin: Get Address success.")
 
 	account, err := accountDb.GetAccountMetaByAddress(address)
 	if err != nil {
+		log.Println("AccountChain.GetBlocksFromOrigin: Get Account failed.")
 		return nil, err
 	}
+	log.Println("AccountChain.GetBlocksFromOrigin: Get Account success.")
 
 
 	var startHeight, endHeight, gap = &big.Int{}, &big.Int{}, &big.Int{}
@@ -173,11 +180,11 @@ func (ac *AccountChain) GetBlocksFromOrigin (originBlockHash *types.Hash, count 
 	defer iter.Release()
 
 	if !iter.Last() {
+		log.Println("AccountChain.GetBlocksFromOrigin: No blocks.")
 		return nil, nil
 	}
 
 	var blockList ledger.AccountBlockList
-
 
 	for count := int64(0); iter.Next(); count++{
 		block := &ledger.AccountBlock{}
@@ -191,6 +198,8 @@ func (ac *AccountChain) GetBlocksFromOrigin (originBlockHash *types.Hash, count 
 		block.Meta = &ledger.AccountBlockMeta{
 			Height: currentHeight.Add(startHeight, big.NewInt(count)),
 		}
+
+		block.AccountAddress = address
 		block.PublicKey = account.PublicKey
 		blockList = append(blockList, block)
 	}
@@ -248,7 +257,7 @@ func (ac *AccountChain) GetBlockListByAccountMeta (index int, num int, count int
 }
 
 func (ac *AccountChain) IsBlockExist (blockHash *types.Hash) (bool) {
-	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, blockHash.String())
+	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, blockHash.Bytes())
 	if err != nil {
 		return false
 	}
@@ -262,7 +271,7 @@ func (ac *AccountChain) IsBlockExist (blockHash *types.Hash) (bool) {
 }
 
 func (ac * AccountChain) GetBlockMeta (blockHash *types.Hash) (*ledger.AccountBlockMeta, error) {
-	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, blockHash.String())
+	key, err:= createKey(DBKP_ACCOUNTBLOCKMETA, blockHash.Bytes())
 	if err != nil {
 		return nil, err
 	}

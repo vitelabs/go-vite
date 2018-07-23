@@ -1,5 +1,8 @@
 {
   "peerServer": {
-    "name": "test-go-vite"
+    "name": "test-go-vite",
+    "privateKey": [7],
+    "bootNodes": ["vnode://c6eb8db0b120dc5be0074e2ed7e3003153db9844bc8f0b5d732ef76e6be604f4@127.0.0.1:8483"],
+    "addr": "localhost:8487"
   }
 }
