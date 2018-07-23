@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"math/big"
 	"sync"
+	"log"
 )
 
 // @section Peer for protocol handle, not p2p Peer.
@@ -24,4 +25,5 @@ func (p *Peer) Update(status *StatusMsg) {
 
 	p.Height = status.Height
 	p.Head = status.CurrentBlock
+	log.Printf("peer %s update status: height %d Head %s\n", p.ID, p.Height, p.Head)
 }

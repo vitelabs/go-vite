@@ -156,7 +156,6 @@ func (ab *AccountBlock) ComputeHash () (*types.Hash, error) {
 	}
 	source = append(source, []byte(ab.Meta.Height.String())...)
 	source = append(source, ab.AccountAddress.Bytes()...)
-	source = append(source, ab.PublicKey...)
 
 	if ab.To != nil {
 		source = append(source, ab.To.Bytes()...)
@@ -225,20 +224,25 @@ func (ab *AccountBlock) GetNetPB () *vitepb.AccountBlockNet {
 	accountBlockNetPB := &vitepb.AccountBlockNet{
 		Data: ab.Data,
 		Timestamp: ab.Timestamp,
-
+		PublicKey: ab.PublicKey,
 		Signature: ab.Signature,
 		Nounce: ab.Nounce,
 
 		Difficulty: ab.Difficulty,
 
 	}
+
+	if ab.AccountAddress != nil {
+		accountBlockNetPB.AccountAddress = ab.AccountAddress.Bytes()
+	}
+
 	if ab.Meta != nil {
 		accountBlockNetPB.Meta = &vitepb.AccountBlockMeta{
 			AccountId: ab.Meta.AccountId.Bytes(),
 			Height: ab.Meta.Height.Bytes(),
-			Status: uint32(ab.Meta.Status),
 		}
 	}
+
 	if ab.To != nil {
 		accountBlockNetPB.To = ab.To.Bytes()
 	}
@@ -263,14 +267,10 @@ func (ab *AccountBlock) GetNetPB () *vitepb.AccountBlockNet {
 	}
 
 	if ab.Balance != nil {
-		accountBlockNetPB.Amount = ab.Balance.Bytes()
+		accountBlockNetPB.Balance = ab.Balance.Bytes()
 	}
 
 	if ab.SnapshotTimestamp != nil {
-		accountBlockNetPB.SnapshotTimestamp = ab.SnapshotTimestamp.Bytes()
-	}
-
-	if ab.Signature != nil {
 		accountBlockNetPB.SnapshotTimestamp = ab.SnapshotTimestamp.Bytes()
 	}
 
@@ -354,7 +354,18 @@ func (ab *AccountBlock) SetByNetPB (accountBlockNetPB *vitepb.AccountBlockNet) (
 		ab.SnapshotTimestamp = &snapshotTimestamp
 	}
 
+
+	if accountBlockNetPB.AccountAddress != nil {
+		address, err := types.BytesToAddress(accountBlockNetPB.AccountAddress)
+		if err != nil {
+			return nil
+		}
+
+		ab.AccountAddress = &address
+	}
 	ab.Timestamp = accountBlockNetPB.Timestamp
+
+	ab.PublicKey = accountBlockNetPB.PublicKey
 
 	ab.Signature = accountBlockNetPB.Signature
 
@@ -362,8 +373,8 @@ func (ab *AccountBlock) SetByNetPB (accountBlockNetPB *vitepb.AccountBlockNet) (
 
 	ab.Difficulty = accountBlockNetPB.Difficulty
 
+	ab.FAmount = big.NewInt(0)
 	if accountBlockNetPB.FAmount != nil {
-		ab.FAmount = &big.Int{}
 		ab.FAmount.SetBytes(accountBlockNetPB.FAmount)
 	}
 

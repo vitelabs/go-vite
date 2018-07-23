@@ -51,7 +51,7 @@ func (pm *ProtocolManager) SendStatusMsg(peer *protoType.Peer) {
 		peer.Errch <- err
 		log.Printf("send status msg to %s error: %v\n", peer.ID, err)
 	} else {
-		log.Printf("send status msg to %s\n", peer.ID)
+		log.Printf("send status msg to %s, our height %d\n", peer.ID, status.Height)
 	}
 }
 
@@ -61,6 +61,7 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 		ID: peer.ID().String(),
 	}
 	pm.Peers.AddPeer(protoPeer)
+	log.Printf("now wei have %d peers\n", pm.Peers.Count())
 
 	go pm.SendStatusMsg(protoPeer)
 
@@ -79,7 +80,7 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 			case protoType.StatusMsgCode:
 				m := new(protoType.StatusMsg)
 				m.NetDeserialize(msg.Payload)
-				pm.HandleStatusMsg(m, protoPeer)
+				go pm.HandleStatusMsg(m, protoPeer)
 			case protoType.GetSnapshotBlocksMsgCode:
 				m := new(protoType.GetSnapshotBlocksMsg)
 				m.NetDeserialize(msg.Payload)
@@ -97,15 +98,15 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 				m.NetDeserialize(msg.Payload)
 				err = pm.achain.HandleSendBlocks(m, protoPeer)
 			default:
-				peer.Errch <- fmt.Errorf("unknown message code %d\n", msg.Code)
+				peer.Errch <- fmt.Errorf("unknown message code %d from %s\n", msg.Code, peer.ID())
 				return
 			}
 
 			if err != nil {
-				log.Printf("pm handle msg %d error: %v\n", msg.Code, err)
+				log.Printf("pm handle msg %d from %s error: %v\n", msg.Code, peer.ID(), err)
 				peer.Errch <- err
 			} else {
-				log.Printf("pm handle msg %d\n", msg.Code)
+				log.Printf("pm handle msg %d from %s done\n", msg.Code, peer.ID())
 			}
 		case <- ticker.C:
 			go pm.SendStatusMsg(protoPeer)
@@ -116,7 +117,7 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 func (pm *ProtocolManager) SendMsg(p *protoType.Peer, msg *protoType.Msg) error {
 	payload, err := msg.Payload.NetSerialize()
 	if err != nil {
-		return fmt.Errorf("protocolManager Send error: %v\n", err)
+		return fmt.Errorf("pm.SendMsg NetSerialize msg %d to %s error: %v\n", msg.Code, p.ID, err)
 	}
 	m := &p2p.Msg{
 		Code: msg.Code,
@@ -130,7 +131,7 @@ func (pm *ProtocolManager) SendMsg(p *protoType.Peer, msg *protoType.Msg) error 
 	}
 
 	// send to the specified peer
-	log.Printf("pm send msg %d to %s\n", msg.Code, p.ID)
+	log.Printf("pm begin send msg %d to %s\n", msg.Code, p.ID)
 	return p2p.Send(p.TS, m)
 }
 
@@ -146,6 +147,8 @@ func (pm *ProtocolManager) BroadcastMsg(msg *protoType.Msg) (fails []*protoType.
 		if err != nil {
 			sent[p] = false
 			log.Printf("pm broadcast msg %d to %s error: %v\n", msg.Code, p.ID, err)
+		} else {
+			log.Printf("pm broadcast msg %d to %s done\n", msg.Code, p.ID)
 		}
 		<- pending
 	}
@@ -200,7 +203,7 @@ func (pm *ProtocolManager) Sync() {
 			}
 
 			pm.schain.SyncPeer(bestPeer)
-			log.Printf("begin sync from %s to height \n", bestPeer.ID, bestPeer.Height)
+			log.Printf("begin sync from %s to height %d\n", bestPeer.ID, bestPeer.Height.Uint64())
 		} else {
 			log.Println("missing sync method")
 		}
@@ -250,6 +253,7 @@ func (m *PeersMap) BestPeer() (best *protoType.Peer) {
 
 	maxHeight := new(big.Int)
 	for _, peer := range m.peers {
+		fmt.Printf("peer: %#v, peer.Height: %#v\n", peer, peer.Height)
 		cmp := peer.Height.Cmp(maxHeight)
 		if cmp > 0 {
 			maxHeight = peer.Height

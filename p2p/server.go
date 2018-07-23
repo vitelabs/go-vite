@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"reflect"
+	"fmt"
 )
 
 const (
@@ -132,11 +133,11 @@ func NewServer(cfg *Config, handler peerHandler) (svr *Server, err error) {
 	}
 
 	if svr.NetID == 0 {
-		svr.NetID = MainNet
+		svr.NetID = TestNet
 	}
 
 	if svr.Addr == "" {
-		svr.Addr = "localhost:8483"
+		svr.Addr = "0.0.0.0:8483"
 	}
 
 	if svr.Dialer == nil {
@@ -243,7 +244,7 @@ func (svr *Server) Start() error {
 	defer svr.lock.Unlock()
 
 	if svr.running {
-		return errors.New("Server is already running.")
+		return errors.New("server is already running")
 	}
 	svr.running = true
 
@@ -693,10 +694,10 @@ func (dm *DialManager) TaskDone(t Task) {
 func (dm *DialManager) checkDial(n *Node, peers map[NodeID]*Peer) error {
 	_, exist := dm.dialing[n.ID];
 	if exist {
-		return errors.New("is dialing.")
+		return fmt.Errorf("%s is dialing", n)
 	}
 	if peers[n.ID] != nil {
-		return errors.New("has connected.")
+		return fmt.Errorf("%s has connected", n)
 	}
 
 	return nil

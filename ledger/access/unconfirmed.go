@@ -12,54 +12,83 @@ import (
 	"bytes"
 )
 
-type unconfirmListener map[string] chan int
-type UnconfirmedAccess struct {
-	store                *vitedb.Unconfirmed
-	writeNewAccountMutex sync.Mutex
-	listener             *unconfirmListener
-}
+const TriggerSignalEvent = iota
+
+type unconfirmedListener map[types.Address]chan<- int
 
 var unconfirmedAccess = &UnconfirmedAccess{
-	store:                vitedb.GetUnconfirmed(),
-	writeNewAccountMutex: sync.Mutex{},
-	listener:             &unconfirmListener{},
+	store:             vitedb.GetUnconfirmed(),
+	writeAccountMutex: sync.Mutex{},
+	uwMutex:           &ucfmWriteMutex{},
+	listener:          &unconfirmedListener{},
+}
+
+type UnconfirmedAccess struct {
+	store             *vitedb.Unconfirmed
+	writeAccountMutex sync.Mutex
+	uwMutex           *ucfmWriteMutex
+	listener          *unconfirmedListener
 }
 
 func GetUnconfirmedAccess() *UnconfirmedAccess {
 	return unconfirmedAccess
 }
 
-//func (ucfa *UnconfirmedAccess) GetUnconfirmedBlocks (index int, num int, count int, accountId *big.Int, tokenId *types.TokenTypeId) ([]*ledger.AccountBlock, error) {
-//	var blockList []*ledger.AccountBlock
-//
-//	hashList, err := ucfa.GetAccountHashList(accountId, tokenId)
-//	if err != nil {
-//		return nil, err
-//	}
-//	log.Info("GetUnconfirmedBlock/GetAccountHashList:len(hashList)=", len(*hashList))
-//
-//	for i := 0; i < num*count; i++ {
-//		hash := (*hashList)[index*count]
-//		block, ghErr := accountChainAccess.GetBlockByHash(hash)
-//		if ghErr != nil {
-//			return nil, ghErr
-//		}
-//		blockList = append(blockList, block)
-//	}
-//	return blockList, nil
-//}
+type ucfmWriteMutex map[types.Address]*ucfmWriteMuteBody
+type ucfmWriteMuteBody struct {
+	Reference bool
+}
 
-func (ucfa *UnconfirmedAccess) GetUnconfirmedHashs(index int, num int, count int, accountId *big.Int, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+var uWMMutex sync.Mutex
+
+func (uwm *ucfmWriteMutex) Lock(block *ledger.AccountBlock) *AcWriteError {
+	uWMMutex.Lock()
+	defer uWMMutex.Unlock()
+	uwmBody, ok := (*uwm)[*block.AccountAddress]
+
+	if !ok || uwmBody == nil {
+		uwmBody = &ucfmWriteMuteBody{
+			Reference: false,
+		}
+		(*uwm)[*block.AccountAddress] = uwmBody
+	}
+
+	if uwmBody.Reference {
+		return &AcWriteError{
+			Code: WacDefaultErr,
+			Err:  errors.New("Lock failed"),
+		}
+	}
+
+	uwmBody.Reference = true
+	return nil
+}
+
+func (uwm *ucfmWriteMutex) UnLock(block *ledger.AccountBlock) {
+	uWMMutex.Lock()
+	defer uWMMutex.Unlock()
+
+	uwmBody, ok := (*uwm)[*block.AccountAddress]
+	if !ok {
+		return
+	}
+	uwmBody.Reference = false
+}
+
+func (ucfa *UnconfirmedAccess) GetHashListByPaging(index int, num int, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
 	var hList []*types.Hash
 
-	hashList, err := ucfa.GetAccountHashList(accountId, tokenId)
-	if err != nil {
+	hashList, err := ucfa.GetHashListByAddr(addr, tokenId)
+	if err != nil && err != leveldb.ErrNotFound {
 		return nil, err
 	}
-	log.Info("GetUnconfirmedBlock/GetAccountHashList:len(hashList)=", len(hashList))
+	if hashList == nil {
+		return hList, nil
+	}
 
-	for i := 0; i < num*count; i++ {
-		hash := hashList[index*count]
+	log.Info("GetUnconfirmedBlock/GetAccountHashList:len(hashList)=", len(hashList))
+	for i := index * count; i < (index+num)*count && i < len(hashList); i++ {
+		hash := hashList[i]
 		hList = append(hList, hash)
 	}
 	return hList, nil
@@ -69,7 +98,15 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedAccountMeta(addr *types.Address) (*
 	return ucfa.store.GetUnconfirmedMeta(addr)
 }
 
-func (ucfa *UnconfirmedAccess) GetAccountHashList(accountId *big.Int, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+func (ucfa *UnconfirmedAccess) GetHashListByAddr(addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+	acMeta, err := accountAccess.GetAccountMeta(addr)
+	if err != nil {
+		return nil, err
+	}
+	return ucfa.store.GetUnconfirmedHashList(acMeta.AccountId, tokenId)
+}
+
+func (ucfa *UnconfirmedAccess) GetHashListByAccId(accountId *big.Int, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
 	return ucfa.store.GetUnconfirmedHashList(accountId, tokenId)
 }
 
@@ -91,18 +128,12 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, addr *types.Addr
 			Err:  err,
 		}
 	}
-	if uAccMeta == nil {
-		ucfa.writeNewAccountMutex.Lock()
-		defer ucfa.writeNewAccountMutex.Unlock()
+	if err := ucfa.uwMutex.Lock(block); err != nil {
+		return err
+	}
+	defer ucfa.uwMutex.UnLock(block)
 
-		uAccMeta, err = ucfa.CreateNewUcfmMeta(addr, block)
-		if err != nil {
-			return &AcWriteError{
-				Code: WacDefaultErr,
-				Err:  err,
-			}
-		}
-	} else {
+	if uAccMeta != nil {
 		// Upodate total number of this account's unconfirmedblocks
 		var number = &big.Int{}
 		uAccMeta.TotalNumber = number.Add(uAccMeta.TotalNumber, big.NewInt(1))
@@ -124,8 +155,18 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, addr *types.Addr
 			}
 			uAccMeta.TokenInfoList = append(uAccMeta.TokenInfoList, tokenInfo)
 		}
-	}
+	} else {
+		ucfa.writeAccountMutex.Lock()
+		defer ucfa.writeAccountMutex.Unlock()
 
+		uAccMeta, err = ucfa.CreateNewUcfmMeta(addr, block)
+		if err != nil {
+			return &AcWriteError{
+				Code: WacDefaultErr,
+				Err:  err,
+			}
+		}
+	}
 	hashList, err := ucfa.store.GetUnconfirmedHashList(uAccMeta.AccountId, block.TokenId)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
@@ -149,7 +190,10 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, addr *types.Addr
 	}
 
 	// Add to the Listener
-	ucfa.SendSignalToListener(addr)
+	_, ok := (*ucfa.listener)[*addr]
+	if ok {
+		ucfa.SendSignalToListener(*addr)
+	}
 	return nil
 }
 
@@ -173,6 +217,7 @@ func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(addr *types.Address, block *led
 }
 
 func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, addr *types.Address, block *ledger.AccountBlock) error {
+
 	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(addr)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
@@ -181,8 +226,10 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, addr *types.Add
 		}
 	}
 	if uAccMeta == nil {
+		ucfa.writeAccountMutex.Lock()
+		defer ucfa.writeAccountMutex.Unlock()
+
 		err := ucfa.store.DeleteMeta(batch, addr)
-		ucfa.RemoveListener(addr)
 		return errors.New("Delete unconfirmed failed, because uAccMeta is empty. Log:" + err.Error())
 	}
 
@@ -193,6 +240,11 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, addr *types.Add
 			Err:  err,
 		}
 	}
+	if err := ucfa.uwMutex.Lock(block); err != nil {
+		return err
+	}
+	defer ucfa.uwMutex.UnLock(block)
+
 	if hashList == nil {
 		err := ucfa.store.DeleteHashList(batch, uAccMeta.AccountId, block.TokenId)
 		return &AcWriteError{
@@ -201,18 +253,10 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, addr *types.Add
 		}
 	}
 
-	ucfa.writeNewAccountMutex.Lock()
-	defer ucfa.writeNewAccountMutex.Unlock()
-
 	// Update the TotalNumber of UnconfirmedMeta
 	var number = &big.Int{}
 	number.Sub(uAccMeta.TotalNumber, big.NewInt(1))
 	uAccMeta.TotalNumber = number
-	if number == big.NewInt(0) {
-		// Remove the Listener.
-		// But remain the addr:meta value in db, although the meta has no specific value.
-		ucfa.RemoveListener(addr)
-	}
 
 	// Update the TotalAmount of the TokenInfo
 	for index, tokeInfo := range uAccMeta.TokenInfoList {
@@ -262,15 +306,23 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, addr *types.Add
 	return nil
 }
 
-func (ucfa *UnconfirmedAccess) SendSignalToListener (addr *types.Address) {
-	(*ucfa.listener)[addr.String()] <- 1
+
+var listenerMutex sync.Mutex
+
+func (ucfa *UnconfirmedAccess) SendSignalToListener(addr types.Address) {
+	listenerMutex.Lock()
+	(*ucfa.listener)[addr] <- TriggerSignalEvent
+	listenerMutex.Unlock()
 }
 
-func (ucfa *UnconfirmedAccess) RemoveListener (addr *types.Address) {
+func (ucfa *UnconfirmedAccess) RemoveListener(addr types.Address) {
+	listenerMutex.Lock()
 	delete(*ucfa.listener, addr.String())
+	listenerMutex.Unlock()
 }
 
-func (ucfa *UnconfirmedAccess) GetListener (addr *types.Address) chan int {
-	signal, _ := (*ucfa.listener)[addr.String()]
-	return signal
+func (ucfa *UnconfirmedAccess) AddListener(addr types.Address, change chan<- int) {
+	listenerMutex.Lock()
+	(*ucfa.listener)[addr] = change
+	listenerMutex.Unlock()
 }

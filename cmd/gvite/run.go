@@ -1,4 +1,4 @@
-package main
+package gvite
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
@@ -10,12 +10,12 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"log"
-	//"flag"
-	"github.com/vitelabs/go-vite/p2p"
+
 	"flag"
+	"github.com/vitelabs/go-vite/p2p"
 )
 
-func main()  {
+func Start (cfg *p2p.Config)  {
 	//publicKey, privateKey, _ := ed25519.GenerateKey(rand.Reader)
 	//addr := types.PubkeyToAddress(publicKey)
 	//
@@ -24,7 +24,7 @@ func main()  {
 	//fmt.Println(addr.Hex())
 
 
-	v, err := vite.New(&p2p.Config{})
+	v, err := vite.New(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -145,13 +145,13 @@ func mockSnapshot (v *vite.Vite)  {
 
 		for {
 			log.Println("Mock minting.")
-			time.Sleep(3000 * time.Millisecond)
+			time.Sleep(time.Duration(30 * time.Second))
 			snapshotBlock := createSnapshotBlock(v)
 			if snapshotBlock.Snapshot == nil  || len(snapshotBlock.Snapshot) == 0 {
 				log.Println("No new account blocks. Doesn't snapshot.")
 			} else {
 				v.Ledger().Sc().WriteMiningBlock(snapshotBlock)
-				log.Println("Snapshot success.")
+				log.Println("The snapshot block " + snapshotBlock.Hash.String() + " create success.")
 			}
 		}
 	}(channel)

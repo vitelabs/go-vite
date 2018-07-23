@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"sort"
 	"time"
+	"log"
 )
 
 type SnapshotchainPool []*ledger.SnapshotBlock
@@ -12,16 +13,18 @@ func NewSnapshotchainPool (processFunc func(*ledger.SnapshotBlock)bool) *Snapsho
 	pool := SnapshotchainPool{}
 
 	go func () {
+		log.Println("SnapshotchainPool: Process block")
 		turnInterval := time.Duration(2000)
 		for {
 			if len(pool) <= 0 {
-				time.Sleep(turnInterval)
+				time.Sleep(turnInterval * time.Millisecond)
+				continue
 			}
 
 			if processFunc(pool[0]) {
 				pool = pool[1:]
 			} else {
-				time.Sleep(turnInterval)
+				time.Sleep(turnInterval * time.Millisecond)
 			}
 		}
 	}()

@@ -170,7 +170,7 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 
 	isGenesisBlock := bytes.Equal(block.Hash.Bytes(), ledger.SnapshotGenesisBlock.Hash.Bytes())
 
-	if !isGenesisBlock || block.Snapshot == nil || len(block.Snapshot) <= 0 {
+	if !isGenesisBlock && (block.Snapshot == nil || len(block.Snapshot) <= 0) {
 		return &ScWriteError{
 			Code: WscDefaultErr,
 			Err:  errors.New("The written block snapshot is nil."),
