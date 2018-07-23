@@ -64,7 +64,7 @@ func TestUpdate(t *testing.T) {
 	committee.update()
 }
 func TestGen(t *testing.T) {
-	address := genAddress(21)
+	address := genAddress(4)
 	for _, v := range address {
 		println(v.String())
 	}

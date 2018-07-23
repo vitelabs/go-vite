@@ -30,6 +30,10 @@ var DefaultMembers = []string{
 	"vite_98fe74d859935cbf833b876599abd9fc4334719cd62d039b5e",
 	"vite_d1f21f486b4ae94e2f3ce237e620ad524fbd6c1313275ef64c",
 	"vite_c873add4fada0029da924ec3557bd838a8de2220917da10569",
+	"vite_323033f4d510ee4ff9f0d4be1d71d63372c1c15d0c9001f041",
+	"vite_7a10c045903421df0915dd8d5807d37d2dff343df961365ef7",
+	"vite_c84d89b7adabaac7d86bd318f988ea39568a90eeafd3eece18",
+	"vite_8c52581f7498350be103b0f0ea20a4f66fde1193bd6668d04e",
 }
 
 func conv(mems []string) []types.Address {
