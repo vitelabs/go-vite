@@ -156,7 +156,6 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 	sca.bwMutex.Lock()
 	defer sca.bwMutex.Unlock()
 
-
 	if block.Hash == nil {
 		hash, err := block.ComputeHash()
 		if err != nil {
@@ -195,8 +194,6 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 		newSnapshotHeight := &big.Int{}
 		block.Height = newSnapshotHeight.Add(preSnapshotBlock.Height, big.NewInt(1))
 	}
-
-
 
 	// Check account block availability
 	if !isGenesisBlock {
@@ -278,7 +275,7 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 		if err := sca.accountStore.WriteAccountIdIndex(batch, producerAccountMeta.AccountId, block.Producer); err != nil {
 			return &ScWriteError{
 				Code: WscDefaultErr,
-				Err: err,
+				Err:  err,
 			}
 		}
 

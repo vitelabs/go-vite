@@ -17,13 +17,13 @@ type Account struct {
 
 var _account *Account
 
-func GetAccount () *Account {
-	db, err:= GetLDBDataBase(DB_BLOCK)
+func GetAccount() *Account {
+	db, err := GetLDBDataBase(DB_BLOCK)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if _account	== nil{
+	if _account == nil {
 		_account = &Account{
 			db: db,
 		}
@@ -31,7 +31,7 @@ func GetAccount () *Account {
 	return _account
 }
 
-func (account *Account) WriteMeta (batch *leveldb.Batch, accountAddress *types.Address, meta *ledger.AccountMeta) error {
+func (account *Account) WriteMeta(batch *leveldb.Batch, accountAddress *types.Address, meta *ledger.AccountMeta) error {
 	key, err := createKey(DBKP_ACCOUNTMETA, accountAddress.Bytes())
 	if err != nil {
 		return err
@@ -45,7 +45,7 @@ func (account *Account) WriteMeta (batch *leveldb.Batch, accountAddress *types.A
 	return nil
 }
 
-func (account *Account) GetAccountMetaByAddress (hexAddress *types.Address) (*ledger.AccountMeta, error) {
+func (account *Account) GetAccountMetaByAddress(hexAddress *types.Address) (*ledger.AccountMeta, error) {
 	keyAccountMeta, ckErr := createKey(DBKP_ACCOUNTMETA, hexAddress.Bytes())
 	if ckErr != nil {
 		return nil, ckErr
@@ -61,12 +61,12 @@ func (account *Account) GetAccountMetaByAddress (hexAddress *types.Address) (*le
 		fmt.Println(dsErr)
 		return nil, dsErr
 	}
-	
+
 	return accountMeter, nil
 }
 
-func (account *Account) GetLastAccountId () (*big.Int, error){
-	key, err:= createKey(DBKP_ACCOUNTID_INDEX, nil)
+func (account *Account) GetLastAccountId() (*big.Int, error) {
+	key, err := createKey(DBKP_ACCOUNTID_INDEX, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,6 @@ func (account *Account) GetLastAccountId () (*big.Int, error){
 	if !iter.Last() {
 		return nil, nil
 	}
-
 
 	lastKey := iter.Key()
 	partionList := deserializeKey(lastKey)
@@ -91,8 +90,7 @@ func (account *Account) GetLastAccountId () (*big.Int, error){
 	return accountId, nil
 }
 
-
-func (account *Account) WriteAccountIdIndex (batch *leveldb.Batch, accountId *big.Int, accountAddress *types.Address) error {
+func (account *Account) WriteAccountIdIndex(batch *leveldb.Batch, accountId *big.Int, accountAddress *types.Address) error {
 	key, err := createKey(DBKP_ACCOUNTID_INDEX, accountId)
 	if err != nil {
 		return err
@@ -102,7 +100,7 @@ func (account *Account) WriteAccountIdIndex (batch *leveldb.Batch, accountId *bi
 	return nil
 }
 
-func (account *Account) GetAddressById (accountId *big.Int) (*types.Address, error) {
+func (account *Account) GetAddressById(accountId *big.Int) (*types.Address, error) {
 	keyAccountAddress, ckErr := createKey(DBKP_ACCOUNTID_INDEX, accountId)
 	if ckErr != nil {
 		return nil, ckErr
@@ -120,12 +118,12 @@ func (account *Account) GetAddressById (accountId *big.Int) (*types.Address, err
 }
 
 // To get the latest existing account addresses of the accountChain
-func (account *Account) GetAccountList () ([]*types.Address, error){
+func (account *Account) GetAccountList() ([]*types.Address, error) {
 	key, ckErr := createKey(DBKP_ACCOUNTID_INDEX, nil)
 	if ckErr != nil {
 		return nil, ckErr
 	}
-	iter := account.db.Leveldb.NewIterator(util.BytesPrefix(key),nil)
+	iter := account.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
 	if itErr := iter.Error(); itErr != nil {
 		return nil, itErr

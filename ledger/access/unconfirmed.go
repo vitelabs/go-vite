@@ -304,7 +304,6 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, addr *types.Add
 	return nil
 }
 
-
 var listenerMutex sync.Mutex
 
 func (ucfa *UnconfirmedAccess) SendSignalToListener(addr types.Address) {
