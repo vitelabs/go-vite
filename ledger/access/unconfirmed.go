@@ -73,15 +73,15 @@ func (ucfa *UnconfirmedAccess) GetAccountHashList(accountId *big.Int, tokenId *t
 	return ucfa.store.GetUnconfirmedHashList(accountId, tokenId)
 }
 
-func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, addr *types.Address, hash *types.Hash) error {
+func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, addr *types.Address, block *ledger.AccountBlock) error {
 	// judge whether the block exists
-	block, err := accountChainAccess.GetBlockByHash(hash)
-	if err != nil {
-		return &AcWriteError{
-			Code: WacDefaultErr,
-			Err:  errors.New("Write unconfirmed failed, because getting the block by hash failed. Error is " + err.Error()),
-		}
-	}
+	//block, err := accountChainAccess.GetBlockByHash(hash)
+	//if err != nil {
+	//	return &AcWriteError{
+	//		Code: WacDefaultErr,
+	//		Err:  errors.New("Write unconfirmed failed, because getting the block by hash failed. Error is " + err.Error()),
+	//	}
+	//}
 
 	// judge whether the address exists
 	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(addr)
@@ -133,7 +133,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, addr *types.Addr
 			Err:  err,
 		}
 	}
-	hashList = append(hashList, hash)
+	hashList = append(hashList, block.Hash)
 
 	if err := ucfa.store.WriteMeta(batch, addr, uAccMeta); err != nil {
 		return &AcWriteError{
@@ -172,15 +172,7 @@ func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(addr *types.Address, block *led
 	return accountMeta, nil
 }
 
-func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, addr *types.Address, hash *types.Hash) error {
-	block, err := accountChainAccess.GetBlockByHash(hash)
-	if err != nil {
-		return &AcWriteError{
-			Code: WacDefaultErr,
-			Err:  errors.New("Delete unconfirmed failed, because getting the block by hash failed. Error is " + err.Error()),
-		}
-	}
-
+func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, addr *types.Address, block *ledger.AccountBlock) error {
 	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(addr)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
@@ -234,7 +226,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, addr *types.Add
 
 	// Remove the hash from the HashList
 	for index, data := range hashList {
-		if bytes.Equal(data.Bytes(), hash.Bytes()) {
+		if bytes.Equal(data.Bytes(), block.Hash.Bytes()) {
 			hashList = append(hashList[:index], hashList[index+1:]...)
 		}
 	}
