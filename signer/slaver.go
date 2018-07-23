@@ -29,7 +29,7 @@ type signSlave struct {
 
 func (sw *signSlave) Close() error {
 
-	// TODO remove listener
+	sw.vite.Ledger().Ac().RemoveListener(sw.address)
 
 	sw.mutex.Lock()
 	sw.isClosed = true
@@ -50,9 +50,9 @@ func (sw *signSlave) IsWorking() bool {
 func (sw *signSlave) AddressLocked(locked bool) {
 	sw.addressLocked = locked
 	if locked {
-		// remove listener
+		sw.vite.Ledger().Ac().AddListener(sw.address, sw.newSignedTask)
 	} else {
-		// add listener
+		sw.vite.Ledger().Ac().RemoveListener(sw.address)
 	}
 }
 

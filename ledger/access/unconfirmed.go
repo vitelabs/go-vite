@@ -12,9 +12,7 @@ import (
 	"bytes"
 )
 
-const TriggerSignalEvent = iota
-
-type unconfirmedListener map[types.Address]chan<- int
+type unconfirmedListener map[types.Address]chan<- struct{}
 
 var unconfirmedAccess = &UnconfirmedAccess{
 	store:             vitedb.GetUnconfirmed(),
@@ -311,18 +309,19 @@ var listenerMutex sync.Mutex
 
 func (ucfa *UnconfirmedAccess) SendSignalToListener(addr types.Address) {
 	listenerMutex.Lock()
-	(*ucfa.listener)[addr] <- TriggerSignalEvent
+	(*ucfa.listener)[addr] <- struct{}{}
 	listenerMutex.Unlock()
 }
 
 func (ucfa *UnconfirmedAccess) RemoveListener(addr types.Address) {
 	listenerMutex.Lock()
-	delete(*ucfa.listener, addr.String())
-	listenerMutex.Unlock()
+	defer listenerMutex.Unlock()
+	delete(*ucfa.listener, addr)
+
 }
 
-func (ucfa *UnconfirmedAccess) AddListener(addr types.Address, change chan<- int) {
+func (ucfa *UnconfirmedAccess) AddListener(addr types.Address, change chan<- struct{}) {
 	listenerMutex.Lock()
+	defer listenerMutex.Unlock()
 	(*ucfa.listener)[addr] = change
-	listenerMutex.Unlock()
 }

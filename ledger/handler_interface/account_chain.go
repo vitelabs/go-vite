@@ -16,6 +16,6 @@ type AccountChain interface {
 	CreateTxWithPassphrase (block *ledger.AccountBlock, passphrase string) error
 	GetHashListByPaging(index int, num int, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error)
 	GetUnconfirmedAccount(addr *types.Address) (*handler.UnconfirmedAccount, error)
-	AddListener(addr types.Address, change chan<- int)
+	AddListener(addr types.Address, change chan<- struct{})
 	RemoveListener(addr types.Address)
 }
