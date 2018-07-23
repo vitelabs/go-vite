@@ -48,6 +48,7 @@ func newFileDB(path string, version int, id NodeID) (*nodeDB, error) {
 	if _, ok := err.(*errors.ErrCorrupted); ok {
 		db, err = leveldb.RecoverFile(path, nil)
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -57,9 +58,15 @@ func newFileDB(path string, version int, id NodeID) (*nodeDB, error) {
 
 	if err == leveldb.ErrNotFound {
 		err = db.Put([]byte(dbVersion), vBytes, nil)
+
 		if err != nil {
 			db.Close()
 			return nil, err
+		} else {
+			return &nodeDB{
+				db: db,
+				id: id,
+			}, nil
 		}
 	} else if err == nil {
 		if bytes.Equal(oldVBytes, vBytes) {
@@ -76,6 +83,7 @@ func newFileDB(path string, version int, id NodeID) (*nodeDB, error) {
 			return newFileDB(path, version, id)
 		}
 	}
+
 	return nil, err
 }
 

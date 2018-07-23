@@ -646,12 +646,11 @@ func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]
 		}
 	}
 
-	if len(peers) == 0 && len(dm.bootNodes) > 0 && dials > 0 {
-		bootNode := dm.bootNodes[0]
-		copy(dm.bootNodes, dm.bootNodes[1:])
-		dm.bootNodes[len(dm.bootNodes) - 1] = bootNode
+	for i := 0; i < len(dm.bootNodes) && dials > 0; i++ {
+		bootNode := dm.bootNodes[i]
 
 		if addDailTask(dynDialedConn, bootNode) {
+			fmt.Printf("dial %s\n", bootNode)
 			dials--
 		}
 	}
