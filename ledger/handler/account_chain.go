@@ -52,11 +52,6 @@ func (ac *AccountChain) HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, pee
 
 // HandleBlockHash
 func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer) error {
-	if !syncInfo.IsFirstSyncDone {
-		log.Error("Sync unfinished, so accountChain can't handleSendBlocks.")
-		return nil
-	}
-
 	go func() {
 		globalRWMutex.RLock()
 		defer globalRWMutex.RUnlock()

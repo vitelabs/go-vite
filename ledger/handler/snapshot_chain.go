@@ -200,16 +200,17 @@ func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
 }
 
 func (sc *SnapshotChain) SyncPeer(peer *protoTypes.Peer) {
+	// Syncing done, modify in future
+	defer sc.vite.Pm().SyncDone()
 	if peer == nil {
 		syncInfo.IsFirstSyncDone = true
+		log.Info("SnapshotChain.SyncPeer: sync finished.")
+
 		return
 	}
 	// Do syncing
 	log.Info("SyncPeer: start sync peer.")
 	err := sc.syncPeer(peer)
-
-	// Syncing done, modify in future
-	sc.vite.Pm().SyncDone()
 
 	if err != nil {
 		log.Info(err.Error())
@@ -223,11 +224,6 @@ func (sc *SnapshotChain) SyncPeer(peer *protoTypes.Peer) {
 }
 
 func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
-	if !syncInfo.IsFirstSyncDone {
-		log.Error("Sync unfinished, so don't write mining block.")
-		return nil
-	}
-
 	globalRWMutex.Lock()
 	defer globalRWMutex.Unlock()
 

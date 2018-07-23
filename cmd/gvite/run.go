@@ -141,9 +141,7 @@ func mockSnapshot(v *vite.Vite) {
 			log.Println("Mock minting.")
 			time.Sleep(time.Duration(10 * time.Second))
 			syncInfo := v.Ledger().Sc().GetFirstSyncInfo()
-			if syncInfo.CurrentHeight == nil ||
-				syncInfo.TargetHeight == nil ||
-				syncInfo.CurrentHeight.Cmp(syncInfo.TargetHeight) >= 0 {
+			if !syncInfo.IsFirstSyncDone {
 				log.Println("Sync unfinished")
 				continue
 			}
@@ -177,9 +175,7 @@ func mockAccount(v *vite.Vite, index int) {
 			num := rand2.Intn(3000)
 			time.Sleep(time.Duration(num) * time.Millisecond)
 			syncInfo := v.Ledger().Sc().GetFirstSyncInfo()
-			if syncInfo.CurrentHeight == nil ||
-				syncInfo.TargetHeight == nil ||
-				syncInfo.CurrentHeight.Cmp(syncInfo.TargetHeight) >= 0 {
+			if !syncInfo.IsFirstSyncDone {
 				log.Println("Sync unfinished")
 				continue
 			}
