@@ -61,6 +61,7 @@ func (account *Account) GetAccountMetaByAddress (hexAddress *types.Address) (*le
 		fmt.Println(dsErr)
 		return nil, dsErr
 	}
+	
 	return accountMeter, nil
 }
 

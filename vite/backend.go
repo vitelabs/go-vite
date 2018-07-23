@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
 	protoInterface "github.com/vitelabs/go-vite/protocols/interfaces"
 
+	"log"
 )
 
 type Vite struct {
@@ -32,15 +33,15 @@ func New (cfg *p2p.Config) (*Vite, error){
 	vite.ledger = ledgerHandler.NewManager(vite)
 	vite.walletManager = wallet.NewManager("fromConfig")
 
-	//vite.pm = protocols.NewProtocolManager(vite)
+	vite.pm = protocols.NewProtocolManager(vite)
 	//
-	//var initP2pErr error
-	//vite.p2p, initP2pErr = p2p.NewServer(cfg, vite.pm.HandlePeer)
-	//if initP2pErr != nil {
-	//	log.Fatal(initP2pErr)
-	//}
+	var initP2pErr error
+	vite.p2p, initP2pErr = p2p.NewServer(cfg, vite.pm.HandlePeer)
+	if initP2pErr != nil {
+		log.Fatal(initP2pErr)
+	}
 	//
-	//vite.p2p.Start()
+	vite.p2p.Start()
 	return vite, nil
 }
 

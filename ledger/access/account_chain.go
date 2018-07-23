@@ -18,7 +18,7 @@ type blockWriteMutexBody struct {
 	Reference bool
 }
 
-type blockWriteMutex map[string]*blockWriteMutexBody
+	type blockWriteMutex map[string]*blockWriteMutexBody
 
 const bwmuBuffer = 10 * 10000
 const bwmuReleaseCount = 2 * 10000
