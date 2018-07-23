@@ -786,7 +786,6 @@ func newDiscover(cfg *DiscvConfig) (*table, *net.UDPAddr, error) {
 		IP: publicIP,
 		Port: uint16(laddr.Port),
 	}
-	fmt.Println("self node: ", *node)
 	log.Printf("self: %s\n", node)
 
 	discv.tab, err = newTable(node, discv, cfg.DBPath, cfg.BootNodes)
