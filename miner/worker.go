@@ -11,7 +11,7 @@ import (
 // all of the current state information
 type worker struct {
 	types.LifecycleStatus
-	workChan *chan time.Time
+	workChan <-chan time.Time
 	chain    SnapshotChainRW
 	coinbase types.Address
 	mu       sync.Mutex
@@ -38,7 +38,7 @@ func (self *worker) update() {
 		// A real event arrived, process interesting content
 		select {
 		// Handle ChainHeadEvent
-		case t := <-*self.workChan:
+		case t := <-self.workChan:
 			println("start working once.")
 			self.genAndInsert(t)
 		}
@@ -53,6 +53,6 @@ func generateSnapshot(t time.Time, coinbase types.Address) *ledger.SnapshotBlock
 	block := ledger.SnapshotBlock{Producer: &coinbase, Timestamp: uint64(t.Unix())}
 	return &block
 }
-func (self *worker) setWorkCh(newWorkCh *chan time.Time) {
+func (self *worker) setWorkCh(newWorkCh <-chan time.Time) {
 	self.workChan = newWorkCh
 }

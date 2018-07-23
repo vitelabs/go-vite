@@ -29,7 +29,7 @@ func NewMiner(chain SnapshotChainRW, coinbase types.Address, committee *consensu
 
 	miner.committee = committee
 	miner.mem = &consensus.SubscribeMem{Mem: miner.coinbase, Notify: make(chan time.Time)}
-	miner.worker = &worker{chain: chain, workChan: &miner.mem.Notify, coinbase: coinbase}
+	miner.worker = &worker{chain: chain, workChan: miner.mem.Notify, coinbase: coinbase}
 	return miner
 }
 func (self *Miner) Init() {
