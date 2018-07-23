@@ -1,16 +1,16 @@
 package access
 
 import (
-	"github.com/vitelabs/go-vite/vitedb"
-	"github.com/vitelabs/go-vite/ledger"
-	"sync"
-	"github.com/syndtr/goleveldb/leveldb"
-	"errors"
-	"github.com/vitelabs/go-vite/common/types"
 	"bytes"
-	"math/big"
-	"log"
+	"errors"
 	errors2 "github.com/pkg/errors"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vitedb"
+	"log"
+	"math/big"
+	"sync"
 )
 
 type SnapshotChainAccess struct {
@@ -133,11 +133,6 @@ func (sca *SnapshotChainAccess) WriteBlock(block *ledger.SnapshotBlock, signFunc
 		}
 		return nil
 	})
-	if err != nil {
-		log.Println("Write snapshot block failed, Error is " + err.Error())
-	} else {
-		log.Println("Write Snapshot block " + block.Hash.String() + " succeed")
-	}
 
 	return err
 }
@@ -156,19 +151,7 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 	sca.bwMutex.Lock()
 	defer sca.bwMutex.Unlock()
 
-
-	if block.Hash == nil {
-		hash, err := block.ComputeHash()
-		if err != nil {
-			return &ScWriteError{
-				Code: WscSetHashErr,
-				Err:  err,
-			}
-		}
-		block.Hash = hash
-	}
-
-	isGenesisBlock := bytes.Equal(block.Hash.Bytes(), ledger.SnapshotGenesisBlock.Hash.Bytes())
+	isGenesisBlock := block.IsGenesisBlock()
 
 	if !isGenesisBlock && (block.Snapshot == nil || len(block.Snapshot) <= 0) {
 		return &ScWriteError{
@@ -176,6 +159,7 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 			Err:  errors.New("The written block snapshot is nil."),
 		}
 	}
+
 	// Judge whether the prehash is valid
 	if !isGenesisBlock {
 		preSnapshotBlock, err := sca.store.GetLatestBlock()
@@ -195,8 +179,6 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 		newSnapshotHeight := &big.Int{}
 		block.Height = newSnapshotHeight.Add(preSnapshotBlock.Height, big.NewInt(1))
 	}
-
-
 
 	// Check account block availability
 	if !isGenesisBlock {
@@ -221,11 +203,24 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 		}
 
 		if needSyncAccountBlocks != nil {
+
 			return &ScWriteError{
 				Code: WscNeedSyncErr,
 				Data: needSyncAccountBlocks,
 			}
 		}
+	}
+
+	if block.Hash == nil {
+		hash, err := block.ComputeHash()
+		if err != nil {
+			return &ScWriteError{
+				Code: WscSetHashErr,
+				Err:  err,
+			}
+		}
+		log.Printf("%+v\n", block)
+		block.Hash = hash
 	}
 
 	if signFunc != nil && block.Signature == nil {
@@ -278,7 +273,7 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 		if err := sca.accountStore.WriteAccountIdIndex(batch, producerAccountMeta.AccountId, block.Producer); err != nil {
 			return &ScWriteError{
 				Code: WscDefaultErr,
-				Err: err,
+				Err:  err,
 			}
 		}
 

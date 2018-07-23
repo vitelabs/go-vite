@@ -2,27 +2,32 @@ package pending
 
 import (
 	"github.com/vitelabs/go-vite/ledger"
+	"log"
 	"sort"
 	"time"
-	"log"
 )
 
-type SnapshotchainPool []*ledger.SnapshotBlock
+type SnapshotchainPool struct {
+	cache SnapshotBlockList
+}
 
-func NewSnapshotchainPool (processFunc func(*ledger.SnapshotBlock)bool) *SnapshotchainPool {
+type SnapshotBlockList []*ledger.SnapshotBlock
+
+func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) bool) *SnapshotchainPool {
 	pool := SnapshotchainPool{}
 
-	go func () {
-		log.Println("SnapshotchainPool: Process block")
+	go func() {
+		log.Println("SnapshotchainPool: Start process block")
 		turnInterval := time.Duration(2000)
 		for {
-			if len(pool) <= 0 {
+			if len(pool.cache) <= 0 {
 				time.Sleep(turnInterval * time.Millisecond)
 				continue
 			}
 
-			if processFunc(pool[0]) {
-				pool = pool[1:]
+			if processFunc(pool.cache[0]) {
+				log.Println("SnapshotchainPool: block process finished.")
+				pool.cache = pool.cache[1:]
 			} else {
 				time.Sleep(turnInterval * time.Millisecond)
 			}
@@ -32,14 +37,14 @@ func NewSnapshotchainPool (processFunc func(*ledger.SnapshotBlock)bool) *Snapsho
 	return &pool
 }
 
-func (a SnapshotchainPool) Len() int {return len(a)}
-func (a SnapshotchainPool) Swap(i, j int) {a[i], a[j] = a[j], a[i]}
-func (a SnapshotchainPool) Less(i, j int) bool {return a[i].Height.Cmp(a[j].Height) < 0}
-func (a SnapshotchainPool) Sort () {
+func (a SnapshotBlockList) Len() int           { return len(a) }
+func (a SnapshotBlockList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a SnapshotBlockList) Less(i, j int) bool { return a[i].Height.Cmp(a[j].Height) < 0 }
+func (a SnapshotBlockList) Sort() {
 	sort.Sort(a)
 }
 
-func (a SnapshotchainPool) Add (blocks []*ledger.SnapshotBlock) {
-	a = append(a, blocks...)
-	a.Sort()
+func (a *SnapshotchainPool) Add(blocks []*ledger.SnapshotBlock) {
+	a.cache = append(a.cache, blocks...)
+	a.cache.Sort()
 }

@@ -1,50 +1,49 @@
 package handler
 
 import (
-	protoTypes "github.com/vitelabs/go-vite/protocols/types"
-	"github.com/vitelabs/go-vite/ledger/access"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"log"
-	"github.com/vitelabs/go-vite/crypto"
-	"errors"
-	"time"
-	"math/big"
 	"bytes"
+	"errors"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/ledger/access"
+	"github.com/vitelabs/go-vite/log"
+	protoTypes "github.com/vitelabs/go-vite/protocols/types"
+	"math/big"
+	"time"
 )
 
 type AccountChain struct {
 	vite Vite
 	// Handle block
 	acAccess *access.AccountChainAccess
-	aAccess *access.AccountAccess
+	aAccess  *access.AccountAccess
 	scAccess *access.SnapshotChainAccess
-	uAccess *access.UnconfirmedAccess
+	uAccess  *access.UnconfirmedAccess
 }
 
-func NewAccountChain (vite Vite) (*AccountChain) {
+func NewAccountChain(vite Vite) *AccountChain {
 	return &AccountChain{
-		vite: vite,
+		vite:     vite,
 		acAccess: access.GetAccountChainAccess(),
-		aAccess: access.GetAccountAccess(),
+		aAccess:  access.GetAccountAccess(),
 		scAccess: access.GetSnapshotChainAccess(),
-		uAccess: access.GetUnconfirmedAccess(),
+		uAccess:  access.GetUnconfirmedAccess(),
 	}
 }
 
 // HandleBlockHash
-func (ac *AccountChain) HandleGetBlocks (msg *protoTypes.GetAccountBlocksMsg, peer *protoTypes.Peer) error {
+func (ac *AccountChain) HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, peer *protoTypes.Peer) error {
 	go func() {
-		log.Printf("HandleGetBlocks: Origin: %s, Count: %d, Forward: %v.\n",  msg.Origin, msg.Count, msg.Forward)
 		blocks, err := ac.acAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
 		if err != nil {
-			log.Println(err)
+			log.Info(err.Error())
 			return
 		}
 
 		// send out
 		ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
-			Code: protoTypes.AccountBlocksMsgCode,
+			Code:    protoTypes.AccountBlocksMsgCode,
 			Payload: blocks,
 		})
 	}()
@@ -52,38 +51,43 @@ func (ac *AccountChain) HandleGetBlocks (msg *protoTypes.GetAccountBlocksMsg, pe
 }
 
 // HandleBlockHash
-func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer) error {
+func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer) error {
+	if !syncInfo.IsFirstSyncDone {
+		log.Error("Sync unfinished, so accountChain can't handleSendBlocks.")
+		return nil
+	}
+
 	go func() {
 		globalRWMutex.RLock()
 		defer globalRWMutex.RUnlock()
 
-		log.Println("AccountChain HandleSendBlocks: receive blocks from network")
+		log.Info("AccountChain HandleSendBlocks: receive blocks from network")
 		for _, block := range *msg {
-			log.Println("AccountChain HandleSendBlocks: start process block " + block.Hash.String())
+			log.Info("AccountChain HandleSendBlocks: start process block " + block.Hash.String())
 			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
 				// Discard the block.
-				log.Println("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because block.PublicKey or block.Hash or block.Signature is nil.")
+				log.Info("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because block.PublicKey or block.Hash or block.Signature is nil.")
 				continue
 			}
 			// Verify hash
 			computedHash, err := block.ComputeHash()
 			if err != nil {
 				// Discard the block.
-				log.Println(err)
+				log.Info(err.Error())
 				continue
 			}
 
-			if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()){
+			if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()) {
 				// Discard the block.
-				log.Println("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because the computed hash is " + computedHash.String() + " and the block hash is " + block.Hash.String())
+				log.Info("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because the computed hash is " + computedHash.String() + " and the block hash is " + block.Hash.String())
 				continue
 			}
 			// Verify signature
 			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
 
-			if verifyErr != nil || !isVerified{
+			if verifyErr != nil || !isVerified {
 				// Discard the block.
-				log.Println("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because verify signature failed.")
+				log.Info("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because verify signature failed.")
 				continue
 			}
 
@@ -96,7 +100,7 @@ func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer
 				case *access.AcWriteError:
 					err := writeErr.(*access.AcWriteError)
 					if err.Code == access.WacPrevHashUncorrectErr {
-						log.Println("AccountChain HandleSendBlocks: start download account chain.")
+						log.Info("AccountChain HandleSendBlocks: start download account chain.")
 						errData := err.Data.(*ledger.AccountBlock)
 
 						currentHeight := big.NewInt(0)
@@ -110,44 +114,47 @@ func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer
 						// Download fragment
 						count := &big.Int{}
 						count.Sub(block.Meta.Height, currentHeight)
-						ac.vite.Pm().SendMsg(peer, &protoTypes.Msg {
+						ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 							Code: protoTypes.GetAccountBlocksMsgCode,
 							Payload: &protoTypes.GetAccountBlocksMsg{
-								Origin: *errData.Hash,
+								Origin:  *errData.Hash,
 								Forward: true,
-								Count: count.Uint64(),
+								Count:   count.Uint64(),
 							},
 						})
 						return
 					}
 				}
 
-				log.Println(writeErr)
+				log.Info(writeErr.Error())
 				continue
 			} else {
-				log.Println("AccountChain HandleSendBlocks: write block " + block.Hash.String() + " success.")
+				log.Info("AccountChain HandleSendBlocks: write block " + block.Hash.String() + " success.")
 			}
 		}
 	}()
 	return nil
 }
 
-
 // AccAddr = account address
-func (ac *AccountChain) GetAccountByAccAddr (addr *types.Address) (*ledger.AccountMeta, error) {
+func (ac *AccountChain) GetAccountByAccAddr(addr *types.Address) (*ledger.AccountMeta, error) {
 	return ac.aAccess.GetAccountMeta(addr)
 }
 
 // AccAddr = account address
-func (ac *AccountChain) GetBlocksByAccAddr (addr *types.Address, index, num, count int) (ledger.AccountBlockList, error) {
+func (ac *AccountChain) GetBlocksByAccAddr(addr *types.Address, index, num, count int) (ledger.AccountBlockList, error) {
 	return ac.acAccess.GetBlockListByAccountAddress(index, num, count, addr)
 }
 
-func (ac *AccountChain) CreateTx (block *ledger.AccountBlock) (error) {
+func (ac *AccountChain) CreateTx(block *ledger.AccountBlock) error {
 	return ac.CreateTxWithPassphrase(block, "")
 }
 
-func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, passphrase string) error {
+func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error {
+	if !syncInfo.IsFirstSyncDone {
+		log.Error("Sync unfinished, so can't handleSendBlocks.")
+		return nil
+	}
 	globalRWMutex.RLock()
 	defer globalRWMutex.RUnlock()
 
@@ -160,7 +167,6 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 	if accountMeta == nil {
 		return errors.New("CreateTx failed, because account " + block.AccountAddress.String() + " is not existed.")
 	}
-
 
 	// Set prevHash
 	latestBlock, err := ac.acAccess.GetLatestBlockByAccountAddress(block.AccountAddress)
@@ -211,24 +217,22 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 	}
 
 	// Broadcast
-	sendErr := ac.vite.Pm().SendMsg(nil, &protoTypes.Msg {
-		Code: protoTypes.AccountBlocksMsgCode,
+	sendErr := ac.vite.Pm().SendMsg(nil, &protoTypes.Msg{
+		Code:    protoTypes.AccountBlocksMsgCode,
 		Payload: &protoTypes.AccountBlocksMsg{block},
 	})
 
-
 	if sendErr != nil {
-		log.Printf("CreateTx broadcast failed, error is " + sendErr.Error())
+		log.Info("CreateTx broadcast failed, error is " + sendErr.Error())
 		return sendErr
 	}
 	return nil
 }
 
-
-func (ac *AccountChain) GetUnconfirmedAccountMeta (addr *types.Address) (*ledger.UnconfirmedMeta, error) {
+func (ac *AccountChain) GetUnconfirmedAccountMeta(addr *types.Address) (*ledger.UnconfirmedMeta, error) {
 	return ac.uAccess.GetUnconfirmedAccountMeta(addr)
 }
 
-func (ac *AccountChain) GetUnconfirmedBlocks (index int, num int, count int, addr *types.Address) ([]*ledger.AccountBlock, error) {
+func (ac *AccountChain) GetUnconfirmedBlocks(index int, num int, count int, addr *types.Address) ([]*ledger.AccountBlock, error) {
 	return ac.uAccess.GetUnconfirmedBlocks(index, num, count, addr)
 }
