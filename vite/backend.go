@@ -63,3 +63,7 @@ func (v *Vite) Pm() protoInterface.ProtocolManager {
 func (v *Vite) WalletManager() *wallet.Manager {
 	return v.walletManager
 }
+
+func (v *Vite) Signer() *signer.Master {
+	return v.signer
+}

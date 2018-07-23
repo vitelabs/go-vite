@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/ledger/handler_interface"
 	"github.com/vitelabs/go-vite/log"
 	"github.com/vitelabs/go-vite/vite"
 	"math/big"
-	"github.com/vitelabs/go-vite/ledger/handler_interface"
 )
 
 // !!! Block = Transaction = TX
@@ -77,16 +77,20 @@ type LedgerApi interface {
 	// Get the realtime sync info. the reply is InitSyncResponse
 	GetInitSyncInfo(noop interface{}, reply *string) error
 
-	StartAutoConfirmTx(addr []string, reply *string) error
-	StopAutoConfirmTx(addr []string, reply *string) error
+	//StartAutoConfirmTx(addr []string, reply *string) error
+	//StopAutoConfirmTx(addr []string, reply *string) error
 }
 
-func NewLedgerApi(vite vite.Vite) LedgerApi {
-	return &LegerApiImpl{ledgerManager: vite.Ledger()}
+func NewLedgerApi(vite *vite.Vite) LedgerApi {
+	return &LegerApiImpl{
+		ledgerManager: vite.Ledger(),
+		vite:          vite,
+	}
 }
 
 type LegerApiImpl struct {
 	ledgerManager handler_interface.Manager
+	vite          *vite.Vite
 }
 
 func (l *LegerApiImpl) CreateTxWithPassphrase(params *SendTxParms, reply *string) error {
@@ -113,7 +117,9 @@ func (l *LegerApiImpl) CreateTxWithPassphrase(params *SendTxParms, reply *string
 	}
 	b := ledger.AccountBlock{AccountAddress: &selfaddr, To: &toaddr, TokenId: &tti, Amount: amount}
 
-	err = l.ledgerManager.Ac().CreateTxWithPassphrase(&b, params.Passphrase)
+	// call signer.creattx in order to as soon as possible to send tx
+	err = l.vite.Signer().CreateTxWithPassphrase(&b, params.Passphrase)
+
 	if err != nil {
 		return err
 	}
