@@ -14,8 +14,6 @@ type SnapshotChainRW interface {
 	WriteMiningBlock(block *ledger.SnapshotBlock) error
 }
 
-type SnapshotBlock struct {
-}
 
 type Miner struct {
 	types.LifecycleStatus
