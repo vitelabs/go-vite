@@ -60,7 +60,7 @@ func (ac *AccountChain) GetUnconfirmedAccount(addr *types.Address) (*Unconfirmed
 	return UnconfirmedAccount, nil
 }
 
-func (ac *AccountChain) AddListener(addr types.Address, change chan<- int) {
+func (ac *AccountChain) AddListener(addr types.Address, change chan<- struct{}) {
 	ac.uAccess.AddListener(addr, change)
 }
 
