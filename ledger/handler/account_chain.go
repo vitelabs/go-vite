@@ -205,10 +205,10 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 	}
 
 	// Broadcast
-	ac.vite.Pm().SendMsg(nil, &protoTypes.Msg {
-		Code: protoTypes.AccountBlocksMsgCode,
-		Payload: &protoTypes.AccountBlocksMsg{block},
-	})
+	//ac.vite.Pm().SendMsg(nil, &protoTypes.Msg {
+	//	Code: protoTypes.AccountBlocksMsgCode,
+	//	Payload: &protoTypes.AccountBlocksMsg{block},
+	//})
 	return nil
 }
 

@@ -152,14 +152,6 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 		}
 	}
 
-
-	if block.Snapshot == nil || len(block.Snapshot) <= 0 {
-		return &ScWriteError{
-			Code: WscDefaultErr,
-			Err:  errors.New("The written block snapshot is nil."),
-		}
-	}
-
 	// Mutex.lock
 	sca.bwMutex.Lock()
 	defer sca.bwMutex.Unlock()
@@ -177,6 +169,13 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 	}
 
 	isGenesisBlock := bytes.Equal(block.Hash.Bytes(), ledger.SnapshotGenesisBlock.Hash.Bytes())
+
+	if !isGenesisBlock || block.Snapshot == nil || len(block.Snapshot) <= 0 {
+		return &ScWriteError{
+			Code: WscDefaultErr,
+			Err:  errors.New("The written block snapshot is nil."),
+		}
+	}
 	// Judge whether the prehash is valid
 	if !isGenesisBlock {
 		preSnapshotBlock, err := sca.store.GetLatestBlock()

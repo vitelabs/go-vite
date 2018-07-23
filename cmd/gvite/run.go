@@ -30,6 +30,13 @@ func main()  {
 	}
 
 
+	//v.WalletManager().KeystoreManager.ImportPriv(AccountMockDataList[0].PrivateKey.Hex(), "123456")
+	//v.WalletManager().KeystoreManager.Unlock(AccountMockDataList[0].Addr, "123456", 0)
+	//for  {
+	//	v.Ledger().Ac().CreateTx(createSendBlock(&AccountMockDataList[0].Addr, &AccountMockDataList[1].Addr, big.NewInt(int64(1000))))
+	//}
+
+
 	var isMinting bool
 	flag.BoolVar(&isMinting,"ism", false, "Is minting")
 

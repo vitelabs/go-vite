@@ -200,13 +200,13 @@ func (sc *SnapshotChain) SyncPeer (peer *protoTypes.Peer) {
 
 	if err != nil {
 		log.Println(err)
+
 		// If the first syncing goes wrong, try to sync again.
 		go func() {
 			time.Sleep(time.Duration(1000))
 			sc.vite.Pm().Sync()
 		}()
 	}
-
 }
 
 
@@ -226,7 +226,6 @@ func (sc *SnapshotChain) WriteMiningBlock (block *ledger.SnapshotBlock) error {
 
 		block.Signature, block.PublicKey, signErr =
 				sc.vite.WalletManager().KeystoreManager.SignData(*block.Producer, block.Hash.Bytes())
-
 
 		return block, signErr
 	})
