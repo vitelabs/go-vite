@@ -86,7 +86,7 @@ func (sw *signSlave) StartWork() {
 		if len(sw.waitSendTasks) != 0 {
 			for _, v := range sw.waitSendTasks {
 				log.Info("send user task")
-				err := sw.vite.Ledger().Ac.CreateTxWithPassphrase(v.block, v.passphrase)
+				err := sw.vite.Ledger().Ac().CreateTxWithPassphrase(v.block, v.passphrase)
 				log.Info("send user task sucess")
 				if err == nil {
 					v.end <- ""

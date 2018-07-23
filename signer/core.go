@@ -4,24 +4,23 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"sync"
-	"github.com/vitelabs/go-vite/log"
 )
 
 type Master struct {
-	vite                *vite.Vite
+	Vite                *vite.Vite
 	signSlaves          map[types.Address]*signSlave
 	unlockEventListener chan keystore.UnlockEvent
 	coreMutex           sync.Mutex
-
-	lid int
+	lid                 int
 }
 
 func (c *Master) Close() error {
 	log.Info("Master close")
-	c.vite.WalletManager().KeystoreManager.RemoveUnlockChangeChannel(c.lid)
+	c.Vite.WalletManager().KeystoreManager.RemoveUnlockChangeChannel(c.lid)
 	for _, v := range c.signSlaves {
 		v.Close()
 	}
@@ -38,7 +37,7 @@ func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase s
 	endChannel := make(chan string, 1)
 
 	if slave == nil {
-		slave = &signSlave{vite: c.vite, address: *block.AccountAddress}
+		slave = &signSlave{vite: c.Vite, address: *block.AccountAddress}
 		c.signSlaves[*block.AccountAddress] = slave
 	}
 	c.coreMutex.Unlock()
@@ -59,7 +58,7 @@ func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase s
 
 func (c *Master) InitAndStartLoop() {
 	c.unlockEventListener = make(chan keystore.UnlockEvent)
-	c.lid = c.vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(c.unlockEventListener)
+	c.lid = c.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(c.unlockEventListener)
 	go c.loop()
 }
 
@@ -78,7 +77,7 @@ func (c *Master) loop() {
 			continue
 		}
 
-		s := signSlave{vite: c.vite, address: event.Address}
+		s := signSlave{vite: c.Vite, address: event.Address}
 		log.Info("Master get event new signSlave")
 		c.signSlaves[event.Address] = &s
 		c.coreMutex.Unlock()

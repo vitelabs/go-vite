@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/ledger/handler"
 	"github.com/vitelabs/go-vite/log"
 	"github.com/vitelabs/go-vite/vite"
 	"math/big"
+	"github.com/vitelabs/go-vite/ledger/handler_interface"
 )
 
 // !!! Block = Transaction = TX
@@ -86,7 +86,7 @@ func NewLedgerApi(vite vite.Vite) LedgerApi {
 }
 
 type LegerApiImpl struct {
-	ledgerManager *handler.Manager
+	ledgerManager handler_interface.Manager
 }
 
 func (l *LegerApiImpl) CreateTxWithPassphrase(params *SendTxParms, reply *string) error {
@@ -113,7 +113,7 @@ func (l *LegerApiImpl) CreateTxWithPassphrase(params *SendTxParms, reply *string
 	}
 	b := ledger.AccountBlock{AccountAddress: &selfaddr, To: &toaddr, TokenId: &tti, Amount: amount}
 
-	err = l.ledgerManager.Ac.CreateTxWithPassphrase(&b, params.Passphrase)
+	err = l.ledgerManager.Ac().CreateTxWithPassphrase(&b, params.Passphrase)
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (l *LegerApiImpl) GetBlocksByAccAddr(params *GetBlocksParams, reply *string
 	if err != nil {
 		return err
 	}
-	list, err := l.ledgerManager.Ac.GetBlocksByAccAddr(&addr, params.index, 1, params.count)
+	list, err := l.ledgerManager.Ac().GetBlocksByAccAddr(&addr, params.index, 1, params.count)
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (l *LegerApiImpl) GetAccountByAccAddr(addrs []string, reply *string) error 
 	if err != nil {
 		return err
 	}
-	account, err := l.ledgerManager.Ac.GetAccountByAccAddr(&addr)
+	account, err := l.ledgerManager.Ac().GetAccountByAccAddr(&addr)
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func (l *LegerApiImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
 
 func (l *LegerApiImpl) GetInitSyncInfo(noop interface{}, reply *string) error {
 	log.Debug("GetInitSyncInfo")
-	i := l.ledgerManager.Sc.GetFirstSyncInfo()
+	i := l.ledgerManager.Sc().GetFirstSyncInfo()
 	r := InitSyncResponse{
 		StartHeight:   i.BeginHeight.String(),
 		TargetHeight:  i.TargetHeight.String(),
