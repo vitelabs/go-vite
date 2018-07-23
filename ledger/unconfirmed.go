@@ -8,17 +8,17 @@ import (
 )
 
 type TokenInfo struct {
-	TokenId *types.TokenTypeId
+	TokenId     *types.TokenTypeId
 	TotalAmount *big.Int
 }
 
-type UnconfirmedMeta struct{
-	AccountId *big.Int
-	TotalNumber *big.Int
+type UnconfirmedMeta struct {
+	AccountId     *big.Int
+	TotalNumber   *big.Int
 	TokenInfoList []*TokenInfo
 }
 
-func (ucfm *UnconfirmedMeta) DbDeserialize (buf []byte) error {
+func (ucfm *UnconfirmedMeta) DbDeserialize(buf []byte) error {
 	unconfirmedMetaPB := &vitepb.UnconfirmedMeta{}
 	if err := proto.Unmarshal(buf, unconfirmedMetaPB); err != nil {
 		return err
@@ -44,7 +44,7 @@ func (ucfm *UnconfirmedMeta) DbDeserialize (buf []byte) error {
 	return nil
 }
 
-func (ucfm *UnconfirmedMeta) DbSerialize () ([]byte, error) {
+func (ucfm *UnconfirmedMeta) DbSerialize() ([]byte, error) {
 	var unconfirmedList []*vitepb.TokenInfo
 
 	for _, unconfirmedByToken := range ucfm.TokenInfoList {
@@ -56,8 +56,8 @@ func (ucfm *UnconfirmedMeta) DbSerialize () ([]byte, error) {
 	}
 
 	unconfirmedMeta := &vitepb.UnconfirmedMeta{
-		AccountId:ucfm.AccountId.Bytes(),
-		TotalNumber:ucfm.TotalNumber.Bytes(),
+		AccountId:     ucfm.AccountId.Bytes(),
+		TotalNumber:   ucfm.TotalNumber.Bytes(),
 		TokenInfoList: unconfirmedList,
 	}
 
@@ -68,15 +68,15 @@ func (ucfm *UnconfirmedMeta) DbSerialize () ([]byte, error) {
 	return data, nil
 }
 
-func (ti *TokenInfo) SetTokenInfoIntoPB () (*vitepb.TokenInfo, error) {
+func (ti *TokenInfo) SetTokenInfoIntoPB() (*vitepb.TokenInfo, error) {
 	unconfirmedByTokenPB := &vitepb.TokenInfo{
-		TokenId: ti.TokenId.Bytes(),
+		TokenId:     ti.TokenId.Bytes(),
 		TotalAmount: ti.TotalAmount.Bytes(),
 	}
 	return unconfirmedByTokenPB, nil
 }
 
-func (ti *TokenInfo) GetTokenInfoByDbPB (unconfirmedByTokenPB *vitepb.TokenInfo) error {
+func (ti *TokenInfo) GetTokenInfoByDbPB(unconfirmedByTokenPB *vitepb.TokenInfo) error {
 	ti.TotalAmount = &big.Int{}
 	ti.TotalAmount.SetBytes(unconfirmedByTokenPB.TotalAmount)
 
@@ -128,13 +128,13 @@ func (ti *TokenInfo) GetTokenInfoByDbPB (unconfirmedByTokenPB *vitepb.TokenInfo)
 //	return h
 //}
 
-func HashListDbSerialize (hList []*types.Hash) ([]byte, error) {
+func HashListDbSerialize(hList []*types.Hash) ([]byte, error) {
 	var hashList [][]byte
 	for _, hash := range hList {
-		hashList =  append(hashList, hash.Bytes())
+		hashList = append(hashList, hash.Bytes())
 	}
 	var hListPB = &vitepb.HashList{
-		HashList:             hashList,
+		HashList: hashList,
 	}
 	data, err := proto.Marshal(hListPB)
 	if err != nil {
@@ -143,7 +143,7 @@ func HashListDbSerialize (hList []*types.Hash) ([]byte, error) {
 	return data, nil
 }
 
-func HashListDbDeserialize (buf []byte) ([]*types.Hash, error) {
+func HashListDbDeserialize(buf []byte) ([]*types.Hash, error) {
 	var hListPB = &vitepb.HashList{}
 	if err := proto.Unmarshal(buf, hListPB); err != nil {
 		return nil, err

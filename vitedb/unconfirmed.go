@@ -14,7 +14,7 @@ type Unconfirmed struct {
 
 var _unconfirmed *Unconfirmed
 
-func GetUnconfirmed () *Unconfirmed {
+func GetUnconfirmed() *Unconfirmed {
 	db, err := GetLDBDataBase(DB_BLOCK)
 	if err != nil {
 		log.Fatal(err)
@@ -29,7 +29,7 @@ func GetUnconfirmed () *Unconfirmed {
 	return _unconfirmed
 }
 
-func (ucf *Unconfirmed) GetUnconfirmedMeta (addr *types.Address) (*ledger.UnconfirmedMeta, error) {
+func (ucf *Unconfirmed) GetUnconfirmedMeta(addr *types.Address) (*ledger.UnconfirmedMeta, error) {
 	key, err := createKey(DBKP_UNCONFIRMEDMETA, addr)
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func (ucf *Unconfirmed) GetUnconfirmedMeta (addr *types.Address) (*ledger.Unconf
 	return ucfm, nil
 }
 
-func (ucf *Unconfirmed) GetUnconfirmedHashList (accountId *big.Int, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+func (ucf *Unconfirmed) GetUnconfirmedHashList(accountId *big.Int, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
 	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, accountId, tokenId.Bytes())
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (ucf *Unconfirmed) GetUnconfirmedHashList (accountId *big.Int, tokenId *typ
 	return hList, nil
 }
 
-func (ucf *Unconfirmed) WriteMeta (batch *leveldb.Batch, addr *types.Address, meta *ledger.UnconfirmedMeta) error {
+func (ucf *Unconfirmed) WriteMeta(batch *leveldb.Batch, addr *types.Address, meta *ledger.UnconfirmedMeta) error {
 	key, err := createKey(DBKP_UNCONFIRMEDMETA, addr.Bytes())
 	if err != nil {
 		return err
@@ -74,15 +74,10 @@ func (ucf *Unconfirmed) WriteMeta (batch *leveldb.Batch, addr *types.Address, me
 	return nil
 }
 
-func (ucf *Unconfirmed) WriteHashList (batch *leveldb.Batch, accountId *big.Int, tokenId *types.TokenTypeId, hList []*types.Hash) error {
+func (ucf *Unconfirmed) WriteHashList(batch *leveldb.Batch, accountId *big.Int, tokenId *types.TokenTypeId, hList []*types.Hash) error {
 	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, accountId, tokenId.Bytes())
 	if err != nil {
 		return err
-	}
-	if hList == nil || len(hList) <= 0 {
-		if err := ucf.DeleteHashList(batch, key); err != nil {
-			return err
-		}
 	}
 	data, err := ledger.HashListDbSerialize(hList)
 	if err != nil {
@@ -92,7 +87,7 @@ func (ucf *Unconfirmed) WriteHashList (batch *leveldb.Batch, accountId *big.Int,
 	return nil
 }
 
-func (ucf *Unconfirmed) DeleteMeta (batch *leveldb.Batch, addr *types.Address, meta *ledger.UnconfirmedMeta) error {
+func (ucf *Unconfirmed) DeleteMeta(batch *leveldb.Batch, addr *types.Address) error {
 	key, err := createKey(DBKP_UNCONFIRMEDMETA, addr.Bytes())
 	if err != nil {
 		return err
@@ -101,7 +96,11 @@ func (ucf *Unconfirmed) DeleteMeta (batch *leveldb.Batch, addr *types.Address, m
 	return nil
 }
 
-func (ucf *Unconfirmed) DeleteHashList(batch *leveldb.Batch, key []byte) error {
+func (ucf *Unconfirmed) DeleteHashList(batch *leveldb.Batch, accountId *big.Int, tokenId *types.TokenTypeId) error {
+	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, accountId, tokenId.Bytes())
+	if err != nil {
+		return err
+	}
 	batch.Delete(key)
 	return nil
 }

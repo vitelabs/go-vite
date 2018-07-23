@@ -5,20 +5,20 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 )
+
 // pack the data for handler
 type TokenInfo struct {
-	Token *ledger.Token
+	Token       *ledger.Token
 	TotalAmount *big.Int
 }
 
 type UnconfirmedAccount struct {
 	AccountAddress *types.Address
-	TotalNumber *big.Int
-	TokenInfoList []*TokenInfo
-
+	TotalNumber    *big.Int
+	TokenInfoList  []*TokenInfo
 }
 
-func (ac *AccountChain) GetUnconfirmedAccountMeta (addr *types.Address) (*ledger.UnconfirmedMeta, error) {
+func (ac *AccountChain) GetUnconfirmedAccountMeta(addr *types.Address) (*ledger.UnconfirmedMeta, error) {
 	return ac.uAccess.GetUnconfirmedAccountMeta(addr)
 }
 
@@ -30,7 +30,7 @@ func (ac *AccountChain) GetUnconfirmedAccountMeta (addr *types.Address) (*ledger
 //	return ac.uAccess.GetUnconfirmedBlocks(index, num, count, acMeta.AccountId, tokenId)
 //}
 
-func (ac *AccountChain) GetUnconfirmedHashs (index int, num int, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+func (ac *AccountChain) GetUnconfirmedHashs(index int, num int, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
 	acMeta, err := ac.aAccess.GetAccountMeta(addr)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func (ac *AccountChain) GetUnconfirmedHashs (index int, num int, count int, addr
 	return ac.uAccess.GetUnconfirmedHashs(index, num, count, acMeta.AccountId, tokenId)
 }
 
-func (ac *AccountChain) GetUnconfirmedAccount (addr *types.Address) (*UnconfirmedAccount, error) {
+func (ac *AccountChain) GetUnconfirmedAccount(addr *types.Address) (*UnconfirmedAccount, error) {
 	unconfirmedMeta, err := ac.GetUnconfirmedAccountMeta(addr)
 	if err != nil {
 		return nil, err
@@ -64,11 +64,10 @@ func (ac *AccountChain) GetUnconfirmedAccount (addr *types.Address) (*Unconfirme
 	return UnconfirmedAccount, nil
 }
 
-func Listener (addr *types.Address, c *chan int32) error {
-	return nil
+func (ac *AccountChain) Listener(addr *types.Address) chan int {
+	return ac.uAccess.GetListener(addr)
 }
 
-func RemoveListener (c *chan int) error {
-	close(*c)
-	return nil
+func (ac *AccountChain) RemoveListener(addr *types.Address) {
+	ac.uAccess.RemoveListener(addr)
 }
