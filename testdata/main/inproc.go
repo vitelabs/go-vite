@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	vite.New(nil)
+	vite.New(vite.NewP2pConfig())
 	m := wallet.NewManager(filepath.Join(common.TestDataDir(), "wallet"))
 	rpcAPI := []vrpc.API{
 		{

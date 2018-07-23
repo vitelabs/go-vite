@@ -11,6 +11,8 @@ import (
 
 	"github.com/vitelabs/go-vite/signer"
 	"log"
+	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/miner"
 )
 
 type Vite struct {
@@ -68,4 +70,11 @@ func (v *Vite) WalletManager() *wallet.Manager {
 
 func (v *Vite) Signer() *signer.Master {
 	return v.signer
+}
+
+func (v *Vite) Miner() *miner.Miner {
+	return nil
+}
+func (v *Vite) Verifier() consensus.Verifier {
+	return nil
 }
