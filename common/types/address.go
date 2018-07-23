@@ -52,7 +52,6 @@ func IsValidHexAddress(hexStr string) bool {
 
 	if !bytes.Equal(vcrypto.Hash(addressChecksumSize, address[:]), addressChecksum[:]) {
 		return false
-
 	}
 
 	return true

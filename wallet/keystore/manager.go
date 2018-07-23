@@ -15,6 +15,21 @@ var (
 	ErrInvalidPrikey = errors.New("invalid prikey")
 )
 
+const (
+	Locked   = "Locked"
+	UnLocked = "Unlocked"
+)
+
+type UnlockEvent struct {
+	Address types.Address
+	event   string // "Unlocked Locked "
+}
+
+func (ue UnlockEvent) Unlocked() bool {
+	return ue.event == UnLocked
+}
+
+
 // Manage keys from various wallet in here we will cache account
 // Manager is a keystore wallet and an interface
 type Manager struct {
@@ -25,11 +40,15 @@ type Manager struct {
 	unlocked    map[types.Address]*unlocked
 	mutex       sync.RWMutex
 	isInited    bool
+
+	unlockChanged      map[int]chan<- UnlockEvent
+	unlockChangedIndex int
+
 }
 
 type unlocked struct {
 	*Key
-	abort chan struct{}
+	breaker chan struct{}
 }
 
 func NewManager(dir string) *Manager {
@@ -45,7 +64,25 @@ func (km *Manager) Init() {
 	defer km.mutex.Unlock()
 	km.kc, km.kcChanged = newKeyCache(km.keyStoreDir)
 	km.unlocked = make(map[types.Address]*unlocked)
+	km.unlockChanged = make(map[int]chan<- UnlockEvent)
+	km.unlockChangedIndex = 0
 	km.isInited = true
+}
+
+func (km *Manager) AddUnlockChangeChannel(c chan<- UnlockEvent) int {
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+
+	km.unlockChangedIndex++
+	km.unlockChanged[km.unlockChangedIndex] = c
+
+	return km.unlockChangedIndex
+}
+
+func (km *Manager) RemoveUnlockChangeChannel(id int) {
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+	delete(km.unlockChanged, id)
 }
 
 func (km Manager) Status() (map[types.Address]string, error) {
@@ -53,9 +90,9 @@ func (km Manager) Status() (map[types.Address]string, error) {
 	km.kc.ListAllAddress().Each(func(v interface{}) bool {
 		a := v.(types.Address)
 		if _, ok := km.unlocked[a]; ok {
-			m[a] = "Unlocked"
+			m[a] = UnLocked
 		} else {
-			m[a] = "Locked"
+			m[a] = Locked
 		}
 		return false
 	})
@@ -76,12 +113,18 @@ func (km *Manager) Unlock(addr types.Address, passphrase string, timeout time.Du
 		return fmt.Errorf("the address %v was previously unlocked", addr.String())
 	}
 	if timeout > 0 {
-		u = &unlocked{Key: key, abort: make(chan struct{})}
+		u = &unlocked{Key: key, breaker: make(chan struct{})}
 		go km.expire(key.Address, u, timeout)
 	} else {
 		u = &unlocked{Key: key}
 	}
 	km.unlocked[key.Address] = u
+	for _, v := range km.unlockChanged {
+		v <- UnlockEvent{
+			Address: addr,
+			event:   UnLocked,
+		}
+	}
 	return nil
 }
 
@@ -100,12 +143,20 @@ func (km *Manager) expire(addr types.Address, u *unlocked, timeout time.Duration
 	t := time.NewTimer(timeout)
 	defer t.Stop()
 	select {
-	case <-u.abort:
+	case <-u.breaker:
 	case <-t.C:
 		km.mutex.Lock()
 		if km.unlocked[addr] == u {
 			zeroKey(u.PrivateKey)
 			delete(km.unlocked, addr)
+
+			for _, v := range km.unlockChanged {
+				v <- UnlockEvent{
+					Address: addr,
+					event:   Locked,
+				}
+			}
+
 		}
 		km.mutex.Unlock()
 	}
@@ -168,7 +219,6 @@ func (km *Manager) Find(a types.Address) (string, error) {
 		return "", ErrNotFind
 	}
 }
-
 
 func (km *Manager) ReloadAndFixAddressFile() {
 	km.kc.refreshAndFixAddressFile()

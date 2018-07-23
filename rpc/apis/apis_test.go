@@ -1,4 +1,4 @@
-package wallet
+package apis
 
 import (
 	"encoding/json"
