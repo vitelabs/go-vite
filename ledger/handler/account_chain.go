@@ -20,6 +20,7 @@ type AccountChain struct {
 	aAccess *access.AccountAccess
 	scAccess *access.SnapshotChainAccess
 	uAccess *access.UnconfirmedAccess
+	tAccess *access.TokenAccess
 }
 
 func NewAccountChain (vite Vite) (*AccountChain) {
@@ -210,13 +211,4 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 	//	Payload: &protoTypes.AccountBlocksMsg{block},
 	//})
 	return nil
-}
-
-
-func (ac *AccountChain) GetUnconfirmedAccountMeta (addr *types.Address) (*ledger.UnconfirmedMeta, error) {
-	return ac.uAccess.GetUnconfirmedAccountMeta(addr)
-}
-
-func (ac *AccountChain) GetUnconfirmedBlocks (index int, num int, count int, addr *types.Address) ([]*ledger.AccountBlock, error) {
-	return ac.uAccess.GetUnconfirmedBlocks(index, num, count, addr)
 }

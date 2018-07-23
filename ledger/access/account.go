@@ -55,10 +55,8 @@ func (aa *AccountAccess) GetAccountMeta (accountAddress *types.Address) (*ledger
 		return nil, err
 	}
 	return data, nil
-
 }
 
 func (aa *AccountAccess) GetAccountList () ([]*types.Address, error){
 	return aa.store.GetAccountList()
 }
-
