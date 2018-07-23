@@ -8,6 +8,7 @@ import (
 	"log"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/pkg/errors"
 )
 
 type Account struct {
@@ -37,7 +38,7 @@ func (account *Account) WriteMeta (batch *leveldb.Batch, accountAddress *types.A
 	}
 	data, err := meta.DbSerialize()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "vitedb.Account.WriteMeta")
 	}
 
 	batch.Put(key, data)
@@ -60,6 +61,7 @@ func (account *Account) GetAccountMetaByAddress (hexAddress *types.Address) (*le
 		fmt.Println(dsErr)
 		return nil, dsErr
 	}
+	
 	return accountMeter, nil
 }
 
@@ -117,7 +119,7 @@ func (account *Account) GetAddressById (accountId *big.Int) (*types.Address, err
 	return &b2Address, nil
 }
 
-// to get the latest existing account addresses of the accountChain
+// To get the latest existing account addresses of the accountChain
 func (account *Account) GetAccountList () ([]*types.Address, error){
 	key, ckErr := createKey(DBKP_ACCOUNTID_INDEX, nil)
 	if ckErr != nil {

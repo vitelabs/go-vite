@@ -84,7 +84,9 @@ func (am *AccountMeta) DbSerialize () ([]byte, error) {
 }
 
 func (am *AccountMeta) DbDeserialize (buf []byte) error {
-	accountMetaPB := &vitepb.AccountMeta{}
+	accountMetaPB := &vitepb.AccountMeta{
+
+	}
 	if err := proto.Unmarshal(buf, accountMetaPB); err != nil {
 		return err
 	}

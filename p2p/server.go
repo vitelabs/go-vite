@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"reflect"
+	"fmt"
 )
 
 const (
@@ -132,11 +133,11 @@ func NewServer(cfg *Config, handler peerHandler) (svr *Server, err error) {
 	}
 
 	if svr.NetID == 0 {
-		svr.NetID = MainNet
+		svr.NetID = TestNet
 	}
 
 	if svr.Addr == "" {
-		svr.Addr = "localhost:8483"
+		svr.Addr = "0.0.0.0:8483"
 	}
 
 	if svr.Dialer == nil {
@@ -243,7 +244,7 @@ func (svr *Server) Start() error {
 	defer svr.lock.Unlock()
 
 	if svr.running {
-		return errors.New("Server is already running.")
+		return errors.New("server is already running")
 	}
 	svr.running = true
 
@@ -279,28 +280,22 @@ func (svr *Server) SetHandshake() {
 }
 
 func (svr *Server) Discovery(addr *net.UDPAddr) {
-	ip, err := getExtIP()
-	if err != nil {
-		log.Printf("discover get external ip error: %v\n", err)
-	}
-
 	cfg := &DiscvConfig{
 		Priv: svr.PrivateKey,
 		DBPath: svr.Database,
 		BootNodes: svr.BootNodes,
 		Addr: addr,
-		ExternalIP: ip,
 	}
-	tab, err := newDiscover(cfg)
+	tab, laddr, err := newDiscover(cfg)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("udp discv error: %v\n", err)
 	}
 
-	if !addr.IP.IsLoopback() {
+	if !laddr.IP.IsLoopback() {
 		svr.waitDown.Add(1)
 		go func() {
-			natMap(svr.stopped, "udp", addr.Port, addr.Port, 0, nil)
+			natMap(svr.stopped, "udp", laddr.Port, laddr.Port, 0)
 			svr.waitDown.Done()
 		}()
 	}
@@ -318,10 +313,11 @@ func (svr *Server) Listen(addr *net.TCPAddr) {
 
 	svr.listener = listener
 
-	if !addr.IP.IsLoopback() {
+	realaddr := listener.Addr().(*net.TCPAddr)
+	if !realaddr.IP.IsLoopback() {
 		svr.waitDown.Add(1)
 		go func() {
-			natMap(svr.stopped, "tcp", addr.Port, addr.Port, 0, nil)
+			natMap(svr.stopped, "tcp", addr.Port, addr.Port, 0)
 			svr.waitDown.Done()
 		}()
 	}
@@ -454,6 +450,7 @@ func (svr *Server) ScheduleTask() {
 schedule:
 	for {
 		scheduleTasks()
+
 		select {
 		case <- svr.stopped:
 			break schedule
@@ -697,10 +694,10 @@ func (dm *DialManager) TaskDone(t Task) {
 func (dm *DialManager) checkDial(n *Node, peers map[NodeID]*Peer) error {
 	_, exist := dm.dialing[n.ID];
 	if exist {
-		return errors.New("is dialing.")
+		return fmt.Errorf("%s is dialing", n)
 	}
 	if peers[n.ID] != nil {
-		return errors.New("has connected.")
+		return fmt.Errorf("%s has connected", n)
 	}
 
 	return nil

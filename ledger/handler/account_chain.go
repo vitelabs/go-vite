@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/vitelabs/go-vite/protocols"
+	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"github.com/vitelabs/go-vite/ledger/access"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -10,6 +10,7 @@ import (
 	"errors"
 	"time"
 	"math/big"
+	"bytes"
 )
 
 type AccountChain struct {
@@ -27,13 +28,15 @@ func NewAccountChain (vite Vite) (*AccountChain) {
 		vite: vite,
 		acAccess: access.GetAccountChainAccess(),
 		aAccess: access.GetAccountAccess(),
+		scAccess: access.GetSnapshotChainAccess(),
 		uAccess: access.GetUnconfirmedAccess(),
 	}
 }
 
 // HandleBlockHash
-func (ac *AccountChain) HandleGetBlocks (msg *protocols.GetAccountBlocksMsg, peer *protocols.Peer) error {
+func (ac *AccountChain) HandleGetBlocks (msg *protoTypes.GetAccountBlocksMsg, peer *protoTypes.Peer) error {
 	go func() {
+		log.Printf("HandleGetBlocks: Origin: %s, Count: %d, Forward: %v.\n",  msg.Origin, msg.Count, msg.Forward)
 		blocks, err := ac.acAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
 		if err != nil {
 			log.Println(err)
@@ -41,52 +44,76 @@ func (ac *AccountChain) HandleGetBlocks (msg *protocols.GetAccountBlocksMsg, pee
 		}
 
 		// send out
-		ac.vite.Pm().SendMsg(peer, &protocols.Msg{
-			Code: protocols.AccountBlocksMsgCode,
+		ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+			Code: protoTypes.AccountBlocksMsgCode,
 			Payload: blocks,
 		})
 	}()
 	return nil
 }
 
-
 // HandleBlockHash
-func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *protocols.Peer) error {
+func (ac *AccountChain) HandleSendBlocks (msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer) error {
 	go func() {
 		globalRWMutex.RLock()
 		defer globalRWMutex.RUnlock()
 
-		for _, block := range msg {
-			// Verify signature
-			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
-
-			if verifyErr != nil {
-				log.Println(verifyErr)
+		log.Println("AccountChain HandleSendBlocks: receive blocks from network")
+		for _, block := range *msg {
+			log.Println("AccountChain HandleSendBlocks: start process block " + block.Hash.String())
+			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
+				// Discard the block.
+				log.Println("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because block.PublicKey or block.Hash or block.Signature is nil.")
+				continue
+			}
+			// Verify hash
+			computedHash, err := block.ComputeHash()
+			if err != nil {
+				// Discard the block.
+				log.Println(err)
 				continue
 			}
 
-			if !isVerified {
+			if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()){
+				// Discard the block.
+				log.Println("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because the computed hash is " + computedHash.String() + " and the block hash is " + block.Hash.String())
+				continue
+			}
+			// Verify signature
+			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
+
+			if verifyErr != nil || !isVerified{
+				// Discard the block.
+				log.Println("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because verify signature failed.")
 				continue
 			}
 
 			// Write block
 			writeErr := ac.acAccess.WriteBlock(block, nil)
-			if writeErr != nil {
-				switch writeErr.(type) {
-				case access.AcWriteError:
-					err := writeErr.(access.AcWriteError)
-					if writeErr.(access.AcWriteError).Code == access.WacPrevHashUncorrectErr {
-						errData := err.Data.(ledger.AccountBlock)
 
-						if block.Meta.Height.Cmp(errData.Meta.Height) <= 0 {
+			if writeErr != nil {
+
+				switch writeErr.(type) {
+				case *access.AcWriteError:
+					err := writeErr.(*access.AcWriteError)
+					if err.Code == access.WacPrevHashUncorrectErr {
+						log.Println("AccountChain HandleSendBlocks: start download account chain.")
+						errData := err.Data.(*ledger.AccountBlock)
+
+						currentHeight := big.NewInt(0)
+						if errData != nil {
+							currentHeight = errData.Meta.Height
+						}
+
+						if block.Meta.Height.Cmp(currentHeight) <= 0 {
 							return
 						}
 						// Download fragment
 						count := &big.Int{}
-						count.Sub(block.Meta.Height, errData.Meta.Height)
-						ac.vite.Pm().SendMsg(peer, &protocols.Msg {
-							Code: protocols.GetAccountBlocksMsgCode,
-							Payload: &protocols.GetAccountBlocksMsg{
+						count.Sub(block.Meta.Height, currentHeight)
+						ac.vite.Pm().SendMsg(peer, &protoTypes.Msg {
+							Code: protoTypes.GetAccountBlocksMsgCode,
+							Payload: &protoTypes.GetAccountBlocksMsg{
 								Origin: *errData.Hash,
 								Forward: true,
 								Count: count.Uint64(),
@@ -98,6 +125,8 @@ func (ac *AccountChain) HandleSendBlocks (msg protocols.AccountBlocksMsg, peer *
 
 				log.Println(writeErr)
 				continue
+			} else {
+				log.Println("AccountChain HandleSendBlocks: write block " + block.Hash.String() + " success.")
 			}
 		}
 	}()
@@ -134,9 +163,6 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 	}
 
 
-	// Set addr
-	block.AccountAddress = block.AccountAddress
-
 	// Set prevHash
 	latestBlock, err := ac.acAccess.GetLatestBlockByAccountAddress(block.AccountAddress)
 	if err != nil {
@@ -144,7 +170,7 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 	}
 
 	if latestBlock != nil {
-		block.PrevHash = latestBlock.PrevHash
+		block.PrevHash = latestBlock.Hash
 	}
 
 	// Set Snapshot Timestamp
@@ -163,6 +189,9 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 	block.Difficulty = []byte{0, 0, 0, 0, 0}
 	block.FAmount = big.NewInt(0)
 
+	// Set PublicKey
+	block.PublicKey = accountMeta.PublicKey
+
 	writeErr := ac.acAccess.WriteBlock(block, func(accountBlock *ledger.AccountBlock) (*ledger.AccountBlock, error) {
 		var signErr error
 		if passphrase == "" {
@@ -170,21 +199,28 @@ func (ac *AccountChain) CreateTxWithPassphrase (block *ledger.AccountBlock, pass
 				ac.vite.WalletManager().KeystoreManager.SignData(*block.AccountAddress, block.Hash.Bytes())
 
 		} else {
-
 			accountBlock.Signature, accountBlock.PublicKey, signErr =
 				ac.vite.WalletManager().KeystoreManager.SignDataWithPassphrase(*block.AccountAddress, passphrase, block.Hash.Bytes())
+
 		}
 
 		return accountBlock, signErr
 	})
+
 	if err != nil {
 		return writeErr
 	}
 
 	// Broadcast
-	ac.vite.Pm().SendMsg(nil, &protocols.Msg {
-		Code: protocols.AccountBlocksMsgCode,
-		Payload: &protocols.AccountBlocksMsg{block},
+	sendErr := ac.vite.Pm().SendMsg(nil, &protoTypes.Msg {
+		Code: protoTypes.AccountBlocksMsgCode,
+		Payload: &protoTypes.AccountBlocksMsg{block},
 	})
+
+
+	if sendErr != nil {
+		log.Printf("CreateTx broadcast failed, error is " + sendErr.Error())
+		return sendErr
+	}
 	return nil
 }

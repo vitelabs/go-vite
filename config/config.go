@@ -8,7 +8,7 @@ import (
 func LoadConfig (fileName string)  {
 	config.Load(
 		file.NewSource(
-			file.WithPath("config/" + fileName + ".json"),
+			file.WithPath(fileName + ".json"),
 		),
 	)
 }

@@ -1,34 +1,13 @@
-package protocols
+package types
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"github.com/golang/protobuf/proto"
-	"sync"
-	"github.com/vitelabs/go-vite/p2p"
 	"log"
 	"github.com/vitelabs/go-vite/vitepb"
 )
-
-// @section Peer for protocol handle, not p2p Peer.
-type Peer struct {
-	*p2p.Peer
-	ID 		string
-	Head 	types.Hash
-	Height	*big.Int
-	Version int
-	RW 		MsgReadWriter
-	Lock 	sync.RWMutex
-}
-
-func (p *Peer) Update(status *StatusMsg) {
-	p.Lock.Lock()
-	defer p.Lock.Unlock()
-
-	p.Height = status.Height
-	p.Head = status.CurrentBlock
-}
 
 // @section Msg
 type Serializable interface {
@@ -41,9 +20,7 @@ type Msg struct {
 	Payload Serializable
 }
 
-const vite1 = 1
-var protocolVersions = []uint{vite1}
-var protocolBand = []uint{10}
+const Vite1 = 1
 
 // @section msg code
 const (
@@ -122,7 +99,7 @@ func (gs *GetSnapshotBlocksMsg) NetDeserialize(data []byte) error {
 type SnapshotBlocksMsg []*ledger.SnapshotBlock
 
 func (s *SnapshotBlocksMsg) NetSerialize() ([]byte, error) {
-	bs := make([]*vitepb.SnapshotBlock, len(*s))
+	bs := make([]*vitepb.SnapshotBlockNet, len(*s))
 
 	for i, b := range *s {
 		bs[i] = b.GetNetPB()
