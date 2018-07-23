@@ -2,170 +2,88 @@ package signer
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"sync"
+	"github.com/vitelabs/go-vite/log"
 )
 
-type sendTask struct {
-	block      *ledger.AccountBlock
-	passphrase string
-	end        chan string // err string
-}
-
-type signWorker struct {
-	vite          *vite.Vite
-	address       types.Address
-	breaker       chan struct{}
-	newSignedTask chan struct{}
-
-	waitSendTasks   []*sendTask
-	stopAutoConfirm bool
-	isWorking       bool
-	mutex           sync.Mutex
-	isClosed        bool
-}
-
-func (sw *signWorker) Close() {
-
-	sw.mutex.Lock()
-	sw.isClosed = true
-	sw.mutex.Unlock()
-
-	sw.breaker <- struct{}{}
-	close(sw.breaker)
-}
-
-func (sw *signWorker) disableAutoConfirm() {
-	sw.stopAutoConfirm = true
-}
-func (sw *signWorker) sendNextUnConfirmed() bool {
-	log.Info("auto send confirm task")
-	return true
-}
-
-func (sw *signWorker) StartWork() {
-	sw.mutex.Lock()
-	if sw.isWorking {
-		sw.mutex.Unlock()
-		log.Info("worker %v is working", sw.address.String())
-		return
-	}
-
-	sw.breaker = make(chan struct{}, 1)
-	sw.newSignedTask = make(chan struct{}, 1)
-	sw.isWorking = true
-
-	log.Info("worker %v start work", sw.address.String())
-	for {
-		sw.mutex.Lock()
-		if sw.isClosed {
-			break
-		}
-		if len(sw.waitSendTasks) != 0 {
-			for _, v := range sw.waitSendTasks {
-				log.Info("send user task")
-				err := sw.vite.Ledger().Ac.CreateTxWithPassphrase(v.block, v.passphrase)
-				log.Info("send user task sucess")
-				if err == nil {
-					v.end <- ""
-				} else {
-					v.end <- err.Error()
-				}
-				close(v.end)
-			}
-		}
-		sw.mutex.Unlock()
-
-		if !sw.stopAutoConfirm {
-			hasmore := sw.sendNextUnConfirmed()
-			if hasmore {
-				continue
-			} else {
-				goto WAIT
-			}
-		}
-
-	WAIT:
-		select {
-		case <-sw.newSignedTask:
-			continue
-		case <-sw.breaker:
-			break
-		}
-
-	}
-
-	log.Info("worker %v end work", sw.address.String())
-}
-
-func (sw *signWorker) sendTask(task *sendTask) {
-	sw.mutex.Lock()
-	defer sw.mutex.Unlock()
-	sw.waitSendTasks = append(sw.waitSendTasks, task)
-}
-
-type Core struct {
+type Master struct {
 	vite                *vite.Vite
-	signWorkers         map[types.Address]*signWorker
+	signSlaves          map[types.Address]*signSlave
 	unlockEventListener chan keystore.UnlockEvent
-	mutex               sync.Mutex
+	coreMutex           sync.Mutex
+
+	lid int
 }
 
-// it is a sync func
-func (c *Core) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error {
+func (c *Master) Close() error {
+	log.Info("Master close")
+	c.vite.WalletManager().KeystoreManager.RemoveUnlockChangeChannel(c.lid)
+	for _, v := range c.signSlaves {
+		v.Close()
+	}
+	return nil
+
+}
+func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error {
 	if block.AccountAddress == nil {
 		return fmt.Errorf("address nil")
 	}
-	worker := c.signWorkers[*block.AccountAddress]
+
+	c.coreMutex.Lock()
+	slave := c.signSlaves[*block.AccountAddress]
 	endChannel := make(chan string, 1)
 
-	if worker == nil {
-		worker = &signWorker{vite: c.vite, address: *block.AccountAddress}
-		c.signWorkers[*block.AccountAddress] = worker
+	if slave == nil {
+		slave = &signSlave{vite: c.vite, address: *block.AccountAddress}
+		c.signSlaves[*block.AccountAddress] = slave
 	}
+	c.coreMutex.Unlock()
 
-	worker.sendTask(&sendTask{
+	slave.sendTask(&sendTask{
 		block:      block,
 		passphrase: passphrase,
 		end:        endChannel,
 	})
+
 	err, ok := <-endChannel
 	if !ok || err == "" {
 		return nil
 	}
+
 	return fmt.Errorf(err)
 }
 
-func (c *Core) StartSign() {
+func (c *Master) InitAndStartLoop() {
 	c.unlockEventListener = make(chan keystore.UnlockEvent)
-	c.vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(c.unlockEventListener)
-	go c.update()
+	c.lid = c.vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(c.unlockEventListener)
+	go c.loop()
 }
 
-func (c *Core) update() {
+func (c *Master) loop() {
 	for {
 		event, ok := <-c.unlockEventListener
+		log.Info("Master get event %v", event)
 		if !ok {
-			//todo close
+			c.Close()
 		}
 
-		c.mutex.Lock()
-		defer c.mutex.Unlock()
-		if worker, ok := c.signWorkers[event.Address]; ok {
-			// if address locked the signwork need not care about confirm tx
-			if !event.Unlocked() {
-				worker.disableAutoConfirm()
-			}
+		c.coreMutex.Lock()
+		if worker, ok := c.signSlaves[event.Address]; ok {
+			log.Info("Master get event already exist %v", event)
+			worker.AddressLocked(!event.Unlocked())
 			continue
 		}
 
-		work := signWorker{vite: c.vite, address: event.Address}
-		c.signWorkers[event.Address] = &work
-		go work.StartWork()
+		s := signSlave{vite: c.vite, address: event.Address}
+		log.Info("Master get event new signSlave")
+		c.signSlaves[event.Address] = &s
+		c.coreMutex.Unlock()
+
+		go s.StartWork()
 
 	}
 }

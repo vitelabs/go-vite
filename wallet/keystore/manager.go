@@ -25,6 +25,10 @@ type UnlockEvent struct {
 	event   string // "Unlocked Locked "
 }
 
+func (ue UnlockEvent) String() string {
+	return ue.Address.Hex() + " " + ue.event
+}
+
 func (ue UnlockEvent) Unlocked() bool {
 	return ue.event == UnLocked
 }
