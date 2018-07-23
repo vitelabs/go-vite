@@ -13,8 +13,6 @@ var pingInterval = 15 * time.Second
 const (
 	baseProtocolBand = 16
 	discMsg      = 1
-	pingMsg      = 2
-	pongMsg      = 3
 	handshakeMsg = 4
 )
 
@@ -96,15 +94,17 @@ func NewPeer(ts *TSConn) *Peer {
 }
 
 func (p *Peer) run(protoHandler peerHandler) (err error) {
-	p.wg.Add(2)
+	log.Printf("peer %s run\n", p.ID())
+
+	p.wg.Add(1)
 	go p.readLoop()
-	go p.pingLoop()
 
 	// higher protocol
 	if protoHandler != nil {
 		p.protoHandler = protoHandler
 		p.wg.Add(1)
 		go func() {
+			log.Printf("tcp proto handler peer %s\n", p.ID())
 			protoHandler(p)
 			p.wg.Done()
 		}()
@@ -135,44 +135,26 @@ func (p *Peer) readLoop() {
 	defer p.wg.Done()
 
 	for {
-		msg, err := p.TS.ReadMsg()
-		if err != nil {
-			log.Printf("peer read error: %v\n", err)
-			p.Errch <- err
-			return
-		}
-		go p.handleMsg(msg)
-	}
-}
-
-func (p *Peer) pingLoop() {
-	defer p.wg.Done()
-
-	timer := time.NewTimer(pingInterval)
-	defer timer.Stop()
-
-	for {
 		select {
-		case <- timer.C:
-			log.Printf("tcp ping %s\n", p.ID())
-
-			if err := Send(p.TS, &Msg{Code: pingMsg}); err != nil {
+		case <- p.Closed:
+			return
+		default:
+			msg, err := p.TS.ReadMsg()
+			if err != nil {
+				log.Printf("peer read error: %v\n", err)
 				p.Errch <- err
 				return
 			}
-			timer.Reset(pingInterval)
-		case <- p.Closed:
-			return
+
+			p.handleMsg(msg)
 		}
 	}
 }
 
 func (p *Peer) handleMsg(msg Msg) {
-	log.Printf("receive msg %d from %s\n", msg.Code, p.ID())
+	log.Printf("tcp receive msg %d from %s\n", msg.Code, p.ID())
 
 	switch {
-	case msg.Code == pingMsg:
-		go Send(p.TS, &Msg{Code: pongMsg})
 	case msg.Code == discMsg:
 		discReason := binary.BigEndian.Uint64(msg.Payload)
 		p.Errch <- DiscReason(discReason)
@@ -189,7 +171,7 @@ func (p *Peer) handleMsg(msg Msg) {
 }
 
 func (p *Peer) Disconnect(reason DiscReason) {
-	log.Printf("disconnect %s\n", p.ID())
+	log.Printf("tcp disconnect peer %s\n", p.ID())
 
 	select {
 	case p.disc <- reason:

@@ -6,13 +6,27 @@ import (
 	"fmt"
 	"encoding/binary"
 	"github.com/vitelabs/go-vite/p2p/protos"
-	"github.com/gogo/protobuf/proto"
+
+	"github.com/golang/protobuf/proto"
 )
 
+type NetworkID uint32
+
 const (
-	MainNet uint32 = iota + 1
+	MainNet NetworkID = iota + 1
 	TestNet
 )
+
+func (i NetworkID) String() string {
+	switch i {
+	case MainNet:
+		return "MainNet"
+	case TestNet:
+		return "TestNet"
+	default:
+		return "Unknown"
+	}
+}
 
 // @section Msg
 type Msg struct {
@@ -35,14 +49,14 @@ type MsgReadWriter interface {
 
 // handshake message
 type Handshake struct {
-	NetID	uint32
+	NetID	NetworkID
 	Name    string
 	ID      NodeID
 }
 
 func (hs *Handshake) Serialize() ([]byte, error) {
 	hspb := &protos.Handshake{
-		NetID: hs.NetID,
+		NetID: uint32(hs.NetID),
 		Name: hs.Name,
 		ID: hs.ID[:],
 	}
@@ -59,7 +73,7 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 
 	copy(hs.ID[:], hspb.ID)
 	hs.Name = hspb.Name
-	hs.NetID = hspb.NetID
+	hs.NetID = NetworkID(hspb.NetID)
 	return nil
 }
 
@@ -194,7 +208,6 @@ func (pt *PBTS) Handshake(our *Handshake) (*Handshake, error) {
 		return nil, fmt.Errorf("need handshake msg, got %d\n", msg.Code)
 	}
 
-
 	hs := &Handshake{}
 	err = hs.Deserialize(msg.Payload)
 	if err != nil {
@@ -253,38 +266,3 @@ func pack(m Msg) ([]byte, error) {
 
 	return data, nil
 }
-
-//func unpackMsg(code uint64, buf []byte) (m Msg, err error) {
-//	var payload protocols.Serializable
-//
-//	trueCode := code - baseProtocolBand
-//	switch trueCode {
-//	case protocols.StatusMsgCode:
-//		payload = &protocols.StatusMsg{
-//
-//		}
-//	case protocols.GetSnapshotBlocksMsgCode:
-//		payload = &protocols.GetSnapshotBlocksMsg{
-//
-//		}
-//	case protocols.SnapshotBlocksMsgCode:
-//		payload = &protocols.SnapshotBlocksMsg{
-//
-//		}
-//	case protocols.GetAccountBlocksMsgCode:
-//		payload = &protocols.GetAccountBlocksMsg{
-//
-//		}
-//	case protocols.AccountBlocksMsgCode:
-//		payload = &protocols.AccountBlocksMsg{
-//
-//		}
-//	default:
-//		return m, fmt.Errorf("unknown msg code %d\n", code)
-//	}
-//
-//	return Msg{
-//		code,
-//		payload,
-//	}, nil
-//}

@@ -1,35 +1,13 @@
-package protocols
+package types
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
-	"github.com/vitelabs/go-vite/protocols/protos"
 	"github.com/golang/protobuf/proto"
-	"sync"
-	"github.com/vitelabs/go-vite/p2p"
 	"log"
 	"github.com/vitelabs/go-vite/vitepb"
 )
-
-// @section Peer for protocol handle, not p2p Peer.
-type Peer struct {
-	*p2p.Peer
-	ID 		string
-	Head 	types.Hash
-	Height	*big.Int
-	Version int
-	RW 		MsgReadWriter
-	Lock 	sync.RWMutex
-}
-
-func (p *Peer) Update(status *StatusMsg) {
-	p.Lock.Lock()
-	defer p.Lock.Unlock()
-
-	p.Height = status.Height
-	p.Head = status.CurrentBlock
-}
 
 // @section Msg
 type Serializable interface {
@@ -42,9 +20,7 @@ type Msg struct {
 	Payload Serializable
 }
 
-const vite1 = 1
-var protocolVersions = []uint{vite1}
-var protocolBand = []uint{10}
+const Vite1 = 1
 
 // @section msg code
 const (
@@ -64,7 +40,7 @@ type StatusMsg struct {
 }
 
 func (st *StatusMsg) NetSerialize() ([]byte, error) {
-	stpb := &protos.StatusMsg{
+	stpb := &vitepb.StatusMsg{
 		ProtocolVersion: st.ProtocolVersion,
 		Height: st.Height.Bytes(),
 		CurrentBlock: st.CurrentBlock[:],
@@ -75,14 +51,14 @@ func (st *StatusMsg) NetSerialize() ([]byte, error) {
 }
 
 func (st *StatusMsg) NetDeserialize(data []byte) error {
-	stpb := &protos.StatusMsg{}
+	stpb := &vitepb.StatusMsg{}
 	err := proto.Unmarshal(data, stpb)
 	if err != nil {
 		return err
 	}
 	st.ProtocolVersion = stpb.ProtocolVersion
 
-	var bi *big.Int
+	bi := new(big.Int)
 	st.Height = bi.SetBytes(stpb.Height)
 	copy(st.GenesisBlock[:], stpb.GenesisBlock)
 	copy(st.CurrentBlock[:], stpb.CurrentBlock)
@@ -98,7 +74,7 @@ type GetSnapshotBlocksMsg struct {
 }
 
 func (gs *GetSnapshotBlocksMsg) NetSerialize() ([]byte, error) {
-	gspb := &protos.GetSnapshotBlocksMsg{
+	gspb := &vitepb.GetSnapshotBlocksMsg{
 		Origin: gs.Origin[:],
 		Count: gs.Count,
 		Forward: gs.Forward,
@@ -108,7 +84,7 @@ func (gs *GetSnapshotBlocksMsg) NetSerialize() ([]byte, error) {
 }
 
 func (gs *GetSnapshotBlocksMsg) NetDeserialize(data []byte) error {
-	gspb := &protos.GetSnapshotBlocksMsg{}
+	gspb := &vitepb.GetSnapshotBlocksMsg{}
 	err := proto.Unmarshal(data, gspb)
 	if err != nil {
 		return err
@@ -123,12 +99,12 @@ func (gs *GetSnapshotBlocksMsg) NetDeserialize(data []byte) error {
 type SnapshotBlocksMsg []*ledger.SnapshotBlock
 
 func (s *SnapshotBlocksMsg) NetSerialize() ([]byte, error) {
-	bs := make([]*vitepb.SnapshotBlock, len(*s))
+	bs := make([]*vitepb.SnapshotBlockNet, len(*s))
 
 	for i, b := range *s {
 		bs[i] = b.GetNetPB()
 	}
-	spb := &protos.SnapshotBlocksMsg{
+	spb := &vitepb.SnapshotBlocksMsg{
 		Blocks: bs,
 	}
 
@@ -136,7 +112,7 @@ func (s *SnapshotBlocksMsg) NetSerialize() ([]byte, error) {
 }
 
 func (s *SnapshotBlocksMsg) NetDeserialize(data []byte) error {
-	spb := &protos.SnapshotBlocksMsg{}
+	spb := &vitepb.SnapshotBlocksMsg{}
 	err := proto.Unmarshal(data, spb)
 	if err != nil {
 		return err
@@ -162,7 +138,7 @@ type GetAccountBlocksMsg struct {
 }
 
 func (ga *GetAccountBlocksMsg) NetSerialize() ([]byte, error) {
-	gapb := &protos.GetAccountBlocksMsg{
+	gapb := &vitepb.GetAccountBlocksMsg{
 		Origin: ga.Origin[:],
 		Count: ga.Count,
 		Forward: ga.Forward,
@@ -172,7 +148,7 @@ func (ga *GetAccountBlocksMsg) NetSerialize() ([]byte, error) {
 }
 
 func (ga *GetAccountBlocksMsg) NetDeserialize(data []byte) error {
-	gapb := &protos.GetAccountBlocksMsg{}
+	gapb := &vitepb.GetAccountBlocksMsg{}
 	err := proto.Unmarshal(data, gapb)
 	if err != nil {
 		return err
@@ -193,7 +169,7 @@ func (a *AccountBlocksMsg) NetSerialize() ([]byte, error) {
 		bs[i] = b.GetNetPB()
 	}
 
-	apb := &protos.AccountBlocksMsg{
+	apb := &vitepb.AccountBlocksMsg{
 		Blocks: bs,
 	}
 
@@ -201,7 +177,7 @@ func (a *AccountBlocksMsg) NetSerialize() ([]byte, error) {
 }
 
 func (a *AccountBlocksMsg) NetDeserialize(data []byte) error {
-	apb := &protos.AccountBlocksMsg{}
+	apb := &vitepb.AccountBlocksMsg{}
 	err := proto.Unmarshal(data, apb)
 	if err != nil {
 		return err

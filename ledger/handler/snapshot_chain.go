@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/vitelabs/go-vite/protocols"
+	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"github.com/vitelabs/go-vite/ledger/access"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
@@ -9,13 +9,12 @@ import (
 	"log"
 	"github.com/vitelabs/go-vite/ledger/cache/pending"
 	"time"
+	"github.com/vitelabs/go-vite/ledger/handler_interface"
+	"github.com/vitelabs/go-vite/crypto"
+	"bytes"
+	"github.com/pkg/errors"
 )
 
-type SyncInfo struct {
-	BeginHeight *big.Int
-	TargetHeight *big.Int
-	CurrentHeight *big.Int
-}
 
 
 type SnapshotChain struct {
@@ -30,11 +29,13 @@ func NewSnapshotChain (vite Vite) (*SnapshotChain) {
 	return &SnapshotChain{
 		vite: vite,
 		scAccess: access.GetSnapshotChainAccess(),
+		acAccess: access.GetAccountChainAccess(),
+		aAccess: access.GetAccountAccess(),
 	}
 }
 
 // HandleGetBlock
-func (sc *SnapshotChain) HandleGetBlocks (msg *protocols.GetSnapshotBlocksMsg, peer *protocols.Peer) error {
+func (sc *SnapshotChain) HandleGetBlocks (msg *protoTypes.GetSnapshotBlocksMsg, peer *protoTypes.Peer) error {
 	go func() {
 		blocks, err := sc.scAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
 		if err != nil {
@@ -42,8 +43,8 @@ func (sc *SnapshotChain) HandleGetBlocks (msg *protocols.GetSnapshotBlocksMsg, p
 			return
 		}
 
-		sc.vite.Pm().SendMsg(peer, &protocols.Msg{
-			Code: protocols.SnapshotBlocksMsgCode,
+		sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+			Code: protoTypes.SnapshotBlocksMsgCode,
 			Payload: blocks,
 		})
 	}()
@@ -53,17 +54,44 @@ func (sc *SnapshotChain) HandleGetBlocks (msg *protocols.GetSnapshotBlocksMsg, p
 var pendingPool *pending.SnapshotchainPool
 
 // HandleBlockHash
-func (sc *SnapshotChain) HandleSendBlocks (msg protocols.SnapshotBlocksMsg, peer *protocols.Peer) error {
+func (sc *SnapshotChain) HandleSendBlocks (msg *protoTypes.SnapshotBlocksMsg, peer *protoTypes.Peer) error {
 	if pendingPool == nil {
 		pendingPool = pending.NewSnapshotchainPool(func (block *ledger.SnapshotBlock) bool {
 			globalRWMutex.RLock()
 			defer globalRWMutex.RUnlock()
 
-			err := sc.scAccess.WriteBlock(block)
-			if err != nil {
-				log.Println(err)
+			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
+				// Let the pool discard the block.
+				return true
+			}
 
-				switch err.(type) {
+			// Verify hash
+			computedHash, err := block.ComputeHash()
+			if err != nil {
+				// Discard the block.
+				log.Println(err)
+				return true
+			}
+
+			if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()){
+				// Discard the block.
+				log.Println(err)
+				return true
+			}
+
+			// Verify signature
+			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
+			if !isVerified || verifyErr != nil{
+				// Let the pool discard the block.
+				return true
+			}
+
+			wbErr := sc.scAccess.WriteBlock(block, nil)
+
+			if wbErr != nil {
+				log.Println(wbErr)
+
+				switch wbErr.(type) {
 				case access.ScWriteError:
 					scWriteError := err.(access.ScWriteError)
 					if scWriteError.Code == access.WscNeedSyncErr {
@@ -87,9 +115,9 @@ func (sc *SnapshotChain) HandleSendBlocks (msg protocols.SnapshotBlocksMsg, peer
 							gap := &big.Int{}
 							gap = gap.Sub(item.TargetBlockHeight, currentBlockHeight)
 
-							sc.vite.Pm().SendMsg(peer, &protocols.Msg{
-								Code: protocols.GetAccountBlocksMsgCode,
-								Payload: &protocols.GetAccountBlocksMsg{
+							sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+								Code: protoTypes.GetAccountBlocksMsgCode,
+								Payload: &protoTypes.GetAccountBlocksMsg{
 									Origin: *item.TargetBlockHash,
 									Count: gap.Uint64(),
 									Forward: false,
@@ -125,15 +153,15 @@ func (sc *SnapshotChain) HandleSendBlocks (msg protocols.SnapshotBlocksMsg, peer
 		})
 	}
 
-	pendingPool.Add(msg)
+	pendingPool.Add(*msg)
 
 	return nil
 }
 
 var firstSyncDone = false
-var syncInfo = &SyncInfo{}
+var syncInfo = &handler_interface.SyncInfo{}
 
-func (sc *SnapshotChain) syncPeer (peer *protocols.Peer) error {
+func (sc *SnapshotChain) syncPeer (peer *protoTypes.Peer) error {
 	latestBlock, err := sc.scAccess.GetLatestBlock()
 	if err != nil {
 		return err
@@ -151,9 +179,9 @@ func (sc *SnapshotChain) syncPeer (peer *protocols.Peer) error {
 	count := &big.Int{}
 	count.Sub(peer.Height, latestBlock.Height)
 
-	sc.vite.Pm().SendMsg(peer, &protocols.Msg {
-		Code: protocols.GetSnapshotBlocksMsgCode,
-		Payload: &protocols.GetSnapshotBlocksMsg{
+	sc.vite.Pm().SendMsg(peer, &protoTypes.Msg {
+		Code: protoTypes.GetSnapshotBlocksMsgCode,
+		Payload: &protoTypes.GetSnapshotBlocksMsg{
 			Origin: *latestBlock.Hash,
 			Count: count.Uint64(),
 			Forward: true,
@@ -163,7 +191,7 @@ func (sc *SnapshotChain) syncPeer (peer *protocols.Peer) error {
 	return nil
 }
 
-func (sc *SnapshotChain) SyncPeer (peer *protocols.Peer) {
+func (sc *SnapshotChain) SyncPeer (peer *protoTypes.Peer) {
 	// Do syncing
 	err := sc.syncPeer(peer)
 
@@ -172,30 +200,44 @@ func (sc *SnapshotChain) SyncPeer (peer *protocols.Peer) {
 
 	if err != nil {
 		log.Println(err)
+
 		// If the first syncing goes wrong, try to sync again.
 		go func() {
 			time.Sleep(time.Duration(1000))
 			sc.vite.Pm().Sync()
 		}()
 	}
-
 }
 
 
 
 func (sc *SnapshotChain) WriteMiningBlock (block *ledger.SnapshotBlock) error {
-	globalRWMutex.RLock()
-	defer globalRWMutex.RUnlock()
+	globalRWMutex.Lock()
+	defer globalRWMutex.Unlock()
 
-	err := sc.scAccess.WriteBlock(block)
+	latestBlock, glbErr := sc.GetLatestBlock()
+	if glbErr != nil {
+		return errors.Wrap(glbErr, "WriteMiningBlock")
+	}
+	block.PrevHash = latestBlock.Hash
+
+	err := sc.scAccess.WriteBlock(block, func(block *ledger.SnapshotBlock) (*ledger.SnapshotBlock, error) {
+		var signErr error
+
+		block.Signature, block.PublicKey, signErr =
+				sc.vite.WalletManager().KeystoreManager.SignData(*block.Producer, block.Hash.Bytes())
+
+		return block, signErr
+	})
+
 	if err != nil {
 		return err
 	}
 
 	// Broadcast
-	sc.vite.Pm().SendMsg(nil, &protocols.Msg {
-		Code: protocols.SnapshotBlocksMsgCode,
-		Payload: &protocols.SnapshotBlocksMsg{block},
+	sc.vite.Pm().SendMsg(nil, &protoTypes.Msg {
+		Code: protoTypes.SnapshotBlocksMsgCode,
+		Payload: &protoTypes.SnapshotBlocksMsg{block},
 	})
 	return nil
 }
@@ -207,9 +249,15 @@ func (sc *SnapshotChain) GetNeedSnapshot () ([]*ledger.AccountBlock, error) {
 	}
 
 	// Scan all accounts. Optimize in the future.
-	var needSnapshot []*ledger.AccountBlock
+	needSnapshot := []*ledger.AccountBlock{}
+
 	for _, accountAddress := range accountAddressList {
 		latestBlock, err := sc.acAccess.GetLatestBlockByAccountAddress(accountAddress)
+		if latestBlock.Meta.IsSnapshotted {
+			continue
+		}
+
+		latestBlock.AccountAddress = accountAddress
 		if err != nil {
 			log.Println(err)
 			continue
@@ -220,14 +268,6 @@ func (sc *SnapshotChain) GetNeedSnapshot () ([]*ledger.AccountBlock, error) {
 	}
 
 	return needSnapshot, nil
-}
-
-func (sc *SnapshotChain) StopAllWrite () {
-	globalRWMutex.Lock()
-}
-
-func (sc *SnapshotChain) StartAllWrite () {
-	globalRWMutex.Unlock()
 }
 
 func (sc *SnapshotChain) GetLatestBlock () (*ledger.SnapshotBlock, error) {
@@ -242,6 +282,6 @@ func (sc *SnapshotChain) GetBlockByHeight (height *big.Int) (*ledger.SnapshotBlo
 	return sc.scAccess.GetBlockByHeight(height)
 }
 
-func (sc *SnapshotChain) GetFirstSyncInfo () (*SyncInfo) {
+func (sc *SnapshotChain) GetFirstSyncInfo () (*handler_interface.SyncInfo) {
 	return syncInfo
 }

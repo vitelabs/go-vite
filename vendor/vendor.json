@@ -9,6 +9,24 @@
 			"revisionTime": "2018-06-03T19:32:48Z"
 		},
 		{
+			"checksumSHA1": "7NP1qUMF8Kx1y0zANxx0e+oq9Oo=",
+			"path": "github.com/fsnotify/fsnotify",
+			"revision": "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9",
+			"revisionTime": "2018-01-10T05:33:47Z"
+		},
+		{
+			"checksumSHA1": "fDPeeWbnxZqrfrU0JFyMa+glPDI=",
+			"path": "github.com/jackpal/gateway",
+			"revision": "cbcf4e3f3baee7952fc386c8b2534af4d267c875",
+			"revisionTime": "2018-04-07T16:30:08Z"
+		},
+		{
+			"checksumSHA1": "rYn4ULsFUhdQDo9M2zqDH1eVq0Q=",
+			"path": "github.com/jackpal/go-nat-pmp",
+			"revision": "28a68d0c24adce1da43f8df6a57340909ecd7fdd",
+			"revisionTime": "2017-04-05T19:55:58Z"
+		},
+		{
 			"checksumSHA1": "m2/Bwo4dXYB/Iw2AdotdxuOW7SA=",
 			"path": "github.com/micro/go-config",
 			"revision": "3904282c3ef78454df3c3c0b880fb780778ad16a",
