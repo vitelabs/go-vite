@@ -253,7 +253,7 @@ func (l *LegerApiImpl) GetInitSyncInfo(noop interface{}, reply *string) error {
 		TargetHeight:     i.TargetHeight.String(),
 		CurrentHeight:    i.CurrentHeight.String(),
 		IsFirstSyncDone:  i.IsFirstSyncDone,
-		IsStartFirstSync: false,
+		IsStartFirstSync: i.IsFirstSyncStart,
 	}
 
 	return easyJsonReturn(r, reply)
