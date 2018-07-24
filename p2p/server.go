@@ -571,6 +571,7 @@ func (t *discoverTask) Perform(svr *Server) {
 	var target NodeID
 	rand.Read(target[:])
 	t.results = svr.ntab.lookup(target)
+	log.Printf("discv tab lookup %s %d nodes\n", target, len(t.results))
 }
 
 type dialTask struct {

@@ -673,38 +673,41 @@ func (tb *table) lookup(target NodeID) []*Node {
 	var queries = 0
 	var result *closest
 
-	asked[tb.self.ID] = true
-
 	for {
 		tb.mutex.Lock()
 		result = tb.closest(target, K)
 		tb.mutex.Unlock()
+
 		if len(result.nodes) > 0 {
 			break
 		}
+
+		time.Sleep(3 * time.Second)
 	}
 
-	for {
-		for i := 0; i < len(result.nodes) && queries < alpha; i++ {
-			n := result.nodes[i]
-			if !asked[n.ID] {
-				asked[n.ID] = true
-				queries++
-				go tb.findnode(n, target, reply)
-			}
-		}
-		if queries == 0 {
-			break
-		}
+	asked[tb.self.ID] = true
 
-		for _, n := range <-reply {
-			if n != nil && !seen[n.ID] {
-				seen[n.ID] = true
-				result.push(n, K)
+	for i := 0; i < len(result.nodes); i++ {
+		n := result.nodes[i]
+		if !asked[n.ID] {
+			asked[n.ID] = true
+			go tb.findnode(n, target, reply)
+			queries++
+			if queries >= alpha {
+				// todo: optimize latter
+				time.Sleep(3 * time.Second)
+				queries = 0
 			}
 		}
-		queries--
 	}
+
+	for _, n := range <-reply {
+		if n != nil && !seen[n.ID] {
+			seen[n.ID] = true
+			result.push(n, K)
+		}
+	}
+
 	return result.nodes
 }
 
