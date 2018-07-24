@@ -48,7 +48,7 @@ func (ac *AccountChain) HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, pee
 		log.Info("AccountChain.HandleGetBlocks: send " + strconv.Itoa(len(blocks)) + " blocks.")
 		ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 			Code:    protoTypes.AccountBlocksMsgCode,
-			Payload: blocks,
+			Payload: &blocks,
 		})
 	}()
 	return nil
@@ -62,7 +62,6 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 		defer globalRWMutex.RUnlock()
 
 		for _, block := range *msg {
-			log.Info("AccountChain HandleSendBlocks: start process block " + block.Hash.String())
 			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
 				// Discard the block.
 				log.Info("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because block.PublicKey or block.Hash or block.Signature is nil.")
@@ -94,12 +93,10 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 			writeErr := ac.acAccess.WriteBlock(block, nil)
 
 			if writeErr != nil {
-
 				switch writeErr.(type) {
 				case *access.AcWriteError:
 					err := writeErr.(*access.AcWriteError)
-					if err.Code == access.WacPrevHashUncorrectErr {
-						log.Info("AccountChain HandleSendBlocks: start download account chain.")
+					if err.Code == access.WacHigherErr {
 						errData := err.Data.(*ledger.AccountBlock)
 
 						currentHeight := big.NewInt(0)
@@ -113,6 +110,15 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 						// Download fragment
 						count := &big.Int{}
 						count.Sub(block.Meta.Height, currentHeight)
+						if count.Cmp(big.NewInt(1)) <= 0 {
+							return
+						}
+
+
+						log.Info("AccountChain HandleSendBlocks: start download account chain. Current height is " +
+							currentHeight.String() + ", and target height is " + block.Meta.Height.String())
+						log.Info(err.Error())
+
 						ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 							Code: protoTypes.GetAccountBlocksMsgCode,
 							Payload: &protoTypes.GetAccountBlocksMsg{
@@ -124,13 +130,9 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 						return
 					}
 				}
-
-				log.Info(writeErr.Error())
-				continue
-			} else {
-				log.Info("AccountChain HandleSendBlocks: write block " + block.Hash.String() + " success.")
 			}
 		}
+		log.Info("AccountChain HandleSendBlocks: write " + strconv.Itoa(len(*msg)) + " blocks success.")
 	}()
 	return nil
 }

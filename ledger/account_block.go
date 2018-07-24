@@ -64,17 +64,17 @@ func (abm *AccountBlockMeta) DbDeserialize(buf []byte) error {
 
 type AccountBlockList []*AccountBlock
 
-func (ablist AccountBlockList) NetSerialize() ([]byte, error) {
+func (ablist *AccountBlockList) NetSerialize() ([]byte, error) {
 	accountBlockListNetPB := &vitepb.AccountBlockListNet{}
 	accountBlockListNetPB.Blocks = []*vitepb.AccountBlockNet{}
 
-	for _, accountBlock := range ablist {
+	for _, accountBlock := range *ablist {
 		accountBlockListNetPB.Blocks = append(accountBlockListNetPB.Blocks, accountBlock.GetNetPB())
 	}
 	return proto.Marshal(accountBlockListNetPB)
 }
 
-func (ablist AccountBlockList) NetDeserialize(buf []byte) error {
+func (ablist *AccountBlockList) NetDeserialize(buf []byte) error {
 	accountBlockListNetPB := &vitepb.AccountBlockListNet{}
 	if err := proto.Unmarshal(buf, accountBlockListNetPB); err != nil {
 		return err
@@ -83,7 +83,7 @@ func (ablist AccountBlockList) NetDeserialize(buf []byte) error {
 	for _, blockPB := range accountBlockListNetPB.Blocks {
 		block := &AccountBlock{}
 		block.SetByNetPB(blockPB)
-		ablist = append(ablist, block)
+		*ablist = append(*ablist, block)
 	}
 
 	return nil

@@ -30,6 +30,9 @@ func (acwErr AcWriteError) Error () string {
 const  (
 	WacDefaultErr = iota
 	WacPrevHashUncorrectErr
+	WacHigherErr
+	WacLowerErr
+	WacSameHeightErr
 )
 
 const  (

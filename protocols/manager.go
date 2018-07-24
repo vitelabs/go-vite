@@ -157,7 +157,7 @@ func (pm *ProtocolManager) SendMsg(p *protoType.Peer, msg *protoType.Msg) error 
 
 	// send to the specified peer
 	p.Sending <- struct{}{}
-	log.Printf("pm begin send msg %d to %s\n", msg.Code, p.ID)
+	log.Printf("pm begin send msg %d to %s %d bytes\n", msg.Code, p.ID, len(payload))
 	err = p2p.Send(p.TS, m)
 	<- p.Sending
 	return err

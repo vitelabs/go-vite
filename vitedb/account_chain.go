@@ -127,6 +127,7 @@ func (ac *AccountChain) GetLatestBlockHeightByAccountId(accountId *big.Int) (*bi
 }
 func (ac *AccountChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count uint64, forward bool) (ledger.AccountBlockList, error) {
 	originBlockMeta, err := ac.GetBlockMeta(originBlockHash)
+
 	if err != nil {
 		log.Println("AccountChain.GetBlocksFromOrigin: Get OriginBlockMeta failed.")
 		return nil, err
@@ -157,8 +158,13 @@ func (ac *AccountChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count u
 		endHeight.Add(startHeight, gap)
 	} else {
 		endHeight = originBlockMeta.Height
+		// Because leveldb iterator range is [a, b)
+		endHeight.Add(endHeight, big.NewInt(1))
 		startHeight.Sub(endHeight, gap)
 	}
+
+	log.Println("AccountChain.GetBlocksFromOrigin: Start height is " + startHeight.String() +
+		", and end height is " + endHeight.String())
 
 	startKey, err := createKey(DBKP_ACCOUNTBLOCK, originBlockMeta.AccountId, startHeight)
 	if err != nil {
@@ -195,6 +201,9 @@ func (ac *AccountChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count u
 	}
 
 	log.Println("AccountChain.GetBlocksFromOrigin: return " + strconv.Itoa(len(blockList)) + " blocks.")
+	if len(blockList) > 0 {
+		log.Printf("%+v\n", blockList[0].Meta)
+	}
 	return blockList, nil
 }
 
