@@ -58,6 +58,7 @@ func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase s
 func (c *Master) InitAndStartLoop() {
 	c.unlockEventListener = make(chan keystore.UnlockEvent)
 	c.lid = c.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(c.unlockEventListener)
+	c.signSlaves = make(map[types.Address]*signSlave)
 	go c.loop()
 }
 

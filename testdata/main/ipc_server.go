@@ -16,7 +16,7 @@ func main() {
 	fmt.Println("Enter d for Default or any others for Test ")
 	inputReader := bufio.NewReader(os.Stdin)
 	input, err := inputReader.ReadString('\n')
-	dir := common.TestDataDir()
+	dir := common.GoViteTestDataDir()
 	if strings.HasPrefix(input, "d") {
 		dir = common.DefaultDataDir()
 	}
@@ -26,7 +26,7 @@ func main() {
 		ipcapiURL = rpc.DefaultIpcFile()
 	}
 
-	m := wallet.NewManager(filepath.Join(dir, "wallet"))
+	m := wallet.NewManagerAndInit(filepath.Join(dir, "wallet"))
 
 	lis, err := rpc.IpcListen(ipcapiURL)
 	defer func() {

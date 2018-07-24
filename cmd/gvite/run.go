@@ -13,6 +13,7 @@ import (
 
 	"flag"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/common"
 )
 
 func Start (cfg *p2p.Config)  {
@@ -23,8 +24,10 @@ func Start (cfg *p2p.Config)  {
 	//fmt.Println(privateKey.Hex())
 	//fmt.Println(addr.Hex())
 
-
-	v, err := vite.New(cfg)
+	v, err := vite.New(&vite.Config{
+		DataDir:   common.DefaultDataDir(),
+		P2pConfig: cfg,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

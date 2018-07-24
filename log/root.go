@@ -1,8 +1,8 @@
 package log
 
 import (
-	"os"
 	"fmt"
+	"os"
 )
 
 // this is an dummy log impl
@@ -25,6 +25,11 @@ func Warn(msg string, ctx ...interface{}) {
 
 func Error(msg string, ctx ...interface{}) {
 	fmt.Println(msg, ctx)
+}
+
+func Fatal(msg string, ctx ...interface{}) {
+	fmt.Println(msg, ctx)
+	os.Exit(1)
 }
 
 func Crit(msg string, ctx ...interface{}) {

@@ -63,9 +63,12 @@ type WalletApi interface {
 	// it reply string is false it must not be a valid keystore file
 	// else only means that might be a keystore file
 	IsMayValidKeystoreFile(path []string, reply *string) error
+
+	// Get dir
+	GetDataDir(v interface{}, reply *string) error
 }
 
-func NewWalletApi(vite vite.Vite) WalletApi {
+func NewWalletApi(vite *vite.Vite) WalletApi {
 	return &WalletApiImpl{km: vite.WalletManager().KeystoreManager}
 }
 
@@ -89,6 +92,14 @@ func (m WalletApiImpl) ListAddress(v interface{}, reply *string) error {
 		return err
 	}
 	*reply = string(json)
+
+	return nil
+}
+
+func (m WalletApiImpl) GetDataDir(v interface{}, reply *string) error {
+	log.Debug("GetDataDir")
+
+	*reply = m.km.KeyStoreDir
 
 	return nil
 }

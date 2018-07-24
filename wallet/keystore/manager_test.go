@@ -17,7 +17,7 @@ const (
 
 func TestStoreAndExtractNewKey(t *testing.T) {
 
-	dir := filepath.Join(common.TestDataDir(), "super")
+	dir := filepath.Join(common.GoViteTestDataDir(), "super")
 	ks := keyStorePassphrase{keysDirPath: dir}
 
 	kp := NewManager(dir)
@@ -45,7 +45,7 @@ func TestStoreAndExtractNewKey(t *testing.T) {
 }
 
 func TestSignAndVerify(t *testing.T) {
-	kp := NewManager(common.TestDataDir())
+	kp := NewManager(common.GoViteTestDataDir())
 	kp.Init()
 	for _, v := range kp.Addresses() {
 		println(v.Hex())
@@ -54,7 +54,7 @@ func TestSignAndVerify(t *testing.T) {
 			t.Fatal(err)
 		}
 		println("##" + hex.EncodeToString(outdata))
-		readAndFixAddressFile(fullKeyFileName(common.TestDataDir(), v))
+		readAndFixAddressFile(fullKeyFileName(common.GoViteTestDataDir(), v))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -68,7 +68,7 @@ func TestSignAndVerify(t *testing.T) {
 }
 
 func TestManager_ImportPriv(t *testing.T) {
-	kp := NewManager(common.TestDataDir())
+	kp := NewManager(common.GoViteTestDataDir())
 	kp.Init()
 	hexPri, err := kp.ExportPriv("vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416", DummyPwd)
 	if err != nil {
@@ -88,7 +88,7 @@ func TestManager_ImportPriv(t *testing.T) {
 }
 
 func TestManager_Import(t *testing.T) {
-	kp := NewManager(common.TestDataDir())
+	kp := NewManager(common.GoViteTestDataDir())
 	kp.Init()
 	hexaddr := "vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416"
 	addr, _ := types.HexToAddress(hexaddr)

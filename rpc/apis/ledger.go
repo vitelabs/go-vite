@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
 	"github.com/vitelabs/go-vite/log"
+	"github.com/vitelabs/go-vite/signer"
 	"github.com/vitelabs/go-vite/vite"
 	"math/big"
 )
@@ -84,13 +85,13 @@ type LedgerApi interface {
 func NewLedgerApi(vite *vite.Vite) LedgerApi {
 	return &LegerApiImpl{
 		ledgerManager: vite.Ledger(),
-		vite:          vite,
+		signer:        vite.Signer(),
 	}
 }
 
 type LegerApiImpl struct {
 	ledgerManager handler_interface.Manager
-	vite          *vite.Vite
+	signer        *signer.Master
 }
 
 func (l *LegerApiImpl) CreateTxWithPassphrase(params *SendTxParms, reply *string) error {
@@ -118,7 +119,7 @@ func (l *LegerApiImpl) CreateTxWithPassphrase(params *SendTxParms, reply *string
 	b := ledger.AccountBlock{AccountAddress: &selfaddr, To: &toaddr, TokenId: &tti, Amount: amount}
 
 	// call signer.creattx in order to as soon as possible to send tx
-	err = l.vite.Signer().CreateTxWithPassphrase(&b, params.Passphrase)
+	err = l.signer.CreateTxWithPassphrase(&b, params.Passphrase)
 
 	if err != nil {
 		return err

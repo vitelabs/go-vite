@@ -18,7 +18,7 @@ func main() {
 	fmt.Println("Enter d for Default or any others for Test ")
 	inputReader := bufio.NewReader(os.Stdin)
 	input, err := inputReader.ReadString('\n')
-	dir := common.TestDataDir()
+	dir := common.GoViteTestDataDir()
 	if strings.HasPrefix(input, "d") {
 		dir = common.DefaultDataDir()
 	}
@@ -90,7 +90,7 @@ func status(client *rpc2.Client) {
 }
 
 func Unlock(client *rpc2.Client, param []string) {
-	doRpcCall(client, "wallet.Unlock", param)
+	doRpcCall(client, "wallet.UnLock", param)
 }
 
 func Lock(client *rpc2.Client, param []string) {

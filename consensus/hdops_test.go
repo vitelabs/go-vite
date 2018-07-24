@@ -10,7 +10,7 @@ import (
 )
 
 func genAddress(n int) []types.Address {
-	dir := common.TestDataDir()
+	dir := common.GoViteTestDataDir()
 	kp := keystore.NewManager(dir)
 	kp.Init()
 

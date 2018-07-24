@@ -9,13 +9,15 @@ import (
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
 	protoInterface "github.com/vitelabs/go-vite/protocols/interfaces"
 
-	"github.com/vitelabs/go-vite/signer"
-	"log"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/miner"
+	"github.com/vitelabs/go-vite/signer"
+	"log"
 )
 
 type Vite struct {
+	config        *Config
 	ledger        *ledgerHandler.Manager
 	p2p           *p2p.Server
 	pm            *protocols.ProtocolManager
@@ -23,27 +25,43 @@ type Vite struct {
 	signer        *signer.Master
 }
 
-func NewP2pConfig() *p2p.Config {
-	return &p2p.Config{}
+var (
+	defaultP2pConfig = &p2p.Config{}
+	DefaultConfig    = &Config{
+		DataDir:   common.DefaultDataDir(),
+		P2pConfig: defaultP2pConfig,
+	}
+)
+
+type Config struct {
+	DataDir   string
+	P2pConfig *p2p.Config
 }
 
-func New(cfg *p2p.Config) (*Vite, error) {
+func New(cfg *Config) (*Vite, error) {
 	//viteconfig.LoadConfig("gvite")
 	//fmt.Printf("%+v\n", config.Map())
 
-	vite := &Vite{}
+	if cfg == nil {
+		cfg = DefaultConfig
+	}
+
+	if cfg.P2pConfig == nil {
+		cfg.P2pConfig = defaultP2pConfig
+	}
+
+	vite := &Vite{config: cfg}
 
 	vite.ledger = ledgerHandler.NewManager(vite)
 
-	vite.walletManager = wallet.NewManager("fromConfig")
-
+	vite.walletManager = wallet.NewManagerAndInit(cfg.DataDir)
 	vite.signer = &signer.Master{Vite: vite}
 	vite.signer.InitAndStartLoop()
 
 	vite.pm = protocols.NewProtocolManager(vite)
 
 	var initP2pErr error
-	vite.p2p, initP2pErr = p2p.NewServer(cfg, vite.pm.HandlePeer)
+	vite.p2p, initP2pErr = p2p.NewServer(cfg.P2pConfig, vite.pm.HandlePeer)
 	if initP2pErr != nil {
 		log.Fatal(initP2pErr)
 	}
@@ -70,6 +88,10 @@ func (v *Vite) WalletManager() *wallet.Manager {
 
 func (v *Vite) Signer() *signer.Master {
 	return v.signer
+}
+
+func (v *Vite) Config() *Config {
+	return v.config
 }
 
 func (v *Vite) Miner() *miner.Miner {
