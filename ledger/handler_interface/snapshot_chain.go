@@ -19,7 +19,6 @@ type SnapshotChain interface {
 	HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, peer *protoTypes.Peer) error
 	SyncPeer(peer *protoTypes.Peer)
 	WriteMiningBlock(block *ledger.SnapshotBlock) error
-	GetNeedSnapshot() ([]*ledger.AccountBlock, error)
 	GetLatestBlock() (*ledger.SnapshotBlock, error)
 	GetBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetBlockByHeight(height *big.Int) (*ledger.SnapshotBlock, error)

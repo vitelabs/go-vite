@@ -176,8 +176,11 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 				Data: preSnapshotBlock,
 			}
 		}
-		newSnapshotHeight := &big.Int{}
-		block.Height = newSnapshotHeight.Add(preSnapshotBlock.Height, big.NewInt(1))
+
+		if block.Height == nil {
+			newSnapshotHeight := &big.Int{}
+			block.Height = newSnapshotHeight.Add(preSnapshotBlock.Height, big.NewInt(1))
+		}
 	}
 
 	// Check account block availability
@@ -219,6 +222,7 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 				Err:  err,
 			}
 		}
+
 		block.Hash = hash
 	}
 
@@ -285,6 +289,7 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 			Err:  errors2.Wrap(wbhErr, "WriteBlockHeight"),
 		}
 	}
+
 	//snapshotBlock:e.[snapshotBlockHeight]:[snapshotBlock]
 	if wbErr := sca.store.WriteBlock(batch, block); wbErr != nil {
 		return &ScWriteError{

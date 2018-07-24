@@ -12,8 +12,8 @@ import (
 	"github.com/vitelabs/go-vite/log"
 	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"math/big"
-	"time"
 	"strconv"
+	"time"
 )
 
 type SnapshotChain struct {
@@ -70,6 +70,13 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
 				// Let the pool discard the block.
 				log.Info("SnapshotChain HandleSendBlocks: discard block " + block.Hash.String() + ", because block.PublicKey or block.Hash or block.Signature is nil.")
+				return true
+			}
+
+			r, err := sc.vite.Verifier().Verify(sc, block)
+
+			if !r {
+				log.Info(err.Error())
 				return true
 			}
 
@@ -161,7 +168,7 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 	}
 
 	pendingPool.Add(*msg)
-	log.Info("SnapshotChain.HandleSendBlocks: receive " + strconv.Itoa(len(*msg)) + " blocks" )
+	log.Info("SnapshotChain.HandleSendBlocks: receive " + strconv.Itoa(len(*msg)) + " blocks")
 
 	return nil
 }
@@ -234,6 +241,13 @@ func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
 	if glbErr != nil {
 		return errors.Wrap(glbErr, "WriteMiningBlock")
 	}
+	var gnsErr error
+	block.Snapshot, gnsErr = sc.getNeedSnapshot()
+
+	if gnsErr != nil {
+		return errors.Wrap(glbErr, "WriteMiningBlock")
+	}
+
 	block.PrevHash = latestBlock.Hash
 	block.Amount = big.NewInt(0)
 
@@ -264,14 +278,14 @@ func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
 	return nil
 }
 
-func (sc *SnapshotChain) GetNeedSnapshot() ([]*ledger.AccountBlock, error) {
+func (sc *SnapshotChain) getNeedSnapshot() (map[string]*ledger.SnapshotItem, error) {
 	accountAddressList, err := sc.aAccess.GetAccountList()
 	if err != nil {
 		return nil, err
 	}
 
 	// Scan all accounts. Optimize in the future.
-	needSnapshot := []*ledger.AccountBlock{}
+	needSnapshot := make(map[string]*ledger.SnapshotItem)
 
 	for _, accountAddress := range accountAddressList {
 		latestBlock, err := sc.acAccess.GetLatestBlockByAccountAddress(accountAddress)
@@ -285,8 +299,10 @@ func (sc *SnapshotChain) GetNeedSnapshot() ([]*ledger.AccountBlock, error) {
 			log.Info(err.Error())
 			continue
 		}
-		if !latestBlock.Meta.IsSnapshotted {
-			needSnapshot = append(needSnapshot, latestBlock)
+
+		needSnapshot[latestBlock.AccountAddress.Hex()] = &ledger.SnapshotItem{
+			AccountBlockHeight: latestBlock.Meta.Height,
+			AccountBlockHash:   latestBlock.Hash,
 		}
 	}
 
