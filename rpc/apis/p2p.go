@@ -23,6 +23,10 @@ type P2PApiImpl struct {
 	p2p *p2p.Server
 }
 
+func (p P2PApiImpl) String() string {
+	return "P2PApiImpl"
+}
+
 func (p P2PApiImpl) NetworkAvailable(noop interface{}, reply *string) error {
 	log.Debug("called NetworkAvailable ")
 	*reply = strconv.FormatBool(p.p2p.Available())

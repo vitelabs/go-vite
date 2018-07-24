@@ -70,6 +70,10 @@ func main() {
 		} else if strings.HasPrefix(input, "ExportPriv") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			ExportPriv(client, param)
+		} else if strings.HasPrefix(input, "Peers") {
+			PeersCount(client, nil)
+		} else if strings.HasPrefix(input, "Net") {
+			NetworkAvailable(client, nil)
 		} else {
 			fmt.Printf("The input was: %s\n", input)
 		}
@@ -111,6 +115,14 @@ func ImportPriv(client *rpc2.Client, param []string) {
 
 func ExportPriv(client *rpc2.Client, param []string) {
 	doRpcCall(client, "wallet.ExportPriv", param)
+}
+
+func NetworkAvailable(client *rpc2.Client, param []string) {
+	doRpcCall(client, "p2p.NetworkAvailable", param)
+
+}
+func PeersCount(client *rpc2.Client, param []string) {
+	doRpcCall(client, "p2p.PeersCount", param)
 }
 
 func doRpcCall(client *rpc2.Client, method string, param []string) {
