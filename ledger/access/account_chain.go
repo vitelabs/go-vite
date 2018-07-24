@@ -87,28 +87,27 @@ func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.Accoun
 				}
 			} else {
 				cmpResult := block.Meta.Height.Cmp(mutexBody.LatestBlock.Meta.Height)
+				err := errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block. Current Latest block hash is " +
+					mutexBody.LatestBlock.Hash.String() + " and Writing block hash is " + block.PrevHash.String() +
+					", Current latest block height is " + mutexBody.LatestBlock.Meta.Height.String() +
+					" and Writing block height is " + block.Meta.Height.String())
+
 				if cmpResult == 0 {
 					return &AcWriteError{
 						Code: WacSameHeightErr,
-						Err: errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block. Current Latest block hash is " +
-							mutexBody.LatestBlock.Hash.String() + ", Current latest block height is " + mutexBody.LatestBlock.Meta.Height.String() +
-							" and Writing block height is " + block.Meta.Height.String()),
+						Err:  err,
 						Data: mutexBody.LatestBlock,
 					}
 				} else if cmpResult < 0 {
 					return &AcWriteError{
 						Code: WacLowerErr,
-						Err: errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block. Current Latest block hash is " +
-							mutexBody.LatestBlock.Hash.String() + ", Current Latest block height is " + mutexBody.LatestBlock.Meta.Height.String() +
-							" and Writing block height is " + block.Meta.Height.String()),
+						Err:  err,
 						Data: mutexBody.LatestBlock,
 					}
 				} else {
 					return &AcWriteError{
 						Code: WacHigherErr,
-						Err: errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block. Current Latest block hash is " +
-							mutexBody.LatestBlock.Hash.String() + ", Current Latest block height is " + mutexBody.LatestBlock.Meta.Height.String() +
-							" and Writing block height is " + block.Meta.Height.String()),
+						Err:  err,
 						Data: mutexBody.LatestBlock,
 					}
 				}
@@ -140,12 +139,15 @@ func (bwm *blockWriteMutex) UnLock(block *ledger.AccountBlock, writeErr *AcWrite
 	accountAddress := block.AccountAddress
 
 	mutexBody, ok := (*bwm)[accountAddress.String()]
+
 	if !ok {
 		return
 	}
 
 	if writeErr == nil {
 		mutexBody.LatestBlock = block
+	} else {
+		log.Println("blockWriteMutex Unlock: writeErr is " + writeErr.Error())
 	}
 
 	mutexBody.Reference = false
@@ -328,7 +330,7 @@ func (aca *AccountChainAccess) writeMintageBlock(batch *leveldb.Batch, block *le
 	return nil
 }
 
-func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.AccountBlock, signFunc signAccountBlockFuncType) (result *AcWriteError) {
+func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.AccountBlock, signFunc signAccountBlockFuncType) (acWriteError *AcWriteError) {
 
 	// AccountBlock must have the snapshotTimestamp
 	if block.SnapshotTimestamp == nil {
@@ -353,7 +355,9 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	}
 
 	// Unlock mutex
-	defer aca.bwMutex.UnLock(block, result)
+	defer func() {
+		aca.bwMutex.UnLock(block, acWriteError)
+	}()
 
 	var latestBlockHeight *big.Int
 
@@ -382,22 +386,22 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	}
 
 	// Set new block height
-	if block.IsGenesisBlock() {
-		latestBlockHeight = big.NewInt(0)
-	}
+	newBlockHeight := big.NewInt(0)
 
-	if latestBlockHeight == nil {
-		latestBlockHeight, err = aca.store.GetLatestBlockHeightByAccountId(accountMeta.AccountId)
-		if err != nil || latestBlockHeight == nil {
-			return &AcWriteError{
-				Code: WacDefaultErr,
-				Err:  errors.New("Write the block failed, because the latestBlockHeight is error."),
+	if block.Meta != nil && block.Meta.Height != nil {
+		newBlockHeight = block.Meta.Height
+	} else {
+		if latestBlockHeight == nil {
+			latestBlockHeight, err = aca.store.GetLatestBlockHeightByAccountId(accountMeta.AccountId)
+			if err != nil || latestBlockHeight == nil {
+				return &AcWriteError{
+					Code: WacDefaultErr,
+					Err:  errors.New("Write the block failed, because the latestBlockHeight is error."),
+				}
 			}
 		}
+		newBlockHeight.Add(latestBlockHeight, big.NewInt(1))
 	}
-
-	newBlockHeight := &big.Int{}
-	newBlockHeight.Add(latestBlockHeight, big.NewInt(1))
 
 	// Set account block meta
 	newBlockMeta := &ledger.AccountBlockMeta{
@@ -493,12 +497,8 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 
 	// Write st index
 	if err := aca.writeStIndex(batch, block); err != nil {
-		return &AcWriteError{
-			Code: WacDefaultErr,
-			Err:  err,
-		}
+		log.Println("AccountChainAccess writeBlock warning: writeStIndex failed.")
 	}
-
 	return nil
 }
 
