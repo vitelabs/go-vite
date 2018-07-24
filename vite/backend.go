@@ -13,6 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/miner"
 	"github.com/vitelabs/go-vite/signer"
+	"github.com/vitelabs/go-vite/vitedb"
 	"log"
 )
 
@@ -50,6 +51,7 @@ func New(cfg *Config) (*Vite, error) {
 		cfg.P2pConfig = defaultP2pConfig
 	}
 
+	vitedb.InitDataBaseEnv(cfg.DataDir)
 	vite := &Vite{config: cfg}
 
 	vite.ledger = ledgerHandler.NewManager(vite)

@@ -103,7 +103,7 @@ func status(client *rpc2.Client) {
 }
 
 func Unlock(client *rpc2.Client, param []string) {
-	doRpcCall(client, "wallet.UnLock", param)
+	doRpcCall(client, "wallet.UnLock", append(param, []string{"123456", "0"}...))
 }
 
 func Lock(client *rpc2.Client, param []string) {
@@ -146,7 +146,7 @@ func CreateTxWithPassphrase(client *rpc2.Client, param []string) {
 		ToAddr:      param[1],
 		Passphrase:  "123456",
 		TokenTypeId: ledger.MockViteTokenId.String(),
-		Amount:      "100",
+		Amount:      "1",
 	}
 	doRpcCall(client, "ledger.CreateTxWithPassphrase", tx)
 }
