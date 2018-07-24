@@ -201,9 +201,6 @@ func (ac *AccountChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count u
 	}
 
 	log.Println("AccountChain.GetBlocksFromOrigin: return " + strconv.Itoa(len(blockList)) + " blocks.")
-	if len(blockList) > 0 {
-		log.Printf("%+v\n", blockList[0].Meta)
-	}
 	return blockList, nil
 }
 

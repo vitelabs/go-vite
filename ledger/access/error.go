@@ -7,35 +7,34 @@ import (
 
 type AcWriteError struct {
 	Code int
-	Err error
+	Err  error
 	Data interface{}
 }
 
 type ScWriteError struct {
 	Code int
-	Err error
+	Err  error
 	Data interface{}
 }
 
-
-
-func (scwErr ScWriteError) Error () string  {
+func (scwErr ScWriteError) Error() string {
 	return scwErr.Err.Error()
 }
 
-func (acwErr AcWriteError) Error () string {
+func (acwErr AcWriteError) Error() string {
 	return acwErr.Err.Error()
 }
 
-const  (
+const (
 	WacDefaultErr = iota
 	WacPrevHashUncorrectErr
 	WacHigherErr
 	WacLowerErr
 	WacSameHeightErr
+	WacUncorrectHeightErr
 )
 
-const  (
+const (
 	WscDefaultErr = iota
 	WscNeedSyncErr
 	WscPrevHashErr
@@ -44,7 +43,7 @@ const  (
 )
 
 type WscNeedSyncErrData struct {
-	AccountAddress *types.Address
-	TargetBlockHash *types.Hash
+	AccountAddress    *types.Address
+	TargetBlockHash   *types.Hash
 	TargetBlockHeight *big.Int
 }

@@ -107,6 +107,7 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 						if block.Meta.Height.Cmp(currentHeight) <= 0 {
 							return
 						}
+
 						// Download fragment
 						count := &big.Int{}
 						count.Sub(block.Meta.Height, currentHeight)
@@ -114,6 +115,7 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 							return
 						}
 
+						count.Add(count, big.NewInt(1))
 
 						log.Info("AccountChain HandleSendBlocks: start download account chain. Current height is " +
 							currentHeight.String() + ", and target height is " + block.Meta.Height.String())
@@ -156,6 +158,7 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 		log.Error("Sync unfinished, so can't handleSendBlocks.")
 		return nil
 	}
+
 	globalRWMutex.RLock()
 	defer globalRWMutex.RUnlock()
 
