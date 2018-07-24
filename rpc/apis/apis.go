@@ -9,7 +9,7 @@ func GetAll(vite *vite.Vite) []rpc.API {
 	ledgerApis := rpc.API{
 		Namespace: "ledger",
 		Version:   "1.0",
-		Service:   NewMockLedger(),
+		Service:   NewLedgerApi(vite),
 		Public:    true,
 	}
 
