@@ -3,7 +3,6 @@ package p2p
 import (
 	"testing"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"fmt"
 )
 
 func TestUnpack(t *testing.T) {
@@ -11,8 +10,6 @@ func TestUnpack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	fmt.Println("pubKey ", pub)
 
 	var id NodeID
 	copy(id[:], pub)
@@ -29,8 +26,6 @@ func TestUnpack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	fmt.Println("unpack ", m)
 
 	if hash != hash2 {
 		t.Fail()

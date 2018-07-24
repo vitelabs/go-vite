@@ -164,7 +164,6 @@ func readFullBytes(conn net.Conn, data []byte) error {
 	index := 0
 	for {
 		n, err := conn.Read(data[index:])
-		fmt.Printf("total: %d bytes, index: %d, read %d bytes, error: %v\n", length, index, n, err)
 		if err != nil {
 			return err
 		}
