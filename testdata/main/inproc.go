@@ -7,12 +7,10 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 	"path/filepath"
 	"strings"
-	"github.com/vitelabs/go-vite/vite"
 )
 
 func main() {
-	vite.New(vite.NewP2pConfig())
-	m := wallet.NewManager(filepath.Join(common.TestDataDir(), "wallet"))
+	m := wallet.NewManagerAndInit(filepath.Join(common.GoViteTestDataDir(), "wallet"))
 	rpcAPI := []vrpc.API{
 		{
 			Namespace: "wallet",

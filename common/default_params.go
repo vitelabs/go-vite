@@ -17,7 +17,7 @@ func DefaultDataDir() string {
 }
 
 //it is the dir in go-vite/testdata
-func TestDataDir() string {
+func GoViteTestDataDir() string {
 	_, filename, _, _ := runtime.Caller(0)
 	return filepath.Join(filepath.Dir(filepath.Dir(filename)), "testdata")
 }

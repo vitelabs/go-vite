@@ -18,7 +18,7 @@ func main() {
 	fmt.Println("Enter d for Default or any others for Test ")
 	inputReader := bufio.NewReader(os.Stdin)
 	input, err := inputReader.ReadString('\n')
-	dir := common.TestDataDir()
+	dir := common.GoViteTestDataDir()
 	if strings.HasPrefix(input, "d") {
 		dir = common.DefaultDataDir()
 	}
@@ -70,6 +70,12 @@ func main() {
 		} else if strings.HasPrefix(input, "ExportPriv") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			ExportPriv(client, param)
+		} else if strings.HasPrefix(input, "Peers") {
+			PeersCount(client, nil)
+		} else if strings.HasPrefix(input, "Net") {
+			NetworkAvailable(client, nil)
+		} else if strings.HasPrefix(input, "GetAcByAddress") {
+			GetAccountByAccAddr(client, nil)
 		} else {
 			fmt.Printf("The input was: %s\n", input)
 		}
@@ -90,7 +96,7 @@ func status(client *rpc2.Client) {
 }
 
 func Unlock(client *rpc2.Client, param []string) {
-	doRpcCall(client, "wallet.Unlock", param)
+	doRpcCall(client, "wallet.UnLock", param)
 }
 
 func Lock(client *rpc2.Client, param []string) {
@@ -111,6 +117,17 @@ func ImportPriv(client *rpc2.Client, param []string) {
 
 func ExportPriv(client *rpc2.Client, param []string) {
 	doRpcCall(client, "wallet.ExportPriv", param)
+}
+
+func NetworkAvailable(client *rpc2.Client, param []string) {
+	doRpcCall(client, "p2p.NetworkAvailable", param)
+
+}
+func PeersCount(client *rpc2.Client, param []string) {
+	doRpcCall(client, "p2p.PeersCount", param)
+}
+func GetAccountByAccAddr(client *rpc2.Client, param []string) {
+	doRpcCall(client, "ledger.GetAccountByAccAddr", param)
 }
 
 func doRpcCall(client *rpc2.Client, method string, param []string) {

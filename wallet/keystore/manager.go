@@ -38,7 +38,7 @@ func (ue UnlockEvent) Unlocked() bool {
 // Manager is a keystore wallet and an interface
 type Manager struct {
 	ks          keyStorePassphrase
-	keyStoreDir string
+	KeyStoreDir string
 	kc          *keyCache
 	kcChanged   chan struct{}
 	unlocked    map[types.Address]*unlocked
@@ -56,7 +56,7 @@ type unlocked struct {
 }
 
 func NewManager(dir string) *Manager {
-	kp := Manager{ks: keyStorePassphrase{dir}, keyStoreDir: dir}
+	kp := Manager{ks: keyStorePassphrase{dir}, KeyStoreDir: dir}
 	return &kp
 }
 
@@ -66,7 +66,7 @@ func (km *Manager) Init() {
 	}
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
-	km.kc, km.kcChanged = newKeyCache(km.keyStoreDir)
+	km.kc, km.kcChanged = newKeyCache(km.KeyStoreDir)
 	km.unlocked = make(map[types.Address]*unlocked)
 	km.unlockChanged = make(map[int]chan<- UnlockEvent)
 	km.unlockChangedIndex = 0
@@ -218,7 +218,7 @@ func (km *Manager) Find(a types.Address) (string, error) {
 	exist := km.kc.cacheAddr.Contains(a)
 	km.mutex.Unlock()
 	if exist {
-		return fullKeyFileName(km.keyStoreDir, a), nil
+		return fullKeyFileName(km.KeyStoreDir, a), nil
 	} else {
 		return "", ErrNotFind
 	}
