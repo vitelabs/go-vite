@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/rpc"
+	"github.com/vitelabs/go-vite/rpc/apis"
 	rpc2 "net/rpc"
 	"os"
 	"path/filepath"
@@ -76,6 +78,11 @@ func main() {
 			NetworkAvailable(client, nil)
 		} else if strings.HasPrefix(input, "GetAcByAddress") {
 			GetAccountByAccAddr(client, nil)
+		} else if strings.HasPrefix(input, "TxCreate") {
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			CreateTxWithPassphrase(client, param)
+		} else if strings.HasPrefix(input, "NowSync") {
+			GetInitSyncInfo(client, nil)
 		} else {
 			fmt.Printf("The input was: %s\n", input)
 		}
@@ -129,8 +136,22 @@ func PeersCount(client *rpc2.Client, param []string) {
 func GetAccountByAccAddr(client *rpc2.Client, param []string) {
 	doRpcCall(client, "ledger.GetAccountByAccAddr", param)
 }
+func GetInitSyncInfo(client *rpc2.Client, param []string) {
+	doRpcCall(client, "ledger.GetInitSyncInfo", nil)
+}
 
-func doRpcCall(client *rpc2.Client, method string, param []string) {
+func CreateTxWithPassphrase(client *rpc2.Client, param []string) {
+	tx := apis.SendTxParms{
+		SelfAddr:    param[0],
+		ToAddr:      param[1],
+		Passphrase:  "123456",
+		TokenTypeId: ledger.MockViteTokenId.String(),
+		Amount:      "100",
+	}
+	doRpcCall(client, "ledger.CreateTxWithPassphrase", tx)
+}
+
+func doRpcCall(client *rpc2.Client, method string, param interface{}) {
 	var s string
 	err := client.Call(method, param, &s)
 	if err != nil {
