@@ -4,9 +4,9 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	crand "crypto/rand"
+	"errors"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"io"
-	"errors"
 	"strconv"
 )
 

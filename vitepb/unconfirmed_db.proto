@@ -1,0 +1,18 @@
+syntax="proto3";
+
+package vitepb;
+
+message UnconfirmedMeta {
+    bytes accountId = 1;
+    bytes totalNumber = 2;
+    repeated TokenInfo tokenInfoList = 3;
+}
+
+message TokenInfo {
+    bytes tokenId = 1;
+    bytes totalAmount = 2;
+}
+
+message HashList {
+    repeated bytes hashList = 1;
+}

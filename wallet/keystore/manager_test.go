@@ -2,11 +2,12 @@ package keystore
 
 import (
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"runtime"
 	"testing"
-	"github.com/vitelabs/go-vite/common"
+	"path/filepath"
 )
 
 const (
@@ -16,8 +17,11 @@ const (
 
 func TestStoreAndExtractNewKey(t *testing.T) {
 
-	ks := keyStorePassphrase{keysDirPath: common.TestDataDir()}
-	kp := NewManager(common.TestDataDir())
+	dir := filepath.Join(common.TestDataDir(), "super")
+	ks := keyStorePassphrase{keysDirPath: dir}
+
+	kp := NewManager(dir)
+	kp.Init()
 
 	key1, err := kp.StoreNewKey(DummyPwd)
 	if err != nil {

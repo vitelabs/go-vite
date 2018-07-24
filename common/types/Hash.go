@@ -41,12 +41,22 @@ func (h *Hash) SetBytes(b []byte) error {
 func (h Hash) Hex() string {
 	return hex.EncodeToString(h[:])
 }
-func (h Hash) Bytes() []byte { return h[:] }
+
+func (h Hash) Bytes() []byte {
+	return h[:]
+}
+
 func (h Hash) String() string {
 	return h.Hex()
 }
-func (h Hash) Big() *big.Int             { return new(big.Int).SetBytes(h[:]) }
-func BigToHash(b *big.Int) (Hash, error) { return BytesToHash(b.Bytes()) }
+
+func (h Hash) Big() *big.Int {
+	return new(big.Int).SetBytes(h[:])
+}
+
+func BigToHash(b *big.Int) (Hash, error) {
+	return BytesToHash(b.Bytes())
+}
 
 func DataHash(data []byte) Hash {
 	h, _ := BytesToHash(crypto.Hash256(data))

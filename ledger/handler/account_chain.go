@@ -21,6 +21,7 @@ type AccountChain struct {
 	aAccess  *access.AccountAccess
 	scAccess *access.SnapshotChainAccess
 	uAccess  *access.UnconfirmedAccess
+	tAccess  *access.TokenAccess
 }
 
 func NewAccountChain(vite Vite) *AccountChain {
@@ -30,6 +31,7 @@ func NewAccountChain(vite Vite) *AccountChain {
 		aAccess:  access.GetAccountAccess(),
 		scAccess: access.GetSnapshotChainAccess(),
 		uAccess:  access.GetUnconfirmedAccess(),
+		tAccess:  access.GetTokenAccess(),
 	}
 }
 
@@ -224,12 +226,4 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 		return sendErr
 	}
 	return nil
-}
-
-func (ac *AccountChain) GetUnconfirmedAccountMeta(addr *types.Address) (*ledger.UnconfirmedMeta, error) {
-	return ac.uAccess.GetUnconfirmedAccountMeta(addr)
-}
-
-func (ac *AccountChain) GetUnconfirmedBlocks(index int, num int, count int, addr *types.Address) ([]*ledger.AccountBlock, error) {
-	return ac.uAccess.GetUnconfirmedBlocks(index, num, count, addr)
 }

@@ -17,6 +17,8 @@ type Peer struct {
 	Version int
 	RW 		MsgReadWriter
 	Lock 	sync.RWMutex
+	// use this channel to ensure that only one goroutine send msg simultaneously.
+	Sending chan struct{}
 }
 
 func (p *Peer) Update(status *StatusMsg) {

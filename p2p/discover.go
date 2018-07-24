@@ -771,19 +771,9 @@ func newDiscover(cfg *DiscvConfig) (*table, *net.UDPAddr, error) {
 	// get the real local address. eg. 127.0.0.1:8483
 	laddr = conn.LocalAddr().(*net.UDPAddr)
 
-	// get the publicIP announced to other nodes.
-	var publicIP net.IP
-	extIP, err := getExtIP()
-	if err != nil {
-		log.Printf("cannot got external ip: %v\n", err)
-		publicIP = laddr.IP
-	} else {
-		publicIP = extIP
-	}
-
 	node := &Node{
 		ID: priv2ID(cfg.Priv),
-		IP: publicIP,
+		IP: laddr.IP,
 		Port: uint16(laddr.Port),
 	}
 	log.Printf("self: %s\n", node)

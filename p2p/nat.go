@@ -1,11 +1,11 @@
 package p2p
 
 import (
-	"fmt"
 	"time"
 	"net"
 	"sync"
 	"github.com/syaka-yin/go-nat"
+	"log"
 )
 
 type natClient struct {
@@ -56,7 +56,9 @@ func natMap(stop <- chan struct{}, protocol string, lPort, ePort int, lifetime t
 
 	mp := func() {
 		if err = client.AddPortMapping(protocol, lPort, ePort, "vite", lifetime); err != nil {
-			fmt.Printf("nat map error %v\n", err)
+			log.Printf("nat map localIP %d to publicIP %d error: %v\n", lPort, ePort, err)
+		} else {
+			log.Printf("nat map localIP %d to publicIP %d done %v\n", lPort, ePort, err)
 		}
 	}
 	mp()
