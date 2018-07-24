@@ -1,12 +1,12 @@
 package vitedb
 
 import (
-	"log"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"log"
+	"math/big"
 )
 
 type Unconfirmed struct {
@@ -127,5 +127,23 @@ func (ucf *Unconfirmed) DeleteHashList(batch *leveldb.Batch, accountId *big.Int,
 		return err
 	}
 	batch.Delete(key)
+	return nil
+}
+
+func (ucf *Unconfirmed) DeleteAllHashList(batch *leveldb.Batch, accountId *big.Int) error {
+	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, accountId, nil)
+	if err != nil {
+		return err
+	}
+
+	iter := ucf.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
+	defer iter.Release()
+
+	for iter.Next() {
+		batch.Delete(iter.Key())
+	}
+	if err := iter.Error(); err != nil {
+		return err
+	}
 	return nil
 }
