@@ -7,9 +7,11 @@ import (
 	"net"
 	"net/rpc"
 	"runtime"
+	"fmt"
 )
 
 func ServeListener(srv *rpc.Server, l net.Listener) error {
+	fmt.Println("Vite rpc start success!")
 	for {
 		conn, err := l.Accept()
 		if err != nil {

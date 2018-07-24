@@ -74,6 +74,8 @@ func main() {
 			PeersCount(client, nil)
 		} else if strings.HasPrefix(input, "Net") {
 			NetworkAvailable(client, nil)
+		} else if strings.HasPrefix(input, "GetAcByAddress") {
+			GetAccountByAccAddr(client, nil)
 		} else {
 			fmt.Printf("The input was: %s\n", input)
 		}
@@ -123,6 +125,9 @@ func NetworkAvailable(client *rpc2.Client, param []string) {
 }
 func PeersCount(client *rpc2.Client, param []string) {
 	doRpcCall(client, "p2p.PeersCount", param)
+}
+func GetAccountByAccAddr(client *rpc2.Client, param []string) {
+	doRpcCall(client, "ledger.GetAccountByAccAddr", param)
 }
 
 func doRpcCall(client *rpc2.Client, method string, param []string) {

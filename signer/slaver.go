@@ -92,6 +92,7 @@ func (sw *signSlave) StartWork() {
 	sw.mutex.Unlock()
 	log.Info("slaver %v start work", sw.address.String())
 	for {
+		log.Debug("slave working")
 		sw.mutex.Lock()
 
 		if sw.isClosed {
