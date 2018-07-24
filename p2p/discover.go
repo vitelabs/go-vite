@@ -882,6 +882,10 @@ func (d *discover) getID() NodeID {
 
 // implements table.agent interface
 func (d *discover) ping(node *Node) error {
+	if node.ID == d.getID() {
+		return nil
+	}
+
 	ping := &Ping{
 		ID: d.getID(),
 	}
@@ -915,6 +919,10 @@ func (d *discover) ping(node *Node) error {
 }
 func (d *discover) findnode(ID NodeID, n *Node) (nodes []*Node, err error) {
 	log.Printf("findnode %s to %s\n", ID, n)
+
+	if time.Now().Sub(n.lastping) > pingInvervalPerNode {
+		d.ping(n)
+	}
 
 	err = d.send(n.addr(), findnodeCode, &FindNode{
 		ID: d.getID(),

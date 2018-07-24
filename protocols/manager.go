@@ -292,7 +292,6 @@ func (m *PeersMap) BestPeer() (best *protoType.Peer) {
 
 	maxHeight := new(big.Int)
 	for _, peer := range m.peers {
-		fmt.Printf("peer: %#v, peer.Height: %#v\n", peer, peer.Height)
 		cmp := peer.Height.Cmp(maxHeight)
 		if cmp > 0 {
 			maxHeight = peer.Height

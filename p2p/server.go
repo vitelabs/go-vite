@@ -292,7 +292,6 @@ func (svr *Server) Discovery(addr *net.UDPAddr) {
 		log.Fatalf("udp discv error: %v\n", err)
 	}
 
-	fmt.Printf("local ip is %s, loopback %v\n", laddr.IP, laddr.IP.IsLoopback())
 	if !laddr.IP.IsLoopback() {
 		svr.waitDown.Add(1)
 		go func() {
@@ -385,12 +384,18 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 	return nil
 }
 
-func (svr *Server) CheckConn(peers map[NodeID]*Peer, passivePeersCount uint32) error {
+func (svr *Server) CheckConn(peers map[NodeID]*Peer, c *TSConn, passivePeersCount uint32) error {
 	if uint32(len(peers)) >= svr.MaxPeers {
 		return errors.New("too many peers")
 	}
 	if passivePeersCount >= svr.MaxPassivePeers() {
 		return errors.New("too many passive peers")
+	}
+	if peers[c.id] != nil {
+		return fmt.Errorf("peer %s already connected\n", c.id)
+	}
+	if c.id == svr.ntab.self.ID {
+		return errors.New("cannot connected to self")
 	}
 	return nil
 }
@@ -459,7 +464,7 @@ schedule:
 			dm.TaskDone(t)
 			delActiveTask(t)
 		case c := <- svr.addPeer:
-			err := svr.CheckConn(peers, passivePeersCount)
+			err := svr.CheckConn(peers, c, passivePeersCount)
 			if err == nil {
 				p := NewPeer(c)
 				peers[p.ID()] = p
@@ -581,6 +586,10 @@ type dialTask struct {
 	duration 		time.Duration
 }
 func (t *dialTask) Perform(svr *Server) {
+	if t.target.ID == svr.ntab.self.ID {
+		return
+	}
+
 	conn, err := svr.Dialer.DailNode(t.target)
 	if err != nil {
 		log.Printf("tcp dial node %s error: %v\n", t.target, err)
@@ -699,7 +708,13 @@ func (dm *DialManager) TaskDone(t Task) {
 		delete(dm.dialing, t2.target.ID)
 	case *discoverTask:
 		dm.looking = false
-		dm.lookResults = append(dm.lookResults, t2.results...)
+
+		self := dm.ntab.self.ID
+		for _, node := range t2.results {
+			if self != node.ID {
+				dm.lookResults = append(dm.lookResults, node)
+			}
+		}
 	case *waitTask:
 		dm.wating = false
 	}
@@ -712,6 +727,9 @@ func (dm *DialManager) checkDial(n *Node, peers map[NodeID]*Peer) error {
 	}
 	if peers[n.ID] != nil {
 		return fmt.Errorf("%s has connected", n)
+	}
+	if n.ID == dm.ntab.self.ID {
+		return errors.New("self node")
 	}
 
 	return nil

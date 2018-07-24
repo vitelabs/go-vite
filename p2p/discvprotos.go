@@ -190,10 +190,18 @@ func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) err
 		}
 	}
 
-	return d.send(origin, neighborsCode, &Neighbors{
+	err := d.send(origin, neighborsCode, &Neighbors{
 		ID: d.getID(),
 		Nodes: nodes,
 	})
+
+	if err != nil {
+		log.Printf("send %d neighbors to %s, target: %s, error: %v\n", len(nodes), origin, p.Target, err)
+	} else {
+		log.Printf("send %d neighbors to %s, target: %s\n", len(nodes), origin, p.Target)
+	}
+
+	return err
 
 	//if count > 0 {
 	//	nodes := make([]*Node, 0, maxNeighborsNodes)
