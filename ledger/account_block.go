@@ -191,15 +191,13 @@ func (ab *AccountBlock) ComputeHash() (*types.Hash, error) {
 // Genesis block
 func (ab *AccountBlock) IsGenesisBlock() bool {
 	return ab.PrevHash == nil &&
-		bytes.Equal(ab.AccountAddress.Bytes(), AccountGenesisBlockFirst.AccountAddress.Bytes()) &&
 		bytes.Equal(ab.Signature, AccountGenesisBlockFirst.Signature) &&
 		bytes.Equal(ab.Hash.Bytes(), AccountGenesisBlockFirst.Hash.Bytes())
 }
 
 // Genesis second block
 func (ab *AccountBlock) IsGenesisSecondBlock() bool {
-	return bytes.Equal(ab.AccountAddress.Bytes(), AccountGenesisBlockSecond.AccountAddress.Bytes()) &&
-		bytes.Equal(ab.Signature, AccountGenesisBlockSecond.Signature) &&
+	return bytes.Equal(ab.Signature, AccountGenesisBlockSecond.Signature) &&
 		bytes.Equal(ab.Hash.Bytes(), AccountGenesisBlockSecond.Hash.Bytes())
 }
 

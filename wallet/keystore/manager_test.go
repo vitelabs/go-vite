@@ -5,9 +5,9 @@ import (
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
+	"path/filepath"
 	"runtime"
 	"testing"
-	"path/filepath"
 )
 
 const (
@@ -64,6 +64,18 @@ func TestSignAndVerify(t *testing.T) {
 		if !ok || err != nil {
 			t.Fatal("Verify wrong")
 		}
+	}
+}
+
+func TestManager_ImportPriv2(t *testing.T) {
+	kp := NewManager(filepath.Join(common.DefaultDataDir(), "wallet"))
+	kp.Init()
+	hexPri := "ab565d7d8819a3548dbdae8561796ccb090692086ff7d5a47eb7b034497cabe73af9a47a11140c681c2b2a85a4ce987fab0692589b2ce233bf7e174bd430177a"
+	key, e := kp.ImportPriv(hexPri, "123456")
+	if e != nil {
+		println(e.Error())
+	} else {
+		println(key.Address.String())
 	}
 }
 

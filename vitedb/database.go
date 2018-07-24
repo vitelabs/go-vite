@@ -7,6 +7,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"encoding/hex"
+	"path/filepath"
+	"github.com/vitelabs/go-vite/common"
 )
 
 type DataBase struct {
@@ -15,8 +17,8 @@ type DataBase struct {
 	Leveldb *leveldb.DB
 }
 
-const (
-	DB_BLOCK = "vite_leveldb_database/block"
+var (
+	DB_BLOCK = filepath.Join(common.DefaultDataDir(), "/ledger")
 )
 
 

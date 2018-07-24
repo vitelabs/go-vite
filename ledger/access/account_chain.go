@@ -483,10 +483,10 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	}
 
 	// Write account block meta
-	if err := aca.writeBlockMeta(batch, block); err != nil {
+	if wrbErr := aca.writeBlockMeta(batch, block); wrbErr != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
-			Err:  err,
+			Err:  wrbErr,
 		}
 	}
 
@@ -515,7 +515,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 
 // Tii is TokenIdIndex
 func (aca *AccountChainAccess) writeBlockMeta(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	if block.IsSendBlock() {
+	if block.IsSendBlock() && !block.IsGenesisBlock() && !block.IsGenesisSecondBlock() {
 		if block.Meta.Status == 1 {
 			if err := unconfirmedAccess.WriteBlock(batch, block); err != nil {
 				return &AcWriteError{

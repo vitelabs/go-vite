@@ -31,7 +31,7 @@ func GetUnconfirmed() *Unconfirmed {
 }
 
 func (ucf *Unconfirmed) GetUnconfirmedMeta(addr *types.Address) (*ledger.UnconfirmedMeta, error) {
-	key, err := createKey(DBKP_UNCONFIRMEDMETA, addr)
+	key, err := createKey(DBKP_UNCONFIRMEDMETA, addr.Bytes())
 	if err != nil {
 		return nil, err
 	}
