@@ -57,7 +57,7 @@ func (sw *signSlave) AddressLocked(locked bool) {
 
 func (sw *signSlave) sendNextUnConfirmed() bool {
 	log.Info("auto send confirm task")
-	return true
+	return false
 }
 
 func (sw *signSlave) StartWork() {

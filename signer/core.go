@@ -17,6 +17,14 @@ type Master struct {
 	lid                 int
 }
 
+func NewMaster(vite Vite) *Master {
+	return &Master{
+		Vite: vite,
+		signSlaves: make(map[types.Address]*signSlave),
+		unlockEventListener: make(chan keystore.UnlockEvent),
+	}
+}
+
 func (c *Master) Close() error {
 	log.Info("Master close")
 	c.Vite.WalletManager().KeystoreManager.RemoveUnlockChangeChannel(c.lid)
@@ -56,7 +64,6 @@ func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase s
 }
 
 func (c *Master) InitAndStartLoop() {
-	c.unlockEventListener = make(chan keystore.UnlockEvent)
 	c.lid = c.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(c.unlockEventListener)
 	go c.loop()
 }
