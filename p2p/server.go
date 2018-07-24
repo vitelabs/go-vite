@@ -292,6 +292,7 @@ func (svr *Server) Discovery(addr *net.UDPAddr) {
 		log.Fatalf("udp discv error: %v\n", err)
 	}
 
+	fmt.Printf("local ip is %s, loopback %v\n", laddr.IP, laddr.IP.IsLoopback())
 	if !laddr.IP.IsLoopback() {
 		svr.waitDown.Add(1)
 		go func() {
@@ -403,7 +404,7 @@ var defaultBlockTimeout = 20 * time.Minute
 func (svr *Server) ScheduleTask() {
 	defer svr.waitDown.Done()
 
-	dm := NewDialManager(svr.MaxActivePeers(), svr.BootNodes)
+	dm := NewDialManager(svr.ntab, svr.MaxActivePeers(), svr.BootNodes)
 	peers := make(map[NodeID]*Peer)
 	taskHasDone := make(chan Task, defaultMaxActiveDail)
 
@@ -554,7 +555,7 @@ func (d *NodeDailer) DailNode(target *Node) (net.Conn, error) {
 		IP: target.IP,
 		Port: int(target.Port),
 	}
-
+	log.Printf("tcp dial node %s\n", target)
 	return d.Dialer.Dial("tcp", addr.String())
 }
 
@@ -581,7 +582,7 @@ type dialTask struct {
 func (t *dialTask) Perform(svr *Server) {
 	conn, err := svr.Dialer.DailNode(t.target)
 	if err != nil {
-		log.Printf("dial node %s error: %v\n", t.target, err)
+		log.Printf("tcp dial node %s error: %v\n", t.target, err)
 		svr.blocknode <- t.target
 		return
 	}
@@ -609,6 +610,7 @@ type DialManager struct {
 	looking bool
 	wating bool
 	lookResults []*Node
+	ntab *table
 }
 
 func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]*blockNode) []Task {
@@ -646,12 +648,24 @@ func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]
 		}
 	}
 
+	// bootNodes
 	for i := 0; i < len(dm.bootNodes) && dials > 0; i++ {
 		bootNode := dm.bootNodes[i]
 
 		if addDailTask(dynDialedConn, bootNode) {
-			fmt.Printf("dial %s\n", bootNode)
 			dials--
+		}
+	}
+
+	// randomNodes from table
+	randomCandidates := dials / 2
+	if randomCandidates > 0 {
+		randomNodes := make([]*Node, randomCandidates)
+		n := dm.ntab.readRandomNodes(randomNodes)
+		for i := 0; i < n; i++ {
+			if addDailTask(dynDialedConn, randomNodes[i]) {
+				dials--
+			}
 		}
 	}
 
@@ -702,11 +716,12 @@ func (dm *DialManager) checkDial(n *Node, peers map[NodeID]*Peer) error {
 	return nil
 }
 
-func NewDialManager(maxDials uint32, bootNodes []*Node) *DialManager {
+func NewDialManager(ntab *table, maxDials uint32, bootNodes []*Node) *DialManager {
 	return &DialManager{
 		maxDials: maxDials,
 		bootNodes: copyNodes(bootNodes),	// dm will modify bootNodes
 		dialing: make(map[NodeID]connFlag),
+		ntab: ntab,
 	}
 }
 
