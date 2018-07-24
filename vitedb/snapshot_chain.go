@@ -1,14 +1,14 @@
 package vitedb
 
 import (
+	"errors"
+	"fmt"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
 	"math/big"
-	"github.com/syndtr/goleveldb/leveldb/util"
-	"errors"
-	"github.com/syndtr/goleveldb/leveldb"
-	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 )
 
 type SnapshotChain struct {
@@ -176,6 +176,8 @@ func (sbc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
 	if sdErr != nil {
 		return nil, sdErr
 	}
+
+	log.Println("SnapshotChain.GetLatestBlock: Get latest block height is " + sb.Height.String())
 	return sb, nil
 }
 
@@ -223,7 +225,7 @@ func (sbc *SnapshotChain) WriteBlock(batch *leveldb.Batch, block *ledger.Snapsho
 	return nil
 }
 
-func (sbc *SnapshotChain) WriteBlockHeight(batch *leveldb.Batch, block *ledger.SnapshotBlock, ) error {
+func (sbc *SnapshotChain) WriteBlockHeight(batch *leveldb.Batch, block *ledger.SnapshotBlock) error {
 	key, ckErr := createKey(DBKP_SNAPSHOTBLOCKHASH, block.Hash.Bytes())
 	if ckErr != nil {
 		return ckErr

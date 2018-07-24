@@ -277,6 +277,7 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 		}
 
 		if mintage.Owner.String() != block.AccountAddress.String() {
+
 			return errors.New("You are not the owner of this token.")
 		}
 
@@ -290,6 +291,7 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 		block.TokenId = mintage.Id
 
 	} else {
+
 		// Add balance
 		prevBalance := big.NewInt(0)
 
@@ -312,6 +314,15 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 		block.Balance.Add(prevBalance, amount)
 		block.Amount = amount
 		block.TokenId = fromBlock.TokenId
+	}
+
+	// Write from block meta
+	fromBlock.Meta.Status = 2
+	if err := aca.writeBlockMeta(batch, fromBlock); err != nil {
+		return &AcWriteError{
+			Code: WacDefaultErr,
+			Err:  err,
+		}
 	}
 
 	return nil
@@ -472,7 +483,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	}
 
 	// Write account block meta
-	if err := aca.writeBlockMeta(batch, block, newBlockMeta); err != nil {
+	if err := aca.writeBlockMeta(batch, block); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
 			Err:  err,
@@ -503,29 +514,24 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 }
 
 // Tii is TokenIdIndex
-func (aca *AccountChainAccess) writeBlockMeta(batch *leveldb.Batch, block *ledger.AccountBlock, meta *ledger.AccountBlockMeta) error {
-	if block.FromHash == nil {
-		meta.Status = 1 // open
-	} else {
-		meta.Status = 2 // closed
-		fromBlockMeta, err := aca.store.GetBlockMeta(block.FromHash)
-
-		if fromBlockMeta == nil {
-			return errors.New("Write receive block failed, because the from block is not exist")
+func (aca *AccountChainAccess) writeBlockMeta(batch *leveldb.Batch, block *ledger.AccountBlock) error {
+	if block.Meta.Status == 1 {
+		if err := unconfirmedAccess.WriteBlock(batch, block); err != nil {
+			return &AcWriteError{
+				Code: WacDefaultErr,
+				Err:  err,
+			}
 		}
-
-		if err != nil {
-			return err
-		}
-
-		fromBlockMeta.Status = 2 // closed
-
-		if err := aca.store.WriteBlockMeta(batch, block.FromHash, fromBlockMeta); err != nil {
-			return err
+	} else if block.Meta.Status == 2 {
+		if err := unconfirmedAccess.DeleteBlock(batch, block); err != nil {
+			return &AcWriteError{
+				Code: WacDefaultErr,
+				Err:  err,
+			}
 		}
 	}
 
-	if err := aca.store.WriteBlockMeta(batch, block.Hash, meta); err != nil {
+	if err := aca.store.WriteBlockMeta(batch, block.Hash, block.Meta); err != nil {
 		return err
 	}
 	return nil

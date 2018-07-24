@@ -159,8 +159,8 @@ func (ac *AccountChain) CreateTx(block *ledger.AccountBlock) error {
 
 func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error {
 	if !syncInfo.IsFirstSyncDone {
-		log.Error("sync unfinished, so can't send blocks")
-		return fmt.Errorf("sync unfinished, so can't send blocks")
+		log.Error("Sync unfinished, so can't create transaction.")
+		return errors.New("Sync unfinished, so can't create transaction.")
 	}
 
 	globalRWMutex.RLock()

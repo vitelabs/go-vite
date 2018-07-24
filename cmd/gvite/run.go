@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"flag"
-	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/p2p"
 )
 
 func Start(cfg *p2p.Config) {
@@ -125,25 +125,6 @@ func createReceiveBlock(addr *types.Address, fromHash *types.Hash) *ledger.Accou
 	}
 }
 
-func createSnapshotBlock(v *vite.Vite) *ledger.SnapshotBlock {
-	accountBlockList, err := v.Ledger().Sc().GetNeedSnapshot()
-	var snapshot = make(map[string]*ledger.SnapshotItem, len(accountBlockList))
-	for _, accountBlock := range accountBlockList {
-		snapshot[accountBlock.AccountAddress.Hex()] = &ledger.SnapshotItem{
-			AccountBlockHeight: accountBlock.Meta.Height,
-			AccountBlockHash:   accountBlock.Hash,
-		}
-	}
-
-	if err != nil {
-		log.Println(err)
-	}
-	return &ledger.SnapshotBlock{
-		Producer: &AccountMockDataList[0].Addr,
-		Snapshot: snapshot,
-	}
-}
-
 func mockSnapshot(v *vite.Vite) {
 	fmt.Println("Current AccountAddress: ", AccountMockDataList[0].Addr.Hex())
 	fmt.Println("Current PublicKey: ", AccountMockDataList[0].PublicKey.Hex())
@@ -165,14 +146,10 @@ func mockSnapshot(v *vite.Vite) {
 				log.Println("Sync unfinished")
 				continue
 			}
-
-			snapshotBlock := createSnapshotBlock(v)
-			if snapshotBlock.Snapshot == nil || len(snapshotBlock.Snapshot) == 0 {
-				log.Println("No new account blocks. Doesn't snapshot.")
-			} else {
-				v.Ledger().Sc().WriteMiningBlock(snapshotBlock)
-				log.Println("The snapshot block " + snapshotBlock.Hash.String() + " create success.")
+			snapshotBlock := &ledger.SnapshotBlock{
+				Producer: &AccountMockDataList[0].Addr,
 			}
+			v.Ledger().Sc().WriteMiningBlock(snapshotBlock)
 		}
 	}(channel)
 	<-channel
