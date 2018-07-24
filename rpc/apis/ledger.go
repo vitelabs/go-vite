@@ -57,9 +57,11 @@ type GetUnconfirmedInfoResponse struct {
 }
 
 type InitSyncResponse struct {
-	StartHeight   string // bigInt. where we start sync
-	TargetHeight  string // bigInt. when CurrentHeight == TargetHeight means that sync complete
-	CurrentHeight string // bigInt.
+	StartHeight      string // bigInt. where we start sync
+	TargetHeight     string // bigInt. when CurrentHeight == TargetHeight means that sync complete
+	CurrentHeight    string // bigInt.
+	IsFirstSyncDone  bool   // true means sync complete
+	IsStartFirstSync bool   // true means sync start
 }
 
 type LedgerApi interface {
@@ -245,10 +247,13 @@ func (l *LegerApiImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
 func (l *LegerApiImpl) GetInitSyncInfo(noop interface{}, reply *string) error {
 	log.Debug("GetInitSyncInfo")
 	i := l.ledgerManager.Sc().GetFirstSyncInfo()
+
 	r := InitSyncResponse{
-		StartHeight:   i.BeginHeight.String(),
-		TargetHeight:  i.TargetHeight.String(),
-		CurrentHeight: i.CurrentHeight.String(),
+		StartHeight:      i.BeginHeight.String(),
+		TargetHeight:     i.TargetHeight.String(),
+		CurrentHeight:    i.CurrentHeight.String(),
+		IsFirstSyncDone:  i.IsFirstSyncDone,
+		IsStartFirstSync: false,
 	}
 
 	return easyJsonReturn(r, reply)
