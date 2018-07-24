@@ -56,10 +56,10 @@ func (ac *AccountChain) HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, pee
 
 // HandleBlockHash
 func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer) error {
-	log.Info("AccountChain HandleSendBlocks: receive " + strconv.Itoa(len(*msg)) + " blocks from network")
 	go func() {
 		globalRWMutex.RLock()
 		defer globalRWMutex.RUnlock()
+		log.Info("AccountChain HandleSendBlocks: receive " + strconv.Itoa(len(*msg)) + " blocks from network")
 
 		for _, block := range *msg {
 			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
@@ -90,9 +90,11 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 			}
 
 			// Write block
+			log.Info("AccountChain HandleSendBlocks: try write a block from network")
 			writeErr := ac.acAccess.WriteBlock(block, nil)
 
 			if writeErr != nil {
+				log.Info("AccountChain HandleSendBlocks: Write error. Error is " + writeErr.Error())
 				switch writeErr.(type) {
 				case *access.AcWriteError:
 					err := writeErr.(*access.AcWriteError)
@@ -121,6 +123,7 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 							currentHeight.String() + ", and target height is " + block.Meta.Height.String())
 						log.Info(err.Error())
 
+						// Download accountblocks
 						ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 							Code: protoTypes.GetAccountBlocksMsgCode,
 							Payload: &protoTypes.GetAccountBlocksMsg{

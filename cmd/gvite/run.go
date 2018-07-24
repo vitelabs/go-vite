@@ -13,9 +13,26 @@ import (
 
 	"flag"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/common"
 )
 
 func Start(cfg *p2p.Config) {
+	//access := access.GetAccountChainAccess()
+	//originHash, _ := types.HexToHash("fccfbc0db3494b6b9a03c510cbcbae6eade609b044cd48a52a7e945b5a98a92f")
+	//blockList, _ := access.GetBlocksFromOrigin(&originHash, 1700, false)
+	//count := 1
+	//for _, block := range blockList {
+	//	if block.Meta.Height.Cmp(big.NewInt(int64(count))) != 0 {
+	//		fmt.Println("Height error")
+	//		fmt.Println(count)
+	//		fmt.Printf("%+v\n", block)
+	//		fmt.Printf("%+v\n", block.Meta)
+	//	}
+	//	count++
+	//}
+	//go func() {
+	//	log.Println(http.ListenAndServe("localhost:6060", nil))
+	//}()
 	//publicKey, privateKey, _ := ed25519.GenerateKey(rand.Reader)
 	//addr := types.PubkeyToAddress(publicKey)
 	//
@@ -23,7 +40,10 @@ func Start(cfg *p2p.Config) {
 	//fmt.Println(privateKey.Hex())
 	//fmt.Println(addr.Hex())
 
-	v, err := vite.New(cfg)
+	v, err := vite.New(&vite.Config{
+		DataDir:   common.DefaultDataDir(),
+		P2pConfig: cfg,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

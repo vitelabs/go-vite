@@ -12,12 +12,12 @@ import (
 
 // Every two seconds, it will check if there is a file in the keydir changed
 type keyCache struct {
-	keydir          string
-	kob             *keystoreObserver
-	mutex           sync.Mutex
-	changed         chan struct{}
-	fileC           fileutils.FileChangeRecord
-	cacheAddr       mapset.Set
+	keydir    string
+	kob       *keystoreObserver
+	mutex     sync.Mutex
+	changed   chan struct{}
+	fileC     fileutils.FileChangeRecord
+	cacheAddr mapset.Set
 }
 
 func newKeyCache(keydir string) (*keyCache, chan struct{}) {
@@ -49,7 +49,7 @@ func (kc *keyCache) ListAllAddress() mapset.Set {
 }
 
 func (kc *keyCache) refreshAndFixAddressFile() error {
-	log.Debug("refreshAndFixAddressFile")
+	// log.Debug("refreshAndFixAddressFile")
 	creates, deletes, updates, err := kc.fileC.RefreshCache(kc.keydir)
 	if err != nil {
 		log.Debug("Failed refreshCache keydir", "err", err)
@@ -57,7 +57,7 @@ func (kc *keyCache) refreshAndFixAddressFile() error {
 	}
 
 	if creates.Cardinality() == 0 && deletes.Cardinality() == 0 && updates.Cardinality() == 0 {
-		log.Debug("Nothing Changed")
+		// log.Debug("Nothing Changed")
 		return nil
 	}
 
@@ -126,5 +126,4 @@ func (kc *keyCache) close() {
 		close(kc.changed)
 		kc.changed = nil
 	}
-
 }

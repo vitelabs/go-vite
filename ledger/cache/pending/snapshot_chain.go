@@ -21,7 +21,6 @@ func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) bool) *Snapsho
 		turnInterval := time.Duration(2000)
 		for {
 			if len(pool.cache) <= 0 {
-				log.Println("SnapshotchainPool: len(pool.cache) is 0")
 				time.Sleep(turnInterval * time.Millisecond)
 				continue
 			}
@@ -30,6 +29,7 @@ func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) bool) *Snapsho
 				log.Println("SnapshotchainPool: block process finished.")
 				pool.cache = pool.cache[1:]
 			} else {
+				log.Println("SnapshotchainPool: block process unsuccess, wait next.")
 				time.Sleep(turnInterval * time.Millisecond)
 			}
 		}

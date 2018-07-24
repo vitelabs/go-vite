@@ -428,7 +428,7 @@ var watingTimeout = 2 * time.Minute	// watingTimeout must be enough little, at l
 var pingInvervalPerNode = 10 * time.Minute
 
 type table struct {
-	mutex   sync.Mutex
+	mutex   sync.RWMutex
 	buckets [N]*bucket
 	bootNodes []*Node
 	db         *nodeDB
@@ -489,6 +489,42 @@ func (tb *table) loadSeedNodes() {
 	for _, node := range nodes {
 		tb.addNode(node)
 	}
+}
+
+func (tb *table) readRandomNodes(ret []*Node) (n int) {
+	tb.mutex.Lock()
+	defer tb.mutex.Unlock()
+
+	var allUsedNodes [][]*Node
+	for _, b := range tb.buckets {
+		if len(b.nodes) > 0 {
+			allUsedNodes = append(allUsedNodes, b.nodes[:])
+		}
+	}
+
+	if len(allUsedNodes) == 0 {
+		return 0
+	}
+
+	for i := 0; i < len(allUsedNodes); i++ {
+		j := tb.rand.Intn(len(allUsedNodes))
+		allUsedNodes[i], allUsedNodes[j] = allUsedNodes[j], allUsedNodes[i]
+	}
+
+	for n, j := 0, 0; n < len(ret); n, j = n+1, (j+1)%len(allUsedNodes) {
+		b := allUsedNodes[j]
+		ret[n] = &(*b[0])
+		if len(b) == 1 {
+			allUsedNodes = append(allUsedNodes[:j], allUsedNodes[j+1:]...)
+		} else {
+			allUsedNodes[j] = b[1:]
+		}
+		if len(allUsedNodes) == 0 {
+			break
+		}
+	}
+
+	return n + 1
 }
 
 func (tb *table) loop() {
@@ -564,40 +600,36 @@ func (tb *table) delete(node *Node) {
 }
 
 func (tb *table) checkLastNode() {
-	last, bi := tb.pickLastNode()
+	last, bucket := tb.pickLastNode()
 	if last == nil {
 		return
 	}
 
 	err := tb.agent.ping(last)
 
-	tb.mutex.Lock()
-	defer tb.mutex.Unlock()
-	b := tb.buckets[bi]
-
 	if err != nil {
 		log.Printf("obsolete %s: %v\n", last.ID, err)
-		b.obsolete(last)
+		bucket.obsolete(last)
 	} else {
 		log.Printf("check %s\n", last.ID)
-		b.check(last)
+		bucket.check(last)
 	}
 }
 
-func (tb *table) pickLastNode() (*Node, int) {
+func (tb *table) pickLastNode() (*Node, *bucket) {
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
 
-	for _, i := range tb.rand.Perm(len(tb.buckets)) {
-		b := tb.buckets[i]
+	for _, b := range tb.buckets {
 		if len(b.nodes) > 0 {
 			last := b.nodes[len(b.nodes) - 1]
 			if time.Now().Sub(last.lastping) > pingInvervalPerNode {
-				return last, i
+				return last, b
 			}
 		}
 	}
-	return nil, 0
+
+	return nil, nil
 }
 
 func (tb *table) refresh(done chan struct{}) {
@@ -641,38 +673,41 @@ func (tb *table) lookup(target NodeID) []*Node {
 	var queries = 0
 	var result *closest
 
-	asked[tb.self.ID] = true
-
 	for {
 		tb.mutex.Lock()
 		result = tb.closest(target, K)
 		tb.mutex.Unlock()
+
 		if len(result.nodes) > 0 {
 			break
 		}
+
+		time.Sleep(3 * time.Second)
 	}
 
-	for {
-		for i := 0; i < len(result.nodes) && queries < alpha; i++ {
-			n := result.nodes[i]
-			if !asked[n.ID] {
-				asked[n.ID] = true
-				queries++
-				go tb.findnode(n, target, reply)
-			}
-		}
-		if queries == 0 {
-			break
-		}
+	asked[tb.self.ID] = true
 
-		for _, n := range <-reply {
-			if n != nil && !seen[n.ID] {
-				seen[n.ID] = true
-				result.push(n, K)
+	for i := 0; i < len(result.nodes); i++ {
+		n := result.nodes[i]
+		if !asked[n.ID] {
+			asked[n.ID] = true
+			go tb.findnode(n, target, reply)
+			queries++
+			if queries >= alpha {
+				// todo: optimize latter
+				time.Sleep(3 * time.Second)
+				queries = 0
 			}
 		}
-		queries--
 	}
+
+	for _, n := range <-reply {
+		if n != nil && !seen[n.ID] {
+			seen[n.ID] = true
+			result.push(n, K)
+		}
+	}
+
 	return result.nodes
 }
 
@@ -847,6 +882,10 @@ func (d *discover) getID() NodeID {
 
 // implements table.agent interface
 func (d *discover) ping(node *Node) error {
+	if node.ID == d.getID() {
+		return nil
+	}
+
 	ping := &Ping{
 		ID: d.getID(),
 	}
@@ -880,6 +919,10 @@ func (d *discover) ping(node *Node) error {
 }
 func (d *discover) findnode(ID NodeID, n *Node) (nodes []*Node, err error) {
 	log.Printf("findnode %s to %s\n", ID, n)
+
+	if time.Now().Sub(n.lastping) > pingInvervalPerNode {
+		d.ping(n)
+	}
 
 	err = d.send(n.addr(), findnodeCode, &FindNode{
 		ID: d.getID(),

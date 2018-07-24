@@ -219,7 +219,6 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 				Err:  err,
 			}
 		}
-		log.Printf("%+v\n", block)
 		block.Hash = hash
 	}
 

@@ -55,9 +55,24 @@ func (sw *signSlave) AddressLocked(locked bool) {
 	}
 }
 
-func (sw *signSlave) sendNextUnConfirmed() bool {
+func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
 	log.Info("auto send confirm task")
-	return false
+	ac := sw.vite.Ledger().Ac()
+	hashes, e := ac.GetUnconfirmedTxHashs(0, 1, 1, &sw.address)
+
+	if e != nil {
+		return false, e
+	}
+
+	if len(hashes) == 0 {
+		return false, nil
+	}
+
+	err = ac.CreateTx(&ledger.AccountBlock{
+		FromHash: hashes[0],
+	})
+
+	return true, err
 }
 
 func (sw *signSlave) StartWork() {
@@ -77,6 +92,7 @@ func (sw *signSlave) StartWork() {
 	sw.mutex.Unlock()
 	log.Info("slaver %v start work", sw.address.String())
 	for {
+		log.Debug("slave working")
 		sw.mutex.Lock()
 
 		if sw.isClosed {
@@ -98,7 +114,11 @@ func (sw *signSlave) StartWork() {
 		sw.mutex.Unlock()
 
 		if !sw.addressLocked {
-			if sw.sendNextUnConfirmed() {
+			hasmore, err := sw.sendNextUnConfirmed()
+			if err != nil {
+				log.Error(err.Error())
+			}
+			if hasmore {
 				continue
 			} else {
 				goto WAIT

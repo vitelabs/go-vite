@@ -7,8 +7,10 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
 	"github.com/vitelabs/go-vite/log"
+	"github.com/vitelabs/go-vite/signer"
 	"github.com/vitelabs/go-vite/vite"
 	"math/big"
+	"time"
 )
 
 // !!! Block = Transaction = TX
@@ -84,13 +86,17 @@ type LedgerApi interface {
 func NewLedgerApi(vite *vite.Vite) LedgerApi {
 	return &LegerApiImpl{
 		ledgerManager: vite.Ledger(),
-		vite:          vite,
+		signer:        vite.Signer(),
 	}
 }
 
 type LegerApiImpl struct {
 	ledgerManager handler_interface.Manager
-	vite          *vite.Vite
+	signer        *signer.Master
+}
+
+func (l LegerApiImpl) String() string {
+	return "LegerApiImpl"
 }
 
 func (l *LegerApiImpl) CreateTxWithPassphrase(params *SendTxParms, reply *string) error {
@@ -118,7 +124,7 @@ func (l *LegerApiImpl) CreateTxWithPassphrase(params *SendTxParms, reply *string
 	b := ledger.AccountBlock{AccountAddress: &selfaddr, To: &toaddr, TokenId: &tti, Amount: amount}
 
 	// call signer.creattx in order to as soon as possible to send tx
-	err = l.vite.Signer().CreateTxWithPassphrase(&b, params.Passphrase)
+	err = l.signer.CreateTxWithPassphrase(&b, params.Passphrase)
 
 	if err != nil {
 		return err
@@ -155,6 +161,7 @@ func (l *LegerApiImpl) GetBlocksByAccAddr(params *GetBlocksParams, reply *string
 }
 
 func (l *LegerApiImpl) GetUnconfirmedBlocksByAccAddr(params *GetBlocksParams, reply *string) error {
+	log.Debug("GetUnconfirmedBlocksByAccAddr")
 	return nil
 }
 
@@ -198,6 +205,7 @@ func (l *LegerApiImpl) GetAccountByAccAddr(addrs []string, reply *string) error 
 }
 
 func (l *LegerApiImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
+	log.Debug("GetUnconfirmedInfo")
 	return nil
 }
 
@@ -228,4 +236,147 @@ func easyJsonReturn(v interface{}, reply *string) error {
 	}
 	*reply = string(b)
 	return nil
+}
+
+func NewMockLedger() LedgerApi {
+	return &MockLedgerImpl{}
+}
+
+type MockLedgerImpl struct {
+}
+
+func (MockLedgerImpl) String() string {
+	return "MockLedgerImpl"
+}
+
+func (MockLedgerImpl) CreateTxWithPassphrase(params *SendTxParms, reply *string) error {
+	p, _ := json.Marshal(params)
+	log.Debug(string(p))
+
+	time.Sleep(10 * time.Second)
+	return nil
+}
+
+func (MockLedgerImpl) GetBlocksByAccAddr(params *GetBlocksParams, reply *string) error {
+	log.Debug("GetBlocksByAccAddr")
+	p, _ := json.Marshal(params)
+	log.Debug(string(p))
+
+	s := []SimpleBlock{
+		{
+			Timestamp: uint64(time.Now().Unix()),
+			Amount:    "123",
+			FromAddr:  "vite_2c760b7163dcac330a32787a46779b56f6e6c6ffe68112090e",
+			ToAddr:    "vite_8bca915b96022801d3f809bdb9133077c22dd640df06fced28",
+			Status:    0,
+			Hash:      "111",
+		},
+		{
+			Timestamp: uint64(time.Now().Unix()),
+			Amount:    "333",
+			FromAddr:  "vite_b7d95cc00fd89f8f94cda547a9ec686ae0c3714921e1867dd9",
+			ToAddr:    "vite_d308c5e857e2fa537be50f4aaa71abeb15155de930c6eb175d",
+			Status:    1,
+			Hash:      "222",
+		},
+		{
+			Timestamp: uint64(time.Now().Unix()),
+			Amount:    "666",
+			FromAddr:  "vite_b7d95cc00fd89f8f94cda547a9ec686ae0c3714921e1867dd9",
+			ToAddr:    "vite_8bca915b96022801d3f809bdb9133077c22dd640df06fced28",
+			Status:    2,
+			Hash:      "333",
+		},
+	}
+	return easyJsonReturn(s, reply)
+}
+
+func (MockLedgerImpl) GetUnconfirmedBlocksByAccAddr(params *GetBlocksParams, reply *string) error {
+	log.Debug("GetUnconfirmedBlocksByAccAddr")
+
+	p, _ := json.Marshal(params)
+	log.Debug(string(p))
+
+	s := []SimpleBlock{
+		{
+			Timestamp: uint64(time.Now().Unix()),
+			Amount:    "123",
+			FromAddr:  "vite_2c760b7163dcac330a32787a46779b56f6e6c6ffe68112090e",
+			ToAddr:    "vite_8bca915b96022801d3f809bdb9133077c22dd640df06fced28",
+			Status:    0,
+			Hash:      "111",
+		},
+		{
+			Timestamp: uint64(time.Now().Unix()),
+			Amount:    "333",
+			FromAddr:  "vite_b7d95cc00fd89f8f94cda547a9ec686ae0c3714921e1867dd9",
+			ToAddr:    "vite_d308c5e857e2fa537be50f4aaa71abeb15155de930c6eb175d",
+			Status:    1,
+			Hash:      "222",
+		},
+		{
+			Timestamp: uint64(time.Now().Unix()),
+			Amount:    "666",
+			FromAddr:  "vite_b7d95cc00fd89f8f94cda547a9ec686ae0c3714921e1867dd9",
+			ToAddr:    "vite_8bca915b96022801d3f809bdb9133077c22dd640df06fced28",
+			Status:    2,
+			Hash:      "333",
+		},
+	}
+
+	return easyJsonReturn(s, reply)
+}
+
+func (MockLedgerImpl) GetAccountByAccAddr(addr []string, reply *string) error {
+	log.Debug("GetAccountByAccAddr")
+	return easyJsonReturn(GetAccountResponse{
+
+		Addr: "vite_b7d95cc00fd89f8f94cda547a9ec686ae0c3714921e1867dd9 ",
+		BalanceInfos: []BalanceInfo{
+			{
+				TokenSymbol: "vite",
+				TokenName:   "vite",
+				TokenTypeId: "tti_133",
+				Balance:     "111",
+			},
+			{
+				TokenSymbol: "tt",
+				TokenName:   "tt",
+				TokenTypeId: "tti_99",
+				Balance:     "123",
+			},
+		},
+		BlockHeight: "123",
+	}, reply)
+}
+
+func (MockLedgerImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
+	log.Debug("GetUnconfirmedInfo")
+	return easyJsonReturn(GetUnconfirmedInfoResponse{
+		Addr: "vite_8bca915b96022801d3f809bdb9133077c22dd640df06fced28",
+		BalanceInfos: []BalanceInfo{
+			{
+				TokenSymbol: "vite",
+				TokenName:   "vite",
+				TokenTypeId: "tti_133",
+				Balance:     "666",
+			},
+			{
+				TokenSymbol: "tt",
+				TokenName:   "tt",
+				TokenTypeId: "tti_99",
+				Balance:     "888",
+			},
+		},
+		UnConfirmedBlocksLen: 0,
+	}, reply)
+}
+
+func (MockLedgerImpl) GetInitSyncInfo(noop interface{}, reply *string) error {
+	log.Debug("GetInitSyncInfo")
+	return easyJsonReturn(InitSyncResponse{
+		StartHeight:   "100",
+		TargetHeight:  "200",
+		CurrentHeight: "200",
+	}, reply)
 }
