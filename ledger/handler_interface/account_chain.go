@@ -14,8 +14,8 @@ type AccountChain interface {
 	GetBlocksByAccAddr(addr *types.Address, index, num, count int) (ledger.AccountBlockList, error)
 	CreateTx(block *ledger.AccountBlock) error
 	CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error
-	GetUnconfirmedTxHashs(index int, num int, count int, addr *types.Address) ([]*types.Hash, error)
-	GetUnconfirmedTxHashsByTkId(index int, num int, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error)
+	GetUnconfirmedTxHashs(index, num, count int, addr *types.Address) ([]*types.Hash, error)
+	GetUnconfirmedTxHashsByTkId(index, num, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error)
 	GetUnconfirmedAccount(addr *types.Address) (*UnconfirmedAccount, error)
 	AddListener(addr types.Address, change chan<- struct{})
 	RemoveListener(addr types.Address)
