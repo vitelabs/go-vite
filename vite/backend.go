@@ -37,7 +37,7 @@ func New(cfg *p2p.Config) (*Vite, error) {
 
 	vite.walletManager = wallet.NewManager("fromConfig")
 
-	vite.signer = &signer.Master{Vite: vite}
+	vite.signer = signer.NewMaster(vite)
 	vite.signer.InitAndStartLoop()
 
 	vite.pm = protocols.NewProtocolManager(vite)

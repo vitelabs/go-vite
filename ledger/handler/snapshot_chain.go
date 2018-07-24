@@ -13,6 +13,7 @@ import (
 	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"math/big"
 	"time"
+	"strconv"
 )
 
 type SnapshotChain struct {
@@ -41,10 +42,15 @@ func (sc *SnapshotChain) HandleGetBlocks(msg *protoTypes.GetSnapshotBlocksMsg, p
 			return
 		}
 
-		sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+		log.Info("SnapshotChain HandleGetBlocks: Send " + strconv.Itoa(len(blocks)) + " snapshot blocks to network.")
+		neterr := sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 			Code:    protoTypes.SnapshotBlocksMsgCode,
-			Payload: blocks,
+			Payload: &blocks,
 		})
+
+		if neterr != nil {
+			log.Info("SnapshotChain HandleGetBlocks: Send snapshot blocks to network failed, error is " + neterr.Error())
+		}
 
 	}()
 	return nil
@@ -54,11 +60,6 @@ var pendingPool *pending.SnapshotchainPool
 
 // HandleBlockHash
 func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, peer *protoTypes.Peer) error {
-	if !syncInfo.IsFirstSyncDone {
-		log.Error("Sync unfinished, so snapshotChain can't handleSendBlocks.")
-		return nil
-	}
-
 	if pendingPool == nil {
 		log.Info("SnapshotChain HandleSendBlocks: Init pending.SnapshotchainPool.")
 		pendingPool = pending.NewSnapshotchainPool(func(block *ledger.SnapshotBlock) bool {
@@ -160,6 +161,7 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 	}
 
 	pendingPool.Add(*msg)
+	log.Info("SnapshotChain.HandleSendBlocks: receive " + strconv.Itoa(len(*msg)) + " blocks" )
 
 	return nil
 }
@@ -186,6 +188,7 @@ func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
 
 	count := &big.Int{}
 	count.Sub(peer.Height, latestBlock.Height)
+	count.Add(count, big.NewInt(1))
 
 	sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 		Code: protoTypes.GetSnapshotBlocksMsgCode,

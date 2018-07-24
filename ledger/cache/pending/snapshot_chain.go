@@ -21,6 +21,7 @@ func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) bool) *Snapsho
 		turnInterval := time.Duration(2000)
 		for {
 			if len(pool.cache) <= 0 {
+				log.Println("SnapshotchainPool: len(pool.cache) is 0")
 				time.Sleep(turnInterval * time.Millisecond)
 				continue
 			}

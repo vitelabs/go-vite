@@ -13,7 +13,7 @@ import (
 	ledgerHandler "github.com/vitelabs/go-vite/ledger/handler_interface"
 )
 
-var enoughPeersTimeout = 3 * time.Minute
+var enoughPeersTimeout = 1 * time.Minute
 const enoughPeers = 2
 const broadcastConcurrency = 10
 
@@ -65,6 +65,7 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 	protoPeer := &protoType.Peer{
 		Peer: peer,
 		ID: peer.ID().String(),
+		Sending: make(chan struct{}, 1),
 	}
 
 	// send status msg to peer synchronously.
@@ -155,8 +156,11 @@ func (pm *ProtocolManager) SendMsg(p *protoType.Peer, msg *protoType.Msg) error 
 	}
 
 	// send to the specified peer
-	log.Printf("pm begin send msg %d to %s\n", msg.Code, p.ID)
-	return p2p.Send(p.TS, m)
+	p.Sending <- struct{}{}
+	log.Printf("pm begin send msg %d to %s %d bytes\n", msg.Code, p.ID, len(payload))
+	err = p2p.Send(p.TS, m)
+	<- p.Sending
+	return err
 }
 
 func (pm *ProtocolManager) BroadcastMsg(msg *protoType.Msg) (fails []*protoType.Peer) {

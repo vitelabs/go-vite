@@ -77,12 +77,54 @@ func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.Accoun
 		}
 	}
 
-	if mutexBody.LatestBlock != nil &&
-		!bytes.Equal(mutexBody.LatestBlock.Hash.Bytes(), block.PrevHash.Bytes()) {
-		return &AcWriteError{
-			Code: WacPrevHashUncorrectErr,
-			Err:  errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block."),
-			Data: mutexBody.LatestBlock,
+	if mutexBody.LatestBlock != nil {
+		if !bytes.Equal(mutexBody.LatestBlock.Hash.Bytes(), block.PrevHash.Bytes()) {
+			if block.Meta == nil || block.Meta.Height == nil {
+				return &AcWriteError{
+					Code: WacPrevHashUncorrectErr,
+					Err:  errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block. Can't write."),
+					Data: mutexBody.LatestBlock,
+				}
+			} else {
+				cmpResult := block.Meta.Height.Cmp(mutexBody.LatestBlock.Meta.Height)
+				if cmpResult == 0 {
+					return &AcWriteError{
+						Code: WacSameHeightErr,
+						Err: errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block. Current Latest block hash is " +
+							mutexBody.LatestBlock.Hash.String() + ", Current latest block height is " + mutexBody.LatestBlock.Meta.Height.String() +
+							" and Writing block height is " + block.Meta.Height.String()),
+						Data: mutexBody.LatestBlock,
+					}
+				} else if cmpResult < 0 {
+					return &AcWriteError{
+						Code: WacLowerErr,
+						Err: errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block. Current Latest block hash is " +
+							mutexBody.LatestBlock.Hash.String() + ", Current Latest block height is " + mutexBody.LatestBlock.Meta.Height.String() +
+							" and Writing block height is " + block.Meta.Height.String()),
+						Data: mutexBody.LatestBlock,
+					}
+				} else {
+					return &AcWriteError{
+						Code: WacHigherErr,
+						Err: errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block. Current Latest block hash is " +
+							mutexBody.LatestBlock.Hash.String() + ", Current Latest block height is " + mutexBody.LatestBlock.Meta.Height.String() +
+							" and Writing block height is " + block.Meta.Height.String()),
+						Data: mutexBody.LatestBlock,
+					}
+				}
+			}
+		}
+
+		if block.Meta != nil && block.Meta.Height != nil {
+			gap := big.NewInt(0)
+			gap.Sub(block.Meta.Height, mutexBody.LatestBlock.Meta.Height)
+			if gap.Cmp(big.NewInt(1)) != 0 {
+				return &AcWriteError{
+					Code: WacUncorrectHeightErr,
+					Err:  errors.New("Height is error."),
+					Data: mutexBody.LatestBlock,
+				}
+			}
 		}
 	}
 
