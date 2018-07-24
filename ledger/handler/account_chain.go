@@ -7,8 +7,8 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/access"
+	"github.com/vitelabs/go-vite/log"
 	protoTypes "github.com/vitelabs/go-vite/protocols/types"
-	"log"
 	"math/big"
 	"time"
 )
@@ -30,16 +30,16 @@ func NewAccountChain(vite Vite) *AccountChain {
 		aAccess:  access.GetAccountAccess(),
 		scAccess: access.GetSnapshotChainAccess(),
 		uAccess:  access.GetUnconfirmedAccess(),
+		tAccess:  access.GetTokenAccess(),
 	}
 }
 
 // HandleBlockHash
 func (ac *AccountChain) HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, peer *protoTypes.Peer) error {
 	go func() {
-		log.Printf("HandleGetBlocks: Origin: %s, Count: %d, Forward: %v.\n", msg.Origin, msg.Count, msg.Forward)
 		blocks, err := ac.acAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
 		if err != nil {
-			log.Println(err)
+			log.Info(err.Error())
 			return
 		}
 
@@ -58,25 +58,25 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 		globalRWMutex.RLock()
 		defer globalRWMutex.RUnlock()
 
-		log.Println("AccountChain HandleSendBlocks: receive blocks from network")
+		log.Info("AccountChain HandleSendBlocks: receive blocks from network")
 		for _, block := range *msg {
-			log.Println("AccountChain HandleSendBlocks: start process block " + block.Hash.String())
+			log.Info("AccountChain HandleSendBlocks: start process block " + block.Hash.String())
 			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
 				// Discard the block.
-				log.Println("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because block.PublicKey or block.Hash or block.Signature is nil.")
+				log.Info("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because block.PublicKey or block.Hash or block.Signature is nil.")
 				continue
 			}
 			// Verify hash
 			computedHash, err := block.ComputeHash()
 			if err != nil {
 				// Discard the block.
-				log.Println(err)
+				log.Info(err.Error())
 				continue
 			}
 
 			if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()) {
 				// Discard the block.
-				log.Println("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because the computed hash is " + computedHash.String() + " and the block hash is " + block.Hash.String())
+				log.Info("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because the computed hash is " + computedHash.String() + " and the block hash is " + block.Hash.String())
 				continue
 			}
 			// Verify signature
@@ -84,7 +84,7 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 
 			if verifyErr != nil || !isVerified {
 				// Discard the block.
-				log.Println("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because verify signature failed.")
+				log.Info("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because verify signature failed.")
 				continue
 			}
 
@@ -97,7 +97,7 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 				case *access.AcWriteError:
 					err := writeErr.(*access.AcWriteError)
 					if err.Code == access.WacPrevHashUncorrectErr {
-						log.Println("AccountChain HandleSendBlocks: start download account chain.")
+						log.Info("AccountChain HandleSendBlocks: start download account chain.")
 						errData := err.Data.(*ledger.AccountBlock)
 
 						currentHeight := big.NewInt(0)
@@ -123,10 +123,10 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 					}
 				}
 
-				log.Println(writeErr)
+				log.Info(writeErr.Error())
 				continue
 			} else {
-				log.Println("AccountChain HandleSendBlocks: write block " + block.Hash.String() + " success.")
+				log.Info("AccountChain HandleSendBlocks: write block " + block.Hash.String() + " success.")
 			}
 		}
 	}()
@@ -148,6 +148,10 @@ func (ac *AccountChain) CreateTx(block *ledger.AccountBlock) error {
 }
 
 func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error {
+	if !syncInfo.IsFirstSyncDone {
+		log.Error("Sync unfinished, so can't handleSendBlocks.")
+		return nil
+	}
 	globalRWMutex.RLock()
 	defer globalRWMutex.RUnlock()
 
@@ -216,7 +220,7 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 	})
 
 	if sendErr != nil {
-		log.Printf("CreateTx broadcast failed, error is " + sendErr.Error())
+		log.Info("CreateTx broadcast failed, error is " + sendErr.Error())
 		return sendErr
 	}
 	return nil

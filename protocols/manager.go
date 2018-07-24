@@ -14,7 +14,7 @@ import (
 )
 
 var enoughPeersTimeout = 3 * time.Minute
-const enoughPeers = 5
+const enoughPeers = 2
 const broadcastConcurrency = 10
 
 type ProtocolManager struct {
@@ -25,17 +25,23 @@ type ProtocolManager struct {
 	schain ledgerHandler.SnapshotChain
 	achain ledgerHandler.AccountChain
 	mutex sync.RWMutex
+	syncPeer *protoType.Peer
 }
 
 func (pm *ProtocolManager) HandleStatusMsg(status *protoType.StatusMsg, peer *protoType.Peer) {
 	log.Printf("receive status from %s height %d \n", peer.ID, status.Height)
 
 	peer.Update(status)
-	pm.Sync()
+	// AddPeer after get status msg from it, ensure we get Height and Hash of peer.
+	pm.Peers.AddPeer(peer)
+	log.Printf("now we have %d peers\n", pm.Peers.Count())
+
+	// use goroutine to avoid block following msgs.
+	go pm.Sync()
 }
 
 func (pm *ProtocolManager) SendStatusMsg(peer *protoType.Peer) {
-	// todo get genesis block hash
+	// todo: should get genesis block hash
 	currentBlock := pm.CurrentBlock()
 	status := &protoType.StatusMsg{
 		ProtocolVersion: protoType.Vite1,
@@ -60,13 +66,10 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 		Peer: peer,
 		ID: peer.ID().String(),
 	}
-	pm.Peers.AddPeer(protoPeer)
-	log.Printf("now wei have %d peers\n", pm.Peers.Count())
 
-	go pm.SendStatusMsg(protoPeer)
-
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
+	// send status msg to peer synchronously.
+	// ensure status msg is the first msg in this session.
+	pm.CheckStatus(protoPeer)
 
 	var err error
 
@@ -74,13 +77,20 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 		select {
 		case <- peer.Closed:
 			pm.Peers.DelPeer(protoPeer)
+			// if the syncing peer is disconnected, then begin Sync immediately.
+			if protoPeer == pm.syncPeer {
+				go pm.Sync()
+			}
 			return
 		case msg := <- peer.ProtoMsg:
 			switch msg.Code {
 			case protoType.StatusMsgCode:
 				m := new(protoType.StatusMsg)
 				m.NetDeserialize(msg.Payload)
-				go pm.HandleStatusMsg(m, protoPeer)
+				// don`t use goroutine handle status msg.
+				// ensure status msg is handled before other msg.
+				// get Height of peer correctly.
+				pm.HandleStatusMsg(m, protoPeer)
 			case protoType.GetSnapshotBlocksMsgCode:
 				m := new(protoType.GetSnapshotBlocksMsg)
 				m.NetDeserialize(msg.Payload)
@@ -108,10 +118,24 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 			} else {
 				log.Printf("pm handle msg %d from %s done\n", msg.Code, peer.ID())
 			}
-		case <- ticker.C:
-			go pm.SendStatusMsg(protoPeer)
 		}
 	}
+}
+
+func (pm *ProtocolManager) CheckStatus(peer *protoType.Peer) {
+	pm.SendStatusMsg(peer)
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <- ticker.C:
+				pm.SendStatusMsg(peer)
+			case <- peer.Closed:
+				return
+			}
+		}
+	}()
 }
 
 func (pm *ProtocolManager) SendMsg(p *protoType.Peer, msg *protoType.Msg) error {
@@ -190,22 +214,30 @@ func (pm *ProtocolManager) Sync() {
 
 	bestPeer := pm.Peers.BestPeer()
 	currentBlock := pm.CurrentBlock()
+
 	if bestPeer.Height.Cmp(currentBlock.Height) > 0 {
 		if pm.schain.SyncPeer != nil {
 			pm.mutex.Lock()
 			if pm.Syncing {
-				log.Println("is already syncing")
+				log.Println("already syncing")
 				pm.mutex.Unlock()
 				return
 			} else {
+				pm.syncPeer = bestPeer
 				pm.Syncing = true
 				pm.mutex.Unlock()
 			}
 
+			log.Printf("begin sync from %s until height %d\n", bestPeer.ID, bestPeer.Height.Uint64())
 			pm.schain.SyncPeer(bestPeer)
-			log.Printf("begin sync from %s to height %d\n", bestPeer.ID, bestPeer.Height.Uint64())
 		} else {
 			log.Println("missing sync method")
+		}
+	} else {
+		log.Printf("no need sync from bestPeer %s\n at height %d, self Height %d\n", bestPeer.ID, bestPeer.Height, currentBlock.Height)
+		// tell blockchain no need sync
+		if pm.schain.SyncPeer != nil {
+			pm.schain.SyncPeer(nil)
 		}
 	}
 }
@@ -213,6 +245,7 @@ func (pm *ProtocolManager) Sync() {
 func (pm *ProtocolManager) SyncDone() {
 	pm.mutex.Lock()
 	pm.Syncing = false
+	pm.syncPeer = nil
 	pm.mutex.Unlock()
 }
 
@@ -220,6 +253,8 @@ func (pm *ProtocolManager) CurrentBlock() (block *ledger.SnapshotBlock) {
 	block, err :=  pm.schain.GetLatestBlock()
 	if err != nil {
 		log.Fatalf("pm.chain.GetLatestBlock error: %v\n", err)
+	} else {
+		log.Printf("self latestblock: %s at height %d\n", block.Hash, block.Height)
 	}
 
 	return block

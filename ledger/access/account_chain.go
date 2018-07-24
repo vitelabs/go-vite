@@ -1,31 +1,31 @@
 package access
 
 import (
-	"github.com/vitelabs/go-vite/vitedb"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/common/types"
-	"math/big"
-	"github.com/syndtr/goleveldb/leveldb"
 	"bytes"
-	"sync"
 	"github.com/pkg/errors"
-	"fmt"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vitedb"
 	"log"
+	"math/big"
+	"sync"
 )
 
 type blockWriteMutexBody struct {
 	LatestBlock *ledger.AccountBlock
-	Reference bool
+	Reference   bool
 }
 
-	type blockWriteMutex map[string]*blockWriteMutexBody
+type blockWriteMutex map[string]*blockWriteMutexBody
 
 const bwmuBuffer = 10 * 10000
 const bwmuReleaseCount = 2 * 10000
 
 // The mutex for blockWriteMutex execute locking or unlocking
 var bwMutexMutex sync.Mutex
-func (bwm *blockWriteMutex) release () {
+
+func (bwm *blockWriteMutex) release() {
 	count := 0
 	for key, mutexBody := range *bwm {
 		if count >= bwmuReleaseCount {
@@ -38,12 +38,12 @@ func (bwm *blockWriteMutex) release () {
 	}
 }
 
-func (bwm *blockWriteMutex) Lock (block *ledger.AccountBlock, meta *ledger.AccountMeta) *AcWriteError {
+func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.AccountMeta) *AcWriteError {
 	bwMutexMutex.Lock()
 	defer bwMutexMutex.Unlock()
 
 	accountAddress := block.AccountAddress
-	mutexBody, ok:= (*bwm)[accountAddress.String()]
+	mutexBody, ok := (*bwm)[accountAddress.String()]
 
 	if !ok || mutexBody == nil {
 		if len(*bwm) >= bwmuBuffer {
@@ -51,7 +51,7 @@ func (bwm *blockWriteMutex) Lock (block *ledger.AccountBlock, meta *ledger.Accou
 			bwm.release()
 		}
 
-		mutexBody = &blockWriteMutexBody {
+		mutexBody = &blockWriteMutexBody{
 			Reference: false,
 		}
 
@@ -59,9 +59,9 @@ func (bwm *blockWriteMutex) Lock (block *ledger.AccountBlock, meta *ledger.Accou
 			var err error
 			mutexBody.LatestBlock, err = accountChainAccess.store.GetLatestBlockByAccountId(meta.AccountId)
 			if err != nil {
-				return &AcWriteError {
+				return &AcWriteError{
 					Code: WacDefaultErr,
-					Err: err,
+					Err:  err,
 				}
 
 			}
@@ -71,17 +71,17 @@ func (bwm *blockWriteMutex) Lock (block *ledger.AccountBlock, meta *ledger.Accou
 	}
 
 	if mutexBody.Reference {
-		return &AcWriteError {
+		return &AcWriteError{
 			Code: WacDefaultErr,
-			Err: errors.New("Lock failed"),
+			Err:  errors.New("Lock failed"),
 		}
 	}
 
 	if mutexBody.LatestBlock != nil &&
 		!bytes.Equal(mutexBody.LatestBlock.Hash.Bytes(), block.PrevHash.Bytes()) {
-		return &AcWriteError {
+		return &AcWriteError{
 			Code: WacPrevHashUncorrectErr,
-			Err: errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block."),
+			Err:  errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block."),
 			Data: mutexBody.LatestBlock,
 		}
 	}
@@ -91,13 +91,13 @@ func (bwm *blockWriteMutex) Lock (block *ledger.AccountBlock, meta *ledger.Accou
 	return nil
 }
 
-func (bwm *blockWriteMutex) UnLock (block *ledger.AccountBlock, writeErr *AcWriteError) {
+func (bwm *blockWriteMutex) UnLock(block *ledger.AccountBlock, writeErr *AcWriteError) {
 	bwMutexMutex.Lock()
 	defer bwMutexMutex.Unlock()
 
 	accountAddress := block.AccountAddress
 
-	mutexBody, ok:= (*bwm)[accountAddress.String()]
+	mutexBody, ok := (*bwm)[accountAddress.String()]
 	if !ok {
 		return
 	}
@@ -109,29 +109,26 @@ func (bwm *blockWriteMutex) UnLock (block *ledger.AccountBlock, writeErr *AcWrit
 	mutexBody.Reference = false
 }
 
-
 type AccountChainAccess struct {
 	store         *vitedb.AccountChain
 	accountStore  *vitedb.Account
 	snapshotStore *vitedb.SnapshotChain
 	tokenStore    *vitedb.Token
 
-	bwMutex 	  *blockWriteMutex
+	bwMutex *blockWriteMutex
 }
-
 
 var accountChainAccess = &AccountChainAccess{
 	store:         vitedb.GetAccountChain(),
 	accountStore:  vitedb.GetAccount(),
 	snapshotStore: vitedb.GetSnapshotChain(),
 	tokenStore:    vitedb.GetToken(),
-	bwMutex:	   &blockWriteMutex{},
+	bwMutex:       &blockWriteMutex{},
 }
 
 func GetAccountChainAccess() *AccountChainAccess {
 	return accountChainAccess
 }
-
 
 func (aca *AccountChainAccess) WriteBlockList(blockList []*ledger.AccountBlock) error {
 	for _, block := range blockList {
@@ -143,7 +140,8 @@ func (aca *AccountChainAccess) WriteBlockList(blockList []*ledger.AccountBlock) 
 	return nil
 }
 
-type signAccountBlockFuncType func(*ledger.AccountBlock)(*ledger.AccountBlock, error)
+type signAccountBlockFuncType func(*ledger.AccountBlock) (*ledger.AccountBlock, error)
+
 func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock, signFunc signAccountBlockFuncType) error {
 	err := aca.store.BatchWrite(nil, func(batch *leveldb.Batch) error {
 		// When *AcWriteError data type convert to error interface, nil become non-nil. So need return nil manually
@@ -153,17 +151,10 @@ func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock, signFunc s
 		return nil
 	})
 
-	if err != nil {
-		fmt.Println("Write block " + block.Hash.String() + " failed, block data is ")
-		fmt.Printf("%+v\n", block)
-	} else {
-		fmt.Println("Write block " + block.Hash.String() + " succeed.")
-	}
-
 	return err
 }
 
-func (aca *AccountChainAccess) WriteGenesisBlock () {
+func (aca *AccountChainAccess) WriteGenesisBlock() {
 	if err := aca.WriteBlock(ledger.AccountGenesisBlockFirst, nil); err != nil {
 		log.Fatal(errors.Wrap(err, "accountChain.WriteGenesisBlock"))
 	}
@@ -171,7 +162,7 @@ func (aca *AccountChainAccess) WriteGenesisBlock () {
 	log.Println("accountChain.WriteGenesisBlock success.")
 }
 
-func (aca *AccountChainAccess) WriteGenesisSecondBlock () {
+func (aca *AccountChainAccess) WriteGenesisSecondBlock() {
 	if err := accountChainAccess.WriteBlock(ledger.AccountGenesisBlockSecond, nil); err != nil {
 		log.Fatal(errors.Wrap(err, "accountChain.WriteGenesisSecondBlock"))
 	}
@@ -181,7 +172,7 @@ func (aca *AccountChainAccess) WriteGenesisSecondBlock () {
 
 func (aca *AccountChainAccess) writeSendBlock(batch *leveldb.Batch, block *ledger.AccountBlock, accountMeta *ledger.AccountMeta) error {
 	if accountMeta == nil && !block.IsGenesisBlock() {
-		return  errors.New("Write the send block failed, because the account does not exist.")
+		return errors.New("Write the send block failed, because the account does not exist.")
 	}
 
 	if block.IsMintageBlock() {
@@ -189,29 +180,27 @@ func (aca *AccountChainAccess) writeSendBlock(batch *leveldb.Batch, block *ledge
 	}
 
 	if block.TokenId == nil {
-		return  errors.New("Write the send block failed, because the token id of block is nil.")
+		return errors.New("Write the send block failed, because the token id of block is nil.")
 	}
 
 	accountTokenInfo := accountMeta.GetTokenInfoByTokenId(block.TokenId)
 
 	if accountTokenInfo == nil {
-		return  errors.New("Write the send block failed, because the account does not have this token.")
+		return errors.New("Write the send block failed, because the account does not have this token.")
 	}
 
 	prevAccountBlockInToken, prevAbErr := aca.store.GetBlockByHeight(accountMeta.AccountId, accountTokenInfo.LastAccountBlockHeight)
-	if prevAbErr != nil || prevAccountBlockInToken == nil{
-		return  errors.New("Write the send block failed, because the balance is not enough.")
+	if prevAbErr != nil || prevAccountBlockInToken == nil {
+		return errors.New("Write the send block failed, because the balance is not enough.")
 	}
 
 	if block.Amount == nil {
 		return errors.New("Write the send block failed, because the block.Amount does not exist.")
 	}
 
-
 	if block.Amount.Cmp(prevAccountBlockInToken.Balance) >= 0 {
 		return errors.New("Write the send block failed, because the balance is not enough.")
 	}
-
 
 	block.Balance = &big.Int{}
 	block.Balance.Sub(prevAccountBlockInToken.Balance, block.Amount)
@@ -219,20 +208,19 @@ func (aca *AccountChainAccess) writeSendBlock(batch *leveldb.Batch, block *ledge
 	return nil
 }
 
-func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *ledger.AccountBlock, accountMeta *ledger.AccountMeta) (error) {
+func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *ledger.AccountBlock, accountMeta *ledger.AccountMeta) error {
 	// Get from block
 	if block.FromHash == nil {
-		return  errors.New("Write the receive block failed, because the fromHash does not exist.")
+		return errors.New("Write the receive block failed, because the fromHash does not exist.")
 	}
 
 	fromBlock, err := aca.store.GetBlockByHash(block.FromHash)
 	if err != nil {
 		return errors.New("Write receive block failed, because getting the from block failed. Error is " + err.Error())
 	}
-	if fromBlock == nil{
+	if fromBlock == nil {
 		return errors.New("Write receive block failed, because the from block is not exist")
 	}
-
 
 	var amount = fromBlock.Amount
 
@@ -249,7 +237,7 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 		}
 
 		amount = mintage.TotalSupply
-		for i :=0 ; i < mintage.Decimals; i++ {
+		for i := 0; i < mintage.Decimals; i++ {
 			amount.Mul(amount, big.NewInt(10))
 		}
 
@@ -261,7 +249,6 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 		// Add balance
 		prevBalance := big.NewInt(0)
 
-
 		accountTokenInfo := accountMeta.GetTokenInfoByTokenId(fromBlock.TokenId)
 		if accountTokenInfo == nil {
 			accountTokenInfo = &ledger.AccountSimpleToken{
@@ -271,7 +258,7 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 
 		if accountTokenInfo.LastAccountBlockHeight != nil {
 			prevAccountBlockInToken, prevAbErr := aca.store.GetBlockByHeight(accountMeta.AccountId, accountTokenInfo.LastAccountBlockHeight)
-			if prevAbErr != nil || prevAccountBlockInToken == nil{
+			if prevAbErr != nil || prevAccountBlockInToken == nil {
 				return errors.New("Write receive block failed, Error is " + prevAbErr.Error())
 			}
 			prevBalance = prevAccountBlockInToken.Balance
@@ -286,14 +273,14 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 	return nil
 }
 
-func (aca *AccountChainAccess) writeMintageBlock(batch *leveldb.Batch, block *ledger.AccountBlock) (error) {
+func (aca *AccountChainAccess) writeMintageBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	mintage, err := ledger.NewMintage(block)
 	if err != nil {
 		return err
 	}
 
 	// Write Mintage
-	if err := tokenAccess.WriteMintage(batch, mintage, block); err != nil{
+	if err := tokenAccess.WriteMintage(batch, mintage, block); err != nil {
 		return err
 	}
 	return nil
@@ -305,16 +292,15 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	if block.SnapshotTimestamp == nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
-			Err: errors.New("Fail to write block, because block.SnapshotTimestamp is uncorrect."),
+			Err:  errors.New("Fail to write block, because block.SnapshotTimestamp is uncorrect."),
 		}
 	}
 
-
 	accountMeta, err := aca.accountStore.GetAccountMetaByAddress(block.AccountAddress)
-	if err != nil && err != leveldb.ErrNotFound{
+	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
 			Code: WacDefaultErr,
-			Err: err,
+			Err:  err,
 		}
 	}
 
@@ -327,8 +313,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	// Unlock mutex
 	defer aca.bwMutex.UnLock(block, result)
 
-
-	var latestBlockHeight * big.Int
+	var latestBlockHeight *big.Int
 
 	needCreateNewAccount := false
 	if block.IsSendBlock() {
@@ -350,7 +335,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	if err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
-			Err: err,
+			Err:  err,
 		}
 	}
 
@@ -373,9 +358,9 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	newBlockHeight.Add(latestBlockHeight, big.NewInt(1))
 
 	// Set account block meta
-	newBlockMeta := &ledger.AccountBlockMeta {
-		Height: newBlockHeight,
-		Status: 1, 						// Open
+	newBlockMeta := &ledger.AccountBlockMeta{
+		Height:    newBlockHeight,
+		Status:    1, // Open
 		AccountId: accountMeta.AccountId,
 	}
 
@@ -388,13 +373,12 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			accountTokenInfo.LastAccountBlockHeight = newBlockHeight
 		} else {
 			accountTokenInfo = &ledger.AccountSimpleToken{
-				TokenId: block.TokenId,
+				TokenId:                block.TokenId,
 				LastAccountBlockHeight: block.Meta.Height,
 			}
 		}
 		accountMeta.SetTokenInfo(accountTokenInfo)
 	}
-
 
 	// Set hash
 	if block.Hash == nil {
@@ -402,7 +386,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 		if err != nil {
 			return &AcWriteError{
 				Code: WacDefaultErr,
-				Err: err,
+				Err:  err,
 			}
 		}
 
@@ -418,7 +402,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 		if signErr != nil {
 			return &AcWriteError{
 				Code: WacDefaultErr,
-				Err: signErr,
+				Err:  signErr,
 			}
 		}
 	}
@@ -427,7 +411,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	if err := aca.accountStore.WriteMeta(batch, block.AccountAddress, accountMeta); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
-			Err: err,
+			Err:  err,
 		}
 	}
 
@@ -436,7 +420,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 		if err := aca.accountStore.WriteAccountIdIndex(batch, accountMeta.AccountId, block.AccountAddress); err != nil {
 			return &AcWriteError{
 				Code: WacDefaultErr,
-				Err: err,
+				Err:  err,
 			}
 		}
 	}
@@ -445,7 +429,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	if err := aca.writeBlockMeta(batch, block, newBlockMeta); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
-			Err: err,
+			Err:  err,
 		}
 	}
 
@@ -453,7 +437,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	if err := aca.store.WriteBlock(batch, accountMeta.AccountId, block); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
-			Err: errors.New("Write the block failed, error is " + err.Error()),
+			Err:  errors.New("Write the block failed, error is " + err.Error()),
 		}
 	}
 
@@ -461,15 +445,15 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	if err := aca.writeTii(batch, block); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
-			Err: err,
+			Err:  err,
 		}
 	}
 
 	// Write st index
-	if err:= aca.writeStIndex(batch, block); err != nil {
+	if err := aca.writeStIndex(batch, block); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
-			Err: err,
+			Err:  err,
 		}
 	}
 
@@ -477,7 +461,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 }
 
 // Tii is TokenIdIndex
-func (aca *AccountChainAccess) writeBlockMeta (batch *leveldb.Batch, block *ledger.AccountBlock, meta *ledger.AccountBlockMeta) error {
+func (aca *AccountChainAccess) writeBlockMeta(batch *leveldb.Batch, block *ledger.AccountBlock, meta *ledger.AccountBlockMeta) error {
 	if block.FromHash == nil {
 		meta.Status = 1 // open
 	} else {
@@ -499,7 +483,6 @@ func (aca *AccountChainAccess) writeBlockMeta (batch *leveldb.Batch, block *ledg
 		}
 	}
 
-
 	if err := aca.store.WriteBlockMeta(batch, block.Hash, meta); err != nil {
 		return err
 	}
@@ -515,7 +498,7 @@ var tokenIdCache = make(map[string]*tokenIdCacheBody)
 var tokenIdMutex sync.Mutex
 
 // Tii is TokenIdIndex
-func (aca *AccountChainAccess) writeTii (batch *leveldb.Batch, block *ledger.AccountBlock) error {
+func (aca *AccountChainAccess) writeTii(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	if block.TokenId == nil {
 		return nil
 	}
@@ -536,13 +519,12 @@ func (aca *AccountChainAccess) writeTii (batch *leveldb.Batch, block *ledger.Acc
 			return err
 		}
 
-		cacheBody = &tokenIdCacheBody {
+		cacheBody = &tokenIdCacheBody{
 			LastTokenBlockHeight: latestBlockHeightInToken,
 		}
 	}
 
 	newBlockHeightInToken.Add(cacheBody.LastTokenBlockHeight, big.NewInt(1))
-
 
 	if err := aca.tokenStore.WriteTokenIdIndex(batch, block.TokenId, newBlockHeightInToken, block.Hash); err != nil {
 		return err
@@ -560,7 +542,7 @@ type stIdCacheBody struct {
 var stIdCache = make(map[string]*stIdCacheBody)
 var stIdMutex sync.Mutex
 
-func (aca *AccountChainAccess) getNewLastStId (block *ledger.AccountBlock) (*big.Int, error) {
+func (aca *AccountChainAccess) getNewLastStId(block *ledger.AccountBlock) (*big.Int, error) {
 	stIdMutex.Lock()
 	defer stIdMutex.Unlock()
 
@@ -570,14 +552,13 @@ func (aca *AccountChainAccess) getNewLastStId (block *ledger.AccountBlock) (*big
 		var stHeight *big.Int
 		if block.SnapshotTimestamp.String() == ledger.SnapshotGenesisBlock.Hash.String() {
 			stHeight = big.NewInt(1)
-		}  else  {
+		} else {
 			var err error
 			stHeight, err = aca.snapshotStore.GetHeightByHash(block.SnapshotTimestamp)
 			if err != nil {
 				return nil, err
 			}
 		}
-
 
 		lastStId, err := aca.store.GetLastIdByStHeight(stHeight)
 		if err != nil {
@@ -589,7 +570,7 @@ func (aca *AccountChainAccess) getNewLastStId (block *ledger.AccountBlock) (*big
 		}
 
 		cacheBody = &stIdCacheBody{
-			LastStId:  lastStId,
+			LastStId: lastStId,
 		}
 		stIdCache[block.SnapshotTimestamp.String()] = cacheBody
 	}
@@ -601,7 +582,7 @@ func (aca *AccountChainAccess) getNewLastStId (block *ledger.AccountBlock) (*big
 
 }
 
-func (aca *AccountChainAccess) writeStIndex (batch *leveldb.Batch, block *ledger.AccountBlock) error {
+func (aca *AccountChainAccess) writeStIndex(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	// Write st index
 	newStId, err := aca.getNewLastStId(block)
 	if err != nil {
@@ -614,7 +595,7 @@ func (aca *AccountChainAccess) writeStIndex (batch *leveldb.Batch, block *ledger
 	return nil
 }
 
-func (aca *AccountChainAccess) GetBlocksFromOrigin (originBlockHash *types.Hash, count uint64, forward bool) (ledger.AccountBlockList, error) {
+func (aca *AccountChainAccess) GetBlocksFromOrigin(originBlockHash *types.Hash, count uint64, forward bool) (ledger.AccountBlockList, error) {
 	return aca.store.GetBlocksFromOrigin(originBlockHash, count, forward)
 }
 
@@ -638,15 +619,15 @@ func (aca *AccountChainAccess) GetBlockByHash(blockHash *types.Hash) (*ledger.Ac
 	return aca.processBlock(accountBlock, nil)
 }
 
-func (aca *AccountChainAccess) processBlock (accountBlock *ledger.AccountBlock, accountAddress *types.Address) (*ledger.AccountBlock, error) {
+func (aca *AccountChainAccess) processBlock(accountBlock *ledger.AccountBlock, accountAddress *types.Address) (*ledger.AccountBlock, error) {
 	if accountBlock.Meta == nil {
 		var err error
 		accountBlock.Meta, err = aca.store.GetBlockMeta(accountBlock.Hash)
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 	}
-	if accountBlock.FromHash != nil &&  accountBlock.From == nil{
+	if accountBlock.FromHash != nil && accountBlock.From == nil {
 		fromAccountBlockMeta, err := aca.store.GetBlockMeta(accountBlock.FromHash)
 
 		if err != nil {
@@ -681,7 +662,7 @@ func (aca *AccountChainAccess) processBlock (accountBlock *ledger.AccountBlock, 
 	return accountBlock, nil
 }
 
-func (aca *AccountChainAccess) GetLatestBlockByAccountAddress (addr *types.Address) (*ledger.AccountBlock, error) {
+func (aca *AccountChainAccess) GetLatestBlockByAccountAddress(addr *types.Address) (*ledger.AccountBlock, error) {
 	accountMeta, err := aca.accountStore.GetAccountMetaByAddress(addr)
 	if err != nil && err != leveldb.ErrNotFound {
 		return nil, err
@@ -764,7 +745,7 @@ func (aca *AccountChainAccess) GetConfirmBlock(accountBlock *ledger.AccountBlock
 		}
 		return true
 	}, accountBlock.SnapshotTimestamp)
-	
+
 	return confirmSnapshotBlock, err
 
 }
@@ -773,8 +754,6 @@ func (aca *AccountChainAccess) GetConfirmTimes(confirmSnapshotBlock *ledger.Snap
 	if confirmSnapshotBlock == nil {
 		return nil, nil
 	}
-
-
 
 	latestBlock, err := aca.snapshotStore.GetLatestBlock()
 	if err != nil {
@@ -786,7 +765,7 @@ func (aca *AccountChainAccess) GetConfirmTimes(confirmSnapshotBlock *ledger.Snap
 	return result, nil
 }
 
-func (aca *AccountChainAccess) GetAccountBalance (accountId *big.Int, blockHeight *big.Int) (*big.Int, error) {
+func (aca *AccountChainAccess) GetAccountBalance(accountId *big.Int, blockHeight *big.Int) (*big.Int, error) {
 	accountBLock, err := aca.store.GetBlockByHeight(accountId, blockHeight)
 	if err != nil {
 		return nil, err
@@ -794,14 +773,10 @@ func (aca *AccountChainAccess) GetAccountBalance (accountId *big.Int, blockHeigh
 	return accountBLock.Balance, nil
 }
 
-func (aca *AccountChainAccess) GetLatestBlockHeightByAccountId (accountId *big.Int) (* big.Int, error){
+func (aca *AccountChainAccess) GetLatestBlockHeightByAccountId(accountId *big.Int) (*big.Int, error) {
 	return aca.store.GetLatestBlockHeightByAccountId(accountId)
 }
 
-
-func (aca *AccountChainAccess) isBlockExist (blockHash *types.Hash) (bool) {
+func (aca *AccountChainAccess) isBlockExist(blockHash *types.Hash) bool {
 	return aca.store.IsBlockExist(blockHash)
 }
-
-
-

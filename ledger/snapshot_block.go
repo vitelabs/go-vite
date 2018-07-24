@@ -179,7 +179,7 @@ func (sb *SnapshotBlock) SetByNetPB(snapshotBlockPB *vitepb.SnapshotBlockNet) er
 	}
 	sb.Signature = snapshotBlockPB.Signature
 	sb.Timestamp = snapshotBlockPB.Timestamp
-	sb.Amount = &big.Int{}
+	sb.Amount = big.NewInt(0)
 	sb.Amount.SetBytes(snapshotBlockPB.Amount)
 	sb.PublicKey = snapshotBlockPB.PublicKey
 	return nil
