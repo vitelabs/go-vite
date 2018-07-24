@@ -118,15 +118,6 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedAccountMeta(addr *types.Address) (*
 }
 
 func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	return ucfa.store.BatchWrite(batch, func(batch *leveldb.Batch) error {
-		if err := ucfa.writeBlock(batch, block); err != nil {
-			return err
-		}
-		return nil
-	})
-}
-
-func (ucfa *UnconfirmedAccess) writeBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	// judge whether the block exists
 	//block, err := accountChainAccess.GetBlockByHash(hash)
 	//if err != nil {
