@@ -5,7 +5,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"github.com/golang/protobuf/proto"
-	"log"
 	"github.com/vitelabs/go-vite/vitepb"
 )
 
@@ -96,39 +95,7 @@ func (gs *GetSnapshotBlocksMsg) NetDeserialize(data []byte) error {
 }
 
 // @message send multiple snapshot block data.
-type SnapshotBlocksMsg []*ledger.SnapshotBlock
-
-func (s *SnapshotBlocksMsg) NetSerialize() ([]byte, error) {
-	bs := make([]*vitepb.SnapshotBlockNet, len(*s))
-
-	for i, b := range *s {
-		bs[i] = b.GetNetPB()
-	}
-	spb := &vitepb.SnapshotBlocksMsg{
-		Blocks: bs,
-	}
-
-	return proto.Marshal(spb)
-}
-
-func (s *SnapshotBlocksMsg) NetDeserialize(data []byte) error {
-	spb := &vitepb.SnapshotBlocksMsg{}
-	err := proto.Unmarshal(data, spb)
-	if err != nil {
-		return err
-	}
-
-	for _, pb := range spb.Blocks {
-		b := new(ledger.SnapshotBlock)
-		if err := b.SetByNetPB(pb); err == nil {
-			*s = append(*s, b)
-		} else {
-			log.Printf("AccountBlock.SetByNetPB error: %v\n", err)
-		}
-	}
-
-	return nil
-}
+type SnapshotBlocksMsg = ledger.SnapshotBlockList
 
 // @message get multiple account blocks.
 type GetAccountBlocksMsg struct {
@@ -160,40 +127,7 @@ func (ga *GetAccountBlocksMsg) NetDeserialize(data []byte) error {
 }
 
 // @message send multiple account block data.
-type AccountBlocksMsg []*ledger.AccountBlock
-
-func (a *AccountBlocksMsg) NetSerialize() ([]byte, error) {
-	bs := make([]*vitepb.AccountBlockNet, len(*a))
-
-	for i, b := range *a {
-		bs[i] = b.GetNetPB()
-	}
-
-	apb := &vitepb.AccountBlocksMsg{
-		Blocks: bs,
-	}
-
-	return proto.Marshal(apb)
-}
-
-func (a *AccountBlocksMsg) NetDeserialize(data []byte) error {
-	apb := &vitepb.AccountBlocksMsg{}
-	err := proto.Unmarshal(data, apb)
-	if err != nil {
-		return err
-	}
-
-	for _, b := range apb.Blocks {
-		ab := new(ledger.AccountBlock)
-		if err := ab.SetByNetPB(b); err == nil {
-			*a = append(*a, ab)
-		} else {
-			log.Printf("AccountBlock.SetByNetPB error: %v\n", err)
-		}
-	}
-
-	return nil
-}
+type AccountBlocksMsg = ledger.AccountBlockList
 
 // @section
 type MsgReader interface {

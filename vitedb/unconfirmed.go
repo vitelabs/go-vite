@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 type Unconfirmed struct {
@@ -45,7 +46,7 @@ func (ucf *Unconfirmed) GetUnconfirmedMeta(addr *types.Address) (*ledger.Unconfi
 	return ucfm, nil
 }
 
-func (ucf *Unconfirmed) GetUnconfirmedHashList(accountId *big.Int, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+func (ucf *Unconfirmed) GetAccHashListByTkId(accountId *big.Int, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
 	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, accountId, tokenId.Bytes())
 	if err != nil {
 		return nil, err
@@ -59,6 +60,30 @@ func (ucf *Unconfirmed) GetUnconfirmedHashList(accountId *big.Int, tokenId *type
 		return nil, err
 	}
 	return hList, nil
+}
+
+func (ucf *Unconfirmed) GetAccTotalHashList(accountId *big.Int) ([]*types.Hash, error) {
+	var hashList []*types.Hash
+
+	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, accountId, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	iter := ucf.db.Leveldb.NewIterator(util.BytesPrefix(key), nil)
+	defer iter.Release()
+
+	for iter.Next() {
+		hList, err := ledger.HashListDbDeserialize(iter.Value())
+		if err != nil {
+			return nil, err
+		}
+		hashList = append(hashList, hList...)
+	}
+	if err := iter.Error(); err != nil {
+		return nil, err
+	}
+	return hashList, nil
 }
 
 func (ucf *Unconfirmed) WriteMeta(batch *leveldb.Batch, addr *types.Address, meta *ledger.UnconfirmedMeta) error {

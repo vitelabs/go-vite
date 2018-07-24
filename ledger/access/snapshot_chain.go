@@ -133,11 +133,6 @@ func (sca *SnapshotChainAccess) WriteBlock(block *ledger.SnapshotBlock, signFunc
 		}
 		return nil
 	})
-	if err != nil {
-		log.Println("Write snapshot block failed, Error is " + err.Error())
-	} else {
-		log.Println("Write Snapshot block " + block.Hash.String() + " succeed")
-	}
 
 	return err
 }
@@ -156,18 +151,7 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 	sca.bwMutex.Lock()
 	defer sca.bwMutex.Unlock()
 
-	if block.Hash == nil {
-		hash, err := block.ComputeHash()
-		if err != nil {
-			return &ScWriteError{
-				Code: WscSetHashErr,
-				Err:  err,
-			}
-		}
-		block.Hash = hash
-	}
-
-	isGenesisBlock := bytes.Equal(block.Hash.Bytes(), ledger.SnapshotGenesisBlock.Hash.Bytes())
+	isGenesisBlock := block.IsGenesisBlock()
 
 	if !isGenesisBlock && (block.Snapshot == nil || len(block.Snapshot) <= 0) {
 		return &ScWriteError{
@@ -175,6 +159,7 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 			Err:  errors.New("The written block snapshot is nil."),
 		}
 	}
+
 	// Judge whether the prehash is valid
 	if !isGenesisBlock {
 		preSnapshotBlock, err := sca.store.GetLatestBlock()
@@ -218,11 +203,24 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 		}
 
 		if needSyncAccountBlocks != nil {
+
 			return &ScWriteError{
 				Code: WscNeedSyncErr,
 				Data: needSyncAccountBlocks,
 			}
 		}
+	}
+
+	if block.Hash == nil {
+		hash, err := block.ComputeHash()
+		if err != nil {
+			return &ScWriteError{
+				Code: WscSetHashErr,
+				Err:  err,
+			}
+		}
+		log.Printf("%+v\n", block)
+		block.Hash = hash
 	}
 
 	if signFunc != nil && block.Signature == nil {

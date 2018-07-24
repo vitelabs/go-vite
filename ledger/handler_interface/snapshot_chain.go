@@ -8,9 +8,10 @@ import (
 )
 
 type SyncInfo struct {
-	BeginHeight   *big.Int
-	TargetHeight  *big.Int
-	CurrentHeight *big.Int
+	BeginHeight     *big.Int
+	TargetHeight    *big.Int
+	CurrentHeight   *big.Int
+	IsFirstSyncDone bool
 }
 
 type SnapshotChain interface {

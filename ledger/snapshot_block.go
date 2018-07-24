@@ -13,18 +13,18 @@ import (
 
 type SnapshotBlockList []*SnapshotBlock
 
-func (sblist SnapshotBlockList) NetSerialize() ([]byte, error) {
+func (sblist *SnapshotBlockList) NetSerialize() ([]byte, error) {
 	snapshotBlockListNetPB := &vitepb.SnapshotBlockListNet{}
 	snapshotBlockListNetPB.Blocks = []*vitepb.SnapshotBlockNet{}
 
-	for _, snapshotBlock := range sblist {
+	for _, snapshotBlock := range *sblist {
 		snapshotBlockListNetPB.Blocks = append(snapshotBlockListNetPB.Blocks, snapshotBlock.GetNetPB())
 	}
 
 	return proto.Marshal(snapshotBlockListNetPB)
 }
 
-func (sblist SnapshotBlockList) NetDeserialize(buf []byte) error {
+func (sblist *SnapshotBlockList) NetDeserialize(buf []byte) error {
 	snapshotBlockListNetPB := &vitepb.SnapshotBlockListNet{}
 	if err := proto.Unmarshal(buf, snapshotBlockListNetPB); err != nil {
 		return err
@@ -33,7 +33,7 @@ func (sblist SnapshotBlockList) NetDeserialize(buf []byte) error {
 	for _, blockPB := range snapshotBlockListNetPB.Blocks {
 		block := &SnapshotBlock{}
 		block.SetByNetPB(blockPB)
-		sblist = append(sblist, block)
+		*sblist = append(*sblist, block)
 	}
 
 	return nil
@@ -179,7 +179,7 @@ func (sb *SnapshotBlock) SetByNetPB(snapshotBlockPB *vitepb.SnapshotBlockNet) er
 	}
 	sb.Signature = snapshotBlockPB.Signature
 	sb.Timestamp = snapshotBlockPB.Timestamp
-	sb.Amount = &big.Int{}
+	sb.Amount = big.NewInt(0)
 	sb.Amount.SetBytes(snapshotBlockPB.Amount)
 	sb.PublicKey = snapshotBlockPB.PublicKey
 	return nil

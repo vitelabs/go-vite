@@ -73,10 +73,15 @@ func (uwm *ucfmWriteMutex) UnLock(block *ledger.AccountBlock) {
 	uwmBody.Reference = false
 }
 
-func (ucfa *UnconfirmedAccess) GetUnconfirmedTxHashs(index, num, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+func (ucfa *UnconfirmedAccess) GetUnconfirmedHashsByTkId(index, num, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+	acMeta, err := accountAccess.GetAccountMeta(addr)
+	if err != nil {
+		return nil, err
+	}
+
 	var hList []*types.Hash
 
-	hashList, err := ucfa.GetHashListByAddr(addr, tokenId)
+	hashList, err := ucfa.store.GetAccHashListByTkId(acMeta.AccountId, tokenId)
 	if err != nil && err != leveldb.ErrNotFound {
 		return nil, err
 	}
@@ -92,20 +97,24 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedTxHashs(index, num, count int, addr
 	return hList, nil
 }
 
-func (ucfa *UnconfirmedAccess) GetUnconfirmedAccountMeta(addr *types.Address) (*ledger.UnconfirmedMeta, error) {
-	return ucfa.store.GetUnconfirmedMeta(addr)
-}
-
-func (ucfa *UnconfirmedAccess) GetHashListByAddr(addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
-	acMeta, err := accountAccess.GetAccountMeta(addr)
+func (ucfa *UnconfirmedAccess) GetUnconfirmedHashs(number int, addr *types.Address) ([]*types.Hash, error) {
+	meta, err := ucfa.store.GetUnconfirmedMeta(addr)
 	if err != nil {
 		return nil, err
 	}
-	return ucfa.store.GetUnconfirmedHashList(acMeta.AccountId, tokenId)
+	numberInt := big.NewInt(int64(number))
+	if numberInt.Cmp(meta.TotalNumber) == 1 {
+		return nil, errors.New("The number to get is out of range.")
+	}
+	hashList, err := ucfa.store.GetAccTotalHashList(meta.AccountId)
+	if err != nil && err != leveldb.ErrNotFound {
+		return nil, err
+	}
+	return hashList[0:number], nil
 }
 
-func (ucfa *UnconfirmedAccess) GetHashListByAccId(accountId *big.Int, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
-	return ucfa.store.GetUnconfirmedHashList(accountId, tokenId)
+func (ucfa *UnconfirmedAccess) GetUnconfirmedAccountMeta(addr *types.Address) (*ledger.UnconfirmedMeta, error) {
+	return ucfa.store.GetUnconfirmedMeta(addr)
 }
 
 func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
@@ -148,7 +157,7 @@ func (ucfa *UnconfirmedAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 		var tokenExist = false
 		// Update the total amount of the unconfirmed info per token
 		for index, tokeInfo := range uAccMeta.TokenInfoList {
-			if tokeInfo.TokenId == block.TokenId {
+			if bytes.Equal(tokeInfo.TokenId.Bytes(), block.TokenId.Bytes()) {
 				var amount = &big.Int{}
 				uAccMeta.TokenInfoList[index].TotalAmount = amount.Add(tokeInfo.TotalAmount, block.Amount)
 				tokenExist = true
@@ -174,7 +183,7 @@ func (ucfa *UnconfirmedAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			}
 		}
 	}
-	hashList, err := ucfa.store.GetUnconfirmedHashList(uAccMeta.AccountId, block.TokenId)
+	hashList, err := ucfa.store.GetAccHashListByTkId(uAccMeta.AccountId, block.TokenId)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
 			Code: WacDefaultErr,
@@ -240,7 +249,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 		return errors.New("Delete unconfirmed failed, because uAccMeta is empty. Log:" + err.Error())
 	}
 
-	hashList, err := ucfa.store.GetUnconfirmedHashList(uAccMeta.AccountId, block.TokenId)
+	hashList, err := ucfa.store.GetAccHashListByTkId(uAccMeta.AccountId, block.TokenId)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
 			Code: WacDefaultErr,
@@ -267,7 +276,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 
 	// Update the TotalAmount of the TokenInfo
 	for index, tokeInfo := range uAccMeta.TokenInfoList {
-		if tokeInfo.TokenId == block.TokenId {
+		if bytes.Equal(tokeInfo.TokenId.Bytes(), block.TokenId.Bytes()) {
 			var amount = &big.Int{}
 			amount.Sub(tokeInfo.TotalAmount, block.Amount)
 			uAccMeta.TokenInfoList[index].TotalAmount = amount
@@ -292,7 +301,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 			}
 		}
 		for index, tokeInfo := range uAccMeta.TokenInfoList {
-			if tokeInfo.TokenId == block.TokenId {
+			if bytes.Equal(tokeInfo.TokenId.Bytes(), block.TokenId.Bytes()) {
 				uAccMeta.TokenInfoList = append(uAccMeta.TokenInfoList[:index], uAccMeta.TokenInfoList[index+1:]...)
 			}
 		}
