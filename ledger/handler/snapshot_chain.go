@@ -174,7 +174,8 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 }
 
 var syncInfo = &handler_interface.SyncInfo{
-	IsFirstSyncDone: false,
+	IsFirstSyncDone:  false,
+	IsFirstSyncStart: false,
 }
 
 func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
@@ -184,12 +185,14 @@ func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
 	}
 
 	if !syncInfo.IsFirstSyncDone {
+		syncInfo.IsFirstSyncStart = true
 		if syncInfo.BeginHeight == nil {
 			syncInfo.BeginHeight = latestBlock.Height
 		}
 
 		log.Info("syncPeer: syncInfo.BeginHeight is " + syncInfo.BeginHeight.String())
 		syncInfo.TargetHeight = peer.Height
+		syncInfo.CurrentHeight = syncInfo.BeginHeight
 		log.Info("syncPeer: syncInfo.TargetHeight is " + peer.Height.String())
 	}
 
