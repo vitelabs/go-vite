@@ -103,7 +103,7 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedHashs(number int, addr *types.Addre
 		return nil, err
 	}
 	numberInt := big.NewInt(int64(number))
-	if numberInt.Cmp(meta.TotalNumber) == 1 {
+	if numberInt.Cmp(meta.TotalNumber) == 1 || big.NewInt(0).Cmp(meta.TotalNumber) == 0{
 		return nil, errors.New("The number to get is out of range.")
 	}
 	hashList, err := ucfa.store.GetAccTotalHashList(meta.AccountId)
@@ -332,4 +332,34 @@ func (ucfa *UnconfirmedAccess) AddListener(addr types.Address, change chan<- str
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
 	(*ucfa.listener)[addr] = change
+}
+
+func (ucfa *UnconfirmedAccess) UnconfirmedCallBack(batch *leveldb.Batch, block *ledger.AccountBlock) error {
+	// meta.status: 1 means open, 2 means closed
+	if block.Meta.Status == 2 {
+		if ucfa.HashUnconfirmedBool(block) {
+			fromBlock, err := accountChainAccess.GetBlockByHash(block.FromHash)
+			if err != nil {
+				return err
+			}
+			ucfa.WriteBlock(batch, fromBlock)
+		}
+	}
+	if err := ucfa.DeleteBlock(batch, block); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ucfa *UnconfirmedAccess) HashUnconfirmedBool(block *ledger.AccountBlock) bool {
+	hashList, err := ucfa.store.GetAccHashListByTkId(block.Meta.AccountId, block.TokenId)
+	if err != nil {
+		return false
+	}
+	for _, hash := range hashList {
+		if bytes.Equal(hash.Bytes(), block.FromHash.Bytes()) {
+			return true
+		}
+	}
+	return false
 }
