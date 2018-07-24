@@ -18,7 +18,7 @@ type AccountBlockMeta struct {
 	// AccountBlock height
 	Height *big.Int
 
-	// Block status, 0 means unknow, 1 means open, 2 means closed
+	// Block status, 1 means open, 2 means closed
 	Status int
 
 	// Is snapshotted

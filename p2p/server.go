@@ -384,12 +384,18 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 	return nil
 }
 
-func (svr *Server) CheckConn(peers map[NodeID]*Peer, passivePeersCount uint32) error {
+func (svr *Server) CheckConn(peers map[NodeID]*Peer, c *TSConn, passivePeersCount uint32) error {
 	if uint32(len(peers)) >= svr.MaxPeers {
 		return errors.New("too many peers")
 	}
 	if passivePeersCount >= svr.MaxPassivePeers() {
 		return errors.New("too many passive peers")
+	}
+	if peers[c.id] != nil {
+		return fmt.Errorf("peer %s already connected\n", c.id)
+	}
+	if c.id == svr.ntab.self.ID {
+		return errors.New("cannot connected to self")
 	}
 	return nil
 }
@@ -403,7 +409,7 @@ var defaultBlockTimeout = 20 * time.Minute
 func (svr *Server) ScheduleTask() {
 	defer svr.waitDown.Done()
 
-	dm := NewDialManager(svr.MaxActivePeers(), svr.BootNodes)
+	dm := NewDialManager(svr.ntab, svr.MaxActivePeers(), svr.BootNodes)
 	peers := make(map[NodeID]*Peer)
 	taskHasDone := make(chan Task, defaultMaxActiveDail)
 
@@ -458,7 +464,7 @@ schedule:
 			dm.TaskDone(t)
 			delActiveTask(t)
 		case c := <- svr.addPeer:
-			err := svr.CheckConn(peers, passivePeersCount)
+			err := svr.CheckConn(peers, c, passivePeersCount)
 			if err == nil {
 				p := NewPeer(c)
 				peers[p.ID()] = p
@@ -554,7 +560,7 @@ func (d *NodeDailer) DailNode(target *Node) (net.Conn, error) {
 		IP: target.IP,
 		Port: int(target.Port),
 	}
-
+	log.Printf("tcp dial node %s\n", target)
 	return d.Dialer.Dial("tcp", addr.String())
 }
 
@@ -570,6 +576,7 @@ func (t *discoverTask) Perform(svr *Server) {
 	var target NodeID
 	rand.Read(target[:])
 	t.results = svr.ntab.lookup(target)
+	log.Printf("discv tab lookup %s %d nodes\n", target, len(t.results))
 }
 
 type dialTask struct {
@@ -579,9 +586,13 @@ type dialTask struct {
 	duration 		time.Duration
 }
 func (t *dialTask) Perform(svr *Server) {
+	if t.target.ID == svr.ntab.self.ID {
+		return
+	}
+
 	conn, err := svr.Dialer.DailNode(t.target)
 	if err != nil {
-		log.Printf("dial node %s error: %v\n", t.target, err)
+		log.Printf("tcp dial node %s error: %v\n", t.target, err)
 		svr.blocknode <- t.target
 		return
 	}
@@ -609,6 +620,7 @@ type DialManager struct {
 	looking bool
 	wating bool
 	lookResults []*Node
+	ntab *table
 }
 
 func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]*blockNode) []Task {
@@ -646,12 +658,24 @@ func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]
 		}
 	}
 
+	// bootNodes
 	for i := 0; i < len(dm.bootNodes) && dials > 0; i++ {
 		bootNode := dm.bootNodes[i]
 
 		if addDailTask(dynDialedConn, bootNode) {
-			fmt.Printf("dial %s\n", bootNode)
 			dials--
+		}
+	}
+
+	// randomNodes from table
+	randomCandidates := dials / 2
+	if randomCandidates > 0 {
+		randomNodes := make([]*Node, randomCandidates)
+		n := dm.ntab.readRandomNodes(randomNodes)
+		for i := 0; i < n; i++ {
+			if addDailTask(dynDialedConn, randomNodes[i]) {
+				dials--
+			}
 		}
 	}
 
@@ -684,7 +708,13 @@ func (dm *DialManager) TaskDone(t Task) {
 		delete(dm.dialing, t2.target.ID)
 	case *discoverTask:
 		dm.looking = false
-		dm.lookResults = append(dm.lookResults, t2.results...)
+
+		self := dm.ntab.self.ID
+		for _, node := range t2.results {
+			if self != node.ID {
+				dm.lookResults = append(dm.lookResults, node)
+			}
+		}
 	case *waitTask:
 		dm.wating = false
 	}
@@ -698,15 +728,19 @@ func (dm *DialManager) checkDial(n *Node, peers map[NodeID]*Peer) error {
 	if peers[n.ID] != nil {
 		return fmt.Errorf("%s has connected", n)
 	}
+	if n.ID == dm.ntab.self.ID {
+		return errors.New("self node")
+	}
 
 	return nil
 }
 
-func NewDialManager(maxDials uint32, bootNodes []*Node) *DialManager {
+func NewDialManager(ntab *table, maxDials uint32, bootNodes []*Node) *DialManager {
 	return &DialManager{
 		maxDials: maxDials,
 		bootNodes: copyNodes(bootNodes),	// dm will modify bootNodes
 		dialing: make(map[NodeID]connFlag),
+		ntab: ntab,
 	}
 }
 

@@ -181,43 +181,61 @@ func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) err
 	log.Printf("receive findnode %s from %s\n", p.Target, origin)
 
 	closet := d.tab.closest(p.Target, K)
-	count := len(closet.nodes)
 
-	if count > 0 {
-		nodes := make([]*Node, 0, maxNeighborsNodes)
-		m := &Neighbors{
-			ID: d.getID(),
+	nodes := make([]*Node, 0, maxNeighborsNodes)
+	for _, node := range closet.nodes {
+		nodes = append(nodes, node)
+		if len(nodes) == cap(nodes) {
+			break
 		}
-		// send closet.nodes several times
-		for i := 0; i < count; i++ {
-			nodes = append(nodes, closet.nodes[i])
-
-			if len(nodes) == cap(nodes) {
-				m.Nodes = nodes
-				err := d.send(origin, neighborsCode, m)
-				if err != nil {
-					log.Printf("send %d neighbors to %s error: %v\n", len(nodes), origin, err)
-				} else {
-					log.Printf("send %d neighbors to %s\n", len(nodes), origin)
-					nodes = nodes[:0]
-				}
-			}
-		}
-		if len(nodes) > 0 {
-			m.Nodes = nodes
-
-			err := d.send(origin, neighborsCode, m)
-			if err != nil {
-				return fmt.Errorf("send %d neighbors to %s error: %v\n", len(nodes), origin, err)
-			} else {
-				log.Printf("send %d neighbors to %s\n", len(nodes), origin)
-			}
-		}
-	} else {
-		log.Printf("findnode %s got 0 closet nodes", p.Target)
 	}
 
-	return nil
+	err := d.send(origin, neighborsCode, &Neighbors{
+		ID: d.getID(),
+		Nodes: nodes,
+	})
+
+	if err != nil {
+		log.Printf("send %d neighbors to %s, target: %s, error: %v\n", len(nodes), origin, p.Target, err)
+	} else {
+		log.Printf("send %d neighbors to %s, target: %s\n", len(nodes), origin, p.Target)
+	}
+
+	return err
+
+	//if count > 0 {
+	//	nodes := make([]*Node, 0, maxNeighborsNodes)
+	//	m := &Neighbors{
+	//		ID: d.getID(),
+	//	}
+	//	// send closet.nodes several times
+	//	for i := 0; i < count; i++ {
+	//		nodes = append(nodes, closet.nodes[i])
+	//
+	//		if len(nodes) == cap(nodes) {
+	//			m.Nodes = nodes
+	//			err := d.send(origin, neighborsCode, m)
+	//			if err != nil {
+	//				log.Printf("send %d neighbors to %s error: %v\n", len(nodes), origin, err)
+	//			} else {
+	//				log.Printf("send %d neighbors to %s\n", len(nodes), origin)
+	//				nodes = nodes[:0]
+	//			}
+	//		}
+	//	}
+	//	if len(nodes) > 0 {
+	//		m.Nodes = nodes
+	//
+	//		err := d.send(origin, neighborsCode, m)
+	//		if err != nil {
+	//			return fmt.Errorf("send %d neighbors to %s error: %v\n", len(nodes), origin, err)
+	//		} else {
+	//			log.Printf("send %d neighbors to %s\n", len(nodes), origin)
+	//		}
+	//	}
+	//} else {
+	//	log.Printf("findnode %s got 0 closet nodes", p.Target)
+	//}
 }
 
 type Neighbors struct {
