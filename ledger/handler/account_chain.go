@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/log"
 	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"math/big"
+	"strconv"
 	"time"
 )
 
@@ -42,6 +43,7 @@ func (ac *AccountChain) HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, pee
 		}
 
 		// send out
+		log.Info("AccountChain.HandleGetBlocks: send " + strconv.Itoa(len(blocks)) + " blocks.")
 		ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 			Code:    protoTypes.AccountBlocksMsgCode,
 			Payload: blocks,
@@ -52,11 +54,11 @@ func (ac *AccountChain) HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, pee
 
 // HandleBlockHash
 func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer) error {
+	log.Info("AccountChain HandleSendBlocks: receive " + strconv.Itoa(len(*msg)) + " blocks from network")
 	go func() {
 		globalRWMutex.RLock()
 		defer globalRWMutex.RUnlock()
 
-		log.Info("AccountChain HandleSendBlocks: receive blocks from network")
 		for _, block := range *msg {
 			log.Info("AccountChain HandleSendBlocks: start process block " + block.Hash.String())
 			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
