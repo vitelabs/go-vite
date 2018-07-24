@@ -121,7 +121,7 @@ func NewPBTS(conn net.Conn) transport {
 }
 
 // @section PBTS
-const headerLenth = 20
+const headerLength = 20
 const maxPayloadSize = ^uint64(0)
 
 type PBTS struct {
@@ -131,13 +131,11 @@ type PBTS struct {
 }
 
 func (pt *PBTS) ReadMsg() (m Msg, err error) {
-	header := make([]byte, headerLenth)
-	n, err := pt.conn.Read(header)
+	header := make([]byte, headerLength)
+
+	err = readFullBytes(pt.conn, header)
 	if err != nil {
 		return m, fmt.Errorf("read msg header error: %v\n", err)
-	}
-	if n != headerLenth {
-		return m, fmt.Errorf("read msg incompelete header %d / %d\n", n, headerLenth)
 	}
 
 	// extract msg.Code
@@ -149,18 +147,34 @@ func (pt *PBTS) ReadMsg() (m Msg, err error) {
 	// read payload according to size
 	if size > 0 {
 		payload := make([]byte, size)
-		size2, err := pt.conn.Read(payload)
+
+		err = readFullBytes(pt.conn, payload)
 		if err != nil {
 			return m, fmt.Errorf("read msg payload error: %v\n", err)
-		}
-		if uint64(size2) != size {
-			return m, fmt.Errorf("read incomplete msg payload %d / %d\n", size2, size)
 		}
 
 		m.Payload = payload
 	}
 
 	return m, nil
+}
+
+func readFullBytes(conn net.Conn, data []byte) error {
+	length := cap(data)
+	index := 0
+	for {
+		n, err := conn.Read(data[index:])
+		fmt.Printf("total: %d bytes, index: %d, read %d bytes, error: %v\n", length, index, n, err)
+		if err != nil {
+			return err
+		}
+
+		index += n
+		if index == length {
+			break
+		}
+	}
+	return nil
 }
 
 func (pt *PBTS) WriteMsg(m Msg) error {
@@ -243,7 +257,7 @@ func (pt *PBTS) Close(err error) {
 }
 
 func pack(m Msg) ([]byte, error) {
-	header := make([]byte, headerLenth)
+	header := make([]byte, headerLength)
 
 	// add code to header
 	binary.BigEndian.PutUint64(header[:8], m.Code)
@@ -258,10 +272,10 @@ func pack(m Msg) ([]byte, error) {
 	binary.BigEndian.PutUint64(header[8:16], size)
 
 	// concat header and payload
-	data := make([]byte, headerLenth + size)
+	data := make([]byte, headerLength + size)
 	copy(data, header)
 	if m.Payload != nil {
-		copy(data[headerLenth:], m.Payload)
+		copy(data[headerLength:], m.Payload)
 	}
 
 	return data, nil
