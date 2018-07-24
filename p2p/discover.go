@@ -775,7 +775,7 @@ func newDiscover(cfg *DiscvConfig) (*table, *net.UDPAddr, error) {
 	var publicIP net.IP
 	extIP, err := getExtIP()
 	if err != nil {
-		log.Printf("got external ip error: %v\n", err)
+		log.Printf("cannot got external ip: %v\n", err)
 		publicIP = laddr.IP
 	} else {
 		publicIP = extIP

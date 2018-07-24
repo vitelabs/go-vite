@@ -32,15 +32,16 @@ func (pm *ProtocolManager) HandleStatusMsg(status *protoType.StatusMsg, peer *pr
 	log.Printf("receive status from %s height %d \n", peer.ID, status.Height)
 
 	peer.Update(status)
-	// after get status msg, then AddPeer
+	// AddPeer after get status msg from it, ensure we get Height and Hash of peer.
 	pm.Peers.AddPeer(peer)
 	log.Printf("now we have %d peers\n", pm.Peers.Count())
 
-	pm.Sync()
+	// use goroutine to avoid block following msgs.
+	go pm.Sync()
 }
 
 func (pm *ProtocolManager) SendStatusMsg(peer *protoType.Peer) {
-	// todo get genesis block hash
+	// todo: should get genesis block hash
 	currentBlock := pm.CurrentBlock()
 	status := &protoType.StatusMsg{
 		ProtocolVersion: protoType.Vite1,
