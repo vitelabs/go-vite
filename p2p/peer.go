@@ -25,6 +25,7 @@ const (
 	DiscProtocolError
 	DiscUselessPeer
 	DiscTooManyPeers
+	DiscTooManyPassivePeers
 	DiscAlreadyConnected
 	DiscIncompatibleVersion
 	DiscInvalidIdentity
@@ -41,6 +42,7 @@ var discReasonToString = [...]string{
 	DiscProtocolError:       "breach of protocol",
 	DiscUselessPeer:         "useless peer",
 	DiscTooManyPeers:        "too many peers",
+	DiscTooManyPassivePeers: "too many passive peers",
 	DiscAlreadyConnected:    "already connected",
 	DiscIncompatibleVersion: "incompatible p2p protocol version",
 	DiscInvalidIdentity:     "invalid node identity",
@@ -104,7 +106,7 @@ func (p *Peer) run(protoHandler peerHandler) (err error) {
 		p.protoHandler = protoHandler
 		p.wg.Add(1)
 		go func() {
-			log.Printf("tcp proto handler peer %s\n", p.ID())
+			log.Printf("proto handle peer %s\n", p.ID())
 			protoHandler(p)
 			p.wg.Done()
 		}()
@@ -141,7 +143,7 @@ func (p *Peer) readLoop() {
 		default:
 			msg, err := p.TS.ReadMsg()
 			if err != nil {
-				log.Printf("peer read error: %v\n", err)
+				log.Printf("peer %s read error: %v\n", p.ID(), err)
 				p.Errch <- err
 				return
 			}
@@ -157,6 +159,7 @@ func (p *Peer) handleMsg(msg Msg) {
 	switch {
 	case msg.Code == discMsg:
 		discReason := binary.BigEndian.Uint64(msg.Payload)
+		log.Printf("disconnect with peer %s: %s\n", p.ID(), DiscReason(discReason))
 		p.Errch <- DiscReason(discReason)
 	case msg.Code < baseProtocolBand:
 		// ignore
@@ -165,13 +168,13 @@ func (p *Peer) handleMsg(msg Msg) {
 		if p.protoHandler != nil {
 			p.ProtoMsg <- msg
 		} else {
-			p.Errch <- fmt.Errorf("cannot handle msg %d, missing protoHandler\n", msg.Code)
+			p.Errch <- fmt.Errorf("cannot handle msg %d from %s, missing protoHandler\n", p.ID(), msg.Code)
 		}
 	}
 }
 
 func (p *Peer) Disconnect(reason DiscReason) {
-	log.Printf("tcp disconnect peer %s\n", p.ID())
+	log.Printf("disconnect with peer %s\n", p.ID())
 
 	select {
 	case p.disc <- reason:
