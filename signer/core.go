@@ -83,7 +83,7 @@ func (c *Master) loop() {
 		c.coreMutex.Lock()
 		if worker, ok := c.signSlaves[event.Address]; ok {
 			log.Info("Master get event already exist ", event)
-			worker.AddressLocked(!event.Unlocked())
+			worker.AddressUnlocked(event.Unlocked())
 			continue
 		}
 
@@ -109,11 +109,11 @@ type signSlave struct {
 	breaker       chan struct{}
 	newSignedTask chan struct{}
 
-	waitSendTasks []*sendTask
-	addressLocked bool
-	isWorking     bool
-	mutex         sync.Mutex
-	isClosed      bool
+	waitSendTasks   []*sendTask
+	addressUnlocked bool
+	isWorking       bool
+	mutex           sync.Mutex
+	isClosed        bool
 }
 
 func (sw *signSlave) Close() error {
@@ -136,9 +136,9 @@ func (sw *signSlave) IsWorking() bool {
 	return sw.isWorking
 }
 
-func (sw *signSlave) AddressLocked(locked bool) {
-	sw.addressLocked = locked
-	if locked {
+func (sw *signSlave) AddressUnlocked(unlocked bool) {
+	sw.addressUnlocked = unlocked
+	if unlocked {
 		sw.vite.Ledger().Ac().AddListener(sw.address, sw.newSignedTask)
 	} else {
 		sw.vite.Ledger().Ac().RemoveListener(sw.address)
@@ -207,7 +207,7 @@ func (sw *signSlave) StartWork() {
 		}
 		sw.mutex.Unlock()
 
-		if !sw.addressLocked {
+		if sw.addressUnlocked {
 			hasmore, err := sw.sendNextUnConfirmed()
 			if err != nil {
 				log.Error(err.Error())
