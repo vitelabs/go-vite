@@ -497,6 +497,7 @@ schedule:
 					passivePeersCount++
 				}
 			} else {
+				c.fd.Close()
 				log.Printf("create new peer error: %v\n", err)
 			}
 		case p := <- svr.delPeer:
