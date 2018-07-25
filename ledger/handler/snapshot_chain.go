@@ -254,6 +254,7 @@ func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
 	block.PrevHash = latestBlock.Hash
 	block.Amount = big.NewInt(0)
 
+	log.Info("SnapshotChain WriteMiningBlock: create a new snapshot block.")
 	err := sc.scAccess.WriteBlock(block, func(block *ledger.SnapshotBlock) (*ledger.SnapshotBlock, error) {
 		var signErr error
 
@@ -264,10 +265,13 @@ func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
 	})
 
 	if err != nil {
+		log.Info("SnapshotChain WriteMiningBlock: Write a new snapshot block failed. Error is " + err.Error())
 		return err
 	}
 
+
 	// Broadcast
+	log.Info("SnapshotChain WriteMiningBlock: Broadcast a new snapshot block.")
 	sendErr := sc.vite.Pm().SendMsg(nil, &protoTypes.Msg{
 		Code:    protoTypes.SnapshotBlocksMsgCode,
 		Payload: &protoTypes.SnapshotBlocksMsg{block},

@@ -73,6 +73,7 @@ func New(cfg *config.Config) (*Vite, error) {
 	vite.verifier = committee
 
 	if cfg.Miner.Miner && cfg.Miner.Coinbase != "" {
+		log.Println("Vite backend new: Start miner.")
 		coinbase, _ := types.HexToAddress(cfg.Coinbase)
 		vite.miner = miner.NewMiner(vite.ledger.Sc(), coinbase, committee)
 		pwd := "123"
