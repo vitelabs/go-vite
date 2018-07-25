@@ -186,7 +186,7 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 				syncInfo.CurrentHeight = block.Height
 
 				if syncInfo.CurrentHeight.Cmp(syncInfo.TargetHeight) >= 0 {
-					syncInfo.IsFirstSyncDone = true
+					sc.onFirstSyncDown()
 				}
 			}
 
@@ -243,9 +243,10 @@ func (sc *SnapshotChain) SyncPeer(peer *protoTypes.Peer) {
 	// Syncing done, modify in future
 	defer sc.vite.Pm().SyncDone()
 	if peer == nil {
-		syncInfo.IsFirstSyncDone = true
-		log.Info("SnapshotChain.SyncPeer: sync finished.")
-
+		if !syncInfo.IsFirstSyncDone {
+			sc.onFirstSyncDown()
+			log.Info("SnapshotChain.SyncPeer: sync finished.")
+		}
 		return
 	}
 	// Do syncing
