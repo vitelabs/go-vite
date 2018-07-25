@@ -10,11 +10,14 @@ import (
 	protoInterface "github.com/vitelabs/go-vite/protocols/interfaces"
 
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/miner"
 	"github.com/vitelabs/go-vite/signer"
 	"github.com/vitelabs/go-vite/vitedb"
 	"log"
+	"time"
 )
 
 type Vite struct {
@@ -24,6 +27,8 @@ type Vite struct {
 	pm            *protocols.ProtocolManager
 	walletManager *wallet.Manager
 	signer        *signer.Master
+	verifier      consensus.Verifier
+	miner         *miner.Miner
 }
 
 var (
@@ -31,12 +36,17 @@ var (
 	DefaultConfig    = &Config{
 		DataDir:   common.DefaultDataDir(),
 		P2pConfig: defaultP2pConfig,
+		Miner:     false,
+		Coinbase:  "",
 	}
 )
 
 type Config struct {
-	DataDir   string
-	P2pConfig *p2p.Config
+	DataDir       string
+	P2pConfig     *p2p.Config
+	Miner         bool
+	Coinbase      string
+	MinerInterval int
 }
 
 func New(cfg *Config) (*Vite, error) {
@@ -68,6 +78,20 @@ func New(cfg *Config) (*Vite, error) {
 		log.Fatal(initP2pErr)
 	}
 
+	genesisTime := time.Unix(int64(ledger.GetSnapshotGenesisBlock().Timestamp), 0)
+	committee := consensus.NewCommittee(genesisTime, int32(cfg.MinerInterval), int32(len(consensus.DefaultMembers)))
+	vite.verifier = committee
+
+	if cfg.Miner && cfg.Coinbase != "" {
+		coinbase, _ := types.HexToAddress(cfg.Coinbase)
+		vite.miner = miner.NewMiner(vite.ledger.Sc(), coinbase, committee)
+		pwd := "123"
+		vite.walletManager.KeystoreManager.Unlock(coinbase, pwd, time.Second*10)
+		committee.Init()
+		vite.miner.Init()
+		vite.miner.Start()
+		committee.Start()
+	}
 	vite.p2p.Start()
 	return vite, nil
 }
@@ -97,8 +121,8 @@ func (v *Vite) Config() *Config {
 }
 
 func (v *Vite) Miner() *miner.Miner {
-	return nil
+	return v.miner
 }
 func (v *Vite) Verifier() consensus.Verifier {
-	return nil
+	return v.verifier
 }
