@@ -154,20 +154,21 @@ func (bwm *blockWriteMutex) UnLock(block *ledger.AccountBlock, writeErr *AcWrite
 }
 
 type AccountChainAccess struct {
-	store         *vitedb.AccountChain
-	accountStore  *vitedb.Account
-	snapshotStore *vitedb.SnapshotChain
-	tokenStore    *vitedb.Token
-
-	bwMutex *blockWriteMutex
+	store            *vitedb.AccountChain
+	accountStore     *vitedb.Account
+	snapshotStore    *vitedb.SnapshotChain
+	tokenStore       *vitedb.Token
+	unconfirmedStore *vitedb.Unconfirmed
+	bwMutex          *blockWriteMutex
 }
 
 var accountChainAccess = &AccountChainAccess{
-	store:         vitedb.GetAccountChain(),
-	accountStore:  vitedb.GetAccount(),
-	snapshotStore: vitedb.GetSnapshotChain(),
-	tokenStore:    vitedb.GetToken(),
-	bwMutex:       &blockWriteMutex{},
+	store:            vitedb.GetAccountChain(),
+	accountStore:     vitedb.GetAccount(),
+	snapshotStore:    vitedb.GetSnapshotChain(),
+	tokenStore:       vitedb.GetToken(),
+	unconfirmedStore: vitedb.GetUnconfirmed(),
+	bwMutex:          &blockWriteMutex{},
 }
 
 func GetAccountChainAccess() *AccountChainAccess {
