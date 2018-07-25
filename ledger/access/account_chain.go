@@ -319,6 +319,7 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 
 	// Write from block meta
 	fromBlock.Meta.Status = 2
+	
 	if err := aca.writeBlockMeta(batch, fromBlock); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,

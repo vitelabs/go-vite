@@ -38,6 +38,8 @@ func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase s
 	if block.AccountAddress == nil {
 		return fmt.Errorf("address nil")
 	}
+	log.Info("Master AccountAddress", block.AccountAddress.String())
+	log.Info("Master ToAddress", block.To.String())
 
 	c.coreMutex.Lock()
 	slave := c.signSlaves[*block.AccountAddress]
@@ -81,7 +83,7 @@ func (c *Master) loop() {
 		c.coreMutex.Lock()
 		if worker, ok := c.signSlaves[event.Address]; ok {
 			log.Info("Master get event already exist ", event)
-			worker.AddressLocked(!event.Unlocked())
+			worker.AddressUnlocked(event.Unlocked())
 			continue
 		}
 
@@ -107,11 +109,11 @@ type signSlave struct {
 	breaker       chan struct{}
 	newSignedTask chan struct{}
 
-	waitSendTasks []*sendTask
-	addressLocked bool
-	isWorking     bool
-	mutex         sync.Mutex
-	isClosed      bool
+	waitSendTasks   []*sendTask
+	addressUnlocked bool
+	isWorking       bool
+	mutex           sync.Mutex
+	isClosed        bool
 }
 
 func (sw *signSlave) Close() error {
@@ -134,9 +136,9 @@ func (sw *signSlave) IsWorking() bool {
 	return sw.isWorking
 }
 
-func (sw *signSlave) AddressLocked(locked bool) {
-	sw.addressLocked = locked
-	if locked {
+func (sw *signSlave) AddressUnlocked(unlocked bool) {
+	sw.addressUnlocked = unlocked
+	if unlocked {
 		sw.vite.Ledger().Ac().AddListener(sw.address, sw.newSignedTask)
 	} else {
 		sw.vite.Ledger().Ac().RemoveListener(sw.address)
@@ -144,7 +146,7 @@ func (sw *signSlave) AddressLocked(locked bool) {
 }
 
 func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
-	log.Info("auto send confirm task")
+	log.Info("slaver auto send confirm task")
 	ac := sw.vite.Ledger().Ac()
 	hashes, e := ac.GetUnconfirmedTxHashs(0, 1, 1, &sw.address)
 
@@ -156,6 +158,7 @@ func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
 		return false, nil
 	}
 
+	log.Info("slaver sendNextUnConfirmed: send receive transaction. " + sw.address.String() + " " + hashes[0].String())
 	err = ac.CreateTx(&ledger.AccountBlock{
 		AccountAddress: &sw.address,
 		FromHash:       hashes[0],
@@ -188,7 +191,7 @@ func (sw *signSlave) StartWork() {
 			break
 		}
 		if len(sw.waitSendTasks) != 0 {
-			for _, v := range sw.waitSendTasks {
+			for i, v := range sw.waitSendTasks {
 				log.Info("send user task")
 				err := sw.vite.Ledger().Ac().CreateTxWithPassphrase(v.block, v.passphrase)
 				if err == nil {
@@ -199,11 +202,12 @@ func (sw *signSlave) StartWork() {
 					v.end <- err.Error()
 				}
 				close(v.end)
+				sw.waitSendTasks = append(sw.waitSendTasks[:i], sw.waitSendTasks[i+1:]...)
 			}
 		}
 		sw.mutex.Unlock()
 
-		if !sw.addressLocked {
+		if sw.addressUnlocked {
 			hasmore, err := sw.sendNextUnConfirmed()
 			if err != nil {
 				log.Error(err.Error())

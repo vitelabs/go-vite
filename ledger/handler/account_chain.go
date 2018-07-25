@@ -219,7 +219,7 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 		return accountBlock, signErr
 	})
 
-	if err != nil {
+	if writeErr != nil {
 		return writeErr
 	}
 
