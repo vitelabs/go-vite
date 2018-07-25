@@ -153,13 +153,6 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 
 	isGenesisBlock := block.IsGenesisBlock()
 
-	if !isGenesisBlock && (block.Snapshot == nil || len(block.Snapshot) <= 0) {
-		return &ScWriteError{
-			Code: WscDefaultErr,
-			Err:  errors.New("The written block snapshot is nil."),
-		}
-	}
-
 	// Judge whether the prehash is valid
 	if !isGenesisBlock {
 		preSnapshotBlock, err := sca.store.GetLatestBlock()
@@ -184,7 +177,7 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 	}
 
 	// Check account block availability
-	if !isGenesisBlock {
+	if !isGenesisBlock && block.Snapshot != nil {
 		snapshot := block.Snapshot
 
 		var needSyncAccountBlocks []*WscNeedSyncErrData
@@ -206,7 +199,6 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 		}
 
 		if needSyncAccountBlocks != nil {
-
 			return &ScWriteError{
 				Code: WscNeedSyncErr,
 				Data: needSyncAccountBlocks,
