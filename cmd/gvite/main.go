@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/p2p"
 	"flag"
+	"log"
 )
 
 var (
@@ -16,7 +17,10 @@ var (
 func main ()  {
 	flag.Parse()
 	p2pConfig := &p2p.Config{
-		Name: *nameFlag,
+		CmdConfig: p2p.CmdConfig{
+			Name: *nameFlag,
+			Sig: *sigFlag,
+		},
 	}
 
 	v, err := vite.New(&vite.Config{
@@ -24,5 +28,7 @@ func main ()  {
 		P2pConfig: p2pConfig,
 	})
 
-
+	if err != nil {
+		log.Fatal(err)
+	}
 }
