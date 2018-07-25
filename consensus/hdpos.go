@@ -142,6 +142,7 @@ func (self *Committee) update() {
 		mem := self.subscribeMem
 		if mem == nil {
 			time.Sleep(electionResult.eTime.Sub(time.Now()))
+			continue
 		}
 
 		plans := electionResult.plans

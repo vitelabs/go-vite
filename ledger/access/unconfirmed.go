@@ -140,6 +140,13 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 	}
 	defer ucfa.uwMutex.UnLock(block)
 
+	// [tmp] Check data.
+	log.Info("Unconfirmed: before write:")
+	log.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
+	for idx, tokenInfo := range uAccMeta.TokenInfoList {
+		log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
+	}
+
 	if uAccMeta != nil {
 		// Upodate total number of this account's unconfirmedblocks
 		var number = &big.Int{}
@@ -195,7 +202,6 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 			Err:  err,
 		}
 	}
-
 	// Add to the Listener
 	_, ok := (*ucfa.listener)[*block.AccountAddress]
 	if ok {
@@ -224,7 +230,6 @@ func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(block *ledger.AccountBlock) (*l
 }
 
 func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-
 	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(block.AccountAddress)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
@@ -232,6 +237,13 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 			Err:  err,
 		}
 	}
+	// [tmp] Check data.
+	log.Info("Unconfirmed: before delete:")
+	log.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
+	for idx, tokenInfo := range uAccMeta.TokenInfoList {
+		log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
+	}
+
 	if uAccMeta == nil {
 		ucfa.writeAccountMutex.Lock()
 		defer ucfa.writeAccountMutex.Unlock()
@@ -317,27 +329,29 @@ var listenerMutex sync.Mutex
 
 func (ucfa *UnconfirmedAccess) SendSignalToListener(addr types.Address) {
 	listenerMutex.Lock()
+	defer listenerMutex.Unlock()
 	(*ucfa.listener)[addr] <- struct{}{}
-	listenerMutex.Unlock()
+	log.Info("Unconfirmed: Send signal to listener success.")
 }
 
 func (ucfa *UnconfirmedAccess) RemoveListener(addr types.Address) {
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
 	delete(*ucfa.listener, addr)
-
+	log.Info("Unconfirmed: Remove account's listener success.")
 }
 
 func (ucfa *UnconfirmedAccess) AddListener(addr types.Address, change chan<- struct{}) {
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
 	(*ucfa.listener)[addr] = change
+	log.Info("Unconfirmed: Add account's listener success.")
 }
 
 func (ucfa *UnconfirmedAccess) UnconfirmedCallBack(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	// meta.status: 1 means open, 2 means closed
 	if block.Meta.Status == 2 {
-		if ucfa.HashUnconfirmedBool(block) {
+		if ucfa.HashUnconfirmedBool(block.Meta.AccountId, block.TokenId, block.FromHash) {
 			fromBlock, err := accountChainAccess.GetBlockByHash(block.FromHash)
 			if err != nil {
 				return err
@@ -351,13 +365,13 @@ func (ucfa *UnconfirmedAccess) UnconfirmedCallBack(batch *leveldb.Batch, block *
 	return nil
 }
 
-func (ucfa *UnconfirmedAccess) HashUnconfirmedBool(block *ledger.AccountBlock) bool {
-	hashList, err := ucfa.store.GetAccHashListByTkId(block.Meta.AccountId, block.TokenId)
+func (ucfa *UnconfirmedAccess) HashUnconfirmedBool(accId *big.Int, tkId *types.TokenTypeId, hash *types.Hash) bool {
+	hashList, err := ucfa.store.GetAccHashListByTkId(accId, tkId)
 	if err != nil {
 		return false
 	}
-	for _, hash := range hashList {
-		if bytes.Equal(hash.Bytes(), block.FromHash.Bytes()) {
+	for _, h := range hashList {
+		if bytes.Equal(h.Bytes(), hash.Bytes()) {
 			return true
 		}
 	}
