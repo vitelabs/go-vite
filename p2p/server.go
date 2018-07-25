@@ -391,7 +391,7 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 	peerhandshake, err := c.Handshake(svr.ourHandshake)
 
 	if err != nil {
-		log.Println("handshake with %s error: ", conn.RemoteAddr(), err)
+		log.Printf("handshake with %s error: %v\n", conn.RemoteAddr(), err)
 		conn.Close()
 		return err
 	} else {
