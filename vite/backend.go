@@ -74,10 +74,10 @@ func New(cfg *config.Config) (*Vite, error) {
 
 	if cfg.Miner.Miner && cfg.Miner.Coinbase != "" {
 		log.Println("Vite backend new: Start miner.")
-		coinbase, _ := types.HexToAddress(cfg.Coinbase)
+		coinbase, _ := types.HexToAddress(cfg.Miner.Coinbase)
 		vite.miner = miner.NewMiner(vite.ledger.Sc(), vite.ledger.RegisterFirstSyncDown, coinbase, committee)
 		pwd := "123"
-		vite.walletManager.KeystoreManager.Unlock(coinbase, pwd, time.Second*10)
+		vite.walletManager.KeystoreManager.Unlock(coinbase, pwd, 0)
 		committee.Init()
 		vite.miner.Init()
 		vite.miner.Start()

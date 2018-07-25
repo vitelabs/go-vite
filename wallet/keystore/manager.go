@@ -103,7 +103,7 @@ func (km Manager) Status() (map[types.Address]string, error) {
 	return m, nil
 }
 
-// if the timeout is <0 we will keep the unlock state until the program exit
+// if the timeout is <=0 we will keep the unlock state until the program exit
 func (km *Manager) Unlock(addr types.Address, passphrase string, timeout time.Duration) error {
 	key, err := km.ks.ExtractKey(addr, passphrase)
 	if err != nil {
