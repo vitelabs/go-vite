@@ -7,12 +7,12 @@ import (
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/rpc"
-	"github.com/vitelabs/go-vite/rpc/apis"
 	rpc2 "net/rpc"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"github.com/vitelabs/go-vite/rpc/api_interface"
 )
 
 func main() {
@@ -141,7 +141,7 @@ func GetInitSyncInfo(client *rpc2.Client, param []string) {
 }
 
 func CreateTxWithPassphrase(client *rpc2.Client, param []string) {
-	tx := apis.SendTxParms{
+	tx := api_interface.SendTxParms{
 		SelfAddr:    param[0],
 		ToAddr:      param[1],
 		Passphrase:  "123456",

@@ -7,11 +7,6 @@ import (
 	"strconv"
 )
 
-type CommonApis interface {
-	IsValidHexAddress(addrs []string, reply *string) error
-	IsValidHexTokenTypeId(ttis []string, reply *string) error
-}
-
 type CommonApisImpl struct {
 }
 

@@ -4,16 +4,10 @@ import (
 	"github.com/vitelabs/go-vite/log"
 	"github.com/vitelabs/go-vite/p2p"
 	"strconv"
+	"github.com/vitelabs/go-vite/rpc/api_interface"
 )
 
-type P2PApi interface {
-	// reply true or false
-	NetworkAvailable(noop interface{}, reply *string) error
-	// reply an int value represents PeersCount
-	PeersCount(noop interface{}, reply *string) error
-}
-
-func NewP2PApi(p2p *p2p.Server) P2PApi {
+func NewP2PApi(p2p *p2p.Server) api_interface.P2PApi {
 	return P2PApiImpl{
 		p2p: p2p,
 	}

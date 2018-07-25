@@ -107,6 +107,9 @@ func parseJson(keyjson []byte) (k *encryptedKeyJSON, kAddress *types.Address, ci
 
 func DecryptKey(keyjson []byte, password string) (*Key, error) {
 	k, kAddress, cipherPriv, nonce, salt, err := parseJson(keyjson)
+	if err != nil {
+		return nil, err
+	}
 	scryptParams := k.Crypto.ScryptParams
 	kid := uuid.Parse(k.Id)
 

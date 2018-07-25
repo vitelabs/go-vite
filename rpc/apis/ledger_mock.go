@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"github.com/vitelabs/go-vite/log"
 	"time"
+	"github.com/vitelabs/go-vite/rpc/api_interface"
 )
 
-func NewMockLedger() LedgerApi {
+func NewMockLedger() api_interface.LedgerApi {
 	return &MockLedgerImpl{}
 }
 
@@ -17,7 +18,7 @@ func (MockLedgerImpl) String() string {
 	return "MockLedgerImpl"
 }
 
-func (MockLedgerImpl) CreateTxWithPassphrase(params *SendTxParms, reply *string) error {
+func (MockLedgerImpl) CreateTxWithPassphrase(params *api_interface.SendTxParms, reply *string) error {
 	p, _ := json.Marshal(params)
 	log.Debug(string(p))
 
@@ -25,12 +26,12 @@ func (MockLedgerImpl) CreateTxWithPassphrase(params *SendTxParms, reply *string)
 	return nil
 }
 
-func (MockLedgerImpl) GetBlocksByAccAddr(params *GetBlocksParams, reply *string) error {
+func (MockLedgerImpl) GetBlocksByAccAddr(params *api_interface.GetBlocksParams, reply *string) error {
 	log.Debug("GetBlocksByAccAddr")
 	p, _ := json.Marshal(params)
 	log.Debug(string(p))
 
-	s := []SimpleBlock{
+	s := []api_interface.SimpleBlock{
 		{
 			Timestamp: uint64(time.Now().Unix()),
 			Amount:    "123",
@@ -59,13 +60,13 @@ func (MockLedgerImpl) GetBlocksByAccAddr(params *GetBlocksParams, reply *string)
 	return easyJsonReturn(s, reply)
 }
 
-func (MockLedgerImpl) GetUnconfirmedBlocksByAccAddr(params *GetBlocksParams, reply *string) error {
+func (MockLedgerImpl) GetUnconfirmedBlocksByAccAddr(params *api_interface.GetBlocksParams, reply *string) error {
 	log.Debug("GetUnconfirmedBlocksByAccAddr")
 
 	p, _ := json.Marshal(params)
 	log.Debug(string(p))
 
-	s := []SimpleBlock{
+	s := []api_interface.SimpleBlock{
 		{
 			Timestamp: uint64(time.Now().Unix()),
 			Amount:    "123",
@@ -97,10 +98,10 @@ func (MockLedgerImpl) GetUnconfirmedBlocksByAccAddr(params *GetBlocksParams, rep
 
 func (MockLedgerImpl) GetAccountByAccAddr(addr []string, reply *string) error {
 	log.Debug("GetAccountByAccAddr")
-	return easyJsonReturn(GetAccountResponse{
+	return easyJsonReturn(api_interface.GetAccountResponse{
 
 		Addr: "vite_b7d95cc00fd89f8f94cda547a9ec686ae0c3714921e1867dd9 ",
-		BalanceInfos: []BalanceInfo{
+		BalanceInfos: []api_interface.BalanceInfo{
 			{
 				TokenSymbol: "vite",
 				TokenName:   "vite",
@@ -120,9 +121,9 @@ func (MockLedgerImpl) GetAccountByAccAddr(addr []string, reply *string) error {
 
 func (MockLedgerImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
 	log.Debug("GetUnconfirmedInfo")
-	return easyJsonReturn(GetUnconfirmedInfoResponse{
+	return easyJsonReturn(api_interface.GetUnconfirmedInfoResponse{
 		Addr: "vite_8bca915b96022801d3f809bdb9133077c22dd640df06fced28",
-		BalanceInfos: []BalanceInfo{
+		BalanceInfos: []api_interface.BalanceInfo{
 			{
 				TokenSymbol: "vite",
 				TokenName:   "vite",
@@ -142,7 +143,7 @@ func (MockLedgerImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
 
 func (MockLedgerImpl) GetInitSyncInfo(noop interface{}, reply *string) error {
 	log.Debug("GetInitSyncInfo")
-	return easyJsonReturn(InitSyncResponse{
+	return easyJsonReturn(api_interface.InitSyncResponse{
 		StartHeight:   "100",
 		TargetHeight:  "200",
 		CurrentHeight: "200",

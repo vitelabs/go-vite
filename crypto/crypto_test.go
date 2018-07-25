@@ -65,11 +65,11 @@ func TestAesCTRXOR(t *testing.T) {
 	}
 
 	if !bytes.Equal(plainArray, plainArray1) {
-		t.Fatal("mis content")
+		t.Error("mis content")
 	}
 
-	println("plainArray :", string(plainArray))
-	println("plainArray1:", string(plainArray1))
+	println("plainArray :", hex.EncodeToString(plainArray))
+	println("plainArray1:", hex.EncodeToString(plainArray1))
 	println(hex.EncodeToString(cipher))
 
 }
