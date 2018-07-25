@@ -775,6 +775,7 @@ var errTimeout = errors.New("timeout")
 
 type DiscvConfig struct {
 	Priv ed25519.PrivateKey
+	Pub ed25519.PublicKey
 	DBPath string
 	BootNodes []*Node
 	Addr *net.UDPAddr
@@ -806,8 +807,14 @@ func newDiscover(cfg *DiscvConfig) (*table, *net.UDPAddr, error) {
 	// get the real local address. eg. 127.0.0.1:8483
 	laddr = conn.LocalAddr().(*net.UDPAddr)
 
+	var id NodeID
+	if cfg.Pub == nil {
+		id = priv2ID(cfg.Priv)
+	} else {
+		copy(id[:], cfg.Pub)
+	}
 	node := &Node{
-		ID: priv2ID(cfg.Priv),
+		ID: id,
 		IP: laddr.IP,
 		Port: uint16(laddr.Port),
 	}

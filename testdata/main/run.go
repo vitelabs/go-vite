@@ -1,4 +1,4 @@
-package gvite
+package main
 
 import (
 	"fmt"
