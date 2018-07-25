@@ -13,6 +13,7 @@ import (
 	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -22,6 +23,8 @@ type SnapshotChain struct {
 	scAccess *access.SnapshotChainAccess
 	acAccess *access.AccountChainAccess
 	aAccess  *access.AccountAccess
+
+	syncDownChannelList []chan<- int
 }
 
 func NewSnapshotChain(vite Vite) *SnapshotChain {
@@ -31,6 +34,31 @@ func NewSnapshotChain(vite Vite) *SnapshotChain {
 		acAccess: access.GetAccountChainAccess(),
 		aAccess:  access.GetAccountAccess(),
 	}
+}
+
+var registerChannelLock sync.Mutex
+
+func (sc *SnapshotChain) registerFirstSyncDown(firstSyncDownChan chan<- int) {
+	registerChannelLock.Lock()
+	sc.syncDownChannelList = append(sc.syncDownChannelList, firstSyncDownChan)
+	registerChannelLock.Unlock()
+
+	if syncInfo.IsFirstSyncDone {
+		sc.onFirstSyncDown()
+	}
+}
+
+func (sc *SnapshotChain) onFirstSyncDown() {
+
+	registerChannelLock.Lock()
+	syncInfo.IsFirstSyncDone = true
+	go func() {
+		defer registerChannelLock.Unlock()
+		for _, syncDownChannel := range sc.syncDownChannelList {
+			syncDownChannel <- 0
+		}
+		sc.syncDownChannelList = []chan<- int{}
+	}()
 }
 
 // HandleGetBlock
