@@ -157,7 +157,8 @@ func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
 	}
 
 	err = ac.CreateTx(&ledger.AccountBlock{
-		FromHash: hashes[0],
+		AccountAddress: &sw.address,
+		FromHash:       hashes[0],
 	})
 
 	return true, err
