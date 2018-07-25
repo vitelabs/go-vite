@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"sync"
 	"time"
+	"github.com/vitelabs/go-vite/log"
 )
 
 var (
@@ -69,11 +70,12 @@ func (km *Manager) Init() {
 	km.kc, km.kcChanged = newKeyCache(km.KeyStoreDir)
 	km.unlocked = make(map[types.Address]*unlocked)
 	km.unlockChanged = make(map[int]chan<- UnlockEvent)
-	km.unlockChangedIndex = 0
+	km.unlockChangedIndex = 100
 	km.isInited = true
 }
 
 func (km *Manager) AddUnlockChangeChannel(c chan<- UnlockEvent) int {
+	log.Info("AddUnlockChangeChannel")
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
@@ -84,6 +86,7 @@ func (km *Manager) AddUnlockChangeChannel(c chan<- UnlockEvent) int {
 }
 
 func (km *Manager) RemoveUnlockChangeChannel(id int) {
+	log.Info("RemoveUnlockChangeChannel")
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 	delete(km.unlockChanged, id)

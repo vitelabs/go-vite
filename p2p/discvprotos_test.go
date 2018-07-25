@@ -22,7 +22,7 @@ func TestUnpack(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m, hash2, err := unPacket(data)
+	_, hash2, err := unPacket(data)
 	if err != nil {
 		t.Fatal(err)
 	}
