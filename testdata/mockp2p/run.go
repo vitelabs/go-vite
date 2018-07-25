@@ -1,4 +1,4 @@
-package gvite
+package mockp2p
 
 import (
 	"fmt"

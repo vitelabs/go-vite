@@ -1,4 +1,4 @@
-package main
+package rpc
 
 import (
 	"github.com/vitelabs/go-vite/rpc"
