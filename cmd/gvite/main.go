@@ -28,6 +28,6 @@ func main() {
 	})
 
 	if err != nil {
-		log.Fatal("Start vue failed. Error is " + err)
+		log.Fatalf("Start vue failed. Error is %v\n", err)
 	}
 }
