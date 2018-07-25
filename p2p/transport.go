@@ -143,7 +143,7 @@ func (pt *PBTS) ReadMsg() (m Msg, err error) {
 
 	// extract length of payload
 	size := binary.BigEndian.Uint64(header[8:16])
-
+	log.Printf("Msg payload length: %d bytes\n", size)
 	// read payload according to size
 	if size > 0 {
 		payload := make([]byte, size)

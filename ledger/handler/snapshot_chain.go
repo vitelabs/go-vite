@@ -13,6 +13,7 @@ import (
 	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -22,6 +23,8 @@ type SnapshotChain struct {
 	scAccess *access.SnapshotChainAccess
 	acAccess *access.AccountChainAccess
 	aAccess  *access.AccountAccess
+
+	syncDownChannelList []chan<- int
 }
 
 func NewSnapshotChain(vite Vite) *SnapshotChain {
@@ -31,6 +34,30 @@ func NewSnapshotChain(vite Vite) *SnapshotChain {
 		acAccess: access.GetAccountChainAccess(),
 		aAccess:  access.GetAccountAccess(),
 	}
+}
+
+var registerChannelLock sync.Mutex
+
+func (sc *SnapshotChain) registerFirstSyncDown(firstSyncDownChan chan<- int) {
+	registerChannelLock.Lock()
+	sc.syncDownChannelList = append(sc.syncDownChannelList, firstSyncDownChan)
+	registerChannelLock.Unlock()
+
+	if syncInfo.IsFirstSyncDone {
+		sc.onFirstSyncDown()
+	}
+}
+
+func (sc *SnapshotChain) onFirstSyncDown() {
+	registerChannelLock.Lock()
+	syncInfo.IsFirstSyncDone = true
+	go func() {
+		defer registerChannelLock.Unlock()
+		for _, syncDownChannel := range sc.syncDownChannelList {
+			syncDownChannel <- 0
+		}
+		sc.syncDownChannelList = []chan<- int{}
+	}()
 }
 
 // HandleGetBlock
@@ -159,7 +186,7 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 				syncInfo.CurrentHeight = block.Height
 
 				if syncInfo.CurrentHeight.Cmp(syncInfo.TargetHeight) >= 0 {
-					syncInfo.IsFirstSyncDone = true
+					sc.onFirstSyncDown()
 				}
 			}
 
@@ -216,9 +243,10 @@ func (sc *SnapshotChain) SyncPeer(peer *protoTypes.Peer) {
 	// Syncing done, modify in future
 	defer sc.vite.Pm().SyncDone()
 	if peer == nil {
-		syncInfo.IsFirstSyncDone = true
-		log.Info("SnapshotChain.SyncPeer: sync finished.")
-
+		if !syncInfo.IsFirstSyncDone {
+			sc.onFirstSyncDown()
+			log.Info("SnapshotChain.SyncPeer: sync finished.")
+		}
 		return
 	}
 	// Do syncing
@@ -254,6 +282,7 @@ func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
 	block.PrevHash = latestBlock.Hash
 	block.Amount = big.NewInt(0)
 
+	log.Info("SnapshotChain WriteMiningBlock: create a new snapshot block.")
 	err := sc.scAccess.WriteBlock(block, func(block *ledger.SnapshotBlock) (*ledger.SnapshotBlock, error) {
 		var signErr error
 
@@ -264,10 +293,12 @@ func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
 	})
 
 	if err != nil {
+		log.Info("SnapshotChain WriteMiningBlock: Write a new snapshot block failed. Error is " + err.Error())
 		return err
 	}
 
 	// Broadcast
+	log.Info("SnapshotChain WriteMiningBlock: Broadcast a new snapshot block.")
 	sendErr := sc.vite.Pm().SendMsg(nil, &protoTypes.Msg{
 		Code:    protoTypes.SnapshotBlocksMsgCode,
 		Payload: &protoTypes.SnapshotBlocksMsg{block},
@@ -293,7 +324,7 @@ func (sc *SnapshotChain) getNeedSnapshot() (map[string]*ledger.SnapshotItem, err
 	for _, accountAddress := range accountAddressList {
 		latestBlock, err := sc.acAccess.GetLatestBlockByAccountAddress(accountAddress)
 
-		if latestBlock.Meta.IsSnapshotted {
+		if latestBlock == nil || latestBlock.Meta.IsSnapshotted {
 			continue
 		}
 

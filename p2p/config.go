@@ -7,11 +7,6 @@ import (
 	"log"
 )
 
-type CmdConfig struct {
-	Name string
-	Sig string
-}
-
 var pubs = [...]string{
 	"33e43481729850fc66cef7f42abebd8cb2f1c74f0b09a5bf03da34780a0a5606",
 	"7194af5b7032cb470c41b313e2675e2c3ba3377e66617247012b8d638552fb17",
