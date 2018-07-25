@@ -1,34 +1,33 @@
 package main
 
 import (
-	"github.com/vitelabs/go-vite/vite"
+	"flag"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/p2p"
-	"flag"
+	"github.com/vitelabs/go-vite/vite"
 	"log"
 )
 
 var (
 	nameFlag = flag.String("name", "", "boot name")
-	sigFlag = flag.String("sig", "", "boot sig")
+	sigFlag  = flag.String("sig", "", "boot sig")
 )
 
-
-func main ()  {
+func main() {
 	flag.Parse()
 	p2pConfig := &p2p.Config{
 		CmdConfig: p2p.CmdConfig{
 			Name: *nameFlag,
-			Sig: *sigFlag,
+			Sig:  *sigFlag,
 		},
 	}
 
-	v, err := vite.New(&vite.Config{
+	_, err := vite.New(&vite.Config{
 		DataDir:   common.DefaultDataDir(),
 		P2pConfig: p2pConfig,
 	})
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Start vue failed. Error is " + err)
 	}
 }

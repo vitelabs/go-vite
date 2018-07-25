@@ -1,4 +1,4 @@
-package main
+package mockp2p
 
 import (
 	"fmt"
