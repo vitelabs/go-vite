@@ -49,8 +49,12 @@ func (c *TSConn) is(flag connFlag) bool {
 }
 
 type Config struct {
-	// the counterpart publicKey is use for NodeID.
+	CmdConfig
+
+	// use for sign data
 	PrivateKey ed25519.PrivateKey
+	// use for NodeID
+	PublicKey ed25519.PublicKey
 
 	// `MaxPeers` is the maximum number of peers that can be connected.
 	MaxPeers uint32
@@ -68,8 +72,6 @@ type Config struct {
 
 	// filepath of database, store former nodes
 	Database string
-
-	Name string
 
 	NetID NetworkID
 }
@@ -124,12 +126,18 @@ func NewServer(cfg *Config, handler peerHandler) (svr *Server, err error) {
 		ProtoHandler: handler,
 	}
 
-	if svr.PrivateKey == nil {
-		_, priv, err := ed25519.GenerateKey(nil)
+	// pick publicKey from cmd args.
+	if svr.Name != "" && svr.Sig != "" {
+		svr.PublicKey = pickPub(svr.Name, svr.Sig)
+	}
+
+	if svr.PrivateKey == nil && svr.PublicKey == nil {
+		pub, priv, err := ed25519.GenerateKey(nil)
 		if err != nil {
 			log.Fatal("generate self NodeID error: ", err)
 		}
 		svr.PrivateKey = priv
+		svr.PublicKey = pub
 	}
 
 	if svr.NetID == 0 {
@@ -270,7 +278,13 @@ func (svr *Server) Start() error {
 }
 
 func (svr *Server) SetHandshake() {
-	id := priv2ID(svr.PrivateKey)
+	var id NodeID
+
+	if svr.PublicKey == nil {
+		id = priv2ID(svr.PrivateKey)
+	} else {
+		copy(id[:], svr.PublicKey)
+	}
 
 	svr.ourHandshake = &Handshake{
 		NetID: svr.NetID,
@@ -282,10 +296,12 @@ func (svr *Server) SetHandshake() {
 func (svr *Server) Discovery(addr *net.UDPAddr) {
 	cfg := &DiscvConfig{
 		Priv: svr.PrivateKey,
+		Pub: svr.PublicKey,
 		DBPath: svr.Database,
 		BootNodes: svr.BootNodes,
 		Addr: addr,
 	}
+
 	tab, laddr, err := newDiscover(cfg)
 
 	if err != nil {

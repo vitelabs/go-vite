@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/crypto"
-	"bytes"
 	"errors"
 	"net"
 	"github.com/vitelabs/go-vite/common/types"
 	"log"
+	"bytes"
 )
 
 const version byte = 1
@@ -180,62 +180,20 @@ func (p *FindNode) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, 
 func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
 	log.Printf("receive findnode %s from %s\n", p.Target, origin)
 
-	closet := d.tab.closest(p.Target, K)
-
-	nodes := make([]*Node, 0, maxNeighborsNodes)
-	for _, node := range closet.nodes {
-		nodes = append(nodes, node)
-		if len(nodes) == cap(nodes) {
-			break
-		}
-	}
+	closet := d.tab.closest(p.Target, maxNeighborsNodes)
 
 	err := d.send(origin, neighborsCode, &Neighbors{
 		ID: d.getID(),
-		Nodes: nodes,
+		Nodes: closet.nodes,
 	})
 
 	if err != nil {
-		log.Printf("send %d neighbors to %s, target: %s, error: %v\n", len(nodes), origin, p.Target, err)
+		log.Printf("send %d neighbors to %s, target: %s, error: %v\n", len(closet.nodes), origin, p.Target, err)
 	} else {
-		log.Printf("send %d neighbors to %s, target: %s\n", len(nodes), origin, p.Target)
+		log.Printf("send %d neighbors to %s, target: %s\n", len(closet.nodes), origin, p.Target)
 	}
 
 	return err
-
-	//if count > 0 {
-	//	nodes := make([]*Node, 0, maxNeighborsNodes)
-	//	m := &Neighbors{
-	//		ID: d.getID(),
-	//	}
-	//	// send closet.nodes several times
-	//	for i := 0; i < count; i++ {
-	//		nodes = append(nodes, closet.nodes[i])
-	//
-	//		if len(nodes) == cap(nodes) {
-	//			m.Nodes = nodes
-	//			err := d.send(origin, neighborsCode, m)
-	//			if err != nil {
-	//				log.Printf("send %d neighbors to %s error: %v\n", len(nodes), origin, err)
-	//			} else {
-	//				log.Printf("send %d neighbors to %s\n", len(nodes), origin)
-	//				nodes = nodes[:0]
-	//			}
-	//		}
-	//	}
-	//	if len(nodes) > 0 {
-	//		m.Nodes = nodes
-	//
-	//		err := d.send(origin, neighborsCode, m)
-	//		if err != nil {
-	//			return fmt.Errorf("send %d neighbors to %s error: %v\n", len(nodes), origin, err)
-	//		} else {
-	//			log.Printf("send %d neighbors to %s\n", len(nodes), origin)
-	//		}
-	//	}
-	//} else {
-	//	log.Printf("findnode %s got 0 closet nodes", p.Target)
-	//}
 }
 
 type Neighbors struct {
@@ -296,20 +254,77 @@ func (p *Neighbors) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) er
 }
 
 // version code checksum signature payload
+//func composePacket(priv ed25519.PrivateKey, code byte, payload []byte) (data []byte, hash types.Hash) {
+//	data = []byte{version, code}
+//
+//	sig := ed25519.Sign(priv, payload)
+//	checksum := crypto.Hash(32, append(sig, payload...))
+//
+//	data = append(data, checksum...)
+//	data = append(data, sig...)
+//	data = append(data, payload...)
+//
+//	copy(hash[:], checksum)
+//	return data, hash
+//}
+
+
+// no need to sign for now
+// version code checksum payload
 func composePacket(priv ed25519.PrivateKey, code byte, payload []byte) (data []byte, hash types.Hash) {
 	data = []byte{version, code}
 
-	sig := ed25519.Sign(priv, payload)
-	checksum := crypto.Hash(32, append(sig, payload...))
+	//sig := ed25519.Sign(priv, payload)
+	checksum := crypto.Hash(32, payload)
 
 	data = append(data, checksum...)
-	data = append(data, sig...)
 	data = append(data, payload...)
 
 	copy(hash[:], checksum)
 	return data, hash
 }
 
+//func unPacket(packet []byte) (m Message, hash types.Hash, err error) {
+//	pktVersion := packet[0]
+//
+//	if pktVersion != version {
+//		return nil, hash, errUnmatchedVersion
+//	}
+//
+//	pktCode := packet[1]
+//	pktHash := packet[2:34]
+//	payloadWithSig := packet[34:]
+//	pktSig := packet[34:98]
+//	payload := packet[98:]
+//
+//	// compare checksum
+//	reHash := crypto.Hash(32, payloadWithSig)
+//	if !bytes.Equal(reHash, pktHash) {
+//		return nil, hash, errWrongHash
+//	}
+//
+//	// unpack packet to get content and signature
+//	m, err = decode(pktCode, payload)
+//	if err != nil {
+//		return nil, hash, err
+//	}
+//
+//	// verify signature
+//	id := m.getID()
+//	pub := id[:]
+//	valid, err := crypto.VerifySig(pub, payload, pktSig)
+//	if err != nil {
+//		return nil, hash, err
+//	}
+//	if valid {
+//		copy(hash[:], pktHash)
+//		return m, hash, nil
+//	}
+//
+//	return nil, hash, errInvalidSig
+//}
+
+// no signature
 func unPacket(packet []byte) (m Message, hash types.Hash, err error) {
 	pktVersion := packet[0]
 
@@ -319,12 +334,10 @@ func unPacket(packet []byte) (m Message, hash types.Hash, err error) {
 
 	pktCode := packet[1]
 	pktHash := packet[2:34]
-	payloadWithSig := packet[34:]
-	pktSig := packet[34:98]
-	payload := packet[98:]
+	payload := packet[34:]
 
 	// compare checksum
-	reHash := crypto.Hash(32, payloadWithSig)
+	reHash := crypto.Hash(32, payload)
 	if !bytes.Equal(reHash, pktHash) {
 		return nil, hash, errWrongHash
 	}
@@ -335,19 +348,8 @@ func unPacket(packet []byte) (m Message, hash types.Hash, err error) {
 		return nil, hash, err
 	}
 
-	// verify signature
-	id := m.getID()
-	pub := id[:]
-	valid, err := crypto.VerifySig(pub, payload, pktSig)
-	if err != nil {
-		return nil, hash, err
-	}
-	if valid {
-		copy(hash[:], pktHash)
-		return m, hash, nil
-	}
-
-	return nil, hash, errInvalidSig
+	copy(hash[:], pktHash)
+	return m, hash, nil
 }
 
 func decode(code byte, payload []byte) (m Message, err error) {
