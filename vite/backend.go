@@ -11,6 +11,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/miner"
@@ -18,7 +19,6 @@ import (
 	"github.com/vitelabs/go-vite/vitedb"
 	"log"
 	"time"
-	"github.com/vitelabs/go-vite/config"
 )
 
 type Vite struct {
@@ -75,7 +75,7 @@ func New(cfg *config.Config) (*Vite, error) {
 	if cfg.Miner.Miner && cfg.Miner.Coinbase != "" {
 		log.Println("Vite backend new: Start miner.")
 		coinbase, _ := types.HexToAddress(cfg.Coinbase)
-		vite.miner = miner.NewMiner(vite.ledger.Sc(), coinbase, committee)
+		vite.miner = miner.NewMiner(vite.ledger.Sc(), vite.ledger.RegisterFirstSyncDown, coinbase, committee)
 		pwd := "123"
 		vite.walletManager.KeystoreManager.Unlock(coinbase, pwd, time.Second*10)
 		committee.Init()
