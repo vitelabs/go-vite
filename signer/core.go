@@ -144,7 +144,7 @@ func (sw *signSlave) AddressLocked(locked bool) {
 }
 
 func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
-	log.Info("auto send confirm task")
+	log.Info("slaver auto send confirm task")
 	ac := sw.vite.Ledger().Ac()
 	hashes, e := ac.GetUnconfirmedTxHashs(0, 1, 1, &sw.address)
 
@@ -156,6 +156,7 @@ func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
 		return false, nil
 	}
 
+	log.Info("slaver sendNextUnConfirmed: send receive transaction. " + sw.address.String() + " " + hashes[0].String())
 	err = ac.CreateTx(&ledger.AccountBlock{
 		AccountAddress: &sw.address,
 		FromHash:       hashes[0],
