@@ -138,7 +138,7 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 	}
 
 	if config.Database == "" {
-		config.Database = filepath.Join(config.Datadir, "vite.p2p.db")
+		config.Database = filepath.Join(config.Datadir, "p2p")
 	}
 
 	// after default config
