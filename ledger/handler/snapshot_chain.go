@@ -103,7 +103,11 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 			r, err := sc.vite.Verifier().Verify(sc, block)
 
 			if !r {
-				log.Info(err.Error())
+				if err != nil {
+					log.Info("SnapshotChain HandleSendBlocks: Verify failed. Error is " + err.Error())
+				}
+				log.Info("SnapshotChain HandleSendBlocks: Verify failed.")
+				// Let the pool discard the block.
 				return true
 			}
 

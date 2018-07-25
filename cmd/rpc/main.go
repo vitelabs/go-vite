@@ -10,19 +10,21 @@ import (
 	"path/filepath"
 	"runtime"
 	"syscall"
+	"github.com/vitelabs/go-vite/config"
 )
 
 func main() {
-	cfg := vite.DefaultConfig
-	vnode, err := vite.New(cfg)
+	config.RecoverConfig()
+	vnode, err := vite.New(config.GlobalConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	ipcapiURL := filepath.Join(cfg.DataDir, rpc.DefaultIpcFile())
+	ipcapiURL := filepath.Join(config.GlobalConfig.DataDir, rpc.DefaultIpcFile())
 	if runtime.GOOS == "windows" {
 		ipcapiURL = rpc.DefaultIpcFile()
 	}
+	println("ipcapiURL: ", ipcapiURL)
 	lis, err := rpc.IpcListen(ipcapiURL)
 
 	exitSig := make(chan os.Signal, 1)
