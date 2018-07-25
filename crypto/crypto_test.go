@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"bytes"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
 const (
@@ -70,5 +71,16 @@ func TestAesCTRXOR(t *testing.T) {
 	println("plainArray :", string(plainArray))
 	println("plainArray1:", string(plainArray1))
 	println(hex.EncodeToString(cipher))
+
+}
+
+func TestGenerateKey(t *testing.T) {
+	for i := 0; i < 5; i++ {
+		publicKey, privateKey, _ := ed25519.GenerateKey(nil)
+		pub := hex.EncodeToString(publicKey)
+		println(pub)
+		pri := hex.EncodeToString(privateKey)
+		println(pri)
+	}
 
 }

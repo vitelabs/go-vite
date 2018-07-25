@@ -27,9 +27,17 @@ func GetAll(vite *vite.Vite) []rpc.API {
 		Public:    true,
 	}
 
+	commonApis := rpc.API{
+		Namespace: "types",
+		Version:   "1.0",
+		Service:   CommonApisImpl{},
+		Public:    true,
+	}
+
 	return []rpc.API{
 		ledgerApis,
 		walletApis,
 		p2pApis,
+		commonApis,
 	}
 }

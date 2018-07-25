@@ -5,8 +5,11 @@ import (
 	"github.com/vitelabs/go-vite/rpc/apis"
 	"github.com/vitelabs/go-vite/vite"
 	"log"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
 )
 
 func main() {
@@ -21,7 +24,12 @@ func main() {
 		ipcapiURL = rpc.DefaultIpcFile()
 	}
 	lis, err := rpc.IpcListen(ipcapiURL)
-	defer func() {
+
+	exitSig := make(chan os.Signal, 1)
+	signal.Notify(exitSig, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-exitSig
+		println("receiver term sig")
 		if lis != nil {
 			lis.Close()
 		}
