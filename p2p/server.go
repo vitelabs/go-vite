@@ -9,9 +9,11 @@ import (
 	"errors"
 	"log"
 	"crypto/rand"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"reflect"
 	"fmt"
+	"github.com/vitelabs/go-vite/config"
+	"path/filepath"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
 const (
@@ -56,35 +58,15 @@ func (c *TSConn) is(flag connFlag) bool {
 	return c.flags.is(flag)
 }
 
+type peerHandler func(*Peer)
+
 type Config struct {
-	CmdConfig
-
-	// use for sign data
-	PrivateKey ed25519.PrivateKey
-	// use for NodeID
-	PublicKey ed25519.PublicKey
-
-	// `MaxPeers` is the maximum number of peers that can be connected.
-	MaxPeers uint32
-
-	// `MaxPassivePeersRatio` is the ratio of MaxPeers that initiate an active connection to this node.
-	// the actual value is `MaxPeers / MaxPassivePeersRatio`
-	MaxPassivePeersRatio uint32
-
-	// `MaxPendingPeers` is the maximum number of peers that wait to connect.
-	MaxPendingPeers uint32
-
-	BootNodes []string
-
-	Addr string
-
-	// filepath of database, store former nodes
-	Database string
+	*config.P2P
 
 	NetID NetworkID
-}
 
-type peerHandler func(*Peer)
+	Database string
+}
 
 type Server struct {
 	*Config
@@ -128,32 +110,41 @@ type Server struct {
 	BootNodes []*Node
 }
 
-func NewServer(cfg *Config, handler peerHandler) (svr *Server, err error) {
-	svr = &Server{
-		Config: cfg,
-		ProtoHandler: handler,
+func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
+	config := &Config{
+		P2P: cfg,
+	}
+	config.NetID = NetworkID(cfg.NetID)
+
+	if config.Name != "" && config.Sig != "" {
+		config.PublicKey = pickPub(config.Name, config.Sig)
 	}
 
-	// pick publicKey from cmd args.
-	if svr.Name != "" && svr.Sig != "" {
-		svr.PublicKey = pickPub(svr.Name, svr.Sig)
-	}
-
-	if svr.PrivateKey == nil && svr.PublicKey == nil {
+	if config.PrivateKey == nil && config.PublicKey == nil {
 		pub, priv, err := ed25519.GenerateKey(nil)
 		if err != nil {
 			log.Fatal("generate self NodeID error: ", err)
 		}
-		svr.PrivateKey = priv
-		svr.PublicKey = pub
+		config.PrivateKey = priv
+		config.PublicKey = pub
 	}
 
-	if svr.NetID == 0 {
-		svr.NetID = TestNet
+	if config.NetID == 0 {
+		config.NetID = TestNet
 	}
 
-	if svr.Addr == "" {
-		svr.Addr = "0.0.0.0:8483"
+	if config.Addr == "" {
+		config.Addr = "0.0.0.0:8483"
+	}
+
+	if config.Database == "" {
+		config.Database = filepath.Join(config.Datadir, "vite.p2p.db")
+	}
+
+	// after default config
+	svr = &Server{
+		Config: config,
+		ProtoHandler: handler,
 	}
 
 	if svr.Dialer == nil {
