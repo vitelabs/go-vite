@@ -219,23 +219,9 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 		return accountBlock, signErr
 	})
 
-	if err != nil {
+	if writeErr != nil {
 		return writeErr
 	}
-
-	// [tmp]Check unconfirmed data.
-	meta, err := ac.uAccess.GetUnconfirmedAccountMeta(block.AccountAddress)
-	if err != nil {
-		log.Info("Unconfirmed: Check unconfirmed accountMeta failed.")
-		return err
-	}
-	log.Info("Unconfirmed after write: Address:", block.AccountAddress, ", UnconfirmedMeta{ AccountId:", meta.AccountId, ", TotalNumber:", meta.TotalNumber,
-		", TokenInfoList: ")
-	for idx, tokenInfo := range meta.TokenInfoList {
-		log.Info("TokenInfo:", idx, ":", tokenInfo.TokenId, ",", tokenInfo.TotalAmount)
-	}
-	hashUnconfirmedBool := ac.uAccess.HashUnconfirmedBool(meta.AccountId, block.TokenId, block.Hash)
-	log.Info("Unconfirmed block.hash:", block.Hash, hashUnconfirmedBool)
 
 	// Broadcast
 	sendErr := ac.vite.Pm().SendMsg(nil, &protoTypes.Msg{

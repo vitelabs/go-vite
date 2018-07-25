@@ -38,6 +38,8 @@ func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase s
 	if block.AccountAddress == nil {
 		return fmt.Errorf("address nil")
 	}
+	log.Info("Master AccountAddress", block.AccountAddress.String())
+	log.Info("Master ToAddress", block.To.String())
 
 	c.coreMutex.Lock()
 	slave := c.signSlaves[*block.AccountAddress]
@@ -189,7 +191,7 @@ func (sw *signSlave) StartWork() {
 			break
 		}
 		if len(sw.waitSendTasks) != 0 {
-			for _, v := range sw.waitSendTasks {
+			for i, v := range sw.waitSendTasks {
 				log.Info("send user task")
 				err := sw.vite.Ledger().Ac().CreateTxWithPassphrase(v.block, v.passphrase)
 				if err == nil {
@@ -200,6 +202,7 @@ func (sw *signSlave) StartWork() {
 					v.end <- err.Error()
 				}
 				close(v.end)
+				sw.waitSendTasks = append(sw.waitSendTasks[:i], sw.waitSendTasks[i+1:]...)
 			}
 		}
 		sw.mutex.Unlock()
