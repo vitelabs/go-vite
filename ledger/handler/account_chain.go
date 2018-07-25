@@ -64,7 +64,7 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 		for _, block := range *msg {
 			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
 				// Discard the block.
-				log.Info("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because block.PublicKey or block.Hash or block.Signature is nil.")
+				log.Info("AccountChain HandleSendBlocks: discard block, because block.PublicKey or block.Hash or block.Signature is nil.")
 				continue
 			}
 			// Verify hash
