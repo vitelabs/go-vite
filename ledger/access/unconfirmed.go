@@ -16,14 +16,12 @@ type unconfirmedListener map[types.Address]chan<- struct{}
 
 var unconfirmedAccess = &UnconfirmedAccess{
 	store:             vitedb.GetUnconfirmed(),
-	writeAccountMutex: sync.Mutex{},
 	uwMutex:           &ucfmWriteMutex{},
 	listener:          &unconfirmedListener{},
 }
 
 type UnconfirmedAccess struct {
 	store             *vitedb.Unconfirmed
-	writeAccountMutex sync.Mutex
 	uwMutex           *ucfmWriteMutex
 	listener          *unconfirmedListener
 }
@@ -118,14 +116,11 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedAccountMeta(addr *types.Address) (*
 }
 
 func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	// judge whether the block exists
-	//block, err := accountChainAccess.GetBlockByHash(hash)
-	//if err != nil {
-	//	return &AcWriteError{
-	//		Code: WacDefaultErr,
-	//		Err:  errors.New("Write unconfirmed failed, because getting the block by hash failed. Error is " + err.Error()),
-	//	}
-	//}
+	if block.To == nil || block.TokenId == nil  || block.Meta == nil || block.Meta.AccountId == nil {
+		err := errors.New("send_block's value is invalid")
+		log.Info("Unconfirmed: ", err)
+		return err
+	}
 
 	// judge whether the address exists
 	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(block.To)
@@ -142,11 +137,11 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 
 	if uAccMeta != nil {
 		// [tmp] Check data.
-		log.Info("Unconfirmed: before write:")
-		log.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
-		for idx, tokenInfo := range uAccMeta.TokenInfoList {
-			log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
-		}
+		//log.Info("Unconfirmed: before write:")
+		//log.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
+		//for idx, tokenInfo := range uAccMeta.TokenInfoList {
+		//	log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
+		//}
 
 		// Upodate total number of this account's unconfirmedblocks
 		var number = &big.Int{}
@@ -170,9 +165,6 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 			uAccMeta.TokenInfoList = append(uAccMeta.TokenInfoList, tokenInfo)
 		}
 	} else {
-		ucfa.writeAccountMutex.Lock()
-		defer ucfa.writeAccountMutex.Unlock()
-
 		uAccMeta, err = ucfa.CreateNewUcfmMeta(block)
 		if err != nil {
 			return &AcWriteError{
@@ -230,6 +222,12 @@ func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(block *ledger.AccountBlock) (*l
 }
 
 func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
+	if block.To == nil || block.TokenId == nil  || block.Meta == nil || block.Meta.AccountId == nil {
+		err := errors.New("send_block's value is invalid")
+		log.Info("Unconfirmed: ", err)
+		return err
+	}
+
 	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(block.To)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
@@ -237,20 +235,23 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 			Err:  err,
 		}
 	}
-	if uAccMeta == nil {
-		ucfa.writeAccountMutex.Lock()
-		defer ucfa.writeAccountMutex.Unlock()
 
+	if err := ucfa.uwMutex.Lock(block); err != nil {
+		return err
+	}
+	defer ucfa.uwMutex.UnLock(block)
+
+	if uAccMeta == nil {
 		err := ucfa.store.DeleteMeta(batch, block.To)
 		return errors.New("Delete unconfirmed failed, because uAccMeta is empty. Log:" + err.Error())
 	}
 
-	// [tmp] Check data.
-	log.Info("Unconfirmed: before delete:")
-	log.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
-	for idx, tokenInfo := range uAccMeta.TokenInfoList {
-		log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
-	}
+	//// [tmp] Check data.
+	//log.Info("Unconfirmed: before delete:")
+	//log.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
+	//for idx, tokenInfo := range uAccMeta.TokenInfoList {
+	//	log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
+	//}
 
 	hashList, err := ucfa.store.GetAccHashListByTkId(uAccMeta.AccountId, block.TokenId)
 	if err != nil && err != leveldb.ErrNotFound {
@@ -259,10 +260,6 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 			Err:  err,
 		}
 	}
-	if err := ucfa.uwMutex.Lock(block); err != nil {
-		return err
-	}
-	defer ucfa.uwMutex.UnLock(block)
 
 	if hashList == nil {
 		err := ucfa.store.DeleteHashList(batch, uAccMeta.AccountId, block.TokenId)
