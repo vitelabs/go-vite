@@ -10,18 +10,21 @@ import (
 )
 
 type Master struct {
-	Vite                Vite
-	signSlaves          map[types.Address]*signSlave
-	unlockEventListener chan keystore.UnlockEvent
-	coreMutex           sync.Mutex
-	lid                 int
+	Vite                  Vite
+	signSlaves            map[types.Address]*signSlave
+	unlockEventListener   chan keystore.UnlockEvent
+	FirstSyncDoneListener chan int
+	coreMutex             sync.Mutex
+	lid                   int
 }
 
 func NewMaster(vite Vite) *Master {
 	return &Master{
-		Vite:                vite,
-		signSlaves:          make(map[types.Address]*signSlave),
-		unlockEventListener: make(chan keystore.UnlockEvent),
+		Vite:                  vite,
+		signSlaves:            make(map[types.Address]*signSlave),
+		unlockEventListener:   make(chan keystore.UnlockEvent),
+		FirstSyncDoneListener: make(chan int),
+		lid:                   0,
 	}
 }
 
@@ -38,6 +41,12 @@ func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase s
 	if block.AccountAddress == nil {
 		return fmt.Errorf("address nil")
 	}
+	syncinfo := c.Vite.Ledger().Sc().GetFirstSyncInfo()
+	if !syncinfo.IsFirstSyncDone {
+		log.Info("Master sync unfinished, so can't create transaction")
+		return fmt.Errorf("Master sync unfinished, so can't create transaction")
+	}
+
 	log.Info("Master AccountAddress", block.AccountAddress.String())
 	log.Info("Master ToAddress", block.To.String())
 
@@ -68,11 +77,31 @@ func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase s
 }
 
 func (c *Master) InitAndStartLoop() {
-	c.lid = c.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(c.unlockEventListener)
-	go c.loop()
+
+	c.Vite.Ledger().RegisterFirstSyncDown(c.FirstSyncDoneListener)
+	go func() {
+		log.Info("master waiting first sync done ")
+		<-c.FirstSyncDoneListener
+		close(c.FirstSyncDoneListener)
+		log.Info("master first sync done ")
+		c.lid = c.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(c.unlockEventListener)
+		c.loop()
+	}()
 }
 
 func (c *Master) loop() {
+	status, _ := c.Vite.WalletManager().KeystoreManager.Status()
+	for k, v := range status {
+		if v == keystore.UnLocked {
+			c.coreMutex.Lock()
+			s := signSlave{vite: c.Vite, address: k, addressUnlocked: true}
+			log.Info("Master find a new unlock address signSlave", k.String())
+			c.signSlaves[k] = &s
+			c.coreMutex.Unlock()
+
+			go s.StartWork()
+		}
+	}
 	for {
 		event, ok := <-c.unlockEventListener
 		log.Info("Master get event ", event)
@@ -87,7 +116,7 @@ func (c *Master) loop() {
 			continue
 		}
 
-		s := signSlave{vite: c.Vite, address: event.Address}
+		s := signSlave{vite: c.Vite, address: event.Address, addressUnlocked: event.Unlocked()}
 		log.Info("Master get event new signSlave")
 		c.signSlaves[event.Address] = &s
 		c.coreMutex.Unlock()
