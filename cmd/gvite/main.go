@@ -12,7 +12,7 @@ var (
 	nameFlag      = flag.String("name", "", "boot name")
 	sigFlag       = flag.String("sig", "", "boot sig")
 	minerFlag     = flag.Bool("miner", false, "boot miner")
-	minerInterval = flag.Int("minerInterval", -1, "miner interval(unit sec).")
+	minerInterval = flag.Int("minerInterval", 6, "miner interval(unit sec).")
 	coinbaseFlag  = flag.String("coinbaseAddress", "", "boot coinbaseAddress")
 )
 

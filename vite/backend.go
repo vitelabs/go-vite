@@ -42,10 +42,10 @@ var (
 )
 
 type Config struct {
-	DataDir   string
-	P2pConfig *p2p.Config
-	Miner     bool
-	Coinbase  string
+	DataDir       string
+	P2pConfig     *p2p.Config
+	Miner         bool
+	Coinbase      string
 	MinerInterval int
 }
 
@@ -79,7 +79,7 @@ func New(cfg *Config) (*Vite, error) {
 	}
 
 	genesisTime := time.Unix(int64(ledger.GetSnapshotGenesisBlock().Timestamp), 0)
-	committee := consensus.NewCommittee(genesisTime, 6, int32(len(consensus.DefaultMembers)))
+	committee := consensus.NewCommittee(genesisTime, int32(cfg.MinerInterval), int32(len(consensus.DefaultMembers)))
 	vite.verifier = committee
 
 	if cfg.Miner && cfg.Coinbase != "" {
