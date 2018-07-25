@@ -42,13 +42,13 @@ var uWMMutex sync.Mutex
 func (uwm *ucfmWriteMutex) Lock(block *ledger.AccountBlock) *AcWriteError {
 	uWMMutex.Lock()
 	defer uWMMutex.Unlock()
-	uwmBody, ok := (*uwm)[*block.AccountAddress]
+	uwmBody, ok := (*uwm)[*block.To]
 
 	if !ok || uwmBody == nil {
 		uwmBody = &ucfmWriteMuteBody{
 			Reference: false,
 		}
-		(*uwm)[*block.AccountAddress] = uwmBody
+		(*uwm)[*block.To] = uwmBody
 	}
 
 	if uwmBody.Reference {
@@ -66,7 +66,7 @@ func (uwm *ucfmWriteMutex) UnLock(block *ledger.AccountBlock) {
 	uWMMutex.Lock()
 	defer uWMMutex.Unlock()
 
-	uwmBody, ok := (*uwm)[*block.AccountAddress]
+	uwmBody, ok := (*uwm)[*block.To]
 	if !ok {
 		return
 	}
@@ -128,7 +128,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 	//}
 
 	// judge whether the address exists
-	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(block.AccountAddress)
+	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(block.To)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
 			Code: WacDefaultErr,
@@ -190,7 +190,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 	}
 	hashList = append(hashList, block.Hash)
 
-	if err := ucfa.store.WriteMeta(batch, block.AccountAddress, uAccMeta); err != nil {
+	if err := ucfa.store.WriteMeta(batch, block.To, uAccMeta); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
 			Err:  err,
@@ -203,9 +203,9 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 		}
 	}
 	// Add to the Listener
-	_, ok := (*ucfa.listener)[*block.AccountAddress]
+	_, ok := (*ucfa.listener)[*block.To]
 	if ok {
-		ucfa.SendSignalToListener(*block.AccountAddress)
+		ucfa.SendSignalToListener(*block.To)
 	}
 	return nil
 }
@@ -230,7 +230,7 @@ func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(block *ledger.AccountBlock) (*l
 }
 
 func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(block.AccountAddress)
+	uAccMeta, err := ucfa.store.GetUnconfirmedMeta(block.To)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
 			Code: WacDefaultErr,
@@ -241,7 +241,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 		ucfa.writeAccountMutex.Lock()
 		defer ucfa.writeAccountMutex.Unlock()
 
-		err := ucfa.store.DeleteMeta(batch, block.AccountAddress)
+		err := ucfa.store.DeleteMeta(batch, block.To)
 		return errors.New("Delete unconfirmed failed, because uAccMeta is empty. Log:" + err.Error())
 	}
 
