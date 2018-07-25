@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"log"
 )
 
 type CmdConfig struct {
@@ -21,7 +22,10 @@ var pubs = [...]string{
 
 func pickPub(data, sign string) ed25519.PublicKey {
 	payload := []byte(data)
-	sig := []byte(sign)
+	sig, err := hex.DecodeString(sign)
+	if err != nil {
+		log.Fatalf("error sign from cmd: %v\n", err)
+	}
 
 	for _, str := range pubs {
 		pub, err := hex.DecodeString(str)
