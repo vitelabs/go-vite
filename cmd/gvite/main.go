@@ -31,6 +31,7 @@ func main() {
 		MaxPeers: uint32(*maxPeers),
 		MaxPassivePeersRatio: uint32(*passRatio),
 	})
+	globalConfig.P2P.Datadir = globalConfig.DataDir
 
 	globalConfig.Miner = config.MergeMinerConfig(&config.Miner{
 		Miner:         *minerFlag,
