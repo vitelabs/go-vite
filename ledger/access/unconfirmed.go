@@ -140,14 +140,14 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 	}
 	defer ucfa.uwMutex.UnLock(block)
 
-	// [tmp] Check data.
-	log.Info("Unconfirmed: before write:")
-	log.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
-	for idx, tokenInfo := range uAccMeta.TokenInfoList {
-		log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
-	}
-
 	if uAccMeta != nil {
+		// [tmp] Check data.
+		log.Info("Unconfirmed: before write:")
+		log.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
+		for idx, tokenInfo := range uAccMeta.TokenInfoList {
+			log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
+		}
+
 		// Upodate total number of this account's unconfirmedblocks
 		var number = &big.Int{}
 		uAccMeta.TotalNumber = number.Add(uAccMeta.TotalNumber, big.NewInt(1))
@@ -237,19 +237,19 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 			Err:  err,
 		}
 	}
-	// [tmp] Check data.
-	log.Info("Unconfirmed: before delete:")
-	log.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
-	for idx, tokenInfo := range uAccMeta.TokenInfoList {
-		log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
-	}
-
 	if uAccMeta == nil {
 		ucfa.writeAccountMutex.Lock()
 		defer ucfa.writeAccountMutex.Unlock()
 
 		err := ucfa.store.DeleteMeta(batch, block.AccountAddress)
 		return errors.New("Delete unconfirmed failed, because uAccMeta is empty. Log:" + err.Error())
+	}
+
+	// [tmp] Check data.
+	log.Info("Unconfirmed: before delete:")
+	log.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
+	for idx, tokenInfo := range uAccMeta.TokenInfoList {
+		log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
 	}
 
 	hashList, err := ucfa.store.GetAccHashListByTkId(uAccMeta.AccountId, block.TokenId)
