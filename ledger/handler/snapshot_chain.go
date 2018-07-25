@@ -49,7 +49,6 @@ func (sc *SnapshotChain) registerFirstSyncDown(firstSyncDownChan chan<- int) {
 }
 
 func (sc *SnapshotChain) onFirstSyncDown() {
-
 	registerChannelLock.Lock()
 	syncInfo.IsFirstSyncDone = true
 	go func() {
@@ -297,7 +296,6 @@ func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
 		return err
 	}
 
-
 	// Broadcast
 	log.Info("SnapshotChain WriteMiningBlock: Broadcast a new snapshot block.")
 	sendErr := sc.vite.Pm().SendMsg(nil, &protoTypes.Msg{
@@ -325,7 +323,7 @@ func (sc *SnapshotChain) getNeedSnapshot() (map[string]*ledger.SnapshotItem, err
 	for _, accountAddress := range accountAddressList {
 		latestBlock, err := sc.acAccess.GetLatestBlockByAccountAddress(accountAddress)
 
-		if latestBlock.Meta.IsSnapshotted {
+		if latestBlock == nil || latestBlock.Meta.IsSnapshotted {
 			continue
 		}
 
