@@ -19,16 +19,23 @@ type AccountChain interface {
 	GetUnconfirmedAccount(addr *types.Address) (*UnconfirmedAccount, error)
 	AddListener(addr types.Address, change chan<- struct{})
 	RemoveListener(addr types.Address)
+	GetAccount(accountAddress *types.Address) (*Account, error)
 }
 
 // pack the data for handler
 type TokenInfo struct {
-	Token       *ledger.Token
-	TotalAmount *big.Int
+	Token       *ledger.Mintage
+	TotalAmount *big.Int      // in UnconfirmedAccount is Amount, in Account is balance
 }
 
 type UnconfirmedAccount struct {
 	AccountAddress *types.Address
 	TotalNumber    *big.Int
+	TokenInfoList  []*TokenInfo
+}
+
+type Account struct {
+	AccountAddress *types.Address
+	BlockHeight    *big.Int
 	TokenInfoList  []*TokenInfo
 }
