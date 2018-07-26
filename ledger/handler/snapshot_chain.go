@@ -231,7 +231,6 @@ func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
 	}
 
 	if !syncInfo.IsFirstSyncDone {
-		syncInfo.IsFirstSyncStart = true
 		if syncInfo.BeginHeight == nil {
 			syncInfo.BeginHeight = latestBlock.Height
 		}
