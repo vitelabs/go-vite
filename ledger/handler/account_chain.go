@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"strconv"
 	"time"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type AccountChain struct {
@@ -167,16 +168,25 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 
 	accountMeta, err := ac.aAccess.GetAccountMeta(block.AccountAddress)
 
-	if err != nil {
-		return err
+	if block.IsSendBlock() {
+		if err != nil || accountMeta == nil {
+			err := errors.New("CreateTx failed, because account " + block.AccountAddress.String() + " doesn't found.")
+			log.Info(err.Error())
+			return err
+		}
+	} else {
+		if err != nil && err != leveldb.ErrNotFound {
+			err := errors.New("AccountChain CreateTx: get account meta failed, error is " + err.Error())
+			log.Info(err.Error())
+			return err
+		}
 	}
 
-	if accountMeta == nil {
-		return errors.New("CreateTx failed, because account " + block.AccountAddress.String() + " is not existed.")
-	}
+	log.Info("AccountChain CreateTx: get account meta success.")
 
 	// Set prevHash
 	latestBlock, err := ac.acAccess.GetLatestBlockByAccountAddress(block.AccountAddress)
+
 	if err != nil {
 		return err
 	}
@@ -184,6 +194,7 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 	if latestBlock != nil {
 		block.PrevHash = latestBlock.Hash
 	}
+	log.Info("AccountChain CreateTx: get latestBlock success.")
 
 	// Set Snapshot Timestamp
 	currentSnapshotBlock, err := ac.scAccess.GetLatestBlock()
@@ -191,6 +202,7 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 		return err
 	}
 
+	log.Info("AccountChain CreateTx: get currentSnapshotBlock success.")
 	block.SnapshotTimestamp = currentSnapshotBlock.Hash
 
 	// Set Timestamp
@@ -202,8 +214,11 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 	block.FAmount = big.NewInt(0)
 
 	// Set PublicKey
-	block.PublicKey = accountMeta.PublicKey
+	if accountMeta != nil {
+		block.PublicKey = accountMeta.PublicKey
+	}
 
+	log.Info("AccountChain CreateTx: start write block.")
 	writeErr := ac.acAccess.WriteBlock(block, func(accountBlock *ledger.AccountBlock) (*ledger.AccountBlock, error) {
 		var signErr error
 		if passphrase == "" {
@@ -223,11 +238,15 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 		return writeErr
 	}
 
+	log.Info("AccountChain CreateTx: write block success.")
+
 	// Broadcast
 	sendErr := ac.vite.Pm().SendMsg(nil, &protoTypes.Msg{
 		Code:    protoTypes.AccountBlocksMsgCode,
 		Payload: &protoTypes.AccountBlocksMsg{block},
 	})
+
+	log.Info("AccountChain CreateTx: broadcast to network.")
 
 	if sendErr != nil {
 		log.Info("CreateTx broadcast failed, error is " + sendErr.Error())

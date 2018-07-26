@@ -9,7 +9,7 @@ import (
 
 // DefaultDataDir is  $HOME/viteisbest/
 func DefaultDataDir() string {
-	home := homeDir()
+	home := HomeDir()
 	if home != "" {
 		return filepath.Join(home, "viteisbest")
 	}
@@ -22,7 +22,7 @@ func GoViteTestDataDir() string {
 	return filepath.Join(filepath.Dir(filepath.Dir(filename)), "testdata")
 }
 
-func homeDir() string {
+func HomeDir() string {
 	if home := os.Getenv("HOME"); home != "" {
 		return home
 	}

@@ -515,6 +515,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	if err := aca.writeStIndex(batch, block); err != nil {
 		log.Println("AccountChainAccess writeBlock warning: writeStIndex failed.")
 	}
+
 	return nil
 }
 

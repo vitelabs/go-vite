@@ -208,7 +208,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 
 func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(block *ledger.AccountBlock) (*ledger.UnconfirmedMeta, error) {
 	// Get the accountId
-	accMeta, err := GetAccountAccess().GetAccountMeta(block.AccountAddress)
+	accMeta, err := GetAccountAccess().GetAccountMeta(block.To)
 	if err != nil {
 		return nil, errors.New("[CreateNewUcfmMeta.GetAccountMeta]：" + err.Error())
 	}
@@ -311,7 +311,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 		}
 	}
 
-	if err := ucfa.store.WriteMeta(batch, block.AccountAddress, uAccMeta); err != nil {
+	if err := ucfa.store.WriteMeta(batch, block.To, uAccMeta); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
 			Err:  err,

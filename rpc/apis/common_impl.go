@@ -2,7 +2,6 @@ package apis
 
 import (
 	"fmt"
-	"encoding/json"
 	"github.com/vitelabs/go-vite/common/types"
 	"strconv"
 )
@@ -30,4 +29,3 @@ func (CommonApisImpl) IsValidHexTokenTypeId(ttis []string, reply *string) error 
 	*reply = strconv.FormatBool(types.IsValidHexTokenTypeId(ttis[0]))
 	return nil
 }
-

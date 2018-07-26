@@ -180,6 +180,7 @@ func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
 	hashes, e := ac.GetUnconfirmedTxHashs(0, 1, 1, &sw.address)
 
 	if e != nil {
+		log.Info("slaver auto GetUnconfirmedTxHashs err", err)
 		return false, e
 	}
 
