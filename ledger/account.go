@@ -41,6 +41,7 @@ func (am *AccountMeta) GetTokenInfoByTokenId(tokenId *types.TokenTypeId) *Accoun
 	if am.TokenList == nil {
 		return nil
 	}
+
 	var tokenInfo *AccountSimpleToken
 
 	// Get token info of account
