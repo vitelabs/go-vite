@@ -1,24 +1,24 @@
 package p2p
 
 import (
-	"net"
-	"fmt"
-	"encoding/hex"
-	"strings"
-	"errors"
-	"github.com/vitelabs/go-vite/p2p/protos"
-	"github.com/golang/protobuf/proto"
-	"math"
-	"net/url"
-	"strconv"
-	"sync"
-	mrand "math/rand"
 	crand "crypto/rand"
 	"encoding/binary"
-	"time"
-	"sort"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/p2p/protos"
 	"log"
+	"math"
+	mrand "math/rand"
+	"net"
+	"net/url"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 )
 
 const NodeURLScheme = "vnode"
@@ -37,7 +37,7 @@ func HexStr2NodeID(str string) (NodeID, error) {
 		return id, err
 	}
 	if len(bytes) != len(id) {
-		return id, fmt.Errorf("unmatch length, needs %d hex chars", len(id) * 2)
+		return id, fmt.Errorf("unmatch length, needs %d hex chars", len(id)*2)
 	}
 	copy(id[:], bytes)
 	return id, nil
@@ -45,17 +45,17 @@ func HexStr2NodeID(str string) (NodeID, error) {
 
 // @section Node
 type Node struct {
-	ID NodeID
-	IP net.IP
-	Port uint16
+	ID       NodeID
+	IP       net.IP
+	Port     uint16
 	lastping time.Time
 	lastpong time.Time
 }
 
 func (n *Node) toProto() *protos.Node {
 	nodepb := &protos.Node{
-		ID: n.ID[:],
-		IP: n.IP.String(),
+		ID:   n.ID[:],
+		IP:   n.IP.String(),
 		Port: uint32(n.Port),
 	}
 	return nodepb
@@ -71,8 +71,8 @@ func protoToNode(nodepb *protos.Node) *Node {
 
 func NewNode(id NodeID, ip net.IP, port uint16) *Node {
 	return &Node{
-		ID: id,
-		IP: ip,
+		ID:   id,
+		IP:   ip,
 		Port: port,
 	}
 }
@@ -93,9 +93,9 @@ func (n *Node) Validate() error {
 
 func (n *Node) Serialize() ([]byte, error) {
 	nodepb := &protos.Node{
-		IP: n.IP.String(),
+		IP:   n.IP.String(),
 		Port: uint32(n.Port),
-		ID: n.ID[:],
+		ID:   n.ID[:],
 	}
 
 	return proto.Marshal(nodepb)
@@ -174,7 +174,7 @@ func calcDistance(a, b NodeID) int {
 		}
 	}
 
-	return delta + (len(a) - i - 1) * 8
+	return delta + (len(a)-i-1)*8
 }
 
 func disCmp(target, a, b NodeID) int {
@@ -199,7 +199,7 @@ func findNodeIDFromDistance(a NodeID, d int) NodeID {
 	b := a
 
 	// pos mean the FDB between a and b from left to right.
-	pos := len(a) - d / 8 - 1
+	pos := len(a) - d/8 - 1
 
 	var xor byte = byte(d % 8)
 	// mean the xor of FDB is greater or equal 127.
@@ -222,12 +222,12 @@ func findNodeIDFromDistance(a NodeID, d int) NodeID {
 }
 
 func randInt(min, max int) int {
-	return mrand.Intn(max - min) + min
+	return mrand.Intn(max-min) + min
 }
 
 // get rand int in [2**(n-1), 2**n)
 func expRand(n byte) byte {
-	low, up := int(math.Pow(2.0, float64(n - 1))), int(math.Pow(2.0, float64(n)))
+	low, up := int(math.Pow(2.0, float64(n-1))), int(math.Pow(2.0, float64(n)))
 	return byte(randInt(low, up))
 }
 
@@ -243,7 +243,7 @@ func (n *Node) String() string {
 	err := n.Validate()
 	if err == nil {
 		addr := net.TCPAddr{
-			IP: n.IP,
+			IP:   n.IP,
 			Port: int(n.Port),
 		}
 		nodeURL.User = url.User(n.ID.String())
@@ -292,7 +292,6 @@ func ParseNode(u string) (*Node, error) {
 	return NewNode(id, ip, port), nil
 }
 
-
 // @section Bucket
 
 const K = 16
@@ -301,13 +300,13 @@ const Candidates = 10
 const minDistance = 239
 
 type bucket struct {
-	nodes []*Node
+	nodes      []*Node
 	candidates []*Node
 }
 
 func NewBucket() *bucket {
 	return &bucket{
-		nodes: make([]*Node, 0, K),
+		nodes:      make([]*Node, 0, K),
 		candidates: make([]*Node, 0, Candidates),
 	}
 }
@@ -354,7 +353,7 @@ func (b *bucket) checkOrCandidate(n *Node) {
 
 // obsolete the last node in b.nodes and return replacer.
 func (b *bucket) obsolete(last *Node) *Node {
-	if len(b.nodes) == 0 || b.nodes[len(b.nodes) - 1].ID != last.ID {
+	if len(b.nodes) == 0 || b.nodes[len(b.nodes)-1].ID != last.ID {
 		return nil
 	}
 	if len(b.candidates) == 0 {
@@ -364,7 +363,7 @@ func (b *bucket) obsolete(last *Node) *Node {
 
 	candidate := b.candidates[0]
 	b.candidates = b.candidates[1:]
-	b.nodes[len(b.nodes) - 1] = candidate
+	b.nodes[len(b.nodes)-1] = candidate
 	return candidate
 }
 
@@ -408,12 +407,11 @@ func unshiftNode(nodes []*Node, node *Node) []*Node {
 
 	// nodes is full, obsolete the last one.
 	for i = i - 1; i > 0; i-- {
-		nodes[i] = nodes[i - 1]
+		nodes[i] = nodes[i-1]
 	}
 	nodes[0] = node
 	return nodes
 }
-
 
 // @section table
 
@@ -424,19 +422,19 @@ const alpha = 3
 var refreshDuration = 30 * time.Minute
 var storeDuration = 5 * time.Minute
 var checkInterval = 3 * time.Minute
-var watingTimeout = 2 * time.Minute	// watingTimeout must be enough little, at least than checkInterval
+var watingTimeout = 2 * time.Minute // watingTimeout must be enough little, at least than checkInterval
 var pingInvervalPerNode = 10 * time.Minute
 
 type table struct {
-	mutex   sync.RWMutex
-	buckets [N]*bucket
-	bootNodes []*Node
-	db         *nodeDB
+	mutex         sync.RWMutex
+	buckets       [N]*bucket
+	bootNodes     []*Node
+	db            *nodeDB
 	nodeAddedHook func(*Node)
-	agent agent
-	self *Node
-	rand *mrand.Rand
-	stopped chan struct{}
+	agent         agent
+	self          *Node
+	rand          *mrand.Rand
+	stopped       chan struct{}
 }
 
 type agent interface {
@@ -452,12 +450,12 @@ func newTable(self *Node, net agent, dbPath string, bootNodes []*Node) (*table, 
 	}
 
 	tb := &table{
-		self: self,
-		db: nodeDB,
-		agent: net,
+		self:      self,
+		db:        nodeDB,
+		agent:     net,
 		bootNodes: bootNodes,
-		rand: mrand.New(mrand.NewSource(0)),
-		stopped: make(chan struct{}),
+		rand:      mrand.New(mrand.NewSource(0)),
+		stopped:   make(chan struct{}),
 	}
 
 	// init buckets
@@ -545,9 +543,9 @@ func (tb *table) loop() {
 loop:
 	for {
 		select {
-		case <- refreshTimer.C:
+		case <-refreshTimer.C:
 			go tb.refresh(refreshDone)
-		case <- refreshDone:
+		case <-refreshDone:
 			refreshTimer.Reset(refreshDuration)
 
 		case <-checkTicker.C:
@@ -555,7 +553,7 @@ loop:
 
 		case <-storeTimer.C:
 			go tb.storeNodes(storeDone)
-		case <- storeDone:
+		case <-storeDone:
 			storeTimer.Reset(storeDuration)
 		case <-tb.stopped:
 			break loop
@@ -622,7 +620,7 @@ func (tb *table) pickLastNode() (*Node, *bucket) {
 
 	for _, b := range tb.buckets {
 		if len(b.nodes) > 0 {
-			last := b.nodes[len(b.nodes) - 1]
+			last := b.nodes[len(b.nodes)-1]
 			if time.Now().Sub(last.lastping) > pingInvervalPerNode {
 				return last, b
 			}
@@ -735,15 +733,14 @@ func (tb *table) findnode(n *Node, targetID NodeID, reply chan<- []*Node) {
 	reply <- nodes
 }
 
-
 // @section closet
 // closest nodes to the target NodeID
 type closest struct {
-	nodes []*Node
+	nodes  []*Node
 	target NodeID
 }
 
-func (c *closest) push(n *Node, count int)  {
+func (c *closest) push(n *Node, count int) {
 	if n == nil {
 		return
 	}
@@ -763,30 +760,29 @@ func (c *closest) push(n *Node, count int)  {
 		// increase c.nodes length first.
 		c.nodes = append(c.nodes, nil)
 		// insert n to furtherNodeIndex
-		copy(c.nodes[furtherNodeIndex + 1:], c.nodes[furtherNodeIndex:])
+		copy(c.nodes[furtherNodeIndex+1:], c.nodes[furtherNodeIndex:])
 		c.nodes[furtherNodeIndex] = n
 	}
 }
-
 
 // @section agent
 var errStopped = errors.New("discv server has stopped")
 var errTimeout = errors.New("timeout")
 
 type DiscvConfig struct {
-	Priv ed25519.PrivateKey
-	Pub ed25519.PublicKey
-	DBPath string
+	Priv      ed25519.PrivateKey
+	Pub       ed25519.PublicKey
+	DBPath    string
 	BootNodes []*Node
-	Addr *net.UDPAddr
+	Addr      *net.UDPAddr
 }
 
 type discover struct {
-	conn *net.UDPConn
-	tab *table
-	priv ed25519.PrivateKey
-	reqing chan *req
-	getres chan *res
+	conn    *net.UDPConn
+	tab     *table
+	priv    ed25519.PrivateKey
+	reqing  chan *req
+	getres  chan *res
 	stopped chan struct{}
 }
 
@@ -797,10 +793,10 @@ func newDiscover(cfg *DiscvConfig) (*table, *net.UDPAddr, error) {
 		log.Fatalf("discv listen udp error: %v\n", err)
 	}
 	discv := &discover{
-		conn: conn,
-		priv: cfg.Priv,
-		reqing: make(chan *req),
-		getres: make(chan *res),
+		conn:    conn,
+		priv:    cfg.Priv,
+		reqing:  make(chan *req),
+		getres:  make(chan *res),
 		stopped: make(chan struct{}),
 	}
 
@@ -814,8 +810,8 @@ func newDiscover(cfg *DiscvConfig) (*table, *net.UDPAddr, error) {
 		copy(id[:], cfg.Pub)
 	}
 	node := &Node{
-		ID: id,
-		IP: laddr.IP,
+		ID:   id,
+		IP:   laddr.IP,
 		Port: uint16(laddr.Port),
 	}
 	log.Printf("self: %s\n", node)
@@ -835,11 +831,11 @@ func newDiscover(cfg *DiscvConfig) (*table, *net.UDPAddr, error) {
 // after send query. wating for reply.
 type req struct {
 	senderID NodeID
-	proto byte
+	proto    byte
 	// if the query has been handled correctly, then return true.
 	callback func(Message) error
-	expire time.Time
-	errch chan error
+	expire   time.Time
+	errch    chan error
 }
 type reqList []*req
 
@@ -878,9 +874,9 @@ func cleanStaleReq(rql reqList) reqList {
 
 type res struct {
 	senderID NodeID
-	proto byte
-	data Message
-	done chan error
+	proto    byte
+	data     Message
+	done     chan error
 }
 
 func (d *discover) getID() NodeID {
@@ -922,7 +918,7 @@ func (d *discover) ping(node *Node) error {
 		return errors.New("unmatched pong")
 	})
 
-	return <- errch
+	return <-errch
 }
 func (d *discover) findnode(ID NodeID, n *Node) (nodes []*Node, err error) {
 	log.Printf("findnode %s to %s\n", ID, n)
@@ -932,7 +928,7 @@ func (d *discover) findnode(ID NodeID, n *Node) (nodes []*Node, err error) {
 	}
 
 	err = d.send(n.addr(), findnodeCode, &FindNode{
-		ID: d.getID(),
+		ID:     d.getID(),
 		Target: ID,
 	})
 	if err != nil {
@@ -948,7 +944,7 @@ func (d *discover) findnode(ID NodeID, n *Node) (nodes []*Node, err error) {
 		return nil
 	})
 
-	err = <- errch
+	err = <-errch
 	log.Printf("findnode got %d nodes, error: %v\n", len(nodes), err)
 	return nodes, err
 }
@@ -957,14 +953,14 @@ func (d *discover) wait(ID NodeID, code byte, callback func(Message) error) (err
 	errch = make(chan error, 1)
 	p := &req{
 		senderID: ID,
-		proto: code,
+		proto:    code,
 		callback: callback,
-		expire: time.Now().Add(watingTimeout),
-		errch: errch,
+		expire:   time.Now().Add(watingTimeout),
+		errch:    errch,
 	}
 	select {
 	case d.reqing <- p:
-	case <- d.stopped:
+	case <-d.stopped:
 		errch <- errStopped
 	}
 
@@ -984,17 +980,17 @@ func (d *discover) loop() {
 
 	for {
 		select {
-		case <- d.stopped:
+		case <-d.stopped:
 			for _, w := range rql {
 				w.errch <- errStopped
 			}
-		case req := <- d.reqing:
+		case req := <-d.reqing:
 			log.Printf("wating msg %d from %s expire %s\n", req.proto, req.senderID, req.expire)
 			rql = append(rql, req)
-		case res := <- d.getres:
+		case res := <-d.getres:
 			rql = handleRes(rql, res)
 			log.Printf("handle msg %d from %s\n", res.proto, res.senderID)
-		case <- checkTicker.C:
+		case <-checkTicker.C:
 			rql = cleanStaleReq(rql)
 		}
 	}
@@ -1052,15 +1048,15 @@ func (d *discover) send(addr *net.UDPAddr, code byte, m Message) (err error) {
 func (d *discover) receive(code byte, m Message) error {
 	done := make(chan error, 1)
 	select {
-	case <- d.stopped:
+	case <-d.stopped:
 		return errors.New("discover stopped")
 	case d.getres <- &res{
 		senderID: m.getID(),
-		proto: code,
-		data: m,
-		done: done,
+		proto:    code,
+		data:     m,
+		done:     done,
 	}:
-		return <- done
+		return <-done
 	}
 }
 

@@ -1,16 +1,16 @@
 package p2p
 
 import (
-	"time"
-	"net"
-	"sync"
 	"github.com/syaka-yin/go-nat"
 	"log"
+	"net"
+	"sync"
+	"time"
 )
 
 type natClient struct {
 	mutex sync.Mutex
-	nat nat.NAT
+	nat   nat.NAT
 }
 
 func (c *natClient) getClient() (nat.NAT, error) {
@@ -43,7 +43,7 @@ func getExtIP() (net.IP, error) {
 	return client.GetExternalAddress()
 }
 
-func natMap(stop <- chan struct{}, protocol string, lPort, ePort int, lifetime time.Duration) {
+func natMap(stop <-chan struct{}, protocol string, lPort, ePort int, lifetime time.Duration) {
 	client, err := gclt.getClient()
 
 	if err != nil {
@@ -69,9 +69,9 @@ func natMap(stop <- chan struct{}, protocol string, lPort, ePort int, lifetime t
 
 	for {
 		select {
-		case <- stop:
+		case <-stop:
 			return
-		case <- timer.C:
+		case <-timer.C:
 			mp()
 			timer.Reset(lifetime)
 		}

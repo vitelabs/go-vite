@@ -1,11 +1,11 @@
 package types
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/vitepb"
+	"math/big"
 )
 
 // @section Msg
@@ -15,7 +15,7 @@ type Serializable interface {
 }
 
 type Msg struct {
-	Code uint64
+	Code    uint64
 	Payload Serializable
 }
 
@@ -23,27 +23,27 @@ const Vite1 = 1
 
 // @section msg code
 const (
-	StatusMsgCode uint64 = 17
-	GetSnapshotBlocksMsgCode = 18
-	SnapshotBlocksMsgCode = 19
-	GetAccountBlocksMsgCode = 20
-	AccountBlocksMsgCode = 21
+	StatusMsgCode            uint64 = 17
+	GetSnapshotBlocksMsgCode        = 18
+	SnapshotBlocksMsgCode           = 19
+	GetAccountBlocksMsgCode         = 20
+	AccountBlocksMsgCode            = 21
 )
 
 // @message current blockchain status.
 type StatusMsg struct {
 	ProtocolVersion uint32
-	Height *big.Int
-	CurrentBlock types.Hash
-	GenesisBlock types.Hash
+	Height          *big.Int
+	CurrentBlock    types.Hash
+	GenesisBlock    types.Hash
 }
 
 func (st *StatusMsg) NetSerialize() ([]byte, error) {
 	stpb := &vitepb.StatusMsg{
 		ProtocolVersion: st.ProtocolVersion,
-		Height: st.Height.Bytes(),
-		CurrentBlock: st.CurrentBlock[:],
-		GenesisBlock: st.GenesisBlock[:],
+		Height:          st.Height.Bytes(),
+		CurrentBlock:    st.CurrentBlock[:],
+		GenesisBlock:    st.GenesisBlock[:],
 	}
 
 	return proto.Marshal(stpb)
@@ -67,15 +67,15 @@ func (st *StatusMsg) NetDeserialize(data []byte) error {
 
 // @message get multiple snapshot blocks.
 type GetSnapshotBlocksMsg struct {
-	Origin 	types.Hash
-	Count 	uint64
+	Origin  types.Hash
+	Count   uint64
 	Forward bool
 }
 
 func (gs *GetSnapshotBlocksMsg) NetSerialize() ([]byte, error) {
 	gspb := &vitepb.GetSnapshotBlocksMsg{
-		Origin: gs.Origin[:],
-		Count: gs.Count,
+		Origin:  gs.Origin[:],
+		Count:   gs.Count,
 		Forward: gs.Forward,
 	}
 
@@ -99,15 +99,15 @@ type SnapshotBlocksMsg = ledger.SnapshotBlockList
 
 // @message get multiple account blocks.
 type GetAccountBlocksMsg struct {
-	Origin 	types.Hash
-	Count 	uint64
+	Origin  types.Hash
+	Count   uint64
 	Forward bool
 }
 
 func (ga *GetAccountBlocksMsg) NetSerialize() ([]byte, error) {
 	gapb := &vitepb.GetAccountBlocksMsg{
-		Origin: ga.Origin[:],
-		Count: ga.Count,
+		Origin:  ga.Origin[:],
+		Count:   ga.Count,
 		Forward: ga.Forward,
 	}
 

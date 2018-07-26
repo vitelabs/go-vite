@@ -1,31 +1,32 @@
 package protocols
 
 import (
-	"github.com/vitelabs/go-vite/p2p"
-	"sync"
-	"github.com/vitelabs/go-vite/ledger"
 	"fmt"
-	"log"
-	"time"
-	"math/big"
-	protoType "github.com/vitelabs/go-vite/protocols/types"
-	"github.com/vitelabs/go-vite/protocols/interfaces"
-	ledgerHandler "github.com/vitelabs/go-vite/ledger/handler_interface"
 	"github.com/syndtr/goleveldb/leveldb/errors"
+	"github.com/vitelabs/go-vite/ledger"
+	ledgerHandler "github.com/vitelabs/go-vite/ledger/handler_interface"
+	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/protocols/interfaces"
+	protoType "github.com/vitelabs/go-vite/protocols/types"
+	"log"
+	"math/big"
+	"sync"
+	"time"
 )
 
 var enoughPeersTimeout = 1 * time.Minute
+
 const enoughPeers = 2
 const broadcastConcurrency = 10
 
 type ProtocolManager struct {
-	Peers *PeersMap
-	Start time.Time
-	Syncing bool
-	vite interfaces.Vite
-	schain ledgerHandler.SnapshotChain
-	achain ledgerHandler.AccountChain
-	mutex sync.RWMutex
+	Peers    *PeersMap
+	Start    time.Time
+	Syncing  bool
+	vite     interfaces.Vite
+	schain   ledgerHandler.SnapshotChain
+	achain   ledgerHandler.AccountChain
+	mutex    sync.RWMutex
 	syncPeer *protoType.Peer
 }
 
@@ -51,11 +52,11 @@ func (pm *ProtocolManager) SendStatusMsg(peer *protoType.Peer) {
 	currentBlock := pm.CurrentBlock()
 	status := &protoType.StatusMsg{
 		ProtocolVersion: protoType.Vite1,
-		Height: currentBlock.Height,
-		CurrentBlock: *currentBlock.Hash,
+		Height:          currentBlock.Height,
+		CurrentBlock:    *currentBlock.Hash,
 	}
 	err := pm.SendMsg(peer, &protoType.Msg{
-		Code: protoType.StatusMsgCode,
+		Code:    protoType.StatusMsgCode,
 		Payload: status,
 	})
 
@@ -69,8 +70,8 @@ func (pm *ProtocolManager) SendStatusMsg(peer *protoType.Peer) {
 
 func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 	protoPeer := &protoType.Peer{
-		Peer: peer,
-		ID: peer.ID().String(),
+		Peer:    peer,
+		ID:      peer.ID().String(),
 		Sending: make(chan struct{}, 1),
 	}
 
@@ -82,14 +83,14 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 
 	for {
 		select {
-		case <- peer.Closed:
+		case <-peer.Closed:
 			pm.Peers.DelPeer(protoPeer)
 			// if the syncing peer is disconnected, then begin Sync immediately.
 			if protoPeer == pm.syncPeer {
 				go pm.Sync()
 			}
 			return
-		case msg := <- peer.ProtoMsg:
+		case msg := <-peer.ProtoMsg:
 			switch msg.Code {
 			case protoType.StatusMsgCode:
 				m := new(protoType.StatusMsg)
@@ -136,9 +137,9 @@ func (pm *ProtocolManager) CheckStatus(peer *protoType.Peer) {
 		defer ticker.Stop()
 		for {
 			select {
-			case <- ticker.C:
+			case <-ticker.C:
 				pm.SendStatusMsg(peer)
-			case <- peer.Closed:
+			case <-peer.Closed:
 				return
 			}
 		}
@@ -151,7 +152,7 @@ func (pm *ProtocolManager) SendMsg(p *protoType.Peer, msg *protoType.Msg) error 
 		return fmt.Errorf("pm.SendMsg NetSerialize msg %d to %s error: %v\n", msg.Code, p.ID, err)
 	}
 	m := &p2p.Msg{
-		Code: msg.Code,
+		Code:    msg.Code,
 		Payload: payload,
 	}
 
@@ -165,7 +166,7 @@ func (pm *ProtocolManager) SendMsg(p *protoType.Peer, msg *protoType.Msg) error 
 	p.Sending <- struct{}{}
 	log.Printf("pm begin send msg %d to %s %d bytes\n", msg.Code, p.ID, len(payload))
 	err = p2p.Send(p.TS, m)
-	<- p.Sending
+	<-p.Sending
 	return err
 }
 
@@ -184,7 +185,7 @@ func (pm *ProtocolManager) BroadcastMsg(msg *protoType.Msg) (fails []*protoType.
 		} else {
 			log.Printf("pm broadcast msg %d to %s done\n", msg.Code, p.ID)
 		}
-		<- pending
+		<-pending
 	}
 
 	for _, peer := range pm.Peers.peers {
@@ -260,7 +261,7 @@ func (pm *ProtocolManager) SyncDone() {
 }
 
 func (pm *ProtocolManager) CurrentBlock() (block *ledger.SnapshotBlock) {
-	block, err :=  pm.schain.GetLatestBlock()
+	block, err := pm.schain.GetLatestBlock()
 	if err != nil {
 		log.Fatalf("pm.chain.GetLatestBlock error: %v\n", err)
 	} else {
@@ -271,19 +272,19 @@ func (pm *ProtocolManager) CurrentBlock() (block *ledger.SnapshotBlock) {
 }
 
 func NewProtocolManager(vite interfaces.Vite) *ProtocolManager {
-	return &ProtocolManager {
-		Peers: NewPeersMap(),
-		Start: time.Now(),
+	return &ProtocolManager{
+		Peers:  NewPeersMap(),
+		Start:  time.Now(),
 		schain: vite.Ledger().Sc(),
 		achain: vite.Ledger().Ac(),
-		vite: vite,
+		vite:   vite,
 	}
 }
 
 // @section PeersMap
 type PeersMap struct {
 	peers map[string]*protoType.Peer
-	rw sync.RWMutex
+	rw    sync.RWMutex
 }
 
 func NewPeersMap() *PeersMap {

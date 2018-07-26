@@ -1,8 +1,8 @@
 package p2p
 
 import (
-	"github.com/vitelabs/go-vite/crypto"
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"log"
 )

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpc/apis"
 	"github.com/vitelabs/go-vite/vite"
@@ -10,7 +11,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"syscall"
-	"github.com/vitelabs/go-vite/config"
 )
 
 func main() {
