@@ -87,16 +87,17 @@ var pendingPool *pending.SnapshotchainPool
 
 // HandleBlockHash
 func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, peer *protoTypes.Peer) error {
+
 	if pendingPool == nil {
 		log.Info("SnapshotChain HandleSendBlocks: Init pending.SnapshotchainPool.")
 		pendingPool = pending.NewSnapshotchainPool(func(block *ledger.SnapshotBlock) bool {
 			globalRWMutex.RLock()
 			defer globalRWMutex.RUnlock()
 
-			log.Info("SnapshotChain HandleSendBlocks: Start process block " + block.Hash.String())
+			log.Info("SnapshotChain HandleSendBlocks: Start process block " + block.Hash.String() + ", block height is " + block.Height.String())
 			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
 				// Let the pool discard the block.
-				log.Info("SnapshotChain HandleSendBlocks: discard block " + block.Hash.String() + ", because block.PublicKey or block.Hash or block.Signature is nil.")
+				log.Info("SnapshotChain HandleSendBlocks: discard block  , because block.PublicKey or block.Hash or block.Signature is nil.")
 				return true
 			}
 
@@ -175,15 +176,29 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 						gap := &big.Int{}
 						gap.Sub(block.Height, preBlock.Height)
 
-						if gap.Cmp(big.NewInt(1)) <= 0 {
-							// Let the pool discard the block.
-							return true
+						if gap.Cmp(big.NewInt(1)) > 0 && syncInfo.IsFirstSyncDone {
+							// Download snapshot block
+							log.Info("SnapshotChain.HandleSendBlocks: Download snapshot blocks." +
+								"Current block height is " + preBlock.Height.String() + ", and target block height is " +
+								block.Height.String())
+							sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+								Code: protoTypes.GetSnapshotBlocksMsgCode,
+								Payload: &protoTypes.GetSnapshotBlocksMsg{
+									Origin:  *block.Hash,
+									Count:   gap.Uint64(),
+									Forward: false,
+								},
+							})
 						}
-						return false
+
+						// Let the pool discard the block.
+						return true
 					}
 				}
 
-				return false
+				// Let the pool discard the block.
+				log.Info("SnapshotChain.HandleSendBlocks: write failed, error is " + wbErr.Error())
+				return true
 			}
 
 			if !syncInfo.IsFirstSyncDone {

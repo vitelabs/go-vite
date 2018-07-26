@@ -1,15 +1,15 @@
 package apis
 
 import (
-	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/ledger/handler_interface"
-	"github.com/vitelabs/go-vite/signer"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
-	"math/big"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/ledger/handler_interface"
 	"github.com/vitelabs/go-vite/log"
 	"github.com/vitelabs/go-vite/rpc/api_interface"
+	"github.com/vitelabs/go-vite/signer"
+	"github.com/vitelabs/go-vite/vite"
+	"math/big"
 )
 
 func NewLedgerApi(vite *vite.Vite) api_interface.LedgerApi {
@@ -107,30 +107,30 @@ func (l *LegerApiImpl) GetAccountByAccAddr(addrs []string, reply *string) error 
 	if err != nil {
 		return err
 	}
-	account, err := l.ledgerManager.Ac().GetAccountByAccAddr(&addr)
+	account, err := l.ledgerManager.Ac().GetAccount(&addr)
 	if err != nil {
 		return err
 	}
 
 	var bs []api_interface.BalanceInfo
-	if len(account.TokenList) == 0 {
+	if len(account.TokenInfoList) == 0 {
 		bs = nil
 	} else {
-		bs = make([]api_interface.BalanceInfo, len(account.TokenList))
-		for i, v := range account.TokenList {
+		bs = make([]api_interface.BalanceInfo, len(account.TokenInfoList))
+		for i, v := range account.TokenInfoList {
 			bs[i] = api_interface.BalanceInfo{
-				TokenSymbol: "",
-				TokenName:   "",
-				TokenTypeId: v.TokenId.String(),
-				Balance:     "",
+				TokenSymbol: v.Token.Symbol,
+				TokenName:   v.Token.Name,
+				TokenTypeId: v.Token.Id.String(),
+				Balance:     v.TotalAmount.String(),
 			}
 		}
 	}
 
 	res := api_interface.GetAccountResponse{
-		Addr:         types.PubkeyToAddress(account.PublicKey[:]).String(),
+		Addr:         addrs[0],
 		BalanceInfos: bs,
-		BlockHeight:  "",
+		BlockHeight:  account.BlockHeight.String(),
 	}
 
 	return easyJsonReturn(res, reply)
@@ -151,14 +151,18 @@ func (l *LegerApiImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
 	if e != nil {
 		return e
 	}
+	if account == nil {
+		*reply = ""
+		return nil
+	}
 
 	if len(account.TokenInfoList) != 0 {
 		blances := make([]api_interface.BalanceInfo, len(account.TokenInfoList))
 		for k, v := range account.TokenInfoList {
 			blances[k] = api_interface.BalanceInfo{
-				TokenSymbol: v.Token.Mintage.Symbol,
-				TokenName:   v.Token.Mintage.Name,
-				TokenTypeId: v.Token.Mintage.Id.Hex(),
+				TokenSymbol: v.Token.Symbol,
+				TokenName:   v.Token.Name,
+				TokenTypeId: v.Token.Id.Hex(),
 				Balance:     v.TotalAmount.String(),
 			}
 		}

@@ -97,6 +97,7 @@ func (c *Master) loop() {
 			s := signSlave{vite: c.Vite, address: k, addressUnlocked: true}
 			log.Info("Master find a new unlock address signSlave", k.String())
 			c.signSlaves[k] = &s
+			s.AddressUnlocked(true)
 			c.coreMutex.Unlock()
 
 			go s.StartWork()
@@ -121,6 +122,7 @@ func (c *Master) loop() {
 		c.signSlaves[event.Address] = &s
 		c.coreMutex.Unlock()
 
+		s.AddressUnlocked(true)
 		go s.StartWork()
 
 	}
@@ -168,19 +170,21 @@ func (sw *signSlave) IsWorking() bool {
 func (sw *signSlave) AddressUnlocked(unlocked bool) {
 	sw.addressUnlocked = unlocked
 	if unlocked {
+		log.Info("slaver AddListener ", sw.address)
 		sw.vite.Ledger().Ac().AddListener(sw.address, sw.newSignedTask)
 	} else {
+		log.Info("slaver RemoveListener", sw.address)
 		sw.vite.Ledger().Ac().RemoveListener(sw.address)
 	}
 }
 
 func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
-	log.Info("slaver auto send confirm task")
+	log.Info("slaver auto send confirm task", sw.address)
 	ac := sw.vite.Ledger().Ac()
 	hashes, e := ac.GetUnconfirmedTxHashs(0, 1, 1, &sw.address)
 
 	if e != nil {
-		log.Info("slaver auto GetUnconfirmedTxHashs err", e)
+		log.Info("slaver auto GetUnconfirmedTxHashs err " + e.Error() + " " + sw.address.String())
 		return false, e
 	}
 
