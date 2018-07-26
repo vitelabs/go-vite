@@ -87,7 +87,7 @@ type Peer struct {
 func NewPeer(ts *TSConn) *Peer {
 	return &Peer{
 		TS: 		ts,
-		Errch: 		make(chan error),
+		Errch: 		make(chan error, 1),
 		Closed:		make(chan struct{}),
 		disc: 		make(chan DiscReason),
 		ProtoMsg:	make(chan Msg),
