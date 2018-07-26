@@ -183,11 +183,9 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 			Err:  err,
 		}
 	}
-	// Add to the Listener
-	_, ok := ucListener[*block.To]
-	if ok {
-		ucfa.SendSignalToListener(*block.To)
-	}
+
+	// Send signal to listener if exists.
+	ucfa.SendSignalToListener(*block.To)
 	return nil
 }
 
@@ -310,9 +308,11 @@ var listenerMutex sync.Mutex
 func (ucfa *UnconfirmedAccess) SendSignalToListener(addr types.Address) {
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
-	log2.Printf("UnconfirmedAccess.SendSignalToListener: %+v\n", ucListener[addr])
-	ucListener[addr] <- struct{}{}
-	log.Info("Unconfirmed: Send signal to listener success.")
+	if targetChannel, ok := ucListener[addr]; ok {
+		log.Info("UnconfirmedAccess.SendSignalToListener: start send signal.")
+		targetChannel <- struct{}{}
+	}
+	log.Info("UnconfirmedAccess.SendSignalToListener: Send signal to listener success.")
 }
 
 func (ucfa *UnconfirmedAccess) RemoveListener(addr types.Address) {
