@@ -13,22 +13,20 @@ import (
 	"sync"
 )
 
-type unconfirmedListener map[types.Address]chan<- struct{}
+var ucListener = make(map[types.Address]chan<- struct{})
 
 var unconfirmedAccess *UnconfirmedAccess
 
 type UnconfirmedAccess struct {
-	store    *vitedb.Unconfirmed
-	uwMutex  *ucfmWriteMutex
-	listener *unconfirmedListener
+	store   *vitedb.Unconfirmed
+	uwMutex *ucfmWriteMutex
 }
 
 func GetUnconfirmedAccess() *UnconfirmedAccess {
 	if unconfirmedAccess == nil {
 		unconfirmedAccess = &UnconfirmedAccess{
-			store:    vitedb.GetUnconfirmed(),
-			uwMutex:  &ucfmWriteMutex{},
-			listener: &unconfirmedListener{},
+			store:   vitedb.GetUnconfirmed(),
+			uwMutex: &ucfmWriteMutex{},
 		}
 
 	}
@@ -312,23 +310,23 @@ var listenerMutex sync.Mutex
 func (ucfa *UnconfirmedAccess) SendSignalToListener(addr types.Address) {
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
-	log2.Printf("UnconfirmedAccess.SendSignalToListener: %+v\n", (*ucfa.listener)[addr])
-	(*ucfa.listener)[addr] <- struct{}{}
+	log2.Printf("UnconfirmedAccess.SendSignalToListener: %+v\n", ucListener[addr])
+	ucListener[addr] <- struct{}{}
 	log.Info("Unconfirmed: Send signal to listener success.")
 }
 
 func (ucfa *UnconfirmedAccess) RemoveListener(addr types.Address) {
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
-	delete(*ucfa.listener, addr)
+	delete(ucListener, addr)
 	log.Info("Unconfirmed: Remove account's listener success.")
 }
 
 func (ucfa *UnconfirmedAccess) AddListener(addr types.Address, change chan<- struct{}) {
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
-	(*ucfa.listener)[addr] = change
-	log2.Printf("UnconfirmedAccess.AddListener: %+v\n", (*ucfa.listener)[addr])
+	ucListener[addr] = change
+	log2.Printf("UnconfirmedAccess.AddListener: %+v, change is %+v\n", ucListener[addr], change)
 	log.Info("Unconfirmed: Add account's listener success.")
 }
 
