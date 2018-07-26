@@ -437,6 +437,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 
 		block.Hash = hash
 	}
+	log.Printf("AccountChainAccess writeblock: set hash success.")
 
 	// Sign
 	if signFunc != nil && block.Signature == nil {
@@ -451,6 +452,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			}
 		}
 	}
+	log.Printf("AccountChainAccess writeblock: sign success.")
 
 	// Write account meta
 	if err := aca.accountStore.WriteMeta(batch, block.AccountAddress, accountMeta); err != nil {
@@ -459,6 +461,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			Err:  err,
 		}
 	}
+	log.Printf("AccountChainAccess writeblock: writeMeta success.")
 
 	// Write account id index
 	if needCreateNewAccount {
@@ -469,6 +472,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			}
 		}
 	}
+	log.Printf("AccountChainAccess writeblock: Write account id index success.")
 
 	// Write account block meta
 	if wrbErr := aca.writeBlockMeta(batch, block); wrbErr != nil {
@@ -477,6 +481,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			Err:  wrbErr,
 		}
 	}
+	log.Printf("AccountChainAccess writeblock: Write block meta success.")
 
 	// Write account block
 	if err := aca.store.WriteBlock(batch, accountMeta.AccountId, block); err != nil {
@@ -485,6 +490,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			Err:  errors.New("Write the block failed, error is " + err.Error()),
 		}
 	}
+	log.Printf("AccountChainAccess writeblock: Write block success.")
 
 	// Write tii
 	if err := aca.writeTii(batch, block); err != nil {
@@ -493,6 +499,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			Err:  err,
 		}
 	}
+	log.Printf("AccountChainAccess writeblock: Write tii success.")
 
 	// Write st index
 	if err := aca.writeStIndex(batch, block); err != nil {
