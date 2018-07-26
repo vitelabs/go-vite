@@ -81,12 +81,29 @@ func (l *LegerApiImpl) GetBlocksByAccAddr(params *api_interface.GetBlocksParams,
 	for i, v := range list {
 		jsonBlocks[i] = api_interface.SimpleBlock{
 			Timestamp: v.Timestamp,
-			Amount:    v.Amount.String(),
-			FromAddr:  v.From.String(),
-			ToAddr:    v.To.String(),
-			Status:    v.Meta.Status,
 			Hash:      v.Hash.String(),
 		}
+
+		if v.From != nil {
+			jsonBlocks[i].FromAddr = v.From.String()
+		}
+
+		if v.To != nil {
+			jsonBlocks[i].ToAddr = v.To.String()
+		}
+
+		if v.Amount != nil {
+			jsonBlocks[i].Amount = v.Amount.String()
+		}
+
+		if v.Meta != nil {
+			jsonBlocks[i].Status = v.Meta.Status
+		}
+
+		if v.Balance != nil {
+			jsonBlocks[i].Balance = v.Balance.String()
+		}
+
 	}
 	return easyJsonReturn(jsonBlocks, reply)
 }

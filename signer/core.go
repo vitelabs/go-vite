@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/log"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"sync"
+	"time"
 )
 
 type Master struct {
@@ -198,6 +199,7 @@ func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
 		FromHash:       hashes[0],
 	})
 
+	time.Sleep(2 * time.Second)
 	return true, err
 }
 
