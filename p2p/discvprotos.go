@@ -1,16 +1,16 @@
 package p2p
 
 import (
-	"github.com/vitelabs/go-vite/p2p/protos"
-	"github.com/golang/protobuf/proto"
-	"fmt"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/crypto"
-	"errors"
-	"net"
-	"github.com/vitelabs/go-vite/common/types"
-	"log"
 	"bytes"
+	"errors"
+	"fmt"
+	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/p2p/protos"
+	"log"
+	"net"
 )
 
 const version byte = 1
@@ -20,6 +20,7 @@ const (
 	findnodeCode
 	neighborsCode
 )
+
 // the full packet must be little than 1400bytes, consist of:
 // version(1 byte), code(1 byte), checksum(32 bytes), signature(64 bytes), payload
 // consider varint encoding of protobuf, 1 byte maybe take up 2 bytes after encode.
@@ -80,7 +81,7 @@ func (p *Ping) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
 	log.Printf("receive ping from %s\n", origin)
 
 	pong := &Pong{
-		ID: d.getID(),
+		ID:   d.getID(),
 		Ping: hash,
 	}
 
@@ -96,7 +97,7 @@ func (p *Ping) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
 
 // message Pong
 type Pong struct {
-	ID NodeID
+	ID   NodeID
 	Ping types.Hash
 }
 
@@ -106,7 +107,7 @@ func (p *Pong) getID() NodeID {
 
 func (p *Pong) Serialize() ([]byte, error) {
 	pongpb := &protos.Pong{
-		ID: p.ID[:],
+		ID:   p.ID[:],
 		Ping: p.Ping[:],
 	}
 	return proto.Marshal(pongpb)
@@ -130,7 +131,7 @@ func (p *Pong) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err e
 	}
 
 	data, hash = composePacket(key, pongCode, buf)
-	return data, hash,nil
+	return data, hash, nil
 }
 
 func (p *Pong) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
@@ -139,7 +140,7 @@ func (p *Pong) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
 }
 
 type FindNode struct {
-	ID NodeID
+	ID     NodeID
 	Target NodeID
 }
 
@@ -149,7 +150,7 @@ func (p *FindNode) getID() NodeID {
 
 func (f *FindNode) Serialize() ([]byte, error) {
 	findpb := &protos.FindNode{
-		ID: f.ID[:],
+		ID:     f.ID[:],
 		Target: f.Target[:],
 	}
 	return proto.Marshal(findpb)
@@ -174,7 +175,7 @@ func (p *FindNode) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, 
 	}
 
 	data, hash = composePacket(priv, findnodeCode, buf)
-	return data, hash,nil
+	return data, hash, nil
 }
 
 func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
@@ -183,7 +184,7 @@ func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) err
 	closet := d.tab.closest(p.Target, maxNeighborsNodes)
 
 	err := d.send(origin, neighborsCode, &Neighbors{
-		ID: d.getID(),
+		ID:    d.getID(),
 		Nodes: closet.nodes,
 	})
 
@@ -197,7 +198,7 @@ func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) err
 }
 
 type Neighbors struct {
-	ID NodeID
+	ID    NodeID
 	Nodes []*Node
 }
 
@@ -212,7 +213,7 @@ func (n *Neighbors) Serialize() ([]byte, error) {
 	}
 
 	neighborspb := &protos.Neighbors{
-		ID: n.ID[:],
+		ID:    n.ID[:],
 		Nodes: nodepbs,
 	}
 	return proto.Marshal(neighborspb)
@@ -245,7 +246,7 @@ func (p *Neighbors) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash,
 	}
 
 	data, hash = composePacket(priv, neighborsCode, buf)
-	return data, hash,nil
+	return data, hash, nil
 }
 
 func (p *Neighbors) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
@@ -267,7 +268,6 @@ func (p *Neighbors) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) er
 //	copy(hash[:], checksum)
 //	return data, hash
 //}
-
 
 // no need to sign for now
 // version code checksum payload

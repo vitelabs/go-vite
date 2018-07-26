@@ -1,32 +1,32 @@
 package config
 
 type P2P struct {
-	Name 		string		`json:"Name""`
+	Name string `json:"Name""`
 
-	Sig 		string		`json:"Sig"`
+	Sig string `json:"Sig"`
 
 	// use for sign data
-	PrivateKey 	string		`json:"PrivateKey"`
+	PrivateKey string `json:"PrivateKey"`
 	// use for NodeID
-	PublicKey 	string		`json:"PublicKey"`
+	PublicKey string `json:"PublicKey"`
 
 	// `MaxPeers` is the maximum number of peers that can be connected.
-	MaxPeers uint32					`json:"MaxPeers"`
+	MaxPeers uint32 `json:"MaxPeers"`
 
 	// `MaxPassivePeersRatio` is the ratio of MaxPeers that initiate an active connection to this node.
 	// the actual value is `MaxPeers / MaxPassivePeersRatio`
-	MaxPassivePeersRatio uint32		`json:"MaxPassivePeersRatio"`
+	MaxPassivePeersRatio uint32 `json:"MaxPassivePeersRatio"`
 
 	// `MaxPendingPeers` is the maximum number of peers that wait to connect.
-	MaxPendingPeers uint32			`json:"MaxPendingPeers"`
+	MaxPendingPeers uint32 `json:"MaxPendingPeers"`
 
-	BootNodes []string				`json:"BootNodes"`
+	BootNodes []string `json:"BootNodes"`
 
-	Addr string						`json:"Addr"`
+	Addr string `json:"Addr"`
 
-	Datadir string					`json:"Datadir"`
+	Datadir string `json:"Datadir"`
 
-	NetID uint						`json:"NetID"`
+	NetID uint `json:"NetID"`
 }
 
 func MergeP2PConfig(cfg *P2P) P2P {

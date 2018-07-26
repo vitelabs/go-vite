@@ -1,13 +1,12 @@
 package p2p
 
 import (
-	"net"
-	"log"
-	"fmt"
 	"encoding/binary"
-	"github.com/vitelabs/go-vite/p2p/protos"
-
+	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/p2p/protos"
+	"log"
+	"net"
 )
 
 type NetworkID uint32
@@ -32,7 +31,7 @@ func (i NetworkID) String() string {
 
 // @section Msg
 type Msg struct {
-	Code uint64
+	Code    uint64
 	Payload []byte
 }
 
@@ -51,7 +50,7 @@ type MsgReadWriter interface {
 
 // handshake message
 type Handshake struct {
-	NetID	NetworkID
+	NetID   NetworkID
 	Name    string
 	ID      NodeID
 	Version uint32
@@ -59,9 +58,9 @@ type Handshake struct {
 
 func (hs *Handshake) Serialize() ([]byte, error) {
 	hspb := &protos.Handshake{
-		NetID: uint32(hs.NetID),
-		Name: hs.Name,
-		ID: hs.ID[:],
+		NetID:   uint32(hs.NetID),
+		Name:    hs.Name,
+		ID:      hs.ID[:],
 		Version: hs.Version,
 	}
 
@@ -105,7 +104,6 @@ func (d *DiscMsg) Deserialize(buf []byte) error {
 	d.reason = DiscReason(discpb.Reason)
 	return nil
 }
-
 
 // mean the msg transport link of peers.
 type transport interface {
@@ -212,14 +210,14 @@ func (pt *PBTS) Handshake(our *Handshake) (*Handshake, error) {
 	sendErr := make(chan error, 1)
 	go func() {
 		sendErr <- pt.WriteMsg(Msg{
-			Code: handshakeMsg,
+			Code:    handshakeMsg,
 			Payload: data,
 		})
 	}()
 
 	msg, err := pt.ReadMsg()
 	if err != nil {
-		<- sendErr
+		<-sendErr
 		return nil, fmt.Errorf("read handshake from %s error: %v\n", pt.conn.RemoteAddr(), err)
 	}
 
@@ -241,7 +239,7 @@ func (pt *PBTS) Handshake(our *Handshake) (*Handshake, error) {
 		return nil, fmt.Errorf("unmatched network id: %d / %d from %s\n", hs.NetID, our.NetID, pt.conn.RemoteAddr())
 	}
 
-	if err := <- sendErr; err != nil {
+	if err := <-sendErr; err != nil {
 		return nil, fmt.Errorf("send handshake to %s error: %v\n", pt.conn.RemoteAddr(), err)
 	}
 
@@ -254,7 +252,7 @@ func (pt *PBTS) Close(err error) {
 	binary.BigEndian.PutUint64(data, uint64(reason))
 
 	err = pt.WriteMsg(Msg{
-		Code: discMsg,
+		Code:    discMsg,
 		Payload: data,
 	})
 	if err != nil {
@@ -285,6 +283,5 @@ func pack(m Msg) (data []byte, err error) {
 	}
 
 	data = append(header, m.Payload...)
-
 	return data, nil
 }

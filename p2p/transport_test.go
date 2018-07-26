@@ -1,9 +1,9 @@
 package p2p
 
 import (
-	"testing"
 	"math/rand"
 	"net"
+	"testing"
 )
 
 func TestMsg(t *testing.T) {
@@ -16,7 +16,7 @@ func TestMsg(t *testing.T) {
 		rand.Read(payload)
 
 		m := Msg{
-			Code: rand.Uint64(),
+			Code:    rand.Uint64(),
 			Payload: payload,
 		}
 
@@ -26,7 +26,6 @@ func TestMsg(t *testing.T) {
 		}
 	}
 }
-
 
 type mockConn struct {
 	net.Conn

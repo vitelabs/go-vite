@@ -1,16 +1,16 @@
 package p2p
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
-	"github.com/syndtr/goleveldb/leveldb/errors"
-	"encoding/binary"
 	"bytes"
-	"os"
-	"github.com/syndtr/goleveldb/leveldb/util"
 	"crypto/rand"
+	"encoding/binary"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/syndtr/goleveldb/leveldb/storage"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"log"
+	"os"
 )
 
 type nodeDB struct {
@@ -19,8 +19,8 @@ type nodeDB struct {
 }
 
 const (
-	dbVersion = "version"
-	dbPrefix = "n:"
+	dbVersion  = "version"
+	dbPrefix   = "n:"
 	dbDiscover = "discover"
 )
 
@@ -120,7 +120,6 @@ func encodeVarint(i int64) []byte {
 	return bytes[:n]
 }
 
-
 func (db *nodeDB) retrieveNode(ID NodeID) *Node {
 	data, err := db.db.Get(genKey(ID, dbDiscover), nil)
 	if err != nil {
@@ -143,6 +142,7 @@ func (db *nodeDB) updateNode(node *Node) error {
 	}
 	return db.db.Put(key, data, nil)
 }
+
 // remove all data about the specific NodeID
 func (db *nodeDB) deleteNode(ID NodeID) error {
 	iterator := db.db.NewIterator(util.BytesPrefix(genKey(ID, "")), nil)
@@ -164,10 +164,10 @@ func (db *nodeDB) randomNodes(count int) []*Node {
 	nodes := make([]*Node, 0, count)
 	var id NodeID
 
-	for i := 0; len(nodes) < count && i < count * 5; i++ {
+	for i := 0; len(nodes) < count && i < count*5; i++ {
 		h := id[0]
 		rand.Read(id[:])
-		id[0] = h + id[0] % 16
+		id[0] = h + id[0]%16
 
 		iterator.Seek(genKey(id, dbDiscover))
 

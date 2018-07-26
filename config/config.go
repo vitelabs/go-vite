@@ -1,18 +1,18 @@
 package config
 
 import (
-	"io/ioutil"
-	"log"
 	"encoding/json"
 	"github.com/vitelabs/go-vite/common"
+	"io/ioutil"
+	"log"
 )
 
 type Config struct {
-	P2P				`json:"P2P"`
-	Miner			`json:"Miner"`
+	P2P   `json:"P2P"`
+	Miner `json:"Miner"`
 
 	// global keys
-	DataDir string	`json:"DataDir"`
+	DataDir string `json:"DataDir"`
 }
 
 const configFileName = "vite.config.json"
@@ -20,7 +20,7 @@ const configFileName = "vite.config.json"
 var GlobalConfig *Config
 
 func RecoverConfig() {
-	GlobalConfig =  &Config{
+	GlobalConfig = &Config{
 		P2P: P2P{
 			Name:                 "vite-server",
 			Sig:                  "",

@@ -1,8 +1,8 @@
 package p2p
 
 import (
-	"testing"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"testing"
 )
 
 func TestUnpack(t *testing.T) {

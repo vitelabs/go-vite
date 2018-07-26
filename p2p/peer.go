@@ -1,19 +1,19 @@
 package p2p
 
 import (
-	"time"
-	"sync"
-	"fmt"
 	"encoding/binary"
+	"fmt"
 	"log"
+	"sync"
+	"time"
 )
 
 var pingInterval = 15 * time.Second
 
 const (
 	baseProtocolBand = 16
-	discMsg      = 1
-	handshakeMsg = 4
+	discMsg          = 1
+	handshakeMsg     = 4
 )
 
 // @section peer error
@@ -71,27 +71,26 @@ func errTodiscReason(err error) DiscReason {
 	return DiscSubprotocolError
 }
 
-
 // @section Peer
 type Peer struct {
-	TS		*TSConn
-	created	time.Time
-	wg      sync.WaitGroup
-	Errch 	chan error
-	Closed  chan struct{}
-	disc    chan DiscReason
-	ProtoMsg chan Msg
+	TS           *TSConn
+	created      time.Time
+	wg           sync.WaitGroup
+	Errch        chan error
+	Closed       chan struct{}
+	disc         chan DiscReason
+	ProtoMsg     chan Msg
 	protoHandler peerHandler
 }
 
 func NewPeer(ts *TSConn) *Peer {
 	return &Peer{
-		TS: 		ts,
-		Errch: 		make(chan error, 1),
-		Closed:		make(chan struct{}),
-		disc: 		make(chan DiscReason),
-		ProtoMsg:	make(chan Msg),
-		created: 	time.Now(),
+		TS:       ts,
+		Errch:    make(chan error, 1),
+		Closed:   make(chan struct{}),
+		disc:     make(chan DiscReason),
+		ProtoMsg: make(chan Msg),
+		created:  time.Now(),
 	}
 }
 
@@ -138,7 +137,7 @@ func (p *Peer) readLoop() {
 
 	for {
 		select {
-		case <- p.Closed:
+		case <-p.Closed:
 			return
 		default:
 			msg, err := p.TS.ReadMsg()
