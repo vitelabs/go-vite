@@ -1,16 +1,14 @@
 package config
 
-import "github.com/vitelabs/go-vite/crypto/ed25519"
-
 type P2P struct {
 	Name 		string		`json:"Name""`
 
 	Sig 		string		`json:"Sig"`
 
 	// use for sign data
-	PrivateKey ed25519.PrivateKey	`json:"PrivateKey"`
+	PrivateKey 	string		`json:"PrivateKey"`
 	// use for NodeID
-	PublicKey ed25519.PublicKey		`json:"PublicKey"`
+	PublicKey 	string		`json:"PublicKey"`
 
 	// `MaxPeers` is the maximum number of peers that can be connected.
 	MaxPeers uint32					`json:"MaxPeers"`
@@ -46,11 +44,11 @@ func MergeP2PConfig(cfg *P2P) P2P {
 		p2p.Sig = cfg.Sig
 	}
 
-	if cfg.PrivateKey != nil {
+	if cfg.PrivateKey != "" {
 		p2p.PrivateKey = cfg.PrivateKey
 	}
 
-	if cfg.PublicKey != nil {
+	if cfg.PublicKey != "" {
 		p2p.PublicKey = cfg.PublicKey
 	}
 

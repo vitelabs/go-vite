@@ -24,8 +24,8 @@ func RecoverConfig() {
 		P2P: P2P{
 			Name:                 "vite-server",
 			Sig:                  "",
-			PrivateKey:           nil,
-			PublicKey:            nil,
+			PrivateKey:           "",
+			PublicKey:            "",
 			MaxPeers:             100,
 			MaxPassivePeersRatio: 2,
 			MaxPendingPeers:      20,
