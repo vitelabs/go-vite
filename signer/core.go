@@ -56,7 +56,7 @@ func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase s
 	endChannel := make(chan string, 1)
 
 	if slave == nil {
-		slave = &signSlave{vite: c.Vite, address: *block.AccountAddress}
+		slave = NewsignSlave(c.Vite, *block.AccountAddress)
 		c.signSlaves[*block.AccountAddress] = slave
 	}
 	c.coreMutex.Unlock()
@@ -95,12 +95,12 @@ func (c *Master) loop() {
 	for k, v := range status {
 		if v == keystore.UnLocked {
 			c.coreMutex.Lock()
-			s := signSlave{vite: c.Vite, address: k, addressUnlocked: true}
+			s := NewsignSlave(c.Vite, k)
 			log.Info("Master find a new unlock address signSlave", k.String())
-			c.signSlaves[k] = &s
-			s.AddressUnlocked(true)
+			c.signSlaves[k] = s
 			c.coreMutex.Unlock()
 
+			s.AddressUnlocked(true)
 			go s.StartWork()
 		}
 	}
@@ -117,10 +117,9 @@ func (c *Master) loop() {
 			worker.AddressUnlocked(event.Unlocked())
 			continue
 		}
-
-		s := signSlave{vite: c.Vite, address: event.Address, addressUnlocked: event.Unlocked()}
+		s := NewsignSlave(c.Vite, event.Address)
 		log.Info("Master get event new signSlave")
-		c.signSlaves[event.Address] = &s
+		c.signSlaves[event.Address] = s
 		c.coreMutex.Unlock()
 
 		s.AddressUnlocked(true)
@@ -146,6 +145,14 @@ type signSlave struct {
 	isWorking       bool
 	flagMutex       sync.Mutex
 	isClosed        bool
+}
+
+func NewsignSlave(vite Vite, addrese types.Address) *signSlave {
+	slave := &signSlave{vite: vite, address: addrese}
+	slave.breaker = make(chan struct{}, 1)
+	slave.newSignedTask = make(chan struct{}, 100)
+
+	return slave
 }
 
 func (sw *signSlave) Close() error {
@@ -211,9 +218,6 @@ func (sw *signSlave) StartWork() {
 		log.Info("slaver is working", sw.address.String())
 		return
 	}
-
-	sw.breaker = make(chan struct{}, 1)
-	sw.newSignedTask = make(chan struct{}, 100)
 
 	sw.isWorking = true
 
