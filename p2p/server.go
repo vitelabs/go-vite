@@ -14,6 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"path/filepath"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"encoding/hex"
 )
 
 const (
@@ -66,6 +67,10 @@ type Config struct {
 	NetID NetworkID
 
 	Database string
+
+	PrivateKey ed25519.PrivateKey
+	// use for NodeID
+	PublicKey ed25519.PublicKey
 }
 
 type Server struct {
@@ -118,6 +123,24 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 
 	if config.Name != "" && config.Sig != "" {
 		config.PublicKey = pickPub(config.Name, config.Sig)
+	}
+
+	if cfg.PublicKey != "" {
+		pub, err := hex.DecodeString(cfg.PublicKey)
+		if err == nil {
+			config.PublicKey = pub
+		} else {
+			log.Printf("publicKey decode error: %v\n", err)
+		}
+	}
+
+	if cfg.PrivateKey != "" {
+		priv, err := hex.DecodeString(cfg.PrivateKey)
+		if err == nil {
+			config.PrivateKey = priv
+		} else {
+			log.Printf("privateKey decode error: %v\n", err)
+		}
 	}
 
 	if config.PrivateKey == nil && config.PublicKey == nil {
