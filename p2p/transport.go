@@ -122,7 +122,7 @@ func NewPBTS(conn net.Conn) transport {
 
 // @section PBTS
 const headerLength = 20
-const maxPayloadSize = ^uint64(0)
+const maxPayloadSize = ^uint32(0) >> 8
 
 type PBTS struct {
 	//peerID NodeID
@@ -142,15 +142,19 @@ func (pt *PBTS) ReadMsg() (m Msg, err error) {
 	m.Code = binary.BigEndian.Uint64(header[:8])
 
 	// extract length of payload
-	size := binary.BigEndian.Uint64(header[8:16])
-	log.Printf("msg %d payload length: %d bytes, header: %v\n", m.Code, size, header)
+	size := binary.BigEndian.Uint32(header[8:12])
+
+	if size > maxPayloadSize {
+		return m, fmt.Errorf("msg %d payload too large: %d / %d\n", m.Code, size, maxPayloadSize)
+	}
+
 	// read payload according to size
 	if size > 0 {
 		payload := make([]byte, size)
 
 		err = readFullBytes(pt.conn, payload)
 		if err != nil {
-			return m, fmt.Errorf("read msg payload error: %v\n", err)
+			return m, fmt.Errorf("read msg %d payload (%d bytes) error: %v\n", m.Code, size, err)
 		}
 
 		m.Payload = payload
@@ -177,21 +181,18 @@ func readFullBytes(conn net.Conn, data []byte) error {
 }
 
 func (pt *PBTS) WriteMsg(m Msg) error {
-	if uint64(len(m.Payload)) > maxPayloadSize {
-		return fmt.Errorf("too large msg payload: %d / %d\n", len(m.Payload), maxPayloadSize)
-	}
 	data, err := pack(m)
 
 	if err != nil {
-		return fmt.Errorf("pack message error: %v\n", err)
+		return fmt.Errorf("pack smg %d (%d bytes) to %s error: %v\n", m.Code, len(m.Payload), pt.conn.RemoteAddr(), err)
 	}
 
 	n, err := pt.conn.Write(data)
 	if err != nil {
-		return fmt.Errorf("write message error: %v\n", err)
+		return fmt.Errorf("write msg %d (%d bytes) to %s error: %v\n", m.Code, len(m.Payload), pt.conn.RemoteAddr(), err)
 	}
 	if n != len(data) {
-		return fmt.Errorf("write incomplete message: %d / %d\n", n, len(data))
+		return fmt.Errorf("write incomplete msg to %s: %d / %d\n", pt.conn.RemoteAddr(), n, len(data))
 	}
 
 	return nil
@@ -200,7 +201,7 @@ func (pt *PBTS) WriteMsg(m Msg) error {
 func (pt *PBTS) Handshake(our *Handshake) (*Handshake, error) {
 	data, err := our.Serialize()
 	if err != nil {
-		return nil, fmt.Errorf("handshake serialize error: %v\n", err)
+		return nil, fmt.Errorf("our handshake with %s serialize error: %v\n", pt.conn.RemoteAddr(), err)
 	}
 
 	sendErr := make(chan error, 1)
@@ -214,25 +215,25 @@ func (pt *PBTS) Handshake(our *Handshake) (*Handshake, error) {
 	msg, err := pt.ReadMsg()
 	if err != nil {
 		<- sendErr
-		return nil, fmt.Errorf("read handshake msg error: %v\n", err)
+		return nil, fmt.Errorf("read handshake from %s error: %v\n", pt.conn.RemoteAddr(), err)
 	}
 
 	if msg.Code != handshakeMsg {
-		return nil, fmt.Errorf("need handshake msg, got %d\n", msg.Code)
+		return nil, fmt.Errorf("need handshake from %s, got %d\n", pt.conn.RemoteAddr(), msg.Code)
 	}
 
 	hs := &Handshake{}
 	err = hs.Deserialize(msg.Payload)
 	if err != nil {
-		return nil, fmt.Errorf("handshake deserialize error: %v\n", err)
+		return nil, fmt.Errorf("handshake from %s deserialize error: %v\n", pt.conn.RemoteAddr(), err)
 	}
 
 	if hs.NetID != our.NetID {
-		return nil, fmt.Errorf("unmatched network id: %d / %d\n", hs.NetID, our.NetID)
+		return nil, fmt.Errorf("unmatched network id: %d / %d from %s\n", hs.NetID, our.NetID, pt.conn.RemoteAddr())
 	}
 
 	if err := <- sendErr; err != nil {
-		return nil, fmt.Errorf("send handshake error: %v\n", err)
+		return nil, fmt.Errorf("send handshake to %s error: %v\n", pt.conn.RemoteAddr(), err)
 	}
 
 	return hs, nil
@@ -248,34 +249,35 @@ func (pt *PBTS) Close(err error) {
 		Payload: data,
 	})
 	if err != nil {
-		log.Printf("send disc msg error: %v\n", err)
+		log.Printf("send disc msg to %s error: %v\n", pt.conn.RemoteAddr(), err)
 	}
 
 	pt.conn.Close()
-	log.Printf("pbts close, reason: %v\n", err)
+	log.Printf("disconnect with %s, reason: %v\n", pt.conn.RemoteAddr(), err)
 }
 
-func pack(m Msg) ([]byte, error) {
+func pack(m Msg) (data []byte, err error) {
+	if uint32(len(m.Payload)) > maxPayloadSize {
+		return data, fmt.Errorf("msg %d payload too large: %d / %d\n", m.Code, len(m.Payload), maxPayloadSize)
+	}
+
 	header := make([]byte, headerLength)
 
 	// add code to header
 	binary.BigEndian.PutUint64(header[:8], m.Code)
 
 	// sign payload length to header
-	var size uint64
-	if m.Payload == nil {
-		size = 0
-	} else {
-		size = uint64(len(m.Payload))
-	}
-	binary.BigEndian.PutUint64(header[8:16], size)
+	size := uint32(len(m.Payload))
+	binary.BigEndian.PutUint32(header[8:12], size)
 
 	// concat header and payload
-	data := make([]byte, headerLength + size)
-	copy(data, header)
-	if m.Payload != nil {
-		copy(data[headerLength:], m.Payload)
+	if size == 0 {
+		return header, nil
 	}
+
+	data = make([]byte, headerLength + size)
+	copy(data, header)
+	copy(data[headerLength:], m.Payload)
 
 	return data, nil
 }

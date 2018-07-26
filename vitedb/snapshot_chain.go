@@ -19,7 +19,7 @@ var _snapshotChain *SnapshotChain
 
 func GetSnapshotChain() *SnapshotChain {
 	if _snapshotChain == nil {
-		db, err := GetLDBDataBase(DB_BLOCK)
+		db, err := GetLDBDataBase(DB_LEDGER)
 		if err != nil {
 			log.Fatal(err)
 		}

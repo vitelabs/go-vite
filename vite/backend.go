@@ -9,14 +9,12 @@ import (
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
 	protoInterface "github.com/vitelabs/go-vite/protocols/interfaces"
 
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/miner"
 	"github.com/vitelabs/go-vite/signer"
-	"github.com/vitelabs/go-vite/vitedb"
 	"log"
 	"time"
 )
@@ -32,29 +30,29 @@ type Vite struct {
 	miner         *miner.Miner
 }
 
-var (
-	defaultP2pConfig = &p2p.Config{}
-	DefaultConfig    = &Config{
-		DataDir:   common.DefaultDataDir(),
-		P2pConfig: defaultP2pConfig,
-		Miner:     false,
-		Coinbase:  "",
-	}
-)
-
-type Config struct {
-	DataDir       string
-	P2pConfig     *p2p.Config
-	Miner         bool
-	Coinbase      string
-	MinerInterval int
-}
+//
+//var (
+//	defaultP2pConfig = &p2p.Config{}
+//	DefaultConfig    = &Config{
+//		DataDir:   common.DefaultDataDir(),
+//		P2pConfig: defaultP2pConfig,
+//		Miner:     false,
+//		Coinbase:  "",
+//	}
+//)
+//
+//type Config struct {
+//	DataDir       string
+//	P2pConfig     *p2p.Config
+//	Miner         bool
+//	Coinbase      string
+//	MinerInterval int
+//}
 
 func New(cfg *config.Config) (*Vite, error) {
-	vitedb.InitDataBaseEnv(cfg.DataDir)
 	vite := &Vite{config: cfg}
 
-	vite.ledger = ledgerHandler.NewManager(vite)
+	vite.ledger = ledgerHandler.NewManager(vite, cfg.DataDir)
 
 	vite.walletManager = wallet.NewManagerAndInit(cfg.DataDir)
 	vite.signer = signer.NewMaster(vite)

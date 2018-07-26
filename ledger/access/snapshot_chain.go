@@ -19,12 +19,15 @@ type SnapshotChainAccess struct {
 	bwMutex      sync.RWMutex
 }
 
-var snapshotChainAccess = &SnapshotChainAccess{
-	store:        vitedb.GetSnapshotChain(),
-	accountStore: vitedb.GetAccount(),
-}
+var snapshotChainAccess *SnapshotChainAccess
 
 func GetSnapshotChainAccess() *SnapshotChainAccess {
+	if snapshotChainAccess == nil {
+		snapshotChainAccess = &SnapshotChainAccess{
+			store:        vitedb.GetSnapshotChain(),
+			accountStore: vitedb.GetAccount(),
+		}
+	}
 	return snapshotChainAccess
 }
 
@@ -43,6 +46,8 @@ func (sca *SnapshotChainAccess) CheckAndCreateGenesisBlocks() {
 			log.Fatal(errors2.Wrap(errors.New("SnapshotGenesisBlock is not valid."), "CheckAndCreateGenesisBlocks"))
 		}
 	}
+
+	accountChainAccess = GetAccountChainAccess()
 
 	// Check accountGenesisBlockFirst
 	accountGenesisBlockFirst, err := accountChainAccess.GetBlockByHash(ledger.AccountGenesisBlockFirst.Hash)
@@ -182,6 +187,8 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 
 		var needSyncAccountBlocks []*WscNeedSyncErrData
 
+		accountChainAccess = GetAccountChainAccess()
+
 		for addr, snapshotItem := range snapshot {
 			blockMeta, err := accountChainAccess.GetBlockMetaByHash(snapshotItem.AccountBlockHash)
 			accountAddress, _ := types.HexToAddress(addr)
@@ -248,7 +255,8 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 		defer writeNewAccountMutex.Unlock()
 
 		var err error
-		producerAccountMeta, err = accountAccess.CreateNewAccountMeta(batch, block.Producer, block.PublicKey)
+
+		producerAccountMeta, err = GetAccountAccess().CreateNewAccountMeta(batch, block.Producer, block.PublicKey)
 		if err != nil {
 			return &ScWriteError{
 				Code: WscDefaultErr,

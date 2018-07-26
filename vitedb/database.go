@@ -5,7 +5,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/opt"
-	"github.com/vitelabs/go-vite/common"
 	"log"
 	"math/big"
 	"path/filepath"
@@ -45,15 +44,7 @@ func GetBigInt(src []byte) *big.Int {
 }
 
 func (*viteComparer) Compare(a, b []byte) (result int) {
-	//defer func() {
-	//if result == -1 {
-	//	fmt.Println("===")
-	//	fmt.Println(string(a))
-	//	fmt.Println(string(b))
-	//	fmt.Println(result)
-	//	fmt.Println("===")
-	//}
-	//}()
+
 	lenA := len(a)
 	lenB := len(b)
 
@@ -157,11 +148,12 @@ func (*viteComparer) Compare(a, b []byte) (result int) {
 }
 
 var (
-	DB_BLOCK = filepath.Join(common.DefaultDataDir(), "/ledger")
+	DB_DIR    = ""
+	DB_LEDGER = "ledger"
 )
-// it is not a good idea fixme it later
-func InitDataBaseEnv(dataRoot string) {
-	DB_BLOCK = filepath.Join(dataRoot, "/ledger")
+
+func SetDataDir(dataDir string) {
+	DB_DIR = dataDir
 }
 
 func GetLDBDataBase(file string) (*DataBase, error) {
@@ -170,7 +162,7 @@ func GetLDBDataBase(file string) (*DataBase, error) {
 		options := &opt.Options{
 			Comparer: cmp,
 		}
-		db, err := leveldb.OpenFile(file, options)
+		db, err := leveldb.OpenFile(filepath.Join(DB_DIR, file), options)
 		if err != nil {
 			log.Println(err)
 			return nil, err

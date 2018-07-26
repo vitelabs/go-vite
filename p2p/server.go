@@ -408,16 +408,16 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 
 func (svr *Server) CheckConn(peers map[NodeID]*Peer, c *TSConn, passivePeersCount uint32) error {
 	if uint32(len(peers)) >= svr.MaxPeers {
-		return errors.New("too many peers")
+		return DiscTooManyPeers
 	}
 	if passivePeersCount >= svr.MaxPassivePeers() {
-		return errors.New("too many passive peers")
+		return DiscTooManyPassivePeers
 	}
 	if peers[c.id] != nil {
-		return fmt.Errorf("peer %s already connected\n", c.id)
+		return DiscAlreadyConnected
 	}
 	if c.id == svr.ntab.self.ID {
-		return errors.New("cannot connected to self")
+		return DiscSelf
 	}
 	return nil
 }
@@ -497,7 +497,7 @@ schedule:
 					passivePeersCount++
 				}
 			} else {
-				c.fd.Close()
+				c.Close(err)
 				log.Printf("create new peer error: %v\n", err)
 			}
 		case p := <- svr.delPeer:

@@ -3,18 +3,20 @@ package miner
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log"
 	"sync"
 	"time"
 )
 
-// Work is the workers current environment and holds
-// all of the current state information
+// worker
 type worker struct {
-	types.LifecycleStatus
+	MinerLifecycle
 	workChan <-chan time.Time
 	chain    SnapshotChainRW
 	coinbase types.Address
 	mu       sync.Mutex
+	updateWg sync.WaitGroup
+	updateCh chan int  // update goroutine closed event chan
 }
 
 func (self *worker) Init() {
@@ -25,22 +27,38 @@ func (self *worker) Init() {
 func (self *worker) Start() {
 	self.PreStart()
 	defer self.PostStart()
-	go self.update()
+	self.updateCh = make(chan int)
+	go self.update(self.updateCh)
 }
 
 func (self *worker) Stop() {
 	self.PreStop()
 	defer self.PostStop()
+	close(self.updateCh)  // close update goroutine
+	self.updateWg.Wait()
 }
 
-func (self *worker) update() {
+// get workChan and insert snapshot block chain
+func (self *worker) update(ch chan int) {
+	self.updateWg.Add(1)
+	defer self.updateWg.Done()
 	for !self.Stopped() {
 		// A real event arrived, process interesting content
 		select {
 		// Handle ChainHeadEvent
-		case t := <-self.workChan:
-			println("start working once.")
-			self.genAndInsert(t)
+		case t, ok := <-self.workChan:
+			if !ok {
+				log.Warn("channel closed.")
+				if !self.Stopped() {
+					time.Sleep(time.Second)
+				}
+			} else {
+				log.Info("start working once.")
+				self.genAndInsert(t)
+			}
+		case <-ch: // closed event chan
+			log.Info("worker.update closed.")
+		 	return
 		}
 	}
 }

@@ -162,16 +162,19 @@ type AccountChainAccess struct {
 	bwMutex          *blockWriteMutex
 }
 
-var accountChainAccess = &AccountChainAccess{
-	store:            vitedb.GetAccountChain(),
-	accountStore:     vitedb.GetAccount(),
-	snapshotStore:    vitedb.GetSnapshotChain(),
-	tokenStore:       vitedb.GetToken(),
-	unconfirmedStore: vitedb.GetUnconfirmed(),
-	bwMutex:          &blockWriteMutex{},
-}
+var accountChainAccess *AccountChainAccess
 
 func GetAccountChainAccess() *AccountChainAccess {
+	if accountChainAccess == nil {
+		accountChainAccess = &AccountChainAccess{
+			store:            vitedb.GetAccountChain(),
+			accountStore:     vitedb.GetAccount(),
+			snapshotStore:    vitedb.GetSnapshotChain(),
+			tokenStore:       vitedb.GetToken(),
+			unconfirmedStore: vitedb.GetUnconfirmed(),
+			bwMutex:          &blockWriteMutex{},
+		}
+	}
 	return accountChainAccess
 }
 
@@ -319,7 +322,7 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 
 	// Write from block meta
 	fromBlock.Meta.Status = 2
-	
+
 	if err := aca.writeBlockMeta(batch, fromBlock); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
@@ -384,7 +387,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			writeNewAccountMutex.Lock()
 			defer writeNewAccountMutex.Unlock()
 			needCreateNewAccount = true
-			accountMeta, err = accountAccess.CreateNewAccountMeta(batch, block.AccountAddress, block.PublicKey)
+			accountMeta, err = GetAccountAccess().CreateNewAccountMeta(batch, block.AccountAddress, block.PublicKey)
 			latestBlockHeight = big.NewInt(0)
 		}
 
