@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
-	"math/big"
 )
 
 type Unconfirmed struct {
@@ -46,8 +45,8 @@ func (ucf *Unconfirmed) GetUnconfirmedMeta(addr *types.Address) (*ledger.Unconfi
 	return ucfm, nil
 }
 
-func (ucf *Unconfirmed) GetAccHashListByTkId(accountId *big.Int, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
-	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, accountId, tokenId.Bytes())
+func (ucf *Unconfirmed) GetAccHashListByTkId(addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, addr.Bytes(), tokenId.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -62,10 +61,10 @@ func (ucf *Unconfirmed) GetAccHashListByTkId(accountId *big.Int, tokenId *types.
 	return hList, nil
 }
 
-func (ucf *Unconfirmed) GetAccTotalHashList(accountId *big.Int) ([]*types.Hash, error) {
+func (ucf *Unconfirmed) GetAccTotalHashList(addr *types.Address) ([]*types.Hash, error) {
 	var hashList []*types.Hash
 
-	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, accountId, nil)
+	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, addr.Bytes(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +98,8 @@ func (ucf *Unconfirmed) WriteMeta(batch *leveldb.Batch, addr *types.Address, met
 	return nil
 }
 
-func (ucf *Unconfirmed) WriteHashList(batch *leveldb.Batch, accountId *big.Int, tokenId *types.TokenTypeId, hList []*types.Hash) error {
-	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, accountId, tokenId.Bytes())
+func (ucf *Unconfirmed) WriteHashList(batch *leveldb.Batch, addr *types.Address, tokenId *types.TokenTypeId, hList []*types.Hash) error {
+	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, addr.Bytes(), tokenId.Bytes())
 	if err != nil {
 		return err
 	}
@@ -121,8 +120,8 @@ func (ucf *Unconfirmed) DeleteMeta(batch *leveldb.Batch, addr *types.Address) er
 	return nil
 }
 
-func (ucf *Unconfirmed) DeleteHashList(batch *leveldb.Batch, accountId *big.Int, tokenId *types.TokenTypeId) error {
-	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, accountId, tokenId.Bytes())
+func (ucf *Unconfirmed) DeleteHashList(batch *leveldb.Batch, addr *types.Address, tokenId *types.TokenTypeId) error {
+	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, addr.Bytes(), tokenId.Bytes())
 	if err != nil {
 		return err
 	}
@@ -130,8 +129,8 @@ func (ucf *Unconfirmed) DeleteHashList(batch *leveldb.Batch, accountId *big.Int,
 	return nil
 }
 
-func (ucf *Unconfirmed) DeleteAllHashList(batch *leveldb.Batch, accountId *big.Int) error {
-	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, accountId, nil)
+func (ucf *Unconfirmed) DeleteAllHashList(batch *leveldb.Batch, addr *types.Address) error {
+	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, addr.Bytes(), nil)
 	if err != nil {
 		return err
 	}
