@@ -13,7 +13,6 @@ type TokenInfo struct {
 }
 
 type UnconfirmedMeta struct {
-	AccountId     *big.Int
 	TotalNumber   *big.Int
 	TokenInfoList []*TokenInfo
 }
@@ -23,8 +22,6 @@ func (ucfm *UnconfirmedMeta) DbDeserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, unconfirmedMetaPB); err != nil {
 		return err
 	}
-	ucfm.AccountId = &big.Int{}
-	ucfm.AccountId.SetBytes(unconfirmedMetaPB.AccountId)
 
 	ucfm.TotalNumber = &big.Int{}
 	ucfm.TotalNumber.SetBytes(unconfirmedMetaPB.TotalNumber)
@@ -56,7 +53,6 @@ func (ucfm *UnconfirmedMeta) DbSerialize() ([]byte, error) {
 	}
 
 	unconfirmedMeta := &vitepb.UnconfirmedMeta{
-		AccountId:     ucfm.AccountId.Bytes(),
 		TotalNumber:   ucfm.TotalNumber.Bytes(),
 		TokenInfoList: unconfirmedList,
 	}

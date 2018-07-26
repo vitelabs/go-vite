@@ -76,14 +76,9 @@ func (uwm *ucfmWriteMutex) UnLock(block *ledger.AccountBlock) {
 }
 
 func (ucfa *UnconfirmedAccess) GetUnconfirmedHashsByTkId(index, num, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
-	acMeta, err := accountAccess.GetAccountMeta(addr)
-	if err != nil {
-		return nil, err
-	}
-
 	var hList []*types.Hash
 
-	hashList, err := ucfa.store.GetAccHashListByTkId(acMeta.AccountId, tokenId)
+	hashList, err := ucfa.store.GetAccHashListByTkId(addr, tokenId)
 	if err != nil && err != leveldb.ErrNotFound {
 		return nil, err
 	}
@@ -99,20 +94,23 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedHashsByTkId(index, num, count int, 
 	return hList, nil
 }
 
-func (ucfa *UnconfirmedAccess) GetUnconfirmedHashs(number int, addr *types.Address) ([]*types.Hash, error) {
+func (ucfa *UnconfirmedAccess) GetUnconfirmedHashs(index, num, count int, addr *types.Address) ([]*types.Hash, error) {
 	meta, err := ucfa.store.GetUnconfirmedMeta(addr)
 	if err != nil {
 		return nil, err
 	}
-	numberInt := big.NewInt(int64(number))
-	if numberInt.Cmp(meta.TotalNumber) == 1 || big.NewInt(0).Cmp(meta.TotalNumber) == 0 {
-		return nil, errors.New("The number to get is out of range.")
+	numberInt := big.NewInt(int64((index + num) * count))
+	if big.NewInt(0).Cmp(meta.TotalNumber) == 0 {
+		return nil, errors.New("The number to get is invalid.")
 	}
-	hashList, err := ucfa.store.GetAccTotalHashList(meta.AccountId)
+	hashList, err := ucfa.store.GetAccTotalHashList(addr)
 	if err != nil && err != leveldb.ErrNotFound {
 		return nil, err
 	}
-	return hashList[0:number], nil
+	if numberInt.Cmp(meta.TotalNumber) == 1 {
+		return hashList[index*count:], nil
+	}
+	return hashList[index*count : (index+num)*count], nil
 }
 
 func (ucfa *UnconfirmedAccess) GetUnconfirmedAccountMeta(addr *types.Address) (*ledger.UnconfirmedMeta, error) {
@@ -120,7 +118,7 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedAccountMeta(addr *types.Address) (*
 }
 
 func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	if block.To == nil || block.TokenId == nil || block.Meta == nil || block.Meta.AccountId == nil {
+	if block.To == nil || block.TokenId == nil || block.Meta == nil {
 		err := errors.New("send_block's value is invalid")
 		log.Info("Unconfirmed: ", err)
 		return err
@@ -177,7 +175,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 			}
 		}
 	}
-	hashList, err := ucfa.store.GetAccHashListByTkId(uAccMeta.AccountId, block.TokenId)
+	hashList, err := ucfa.store.GetAccHashListByTkId(block.To, block.TokenId)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
 			Code: WacDefaultErr,
@@ -192,7 +190,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 			Err:  err,
 		}
 	}
-	if err := ucfa.store.WriteHashList(batch, uAccMeta.AccountId, block.TokenId, hashList); err != nil {
+	if err := ucfa.store.WriteHashList(batch, block.To, block.TokenId, hashList); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
 			Err:  err,
@@ -207,18 +205,12 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 }
 
 func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(block *ledger.AccountBlock) (*ledger.UnconfirmedMeta, error) {
-	// Get the accountId
-	accMeta, err := GetAccountAccess().GetAccountMeta(block.To)
-	if err != nil {
-		return nil, errors.New("[CreateNewUcfmMeta.GetAccountMeta]：" + err.Error())
-	}
 	ti := &ledger.TokenInfo{
 		TotalAmount: block.Amount,
 		TokenId:     block.TokenId,
 	}
 	// Create account meta which will be write to database later
 	accountMeta := &ledger.UnconfirmedMeta{
-		AccountId:     accMeta.AccountId,
 		TokenInfoList: []*ledger.TokenInfo{ti},
 		TotalNumber:   big.NewInt(1),
 	}
@@ -226,7 +218,7 @@ func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(block *ledger.AccountBlock) (*l
 }
 
 func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	if block.To == nil || block.TokenId == nil || block.Meta == nil || block.Meta.AccountId == nil {
+	if block.To == nil || block.TokenId == nil || block.Meta == nil {
 		err := errors.New("send_block's value is invalid")
 		log.Info("Unconfirmed: ", err)
 		return err
@@ -257,7 +249,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 	//	log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
 	//}
 
-	hashList, err := ucfa.store.GetAccHashListByTkId(uAccMeta.AccountId, block.TokenId)
+	hashList, err := ucfa.store.GetAccHashListByTkId(block.To, block.TokenId)
 	if err != nil && err != leveldb.ErrNotFound {
 		return &AcWriteError{
 			Code: WacDefaultErr,
@@ -266,7 +258,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 	}
 
 	if hashList == nil {
-		err := ucfa.store.DeleteHashList(batch, uAccMeta.AccountId, block.TokenId)
+		err := ucfa.store.DeleteHashList(batch, block.To, block.TokenId)
 		return &AcWriteError{
 			Code: WacDefaultErr,
 			Err:  errors.New("Delete unconfirmed hashList failed, because hashList is empty. Log:" + err.Error()),
@@ -298,7 +290,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 	// if HashList is empty,
 	// Delete key-value of the HashList and remove the TokenInfo from the TokenInfoList.
 	if len(hashList) <= 0 {
-		if err := ucfa.store.DeleteHashList(batch, uAccMeta.AccountId, block.TokenId); err != nil {
+		if err := ucfa.store.DeleteHashList(batch, block.To, block.TokenId); err != nil {
 			return &AcWriteError{
 				Code: WacDefaultErr,
 				Err:  err,
@@ -317,7 +309,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 			Err:  err,
 		}
 	}
-	if err := ucfa.store.WriteHashList(batch, uAccMeta.AccountId, block.TokenId, hashList); err != nil {
+	if err := ucfa.store.WriteHashList(batch, block.To, block.TokenId, hashList); err != nil {
 		return &AcWriteError{
 			Code: WacDefaultErr,
 			Err:  err,
@@ -352,7 +344,7 @@ func (ucfa *UnconfirmedAccess) AddListener(addr types.Address, change chan<- str
 func (ucfa *UnconfirmedAccess) UnconfirmedCallBack(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	// meta.status: 1 means open, 2 means closed
 	if block.Meta.Status == 2 {
-		if ucfa.HashUnconfirmedBool(block.Meta.AccountId, block.TokenId, block.FromHash) {
+		if ucfa.HashUnconfirmedBool(block.To, block.TokenId, block.FromHash) {
 			fromBlock, err := accountChainAccess.GetBlockByHash(block.FromHash)
 			if err != nil {
 				return err
@@ -366,8 +358,8 @@ func (ucfa *UnconfirmedAccess) UnconfirmedCallBack(batch *leveldb.Batch, block *
 	return nil
 }
 
-func (ucfa *UnconfirmedAccess) HashUnconfirmedBool(accId *big.Int, tkId *types.TokenTypeId, hash *types.Hash) bool {
-	hashList, err := ucfa.store.GetAccHashListByTkId(accId, tkId)
+func (ucfa *UnconfirmedAccess) HashUnconfirmedBool(addr *types.Address, tkId *types.TokenTypeId, hash *types.Hash) bool {
+	hashList, err := ucfa.store.GetAccHashListByTkId(addr, tkId)
 	if err != nil {
 		return false
 	}

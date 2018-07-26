@@ -6,7 +6,7 @@ import (
 )
 
 func (ac *AccountChain) GetUnconfirmedTxHashs(index, num, count int, addr *types.Address) ([]*types.Hash, error) {
-	return ac.uAccess.GetUnconfirmedHashs((index+num)*count, addr)
+	return ac.uAccess.GetUnconfirmedHashs(index, num, count, addr)
 }
 
 func (ac *AccountChain) GetUnconfirmedTxHashsByTkId(index, num, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
