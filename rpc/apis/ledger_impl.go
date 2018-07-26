@@ -129,18 +129,18 @@ func (l *LegerApiImpl) GetAccountByAccAddr(addrs []string, reply *string) error 
 		return err
 	}
 
+	if account == nil || len(account.TokenInfoList) == 0 {
+		*reply = ""
+		return nil
+	}
 	var bs []api_interface.BalanceInfo
-	if len(account.TokenInfoList) == 0 {
-		bs = nil
-	} else {
-		bs = make([]api_interface.BalanceInfo, len(account.TokenInfoList))
-		for i, v := range account.TokenInfoList {
-			bs[i] = api_interface.BalanceInfo{
-				TokenSymbol: v.Token.Symbol,
-				TokenName:   v.Token.Name,
-				TokenTypeId: v.Token.Id.String(),
-				Balance:     v.TotalAmount.String(),
-			}
+	bs = make([]api_interface.BalanceInfo, len(account.TokenInfoList))
+	for i, v := range account.TokenInfoList {
+		bs[i] = api_interface.BalanceInfo{
+			TokenSymbol: v.Token.Symbol,
+			TokenName:   v.Token.Name,
+			TokenTypeId: v.Token.Id.String(),
+			Balance:     v.TotalAmount.String(),
 		}
 	}
 
