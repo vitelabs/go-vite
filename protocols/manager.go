@@ -219,7 +219,7 @@ func (pm *ProtocolManager) Sync() {
 	bestPeer := pm.Peers.BestPeer()
 	currentBlock := pm.CurrentBlock()
 
-	if bestPeer.Height.Cmp(currentBlock.Height) > 0 {
+	if bestPeer != nil && bestPeer.Height.Cmp(currentBlock.Height) > 0 {
 		if pm.schain.SyncPeer != nil {
 			pm.mutex.Lock()
 			if pm.Syncing {

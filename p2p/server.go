@@ -449,7 +449,7 @@ type blockNode struct {
 	node *Node
 	blockTime time.Time
 }
-var defaultBlockTimeout = 20 * time.Minute
+var defaultBlockTimeout = 2 * time.Minute
 
 func (svr *Server) ScheduleTask() {
 	defer svr.waitDown.Done()
