@@ -144,7 +144,7 @@ type signSlave struct {
 	waitSendTasks   []*sendTask
 	addressUnlocked bool
 	isWorking       bool
-	mutex           sync.Mutex
+	flagMutex       sync.Mutex
 	isClosed        bool
 }
 
@@ -152,10 +152,10 @@ func (sw *signSlave) Close() error {
 
 	sw.vite.Ledger().Ac().RemoveListener(sw.address)
 
-	sw.mutex.Lock()
+	sw.flagMutex.Lock()
 	sw.isClosed = true
 	sw.isWorking = false
-	sw.mutex.Unlock()
+	sw.flagMutex.Unlock()
 
 	sw.breaker <- struct{}{}
 	close(sw.breaker)
@@ -163,8 +163,8 @@ func (sw *signSlave) Close() error {
 }
 
 func (sw *signSlave) IsWorking() bool {
-	sw.mutex.Lock()
-	defer sw.mutex.Unlock()
+	sw.flagMutex.Lock()
+	defer sw.flagMutex.Unlock()
 	return sw.isWorking
 }
 
@@ -205,9 +205,9 @@ func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
 
 func (sw *signSlave) StartWork() {
 	log.Info("slaver StartWork is called", sw.address.String())
-	sw.mutex.Lock()
+	sw.flagMutex.Lock()
 	if sw.isWorking {
-		sw.mutex.Unlock()
+		sw.flagMutex.Unlock()
 		log.Info("slaver is working", sw.address.String())
 		return
 	}
@@ -217,11 +217,10 @@ func (sw *signSlave) StartWork() {
 
 	sw.isWorking = true
 
-	sw.mutex.Unlock()
+	sw.flagMutex.Unlock()
 	log.Info("slaver start work", sw.address.String())
 	for {
 		log.Debug("slaver working")
-		sw.mutex.Lock()
 
 		if sw.isClosed {
 			break
@@ -241,7 +240,6 @@ func (sw *signSlave) StartWork() {
 				sw.waitSendTasks = append(sw.waitSendTasks[:i], sw.waitSendTasks[i+1:]...)
 			}
 		}
-		sw.mutex.Unlock()
 
 		if sw.addressUnlocked {
 			hasmore, err := sw.sendNextUnConfirmed()
@@ -273,9 +271,7 @@ func (sw *signSlave) StartWork() {
 }
 
 func (sw *signSlave) sendTask(task *sendTask) {
-	sw.mutex.Lock()
 	sw.waitSendTasks = append(sw.waitSendTasks, task)
-	sw.mutex.Unlock()
 
 	log.Info(sw.address.String()+" is working ", sw.IsWorking())
 	if sw.IsWorking() {
