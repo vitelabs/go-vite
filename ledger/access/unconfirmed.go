@@ -312,7 +312,7 @@ var listenerMutex sync.Mutex
 func (ucfa *UnconfirmedAccess) SendSignalToListener(addr types.Address) {
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
-	log2.Printf("%+v\n", (*ucfa.listener)[addr])
+	log2.Printf("UnconfirmedAccess.SendSignalToListener: %+v\n", (*ucfa.listener)[addr])
 	(*ucfa.listener)[addr] <- struct{}{}
 	log.Info("Unconfirmed: Send signal to listener success.")
 }
@@ -328,7 +328,7 @@ func (ucfa *UnconfirmedAccess) AddListener(addr types.Address, change chan<- str
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
 	(*ucfa.listener)[addr] = change
-	log2.Printf("%+v\n", (*ucfa.listener)[addr])
+	log2.Printf("UnconfirmedAccess.AddListener: %+v\n", (*ucfa.listener)[addr])
 	log.Info("Unconfirmed: Add account's listener success.")
 }
 

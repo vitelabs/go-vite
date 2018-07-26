@@ -513,7 +513,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 func (aca *AccountChainAccess) writeBlockMeta(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	if block.IsSendBlock() && !block.IsGenesisBlock() && !block.IsGenesisSecondBlock() {
 		if block.Meta.Status == 1 {
-			if err := unconfirmedAccess.WriteBlock(batch, block); err != nil {
+			if err := GetUnconfirmedAccess().WriteBlock(batch, block); err != nil {
 				return &AcWriteError{
 					Code: WacDefaultErr,
 					Err:  err,
@@ -521,7 +521,7 @@ func (aca *AccountChainAccess) writeBlockMeta(batch *leveldb.Batch, block *ledge
 			}
 
 		} else if block.Meta.Status == 2 {
-			if err := unconfirmedAccess.DeleteBlock(batch, block); err != nil {
+			if err := GetUnconfirmedAccess().DeleteBlock(batch, block); err != nil {
 				return &AcWriteError{
 					Code: WacDefaultErr,
 					Err:  err,
