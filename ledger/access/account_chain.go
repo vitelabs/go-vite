@@ -283,6 +283,8 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 			}
 		}
 
+		log.Printf("accountMeta!!!: %+v\n", accountMeta)
+		log.Printf("accountTokenInfo!!!: %+v\n", accountTokenInfo)
 		if accountTokenInfo.LastAccountBlockHeight != nil {
 			prevAccountBlockInToken, prevAbErr := aca.store.GetBlockByHeight(accountMeta.AccountId, accountTokenInfo.LastAccountBlockHeight)
 			if prevAbErr != nil || prevAccountBlockInToken == nil {
@@ -418,6 +420,8 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 				LastAccountBlockHeight: block.Meta.Height,
 			}
 		}
+
+		log.Printf("SetTokenInfo!!!: %+v\n", accountTokenInfo)
 		accountMeta.SetTokenInfo(accountTokenInfo)
 	}
 

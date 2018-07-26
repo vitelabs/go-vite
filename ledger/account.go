@@ -25,16 +25,19 @@ type AccountMeta struct {
 
 func (am *AccountMeta) SetTokenInfo(tokenInfo *AccountSimpleToken) {
 	if am.TokenList == nil {
-		am.TokenList = []*AccountSimpleToken{tokenInfo}
-	} else {
-		// Get token info of account
-		for index, token := range am.TokenList {
-			if bytes.Equal(token.TokenId.Bytes(), tokenInfo.TokenId.Bytes()) {
-				am.TokenList[index] = tokenInfo
-				break
-			}
+		am.TokenList = []*AccountSimpleToken{}
+	}
+	// Get token info of account
+	for index, token := range am.TokenList {
+		if bytes.Equal(token.TokenId.Bytes(), tokenInfo.TokenId.Bytes()) {
+			am.TokenList[index] = tokenInfo
+
+			// Need Return
+			return
 		}
 	}
+
+	am.TokenList = append(am.TokenList, tokenInfo)
 }
 
 func (am *AccountMeta) GetTokenInfoByTokenId(tokenId *types.TokenTypeId) *AccountSimpleToken {
