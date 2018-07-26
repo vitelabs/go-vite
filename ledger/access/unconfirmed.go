@@ -239,7 +239,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 
 	if uAccMeta == nil {
 		err := ucfa.store.DeleteMeta(batch, block.To)
-		return errors.New("Delete unconfirmed failed, because uAccMeta is empty. Log:" + err.Error())
+		return errors.New("delete unconfirmed failed, because uAccMeta is empty, error:" + err.Error())
 	}
 
 	//// [tmp] Check data.
@@ -261,7 +261,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 		err := ucfa.store.DeleteHashList(batch, block.To, block.TokenId)
 		return &AcWriteError{
 			Code: WacDefaultErr,
-			Err:  errors.New("Delete unconfirmed hashList failed, because hashList is empty. Log:" + err.Error()),
+			Err:  errors.New("delete unconfirmed hashList failed, because hashList is empty, error: " + err.Error()),
 		}
 	}
 
