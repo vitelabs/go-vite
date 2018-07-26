@@ -184,7 +184,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 		}
 	}
 	// Add to the Listener
-	_, ok := (*ucfa.listener)[*block.To]
+	_, ok := ucListener[*block.To]
 	if ok {
 		ucfa.SendSignalToListener(*block.To)
 	}
