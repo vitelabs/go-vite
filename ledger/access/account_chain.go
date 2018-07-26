@@ -14,46 +14,21 @@ import (
 
 type blockWriteMutexBody struct {
 	LatestBlock *ledger.AccountBlock
-	Reference   bool
+	WriteLock   sync.Mutex
 }
 
 type blockWriteMutex map[string]*blockWriteMutexBody
 
-const bwmuBuffer = 10 * 10000
-const bwmuReleaseCount = 2 * 10000
-
 // The mutex for blockWriteMutex execute locking or unlocking
 var bwMutexMutex sync.Mutex
 
-func (bwm *blockWriteMutex) release() {
-	count := 0
-	for key, mutexBody := range *bwm {
-		if count >= bwmuReleaseCount {
-			return
-		}
-		if !mutexBody.Reference {
-			delete(*bwm, key)
-			count++
-		}
-	}
-}
-
 func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.AccountMeta) *AcWriteError {
 	bwMutexMutex.Lock()
-	defer bwMutexMutex.Unlock()
-
 	accountAddress := block.AccountAddress
 	mutexBody, ok := (*bwm)[accountAddress.String()]
 
 	if !ok || mutexBody == nil {
-		if len(*bwm) >= bwmuBuffer {
-			// Release memory
-			bwm.release()
-		}
-
-		mutexBody = &blockWriteMutexBody{
-			Reference: false,
-		}
+		mutexBody = &blockWriteMutexBody{}
 
 		if meta != nil {
 			var err error
@@ -69,15 +44,10 @@ func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.Accoun
 
 		(*bwm)[accountAddress.String()] = mutexBody
 	}
+	bwMutexMutex.Unlock()
 
-	if mutexBody.Reference {
-		return &AcWriteError{
-			Code: WacDefaultErr,
-			Err:  errors.New("Lock failed"),
-		}
-	}
-
-	if mutexBody.LatestBlock != nil {
+	mutexBody.WriteLock.Lock()
+	if mutexBody.LatestBlock != nil && block.PrevHash != nil {
 		if !bytes.Equal(mutexBody.LatestBlock.Hash.Bytes(), block.PrevHash.Bytes()) {
 			if block.Meta == nil || block.Meta.Height == nil {
 				return &AcWriteError{
@@ -115,6 +85,7 @@ func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.Accoun
 		}
 
 		if block.Meta != nil && block.Meta.Height != nil {
+			bwMutexMutex.Unlock()
 			gap := big.NewInt(0)
 			gap.Sub(block.Meta.Height, mutexBody.LatestBlock.Meta.Height)
 			if gap.Cmp(big.NewInt(1)) != 0 {
@@ -126,8 +97,6 @@ func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.Accoun
 			}
 		}
 	}
-
-	mutexBody.Reference = true
 
 	return nil
 }
@@ -141,6 +110,7 @@ func (bwm *blockWriteMutex) UnLock(block *ledger.AccountBlock, writeErr *AcWrite
 	mutexBody, ok := (*bwm)[accountAddress.String()]
 
 	if !ok {
+		log.Println("blockWriteMutex Unlock: unlock failed. because mutexBody doesn't exists.")
 		return
 	}
 
@@ -150,7 +120,7 @@ func (bwm *blockWriteMutex) UnLock(block *ledger.AccountBlock, writeErr *AcWrite
 		log.Println("blockWriteMutex Unlock: writeErr is " + writeErr.Error())
 	}
 
-	mutexBody.Reference = false
+	mutexBody.WriteLock.Unlock()
 }
 
 type AccountChainAccess struct {

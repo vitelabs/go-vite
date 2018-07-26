@@ -36,43 +36,31 @@ func GetUnconfirmedAccess() *UnconfirmedAccess {
 
 type ucfmWriteMutex map[types.Address]*ucfmWriteMuteBody
 type ucfmWriteMuteBody struct {
-	Reference bool
+	writeLock sync.Mutex
 }
 
 var uWMMutex sync.Mutex
 
 func (uwm *ucfmWriteMutex) Lock(block *ledger.AccountBlock) *AcWriteError {
 	uWMMutex.Lock()
-	defer uWMMutex.Unlock()
 	uwmBody, ok := (*uwm)[*block.To]
 
 	if !ok || uwmBody == nil {
-		uwmBody = &ucfmWriteMuteBody{
-			Reference: false,
-		}
+		uwmBody = &ucfmWriteMuteBody{}
 		(*uwm)[*block.To] = uwmBody
 	}
+	uWMMutex.Unlock()
 
-	if uwmBody.Reference {
-		return &AcWriteError{
-			Code: WacDefaultErr,
-			Err:  errors.New("Lock failed"),
-		}
-	}
-
-	uwmBody.Reference = true
+	uwmBody.writeLock.Lock()
 	return nil
 }
 
 func (uwm *ucfmWriteMutex) UnLock(block *ledger.AccountBlock) {
-	uWMMutex.Lock()
-	defer uWMMutex.Unlock()
-
 	uwmBody, ok := (*uwm)[*block.To]
 	if !ok {
 		return
 	}
-	uwmBody.Reference = false
+	uwmBody.writeLock.Unlock()
 }
 
 func (ucfa *UnconfirmedAccess) GetUnconfirmedHashsByTkId(index, num, count int, addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {

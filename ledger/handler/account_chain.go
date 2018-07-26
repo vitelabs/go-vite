@@ -138,7 +138,7 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 				}
 			}
 		}
-		log.Info("AccountChain HandleSendBlocks: write " + strconv.Itoa(len(*msg)) + " blocks success.")
+		log.Info("AccountChain HandleSendBlocks: write " + strconv.Itoa(len(*msg)) + " blocks finish.")
 	}()
 	return nil
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/vitelabs/go-vite/cmd/rpc_vite"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/vite"
 	"log"
@@ -43,13 +44,11 @@ func main() {
 		MinerInterval: *minerInterval,
 	})
 
-	_, err := vite.New(globalConfig)
+	vnode, err := vite.New(globalConfig)
 
 	if err != nil {
 		log.Fatalf("Start vue failed. Error is %v\n", err)
 	}
 
-	var channel chan int
-	// Block main process
-	<-channel
+	rpc_vite.StartIpcRpc(vnode, globalConfig.DataDir)
 }
