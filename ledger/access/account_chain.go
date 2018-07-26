@@ -85,7 +85,6 @@ func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.Accoun
 		}
 
 		if block.Meta != nil && block.Meta.Height != nil {
-			bwMutexMutex.Unlock()
 			gap := big.NewInt(0)
 			gap.Sub(block.Meta.Height, mutexBody.LatestBlock.Meta.Height)
 			if gap.Cmp(big.NewInt(1)) != 0 {
