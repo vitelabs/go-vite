@@ -24,6 +24,7 @@ type SimpleBlock struct {
 	ToAddr    string // who receives the tx
 	Status    int    // 0 means unknow, 1 means open (unconfirmed), 2 means closed(already confirmed)
 	Hash      string // bigInt. the blocks hash
+	Balance   string // current balance
 }
 
 type BalanceInfo struct {
