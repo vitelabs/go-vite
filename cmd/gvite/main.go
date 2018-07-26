@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/vite"
 	"log"
-	"os"
+	"net/http"
+	_ "net/http/pprof"
 )
 
 var (
@@ -21,6 +21,10 @@ var (
 )
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	flag.Parse()
 
 	globalConfig := config.GlobalConfig
@@ -45,12 +49,7 @@ func main() {
 		log.Fatalf("Start vue failed. Error is %v\n", err)
 	}
 
-	fmt.Println("input quit to exit...")
-	var buf []byte
-	for {
-		os.Stdin.Read(buf)
-		if string(buf) == "quit" {
-			break
-		}
-	}
+	var channel chan int
+	// Block main process
+	<-channel
 }
