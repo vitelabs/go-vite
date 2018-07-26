@@ -263,6 +263,7 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 		block.Amount = amount
 		block.TokenId = mintage.Id
 
+		log.Println("Accountchain WriteReceiveBlock: mintage receive. amount is " + amount.String() + ", balance is " + block.Balance.String())
 	} else {
 
 		// Add balance
@@ -287,6 +288,8 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 		block.Balance.Add(prevBalance, amount)
 		block.Amount = amount
 		block.TokenId = fromBlock.TokenId
+
+		log.Println("Accountchain WriteReceiveBlock: prevBalance is " + prevBalance.String() + " , amount is " + amount.String() + ", balance is " + block.Balance.String())
 	}
 
 	// Write from block meta
