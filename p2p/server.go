@@ -319,6 +319,7 @@ func (svr *Server) SetHandshake() {
 		NetID: svr.NetID,
 		Name: svr.Name,
 		ID: id,
+		Version: Version,
 	}
 }
 

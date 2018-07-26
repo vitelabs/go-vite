@@ -11,6 +11,7 @@ import (
 	protoType "github.com/vitelabs/go-vite/protocols/types"
 	"github.com/vitelabs/go-vite/protocols/interfaces"
 	ledgerHandler "github.com/vitelabs/go-vite/ledger/handler_interface"
+	"github.com/syndtr/goleveldb/leveldb/errors"
 )
 
 var enoughPeersTimeout = 1 * time.Minute
@@ -29,6 +30,11 @@ type ProtocolManager struct {
 }
 
 func (pm *ProtocolManager) HandleStatusMsg(status *protoType.StatusMsg, peer *protoType.Peer) {
+	if status.ProtocolVersion != protoType.Vite1 {
+		peer.Errch <- errors.New("protocol version not match")
+		return
+	}
+
 	log.Printf("receive status from %s height %d \n", peer.ID, status.Height)
 
 	peer.Update(status)
