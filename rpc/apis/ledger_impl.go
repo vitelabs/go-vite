@@ -56,9 +56,11 @@ func (l *LegerApiImpl) CreateTxWithPassphrase(params *api_interface.SendTxParms,
 	err = l.signer.CreateTxWithPassphrase(&b, params.Passphrase)
 
 	if err != nil {
-		return err
+		return tryMakeConcernedError(err, reply)
 	}
+
 	*reply = "success"
+
 	return nil
 }
 

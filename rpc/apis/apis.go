@@ -5,12 +5,6 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 )
 
-const (
-	ErrPassword = "cipher: message authentication failed"
-)
-
-
-
 func GetAll(vite *vite.Vite) []rpc.API {
 	ledgerApis := rpc.API{
 		Namespace: "ledger",

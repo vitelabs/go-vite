@@ -96,7 +96,7 @@ func (m *WalletApiImpl) UnLock(unlockParams []string, reply *string) error {
 
 	err = m.km.Unlock(addr, passphrase, time.Second*time.Duration(unlocktime))
 	if err != nil {
-		return err
+		return tryMakeConcernedError(err, reply)
 	}
 
 	*reply = "success"

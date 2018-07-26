@@ -31,11 +31,3 @@ func (CommonApisImpl) IsValidHexTokenTypeId(ttis []string, reply *string) error 
 	return nil
 }
 
-func easyJsonReturn(v interface{}, reply *string) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-	*reply = string(b)
-	return nil
-}

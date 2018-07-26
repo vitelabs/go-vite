@@ -31,13 +31,6 @@ type WalletApi interface {
 	// you must pass an address into lockParams , if no error happened means lock success
 	Lock(lockParams []string, reply *string) error
 
-	// hexAddress := signDataParams[0] hexMsg := signDataParams[1]
-	// if the given address has not been unlocked it will return an ErrUnlocked
-	SignData(signDataParams []string, reply *string) error
-
-	// hexAddress := signDataParams[0] hexMsg := signDataParams[1] passphrase := signDataParams[2]
-	SignDataWithPassphrase(signDataParams []string, reply *string) error
-
 	// if a keystore file name is changed it will read the file content
 	// if the  content is legal the function will fix the filename into hex-formed address
 	ReloadAndFixAddressFile(v interface{}, reply *string) error
@@ -54,4 +47,11 @@ type WalletApi interface {
 
 	// Get dir
 	GetDataDir(v interface{}, reply *string) error
+
+	// hexAddress := signDataParams[0] hexMsg := signDataParams[1]
+	// if the given address has not been unlocked it will return an ErrUnlocked
+	// SignData(signDataParams []string, reply *string) error
+
+	// hexAddress := signDataParams[0] hexMsg := signDataParams[1] passphrase := signDataParams[2]
+	// SignDataWithPassphrase(signDataParams []string, reply *string) error
 }
