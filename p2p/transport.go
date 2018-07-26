@@ -12,6 +12,8 @@ import (
 
 type NetworkID uint32
 
+const Version uint32 = 1
+
 const (
 	MainNet NetworkID = iota + 1
 	TestNet
@@ -52,6 +54,7 @@ type Handshake struct {
 	NetID	NetworkID
 	Name    string
 	ID      NodeID
+	Version uint32
 }
 
 func (hs *Handshake) Serialize() ([]byte, error) {
@@ -59,6 +62,7 @@ func (hs *Handshake) Serialize() ([]byte, error) {
 		NetID: uint32(hs.NetID),
 		Name: hs.Name,
 		ID: hs.ID[:],
+		Version: hs.Version,
 	}
 
 	return proto.Marshal(hspb)
@@ -74,6 +78,7 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 	copy(hs.ID[:], hspb.ID)
 	hs.Name = hspb.Name
 	hs.NetID = NetworkID(hspb.NetID)
+	hs.Version = hspb.Version
 	return nil
 }
 
@@ -228,6 +233,10 @@ func (pt *PBTS) Handshake(our *Handshake) (*Handshake, error) {
 		return nil, fmt.Errorf("handshake from %s deserialize error: %v\n", pt.conn.RemoteAddr(), err)
 	}
 
+	if hs.Version != our.Version {
+		return nil, fmt.Errorf("unmatched version\n")
+	}
+
 	if hs.NetID != our.NetID {
 		return nil, fmt.Errorf("unmatched network id: %d / %d from %s\n", hs.NetID, our.NetID, pt.conn.RemoteAddr())
 	}
@@ -275,9 +284,7 @@ func pack(m Msg) (data []byte, err error) {
 		return header, nil
 	}
 
-	data = make([]byte, headerLength + size)
-	copy(data, header)
-	copy(data[headerLength:], m.Payload)
+	data = append(header, m.Payload...)
 
 	return data, nil
 }

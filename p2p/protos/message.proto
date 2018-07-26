@@ -38,4 +38,5 @@ message Handshake {
     uint32 NetID = 1;
     string Name = 2;
     bytes ID = 3;
+    uint32 Version = 4;
 }
