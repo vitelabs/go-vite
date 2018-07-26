@@ -22,7 +22,7 @@ type blockWriteMutex map[string]*blockWriteMutexBody
 // The mutex for blockWriteMutex execute locking or unlocking
 var bwMutexMutex sync.Mutex
 
-func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.AccountMeta) *AcWriteError {
+func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.AccountMeta) (returnError *AcWriteError) {
 	bwMutexMutex.Lock()
 	accountAddress := block.AccountAddress
 	mutexBody, ok := (*bwm)[accountAddress.String()]
@@ -34,6 +34,7 @@ func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.Accoun
 			var err error
 			mutexBody.LatestBlock, err = accountChainAccess.store.GetLatestBlockByAccountId(meta.AccountId)
 			if err != nil {
+				bwMutexMutex.Unlock()
 				return &AcWriteError{
 					Code: WacDefaultErr,
 					Err:  err,
@@ -47,6 +48,11 @@ func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.Accoun
 	bwMutexMutex.Unlock()
 
 	mutexBody.WriteLock.Lock()
+	defer func() {
+		if returnError != nil {
+			mutexBody.WriteLock.Unlock()
+		}
+	}()
 	if mutexBody.LatestBlock != nil {
 		if block.PrevHash == nil {
 			return &AcWriteError{
@@ -283,8 +289,6 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 			}
 		}
 
-		log.Printf("accountMeta!!!: %+v\n", accountMeta)
-		log.Printf("accountTokenInfo!!!: %+v\n", accountTokenInfo)
 		if accountTokenInfo.LastAccountBlockHeight != nil {
 			prevAccountBlockInToken, prevAbErr := aca.store.GetBlockByHeight(accountMeta.AccountId, accountTokenInfo.LastAccountBlockHeight)
 			if prevAbErr != nil || prevAccountBlockInToken == nil {
@@ -421,7 +425,6 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 			}
 		}
 
-		log.Printf("SetTokenInfo!!!: %+v\n", accountTokenInfo)
 		accountMeta.SetTokenInfo(accountTokenInfo)
 	}
 
