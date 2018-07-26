@@ -101,7 +101,7 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedHashs(index, num, count int, addr *
 	}
 	numberInt := big.NewInt(int64((index + num) * count))
 	if big.NewInt(0).Cmp(meta.TotalNumber) == 0 {
-		return nil, errors.New("The number to get is invalid.")
+		return nil, nil
 	}
 	hashList, err := ucfa.store.GetAccTotalHashList(addr)
 	if err != nil && err != leveldb.ErrNotFound {

@@ -6,7 +6,7 @@ import (
 
 const (
 	errPassword            = "cipher: message authentication failed"
-	addressAlreadyUnLocked = "the address was already unlocked"
+	addressAlreadyUnLocked = "the address was previously unlocked"
 )
 
 var concernedErrorMap map[string]int

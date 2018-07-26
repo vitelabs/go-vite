@@ -44,7 +44,7 @@ func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase s
 	syncinfo := c.Vite.Ledger().Sc().GetFirstSyncInfo()
 	if !syncinfo.IsFirstSyncDone {
 		log.Info("Master sync unfinished, so can't create transaction")
-		return fmt.Errorf("Master sync unfinished, so can't create transaction")
+		return fmt.Errorf("master sync unfinished, so can't create transaction")
 	}
 
 	log.Info("Master AccountAddress", block.AccountAddress.String())
@@ -180,7 +180,7 @@ func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
 	hashes, e := ac.GetUnconfirmedTxHashs(0, 1, 1, &sw.address)
 
 	if e != nil {
-		log.Info("slaver auto GetUnconfirmedTxHashs err", err)
+		log.Info("slaver auto GetUnconfirmedTxHashs err", e)
 		return false, e
 	}
 
@@ -222,13 +222,13 @@ func (sw *signSlave) StartWork() {
 		}
 		if len(sw.waitSendTasks) != 0 {
 			for i, v := range sw.waitSendTasks {
-				log.Info("send user task")
+				log.Info("slaver send user task")
 				err := sw.vite.Ledger().Ac().CreateTxWithPassphrase(v.block, v.passphrase)
 				if err == nil {
-					log.Info("send user task success")
+					log.Info("slaver send user task success")
 					v.end <- ""
 				} else {
-					log.Info("send user task error", err.Error())
+					log.Info("slaver send user task error", err.Error())
 					v.end <- err.Error()
 				}
 				close(v.end)
