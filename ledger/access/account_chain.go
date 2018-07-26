@@ -47,7 +47,14 @@ func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.Accoun
 	bwMutexMutex.Unlock()
 
 	mutexBody.WriteLock.Lock()
-	if mutexBody.LatestBlock != nil && block.PrevHash != nil {
+	if mutexBody.LatestBlock != nil {
+		if block.PrevHash == nil {
+			return &AcWriteError{
+				Code: WacPrevHashUncorrectErr,
+				Err:  errors.New("PrevHash of accountBlock is nil. Can't write."),
+				Data: mutexBody.LatestBlock,
+			}
+		}
 		if !bytes.Equal(mutexBody.LatestBlock.Hash.Bytes(), block.PrevHash.Bytes()) {
 			if block.Meta == nil || block.Meta.Height == nil {
 				return &AcWriteError{
