@@ -8,8 +8,7 @@ import (
 	"time"
 )
 
-// Work is the workers current environment and holds
-// all of the current state information
+// worker
 type worker struct {
 	MinerLifecycle
 	workChan <-chan time.Time
@@ -17,7 +16,7 @@ type worker struct {
 	coinbase types.Address
 	mu       sync.Mutex
 	updateWg sync.WaitGroup
-	updateCh chan int
+	updateCh chan int  // update goroutine closed event chan
 }
 
 func (self *worker) Init() {
@@ -35,11 +34,11 @@ func (self *worker) Start() {
 func (self *worker) Stop() {
 	self.PreStop()
 	defer self.PostStop()
-	close(self.updateCh)
+	close(self.updateCh)  // close update goroutine
 	self.updateWg.Wait()
 }
 
-
+// get workChan and insert snapshot block chain
 func (self *worker) update(ch chan int) {
 	self.updateWg.Add(1)
 	defer self.updateWg.Done()
@@ -57,7 +56,7 @@ func (self *worker) update(ch chan int) {
 				log.Info("start working once.")
 				self.genAndInsert(t)
 			}
-		case <-ch:
+		case <-ch: // closed event chan
 			log.Info("worker.update closed.")
 		 	return
 		}

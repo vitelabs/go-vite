@@ -103,7 +103,6 @@ func (self *Miner) Stop() {
 
 	self.worker.Stop()
 	self.committee.Subscribe(nil)
-	//close(self.mem.Notify)
 }
 
 func (self *Miner) Destroy() {
