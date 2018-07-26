@@ -14,19 +14,23 @@ import (
 
 type unconfirmedListener map[types.Address]chan<- struct{}
 
-var unconfirmedAccess = &UnconfirmedAccess{
-	store:             vitedb.GetUnconfirmed(),
-	uwMutex:           &ucfmWriteMutex{},
-	listener:          &unconfirmedListener{},
-}
+var unconfirmedAccess *UnconfirmedAccess
 
 type UnconfirmedAccess struct {
-	store             *vitedb.Unconfirmed
-	uwMutex           *ucfmWriteMutex
-	listener          *unconfirmedListener
+	store    *vitedb.Unconfirmed
+	uwMutex  *ucfmWriteMutex
+	listener *unconfirmedListener
 }
 
 func GetUnconfirmedAccess() *UnconfirmedAccess {
+	if unconfirmedAccess == nil {
+		unconfirmedAccess = &UnconfirmedAccess{
+			store:    vitedb.GetUnconfirmed(),
+			uwMutex:  &ucfmWriteMutex{},
+			listener: &unconfirmedListener{},
+		}
+
+	}
 	return unconfirmedAccess
 }
 
@@ -101,7 +105,7 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedHashs(number int, addr *types.Addre
 		return nil, err
 	}
 	numberInt := big.NewInt(int64(number))
-	if numberInt.Cmp(meta.TotalNumber) == 1 || big.NewInt(0).Cmp(meta.TotalNumber) == 0{
+	if numberInt.Cmp(meta.TotalNumber) == 1 || big.NewInt(0).Cmp(meta.TotalNumber) == 0 {
 		return nil, errors.New("The number to get is out of range.")
 	}
 	hashList, err := ucfa.store.GetAccTotalHashList(meta.AccountId)
@@ -116,7 +120,7 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedAccountMeta(addr *types.Address) (*
 }
 
 func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	if block.To == nil || block.TokenId == nil  || block.Meta == nil || block.Meta.AccountId == nil {
+	if block.To == nil || block.TokenId == nil || block.Meta == nil || block.Meta.AccountId == nil {
 		err := errors.New("send_block's value is invalid")
 		log.Info("Unconfirmed: ", err)
 		return err
@@ -204,7 +208,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 
 func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(block *ledger.AccountBlock) (*ledger.UnconfirmedMeta, error) {
 	// Get the accountId
-	accMeta, err := accountAccess.GetAccountMeta(block.AccountAddress)
+	accMeta, err := GetAccountAccess().GetAccountMeta(block.AccountAddress)
 	if err != nil {
 		return nil, errors.New("[CreateNewUcfmMeta.GetAccountMeta]：" + err.Error())
 	}
@@ -222,7 +226,7 @@ func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(block *ledger.AccountBlock) (*l
 }
 
 func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	if block.To == nil || block.TokenId == nil  || block.Meta == nil || block.Meta.AccountId == nil {
+	if block.To == nil || block.TokenId == nil || block.Meta == nil || block.Meta.AccountId == nil {
 		err := errors.New("send_block's value is invalid")
 		log.Info("Unconfirmed: ", err)
 		return err

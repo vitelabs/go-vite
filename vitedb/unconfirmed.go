@@ -16,7 +16,7 @@ type Unconfirmed struct {
 var _unconfirmed *Unconfirmed
 
 func GetUnconfirmed() *Unconfirmed {
-	db, err := GetLDBDataBase(DB_BLOCK)
+	db, err := GetLDBDataBase(DB_LEDGER)
 	if err != nil {
 		log.Fatal(err)
 	}

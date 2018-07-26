@@ -1,14 +1,14 @@
 package vitedb
 
 import (
-	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"github.com/vitelabs/go-vite/common/types"
 	"fmt"
-	"log"
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"log"
+	"math/big"
 )
 
 type Account struct {
@@ -18,12 +18,12 @@ type Account struct {
 var _account *Account
 
 func GetAccount() *Account {
-	db, err := GetLDBDataBase(DB_BLOCK)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	if _account == nil {
+		db, err := GetLDBDataBase(DB_LEDGER)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		_account = &Account{
 			db: db,
 		}

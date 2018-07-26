@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"flag"
-	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/p2p"
 )
 
@@ -40,10 +40,7 @@ func Start(cfg *p2p.Config) {
 	//fmt.Println(privateKey.Hex())
 	//fmt.Println(addr.Hex())
 
-	v, err := vite.New(&vite.Config{
-		DataDir:   common.DefaultDataDir(),
-		P2pConfig: cfg,
-	})
+	v, err := vite.New(&config.Config{})
 	if err != nil {
 		log.Fatal(err)
 	}

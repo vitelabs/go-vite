@@ -2,11 +2,11 @@ package vitedb
 
 import (
 	"errors"
-	"log"
-	"github.com/syndtr/goleveldb/leveldb/util"
-	"math/big"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
+	"log"
+	"math/big"
 )
 
 type Token struct {
@@ -16,7 +16,7 @@ type Token struct {
 var _token *Token
 
 func GetToken() *Token {
-	db, err := GetLDBDataBase(DB_BLOCK)
+	db, err := GetLDBDataBase(DB_LEDGER)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count i
 	}
 
 	var blockHashList []*types.Hash
-	for i := 0; i <  index * count; i ++ {
+	for i := 0; i < index*count; i++ {
 		if !iter.Prev() {
 			return blockHashList, nil
 		}

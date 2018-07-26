@@ -18,7 +18,7 @@ type AccountChain struct {
 var _accountchain *AccountChain
 
 func GetAccountChain() *AccountChain {
-	db, err := GetLDBDataBase(DB_BLOCK)
+	db, err := GetLDBDataBase(DB_LEDGER)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -1,6 +1,9 @@
 package handler
 
-import "github.com/vitelabs/go-vite/ledger/handler_interface"
+import (
+	"github.com/vitelabs/go-vite/ledger/handler_interface"
+	"github.com/vitelabs/go-vite/vitedb"
+)
 
 type Manager struct {
 	vite Vite
@@ -8,7 +11,10 @@ type Manager struct {
 	sc   *SnapshotChain
 }
 
-func NewManager(vite Vite) *Manager {
+func NewManager(vite Vite, dataDir string) *Manager {
+	// Fixme
+	vitedb.SetDataDir(dataDir)
+
 	manager := &Manager{
 		vite: vite,
 

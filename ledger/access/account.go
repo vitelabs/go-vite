@@ -14,11 +14,14 @@ type AccountAccess struct {
 	store *vitedb.Account
 }
 
-var accountAccess = &AccountAccess{
-	store: vitedb.GetAccount(),
-}
+var accountAccess *AccountAccess
 
 func GetAccountAccess() *AccountAccess {
+	if accountAccess == nil {
+		accountAccess = &AccountAccess{
+			store: vitedb.GetAccount(),
+		}
+	}
 	return accountAccess
 }
 
