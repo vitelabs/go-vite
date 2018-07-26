@@ -1,8 +1,8 @@
 package apis
 
 import (
-	"github.com/vitelabs/go-vite/rpc/api_interface"
 	"encoding/json"
+	"github.com/vitelabs/go-vite/rpc/api_interface"
 )
 
 func tryMakeConcernedError(err error, reply *string) error {

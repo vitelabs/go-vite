@@ -2,18 +2,18 @@ package keystore
 
 import (
 	"errors"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log"
 	"sync"
 	"time"
-	"github.com/vitelabs/go-vite/log"
 )
 
 var (
 	ErrLocked        = errors.New("need password or unlock")
 	ErrNotFind       = errors.New("not found the give address in any file")
 	ErrInvalidPrikey = errors.New("invalid prikey")
+	ErrAlreadyLocked = errors.New("the address was previously unlocked")
 )
 
 const (
@@ -34,7 +34,6 @@ func (ue UnlockEvent) Unlocked() bool {
 	return ue.event == UnLocked
 }
 
-
 // Manage keys from various wallet in here we will cache account
 // Manager is a keystore wallet and an interface
 type Manager struct {
@@ -48,7 +47,6 @@ type Manager struct {
 
 	unlockChanged      map[int]chan<- UnlockEvent
 	unlockChangedIndex int
-
 }
 
 type unlocked struct {
@@ -106,6 +104,13 @@ func (km Manager) Status() (map[types.Address]string, error) {
 	return m, nil
 }
 
+func (km *Manager) IsUnLocked(addr types.Address) bool {
+	km.mutex.Lock()
+	_, exist := km.unlocked[addr]
+	km.mutex.Unlock()
+	return exist
+}
+
 // if the timeout is <=0 we will keep the unlock state until the program exit
 func (km *Manager) Unlock(addr types.Address, passphrase string, timeout time.Duration) error {
 	key, err := km.ks.ExtractKey(addr, passphrase)
@@ -117,7 +122,7 @@ func (km *Manager) Unlock(addr types.Address, passphrase string, timeout time.Du
 	u, exist := km.unlocked[addr]
 	if exist {
 		// if the address was unlocked
-		return fmt.Errorf("the address %v was previously unlocked", addr.String())
+		return ErrAlreadyLocked
 	}
 	if timeout > 0 {
 		u = &unlocked{Key: key, breaker: make(chan struct{})}
