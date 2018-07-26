@@ -40,7 +40,7 @@ type ucfmWriteMuteBody struct {
 
 var uWMMutex sync.Mutex
 
-func (uwm *ucfmWriteMutex) Lock(block *ledger.AccountBlock) *AcWriteError {
+func (uwm *ucfmWriteMutex) Lock(block *ledger.AccountBlock) {
 	uWMMutex.Lock()
 	uwmBody, ok := (*uwm)[*block.To]
 
@@ -51,7 +51,6 @@ func (uwm *ucfmWriteMutex) Lock(block *ledger.AccountBlock) *AcWriteError {
 	uWMMutex.Unlock()
 
 	uwmBody.writeLock.Lock()
-	return nil
 }
 
 func (uwm *ucfmWriteMutex) UnLock(block *ledger.AccountBlock) {
@@ -119,9 +118,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 			Err:  err,
 		}
 	}
-	if err := ucfa.uwMutex.Lock(block); err != nil {
-		return err
-	}
+	ucfa.uwMutex.Lock(block)
 	defer ucfa.uwMutex.UnLock(block)
 
 	if uAccMeta != nil {
@@ -217,9 +214,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 		}
 	}
 
-	if err := ucfa.uwMutex.Lock(block); err != nil {
-		return err
-	}
+	ucfa.uwMutex.Lock(block)
 	defer ucfa.uwMutex.UnLock(block)
 
 	if uAccMeta == nil {
