@@ -36,8 +36,8 @@ func main() {
 		panic(err)
 	}
 
-	list(client)
-	fmt.Println("input List to show addressed\ninput 'Create' to create a address with password 123456  ")
+	help()
+
 
 	for {
 		inputReader := bufio.NewReader(os.Stdin)
@@ -49,13 +49,13 @@ func main() {
 		if strings.HasPrefix(input, "quit") {
 			return
 		}
-		if strings.HasPrefix(input, "List") {
+		if strings.HasPrefix(input, "list") {
 			list(client)
-		} else if strings.HasPrefix(input, "Create") {
+		} else if strings.HasPrefix(input, "create") {
 			createAddress(client, "123456")
-		} else if strings.HasPrefix(input, "Status") {
+		} else if strings.HasPrefix(input, "status") {
 			status(client)
-		} else if strings.HasPrefix(input, "UnLock") {
+		} else if strings.HasPrefix(input, "unlock") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			Unlock(client, param)
 		} else if strings.HasPrefix(input, "SignDataWithPassphrase") {
@@ -64,41 +64,61 @@ func main() {
 		} else if strings.HasPrefix(input, "SignData") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			SignData(client, param)
-		} else if strings.HasPrefix(input, "Lock") {
+		} else if strings.HasPrefix(input, "lock") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			Lock(client, param)
-		} else if strings.HasPrefix(input, "ImportPriv") {
+		} else if strings.HasPrefix(input, "importpriv") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			ImportPriv(client, param)
-		} else if strings.HasPrefix(input, "ExportPriv") {
+		} else if strings.HasPrefix(input, "exportpriv") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			ExportPriv(client, param)
-		} else if strings.HasPrefix(input, "Peers") {
+		} else if strings.HasPrefix(input, "peers") {
 			PeersCount(client, nil)
-		} else if strings.HasPrefix(input, "Net") {
+		} else if strings.HasPrefix(input, "netinfo") {
 			NetworkAvailable(client, nil)
-		} else if strings.HasPrefix(input, "GetAcByAddress") {
+		} else if strings.HasPrefix(input, "getacc") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			GetAccountByAccAddr(client, param)
-		} else if strings.HasPrefix(input, "GetBlocks") {
+		} else if strings.HasPrefix(input, "getblocks") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			GetBlocksByAccAddr(client, param)
-		} else if strings.HasPrefix(input, "TxCreate") {
+		} else if strings.HasPrefix(input, "txcreate") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			CreateTxWithPassphrase(client, param)
-		} else if strings.HasPrefix(input, "UnconfirmBlocks") {
+		} else if strings.HasPrefix(input, "unconfirmblocks") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			GetUnconfirmedBlocksByAccAddr(client, param)
-		} else if strings.HasPrefix(input, "UnconfirmInfo") {
+		} else if strings.HasPrefix(input, "unconfirminfo") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			GetUnconfirmedInfo(client, param)
-		} else if strings.HasPrefix(input, "NowSync") {
+		} else if strings.HasPrefix(input, "syncinfo") {
 			GetInitSyncInfo(client, nil)
+		} else if strings.HasPrefix(input, "help") {
+			help()
 		} else {
-			fmt.Printf("The input was: %s\n", input)
+			fmt.Printf(input)
 		}
 	}
 
+}
+
+func help() {
+	fmt.Println("create:                                 create an address with 123456")
+	fmt.Println("list:                                   list all address")
+	fmt.Println("status:                                 show all address locked or unlocked")
+	fmt.Println("unlock [address] [password]:            unlock the address with given passsword")
+	fmt.Println("importpriv [hexprivkey] [password]:     import private key and use the given password to generate keystore ")
+	fmt.Println("exportpriv [address] [password]:        exprort private key ")
+	fmt.Println("peers:                                  show connected peers")
+	fmt.Println("netinfo:                                show network info")
+	fmt.Println("getacc [address]:                       show account info include balance")
+	fmt.Println("getblocks [address] [pageindex]:        show account info include balance")
+	fmt.Println("txcreate  [self address] [to address]:  transfer 1 vite you can add password and amout after [to address]")
+	fmt.Println("unconfirmblocks [address]:              show unconfirmed blocks in given address ")
+	fmt.Println("unconfirminfo [address]:                show unconfirmed info in given address ")
+	fmt.Println("syncinfo:                               show first sync info")
+	fmt.Println("help:                                   show help")
 }
 
 // wallet
@@ -149,25 +169,41 @@ func PeersCount(client *rpc2.Client, param []string) {
 
 // ledger
 func CreateTxWithPassphrase(client *rpc2.Client, param []string) {
+	if len(param) < 2 {
+		println("error params")
+	}
+	pass := "123456"
+	if len(param) >= 3 {
+		pass = strings.TrimSpace(param[2])
+	}
+	amount := "1"
+	if len(param) >= 4 {
+		amount = param[3]
+	}
+
 	tx := api_interface.SendTxParms{
-		SelfAddr:    param[0],
-		ToAddr:      param[1],
-		Passphrase:  "123456",
+		SelfAddr:    strings.TrimSpace(param[0]),
+		ToAddr:      strings.TrimSpace(param[1]),
+		Passphrase:  pass,
 		TokenTypeId: ledger.MockViteTokenId.String(),
-		Amount:      "1",
+		Amount:      amount,
 	}
 	doRpcCall(client, "ledger.CreateTxWithPassphrase", tx)
 }
 
 func GetBlocksByAccAddr(client *rpc2.Client, param []string) {
-	if len(param) != 2 {
+	if len(param) == 0 {
 		println("err param")
+		return
 	}
-	i, _ := strconv.Atoi(param[1])
+	i := 0
+	if len(param) == 2 {
+		i, _ = strconv.Atoi(param[1])
+	}
 	tx := api_interface.GetBlocksParams{
-		Addr:  param[0],
+		Addr:  strings.TrimSpace(param[0]),
 		Index: i,
-		Count: 10,
+		Count: 20,
 	}
 	doRpcCall(client, "ledger.GetBlocksByAccAddr", tx)
 }
@@ -197,13 +233,11 @@ func GetInitSyncInfo(client *rpc2.Client, param []string) {
 	doRpcCall(client, "ledger.GetInitSyncInfo", nil)
 }
 
-
-
 func doRpcCall(client *rpc2.Client, method string, param interface{}) {
 	var s string
 	err := client.Call(method, param, &s)
 	if err != nil {
 		println(err.Error())
 	}
-	println(method + "\n " + s)
+	println(method + "\n" + s)
 }

@@ -108,13 +108,16 @@ func (c *Master) loop() {
 		event, ok := <-c.unlockEventListener
 		log.Info("Master get event ", event)
 		if !ok {
+			log.Info("Master channel close ", event)
 			c.Close()
 		}
 
 		c.coreMutex.Lock()
 		if worker, ok := c.signSlaves[event.Address]; ok {
 			log.Info("Master get event already exist ", event)
+			c.coreMutex.Unlock()
 			worker.AddressUnlocked(event.Unlocked())
+			worker.newSignedTask <- struct{}{}
 			continue
 		}
 		s := NewsignSlave(c.Vite, event.Address)
@@ -250,6 +253,7 @@ func (sw *signSlave) StartWork() {
 			if err != nil {
 				log.Error(err.Error())
 			}
+			log.Info("slaver sendNextUnConfirmed hasmore", hasmore)
 			if hasmore {
 				continue
 			} else {
