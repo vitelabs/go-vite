@@ -5,9 +5,15 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/vite"
 	"log"
+	"net/http"
 )
 
 func main() {
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	config.RecoverConfig()
 	vnode, err := vite.New(config.GlobalConfig)
 	if err != nil {

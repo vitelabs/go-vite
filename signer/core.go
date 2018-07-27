@@ -122,7 +122,7 @@ func (c *Master) loop() {
 		c.signSlaves[event.Address] = s
 		c.coreMutex.Unlock()
 
-		s.AddressUnlocked(true)
+		s.AddressUnlocked(event.Unlocked())
 		go s.StartWork()
 
 	}
@@ -178,7 +178,7 @@ func (sw *signSlave) IsWorking() bool {
 func (sw *signSlave) AddressUnlocked(unlocked bool) {
 	sw.addressUnlocked = unlocked
 	if unlocked {
-		log.Info("slaver AddListener ", sw.address)
+		log.Info("slaver AddListener "+sw.address.String()+" sw.newSignedTask", sw.newSignedTask)
 		sw.vite.Ledger().Ac().AddListener(sw.address, sw.newSignedTask)
 	} else {
 		log.Info("slaver RemoveListener", sw.address)

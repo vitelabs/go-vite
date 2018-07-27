@@ -717,6 +717,7 @@ func (aca *AccountChainAccess) GetLatestBlockByAccountAddress(addr *types.Addres
 	if err != nil && err != leveldb.ErrNotFound {
 		return nil, err
 	}
+
 	if accountMeta == nil {
 		return nil, nil
 	}
@@ -724,22 +725,31 @@ func (aca *AccountChainAccess) GetLatestBlockByAccountAddress(addr *types.Addres
 	return aca.store.GetLatestBlockByAccountId(accountMeta.AccountId)
 }
 
-func (aca *AccountChainAccess) GetBlockListByAccountAddress(index int, num int, count int, accountAddress *types.Address) ([]*ledger.AccountBlock, error) {
+func (aca *AccountChainAccess) GetBlockListByAccountAddress(index int, num int, count int, accountAddress *types.Address) ([]*ledger.AccountBlock, *types.GetError) {
 	accountMeta, err := aca.accountStore.GetAccountMetaByAddress(accountAddress)
-	if err != nil {
-		return nil, err
+	if err != nil || accountMeta == nil {
+		return nil, &types.GetError{
+			Code: 1,
+			Err:  errors.New("Query account meta failed."),
+		}
 	}
 
 	blockList, err := aca.store.GetBlockListByAccountMeta(index, num, count, accountMeta)
 	if err != nil {
-		return nil, err
+		return nil, &types.GetError{
+			Code: 2,
+			Err:  errors.New("Query block list failed."),
+		}
 	}
 
 	var processedBlockList = make([]*ledger.AccountBlock, len(blockList))
 	for index, block := range blockList {
 		processedBlockList[index], err = aca.processBlock(block, accountAddress)
 		if err != nil {
-			return nil, err
+			return nil, &types.GetError{
+				Code: 3,
+				Err:  errors.New("Process block list failed."),
+			}
 		}
 	}
 	return processedBlockList, nil
