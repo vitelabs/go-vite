@@ -26,8 +26,8 @@ func main() {
 	//	dir = common.DefaultDataDir()
 	//}
 
-	ipcapiURL := filepath.Join(common.HomeDir(), "/Desktop/vite/viteisbest", rpc.DefaultIpcFile())
-	//ipcapiURL := filepath.Join(common.DefaultDataDir(), rpc.DefaultIpcFile())
+	//ipcapiURL := filepath.Join(common.HomeDir(), "/Desktop/vite/viteisbest", rpc.DefaultIpcFile())
+	ipcapiURL := filepath.Join(common.DefaultDataDir(), rpc.DefaultIpcFile())
 	if runtime.GOOS == "windows" {
 		ipcapiURL = rpc.DefaultIpcFile()
 	}

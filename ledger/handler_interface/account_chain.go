@@ -11,7 +11,7 @@ type AccountChain interface {
 	HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, peer *protoTypes.Peer) error
 	HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer) error
 	GetAccountByAccAddr(addr *types.Address) (*ledger.AccountMeta, error)
-	GetBlocksByAccAddr(addr *types.Address, index, num, count int) (ledger.AccountBlockList, error)
+	GetBlocksByAccAddr(addr *types.Address, index, num, count int) (ledger.AccountBlockList, *types.GetError)
 	CreateTx(block *ledger.AccountBlock) error
 	CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error
 	GetUnconfirmedTxHashs(index, num, count int, addr *types.Address) ([]*types.Hash, error)

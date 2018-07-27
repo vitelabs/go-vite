@@ -73,10 +73,17 @@ func (l *LegerApiImpl) GetBlocksByAccAddr(params *api_interface.GetBlocksParams,
 	if err != nil {
 		return err
 	}
-	list, err := l.ledgerManager.Ac().GetBlocksByAccAddr(&addr, params.Index, 1, params.Count)
-	if err != nil {
-		return err
+	list, getErr := l.ledgerManager.Ac().GetBlocksByAccAddr(&addr, params.Index, 1, params.Count)
+
+	if getErr != nil {
+		if getErr.Code == 1 {
+			// it means no data
+			*reply = ""
+			return nil
+		}
+		return getErr.Err
 	}
+
 	jsonBlocks := make([]api_interface.SimpleBlock, len(list))
 	for i, v := range list {
 		jsonBlocks[i] = api_interface.SimpleBlock{
