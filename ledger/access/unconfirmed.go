@@ -301,6 +301,7 @@ var listenerMutex sync.Mutex
 func (ucfa *UnconfirmedAccess) SendSignalToListener(addr types.Address) {
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
+	log.Info("UnconfirmedAccess.SendSignalToListener: try to send.")
 	if targetChannel, ok := ucListener[addr]; ok {
 		log.Info("UnconfirmedAccess.SendSignalToListener: start send signal.")
 		targetChannel <- struct{}{}

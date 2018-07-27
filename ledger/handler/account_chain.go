@@ -239,9 +239,6 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 		return writeErr
 	}
 
-	// Send signal to listener if exists.
-	ac.uAccess.SendSignalToListener(*block.To)
-
 	log.Info("AccountChain CreateTx: write block success.")
 
 	// Broadcast
