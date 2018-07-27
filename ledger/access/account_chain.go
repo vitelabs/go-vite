@@ -407,8 +407,13 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	// Set account block meta
 	newBlockMeta := &ledger.AccountBlockMeta{
 		Height:    newBlockHeight,
-		Status:    1, // Open
 		AccountId: accountMeta.AccountId,
+	}
+
+	if block.IsSendBlock() {
+		newBlockMeta.Status = 1 // Open
+	} else {
+		newBlockMeta.Status = 2 // Closed
 	}
 
 	block.Meta = newBlockMeta
