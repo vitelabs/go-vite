@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 )
 
 func main() {

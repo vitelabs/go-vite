@@ -181,6 +181,11 @@ func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock, signFunc s
 		return nil
 	})
 
+	// Send signal to listener if exists.
+	if err == nil && block.IsSendBlock() {
+		// [Fixme]
+		GetUnconfirmedAccess().SendSignalToListener(*block.To)
+	}
 	return err
 }
 

@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 func main() {
@@ -38,10 +39,10 @@ func main() {
 
 	help()
 
-
 	for {
 		inputReader := bufio.NewReader(os.Stdin)
 		input, err := inputReader.ReadString('\n')
+		input = strings.TrimRightFunc(strings.TrimLeftFunc(input, unicode.IsSpace), unicode.IsSpace)
 
 		if err != nil {
 			return
@@ -52,7 +53,12 @@ func main() {
 		if strings.HasPrefix(input, "list") {
 			list(client)
 		} else if strings.HasPrefix(input, "create") {
-			createAddress(client, "123456")
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			s := "123456"
+			if len(param) > 1 {
+				s = param[0]
+			}
+			createAddress(client, s)
 		} else if strings.HasPrefix(input, "status") {
 			status(client)
 		} else if strings.HasPrefix(input, "unlock") {
@@ -107,7 +113,7 @@ func help() {
 	fmt.Println("create:                                 create an address with 123456")
 	fmt.Println("list:                                   list all address")
 	fmt.Println("status:                                 show all address locked or unlocked")
-	fmt.Println("unlock [address] [password]:            unlock the address with given passsword")
+	fmt.Println("unlock [address] [password]:            unlock the address with given passsword(default 123456)")
 	fmt.Println("importpriv [hexprivkey] [password]:     import private key and use the given password to generate keystore ")
 	fmt.Println("exportpriv [address] [password]:        exprort private key ")
 	fmt.Println("peers:                                  show connected peers")
@@ -135,6 +141,9 @@ func status(client *rpc2.Client) {
 }
 
 func Unlock(client *rpc2.Client, param []string) {
+	if len(param) == 1 {
+		param = append(param, "123456")
+	}
 	doRpcCall(client, "wallet.UnLock", append(param, []string{"0"}...))
 }
 
