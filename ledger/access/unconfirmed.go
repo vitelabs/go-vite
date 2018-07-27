@@ -181,8 +181,6 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 		}
 	}
 
-	// Send signal to listener if exists.
-	ucfa.SendSignalToListener(*block.To)
 	return nil
 }
 
