@@ -2,11 +2,11 @@ package vitedb
 
 import (
 	"errors"
-	"log"
-	"github.com/syndtr/goleveldb/leveldb/util"
-	"math/big"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
+	"log"
+	"math/big"
 )
 
 type Token struct {
@@ -16,7 +16,7 @@ type Token struct {
 var _token *Token
 
 func GetToken() *Token {
-	db, err := GetLDBDataBase(DB_BLOCK)
+	db, err := GetLDBDataBase(DB_LEDGER)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func (token *Token) BatchWrite(batch *leveldb.Batch, writeFunc func(batch *level
 	})
 }
 
-func (token *Token) GetMintageBlockHashByTokenId(tokenId *types.TokenTypeId) ([]byte, error) {
+func (token *Token) GetMintageBlockHashByTokenId(tokenId *types.TokenTypeId) (*types.Hash, error) {
 	reader := token.db.Leveldb
 	// Get mintage block hash
 	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), big.NewInt(0))
@@ -43,12 +43,16 @@ func (token *Token) GetMintageBlockHashByTokenId(tokenId *types.TokenTypeId) ([]
 	if err != nil {
 		return nil, err
 	}
-	mintageBlockHash, err := reader.Get(key, nil)
+	mintageBlockHashBytes, err := reader.Get(key, nil)
 	if err != nil {
 		return nil, errors.New("Fail to query mintage block hash, Error is " + err.Error())
 	}
 
-	return mintageBlockHash, nil
+	mintageBlockHash, err := types.BytesToHash(mintageBlockHashBytes)
+	if err != nil {
+		return nil, errors.New("Fail to query mintage block hash, Error is " + err.Error())
+	}
+	return &mintageBlockHash, nil
 }
 
 func (token *Token) getTokenIdList(key []byte) ([]*types.TokenTypeId, error) {
@@ -148,7 +152,7 @@ func (token *Token) GetLatestBlockHeightByTokenId(tokenId *types.TokenTypeId) (*
 	return latestBlockHeight, nil
 }
 
-func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count int, tokenId *types.TokenTypeId) ([][]byte, error) {
+func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count int, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
 	latestBlockHeight, err := token.GetLatestBlockHeightByTokenId(tokenId)
 	if err != nil {
 		return nil, err
@@ -168,8 +172,8 @@ func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count i
 		return nil, errors.New("GetAccountBlockHashList failed, because token " + tokenId.String() + " doesn't exist.")
 	}
 
-	var blockHashList [][]byte
-	for i := 0; i <  index * count; i ++ {
+	var blockHashList []*types.Hash
+	for i := 0; i < index*count; i++ {
 		if !iter.Prev() {
 			return blockHashList, nil
 		}
@@ -177,7 +181,11 @@ func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count i
 
 	for i := 0; i < num*count; i++ {
 		blockHash := iter.Value()
-		blockHashList = append(blockHashList, blockHash)
+		typeHash, err := types.BytesToHash(blockHash)
+		if err != nil {
+			return nil, err
+		}
+		blockHashList = append(blockHashList, &typeHash)
 		if !iter.Prev() {
 			break
 		}
@@ -226,13 +234,13 @@ func (token *Token) getTokenSymbolCurrentTopId(tokenSymbol string) (*big.Int, er
 	return token.getTopId(key), nil
 }
 
-func (token *Token) WriteTokenIdIndex(batch *leveldb.Batch, tokenId *types.TokenTypeId, blockHeightInToken *big.Int, accountBlockHash []byte) error {
+func (token *Token) WriteTokenIdIndex(batch *leveldb.Batch, tokenId *types.TokenTypeId, blockHeightInToken *big.Int, accountBlockHash *types.Hash) error {
 	key, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), blockHeightInToken)
 	if err != nil {
 		return err
 	}
 
-	batch.Put(key, accountBlockHash)
+	batch.Put(key, accountBlockHash.Bytes())
 	return nil
 }
 

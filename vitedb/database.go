@@ -1,12 +1,13 @@
 package vitedb
 
 import (
+	"encoding/hex"
 	"github.com/syndtr/goleveldb/leveldb"
-	"log"
-	"math/big"
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/opt"
-	"encoding/hex"
+	"log"
+	"math/big"
+	"path/filepath"
 )
 
 type DataBase struct {
@@ -15,14 +16,9 @@ type DataBase struct {
 	Leveldb *leveldb.DB
 }
 
-const (
-	DB_BLOCK = "vite_leveldb_database/block"
-)
+var ldbDataBaseCache = map[string]*DataBase{}
 
-
-var ldbDataBaseCache = map[string]* DataBase{}
-
-type viteComparer struct {}
+type viteComparer struct{}
 
 func (*viteComparer) Name() string {
 	return "vite.cmp.v1"
@@ -32,12 +28,11 @@ func (*viteComparer) Separator(dst, a, b []byte) []byte {
 	return comparer.DefaultComparer.Separator(dst, a, b)
 }
 
-func (*viteComparer) Successor (dst, b []byte) []byte {
+func (*viteComparer) Successor(dst, b []byte) []byte {
 	return comparer.DefaultComparer.Successor(dst, b)
 }
 
-
-func GetBigInt (src []byte) *big.Int {
+func GetBigInt(src []byte) *big.Int {
 
 	bigIntBytes := make([]byte, hex.DecodedLen(len(src)))
 
@@ -48,16 +43,8 @@ func GetBigInt (src []byte) *big.Int {
 	return bigInt
 }
 
-func (* viteComparer) Compare (a, b []byte) (result int) {
-	//defer func() {
-		//if result == -1 {
-		//	fmt.Println("===")
-		//	fmt.Println(string(a))
-		//	fmt.Println(string(b))
-		//	fmt.Println(result)
-		//	fmt.Println("===")
-		//}
-	//}()
+func (*viteComparer) Compare(a, b []byte) (result int) {
+
 	lenA := len(a)
 	lenB := len(b)
 
@@ -70,7 +57,7 @@ func (* viteComparer) Compare (a, b []byte) (result int) {
 	var aBigIntBytes []byte
 	var bBigIntBytes []byte
 
-	for  {
+	for {
 		if aCurrentState == 0 {
 			if bCurrentState == 0 {
 				if aIndex >= lenA && bIndex >= lenB {
@@ -100,8 +87,8 @@ func (* viteComparer) Compare (a, b []byte) (result int) {
 					return -1
 				}
 
-				aIndex ++
-				bIndex ++
+				aIndex++
+				bIndex++
 			} else {
 				return 1
 			}
@@ -117,7 +104,7 @@ func (* viteComparer) Compare (a, b []byte) (result int) {
 					aByte = a[aIndex]
 
 					if aByte != DBK_DOT[0] &&
-						aByte != DBK_DOT[0] + 1{
+						aByte != DBK_DOT[0]+1 {
 						aBigIntBytes = append(aBigIntBytes, aByte)
 						aIndex++
 					}
@@ -127,14 +114,14 @@ func (* viteComparer) Compare (a, b []byte) (result int) {
 					bByte = b[bIndex]
 
 					if bByte != DBK_DOT[0] &&
-						bByte != DBK_DOT[0] + 1{
+						bByte != DBK_DOT[0]+1 {
 						bBigIntBytes = append(bBigIntBytes, bByte)
 						bIndex++
 					}
 				}
 
-				if (aIsEnd || aByte == DBK_DOT[0] || aByte == DBK_DOT[0] + 1 )&&
-					(bIsEnd || bByte == DBK_DOT[0] || bByte == DBK_DOT[0] + 1 ){
+				if (aIsEnd || aByte == DBK_DOT[0] || aByte == DBK_DOT[0]+1) &&
+					(bIsEnd || bByte == DBK_DOT[0] || bByte == DBK_DOT[0]+1) {
 
 					aBigInt := GetBigInt(aBigIntBytes)
 					bBigInt := GetBigInt(bBigIntBytes)
@@ -160,22 +147,30 @@ func (* viteComparer) Compare (a, b []byte) (result int) {
 	return 0
 }
 
+var (
+	DB_DIR    = ""
+	DB_LEDGER = "ledger"
+)
 
-func GetLDBDataBase (file string) ( *DataBase, error ){
+func SetDataDir(dataDir string) {
+	DB_DIR = dataDir
+}
+
+func GetLDBDataBase(file string) (*DataBase, error) {
 	if _, ok := ldbDataBaseCache[file]; !ok {
 		cmp := new(viteComparer)
-		options := &opt.Options {
+		options := &opt.Options{
 			Comparer: cmp,
 		}
-		db, err := leveldb.OpenFile(file, options)
+		db, err := leveldb.OpenFile(filepath.Join(DB_DIR, file), options)
 		if err != nil {
 			log.Println(err)
-			return  nil, err
+			return nil, err
 		}
 
 		dataBase := &DataBase{
 			filename: file,
-			Leveldb: db,
+			Leveldb:  db,
 		}
 
 		ldbDataBaseCache[file] = dataBase
@@ -183,4 +178,3 @@ func GetLDBDataBase (file string) ( *DataBase, error ){
 
 	return ldbDataBaseCache[file], nil
 }
-

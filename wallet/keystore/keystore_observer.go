@@ -2,6 +2,7 @@ package keystore
 
 import (
 	"time"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const scanInterval = 3 * time.Second
@@ -34,6 +35,7 @@ func (w *keystoreObserver) close() {
 }
 
 func (w *keystoreObserver) loop() {
+	log.Info("keystoreObserver loop")
 	defer func() {
 		w.kc.mutex.Lock()
 		w.running = false

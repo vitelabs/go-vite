@@ -9,6 +9,30 @@
 			"revisionTime": "2018-06-03T19:32:48Z"
 		},
 		{
+			"checksumSHA1": "7NP1qUMF8Kx1y0zANxx0e+oq9Oo=",
+			"path": "github.com/fsnotify/fsnotify",
+			"revision": "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9",
+			"revisionTime": "2018-01-10T05:33:47Z"
+		},
+		{
+			"checksumSHA1": "fDPeeWbnxZqrfrU0JFyMa+glPDI=",
+			"path": "github.com/jackpal/gateway",
+			"revision": "cbcf4e3f3baee7952fc386c8b2534af4d267c875",
+			"revisionTime": "2018-04-07T16:30:08Z"
+		},
+		{
+			"checksumSHA1": "rYn4ULsFUhdQDo9M2zqDH1eVq0Q=",
+			"path": "github.com/jackpal/go-nat-pmp",
+			"revision": "28a68d0c24adce1da43f8df6a57340909ecd7fdd",
+			"revisionTime": "2017-04-05T19:55:58Z"
+		},
+		{
+			"checksumSHA1": "m2/Bwo4dXYB/Iw2AdotdxuOW7SA=",
+			"path": "github.com/micro/go-config",
+			"revision": "3904282c3ef78454df3c3c0b880fb780778ad16a",
+			"revisionTime": "2018-07-07T08:13:36Z"
+		},
+		{
 			"checksumSHA1": "As1PSFJop3xi3W8tAYSm/8YesAQ=",
 			"path": "github.com/pborman/uuid",
 			"revision": "c65b2f87fee37d1c7854c9164a450713c28d50cd",
@@ -33,10 +57,10 @@
 			"revisionTime": "2018-06-26T05:11:56Z"
 		},
 		{
-			"checksumSHA1": "TJV50D0q8E3vtc90ibC+qOYdjrw=",
+			"checksumSHA1": "k6zbR5hiI10hkWtiK91rIY5s5/E=",
 			"path": "github.com/syndtr/goleveldb/leveldb",
-			"revision": "5d6fca44a948d2be89a9702de7717f0168403d3d",
-			"revisionTime": "2018-05-21T04:50:21Z"
+			"revision": "c4c61651e9e37fa117f53c5a906d3b63090d8445",
+			"revisionTime": "2018-07-08T03:05:51Z"
 		},
 		{
 			"checksumSHA1": "ejjxT0+wDWWncfh0Rt3lSH4IbXQ=",
@@ -55,6 +79,18 @@
 			"path": "golang.org/x/crypto/scrypt",
 			"revision": "ab813273cd59e1333f7ae7bff5d027d4aadf528c",
 			"revisionTime": "2018-05-26T08:55:52Z"
+		},
+		{
+			"checksumSHA1": "Mr4ur60bgQJnQFfJY0dGtwWwMPE=",
+			"path": "golang.org/x/text/encoding",
+			"revision": "0605a8320aceb4207a5fb3521281e17ec2075476",
+			"revisionTime": "2018-07-08T16:53:44Z"
+		},
+		{
+			"checksumSHA1": "HgcUFTOQF5jOYtTIj5obR3GVN9A=",
+			"path": "golang.org/x/text/encoding/charmap",
+			"revision": "0605a8320aceb4207a5fb3521281e17ec2075476",
+			"revisionTime": "2018-07-08T16:53:44Z"
 		},
 		{
 			"checksumSHA1": "0xgs8lwcWLUffemlj+SsgKlxvDU=",

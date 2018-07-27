@@ -2,37 +2,70 @@ package ledger
 
 import (
 	"math/big"
-	"github.com/vitelabs/go-vite/vitepb"
+
+	"bytes"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/vitepb"
 )
 
 var GenesisAccount, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
 
 type AccountSimpleToken struct {
-	TokenId *types.TokenTypeId
+	TokenId                *types.TokenTypeId
 	LastAccountBlockHeight *big.Int
 }
 
 type AccountMeta struct {
 	AccountId *big.Int
+	PublicKey ed25519.PublicKey
 	TokenList []*AccountSimpleToken
 }
 
-type Account struct {
-	AccountMeta
-	BlockHeight *big.Int
+func (am *AccountMeta) SetTokenInfo(tokenInfo *AccountSimpleToken) {
+	if am.TokenList == nil {
+		am.TokenList = []*AccountSimpleToken{}
+	}
+	// Get token info of account
+	for index, token := range am.TokenList {
+		if bytes.Equal(token.TokenId.Bytes(), tokenInfo.TokenId.Bytes()) {
+			am.TokenList[index] = tokenInfo
+
+			// Need Return
+			return
+		}
+	}
+
+	am.TokenList = append(am.TokenList, tokenInfo)
 }
 
-func (am *AccountMeta) GetTokenList () []*AccountSimpleToken {
+func (am *AccountMeta) GetTokenInfoByTokenId(tokenId *types.TokenTypeId) *AccountSimpleToken {
+	if am.TokenList == nil {
+		return nil
+	}
+
+	var tokenInfo *AccountSimpleToken
+
+	// Get token info of account
+	for _, token := range am.TokenList {
+		if bytes.Equal(token.TokenId.Bytes(), tokenId.Bytes()) {
+			tokenInfo = token
+			break
+		}
+	}
+	return tokenInfo
+}
+
+func (am *AccountMeta) GetTokenList() []*AccountSimpleToken {
 	return am.TokenList
 }
 
-func (am *AccountMeta) DbSerialize () ([]byte, error) {
+func (am *AccountMeta) DbSerialize() ([]byte, error) {
 	var pbTokenList []*vitepb.AccountSimpleToken
 	for _, lAccountSimpleToken := range am.TokenList {
 		pbAccountSimpleToken := &vitepb.AccountSimpleToken{
-			TokenId: lAccountSimpleToken.TokenId.Bytes(),
+			TokenId:                lAccountSimpleToken.TokenId.Bytes(),
 			LastAccountBlockHeight: lAccountSimpleToken.LastAccountBlockHeight.Bytes(),
 		}
 		pbTokenList = append(pbTokenList, pbAccountSimpleToken)
@@ -40,17 +73,23 @@ func (am *AccountMeta) DbSerialize () ([]byte, error) {
 	accountMetaPB := &vitepb.AccountMeta{
 		TokenList: pbTokenList,
 	}
+	if am.PublicKey != nil {
+		accountMetaPB.PublicKey = []byte(am.PublicKey)
+	}
 	if am.AccountId != nil {
 		accountMetaPB.AccountId = am.AccountId.Bytes()
 	}
+
 	return proto.Marshal(accountMetaPB)
 }
 
-func (am *AccountMeta) DbDeserialize (buf []byte) error {
+func (am *AccountMeta) DbDeserialize(buf []byte) error {
 	accountMetaPB := &vitepb.AccountMeta{}
 	if err := proto.Unmarshal(buf, accountMetaPB); err != nil {
 		return err
 	}
+
+	am.PublicKey = ed25519.PublicKey(accountMetaPB.PublicKey)
 	am.AccountId = &big.Int{}
 	am.AccountId.SetBytes(accountMetaPB.AccountId)
 
@@ -62,7 +101,7 @@ func (am *AccountMeta) DbDeserialize (buf []byte) error {
 			return ttErr
 		}
 		lAccountSimpleToken := &AccountSimpleToken{
-			TokenId: &tTokenIdType,
+			TokenId:                &tTokenIdType,
 			LastAccountBlockHeight: labHeight.SetBytes(pbAccountSimpleToken.LastAccountBlockHeight),
 		}
 		lTokenList = append(lTokenList, lAccountSimpleToken)
@@ -70,29 +109,4 @@ func (am *AccountMeta) DbDeserialize (buf []byte) error {
 	am.TokenList = lTokenList
 
 	return nil
-	//return big.NewInt(456)
 }
-
-//func (ast *AccountSimpleToken) DbSerialize () ([]byte, error) {
-//	accountSimpleTokenPB := &vitepb.AccountSimpleToken{
-//		TokenId: ast.TokenId,
-//		LastAccountBlockHeight: ast.LastAccountBlockHeight.Bytes(),
-//	}
-//	serializedBytes, err := proto.Marshal(accountSimpleTokenPB)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return serializedBytes, nil
-//}
-//
-//func (ast *AccountSimpleToken) DbDeserialize (buf []byte) error {
-//	accountSimpleTokenPB := &vitepb.AccountSimpleToken{}
-//	if err := proto.Unmarshal(buf, accountSimpleTokenPB); err != nil {
-//		return err
-//	}
-//	ast.TokenId =  accountSimpleTokenPB.TokenId
-//	ast.LastAccountBlockHeight = &big.Int{}
-//	ast.LastAccountBlockHeight.SetBytes(accountSimpleTokenPB.LastAccountBlockHeight)
-//
-//	return nil
-//}

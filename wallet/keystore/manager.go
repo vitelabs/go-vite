@@ -2,9 +2,9 @@ package keystore
 
 import (
 	"errors"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log"
 	"sync"
 	"time"
 )
@@ -13,27 +13,49 @@ var (
 	ErrLocked        = errors.New("need password or unlock")
 	ErrNotFind       = errors.New("not found the give address in any file")
 	ErrInvalidPrikey = errors.New("invalid prikey")
+	ErrAlreadyLocked = errors.New("the address was previously unlocked")
 )
+
+const (
+	Locked   = "Locked"
+	UnLocked = "Unlocked"
+)
+
+type UnlockEvent struct {
+	Address types.Address
+	event   string // "Unlocked Locked "
+}
+
+func (ue UnlockEvent) String() string {
+	return ue.Address.Hex() + " " + ue.event
+}
+
+func (ue UnlockEvent) Unlocked() bool {
+	return ue.event == UnLocked
+}
 
 // Manage keys from various wallet in here we will cache account
 // Manager is a keystore wallet and an interface
 type Manager struct {
 	ks          keyStorePassphrase
-	keyStoreDir string
+	KeyStoreDir string
 	kc          *keyCache
 	kcChanged   chan struct{}
 	unlocked    map[types.Address]*unlocked
 	mutex       sync.RWMutex
 	isInited    bool
+
+	unlockChanged      map[int]chan<- UnlockEvent
+	unlockChangedIndex int
 }
 
 type unlocked struct {
 	*Key
-	abort chan struct{}
+	breaker chan struct{}
 }
 
 func NewManager(dir string) *Manager {
-	kp := Manager{ks: keyStorePassphrase{dir}, keyStoreDir: dir}
+	kp := Manager{ks: keyStorePassphrase{dir}, KeyStoreDir: dir}
 	return &kp
 }
 
@@ -43,12 +65,29 @@ func (km *Manager) Init() {
 	}
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
-
-	km.kc, km.kcChanged = newKeyCache(km.keyStoreDir)
-
+	km.kc, km.kcChanged = newKeyCache(km.KeyStoreDir)
 	km.unlocked = make(map[types.Address]*unlocked)
-
+	km.unlockChanged = make(map[int]chan<- UnlockEvent)
+	km.unlockChangedIndex = 100
 	km.isInited = true
+}
+
+func (km *Manager) AddUnlockChangeChannel(c chan<- UnlockEvent) int {
+	log.Info("AddUnlockChangeChannel")
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+
+	km.unlockChangedIndex++
+	km.unlockChanged[km.unlockChangedIndex] = c
+
+	return km.unlockChangedIndex
+}
+
+func (km *Manager) RemoveUnlockChangeChannel(id int) {
+	log.Info("RemoveUnlockChangeChannel")
+	km.mutex.Lock()
+	defer km.mutex.Unlock()
+	delete(km.unlockChanged, id)
 }
 
 func (km Manager) Status() (map[types.Address]string, error) {
@@ -56,16 +95,23 @@ func (km Manager) Status() (map[types.Address]string, error) {
 	km.kc.ListAllAddress().Each(func(v interface{}) bool {
 		a := v.(types.Address)
 		if _, ok := km.unlocked[a]; ok {
-			m[a] = "Unlocked"
+			m[a] = UnLocked
 		} else {
-			m[a] = "Locked"
+			m[a] = Locked
 		}
 		return false
 	})
 	return m, nil
 }
 
-// if the timeout is <0 we will keep the unlock state until the program exit
+func (km *Manager) IsUnLocked(addr types.Address) bool {
+	km.mutex.Lock()
+	_, exist := km.unlocked[addr]
+	km.mutex.Unlock()
+	return exist
+}
+
+// if the timeout is <=0 we will keep the unlock state until the program exit
 func (km *Manager) Unlock(addr types.Address, passphrase string, timeout time.Duration) error {
 	key, err := km.ks.ExtractKey(addr, passphrase)
 	if err != nil {
@@ -76,15 +122,21 @@ func (km *Manager) Unlock(addr types.Address, passphrase string, timeout time.Du
 	u, exist := km.unlocked[addr]
 	if exist {
 		// if the address was unlocked
-		return fmt.Errorf("the address %v was previously unlocked", addr.String())
+		return ErrAlreadyLocked
 	}
 	if timeout > 0 {
-		u = &unlocked{Key: key, abort: make(chan struct{})}
+		u = &unlocked{Key: key, breaker: make(chan struct{})}
 		go km.expire(key.Address, u, timeout)
 	} else {
 		u = &unlocked{Key: key}
 	}
 	km.unlocked[key.Address] = u
+	for _, v := range km.unlockChanged {
+		v <- UnlockEvent{
+			Address: addr,
+			event:   UnLocked,
+		}
+	}
 	return nil
 }
 
@@ -103,12 +155,20 @@ func (km *Manager) expire(addr types.Address, u *unlocked, timeout time.Duration
 	t := time.NewTimer(timeout)
 	defer t.Stop()
 	select {
-	case <-u.abort:
+	case <-u.breaker:
 	case <-t.C:
 		km.mutex.Lock()
 		if km.unlocked[addr] == u {
 			zeroKey(u.PrivateKey)
 			delete(km.unlocked, addr)
+
+			for _, v := range km.unlockChanged {
+				v <- UnlockEvent{
+					Address: addr,
+					event:   Locked,
+				}
+			}
+
 		}
 		km.mutex.Unlock()
 	}
@@ -166,12 +226,11 @@ func (km *Manager) Find(a types.Address) (string, error) {
 	exist := km.kc.cacheAddr.Contains(a)
 	km.mutex.Unlock()
 	if exist {
-		return fullKeyFileName(km.keyStoreDir, a), nil
+		return fullKeyFileName(km.KeyStoreDir, a), nil
 	} else {
 		return "", ErrNotFind
 	}
 }
-
 
 func (km *Manager) ReloadAndFixAddressFile() {
 	km.kc.refreshAndFixAddressFile()

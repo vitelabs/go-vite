@@ -2,11 +2,12 @@ package keystore
 
 import (
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
+	"path/filepath"
 	"runtime"
 	"testing"
-	"github.com/vitelabs/go-vite/common"
 )
 
 const (
@@ -16,8 +17,11 @@ const (
 
 func TestStoreAndExtractNewKey(t *testing.T) {
 
-	ks := keyStorePassphrase{keysDirPath: common.TestDataDir()}
-	kp := NewManager(common.TestDataDir())
+	dir := filepath.Join(common.GoViteTestDataDir(), "super")
+	ks := keyStorePassphrase{keysDirPath: dir}
+
+	kp := NewManager(dir)
+	kp.Init()
 
 	key1, err := kp.StoreNewKey(DummyPwd)
 	if err != nil {
@@ -41,7 +45,7 @@ func TestStoreAndExtractNewKey(t *testing.T) {
 }
 
 func TestSignAndVerify(t *testing.T) {
-	kp := NewManager(common.TestDataDir())
+	kp := NewManager(common.GoViteTestDataDir())
 	kp.Init()
 	for _, v := range kp.Addresses() {
 		println(v.Hex())
@@ -50,7 +54,7 @@ func TestSignAndVerify(t *testing.T) {
 			t.Fatal(err)
 		}
 		println("##" + hex.EncodeToString(outdata))
-		readAndFixAddressFile(fullKeyFileName(common.TestDataDir(), v))
+		readAndFixAddressFile(fullKeyFileName(common.GoViteTestDataDir(), v))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -63,8 +67,20 @@ func TestSignAndVerify(t *testing.T) {
 	}
 }
 
+func TestManager_ImportPriv2(t *testing.T) {
+	kp := NewManager(filepath.Join(common.DefaultDataDir(), "wallet"))
+	kp.Init()
+	hexPri := "ab565d7d8819a3548dbdae8561796ccb090692086ff7d5a47eb7b034497cabe73af9a47a11140c681c2b2a85a4ce987fab0692589b2ce233bf7e174bd430177a"
+	key, e := kp.ImportPriv(hexPri, "123456")
+	if e != nil {
+		println(e.Error())
+	} else {
+		println(key.Address.String())
+	}
+}
+
 func TestManager_ImportPriv(t *testing.T) {
-	kp := NewManager(common.TestDataDir())
+	kp := NewManager(common.GoViteTestDataDir())
 	kp.Init()
 	hexPri, err := kp.ExportPriv("vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416", DummyPwd)
 	if err != nil {
@@ -84,7 +100,7 @@ func TestManager_ImportPriv(t *testing.T) {
 }
 
 func TestManager_Import(t *testing.T) {
-	kp := NewManager(common.TestDataDir())
+	kp := NewManager(common.GoViteTestDataDir())
 	kp.Init()
 	hexaddr := "vite_af136fb4cbd8804b8e40c64683f463555aa204b9db78965416"
 	addr, _ := types.HexToAddress(hexaddr)
