@@ -149,7 +149,7 @@ func (ac *AccountChain) GetAccountByAccAddr(addr *types.Address) (*ledger.Accoun
 }
 
 // AccAddr = account address
-func (ac *AccountChain) GetBlocksByAccAddr(addr *types.Address, index, num, count int) (ledger.AccountBlockList, error) {
+func (ac *AccountChain) GetBlocksByAccAddr(addr *types.Address, index, num, count int) (ledger.AccountBlockList, *types.GetError) {
 	return ac.acAccess.GetBlockListByAccountAddress(index, num, count, addr)
 }
 
