@@ -86,6 +86,7 @@ func (l *LegerApiImpl) GetBlocksByAccAddr(params *api_interface.GetBlocksParams,
 
 	jsonBlocks := make([]api_interface.SimpleBlock, len(list))
 	for i, v := range list {
+
 		jsonBlocks[i] = api_interface.SimpleBlock{
 			Timestamp: v.Timestamp,
 			Hash:      v.Hash.String(),

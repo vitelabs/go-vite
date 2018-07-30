@@ -37,7 +37,7 @@ type BalanceInfo struct {
 type GetAccountResponse struct {
 	Addr         string        // Account address
 	BalanceInfos []BalanceInfo // Account Balance Infos
-	BlockHeight  string        // Account BlockHeight. bigInt
+	BlockHeight  string        // Account BlockHeight also represents all blocks belong to the account. bigInt.
 }
 
 type GetUnconfirmedInfoResponse struct {

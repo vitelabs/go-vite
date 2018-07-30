@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log"
+	"github.com/vitelabs/go-vite/rpc/api_interface"
+	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"strconv"
 	"time"
-	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/rpc/api_interface"
 )
 
 func NewWalletApi(vite *vite.Vite) api_interface.WalletApi {
