@@ -48,7 +48,11 @@ func (ac *AccountChain) CounterAdd(batch *leveldb.Batch) error {
 
 	currentCount, counterGetErr := ac.CounterGet()
 	if counterGetErr != nil {
-		return counterGetErr
+		if counterGetErr == leveldb.ErrNotFound {
+			currentCount = big.NewInt(0)
+		} else {
+			return counterGetErr
+		}
 	}
 
 	count := big.Int{}
