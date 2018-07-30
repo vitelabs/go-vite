@@ -15,25 +15,25 @@ import (
 
 // it it return false it must not be a valid keystore file
 // if it return a true it only means that might be true
-func IsMayValidKeystoreFile(path string) (bool, error) {
+func IsMayValidKeystoreFile(path string) (bool, *types.Address, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 
 	// out keystore file size is about 500 so if a file is very large it must not be a keystore file
 	if fi.Size() > 2*1024 {
-		return false, nil
+		return false, nil, nil
 	}
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
-	_, _, _, _, _, err = parseJson(b)
+	_, addr, _, _, _, err := parseJson(b)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
-	return true, nil
+	return true, addr, nil
 }
 
 func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
