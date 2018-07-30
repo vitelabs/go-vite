@@ -115,6 +115,7 @@ func (m *WalletApiImpl) Lock(hexaddr []string, reply *string) error {
 	m.km.Lock(addr)
 	return nil
 }
+
 func (m *WalletApiImpl) SignData(signDataParams []string, reply *string) error {
 	log.Debug("SignData")
 	if len(signDataParams) != 2 {
@@ -217,11 +218,11 @@ func (m *WalletApiImpl) IsMayValidKeystoreFile(path []string, reply *string) err
 	if len(path) != 1 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] path", len(path))
 	}
-	b, _ := keystore.IsMayValidKeystoreFile(path[0])
-	if b {
-		*reply = "true"
+	b, addr, _ := keystore.IsMayValidKeystoreFile(path[0])
+	if b && addr != nil {
+		*reply = addr.String()
 	} else {
-		*reply = "false"
+		*reply = ""
 	}
 	return nil
 }
