@@ -2,7 +2,7 @@ package keystore
 
 import (
 	"time"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/vitelabs/go-vite/log"
 )
 
 const scanInterval = 3 * time.Second

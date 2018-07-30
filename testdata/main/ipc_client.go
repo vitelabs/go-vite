@@ -1,5 +1,7 @@
 package main
 
+// this is a rpc client for go-vite debug .
+
 import (
 	"bufio"
 	"context"
@@ -27,7 +29,6 @@ func main() {
 	//	dir = common.DefaultDataDir()
 	//}
 
-	//ipcapiURL := filepath.Join(common.HomeDir(), "/Desktop/vite/viteisbest", rpc.DefaultIpcFile())
 	ipcapiURL := filepath.Join(common.DefaultDataDir(), rpc.DefaultIpcFile())
 	if runtime.GOOS == "windows" {
 		ipcapiURL = rpc.DefaultIpcFile()
@@ -110,7 +111,7 @@ func main() {
 }
 
 func help() {
-	fmt.Println("create:                                 create an address with 123456")
+	fmt.Println("create [password]:                      create an address by given password(default 123456) ")
 	fmt.Println("list:                                   list all address")
 	fmt.Println("status:                                 show all address locked or unlocked")
 	fmt.Println("unlock [address] [password]:            unlock the address with given passsword(default 123456)")
