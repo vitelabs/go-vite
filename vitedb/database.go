@@ -5,6 +5,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/vitelabs/go-vite/common"
 	"log"
 	"math/big"
 	"path/filepath"
@@ -148,7 +149,7 @@ func (*viteComparer) Compare(a, b []byte) (result int) {
 }
 
 var (
-	DB_DIR    = "vite_leveldb_database"
+	DB_DIR    = common.DefaultDataDir()
 	DB_LEDGER = "ledger"
 )
 

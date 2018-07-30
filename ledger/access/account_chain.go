@@ -172,8 +172,15 @@ func (aca *AccountChainAccess) WriteBlockList(blockList []*ledger.AccountBlock) 
 
 type signAccountBlockFuncType func(*ledger.AccountBlock) (*ledger.AccountBlock, error)
 
+// [Fixme]
+var WriteBlockMutex sync.Mutex
+
 func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock, signFunc signAccountBlockFuncType) error {
 	err := aca.store.BatchWrite(nil, func(batch *leveldb.Batch) error {
+		// [Fixme]
+		WriteBlockMutex.Lock()
+		defer WriteBlockMutex.Unlock()
+
 		// When *AcWriteError data type convert to error interface, nil become non-nil. So need return nil manually
 		if err := aca.writeBlock(batch, block, signFunc); err != nil {
 			return err
@@ -589,6 +596,7 @@ func (aca *AccountChainAccess) writeTii(batch *leveldb.Batch, block *ledger.Acco
 		}
 	}
 
+	log.Println("AccountChainAccess writeTii: last block height in token is " + cacheBody.LastTokenBlockHeight.String())
 	newBlockHeightInToken.Add(cacheBody.LastTokenBlockHeight, big.NewInt(1))
 
 	if err := aca.tokenStore.WriteTokenIdIndex(batch, block.TokenId, newBlockHeightInToken, block.Hash); err != nil {
