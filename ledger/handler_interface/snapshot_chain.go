@@ -16,12 +16,15 @@ type SyncInfo struct {
 }
 
 type SnapshotChain interface {
-	HandleGetBlocks(msg *protoTypes.GetSnapshotBlocksMsg, peer *protoTypes.Peer) error
-	HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, peer *protoTypes.Peer) error
-	SyncPeer(peer *protoTypes.Peer)
-	WriteMiningBlock(block *ledger.SnapshotBlock) error
+	HandleGetBlocks(*protoTypes.GetSnapshotBlocksMsg, *protoTypes.Peer) error
+	HandleSendBlocks(*protoTypes.SnapshotBlocksMsg, *protoTypes.Peer) error
+	SyncPeer(*protoTypes.Peer)
+	WriteMiningBlock(*ledger.SnapshotBlock) error
 	GetLatestBlock() (*ledger.SnapshotBlock, error)
-	GetBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
-	GetBlockByHeight(height *big.Int) (*ledger.SnapshotBlock, error)
+	GetBlockByHash(*types.Hash) (*ledger.SnapshotBlock, error)
+	GetBlockByHeight(*big.Int) (*ledger.SnapshotBlock, error)
 	GetFirstSyncInfo() *SyncInfo
+
+	GetConfirmBlock(*ledger.AccountBlock) *ledger.SnapshotBlock
+	GetConfirmTimes(*ledger.SnapshotBlock) (*big.Int, error)
 }
