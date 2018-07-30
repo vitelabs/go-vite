@@ -1,17 +1,17 @@
 package vitedb
 
 import (
-	"math/big"
-	"github.com/syndtr/goleveldb/leveldb"
-	"errors"
-	"strings"
-	"encoding/hex"
 	"bytes"
+	"encoding/hex"
+	"errors"
+	"github.com/syndtr/goleveldb/leveldb"
+	"math/big"
+	"strings"
 )
 
 // DBK = database key, DBKP = database key prefix
 var (
-	DBK_DOT = []byte(".")
+	DBK_DOT    = []byte(".")
 	DBK_BIGINT = []byte("%")
 
 	DBKP_ACCOUNTID_INDEX = "j"
@@ -36,11 +36,12 @@ var (
 
 	DBKP_UNCONFIRMEDMETA = "u"
 
-	DBKP_UNCONFIRMEDHASHLIST= "h"
+	DBKP_UNCONFIRMEDHASHLIST = "k"
+
+	DBKP_ACCOUNTBLOCK_COUNTER = "l"
 )
 
-
-func createKey (keyPartionList... interface{}) ([]byte, error){
+func createKey(keyPartionList ...interface{}) ([]byte, error) {
 	key := []byte{}
 	keyPartionListLen := len(keyPartionList)
 
@@ -78,7 +79,6 @@ func createKey (keyPartionList... interface{}) ([]byte, error){
 
 			dst = append(DBK_BIGINT, dst...)
 
-
 			bytes = &dst
 
 		case nil:
@@ -90,7 +90,7 @@ func createKey (keyPartionList... interface{}) ([]byte, error){
 		}
 
 		key = append(key, *bytes...)
-		if index < keyPartionListLen - 1 {
+		if index < keyPartionListLen-1 {
 			key = append(key, DBK_DOT...)
 		}
 	}
@@ -98,7 +98,7 @@ func createKey (keyPartionList... interface{}) ([]byte, error){
 	return key, nil
 }
 
-func deserializeKey(key []byte) [][]byte  {
+func deserializeKey(key []byte) [][]byte {
 	bytesList := bytes.Split(key, DBK_DOT)
 	var parsedBytesList [][]byte
 	for i := 1; i < len(bytesList); i++ {
@@ -108,7 +108,7 @@ func deserializeKey(key []byte) [][]byte  {
 			bytes = bytes[1:]
 		}
 
-		parsedBytes := make([]byte,hex.DecodedLen(len(bytes)))
+		parsedBytes := make([]byte, hex.DecodedLen(len(bytes)))
 		hex.Decode(parsedBytes, bytes)
 
 		parsedBytesList = append(parsedBytesList, parsedBytes)
@@ -117,35 +117,33 @@ func deserializeKey(key []byte) [][]byte  {
 }
 
 type batchContext struct {
-	Batch *leveldb.Batch
-	db *leveldb.DB
+	Batch   *leveldb.Batch
+	db      *leveldb.DB
 	isWrite bool
 }
 
-func (batchContext) New (batch *leveldb.Batch, db *leveldb.DB) *batchContext {
+func (batchContext) New(batch *leveldb.Batch, db *leveldb.DB) *batchContext {
 	isWrite := false
 	if batch == nil {
 		batch = new(leveldb.Batch)
 		isWrite = true
 	}
 
-
-	return &batchContext {
-		Batch: batch,
-		db: db,
+	return &batchContext{
+		Batch:   batch,
+		db:      db,
 		isWrite: isWrite,
 	}
 }
 
-func (ctx *batchContext) Quit () error{
-	if (ctx.isWrite) {
+func (ctx *batchContext) Quit() error {
+	if ctx.isWrite {
 		return ctx.db.Write(ctx.Batch, nil)
 	}
 	return nil
 }
 
-
-func batchWrite (batch *leveldb.Batch, db * leveldb.DB, writeFunc func(*batchContext) error) error {
+func batchWrite(batch *leveldb.Batch, db *leveldb.DB, writeFunc func(*batchContext) error) error {
 	ctx := batchContext{}.New(batch, db)
 	if err := writeFunc(ctx); err != nil {
 		return err

@@ -178,6 +178,11 @@ func (aca *AccountChainAccess) WriteBlock(block *ledger.AccountBlock, signFunc s
 		if err := aca.writeBlock(batch, block, signFunc); err != nil {
 			return err
 		}
+
+		// [Fixme]
+		if counterAddError := aca.store.CounterAdd(batch); counterAddError != nil {
+			return counterAddError
+		}
 		return nil
 	})
 
@@ -354,7 +359,7 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 		}
 	}
 
-	// Mutex for a accountAddress
+	// Mutex for an accountAddress
 	if err := aca.bwMutex.Lock(block, accountMeta); err != nil {
 		// Not Lock
 		return err
@@ -845,6 +850,10 @@ func (aca *AccountChainAccess) GetAccountBalance(accountId *big.Int, blockHeight
 
 func (aca *AccountChainAccess) GetLatestBlockHeightByAccountId(accountId *big.Int) (*big.Int, error) {
 	return aca.store.GetLatestBlockHeightByAccountId(accountId)
+}
+
+func (aca *AccountChainAccess) GetTotalNumber() (*big.Int, error) {
+	return aca.store.CounterGet()
 }
 
 func (aca *AccountChainAccess) isBlockExist(blockHash *types.Hash) bool {
