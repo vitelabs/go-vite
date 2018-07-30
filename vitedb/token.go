@@ -145,9 +145,11 @@ func (token *Token) GetLatestBlockHeightByTokenId(tokenId *types.TokenTypeId) (*
 		return nil, errors.New("GetLatestBlockHeightByTokenId failed, because token " + tokenId.String() + " doesn't exist.")
 	}
 
-	value := iter.Value()
+	lastKey := iter.Key()
+	partionList := deserializeKey(lastKey)
+
 	latestBlockHeight := &big.Int{}
-	latestBlockHeight.SetBytes(value)
+	latestBlockHeight.SetBytes(partionList[1])
 
 	return latestBlockHeight, nil
 }

@@ -9,7 +9,6 @@ import (
 	"log"
 	"math/big"
 	"strconv"
-	"sync"
 )
 
 type AccountChain struct {
@@ -35,11 +34,7 @@ func GetAccountChain() *AccountChain {
 
 // Fixme
 
-var CounterSetMutex sync.Mutex
-
 func (ac *AccountChain) CounterAdd(batch *leveldb.Batch) error {
-	CounterSetMutex.Lock()
-	defer CounterSetMutex.Unlock()
 
 	key, err := createKey(DBKP_ACCOUNTBLOCK_COUNTER)
 	if err != nil {
