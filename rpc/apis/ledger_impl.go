@@ -83,7 +83,6 @@ func (l *LegerApiImpl) GetBlocksByAccAddr(params *api_interface.GetBlocksParams,
 		}
 		return getErr.Err
 	}
-
 	jsonBlocks := make([]api_interface.SimpleBlock, len(list))
 	for i, v := range list {
 
@@ -112,8 +111,39 @@ func (l *LegerApiImpl) GetBlocksByAccAddr(params *api_interface.GetBlocksParams,
 			jsonBlocks[i].Balance = v.Balance.String()
 		}
 
+		times := l.getBlockConfirmedTimes(v)
+		if times != nil {
+			jsonBlocks[i].ConfirmedTimes = times.String()
+		}
 	}
 	return easyJsonReturn(jsonBlocks, reply)
+}
+
+func (l *LegerApiImpl) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.Int {
+	log.Info("getBlockConfirmedTimes")
+	sc := l.ledgerManager.Sc()
+	sb, e := sc.GetConfirmBlock(block)
+	if e != nil {
+		log.Info("GetConfirmBlock err ", e)
+		return nil
+	}
+	if sb == nil {
+		log.Info("GetConfirmBlock nil")
+		return nil
+	}
+
+	times, e := sc.GetConfirmTimes(sb)
+	if e != nil {
+		log.Info("GetConfirmTimes err ", e)
+		return nil
+	}
+
+	if times == nil {
+		log.Info("GetConfirmTimes nil")
+		return nil
+	}
+
+	return times
 }
 
 func (l *LegerApiImpl) GetUnconfirmedBlocksByAccAddr(params *api_interface.GetBlocksParams, reply *string) error {

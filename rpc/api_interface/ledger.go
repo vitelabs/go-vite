@@ -18,13 +18,14 @@ type GetBlocksParams struct {
 }
 
 type SimpleBlock struct {
-	Timestamp uint64
-	Amount    string // the amount of a specific token had been sent in this block.  bigInt
-	FromAddr  string // who sends the tx
-	ToAddr    string // who receives the tx
-	Status    int    // 0 means unknow, 1 means open (unconfirmed), 2 means closed(already confirmed)
-	Hash      string // bigInt. the blocks hash
-	Balance   string // current balance
+	Timestamp      uint64
+	Amount         string // the amount of a specific token had been sent in this block.  bigInt
+	FromAddr       string // who sends the tx
+	ToAddr         string // who receives the tx
+	Status         int    // 0 means unknow, 1 means open (unconfirmed), 2 means closed(already confirmed)
+	Hash           string // bigInt. the blocks hash
+	Balance        string // current balance
+	ConfirmedTimes string // block`s confirmed times
 }
 
 type BalanceInfo struct {
