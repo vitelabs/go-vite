@@ -20,3 +20,5 @@ ledger
 
 # idea files
 .idea/
+
+build/
