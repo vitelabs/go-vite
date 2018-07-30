@@ -282,6 +282,14 @@ func (sc *SnapshotChain) SyncPeer(peer *protoTypes.Peer) {
 	}
 }
 
+func (sc *SnapshotChain) GetConfirmBlock(block *ledger.AccountBlock) (*ledger.SnapshotBlock, error) {
+	return sc.acAccess.GetConfirmBlock(block)
+}
+
+func (sc *SnapshotChain) GetConfirmTimes(snapshotBlock *ledger.SnapshotBlock) (*big.Int, error) {
+	return sc.acAccess.GetConfirmTimes(snapshotBlock)
+}
+
 func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
 	globalRWMutex.Lock()
 	defer globalRWMutex.Unlock()

@@ -25,7 +25,7 @@ type AccountChain interface {
 // pack the data for handler
 type TokenInfo struct {
 	Token       *ledger.Mintage
-	TotalAmount *big.Int      // in UnconfirmedAccount is Amount, in Account is balance
+	TotalAmount *big.Int // in UnconfirmedAccount is Amount, in Account is balance
 }
 
 type UnconfirmedAccount struct {

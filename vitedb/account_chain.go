@@ -9,6 +9,7 @@ import (
 	"log"
 	"math/big"
 	"strconv"
+	"sync"
 )
 
 type AccountChain struct {
@@ -30,6 +31,51 @@ func GetAccountChain() *AccountChain {
 	}
 
 	return _accountchain
+}
+
+// Fixme
+
+var CounterSetMutex sync.Mutex
+
+func (ac *AccountChain) CounterAdd(batch *leveldb.Batch) error {
+	CounterSetMutex.Lock()
+	defer CounterSetMutex.Unlock()
+
+	key, err := createKey(DBKP_ACCOUNTBLOCK_COUNTER)
+	if err != nil {
+		return err
+	}
+
+	currentCount, counterGetErr := ac.CounterGet()
+	if counterGetErr != nil {
+		return counterGetErr
+	}
+
+	count := big.Int{}
+	count.Add(currentCount, big.NewInt(1))
+
+	batch.Put(key, count.Bytes())
+	return nil
+}
+
+// Fixme
+func (ac *AccountChain) CounterGet() (*big.Int, error) {
+	key, ckErr := createKey(DBKP_ACCOUNTBLOCK_COUNTER)
+	if ckErr != nil {
+		return nil, ckErr
+	}
+
+	val, getErr := ac.db.Leveldb.Get(key, nil)
+	if getErr != nil {
+		return nil, getErr
+	}
+
+	count := big.NewInt(0)
+
+	if val != nil {
+		count.SetBytes(val)
+	}
+	return count, nil
 }
 
 func (ac *AccountChain) BatchWrite(batch *leveldb.Batch, writeFunc func(batch *leveldb.Batch) error) error {
