@@ -21,12 +21,6 @@
 			"revisionTime": "2018-06-03T19:32:48Z"
 		},
 		{
-			"checksumSHA1": "QsTAk8BFNrZMk6C7ZOsa6PQZScE=",
-			"path": "github.com/ethereum/go-ethereum/log",
-			"revision": "51df1c1f20201b3ba6fba6e874a3c72f5d2a9123",
-			"revisionTime": "2018-07-04T10:40:20Z"
-		},
-		{
 			"checksumSHA1": "7NP1qUMF8Kx1y0zANxx0e+oq9Oo=",
 			"path": "github.com/fsnotify/fsnotify",
 			"revision": "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9",
