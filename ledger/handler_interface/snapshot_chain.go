@@ -25,6 +25,6 @@ type SnapshotChain interface {
 	GetBlockByHeight(*big.Int) (*ledger.SnapshotBlock, error)
 	GetFirstSyncInfo() *SyncInfo
 
-	GetConfirmBlock(*ledger.AccountBlock) *ledger.SnapshotBlock
+	GetConfirmBlock(*ledger.AccountBlock) (*ledger.SnapshotBlock, error)
 	GetConfirmTimes(*ledger.SnapshotBlock) (*big.Int, error)
 }
