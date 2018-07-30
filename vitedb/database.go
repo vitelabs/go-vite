@@ -148,7 +148,7 @@ func (*viteComparer) Compare(a, b []byte) (result int) {
 }
 
 var (
-	DB_DIR    = ""
+	DB_DIR    = "vite_leveldb_database"
 	DB_LEDGER = "ledger"
 )
 
