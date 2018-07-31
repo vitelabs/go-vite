@@ -111,6 +111,7 @@ func main() {
 }
 
 func help() {
+	fmt.Println("----------------------- JUST A TEST CLIENT DON'T BE TOO SERIOUS -----------------------------")
 	fmt.Println("create [password]:                      create an address by given password(default 123456) ")
 	fmt.Println("list:                                   list all address")
 	fmt.Println("status:                                 show all address locked or unlocked")
