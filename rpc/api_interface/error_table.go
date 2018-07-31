@@ -2,19 +2,22 @@ package api_interface
 
 import (
 	"encoding/json"
+	"github.com/vitelabs/go-vite/ledger/errors"
+	"github.com/vitelabs/go-vite/wallet/walleterrors"
 )
 
-const (
-	errPassword            = "cipher: message authentication failed"
-	addressAlreadyUnLocked = "the address was previously unlocked"
+var (
+	errBalanceNotEnough    = ledgererrors.ErrBalanceNotEnough.Error()
+	errDecryptKey          = walleterrors.ErrDecryptKey.Error()
+	addressAlreadyUnLocked = walleterrors.ErrAlreadyLocked.Error()
+	concernedErrorMap      map[string]int
 )
-
-var concernedErrorMap map[string]int
 
 func init() {
 	concernedErrorMap = make(map[string]int)
-	concernedErrorMap[errPassword] = 4001
+	concernedErrorMap[errDecryptKey] = 4001
 	concernedErrorMap[addressAlreadyUnLocked] = 4002
+	concernedErrorMap[errBalanceNotEnough] = 5001
 }
 
 type normalError struct {

@@ -1,19 +1,12 @@
 package keystore
 
 import (
-	"errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log"
+	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"sync"
 	"time"
-)
-
-var (
-	ErrLocked        = errors.New("need password or unlock")
-	ErrNotFind       = errors.New("not found the give address in any file")
-	ErrInvalidPrikey = errors.New("invalid prikey")
-	ErrAlreadyLocked = errors.New("the address was previously unlocked")
 )
 
 const (
@@ -122,7 +115,7 @@ func (km *Manager) Unlock(addr types.Address, passphrase string, timeout time.Du
 	u, exist := km.unlocked[addr]
 	if exist {
 		// if the address was unlocked
-		return ErrAlreadyLocked
+		return walleterrors.ErrAlreadyLocked
 	}
 	if timeout > 0 {
 		u = &unlocked{Key: key, breaker: make(chan struct{})}
@@ -196,7 +189,7 @@ func (km *Manager) SignData(a types.Address, data []byte) (signedData, pubkey []
 	defer km.mutex.Unlock()
 	unlockedKey, found := km.unlocked[a]
 	if !found {
-		return nil, nil, ErrLocked
+		return nil, nil, walleterrors.ErrLocked
 	}
 	return unlockedKey.Sign(data)
 }
@@ -228,7 +221,7 @@ func (km *Manager) Find(a types.Address) (string, error) {
 	if exist {
 		return fullKeyFileName(km.KeyStoreDir, a), nil
 	} else {
-		return "", ErrNotFind
+		return "", walleterrors.ErrNotFind
 	}
 }
 
@@ -259,7 +252,7 @@ func (km *Manager) ImportPriv(hexPrikey, newpwd string) (*Key, error) {
 		return nil, err
 	}
 	if !ed25519.IsValidPrivateKey(priv) {
-		return nil, ErrInvalidPrikey
+		return nil, walleterrors.ErrInvalidPrikey
 	}
 	key := newKeyFromEd25519(&priv)
 

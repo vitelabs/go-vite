@@ -9,6 +9,8 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log"
+	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"golang.org/x/crypto/scrypt"
 	"io/ioutil"
 	"os"
@@ -122,7 +124,8 @@ func DecryptKey(keyjson []byte, password string) (*Key, error) {
 	var pribyte = make([]byte, ed25519.PrivateKeySize)
 	pribyte, err = vcrypto.AesGCMDecrypt(derivedKey[:32], cipherPriv, []byte(nonce))
 	if err != nil {
-		return nil, err
+		log.Info("DecryptKey err", err.Error())
+		return nil, walleterrors.ErrDecryptKey
 	}
 
 	privKey := ed25519.PrivateKey(pribyte)
