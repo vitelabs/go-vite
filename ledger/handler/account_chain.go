@@ -70,6 +70,7 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 			}
 			// Verify hash
 			computedHash, err := block.ComputeHash()
+
 			if err != nil {
 				// Discard the block.
 				log.Info(err.Error())

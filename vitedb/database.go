@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/common"
 	"log"
 	"math/big"
+	"os"
 	"path/filepath"
 )
 
@@ -157,25 +158,64 @@ func SetDataDir(dataDir string) {
 	DB_DIR = dataDir
 }
 
-func GetLDBDataBase(file string) (*DataBase, error) {
-	if _, ok := ldbDataBaseCache[file]; !ok {
+func removeContents(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		err = os.RemoveAll(filepath.Join(dir, name))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ClearAndReNewDb(file string) error {
+	filename := filepath.Join(DB_DIR, file)
+	if db, ok := ldbDataBaseCache[filename]; ok {
+		db.Leveldb.Close()
+		removeContents(db.filename)
+		ldbDataBaseCache[db.filename] = nil
+		newDb, err := getLDBDataBase(db.filename)
+		if err != nil {
+			return err
+		}
+		db.Leveldb = newDb.Leveldb
+	}
+	return nil
+}
+
+func getLDBDataBase(filename string) (*DataBase, error) {
+	if _, ok := ldbDataBaseCache[filename]; !ok {
 		cmp := new(viteComparer)
 		options := &opt.Options{
 			Comparer: cmp,
 		}
-		db, err := leveldb.OpenFile(filepath.Join(DB_DIR, file), options)
+		db, err := leveldb.OpenFile(filename, options)
 		if err != nil {
 			log.Println(err)
 			return nil, err
 		}
 
 		dataBase := &DataBase{
-			filename: file,
+			filename: filename,
 			Leveldb:  db,
 		}
 
-		ldbDataBaseCache[file] = dataBase
+		ldbDataBaseCache[filename] = dataBase
 	}
 
-	return ldbDataBaseCache[file], nil
+	return ldbDataBaseCache[filename], nil
+}
+
+func GetLDBDataBase(file string) (*DataBase, error) {
+	filename := filepath.Join(DB_DIR, file)
+	return getLDBDataBase(filename)
 }

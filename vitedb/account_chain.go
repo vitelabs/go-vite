@@ -33,7 +33,6 @@ func GetAccountChain() *AccountChain {
 }
 
 // Fixme
-
 func (ac *AccountChain) CounterAdd(batch *leveldb.Batch) error {
 
 	key, err := createKey(DBKP_ACCOUNTBLOCK_COUNTER)

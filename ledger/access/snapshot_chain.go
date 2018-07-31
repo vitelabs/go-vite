@@ -43,7 +43,14 @@ func (sca *SnapshotChainAccess) CheckAndCreateGenesisBlocks() {
 		sca.WriteGenesisBlock()
 	} else {
 		if ok := snapshotGenesisBlock.IsGenesisBlock(); !ok {
-			log.Fatal(errors2.Wrap(errors.New("SnapshotGenesisBlock is not valid."), "CheckAndCreateGenesisBlocks"))
+			// Fixme
+			err := vitedb.ClearAndReNewDb(vitedb.DB_LEDGER)
+			if err != nil {
+				log.Fatal(errors2.Wrap(errors.New("SnapshotGenesisBlock is not valid. ClearAndReNewDb failed."), "CheckAndCreateGenesisBlocks"))
+			}
+
+			log.Println("CheckAndCreateGenesisBlocks: ClearAndReNewDb")
+			sca.CheckAndCreateGenesisBlocks()
 		}
 	}
 
