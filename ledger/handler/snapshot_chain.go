@@ -63,9 +63,12 @@ func (sc *SnapshotChain) onFirstSyncDown() {
 // HandleGetBlock
 func (sc *SnapshotChain) HandleGetBlocks(msg *protoTypes.GetSnapshotBlocksMsg, peer *protoTypes.Peer) error {
 	go func() {
+		log.Info("SnapshotChain HandleGetBlocks: GetBlocksFromOrigin, msg.Origin is " + msg.Origin.String() +
+			", msg.Count is " + strconv.Itoa(int(msg.Count)) + ", msg.Forward is " + strconv.FormatBool(msg.Forward))
+
 		blocks, err := sc.scAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
 		if err != nil {
-			log.Info(err.Error())
+			log.Error("SnapshotChain HandleGetBlocks: Error is " + err.Error())
 			return
 		}
 
