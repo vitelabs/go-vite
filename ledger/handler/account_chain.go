@@ -228,15 +228,13 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 		} else {
 			accountBlock.Signature, accountBlock.PublicKey, signErr =
 				ac.vite.WalletManager().KeystoreManager.SignDataWithPassphrase(*block.AccountAddress, passphrase, block.Hash.Bytes())
-
 		}
-
 		return accountBlock, signErr
 	})
 
 	if writeErr != nil {
 		log.Info("AccountChain CreateTx: write block failed, error is " + writeErr.Error())
-		return writeErr
+		return writeErr.(access.AcWriteError).Err
 	}
 
 	log.Info("AccountChain CreateTx: write block success.")

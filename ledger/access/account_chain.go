@@ -6,6 +6,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/ledger/errors"
 	"github.com/vitelabs/go-vite/vitedb"
 	"log"
 	"math/big"
@@ -237,16 +238,9 @@ func (aca *AccountChainAccess) writeSendBlock(batch *leveldb.Batch, block *ledge
 	}
 
 	prevAccountBlockInToken, prevAbErr := aca.store.GetBlockByHeight(accountMeta.AccountId, accountTokenInfo.LastAccountBlockHeight)
-	if prevAbErr != nil || prevAccountBlockInToken == nil {
-		return errors.New("Write the send block failed, because the balance is not enough.")
-	}
-
-	if block.Amount == nil {
-		return errors.New("Write the send block failed, because the block.Amount does not exist.")
-	}
-
-	if block.Amount.Cmp(prevAccountBlockInToken.Balance) >= 0 {
-		return errors.New("Write the send block failed, because the balance is not enough.")
+	if prevAbErr != nil || prevAccountBlockInToken == nil ||
+		block.Amount == nil || block.Amount.Cmp(prevAccountBlockInToken.Balance) >= 0 {
+		return ledgererrors.ErrBalanceNotEnough
 	}
 
 	block.Balance = &big.Int{}
