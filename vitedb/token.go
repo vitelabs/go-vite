@@ -160,7 +160,10 @@ func (token *Token) GetAccountBlockHashListByTokenId(index int, num int, count i
 		return nil, err
 	}
 
-	limitKey, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), latestBlockHeight)
+	limitHeight := &big.Int{}
+	limitHeight = limitHeight.Add(latestBlockHeight, big.NewInt(1))
+
+	limitKey, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), limitHeight)
 	startKey, err := createKey(DBKP_TOKENID_INDEX, tokenId.Bytes(), big.NewInt(0))
 
 	if err != nil {
