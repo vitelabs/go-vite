@@ -254,7 +254,10 @@ func (ac *AccountChain) GetBlockListByAccountMeta(index int, num int, count int,
 	if err != nil {
 		return nil, err
 	}
-	limitIndex := latestBlockHeight.Sub(latestBlockHeight, big.NewInt(int64(index*count)-1))
+
+	limitIndex := latestBlockHeight
+	limitIndex.Add(limitIndex, big.NewInt(1))
+
 	limitKey, err := createKey(DBKP_ACCOUNTBLOCK, meta.AccountId, limitIndex)
 	if err != nil {
 		return nil, err
