@@ -35,8 +35,7 @@ gvite-linux: gvite-linux-386 gvite-linux-amd64
 	@ls -ld $(GOBIN)/linux/gvite-linux-*
 
 gvite-linux-386:
-	@env GOOS=linux GOARCH=386
-	go build -i -o $(GOBIN)/linux/gvite-linux-386 $(SERVERMAIN)
+	env GOOS=linux GOARCH=386 go build -i -o $(GOBIN)/linux/gvite-linux-386 $(SERVERMAIN)
 	@echo "Build server done."
 	@ls -ld $(GOBIN)/linux/gvite-linux-386
 
@@ -46,8 +45,7 @@ gvite-linux-386:
 
 
 gvite-linux-amd64:
-	@env GOOS=linux GOARCH=amd64
-	go build -i -o $(GOBIN)/linux/gvite-linux-amd64 $(SERVERMAIN)
+	env GOOS=linux GOARCH=amd64 go build -i -o $(GOBIN)/linux/gvite-linux-amd64 $(SERVERMAIN)
 	@echo "Build server done."
 	@ls -ld $(GOBIN)/linux/gvite-linux-amd64
 
@@ -58,13 +56,11 @@ gvite-linux-amd64:
 
 gvite-darwin:
 
-	@env GOOS=darwin GOARCH=amd64
-	go build -i -o $(GOBIN)/darwin/gvite-darwin $(SERVERMAIN)
+	env GOOS=darwin GOARCH=amd64 go build -i -o $(GOBIN)/darwin/gvite-darwin $(SERVERMAIN)
 	@echo "Build server done."
 	@ls -ld $(GOBIN)/darwin/gvite-darwin
 
-	@env GOOS=linux GOARCH=amd64 
-	go build -i -o $(GOBIN)/darwin/gvite-test-client-darwin $(TESTCLIENTMAIN)
+	env GOOS=linux GOARCH=amd64 go build -i -o $(GOBIN)/darwin/gvite-test-client-darwin $(TESTCLIENTMAIN)
 	@echo "Build test client done."
 	@ls -ld $(GOBIN)/darwin/gvite-test-client-darwin
 
@@ -74,26 +70,22 @@ gvite-windows: gvite-windows-386 gvite-windows-amd64
 	@ls -ld $(GOBIN)/windows/gvite-windows-*
 
 gvite-windows-386:
-	@env GOOS=windows GOARCH=386
-	 go build -i -o $(GOBIN)/windows/gvite-windows-386 $(SERVERMAIN)
+	env GOOS=windows GOARCH=386 go build -i -o $(GOBIN)/windows/gvite-windows-386.exe $(SERVERMAIN)
 	@echo "Build server done."
-	@ls -ld $(GOBIN)/windows/gvite-windows-386
+	@ls -ld $(GOBIN)/windows/gvite-windows-386.exe
 
-	@env GOOS=windows GOARCH=386
-	go build -i -o $(GOBIN)/windows/gvite-test-client-windows-386 $(TESTCLIENTMAIN)
+	env GOOS=windows GOARCH=386 go build -i -o $(GOBIN)/windows/gvite-test-client-windows-386.exe $(TESTCLIENTMAIN)
 	@echo "Build test client done."
-	@ls -ld $(GOBIN)/windows/gvite-test-client-windows-386
+	@ls -ld $(GOBIN)/windows/gvite-test-client-windows-386.exe
 
 
 gvite-windows-amd64:
-	 @env GOOS=windows GOARCH=amd64
-	 go build -i -o $(GOBIN)/windows/gvite-windows-amd64 $(SERVERMAIN)
+	env GOOS=windows GOARCH=amd64 go build -i -o $(GOBIN)/windows/gvite-windows-amd64.exe $(SERVERMAIN)
 	@echo "Build server done."
-	@ls -ld $(GOBIN)/windows/gvite-windows-amd64
+	@ls -ld $(GOBIN)/windows/gvite-windows-amd64.exe
 
-	@env GOOS=windows GOARCH=386
-	go build -i -o $(GOBIN)/windows/gvite-test-client-windows-amd64 $(TESTCLIENTMAIN)
+	env GOOS=windows GOARCH=amd64 go build -i -o $(GOBIN)/windows/gvite-test-client-windows-amd64.exe $(TESTCLIENTMAIN)
 	@echo "Build test client done."
-	@ls -ld $(GOBIN)/windows/gvite-test-client-windows-amd64
+	@ls -ld $(GOBIN)/windows/gvite-test-client-windows-amd64.exe
 
 

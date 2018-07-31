@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"runtime"
 )
 
 // it it return false it must not be a valid keystore file
@@ -37,6 +38,7 @@ func IsMayValidKeystoreFile(path string) (bool, *types.Address, error) {
 }
 
 func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
+	// log.Info("readAndFixAddressFile")
 	buf := new(bufio.Reader)
 	keyJSON := encryptedKeyJSON{}
 
@@ -62,7 +64,16 @@ func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
 	// fix the file name
 	standFileName := fullKeyFileName(filepath.Dir(path), addr)
 	if standFileName != fd.Name() {
-		os.Rename(fd.Name(), standFileName)
+		oldname := fd.Name()
+		if runtime.GOOS == "windows" {
+			fd.Close()
+		}
+		err = os.Rename(oldname, standFileName)
+		if err != nil {
+			log.Info("readAndFixAddressFile err ", err)
+		} else {
+			log.Info("readAndFixAddressFile success", err)
+		}
 	}
 	return &addr, &keyJSON
 
