@@ -4,12 +4,17 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpc/api_interface"
+	"io/ioutil"
+	"net/http"
 	rpc2 "net/rpc"
 	"os"
 	"path/filepath"
@@ -101,6 +106,9 @@ func main() {
 			GetUnconfirmedInfo(client, param)
 		} else if strings.HasPrefix(input, "syncinfo") {
 			GetInitSyncInfo(client, nil)
+		} else if strings.HasPrefix(input, "newtesttoken") {
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			newTesttoken(param)
 		} else if strings.HasPrefix(input, "help") {
 			help()
 		} else {
@@ -126,7 +134,9 @@ func help() {
 	fmt.Println("unconfirmblocks [address]:              show unconfirmed blocks in given address ")
 	fmt.Println("unconfirminfo [address]:                show unconfirmed info in given address ")
 	fmt.Println("syncinfo:                               show first sync info")
+	fmt.Println("newtesttoken [address]:                 transfer 100 Vite form Genesis address to given address")
 	fmt.Println("help:                                   show help")
+	fmt.Println("quit:                                   quit")
 }
 
 // wallet
@@ -251,4 +261,34 @@ func doRpcCall(client *rpc2.Client, method string, param interface{}) {
 		println(err.Error())
 	}
 	println(method + "\n" + s)
+}
+
+type newTokenParams struct {
+	AccountAddress string `json:"accountAddress"`
+}
+
+//http
+func newTesttoken(addr []string) {
+	if len(addr) == 0 || !types.IsValidHexAddress(addr[0]) {
+		println("address error")
+	}
+	params := newTokenParams{
+		addr[0],
+	}
+	j, _ := json.Marshal(params)
+	println(string(j))
+
+	resp, err := http.Post("https://test.vite.net/api/account/newtesttoken", "application/json", bytes.NewReader(j))
+	println("Post")
+	if err != nil {
+		println(err)
+	}
+	defer resp.Body.Close()
+	all, e := ioutil.ReadAll(resp.Body)
+	if e != nil {
+		println(e)
+	} else {
+		println(string(all))
+	}
+
 }

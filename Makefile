@@ -23,7 +23,7 @@ gvite:
 
 	go build -i -o $(GOBIN)/gvite-test-client $(TESTCLIENTMAIN)
 	@echo "Build test client done."
-	@echo "Run \"$(GOBIN)\gvite-test-client\" to start test client."
+	@echo "Run \"$(GOBIN)/gvite-test-client\" to start test client."
 
 all: gvite-darwin gvite-windows gvite-linux
 
@@ -60,7 +60,7 @@ gvite-darwin:
 	@echo "Build server done."
 	@ls -ld $(GOBIN)/darwin/gvite-darwin
 
-	env GOOS=linux GOARCH=amd64 go build -i -o $(GOBIN)/darwin/gvite-test-client-darwin $(TESTCLIENTMAIN)
+	env GOOS=darwin GOARCH=amd64 go build -i -o $(GOBIN)/darwin/gvite-test-client-darwin $(TESTCLIENTMAIN)
 	@echo "Build test client done."
 	@ls -ld $(GOBIN)/darwin/gvite-test-client-darwin
 
