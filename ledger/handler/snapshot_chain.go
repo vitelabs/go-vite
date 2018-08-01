@@ -296,6 +296,13 @@ func (sc *SnapshotChain) GetConfirmTimes(snapshotBlock *ledger.SnapshotBlock) (*
 }
 
 func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
+	if !syncInfo.IsFirstSyncDone {
+		err := errors.New("Node is syncing data, can't mining")
+		log.Error("SnapshotChain WriteMiningBlock: " + err.Error())
+
+		return err
+	}
+
 	globalRWMutex.Lock()
 	defer globalRWMutex.Unlock()
 
