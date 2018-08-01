@@ -192,6 +192,7 @@ func PeersCount(client *rpc2.Client, param []string) {
 func CreateTxWithPassphrase(client *rpc2.Client, param []string) {
 	if len(param) < 2 {
 		println("error params")
+		return
 	}
 	pass := "123456"
 	if len(param) >= 3 {
@@ -232,6 +233,7 @@ func GetBlocksByAccAddr(client *rpc2.Client, param []string) {
 func GetUnconfirmedBlocksByAccAddr(client *rpc2.Client, param []string) {
 	if len(param) != 2 {
 		println("err param")
+		return
 	}
 	i, _ := strconv.Atoi(param[1])
 	tx := api_interface.GetBlocksParams{
@@ -271,6 +273,7 @@ type newTokenParams struct {
 func newTesttoken(addr []string) {
 	if len(addr) == 0 || !types.IsValidHexAddress(addr[0]) {
 		println("address error")
+		return
 	}
 	params := newTokenParams{
 		addr[0],
