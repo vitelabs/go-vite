@@ -235,7 +235,7 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 
 	if writeErr != nil {
 		log.Info("AccountChain CreateTx: write block failed, error is " + writeErr.Error())
-		return writeErr.(access.AcWriteError).Err
+		return writeErr.(*access.AcWriteError).Err
 	}
 
 	log.Info("AccountChain CreateTx: write block success.")
