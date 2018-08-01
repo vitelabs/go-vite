@@ -150,16 +150,12 @@ func (sca *SnapshotChainAccess) WriteBlock(block *ledger.SnapshotBlock, signFunc
 	var batch = new(leveldb.Batch)
 	err := sca.writeBlock(batch, block, signFunc)
 
-	// Fixme Let it write temporarily
-	if err == nil || err.Code == WscNeedSyncErr {
-		sca.store.DbBatchWrite(batch)
-	}
-
 	// When *ScWriteError data type convert to error interface, nil become non-nil. So need return nil manually
-	if err != nil {
-		return err
+	if err == nil {
+		sca.store.DbBatchWrite(batch)
+		return nil
 	}
-	return nil
+	return err
 }
 
 type signSnapshotBlockFuncType func(*ledger.SnapshotBlock) (*ledger.SnapshotBlock, error)
@@ -202,15 +198,17 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 	}
 
 	// Check account block availability
-	var needSyncAccountBlocks []*WscNeedSyncErrData
 	if !isGenesisBlock && block.Snapshot != nil {
+		var needSyncAccountBlocks []*WscNeedSyncErrData
 		snapshot := block.Snapshot
 
 		accountChainAccess = GetAccountChainAccess()
 
 		for addr, snapshotItem := range snapshot {
-			blockMeta, err := accountChainAccess.GetBlockMetaByHash(snapshotItem.AccountBlockHash)
 			accountAddress, _ := types.HexToAddress(addr)
+
+			// Fixme: Right way is checking accountBlockHash
+			blockMeta, err := accountChainAccess.GetBlockMetaByHeight(&accountAddress, snapshotItem.AccountBlockHeight)
 			if err != nil || blockMeta == nil {
 				needSyncAccountBlocks = append(needSyncAccountBlocks, &WscNeedSyncErrData{
 					AccountAddress:    &accountAddress,
@@ -221,6 +219,13 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 				// Modify block meta status.
 				blockMeta.IsSnapshotted = true
 				accountChainAccess.store.WriteBlockMeta(batch, snapshotItem.AccountBlockHash, blockMeta)
+			}
+
+			if needSyncAccountBlocks != nil {
+				return &ScWriteError{
+					Code: WscNeedSyncErr,
+					Data: needSyncAccountBlocks,
+				}
 			}
 		}
 	}
@@ -310,12 +315,5 @@ func (sca *SnapshotChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.S
 		}
 	}
 
-	// Fixme Let it write temporarily
-	if needSyncAccountBlocks != nil {
-		return &ScWriteError{
-			Code: WscNeedSyncErr,
-			Data: needSyncAccountBlocks,
-		}
-	}
 	return nil
 }

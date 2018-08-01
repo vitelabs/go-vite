@@ -648,14 +648,25 @@ func (aca *AccountChainAccess) GetBlocksFromOrigin(originBlockHash *types.Hash, 
 	return aca.store.GetBlocksFromOrigin(originBlockHash, count, forward)
 }
 
-func (aca *AccountChainAccess) GetBlockMetaByHash(blockHash *types.Hash) (*ledger.AccountBlockMeta, error) {
-	accountBlockMeta, err := aca.store.GetBlockMeta(blockHash)
+func (aca *AccountChainAccess) GetBlockMetaByHeight(accountAddress *types.Address, height *big.Int) (*ledger.AccountBlockMeta, error) {
+	//accountBlockMeta, err := aca.store.GetBlockMeta(blockHash)
 
-	if err != nil {
-		return nil, err
+	meta, err := aca.accountStore.GetAccountMetaByAddress(accountAddress)
+	if err != nil || meta == nil {
+
+		return nil, errors.New("AccountChainAccess GetBlockMetaByHeight: aca.accountStore.GetAccountMetaByAddress failed")
+	}
+	block, gerr := aca.store.GetBlockByHeight(meta.AccountId, height)
+	if gerr != nil {
+		return nil, errors.New("AccountChainAccess GetBlockMetaByHeight: aca.store.GetBlockByHeight failed")
 	}
 
-	return accountBlockMeta, nil
+	return block.Meta, nil
+	//return aca.store.GetBlockByHeight()
+}
+
+func (aca *AccountChainAccess) GetBlockMetaByHash(blockHash *types.Hash) (*ledger.AccountBlockMeta, error) {
+	return aca.store.GetBlockMeta(blockHash)
 }
 
 func (aca *AccountChainAccess) GetBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
