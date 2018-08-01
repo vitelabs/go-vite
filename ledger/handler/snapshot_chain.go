@@ -263,6 +263,8 @@ func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
 func (sc *SnapshotChain) SyncPeer(peer *protoTypes.Peer) {
 	// Syncing done, modify in future
 	defer sc.vite.Pm().SyncDone()
+	syncInfo.IsFirstSyncStart = true
+
 	if peer == nil {
 		if !syncInfo.IsFirstSyncDone {
 			sc.onFirstSyncDown()
