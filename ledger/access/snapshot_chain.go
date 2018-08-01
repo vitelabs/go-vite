@@ -30,6 +30,15 @@ func GetSnapshotChainAccess() *SnapshotChainAccess {
 	}
 	return snapshotChainAccess
 }
+func (sca *SnapshotChainAccess) DeleteBlocks(blockHash *types.Hash, count uint64) error {
+	batch := new(leveldb.Batch)
+	if err := sca.store.DeleteBlocks(batch, blockHash, count); err != nil {
+		return err
+	}
+
+	sca.store.DbBatchWrite(batch)
+	return nil
+}
 
 func (sca *SnapshotChainAccess) CheckAndCreateGenesisBlocks() {
 

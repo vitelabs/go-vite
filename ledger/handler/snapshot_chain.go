@@ -17,6 +17,13 @@ import (
 	"time"
 )
 
+const (
+	STATUS_INIT = iota
+	STATUS_FIRST_SYNCING
+	STATUS_RUNNING
+	STATUS_FORKING
+)
+
 type SnapshotChain struct {
 	// Handle block
 	vite     Vite
@@ -24,6 +31,7 @@ type SnapshotChain struct {
 	acAccess *access.AccountChainAccess
 	aAccess  *access.AccountAccess
 
+	status              int // 0 init, 1 first syncing, 2 normal , 3 forking,
 	syncDownChannelList []chan<- int
 }
 
@@ -33,6 +41,8 @@ func NewSnapshotChain(vite Vite) *SnapshotChain {
 		scAccess: access.GetSnapshotChainAccess(),
 		acAccess: access.GetAccountChainAccess(),
 		aAccess:  access.GetAccountAccess(),
+
+		status: 0,
 	}
 }
 
@@ -43,14 +53,18 @@ func (sc *SnapshotChain) registerFirstSyncDown(firstSyncDownChan chan<- int) {
 	sc.syncDownChannelList = append(sc.syncDownChannelList, firstSyncDownChan)
 	registerChannelLock.Unlock()
 
-	if syncInfo.IsFirstSyncDone {
+	if sc.isFirstSyncDone() {
 		sc.onFirstSyncDown()
 	}
 }
 
 func (sc *SnapshotChain) onFirstSyncDown() {
 	registerChannelLock.Lock()
-	syncInfo.IsFirstSyncDone = true
+
+	if sc.status == STATUS_FIRST_SYNCING {
+		sc.status = STATUS_RUNNING
+	}
+
 	go func() {
 		defer registerChannelLock.Unlock()
 		for _, syncDownChannel := range sc.syncDownChannelList {
@@ -87,6 +101,9 @@ func (sc *SnapshotChain) HandleGetBlocks(msg *protoTypes.GetSnapshotBlocksMsg, p
 }
 
 var pendingPool *pending.SnapshotchainPool
+
+// Fixme
+var currentMaxHeight = big.NewInt(0)
 
 // HandleBlockHash
 func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, peer *protoTypes.Peer) error {
@@ -179,11 +196,26 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 						gap := &big.Int{}
 						gap.Sub(block.Height, preBlock.Height)
 
-						if gap.Cmp(big.NewInt(1)) > 0 && syncInfo.IsFirstSyncDone {
+						if gap.Cmp(big.NewInt(1)) > 0 && sc.isFirstSyncDone() {
 							// Download snapshot block
+
 							log.Info("SnapshotChain.HandleSendBlocks: Download snapshot blocks." +
 								"Current block height is " + preBlock.Height.String() + ", and target block height is " +
 								block.Height.String())
+
+							deleteCount := 10
+							if sc.status == STATUS_RUNNING {
+								sc.status = STATUS_FORKING
+								err := sc.scAccess.DeleteBlocks(preBlock.Hash, uint64(deleteCount))
+								if err != nil {
+									log.Error("SnapshotChain.HandleSendBlocks: Delete failed, error is " + err.Error())
+									return true
+								}
+								currentMaxHeight = block.Height
+							}
+
+							gap.Add(gap, big.NewInt(int64(deleteCount)))
+
 							sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 								Code: protoTypes.GetSnapshotBlocksMsgCode,
 								Payload: &protoTypes.GetSnapshotBlocksMsg{
@@ -198,13 +230,17 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 						return true
 					}
 				}
+				if block.Height.Cmp(currentMaxHeight) >= 0 {
+					currentMaxHeight = block.Height
+					sc.status = STATUS_RUNNING
+				}
 
 				// Let the pool discard the block.
 				log.Info("SnapshotChain.HandleSendBlocks: write failed, error is " + wbErr.Error())
 				return true
 			}
 
-			if !syncInfo.IsFirstSyncDone {
+			if !sc.isFirstSyncDone() {
 				syncInfo.CurrentHeight = block.Height
 
 				if syncInfo.CurrentHeight.Cmp(syncInfo.TargetHeight) >= 0 {
@@ -222,10 +258,7 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 	return nil
 }
 
-var syncInfo = &handler_interface.SyncInfo{
-	IsFirstSyncDone:  false,
-	IsFirstSyncStart: false,
-}
+var syncInfo = &handler_interface.SyncInfo{}
 
 func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
 	latestBlock, err := sc.scAccess.GetLatestBlock()
@@ -233,7 +266,7 @@ func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
 		return err
 	}
 
-	if !syncInfo.IsFirstSyncDone {
+	if !sc.isFirstSyncDone() {
 		if syncInfo.BeginHeight == nil {
 			syncInfo.BeginHeight = latestBlock.Height
 		}
@@ -263,10 +296,11 @@ func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
 func (sc *SnapshotChain) SyncPeer(peer *protoTypes.Peer) {
 	// Syncing done, modify in future
 	defer sc.vite.Pm().SyncDone()
-	syncInfo.IsFirstSyncStart = true
+
+	sc.status = STATUS_FIRST_SYNCING
 
 	if peer == nil {
-		if !syncInfo.IsFirstSyncDone {
+		if !sc.isFirstSyncDone() {
 			sc.onFirstSyncDown()
 			log.Info("SnapshotChain.SyncPeer: sync finished.")
 		}
@@ -296,10 +330,9 @@ func (sc *SnapshotChain) GetConfirmTimes(snapshotBlock *ledger.SnapshotBlock) (*
 }
 
 func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
-	if !syncInfo.IsFirstSyncDone {
-		err := errors.New("Node is syncing data, can't mining")
+	if sc.status != STATUS_RUNNING {
+		err := errors.New("Node status is " + strconv.Itoa(sc.status) + ", can't mining")
 		log.Error("SnapshotChain WriteMiningBlock: " + err.Error())
-
 		return err
 	}
 
@@ -382,7 +415,13 @@ func (sc *SnapshotChain) getNeedSnapshot() (map[string]*ledger.SnapshotItem, err
 }
 
 func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
-	return sc.scAccess.GetLatestBlock()
+	latestBlock, err := sc.scAccess.GetLatestBlock()
+	if err != nil {
+		return nil, err
+	}
+
+	currentMaxHeight = latestBlock.Height
+	return latestBlock, nil
 }
 
 func (sc *SnapshotChain) GetBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error) {
@@ -392,7 +431,23 @@ func (sc *SnapshotChain) GetBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock
 func (sc *SnapshotChain) GetBlockByHeight(height *big.Int) (*ledger.SnapshotBlock, error) {
 	return sc.scAccess.GetBlockByHeight(height)
 }
+func (sc *SnapshotChain) isFirstSyncDone() bool {
+	judge := sc.status > STATUS_FIRST_SYNCING
+	return judge
+}
+
+func (sc *SnapshotChain) isFirstSyncStart() bool {
+	judge := sc.status > STATUS_INIT
+
+	return judge
+}
 
 func (sc *SnapshotChain) GetFirstSyncInfo() *handler_interface.SyncInfo {
-	return syncInfo
+	return &handler_interface.SyncInfo{
+		BeginHeight:      syncInfo.BeginHeight,
+		CurrentHeight:    syncInfo.CurrentHeight,
+		TargetHeight:     syncInfo.TargetHeight,
+		IsFirstSyncDone:  sc.isFirstSyncDone(),
+		IsFirstSyncStart: sc.isFirstSyncStart(),
+	}
 }

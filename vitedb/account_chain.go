@@ -34,7 +34,6 @@ func GetAccountChain() *AccountChain {
 
 // Fixme
 func (ac *AccountChain) CounterAdd(batch *leveldb.Batch) error {
-
 	key, err := createKey(DBKP_ACCOUNTBLOCK_COUNTER)
 	if err != nil {
 		return err
@@ -330,17 +329,6 @@ func (ac *AccountChain) GetBlockMeta(blockHash *types.Hash) (*ledger.AccountBloc
 	}
 
 	return blockMeta, nil
-}
-
-func (ac *AccountChain) WriteStIndex(batch *leveldb.Batch, stHash []byte, id *big.Int, accountBlockHash *types.Hash) error {
-	key, err := createKey(DBKP_SNAPSHOTTIMESTAMP_INDEX, stHash, id)
-	if err != nil {
-		return err
-	}
-
-	batch.Put(key, accountBlockHash.Bytes())
-
-	return nil
 }
 
 // st == SnapshotTimestamp

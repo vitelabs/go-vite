@@ -30,7 +30,46 @@ func GetSnapshotChain() *SnapshotChain {
 	}
 
 	return _snapshotChain
+}
 
+func (sbc *SnapshotChain) DbBatchWrite(batch *leveldb.Batch) {
+	sbc.db.Leveldb.Write(batch, nil)
+}
+
+func (sbc *SnapshotChain) DeleteBlocks(batch *leveldb.Batch, blockHash *types.Hash, count uint64) error {
+	height, ghErr := sbc.GetHeightByHash(blockHash)
+	if ghErr != nil {
+		return ghErr
+	}
+
+	currentHeight := height
+	processCount := uint64(0)
+
+	for currentHeight.Cmp(big.NewInt(0)) > 0 && processCount < count {
+		currentBlock, gbbhErr := sbc.GetBLockByHeight(currentHeight)
+		if gbbhErr != nil {
+			return gbbhErr
+		}
+
+		heightKey, ckheightErr := createKey(DBKP_SNAPSHOTBLOCK, height)
+
+		if ckheightErr != nil {
+			return ckheightErr
+		}
+
+		hashKey, ckhashErr := createKey(DBKP_SNAPSHOTBLOCKHASH, currentBlock.Hash.Bytes())
+
+		if ckhashErr != nil {
+			return ckhashErr
+		}
+
+		batch.Delete(hashKey)
+		batch.Delete(heightKey)
+
+		currentHeight = currentHeight.Sub(currentHeight, big.NewInt(1))
+		processCount++
+	}
+	return nil
 }
 
 func (sbc *SnapshotChain) GetHeightByHash(blockHash *types.Hash) (*big.Int, error) {

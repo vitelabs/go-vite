@@ -520,11 +520,6 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	}
 	log.Printf("AccountChainAccess writeblock: Write tii success.")
 
-	// Write st index
-	if err := aca.writeStIndex(batch, block); err != nil {
-		log.Println("AccountChainAccess writeBlock warning: writeStIndex failed.")
-	}
-
 	return nil
 }
 
@@ -647,19 +642,6 @@ func (aca *AccountChainAccess) getNewLastStId(block *ledger.AccountBlock) (*big.
 
 	return cacheBody.LastStId, nil
 
-}
-
-func (aca *AccountChainAccess) writeStIndex(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	// Write st index
-	newStId, err := aca.getNewLastStId(block)
-	if err != nil {
-		return err
-	}
-
-	if err := aca.store.WriteStIndex(batch, block.SnapshotTimestamp.Bytes(), newStId, block.Hash); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (aca *AccountChainAccess) GetBlocksFromOrigin(originBlockHash *types.Hash, count uint64, forward bool) (ledger.AccountBlockList, error) {
