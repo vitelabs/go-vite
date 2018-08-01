@@ -107,7 +107,6 @@ var currentMaxHeight = big.NewInt(0)
 
 // HandleBlockHash
 func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, peer *protoTypes.Peer) error {
-
 	if pendingPool == nil {
 		log.Info("SnapshotChain HandleSendBlocks: Init pending.SnapshotchainPool.")
 		pendingPool = pending.NewSnapshotchainPool(func(block *ledger.SnapshotBlock) bool {
