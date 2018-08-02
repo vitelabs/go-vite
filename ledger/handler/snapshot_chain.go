@@ -202,21 +202,7 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 								"Current block height is " + preBlock.Height.String() + ", and target block height is " +
 								block.Height.String())
 
-							deleteCount := 10
-							if sc.status == STATUS_RUNNING {
-								sc.status = STATUS_FORKING
-								err := sc.scAccess.DeleteBlocks(preBlock.Hash, uint64(deleteCount))
-								if err != nil {
-									log.Error("SnapshotChain.HandleSendBlocks: Delete failed, error is " + err.Error())
-									return true
-								}
-								currentMaxHeight = block.Height
-							}
-
-							gap.Add(gap, big.NewInt(int64(deleteCount)))
-
-							// Clear pending pool
-							pendingPool.Clear()
+							currentMaxHeight = block.Height
 
 							sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 								Code: protoTypes.GetSnapshotBlocksMsgCode,
@@ -226,23 +212,50 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 									Forward: false,
 								},
 							})
+
 							return false
+						} else {
+							maxBlock := pendingPool.MaxBlock()
+							if maxBlock == nil {
+								return true
+							}
+
+							maxGap := &big.Int{}
+
+							maxGap.Sub(maxBlock.Height, preBlock.Height)
+
+							if maxGap.Cmp(big.NewInt(1)) <= 0 {
+								deleteCount := 10
+								if sc.status == STATUS_RUNNING {
+									sc.status = STATUS_FORKING
+								}
+
+								err := sc.scAccess.DeleteBlocks(preBlock.Hash, uint64(deleteCount))
+								if err != nil {
+									log.Error("SnapshotChain.HandleSendBlocks: Delete failed, error is " + err.Error())
+									return true
+								}
+
+								// Clear pending pool
+								pendingPool.Clear()
+							}
+							// Let the pool discard the block.
+							return true
 						}
 
-						// Let the pool discard the block.
-						return true
-					}
-				}
-				if block.Height.Cmp(currentMaxHeight) >= 0 {
-					currentMaxHeight = block.Height
-					if sc.status > STATUS_RUNNING {
-						sc.status = STATUS_RUNNING
 					}
 				}
 
 				// Let the pool discard the block.
 				log.Info("SnapshotChain.HandleSendBlocks: write failed, error is " + wbErr.Error())
 				return true
+			}
+
+			if block.Height.Cmp(currentMaxHeight) >= 0 {
+				currentMaxHeight = block.Height
+				if sc.status > STATUS_RUNNING {
+					sc.status = STATUS_RUNNING
+				}
 			}
 
 			if !sc.isFirstSyncDone() {
@@ -426,7 +439,9 @@ func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
 		return nil, err
 	}
 
-	currentMaxHeight = latestBlock.Height
+	if latestBlock.Height.Cmp(currentMaxHeight) >= 0 {
+		currentMaxHeight = latestBlock.Height
+	}
 	return latestBlock, nil
 }
 

@@ -27,7 +27,7 @@ func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) bool) *Snapsho
 
 			if processFunc(pool.cache[0]) {
 				log.Println("SnapshotchainPool: block process finished.")
-				if pool.cache.Len() > 0 {
+				if len(pool.cache) > 0 {
 					pool.cache = pool.cache[1:]
 				}
 			} else {
@@ -45,6 +45,11 @@ func (a SnapshotBlockList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a SnapshotBlockList) Less(i, j int) bool { return a[i].Height.Cmp(a[j].Height) < 0 }
 func (a SnapshotBlockList) Sort() {
 	sort.Sort(a)
+}
+
+func (pool *SnapshotchainPool) MaxBlock() *ledger.SnapshotBlock {
+	block := pool.cache[len(pool.cache)-1]
+	return block
 }
 
 func (a *SnapshotchainPool) Clear() {
