@@ -27,7 +27,9 @@ func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) bool) *Snapsho
 
 			if processFunc(pool.cache[0]) {
 				log.Println("SnapshotchainPool: block process finished.")
-				pool.cache = pool.cache[1:]
+				if pool.cache.Len() > 0 {
+					pool.cache = pool.cache[1:]
+				}
 			} else {
 				log.Println("SnapshotchainPool: block process unsuccess, wait next.")
 				time.Sleep(turnInterval * time.Millisecond)
@@ -45,6 +47,9 @@ func (a SnapshotBlockList) Sort() {
 	sort.Sort(a)
 }
 
+func (a *SnapshotchainPool) Clear() {
+	a.cache = SnapshotBlockList{}
+}
 func (a *SnapshotchainPool) Add(blocks []*ledger.SnapshotBlock) {
 	a.cache = append(a.cache, blocks...)
 	a.cache.Sort()

@@ -195,7 +195,7 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 						gap := &big.Int{}
 						gap.Sub(block.Height, preBlock.Height)
 
-						if gap.Cmp(big.NewInt(1)) > 0 && sc.isFirstSyncDone() {
+						if gap.Cmp(big.NewInt(1)) > 0 {
 							// Download snapshot block
 
 							log.Info("SnapshotChain.HandleSendBlocks: Download snapshot blocks." +
@@ -215,6 +215,9 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 
 							gap.Add(gap, big.NewInt(int64(deleteCount)))
 
+							// Clear pending pool
+							pendingPool.Clear()
+
 							sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 								Code: protoTypes.GetSnapshotBlocksMsgCode,
 								Payload: &protoTypes.GetSnapshotBlocksMsg{
@@ -223,6 +226,7 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 									Forward: false,
 								},
 							})
+							return false
 						}
 
 						// Let the pool discard the block.
@@ -231,7 +235,9 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 				}
 				if block.Height.Cmp(currentMaxHeight) >= 0 {
 					currentMaxHeight = block.Height
-					sc.status = STATUS_RUNNING
+					if sc.status > STATUS_RUNNING {
+						sc.status = STATUS_RUNNING
+					}
 				}
 
 				// Let the pool discard the block.
@@ -273,6 +279,7 @@ func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
 		log.Info("syncPeer: syncInfo.BeginHeight is " + syncInfo.BeginHeight.String())
 		syncInfo.TargetHeight = peer.Height
 		syncInfo.CurrentHeight = syncInfo.BeginHeight
+
 		log.Info("syncPeer: syncInfo.TargetHeight is " + peer.Height.String())
 	}
 
@@ -283,9 +290,9 @@ func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
 	sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 		Code: protoTypes.GetSnapshotBlocksMsgCode,
 		Payload: &protoTypes.GetSnapshotBlocksMsg{
-			Origin:  *latestBlock.Hash,
+			Origin:  peer.Head,
 			Count:   count.Uint64(),
-			Forward: true,
+			Forward: false,
 		},
 	})
 
