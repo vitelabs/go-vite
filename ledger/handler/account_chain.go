@@ -159,6 +159,7 @@ func (ac *AccountChain) CreateTx(block *ledger.AccountBlock) error {
 }
 
 func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error {
+	syncInfo := ac.vite.Ledger().Sc().GetFirstSyncInfo()
 	if !syncInfo.IsFirstSyncDone {
 		log.Error("Sync unfinished, so can't create transaction.")
 		return errors.New("sync unfinished, so can't create transaction")

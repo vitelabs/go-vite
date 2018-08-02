@@ -1,10 +1,11 @@
 package handler
 
 import (
+	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/ledger/handler_interface"
+	"github.com/vitelabs/go-vite/miner"
 	protoInterface "github.com/vitelabs/go-vite/protocols/interfaces"
 	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/consensus"
-	"github.com/vitelabs/go-vite/miner"
 )
 
 type Vite interface {
@@ -12,4 +13,5 @@ type Vite interface {
 	WalletManager() *wallet.Manager
 	Miner() *miner.Miner
 	Verifier() consensus.Verifier
+	Ledger() handler_interface.Manager
 }
