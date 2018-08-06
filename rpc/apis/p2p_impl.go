@@ -1,7 +1,6 @@
 package apis
 
 import (
-	"github.com/vitelabs/go-vite/log"
 	"github.com/vitelabs/go-vite/p2p"
 	"strconv"
 	"github.com/vitelabs/go-vite/rpc/api_interface"

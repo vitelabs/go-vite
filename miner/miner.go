@@ -1,13 +1,15 @@
 package miner
 
 import (
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log"
 	"sync/atomic"
 	"time"
 )
+
+var mLog = log15.New("module", "miner/miner")
 
 // Package miner implements vite block creation
 
@@ -76,11 +78,11 @@ func (self *Miner) Init() {
 		// Handle ChainHeadEvent
 		case event := <-self.downloaderRegisterCh:
 			if event == 0 {
-				log.Info("downloader success.")
+				mLog.Info("downloader success.")
 				self.dwlFinished = true
 				self.committee.Subscribe(self.mem)
 			} else {
-				log.Error("downloader error.")
+				mLog.Error("downloader error.")
 			}
 
 		}

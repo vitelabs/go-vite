@@ -1,9 +1,9 @@
 package consensus
 
 import (
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log"
 	"time"
 )
 
@@ -122,6 +122,7 @@ func (self *Committee) Subscribe(subscribeMem *SubscribeMem) {
 }
 
 func (self *Committee) update() {
+	log := log15.New("Committee")
 	var lastIndex int32 = -1
 	var lastRemoveTime = time.Now()
 	for !self.Stopped() {

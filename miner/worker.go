@@ -3,10 +3,12 @@ package miner
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log"
 	"sync"
 	"time"
+	"github.com/inconshreveable/log15"
 )
+
+var wLog = log15.New("module", "miner/worker")
 
 // worker
 type worker struct {
@@ -48,16 +50,16 @@ func (self *worker) update(ch chan int) {
 		// Handle ChainHeadEvent
 		case t, ok := <-self.workChan:
 			if !ok {
-				log.Warn("channel closed.")
+				wLog.Warn("channel closed.")
 				if !self.Stopped() {
 					time.Sleep(time.Second)
 				}
 			} else {
-				log.Info("start working once.")
+				wLog.Info("start working once.")
 				self.genAndInsert(t)
 			}
 		case <-ch: // closed event chan
-			log.Info("worker.update closed.")
+			wLog.Info("worker.update closed.")
 		 	return
 		}
 	}

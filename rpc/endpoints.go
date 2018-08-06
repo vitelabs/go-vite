@@ -1,10 +1,12 @@
 package rpc
 
 import (
-	"github.com/vitelabs/go-vite/log"
 	"net"
 	"net/rpc"
+	"github.com/inconshreveable/log15"
 )
+
+var rLog = log15.New("module", "rpc")
 
 // API describes the set of methods offered over the RPC interface
 type API struct {
@@ -20,7 +22,7 @@ func StartIPCEndpoint(lis net.Listener, apis []API) (*rpc.Server, error) {
 		if err := srv.RegisterName(api.Namespace, api.Service); err != nil {
 			return nil, err
 		}
-		log.Debug("IPC registered", " namespace", api.Namespace, " Service", api.Service)
+		rLog.Debug("IPC registered", " namespace", api.Namespace, " Service", api.Service)
 	}
 	if err := ServeListener(srv, lis); err != nil {
 		return nil, err

@@ -2,8 +2,11 @@ package apis
 
 import (
 	"encoding/json"
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/rpc/api_interface"
 )
+
+var log = log15.New("module", "rpc/apis")
 
 func tryMakeConcernedError(err error, reply *string) error {
 	errjson, concerned := api_interface.MakeConcernedError(err)

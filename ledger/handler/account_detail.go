@@ -1,27 +1,29 @@
 package handler
 
 import (
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
-	"github.com/vitelabs/go-vite/log"
 	"math/big"
 )
+
+var adLog = log15.New("module", "ledger/handler/account_chain")
 
 func (ac *AccountChain) GetAccount(accountAddress *types.Address) (*handler_interface.Account, error) {
 	accountMeta, err := ac.aAccess.GetAccountMeta(accountAddress)
 	if err != nil {
-		log.Info("func GetAccount.GetAccountMeta failed, error: ", err)
+		adLog.Info("func GetAccount.GetAccountMeta failed, error: ", err)
 		return nil, nil
 	}
 	accountBLockHeight, err := ac.acAccess.GetLatestBlockHeightByAccountId(accountMeta.AccountId)
 	if err != nil {
-		log.Info("func GetAccount.GetLatestBlockHeightByAccountId failed, error: ", err)
+		adLog.Info("func GetAccount.GetLatestBlockHeightByAccountId failed, error: ", err)
 		return nil, nil
 	}
 	accountTokenList, err := ac.GetAccountTokenList(accountMeta)
 	if err != nil {
-		log.Info("func GetAccount.GetAccountTokenList failed, error: ", err)
+		adLog.Info("func GetAccount.GetAccountTokenList failed, error: ", err)
 		return nil, nil
 	}
 	return NewAccount(accountAddress, accountBLockHeight, accountTokenList), nil
@@ -61,8 +63,6 @@ func NewAccount(accountAddress *types.Address, blockHeight *big.Int, accountToke
 	}
 }
 
-
-
 func NewAccountToken(token *ledger.Mintage, balance *big.Int) *handler_interface.TokenInfo {
 	return &handler_interface.TokenInfo{
 		TotalAmount: balance,
@@ -81,14 +81,14 @@ func (ac *AccountChain) GetUnconfirmedTxHashsByTkId(index, num, count int, addr 
 func (ac *AccountChain) GetUnconfirmedAccount(addr *types.Address) (*handler_interface.UnconfirmedAccount, error) {
 	unconfirmedMeta, err := ac.uAccess.GetUnconfirmedAccountMeta(addr)
 	if err != nil {
-		log.Info("func GetUnconfirmedAccount.GetUnconfirmedAccountMeta failed, error: ", err)
+		adLog.Info("func GetUnconfirmedAccount.GetUnconfirmedAccountMeta failed, error: ", err)
 		return nil, nil
 	}
 	var tokenInfoList []*handler_interface.TokenInfo
 	for _, ti := range unconfirmedMeta.TokenInfoList {
 		token, tkErr := ac.tAccess.GetByTokenId(ti.TokenId)
 		if tkErr != nil {
-			log.Info("func GetUnconfirmedAccount.GetByTokenId failed, error: ", tkErr)
+			adLog.Info("func GetUnconfirmedAccount.GetByTokenId failed, error: ", tkErr)
 			return nil, nil
 		}
 		tokenInfo := &handler_interface.TokenInfo{

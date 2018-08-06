@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/log"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"runtime"
+	"github.com/inconshreveable/log15"
 )
 
 // it it return false it must not be a valid keystore file
@@ -38,13 +38,13 @@ func IsMayValidKeystoreFile(path string) (bool, *types.Address, error) {
 }
 
 func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
-	// log.Info("readAndFixAddressFile")
+	log := log15.New("method", "wallet/keystore/utils/readAndFixAddressFile")
 	buf := new(bufio.Reader)
 	keyJSON := encryptedKeyJSON{}
 
 	fd, err := os.Open(path)
 	if err != nil {
-		log.Trace("Can not to open ", "path", path, "err", err)
+		log.Error("Can not to open ", "path", path, "err", err)
 		return nil, nil
 	}
 	defer fd.Close()
@@ -52,12 +52,12 @@ func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
 	keyJSON.HexAddress = ""
 	err = json.NewDecoder(buf).Decode(&keyJSON)
 	if err != nil {
-		log.Trace("Decode keystore file failed ", "path", path, "err", err)
+		log.Error("Decode keystore file failed ", "path", path, "err", err)
 		return nil, nil
 	}
 	addr, err := types.HexToAddress(keyJSON.HexAddress)
 	if err != nil {
-		log.Trace("Address is invalid ", "path", path, "err", err)
+		log.Error("Address is invalid ", "path", path, "err", err)
 		return nil, nil
 	}
 

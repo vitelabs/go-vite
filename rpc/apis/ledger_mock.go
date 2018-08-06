@@ -2,7 +2,6 @@ package apis
 
 import (
 	"encoding/json"
-	"github.com/vitelabs/go-vite/log"
 	"time"
 	"github.com/vitelabs/go-vite/rpc/api_interface"
 )

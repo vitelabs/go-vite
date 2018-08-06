@@ -1,9 +1,9 @@
 package keystore
 
 import (
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/log"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"sync"
 	"time"
@@ -40,6 +40,7 @@ type Manager struct {
 
 	unlockChanged      map[int]chan<- UnlockEvent
 	unlockChangedIndex int
+	log                log15.Logger
 }
 
 type unlocked struct {
@@ -48,7 +49,7 @@ type unlocked struct {
 }
 
 func NewManager(dir string) *Manager {
-	kp := Manager{ks: keyStorePassphrase{dir}, KeyStoreDir: dir}
+	kp := Manager{ks: keyStorePassphrase{dir}, KeyStoreDir: dir, log: log15.New("module", "wallet/keystore/Manager")}
 	return &kp
 }
 
@@ -66,18 +67,19 @@ func (km *Manager) Init() {
 }
 
 func (km *Manager) AddUnlockChangeChannel(c chan<- UnlockEvent) int {
-	log.Info("AddUnlockChangeChannel")
+	km.log.Info("AddUnlockChangeChannel", "c", c)
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
 	km.unlockChangedIndex++
+	km.log.Info("AddUnlockChangeChannel", "id", km.unlockChangedIndex)
 	km.unlockChanged[km.unlockChangedIndex] = c
 
 	return km.unlockChangedIndex
 }
 
 func (km *Manager) RemoveUnlockChangeChannel(id int) {
-	log.Info("RemoveUnlockChangeChannel")
+	km.log.Info("RemoveUnlockChangeChannel", "id", id)
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 	delete(km.unlockChanged, id)

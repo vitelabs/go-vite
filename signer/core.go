@@ -2,13 +2,17 @@ package signer
 
 import (
 	"fmt"
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"sync"
 	"time"
 )
+
+var slog = log15.New("module", "signer")
+
+//var log = log15.New("module", "signer")
 
 type Master struct {
 	Vite                  Vite
@@ -17,6 +21,7 @@ type Master struct {
 	FirstSyncDoneListener chan int
 	coreMutex             sync.Mutex
 	lid                   int
+	log                   log15.Logger
 }
 
 func NewMaster(vite Vite) *Master {
@@ -26,40 +31,41 @@ func NewMaster(vite Vite) *Master {
 		unlockEventListener:   make(chan keystore.UnlockEvent),
 		FirstSyncDoneListener: make(chan int),
 		lid:                   0,
+		log:                   slog.New("w", "master"),
 	}
 }
 
-func (c *Master) Close() error {
-	log.Info("Master close")
-	c.Vite.WalletManager().KeystoreManager.RemoveUnlockChangeChannel(c.lid)
-	for _, v := range c.signSlaves {
+func (master *Master) Close() error {
+	master.log.Info("close")
+	master.Vite.WalletManager().KeystoreManager.RemoveUnlockChangeChannel(master.lid)
+	for _, v := range master.signSlaves {
 		v.Close()
 	}
 	return nil
 
 }
-func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error {
+func (master *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error {
 	if block.AccountAddress == nil {
 		return fmt.Errorf("address nil")
 	}
-	syncinfo := c.Vite.Ledger().Sc().GetFirstSyncInfo()
+	syncinfo := master.Vite.Ledger().Sc().GetFirstSyncInfo()
 	if !syncinfo.IsFirstSyncDone {
-		log.Info("Master sync unfinished, so can't create transaction")
+		master.log.Info("sync unfinished, so can't create transaction")
 		return fmt.Errorf("master sync unfinished, so can't create transaction")
 	}
 
-	log.Info("Master AccountAddress", block.AccountAddress.String())
-	log.Info("Master ToAddress", block.To.String())
+	master.log.Info("AccountAddress" + block.AccountAddress.String())
+	master.log.Info("ToAddress" + block.To.String())
 
-	c.coreMutex.Lock()
-	slave := c.signSlaves[*block.AccountAddress]
+	master.coreMutex.Lock()
+	slave := master.signSlaves[*block.AccountAddress]
 	endChannel := make(chan string, 1)
 
 	if slave == nil {
-		slave = NewsignSlave(c.Vite, *block.AccountAddress)
-		c.signSlaves[*block.AccountAddress] = slave
+		slave = NewSignSlave(master.Vite, *block.AccountAddress)
+		master.signSlaves[*block.AccountAddress] = slave
 	}
-	c.coreMutex.Unlock()
+	master.coreMutex.Unlock()
 
 	slave.sendTask(&sendTask{
 		block:      block,
@@ -67,9 +73,9 @@ func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase s
 		end:        endChannel,
 	})
 
-	log.Info("sending Tx waiting ")
+	master.log.Info("sending Tx waiting ")
 	err, ok := <-endChannel
-	log.Info("sending Tx end err ", err)
+	master.log.Info("<-endChannel ", "err", err)
 	if !ok || err == "" {
 		return nil
 	}
@@ -77,53 +83,54 @@ func (c *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase s
 	return fmt.Errorf(err)
 }
 
-func (c *Master) InitAndStartLoop() {
+func (master *Master) InitAndStartLoop() {
 
-	c.Vite.Ledger().RegisterFirstSyncDown(c.FirstSyncDoneListener)
+	master.Vite.Ledger().RegisterFirstSyncDown(master.FirstSyncDoneListener)
 	go func() {
-		log.Info("master waiting first sync done ")
-		<-c.FirstSyncDoneListener
-		close(c.FirstSyncDoneListener)
-		log.Info("master first sync done ")
-		c.lid = c.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(c.unlockEventListener)
-		c.loop()
+		master.log.Info("master waiting first sync done ")
+		<-master.FirstSyncDoneListener
+		close(master.FirstSyncDoneListener)
+		master.log.Info("<-master.FirstSyncDoneListener first sync done ")
+		master.lid = master.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(master.unlockEventListener)
+		master.loop()
 	}()
 }
 
-func (c *Master) loop() {
-	status, _ := c.Vite.WalletManager().KeystoreManager.Status()
+func (master *Master) loop() {
+	loopLog := master.log.New("loop")
+	status, _ := master.Vite.WalletManager().KeystoreManager.Status()
 	for k, v := range status {
 		if v == keystore.UnLocked {
-			c.coreMutex.Lock()
-			s := NewsignSlave(c.Vite, k)
-			log.Info("Master find a new unlock address signSlave", k.String())
-			c.signSlaves[k] = s
-			c.coreMutex.Unlock()
+			master.coreMutex.Lock()
+			s := NewSignSlave(master.Vite, k)
+			loopLog.Info("Master find a new unlock address ", "signSlave", k.String())
+			master.signSlaves[k] = s
+			master.coreMutex.Unlock()
 
 			s.AddressUnlocked(true)
 			go s.StartWork()
 		}
 	}
 	for {
-		event, ok := <-c.unlockEventListener
-		log.Info("Master get event ", event)
+		event, ok := <-master.unlockEventListener
+		loopLog.Info("<-master.unlockEventListener ", "event", event)
 		if !ok {
-			log.Info("Master channel close ", event)
-			c.Close()
+			master.log.Info("Master channel close ", event)
+			master.Close()
 		}
 
-		c.coreMutex.Lock()
-		if worker, ok := c.signSlaves[event.Address]; ok {
-			log.Info("Master get event already exist ", event)
-			c.coreMutex.Unlock()
+		master.coreMutex.Lock()
+		if worker, ok := master.signSlaves[event.Address]; ok {
+			master.log.Info("get event already exist ", "event", event)
+			master.coreMutex.Unlock()
 			worker.AddressUnlocked(event.Unlocked())
 			worker.newSignedTask <- struct{}{}
 			continue
 		}
-		s := NewsignSlave(c.Vite, event.Address)
-		log.Info("Master get event new signSlave")
-		c.signSlaves[event.Address] = s
-		c.coreMutex.Unlock()
+		s := NewSignSlave(master.Vite, event.Address)
+		loopLog.Info("Master get event new signSlave")
+		master.signSlaves[event.Address] = s
+		master.coreMutex.Unlock()
 
 		s.AddressUnlocked(event.Unlocked())
 		go s.StartWork()
@@ -142,6 +149,7 @@ type signSlave struct {
 	address       types.Address
 	breaker       chan struct{}
 	newSignedTask chan struct{}
+	log           log15.Logger
 
 	waitSendTasks   []*sendTask
 	addressUnlocked bool
@@ -150,10 +158,13 @@ type signSlave struct {
 	isClosed        bool
 }
 
-func NewsignSlave(vite Vite, addrese types.Address) *signSlave {
-	slave := &signSlave{vite: vite, address: addrese}
-	slave.breaker = make(chan struct{}, 1)
-	slave.newSignedTask = make(chan struct{}, 100)
+func NewSignSlave(vite Vite, addrese types.Address) *signSlave {
+	slave := &signSlave{vite: vite,
+		address: addrese,
+		breaker: make(chan struct{}, 1),
+		newSignedTask: make(chan struct{}, 100),
+		log: slog.New("signSlave addr", addrese),
+	}
 
 	return slave
 }
@@ -181,21 +192,21 @@ func (sw *signSlave) IsWorking() bool {
 func (sw *signSlave) AddressUnlocked(unlocked bool) {
 	sw.addressUnlocked = unlocked
 	if unlocked {
-		log.Info("slaver AddListener "+sw.address.String()+" sw.newSignedTask", sw.newSignedTask)
+		sw.log.Info("AddressUnlocked", "sw.newSignedTask", sw.newSignedTask)
 		sw.vite.Ledger().Ac().AddListener(sw.address, sw.newSignedTask)
 	} else {
-		log.Info("slaver RemoveListener", sw.address)
+		sw.log.Info("AddressUnlocked RemoveListener ")
 		sw.vite.Ledger().Ac().RemoveListener(sw.address)
 	}
 }
 
 func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
-	log.Info("slaver auto send confirm task", sw.address)
+	sw.log.Info("slaver auto send confirm task")
 	ac := sw.vite.Ledger().Ac()
 	hashes, e := ac.GetUnconfirmedTxHashs(0, 1, 1, &sw.address)
 
 	if e != nil {
-		log.Info("slaver auto GetUnconfirmedTxHashs err " + e.Error() + " " + sw.address.String())
+		sw.log.Info("slaver auto GetUnconfirmedTxHashs", "err", e.Error())
 		return false, e
 	}
 
@@ -203,7 +214,7 @@ func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
 		return false, nil
 	}
 
-	log.Info("slaver sendNextUnConfirmed: send receive transaction. " + sw.address.String() + " " + hashes[0].String())
+	sw.log.Info("slaver sendNextUnConfirmed: send receive transaction. ", "hash ", hashes[0])
 	err = ac.CreateTx(&ledger.AccountBlock{
 		AccountAddress: &sw.address,
 		FromHash:       hashes[0],
@@ -214,33 +225,34 @@ func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
 }
 
 func (sw *signSlave) StartWork() {
-	log.Info("slaver StartWork is called", sw.address.String())
+
+	sw.log.Info("slaver StartWork is called")
 	sw.flagMutex.Lock()
 	if sw.isWorking {
 		sw.flagMutex.Unlock()
-		log.Info("slaver is working", sw.address.String())
+		sw.log.Info("slaver is working")
 		return
 	}
 
 	sw.isWorking = true
 
 	sw.flagMutex.Unlock()
-	log.Info("slaver start work", sw.address.String())
+	sw.log.Info("slaver start work")
 	for {
-		log.Debug("slaver working")
+		sw.log.Debug("slaver working")
 
 		if sw.isClosed {
 			break
 		}
 		if len(sw.waitSendTasks) != 0 {
 			for i, v := range sw.waitSendTasks {
-				log.Info("slaver send user task")
+				sw.log.Info("slaver send user task")
 				err := sw.vite.Ledger().Ac().CreateTxWithPassphrase(v.block, v.passphrase)
 				if err == nil {
-					log.Info("slaver send user task success")
+					sw.log.Info("slaver send user task success")
 					v.end <- ""
 				} else {
-					log.Info("slaver send user task error", err.Error())
+					sw.log.Info("slaver send user task", "err", err)
 					v.end <- err.Error()
 				}
 				close(v.end)
@@ -251,9 +263,9 @@ func (sw *signSlave) StartWork() {
 		if sw.addressUnlocked {
 			hasmore, err := sw.sendNextUnConfirmed()
 			if err != nil {
-				log.Error(err.Error())
+				sw.log.Error(err.Error())
 			}
-			log.Info("slaver sendNextUnConfirmed hasmore", hasmore)
+			sw.log.Info("slaver sendNextUnConfirmed ", "hasmore", hasmore)
 			if hasmore {
 				continue
 			} else {
@@ -262,26 +274,26 @@ func (sw *signSlave) StartWork() {
 		}
 
 	WAIT:
-		log.Info("slaver start sleep", sw.address.String())
+		sw.log.Info("slaver start sleep")
 		select {
 		case <-sw.newSignedTask:
-			log.Info("slaver start awake", sw.address.String())
+			sw.log.Info("slaver start awake")
 			continue
 		case <-sw.breaker:
-			log.Info("slaver start brake", sw.address.String())
+			sw.log.Info("slaver start brake")
 			break
 		}
 
 	}
 
 	sw.isWorking = false
-	log.Info("slaver end work", sw.address.String())
+	sw.log.Info("slaver end work")
 }
 
 func (sw *signSlave) sendTask(task *sendTask) {
 	sw.waitSendTasks = append(sw.waitSendTasks, task)
 
-	log.Info(sw.address.String()+" is working ", sw.IsWorking())
+	sw.log.Info("sendTask", "is working ", sw.IsWorking())
 	if sw.IsWorking() {
 		go func() { sw.newSignedTask <- struct{}{} }()
 	} else {

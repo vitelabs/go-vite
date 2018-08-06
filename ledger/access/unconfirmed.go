@@ -2,16 +2,17 @@ package access
 
 import (
 	"bytes"
+	"github.com/inconshreveable/log15"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log"
 	"github.com/vitelabs/go-vite/vitedb"
-	log2 "log"
 	"math/big"
 	"sync"
 )
+
+var uLog = log15.New("module", "ledger/access/unconfirmed")
 
 var ucListener = make(map[types.Address]chan<- struct{})
 
@@ -72,7 +73,7 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedHashsByTkId(index, num, count int, 
 		return hList, nil
 	}
 
-	log.Info("GetUnconfirmedBlock/GetAccountHashList:len(hashList)=", len(hashList))
+	uLog.Info("GetUnconfirmedBlock/GetAccountHashList", "len(hashList)", len(hashList))
 	for i := index * count; i < (index+num)*count && i < len(hashList); i++ {
 		hash := hashList[i]
 		hList = append(hList, hash)
@@ -106,7 +107,7 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedAccountMeta(addr *types.Address) (*
 func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	if block.To == nil || block.TokenId == nil {
 		err := errors.New("send_block's value is invalid")
-		log.Info("Unconfirmed: ", err)
+		uLog.Info("Unconfirmed", "err", err)
 		return err
 	}
 
@@ -123,10 +124,10 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 
 	if uAccMeta != nil {
 		// [tmp] Check data.
-		//log.Info("Unconfirmed: before write:")
-		//log.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
+		//uLog.Info("Unconfirmed: before write:")
+		//uLog.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
 		//for idx, tokenInfo := range uAccMeta.TokenInfoList {
-		//	log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
+		//	uLog.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
 		//}
 
 		// Upodate total number of this account's unconfirmedblocks
@@ -200,7 +201,7 @@ func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(block *ledger.AccountBlock) (*l
 func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	if block.To == nil || block.TokenId == nil {
 		err := errors.New("send_block's value is invalid")
-		log.Info("Unconfirmed: ", err)
+		uLog.Info("Unconfirmed", "err", err)
 		return err
 	}
 
@@ -221,10 +222,10 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 	}
 
 	//// [tmp] Check data.
-	//log.Info("Unconfirmed: before delete:")
-	//log.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
+	//uLog.Info("Unconfirmed: before delete:")
+	//uLog.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
 	//for idx, tokenInfo := range uAccMeta.TokenInfoList {
-	//	log.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
+	//	uLog.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
 	//}
 
 	hashList, err := ucfa.store.GetAccHashListByTkId(block.To, block.TokenId)
@@ -301,27 +302,27 @@ var listenerMutex sync.Mutex
 func (ucfa *UnconfirmedAccess) SendSignalToListener(addr types.Address) {
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
-	log.Info("UnconfirmedAccess.SendSignalToListener: try to send.")
+	uLog.Info("UnconfirmedAccess.SendSignalToListener: try to send.")
 	if targetChannel, ok := ucListener[addr]; ok {
-		log.Info("UnconfirmedAccess.SendSignalToListener: start send signal.")
+		uLog.Info("UnconfirmedAccess.SendSignalToListener: start send signal.")
 		targetChannel <- struct{}{}
 	}
-	log.Info("UnconfirmedAccess.SendSignalToListener: Send signal to listener success.")
+	uLog.Info("UnconfirmedAccess.SendSignalToListener: Send signal to listener success.")
 }
 
 func (ucfa *UnconfirmedAccess) RemoveListener(addr types.Address) {
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
 	delete(ucListener, addr)
-	log.Info("Unconfirmed: Remove account's listener success.")
+	uLog.Info("Unconfirmed: Remove account's listener success.")
 }
 
 func (ucfa *UnconfirmedAccess) AddListener(addr types.Address, change chan<- struct{}) {
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
 	ucListener[addr] = change
-	log2.Printf("UnconfirmedAccess.AddListener: %+v, change is %+v\n", ucListener[addr], change)
-	log.Info("Unconfirmed: Add account's listener success.")
+	uLog.Info("AddListener", "AddListener", ucListener[addr], "change", change)
+	uLog.Info("Unconfirmed: Add account's listener success.")
 }
 
 func (ucfa *UnconfirmedAccess) HashUnconfirmedBool(addr *types.Address, tkId *types.TokenTypeId, hash *types.Hash) bool {

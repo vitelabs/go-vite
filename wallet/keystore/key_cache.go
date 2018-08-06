@@ -2,9 +2,9 @@ package keystore
 
 import (
 	"github.com/deckarep/golang-set"
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/common/fileutils"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/log"
 	"os"
 	"strings"
 	"sync"
@@ -18,6 +18,7 @@ type keyCache struct {
 	changed   chan struct{}
 	fileC     fileutils.FileChangeRecord
 	cacheAddr mapset.Set
+	log       log15.Logger
 }
 
 func newKeyCache(keydir string) (*keyCache, chan struct{}) {
@@ -35,6 +36,7 @@ func newKeyCache(keydir string) (*keyCache, chan struct{}) {
 			return false
 		}),
 		cacheAddr: mapset.NewThreadUnsafeSet(),
+		log:       log15.New("module", "wallet/keystore/key_cache"),
 	}
 	kc.kob = newObserver(kc)
 	return kc, kc.changed
@@ -49,36 +51,34 @@ func (kc *keyCache) ListAllAddress() mapset.Set {
 }
 
 func (kc *keyCache) refreshAndFixAddressFile() error {
-	// log.Debug("refreshAndFixAddressFile")
 	creates, deletes, updates, err := kc.fileC.RefreshCache(kc.keydir)
 	if err != nil {
-		log.Debug("Failed refreshCache keydir", "err", err)
+		kc.log.Debug("Failed refreshCache keydir", "err", err)
 		return err
 	}
 
 	if creates.Cardinality() == 0 && deletes.Cardinality() == 0 && updates.Cardinality() == 0 {
-		// log.Debug("Nothing Changed")
 		return nil
 	}
 
 	creates.Each(func(c interface{}) bool {
-		log.Debug("creates ", c)
+		kc.log.Debug("creates ", "c", c)
 		if a, _ := readAndFixAddressFile(c.(string)); a != nil {
-			log.Debug("Get new address", a.Hex())
+			kc.log.Debug("Get", "addr", a)
 			kc.add(*a)
 		}
 		return false
 	})
 	deletes.Each(func(c interface{}) bool {
-		log.Debug("delete ", c)
+		kc.log.Debug("delete ", "c", c)
 		kc.deleteByFile(c.(string))
 		return false
 	})
 	updates.Each(func(c interface{}) bool {
-		log.Debug("updates ", c)
+		kc.log.Debug("updates ", "c", c)
 		kc.deleteByFile(c.(string))
 		if a, _ := readAndFixAddressFile(c.(string)); a != nil {
-			log.Debug("update address", a.Hex())
+			kc.log.Debug("update address", "addr", a)
 			kc.add(*a)
 		}
 		return false

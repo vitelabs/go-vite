@@ -2,7 +2,6 @@ package keystore
 
 import (
 	"time"
-	"github.com/vitelabs/go-vite/log"
 )
 
 const scanInterval = 3 * time.Second
@@ -35,7 +34,6 @@ func (w *keystoreObserver) close() {
 }
 
 func (w *keystoreObserver) loop() {
-	log.Info("keystoreObserver loop")
 	defer func() {
 		w.kc.mutex.Lock()
 		w.running = false

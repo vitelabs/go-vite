@@ -5,11 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/inconshreveable/log15"
 	"github.com/pborman/uuid"
 	"github.com/vitelabs/go-vite/common/types"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/log"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"golang.org/x/crypto/scrypt"
 	"io/ioutil"
@@ -108,6 +108,7 @@ func parseJson(keyjson []byte) (k *encryptedKeyJSON, kAddress *types.Address, ci
 }
 
 func DecryptKey(keyjson []byte, password string) (*Key, error) {
+	log := log15.New("Method", "wallet/keystore/scrypt_keystore/DecryptKey")
 	k, kAddress, cipherPriv, nonce, salt, err := parseJson(keyjson)
 	if err != nil {
 		return nil, err
@@ -124,12 +125,14 @@ func DecryptKey(keyjson []byte, password string) (*Key, error) {
 	var pribyte = make([]byte, ed25519.PrivateKeySize)
 	pribyte, err = vcrypto.AesGCMDecrypt(derivedKey[:32], cipherPriv, []byte(nonce))
 	if err != nil {
-		log.Info("DecryptKey err", err.Error())
+		log.Info("AesGCMDecrypt", "DecryptKey err", err.Error())
 		return nil, walleterrors.ErrDecryptKey
 	}
 
 	privKey := ed25519.PrivateKey(pribyte)
 	generateAddr := types.PrikeyToAddress(privKey)
+	log.Info("generated", "address", generateAddr.String())
+	log.Info("inkeyfile", "address", kAddress)
 	if !bytes.Equal(generateAddr[:], kAddress[:]) {
 		return nil,
 			fmt.Errorf("address content not equal. In file it is : %s  but generated is : %s",

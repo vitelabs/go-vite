@@ -5,7 +5,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
-	"github.com/vitelabs/go-vite/log"
 	"github.com/vitelabs/go-vite/rpc/api_interface"
 	"github.com/vitelabs/go-vite/signer"
 	"github.com/vitelabs/go-vite/vite"
@@ -124,7 +123,7 @@ func (l *LegerApiImpl) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.I
 	sc := l.ledgerManager.Sc()
 	sb, e := sc.GetConfirmBlock(block)
 	if e != nil {
-		log.Info("GetConfirmBlock err ", e)
+		log.Error("GetConfirmBlock ", "err", e)
 		return nil
 	}
 	if sb == nil {
@@ -134,7 +133,7 @@ func (l *LegerApiImpl) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.I
 
 	times, e := sc.GetConfirmTimes(sb)
 	if e != nil {
-		log.Info("GetConfirmTimes err ", e)
+		log.Error("GetConfirmTimes", "err", e)
 		return nil
 	}
 
