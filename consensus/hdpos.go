@@ -1,9 +1,9 @@
 package consensus
 
 import (
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"time"
 )
 
@@ -14,10 +14,11 @@ var DefaultMembers = []string{
 	"vite_85e8adb768aed85f2445eb1d71b933370d2980916baa3c1f3c",
 	"vite_93dd41694edd756512da7c4af429f3e875c374a53bfd217e00",
 	"vite_f8dfcad17c08f9748271cce96eddc2b3732b399f6367597708",
-	"vite_e77a71d44c65155e1474d708134c53c9dfb7af08b0299dc10d",
-	"vite_1e7d413c276725c6a9e2f5fa8fadfa291e16ea3695c27760b1",
-	"vite_946e7f9554cc5efc6e404a6510c3c6a098ac4296c049cc348b",
-	"vite_d6bf8cf4b590c8e7bfc846463e4b67522d5dda3040d4ff83e8",
+
+	//"vite_e77a71d44c65155e1474d708134c53c9dfb7af08b0299dc10d",
+	//"vite_1e7d413c276725c6a9e2f5fa8fadfa291e16ea3695c27760b1",
+	//"vite_946e7f9554cc5efc6e404a6510c3c6a098ac4296c049cc348b",
+	//"vite_d6bf8cf4b590c8e7bfc846463e4b67522d5dda3040d4ff83e8",
 	//"vite_ed143aa15a2bfb039b903e7368a297dc0a11288b4af7d7ceb5",
 	//"vite_559ddc6918f287316a93ed063ca64621fe2e33a45457c90c11",
 	//"vite_bdcb0d7ab9b3db2b229b70613f6a3d18c083457fae3289e926",
