@@ -1,7 +1,6 @@
 package vitedb
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -12,7 +11,8 @@ import (
 )
 
 type Account struct {
-	db *DataBase
+	db  *DataBase
+	log log15.Logger
 }
 
 var _account *Account
@@ -25,7 +25,8 @@ func GetAccount() *Account {
 		}
 
 		_account = &Account{
-			db: db,
+			db:  db,
+			log: log15.New("module", "vitedb/account"),
 		}
 	}
 	return _account
@@ -52,13 +53,13 @@ func (account *Account) GetAccountMetaByAddress(hexAddress *types.Address) (*led
 	}
 	data, dgErr := account.db.Leveldb.Get(keyAccountMeta, nil)
 	if dgErr != nil {
-		fmt.Println("GetAccountMetaByAddress func db.Get() error:", dgErr)
+		account.log.Info("GetAccountMetaByAddress func db.Get()", "dgErr", dgErr)
 		return nil, dgErr
 	}
 	accountMeter := &ledger.AccountMeta{}
 	dsErr := accountMeter.DbDeserialize(data)
 	if dsErr != nil {
-		fmt.Println(dsErr)
+		account.log.Info(dsErr.Error())
 		return nil, dsErr
 	}
 
@@ -107,7 +108,7 @@ func (account *Account) GetAddressById(accountId *big.Int) (*types.Address, erro
 	}
 	data, dgErr := account.db.Leveldb.Get(keyAccountAddress, nil)
 	if dgErr != nil {
-		fmt.Println("GetAddressById func db.Get() error:", dgErr)
+		account.log.Info("GetAddressById func db.Get()", "dgErr", dgErr)
 		return nil, dgErr
 	}
 	b2Address, b2Err := types.BytesToAddress(data)

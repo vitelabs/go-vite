@@ -141,6 +141,7 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 
 	if config.Name != "" && config.Sig != "" {
 		config.PublicKey = pickPub(config.Name, config.Sig)
+		fmt.Println()
 	}
 
 	if cfg.PublicKey != "" {

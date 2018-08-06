@@ -1,7 +1,6 @@
 package vitedb
 
 import (
-	"fmt"
 	"github.com/inconshreveable/log15"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -159,7 +158,7 @@ func (ac *AccountChain) GetLatestBlockHeightByAccountId(accountId *big.Int) (*bi
 	defer iter.Release()
 
 	if !iter.Last() {
-		fmt.Println("GetLatestBlockHeightByAccountId failed, because account " + accountId.String() + " doesn't exist.")
+		ac.log.Info("GetLatestBlockHeightByAccountId failed, because account " + accountId.String() + " doesn't exist.")
 		return nil, nil
 	}
 
