@@ -60,7 +60,7 @@ func RecoverConfig() {
 			BootNodes:            nil,
 			Addr:                 "0.0.0.0:8483",
 			Datadir:              common.DefaultDataDir(),
-			NetID:                2,
+			NetID:                3,
 		},
 		Miner: Miner{
 			Miner:         false,
