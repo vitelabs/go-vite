@@ -17,7 +17,7 @@ type Lvl int
 
 // List of predefined log Levels
 const (
-	LvlCrit Lvl = iota
+	LvlCrit  Lvl = iota
 	LvlError
 	LvlWarn
 	LvlInfo

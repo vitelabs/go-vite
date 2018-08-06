@@ -3,7 +3,7 @@ package p2p
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 	"sync"
 	"time"
 )

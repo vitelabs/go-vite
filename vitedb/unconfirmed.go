@@ -5,7 +5,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type Unconfirmed struct {

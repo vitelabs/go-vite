@@ -2,7 +2,7 @@ package keystore
 
 import (
 	"github.com/deckarep/golang-set"
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/common/fileutils"
 	"github.com/vitelabs/go-vite/common/types"
 	"os"

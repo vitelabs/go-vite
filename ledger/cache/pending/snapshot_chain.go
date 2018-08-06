@@ -2,9 +2,9 @@ package pending
 
 import (
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"sort"
 	"time"
-	"github.com/inconshreveable/log15"
 )
 
 var snapshotchainLog = log15.New("module", "ledger/access/snapshot_chain")
