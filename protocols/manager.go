@@ -248,7 +248,11 @@ func (pm *ProtocolManager) Sync() {
 			pm.log.Info("missing sync handler")
 		}
 	} else {
-		pm.log.Info("no need sync from bestPeer", "peer", bestPeer.ID, "peerHeight", bestPeer.Height, "selfHeight", currentBlock.Height)
+		if bestPeer != nil && currentBlock != nil {
+			pm.log.Info("no need sync from bestPeer", "peer", bestPeer.ID, "peerHeight", bestPeer.Height, "selfHeight", currentBlock.Height)
+		} else {
+			pm.log.Info("bestPeer or currentBlock is nil ")
+		}
 		// tell blockchain no need sync
 		if pm.schain.SyncPeer != nil {
 			pm.schain.SyncPeer(nil)
