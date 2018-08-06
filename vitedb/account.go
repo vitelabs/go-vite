@@ -7,8 +7,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"log"
 	"math/big"
+	"github.com/inconshreveable/log15"
 )
 
 type Account struct {
@@ -21,7 +21,7 @@ func GetAccount() *Account {
 	if _account == nil {
 		db, err := GetLDBDataBase(DB_LEDGER)
 		if err != nil {
-			log.Fatal(err)
+			log15.Root().Crit(err.Error())
 		}
 
 		_account = &Account{

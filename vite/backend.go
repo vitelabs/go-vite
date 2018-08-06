@@ -15,8 +15,8 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/miner"
 	"github.com/vitelabs/go-vite/signer"
-	"log"
 	"time"
+	"github.com/inconshreveable/log15"
 )
 
 type Vite struct {
@@ -50,6 +50,7 @@ type Vite struct {
 //}
 
 func New(cfg *config.Config) (*Vite, error) {
+	log := log15.New("module", "vite/backend")
 	vite := &Vite{config: cfg}
 
 	vite.ledger = ledgerHandler.NewManager(vite, cfg.DataDir)
@@ -63,7 +64,7 @@ func New(cfg *config.Config) (*Vite, error) {
 	var initP2pErr error
 	vite.p2p, initP2pErr = p2p.NewServer(&cfg.P2P, vite.pm.HandlePeer)
 	if initP2pErr != nil {
-		log.Fatal(initP2pErr)
+		log.Crit(initP2pErr.Error())
 	}
 
 	genesisTime := time.Unix(int64(ledger.GetSnapshotGenesisBlock().Timestamp), 0)
@@ -71,7 +72,7 @@ func New(cfg *config.Config) (*Vite, error) {
 	vite.verifier = committee
 
 	if cfg.Miner.Miner && cfg.Miner.Coinbase != "" {
-		log.Println("Vite backend new: Start miner.")
+		log.Info("Vite backend new: Start miner.")
 		coinbase, _ := types.HexToAddress(cfg.Miner.Coinbase)
 		vite.miner = miner.NewMiner(vite.ledger.Sc(), vite.ledger.RegisterFirstSyncDown, coinbase, committee)
 		pwd := "123"

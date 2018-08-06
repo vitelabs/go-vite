@@ -2,9 +2,9 @@ package p2p
 
 import (
 	"encoding/hex"
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"log"
 )
 
 var pubs = [...]string{
@@ -39,7 +39,7 @@ func pickPub(data, sign string) ed25519.PublicKey {
 	payload := []byte(data)
 	sig, err := hex.DecodeString(sign)
 	if err != nil {
-		log.Fatalf("invalid signature from cmd: %v\n", err)
+		log15.Root().Crit("invalid signature from cmd", "err", err)
 	}
 
 	for _, str := range pubs {

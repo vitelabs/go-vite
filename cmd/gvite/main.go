@@ -2,10 +2,10 @@ package main
 
 import (
 	"flag"
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/cmd/rpc_vite"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/vite"
-	"log"
 	"net/http"
 	_ "net/http/pprof"
 )
@@ -22,8 +22,13 @@ var (
 )
 
 func main() {
+	mainLog := log15.New("module", "gvite/main")
+
 	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
+		err := http.ListenAndServe("localhost:6060", nil)
+		if err != nil {
+			mainLog.Info(err.Error())
+		}
 	}()
 
 	flag.Parse()
@@ -49,7 +54,7 @@ func main() {
 	vnode, err := vite.New(globalConfig)
 
 	if err != nil {
-		log.Fatalf("Start vue failed. Error is %v\n", err)
+		mainLog.Crit("Start vite failed.", "err", err)
 	}
 
 	rpc_vite.StartIpcRpc(vnode, globalConfig.DataDir)

@@ -5,7 +5,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"log"
+	"github.com/inconshreveable/log15"
 )
 
 type Unconfirmed struct {
@@ -17,7 +17,7 @@ var _unconfirmed *Unconfirmed
 func GetUnconfirmed() *Unconfirmed {
 	db, err := GetLDBDataBase(DB_LEDGER)
 	if err != nil {
-		log.Fatal(err)
+		log15.Root().Crit(err.Error())
 	}
 
 	if _unconfirmed == nil {

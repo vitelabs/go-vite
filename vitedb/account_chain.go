@@ -2,17 +2,18 @@ package vitedb
 
 import (
 	"fmt"
+	"github.com/inconshreveable/log15"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"log"
 	"math/big"
 	"strconv"
 )
 
 type AccountChain struct {
-	db *DataBase
+	db  *DataBase
+	log log15.Logger
 }
 
 var _accountchain *AccountChain
@@ -20,12 +21,13 @@ var _accountchain *AccountChain
 func GetAccountChain() *AccountChain {
 	db, err := GetLDBDataBase(DB_LEDGER)
 	if err != nil {
-		log.Fatal(err)
+		log15.Root().Crit(err.Error())
 	}
 
 	if _accountchain == nil {
 		_accountchain = &AccountChain{
-			db: db,
+			db:  db,
+			log: log15.New("module", "vitedb/account_chain"),
 		}
 	}
 
@@ -172,26 +174,26 @@ func (ac *AccountChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count u
 	originBlockMeta, err := ac.GetBlockMeta(originBlockHash)
 
 	if err != nil {
-		log.Println("AccountChain.GetBlocksFromOrigin: Get OriginBlockMeta failed.")
+		ac.log.Info("AccountChain.GetBlocksFromOrigin: Get OriginBlockMeta failed.")
 		return nil, err
 	}
-	log.Println("AccountChain.GetBlocksFromOrigin: Get OriginBlockMeta success.")
+	ac.log.Info("AccountChain.GetBlocksFromOrigin: Get OriginBlockMeta success.")
 
 	accountDb := GetAccount()
 	address, err := accountDb.GetAddressById(originBlockMeta.AccountId)
 	if err != nil {
-		log.Println("AccountChain.GetBlocksFromOrigin: Get Address failed.")
+		ac.log.Info("AccountChain.GetBlocksFromOrigin: Get Address failed.")
 
 		return nil, err
 	}
-	log.Println("AccountChain.GetBlocksFromOrigin: Get Address success.")
+	ac.log.Info("AccountChain.GetBlocksFromOrigin: Get Address success.")
 
 	account, err := accountDb.GetAccountMetaByAddress(address)
 	if err != nil {
-		log.Println("AccountChain.GetBlocksFromOrigin: Get Account failed.")
+		ac.log.Info("AccountChain.GetBlocksFromOrigin: Get Account failed.")
 		return nil, err
 	}
-	log.Println("AccountChain.GetBlocksFromOrigin: Get Account success.")
+	ac.log.Info("AccountChain.GetBlocksFromOrigin: Get Account success.")
 
 	var startHeight, endHeight, gap = &big.Int{}, &big.Int{}, &big.Int{}
 	gap.SetUint64(count)
@@ -206,8 +208,7 @@ func (ac *AccountChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count u
 		startHeight.Sub(endHeight, gap)
 	}
 
-	log.Println("AccountChain.GetBlocksFromOrigin: Start height is " + startHeight.String() +
-		", and end height is " + endHeight.String())
+	ac.log.Info("AccountChain.GetBlocksFromOrigin:", "Start height", startHeight, "End height", endHeight)
 
 	startKey, err := createKey(DBKP_ACCOUNTBLOCK, originBlockMeta.AccountId, startHeight)
 	if err != nil {
@@ -229,7 +230,7 @@ func (ac *AccountChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count u
 
 		err := block.DbDeserialize(iter.Value())
 		if err != nil {
-			log.Println("AccountChain.GetBlocksFromOrigin: get failed, error is " + err.Error())
+			ac.log.Info("AccountChain.GetBlocksFromOrigin: get failed", "error", err)
 			return nil, err
 		}
 
@@ -243,7 +244,7 @@ func (ac *AccountChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count u
 		blockList = append(blockList, block)
 	}
 
-	log.Println("AccountChain.GetBlocksFromOrigin: return " + strconv.Itoa(len(blockList)) + " blocks.")
+	ac.log.Info("AccountChain.GetBlocksFromOrigin: return " + strconv.Itoa(len(blockList)) + " blocks.")
 	return blockList, nil
 }
 

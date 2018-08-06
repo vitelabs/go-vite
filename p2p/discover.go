@@ -10,7 +10,6 @@ import (
 	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/protos"
-	"log"
 	"math"
 	mrand "math/rand"
 	"net"
@@ -793,7 +792,7 @@ func newDiscover(cfg *DiscvConfig) (*table, *net.UDPAddr, error) {
 	laddr := cfg.Addr
 	conn, err := net.ListenUDP("udp", laddr)
 	if err != nil {
-		log.Fatalf("discv listen udp error: %v\n", err)
+		log15.Root().Crit("discv listen udp ", "error", err)
 	}
 	discv := &discover{
 		conn:    conn,

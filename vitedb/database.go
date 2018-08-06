@@ -6,10 +6,10 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/vitelabs/go-vite/common"
-	"log"
 	"math/big"
 	"os"
 	"path/filepath"
+	"github.com/inconshreveable/log15"
 )
 
 type DataBase struct {
@@ -200,7 +200,7 @@ func getLDBDataBase(filename string) (*DataBase, error) {
 		}
 		db, err := leveldb.OpenFile(filename, options)
 		if err != nil {
-			log.Println(err)
+			log15.Root().Error(err.Error())
 			return nil, err
 		}
 

@@ -1,12 +1,15 @@
 package p2p
 
 import (
+	"github.com/inconshreveable/log15"
 	"github.com/syaka-yin/go-nat"
-	"log"
 	"net"
 	"sync"
 	"time"
+	"fmt"
 )
+
+var natLog = log15.New("module", "p2p/nat")
 
 type natClient struct {
 	mutex sync.Mutex
@@ -47,7 +50,7 @@ func natMap(stop <-chan struct{}, protocol string, lPort, ePort int, lifetime ti
 	client, err := gclt.getClient()
 
 	if err != nil {
-		log.Printf("nat map error: %v\n", err)
+		natLog.Info("nat map", "err", err)
 		return
 	}
 
@@ -57,9 +60,9 @@ func natMap(stop <-chan struct{}, protocol string, lPort, ePort int, lifetime ti
 
 	mp := func() {
 		if err = client.AddPortMapping(protocol, lPort, ePort, "vite", lifetime); err != nil {
-			log.Printf("nat map localPort %d to publicPort %d error: %v\n", lPort, ePort, err)
+			natLog.Info(fmt.Sprintf("nat map localPort %d to publicPort %d error: %v\n", lPort, ePort, err))
 		} else {
-			log.Printf("nat map localPort %d to publicPort %d done %v\n", lPort, ePort, err)
+			natLog.Info(fmt.Sprintf("nat map localPort %d to publicPort %d done %v\n", lPort, ePort, err))
 		}
 	}
 	mp()

@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vite"
-	"log"
 	"math/big"
 	rand2 "math/rand"
 	"time"
@@ -42,7 +41,7 @@ func Start(cfg *p2p.Config) {
 
 	v, err := vite.New(&config.Config{})
 	if err != nil {
-		log.Fatal(err)
+		fmt.Errorf(err.Error())
 	}
 
 	//v.WalletManager().KeystoreManager.ImportPriv(AccountMockDataList[0].PrivateKey.Hex(), "123456")
@@ -136,11 +135,11 @@ func mockSnapshot(v *vite.Vite) {
 		v.WalletManager().KeystoreManager.Unlock(AccountMockDataList[0].Addr, "123456", 0)
 
 		for {
-			log.Println("Mock minting.")
+			fmt.Println("Mock minting.")
 			time.Sleep(time.Duration(10 * time.Second))
 			syncInfo := v.Ledger().Sc().GetFirstSyncInfo()
 			if !syncInfo.IsFirstSyncDone {
-				log.Println("Sync unfinished")
+				fmt.Println("Sync unfinished")
 				continue
 			}
 			snapshotBlock := &ledger.SnapshotBlock{
@@ -165,12 +164,12 @@ func mockAccount(v *vite.Vite, index int) {
 		v.WalletManager().KeystoreManager.Unlock(AccountMockDataList[index].Addr, "123456", 0)
 
 		for {
-			log.Println("Mock account.")
+			fmt.Println("Mock account.")
 			num := rand2.Intn(3000)
 			time.Sleep(time.Duration(num) * time.Millisecond)
 			syncInfo := v.Ledger().Sc().GetFirstSyncInfo()
 			if !syncInfo.IsFirstSyncDone {
-				log.Println("Sync unfinished")
+				fmt.Println("Sync unfinished")
 				continue
 			}
 			if index == 0 {

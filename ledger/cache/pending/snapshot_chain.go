@@ -2,10 +2,12 @@ package pending
 
 import (
 	"github.com/vitelabs/go-vite/ledger"
-	"log"
 	"sort"
 	"time"
+	"github.com/inconshreveable/log15"
 )
+
+var snapshotchainLog = log15.New("module", "ledger/access/snapshot_chain")
 
 type SnapshotchainPool struct {
 	cache SnapshotBlockList
@@ -17,7 +19,7 @@ func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) bool) *Snapsho
 	pool := SnapshotchainPool{}
 
 	go func() {
-		log.Println("SnapshotchainPool: Start process block")
+		snapshotchainLog.Info("SnapshotchainPool: Start process block")
 		turnInterval := time.Duration(2000)
 		for {
 			if len(pool.cache) <= 0 {
@@ -26,12 +28,12 @@ func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) bool) *Snapsho
 			}
 
 			if processFunc(pool.cache[0]) {
-				log.Println("SnapshotchainPool: block process finished.")
+				snapshotchainLog.Info("SnapshotchainPool: block process finished.")
 				if len(pool.cache) > 0 {
 					pool.cache = pool.cache[1:]
 				}
 			} else {
-				log.Println("SnapshotchainPool: block process unsuccess, wait next.")
+				snapshotchainLog.Info("SnapshotchainPool: block process unsuccess, wait next.")
 				time.Sleep(turnInterval * time.Millisecond)
 			}
 		}
