@@ -66,7 +66,7 @@ func (pm *ProtocolManager) SendStatusMsg(peer *protoType.Peer) {
 		peer.Errch <- err
 		pm.log.Error("send status msg error", "to", peer.ID, "error", err)
 	} else {
-		pm.log.Error("send status msg done", "to", peer.ID, "selfHeight", status.Height)
+		pm.log.Info("send status msg done", "to", peer.ID, "selfHeight", status.Height)
 	}
 }
 
