@@ -13,7 +13,6 @@ import (
 	"log"
 	"net"
 	"path/filepath"
-	"reflect"
 	"sync"
 	"time"
 )
@@ -492,7 +491,6 @@ func (svr *Server) ScheduleTask() {
 		for ; uint32(len(activeTasks)) < defaultMaxActiveDail && i < len(ts); i++ {
 			t := ts[i]
 			go func() {
-				svr.log.Info("perform task", "type", reflect.TypeOf(t).String())
 				t.Perform(svr)
 				taskHasDone <- t
 			}()
@@ -501,11 +499,9 @@ func (svr *Server) ScheduleTask() {
 		return ts[i:]
 	}
 	scheduleTasks := func() {
-		svr.log.Info("schedule tasks")
 		taskQueue = runTasks(taskQueue)
 		if uint32(len(activeTasks)) < defaultMaxActiveDail {
 			newTasks := dm.CreateTasks(peers, blocknodes)
-			svr.log.Info("create tasks", "size", len(newTasks))
 			if len(newTasks) > 0 {
 				taskQueue = append(taskQueue, runTasks(newTasks)...)
 			}
