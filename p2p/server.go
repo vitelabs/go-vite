@@ -10,12 +10,13 @@ import (
 	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"log"
 	"net"
 	"path/filepath"
 	"sync"
 	"time"
 )
+
+var p2pServerLog = log15.New("module", "p2p/server")
 
 const (
 	defaultMaxPeers               = 50
@@ -147,7 +148,7 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 		if err == nil {
 			config.PublicKey = pub
 		} else {
-			log.Printf("publicKey decode error: %v\n", err)
+			p2pServerLog.Info("publicKey decode", "err", err)
 		}
 	}
 
@@ -156,14 +157,14 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 		if err == nil {
 			config.PrivateKey = priv
 		} else {
-			log.Printf("privateKey decode error: %v\n", err)
+			p2pServerLog.Info("privateKey decode", "err", err)
 		}
 	}
 
 	if config.PrivateKey == nil && config.PublicKey == nil {
 		pub, priv, err := ed25519.GenerateKey(nil)
 		if err != nil {
-			log.Fatal("generate self NodeID error: ", err)
+			p2pServerLog.Crit("generate self NodeID", "err", err)
 		}
 		config.PrivateKey = priv
 		config.PublicKey = pub
@@ -185,7 +186,7 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 	svr = &Server{
 		Config:       config,
 		ProtoHandler: handler,
-		log:          log15.New("module", "p2p/server"),
+		log:          p2pServerLog.New("module", "p2p/server"),
 	}
 
 	if svr.Dialer == nil {
@@ -346,7 +347,7 @@ func (svr *Server) Discovery(addr *net.UDPAddr) {
 	tab, laddr, err := newDiscover(cfg)
 
 	if err != nil {
-		log.Fatalf("udp discv error: %v\n", err)
+		svr.log.Crit("udp discv", "err", err)
 	}
 
 	if !laddr.IP.IsLoopback() {
@@ -363,7 +364,7 @@ func (svr *Server) Discovery(addr *net.UDPAddr) {
 func (svr *Server) Listen(addr *net.TCPAddr) {
 	listener, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		log.Fatal("tcp listen error: ", err)
+		svr.log.Crit("tcp listen", "err", err)
 	} else {
 		svr.log.Info("tcp listening", "addr", addr.String())
 	}
@@ -615,7 +616,7 @@ func (d *NodeDailer) DailNode(target *Node) (net.Conn, error) {
 		IP:   target.IP,
 		Port: int(target.Port),
 	}
-	log.Printf("tcp dial node %s\n", target)
+	p2pServerLog.Info("tcp dial", "node", target)
 	return d.Dialer.Dial("tcp", addr.String())
 }
 
@@ -632,7 +633,7 @@ func (t *discoverTask) Perform(svr *Server) {
 	var target NodeID
 	rand.Read(target[:])
 	t.results = svr.ntab.lookup(target)
-	log.Printf("discv tab lookup %s %d nodes\n", target, len(t.results))
+	p2pServerLog.Info(fmt.Sprintf("discv tab lookup %s %d nodes\n", target, len(t.results)))
 }
 
 type dialTask struct {
@@ -649,14 +650,14 @@ func (t *dialTask) Perform(svr *Server) {
 
 	conn, err := svr.Dialer.DailNode(t.target)
 	if err != nil {
-		log.Printf("tcp dial node %s error: %v\n", t.target, err)
+		p2pServerLog.Info(fmt.Sprintf("tcp dial node %s error: %v\n", t.target, err))
 		svr.blocknode <- t.target
 		return
 	}
 
 	err = svr.SetupConn(conn, dynDialedConn)
 	if err != nil {
-		log.Printf("setup connect to %s error: %v\n", t.target, err)
+		p2pServerLog.Info(fmt.Sprintf("setup connect to %s error: %v\n", t.target, err))
 		svr.blocknode <- t.target
 	}
 }

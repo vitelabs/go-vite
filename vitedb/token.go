@@ -2,10 +2,10 @@ package vitedb
 
 import (
 	"errors"
+	"github.com/inconshreveable/log15"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
-	"log"
 	"math/big"
 )
 
@@ -18,7 +18,7 @@ var _token *Token
 func GetToken() *Token {
 	db, err := GetLDBDataBase(DB_LEDGER)
 	if err != nil {
-		log.Fatal(err)
+		log15.Root().Crit(err.Error())
 	}
 
 	if _token == nil {

@@ -3,12 +3,12 @@ package access
 import (
 	"bytes"
 	"errors"
+	"github.com/inconshreveable/log15"
 	errors2 "github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vitedb"
-	"log"
 	"math/big"
 	"sync"
 )
@@ -17,6 +17,7 @@ type SnapshotChainAccess struct {
 	store        *vitedb.SnapshotChain
 	accountStore *vitedb.Account
 	bwMutex      sync.RWMutex
+	log          log15.Logger
 }
 
 var snapshotChainAccess *SnapshotChainAccess
@@ -26,6 +27,7 @@ func GetSnapshotChainAccess() *SnapshotChainAccess {
 		snapshotChainAccess = &SnapshotChainAccess{
 			store:        vitedb.GetSnapshotChain(),
 			accountStore: vitedb.GetAccount(),
+			log:          log15.New("module", "ledger/access/snapshot_chain"),
 		}
 	}
 	return snapshotChainAccess
@@ -45,7 +47,7 @@ func (sca *SnapshotChainAccess) CheckAndCreateGenesisBlocks() {
 	// Check snapshotGenesisBlock
 	snapshotGenesisBlock, err := sca.store.GetBLockByHeight(big.NewInt(1))
 	if err != nil && err != leveldb.ErrNotFound {
-		log.Fatal(errors2.Wrap(err, "CheckAndCreateGenesisBlocks"))
+		sca.log.Crit(errors2.Wrap(err, "CheckAndCreateGenesisBlocks").Error())
 	}
 
 	if snapshotGenesisBlock == nil {
@@ -55,10 +57,10 @@ func (sca *SnapshotChainAccess) CheckAndCreateGenesisBlocks() {
 			// Fixme
 			err := vitedb.ClearAndReNewDb(vitedb.DB_LEDGER)
 			if err != nil {
-				log.Fatal(errors2.Wrap(errors.New("SnapshotGenesisBlock is not valid. ClearAndReNewDb failed."), "CheckAndCreateGenesisBlocks"))
+				sca.log.Crit(errors2.Wrap(errors.New("SnapshotGenesisBlock is not valid. ClearAndReNewDb failed."), "CheckAndCreateGenesisBlocks").Error())
 			}
 
-			log.Println("CheckAndCreateGenesisBlocks: ClearAndReNewDb")
+			sca.log.Info("CheckAndCreateGenesisBlocks: ClearAndReNewDb")
 			sca.CheckAndCreateGenesisBlocks()
 		}
 	}
@@ -68,28 +70,28 @@ func (sca *SnapshotChainAccess) CheckAndCreateGenesisBlocks() {
 	// Check accountGenesisBlockFirst
 	accountGenesisBlockFirst, err := accountChainAccess.GetBlockByHash(ledger.AccountGenesisBlockFirst.Hash)
 	if err != nil && err != leveldb.ErrNotFound {
-		log.Fatal(errors2.Wrap(err, "CheckAccountGenesisBlockFirst"))
+		sca.log.Crit(errors2.Wrap(err, "CheckAccountGenesisBlockFirst").Error())
 	}
 
 	if accountGenesisBlockFirst == nil {
 		accountChainAccess.WriteGenesisBlock()
 	} else {
 		if ok := accountGenesisBlockFirst.IsGenesisBlock(); !ok {
-			log.Fatal(errors2.Wrap(errors.New("AccountGenesisBlockFirst is not valid."), "CheckAndCreateAccountGenesisBlockFirst"))
+			sca.log.Crit(errors2.Wrap(errors.New("AccountGenesisBlockFirst is not valid."), "CheckAndCreateAccountGenesisBlockFirst").Error())
 		}
 	}
 
 	// Check accountGenesisBlockSecond
 	accountGenesisBlockSecond, err := accountChainAccess.GetBlockByHash(ledger.AccountGenesisBlockSecond.Hash)
 	if err != nil && err != leveldb.ErrNotFound {
-		log.Fatal(errors2.Wrap(err, "CheckAccountGenesisBlockSecond"))
+		sca.log.Crit(errors2.Wrap(err, "CheckAccountGenesisBlockSecond").Error())
 	}
 
 	if accountGenesisBlockSecond == nil {
 		accountChainAccess.WriteGenesisSecondBlock()
 	} else {
 		if ok := accountGenesisBlockSecond.IsGenesisSecondBlock(); !ok {
-			log.Fatal(errors2.Wrap(errors.New("AccountGenesisBlockSecond is not valid."), "CheckAndCreateAccountGenesisBlockSecond"))
+			sca.log.Crit(errors2.Wrap(errors.New("AccountGenesisBlockSecond is not valid."), "CheckAndCreateAccountGenesisBlockSecond").Error())
 		}
 	}
 
@@ -97,9 +99,9 @@ func (sca *SnapshotChainAccess) CheckAndCreateGenesisBlocks() {
 
 func (sca *SnapshotChainAccess) WriteGenesisBlock() {
 	if err := sca.WriteBlock(ledger.SnapshotGenesisBlock, nil); err != nil {
-		log.Fatal(errors2.Wrap(err, "snapshotChain.WriteGenesisBlock"))
+		sca.log.Crit(errors2.Wrap(err, "snapshotChain.WriteGenesisBlock").Error())
 	}
-	log.Println("snapshotChain.WriteGenesisBlock success.")
+	sca.log.Info("snapshotChain.WriteGenesisBlock success.")
 }
 
 func (sca *SnapshotChainAccess) GetBlockByHeight(height *big.Int) (*ledger.SnapshotBlock, error) {

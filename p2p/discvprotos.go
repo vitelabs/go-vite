@@ -5,13 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/protos"
-	"log"
 	"net"
 )
+
+var discvprotosLog = log15.New("module", "p2p/discvprotos")
 
 const version byte = 1
 const (
@@ -78,7 +80,7 @@ func (p *Ping) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err e
 }
 
 func (p *Ping) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
-	log.Printf("receive ping from %s\n", origin)
+	discvprotosLog.Info("receive ping ", "from", origin)
 
 	pong := &Pong{
 		ID:   d.getID(),
@@ -135,7 +137,7 @@ func (p *Pong) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err e
 }
 
 func (p *Pong) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
-	log.Printf("receive pong from %s\n", origin)
+	discvprotosLog.Info("receive pong", "from", origin)
 	return d.receive(pongCode, p)
 }
 
@@ -179,7 +181,7 @@ func (p *FindNode) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, 
 }
 
 func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
-	log.Printf("receive findnode %s from %s\n", p.Target, origin)
+	discvprotosLog.Info("receive", "findnode", p.Target, "from", origin)
 
 	closet := d.tab.closest(p.Target, maxNeighborsNodes)
 
@@ -189,9 +191,9 @@ func (p *FindNode) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) err
 	})
 
 	if err != nil {
-		log.Printf("send %d neighbors to %s, target: %s, error: %v\n", len(closet.nodes), origin, p.Target, err)
+		discvprotosLog.Info(fmt.Sprintf("send %d neighbors to %s, target: %s, error: %v\n", len(closet.nodes), origin, p.Target, err))
 	} else {
-		log.Printf("send %d neighbors to %s, target: %s\n", len(closet.nodes), origin, p.Target)
+		discvprotosLog.Info(fmt.Sprintf("send %d neighbors to %s, target: %s\n", len(closet.nodes), origin, p.Target))
 	}
 
 	return err
@@ -250,7 +252,7 @@ func (p *Neighbors) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash,
 }
 
 func (p *Neighbors) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) error {
-	log.Printf("receive %d neighbors from %s\n", len(p.Nodes), p.getID())
+	discvprotosLog.Info(fmt.Sprintf("receive %d neighbors from %s\n", len(p.Nodes), p.getID()))
 	return d.receive(neighborsCode, p)
 }
 

@@ -2,10 +2,10 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/common"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -77,14 +77,15 @@ func init() {
 	if text, err := ioutil.ReadFile("vite.config.json"); err == nil {
 		err = json.Unmarshal(text, GlobalConfig)
 		if err != nil {
-			log.Printf("config file unmarshal error: %v\n", err)
+			fmt.Println("config file unmarshal error: ", err)
 		}
 	} else {
-		log.Printf("config file read error: %v\n", err)
+		fmt.Println("config file read error: ", err)
 	}
 
 	// set default value global keys
 	if GlobalConfig.DataDir == "" {
 		GlobalConfig.DataDir = common.DefaultDataDir()
 	}
+
 }
