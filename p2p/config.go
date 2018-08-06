@@ -19,7 +19,7 @@ func pickPub(data, sign string) ed25519.PublicKey {
 	payload := []byte(data)
 	sig, err := hex.DecodeString(sign)
 	if err != nil {
-		log.Fatalf("error sign from cmd: %v\n", err)
+		log.Fatalf("invalid signature from cmd: %v\n", err)
 	}
 
 	for _, str := range pubs {

@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/binary"
+	"github.com/inconshreveable/log15"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"log"
 	"os"
 )
 
 type nodeDB struct {
-	db *leveldb.DB
-	id NodeID
+	db  *leveldb.DB
+	id  NodeID
+	log log15.Logger
 }
 
 const (
@@ -217,7 +218,6 @@ func nextNode(iterator iterator.Iterator) *Node {
 		err = node.Deserialize(data)
 
 		if err != nil {
-			log.Printf("discover iterator error: %v\n", err)
 			continue
 		}
 

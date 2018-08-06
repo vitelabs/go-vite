@@ -2,14 +2,15 @@ package protocols
 
 import (
 	"fmt"
+	"github.com/inconshreveable/log15"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/vitelabs/go-vite/ledger"
 	ledgerHandler "github.com/vitelabs/go-vite/ledger/handler_interface"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/protocols/interfaces"
 	protoType "github.com/vitelabs/go-vite/protocols/types"
-	"log"
 	"math/big"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -28,6 +29,7 @@ type ProtocolManager struct {
 	achain   ledgerHandler.AccountChain
 	mutex    sync.RWMutex
 	syncPeer *protoType.Peer
+	log      log15.Logger
 }
 
 func (pm *ProtocolManager) HandleStatusMsg(status *protoType.StatusMsg, peer *protoType.Peer) {
@@ -36,12 +38,12 @@ func (pm *ProtocolManager) HandleStatusMsg(status *protoType.StatusMsg, peer *pr
 		return
 	}
 
-	log.Printf("receive status from %s height %d \n", peer.ID, status.Height)
+	pm.log.Info("receive status msg", "from", peer.ID, "peerHeight", status.Height)
 
 	peer.Update(status)
 	// AddPeer after get status msg from it, ensure we get Height and Hash of peer.
 	pm.Peers.AddPeer(peer)
-	log.Printf("now we have %d peers\n", pm.Peers.Count())
+	pm.log.Info("now we have " + strconv.Itoa(pm.Peers.Count()) + " peers")
 
 	// use goroutine to avoid block following msgs.
 	go pm.Sync()
@@ -62,9 +64,9 @@ func (pm *ProtocolManager) SendStatusMsg(peer *protoType.Peer) {
 
 	if err != nil {
 		peer.Errch <- err
-		log.Printf("send status msg to %s error: %v\n", peer.ID, err)
+		pm.log.Error("send status msg error", "to", peer.ID, "error", err)
 	} else {
-		log.Printf("send status msg to %s, our height %d\n", peer.ID, status.Height)
+		pm.log.Error("send status msg done", "to", peer.ID, "selfHeight", status.Height)
 	}
 }
 
@@ -73,6 +75,7 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 		Peer:    peer,
 		ID:      peer.ID().String(),
 		Sending: make(chan struct{}, 1),
+		Log:     log15.New("module", "pm/peer"),
 	}
 
 	// send status msg to peer synchronously.
@@ -121,10 +124,10 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 			}
 
 			if err != nil {
-				log.Printf("pm handle msg %d from %s error: %v\n", msg.Code, peer.ID(), err)
+				pm.log.Error("pm handle msg error", "code", msg.Code, "from", peer.ID(), "error", err)
 				peer.Errch <- err
 			} else {
-				log.Printf("pm handle msg %d from %s done\n", msg.Code, peer.ID())
+				pm.log.Info("pm handle msg done", "code", msg.Code, "from", peer.ID())
 			}
 		}
 	}
@@ -164,14 +167,14 @@ func (pm *ProtocolManager) SendMsg(p *protoType.Peer, msg *protoType.Msg) error 
 
 	// send to the specified peer
 	p.Sending <- struct{}{}
-	log.Printf("pm begin send msg %d to %s %d bytes\n", msg.Code, p.ID, len(payload))
+	pm.log.Info("pm begin send msg", "code", msg.Code, "to", p.ID, "size", len(payload))
 	err = p2p.Send(p.TS, m)
 	<-p.Sending
 	return err
 }
 
 func (pm *ProtocolManager) BroadcastMsg(msg *protoType.Msg) (fails []*protoType.Peer) {
-	log.Printf("pm broadcast msg %d\n", msg.Code)
+	pm.log.Info("pm broadcast msg", "code", msg.Code)
 
 	sent := make(map[*protoType.Peer]bool)
 
@@ -181,9 +184,9 @@ func (pm *ProtocolManager) BroadcastMsg(msg *protoType.Msg) (fails []*protoType.
 		err := pm.SendMsg(p, msg)
 		if err != nil {
 			sent[p] = false
-			log.Printf("pm broadcast msg %d to %s error: %v\n", msg.Code, p.ID, err)
+			pm.log.Error("pm broadcast msg error", "code", msg.Code, "to", p.ID, "error", err)
 		} else {
-			log.Printf("pm broadcast msg %d to %s done\n", msg.Code, p.ID)
+			pm.log.Info("pm broadcast msg done", "code", msg.Code, "to", p.ID)
 		}
 		<-pending
 	}
@@ -230,7 +233,7 @@ func (pm *ProtocolManager) Sync() {
 		if pm.schain.SyncPeer != nil {
 			pm.mutex.Lock()
 			if pm.Syncing {
-				log.Println("already syncing")
+				pm.log.Info("already syncing")
 				pm.mutex.Unlock()
 				return
 			} else {
@@ -239,13 +242,13 @@ func (pm *ProtocolManager) Sync() {
 				pm.mutex.Unlock()
 			}
 
-			log.Printf("begin sync from %s until height %d\n", bestPeer.ID, bestPeer.Height.Uint64())
+			pm.log.Info("begin sync", "from", bestPeer.ID, "to", bestPeer.Height.Uint64())
 			pm.schain.SyncPeer(bestPeer)
 		} else {
-			log.Println("missing sync method")
+			pm.log.Info("missing sync handler")
 		}
 	} else {
-		log.Printf("no need sync from bestPeer %s\n at height %d, self Height %d\n", bestPeer.ID, bestPeer.Height, currentBlock.Height)
+		pm.log.Info("no need sync from bestPeer", "peer", bestPeer.ID, "peerHeight", bestPeer.Height, "selfHeight", currentBlock.Height)
 		// tell blockchain no need sync
 		if pm.schain.SyncPeer != nil {
 			pm.schain.SyncPeer(nil)
@@ -263,9 +266,9 @@ func (pm *ProtocolManager) SyncDone() {
 func (pm *ProtocolManager) CurrentBlock() (block *ledger.SnapshotBlock) {
 	block, err := pm.schain.GetLatestBlock()
 	if err != nil {
-		log.Fatalf("pm.chain.GetLatestBlock error: %v\n", err)
+		pm.log.Error("getLatestBlock error", "error", err)
 	} else {
-		log.Printf("self latestblock: %s at height %d\n", block.Hash, block.Height)
+		pm.log.Info("getLatestBlock done", "hash", block.Hash, "height", block.Height)
 	}
 
 	return block
@@ -278,6 +281,7 @@ func NewProtocolManager(vite interfaces.Vite) *ProtocolManager {
 		schain: vite.Ledger().Sc(),
 		achain: vite.Ledger().Ac(),
 		vite:   vite,
+		log:    log15.New("module", "pm"),
 	}
 }
 

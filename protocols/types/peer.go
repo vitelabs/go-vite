@@ -1,9 +1,9 @@
 package types
 
 import (
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/p2p"
-	"log"
 	"math/big"
 	"sync"
 )
@@ -19,6 +19,7 @@ type Peer struct {
 	Lock    sync.RWMutex
 	// use this channel to ensure that only one goroutine send msg simultaneously.
 	Sending chan struct{}
+	Log     log15.Logger
 }
 
 func (p *Peer) Update(status *StatusMsg) {
@@ -27,5 +28,5 @@ func (p *Peer) Update(status *StatusMsg) {
 
 	p.Height = status.Height
 	p.Head = status.CurrentBlock
-	log.Printf("peer %s update status: height %d Head %s\n", p.ID, p.Height, p.Head)
+	p.Log.Info("update status", "ID", p.ID, "height", p.Height, "head", p.Head)
 }

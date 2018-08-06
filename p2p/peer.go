@@ -3,7 +3,7 @@ package p2p
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+	"github.com/inconshreveable/log15"
 	"sync"
 	"time"
 )
@@ -81,6 +81,7 @@ type Peer struct {
 	disc         chan DiscReason
 	ProtoMsg     chan Msg
 	protoHandler peerHandler
+	log          log15.Logger
 }
 
 func NewPeer(ts *TSConn) *Peer {
@@ -91,11 +92,12 @@ func NewPeer(ts *TSConn) *Peer {
 		disc:     make(chan DiscReason),
 		ProtoMsg: make(chan Msg),
 		created:  time.Now(),
+		log:      log15.New("module", "p2p/peer"),
 	}
 }
 
 func (p *Peer) run(protoHandler peerHandler) (err error) {
-	log.Printf("peer %s run\n", p.ID())
+	p.log.Info("run peer", "ID", p.ID().String())
 
 	p.wg.Add(1)
 	go p.readLoop()
@@ -105,7 +107,7 @@ func (p *Peer) run(protoHandler peerHandler) (err error) {
 		p.protoHandler = protoHandler
 		p.wg.Add(1)
 		go func() {
-			log.Printf("proto handle peer %s\n", p.ID())
+			p.log.Info("proto handle peer", "ID", p.ID().String())
 			protoHandler(p)
 			p.wg.Done()
 		}()
@@ -142,7 +144,7 @@ func (p *Peer) readLoop() {
 		default:
 			msg, err := p.TS.ReadMsg()
 			if err != nil {
-				log.Printf("peer %s read error: %v\n", p.ID(), err)
+				p.log.Error("peer read error", "ID", p.ID().String(), "error", err)
 				p.Errch <- err
 				return
 			}
@@ -153,12 +155,12 @@ func (p *Peer) readLoop() {
 }
 
 func (p *Peer) handleMsg(msg Msg) {
-	log.Printf("tcp receive msg %d from %s\n", msg.Code, p.ID())
+	p.log.Info("peer handle msg", "code", msg.Code, "from", p.ID().String())
 
 	switch {
 	case msg.Code == discMsg:
 		discReason := binary.BigEndian.Uint64(msg.Payload)
-		log.Printf("disconnect with peer %s: %s\n", p.ID(), DiscReason(discReason))
+		p.log.Info("disconnect with peer", "ID", p.ID().String(), "reason", DiscReason(discReason))
 		p.Errch <- DiscReason(discReason)
 	case msg.Code < baseProtocolBand:
 		// ignore
@@ -173,7 +175,7 @@ func (p *Peer) handleMsg(msg Msg) {
 }
 
 func (p *Peer) Disconnect(reason DiscReason) {
-	log.Printf("disconnect with peer %s\n", p.ID())
+	p.log.Info("disconnect with peer", "ID", p.ID().String())
 
 	select {
 	case p.disc <- reason:

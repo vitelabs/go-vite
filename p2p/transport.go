@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/p2p/protos"
-	"log"
 	"net"
 )
 
@@ -120,6 +120,7 @@ func Send(w MsgWriter, msg *Msg) error {
 func NewPBTS(conn net.Conn) transport {
 	return &PBTS{
 		conn: conn,
+		log:  log15.New("module", "p2p/transport"),
 	}
 }
 
@@ -131,6 +132,7 @@ type PBTS struct {
 	//peerID NodeID
 	//priv ed25519.PrivateKey
 	conn net.Conn
+	log  log15.Logger
 }
 
 func (pt *PBTS) ReadMsg() (m Msg, err error) {
@@ -256,11 +258,11 @@ func (pt *PBTS) Close(err error) {
 		Payload: data,
 	})
 	if err != nil {
-		log.Printf("send disc msg to %s error: %v\n", pt.conn.RemoteAddr(), err)
+		pt.log.Error("send disc msg error", "to", pt.conn.RemoteAddr().String(), "error", err)
 	}
 
 	pt.conn.Close()
-	log.Printf("disconnect with %s, reason: %v\n", pt.conn.RemoteAddr(), err)
+	pt.log.Info("disconnect", "to", pt.conn.RemoteAddr().String(), "error", err)
 }
 
 func pack(m Msg) (data []byte, err error) {

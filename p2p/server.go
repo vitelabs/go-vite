@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"log"
@@ -113,6 +114,8 @@ type Server struct {
 	ProtoHandler peerHandler
 
 	BootNodes []*Node
+
+	log log15.Logger
 }
 
 func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
@@ -168,6 +171,7 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 	svr = &Server{
 		Config:       config,
 		ProtoHandler: handler,
+		log:          log15.New("module", "p2p/server"),
 	}
 
 	if svr.Dialer == nil {
@@ -223,14 +227,7 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 
 	svr.SetHandshake()
 
-	log.Printf(`server created.
-name: %s
-network: %s
-db: %s
-maxPeers: %d
-maxPendingPeers: %d
-maxActivePeers: %d
-maxPassivePeers: %d`, svr.Name, svr.NetID, svr.Database, svr.MaxPeers, svr.MaxPendingPeers, svr.MaxActivePeers(), svr.MaxPassivePeers())
+	svr.log.Info("server created", "name", svr.Name, "network", svr.NetID.String(), "db", svr.Database, "maxPeers", svr.MaxPeers, "maxPendingPeers", svr.MaxPendingPeers, "maxActivePeers", svr.MaxActivePeers(), "maxPassivePeers", svr.MaxPassivePeers())
 
 	return svr, nil
 }
@@ -354,7 +351,7 @@ func (svr *Server) Listen(addr *net.TCPAddr) {
 	if err != nil {
 		log.Fatal("tcp listen error: ", err)
 	} else {
-		log.Printf("tcp listen at %s\n", addr)
+		svr.log.Info("tcp listening", "addr", addr.String())
 	}
 
 	svr.listener = listener
@@ -385,7 +382,7 @@ func (svr *Server) handleConn() {
 				conn, err = svr.listener.Accept()
 
 				if err != nil {
-					log.Printf("tcp accept error: %v\n", err)
+					svr.log.Error("tcp accept error", "error", err)
 					continue
 				}
 				break
@@ -398,7 +395,7 @@ func (svr *Server) handleConn() {
 }
 
 func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
-	log.Printf("new tcp conn from %s\n", conn.RemoteAddr())
+	svr.log.Info("new tcp conn", "from", conn.RemoteAddr().String())
 
 	defer func() {
 		<-svr.pendingPeers
@@ -410,16 +407,16 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 		flags:     flag,
 	}
 
-	log.Printf("begin handshake with %s\n", conn.RemoteAddr())
+	svr.log.Info("begin handshake", "with", conn.RemoteAddr().String())
 
 	peerhandshake, err := c.Handshake(svr.ourHandshake)
 
 	if err != nil {
-		log.Printf("handshake with %s error: %v\n", conn.RemoteAddr(), err)
+		svr.log.Error("handshake error", "with", conn.RemoteAddr(), "error", err)
 		conn.Close()
 		return err
 	} else {
-		log.Printf("handshake with %s@%s\n", peerhandshake.ID, c.fd.RemoteAddr())
+		svr.log.Info("handshake done", "with", peerhandshake.ID.String()+"@"+c.fd.RemoteAddr().String())
 	}
 
 	c.id = peerhandshake.ID
@@ -480,7 +477,7 @@ func (svr *Server) ScheduleTask() {
 		for ; uint32(len(activeTasks)) < defaultMaxActiveDail && i < len(ts); i++ {
 			t := ts[i]
 			go func() {
-				log.Printf("perform task %s\n", reflect.TypeOf(t))
+				svr.log.Info("perform task", "type", reflect.TypeOf(t).String())
 				t.Perform(svr)
 				taskHasDone <- t
 			}()
@@ -489,11 +486,11 @@ func (svr *Server) ScheduleTask() {
 		return ts[i:]
 	}
 	scheduleTasks := func() {
-		log.Println("schedule tasks")
+		svr.log.Info("schedule tasks")
 		taskQueue = runTasks(taskQueue)
 		if uint32(len(activeTasks)) < defaultMaxActiveDail {
 			newTasks := dm.CreateTasks(peers, blocknodes)
-			log.Printf("create %d tasks\n", len(newTasks))
+			svr.log.Info("create tasks", "size", len(newTasks))
 			if len(newTasks) > 0 {
 				taskQueue = append(taskQueue, runTasks(newTasks)...)
 			}
@@ -515,7 +512,7 @@ schedule:
 			if err == nil {
 				p := NewPeer(c)
 				peers[p.ID()] = p
-				log.Printf("create new peer %s\n", c.id)
+				svr.log.Info("create new peer", "ID", c.id.String())
 				go svr.runPeer(p)
 
 				if c.is(inboundConn) {
@@ -523,11 +520,11 @@ schedule:
 				}
 			} else {
 				c.Close(err)
-				log.Printf("create new peer error: %v\n", err)
+				svr.log.Error("create new peer error", "error", err)
 			}
 		case p := <-svr.delPeer:
 			delete(peers, p.ID())
-			log.Printf("delete peer %s\n", p.ID())
+			svr.log.Info("delete peer", "ID", p.ID().String())
 
 			if p.TS.is(inboundConn) {
 				passivePeersCount--
@@ -536,7 +533,7 @@ schedule:
 			fn(peers)
 			svr.peersOpsDone <- struct{}{}
 		case node := <-svr.blocknode:
-			log.Printf("block node: %s\n", node)
+			svr.log.Info("block node", "node", node.String())
 			blocknodes[node.ID] = &blockNode{
 				node,
 				time.Now(),
@@ -551,7 +548,7 @@ schedule:
 		}
 	}
 
-	log.Println("out of tcp task loop")
+	svr.log.Info("out of tcp task loop")
 
 	if svr.ntab != nil {
 		svr.ntab.stop()
@@ -570,7 +567,7 @@ schedule:
 func (svr *Server) runPeer(p *Peer) {
 	err := p.run(svr.ProtoHandler)
 	if err != nil {
-		log.Println("run peer error: ", err)
+		svr.log.Error("run peer error", "error", err)
 	}
 	svr.delPeer <- p
 }

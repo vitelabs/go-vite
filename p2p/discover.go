@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/protos"
 	"log"
@@ -435,6 +436,7 @@ type table struct {
 	self          *Node
 	rand          *mrand.Rand
 	stopped       chan struct{}
+	log           log15.Logger
 }
 
 type agent interface {
@@ -456,6 +458,7 @@ func newTable(self *Node, net agent, dbPath string, bootNodes []*Node) (*table, 
 		bootNodes: bootNodes,
 		rand:      mrand.New(mrand.NewSource(0)),
 		stopped:   make(chan struct{}),
+		log:       log15.New("module", "discv/table"),
 	}
 
 	// init buckets
@@ -482,7 +485,7 @@ func (tb *table) resetRand() {
 func (tb *table) loadSeedNodes() {
 	nodes := tb.db.randomNodes(seedCount)
 	nodes = append(nodes, tb.bootNodes...)
-	log.Printf("discover table load %d seed nodes\n", len(nodes))
+	tb.log.Info("discover table load seed nodes", "size", len(nodes))
 
 	for _, node := range nodes {
 		tb.addNode(node)
@@ -606,10 +609,9 @@ func (tb *table) checkLastNode() {
 	err := tb.agent.ping(last)
 
 	if err != nil {
-		log.Printf("obsolete %s: %v\n", last.ID, err)
+		tb.log.Info("obsolete node", "ID", last.ID, "error", err)
 		bucket.obsolete(last)
 	} else {
-		log.Printf("check %s\n", last.ID)
 		bucket.check(last)
 	}
 }
@@ -631,7 +633,7 @@ func (tb *table) pickLastNode() (*Node, *bucket) {
 }
 
 func (tb *table) refresh(done chan struct{}) {
-	log.Println("discv table begin refresh")
+	tb.log.Info("discv table begin refresh")
 
 	tb.loadSeedNodes()
 
@@ -660,7 +662,7 @@ func (tb *table) storeNodes(done chan struct{}) {
 }
 
 func (tb *table) stop() {
-	log.Println("discv table stop")
+	tb.log.Info("discv table stop")
 	close(tb.stopped)
 }
 
@@ -784,6 +786,7 @@ type discover struct {
 	reqing  chan *req
 	getres  chan *res
 	stopped chan struct{}
+	log     log15.Logger
 }
 
 func newDiscover(cfg *DiscvConfig) (*table, *net.UDPAddr, error) {
@@ -798,6 +801,7 @@ func newDiscover(cfg *DiscvConfig) (*table, *net.UDPAddr, error) {
 		reqing:  make(chan *req),
 		getres:  make(chan *res),
 		stopped: make(chan struct{}),
+		log:     log15.New("module", "discv/agent"),
 	}
 
 	// get the real local address. eg. 127.0.0.1:8483
@@ -814,7 +818,7 @@ func newDiscover(cfg *DiscvConfig) (*table, *net.UDPAddr, error) {
 		IP:   laddr.IP,
 		Port: uint16(laddr.Port),
 	}
-	log.Printf("self: %s\n", node)
+	discv.log.Info(node.String())
 
 	discv.tab, err = newTable(node, discv, cfg.DBPath, cfg.BootNodes)
 
@@ -904,7 +908,7 @@ func (d *discover) ping(node *Node) error {
 	if n != len(data) {
 		return fmt.Errorf("send incomplete ping to %s: %d/%d\n", node, n, len(data))
 	}
-	log.Printf("send ping to %s\n", node)
+	d.log.Info("send ping", "to", node.String())
 	node.lastping = time.Now()
 
 	errch := d.wait(node.ID, pongCode, func(m Message) error {
@@ -921,7 +925,7 @@ func (d *discover) ping(node *Node) error {
 	return <-errch
 }
 func (d *discover) findnode(ID NodeID, n *Node) (nodes []*Node, err error) {
-	log.Printf("findnode %s to %s\n", ID, n)
+	d.log.Info("findnode", "target", ID.String(), "to", n.String())
 
 	if time.Now().Sub(n.lastping) > pingInvervalPerNode {
 		d.ping(n)
@@ -945,7 +949,7 @@ func (d *discover) findnode(ID NodeID, n *Node) (nodes []*Node, err error) {
 	})
 
 	err = <-errch
-	log.Printf("findnode got %d nodes, error: %v\n", len(nodes), err)
+	d.log.Info("got neighbors", "target", ID.String(), "count", len(nodes))
 	return nodes, err
 }
 
@@ -985,11 +989,10 @@ func (d *discover) loop() {
 				w.errch <- errStopped
 			}
 		case req := <-d.reqing:
-			log.Printf("wating msg %d from %s expire %s\n", req.proto, req.senderID, req.expire)
 			rql = append(rql, req)
 		case res := <-d.getres:
 			rql = handleRes(rql, res)
-			log.Printf("handle msg %d from %s\n", res.proto, res.senderID)
+			d.log.Info("handle msg", "code", res.proto, "from", res.senderID.String())
 		case <-checkTicker.C:
 			rql = cleanStaleReq(rql)
 		}
@@ -1004,24 +1007,23 @@ func (d *discover) readLoop() {
 		nbytes, addr, err := d.conn.ReadFromUDP(buf)
 
 		if nbytes == 0 {
-			log.Printf("discv read from %s 0 bytes\n", addr)
 			continue
 		}
 
 		m, hash, err := unPacket(buf[:nbytes])
 		if err != nil {
-			log.Printf("udp unpack from %s error: %v\n", addr, err)
+			d.log.Error("udp unpack from error", "from", addr.String(), "error", err)
 			continue
 		}
-
-		log.Printf("udp read from %s@%s\n", m.getID(), addr)
 
 		// todo
 		// hash is just use for construct pong message,
 		// could be optimize latter.
 		err = m.Handle(d, addr, hash)
 		if err != nil {
-			log.Printf("handle discv msg from %s@%s error: %v\n", m.getID(), addr, err)
+			d.log.Error("handle discv msg error", "from", m.getID().String()+addr.String(), "error", err)
+		} else {
+			d.log.Info("handle discv msg done", "from", m.getID().String()+addr.String())
 		}
 	}
 }
@@ -1040,7 +1042,7 @@ func (d *discover) send(addr *net.UDPAddr, code byte, m Message) (err error) {
 		return fmt.Errorf("send incomplete msg to %s: %d/%d\n", addr, n, len(data))
 	}
 
-	log.Printf("send msg %d (%d bytes) to %s\n", code, n, addr)
+	d.log.Info("send msg done", "code", code, "size", n, "to", addr.String())
 
 	return nil
 }
