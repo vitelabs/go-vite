@@ -2,7 +2,7 @@ package protocols
 
 import (
 	"fmt"
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/vitelabs/go-vite/ledger"
 	ledgerHandler "github.com/vitelabs/go-vite/ledger/handler_interface"

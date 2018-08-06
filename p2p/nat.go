@@ -1,7 +1,7 @@
 package p2p
 
 import (
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/syaka-yin/go-nat"
 	"net"
 	"sync"

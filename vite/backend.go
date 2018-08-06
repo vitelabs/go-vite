@@ -13,10 +13,10 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/miner"
 	"github.com/vitelabs/go-vite/signer"
 	"time"
-	"github.com/inconshreveable/log15"
 )
 
 type Vite struct {

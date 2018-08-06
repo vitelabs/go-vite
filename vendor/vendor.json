@@ -154,12 +154,6 @@
 			"revisionTime": "2018-06-08T14:01:56Z"
 		},
 		{
-			"checksumSHA1": "W7WyVSrJNaQNQt2R9O4DxrK58cs=",
-			"path": "github.com/inconshreveable/log15",
-			"revision": "0decfc6c20d9ca0ad143b0e89dcaa20f810b4fb3",
-			"revisionTime": "2016-11-12T20:41:34Z"
-		},
-		{
 			"checksumSHA1": "fDPeeWbnxZqrfrU0JFyMa+glPDI=",
 			"path": "github.com/jackpal/gateway",
 			"revision": "cbcf4e3f3baee7952fc386c8b2534af4d267c875",

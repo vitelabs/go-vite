@@ -2,7 +2,7 @@ package vitedb
 
 import (
 	"errors"
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"

@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"net"
