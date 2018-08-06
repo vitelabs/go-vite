@@ -6,10 +6,10 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 	"os"
 	"path/filepath"
-	"github.com/inconshreveable/log15"
 )
 
 type DataBase struct {

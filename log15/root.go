@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/mattn/go-colorable"
-	isatty "github.com/mattn/go-isatty"
+	"github.com/mattn/go-isatty"
 )
 
 // Predefined handlers
@@ -65,4 +65,5 @@ func Error(msg string, ctx ...interface{}) {
 // Crit is a convenient alias for Root().Crit
 func Crit(msg string, ctx ...interface{}) {
 	root.write(msg, LvlCrit, ctx)
+	os.Exit(1)
 }

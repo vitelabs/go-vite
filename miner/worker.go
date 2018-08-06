@@ -3,9 +3,9 @@ package miner
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"sync"
 	"time"
-	"github.com/inconshreveable/log15"
 )
 
 var wLog = log15.New("module", "miner/worker")
@@ -18,7 +18,7 @@ type worker struct {
 	coinbase types.Address
 	mu       sync.Mutex
 	updateWg sync.WaitGroup
-	updateCh chan int  // update goroutine closed event chan
+	updateCh chan int // update goroutine closed event chan
 }
 
 func (self *worker) Init() {
@@ -36,7 +36,7 @@ func (self *worker) Start() {
 func (self *worker) Stop() {
 	self.PreStop()
 	defer self.PostStop()
-	close(self.updateCh)  // close update goroutine
+	close(self.updateCh) // close update goroutine
 	self.updateWg.Wait()
 }
 
@@ -60,7 +60,7 @@ func (self *worker) update(ch chan int) {
 			}
 		case <-ch: // closed event chan
 			wLog.Info("worker.update closed.")
-		 	return
+			return
 		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-stack/stack"
+	"os"
 )
 
 const timeKey = "t"
@@ -17,7 +18,7 @@ type Lvl int
 
 // List of predefined log Levels
 const (
-	LvlCrit Lvl = iota
+	LvlCrit  Lvl = iota
 	LvlError
 	LvlWarn
 	LvlInfo
@@ -149,6 +150,7 @@ func (l *logger) Error(msg string, ctx ...interface{}) {
 
 func (l *logger) Crit(msg string, ctx ...interface{}) {
 	l.write(msg, LvlCrit, ctx)
+	os.Exit(1)
 }
 
 func (l *logger) GetHandler() Handler {

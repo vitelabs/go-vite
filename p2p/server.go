@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"net"
@@ -141,6 +141,7 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 
 	if config.Name != "" && config.Sig != "" {
 		config.PublicKey = pickPub(config.Name, config.Sig)
+		fmt.Println()
 	}
 
 	if cfg.PublicKey != "" {

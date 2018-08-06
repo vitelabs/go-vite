@@ -2,7 +2,7 @@ package p2p
 
 import (
 	"encoding/hex"
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 )

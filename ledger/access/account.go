@@ -1,7 +1,7 @@
 package access
 
 import (
-	"fmt"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -12,6 +12,7 @@ import (
 
 type AccountAccess struct {
 	store *vitedb.Account
+	log   log15.Logger
 }
 
 var accountAccess *AccountAccess
@@ -20,6 +21,7 @@ func GetAccountAccess() *AccountAccess {
 	if accountAccess == nil {
 		accountAccess = &AccountAccess{
 			store: vitedb.GetAccount(),
+			log:   log15.New("module", "ledger/access/account"),
 		}
 	}
 	return accountAccess
@@ -53,7 +55,7 @@ func (aa *AccountAccess) CreateNewAccountMeta(batch *leveldb.Batch, accountAddre
 func (aa *AccountAccess) GetAccountMeta(accountAddress *types.Address) (*ledger.AccountMeta, error) {
 	data, err := aa.store.GetAccountMetaByAddress(accountAddress)
 	if err != nil {
-		fmt.Println(err)
+		aa.log.Error(err.Error())
 		return nil, err
 	}
 	return data, nil

@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"runtime"
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 // it it return false it must not be a valid keystore file

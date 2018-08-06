@@ -3,7 +3,7 @@ package rpc
 import (
 	"net"
 	"net/rpc"
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 var rLog = log15.New("module", "rpc")

@@ -1,7 +1,7 @@
 package miner
 
 import (
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"

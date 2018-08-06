@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/inconshreveable/log15"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/cmd/rpc_vite"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/vite"
