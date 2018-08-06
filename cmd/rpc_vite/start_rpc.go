@@ -1,6 +1,7 @@
 package rpc_vite
 
 import (
+	"github.com/inconshreveable/log15"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpc/apis"
 	"github.com/vitelabs/go-vite/vite"
@@ -16,7 +17,7 @@ func StartIpcRpc(vite *vite.Vite, dataDir string) {
 	if runtime.GOOS == "windows" {
 		ipcapiURL = rpc.DefaultIpcFile()
 	}
-	println("ipcapiURL: ", ipcapiURL)
+	log15.Root().Info("StartIpcRpc ", "ipcapiURL: ", ipcapiURL)
 	lis, _ := rpc.IpcListen(ipcapiURL)
 
 	exitSig := make(chan os.Signal, 1)
