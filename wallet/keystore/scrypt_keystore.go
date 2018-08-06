@@ -108,7 +108,7 @@ func parseJson(keyjson []byte) (k *encryptedKeyJSON, kAddress *types.Address, ci
 }
 
 func DecryptKey(keyjson []byte, password string) (*Key, error) {
-	log := log15.New("Method", "wallet/keystore/scrypt_keystore/DecryptKey")
+	log := log15.New("method", "wallet/keystore/scrypt_keystore/DecryptKey")
 	k, kAddress, cipherPriv, nonce, salt, err := parseJson(keyjson)
 	if err != nil {
 		return nil, err

@@ -13,17 +13,17 @@ var adLog = log15.New("module", "ledger/handler/account_chain")
 func (ac *AccountChain) GetAccount(accountAddress *types.Address) (*handler_interface.Account, error) {
 	accountMeta, err := ac.aAccess.GetAccountMeta(accountAddress)
 	if err != nil {
-		adLog.Info("func GetAccount.GetAccountMeta failed, error: ", err)
+		adLog.Info("func GetAccount.GetAccountMeta failed, ", "err", err)
 		return nil, nil
 	}
 	accountBLockHeight, err := ac.acAccess.GetLatestBlockHeightByAccountId(accountMeta.AccountId)
 	if err != nil {
-		adLog.Info("func GetAccount.GetLatestBlockHeightByAccountId failed, error: ", err)
+		adLog.Info("func GetAccount.GetLatestBlockHeightByAccountId failed,", "err", err)
 		return nil, nil
 	}
 	accountTokenList, err := ac.GetAccountTokenList(accountMeta)
 	if err != nil {
-		adLog.Info("func GetAccount.GetAccountTokenList failed, error: ", err)
+		adLog.Info("func GetAccount.GetAccountTokenList failed, ", "err", err)
 		return nil, nil
 	}
 	return NewAccount(accountAddress, accountBLockHeight, accountTokenList), nil

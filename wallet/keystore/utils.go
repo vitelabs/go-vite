@@ -70,9 +70,9 @@ func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
 		}
 		err = os.Rename(oldname, standFileName)
 		if err != nil {
-			log.Info("readAndFixAddressFile err ", err)
+			log.Info("readAndFixAddressFile", "err", err)
 		} else {
-			log.Info("readAndFixAddressFile success", err)
+			log.Info("readAndFixAddressFile success")
 		}
 	}
 	return &addr, &keyJSON

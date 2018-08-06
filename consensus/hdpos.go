@@ -122,7 +122,7 @@ func (self *Committee) Subscribe(subscribeMem *SubscribeMem) {
 }
 
 func (self *Committee) update() {
-	log := log15.New("Committee")
+	log := log15.New("module", "committee")
 	var lastIndex int32 = -1
 	var lastRemoveTime = time.Now()
 	for !self.Stopped() {
