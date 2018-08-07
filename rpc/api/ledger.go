@@ -1,4 +1,4 @@
-package api_interface
+package api
 
 // !!! Block = Transaction = TX
 

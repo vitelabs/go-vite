@@ -1,12 +1,12 @@
-package apis
+package impl
 
 import (
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/rpc/api"
 	"strconv"
-	"github.com/vitelabs/go-vite/rpc/api_interface"
 )
 
-func NewP2PApi(p2p *p2p.Server) api_interface.P2PApi {
+func NewP2PApi(p2p *p2p.Server) api.P2PApi {
 	return P2PApiImpl{
 		p2p: p2p,
 	}

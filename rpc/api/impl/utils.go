@@ -1,15 +1,15 @@
-package apis
+package impl
 
 import (
 	"encoding/json"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/rpc/api_interface"
+	"github.com/vitelabs/go-vite/rpc/api"
 )
 
-var log = log15.New("module", "rpc/apis")
+var log = log15.New("module", "rpc/api_impl")
 
 func tryMakeConcernedError(err error, reply *string) error {
-	errjson, concerned := api_interface.MakeConcernedError(err)
+	errjson, concerned := api.MakeConcernedError(err)
 	if concerned {
 		*reply = errjson
 		return nil

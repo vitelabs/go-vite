@@ -12,7 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/rpc"
-	"github.com/vitelabs/go-vite/rpc/api_interface"
+	"github.com/vitelabs/go-vite/rpc/api"
 	"io/ioutil"
 	"net/http"
 	rpc2 "net/rpc"
@@ -45,6 +45,7 @@ func main() {
 
 	help()
 
+	TestStaticApis(client)
 	for {
 		inputReader := bufio.NewReader(os.Stdin)
 		input, err := inputReader.ReadString('\n')
@@ -203,7 +204,7 @@ func CreateTxWithPassphrase(client *rpc2.Client, param []string) {
 		amount = param[3]
 	}
 
-	tx := api_interface.SendTxParms{
+	tx := api.SendTxParms{
 		SelfAddr:    strings.TrimSpace(param[0]),
 		ToAddr:      strings.TrimSpace(param[1]),
 		Passphrase:  pass,
@@ -222,7 +223,7 @@ func GetBlocksByAccAddr(client *rpc2.Client, param []string) {
 	if len(param) == 2 {
 		i, _ = strconv.Atoi(param[1])
 	}
-	tx := api_interface.GetBlocksParams{
+	tx := api.GetBlocksParams{
 		Addr:  strings.TrimSpace(param[0]),
 		Index: i,
 		Count: 20,
@@ -236,7 +237,7 @@ func GetUnconfirmedBlocksByAccAddr(client *rpc2.Client, param []string) {
 		return
 	}
 	i, _ := strconv.Atoi(param[1])
-	tx := api_interface.GetBlocksParams{
+	tx := api.GetBlocksParams{
 		Addr:  param[0],
 		Index: i,
 		Count: 10,
@@ -254,6 +255,13 @@ func GetUnconfirmedInfo(client *rpc2.Client, param []string) {
 
 func GetInitSyncInfo(client *rpc2.Client, param []string) {
 	doRpcCall(client, "ledger.GetInitSyncInfo", nil)
+}
+
+func TestStaticApis(client *rpc2.Client) {
+	doRpcCall(client, "common.LogDir", nil)
+	doRpcCall(client, "types.IsValidHexTokenTypeId", []string{"asd"})
+	doRpcCall(client, "types.IsValidHexAddress", []string{"vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c3a"})
+	doRpcCall(client, "types.IsValidHexAddress", []string{"vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c31"})
 }
 
 func doRpcCall(client *rpc2.Client, method string, param interface{}) {

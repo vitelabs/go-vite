@@ -1,4 +1,4 @@
-package api_interface
+package api
 
 type HexSignedTuple struct {
 	Message    string `json:"Message"`

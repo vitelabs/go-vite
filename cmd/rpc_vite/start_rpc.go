@@ -3,7 +3,6 @@ package rpc_vite
 import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/rpc"
-	"github.com/vitelabs/go-vite/rpc/apis"
 	"github.com/vitelabs/go-vite/vite"
 	"os"
 	"os/signal"
@@ -30,5 +29,5 @@ func StartIpcRpc(vite *vite.Vite, dataDir string) {
 		}
 	}()
 
-	rpc.StartIPCEndpoint(lis, apis.GetAll(vite))
+	rpc.StartIPCEndpoint(lis, rpc.GetAllApis(vite))
 }

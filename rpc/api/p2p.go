@@ -1,4 +1,4 @@
-package api_interface
+package api
 
 type P2PApi interface {
 	// reply true or false

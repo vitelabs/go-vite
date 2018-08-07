@@ -1,17 +1,17 @@
-package apis
+package impl
 
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
-	"github.com/vitelabs/go-vite/rpc/api_interface"
+	"github.com/vitelabs/go-vite/rpc/api"
 	"github.com/vitelabs/go-vite/signer"
 	"github.com/vitelabs/go-vite/vite"
 	"math/big"
 )
 
-func NewLedgerApi(vite *vite.Vite) api_interface.LedgerApi {
+func NewLedgerApi(vite *vite.Vite) api.LedgerApi {
 	return &LegerApiImpl{
 		ledgerManager: vite.Ledger(),
 		signer:        vite.Signer(),
@@ -27,7 +27,7 @@ func (l LegerApiImpl) String() string {
 	return "LegerApiImpl"
 }
 
-func (l *LegerApiImpl) CreateTxWithPassphrase(params *api_interface.SendTxParms, reply *string) error {
+func (l *LegerApiImpl) CreateTxWithPassphrase(params *api.SendTxParms, reply *string) error {
 	log.Info("CreateTxWithPassphrase")
 	if params == nil {
 		return fmt.Errorf("sendTxParms nil")
@@ -63,7 +63,7 @@ func (l *LegerApiImpl) CreateTxWithPassphrase(params *api_interface.SendTxParms,
 	return nil
 }
 
-func (l *LegerApiImpl) GetBlocksByAccAddr(params *api_interface.GetBlocksParams, reply *string) error {
+func (l *LegerApiImpl) GetBlocksByAccAddr(params *api.GetBlocksParams, reply *string) error {
 	log.Info("GetBlocksByAccAddr")
 	if params == nil {
 		return fmt.Errorf("sendTxParms nil")
@@ -82,10 +82,10 @@ func (l *LegerApiImpl) GetBlocksByAccAddr(params *api_interface.GetBlocksParams,
 		}
 		return getErr.Err
 	}
-	jsonBlocks := make([]api_interface.SimpleBlock, len(list))
+	jsonBlocks := make([]api.SimpleBlock, len(list))
 	for i, v := range list {
 
-		jsonBlocks[i] = api_interface.SimpleBlock{
+		jsonBlocks[i] = api.SimpleBlock{
 			Timestamp: v.Timestamp,
 			Hash:      v.Hash.String(),
 		}
@@ -145,7 +145,7 @@ func (l *LegerApiImpl) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.I
 	return times
 }
 
-func (l *LegerApiImpl) GetUnconfirmedBlocksByAccAddr(params *api_interface.GetBlocksParams, reply *string) error {
+func (l *LegerApiImpl) GetUnconfirmedBlocksByAccAddr(params *api.GetBlocksParams, reply *string) error {
 	log.Info("GetUnconfirmedBlocksByAccAddr")
 	*reply = "not support"
 	return nil
@@ -170,10 +170,10 @@ func (l *LegerApiImpl) GetAccountByAccAddr(addrs []string, reply *string) error 
 		*reply = ""
 		return nil
 	}
-	var bs []api_interface.BalanceInfo
-	bs = make([]api_interface.BalanceInfo, len(account.TokenInfoList))
+	var bs []api.BalanceInfo
+	bs = make([]api.BalanceInfo, len(account.TokenInfoList))
 	for i, v := range account.TokenInfoList {
-		bs[i] = api_interface.BalanceInfo{
+		bs[i] = api.BalanceInfo{
 			TokenSymbol: v.Token.Symbol,
 			TokenName:   v.Token.Name,
 			TokenTypeId: v.Token.Id.String(),
@@ -181,7 +181,7 @@ func (l *LegerApiImpl) GetAccountByAccAddr(addrs []string, reply *string) error 
 		}
 	}
 
-	res := api_interface.GetAccountResponse{
+	res := api.GetAccountResponse{
 		Addr:         addrs[0],
 		BalanceInfos: bs,
 		BlockHeight:  account.BlockHeight.String(),
@@ -211,9 +211,9 @@ func (l *LegerApiImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
 	}
 
 	if len(account.TokenInfoList) != 0 {
-		blances := make([]api_interface.BalanceInfo, len(account.TokenInfoList))
+		blances := make([]api.BalanceInfo, len(account.TokenInfoList))
 		for k, v := range account.TokenInfoList {
-			blances[k] = api_interface.BalanceInfo{
+			blances[k] = api.BalanceInfo{
 				TokenSymbol: v.Token.Symbol,
 				TokenName:   v.Token.Name,
 				TokenTypeId: v.Token.Id.Hex(),
@@ -221,7 +221,7 @@ func (l *LegerApiImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
 			}
 		}
 
-		return easyJsonReturn(api_interface.GetUnconfirmedInfoResponse{
+		return easyJsonReturn(api.GetUnconfirmedInfoResponse{
 			Addr:                 account.AccountAddress.Hex(),
 			BalanceInfos:         blances,
 			UnConfirmedBlocksLen: account.TotalNumber.String(),
@@ -237,7 +237,7 @@ func (l *LegerApiImpl) GetInitSyncInfo(noop interface{}, reply *string) error {
 	log.Info("GetInitSyncInfo")
 	i := l.ledgerManager.Sc().GetFirstSyncInfo()
 
-	r := api_interface.InitSyncResponse{
+	r := api.InitSyncResponse{
 		StartHeight:      i.BeginHeight.String(),
 		TargetHeight:     i.TargetHeight.String(),
 		CurrentHeight:    i.CurrentHeight.String(),

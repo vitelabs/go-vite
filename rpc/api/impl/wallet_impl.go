@@ -1,18 +1,18 @@
-package apis
+package impl
 
 import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/rpc/api_interface"
+	"github.com/vitelabs/go-vite/rpc/api"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"strconv"
 	"time"
 )
 
-func NewWalletApi(vite *vite.Vite) api_interface.WalletApi {
+func NewWalletApi(vite *vite.Vite) api.WalletApi {
 	return &WalletApiImpl{km: vite.WalletManager().KeystoreManager}
 }
 
@@ -135,7 +135,7 @@ func (m *WalletApiImpl) SignData(signDataParams []string, reply *string) error {
 		return err
 	}
 
-	t := api_interface.HexSignedTuple{
+	t := api.HexSignedTuple{
 		Message:    hexMsg,
 		Pubkey:     hex.EncodeToString(pubkey),
 		SignedData: hex.EncodeToString(signedData),
@@ -162,7 +162,7 @@ func (m *WalletApiImpl) SignDataWithPassphrase(signDataParams []string, reply *s
 	}
 	signedData, pubkey, err := m.km.SignDataWithPassphrase(addr, passphrase, msgbytes)
 
-	t := api_interface.HexSignedTuple{
+	t := api.HexSignedTuple{
 		Message:    hexMsg,
 		Pubkey:     hex.EncodeToString(pubkey),
 		SignedData: hex.EncodeToString(signedData),

@@ -1,12 +1,12 @@
-package apis
+package impl
 
 import (
 	"encoding/json"
+	"github.com/vitelabs/go-vite/rpc/api"
 	"time"
-	"github.com/vitelabs/go-vite/rpc/api_interface"
 )
 
-func NewMockLedger() api_interface.LedgerApi {
+func NewMockLedger() api.LedgerApi {
 	return &MockLedgerImpl{}
 }
 
@@ -17,7 +17,7 @@ func (MockLedgerImpl) String() string {
 	return "MockLedgerImpl"
 }
 
-func (MockLedgerImpl) CreateTxWithPassphrase(params *api_interface.SendTxParms, reply *string) error {
+func (MockLedgerImpl) CreateTxWithPassphrase(params *api.SendTxParms, reply *string) error {
 	p, _ := json.Marshal(params)
 	log.Debug(string(p))
 
@@ -25,12 +25,12 @@ func (MockLedgerImpl) CreateTxWithPassphrase(params *api_interface.SendTxParms, 
 	return nil
 }
 
-func (MockLedgerImpl) GetBlocksByAccAddr(params *api_interface.GetBlocksParams, reply *string) error {
+func (MockLedgerImpl) GetBlocksByAccAddr(params *api.GetBlocksParams, reply *string) error {
 	log.Debug("GetBlocksByAccAddr")
 	p, _ := json.Marshal(params)
 	log.Debug(string(p))
 
-	s := []api_interface.SimpleBlock{
+	s := []api.SimpleBlock{
 		{
 			Timestamp: uint64(time.Now().Unix()),
 			Amount:    "123",
@@ -59,13 +59,13 @@ func (MockLedgerImpl) GetBlocksByAccAddr(params *api_interface.GetBlocksParams, 
 	return easyJsonReturn(s, reply)
 }
 
-func (MockLedgerImpl) GetUnconfirmedBlocksByAccAddr(params *api_interface.GetBlocksParams, reply *string) error {
+func (MockLedgerImpl) GetUnconfirmedBlocksByAccAddr(params *api.GetBlocksParams, reply *string) error {
 	log.Debug("GetUnconfirmedBlocksByAccAddr")
 
 	p, _ := json.Marshal(params)
 	log.Debug(string(p))
 
-	s := []api_interface.SimpleBlock{
+	s := []api.SimpleBlock{
 		{
 			Timestamp: uint64(time.Now().Unix()),
 			Amount:    "123",
@@ -97,10 +97,10 @@ func (MockLedgerImpl) GetUnconfirmedBlocksByAccAddr(params *api_interface.GetBlo
 
 func (MockLedgerImpl) GetAccountByAccAddr(addr []string, reply *string) error {
 	log.Debug("GetAccountByAccAddr")
-	return easyJsonReturn(api_interface.GetAccountResponse{
+	return easyJsonReturn(api.GetAccountResponse{
 
 		Addr: "vite_b7d95cc00fd89f8f94cda547a9ec686ae0c3714921e1867dd9 ",
-		BalanceInfos: []api_interface.BalanceInfo{
+		BalanceInfos: []api.BalanceInfo{
 			{
 				TokenSymbol: "vite",
 				TokenName:   "vite",
@@ -120,9 +120,9 @@ func (MockLedgerImpl) GetAccountByAccAddr(addr []string, reply *string) error {
 
 func (MockLedgerImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
 	log.Debug("GetUnconfirmedInfo")
-	return easyJsonReturn(api_interface.GetUnconfirmedInfoResponse{
+	return easyJsonReturn(api.GetUnconfirmedInfoResponse{
 		Addr: "vite_8bca915b96022801d3f809bdb9133077c22dd640df06fced28",
-		BalanceInfos: []api_interface.BalanceInfo{
+		BalanceInfos: []api.BalanceInfo{
 			{
 				TokenSymbol: "vite",
 				TokenName:   "vite",
@@ -142,7 +142,7 @@ func (MockLedgerImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
 
 func (MockLedgerImpl) GetInitSyncInfo(noop interface{}, reply *string) error {
 	log.Debug("GetInitSyncInfo")
-	return easyJsonReturn(api_interface.InitSyncResponse{
+	return easyJsonReturn(api.InitSyncResponse{
 		StartHeight:   "100",
 		TargetHeight:  "200",
 		CurrentHeight: "200",
