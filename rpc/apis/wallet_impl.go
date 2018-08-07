@@ -156,7 +156,6 @@ func (m *WalletApiImpl) SignDataWithPassphrase(signDataParams []string, reply *s
 	}
 	hexMsg := signDataParams[1]
 	passphrase := signDataParams[2]
-	println("passphrase " + passphrase)
 	msgbytes, err := hex.DecodeString(signDataParams[2])
 	if err != nil {
 		return fmt.Errorf("wrong hex message %v", err)

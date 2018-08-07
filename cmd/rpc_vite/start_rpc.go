@@ -24,7 +24,7 @@ func StartIpcRpc(vite *vite.Vite, dataDir string) {
 	signal.Notify(exitSig, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-exitSig
-		println("receiver term sig")
+		log15.Root().Info("receiver term sig")
 		if lis != nil {
 			lis.Close()
 		}

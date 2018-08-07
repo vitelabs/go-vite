@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"github.com/powerman/rpc-codec/jsonrpc2"
 	"net"
 	"net/rpc"
@@ -9,7 +10,8 @@ import (
 )
 
 func ServeListener(srv *rpc.Server, l net.Listener) error {
-	rLog.Info("Vite rpc start success!")
+	// !!! DON`T MODIFY IT
+	fmt.Println("Vite rpc start success!")
 	for {
 		conn, err := l.Accept()
 		if err != nil {
