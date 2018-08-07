@@ -1,0 +1,3 @@
+package govite
+
+const GITHEADCOMMIT = ""
