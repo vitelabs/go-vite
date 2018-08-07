@@ -50,7 +50,7 @@ func natMap(stop <-chan struct{}, protocol string, lPort, ePort int, lifetime ti
 	client, err := gclt.getClient()
 
 	if err != nil {
-		natLog.Info("nat map", "err", err)
+		natLog.Error("nat map", "err", err)
 		return
 	}
 
@@ -60,9 +60,9 @@ func natMap(stop <-chan struct{}, protocol string, lPort, ePort int, lifetime ti
 
 	mp := func() {
 		if err = client.AddPortMapping(protocol, lPort, ePort, "vite", lifetime); err != nil {
-			natLog.Info(fmt.Sprintf("nat map localPort %d to publicPort %d error: %v\n", lPort, ePort, err))
+			natLog.Error(fmt.Sprintf("nat map localPort %d to publicPort %d error: %v\n", lPort, ePort, err))
 		} else {
-			natLog.Info(fmt.Sprintf("nat map localPort %d to publicPort %d done %v\n", lPort, ePort, err))
+			natLog.Error(fmt.Sprintf("nat map localPort %d to publicPort %d done %v\n", lPort, ePort, err))
 		}
 	}
 	mp()

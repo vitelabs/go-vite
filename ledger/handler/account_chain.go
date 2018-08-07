@@ -3,12 +3,12 @@ package handler
 import (
 	"bytes"
 	"errors"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/access"
+	"github.com/vitelabs/go-vite/log15"
 	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"math/big"
 	"strconv"
@@ -43,7 +43,7 @@ func (ac *AccountChain) HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, pee
 	go func() {
 		blocks, err := ac.acAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
 		if err != nil {
-			acLog.Info(err.Error())
+			acLog.Error(err.Error())
 			return
 		}
 
@@ -75,7 +75,7 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 
 			if err != nil {
 				// Discard the block.
-				acLog.Info(err.Error())
+				acLog.Error(err.Error())
 				continue
 			}
 
@@ -98,7 +98,7 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 			writeErr := ac.acAccess.WriteBlock(block, nil)
 
 			if writeErr != nil {
-				acLog.Info("AccountChain HandleSendBlocks: Write error. Error is " + writeErr.Error())
+				acLog.Error("AccountChain HandleSendBlocks: Write error.", "Error", writeErr)
 				switch writeErr.(type) {
 				case *access.AcWriteError:
 					err := writeErr.(*access.AcWriteError)
@@ -125,7 +125,7 @@ func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer 
 
 						acLog.Info("AccountChain HandleSendBlocks: start download account chain. Current height is " +
 							currentHeight.String() + ", and target height is " + block.Meta.Height.String())
-						acLog.Info(err.Error())
+						acLog.Error(err.Error())
 
 						// Download accountblocks
 						ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
@@ -175,13 +175,13 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 	if block.IsSendBlock() {
 		if err != nil || accountMeta == nil {
 			err := errors.New("CreateTx failed, because account " + block.AccountAddress.String() + " doesn't found.")
-			acLog.Info(err.Error())
+			acLog.Error(err.Error())
 			return err
 		}
 	} else {
 		if err != nil && err != leveldb.ErrNotFound {
 			err := errors.New("AccountChain CreateTx: get account meta failed, error is " + err.Error())
-			acLog.Info(err.Error())
+			acLog.Error(err.Error())
 			return err
 		}
 	}
@@ -237,7 +237,7 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 	})
 
 	if writeErr != nil {
-		acLog.Info("AccountChain CreateTx: write block failed, error is " + writeErr.Error())
+		acLog.Error("AccountChain CreateTx: write block failed ", "err", writeErr)
 		return writeErr.(*access.AcWriteError).Err
 	}
 
@@ -252,7 +252,7 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 	acLog.Info("AccountChain CreateTx: broadcast to network.")
 
 	if sendErr != nil {
-		acLog.Info("CreateTx broadcast failed, error is " + sendErr.Error())
+		acLog.Error("CreateTx broadcast failed", "err", sendErr)
 		return sendErr
 	}
 	return nil

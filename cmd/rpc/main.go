@@ -15,7 +15,7 @@ func main() {
 	go func() {
 		err := http.ListenAndServe("localhost:6060", nil)
 		if err != nil {
-			mainLog.Info(err.Error())
+			mainLog.Error(err.Error())
 		}
 	}()
 

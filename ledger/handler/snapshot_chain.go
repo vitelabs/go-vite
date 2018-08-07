@@ -2,7 +2,6 @@ package handler
 
 import (
 	"bytes"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -10,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger/access"
 	"github.com/vitelabs/go-vite/ledger/cache/pending"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
+	"github.com/vitelabs/go-vite/log15"
 	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"math/big"
 	"strconv"
@@ -126,9 +126,9 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 
 			if !r {
 				if err != nil {
-					scLog.Info("SnapshotChain HandleSendBlocks: Verify failed. Error is " + err.Error())
+					scLog.Error("SnapshotChain HandleSendBlocks: Verify failed.", " err", err)
 				}
-				scLog.Info("SnapshotChain HandleSendBlocks: Verify failed.")
+				scLog.Error("SnapshotChain HandleSendBlocks: Verify failed.")
 				// Let the pool discard the block.
 				return true
 			}
@@ -137,7 +137,7 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 			computedHash, err := block.ComputeHash()
 			if err != nil {
 				// Discard the block.
-				scLog.Info(err.Error())
+				scLog.Error(err.Error())
 				return true
 			}
 
@@ -332,7 +332,7 @@ func (sc *SnapshotChain) SyncPeer(peer *protoTypes.Peer) {
 	err := sc.syncPeer(peer)
 
 	if err != nil {
-		scLog.Info(err.Error())
+		scLog.Error(err.Error())
 
 		// If the first syncing goes wrong, try to sync again.
 		go func() {
@@ -397,7 +397,7 @@ func (sc *SnapshotChain) WriteMiningBlock(block *ledger.SnapshotBlock) error {
 	})
 
 	if sendErr != nil {
-		scLog.Info("WriteMiningBlock broadcast failed, error is " + sendErr.Error())
+		scLog.Error("WriteMiningBlock broadcast failed", "error", sendErr)
 		return sendErr
 	}
 
@@ -422,7 +422,7 @@ func (sc *SnapshotChain) getNeedSnapshot() (map[string]*ledger.SnapshotItem, err
 
 		latestBlock.AccountAddress = accountAddress
 		if err != nil {
-			scLog.Info(err.Error())
+			scLog.Error(err.Error())
 			continue
 		}
 

@@ -149,7 +149,7 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 		if err == nil {
 			config.PublicKey = pub
 		} else {
-			p2pServerLog.Info("publicKey decode", "err", err)
+			p2pServerLog.Error("publicKey decode", "err", err)
 		}
 	}
 
@@ -158,7 +158,7 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 		if err == nil {
 			config.PrivateKey = priv
 		} else {
-			p2pServerLog.Info("privateKey decode", "err", err)
+			p2pServerLog.Error("privateKey decode", "err", err)
 		}
 	}
 
@@ -651,14 +651,14 @@ func (t *dialTask) Perform(svr *Server) {
 
 	conn, err := svr.Dialer.DailNode(t.target)
 	if err != nil {
-		p2pServerLog.Info(fmt.Sprintf("tcp dial node %s error: %v\n", t.target, err))
+		p2pServerLog.Error(fmt.Sprintf("tcp dial node %s error: %v\n", t.target, err))
 		svr.blocknode <- t.target
 		return
 	}
 
 	err = svr.SetupConn(conn, dynDialedConn)
 	if err != nil {
-		p2pServerLog.Info(fmt.Sprintf("setup connect to %s error: %v\n", t.target, err))
+		p2pServerLog.Error(fmt.Sprintf("setup connect to %s error: %v\n", t.target, err))
 		svr.blocknode <- t.target
 	}
 }

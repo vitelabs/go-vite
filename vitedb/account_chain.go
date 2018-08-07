@@ -229,7 +229,7 @@ func (ac *AccountChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count u
 
 		err := block.DbDeserialize(iter.Value())
 		if err != nil {
-			ac.log.Info("AccountChain.GetBlocksFromOrigin: get failed", "error", err)
+			ac.log.Error("AccountChain.GetBlocksFromOrigin: get failed", "error", err)
 			return nil, err
 		}
 

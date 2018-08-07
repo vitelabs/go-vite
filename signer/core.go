@@ -75,7 +75,7 @@ func (master *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphr
 
 	master.log.Info("sending Tx waiting ")
 	err, ok := <-endChannel
-	master.log.Info("<-endChannel ", "err", err)
+	master.log.Error("<-endChannel ", "err", err)
 	if !ok || err == "" {
 		return nil
 	}
@@ -206,7 +206,7 @@ func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
 	hashes, e := ac.GetUnconfirmedTxHashs(0, 1, 1, &sw.address)
 
 	if e != nil {
-		sw.log.Info("slaver auto GetUnconfirmedTxHashs", "err", e.Error())
+		sw.log.Error("slaver auto GetUnconfirmedTxHashs", "err", e)
 		return false, e
 	}
 

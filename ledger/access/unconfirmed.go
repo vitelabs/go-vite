@@ -107,7 +107,7 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedAccountMeta(addr *types.Address) (*
 func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	if block.To == nil || block.TokenId == nil {
 		err := errors.New("send_block's value is invalid")
-		uLog.Info("Unconfirmed", "err", err)
+		uLog.Error("Unconfirmed", "err", err)
 		return err
 	}
 
@@ -201,7 +201,7 @@ func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(block *ledger.AccountBlock) (*l
 func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	if block.To == nil || block.TokenId == nil {
 		err := errors.New("send_block's value is invalid")
-		uLog.Info("Unconfirmed", "err", err)
+		uLog.Error("Unconfirmed", "err", err)
 		return err
 	}
 

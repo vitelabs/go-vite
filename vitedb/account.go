@@ -53,13 +53,13 @@ func (account *Account) GetAccountMetaByAddress(hexAddress *types.Address) (*led
 	}
 	data, dgErr := account.db.Leveldb.Get(keyAccountMeta, nil)
 	if dgErr != nil {
-		account.log.Info("GetAccountMetaByAddress func db.Get()", "dgErr", dgErr)
+		account.log.Error("GetAccountMetaByAddress func db.Get()", "dgErr", dgErr)
 		return nil, dgErr
 	}
 	accountMeter := &ledger.AccountMeta{}
 	dsErr := accountMeter.DbDeserialize(data)
 	if dsErr != nil {
-		account.log.Info(dsErr.Error())
+		account.log.Error(dsErr.Error())
 		return nil, dsErr
 	}
 
@@ -108,7 +108,7 @@ func (account *Account) GetAddressById(accountId *big.Int) (*types.Address, erro
 	}
 	data, dgErr := account.db.Leveldb.Get(keyAccountAddress, nil)
 	if dgErr != nil {
-		account.log.Info("GetAddressById func db.Get()", "dgErr", dgErr)
+		account.log.Error("GetAddressById func db.Get()", "dgErr", dgErr)
 		return nil, dgErr
 	}
 	b2Address, b2Err := types.BytesToAddress(data)
