@@ -25,7 +25,7 @@ func (m WalletApiImpl) String() string {
 }
 
 func (m WalletApiImpl) ListAddress(v interface{}, reply *string) error {
-	log.Debug("ListAddress")
+	log.Info("ListAddress")
 	as := m.km.Addresses()
 	s := make([]string, len(as))
 	for i, v := range as {
@@ -41,7 +41,7 @@ func (m WalletApiImpl) ListAddress(v interface{}, reply *string) error {
 }
 
 func (m WalletApiImpl) GetDataDir(v interface{}, reply *string) error {
-	log.Debug("GetDataDir")
+	log.Info("GetDataDir")
 
 	*reply = m.km.KeyStoreDir
 
@@ -49,7 +49,7 @@ func (m WalletApiImpl) GetDataDir(v interface{}, reply *string) error {
 }
 
 func (m *WalletApiImpl) NewAddress(passphrase []string, reply *string) error {
-	log.Debug("NewAddress")
+	log.Info("NewAddress")
 	if len(passphrase) != 1 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] passphrase, ", len(passphrase))
 	}
@@ -63,7 +63,7 @@ func (m *WalletApiImpl) NewAddress(passphrase []string, reply *string) error {
 }
 
 func (m WalletApiImpl) Status(v interface{}, reply *string) error {
-	log.Debug("Status")
+	log.Info("Status")
 	s, err := m.km.Status()
 	if err != nil {
 		return err
@@ -77,7 +77,7 @@ func (m WalletApiImpl) Status(v interface{}, reply *string) error {
 }
 
 func (m *WalletApiImpl) UnLock(unlockParams []string, reply *string) error {
-	log.Debug("UnLock")
+	log.Info("UnLock")
 	if len(unlockParams) != 3 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] hexaddress, "+
 			"[1] address releated passphrase passphrase, [3] unlocktime", len(unlockParams))
@@ -103,7 +103,7 @@ func (m *WalletApiImpl) UnLock(unlockParams []string, reply *string) error {
 }
 
 func (m *WalletApiImpl) Lock(hexaddr []string, reply *string) error {
-	log.Debug("Lock")
+	log.Info("Lock")
 	if len(hexaddr) != 1 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] hexaddr, ", len(hexaddr))
 	}
@@ -116,7 +116,7 @@ func (m *WalletApiImpl) Lock(hexaddr []string, reply *string) error {
 }
 
 func (m *WalletApiImpl) SignData(signDataParams []string, reply *string) error {
-	log.Debug("SignData")
+	log.Info("SignData")
 	if len(signDataParams) != 2 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] hexaddress,"+
 			" [1]message ", len(signDataParams))
@@ -145,7 +145,7 @@ func (m *WalletApiImpl) SignData(signDataParams []string, reply *string) error {
 }
 
 func (m *WalletApiImpl) SignDataWithPassphrase(signDataParams []string, reply *string) error {
-	log.Debug("SignDataWithPassphrase")
+	log.Info("SignDataWithPassphrase")
 	if len(signDataParams) != 3 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] hexaddress,"+
 			" [1]message, [2] address releated passphrase", len(signDataParams))
@@ -172,14 +172,14 @@ func (m *WalletApiImpl) SignDataWithPassphrase(signDataParams []string, reply *s
 }
 
 func (m *WalletApiImpl) ReloadAndFixAddressFile(v interface{}, reply *string) error {
-	log.Debug("ReloadAndFixAddressFile")
+	log.Info("ReloadAndFixAddressFile")
 	m.km.ReloadAndFixAddressFile()
 	*reply = "success"
 	return nil
 }
 
 func (m *WalletApiImpl) ImportPriv(hexkeypair []string, reply *string) error {
-	log.Debug("ImportPriv")
+	log.Info("ImportPriv")
 	if len(hexkeypair) != 2 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] hexhexprikey,"+
 			" [1]newPass", len(hexkeypair))
@@ -196,7 +196,7 @@ func (m *WalletApiImpl) ImportPriv(hexkeypair []string, reply *string) error {
 }
 
 func (m *WalletApiImpl) ExportPriv(extractPair []string, reply *string) error {
-	log.Debug("ExportPriv")
+	log.Info("ExportPriv")
 	if len(extractPair) != 2 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] hexaddr,"+
 			" [1]address releated passphrase", len(extractPair))
@@ -212,7 +212,7 @@ func (m *WalletApiImpl) ExportPriv(extractPair []string, reply *string) error {
 }
 
 func (m *WalletApiImpl) IsMayValidKeystoreFile(path []string, reply *string) error {
-	log.Debug("IsValidKeystoreFile")
+	log.Info("IsValidKeystoreFile")
 	if len(path) != 1 {
 		return fmt.Errorf("wrong params len %v. you should pass [0] path", len(path))
 	}

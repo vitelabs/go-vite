@@ -81,14 +81,14 @@ func (ac *AccountChain) GetUnconfirmedTxHashsByTkId(index, num, count int, addr 
 func (ac *AccountChain) GetUnconfirmedAccount(addr *types.Address) (*handler_interface.UnconfirmedAccount, error) {
 	unconfirmedMeta, err := ac.uAccess.GetUnconfirmedAccountMeta(addr)
 	if err != nil {
-		adLog.Info("func GetUnconfirmedAccount.GetUnconfirmedAccountMeta failed, error: ", err)
+		adLog.Error("func GetUnconfirmedAccount.GetUnconfirmedAccountMeta failed ", "error", err)
 		return nil, nil
 	}
 	var tokenInfoList []*handler_interface.TokenInfo
 	for _, ti := range unconfirmedMeta.TokenInfoList {
 		token, tkErr := ac.tAccess.GetByTokenId(ti.TokenId)
 		if tkErr != nil {
-			adLog.Info("func GetUnconfirmedAccount.GetByTokenId failed, error: ", tkErr)
+			adLog.Error("func GetUnconfirmedAccount.GetByTokenId failed", "error", tkErr)
 			return nil, nil
 		}
 		tokenInfo := &handler_interface.TokenInfo{

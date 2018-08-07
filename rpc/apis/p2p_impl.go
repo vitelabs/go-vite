@@ -21,14 +21,14 @@ func (p P2PApiImpl) String() string {
 }
 
 func (p P2PApiImpl) NetworkAvailable(noop interface{}, reply *string) error {
-	log.Debug("called NetworkAvailable ")
+	log.Info("called NetworkAvailable ")
 	*reply = strconv.FormatBool(p.p2p.Available())
 	return nil
 
 }
 
 func (p P2PApiImpl) PeersCount(noop interface{}, reply *string) error {
-	log.Debug("called PeersCount ")
+	log.Info("called PeersCount ")
 	*reply = strconv.Itoa(p.p2p.PeersCount())
 	return nil
 }

@@ -28,7 +28,7 @@ func (l LegerApiImpl) String() string {
 }
 
 func (l *LegerApiImpl) CreateTxWithPassphrase(params *api_interface.SendTxParms, reply *string) error {
-	log.Debug("CreateTxWithPassphrase")
+	log.Info("CreateTxWithPassphrase")
 	if params == nil {
 		return fmt.Errorf("sendTxParms nil")
 	}
@@ -64,7 +64,7 @@ func (l *LegerApiImpl) CreateTxWithPassphrase(params *api_interface.SendTxParms,
 }
 
 func (l *LegerApiImpl) GetBlocksByAccAddr(params *api_interface.GetBlocksParams, reply *string) error {
-	log.Debug("GetBlocksByAccAddr")
+	log.Info("GetBlocksByAccAddr")
 	if params == nil {
 		return fmt.Errorf("sendTxParms nil")
 	}
@@ -146,13 +146,13 @@ func (l *LegerApiImpl) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.I
 }
 
 func (l *LegerApiImpl) GetUnconfirmedBlocksByAccAddr(params *api_interface.GetBlocksParams, reply *string) error {
-	log.Debug("GetUnconfirmedBlocksByAccAddr")
+	log.Info("GetUnconfirmedBlocksByAccAddr")
 	*reply = "not support"
 	return nil
 }
 
 func (l *LegerApiImpl) GetAccountByAccAddr(addrs []string, reply *string) error {
-	log.Debug("GetAccountByAccAddr")
+	log.Info("GetAccountByAccAddr")
 	if len(addrs) != 1 {
 		return fmt.Errorf("error length addrs %v", len(addrs))
 	}
@@ -191,7 +191,7 @@ func (l *LegerApiImpl) GetAccountByAccAddr(addrs []string, reply *string) error 
 }
 
 func (l *LegerApiImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
-	log.Debug("GetUnconfirmedInfo")
+	log.Info("GetUnconfirmedInfo")
 	if len(addr) != 1 {
 		return fmt.Errorf("error length addrs %v", len(addr))
 	}
@@ -234,7 +234,7 @@ func (l *LegerApiImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
 }
 
 func (l *LegerApiImpl) GetInitSyncInfo(noop interface{}, reply *string) error {
-	log.Debug("GetInitSyncInfo")
+	log.Info("GetInitSyncInfo")
 	i := l.ledgerManager.Sc().GetFirstSyncInfo()
 
 	r := api_interface.InitSyncResponse{
