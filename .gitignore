@@ -21,3 +21,5 @@ vite.p2p.db
 .idea/
 
 build/
+
+gitversion.go
