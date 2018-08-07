@@ -21,7 +21,11 @@ func main() {
 
 	config.RecoverConfig()
 
-	config.GlobalConfig.ConfigureLog()
+	if s, e := config.GlobalConfig.RunLogDirFile(); e == nil {
+		log15.Root().SetHandler(
+			log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(s, log15.TerminalFormat())),
+		)
+	}
 
 	vnode, err := vite.New(config.GlobalConfig)
 	if err != nil {

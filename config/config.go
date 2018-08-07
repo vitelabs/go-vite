@@ -3,7 +3,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/common"
 	"io/ioutil"
 	"os"
@@ -32,16 +31,16 @@ func (c Config) RunLogDirFile() (string, error) {
 
 }
 
-func (c Config) ConfigureLog() {
-	if s, e := c.RunLogDirFile(); e == nil {
-		log15.Root().SetHandler(
-			log15.MultiHandler(
-				log15.LvlFilterHandler(log15.LvlInfo, log15.StdoutHandler),
-				log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(s, log15.TerminalFormat())),
-			),
-		)
-	}
-}
+//func (c Config) ConfigureLog() {
+//	if s, e := c.RunLogDirFile(); e == nil {
+//		log15.Root().SetHandler(
+//			log15.MultiHandler(
+//				log15.LvlFilterHandler(log15.LvlInfo, log15.StdoutHandler),
+//				log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(s, log15.TerminalFormat())),
+//			),
+//		)
+//	}
+//}
 
 const configFileName = "vite.config.json"
 

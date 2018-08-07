@@ -49,8 +49,6 @@ func main() {
 		MinerInterval: *minerInterval,
 	})
 
-	globalConfig.ConfigureLog()
-
 	vnode, err := vite.New(globalConfig)
 
 	if err != nil {
