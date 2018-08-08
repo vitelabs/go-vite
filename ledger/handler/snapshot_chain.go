@@ -190,7 +190,7 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 								},
 							})
 						}
-						return true
+						return false
 					} else if scWriteError.Code == access.WscPrevHashErr {
 						preBlock := scWriteError.Data.(*ledger.SnapshotBlock)
 
@@ -198,7 +198,25 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 						gap.Sub(block.Height, preBlock.Height)
 
 						if gap.Cmp(big.NewInt(1)) > 0 {
+							maxBlock := pendingPool.MaxBlock()
+
+							dGap := &big.Int{}
+							dGap.Sub(maxBlock.Height, preBlock.Height)
 							// Download snapshot block
+
+							deleteCount := 3
+							if sc.status == STATUS_RUNNING {
+								sc.status = STATUS_FORKING
+							}
+
+							err := sc.scAccess.DeleteBlocks(preBlock.Hash, uint64(deleteCount))
+							if err != nil {
+								scLog.Error("SnapshotChain.HandleSendBlocks: Delete failed, error is " + err.Error())
+								return true
+							}
+
+							// Clear pending pool
+							dGap.Add(dGap, big.NewInt(int64(deleteCount)))
 
 							scLog.Info("SnapshotChain.HandleSendBlocks: Download snapshot blocks." +
 								"Current block height is " + preBlock.Height.String() + ", and target block height is " +
@@ -209,42 +227,15 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 							sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
 								Code: protoTypes.GetSnapshotBlocksMsgCode,
 								Payload: &protoTypes.GetSnapshotBlocksMsg{
-									Origin:  *block.Hash,
-									Count:   gap.Uint64(),
+									Origin:  *maxBlock.Hash,
+									Count:   dGap.Uint64(),
 									Forward: false,
 								},
 							})
 
-							return false
-						} else {
-							maxBlock := pendingPool.MaxBlock()
-							if maxBlock == nil {
-								return true
-							}
-
-							maxGap := &big.Int{}
-
-							maxGap.Sub(maxBlock.Height, preBlock.Height)
-
-							if maxGap.Cmp(big.NewInt(1)) <= 0 {
-								deleteCount := 10
-								if sc.status == STATUS_RUNNING {
-									sc.status = STATUS_FORKING
-								}
-
-								err := sc.scAccess.DeleteBlocks(preBlock.Hash, uint64(deleteCount))
-								if err != nil {
-									scLog.Error("SnapshotChain.HandleSendBlocks: Delete failed, error is " + err.Error())
-									return true
-								}
-
-								// Clear pending pool
-								pendingPool.Clear()
-							}
-							// Let the pool discard the block.
-							return true
+							pendingPool.Clear()
 						}
-
+						return true
 					}
 				}
 

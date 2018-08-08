@@ -2,12 +2,12 @@ package access
 
 import (
 	"bytes"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/errors"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitedb"
 	"math/big"
 	"sync"
@@ -74,7 +74,7 @@ func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.Accoun
 			} else {
 				cmpResult := block.Meta.Height.Cmp(mutexBody.LatestBlock.Meta.Height)
 				err := errors.New("PrevHash of accountBlock which will be write is not the hash of the latest account block. Current Latest block hash is " +
-					mutexBody.LatestBlock.Hash.String() + " and Writing block hash is " + block.PrevHash.String() +
+					mutexBody.LatestBlock.Hash.String() + " and Writing block prev hash is " + block.PrevHash.String() +
 					", Current latest block height is " + mutexBody.LatestBlock.Meta.Height.String() +
 					" and Writing block height is " + block.Meta.Height.String())
 

@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -14,6 +15,9 @@ type SnapshotchainPool struct {
 }
 
 type SnapshotBlockList []*ledger.SnapshotBlock
+
+var tryLimit = 5
+var tryTime = 0
 
 func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) bool) *SnapshotchainPool {
 	pool := SnapshotchainPool{}
@@ -29,11 +33,17 @@ func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) bool) *Snapsho
 
 			if processFunc(pool.cache[0]) {
 				snapshotchainLog.Info("SnapshotchainPool: block process finished.")
-				if len(pool.cache) > 0 {
-					pool.cache = pool.cache[1:]
-				}
+				pool.ClearHead()
+				tryTime = 0
 			} else {
-				snapshotchainLog.Info("SnapshotchainPool: block process unsuccess, wait next.")
+				tryTime++
+
+				snapshotchainLog.Info("SnapshotchainPool: block process unsuccess, tryTime: " + strconv.Itoa(tryTime))
+				if tryTime >= tryLimit {
+					pool.ClearHead()
+					tryTime = 0
+					snapshotchainLog.Info("SnapshotchainPool: block process unsuccess, wait next.")
+				}
 				time.Sleep(turnInterval * time.Millisecond)
 			}
 		}
@@ -47,6 +57,12 @@ func (a SnapshotBlockList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a SnapshotBlockList) Less(i, j int) bool { return a[i].Height.Cmp(a[j].Height) < 0 }
 func (a SnapshotBlockList) Sort() {
 	sort.Sort(a)
+}
+
+func (pool *SnapshotchainPool) ClearHead() {
+	if len(pool.cache) > 0 {
+		pool.cache = pool.cache[1:]
+	}
 }
 
 func (pool *SnapshotchainPool) MaxBlock() *ledger.SnapshotBlock {

@@ -2,11 +2,11 @@ package vitedb
 
 import (
 	"errors"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 )
 
@@ -160,6 +160,7 @@ func (spc *SnapshotChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count
 		endHeight.Add(startHeight, gap)
 	} else {
 		endHeight = originBlock.Height
+		endHeight = endHeight.Add(endHeight, big.NewInt(1))
 		startHeight.Sub(endHeight, gap)
 	}
 
