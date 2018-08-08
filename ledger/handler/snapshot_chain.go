@@ -204,19 +204,21 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 							dGap.Sub(maxBlock.Height, preBlock.Height)
 							// Download snapshot block
 
-							deleteCount := 3
-							if sc.status == STATUS_RUNNING {
-								sc.status = STATUS_FORKING
-							}
+							deleteCount := big.NewInt(3)
+							if preBlock.Height.Cmp(deleteCount) > 0 {
+								if sc.status == STATUS_RUNNING {
+									sc.status = STATUS_FORKING
+								}
 
-							err := sc.scAccess.DeleteBlocks(preBlock.Hash, uint64(deleteCount))
-							if err != nil {
-								scLog.Error("SnapshotChain.HandleSendBlocks: Delete failed, error is " + err.Error())
-								return true
-							}
+								err := sc.scAccess.DeleteBlocks(preBlock.Hash, deleteCount.Uint64())
+								if err != nil {
+									scLog.Error("SnapshotChain.HandleSendBlocks: Delete failed, error is " + err.Error())
+									return true
+								}
 
-							// Clear pending pool
-							dGap.Add(dGap, big.NewInt(int64(deleteCount)))
+								// Clear pending pool
+								dGap.Add(dGap, deleteCount)
+							}
 
 							scLog.Info("SnapshotChain.HandleSendBlocks: Download snapshot blocks." +
 								"Current block height is " + preBlock.Height.String() + ", and target block height is " +
