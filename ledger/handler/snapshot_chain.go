@@ -317,8 +317,9 @@ func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
 func (sc *SnapshotChain) SyncPeer(peer *protoTypes.Peer) {
 	// Syncing done, modify in future
 	defer sc.vite.Pm().SyncDone()
-
-	sc.status = STATUS_FIRST_SYNCING
+	if sc.status == STATUS_INIT {
+		sc.status = STATUS_FIRST_SYNCING
+	}
 
 	if peer == nil {
 		if !sc.isFirstSyncDone() {
