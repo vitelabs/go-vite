@@ -190,7 +190,7 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 								},
 							})
 						}
-						return false
+						return true
 					} else if scWriteError.Code == access.WscPrevHashErr {
 						preBlock := scWriteError.Data.(*ledger.SnapshotBlock)
 
