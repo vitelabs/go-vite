@@ -24,6 +24,11 @@ const (
 	STATUS_FIRST_SYNCING
 	STATUS_RUNNING
 	STATUS_FORKING
+	STATUS_DOWNLOADING
+)
+
+const (
+	DOWNLOADTIMES_LIMIT = 30
 )
 
 type SnapshotChain struct {
@@ -35,6 +40,9 @@ type SnapshotChain struct {
 
 	status              int // 0 init, 1 first syncing, 2 normal , 3 forking,
 	syncDownChannelList []chan<- int
+
+	downloadId       uint64
+	downloadTryTimes int
 }
 
 func NewSnapshotChain(vite Vite) *SnapshotChain {
@@ -77,7 +85,7 @@ func (sc *SnapshotChain) onFirstSyncDown() {
 }
 
 // HandleGetBlock
-func (sc *SnapshotChain) HandleGetBlocks(msg *protoTypes.GetSnapshotBlocksMsg, peer *protoTypes.Peer) error {
+func (sc *SnapshotChain) HandleGetBlocks(msg *protoTypes.GetSnapshotBlocksMsg, peer *protoTypes.Peer, id uint64) error {
 	go func() {
 		scLog.Info("SnapshotChain HandleGetBlocks: GetBlocksFromOrigin, msg.Origin is " + msg.Origin.String() +
 			", msg.Count is " + strconv.Itoa(int(msg.Count)) + ", msg.Forward is " + strconv.FormatBool(msg.Forward))
@@ -85,14 +93,24 @@ func (sc *SnapshotChain) HandleGetBlocks(msg *protoTypes.GetSnapshotBlocksMsg, p
 		blocks, err := sc.scAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
 		if err != nil {
 			scLog.Error("SnapshotChain HandleGetBlocks: Error is " + err.Error())
-			return
 		}
 
 		scLog.Info("SnapshotChain HandleGetBlocks: Send " + strconv.Itoa(len(blocks)) + " snapshot blocks to network.")
-		neterr := sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
-			Code:    protoTypes.SnapshotBlocksMsgCode,
-			Payload: &blocks,
-		})
+		var neterr error
+
+		if blocks != nil {
+			neterr = sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+				Code:    protoTypes.SnapshotBlocksMsgCode,
+				Payload: &blocks,
+				Id:      id,
+			})
+		} else {
+			neterr = sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+				Code:    protoTypes.SnapshotBlocksMsgCode,
+				Payload: nil,
+				Id:      id,
+			})
+		}
 
 		if neterr != nil {
 			scLog.Info("SnapshotChain HandleGetBlocks: Send snapshot blocks to network failed, error is " + neterr.Error())
@@ -108,18 +126,35 @@ var pendingPool *pending.SnapshotchainPool
 var currentMaxHeight = big.NewInt(0)
 
 // HandleBlockHash
-func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, peer *protoTypes.Peer) error {
+func (sc *SnapshotChain) HandleSendBlocks(netMsg *protoTypes.SnapshotBlocksMsg, peer *protoTypes.Peer, id uint64) error {
+	msg := []*ledger.SnapshotBlock(*netMsg)
+	if (sc.status == STATUS_DOWNLOADING ||
+		sc.status == STATUS_FORKING) && id == sc.downloadId {
+		sc.status = STATUS_RUNNING
+	}
+
 	if pendingPool == nil {
 		scLog.Info("SnapshotChain HandleSendBlocks: Init pending.SnapshotchainPool.")
-		pendingPool = pending.NewSnapshotchainPool(func(block *ledger.SnapshotBlock) bool {
+		pendingPool = pending.NewSnapshotchainPool(func(block *ledger.SnapshotBlock) int {
 			globalRWMutex.RLock()
 			defer globalRWMutex.RUnlock()
 
+			// Timeout
+			if sc.status == STATUS_DOWNLOADING ||
+				sc.status == STATUS_FORKING {
+				sc.downloadTryTimes++
+				if sc.downloadTryTimes < DOWNLOADTIMES_LIMIT {
+					return pending.NO_DISCARD
+				}
+				sc.downloadTryTimes = 0
+				sc.status = STATUS_RUNNING
+			}
+
 			scLog.Info("SnapshotChain HandleSendBlocks: Start process block " + block.Hash.String() + ", block height is " + block.Height.String())
 			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
-				// Let the pool discard the block.
 				scLog.Info("SnapshotChain HandleSendBlocks: discard block  , because block.PublicKey or block.Hash or block.Signature is nil.")
-				return true
+				// Discard block
+				return pending.DISCARD
 			}
 
 			r, err := sc.vite.Verifier().Verify(sc, block)
@@ -129,30 +164,30 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 					scLog.Error("SnapshotChain HandleSendBlocks: Verify failed.", " err", err)
 				}
 				scLog.Error("SnapshotChain HandleSendBlocks: Verify failed.")
-				// Let the pool discard the block.
-				return true
+				// Discard block
+				return pending.DISCARD
 			}
 
 			// Verify hash
 			computedHash, err := block.ComputeHash()
 			if err != nil {
-				// Discard the block.
 				scLog.Error(err.Error())
-				return true
+				// Discard block
+				return pending.DISCARD
 			}
 
 			if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()) {
 				// Discard the block.
 				scLog.Info("SnapshotChain HandleSendBlocks: discard block " + block.Hash.String() + ", because the computed hash is " + computedHash.String() + " and the block hash is " + block.Hash.String())
-				return true
+				return pending.DISCARD
 			}
 
 			// Verify signature
 			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
 			if !isVerified || verifyErr != nil {
-				// Let the pool discard the block.
+				// Discard the block.
 				scLog.Info("SnapshotChain HandleSendBlocks: discard block " + block.Hash.String() + ", because verify signature failed.")
-				return true
+				return pending.DISCARD
 			}
 
 			wbErr := sc.scAccess.WriteBlock(block, nil)
@@ -173,6 +208,7 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 							if latestBlock != nil {
 								currentBlockHeight = latestBlock.Meta.Height
 							}
+
 							if item.TargetBlockHeight.Cmp(currentBlockHeight) <= 0 {
 								// Don't sync when the height of target block is lower
 								continue
@@ -190,60 +226,71 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 								},
 							})
 						}
-						return false
+
+						sc.vite.Ledger().Ac().Download(peer, needSyncData)
+
+						return pending.DISCARD
 					} else if scWriteError.Code == access.WscPrevHashErr {
 						preBlock := scWriteError.Data.(*ledger.SnapshotBlock)
 
 						gap := &big.Int{}
 						gap.Sub(block.Height, preBlock.Height)
 
-						if gap.Cmp(big.NewInt(1)) > 0 {
-							maxBlock := pendingPool.MaxBlock()
+						isFork := false
+						needDeleteCount := big.NewInt(0)
 
-							dGap := &big.Int{}
-							dGap.Sub(maxBlock.Height, preBlock.Height)
-							// Download snapshot block
-
-							deleteCount := big.NewInt(3)
-							if preBlock.Height.Cmp(deleteCount) > 0 {
-								if sc.status == STATUS_RUNNING {
-									sc.status = STATUS_FORKING
-								}
-
-								err := sc.scAccess.DeleteBlocks(preBlock.Hash, deleteCount.Uint64())
-								if err != nil {
-									scLog.Error("SnapshotChain.HandleSendBlocks: Delete failed, error is " + err.Error())
-									return true
-								}
-
-								// Clear pending pool
-								dGap.Add(dGap, deleteCount)
+						if gap.Cmp(big.NewInt(0)) <= 0 {
+							if sc.scAccess.CheckExists(block.Hash) {
+								// Need resolve fork
+								isFork = true
+								needDeleteCount.Abs(gap)
+								needDeleteCount.Add(needDeleteCount, big.NewInt(1))
+							} else {
+								// Not fork, then discard
+								return pending.DISCARD
 							}
-
-							scLog.Info("SnapshotChain.HandleSendBlocks: Download snapshot blocks." +
-								"Current block height is " + preBlock.Height.String() + ", and target block height is " +
-								block.Height.String())
-
-							currentMaxHeight = block.Height
-
-							sc.vite.Pm().SendMsg(peer, &protoTypes.Msg{
-								Code: protoTypes.GetSnapshotBlocksMsgCode,
-								Payload: &protoTypes.GetSnapshotBlocksMsg{
-									Origin:  *maxBlock.Hash,
-									Count:   dGap.Uint64(),
-									Forward: false,
-								},
-							})
-
-							pendingPool.Clear()
+						} else if gap.Cmp(big.NewInt(1)) == 0 {
+							// Need resolve fork
+							isFork = true
 						}
-						return true
+
+						if isFork {
+							sc.status = STATUS_FORKING
+							deleteCount := big.NewInt(3)
+
+							deleteCount.Add(deleteCount, needDeleteCount)
+
+							err := sc.scAccess.DeleteBlocks(preBlock.Hash, deleteCount.Uint64())
+							if err != nil {
+								scLog.Error("SnapshotChain.HandleSendBlocks: Delete failed, error is " + err.Error())
+								return pending.DISCARD
+							}
+							gap.Add(gap, deleteCount)
+						} else {
+							sc.status = STATUS_DOWNLOADING
+						}
+
+						// Download fragment
+						scLog.Info("SnapshotChain.download: start download, origin is " + block.Hash.String() +
+							", count is " + gap.String() + ", forward is false")
+
+						// Start download
+						sc.download(peer, &protoTypes.Msg{
+							Code: protoTypes.GetSnapshotBlocksMsgCode,
+							Payload: &protoTypes.GetSnapshotBlocksMsg{
+								Origin:  *block.Hash,
+								Count:   gap.Uint64(),
+								Forward: false,
+							},
+						})
+
+						return pending.DISCARD
 					}
 				}
 
 				// Let the pool discard the block.
 				scLog.Info("SnapshotChain.HandleSendBlocks: write failed, error is " + wbErr.Error())
-				return true
+				return pending.DISCARD
 			}
 
 			if block.Height.Cmp(currentMaxHeight) >= 0 {
@@ -261,17 +308,25 @@ func (sc *SnapshotChain) HandleSendBlocks(msg *protoTypes.SnapshotBlocksMsg, pee
 				}
 			}
 
-			return true
+			return pending.DISCARD
 		})
 	}
 
-	pendingPool.Add(*msg)
-	scLog.Info("SnapshotChain.HandleSendBlocks: receive " + strconv.Itoa(len(*msg)) + " blocks")
+	pendingPool.Add(msg)
+	scLog.Info("SnapshotChain.HandleSendBlocks: receive " + strconv.Itoa(len(msg)) + " blocks")
 
 	return nil
 }
 
 var syncInfo = &handler_interface.SyncInfo{}
+
+func (sc *SnapshotChain) download(peer *protoTypes.Peer, msg *protoTypes.Msg) {
+	sc.downloadId = getNewNetTaskId()
+	// Set msg
+	msg.Id = sc.downloadId
+
+	sc.vite.Pm().SendMsg(peer, msg)
+}
 
 func (sc *SnapshotChain) syncPeer(peer *protoTypes.Peer) error {
 	latestBlock, err := sc.scAccess.GetLatestBlock()

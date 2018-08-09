@@ -8,14 +8,22 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/access"
+	"github.com/vitelabs/go-vite/ledger/cache/pending"
 	"github.com/vitelabs/go-vite/log15"
 	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 )
 
 var acLog = log15.New("module", "ledger/handler/account_chain")
+
+type downloadTask struct {
+	downloadId uint64
+	tryTime    int
+	finished   chan int
+}
 
 type AccountChain struct {
 	vite Vite
@@ -25,10 +33,16 @@ type AccountChain struct {
 	scAccess *access.SnapshotChainAccess
 	uAccess  *access.UnconfirmedAccess
 	tAccess  *access.TokenAccess
+
+	downloadLock      sync.Mutex
+	downloadTasks     map[string]*downloadTask
+	downloadIdAddress map[uint64]*types.Address
+
+	pool *pending.AccountchainPool
 }
 
 func NewAccountChain(vite Vite) *AccountChain {
-	return &AccountChain{
+	ac := &AccountChain{
 		vite:     vite,
 		acAccess: access.GetAccountChainAccess(),
 		aAccess:  access.GetAccountAccess(),
@@ -36,114 +50,189 @@ func NewAccountChain(vite Vite) *AccountChain {
 		uAccess:  access.GetUnconfirmedAccess(),
 		tAccess:  access.GetTokenAccess(),
 	}
+	ac.pool = pending.NewAccountchainPool(ac)
+	ac.startDownloaderTimer()
+
+	return ac
 }
 
 // HandleBlockHash
-func (ac *AccountChain) HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, peer *protoTypes.Peer) error {
+func (ac *AccountChain) HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, peer *protoTypes.Peer, id uint64) error {
 	go func() {
 		blocks, err := ac.acAccess.GetBlocksFromOrigin(&msg.Origin, msg.Count, msg.Forward)
 		if err != nil {
 			acLog.Error(err.Error())
-			return
 		}
 
 		// send out
 		acLog.Info("AccountChain.HandleGetBlocks: send " + strconv.Itoa(len(blocks)) + " blocks.")
-		ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
-			Code:    protoTypes.AccountBlocksMsgCode,
-			Payload: &blocks,
-		})
+
+		var neterr error
+		if blocks != nil {
+			neterr = ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+				Code:    protoTypes.AccountBlocksMsgCode,
+				Payload: &blocks,
+				Id:      id,
+			})
+		} else {
+			neterr = ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+				Code:    protoTypes.SnapshotBlocksMsgCode,
+				Payload: nil,
+				Id:      id,
+			})
+		}
+
+		if neterr != nil {
+			scLog.Info("AccountChain HandleGetBlocks: Send account blocks to network failed, error is " + neterr.Error())
+		}
 	}()
 	return nil
 }
 
+func (ac *AccountChain) ProcessBlock(block *ledger.AccountBlock) {
+	globalRWMutex.RLock()
+	defer globalRWMutex.RUnlock()
+
+	if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
+		// Discard the block.
+		acLog.Info("AccountChain HandleSendBlocks: discard block, because block.PublicKey or block.Hash or block.Signature is nil.")
+		return
+	}
+	// Verify hash
+	computedHash, err := block.ComputeHash()
+
+	if err != nil {
+		// Discard the block.
+		acLog.Error(err.Error())
+		return
+	}
+
+	if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()) {
+		// Discard the block.
+		acLog.Info("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because the computed hash is " + computedHash.String() + " and the block hash is " + block.Hash.String())
+		return
+	}
+	// Verify signature
+	isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
+
+	if verifyErr != nil || !isVerified {
+		// Discard the block.
+		acLog.Info("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because verify signature failed.")
+		return
+	}
+
+	// Write block
+	acLog.Info("AccountChain HandleSendBlocks: try write a block from network")
+	writeErr := ac.acAccess.WriteBlock(block, nil)
+
+	if writeErr != nil {
+		acLog.Error("AccountChain HandleSendBlocks: Write error.", "Error", writeErr)
+	}
+
+	return
+}
+
 // HandleBlockHash
-func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer) error {
+func (ac *AccountChain) HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer, id uint64) error {
+	ac.finishDownload(id)
+	ac.pool.Add(*msg)
+
+	return nil
+}
+
+func (ac *AccountChain) finishDownload(id uint64) {
+	ac.downloadLock.Lock()
+	defer ac.downloadLock.Unlock()
+
+	address := ac.downloadIdAddress[id]
+	if address == nil {
+		return
+	}
+
+	if downloadTask, ok := ac.downloadTasks[address.String()]; !ok {
+		if downloadTask.downloadId == id {
+			downloadTask.finished <- 1
+		}
+	}
+}
+
+func (ac *AccountChain) startDownloaderTimer() {
 	go func() {
-		globalRWMutex.RLock()
-		defer globalRWMutex.RUnlock()
-		acLog.Info("AccountChain HandleSendBlocks: receive " + strconv.Itoa(len(*msg)) + " blocks from network")
-
-		for _, block := range *msg {
-			if block.PublicKey == nil || block.Hash == nil || block.Signature == nil {
-				// Discard the block.
-				acLog.Info("AccountChain HandleSendBlocks: discard block, because block.PublicKey or block.Hash or block.Signature is nil.")
-				continue
-			}
-			// Verify hash
-			computedHash, err := block.ComputeHash()
-
-			if err != nil {
-				// Discard the block.
-				acLog.Error(err.Error())
-				continue
-			}
-
-			if !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()) {
-				// Discard the block.
-				acLog.Info("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because the computed hash is " + computedHash.String() + " and the block hash is " + block.Hash.String())
-				continue
-			}
-			// Verify signature
-			isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
-
-			if verifyErr != nil || !isVerified {
-				// Discard the block.
-				acLog.Info("AccountChain HandleSendBlocks: discard block " + block.Hash.String() + ", because verify signature failed.")
-				continue
-			}
-
-			// Write block
-			acLog.Info("AccountChain HandleSendBlocks: try write a block from network")
-			writeErr := ac.acAccess.WriteBlock(block, nil)
-
-			if writeErr != nil {
-				acLog.Error("AccountChain HandleSendBlocks: Write error.", "Error", writeErr)
-				switch writeErr.(type) {
-				case *access.AcWriteError:
-					err := writeErr.(*access.AcWriteError)
-					if err.Code == access.WacHigherErr {
-						errData := err.Data.(*ledger.AccountBlock)
-
-						currentHeight := big.NewInt(0)
-						if errData != nil {
-							currentHeight = errData.Meta.Height
-						}
-
-						if block.Meta.Height.Cmp(currentHeight) <= 0 {
-							return
-						}
-
-						// Download fragment
-						count := &big.Int{}
-						count.Sub(block.Meta.Height, currentHeight)
-						if count.Cmp(big.NewInt(1)) <= 0 {
-							return
-						}
-
-						count.Add(count, big.NewInt(1))
-
-						acLog.Info("AccountChain HandleSendBlocks: start download account chain. Current height is " +
-							currentHeight.String() + ", and target height is " + block.Meta.Height.String())
-						acLog.Error(err.Error())
-
-						// Download accountblocks
-						ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
-							Code: protoTypes.GetAccountBlocksMsgCode,
-							Payload: &protoTypes.GetAccountBlocksMsg{
-								Origin:  *errData.Hash,
-								Forward: true,
-								Count:   count.Uint64(),
-							},
-						})
-						return
-					}
+		for {
+			ac.downloadLock.Lock()
+			for _, downloadTask := range ac.downloadTasks {
+				downloadTask.tryTime++
+				if downloadTask.tryTime == 5 {
+					downloadTask.finished <- 1
 				}
 			}
+			ac.downloadLock.Unlock()
+			turnInterval := time.Duration(2000)
+			time.Sleep(turnInterval * time.Millisecond)
 		}
-		acLog.Info("AccountChain HandleSendBlocks: write " + strconv.Itoa(len(*msg)) + " blocks finish.")
+
 	}()
-	return nil
+}
+
+func (ac *AccountChain) Download(peer *protoTypes.Peer, needSyncData []*access.WscNeedSyncErrData) {
+	for _, item := range needSyncData {
+		ac.downloadLock.Lock()
+		if _, ok := ac.downloadTasks[(*item).AccountAddress.String()]; ok {
+			ac.downloadLock.Unlock()
+			continue
+		}
+		ac.downloadLock.Unlock()
+
+		latestBlock, err := ac.acAccess.GetLatestBlockByAccountAddress(item.AccountAddress)
+		if err != nil {
+			// Sync in the next time
+			continue
+		}
+
+		currentBlockHeight := big.NewInt(0)
+		if latestBlock != nil {
+			currentBlockHeight = latestBlock.Meta.Height
+		}
+		if item.TargetBlockHeight.Cmp(currentBlockHeight) <= 0 {
+			// Don't sync when the height of target block is lower
+			continue
+		}
+
+		gap := &big.Int{}
+		gap = gap.Sub(item.TargetBlockHeight, currentBlockHeight)
+
+		downloadId := getNewNetTaskId()
+		ac.vite.Pm().SendMsg(peer, &protoTypes.Msg{
+			Code: protoTypes.GetAccountBlocksMsgCode,
+			Payload: &protoTypes.GetAccountBlocksMsg{
+				Origin:  *item.TargetBlockHash,
+				Count:   gap.Uint64(),
+				Forward: false,
+			},
+			Id: downloadId,
+		})
+
+		ac.downloadLock.Lock()
+		ac.downloadIdAddress[downloadId] = item.AccountAddress
+		ac.downloadTasks[(*item).AccountAddress.String()] = &downloadTask{
+			downloadId: downloadId,
+			tryTime:    0,
+			finished:   make(chan int, 2),
+		}
+		ac.downloadLock.Unlock()
+
+	}
+
+	for _, item := range needSyncData {
+		key := (*item).AccountAddress.String()
+		downloadTask := ac.downloadTasks[key]
+		<-downloadTask.finished
+
+		ac.downloadLock.Lock()
+		delete(ac.downloadIdAddress, downloadTask.downloadId)
+		delete(ac.downloadTasks, key)
+		ac.downloadLock.Unlock()
+	}
 }
 
 // AccAddr = account address

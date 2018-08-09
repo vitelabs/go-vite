@@ -3,13 +3,14 @@ package handler_interface
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/ledger/access"
 	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"math/big"
 )
 
 type AccountChain interface {
-	HandleGetBlocks(msg *protoTypes.GetAccountBlocksMsg, peer *protoTypes.Peer) error
-	HandleSendBlocks(msg *protoTypes.AccountBlocksMsg, peer *protoTypes.Peer) error
+	HandleGetBlocks(*protoTypes.GetAccountBlocksMsg, *protoTypes.Peer, uint64) error
+	HandleSendBlocks(*protoTypes.AccountBlocksMsg, *protoTypes.Peer, uint64) error
 	GetAccountByAccAddr(addr *types.Address) (*ledger.AccountMeta, error)
 	GetBlocksByAccAddr(addr *types.Address, index, num, count int) (ledger.AccountBlockList, *types.GetError)
 	CreateTx(block *ledger.AccountBlock) error
@@ -20,6 +21,7 @@ type AccountChain interface {
 	AddListener(addr types.Address, change chan<- struct{})
 	RemoveListener(addr types.Address)
 	GetAccount(accountAddress *types.Address) (*Account, error)
+	Download(peer *protoTypes.Peer, needSyncData []*access.WscNeedSyncErrData)
 }
 
 // pack the data for handler

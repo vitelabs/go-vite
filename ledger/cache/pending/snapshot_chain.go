@@ -4,48 +4,63 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"sort"
-	"strconv"
+	"sync"
 	"time"
 )
 
-var snapshotchainLog = log15.New("module", "ledger/access/snapshot_chain")
+var snapshotchainLog = log15.New("module", "ledger/cache/pending/snapshot_chain")
+
+const tryLimit = 3
+const (
+	DISCARD = iota
+	TRY_AGAIN
+	NO_DISCARD
+)
 
 type SnapshotchainPool struct {
-	cache SnapshotBlockList
+	cache   SnapshotBlockList
+	lock    sync.Mutex
+	tryTime int
 }
 
 type SnapshotBlockList []*ledger.SnapshotBlock
 
-var tryLimit = 5
-var tryTime = 0
-
-func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) bool) *SnapshotchainPool {
+func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) int) *SnapshotchainPool {
 	pool := SnapshotchainPool{}
 
 	go func() {
-		snapshotchainLog.Info("SnapshotchainPool: Start process block")
 		turnInterval := time.Duration(2000)
 		for {
+			pool.lock.Lock()
 			if len(pool.cache) <= 0 {
+				pool.lock.Unlock()
 				time.Sleep(turnInterval * time.Millisecond)
 				continue
 			}
+			block := pool.cache[0]
 
-			if processFunc(pool.cache[0]) {
-				snapshotchainLog.Info("SnapshotchainPool: block process finished.")
+			if pool.tryTime >= tryLimit {
+				pool.lock.Unlock()
 				pool.ClearHead()
-				tryTime = 0
-			} else {
-				tryTime++
+				continue
+			}
 
-				snapshotchainLog.Info("SnapshotchainPool: block process unsuccess, tryTime: " + strconv.Itoa(tryTime))
-				if tryTime >= tryLimit {
-					pool.ClearHead()
-					tryTime = 0
-					snapshotchainLog.Info("SnapshotchainPool: block process unsuccess, wait next.")
+			pool.lock.Unlock()
+
+			snapshotchainLog.Info("SnapshotchainPool: Start process block")
+			result := processFunc(block)
+			if result == DISCARD {
+				pool.ClearHead()
+			} else {
+				if result == TRY_AGAIN {
+					pool.lock.Lock()
+					pool.tryTime++
+					pool.lock.Unlock()
 				}
+
 				time.Sleep(turnInterval * time.Millisecond)
 			}
+
 		}
 	}()
 
@@ -60,20 +75,22 @@ func (a SnapshotBlockList) Sort() {
 }
 
 func (pool *SnapshotchainPool) ClearHead() {
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
+	pool.tryTime = 0
 	if len(pool.cache) > 0 {
 		pool.cache = pool.cache[1:]
 	}
 }
 
-func (pool *SnapshotchainPool) MaxBlock() *ledger.SnapshotBlock {
-	block := pool.cache[len(pool.cache)-1]
-	return block
-}
+func (pool *SnapshotchainPool) Add(blocks []*ledger.SnapshotBlock) {
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
 
-func (a *SnapshotchainPool) Clear() {
-	a.cache = SnapshotBlockList{}
-}
-func (a *SnapshotchainPool) Add(blocks []*ledger.SnapshotBlock) {
-	a.cache = append(a.cache, blocks...)
-	a.cache.Sort()
+	if blocks == nil || len(blocks) == 0 {
+		return
+	}
+
+	pool.cache = append(pool.cache, blocks...)
+	pool.cache.Sort()
 }

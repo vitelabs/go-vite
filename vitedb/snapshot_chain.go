@@ -11,22 +11,29 @@ import (
 )
 
 type SnapshotChain struct {
-	db  *DataBase
-	log log15.Logger
+	db         *DataBase
+	detachedDb *DataBase
+	log        log15.Logger
 }
 
 var _snapshotChain *SnapshotChain
 
 func GetSnapshotChain() *SnapshotChain {
 	if _snapshotChain == nil {
-		db, err := GetLDBDataBase(DB_LEDGER)
-		if err != nil {
-			log15.Root().Crit(err.Error())
+		db, err1 := GetLDBDataBase(DB_LEDGER)
+		if err1 != nil {
+			log15.Root().Crit(err1.Error())
+		}
+
+		detachedDb, err2 := GetLDBDataBase(DB_DETACHED_LEDGER)
+		if err2 != nil {
+			log15.Root().Crit(err2.Error())
 		}
 
 		_snapshotChain = &SnapshotChain{
-			db:  db,
-			log: log15.New("module", "vitedb/snapshot_chain"),
+			db:         db,
+			detachedDb: detachedDb,
+			log:        log15.New("module", "vitedb/snapshot_chain"),
 		}
 	}
 
@@ -35,6 +42,25 @@ func GetSnapshotChain() *SnapshotChain {
 
 func (spc *SnapshotChain) DbBatchWrite(batch *leveldb.Batch) {
 	spc.db.Leveldb.Write(batch, nil)
+}
+
+func (spc *SnapshotChain) DetachedDbBatchWrite(batch *leveldb.Batch) {
+	spc.detachedDb.Leveldb.Write(batch, nil)
+}
+
+func (spc *SnapshotChain) WriteDetached(batch *leveldb.Batch, block *ledger.SnapshotBlock) error {
+	heightKey, ckheightErr := createKey(DBKP_SNAPSHOTBLOCK, block.Height)
+	if ckheightErr != nil {
+		return ckheightErr
+	}
+
+	data, serializeErr := block.DbSerialize()
+	if serializeErr != nil {
+		return serializeErr
+	}
+
+	batch.Put(heightKey, data)
+	return nil
 }
 
 func (spc *SnapshotChain) DeleteBlocks(batch *leveldb.Batch, blockHash *types.Hash, count uint64) error {

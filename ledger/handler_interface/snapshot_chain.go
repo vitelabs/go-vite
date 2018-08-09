@@ -16,8 +16,8 @@ type SyncInfo struct {
 }
 
 type SnapshotChain interface {
-	HandleGetBlocks(*protoTypes.GetSnapshotBlocksMsg, *protoTypes.Peer) error
-	HandleSendBlocks(*protoTypes.SnapshotBlocksMsg, *protoTypes.Peer) error
+	HandleGetBlocks(*protoTypes.GetSnapshotBlocksMsg, *protoTypes.Peer, uint64) error
+	HandleSendBlocks(*protoTypes.SnapshotBlocksMsg, *protoTypes.Peer, uint64) error
 	SyncPeer(*protoTypes.Peer)
 	WriteMiningBlock(*ledger.SnapshotBlock) error
 	GetLatestBlock() (*ledger.SnapshotBlock, error)
