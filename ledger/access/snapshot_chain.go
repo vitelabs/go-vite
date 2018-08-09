@@ -33,16 +33,6 @@ func GetSnapshotChainAccess() *SnapshotChainAccess {
 	return snapshotChainAccess
 }
 
-func (sca *SnapshotChainAccess) WriteDetached(block *ledger.SnapshotBlock) error {
-	batch := new(leveldb.Batch)
-	if err := sca.store.WriteDetached(batch, block); err != nil {
-		return err
-	}
-
-	sca.store.DetachedDbBatchWrite(batch)
-	return nil
-}
-
 func (sca *SnapshotChainAccess) CheckExists(blockHash *types.Hash) bool {
 	block, err := sca.GetBlockByHash(blockHash)
 	if err != nil || block == nil {
