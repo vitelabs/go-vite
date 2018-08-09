@@ -32,6 +32,7 @@ func (i NetworkID) String() string {
 // @section Msg
 type Msg struct {
 	Code    uint64
+	Id      uint64
 	Payload []byte
 }
 
@@ -148,6 +149,8 @@ func (pt *PBTS) ReadMsg() (m Msg, err error) {
 
 	// extract length of payload
 	size := binary.BigEndian.Uint32(header[8:12])
+
+	m.Id = binary.BigEndian.Uint64(header[12:20])
 
 	if size > maxPayloadSize {
 		return m, fmt.Errorf("msg %d payload too large: %d / %d\n", m.Code, size, maxPayloadSize)
@@ -278,6 +281,8 @@ func pack(m Msg) (data []byte, err error) {
 	// sign payload length to header
 	size := uint32(len(m.Payload))
 	binary.BigEndian.PutUint32(header[8:12], size)
+
+	binary.BigEndian.PutUint64(header[12:20], m.Id)
 
 	// concat header and payload
 	if size == 0 {
