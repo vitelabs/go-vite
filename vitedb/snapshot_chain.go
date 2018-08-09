@@ -183,6 +183,8 @@ func (spc *SnapshotChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count
 
 	if forward {
 		startHeight = originBlock.Height
+		startHeight = startHeight.Add(startHeight, big.NewInt(1))
+
 		endHeight.Add(startHeight, gap)
 	} else {
 		endHeight = originBlock.Height

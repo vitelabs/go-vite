@@ -18,11 +18,11 @@ type cacheItem struct {
 	block *ledger.AccountBlock
 }
 
-type processInterface interface {
+type abProcessInterface interface {
 	ProcessBlock(*ledger.AccountBlock)
 }
 
-func NewAccountchainPool(processor processInterface) *AccountchainPool {
+func NewAccountchainPool(processor abProcessInterface) *AccountchainPool {
 	pool := AccountchainPool{}
 
 	go func() {

@@ -49,6 +49,9 @@ func NewAccountChain(vite Vite) *AccountChain {
 		scAccess: access.GetSnapshotChainAccess(),
 		uAccess:  access.GetUnconfirmedAccess(),
 		tAccess:  access.GetTokenAccess(),
+
+		downloadTasks:     make(map[string]*downloadTask),
+		downloadIdAddress: make(map[uint64]*types.Address),
 	}
 	ac.pool = pending.NewAccountchainPool(ac)
 	ac.startDownloaderTimer()
@@ -149,7 +152,7 @@ func (ac *AccountChain) finishDownload(id uint64) {
 		return
 	}
 
-	if downloadTask, ok := ac.downloadTasks[address.String()]; !ok {
+	if downloadTask, ok := ac.downloadTasks[address.String()]; ok {
 		if downloadTask.downloadId == id {
 			downloadTask.finished <- 1
 		}

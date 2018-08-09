@@ -3,6 +3,7 @@ package pending
 import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"sort"
 	"sync"
 	"time"
@@ -18,14 +19,25 @@ const (
 )
 
 type SnapshotchainPool struct {
-	cache   SnapshotBlockList
+	cache   sbCacheType
 	lock    sync.Mutex
 	tryTime int
+}
+type sbCacheType []sbCacheItem
+
+type sbCacheItem struct {
+	block *ledger.SnapshotBlock
+	peer  *protoTypes.Peer
+	id    uint64
+}
+
+type sbProcessInterface interface {
+	ProcessBlock(*ledger.SnapshotBlock, *protoTypes.Peer, uint64) int
 }
 
 type SnapshotBlockList []*ledger.SnapshotBlock
 
-func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) int) *SnapshotchainPool {
+func NewSnapshotchainPool(processor sbProcessInterface) *SnapshotchainPool {
 	pool := SnapshotchainPool{}
 
 	go func() {
@@ -37,7 +49,7 @@ func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) int) *Snapshot
 				time.Sleep(turnInterval * time.Millisecond)
 				continue
 			}
-			block := pool.cache[0]
+			cacheItem := pool.cache[0]
 
 			if pool.tryTime >= tryLimit {
 				pool.lock.Unlock()
@@ -48,7 +60,7 @@ func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) int) *Snapshot
 			pool.lock.Unlock()
 
 			snapshotchainLog.Info("SnapshotchainPool: Start process block")
-			result := processFunc(block)
+			result := processor.ProcessBlock(cacheItem.block, cacheItem.peer, cacheItem.id)
 			if result == DISCARD {
 				pool.ClearHead()
 			} else {
@@ -67,10 +79,10 @@ func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) int) *Snapshot
 	return &pool
 }
 
-func (a SnapshotBlockList) Len() int           { return len(a) }
-func (a SnapshotBlockList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a SnapshotBlockList) Less(i, j int) bool { return a[i].Height.Cmp(a[j].Height) < 0 }
-func (a SnapshotBlockList) Sort() {
+func (a sbCacheType) Len() int           { return len(a) }
+func (a sbCacheType) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a sbCacheType) Less(i, j int) bool { return a[i].block.Height.Cmp(a[j].block.Height) < 0 }
+func (a sbCacheType) Sort() {
 	sort.Sort(a)
 }
 
@@ -83,7 +95,7 @@ func (pool *SnapshotchainPool) ClearHead() {
 	}
 }
 
-func (pool *SnapshotchainPool) Add(blocks []*ledger.SnapshotBlock) {
+func (pool *SnapshotchainPool) Add(blocks []*ledger.SnapshotBlock, peer *protoTypes.Peer, id uint64) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
 
@@ -91,6 +103,13 @@ func (pool *SnapshotchainPool) Add(blocks []*ledger.SnapshotBlock) {
 		return
 	}
 
-	pool.cache = append(pool.cache, blocks...)
+	for _, block := range blocks {
+		pool.cache = append(pool.cache, sbCacheItem{
+			block: block,
+			peer:  peer,
+			id:    id,
+		})
+	}
+
 	pool.cache.Sort()
 }
