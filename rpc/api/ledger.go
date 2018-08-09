@@ -69,7 +69,8 @@ type LedgerApi interface {
 	GetUnconfirmedInfo(addr []string, reply *string) error
 	// Get the realtime sync info. the reply is InitSyncResponse
 	GetInitSyncInfo(noop interface{}, reply *string) error
-
+	// GetLatestSnapshotBlock. the reply is the height of Snapshotchain
+	GetSnapshotChainHeight(noop interface{}, reply *string) error
 	//StartAutoConfirmTx(addr []string, reply *string) error
 	//StopAutoConfirmTx(addr []string, reply *string) error
 }

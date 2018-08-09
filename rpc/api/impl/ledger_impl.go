@@ -248,6 +248,21 @@ func (l *LegerApiImpl) GetInitSyncInfo(noop interface{}, reply *string) error {
 	return easyJsonReturn(r, reply)
 }
 
+func (l *LegerApiImpl) GetSnapshotChainHeight(noop interface{}, reply *string) error {
+	log.Info("GetSnapshotChainHeight")
+	block, e := l.ledgerManager.Sc().GetLatestBlock()
+	if e != nil {
+		log.Error("GetSnapshotChainHeight", "err", e)
+		return e
+	}
+	if block != nil && block.Height != nil {
+		*reply = block.Height.String()
+		return nil
+	}
+	*reply = ""
+	return nil
+}
+
 func (l *LegerApiImpl) StartAutoConfirmTx(addr []string, reply *string) error {
 	return nil
 }
