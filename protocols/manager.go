@@ -232,7 +232,7 @@ func (pm *ProtocolManager) Sync() {
 		}
 	}
 
-	bestPeer := pm.Peers.BestPeer()
+	bestPeer := pm.BestPeer()
 	currentBlock := pm.CurrentBlock()
 
 	if bestPeer != nil && bestPeer.Height.Cmp(currentBlock.Height) > 0 {
@@ -264,6 +264,10 @@ func (pm *ProtocolManager) Sync() {
 			pm.schain.SyncPeer(nil)
 		}
 	}
+}
+
+func (pm *ProtocolManager) BestPeer() *protoType.Peer {
+	return pm.Peers.BestPeer()
 }
 
 func (pm *ProtocolManager) SyncDone() {
