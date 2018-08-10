@@ -11,8 +11,7 @@ import (
 )
 
 func main() {
-
-	println("git version:", govite.GITHEADCOMMIT)
+	govite.PrintBuildVersion()
 
 	mainLog := log15.New("module", "gvite/main")
 	go func() {

@@ -32,6 +32,9 @@ func (l *LegerApiImpl) CreateTxWithPassphrase(params *api.SendTxParms, reply *st
 	if params == nil {
 		return fmt.Errorf("sendTxParms nil")
 	}
+	if params.Passphrase == "" {
+		return fmt.Errorf("sendTxParms Passphrase nil")
+	}
 	selfaddr, err := types.HexToAddress(params.SelfAddr)
 	if err != nil {
 		return err
@@ -246,6 +249,21 @@ func (l *LegerApiImpl) GetInitSyncInfo(noop interface{}, reply *string) error {
 	}
 
 	return easyJsonReturn(r, reply)
+}
+
+func (l *LegerApiImpl) GetSnapshotChainHeight(noop interface{}, reply *string) error {
+	log.Info("GetSnapshotChainHeight")
+	block, e := l.ledgerManager.Sc().GetLatestBlock()
+	if e != nil {
+		log.Error("GetSnapshotChainHeight", "err", e)
+		return e
+	}
+	if block != nil && block.Height != nil {
+		*reply = block.Height.String()
+		return nil
+	}
+	*reply = ""
+	return nil
 }
 
 func (l *LegerApiImpl) StartAutoConfirmTx(addr []string, reply *string) error {

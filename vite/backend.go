@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
 	protoInterface "github.com/vitelabs/go-vite/protocols/interfaces"
 
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
@@ -83,6 +84,8 @@ func New(cfg *config.Config) (*Vite, error) {
 		committee.Start()
 	}
 	vite.p2p.Start()
+
+	fmt.Println("vite node start success you can find the runlog in", cfg.RunLogDir())
 	return vite, nil
 }
 
