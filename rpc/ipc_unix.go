@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-	"fmt"
 )
 
 const (
@@ -16,7 +15,6 @@ const (
 )
 
 func IpcListen(endpoint string) (net.Listener, error) {
-	fmt.Println(endpoint)
 	if err := os.MkdirAll(filepath.Dir(endpoint), 0751); err != nil {
 		return nil, err
 	}

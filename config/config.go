@@ -78,8 +78,6 @@ func init() {
 		if err != nil {
 			fmt.Println("config file unmarshal error: ", err)
 		}
-	} else {
-		fmt.Println("config file read error: ", err)
 	}
 
 	// set default value global keys
