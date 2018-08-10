@@ -23,4 +23,4 @@ vite.p2p.db
 
 build/
 
-gitversion.go
+gitversion

@@ -19,9 +19,7 @@ TESTCLIENTMAIN = $(shell pwd)/testdata/main/ipc_client.go
 GITREV = $(shell git rev-parse HEAD)
 
 gitversion:
-	@echo "package govite" > $(shell pwd)/gitversion.go
-	@echo "" >> $(shell pwd)/gitversion.go
-	@echo "const GITHEADCOMMIT = \"$(shell git rev-parse HEAD)\";" >> $(shell pwd)/gitversion.go
+	@echo "$(shell git rev-parse HEAD)" > $(shell pwd)/gitversion
 
 gvite: gitversion
 	go build -i -o $(GOBIN)/gvite $(SERVERMAIN)
