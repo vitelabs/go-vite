@@ -37,17 +37,17 @@ var firmNodes = [...]string{
 	"vnode://75f962a81a6d52d9dcc830ff7dc2f21c424eeed4a0f2e5bab8f39f44df833153@150.109.40.23:8483",
 	"vnode://491d7a992cad4ba82ea10ad0f5da86a2e40f4068918bd50d8faae1f1b69d8510@150.109.49.145:8483",
 	"vnode://c3debe5fc3f8839c4351834d454a0940872f973ad0d332811f0d9e84953cfdc2@150.109.103.170:8483",
-	"vnode://ba351c5df80eea3d78561507e40b3160ade4daf20571c5a011ca358b81d630f7@150.109.104.53:8483",
-	"vnode://a1d437148c48a44b709b0a0c1e99c847bb4450384a6eea899e35e78a1e54c92b@150.109.103.236:8483",
-	"vnode://657f6706b95005a33219ae26944e6db15edfe8425b46fa73fb6cae57707b4403@150.109.32.116:8483",
-	"vnode://20fd0ec94071ea99019d3c18a5311993b8fa91920b36803e5558783ca346cec1@150.109.102.180:8483",
-	"vnode://8669feb2fdeeedfbbfe8754050c0bd211a425e3b999d44856867d504cf13243e@150.109.59.74:8483",
-	"vnode://802d8033f6adea154e5fa8b356a45213e8a4e5e85e54da19688cb0ad3520db2b@150.109.105.23:8483",
-	"vnode://180af9c90f8444a452a9fb53f3a1975048e9b23ec492636190f9741ed3888a62@150.109.105.145:8483",
-	"vnode://6c8ce60b87199d46f7524d7da5a06759c054b9192818d0e8b211768412efec51@150.109.105.26:8483",
-	"vnode://3b3e7164827eb339548b9c895fc56acee7980a0044b5bef2e6f465e030944e40@150.109.62.157:8483",
-	"vnode://de1f3a591b551591fb7d20e478da0371def3d62726b90ffca6932e38a25ebe84@150.109.38.29:8483",
-	"vnode://9df2e11399398176fa58638592cf1b2e0e804ae92ac55f09905618fdb239c03c@150.109.40.169:8483",
+	//"vnode://ba351c5df80eea3d78561507e40b3160ade4daf20571c5a011ca358b81d630f7@150.109.104.53:8483",
+	//"vnode://a1d437148c48a44b709b0a0c1e99c847bb4450384a6eea899e35e78a1e54c92b@150.109.103.236:8483",
+	//"vnode://657f6706b95005a33219ae26944e6db15edfe8425b46fa73fb6cae57707b4403@150.109.32.116:8483",
+	//"vnode://20fd0ec94071ea99019d3c18a5311993b8fa91920b36803e5558783ca346cec1@150.109.102.180:8483",
+	//"vnode://8669feb2fdeeedfbbfe8754050c0bd211a425e3b999d44856867d504cf13243e@150.109.59.74:8483",
+	//"vnode://802d8033f6adea154e5fa8b356a45213e8a4e5e85e54da19688cb0ad3520db2b@150.109.105.23:8483",
+	//"vnode://180af9c90f8444a452a9fb53f3a1975048e9b23ec492636190f9741ed3888a62@150.109.105.145:8483",
+	//"vnode://6c8ce60b87199d46f7524d7da5a06759c054b9192818d0e8b211768412efec51@150.109.105.26:8483",
+	//"vnode://3b3e7164827eb339548b9c895fc56acee7980a0044b5bef2e6f465e030944e40@150.109.62.157:8483",
+	//"vnode://de1f3a591b551591fb7d20e478da0371def3d62726b90ffca6932e38a25ebe84@150.109.38.29:8483",
+	//"vnode://9df2e11399398176fa58638592cf1b2e0e804ae92ac55f09905618fdb239c03c@150.109.40.169:8483",
 }
 
 // type of conn
@@ -85,7 +85,7 @@ type Config struct {
 	Database string
 
 	PrivateKey ed25519.PrivateKey
-	// use for NodeID
+
 	PublicKey ed25519.PublicKey
 }
 
@@ -139,38 +139,6 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 	}
 	config.NetID = NetworkID(cfg.NetID)
 
-	if config.Name != "" && config.Sig != "" {
-		config.PublicKey = pickPub(config.Name, config.Sig)
-		fmt.Println()
-	}
-
-	if cfg.PublicKey != "" {
-		pub, err := hex.DecodeString(cfg.PublicKey)
-		if err == nil {
-			config.PublicKey = pub
-		} else {
-			p2pServerLog.Error("publicKey decode", "err", err)
-		}
-	}
-
-	if cfg.PrivateKey != "" {
-		priv, err := hex.DecodeString(cfg.PrivateKey)
-		if err == nil {
-			config.PrivateKey = priv
-		} else {
-			p2pServerLog.Error("privateKey decode", "err", err)
-		}
-	}
-
-	if config.PrivateKey == nil && config.PublicKey == nil {
-		pub, priv, err := ed25519.GenerateKey(nil)
-		if err != nil {
-			p2pServerLog.Crit("generate self NodeID", "err", err)
-		}
-		config.PrivateKey = priv
-		config.PublicKey = pub
-	}
-
 	if config.NetID == 0 {
 		config.NetID = 4
 	}
@@ -181,6 +149,19 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 
 	if config.Database == "" {
 		config.Database = filepath.Join(config.Datadir, "p2p")
+	}
+
+	if cfg.PrivateKey != "" {
+		priv, err := hex.DecodeString(cfg.PrivateKey)
+		if err == nil {
+			config.PrivateKey = ed25519.PrivateKey(priv)
+			config.PublicKey = config.PrivateKey.PubByte()
+		} else {
+			p2pServerLog.Error("privateKey decode", "err", err)
+			config.PublicKey, config.PrivateKey, err = getServerKey(config.Database)
+		}
+	} else {
+		config.PublicKey, config.PrivateKey, err = getServerKey(config.Database)
 	}
 
 	// after default config

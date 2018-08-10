@@ -3,12 +3,8 @@ package config
 type P2P struct {
 	Name string `json:"Name""`
 
-	Sig string `json:"Sig"`
-
 	// use for sign data
 	PrivateKey string `json:"PrivateKey"`
-	// use for NodeID
-	PublicKey string `json:"PublicKey"`
 
 	// `MaxPeers` is the maximum number of peers that can be connected.
 	MaxPeers uint32 `json:"MaxPeers"`
@@ -40,16 +36,8 @@ func MergeP2PConfig(cfg *P2P) P2P {
 		p2p.Name = cfg.Name
 	}
 
-	if cfg.Sig != "" {
-		p2p.Sig = cfg.Sig
-	}
-
 	if cfg.PrivateKey != "" {
 		p2p.PrivateKey = cfg.PrivateKey
-	}
-
-	if cfg.PublicKey != "" {
-		p2p.PublicKey = cfg.PublicKey
 	}
 
 	if cfg.MaxPeers != 0 {
