@@ -172,7 +172,7 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 	}
 
 	if config.NetID == 0 {
-		config.NetID = TestNet
+		config.NetID = 4
 	}
 
 	if config.Addr == "" {
