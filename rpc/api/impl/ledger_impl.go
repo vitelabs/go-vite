@@ -32,6 +32,9 @@ func (l *LegerApiImpl) CreateTxWithPassphrase(params *api.SendTxParms, reply *st
 	if params == nil {
 		return fmt.Errorf("sendTxParms nil")
 	}
+	if params.Passphrase == "" {
+		return fmt.Errorf("sendTxParms Passphrase nil")
+	}
 	selfaddr, err := types.HexToAddress(params.SelfAddr)
 	if err != nil {
 		return err
