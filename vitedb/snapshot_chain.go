@@ -52,6 +52,14 @@ func (spc *SnapshotChain) DeleteBlocks(batch *leveldb.Batch, blockHash *types.Ha
 			return gbbhErr
 		}
 
+		// Revert snapshot status
+		accountChain := GetAccountChain()
+		for _, snapshotItem := range currentBlock.Snapshot {
+			accountBlockMeta, _ := accountChain.GetBlockMeta(snapshotItem.AccountBlockHash)
+			accountBlockMeta.IsSnapshotted = false
+			accountChain.WriteBlockMeta(batch, snapshotItem.AccountBlockHash, accountBlockMeta)
+		}
+
 		heightKey, ckheightErr := createKey(DBKP_SNAPSHOTBLOCK, height)
 
 		if ckheightErr != nil {

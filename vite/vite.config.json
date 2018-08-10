@@ -1,13 +1,13 @@
 {
         "P2P": {
-            "Name": "vite-official-bootnode-3",
-            "Sig": "d0798991cb13c0d34021806d674402b29b1b5869f812f76be38fe1286bb1a50d82241794a92cbc7a8a1b585288c9c6dbb48c1cee1271164bba19bd9d1fdc8e06",
+            "Name": "vite-official-bootnode-4",
+            "Sig": "cc64b2cf431629c3f47e3e2b308ef70c7c4aeac39ed4bb1eab422e5451283d337c8c20f09b484e3e80fc685e7ececfefd7dac434e752be87678fb2ad1628fd00",
 	    "MaxPeers": 200,
 	    "MaxPassivePeersRatio": 2,
 	    "MaxPendingPeers": 30
         },
 	"Miner": {
 	    "Miner": true,
-	    "Coinbase": "vite_946e7f9554cc5efc6e404a6510c3c6a098ac4296c049cc348b"
+	    "Coinbase": "vite_85e8adb768aed85f2445eb1d71b933370d2980916baa3c1f3c"
 	}
     }
