@@ -482,8 +482,10 @@ func (sc *SnapshotChain) GetBlockByHeight(height *big.Int) (*ledger.SnapshotBloc
 	return sc.scAccess.GetBlockByHeight(height)
 }
 func (sc *SnapshotChain) isFirstSyncDone() bool {
-	judge := sc.status >= STATUS_FIRST_SYNCING && syncInfo.CurrentHeight.Cmp(syncInfo.TargetHeight) >= 0
-	return judge
+	if sc.status >= STATUS_FIRST_SYNCING && syncInfo.CurrentHeight != nil && syncInfo.TargetHeight != nil {
+		return  syncInfo.CurrentHeight.Cmp(syncInfo.TargetHeight) >= 0
+	}
+	return false
 }
 
 func (sc *SnapshotChain) isFirstSyncStart() bool {
