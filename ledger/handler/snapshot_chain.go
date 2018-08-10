@@ -280,8 +280,6 @@ func (sc *SnapshotChain) ProcessBlock(block *ledger.SnapshotBlock, peer *protoTy
 
 		if syncInfo.CurrentHeight.Cmp(syncInfo.TargetHeight) >= 0 {
 			sc.onFirstSyncDown()
-		} else if syncInfo.CurrentHeight.Cmp(syncInfo.StageTargetHeight) >= 0 {
-
 		}
 	}
 
@@ -484,7 +482,7 @@ func (sc *SnapshotChain) GetBlockByHeight(height *big.Int) (*ledger.SnapshotBloc
 	return sc.scAccess.GetBlockByHeight(height)
 }
 func (sc *SnapshotChain) isFirstSyncDone() bool {
-	judge := sc.status > STATUS_FIRST_SYNCING
+	judge := sc.status >= STATUS_FIRST_SYNCING && syncInfo.CurrentHeight.Cmp(syncInfo.TargetHeight) >= 0
 	return judge
 }
 
