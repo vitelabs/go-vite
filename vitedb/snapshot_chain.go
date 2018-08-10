@@ -19,9 +19,9 @@ var _snapshotChain *SnapshotChain
 
 func GetSnapshotChain() *SnapshotChain {
 	if _snapshotChain == nil {
-		db, err := GetLDBDataBase(DB_LEDGER)
-		if err != nil {
-			log15.Root().Crit(err.Error())
+		db, err1 := GetLDBDataBase(DB_LEDGER)
+		if err1 != nil {
+			log15.Root().Crit(err1.Error())
 		}
 
 		_snapshotChain = &SnapshotChain{
@@ -157,6 +157,8 @@ func (spc *SnapshotChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count
 
 	if forward {
 		startHeight = originBlock.Height
+		startHeight = startHeight.Add(startHeight, big.NewInt(1))
+
 		endHeight.Add(startHeight, gap)
 	} else {
 		endHeight = originBlock.Height

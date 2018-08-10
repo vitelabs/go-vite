@@ -14,8 +14,10 @@ type Serializable interface {
 	NetDeserialize([]byte) error
 }
 
+// todo: [optimize] field Id should be included in payload
 type Msg struct {
 	Code    uint64
+	Id      uint64
 	Payload Serializable
 }
 
@@ -28,6 +30,7 @@ const (
 	SnapshotBlocksMsgCode           = 19
 	GetAccountBlocksMsgCode         = 20
 	AccountBlocksMsgCode            = 21
+	ErrorCode                       = 99
 )
 
 // @message current blockchain status.

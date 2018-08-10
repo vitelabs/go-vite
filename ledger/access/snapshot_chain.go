@@ -3,11 +3,11 @@ package access
 import (
 	"bytes"
 	"errors"
-	"github.com/vitelabs/go-vite/log15"
 	errors2 "github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitedb"
 	"math/big"
 	"sync"
@@ -32,6 +32,16 @@ func GetSnapshotChainAccess() *SnapshotChainAccess {
 	}
 	return snapshotChainAccess
 }
+
+func (sca *SnapshotChainAccess) CheckExists(blockHash *types.Hash) bool {
+	block, err := sca.GetBlockByHash(blockHash)
+	if err != nil || block == nil {
+		return true
+	}
+
+	return false
+}
+
 func (sca *SnapshotChainAccess) DeleteBlocks(blockHash *types.Hash, count uint64) error {
 	batch := new(leveldb.Batch)
 	if err := sca.store.DeleteBlocks(batch, blockHash, count); err != nil {

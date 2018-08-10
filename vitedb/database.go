@@ -150,8 +150,9 @@ func (*viteComparer) Compare(a, b []byte) (result int) {
 }
 
 var (
-	DB_DIR    = common.DefaultDataDir()
-	DB_LEDGER = "ledger"
+	DB_DIR             = common.DefaultDataDir()
+	DB_LEDGER          = "ledger"
+	DB_DETACHED_LEDGER = "ledger_detached"
 )
 
 func SetDataDir(dataDir string) {

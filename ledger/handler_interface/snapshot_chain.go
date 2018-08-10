@@ -8,16 +8,17 @@ import (
 )
 
 type SyncInfo struct {
-	BeginHeight      *big.Int
-	TargetHeight     *big.Int
-	CurrentHeight    *big.Int
-	IsFirstSyncDone  bool
-	IsFirstSyncStart bool
+	BeginHeight       *big.Int
+	TargetHeight      *big.Int
+	StageTargetHeight *big.Int
+	CurrentHeight     *big.Int
+	IsFirstSyncDone   bool
+	IsFirstSyncStart  bool
 }
 
 type SnapshotChain interface {
-	HandleGetBlocks(*protoTypes.GetSnapshotBlocksMsg, *protoTypes.Peer) error
-	HandleSendBlocks(*protoTypes.SnapshotBlocksMsg, *protoTypes.Peer) error
+	HandleGetBlocks(*protoTypes.GetSnapshotBlocksMsg, *protoTypes.Peer, uint64) error
+	HandleSendBlocks(*protoTypes.SnapshotBlocksMsg, *protoTypes.Peer, uint64) error
 	SyncPeer(*protoTypes.Peer)
 	WriteMiningBlock(*ledger.SnapshotBlock) error
 	GetLatestBlock() (*ledger.SnapshotBlock, error)

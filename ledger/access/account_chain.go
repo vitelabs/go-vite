@@ -513,15 +513,6 @@ func (aca *AccountChainAccess) writeBlock(batch *leveldb.Batch, block *ledger.Ac
 	}
 	accountchainLog.Info("AccountChainAccess writeblock: Write block success.")
 
-	// Write tii
-	if err := aca.writeTii(batch, block); err != nil {
-		return &AcWriteError{
-			Code: WacDefaultErr,
-			Err:  err,
-		}
-	}
-	accountchainLog.Info("AccountChainAccess writeblock: Write tii success.")
-
 	return nil
 }
 

@@ -3,77 +3,113 @@ package pending
 import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	protoTypes "github.com/vitelabs/go-vite/protocols/types"
 	"sort"
-	"strconv"
+	"sync"
 	"time"
 )
 
-var snapshotchainLog = log15.New("module", "ledger/access/snapshot_chain")
+var snapshotchainLog = log15.New("module", "ledger/cache/pending/snapshot_chain")
+
+const tryLimit = 3
+const (
+	DISCARD = iota
+	TRY_AGAIN
+	NO_DISCARD
+)
 
 type SnapshotchainPool struct {
-	cache SnapshotBlockList
+	cache   sbCacheType
+	lock    sync.Mutex
+	tryTime int
+}
+type sbCacheType []sbCacheItem
+
+type sbCacheItem struct {
+	block *ledger.SnapshotBlock
+	peer  *protoTypes.Peer
+	id    uint64
+}
+
+type sbProcessInterface interface {
+	ProcessBlock(*ledger.SnapshotBlock, *protoTypes.Peer, uint64) int
 }
 
 type SnapshotBlockList []*ledger.SnapshotBlock
 
-var tryLimit = 5
-var tryTime = 0
-
-func NewSnapshotchainPool(processFunc func(*ledger.SnapshotBlock) bool) *SnapshotchainPool {
+func NewSnapshotchainPool(processor sbProcessInterface) *SnapshotchainPool {
 	pool := SnapshotchainPool{}
 
 	go func() {
-		snapshotchainLog.Info("SnapshotchainPool: Start process block")
 		turnInterval := time.Duration(2000)
 		for {
+			pool.lock.Lock()
 			if len(pool.cache) <= 0 {
+				pool.lock.Unlock()
 				time.Sleep(turnInterval * time.Millisecond)
 				continue
 			}
+			cacheItem := pool.cache[0]
 
-			if processFunc(pool.cache[0]) {
-				snapshotchainLog.Info("SnapshotchainPool: block process finished.")
+			if pool.tryTime >= tryLimit {
+				pool.lock.Unlock()
 				pool.ClearHead()
-				tryTime = 0
-			} else {
-				tryTime++
+				continue
+			}
 
-				snapshotchainLog.Info("SnapshotchainPool: block process unsuccess, tryTime: " + strconv.Itoa(tryTime))
-				if tryTime >= tryLimit {
-					pool.ClearHead()
-					tryTime = 0
-					snapshotchainLog.Info("SnapshotchainPool: block process unsuccess, wait next.")
+			pool.lock.Unlock()
+
+			snapshotchainLog.Info("SnapshotchainPool: Start process block")
+			result := processor.ProcessBlock(cacheItem.block, cacheItem.peer, cacheItem.id)
+			if result == DISCARD {
+				pool.ClearHead()
+			} else {
+				if result == TRY_AGAIN {
+					pool.lock.Lock()
+					pool.tryTime++
+					pool.lock.Unlock()
 				}
+
 				time.Sleep(turnInterval * time.Millisecond)
 			}
+
 		}
 	}()
 
 	return &pool
 }
 
-func (a SnapshotBlockList) Len() int           { return len(a) }
-func (a SnapshotBlockList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a SnapshotBlockList) Less(i, j int) bool { return a[i].Height.Cmp(a[j].Height) < 0 }
-func (a SnapshotBlockList) Sort() {
+func (a sbCacheType) Len() int           { return len(a) }
+func (a sbCacheType) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a sbCacheType) Less(i, j int) bool { return a[i].block.Height.Cmp(a[j].block.Height) < 0 }
+func (a sbCacheType) Sort() {
 	sort.Sort(a)
 }
 
 func (pool *SnapshotchainPool) ClearHead() {
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
+	pool.tryTime = 0
 	if len(pool.cache) > 0 {
 		pool.cache = pool.cache[1:]
 	}
 }
 
-func (pool *SnapshotchainPool) MaxBlock() *ledger.SnapshotBlock {
-	block := pool.cache[len(pool.cache)-1]
-	return block
-}
+func (pool *SnapshotchainPool) Add(blocks []*ledger.SnapshotBlock, peer *protoTypes.Peer, id uint64) {
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
 
-func (a *SnapshotchainPool) Clear() {
-	a.cache = SnapshotBlockList{}
-}
-func (a *SnapshotchainPool) Add(blocks []*ledger.SnapshotBlock) {
-	a.cache = append(a.cache, blocks...)
-	a.cache.Sort()
+	if blocks == nil || len(blocks) == 0 {
+		return
+	}
+
+	for _, block := range blocks {
+		pool.cache = append(pool.cache, sbCacheItem{
+			block: block,
+			peer:  peer,
+			id:    id,
+		})
+	}
+
+	pool.cache.Sort()
 }

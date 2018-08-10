@@ -2,10 +2,10 @@ package protocols
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/vitelabs/go-vite/ledger"
 	ledgerHandler "github.com/vitelabs/go-vite/ledger/handler_interface"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/protocols/interfaces"
 	protoType "github.com/vitelabs/go-vite/protocols/types"
@@ -105,19 +105,19 @@ func (pm *ProtocolManager) HandlePeer(peer *p2p.Peer) {
 			case protoType.GetSnapshotBlocksMsgCode:
 				m := new(protoType.GetSnapshotBlocksMsg)
 				m.NetDeserialize(msg.Payload)
-				err = pm.schain.HandleGetBlocks(m, protoPeer)
+				err = pm.schain.HandleGetBlocks(m, protoPeer, msg.Id)
 			case protoType.SnapshotBlocksMsgCode:
 				m := new(protoType.SnapshotBlocksMsg)
 				m.NetDeserialize(msg.Payload)
-				err = pm.schain.HandleSendBlocks(m, protoPeer)
+				err = pm.schain.HandleSendBlocks(m, protoPeer, msg.Id)
 			case protoType.GetAccountBlocksMsgCode:
 				m := new(protoType.GetAccountBlocksMsg)
 				m.NetDeserialize(msg.Payload)
-				err = pm.achain.HandleGetBlocks(m, protoPeer)
+				err = pm.achain.HandleGetBlocks(m, protoPeer, msg.Id)
 			case protoType.AccountBlocksMsgCode:
 				m := new(protoType.AccountBlocksMsg)
 				m.NetDeserialize(msg.Payload)
-				err = pm.achain.HandleSendBlocks(m, protoPeer)
+				err = pm.achain.HandleSendBlocks(m, protoPeer, msg.Id)
 			default:
 				peer.Errch <- fmt.Errorf("unknown message code %d from %s\n", msg.Code, peer.ID())
 				return
@@ -150,12 +150,18 @@ func (pm *ProtocolManager) CheckStatus(peer *protoType.Peer) {
 }
 
 func (pm *ProtocolManager) SendMsg(p *protoType.Peer, msg *protoType.Msg) error {
-	payload, err := msg.Payload.NetSerialize()
+	var payload []byte
+	var err error
+	if msg.Payload != nil {
+		payload, err = msg.Payload.NetSerialize()
+	}
+
 	if err != nil {
 		return fmt.Errorf("pm.SendMsg NetSerialize msg %d to %s error: %v\n", msg.Code, p.ID, err)
 	}
 	m := &p2p.Msg{
 		Code:    msg.Code,
+		Id:      msg.Id,
 		Payload: payload,
 	}
 
@@ -226,7 +232,7 @@ func (pm *ProtocolManager) Sync() {
 		}
 	}
 
-	bestPeer := pm.Peers.BestPeer()
+	bestPeer := pm.BestPeer()
 	currentBlock := pm.CurrentBlock()
 
 	if bestPeer != nil && bestPeer.Height.Cmp(currentBlock.Height) > 0 {
@@ -258,6 +264,10 @@ func (pm *ProtocolManager) Sync() {
 			pm.schain.SyncPeer(nil)
 		}
 	}
+}
+
+func (pm *ProtocolManager) BestPeer() *protoType.Peer {
+	return pm.Peers.BestPeer()
 }
 
 func (pm *ProtocolManager) SyncDone() {
