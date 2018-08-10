@@ -10,7 +10,6 @@ import (
 type SyncInfo struct {
 	BeginHeight       *big.Int
 	TargetHeight      *big.Int
-	StageTargetHeight *big.Int
 	CurrentHeight     *big.Int
 	IsFirstSyncDone   bool
 	IsFirstSyncStart  bool
