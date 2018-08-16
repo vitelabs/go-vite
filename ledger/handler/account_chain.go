@@ -299,7 +299,22 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 	}
 
 	acLog.Info("AccountChain CreateTx: get currentSnapshotBlock success.")
-	block.SnapshotTimestamp = currentSnapshotBlock.Hash
+	// Hack
+	if currentSnapshotBlock.Height.Cmp(big.NewInt(20)) <= 0 {
+		block.SnapshotTimestamp = currentSnapshotBlock.Hash
+	} else {
+		snapshotBlockHeight := &big.Int{}
+		if currentSnapshotBlock.Height.Cmp(big.NewInt(40)) <= 0 {
+			snapshotBlockHeight = big.NewInt(20)
+		} else {
+			snapshotBlockHeight.Sub(currentSnapshotBlock.Height, big.NewInt(20))
+		}
+		snapshotBlock, err := ac.scAccess.GetBlockByHeight(snapshotBlockHeight)
+		if err != nil {
+			return err
+		}
+		block.SnapshotTimestamp = snapshotBlock.Hash
+	}
 
 	// Set Timestamp
 	block.Timestamp = uint64(time.Now().Unix())
