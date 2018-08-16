@@ -11,8 +11,8 @@ import (
 )
 
 type Config struct {
-	P2P   `json:"P2P"`
-	Miner `json:"Miner"`
+	*P2P   `json:"P2P"`
+	*Miner `json:"Miner"`
 
 	// global keys
 	DataDir string `json:"DataDir"`
@@ -37,9 +37,9 @@ const configFileName = "vite.config.json"
 
 var GlobalConfig *Config
 
-func RecoverConfig() {
+func defaultConfig() {
 	GlobalConfig = &Config{
-		P2P: P2P{
+		P2P: &P2P{
 			Name:                 "vite-server",
 			PrivateKey:           "",
 			MaxPeers:             100,
@@ -50,7 +50,7 @@ func RecoverConfig() {
 			Datadir:              common.DefaultDataDir(),
 			NetID:                4,
 		},
-		Miner: Miner{
+		Miner: &Miner{
 			Miner:         false,
 			Coinbase:      "",
 			MinerInterval: 6,
@@ -60,7 +60,7 @@ func RecoverConfig() {
 }
 
 func init() {
-	GlobalConfig = new(Config)
+	defaultConfig()
 
 	if text, err := ioutil.ReadFile(configFileName); err == nil {
 		err = json.Unmarshal(text, GlobalConfig)

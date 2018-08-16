@@ -11,20 +11,24 @@ import (
 	_ "net/http/pprof"
 )
 
-var (
-	nameFlag       = flag.String("name", "", "boot name")
-	maxPeersFlag   = flag.Uint("maxpeers", 0, "max number of connections will be connected")
-	addrFlag       = flag.String("addr", "0.0.0.0:8483", "will be listen by vite")
-	privateKeyFlag = flag.String("priv", "", "use for sign message")
-	dataDirFlag    = flag.String("dir", "", "use for store all files")
-	netIdFlag      = flag.Uint("netid", 0, "the network vite will connect")
-	//minerFlag     = flag.Bool("miner", false, "boot miner")
-	//minerInterval = flag.Int("minerInterval", 6, "miner interval(unit sec).")
-	//coinbaseFlag  = flag.String("coinbaseAddress", "", "boot coinbaseAddress")
-)
+func parseConfig() *config.Config {
+	var globalConfig = config.GlobalConfig
+
+	flag.StringVar(&globalConfig.Name, "name", globalConfig.Name, "boot name")
+	flag.UintVar(&globalConfig.MaxPeers, "peers", globalConfig.MaxPeers, "max number of connections will be connected")
+	flag.StringVar(&globalConfig.Addr, "addr", globalConfig.Addr, "will be listen by vite")
+	flag.StringVar(&globalConfig.PrivateKey, "priv", globalConfig.PrivateKey, "hex encode of ed25519 privateKey, use for sign message")
+	flag.StringVar(&globalConfig.DataDir, "dir", globalConfig.DataDir, "use for store all files")
+	flag.UintVar(&globalConfig.NetID, "netid", globalConfig.NetID, "the network vite will connect")
+
+	flag.Parse()
+
+	globalConfig.P2P.Datadir = globalConfig.DataDir
+
+	return globalConfig
+}
 
 func main() {
-
 	govite.PrintBuildVersion()
 
 	mainLog := log15.New("module", "gvite/main")
@@ -36,40 +40,19 @@ func main() {
 		}
 	}()
 
-	flag.Parse()
+	parsedConfig := parseConfig()
 
-	globalConfig := config.GlobalConfig
-
-	if *dataDirFlag != "" {
-		globalConfig.DataDir = *dataDirFlag
-	}
-
-	globalConfig.P2P = config.MergeP2PConfig(&config.P2P{
-		Name:       *nameFlag,
-		MaxPeers:   uint32(*maxPeersFlag),
-		Addr:       *addrFlag,
-		PrivateKey: *privateKeyFlag,
-		NetID:      *netIdFlag,
-	})
-	globalConfig.P2P.Datadir = globalConfig.DataDir
-
-	//globalConfig.Miner = config.MergeMinerConfig(&config.Miner{
-	//	Miner:         *minerFlag,
-	//	Coinbase:      *coinbaseFlag,
-	//	MinerInterval: *minerInterval,
-	//})
-
-	if s, e := config.GlobalConfig.RunLogDirFile(); e == nil {
+	if s, e := parsedConfig.RunLogDirFile(); e == nil {
 		log15.Root().SetHandler(
 			log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(s, log15.TerminalFormat())),
 		)
 	}
 
-	vnode, err := vite.New(globalConfig)
+	vnode, err := vite.New(parsedConfig)
 
 	if err != nil {
 		mainLog.Crit("Start vite failed.", "err", err)
 	}
 
-	rpc_vite.StartIpcRpc(vnode, globalConfig.DataDir)
+	rpc_vite.StartIpcRpc(vnode, parsedConfig.DataDir)
 }

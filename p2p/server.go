@@ -262,11 +262,11 @@ func (svr *Server) Available() bool {
 	return count > 0
 }
 
-func (svr *Server) MaxActivePeers() uint32 {
+func (svr *Server) MaxActivePeers() uint {
 	return svr.MaxPeers - svr.MaxPassivePeers()
 }
 
-func (svr *Server) MaxPassivePeers() uint32 {
+func (svr *Server) MaxPassivePeers() uint {
 	return svr.MaxPeers / svr.MaxPassivePeersRatio
 }
 
@@ -424,8 +424,8 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 	return nil
 }
 
-func (svr *Server) CheckConn(peers map[NodeID]*Peer, c *TSConn, passivePeersCount uint32) error {
-	if uint32(len(peers)) >= svr.MaxPeers {
+func (svr *Server) CheckConn(peers map[NodeID]*Peer, c *TSConn, passivePeersCount uint) error {
+	if uint(len(peers)) >= svr.MaxPeers {
 		return DiscTooManyPeers
 	}
 	if passivePeersCount >= svr.MaxPassivePeers() {
@@ -454,7 +454,7 @@ func (svr *Server) ScheduleTask() {
 	peers := make(map[NodeID]*Peer)
 	taskHasDone := make(chan Task, defaultMaxActiveDail)
 
-	var passivePeersCount uint32 = 0
+	var passivePeersCount uint = 0
 	var activeTasks []Task
 	var taskQueue []Task
 
@@ -654,7 +654,7 @@ func (t *waitTask) Perform(svr *Server) {
 
 // @section DialManager
 type DialManager struct {
-	maxDials    uint32
+	maxDials    uint
 	dialing     map[NodeID]connFlag
 	start       time.Time
 	bootNodes   []*Node
@@ -776,7 +776,7 @@ func (dm *DialManager) checkDial(n *Node, peers map[NodeID]*Peer) error {
 	return nil
 }
 
-func NewDialManager(ntab *table, maxDials uint32, bootNodes []*Node) *DialManager {
+func NewDialManager(ntab *table, maxDials uint, bootNodes []*Node) *DialManager {
 	return &DialManager{
 		maxDials:  maxDials,
 		bootNodes: copyNodes(bootNodes), // dm will modify bootNodes
