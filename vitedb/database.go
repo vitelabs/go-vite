@@ -183,7 +183,7 @@ func ClearAndReNewDb(file string) error {
 	if db, ok := ldbDataBaseCache[filename]; ok {
 		db.Leveldb.Close()
 		removeContents(db.filename)
-		ldbDataBaseCache[db.filename] = nil
+		delete(ldbDataBaseCache, db.filename)
 		newDb, err := getLDBDataBase(db.filename)
 		if err != nil {
 			return err
