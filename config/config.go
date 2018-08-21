@@ -48,7 +48,7 @@ func defaultConfig() {
 			BootNodes:            nil,
 			Addr:                 "0.0.0.0:8483",
 			Datadir:              common.DefaultDataDir(),
-			NetID:                4,
+			NetID:                5,
 		},
 		Miner: &Miner{
 			Miner:         false,
