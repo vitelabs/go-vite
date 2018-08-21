@@ -87,6 +87,11 @@ func CreateAddress() (Address, ed25519.PrivateKey, error) {
 	return PubkeyToAddress(pub), pri, error
 }
 
+func CreateContractAddress(data ...[]byte) Address {
+	addr, _ := BytesToAddress(vcrypto.Hash(AddressSize, data...))
+	return addr
+}
+
 func CreateAddressWithDeterministic(d [32]byte) (Address, ed25519.PrivateKey, error) {
 	pub, pri, error := ed25519.GenerateKeyFromD(d)
 	return PubkeyToAddress(pub), pri, error
