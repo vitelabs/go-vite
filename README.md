@@ -24,7 +24,7 @@ As default, Vite will give a default config. but you can set your config use two
 | addr | string | "0.0.0.0:8483" | will be listen by vite |
 | dir | string | "~/viteisbest" | the directory in which vite will store all files (like log, ledger) |
 | netid | number | 2 | the network vite will connect, default 2 means TestNet |
-
+| priv | string | "" | the hex code string of ed25519 privateKey |
 
 ### configFile
 
