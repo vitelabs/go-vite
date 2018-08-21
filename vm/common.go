@@ -12,6 +12,9 @@ const (
 	wordBits = 32 << (uint64(^big.Word(0)) >> 63)
 	// number of bytes in a big.Word
 	wordBytes = wordBits / 8
+
+	retry   = true
+	noRetry = false
 )
 
 var (
