@@ -6,7 +6,7 @@ import (
 )
 
 type bitvec []byte
-type destinations map[types.Hash]bitvec
+type destinations map[types.Address]bitvec
 
 func (bits *bitvec) set(pos uint64) {
 	(*bits)[pos/8] |= 0x80 >> (pos % 8)
@@ -23,7 +23,7 @@ func (bits *bitvec) codeSegment(pos uint64) bool {
 }
 
 // has checks whether code has a JUMPDEST at dest.
-func (d destinations) has(codehash types.Hash, code []byte, dest *big.Int) bool {
+func (d destinations) has(addr types.Address, code []byte, dest *big.Int) bool {
 	// PC cannot go beyond len(code) and certainly can't be bigger than 63bits.
 	// Don't bother checking for JUMPDEST in that case.
 	udest := dest.Uint64()
@@ -31,10 +31,10 @@ func (d destinations) has(codehash types.Hash, code []byte, dest *big.Int) bool 
 		return false
 	}
 
-	m, analysed := d[codehash]
+	m, analysed := d[addr]
 	if !analysed {
 		m = codeBitmap(code)
-		d[codehash] = m
+		d[addr] = m
 	}
 	return opCode(code[udest]) == JUMPDEST && m.codeSegment(udest)
 }

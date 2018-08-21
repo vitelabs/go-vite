@@ -448,13 +448,6 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *st
 	return nil, nil
 }
 
-func opExtCodeHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	addr := stack.peek()
-	contractAddress, _ := types.BytesToAddress(addr.Bytes())
-	addr.SetBytes(vm.StateDb.ContractCodeHash(contractAddress).Bytes())
-	return nil, nil
-}
-
 func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	height := stack.pop()
 	n := vm.intPool.get().Sub(vm.intPool.get().SetUint64(vm.StateDb.SnapshotTimestamp(c.block.SnapshotHash())), big256)
@@ -528,7 +521,7 @@ func opSStore(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 
 func opJump(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	pos := stack.pop()
-	if !c.jumpdests.has(c.codeHash, c.code, pos) {
+	if !c.jumpdests.has(c.codeAddr, c.code, pos) {
 		nop := c.getOp(pos.Uint64())
 		return nil, fmt.Errorf("invalid jump destination (%v) %v", nop, pos)
 	}
@@ -541,7 +534,7 @@ func opJump(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 func opJumpi(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	pos, cond := stack.pop(), stack.pop()
 	if cond.Sign() != 0 {
-		if !c.jumpdests.has(c.codeHash, c.code, pos) {
+		if !c.jumpdests.has(c.codeAddr, c.code, pos) {
 			nop := c.getOp(pos.Uint64())
 			return nil, fmt.Errorf("invalid jump destination (%v) %v", nop, pos)
 		}
@@ -619,10 +612,8 @@ func makeLog(size int) executionFunc {
 
 		d := memory.get(mStart.Int64(), mSize.Int64())
 		vm.logList = append(vm.logList, &Log{
-			Address:       c.address,
-			Topics:        topics,
-			Data:          d,
-			AccountHeight: c.block.Height().Uint64(),
+			Topics: topics,
+			Data:   d,
 		})
 
 		vm.intPool.put(mStart, mSize)

@@ -301,7 +301,7 @@ func gasRevert(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 func intrinsicGasCost(data []byte, isCreate bool) (uint64, error) {
 	var gas uint64
 	if isCreate {
-		gas = txGasContractCreation
+		gas = txContractCreationGas
 	} else {
 		gas = txGas
 	}

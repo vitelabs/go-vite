@@ -22,10 +22,9 @@ type Database interface {
 	CreateAccount(addr types.Address)
 	DeleteAccount(addr types.Address)
 
-	SetContractCode(addr types.Address, code []byte, codeHash types.Hash)
+	SetContractCode(addr types.Address, code []byte)
 	ContractCode(addr types.Address) []byte
 	ContractCodeSize(addr types.Address) uint64
-	ContractCodeHash(addr types.Address) types.Hash
 
 	State(addr types.Address, loc types.Hash) types.Hash
 	SetState(addr types.Address, loc types.Hash, value types.Hash)

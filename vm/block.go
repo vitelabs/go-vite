@@ -12,10 +12,9 @@ const (
 	TxTypeReceiveError
 )
 
-type CreateBlockFunc func(from, to types.Address, txType, depth int) VmBlock
+type CreateBlockFunc func(from, to types.Address, txType, depth uint64) VmBlock
 
 type VmBlock interface {
-	// TODO group id
 	// Account block height
 	Height() *big.Int
 	SetHeight(*big.Int)
@@ -29,8 +28,8 @@ type VmBlock interface {
 	FromHash() types.Hash
 	SetFromHash(types.Hash)
 	// Transaction type of current block
-	TxType() int
-	SetTxType(int)
+	TxType() uint64
+	SetTxType(uint64)
 	// Last block hash
 	PrevHash() types.Hash
 	SetPrevHash(types.Hash)
@@ -56,8 +55,8 @@ type VmBlock interface {
 	SnapshotHash() types.Hash
 	SetSnapshotHash(types.Hash)
 	// Call or create depth of current account block
-	Depth() int
-	SetDepth(int)
+	Depth() uint64
+	SetDepth(uint64)
 	// Quota used of current block
 	Quota() uint64
 	SetQuota(uint64)

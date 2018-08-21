@@ -12,7 +12,6 @@ type contract struct {
 	address                types.Address
 	jumpdests              destinations
 	code                   []byte
-	codeHash               types.Hash
 	codeAddr               types.Address
 	block                  VmBlock
 	quotaLeft, quotaRefund uint64
@@ -39,9 +38,8 @@ func (c *contract) getByte(n uint64) byte {
 	return 0
 }
 
-func (c *contract) setCallCode(addr types.Address, hash types.Hash, code []byte) {
+func (c *contract) setCallCode(addr types.Address, code []byte) {
 	c.code = code
-	c.codeHash = hash
 	c.codeAddr = addr
 }
 

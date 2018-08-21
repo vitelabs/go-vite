@@ -15,7 +15,7 @@ func TestRun(t *testing.T) {
 	inputdata, _ := hex.DecodeString("6001600201602080919052602090F3")
 	receiveCallBlock := CreateNoVmBlock(types.Address{}, types.Address{}, TxTypeReceive, 1)
 	c := newContract(receiveCallBlock.From(), receiveCallBlock.To(), receiveCallBlock, 1000000, 0)
-	c.setCallCode(types.Address{}, types.Hash{}, inputdata)
+	c.setCallCode(types.Address{}, inputdata)
 	ret, _ := c.run(vm)
 	expectedRet, _ := hex.DecodeString("03")
 	expectedRet = leftPadBytes(expectedRet, 32)
@@ -33,8 +33,10 @@ func TestVM_CreateSend(t *testing.T) {
 	sendCreateBlock.SetPrevHash(types.Hash{})
 	sendCreateBlock.SetHeight(big.NewInt(1))
 	sendCreateBlock.SetData(inputdata)
+	sendCreateBlock.SetCreateFee(big.NewInt(0))
 	// vm.Debug = true
-	blockList, _, err := Run(&NoDatabase{}, CreateNoVmBlock, VMConfig{}, sendCreateBlock)
+	vm := NewVM(&NoDatabase{}, CreateNoVmBlock, VMConfig{})
+	blockList, _, err := vm.Run(sendCreateBlock)
 	if len(blockList) != 1 ||
 		//blockList[0].Quota() != 58336 ||
 		blockList[0].To() == emptyAddress ||

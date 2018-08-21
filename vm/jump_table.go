@@ -281,12 +281,6 @@ func newInstructionSet() [256]operation {
 			memorySize:    memoryReturnDataCopy,
 			valid:         true,
 		},
-		EXTCODEHASH: {
-			execute:       opExtCodeHash,
-			gasCost:       constGasFunc(extCodeHashGas),
-			validateStack: makeStackFunc(1, 1),
-			valid:         true,
-		},
 		BLOCKHASH: {
 			execute:       opBlockHash,
 			gasCost:       constGasFunc(extStepGas),
