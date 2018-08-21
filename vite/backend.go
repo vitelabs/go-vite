@@ -63,7 +63,7 @@ func New(cfg *config.Config) (*Vite, error) {
 	vite.pm = protocols.NewProtocolManager(vite)
 
 	var initP2pErr error
-	vite.p2p, initP2pErr = p2p.NewServer(&cfg.P2P, vite.pm.HandlePeer)
+	vite.p2p, initP2pErr = p2p.NewServer(cfg.P2P, vite.pm.HandlePeer)
 	if initP2pErr != nil {
 		log.Crit(initP2pErr.Error())
 	}
