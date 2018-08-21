@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p/protos"
 	"net"
 )
@@ -257,76 +257,35 @@ func (p *Neighbors) Handle(d *discover, origin *net.UDPAddr, hash types.Hash) er
 }
 
 // version code checksum signature payload
-//func composePacket(priv ed25519.PrivateKey, code byte, payload []byte) (data []byte, hash types.Hash) {
-//	data = []byte{version, code}
-//
-//	sig := ed25519.Sign(priv, payload)
-//	checksum := crypto.Hash(32, append(sig, payload...))
-//
-//	data = append(data, checksum...)
-//	data = append(data, sig...)
-//	data = append(data, payload...)
-//
-//	copy(hash[:], checksum)
-//	return data, hash
-//}
-
-// no need to sign for now
-// version code checksum payload
 func composePacket(priv ed25519.PrivateKey, code byte, payload []byte) (data []byte, hash types.Hash) {
 	data = []byte{version, code}
 
-	//sig := ed25519.Sign(priv, payload)
-	checksum := crypto.Hash(32, payload)
+	sig := ed25519.Sign(priv, payload)
+	checksum := crypto.Hash(32, append(sig, payload...))
 
 	data = append(data, checksum...)
+	data = append(data, sig...)
 	data = append(data, payload...)
 
 	copy(hash[:], checksum)
 	return data, hash
 }
 
-//func unPacket(packet []byte) (m Message, hash types.Hash, err error) {
-//	pktVersion := packet[0]
+// no need to sign for now
+// version code checksum payload
+//func composePacket(priv ed25519.PrivateKey, code byte, payload []byte) (data []byte, hash types.Hash) {
+//	data = []byte{version, code}
 //
-//	if pktVersion != version {
-//		return nil, hash, errUnmatchedVersion
-//	}
+//	//sig := ed25519.Sign(priv, payload)
+//	checksum := crypto.Hash(32, payload)
 //
-//	pktCode := packet[1]
-//	pktHash := packet[2:34]
-//	payloadWithSig := packet[34:]
-//	pktSig := packet[34:98]
-//	payload := packet[98:]
+//	data = append(data, checksum...)
+//	data = append(data, payload...)
 //
-//	// compare checksum
-//	reHash := crypto.Hash(32, payloadWithSig)
-//	if !bytes.Equal(reHash, pktHash) {
-//		return nil, hash, errWrongHash
-//	}
-//
-//	// unpack packet to get content and signature
-//	m, err = decode(pktCode, payload)
-//	if err != nil {
-//		return nil, hash, err
-//	}
-//
-//	// verify signature
-//	id := m.getID()
-//	pub := id[:]
-//	valid, err := crypto.VerifySig(pub, payload, pktSig)
-//	if err != nil {
-//		return nil, hash, err
-//	}
-//	if valid {
-//		copy(hash[:], pktHash)
-//		return m, hash, nil
-//	}
-//
-//	return nil, hash, errInvalidSig
+//	copy(hash[:], checksum)
+//	return data, hash
 //}
 
-// no signature
 func unPacket(packet []byte) (m Message, hash types.Hash, err error) {
 	pktVersion := packet[0]
 
@@ -336,10 +295,12 @@ func unPacket(packet []byte) (m Message, hash types.Hash, err error) {
 
 	pktCode := packet[1]
 	pktHash := packet[2:34]
-	payload := packet[34:]
+	payloadWithSig := packet[34:]
+	pktSig := packet[34:98]
+	payload := packet[98:]
 
 	// compare checksum
-	reHash := crypto.Hash(32, payload)
+	reHash := crypto.Hash(32, payloadWithSig)
 	if !bytes.Equal(reHash, pktHash) {
 		return nil, hash, errWrongHash
 	}
@@ -350,9 +311,48 @@ func unPacket(packet []byte) (m Message, hash types.Hash, err error) {
 		return nil, hash, err
 	}
 
-	copy(hash[:], pktHash)
-	return m, hash, nil
+	// verify signature
+	id := m.getID()
+	pub := id[:]
+	valid, err := crypto.VerifySig(pub, payload, pktSig)
+	if err != nil {
+		return nil, hash, err
+	}
+	if valid {
+		copy(hash[:], pktHash)
+		return m, hash, nil
+	}
+
+	return nil, hash, errInvalidSig
 }
+
+// no signature
+//func unPacket(packet []byte) (m Message, hash types.Hash, err error) {
+//	pktVersion := packet[0]
+//
+//	if pktVersion != version {
+//		return nil, hash, errUnmatchedVersion
+//	}
+//
+//	pktCode := packet[1]
+//	pktHash := packet[2:34]
+//	payload := packet[34:]
+//
+//	// compare checksum
+//	reHash := crypto.Hash(32, payload)
+//	if !bytes.Equal(reHash, pktHash) {
+//		return nil, hash, errWrongHash
+//	}
+//
+//	// unpack packet to get content and signature
+//	m, err = decode(pktCode, payload)
+//	if err != nil {
+//		return nil, hash, err
+//	}
+//
+//	copy(hash[:], pktHash)
+//	return m, hash, nil
+//}
 
 func decode(code byte, payload []byte) (m Message, err error) {
 	switch code {

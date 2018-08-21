@@ -2,8 +2,8 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/log15"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,8 +11,8 @@ import (
 )
 
 type Config struct {
-	P2P   `json:"P2P"`
-	Miner `json:"Miner"`
+	*P2P   `json:"P2P"`
+	*Miner `json:"Miner"`
 
 	// global keys
 	DataDir string `json:"DataDir"`
@@ -31,28 +31,17 @@ func (c Config) RunLogDirFile() (string, error) {
 
 }
 
-//func (c Config) ConfigureLog() {
-//	if s, e := c.RunLogDirFile(); e == nil {
-//		log15.Root().SetHandler(
-//			log15.MultiHandler(
-//				log15.LvlFilterHandler(log15.LvlInfo, log15.StdoutHandler),
-//				log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(s, log15.TerminalFormat())),
-//			),
-//		)
-//	}
-//}
+var log = log15.New("module", "config")
 
 const configFileName = "vite.config.json"
 
 var GlobalConfig *Config
 
-func RecoverConfig() {
+func defaultConfig() {
 	GlobalConfig = &Config{
-		P2P: P2P{
+		P2P: &P2P{
 			Name:                 "vite-server",
-			Sig:                  "",
 			PrivateKey:           "",
-			PublicKey:            "",
 			MaxPeers:             100,
 			MaxPassivePeersRatio: 2,
 			MaxPendingPeers:      20,
@@ -61,7 +50,7 @@ func RecoverConfig() {
 			Datadir:              common.DefaultDataDir(),
 			NetID:                4,
 		},
-		Miner: Miner{
+		Miner: &Miner{
 			Miner:         false,
 			Coinbase:      "",
 			MinerInterval: 6,
@@ -71,18 +60,19 @@ func RecoverConfig() {
 }
 
 func init() {
-	GlobalConfig = new(Config)
+	defaultConfig()
 
-	if text, err := ioutil.ReadFile("vite.config.json"); err == nil {
+	if text, err := ioutil.ReadFile(configFileName); err == nil {
 		err = json.Unmarshal(text, GlobalConfig)
 		if err != nil {
-			fmt.Println("config file unmarshal error: ", err)
+			log.Info("cannot unmarshal the config file content, will use the default config", "error", err)
 		}
+	} else {
+		log.Info("cannot read the config file, will use the default config", "error", err)
 	}
 
 	// set default value global keys
 	if GlobalConfig.DataDir == "" {
 		GlobalConfig.DataDir = common.DefaultDataDir()
 	}
-
 }
