@@ -13,11 +13,11 @@ type contract struct {
 	jumpdests              destinations
 	code                   []byte
 	codeAddr               types.Address
-	block                  VmBlock
+	block                  VmAccountBlock
 	quotaLeft, quotaRefund uint64
 }
 
-func newContract(caller types.Address, address types.Address, block VmBlock, quotaLeft, quotaRefund uint64) *contract {
+func newContract(caller types.Address, address types.Address, block VmAccountBlock, quotaLeft, quotaRefund uint64) *contract {
 	return &contract{caller: caller,
 		address:     address,
 		block:       block,
@@ -105,7 +105,7 @@ func (c *contract) run(vm *VM) (ret []byte, err error) {
 
 		if vm.Debug {
 			fmt.Printf("code: %v \n", hex.EncodeToString(c.code[currentPc:]))
-			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemory: [%v]\nstorage: [%v]\n", opCodeToString[op], currentPc, st.string(), mem.string(), vm.StateDb.StatesString(c.address))
+			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemory: [%v]\nstorage: [%v]\n", opCodeToString[op], currentPc, st.string(), mem.string(), vm.StateDb.StorageString(c.address))
 			fmt.Printf("amount: %v\n", c.block.Amount())
 			fmt.Println("--------------------")
 		}

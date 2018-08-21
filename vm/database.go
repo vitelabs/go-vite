@@ -10,26 +10,22 @@ type Database interface {
 	SubBalance(addr types.Address, tokenTypeId types.TokenTypeId, amount *big.Int)
 	AddBalance(addr types.Address, tokenTypeId types.TokenTypeId, amount *big.Int)
 
-	SnapshotTimestamp(snapshotHash types.Hash) uint64
-	SnapshotHeight(snapshotHash types.Hash) *big.Int
+	SnapshotBlock(snapshotHash types.Hash) VmSnapshotBlock
+	SnapshotBlockByHeight(height *big.Int) VmSnapshotBlock
 
-	AccountBlock(addr types.Address, blockHash types.Hash) VmBlock
+	AccountBlock(addr types.Address, blockHash types.Hash) VmAccountBlock
 
-	Revert()
+	Rollback()
 
 	IsExistAddress(addr types.Address) bool
 
 	CreateAccount(addr types.Address)
-	DeleteAccount(addr types.Address)
 
 	SetContractCode(addr types.Address, code []byte)
 	ContractCode(addr types.Address) []byte
-	ContractCodeSize(addr types.Address) uint64
 
-	State(addr types.Address, loc types.Hash) types.Hash
-	SetState(addr types.Address, loc types.Hash, value types.Hash)
-	StatesString(addr types.Address) string
-	StateHash(addr types.Address) types.Hash
-
-	SnapshotHash(height *big.Int) types.Hash
+	Storage(addr types.Address, loc []byte) []byte
+	SetStorage(addr types.Address, loc []byte, value []byte)
+	StorageString(addr types.Address) string
+	StorageHash(addr types.Address) types.Hash
 }

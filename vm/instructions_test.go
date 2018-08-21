@@ -13,7 +13,7 @@ type twoOperandTest struct {
 }
 
 func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error), args ...string) {
-	vm := &VM{StateDb: &NoDatabase{}, createBlock: CreateNoVmBlock, instructionSet: simpleInstructionSet, logList: make([]*Log, 0)}
+	vm := &VM{StateDb: &NoDatabase{}, createBlock: CreateNoVmAccountBlock, instructionSet: simpleInstructionSet, logList: make([]*Log, 0)}
 	vm.Debug = true
 	vm.intPool = poolOfIntPools.get()
 	stack := newStack()
@@ -259,7 +259,7 @@ func TestByteOp(t *testing.T) {
 		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 32, big.NewInt(0x0)},
 		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 0xFFFFFFFFFFFFFFFF, big.NewInt(0x0)},
 	}
-	vm := &VM{StateDb: &NoDatabase{}, createBlock: CreateNoVmBlock, instructionSet: simpleInstructionSet, logList: make([]*Log, 0)}
+	vm := &VM{StateDb: &NoDatabase{}, createBlock: CreateNoVmAccountBlock, instructionSet: simpleInstructionSet, logList: make([]*Log, 0)}
 	vm.Debug = true
 	vm.intPool = poolOfIntPools.get()
 	stack := newStack()
@@ -280,7 +280,7 @@ func TestByteOp(t *testing.T) {
 }
 
 func testTwoOperandOp(t *testing.T, tests []twoOperandTest, opFn func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error)) {
-	vm := &VM{StateDb: &NoDatabase{}, createBlock: CreateNoVmBlock, instructionSet: simpleInstructionSet, logList: make([]*Log, 0)}
+	vm := &VM{StateDb: &NoDatabase{}, createBlock: CreateNoVmAccountBlock, instructionSet: simpleInstructionSet, logList: make([]*Log, 0)}
 	vm.Debug = true
 	vm.intPool = poolOfIntPools.get()
 	stack := newStack()
@@ -396,7 +396,7 @@ func TestSLT(t *testing.T) {
 }
 
 func TestOpMstore(t *testing.T) {
-	vm := &VM{StateDb: &NoDatabase{}, createBlock: CreateNoVmBlock, instructionSet: simpleInstructionSet, logList: make([]*Log, 0)}
+	vm := &VM{StateDb: &NoDatabase{}, createBlock: CreateNoVmAccountBlock, instructionSet: simpleInstructionSet, logList: make([]*Log, 0)}
 	vm.Debug = true
 	vm.intPool = poolOfIntPools.get()
 	stack := newStack()
@@ -421,7 +421,7 @@ func TestOpMstore(t *testing.T) {
 }
 
 func BenchmarkOpMstore(bench *testing.B) {
-	vm := &VM{StateDb: &NoDatabase{}, createBlock: CreateNoVmBlock, instructionSet: simpleInstructionSet, logList: make([]*Log, 0)}
+	vm := &VM{StateDb: &NoDatabase{}, createBlock: CreateNoVmAccountBlock, instructionSet: simpleInstructionSet, logList: make([]*Log, 0)}
 	vm.Debug = true
 	vm.intPool = poolOfIntPools.get()
 	stack := newStack()

@@ -406,7 +406,7 @@ func opCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) (
 func opExtCodeSize(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	addr := stack.peek()
 	contractAddress, _ := types.BytesToAddress(addr.Bytes())
-	addr.SetUint64(vm.StateDb.ContractCodeSize(contractAddress))
+	addr.SetInt64(int64(len(vm.StateDb.ContractCode(contractAddress))))
 	return nil, nil
 }
 
@@ -450,24 +450,25 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *st
 
 func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	height := stack.pop()
-	n := vm.intPool.get().Sub(vm.intPool.get().SetUint64(vm.StateDb.SnapshotTimestamp(c.block.SnapshotHash())), big256)
-	if height.Cmp(n) > 0 && height.Cmp(vm.StateDb.SnapshotHeight(c.block.SnapshotHash())) <= 0 {
-		stack.push(vm.intPool.get().SetBytes(vm.StateDb.SnapshotHash(height).Bytes()))
+	snapshotHeight := vm.intPool.get().Set(vm.StateDb.SnapshotBlock(c.block.SnapshotHash()).Height())
+	n := vm.intPool.get().Sub(snapshotHeight, big256)
+	if height.Cmp(n) > 0 && height.Cmp(snapshotHeight) <= 0 {
+		stack.push(vm.intPool.get().SetBytes(vm.StateDb.SnapshotBlockByHeight(height).Hash().Bytes()))
 	} else {
 		stack.push(vm.intPool.getZero())
 	}
 
-	vm.intPool.put(height, n)
+	vm.intPool.put(snapshotHeight, height, n)
 	return nil, nil
 }
 
 func opTimestamp(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(U256(vm.intPool.get().SetUint64(vm.StateDb.SnapshotTimestamp(c.block.SnapshotHash()))))
+	stack.push(U256(vm.intPool.get().SetUint64(vm.StateDb.SnapshotBlock(c.block.SnapshotHash()).Timestamp())))
 	return nil, nil
 }
 
 func opNumber(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(U256(vm.intPool.get().Set(vm.StateDb.SnapshotHeight(c.block.SnapshotHash()))))
+	stack.push(U256(vm.intPool.get().Set(vm.StateDb.SnapshotBlock(c.block.SnapshotHash()).Height())))
 	return nil, nil
 }
 
@@ -503,19 +504,16 @@ func opMstore8(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([
 
 func opSLoad(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	loc := stack.peek()
-	locHash, _ := types.BigToHash(loc)
-	val := vm.StateDb.State(c.address, locHash)
-	loc.SetBytes(val.Bytes())
+	val := vm.StateDb.Storage(c.address, loc.Bytes())
+	loc.SetBytes(val)
 	return nil, nil
 }
 
 func opSStore(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	locBig, valBig := stack.pop(), stack.pop()
-	loc, _ := types.BigToHash(locBig)
-	val, _ := types.BigToHash(valBig)
-	vm.StateDb.SetState(c.address, loc, val)
+	loc, val := stack.pop(), stack.pop()
+	vm.StateDb.SetStorage(c.address, loc.Bytes(), val.Bytes())
 
-	vm.intPool.put(locBig, valBig)
+	vm.intPool.put(loc, val)
 	return nil, nil
 }
 

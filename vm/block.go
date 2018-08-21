@@ -6,30 +6,31 @@ import (
 )
 
 const (
-	TxTypeSendCreate = iota
-	TxTypeSendCall
-	TxTypeReceive
-	TxTypeReceiveError
+	BlockTypeSendCreate = iota
+	BlockTypeSendCall
+	BlockTypeReceive
+	BlockTypeReceiveError
+	BlockTypeSendMintage
 )
 
-type CreateBlockFunc func(from, to types.Address, txType, depth uint64) VmBlock
+type CreateAccountBlockFunc func(from, to types.Address, txType, depth uint64) VmAccountBlock
 
-type VmBlock interface {
+type VmAccountBlock interface {
 	// Account block height
 	Height() *big.Int
 	SetHeight(*big.Int)
 	// Receiver account address
-	To() types.Address
-	SetTo(types.Address)
+	ToAddress() types.Address
+	SetToAddress(types.Address)
 	// Sender account address
-	From() types.Address
-	SetFrom(types.Address)
+	AccountAddress() types.Address
+	SetAccountAddress(types.Address)
 	// Sender block hash, exists in receive block
-	FromHash() types.Hash
-	SetFromHash(types.Hash)
+	FromBlockHash() types.Hash
+	SetFromBlockHash(types.Hash)
 	// Transaction type of current block
-	TxType() uint64
-	SetTxType(uint64)
+	BlockType() uint64
+	SetBlockType(uint64)
 	// Last block hash
 	PrevHash() types.Hash
 	SetPrevHash(types.Hash)
@@ -49,8 +50,8 @@ type VmBlock interface {
 	StateHash() types.Hash
 	SetStateHash(types.Hash)
 	// Send block summary hash list
-	SummaryHashList() []types.Hash
-	AppendSummaryHash(types.Hash)
+	SendBlockHashList() []types.Hash
+	AppendSendBlockHash(types.Hash)
 	// Snapshot block hash
 	SnapshotHash() types.Hash
 	SetSnapshotHash(types.Hash)
@@ -60,6 +61,12 @@ type VmBlock interface {
 	// Quota used of current block
 	Quota() uint64
 	SetQuota(uint64)
-	// Hash value of Height, From, To, TxType, Amount, TokenTypeId, Data, Depth
+	// Hash value of Height, AccountAddress, ToAddress, BlockType, Amount, TokenTypeId, Data, Depth
 	SummaryHash() types.Hash
+}
+
+type VmSnapshotBlock interface {
+	Height() *big.Int
+	Timestamp() uint64
+	Hash() types.Hash
 }
