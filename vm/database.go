@@ -18,8 +18,9 @@ type Database interface {
 	Rollback()
 
 	IsExistAddress(addr types.Address) bool
-
 	CreateAccount(addr types.Address)
+
+	CreateToken(tokenId types.TokenTypeId, tokenName string, owner types.Address, totelSupply *big.Int, decimals uint64) bool
 
 	SetContractCode(addr types.Address, code []byte)
 	ContractCode(addr types.Address) []byte

@@ -20,9 +20,12 @@ func (db *NoDatabase) SnapshotHeight(snapshotHash types.Hash) *big.Int       { r
 func (db *NoDatabase) AccountBlock(addr types.Address, blockHash types.Hash) VmAccountBlock {
 	return nil
 }
-func (db *NoDatabase) Rollback()                                               {}
-func (db *NoDatabase) IsExistAddress(addr types.Address) bool                  { return false }
-func (db *NoDatabase) CreateAccount(addr types.Address)                        {}
+func (db *NoDatabase) Rollback()                              {}
+func (db *NoDatabase) IsExistAddress(addr types.Address) bool { return false }
+func (db *NoDatabase) CreateAccount(addr types.Address)       {}
+func (db *NoDatabase) CreateToken(tokenId types.TokenTypeId, tokenName string, owner types.Address, totelSupply *big.Int, decimals uint64) bool {
+	return true
+}
 func (db *NoDatabase) SetContractCode(addr types.Address, code []byte)         {}
 func (db *NoDatabase) ContractCode(addr types.Address) []byte                  { return nil }
 func (db *NoDatabase) Storage(addr types.Address, loc []byte) []byte           { return nil }

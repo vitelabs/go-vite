@@ -30,8 +30,9 @@ var (
 	tt256   = BigPow(2, 256)
 	tt256m1 = new(big.Int).Sub(tt256, big.NewInt(1))
 
-	emptyHash    = types.Hash{}
-	emptyAddress = types.Address{}
+	emptyHash        = types.Hash{}
+	emptyAddress     = types.Address{}
+	emptyTokenTypeId = types.TokenTypeId{}
 )
 
 // toWordSize returns the ceiled word size required for memory expansion.

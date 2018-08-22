@@ -5,9 +5,11 @@ package vm
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
+	"regexp"
 	"sync/atomic"
 )
 
@@ -49,7 +51,7 @@ func (vm *VM) Run(block VmAccountBlock) (blockList []VmAccountBlock, logList []*
 		} else if sendBlock.BlockType() == BlockTypeSendCall {
 			return vm.receiveCall(block)
 		} else if sendBlock.BlockType() == BlockTypeSendMintage {
-			// TODO
+			return vm.receiveMintage(block)
 		}
 	case BlockTypeSendCreate:
 		block, err = vm.sendCreate(block)
@@ -66,7 +68,12 @@ func (vm *VM) Run(block VmAccountBlock) (blockList []VmAccountBlock, logList []*
 			return []VmAccountBlock{block}, nil, noRetry, nil
 		}
 	case BlockTypeSendMintage:
-		// TODO
+		block, err = vm.sendMintage(block)
+		if err != nil {
+			return nil, nil, noRetry, err
+		} else {
+			return []VmAccountBlock{block}, nil, noRetry, nil
+		}
 	}
 	return nil, nil, noRetry, errors.New("transaction type not supported")
 }
@@ -96,9 +103,9 @@ func (vm *VM) sendCreate(block VmAccountBlock) (VmAccountBlock, error) {
 		return nil, ErrInsufficientBalance
 	}
 	// create address
-	contractAddr, err := createAddress(block.AccountAddress(), block.Height(), block.Data(), block.SnapshotHash())
+	contractAddr := createContractAddress(block.AccountAddress(), block.Height(), block.Data(), block.SnapshotHash())
 
-	if err != nil || vm.StateDb.IsExistAddress(contractAddr) {
+	if bytes.Equal(contractAddr.Bytes(), emptyAddress.Bytes()) || vm.StateDb.IsExistAddress(contractAddr) {
 		return nil, ErrContractAddressCreationFail
 	}
 	// sub balance and service fee
@@ -125,11 +132,6 @@ func (vm *VM) receiveCreate(block VmAccountBlock, quotaLeft uint64) (blockList [
 	}
 
 	vm.blockList = []VmAccountBlock{block}
-
-	if block.Depth() > callCreateDepth {
-		vm.updateBlock(block, block.ToAddress(), ErrDepth, 0, nil)
-		return vm.blockList, nil, noRetry, ErrDepth
-	}
 
 	// create contract account and add balance
 	vm.StateDb.CreateAccount(block.ToAddress())
@@ -199,10 +201,6 @@ func (vm *VM) receiveCall(block VmAccountBlock) (blockList []VmAccountBlock, log
 	if !vm.StateDb.IsExistAddress(block.ToAddress()) {
 		vm.StateDb.CreateAccount(block.ToAddress())
 	}
-	if block.Depth() > callCreateDepth {
-		vm.updateBlock(block, block.ToAddress(), ErrDepth, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, ErrDepth), nil)
-		return vm.blockList, nil, noRetry, ErrDepth
-	}
 	vm.StateDb.AddBalance(block.ToAddress(), block.TokenId(), block.Amount())
 	// do transfer transaction if account code size is zero
 	code := vm.StateDb.ContractCode(block.ToAddress())
@@ -228,6 +226,69 @@ func (vm *VM) receiveCall(block VmAccountBlock) (blockList []VmAccountBlock, log
 	}
 	vm.updateBlock(block, block.ToAddress(), err, quotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, err), nil)
 	return vm.blockList, nil, err == ErrOutOfQuota, err
+}
+
+func (vm *VM) sendMintage(block VmAccountBlock) (VmAccountBlock, error) {
+	// check can make transaction
+	quotaTotal, quotaAddition := vm.quotaLeft(block.AccountAddress(), block)
+	quotaLeft := quotaTotal
+	quotaRefund := uint64(0)
+	cost, err := intrinsicGasCost(block.Data(), false)
+	if err != nil {
+		return nil, err
+	}
+	quotaLeft, err = useQuota(quotaLeft, cost)
+	if err != nil {
+		return nil, err
+	}
+
+	// calculate and check mintage fee
+	mintageFee, err := calcMintageFee(block.Data())
+	if err != nil {
+		return nil, err
+	}
+	if !vm.canTransfer(block.AccountAddress(), viteTokenTypeId, mintageFee, big0) {
+		return nil, ErrInsufficientBalance
+	}
+
+	// create tokenId and check collision
+	tokenTypeId := createTokenId(block.AccountAddress(), block.ToAddress(), block.Height(), block.PrevHash(), block.SnapshotHash())
+	if bytes.Equal(tokenTypeId.Bytes(), emptyTokenTypeId.Bytes()) {
+		return nil, ErrTokenIdCreationFail
+	}
+	if err = vm.checkAndCreateToken(tokenTypeId, block.ToAddress(), block.Amount(), block.Data()); err != nil {
+		return nil, err
+	}
+
+	// sub balance
+	vm.StateDb.SubBalance(block.AccountAddress(), viteTokenTypeId, mintageFee)
+	block.SetTokenId(tokenTypeId)
+	block.SetCreateFee(mintageFee)
+	vm.updateBlock(block, block.AccountAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
+	return block, nil
+}
+
+func (vm *VM) receiveMintage(block VmAccountBlock) (blockList []VmAccountBlock, logList []*Log, isRetry bool, err error) {
+	// check can make transaction
+	quotaTotal, quotaAddition := vm.quotaLeft(block.ToAddress(), block)
+	quotaLeft := quotaTotal
+	quotaRefund := uint64(0)
+	cost, err := intrinsicGasCost(nil, false)
+	if err != nil {
+		return nil, nil, noRetry, err
+	}
+	quotaLeft, err = useQuota(quotaLeft, cost)
+	if err != nil {
+		return nil, nil, retry, err
+	}
+	// create genesis block when accepting first receive transaction
+	if !vm.StateDb.IsExistAddress(block.ToAddress()) {
+		vm.StateDb.CreateAccount(block.ToAddress())
+	}
+	vm.blockList = []VmAccountBlock{block}
+	vm.StateDb.AddBalance(block.ToAddress(), block.TokenId(), block.Amount())
+	vm.updateBlock(block, block.AccountAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
+	return vm.blockList, nil, noRetry, nil
 }
 
 func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract) (ret []byte, err error) {
@@ -275,22 +336,12 @@ func (vm *VM) quotaLeft(addr types.Address, block VmAccountBlock) (quotaInit, qu
 	}
 }
 
-func quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {
-	if err == ErrOutOfQuota {
-		return quotaTotal - quotaAddition
-	} else if err != nil {
-		return quotaTotal - quotaAddition - quotaLeft
-	} else {
-		return quotaTotal - quotaAddition - quotaLeft - min(quotaRefund, (quotaTotal-quotaAddition-quotaLeft)/2)
-	}
-}
-
 func (vm *VM) updateBlock(block VmAccountBlock, addr types.Address, err error, quota uint64, result []byte) {
 	block.SetQuota(quota)
-	// TODO data = fixed byte of err + result
-	block.SetData(result)
-	block.SetStateHash(vm.StateDb.StorageHash(addr))
 	if block.BlockType() == BlockTypeReceive || block.BlockType() == BlockTypeReceiveError {
+		// TODO data = fixed byte of err + result
+		block.SetData(result)
+		block.SetStateHash(vm.StateDb.StorageHash(addr))
 		if err == ErrOutOfQuota {
 			block.SetBlockType(BlockTypeReceiveError)
 		} else {
@@ -328,15 +379,13 @@ func (vm *VM) revert() {
 	vm.StateDb.Rollback()
 }
 
-func checkContractFee(fee *big.Int) bool {
-	return ContractFeeMin.Cmp(fee) <= 0 && ContractFeeMax.Cmp(fee) >= 0
-}
-
 // TODO set vite token type id
 var viteTokenTypeId = types.TokenTypeId{}
 
 func (vm *VM) canTransfer(addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
-	if bytes.Equal(tokenTypeId.Bytes(), viteTokenTypeId.Bytes()) {
+	if feeAmount.Sign() == 0 {
+		return tokenAmount.Cmp(vm.StateDb.Balance(addr, tokenTypeId)) <= 0
+	} else if bytes.Equal(tokenTypeId.Bytes(), viteTokenTypeId.Bytes()) {
 		balance := new(big.Int).Add(tokenAmount, feeAmount)
 		return balance.Cmp(vm.StateDb.Balance(addr, tokenTypeId)) <= 0
 	} else {
@@ -344,12 +393,54 @@ func (vm *VM) canTransfer(addr types.Address, tokenTypeId types.TokenTypeId, tok
 	}
 }
 
-func createAddress(addr types.Address, height *big.Int, code []byte, snapshotHash types.Hash) (types.Address, error) {
-	var a types.Address
-	dataBytes := append(addr.Bytes(), height.Bytes()...)
-	dataBytes = append(dataBytes, code...)
-	dataBytes = append(dataBytes, snapshotHash.Bytes()...)
-	addressHash := types.DataHash(dataBytes)
-	err := a.SetBytes(addressHash[12:])
-	return a, err
+func (vm *VM) checkAndCreateToken(tokenId types.TokenTypeId, owner types.Address, amount *big.Int, data []byte) error {
+	if len(data) > 32+32+32+tokenNameLengthLimit {
+		return ErrInvalidTokenData
+	}
+	tokenName, decimals := getTokenInfo(data)
+	if decimals <= tokenDecimalsMin || decimals > tokenDecimalsMax {
+		return ErrInvalidTokenData
+	}
+	if ok, _ := regexp.MatchString("^[a-zA-Z]+$", tokenName); !ok {
+		return ErrInvalidTokenData
+	}
+	if vm.StateDb.CreateToken(tokenId, tokenName, owner, amount, decimals) {
+		return nil
+	} else {
+		return ErrTokenIdCollision
+	}
+}
+
+func getTokenInfo(data []byte) (string, uint64) {
+	start := big.NewInt(32)
+	decimals := new(big.Int).SetBytes(getDataBig(data, start, big32)).Uint64()
+	start.Add(start, big32)
+	return hex.EncodeToString(data[start.Int64():]), decimals
+}
+
+func checkContractFee(fee *big.Int) bool {
+	return ContractFeeMin.Cmp(fee) <= 0 && ContractFeeMax.Cmp(fee) >= 0
+}
+
+func calcMintageFee(data []byte) (*big.Int, error) {
+	// TODO calculate mintage fee
+	return big0, nil
+}
+
+func quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {
+	if err == ErrOutOfQuota {
+		return quotaTotal - quotaAddition
+	} else if err != nil {
+		return quotaTotal - quotaAddition - quotaLeft
+	} else {
+		return quotaTotal - quotaAddition - quotaLeft - min(quotaRefund, (quotaTotal-quotaAddition-quotaLeft)/2)
+	}
+}
+
+func createContractAddress(addr types.Address, height *big.Int, code []byte, snapshotHash types.Hash) types.Address {
+	return types.CreateContractAddress(addr.Bytes(), height.Bytes(), code, snapshotHash.Bytes())
+}
+
+func createTokenId(addr, owner types.Address, height *big.Int, prevHash, snapshotHash types.Hash) types.TokenTypeId {
+	return types.CreateTokenTypeId(addr.Bytes(), owner.Bytes(), height.Bytes(), prevHash.Bytes(), snapshotHash.Bytes())
 }

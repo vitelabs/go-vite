@@ -8,9 +8,10 @@ import (
 const (
 	BlockTypeSendCreate = iota
 	BlockTypeSendCall
+	BlockTypeSendMintage
 	BlockTypeReceive
 	BlockTypeReceiveError
-	BlockTypeSendMintage
+	BlockTypeReceiveReward
 )
 
 type CreateAccountBlockFunc func(from, to types.Address, txType, depth uint64) VmAccountBlock
