@@ -32,3 +32,5 @@ func (db *NoDatabase) Storage(addr types.Address, loc []byte) []byte           {
 func (db *NoDatabase) SetStorage(addr types.Address, loc []byte, value []byte) {}
 func (db *NoDatabase) StorageString(addr types.Address) string                 { return "" }
 func (db *NoDatabase) StorageHash(addr types.Address) types.Hash               { return types.Hash{} }
+func (db *NoDatabase) AddLog(log *Log)                                         {}
+func (db *NoDatabase) LogListHash() types.Hash                                 { return types.Hash{} }

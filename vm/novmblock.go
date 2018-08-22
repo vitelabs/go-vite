@@ -19,7 +19,7 @@ type NoVmAccountBlock struct {
 	data              []byte
 	stateHash         types.Hash
 	sendBlockHashList []types.Hash
-	logHash           types.Hash
+	logListHash       types.Hash
 	snapshotHash      types.Hash
 	depth             uint64
 	quota             uint64
@@ -57,8 +57,8 @@ func (b *NoVmAccountBlock) SendBlockHashList() []types.Hash           { return b
 func (b *NoVmAccountBlock) AppendSendBlockHash(sendBlockHash types.Hash) {
 	b.sendBlockHashList = append(b.sendBlockHashList, sendBlockHash)
 }
-func (b *NoVmAccountBlock) LogHash() types.Hash                     { return b.logHash }
-func (b *NoVmAccountBlock) SetLogHash(logHash types.Hash)           { b.logHash = logHash }
+func (b *NoVmAccountBlock) LogListHash() types.Hash                 { return b.logListHash }
+func (b *NoVmAccountBlock) SetLogListHash(logListHash types.Hash)   { b.logListHash = logListHash }
 func (b *NoVmAccountBlock) SnapshotHash() types.Hash                { return b.snapshotHash }
 func (b *NoVmAccountBlock) SetSnapshotHash(snapshotHash types.Hash) { b.snapshotHash = snapshotHash }
 func (b *NoVmAccountBlock) Depth() uint64                           { return b.depth }

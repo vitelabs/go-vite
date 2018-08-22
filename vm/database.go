@@ -29,4 +29,7 @@ type Database interface {
 	SetStorage(addr types.Address, loc []byte, value []byte)
 	StorageString(addr types.Address) string
 	StorageHash(addr types.Address) types.Hash
+
+	AddLog(*Log)
+	LogListHash() types.Hash
 }

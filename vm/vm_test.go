@@ -9,7 +9,7 @@ import (
 )
 
 func TestRun(t *testing.T) {
-	vm := &VM{StateDb: &NoDatabase{}, createBlock: CreateNoVmAccountBlock, instructionSet: simpleInstructionSet, logList: make([]*Log, 0)}
+	vm := &VM{StateDb: &NoDatabase{}, createBlock: CreateNoVmAccountBlock, instructionSet: simpleInstructionSet}
 	vm.Debug = true
 	// return 1+2
 	inputdata, _ := hex.DecodeString("6001600201602080919052602090F3")
@@ -36,7 +36,7 @@ func TestVM_CreateSend(t *testing.T) {
 	sendCreateBlock.SetCreateFee(big.NewInt(0))
 	// vm.Debug = true
 	vm := NewVM(&NoDatabase{}, CreateNoVmAccountBlock, VMConfig{})
-	blockList, _, _, err := vm.Run(sendCreateBlock)
+	blockList, _, err := vm.Run(sendCreateBlock)
 	if len(blockList) != 1 ||
 		//blockList[0].Quota() != 58336 ||
 		blockList[0].ToAddress() == emptyAddress ||

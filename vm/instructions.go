@@ -609,10 +609,7 @@ func makeLog(size int) executionFunc {
 		}
 
 		d := memory.get(mStart.Int64(), mSize.Int64())
-		vm.logList = append(vm.logList, &Log{
-			Topics: topics,
-			Data:   d,
-		})
+		vm.StateDb.AddLog(&Log{Topics: topics, Data: d})
 
 		vm.intPool.put(mStart, mSize)
 		return nil, nil

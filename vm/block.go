@@ -53,6 +53,9 @@ type VmAccountBlock interface {
 	// Send block summary hash list
 	SendBlockHashList() []types.Hash
 	AppendSendBlockHash(types.Hash)
+	// Root hash of log list
+	LogListHash() types.Hash
+	SetLogListHash(types.Hash)
 	// Snapshot block hash
 	SnapshotHash() types.Hash
 	SetSnapshotHash(types.Hash)
