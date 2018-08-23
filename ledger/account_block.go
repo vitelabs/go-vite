@@ -191,7 +191,9 @@ func (ab *AccountBlock) ComputeHash() (*types.Hash, error) {
 
 	source = append(source, ab.Nounce...)
 	source = append(source, ab.Difficulty...)
-	source = append(source, []byte(ab.FAmount.String())...)
+	if ab.FAmount != nil {
+		source = append(source, []byte(ab.FAmount.String())...)
+	}
 
 	hash, err := types.BytesToHash(crypto.Hash256(source))
 	if err != nil {
