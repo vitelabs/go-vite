@@ -266,6 +266,9 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 	}
 
 	var amount = fromBlock.Amount
+	if amount == nil {
+		amount = big.NewInt(0)
+	}
 
 	if fromBlock.IsMintageBlock() {
 		// Receive is mintageBlock
