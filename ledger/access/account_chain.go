@@ -314,6 +314,11 @@ func (aca *AccountChainAccess) writeReceiveBlock(batch *leveldb.Batch, block *le
 		}
 
 		block.Balance = big.NewInt(0)
+
+		if prevBalance == nil {
+			prevBalance = big.NewInt(0)
+		}
+
 		block.Balance.Add(prevBalance, amount)
 		block.Amount = amount
 		block.TokenId = fromBlock.TokenId
