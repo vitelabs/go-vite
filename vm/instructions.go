@@ -467,8 +467,13 @@ func opTimestamp(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) 
 	return nil, nil
 }
 
-func opNumber(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+func opHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	stack.push(U256(vm.intPool.get().Set(vm.StateDb.SnapshotBlock(c.block.SnapshotHash()).Height())))
+	return nil, nil
+}
+
+func opTokenId(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	stack.push(vm.intPool.get().SetBytes(c.block.TokenId().Bytes()))
 	return nil, nil
 }
 

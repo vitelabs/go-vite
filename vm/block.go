@@ -65,7 +65,7 @@ type VmAccountBlock interface {
 	// Quota used of current block
 	Quota() uint64
 	SetQuota(uint64)
-	// Hash value of Height, AccountAddress, ToAddress, BlockType, Amount, TokenTypeId, Data, Depth
+	// Hash value of HEIGHT, AccountAddress, ToAddress, BlockType, Amount, TokenTypeId, Data, Depth
 	SummaryHash() types.Hash
 }
 

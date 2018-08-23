@@ -293,8 +293,14 @@ func newInstructionSet() [256]operation {
 			validateStack: makeStackFunc(0, 1),
 			valid:         true,
 		},
-		NUMBER: {
-			execute:       opNumber,
+		HEIGHT: {
+			execute:       opHeight,
+			gasCost:       constGasFunc(quickStepGas),
+			validateStack: makeStackFunc(0, 1),
+			valid:         true,
+		},
+		TOKENID: {
+			execute:       opTokenId,
 			gasCost:       constGasFunc(quickStepGas),
 			validateStack: makeStackFunc(0, 1),
 			valid:         true,

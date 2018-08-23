@@ -82,9 +82,10 @@ const (
 	BLOCKHASH opCode = 0x40 + iota
 	COINBASE
 	TIMESTAMP
-	NUMBER
+	HEIGHT
 	DIFFICULTY
 	GASLIMIT
+	TOKENID
 )
 
 // 0x50 range - 'storage' and execution.
@@ -250,9 +251,10 @@ var opCodeToString = map[opCode]string{
 	BLOCKHASH:  "BLOCKHASH",
 	COINBASE:   "COINBASE",
 	TIMESTAMP:  "TIMESTAMP",
-	NUMBER:     "NUMBER",
+	HEIGHT:     "HEIGHT",
 	DIFFICULTY: "DIFFICULTY",
 	GASLIMIT:   "GASLIMIT",
+	TOKENID:    "TOKENID",
 
 	// 0x50 range - 'storage' and execution.
 	POP: "POP",
@@ -412,9 +414,10 @@ var stringToOp = map[string]opCode{
 	"BLOCKHASH":      BLOCKHASH,
 	"COINBASE":       COINBASE,
 	"TIMESTAMP":      TIMESTAMP,
-	"NUMBER":         NUMBER,
+	"HEIGHT":         HEIGHT,
 	"DIFFICULTY":     DIFFICULTY,
 	"GASLIMIT":       GASLIMIT,
+	"TOKENID":        TOKENID,
 	"POP":            POP,
 	"MLOAD":          MLOAD,
 	"MSTORE":         MSTORE,
