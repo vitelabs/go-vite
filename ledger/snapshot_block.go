@@ -318,7 +318,7 @@ func (sb *SnapshotBlock) DbSerialize() ([]byte, error) {
 }
 
 func GetSnapshotGenesisBlock() *SnapshotBlock {
-	var genesisSnapshotBlockHash, _ = types.HexToHash("3fdf1f171752f0f10764dad431c592485ff27af07b49cca8b824287352741780")
+	var genesisSnapshotBlockHash, _ = types.HexToHash("f7ede1921e23588cb420dc7f05846d4dcfb795bb38458239b9d1230ae5bda7f0")
 	var genesisProducer, _ = types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
 	var genesisSignature = []byte{1, 26, 214, 26, 96, 233, 83, 46, 77, 84, 7, 129, 184, 209, 149, 71, 127, 91, 70, 196, 224, 177, 55, 239, 31, 206, 86, 37, 192, 212, 181, 111, 95, 41, 239, 46, 179, 127, 108, 72, 52, 56, 187, 53, 61, 142, 127, 80, 118, 164, 61, 93, 23, 216, 207, 102, 75, 216, 72, 70, 222, 251, 122, 1}
 
@@ -330,7 +330,7 @@ func GetSnapshotGenesisBlock() *SnapshotBlock {
 		PublicKey: genesisPublicKey,
 		PrevHash:  nil,
 		Height:    big.NewInt(1),
-		Timestamp: uint64(1532098890),
+		Timestamp: uint64(1532099890),
 		Producer:  &genesisProducer,
 		Signature: genesisSignature,
 	}
