@@ -31,7 +31,7 @@ func downloadLedger(isDownload bool, dataDir string) {
 	iterIndex := 0
 	for ; iterIndex < downloadTryTimes; iterIndex++ {
 		var getErr error
-		res, getErr = http.Get("https://testnet.vite.net/ledger123")
+		res, getErr = http.Get("https://testnet.vite.net/ledger")
 
 		if res.StatusCode != 200 || getErr != nil {
 			if getErr != nil {
