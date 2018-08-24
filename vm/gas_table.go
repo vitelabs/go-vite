@@ -1,5 +1,10 @@
 package vm
 
+import (
+	"bytes"
+	"github.com/vitelabs/go-vite/common/types"
+)
+
 // memoryGasCosts calculates the quadratic gas for memory expansion. It does so
 // only for the memory region that is expanded, not the total memory.
 func memoryGasCost(mem *memory, newMemSize uint64) (uint64, error) {
@@ -218,13 +223,14 @@ func gasMStore8(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint6
 
 func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
 	var (
-		y   = stack.back(1)
-		x   = stack.back(0)
-		val = vm.StateDb.Storage(c.address, x.Bytes())
+		y          = stack.back(1)
+		loc        = stack.back(0)
+		locHash, _ = types.BigToHash(loc)
+		val        = vm.Db.Storage(c.address, locHash)
 	)
-	if len(val) == 0 && y.Sign() != 0 {
+	if bytes.Compare(val.Bytes(), emptyHash.Bytes()) == 0 && y.Sign() != 0 {
 		return sstoreSetGas, nil
-	} else if len(val) != 0 && y.Sign() == 0 {
+	} else if bytes.Compare(val.Bytes(), emptyHash.Bytes()) != 0 && y.Sign() == 0 {
 		c.quotaRefund = c.quotaRefund + sstoreRefundGas
 		return sstoreClearGas, nil
 	} else {

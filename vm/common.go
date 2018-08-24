@@ -74,15 +74,6 @@ func leftPadBytes(slice []byte, l int) []byte {
 	return padded
 }
 
-// calculates the memory size required for a step
-func calcMemSize(off, l *big.Int) *big.Int {
-	if l.Sign() == 0 {
-		return big0
-	}
-
-	return new(big.Int).Add(off, l)
-}
-
 // getDataBig returns a slice from the data based on the start and size and pads
 // up to size with zero's. This function is overflow safe.
 func getDataBig(data []byte, start *big.Int, size *big.Int) []byte {
@@ -113,4 +104,13 @@ func useQuota(quota, cost uint64) (uint64, error) {
 	}
 	quota = quota - cost
 	return quota, nil
+}
+
+func hexToString(data []byte) string {
+	for i, b := range data {
+		if b == 0 {
+			return string(data[:i])
+		}
+	}
+	return string(data)
 }

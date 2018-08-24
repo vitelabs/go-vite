@@ -4,6 +4,15 @@ import (
 	"math/big"
 )
 
+// calculates the memory size required for a step
+func calcMemSize(off, l *big.Int) *big.Int {
+	if l.Sign() == 0 {
+		return big0
+	}
+
+	return new(big.Int).Add(off, l)
+}
+
 func memoryBlake2b(stack *stack) *big.Int {
 	return calcMemSize(stack.back(0), stack.back(1))
 }
