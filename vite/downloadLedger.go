@@ -60,8 +60,8 @@ func downloadLedger(isDownload bool, dataDir string) {
 		return
 	}
 
-	//os.Remove(filePath)
-	deCompressByPath(zipPath, filePath)
+	os.Remove(filePath)
+	deCompressByPath(zipPath, dataDir)
 }
 
 func getFileModTime(path string) int64 {
