@@ -12,8 +12,6 @@ import (
 
 var slog = log15.New("module", "signer")
 
-//var log = log15.New("module", "signer")
-
 type Master struct {
 	Vite                  Vite
 	signSlaves            map[types.Address]*signSlave
@@ -84,13 +82,12 @@ func (master *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphr
 }
 
 func (master *Master) InitAndStartLoop() {
-
 	master.Vite.Ledger().RegisterFirstSyncDown(master.FirstSyncDoneListener)
 	go func() {
 		master.log.Info("master waiting first sync done ")
 		<-master.FirstSyncDoneListener
 		close(master.FirstSyncDoneListener)
-		master.log.Info("<-master.FirstSyncDoneListener first sync done ")
+		master.log.Info("<-master.firstSyncDoneListener first sync done ")
 		master.lid = master.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(master.unlockEventListener)
 		master.loop()
 	}()
