@@ -78,8 +78,8 @@ func getTokenTypeIdFromHex(hexStr string) ([tokenTypeIdSize]byte, error) {
 	return b, err
 }
 
-func CreateTokenTypeId() TokenTypeId {
-	tti, _ := BytesToTokenTypeId(vcrypto.GetEntropyCSPRNG(tokenTypeIdSize))
+func CreateTokenTypeId(data ...[]byte) TokenTypeId {
+	tti, _ := BytesToTokenTypeId(vcrypto.Hash(tokenTypeIdSize, data...))
 	return tti
 }
 

@@ -2,6 +2,7 @@ package types
 
 import (
 	"testing"
+	"fmt"
 )
 
 const (
@@ -12,8 +13,8 @@ const (
 	WrongTTIPre      = "1tti_2445f6e5cae8c2c70e446c"
 )
 
-func BenchmarkCreateTokenTypeId(b *testing.B) {
-	CreateTokenTypeId()
+func TestCreateTokenTypeId(b *testing.T) {
+	fmt.Println(CreateTokenTypeId([]byte{1, 1, 2}, []byte{1, 2}, []byte{1, 5}))
 }
 
 func TestHexToTokenTypeId(t *testing.T) {

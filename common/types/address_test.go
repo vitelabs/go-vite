@@ -3,7 +3,18 @@ package types
 import (
 	"bytes"
 	"testing"
+	"fmt"
 )
+
+
+func TestCreateContractAddress(t *testing.T) {
+	addr := CreateContractAddress([]byte{1, 2, 3}, []byte{1, 2, 3})
+	fmt.Println(addr)
+	if !IsValidHexAddress(addr.String()) {
+		t.Fatal("Not valid")
+	}
+}
+
 
 func TestCreateRandomAddress(t *testing.T) {
 	addr, priv, _ := CreateAddress()
