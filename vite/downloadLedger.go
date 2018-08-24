@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -30,10 +31,13 @@ func downloadLedger(isDownload bool, dataDir string) {
 	iterIndex := 0
 	for ; iterIndex < downloadTryTimes; iterIndex++ {
 		var getErr error
-		res, getErr = http.Get("https://testnet.vite.net/ledger")
+		res, getErr = http.Get("https://testnet.vite.net/ledger123")
 
-		if getErr != nil {
-			donwloadLedgerLog.Error(getErr.Error())
+		if res.StatusCode != 200 || getErr != nil {
+			if getErr != nil {
+				donwloadLedgerLog.Error(getErr.Error())
+			}
+			donwloadLedgerLog.Info("Retry download, index is " + strconv.Itoa(iterIndex))
 			time.Sleep(time.Second) // sleep one second
 		} else {
 			break
