@@ -18,7 +18,7 @@ As default, Vite will give a default config. but you can set your config use two
 ### cmd
 
 | key | type | default | meaning |
-|:--|:--|:--|
+|:--- |:--- |:--- |:--- |
 | name | string | "vite-server" | the server name, use for log |
 | maxpeers | number | 50 | the maximum number of peers can be connected |
 | addr | string | "0.0.0.0:8483" | will be listen by vite |

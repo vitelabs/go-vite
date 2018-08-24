@@ -176,11 +176,15 @@ func (l *LegerApiImpl) GetAccountByAccAddr(addrs []string, reply *string) error 
 	var bs []api.BalanceInfo
 	bs = make([]api.BalanceInfo, len(account.TokenInfoList))
 	for i, v := range account.TokenInfoList {
+		amount := "0"
+		if v.TotalAmount != nil {
+			amount = v.TotalAmount.String()
+		}
 		bs[i] = api.BalanceInfo{
 			TokenSymbol: v.Token.Symbol,
 			TokenName:   v.Token.Name,
 			TokenTypeId: v.Token.Id.String(),
-			Balance:     v.TotalAmount.String(),
+			Balance:     amount,
 		}
 	}
 
