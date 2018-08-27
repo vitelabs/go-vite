@@ -1,10 +1,9 @@
-package p2p
+package discovery
 
 import (
 	"bytes"
 	"crypto/rand"
 	"encoding/binary"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
@@ -14,9 +13,8 @@ import (
 )
 
 type nodeDB struct {
-	db  *leveldb.DB
-	id  NodeID
-	log log15.Logger
+	db *leveldb.DB
+	id NodeID
 }
 
 const (
@@ -93,8 +91,8 @@ func genKey(id NodeID, field string) []byte {
 	if id == nilID {
 		return []byte(field)
 	}
-	bytes := append([]byte(dbPrefix), id[:]...)
-	return append(bytes, field...)
+	data := append([]byte(dbPrefix), id[:]...)
+	return append(data, field...)
 }
 
 func parseKey(key []byte) (id NodeID, field string) {
@@ -116,9 +114,9 @@ func decodeVarint(varint []byte) int64 {
 }
 
 func encodeVarint(i int64) []byte {
-	bytes := make([]byte, binary.MaxVarintLen64)
-	n := binary.PutVarint(bytes, i)
-	return bytes[:n]
+	data := make([]byte, binary.MaxVarintLen64)
+	n := binary.PutVarint(data, i)
+	return data[:n]
 }
 
 func (db *nodeDB) retrieveNode(ID NodeID) *Node {
@@ -146,11 +144,11 @@ func (db *nodeDB) updateNode(node *Node) error {
 
 // remove all data about the specific NodeID
 func (db *nodeDB) deleteNode(ID NodeID) error {
-	iterator := db.db.NewIterator(util.BytesPrefix(genKey(ID, "")), nil)
-	defer iterator.Release()
+	itr := db.db.NewIterator(util.BytesPrefix(genKey(ID, "")), nil)
+	defer itr.Release()
 
-	for iterator.Next() {
-		err := db.db.Delete(iterator.Key(), nil)
+	for itr.Next() {
+		err := db.db.Delete(itr.Key(), nil)
 		if err != nil {
 			return err
 		}

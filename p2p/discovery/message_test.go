@@ -1,4 +1,4 @@
-package p2p
+package discovery
 
 import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
