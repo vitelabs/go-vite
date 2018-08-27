@@ -12,13 +12,14 @@ type CommonTxWorker struct {
 	address types.Address
 	log     log15.Logger
 
-	status    int
-	isWorking bool
+	status     int
+	isSleeping bool
 
 	breaker                  chan struct{}
 	newUnconfirmedTxListener chan struct{}
+	stopListener             chan struct{} // make sure we can sync stop the worker
 
-	lifecycleMutex sync.Mutex
+	statusMutex sync.Mutex
 }
 
 func NewCommonTxWorker(vite Vite, addrese types.Address) *CommonTxWorker {
@@ -35,11 +36,6 @@ func (w *CommonTxWorker) Close() error {
 	return nil
 }
 
-func (w *CommonTxWorker) IsWorking() bool {
-	w.lifecycleMutex.Lock()
-	defer w.lifecycleMutex.Unlock()
-	return w.isWorking
-}
 
 func (w *CommonTxWorker) Start() {
 	if w.status != Start {
@@ -49,15 +45,20 @@ func (w *CommonTxWorker) Start() {
 		// 1. listen unconfirmed tx in ledger
 		w.newUnconfirmedTxListener = make(chan struct{}, 100)
 		w.vite.Ledger().Ac().AddListener(w.address, w.newUnconfirmedTxListener)
+
+		w.stopListener = make(chan struct{})
+
 		w.status = Start
 
 		go w.startWork()
-
 	} else {
-		// 至少要让它跑一次start work
-
+		if w.isSleeping {
+			// awake it to run at least once
+			w.newUnconfirmedTxListener <- struct{}{}
+		}
 	}
 }
+
 func (w *CommonTxWorker) Stop() {
 	if w.status != Stop {
 		w.breaker <- struct{}{}
@@ -66,25 +67,21 @@ func (w *CommonTxWorker) Stop() {
 		w.vite.Ledger().Ac().RemoveListener(w.address)
 		close(w.newUnconfirmedTxListener)
 
+		// make sure we can stop the worker
+		<-w.stopListener
+		close(w.stopListener)
+
 		w.status = Stop
 	}
 }
+
 func (w CommonTxWorker) Status() int {
 	return w.status
 }
+
 func (w *CommonTxWorker) startWork() {
 
 	w.log.Info("worker startWork is called")
-	w.lifecycleMutex.Lock()
-	if w.isWorking {
-		w.lifecycleMutex.Unlock()
-		w.log.Info("worker is working")
-		return
-	}
-	w.isWorking = true
-	w.lifecycleMutex.Unlock()
-	w.log.Info("worker Start work")
-
 	for {
 		w.log.Debug("worker working")
 
@@ -104,19 +101,21 @@ func (w *CommonTxWorker) startWork() {
 		}
 
 	WAIT:
+		w.isSleeping = true
 		w.log.Info("worker Start sleep")
 		select {
 		case <-w.newUnconfirmedTxListener:
 			w.log.Info("worker Start awake")
 			continue
 		case <-w.breaker:
-			w.log.Info("worker Start brake")
+			w.log.Info("worker broken")
 			break
 		}
 
 	}
 
-	w.isWorking = false
+	w.log.Info("worker send stopListener ")
+	w.stopListener <- struct{}{}
 	w.log.Info("worker end work")
 }
 
