@@ -109,12 +109,12 @@ func TestManager_Import(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	json, err := kp.Export(hexaddr, DummyPwd, "654321")
+	json, err := kp.ExportKeystore(hexaddr, DummyPwd, "654321")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	kp.Import(json, "654321", "123123")
+	kp.ImportKeystore(json, "654321", "123123")
 	key1, err := kp.ExtractKey(addr, "123123")
 	if err != nil {
 		t.Fatal(err)
@@ -123,11 +123,11 @@ func TestManager_Import(t *testing.T) {
 		t.Fatalf("1: %v != 2: %v", key1.PrivateKey.Hex(), key0.PrivateKey.Hex())
 	}
 
-	json1, err := kp.Export(hexaddr, "123123", "123111")
+	json1, err := kp.ExportKeystore(hexaddr, "123123", "123111")
 	if err != nil {
 		t.Fatal(err)
 	}
-	kp.Import(json1, "123111", DummyPwd)
+	kp.ImportKeystore(json1, "123111", DummyPwd)
 
 }
 

@@ -278,7 +278,7 @@ func (km *Manager) ExportPriv(hexaddr, pwd string) (string, error) {
 	return key.PrivateKey.Hex(), nil
 }
 
-func (km *Manager) Import(keyjson, originPwd, newPwd string) (*Key, error) {
+func (km *Manager) ImportKeystore(keyjson, originPwd, newPwd string) (*Key, error) {
 	key, err := DecryptKey([]byte(keyjson), originPwd)
 	if err != nil {
 		return nil, err
@@ -287,7 +287,7 @@ func (km *Manager) Import(keyjson, originPwd, newPwd string) (*Key, error) {
 	return key, nil
 }
 
-func (km *Manager) Export(hexaddr, originPwd, newPwd string) (string, error) {
+func (km *Manager) ExportKeystore(hexaddr, originPwd, newPwd string) (string, error) {
 	addr, err := types.HexToAddress(hexaddr)
 	if err != nil {
 		return "", err
