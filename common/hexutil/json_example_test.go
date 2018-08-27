@@ -1,4 +1,4 @@
-// Copyright 2016 The go-ethereum Authors
+// Copyright 2017 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -14,20 +14,32 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package rpc
+package hexutil_test
 
 import (
-	"context"
-	"net"
+	"encoding/json"
+	"fmt"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
-// DialInProc attaches an in-process connection to the given RPC server.
-func DialInProc(handler *Server) *Client {
-	initctx := context.Background()
-	c, _ := newClient(initctx, func(context.Context) (net.Conn, error) {
-		p1, p2 := net.Pipe()
-		go handler.ServeCodec(NewJSONCodec(p1), OptionMethodInvocation|OptionSubscriptions)
-		return p2, nil
-	})
-	return c
+type MyType [5]byte
+
+func (v *MyType) UnmarshalText(input []byte) error {
+	return hexutil.UnmarshalFixedText("MyType", input, v[:])
+}
+
+func (v MyType) String() string {
+	return hexutil.Bytes(v[:]).String()
+}
+
+func ExampleUnmarshalFixedText() {
+	var v1, v2 MyType
+	fmt.Println("v1 error:", json.Unmarshal([]byte(`"0x01"`), &v1))
+	fmt.Println("v2 error:", json.Unmarshal([]byte(`"0x0101010101"`), &v2))
+	fmt.Println("v2:", v2)
+	// Output:
+	// v1 error: hex string has length 2, want 10 for MyType
+	// v2 error: <nil>
+	// v2: 0x0101010101
 }

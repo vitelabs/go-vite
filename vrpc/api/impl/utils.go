@@ -3,7 +3,7 @@ package impl
 import (
 	"encoding/json"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/rpc/api"
+	"github.com/vitelabs/go-vite/vrpc/api"
 )
 
 var log = log15.New("module", "rpc/api_impl")

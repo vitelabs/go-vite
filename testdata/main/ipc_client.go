@@ -11,8 +11,8 @@ import (
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/rpc"
-	"github.com/vitelabs/go-vite/rpc/api"
+	"github.com/vitelabs/go-vite/vrpc"
+	"github.com/vitelabs/go-vite/vrpc/api"
 	"io/ioutil"
 	"net/http"
 	rpc2 "net/rpc"
@@ -34,11 +34,11 @@ func main() {
 	//	dir = common.DefaultDataDir()
 	//}
 
-	ipcapiURL := filepath.Join(common.DefaultDataDir(), rpc.DefaultIpcFile())
+	ipcapiURL := filepath.Join(common.DefaultDataDir(), vrpc.DefaultIpcFile())
 	if runtime.GOOS == "windows" {
-		ipcapiURL = rpc.DefaultIpcFile()
+		ipcapiURL = vrpc.DefaultIpcFile()
 	}
-	client, err := rpc.DialIPC(context.Background(), ipcapiURL)
+	client, err := vrpc.DialIPC(context.Background(), ipcapiURL)
 	if err != nil {
 		panic(err)
 	}

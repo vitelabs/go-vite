@@ -1,7 +1,7 @@
-package rpc
+package vrpc
 
 import (
-	"github.com/vitelabs/go-vite/rpc/api/impl"
+	"github.com/vitelabs/go-vite/vrpc/api/impl"
 	"github.com/vitelabs/go-vite/vite"
 )
 

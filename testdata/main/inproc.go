@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common"
-	vrpc "github.com/vitelabs/go-vite/rpc"
+	vrpc "github.com/vitelabs/go-vite/vrpc"
 	"github.com/vitelabs/go-vite/wallet"
 	"path/filepath"
 	"strings"
