@@ -3,24 +3,25 @@ package unconfirmed
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/unconfirmed/worker"
 	"github.com/vitelabs/go-vite/wallet/keystore"
-	"sync"
 )
 
-var slog = log15.New("module", "signer")
+var slog = log15.New("module", "unconfirmed")
 
 // todo 放到Miner模块
 type RightEvent struct {
 	gid       int
 	address   types.Address
-	event     string // start stop
+	event     string // Start Stop
 	timestamp uint64
 }
 
 type Manager struct {
-	Vite Vite
+	Vite worker.Vite
 
-	workers map[types.Address]*Worker
+	commonTxWorkers map[types.Address]*worker.CommonTxWorker
+	contractWorkers map[types.Address]*worker.ContractWorker
 
 	unlockEventListener   chan keystore.UnlockEvent
 	firstSyncDoneListener chan int
@@ -30,14 +31,14 @@ type Manager struct {
 	rightLid     int
 	firstSyncLid int
 
-	mutex sync.Mutex
-	log   log15.Logger
+	log log15.Logger
 }
 
-func NewManager(vite Vite) *Manager {
+func NewManager(vite worker.Vite) *Manager {
 	return &Manager{
 		Vite:                  vite,
-		workers:               make(map[types.Address]*Worker),
+		commonTxWorkers:       make(map[types.Address]*worker.CommonTxWorker),
+		contractWorkers:       make(map[types.Address]*worker.ContractWorker),
 		unlockEventListener:   make(chan keystore.UnlockEvent),
 		firstSyncDoneListener: make(chan int),
 		rightEventListener:    make(chan RightEvent),
@@ -59,7 +60,10 @@ func (manager *Manager) Close() error {
 	manager.log.Info("close")
 	manager.Vite.WalletManager().KeystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
 	// todo manager.Vite.Ledger().RemoveFirstSyncDownListener(manager.firstSyncDoneListener)
-	for _, v := range manager.workers {
+	for _, v := range manager.commonTxWorkers {
+		v.Close()
+	}
+	for _, v := range manager.contractWorkers {
 		v.Close()
 	}
 	return nil
@@ -72,14 +76,11 @@ func (manager *Manager) loop() {
 	status, _ := manager.Vite.WalletManager().KeystoreManager.Status()
 	for k, v := range status {
 		if v == keystore.UnLocked {
-			manager.mutex.Lock()
-			s := NewWorker(manager.Vite, k)
+			commonTxWorker := worker.NewCommonTxWorker(manager.Vite, k)
 			loopLog.Info("Manager find a new unlock address ", "Worker", k.String())
-			manager.workers[k] = s
-			manager.mutex.Unlock()
+			manager.commonTxWorkers[k] = commonTxWorker
+			commonTxWorker.Start()
 
-			s.AddressUnlocked(true)
-			go s.StartWork()
 		}
 	}
 
@@ -88,22 +89,25 @@ func (manager *Manager) loop() {
 		case event, ok := <-manager.rightEventListener:
 			{
 				loopLog.Info("<-manager.rightEventListener ", "event", event)
+
 				if !ok {
 					manager.log.Info("Manager rightEvent channel close")
 					break
 				}
 
-				worker, found := manager.workers[event.address]
-				if !found || !worker.addressUnlocked {
+				if !manager.Vite.WalletManager().KeystoreManager.IsUnLocked(event.address) {
 					manager.log.Error(" receive a right event but address locked", "event", event)
 					break
 				}
 
-				if event.event == "start" {
-					worker.StartContractWork()
-				} else {
-					worker.StopContractWork()
+				w, found := manager.contractWorkers[event.address]
+				if !found {
+					w = worker.NewContractWorker()
+					manager.contractWorkers[event.address] = w
+					break
 				}
+
+				w.Start()
 
 			}
 
@@ -115,9 +119,9 @@ func (manager *Manager) loop() {
 					break
 				}
 
-				for _, worker := range manager.workers {
-					worker.IsFirstSyncDone(done)
-				}
+				//for _, worker := range manager.commonTxWorkers {
+				//	worker.IsFirstSyncDone(done)
+				//}
 
 			}
 
@@ -129,25 +133,23 @@ func (manager *Manager) loop() {
 					break
 				}
 
-				manager.mutex.Lock()
-				if worker, ok := manager.workers[event.Address]; ok {
+				w, found := manager.commonTxWorkers[event.Address]
+				if found {
 					manager.log.Info("get event already exist ", "event", event)
-					manager.mutex.Unlock()
-					worker.AddressUnlocked(event.Unlocked())
-					worker.newSignedTask <- struct{}{}
+					w.Start()
+					//worker.AddressUnlocked(event.Unlocked())
+					//worker.newSignedTask <- struct{}{}
 					continue
 				}
-				s := NewWorker(manager.Vite, event.Address)
+				w = worker.NewCommonTxWorker(manager.Vite, event.Address)
 				loopLog.Info("Manager get event new Worker")
-				manager.workers[event.Address] = s
-				manager.mutex.Unlock()
+				manager.commonTxWorkers[event.Address] = w
 
-				s.AddressUnlocked(event.Unlocked())
-				go s.StartWork()
+				w.Start()
+
 			}
 
 		}
 
 	}
 }
-

@@ -1,4 +1,4 @@
-package unconfirmed
+package worker
 
 import (
 	"github.com/vitelabs/go-vite/wallet"

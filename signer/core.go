@@ -223,7 +223,7 @@ func (sw *signSlave) sendNextUnConfirmed() (hasmore bool, err error) {
 
 func (sw *signSlave) StartWork() {
 
-	sw.log.Info("slaver StartWork is called")
+	sw.log.Info("slaver startWork is called")
 	sw.flagMutex.Lock()
 	if sw.isWorking {
 		sw.flagMutex.Unlock()
