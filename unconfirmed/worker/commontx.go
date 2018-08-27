@@ -17,7 +17,7 @@ type CommonTxWorker struct {
 
 	breaker                  chan struct{}
 	newUnconfirmedTxListener chan struct{}
-	stopListener             chan struct{} // make sure we can sync stop the worker
+	stopListener             chan struct{}
 
 	statusMutex sync.Mutex
 }
@@ -54,7 +54,7 @@ func (w *CommonTxWorker) Start() {
 		go w.startWork()
 	} else {
 		if w.isSleeping {
-			// awake it to run at least once
+			// awake it in order to run at least once
 			w.newUnconfirmedTxListener <- struct{}{}
 		}
 	}
