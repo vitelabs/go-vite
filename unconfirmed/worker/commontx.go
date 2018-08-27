@@ -36,8 +36,9 @@ func (w *CommonTxWorker) Close() error {
 	return nil
 }
 
-
 func (w *CommonTxWorker) Start() {
+	w.statusMutex.Lock()
+	defer w.statusMutex.Unlock()
 	if w.status != Start {
 		// 0. init the break chan
 		w.breaker = make(chan struct{}, 1)
@@ -49,7 +50,7 @@ func (w *CommonTxWorker) Start() {
 		w.stopListener = make(chan struct{})
 
 		w.status = Start
-
+		w.statusMutex.Unlock()
 		go w.startWork()
 	} else {
 		if w.isSleeping {
@@ -60,6 +61,8 @@ func (w *CommonTxWorker) Start() {
 }
 
 func (w *CommonTxWorker) Stop() {
+	w.statusMutex.Lock()
+	defer w.statusMutex.Unlock()
 	if w.status != Stop {
 		w.breaker <- struct{}{}
 		close(w.breaker)
@@ -76,6 +79,8 @@ func (w *CommonTxWorker) Stop() {
 }
 
 func (w CommonTxWorker) Status() int {
+	w.statusMutex.Lock()
+	defer w.statusMutex.Unlock()
 	return w.status
 }
 
@@ -111,7 +116,6 @@ func (w *CommonTxWorker) startWork() {
 			w.log.Info("worker broken")
 			break
 		}
-
 	}
 
 	w.log.Info("worker send stopListener ")
