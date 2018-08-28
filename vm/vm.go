@@ -175,6 +175,18 @@ func (vm *VM) sendCall(block VmAccountBlock) (VmAccountBlock, error) {
 	if !vm.canTransfer(block.AccountAddress(), block.TokenId(), block.Amount(), big0) {
 		return nil, ErrInsufficientBalance
 	}
+
+	if p, ok := getPrecompiledContract(block.ToAddress()); ok {
+		cost = p.gasCost(block)
+		quotaLeft, err = useQuota(quotaLeft, cost)
+		if err != nil {
+			return nil, err
+		}
+		err = p.doSend(vm, block)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// sub balance
 	vm.Db.SubBalance(block.AccountAddress(), block.TokenId(), block.Amount())
 	vm.updateBlock(block, block.AccountAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
@@ -182,42 +194,50 @@ func (vm *VM) sendCall(block VmAccountBlock) (VmAccountBlock, error) {
 }
 
 func (vm *VM) receiveCall(block VmAccountBlock) (blockList []VmAccountBlock, isRetry bool, err error) {
-	// check can make transaction
-	quotaTotal, quotaAddition := vm.quotaLeft(block.ToAddress(), block)
-	quotaLeft := quotaTotal
-	quotaRefund := uint64(0)
-	cost, err := intrinsicGasCost(nil, false)
-	if err != nil {
-		return nil, noRetry, err
-	}
-	quotaLeft, err = useQuota(quotaLeft, cost)
-	if err != nil {
-		return nil, retry, err
-	}
-	vm.blockList = []VmAccountBlock{block}
-	// add balance, create account if not exist
-	vm.Db.AddBalance(block.ToAddress(), block.TokenId(), block.Amount())
-	// do transfer transaction if account code size is zero
-	code := vm.Db.ContractCode(block.ToAddress())
-	if len(code) == 0 {
-		vm.updateBlock(block, block.ToAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
-		return vm.blockList, noRetry, nil
-	}
-	// run code
-	c := newContract(block.AccountAddress(), block.ToAddress(), block, quotaLeft, quotaRefund)
-	c.setCallCode(block.ToAddress(), code)
-	_, err = c.run(vm)
-	if err == nil {
-		vm.updateBlock(block, block.ToAddress(), nil, quotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, nil), nil)
-		err = vm.doSendBlockList()
-		if err == nil {
+	if p, ok := getPrecompiledContract(block.ToAddress()); ok {
+		vm.blockList = []VmAccountBlock{block}
+		vm.Db.AddBalance(block.ToAddress(), block.TokenId(), block.Amount())
+		err := p.doReceive(vm, block)
+		vm.updateBlock(block, block.ToAddress(), err, 0, nil)
+		return vm.blockList, noRetry, err
+	} else {
+		// check can make transaction
+		quotaTotal, quotaAddition := vm.quotaLeft(block.ToAddress(), block)
+		quotaLeft := quotaTotal
+		quotaRefund := uint64(0)
+		cost, err := intrinsicGasCost(nil, false)
+		if err != nil {
+			return nil, noRetry, err
+		}
+		quotaLeft, err = useQuota(quotaLeft, cost)
+		if err != nil {
+			return nil, retry, err
+		}
+		vm.blockList = []VmAccountBlock{block}
+		// add balance, create account if not exist
+		vm.Db.AddBalance(block.ToAddress(), block.TokenId(), block.Amount())
+		// do transfer transaction if account code size is zero
+		code := vm.Db.ContractCode(block.ToAddress())
+		if len(code) == 0 {
+			vm.updateBlock(block, block.ToAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
 			return vm.blockList, noRetry, nil
 		}
-	}
+		// run code
+		c := newContract(block.AccountAddress(), block.ToAddress(), block, quotaLeft, quotaRefund)
+		c.setCallCode(block.ToAddress(), code)
+		_, err = c.run(vm)
+		if err == nil {
+			vm.updateBlock(block, block.ToAddress(), nil, quotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, nil), nil)
+			err = vm.doSendBlockList()
+			if err == nil {
+				return vm.blockList, noRetry, nil
+			}
+		}
 
-	vm.revert()
-	vm.updateBlock(block, block.ToAddress(), err, quotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, err), nil)
-	return vm.blockList, err == ErrOutOfQuota, err
+		vm.revert()
+		vm.updateBlock(block, block.ToAddress(), err, quotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, err), nil)
+		return vm.blockList, err == ErrOutOfQuota, err
+	}
 }
 
 func (vm *VM) sendMintage(block VmAccountBlock) (VmAccountBlock, error) {
