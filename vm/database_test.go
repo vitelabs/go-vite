@@ -14,26 +14,25 @@ type VmToken struct {
 }
 
 type NoDatabase struct {
-	balanceMap           map[types.Address]map[types.TokenTypeId]*big.Int
-	storageMap           map[types.Address]map[types.Hash]types.Hash
-	codeMap              map[types.Address][]byte
-	logList              []*Log
-	snapshotBlockMap     map[types.Hash]VmSnapshotBlock
-	currentSnapshotBlock VmSnapshotBlock
-	accountBlockMap      map[types.Address]map[types.Hash]VmAccountBlock
-	tokenMap             map[types.TokenTypeId]VmToken
+	balanceMap               map[types.Address]map[types.TokenTypeId]*big.Int
+	storageMap               map[types.Address]map[types.Hash]types.Hash
+	codeMap                  map[types.Address][]byte
+	logList                  []*Log
+	snapshotBlockMap         map[types.Hash]VmSnapshotBlock
+	currentSnapshotBlockHash types.Hash
+	accountBlockMap          map[types.Address]map[types.Hash]VmAccountBlock
+	tokenMap                 map[types.TokenTypeId]VmToken
 }
 
 func NewNoDatabase() *NoDatabase {
 	return &NoDatabase{
-		balanceMap:           make(map[types.Address]map[types.TokenTypeId]*big.Int),
-		storageMap:           make(map[types.Address]map[types.Hash]types.Hash),
-		codeMap:              make(map[types.Address][]byte),
-		logList:              make([]*Log, 0),
-		snapshotBlockMap:     make(map[types.Hash]VmSnapshotBlock),
-		currentSnapshotBlock: nil,
-		accountBlockMap:      make(map[types.Address]map[types.Hash]VmAccountBlock),
-		tokenMap:             make(map[types.TokenTypeId]VmToken),
+		balanceMap:       make(map[types.Address]map[types.TokenTypeId]*big.Int),
+		storageMap:       make(map[types.Address]map[types.Hash]types.Hash),
+		codeMap:          make(map[types.Address][]byte),
+		logList:          make([]*Log, 0),
+		snapshotBlockMap: make(map[types.Hash]VmSnapshotBlock),
+		accountBlockMap:  make(map[types.Address]map[types.Hash]VmAccountBlock),
+		tokenMap:         make(map[types.TokenTypeId]VmToken),
 	}
 }
 
@@ -70,7 +69,7 @@ func (db *NoDatabase) SnapshotBlock(snapshotHash types.Hash) VmSnapshotBlock {
 
 }
 func (db *NoDatabase) SnapshotBlockByHeight(height *big.Int) VmSnapshotBlock {
-	snapshotBlock := db.currentSnapshotBlock
+	snapshotBlock := db.snapshotBlockMap[db.currentSnapshotBlockHash]
 	for snapshotBlock != nil {
 		if snapshotBlock.Height().Cmp(height) == 0 {
 			return snapshotBlock
@@ -127,7 +126,7 @@ func (db *NoDatabase) Storage(addr types.Address, loc types.Hash) types.Hash {
 	}
 }
 func (db *NoDatabase) SetStorage(addr types.Address, loc types.Hash, value types.Hash) {
-	if _, ok := db.storageMap[addr]; ok {
+	if _, ok := db.storageMap[addr]; !ok {
 		db.storageMap[addr] = make(map[types.Hash]types.Hash)
 	}
 	db.storageMap[addr][loc] = value

@@ -4,7 +4,7 @@ import "math/big"
 
 var (
 	ContractFeeMin = big.NewInt(0)
-	ContractFeeMax = big.NewInt(0)
+	ContractFeeMax = big.NewInt(100)
 )
 
 const (
@@ -39,12 +39,13 @@ const (
 	copyGas               uint64 = 3     //
 	memoryGas             uint64 = 3     // Times the address of the (highest referenced byte in memory + 1). NOTE: referencing happens on read, write and in instructions such as RETURN and CALL.
 
-	callCreateDepth      uint64 = 1024    // Maximum Depth of call/create stack.
-	stackLimit           uint64 = 1024    // Maximum size of VM stack allowed.
-	quotaLimit           uint64 = 3000000 // Maximum quota of a transaction
-	tokenNameLengthLimit int    = 20      // Maximum length of a token name
-	tokenDecimalsMin     uint64 = 0       // Minimum value of a token decimals(exclude)
-	tokenDecimalsMax     uint64 = 18      // Maximum value of a token decimals(include)
+	callCreateDepth          uint64 = 1024    // Maximum Depth of call/create stack.
+	stackLimit               uint64 = 1024    // Maximum size of VM stack allowed.
+	quotaLimitForTransaction uint64 = 800000  // Maximum quota of a transaction
+	quotaLimit               uint64 = 3000000 // Maximum quota of an account referring to one snapshot block
+	tokenNameLengthLimit     int    = 20      // Maximum length of a token name
+	tokenDecimalsMin         uint64 = 0       // Minimum value of a token decimals(exclude)
+	tokenDecimalsMax         uint64 = 18      // Maximum value of a token decimals(include)
 
 	//GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
 	//MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.

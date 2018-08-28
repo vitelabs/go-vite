@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"math/big"
 	"testing"
 )
 
@@ -35,5 +36,20 @@ func TestIntPoolPoolReUse(t *testing.T) {
 
 	if len(poolOfIntPools.pools) != 0 {
 		t.Fatalf("Invalid number of pools. Got %d, expected %d", len(poolOfIntPools.pools), 0)
+	}
+}
+
+func TestIntPool(t *testing.T) {
+	pool := newIntPool()
+	if pool.get() == nil {
+		t.Fatalf("Get element from empty pool failed")
+	}
+	pool.put(big.NewInt(1))
+	if pool.get() == nil {
+		t.Fatalf("Get element from non-empty pool failed")
+	}
+
+	if pool.getZero().Cmp(big.NewInt(0)) != 0 {
+		t.Fatalf("Get zero from pool failed")
 	}
 }

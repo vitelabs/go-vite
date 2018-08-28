@@ -12,3 +12,17 @@ func SafeMul(x, y uint64) (uint64, bool) {
 func SafeAdd(x, y uint64) (uint64, bool) {
 	return x + y, y > maxUint64-x
 }
+
+func min(x, y uint64) uint64 {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func max(x, y uint64) uint64 {
+	if x > y {
+		return x
+	}
+	return y
+}

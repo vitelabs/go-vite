@@ -71,7 +71,7 @@ type VmAccountBlock interface {
 
 type VmSnapshotBlock interface {
 	Height() *big.Int
-	Timestamp() uint64
+	Timestamp() int64
 	Hash() types.Hash
 	PrevHash() types.Hash
 }

@@ -79,3 +79,15 @@ func (b *NoAccountBlock) SummaryHash() types.Hash {
 	summaryData = append(summaryData, buf...)
 	return types.DataHash(summaryData)
 }
+
+type NoSnapshotBlock struct {
+	height    *big.Int
+	timestamp int64
+	hash      types.Hash
+	prevHash  types.Hash
+}
+
+func (b *NoSnapshotBlock) Height() *big.Int     { return b.height }
+func (b *NoSnapshotBlock) Timestamp() int64     { return b.timestamp }
+func (b *NoSnapshotBlock) Hash() types.Hash     { return b.hash }
+func (b *NoSnapshotBlock) PrevHash() types.Hash { return b.prevHash }

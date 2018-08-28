@@ -15,6 +15,7 @@ type contract struct {
 	codeAddr               types.Address
 	block                  VmAccountBlock
 	quotaLeft, quotaRefund uint64
+	intPool                *intPool
 }
 
 func newContract(caller types.Address, address types.Address, block VmAccountBlock, quotaLeft, quotaRefund uint64) *contract {
@@ -48,10 +49,10 @@ func (c *contract) run(vm *VM) (ret []byte, err error) {
 		return nil, nil
 	}
 
-	vm.intPool = poolOfIntPools.get()
+	c.intPool = poolOfIntPools.get()
 	defer func() {
-		poolOfIntPools.put(vm.intPool)
-		vm.intPool = nil
+		poolOfIntPools.put(c.intPool)
+		c.intPool = nil
 	}()
 
 	vm.returnData = nil
@@ -105,7 +106,7 @@ func (c *contract) run(vm *VM) (ret []byte, err error) {
 
 		if vm.Debug {
 			fmt.Printf("code: %v \n", hex.EncodeToString(c.code[currentPc:]))
-			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemory: [%v]\nstorage: [%v]\n", opCodeToString[op], currentPc, st.string(), mem.string(), vm.Db.PrintStorage(c.address))
+			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemory: [%v]\nstorage: [%v]\n", opCodeToString[op], currentPc, st.print(), mem.print(), vm.Db.PrintStorage(c.address))
 			fmt.Println("--------------------")
 		}
 

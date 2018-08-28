@@ -28,8 +28,8 @@ type VM struct {
 	Db          VmDatabase
 	createBlock CreateAccountBlockFunc
 
-	abort          int32
-	intPool        *intPool
+	abort int32
+	//intPool        *intPool
 	instructionSet [256]operation
 	blockList      []VmAccountBlock
 	returnData     []byte
@@ -44,6 +44,8 @@ func (vm *VM) Run(block VmAccountBlock) (blockList []VmAccountBlock, isRetry boo
 	case BlockTypeReceive, BlockTypeReceiveError:
 		sendBlock := vm.Db.AccountBlock(block.AccountAddress(), block.FromBlockHash())
 		block.SetData(sendBlock.Data())
+		block.SetAmount(sendBlock.Amount())
+		block.SetTokenId(sendBlock.TokenId())
 		if sendBlock.BlockType() == BlockTypeSendCreate {
 			return vm.receiveCreate(block, vm.calcCreateQuota(sendBlock.CreateFee()))
 		} else if sendBlock.BlockType() == BlockTypeSendCall {
@@ -287,13 +289,13 @@ func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract)
 
 func (vm *VM) calcCreateQuota(fee *big.Int) uint64 {
 	// TODO calculate quota for create contract receive transaction
-	return quotaLimit
+	return quotaLimitForTransaction
 }
 
 func (vm *VM) quotaLeft(addr types.Address, block VmAccountBlock) (quotaInit, quotaAddition uint64) {
 	// TODO calculate quota, use max for test
 	// TODO calculate quota addition
-	quotaInit = maxUint64
+	quotaInit = quotaLimit
 	quotaAddition = 0
 	for _, block := range vm.blockList {
 		if quotaInit <= block.Quota() {
@@ -310,14 +312,15 @@ func (vm *VM) quotaLeft(addr types.Address, block VmAccountBlock) (quotaInit, qu
 		prevBlock := vm.Db.AccountBlock(addr, prevHash)
 		if prevBlock != nil && bytes.Equal(block.SnapshotHash().Bytes(), prevBlock.SnapshotHash().Bytes()) {
 			quotaInit = quotaInit - prevBlock.Quota()
+			prevHash = prevBlock.PrevHash()
 		} else {
-			if maxUint64-quotaAddition > quotaInit {
-				quotaAddition = maxUint64 - quotaInit
-				quotaInit = maxUint64
+			if quotaLimit-quotaAddition < quotaInit {
+				quotaAddition = quotaLimit - quotaInit
+				quotaInit = quotaLimit
 			} else {
 				quotaInit = quotaInit + quotaAddition
 			}
-			return min(quotaInit, quotaLimit), min(quotaAddition, quotaLimit)
+			return quotaInit, quotaAddition
 		}
 	}
 }
@@ -421,9 +424,17 @@ func quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err err
 	if err == ErrOutOfQuota {
 		return quotaTotal - quotaAddition
 	} else if err != nil {
-		return quotaTotal - quotaAddition - quotaLeft
+		if quotaTotal-quotaLeft < quotaAddition {
+			return 0
+		} else {
+			return quotaTotal - quotaAddition - quotaLeft
+		}
 	} else {
-		return quotaTotal - quotaAddition - quotaLeft - min(quotaRefund, (quotaTotal-quotaAddition-quotaLeft)/2)
+		if quotaTotal-quotaLeft < quotaAddition {
+			return 0
+		} else {
+			return quotaTotal - quotaLeft - quotaAddition - min(quotaRefund, (quotaTotal-quotaAddition-quotaLeft)/2)
+		}
 	}
 }
 

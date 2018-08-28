@@ -84,7 +84,7 @@ func (m *memory) set32(offset uint64, val *big.Int) {
 	ReadBits(val, m.store[offset:offset+32])
 }
 
-func (m *memory) string() string {
+func (m *memory) print() string {
 	var result string
 	if len(m.store) > 0 {
 		addr := 0

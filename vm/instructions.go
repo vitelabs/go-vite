@@ -15,7 +15,7 @@ func opAdd(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 	x, y := stack.pop(), stack.peek()
 	U256(y.Add(x, y))
 
-	vm.intPool.put(x)
+	c.intPool.put(x)
 	return nil, nil
 }
 
@@ -23,7 +23,7 @@ func opMul(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 	x, y := stack.pop(), stack.peek()
 	U256(y.Mul(x, y))
 
-	vm.intPool.put(x)
+	c.intPool.put(x)
 	return nil, nil
 }
 
@@ -31,7 +31,7 @@ func opSub(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 	x, y := stack.pop(), stack.peek()
 	U256(y.Sub(x, y))
 
-	vm.intPool.put(x)
+	c.intPool.put(x)
 	return nil, nil
 }
 
@@ -43,13 +43,13 @@ func opDiv(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 		y.SetUint64(0)
 	}
 
-	vm.intPool.put(x)
+	c.intPool.put(x)
 	return nil, nil
 }
 
 func opSdiv(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	x, y := S256(stack.pop()), S256(stack.pop())
-	res := vm.intPool.getZero()
+	res := c.intPool.getZero()
 
 	if y.Sign() == 0 || x.Sign() == 0 {
 		stack.push(res)
@@ -63,7 +63,7 @@ func opSdiv(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 		stack.push(U256(res))
 	}
 
-	vm.intPool.put(x, y)
+	c.intPool.put(x, y)
 	return nil, nil
 }
 
@@ -75,13 +75,13 @@ func opMod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 		stack.push(U256(x.Mod(x, y)))
 	}
 
-	vm.intPool.put(y)
+	c.intPool.put(y)
 	return nil, nil
 }
 
 func opSmod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	x, y := S256(stack.pop()), S256(stack.pop())
-	res := vm.intPool.getZero()
+	res := c.intPool.getZero()
 
 	if y.Sign() == 0 {
 		stack.push(res)
@@ -95,7 +95,7 @@ func opSmod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 		stack.push(U256(res))
 	}
 
-	vm.intPool.put(x, y)
+	c.intPool.put(x, y)
 	return nil, nil
 }
 
@@ -109,7 +109,7 @@ func opAddmod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 		stack.push(x.SetUint64(0))
 	}
 
-	vm.intPool.put(y, z)
+	c.intPool.put(y, z)
 	return nil, nil
 }
 
@@ -123,7 +123,7 @@ func opMulmod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 		stack.push(x.SetUint64(0))
 	}
 
-	vm.intPool.put(y, z)
+	c.intPool.put(y, z)
 	return nil, nil
 }
 
@@ -131,7 +131,7 @@ func opExp(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 	base, exponent := stack.pop(), stack.pop()
 	stack.push(Exp(base, exponent))
 
-	vm.intPool.put(base, exponent)
+	c.intPool.put(base, exponent)
 	return nil, nil
 }
 
@@ -150,7 +150,7 @@ func opSignExtend(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack)
 		stack.push(U256(num))
 	}
 
-	vm.intPool.put(back)
+	c.intPool.put(back)
 	return nil, nil
 }
 
@@ -161,7 +161,7 @@ func opLt(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte
 	} else {
 		y.SetUint64(0)
 	}
-	vm.intPool.put(x)
+	c.intPool.put(x)
 	return nil, nil
 }
 
@@ -172,7 +172,7 @@ func opGt(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte
 	} else {
 		y.SetUint64(0)
 	}
-	vm.intPool.put(x)
+	c.intPool.put(x)
 	return nil, nil
 }
 
@@ -196,7 +196,7 @@ func opSlt(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 			y.SetUint64(0)
 		}
 	}
-	vm.intPool.put(x)
+	c.intPool.put(x)
 	return nil, nil
 }
 
@@ -220,7 +220,7 @@ func opSgt(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 			y.SetUint64(0)
 		}
 	}
-	vm.intPool.put(x)
+	c.intPool.put(x)
 	return nil, nil
 }
 
@@ -231,7 +231,7 @@ func opEq(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte
 	} else {
 		y.SetUint64(0)
 	}
-	vm.intPool.put(x)
+	c.intPool.put(x)
 	return nil, nil
 }
 
@@ -249,7 +249,7 @@ func opAnd(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 	x, y := stack.pop(), stack.peek()
 	y.And(x, y)
 
-	vm.intPool.put(x)
+	c.intPool.put(x)
 	return nil, nil
 }
 
@@ -257,7 +257,7 @@ func opOr(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte
 	x, y := stack.pop(), stack.peek()
 	y.Or(x, y)
 
-	vm.intPool.put(x)
+	c.intPool.put(x)
 	return nil, nil
 }
 
@@ -265,7 +265,7 @@ func opXor(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 	x, y := stack.pop(), stack.peek()
 	y.Xor(x, y)
 
-	vm.intPool.put(x)
+	c.intPool.put(x)
 	return nil, nil
 }
 
@@ -284,7 +284,7 @@ func opByte(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 		val.SetUint64(0)
 	}
 
-	vm.intPool.put(th)
+	c.intPool.put(th)
 	return nil, nil
 }
 
@@ -296,7 +296,7 @@ func opSHL(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 		U256(value.Lsh(value, uint(shift.Uint64())))
 	}
 
-	vm.intPool.put(shift)
+	c.intPool.put(shift)
 	return nil, nil
 }
 
@@ -308,7 +308,7 @@ func opSHR(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 		U256(value.Rsh(value, uint(shift.Uint64())))
 	}
 
-	vm.intPool.put(shift)
+	c.intPool.put(shift)
 	return nil, nil
 }
 
@@ -325,7 +325,7 @@ func opSAR(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 		stack.push(U256(value.Rsh(value, uint(shift.Uint64()))))
 	}
 
-	vm.intPool.put(shift)
+	c.intPool.put(shift)
 	return nil, nil
 }
 
@@ -333,14 +333,14 @@ func opBlake2b(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([
 	offset, size := stack.pop(), stack.pop()
 	data := memory.get(offset.Int64(), size.Int64())
 	hash := crypto.Hash256(data)
-	stack.push(vm.intPool.get().SetBytes(hash))
+	stack.push(c.intPool.get().SetBytes(hash))
 
-	vm.intPool.put(offset, size)
+	c.intPool.put(offset, size)
 	return nil, nil
 }
 
 func opAddress(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(vm.intPool.get().SetBytes(c.address.Bytes()))
+	stack.push(c.intPool.get().SetBytes(c.address.Bytes()))
 	return nil, nil
 }
 
@@ -348,29 +348,29 @@ func opBalance(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([
 	addrBig, tokenTypeIdBig := stack.pop(), stack.pop()
 	address, _ := types.BytesToAddress(addrBig.Bytes())
 	tokenTypeId, _ := types.BytesToTokenTypeId(tokenTypeIdBig.Bytes())
-	stack.push(vm.intPool.get().Set(vm.Db.Balance(address, tokenTypeId)))
+	stack.push(c.intPool.get().Set(vm.Db.Balance(address, tokenTypeId)))
 
-	vm.intPool.put(addrBig, tokenTypeIdBig)
+	c.intPool.put(addrBig, tokenTypeIdBig)
 	return nil, nil
 }
 
 func opCaller(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(vm.intPool.get().SetBytes(c.caller.Bytes()))
+	stack.push(c.intPool.get().SetBytes(c.caller.Bytes()))
 	return nil, nil
 }
 
 func opCallValue(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(vm.intPool.get().Set(c.block.Amount()))
+	stack.push(c.intPool.get().Set(c.block.Amount()))
 	return nil, nil
 }
 
 func opCallDataLoad(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(vm.intPool.get().SetBytes(getDataBig(c.block.Data(), stack.pop(), big32)))
+	stack.push(c.intPool.get().SetBytes(getDataBig(c.block.Data(), stack.pop(), big32)))
 	return nil, nil
 }
 
 func opCallDataSize(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(vm.intPool.get().SetInt64(int64(len(c.block.Data()))))
+	stack.push(c.intPool.get().SetInt64(int64(len(c.block.Data()))))
 	return nil, nil
 }
 
@@ -382,12 +382,12 @@ func opCallDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stac
 	)
 	memory.set(memOffset.Uint64(), length.Uint64(), getDataBig(c.block.Data(), dataOffset, length))
 
-	vm.intPool.put(memOffset, dataOffset, length)
+	c.intPool.put(memOffset, dataOffset, length)
 	return nil, nil
 }
 
 func opCodeSize(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(vm.intPool.get().SetInt64(int64(len(c.code))))
+	stack.push(c.intPool.get().SetInt64(int64(len(c.code))))
 	return nil, nil
 }
 
@@ -399,7 +399,7 @@ func opCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) (
 	)
 	memory.set(memOffset.Uint64(), length.Uint64(), getDataBig(c.code, codeOffset, length))
 
-	vm.intPool.put(memOffset, codeOffset, length)
+	c.intPool.put(memOffset, codeOffset, length)
 	return nil, nil
 }
 
@@ -421,12 +421,12 @@ func opExtCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack
 	codeCopy := getDataBig(vm.Db.ContractCode(contractAddress), codeOffset, length)
 	memory.set(memOffset.Uint64(), length.Uint64(), codeCopy)
 
-	vm.intPool.put(addr, memOffset, codeOffset, length)
+	c.intPool.put(addr, memOffset, codeOffset, length)
 	return nil, nil
 }
 
 func opReturnDataSize(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(vm.intPool.get().SetUint64(uint64(len(vm.returnData))))
+	stack.push(c.intPool.get().SetUint64(uint64(len(vm.returnData))))
 	return nil, nil
 }
 
@@ -436,9 +436,9 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *st
 		dataOffset = stack.pop()
 		length     = stack.pop()
 
-		end = vm.intPool.get().Add(dataOffset, length)
+		end = c.intPool.get().Add(dataOffset, length)
 	)
-	defer vm.intPool.put(memOffset, dataOffset, length, end)
+	defer c.intPool.put(memOffset, dataOffset, length, end)
 
 	if end.BitLen() > 64 || uint64(len(vm.returnData)) < end.Uint64() {
 		return nil, errReturnDataOutOfBounds
@@ -450,44 +450,44 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *st
 
 func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	height := stack.pop()
-	snapshotHeight := vm.intPool.get().Set(vm.Db.SnapshotBlock(c.block.SnapshotHash()).Height())
-	n := vm.intPool.get().Sub(snapshotHeight, big256)
+	snapshotHeight := c.intPool.get().Set(vm.Db.SnapshotBlock(c.block.SnapshotHash()).Height())
+	n := c.intPool.get().Sub(snapshotHeight, big256)
 	if height.Cmp(n) > 0 && height.Cmp(snapshotHeight) <= 0 {
-		stack.push(vm.intPool.get().SetBytes(vm.Db.SnapshotBlockByHeight(height).Hash().Bytes()))
+		stack.push(c.intPool.get().SetBytes(vm.Db.SnapshotBlockByHeight(height).Hash().Bytes()))
 	} else {
-		stack.push(vm.intPool.getZero())
+		stack.push(c.intPool.getZero())
 	}
 
-	vm.intPool.put(snapshotHeight, height, n)
+	c.intPool.put(snapshotHeight, height, n)
 	return nil, nil
 }
 
 func opTimestamp(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(U256(vm.intPool.get().SetUint64(vm.Db.SnapshotBlock(c.block.SnapshotHash()).Timestamp())))
+	stack.push(U256(c.intPool.get().SetUint64(uint64(vm.Db.SnapshotBlock(c.block.SnapshotHash()).Timestamp()))))
 	return nil, nil
 }
 
 func opHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(U256(vm.intPool.get().Set(vm.Db.SnapshotBlock(c.block.SnapshotHash()).Height())))
+	stack.push(U256(c.intPool.get().Set(vm.Db.SnapshotBlock(c.block.SnapshotHash()).Height())))
 	return nil, nil
 }
 
 func opTokenId(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(vm.intPool.get().SetBytes(c.block.TokenId().Bytes()))
+	stack.push(c.intPool.get().SetBytes(c.block.TokenId().Bytes()))
 	return nil, nil
 }
 
 func opPop(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	vm.intPool.put(stack.pop())
+	c.intPool.put(stack.pop())
 	return nil, nil
 }
 
 func opMload(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	offset := stack.pop()
-	val := vm.intPool.get().SetBytes(memory.get(offset.Int64(), 32))
+	val := c.intPool.get().SetBytes(memory.get(offset.Int64(), 32))
 	stack.push(val)
 
-	vm.intPool.put(offset)
+	c.intPool.put(offset)
 	return nil, nil
 }
 
@@ -496,7 +496,7 @@ func opMstore(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 	mStart, val := stack.pop(), stack.pop()
 	memory.set32(mStart.Uint64(), val)
 
-	vm.intPool.put(mStart, val)
+	c.intPool.put(mStart, val)
 	return nil, nil
 }
 
@@ -521,7 +521,7 @@ func opSStore(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 	valHash, _ := types.BigToHash(val)
 	vm.Db.SetStorage(c.address, locHash, valHash)
 
-	vm.intPool.put(loc, val)
+	c.intPool.put(loc, val)
 	return nil, nil
 }
 
@@ -533,7 +533,7 @@ func opJump(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 	}
 	*pc = pos.Uint64()
 
-	vm.intPool.put(pos)
+	c.intPool.put(pos)
 	return nil, nil
 }
 
@@ -549,17 +549,17 @@ func opJumpi(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]b
 		*pc++
 	}
 
-	vm.intPool.put(pos, cond)
+	c.intPool.put(pos, cond)
 	return nil, nil
 }
 
 func opPc(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(vm.intPool.get().SetUint64(*pc))
+	stack.push(c.intPool.get().SetUint64(*pc))
 	return nil, nil
 }
 
 func opMsize(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(vm.intPool.get().SetInt64(int64(memory.len())))
+	stack.push(c.intPool.get().SetInt64(int64(memory.len())))
 	return nil, nil
 }
 
@@ -582,7 +582,7 @@ func makePush(size uint64, pushByteSize int) executionFunc {
 			endMin = codeLen
 		}
 
-		integer := vm.intPool.get()
+		integer := c.intPool.get()
 		stack.push(integer.SetBytes(rightPadBytes(c.code[startMin:endMin], pushByteSize)))
 
 		*pc += size
@@ -593,7 +593,7 @@ func makePush(size uint64, pushByteSize int) executionFunc {
 // make dup instruction function
 func makeDup(size int64) executionFunc {
 	return func(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-		stack.dup(vm.intPool, int(size))
+		stack.dup(c.intPool, int(size))
 		return nil, nil
 	}
 }
@@ -619,7 +619,7 @@ func makeLog(size int) executionFunc {
 		d := memory.get(mStart.Int64(), mSize.Int64())
 		vm.Db.AddLog(&Log{Topics: topics, Data: d})
 
-		vm.intPool.put(mStart, mSize)
+		c.intPool.put(mStart, mSize)
 		return nil, nil
 	}
 }
@@ -633,12 +633,12 @@ func opDelegateCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stac
 		memory.set(outOffset.Uint64(), outSize.Uint64(), ret)
 	}
 	if err != nil {
-		stack.push(vm.intPool.getZero())
+		stack.push(c.intPool.getZero())
 	} else {
-		stack.push(vm.intPool.get().SetUint64(1))
+		stack.push(c.intPool.get().SetUint64(1))
 	}
 
-	vm.intPool.put(addr, inOffset, inSize, outOffset, outSize)
+	c.intPool.put(addr, inOffset, inSize, outOffset, outSize)
 	return ret, nil
 }
 
@@ -646,7 +646,7 @@ func opReturn(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 	offset, size := stack.pop(), stack.pop()
 	ret := memory.getPtr(offset.Int64(), size.Int64())
 
-	vm.intPool.put(offset, size)
+	c.intPool.put(offset, size)
 	return ret, nil
 }
 
@@ -654,6 +654,6 @@ func opRevert(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 	offset, size := stack.pop(), stack.pop()
 	ret := memory.getPtr(offset.Int64(), size.Int64())
 
-	vm.intPool.put(offset, size)
+	c.intPool.put(offset, size)
 	return ret, nil
 }

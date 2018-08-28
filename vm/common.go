@@ -84,20 +84,6 @@ func getDataBig(data []byte, start *big.Int, size *big.Int) []byte {
 	return rightPadBytes(data[s.Uint64():e.Uint64()], int(size.Uint64()))
 }
 
-func min(x, y uint64) uint64 {
-	if x < y {
-		return x
-	}
-	return y
-}
-
-func max(x, y uint64) uint64 {
-	if x > y {
-		return x
-	}
-	return y
-}
-
 func useQuota(quota, cost uint64) (uint64, error) {
 	if quota < cost {
 		return 0, ErrOutOfQuota

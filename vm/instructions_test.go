@@ -15,7 +15,7 @@ type twoOperandTest struct {
 func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error), args ...string) {
 	vm := &VM{Db: NewNoDatabase(), createBlock: CreateNoAccountBlock, instructionSet: simpleInstructionSet}
 	vm.Debug = true
-	vm.intPool = poolOfIntPools.get()
+	c := &contract{intPool: poolOfIntPools.get()}
 	stack := newStack()
 
 	// convert args
@@ -30,10 +30,10 @@ func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contrac
 			a := new(big.Int).SetBytes(arg)
 			stack.push(a)
 		}
-		op(&pc, vm, nil, nil, stack)
+		op(&pc, vm, c, nil, stack)
 		stack.pop()
 	}
-	poolOfIntPools.put(vm.intPool)
+	poolOfIntPools.put(c.intPool)
 }
 
 func BenchmarkOpAdd64(b *testing.B) {
@@ -261,7 +261,7 @@ func TestByteOp(t *testing.T) {
 	}
 	vm := &VM{Db: NewNoDatabase(), createBlock: CreateNoAccountBlock, instructionSet: simpleInstructionSet}
 	vm.Debug = true
-	vm.intPool = poolOfIntPools.get()
+	c := &contract{intPool: poolOfIntPools.get()}
 	stack := newStack()
 	pc := uint64(0)
 	for _, test := range tests {
@@ -270,19 +270,19 @@ func TestByteOp(t *testing.T) {
 		th := new(big.Int).SetUint64(test.th)
 		stack.push(val)
 		stack.push(th)
-		opByte(&pc, vm, nil, nil, stack)
+		opByte(&pc, vm, c, nil, stack)
 		actual := stack.pop()
 		if actual.Cmp(test.expected) != 0 {
 			t.Fatalf("Expected  [%v] %v:th byte to be %v, was %v.", test.v, test.th, test.expected, actual)
 		}
 	}
-	poolOfIntPools.put(vm.intPool)
+	poolOfIntPools.put(c.intPool)
 }
 
 func testTwoOperandOp(t *testing.T, tests []twoOperandTest, opFn func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error)) {
 	vm := &VM{Db: NewNoDatabase(), createBlock: CreateNoAccountBlock, instructionSet: simpleInstructionSet}
 	vm.Debug = true
-	vm.intPool = poolOfIntPools.get()
+	c := &contract{intPool: poolOfIntPools.get()}
 	stack := newStack()
 	pc := uint64(0)
 	for i, test := range tests {
@@ -292,13 +292,13 @@ func testTwoOperandOp(t *testing.T, tests []twoOperandTest, opFn func(pc *uint64
 		expectedInt := new(big.Int).SetBytes(expected)
 		stack.push(new(big.Int).SetBytes(x))
 		stack.push(new(big.Int).SetBytes(y))
-		opFn(&pc, vm, nil, nil, stack)
+		opFn(&pc, vm, c, nil, stack)
 		actual := stack.pop()
 		if actual.Cmp(expectedInt) != 0 {
 			t.Errorf("Testcase %d, expected  %v, got %v", i, expectedInt, actual)
 		}
 	}
-	poolOfIntPools.put(vm.intPool)
+	poolOfIntPools.put(c.intPool)
 }
 
 func TestSHL(t *testing.T) {
@@ -398,7 +398,7 @@ func TestSLT(t *testing.T) {
 func TestOpMstore(t *testing.T) {
 	vm := &VM{Db: NewNoDatabase(), createBlock: CreateNoAccountBlock, instructionSet: simpleInstructionSet}
 	vm.Debug = true
-	vm.intPool = poolOfIntPools.get()
+	c := &contract{intPool: poolOfIntPools.get()}
 	stack := newStack()
 	mem := newMemory()
 	mem.resize(64)
@@ -407,23 +407,23 @@ func TestOpMstore(t *testing.T) {
 	vbytes, _ := hex.DecodeString("abcdef00000000000000abba000000000deaf000000c0de00100000000133700")
 	stack.push(new(big.Int).SetBytes(vbytes))
 	stack.push(big.NewInt(0))
-	opMstore(&pc, vm, nil, mem, stack)
+	opMstore(&pc, vm, c, mem, stack)
 	if got := hex.EncodeToString(mem.get(0, 32)); got != v {
 		t.Fatalf("Mstore fail, got %v, expected %v", got, v)
 	}
 	stack.push(big.NewInt(0x1))
 	stack.push(big.NewInt(0))
-	opMstore(&pc, vm, nil, mem, stack)
+	opMstore(&pc, vm, c, mem, stack)
 	if hex.EncodeToString(mem.get(0, 32)) != "0000000000000000000000000000000000000000000000000000000000000001" {
 		t.Fatalf("Mstore failed to overwrite previous value")
 	}
-	poolOfIntPools.put(vm.intPool)
+	poolOfIntPools.put(c.intPool)
 }
 
 func BenchmarkOpMstore(bench *testing.B) {
 	vm := &VM{Db: NewNoDatabase(), createBlock: CreateNoAccountBlock, instructionSet: simpleInstructionSet}
 	vm.Debug = true
-	vm.intPool = poolOfIntPools.get()
+	c := &contract{intPool: poolOfIntPools.get()}
 	stack := newStack()
 	mem := newMemory()
 	mem.resize(64)
@@ -435,7 +435,7 @@ func BenchmarkOpMstore(bench *testing.B) {
 	for i := 0; i < bench.N; i++ {
 		stack.push(value)
 		stack.push(memStart)
-		opMstore(&pc, vm, nil, mem, stack)
+		opMstore(&pc, vm, c, mem, stack)
 	}
-	poolOfIntPools.put(vm.intPool)
+	poolOfIntPools.put(c.intPool)
 }
