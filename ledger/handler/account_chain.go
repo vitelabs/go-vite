@@ -364,3 +364,18 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 	}
 	return nil
 }
+
+// todo: temp func needed to place
+func (ac *AccountChain) GetBlockByHash(hash *types.Hash) (*ledger.AccountBlock, error) {
+	return ac.GetBlockByHash(hash)
+}
+
+// todo: func where unconfiremd mudule need to use
+func (ac *AccountChain) GetAddressListByGid(gid string) ([]*types.Address, error) {
+	return nil, nil
+}
+
+// todo: func where unconfiremd mudule need to use
+func DeleteUnconfirmed(block *ledger.AccountBlock) error {
+	return nil
+}

@@ -22,6 +22,11 @@ type AccountChain interface {
 	RemoveListener(addr types.Address)
 	GetAccount(accountAddress *types.Address) (*Account, error)
 	Download(peer *protoTypes.Peer, needSyncData []*access.WscNeedSyncErrData)
+
+	// todo: func where unconfirmed module use
+	GetBlockByHash(hash *types.Hash) (*ledger.AccountBlock, error)
+	GetAddressListByGid(gid string) ([]*types.Address, error)
+	DeleteUnconfirmed(block *ledger.AccountBlock) error
 }
 
 // pack the data for handler

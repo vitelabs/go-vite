@@ -22,12 +22,12 @@ type CommonTxWorker struct {
 	statusMutex sync.Mutex
 }
 
-func NewCommonTxWorker(vite Vite, addrese types.Address) *CommonTxWorker {
+func NewCommonTxWorker(vite Vite, address types.Address) *CommonTxWorker {
 	return &CommonTxWorker{
 		status:  Create,
 		vite:    vite,
-		address: addrese,
-		log:     log15.New("CommonTxWorker addr", addrese),
+		address: address,
+		log:     log15.New("CommonTxWorker addr", address),
 	}
 }
 

@@ -1,6 +1,7 @@
 package unconfirmed
 
 import (
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed/worker"
@@ -11,10 +12,10 @@ var slog = log15.New("module", "unconfirmed")
 
 // todo 放到Miner模块
 type RightEvent struct {
-	gid       int
+	gid       string
 	address   types.Address
 	event     string // Start Stop
-	timestamp uint64
+	timestamp timestamp.Timestamp
 }
 
 type Manager struct {
@@ -102,13 +103,19 @@ func (manager *Manager) loop() {
 
 				w, found := manager.contractWorkers[event.address]
 				if !found {
-					w = worker.NewContractWorker()
+					w = worker.NewContractWorker(manager.Vite, event.address, event.gid)
 					manager.contractWorkers[event.address] = w
 					break
 				}
 
-				w.Start()
-
+				select {
+				case event.event == "start":
+					w.Start(event.timestamp)
+				case event.event == "stop":
+					w.Stop()
+				default:
+					w.Close()
+				}
 			}
 
 		case done, ok := <-manager.firstSyncDoneListener:
