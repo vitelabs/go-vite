@@ -1,21 +1,17 @@
 package worker
 
 import (
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"runtime"
 	"sync"
 )
 
-var POMAXPROCS = runtime.NumCPU()
-
-type BlockQueue struct {
-	items        []*ledger.AccountBlock
-	lock         sync.RWMutex
-	pullListener chan struct{}
-}
+var (
+	POMAXPROCS = runtime.NumCPU()
+	TASK_SIZE = 2 * POMAXPROCS
+	FETCH_SIZE = 2 * POMAXPROCS
+)
 
 type ContractWorker struct {
 	vite    Vite
@@ -23,13 +19,13 @@ type ContractWorker struct {
 	gid     string
 	log     log15.Logger
 
-	status     int
+	status int
 
 	breaker             chan struct{}
 	newContractListener chan struct{}
 	stopListener        chan struct{} // make sure we can sync stop the worker
 
-	contractTasks map[int]*ContractTask
+	contractTasks []*ContractTask
 	queue         *BlockQueue
 
 	statusMutex sync.Mutex
@@ -41,7 +37,7 @@ func NewContractWorker(vite Vite, address types.Address, gid string) *ContractWo
 		address:       types.Address{},
 		log:           log15.New("ContractWorker addr", address.String(), "gid", gid),
 		status:        Create,
-		contractTasks: make(map[int]*ContractTask),
+		contractTasks: make([]*ContractTask, POMAXPROCS),
 	}
 }
 
@@ -51,30 +47,41 @@ func (w ContractWorker) Status() int {
 	return w.status
 }
 
-func (w *ContractWorker) Start(timestamp timestamp.Timestamp) {
+func (w *ContractWorker) Start(timestamp uint64) {
+	w.log.Info("worker startWork is called")
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
-	w.status = Start
-	w.log.Info("worker startWork is called")
+	// todo  1. addNewContractListener to LYD
 
-	addressList, err := w.vite.Ledger().Ac().GetAddressListByGid(w.gid)
-	if err != nil || addressList == nil || len(addressList) < 0 {
-		// todo: consider directing to stop or just waiting
-		w.Stop()
-	} else {
-		w.queue.pullListener = make(chan struct{})
-		go w.FillTxMem(addressList, 4*POMAXPROCS)
-		for k := 0; k < 2*POMAXPROCS; k++ {
-			task := NewContractTask()
-			w.contractTasks[k] = task
-			go task.Start(w.queue)
-		}
-	}
+	//addressList, err := w.vite.Ledger().Ac().GetAddressListByGid(w.gid)
+	//if err != nil || addressList == nil || len(addressList) < 0 {
+	//	// todo: consider directing to stop or just waiting
+	//	w.Stop()
+	//} else {
+	//	w.queue.pullListener = make(chan struct{})
+	//	go w.FillTxMem(addressList, 4*POMAXPROCS)
+	//	for k := 0; k < 2*POMAXPROCS; k++ {
+	//		task := NewContractTask()
+	//		w.contractTasks[k] = task
+	//		go task.Start(w.queue)
+	//	}
+	//}
+
+	w.status = Start
+
 }
 
 func (w *ContractWorker) Stop() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
+	w.queue.Clear()
+
+	// todo 1. rmNewContractListener to LYD
+	// todo 2. Stop all task
+	for _, v := range w.contractTasks {
+		v.Stop()
+	}
+
 	w.status = Stop
 }
 
@@ -112,45 +119,4 @@ func (w *ContractWorker) GetTx(addressList []*types.Address, index int, num int)
 	}
 	turn = (i + index) % len(addressList)
 	return turn
-}
-
-func NewBlockQueue() *BlockQueue {
-	return nil
-}
-
-func (q *BlockQueue) PullFromMem() error {
-	q.lock.Lock()
-	// todo:  need to add rotation condition
-	q.pullListener <- struct{}{}
-	q.lock.Unlock()
-	return nil
-}
-
-func (q *BlockQueue) Dequeue() *ledger.AccountBlock {
-	q.lock.Lock()
-	item := q.items[0]
-	q.items = q.items[1:len(q.items)]
-	q.lock.Unlock()
-	return item
-}
-
-func (q *BlockQueue) Enqueue(block *ledger.AccountBlock) {
-	q.lock.Lock()
-	q.items = append(q.items, block)
-	q.lock.Unlock()
-}
-
-func (q *BlockQueue) Front() *ledger.AccountBlock {
-	q.lock.Lock()
-	item := q.items[0]
-	q.lock.Unlock()
-	return item
-}
-
-func (q *BlockQueue) Size() int {
-	return len(q.items)
-}
-
-func (q *BlockQueue) IsEmpty() bool {
-	return len(q.items) == 0
 }

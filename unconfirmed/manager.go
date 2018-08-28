@@ -1,7 +1,6 @@
 package unconfirmed
 
 import (
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed/worker"
@@ -15,7 +14,7 @@ type RightEvent struct {
 	gid       string
 	address   types.Address
 	event     string // Start Stop
-	timestamp timestamp.Timestamp
+	timestamp uint64
 }
 
 type Manager struct {

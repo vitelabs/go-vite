@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"github.com/naive-vite/common/log"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"sync"
@@ -16,8 +15,10 @@ const (
 
 type ContractTask struct {
 	vite        Vite
+
 	statusMutex sync.Mutex
 	status      int
+
 	log         log15.Logger
 }
 
@@ -46,7 +47,7 @@ func (c *ContractTask) Start(queue *BlockQueue) {
 		if blockList == nil {
 			if !isRetry {
 				if err := c.vite.Ledger().Ac().DeleteUnconfirmed(block); err != nil {
-					log.Error("ContractTask.DeleteUnconfirmed Error")
+					log15.Error("ContractTask.DeleteUnconfirmed Error")
 				}
 			}
 			c.status = Idle
