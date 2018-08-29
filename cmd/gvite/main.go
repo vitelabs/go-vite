@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"net/http"
 	"github.com/vitelabs/go-vite/cmd/rpc_vite"
+	"github.com/vitelabs/go-vite/config"
 )
 
 //func parseConfig() *config.Config {
@@ -57,6 +58,10 @@ func init()  {
 
 		// accountcmd.go
 		accountCommand,
+
+		// consolecmd.go
+		consoleCommand,
+		attachCommand,
 	}
 
 	sort.Sort(cli.CommandsByName(app.Commands))
@@ -76,17 +81,6 @@ func gvite(ctx *cli.Context) error {
 	fmt.Println("Hello Vite!")
 	mainLog := log15.New("module", "gvite/main")
 
-	//localconfig := makeConfigNode()
-	//vnode, err := vite.New(localconfig)
-	//if err != nil {
-	//	mainLog.Error(err.Error())
-	//}
-	//
-	//ledgerApi := impl.NewLedgerApi(vnode)
-	//var result = new(string)
-	//ledgerApi.GetInitSyncInfo(nil, result)
-	//fmt.Println(*result)
-
 	go func() {
 		err := http.ListenAndServe("localhost:6060", nil)
 		if err != nil {
@@ -94,7 +88,8 @@ func gvite(ctx *cli.Context) error {
 		}
 	}()
 
-	localConfig := makeConfigNode()
+	//localConfig := makeConfigNode()
+	localConfig := config.GlobalConfig
 	vnode, err := vite.New(localConfig)
 
 	if err != nil {
