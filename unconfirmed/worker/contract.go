@@ -9,8 +9,9 @@ import (
 
 var (
 	POMAXPROCS = runtime.NumCPU()
-	TASK_SIZE = 2 * POMAXPROCS
-	FETCH_SIZE = 2 * POMAXPROCS
+	TASK_SIZE  = 2 * POMAXPROCS
+	FETCH_SIZE = 4 * POMAXPROCS
+	CACHE_SIZE = 2 * POMAXPROCS
 )
 
 type ContractWorker struct {
@@ -21,9 +22,8 @@ type ContractWorker struct {
 
 	status int
 
-	breaker             chan struct{}
-	newContractListener chan struct{}
-	stopListener        chan struct{} // make sure we can sync stop the worker
+	newContractListener       chan struct{}
+	newUnconfirmedGidListener chan struct{}
 
 	contractTasks []*ContractTask
 	queue         *BlockQueue
@@ -51,24 +51,22 @@ func (w *ContractWorker) Start(timestamp uint64) {
 	w.log.Info("worker startWork is called")
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
-	// todo  1. addNewContractListener to LYD
 
-	//addressList, err := w.vite.Ledger().Ac().GetAddressListByGid(w.gid)
-	//if err != nil || addressList == nil || len(addressList) < 0 {
-	//	// todo: consider directing to stop or just waiting
-	//	w.Stop()
-	//} else {
-	//	w.queue.pullListener = make(chan struct{})
-	//	go w.FillTxMem(addressList, 4*POMAXPROCS)
-	//	for k := 0; k < 2*POMAXPROCS; k++ {
-	//		task := NewContractTask()
-	//		w.contractTasks[k] = task
-	//		go task.Start(w.queue)
-	//	}
-	//}
+	// todo  1. addNewContractListener to LYD
+	w.newUnconfirmedGidListener = make(chan struct{}, 100)
+
+	addressList, err := w.vite.Ledger().Ac().GetAddressListByGid(w.gid)
+	if err != nil || addressList == nil || len(addressList) < 0 {
+		w.Stop()
+	} else {
+		w.newUnconfirmedGidListener <- struct{}{}
+		for _, v := range w.contractTasks {
+			go v.Start(timestamp)
+		}
+		go w.DispatchTask(addressList)
+	}
 
 	w.status = Start
-
 }
 
 func (w *ContractWorker) Stop() {
@@ -82,6 +80,10 @@ func (w *ContractWorker) Stop() {
 		v.Stop()
 	}
 
+	//stop all listener
+	close(w.newUnconfirmedGidListener)
+	close(w.newContractListener)
+
 	w.status = Stop
 }
 
@@ -90,19 +92,39 @@ func (w *ContractWorker) Close() error {
 	return nil
 }
 
-func (w *ContractWorker) FillTxMem(addressList []*types.Address, num int) {
-	//turn := 0
-	//for {
-	//	// todo:  need to add rotation condition
-	//	if v:= <-w.queue.pullListener{
-	//		turn = w.GetTx(addressList, turn, num)
-	//	}
-	//}
+func (w *ContractWorker) DispatchTask(addressList []*types.Address) {
+	turn := 0
+LOOP:
+	for {
+		for _, v := range w.contractTasks {
+			if w.Status() == Stop {
+				w.queue.Clear()
+				break LOOP
+			}
+			if w.queue.Size() < 1 {
+				goto WAIT
+			}
+
+			block := w.queue.Dequeue()
+
+			if v.Status() == Idle {
+				v.subQueue <- block
+			}
+		}
+
+	WAIT:
+		<-w.newUnconfirmedGidListener
+		if w.queue.Size() < FETCH_SIZE {
+			turn = w.GetTx(addressList, turn)
+		} else {
+			continue
+		}
+	}
 }
 
-func (w *ContractWorker) GetTx(addressList []*types.Address, index int, num int) (turn int) {
+func (w *ContractWorker) GetTx(addressList []*types.Address, index int) (turn int) {
 	var i int
-	for i = 0; (i+index)%len(addressList) < num; i++ {
+	for i = 0; (i+index)%len(addressList) < FETCH_SIZE; i++ {
 		hashList, err := w.vite.Ledger().Ac().GetUnconfirmedTxHashs(0, 1, 1, addressList[i])
 		if err != nil {
 			w.log.Error("FillMemTx.GetUnconfirmedTxHashs error")

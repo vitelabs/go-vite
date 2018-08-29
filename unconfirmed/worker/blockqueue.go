@@ -8,7 +8,6 @@ import (
 type BlockQueue struct {
 	items        []*ledger.AccountBlock
 	lock         sync.RWMutex
-	pullListener chan struct{}
 }
 
 func NewBlockQueue() *BlockQueue {
@@ -18,7 +17,6 @@ func NewBlockQueue() *BlockQueue {
 func (q *BlockQueue) PullFromMem() error {
 	q.lock.Lock()
 	// todo:  need to add rotation condition
-	q.pullListener <- struct{}{}
 	q.lock.Unlock()
 	return nil
 }
@@ -53,5 +51,7 @@ func (q *BlockQueue) IsEmpty() bool {
 }
 
 func (q *BlockQueue) Clear() {
-
+	if cap(q.items) > 0 {
+		q.items = q.items[:cap(q.items)]
+	}
 }

@@ -14,64 +14,90 @@ const (
 )
 
 type ContractTask struct {
-	vite        Vite
+	vite Vite
 
 	statusMutex sync.Mutex
 	status      int
 
-	log         log15.Logger
+	subQueue chan *ledger.AccountBlock
+
+	log log15.Logger
 }
 
 func NewContractTask() *ContractTask {
-	return nil
+	return &ContractTask{
+		vite:   nil,
+		status: Idle,
+		log:    log15.New("ContractTask"),
+	}
 }
 
-func (c *ContractTask) Start(queue *BlockQueue) {
-	c.statusMutex.Lock()
-	defer c.statusMutex.Unlock()
-	select {
-	case c.status == Idle:
-		if queue.IsEmpty() || queue.Size() < 2*POMAXPROCS {
-			queue.PullFromMem()
+func (c *ContractTask) Start(timestamp uint64) {
+	c.subQueue = make(chan *ledger.AccountBlock, CACHE_SIZE)
+LOOP:
+	for {
+		c.statusMutex.Lock()
+		defer c.statusMutex.Unlock()
+
+		if c.status == Dead {
+			break LOOP
 		}
-		block := queue.Dequeue()
-		// todo: package the block with timestamp
 
-		// todo: generate the new received TxBlock
-		// todo: NewVM(stateDb Database, createBlockFunc CreateBlockFunc, config VMConfig) *VM
-		// todo: (vm *VM) Run(block VmBlock) (blockList []VmBlock, logList []*Log, isRetry bool, err error)
-		// todo: (vm *VM) Cancel()
+		// get unconfirmed block from subQueue
+		block := c.GetBlock()
 
-		var isRetry bool
-		var blockList = []ledger.AccountBlock{}
+		// generate block
+		isRetry, blockList := c.GenerateBlock(block, timestamp)
+
 		if blockList == nil {
 			if !isRetry {
 				if err := c.vite.Ledger().Ac().DeleteUnconfirmed(block); err != nil {
-					log15.Error("ContractTask.DeleteUnconfirmed Error")
+					c.log.Error("ContractTask.DeleteUnconfirmed Error", "Error", err)
 				}
 			}
-			c.status = Idle
-			break
+			continue
 		} else {
-			// todo: pack block, comput hash, Sign, pack block, insert into Pool
-		}
+			// todo 6.pack block, comput hash, Sign, pack block, insert into Pool
 
+		}
+		c.status = Idle
+	}
+}
+
+func (c *ContractTask) GenerateBlock(block *ledger.AccountBlock, timestamp uint64) (isRetry bool, blockList []*ledger.AccountBlock) {
+	c.statusMutex.Lock()
+	defer c.statusMutex.Unlock()
+
+	if c.status != Running {
 		c.status = Running
-	case c.status == Running:
-		c.status = Waiting
-	case c.status == Waiting:
-		// todo: consider when run into Waiting
-	case c.status == Dead:
-		c.Stop()
-	default:
-		break
 	}
 
+	// todo 1. package the block with timestamp
+
+	// todo 2. generate the new received TxBlock
+	// todo 3.NewVM(stateDb Database, createBlockFunc CreateBlockFunc, config VMConfig) *VM
+	// todo 4.(vm *VM) Run(block VmBlock) (blockList []VmBlock, logList []*Log, isRetry bool, err error)
+	// todo 5.(vm *VM) Cancel()
+
+	return isRetry, blockList
+}
+
+func (c *ContractTask) GetBlock() *ledger.AccountBlock {
+	c.statusMutex.Lock()
+	defer c.statusMutex.Unlock()
+
+	block := <-c.subQueue
+	c.status = Running
+	return block
 }
 
 func (c *ContractTask) Stop() {
 	c.statusMutex.Lock()
 	defer c.statusMutex.Unlock()
+
+	// stop all chan
+	close(c.subQueue)
+
 	if c.status != Dead {
 		// todo: stop all
 		c.status = Dead
@@ -81,4 +107,10 @@ func (c *ContractTask) Stop() {
 func (c *ContractTask) Close() error {
 	c.Stop()
 	return nil
+}
+
+func (c *ContractTask) Status() int {
+	c.statusMutex.Lock()
+	defer c.statusMutex.Unlock()
+	return c.status
 }
