@@ -11,8 +11,9 @@ import (
 )
 
 type Config struct {
-	*P2P   `json:"P2P"`
-	*Miner `json:"Miner"`
+	*P2P    `json:"P2P"`
+	*Miner  `json:"Miner"`
+	*Ledger `json:"Ledger"`
 
 	// global keys
 	DataDir string `json:"DataDir"`
@@ -48,12 +49,15 @@ func defaultConfig() {
 			BootNodes:            nil,
 			Addr:                 "0.0.0.0:8483",
 			Datadir:              common.DefaultDataDir(),
-			NetID:                5,
+			NetID:                6,
 		},
 		Miner: &Miner{
 			Miner:         false,
 			Coinbase:      "",
 			MinerInterval: 6,
+		},
+		Ledger: &Ledger{
+			IsDownload: true, // Default download ledger zip
 		},
 		DataDir: common.DefaultDataDir(),
 	}
