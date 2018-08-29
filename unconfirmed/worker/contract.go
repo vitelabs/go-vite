@@ -20,10 +20,12 @@ type ContractWorker struct {
 	gid     string
 	log     log15.Logger
 
-	status int
+	status          int
+	pullSign        bool
+	dispatcherSleep bool
+	dispatcherAlarm chan struct{}
 
-	newContractListener       chan struct{}
-	newUnconfirmedGidListener chan struct{}
+	newContractListener chan struct{}
 
 	contractTasks []*ContractTask
 	queue         *BlockQueue
@@ -33,11 +35,20 @@ type ContractWorker struct {
 
 func NewContractWorker(vite Vite, address types.Address, gid string) *ContractWorker {
 	return &ContractWorker{
-		vite:          vite,
-		address:       types.Address{},
-		log:           log15.New("ContractWorker addr", address.String(), "gid", gid),
-		status:        Create,
-		contractTasks: make([]*ContractTask, POMAXPROCS),
+		vite:            vite,
+		address:         types.Address{},
+		log:             log15.New("ContractWorker addr", address.String(), "gid", gid),
+		status:          Create,
+		contractTasks:   make([]*ContractTask, POMAXPROCS),
+		dispatcherAlarm: make(chan struct{}),
+	}
+}
+
+type PullSignFuncType func() bool
+
+func (w *ContractWorker) SetSignPull() {
+	if w.dispatcherSleep {
+		w.dispatcherAlarm <- struct{}{}
 	}
 }
 
@@ -53,15 +64,14 @@ func (w *ContractWorker) Start(timestamp uint64) {
 	defer w.statusMutex.Unlock()
 
 	// todo  1. addNewContractListener to LYD
-	w.newUnconfirmedGidListener = make(chan struct{}, 100)
 
 	addressList, err := w.vite.Ledger().Ac().GetAddressListByGid(w.gid)
 	if err != nil || addressList == nil || len(addressList) < 0 {
 		w.Stop()
 	} else {
-		w.newUnconfirmedGidListener <- struct{}{}
 		for _, v := range w.contractTasks {
-			go v.Start(timestamp)
+			v.InitContractTask(w.vite, timestamp)
+			go v.Start()
 		}
 		go w.DispatchTask(addressList)
 	}
@@ -81,7 +91,7 @@ func (w *ContractWorker) Stop() {
 	}
 
 	//stop all listener
-	close(w.newUnconfirmedGidListener)
+	close(w.dispatcherAlarm)
 	close(w.newContractListener)
 
 	w.status = Stop
@@ -93,13 +103,14 @@ func (w *ContractWorker) Close() error {
 }
 
 func (w *ContractWorker) DispatchTask(addressList []*types.Address) {
+	//todo add mutex
 	turn := 0
-LOOP:
+	turn = w.GetTx(addressList, turn)
 	for {
 		for _, v := range w.contractTasks {
 			if w.Status() == Stop {
 				w.queue.Clear()
-				break LOOP
+				goto END
 			}
 			if w.queue.Size() < 1 {
 				goto WAIT
@@ -111,15 +122,17 @@ LOOP:
 				v.subQueue <- block
 			}
 		}
+		continue
 
 	WAIT:
-		<-w.newUnconfirmedGidListener
-		if w.queue.Size() < FETCH_SIZE {
-			turn = w.GetTx(addressList, turn)
-		} else {
-			continue
-		}
+		w.dispatcherSleep = true
+		<-w.dispatcherAlarm
+		w.dispatcherSleep = false
+		turn = w.GetTx(addressList, turn)
 	}
+
+END:
+	w.log.Info("DispatchTask end")
 }
 
 func (w *ContractWorker) GetTx(addressList []*types.Address, index int) (turn int) {

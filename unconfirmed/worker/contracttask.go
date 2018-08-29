@@ -19,35 +19,34 @@ type ContractTask struct {
 	statusMutex sync.Mutex
 	status      int
 
-	subQueue chan *ledger.AccountBlock
+	timestamp uint64
+	subQueue  chan *ledger.AccountBlock
 
 	log log15.Logger
 }
 
-func NewContractTask() *ContractTask {
-	return &ContractTask{
-		vite:   nil,
-		status: Idle,
-		log:    log15.New("ContractTask"),
-	}
+func (c *ContractTask) InitContractTask(vite Vite, timestamp uint64) {
+	c.vite = vite
+	c.status = Idle
+	c.log = log15.New("ContractTask")
+	timestamp = timestamp
+	c.subQueue = make(chan *ledger.AccountBlock, CACHE_SIZE)
 }
 
-func (c *ContractTask) Start(timestamp uint64) {
-	c.subQueue = make(chan *ledger.AccountBlock, CACHE_SIZE)
-LOOP:
+func (c *ContractTask) Start() {
 	for {
 		c.statusMutex.Lock()
 		defer c.statusMutex.Unlock()
 
 		if c.status == Dead {
-			break LOOP
+			goto END
 		}
 
 		// get unconfirmed block from subQueue
 		block := c.GetBlock()
 
 		// generate block
-		isRetry, blockList := c.GenerateBlock(block, timestamp)
+		isRetry, blockList := c.GenerateBlock(block, c.timestamp)
 
 		if blockList == nil {
 			if !isRetry {
@@ -62,6 +61,8 @@ LOOP:
 		}
 		c.status = Idle
 	}
+END:
+	c.log.Info("ContractTask Start")
 }
 
 func (c *ContractTask) GenerateBlock(block *ledger.AccountBlock, timestamp uint64) (isRetry bool, blockList []*ledger.AccountBlock) {
