@@ -355,6 +355,13 @@ func (sc *SnapshotChain) SyncPeer(peer *protoTypes.Peer) {
 
 	if peer == nil {
 		if !sc.isFirstSyncDone() {
+			firstSb, gfErr := sc.GetLatestBlock()
+			if gfErr != nil {
+				scLog.Crit("GetLatestBlock failed, when first sync. Error is " + gfErr.Error())
+			}
+			syncInfo.BeginHeight = firstSb.Height
+			syncInfo.CurrentHeight = firstSb.Height
+			syncInfo.TargetHeight = firstSb.Height
 			sc.onFirstSyncDown()
 			scLog.Info("SnapshotChain.SyncPeer: sync finished.")
 		}
