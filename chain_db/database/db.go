@@ -8,12 +8,12 @@ import (
 
 var dbLog = log15.New("module", "chain_db/database")
 
-func NewLevelDb(filename string) *leveldb.DB {
+func NewLevelDb(dbDir string) *leveldb.DB {
 	comparer := new(dbComparer)
 	options := &opt.Options{
 		Comparer: comparer,
 	}
-	db, err := leveldb.OpenFile(filename, options)
+	db, err := leveldb.OpenFile(dbDir, options)
 	if err != nil {
 		dbLog.Error(err.Error())
 		return nil
