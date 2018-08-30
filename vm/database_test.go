@@ -15,7 +15,7 @@ type VmToken struct {
 
 type NoDatabase struct {
 	balanceMap               map[types.Address]map[types.TokenTypeId]*big.Int
-	storageMap               map[types.Address]map[types.Hash]types.Hash
+	storageMap               map[types.Address]map[types.Hash][]byte
 	codeMap                  map[types.Address][]byte
 	logList                  []*Log
 	snapshotBlockMap         map[types.Hash]VmSnapshotBlock
@@ -27,7 +27,7 @@ type NoDatabase struct {
 func NewNoDatabase() *NoDatabase {
 	return &NoDatabase{
 		balanceMap:       make(map[types.Address]map[types.TokenTypeId]*big.Int),
-		storageMap:       make(map[types.Address]map[types.Hash]types.Hash),
+		storageMap:       make(map[types.Address]map[types.Hash][]byte),
 		codeMap:          make(map[types.Address][]byte),
 		logList:          make([]*Log, 0),
 		snapshotBlockMap: make(map[types.Hash]VmSnapshotBlock),
@@ -81,6 +81,11 @@ func (db *NoDatabase) SnapshotBlockByHeight(height *big.Int) VmSnapshotBlock {
 	}
 	return nil
 }
+func (db *NoDatabase) SnapshotBlockList(startHeight *big.Int, count uint64, forward bool) []VmSnapshotBlock {
+	// TODO
+	return nil
+}
+
 func (db *NoDatabase) SnapshotHeight(snapshotHash types.Hash) *big.Int {
 	if snapshotBlock, ok := db.snapshotBlockMap[snapshotHash]; ok {
 		return new(big.Int).Set(snapshotBlock.Height())
@@ -100,6 +105,10 @@ func (db *NoDatabase) IsExistAddress(addr types.Address) bool {
 	_, ok := db.accountBlockMap[addr]
 	return ok
 }
+func (db *NoDatabase) IsExistToken(tokenId types.TokenTypeId) bool {
+	// TODO
+	return false
+}
 func (db *NoDatabase) CreateToken(tokenId types.TokenTypeId, tokenName string, owner types.Address, totelSupply *big.Int, decimals uint64) bool {
 	if _, ok := db.tokenMap[tokenId]; !ok {
 		db.tokenMap[tokenId] = VmToken{tokenId: tokenId, tokenName: tokenName, owner: owner, totalSupply: totelSupply, decimals: decimals}
@@ -118,16 +127,16 @@ func (db *NoDatabase) ContractCode(addr types.Address) []byte {
 		return nil
 	}
 }
-func (db *NoDatabase) Storage(addr types.Address, loc types.Hash) types.Hash {
+func (db *NoDatabase) Storage(addr types.Address, loc types.Hash) []byte {
 	if data, ok := db.storageMap[addr][loc]; ok {
 		return data
 	} else {
-		return emptyHash
+		return []byte{}
 	}
 }
-func (db *NoDatabase) SetStorage(addr types.Address, loc types.Hash, value types.Hash) {
+func (db *NoDatabase) SetStorage(addr types.Address, loc types.Hash, value []byte) {
 	if _, ok := db.storageMap[addr]; !ok {
-		db.storageMap[addr] = make(map[types.Hash]types.Hash)
+		db.storageMap[addr] = make(map[types.Hash][]byte)
 	}
 	db.storageMap[addr][loc] = value
 }
@@ -135,7 +144,7 @@ func (db *NoDatabase) PrintStorage(addr types.Address) string {
 	if storage, ok := db.storageMap[addr]; ok {
 		var str string
 		for key, value := range storage {
-			str += hexToString(key.Bytes()) + " => " + hexToString(value.Bytes()) + "\n"
+			str += hexToString(key.Bytes()) + " => " + hexToString(value) + "\n"
 		}
 		return str
 	} else {
@@ -150,4 +159,9 @@ func (db *NoDatabase) AddLog(log *Log) {
 }
 func (db *NoDatabase) LogListHash() types.Hash {
 	return emptyHash
+}
+
+func (db *NoDatabase) IsExistGid(git Gid) bool {
+	// TODO
+	return true
 }

@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"bytes"
 	"github.com/vitelabs/go-vite/common/types"
 )
 
@@ -228,9 +227,9 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 		locHash, _ = types.BigToHash(loc)
 		val        = vm.Db.Storage(c.address, locHash)
 	)
-	if bytes.Compare(val.Bytes(), emptyHash.Bytes()) == 0 && y.Sign() != 0 {
+	if len(val) == 0 && y.Sign() != 0 {
 		return sstoreSetGas, nil
-	} else if bytes.Compare(val.Bytes(), emptyHash.Bytes()) != 0 && y.Sign() == 0 {
+	} else if len(val) == 0 && y.Sign() == 0 {
 		c.quotaRefund = c.quotaRefund + sstoreRefundGas
 		return sstoreClearGas, nil
 	} else {

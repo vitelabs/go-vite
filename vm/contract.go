@@ -106,7 +106,7 @@ func (c *contract) run(vm *VM) (ret []byte, err error) {
 
 		if vm.Debug {
 			fmt.Printf("code: %v \n", hex.EncodeToString(c.code[currentPc:]))
-			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemory: [%v]\nstorage: [%v]\n", opCodeToString[op], currentPc, st.print(), mem.print(), vm.Db.PrintStorage(c.address))
+			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemory: [%v]\nstorage: [%v]\nquotaLeft: %v, quotaRefund: %v\n", opCodeToString[op], currentPc, st.print(), mem.print(), vm.Db.PrintStorage(c.address), c.quotaLeft, c.quotaRefund)
 			fmt.Println("--------------------")
 		}
 

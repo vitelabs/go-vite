@@ -47,6 +47,16 @@ const (
 	tokenDecimalsMin         uint64 = 0       // Minimum value of a token decimals(exclude)
 	tokenDecimalsMax         uint64 = 18      // Maximum value of a token decimals(include)
 
+	registerGas           uint64 = 43200
+	cancelRegisterGas     uint64 = 64200
+	rewardGas             uint64 = 70000
+	calcRewardGasPerBlock uint64 = 200
+	voteGas               uint64 = 41000
+	cancelVoteGas         uint64 = 41000
+
+	registerLockTime int64  = 3600 * 24 * 90
+	dbPageSize       uint64 = 10000
+
 	//GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
 	//MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.
 	//GenesisGasLimit      uint64 = 4712388 // Gas limit of the Genesis block.
@@ -75,4 +85,10 @@ const (
 	//Bn256ScalarMulGas       uint64 = 40000  // Gas needed for an elliptic curve scalar multiplication
 	//Bn256PairingBaseGas     uint64 = 100000 // Base price for an elliptic curve pairing check
 	//Bn256PairingPerPointGas uint64 = 80000  // Per-point price for an elliptic curve pairing check
+)
+
+var (
+	rewardHeightLimit = big.NewInt(50)
+	rewardGapLimit    = big.NewInt(30000000)
+	rewardPerBlock    = big.NewInt(1e18)
 )

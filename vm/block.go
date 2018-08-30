@@ -9,12 +9,12 @@ const (
 	BlockTypeSendCreate = iota
 	BlockTypeSendCall
 	BlockTypeSendMintage
+	BlockTypeSendReward
 	BlockTypeReceive
 	BlockTypeReceiveError
-	BlockTypeReceiveReward
 )
 
-type CreateAccountBlockFunc func(from, to types.Address, txType, depth uint64) VmAccountBlock
+type CreateAccountBlockFunc func(from, to types.Address, blockType, depth uint64) VmAccountBlock
 
 type VmAccountBlock interface {
 	// Account block height
@@ -74,4 +74,5 @@ type VmSnapshotBlock interface {
 	Timestamp() int64
 	Hash() types.Hash
 	PrevHash() types.Hash
+	Producer() types.Address
 }

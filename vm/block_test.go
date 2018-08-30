@@ -85,9 +85,11 @@ type NoSnapshotBlock struct {
 	timestamp int64
 	hash      types.Hash
 	prevHash  types.Hash
+	producer  types.Address
 }
 
-func (b *NoSnapshotBlock) Height() *big.Int     { return b.height }
-func (b *NoSnapshotBlock) Timestamp() int64     { return b.timestamp }
-func (b *NoSnapshotBlock) Hash() types.Hash     { return b.hash }
-func (b *NoSnapshotBlock) PrevHash() types.Hash { return b.prevHash }
+func (b *NoSnapshotBlock) Height() *big.Int        { return b.height }
+func (b *NoSnapshotBlock) Timestamp() int64        { return b.timestamp }
+func (b *NoSnapshotBlock) Hash() types.Hash        { return b.hash }
+func (b *NoSnapshotBlock) PrevHash() types.Hash    { return b.prevHash }
+func (b *NoSnapshotBlock) Producer() types.Address { return b.producer }

@@ -13,6 +13,7 @@ var (
 	ErrInvalidTokenData            = errors.New("invalid token data for mintage")
 	ErrTokenIdCollision            = errors.New("token id collision")
 	ErrExecutionReverted           = errors.New("execution reverted")
+	ErrInvalidData                 = errors.New("invalid precompiled contract data")
 )
 
 var (

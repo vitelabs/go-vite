@@ -511,15 +511,14 @@ func opSLoad(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]b
 	loc := stack.peek()
 	locHash, _ := types.BigToHash(loc)
 	val := vm.Db.Storage(c.address, locHash)
-	loc.SetBytes(val.Bytes())
+	loc.SetBytes(val)
 	return nil, nil
 }
 
 func opSStore(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	loc, val := stack.pop(), stack.pop()
 	locHash, _ := types.BigToHash(loc)
-	valHash, _ := types.BigToHash(val)
-	vm.Db.SetStorage(c.address, locHash, valHash)
+	vm.Db.SetStorage(c.address, locHash, val.Bytes())
 
 	c.intPool.put(loc, val)
 	return nil, nil

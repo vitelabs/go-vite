@@ -18,11 +18,12 @@ const (
 )
 
 var (
-	big0   = big.NewInt(0)
-	big1   = big.NewInt(1)
-	big32  = big.NewInt(32)
-	big256 = big.NewInt(256)
-	big257 = big.NewInt(257)
+	big0    = big.NewInt(0)
+	big1    = big.NewInt(1)
+	big32   = big.NewInt(32)
+	big256  = big.NewInt(256)
+	big257  = big.NewInt(257)
+	big1e24 = new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))
 
 	bigZero = new(big.Int)
 
@@ -33,6 +34,11 @@ var (
 	emptyHash        = types.Hash{}
 	emptyAddress     = types.Address{}
 	emptyTokenTypeId = types.TokenTypeId{}
+	emptyWord        = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+	// TODO system id
+	viteTokenTypeId = types.TokenTypeId{}
+	snapshotGid     = Gid{}
 )
 
 // toWordSize returns the ceiled word size required for memory expansion.
@@ -99,4 +105,21 @@ func hexToString(data []byte) string {
 		}
 	}
 	return string(data)
+}
+
+func allZero(b []byte) bool {
+	for _, byte := range b {
+		if byte != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func joinBytes(data ...[]byte) []byte {
+	newData := []byte{}
+	for _, d := range data {
+		newData = append(newData, d...)
+	}
+	return newData
 }
