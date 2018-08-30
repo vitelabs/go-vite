@@ -1,8 +1,6 @@
 package compress
 
 import (
-	"encoding/binary"
-	"errors"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
 	"os"
@@ -27,39 +25,6 @@ func NewFileReader(filename string) io.Reader {
 
 func (fw *FileReader) Read(p []byte) (int, error) {
 	return fw.file.Read(p)
-}
-
-func (fw *FileReader) ReadBlock(block Block) error {
-	sizeBytes := make([]byte, 4)
-	sizeN, sizeErr := fw.file.Read(sizeBytes)
-
-	if sizeErr != nil {
-		return sizeErr
-	}
-
-	if sizeN < 4 {
-		err := errors.New("read block failed, file format is not correct. sizeN is not correct")
-		fileReaderLog.Error(err.Error())
-		return nil
-	}
-
-	size := binary.LittleEndian.Uint32(sizeBytes)
-
-	buffer := make([]byte, size)
-	bufferN, bufferErr := fw.file.Read(sizeBytes)
-
-	if bufferErr != nil {
-		return bufferErr
-	}
-
-	if uint32(bufferN) < size {
-		err := errors.New("read block failed, file format is not correct. bufferN is not correct")
-		fileReaderLog.Error(err.Error())
-	}
-
-	block.FileDeSerialize(buffer)
-
-	return nil
 }
 
 func (fw *FileReader) Close() {

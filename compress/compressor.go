@@ -1,7 +1,6 @@
 package compress
 
 import (
-	"fmt"
 	"github.com/vitelabs/go-vite/log15"
 	"sync"
 	"time"
@@ -48,7 +47,6 @@ func (c *Compressor) Start() bool {
 				c.status = STOPPED
 				return
 			default:
-				fmt.Println("haha")
 				time.Sleep(time.Microsecond * 500)
 			}
 		}

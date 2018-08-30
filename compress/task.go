@@ -1,10 +1,9 @@
 package compress
 
 import (
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"io"
 	"math/big"
-	"os"
 )
 
 var compressorTaskLog = log15.New("module", "compressorTask")
@@ -42,18 +41,9 @@ func (ti *taskInfo) Split(gap int64) []*taskInfo {
 	return tiList
 }
 
-type subLedger struct {
-	sbList []*ledger.SnapshotBlock
-	abList []*ledger.AccountBlock
-}
-
-func (sl *subLedger) Write(file *os.File) {
-
-}
-
 type CompressorTask struct {
 	splitSize int64
-	tmpFile   *os.File
+	tmpFile   string
 }
 
 func NewCompressorTask() *CompressorTask {
@@ -72,29 +62,33 @@ func (task *CompressorTask) Run() {
 	}
 
 	taskInfoList := ti.Split(task.splitSize)
-	for _, taskInfo := range taskInfoList {
-		subLedger, getSubLedgerErr := task.getSubLedger(taskInfo)
-		if getSubLedgerErr != nil {
-			compressorTaskLog.Error(getSubLedgerErr.Error())
-			// todo: Clear tmp file
-			break
+
+	taskLen := len(taskInfoList)
+	currentTaskIndex := 0
+
+	formatterErr := BlockFormatter(NewFileWriter(task.tmpFile), func() ([]block, error) {
+		if currentTaskIndex > taskLen {
+			return nil, io.EOF
 		}
 
-		subLedger.Write(task.tmpFile)
+		return task.getSubLedger(taskInfoList[currentTaskIndex])
+	})
+
+	if formatterErr != nil {
+		// todo: Clear tmp file
+		return
 	}
 
-	task.writeIndex()
+	// todo: Write db index
+
 }
 
 func (task *CompressorTask) getTaskInfo() *taskInfo {
 	return &taskInfo{}
 }
 
-func (task *CompressorTask) getSubLedger(ti *taskInfo) (*subLedger, error) {
-	return &subLedger{
-		sbList: []*ledger.SnapshotBlock{},
-		abList: []*ledger.AccountBlock{},
-	}, nil
+func (task *CompressorTask) getSubLedger(ti *taskInfo) ([]block, error) {
+	return nil, nil
 }
 
 func (task *CompressorTask) writeIndex() {
