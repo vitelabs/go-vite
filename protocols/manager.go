@@ -21,7 +21,7 @@ const enoughPeers = 2
 const broadcastConcurrency = 10
 
 type ProtocolManager struct {
-	Peers    *PeersMap
+	Peers    *peerSet
 	Start    time.Time
 	Syncing  bool
 	vite     interfaces.Vite
@@ -42,7 +42,7 @@ func (pm *ProtocolManager) HandleStatusMsg(status *protoType.StatusMsg, peer *pr
 
 	peer.Update(status)
 	// AddPeer after get status msg from it, ensure we get Height and Hash of peer.
-	pm.Peers.AddPeer(peer)
+	pm.Peers.Add(peer)
 	pm.log.Info("now we have " + strconv.Itoa(pm.Peers.Count()) + " peers")
 
 	// use goroutine to avoid block following msgs.
@@ -266,7 +266,7 @@ func (pm *ProtocolManager) Sync() {
 	}
 }
 
-func (pm *ProtocolManager) BestPeer() *protoType.Peer {
+func (pm *ProtocolManager) BestPeer() *Peer {
 	return pm.Peers.BestPeer()
 }
 
@@ -290,58 +290,11 @@ func (pm *ProtocolManager) CurrentBlock() (block *ledger.SnapshotBlock) {
 
 func NewProtocolManager(vite interfaces.Vite) *ProtocolManager {
 	return &ProtocolManager{
-		Peers:  NewPeersMap(),
+		Peers:  NewPeerSet(),
 		Start:  time.Now(),
 		schain: vite.Ledger().Sc(),
 		achain: vite.Ledger().Ac(),
 		vite:   vite,
 		log:    log15.New("module", "pm"),
 	}
-}
-
-// @section PeersMap
-type PeersMap struct {
-	peers map[string]*protoType.Peer
-	rw    sync.RWMutex
-}
-
-func NewPeersMap() *PeersMap {
-	return &PeersMap{
-		peers: make(map[string]*protoType.Peer),
-	}
-}
-
-func (m *PeersMap) BestPeer() (best *protoType.Peer) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
-
-	maxHeight := new(big.Int)
-	for _, peer := range m.peers {
-		cmp := peer.Height.Cmp(maxHeight)
-		if cmp > 0 {
-			maxHeight = peer.Height
-			best = peer
-		}
-	}
-
-	return
-}
-
-func (m *PeersMap) AddPeer(peer *protoType.Peer) {
-	m.rw.Lock()
-	m.peers[peer.ID] = peer
-	m.rw.Unlock()
-}
-
-func (m *PeersMap) DelPeer(peer *protoType.Peer) {
-	m.rw.Lock()
-	delete(m.peers, peer.ID)
-	m.rw.Unlock()
-}
-
-func (m *PeersMap) Count() int {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
-
-	return len(m.peers)
 }
