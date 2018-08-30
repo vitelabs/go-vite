@@ -110,7 +110,7 @@ func (sb *SnapshotBlock) getSnapshotBytes() []byte {
 	var source []byte
 
 	// Hard fork
-	if sb.Height.Cmp(big.NewInt(100000)) >= 0 {
+	if sb.Height.Cmp(big.NewInt(0)) >= 0 {
 		ss := newSortedSnapshot(sb.Snapshot)
 		for _, snapshotItem := range ss {
 			address, _ := types.HexToAddress(snapshotItem.address)
