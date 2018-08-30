@@ -2,7 +2,7 @@ package impl
 
 import (
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vrpc/api"
+	"github.com/vitelabs/go-vite/rpcapi/api"
 	"strconv"
 )
 

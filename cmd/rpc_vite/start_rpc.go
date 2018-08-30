@@ -2,7 +2,7 @@ package rpc_vite
 
 import (
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vrpc"
+	"github.com/vitelabs/go-vite/rpcapi"
 	"github.com/vitelabs/go-vite/vite"
 	"os"
 	"os/signal"
@@ -12,12 +12,12 @@ import (
 )
 
 func StartIpcRpc(vite *vite.Vite, dataDir string) {
-	ipcapiURL := filepath.Join(dataDir, vrpc.DefaultIpcFile())
+	ipcapiURL := filepath.Join(dataDir, rpcapi.DefaultIpcFile())
 	if runtime.GOOS == "windows" {
-		ipcapiURL = vrpc.DefaultIpcFile()
+		ipcapiURL = rpcapi.DefaultIpcFile()
 	}
 	log15.Root().Info("StartIpcRpc ", "ipcapiURL: ", ipcapiURL)
-	lis, _ := vrpc.IpcListen(ipcapiURL)
+	lis, _ := rpcapi.IpcListen(ipcapiURL)
 
 	exitSig := make(chan os.Signal, 1)
 	signal.Notify(exitSig, syscall.SIGINT, syscall.SIGTERM)
@@ -29,5 +29,5 @@ func StartIpcRpc(vite *vite.Vite, dataDir string) {
 		}
 	}()
 
-	vrpc.StartIPCEndpoint(lis, vrpc.GetAllApis(vite))
+	rpcapi.StartIPCEndpoint(lis, rpcapi.GetAllApis(vite))
 }

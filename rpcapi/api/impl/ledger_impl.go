@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
-	"github.com/vitelabs/go-vite/vrpc/api"
+	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/signer"
 	"github.com/vitelabs/go-vite/vite"
 	"math/big"
