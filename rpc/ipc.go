@@ -21,6 +21,7 @@ import (
 	"net"
 
 	log "github.com/vitelabs/go-vite/log15"
+	//"github.com/ethereum/go-ethereum/p2p/netutil"
 )
 
 // ServeListener accepts connections on l, serving JSON-RPC on them.
@@ -28,8 +29,14 @@ func (srv *Server) ServeListener(l net.Listener) error {
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			return err
+			log.Error("ServeListener ", "err", err)
 		}
+		//if netutil.IsTemporaryError(err) {
+		//	log.Warn("RPC accept error", "err", err)
+		//	continue
+		//} else if err != nil {
+		//	return err
+		//}
 		log.Info("Accepted connection", "addr", conn.RemoteAddr())
 		go srv.ServeCodec(NewJSONCodec(conn), OptionMethodInvocation|OptionSubscriptions)
 	}

@@ -30,8 +30,8 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set"
-	"golang.org/x/net/websocket"
 	log "github.com/vitelabs/go-vite/log15"
+	"golang.org/x/net/websocket"
 )
 
 // websocketJSONCodec is a custom JSON codec with payload size enforcement and
