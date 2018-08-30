@@ -57,13 +57,17 @@ func (r *req) Emit() {
 	// todo
 }
 
-type reqList struct {
-	reqs      []*req
+const MAX_ID uint64 = ^(uint64(0))
+
+type reqPool struct {
+	wait      []*req
+	pending   []*req
+	done      []*req
 	mu        sync.RWMutex
 	currentID uint64
 }
 
-func (l *reqList) Add(r *req) {
+func (l *reqPool) Add(r *req) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -76,7 +80,11 @@ func (l *reqList) Add(r *req) {
 		}
 	}
 
+	if l.currentID == MAX_ID {
+		l.currentID = 0
+	}
 	l.currentID++
+
 	r.id = l.currentID
 	l.reqs = append(l.reqs, r)
 }
