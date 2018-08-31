@@ -64,6 +64,7 @@ func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.Accoun
 				Data: mutexBody.LatestBlock,
 			}
 		}
+
 		if !bytes.Equal(mutexBody.LatestBlock.Hash.Bytes(), block.PrevHash.Bytes()) {
 			if block.Meta == nil || block.Meta.Height == nil {
 				return &AcWriteError{

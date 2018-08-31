@@ -44,6 +44,8 @@ func NewIndexer(dir string) *Indexer {
 	indexer := &Indexer{
 		file: file,
 	}
+
+	indexer.readFromFile()
 	return indexer
 }
 
@@ -52,19 +54,34 @@ func (indexer *Indexer) readFromFile() {
 	indexer.file.Seek(0, io.SeekStart)
 
 	reader := bufio.NewReader(indexer.file)
+
 	for {
 		var line []byte
+		var rErr error
 
 		for {
 			rLine, isPrefix, err := reader.ReadLine()
+
+			if err != nil {
+				rErr = err
+				break
+			}
+
 			line = append(line, rLine...)
+
 			if !isPrefix {
 				break
 			}
+			indexerLog.Error(err.Error())
 		}
-		//for ; ; {
-		//	//
-		//}
+
+		if len(line) >= 0 {
+			indexerLog.Info(string(line))
+		}
+
+		if rErr == io.EOF {
+			break
+		}
 
 	}
 }
