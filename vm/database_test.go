@@ -117,6 +117,7 @@ func (db *NoDatabase) CreateToken(tokenId types.TokenTypeId, tokenName string, o
 		return false
 	}
 }
+func (db *NoDatabase) SetContractGid(addr types.Address, gid Gid, open bool) {}
 func (db *NoDatabase) SetContractCode(addr types.Address, gid Gid, code []byte) {
 	db.codeMap[addr] = code
 	// TODO gid
