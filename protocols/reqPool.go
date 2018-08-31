@@ -1,6 +1,9 @@
 package protocols
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 const reqCountCacheLimit = 3
 
@@ -35,6 +38,8 @@ type req struct {
 	params Equal
 
 	status reqStatus
+
+	time time.Time
 }
 
 func (r *req) Equal(r2 interface{}) bool {
