@@ -51,7 +51,7 @@ func NewIndexer(dir string) *Indexer {
 
 func (indexer *Indexer) readFromFile() {
 	indexer.indexList = make([]*indexItem, 0)
-	indexer.file.Seek(0, io.SeekStart)
+	//indexer.file.Seek(0, io.SeekStart)
 
 	reader := bufio.NewReader(indexer.file)
 
