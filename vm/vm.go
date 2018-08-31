@@ -262,6 +262,9 @@ func (vm *VM) receiveCall(block VmAccountBlock) (blockList []VmAccountBlock, isR
 }
 
 func (vm *VM) sendMintage(block VmAccountBlock, quotaTotal, quotaAddition uint64) (VmAccountBlock, error) {
+	if err := vm.checkToken(block.Data()); err != nil {
+		return nil, err
+	}
 	// check can make transaction
 	quotaLeft := quotaTotal
 	quotaRefund := uint64(0)
@@ -285,11 +288,8 @@ func (vm *VM) sendMintage(block VmAccountBlock, quotaTotal, quotaAddition uint64
 
 	// create tokenId and check collision
 	tokenTypeId := createTokenId(block.AccountAddress(), block.ToAddress(), block.Height(), block.PrevHash(), block.SnapshotHash())
-	if bytes.Equal(tokenTypeId.Bytes(), emptyTokenTypeId.Bytes()) {
+	if bytes.Equal(tokenTypeId.Bytes(), emptyTokenTypeId.Bytes()) || vm.Db.IsExistToken(tokenTypeId) {
 		return nil, ErrTokenIdCreationFail
-	}
-	if err = vm.checkAndCreateToken(tokenTypeId, block.ToAddress(), block.Amount(), block.Data()); err != nil {
-		return nil, err
 	}
 
 	// sub balance
@@ -312,6 +312,12 @@ func (vm *VM) receiveMintage(block VmAccountBlock) (blockList []VmAccountBlock, 
 	quotaLeft, err = useQuota(quotaLeft, cost)
 	if err != nil {
 		return nil, retry, err
+	}
+	decimals := new(big.Int).SetBytes(block.Data()[32:64]).Uint64()
+	tokenName := hexToString(block.Data()[96:])
+	if !vm.Db.CreateToken(block.TokenId(), tokenName, block.ToAddress(), block.Amount(), decimals) {
+		vm.updateBlock(block, block.AccountAddress(), ErrTokenIdCollision, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, ErrTokenIdCollision), nil)
+		return vm.blockList, noRetry, ErrTokenIdCollision
 	}
 	vm.blockList = []VmAccountBlock{block}
 	vm.Db.AddBalance(block.ToAddress(), block.TokenId(), block.Amount())
@@ -337,23 +343,18 @@ func (vm *VM) quotaLeft(addr types.Address, block VmAccountBlock) (quotaInit, qu
 	// TODO calculate quota addition
 	quotaInit = quotaLimit
 	quotaAddition = 0
-	for _, block := range vm.blockList {
-		if quotaInit <= block.Quota() {
-			return 0, 0
-		} else {
-			quotaInit = quotaInit - block.Quota()
-		}
-	}
 	prevHash := block.PrevHash()
-	if len(vm.blockList) > 0 {
-		prevHash = vm.blockList[0].PrevHash()
-	}
 	for {
 		prevBlock := vm.Db.AccountBlock(addr, prevHash)
 		if prevBlock != nil && bytes.Equal(block.SnapshotHash().Bytes(), prevBlock.SnapshotHash().Bytes()) {
+			// quick fail
+			if prevBlock.BlockType() == BlockTypeReceiveError {
+				return 0, 0
+			}
 			quotaInit = quotaInit - prevBlock.Quota()
 			prevHash = prevBlock.PrevHash()
 		} else {
+			// TODO quotaInit =  quotaPerSnapshotBlock * snapshotBlockHeightDiff
 			if quotaLimit-quotaAddition < quotaInit {
 				quotaAddition = quotaLimit - quotaInit
 				quotaInit = quotaLimit
@@ -421,34 +422,29 @@ func (vm *VM) canTransfer(addr types.Address, tokenTypeId types.TokenTypeId, tok
 	}
 }
 
-func (vm *VM) checkAndCreateToken(tokenId types.TokenTypeId, owner types.Address, amount *big.Int, data []byte) error {
+func (vm *VM) checkToken(data []byte) error {
+	if len(data) != 128 {
+		return ErrInvalidData
+	}
 	if !bytes.Equal(data[0:32], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64}) {
 		return ErrInvalidData
 	}
-	start := big.NewInt(32)
-	decimals := new(big.Int).SetBytes(getDataBig(data, start, big32)).Uint64()
+	decimals := new(big.Int).SetBytes(data[32:64]).Uint64()
 	if decimals <= tokenDecimalsMin || decimals > tokenDecimalsMax {
 		return ErrInvalidData
 	}
-	start.Add(start, big32)
-	length := int(new(big.Int).SetBytes(getDataBig(data, start, big32)).Uint64())
+	length := int(new(big.Int).SetBytes(data[64:96]).Uint64())
 	if length > tokenNameLengthLimit {
 		return ErrInvalidData
 	}
-	start.Add(start, big32)
-	tokenName := hexToString(data[start.Int64():])
+	tokenName := hexToString(data[96:])
 	if len(tokenName) != length {
 		return ErrInvalidData
 	}
 	if ok, _ := regexp.MatchString("^[a-zA-Z]+$", tokenName); !ok {
 		return ErrInvalidData
 	}
-	// TODO create token at receive mintage
-	if vm.Db.CreateToken(tokenId, tokenName, owner, amount, decimals) {
-		return nil
-	} else {
-		return ErrTokenIdCollision
-	}
+	return nil
 }
 
 func checkContractFee(fee *big.Int) bool {
