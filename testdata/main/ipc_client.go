@@ -258,10 +258,19 @@ func GetInitSyncInfo(client *rpc2.Client, param []string) {
 }
 
 func TestStaticApis(client *rpc2.Client) {
-	doRpcCall(client, "common.LogDir", nil)
-	doRpcCall(client, "types.IsValidHexTokenTypeId", []string{"asd"})
-	doRpcCall(client, "types.IsValidHexAddress", []string{"vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c3a"})
-	doRpcCall(client, "types.IsValidHexAddress", []string{"vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c31"})
+	//doRpcCall(client, "common.LogDir", nil)
+	//doRpcCall(client, "types.IsValidHexTokenTypeId", []string{"asd"})
+	//doRpcCall(client, "types.IsValidHexAddress", []string{"vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c3a"})
+	//doRpcCall(client, "types.IsValidHexAddress", []string{"vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c31"})
+
+	for i := 0; i < 50; i++ {
+		CreateTxWithPassphrase(client, []string{"vite_c5adc192ec5a6661e49dc312e56d870550642abcc827134c7e", "vite_269ecd4bef9cef499e991eb9667ec4a33cfdfed832c8123ada"})
+		println("i A- B", i, " ")
+		CreateTxWithPassphrase(client, []string{"vite_269ecd4bef9cef499e991eb9667ec4a33cfdfed832c8123ada", "vite_c5adc192ec5a6661e49dc312e56d870550642abcc827134c7e"})
+
+		println("i B- A", i, " ")
+	}
+
 }
 
 func doRpcCall(client *rpc2.Client, method string, param interface{}) {
