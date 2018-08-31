@@ -119,6 +119,7 @@ func (vm *VM) sendCreate(block VmAccountBlock, quotaTotal, quotaAddition uint64)
 	vm.Db.SubBalance(block.AccountAddress(), viteTokenTypeId, block.CreateFee())
 	vm.updateBlock(block, block.AccountAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
 	block.SetToAddress(contractAddr)
+	vm.Db.SetContractGid(contractAddr, gid, false)
 	return block, nil
 }
 
@@ -161,14 +162,14 @@ func (vm *VM) receiveCreate(block VmAccountBlock, quotaTotal uint64) (blockList 
 			vm.updateBlock(block, block.ToAddress(), nil, 0, codeHash.Bytes())
 			err = vm.doSendBlockList(quotaTotal - block.Quota())
 			if err == nil {
+				vm.Db.SetContractGid(block.ToAddress(), gid, true)
 				return vm.blockList, noRetry, nil
 			}
 		}
 	}
 
 	vm.revert()
-	vm.updateBlock(block, block.ToAddress(), err, 0, nil)
-	return vm.blockList, noRetry, err
+	return nil, noRetry, err
 }
 
 func (vm *VM) sendCall(block VmAccountBlock, quotaTotal, quotaAddition uint64) (VmAccountBlock, error) {
@@ -212,8 +213,7 @@ func (vm *VM) receiveCall(block VmAccountBlock) (blockList []VmAccountBlock, isR
 		err := p.doReceive(vm, block)
 		if err != nil {
 			vm.updateBlock(block, block.ToAddress(), err, 0, nil)
-			// TODO use quota left to send block list
-			err = vm.doSendBlockList(21000)
+			err = vm.doSendBlockList(txGas)
 			if err == nil {
 				return vm.blockList, noRetry, nil
 			}
