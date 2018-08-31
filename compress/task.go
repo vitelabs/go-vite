@@ -94,13 +94,3 @@ func (task *CompressorTask) getSubLedger(ti *taskInfo) ([]block, error) {
 func (task *CompressorTask) writeIndex() {
 
 }
-
-type fileIndex struct {
-	startHeight *big.Int
-	endHeight   *big.Int
-
-	filename string
-	filesize uint64
-
-	blockNumbers uint64
-}
