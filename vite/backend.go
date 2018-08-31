@@ -51,6 +51,8 @@ type Vite struct {
 //}
 
 func New(cfg *config.Config) (*Vite, error) {
+	downloadLedger(cfg.IsDownload, cfg.DataDir)
+
 	log := log15.New("module", "vite/backend")
 	vite := &Vite{config: cfg}
 
