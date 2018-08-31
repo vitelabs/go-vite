@@ -237,16 +237,70 @@ func (p *register) doReceiveReward(vm *VM, block VmAccountBlock) error {
 type vote struct{}
 
 var (
-	DataVote       = []byte{1}
-	DataCancelVote = []byte{2}
+	DataVote       = byte(1)
+	DataCancelVote = byte(2)
 )
 
 func (p *vote) doSend(vm *VM, block VmAccountBlock, quotaLeft, quotaRefund uint64) (uint64, uint64, error) {
-	// TODO
-	return 0, 0, nil
+	if len(block.Data()) == 43 && block.Data()[0] == DataVote {
+		return p.doSendVote(vm, block, quotaLeft, quotaRefund)
+	} else if len(block.Data()) == 11 && block.Data()[0] == DataCancelVote {
+		return p.doSendCancelVote(vm, block, quotaLeft, quotaRefund)
+	}
+	return quotaLeft, quotaRefund, ErrInvalidData
+}
+func (p *vote) doSendVote(vm *VM, block VmAccountBlock, quotaLeft, quotaRefund uint64) (uint64, uint64, error) {
+	if block.Amount().Cmp(big0) != 0 ||
+		!isUserAccount(vm.Db, block.AccountAddress()) {
+		return quotaLeft, quotaRefund, ErrInvalidData
+	}
+	gid, _ := BytesToGid(block.Data()[1:11])
+	if !vm.Db.IsExistGid(gid) {
+		return quotaLeft, quotaRefund, ErrInvalidData
+	}
+	address, _ := types.BytesToAddress(block.Data()[11:43])
+	if !vm.Db.IsExistAddress(address) {
+		return quotaLeft, quotaRefund, ErrInvalidData
+	}
+	quotaLeft, err := useQuota(quotaLeft, voteGas)
+	if err != nil {
+		return quotaLeft, quotaRefund, err
+	}
+	return quotaLeft, quotaRefund, nil
+}
+func (p *vote) doSendCancelVote(vm *VM, block VmAccountBlock, quotaLeft, quotaRefund uint64) (uint64, uint64, error) {
+	if block.Amount().Cmp(big0) != 0 ||
+		!isUserAccount(vm.Db, block.AccountAddress()) {
+		return quotaLeft, quotaRefund, ErrInvalidData
+	}
+	gid, _ := BytesToGid(block.Data()[1:11])
+	if !vm.Db.IsExistGid(gid) {
+		return quotaLeft, quotaRefund, ErrInvalidData
+	}
+	quotaLeft, err := useQuota(quotaLeft, cancelVoteGas)
+	if err != nil {
+		return quotaLeft, quotaRefund, err
+	}
+	return quotaLeft, quotaRefund, nil
 }
 func (p *vote) doReceive(vm *VM, block VmAccountBlock) error {
-	// TODO
+	if len(block.Data()) == 11 && block.Data()[0] == DataVote {
+		return p.doReceiveVote(vm, block)
+	} else if len(block.Data()) == 11 && block.Data()[0] == DataCancelVote {
+		return p.doReceiveCancelVote(vm, block)
+	}
+	return nil
+}
+func (p *vote) doReceiveVote(vm *VM, block VmAccountBlock) error {
+	gid, _ := BytesToGid(block.Data()[1:11])
+	locHash := getKey(block.AccountAddress(), gid)
+	vm.Db.SetStorage(block.ToAddress(), locHash, block.Data()[11:43])
+	return nil
+}
+func (p *vote) doReceiveCancelVote(vm *VM, block VmAccountBlock) error {
+	gid, _ := BytesToGid(block.Data()[1:11])
+	locHash := getKey(block.AccountAddress(), gid)
+	vm.Db.SetStorage(block.ToAddress(), locHash, nil)
 	return nil
 }
 

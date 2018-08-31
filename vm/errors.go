@@ -10,10 +10,9 @@ var (
 	ErrContractAddressCreationFail = errors.New("contract address creation fail")
 	ErrAddressCollision            = errors.New("contract address collision")
 	ErrTokenIdCreationFail         = errors.New("token id creation fail")
-	ErrInvalidTokenData            = errors.New("invalid token data for mintage")
 	ErrTokenIdCollision            = errors.New("token id collision")
 	ErrExecutionReverted           = errors.New("execution reverted")
-	ErrInvalidData                 = errors.New("invalid precompiled contract data")
+	ErrInvalidData                 = errors.New("invalid data")
 )
 
 var (

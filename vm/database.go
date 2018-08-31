@@ -25,8 +25,8 @@ type VmDatabase interface {
 	IsExistToken(tokenId types.TokenTypeId) bool
 	CreateToken(tokenId types.TokenTypeId, tokenName string, owner types.Address, totelSupply *big.Int, decimals uint64) bool
 
-	// TODO set contract gid
-	SetContractCode(addr types.Address, code []byte)
+	SetContractGid(addr types.Address, gid Gid, open bool)
+	SetContractCode(addr types.Address, gid Gid, code []byte)
 	ContractCode(addr types.Address) []byte
 
 	Storage(addr types.Address, loc types.Hash) []byte
@@ -37,7 +37,7 @@ type VmDatabase interface {
 	AddLog(*Log)
 	LogListHash() types.Hash
 
-	IsExistGid(git Gid) bool
+	IsExistGid(gid Gid) bool
 }
 
 type RegisterInfo struct {

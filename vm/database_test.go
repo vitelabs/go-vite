@@ -117,8 +117,9 @@ func (db *NoDatabase) CreateToken(tokenId types.TokenTypeId, tokenName string, o
 		return false
 	}
 }
-func (db *NoDatabase) SetContractCode(addr types.Address, code []byte) {
+func (db *NoDatabase) SetContractCode(addr types.Address, gid Gid, code []byte) {
 	db.codeMap[addr] = code
+	// TODO gid
 }
 func (db *NoDatabase) ContractCode(addr types.Address) []byte {
 	if code, ok := db.codeMap[addr]; ok {

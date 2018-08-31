@@ -99,6 +99,10 @@ func (vm *VM) sendCreate(block VmAccountBlock) (VmAccountBlock, error) {
 	if !checkContractFee(block.CreateFee()) {
 		return nil, ErrInvalidContractFee
 	}
+	gid, _ := BytesToGid(block.Data()[:10])
+	if !vm.Db.IsExistGid(gid) {
+		return nil, ErrInvalidData
+	}
 	if !vm.canTransfer(block.AccountAddress(), block.TokenId(), block.Amount(), block.CreateFee()) {
 		return nil, ErrInsufficientBalance
 	}
@@ -136,6 +140,10 @@ func (vm *VM) receiveCreate(block VmAccountBlock, quotaLeft uint64) (blockList [
 	// create contract account and add balance
 	vm.Db.AddBalance(block.ToAddress(), block.TokenId(), block.Amount())
 
+	blockData := block.Data()
+	block.SetData(blockData[10:])
+	defer block.SetData(blockData)
+
 	// init contract state and set contract code
 	c := newContract(block.AccountAddress(), block.ToAddress(), block, quotaLeft, 0)
 	c.setCallCode(block.ToAddress(), block.Data())
@@ -145,7 +153,8 @@ func (vm *VM) receiveCreate(block VmAccountBlock, quotaLeft uint64) (blockList [
 		c.quotaLeft, err = useQuota(c.quotaLeft, codeCost)
 		if err == nil {
 			codeHash, _ := types.BytesToHash(code)
-			vm.Db.SetContractCode(block.ToAddress(), code)
+			gid, _ := BytesToGid(blockData[:10])
+			vm.Db.SetContractCode(block.ToAddress(), gid, code)
 			vm.updateBlock(block, block.ToAddress(), nil, 0, codeHash.Bytes())
 			err = vm.doSendBlockList()
 			if err == nil {
@@ -411,25 +420,25 @@ func (vm *VM) canTransfer(addr types.Address, tokenTypeId types.TokenTypeId, tok
 
 func (vm *VM) checkAndCreateToken(tokenId types.TokenTypeId, owner types.Address, amount *big.Int, data []byte) error {
 	if !bytes.Equal(data[0:32], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64}) {
-		return ErrInvalidTokenData
+		return ErrInvalidData
 	}
 	start := big.NewInt(32)
 	decimals := new(big.Int).SetBytes(getDataBig(data, start, big32)).Uint64()
 	if decimals <= tokenDecimalsMin || decimals > tokenDecimalsMax {
-		return ErrInvalidTokenData
+		return ErrInvalidData
 	}
 	start.Add(start, big32)
 	length := int(new(big.Int).SetBytes(getDataBig(data, start, big32)).Uint64())
 	if length > tokenNameLengthLimit {
-		return ErrInvalidTokenData
+		return ErrInvalidData
 	}
 	start.Add(start, big32)
 	tokenName := hexToString(data[start.Int64():])
 	if len(tokenName) != length {
-		return ErrInvalidTokenData
+		return ErrInvalidData
 	}
 	if ok, _ := regexp.MatchString("^[a-zA-Z]+$", tokenName); !ok {
-		return ErrInvalidTokenData
+		return ErrInvalidData
 	}
 	// TODO create token at receive mintage
 	if vm.Db.CreateToken(tokenId, tokenName, owner, amount, decimals) {
