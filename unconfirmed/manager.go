@@ -9,14 +9,6 @@ import (
 
 var slog = log15.New("module", "unconfirmed")
 
-// todo 放到Miner模块
-type RightEvent struct {
-	gid       string
-	address   types.Address
-	event     string // Start Stop
-	timestamp uint64
-}
-
 type Manager struct {
 	Vite worker.Vite
 
@@ -34,11 +26,39 @@ type Manager struct {
 	log log15.Logger
 }
 
+type RightEvent struct {
+	gid            string
+	address        types.Address
+	event          bool // "stop:true, start:false"
+	timestamp      uint64
+	snapshotHash   string
+	snapshotHeight int
+}
+
+type RightEventArgs struct {
+	gid            string
+	address        types.Address
+	timestamp      uint64
+	snapshotHash   string
+	snapshotHeight int
+}
+
+func NewRightEventArgs(gid string, address types.Address, timestamp uint64, snapshotHash string, snapshotHeight int) *RightEventArgs {
+	return &RightEventArgs{
+		gid:            gid,
+		address:        address,
+		timestamp:      timestamp,
+		snapshotHash:   snapshotHash,
+		snapshotHeight: snapshotHeight,
+	}
+}
+
 func NewManager(vite worker.Vite) *Manager {
 	return &Manager{
-		Vite:                  vite,
-		commonTxWorkers:       make(map[types.Address]*worker.CommonTxWorker),
-		contractWorkers:       make(map[types.Address]*worker.ContractWorker),
+		Vite:            vite,
+		commonTxWorkers: make(map[types.Address]*worker.CommonTxWorker),
+		contractWorkers: make(map[types.Address]*worker.ContractWorker),
+
 		unlockEventListener:   make(chan keystore.UnlockEvent),
 		firstSyncDoneListener: make(chan int),
 		rightEventListener:    make(chan RightEvent),
@@ -108,9 +128,10 @@ func (manager *Manager) loop() {
 				}
 
 				select {
-				case event.event == "start":
-					w.Start(event.timestamp)
-				case event.event == "stop":
+				case event.event == true:
+					args := NewRightEventArgs(event.gid, event.address, event.timestamp, event.snapshotHash, event.snapshotHeight)
+					w.Start(args)
+				case event.event == false:
 					w.Stop()
 				default:
 					w.Close()

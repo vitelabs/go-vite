@@ -1,17 +1,20 @@
 package worker
 
 import (
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/unconfirmed"
 	"sync"
 )
 
 const (
-	Idle    = iota
+	Idle = iota
 	Running
 	Waiting
 	Dead
 )
+const MAX_ERR_RECV_COUNT = 3
 
 type ContractTask struct {
 	vite Vite
@@ -19,21 +22,23 @@ type ContractTask struct {
 	statusMutex sync.Mutex
 	status      int
 
-	timestamp uint64
-	subQueue  chan *ledger.AccountBlock
+	subQueue chan *ledger.AccountBlock
+	args     *unconfirmed.RightEventArgs
+
+	reRetry bool
 
 	log log15.Logger
 }
 
-func (c *ContractTask) InitContractTask(vite Vite, timestamp uint64) {
+func (c *ContractTask) InitContractTask(vite Vite, args *unconfirmed.RightEventArgs) {
 	c.vite = vite
 	c.status = Idle
-	c.log = log15.New("ContractTask")
-	timestamp = timestamp
 	c.subQueue = make(chan *ledger.AccountBlock, CACHE_SIZE)
+	c.args = args
+	c.log = log15.New("ContractTask")
 }
 
-func (c *ContractTask) Start() {
+func (c *ContractTask) Start(blackList *map[types.Hash]bool) {
 	for {
 		c.statusMutex.Lock()
 		defer c.statusMutex.Unlock()
@@ -43,44 +48,97 @@ func (c *ContractTask) Start() {
 		}
 
 		// get unconfirmed block from subQueue
-		block := c.GetBlock()
+		sendBlock := c.GetBlock()
 
-		// generate block
-		isRetry, blockList := c.GenerateBlock(block, c.timestamp)
+		if ExistInPool(sendBlock.To, sendBlock.Hash) {
+			c.log.Error("ExistInPool Check failed")
+			(*blackList)[*sendBlock.Hash] = true
+			continue
+		}
+
+		if c.CheckReceiveErrCount(sendBlock.To, sendBlock.Hash) > MAX_ERR_RECV_COUNT {
+			c.vite.Ledger().Ac().DeleteUnconfirmed(sendBlock)
+			continue
+		}
+
+		block, err := c.PackReceiveBlock(sendBlock)
+		if err != nil {
+			c.log.Error("PackReceiveBlock Failed", "Error", err.Error())
+			continue
+		}
+
+		isRetry, blockList := c.GenerateBlocks(block)
+
+
+		// todo: maintain the gid-contractAddress into VmDB
+		// AddConsensusGroup(group ConsensusGroup,)
 
 		if blockList == nil {
-			if !isRetry {
-				if err := c.vite.Ledger().Ac().DeleteUnconfirmed(block); err != nil {
-					c.log.Error("ContractTask.DeleteUnconfirmed Error", "Error", err)
-				}
+			if isRetry == true {
+				(*blackList)[*sendBlock.Hash] = true
+			} else {
+				c.vite.Ledger().Ac().DeleteUnconfirmed(sendBlock)
 			}
-			continue
 		} else {
-			// todo 6.pack block, comput hash, Sign, pack block, insert into Pool
-
+			if isRetry == true {
+				(*blackList)[*sendBlock.Hash] = true
+			}
+			c.InertBlockListIntoPool(sendBlock, blockList)
 		}
+
 		c.status = Idle
 	}
 END:
-	c.log.Info("ContractTask Start")
+	c.log.Info("ContractTask Stop")
 }
 
-func (c *ContractTask) GenerateBlock(block *ledger.AccountBlock, timestamp uint64) (isRetry bool, blockList []*ledger.AccountBlock) {
+func (c *ContractTask) CheckReceiveErrCount(fromAddress *types.Address, fromHash *types.Hash) (count int) {
+
+	return count
+}
+
+func (c *ContractTask) InertBlockListIntoPool(sendBlock *ledger.AccountBlock, blockList []*ledger.AccountBlock) {
 	c.statusMutex.Lock()
 	defer c.statusMutex.Unlock()
-
 	if c.status != Running {
 		c.status = Running
 	}
 
-	// todo 1. package the block with timestamp
+	c.log.Info("InertBlockListIntoPool")
 
-	// todo 2. generate the new received TxBlock
-	// todo 3.NewVM(stateDb Database, createBlockFunc CreateBlockFunc, config VMConfig) *VM
-	// todo 4.(vm *VM) Run(block VmBlock) (blockList []VmBlock, logList []*Log, isRetry bool, err error)
-	// todo 5.(vm *VM) Cancel()
+	// todo: insert into Pool
+}
 
-	return isRetry, blockList
+func (c *ContractTask) GenerateBlocks(recvBlock *ledger.AccountBlock) (isRetry bool, blockList []*ledger.AccountBlock) {
+	c.statusMutex.Lock()
+	defer c.statusMutex.Unlock()
+	if c.status != Running {
+		c.status = Running
+	}
+	return false, nil
+}
+
+func (c *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) (*ledger.AccountBlock, error) {
+	c.statusMutex.Lock()
+	defer c.statusMutex.Unlock()
+	if c.status != Running {
+		c.status = Running
+	}
+
+	c.log.Info("PackReceiveBlock", "sendBlock",
+		c.log.New("sendBlock.Hash", sendBlock.Hash), c.log.New("sendBlock.To", sendBlock.To))
+
+	// todo pack the block with c.args, comput hash, Sign,
+	block := &ledger.AccountBlock{}
+
+	hash, err := block.ComputeHash()
+	if err != nil {
+		c.log.Error("ComputeHash Error")
+		return nil, err
+	}
+	block.Hash = hash
+
+	return block, nil
 }
 
 func (c *ContractTask) GetBlock() *ledger.AccountBlock {
