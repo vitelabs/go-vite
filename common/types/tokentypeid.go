@@ -29,9 +29,9 @@ func (tid *TokenTypeId) SetBytes(b []byte) error {
 func (tid TokenTypeId) Hex() string {
 	return TokenTypeIdPrefix + hex.EncodeToString(tid[:]) + hex.EncodeToString(vcrypto.Hash(tokenTypeIdChecksumSize, tid[:]))
 }
-func (t TokenTypeId) Bytes() []byte { return t[:] }
-func (t TokenTypeId) String() string {
-	return t.Hex()
+func (tid TokenTypeId) Bytes() []byte { return tid[:] }
+func (tid TokenTypeId) String() string {
+	return tid.Hex()
 }
 
 func BytesToTokenTypeId(b []byte) (TokenTypeId, error) {
@@ -87,4 +87,20 @@ func getTtiChecksumFromHex(hexStr string) ([tokenTypeIdChecksumSize]byte, error)
 	var b [tokenTypeIdChecksumSize]byte
 	_, err := hex.Decode(b[:], []byte(hexStr[tokenTypeIdPrefixLen+2*tokenTypeIdSize:]))
 	return b, err
+}
+
+func (tid *TokenTypeId) UnmarshalJSON(input []byte) error {
+	if !isString(input) {
+		return ErrJsonNotString
+	}
+	tti, e := HexToTokenTypeId(string(trimLeftRightQuotation(input)))
+	if e != nil {
+		return e
+	}
+	tid.SetBytes(tti.Bytes())
+	return nil
+}
+
+func (tid TokenTypeId) MarshalText() ([]byte, error) {
+	return []byte(tid.String()), nil
 }

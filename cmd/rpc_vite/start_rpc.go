@@ -9,6 +9,7 @@ import (
 )
 
 func StartIpcRpc(vite *vite.Vite, dataDir string) {
+	rpc.BlockMode = true
 	ipcapiURL := filepath.Join(dataDir, rpc.DefaultIpcFile())
 	fmt.Println(ipcapiURL)
 	rpc.StartIPCEndpoint(ipcapiURL, rpcapi.GetAllApis(vite))

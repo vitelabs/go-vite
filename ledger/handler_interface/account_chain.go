@@ -31,13 +31,13 @@ type TokenInfo struct {
 }
 
 type UnconfirmedAccount struct {
-	AccountAddress *types.Address
-	TotalNumber    *big.Int
-	TokenInfoList  []*TokenInfo
+	Address       *types.Address
+	TotalNumber   *big.Int
+	TokenInfoList []*TokenInfo
 }
 
 type Account struct {
-	AccountAddress *types.Address
-	BlockHeight    *big.Int
-	TokenInfoList  []*TokenInfo
+	Address       *types.Address
+	BlockHeight   *big.Int
+	TokenInfoList []*TokenInfo
 }

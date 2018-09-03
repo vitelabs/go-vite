@@ -27,98 +27,84 @@ func (l LegerApiImpl) String() string {
 	return "LegerApiImpl"
 }
 
-func (l *LegerApiImpl) CreateTxWithPassphrase(params *api.SendTxParms, reply *string) error {
+func (l *LegerApiImpl) CreateTxWithPassphrase(params *api.SendTxParms) error {
 	log.Info("CreateTxWithPassphrase")
 	if params == nil {
 		return fmt.Errorf("sendTxParms nil")
 	}
 	if params.Passphrase == "" {
-		return fmt.Errorf("sendTxParms Passphrase nil")
+		return fmt.Errorf("sendTxParms Passphrase empty")
 	}
-	selfaddr, err := types.HexToAddress(params.SelfAddr)
-	if err != nil {
-		return err
-	}
-	toaddr, err := types.HexToAddress(params.ToAddr)
-	if err != nil {
-		return err
-	}
-	tti, err := types.HexToTokenTypeId(params.TokenTypeId)
-	if err != nil {
-		return err
-	}
+
 	n := new(big.Int)
 	amount, ok := n.SetString(params.Amount, 10)
 	if !ok {
 		return fmt.Errorf("error format of amount")
 	}
-	b := ledger.AccountBlock{AccountAddress: &selfaddr, To: &toaddr, TokenId: &tti, Amount: amount}
+	b := ledger.AccountBlock{AccountAddress: &params.SelfAddr, To: &params.ToAddr, TokenId: &params.TokenTypeId, Amount: amount}
 
 	// call signer.creattx in order to as soon as possible to send tx
-	err = l.signer.CreateTxWithPassphrase(&b, params.Passphrase)
+	err := l.signer.CreateTxWithPassphrase(&b, params.Passphrase)
 
-	//if err != nil {
-	//	return api.TryMakeConcernedError(err, reply)
-	//}
-
-	*reply = "success"
+	if err != nil {
+		newerr, concerned := api.TryMakeConcernedError(err)
+		if concerned {
+			return newerr
+		}
+		return err
+	}
 
 	return nil
 }
 
-func (l *LegerApiImpl) GetBlocksByAccAddr(params *api.GetBlocksParams, reply *string) error {
+func (l *LegerApiImpl) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]api.SimpleBlock, error) {
 	log.Info("GetBlocksByAccAddr")
-	if params == nil {
-		return fmt.Errorf("sendTxParms nil")
-	}
-	addr, err := types.HexToAddress(params.Addr)
-	if err != nil {
-		return err
-	}
-	list, getErr := l.ledgerManager.Ac().GetBlocksByAccAddr(&addr, params.Index, 1, params.Count)
+
+	list, getErr := l.ledgerManager.Ac().GetBlocksByAccAddr(&addr, index, 1, count)
 
 	if getErr != nil {
+		log.Info("GetBlocksByAccAddr", "err", getErr)
 		if getErr.Code == 1 {
-			// it means no data
-			*reply = ""
-			return nil
+			// todo ask lyd it means no data
+			return nil, nil
 		}
-		return getErr.Err
+		return nil, getErr.Err
 	}
-	jsonBlocks := make([]api.SimpleBlock, len(list))
+
+	simpleBlocks := make([]api.SimpleBlock, len(list))
 	for i, v := range list {
 
-		jsonBlocks[i] = api.SimpleBlock{
+		simpleBlocks[i] = api.SimpleBlock{
 			Timestamp: v.Timestamp,
-			Hash:      v.Hash.String(),
+			Hash:      *v.Hash,
 		}
 
 		if v.From != nil {
-			jsonBlocks[i].FromAddr = v.From.String()
+			simpleBlocks[i].FromAddr = *v.From
 		}
 
 		if v.To != nil {
-			jsonBlocks[i].ToAddr = v.To.String()
+			simpleBlocks[i].ToAddr = *v.To
 		}
 
 		if v.Amount != nil {
-			jsonBlocks[i].Amount = v.Amount.String()
+			simpleBlocks[i].Amount = v.Amount.String()
 		}
 
 		if v.Meta != nil {
-			jsonBlocks[i].Status = v.Meta.Status
+			simpleBlocks[i].Status = v.Meta.Status
 		}
 
 		if v.Balance != nil {
-			jsonBlocks[i].Balance = v.Balance.String()
+			simpleBlocks[i].Balance = v.Balance.String()
 		}
 
 		times := l.getBlockConfirmedTimes(v)
 		if times != nil {
-			jsonBlocks[i].ConfirmedTimes = times.String()
+			simpleBlocks[i].ConfirmedTimes = times.String()
 		}
 	}
-	return easyJsonReturn(jsonBlocks, reply)
+	return simpleBlocks, nil
 }
 
 func (l *LegerApiImpl) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.Int {
@@ -148,73 +134,74 @@ func (l *LegerApiImpl) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.I
 	return times
 }
 
-func (l *LegerApiImpl) GetUnconfirmedBlocksByAccAddr(params *api.GetBlocksParams, reply *string) error {
+func (l *LegerApiImpl) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int, count int) ([]api.SimpleBlock, error) {
 	log.Info("GetUnconfirmedBlocksByAccAddr")
-	*reply = "not support"
-	return nil
+	return nil, api.ErrNotSupport
 }
 
-func (l *LegerApiImpl) GetAccountByAccAddr(addrs []string, reply *string) error {
+func (l *LegerApiImpl) GetAccountByAccAddr(addr types.Address) (api.GetAccountResponse, error) {
 	log.Info("GetAccountByAccAddr")
-	if len(addrs) != 1 {
-		return fmt.Errorf("error length addrs %v", len(addrs))
-	}
 
-	addr, err := types.HexToAddress(addrs[0])
-	if err != nil {
-		return err
-	}
 	account, err := l.ledgerManager.Ac().GetAccount(&addr)
 	if err != nil {
-		return err
+		return api.GetAccountResponse{}, err
 	}
 
-	if account == nil || len(account.TokenInfoList) == 0 {
-		*reply = ""
-		return nil
+	response := api.GetAccountResponse{}
+	if account == nil {
+		log.Error("account == nil")
+		return response, nil
 	}
-	var bs []api.BalanceInfo
-	bs = make([]api.BalanceInfo, len(account.TokenInfoList))
-	for i, v := range account.TokenInfoList {
-		amount := "0"
-		if v.TotalAmount != nil {
-			amount = v.TotalAmount.String()
+
+	if account.Address != nil {
+		response.Addr = *account.Address
+	}
+	if account.BlockHeight != nil {
+		response.BlockHeight = account.BlockHeight.String()
+	}
+
+	if len(account.TokenInfoList) != 0 {
+		var bs []api.BalanceInfo
+		bs = make([]api.BalanceInfo, len(account.TokenInfoList))
+		for i, v := range account.TokenInfoList {
+			amount := "0"
+			if v.TotalAmount != nil {
+				amount = v.TotalAmount.String()
+			}
+			bs[i] = api.BalanceInfo{
+				TokenSymbol: v.Token.Symbol,
+				TokenName:   v.Token.Name,
+				TokenTypeId: *v.Token.Id,
+				Balance:     amount,
+			}
 		}
-		bs[i] = api.BalanceInfo{
-			TokenSymbol: v.Token.Symbol,
-			TokenName:   v.Token.Name,
-			TokenTypeId: v.Token.Id.String(),
-			Balance:     amount,
-		}
-	}
 
-	res := api.GetAccountResponse{
-		Addr:         addrs[0],
-		BalanceInfos: bs,
-		BlockHeight:  account.BlockHeight.String(),
+		response.BalanceInfos = bs
 	}
-
-	return easyJsonReturn(res, reply)
+	return response, nil
 }
 
-func (l *LegerApiImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
+func (l *LegerApiImpl) GetUnconfirmedInfo(addr types.Address) (api.GetUnconfirmedInfoResponse, error) {
 	log.Info("GetUnconfirmedInfo")
-	if len(addr) != 1 {
-		return fmt.Errorf("error length addrs %v", len(addr))
-	}
 
-	address, err := types.HexToAddress(addr[0])
-
-	if err != nil {
-		return err
-	}
-	account, e := l.ledgerManager.Ac().GetUnconfirmedAccount(&address)
+	account, e := l.ledgerManager.Ac().GetUnconfirmedAccount(&addr)
 	if e != nil {
-		return e
+		log.Error(e.Error())
+		return api.GetUnconfirmedInfoResponse{}, e
 	}
+
+	response := api.GetUnconfirmedInfoResponse{}
+
 	if account == nil {
-		*reply = ""
-		return nil
+		log.Error("account == nil")
+		return response, nil
+	}
+
+	if account.Address != nil {
+		response.Addr = *account.Address
+	}
+	if account.TotalNumber != nil {
+		response.UnConfirmedBlocksLen = account.TotalNumber.String()
 	}
 
 	if len(account.TokenInfoList) != 0 {
@@ -223,24 +210,19 @@ func (l *LegerApiImpl) GetUnconfirmedInfo(addr []string, reply *string) error {
 			blances[k] = api.BalanceInfo{
 				TokenSymbol: v.Token.Symbol,
 				TokenName:   v.Token.Name,
-				TokenTypeId: v.Token.Id.Hex(),
+				TokenTypeId: *v.Token.Id,
 				Balance:     v.TotalAmount.String(),
 			}
 		}
+		response.BalanceInfos = blances
 
-		return easyJsonReturn(api.GetUnconfirmedInfoResponse{
-			Addr:                 account.AccountAddress.Hex(),
-			BalanceInfos:         blances,
-			UnConfirmedBlocksLen: account.TotalNumber.String(),
-		}, reply)
 	}
 
-	*reply = ""
-	return nil
+	return response, nil
 
 }
 
-func (l *LegerApiImpl) GetInitSyncInfo(noop interface{}, reply *string) error {
+func (l *LegerApiImpl) GetInitSyncInfo() (api.InitSyncResponse, error) {
 	log.Info("GetInitSyncInfo")
 	i := l.ledgerManager.Sc().GetFirstSyncInfo()
 
@@ -252,22 +234,20 @@ func (l *LegerApiImpl) GetInitSyncInfo(noop interface{}, reply *string) error {
 		IsStartFirstSync: i.IsFirstSyncStart,
 	}
 
-	return easyJsonReturn(r, reply)
+	return r, nil
 }
 
-func (l *LegerApiImpl) GetSnapshotChainHeight(noop interface{}, reply *string) error {
+func (l *LegerApiImpl) GetSnapshotChainHeight() (string, error) {
 	log.Info("GetSnapshotChainHeight")
 	block, e := l.ledgerManager.Sc().GetLatestBlock()
 	if e != nil {
-		log.Error("GetSnapshotChainHeight", "err", e)
-		return e
+		log.Error(e.Error())
+		return "", e
 	}
 	if block != nil && block.Height != nil {
-		*reply = block.Height.String()
-		return nil
+		return block.Height.String(), nil
 	}
-	*reply = ""
-	return nil
+	return "", nil
 }
 
 func (l *LegerApiImpl) StartAutoConfirmTx(addr []string, reply *string) error {

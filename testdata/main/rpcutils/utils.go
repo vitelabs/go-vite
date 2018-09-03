@@ -106,8 +106,12 @@ func Cmd(client *rpc.Client) {
 
 // wallet
 func list(client *rpc.Client) {
-	addrs := []types.Address{}
-	client.Call(addrs, "wallet.ListAddress")
+	var addrs []types.Address
+	client.Call(&addrs, "wallet_listAddress")
+	fmt.Println("result:", len(addrs))
+	for _, value := range addrs {
+		fmt.Println(value.String())
+	}
 	//doRpcCall(client, "wallet.ListAddress", nil)
 }
 
@@ -228,7 +232,7 @@ func ExportPriv(client *rpc.Client, param []string) {
 //
 //
 //type newTokenParams struct {
-//	AccountAddress string `json:"accountAddress"`
+//	Address string `json:"accountAddress"`
 //}
 //
 ////http

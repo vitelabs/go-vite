@@ -54,7 +54,7 @@ func (master *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphr
 		return fmt.Errorf("master sync unfinished, so can't create transaction")
 	}
 
-	master.log.Info("AccountAddress" + block.AccountAddress.String())
+	master.log.Info("Address" + block.AccountAddress.String())
 	master.log.Info("ToAddress" + block.To.String())
 
 	master.coreMutex.Lock()

@@ -57,9 +57,9 @@ func (ac *AccountChain) GetAccountToken(tokenId *types.TokenTypeId, accountId *b
 
 func NewAccount(accountAddress *types.Address, blockHeight *big.Int, accountTokenList []*handler_interface.TokenInfo) *handler_interface.Account {
 	return &handler_interface.Account{
-		AccountAddress: accountAddress,
-		BlockHeight:    blockHeight,
-		TokenInfoList:  accountTokenList,
+		Address:       accountAddress,
+		BlockHeight:   blockHeight,
+		TokenInfoList: accountTokenList,
 	}
 }
 
@@ -99,9 +99,9 @@ func (ac *AccountChain) GetUnconfirmedAccount(addr *types.Address) (*handler_int
 		tokenInfoList = append(tokenInfoList, tokenInfo)
 	}
 	var UnconfirmedAccount = &handler_interface.UnconfirmedAccount{
-		AccountAddress: addr,
-		TotalNumber:    unconfirmedMeta.TotalNumber,
-		TokenInfoList:  tokenInfoList,
+		Address:       addr,
+		TotalNumber:   unconfirmedMeta.TotalNumber,
+		TokenInfoList: tokenInfoList,
 	}
 	return UnconfirmedAccount, nil
 }
