@@ -20,6 +20,9 @@ import (
 	"net"
 
 	log "github.com/vitelabs/go-vite/log15"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // StartHTTPEndpoint starts the HTTP RPC endpoint, configured with cors/vhosts/modules
@@ -94,6 +97,17 @@ func StartIPCEndpoint(ipcEndpoint string, apis []API) (net.Listener, *Server, er
 	}
 	// All APIs registered, start the IPC listener.
 	listener, err := ipcListen(ipcEndpoint)
+
+	exitSig := make(chan os.Signal, 1)
+	signal.Notify(exitSig, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-exitSig
+		log.Info("receiver term sig")
+		if listener != nil {
+			listener.Close()
+		}
+	}()
+
 	if err != nil {
 		return nil, nil, err
 	}

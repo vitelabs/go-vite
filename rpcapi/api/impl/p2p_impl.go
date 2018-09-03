@@ -7,9 +7,10 @@ import (
 )
 
 func NewP2PApi(p2p *p2p.Server) api.P2PApi {
-	return P2PApiImpl{
-		p2p: p2p,
-	}
+	//return P2PApiImpl{
+	//	p2p: p2p,
+	//}
+	return nil
 }
 
 type P2PApiImpl struct {

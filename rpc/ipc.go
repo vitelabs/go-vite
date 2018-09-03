@@ -22,10 +22,13 @@ import (
 
 	log "github.com/vitelabs/go-vite/log15"
 	//"github.com/ethereum/go-ethereum/p2p/netutil"
+	"runtime"
+	"fmt"
 )
 
 // ServeListener accepts connections on l, serving JSON-RPC on them.
 func (srv *Server) ServeListener(l net.Listener) error {
+	fmt.Println("Vite rpc start success!")
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -52,4 +55,12 @@ func DialIPC(ctx context.Context, endpoint string) (*Client, error) {
 	return newClient(ctx, func(ctx context.Context) (net.Conn, error) {
 		return newIPCConnection(ctx, endpoint)
 	})
+}
+
+func DefaultIpcFile() string {
+	endpoint := "vite.ipc"
+	if runtime.GOOS == "windows" {
+		endpoint = `\\.\pipe\vite.ipc`
+	}
+	return endpoint
 }
