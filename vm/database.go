@@ -6,6 +6,13 @@ import (
 	"math/big"
 )
 
+type Log struct {
+	// list of topics provided by the contract
+	Topics []types.Hash
+	// supplied by the contract, usually ABI-encoded
+	Data []byte
+}
+
 type VmDatabase interface {
 	Balance(addr types.Address, tokenId types.TokenTypeId) *big.Int
 	SubBalance(addr types.Address, tokenId types.TokenTypeId, amount *big.Int)

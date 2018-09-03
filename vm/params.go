@@ -47,15 +47,18 @@ const (
 	tokenDecimalsMin         uint64 = 0       // Minimum value of a token decimals(exclude)
 	tokenDecimalsMax         uint64 = 18      // Maximum value of a token decimals(include)
 
-	registerGas           uint64 = 43200
-	cancelRegisterGas     uint64 = 64200
-	rewardGas             uint64 = 70000
+	registerGas           uint64 = 41200
+	cancelRegisterGas     uint64 = 62200
+	rewardGas             uint64 = 62200
 	calcRewardGasPerBlock uint64 = 200
 	voteGas               uint64 = 41000
 	cancelVoteGas         uint64 = 41000
+	mortgageGas           uint64 = 61400
+	cancelMortgageGas     uint64 = 61400
 
 	registerLockTime int64  = 3600 * 24 * 90
 	dbPageSize       uint64 = 10000
+	mortgageTime     int64  = 86400 // TODO minimum mortgage time in  second
 
 	//GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
 	//MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.

@@ -16,13 +16,6 @@ type VMConfig struct {
 	Debug bool
 }
 
-type Log struct {
-	// list of topics provided by the contract
-	Topics []types.Hash
-	// supplied by the contract, usually ABI-encoded
-	Data []byte
-}
-
 type VM struct {
 	VMConfig
 	Db          VmDatabase
@@ -195,7 +188,7 @@ func (vm *VM) sendCall(block VmAccountBlock, quotaTotal, quotaAddition uint64) (
 	}
 
 	if p, ok := getPrecompiledContract(block.ToAddress()); ok {
-		quotaLeft, quotaRefund, err = p.doSend(vm, block, quotaLeft, quotaRefund)
+		quotaLeft, err = p.doSend(vm, block, quotaLeft)
 		if err != nil {
 			return nil, err
 		}
