@@ -2,13 +2,12 @@ package main
 
 import (
 	"context"
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/testdata/main/rpcutils"
 )
 
 func main() {
-	client, err := rpc.DialWebsocket(context.Background(), common.DefaultWSEndpoint(), "")
+	client, err := rpc.DialWebsocket(context.Background(), "ws://192.168.31.235:31420", "")
 	if err != nil {
 		panic(err)
 	}

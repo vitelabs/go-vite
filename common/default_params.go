@@ -33,7 +33,7 @@ func HomeDir() string {
 }
 
 func DefaultWSEndpoint() string {
-	return "localhost:31420"
+	return "192.168.31.235:31420"
 }
 
 func DefaultIpcFile() string {
