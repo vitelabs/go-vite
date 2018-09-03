@@ -1,6 +1,6 @@
 package api
 
 type TypesApis interface {
-	IsValidHexAddress(addrs []string, reply *string) error
-	IsValidHexTokenTypeId(ttis []string, reply *string) error
+	IsValidHexAddress(addrs string) bool
+	IsValidHexTokenTypeId(ttis string) bool
 }

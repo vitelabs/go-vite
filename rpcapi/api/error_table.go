@@ -1,40 +1,57 @@
 package api
 
 import (
-	"encoding/json"
 	"github.com/vitelabs/go-vite/ledger/errors"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 )
 
+type JsonRpc2Error struct {
+	Message string
+	Code    int
+}
+
+func (e JsonRpc2Error) Error() string {
+	return e.Message
+}
+
+func (e JsonRpc2Error) ErrorCode() int {
+	return e.Code
+}
+
 var (
-	errBalanceNotEnough    = ledgererrors.ErrBalanceNotEnough.Error()
-	errDecryptKey          = walleterrors.ErrDecryptKey.Error()
-	addressAlreadyUnLocked = walleterrors.ErrAlreadyLocked.Error()
-	concernedErrorMap      map[string]int
+	errBalanceNotEnough = JsonRpc2Error{
+		Message: ledgererrors.ErrBalanceNotEnough.Error(),
+		Code:    5001,
+	}
+
+	errDecryptKey = JsonRpc2Error{
+		Message: walleterrors.ErrDecryptKey.Error(),
+		Code:    4001,
+	}
+
+	addressAlreadyUnLocked = JsonRpc2Error{
+		Message: walleterrors.ErrAlreadyLocked.Error(),
+		Code:    4002,
+	}
+
+	concernedErrorMap map[string]JsonRpc2Error
 )
 
 func init() {
-	concernedErrorMap = make(map[string]int)
-	concernedErrorMap[errDecryptKey] = 4001
-	concernedErrorMap[addressAlreadyUnLocked] = 4002
-	concernedErrorMap[errBalanceNotEnough] = 5001
+	concernedErrorMap = make(map[string]JsonRpc2Error)
+	concernedErrorMap[errDecryptKey.Error()] = errDecryptKey
+	concernedErrorMap[addressAlreadyUnLocked.Error()] = addressAlreadyUnLocked
+	concernedErrorMap[errBalanceNotEnough.Error()] = errBalanceNotEnough
 }
 
-type normalError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-func MakeConcernedError(err error) (errjson string, concerned bool) {
-	code, ok := concernedErrorMap[err.Error()]
-	if ok {
-		bytes, _ := json.Marshal(&normalError{
-			Code:    code,
-			Message: err.Error(),
-		})
-
-		return string(bytes), ok
-	} else {
-		return "", false
+func TryMakeConcernedError(err error) (newerr error, concerned bool) {
+	if err == nil {
+		return nil, false
 	}
+	rerr, ok := concernedErrorMap[err.Error()]
+	if ok {
+		return rerr, ok
+	}
+	return err, false
+
 }
