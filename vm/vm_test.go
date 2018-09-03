@@ -360,7 +360,7 @@ func TestVM_CreateSend(t *testing.T) {
 		//blockList[0].Balance() == nil ||
 		blockList[0].Amount().Cmp(big.NewInt(0)) != 0 ||
 		//blockList[0].StateHash() == emptyHash ||
-		blockList[0].TokenId() != viteTokenTypeId {
+		!isViteToken(blockList[0].TokenId()) {
 		t.Fatalf("send create fail [%v] %v", blockList, err)
 	}
 }

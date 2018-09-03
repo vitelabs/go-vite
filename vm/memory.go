@@ -37,10 +37,10 @@ func (m *memory) get(offset, size int64) (cpy []byte) {
 		cpy = make([]byte, size)
 		copy(cpy, m.store[offset:offset+size])
 
-		return
+		return cpy
 	}
 
-	return
+	return nil
 }
 
 // getPtr returns the offset + size

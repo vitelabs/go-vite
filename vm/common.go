@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"bytes"
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 )
@@ -35,11 +36,19 @@ var (
 	emptyAddress     = types.Address{}
 	emptyTokenTypeId = types.TokenTypeId{}
 	emptyWord        = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	emptyTimestamp   = []byte{0, 0, 0, 0, 0, 0, 0, 0}
 
 	// TODO system id
 	viteTokenTypeId = types.TokenTypeId{}
 	snapshotGid     = Gid{}
 )
+
+func isViteToken(tokenId types.TokenTypeId) bool {
+	return bytes.Equal(tokenId.Bytes(), viteTokenTypeId.Bytes())
+}
+func isSnapshotGid(gid Gid) bool {
+	return bytes.Equal(gid.Bytes(), snapshotGid.Bytes())
+}
 
 // toWordSize returns the ceiled word size required for memory expansion.
 func toWordSize(size uint64) uint64 {

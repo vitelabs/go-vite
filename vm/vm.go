@@ -407,7 +407,7 @@ func (vm *VM) revert() {
 func (vm *VM) canTransfer(addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 	if feeAmount.Sign() == 0 {
 		return tokenAmount.Cmp(vm.Db.Balance(addr, tokenTypeId)) <= 0
-	} else if bytes.Equal(tokenTypeId.Bytes(), viteTokenTypeId.Bytes()) {
+	} else if isViteToken(tokenTypeId) {
 		balance := new(big.Int).Add(tokenAmount, feeAmount)
 		return balance.Cmp(vm.Db.Balance(addr, tokenTypeId)) <= 0
 	} else {

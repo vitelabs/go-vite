@@ -52,9 +52,9 @@ const (
 	rewardGas             uint64 = 62200
 	calcRewardGasPerBlock uint64 = 200
 	voteGas               uint64 = 41000
-	cancelVoteGas         uint64 = 41000
+	cancelVoteGas         uint64 = 21000
 	mortgageGas           uint64 = 61400
-	cancelMortgageGas     uint64 = 61400
+	cancelMortgageGas     uint64 = 82400
 
 	registerLockTime int64  = 3600 * 24 * 90
 	dbPageSize       uint64 = 10000
@@ -94,4 +94,5 @@ var (
 	rewardHeightLimit = big.NewInt(50)
 	rewardGapLimit    = big.NewInt(30000000)
 	rewardPerBlock    = big.NewInt(1e18)
+	dbPageSizeBig     = new(big.Int).SetUint64(dbPageSize)
 )
