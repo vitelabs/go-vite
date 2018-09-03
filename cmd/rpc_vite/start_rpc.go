@@ -1,16 +1,19 @@
 package rpc_vite
 
 import (
+	"fmt"
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi"
 	"github.com/vitelabs/go-vite/vite"
 	"path/filepath"
-	"github.com/vitelabs/go-vite/rpc"
-	"fmt"
 )
 
-func StartIpcRpc(vite *vite.Vite, dataDir string) {
-	rpc.BlockMode = true
-	ipcapiURL := filepath.Join(dataDir, rpc.DefaultIpcFile())
+func StartRpc(vite *vite.Vite, dataDir string) {
+	ipcapiURL := filepath.Join(dataDir, common.DefaultIpcFile())
 	fmt.Println(ipcapiURL)
-	rpc.StartIPCEndpoint(ipcapiURL, rpcapi.GetAllApis(vite))
+	go rpc.StartIPCEndpoint(ipcapiURL, rpcapi.GetAllApis(vite))
+	go rpc.StartWSEndpoint(common.DefaultWSEndpoint(), rpcapi.GetAllApis(vite), nil, []string{"*"}, true)
+	c := make(chan int)
+	<-c
 }

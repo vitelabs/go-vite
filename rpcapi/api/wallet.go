@@ -30,7 +30,7 @@ type WalletApi interface {
 	// hexAddress := unlockParams[0] passphrase := unlockParams[1] unlocktime := unlockParams[2]
 	// unlocks the given address with the passphrase. The account stays unlocked for the duration of timeout (seconds)
 	// if the timeout is <0 we will keep the unlock state until the program exit.
-	UnLockAddress(addr types.Address, password string, duration *uint64) (bool, error)
+	UnlockAddress(addr types.Address, password string, duration *uint64) (bool, error)
 
 	// you must pass an address into lockParams , if no error happened means lock success
 	LockAddress(addr types.Address) error

@@ -2,6 +2,7 @@ package keystore
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
@@ -136,3 +137,24 @@ func TestDir(t *testing.T) {
 
 	println(filename)
 }
+
+func TestManager_Status(t *testing.T) {
+	m := make(map[string]string)
+	//a0, _, _ := types.CreateAddress()
+	//m[a0] = "lock"
+	//a1, _, _ := types.CreateAddress()
+	//m[a1] = "unlock"
+	//bytes, e := json.Marshal(m)
+	//if e != nil {
+	//	t.Fatal(e)
+	//}
+	//fmt.Println(string(bytes))
+
+	unmarshal := json.Unmarshal(
+		[]byte(`{"vite_642b00ebfdc76c12fdd8f7272c174f8646d615cfc03c41aac7":"lock","vite_cf1411bcbb5aac657b4607ac3cfdeac843b22c2de6ae23685b":"unlock"}`),
+		&m)
+	if unmarshal != nil {
+		t.Fatal(unmarshal)
+	}
+}
+

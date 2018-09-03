@@ -42,7 +42,7 @@ func (m WalletApiImpl) Status() map[types.Address]string {
 	return s
 }
 
-func (m *WalletApiImpl) UnLockAddress(addr types.Address, password string, duration *uint64) (bool, error) {
+func (m *WalletApiImpl) UnlockAddress(addr types.Address, password string, duration *uint64) (bool, error) {
 	log.Info("UnLock")
 
 	const max = uint64(time.Duration(math.MaxInt64) / time.Second)

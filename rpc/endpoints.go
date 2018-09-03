@@ -25,7 +25,6 @@ import (
 	"syscall"
 )
 
-var BlockMode = false
 
 // StartHTTPEndpoint starts the HTTP RPC endpoint, configured with cors/vhosts/modules
 func StartHTTPEndpoint(endpoint string, apis []API, modules []string, cors []string, vhosts []string, timeouts HTTPTimeouts) (net.Listener, *Server, error) {
@@ -52,11 +51,9 @@ func StartHTTPEndpoint(endpoint string, apis []API, modules []string, cors []str
 	if listener, err = net.Listen("tcp", endpoint); err != nil {
 		return nil, nil, err
 	}
-	if BlockMode {
-		NewHTTPServer(cors, vhosts, timeouts, handler).Serve(listener)
-	} else {
-		go NewHTTPServer(cors, vhosts, timeouts, handler).Serve(listener)
-	}
+
+	go NewHTTPServer(cors, vhosts, timeouts, handler).Serve(listener)
+
 	return listener, handler, err
 }
 
@@ -86,11 +83,9 @@ func StartWSEndpoint(endpoint string, apis []API, modules []string, wsOrigins []
 	if listener, err = net.Listen("tcp", endpoint); err != nil {
 		return nil, nil, err
 	}
-	if BlockMode {
-		NewWSServer(wsOrigins, handler).Serve(listener)
-	} else {
-		go NewWSServer(wsOrigins, handler).Serve(listener)
-	}
+
+	go NewWSServer(wsOrigins, handler).Serve(listener)
+
 	return listener, handler, err
 
 }
@@ -121,10 +116,8 @@ func StartIPCEndpoint(ipcEndpoint string, apis []API) (net.Listener, *Server, er
 	if err != nil {
 		return nil, nil, err
 	}
-	if BlockMode {
-		handler.ServeListener(listener)
-	} else {
-		go handler.ServeListener(listener)
-	}
+
+	go handler.ServeListener(listener)
+
 	return listener, handler, nil
 }

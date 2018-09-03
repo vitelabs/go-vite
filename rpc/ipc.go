@@ -22,7 +22,6 @@ import (
 
 	log "github.com/vitelabs/go-vite/log15"
 	//"github.com/ethereum/go-ethereum/p2p/netutil"
-	"runtime"
 	"fmt"
 )
 
@@ -33,6 +32,7 @@ func (srv *Server) ServeListener(l net.Listener) error {
 		conn, err := l.Accept()
 		if err != nil {
 			log.Error("ServeListener ", "err", err)
+			return err
 		}
 		//if netutil.IsTemporaryError(err) {
 		//	log.Warn("RPC accept error", "err", err)
@@ -40,7 +40,9 @@ func (srv *Server) ServeListener(l net.Listener) error {
 		//} else if err != nil {
 		//	return err
 		//}
-		log.Info("Accepted connection", "addr", conn.RemoteAddr())
+		if conn != nil {
+			log.Info("Accepted connection", "addr", conn.RemoteAddr())
+		}
 		go srv.ServeCodec(NewJSONCodec(conn), OptionMethodInvocation|OptionSubscriptions)
 	}
 }
@@ -57,10 +59,4 @@ func DialIPC(ctx context.Context, endpoint string) (*Client, error) {
 	})
 }
 
-func DefaultIpcFile() string {
-	endpoint := "vite.ipc"
-	if runtime.GOOS == "windows" {
-		endpoint = `\\.\pipe\vite.ipc`
-	}
-	return endpoint
-}
+

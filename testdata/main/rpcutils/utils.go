@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/rpc"
 	"os"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -13,7 +14,7 @@ import (
 func Help() {
 	fmt.Println("----------------------- JUST A TEST CLIENT DON'T BE TOO SERIOUS -----------------------------")
 	fmt.Println("create [password]:                      create an address by given password(default 123456) ")
-	fmt.Println("list:                                   list all address")
+	fmt.Println("List:                                   List all address")
 	fmt.Println("status:                                 show all address locked or unlocked")
 	fmt.Println("unlock [address] [password]:            unlock the address with given passsword(default 123456)")
 	fmt.Println("importpriv [hexprivkey] [password]:     import private key and use the given password to generate keystore ")
@@ -43,8 +44,8 @@ func Cmd(client *rpc.Client) {
 		if strings.HasPrefix(input, "quit") {
 			return
 		}
-		if strings.HasPrefix(input, "list") {
-			list(client)
+		if strings.HasPrefix(input, "List") {
+			List(client)
 		} else if strings.HasPrefix(input, "create") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			s := "123456"
@@ -56,7 +57,13 @@ func Cmd(client *rpc.Client) {
 			status(client)
 		} else if strings.HasPrefix(input, "unlock") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
-			Unlock(client, param)
+			if len(param) == 1 {
+				Unlock(client, param[0], "123456", "0")
+			} else if len(param) == 2 {
+				Unlock(client, param[0], param[1], "0")
+			} else if len(param) == 3 {
+				Unlock(client, param[0], param[1], param[2])
+			}
 		} else if strings.HasPrefix(input, "SignDataWithPassphrase") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			SignDataWithPassphrase(client, param)
@@ -65,7 +72,7 @@ func Cmd(client *rpc.Client) {
 			SignData(client, param)
 		} else if strings.HasPrefix(input, "lock") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
-			Lock(client, param)
+			Lock(client, param[0])
 		} else if strings.HasPrefix(input, "importpriv") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			ImportPriv(client, param)
@@ -105,7 +112,7 @@ func Cmd(client *rpc.Client) {
 }
 
 // wallet
-func list(client *rpc.Client) {
+func List(client *rpc.Client) {
 	var addrs []types.Address
 	client.Call(&addrs, "wallet_listAddress")
 	fmt.Println("result:", len(addrs))
@@ -116,20 +123,47 @@ func list(client *rpc.Client) {
 }
 
 func createAddress(client *rpc.Client, pwd string) {
-	//doRpcCall(client, "wallet.NewAddress", []string{pwd})
+	var addr types.Address
+	err := client.Call(&addr, "wallet_newAddress", pwd)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("result:\n", addr)
 }
 
 func status(client *rpc.Client) {
-	//doRpcCall(client, "wallet.Status", nil)
-}
-
-func Unlock(client *rpc.Client, param []string) {
-	if len(param) == 1 {
-		param = append(param, "123456")
+	m := make(map[string]string)
+	err := client.Call(&m, "wallet_status")
+	if err != nil {
+		fmt.Println(err)
+	}
+	for key, value := range m {
+		fmt.Println(key, " ", value)
 	}
 }
 
-func Lock(client *rpc.Client, param []string) {
+func Unlock(client *rpc.Client, address, pwd, time string) {
+	i, e := strconv.Atoi(time)
+	if e != nil {
+		fmt.Println(e)
+		return
+	}
+	var b bool
+	err := client.Call(&b, "wallet_unlockAddress", address, pwd, i)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("result:\n", b)
+}
+
+func Lock(client *rpc.Client, address string) {
+	err := client.Call(nil, "wallet_lockAddress", address)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("success")
+
 }
 
 func SignData(client *rpc.Client, param []string) {
