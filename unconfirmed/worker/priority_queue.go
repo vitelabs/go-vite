@@ -3,8 +3,8 @@ package worker
 import (
 	"container/heap"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
+	"github.com/vitelabs/go-vite/unconfirmed"
 )
 
 type fromItem struct {
@@ -47,7 +47,7 @@ func (pfq *PriorityFromQueue) Swap(i, j int) {
 	(*pfq)[j].index = j
 }
 
-func (pfq *PriorityFromQueue) InsertNew(block *ledger.AccountBlock) {
+func (pfq *PriorityFromQueue) InsertNew(block *unconfirmed.AccountBlock) {
 	var find = false
 	for _, v := range *pfq {
 		if v.key == block.From {
@@ -97,10 +97,10 @@ func (ptq *PriorityToQueue) Push(x interface{}) {
 func (ptq *PriorityToQueue) Pop() interface{} {
 	old := *ptq
 	n := len(old)
-	fItem := old[n-1]
-	fItem.index = -1 // for safety
+	item := old[n-1]
+	item.index = -1 // for safety
 	*ptq = old[0 : n-1]
-	return fItem
+	return item
 }
 
 func (ptq *PriorityToQueue) Len() int { return len(*ptq) }
@@ -119,11 +119,15 @@ func (ptq *PriorityToQueue) Swap(i, j int) {
 	(*ptq)[j].index = j
 }
 
-func (ptq *PriorityToQueue) InsertNew(block *ledger.AccountBlock) {
+func (ptq *PriorityToQueue) InsertNew(block *unconfirmed.AccountBlock) {
 	var find = false
 	for _, v := range *ptq {
 		if v.key == block.To {
 			v.value.InsertNew(block)
+			if v.priority == nil {
+				v.priority = big.NewInt(0)
+			}
+			v.priority.Add(v.priority, block.Balance[Vite_TokenId])
 			find = true
 			break
 		}
@@ -134,6 +138,7 @@ func (ptq *PriorityToQueue) InsertNew(block *ledger.AccountBlock) {
 		tItem := &toItem{
 			key:   block.To,
 			value: &fQueue,
+			priority: block.Balance[Vite_TokenId],
 		}
 		ptq.Push(tItem)
 	}

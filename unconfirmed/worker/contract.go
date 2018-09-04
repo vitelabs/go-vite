@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"container/heap"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed"
@@ -11,11 +12,9 @@ import (
 var (
 	POMAXPROCS = runtime.NumCPU()
 	TASK_SIZE  = 2 * POMAXPROCS
-	FETCH_SIZE = 4 * POMAXPROCS
+	FETCH_SIZE = 2 * POMAXPROCS
 	CACHE_SIZE = 2 * POMAXPROCS
 )
-
-type fromMap map[types.Address]*BlockQueue
 
 type ContractWorker struct {
 	vite    Vite
@@ -31,7 +30,7 @@ type ContractWorker struct {
 	newContractListener chan struct{}
 
 	contractTasks   []*ContractTask
-	priorityToQueue PriorityToQueue
+	priorityToQueue *PriorityToQueue
 	blackList       map[types.Hash]bool
 
 	statusMutex sync.Mutex
@@ -111,68 +110,56 @@ func (w *ContractWorker) Close() error {
 
 func (w *ContractWorker) DispatchTask(addressList []*types.Address) {
 	//todo add mutex
-	turn := 0
-	turn = w.GetTx(addressList, turn)
+	w.FetchNew(addressList)
 	for {
-		for _, v := range w.contractTasks {
-			if w.Status() == Stop {
-				// todo: to clear tomap
-				goto END
-			}
-			if w.queue.Size() < 1 {
-				goto WAIT
-			}
+		for i := 0; i < w.priorityToQueue.Len(); i++ {
+			tItem := heap.Pop(w.priorityToQueue).(*toItem)
+			priorityFromQueue := tItem.value
+			for j := 0; j < priorityFromQueue.Len(); j++ {
+				fItem := heap.Pop(priorityFromQueue).(*fromItem)
+				blockQueue := fItem.value
+				qLen := blockQueue.Size()
+				for k := 0; k < qLen; {
 
-			block := w.queue.Dequeue()
+				FINDFREETASK:
+					if w.Status() == Stop {
+						// todo: to clear priorityToQueue
+						goto END
+					}
 
-			if v.Status() == Idle {
-				v.subQueue <- block
+					freeTaskIndex := w.FindAFreeTask()
+					if freeTaskIndex == -1 {
+						goto FINDFREETASK
+					}
+
+					block := blockQueue.Dequeue()
+					w.contractTasks[freeTaskIndex].subQueue <- block
+					k++
+				}
 			}
 		}
-		continue
 
-	WAIT:
 		w.dispatcherSleep = true
 		<-w.dispatcherAlarm
 		w.dispatcherSleep = false
-		turn = w.GetTx(addressList, turn)
+		w.FetchNew(addressList)
 	}
-
 END:
-	w.log.Info("DispatchTask end")
+	w.log.Info("worker DispatchTask end")
 }
 
-func (w *ContractWorker) GetTx(addressList []*types.Address, index int) (turn int) {
-	var i = 0
-	for j := 0; (i+index)%len(addressList) < FETCH_SIZE; i++ {
-		hashList, err := w.vite.Ledger().Ac().GetUnconfirmedTxHashs(j, 1, 1, addressList[i])
-		if err != nil {
-			w.log.Error("FillMemTx.GetUnconfirmedTxHashs error")
-			continue
-		}
-		for j := range hashList {
-			block, err := w.vite.Ledger().Ac().GetBlockByHash(hashList[j])
-			if err != nil || block == nil {
-				w.log.Error("FillMemTx.GetBlockByHash error")
-				continue
-			}
-			if _, ok := w.blackList[*block.Hash]; !ok {
-				w.queue.Enqueue(block)
-			} else {
-				// move the dbGet iterator of the start index to the next
-				j++
-			}
+func (w *ContractWorker) FindAFreeTask() (index int) {
+	for k, v := range w.contractTasks {
+		if v.status == Idle {
+			return k
 		}
 	}
-	turn = (i + index) % len(addressList)
-	return turn
+	return -1
 }
 
-func (w *ContractWorker) FetchNew(addressList []*types.Address, turn int) (newTurn int) {
-	var i int
-	for i = 0; i < len(addressList); i++ {
-		newTurn := (i + turn) % len(addressList)
-		hashList, err := w.vite.Ledger().Ac().GetUnconfirmedTxHashs(0, 1, FETCH_SIZE, addressList[newTurn])
+func (w *ContractWorker) FetchNew(addressList []*types.Address) {
+	for i := 0; i < len(addressList); i++ {
+		hashList, err := w.vite.Ledger().Ac().GetUnconfirmedTxHashs(0, 1, FETCH_SIZE, addressList[i])
 		if err != nil {
 			w.log.Error("FillMemTx.GetUnconfirmedTxHashs error")
 			continue
@@ -184,23 +171,8 @@ func (w *ContractWorker) FetchNew(addressList []*types.Address, turn int) (newTu
 				continue
 			}
 			if _, ok := w.blackList[*block.Hash]; !ok {
-				if fm, ok := w.toMap[*block.To]; ok {
-					if bq, ok := fm[*block.From]; ok {
-						bq.InsertNew(block)
-					} else {
-						var q *BlockQueue
-						q.InsertNew(block)
-						fm[*block.From] = q
-					}
-				} else {
-					var q *BlockQueue
-					q.InsertNew(block)
-					fMap := make(fromMap)
-					fMap[*block.From] = q
-					w.toMap[*block.To] = fMap
-				}
+				w.priorityToQueue.InsertNew(block)
 			}
 		}
 	}
-	return newTurn + 1
 }

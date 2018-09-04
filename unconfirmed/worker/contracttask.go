@@ -22,7 +22,7 @@ type ContractTask struct {
 	statusMutex sync.Mutex
 	status      int
 
-	subQueue chan *ledger.AccountBlock
+	subQueue chan *unconfirmed.AccountBlock
 	args     *unconfirmed.RightEventArgs
 
 	reRetry bool
@@ -33,7 +33,7 @@ type ContractTask struct {
 func (c *ContractTask) InitContractTask(vite Vite, args *unconfirmed.RightEventArgs) {
 	c.vite = vite
 	c.status = Idle
-	c.subQueue = make(chan *ledger.AccountBlock, CACHE_SIZE)
+	c.subQueue = make(chan *unconfirmed.AccountBlock, CACHE_SIZE)
 	c.args = args
 	c.log = log15.New("ContractTask")
 }
@@ -69,7 +69,6 @@ func (c *ContractTask) Start(blackList *map[types.Hash]bool) {
 
 		isRetry, blockList := c.GenerateBlocks(block)
 
-
 		// todo: maintain the gid-contractAddress into VmDB
 		// AddConsensusGroup(group ConsensusGroup,)
 
@@ -97,7 +96,7 @@ func (c *ContractTask) CheckReceiveErrCount(fromAddress *types.Address, fromHash
 	return count
 }
 
-func (c *ContractTask) InertBlockListIntoPool(sendBlock *ledger.AccountBlock, blockList []*ledger.AccountBlock) {
+func (c *ContractTask) InertBlockListIntoPool(sendBlock *unconfirmed.AccountBlock, blockList []*ledger.AccountBlock) {
 	c.statusMutex.Lock()
 	defer c.statusMutex.Unlock()
 	if c.status != Running {
@@ -109,7 +108,7 @@ func (c *ContractTask) InertBlockListIntoPool(sendBlock *ledger.AccountBlock, bl
 	// todo: insert into Pool
 }
 
-func (c *ContractTask) GenerateBlocks(recvBlock *ledger.AccountBlock) (isRetry bool, blockList []*ledger.AccountBlock) {
+func (c *ContractTask) GenerateBlocks(recvBlock *unconfirmed.AccountBlock) (isRetry bool, blockList []*ledger.AccountBlock) {
 	c.statusMutex.Lock()
 	defer c.statusMutex.Unlock()
 	if c.status != Running {
@@ -118,7 +117,7 @@ func (c *ContractTask) GenerateBlocks(recvBlock *ledger.AccountBlock) (isRetry b
 	return false, nil
 }
 
-func (c *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) (*ledger.AccountBlock, error) {
+func (c *ContractTask) PackReceiveBlock(sendBlock *unconfirmed.AccountBlock) (*ledger.AccountBlock, error) {
 	c.statusMutex.Lock()
 	defer c.statusMutex.Unlock()
 	if c.status != Running {
@@ -129,7 +128,27 @@ func (c *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) (*ledger
 		c.log.New("sendBlock.Hash", sendBlock.Hash), c.log.New("sendBlock.To", sendBlock.To))
 
 	// todo pack the block with c.args, comput hash, Sign,
-	block := &ledger.AccountBlock{}
+	block := &ledger.AccountBlock{
+		Meta:                   nil,
+		AccountAddress:         nil,
+		PublicKey:              nil,
+		To:                     nil,
+		From:                   nil,
+		FromHash:               nil,
+		PrevHash:               nil,
+		Hash:                   nil,
+		Balance:                nil,
+		Amount:                 nil,
+		Timestamp:              0,
+		TokenId:                nil,
+		LastBlockHeightInToken: nil,
+		Data:                   "",
+		SnapshotTimestamp:      nil,
+		Signature:              nil,
+		Nounce:                 nil,
+		Difficulty:             nil,
+		FAmount:                nil,
+	}
 
 	hash, err := block.ComputeHash()
 	if err != nil {
@@ -141,7 +160,7 @@ func (c *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) (*ledger
 	return block, nil
 }
 
-func (c *ContractTask) GetBlock() *ledger.AccountBlock {
+func (c *ContractTask) GetBlock() *unconfirmed.AccountBlock {
 	c.statusMutex.Lock()
 	defer c.statusMutex.Unlock()
 

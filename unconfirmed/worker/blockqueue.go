@@ -2,21 +2,21 @@ package worker
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/unconfirmed"
 	"math/big"
 	"sync"
 )
 
-var Vite_TokenId = "vite"
+var Vite_TokenId, _ = types.BytesToTokenTypeId([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 
 type BlockQueue struct {
-	items       []*ledger.AccountBlock
+	items       []*unconfirmed.AccountBlock
 	totalBalnce *big.Int
 	fromName    *types.Address
 	lock        sync.RWMutex
 }
 
-func (q *BlockQueue) Dequeue() *ledger.AccountBlock {
+func (q *BlockQueue) Dequeue() *unconfirmed.AccountBlock {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	item := q.items[0]
@@ -28,7 +28,7 @@ func (q *BlockQueue) Dequeue() *ledger.AccountBlock {
 	return item
 }
 
-func (q *BlockQueue) Enqueue(block *ledger.AccountBlock) {
+func (q *BlockQueue) Enqueue(block *unconfirmed.AccountBlock) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	q.items = append(q.items, block)
@@ -38,7 +38,7 @@ func (q *BlockQueue) Enqueue(block *ledger.AccountBlock) {
 	q.totalBalnce.Add(q.totalBalnce, block.Balance[Vite_TokenId])
 }
 
-func (q *BlockQueue) Front() *ledger.AccountBlock {
+func (q *BlockQueue) Front() *unconfirmed.AccountBlock {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	item := q.items[0]
@@ -60,11 +60,11 @@ func (q *BlockQueue) Clear() {
 }
 
 // InsertNew is sorted by block Height
-func (q *BlockQueue) InsertNew(block *ledger.AccountBlock) {
+func (q *BlockQueue) InsertNew(block *unconfirmed.AccountBlock) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	for k, v := range q.items {
-		if block.Height > v.Height {
+		if block.Height.Cmp(v.Height) == -1 {
 			newSlice := q.items[0 : k-1]
 			newSlice = append(newSlice, block)
 		}
