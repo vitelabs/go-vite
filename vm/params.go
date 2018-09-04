@@ -58,7 +58,7 @@ const (
 
 	registerLockTime int64  = 3600 * 24 * 90
 	dbPageSize       uint64 = 10000
-	mortgageTime     int64  = 86400 // TODO minimum mortgage time in  second
+	mortgageTime     int64  = 3600 * 24 * 3 // minimum mortgage time in  second
 
 	//GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
 	//MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.

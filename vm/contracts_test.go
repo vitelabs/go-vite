@@ -405,7 +405,7 @@ func TestContractsRun(t *testing.T) {
 	// mortgage
 	addr5 := AddressMortgage
 	mortgageAmount := reward
-	withdrawTime := leftPadBytes(big.NewInt(timestamp+86453).Bytes(), 8)
+	withdrawTime := leftPadBytes(big.NewInt(timestamp+53+mortgageTime).Bytes(), 8)
 	hash1b := types.DataHash([]byte{1, 11})
 	block1b := &NoAccountBlock{
 		height:         big.NewInt(11),
@@ -455,7 +455,7 @@ func TestContractsRun(t *testing.T) {
 	db.accountBlockMap[addr5] = make(map[types.Hash]VmAccountBlock)
 	db.accountBlockMap[addr5][hash51] = receiveMortgageBlockList[0]
 
-	withdrawTime = leftPadBytes(big.NewInt(timestamp+86500).Bytes(), 8)
+	withdrawTime = leftPadBytes(big.NewInt(timestamp+100+mortgageTime).Bytes(), 8)
 	hash1c := types.DataHash([]byte{1, 12})
 	block1c := &NoAccountBlock{
 		height:         big.NewInt(12),
@@ -504,7 +504,7 @@ func TestContractsRun(t *testing.T) {
 	db.accountBlockMap[addr5][hash52] = receiveMortgageBlockList2[0]
 
 	// cancel mortgage
-	snapshot55 := &NoSnapshotBlock{height: big.NewInt(55), timestamp: timestamp + 86500, hash: types.DataHash([]byte{10, 55}), producer: addr1}
+	snapshot55 := &NoSnapshotBlock{height: big.NewInt(55), timestamp: timestamp + 100 + mortgageTime, hash: types.DataHash([]byte{10, 55}), producer: addr1}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot55)
 
 	hash1d := types.DataHash([]byte{1, 13})
