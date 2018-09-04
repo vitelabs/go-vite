@@ -41,7 +41,7 @@ func (vm *VM) Run(block VmAccountBlock) (blockList []VmAccountBlock, isRetry boo
 		block.SetTokenId(sendBlock.TokenId())
 		if sendBlock.BlockType() == BlockTypeSendCreate {
 			return vm.receiveCreate(block, vm.calcCreateQuota(sendBlock.CreateFee()))
-		} else if sendBlock.BlockType() == BlockTypeSendCall {
+		} else if sendBlock.BlockType() == BlockTypeSendCall || sendBlock.BlockType() == BlockTypeSendReward {
 			return vm.receiveCall(block)
 		} else if sendBlock.BlockType() == BlockTypeSendMintage {
 			return vm.receiveMintage(block)
@@ -71,6 +71,7 @@ func (vm *VM) Run(block VmAccountBlock) (blockList []VmAccountBlock, isRetry boo
 			return []VmAccountBlock{block}, noRetry, nil
 		}
 	}
+
 	return nil, noRetry, errors.New("transaction type not supported")
 }
 
@@ -204,7 +205,7 @@ func (vm *VM) receiveCall(block VmAccountBlock) (blockList []VmAccountBlock, isR
 		vm.blockList = []VmAccountBlock{block}
 		vm.Db.AddBalance(block.ToAddress(), block.TokenId(), block.Amount())
 		err := p.doReceive(vm, block)
-		if err != nil {
+		if err == nil {
 			vm.updateBlock(block, block.ToAddress(), err, 0, nil)
 			err = vm.doSendBlockList(txGas)
 			if err == nil {
@@ -318,6 +319,21 @@ func (vm *VM) receiveMintage(block VmAccountBlock) (blockList []VmAccountBlock, 
 	return vm.blockList, noRetry, nil
 }
 
+func (vm *VM) sendReward(block VmAccountBlock, quotaTotal, quotaAddition uint64) (VmAccountBlock, error) {
+	// check can make transaction
+	quotaLeft := quotaTotal
+	cost, err := intrinsicGasCost(block.Data(), false)
+	if err != nil {
+		return nil, err
+	}
+	quotaLeft, err = useQuota(quotaLeft, cost)
+	if err != nil {
+		return nil, err
+	}
+	vm.updateBlock(block, block.AccountAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, uint64(0), nil), nil)
+	return block, nil
+}
+
 func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract) (ret []byte, err error) {
 	cNew := newContract(c.caller, c.address, c.block, c.quotaLeft, c.quotaRefund)
 	cNew.setCallCode(contractAddr, vm.Db.ContractCode(contractAddr))
@@ -383,17 +399,22 @@ func (vm *VM) doSendBlockList(quotaLeft uint64) (err error) {
 	for i, block := range vm.blockList[1:] {
 		switch block.BlockType() {
 		case BlockTypeSendCall:
-			vm.blockList[i], err = vm.sendCall(block, quotaLeft, 0)
+			vm.blockList[i+1], err = vm.sendCall(block, quotaLeft, 0)
 			if err != nil {
 				return err
 			}
 		case BlockTypeSendMintage:
-			vm.blockList[i], err = vm.sendCreate(block, quotaLeft, 0)
+			vm.blockList[i+1], err = vm.sendCreate(block, quotaLeft, 0)
+			if err != nil {
+				return err
+			}
+		case BlockTypeSendReward:
+			vm.blockList[i+1], err = vm.sendReward(block, quotaLeft, 0)
 			if err != nil {
 				return err
 			}
 		}
-		quotaLeft = quotaLeft - vm.blockList[i].Quota()
+		quotaLeft = quotaLeft - vm.blockList[i+1].Quota()
 	}
 	return nil
 }

@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"bytes"
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 )
@@ -13,26 +14,33 @@ type VmToken struct {
 	decimals    uint64
 }
 
+type consensusGroup struct{}
+
 type NoDatabase struct {
-	balanceMap               map[types.Address]map[types.TokenTypeId]*big.Int
-	storageMap               map[types.Address]map[types.Hash][]byte
-	codeMap                  map[types.Address][]byte
-	logList                  []*Log
-	snapshotBlockMap         map[types.Hash]VmSnapshotBlock
-	currentSnapshotBlockHash types.Hash
-	accountBlockMap          map[types.Address]map[types.Hash]VmAccountBlock
-	tokenMap                 map[types.TokenTypeId]VmToken
+	balanceMap        map[types.Address]map[types.TokenTypeId]*big.Int
+	storageMap        map[types.Address]map[types.Hash][]byte
+	codeMap           map[types.Address][]byte
+	contractGidMap    map[types.Address]Gid
+	logList           []Log
+	snapshotBlockList []VmSnapshotBlock
+	accountBlockMap   map[types.Address]map[types.Hash]VmAccountBlock
+	tokenMap          map[types.TokenTypeId]VmToken
+	consensusGroupMap map[Gid]consensusGroup
 }
 
 func NewNoDatabase() *NoDatabase {
+	consensusGroupMap := make(map[Gid]consensusGroup)
+	consensusGroupMap[snapshotGid] = consensusGroup{}
 	return &NoDatabase{
-		balanceMap:       make(map[types.Address]map[types.TokenTypeId]*big.Int),
-		storageMap:       make(map[types.Address]map[types.Hash][]byte),
-		codeMap:          make(map[types.Address][]byte),
-		logList:          make([]*Log, 0),
-		snapshotBlockMap: make(map[types.Hash]VmSnapshotBlock),
-		accountBlockMap:  make(map[types.Address]map[types.Hash]VmAccountBlock),
-		tokenMap:         make(map[types.TokenTypeId]VmToken),
+		balanceMap:        make(map[types.Address]map[types.TokenTypeId]*big.Int),
+		storageMap:        make(map[types.Address]map[types.Hash][]byte),
+		codeMap:           make(map[types.Address][]byte),
+		contractGidMap:    make(map[types.Address]Gid),
+		logList:           make([]Log, 0),
+		snapshotBlockList: make([]VmSnapshotBlock, 0),
+		accountBlockMap:   make(map[types.Address]map[types.Hash]VmAccountBlock),
+		tokenMap:          make(map[types.TokenTypeId]VmToken),
+		consensusGroupMap: consensusGroupMap,
 	}
 }
 
@@ -56,39 +64,42 @@ func (db *NoDatabase) AddBalance(addr types.Address, tokenId types.TokenTypeId, 
 		if _, ok := db.balanceMap[addr]; !ok {
 			db.balanceMap[addr] = make(map[types.TokenTypeId]*big.Int)
 		}
-		db.balanceMap[addr][tokenId] = amount
+		db.balanceMap[addr][tokenId] = new(big.Int).Set(amount)
 	}
 
 }
 func (db *NoDatabase) SnapshotBlock(snapshotHash types.Hash) VmSnapshotBlock {
-	if snapshotBlock, ok := db.snapshotBlockMap[snapshotHash]; ok {
-		return snapshotBlock
-	} else {
-		return nil
+	for len := len(db.snapshotBlockList) - 1; len >= 0; len = len - 1 {
+		block := db.snapshotBlockList[len]
+		if bytes.Equal(block.Hash().Bytes(), snapshotHash.Bytes()) {
+			return block
+		}
 	}
+	return nil
 
 }
 func (db *NoDatabase) SnapshotBlockByHeight(height *big.Int) VmSnapshotBlock {
-	snapshotBlock := db.snapshotBlockMap[db.currentSnapshotBlockHash]
-	for snapshotBlock != nil {
-		if snapshotBlock.Height().Cmp(height) == 0 {
-			return snapshotBlock
-		} else if len(snapshotBlock.PrevHash().Bytes()) > 0 {
-			snapshotBlock = db.snapshotBlockMap[snapshotBlock.PrevHash()]
-		} else {
-			return nil
-		}
+	if int(height.Int64()) < len(db.snapshotBlockList) {
+		return db.snapshotBlockList[height.Int64()-1]
 	}
 	return nil
 }
 func (db *NoDatabase) SnapshotBlockList(startHeight *big.Int, count uint64, forward bool) []VmSnapshotBlock {
-	// TODO
-	return nil
+	if forward {
+		start := startHeight.Uint64()
+		end := start + count
+		return db.snapshotBlockList[start:end]
+	} else {
+		end := startHeight.Uint64() - 1
+		start := end - count
+		return db.snapshotBlockList[start:end]
+	}
 }
 
 func (db *NoDatabase) SnapshotHeight(snapshotHash types.Hash) *big.Int {
-	if snapshotBlock, ok := db.snapshotBlockMap[snapshotHash]; ok {
-		return new(big.Int).Set(snapshotBlock.Height())
+	block := db.SnapshotBlock(snapshotHash)
+	if block != nil {
+		return block.Height()
 	} else {
 		return big.NewInt(0)
 	}
@@ -103,11 +114,15 @@ func (db *NoDatabase) AccountBlock(addr types.Address, blockHash types.Hash) VmA
 func (db *NoDatabase) Rollback() {}
 func (db *NoDatabase) IsExistAddress(addr types.Address) bool {
 	_, ok := db.accountBlockMap[addr]
+	if !ok {
+		_, ok := getPrecompiledContract(addr)
+		return ok
+	}
 	return ok
 }
 func (db *NoDatabase) IsExistToken(tokenId types.TokenTypeId) bool {
-	// TODO
-	return false
+	_, ok := db.tokenMap[tokenId]
+	return ok
 }
 func (db *NoDatabase) CreateToken(tokenId types.TokenTypeId, tokenName string, owner types.Address, totelSupply *big.Int, decimals uint64) bool {
 	if _, ok := db.tokenMap[tokenId]; !ok {
@@ -120,7 +135,7 @@ func (db *NoDatabase) CreateToken(tokenId types.TokenTypeId, tokenName string, o
 func (db *NoDatabase) SetContractGid(addr types.Address, gid Gid, open bool) {}
 func (db *NoDatabase) SetContractCode(addr types.Address, gid Gid, code []byte) {
 	db.codeMap[addr] = code
-	// TODO gid
+	db.contractGidMap[addr] = gid
 }
 func (db *NoDatabase) ContractCode(addr types.Address) []byte {
 	if code, ok := db.codeMap[addr]; ok {
@@ -157,13 +172,13 @@ func (db *NoDatabase) StorageHash(addr types.Address) types.Hash {
 	return emptyHash
 }
 func (db *NoDatabase) AddLog(log *Log) {
-	db.AddLog(log)
+	db.logList = append(db.logList, *log)
 }
 func (db *NoDatabase) LogListHash() types.Hash {
 	return emptyHash
 }
 
-func (db *NoDatabase) IsExistGid(git Gid) bool {
-	// TODO
-	return true
+func (db *NoDatabase) IsExistGid(gid Gid) bool {
+	_, ok := db.consensusGroupMap[gid]
+	return ok
 }

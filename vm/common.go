@@ -40,7 +40,7 @@ var (
 
 	// TODO system id
 	viteTokenTypeId = types.TokenTypeId{}
-	snapshotGid     = Gid{}
+	snapshotGid     = Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 )
 
 func isViteToken(tokenId types.TokenTypeId) bool {

@@ -47,14 +47,14 @@ const (
 	tokenDecimalsMin         uint64 = 0       // Minimum value of a token decimals(exclude)
 	tokenDecimalsMax         uint64 = 18      // Maximum value of a token decimals(include)
 
-	registerGas           uint64 = 41200
-	cancelRegisterGas     uint64 = 62200
-	rewardGas             uint64 = 62200
+	registerGas           uint64 = 41948
+	cancelRegisterGas     uint64 = 62948
+	rewardGas             uint64 = 69476
 	calcRewardGasPerBlock uint64 = 200
-	voteGas               uint64 = 41000
-	cancelVoteGas         uint64 = 21000
-	mortgageGas           uint64 = 61400
-	cancelMortgageGas     uint64 = 82400
+	voteGas               uint64 = 43108
+	cancelVoteGas         uint64 = 21748
+	mortgageGas           uint64 = 63372
+	cancelMortgageGas     uint64 = 86004
 
 	registerLockTime int64  = 3600 * 24 * 90
 	dbPageSize       uint64 = 10000
@@ -93,6 +93,6 @@ const (
 var (
 	rewardHeightLimit = big.NewInt(50)
 	rewardGapLimit    = big.NewInt(30000000)
-	rewardPerBlock    = big.NewInt(1e18)
+	rewardPerBlock    = big.NewInt(1e18) // TODO
 	dbPageSizeBig     = new(big.Int).SetUint64(dbPageSize)
 )

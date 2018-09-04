@@ -42,10 +42,9 @@ func TestVmRun(t *testing.T) {
 
 	timestamp := time.Now().Unix()
 	snapshot1 := &NoSnapshotBlock{height: big.NewInt(1), timestamp: timestamp - 1, hash: types.DataHash([]byte{10, 1})}
-	db.snapshotBlockMap[snapshot1.hash] = snapshot1
+	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
 	snapshot2 := &NoSnapshotBlock{height: big.NewInt(1), timestamp: timestamp, hash: types.DataHash([]byte{10, 2})}
-	db.snapshotBlockMap[snapshot2.hash] = snapshot2
-	db.currentSnapshotBlockHash = snapshot2.hash
+	db.snapshotBlockList = append(db.snapshotBlockList, snapshot2)
 
 	hash11 := types.DataHash([]byte{1, 1})
 	block11 := &NoAccountBlock{
@@ -338,29 +337,5 @@ func TestQuotaUsed(t *testing.T) {
 		if quotaUsed != test.quotaUsed {
 			t.Fatalf("%v th calculate quota used failed, expected %v, got %v", i, test.quotaUsed, quotaUsed)
 		}
-	}
-}
-
-func TestVM_CreateSend(t *testing.T) {
-	inputdata, _ := hex.DecodeString("608060405260008055348015601357600080fd5b5060358060216000396000f3006080604052600080fd00a165627a7a723058207c31c74808fe0f95820eb3c48eac8e3e10ef27058dc6ca159b547fccde9290790029")
-	sendCreateBlock := CreateNoAccountBlock(types.Address{}, types.Address{}, BlockTypeSendCreate, 1)
-	sendCreateBlock.SetTokenId(viteTokenTypeId)
-	sendCreateBlock.SetAmount(big.NewInt(0))
-	sendCreateBlock.SetSnapshotHash(types.Hash{})
-	sendCreateBlock.SetPrevHash(types.Hash{})
-	sendCreateBlock.SetHeight(big.NewInt(1))
-	sendCreateBlock.SetData(inputdata)
-	sendCreateBlock.SetCreateFee(big.NewInt(0))
-	// vm.Debug = true
-	vm := NewVM(NewNoDatabase(), CreateNoAccountBlock)
-	blockList, _, err := vm.Run(sendCreateBlock)
-	if len(blockList) != 1 ||
-		//blockList[0].Quota() != 58336 ||
-		blockList[0].ToAddress() == emptyAddress ||
-		//blockList[0].Balance() == nil ||
-		blockList[0].Amount().Cmp(big.NewInt(0)) != 0 ||
-		//blockList[0].StateHash() == emptyHash ||
-		!isViteToken(blockList[0].TokenId()) {
-		t.Fatalf("send create fail [%v] %v", blockList, err)
 	}
 }
