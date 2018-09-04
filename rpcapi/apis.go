@@ -2,7 +2,7 @@ package rpcapi
 
 import (
 	"github.com/vitelabs/go-vite/rpc"
-	"github.com/vitelabs/go-vite/rpcapi/api/impl"
+	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/vite"
 )
 
@@ -10,35 +10,35 @@ func GetAllApis(vite *vite.Vite) []rpc.API {
 	ledgerApis := rpc.API{
 		Namespace: "ledger",
 		Version:   "1.0",
-		Service:   impl.NewLedgerApi(vite),
+		Service:   api.NewLedgerApi(vite),
 		Public:    true,
 	}
 
 	walletApis := rpc.API{
 		Namespace: "wallet",
 		Version:   "1.0",
-		Service:   impl.NewWalletApi(vite),
+		Service:   api.NewWalletApi(vite),
 		Public:    false,
 	}
 
 	p2pApis := rpc.API{
 		Namespace: "p2p",
 		Version:   "1.0",
-		Service:   impl.NewP2PApi(vite.P2p()),
+		Service:   api.NewP2PApi(vite.P2p()),
 		Public:    true,
 	}
 
 	typesApis := rpc.API{
 		Namespace: "types",
 		Version:   "1.0",
-		Service:   impl.TypesApisImpl{},
+		Service:   api.TypesApi{},
 		Public:    true,
 	}
 
 	commonApis := rpc.API{
 		Namespace: "common",
 		Version:   "1.0",
-		Service:   impl.CommonApisImpl{},
+		Service:   api.CommonApi{},
 		Public:    true,
 	}
 

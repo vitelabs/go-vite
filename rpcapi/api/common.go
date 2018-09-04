@@ -1,6 +1,29 @@
 package api
 
-type CommonApis interface {
-	// if it  exists a log dir it will return it else return empty string
-	LogDir() string
+import (
+	"github.com/vitelabs/go-vite/config"
+	"os"
+)
+
+type CommonApi struct {
 }
+
+func (CommonApi) String() string {
+	return "CommonApi"
+}
+
+func (CommonApi) LogDir(noop interface{}, reply *string) error {
+	log.Info("CommonApi LogDir")
+	info, e := os.Stat(config.GlobalConfig.RunLogDir())
+	if e != nil {
+		*reply = ""
+		return nil
+	}
+	if !info.IsDir() {
+		*reply = ""
+		return nil
+	}
+	*reply = config.GlobalConfig.RunLogDir()
+	return nil
+}
+

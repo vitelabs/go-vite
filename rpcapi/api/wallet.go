@@ -1,7 +1,13 @@
 package api
 
 import (
+	"encoding/hex"
+	"errors"
+	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/wallet/keystore"
+	"time"
 )
 
 type HexSignedTuple struct {
@@ -10,52 +16,149 @@ type HexSignedTuple struct {
 	Pubkey     string `json:"Pubkey"`
 }
 
-type WalletApi interface {
-	// list all address in keystore file, the reply string will split addresses with \n
-	// example:
-	// ["vite_15dac990004ae1cbf1af913091092f7c45205b88d905881d97",
-	// "vite_48c5a659e37a9a462b96ff49ef3d30f10137c600417ce05cda"]
-	ListAddress() []types.Address
+func NewWalletApi(vite *vite.Vite) *WalletApi {
+	return &WalletApi{km: vite.WalletManager().KeystoreManager}
+}
 
-	// it will create a address and store in a dir
-	// passphrase len must be 1, the reply string is hex-formed address
-	NewAddress(passphrase string) (types.Address, error)
+type WalletApi struct {
+	km *keystore.Manager
+}
 
-	// return value is all the address with  Locked  or Unlocked state
-	// example:
-	// {"vite_15dac990004ae1cbf1af913091092f7c45205b88d905881d97":"Locked",
-	// "vite_48c5a659e37a9a462b96ff49ef3d30f10137c600417ce05cda":"Unlocked"}
-	Status() map[types.Address]string
+func (m WalletApi) String() string {
+	return "WalletApi"
+}
 
-	// hexAddress := unlockParams[0] passphrase := unlockParams[1] unlocktime := unlockParams[2]
-	// unlocks the given address with the passphrase. The account stays unlocked for the duration of timeout (seconds)
-	// if the timeout is <0 we will keep the unlock state until the program exit.
-	UnlockAddress(addr types.Address, password string, duration *uint64) (bool, error)
+func (m WalletApi) ListAddress() []types.Address {
+	log.Info("ListAddress")
+	return m.km.Addresses()
 
-	// you must pass an address into lockParams , if no error happened means lock success
-	LockAddress(addr types.Address) error
+}
 
-	// if a keystore file name is changed it will read the file content
-	// if the  content is legal the function will fix the filename into hex-formed address
-	ReloadAndFixAddressFile() error
+func (m *WalletApi) NewAddress(passphrase string) (types.Address, error) {
+	log.Info("NewAddress")
+	key, err := m.km.StoreNewKey(passphrase)
+	key.PrivateKey.Clear()
+	return key.Address, err
+}
 
-	// hexprikey := hexkeypair[0] newPass := hexkeypair[1] the reply string is hex-formed address
-	ImportPriv(privkey string, password string) (types.Address, error)
+func (m WalletApi) Status() map[types.Address]string {
+	log.Info("Status")
+	s, _ := m.km.Status()
+	return s
+}
 
-	// hexaddr := extractPair[0] pass := extractPair[1] the return value is prikey in hex form
-	ExportPriv(address types.Address, password string) (string, error)
+func (m *WalletApi) UnlockAddress(addr types.Address, password string, duration *uint64) (bool, error) {
+	log.Info("UnLock")
 
-	// it reply string is false it must not be a valid keystore file
-	// else only means that might be a keystore file
-	IsMayValidKeystoreFile(path string) types.Address
+	const max = uint64(time.Duration(math.MaxInt64) / time.Second)
+	var d time.Duration
+	if duration == nil {
+		d = 300 * time.Second
+	} else if *duration > max {
+		return false, errors.New("unlock duration too large")
+	} else {
+		d = time.Duration(*duration) * time.Second
+	}
 
-	// Get dir
-	GetDataDir() string
+	err := m.km.Unlock(addr, password, d)
 
-	// hexAddress := signDataParams[0] hexMsg := signDataParams[1]
-	// if the given address has not been unlocked it will return an ErrUnlocked
-	SignData(address types.Address, hexMsg string) (HexSignedTuple, error)
+	if err != nil {
+		newerr, _ := TryMakeConcernedError(err)
+		return false, newerr
+	}
+	return true, nil
+}
 
-	// hexAddress := signDataParams[0] hexMsg := signDataParams[1] passphrase := signDataParams[2]
-	SignDataWithPassphrase(address types.Address, hexMsg string, password string) (HexSignedTuple, error)
+func (m *WalletApi) LockAddress(addr types.Address) error {
+	log.Info("Lock")
+	err := m.km.Lock(addr)
+	return err
+}
+
+func (m *WalletApi) ReloadAndFixAddressFile() error {
+	log.Info("ReloadAndFixAddressFile")
+	m.km.ReloadAndFixAddressFile()
+	return nil
+}
+
+func (m *WalletApi) ImportPriv(privkey string, newpassword string) (types.Address, error) {
+	log.Info("ImportPriv")
+
+	key, err := m.km.ImportPriv(privkey, newpassword)
+	if err != nil {
+		return types.Address{}, err
+	}
+	key.PrivateKey.Clear()
+	newpassword = ""
+	privkey = ""
+	return key.Address, nil
+}
+
+func (m *WalletApi) ExportPriv(address types.Address, password string) (string, error) {
+	log.Info("ExportPriv")
+	s, err := m.km.ExportPriv(address.Hex(), password)
+
+	if err != nil {
+		newerr, _ := TryMakeConcernedError(err)
+		return "", newerr
+
+	}
+	return s, nil
+}
+
+func (m *WalletApi) SignData(addr types.Address, hexMsg string) (HexSignedTuple, error) {
+	log.Info("SignData")
+
+	msgbytes, err := hex.DecodeString(hexMsg)
+	if err != nil {
+		return HexSignedTuple{}, err
+	}
+	signedData, pubkey, err := m.km.SignData(addr, msgbytes)
+	if err != nil {
+		return HexSignedTuple{}, err
+	}
+
+	t := HexSignedTuple{
+		Message:    hexMsg,
+		Pubkey:     hex.EncodeToString(pubkey),
+		SignedData: hex.EncodeToString(signedData),
+	}
+
+	return t, nil
+}
+
+func (m *WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, password string) (HexSignedTuple, error) {
+	log.Info("SignDataWithPassphrase")
+
+	msgbytes, err := hex.DecodeString(hexMsg)
+	if err != nil {
+		return HexSignedTuple{}, err
+	}
+	signedData, pubkey, err := m.km.SignDataWithPassphrase(addr, password, msgbytes)
+	if err != nil {
+		newerr, _ := TryMakeConcernedError(err)
+		return HexSignedTuple{}, newerr
+	}
+
+	t := HexSignedTuple{
+		Message:    hexMsg,
+		Pubkey:     hex.EncodeToString(pubkey),
+		SignedData: hex.EncodeToString(signedData),
+	}
+
+	return t, nil
+}
+
+func (m *WalletApi) IsMayValidKeystoreFile(path string) types.Address {
+	log.Info("IsValidKeystoreFile")
+	b, addr, _ := keystore.IsMayValidKeystoreFile(path)
+	if b && addr != nil {
+		return *addr
+	}
+	return types.Address{}
+}
+
+func (m WalletApi) GetDataDir() string {
+	log.Info("GetDataDir")
+	return m.km.KeyStoreDir
 }

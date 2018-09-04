@@ -4,6 +4,9 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"testing"
+	"golang.org/x/crypto/scrypt"
+	"github.com/vitelabs/go-vite/crypto"
+	"encoding/hex"
 )
 
 const (
@@ -62,4 +65,17 @@ func TestEncryptAndDecrypt(t *testing.T) {
 
 	println(string(json))
 
+}
+
+func TestScrypt(t *testing.T) {
+	pwdArray := []byte("000000")
+	salt := crypto.GetEntropyCSPRNG(32)
+	derivedKey, _ := scrypt.Key(pwdArray, salt, StandardScryptN, scryptR, StandardScryptP, scryptKeyLen)
+	println("pwd:", hex.EncodeToString(pwdArray))
+	println("salt:", hex.EncodeToString(salt))
+	println("derivedLKey:", hex.EncodeToString(derivedKey))
+	println("n:", StandardScryptN)
+	println("r:", scryptR)
+	println("p:", StandardScryptP)
+	println("scryptKeyLen:", scryptKeyLen)
 }

@@ -1,4 +1,4 @@
-package impl
+package api
 
 import (
 	"encoding/json"

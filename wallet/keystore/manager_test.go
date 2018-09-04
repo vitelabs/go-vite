@@ -158,3 +158,10 @@ func TestManager_Status(t *testing.T) {
 	}
 }
 
+func TestManager_Import2(t *testing.T) {
+	kp := NewManager(common.GoViteTestDataDir())
+	kp.Init()
+	kp.Import(`{"hexaddress":"vite_d8fdab77de64333c1f04aaec1216fa4cd77ee6027ecc90e42f","crypto":{"ciphername":"aes-256-gcm","kdf":"scrypt","scryptparams":{"n":4096,"r":8,"p":6,"keylen":32,"salt":"d54e022b2e80215307911f4538c34670127cf24d50a59976cb72ae0056a3c3ea"},"ciphertext":"5cb2acc9d58d7b031602b8959cf36e284afa85d26e61be39645eb37e8c1f86df5bb4c5cfdec95ec43d72bdbf68426c632662e4b7fddc427333c47d6bbee10b72e75e464f2db9437887c1857687d7599d","nonce":"bdc5b3a07ff415b8fb4269ff"},"id":"626d2e60-b043-11e8-bf03-0ff96ed44a4f","keystoreversion":1,"timestamp":1536066409543}`,
+		"1", "2")
+}
+
