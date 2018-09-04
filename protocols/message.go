@@ -1,11 +1,65 @@
 package protocols
 
 import (
+	"encoding/binary"
+	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vitepb"
 	"math/big"
 )
 
+const Version uint32 = 2
+
+type NetID uint32
+
+const (
+	MainNet NetID = iota + 1
+	TestNet
+)
+
+func (i NetID) String() string {
+	switch i {
+	case MainNet:
+		return "MainNet"
+	case TestNet:
+		return "TestNet"
+	default:
+		return "Unknown"
+	}
+}
+
+// @section Msg
+type Serializable interface {
+	Serialize() ([]byte, error)
+	Deserialize([]byte) error
+}
+
+type Msg struct {
+	Code    MsgCode
+	Payload []byte
+}
+
+// @section Transport
+type MsgReader interface {
+	ReadMsg() (Msg, error)
+}
+
+type MsgWriter interface {
+	WriteMsg(Msg) error
+}
+
+type MsgReadWriter interface {
+	MsgReader
+	MsgWriter
+}
+
+type Transport interface {
+	MsgReadWriter
+	Close(ExceptionMsg)
+}
+
+// @section BlockID
 type BlockID struct {
 	Hash   types.Hash
 	Height *big.Int
@@ -30,11 +84,12 @@ func (this *BlockID) Serialize() ([]byte, error) {
 
 }
 
-// @section MsgTyp
-type MsgTyp int
+// @section MsgCode
+type MsgCode uint64
 
 const (
-	StatusCode MsgTyp = iota
+	HandShakeCode MsgCode = iota
+	StatusCode
 	GetSubLedgerCode
 	GetSnapshotBlockHeadersCode
 	GetSnapshotBlockBodiesCode
@@ -45,32 +100,35 @@ const (
 	SnapshotBlockBodiesCode
 	SnapshotBlocksCode
 	AccountBlocksCode
+	NewSnapshotBlockCode
 
 	ExceptionCode = 127
 )
 
-var msgStrs = [...]string{
+var msgNames = [...]string{
+	HandShakeCode:               "HandShakeMsg",
 	StatusCode:                  "StatusMsg",
 	GetSubLedgerCode:            "GetSubLedgerMsg",
 	GetSnapshotBlockHeadersCode: "GetSnapshotBlockHeadersMsg",
 	GetSnapshotBlockBodiesCode:  "GetSnapshotBlockBodiesMsg",
-	GetSnapshotBlocksCode:       "GetSnapshotBlockMsg",
+	GetSnapshotBlocksCode:       "GetSnapshotBlocksMsg",
 	GetAccountBlocksCode:        "GetAccountBlocksMsg",
 	SubLedgerCode:               "SubLedgerMsg",
 	SnapshotBlockHeadersCode:    "SnapshotBlockHeadersMsg",
 	SnapshotBlockBodiesCode:     "SnapshotBlockBodiesMsg",
-	SnapshotBlocksCode:          "SnapshotBlockMsg",
+	SnapshotBlocksCode:          "SnapshotBlocksMsg",
 	AccountBlocksCode:           "AccountBlocksMsg",
+	NewSnapshotBlockCode:        "NewSnapshotBlockMsg",
 }
 
-func (t MsgTyp) String() string {
+func (t MsgCode) String() string {
 	if t == ExceptionCode {
 		return "ExceptionMsg"
 	}
-	return msgStrs[t]
+	return msgNames[t]
 }
 
-// @section Msg
+// @section Msg Param
 
 type Segment struct {
 	From    *BlockID
@@ -89,31 +147,100 @@ func (this *AccountSegment) Serialize() ([]byte, error) {
 
 }
 
+// @message HandShake
+
+type HandShakeMsg struct {
+	NetID
+	Version      uint32
+	Height       *big.Int
+	CurrentBlock types.Hash
+	GenesisBlock types.Hash
+}
+
+func (st *HandShakeMsg) Serialize() ([]byte, error) {
+	stpb := &vitepb.StatusMsg{
+		ProtocolVersion: st.Version,
+		Height:          st.Height.Bytes(),
+		CurrentBlock:    st.CurrentBlock[:],
+		GenesisBlock:    st.GenesisBlock[:],
+	}
+
+	return proto.Marshal(stpb)
+}
+
+func (st *HandShakeMsg) Deserialize(data []byte) error {
+	stpb := &vitepb.StatusMsg{}
+	err := proto.Unmarshal(data, stpb)
+	if err != nil {
+		return err
+	}
+	st.Version = stpb.ProtocolVersion
+
+	bi := new(big.Int)
+	st.Height = bi.SetBytes(stpb.Height)
+	copy(st.GenesisBlock[:], stpb.GenesisBlock)
+	copy(st.CurrentBlock[:], stpb.CurrentBlock)
+
+	return nil
+}
+
+type GetSubLedgerMsg = *Segment
 type GetSnapshotBlockHeadersMsg = *Segment
 type GetSnapshotBlockBodiesMsg []*types.Hash
 type GetSnapshotBlocksMsg []*types.Hash
-type SubLedgerMsg = *Segment
 type GetAccountBlocksMsg = AccountSegment
 
+type SubLedgerMsg struct {
+	Files []string
+}
+
+// todo type SnapshotBlockHeadersMsg
+// todo type SnapshotBlockBodiesMsg
 type SnapshotBlocksMsg = []*ledger.SnapshotBlock
 type AccountBlocksMsg map[string]*ledger.AccountBlock
 
+type NewBlockMsg *ledger.SnapshotBlock
+
 // @message ExceptionMsg
-type ExceptionMsgCode int
+type ExceptionMsg uint
 
 const (
-	Fork                ExceptionMsgCode = iota // you have forked
-	Missing                                     // I don`t have the resource you requested
-	Canceled                                    // the request have been canceled
-	Unsolicited                                 // the request must have pre-checked
-	Blocked                                     // you have been blocked
-	RepetitiveHandshake                         // handshake should happen only once, as the first msg
-	Connected                                   // you have been connected with me
+	Fork                ExceptionMsg = iota // you have forked
+	Missing                                 // I don`t have the resource you requested
+	Canceled                                // the request have been canceled
+	Unsolicited                             // the request must have pre-checked
+	Blocked                                 // you have been blocked
+	RepetitiveHandshake                     // handshake should happen only once, as the first msg
+	Connected                               // you have been connected with me
 	DifferentNet
 	UnMatchedMsgVersion
 	UnIdenticalGenesis
 )
 
-type ExceptionMsg struct {
-	Code ExceptionMsgCode
+var execption = [...]string{
+	Fork:                "you have forked",
+	Missing:             "I don`t have the resource you requested",
+	Canceled:            "the request have been canceled",
+	Unsolicited:         "your request must have pre-checked",
+	Blocked:             "you have been blocked",
+	RepetitiveHandshake: "handshake should happen only once, as the first msg",
+	Connected:           "you have connected to me",
+	DifferentNet:        "we are at different network",
+	UnMatchedMsgVersion: "UnMatchedMsgVersion",
+	UnIdenticalGenesis:  "UnIdenticalGenesis",
+}
+
+func (exp ExceptionMsg) String() string {
+	return execption[exp]
+}
+
+func (exp *ExceptionMsg) Serialize() ([]byte, error) {
+	buf := make([]byte, 10)
+	n := binary.PutUvarint(buf, uint64(*exp))
+	return buf[:n], nil
+}
+func (exp *ExceptionMsg) Deserialize(buf []byte) error {
+	i, _ := binary.Varint(buf)
+	*exp = ExceptionMsg(i)
+	return nil
 }

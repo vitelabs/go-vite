@@ -3,6 +3,9 @@ package protocols
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"math/big"
+	"net"
+	"sync"
 	"time"
 )
 
@@ -11,14 +14,32 @@ type Net struct {
 	peers        *peerSet
 	snapshotFeed *snapshotBlockFeed
 	accountFeed  *accountBlockFeed
+
+	stop chan struct{}
+
+	pool *reqPool
+
+	// for sync
+	FromHeight   *big.Int
+	TargetHeight *big.Int
+	syncState
+	StateLock     sync.RWMutex
+	SyncStartHook func(*big.Int, *big.Int)
+	SyncDoneHook  func(*big.Int, *big.Int)
+	SyncErrHook   func(*big.Int, *big.Int)
+
+	SnapshotChain BlockChain
 }
 
 func New() *Net {
-	return &Net{
-		peers:        NewPeerSet(),
+	peers := NewPeerSet()
+	n := &Net{
+		peers:        peers,
 		snapshotFeed: NewSnapshotBlockFeed(),
 		accountFeed:  NewAccountBlockFeed(),
 	}
+
+	return n
 }
 
 func (n *Net) Start() {
@@ -26,6 +47,28 @@ func (n *Net) Start() {
 }
 
 func (n *Net) Stop() {
+	select {
+	case <-n.stop:
+	default:
+		close(n.stop)
+	}
+}
+
+func (this *Net) Syncing() bool {
+	this.StateLock.RLock()
+	defer this.StateLock.RUnlock()
+	return this.syncState == syncing
+}
+
+func (n *Net) ReceiveConn(conn net.Conn) {
+	select {
+	case <-n.stop:
+	default:
+	}
+
+}
+
+func (n *Net) HandlePeer(p *Peer) {
 
 }
 
@@ -65,12 +108,23 @@ func (n *Net) SubscribeSnapshotBlock() *accountBlockSub {
 
 // get current netInfo (peers, syncStatus, ...)
 func (n *Net) Status() *NetStatus {
-	return &NetStatus{}
+	running := true
+	select {
+	case <-n.stop:
+		running = false
+	default:
+	}
+
+	return &NetStatus{
+		Peers:   n.peers.Info(),
+		Running: running,
+		Uptime:  time.Now().Sub(n.start),
+	}
 }
 
 type NetStatus struct {
 	Peers      []*PeerInfo
-	SyncStatus int
+	SyncStatus syncState
 	Uptime     time.Duration
 	Running    bool
 }

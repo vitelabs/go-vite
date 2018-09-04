@@ -206,3 +206,26 @@ func (m *peerSet) Count() int {
 
 	return len(m.peers)
 }
+
+func (m *peerSet) Pick(height *big.Int) (peers []*Peer) {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+
+	for _, p := range m.peers {
+		if p.Height.Cmp(height) > 0 {
+			peers = append(peers, p)
+		}
+	}
+	return
+}
+
+func (m *peerSet) Info() (info []*PeerInfo) {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+
+	for _, peer := range m.peers {
+		info = append(info, peer.Info())
+	}
+
+	return
+}

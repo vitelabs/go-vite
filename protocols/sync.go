@@ -4,7 +4,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
-	"sync"
 )
 
 type syncState int
@@ -39,42 +38,4 @@ type BlockChain interface {
 	GetSbHashList(segment *Segment) ([]*types.Hash, error)
 	GetSnapshotContent(snapshotBlockHash *types.Hash)
 	//GetSbAndSc(originBlockHash *types.Hash, count uint64, forward bool)([]*ledger.SnapshotBlock, []map, error)
-}
-
-type Sync struct {
-	FromHeight   *big.Int
-	TargetHeight *big.Int
-
-	State         syncState
-	StateLock     sync.RWMutex
-	SyncStartHook func(*big.Int, *big.Int)
-	SyncDoneHook  func(*big.Int, *big.Int)
-	SyncErrHook   func(*big.Int, *big.Int)
-
-	SnapshotChain BlockChain
-
-	//SnapshotHeaderChan
-	//SnapshotChan
-	//SnapshotBodyChan
-	//AccountBlockChan
-
-	stop chan struct{}
-	wg   sync.WaitGroup
-}
-
-func NewSync() *Sync {
-	return &Sync{}
-}
-
-func (this *Sync) Start() {
-
-}
-func (this *Sync) Stop() {
-
-}
-
-func (this *Sync) Syncing() bool {
-	this.StateLock.RLock()
-	defer this.StateLock.RUnlock()
-	return this.State == syncing
 }
