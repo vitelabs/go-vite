@@ -44,7 +44,7 @@ func Cmd(client *rpc.Client) {
 		if strings.HasPrefix(input, "quit") {
 			return
 		}
-		if strings.HasPrefix(input, "List") {
+		if strings.HasPrefix(input, "list") {
 			List(client)
 		} else if strings.HasPrefix(input, "create") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]

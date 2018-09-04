@@ -18,7 +18,7 @@ func GetAllApis(vite *vite.Vite) []rpc.API {
 		Namespace: "wallet",
 		Version:   "1.0",
 		Service:   impl.NewWalletApi(vite),
-		Public:    true,
+		Public:    false,
 	}
 
 	p2pApis := rpc.API{
@@ -41,10 +41,6 @@ func GetAllApis(vite *vite.Vite) []rpc.API {
 		Service:   impl.CommonApisImpl{},
 		Public:    true,
 	}
-
-	//return []rpc.API{
-	//	walletApis,
-	//}
 
 	return []rpc.API{
 		ledgerApis,
