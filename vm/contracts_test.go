@@ -148,7 +148,7 @@ func TestContractsRun(t *testing.T) {
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][locHashRegister], joinBytes(leftPadBytes(big0.Bytes(), 32), leftPadBytes(big0.Bytes(), 8), leftPadBytes(snapshot2.height.Bytes(), 32), leftPadBytes(snapshot4.height.Bytes(), 32))) ||
 		receiveCancelRegisterBlockList[0].Quota() != 0 ||
-		receiveCancelRegisterBlockList[1].Quota() != 21000 ||
+		receiveCancelRegisterBlockList[1].Quota() != 0 ||
 		receiveCancelRegisterBlockList[1].Height().Cmp(big.NewInt(3)) != 0 ||
 		receiveCancelRegisterBlockList[1].Depth() != 2 ||
 		!bytes.Equal(receiveCancelRegisterBlockList[1].AccountAddress().Bytes(), addr2.Bytes()) ||
@@ -232,7 +232,7 @@ func TestContractsRun(t *testing.T) {
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(viteTotalSupply) != 0 ||
 		len(db.storageMap[addr2][locHashRegister]) != 0 ||
 		receiveRewardBlockList[0].Quota() != 0 ||
-		receiveRewardBlockList[1].Quota() != 21000 ||
+		receiveRewardBlockList[1].Quota() != 0 ||
 		receiveRewardBlockList[1].Height().Cmp(big.NewInt(5)) != 0 ||
 		receiveRewardBlockList[1].Depth() != 2 ||
 		!bytes.Equal(receiveRewardBlockList[1].AccountAddress().Bytes(), addr2.Bytes()) ||
@@ -549,7 +549,7 @@ func TestContractsRun(t *testing.T) {
 		!bytes.Equal(db.storageMap[addr5][locHashQuota], leftPadBytes(mortgageAmount.Bytes(), 32)) ||
 		db.balanceMap[addr5][viteTokenTypeId].Cmp(mortgageAmount) != 0 ||
 		receiveCancelMortgageBlockList[0].Quota() != 0 ||
-		receiveCancelMortgageBlockList[1].Quota() != 21000 {
+		receiveCancelMortgageBlockList[1].Quota() != 0 {
 		t.Fatalf("receive cancel mortgage transaction error")
 	}
 	db.accountBlockMap[addr5][hash53] = receiveCancelMortgageBlockList[0]
@@ -619,7 +619,7 @@ func TestContractsRun(t *testing.T) {
 		len(db.storageMap[addr5][locHashQuota]) != 0 ||
 		db.balanceMap[addr5][viteTokenTypeId].Cmp(big0) != 0 ||
 		receiveCancelMortgageBlockList2[0].Quota() != 0 ||
-		receiveCancelMortgageBlockList2[1].Quota() != 21000 {
+		receiveCancelMortgageBlockList2[1].Quota() != 0 {
 		t.Fatalf("receive cancel mortgage transaction 2 error")
 	}
 	db.accountBlockMap[addr5][hash55] = receiveCancelMortgageBlockList2[0]

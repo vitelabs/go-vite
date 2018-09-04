@@ -54,17 +54,17 @@ func (db *NoDatabase) Balance(addr types.Address, tokenId types.TokenTypeId) *bi
 func (db *NoDatabase) SubBalance(addr types.Address, tokenId types.TokenTypeId, amount *big.Int) {
 	balance, ok := db.balanceMap[addr][tokenId]
 	if ok && balance.Cmp(amount) >= 0 {
-		balance.Sub(balance, amount)
+		db.balanceMap[addr][tokenId] = new(big.Int).Sub(balance, amount)
 	}
 }
 func (db *NoDatabase) AddBalance(addr types.Address, tokenId types.TokenTypeId, amount *big.Int) {
 	if balance, ok := db.balanceMap[addr][tokenId]; ok {
-		balance.Add(balance, amount)
+		db.balanceMap[addr][tokenId] = new(big.Int).Add(balance, amount)
 	} else {
 		if _, ok := db.balanceMap[addr]; !ok {
 			db.balanceMap[addr] = make(map[types.TokenTypeId]*big.Int)
 		}
-		db.balanceMap[addr][tokenId] = new(big.Int).Set(amount)
+		db.balanceMap[addr][tokenId] = amount
 	}
 
 }

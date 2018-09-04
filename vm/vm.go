@@ -196,7 +196,13 @@ func (vm *VM) sendCall(block VmAccountBlock, quotaTotal, quotaAddition uint64) (
 	}
 	// sub balance
 	vm.Db.SubBalance(block.AccountAddress(), block.TokenId(), block.Amount())
-	vm.updateBlock(block, block.AccountAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
+	var quota uint64
+	if _, ok := getPrecompiledContract(block.AccountAddress()); ok {
+		quota = 0
+	} else {
+		quota = quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil)
+	}
+	vm.updateBlock(block, block.AccountAddress(), nil, quota, nil)
 	return block, nil
 }
 
@@ -330,7 +336,10 @@ func (vm *VM) sendReward(block VmAccountBlock, quotaTotal, quotaAddition uint64)
 	if err != nil {
 		return nil, err
 	}
-	vm.updateBlock(block, block.AccountAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, uint64(0), nil), nil)
+	if !bytes.Equal(block.AccountAddress().Bytes(), AddressRegister.Bytes()) {
+		return nil, ErrInvalidData
+	}
+	vm.updateBlock(block, block.AccountAddress(), nil, 0, nil)
 	return block, nil
 }
 
