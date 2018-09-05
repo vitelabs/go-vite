@@ -2,9 +2,15 @@ package rpcutils
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/rpc"
+	"github.com/vitelabs/go-vite/rpcapi/api"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -79,30 +85,30 @@ func Cmd(client *rpc.Client) {
 		} else if strings.HasPrefix(input, "exportpriv") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			ExportPriv(client, param)
-			//} else if strings.HasPrefix(input, "peers") {
-			//	PeersCount(client, nil)
-			//} else if strings.HasPrefix(input, "netinfo") {
-			//	NetworkAvailable(client, nil)
-			//} else if strings.HasPrefix(input, "getacc") {
-			//	param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
-			//	GetAccountByAccAddr(client, param)
-			//} else if strings.HasPrefix(input, "getblocks") {
-			//	param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
-			//	GetBlocksByAccAddr(client, param)
-			//} else if strings.HasPrefix(input, "txcreate") {
-			//	param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
-			//	CreateTxWithPassphrase(client, param)
-			//} else if strings.HasPrefix(input, "unconfirmblocks") {
-			//	param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
-			//	GetUnconfirmedBlocksByAccAddr(client, param)
-			//} else if strings.HasPrefix(input, "unconfirminfo") {
-			//	param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
-			//	GetUnconfirmedInfo(client, param)
-			//} else if strings.HasPrefix(input, "syncinfo") {
-			//	GetInitSyncInfo(client, nil)
-			//} else if strings.HasPrefix(input, "newtesttoken") {
-			//	param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
-			//	newTesttoken(param)
+		} else if strings.HasPrefix(input, "peers") {
+			PeersCount(client, nil)
+		} else if strings.HasPrefix(input, "netinfo") {
+			NetworkAvailable(client, nil)
+		} else if strings.HasPrefix(input, "getacc") {
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			GetAccountByAccAddr(client, param)
+		} else if strings.HasPrefix(input, "getblocks") {
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			GetBlocksByAccAddr(client, param)
+		} else if strings.HasPrefix(input, "txcreate") {
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			CreateTxWithPassphrase(client, param)
+		} else if strings.HasPrefix(input, "unconfirmblocks") {
+			//param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			//GetUnconfirmedBlocksByAccAddr(client, param)
+		} else if strings.HasPrefix(input, "unconfirminfo") {
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			GetUnconfirmedInfo(client, param)
+		} else if strings.HasPrefix(input, "syncinfo") {
+			//GetInitSyncInfo(client, nil)
+		} else if strings.HasPrefix(input, "newtesttoken") {
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			newTesttoken(param)
 		} else if strings.HasPrefix(input, "help") {
 			Help()
 		} else {
@@ -119,7 +125,6 @@ func List(client *rpc.Client) {
 	for _, value := range addrs {
 		fmt.Println(value.String())
 	}
-	//doRpcCall(client, "wallet.ListAddress", nil)
 }
 
 func createAddress(client *rpc.Client, pwd string) {
@@ -178,58 +183,87 @@ func ImportPriv(client *rpc.Client, param []string) {
 func ExportPriv(client *rpc.Client, param []string) {
 }
 
-//
-//// net work
-//func NetworkAvailable(client *rpc.Client, param []string) {
-//	doRpcCall(client, "p2p.NetworkAvailable", param)
-//
-//}
-//func PeersCount(client *rpc.Client, param []string) {
-//	doRpcCall(client, "p2p.PeersCount", param)
-//}
-//
-//// ledger
-//func CreateTxWithPassphrase(client *rpc.Client, param []string) {
-//	if len(param) < 2 {
-//		println("error params")
-//		return
-//	}
-//	pass := "123456"
-//	if len(param) >= 3 {
-//		pass = strings.TrimSpace(param[2])
-//	}
-//	amount := "1"
-//	if len(param) >= 4 {
-//		amount = param[3]
-//	}
-//
-//	tx := api.SendTxParms{
-//		SelfAddr:    strings.TrimSpace(param[0]),
-//		ToAddr:      strings.TrimSpace(param[1]),
-//		Passphrase:  pass,
-//		TokenTypeId: ledger.MockViteTokenId.String(),
-//		Amount:      amount,
-//	}
-//	doRpcCall(client, "ledger.CreateTxWithPassphrase", tx)
-//}
-//
-//func GetBlocksByAccAddr(client *rpc.Client, param []string) {
-//	if len(param) == 0 {
-//		println("err param")
-//		return
-//	}
-//	i := 0
-//	if len(param) == 2 {
-//		i, _ = strconv.Atoi(param[1])
-//	}
-//	tx := api.GetBlocksParams{
-//		Addr:  strings.TrimSpace(param[0]),
-//		Index: i,
-//		Count: 20,
-//	}
-//	doRpcCall(client, "ledger.GetBlocksByAccAddr", tx)
-//}
-//
+// net work
+func NetworkAvailable(client *rpc.Client, param []string) {
+	var a bool
+	err := client.Call(&a, "p2p_networkAvailable")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("result:\n", a)
+
+}
+func PeersCount(client *rpc.Client, param []string) {
+	var a int
+	err := client.Call(&a, "p2p_peersCount")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("result:\n", a)
+}
+
+// ledger
+func CreateTxWithPassphrase(client *rpc.Client, param []string) {
+	if len(param) < 2 {
+		println("error params")
+		return
+	}
+	pass := "123456"
+	if len(param) >= 3 {
+		pass = strings.TrimSpace(param[2])
+	}
+	amount := "1"
+	if len(param) >= 4 {
+		amount = param[3]
+	}
+
+	s, e := types.HexToAddress(param[0])
+	if e != nil {
+		fmt.Println(e)
+	}
+	t, e := types.HexToAddress(param[1])
+	if e != nil {
+		fmt.Println(e)
+	}
+
+	tx := api.SendTxParms{
+		SelfAddr:    s,
+		ToAddr:      t,
+		Passphrase:  pass,
+		TokenTypeId: ledger.MockViteTokenId,
+		Amount:      amount,
+	}
+
+	err := client.Call(nil, "ledger_createTxWithPassphrase", tx)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("success")
+}
+
+func GetBlocksByAccAddr(client *rpc.Client, param []string) {
+	if len(param) == 0 {
+		println("err param")
+		return
+	}
+	i := 0
+	if len(param) == 2 {
+		i, _ = strconv.Atoi(param[1])
+	}
+	var blocks []api.SimpleBlock
+	err := client.Call(&blocks, "ledger_getBlocksByAccAddr", param[0], i, 10)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for _, value := range blocks {
+		fmt.Println(value.Hash)
+	}
+}
+
 //func GetUnconfirmedBlocksByAccAddr(client *rpc.Client, param []string) {
 //	if len(param) != 2 {
 //		println("err param")
@@ -243,55 +277,69 @@ func ExportPriv(client *rpc.Client, param []string) {
 //	}
 //	doRpcCall(client, "ledger.GetUnconfirmedBlocksByAccAddr", tx)
 //}
-//
-//func GetAccountByAccAddr(client *rpc.Client, param []string) {
-//	doRpcCall(client, "ledger.GetAccountByAccAddr", param)
-//}
-//
-//func GetUnconfirmedInfo(client *rpc.Client, param []string) {
-//	doRpcCall(client, "ledger.GetUnconfirmedInfo", param)
-//}
-//
+
+func GetAccountByAccAddr(client *rpc.Client, param []string) {
+	var res api.GetAccountResponse
+	err := client.Call(&res, "ledger_getAccountByAccAddr", param[0])
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("result:")
+	marshal, _ := json.Marshal(res)
+	fmt.Println(string(marshal))
+}
+
+func GetUnconfirmedInfo(client *rpc.Client, param []string) {
+	var res api.GetUnconfirmedInfoResponse
+	err := client.Call(&res, "ledger_getUnconfirmedInfo", param[0])
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("result:")
+	marshal, _ := json.Marshal(res)
+	fmt.Println(string(marshal))
+}
+
 //func GetInitSyncInfo(client *rpc.Client, param []string) {
 //	doRpcCall(client, "ledger.GetInitSyncInfo", nil)
 //}
-//
+
 //func TestStaticApis(client *rpc.Client) {
 //	doRpcCall(client, "common.LogDir", nil)
 //	doRpcCall(client, "types.IsValidHexTokenTypeId", []string{"asd"})
 //	doRpcCall(client, "types.IsValidHexAddress", []string{"vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c3a"})
 //	doRpcCall(client, "types.IsValidHexAddress", []string{"vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c31"})
 //}
-//
-//
-//
-//type newTokenParams struct {
-//	Address string `json:"accountAddress"`
-//}
-//
-////http
-//func newTesttoken(addr []string) {
-//	if len(addr) == 0 || !types.IsValidHexAddress(addr[0]) {
-//		println("address error")
-//		return
-//	}
-//	params := newTokenParams{
-//		addr[0],
-//	}
-//	j, _ := json.Marshal(params)
-//	println(string(j))
-//
-//	resp, err := http.Post("https://test.vite.net/api/account/newtesttoken", "application/json", bytes.NewReader(j))
-//	println("Post")
-//	if err != nil {
-//		println(err)
-//	}
-//	defer resp.Body.Close()
-//	all, e := ioutil.ReadAll(resp.Body)
-//	if e != nil {
-//		println(e)
-//	} else {
-//		println(string(all))
-//	}
-//
-//}
+
+type newTokenParams struct {
+	Address string `json:"accountAddress"`
+}
+
+//http
+func newTesttoken(addr []string) {
+	if len(addr) == 0 || !types.IsValidHexAddress(addr[0]) {
+		println("address error")
+		return
+	}
+	params := newTokenParams{
+		addr[0],
+	}
+	j, _ := json.Marshal(params)
+	println(string(j))
+
+	resp, err := http.Post("https://test.vite.net/api/account/newtesttoken", "application/json", bytes.NewReader(j))
+	println("Post")
+	if err != nil {
+		println(err)
+	}
+	defer resp.Body.Close()
+	all, e := ioutil.ReadAll(resp.Body)
+	if e != nil {
+		println(e)
+	} else {
+		println(string(all))
+	}
+
+}

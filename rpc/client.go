@@ -459,7 +459,9 @@ func (c *Client) newMessage(method string, paramsIn ...interface{}) (*jsonrpcMes
 func (c *Client) send(ctx context.Context, op *requestOp, msg interface{}) error {
 	select {
 	case c.requestOp <- op:
-		log.Info("", "msg", log.Lazy{Fn: func() string {
+		message := msg.(*jsonrpcMessage)
+		println(message.String())
+		log.Debug("", "msg", log.Lazy{Fn: func() string {
 			return fmt.Sprint("sending ", msg)
 		}})
 		err := c.write(ctx, msg)
@@ -496,7 +498,7 @@ func (c *Client) write(ctx context.Context, msg interface{}) error {
 func (c *Client) reconnect(ctx context.Context) error {
 	newconn, err := c.connectFunc(ctx)
 	if err != nil {
-		log.Info(fmt.Sprintf("reconnect failed: %v", err))
+		log.Debug(fmt.Sprintf("reconnect failed: %v", err))
 		return err
 	}
 	select {
@@ -547,12 +549,27 @@ func (c *Client) dispatch(conn net.Conn) {
 			for _, msg := range batch {
 				switch {
 				case msg.isNotification():
-					log.Info("", "msg", log.Lazy{Fn: func() string {
+					if msg.Error != nil {
+						je, _ := json.Marshal(msg.Error)
+						println(string(je))
+					} else {
+						result, _ := msg.Result.MarshalJSON()
+						println(string(result))
+					}
+					log.Debug("", "msg", log.Lazy{Fn: func() string {
 						return fmt.Sprint("<-readResp: notification ", msg)
 					}})
 					c.handleNotification(msg)
 				case msg.isResponse():
-					log.Info("", "msg", log.Lazy{Fn: func() string {
+					if msg.Error != nil {
+						je, _ := json.Marshal(msg.Error)
+						println(string(je))
+					} else {
+						result, _ := msg.Result.MarshalJSON()
+						println(string(result))
+					}
+
+					log.Debug("", "msg", log.Lazy{Fn: func() string {
 						return fmt.Sprint("<-readResp: response ", msg)
 					}})
 					c.handleResponse(msg)

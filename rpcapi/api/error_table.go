@@ -26,17 +26,17 @@ var (
 
 	ErrBalanceNotEnough = JsonRpc2Error{
 		Message: ledgererrors.ErrBalanceNotEnough.Error(),
-		Code:    5001,
+		Code:    -35001,
 	}
 
 	ErrDecryptKey = JsonRpc2Error{
 		Message: walleterrors.ErrDecryptKey.Error(),
-		Code:    4001,
+		Code:    -34001,
 	}
 
 	AddressAlreadyUnLocked = JsonRpc2Error{
 		Message: walleterrors.ErrAlreadyLocked.Error(),
-		Code:    4002,
+		Code:    -34002,
 	}
 
 	concernedErrorMap map[string]JsonRpc2Error

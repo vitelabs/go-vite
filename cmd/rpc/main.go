@@ -32,6 +32,6 @@ func main() {
 		mainLog.Crit("Start vite failed.", "err", err)
 	}
 
-	rpc_vite.StartRpc(vnode, config.GlobalConfig.DataDir)
+	rpc_vite.StartAllRpcEndpoint(vnode, config.GlobalConfig.DataDir)
 
 }
