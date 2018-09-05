@@ -29,6 +29,14 @@ func GetUnconfirmed() *Unconfirmed {
 	return _unconfirmed
 }
 
+func NewUnconfirmed() *Unconfirmed {
+	db, err := GetLDBDataBase(DB_LEDGER)
+	if err != nil {
+		log15.Root().Crit(err.Error())
+	}
+	return &Unconfirmed{db: db}
+}
+
 func (ucf *Unconfirmed) GetUnconfirmedMeta(addr *types.Address) (*ledger.UnconfirmedMeta, error) {
 	key, err := createKey(DBKP_UNCONFIRMEDMETA, addr.Bytes())
 	if err != nil {

@@ -3,15 +3,26 @@ package worker
 import (
 	"container/heap"
 	"github.com/vitelabs/go-vite/common/types"
-	"math/big"
 	"github.com/vitelabs/go-vite/unconfirmed"
+	"math/big"
 )
 
+var Vite_TokenId, _ = types.BytesToTokenTypeId([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+
 type fromItem struct {
-	key      *types.Address // The key of the fromItem, sendBlock fromAddress
-	value    *BlockQueue    // The value of the fromItem; arbitrary.
-	priority *big.Int       // The priority of the fromItem in the queue.
-	index    int            // The index of the fromItem in the heap.
+	key   *types.Address // The key of the fromItem, sendBlock fromAddress
+	value *BlockQueue    // The value of the fromItem; arbitrary.
+
+	index    int      // The index of the fromItem in the heap.
+	priority *big.Int // The priority of the fromItem in the queue.
+}
+
+type toItem struct {
+	key   *types.Address     // the key of the toItem, sendBlock toAddress
+	value *PriorityFromQueue // the value of the toItem; arbitrary.
+
+	index    int      // the index of the toItem in the heap.
+	priority *big.Int // the priority of the toItem in the queue.
 }
 
 type PriorityFromQueue []*fromItem
@@ -51,7 +62,7 @@ func (pfq *PriorityFromQueue) InsertNew(block *unconfirmed.AccountBlock) {
 	var find = false
 	for _, v := range *pfq {
 		if v.key == block.From {
-			v.value.InsertNew(block)
+			v.value.Enqueue(block)
 			if v.priority == nil {
 				v.priority = big.NewInt(0)
 			}
@@ -62,7 +73,7 @@ func (pfq *PriorityFromQueue) InsertNew(block *unconfirmed.AccountBlock) {
 	}
 	if !find {
 		var bq BlockQueue
-		bq.InsertNew(block)
+		bq.Enqueue(block)
 		fItem := &fromItem{
 			key:      block.From,
 			value:    &bq,
@@ -79,14 +90,15 @@ func (pfq *PriorityFromQueue) update(item *fromItem, key *types.Address, value *
 	heap.Fix(pfq, item.index)
 }
 
-type PriorityToQueue []*toItem
-
-type toItem struct {
-	key      *types.Address     // the key of the toItem, sendBlock toAddress
-	value    *PriorityFromQueue // the value of the toItem; arbitrary.
-	priority *big.Int           // the priority of the toItem in the queue.
-	index    int                // the index of the toItem in the heap.
+func (pfq *PriorityFromQueue) Remove(key *types.Address) {
+	for i := 0; i < pfq.Len(); i++ {
+		if (*pfq)[i].key == key {
+			heap.Remove(pfq, (*pfq)[i].index)
+		}
+	}
 }
+
+type PriorityToQueue []*toItem
 
 func (ptq *PriorityToQueue) Push(x interface{}) {
 	item := x.(*toItem)
@@ -136,8 +148,8 @@ func (ptq *PriorityToQueue) InsertNew(block *unconfirmed.AccountBlock) {
 		var fQueue PriorityFromQueue
 		fQueue.InsertNew(block)
 		tItem := &toItem{
-			key:   block.To,
-			value: &fQueue,
+			key:      block.To,
+			value:    &fQueue,
 			priority: block.Balance[Vite_TokenId],
 		}
 		ptq.Push(tItem)

@@ -17,45 +17,87 @@ var (
 )
 
 type ContractWorker struct {
-	vite    Vite
-	address types.Address
-	gid     string
-	log     log15.Logger
+	vite     Vite
+	log      log15.Logger
+	dbAccess *unconfirmed.UnconfirmedAccess
 
-	status          int
-	pullSign        bool
-	dispatcherSleep bool
-	dispatcherAlarm chan struct{}
+	gid                 string
+	addresses           *types.Address
+	contractAddressList []*types.Address
 
-	newContractListener chan struct{}
+	status                 int
+	dispatcherSleep        bool
+	dispatcherAlarm        chan struct{}
+	breaker                chan struct{}
+	stopDispatcherListener chan struct{}
 
 	contractTasks   []*ContractTask
 	priorityToQueue *PriorityToQueue
-	blackList       map[types.Hash]bool
+	blackList       map[string]bool // map[(toAddress+fromAddress).String]
 
 	statusMutex sync.Mutex
 }
 
-func NewContractWorker(vite Vite, address types.Address, gid string) *ContractWorker {
+func NewContractWorker(vite Vite, dbAccess *unconfirmed.UnconfirmedAccess, gid string, address *types.Address, addressList []*types.Address) *ContractWorker {
 	return &ContractWorker{
-		vite:            vite,
-		address:         types.Address{},
-		log:             log15.New("ContractWorker addr", address.String(), "gid", gid),
-		status:          Create,
-		contractTasks:   make([]*ContractTask, POMAXPROCS),
-		dispatcherAlarm: make(chan struct{}),
-		blackList:       make(map[types.Hash]bool),
+		vite:                   vite,
+		dbAccess:               dbAccess,
+		gid:                    gid,
+		addresses:              address,
+		contractAddressList:    addressList,
+		status:                 Create,
+		dispatcherSleep:        false,
+		dispatcherAlarm:        make(chan struct{}, 1),
+		breaker:                make(chan struct{}, 1),
+		stopDispatcherListener: make(chan struct{}, 1),
+		contractTasks:          make([]*ContractTask, POMAXPROCS),
+		blackList:              make(map[string]bool),
+		log:                    log15.New("ContractWorker addr", address.String(), "gid", gid),
 	}
 }
 
-// sign that the queue can pull new Tx with the gid which listener add from ledger
-// and alarm the queue to pull only when dispatcher is under Sleep state
-type PullSignFuncType func() bool
+func (w *ContractWorker) Start(event *unconfirmed.RightEvent) {
+	w.log.Info("worker startWork is called")
+	w.statusMutex.Lock()
+	defer w.statusMutex.Unlock()
 
-func (w *ContractWorker) SetSignPull() {
-	if w.dispatcherSleep {
-		w.dispatcherAlarm <- struct{}{}
+	// todo  1. addNewContractListener to LYD
+
+	for _, v := range w.contractTasks {
+		v.InitContractTask(w.vite, w.dbAccess, event)
+		go v.Start(&w.blackList)
 	}
+	go w.DispatchTask()
+
+	w.status = Start
+}
+
+func (w *ContractWorker) Stop() {
+	w.statusMutex.Lock()
+	defer w.statusMutex.Unlock()
+	if w.status != Stop {
+
+		w.breaker <- struct{}{}
+		// todo: to clear tomap
+
+		// 1. CallBack
+		w.dispatcherSleep = true
+		close(w.dispatcherAlarm)
+
+		<-w.stopDispatcherListener
+		close(w.stopDispatcherListener)
+
+		// todo 2. Stop all task
+		for _, v := range w.contractTasks {
+			v.Stop()
+		}
+		w.status = Stop
+	}
+}
+
+func (w *ContractWorker) Close() error {
+	w.Stop()
+	return nil
 }
 
 func (w ContractWorker) Status() int {
@@ -64,88 +106,52 @@ func (w ContractWorker) Status() int {
 	return w.status
 }
 
-func (w *ContractWorker) Start(args *unconfirmed.RightEventArgs) {
-	w.log.Info("worker startWork is called")
-	w.statusMutex.Lock()
-	defer w.statusMutex.Unlock()
-
-	// todo  1. addNewContractListener to LYD
-
-	addressList, err := w.vite.Ledger().Ac().GetAddressListByGid(w.gid)
-	if err != nil || addressList == nil || len(addressList) < 0 {
-		w.Stop()
-	} else {
-		for _, v := range w.contractTasks {
-			v.InitContractTask(w.vite, args)
-			go v.Start(&w.blackList)
-		}
-		go w.DispatchTask(addressList)
+func (w *ContractWorker) NewUnconfirmedTxAlarm() {
+	if w.dispatcherSleep {
+		w.dispatcherAlarm <- struct{}{}
 	}
-
-	w.status = Start
 }
 
-func (w *ContractWorker) Stop() {
-	w.statusMutex.Lock()
-	defer w.statusMutex.Unlock()
-	// todo: to clear tomap
-
-	// todo 1. rmNewContractListener to LYD
-	// todo 2. Stop all task
-	for _, v := range w.contractTasks {
-		v.Stop()
-	}
-
-	//stop all listener
-	close(w.dispatcherAlarm)
-	close(w.newContractListener)
-
-	w.status = Stop
-}
-
-func (w *ContractWorker) Close() error {
-	w.Stop()
-	return nil
-}
-
-func (w *ContractWorker) DispatchTask(addressList []*types.Address) {
+func (w *ContractWorker) DispatchTask() {
 	//todo add mutex
-	w.FetchNew(addressList)
+	w.FetchNew()
 	for {
 		for i := 0; i < w.priorityToQueue.Len(); i++ {
 			tItem := heap.Pop(w.priorityToQueue).(*toItem)
 			priorityFromQueue := tItem.value
 			for j := 0; j < priorityFromQueue.Len(); j++ {
-				fItem := heap.Pop(priorityFromQueue).(*fromItem)
-				blockQueue := fItem.value
-				qLen := blockQueue.Size()
-				for k := 0; k < qLen; {
-
-				FINDFREETASK:
-					if w.Status() == Stop {
-						// todo: to clear priorityToQueue
-						goto END
-					}
-
-					freeTaskIndex := w.FindAFreeTask()
-					if freeTaskIndex == -1 {
-						goto FINDFREETASK
-					}
-
-					block := blockQueue.Dequeue()
-					w.contractTasks[freeTaskIndex].subQueue <- block
-					k++
+			FINDFREETASK:
+				if w.Status() == Stop {
+					// clear blackList
+					w.blackList = nil
+					// fixme: to clear priorityToQueue?
+					goto END
 				}
+
+				freeTaskIndex := w.FindAFreeTask()
+				if freeTaskIndex == -1 {
+					goto FINDFREETASK
+				}
+
+				fItem := heap.Pop(priorityFromQueue).(*fromItem)
+				w.contractTasks[freeTaskIndex].subQueue <- fItem
 			}
 		}
 
 		w.dispatcherSleep = true
-		<-w.dispatcherAlarm
-		w.dispatcherSleep = false
-		w.FetchNew(addressList)
+
+		select {
+		case <-w.breaker:
+			goto END
+		case <-w.dispatcherAlarm:
+			w.dispatcherSleep = false
+			w.FetchNew()
+		}
 	}
 END:
-	w.log.Info("worker DispatchTask end")
+	w.log.Info("ContractWorker send stopDispatcherListener")
+	w.stopDispatcherListener <- struct{}{}
+	w.log.Info("ContractWorker DispatchTask end")
 }
 
 func (w *ContractWorker) FindAFreeTask() (index int) {
@@ -157,21 +163,25 @@ func (w *ContractWorker) FindAFreeTask() (index int) {
 	return -1
 }
 
-func (w *ContractWorker) FetchNew(addressList []*types.Address) {
-	for i := 0; i < len(addressList); i++ {
-		hashList, err := w.vite.Ledger().Ac().GetUnconfirmedTxHashs(0, 1, FETCH_SIZE, addressList[i])
+func (w *ContractWorker) FetchNew() {
+	acAccess := w.vite.Ledger().Ac()
+	for i := 0; i < len(w.contractAddressList); i++ {
+		hashList, err := acAccess.GetUnconfirmedTxHashs(0, 1, FETCH_SIZE, w.contractAddressList[i])
 		if err != nil {
-			w.log.Error("FillMemTx.GetUnconfirmedTxHashs error")
+			w.log.Error("ContractWorker.FetchNew.GetUnconfirmedTxHashs error", err)
 			continue
 		}
 		for _, v := range hashList {
-			block, err := w.vite.Ledger().Ac().GetBlockByHash(v)
-			if err != nil || block == nil {
-				w.log.Error("FillMemTx.GetBlockByHash error")
+			sBlock, err := acAccess.GetBlockByHash(v)
+			if err != nil || sBlock == nil {
+				w.log.Error("ContractWorker.FetchNew.GetBlockByHash error", err)
 				continue
 			}
-			if _, ok := w.blackList[*block.Hash]; !ok {
-				w.priorityToQueue.InsertNew(block)
+			// when a to-from pair  was added into blackList,
+			// the other block which under the same to-from pair won't fetch any more during the same block-out period
+			var blKey = (*sBlock).To.String() + (*sBlock).From.String()
+			if _, ok := w.blackList[blKey]; !ok {
+				w.priorityToQueue.InsertNew(sBlock)
 			}
 		}
 	}

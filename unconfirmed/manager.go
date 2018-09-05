@@ -5,19 +5,21 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed/worker"
 	"github.com/vitelabs/go-vite/wallet/keystore"
+	"time"
 )
 
 var slog = log15.New("module", "unconfirmed")
 
 type Manager struct {
-	Vite worker.Vite
+	Vite     worker.Vite
+	dbAccess *UnconfirmedAccess
 
 	commonTxWorkers map[types.Address]*worker.CommonTxWorker
 	contractWorkers map[types.Address]*worker.ContractWorker
 
 	unlockEventListener   chan keystore.UnlockEvent
 	firstSyncDoneListener chan int
-	rightEventListener    chan RightEvent
+	rightEventListener    chan *RightEvent
 
 	unlockLid    int
 	rightLid     int
@@ -27,30 +29,12 @@ type Manager struct {
 }
 
 type RightEvent struct {
-	gid            string
-	address        types.Address
-	event          bool // "stop:true, start:false"
-	timestamp      uint64
-	snapshotHash   string
-	snapshotHeight int
-}
-
-type RightEventArgs struct {
-	gid            string
-	address        types.Address
-	timestamp      uint64
-	snapshotHash   string
-	snapshotHeight int
-}
-
-func NewRightEventArgs(gid string, address types.Address, timestamp uint64, snapshotHash string, snapshotHeight int) *RightEventArgs {
-	return &RightEventArgs{
-		gid:            gid,
-		address:        address,
-		timestamp:      timestamp,
-		snapshotHash:   snapshotHash,
-		snapshotHeight: snapshotHeight,
-	}
+	Gid            string
+	Address        *types.Address
+	StartTs        uint64
+	EndTs          uint64
+	SnapshotHash   *types.Hash
+	SnapshotHeight int
 }
 
 func NewManager(vite worker.Vite) *Manager {
@@ -61,7 +45,7 @@ func NewManager(vite worker.Vite) *Manager {
 
 		unlockEventListener:   make(chan keystore.UnlockEvent),
 		firstSyncDoneListener: make(chan int),
-		rightEventListener:    make(chan RightEvent),
+		rightEventListener:    make(chan *RightEvent),
 
 		log: slog.New("w", "master"),
 	}
@@ -72,8 +56,10 @@ func (manager *Manager) InitAndStartLoop() {
 	manager.unlockLid = manager.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(manager.unlockEventListener)
 	// todo 注册Miner 监听器 manager.rightLid = manager.Vite.
 
-	go manager.loop()
+	//todo add newContractListener????
+	manager.dbAccess = NewUnconfirmedAccess(&manager.commonTxWorkers, &manager.contractWorkers)
 
+	go manager.loop()
 }
 
 func (manager *Manager) Close() error {
@@ -96,11 +82,10 @@ func (manager *Manager) loop() {
 	status, _ := manager.Vite.WalletManager().KeystoreManager.Status()
 	for k, v := range status {
 		if v == keystore.UnLocked {
-			commonTxWorker := worker.NewCommonTxWorker(manager.Vite, k)
+			commonTxWorker := worker.NewCommonTxWorker(manager.Vite, &k)
 			loopLog.Info("Manager find a new unlock address ", "Worker", k.String())
 			manager.commonTxWorkers[k] = commonTxWorker
 			commonTxWorker.Start()
-
 		}
 	}
 
@@ -115,29 +100,30 @@ func (manager *Manager) loop() {
 					break
 				}
 
-				if !manager.Vite.WalletManager().KeystoreManager.IsUnLocked(event.address) {
+				if !manager.Vite.WalletManager().KeystoreManager.IsUnLocked(*event.Address) {
 					manager.log.Error(" receive a right event but address locked", "event", event)
 					break
 				}
 
-				w, found := manager.contractWorkers[event.address]
+				w, found := manager.contractWorkers[*event.Address]
 				if !found {
-					w = worker.NewContractWorker(manager.Vite, event.address, event.gid)
-					manager.contractWorkers[event.address] = w
+					addressList, err := manager.dbAccess.GetAddressListByGid(event.Gid)
+					if err != nil || addressList == nil || len(addressList) < 0 {
+						manager.log.Error("GetAddressListByGid Error", err)
+						continue
+					}
+					w = worker.NewContractWorker(manager.Vite, manager.dbAccess, event.Gid, event.Address, addressList)
+					manager.contractWorkers[*event.Address] = w
+
 					break
 				}
-
-				select {
-				case event.event == true:
-					args := NewRightEventArgs(event.gid, event.address, event.timestamp, event.snapshotHash, event.snapshotHeight)
-					w.Start(args)
-				case event.event == false:
-					w.Stop()
-				default:
+				nowTime := uint64(time.Now().UnixNano())
+				if nowTime >= event.StartTs && nowTime < event.EndTs {
+					w.Start(event)
+				} else {
 					w.Close()
 				}
 			}
-
 		case done, ok := <-manager.firstSyncDoneListener:
 			{
 				loopLog.Info("<-manager.firstSyncDoneListener ", "done", done)
@@ -168,7 +154,7 @@ func (manager *Manager) loop() {
 					//worker.newSignedTask <- struct{}{}
 					continue
 				}
-				w = worker.NewCommonTxWorker(manager.Vite, event.Address)
+				w = worker.NewCommonTxWorker(manager.Vite, &event.Address)
 				loopLog.Info("Manager get event new Worker")
 				manager.commonTxWorkers[event.Address] = w
 

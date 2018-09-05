@@ -5,24 +5,7 @@ import (
 	"math/big"
 )
 
-// db struct
-type unconfirmedBlock struct {
-	gid 	string
-	address types.Address
-	hash    types.Hash
-}
-
-// memery struct
-type TokenInfo struct {
-	TokenId     *types.TokenTypeId
-	TotalAmount *big.Int
-}
-
-type UnconfirmedMeta struct {
-	TotalNumber   *big.Int
-	TokenInfoList []*TokenInfo
-}
-
+// fixme: AccountBlock is tmp
 type AccountBlock struct {
 	hash            *types.Hash
 	From            *types.Address
@@ -45,3 +28,8 @@ type AccountBlock struct {
 	Balance         map[types.TokenTypeId]*big.Int
 }
 
+type unconfirmedMeta struct {
+	gid     string
+	address types.Address
+	hash    types.Hash
+}
