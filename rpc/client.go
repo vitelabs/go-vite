@@ -549,29 +549,16 @@ func (c *Client) dispatch(conn net.Conn) {
 			for _, msg := range batch {
 				switch {
 				case msg.isNotification():
-					if msg.Error != nil {
-						je, _ := json.Marshal(msg.Error)
-						println(string(je))
-					} else {
-						result, _ := msg.Result.MarshalJSON()
-						println(string(result))
-					}
-					log.Debug("", "msg", log.Lazy{Fn: func() string {
-						return fmt.Sprint("<-readResp: notification ", msg)
-					}})
+					println(msg.String())
+					//log.Debug("", "msg", log.Lazy{Fn: func() string {
+					//	return fmt.Sprint("<-readResp: notification ", msg)
+					//}})
 					c.handleNotification(msg)
 				case msg.isResponse():
-					if msg.Error != nil {
-						je, _ := json.Marshal(msg.Error)
-						println(string(je))
-					} else {
-						result, _ := msg.Result.MarshalJSON()
-						println(string(result))
-					}
-
-					log.Debug("", "msg", log.Lazy{Fn: func() string {
-						return fmt.Sprint("<-readResp: response ", msg)
-					}})
+					println(msg.String())
+					//log.Debug("", "msg", log.Lazy{Fn: func() string {
+					//	return fmt.Sprint("<-readResp: response ", msg)
+					//}})
 					c.handleResponse(msg)
 				default:
 					log.Debug("", "msg", log.Lazy{Fn: func() string {

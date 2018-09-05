@@ -20,7 +20,7 @@ import (
 func Help() {
 	fmt.Println("----------------------- JUST A TEST CLIENT DON'T BE TOO SERIOUS -----------------------------")
 	fmt.Println("create [password]:                      create an address by given password(default 123456) ")
-	fmt.Println("List:                                   List all address")
+	fmt.Println("list:                                   List all address")
 	fmt.Println("status:                                 show all address locked or unlocked")
 	fmt.Println("unlock [address] [password]:            unlock the address with given passsword(default 123456)")
 	fmt.Println("importpriv [hexprivkey] [password]:     import private key and use the given password to generate keystore ")
@@ -34,7 +34,11 @@ func Help() {
 	fmt.Println("unconfirminfo [address]:                show unconfirmed info in given address ")
 	fmt.Println("syncinfo:                               show first sync info")
 	fmt.Println("newtesttoken [address]:                 transfer 100 Vite form Genesis address to given address")
+	fmt.Println("reloadAndFixAddressFile:                reloadAndFixAddressFile")
 	fmt.Println("help:                                   show help")
+	fmt.Println("getscheight:                            GetSnapshotChainHeight")
+	fmt.Println("maykeystore:                            maykeystore")
+	fmt.Println("walletdatedir:                          get walletdatedir")
 	fmt.Println("quit:                                   quit")
 }
 
@@ -50,7 +54,18 @@ func Cmd(client *rpc.Client) {
 		if strings.HasPrefix(input, "quit") {
 			return
 		}
-		if strings.HasPrefix(input, "list") {
+		if strings.HasPrefix(input, "TestStaticApis") {
+			TestStaticApis(client)
+		} else if strings.HasPrefix(input, "walletdatedir") {
+			WalletDataDir(client)
+		} else if strings.HasPrefix(input, "maykeystore") {
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			MayKeystore(client, param)
+		} else if strings.HasPrefix(input, "getscheight") {
+			GetSnapshotChainHeight(client)
+		} else if strings.HasPrefix(input, "reloadAndFixAddressFile") {
+			reloadAndFixAddressFile(client)
+		} else if strings.HasPrefix(input, "list") {
 			List(client)
 		} else if strings.HasPrefix(input, "create") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
@@ -115,6 +130,25 @@ func Cmd(client *rpc.Client) {
 			fmt.Printf(input)
 		}
 	}
+}
+
+func WalletDataDir(client *rpc.Client) {
+	s := ""
+	client.Call(&s, "wallet_getDataDir")
+}
+func MayKeystore(client *rpc.Client, param []string) {
+	if len(param) < 1 {
+		return
+	}
+	var r api.IsMayValidKeystoreFileResponse
+	err := client.Call(&r, "wallet_isMayValidKeystoreFile", param[0])
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	marshal, _ := json.Marshal(r)
+	fmt.Println("success:/", string(marshal))
+
 }
 
 // wallet
@@ -302,16 +336,25 @@ func GetUnconfirmedInfo(client *rpc.Client, param []string) {
 	fmt.Println(string(marshal))
 }
 
+func reloadAndFixAddressFile(client *rpc.Client) {
+	client.Call(nil, "wallet_reloadAndFixAddressFile")
+}
+
+func GetSnapshotChainHeight(client *rpc.Client) {
+	s := ""
+	client.Call(&s, "ledger_getSnapshotChainHeight")
+}
+
 //func GetInitSyncInfo(client *rpc.Client, param []string) {
 //	doRpcCall(client, "ledger.GetInitSyncInfo", nil)
 //}
 
-//func TestStaticApis(client *rpc.Client) {
-//	doRpcCall(client, "common.LogDir", nil)
-//	doRpcCall(client, "types.IsValidHexTokenTypeId", []string{"asd"})
-//	doRpcCall(client, "types.IsValidHexAddress", []string{"vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c3a"})
-//	doRpcCall(client, "types.IsValidHexAddress", []string{"vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c31"})
-//}
+func TestStaticApis(client *rpc.Client) {
+	client.Call(nil, "common_logDir")
+	client.Call(nil, "types_isValidHexTokenTypeId", "asd")
+	client.Call(nil, "types_isValidHexAddress", "vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c3a")
+	client.Call(nil, "types_isValidHexAddress", "vite_1cb2ab2738cd913654658e879bef8115eb1aa61a9be9d15c31")
+}
 
 type newTokenParams struct {
 	Address string `json:"accountAddress"`

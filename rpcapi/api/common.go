@@ -12,18 +12,15 @@ func (CommonApi) String() string {
 	return "CommonApi"
 }
 
-func (CommonApi) LogDir(noop interface{}, reply *string) error {
+func (CommonApi) LogDir() string {
 	log.Info("CommonApi LogDir")
 	info, e := os.Stat(config.GlobalConfig.RunLogDir())
 	if e != nil {
-		*reply = ""
-		return nil
+		return ""
 	}
 	if !info.IsDir() {
-		*reply = ""
-		return nil
+		return ""
 	}
-	*reply = config.GlobalConfig.RunLogDir()
-	return nil
+	return config.GlobalConfig.RunLogDir()
 }
 
