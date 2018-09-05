@@ -75,11 +75,10 @@ func (master *Master) CreateTxWithPassphrase(block *ledger.AccountBlock, passphr
 
 	master.log.Info("sending Tx waiting ")
 	err, ok := <-endChannel
-	master.log.Error("<-endChannel ", "err", err)
 	if !ok || err == "" {
 		return nil
 	}
-
+	master.log.Error("<-endChannel ", "err", err)
 	return fmt.Errorf(err)
 }
 
@@ -245,7 +244,7 @@ func (sw *signSlave) StartWork() {
 			break
 		}
 		if len(sw.waitSendTasks) != 0 {
-			for i, v := range sw.waitSendTasks {
+			for _, v := range sw.waitSendTasks {
 				sw.log.Info("slaver send user task")
 				err := sw.vite.Ledger().Ac().CreateTxWithPassphrase(v.block, v.passphrase)
 				if err == nil {
@@ -256,8 +255,9 @@ func (sw *signSlave) StartWork() {
 					v.end <- err.Error()
 				}
 				close(v.end)
-				sw.waitSendTasks = append(sw.waitSendTasks[:i], sw.waitSendTasks[i+1:]...)
+
 			}
+			sw.waitSendTasks = sw.waitSendTasks[:0]
 		}
 
 		if sw.addressUnlocked {

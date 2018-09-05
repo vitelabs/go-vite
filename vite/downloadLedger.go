@@ -33,7 +33,7 @@ func downloadLedger(isDownload bool, dataDir string) {
 		var getErr error
 		res, getErr = http.Get("https://testnet.vite.net/ledger")
 
-		if res.StatusCode != 200 || getErr != nil {
+		if getErr != nil || res == nil || res.StatusCode != 200 {
 			if getErr != nil {
 				donwloadLedgerLog.Error(getErr.Error())
 			}
