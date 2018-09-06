@@ -8,6 +8,7 @@ import (
 
 type ChainDb struct {
 	Ac      *access.AccountChain
+	Sc      *access.SnapshotChain
 	Account *access.Account
 }
 
@@ -22,6 +23,7 @@ func NewChainDb(dbDir string) *ChainDb {
 
 	return &ChainDb{
 		Ac:      access.NewAccountChain(db),
+		Sc:      access.NewSnapshotChain(db),
 		Account: access.NewAccount(db),
 	}
 }
