@@ -34,6 +34,7 @@ func NewCommonTxWorker(vite Vite, address *types.Address) *CommonTxWorker {
 }
 
 func (w *CommonTxWorker) Start() {
+	w.log.Info("Start")
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Start {
@@ -57,6 +58,7 @@ func (w *CommonTxWorker) Start() {
 }
 
 func (w *CommonTxWorker) Stop() {
+	w.log.Info("Stop")
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Stop {

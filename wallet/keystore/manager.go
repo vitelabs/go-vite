@@ -1,9 +1,9 @@
 package keystore
 
 import (
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"sync"
 	"time"
@@ -38,7 +38,8 @@ type Manager struct {
 	mutex       sync.RWMutex
 	isInited    bool
 
-	unlockChanged      map[int]chan<- UnlockEvent
+	//unlockChanged      map[int]chan<- UnlockEvent
+	unlockChangedLis   map[int]func(event UnlockEvent)
 	unlockChangedIndex int
 	log                log15.Logger
 }
@@ -61,19 +62,19 @@ func (km *Manager) Init() {
 	defer km.mutex.Unlock()
 	km.kc, km.kcChanged = newKeyCache(km.KeyStoreDir)
 	km.unlocked = make(map[types.Address]*unlocked)
-	km.unlockChanged = make(map[int]chan<- UnlockEvent)
+	km.unlockChangedLis = make(map[int]func(event UnlockEvent))
 	km.unlockChangedIndex = 100
 	km.isInited = true
 }
 
-func (km *Manager) AddUnlockChangeChannel(c chan<- UnlockEvent) int {
-	km.log.Info("AddUnlockChangeChannel", "c", c)
+func (km *Manager) AddUnlockChangeChannel(lis func(event UnlockEvent)) int {
+	km.log.Info("AddUnlockChangeChannel")
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
 	km.unlockChangedIndex++
 	km.log.Info("AddUnlockChangeChannel", "id", km.unlockChangedIndex)
-	km.unlockChanged[km.unlockChangedIndex] = c
+	km.unlockChangedLis[km.unlockChangedIndex] = lis
 
 	return km.unlockChangedIndex
 }
@@ -82,7 +83,7 @@ func (km *Manager) RemoveUnlockChangeChannel(id int) {
 	km.log.Info("RemoveUnlockChangeChannel", "id", id)
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
-	delete(km.unlockChanged, id)
+	delete(km.unlockChangedLis, id)
 }
 
 func (km Manager) Status() (map[types.Address]string, error) {
@@ -126,11 +127,11 @@ func (km *Manager) Unlock(addr types.Address, passphrase string, timeout time.Du
 		u = &unlocked{Key: key}
 	}
 	km.unlocked[key.Address] = u
-	for _, v := range km.unlockChanged {
-		v <- UnlockEvent{
+	for _, v := range km.unlockChangedLis {
+		v(UnlockEvent{
 			Address: addr,
 			event:   UnLocked,
-		}
+		})
 	}
 	return nil
 }
@@ -157,11 +158,11 @@ func (km *Manager) expire(addr types.Address, u *unlocked, timeout time.Duration
 			zeroKey(u.PrivateKey)
 			delete(km.unlocked, addr)
 
-			for _, v := range km.unlockChanged {
-				v <- UnlockEvent{
+			for _, v := range km.unlockChangedLis {
+				v(UnlockEvent{
 					Address: addr,
 					event:   Locked,
-				}
+				})
 			}
 
 		}

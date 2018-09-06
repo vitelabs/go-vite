@@ -53,7 +53,7 @@ func NewManager(vite worker.Vite) *Manager {
 
 func (manager *Manager) InitAndStartLoop() {
 	manager.Vite.Ledger().RegisterFirstSyncDown(manager.firstSyncDoneListener)
-	manager.unlockLid = manager.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(manager.unlockEventListener)
+	manager.unlockLid = manager.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(manager.addressLockStateChangeFunc)
 	// todo 注册Miner 监听器 manager.rightLid = manager.Vite.
 
 	//todo add newContractListener????
@@ -74,6 +74,23 @@ func (manager *Manager) Close() error {
 	}
 	return nil
 
+}
+
+func (manager *Manager) addressLockStateChangeFunc(event keystore.UnlockEvent) {
+	manager.log.Info("addressLockStateChangeFunc ", "event", event)
+	w, found := manager.commonTxWorkers[event.Address]
+	if found {
+		manager.log.Info("get event already exist ", "event", event)
+		if !event.Unlocked() {
+			w.Stop()
+		}
+		w.Start()
+	}
+	w = worker.NewCommonTxWorker(manager.Vite, &event.Address)
+	manager.log.Info("Manager get event new Worker")
+	manager.commonTxWorkers[event.Address] = w
+
+	w.Start()
 }
 
 func (manager *Manager) loop() {
