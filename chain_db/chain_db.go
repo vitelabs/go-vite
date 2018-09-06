@@ -7,7 +7,8 @@ import (
 )
 
 type ChainDb struct {
-	Ac *access.AccountChain
+	Ac      *access.AccountChain
+	Account *access.Account
 }
 
 var chainDbLog = log15.New("module", "chainDb")
@@ -20,6 +21,7 @@ func NewChainDb(dbDir string) *ChainDb {
 	}
 
 	return &ChainDb{
-		Ac: access.NewAccountChain(db),
+		Ac:      access.NewAccountChain(db),
+		Account: access.NewAccount(db),
 	}
 }
