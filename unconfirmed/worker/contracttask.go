@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	Idle                = iota
+	Idle = iota
 	Running
 	Waiting
 	Dead
@@ -127,7 +127,7 @@ func (task *ContractTask) ProcessAQueue(fItem *fromItem) (intoBlackList bool) {
 		recvType, count := task.CheckChainReceiveCount(sBlock.To, sBlock.Hash)
 		if recvType == 5 && count > MAX_ERR_RECV_COUNT {
 			task.log.Info("Delete the UnconfirmedMeta: the recvErrBlock reach the max-limit count of existence.")
-			task.dbAccess.WriteUnconfirmed(false, sBlock)
+			task.dbAccess.WriteUnconfirmed(false, nil, sBlock)
 			continue
 		}
 
@@ -145,7 +145,7 @@ func (task *ContractTask) ProcessAQueue(fItem *fromItem) (intoBlackList bool) {
 			if isRetry == true {
 				return true
 			} else {
-				task.dbAccess.WriteUnconfirmed(false, sBlock)
+				task.dbAccess.WriteUnconfirmed(false, nil, sBlock)
 			}
 		} else {
 			if isRetry == true {

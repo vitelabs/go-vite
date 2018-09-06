@@ -14,8 +14,9 @@ type Manager struct {
 	Vite     worker.Vite
 	dbAccess *UnconfirmedAccess
 
-	commonTxWorkers map[types.Address]*worker.CommonTxWorker
-	contractWorkers map[types.Address]*worker.ContractWorker
+	commonTxWorkers      map[types.Address]*worker.CommonTxWorker
+	contractWorkers      map[types.Address]*worker.ContractWorker
+	commonAccountInfoMap map[types.Address]*CommonAccountInfo
 
 	unlockEventListener   chan keystore.UnlockEvent
 	firstSyncDoneListener chan int
@@ -39,9 +40,10 @@ type RightEvent struct {
 
 func NewManager(vite worker.Vite) *Manager {
 	return &Manager{
-		Vite:            vite,
-		commonTxWorkers: make(map[types.Address]*worker.CommonTxWorker),
-		contractWorkers: make(map[types.Address]*worker.ContractWorker),
+		Vite:                 vite,
+		commonTxWorkers:      make(map[types.Address]*worker.CommonTxWorker),
+		contractWorkers:      make(map[types.Address]*worker.ContractWorker),
+		commonAccountInfoMap: make(map[types.Address]*CommonAccountInfo),
 
 		unlockEventListener:   make(chan keystore.UnlockEvent),
 		firstSyncDoneListener: make(chan int),
@@ -57,7 +59,7 @@ func (manager *Manager) InitAndStartLoop() {
 	// todo 注册Miner 监听器 manager.rightLid = manager.Vite.
 
 	//todo add newContractListener????
-	manager.dbAccess = NewUnconfirmedAccess(&manager.commonTxWorkers, &manager.contractWorkers)
+	manager.dbAccess = NewUnconfirmedAccess(&manager.commonTxWorkers, &manager.contractWorkers, &manager.commonAccountInfoMap)
 
 	go manager.loop()
 }
@@ -81,6 +83,10 @@ func (manager *Manager) loop() {
 
 	status, _ := manager.Vite.WalletManager().KeystoreManager.Status()
 	for k, v := range status {
+		if err := manager.dbAccess.LoadCommonAccInfo(&k); err != nil {
+			manager.log.Error("loop: manager.dbAccess.LoadCommonAccInfo", "error", err)
+			continue
+		}
 		if v == keystore.UnLocked {
 			commonTxWorker := worker.NewCommonTxWorker(manager.Vite, &k)
 			loopLog.Info("Manager find a new unlock address ", "Worker", k.String())
@@ -107,9 +113,9 @@ func (manager *Manager) loop() {
 
 				w, found := manager.contractWorkers[*event.Address]
 				if !found {
-					addressList, err := manager.dbAccess.GetAddressListByGid(event.Gid)
+					addressList, err := manager.dbAccess.GetAddrListByGid(event.Gid)
 					if err != nil || addressList == nil || len(addressList) < 0 {
-						manager.log.Error("GetAddressListByGid Error", err)
+						manager.log.Error("GetAddrListByGid Error", err)
 						continue
 					}
 					w = worker.NewContractWorker(manager.Vite, manager.dbAccess, event.Gid, event.Address, addressList)

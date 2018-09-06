@@ -2,8 +2,8 @@ package unconfirmed
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"math/big"
 	"github.com/vitelabs/go-vite/ledger"
+	"math/big"
 )
 
 type UnconfirmedMeta struct {
@@ -14,8 +14,8 @@ type UnconfirmedMeta struct {
 
 type CommonAccountInfo struct {
 	AccountAddress *types.Address
-	TotalNumber   *big.Int
-	TokenInfoList []*TokenInfo
+	TotalNumber    uint64
+	TokenInfoMap   map[*types.TokenTypeId]*TokenInfo
 }
 
 // pack the data for handler

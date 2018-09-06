@@ -128,19 +128,13 @@ func (w *CommonTxWorker) startWork() {
 }
 
 func (w *CommonTxWorker) FetchNew() {
-	acAccess := w.vite.Ledger().Ac()
-	hashList, err := acAccess.GetUnconfirmedTxHashs(0, 1, FETCH_SIZE, w.address)
+	blockList, err := w.dbAccess.GetUnconfirmedBlocks(0, 1, FETCH_SIZE, w.address)
 	if err != nil {
-		w.log.Error("CommonTxWorker.FetchNew.GetUnconfirmedTxHashs error", err)
+		w.log.Error("CommonTxWorker.FetchNew.GetUnconfirmedBlocks", "error", err)
 		return
 	}
-	for _, v := range hashList {
-		sBlock, err := acAccess.GetBlockByHash(v)
-		if err != nil || sBlock == nil {
-			w.log.Error("CommonTxWorker.FetchNew.GetBlockByHash error", err)
-			continue
-		}
-		w.blockQueue.Enqueue(sBlock)
+	for _, v := range blockList {
+		w.blockQueue.Enqueue(v)
 	}
 }
 
