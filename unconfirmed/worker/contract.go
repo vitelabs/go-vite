@@ -21,7 +21,7 @@ type ContractWorker struct {
 	log      log15.Logger
 	dbAccess *unconfirmed.UnconfirmedAccess
 
-	gid                 string
+	gid                 []byte
 	addresses           *types.Address
 	contractAddressList []*types.Address
 
@@ -38,7 +38,7 @@ type ContractWorker struct {
 	statusMutex sync.Mutex
 }
 
-func NewContractWorker(vite Vite, dbAccess *unconfirmed.UnconfirmedAccess, gid string, address *types.Address, addressList []*types.Address) *ContractWorker {
+func NewContractWorker(vite Vite, dbAccess *unconfirmed.UnconfirmedAccess, gid []byte, address *types.Address, addressList []*types.Address) *ContractWorker {
 	return &ContractWorker{
 		vite:                   vite,
 		dbAccess:               dbAccess,

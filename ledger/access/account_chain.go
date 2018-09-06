@@ -143,7 +143,7 @@ type AccountChainAccess struct {
 	accountStore     *vitedb.Account
 	snapshotStore    *vitedb.SnapshotChain
 	tokenStore       *vitedb.Token
-	unconfirmedStore *vitedb.Unconfirmed
+	unconfirmedStore *vitedb.UnconfirmedDB
 	bwMutex          *blockWriteMutex
 }
 
