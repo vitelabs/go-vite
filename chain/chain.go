@@ -8,25 +8,28 @@ import (
 	"path/filepath"
 )
 
-var chainLog = log15.New("module", "chain")
-
 type Chain struct {
+	log        log15.Logger
 	chainDb    *chain_db.ChainDb
 	compressor *compress.Compressor
 }
 
 func NewChain(cfg *config.Config) *Chain {
-	chainDb := chain_db.NewChainDb(filepath.Join(cfg.DataDir, "chain"))
-	if chainDb == nil {
-		chainLog.Error("NewChain failed")
-		return nil
+	chain := &Chain{
+		log: log15.New("module", "chain"),
 	}
 
-	compressor := compress.NewCompressor()
-	return &Chain{
-		chainDb:    chainDb,
-		compressor: compressor,
+	chainDb := chain_db.NewChainDb(filepath.Join(cfg.DataDir, "chain"))
+	if chainDb == nil {
+		chain.log.Error("NewChain failed")
+		return nil
 	}
+	chain.chainDb = chainDb
+
+	compressor := compress.NewCompressor()
+	chain.compressor = compressor
+
+	return chain
 }
 
 func (c *Chain) Start() {
