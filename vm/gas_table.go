@@ -306,6 +306,15 @@ func intrinsicGasCost(data []byte, isCreate bool) (uint64, error) {
 	} else {
 		gas = txGas
 	}
+	gasData, err := dataGasCost(data)
+	if err != nil || maxUint64-gas < gasData {
+		return 0, errGasUintOverflow
+	}
+	return gas + gasData, nil
+}
+
+func dataGasCost(data []byte) (uint64, error) {
+	var gas uint64
 	if len(data) > 0 {
 		var nonZeroByteCount uint64
 		for _, byteCode := range data {
@@ -313,10 +322,10 @@ func intrinsicGasCost(data []byte, isCreate bool) (uint64, error) {
 				nonZeroByteCount++
 			}
 		}
-		if (maxUint64-gas)/txDataNonZeroGas < nonZeroByteCount {
+		if maxUint64/txDataNonZeroGas < nonZeroByteCount {
 			return 0, errGasUintOverflow
 		}
-		gas += nonZeroByteCount * txDataNonZeroGas
+		gas = nonZeroByteCount * txDataNonZeroGas
 
 		zeroByteCount := uint64(len(data)) - nonZeroByteCount
 		if (maxUint64-gas)/txDataZeroGas < zeroByteCount {

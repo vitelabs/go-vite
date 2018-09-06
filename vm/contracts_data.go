@@ -91,7 +91,7 @@ func (c countingRuleOfBalance) checkParam(param []byte, db VmDatabase) bool {
 	if len(param) != 32 {
 		return false
 	}
-	if tokenId, err := types.BytesToTokenTypeId(leftPadBytes(new(big.Int).SetBytes(param).Bytes(), 20)); err != nil || !db.IsExistToken(tokenId) {
+	if tokenId, err := types.BytesToTokenTypeId(leftPadBytes(new(big.Int).SetBytes(param).Bytes(), 10)); err != nil || !db.IsExistToken(tokenId) {
 		return false
 	}
 	return true
@@ -103,7 +103,7 @@ func (c registerConditionOfSnapshot) checkParam(param []byte, db VmDatabase) boo
 	if len(param) != 96 {
 		return false
 	}
-	if tokenId, err := types.BytesToTokenTypeId(leftPadBytes(new(big.Int).SetBytes(param).Bytes(), 20)); err != nil || !db.IsExistToken(tokenId) {
+	if tokenId, err := types.BytesToTokenTypeId(leftPadBytes(new(big.Int).SetBytes(param[32:64]).Bytes(), 10)); err != nil || !db.IsExistToken(tokenId) {
 		return false
 	}
 	return true
@@ -121,6 +121,11 @@ func (c voteConditionOfDefault) checkParam(param []byte, db VmDatabase) bool {
 type voteConditionOfBalance struct{}
 
 func (c voteConditionOfBalance) checkParam(param []byte, db VmDatabase) bool {
-	// TODO
+	if len(param) != 64 {
+		return false
+	}
+	if tokenId, err := types.BytesToTokenTypeId(leftPadBytes(new(big.Int).SetBytes(param[32:64]).Bytes(), 10)); err != nil || !db.IsExistToken(tokenId) {
+		return false
+	}
 	return true
 }

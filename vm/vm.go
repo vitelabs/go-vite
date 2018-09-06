@@ -176,6 +176,7 @@ func (vm *VM) sendCall(block VmAccountBlock, quotaTotal, quotaAddition uint64) (
 		block.SetCreateFee(p.createFee(vm, block))
 		cost, err = intrinsicGasCost(nil, false)
 	} else {
+		block.SetCreateFee(big0)
 		cost, err = intrinsicGasCost(block.Data(), false)
 	}
 	if err != nil {
@@ -185,7 +186,7 @@ func (vm *VM) sendCall(block VmAccountBlock, quotaTotal, quotaAddition uint64) (
 	if err != nil {
 		return nil, err
 	}
-	if !vm.canTransfer(block.AccountAddress(), block.TokenId(), block.Amount(), big0) {
+	if !vm.canTransfer(block.AccountAddress(), block.TokenId(), block.Amount(), block.CreateFee()) {
 		return nil, ErrInsufficientBalance
 	}
 
@@ -197,6 +198,7 @@ func (vm *VM) sendCall(block VmAccountBlock, quotaTotal, quotaAddition uint64) (
 	}
 	// sub balance
 	vm.Db.SubBalance(block.AccountAddress(), block.TokenId(), block.Amount())
+	vm.Db.SubBalance(block.AccountAddress(), viteTokenTypeId, block.CreateFee())
 	var quota uint64
 	if _, ok := getPrecompiledContract(block.AccountAddress()); ok {
 		quota = 0
@@ -506,7 +508,6 @@ func createTokenId(addr, owner types.Address, height *big.Int, prevHash, snapsho
 }
 
 func isExistGid(db VmDatabase, gid Gid) bool {
-	return true
 	value := db.Storage(AddressConsensusGroup, types.DataHash(gid.Bytes()))
 	return len(value) > 0
 }

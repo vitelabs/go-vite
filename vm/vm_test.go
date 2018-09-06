@@ -77,6 +77,17 @@ func TestVmRun(t *testing.T) {
 	db.balanceMap[addr1] = make(map[types.TokenTypeId]*big.Int)
 	db.balanceMap[addr1][viteTokenTypeId] = db.tokenMap[viteTokenTypeId].totalSupply
 
+	db.storageMap[AddressConsensusGroup] = make(map[types.Hash][]byte)
+	db.storageMap[AddressConsensusGroup][types.DataHash(snapshotGid.Bytes())] = ToCreateConsensusGroupData(snapshotGid, ConsensusGroup{
+		NodeCount:              25,
+		Interval:               3,
+		CountingRuleId:         1,
+		CountingRuleParam:      leftPadBytes(viteTokenTypeId.Bytes(), 32),
+		RegisterConditionId:    1,
+		RegisterConditionParam: joinBytes(leftPadBytes(registerAmount.Bytes(), 32), leftPadBytes(viteTokenTypeId.Bytes(), 32), leftPadBytes(big.NewInt(registerLockTime).Bytes(), 32)),
+		VoteConditionId:        1,
+		VoteConditionParam:     []byte{}})[36:]
+
 	/*
 	* contract code
 	* pragma solidity ^0.4.18;

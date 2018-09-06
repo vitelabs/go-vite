@@ -84,6 +84,17 @@ func (p *register) doSendCancelRegister(vm *VM, block VmAccountBlock, quotaLeft 
 		return quotaLeft, ErrInvalidData
 	}
 
+	locHash := getKey(block.AccountAddress(), gid)
+	old := vm.Db.Storage(block.ToAddress(), locHash)
+	// storage value: lock ViteToken amount(0:32) + lock start timestamp(32:64) + start reward snapshot height(64:96) + cancel snapshot height, 0 for default(96:128)
+	if len(old) < 96 || allZero(old[0:32]) {
+		return quotaLeft, ErrInvalidData
+	}
+	lockStartTime := new(big.Int).SetBytes(old[32:64]).Int64()
+	if lockStartTime+registerLockTime < vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp() {
+		return quotaLeft, ErrInvalidData
+	}
+
 	quotaLeft, err = useQuota(quotaLeft, cancelRegisterGas)
 	if err != nil {
 		return quotaLeft, err
@@ -563,7 +574,7 @@ func checkCreateConsensusGroupData(vm *VM, data []byte) error {
 	if tmp.BitLen() > 64 || interval < cgIntervalMin || interval > cgIntervalMax {
 		return ErrInvalidData
 	}
-	if _, err := checkCondition(vm, data, tmp, 132, "counting"); err != nil {
+	if _, err := checkCondition(vm, data, tmp, 100, "counting"); err != nil {
 		return ErrInvalidData
 	}
 	if _, err := checkCondition(vm, data, tmp, 164, "register"); err != nil {
@@ -584,7 +595,7 @@ func checkCondition(vm *VM, data []byte, tmp big.Int, startIndex uint64, conditi
 		return 0, ErrInvalidData
 	}
 	tmp.SetBytes(data[startIndex+32 : startIndex+64])
-	conditionParamAddressStart := tmp.Uint64()
+	conditionParamAddressStart := tmp.Uint64() + 4
 	if tmp.BitLen() > 64 || uint64(len(data)) < conditionParamAddressStart+32 {
 		return 0, ErrInvalidData
 	}

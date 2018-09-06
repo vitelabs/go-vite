@@ -8,17 +8,15 @@ import (
 	"time"
 )
 
-func TestContractsRun(t *testing.T) {
-	// prepare db
-	addr1, _, _ := types.CreateAddress()
-	db := NewNoDatabase()
-	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
+func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, hash12 types.Hash, snapshot2 *NoSnapshotBlock, timestamp int64) {
+	addr1, _, _ = types.CreateAddress()
+	db = NewNoDatabase()
 	db.tokenMap[viteTokenTypeId] = VmToken{tokenId: viteTokenTypeId, tokenName: "ViteToken", owner: addr1, totalSupply: viteTotalSupply, decimals: 18}
 
-	timestamp := time.Now().Unix()
+	timestamp = time.Now().Unix()
 	snapshot1 := &NoSnapshotBlock{height: big.NewInt(1), timestamp: timestamp - 1, hash: types.DataHash([]byte{10, 1})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
-	snapshot2 := &NoSnapshotBlock{height: big.NewInt(2), timestamp: timestamp, hash: types.DataHash([]byte{10, 2})}
+	snapshot2 = &NoSnapshotBlock{height: big.NewInt(2), timestamp: timestamp, hash: types.DataHash([]byte{10, 2})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot2)
 
 	hash11 := types.DataHash([]byte{1, 1})
@@ -34,7 +32,7 @@ func TestContractsRun(t *testing.T) {
 	}
 	db.accountBlockMap[addr1] = make(map[types.Hash]VmAccountBlock)
 	db.accountBlockMap[addr1][hash11] = block11
-	hash12 := types.DataHash([]byte{1, 2})
+	hash12 = types.DataHash([]byte{1, 2})
 	block12 := &NoAccountBlock{
 		height:         big.NewInt(2),
 		toAddress:      addr1,
@@ -52,6 +50,23 @@ func TestContractsRun(t *testing.T) {
 	db.balanceMap[addr1] = make(map[types.TokenTypeId]*big.Int)
 	db.balanceMap[addr1][viteTokenTypeId] = new(big.Int).Set(db.tokenMap[viteTokenTypeId].totalSupply)
 
+	db.storageMap[AddressConsensusGroup] = make(map[types.Hash][]byte)
+	db.storageMap[AddressConsensusGroup][types.DataHash(snapshotGid.Bytes())] = ToCreateConsensusGroupData(snapshotGid, ConsensusGroup{
+		NodeCount:              25,
+		Interval:               3,
+		CountingRuleId:         1,
+		CountingRuleParam:      leftPadBytes(viteTokenTypeId.Bytes(), 32),
+		RegisterConditionId:    1,
+		RegisterConditionParam: joinBytes(leftPadBytes(registerAmount.Bytes(), 32), leftPadBytes(viteTokenTypeId.Bytes(), 32), leftPadBytes(big.NewInt(registerLockTime).Bytes(), 32)),
+		VoteConditionId:        1,
+		VoteConditionParam:     []byte{}})[36:]
+	return
+}
+
+func TestContractsRun(t *testing.T) {
+	// prepare db
+	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
+	db, addr1, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
 	// register
 	addr2 := AddressRegister
 	hash13 := types.DataHash([]byte{1, 3})
@@ -646,4 +661,67 @@ func TestContractsRun(t *testing.T) {
 		t.Fatalf("receive cancel mortgage refund transaction 2 error")
 	}
 	db.accountBlockMap[addr1][hash1g] = receiveCancelMortgageRefundBlockList2[0]
+}
+
+func TestConsensusGroup(t *testing.T) {
+	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
+	db, addr1, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
+
+	addr2 := AddressConsensusGroup
+	hash13 := types.DataHash([]byte{1, 3})
+	block13 := &NoAccountBlock{
+		height:         big.NewInt(3),
+		toAddress:      addr2,
+		accountAddress: addr1,
+		blockType:      BlockTypeSendCall,
+		prevHash:       hash12,
+		amount:         big.NewInt(0),
+		tokenId:        viteTokenTypeId,
+		data: ToCreateConsensusGroupData(Gid{}, ConsensusGroup{
+			NodeCount:              25,
+			Interval:               3,
+			CountingRuleId:         1,
+			CountingRuleParam:      leftPadBytes(viteTokenTypeId.Bytes(), 32),
+			RegisterConditionId:    1,
+			RegisterConditionParam: joinBytes(leftPadBytes(big.NewInt(1e18).Bytes(), 32), leftPadBytes(viteTokenTypeId.Bytes(), 32), leftPadBytes(big.NewInt(84600).Bytes(), 32)),
+			VoteConditionId:        1,
+			VoteConditionParam:     []byte{},
+		}),
+		snapshotHash: snapshot2.Hash(),
+		depth:        1,
+	}
+	vm := NewVM(db, CreateNoAccountBlock)
+	vm.Debug = true
+	sendCreateConsensusGroupBlockList, isRetry, err := vm.Run(block13)
+	if len(sendCreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
+		sendCreateConsensusGroupBlockList[0].Quota() != 62200 ||
+		!allZero(block13.Data()[4:26]) || allZero(block13.Data()[26:36]) ||
+		block13.CreateFee().Cmp(createConsensusGroupFee) != 0 ||
+		db.balanceMap[addr1][viteTokenTypeId].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 {
+		t.Fatalf("send create consensus group transaction error")
+	}
+	db.accountBlockMap[addr1][hash13] = sendCreateConsensusGroupBlockList[0]
+
+	hash21 := types.DataHash([]byte{2, 1})
+	block21 := &NoAccountBlock{
+		height:         big.NewInt(1),
+		toAddress:      addr2,
+		accountAddress: addr1,
+		blockType:      BlockTypeReceive,
+		fromBlockHash:  hash13,
+		snapshotHash:   snapshot2.Hash(),
+		depth:          1,
+	}
+	vm = NewVM(db, CreateNoAccountBlock)
+	vm.Debug = true
+	locHash := types.DataHash(block13.Data()[26:36])
+	receiveCreateConsensusGroupBlockList, isRetry, err := vm.Run(block21)
+	if len(receiveCreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
+		db.balanceMap[addr2][viteTokenTypeId].Sign() != 0 ||
+		!bytes.Equal(db.storageMap[addr2][locHash], block13.Data()[36:]) ||
+		receiveCreateConsensusGroupBlockList[0].Quota() != 0 {
+		t.Fatalf("receive create consensus group transaction error")
+	}
+	db.accountBlockMap[addr2] = make(map[types.Hash]VmAccountBlock)
+	db.accountBlockMap[addr2][hash21] = receiveCreateConsensusGroupBlockList[0]
 }
