@@ -47,16 +47,15 @@ const (
 	tokenDecimalsMin         uint64 = 0       // Minimum value of a token decimals(exclude)
 	tokenDecimalsMax         uint64 = 18      // Maximum value of a token decimals(include)
 
-	// TODO calc call data separately
-	registerGas             uint64 = 41948
-	cancelRegisterGas       uint64 = 62948
-	rewardGas               uint64 = 69476
-	calcRewardGasPerBlock   uint64 = 1
-	voteGas                 uint64 = 43108
-	cancelVoteGas           uint64 = 21748
-	mortgageGas             uint64 = 63372
-	cancelMortgageGas       uint64 = 86004
-	createConsensusGroupGas uint64 = 41200
+	registerGas             uint64 = 62200
+	cancelRegisterGas       uint64 = 83200
+	rewardGas               uint64 = 83200
+	calcRewardGasPerPage    uint64 = 200
+	voteGas                 uint64 = 62000
+	cancelVoteGas           uint64 = 62000
+	mortgageGas             uint64 = 82400
+	cancelMortgageGas       uint64 = 103400
+	createConsensusGroupGas uint64 = 62200
 
 	registerLockTime int64  = 3600 * 24 * 90
 	dbPageSize       uint64 = 10000

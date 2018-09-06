@@ -104,6 +104,13 @@ func useQuota(quota, cost uint64) (uint64, error) {
 	quota = quota - cost
 	return quota, nil
 }
+func useQuotaForData(data []byte, quota uint64) (uint64, error) {
+	cost, err := dataGasCost(data)
+	if err != nil {
+		return 0, err
+	}
+	return useQuota(quota, cost)
+}
 
 func hexToString(data []byte) string {
 	for i, b := range data {

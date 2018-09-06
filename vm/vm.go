@@ -169,44 +169,42 @@ func (vm *VM) receiveCreate(block VmAccountBlock, quotaTotal uint64) (blockList 
 func (vm *VM) sendCall(block VmAccountBlock, quotaTotal, quotaAddition uint64) (VmAccountBlock, error) {
 	// check can make transaction
 	quotaLeft := quotaTotal
-	quotaRefund := uint64(0)
-	var cost uint64
-	var err error
 	if p, ok := getPrecompiledContract(block.ToAddress()); ok {
+		var err error
 		block.SetCreateFee(p.createFee(vm, block))
-		cost, err = intrinsicGasCost(nil, false)
-	} else {
-		block.SetCreateFee(big0)
-		cost, err = intrinsicGasCost(block.Data(), false)
-	}
-	if err != nil {
-		return nil, err
-	}
-	quotaLeft, err = useQuota(quotaLeft, cost)
-	if err != nil {
-		return nil, err
-	}
-	if !vm.canTransfer(block.AccountAddress(), block.TokenId(), block.Amount(), block.CreateFee()) {
-		return nil, ErrInsufficientBalance
-	}
-
-	if p, ok := getPrecompiledContract(block.ToAddress()); ok {
+		if !vm.canTransfer(block.AccountAddress(), block.TokenId(), block.Amount(), block.CreateFee()) {
+			return nil, ErrInsufficientBalance
+		}
 		quotaLeft, err = p.doSend(vm, block, quotaLeft)
 		if err != nil {
 			return nil, err
 		}
+		vm.Db.SubBalance(block.AccountAddress(), block.TokenId(), block.Amount())
+		vm.Db.SubBalance(block.AccountAddress(), viteTokenTypeId, block.CreateFee())
+	} else {
+		block.SetCreateFee(big0)
+		cost, err := intrinsicGasCost(block.Data(), false)
+		if err != nil {
+			return nil, err
+		}
+		quotaLeft, err = useQuota(quotaLeft, cost)
+		if err != nil {
+			return nil, err
+		}
+		if !vm.canTransfer(block.AccountAddress(), block.TokenId(), block.Amount(), block.CreateFee()) {
+			return nil, ErrInsufficientBalance
+		}
+		vm.Db.SubBalance(block.AccountAddress(), block.TokenId(), block.Amount())
 	}
-	// sub balance
-	vm.Db.SubBalance(block.AccountAddress(), block.TokenId(), block.Amount())
-	vm.Db.SubBalance(block.AccountAddress(), viteTokenTypeId, block.CreateFee())
 	var quota uint64
 	if _, ok := getPrecompiledContract(block.AccountAddress()); ok {
 		quota = 0
 	} else {
-		quota = quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil)
+		quota = quotaUsed(quotaTotal, quotaAddition, quotaLeft, 0, nil)
 	}
 	vm.updateBlock(block, block.AccountAddress(), nil, quota, nil)
 	return block, nil
+
 }
 
 func (vm *VM) receiveCall(block VmAccountBlock) (blockList []VmAccountBlock, isRetry bool, err error) {

@@ -55,6 +55,14 @@ func (p *register) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint6
 
 // register to become a super node of a consensus group, lock 100w ViteToken for 3 month
 func (p *register) doSendRegister(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, registerGas)
+	if err != nil {
+		return quotaLeft, err
+	}
+	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
+	if err != nil {
+		return quotaLeft, err
+	}
 	if block.Amount().Cmp(registerAmount) != 0 ||
 		!isViteToken(block.TokenId()) ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
@@ -65,15 +73,19 @@ func (p *register) doSendRegister(vm *VM, block VmAccountBlock, quotaLeft uint64
 	if err != nil || !isExistGid(vm.Db, gid) {
 		return quotaLeft, ErrInvalidData
 	}
-	quotaLeft, err = useQuota(quotaLeft, registerGas)
-	if err != nil {
-		return quotaLeft, err
-	}
 	return quotaLeft, nil
 }
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
 func (p *register) doSendCancelRegister(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, cancelRegisterGas)
+	if err != nil {
+		return quotaLeft, err
+	}
+	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
+	if err != nil {
+		return quotaLeft, err
+	}
 	if block.Amount().Sign() != 0 ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
@@ -94,16 +106,15 @@ func (p *register) doSendCancelRegister(vm *VM, block VmAccountBlock, quotaLeft 
 	if lockStartTime+registerLockTime < vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp() {
 		return quotaLeft, ErrInvalidData
 	}
-
-	quotaLeft, err = useQuota(quotaLeft, cancelRegisterGas)
-	if err != nil {
-		return quotaLeft, err
-	}
 	return quotaLeft, nil
 }
 
 // get reward of generating snapshot block
 func (p *register) doSendReward(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, rewardGas)
+	if err != nil {
+		return quotaLeft, err
+	}
 	if block.Amount().Sign() != 0 ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
@@ -145,7 +156,7 @@ func (p *register) doSendReward(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 	}
 
 	count := heightGap.Uint64()
-	quotaLeft, err = useQuota(quotaLeft, rewardGas+count*calcRewardGasPerBlock)
+	quotaLeft, err = useQuota(quotaLeft, ((count+dbPageSize-1)/dbPageSize)*calcRewardGasPerPage)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -154,6 +165,10 @@ func (p *register) doSendReward(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 	calcReward(vm, block.AccountAddress().Bytes(), oldRewardHeight, count, reward)
 	block.SetData(joinBytes(block.Data()[0:36], leftPadBytes(newRewardHeight.Bytes(), 32), old[64:96], leftPadBytes(reward.Bytes(), 32)))
 	intPool.put(reward)
+	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
+	if err != nil {
+		return quotaLeft, err
+	}
 	return quotaLeft, nil
 }
 
@@ -305,6 +320,14 @@ func (p *vote) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, e
 
 // vote for a super node of a consensus group
 func (p *vote) doSendVote(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, voteGas)
+	if err != nil {
+		return quotaLeft, err
+	}
+	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
+	if err != nil {
+		return quotaLeft, err
+	}
 	if block.Amount().Sign() != 0 ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
@@ -318,15 +341,19 @@ func (p *vote) doSendVote(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint6
 	if err != nil || !vm.Db.IsExistAddress(address) {
 		return quotaLeft, ErrInvalidData
 	}
-	quotaLeft, err = useQuota(quotaLeft, voteGas)
-	if err != nil {
-		return quotaLeft, err
-	}
 	return quotaLeft, nil
 }
 
 // cancel vote for a super node of a consensus group
 func (p *vote) doSendCancelVote(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, cancelVoteGas)
+	if err != nil {
+		return quotaLeft, err
+	}
+	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
+	if err != nil {
+		return quotaLeft, err
+	}
 	if block.Amount().Sign() != 0 ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
@@ -335,10 +362,6 @@ func (p *vote) doSendCancelVote(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 	gid, err := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
 	if err != nil || !isExistGid(vm.Db, gid) {
 		return quotaLeft, ErrInvalidData
-	}
-	quotaLeft, err = useQuota(quotaLeft, cancelVoteGas)
-	if err != nil {
-		return quotaLeft, err
 	}
 	return quotaLeft, nil
 }
@@ -387,6 +410,14 @@ func (p *mortgage) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint6
 
 // mortgage ViteToken for a beneficial to get quota
 func (p *mortgage) doSendMortgage(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, mortgageGas)
+	if err != nil {
+		return quotaLeft, err
+	}
+	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
+	if err != nil {
+		return quotaLeft, err
+	}
 	if block.Amount().Sign() == 0 ||
 		!isViteToken(block.TokenId()) ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
@@ -404,15 +435,19 @@ func (p *mortgage) doSendMortgage(vm *VM, block VmAccountBlock, quotaLeft uint64
 	if !withdrawTime.IsInt64() || withdrawTime.Int64() < vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp()+mortgageTime {
 		return quotaLeft, ErrInvalidData
 	}
-	quotaLeft, err = useQuota(quotaLeft, mortgageGas)
-	if err != nil {
-		return quotaLeft, err
-	}
 	return quotaLeft, nil
 }
 
 // cancel mortgage ViteToken
 func (p *mortgage) doSendCancelMortgage(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, cancelMortgageGas)
+	if err != nil {
+		return quotaLeft, err
+	}
+	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
+	if err != nil {
+		return quotaLeft, err
+	}
 	if block.Amount().Sign() > 0 ||
 		allZero(block.Data()[21:53]) ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
@@ -422,10 +457,6 @@ func (p *mortgage) doSendCancelMortgage(vm *VM, block VmAccountBlock, quotaLeft 
 	address, err := types.BytesToAddress(new(big.Int).SetBytes(block.Data()[4:36]).Bytes())
 	if err != nil || !vm.Db.IsExistAddress(address) {
 		return quotaLeft, ErrInvalidData
-	}
-	quotaLeft, err = useQuota(quotaLeft, cancelMortgageGas)
-	if err != nil {
-		return quotaLeft, err
 	}
 	return quotaLeft, nil
 }
@@ -542,6 +573,10 @@ var (
 
 // create consensus group
 func (p *consensusGroup) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, createConsensusGroupGas)
+	if err != nil {
+		return quotaLeft, err
+	}
 	if len(block.Data()) < 384 || (len(block.Data())-4)%32 != 0 || !bytes.Equal(block.Data()[0:4], DataCreateConsensusGroup) ||
 		block.Amount().Sign() != 0 ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
@@ -556,7 +591,7 @@ func (p *consensusGroup) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 		return quotaLeft, ErrInvalidData
 	}
 	copy(block.Data()[4:36], leftPadBytes(gid.Bytes(), 32))
-	quotaLeft, err := useQuota(quotaLeft, createConsensusGroupGas)
+	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}

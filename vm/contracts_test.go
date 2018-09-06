@@ -2,6 +2,7 @@ package vm
 
 import (
 	"bytes"
+	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 	"testing"
@@ -13,7 +14,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 	db = NewNoDatabase()
 	db.tokenMap[viteTokenTypeId] = VmToken{tokenId: viteTokenTypeId, tokenName: "ViteToken", owner: addr1, totalSupply: viteTotalSupply, decimals: 18}
 
-	timestamp = time.Now().Unix()
+	timestamp = 1536214502
 	snapshot1 := &NoSnapshotBlock{height: big.NewInt(1), timestamp: timestamp - 1, hash: types.DataHash([]byte{10, 1})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
 	snapshot2 = &NoSnapshotBlock{height: big.NewInt(2), timestamp: timestamp, hash: types.DataHash([]byte{10, 2})}
@@ -86,7 +87,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	sendRegisterBlockList, isRetry, err := vm.Run(block13)
 	if len(sendRegisterBlockList) != 1 || isRetry || err != nil ||
-		sendRegisterBlockList[0].Quota() != 62948 ||
+		sendRegisterBlockList[0].Quota() != 62664 ||
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 {
 		t.Fatalf("send register transaction error")
 	}
@@ -138,7 +139,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	sendCancelRegisterBlockList, isRetry, err := vm.Run(block14)
 	if len(sendCancelRegisterBlockList) != 1 || isRetry || err != nil ||
-		sendCancelRegisterBlockList[0].Quota() != 83948 ||
+		sendCancelRegisterBlockList[0].Quota() != 83664 ||
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 {
 		t.Fatalf("send cancel register transaction error")
 	}
@@ -222,7 +223,7 @@ func TestContractsRun(t *testing.T) {
 	sendRewardBlockList, isRetry, err := vm.Run(block16)
 	reward := new(big.Int).Mul(big.NewInt(2), rewardPerBlock)
 	if len(sendRewardBlockList) != 1 || isRetry || err != nil ||
-		sendRewardBlockList[0].Quota() != 90478 ||
+		sendRewardBlockList[0].Quota() != 84760 ||
 		!bytes.Equal(sendRewardBlockList[0].Data(), joinBytes(DataReward, leftPadBytes(snapshotGid.Bytes(), 32), leftPadBytes(snapshot4.height.Bytes(), 32), leftPadBytes(snapshot2.height.Bytes(), 32), leftPadBytes(reward.Bytes(), 32))) {
 		t.Fatalf("send reward transaction error")
 	}
@@ -300,7 +301,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	sendVoteBlockList, isRetry, err := vm.Run(block18)
 	if len(sendVoteBlockList) != 1 || isRetry || err != nil ||
-		sendVoteBlockList[0].Quota() != 64108 {
+		sendVoteBlockList[0].Quota() != 63872 {
 		t.Fatalf("send vote transaction error")
 	}
 	db.accountBlockMap[addr1][hash18] = sendVoteBlockList[0]
@@ -347,7 +348,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	sendVoteBlockList2, isRetry, err := vm.Run(block19)
 	if len(sendVoteBlockList2) != 1 || isRetry || err != nil ||
-		sendVoteBlockList2[0].Quota() != 64108 {
+		sendVoteBlockList2[0].Quota() != 63872 {
 		t.Fatalf("send vote transaction 2 error")
 	}
 	db.accountBlockMap[addr1][hash19] = sendVoteBlockList2[0]
@@ -391,7 +392,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	sendCancelVoteBlockList, isRetry, err := vm.Run(block1a)
 	if len(sendCancelVoteBlockList) != 1 || isRetry || err != nil ||
-		sendCancelVoteBlockList[0].Quota() != 42748 {
+		sendCancelVoteBlockList[0].Quota() != 62464 {
 		t.Fatalf("send cancel vote transaction error")
 	}
 	db.accountBlockMap[addr1][hash1a] = sendCancelVoteBlockList[0]
@@ -439,7 +440,7 @@ func TestContractsRun(t *testing.T) {
 	sendMortgageBlockList, isRetry, err := vm.Run(block1b)
 	if len(sendMortgageBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(viteTotalSupply) != 0 ||
-		sendMortgageBlockList[0].Quota() != 84372 {
+		sendMortgageBlockList[0].Quota() != 84464 {
 		t.Fatalf("send mortgage transaction error")
 	}
 	db.accountBlockMap[addr1][hash1b] = sendMortgageBlockList[0]
@@ -489,7 +490,7 @@ func TestContractsRun(t *testing.T) {
 	sendMortgageBlockList2, isRetry, err := vm.Run(block1c)
 	if len(sendMortgageBlockList2) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(new(big.Int).Sub(viteTotalSupply, mortgageAmount)) != 0 ||
-		sendMortgageBlockList2[0].Quota() != 84372 {
+		sendMortgageBlockList2[0].Quota() != 84464 {
 		t.Fatalf("send mortgage transaction 2 error")
 	}
 	db.accountBlockMap[addr1][hash1c] = sendMortgageBlockList2[0]
@@ -539,7 +540,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	sendCancelMortgageBlockList, isRetry, err := vm.Run(block1d)
 	if len(sendCancelMortgageBlockList) != 1 || isRetry || err != nil ||
-		sendCancelMortgageBlockList[0].Quota() != 107004 {
+		sendCancelMortgageBlockList[0].Quota() != 105592 {
 		t.Fatalf("send cancel mortgage transaction error")
 	}
 	db.accountBlockMap[addr1][hash1d] = sendCancelMortgageBlockList[0]
@@ -609,7 +610,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	sendCancelMortgageBlockList2, isRetry, err := vm.Run(block1f)
 	if len(sendCancelMortgageBlockList2) != 1 || isRetry || err != nil ||
-		sendCancelMortgageBlockList2[0].Quota() != 107004 {
+		sendCancelMortgageBlockList2[0].Quota() != 105592 {
 		t.Fatalf("send cancel mortgage transaction 2 error")
 	}
 	db.accountBlockMap[addr1][hash1f] = sendCancelMortgageBlockList2[0]
@@ -694,7 +695,7 @@ func TestConsensusGroup(t *testing.T) {
 	vm.Debug = true
 	sendCreateConsensusGroupBlockList, isRetry, err := vm.Run(block13)
 	if len(sendCreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
-		sendCreateConsensusGroupBlockList[0].Quota() != 62200 ||
+		sendCreateConsensusGroupBlockList[0].Quota() != 66568 ||
 		!allZero(block13.Data()[4:26]) || allZero(block13.Data()[26:36]) ||
 		block13.CreateFee().Cmp(createConsensusGroupFee) != 0 ||
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 {
@@ -724,4 +725,9 @@ func TestConsensusGroup(t *testing.T) {
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]VmAccountBlock)
 	db.accountBlockMap[addr2][hash21] = receiveCreateConsensusGroupBlockList[0]
+}
+func TestBytesToGid(t *testing.T) {
+	timestamp := time.Now().Unix()
+	t.Log(timestamp)
+	t.Log(hex.EncodeToString(big.NewInt(timestamp).Bytes()))
 }
