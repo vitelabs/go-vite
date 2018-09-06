@@ -20,6 +20,30 @@ func NewAccountChain(db *leveldb.DB) *AccountChain {
 	}
 }
 
+func (ac *AccountChain) WriteBlock(batch *leveldb.Batch, accountId *big.Int, block *ledger.AccountBlock) error {
+	buf, err := block.DbSerialize()
+	if err != nil {
+		return err
+	}
+
+	key, err := helper.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, block.Height)
+
+	batch.Put(key, buf)
+	return nil
+}
+
+func (ac *AccountChain) WriteBlockMeta(batch *leveldb.Batch, blockHash *types.Hash, blockMeta *ledger.AccountBlockMeta) error {
+	buf, err := blockMeta.DbSerialize()
+	if err != nil {
+		return err
+	}
+
+	key, err := helper.EncodeKey(database.DBKP_ACCOUNTBLOCKMETA, blockHash.Bytes())
+
+	batch.Put(key, buf)
+	return nil
+}
+
 func (ac *AccountChain) GetLatestBlock(accountId *big.Int) (*ledger.AccountBlock, error) {
 	key, err := helper.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, "KEY_MAX")
 	if err != nil {

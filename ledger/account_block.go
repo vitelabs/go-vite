@@ -55,6 +55,7 @@ type AccountBlock struct {
 	StateHash *types.Hash
 	LogHash   *types.Hash
 
+	Nonce             []byte
 	SendBlockHashList []*types.Hash
 	Signature         []byte
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/helper"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 )
 
@@ -12,6 +13,10 @@ type BlockMapQueryParam struct {
 	OriginBlockHash *types.Hash
 	Count           uint64
 	Forward         bool
+}
+
+func (c *Chain) InsertAccountBlock(accountBlock *ledger.AccountBlock, vmContext *vm_context.VmContext, needBroadCast bool) error {
+	return nil
 }
 
 func (c *Chain) GetAccountBlockMap(queryParams map[types.Address]*BlockMapQueryParam) map[types.Address][]*ledger.AccountBlock {
