@@ -127,11 +127,8 @@ func (km *Manager) Unlock(addr types.Address, passphrase string, timeout time.Du
 		u = &unlocked{Key: key}
 	}
 	km.unlocked[key.Address] = u
-	for _, v := range km.unlockChangedLis {
-		v(UnlockEvent{
-			Address: addr,
-			event:   UnLocked,
-		})
+	for _, f := range km.unlockChangedLis {
+		f(UnlockEvent{Address: addr, event: UnLocked})
 	}
 	return nil
 }
