@@ -19,7 +19,7 @@ var ucListener = make(map[types.Address]chan<- struct{})
 var unconfirmedAccess *UnconfirmedAccess
 
 type UnconfirmedAccess struct {
-	store   *vitedb.Unconfirmed
+	store   *vitedb.UnconfirmedDB
 	uwMutex *ucfmWriteMutex
 }
 
@@ -107,7 +107,7 @@ func (ucfa *UnconfirmedAccess) GetUnconfirmedAccountMeta(addr *types.Address) (*
 func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	if block.To == nil || block.TokenId == nil {
 		err := errors.New("send_block's value is invalid")
-		uLog.Error("Unconfirmed", "err", err)
+		uLog.Error("UnconfirmedDB", "err", err)
 		return err
 	}
 
@@ -124,7 +124,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 
 	if uAccMeta != nil {
 		// [tmp] Check data.
-		//uLog.Info("Unconfirmed: before write:")
+		//uLog.Info("UnconfirmedDB: before write:")
 		//uLog.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
 		//for idx, tokenInfo := range uAccMeta.TokenInfoList {
 		//	uLog.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
@@ -201,7 +201,7 @@ func (ucfa *UnconfirmedAccess) CreateNewUcfmMeta(block *ledger.AccountBlock) (*l
 func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	if block.To == nil || block.TokenId == nil {
 		err := errors.New("send_block's value is invalid")
-		uLog.Error("Unconfirmed", "err", err)
+		uLog.Error("UnconfirmedDB", "err", err)
 		return err
 	}
 
@@ -222,7 +222,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 	}
 
 	//// [tmp] Check data.
-	//uLog.Info("Unconfirmed: before delete:")
+	//uLog.Info("UnconfirmedDB: before delete:")
 	//uLog.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoList:")
 	//for idx, tokenInfo := range uAccMeta.TokenInfoList {
 	//	uLog.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
@@ -314,7 +314,7 @@ func (ucfa *UnconfirmedAccess) RemoveListener(addr types.Address) {
 	listenerMutex.Lock()
 	defer listenerMutex.Unlock()
 	delete(ucListener, addr)
-	uLog.Info("Unconfirmed: Remove account's listener success.")
+	uLog.Info("UnconfirmedDB: Remove account's listener success.")
 }
 
 func (ucfa *UnconfirmedAccess) AddListener(addr types.Address, change chan<- struct{}) {
@@ -322,7 +322,7 @@ func (ucfa *UnconfirmedAccess) AddListener(addr types.Address, change chan<- str
 	defer listenerMutex.Unlock()
 	ucListener[addr] = change
 	uLog.Info("AddListener", "AddListener", ucListener[addr], "change", change)
-	uLog.Info("Unconfirmed: Add account's listener success.")
+	uLog.Info("UnconfirmedDB: Add account's listener success.")
 }
 
 func (ucfa *UnconfirmedAccess) HashUnconfirmedBool(addr *types.Address, tkId *types.TokenTypeId, hash *types.Hash) bool {

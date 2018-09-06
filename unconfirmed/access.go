@@ -3,21 +3,25 @@ package unconfirmed
 import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed/worker"
 	"github.com/vitelabs/go-vite/vitedb"
+	"math/big"
 )
 
 type UnconfirmedAccess struct {
-	store           *vitedb.Unconfirmed
+	store           *vitedb.UnconfirmedDB
 	commonTxWorkers *map[types.Address]*worker.CommonTxWorker
 	contractWorkers *map[types.Address]*worker.ContractWorker
+	log             log15.Logger
 }
 
 func NewUnconfirmedAccess(commonTxWorkers *map[types.Address]*worker.CommonTxWorker, contractWorkers *map[types.Address]*worker.ContractWorker) *UnconfirmedAccess {
 	return &UnconfirmedAccess{
-		store:           vitedb.NewUnconfirmed(),
+		store:           vitedb.NewUnconfirmedDB(),
 		commonTxWorkers: commonTxWorkers,
 		contractWorkers: contractWorkers,
+		log:             slog.New("w", "unconfirmedAccess"),
 	}
 }
 
@@ -36,12 +40,17 @@ func (access *UnconfirmedAccess) NewSignalToWorker(block *AccountBlock) {
 	}
 }
 
-// writeType == true: add new UnconfirmedMeta
-// writeType == false: delete processed UnconfirmedMeta
-func (access *UnconfirmedAccess) WriteUnconfirmed(writeType bool, block *AccountBlock) error {
+func (access *UnconfirmedAccess) WriteUnconfirmed(batch *leveldb.Batch, writeType bool, block *AccountBlock) error {
 	if writeType == true {
+		// writeType == true: add new UnconfirmedMeta
 		access.NewSignalToWorker(block)
+		if err := access.WriteUnconfirmedMeta(batch, block); err != nil {
+			access.log.Error("WriteUnconfirmedMeta", "error", err)
+			return err
+		}
+
 	} else {
+		// writeType == false: delete processed UnconfirmedMeta
 
 	}
 	return nil
@@ -56,10 +65,26 @@ func (access *UnconfirmedAccess) DeleteUnconfirmedMeta(batch *leveldb.Batch, blo
 }
 
 func (access *UnconfirmedAccess) GetUnconfirmedHashs(index, num, count int, addr *types.Address) ([]*types.Hash, error) {
-	return nil, nil
+	meta, err := access.store.GetUnconfirmedMeta(addr)
+	if err != nil {
+		return nil, err
+	}
+	numberInt := big.NewInt(int64((index + num) * count))
+	if big.NewInt(0).Cmp(meta.TotalNumber) == 0 {
+		return nil, nil
+	}
+	hashList, err := access.store.GetAccTotalHashList(addr)
+	if err != nil && err != leveldb.ErrNotFound {
+		return nil, err
+	}
+	if numberInt.Cmp(meta.TotalNumber) == 1 {
+		return hashList[index*count:], nil
+	}
+	return hashList[index*count : (index+num)*count], nil
+
 }
 
-func (access *UnconfirmedAccess) GetAddressListByGid(gid string) (addressList []*types.Address, err error) {
+func (access *UnconfirmedAccess) GetAddressListByGid(gid []byte) (addressList []*types.Address, err error) {
 	return nil, nil
 }
 

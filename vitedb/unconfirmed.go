@@ -8,36 +8,19 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-type Unconfirmed struct {
+type UnconfirmedDB struct {
 	db *DataBase
 }
 
-var _unconfirmed *Unconfirmed
-
-func GetUnconfirmed() *Unconfirmed {
+func NewUnconfirmedDB() *UnconfirmedDB {
 	db, err := GetLDBDataBase(DB_LEDGER)
 	if err != nil {
 		log15.Root().Crit(err.Error())
 	}
-
-	if _unconfirmed == nil {
-		_unconfirmed = &Unconfirmed{
-			db: db,
-		}
-	}
-
-	return _unconfirmed
+	return &UnconfirmedDB{db: db}
 }
 
-func NewUnconfirmed() *Unconfirmed {
-	db, err := GetLDBDataBase(DB_LEDGER)
-	if err != nil {
-		log15.Root().Crit(err.Error())
-	}
-	return &Unconfirmed{db: db}
-}
-
-func (ucf *Unconfirmed) GetUnconfirmedMeta(addr *types.Address) (*ledger.UnconfirmedMeta, error) {
+func (ucf *UnconfirmedDB) GetUnconfirmedMeta(addr *types.Address) (*ledger.UnconfirmedMeta, error) {
 	key, err := createKey(DBKP_UNCONFIRMEDMETA, addr.Bytes())
 	if err != nil {
 		return nil, err
@@ -53,7 +36,7 @@ func (ucf *Unconfirmed) GetUnconfirmedMeta(addr *types.Address) (*ledger.Unconfi
 	return ucfm, nil
 }
 
-func (ucf *Unconfirmed) GetAccHashListByTkId(addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
+func (ucf *UnconfirmedDB) GetAccHashListByTkId(addr *types.Address, tokenId *types.TokenTypeId) ([]*types.Hash, error) {
 	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, addr.Bytes(), tokenId.Bytes())
 	if err != nil {
 		return nil, err
@@ -69,7 +52,7 @@ func (ucf *Unconfirmed) GetAccHashListByTkId(addr *types.Address, tokenId *types
 	return hList, nil
 }
 
-func (ucf *Unconfirmed) GetAccTotalHashList(addr *types.Address) ([]*types.Hash, error) {
+func (ucf *UnconfirmedDB) GetAccTotalHashList(addr *types.Address) ([]*types.Hash, error) {
 	var hashList []*types.Hash
 
 	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, addr.Bytes(), nil)
@@ -93,7 +76,7 @@ func (ucf *Unconfirmed) GetAccTotalHashList(addr *types.Address) ([]*types.Hash,
 	return hashList, nil
 }
 
-func (ucf *Unconfirmed) WriteMeta(batch *leveldb.Batch, addr *types.Address, meta *ledger.UnconfirmedMeta) error {
+func (ucf *UnconfirmedDB) WriteMeta(batch *leveldb.Batch, addr *types.Address, meta *ledger.UnconfirmedMeta) error {
 	key, err := createKey(DBKP_UNCONFIRMEDMETA, addr.Bytes())
 	if err != nil {
 		return err
@@ -106,7 +89,7 @@ func (ucf *Unconfirmed) WriteMeta(batch *leveldb.Batch, addr *types.Address, met
 	return nil
 }
 
-func (ucf *Unconfirmed) WriteHashList(batch *leveldb.Batch, addr *types.Address, tokenId *types.TokenTypeId, hList []*types.Hash) error {
+func (ucf *UnconfirmedDB) WriteHashList(batch *leveldb.Batch, addr *types.Address, tokenId *types.TokenTypeId, hList []*types.Hash) error {
 	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, addr.Bytes(), tokenId.Bytes())
 	if err != nil {
 		return err
@@ -119,7 +102,7 @@ func (ucf *Unconfirmed) WriteHashList(batch *leveldb.Batch, addr *types.Address,
 	return nil
 }
 
-func (ucf *Unconfirmed) DeleteMeta(batch *leveldb.Batch, addr *types.Address) error {
+func (ucf *UnconfirmedDB) DeleteMeta(batch *leveldb.Batch, addr *types.Address) error {
 	key, err := createKey(DBKP_UNCONFIRMEDMETA, addr.Bytes())
 	if err != nil {
 		return err
@@ -128,7 +111,7 @@ func (ucf *Unconfirmed) DeleteMeta(batch *leveldb.Batch, addr *types.Address) er
 	return nil
 }
 
-func (ucf *Unconfirmed) DeleteHashList(batch *leveldb.Batch, addr *types.Address, tokenId *types.TokenTypeId) error {
+func (ucf *UnconfirmedDB) DeleteHashList(batch *leveldb.Batch, addr *types.Address, tokenId *types.TokenTypeId) error {
 	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, addr.Bytes(), tokenId.Bytes())
 	if err != nil {
 		return err
@@ -137,7 +120,7 @@ func (ucf *Unconfirmed) DeleteHashList(batch *leveldb.Batch, addr *types.Address
 	return nil
 }
 
-func (ucf *Unconfirmed) DeleteAllHashList(batch *leveldb.Batch, addr *types.Address) error {
+func (ucf *UnconfirmedDB) DeleteAllHashList(batch *leveldb.Batch, addr *types.Address) error {
 	key, err := createKey(DBKP_UNCONFIRMEDHASHLIST, addr.Bytes(), nil)
 	if err != nil {
 		return err

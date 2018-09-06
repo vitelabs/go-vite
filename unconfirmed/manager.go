@@ -29,7 +29,7 @@ type Manager struct {
 }
 
 type RightEvent struct {
-	Gid            string
+	Gid            []byte
 	Address        *types.Address
 	StartTs        uint64
 	EndTs          uint64
@@ -47,7 +47,7 @@ func NewManager(vite worker.Vite) *Manager {
 		firstSyncDoneListener: make(chan int),
 		rightEventListener:    make(chan *RightEvent),
 
-		log: slog.New("w", "master"),
+		log: slog.New("w", "manager"),
 	}
 }
 
