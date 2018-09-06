@@ -9,11 +9,11 @@ import (
 
 type UnconfirmedAccess struct {
 	store           *vitedb.Unconfirmed
-	commonTxWorkers *map[types.Address]*worker.CommonTxWorker
+	commonTxWorkers *map[types.Address]*worker.AutoReceiveWorker
 	contractWorkers *map[types.Address]*worker.ContractWorker
 }
 
-func NewUnconfirmedAccess(commonTxWorkers *map[types.Address]*worker.CommonTxWorker, contractWorkers *map[types.Address]*worker.ContractWorker) *UnconfirmedAccess {
+func NewUnconfirmedAccess(commonTxWorkers *map[types.Address]*worker.AutoReceiveWorker, contractWorkers *map[types.Address]*worker.ContractWorker) *UnconfirmedAccess {
 	return &UnconfirmedAccess{
 		store:           vitedb.NewUnconfirmed(),
 		commonTxWorkers: commonTxWorkers,

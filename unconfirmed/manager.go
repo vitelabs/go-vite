@@ -17,7 +17,7 @@ type Manager struct {
 	Vite     worker.Vite
 	dbAccess *UnconfirmedAccess
 
-	commonTxWorkers map[types.Address]*worker.CommonTxWorker
+	commonTxWorkers map[types.Address]*worker.AutoReceiveWorker
 	contractWorkers map[types.Address]*worker.ContractWorker
 
 	unlockEventListener   chan keystore.UnlockEvent
@@ -43,7 +43,7 @@ type RightEvent struct {
 func NewManager(vite worker.Vite) *Manager {
 	return &Manager{
 		Vite:            vite,
-		commonTxWorkers: make(map[types.Address]*worker.CommonTxWorker),
+		commonTxWorkers: make(map[types.Address]*worker.AutoReceiveWorker),
 		contractWorkers: make(map[types.Address]*worker.ContractWorker),
 
 		unlockEventListener:   make(chan keystore.UnlockEvent),
@@ -81,6 +81,10 @@ func (manager *Manager) Close() error {
 	}
 	return nil
 
+}
+
+func (manager *Manager) SetAutoReceiveFilter(f []worker.SimpleAutoReceiveFilterPair) {
+	worker.SimpleAutoReceiveFilters = f
 }
 
 func (manager *Manager) StartAutoReceiveWorker(addr types.Address) error {

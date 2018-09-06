@@ -4,10 +4,20 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed"
+	"math/big"
 	"sync"
 )
 
-type CommonTxWorker struct {
+type SimpleAutoReceiveFilterPair struct {
+	tti      types.TokenTypeId
+	minValue big.Int
+}
+
+var (
+	SimpleAutoReceiveFilters []SimpleAutoReceiveFilterPair
+)
+
+type AutoReceiveWorker struct {
 	vite     Vite
 	log      log15.Logger
 	address  *types.Address
@@ -24,16 +34,16 @@ type CommonTxWorker struct {
 	statusMutex sync.Mutex
 }
 
-func NewCommonTxWorker(vite Vite, address *types.Address) *CommonTxWorker {
-	return &CommonTxWorker{
+func NewAutoReceiveWorker(vite Vite, address *types.Address) *AutoReceiveWorker {
+	return &AutoReceiveWorker{
 		vite:    vite,
 		address: address,
 		status:  Create,
-		log:     log15.New("CommonTxWorker addr", address),
+		log:     log15.New("AutoReceiveWorker addr", address),
 	}
 }
 
-func (w *CommonTxWorker) Start() {
+func (w *AutoReceiveWorker) Start() {
 	w.log.Info("Start")
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
@@ -57,7 +67,7 @@ func (w *CommonTxWorker) Start() {
 	}
 }
 
-func (w *CommonTxWorker) Stop() {
+func (w *AutoReceiveWorker) Stop() {
 	w.log.Info("Stop")
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
@@ -76,24 +86,24 @@ func (w *CommonTxWorker) Stop() {
 	}
 }
 
-func (w *CommonTxWorker) Close() error {
+func (w *AutoReceiveWorker) Close() error {
 	w.Stop()
 	return nil
 }
 
-func (w CommonTxWorker) Status() int {
+func (w AutoReceiveWorker) Status() int {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	return w.status
 }
 
-func (w *CommonTxWorker) NewUnconfirmedTxAlarm() {
+func (w *AutoReceiveWorker) NewUnconfirmedTxAlarm() {
 	if w.isSleeping {
 		w.newUnconfirmedTxAlarm <- struct{}{}
 	}
 }
 
-func (w *CommonTxWorker) startWork() {
+func (w *AutoReceiveWorker) startWork() {
 
 	w.log.Info("worker startWork is called")
 	w.FetchNew()
@@ -129,24 +139,24 @@ func (w *CommonTxWorker) startWork() {
 	w.log.Info("worker end work")
 }
 
-func (w *CommonTxWorker) FetchNew() {
+func (w *AutoReceiveWorker) FetchNew() {
 	acAccess := w.vite.Ledger().Ac()
 	hashList, err := acAccess.GetUnconfirmedTxHashs(0, 1, FETCH_SIZE, w.address)
 	if err != nil {
-		w.log.Error("CommonTxWorker.FetchNew.GetUnconfirmedTxHashs error", err)
+		w.log.Error("AutoReceiveWorker.FetchNew.GetUnconfirmedTxHashs error", err)
 		return
 	}
 	for _, v := range hashList {
 		sBlock, err := acAccess.GetBlockByHash(v)
 		if err != nil || sBlock == nil {
-			w.log.Error("CommonTxWorker.FetchNew.GetBlockByHash error", err)
+			w.log.Error("AutoReceiveWorker.FetchNew.GetBlockByHash error", err)
 			continue
 		}
 		w.blockQueue.Enqueue(sBlock)
 	}
 }
 
-func (w *CommonTxWorker) ProcessABlock(sendBlock *unconfirmed.AccountBlock) {
+func (w *AutoReceiveWorker) ProcessABlock(sendBlock *unconfirmed.AccountBlock) {
 	// todo 1.ExistInPool
 
 	//todo 2.PackReceiveBlock
@@ -161,7 +171,7 @@ func (w *CommonTxWorker) ProcessABlock(sendBlock *unconfirmed.AccountBlock) {
 	}
 }
 
-func (w *CommonTxWorker) PackReceiveBlock(sendBlock *unconfirmed.AccountBlock) *unconfirmed.AccountBlock {
+func (w *AutoReceiveWorker) PackReceiveBlock(sendBlock *unconfirmed.AccountBlock) *unconfirmed.AccountBlock {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Running {
@@ -203,6 +213,6 @@ func (w *CommonTxWorker) PackReceiveBlock(sendBlock *unconfirmed.AccountBlock) *
 	return block
 }
 
-func (w *CommonTxWorker) InertBlockIntoPool(recvBlock *unconfirmed.AccountBlock) error {
+func (w *AutoReceiveWorker) InertBlockIntoPool(recvBlock *unconfirmed.AccountBlock) error {
 	return nil
 }
