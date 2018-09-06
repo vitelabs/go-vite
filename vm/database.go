@@ -55,7 +55,7 @@ func DataToGid(data ...[]byte) Gid {
 }
 
 func BigToGid(data *big.Int) (Gid, error) {
-	return BytesToGid(leftPadBytes(data.Bytes(), 10))
+	return BytesToGid(LeftPadBytes(data.Bytes(), 10))
 }
 func BytesToGid(b []byte) (Gid, error) {
 	var gid Gid

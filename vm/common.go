@@ -2,6 +2,7 @@ package vm
 
 import (
 	"bytes"
+	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 )
@@ -19,9 +20,9 @@ const (
 )
 
 var (
-	big0   = big.NewInt(0)
-	big1   = big.NewInt(1)
-	big32  = big.NewInt(32)
+	Big0   = big.NewInt(0)
+	Big1   = big.NewInt(1)
+	Big32  = big.NewInt(32)
 	big256 = big.NewInt(256)
 	big257 = big.NewInt(257)
 
@@ -64,7 +65,7 @@ func bigUint64(v *big.Int) (uint64, bool) {
 }
 
 // rightPadBytes zero-pads slice to the right up to length l.
-func rightPadBytes(slice []byte, l int) []byte {
+func RightPadBytes(slice []byte, l int) []byte {
 	if l <= len(slice) {
 		return slice
 	}
@@ -76,7 +77,7 @@ func rightPadBytes(slice []byte, l int) []byte {
 }
 
 // leftPadBytes zero-pads slice to the left up to length l.
-func leftPadBytes(slice []byte, l int) []byte {
+func LeftPadBytes(slice []byte, l int) []byte {
 	if l <= len(slice) {
 		return slice
 	}
@@ -94,7 +95,7 @@ func getDataBig(data []byte, start *big.Int, size *big.Int) []byte {
 
 	s := BigMin(start, dlen)
 	e := BigMin(new(big.Int).Add(s, size), dlen)
-	return rightPadBytes(data[s.Uint64():e.Uint64()], int(size.Uint64()))
+	return RightPadBytes(data[s.Uint64():e.Uint64()], int(size.Uint64()))
 }
 
 func useQuota(quota, cost uint64) (uint64, error) {
@@ -112,13 +113,18 @@ func useQuotaForData(data []byte, quota uint64) (uint64, error) {
 	return useQuota(quota, cost)
 }
 
-func hexToString(data []byte) string {
+func BytesToString(data []byte) string {
 	for i, b := range data {
 		if b == 0 {
 			return string(data[:i])
 		}
 	}
 	return string(data)
+}
+
+func HexToBytes(str string) []byte {
+	data, _ := hex.DecodeString(str)
+	return data
 }
 
 func allZero(b []byte) bool {

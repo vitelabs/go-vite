@@ -56,9 +56,9 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 		NodeCount:              25,
 		Interval:               3,
 		CountingRuleId:         1,
-		CountingRuleParam:      leftPadBytes(viteTokenTypeId.Bytes(), 32),
+		CountingRuleParam:      LeftPadBytes(viteTokenTypeId.Bytes(), 32),
 		RegisterConditionId:    1,
-		RegisterConditionParam: joinBytes(leftPadBytes(registerAmount.Bytes(), 32), leftPadBytes(viteTokenTypeId.Bytes(), 32), leftPadBytes(big.NewInt(registerLockTime).Bytes(), 32)),
+		RegisterConditionParam: joinBytes(LeftPadBytes(registerAmount.Bytes(), 32), LeftPadBytes(viteTokenTypeId.Bytes(), 32), LeftPadBytes(big.NewInt(registerLockTime).Bytes(), 32)),
 		VoteConditionId:        1,
 		VoteConditionParam:     []byte{}})[36:]
 	return
@@ -78,7 +78,7 @@ func TestContractsRun(t *testing.T) {
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash12,
 		amount:         new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-		data:           joinBytes(DataRegister, leftPadBytes(snapshotGid.Bytes(), 32)),
+		data:           joinBytes(DataRegister, LeftPadBytes(snapshotGid.Bytes(), 32)),
 		tokenId:        viteTokenTypeId,
 		snapshotHash:   snapshot2.Hash(),
 		depth:          1,
@@ -109,7 +109,7 @@ func TestContractsRun(t *testing.T) {
 	receiveRegisterBlockList, isRetry, err := vm.Run(block21)
 	if len(receiveRegisterBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 ||
-		!bytes.Equal(db.storageMap[addr2][locHashRegister], joinBytes(leftPadBytes(block13.Amount().Bytes(), 32), leftPadBytes(new(big.Int).SetInt64(snapshot2.timestamp).Bytes(), 32), leftPadBytes(snapshot2.height.Bytes(), 32), leftPadBytes(big0.Bytes(), 32))) ||
+		!bytes.Equal(db.storageMap[addr2][locHashRegister], joinBytes(LeftPadBytes(block13.Amount().Bytes(), 32), LeftPadBytes(new(big.Int).SetInt64(snapshot2.timestamp).Bytes(), 32), LeftPadBytes(snapshot2.height.Bytes(), 32), LeftPadBytes(Big0.Bytes(), 32))) ||
 		receiveRegisterBlockList[0].Quota() != 0 {
 		t.Fatalf("receive register transaction error")
 	}
@@ -131,7 +131,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash13,
-		data:           joinBytes(DataCancelRegister, leftPadBytes(snapshotGid.Bytes(), 32)),
+		data:           joinBytes(DataCancelRegister, LeftPadBytes(snapshotGid.Bytes(), 32)),
 		snapshotHash:   snapshot4.Hash(),
 		depth:          1,
 	}
@@ -160,9 +160,9 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	receiveCancelRegisterBlockList, isRetry, err := vm.Run(block22)
 	if len(receiveCancelRegisterBlockList) != 2 || isRetry || err != nil ||
-		db.balanceMap[addr2][viteTokenTypeId].Cmp(big0) != 0 ||
+		db.balanceMap[addr2][viteTokenTypeId].Cmp(Big0) != 0 ||
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 ||
-		!bytes.Equal(db.storageMap[addr2][locHashRegister], joinBytes(leftPadBytes(big0.Bytes(), 32), leftPadBytes(big0.Bytes(), 32), leftPadBytes(snapshot2.height.Bytes(), 32), leftPadBytes(snapshot4.height.Bytes(), 32))) ||
+		!bytes.Equal(db.storageMap[addr2][locHashRegister], joinBytes(LeftPadBytes(Big0.Bytes(), 32), LeftPadBytes(Big0.Bytes(), 32), LeftPadBytes(snapshot2.height.Bytes(), 32), LeftPadBytes(snapshot4.height.Bytes(), 32))) ||
 		receiveCancelRegisterBlockList[0].Quota() != 0 ||
 		receiveCancelRegisterBlockList[1].Quota() != 0 ||
 		receiveCancelRegisterBlockList[1].Height().Cmp(big.NewInt(3)) != 0 ||
@@ -191,7 +191,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	receiveCancelRegisterRefundBlockList, isRetry, err := vm.Run(block15)
 	if len(receiveCancelRegisterRefundBlockList) != 1 || isRetry || err != nil ||
-		db.balanceMap[addr2][viteTokenTypeId].Cmp(big0) != 0 ||
+		db.balanceMap[addr2][viteTokenTypeId].Cmp(Big0) != 0 ||
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(viteTotalSupply) != 0 ||
 		receiveCancelRegisterRefundBlockList[0].Quota() != 21000 {
 		t.Fatalf("receive cancel register refund transaction error")
@@ -214,7 +214,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash15,
-		data:           joinBytes(DataReward, leftPadBytes(snapshotGid.Bytes(), 32)),
+		data:           joinBytes(DataReward, LeftPadBytes(snapshotGid.Bytes(), 32)),
 		snapshotHash:   snapshot54.Hash(),
 		depth:          1,
 	}
@@ -224,7 +224,7 @@ func TestContractsRun(t *testing.T) {
 	reward := new(big.Int).Mul(big.NewInt(2), rewardPerBlock)
 	if len(sendRewardBlockList) != 1 || isRetry || err != nil ||
 		sendRewardBlockList[0].Quota() != 84760 ||
-		!bytes.Equal(sendRewardBlockList[0].Data(), joinBytes(DataReward, leftPadBytes(snapshotGid.Bytes(), 32), leftPadBytes(snapshot4.height.Bytes(), 32), leftPadBytes(snapshot2.height.Bytes(), 32), leftPadBytes(reward.Bytes(), 32))) {
+		!bytes.Equal(sendRewardBlockList[0].Data(), joinBytes(DataReward, LeftPadBytes(snapshotGid.Bytes(), 32), LeftPadBytes(snapshot4.height.Bytes(), 32), LeftPadBytes(snapshot2.height.Bytes(), 32), LeftPadBytes(reward.Bytes(), 32))) {
 		t.Fatalf("send reward transaction error")
 	}
 	db.accountBlockMap[addr1][hash16] = sendRewardBlockList[0]
@@ -244,7 +244,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	receiveRewardBlockList, isRetry, err := vm.Run(block24)
 	if len(receiveRewardBlockList) != 2 || isRetry || err != nil ||
-		db.balanceMap[addr2][viteTokenTypeId].Cmp(big0) != 0 ||
+		db.balanceMap[addr2][viteTokenTypeId].Cmp(Big0) != 0 ||
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(viteTotalSupply) != 0 ||
 		len(db.storageMap[addr2][locHashRegister]) != 0 ||
 		receiveRewardBlockList[0].Quota() != 0 ||
@@ -275,7 +275,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	receiveRewardRefundBlockList, isRetry, err := vm.Run(block17)
 	if len(receiveRewardRefundBlockList) != 1 || isRetry || err != nil ||
-		db.balanceMap[addr2][viteTokenTypeId].Cmp(big0) != 0 ||
+		db.balanceMap[addr2][viteTokenTypeId].Cmp(Big0) != 0 ||
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(new(big.Int).Add(viteTotalSupply, reward)) != 0 ||
 		receiveRewardRefundBlockList[0].Quota() != 21000 {
 		t.Fatalf("receive reward refund transaction error")
@@ -293,7 +293,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash17,
-		data:           joinBytes(DataVote, leftPadBytes(snapshotGid.Bytes(), 32), leftPadBytes(addr1.Bytes(), 32)),
+		data:           joinBytes(DataVote, LeftPadBytes(snapshotGid.Bytes(), 32), LeftPadBytes(addr1.Bytes(), 32)),
 		snapshotHash:   snapshot54.Hash(),
 		depth:          1,
 	}
@@ -322,7 +322,7 @@ func TestContractsRun(t *testing.T) {
 	receiveVoteBlockList, isRetry, err := vm.Run(block31)
 	locHashVote := getKey(addr1, snapshotGid)
 	if len(receiveVoteBlockList) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr3][locHashVote], leftPadBytes(addr1.Bytes(), 32)) ||
+		!bytes.Equal(db.storageMap[addr3][locHashVote], LeftPadBytes(addr1.Bytes(), 32)) ||
 		receiveVoteBlockList[0].Quota() != 0 {
 		t.Fatalf("receive vote transaction error")
 	}
@@ -340,7 +340,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash18,
-		data:           joinBytes(DataVote, leftPadBytes(snapshotGid.Bytes(), 32), leftPadBytes(addr4.Bytes(), 32)),
+		data:           joinBytes(DataVote, LeftPadBytes(snapshotGid.Bytes(), 32), LeftPadBytes(addr4.Bytes(), 32)),
 		snapshotHash:   snapshot54.Hash(),
 		depth:          1,
 	}
@@ -368,7 +368,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	receiveVoteBlockList2, isRetry, err := vm.Run(block32)
 	if len(receiveVoteBlockList2) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr3][locHashVote], leftPadBytes(addr4.Bytes(), 32)) ||
+		!bytes.Equal(db.storageMap[addr3][locHashVote], LeftPadBytes(addr4.Bytes(), 32)) ||
 		receiveVoteBlockList2[0].Quota() != 0 {
 		t.Fatalf("receive vote transaction 2 error")
 	}
@@ -384,7 +384,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash19,
-		data:           joinBytes(DataCancelVote, leftPadBytes(snapshotGid.Bytes(), 32)),
+		data:           joinBytes(DataCancelVote, LeftPadBytes(snapshotGid.Bytes(), 32)),
 		snapshotHash:   snapshot54.Hash(),
 		depth:          1,
 	}
@@ -421,7 +421,7 @@ func TestContractsRun(t *testing.T) {
 	// mortgage
 	addr5 := AddressMortgage
 	mortgageAmount := reward
-	withdrawTime := leftPadBytes(big.NewInt(timestamp+53+mortgageTime).Bytes(), 32)
+	withdrawTime := LeftPadBytes(big.NewInt(timestamp+53+mortgageTime).Bytes(), 32)
 	hash1b := types.DataHash([]byte{1, 11})
 	block1b := &NoAccountBlock{
 		height:         big.NewInt(11),
@@ -431,7 +431,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash1a,
-		data:           joinBytes(DataMortgage, leftPadBytes(addr4.Bytes(), 32), withdrawTime),
+		data:           joinBytes(DataMortgage, LeftPadBytes(addr4.Bytes(), 32), withdrawTime),
 		snapshotHash:   snapshot54.Hash(),
 		depth:          1,
 	}
@@ -462,8 +462,8 @@ func TestContractsRun(t *testing.T) {
 	locHashQuota := types.DataHash(addr4.Bytes())
 	locHashMortgage := types.DataHash(append(addr1.Bytes(), locHashQuota.Bytes()...))
 	if len(receiveMortgageBlockList) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr5][locHashMortgage], joinBytes(leftPadBytes(mortgageAmount.Bytes(), 32), withdrawTime)) ||
-		!bytes.Equal(db.storageMap[addr5][locHashQuota], leftPadBytes(mortgageAmount.Bytes(), 32)) ||
+		!bytes.Equal(db.storageMap[addr5][locHashMortgage], joinBytes(LeftPadBytes(mortgageAmount.Bytes(), 32), withdrawTime)) ||
+		!bytes.Equal(db.storageMap[addr5][locHashQuota], LeftPadBytes(mortgageAmount.Bytes(), 32)) ||
 		db.balanceMap[addr5][viteTokenTypeId].Cmp(mortgageAmount) != 0 ||
 		receiveMortgageBlockList[0].Quota() != 0 {
 		t.Fatalf("receive mortgage transaction error")
@@ -471,7 +471,7 @@ func TestContractsRun(t *testing.T) {
 	db.accountBlockMap[addr5] = make(map[types.Hash]VmAccountBlock)
 	db.accountBlockMap[addr5][hash51] = receiveMortgageBlockList[0]
 
-	withdrawTime = leftPadBytes(big.NewInt(timestamp+100+mortgageTime).Bytes(), 32)
+	withdrawTime = LeftPadBytes(big.NewInt(timestamp+100+mortgageTime).Bytes(), 32)
 	hash1c := types.DataHash([]byte{1, 12})
 	block1c := &NoAccountBlock{
 		height:         big.NewInt(12),
@@ -481,7 +481,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash1b,
-		data:           joinBytes(DataMortgage, leftPadBytes(addr4.Bytes(), 32), withdrawTime),
+		data:           joinBytes(DataMortgage, LeftPadBytes(addr4.Bytes(), 32), withdrawTime),
 		snapshotHash:   snapshot54.Hash(),
 		depth:          1,
 	}
@@ -511,8 +511,8 @@ func TestContractsRun(t *testing.T) {
 	receiveMortgageBlockList2, isRetry, err := vm.Run(block52)
 	newMortgageAmount := new(big.Int).Add(mortgageAmount, mortgageAmount)
 	if len(receiveMortgageBlockList2) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr5][locHashMortgage], joinBytes(leftPadBytes(newMortgageAmount.Bytes(), 32), withdrawTime)) ||
-		!bytes.Equal(db.storageMap[addr5][locHashQuota], leftPadBytes(newMortgageAmount.Bytes(), 32)) ||
+		!bytes.Equal(db.storageMap[addr5][locHashMortgage], joinBytes(LeftPadBytes(newMortgageAmount.Bytes(), 32), withdrawTime)) ||
+		!bytes.Equal(db.storageMap[addr5][locHashQuota], LeftPadBytes(newMortgageAmount.Bytes(), 32)) ||
 		db.balanceMap[addr5][viteTokenTypeId].Cmp(newMortgageAmount) != 0 ||
 		receiveMortgageBlockList2[0].Quota() != 0 {
 		t.Fatalf("receive mortgage transaction 2 error")
@@ -528,11 +528,11 @@ func TestContractsRun(t *testing.T) {
 		height:         big.NewInt(13),
 		toAddress:      addr5,
 		accountAddress: addr1,
-		amount:         big0,
+		amount:         Big0,
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash1c,
-		data:           joinBytes(DataCancelMortgage, leftPadBytes(addr4.Bytes(), 32), leftPadBytes(mortgageAmount.Bytes(), 32)),
+		data:           joinBytes(DataCancelMortgage, LeftPadBytes(addr4.Bytes(), 32), LeftPadBytes(mortgageAmount.Bytes(), 32)),
 		snapshotHash:   snapshot55.Hash(),
 		depth:          1,
 	}
@@ -561,8 +561,8 @@ func TestContractsRun(t *testing.T) {
 	receiveCancelMortgageBlockList, isRetry, err := vm.Run(block53)
 	if len(receiveCancelMortgageBlockList) != 2 || isRetry || err != nil ||
 		receiveCancelMortgageBlockList[1].Height().Cmp(big.NewInt(4)) != 0 ||
-		!bytes.Equal(db.storageMap[addr5][locHashMortgage], joinBytes(leftPadBytes(mortgageAmount.Bytes(), 32), withdrawTime)) ||
-		!bytes.Equal(db.storageMap[addr5][locHashQuota], leftPadBytes(mortgageAmount.Bytes(), 32)) ||
+		!bytes.Equal(db.storageMap[addr5][locHashMortgage], joinBytes(LeftPadBytes(mortgageAmount.Bytes(), 32), withdrawTime)) ||
+		!bytes.Equal(db.storageMap[addr5][locHashQuota], LeftPadBytes(mortgageAmount.Bytes(), 32)) ||
 		db.balanceMap[addr5][viteTokenTypeId].Cmp(mortgageAmount) != 0 ||
 		receiveCancelMortgageBlockList[0].Quota() != 0 ||
 		receiveCancelMortgageBlockList[1].Quota() != 0 {
@@ -598,11 +598,11 @@ func TestContractsRun(t *testing.T) {
 		height:         big.NewInt(15),
 		toAddress:      addr5,
 		accountAddress: addr1,
-		amount:         big0,
+		amount:         Big0,
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash1e,
-		data:           joinBytes(DataCancelMortgage, leftPadBytes(addr4.Bytes(), 32), leftPadBytes(mortgageAmount.Bytes(), 32)),
+		data:           joinBytes(DataCancelMortgage, LeftPadBytes(addr4.Bytes(), 32), LeftPadBytes(mortgageAmount.Bytes(), 32)),
 		snapshotHash:   snapshot55.Hash(),
 		depth:          1,
 	}
@@ -633,7 +633,7 @@ func TestContractsRun(t *testing.T) {
 		receiveCancelMortgageBlockList2[1].Height().Cmp(big.NewInt(6)) != 0 ||
 		len(db.storageMap[addr5][locHashMortgage]) != 0 ||
 		len(db.storageMap[addr5][locHashQuota]) != 0 ||
-		db.balanceMap[addr5][viteTokenTypeId].Cmp(big0) != 0 ||
+		db.balanceMap[addr5][viteTokenTypeId].Cmp(Big0) != 0 ||
 		receiveCancelMortgageBlockList2[0].Quota() != 0 ||
 		receiveCancelMortgageBlockList2[1].Quota() != 0 {
 		t.Fatalf("receive cancel mortgage transaction 2 error")
@@ -682,9 +682,9 @@ func TestConsensusGroup(t *testing.T) {
 			NodeCount:              25,
 			Interval:               3,
 			CountingRuleId:         1,
-			CountingRuleParam:      leftPadBytes(viteTokenTypeId.Bytes(), 32),
+			CountingRuleParam:      LeftPadBytes(viteTokenTypeId.Bytes(), 32),
 			RegisterConditionId:    1,
-			RegisterConditionParam: joinBytes(leftPadBytes(big.NewInt(1e18).Bytes(), 32), leftPadBytes(viteTokenTypeId.Bytes(), 32), leftPadBytes(big.NewInt(84600).Bytes(), 32)),
+			RegisterConditionParam: joinBytes(LeftPadBytes(big.NewInt(1e18).Bytes(), 32), LeftPadBytes(viteTokenTypeId.Bytes(), 32), LeftPadBytes(big.NewInt(84600).Bytes(), 32)),
 			VoteConditionId:        1,
 			VoteConditionParam:     []byte{},
 		}),

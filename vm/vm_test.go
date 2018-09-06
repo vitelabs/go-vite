@@ -82,9 +82,9 @@ func TestVmRun(t *testing.T) {
 		NodeCount:              25,
 		Interval:               3,
 		CountingRuleId:         1,
-		CountingRuleParam:      leftPadBytes(viteTokenTypeId.Bytes(), 32),
+		CountingRuleParam:      LeftPadBytes(viteTokenTypeId.Bytes(), 32),
 		RegisterConditionId:    1,
-		RegisterConditionParam: joinBytes(leftPadBytes(registerAmount.Bytes(), 32), leftPadBytes(viteTokenTypeId.Bytes(), 32), leftPadBytes(big.NewInt(registerLockTime).Bytes(), 32)),
+		RegisterConditionParam: joinBytes(LeftPadBytes(registerAmount.Bytes(), 32), LeftPadBytes(viteTokenTypeId.Bytes(), 32), LeftPadBytes(big.NewInt(registerLockTime).Bytes(), 32)),
 		VoteConditionId:        1,
 		VoteConditionParam:     []byte{}})[36:]
 

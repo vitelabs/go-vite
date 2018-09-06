@@ -157,7 +157,7 @@ func (db *NoDatabase) PrintStorage(addr types.Address) string {
 	if storage, ok := db.storageMap[addr]; ok {
 		var str string
 		for key, value := range storage {
-			str += hexToString(key.Bytes()) + " => " + hexToString(value) + "\n"
+			str += string(key.Bytes()) + " => " + string(value) + "\n"
 		}
 		return str
 	} else {

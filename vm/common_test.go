@@ -35,7 +35,7 @@ func TestBigUint64(t *testing.T) {
 	}{
 		{new(big.Int).SetUint64(0), 0, false},
 		{new(big.Int).SetUint64(maxUint64), maxUint64, false},
-		{new(big.Int).SetUint64(maxUint64).Add(new(big.Int).SetUint64(maxUint64), big1), 0, true},
+		{new(big.Int).SetUint64(maxUint64).Add(new(big.Int).SetUint64(maxUint64), Big1), 0, true},
 		{new(big.Int).SetUint64(maxUint64).Add(new(big.Int).SetUint64(maxUint64), big.NewInt(2)), 1, true},
 	}
 	for _, test := range tests {
@@ -58,7 +58,7 @@ func TestRightPadBytes(t *testing.T) {
 		{[]byte{1, 2, 3, 4, 5, 6, 7, 8, 9}, 8, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9}},
 	}
 	for _, test := range tests {
-		result := rightPadBytes(test.input, test.len)
+		result := RightPadBytes(test.input, test.len)
 		if bytes.Compare(result, test.result) != 0 {
 			t.Fatalf("right pad bytes fail, input: %v, len: %v, expected [%v], got [%v]", test.input, test.len, test.result, result)
 		}
@@ -77,7 +77,7 @@ func TestLeftPadBytes(t *testing.T) {
 		{[]byte{1, 2, 3, 4, 5, 6, 7, 8, 9}, 8, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9}},
 	}
 	for _, test := range tests {
-		result := leftPadBytes(test.input, test.len)
+		result := LeftPadBytes(test.input, test.len)
 		if bytes.Compare(result, test.result) != 0 {
 			t.Fatalf("left pad bytes fail, input: %v, len: %v, expected [%v], got [%v]", test.input, test.len, test.result, result)
 		}
@@ -121,7 +121,7 @@ func TestUseQuota(t *testing.T) {
 	}
 }
 
-func TestHexToString(t *testing.T) {
+func TestBytesToString(t *testing.T) {
 	tests := []struct {
 		input  []byte
 		result string
@@ -132,7 +132,7 @@ func TestHexToString(t *testing.T) {
 		{[]byte{116, 101, 115, 116, 0, 0, 0, 0}, "test"},
 	}
 	for _, test := range tests {
-		result := hexToString(test.input)
+		result := BytesToString(test.input)
 		if result != test.result {
 			t.Fatalf("get string from byte array fail, input: [%v], expected %v, got %v", test.input, test.result, result)
 		}

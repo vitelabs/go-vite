@@ -103,8 +103,8 @@ func TestReadBits(t *testing.T) {
 		{tt256m1, make([]byte, 32), []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}},
 		{tt256m1, make([]byte, 33), []byte{0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}},
 		{tt256m1, make([]byte, 2), []byte{255, 255}},
-		{big0, make([]byte, 2), []byte{0, 0}},
-		{big0, make([]byte, 32), []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+		{Big0, make([]byte, 2), []byte{0, 0}},
+		{Big0, make([]byte, 32), []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
 	}
 	for _, test := range tests {
 		ReadBits(test.data, test.buf)
@@ -122,7 +122,7 @@ func TestU256(t *testing.T) {
 		{big.NewInt(1), big.NewInt(1)},
 		{new(big.Int).Set(tt256m1), new(big.Int).Set(tt256m1)},
 		{new(big.Int).Set(tt256), big.NewInt(0)},
-		{new(big.Int).Add(tt256, big1), big.NewInt(1)},
+		{new(big.Int).Add(tt256, Big1), big.NewInt(1)},
 	}
 	for _, test := range tests {
 		result := U256(test.input)

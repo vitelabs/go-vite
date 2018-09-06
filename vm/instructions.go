@@ -140,8 +140,8 @@ func opSignExtend(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack)
 	if back.Cmp(big.NewInt(31)) < 0 {
 		bit := uint(back.Uint64()*8 + 7)
 		num := stack.pop()
-		mask := back.Lsh(big1, bit)
-		mask.Sub(mask, big1)
+		mask := back.Lsh(Big1, bit)
+		mask.Sub(mask, Big1)
 		if num.Bit(int(bit)) > 0 {
 			num.Or(num, mask.Not(mask))
 		} else {
@@ -277,7 +277,7 @@ func opNot(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 
 func opByte(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	th, val := stack.pop(), stack.peek()
-	if th.Cmp(big32) < 0 {
+	if th.Cmp(Big32) < 0 {
 		b := Byte(val, 32, int(th.Int64()))
 		val.SetUint64(uint64(b))
 	} else {
@@ -365,7 +365,7 @@ func opCallValue(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) 
 }
 
 func opCallDataLoad(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.get().SetBytes(getDataBig(c.block.Data(), stack.pop(), big32)))
+	stack.push(c.intPool.get().SetBytes(getDataBig(c.block.Data(), stack.pop(), Big32)))
 	return nil, nil
 }
 
@@ -582,7 +582,7 @@ func makePush(size uint64, pushByteSize int) executionFunc {
 		}
 
 		integer := c.intPool.get()
-		stack.push(integer.SetBytes(rightPadBytes(c.code[startMin:endMin], pushByteSize)))
+		stack.push(integer.SetBytes(RightPadBytes(c.code[startMin:endMin], pushByteSize)))
 
 		*pc += size
 		return nil, nil

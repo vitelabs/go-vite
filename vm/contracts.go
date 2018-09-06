@@ -163,7 +163,7 @@ func (p *register) doSendReward(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 
 	reward := intPool.getZero()
 	calcReward(vm, block.AccountAddress().Bytes(), oldRewardHeight, count, reward)
-	block.SetData(joinBytes(block.Data()[0:36], leftPadBytes(newRewardHeight.Bytes(), 32), old[64:96], leftPadBytes(reward.Bytes(), 32)))
+	block.SetData(joinBytes(block.Data()[0:36], LeftPadBytes(newRewardHeight.Bytes(), 32), old[64:96], LeftPadBytes(reward.Bytes(), 32)))
 	intPool.put(reward)
 	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
 	if err != nil {
@@ -218,14 +218,14 @@ func (p *register) doReceiveRegister(vm *VM, block VmAccountBlock) error {
 	intPool := poolOfIntPools.get()
 	defer poolOfIntPools.put(intPool)
 	snapshotBlock := vm.Db.SnapshotBlock(block.SnapshotHash())
-	rewardHeight := leftPadBytes(snapshotBlock.Height().Bytes(), 32)
+	rewardHeight := LeftPadBytes(snapshotBlock.Height().Bytes(), 32)
 	if len(old) >= 96 && !allZero(old[64:96]) {
 		// reward of last being a super node is not drained
 		rewardHeight = old[64:96]
 	}
 	startTimestamp := intPool.get().SetInt64(snapshotBlock.Timestamp())
-	registerInfo := joinBytes(leftPadBytes(block.Amount().Bytes(), 32),
-		leftPadBytes(startTimestamp.Bytes(), 32),
+	registerInfo := joinBytes(LeftPadBytes(block.Amount().Bytes(), 32),
+		LeftPadBytes(startTimestamp.Bytes(), 32),
 		rewardHeight,
 		emptyWord)
 	intPool.put(startTimestamp)
@@ -248,13 +248,13 @@ func (p *register) doReceiveCancelRegister(vm *VM, block VmAccountBlock) error {
 	registerInfo := joinBytes(emptyWord,
 		emptyWord,
 		old[64:96],
-		leftPadBytes(snapshotBlock.Height().Bytes(), 32))
+		LeftPadBytes(snapshotBlock.Height().Bytes(), 32))
 	vm.Db.SetStorage(block.ToAddress(), locHash, registerInfo)
 	// return locked ViteToken
 	refundBlock := vm.createBlock(block.ToAddress(), block.AccountAddress(), BlockTypeSendCall, block.Depth()+1)
 	refundBlock.SetAmount(amount)
 	refundBlock.SetTokenId(viteTokenTypeId)
-	refundBlock.SetHeight(intPool.get().Add(block.Height(), big1))
+	refundBlock.SetHeight(intPool.get().Add(block.Height(), Big1))
 	vm.blockList = append(vm.blockList, refundBlock)
 	return nil
 }
@@ -290,7 +290,7 @@ func (p *register) doReceiveReward(vm *VM, block VmAccountBlock) error {
 		refundBlock := vm.createBlock(block.ToAddress(), block.AccountAddress(), BlockTypeSendReward, block.Depth()+1)
 		refundBlock.SetAmount(intPool.get().SetBytes(block.Data()[100:132]))
 		refundBlock.SetTokenId(viteTokenTypeId)
-		refundBlock.SetHeight(intPool.get().Add(block.Height(), big1))
+		refundBlock.SetHeight(intPool.get().Add(block.Height(), Big1))
 		vm.blockList = append(vm.blockList, refundBlock)
 	} else {
 		intPool.put(rewardAmount)
@@ -493,7 +493,7 @@ func (p *mortgage) doReceiveMortgage(vm *VM, block VmAccountBlock) error {
 		amount.SetBytes(old[0:32])
 	}
 	amount.Add(amount, block.Amount())
-	vm.Db.SetStorage(block.ToAddress(), locHashMortgage, joinBytes(leftPadBytes(amount.Bytes(), 32), leftPadBytes(withdrawTime.Bytes(), 32)))
+	vm.Db.SetStorage(block.ToAddress(), locHashMortgage, joinBytes(LeftPadBytes(amount.Bytes(), 32), LeftPadBytes(withdrawTime.Bytes(), 32)))
 
 	// storage value for quota: quota amount(0:32)
 	oldQuotaAmount := vm.Db.Storage(block.ToAddress(), locHashQuotaAmount)
@@ -502,7 +502,7 @@ func (p *mortgage) doReceiveMortgage(vm *VM, block VmAccountBlock) error {
 		quotaAmount.SetBytes(oldQuotaAmount[0:32])
 	}
 	quotaAmount.Add(quotaAmount, block.Amount())
-	vm.Db.SetStorage(block.ToAddress(), locHashQuotaAmount, leftPadBytes(quotaAmount.Bytes(), 32))
+	vm.Db.SetStorage(block.ToAddress(), locHashQuotaAmount, LeftPadBytes(quotaAmount.Bytes(), 32))
 	intPool.put(quotaAmount)
 	return nil
 }
@@ -543,20 +543,20 @@ func (p *mortgage) doReceiveCancelMortgage(vm *VM, block VmAccountBlock) error {
 	if amount.Sign() == 0 {
 		vm.Db.SetStorage(block.ToAddress(), locHashMortgage, nil)
 	} else {
-		vm.Db.SetStorage(block.ToAddress(), locHashMortgage, joinBytes(leftPadBytes(amount.Bytes(), 32), old[32:64]))
+		vm.Db.SetStorage(block.ToAddress(), locHashMortgage, joinBytes(LeftPadBytes(amount.Bytes(), 32), old[32:64]))
 	}
 
 	if quotaAmount.Sign() == 0 {
 		vm.Db.SetStorage(block.ToAddress(), locHashQuotaAmount, nil)
 	} else {
-		vm.Db.SetStorage(block.ToAddress(), locHashQuotaAmount, leftPadBytes(quotaAmount.Bytes(), 32))
+		vm.Db.SetStorage(block.ToAddress(), locHashQuotaAmount, LeftPadBytes(quotaAmount.Bytes(), 32))
 	}
 
 	// append refund block
 	refundBlock := vm.createBlock(block.ToAddress(), block.AccountAddress(), BlockTypeSendCall, block.Depth()+1)
 	refundBlock.SetAmount(withdrawAmount)
 	refundBlock.SetTokenId(viteTokenTypeId)
-	refundBlock.SetHeight(intPool.get().Add(block.Height(), big1))
+	refundBlock.SetHeight(intPool.get().Add(block.Height(), Big1))
 	vm.blockList = append(vm.blockList, refundBlock)
 	return nil
 }
@@ -590,7 +590,7 @@ func (p *consensusGroup) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 	if allZero(gid.Bytes()) || isExistGid(vm.Db, gid) {
 		return quotaLeft, ErrInvalidData
 	}
-	copy(block.Data()[4:36], leftPadBytes(gid.Bytes(), 32))
+	copy(block.Data()[4:36], LeftPadBytes(gid.Bytes(), 32))
 	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
 	if err != nil {
 		return quotaLeft, err

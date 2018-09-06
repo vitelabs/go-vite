@@ -182,7 +182,7 @@ func (vm *VM) sendCall(block VmAccountBlock, quotaTotal, quotaAddition uint64) (
 		vm.Db.SubBalance(block.AccountAddress(), block.TokenId(), block.Amount())
 		vm.Db.SubBalance(block.AccountAddress(), viteTokenTypeId, block.CreateFee())
 	} else {
-		block.SetCreateFee(big0)
+		block.SetCreateFee(Big0)
 		cost, err := intrinsicGasCost(block.Data(), false)
 		if err != nil {
 			return nil, err
@@ -283,7 +283,7 @@ func (vm *VM) sendMintage(block VmAccountBlock, quotaTotal, quotaAddition uint64
 	if err != nil {
 		return nil, err
 	}
-	if !vm.canTransfer(block.AccountAddress(), viteTokenTypeId, mintageFee, big0) {
+	if !vm.canTransfer(block.AccountAddress(), viteTokenTypeId, mintageFee, Big0) {
 		return nil, ErrInsufficientBalance
 	}
 
@@ -315,7 +315,7 @@ func (vm *VM) receiveMintage(block VmAccountBlock) (blockList []VmAccountBlock, 
 		return nil, retry, err
 	}
 	decimals := new(big.Int).SetBytes(block.Data()[32:64]).Uint64()
-	tokenName := hexToString(block.Data()[96:])
+	tokenName := BytesToString(block.Data()[96:])
 	if !vm.Db.CreateToken(block.TokenId(), tokenName, block.ToAddress(), block.Amount(), decimals) {
 		vm.updateBlock(block, block.AccountAddress(), ErrIdCollision, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, ErrIdCollision), nil)
 		return vm.blockList, noRetry, ErrIdCollision
@@ -460,7 +460,7 @@ func (vm *VM) checkToken(data []byte) error {
 	if length > tokenNameLengthLimit {
 		return ErrInvalidData
 	}
-	tokenName := hexToString(data[96:])
+	tokenName := BytesToString(data[96:])
 	if len(tokenName) != length {
 		return ErrInvalidData
 	}
@@ -476,7 +476,7 @@ func checkContractFee(fee *big.Int) bool {
 
 func calcMintageFee(data []byte) (*big.Int, error) {
 	// TODO calculate mintage fee
-	return big0, nil
+	return Big0, nil
 }
 
 func quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {
