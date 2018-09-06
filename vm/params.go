@@ -47,18 +47,25 @@ const (
 	tokenDecimalsMin         uint64 = 0       // Minimum value of a token decimals(exclude)
 	tokenDecimalsMax         uint64 = 18      // Maximum value of a token decimals(include)
 
-	registerGas           uint64 = 41948
-	cancelRegisterGas     uint64 = 62948
-	rewardGas             uint64 = 69476
-	calcRewardGasPerBlock uint64 = 200
-	voteGas               uint64 = 43108
-	cancelVoteGas         uint64 = 21748
-	mortgageGas           uint64 = 63372
-	cancelMortgageGas     uint64 = 86004
+	// TODO calc call data separately
+	registerGas             uint64 = 41948
+	cancelRegisterGas       uint64 = 62948
+	rewardGas               uint64 = 69476
+	calcRewardGasPerBlock   uint64 = 1
+	voteGas                 uint64 = 43108
+	cancelVoteGas           uint64 = 21748
+	mortgageGas             uint64 = 63372
+	cancelMortgageGas       uint64 = 86004
+	createConsensusGroupGas uint64 = 41200
 
 	registerLockTime int64  = 3600 * 24 * 90
 	dbPageSize       uint64 = 10000
 	mortgageTime     int64  = 3600 * 24 * 3 // minimum mortgage time in  second
+
+	cgNodeCountMin uint64 = 10
+	cgNodeCountMax uint64 = 50
+	cgIntervalMin  int64  = 1
+	cgIntervalMax  int64  = 60
 
 	//GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
 	//MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.
@@ -91,8 +98,11 @@ const (
 )
 
 var (
-	rewardHeightLimit = big.NewInt(50)
-	rewardGapLimit    = big.NewInt(30000000)
-	rewardPerBlock    = big.NewInt(1e18) // TODO
-	dbPageSizeBig     = new(big.Int).SetUint64(dbPageSize)
+	rewardHeightLimit       = big.NewInt(50)
+	rewardGapLimit          = big.NewInt(30000000)
+	rewardPerBlock          = attovPerVite
+	dbPageSizeBig           = new(big.Int).SetUint64(dbPageSize)
+	attovPerVite            = big.NewInt(1e18)
+	registerAmount          = new(big.Int).Mul(big.NewInt(1e6), attovPerVite)
+	createConsensusGroupFee = new(big.Int).Mul(big.NewInt(1e6), attovPerVite)
 )

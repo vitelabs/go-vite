@@ -14,8 +14,6 @@ type VmToken struct {
 	decimals    uint64
 }
 
-type consensusGroup struct{}
-
 type NoDatabase struct {
 	balanceMap        map[types.Address]map[types.TokenTypeId]*big.Int
 	storageMap        map[types.Address]map[types.Hash][]byte
@@ -25,7 +23,6 @@ type NoDatabase struct {
 	snapshotBlockList []VmSnapshotBlock
 	accountBlockMap   map[types.Address]map[types.Hash]VmAccountBlock
 	tokenMap          map[types.TokenTypeId]VmToken
-	consensusGroupMap map[Gid]consensusGroup
 }
 
 func NewNoDatabase() *NoDatabase {
@@ -40,7 +37,6 @@ func NewNoDatabase() *NoDatabase {
 		snapshotBlockList: make([]VmSnapshotBlock, 0),
 		accountBlockMap:   make(map[types.Address]map[types.Hash]VmAccountBlock),
 		tokenMap:          make(map[types.TokenTypeId]VmToken),
-		consensusGroupMap: consensusGroupMap,
 	}
 }
 
@@ -176,9 +172,4 @@ func (db *NoDatabase) AddLog(log *Log) {
 }
 func (db *NoDatabase) LogListHash() types.Hash {
 	return emptyHash
-}
-
-func (db *NoDatabase) IsExistGid(gid Gid) bool {
-	_, ok := db.consensusGroupMap[gid]
-	return ok
 }

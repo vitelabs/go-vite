@@ -62,7 +62,7 @@ func TestContractsRun(t *testing.T) {
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash12,
 		amount:         new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-		data:           append([]byte{1}, snapshotGid.Bytes()...),
+		data:           joinBytes(DataRegister, leftPadBytes(snapshotGid.Bytes(), 32)),
 		tokenId:        viteTokenTypeId,
 		snapshotHash:   snapshot2.Hash(),
 		depth:          1,
@@ -93,7 +93,7 @@ func TestContractsRun(t *testing.T) {
 	receiveRegisterBlockList, isRetry, err := vm.Run(block21)
 	if len(receiveRegisterBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 ||
-		!bytes.Equal(db.storageMap[addr2][locHashRegister], joinBytes(leftPadBytes(block13.Amount().Bytes(), 32), leftPadBytes(new(big.Int).SetInt64(snapshot2.timestamp).Bytes(), 8), leftPadBytes(snapshot2.height.Bytes(), 32), leftPadBytes(big0.Bytes(), 32))) ||
+		!bytes.Equal(db.storageMap[addr2][locHashRegister], joinBytes(leftPadBytes(block13.Amount().Bytes(), 32), leftPadBytes(new(big.Int).SetInt64(snapshot2.timestamp).Bytes(), 32), leftPadBytes(snapshot2.height.Bytes(), 32), leftPadBytes(big0.Bytes(), 32))) ||
 		receiveRegisterBlockList[0].Quota() != 0 {
 		t.Fatalf("receive register transaction error")
 	}
@@ -115,7 +115,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash13,
-		data:           append([]byte{2}, snapshotGid.Bytes()...),
+		data:           joinBytes(DataCancelRegister, leftPadBytes(snapshotGid.Bytes(), 32)),
 		snapshotHash:   snapshot4.Hash(),
 		depth:          1,
 	}
@@ -146,7 +146,7 @@ func TestContractsRun(t *testing.T) {
 	if len(receiveCancelRegisterBlockList) != 2 || isRetry || err != nil ||
 		db.balanceMap[addr2][viteTokenTypeId].Cmp(big0) != 0 ||
 		db.balanceMap[addr1][viteTokenTypeId].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 ||
-		!bytes.Equal(db.storageMap[addr2][locHashRegister], joinBytes(leftPadBytes(big0.Bytes(), 32), leftPadBytes(big0.Bytes(), 8), leftPadBytes(snapshot2.height.Bytes(), 32), leftPadBytes(snapshot4.height.Bytes(), 32))) ||
+		!bytes.Equal(db.storageMap[addr2][locHashRegister], joinBytes(leftPadBytes(big0.Bytes(), 32), leftPadBytes(big0.Bytes(), 32), leftPadBytes(snapshot2.height.Bytes(), 32), leftPadBytes(snapshot4.height.Bytes(), 32))) ||
 		receiveCancelRegisterBlockList[0].Quota() != 0 ||
 		receiveCancelRegisterBlockList[1].Quota() != 0 ||
 		receiveCancelRegisterBlockList[1].Height().Cmp(big.NewInt(3)) != 0 ||
@@ -198,7 +198,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash15,
-		data:           append([]byte{3}, snapshotGid.Bytes()...),
+		data:           joinBytes(DataReward, leftPadBytes(snapshotGid.Bytes(), 32)),
 		snapshotHash:   snapshot54.Hash(),
 		depth:          1,
 	}
@@ -207,8 +207,8 @@ func TestContractsRun(t *testing.T) {
 	sendRewardBlockList, isRetry, err := vm.Run(block16)
 	reward := new(big.Int).Mul(big.NewInt(2), rewardPerBlock)
 	if len(sendRewardBlockList) != 1 || isRetry || err != nil ||
-		sendRewardBlockList[0].Quota() != 90876 ||
-		!bytes.Equal(sendRewardBlockList[0].Data(), joinBytes([]byte{3}, snapshotGid.Bytes(), leftPadBytes(snapshot4.height.Bytes(), 32), leftPadBytes(snapshot2.height.Bytes(), 32), leftPadBytes(reward.Bytes(), 32))) {
+		sendRewardBlockList[0].Quota() != 90478 ||
+		!bytes.Equal(sendRewardBlockList[0].Data(), joinBytes(DataReward, leftPadBytes(snapshotGid.Bytes(), 32), leftPadBytes(snapshot4.height.Bytes(), 32), leftPadBytes(snapshot2.height.Bytes(), 32), leftPadBytes(reward.Bytes(), 32))) {
 		t.Fatalf("send reward transaction error")
 	}
 	db.accountBlockMap[addr1][hash16] = sendRewardBlockList[0]
@@ -277,7 +277,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash17,
-		data:           joinBytes([]byte{1}, snapshotGid.Bytes(), addr1.Bytes()),
+		data:           joinBytes(DataVote, leftPadBytes(snapshotGid.Bytes(), 32), leftPadBytes(addr1.Bytes(), 32)),
 		snapshotHash:   snapshot54.Hash(),
 		depth:          1,
 	}
@@ -306,7 +306,7 @@ func TestContractsRun(t *testing.T) {
 	receiveVoteBlockList, isRetry, err := vm.Run(block31)
 	locHashVote := getKey(addr1, snapshotGid)
 	if len(receiveVoteBlockList) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr3][locHashVote], addr1.Bytes()) ||
+		!bytes.Equal(db.storageMap[addr3][locHashVote], leftPadBytes(addr1.Bytes(), 32)) ||
 		receiveVoteBlockList[0].Quota() != 0 {
 		t.Fatalf("receive vote transaction error")
 	}
@@ -324,7 +324,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash18,
-		data:           joinBytes([]byte{1}, snapshotGid.Bytes(), addr4.Bytes()),
+		data:           joinBytes(DataVote, leftPadBytes(snapshotGid.Bytes(), 32), leftPadBytes(addr4.Bytes(), 32)),
 		snapshotHash:   snapshot54.Hash(),
 		depth:          1,
 	}
@@ -352,7 +352,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	receiveVoteBlockList2, isRetry, err := vm.Run(block32)
 	if len(receiveVoteBlockList2) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr3][locHashVote], addr4.Bytes()) ||
+		!bytes.Equal(db.storageMap[addr3][locHashVote], leftPadBytes(addr4.Bytes(), 32)) ||
 		receiveVoteBlockList2[0].Quota() != 0 {
 		t.Fatalf("receive vote transaction 2 error")
 	}
@@ -368,7 +368,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash19,
-		data:           joinBytes([]byte{2}, snapshotGid.Bytes()),
+		data:           joinBytes(DataCancelVote, leftPadBytes(snapshotGid.Bytes(), 32)),
 		snapshotHash:   snapshot54.Hash(),
 		depth:          1,
 	}
@@ -405,7 +405,7 @@ func TestContractsRun(t *testing.T) {
 	// mortgage
 	addr5 := AddressMortgage
 	mortgageAmount := reward
-	withdrawTime := leftPadBytes(big.NewInt(timestamp+53+mortgageTime).Bytes(), 8)
+	withdrawTime := leftPadBytes(big.NewInt(timestamp+53+mortgageTime).Bytes(), 32)
 	hash1b := types.DataHash([]byte{1, 11})
 	block1b := &NoAccountBlock{
 		height:         big.NewInt(11),
@@ -415,7 +415,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash1a,
-		data:           joinBytes([]byte{1}, addr4.Bytes(), withdrawTime),
+		data:           joinBytes(DataMortgage, leftPadBytes(addr4.Bytes(), 32), withdrawTime),
 		snapshotHash:   snapshot54.Hash(),
 		depth:          1,
 	}
@@ -455,7 +455,7 @@ func TestContractsRun(t *testing.T) {
 	db.accountBlockMap[addr5] = make(map[types.Hash]VmAccountBlock)
 	db.accountBlockMap[addr5][hash51] = receiveMortgageBlockList[0]
 
-	withdrawTime = leftPadBytes(big.NewInt(timestamp+100+mortgageTime).Bytes(), 8)
+	withdrawTime = leftPadBytes(big.NewInt(timestamp+100+mortgageTime).Bytes(), 32)
 	hash1c := types.DataHash([]byte{1, 12})
 	block1c := &NoAccountBlock{
 		height:         big.NewInt(12),
@@ -465,7 +465,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash1b,
-		data:           joinBytes([]byte{1}, addr4.Bytes(), withdrawTime),
+		data:           joinBytes(DataMortgage, leftPadBytes(addr4.Bytes(), 32), withdrawTime),
 		snapshotHash:   snapshot54.Hash(),
 		depth:          1,
 	}
@@ -516,7 +516,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash1c,
-		data:           joinBytes([]byte{2}, addr4.Bytes(), leftPadBytes(mortgageAmount.Bytes(), 32)),
+		data:           joinBytes(DataCancelMortgage, leftPadBytes(addr4.Bytes(), 32), leftPadBytes(mortgageAmount.Bytes(), 32)),
 		snapshotHash:   snapshot55.Hash(),
 		depth:          1,
 	}
@@ -586,7 +586,7 @@ func TestContractsRun(t *testing.T) {
 		tokenId:        viteTokenTypeId,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash1e,
-		data:           joinBytes([]byte{2}, addr4.Bytes(), leftPadBytes(mortgageAmount.Bytes(), 32)),
+		data:           joinBytes(DataCancelMortgage, leftPadBytes(addr4.Bytes(), 32), leftPadBytes(mortgageAmount.Bytes(), 32)),
 		snapshotHash:   snapshot55.Hash(),
 		depth:          1,
 	}

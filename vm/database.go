@@ -3,6 +3,7 @@ package vm
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"math/big"
 )
 
@@ -43,13 +44,19 @@ type VmDatabase interface {
 
 	AddLog(*Log)
 	LogListHash() types.Hash
-
-	IsExistGid(gid Gid) bool
 }
 
 // TODO tmp
 type Gid [10]byte
 
+func DataToGid(data ...[]byte) Gid {
+	gid, _ := BytesToGid(crypto.Hash(10, data...))
+	return gid
+}
+
+func BigToGid(data *big.Int) (Gid, error) {
+	return BytesToGid(leftPadBytes(data.Bytes(), 10))
+}
 func BytesToGid(b []byte) (Gid, error) {
 	var gid Gid
 	err := gid.SetBytes(b)

@@ -7,20 +7,23 @@ import (
 )
 
 var (
-	AddressRegister, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
-	AddressVote, _     = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2})
-	AddressMortgage, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3})
+	AddressRegister, _       = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
+	AddressVote, _           = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2})
+	AddressMortgage, _       = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3})
+	AddressConsensusGroup, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4})
 )
 
 type precompiledContract interface {
+	createFee(vm *VM, block VmAccountBlock) *big.Int
 	doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error)
 	doReceive(vm *VM, block VmAccountBlock) error
 }
 
 var simpleContracts = map[types.Address]precompiledContract{
-	AddressRegister: &register{},
-	AddressVote:     &vote{},
-	AddressMortgage: &mortgage{},
+	AddressRegister:       &register{},
+	AddressVote:           &vote{},
+	AddressMortgage:       &mortgage{},
+	AddressConsensusGroup: &consensusGroup{},
 }
 
 func getPrecompiledContract(address types.Address) (precompiledContract, bool) {
@@ -31,17 +34,20 @@ func getPrecompiledContract(address types.Address) (precompiledContract, bool) {
 type register struct{}
 
 var (
-	DataRegister       = byte(1)
-	DataCancelRegister = byte(2)
-	DataReward         = byte(3)
+	DataRegister       = []byte{0xde, 0x6e, 0xef, 0x70}
+	DataCancelRegister = []byte{0x74, 0x46, 0xae, 0x9b}
+	DataReward         = []byte{0xc7, 0x45, 0xe1, 0x5c}
 )
 
+func (p *register) createFee(vm *VM, block VmAccountBlock) *big.Int {
+	return big.NewInt(0)
+}
 func (p *register) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	if len(block.Data()) == 11 && block.Data()[0] == DataRegister {
+	if len(block.Data()) == 36 && bytes.Equal(block.Data()[0:4], DataRegister) {
 		return p.doSendRegister(vm, block, quotaLeft)
-	} else if len(block.Data()) == 11 && block.Data()[0] == DataCancelRegister {
+	} else if len(block.Data()) == 36 && bytes.Equal(block.Data()[0:4], DataCancelRegister) {
 		return p.doSendCancelRegister(vm, block, quotaLeft)
-	} else if len(block.Data()) >= 11 && block.Data()[0] == DataReward {
+	} else if len(block.Data()) >= 36 && bytes.Equal(block.Data()[0:4], DataReward) {
 		return p.doSendReward(vm, block, quotaLeft)
 	}
 	return quotaLeft, ErrInvalidData
@@ -49,17 +55,17 @@ func (p *register) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint6
 
 // register to become a super node of a consensus group, lock 100w ViteToken for 3 month
 func (p *register) doSendRegister(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	if block.Amount().Cmp(big1e24) != 0 ||
+	if block.Amount().Cmp(registerAmount) != 0 ||
 		!isViteToken(block.TokenId()) ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data: 0x01(0) + gid(1:11)
-	gid, _ := BytesToGid(block.Data()[1:11])
-	if !vm.Db.IsExistGid(gid) {
+	// data: methodSelector(0:4) + gid(4:36)
+	gid, err := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
+	if err != nil || !isExistGid(vm.Db, gid) {
 		return quotaLeft, ErrInvalidData
 	}
-	quotaLeft, err := useQuota(quotaLeft, registerGas)
+	quotaLeft, err = useQuota(quotaLeft, registerGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -72,13 +78,13 @@ func (p *register) doSendCancelRegister(vm *VM, block VmAccountBlock, quotaLeft 
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data:  0x02(0) + gid(1:11)
-	gid, _ := BytesToGid(block.Data()[1:11])
-	if !vm.Db.IsExistGid(gid) {
+	// data:  methodSelector(0:4) + gid(4:36)
+	gid, err := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
+	if err != nil || !isExistGid(vm.Db, gid) {
 		return quotaLeft, ErrInvalidData
 	}
 
-	quotaLeft, err := useQuota(quotaLeft, cancelRegisterGas)
+	quotaLeft, err = useQuota(quotaLeft, cancelRegisterGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -91,15 +97,15 @@ func (p *register) doSendReward(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data: 0x03(0) + gid(1:11) + end reward height(11:43, optional) + start reward height(43:75, optional) + rewardAmount(75:107, optional)
+	// data: methodSelector(0:4) + gid(4:36) + end reward height(36:68, optional) + start reward height(68:100, optional) + rewardAmount(100:132, optional)
 	// only generating snapshot block creates reward officially
-	gid, _ := BytesToGid(block.Data()[1:11])
-	if !isSnapshotGid(gid) {
+	gid, err := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
+	if err != nil || !isSnapshotGid(gid) {
 		return quotaLeft, ErrInvalidData
 	}
 	locHash := getKey(block.AccountAddress(), gid)
 	old := vm.Db.Storage(block.ToAddress(), locHash)
-	if len(old) < 72 {
+	if len(old) < 96 {
 		return quotaLeft, ErrInvalidData
 	}
 	intPool := poolOfIntPools.get()
@@ -107,17 +113,17 @@ func (p *register) doSendReward(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 	// newRewardHeight := min(currentSnapshotHeight-50, userDefined, cancelSnapshotHeight)
 	newRewardHeight := intPool.get().Sub(vm.Db.SnapshotBlock(block.SnapshotHash()).Height(), rewardHeightLimit)
 	defer intPool.put(newRewardHeight)
-	if len(block.Data()) >= 43 {
-		userDefined := intPool.get().SetBytes(block.Data()[11:43])
+	if len(block.Data()) >= 68 {
+		userDefined := intPool.get().SetBytes(block.Data()[36:68])
 		defer intPool.put(userDefined)
 		newRewardHeight = BigMin(newRewardHeight, userDefined)
 	}
-	if len(old) >= 104 && !allZero(old[72:104]) {
-		cancelSnapshotHeight := intPool.get().SetBytes(old[72:104])
+	if len(old) >= 128 && !allZero(old[96:128]) {
+		cancelSnapshotHeight := intPool.get().SetBytes(old[96:128])
 		defer intPool.put(cancelSnapshotHeight)
 		newRewardHeight = BigMin(newRewardHeight, cancelSnapshotHeight)
 	}
-	oldRewardHeight := intPool.get().SetBytes(old[40:72])
+	oldRewardHeight := intPool.get().SetBytes(old[64:96])
 	if newRewardHeight.Cmp(oldRewardHeight) <= 0 {
 		return quotaLeft, ErrInvalidData
 	}
@@ -128,14 +134,14 @@ func (p *register) doSendReward(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 	}
 
 	count := heightGap.Uint64()
-	quotaLeft, err := useQuota(quotaLeft, rewardGas+count*calcRewardGasPerBlock)
+	quotaLeft, err = useQuota(quotaLeft, rewardGas+count*calcRewardGasPerBlock)
 	if err != nil {
 		return quotaLeft, err
 	}
 
 	reward := intPool.getZero()
 	calcReward(vm, block.AccountAddress().Bytes(), oldRewardHeight, count, reward)
-	block.SetData(joinBytes(block.Data()[0:11], leftPadBytes(newRewardHeight.Bytes(), 32), old[40:72], leftPadBytes(reward.Bytes(), 32)))
+	block.SetData(joinBytes(block.Data()[0:36], leftPadBytes(newRewardHeight.Bytes(), 32), old[64:96], leftPadBytes(reward.Bytes(), 32)))
 	intPool.put(reward)
 	return quotaLeft, nil
 }
@@ -163,23 +169,23 @@ func calcReward(vm *VM, producer []byte, startHeight *big.Int, count uint64, rew
 }
 
 func (p *register) doReceive(vm *VM, block VmAccountBlock) error {
-	if len(block.Data()) == 11 && block.Data()[0] == DataRegister {
+	if len(block.Data()) == 36 && bytes.Equal(block.Data()[0:4], DataRegister) {
 		return p.doReceiveRegister(vm, block)
-	} else if len(block.Data()) == 11 && block.Data()[0] == DataCancelRegister {
+	} else if len(block.Data()) == 36 && bytes.Equal(block.Data()[0:4], DataCancelRegister) {
 		return p.doReceiveCancelRegister(vm, block)
-	} else if len(block.Data()) == 107 && block.Data()[0] == DataReward {
+	} else if len(block.Data()) == 132 && bytes.Equal(block.Data()[0:4], DataReward) {
 		return p.doReceiveReward(vm, block)
 	}
 	return ErrInvalidData
 }
 func (p *register) doReceiveRegister(vm *VM, block VmAccountBlock) error {
-	// data: 0x01(0) + gid(1:11)
-	gid, _ := BytesToGid(block.Data()[1:11])
-	// storage key: 00(0:2) + gid(2:12) + address(12:32)
+	// data: methodSelector(0:4) + gid(4:36)
+	gid, _ := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
+	// storage key: gid(2:12) + address(12:32)
 	locHash := getKey(block.AccountAddress(), gid)
-	// storage value: lock ViteToken amount(0:32) + lock start timestamp(32:40) + start reward snapshot height(40:72) + cancel snapshot height, 0 for default(72:104)
+	// storage value: lock ViteToken amount(0:32) + lock start timestamp(32:64) + start reward snapshot height(64:96) + cancel snapshot height, 0 for default(96:128)
 	old := vm.Db.Storage(block.ToAddress(), locHash)
-	if len(old) >= 72 && !allZero(old[0:32]) {
+	if len(old) >= 32 && !allZero(old[0:32]) {
 		// duplicate register
 		return ErrInvalidData
 	}
@@ -187,13 +193,13 @@ func (p *register) doReceiveRegister(vm *VM, block VmAccountBlock) error {
 	defer poolOfIntPools.put(intPool)
 	snapshotBlock := vm.Db.SnapshotBlock(block.SnapshotHash())
 	rewardHeight := leftPadBytes(snapshotBlock.Height().Bytes(), 32)
-	if len(old) >= 72 && !allZero(old[40:72]) {
+	if len(old) >= 96 && !allZero(old[64:96]) {
 		// reward of last being a super node is not drained
-		rewardHeight = old[40:72]
+		rewardHeight = old[64:96]
 	}
 	startTimestamp := intPool.get().SetInt64(snapshotBlock.Timestamp())
 	registerInfo := joinBytes(leftPadBytes(block.Amount().Bytes(), 32),
-		leftPadBytes(startTimestamp.Bytes(), 8),
+		leftPadBytes(startTimestamp.Bytes(), 32),
 		rewardHeight,
 		emptyWord)
 	intPool.put(startTimestamp)
@@ -201,11 +207,11 @@ func (p *register) doReceiveRegister(vm *VM, block VmAccountBlock) error {
 	return nil
 }
 func (p *register) doReceiveCancelRegister(vm *VM, block VmAccountBlock) error {
-	// data:  0x02(0) + gid(1:11)
-	gid, _ := BytesToGid(block.Data()[1:11])
+	// data:  methodSelector(0:4) + gid(4:36)
+	gid, _ := BytesToGid(block.Data()[26:36])
 	locHash := getKey(block.AccountAddress(), gid)
 	old := vm.Db.Storage(block.ToAddress(), locHash)
-	if len(old) < 72 || allZero(old[0:32]) {
+	if len(old) < 96 || allZero(old[0:32]) {
 		return ErrInvalidData
 	}
 	intPool := poolOfIntPools.get()
@@ -214,8 +220,8 @@ func (p *register) doReceiveCancelRegister(vm *VM, block VmAccountBlock) error {
 	amount := intPool.get().SetBytes(old[0:32])
 	snapshotBlock := vm.Db.SnapshotBlock(block.SnapshotHash())
 	registerInfo := joinBytes(emptyWord,
-		emptyTimestamp,
-		old[40:72],
+		emptyWord,
+		old[64:96],
 		leftPadBytes(snapshotBlock.Height().Bytes(), 32))
 	vm.Db.SetStorage(block.ToAddress(), locHash, registerInfo)
 	// return locked ViteToken
@@ -227,18 +233,18 @@ func (p *register) doReceiveCancelRegister(vm *VM, block VmAccountBlock) error {
 	return nil
 }
 func (p *register) doReceiveReward(vm *VM, block VmAccountBlock) error {
-	// data: 0x03(0) + gid(1:11) + end reward height(11:43) + start reward height(43:75) + rewardAmount(75:107)
-	gid, _ := BytesToGid(block.Data()[1:11])
+	// data: methodSelector(0:4) + gid(4:36) + end reward height(36:68) + start reward height(68:100) + rewardAmount(100:132)
+	gid, _ := BytesToGid(block.Data()[26:36])
 	locHash := getKey(block.AccountAddress(), gid)
 	old := vm.Db.Storage(block.ToAddress(), locHash)
-	if len(old) < 72 || !bytes.Equal(old[40:72], block.Data()[43:75]) {
+	if len(old) < 96 || !bytes.Equal(old[64:96], block.Data()[68:100]) {
 		return ErrInvalidData
 	}
 	intPool := poolOfIntPools.get()
 	defer poolOfIntPools.put(intPool)
-	if len(old) >= 104 {
-		cancelTime := intPool.get().SetBytes(old[72:104])
-		newRewardTime := intPool.get().SetBytes(block.Data()[11:43])
+	if len(old) >= 128 {
+		cancelTime := intPool.get().SetBytes(old[96:128])
+		newRewardTime := intPool.get().SetBytes(block.Data()[36:68])
 		defer intPool.put(cancelTime, newRewardTime)
 		switch newRewardTime.Cmp(cancelTime) {
 		case 1:
@@ -247,31 +253,40 @@ func (p *register) doReceiveReward(vm *VM, block VmAccountBlock) error {
 			// delete storage when register canceled and reward drained
 			vm.Db.SetStorage(block.ToAddress(), locHash, nil)
 		case -1:
-			vm.Db.SetStorage(block.ToAddress(), locHash, joinBytes(old[0:40], block.Data()[11:43], old[72:104]))
+			vm.Db.SetStorage(block.ToAddress(), locHash, joinBytes(old[0:64], block.Data()[36:68], old[96:128]))
 		}
 	} else {
-		vm.Db.SetStorage(block.ToAddress(), locHash, joinBytes(old[0:40], block.Data()[11:43]))
+		vm.Db.SetStorage(block.ToAddress(), locHash, joinBytes(old[0:64], block.Data()[36:68]))
 	}
 	// create reward and return
-	refundBlock := vm.createBlock(block.ToAddress(), block.AccountAddress(), BlockTypeSendReward, block.Depth()+1)
-	refundBlock.SetAmount(intPool.get().SetBytes(block.Data()[75:107]))
-	refundBlock.SetTokenId(viteTokenTypeId)
-	refundBlock.SetHeight(intPool.get().Add(block.Height(), big1))
-	vm.blockList = append(vm.blockList, refundBlock)
+	rewardAmount := intPool.get().SetBytes(block.Data()[100:132])
+	if rewardAmount.Sign() > 0 {
+		refundBlock := vm.createBlock(block.ToAddress(), block.AccountAddress(), BlockTypeSendReward, block.Depth()+1)
+		refundBlock.SetAmount(intPool.get().SetBytes(block.Data()[100:132]))
+		refundBlock.SetTokenId(viteTokenTypeId)
+		refundBlock.SetHeight(intPool.get().Add(block.Height(), big1))
+		vm.blockList = append(vm.blockList, refundBlock)
+	} else {
+		intPool.put(rewardAmount)
+	}
 	return nil
 }
 
 type vote struct{}
 
+func (p *vote) createFee(vm *VM, block VmAccountBlock) *big.Int {
+	return big.NewInt(0)
+}
+
 var (
-	DataVote       = byte(1)
-	DataCancelVote = byte(2)
+	DataVote       = []byte{0x70, 0xfe, 0xcc, 0x42}
+	DataCancelVote = []byte{0x4e, 0x0b, 0x53, 0x02}
 )
 
 func (p *vote) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	if len(block.Data()) == 31 && block.Data()[0] == DataVote {
+	if len(block.Data()) == 68 && bytes.Equal(block.Data()[0:4], DataVote) {
 		return p.doSendVote(vm, block, quotaLeft)
-	} else if len(block.Data()) == 11 && block.Data()[0] == DataCancelVote {
+	} else if len(block.Data()) == 36 && bytes.Equal(block.Data()[0:4], DataCancelVote) {
 		return p.doSendCancelVote(vm, block, quotaLeft)
 	}
 	return quotaLeft, ErrInvalidData
@@ -283,16 +298,16 @@ func (p *vote) doSendVote(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint6
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data: 0x01(0) + gid(1:11) + super node address(11:31)
-	gid, _ := BytesToGid(block.Data()[1:11])
-	if !vm.Db.IsExistGid(gid) {
+	// data: methodSelector(0:4) + gid(4:36) + super node address(36:68)
+	gid, err := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
+	if err != nil || !isExistGid(vm.Db, gid) {
 		return quotaLeft, ErrInvalidData
 	}
-	address, _ := types.BytesToAddress(block.Data()[11:31])
-	if !vm.Db.IsExistAddress(address) {
+	address, err := types.BytesToAddress(new(big.Int).SetBytes(block.Data()[36:68]).Bytes())
+	if err != nil || !vm.Db.IsExistAddress(address) {
 		return quotaLeft, ErrInvalidData
 	}
-	quotaLeft, err := useQuota(quotaLeft, voteGas)
+	quotaLeft, err = useQuota(quotaLeft, voteGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -305,35 +320,35 @@ func (p *vote) doSendCancelVote(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data: 0x02(0) + gid(1:11)
-	gid, _ := BytesToGid(block.Data()[1:11])
-	if !vm.Db.IsExistGid(gid) {
+	// data: methodSelector(0:4) + gid(4:36)
+	gid, err := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
+	if err != nil || !isExistGid(vm.Db, gid) {
 		return quotaLeft, ErrInvalidData
 	}
-	quotaLeft, err := useQuota(quotaLeft, cancelVoteGas)
+	quotaLeft, err = useQuota(quotaLeft, cancelVoteGas)
 	if err != nil {
 		return quotaLeft, err
 	}
 	return quotaLeft, nil
 }
 func (p *vote) doReceive(vm *VM, block VmAccountBlock) error {
-	if len(block.Data()) == 31 && block.Data()[0] == DataVote {
+	if len(block.Data()) == 68 && bytes.Equal(block.Data()[0:4], DataVote) {
 		return p.doReceiveVote(vm, block)
-	} else if len(block.Data()) == 11 && block.Data()[0] == DataCancelVote {
+	} else if len(block.Data()) == 36 && bytes.Equal(block.Data()[0:4], DataCancelVote) {
 		return p.doReceiveCancelVote(vm, block)
 	}
 	return nil
 }
 func (p *vote) doReceiveVote(vm *VM, block VmAccountBlock) error {
-	gid, _ := BytesToGid(block.Data()[1:11])
+	gid, _ := BytesToGid(block.Data()[26:36])
 	// storage key: 00(0:2) + gid(2:12) + voter address(12:32)
 	locHash := getKey(block.AccountAddress(), gid)
-	// storage value: superNodeAddress(0:20)
-	vm.Db.SetStorage(block.ToAddress(), locHash, block.Data()[11:31])
+	// storage value: superNodeAddress(0:32)
+	vm.Db.SetStorage(block.ToAddress(), locHash, block.Data()[36:68])
 	return nil
 }
 func (p *vote) doReceiveCancelVote(vm *VM, block VmAccountBlock) error {
-	gid, _ := BytesToGid(block.Data()[1:11])
+	gid, _ := BytesToGid(block.Data()[26:36])
 	locHash := getKey(block.AccountAddress(), gid)
 	vm.Db.SetStorage(block.ToAddress(), locHash, nil)
 	return nil
@@ -341,15 +356,19 @@ func (p *vote) doReceiveCancelVote(vm *VM, block VmAccountBlock) error {
 
 type mortgage struct{}
 
+func (p *mortgage) createFee(vm *VM, block VmAccountBlock) *big.Int {
+	return big.NewInt(0)
+}
+
 var (
-	DataMortgage       = byte(1)
-	DataCancelMortgage = byte(2)
+	DataMortgage       = []byte{0x9c, 0xc4, 0x4b, 0xd6}
+	DataCancelMortgage = []byte{0xf8, 0x2d, 0x39, 0xca}
 )
 
 func (p *mortgage) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	if len(block.Data()) == 29 && block.Data()[0] == DataMortgage {
+	if len(block.Data()) == 68 && bytes.Equal(block.Data()[0:4], DataMortgage) {
 		return p.doSendMortgage(vm, block, quotaLeft)
-	} else if len(block.Data()) == 53 && block.Data()[0] == DataCancelMortgage {
+	} else if len(block.Data()) == 68 && bytes.Equal(block.Data()[0:4], DataCancelMortgage) {
 		return p.doSendCancelMortgage(vm, block, quotaLeft)
 	}
 	return quotaLeft, ErrInvalidData
@@ -362,19 +381,19 @@ func (p *mortgage) doSendMortgage(vm *VM, block VmAccountBlock, quotaLeft uint64
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data: 0x01(0) + beneficial address(1:21) + withdrawTime(21:29)
-	address, _ := types.BytesToAddress(block.Data()[1:21])
-	if !vm.Db.IsExistAddress(address) {
+	// data:methodSelector(0:4) + beneficial address(4:36) + withdrawTime(36:68)
+	address, err := types.BytesToAddress(new(big.Int).SetBytes(block.Data()[4:36]).Bytes())
+	if err != nil || !vm.Db.IsExistAddress(address) {
 		return quotaLeft, ErrInvalidData
 	}
 	intPool := poolOfIntPools.get()
 	defer poolOfIntPools.put(intPool)
-	withdrawTime := intPool.get().SetBytes(block.Data()[21:29])
+	withdrawTime := intPool.get().SetBytes(block.Data()[36:68])
 	defer intPool.put(withdrawTime)
-	if withdrawTime.Int64() < vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp()+mortgageTime {
+	if !withdrawTime.IsInt64() || withdrawTime.Int64() < vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp()+mortgageTime {
 		return quotaLeft, ErrInvalidData
 	}
-	quotaLeft, err := useQuota(quotaLeft, mortgageGas)
+	quotaLeft, err = useQuota(quotaLeft, mortgageGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -388,12 +407,12 @@ func (p *mortgage) doSendCancelMortgage(vm *VM, block VmAccountBlock, quotaLeft 
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data: 0x02(0) + beneficial address(1:21) + amount(21:53)
-	address, _ := types.BytesToAddress(block.Data()[1:21])
-	if !vm.Db.IsExistAddress(address) {
+	// data: methodSelector(0:4) + beneficial address(4:36) + amount(36:68)
+	address, err := types.BytesToAddress(new(big.Int).SetBytes(block.Data()[4:36]).Bytes())
+	if err != nil || !vm.Db.IsExistAddress(address) {
 		return quotaLeft, ErrInvalidData
 	}
-	quotaLeft, err := useQuota(quotaLeft, cancelMortgageGas)
+	quotaLeft, err = useQuota(quotaLeft, cancelMortgageGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -401,9 +420,9 @@ func (p *mortgage) doSendCancelMortgage(vm *VM, block VmAccountBlock, quotaLeft 
 }
 
 func (p *mortgage) doReceive(vm *VM, block VmAccountBlock) error {
-	if len(block.Data()) == 29 && block.Data()[0] == DataMortgage {
+	if len(block.Data()) == 68 && bytes.Equal(block.Data()[0:4], DataMortgage) {
 		return p.doReceiveMortgage(vm, block)
-	} else if len(block.Data()) == 53 && block.Data()[0] == DataCancelMortgage {
+	} else if len(block.Data()) == 68 && bytes.Equal(block.Data()[0:4], DataCancelMortgage) {
 		return p.doReceiveCancelMortgage(vm, block)
 	}
 	return nil
@@ -412,19 +431,19 @@ func (p *mortgage) doReceive(vm *VM, block VmAccountBlock) error {
 func (p *mortgage) doReceiveMortgage(vm *VM, block VmAccountBlock) error {
 	intPool := poolOfIntPools.get()
 	defer poolOfIntPools.put(intPool)
-	// data: 0x01(0) + beneficial address(1:21) + withdrawTime(21:29)
+	// data: methodSelector(0:4) + beneficial address(4:36) + withdrawTime(36:68)
 	// storage key for quota: hash(beneficial)
-	locHashQuotaAmount := types.DataHash(block.Data()[1:21])
+	locHashQuotaAmount := types.DataHash(block.Data()[16:36])
 	// storage key for mortgage: hash(owner, hash(beneficial))
 	locHashMortgage := types.DataHash(append(block.AccountAddress().Bytes(), locHashQuotaAmount.Bytes()...))
-	// storage value for mortgage: mortgage amount(0:32) + withdrawTime(32:40)
+	// storage value for mortgage: mortgage amount(0:32) + withdrawTime(32:64)
 	old := vm.Db.Storage(block.ToAddress(), locHashMortgage)
-	withdrawTime := intPool.get().SetBytes(block.Data()[21:29])
+	withdrawTime := intPool.get().SetBytes(block.Data()[36:68])
 	defer intPool.put(withdrawTime)
 	amount := intPool.getZero()
 	defer intPool.put(amount)
-	if len(old) >= 40 {
-		oldWithdrawTime := intPool.get().SetBytes(old[32:40])
+	if len(old) >= 64 {
+		oldWithdrawTime := intPool.get().SetBytes(old[32:64])
 		defer intPool.put(oldWithdrawTime)
 		if withdrawTime.Int64() < oldWithdrawTime.Int64() {
 			return ErrInvalidData
@@ -432,7 +451,7 @@ func (p *mortgage) doReceiveMortgage(vm *VM, block VmAccountBlock) error {
 		amount.SetBytes(old[0:32])
 	}
 	amount.Add(amount, block.Amount())
-	vm.Db.SetStorage(block.ToAddress(), locHashMortgage, joinBytes(leftPadBytes(amount.Bytes(), 32), leftPadBytes(withdrawTime.Bytes(), 8)))
+	vm.Db.SetStorage(block.ToAddress(), locHashMortgage, joinBytes(leftPadBytes(amount.Bytes(), 32), leftPadBytes(withdrawTime.Bytes(), 32)))
 
 	// storage value for quota: quota amount(0:32)
 	oldQuotaAmount := vm.Db.Storage(block.ToAddress(), locHashQuotaAmount)
@@ -446,23 +465,23 @@ func (p *mortgage) doReceiveMortgage(vm *VM, block VmAccountBlock) error {
 	return nil
 }
 func (p *mortgage) doReceiveCancelMortgage(vm *VM, block VmAccountBlock) error {
-	// data: 0x02(0) + beneficial address(1:21) + amount(21:53)
-	locHashQuotaAmount := types.DataHash(block.Data()[1:21])
+	// data: methodSelector(0:4) + beneficial address(4:36) + amount(36:68)
+	locHashQuotaAmount := types.DataHash(block.Data()[16:36])
 	locHashMortgage := types.DataHash(append(block.AccountAddress().Bytes(), locHashQuotaAmount.Bytes()...))
 	old := vm.Db.Storage(block.ToAddress(), locHashMortgage)
-	if len(old) < 40 {
+	if len(old) < 64 {
 		return ErrInvalidData
 	}
 	intPool := poolOfIntPools.get()
 	defer poolOfIntPools.put(intPool)
-	withdrawTime := intPool.get().SetBytes(old[32:40])
+	withdrawTime := intPool.get().SetBytes(old[32:64])
 	defer intPool.put(withdrawTime)
 	if withdrawTime.Int64() > vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp() {
 		return ErrInvalidData
 	}
 	amount := intPool.get().SetBytes(old[0:32])
 	defer intPool.put(amount)
-	withdrawAmount := intPool.get().SetBytes(block.Data()[21:53])
+	withdrawAmount := intPool.get().SetBytes(block.Data()[36:68])
 	if amount.Cmp(withdrawAmount) < 0 {
 		return ErrInvalidData
 	}
@@ -482,7 +501,7 @@ func (p *mortgage) doReceiveCancelMortgage(vm *VM, block VmAccountBlock) error {
 	if amount.Sign() == 0 {
 		vm.Db.SetStorage(block.ToAddress(), locHashMortgage, nil)
 	} else {
-		vm.Db.SetStorage(block.ToAddress(), locHashMortgage, joinBytes(leftPadBytes(amount.Bytes(), 32), old[32:40]))
+		vm.Db.SetStorage(block.ToAddress(), locHashMortgage, joinBytes(leftPadBytes(amount.Bytes(), 32), old[32:64]))
 	}
 
 	if quotaAmount.Sign() == 0 {
@@ -500,6 +519,100 @@ func (p *mortgage) doReceiveCancelMortgage(vm *VM, block VmAccountBlock) error {
 	return nil
 }
 
+type consensusGroup struct{}
+
+func (p *consensusGroup) createFee(vm *VM, block VmAccountBlock) *big.Int {
+	return new(big.Int).Set(createConsensusGroupFee)
+}
+
+var (
+	DataCreateConsensusGroup = []byte{0xce, 0xe9, 0xbd, 0xc9}
+)
+
+// create consensus group
+func (p *consensusGroup) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	if len(block.Data()) < 384 || (len(block.Data())-4)%32 != 0 || !bytes.Equal(block.Data()[0:4], DataCreateConsensusGroup) ||
+		block.Amount().Sign() != 0 ||
+		!isUserAccount(vm.Db, block.AccountAddress()) {
+		return quotaLeft, ErrInvalidData
+	}
+	if err := checkCreateConsensusGroupData(vm, block.Data()); err != nil {
+		return quotaLeft, err
+	}
+	// data: methodSelector(0:4) + gid(4:36) + ConsensusGroup
+	gid := DataToGid(block.AccountAddress().Bytes(), block.Height().Bytes(), block.PrevHash().Bytes(), block.SnapshotHash().Bytes())
+	if allZero(gid.Bytes()) || isExistGid(vm.Db, gid) {
+		return quotaLeft, ErrInvalidData
+	}
+	copy(block.Data()[4:36], leftPadBytes(gid.Bytes(), 32))
+	quotaLeft, err := useQuota(quotaLeft, createConsensusGroupGas)
+	if err != nil {
+		return quotaLeft, err
+	}
+	return quotaLeft, nil
+}
+func checkCreateConsensusGroupData(vm *VM, data []byte) error {
+	var tmp big.Int
+	tmp.SetBytes(data[36:68])
+	nodeCount := tmp.Uint64()
+	if tmp.BitLen() > 8 || nodeCount < cgNodeCountMin || nodeCount > cgNodeCountMax {
+		return ErrInvalidData
+	}
+	tmp.SetBytes(data[68:100])
+	interval := tmp.Int64()
+	if tmp.BitLen() > 64 || interval < cgIntervalMin || interval > cgIntervalMax {
+		return ErrInvalidData
+	}
+	if _, err := checkCondition(vm, data, tmp, 132, "counting"); err != nil {
+		return ErrInvalidData
+	}
+	if _, err := checkCondition(vm, data, tmp, 164, "register"); err != nil {
+		return ErrInvalidData
+	}
+	if endIndex, err := checkCondition(vm, data, tmp, 228, "vote"); err != nil || uint64(len(data)) > endIndex {
+		return ErrInvalidData
+	}
+	return nil
+}
+func checkCondition(vm *VM, data []byte, tmp big.Int, startIndex uint64, conditionIdPrefix string) (uint64, error) {
+	conditionId := tmp.SetBytes(data[startIndex : startIndex+32])
+	if conditionId.BitLen() > 8 {
+		return 0, ErrInvalidData
+	}
+	condition, ok := SimpleCountingRuleList[CountingRuleCode(conditionIdPrefix+conditionId.String())]
+	if !ok {
+		return 0, ErrInvalidData
+	}
+	tmp.SetBytes(data[startIndex+32 : startIndex+64])
+	conditionParamAddressStart := tmp.Uint64()
+	if tmp.BitLen() > 64 || uint64(len(data)) < conditionParamAddressStart+32 {
+		return 0, ErrInvalidData
+	}
+	tmp.SetBytes(data[conditionParamAddressStart : conditionParamAddressStart+32])
+	conditionParamLength := tmp.Uint64()
+	if conditionParamLength > 0 {
+		conditionParamWordCount := toWordSize(conditionParamLength)
+		if tmp.Cmp(tt256m1) > 0 || uint64(len(data)) < conditionParamAddressStart+32+conditionParamWordCount*32 ||
+			!allZero(data[conditionParamAddressStart+32+conditionParamLength:conditionParamAddressStart+32+conditionParamWordCount*32]) {
+			return 0, ErrInvalidData
+		}
+		if ok := condition.checkParam(data[conditionParamAddressStart+32:conditionParamAddressStart+32+conditionParamLength], vm.Db); !ok {
+			return 0, ErrInvalidData
+		}
+		return conditionParamAddressStart + 32 + conditionParamWordCount*32, nil
+	}
+	return conditionParamAddressStart + 32, nil
+}
+
+func (p *consensusGroup) doReceive(vm *VM, block VmAccountBlock) error {
+	gid, _ := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
+	locHash := types.DataHash(gid.Bytes())
+	if len(vm.Db.Storage(block.ToAddress(), locHash)) > 0 {
+		return ErrIdCollision
+	}
+	vm.Db.SetStorage(block.ToAddress(), locHash, block.Data()[36:])
+	return nil
+}
 func isUserAccount(db VmDatabase, addr types.Address) bool {
 	return len(db.ContractCode(addr)) == 0
 }

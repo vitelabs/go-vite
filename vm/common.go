@@ -19,12 +19,11 @@ const (
 )
 
 var (
-	big0    = big.NewInt(0)
-	big1    = big.NewInt(1)
-	big32   = big.NewInt(32)
-	big256  = big.NewInt(256)
-	big257  = big.NewInt(257)
-	big1e24 = new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))
+	big0   = big.NewInt(0)
+	big1   = big.NewInt(1)
+	big32  = big.NewInt(32)
+	big256 = big.NewInt(256)
+	big257 = big.NewInt(257)
 
 	bigZero = new(big.Int)
 
@@ -36,7 +35,6 @@ var (
 	emptyAddress     = types.Address{}
 	emptyTokenTypeId = types.TokenTypeId{}
 	emptyWord        = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	emptyTimestamp   = []byte{0, 0, 0, 0, 0, 0, 0, 0}
 
 	// TODO system id
 	viteTokenTypeId = types.TokenTypeId{}

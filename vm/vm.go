@@ -96,7 +96,7 @@ func (vm *VM) sendCreate(block VmAccountBlock, quotaTotal, quotaAddition uint64)
 		return nil, ErrInvalidContractFee
 	}
 	gid, _ := BytesToGid(block.Data()[:10])
-	if !vm.Db.IsExistGid(gid) {
+	if !isExistGid(vm.Db, gid) {
 		return nil, ErrInvalidData
 	}
 	if !vm.canTransfer(block.AccountAddress(), block.TokenId(), block.Amount(), block.CreateFee()) {
@@ -172,7 +172,8 @@ func (vm *VM) sendCall(block VmAccountBlock, quotaTotal, quotaAddition uint64) (
 	quotaRefund := uint64(0)
 	var cost uint64
 	var err error
-	if _, ok := getPrecompiledContract(block.ToAddress()); ok {
+	if p, ok := getPrecompiledContract(block.ToAddress()); ok {
+		block.SetCreateFee(p.createFee(vm, block))
 		cost, err = intrinsicGasCost(nil, false)
 	} else {
 		cost, err = intrinsicGasCost(block.Data(), false)
@@ -316,8 +317,8 @@ func (vm *VM) receiveMintage(block VmAccountBlock) (blockList []VmAccountBlock, 
 	decimals := new(big.Int).SetBytes(block.Data()[32:64]).Uint64()
 	tokenName := hexToString(block.Data()[96:])
 	if !vm.Db.CreateToken(block.TokenId(), tokenName, block.ToAddress(), block.Amount(), decimals) {
-		vm.updateBlock(block, block.AccountAddress(), ErrTokenIdCollision, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, ErrTokenIdCollision), nil)
-		return vm.blockList, noRetry, ErrTokenIdCollision
+		vm.updateBlock(block, block.AccountAddress(), ErrIdCollision, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, ErrIdCollision), nil)
+		return vm.blockList, noRetry, ErrIdCollision
 	}
 	vm.blockList = []VmAccountBlock{block}
 	vm.Db.AddBalance(block.ToAddress(), block.TokenId(), block.Amount())
@@ -372,7 +373,6 @@ func (vm *VM) quotaLeft(addr types.Address, block VmAccountBlock) (quotaInit, qu
 			quotaInit = quotaInit - prevBlock.Quota()
 			prevHash = prevBlock.PrevHash()
 		} else {
-			// TODO quotaInit =  quotaPerSnapshotBlock * snapshotBlockHeightDiff
 			if quotaLimit-quotaAddition < quotaInit {
 				quotaAddition = quotaLimit - quotaInit
 				quotaInit = quotaLimit
@@ -503,4 +503,10 @@ func createContractAddress(addr types.Address, height *big.Int, prevHash types.H
 
 func createTokenId(addr, owner types.Address, height *big.Int, prevHash, snapshotHash types.Hash) types.TokenTypeId {
 	return types.CreateTokenTypeId(addr.Bytes(), owner.Bytes(), height.Bytes(), prevHash.Bytes(), snapshotHash.Bytes())
+}
+
+func isExistGid(db VmDatabase, gid Gid) bool {
+	return true
+	value := db.Storage(AddressConsensusGroup, types.DataHash(gid.Bytes()))
+	return len(value) > 0
 }
