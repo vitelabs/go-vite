@@ -20,7 +20,7 @@ const (
 type ContractTask struct {
 	vite     Vite
 	log      log15.Logger
-	dbAccess *unconfirmed.UnconfirmedAccess
+	dbAccess *unconfirmed.Access
 
 	status       int
 	reRetry      bool
@@ -33,7 +33,7 @@ type ContractTask struct {
 	statusMutex sync.Mutex
 }
 
-func (task *ContractTask) InitContractTask(vite Vite, dbAccess *unconfirmed.UnconfirmedAccess, args *unconfirmed.RightEvent) {
+func (task *ContractTask) InitContractTask(vite Vite, dbAccess *unconfirmed.Access, args *unconfirmed.RightEvent) {
 	task.vite = vite
 	task.log = log15.New("ContractTask")
 	task.dbAccess = dbAccess

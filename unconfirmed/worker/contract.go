@@ -11,9 +11,9 @@ import (
 type ContractWorker struct {
 	vite     Vite
 	log      log15.Logger
-	dbAccess *unconfirmed.UnconfirmedAccess
+	dbAccess *unconfirmed.Access
 
-	gid                 []byte
+	gid                 *types.Gid
 	addresses           *types.Address
 	contractAddressList []*types.Address
 
@@ -30,7 +30,7 @@ type ContractWorker struct {
 	statusMutex sync.Mutex
 }
 
-func NewContractWorker(vite Vite, dbAccess *unconfirmed.UnconfirmedAccess, gid []byte, address *types.Address, addressList []*types.Address) *ContractWorker {
+func NewContractWorker(vite Vite, dbAccess *unconfirmed.Access, gid *types.Gid, address *types.Address, addressList []*types.Address) *ContractWorker {
 	return &ContractWorker{
 		vite:                   vite,
 		dbAccess:               dbAccess,
@@ -53,7 +53,9 @@ func (w *ContractWorker) Start(event *unconfirmed.RightEvent) {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 
-	// todo  1. addNewContractListener to LYD
+	w.dbAccess.AddContractLis(w.gid, func() {
+		w.NewUnconfirmedTxAlarm()
+	})
 
 	for _, v := range w.contractTasks {
 		v.InitContractTask(w.vite, w.dbAccess, event)
@@ -72,7 +74,7 @@ func (w *ContractWorker) Stop() {
 		w.breaker <- struct{}{}
 		// todo: to clear tomap
 
-		// 1. CallBack
+		w.dbAccess.RemoveContractLis(w.gid)
 		w.dispatcherSleep = true
 		close(w.dispatcherAlarm)
 

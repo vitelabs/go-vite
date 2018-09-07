@@ -5,50 +5,59 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/unconfirmed/worker"
 	"github.com/vitelabs/go-vite/vitedb"
-	"math/big"
 )
 
-type UnconfirmedAccess struct {
+type Access struct {
 	store                *vitedb.UnconfirmedDB
-	commonTxWorkers      *map[types.Address]*worker.AutoReceiveWorker
-	contractWorkers      *map[types.Address]*worker.ContractWorker
-	commonAccountInfoMap *map[types.Address]*CommonAccountInfo
+	commonAccountInfoMap map[types.Address]*CommonAccountInfo
+	newCommonTxLis       map[types.Address]func()
+	newContractLis       map[types.Gid]func()
 
-	log             log15.Logger
+	log log15.Logger
 }
 
-func NewUnconfirmedAccess(commonTxWorkers *map[types.Address]*worker.AutoReceiveWorker,
-	contractWorkers *map[types.Address]*worker.ContractWorker,
-	commonAccountInfo *map[types.Address]*CommonAccountInfo) *UnconfirmedAccess {
-	return &UnconfirmedAccess{
+func (access *Access) AddCommonTxLis(addr *types.Address, f func()) {
+	access.newCommonTxLis[*addr] = f
+}
+func (access *Access) RemoveCommonTxLis(addr *types.Address) {
+	delete(access.newCommonTxLis, *addr)
+}
+
+func (access *Access) AddContractLis(gid *types.Gid, f func()) {
+	access.newContractLis[*gid] = f
+}
+func (access *Access) RemoveContractLis(gid *types.Gid) {
+	delete(access.newContractLis, *gid)
+}
+
+func NewUnconfirmedAccess(commonAccountInfo map[types.Address]*CommonAccountInfo) *Access {
+	return &Access{
 		store:                vitedb.NewUnconfirmedDB(),
-		commonTxWorkers:      commonTxWorkers,
-		contractWorkers:      contractWorkers,
 		commonAccountInfoMap: commonAccountInfo,
+		newCommonTxLis:       make(map[types.Address]func()),
+		newContractLis:       make(map[types.Gid]func()),
 		log:                  slog.New("w", "unconfirmedAccess"),
 	}
 }
 
-func (access *UnconfirmedAccess) NewSignalToWorker(block *AccountBlock) {
-	select {
-	case w, ok := (*access.contractWorkers)[*block.To]:
-		if ok && w.Status() != worker.Stop {
-			(*access.contractWorkers)[*block.To].NewUnconfirmedTxAlarm()
+func (access *Access) NewSignalToWorker(block *AccountBlock) {
+	if block.IsContractTx() {
+		if f, ok := access.newContractLis[*block.Gid]; ok {
+			f()
 		}
-	case w, ok := (*access.commonTxWorkers)[*block.To]:
-		if ok && w.Status() != worker.Stop {
-			(*access.commonTxWorkers)[*block.To].NewUnconfirmedTxAlarm()
+	} else {
+		if f, ok := access.newCommonTxLis[*block.To]; ok {
+			f()
 		}
 	}
 }
 
-func (access *UnconfirmedAccess) GetAddrListByGid(gid []byte) (addrList []*types.Address, err error) {
+func (access *Access) GetAddrListByGid(gid *types.Gid) (addrList []*types.Address, err error) {
 	return nil, nil
 }
 
-func (access *UnconfirmedAccess) WriteUnconfirmed(writeType bool, batch *leveldb.Batch, block *AccountBlock) error {
+func (access *Access) WriteUnconfirmed(writeType bool, batch *leveldb.Batch, block *AccountBlock) error {
 	select {
 	case writeType == true:
 		// writeType == true: add new UnconfirmedMeta
@@ -76,21 +85,21 @@ func (access *UnconfirmedAccess) WriteUnconfirmed(writeType bool, batch *leveldb
 	return nil
 }
 
-func (access *UnconfirmedAccess) WriteUnconfirmedMeta(batch *leveldb.Batch, block *AccountBlock) (err error) {
+func (access *Access) WriteUnconfirmedMeta(batch *leveldb.Batch, block *AccountBlock) (err error) {
 	if err = access.store.WriteMeta(batch, block.To, block.Hash); err != nil {
 		access.log.Error("WriteMeta", "error", err)
 	}
 	return nil
 }
 
-func (access *UnconfirmedAccess) DeleteUnconfirmedMeta(batch *leveldb.Batch, block *AccountBlock) (err error) {
+func (access *Access) DeleteUnconfirmedMeta(batch *leveldb.Batch, block *AccountBlock) (err error) {
 	if err = access.store.DeleteMeta(batch, block.To, block.Hash); err != nil {
 		access.log.Error("DeleteMeta", "error", err)
 	}
 	return nil
 }
 
-func (access *UnconfirmedAccess) GetUnconfirmedHashs(index, num, count uint64, addr *types.Address) ([]*types.Hash, error) {
+func (access *Access) GetUnconfirmedHashs(index, num, count uint64, addr *types.Address) ([]*types.Hash, error) {
 	totalCount := (index + num) * count
 	maxCount, err := access.store.GetCountByAddress(addr)
 	if err != nil && err != leveldb.ErrNotFound {
@@ -110,7 +119,7 @@ func (access *UnconfirmedAccess) GetUnconfirmedHashs(index, num, count uint64, a
 	return hashList, nil
 }
 
-func (access *UnconfirmedAccess) GetUnconfirmedBlocks(index, num, count uint64, addr *types.Address) (blockList []*AccountBlock, err error) {
+func (access *Access) GetUnconfirmedBlocks(index, num, count uint64, addr *types.Address) (blockList []*AccountBlock, err error) {
 	hashList, err := access.GetUnconfirmedHashs(index, num, count, addr)
 	if err != nil {
 		return nil, err
@@ -126,7 +135,7 @@ func (access *UnconfirmedAccess) GetUnconfirmedBlocks(index, num, count uint64, 
 	return nil, nil
 }
 
-func (access *UnconfirmedAccess) GetCommonAccInfo(addr *types.Address) (info *CommonAccountInfo, err error) {
+func (access *Access) GetCommonAccInfo(addr *types.Address) (info *CommonAccountInfo, err error) {
 	if _, ok := (*access.commonAccountInfoMap)[*addr]; !ok {
 		if err = access.LoadCommonAccInfo(addr); err != nil {
 			access.log.Error("GetCommonAccInfo.LoadCommonAccInfo", "error", err)
@@ -137,7 +146,7 @@ func (access *UnconfirmedAccess) GetCommonAccInfo(addr *types.Address) (info *Co
 	return info, nil
 }
 
-func (access *UnconfirmedAccess) LoadCommonAccInfo(addr *types.Address) error {
+func (access *Access) LoadCommonAccInfo(addr *types.Address) error {
 	if _, ok := (*access.commonAccountInfoMap)[*addr]; !ok {
 		number, err := access.store.GetCountByAddress(addr)
 		if err != nil {
@@ -157,7 +166,7 @@ func (access *UnconfirmedAccess) LoadCommonAccInfo(addr *types.Address) error {
 	return nil
 }
 
-func (access *UnconfirmedAccess) GetCommonAccTokenInfoMap(addr *types.Address) (*map[*types.TokenTypeId]*TokenInfo, error) {
+func (access *Access) GetCommonAccTokenInfoMap(addr *types.Address) (*map[*types.TokenTypeId]*TokenInfo, error) {
 	infoMap := make(map[*types.TokenTypeId]*TokenInfo)
 	hashList, err := access.store.GetHashList(addr)
 	if err != nil {
@@ -184,7 +193,7 @@ func (access *UnconfirmedAccess) GetCommonAccTokenInfoMap(addr *types.Address) (
 	return &infoMap, err
 }
 
-func (access *UnconfirmedAccess) UpdateCommonAccInfo(writeType bool, block *AccountBlock) error {
+func (access *Access) UpdateCommonAccInfo(writeType bool, block *AccountBlock) error {
 	tiMap, ok := (*access.commonAccountInfoMap)[*block.To]
 	if !ok {
 		access.log.Info("UpdateCommonAccInfo：no memory maintenance:",

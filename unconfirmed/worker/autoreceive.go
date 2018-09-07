@@ -22,7 +22,7 @@ type AutoReceiveWorker struct {
 	vite     Vite
 	log      log15.Logger
 	address  *types.Address
-	dbAccess *unconfirmed.UnconfirmedAccess
+	dbAccess *unconfirmed.Access
 
 	//blockQueue *BlockQueue
 	priorityFromQueue *PriorityFromQueue
@@ -58,6 +58,11 @@ func (w *AutoReceiveWorker) Start() {
 
 		w.status = Start
 		w.statusMutex.Unlock()
+
+		w.dbAccess.AddCommonTxLis(w.address, func() {
+			w.NewUnconfirmedTxAlarm()
+		})
+
 		go w.startWork()
 	} else {
 		// awake it in order to run at least once
@@ -73,7 +78,7 @@ func (w *AutoReceiveWorker) Stop() {
 		w.breaker <- struct{}{}
 		close(w.breaker)
 
-		w.vite.Ledger().Ac().RemoveListener(*w.address)
+		w.dbAccess.RemoveCommonTxLis(w.address)
 		close(w.newUnconfirmedTxAlarm)
 
 		// make sure we can stop the worker
@@ -115,11 +120,10 @@ func (w *AutoReceiveWorker) startWork() {
 			blockQueue := fItem.value
 			for j := 0; j < blockQueue.Size(); j++ {
 				recvBlock := blockQueue.Dequeue()
-				w.ProcessABlock(recvBlock)
+				w.ProcessOneBlock(recvBlock)
 			}
 		}
 
-	WAIT:
 		w.isSleeping = true
 		w.log.Info("worker Start sleep")
 		select {

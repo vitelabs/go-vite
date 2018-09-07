@@ -15,10 +15,10 @@ var (
 
 type Manager struct {
 	Vite     worker.Vite
-	dbAccess *UnconfirmedAccess
+	dbAccess *Access
 
-	commonTxWorkers map[types.Address]*worker.AutoReceiveWorker
-	contractWorkers map[types.Address]*worker.ContractWorker
+	commonTxWorkers      map[types.Address]*worker.AutoReceiveWorker
+	contractWorkers      map[types.Gid]*worker.ContractWorker
 	commonAccountInfoMap map[types.Address]*CommonAccountInfo
 
 
@@ -34,7 +34,7 @@ type Manager struct {
 }
 
 type RightEvent struct {
-	Gid            []byte
+	Gid            *types.Gid
 	Address        *types.Address
 	StartTs        uint64
 	EndTs          uint64
@@ -44,9 +44,9 @@ type RightEvent struct {
 
 func NewManager(vite worker.Vite) *Manager {
 	return &Manager{
-		Vite:            vite,
-		commonTxWorkers: make(map[types.Address]*worker.AutoReceiveWorker),
-		contractWorkers: make(map[types.Address]*worker.ContractWorker),
+		Vite:                 vite,
+		commonTxWorkers:      make(map[types.Address]*worker.AutoReceiveWorker),
+		contractWorkers:      make(map[types.Gid]*worker.ContractWorker),
 		commonAccountInfoMap: make(map[types.Address]*CommonAccountInfo),
 
 		unlockEventListener:   make(chan keystore.UnlockEvent),
@@ -65,7 +65,7 @@ func (manager *Manager) InitAndStartWork() {
 	// todo 注册Miner 监听器 manager.rightLid = manager.Vite.
 
 	//todo add newContractListener????
-	manager.dbAccess = NewUnconfirmedAccess(&manager.commonTxWorkers, &manager.contractWorkers, &manager.commonAccountInfoMap)
+	manager.dbAccess = NewUnconfirmedAccess(manager.commonAccountInfoMap)
 
 	go func() {
 		manager.initUnlockedAddress()
@@ -165,7 +165,7 @@ func (manager *Manager) loop() {
 					break
 				}
 
-				w, found := manager.contractWorkers[*event.Address]
+				w, found := manager.contractWorkers[*event.Gid]
 				if !found {
 					addressList, err := manager.dbAccess.GetAddrListByGid(event.Gid)
 					if err != nil || addressList == nil || len(addressList) < 0 {
@@ -173,7 +173,7 @@ func (manager *Manager) loop() {
 						continue
 					}
 					w = worker.NewContractWorker(manager.Vite, manager.dbAccess, event.Gid, event.Address, addressList)
-					manager.contractWorkers[*event.Address] = w
+					manager.contractWorkers[*event.Gid] = w
 
 					break
 				}
