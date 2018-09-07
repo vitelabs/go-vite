@@ -11,16 +11,16 @@ import (
 
 type UnconfirmedAccess struct {
 	store                *vitedb.UnconfirmedDB
-	commonTxWorkers      *map[*types.Address]*worker.CommonTxWorker
-	contractWorkers      *map[*types.Address]*worker.ContractWorker
-	commonAccountInfoMap *map[*types.Address]*CommonAccountInfo
+	commonTxWorkers      *map[types.Address]*worker.CommonTxWorker
+	contractWorkers      *map[types.Address]*worker.ContractWorker
+	commonAccountInfoMap *map[types.Address]*CommonAccountInfo
 
 	log log15.Logger
 }
 
-func NewUnconfirmedAccess(commonTxWorkers *map[*types.Address]*worker.CommonTxWorker,
-	contractWorkers *map[*types.Address]*worker.ContractWorker,
-	commonAccountInfo *map[*types.Address]*CommonAccountInfo) *UnconfirmedAccess {
+func NewUnconfirmedAccess(commonTxWorkers *map[types.Address]*worker.CommonTxWorker,
+	contractWorkers *map[types.Address]*worker.ContractWorker,
+	commonAccountInfo *map[types.Address]*CommonAccountInfo) *UnconfirmedAccess {
 	return &UnconfirmedAccess{
 		store:                vitedb.NewUnconfirmedDB(),
 		commonTxWorkers:      commonTxWorkers,
@@ -32,13 +32,13 @@ func NewUnconfirmedAccess(commonTxWorkers *map[*types.Address]*worker.CommonTxWo
 
 func (access *UnconfirmedAccess) NewSignalToWorker(block *AccountBlock) {
 	select {
-	case w, ok := (*access.contractWorkers)[block.To]:
+	case w, ok := (*access.contractWorkers)[*block.To]:
 		if ok && w.Status() != worker.Stop {
-			(*access.contractWorkers)[block.To].NewUnconfirmedTxAlarm()
+			(*access.contractWorkers)[*block.To].NewUnconfirmedTxAlarm()
 		}
-	case w, ok := (*access.commonTxWorkers)[block.To]:
+	case w, ok := (*access.commonTxWorkers)[*block.To]:
 		if ok && w.Status() != worker.Stop {
-			(*access.commonTxWorkers)[block.To].NewUnconfirmedTxAlarm()
+			(*access.commonTxWorkers)[*block.To].NewUnconfirmedTxAlarm()
 		}
 	}
 }
@@ -126,18 +126,18 @@ func (access *UnconfirmedAccess) GetUnconfirmedBlocks(index, num, count uint64, 
 }
 
 func (access *UnconfirmedAccess) GetCommonAccInfo(addr *types.Address) (info *CommonAccountInfo, err error) {
-	if _, ok := (*access.commonAccountInfoMap)[addr]; !ok {
+	if _, ok := (*access.commonAccountInfoMap)[*addr]; !ok {
 		if err = access.LoadCommonAccInfo(addr); err != nil {
 			access.log.Error("GetCommonAccInfo.LoadCommonAccInfo", "error", err)
 			return nil, err
 		}
 	}
-	info, _ = (*access.commonAccountInfoMap)[addr]
+	info, _ = (*access.commonAccountInfoMap)[*addr]
 	return info, nil
 }
 
 func (access *UnconfirmedAccess) LoadCommonAccInfo(addr *types.Address) error {
-	if _, ok := (*access.commonAccountInfoMap)[addr]; !ok {
+	if _, ok := (*access.commonAccountInfoMap)[*addr]; !ok {
 		number, err := access.store.GetCountByAddress(addr)
 		if err != nil {
 			return err
@@ -151,7 +151,7 @@ func (access *UnconfirmedAccess) LoadCommonAccInfo(addr *types.Address) error {
 			TotalNumber:    number,
 			TokenInfoMap:   *infoMap,
 		}
-		(*access.commonAccountInfoMap)[addr] = info
+		(*access.commonAccountInfoMap)[*addr] = info
 	}
 	return nil
 }
@@ -184,7 +184,7 @@ func (access *UnconfirmedAccess) GetCommonAccTokenInfoMap(addr *types.Address) (
 }
 
 func (access *UnconfirmedAccess) UpdateCommonAccInfo(writeType bool, block *AccountBlock) error {
-	tiMap, ok := (*access.commonAccountInfoMap)[block.To]
+	tiMap, ok := (*access.commonAccountInfoMap)[*block.To]
 	if !ok {
 		access.log.Info("UpdateCommonAccInfo：no memory maintenance:",
 			"reason", "send-to address doesn't belong to current manager")

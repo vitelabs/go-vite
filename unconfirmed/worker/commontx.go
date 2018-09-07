@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"container/heap"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed"
@@ -13,7 +14,8 @@ type CommonTxWorker struct {
 	address  *types.Address
 	dbAccess *unconfirmed.UnconfirmedAccess
 
-	blockQueue *BlockQueue
+	//blockQueue *BlockQueue
+	priorityFromQueue *PriorityFromQueue
 
 	status                int
 	isSleeping            bool
@@ -92,24 +94,22 @@ func (w *CommonTxWorker) NewUnconfirmedTxAlarm() {
 }
 
 func (w *CommonTxWorker) startWork() {
-
 	w.log.Info("worker startWork is called")
 	w.FetchNew()
 	for {
 		w.log.Debug("worker working")
-
-		if w.status == Stop {
-			break
+		for i := 0; i < w.priorityFromQueue.Len(); i++ {
+			if w.Status() == Stop {
+				goto END
+			}
+			fItem := heap.Pop(w.priorityFromQueue).(*fromItem)
+			blockQueue := fItem.value
+			for j := 0; j < blockQueue.Size(); j++ {
+				recvBlock := blockQueue.Dequeue()
+				w.ProcessABlock(recvBlock)
+			}
 		}
-		if w.blockQueue.Size() < 1 {
-			goto WAIT
-		} else {
-			recvBlock := w.blockQueue.Dequeue()
-			w.ProcessABlock(recvBlock)
-			continue
-		}
 
-	WAIT:
 		w.isSleeping = true
 		w.log.Info("worker Start sleep")
 		select {
@@ -121,20 +121,20 @@ func (w *CommonTxWorker) startWork() {
 			break
 		}
 	}
-
+END:
 	w.log.Info("worker send stopDispatcherListener ")
 	w.stopListener <- struct{}{}
 	w.log.Info("worker end work")
 }
 
 func (w *CommonTxWorker) FetchNew() {
-	blockList, err := w.dbAccess.GetUnconfirmedBlocks(0, 1, FETCH_SIZE, w.address)
+	blockList, err := w.dbAccess.GetUnconfirmedBlocks(0, 1, COMMON_FETCH_SIZE, w.address)
 	if err != nil {
 		w.log.Error("CommonTxWorker.FetchNew.GetUnconfirmedBlocks", "error", err)
 		return
 	}
 	for _, v := range blockList {
-		w.blockQueue.Enqueue(v)
+		w.priorityFromQueue.InsertNew(v)
 	}
 }
 

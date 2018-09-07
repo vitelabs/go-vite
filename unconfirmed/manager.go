@@ -123,7 +123,7 @@ func (manager *Manager) loop() {
 
 					break
 				}
-				nowTime := uint64(time.Now().UnixNano())
+				nowTime := uint64(time.Now().Unix())
 				if nowTime >= event.StartTs && nowTime < event.EndTs {
 					w.Start(event)
 				} else {

@@ -154,7 +154,7 @@ func (task *ContractTask) ProcessAQueue(fItem *fromItem) (intoBlackList bool) {
 			// todo 1.Check the time
 			// If time out of the out-block period,
 			// need to 1.stop the task 2.delete the DB and then 3.return true, else continue insert pool
-			nowTime := uint64(time.Now().UnixNano())
+			nowTime := uint64(time.Now().Unix())
 			if nowTime >= task.args.EndTs {
 				task.breaker <- struct{}{}
 				return true

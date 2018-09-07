@@ -5,15 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed"
-	"runtime"
 	"sync"
-)
-
-var (
-	POMAXPROCS = uint64(runtime.NumCPU())
-	TASK_SIZE  = uint64(2 * POMAXPROCS)
-	FETCH_SIZE = uint64(2 * POMAXPROCS)
-	CACHE_SIZE = uint64(2 * POMAXPROCS)
 )
 
 type ContractWorker struct {
@@ -50,7 +42,7 @@ func NewContractWorker(vite Vite, dbAccess *unconfirmed.UnconfirmedAccess, gid [
 		dispatcherAlarm:        make(chan struct{}, 1),
 		breaker:                make(chan struct{}, 1),
 		stopDispatcherListener: make(chan struct{}, 1),
-		contractTasks:          make([]*ContractTask, POMAXPROCS),
+		contractTasks:          make([]*ContractTask, CONTRACT_TASK_SIZE),
 		blackList:              make(map[string]bool),
 		log:                    log15.New("ContractWorker addr", address.String(), "gid", gid),
 	}
@@ -165,7 +157,7 @@ func (w *ContractWorker) FindAFreeTask() (index int) {
 
 func (w *ContractWorker) FetchNew() {
 	for i := 0; i < len(w.contractAddressList); i++ {
-		blockList, err := w.dbAccess.GetUnconfirmedBlocks(0, 1, FETCH_SIZE, w.contractAddressList[i])
+		blockList, err := w.dbAccess.GetUnconfirmedBlocks(0, 1, CONTRACT_FETCH_SIZE, w.contractAddressList[i])
 		if err != nil {
 			w.log.Error("ContractWorker.FetchNew.GetUnconfirmedBlocks", "error", err)
 			continue
