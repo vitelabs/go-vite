@@ -14,6 +14,6 @@ func (*Account) DbSerialize() ([]byte, error) {
 	return nil, nil
 }
 
-func (*Account) DbDeSerialize([]byte) error {
+func (*Account) DbDeserialize([]byte) error {
 	return nil
 }

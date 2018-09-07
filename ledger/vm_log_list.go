@@ -9,10 +9,14 @@ type VmLog struct {
 
 type VmLogList []*VmLog
 
+func (VmLogList) Hash() *types.Hash {
+	return nil
+}
+
 func (VmLogList) Serialize() ([]byte, error) {
 	return nil, nil
 }
 
-func (VmLogList) DeSerialize([]byte) error {
+func (VmLogList) Deserialize([]byte) error {
 	return nil
 }

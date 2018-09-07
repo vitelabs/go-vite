@@ -17,6 +17,10 @@ func (c *Chain) GetSbAndSc() {
 
 }
 
+func (c *Chain) GetSnapshotBlockByHash(hash *types.Hash) (block *ledger.SnapshotBlock, returnErr error) {
+	return nil, nil
+}
+
 func (c *Chain) GetLatestSnapshotBlock() (block *ledger.SnapshotBlock, returnErr error) {
 	defer func() {
 		if returnErr != nil {

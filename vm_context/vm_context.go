@@ -31,22 +31,32 @@ func NewAction(actionType int32, params []interface{}) *Action {
 }
 
 type VmContext struct {
-	currentSnapshotBlockHash *types.Hash
-	prevAccountBlockHash     *types.Hash
-	address                  *types.Address
+	chain                Chain
+	currentSnapshotBlock *ledger.SnapshotBlock
+	prevAccountBlockHash *types.Hash
+	address              *types.Address
 
 	actionList []*Action
 	cache      *VmContextCache
 }
 
-func NewVmContext(snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) *VmContext {
-	return &VmContext{
-		currentSnapshotBlockHash: snapshotBlockHash,
-		prevAccountBlockHash:     prevAccountBlockHash,
-		address:                  addr,
+func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) (*VmContext, error) {
+	vmContext := &VmContext{
+		chain:                chain,
+		prevAccountBlockHash: prevAccountBlockHash,
+		address:              addr,
 
 		cache: NewVmContextCache(),
 	}
+
+	currentSnapshotBlock, err := chain.GetSnapshotBlockByHash(snapshotBlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	vmContext.currentSnapshotBlock = currentSnapshotBlock
+
+	return vmContext, nil
 }
 
 func (context *VmContext) addAction(actionType int32, params []interface{}) {
@@ -62,15 +72,19 @@ func (context *VmContext) ActionList() []*Action {
 }
 
 func (context *VmContext) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
-	return big.NewInt(0)
+	return context.cache.balance[*tokenTypeId]
 }
 
 func (context *VmContext) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
 	context.addAction(ACTION_ADD_BALANCE, []interface{}{tokenTypeId, amount})
+	currentBalance := context.cache.balance[*tokenTypeId]
+	currentBalance.Add(currentBalance, amount)
 }
 
 func (context *VmContext) SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
 	context.addAction(ACTION_SUB_BALANCE, []interface{}{tokenTypeId, amount})
+	currentBalance := context.cache.balance[*tokenTypeId]
+	currentBalance.Sub(currentBalance, amount)
 }
 
 func (context *VmContext) GetSnapshotBlock(hash *types.Hash) (*ledger.SnapshotBlock, error) {
@@ -120,17 +134,23 @@ func (context *VmContext) GetStorageHash() *types.Hash {
 }
 
 func (context *VmContext) AddLog(log *ledger.VmLog) {
-
+	context.addAction(ACTION_ADD_LOG, []interface{}{log})
+	context.cache.logList = append(context.cache.logList, log)
 }
 
-func (context *VmContext) GetLogListHash() {
-
+func (context *VmContext) GetLogListHash() *types.Hash {
+	return context.cache.logList.Hash()
 }
 
-func (context *VmContext) IsAddressExisted() {
-
+func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
+	account := context.chain.GetAccount(addr)
+	if account == nil {
+		return false
+	}
+	return true
 }
 
-func (context *VmContext) GetAccoutBlockByHash() {
-
+func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
+	accountBlock, _ := context.chain.GetAccountBlockByHash(hash)
+	return accountBlock
 }

@@ -5,7 +5,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/helper"
+	"github.com/vitelabs/go-vite/db_helper"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 )
@@ -26,7 +26,7 @@ func (ac *AccountChain) WriteBlock(batch *leveldb.Batch, accountId *big.Int, blo
 		return err
 	}
 
-	key, err := helper.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, block.Height)
+	key, err := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, block.Height)
 
 	batch.Put(key, buf)
 	return nil
@@ -38,14 +38,14 @@ func (ac *AccountChain) WriteBlockMeta(batch *leveldb.Batch, blockHash *types.Ha
 		return err
 	}
 
-	key, err := helper.EncodeKey(database.DBKP_ACCOUNTBLOCKMETA, blockHash.Bytes())
+	key, err := database.EncodeKey(database.DBKP_ACCOUNTBLOCKMETA, blockHash.Bytes())
 
 	batch.Put(key, buf)
 	return nil
 }
 
 func (ac *AccountChain) GetLatestBlock(accountId *big.Int) (*ledger.AccountBlock, error) {
-	key, err := helper.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, "KEY_MAX")
+	key, err := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, "KEY_MAX")
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (ac *AccountChain) GetLatestBlock(accountId *big.Int) (*ledger.AccountBlock
 		return nil, nil
 	}
 	block := &ledger.AccountBlock{}
-	ddsErr := block.DbDeSerialize(iter.Value())
+	ddsErr := block.DbDeserialize(iter.Value())
 
 	return block, ddsErr
 }
@@ -66,12 +66,12 @@ func (ac *AccountChain) GetBlockListByAccountId(accountId *big.Int, startHeight 
 	limitHeight := big.Int{}
 	limitHeight.Add(endHeight, big.NewInt(1))
 
-	limitKey, err := helper.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, limitHeight)
+	limitKey, err := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, limitHeight)
 	if err != nil {
 		return nil, err
 	}
 
-	startKey, err := helper.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, startHeight)
+	startKey, err := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, startHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (ac *AccountChain) GetBlockListByAccountId(accountId *big.Int, startHeight 
 
 	for iter.Next() {
 		block := &ledger.AccountBlock{}
-		err := block.DbDeSerialize(iter.Value())
+		err := block.DbDeserialize(iter.Value())
 
 		if err != nil {
 			return nil, err
@@ -95,8 +95,34 @@ func (ac *AccountChain) GetBlockListByAccountId(accountId *big.Int, startHeight 
 	return blockList, nil
 }
 
+func (ac *AccountChain) GetBlock(blockHash *types.Hash) (*ledger.AccountBlock, error) {
+	blockMeta, gbmErr := ac.GetBlockMeta(blockHash)
+	if gbmErr != nil {
+		return nil, gbmErr
+	}
+
+	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, blockMeta.AccountId, blockMeta.Height)
+
+	block, err := ac.db.Get(key, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	accountBlock := &ledger.AccountBlock{}
+	accountBlock.DbDeserialize(block)
+
+	accountBlockMeta, err := ac.GetBlockMeta(accountBlock.Hash)
+	if err != nil {
+		return nil, err
+	}
+
+	accountBlock.Meta = accountBlockMeta
+
+	return accountBlock, nil
+}
+
 func (ac *AccountChain) GetBlockMeta(blockHash *types.Hash) (*ledger.AccountBlockMeta, error) {
-	key, err := helper.EncodeKey(database.DBKP_ACCOUNTBLOCKMETA, blockHash.Bytes())
+	key, err := database.EncodeKey(database.DBKP_ACCOUNTBLOCKMETA, blockHash.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +132,7 @@ func (ac *AccountChain) GetBlockMeta(blockHash *types.Hash) (*ledger.AccountBloc
 	}
 
 	blockMeta := &ledger.AccountBlockMeta{}
-	if err := blockMeta.DbDeSerialize(blockMetaBytes); err != nil {
+	if err := blockMeta.DbDeserialize(blockMetaBytes); err != nil {
 		return nil, err
 	}
 

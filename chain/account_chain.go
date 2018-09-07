@@ -98,6 +98,40 @@ func (c *Chain) GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.T
 	return nil, nil
 }
 
+func (c *Chain) GetAccountBlockByHash(blockHash *types.Hash) (block *ledger.AccountBlock, returnErr error) {
+	defer func() {
+		if returnErr != nil {
+			c.log.Error(returnErr.Error(), "method", "GetAccountBlockByHash")
+		}
+	}()
+
+	block, err := c.chainDb.Ac.GetBlock(blockHash)
+	if err != nil {
+		return nil, &types.GetError{
+			Code: 1,
+			Err:  errors.New("Query block failed. Error is " + err.Error()),
+		}
+	}
+
+	address, err := c.chainDb.Account.GetAddressById(block.Meta.AccountId)
+	if err != nil {
+		return nil, &types.GetError{
+			Code: 2,
+			Err:  errors.New("Query account id failed. Error is " + err.Error()),
+		}
+	}
+
+	account, err := c.chainDb.Account.GetAccountByAddress(address)
+	if err != nil {
+		return nil, &types.GetError{
+			Code: 3,
+			Err:  errors.New("Query account failed. Error is " + err.Error()),
+		}
+	}
+
+	block.PublicKey = account.PublicKey
+}
+
 func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count int) (blocks []*ledger.AccountBlock, err error) {
 	defer func() {
 		if err != nil {
@@ -144,6 +178,7 @@ func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 			Err:  errors.New("Query block list failed. Error is " + err.Error()),
 		}
 	}
+
 	helper.ReverseSlice(blockList)
 
 	// Query block meta list

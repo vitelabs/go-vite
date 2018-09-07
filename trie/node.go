@@ -17,6 +17,14 @@ func (trieNode *TrieNode) Copy() *TrieNode {
 	}
 }
 
+func (*TrieNode) DbSerialize() ([]byte, error) {
+	return nil, nil
+}
+
+func (*TrieNode) DbDeserialize([]byte) error {
+	return nil
+}
+
 type TrieValue struct {
 	Key   []byte
 	Value []*TrieNode

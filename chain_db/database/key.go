@@ -1,4 +1,4 @@
-package helper
+package database
 
 import (
 	"github.com/golang/protobuf/proto"

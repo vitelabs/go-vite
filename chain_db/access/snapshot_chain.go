@@ -5,7 +5,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain_db/database"
-	"github.com/vitelabs/go-vite/helper"
+	"github.com/vitelabs/go-vite/db_helper"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -20,7 +20,7 @@ func NewSnapshotChain(db *leveldb.DB) *SnapshotChain {
 }
 
 func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
-	key, ckErr := helper.EncodeKey(database.DBKP_SNAPSHOTBLOCK, "KEY_MAX")
+	key, ckErr := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, "KEY_MAX")
 	if ckErr != nil {
 		return nil, ckErr
 	}
@@ -33,7 +33,7 @@ func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
 	}
 
 	sb := &ledger.SnapshotBlock{}
-	sdErr := sb.DbDeSerialize(iter.Value())
+	sdErr := sb.DbDeserialize(iter.Value())
 
 	if sdErr != nil {
 		return nil, sdErr
@@ -43,7 +43,7 @@ func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
 }
 
 func (sc *SnapshotChain) GetGenesesBlock() (*ledger.SnapshotBlock, error) {
-	key, ckErr := helper.EncodeKey(database.DBKP_SNAPSHOTBLOCK, "KEY_MAX")
+	key, ckErr := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, "KEY_MAX")
 	if ckErr != nil {
 		return nil, ckErr
 	}
@@ -56,7 +56,7 @@ func (sc *SnapshotChain) GetGenesesBlock() (*ledger.SnapshotBlock, error) {
 	}
 
 	sb := &ledger.SnapshotBlock{}
-	sdErr := sb.DbDeSerialize(iter.Value())
+	sdErr := sb.DbDeserialize(iter.Value())
 
 	if sdErr != nil {
 		return nil, sdErr

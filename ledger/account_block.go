@@ -24,7 +24,7 @@ func (*AccountBlockMeta) DbSerialize() ([]byte, error) {
 	return nil, nil
 }
 
-func (*AccountBlockMeta) DbDeSerialize([]byte) error {
+func (*AccountBlockMeta) DbDeserialize([]byte) error {
 	return nil
 }
 
@@ -72,7 +72,7 @@ func (*AccountBlock) DbSerialize() ([]byte, error) {
 	return nil, nil
 }
 
-func (*AccountBlock) DbDeSerialize([]byte) error {
+func (*AccountBlock) DbDeserialize([]byte) error {
 	return nil
 }
 
@@ -80,7 +80,7 @@ func (*AccountBlock) NetSerialize() ([]byte, error) {
 	return nil, nil
 }
 
-func (*AccountBlock) NetDeSerialize([]byte) error {
+func (*AccountBlock) NetDeserialize([]byte) error {
 	return nil
 }
 
@@ -88,6 +88,6 @@ func (*AccountBlock) FileSerialize([]byte) ([]byte, error) {
 	return nil, nil
 }
 
-func (*AccountBlock) FileDeSerialize([]byte) error {
+func (*AccountBlock) FileDeserialize([]byte) error {
 	return nil
 }

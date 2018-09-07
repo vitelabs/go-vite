@@ -31,7 +31,7 @@ func (*SnapshotBlock) DbSerialize() ([]byte, error) {
 	return nil, nil
 }
 
-func (*SnapshotBlock) DbDeSerialize([]byte) error {
+func (*SnapshotBlock) DbDeserialize([]byte) error {
 	return nil
 }
 
@@ -39,7 +39,7 @@ func (*SnapshotBlock) NetSerialize() ([]byte, error) {
 	return nil, nil
 }
 
-func (*SnapshotBlock) NetDeSerialize([]byte) error {
+func (*SnapshotBlock) NetDeserialize([]byte) error {
 	return nil
 }
 
@@ -47,6 +47,6 @@ func (*SnapshotBlock) FileSerialize([]byte) ([]byte, error) {
 	return nil, nil
 }
 
-func (*SnapshotBlock) FileDeSerialize([]byte) error {
+func (*SnapshotBlock) FileDeserialize([]byte) error {
 	return nil
 }
