@@ -8,7 +8,6 @@ import (
 type BlockQueue struct {
 	items []*unconfirmed.AccountBlock
 	lock  sync.RWMutex
-	//totalBalnce *big.Int
 }
 
 // Enqueue is sorted by block Height
@@ -21,10 +20,6 @@ func (q *BlockQueue) Enqueue(block *unconfirmed.AccountBlock) {
 			newSlice = append(newSlice, block)
 		}
 	}
-	//if q.totalBalnce == nil {
-	//	q.totalBalnce = &big.Int{}
-	//}
-	//q.totalBalnce.Add(q.totalBalnce, block.Balance[Vite_TokenId])
 }
 
 func (q *BlockQueue) Dequeue() *unconfirmed.AccountBlock {
@@ -32,10 +27,6 @@ func (q *BlockQueue) Dequeue() *unconfirmed.AccountBlock {
 	defer q.lock.Unlock()
 	item := q.items[0]
 	q.items = q.items[1:len(q.items)]
-
-	//if q.totalBalnce != nil {
-	//	q.totalBalnce.Sub(q.totalBalnce, item.Balance[Vite_TokenId])
-	//}
 	return item
 }
 

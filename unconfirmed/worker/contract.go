@@ -5,15 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed"
-	"runtime"
 	"sync"
-)
-
-var (
-	POMAXPROCS = runtime.NumCPU()
-	TASK_SIZE  = 2 * POMAXPROCS
-	FETCH_SIZE = 2 * POMAXPROCS
-	CACHE_SIZE = 2 * POMAXPROCS
 )
 
 type ContractWorker struct {
@@ -50,7 +42,7 @@ func NewContractWorker(vite Vite, dbAccess *unconfirmed.UnconfirmedAccess, gid [
 		dispatcherAlarm:        make(chan struct{}, 1),
 		breaker:                make(chan struct{}, 1),
 		stopDispatcherListener: make(chan struct{}, 1),
-		contractTasks:          make([]*ContractTask, POMAXPROCS),
+		contractTasks:          make([]*ContractTask, CONTRACT_TASK_SIZE),
 		blackList:              make(map[string]bool),
 		log:                    log15.New("ContractWorker addr", address.String(), "gid", gid),
 	}
@@ -164,24 +156,18 @@ func (w *ContractWorker) FindAFreeTask() (index int) {
 }
 
 func (w *ContractWorker) FetchNew() {
-	acAccess := w.vite.Ledger().Ac()
 	for i := 0; i < len(w.contractAddressList); i++ {
-		hashList, err := acAccess.GetUnconfirmedTxHashs(0, 1, FETCH_SIZE, w.contractAddressList[i])
+		blockList, err := w.dbAccess.GetUnconfirmedBlocks(0, 1, CONTRACT_FETCH_SIZE, w.contractAddressList[i])
 		if err != nil {
-			w.log.Error("ContractWorker.FetchNew.GetUnconfirmedTxHashs error", err)
+			w.log.Error("ContractWorker.FetchNew.GetUnconfirmedBlocks", "error", err)
 			continue
 		}
-		for _, v := range hashList {
-			sBlock, err := acAccess.GetBlockByHash(v)
-			if err != nil || sBlock == nil {
-				w.log.Error("ContractWorker.FetchNew.GetBlockByHash error", err)
-				continue
-			}
+		for _, v := range blockList {
 			// when a to-from pair  was added into blackList,
 			// the other block which under the same to-from pair won't fetch any more during the same block-out period
-			var blKey = (*sBlock).To.String() + (*sBlock).From.String()
+			var blKey = (*v).To.String() + (*v).From.String()
 			if _, ok := w.blackList[blKey]; !ok {
-				w.priorityToQueue.InsertNew(sBlock)
+				w.priorityToQueue.InsertNew(v)
 			}
 		}
 	}

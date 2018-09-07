@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"container/heap"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed"
@@ -23,7 +24,8 @@ type AutoReceiveWorker struct {
 	address  *types.Address
 	dbAccess *unconfirmed.UnconfirmedAccess
 
-	blockQueue *BlockQueue
+	//blockQueue *BlockQueue
+	priorityFromQueue *PriorityFromQueue
 
 	status                int
 	isSleeping            bool
@@ -105,17 +107,16 @@ func (w *AutoReceiveWorker) startWork() {
 
 	for {
 		w.log.Debug("worker working")
-		w.isSleeping = false
-
-		if w.status == Stop {
-			break
-		}
-		if w.blockQueue.Empty() {
-			goto WAIT
-		} else {
-			recvBlock := w.blockQueue.Dequeue()
-			w.ProcessOneBlock(recvBlock)
-			continue
+		for i := 0; i < w.priorityFromQueue.Len(); i++ {
+			if w.Status() == Stop {
+				goto END
+			}
+			fItem := heap.Pop(w.priorityFromQueue).(*fromItem)
+			blockQueue := fItem.value
+			for j := 0; j < blockQueue.Size(); j++ {
+				recvBlock := blockQueue.Dequeue()
+				w.ProcessABlock(recvBlock)
+			}
 		}
 
 	WAIT:
@@ -124,33 +125,26 @@ func (w *AutoReceiveWorker) startWork() {
 		select {
 		case <-w.newUnconfirmedTxAlarm:
 			w.log.Info("worker Start awake")
-			w.FetchNew()
 			continue
 		case <-w.breaker:
 			w.log.Info("worker broken")
 			break
 		}
 	}
-
+END:
 	w.log.Info("worker send stopDispatcherListener ")
 	w.stopListener <- struct{}{}
 	w.log.Info("worker end work")
 }
 
 func (w *AutoReceiveWorker) FetchNew() {
-	acAccess := w.vite.Ledger().Ac()
-	hashList, err := acAccess.GetUnconfirmedTxHashs(0, 1, FETCH_SIZE, w.address)
+	blockList, err := w.dbAccess.GetUnconfirmedBlocks(0, 1, COMMON_FETCH_SIZE, w.address)
 	if err != nil {
-		w.log.Error("AutoReceiveWorker.FetchNew.GetUnconfirmedTxHashs error", err)
+		w.log.Error("CommonTxWorker.FetchNew.GetUnconfirmedBlocks", "error", err)
 		return
 	}
-	for _, v := range hashList {
-		sBlock, err := acAccess.GetBlockByHash(v)
-		if err != nil || sBlock == nil {
-			w.log.Error("AutoReceiveWorker.FetchNew.GetBlockByHash error", err)
-			continue
-		}
-		w.blockQueue.Enqueue(sBlock)
+	for _, v := range blockList {
+		w.priorityFromQueue.InsertNew(v)
 	}
 }
 
