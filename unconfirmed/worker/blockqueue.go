@@ -50,7 +50,7 @@ func (q *BlockQueue) Size() int {
 	return len(q.items)
 }
 
-func (q *BlockQueue) IsEmpty() bool {
+func (q *BlockQueue) Empty() bool {
 	return len(q.items) == 0
 }
 

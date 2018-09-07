@@ -81,6 +81,7 @@ func (access *UnconfirmedAccess) GetUnconfirmedHashs(index, num, count int, addr
 		return hashList[index*count:], nil
 	}
 	return hashList[index*count : (index+num)*count], nil
+}
 
 func (access *UnconfirmedAccess) GetAddressListByGid(gid string) (addressList []*types.Address, err error) {
 	return nil, nil

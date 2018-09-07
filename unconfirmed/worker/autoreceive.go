@@ -36,39 +36,35 @@ type AutoReceiveWorker struct {
 
 func NewAutoReceiveWorker(vite Vite, address *types.Address) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
-		vite:    vite,
-		address: address,
-		status:  Create,
-		log:     log15.New("AutoReceiveWorker addr", address),
+		vite:       vite,
+		address:    address,
+		status:     Create,
+		log:        log15.New("AutoReceiveWorker addr", address),
+		isSleeping: false,
 	}
 }
 
 func (w *AutoReceiveWorker) Start() {
-	w.log.Info("Start")
+	w.log.Info("Start()", "current status", w.status)
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Start {
-		// 0. init the break chan
+
 		w.breaker = make(chan struct{}, 1)
-
-		// 1. unconfirmed tx callback trigger func
 		w.newUnconfirmedTxAlarm = make(chan struct{}, 100)
-
 		w.stopListener = make(chan struct{})
 
 		w.status = Start
 		w.statusMutex.Unlock()
 		go w.startWork()
 	} else {
-		if w.isSleeping {
-			// awake it in order to run at least once
-			w.newUnconfirmedTxAlarm <- struct{}{}
-		}
+		// awake it in order to run at least once
+		w.NewUnconfirmedTxAlarm()
 	}
 }
 
 func (w *AutoReceiveWorker) Stop() {
-	w.log.Info("Stop")
+	w.log.Info("Stop()", "current status", w.status)
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Stop {
@@ -104,20 +100,21 @@ func (w *AutoReceiveWorker) NewUnconfirmedTxAlarm() {
 }
 
 func (w *AutoReceiveWorker) startWork() {
-
 	w.log.Info("worker startWork is called")
 	w.FetchNew()
+
 	for {
 		w.log.Debug("worker working")
+		w.isSleeping = false
 
 		if w.status == Stop {
 			break
 		}
-		if w.blockQueue.Size() < 1 {
+		if w.blockQueue.Empty() {
 			goto WAIT
 		} else {
 			recvBlock := w.blockQueue.Dequeue()
-			w.ProcessABlock(recvBlock)
+			w.ProcessOneBlock(recvBlock)
 			continue
 		}
 
@@ -127,6 +124,7 @@ func (w *AutoReceiveWorker) startWork() {
 		select {
 		case <-w.newUnconfirmedTxAlarm:
 			w.log.Info("worker Start awake")
+			w.FetchNew()
 			continue
 		case <-w.breaker:
 			w.log.Info("worker broken")
@@ -156,7 +154,7 @@ func (w *AutoReceiveWorker) FetchNew() {
 	}
 }
 
-func (w *AutoReceiveWorker) ProcessABlock(sendBlock *unconfirmed.AccountBlock) {
+func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *unconfirmed.AccountBlock) {
 	// todo 1.ExistInPool
 
 	//todo 2.PackReceiveBlock

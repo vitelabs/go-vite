@@ -101,7 +101,7 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address) error {
 
 	w, found := manager.commonTxWorkers[addr]
 	if !found {
-		w = worker.NewCommonTxWorker(manager.Vite, &addr)
+		w = worker.NewAutoReceiveWorker(manager.Vite, &addr)
 		manager.log.Info("Manager get event new Worker")
 		manager.commonTxWorkers[addr] = w
 	}
@@ -181,29 +181,6 @@ func (manager *Manager) loop() {
 
 			}
 
-			//case event, ok := <-manager.unlockEventListener:
-			//	{
-			//		loopLog.Info("<-manager.unlockEventListener ", "event", event)
-			//		if !ok {
-			//			manager.log.Info("Manager channel close ")
-			//			break
-			//		}
-			//
-			//		w, found := manager.commonTxWorkers[event.Address]
-			//		if found {
-			//			manager.log.Info("get event already exist ", "event", event)
-			//			w.Start()
-			//			//worker.AddressUnlocked(event.Unlocked())
-			//			//worker.newSignedTask <- struct{}{}
-			//			continue
-			//		}
-			//		w = worker.NewCommonTxWorker(manager.Vite, &event.Address)
-			//		loopLog.Info("Manager get event new Worker")
-			//		manager.commonTxWorkers[event.Address] = w
-			//
-			//		w.Start()
-			//
-			//	}
 
 		}
 
@@ -214,7 +191,7 @@ func (manager *Manager) initUnlockedAddress() {
 	status, _ := manager.Vite.WalletManager().KeystoreManager.Status()
 	for k, v := range status {
 		if v == keystore.UnLocked {
-			commonTxWorker := worker.NewCommonTxWorker(manager.Vite, &k)
+			commonTxWorker := worker.NewAutoReceiveWorker(manager.Vite, &k)
 			manager.log.Info("Manager find a new unlock address ", "Worker", k.String())
 			manager.commonTxWorkers[k] = commonTxWorker
 			commonTxWorker.Start()
