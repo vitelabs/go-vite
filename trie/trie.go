@@ -44,6 +44,10 @@ func (trie *Trie) getNodeFromDb(key *types.Hash) *TrieNode {
 	return trieNode
 }
 
+func (trie *Trie) saveNodeInDb(node *TrieNode) error {
+	return nil
+}
+
 func (trie *Trie) getNode(key *types.Hash) *TrieNode {
 	node := trie.cachePool.Get(key)
 	if node != nil {
@@ -57,8 +61,25 @@ func (trie *Trie) getNode(key *types.Hash) *TrieNode {
 	return node
 }
 
-func (trie *Trie) loadFromDb() error {
-	return nil
+func (trie *Trie) loadFromDb() {
+	trie.Root = trie.traverseLoad(trie.RootHash)
+}
+
+func (trie *Trie) traverseLoad(hash *types.Hash) *TrieNode {
+	node := trie.getNode(hash)
+	if node == nil {
+		return nil
+	}
+
+	switch node.NodeType() {
+	case TRIE_FULL_NODE:
+		for key, child := range node.children {
+			node.children[key] = trie.traverseLoad(child.Hash())
+		}
+	case TRIE_SHORT_NODE:
+		node.child = trie.traverseLoad(node.child.Hash())
+	}
+	return node
 }
 
 func (trie *Trie) computeHash() {
@@ -72,7 +93,28 @@ func (trie *Trie) Copy() *Trie {
 }
 
 func (trie *Trie) Save() {
+	trie.traverseSave(trie.Root)
+}
 
+func (trie *Trie) traverseSave(node *TrieNode) error {
+	if node == nil {
+		return nil
+	}
+
+	err := trie.saveNodeInDb(node)
+	if err != nil {
+		return err
+	}
+
+	switch node.NodeType() {
+	case TRIE_FULL_NODE:
+		for _, child := range node.children {
+			trie.traverseSave(child)
+		}
+	case TRIE_SHORT_NODE:
+		trie.traverseSave(node.child)
+	}
+	return nil
 }
 
 func (trie *Trie) SetValue(key []byte, value []byte) {
