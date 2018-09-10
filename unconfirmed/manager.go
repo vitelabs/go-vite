@@ -8,8 +8,8 @@ import (
 	"github.com/vitelabs/go-vite/unconfirmed/worker"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
-	"time"
 	"math/big"
+	"time"
 )
 
 var (
@@ -193,7 +193,6 @@ func (manager *Manager) loop() {
 	}
 }
 
-
 //func (manager *Manager) initUnlockedAddress() {
 //	status, _ := manager.Vite.WalletManager().KeystoreManager.Status()
 //	for k, v := range status {
@@ -205,4 +204,3 @@ func (manager *Manager) loop() {
 //		}
 //	}
 //}
-

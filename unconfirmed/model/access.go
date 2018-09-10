@@ -135,7 +135,7 @@ func (access *UAccess) GetUnconfirmedBlocks(index, num, count uint64, addr *type
 		return nil, err
 	}
 	for _, v := range hashList {
-		block, err := access.chain.GetBlockByHash(v)
+		block, err := access.chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
 			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
 			continue
@@ -184,21 +184,24 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (*map[types
 		return nil, err
 	}
 	for _, v := range hashList {
-		block, err := access.chain.GetBlockByHash(v)
+		block, err := access.chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
 			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
 			continue
 		}
-		if _, ok := infoMap[block.TokenId]; !ok {
-			token, err := access.chain.GetByTokenId(block.TokenId)
+		ti, ok := infoMap[*block.TokenId]
+		if !ok {
+			token, err := access.chain.GetTokenInfoById(block.TokenId)
 			if err != nil {
 				access.log.Error("func GetUnconfirmedAccount.GetByTokenId failed", "error", err)
 				return nil, err
 			}
-			infoMap[block.TokenId].Token = token.Mintage
-			infoMap[block.TokenId].TotalAmount = block.Amount
+			infoMap[*block.TokenId].Token = token.Mintage
+			infoMap[*block.TokenId].TotalAmount = *block.Amount
+		} else {
+			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
 		}
-		infoMap[block.TokenId].TotalAmount.Add(block.Amount)
+
 	}
 	return &infoMap, err
 }
@@ -214,9 +217,9 @@ func (access *UAccess) UpdateCommonAccInfo(writeType bool, block *ledger.Account
 	case writeType == true:
 		ti, ok := tiMap.TokenInfoMap[*block.TokenId]
 		if !ok {
-			token, err := access.chain.GetByTokenId(block.TokenId)
+			token, err := access.chain.GetTokenInfoById(block.TokenId)
 			if err != nil {
-				return errors.New("func UpdateCommonAccInfo.GetByTokenId failed" + err)
+				return errors.New("func UpdateCommonAccInfo.GetByTokenId failed" + err.Error())
 			}
 			tiMap.TokenInfoMap[*block.TokenId].Token = token.Mintage
 			tiMap.TokenInfoMap[*block.TokenId].TotalAmount = *block.Amount
