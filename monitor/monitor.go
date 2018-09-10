@@ -33,12 +33,13 @@ func init() {
 
 	rand.Seed(time.Now().Unix())
 	fileName := path.Join(dir, "backend.log."+PID)
-	log15.Info(fileName)
-	log15.Root().SetHandler(
+
+	log15.Info("monitor-log", fileName)
+
+	logger = log15.New("logtype", "1", "appkey", "govite", "PID", PID)
+	logger.SetHandler(
 		log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(fileName, log15.JsonFormat())),
 	)
-	logger = log15.New("logtype", "1", "appkey", "govite", "PID", PID)
-
 	m = &monitor{r: newRing(60)}
 	go loop()
 }
