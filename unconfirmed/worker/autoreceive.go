@@ -2,13 +2,13 @@ package worker
 
 import (
 	"container/heap"
+	"container/list"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/unconfirmed"
+	"github.com/vitelabs/go-vite/unconfirmed/model"
 	"math/big"
 	"sync"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/unconfirmed/model"
 )
 
 type SimpleAutoReceiveFilterPair struct {

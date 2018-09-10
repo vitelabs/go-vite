@@ -16,17 +16,22 @@ type UnconfirmedMeta struct {
 type CommonAccountInfo struct {
 	AccountAddress *types.Address
 	TotalNumber    uint64
-	TokenInfoMap   map[*types.TokenTypeId]*TokenInfo
+	TokenInfoMap   map[types.TokenTypeId]*TokenInfo
 }
 
 // pack the data for handler
 type TokenInfo struct {
-	Token       *ledger.Mintage
-	TotalAmount *big.Int
-	Number      *big.Int
+	Token       ledger.Mintage
+	TotalAmount big.Int
+	Number      big.Int
 	TxList      list.List
 }
 
-func (ab AccountBlock) IsContractTx() bool {
-	return len(ab.Code) != 0
+type Tx struct {
+	Hash   types.Hash
+	amount big.Int
+}
+
+func (t *TokenInfo) LoadData() {
+
 }

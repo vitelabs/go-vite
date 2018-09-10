@@ -5,7 +5,5 @@ import (
 	"math/big"
 )
 
-type Tx struct {
-	Hash   *types.Hash
-	amount *big.Int
-}
+
+
