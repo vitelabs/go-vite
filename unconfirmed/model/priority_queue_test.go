@@ -1,4 +1,4 @@
-package worker
+package model
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
@@ -22,8 +22,8 @@ func MakeDate() []*ledger.AccountBlock {
 		height := big.NewInt(int64(time.Now().UnixNano()))
 		h := height
 		for i := 0; i < TO_COUNT; i++ {
-			bal := make(map[types.TokenTypeId]*big.Int)
-			bal[Vite_TokenId] = big.NewInt(1)
+			//bal := make(map[types.TokenTypeId]*big.Int)
+			//bal[Vite_TokenId] = big.NewInt(1)
 
 			block := &ledger.AccountBlock{
 				Meta:              nil,
@@ -66,11 +66,11 @@ func Example_priorityQueue() {
 func TestPriorityFromQueue_InsertNew(t *testing.T) {
 	blockList := MakeDate()
 	t.Log(blockList)
-	var priorityFromQueue *PriorityFromQueue
-	t.Log("priorityFromQueue start to insert blocks")
-	for _, v := range blockList {
-		priorityFromQueue.InsertNew(v)
-	}
-	t.Log("priorityFromQueue start to insert blocks")
-	t.Log(priorityFromQueue)
+	//var priorityFromQueue *PriorityFromQueue
+	//t.Log("priorityFromQueue start to insert blocks")
+	//for _, v := range blockList {
+	//	priorityFromQueue.InsertNew(v)
+	//}
+	//t.Log("priorityFromQueue start to insert blocks")
+	//t.Log(priorityFromQueue)
 }

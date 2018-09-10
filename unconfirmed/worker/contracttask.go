@@ -4,7 +4,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/unconfirmed"
 	"sync"
 	"time"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
@@ -19,7 +18,6 @@ const (
 )
 
 type ContractTask struct {
-	vite    Vite
 	log     log15.Logger
 	uAccess *model.UAccess
 
@@ -28,14 +26,13 @@ type ContractTask struct {
 	stopListener chan struct{}
 	breaker      chan struct{}
 
-	subQueue chan *fromItem
-	args     *unconfirmed.RightEvent
+	subQueue chan *model.FromItem
+	args     *RightEvent
 
 	statusMutex sync.Mutex
 }
 
-func (task *ContractTask) InitContractTask(vite Vite, uAccess *model.UAccess, args *unconfirmed.RightEvent) {
-	task.vite = vite
+func (task *ContractTask) InitContractTask(uAccess *model.UAccess, args *RightEvent) {
 	task.log = log15.New("ContractTask")
 	task.uAccess = uAccess
 	task.status = Idle
@@ -43,7 +40,7 @@ func (task *ContractTask) InitContractTask(vite Vite, uAccess *model.UAccess, ar
 	task.stopListener = make(chan struct{}, 1)
 	task.breaker = make(chan struct{}, 1)
 	task.args = args
-	task.subQueue = make(chan *fromItem, 1)
+	task.subQueue = make(chan *model.FromItem, 1)
 }
 
 func (task *ContractTask) Start(blackList *map[string]bool) {
@@ -57,7 +54,7 @@ func (task *ContractTask) Start(blackList *map[string]bool) {
 
 		fItem := task.GetFromItem()
 		if intoBlackListBool := task.ProcessAQueue(fItem); intoBlackListBool == true {
-			var blKey = fItem.value.Front().ToAddress.String() + fItem.key.String()
+			var blKey = fItem.Value.Front().ToAddress.String() + fItem.Key.String()
 			if _, ok := (*blackList)[blKey]; !ok {
 				(*blackList)[blKey] = true
 			}
@@ -105,17 +102,17 @@ func (task *ContractTask) Status() int {
 	return task.status
 }
 
-func (task *ContractTask) ProcessAQueue(fItem *fromItem) (intoBlackList bool) {
+func (task *ContractTask) ProcessAQueue(fItem *model.FromItem) (intoBlackList bool) {
 	// get db.go block from subQueue
 	task.log.Info("Process the fromQueue,", task.log.New("fromQueueDetail",
-		task.log.New("fromAddress", fItem.key),
-		task.log.New("index", fItem.index),
-		task.log.New("priority", fItem.priority)))
+		task.log.New("fromAddress", fItem.Key),
+		task.log.New("index", fItem.Index),
+		task.log.New("priority", fItem.Priority)))
 
 	// todo newVmDb
 	// NewVmDB(snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) error
 
-	bQueue := fItem.value
+	bQueue := fItem.Value
 
 	for i := 0; i < bQueue.Size(); i++ {
 		sBlock := bQueue.Dequeue()
@@ -176,7 +173,7 @@ func (task *ContractTask) ProcessAQueue(fItem *fromItem) (intoBlackList bool) {
 	return false
 }
 
-func (task *ContractTask) GetFromItem() *fromItem {
+func (task *ContractTask) GetFromItem() *model.FromItem {
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
 	fItem := <-task.subQueue

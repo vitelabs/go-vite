@@ -4,7 +4,6 @@ import (
 	"container/heap"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/unconfirmed"
 	"math/big"
 	"sync"
 	"github.com/vitelabs/go-vite/ledger"
@@ -21,13 +20,12 @@ var (
 )
 
 type AutoReceiveWorker struct {
-	vite    Vite
 	log     log15.Logger
 	address *types.Address
 	uAccess *model.UAccess
 
 	//blockQueue *BlockQueue
-	priorityFromQueue *PriorityFromQueue
+	priorityFromQueue *model.PriorityFromQueue
 
 	status                int
 	isSleeping            bool
@@ -38,9 +36,8 @@ type AutoReceiveWorker struct {
 	statusMutex sync.Mutex
 }
 
-func NewAutoReceiveWorker(vite Vite, address *types.Address) *AutoReceiveWorker {
+func NewAutoReceiveWorker(address *types.Address) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
-		vite:       vite,
 		address:    address,
 		status:     Create,
 		log:        log15.New("AutoReceiveWorker addr", address),
@@ -118,8 +115,8 @@ func (w *AutoReceiveWorker) startWork() {
 			if w.Status() == Stop {
 				goto END
 			}
-			fItem := heap.Pop(w.priorityFromQueue).(*fromItem)
-			blockQueue := fItem.value
+			fItem := heap.Pop(w.priorityFromQueue).(*model.FromItem)
+			blockQueue := fItem.Value
 			for j := 0; j < blockQueue.Size(); j++ {
 				recvBlock := blockQueue.Dequeue()
 				w.ProcessOneBlock(recvBlock)

@@ -4,14 +4,19 @@ import (
 	"container/heap"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/unconfirmed"
-	"sync"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
+	"sync"
 )
+type RightEvent struct {
+	Gid            *types.Gid
+	Address        *types.Address
+	StartTs        uint64
+	EndTs          uint64
+	SnapshotHash   *types.Hash
+	SnapshotHeight int
+}
 
 type ContractWorker struct {
-	vite    Vite
-	log     log15.Logger
 	uAccess *model.UAccess
 
 	gid                 *types.Gid
@@ -25,15 +30,16 @@ type ContractWorker struct {
 	stopDispatcherListener chan struct{}
 
 	contractTasks   []*ContractTask
-	priorityToQueue *PriorityToQueue
+	priorityToQueue *model.PriorityToQueue
 	blackList       map[string]bool // map[(toAddress+fromAddress).String]
 
 	statusMutex sync.Mutex
+
+	log log15.Logger
 }
 
-func NewContractWorker(vite Vite, uAccess *model.UAccess, gid *types.Gid, address *types.Address, addressList []*types.Address) *ContractWorker {
+func NewContractWorker(uAccess *model.UAccess, gid *types.Gid, address *types.Address, addressList []*types.Address) *ContractWorker {
 	return &ContractWorker{
-		vite:                   vite,
 		uAccess:                uAccess,
 		gid:                    gid,
 		addresses:              address,
@@ -49,7 +55,7 @@ func NewContractWorker(vite Vite, uAccess *model.UAccess, gid *types.Gid, addres
 	}
 }
 
-func (w *ContractWorker) Start(event *unconfirmed.RightEvent) {
+func (w *ContractWorker) Start(event *RightEvent) {
 	w.log.Info("worker startWork is called")
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
@@ -59,7 +65,7 @@ func (w *ContractWorker) Start(event *unconfirmed.RightEvent) {
 	})
 
 	for _, v := range w.contractTasks {
-		v.InitContractTask(w.vite, w.uAccess, event)
+		v.InitContractTask(w.uAccess, event)
 		go v.Start(&w.blackList)
 	}
 	go w.DispatchTask()
@@ -112,8 +118,8 @@ func (w *ContractWorker) DispatchTask() {
 	w.FetchNew()
 	for {
 		for i := 0; i < w.priorityToQueue.Len(); i++ {
-			tItem := heap.Pop(w.priorityToQueue).(*toItem)
-			priorityFromQueue := tItem.value
+			tItem := heap.Pop(w.priorityToQueue).(*model.ToItem)
+			priorityFromQueue := tItem.Value
 			for j := 0; j < priorityFromQueue.Len(); j++ {
 			FINDFREETASK:
 				if w.Status() == Stop {
@@ -128,7 +134,7 @@ func (w *ContractWorker) DispatchTask() {
 					goto FINDFREETASK
 				}
 
-				fItem := heap.Pop(priorityFromQueue).(*fromItem)
+				fItem := heap.Pop(priorityFromQueue).(*model.FromItem)
 				w.contractTasks[freeTaskIndex].subQueue <- fItem
 			}
 		}

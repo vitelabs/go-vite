@@ -1,7 +1,6 @@
 package unconfirmed
 
 import (
-	"github.com/vitelabs/go-vite/chain_db"
 	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -17,16 +16,15 @@ var (
 )
 
 type Manager struct {
-	Vite   worker.Vite
-	access *model.UAccess
+	Vite    Vite
+	uAccess *model.UAccess
 
-	commonTxWorkers      map[types.Address]*worker.AutoReceiveWorker
-	contractWorkers      map[types.Gid]*worker.ContractWorker
-	commonAccountInfoMap map[types.Address]*model.CommonAccountInfo
+	commonTxWorkers map[types.Address]*worker.AutoReceiveWorker
+	contractWorkers map[types.Gid]*worker.ContractWorker
 
 	unlockEventListener   chan keystore.UnlockEvent
 	firstSyncDoneListener chan int
-	rightEventListener    chan *RightEvent
+	rightEventListener    chan *worker.RightEvent
 
 	unlockLid    int
 	rightLid     int
@@ -35,39 +33,29 @@ type Manager struct {
 	log log15.Logger
 }
 
-type RightEvent struct {
-	Gid            *types.Gid
-	Address        *types.Address
-	StartTs        uint64
-	EndTs          uint64
-	SnapshotHash   *types.Hash
-	SnapshotHeight int
-}
-
-func NewManager(vite worker.Vite) *Manager {
+func NewManager(vite Vite, dataDir string) *Manager {
 	return &Manager{
-		Vite:                 vite,
-		commonTxWorkers:      make(map[types.Address]*worker.AutoReceiveWorker),
-		contractWorkers:      make(map[types.Gid]*worker.ContractWorker),
-		commonAccountInfoMap: make(map[types.Address]*model.CommonAccountInfo),
+		Vite:            vite,
+		commonTxWorkers: make(map[types.Address]*worker.AutoReceiveWorker),
+		contractWorkers: make(map[types.Gid]*worker.ContractWorker),
+		uAccess:         model.NewUAccess(vite.Chain(), dataDir),
 
 		unlockEventListener:   make(chan keystore.UnlockEvent),
 		firstSyncDoneListener: make(chan int),
-		rightEventListener:    make(chan *RightEvent),
+		rightEventListener:    make(chan *worker.RightEvent),
 
 		log: slog.New("w", "manager"),
 	}
 }
 
 func (manager *Manager) InitAndStartWork() {
-	manager.Vite.Ledger().RegisterFirstSyncDown(manager.firstSyncDoneListener)
+	manager.Vite.Chain().RegisterFirstSyncDown(manager.firstSyncDoneListener)
 	manager.unlockLid = manager.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(func(event keystore.UnlockEvent) {
 
 	})
 	// todo 注册Miner 监听器 manager.rightLid = manager.Vite.
 
 	//todo add newContractListener????
-	manager.access = model.NewUAccess(manager.commonAccountInfoMap)
 
 	go func() {
 		manager.initUnlockedAddress()
@@ -106,7 +94,7 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address) error {
 
 	w, found := manager.commonTxWorkers[addr]
 	if !found {
-		w = worker.NewAutoReceiveWorker(manager.Vite, &addr)
+		w = worker.NewAutoReceiveWorker(&addr)
 		manager.log.Info("Manager get event new Worker")
 		manager.commonTxWorkers[addr] = w
 	}
@@ -139,8 +127,8 @@ func (manager *Manager) loop() {
 
 	//status, _ := manager.Vite.WalletManager().KeystoreManager.Status()
 	//for k, v := range status {
-	//	if err := manager.access.LoadCommonAccInfo(&k); err != nil {
-	//		manager.log.Error("loop: manager.access.LoadCommonAccInfo", "error", err)
+	//	if err := manager.uAccess.LoadCommonAccInfo(&k); err != nil {
+	//		manager.log.Error("loop: manager.uAccess.LoadCommonAccInfo", "error", err)
 	//		continue
 	//	}
 	//	if v == keystore.UnLocked {
@@ -169,12 +157,12 @@ func (manager *Manager) loop() {
 
 				w, found := manager.contractWorkers[*event.Gid]
 				if !found {
-					addressList, err := manager.access.GetAddrListByGid(event.Gid)
+					addressList, err := manager.uAccess.GetAddrListByGid(event.Gid)
 					if err != nil || addressList == nil || len(addressList) < 0 {
 						manager.log.Error("GetAddrListByGid Error", err)
 						continue
 					}
-					w = worker.NewContractWorker(manager.Vite, manager.access, event.Gid, event.Address, addressList)
+					w = worker.NewContractWorker(manager.uAccess, event.Gid, event.Address, addressList)
 					manager.contractWorkers[*event.Gid] = w
 
 					break
@@ -209,7 +197,7 @@ func (manager *Manager) initUnlockedAddress() {
 	status, _ := manager.Vite.WalletManager().KeystoreManager.Status()
 	for k, v := range status {
 		if v == keystore.UnLocked {
-			commonTxWorker := worker.NewAutoReceiveWorker(manager.Vite, &k)
+			commonTxWorker := worker.NewAutoReceiveWorker(&k)
 			manager.log.Info("Manager find a new unlock address ", "Worker", k.String())
 			manager.commonTxWorkers[k] = commonTxWorker
 			commonTxWorker.Start()

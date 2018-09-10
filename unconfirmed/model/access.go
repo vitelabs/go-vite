@@ -3,16 +3,17 @@ package model
 import (
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"path/filepath"
-	"github.com/vitelabs/go-vite/chain_db/database"
 )
 
 type UAccess struct {
-	store				*UnconfirmedSet
+	store                *UnconfirmedSet
+	chain                *chain.Chain
 	commonAccountInfoMap map[types.Address]*CommonAccountInfo
 	newCommonTxLis       map[types.Address]func()
 	newContractLis       map[types.Gid]func()
@@ -20,18 +21,19 @@ type UAccess struct {
 	log log15.Logger
 }
 
-func NewUAccess(cfg *config.Config, commonAccountInfo map[types.Address]*CommonAccountInfo) *UAccess {
-	dbDir := filepath.Join(cfg.DataDir, "unconfirmed")
+func NewUAccess(chain *chain.Chain, dataDir string) *UAccess {
+	dbDir := filepath.Join(dataDir, "unconfirmed")
 	db, err := leveldb.OpenFile(dbDir, nil)
-	if db == nil ||  err != nil {
+	if db == nil || err != nil {
 		db = database.NewLevelDb(dbDir)
 	}
 	return &UAccess{
 		store:                NewUnconfirmedSet(db),
-		commonAccountInfoMap: commonAccountInfo,
+		chain:                chain,
+		commonAccountInfoMap: make(map[types.Address]*CommonAccountInfo),
 		newCommonTxLis:       make(map[types.Address]func()),
 		newContractLis:       make(map[types.Gid]func()),
-		log:                  log15.New("w", "db.go"),
+		log:                  log15.New("w", "access"),
 	}
 }
 
@@ -133,7 +135,7 @@ func (access *UAccess) GetUnconfirmedBlocks(index, num, count uint64, addr *type
 		return nil, err
 	}
 	for _, v := range hashList {
-		block, err := GetAccountChainAccess.GetBlockByHash(v)
+		block, err := access.chain.GetBlockByHash(v)
 		if err != nil || block == nil {
 			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
 			continue
@@ -142,7 +144,6 @@ func (access *UAccess) GetUnconfirmedBlocks(index, num, count uint64, addr *type
 	}
 	return nil, nil
 }
-
 
 func (access *UAccess) GetCommonAccInfo(addr *types.Address) (info *CommonAccountInfo, err error) {
 	if _, ok := access.commonAccountInfoMap[*addr]; !ok {
@@ -183,13 +184,13 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (*map[*type
 		return nil, err
 	}
 	for _, v := range hashList {
-		block, err := GetAccountChainAccess.GetBlockByHash(v)
+		block, err := access.chain.GetBlockByHash(v)
 		if err != nil || block == nil {
 			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
 			continue
 		}
 		if _, ok := infoMap[block.TokenId]; !ok {
-			token, err := GetTokenAccess.GetByTokenId(block.TokenId)
+			token, err := access.chain.GetByTokenId(block.TokenId)
 			if err != nil {
 				access.log.Error("func GetUnconfirmedAccount.GetByTokenId failed", "error", err)
 				return nil, err
@@ -213,7 +214,7 @@ func (access *UAccess) UpdateCommonAccInfo(writeType bool, block *ledger.Account
 	case writeType == true:
 		ti, ok := tiMap.TokenInfoMap[block.TokenId]
 		if !ok {
-			token, err := GetTokenAccess.GetByTokenId(block.TokenId)
+			token, err := access.chain.GetByTokenId(block.TokenId)
 			if err != nil {
 				return errors.New("func UpdateCommonAccInfo.GetByTokenId failed" + err)
 			}
