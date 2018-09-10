@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/unconfirmed"
 	"sync"
 	"time"
+	"github.com/vitelabs/go-vite/unconfirmed/model"
 )
 
 const (
@@ -18,9 +19,9 @@ const (
 )
 
 type ContractTask struct {
-	vite     Vite
-	log      log15.Logger
-	dbAccess *unconfirmed.Access
+	vite    Vite
+	log     log15.Logger
+	uAccess *model.UAccess
 
 	status       int
 	reRetry      bool
@@ -33,10 +34,10 @@ type ContractTask struct {
 	statusMutex sync.Mutex
 }
 
-func (task *ContractTask) InitContractTask(vite Vite, dbAccess *unconfirmed.Access, args *unconfirmed.RightEvent) {
+func (task *ContractTask) InitContractTask(vite Vite, uAccess *model.UAccess, args *unconfirmed.RightEvent) {
 	task.vite = vite
 	task.log = log15.New("ContractTask")
-	task.dbAccess = dbAccess
+	task.uAccess = uAccess
 	task.status = Idle
 	task.reRetry = false
 	task.stopListener = make(chan struct{}, 1)
@@ -56,7 +57,7 @@ func (task *ContractTask) Start(blackList *map[string]bool) {
 
 		fItem := task.GetFromItem()
 		if intoBlackListBool := task.ProcessAQueue(fItem); intoBlackListBool == true {
-			var blKey = fItem.value.Front().To.String() + fItem.key.String()
+			var blKey = fItem.value.Front().ToAddress.String() + fItem.key.String()
 			if _, ok := (*blackList)[blKey]; !ok {
 				(*blackList)[blKey] = true
 			}
@@ -105,7 +106,7 @@ func (task *ContractTask) Status() int {
 }
 
 func (task *ContractTask) ProcessAQueue(fItem *fromItem) (intoBlackList bool) {
-	// get unconfirmed block from subQueue
+	// get db.go block from subQueue
 	task.log.Info("Process the fromQueue,", task.log.New("fromQueueDetail",
 		task.log.New("fromAddress", fItem.key),
 		task.log.New("index", fItem.index),
@@ -119,15 +120,15 @@ func (task *ContractTask) ProcessAQueue(fItem *fromItem) (intoBlackList bool) {
 	for i := 0; i < bQueue.Size(); i++ {
 		sBlock := bQueue.Dequeue()
 		task.log.Info("Process to make the receiveBlock, its'sendBlock detail:", task.log.New("hash", sBlock.Hash))
-		if ExistInPool(sBlock.To, sBlock.FromHash) {
+		if ExistInPool(sBlock.ToAddress, sBlock.Hash) {
 			// Don't deal with it for the time being
 			return true
 		}
 
-		recvType, count := task.CheckChainReceiveCount(sBlock.To, sBlock.Hash)
+		recvType, count := task.CheckChainReceiveCount(sBlock.ToAddress, sBlock.Hash)
 		if recvType == 5 && count > MAX_ERR_RECV_COUNT {
 			task.log.Info("Delete the UnconfirmedMeta: the recvErrBlock reach the max-limit count of existence.")
-			task.dbAccess.WriteUnconfirmed(false, nil, sBlock)
+			task.uAccess.WriteUnconfirmed(false, nil, sBlock)
 			continue
 		}
 
@@ -145,7 +146,7 @@ func (task *ContractTask) ProcessAQueue(fItem *fromItem) (intoBlackList bool) {
 			if isRetry == true {
 				return true
 			} else {
-				task.dbAccess.WriteUnconfirmed(false, nil, sBlock)
+				task.uAccess.WriteUnconfirmed(false, nil, sBlock)
 			}
 		} else {
 			if isRetry == true {
@@ -166,7 +167,7 @@ func (task *ContractTask) ProcessAQueue(fItem *fromItem) (intoBlackList bool) {
 		}
 
 	WaitForVmDB:
-		if _, c := task.CheckChainReceiveCount(sBlock.To, sBlock.Hash); c < 1 {
+		if _, c := task.CheckChainReceiveCount(sBlock.ToAddress, sBlock.Hash); c < 1 {
 			task.log.Info("Wait for VmDB: the prev SendBlock's receiveBlock hasn't existed in Chain. ")
 			goto WaitForVmDB
 		}
@@ -187,7 +188,7 @@ func (task *ContractTask) CheckChainReceiveCount(fromAddress *types.Address, fro
 	return recvType, count
 }
 
-func (task *ContractTask) InertBlockListIntoPool(sendBlock *unconfirmed.AccountBlock, blockList []*ledger.AccountBlock) error {
+func (task *ContractTask) InertBlockListIntoPool(sendBlock *ledger.AccountBlock, blockList []*ledger.AccountBlock) error {
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
 	if task.status != Running {
@@ -202,7 +203,7 @@ func (task *ContractTask) InertBlockListIntoPool(sendBlock *unconfirmed.AccountB
 	return nil
 }
 
-func (task *ContractTask) GenerateBlocks(recvBlock *unconfirmed.AccountBlock) (isRetry bool, blockList []*ledger.AccountBlock, err error) {
+func (task *ContractTask) GenerateBlocks(recvBlock *ledger.AccountBlock) (isRetry bool, blockList []*ledger.AccountBlock, err error) {
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
 	if task.status != Running {
@@ -211,7 +212,7 @@ func (task *ContractTask) GenerateBlocks(recvBlock *unconfirmed.AccountBlock) (i
 	return false, nil, nil
 }
 
-func (task *ContractTask) PackReceiveBlock(sendBlock *unconfirmed.AccountBlock) *unconfirmed.AccountBlock {
+func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) *ledger.AccountBlock {
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
 	if task.status != Running {
@@ -219,28 +220,31 @@ func (task *ContractTask) PackReceiveBlock(sendBlock *unconfirmed.AccountBlock) 
 	}
 
 	task.log.Info("PackReceiveBlock", "sendBlock",
-		task.log.New("sendBlock.Hash", sendBlock.Hash), task.log.New("sendBlock.To", sendBlock.To))
+		task.log.New("sendBlock.Hash", sendBlock.Hash), task.log.New("sendBlock.To", sendBlock.ToAddress))
 
 	// todo pack the block with task.args, comput hash, Sign,
-	block := &unconfirmed.AccountBlock{
-		From:            nil,
-		To:              nil,
-		Height:          nil,
-		Type:            0,
-		PrevHash:        nil,
-		FromHash:        nil,
-		Amount:          nil,
-		TokenId:         nil,
-		CreateFee:       nil,
-		Data:            nil,
-		StateHash:       types.Hash{},
-		SummaryHashList: nil,
-		LogHash:         types.Hash{},
-		SnapshotHash:    types.Hash{},
-		Depth:           0,
-		Quota:           0,
-		Hash:            nil,
-		Balance:         nil,
+	block := &ledger.AccountBlock{
+		Meta:              nil,
+		BlockType:         0,
+		Hash:              nil,
+		Height:            nil,
+		PrevHash:          nil,
+		AccountAddress:    nil,
+		PublicKey:         nil,
+		ToAddress:         nil,
+		FromBlockHash:     nil,
+		Amount:            nil,
+		TokenId:           nil,
+		QuotaFee:          nil,
+		ContractFee:       nil,
+		SnapshotHash:      nil,
+		Data:              "",
+		Timestamp:         0,
+		StateHash:         nil,
+		LogHash:           nil,
+		Nonce:             nil,
+		SendBlockHashList: nil,
+		Signature:         nil,
 	}
 
 	hash, err := block.ComputeHash()

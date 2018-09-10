@@ -70,7 +70,7 @@ func NewSnapshotchainPool(processor sbProcessInterface) *SnapshotchainPool {
 					pool.lock.Unlock()
 				}
 
-				time.Sleep(turnInterval * time.Millisecond)
+				time.Sleep(2000 * time.Millisecond)
 			}
 
 		}

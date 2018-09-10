@@ -1,17 +1,17 @@
 package worker
 
 import (
-	"github.com/vitelabs/go-vite/unconfirmed"
 	"sync"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type BlockQueue struct {
-	items []*unconfirmed.AccountBlock
+	items []*ledger.AccountBlock
 	lock  sync.RWMutex
 }
 
 // Enqueue is sorted by block Height
-func (q *BlockQueue) Enqueue(block *unconfirmed.AccountBlock) {
+func (q *BlockQueue) Enqueue(block *ledger.AccountBlock) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	for k, v := range q.items {
@@ -22,7 +22,7 @@ func (q *BlockQueue) Enqueue(block *unconfirmed.AccountBlock) {
 	}
 }
 
-func (q *BlockQueue) Dequeue() *unconfirmed.AccountBlock {
+func (q *BlockQueue) Dequeue() *ledger.AccountBlock {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	item := q.items[0]
@@ -30,7 +30,7 @@ func (q *BlockQueue) Dequeue() *unconfirmed.AccountBlock {
 	return item
 }
 
-func (q *BlockQueue) Front() *unconfirmed.AccountBlock {
+func (q *BlockQueue) Front() *ledger.AccountBlock {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	item := q.items[0]

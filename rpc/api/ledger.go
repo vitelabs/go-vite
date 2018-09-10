@@ -22,7 +22,7 @@ type SimpleBlock struct {
 	Amount         string // the amount of a specific token had been sent in this block.  bigInt
 	FromAddr       string // who sends the tx
 	ToAddr         string // who receives the tx
-	Status         int    // 0 means unknow, 1 means open (unconfirmed), 2 means closed(already confirmed)
+	Status         int    // 0 means unknow, 1 means open (db.go), 2 means closed(already confirmed)
 	Hash           string // bigInt. the blocks hash
 	Balance        string // current balance
 	ConfirmedTimes string // block`s confirmed times
@@ -43,8 +43,8 @@ type GetAccountResponse struct {
 
 type GetUnconfirmedInfoResponse struct {
 	Addr                 string        // Account address
-	BalanceInfos         []BalanceInfo // Account unconfirmed BalanceInfos (In-transit money)
-	UnConfirmedBlocksLen string        // the length of unconfirmed blocks. bigInt
+	BalanceInfos         []BalanceInfo // Account db.go BalanceInfos (In-transit money)
+	UnConfirmedBlocksLen string        // the length of db.go blocks. bigInt
 }
 
 type InitSyncResponse struct {
@@ -61,7 +61,7 @@ type LedgerApi interface {
 	CreateTxWithPassphrase(params *SendTxParms, reply *string) error
 	// get blocks by page the reply value is []SimpleBlock
 	GetBlocksByAccAddr(params *GetBlocksParams, reply *string) error
-	// get unconfirmed blocks by page the reply value is []SimpleBlock
+	// get db.go blocks by page the reply value is []SimpleBlock
 	GetUnconfirmedBlocksByAccAddr(params *GetBlocksParams, reply *string) error
 	// get account info now it mainly returns balance information, the reply is GetAccountResponse
 	GetAccountByAccAddr(addr []string, reply *string) error

@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/unconfirmed"
 	"math/big"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 var Vite_TokenId, _ = types.BytesToTokenTypeId([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
@@ -58,10 +59,10 @@ func (pfq *PriorityFromQueue) Swap(i, j int) {
 	(*pfq)[j].index = j
 }
 
-func (pfq *PriorityFromQueue) InsertNew(block *unconfirmed.AccountBlock) {
+func (pfq *PriorityFromQueue) InsertNew(block *ledger.AccountBlock) {
 	var find = false
 	for _, v := range *pfq {
-		if v.key == block.From {
+		if v.key == block.AccountAddress {
 			v.value.Enqueue(block)
 			if v.priority == nil {
 				v.priority = big.NewInt(0)
@@ -75,7 +76,7 @@ func (pfq *PriorityFromQueue) InsertNew(block *unconfirmed.AccountBlock) {
 		var bq BlockQueue
 		bq.Enqueue(block)
 		fItem := &fromItem{
-			key:      block.From,
+			key:      block.AccountAddress,
 			value:    &bq,
 			priority: block.Balance[Vite_TokenId],
 		}
@@ -131,10 +132,10 @@ func (ptq *PriorityToQueue) Swap(i, j int) {
 	(*ptq)[j].index = j
 }
 
-func (ptq *PriorityToQueue) InsertNew(block *unconfirmed.AccountBlock) {
+func (ptq *PriorityToQueue) InsertNew(block *ledger.AccountBlock) {
 	var find = false
 	for _, v := range *ptq {
-		if v.key == block.To {
+		if v.key == block.ToAddress {
 			v.value.InsertNew(block)
 			if v.priority == nil {
 				v.priority = big.NewInt(0)
@@ -148,7 +149,7 @@ func (ptq *PriorityToQueue) InsertNew(block *unconfirmed.AccountBlock) {
 		var fQueue PriorityFromQueue
 		fQueue.InsertNew(block)
 		tItem := &toItem{
-			key:      block.To,
+			key:      block.ToAddress,
 			value:    &fQueue,
 			priority: block.Balance[Vite_TokenId],
 		}
