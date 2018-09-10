@@ -136,7 +136,8 @@ func StatJson() string {
 			if ok {
 				tmpM.merge(v2)
 			} else {
-				msgs[k2] = v2
+				s := v2.snapshot()
+				msgs[k2] = &s
 			}
 		}
 	}
