@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"time"
+	"math/big"
 )
 
 var (
@@ -49,17 +50,14 @@ func NewManager(vite Vite, dataDir string) *Manager {
 }
 
 func (manager *Manager) InitAndStartWork() {
-	manager.Vite.Chain().RegisterFirstSyncDown(manager.firstSyncDoneListener)
-	manager.unlockLid = manager.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(func(event keystore.UnlockEvent) {
 
-	})
+	manager.Vite.Chain().RegisterFirstSyncDown(manager.firstSyncDoneListener)
+	manager.unlockLid = manager.Vite.WalletManager().KeystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
+
 	// todo 注册Miner 监听器 manager.rightLid = manager.Vite.
 
 	//todo add newContractListener????
 
-	go func() {
-		manager.initUnlockedAddress()
-	}()
 }
 
 func (manager *Manager) Close() error {
@@ -76,11 +74,13 @@ func (manager *Manager) Close() error {
 
 }
 
-func (manager *Manager) SetAutoReceiveFilter(f []worker.SimpleAutoReceiveFilterPair) {
-	worker.SimpleAutoReceiveFilters = f
+func (manager *Manager) SetAutoReceiveFilter(addr types.Address, filter map[types.TokenTypeId]big.Int) {
+	if w, ok := manager.commonTxWorkers[addr]; ok {
+		w.SetAutoReceiveFilter(filter)
+	}
 }
 
-func (manager *Manager) StartAutoReceiveWorker(addr types.Address) error {
+func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[types.TokenTypeId]big.Int) error {
 	manager.log.Info("StartAutoReceiveWorker ", "addr", addr)
 
 	keystoreManager := manager.Vite.WalletManager().KeystoreManager
@@ -94,7 +94,7 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address) error {
 
 	w, found := manager.commonTxWorkers[addr]
 	if !found {
-		w = worker.NewAutoReceiveWorker(&addr)
+		w = worker.NewAutoReceiveWorker(&addr, filter)
 		manager.log.Info("Manager get event new Worker")
 		manager.commonTxWorkers[addr] = w
 	}
@@ -193,14 +193,16 @@ func (manager *Manager) loop() {
 	}
 }
 
-func (manager *Manager) initUnlockedAddress() {
-	status, _ := manager.Vite.WalletManager().KeystoreManager.Status()
-	for k, v := range status {
-		if v == keystore.UnLocked {
-			commonTxWorker := worker.NewAutoReceiveWorker(&k)
-			manager.log.Info("Manager find a new unlock address ", "Worker", k.String())
-			manager.commonTxWorkers[k] = commonTxWorker
-			commonTxWorker.Start()
-		}
-	}
-}
+
+//func (manager *Manager) initUnlockedAddress() {
+//	status, _ := manager.Vite.WalletManager().KeystoreManager.Status()
+//	for k, v := range status {
+//		if v == keystore.UnLocked {
+//			commonTxWorker := worker.NewAutoReceiveWorker(manager.Vite, &k)
+//			manager.log.Info("Manager find a new unlock address ", "Worker", k.String())
+//			manager.commonTxWorkers[k] = commonTxWorker
+//			commonTxWorker.Start()
+//		}
+//	}
+//}
+

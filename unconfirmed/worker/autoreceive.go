@@ -2,22 +2,19 @@ package worker
 
 import (
 	"container/heap"
+	"container/list"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/unconfirmed/model"
 	"math/big"
 	"sync"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/unconfirmed/model"
 )
 
 type SimpleAutoReceiveFilterPair struct {
 	tti      types.TokenTypeId
 	minValue big.Int
 }
-
-var (
-	SimpleAutoReceiveFilters []SimpleAutoReceiveFilterPair
-)
 
 type AutoReceiveWorker struct {
 	log     log15.Logger
@@ -33,15 +30,19 @@ type AutoReceiveWorker struct {
 	stopListener          chan struct{}
 	newUnconfirmedTxAlarm chan struct{}
 
+	filters        map[types.TokenTypeId]big.Int
+	currentElement list.Element
+
 	statusMutex sync.Mutex
 }
 
-func NewAutoReceiveWorker(address *types.Address) *AutoReceiveWorker {
+func NewAutoReceiveWorker(address *types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
 		address:    address,
 		status:     Create,
 		log:        log15.New("AutoReceiveWorker addr", address),
 		isSleeping: false,
+		filters:    filters,
 	}
 }
 
@@ -67,6 +68,17 @@ func (w *AutoReceiveWorker) Start() {
 		// awake it in order to run at least once
 		w.NewUnconfirmedTxAlarm()
 	}
+}
+
+func (w *AutoReceiveWorker) Restart() {
+	w.log.Info("Restart()", "current status", w.status)
+	w.statusMutex.Lock()
+	defer w.statusMutex.Unlock()
+}
+
+func (w *AutoReceiveWorker) SetAutoReceiveFilter(filters map[types.TokenTypeId]big.Int) {
+	w.filters = filters
+	w.Restart()
 }
 
 func (w *AutoReceiveWorker) Stop() {
@@ -107,7 +119,7 @@ func (w *AutoReceiveWorker) NewUnconfirmedTxAlarm() {
 
 func (w *AutoReceiveWorker) startWork() {
 	w.log.Info("worker startWork is called")
-	w.FetchNew()
+	w.FetchNewOne()
 
 	for {
 		w.log.Debug("worker working")
@@ -140,7 +152,7 @@ END:
 	w.log.Info("worker end work")
 }
 
-func (w *AutoReceiveWorker) FetchNew() {
+func (w *AutoReceiveWorker) FetchNewOne() {
 	blockList, err := w.uAccess.GetUnconfirmedBlocks(0, 1, COMMON_FETCH_SIZE, w.address)
 	if err != nil {
 		w.log.Error("CommonTxWorker.FetchNew.GetUnconfirmedBlocks", "error", err)

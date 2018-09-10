@@ -88,7 +88,7 @@ func (master *Master) InitAndStartLoop() {
 		<-master.FirstSyncDoneListener
 		close(master.FirstSyncDoneListener)
 		master.log.Info("<-master.firstSyncDoneListener first sync done ")
-		master.lid = master.Vite.WalletManager().KeystoreManager.AddUnlockChangeChannel(master.unlockEventListener)
+		master.lid = master.Vite.WalletManager().KeystoreManager.AddLockEventListener(master.unlockEventListener)
 		master.loop()
 	}()
 }

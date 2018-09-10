@@ -562,3 +562,8 @@ func GetGenesisBlockSecond(prevHash *types.Hash, fromHash *types.Hash) *AccountB
 
 var AccountGenesisBlockFirst = GetGenesisBlockFirst()
 var AccountGenesisBlockSecond = GetGenesisBlockSecond(AccountGenesisBlockFirst.Hash, AccountGenesisBlockFirst.Hash)
+
+func (ab AccountBlock) IsContractTx() bool {
+	//return len(ab.Code) != 0
+	return false
+}
