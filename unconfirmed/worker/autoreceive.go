@@ -2,6 +2,7 @@ package worker
 
 import (
 	"container/heap"
+	"container/list"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed"
@@ -14,13 +15,10 @@ type SimpleAutoReceiveFilterPair struct {
 	minValue big.Int
 }
 
-var (
-	SimpleAutoReceiveFilters []SimpleAutoReceiveFilterPair
-)
-
 type AutoReceiveWorker struct {
-	vite     Vite
-	log      log15.Logger
+	vite Vite
+	log  log15.Logger
+
 	address  *types.Address
 	dbAccess *unconfirmed.Access
 
@@ -33,16 +31,20 @@ type AutoReceiveWorker struct {
 	stopListener          chan struct{}
 	newUnconfirmedTxAlarm chan struct{}
 
+	filters        map[types.TokenTypeId]big.Int
+	currentElement list.Element
+
 	statusMutex sync.Mutex
 }
 
-func NewAutoReceiveWorker(vite Vite, address *types.Address) *AutoReceiveWorker {
+func NewAutoReceiveWorker(vite Vite, address *types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
 		vite:       vite,
 		address:    address,
 		status:     Create,
 		log:        log15.New("AutoReceiveWorker addr", address),
 		isSleeping: false,
+		filters:    filters,
 	}
 }
 
@@ -68,6 +70,17 @@ func (w *AutoReceiveWorker) Start() {
 		// awake it in order to run at least once
 		w.NewUnconfirmedTxAlarm()
 	}
+}
+
+func (w *AutoReceiveWorker) Restart() {
+	w.log.Info("Restart()", "current status", w.status)
+	w.statusMutex.Lock()
+	defer w.statusMutex.Unlock()
+}
+
+func (w *AutoReceiveWorker) SetAutoReceiveFilter(filters map[types.TokenTypeId]big.Int) {
+	w.filters = filters
+	w.Restart()
 }
 
 func (w *AutoReceiveWorker) Stop() {
@@ -108,7 +121,7 @@ func (w *AutoReceiveWorker) NewUnconfirmedTxAlarm() {
 
 func (w *AutoReceiveWorker) startWork() {
 	w.log.Info("worker startWork is called")
-	w.FetchNew()
+	w.FetchNewOne()
 
 	for {
 		w.log.Debug("worker working")
@@ -141,8 +154,8 @@ END:
 	w.log.Info("worker end work")
 }
 
-func (w *AutoReceiveWorker) FetchNew() {
-	blockList, err := w.dbAccess.GetUnconfirmedBlocks(0, 1, COMMON_FETCH_SIZE, w.address)
+func (w *AutoReceiveWorker) FetchNewOne() {
+	blockList, err := w.dbAccess.GetUnconfirmedBlocks(0, 1, 1, w.address)
 	if err != nil {
 		w.log.Error("CommonTxWorker.FetchNew.GetUnconfirmedBlocks", "error", err)
 		return
@@ -177,7 +190,7 @@ func (w *AutoReceiveWorker) PackReceiveBlock(sendBlock *unconfirmed.AccountBlock
 	w.log.Info("PackReceiveBlock", "sendBlock",
 		w.log.New("sendBlock.Hash", sendBlock.Hash), w.log.New("sendBlock.To", sendBlock.To))
 
-	// todo pack the block with w.args, comput hash, Sign,
+	// todo pack the block with w.args, compute hash, Sign,
 	block := &unconfirmed.AccountBlock{
 		From:            nil,
 		To:              nil,

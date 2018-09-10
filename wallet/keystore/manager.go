@@ -67,13 +67,13 @@ func (km *Manager) Init() {
 	km.isInited = true
 }
 
-func (km *Manager) AddUnlockChangeChannel(lis func(event UnlockEvent)) int {
-	km.log.Info("AddUnlockChangeChannel")
+func (km *Manager) AddLockEventListener(lis func(event UnlockEvent)) int {
+	km.log.Info("AddLockEventListener")
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
 	km.unlockChangedIndex++
-	km.log.Info("AddUnlockChangeChannel", "id", km.unlockChangedIndex)
+	km.log.Info("AddLockEventListener", "id", km.unlockChangedIndex)
 	km.unlockChangedLis[km.unlockChangedIndex] = lis
 
 	return km.unlockChangedIndex
