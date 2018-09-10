@@ -1,8 +1,11 @@
 package unconfirmed
 
 import (
+	"github.com/vitelabs/go-vite/chain_db"
 	"github.com/vitelabs/go-vite/common/types"
+
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/unconfirmed/model"
 	"github.com/vitelabs/go-vite/unconfirmed/worker"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
@@ -10,17 +13,16 @@ import (
 )
 
 var (
-	slog = log15.New("module", "unconfirmed")
+	slog = log15.New("module", "db.go")
 )
 
 type Manager struct {
-	Vite     worker.Vite
-	dbAccess *Access
+	Vite   worker.Vite
+	access *model.UAccess
 
 	commonTxWorkers      map[types.Address]*worker.AutoReceiveWorker
 	contractWorkers      map[types.Gid]*worker.ContractWorker
-	commonAccountInfoMap map[types.Address]*CommonAccountInfo
-
+	commonAccountInfoMap map[types.Address]*model.CommonAccountInfo
 
 	unlockEventListener   chan keystore.UnlockEvent
 	firstSyncDoneListener chan int
@@ -47,7 +49,7 @@ func NewManager(vite worker.Vite) *Manager {
 		Vite:                 vite,
 		commonTxWorkers:      make(map[types.Address]*worker.AutoReceiveWorker),
 		contractWorkers:      make(map[types.Gid]*worker.ContractWorker),
-		commonAccountInfoMap: make(map[types.Address]*CommonAccountInfo),
+		commonAccountInfoMap: make(map[types.Address]*model.CommonAccountInfo),
 
 		unlockEventListener:   make(chan keystore.UnlockEvent),
 		firstSyncDoneListener: make(chan int),
@@ -65,7 +67,7 @@ func (manager *Manager) InitAndStartWork() {
 	// todo 注册Miner 监听器 manager.rightLid = manager.Vite.
 
 	//todo add newContractListener????
-	manager.dbAccess = NewUnconfirmedAccess(manager.commonAccountInfoMap)
+	manager.access = model.NewUAccess(manager.commonAccountInfoMap)
 
 	go func() {
 		manager.initUnlockedAddress()
@@ -137,8 +139,8 @@ func (manager *Manager) loop() {
 
 	//status, _ := manager.Vite.WalletManager().KeystoreManager.Status()
 	//for k, v := range status {
-	//	if err := manager.dbAccess.LoadCommonAccInfo(&k); err != nil {
-	//		manager.log.Error("loop: manager.dbAccess.LoadCommonAccInfo", "error", err)
+	//	if err := manager.access.LoadCommonAccInfo(&k); err != nil {
+	//		manager.log.Error("loop: manager.access.LoadCommonAccInfo", "error", err)
 	//		continue
 	//	}
 	//	if v == keystore.UnLocked {
@@ -167,12 +169,12 @@ func (manager *Manager) loop() {
 
 				w, found := manager.contractWorkers[*event.Gid]
 				if !found {
-					addressList, err := manager.dbAccess.GetAddrListByGid(event.Gid)
+					addressList, err := manager.access.GetAddrListByGid(event.Gid)
 					if err != nil || addressList == nil || len(addressList) < 0 {
 						manager.log.Error("GetAddrListByGid Error", err)
 						continue
 					}
-					w = worker.NewContractWorker(manager.Vite, manager.dbAccess, event.Gid, event.Address, addressList)
+					w = worker.NewContractWorker(manager.Vite, manager.access, event.Gid, event.Address, addressList)
 					manager.contractWorkers[*event.Gid] = w
 
 					break
@@ -197,7 +199,6 @@ func (manager *Manager) loop() {
 				//}
 
 			}
-
 
 		}
 

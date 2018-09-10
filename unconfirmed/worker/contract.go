@@ -6,12 +6,13 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed"
 	"sync"
+	"github.com/vitelabs/go-vite/unconfirmed/model"
 )
 
 type ContractWorker struct {
-	vite     Vite
-	log      log15.Logger
-	dbAccess *unconfirmed.Access
+	vite    Vite
+	log     log15.Logger
+	uAccess *model.UAccess
 
 	gid                 *types.Gid
 	addresses           *types.Address
@@ -30,10 +31,10 @@ type ContractWorker struct {
 	statusMutex sync.Mutex
 }
 
-func NewContractWorker(vite Vite, dbAccess *unconfirmed.Access, gid *types.Gid, address *types.Address, addressList []*types.Address) *ContractWorker {
+func NewContractWorker(vite Vite, uAccess *model.UAccess, gid *types.Gid, address *types.Address, addressList []*types.Address) *ContractWorker {
 	return &ContractWorker{
 		vite:                   vite,
-		dbAccess:               dbAccess,
+		uAccess:                uAccess,
 		gid:                    gid,
 		addresses:              address,
 		contractAddressList:    addressList,
@@ -53,12 +54,12 @@ func (w *ContractWorker) Start(event *unconfirmed.RightEvent) {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 
-	w.dbAccess.AddContractLis(w.gid, func() {
+	w.uAccess.AddContractLis(w.gid, func() {
 		w.NewUnconfirmedTxAlarm()
 	})
 
 	for _, v := range w.contractTasks {
-		v.InitContractTask(w.vite, w.dbAccess, event)
+		v.InitContractTask(w.vite, w.uAccess, event)
 		go v.Start(&w.blackList)
 	}
 	go w.DispatchTask()
@@ -74,7 +75,7 @@ func (w *ContractWorker) Stop() {
 		w.breaker <- struct{}{}
 		// todo: to clear tomap
 
-		w.dbAccess.RemoveContractLis(w.gid)
+		w.uAccess.RemoveContractLis(w.gid)
 		w.dispatcherSleep = true
 		close(w.dispatcherAlarm)
 
@@ -159,7 +160,7 @@ func (w *ContractWorker) FindAFreeTask() (index int) {
 
 func (w *ContractWorker) FetchNew() {
 	for i := 0; i < len(w.contractAddressList); i++ {
-		blockList, err := w.dbAccess.GetUnconfirmedBlocks(0, 1, CONTRACT_FETCH_SIZE, w.contractAddressList[i])
+		blockList, err := w.uAccess.GetUnconfirmedBlocks(0, 1, CONTRACT_FETCH_SIZE, w.contractAddressList[i])
 		if err != nil {
 			w.log.Error("ContractWorker.FetchNew.GetUnconfirmedBlocks", "error", err)
 			continue
@@ -167,7 +168,7 @@ func (w *ContractWorker) FetchNew() {
 		for _, v := range blockList {
 			// when a to-from pair  was added into blackList,
 			// the other block which under the same to-from pair won't fetch any more during the same block-out period
-			var blKey = (*v).To.String() + (*v).From.String()
+			var blKey = (*v).ToAddress.String() + (*v).AccountAddress.String()
 			if _, ok := w.blackList[blKey]; !ok {
 				w.priorityToQueue.InsertNew(v)
 			}

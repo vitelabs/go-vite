@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-var uLog = log15.New("module", "ledger/access/unconfirmed")
+var uLog = log15.New("module", "ledger/access/db.go")
 
 var ucListener = make(map[types.Address]chan<- struct{})
 
@@ -135,7 +135,7 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 		uAccMeta.TotalNumber = number.Add(uAccMeta.TotalNumber, big.NewInt(1))
 
 		var tokenExist = false
-		// Update the total amount of the unconfirmed info per token
+		// Update the total amount of the db.go info per token
 		for index, tokeInfo := range uAccMeta.TokenInfoList {
 			if bytes.Equal(tokeInfo.TokenId.Bytes(), block.TokenId.Bytes()) {
 				var amount = &big.Int{}
@@ -218,7 +218,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 
 	if uAccMeta == nil {
 		err := ucfa.store.DeleteMeta(batch, block.To)
-		return errors.New("delete unconfirmed failed, because uAccMeta is empty, error:" + err.Error())
+		return errors.New("delete db.go failed, because uAccMeta is empty, error:" + err.Error())
 	}
 
 	//// [tmp] Check data.
@@ -240,7 +240,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 		err := ucfa.store.DeleteHashList(batch, block.To, block.TokenId)
 		return &AcWriteError{
 			Code: WacDefaultErr,
-			Err:  errors.New("delete unconfirmed hashList failed, because hashList is empty, error: " + err.Error()),
+			Err:  errors.New("delete db.go hashList failed, because hashList is empty, error: " + err.Error()),
 		}
 	}
 

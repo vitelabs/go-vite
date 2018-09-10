@@ -12,6 +12,7 @@ type Chain struct {
 	log        log15.Logger
 	chainDb    *chain_db.ChainDb
 	compressor *compress.Compressor
+
 }
 
 func NewChain(cfg *config.Config) *Chain {

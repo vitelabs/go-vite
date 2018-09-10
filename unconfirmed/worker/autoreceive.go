@@ -7,6 +7,8 @@ import (
 	"github.com/vitelabs/go-vite/unconfirmed"
 	"math/big"
 	"sync"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/unconfirmed/model"
 )
 
 type SimpleAutoReceiveFilterPair struct {
@@ -19,10 +21,10 @@ var (
 )
 
 type AutoReceiveWorker struct {
-	vite     Vite
-	log      log15.Logger
-	address  *types.Address
-	dbAccess *unconfirmed.Access
+	vite    Vite
+	log     log15.Logger
+	address *types.Address
+	uAccess *model.UAccess
 
 	//blockQueue *BlockQueue
 	priorityFromQueue *PriorityFromQueue
@@ -59,7 +61,7 @@ func (w *AutoReceiveWorker) Start() {
 		w.status = Start
 		w.statusMutex.Unlock()
 
-		w.dbAccess.AddCommonTxLis(w.address, func() {
+		w.uAccess.AddCommonTxLis(w.address, func() {
 			w.NewUnconfirmedTxAlarm()
 		})
 
@@ -78,7 +80,7 @@ func (w *AutoReceiveWorker) Stop() {
 		w.breaker <- struct{}{}
 		close(w.breaker)
 
-		w.dbAccess.RemoveCommonTxLis(w.address)
+		w.uAccess.RemoveCommonTxLis(w.address)
 		close(w.newUnconfirmedTxAlarm)
 
 		// make sure we can stop the worker
@@ -142,7 +144,7 @@ END:
 }
 
 func (w *AutoReceiveWorker) FetchNew() {
-	blockList, err := w.dbAccess.GetUnconfirmedBlocks(0, 1, COMMON_FETCH_SIZE, w.address)
+	blockList, err := w.uAccess.GetUnconfirmedBlocks(0, 1, COMMON_FETCH_SIZE, w.address)
 	if err != nil {
 		w.log.Error("CommonTxWorker.FetchNew.GetUnconfirmedBlocks", "error", err)
 		return
@@ -152,7 +154,7 @@ func (w *AutoReceiveWorker) FetchNew() {
 	}
 }
 
-func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *unconfirmed.AccountBlock) {
+func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 	// todo 1.ExistInPool
 
 	//todo 2.PackReceiveBlock
@@ -167,7 +169,7 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *unconfirmed.AccountBlock)
 	}
 }
 
-func (w *AutoReceiveWorker) PackReceiveBlock(sendBlock *unconfirmed.AccountBlock) *unconfirmed.AccountBlock {
+func (w *AutoReceiveWorker) PackReceiveBlock(sendBlock *ledger.AccountBlock) *ledger.AccountBlock {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Running {
@@ -175,28 +177,31 @@ func (w *AutoReceiveWorker) PackReceiveBlock(sendBlock *unconfirmed.AccountBlock
 	}
 
 	w.log.Info("PackReceiveBlock", "sendBlock",
-		w.log.New("sendBlock.Hash", sendBlock.Hash), w.log.New("sendBlock.To", sendBlock.To))
+		w.log.New("sendBlock.Hash", sendBlock.Hash), w.log.New("sendBlock.To", sendBlock.ToAddress))
 
 	// todo pack the block with w.args, comput hash, Sign,
-	block := &unconfirmed.AccountBlock{
-		From:            nil,
-		To:              nil,
-		Height:          nil,
-		Type:            0,
-		PrevHash:        nil,
-		FromHash:        nil,
-		Amount:          nil,
-		TokenId:         nil,
-		CreateFee:       nil,
-		Data:            nil,
-		StateHash:       types.Hash{},
-		SummaryHashList: nil,
-		LogHash:         types.Hash{},
-		SnapshotHash:    types.Hash{},
-		Depth:           0,
-		Quota:           0,
-		Hash:            nil,
-		Balance:         nil,
+	block := &ledger.AccountBlock{
+		Meta:              nil,
+		BlockType:         0,
+		Hash:              nil,
+		Height:            nil,
+		PrevHash:          nil,
+		AccountAddress:    nil,
+		PublicKey:         nil,
+		ToAddress:         nil,
+		FromBlockHash:     nil,
+		Amount:            nil,
+		TokenId:           nil,
+		QuotaFee:          nil,
+		ContractFee:       nil,
+		SnapshotHash:      nil,
+		Data:              "",
+		Timestamp:         0,
+		StateHash:         nil,
+		LogHash:           nil,
+		Nonce:             nil,
+		SendBlockHashList: nil,
+		Signature:         nil,
 	}
 
 	hash, err := block.ComputeHash()
@@ -209,6 +214,6 @@ func (w *AutoReceiveWorker) PackReceiveBlock(sendBlock *unconfirmed.AccountBlock
 	return block
 }
 
-func (w *AutoReceiveWorker) InertBlockIntoPool(recvBlock *unconfirmed.AccountBlock) error {
+func (w *AutoReceiveWorker) InertBlockIntoPool(recvBlock *ledger.AccountBlock) error {
 	return nil
 }
