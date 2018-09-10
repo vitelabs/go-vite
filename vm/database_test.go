@@ -175,3 +175,72 @@ func (db *NoDatabase) AddLog(log *Log) {
 func (db *NoDatabase) LogListHash() types.Hash {
 	return util.EmptyHash
 }
+
+func (db *NoDatabase) GetPledgeAmount(beneficial types.Address) *big.Int {
+	data := db.storageMap[AddressPledge][types.DataHash(beneficial.Bytes())]
+	if len(data) > 0 {
+		paramBeneficialAmount := new(VariablePledgeBeneficial)
+		ABI_pledge.UnpackVariable(paramBeneficialAmount, VariableNamePledgeBeneficial, data)
+		return paramBeneficialAmount.Amount
+	} else {
+		return big.NewInt(0)
+	}
+}
+
+func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, hash12 types.Hash, snapshot2 *NoSnapshotBlock, timestamp int64) {
+	addr1, _ = types.BytesToAddress(util.HexToBytes("CA35B7D915458EF540ADE6068DFE2F44E8FA733C"))
+	db = NewNoDatabase()
+	db.tokenMap[util.ViteTokenTypeId] = VmToken{tokenId: util.ViteTokenTypeId, tokenName: "ViteToken", owner: addr1, totalSupply: viteTotalSupply, decimals: 18}
+
+	timestamp = 1536214502
+	snapshot1 := &NoSnapshotBlock{height: big.NewInt(1), timestamp: timestamp - 1, hash: types.DataHash([]byte{10, 1})}
+	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
+	snapshot2 = &NoSnapshotBlock{height: big.NewInt(2), timestamp: timestamp, hash: types.DataHash([]byte{10, 2})}
+	db.snapshotBlockList = append(db.snapshotBlockList, snapshot2)
+
+	hash11 := types.DataHash([]byte{1, 1})
+	block11 := &NoAccountBlock{
+		height:         big.NewInt(1),
+		toAddress:      addr1,
+		accountAddress: addr1,
+		blockType:      BlockTypeSendCall,
+		amount:         viteTotalSupply,
+		tokenId:        util.ViteTokenTypeId,
+		snapshotHash:   snapshot1.Hash(),
+		depth:          1,
+	}
+	db.accountBlockMap[addr1] = make(map[types.Hash]VmAccountBlock)
+	db.accountBlockMap[addr1][hash11] = block11
+	hash12 = types.DataHash([]byte{1, 2})
+	block12 := &NoAccountBlock{
+		height:         big.NewInt(2),
+		toAddress:      addr1,
+		accountAddress: addr1,
+		fromBlockHash:  hash11,
+		blockType:      BlockTypeReceive,
+		prevHash:       hash11,
+		amount:         viteTotalSupply,
+		tokenId:        util.ViteTokenTypeId,
+		snapshotHash:   snapshot1.Hash(),
+		depth:          1,
+	}
+	db.accountBlockMap[addr1][hash12] = block12
+
+	db.balanceMap[addr1] = make(map[types.TokenTypeId]*big.Int)
+	db.balanceMap[addr1][util.ViteTokenTypeId] = new(big.Int).Set(db.tokenMap[util.ViteTokenTypeId].totalSupply)
+
+	db.storageMap[AddressConsensusGroup] = make(map[types.Hash][]byte)
+	db.storageMap[AddressConsensusGroup][types.DataHash(util.SnapshotGid.Bytes())], _ = ABI_consensusGroup.PackVariable(VariableNameConsensusGroupInfo,
+		uint8(25),
+		int64(3),
+		uint8(1),
+		util.LeftPadBytes(util.ViteTokenTypeId.Bytes(), 32),
+		uint8(1),
+		util.JoinBytes(util.LeftPadBytes(registerAmount.Bytes(), 32), util.LeftPadBytes(util.ViteTokenTypeId.Bytes(), 32), util.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), 32)),
+		uint8(1),
+		[]byte{})
+
+	db.storageMap[AddressPledge] = make(map[types.Hash][]byte)
+	db.storageMap[AddressPledge][types.DataHash(addr1.Bytes())], _ = ABI_pledge.PackVariable(VariableNamePledgeBeneficial, big.NewInt(1e18))
+	return
+}

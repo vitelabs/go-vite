@@ -23,6 +23,7 @@ type NoAccountBlock struct {
 	snapshotHash      types.Hash
 	depth             uint64
 	quota             uint64
+	nonce             []byte
 }
 
 func CreateNoAccountBlock(accountAddress, toAddress types.Address, blockType, depth uint64) VmAccountBlock {
@@ -65,6 +66,7 @@ func (b *NoAccountBlock) Depth() uint64                           { return b.dep
 func (b *NoAccountBlock) SetDepth(depth uint64)                   { b.depth = depth }
 func (b *NoAccountBlock) Quota() uint64                           { return b.quota }
 func (b *NoAccountBlock) SetQuota(quota uint64)                   { b.quota = quota }
+func (b *NoAccountBlock) Nonce() []byte                           { return b.nonce }
 func (b *NoAccountBlock) SummaryHash() types.Hash {
 	// hash of from + to + data + amount + tokenId + depth + height + txType
 	var buf = make([]byte, 8)

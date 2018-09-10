@@ -2,11 +2,6 @@ package vm
 
 import "math/big"
 
-var (
-	ContractFeeMin = big.NewInt(0)
-	ContractFeeMax = big.NewInt(100)
-)
-
 const (
 	quickStepGas          uint64 = 2
 	fastestStepGas        uint64 = 3
@@ -66,6 +61,8 @@ const (
 	cgIntervalMin  int64 = 1
 	cgIntervalMax  int64 = 60
 
+	quotaForPoW uint64 = 21000
+
 	//GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
 	//MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.
 	//GenesisGasLimit      uint64 = 4712388 // Gas limit of the Genesis block.
@@ -97,6 +94,12 @@ const (
 )
 
 var (
+	contractFeeMin = big.NewInt(0)
+	contractFeeMax = big.NewInt(1e18)
+	mintageFee     = big.NewInt(1e18)
+
+	quotaByCreateFeeAttov   = big.NewInt(1e9)
+	quotaByPledge           = big.NewInt(1e9)
 	rewardHeightLimit       = big.NewInt(50)
 	rewardGapLimit          = big.NewInt(30000000)
 	rewardPerBlock          = attovPerVite

@@ -1,5 +1,11 @@
 package vm
 
+var (
+	DataResultPrefixSuccess = []byte{0}
+	DataResultPrefixRevert  = []byte{1}
+	DataResultPrefixFail    = []byte{2}
+)
+
 func useQuota(quota, cost uint64) (uint64, error) {
 	if quota < cost {
 		return 0, ErrOutOfQuota

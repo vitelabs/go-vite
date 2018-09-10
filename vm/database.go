@@ -42,4 +42,6 @@ type VmDatabase interface {
 
 	AddLog(*Log)
 	LogListHash() types.Hash
+
+	GetPledgeAmount(beneficial types.Address) *big.Int
 }

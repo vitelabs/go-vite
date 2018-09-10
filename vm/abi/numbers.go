@@ -19,7 +19,7 @@ var (
 	int32T    = reflect.TypeOf(int32(0))
 	int64T    = reflect.TypeOf(int64(0))
 	addressT  = reflect.TypeOf(types.Address{})
-	gidT      = reflect.TypeOf(types.Gid{}) // TODO
+	gidT      = reflect.TypeOf(types.Gid{})
 	tokenIdT  = reflect.TypeOf(types.TokenTypeId{})
 )
 

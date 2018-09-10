@@ -354,21 +354,28 @@ func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract)
 }
 
 func (vm *VM) calcCreateQuota(fee *big.Int) uint64 {
-	// TODO calculate quota for create contract receive transaction
+	quota := new(big.Int).Div(fee, quotaByCreateFeeAttov)
+	if quota.IsUint64() {
+		return util.Min(quotaLimitForTransaction, quota.Uint64())
+	}
 	return quotaLimitForTransaction
 }
 
-func (vm *VM) quotaLeft(addr types.Address, block VmAccountBlock) (quotaInit, quotaAddition uint64) {
-	// TODO calculate quota, use max for test
-	// TODO calculate quota addition
-	quotaInit = quotaLimit
-	quotaAddition = 0
+func (vm *VM) quotaLeft(addr types.Address, block VmAccountBlock) (uint64, uint64) {
+	// quotaInit = pledge amount of account address at current snapshot block status(attov) / quotaByPledge
+	// get extra quota if calc PoW before a send transaction
+	quotaInit := util.Min(new(big.Int).Div(vm.Db.GetPledgeAmount(addr), quotaByPledge).Uint64(), quotaLimit)
+	quotaAddition := uint64(0)
+	if len(block.Nonce()) > 0 {
+		quotaAddition = quotaForPoW
+	}
 	prevHash := block.PrevHash()
 	for {
 		prevBlock := vm.Db.AccountBlock(addr, prevHash)
 		if prevBlock != nil && bytes.Equal(block.SnapshotHash().Bytes(), prevBlock.SnapshotHash().Bytes()) {
-			// quick fail
-			if prevBlock.BlockType() == BlockTypeReceiveError {
+			// quick fail on a receive error block referencing to the same snapshot block
+			// only one block gets extra quota when referencing to the same snapshot block
+			if prevBlock.BlockType() == BlockTypeReceiveError || (len(prevBlock.Nonce()) > 0 && len(block.Nonce()) > 0) {
 				return 0, 0
 			}
 			quotaInit = quotaInit - prevBlock.Quota()
@@ -388,8 +395,15 @@ func (vm *VM) quotaLeft(addr types.Address, block VmAccountBlock) (quotaInit, qu
 func (vm *VM) updateBlock(block VmAccountBlock, addr types.Address, err error, quota uint64, result []byte) {
 	block.SetQuota(quota)
 	if block.BlockType() == BlockTypeReceive || block.BlockType() == BlockTypeReceiveError {
-		// TODO data = fixed byte of err + result
-		block.SetData(result)
+		// data = fixed byte of execution result + result
+		if err == nil {
+			block.SetData(append(DataResultPrefixSuccess, result...))
+		} else if err == ErrExecutionReverted {
+			block.SetData(append(DataResultPrefixRevert, result...))
+		} else {
+			block.SetData(append(DataResultPrefixFail, result...))
+		}
+
 		block.SetStateHash(vm.Db.StorageHash(addr))
 		block.SetLogListHash(vm.Db.LogListHash())
 		if err == ErrOutOfQuota {
@@ -472,12 +486,11 @@ func (vm *VM) checkToken(data []byte) error {
 }
 
 func checkContractFee(fee *big.Int) bool {
-	return ContractFeeMin.Cmp(fee) <= 0 && ContractFeeMax.Cmp(fee) >= 0
+	return contractFeeMin.Cmp(fee) <= 0 && contractFeeMax.Cmp(fee) >= 0
 }
 
 func calcMintageFee(data []byte) (*big.Int, error) {
-	// TODO calculate mintage fee
-	return util.Big0, nil
+	return mintageFee, nil
 }
 
 func quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {

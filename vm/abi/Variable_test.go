@@ -277,7 +277,6 @@ func TestVariableTuple(t *testing.T) {
 	}}
 
 	for _, tc := range testCases {
-		// TODO
 		assert := assert.New(t)
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {

@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"testing"
-	"time"
 )
 
 func TestGetTokenInfo(t *testing.T) {
@@ -37,57 +36,8 @@ func TestGetTokenInfo(t *testing.T) {
 
 func TestVmRun(t *testing.T) {
 	// prepare db
-	addr1, _, _ := types.CreateAddress()
-	db := NewNoDatabase()
-	db.tokenMap[util.ViteTokenTypeId] = VmToken{tokenId: util.ViteTokenTypeId, tokenName: "ViteToken", owner: addr1, totalSupply: big.NewInt(1000), decimals: 18}
-
-	timestamp := time.Now().Unix()
-	snapshot1 := &NoSnapshotBlock{height: big.NewInt(1), timestamp: timestamp - 1, hash: types.DataHash([]byte{10, 1})}
-	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
-	snapshot2 := &NoSnapshotBlock{height: big.NewInt(1), timestamp: timestamp, hash: types.DataHash([]byte{10, 2})}
-	db.snapshotBlockList = append(db.snapshotBlockList, snapshot2)
-
-	hash11 := types.DataHash([]byte{1, 1})
-	block11 := &NoAccountBlock{
-		height:         big.NewInt(1),
-		toAddress:      addr1,
-		accountAddress: addr1,
-		blockType:      BlockTypeSendCall,
-		amount:         big.NewInt(1000),
-		tokenId:        util.ViteTokenTypeId,
-		snapshotHash:   snapshot1.Hash(),
-		depth:          1,
-	}
-	db.accountBlockMap[addr1] = make(map[types.Hash]VmAccountBlock)
-	db.accountBlockMap[addr1][hash11] = block11
-	hash12 := types.DataHash([]byte{1, 2})
-	block12 := &NoAccountBlock{
-		height:         big.NewInt(2),
-		toAddress:      addr1,
-		accountAddress: addr1,
-		fromBlockHash:  hash11,
-		blockType:      BlockTypeReceive,
-		prevHash:       hash11,
-		amount:         big.NewInt(1000),
-		tokenId:        util.ViteTokenTypeId,
-		snapshotHash:   snapshot1.Hash(),
-		depth:          1,
-	}
-	db.accountBlockMap[addr1][hash12] = block12
-
-	db.balanceMap[addr1] = make(map[types.TokenTypeId]*big.Int)
-	db.balanceMap[addr1][util.ViteTokenTypeId] = db.tokenMap[util.ViteTokenTypeId].totalSupply
-
-	db.storageMap[AddressConsensusGroup] = make(map[types.Hash][]byte)
-	db.storageMap[AddressConsensusGroup][types.DataHash(util.SnapshotGid.Bytes())], _ = ABI_consensusGroup.PackVariable(VariableNameConsensusGroupInfo,
-		uint8(25),
-		int64(3),
-		uint8(1),
-		util.LeftPadBytes(util.ViteTokenTypeId.Bytes(), 32),
-		uint8(1),
-		util.JoinBytes(util.LeftPadBytes(registerAmount.Bytes(), 32), util.LeftPadBytes(util.ViteTokenTypeId.Bytes(), 32), util.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), 32)),
-		uint8(1),
-		[]byte{})
+	viteTotalSupply := big.NewInt(6e18)
+	db, addr1, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
 
 	/*
 	* contract code
@@ -108,10 +58,10 @@ func TestVmRun(t *testing.T) {
 		accountAddress: addr1,
 		blockType:      BlockTypeSendCreate,
 		prevHash:       hash12,
-		amount:         big.NewInt(10),
+		amount:         big.NewInt(1e18),
 		tokenId:        util.ViteTokenTypeId,
 		snapshotHash:   snapshot2.Hash(),
-		createFee:      big.NewInt(10),
+		createFee:      big.NewInt(1e18),
 		depth:          1,
 		data:           data13,
 	}
@@ -122,13 +72,15 @@ func TestVmRun(t *testing.T) {
 		isRetry ||
 		err != nil ||
 		sendCreateBlockList[0].Quota() != 28936 ||
-		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(big.NewInt(980)) != 0 {
+		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(big.NewInt(4e18)) != 0 {
 		t.Fatalf("send create transaction error")
 	}
 	db.accountBlockMap[addr1][hash13] = sendCreateBlockList[0]
 
 	// receive create
 	addr2 := sendCreateBlockList[0].ToAddress()
+	db.storageMap[AddressPledge][types.DataHash(addr2.Bytes())], _ = ABI_pledge.PackVariable(VariableNamePledgeBeneficial, big.NewInt(1e18))
+
 	hash21 := types.DataHash([]byte{2, 1})
 	block21 := &NoAccountBlock{
 		height:         big.NewInt(1),
@@ -144,7 +96,7 @@ func TestVmRun(t *testing.T) {
 	receiveCreateBlockList, isRetry, err := vm.Run(block21)
 	if len(receiveCreateBlockList) != 1 || isRetry || err != nil ||
 		receiveCreateBlockList[0].Quota() != 0 ||
-		db.balanceMap[addr2][util.ViteTokenTypeId].Cmp(big.NewInt(10)) != 0 {
+		db.balanceMap[addr2][util.ViteTokenTypeId].Cmp(big.NewInt(1e18)) != 0 {
 		t.Fatalf("receive create transaction error")
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]VmAccountBlock)
@@ -159,7 +111,7 @@ func TestVmRun(t *testing.T) {
 		toAddress:      addr2,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash13,
-		amount:         big.NewInt(20),
+		amount:         big.NewInt(1e18),
 		tokenId:        util.ViteTokenTypeId,
 		snapshotHash:   snapshot2.Hash(),
 		depth:          1,
@@ -170,7 +122,7 @@ func TestVmRun(t *testing.T) {
 	sendCallBlockList, isRetry, err := vm.Run(block14)
 	if len(sendCallBlockList) != 1 || isRetry || err != nil ||
 		sendCallBlockList[0].Quota() != 21464 ||
-		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(big.NewInt(960)) != 0 {
+		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(big.NewInt(3e18)) != 0 {
 		t.Fatalf("send call transaction error")
 	}
 	db.accountBlockMap[addr1][hash14] = sendCallBlockList[0]
@@ -192,7 +144,7 @@ func TestVmRun(t *testing.T) {
 	receiveCallBlockList, isRetry, err := vm.Run(block22)
 	if len(receiveCallBlockList) != 1 || isRetry || err != nil ||
 		receiveCallBlockList[0].Quota() != 41330 ||
-		db.balanceMap[addr2][util.ViteTokenTypeId].Cmp(big.NewInt(30)) != 0 {
+		db.balanceMap[addr2][util.ViteTokenTypeId].Cmp(big.NewInt(2e18)) != 0 {
 		t.Fatalf("receive call transaction error")
 	}
 	db.accountBlockMap[addr2][hash22] = receiveCallBlockList[0]
@@ -206,7 +158,7 @@ func TestVmRun(t *testing.T) {
 		toAddress:      addr2,
 		blockType:      BlockTypeSendMintage,
 		prevHash:       hash14,
-		amount:         big.NewInt(1000),
+		amount:         big.NewInt(1e18),
 		snapshotHash:   snapshot2.Hash(),
 		depth:          1,
 		data:           data15,
@@ -216,8 +168,8 @@ func TestVmRun(t *testing.T) {
 	sendMintageBlockList, isRetry, err := vm.Run(block15)
 	if len(sendMintageBlockList) != 1 || isRetry || err != nil ||
 		sendMintageBlockList[0].Quota() != 22152 ||
-		sendMintageBlockList[0].CreateFee().Cmp(big.NewInt(0)) != 0 ||
-		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(big.NewInt(960)) != 0 {
+		sendMintageBlockList[0].CreateFee().Cmp(big.NewInt(1e18)) != 0 ||
+		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(big.NewInt(2e18)) != 0 {
 		t.Fatalf("send mintage transaction error")
 	}
 	db.accountBlockMap[addr1][hash15] = sendMintageBlockList[0]
@@ -240,8 +192,8 @@ func TestVmRun(t *testing.T) {
 	receiveMintageBlockList, isRetry, err := vm.Run(block23)
 	if len(receiveMintageBlockList) != 1 || isRetry || err != nil ||
 		receiveMintageBlockList[0].Quota() != 21000 ||
-		db.balanceMap[addr2][util.ViteTokenTypeId].Cmp(big.NewInt(30)) != 0 ||
-		db.balanceMap[addr2][myTokenId].Cmp(big.NewInt(1000)) != 0 {
+		db.balanceMap[addr2][util.ViteTokenTypeId].Cmp(big.NewInt(2e18)) != 0 ||
+		db.balanceMap[addr2][myTokenId].Cmp(big.NewInt(1e18)) != 0 {
 		t.Fatalf("receive mintage transaction error")
 	}
 	db.accountBlockMap[addr2][hash23] = receiveMintageBlockList[0]
@@ -255,7 +207,7 @@ func TestVmRun(t *testing.T) {
 		toAddress:      addr2,
 		blockType:      BlockTypeSendCall,
 		prevHash:       hash15,
-		amount:         big.NewInt(970),
+		amount:         big.NewInt(3e18),
 		tokenId:        util.ViteTokenTypeId,
 		snapshotHash:   snapshot2.Hash(),
 		depth:          1,
