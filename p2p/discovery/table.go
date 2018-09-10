@@ -16,179 +16,155 @@ var discvLog = log15.New("module", "p2p/discv")
 
 const K = 16
 const N = 17
-const Candidates = 10
+const alpha = 3
 const minDistance = 239
+const maxFindFails = 5
 
 type bucket struct {
-	nodes      []*Node
-	candidates []*Node
+	lock   sync.RWMutex
+	list   [K]*Node
+	length int
 }
 
-func NewBucket() *bucket {
-	return &bucket{
-		nodes:      make([]*Node, 0, K),
-		candidates: make([]*Node, 0, Candidates),
+// if n exists in b.nodes, move n to tail, return nil
+// if b.nodes is not full, add n at tail, return nil
+// return the head item, to ping-pong checked.
+func (b *bucket) add(node *Node) (toCheck *Node) {
+	if node == nil {
+		return
+	}
+
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if b.contains(node) {
+		return
+	}
+
+	if b.length < K {
+		b.list[b.length] = node
+		b.length++
+		return
+	}
+
+	for i := 0; i < b.length; i++ {
+		n := b.list[i]
+		// move to tail
+		if n.ID == node.ID {
+			for j := i; j < b.length-2; j++ {
+				b.list[j] = b.list[j+1]
+			}
+			b.list[b.length-1] = node
+			return
+		}
+	}
+
+	return b.list[0]
+}
+
+func (b *bucket) replace(old, new *Node) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	var n *Node
+	for i := 0; i < b.length; i++ {
+		n = b.list[i]
+		if n.ID == old.ID {
+			b.list[i] = new
+			return
+		}
 	}
 }
 
-// if n exists in b.nodes, move n to head, return true.
-// if b.nodes is not full, set n to the first item, return true.
-// if consider n as a candidate, then unshift n to b.candidates.
-// return false.
-func (b *bucket) check(n *Node) bool {
-	if n == nil {
-		return false
+// replace the oldest one with node
+func (b *bucket) update(node *Node, oldest *Node) {
+	if node == nil || oldest == nil {
+		return
 	}
 
-	var i = 0
-	for i, node := range b.nodes {
-		if node == nil {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if b.oldest().ID != oldest.ID {
+		return
+	}
+
+	b.list[b.length-1] = node
+}
+
+func (b *bucket) oldest() *Node {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
+	return b.list[0]
+}
+
+func (b *bucket) remove(node *Node) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	var n *Node
+	for i := 0; i < b.length; i++ {
+		n = b.list[i]
+		if n.ID == node.ID {
+			for j := i; j < b.length-1; j++ {
+				b.list[j] = b.list[j+1]
+			}
+			b.length--
+			b.list[b.length] = nil
 			break
 		}
-		// if n exists in b, then move n to head.
-		if node.ID == n.ID {
-			for j := i; j > 0; j-- {
-				b.nodes[j] = b.nodes[j-1]
-			}
-			b.nodes[0] = n
+	}
+}
+
+func (b *bucket) nodes() []*Node {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
+	return b.list[:b.length]
+}
+
+func (b *bucket) contains(node *Node) bool {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
+	for _, n := range b.list {
+		if n.ID == node.ID {
 			return true
 		}
 	}
 
-	// if nodes is not full, set n to the first item
-	if i < cap(b.nodes) {
-		b.nodes = unshiftNode(b.nodes, n)
-		b.candidates = removeNode(b.candidates, n)
-		return true
-	}
-
 	return false
-}
-func (b *bucket) checkOrCandidate(n *Node) {
-	used := b.check(n)
-	if !used {
-		b.candidates = unshiftNode(b.candidates, n)
-	}
-}
-
-// obsolete the last node in b.nodes and return replacer.
-func (b *bucket) obsolete(last *Node) *Node {
-	if len(b.nodes) == 0 || b.nodes[len(b.nodes)-1].ID != last.ID {
-		return nil
-	}
-	if len(b.candidates) == 0 {
-		b.nodes = b.nodes[:len(b.nodes)-1]
-		return nil
-	}
-
-	candidate := b.candidates[0]
-	b.candidates = b.candidates[1:]
-	b.nodes[len(b.nodes)-1] = candidate
-	return candidate
-}
-
-func (b *bucket) remove(n *Node) {
-	b.nodes = removeNode(b.nodes, n)
-}
-
-func removeNode(nodes []*Node, node *Node) []*Node {
-	if node == nil {
-		return nodes
-	}
-
-	for i, n := range nodes {
-		if n != nil && n.ID == node.ID {
-			return append(nodes[:i], nodes[i+1:]...)
-		}
-	}
-	return nodes
-}
-
-// put node at first place of nodes without increase capacity, return the obsolete node.
-func unshiftNode(nodes []*Node, node *Node) []*Node {
-	if node == nil {
-		return nil
-	}
-
-	// if node exist in nodes, then move to first.
-	i := 0
-	for _, n := range nodes {
-		i++
-		if n != nil && n.ID == node.ID {
-			nodes[0], nodes[i] = nodes[i], nodes[0]
-			return nodes
-		}
-	}
-
-	// i equals len(nodes)
-	if i < cap(nodes) {
-		return append([]*Node{node}, nodes...)
-	}
-
-	// nodes is full, obsolete the last one.
-	for i = i - 1; i > 0; i-- {
-		nodes[i] = nodes[i-1]
-	}
-	nodes[0] = node
-	return nodes
 }
 
 // @section table
-
-const dbCurrentVersion = 1
-const seedCount = 30
-const alpha = 3
-
-var refreshDuration = 30 * time.Minute
-var storeDuration = 5 * time.Minute
-var checkInterval = 3 * time.Minute
-var watingTimeout = 2 * time.Minute // watingTimeout must be enough little, at least than checkInterval
-var pingPongExpiration = 10 * time.Minute
-
-type agent interface {
-	ping(*Node) error
-	findnode(NodeID, *Node) ([]*Node, error)
-	close()
-}
+const seedCount = 20
+const seedMaxAge = 7 * 24 * time.Hour
+const minPingInterval = 3 * time.Minute
 
 type table struct {
 	mutex     sync.RWMutex
 	buckets   [N]*bucket
 	bootNodes []*Node
-	db        *nodeDB
-	agent     agent
-	self      *Node
+	self      NodeID
 	rand      *mrand.Rand
-	stopped   chan struct{}
-	log       log15.Logger
 }
 
-func newTable(self *Node, agt agent, dbPath string, bootNodes []*Node) error {
-	nodeDB, err := newDB(dbPath, dbCurrentVersion, self.ID)
-	if err != nil {
-		return err
-	}
-
-	tb := &table{
+func newTable(self NodeID, bootNodes []*Node) *table {
+	tab := &table{
 		self:      self,
-		db:        nodeDB,
-		agent:     agt,
 		bootNodes: bootNodes,
 		rand:      mrand.New(mrand.NewSource(0)),
-		stopped:   make(chan struct{}),
-		log:       log15.New("module", "discv/table"),
 	}
 
 	// init buckets
-	for i, _ := range tb.buckets {
-		tb.buckets[i] = NewBucket()
+	for i, _ := range tab.buckets {
+		tab.buckets[i] = &bucket{}
 	}
 
-	tb.resetRand()
+	tab.resetRand()
 
-	go tb.loop()
-
-	return nil
+	return tab
 }
 
 func (tb *table) resetRand() {
@@ -200,110 +176,70 @@ func (tb *table) resetRand() {
 	tb.mutex.Unlock()
 }
 
-func (tb *table) loadSeedNodes() {
-	nodes := tb.db.randomNodes(seedCount)
-	nodes = append(nodes, tb.bootNodes...)
-	tb.log.Info("discover table load seed nodes", "size", len(nodes))
-
-	for _, node := range nodes {
-		tb.addNode(node)
-	}
-}
-
-func (tb *table) readRandomNodes(ret []*Node) (n int) {
+func (tb *table) randomNodes(dest []*Node) (count int) {
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
 
-	var allUsedNodes [][]*Node
+	var allNodes [][]*Node
 	for _, b := range tb.buckets {
-		if len(b.nodes) > 0 {
-			allUsedNodes = append(allUsedNodes, b.nodes[:])
+		if b.length > 0 {
+			allNodes = append(allNodes, b.list[:b.length])
 		}
 	}
 
-	if len(allUsedNodes) == 0 {
+	if len(allNodes) == 0 {
 		return 0
 	}
 
-	for i := 0; i < len(allUsedNodes); i++ {
-		j := tb.rand.Intn(len(allUsedNodes))
-		allUsedNodes[i], allUsedNodes[j] = allUsedNodes[j], allUsedNodes[i]
+	// shuffle
+	for i := 0; i < len(allNodes); i++ {
+		j := tb.rand.Intn(len(allNodes))
+		allNodes[i], allNodes[j] = allNodes[j], allNodes[i]
 	}
 
-	for n, j := 0, 0; n < len(ret); n, j = n+1, (j+1)%len(allUsedNodes) {
-		b := allUsedNodes[j]
-		ret[n] = &(*b[0])
+	for j := 0; count < len(dest); j = (j + 1) % len(allNodes) {
+		b := allNodes[j]
+		dest[count] = b[len(b)-1]
+		count++
+
 		if len(b) == 1 {
-			allUsedNodes = append(allUsedNodes[:j], allUsedNodes[j+1:]...)
+			allNodes = append(allNodes[:j], allNodes[j+1:]...)
 		} else {
-			allUsedNodes[j] = b[1:]
+			allNodes[j] = b[:len(b)-1]
 		}
-		if len(allUsedNodes) == 0 {
+		if len(allNodes) == 0 {
 			break
 		}
 	}
 
-	return n + 1
-}
-
-func (tb *table) loop() {
-	checkTicker := time.NewTicker(checkInterval)
-	refreshTimer := time.NewTimer(refreshDuration)
-	storeTimer := time.NewTimer(storeDuration)
-
-	defer checkTicker.Stop()
-	defer refreshTimer.Stop()
-	defer storeTimer.Stop()
-
-	refreshDone := make(chan struct{})
-	storeDone := make(chan struct{})
-
-	// initial refresh
-	go tb.refresh(refreshDone)
-
-loop:
-	for {
-		select {
-		case <-refreshTimer.C:
-			go tb.refresh(refreshDone)
-		case <-refreshDone:
-			refreshTimer.Reset(refreshDuration)
-
-		case <-checkTicker.C:
-			go tb.checkLastNode()
-
-		case <-storeTimer.C:
-			go tb.storeNodes(storeDone)
-		case <-storeDone:
-			storeTimer.Reset(storeDuration)
-		case <-tb.stopped:
-			break loop
-		}
-	}
-
-	if tb.agent != nil {
-		tb.agent.close()
-	}
-
-	tb.db.close()
+	return
 }
 
 func (tb *table) addNode(node *Node) {
 	if node == nil {
 		return
 	}
-	if node.ID == tb.self.ID {
+	if node.ID == tb.self {
 		return
 	}
 
-	tb.mutex.Lock()
-	defer tb.mutex.Unlock()
-
 	bucket := tb.getBucket(node.ID)
-	bucket.checkOrCandidate(node)
+	// todo check
+	bucket.add(node)
 }
+
+func (tb *table) replaceNode(old, new *Node) {
+
+}
+
+func (tb *table) addNodes(nodes []*Node) {
+	for _, n := range nodes {
+		tb.addNode(n)
+	}
+}
+
 func (tb *table) getBucket(id NodeID) *bucket {
-	d := calcDistance(tb.self.ID, id)
+	d := calcDistance(tb.self, id)
 	if d <= minDistance {
 		return tb.buckets[0]
 	}
@@ -311,176 +247,78 @@ func (tb *table) getBucket(id NodeID) *bucket {
 }
 
 func (tb *table) delete(node *Node) {
-	tb.mutex.Lock()
-	defer tb.mutex.Unlock()
-
 	bucket := tb.getBucket(node.ID)
 	bucket.remove(node)
 }
 
-func (tb *table) checkLastNode() {
-	last, bucket := tb.pickLastNode()
-	if last == nil {
+func (tb *table) findNeighbors(target NodeID) []*Node {
+	neighbors := &neighbors{pivot: target}
+
+	tb.traverse(func(n *Node) {
+		neighbors.push(n, K)
+	})
+
+	return neighbors.nodes
+}
+
+func (tb *table) traverse(fn func(*Node)) {
+	for _, b := range tb.buckets {
+		for _, n := range b.nodes() {
+			fn(n)
+		}
+	}
+}
+
+func (tb *table) pickOldest() (n *Node) {
+	now := time.Now()
+
+	for i := range tb.rand.Perm(N) {
+		b := tb.buckets[i]
+		n = b.oldest()
+
+		if n == nil {
+			continue
+		}
+
+		if now.Sub(n.lastPing) < minPingInterval {
+			continue
+		}
+
 		return
 	}
 
-	err := tb.agent.ping(last)
-
-	if err != nil {
-		tb.log.Info("obsolete node", "ID", last.ID, "error", err)
-		bucket.obsolete(last)
-	} else {
-		bucket.check(last)
-	}
-}
-
-func (tb *table) pickLastNode() (*Node, *bucket) {
-	tb.mutex.Lock()
-	defer tb.mutex.Unlock()
-
-	for _, b := range tb.buckets {
-		if len(b.nodes) > 0 {
-			last := b.nodes[len(b.nodes)-1]
-			if time.Now().Sub(last.lastpong) > pingPongExpiration {
-				return last, b
-			}
-		}
-	}
-
-	return nil, nil
-}
-
-func (tb *table) refresh(done chan struct{}) {
-	tb.log.Info("discv table begin refresh")
-
-	tb.loadSeedNodes()
-
-	tb.lookup(tb.self.ID)
-
-	for i := 0; i < 3; i++ {
-		var target NodeID
-		crand.Read(target[:])
-		tb.lookup(target)
-	}
-
-	done <- struct{}{}
-}
-
-func (tb *table) storeNodes(done chan struct{}) {
-	tb.mutex.Lock()
-	defer tb.mutex.Unlock()
-
-	for _, b := range tb.buckets {
-		for _, n := range b.nodes {
-			tb.db.updateNode(n)
-		}
-	}
-
-	done <- struct{}{}
-}
-
-func (tb *table) stop() {
-	tb.log.Info("discv table stop")
-	close(tb.stopped)
-}
-
-func (tb *table) lookup(target NodeID) []*Node {
-	var asked = make(map[NodeID]bool)
-	var seen = make(map[NodeID]bool)
-	var reply = make(chan []*Node, alpha)
-	var queries = 0
-	var result *closest
-
-	for {
-		tb.mutex.Lock()
-		result = tb.closest(target, K)
-		tb.mutex.Unlock()
-
-		if len(result.nodes) > 0 {
-			break
-		}
-
-		time.Sleep(3 * time.Second)
-	}
-
-	asked[tb.self.ID] = true
-
-	for i := 0; i < len(result.nodes); i++ {
-		n := result.nodes[i]
-		if !asked[n.ID] {
-			asked[n.ID] = true
-			go tb.findnode(n, target, reply)
-			queries++
-			if queries >= alpha {
-				// todo: optimize latter
-				time.Sleep(3 * time.Second)
-				queries = 0
-			}
-		}
-	}
-
-	for _, n := range <-reply {
-		if n != nil && !seen[n.ID] {
-			seen[n.ID] = true
-			result.push(n, K)
-		}
-	}
-
-	return result.nodes
-}
-
-func (tb *table) closest(target NodeID, count int) *closest {
-	result := &closest{target: target}
-	for _, b := range tb.buckets {
-		for _, n := range b.nodes {
-			result.push(n, count)
-		}
-	}
-	return result
-}
-
-func (tb *table) findnode(n *Node, targetID NodeID, reply chan<- []*Node) {
-	nodes, err := tb.agent.findnode(targetID, n)
-
-	if err != nil || len(nodes) == 0 {
-		tb.delete(n)
-	}
-
-	for _, n := range nodes {
-		tb.addNode(n)
-	}
-
-	reply <- nodes
+	return
 }
 
 // @section closet
 // closest nodes to the target NodeID
-type closest struct {
-	nodes  []*Node
-	target NodeID
+type neighbors struct {
+	nodes []*Node
+	pivot NodeID
 }
 
-func (c *closest) push(n *Node, count int) {
+func (c *neighbors) push(n *Node, count int) {
 	if n == nil {
 		return
 	}
 
 	length := len(c.nodes)
-	furtherNodeIndex := sort.Search(length, func(i int) bool {
-		return disCmp(c.target, c.nodes[i].ID, n.ID) > 0
+	// sort.Search may return the index out of range
+	further := sort.Search(length, func(i int) bool {
+		return disCmp(c.pivot, c.nodes[i].ID, n.ID) > 0
 	})
 
 	// closest Nodes list is full.
 	if length >= count {
 		// replace the further one.
-		if furtherNodeIndex < length {
-			c.nodes[furtherNodeIndex] = n
+		if further < length {
+			c.nodes[further] = n
 		}
 	} else {
 		// increase c.nodes length first.
 		c.nodes = append(c.nodes, nil)
 		// insert n to furtherNodeIndex
-		copy(c.nodes[furtherNodeIndex+1:], c.nodes[furtherNodeIndex:])
-		c.nodes[furtherNodeIndex] = n
+		copy(c.nodes[further+1:], c.nodes[further:])
+		c.nodes[further] = n
 	}
 }

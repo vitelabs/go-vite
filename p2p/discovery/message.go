@@ -10,9 +10,20 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/discovery/protos"
 	"net"
+	"time"
 )
 
 const version byte = 1
+
+var expiration = 20 * time.Second
+
+func getExpiration() time.Time {
+	return time.Now().Add(expiration)
+}
+
+func isExpired(t time.Time) bool {
+	return t.Before(time.Now())
+}
 
 type packetCode byte
 
@@ -38,9 +49,7 @@ func (c packetCode) String() string {
 // version(1 byte), code(1 byte), checksum(32 bytes), signature(64 bytes), payload
 // consider varint encoding of protobuf, 1 byte maybe take up 2 bytes after encode.
 // so the payload should be little than 1200 bytes.
-const maxPacketLength = 1400
-
-//const maxPayloadLength = 1200
+const maxPacketLength = 1200
 const maxNeighborsNodes = 10
 
 var errUnmatchedVersion = errors.New("unmatched version")
@@ -48,25 +57,31 @@ var errWrongHash = errors.New("validate packet error: invalid hash")
 var errInvalidSig = errors.New("validate packet error: invalid signature")
 
 type Message interface {
-	getID() NodeID
 	serialize() ([]byte, error)
 	deserialize([]byte) error
-	Pack(ed25519.PrivateKey) ([]byte, types.Hash, error)
-	Handle(*udpAgent, *net.UDPAddr, types.Hash) error
+	pack(ed25519.PrivateKey) ([]byte, types.Hash, error)
+	isExpired() bool
+	sender() NodeID
 }
 
 // message Ping
 type Ping struct {
-	ID NodeID
+	ID         NodeID
+	IP         net.IP
+	Port       uint16
+	Expiration time.Time
 }
 
-func (p *Ping) getID() NodeID {
+func (p *Ping) sender() NodeID {
 	return p.ID
 }
 
 func (p *Ping) serialize() ([]byte, error) {
 	pingpb := &protos.Ping{
-		ID: p.ID[:],
+		ID:         p.ID[:],
+		IP:         p.IP,
+		Port:       uint32(p.Port),
+		Expiration: p.Expiration.Unix(),
 	}
 	return proto.Marshal(pingpb)
 }
@@ -78,10 +93,14 @@ func (p *Ping) deserialize(buf []byte) error {
 		return err
 	}
 	copy(p.ID[:], pingpb.ID)
+	p.IP = pingpb.IP
+	p.Port = uint16(pingpb.Port)
+	p.Expiration = time.Unix(pingpb.Expiration, 0)
+
 	return nil
 }
 
-func (p *Ping) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err error) {
+func (p *Ping) pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err error) {
 	buf, err := p.serialize()
 	if err != nil {
 		return nil, hash, err
@@ -91,38 +110,30 @@ func (p *Ping) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err e
 	return data, hash, nil
 }
 
-func (p *Ping) Handle(d *udpAgent, origin *net.UDPAddr, hash types.Hash) error {
-	discvLog.Info("receive ping ", "from", origin)
-
-	pong := &Pong{
-		ID:   d.ID(),
-		Ping: hash,
-	}
-
-	err := d.send(origin, pongCode, pong)
-	if err != nil {
-		return fmt.Errorf("send pong to %s error: %v\n", origin, err)
-	}
-
-	n := newNode(p.ID, origin.IP, uint16(origin.Port))
-	d.tab.addNode(n)
-	return nil
+func (p *Ping) isExpired() bool {
+	return isExpired(p.Expiration)
 }
 
 // message Pong
 type Pong struct {
-	ID   NodeID
-	Ping types.Hash
+	ID         NodeID
+	Ping       types.Hash
+	IP         net.IP
+	Port       uint16
+	Expiration time.Time
 }
 
-func (p *Pong) getID() NodeID {
+func (p *Pong) sender() NodeID {
 	return p.ID
 }
 
 func (p *Pong) serialize() ([]byte, error) {
 	pongpb := &protos.Pong{
-		ID:   p.ID[:],
-		Ping: p.Ping[:],
+		ID:         p.ID[:],
+		Ping:       p.Ping[:],
+		IP:         p.IP,
+		Port:       uint32(p.Port),
+		Expiration: p.Expiration.Unix(),
 	}
 	return proto.Marshal(pongpb)
 }
@@ -135,10 +146,14 @@ func (p *Pong) deserialize(buf []byte) error {
 	}
 	copy(p.ID[:], pongpb.ID)
 	copy(p.Ping[:], pongpb.Ping)
+	p.IP = pongpb.IP
+	p.Port = uint16(pongpb.Port)
+	p.Expiration = time.Unix(pongpb.Expiration, 0)
+
 	return nil
 }
 
-func (p *Pong) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err error) {
+func (p *Pong) pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err error) {
 	buf, err := p.serialize()
 	if err != nil {
 		return nil, hash, err
@@ -148,24 +163,26 @@ func (p *Pong) Pack(key ed25519.PrivateKey) (data []byte, hash types.Hash, err e
 	return data, hash, nil
 }
 
-func (p *Pong) Handle(d *udpAgent, origin *net.UDPAddr, hash types.Hash) error {
-	discvLog.Info(fmt.Sprintf("receive pong from %s\n", origin))
-	return d.receive(pongCode, p)
+func (p *Pong) isExpired() bool {
+	return isExpired(p.Expiration)
 }
 
+// @message findnode
 type FindNode struct {
-	ID     NodeID
-	Target NodeID
+	ID         NodeID
+	Target     NodeID
+	Expiration time.Time
 }
 
-func (p *FindNode) getID() NodeID {
+func (p *FindNode) sender() NodeID {
 	return p.ID
 }
 
 func (f *FindNode) serialize() ([]byte, error) {
 	findpb := &protos.FindNode{
-		ID:     f.ID[:],
-		Target: f.Target[:],
+		ID:         f.ID[:],
+		Target:     f.Target[:],
+		Expiration: f.Expiration.Unix(),
 	}
 	return proto.Marshal(findpb)
 }
@@ -179,10 +196,12 @@ func (f *FindNode) deserialize(buf []byte) error {
 
 	copy(f.ID[:], findpb.ID)
 	copy(f.Target[:], findpb.Target)
+	f.Expiration = time.Unix(findpb.Expiration, 0)
+
 	return nil
 }
 
-func (p *FindNode) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, err error) {
+func (p *FindNode) pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, err error) {
 	buf, err := p.serialize()
 	if err != nil {
 		return nil, hash, err
@@ -192,43 +211,31 @@ func (p *FindNode) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, 
 	return data, hash, nil
 }
 
-func (p *FindNode) Handle(d *udpAgent, origin *net.UDPAddr, hash types.Hash) error {
-	discvLog.Info(fmt.Sprintf("receive findnode %s from %s\n", p.Target, origin))
-
-	closet := d.tab.closest(p.Target, maxNeighborsNodes)
-
-	err := d.send(origin, neighborsCode, &Neighbors{
-		ID:    d.ID(),
-		Nodes: closet.nodes,
-	})
-
-	if err != nil {
-		discvLog.Info(fmt.Sprintf("send %d neighbors to %s, target: %s, error: %v\n", len(closet.nodes), origin, p.Target, err))
-	} else {
-		discvLog.Info(fmt.Sprintf("send %d neighbors to %s, target: %s\n", len(closet.nodes), origin, p.Target))
-	}
-
-	return err
+func (p *FindNode) isExpired() bool {
+	return isExpired(p.Expiration)
 }
 
+// @message neighbors
 type Neighbors struct {
-	ID    NodeID
-	Nodes []*Node
+	ID         NodeID
+	Nodes      []*Node
+	Expiration time.Time
 }
 
-func (p *Neighbors) getID() NodeID {
+func (p *Neighbors) sender() NodeID {
 	return p.ID
 }
 
 func (n *Neighbors) serialize() ([]byte, error) {
-	nodepbs := make([]*protos.Node, 0, len(n.Nodes))
-	for _, node := range n.Nodes {
-		nodepbs = append(nodepbs, node.toProto())
+	nodepbs := make([]*protos.Node, len(n.Nodes))
+	for i, node := range n.Nodes {
+		nodepbs[i] = node.toProto()
 	}
 
 	neighborspb := &protos.Neighbors{
-		ID:    n.ID[:],
-		Nodes: nodepbs,
+		ID:         n.ID[:],
+		Nodes:      nodepbs,
+		Expiration: n.Expiration.Unix(),
 	}
 	return proto.Marshal(neighborspb)
 }
@@ -241,11 +248,12 @@ func (n *Neighbors) deserialize(buf []byte) error {
 	}
 
 	copy(n.ID[:], neighborspb.ID)
+	n.Expiration = time.Unix(neighborspb.Expiration, 0)
 
-	nodes := make([]*Node, 0, len(neighborspb.Nodes))
+	nodes := make([]*Node, len(neighborspb.Nodes))
 
-	for _, nodepb := range neighborspb.Nodes {
-		nodes = append(nodes, protoToNode(nodepb))
+	for i, nodepb := range neighborspb.Nodes {
+		nodes[i] = protoToNode(nodepb)
 	}
 
 	n.Nodes = nodes
@@ -253,7 +261,7 @@ func (n *Neighbors) deserialize(buf []byte) error {
 	return nil
 }
 
-func (p *Neighbors) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, err error) {
+func (p *Neighbors) pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash, err error) {
 	buf, err := p.serialize()
 	if err != nil {
 		return nil, hash, err
@@ -263,9 +271,8 @@ func (p *Neighbors) Pack(priv ed25519.PrivateKey) (data []byte, hash types.Hash,
 	return data, hash, nil
 }
 
-func (p *Neighbors) Handle(d *udpAgent, origin *net.UDPAddr, hash types.Hash) error {
-	discvLog.Info(fmt.Sprintf("receive %d neighbors from %s\n", len(p.Nodes), p.getID()))
-	return d.receive(neighborsCode, p)
+func (p *Neighbors) isExpired() bool {
+	return isExpired(p.Expiration)
 }
 
 // version code checksum signature payload
@@ -283,44 +290,51 @@ func composePacket(priv ed25519.PrivateKey, code packetCode, payload []byte) (da
 	return data, hash
 }
 
-func unPacket(packet []byte) (m Message, hash types.Hash, err error) {
-	pktVersion := packet[0]
+func unPacket(data []byte) (p *packet, err error) {
+	pktVersion := data[0]
 
 	if pktVersion != version {
-		return nil, hash, fmt.Errorf("unmatched version: %d / %d\n", pktVersion, version)
+		return nil, fmt.Errorf("unmatched version: %d / %d\n", pktVersion, version)
 	}
 
-	pktCode := packetCode(packet[1])
-	pktHash := packet[2:34]
-	payloadWithSig := packet[34:]
-	pktSig := packet[34:98]
-	payload := packet[98:]
+	pktCode := packetCode(data[1])
+	pktHash := data[2:34]
+	payloadWithSig := data[34:]
+	pktSig := data[34:98]
+	payload := data[98:]
 
 	// compare checksum
 	reHash := crypto.Hash(32, payloadWithSig)
 	if !bytes.Equal(reHash, pktHash) {
-		return nil, hash, errWrongHash
+		return nil, errWrongHash
 	}
 
 	// unpack packet to get content and signature
-	m, err = decode(pktCode, payload)
+	m, err := decode(pktCode, payload)
 	if err != nil {
-		return nil, hash, err
+		return
 	}
 
 	// verify signature
-	id := m.getID()
-	pub := id[:]
-	valid, err := crypto.VerifySig(pub, payload, pktSig)
+	id := m.sender()
+	valid, err := crypto.VerifySig(id[:], payload, pktSig)
 	if err != nil {
-		return nil, hash, err
-	}
-	if valid {
-		copy(hash[:], pktHash)
-		return m, hash, nil
+		return
 	}
 
-	return nil, hash, errInvalidSig
+	var hash types.Hash
+	if valid {
+		copy(hash[:], pktHash)
+
+		return &packet{
+			fromID: id,
+			code:   pktCode,
+			hash:   hash,
+			msg:    m,
+		}, nil
+	}
+
+	return nil, errInvalidSig
 }
 
 func decode(code packetCode, payload []byte) (m Message, err error) {

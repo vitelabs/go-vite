@@ -54,8 +54,8 @@ var firmNodes = [...]string{
 type connFlag int
 
 const (
-	dynDialedConn connFlag = 1 << iota
-	inboundConn
+	outbound connFlag = 1 << iota
+	inbound
 )
 
 func (f connFlag) is(f2 connFlag) bool {
@@ -384,7 +384,7 @@ func (svr *Server) handleConn() {
 				}
 				break
 			}
-			go svr.SetupConn(conn, inboundConn)
+			go svr.SetupConn(conn, inbound)
 		case <-svr.stopped:
 			close(svr.pendingPeers)
 		}
@@ -509,7 +509,7 @@ schedule:
 				svr.log.Info("create new peer", "ID", c.id.String())
 				go svr.runPeer(p)
 
-				if c.is(inboundConn) {
+				if c.is(inbound) {
 					passivePeersCount++
 				}
 			} else {
@@ -520,7 +520,7 @@ schedule:
 			delete(peers, p.ID())
 			svr.log.Info("delete peer", "ID", p.ID().String())
 
-			if p.TS.is(inboundConn) {
+			if p.TS.is(inbound) {
 				passivePeersCount--
 			}
 		case fn := <-svr.peersOps:
@@ -637,7 +637,7 @@ func (t *dialTask) Perform(svr *Server) {
 		return
 	}
 
-	err = svr.SetupConn(conn, dynDialedConn)
+	err = svr.SetupConn(conn, outbound)
 	if err != nil {
 		p2pServerLog.Error(fmt.Sprintf("setup connect to %s error: %v\n", t.target, err))
 		svr.blocknode <- t.target
@@ -689,12 +689,12 @@ func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]
 
 	dials := dm.maxDials
 	for _, p := range peers {
-		if p.TS.is(dynDialedConn) {
+		if p.TS.is(outbound) {
 			dials--
 		}
 	}
 	for _, f := range dm.dialing {
-		if f.is(dynDialedConn) {
+		if f.is(outbound) {
 			dials--
 		}
 	}
@@ -703,7 +703,7 @@ func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]
 	for i := 0; i < len(dm.bootNodes) && dials > 0; i++ {
 		bootNode := dm.bootNodes[i]
 
-		if addDailTask(dynDialedConn, bootNode) {
+		if addDailTask(outbound, bootNode) {
 			dials--
 		}
 	}
@@ -714,7 +714,7 @@ func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]
 		randomNodes := make([]*Node, randomCandidates)
 		n := dm.ntab.readRandomNodes(randomNodes)
 		for i := 0; i < n; i++ {
-			if addDailTask(dynDialedConn, randomNodes[i]) {
+			if addDailTask(outbound, randomNodes[i]) {
 				dials--
 			}
 		}
@@ -722,7 +722,7 @@ func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]
 
 	resultIndex := 0
 	for ; resultIndex < len(dm.lookResults) && dials > 0; resultIndex++ {
-		if addDailTask(dynDialedConn, dm.lookResults[resultIndex]) {
+		if addDailTask(outbound, dm.lookResults[resultIndex]) {
 			dials--
 		}
 	}
