@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package vitepb;
+
+message DbKey {
+    uint32 prefix = 1;
+    repeated bytes keyPartionList = 2;
+}

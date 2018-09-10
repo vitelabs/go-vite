@@ -64,6 +64,7 @@ func (bwm *blockWriteMutex) Lock(block *ledger.AccountBlock, meta *ledger.Accoun
 				Data: mutexBody.LatestBlock,
 			}
 		}
+
 		if !bytes.Equal(mutexBody.LatestBlock.Hash.Bytes(), block.PrevHash.Bytes()) {
 			if block.Meta == nil || block.Meta.Height == nil {
 				return &AcWriteError{
@@ -241,7 +242,7 @@ func (aca *AccountChainAccess) writeSendBlock(batch *leveldb.Batch, block *ledge
 
 	prevAccountBlockInToken, prevAbErr := aca.store.GetBlockByHeight(accountMeta.AccountId, accountTokenInfo.LastAccountBlockHeight)
 	if prevAbErr != nil || prevAccountBlockInToken == nil ||
-		block.Amount == nil || prevAccountBlockInToken.Balance == nil || block.Amount.Cmp(prevAccountBlockInToken.Balance) > 0 {
+		block.Amount == nil || block.Amount.Cmp(prevAccountBlockInToken.Balance) > 0 {
 		return ledgererrors.ErrBalanceNotEnough
 	}
 
