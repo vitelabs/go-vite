@@ -4,9 +4,9 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/unconfirmed/model"
 	"sync"
 	"time"
-	"github.com/vitelabs/go-vite/unconfirmed/model"
 )
 
 const (
@@ -14,7 +14,7 @@ const (
 	Running
 	Waiting
 	Dead
-	MAX_ERR_RECV_COUNT = 3
+	MaxErrRecvCount = 3
 )
 
 type ContractTask struct {
@@ -123,7 +123,7 @@ func (task *ContractTask) ProcessAQueue(fItem *model.FromItem) (intoBlackList bo
 		}
 
 		recvType, count := task.CheckChainReceiveCount(sBlock.ToAddress, sBlock.Hash)
-		if recvType == 5 && count > MAX_ERR_RECV_COUNT {
+		if recvType == 5 && count > MaxErrRecvCount {
 			task.log.Info("Delete the UnconfirmedMeta: the recvErrBlock reach the max-limit count of existence.")
 			task.uAccess.WriteUnconfirmed(false, nil, sBlock)
 			continue
@@ -226,15 +226,15 @@ func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) *ledg
 		Hash:              nil,
 		Height:            nil,
 		PrevHash:          nil,
-		AccountAddress:    nil,
+		AccountAddress:    sendBlock.ToAddress,
 		PublicKey:         nil,
-		ToAddress:         nil,
-		FromBlockHash:     nil,
-		Amount:            nil,
-		TokenId:           nil,
+		ToAddress:         sendBlock.AccountAddress,
+		FromBlockHash:     sendBlock.Hash,
+		Amount:            sendBlock.Amount,
+		TokenId:           sendBlock.TokenId,
 		QuotaFee:          nil,
 		ContractFee:       nil,
-		SnapshotHash:      nil,
+		SnapshotHash:      task.args.SnapshotHash,
 		Data:              "",
 		Timestamp:         0,
 		StateHash:         nil,

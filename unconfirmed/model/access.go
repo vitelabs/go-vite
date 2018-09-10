@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -22,19 +21,20 @@ type UAccess struct {
 }
 
 func NewUAccess(chain *chain.Chain, dataDir string) *UAccess {
-	dbDir := filepath.Join(dataDir, "unconfirmed")
-	db, err := leveldb.OpenFile(dbDir, nil)
-	if db == nil || err != nil {
-		db = database.NewLevelDb(dbDir)
-	}
-	return &UAccess{
-		store:                NewUnconfirmedSet(db),
+	uAccess := &UAccess{
 		chain:                chain,
 		commonAccountInfoMap: make(map[types.Address]*CommonAccountInfo),
 		newCommonTxLis:       make(map[types.Address]func()),
 		newContractLis:       make(map[types.Gid]func()),
 		log:                  log15.New("w", "access"),
 	}
+	dbDir := filepath.Join(dataDir, "chain")
+	db, err := leveldb.OpenFile(dbDir, nil)
+	if err != nil {
+		uAccess.log.Error("ChainDb not find or create DB failed")
+	}
+	uAccess.store = NewUnconfirmedSet(db)
+	return uAccess
 }
 
 func (access *UAccess) AddCommonTxLis(addr *types.Address, f func()) {
@@ -176,8 +176,8 @@ func (access *UAccess) LoadCommonAccInfo(addr *types.Address) error {
 	return nil
 }
 
-func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (*map[*types.TokenTypeId]*TokenInfo, error) {
-	infoMap := make(map[*types.TokenTypeId]*TokenInfo)
+func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (*map[types.TokenTypeId]*TokenInfo, error) {
+	infoMap := make(map[types.TokenTypeId]*TokenInfo)
 	hashList, err := access.store.GetHashList(addr)
 	if err != nil {
 		access.log.Error("GetCommonAccTokenInfoMap.GetHashList", "error", err)
@@ -212,20 +212,20 @@ func (access *UAccess) UpdateCommonAccInfo(writeType bool, block *ledger.Account
 	}
 	select {
 	case writeType == true:
-		ti, ok := tiMap.TokenInfoMap[block.TokenId]
+		ti, ok := tiMap.TokenInfoMap[*block.TokenId]
 		if !ok {
 			token, err := access.chain.GetByTokenId(block.TokenId)
 			if err != nil {
 				return errors.New("func UpdateCommonAccInfo.GetByTokenId failed" + err)
 			}
-			tiMap.TokenInfoMap[block.TokenId].Token = token.Mintage
-			tiMap.TokenInfoMap[block.TokenId].TotalAmount = block.Amount
+			tiMap.TokenInfoMap[*block.TokenId].Token = token.Mintage
+			tiMap.TokenInfoMap[*block.TokenId].TotalAmount = *block.Amount
 		} else {
-			ti.TotalAmount.Add(ti.TotalAmount, block.Amount)
+			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
 		}
 
 	case writeType == false:
-		ti, ok := tiMap.TokenInfoMap[block.TokenId]
+		ti, ok := tiMap.TokenInfoMap[*block.TokenId]
 		if !ok {
 			return errors.New("find no memory tokenInfo, so can't update when writeType is false")
 		} else {
@@ -233,9 +233,9 @@ func (access *UAccess) UpdateCommonAccInfo(writeType bool, block *ledger.Account
 				return errors.New("conflict with the memory info, so can't update when writeType is false")
 			}
 			if ti.TotalAmount.Cmp(block.Amount) == 0 {
-				delete(tiMap.TokenInfoMap, block.TokenId)
+				delete(tiMap.TokenInfoMap, *block.TokenId)
 			} else {
-				ti.TotalAmount.Sub(ti.TotalAmount, block.Amount)
+				ti.TotalAmount.Sub(&ti.TotalAmount, block.Amount)
 			}
 		}
 	}
