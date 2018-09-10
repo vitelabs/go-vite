@@ -1,22 +1,15 @@
 package monitor
 
 import (
-	"math/rand"
-	"time"
-
-	"os"
-
-	"strconv"
-
-	"sync"
-
-	"sync/atomic"
-
 	"encoding/json"
-
-	"path"
-
+	"math/rand"
+	"os"
 	"os/user"
+	"path"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/vitelabs/go-vite/log15"
 )
