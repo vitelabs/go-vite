@@ -1,4 +1,4 @@
-package vm
+package util
 
 import "math/big"
 
@@ -13,7 +13,7 @@ func BigPow(a, b int64) *big.Int {
 func ReadBits(bigint *big.Int, buf []byte) {
 	i := len(buf)
 	for _, d := range bigint.Bits() {
-		for j := 0; j < wordBytes && i > 0; j++ {
+		for j := 0; j < WordBytes && i > 0; j++ {
 			i--
 			buf[i] = byte(d)
 			d >>= 8
@@ -23,7 +23,7 @@ func ReadBits(bigint *big.Int, buf []byte) {
 
 // U256 encodes as a 256 bit two's complement number. This operation is destructive.
 func U256(x *big.Int) *big.Int {
-	return x.And(x, tt256m1)
+	return x.And(x, Tt256m1)
 }
 
 // S256 interprets x as a two's complement number.
@@ -34,10 +34,10 @@ func U256(x *big.Int) *big.Int {
 //   S256(2**255)   = -2**255
 //   S256(2**256-1) = -1
 func S256(x *big.Int) *big.Int {
-	if x.Cmp(tt255) < 0 {
+	if x.Cmp(Tt255) < 0 {
 		return x
 	}
-	return new(big.Int).Sub(x, tt256)
+	return new(big.Int).Sub(x, Tt256)
 }
 
 // Exp implements exponentiation by squaring.
@@ -47,7 +47,7 @@ func Exp(base, exponent *big.Int) *big.Int {
 	result := big.NewInt(1)
 
 	for _, word := range exponent.Bits() {
-		for i := 0; i < wordBits; i++ {
+		for i := 0; i < WordBits; i++ {
 			if word&1 == 1 {
 				U256(result.Mul(result, base))
 			}
@@ -86,13 +86,13 @@ func PaddedBigBytes(bigint *big.Int, n int) []byte {
 func bigEndianByteAt(bigint *big.Int, n int) byte {
 	words := bigint.Bits()
 	// Check word-bucket the byte will reside in
-	i := n / wordBytes
+	i := n / WordBytes
 	if i >= len(words) {
 		return byte(0)
 	}
 	word := words[i]
 	// Offset of the byte
-	shift := 8 * uint(n%wordBytes)
+	shift := 8 * uint(n%WordBytes)
 
 	return byte(word >> shift)
 }

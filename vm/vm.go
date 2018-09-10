@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"regexp"
 	"sync/atomic"
@@ -50,29 +51,29 @@ func (vm *VM) Run(block VmAccountBlock) (blockList []VmAccountBlock, isRetry boo
 		quotaTotal, quotaAddition := vm.quotaLeft(block.AccountAddress(), block)
 		block, err = vm.sendCreate(block, quotaTotal, quotaAddition)
 		if err != nil {
-			return nil, noRetry, err
+			return nil, util.NoRetry, err
 		} else {
-			return []VmAccountBlock{block}, noRetry, nil
+			return []VmAccountBlock{block}, util.NoRetry, nil
 		}
 	case BlockTypeSendCall:
 		quotaTotal, quotaAddition := vm.quotaLeft(block.AccountAddress(), block)
 		block, err = vm.sendCall(block, quotaTotal, quotaAddition)
 		if err != nil {
-			return nil, noRetry, err
+			return nil, util.NoRetry, err
 		} else {
-			return []VmAccountBlock{block}, noRetry, nil
+			return []VmAccountBlock{block}, util.NoRetry, nil
 		}
 	case BlockTypeSendMintage:
 		quotaTotal, quotaAddition := vm.quotaLeft(block.AccountAddress(), block)
 		block, err = vm.sendMintage(block, quotaTotal, quotaAddition)
 		if err != nil {
-			return nil, noRetry, err
+			return nil, util.NoRetry, err
 		} else {
-			return []VmAccountBlock{block}, noRetry, nil
+			return []VmAccountBlock{block}, util.NoRetry, nil
 		}
 	}
 
-	return nil, noRetry, errors.New("transaction type not supported")
+	return nil, util.NoRetry, errors.New("transaction type not supported")
 }
 
 func (vm *VM) Cancel() {
@@ -95,7 +96,7 @@ func (vm *VM) sendCreate(block VmAccountBlock, quotaTotal, quotaAddition uint64)
 	if !checkContractFee(block.CreateFee()) {
 		return nil, ErrInvalidContractFee
 	}
-	gid, _ := BytesToGid(block.Data()[:10])
+	gid, _ := types.BytesToGid(block.Data()[:10])
 	if !isExistGid(vm.Db, gid) {
 		return nil, ErrInvalidData
 	}
@@ -105,12 +106,12 @@ func (vm *VM) sendCreate(block VmAccountBlock, quotaTotal, quotaAddition uint64)
 	// create address
 	contractAddr := createContractAddress(block.AccountAddress(), block.Height(), block.PrevHash(), block.Data(), block.SnapshotHash())
 
-	if bytes.Equal(contractAddr.Bytes(), emptyAddress.Bytes()) || vm.Db.IsExistAddress(contractAddr) {
+	if bytes.Equal(contractAddr.Bytes(), util.EmptyAddress.Bytes()) || vm.Db.IsExistAddress(contractAddr) {
 		return nil, ErrContractAddressCreationFail
 	}
 	// sub balance and service fee
 	vm.Db.SubBalance(block.AccountAddress(), block.TokenId(), block.Amount())
-	vm.Db.SubBalance(block.AccountAddress(), viteTokenTypeId, block.CreateFee())
+	vm.Db.SubBalance(block.AccountAddress(), util.ViteTokenTypeId, block.CreateFee())
 	vm.updateBlock(block, block.AccountAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
 	block.SetToAddress(contractAddr)
 	vm.Db.SetContractGid(contractAddr, gid, false)
@@ -121,16 +122,16 @@ func (vm *VM) sendCreate(block VmAccountBlock, quotaTotal, quotaAddition uint64)
 func (vm *VM) receiveCreate(block VmAccountBlock, quotaTotal uint64) (blockList []VmAccountBlock, isRetry bool, err error) {
 	quotaLeft := quotaTotal
 	if vm.Db.IsExistAddress(block.ToAddress()) {
-		return nil, noRetry, ErrAddressCollision
+		return nil, util.NoRetry, ErrAddressCollision
 	}
 	// check can make transaction
 	cost, err := intrinsicGasCost(nil, true)
 	if err != nil {
-		return nil, noRetry, err
+		return nil, util.NoRetry, err
 	}
 	quotaLeft, err = useQuota(quotaLeft, cost)
 	if err != nil {
-		return nil, noRetry, err
+		return nil, util.NoRetry, err
 	}
 
 	vm.blockList = []VmAccountBlock{block}
@@ -151,19 +152,19 @@ func (vm *VM) receiveCreate(block VmAccountBlock, quotaTotal uint64) (blockList 
 		c.quotaLeft, err = useQuota(c.quotaLeft, codeCost)
 		if err == nil {
 			codeHash, _ := types.BytesToHash(code)
-			gid, _ := BytesToGid(blockData[:10])
+			gid, _ := types.BytesToGid(blockData[:10])
 			vm.Db.SetContractCode(block.ToAddress(), gid, code)
 			vm.updateBlock(block, block.ToAddress(), nil, 0, codeHash.Bytes())
 			err = vm.doSendBlockList(quotaTotal - block.Quota())
 			if err == nil {
 				vm.Db.SetContractGid(block.ToAddress(), gid, true)
-				return vm.blockList, noRetry, nil
+				return vm.blockList, util.NoRetry, nil
 			}
 		}
 	}
 
 	vm.revert()
-	return nil, noRetry, err
+	return nil, util.NoRetry, err
 }
 
 func (vm *VM) sendCall(block VmAccountBlock, quotaTotal, quotaAddition uint64) (VmAccountBlock, error) {
@@ -180,9 +181,9 @@ func (vm *VM) sendCall(block VmAccountBlock, quotaTotal, quotaAddition uint64) (
 			return nil, err
 		}
 		vm.Db.SubBalance(block.AccountAddress(), block.TokenId(), block.Amount())
-		vm.Db.SubBalance(block.AccountAddress(), viteTokenTypeId, block.CreateFee())
+		vm.Db.SubBalance(block.AccountAddress(), util.ViteTokenTypeId, block.CreateFee())
 	} else {
-		block.SetCreateFee(Big0)
+		block.SetCreateFee(util.Big0)
 		cost, err := intrinsicGasCost(block.Data(), false)
 		if err != nil {
 			return nil, err
@@ -216,12 +217,12 @@ func (vm *VM) receiveCall(block VmAccountBlock) (blockList []VmAccountBlock, isR
 			vm.updateBlock(block, block.ToAddress(), err, 0, nil)
 			err = vm.doSendBlockList(txGas)
 			if err == nil {
-				return vm.blockList, noRetry, nil
+				return vm.blockList, util.NoRetry, nil
 			}
 		}
 		vm.revert()
 		vm.updateBlock(block, block.ToAddress(), err, 0, nil)
-		return vm.blockList, noRetry, err
+		return vm.blockList, util.NoRetry, err
 	} else {
 		// check can make transaction
 		quotaTotal, quotaAddition := vm.quotaLeft(block.ToAddress(), block)
@@ -229,11 +230,11 @@ func (vm *VM) receiveCall(block VmAccountBlock) (blockList []VmAccountBlock, isR
 		quotaRefund := uint64(0)
 		cost, err := intrinsicGasCost(nil, false)
 		if err != nil {
-			return nil, noRetry, err
+			return nil, util.NoRetry, err
 		}
 		quotaLeft, err = useQuota(quotaLeft, cost)
 		if err != nil {
-			return nil, retry, err
+			return nil, util.Retry, err
 		}
 		vm.blockList = []VmAccountBlock{block}
 		// add balance, create account if not exist
@@ -242,7 +243,7 @@ func (vm *VM) receiveCall(block VmAccountBlock) (blockList []VmAccountBlock, isR
 		code := vm.Db.ContractCode(block.ToAddress())
 		if len(code) == 0 {
 			vm.updateBlock(block, block.ToAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
-			return vm.blockList, noRetry, nil
+			return vm.blockList, util.NoRetry, nil
 		}
 		// run code
 		c := newContract(block.AccountAddress(), block.ToAddress(), block, quotaLeft, quotaRefund)
@@ -252,7 +253,7 @@ func (vm *VM) receiveCall(block VmAccountBlock) (blockList []VmAccountBlock, isR
 			vm.updateBlock(block, block.ToAddress(), nil, quotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, nil), nil)
 			err = vm.doSendBlockList(quotaTotal - quotaAddition - block.Quota())
 			if err == nil {
-				return vm.blockList, noRetry, nil
+				return vm.blockList, util.NoRetry, nil
 			}
 		}
 
@@ -283,18 +284,18 @@ func (vm *VM) sendMintage(block VmAccountBlock, quotaTotal, quotaAddition uint64
 	if err != nil {
 		return nil, err
 	}
-	if !vm.canTransfer(block.AccountAddress(), viteTokenTypeId, mintageFee, Big0) {
+	if !vm.canTransfer(block.AccountAddress(), util.ViteTokenTypeId, mintageFee, util.Big0) {
 		return nil, ErrInsufficientBalance
 	}
 
 	// create tokenId and check collision
 	tokenTypeId := createTokenId(block.AccountAddress(), block.ToAddress(), block.Height(), block.PrevHash(), block.SnapshotHash())
-	if bytes.Equal(tokenTypeId.Bytes(), emptyTokenTypeId.Bytes()) || vm.Db.IsExistToken(tokenTypeId) {
+	if bytes.Equal(tokenTypeId.Bytes(), util.EmptyTokenTypeId.Bytes()) || vm.Db.IsExistToken(tokenTypeId) {
 		return nil, ErrTokenIdCreationFail
 	}
 
 	// sub balance
-	vm.Db.SubBalance(block.AccountAddress(), viteTokenTypeId, mintageFee)
+	vm.Db.SubBalance(block.AccountAddress(), util.ViteTokenTypeId, mintageFee)
 	block.SetTokenId(tokenTypeId)
 	block.SetCreateFee(mintageFee)
 	vm.updateBlock(block, block.AccountAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
@@ -308,22 +309,22 @@ func (vm *VM) receiveMintage(block VmAccountBlock) (blockList []VmAccountBlock, 
 	quotaRefund := uint64(0)
 	cost, err := intrinsicGasCost(nil, false)
 	if err != nil {
-		return nil, noRetry, err
+		return nil, util.NoRetry, err
 	}
 	quotaLeft, err = useQuota(quotaLeft, cost)
 	if err != nil {
-		return nil, retry, err
+		return nil, util.Retry, err
 	}
 	decimals := new(big.Int).SetBytes(block.Data()[32:64]).Uint64()
-	tokenName := BytesToString(block.Data()[96:])
+	tokenName := util.BytesToString(block.Data()[96:])
 	if !vm.Db.CreateToken(block.TokenId(), tokenName, block.ToAddress(), block.Amount(), decimals) {
 		vm.updateBlock(block, block.AccountAddress(), ErrIdCollision, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, ErrIdCollision), nil)
-		return vm.blockList, noRetry, ErrIdCollision
+		return vm.blockList, util.NoRetry, ErrIdCollision
 	}
 	vm.blockList = []VmAccountBlock{block}
 	vm.Db.AddBalance(block.ToAddress(), block.TokenId(), block.Amount())
 	vm.updateBlock(block, block.AccountAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
-	return vm.blockList, noRetry, nil
+	return vm.blockList, util.NoRetry, nil
 }
 
 func (vm *VM) sendReward(block VmAccountBlock, quotaTotal, quotaAddition uint64) (VmAccountBlock, error) {
@@ -437,11 +438,11 @@ func (vm *VM) revert() {
 func (vm *VM) canTransfer(addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 	if feeAmount.Sign() == 0 {
 		return tokenAmount.Cmp(vm.Db.Balance(addr, tokenTypeId)) <= 0
-	} else if isViteToken(tokenTypeId) {
+	} else if util.IsViteToken(tokenTypeId) {
 		balance := new(big.Int).Add(tokenAmount, feeAmount)
 		return balance.Cmp(vm.Db.Balance(addr, tokenTypeId)) <= 0
 	} else {
-		return tokenAmount.Cmp(vm.Db.Balance(addr, tokenTypeId)) <= 0 && feeAmount.Cmp(vm.Db.Balance(addr, viteTokenTypeId)) <= 0
+		return tokenAmount.Cmp(vm.Db.Balance(addr, tokenTypeId)) <= 0 && feeAmount.Cmp(vm.Db.Balance(addr, util.ViteTokenTypeId)) <= 0
 	}
 }
 
@@ -460,7 +461,7 @@ func (vm *VM) checkToken(data []byte) error {
 	if length > tokenNameLengthLimit {
 		return ErrInvalidData
 	}
-	tokenName := BytesToString(data[96:])
+	tokenName := util.BytesToString(data[96:])
 	if len(tokenName) != length {
 		return ErrInvalidData
 	}
@@ -476,7 +477,7 @@ func checkContractFee(fee *big.Int) bool {
 
 func calcMintageFee(data []byte) (*big.Int, error) {
 	// TODO calculate mintage fee
-	return Big0, nil
+	return util.Big0, nil
 }
 
 func quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {
@@ -492,7 +493,7 @@ func quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err err
 		if quotaTotal-quotaLeft < quotaAddition {
 			return 0
 		} else {
-			return quotaTotal - quotaLeft - quotaAddition - min(quotaRefund, (quotaTotal-quotaAddition-quotaLeft)/2)
+			return quotaTotal - quotaLeft - quotaAddition - util.Min(quotaRefund, (quotaTotal-quotaAddition-quotaLeft)/2)
 		}
 	}
 }
@@ -505,7 +506,7 @@ func createTokenId(addr, owner types.Address, height *big.Int, prevHash, snapsho
 	return types.CreateTokenTypeId(addr.Bytes(), owner.Bytes(), height.Bytes(), prevHash.Bytes(), snapshotHash.Bytes())
 }
 
-func isExistGid(db VmDatabase, gid Gid) bool {
+func isExistGid(db VmDatabase, gid types.Gid) bool {
 	value := db.Storage(AddressConsensusGroup, types.DataHash(gid.Bytes()))
 	return len(value) > 0
 }

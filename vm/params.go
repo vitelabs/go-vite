@@ -53,18 +53,18 @@ const (
 	calcRewardGasPerPage    uint64 = 200
 	voteGas                 uint64 = 62000
 	cancelVoteGas           uint64 = 62000
-	mortgageGas             uint64 = 82400
-	cancelMortgageGas       uint64 = 103400
+	pledgeGas               uint64 = 82400
+	cancelPledgeGas         uint64 = 103400
 	createConsensusGroupGas uint64 = 62200
 
 	registerLockTime int64  = 3600 * 24 * 90
 	dbPageSize       uint64 = 10000
-	mortgageTime     int64  = 3600 * 24 * 3 // minimum mortgage time in  second
+	pledgeTime       int64  = 3600 * 24 * 3 // minimum pledge time in  second
 
-	cgNodeCountMin uint64 = 10
-	cgNodeCountMax uint64 = 50
-	cgIntervalMin  int64  = 1
-	cgIntervalMax  int64  = 60
+	cgNodeCountMin uint8 = 10
+	cgNodeCountMax uint8 = 50
+	cgIntervalMin  int64 = 1
+	cgIntervalMax  int64 = 60
 
 	//GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
 	//MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.

@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm"
+	"github.com/vitelabs/go-vite/vm/util"
 	"log"
 	"math/big"
 	"reflect"
@@ -15,8 +15,11 @@ import (
 
 const jsondata = `
 [
+	{ "type" : "constructor", "inputs" : [ { "name" : "owner", "type" : "address" } ] },
 	{ "type" : "function", "name" : "balance", "constant" : true },
-	{ "type" : "function", "name" : "send", "constant" : false, "inputs" : [ { "name" : "amount", "type" : "uint256" } ] }
+	{ "type" : "function", "name" : "send", "constant" : false, "inputs" : [ { "name" : "amount", "type" : "uint256" } ] },
+	{ "type" : "event", "name" : "Transfer", "anonymous" : false, "inputs" : [ { "indexed" : true, "name" : "from", "type" : "address" }, { "indexed" : true, "name" : "to", "type" : "address" }, { "name" : "value", "type" : "uint256" } ] },
+	{ "type" : "variable", "name" : "register", "inputs" : [ { "name" : "node", "type" : "address" }, { "name" : "amount", "type" : "uint256" }, { "name" : "withdrawTime", "type" : "int64" }  ] }
 ]`
 
 const jsondata2 = `
@@ -38,26 +41,55 @@ const jsondata2 = `
 ]`
 
 func TestReader(t *testing.T) {
-	Uint256, _ := NewType("uint256")
-	exp := ABI{
+	typeUint256, _ := NewType("uint256")
+	typeInt64, _ := NewType("int64")
+	typeAddress, _ := NewType("address")
+	exp := ABIContract{
+		Constructor: Method{
+			"", false, []Argument{
+				{"owner", typeAddress, false},
+			},
+		},
 		Methods: map[string]Method{
 			"balance": {
 				"balance", true, nil,
 			},
 			"send": {
 				"send", false, []Argument{
-					{"amount", Uint256, false},
+					{"amount", typeUint256, false},
 				},
 			},
 		},
+		Events: map[string]Event{
+			"Transfer": {
+				"Transfer", false, []Argument{
+					{"from", typeAddress, true},
+					{"to", typeAddress, true},
+					{"value", typeUint256, false},
+				},
+			},
+		},
+		Variables: map[string]Variable{
+			"register": {"register", []Argument{
+				{"node", typeAddress, false},
+				{"amount", typeUint256, false},
+				{"withdrawTime", typeInt64, false},
+			}},
+		},
 	}
 
-	abi, err := JSON(strings.NewReader(jsondata))
+	abi, err := JSONToABIContract(strings.NewReader(jsondata))
 	if err != nil {
 		t.Error(err)
 	}
 
-	// deep equal fails for some reason
+	if !reflect.DeepEqual(abi.Constructor, exp.Constructor) {
+		t.Errorf("\nGot abi constructor: \n%v\ndoes not match expected constructor\n%v", abi.Constructor, exp.Constructor)
+	}
+	if len(exp.Methods) != len(abi.Methods) {
+		t.Fatalf("\n Got abi method length %v does not match expected method length %v", len(abi.Methods), len(exp.Methods))
+	}
+
 	for name, expM := range exp.Methods {
 		gotM, exist := abi.Methods[name]
 		if !exist {
@@ -66,94 +98,115 @@ func TestReader(t *testing.T) {
 		if !reflect.DeepEqual(gotM, expM) {
 			t.Errorf("\nGot abi method: \n%v\ndoes not match expected method\n%v", gotM, expM)
 		}
+		gotM.String()
 	}
 
-	for name, gotM := range abi.Methods {
-		expM, exist := exp.Methods[name]
+	if len(exp.Events) != len(abi.Events) {
+		t.Fatalf("\n Got abi event length %v does not match expected event length %v", len(abi.Events), len(exp.Events))
+	}
+
+	for name, expE := range exp.Events {
+		gotE, exist := abi.Events[name]
 		if !exist {
-			t.Errorf("Found extra method %v", name)
+			t.Errorf("Missing expected event %v", name)
 		}
-		if !reflect.DeepEqual(gotM, expM) {
-			t.Errorf("\nGot abi method: \n%v\ndoes not match expected method\n%v", gotM, expM)
+		if !reflect.DeepEqual(gotE, expE) {
+			t.Errorf("\nGot abi event: \n%v\ndoes not match expected event\n%v", gotE, expE)
 		}
+		gotE.String()
+	}
+
+	if len(exp.Variables) != len(abi.Variables) {
+		t.Fatalf("\n Got abi variable length %v does not match expected variable length %v", len(abi.Variables), len(exp.Variables))
+	}
+
+	for name, expV := range exp.Variables {
+		gotV, exist := abi.Variables[name]
+		if !exist {
+			t.Errorf("Missing expected variable %v", name)
+		}
+		if !reflect.DeepEqual(gotV, expV) {
+			t.Errorf("\nGot abi evevariablent: \n%v\ndoes not match expected variable\n%v", gotV, expV)
+		}
+		gotV.String()
 	}
 }
 
 func TestTestNumbers(t *testing.T) {
-	abi, err := JSON(strings.NewReader(jsondata2))
+	abi, err := JSONToABIContract(strings.NewReader(jsondata2))
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
 
-	if _, err := abi.Pack("balance"); err != nil {
+	if _, err := abi.PackMethod("balance"); err != nil {
 		t.Error(err)
 	}
 
-	if _, err := abi.Pack("balance", 1); err == nil {
+	if _, err := abi.PackMethod("balance", 1); err == nil {
 		t.Error("expected error for balance(1)")
 	}
 
-	if _, err := abi.Pack("doesntexist", nil); err == nil {
+	if _, err := abi.PackMethod("doesntexist", nil); err == nil {
 		t.Errorf("doesntexist shouldn't exist")
 	}
 
-	if _, err := abi.Pack("doesntexist", 1); err == nil {
+	if _, err := abi.PackMethod("doesntexist", 1); err == nil {
 		t.Errorf("doesntexist(1) shouldn't exist")
 	}
 
-	if _, err := abi.Pack("send", big.NewInt(1000)); err != nil {
+	if _, err := abi.PackMethod("send", big.NewInt(1000)); err != nil {
 		t.Error(err)
 	}
 
 	i := new(int)
 	*i = 1000
-	if _, err := abi.Pack("send", i); err == nil {
+	if _, err := abi.PackMethod("send", i); err == nil {
 		t.Errorf("expected send( ptr ) to throw, requires *big.Int instead of *int")
 	}
 
-	if _, err := abi.Pack("test", uint32(1000)); err != nil {
+	if _, err := abi.PackMethod("test", uint32(1000)); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestTestString(t *testing.T) {
-	abi, err := JSON(strings.NewReader(jsondata2))
+	abi, err := JSONToABIContract(strings.NewReader(jsondata2))
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
 
-	if _, err := abi.Pack("string", "hello world"); err != nil {
+	if _, err := abi.PackMethod("string", "hello world"); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestTestBool(t *testing.T) {
-	abi, err := JSON(strings.NewReader(jsondata2))
+	abi, err := JSONToABIContract(strings.NewReader(jsondata2))
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
 
-	if _, err := abi.Pack("bool", true); err != nil {
+	if _, err := abi.PackMethod("bool", true); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestTestSlice(t *testing.T) {
-	abi, err := JSON(strings.NewReader(jsondata2))
+	abi, err := JSONToABIContract(strings.NewReader(jsondata2))
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
 
 	slice := make([]uint64, 2)
-	if _, err := abi.Pack("uint64[2]", slice); err != nil {
+	if _, err := abi.PackMethod("uint64[2]", slice); err != nil {
 		t.Error(err)
 	}
 
-	if _, err := abi.Pack("uint64[]", slice); err != nil {
+	if _, err := abi.PackMethod("uint64[]", slice); err != nil {
 		t.Error(err)
 	}
 }
@@ -180,7 +233,7 @@ func TestMethodSignature(t *testing.T) {
 }
 
 func TestMultiPack(t *testing.T) {
-	abi, err := JSON(strings.NewReader(jsondata2))
+	abi, err := JSONToABIContract(strings.NewReader(jsondata2))
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -191,7 +244,7 @@ func TestMultiPack(t *testing.T) {
 	sig[35] = 10
 	sig[67] = 11
 
-	packed, err := abi.Pack("bar", uint32(10), uint16(11))
+	packed, err := abi.PackMethod("bar", uint32(10), uint16(11))
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -205,12 +258,12 @@ func TestMultiPack(t *testing.T) {
 func ExampleJSON() {
 	const definition = `[{"constant":true,"inputs":[{"name":"","type":"address"}],"name":"isBar","type":"function"}]`
 
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSONToABIContract(strings.NewReader(definition))
 	if err != nil {
 		log.Fatalln(err)
 	}
-	addr, _ := types.BytesToAddress(vm.LeftPadBytes(vm.HexToBytes("01"), 20))
-	out, err := abi.Pack("isBar", addr)
+	addr, _ := types.BytesToAddress(util.LeftPadBytes(util.HexToBytes("01"), types.AddressSize))
+	out, err := abi.PackMethod("isBar", addr)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -227,14 +280,14 @@ func TestInputVariableInputLength(t *testing.T) {
 	{ "type" : "function", "name" : "strTwo", "constant" : true, "inputs" : [ { "name" : "str", "type" : "string" }, { "name" : "str1", "type" : "string" } ] }
 	]`
 
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSONToABIContract(strings.NewReader(definition))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// test one string
 	strin := "hello world"
-	strpack, err := abi.Pack("strOne", strin)
+	strpack, err := abi.PackMethod("strOne", strin)
 	if err != nil {
 		t.Error(err)
 	}
@@ -243,7 +296,7 @@ func TestInputVariableInputLength(t *testing.T) {
 	offset[31] = 32
 	length := make([]byte, 32)
 	length[31] = byte(len(strin))
-	value := vm.RightPadBytes([]byte(strin), 32)
+	value := util.RightPadBytes([]byte(strin), 32)
 	exp := append(offset, append(length, value...)...)
 
 	// ignore first 4 bytes of the output. This is the function identifier
@@ -253,7 +306,7 @@ func TestInputVariableInputLength(t *testing.T) {
 	}
 
 	// test one bytes
-	btspack, err := abi.Pack("bytesOne", []byte(strin))
+	btspack, err := abi.PackMethod("bytesOne", []byte(strin))
 	if err != nil {
 		t.Error(err)
 	}
@@ -266,7 +319,7 @@ func TestInputVariableInputLength(t *testing.T) {
 	//  test two strings
 	str1 := "hello"
 	str2 := "world"
-	str2pack, err := abi.Pack("strTwo", str1, str2)
+	str2pack, err := abi.PackMethod("strTwo", str1, str2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -275,13 +328,13 @@ func TestInputVariableInputLength(t *testing.T) {
 	offset1[31] = 64
 	length1 := make([]byte, 32)
 	length1[31] = byte(len(str1))
-	value1 := vm.RightPadBytes([]byte(str1), 32)
+	value1 := util.RightPadBytes([]byte(str1), 32)
 
 	offset2 := make([]byte, 32)
 	offset2[31] = 128
 	length2 := make([]byte, 32)
 	length2[31] = byte(len(str2))
-	value2 := vm.RightPadBytes([]byte(str2), 32)
+	value2 := util.RightPadBytes([]byte(str2), 32)
 
 	exp2 := append(offset1, offset2...)
 	exp2 = append(exp2, append(length1, value1...)...)
@@ -295,7 +348,7 @@ func TestInputVariableInputLength(t *testing.T) {
 
 	// test two strings, first > 32, second < 32
 	str1 = strings.Repeat("a", 33)
-	str2pack, err = abi.Pack("strTwo", str1, str2)
+	str2pack, err = abi.PackMethod("strTwo", str1, str2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -304,7 +357,7 @@ func TestInputVariableInputLength(t *testing.T) {
 	offset1[31] = 64
 	length1 = make([]byte, 32)
 	length1[31] = byte(len(str1))
-	value1 = vm.RightPadBytes([]byte(str1), 64)
+	value1 = util.RightPadBytes([]byte(str1), 64)
 	offset2[31] = 160
 
 	exp2 = append(offset1, offset2...)
@@ -320,7 +373,7 @@ func TestInputVariableInputLength(t *testing.T) {
 	// test two strings, first > 32, second >32
 	str1 = strings.Repeat("a", 33)
 	str2 = strings.Repeat("a", 33)
-	str2pack, err = abi.Pack("strTwo", str1, str2)
+	str2pack, err = abi.PackMethod("strTwo", str1, str2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -329,13 +382,13 @@ func TestInputVariableInputLength(t *testing.T) {
 	offset1[31] = 64
 	length1 = make([]byte, 32)
 	length1[31] = byte(len(str1))
-	value1 = vm.RightPadBytes([]byte(str1), 64)
+	value1 = util.RightPadBytes([]byte(str1), 64)
 
 	offset2 = make([]byte, 32)
 	offset2[31] = 160
 	length2 = make([]byte, 32)
 	length2[31] = byte(len(str2))
-	value2 = vm.RightPadBytes([]byte(str2), 64)
+	value2 = util.RightPadBytes([]byte(str2), 64)
 
 	exp2 = append(offset1, offset2...)
 	exp2 = append(exp2, append(length1, value1...)...)
@@ -357,7 +410,7 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
     { "type" : "function", "name" : "multipleMixedArrStr", "constant" : true, "inputs" : [ { "name" : "str", "type" : "string" }, { "name" : "fixedArr1", "type": "uint256[2]" }, { "name" : "dynArr", "type" : "uint256[]" }, { "name" : "fixedArr2", "type" : "uint256[3]" } ] }
 	]`
 
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSONToABIContract(strings.NewReader(definition))
 	if err != nil {
 		t.Error(err)
 	}
@@ -365,7 +418,7 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	// test string, fixed array uint256[2]
 	strin := "hello world"
 	arrin := [2]*big.Int{big.NewInt(1), big.NewInt(2)}
-	fixedArrStrPack, err := abi.Pack("fixedArrStr", strin, arrin)
+	fixedArrStrPack, err := abi.PackMethod("fixedArrStr", strin, arrin)
 	if err != nil {
 		t.Error(err)
 	}
@@ -375,9 +428,9 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	offset[31] = 96
 	length := make([]byte, 32)
 	length[31] = byte(len(strin))
-	strvalue := vm.RightPadBytes([]byte(strin), 32)
-	arrinvalue1 := vm.LeftPadBytes(arrin[0].Bytes(), 32)
-	arrinvalue2 := vm.LeftPadBytes(arrin[1].Bytes(), 32)
+	strvalue := util.RightPadBytes([]byte(strin), 32)
+	arrinvalue1 := util.LeftPadBytes(arrin[0].Bytes(), 32)
+	arrinvalue2 := util.LeftPadBytes(arrin[1].Bytes(), 32)
 	exp := append(offset, arrinvalue1...)
 	exp = append(exp, arrinvalue2...)
 	exp = append(exp, append(length, strvalue...)...)
@@ -391,7 +444,7 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	// test byte array, fixed array uint256[2]
 	bytesin := []byte(strin)
 	arrin = [2]*big.Int{big.NewInt(1), big.NewInt(2)}
-	fixedArrBytesPack, err := abi.Pack("fixedArrBytes", bytesin, arrin)
+	fixedArrBytesPack, err := abi.PackMethod("fixedArrBytes", bytesin, arrin)
 	if err != nil {
 		t.Error(err)
 	}
@@ -401,9 +454,9 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	offset[31] = 96
 	length = make([]byte, 32)
 	length[31] = byte(len(strin))
-	strvalue = vm.RightPadBytes([]byte(strin), 32)
-	arrinvalue1 = vm.LeftPadBytes(arrin[0].Bytes(), 32)
-	arrinvalue2 = vm.LeftPadBytes(arrin[1].Bytes(), 32)
+	strvalue = util.RightPadBytes([]byte(strin), 32)
+	arrinvalue1 = util.LeftPadBytes(arrin[0].Bytes(), 32)
+	arrinvalue2 = util.LeftPadBytes(arrin[1].Bytes(), 32)
 	exp = append(offset, arrinvalue1...)
 	exp = append(exp, arrinvalue2...)
 	exp = append(exp, append(length, strvalue...)...)
@@ -418,7 +471,7 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	strin = "hello world"
 	fixedarrin := [2]*big.Int{big.NewInt(1), big.NewInt(2)}
 	dynarrin := []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}
-	mixedArrStrPack, err := abi.Pack("mixedArrStr", strin, fixedarrin, dynarrin)
+	mixedArrStrPack, err := abi.PackMethod("mixedArrStr", strin, fixedarrin, dynarrin)
 	if err != nil {
 		t.Error(err)
 	}
@@ -428,16 +481,16 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	stroffset[31] = 128
 	strlength := make([]byte, 32)
 	strlength[31] = byte(len(strin))
-	strvalue = vm.RightPadBytes([]byte(strin), 32)
-	fixedarrinvalue1 := vm.LeftPadBytes(fixedarrin[0].Bytes(), 32)
-	fixedarrinvalue2 := vm.LeftPadBytes(fixedarrin[1].Bytes(), 32)
+	strvalue = util.RightPadBytes([]byte(strin), 32)
+	fixedarrinvalue1 := util.LeftPadBytes(fixedarrin[0].Bytes(), 32)
+	fixedarrinvalue2 := util.LeftPadBytes(fixedarrin[1].Bytes(), 32)
 	dynarroffset := make([]byte, 32)
 	dynarroffset[31] = byte(160 + ((len(strin)/32)+1)*32)
 	dynarrlength := make([]byte, 32)
 	dynarrlength[31] = byte(len(dynarrin))
-	dynarrinvalue1 := vm.LeftPadBytes(dynarrin[0].Bytes(), 32)
-	dynarrinvalue2 := vm.LeftPadBytes(dynarrin[1].Bytes(), 32)
-	dynarrinvalue3 := vm.LeftPadBytes(dynarrin[2].Bytes(), 32)
+	dynarrinvalue1 := util.LeftPadBytes(dynarrin[0].Bytes(), 32)
+	dynarrinvalue2 := util.LeftPadBytes(dynarrin[1].Bytes(), 32)
+	dynarrinvalue3 := util.LeftPadBytes(dynarrin[2].Bytes(), 32)
 	exp = append(stroffset, fixedarrinvalue1...)
 	exp = append(exp, fixedarrinvalue2...)
 	exp = append(exp, dynarroffset...)
@@ -457,7 +510,7 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	strin = "hello world"
 	fixedarrin1 := [2]*big.Int{big.NewInt(1), big.NewInt(2)}
 	fixedarrin2 := [3]*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}
-	doubleFixedArrStrPack, err := abi.Pack("doubleFixedArrStr", strin, fixedarrin1, fixedarrin2)
+	doubleFixedArrStrPack, err := abi.PackMethod("doubleFixedArrStr", strin, fixedarrin1, fixedarrin2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -467,12 +520,12 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	stroffset[31] = 192
 	strlength = make([]byte, 32)
 	strlength[31] = byte(len(strin))
-	strvalue = vm.RightPadBytes([]byte(strin), 32)
-	fixedarrin1value1 := vm.LeftPadBytes(fixedarrin1[0].Bytes(), 32)
-	fixedarrin1value2 := vm.LeftPadBytes(fixedarrin1[1].Bytes(), 32)
-	fixedarrin2value1 := vm.LeftPadBytes(fixedarrin2[0].Bytes(), 32)
-	fixedarrin2value2 := vm.LeftPadBytes(fixedarrin2[1].Bytes(), 32)
-	fixedarrin2value3 := vm.LeftPadBytes(fixedarrin2[2].Bytes(), 32)
+	strvalue = util.RightPadBytes([]byte(strin), 32)
+	fixedarrin1value1 := util.LeftPadBytes(fixedarrin1[0].Bytes(), 32)
+	fixedarrin1value2 := util.LeftPadBytes(fixedarrin1[1].Bytes(), 32)
+	fixedarrin2value1 := util.LeftPadBytes(fixedarrin2[0].Bytes(), 32)
+	fixedarrin2value2 := util.LeftPadBytes(fixedarrin2[1].Bytes(), 32)
+	fixedarrin2value3 := util.LeftPadBytes(fixedarrin2[2].Bytes(), 32)
 	exp = append(stroffset, fixedarrin1value1...)
 	exp = append(exp, fixedarrin1value2...)
 	exp = append(exp, fixedarrin2value1...)
@@ -491,7 +544,7 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	fixedarrin1 = [2]*big.Int{big.NewInt(1), big.NewInt(2)}
 	dynarrin = []*big.Int{big.NewInt(1), big.NewInt(2)}
 	fixedarrin2 = [3]*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}
-	multipleMixedArrStrPack, err := abi.Pack("multipleMixedArrStr", strin, fixedarrin1, dynarrin, fixedarrin2)
+	multipleMixedArrStrPack, err := abi.PackMethod("multipleMixedArrStr", strin, fixedarrin1, dynarrin, fixedarrin2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -501,17 +554,17 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	stroffset[31] = 224
 	strlength = make([]byte, 32)
 	strlength[31] = byte(len(strin))
-	strvalue = vm.RightPadBytes([]byte(strin), 32)
-	fixedarrin1value1 = vm.LeftPadBytes(fixedarrin1[0].Bytes(), 32)
-	fixedarrin1value2 = vm.LeftPadBytes(fixedarrin1[1].Bytes(), 32)
+	strvalue = util.RightPadBytes([]byte(strin), 32)
+	fixedarrin1value1 = util.LeftPadBytes(fixedarrin1[0].Bytes(), 32)
+	fixedarrin1value2 = util.LeftPadBytes(fixedarrin1[1].Bytes(), 32)
 	dynarroffset = U256(big.NewInt(int64(256 + ((len(strin)/32)+1)*32)))
 	dynarrlength = make([]byte, 32)
 	dynarrlength[31] = byte(len(dynarrin))
-	dynarrinvalue1 = vm.LeftPadBytes(dynarrin[0].Bytes(), 32)
-	dynarrinvalue2 = vm.LeftPadBytes(dynarrin[1].Bytes(), 32)
-	fixedarrin2value1 = vm.LeftPadBytes(fixedarrin2[0].Bytes(), 32)
-	fixedarrin2value2 = vm.LeftPadBytes(fixedarrin2[1].Bytes(), 32)
-	fixedarrin2value3 = vm.LeftPadBytes(fixedarrin2[2].Bytes(), 32)
+	dynarrinvalue1 = util.LeftPadBytes(dynarrin[0].Bytes(), 32)
+	dynarrinvalue2 = util.LeftPadBytes(dynarrin[1].Bytes(), 32)
+	fixedarrin2value1 = util.LeftPadBytes(fixedarrin2[0].Bytes(), 32)
+	fixedarrin2value2 = util.LeftPadBytes(fixedarrin2[1].Bytes(), 32)
+	fixedarrin2value3 = util.LeftPadBytes(fixedarrin2[2].Bytes(), 32)
 	exp = append(stroffset, fixedarrin1value1...)
 	exp = append(exp, fixedarrin1value2...)
 	exp = append(exp, dynarroffset...)
@@ -533,7 +586,7 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 func TestDefaultFunctionParsing(t *testing.T) {
 	const definition = `[{ "name" : "balance" }]`
 
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSONToABIContract(strings.NewReader(definition))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -565,7 +618,7 @@ func TestBareEvents(t *testing.T) {
 		}},
 	}
 
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSONToABIContract(strings.NewReader(definition))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -601,6 +654,66 @@ func TestBareEvents(t *testing.T) {
 	}
 }
 
+func TestBareVariables(t *testing.T) {
+	const definition1 = `[
+	{ "type" : "variable", "name" : "balance" },
+	{ "type" : "variable", "name" : "args", "inputs" : [{ "name":"arg0", "type":"uint256" }, { "name":"arg1", "type":"address" }] }
+	]`
+	_, err := JSONToABIContract(strings.NewReader(definition1))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+
+	const definition2 = `[
+	{ "type" : "variable", "name" : "args", "inputs" : [{ "name":"arg0", "type":"uint256" }, { "name":"arg1", "type":"address" }] },
+	{ "type" : "variable", "name" : "balance", "inputs" : [{ "name":"balance", "type":"uint256" }] }
+	]`
+
+	typeUint256, _ := NewType("uint256")
+	typeAddress, _ := NewType("address")
+
+	expectedVariables := map[string]struct {
+		Args []Argument
+	}{
+		"args": {[]Argument{
+			{Name: "arg0", Type: typeUint256, Indexed: false},
+			{Name: "arg1", Type: typeAddress, Indexed: true},
+		}},
+		"balance": {[]Argument{
+			{Name: "balance", Type: typeUint256, Indexed: false},
+		}},
+	}
+
+	abi, err := JSONToABIContract(strings.NewReader(definition2))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(abi.Variables) != len(expectedVariables) {
+		t.Fatalf("invalid number of variables after parsing, want %d, got %d", len(expectedVariables), len(abi.Variables))
+	}
+
+	for name, exp := range expectedVariables {
+		got, ok := abi.Variables[name]
+		if !ok {
+			t.Errorf("could not found variable %s", name)
+			continue
+		}
+		if len(got.Inputs) != len(exp.Args) {
+			t.Errorf("invalid number of args, want %d, got %d", len(exp.Args), len(got.Inputs))
+			continue
+		}
+		for i, arg := range exp.Args {
+			if arg.Name != got.Inputs[i].Name {
+				t.Errorf("variables[%s].Input[%d] has an invalid name, want %s, got %s", name, i, arg.Name, got.Inputs[i].Name)
+			}
+			if arg.Type.T != got.Inputs[i].Type.T {
+				t.Errorf("variables[%s].Input[%d] has an invalid type, want %x, got %x", name, i, arg.Type.T, got.Inputs[i].Type.T)
+			}
+		}
+	}
+}
+
 // TestUnpackEvent is based on this contract:
 //    contract T {
 //      event received(address sender, uint amount, bytes memo);
@@ -614,7 +727,7 @@ func TestBareEvents(t *testing.T) {
 //   receipt{status=1 cgas=23949 bloom=00000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000040200000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 logs=[log: b6818c8064f645cd82d99b59a1a267d6d61117ef [75fd880d39c1daf53b6547ab6cb59451fc6452d27caa90e5b6649dd8293b9eed] 000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158 9ae378b6d4409eada347a5dc0c180f186cb62dc68fcc0f043425eb917335aa28 0 95d429d309bb9d753954195fe2d69bd140b4ae731b9b5b605c34323de162cf00 0]}
 func TestUnpackEvent(t *testing.T) {
 	const abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"receive","payable":true,"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"}],"name":"receivedAddr","type":"event"}]`
-	abi, err := JSON(strings.NewReader(abiJSON))
+	abi, err := JSONToABIContract(strings.NewReader(abiJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -635,7 +748,7 @@ func TestUnpackEvent(t *testing.T) {
 	}
 	var ev ReceivedEvent
 
-	err = abi.Unpack(&ev, "received", data)
+	err = abi.UnpackEvent(&ev, "received", data)
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -646,7 +759,7 @@ func TestUnpackEvent(t *testing.T) {
 		Address types.Address
 	}
 	var receivedAddrEv ReceivedAddrEvent
-	err = abi.Unpack(&receivedAddrEv, "receivedAddr", data)
+	err = abi.UnpackEvent(&receivedAddrEv, "receivedAddr", data)
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -679,7 +792,7 @@ func TestABI_MethodById(t *testing.T) {
 		{"type":"function","name":"sliceMultiAddress","constant":false,"inputs":[{"name":"a","type":"address[]"},{"name":"b","type":"address[]"}]}
 	]
 `
-	abi, err := JSON(strings.NewReader(abiJSON))
+	abi, err := JSONToABIContract(strings.NewReader(abiJSON))
 	if err != nil {
 		t.Fatal(err)
 	}

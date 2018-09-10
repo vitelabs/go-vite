@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
 
@@ -13,7 +14,7 @@ func opStop(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 
 func opAdd(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	x, y := stack.pop(), stack.peek()
-	U256(y.Add(x, y))
+	util.U256(y.Add(x, y))
 
 	c.intPool.put(x)
 	return nil, nil
@@ -21,7 +22,7 @@ func opAdd(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 
 func opMul(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	x, y := stack.pop(), stack.peek()
-	U256(y.Mul(x, y))
+	util.U256(y.Mul(x, y))
 
 	c.intPool.put(x)
 	return nil, nil
@@ -29,7 +30,7 @@ func opMul(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 
 func opSub(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	x, y := stack.pop(), stack.peek()
-	U256(y.Sub(x, y))
+	util.U256(y.Sub(x, y))
 
 	c.intPool.put(x)
 	return nil, nil
@@ -38,7 +39,7 @@ func opSub(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 func opDiv(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	x, y := stack.pop(), stack.peek()
 	if y.Sign() != 0 {
-		U256(y.Div(x, y))
+		util.U256(y.Div(x, y))
 	} else {
 		y.SetUint64(0)
 	}
@@ -48,7 +49,7 @@ func opDiv(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 }
 
 func opSdiv(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	x, y := S256(stack.pop()), S256(stack.pop())
+	x, y := util.S256(stack.pop()), util.S256(stack.pop())
 	res := c.intPool.getZero()
 
 	if y.Sign() == 0 || x.Sign() == 0 {
@@ -60,7 +61,7 @@ func opSdiv(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 		} else {
 			res.Div(x.Abs(x), y.Abs(y))
 		}
-		stack.push(U256(res))
+		stack.push(util.U256(res))
 	}
 
 	c.intPool.put(x, y)
@@ -72,7 +73,7 @@ func opMod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 	if y.Sign() == 0 {
 		stack.push(x.SetUint64(0))
 	} else {
-		stack.push(U256(x.Mod(x, y)))
+		stack.push(util.U256(x.Mod(x, y)))
 	}
 
 	c.intPool.put(y)
@@ -80,7 +81,7 @@ func opMod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 }
 
 func opSmod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	x, y := S256(stack.pop()), S256(stack.pop())
+	x, y := util.S256(stack.pop()), util.S256(stack.pop())
 	res := c.intPool.getZero()
 
 	if y.Sign() == 0 {
@@ -92,7 +93,7 @@ func opSmod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 		} else {
 			res.Mod(x.Abs(x), y.Abs(y))
 		}
-		stack.push(U256(res))
+		stack.push(util.U256(res))
 	}
 
 	c.intPool.put(x, y)
@@ -101,10 +102,10 @@ func opSmod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 
 func opAddmod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	x, y, z := stack.pop(), stack.pop(), stack.pop()
-	if z.Cmp(bigZero) > 0 {
+	if z.Cmp(util.Big0) > 0 {
 		x.Add(x, y)
 		x.Mod(x, z)
-		stack.push(U256(x))
+		stack.push(util.U256(x))
 	} else {
 		stack.push(x.SetUint64(0))
 	}
@@ -115,10 +116,10 @@ func opAddmod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 
 func opMulmod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	x, y, z := stack.pop(), stack.pop(), stack.pop()
-	if z.Cmp(bigZero) > 0 {
+	if z.Cmp(util.Big0) > 0 {
 		x.Mul(x, y)
 		x.Mod(x, z)
-		stack.push(U256(x))
+		stack.push(util.U256(x))
 	} else {
 		stack.push(x.SetUint64(0))
 	}
@@ -129,7 +130,7 @@ func opMulmod(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 
 func opExp(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	base, exponent := stack.pop(), stack.pop()
-	stack.push(Exp(base, exponent))
+	stack.push(util.Exp(base, exponent))
 
 	c.intPool.put(base, exponent)
 	return nil, nil
@@ -140,14 +141,14 @@ func opSignExtend(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack)
 	if back.Cmp(big.NewInt(31)) < 0 {
 		bit := uint(back.Uint64()*8 + 7)
 		num := stack.pop()
-		mask := back.Lsh(Big1, bit)
-		mask.Sub(mask, Big1)
+		mask := back.Lsh(util.Big1, bit)
+		mask.Sub(mask, util.Big1)
 		if num.Bit(int(bit)) > 0 {
 			num.Or(num, mask.Not(mask))
 		} else {
 			num.And(num, mask)
 		}
-		stack.push(U256(num))
+		stack.push(util.U256(num))
 	}
 
 	c.intPool.put(back)
@@ -179,8 +180,8 @@ func opGt(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte
 func opSlt(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	x, y := stack.pop(), stack.peek()
 
-	xSign := x.Cmp(tt255)
-	ySign := y.Cmp(tt255)
+	xSign := x.Cmp(util.Tt255)
+	ySign := y.Cmp(util.Tt255)
 
 	switch {
 	case xSign >= 0 && ySign < 0:
@@ -203,8 +204,8 @@ func opSlt(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 func opSgt(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	x, y := stack.pop(), stack.peek()
 
-	xSign := x.Cmp(tt255)
-	ySign := y.Cmp(tt255)
+	xSign := x.Cmp(util.Tt255)
+	ySign := y.Cmp(util.Tt255)
 
 	switch {
 	case xSign >= 0 && ySign < 0:
@@ -271,14 +272,14 @@ func opXor(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 
 func opNot(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	x := stack.peek()
-	U256(x.Not(x))
+	util.U256(x.Not(x))
 	return nil, nil
 }
 
 func opByte(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	th, val := stack.pop(), stack.peek()
-	if th.Cmp(Big32) < 0 {
-		b := Byte(val, 32, int(th.Int64()))
+	if th.Cmp(util.Big32) < 0 {
+		b := util.Byte(val, 32, int(th.Int64()))
 		val.SetUint64(uint64(b))
 	} else {
 		val.SetUint64(0)
@@ -289,11 +290,11 @@ func opByte(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 }
 
 func opSHL(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	shift, value := U256(stack.pop()), U256(stack.peek())
-	if shift.Cmp(big256) >= 0 {
+	shift, value := util.U256(stack.pop()), util.U256(stack.peek())
+	if shift.Cmp(util.Big256) >= 0 {
 		value.SetUint64(0)
 	} else {
-		U256(value.Lsh(value, uint(shift.Uint64())))
+		util.U256(value.Lsh(value, uint(shift.Uint64())))
 	}
 
 	c.intPool.put(shift)
@@ -301,11 +302,11 @@ func opSHL(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 }
 
 func opSHR(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	shift, value := U256(stack.pop()), U256(stack.peek())
-	if shift.Cmp(big256) >= 0 {
+	shift, value := util.U256(stack.pop()), util.U256(stack.peek())
+	if shift.Cmp(util.Big256) >= 0 {
 		value.SetUint64(0)
 	} else {
-		U256(value.Rsh(value, uint(shift.Uint64())))
+		util.U256(value.Rsh(value, uint(shift.Uint64())))
 	}
 
 	c.intPool.put(shift)
@@ -313,16 +314,16 @@ func opSHR(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 }
 
 func opSAR(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	shift, value := U256(stack.pop()), S256(stack.pop())
-	if shift.Cmp(big256) >= 0 {
+	shift, value := util.U256(stack.pop()), util.S256(stack.pop())
+	if shift.Cmp(util.Big256) >= 0 {
 		if value.Sign() > 0 {
 			value.SetUint64(0)
 		} else {
 			value.SetInt64(-1)
 		}
-		stack.push(U256(value))
+		stack.push(util.U256(value))
 	} else {
-		stack.push(U256(value.Rsh(value, uint(shift.Uint64()))))
+		stack.push(util.U256(value.Rsh(value, uint(shift.Uint64()))))
 	}
 
 	c.intPool.put(shift)
@@ -365,7 +366,7 @@ func opCallValue(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) 
 }
 
 func opCallDataLoad(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.get().SetBytes(getDataBig(c.block.Data(), stack.pop(), Big32)))
+	stack.push(c.intPool.get().SetBytes(util.GetDataBig(c.block.Data(), stack.pop(), util.Big32)))
 	return nil, nil
 }
 
@@ -380,7 +381,7 @@ func opCallDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stac
 		dataOffset = stack.pop()
 		length     = stack.pop()
 	)
-	memory.set(memOffset.Uint64(), length.Uint64(), getDataBig(c.block.Data(), dataOffset, length))
+	memory.set(memOffset.Uint64(), length.Uint64(), util.GetDataBig(c.block.Data(), dataOffset, length))
 
 	c.intPool.put(memOffset, dataOffset, length)
 	return nil, nil
@@ -397,7 +398,7 @@ func opCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) (
 		codeOffset = stack.pop()
 		length     = stack.pop()
 	)
-	memory.set(memOffset.Uint64(), length.Uint64(), getDataBig(c.code, codeOffset, length))
+	memory.set(memOffset.Uint64(), length.Uint64(), util.GetDataBig(c.code, codeOffset, length))
 
 	c.intPool.put(memOffset, codeOffset, length)
 	return nil, nil
@@ -418,7 +419,7 @@ func opExtCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack
 		length     = stack.pop()
 	)
 	contractAddress, _ := types.BytesToAddress(addr.Bytes())
-	codeCopy := getDataBig(vm.Db.ContractCode(contractAddress), codeOffset, length)
+	codeCopy := util.GetDataBig(vm.Db.ContractCode(contractAddress), codeOffset, length)
 	memory.set(memOffset.Uint64(), length.Uint64(), codeCopy)
 
 	c.intPool.put(addr, memOffset, codeOffset, length)
@@ -451,7 +452,7 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *st
 func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	height := stack.pop()
 	snapshotHeight := c.intPool.get().Set(vm.Db.SnapshotBlock(c.block.SnapshotHash()).Height())
-	n := c.intPool.get().Sub(snapshotHeight, big256)
+	n := c.intPool.get().Sub(snapshotHeight, util.Big256)
 	if height.Cmp(n) > 0 && height.Cmp(snapshotHeight) <= 0 {
 		stack.push(c.intPool.get().SetBytes(vm.Db.SnapshotBlockByHeight(height).Hash().Bytes()))
 	} else {
@@ -463,12 +464,12 @@ func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) 
 }
 
 func opTimestamp(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(U256(c.intPool.get().SetUint64(uint64(vm.Db.SnapshotBlock(c.block.SnapshotHash()).Timestamp()))))
+	stack.push(util.U256(c.intPool.get().SetUint64(uint64(vm.Db.SnapshotBlock(c.block.SnapshotHash()).Timestamp()))))
 	return nil, nil
 }
 
 func opHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(U256(c.intPool.get().Set(vm.Db.SnapshotBlock(c.block.SnapshotHash()).Height())))
+	stack.push(util.U256(c.intPool.get().Set(vm.Db.SnapshotBlock(c.block.SnapshotHash()).Height())))
 	return nil, nil
 }
 
@@ -582,7 +583,7 @@ func makePush(size uint64, pushByteSize int) executionFunc {
 		}
 
 		integer := c.intPool.get()
-		stack.push(integer.SetBytes(RightPadBytes(c.code[startMin:endMin], pushByteSize)))
+		stack.push(integer.SetBytes(util.RightPadBytes(c.code[startMin:endMin], pushByteSize)))
 
 		*pc += size
 		return nil, nil

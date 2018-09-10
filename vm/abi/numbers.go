@@ -2,7 +2,7 @@ package abi
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"reflect"
 )
@@ -19,9 +19,11 @@ var (
 	int32T    = reflect.TypeOf(int32(0))
 	int64T    = reflect.TypeOf(int64(0))
 	addressT  = reflect.TypeOf(types.Address{})
+	gidT      = reflect.TypeOf(types.Gid{}) // TODO
+	tokenIdT  = reflect.TypeOf(types.TokenTypeId{})
 )
 
-// U256 converts a big Int into a 256bit EVM number.
+// U256 converts a big Int into a 256bit VM number.
 func U256(n *big.Int) []byte {
-	return vm.PaddedBigBytes(vm.U256(n), 32)
+	return util.PaddedBigBytes(util.U256(n), 32)
 }

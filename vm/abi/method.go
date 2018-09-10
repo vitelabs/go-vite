@@ -38,7 +38,7 @@ func (method Method) Sig() string {
 func (method Method) String() string {
 	inputs := make([]string, len(method.Inputs))
 	for i, input := range method.Inputs {
-		inputs[i] = fmt.Sprintf("%v %v", input.Name, input.Type)
+		inputs[i] = fmt.Sprintf("%v %v", input.Type, input.Name)
 	}
 	constant := ""
 	if method.Const {

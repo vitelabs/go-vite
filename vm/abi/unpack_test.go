@@ -1,23 +1,22 @@
 package abi
 
-/*
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
-	"encoding/hex"
-	"strconv"
 )
 
 type unpackTest struct {
 	def  string      // ABI definition JSON
-	enc  string      // evm return data
+	enc  string      // vm return data
 	want interface{} // the expected output
 	err  string      // empty or error if expected
 }
@@ -115,7 +114,7 @@ var unpackTests = []unpackTest{
 	{
 		def:  `[{"type": "bytes"}]`,
 		enc:  "000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000200100000000000000000000000000000000000000000000000000000000000000",
-		want: vm.HexToBytes("0100000000000000000000000000000000000000000000000000000000000000"),
+		want: util.HexToBytes("0100000000000000000000000000000000000000000000000000000000000000"),
 	},
 	{
 		def:  `[{"type": "bytes"}]`,
@@ -316,8 +315,8 @@ var unpackTests = []unpackTest{
 func TestUnpack(t *testing.T) {
 	for i, test := range unpackTests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			def := fmt.Sprintf(`[{ "name" : "method", "outputs": %s}]`, test.def)
-			abi, err := JSON(strings.NewReader(def))
+			def := fmt.Sprintf(`[{ "name" : "event", "type" : "event", "inputs": %s}]`, test.def)
+			abi, err := JSONToABIContract(strings.NewReader(def))
 			if err != nil {
 				t.Fatalf("invalid ABI definition %s: %v", def, err)
 			}
@@ -326,7 +325,7 @@ func TestUnpack(t *testing.T) {
 				t.Fatalf("invalid hex: %s" + test.enc)
 			}
 			outptr := reflect.New(reflect.TypeOf(test.want))
-			err = abi.Unpack(outptr.Interface(), "method", encb)
+			err = abi.UnpackEvent(outptr.Interface(), "event", encb)
 			if err := test.checkError(err); err != nil {
 				t.Errorf("test %d (%v) failed: %v", i, test.def, err)
 				return
@@ -344,19 +343,19 @@ type methodMultiOutput struct {
 	String string
 }
 
-func methodMultiReturn(require *require.Assertions) (ABI, []byte, methodMultiOutput) {
+func methodMultiReturn(require *require.Assertions) (ABIContract, []byte, methodMultiOutput) {
 	const definition = `[
-	{ "name" : "multi", "constant" : false, "outputs": [ { "name": "Int", "type": "uint256" }, { "name": "String", "type": "string" } ] }]`
+	{ "name" : "multi", "type" : "event", "inputs": [ { "name": "Int", "type": "uint256" }, { "name": "String", "type": "string" } ] }]`
 	var expected = methodMultiOutput{big.NewInt(1), "hello"}
 
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSONToABIContract(strings.NewReader(definition))
 	require.NoError(err)
 	// using buff to make the code readable
 	buff := new(bytes.Buffer)
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000001"))
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000040"))
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000005"))
-	buff.Write(vm.RightPadBytes([]byte(expected.String), 32))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000001"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000040"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000005"))
+	buff.Write(util.RightPadBytes([]byte(expected.String), 32))
 	return abi, buff.Bytes(), expected
 }
 
@@ -408,7 +407,7 @@ func TestMethodMultiReturn(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			require := require.New(t)
-			err := abi.Unpack(tc.dest, "multi", data)
+			err := abi.UnpackEvent(tc.dest, "multi", data)
 			if tc.error == "" {
 				require.Nil(err, "Should be able to unpack method outputs.")
 				require.Equal(tc.expected, tc.dest)
@@ -420,18 +419,18 @@ func TestMethodMultiReturn(t *testing.T) {
 }
 
 func TestMultiReturnWithArray(t *testing.T) {
-	const definition = `[{"name" : "multi", "outputs": [{"type": "uint64[3]"}, {"type": "uint64"}]}]`
-	abi, err := JSON(strings.NewReader(definition))
+	const definition = `[{"name" : "multi", "type" : "event", "inputs": [{"type": "uint64[3]"}, {"type": "uint64"}]}]`
+	abi, err := JSONToABIContract(strings.NewReader(definition))
 	if err != nil {
 		t.Fatal(err)
 	}
 	buff := new(bytes.Buffer)
-	buff.Write(vm.HexToBytes("000000000000000000000000000000000000000000000000000000000000000900000000000000000000000000000000000000000000000000000000000000090000000000000000000000000000000000000000000000000000000000000009"))
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000008"))
+	buff.Write(util.HexToBytes("000000000000000000000000000000000000000000000000000000000000000900000000000000000000000000000000000000000000000000000000000000090000000000000000000000000000000000000000000000000000000000000009"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000008"))
 
 	ret1, ret1Exp := new([3]uint64), [3]uint64{9, 9, 9}
 	ret2, ret2Exp := new(uint64), uint64(8)
-	if err := abi.Unpack(&[]interface{}{ret1, ret2}, "multi", buff.Bytes()); err != nil {
+	if err := abi.UnpackEvent(&[]interface{}{ret1, ret2}, "multi", buff.Bytes()); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(*ret1, ret1Exp) {
@@ -447,22 +446,22 @@ func TestMultiReturnWithDeeplyNestedArray(t *testing.T) {
 	//  values of nested static arrays count towards the size as well, and any element following
 	//  after such nested array argument should be read with the correct offset,
 	//  so that it does not read content from the previous array argument.
-	const definition = `[{"name" : "multi", "outputs": [{"type": "uint64[3][2][4]"}, {"type": "uint64"}]}]`
-	abi, err := JSON(strings.NewReader(definition))
+	const definition = `[{"name" : "multi", "type" : "event", "inputs": [{"type": "uint64[3][2][4]"}, {"type": "uint64"}]}]`
+	abi, err := JSONToABIContract(strings.NewReader(definition))
 	if err != nil {
 		t.Fatal(err)
 	}
 	buff := new(bytes.Buffer)
 	// construct the test array, each 3 char element is joined with 61 '0' chars,
 	// to from the ((3 + 61) * 0.5) = 32 byte elements in the array.
-	buff.Write(vm.HexToBytes(strings.Join([]string{
+	buff.Write(util.HexToBytes(strings.Join([]string{
 		"", //empty, to apply the 61-char separator to the first element as well.
 		"111", "112", "113", "121", "122", "123",
 		"211", "212", "213", "221", "222", "223",
 		"311", "312", "313", "321", "322", "323",
 		"411", "412", "413", "421", "422", "423",
 	}, "0000000000000000000000000000000000000000000000000000000000000")))
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000009876"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000009876"))
 
 	ret1, ret1Exp := new([4][2][3]uint64), [4][2][3]uint64{
 		{{0x111, 0x112, 0x113}, {0x121, 0x122, 0x123}},
@@ -471,7 +470,7 @@ func TestMultiReturnWithDeeplyNestedArray(t *testing.T) {
 		{{0x411, 0x412, 0x413}, {0x421, 0x422, 0x423}},
 	}
 	ret2, ret2Exp := new(uint64), uint64(0x9876)
-	if err := abi.Unpack(&[]interface{}{ret1, ret2}, "multi", buff.Bytes()); err != nil {
+	if err := abi.UnpackEvent(&[]interface{}{ret1, ret2}, "multi", buff.Bytes()); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(*ret1, ret1Exp) {
@@ -484,33 +483,33 @@ func TestMultiReturnWithDeeplyNestedArray(t *testing.T) {
 
 func TestUnmarshal(t *testing.T) {
 	const definition = `[
-	{ "name" : "int", "constant" : false, "outputs": [ { "type": "uint256" } ] },
-	{ "name" : "bool", "constant" : false, "outputs": [ { "type": "bool" } ] },
-	{ "name" : "bytes", "constant" : false, "outputs": [ { "type": "bytes" } ] },
-	{ "name" : "fixed", "constant" : false, "outputs": [ { "type": "bytes32" } ] },
-	{ "name" : "multi", "constant" : false, "outputs": [ { "type": "bytes" }, { "type": "bytes" } ] },
-	{ "name" : "intArraySingle", "constant" : false, "outputs": [ { "type": "uint256[3]" } ] },
-	{ "name" : "addressSliceSingle", "constant" : false, "outputs": [ { "type": "address[]" } ] },
-	{ "name" : "addressSliceDouble", "constant" : false, "outputs": [ { "name": "a", "type": "address[]" }, { "name": "b", "type": "address[]" } ] },
-	{ "name" : "mixedBytes", "constant" : true, "outputs": [ { "name": "a", "type": "bytes" }, { "name": "b", "type": "bytes32" } ] }]`
+	{ "type" : "event", "name" : "int", "inputs": [ { "type": "uint256" } ] },
+	{ "type" : "event", "name" : "bool", "inputs": [ { "type": "bool" } ] },
+	{ "type" : "event", "name" : "bytes", "inputs": [ { "type": "bytes" } ] },
+	{ "type" : "event", "name" : "fixed", "inputs": [ { "type": "bytes32" } ] },
+	{ "type" : "event", "name" : "multi", "inputs": [ { "type": "bytes" }, { "type": "bytes" } ] },
+	{ "type" : "event", "name" : "intArraySingle", "inputs": [ { "type": "uint256[3]" } ] },
+	{ "type" : "event", "name" : "addressSliceSingle", "inputs": [ { "type": "address[]" } ] },
+	{ "type" : "event", "name" : "addressSliceDouble", "inputs": [ { "name": "a", "type": "address[]" }, { "name": "b", "type": "address[]" } ] },
+	{ "type" : "event", "name" : "mixedBytes", "inputs": [ { "name": "a", "type": "bytes" }, { "name": "b", "type": "bytes32" } ] }]`
 
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSONToABIContract(strings.NewReader(definition))
 	if err != nil {
 		t.Fatal(err)
 	}
 	buff := new(bytes.Buffer)
 
 	// marshall mixed bytes (mixedBytes)
-	p0, p0Exp := []byte{}, vm.HexToBytes("01020000000000000000")
-	p1, p1Exp := [32]byte{}, vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000ddeeff")
+	p0, p0Exp := []byte{}, util.HexToBytes("01020000000000000000")
+	p1, p1Exp := [32]byte{}, util.HexToBytes("0000000000000000000000000000000000000000000000000000000000ddeeff")
 	mixedBytes := []interface{}{&p0, &p1}
 
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000040"))
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000ddeeff"))
-	buff.Write(vm.HexToBytes("000000000000000000000000000000000000000000000000000000000000000a"))
-	buff.Write(vm.HexToBytes("0102000000000000000000000000000000000000000000000000000000000000"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000040"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000ddeeff"))
+	buff.Write(util.HexToBytes("000000000000000000000000000000000000000000000000000000000000000a"))
+	buff.Write(util.HexToBytes("0102000000000000000000000000000000000000000000000000000000000000"))
 
-	err = abi.Unpack(&mixedBytes, "mixedBytes", buff.Bytes())
+	err = abi.UnpackEvent(&mixedBytes, "mixedBytes", buff.Bytes())
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -525,7 +524,7 @@ func TestUnmarshal(t *testing.T) {
 
 	// marshal int
 	var Int *big.Int
-	err = abi.Unpack(&Int, "int", vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000001"))
+	err = abi.UnpackEvent(&Int, "int", util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000001"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -536,7 +535,7 @@ func TestUnmarshal(t *testing.T) {
 
 	// marshal bool
 	var Bool bool
-	err = abi.Unpack(&Bool, "bool", vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000001"))
+	err = abi.UnpackEvent(&Bool, "bool", util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000001"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -547,13 +546,13 @@ func TestUnmarshal(t *testing.T) {
 
 	// marshal dynamic bytes max length 32
 	buff.Reset()
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020"))
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020"))
-	bytesOut := vm.RightPadBytes([]byte("hello"), 32)
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020"))
+	bytesOut := util.RightPadBytes([]byte("hello"), 32)
 	buff.Write(bytesOut)
 
 	var Bytes []byte
-	err = abi.Unpack(&Bytes, "bytes", buff.Bytes())
+	err = abi.UnpackEvent(&Bytes, "bytes", buff.Bytes())
 	if err != nil {
 		t.Error(err)
 	}
@@ -564,12 +563,12 @@ func TestUnmarshal(t *testing.T) {
 
 	// marshall dynamic bytes max length 64
 	buff.Reset()
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020"))
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000040"))
-	bytesOut = vm.RightPadBytes([]byte("hello"), 64)
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000040"))
+	bytesOut = util.RightPadBytes([]byte("hello"), 64)
 	buff.Write(bytesOut)
 
-	err = abi.Unpack(&Bytes, "bytes", buff.Bytes())
+	err = abi.UnpackEvent(&Bytes, "bytes", buff.Bytes())
 	if err != nil {
 		t.Error(err)
 	}
@@ -580,12 +579,12 @@ func TestUnmarshal(t *testing.T) {
 
 	// marshall dynamic bytes max length 64
 	buff.Reset()
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020"))
-	buff.Write(vm.HexToBytes("000000000000000000000000000000000000000000000000000000000000003f"))
-	bytesOut = vm.RightPadBytes([]byte("hello"), 64)
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020"))
+	buff.Write(util.HexToBytes("000000000000000000000000000000000000000000000000000000000000003f"))
+	bytesOut = util.RightPadBytes([]byte("hello"), 64)
 	buff.Write(bytesOut)
 
-	err = abi.Unpack(&Bytes, "bytes", buff.Bytes())
+	err = abi.UnpackEvent(&Bytes, "bytes", buff.Bytes())
 	if err != nil {
 		t.Error(err)
 	}
@@ -595,18 +594,18 @@ func TestUnmarshal(t *testing.T) {
 	}
 
 	// marshal dynamic bytes output empty
-	err = abi.Unpack(&Bytes, "bytes", nil)
+	err = abi.UnpackEvent(&Bytes, "bytes", nil)
 	if err == nil {
 		t.Error("expected error")
 	}
 
 	// marshal dynamic bytes length 5
 	buff.Reset()
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020"))
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000005"))
-	buff.Write(vm.RightPadBytes([]byte("hello"), 32))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000005"))
+	buff.Write(util.RightPadBytes([]byte("hello"), 32))
 
-	err = abi.Unpack(&Bytes, "bytes", buff.Bytes())
+	err = abi.UnpackEvent(&Bytes, "bytes", buff.Bytes())
 	if err != nil {
 		t.Error(err)
 	}
@@ -617,39 +616,39 @@ func TestUnmarshal(t *testing.T) {
 
 	// marshal dynamic bytes length 5
 	buff.Reset()
-	buff.Write(vm.RightPadBytes([]byte("hello"), 32))
+	buff.Write(util.RightPadBytes([]byte("hello"), 32))
 
 	var hash types.Hash
-	err = abi.Unpack(&hash, "fixed", buff.Bytes())
+	err = abi.UnpackEvent(&hash, "fixed", buff.Bytes())
 	if err != nil {
 		t.Error(err)
 	}
 
-	helloHash, _ := types.BytesToHash(vm.RightPadBytes([]byte("hello"), 32))
+	helloHash, _ := types.BytesToHash(util.RightPadBytes([]byte("hello"), 32))
 	if hash != helloHash {
 		t.Errorf("Expected %x to equal %x", hash, helloHash)
 	}
 
 	// marshal error
 	buff.Reset()
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020"))
-	err = abi.Unpack(&Bytes, "bytes", buff.Bytes())
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020"))
+	err = abi.UnpackEvent(&Bytes, "bytes", buff.Bytes())
 	if err == nil {
 		t.Error("expected error")
 	}
 
-	err = abi.Unpack(&Bytes, "multi", make([]byte, 64))
+	err = abi.UnpackEvent(&Bytes, "multi", make([]byte, 64))
 	if err == nil {
 		t.Error("expected error")
 	}
 
 	buff.Reset()
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000001"))
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000002"))
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000003"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000001"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000002"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000003"))
 	// marshal int array
 	var intArray [3]*big.Int
-	err = abi.Unpack(&intArray, "intArraySingle", buff.Bytes())
+	err = abi.UnpackEvent(&intArray, "intArraySingle", buff.Bytes())
 	if err != nil {
 		t.Error(err)
 	}
@@ -665,12 +664,12 @@ func TestUnmarshal(t *testing.T) {
 	}
 	// marshal address slice
 	buff.Reset()
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020")) // offset
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000001")) // size
-	buff.Write(vm.HexToBytes("0000000000000000000000000100000000000000000000000000000000000000"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000020")) // offset
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000001")) // size
+	buff.Write(util.HexToBytes("0000000000000000000000000100000000000000000000000000000000000000"))
 
 	var outAddr []types.Address
-	err = abi.Unpack(&outAddr, "addressSliceSingle", buff.Bytes())
+	err = abi.UnpackEvent(&outAddr, "addressSliceSingle", buff.Bytes())
 	if err != nil {
 		t.Fatal("didn't expect error:", err)
 	}
@@ -685,19 +684,19 @@ func TestUnmarshal(t *testing.T) {
 
 	// marshal multiple address slice
 	buff.Reset()
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000040")) // offset
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000080")) // offset
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000001")) // size
-	buff.Write(vm.HexToBytes("0000000000000000000000000100000000000000000000000000000000000000"))
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000002")) // size
-	buff.Write(vm.HexToBytes("0000000000000000000000000200000000000000000000000000000000000000"))
-	buff.Write(vm.HexToBytes("0000000000000000000000000300000000000000000000000000000000000000"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000040")) // offset
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000080")) // offset
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000001")) // size
+	buff.Write(util.HexToBytes("0000000000000000000000000100000000000000000000000000000000000000"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000002")) // size
+	buff.Write(util.HexToBytes("0000000000000000000000000200000000000000000000000000000000000000"))
+	buff.Write(util.HexToBytes("0000000000000000000000000300000000000000000000000000000000000000"))
 
 	var outAddrStruct struct {
 		A []types.Address
 		B []types.Address
 	}
-	err = abi.Unpack(&outAddrStruct, "addressSliceDouble", buff.Bytes())
+	err = abi.UnpackEvent(&outAddrStruct, "addressSliceDouble", buff.Bytes())
 	if err != nil {
 		t.Fatal("didn't expect error:", err)
 	}
@@ -723,14 +722,13 @@ func TestUnmarshal(t *testing.T) {
 
 	// marshal invalid address slice
 	buff.Reset()
-	buff.Write(vm.HexToBytes("0000000000000000000000000000000000000000000000000000000000000100"))
+	buff.Write(util.HexToBytes("0000000000000000000000000000000000000000000000000000000000000100"))
 
-	err = abi.Unpack(&outAddr, "addressSliceSingle", buff.Bytes())
+	err = abi.UnpackEvent(&outAddr, "addressSliceSingle", buff.Bytes())
 	if err == nil {
 		t.Fatal("expected error:", err)
 	}
 }
-
 
 func TestOOMMaliciousInput(t *testing.T) {
 	oomTests := []unpackTest{
@@ -786,8 +784,8 @@ func TestOOMMaliciousInput(t *testing.T) {
 		},
 	}
 	for i, test := range oomTests {
-		def := fmt.Sprintf(`[{ "name" : "method", "outputs": %s}]`, test.def)
-		abi, err := JSON(strings.NewReader(def))
+		def := fmt.Sprintf(`[{ "name" : "event", "type": "event", "inputs": %s}]`, test.def)
+		abi, err := JSONToABIContract(strings.NewReader(def))
 		if err != nil {
 			t.Fatalf("invalid ABI definition %s: %v", def, err)
 		}
@@ -795,9 +793,9 @@ func TestOOMMaliciousInput(t *testing.T) {
 		if err != nil {
 			t.Fatalf("invalid hex: %s" + test.enc)
 		}
-		_, err = abi.Methods["method"].Outputs.UnpackValues(encb)
+		_, err = abi.Events["event"].Inputs.UnpackValues(encb)
 		if err == nil {
 			t.Fatalf("Expected error on malicious input, test %d", i)
 		}
 	}
-}*/
+}

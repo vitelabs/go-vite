@@ -2,6 +2,7 @@ package vm
 
 import (
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"strconv"
 )
@@ -59,7 +60,7 @@ func (m *memory) getPtr(offset, size int64) []byte {
 // set sets offset + size to amount
 func (m *memory) set(offset, size uint64, value []byte) {
 	// It's possible the offset is greater than 0 and size equals 0. This is because
-	// the calcMemSize (common.go) could potentially return 0 when size is zero (NO-OP)
+	// the calcMemSize (util.go) could potentially return 0 when size is zero (NO-OP)
 	if size > 0 {
 		// length of store may never be less than offset + size.
 		// The store should be resized PRIOR to setting the memory
@@ -81,7 +82,7 @@ func (m *memory) set32(offset uint64, val *big.Int) {
 	// Zero the memory area
 	copy(m.store[offset:offset+32], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 	// Fill in relevant bits
-	ReadBits(val, m.store[offset:offset+32])
+	util.ReadBits(val, m.store[offset:offset+32])
 }
 
 func (m *memory) print() string {

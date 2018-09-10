@@ -2,14 +2,18 @@ package vm
 
 import (
 	"bytes"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
+	"strconv"
 )
 
 var (
 	AddressRegister, _       = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
 	AddressVote, _           = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2})
-	AddressMortgage, _       = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3})
+	AddressPledge, _         = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3})
 	AddressConsensusGroup, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4})
 )
 
@@ -20,10 +24,10 @@ type precompiledContract interface {
 }
 
 var simpleContracts = map[types.Address]precompiledContract{
-	AddressRegister:       &register{},
-	AddressVote:           &vote{},
-	AddressMortgage:       &mortgage{},
-	AddressConsensusGroup: &consensusGroup{},
+	AddressRegister:       &register{ABI_register},
+	AddressVote:           &vote{ABI_vote},
+	AddressPledge:         &pledge{ABI_pledge},
+	AddressConsensusGroup: &consensusGroup{ABI_consensusGroup},
 }
 
 func getPrecompiledContract(address types.Address) (precompiledContract, bool) {
@@ -31,24 +35,23 @@ func getPrecompiledContract(address types.Address) (precompiledContract, bool) {
 	return p, ok
 }
 
-type register struct{}
-
-var (
-	DataRegister       = []byte{0xde, 0x6e, 0xef, 0x70}
-	DataCancelRegister = []byte{0x74, 0x46, 0xae, 0x9b}
-	DataReward         = []byte{0xc7, 0x45, 0xe1, 0x5c}
-)
+type register struct {
+	abi.ABIContract
+}
 
 func (p *register) createFee(vm *VM, block VmAccountBlock) *big.Int {
 	return big.NewInt(0)
 }
 func (p *register) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	if len(block.Data()) == 36 && bytes.Equal(block.Data()[0:4], DataRegister) {
-		return p.doSendRegister(vm, block, quotaLeft)
-	} else if len(block.Data()) == 36 && bytes.Equal(block.Data()[0:4], DataCancelRegister) {
-		return p.doSendCancelRegister(vm, block, quotaLeft)
-	} else if len(block.Data()) >= 36 && bytes.Equal(block.Data()[0:4], DataReward) {
-		return p.doSendReward(vm, block, quotaLeft)
+	if method, err := p.MethodById(block.Data()[0:4]); err == nil {
+		switch method.Name {
+		case MethodNameRegister:
+			return p.doSendRegister(vm, block, quotaLeft)
+		case MethodNameCancelRegister:
+			return p.doSendCancelRegister(vm, block, quotaLeft)
+		case MethodNameReward:
+			return p.doSendReward(vm, block, quotaLeft)
+		}
 	}
 	return quotaLeft, ErrInvalidData
 }
@@ -64,13 +67,14 @@ func (p *register) doSendRegister(vm *VM, block VmAccountBlock, quotaLeft uint64
 		return quotaLeft, err
 	}
 	if block.Amount().Cmp(registerAmount) != 0 ||
-		!isViteToken(block.TokenId()) ||
+		!util.IsViteToken(block.TokenId()) ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data: methodSelector(0:4) + gid(4:36)
-	gid, err := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
-	if err != nil || !isExistGid(vm.Db, gid) {
+
+	gid := new(types.Gid)
+	err = p.UnpackMethod(gid, MethodNameRegister, block.Data())
+	if err != nil || !isExistGid(vm.Db, *gid) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
@@ -90,20 +94,16 @@ func (p *register) doSendCancelRegister(vm *VM, block VmAccountBlock, quotaLeft 
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data:  methodSelector(0:4) + gid(4:36)
-	gid, err := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
-	if err != nil || !isExistGid(vm.Db, gid) {
+	gid := new(types.Gid)
+	err = p.UnpackMethod(gid, MethodNameCancelRegister, block.Data())
+	if err != nil || !isExistGid(vm.Db, *gid) {
 		return quotaLeft, ErrInvalidData
 	}
 
-	locHash := getKey(block.AccountAddress(), gid)
-	old := vm.Db.Storage(block.ToAddress(), locHash)
-	// storage value: lock ViteToken amount(0:32) + lock start timestamp(32:64) + start reward snapshot height(64:96) + cancel snapshot height, 0 for default(96:128)
-	if len(old) < 96 || allZero(old[0:32]) {
-		return quotaLeft, ErrInvalidData
-	}
-	lockStartTime := new(big.Int).SetBytes(old[32:64]).Int64()
-	if lockStartTime+registerLockTime < vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp() {
+	locHash := getKey(block.AccountAddress(), *gid)
+	old := new(VariableRegistration)
+	err = p.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
+	if err != nil || old.Timestamp+registerLockTime < vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp() {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
@@ -119,38 +119,29 @@ func (p *register) doSendReward(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data: methodSelector(0:4) + gid(4:36) + end reward height(36:68, optional) + start reward height(68:100, optional) + rewardAmount(100:132, optional)
-	// only generating snapshot block creates reward officially
-	gid, err := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
-	if err != nil || !isSnapshotGid(gid) {
+	param := new(ParamReward)
+	err = p.UnpackMethod(param, MethodNameReward, block.Data())
+	if err != nil || !util.IsSnapshotGid(param.Gid) {
 		return quotaLeft, ErrInvalidData
 	}
-	locHash := getKey(block.AccountAddress(), gid)
-	old := vm.Db.Storage(block.ToAddress(), locHash)
-	if len(old) < 96 {
+	locHash := getKey(block.AccountAddress(), param.Gid)
+	old := new(VariableRegistration)
+	err = p.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
+	if err != nil {
 		return quotaLeft, ErrInvalidData
 	}
-	intPool := poolOfIntPools.get()
-	defer poolOfIntPools.put(intPool)
 	// newRewardHeight := min(currentSnapshotHeight-50, userDefined, cancelSnapshotHeight)
-	newRewardHeight := intPool.get().Sub(vm.Db.SnapshotBlock(block.SnapshotHash()).Height(), rewardHeightLimit)
-	defer intPool.put(newRewardHeight)
-	if len(block.Data()) >= 68 {
-		userDefined := intPool.get().SetBytes(block.Data()[36:68])
-		defer intPool.put(userDefined)
-		newRewardHeight = BigMin(newRewardHeight, userDefined)
+	newRewardHeight := new(big.Int).Sub(vm.Db.SnapshotBlock(block.SnapshotHash()).Height(), rewardHeightLimit)
+	if param.EndHeight.Sign() > 0 {
+		newRewardHeight = util.BigMin(newRewardHeight, param.EndHeight)
 	}
-	if len(old) >= 128 && !allZero(old[96:128]) {
-		cancelSnapshotHeight := intPool.get().SetBytes(old[96:128])
-		defer intPool.put(cancelSnapshotHeight)
-		newRewardHeight = BigMin(newRewardHeight, cancelSnapshotHeight)
+	if old.CancelHeight.Sign() > 0 {
+		newRewardHeight = util.BigMin(newRewardHeight, old.CancelHeight)
 	}
-	oldRewardHeight := intPool.get().SetBytes(old[64:96])
-	if newRewardHeight.Cmp(oldRewardHeight) <= 0 {
+	if newRewardHeight.Cmp(old.RewardHeight) <= 0 {
 		return quotaLeft, ErrInvalidData
 	}
-	heightGap := intPool.get().Sub(newRewardHeight, oldRewardHeight)
-	defer intPool.put(heightGap)
+	heightGap := new(big.Int).Sub(newRewardHeight, old.RewardHeight)
 	if heightGap.Cmp(rewardGapLimit) > 0 {
 		return quotaLeft, ErrInvalidData
 	}
@@ -161,10 +152,12 @@ func (p *register) doSendReward(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 		return quotaLeft, err
 	}
 
-	reward := intPool.getZero()
-	calcReward(vm, block.AccountAddress().Bytes(), oldRewardHeight, count, reward)
-	block.SetData(joinBytes(block.Data()[0:36], LeftPadBytes(newRewardHeight.Bytes(), 32), old[64:96], LeftPadBytes(reward.Bytes(), 32)))
-	intPool.put(reward)
+	calcReward(vm, block.AccountAddress().Bytes(), old.RewardHeight, count, param.Amount)
+	data, err := p.PackMethod(MethodNameReward, param.Gid, newRewardHeight, old.RewardHeight, param.Amount)
+	if err != nil {
+		return quotaLeft, err
+	}
+	block.SetData(data)
 	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
 	if err != nil {
 		return quotaLeft, err
@@ -195,125 +188,115 @@ func calcReward(vm *VM, producer []byte, startHeight *big.Int, count uint64, rew
 }
 
 func (p *register) doReceive(vm *VM, block VmAccountBlock) error {
-	if len(block.Data()) == 36 && bytes.Equal(block.Data()[0:4], DataRegister) {
-		return p.doReceiveRegister(vm, block)
-	} else if len(block.Data()) == 36 && bytes.Equal(block.Data()[0:4], DataCancelRegister) {
-		return p.doReceiveCancelRegister(vm, block)
-	} else if len(block.Data()) == 132 && bytes.Equal(block.Data()[0:4], DataReward) {
-		return p.doReceiveReward(vm, block)
+	if method, err := p.MethodById(block.Data()[0:4]); err == nil {
+		switch method.Name {
+		case MethodNameRegister:
+			return p.doReceiveRegister(vm, block)
+		case MethodNameCancelRegister:
+			return p.doReceiveCancelRegister(vm, block)
+		case MethodNameReward:
+			return p.doReceiveReward(vm, block)
+		}
 	}
 	return ErrInvalidData
 }
 func (p *register) doReceiveRegister(vm *VM, block VmAccountBlock) error {
-	// data: methodSelector(0:4) + gid(4:36)
-	gid, _ := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
-	// storage key: gid(2:12) + address(12:32)
-	locHash := getKey(block.AccountAddress(), gid)
-	// storage value: lock ViteToken amount(0:32) + lock start timestamp(32:64) + start reward snapshot height(64:96) + cancel snapshot height, 0 for default(96:128)
-	old := vm.Db.Storage(block.ToAddress(), locHash)
-	if len(old) >= 32 && !allZero(old[0:32]) {
-		// duplicate register
-		return ErrInvalidData
-	}
-	intPool := poolOfIntPools.get()
-	defer poolOfIntPools.put(intPool)
+	gid := new(types.Gid)
+	p.UnpackMethod(gid, MethodNameRegister, block.Data())
 	snapshotBlock := vm.Db.SnapshotBlock(block.SnapshotHash())
-	rewardHeight := LeftPadBytes(snapshotBlock.Height().Bytes(), 32)
-	if len(old) >= 96 && !allZero(old[64:96]) {
+	rewardHeight := snapshotBlock.Height()
+	locHash := getKey(block.AccountAddress(), *gid)
+	oldData := vm.Db.Storage(block.ToAddress(), locHash)
+	if len(oldData) > 0 {
+		old := new(VariableRegistration)
+		err := p.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
+		if err != nil || old.Amount.Sign() > 0 {
+			// duplicate register
+			return ErrInvalidData
+		}
 		// reward of last being a super node is not drained
-		rewardHeight = old[64:96]
+		rewardHeight = old.RewardHeight
 	}
-	startTimestamp := intPool.get().SetInt64(snapshotBlock.Timestamp())
-	registerInfo := joinBytes(LeftPadBytes(block.Amount().Bytes(), 32),
-		LeftPadBytes(startTimestamp.Bytes(), 32),
-		rewardHeight,
-		emptyWord)
-	intPool.put(startTimestamp)
+	registerInfo, _ := p.PackVariable(VariableNameRegistration, block.Amount(), snapshotBlock.Timestamp(), rewardHeight, common.Big0)
 	vm.Db.SetStorage(block.ToAddress(), locHash, registerInfo)
 	return nil
 }
 func (p *register) doReceiveCancelRegister(vm *VM, block VmAccountBlock) error {
-	// data:  methodSelector(0:4) + gid(4:36)
-	gid, _ := BytesToGid(block.Data()[26:36])
-	locHash := getKey(block.AccountAddress(), gid)
-	old := vm.Db.Storage(block.ToAddress(), locHash)
-	if len(old) < 96 || allZero(old[0:32]) {
+	gid := new(types.Gid)
+	p.UnpackMethod(gid, MethodNameCancelRegister, block.Data())
+
+	locHash := getKey(block.AccountAddress(), *gid)
+	old := new(VariableRegistration)
+	err := p.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
+	if err != nil || old.Amount.Sign() == 0 {
 		return ErrInvalidData
 	}
-	intPool := poolOfIntPools.get()
-	defer poolOfIntPools.put(intPool)
+
 	// update lock amount and loc start timestamp
-	amount := intPool.get().SetBytes(old[0:32])
 	snapshotBlock := vm.Db.SnapshotBlock(block.SnapshotHash())
-	registerInfo := joinBytes(emptyWord,
-		emptyWord,
-		old[64:96],
-		LeftPadBytes(snapshotBlock.Height().Bytes(), 32))
+	registerInfo, _ := p.PackVariable(VariableNameRegistration, common.Big0, int64(0), old.RewardHeight, snapshotBlock.Height())
 	vm.Db.SetStorage(block.ToAddress(), locHash, registerInfo)
 	// return locked ViteToken
 	refundBlock := vm.createBlock(block.ToAddress(), block.AccountAddress(), BlockTypeSendCall, block.Depth()+1)
-	refundBlock.SetAmount(amount)
-	refundBlock.SetTokenId(viteTokenTypeId)
-	refundBlock.SetHeight(intPool.get().Add(block.Height(), Big1))
+	refundBlock.SetAmount(old.Amount)
+	refundBlock.SetTokenId(util.ViteTokenTypeId)
+	refundBlock.SetHeight(new(big.Int).Add(block.Height(), util.Big1))
 	vm.blockList = append(vm.blockList, refundBlock)
 	return nil
 }
 func (p *register) doReceiveReward(vm *VM, block VmAccountBlock) error {
-	// data: methodSelector(0:4) + gid(4:36) + end reward height(36:68) + start reward height(68:100) + rewardAmount(100:132)
-	gid, _ := BytesToGid(block.Data()[26:36])
-	locHash := getKey(block.AccountAddress(), gid)
-	old := vm.Db.Storage(block.ToAddress(), locHash)
-	if len(old) < 96 || !bytes.Equal(old[64:96], block.Data()[68:100]) {
+	param := new(ParamReward)
+	p.UnpackMethod(param, MethodNameReward, block.Data())
+	locHash := getKey(block.AccountAddress(), param.Gid)
+	old := new(VariableRegistration)
+	err := p.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
+	if err != nil || old.RewardHeight.Cmp(param.StartHeight) != 0 {
 		return ErrInvalidData
 	}
-	intPool := poolOfIntPools.get()
-	defer poolOfIntPools.put(intPool)
-	if len(old) >= 128 {
-		cancelTime := intPool.get().SetBytes(old[96:128])
-		newRewardTime := intPool.get().SetBytes(block.Data()[36:68])
-		defer intPool.put(cancelTime, newRewardTime)
-		switch newRewardTime.Cmp(cancelTime) {
+	if old.CancelHeight.Sign() > 0 {
+		switch param.EndHeight.Cmp(old.CancelHeight) {
 		case 1:
 			return ErrInvalidData
 		case 0:
 			// delete storage when register canceled and reward drained
 			vm.Db.SetStorage(block.ToAddress(), locHash, nil)
 		case -1:
-			vm.Db.SetStorage(block.ToAddress(), locHash, joinBytes(old[0:64], block.Data()[36:68], old[96:128]))
+			// get reward partly, update storage
+			registerInfo, _ := p.PackVariable(VariableNameRegistration, old.Amount, old.Timestamp, param.EndHeight, old.CancelHeight)
+			vm.Db.SetStorage(block.ToAddress(), locHash, registerInfo)
 		}
 	} else {
-		vm.Db.SetStorage(block.ToAddress(), locHash, joinBytes(old[0:64], block.Data()[36:68]))
+		registerInfo, _ := p.PackVariable(VariableNameRegistration, old.Amount, old.Timestamp, param.EndHeight, old.CancelHeight)
+		vm.Db.SetStorage(block.ToAddress(), locHash, registerInfo)
 	}
-	// create reward and return
-	rewardAmount := intPool.get().SetBytes(block.Data()[100:132])
-	if rewardAmount.Sign() > 0 {
+
+	if param.Amount.Sign() > 0 {
+		// create reward and return
 		refundBlock := vm.createBlock(block.ToAddress(), block.AccountAddress(), BlockTypeSendReward, block.Depth()+1)
-		refundBlock.SetAmount(intPool.get().SetBytes(block.Data()[100:132]))
-		refundBlock.SetTokenId(viteTokenTypeId)
-		refundBlock.SetHeight(intPool.get().Add(block.Height(), Big1))
+		refundBlock.SetAmount(param.Amount)
+		refundBlock.SetTokenId(util.ViteTokenTypeId)
+		refundBlock.SetHeight(new(big.Int).Add(block.Height(), util.Big1))
 		vm.blockList = append(vm.blockList, refundBlock)
-	} else {
-		intPool.put(rewardAmount)
 	}
 	return nil
 }
 
-type vote struct{}
+type vote struct {
+	abi.ABIContract
+}
 
 func (p *vote) createFee(vm *VM, block VmAccountBlock) *big.Int {
 	return big.NewInt(0)
 }
 
-var (
-	DataVote       = []byte{0x70, 0xfe, 0xcc, 0x42}
-	DataCancelVote = []byte{0x4e, 0x0b, 0x53, 0x02}
-)
-
 func (p *vote) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	if len(block.Data()) == 68 && bytes.Equal(block.Data()[0:4], DataVote) {
-		return p.doSendVote(vm, block, quotaLeft)
-	} else if len(block.Data()) == 36 && bytes.Equal(block.Data()[0:4], DataCancelVote) {
-		return p.doSendCancelVote(vm, block, quotaLeft)
+	if method, err := p.MethodById(block.Data()[0:4]); err == nil {
+		switch method.Name {
+		case MethodNameVote:
+			return p.doSendVote(vm, block, quotaLeft)
+		case MethodNameCancelVote:
+			return p.doSendCancelVote(vm, block, quotaLeft)
+		}
 	}
 	return quotaLeft, ErrInvalidData
 }
@@ -332,13 +315,9 @@ func (p *vote) doSendVote(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint6
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data: methodSelector(0:4) + gid(4:36) + super node address(36:68)
-	gid, err := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
-	if err != nil || !isExistGid(vm.Db, gid) {
-		return quotaLeft, ErrInvalidData
-	}
-	address, err := types.BytesToAddress(new(big.Int).SetBytes(block.Data()[36:68]).Bytes())
-	if err != nil || !vm.Db.IsExistAddress(address) {
+	param := new(ParamVote)
+	err = p.UnpackMethod(param, MethodNameVote, block.Data())
+	if err != nil || !isExistGid(vm.Db, param.Gid) || !vm.Db.IsExistAddress(param.Node) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
@@ -358,59 +337,65 @@ func (p *vote) doSendCancelVote(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data: methodSelector(0:4) + gid(4:36)
-	gid, err := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
-	if err != nil || !isExistGid(vm.Db, gid) {
+	gid := new(types.Gid)
+	err = p.UnpackMethod(gid, MethodNameCancelVote, block.Data())
+	if err != nil || !isExistGid(vm.Db, *gid) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
 func (p *vote) doReceive(vm *VM, block VmAccountBlock) error {
-	if len(block.Data()) == 68 && bytes.Equal(block.Data()[0:4], DataVote) {
-		return p.doReceiveVote(vm, block)
-	} else if len(block.Data()) == 36 && bytes.Equal(block.Data()[0:4], DataCancelVote) {
-		return p.doReceiveCancelVote(vm, block)
+	if method, err := p.MethodById(block.Data()[0:4]); err == nil {
+		switch method.Name {
+		case MethodNameVote:
+			return p.doReceiveVote(vm, block)
+		case MethodNameCancelVote:
+			return p.doReceiveCancelVote(vm, block)
+		}
 	}
-	return nil
+	return ErrInvalidData
 }
 func (p *vote) doReceiveVote(vm *VM, block VmAccountBlock) error {
-	gid, _ := BytesToGid(block.Data()[26:36])
+	param := new(ParamVote)
+	p.UnpackMethod(param, MethodNameVote, block.Data())
 	// storage key: 00(0:2) + gid(2:12) + voter address(12:32)
-	locHash := getKey(block.AccountAddress(), gid)
+	locHash := getKey(block.AccountAddress(), param.Gid)
 	// storage value: superNodeAddress(0:32)
-	vm.Db.SetStorage(block.ToAddress(), locHash, block.Data()[36:68])
+	voteStatus, _ := p.PackVariable(VariableNameVoteStatus, param.Node)
+	vm.Db.SetStorage(block.ToAddress(), locHash, voteStatus)
 	return nil
 }
 func (p *vote) doReceiveCancelVote(vm *VM, block VmAccountBlock) error {
-	gid, _ := BytesToGid(block.Data()[26:36])
-	locHash := getKey(block.AccountAddress(), gid)
+	gid := new(types.Gid)
+	p.UnpackMethod(gid, MethodNameCancelVote, block.Data())
+	locHash := getKey(block.AccountAddress(), *gid)
 	vm.Db.SetStorage(block.ToAddress(), locHash, nil)
 	return nil
 }
 
-type mortgage struct{}
+type pledge struct {
+	abi.ABIContract
+}
 
-func (p *mortgage) createFee(vm *VM, block VmAccountBlock) *big.Int {
+func (p *pledge) createFee(vm *VM, block VmAccountBlock) *big.Int {
 	return big.NewInt(0)
 }
 
-var (
-	DataMortgage       = []byte{0x9c, 0xc4, 0x4b, 0xd6}
-	DataCancelMortgage = []byte{0xf8, 0x2d, 0x39, 0xca}
-)
-
-func (p *mortgage) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	if len(block.Data()) == 68 && bytes.Equal(block.Data()[0:4], DataMortgage) {
-		return p.doSendMortgage(vm, block, quotaLeft)
-	} else if len(block.Data()) == 68 && bytes.Equal(block.Data()[0:4], DataCancelMortgage) {
-		return p.doSendCancelMortgage(vm, block, quotaLeft)
+func (p *pledge) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	if method, err := p.MethodById(block.Data()[0:4]); err == nil {
+		switch method.Name {
+		case MethodNamePledge:
+			return p.doSendPledge(vm, block, quotaLeft)
+		case MethodNameCancelPledge:
+			return p.doSendCancelPledge(vm, block, quotaLeft)
+		}
 	}
 	return quotaLeft, ErrInvalidData
 }
 
-// mortgage ViteToken for a beneficial to get quota
-func (p *mortgage) doSendMortgage(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := useQuota(quotaLeft, mortgageGas)
+// pledge ViteToken for a beneficial to get quota
+func (p *pledge) doSendPledge(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, pledgeGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -419,28 +404,25 @@ func (p *mortgage) doSendMortgage(vm *VM, block VmAccountBlock, quotaLeft uint64
 		return quotaLeft, err
 	}
 	if block.Amount().Sign() == 0 ||
-		!isViteToken(block.TokenId()) ||
+		!util.IsViteToken(block.TokenId()) ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data:methodSelector(0:4) + beneficial address(4:36) + withdrawTime(36:68)
-	address, err := types.BytesToAddress(new(big.Int).SetBytes(block.Data()[4:36]).Bytes())
-	if err != nil || !vm.Db.IsExistAddress(address) {
+	param := new(ParamPledge)
+	err = p.UnpackMethod(param, MethodNamePledge, block.Data())
+	if err != nil || !vm.Db.IsExistAddress(param.Beneficial) {
 		return quotaLeft, ErrInvalidData
 	}
-	intPool := poolOfIntPools.get()
-	defer poolOfIntPools.put(intPool)
-	withdrawTime := intPool.get().SetBytes(block.Data()[36:68])
-	defer intPool.put(withdrawTime)
-	if !withdrawTime.IsInt64() || withdrawTime.Int64() < vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp()+mortgageTime {
+
+	if param.WithdrawTime < vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp()+pledgeTime {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
 
-// cancel mortgage ViteToken
-func (p *mortgage) doSendCancelMortgage(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := useQuota(quotaLeft, cancelMortgageGas)
+// cancel pledge ViteToken
+func (p *pledge) doSendCancelPledge(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, cancelPledgeGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -449,127 +431,112 @@ func (p *mortgage) doSendCancelMortgage(vm *VM, block VmAccountBlock, quotaLeft 
 		return quotaLeft, err
 	}
 	if block.Amount().Sign() > 0 ||
-		allZero(block.Data()[21:53]) ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	// data: methodSelector(0:4) + beneficial address(4:36) + amount(36:68)
-	address, err := types.BytesToAddress(new(big.Int).SetBytes(block.Data()[4:36]).Bytes())
-	if err != nil || !vm.Db.IsExistAddress(address) {
+	param := new(ParamCancelPledge)
+	err = p.UnpackMethod(param, MethodNameCancelPledge, block.Data())
+	if err != nil || !vm.Db.IsExistAddress(param.Beneficial) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
 
-func (p *mortgage) doReceive(vm *VM, block VmAccountBlock) error {
-	if len(block.Data()) == 68 && bytes.Equal(block.Data()[0:4], DataMortgage) {
-		return p.doReceiveMortgage(vm, block)
-	} else if len(block.Data()) == 68 && bytes.Equal(block.Data()[0:4], DataCancelMortgage) {
-		return p.doReceiveCancelMortgage(vm, block)
+func (p *pledge) doReceive(vm *VM, block VmAccountBlock) error {
+	if method, err := p.MethodById(block.Data()[0:4]); err == nil {
+		switch method.Name {
+		case MethodNamePledge:
+			return p.doReceivePledge(vm, block)
+		case MethodNameCancelPledge:
+			return p.doReceiveCancelPledge(vm, block)
+		}
 	}
-	return nil
+	return ErrInvalidData
 }
 
-func (p *mortgage) doReceiveMortgage(vm *VM, block VmAccountBlock) error {
-	intPool := poolOfIntPools.get()
-	defer poolOfIntPools.put(intPool)
-	// data: methodSelector(0:4) + beneficial address(4:36) + withdrawTime(36:68)
-	// storage key for quota: hash(beneficial)
-	locHashQuotaAmount := types.DataHash(block.Data()[16:36])
-	// storage key for mortgage: hash(owner, hash(beneficial))
-	locHashMortgage := types.DataHash(append(block.AccountAddress().Bytes(), locHashQuotaAmount.Bytes()...))
-	// storage value for mortgage: mortgage amount(0:32) + withdrawTime(32:64)
-	old := vm.Db.Storage(block.ToAddress(), locHashMortgage)
-	withdrawTime := intPool.get().SetBytes(block.Data()[36:68])
-	defer intPool.put(withdrawTime)
-	amount := intPool.getZero()
-	defer intPool.put(amount)
-	if len(old) >= 64 {
-		oldWithdrawTime := intPool.get().SetBytes(old[32:64])
-		defer intPool.put(oldWithdrawTime)
-		if withdrawTime.Int64() < oldWithdrawTime.Int64() {
+func (p *pledge) doReceivePledge(vm *VM, block VmAccountBlock) error {
+	param := new(ParamPledge)
+	p.UnpackMethod(param, MethodNamePledge, block.Data())
+	// storage key for pledge beneficial: hash(beneficial)
+	locHashBeneficial := types.DataHash(param.Beneficial.Bytes())
+	// storage key for pledge: hash(owner, hash(beneficial))
+	locHashPledge := types.DataHash(append(block.AccountAddress().Bytes(), locHashBeneficial.Bytes()...))
+	// storage value for pledge: pledge amount(0:32) + withdrawTime(32:64)
+	oldPledgeData := vm.Db.Storage(block.ToAddress(), locHashPledge)
+	amount := new(big.Int)
+	if len(oldPledgeData) > 0 {
+		oldPledge := new(VariablePledgeInfo)
+		p.UnpackVariable(oldPledge, VariableNamePledgeInfo, oldPledgeData)
+		if param.WithdrawTime < oldPledge.WithdrawTime {
 			return ErrInvalidData
 		}
-		amount.SetBytes(old[0:32])
+		amount = oldPledge.Amount
 	}
 	amount.Add(amount, block.Amount())
-	vm.Db.SetStorage(block.ToAddress(), locHashMortgage, joinBytes(LeftPadBytes(amount.Bytes(), 32), LeftPadBytes(withdrawTime.Bytes(), 32)))
+	pledgeInfo, _ := p.PackVariable(VariableNamePledgeInfo, amount, param.WithdrawTime)
+	vm.Db.SetStorage(block.ToAddress(), locHashPledge, pledgeInfo)
 
 	// storage value for quota: quota amount(0:32)
-	oldQuotaAmount := vm.Db.Storage(block.ToAddress(), locHashQuotaAmount)
-	quotaAmount := intPool.getZero()
-	if len(oldQuotaAmount) >= 32 {
-		quotaAmount.SetBytes(oldQuotaAmount[0:32])
+	oldBeneficialData := vm.Db.Storage(block.ToAddress(), locHashBeneficial)
+	beneficialAmount := new(big.Int)
+	if len(oldBeneficialData) > 0 {
+		oldBeneficial := new(VariablePledgeBeneficial)
+		p.UnpackVariable(oldBeneficial, VariableNamePledgeBeneficial, oldBeneficialData)
+		beneficialAmount = oldBeneficial.Amount
 	}
-	quotaAmount.Add(quotaAmount, block.Amount())
-	vm.Db.SetStorage(block.ToAddress(), locHashQuotaAmount, LeftPadBytes(quotaAmount.Bytes(), 32))
-	intPool.put(quotaAmount)
+	beneficialAmount.Add(beneficialAmount, block.Amount())
+	beneficialData, _ := p.PackVariable(VariableNamePledgeBeneficial, beneficialAmount)
+	vm.Db.SetStorage(block.ToAddress(), locHashBeneficial, beneficialData)
 	return nil
 }
-func (p *mortgage) doReceiveCancelMortgage(vm *VM, block VmAccountBlock) error {
-	// data: methodSelector(0:4) + beneficial address(4:36) + amount(36:68)
-	locHashQuotaAmount := types.DataHash(block.Data()[16:36])
-	locHashMortgage := types.DataHash(append(block.AccountAddress().Bytes(), locHashQuotaAmount.Bytes()...))
-	old := vm.Db.Storage(block.ToAddress(), locHashMortgage)
-	if len(old) < 64 {
+func (p *pledge) doReceiveCancelPledge(vm *VM, block VmAccountBlock) error {
+	param := new(ParamCancelPledge)
+	p.UnpackMethod(param, MethodNameCancelPledge, block.Data())
+	locHashBeneficial := types.DataHash(param.Beneficial.Bytes())
+	locHashPledge := types.DataHash(append(block.AccountAddress().Bytes(), locHashBeneficial.Bytes()...))
+	oldPledge := new(VariablePledgeInfo)
+	err := p.UnpackVariable(oldPledge, VariableNamePledgeInfo, vm.Db.Storage(block.ToAddress(), locHashPledge))
+	if err != nil || oldPledge.WithdrawTime > vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp() || oldPledge.Amount.Cmp(param.Amount) < 0 {
 		return ErrInvalidData
 	}
-	intPool := poolOfIntPools.get()
-	defer poolOfIntPools.put(intPool)
-	withdrawTime := intPool.get().SetBytes(old[32:64])
-	defer intPool.put(withdrawTime)
-	if withdrawTime.Int64() > vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp() {
+	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)
+	oldBeneficial := new(VariablePledgeBeneficial)
+	err = p.UnpackVariable(oldBeneficial, VariableNamePledgeBeneficial, vm.Db.Storage(block.ToAddress(), locHashBeneficial))
+	if err != nil || oldBeneficial.Amount.Cmp(param.Amount) < 0 {
 		return ErrInvalidData
 	}
-	amount := intPool.get().SetBytes(old[0:32])
-	defer intPool.put(amount)
-	withdrawAmount := intPool.get().SetBytes(block.Data()[36:68])
-	if amount.Cmp(withdrawAmount) < 0 {
-		return ErrInvalidData
-	}
-	amount.Sub(amount, withdrawAmount)
+	oldBeneficial.Amount.Sub(oldBeneficial.Amount, param.Amount)
 
-	oldQuota := vm.Db.Storage(block.ToAddress(), locHashQuotaAmount)
-	if len(oldQuota) < 32 {
-		return ErrInvalidData
-	}
-	quotaAmount := intPool.get().SetBytes(oldQuota[0:32])
-	defer intPool.put(quotaAmount)
-	if quotaAmount.Cmp(withdrawAmount) < 0 {
-		return ErrInvalidData
-	}
-	quotaAmount.Sub(quotaAmount, withdrawAmount)
-
-	if amount.Sign() == 0 {
-		vm.Db.SetStorage(block.ToAddress(), locHashMortgage, nil)
+	if oldPledge.Amount.Sign() == 0 {
+		vm.Db.SetStorage(block.ToAddress(), locHashPledge, nil)
 	} else {
-		vm.Db.SetStorage(block.ToAddress(), locHashMortgage, joinBytes(LeftPadBytes(amount.Bytes(), 32), old[32:64]))
+		pledgeInfo, _ := p.PackVariable(VariableNamePledgeInfo, oldPledge.Amount, oldPledge.WithdrawTime)
+		vm.Db.SetStorage(block.ToAddress(), locHashPledge, pledgeInfo)
 	}
 
-	if quotaAmount.Sign() == 0 {
-		vm.Db.SetStorage(block.ToAddress(), locHashQuotaAmount, nil)
+	if oldBeneficial.Amount.Sign() == 0 {
+		vm.Db.SetStorage(block.ToAddress(), locHashBeneficial, nil)
 	} else {
-		vm.Db.SetStorage(block.ToAddress(), locHashQuotaAmount, LeftPadBytes(quotaAmount.Bytes(), 32))
+		pledgeBeneficial, _ := p.PackVariable(VariableNamePledgeBeneficial, oldBeneficial.Amount)
+		vm.Db.SetStorage(block.ToAddress(), locHashBeneficial, pledgeBeneficial)
 	}
 
 	// append refund block
 	refundBlock := vm.createBlock(block.ToAddress(), block.AccountAddress(), BlockTypeSendCall, block.Depth()+1)
-	refundBlock.SetAmount(withdrawAmount)
-	refundBlock.SetTokenId(viteTokenTypeId)
-	refundBlock.SetHeight(intPool.get().Add(block.Height(), Big1))
+	refundBlock.SetAmount(param.Amount)
+	refundBlock.SetTokenId(util.ViteTokenTypeId)
+	refundBlock.SetHeight(new(big.Int).Add(block.Height(), util.Big1))
 	vm.blockList = append(vm.blockList, refundBlock)
 	return nil
 }
 
-type consensusGroup struct{}
+type consensusGroup struct {
+	abi.ABIContract
+}
 
 func (p *consensusGroup) createFee(vm *VM, block VmAccountBlock) *big.Int {
 	return new(big.Int).Set(createConsensusGroupFee)
 }
-
-var (
-	DataCreateConsensusGroup = []byte{0xce, 0xe9, 0xbd, 0xc9}
-)
 
 // create consensus group
 func (p *consensusGroup) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
@@ -577,93 +544,77 @@ func (p *consensusGroup) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 	if err != nil {
 		return quotaLeft, err
 	}
-	if len(block.Data()) < 384 || (len(block.Data())-4)%32 != 0 || !bytes.Equal(block.Data()[0:4], DataCreateConsensusGroup) ||
-		block.Amount().Sign() != 0 ||
+	if block.Amount().Sign() != 0 ||
 		!isUserAccount(vm.Db, block.AccountAddress()) {
 		return quotaLeft, ErrInvalidData
 	}
-	if err := checkCreateConsensusGroupData(vm, block.Data()); err != nil {
+	param := new(ParamCreateConsensusGroup)
+	err = p.UnpackMethod(param, MethodNameCreateConsensusGroup, block.Data())
+	if err != nil {
+		return quotaLeft, err
+	}
+	if err := checkCreateConsensusGroupData(vm, param); err != nil {
 		return quotaLeft, err
 	}
 	// data: methodSelector(0:4) + gid(4:36) + ConsensusGroup
-	gid := DataToGid(block.AccountAddress().Bytes(), block.Height().Bytes(), block.PrevHash().Bytes(), block.SnapshotHash().Bytes())
-	if allZero(gid.Bytes()) || isExistGid(vm.Db, gid) {
+	gid := types.DataToGid(block.AccountAddress().Bytes(), block.Height().Bytes(), block.PrevHash().Bytes(), block.SnapshotHash().Bytes())
+	if util.AllZero(gid.Bytes()) || isExistGid(vm.Db, gid) {
 		return quotaLeft, ErrInvalidData
 	}
-	copy(block.Data()[4:36], LeftPadBytes(gid.Bytes(), 32))
+	paramData, _ := p.PackMethod(MethodNameCreateConsensusGroup, gid, param.NodeCount, param.Interval, param.CountingRuleId, param.CountingRuleParam, param.RegisterConditionId, param.RegisterConditionParam, param.VoteConditionId, param.VoteConditionParam)
+	block.SetData(paramData)
 	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
 	return quotaLeft, nil
 }
-func checkCreateConsensusGroupData(vm *VM, data []byte) error {
-	var tmp big.Int
-	tmp.SetBytes(data[36:68])
-	nodeCount := tmp.Uint64()
-	if tmp.BitLen() > 8 || nodeCount < cgNodeCountMin || nodeCount > cgNodeCountMax {
+func checkCreateConsensusGroupData(vm *VM, param *ParamCreateConsensusGroup) error {
+	if param.NodeCount < cgNodeCountMin || param.NodeCount > cgNodeCountMax ||
+		param.Interval < cgIntervalMin || param.Interval > cgIntervalMax {
 		return ErrInvalidData
 	}
-	tmp.SetBytes(data[68:100])
-	interval := tmp.Int64()
-	if tmp.BitLen() > 64 || interval < cgIntervalMin || interval > cgIntervalMax {
+	if err := checkCondition(vm, param.CountingRuleId, param.CountingRuleParam, "counting"); err != nil {
 		return ErrInvalidData
 	}
-	if _, err := checkCondition(vm, data, tmp, 100, "counting"); err != nil {
+	if err := checkCondition(vm, param.RegisterConditionId, param.RegisterConditionParam, "register"); err != nil {
 		return ErrInvalidData
 	}
-	if _, err := checkCondition(vm, data, tmp, 164, "register"); err != nil {
-		return ErrInvalidData
-	}
-	if endIndex, err := checkCondition(vm, data, tmp, 228, "vote"); err != nil || uint64(len(data)) > endIndex {
+	if err := checkCondition(vm, param.VoteConditionId, param.VoteConditionParam, "vote"); err != nil {
 		return ErrInvalidData
 	}
 	return nil
 }
-func checkCondition(vm *VM, data []byte, tmp big.Int, startIndex uint64, conditionIdPrefix string) (uint64, error) {
-	conditionId := tmp.SetBytes(data[startIndex : startIndex+32])
-	if conditionId.BitLen() > 8 {
-		return 0, ErrInvalidData
-	}
-	condition, ok := SimpleCountingRuleList[CountingRuleCode(conditionIdPrefix+conditionId.String())]
+func checkCondition(vm *VM, conditionId uint8, conditionParam []byte, conditionIdPrefix string) error {
+	condition, ok := SimpleCountingRuleList[CountingRuleCode(conditionIdPrefix+strconv.Itoa(int(conditionId)))]
 	if !ok {
-		return 0, ErrInvalidData
+		return ErrInvalidData
 	}
-	tmp.SetBytes(data[startIndex+32 : startIndex+64])
-	conditionParamAddressStart := tmp.Uint64() + 4
-	if tmp.BitLen() > 64 || uint64(len(data)) < conditionParamAddressStart+32 {
-		return 0, ErrInvalidData
-	}
-	tmp.SetBytes(data[conditionParamAddressStart : conditionParamAddressStart+32])
-	conditionParamLength := tmp.Uint64()
-	if conditionParamLength > 0 {
-		conditionParamWordCount := toWordSize(conditionParamLength)
-		if tmp.Cmp(tt256m1) > 0 || uint64(len(data)) < conditionParamAddressStart+32+conditionParamWordCount*32 ||
-			!allZero(data[conditionParamAddressStart+32+conditionParamLength:conditionParamAddressStart+32+conditionParamWordCount*32]) {
-			return 0, ErrInvalidData
+	if len(conditionParam) > 0 {
+		if ok := condition.checkParam(conditionParam, vm.Db); !ok {
+			return ErrInvalidData
 		}
-		if ok := condition.checkParam(data[conditionParamAddressStart+32:conditionParamAddressStart+32+conditionParamLength], vm.Db); !ok {
-			return 0, ErrInvalidData
-		}
-		return conditionParamAddressStart + 32 + conditionParamWordCount*32, nil
+		return nil
 	}
-	return conditionParamAddressStart + 32, nil
+	return nil
 }
 
 func (p *consensusGroup) doReceive(vm *VM, block VmAccountBlock) error {
-	gid, _ := BigToGid(new(big.Int).SetBytes(block.Data()[4:36]))
-	locHash := types.DataHash(gid.Bytes())
+	param := new(ParamCreateConsensusGroup)
+	p.UnpackMethod(param, MethodNameCreateConsensusGroup, block.Data())
+	locHash := types.DataHash(param.Gid.Bytes())
 	if len(vm.Db.Storage(block.ToAddress(), locHash)) > 0 {
 		return ErrIdCollision
 	}
-	vm.Db.SetStorage(block.ToAddress(), locHash, block.Data()[36:])
+	groupInfo, _ := p.PackVariable(VariableNameConsensusGroupInfo, param.NodeCount, param.Interval, param.CountingRuleId, param.CountingRuleParam, param.RegisterConditionId, param.RegisterConditionParam, param.VoteConditionId, param.VoteConditionParam)
+	vm.Db.SetStorage(block.ToAddress(), locHash, groupInfo)
 	return nil
 }
 func isUserAccount(db VmDatabase, addr types.Address) bool {
 	return len(db.ContractCode(addr)) == 0
 }
 
-func getKey(addr types.Address, gid Gid) types.Hash {
+func getKey(addr types.Address, gid types.Gid) types.Hash {
 	var data = types.Hash{}
 	copy(data[2:12], gid[:])
 	copy(data[12:], addr[:])

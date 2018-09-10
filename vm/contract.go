@@ -4,7 +4,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm/util"
 	"sync/atomic"
+)
+
+var (
+	logger = log15.New("type", "1", "appkey", "govite", "group", "msg", "name", "effectivemsg", "metric", "1", "class", "vm")
 )
 
 type contract struct {
@@ -80,11 +86,11 @@ func (c *contract) run(vm *VM) (ret []byte, err error) {
 
 		var memorySize uint64
 		if operation.memorySize != nil {
-			memSize, overflow := bigUint64(operation.memorySize(st))
+			memSize, overflow := util.BigUint64(operation.memorySize(st))
 			if overflow {
 				return nil, errGasUintOverflow
 			}
-			if memorySize, overflow = SafeMul(toWordSize(memSize), 32); overflow {
+			if memorySize, overflow = util.SafeMul(util.ToWordSize(memSize), 32); overflow {
 				return nil, errGasUintOverflow
 			}
 		}
@@ -105,8 +111,9 @@ func (c *contract) run(vm *VM) (ret []byte, err error) {
 		res, err := operation.execute(&pc, vm, c, mem, st)
 
 		if vm.Debug {
+			logger.Info("current code", "code", hex.EncodeToString(c.code[currentPc:]))
 			fmt.Printf("code: %v \n", hex.EncodeToString(c.code[currentPc:]))
-			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemory: [%v]\nstorage: [%v]\nquotaLeft: %v, quotaRefund: %v\n", opCodeToString[op], currentPc, st.print(), mem.print(), vm.Db.PrintStorage(c.address), c.quotaLeft, c.quotaRefund)
+			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemo ry: [%v]\nstorage: [%v]\nquotaLeft: %v, quotaRefund: %v\n", opCodeToString[op], currentPc, st.print(), mem.print(), vm.Db.PrintStorage(c.address), c.quotaLeft, c.quotaRefund)
 			fmt.Println("--------------------")
 		}
 

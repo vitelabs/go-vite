@@ -2,7 +2,9 @@ package vm
 
 import (
 	"bytes"
+	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
 
@@ -18,7 +20,7 @@ type NoDatabase struct {
 	balanceMap        map[types.Address]map[types.TokenTypeId]*big.Int
 	storageMap        map[types.Address]map[types.Hash][]byte
 	codeMap           map[types.Address][]byte
-	contractGidMap    map[types.Address]Gid
+	contractGidMap    map[types.Address]types.Gid
 	logList           []Log
 	snapshotBlockList []VmSnapshotBlock
 	accountBlockMap   map[types.Address]map[types.Hash]VmAccountBlock
@@ -26,13 +28,13 @@ type NoDatabase struct {
 }
 
 func NewNoDatabase() *NoDatabase {
-	consensusGroupMap := make(map[Gid]consensusGroup)
-	consensusGroupMap[snapshotGid] = consensusGroup{}
+	consensusGroupMap := make(map[types.Gid]consensusGroup)
+	consensusGroupMap[util.SnapshotGid] = consensusGroup{}
 	return &NoDatabase{
 		balanceMap:        make(map[types.Address]map[types.TokenTypeId]*big.Int),
 		storageMap:        make(map[types.Address]map[types.Hash][]byte),
 		codeMap:           make(map[types.Address][]byte),
-		contractGidMap:    make(map[types.Address]Gid),
+		contractGidMap:    make(map[types.Address]types.Gid),
 		logList:           make([]Log, 0),
 		snapshotBlockList: make([]VmSnapshotBlock, 0),
 		accountBlockMap:   make(map[types.Address]map[types.Hash]VmAccountBlock),
@@ -128,8 +130,8 @@ func (db *NoDatabase) CreateToken(tokenId types.TokenTypeId, tokenName string, o
 		return false
 	}
 }
-func (db *NoDatabase) SetContractGid(addr types.Address, gid Gid, open bool) {}
-func (db *NoDatabase) SetContractCode(addr types.Address, gid Gid, code []byte) {
+func (db *NoDatabase) SetContractGid(addr types.Address, gid types.Gid, open bool) {}
+func (db *NoDatabase) SetContractCode(addr types.Address, gid types.Gid, code []byte) {
 	db.codeMap[addr] = code
 	db.contractGidMap[addr] = gid
 }
@@ -157,7 +159,7 @@ func (db *NoDatabase) PrintStorage(addr types.Address) string {
 	if storage, ok := db.storageMap[addr]; ok {
 		var str string
 		for key, value := range storage {
-			str += string(key.Bytes()) + " => " + string(value) + "\n"
+			str += hex.EncodeToString(key.Bytes()) + "=>" + hex.EncodeToString(value) + ", "
 		}
 		return str
 	} else {
@@ -165,11 +167,11 @@ func (db *NoDatabase) PrintStorage(addr types.Address) string {
 	}
 }
 func (db *NoDatabase) StorageHash(addr types.Address) types.Hash {
-	return emptyHash
+	return util.EmptyHash
 }
 func (db *NoDatabase) AddLog(log *Log) {
 	db.logList = append(db.logList, *log)
 }
 func (db *NoDatabase) LogListHash() types.Hash {
-	return emptyHash
+	return util.EmptyHash
 }

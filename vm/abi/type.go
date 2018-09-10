@@ -17,6 +17,8 @@ const (
 	SliceTy
 	ArrayTy
 	AddressTy
+	GidTy
+	TokenIdTy
 	FixedBytesTy
 	BytesTy
 	HashTy
@@ -121,6 +123,16 @@ func NewType(t string) (typ Type, err error) {
 		typ.Type = addressT
 		typ.Size = 20
 		typ.T = AddressTy
+	case "gid":
+		typ.Kind = reflect.Array
+		typ.Type = gidT
+		typ.Size = 10
+		typ.T = GidTy
+	case "tokenId":
+		typ.Kind = reflect.Array
+		typ.Type = tokenIdT
+		typ.Size = 10
+		typ.T = TokenIdTy
 	case "string":
 		typ.Kind = reflect.String
 		typ.Type = reflect.TypeOf("")

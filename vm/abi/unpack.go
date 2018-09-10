@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"reflect"
 )
@@ -169,6 +169,12 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 	case AddressTy:
 		addr, _ := types.BytesToAddress(returnOutput[32-types.AddressSize : 32])
 		return addr, nil
+	case GidTy:
+		gid, _ := types.BytesToGid(returnOutput[22:32])
+		return gid, nil
+	case TokenIdTy:
+		tokenId, _ := types.BytesToTokenTypeId(returnOutput[22:32])
+		return tokenId, nil
 	case HashTy:
 		hash, _ := types.BytesToHash(returnOutput)
 		return hash, nil
@@ -186,7 +192,7 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 // interprets a 32 byte slice as an offset and then determines which indice to look to decode the type.
 func lengthPrefixPointsTo(index int, output []byte) (start int, length int, err error) {
 	bigOffsetEnd := big.NewInt(0).SetBytes(output[index : index+32])
-	bigOffsetEnd.Add(bigOffsetEnd, vm.Big32)
+	bigOffsetEnd.Add(bigOffsetEnd, util.Big32)
 	outputLength := big.NewInt(int64(len(output)))
 
 	if bigOffsetEnd.Cmp(outputLength) > 0 {

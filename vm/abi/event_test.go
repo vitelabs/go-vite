@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 var jsonEventTransfer = []byte(`{
@@ -56,13 +56,13 @@ var jsonEventMixedCase = []byte(`{
   }`)
 
 // 1000000
-var transferData1 = "00000000000000000000000000000000000000000000000000000000000f4240"
+var eventTransferData1 = "00000000000000000000000000000000000000000000000000000000000f4240"
 
 // "0x00Ce0d46d924CC8437c806721496599FC3FFA268", 2218516807680, "usd"
-var pledgeData1 = "00000000000000000000000000ce0d46d924cc8437c806721496599fc3ffa2680000000000000000000000000000000000000000000000000000020489e800007573640000000000000000000000000000000000000000000000000000000000"
+var eventPledgeData1 = "00000000000000000000000000ce0d46d924cc8437c806721496599fc3ffa2680000000000000000000000000000000000000000000000000000020489e800007573640000000000000000000000000000000000000000000000000000000000"
 
 // 1000000,2218516807680,1000001
-var mixedCaseData1 = "00000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000020489e8000000000000000000000000000000000000000000000000000000000000000f4241"
+var eventMixedCaseData1 = "00000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000020489e8000000000000000000000000000000000000000000000000000000000000000f4241"
 
 func TestEventId(t *testing.T) {
 	var table = []struct {
@@ -82,7 +82,7 @@ func TestEventId(t *testing.T) {
 	}
 
 	for _, test := range table {
-		abi, err := JSON(strings.NewReader(test.definition))
+		abi, err := JSONToABIContract(strings.NewReader(test.definition))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -102,7 +102,7 @@ func TestEventMultiValueWithArrayUnpack(t *testing.T) {
 		Value1 [2]uint8
 		Value2 uint8
 	}
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSONToABIContract(strings.NewReader(definition))
 	require.NoError(t, err)
 	var b bytes.Buffer
 	var i uint8 = 1
@@ -110,7 +110,7 @@ func TestEventMultiValueWithArrayUnpack(t *testing.T) {
 		b.Write(packNum(reflect.ValueOf(i)))
 	}
 	var rst testStruct
-	require.NoError(t, abi.Unpack(&rst, "test", b.Bytes()))
+	require.NoError(t, abi.UnpackEvent(&rst, "test", b.Bytes()))
 	require.Equal(t, [2]uint8{1, 2}, rst.Value1)
 	require.Equal(t, uint8(3), rst.Value2)
 }
@@ -164,7 +164,7 @@ func TestEventTupleUnpack(t *testing.T) {
 	bigintExpected := big.NewInt(1000000)
 	bigintExpected2 := big.NewInt(2218516807680)
 	bigintExpected3 := big.NewInt(1000001)
-	addr, _ := types.BytesToAddress(vm.HexToBytes("00Ce0d46d924CC8437c806721496599FC3FFA268"))
+	addr, _ := types.BytesToAddress(util.HexToBytes("00Ce0d46d924CC8437c806721496599FC3FFA268"))
 	var testCases = []struct {
 		data     string
 		dest     interface{}
@@ -173,49 +173,49 @@ func TestEventTupleUnpack(t *testing.T) {
 		error    string
 		name     string
 	}{{
-		transferData1,
+		eventTransferData1,
 		&EventTransfer{},
 		&EventTransfer{Value: bigintExpected},
 		jsonEventTransfer,
 		"",
 		"Can unpack ERC20 Transfer event into structure",
 	}, {
-		transferData1,
+		eventTransferData1,
 		&[]interface{}{&bigint},
 		&[]interface{}{&bigintExpected},
 		jsonEventTransfer,
 		"",
 		"Can unpack ERC20 Transfer event into slice",
 	}, {
-		transferData1,
+		eventTransferData1,
 		&EventTransferWithTag{},
 		&EventTransferWithTag{Value1: bigintExpected},
 		jsonEventTransfer,
 		"",
 		"Can unpack ERC20 Transfer event into structure with abi: tag",
 	}, {
-		transferData1,
+		eventTransferData1,
 		&BadEventTransferWithDuplicatedTag{},
 		&BadEventTransferWithDuplicatedTag{},
 		jsonEventTransfer,
 		"struct: abi tag in 'Value2' already mapped",
 		"Can not unpack ERC20 Transfer event with duplicated abi tag",
 	}, {
-		transferData1,
+		eventTransferData1,
 		&BadEventTransferWithSameFieldAndTag{},
 		&BadEventTransferWithSameFieldAndTag{},
 		jsonEventTransfer,
 		"abi: multiple variables maps to the same abi field 'value'",
 		"Can not unpack ERC20 Transfer event with a field and a tag mapping to the same abi variable",
 	}, {
-		transferData1,
+		eventTransferData1,
 		&BadEventTransferWithEmptyTag{},
 		&BadEventTransferWithEmptyTag{},
 		jsonEventTransfer,
 		"struct: abi tag in 'Value' is empty",
 		"Can not unpack ERC20 Transfer event with an empty tag",
 	}, {
-		pledgeData1,
+		eventPledgeData1,
 		&EventPledge{},
 		&EventPledge{
 			addr,
@@ -225,7 +225,7 @@ func TestEventTupleUnpack(t *testing.T) {
 		"",
 		"Can unpack Pledge event into structure",
 	}, {
-		pledgeData1,
+		eventPledgeData1,
 		&[]interface{}{&types.Address{}, &bigint, &[3]byte{}},
 		&[]interface{}{
 			&addr,
@@ -235,7 +235,7 @@ func TestEventTupleUnpack(t *testing.T) {
 		"",
 		"Can unpack Pledge event into slice",
 	}, {
-		pledgeData1,
+		eventPledgeData1,
 		&[3]interface{}{&types.Address{}, &bigint, &[3]byte{}},
 		&[3]interface{}{
 			&addr,
@@ -245,35 +245,35 @@ func TestEventTupleUnpack(t *testing.T) {
 		"",
 		"Can unpack Pledge event into an array",
 	}, {
-		pledgeData1,
+		eventPledgeData1,
 		&[]interface{}{new(int), 0, 0},
 		&[]interface{}{},
 		jsonEventPledge,
 		"abi: cannot unmarshal types.Address in to int",
 		"Can not unpack Pledge event into slice with wrong types",
 	}, {
-		pledgeData1,
+		eventPledgeData1,
 		&BadEventPledge{},
 		&BadEventPledge{},
 		jsonEventPledge,
 		"abi: cannot unmarshal types.Address in to string",
 		"Can not unpack Pledge event into struct with wrong filed types",
 	}, {
-		pledgeData1,
+		eventPledgeData1,
 		&[]interface{}{types.Address{}, new(big.Int)},
 		&[]interface{}{},
 		jsonEventPledge,
 		"abi: insufficient number of elements in the list/array for unpack, want 3, got 2",
 		"Can not unpack Pledge event into too short slice",
 	}, {
-		pledgeData1,
+		eventPledgeData1,
 		new(map[string]interface{}),
 		&[]interface{}{},
 		jsonEventPledge,
 		"abi: cannot unmarshal tuple into map[string]interface {}",
 		"Can not unpack Pledge event into map",
 	}, {
-		mixedCaseData1,
+		eventMixedCaseData1,
 		&EventMixedCase{},
 		&EventMixedCase{Value1: bigintExpected, Value2: bigintExpected2, Value3: bigintExpected3},
 		jsonEventMixedCase,
@@ -301,37 +301,8 @@ func unpackTestEventData(dest interface{}, hexData string, jsonEvent []byte, ass
 	assert.NoError(err, "Hex data should be a correct hex-string")
 	var e Event
 	assert.NoError(json.Unmarshal(jsonEvent, &e), "Should be able to unmarshal event ABI")
-	a := ABI{Events: map[string]Event{"e": e}}
-	return a.Unpack(dest, "e", data)
-}
-
-type testResult struct {
-	Values [2]*big.Int
-	Value1 *big.Int
-	Value2 *big.Int
-}
-
-type testCase struct {
-	definition string
-	want       testResult
-}
-
-func (tc testCase) encoded(intType, arrayType Type) []byte {
-	var b bytes.Buffer
-	if tc.want.Value1 != nil {
-		val, _ := intType.pack(reflect.ValueOf(tc.want.Value1))
-		b.Write(val)
-	}
-
-	if !reflect.DeepEqual(tc.want.Values, [2]*big.Int{nil, nil}) {
-		val, _ := arrayType.pack(reflect.ValueOf(tc.want.Values))
-		b.Write(val)
-	}
-	if tc.want.Value2 != nil {
-		val, _ := intType.pack(reflect.ValueOf(tc.want.Value2))
-		b.Write(val)
-	}
-	return b.Bytes()
+	a := ABIContract{Events: map[string]Event{"e": e}}
+	return a.UnpackEvent(dest, "e", data)
 }
 
 // TestEventUnpackIndexed verifies that indexed field will be skipped by event decoder.
@@ -341,12 +312,12 @@ func TestEventUnpackIndexed(t *testing.T) {
 		Value1 uint8
 		Value2 uint8
 	}
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSONToABIContract(strings.NewReader(definition))
 	require.NoError(t, err)
 	var b bytes.Buffer
 	b.Write(packNum(reflect.ValueOf(uint8(8))))
 	var rst testStruct
-	require.NoError(t, abi.Unpack(&rst, "test", b.Bytes()))
+	require.NoError(t, abi.UnpackEvent(&rst, "test", b.Bytes()))
 	require.Equal(t, uint8(0), rst.Value1)
 	require.Equal(t, uint8(8), rst.Value2)
 }
@@ -358,17 +329,16 @@ func TestEventIndexedWithArrayUnpack(t *testing.T) {
 		Value1 [2]uint8
 		Value2 string
 	}
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSONToABIContract(strings.NewReader(definition))
 	require.NoError(t, err)
 	var b bytes.Buffer
 	stringOut := "abc"
 	// number of fields that will be encoded * 32
 	b.Write(packNum(reflect.ValueOf(32)))
 	b.Write(packNum(reflect.ValueOf(len(stringOut))))
-	b.Write(vm.RightPadBytes([]byte(stringOut), 32))
-
+	b.Write(util.RightPadBytes([]byte(stringOut), 32))
 	var rst testStruct
-	require.NoError(t, abi.Unpack(&rst, "test", b.Bytes()))
+	require.NoError(t, abi.UnpackEvent(&rst, "test", b.Bytes()))
 	require.Equal(t, [2]uint8{0, 0}, rst.Value1)
 	require.Equal(t, stringOut, rst.Value2)
 }

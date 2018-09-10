@@ -4,11 +4,33 @@ import (
 	"bytes"
 	"errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
+	"log"
 	"math/big"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
+func SetTestLogContext() {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		log.Fatal(err)
+	}
+	dir = filepath.Join(strings.Replace(dir, "\\", "/", -1), "runlog")
+	if err := os.MkdirAll(dir, 0777); err != nil {
+		return
+	}
+	dir = filepath.Join(dir, "test.log")
+	log15.Info(dir)
+	log15.Root().SetHandler(
+		log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(dir, log15.TerminalFormat())),
+	)
+}
+
 func TestRun(t *testing.T) {
+	SetTestLogContext()
 	tests := []struct {
 		input, result          []byte
 		err                    error
@@ -25,7 +47,7 @@ func TestRun(t *testing.T) {
 	}
 	for _, test := range tests {
 		vm := &VM{Db: NewNoDatabase(), createBlock: CreateNoAccountBlock, instructionSet: simpleInstructionSet}
-		// vm.Debug = true
+		vm.Debug = true
 		receiveCallBlock := CreateNoAccountBlock(types.Address{}, types.Address{}, BlockTypeReceive, 1)
 		receiveCallBlock.SetAmount(big.NewInt(10))
 		c := newContract(receiveCallBlock.AccountAddress(), receiveCallBlock.ToAddress(), receiveCallBlock, 1000000, 0)

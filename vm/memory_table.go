@@ -1,13 +1,14 @@
 package vm
 
 import (
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
 
 // calculates the memory size required for a step
 func calcMemSize(off, l *big.Int) *big.Int {
 	if l.Sign() == 0 {
-		return Big0
+		return util.Big0
 	}
 
 	return new(big.Int).Add(off, l)
@@ -53,7 +54,7 @@ func memoryLog(stack *stack) *big.Int {
 func memoryDelegateCall(stack *stack) *big.Int {
 	x := calcMemSize(stack.back(3), stack.back(4))
 	y := calcMemSize(stack.back(1), stack.back(2))
-	return BigMax(x, y)
+	return util.BigMax(x, y)
 }
 
 func memoryReturn(stack *stack) *big.Int {

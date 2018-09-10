@@ -1,9 +1,7 @@
 package vm
 
 import (
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
 	"math/big"
 )
 
@@ -33,8 +31,8 @@ type VmDatabase interface {
 	IsExistToken(tokenId types.TokenTypeId) bool
 	CreateToken(tokenId types.TokenTypeId, tokenName string, owner types.Address, totelSupply *big.Int, decimals uint64) bool
 
-	SetContractGid(addr types.Address, gid Gid, open bool)
-	SetContractCode(addr types.Address, gid Gid, code []byte)
+	SetContractGid(addr types.Address, gid types.Gid, open bool)
+	SetContractCode(addr types.Address, gid types.Gid, code []byte)
 	ContractCode(addr types.Address) []byte
 
 	Storage(addr types.Address, loc types.Hash) []byte
@@ -44,31 +42,4 @@ type VmDatabase interface {
 
 	AddLog(*Log)
 	LogListHash() types.Hash
-}
-
-// TODO tmp
-type Gid [10]byte
-
-func DataToGid(data ...[]byte) Gid {
-	gid, _ := BytesToGid(crypto.Hash(10, data...))
-	return gid
-}
-
-func BigToGid(data *big.Int) (Gid, error) {
-	return BytesToGid(LeftPadBytes(data.Bytes(), 10))
-}
-func BytesToGid(b []byte) (Gid, error) {
-	var gid Gid
-	err := gid.SetBytes(b)
-	return gid, err
-}
-func (gid *Gid) SetBytes(b []byte) error {
-	if len(b) != 10 {
-		return fmt.Errorf("error hash size %v", len(b))
-	}
-	copy(gid[:], b)
-	return nil
-}
-func (gid *Gid) Bytes() []byte {
-	return gid[:]
 }
