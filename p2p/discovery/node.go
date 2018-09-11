@@ -3,7 +3,6 @@ package discovery
 import (
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/p2p/discovery/protos"
 	"math"
@@ -16,7 +15,13 @@ import (
 )
 
 // @section NodeID
+var errUnmatchedLength = errors.New("unmatch length, needs 64 hex chars")
+
 type NodeID [32]byte
+
+func (id NodeID) Bytes() []byte {
+	return id[:]
+}
 
 func (id NodeID) String() string {
 	return hex.EncodeToString(id[:])
@@ -28,43 +33,47 @@ func (id NodeID) Brief() string {
 
 func (id NodeID) IsZero() bool {
 	for _, byt := range id {
-		if byt != 0 {
+		if byt|0 != 0 {
 			return false
 		}
 	}
 	return true
 }
 
+func (id NodeID) Equal(id2 NodeID) bool {
+	for i := 0; i < 32; i++ {
+		if id[i]^id2[i] != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
 func HexStr2NodeID(str string) (id NodeID, err error) {
 	bytes, err := hex.DecodeString(strings.TrimPrefix(str, "0x"))
 	if err != nil {
-		return id, err
+		return
 	}
-	if len(bytes) != len(id) {
-		return id, fmt.Errorf("unmatch length, needs %d hex chars", len(id)*2)
+
+	return Bytes2NodeID(bytes)
+}
+
+func Bytes2NodeID(buf []byte) (id NodeID, err error) {
+	if len(buf) != len(id) {
+		return id, errUnmatchedLength
 	}
-	copy(id[:], bytes)
-	return id, nil
+
+	copy(id[:], buf)
+	return
 }
 
 // @section Node
-//type EndPoint struct {
-//	IP   net.IP
-//	Port uint16
-//}
-//
-//func (e *EndPoint) Addr() string {
-//	return e.IP.String() + ":" + strconv.Itoa(int(e.Port))
-//}
-//
-//func (e *EndPoint) String() string {
-//	return e.Addr()
-//}
-
-var errNullID = errors.New("missing ID")
+var errMissID = errors.New("missing NodeID")
 var errMissIP = errors.New("missing IP")
 var errInvalidIP = errors.New("invalid IP")
 var errMissPort = errors.New("missing port")
+var errInvalidScheme = errors.New("invalid scheme")
 
 type Node struct {
 	ID               NodeID
@@ -75,9 +84,10 @@ type Node struct {
 	lastPong         time.Time
 	lastPingReceived time.Time
 	lastPongReceived time.Time
+	addAt            time.Time
 }
 
-func (n *Node) toProto() *protos.Node {
+func (n *Node) proto() *protos.Node {
 	return &protos.Node{
 		ID:  n.ID[:],
 		IP:  n.IP,
@@ -86,26 +96,24 @@ func (n *Node) toProto() *protos.Node {
 	}
 }
 
-func protoToNode(nodepb *protos.Node) *Node {
+func protoToNode(pb *protos.Node) (*Node, error) {
+	id, err := Bytes2NodeID(pb.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	node := new(Node)
-	copy(node.ID[:], nodepb.ID)
-	node.IP = nodepb.IP
-	node.UDP = uint16(nodepb.UDP)
-	node.TCP = uint16(nodepb.TCP)
+	node.ID = id
+	node.IP = pb.IP
+	node.UDP = uint16(pb.UDP)
+	node.TCP = uint16(pb.TCP)
 
-	return node
+	return node, nil
 }
-
-//func (n *Node) EndPoint() *EndPoint {
-//	return &EndPoint{
-//		IP:   n.IP,
-//		Port: n.Port,
-//	}
-//}
 
 func (n *Node) Validate() error {
 	if n.ID.IsZero() {
-		return errNullID
+		return errMissID
 	}
 
 	if n.IP == nil {
@@ -124,20 +132,25 @@ func (n *Node) Validate() error {
 }
 
 func (n *Node) Serialize() ([]byte, error) {
-	return proto.Marshal(n.toProto())
+	return proto.Marshal(n.proto())
 }
 
 func (n *Node) Deserialize(bytes []byte) error {
-	nodepb := new(protos.Node)
-	err := proto.Unmarshal(bytes, nodepb)
+	pb := new(protos.Node)
+	err := proto.Unmarshal(bytes, pb)
 	if err != nil {
 		return err
 	}
 
-	n.IP = nodepb.IP
-	n.UDP = uint16(nodepb.UDP)
-	n.TCP = uint16(nodepb.TCP)
-	copy(n.ID[:], nodepb.ID)
+	id, err := Bytes2NodeID(pb.ID)
+	if err != nil {
+		return err
+	}
+
+	n.ID = id
+	n.IP = pb.IP
+	n.UDP = uint16(pb.UDP)
+	n.TCP = uint16(pb.TCP)
 
 	return nil
 }
@@ -148,6 +161,7 @@ func (n *Node) UDPAddr() *net.UDPAddr {
 		Port: int(n.UDP),
 	}
 }
+
 func (n *Node) TCPAddr() *net.TCPAddr {
 	port := n.TCP
 	if port == 0 {
@@ -172,9 +186,8 @@ func (n *Node) String() string {
 
 	err := n.Validate()
 	if err == nil {
-		addr := n.UDPAddr()
 		nodeURL.User = url.User(n.ID.String())
-		nodeURL.Host = addr.String()
+		nodeURL.Host = n.UDPAddr().String()
 		if n.TCP != 0 && n.TCP != n.UDP {
 			nodeURL.Fragment = strconv.Itoa(int(n.TCP))
 		}
@@ -192,37 +205,37 @@ func ParseNode(u string) (*Node, error) {
 		return nil, err
 	}
 	if nodeURL.Scheme != NodeURLScheme {
-		return nil, fmt.Errorf("invalid scheme, should be %s\n", NodeURLScheme)
+		return nil, errInvalidScheme
 	}
 	if nodeURL.User == nil {
-		return nil, errors.New("missing NodeID")
+		return nil, errMissID
 	}
 
 	id, err := HexStr2NodeID(nodeURL.User.String())
 	if err != nil {
-		return nil, fmt.Errorf("invalid node id: %v", err)
+		return nil, err
 	}
 
-	host, portstr, err := net.SplitHostPort(nodeURL.Host)
+	host, port, err := net.SplitHostPort(nodeURL.Host)
 	if err != nil {
-		return nil, fmt.Errorf("invalid host: %v", err)
+		return nil, err
 	}
 
 	ip := net.ParseIP(host)
 	if ip == nil {
-		return nil, errors.New("invalid ip")
+		return nil, errInvalidIP
 	}
 
 	var udp, tcp uint16
-	udp, err = parsePort(portstr)
+	udp, err = parsePort(port)
 	if err != nil {
-		return nil, fmt.Errorf("invalid udp port: %v\n", err)
+		return nil, err
 	}
 
 	if nodeURL.Fragment != "" {
-		tcp, err = parsePort(portstr)
+		tcp, err = parsePort(nodeURL.Fragment)
 		if err != nil {
-			return nil, fmt.Errorf("invalid tcp port: %v\n", err)
+			return nil, err
 		}
 	} else {
 		tcp = udp

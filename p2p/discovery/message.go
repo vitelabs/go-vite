@@ -224,7 +224,7 @@ func (p *Neighbors) sender() NodeID {
 func (n *Neighbors) serialize() ([]byte, error) {
 	nodepbs := make([]*protos.Node, len(n.Nodes))
 	for i, node := range n.Nodes {
-		nodepbs[i] = node.toProto()
+		nodepbs[i] = node.proto()
 	}
 
 	neighborspb := &protos.Neighbors{
@@ -235,20 +235,29 @@ func (n *Neighbors) serialize() ([]byte, error) {
 	return proto.Marshal(neighborspb)
 }
 
-func (n *Neighbors) deserialize(buf []byte) error {
-	neighborspb := &protos.Neighbors{}
-	err := proto.Unmarshal(buf, neighborspb)
+func (n *Neighbors) deserialize(buf []byte) (err error) {
+	pb := new(protos.Neighbors)
+
+	err = proto.Unmarshal(buf, pb)
 	if err != nil {
 		return err
 	}
 
-	copy(n.ID[:], neighborspb.ID)
-	n.Expiration = time.Unix(neighborspb.Expiration, 0)
+	id, err := Bytes2NodeID(pb.ID)
+	if err != nil {
+		return
+	}
+	n.ID = id
 
-	nodes := make([]*Node, len(neighborspb.Nodes))
+	n.Expiration = time.Unix(pb.Expiration, 0)
 
-	for i, nodepb := range neighborspb.Nodes {
-		nodes[i] = protoToNode(nodepb)
+	nodes := make([]*Node, 0, len(pb.Nodes))
+
+	for _, npb := range pb.Nodes {
+		node, err := protoToNode(npb)
+		if err != nil {
+			nodes = append(nodes, node)
+		}
 	}
 
 	n.Nodes = nodes

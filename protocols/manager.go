@@ -278,7 +278,7 @@ func (pm *ProtocolManager) SyncDone() {
 }
 
 func (pm *ProtocolManager) CurrentBlock() (block *ledger.SnapshotBlock) {
-	block, err := pm.schain.GetLatestBlock()
+	block, err := pm.schain()
 	if err != nil {
 		pm.log.Error("getLatestBlock error", "error", err)
 	} else {

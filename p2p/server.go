@@ -52,6 +52,11 @@ var firmNodes = [...]string{
 	//"vnode://9df2e11399398176fa58638592cf1b2e0e804ae92ac55f09905618fdb239c03c@150.109.40.169:8483",
 }
 
+type EndPoint interface {
+	Mark() string
+	TCPAddr() *net.TCPAddr
+}
+
 type Discovery interface {
 	Lookup(discovery.NodeID) []*discovery.Node
 	Resolve(discovery.NodeID) *discovery.Node

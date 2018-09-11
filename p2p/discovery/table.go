@@ -20,10 +20,19 @@ const alpha = 3
 const minDistance = 239
 const maxFindFails = 5
 
+// there is no need bucket have a lock,
+// because we operate bucket through table, so table lock is feasible
 type bucket struct {
-	lock   sync.RWMutex
-	list   [K]*Node
+	list   []*Node
 	length int
+	cap    int
+}
+
+func newBucket(cap int) *bucket {
+	return &bucket{
+		list: make([]*Node, 0, cap),
+		cap:  cap,
+	}
 }
 
 // if n exists in b.nodes, move n to tail, return nil
@@ -33,9 +42,6 @@ func (b *bucket) add(node *Node) (toCheck *Node) {
 	if node == nil {
 		return
 	}
-
-	b.lock.Lock()
-	defer b.lock.Unlock()
 
 	if b.contains(node) {
 		return
@@ -60,6 +66,19 @@ func (b *bucket) add(node *Node) (toCheck *Node) {
 	}
 
 	return b.list[0]
+}
+
+// move the node whose NodeID is id to tail
+func (b *bucket) bubble(id NodeID) {
+	for i, node := range b.list {
+		if node.ID == id {
+
+		}
+	}
+}
+
+func (b *bucket) bubbleNode(node *Node) {
+
 }
 
 func (b *bucket) replace(old, new *Node) {
@@ -125,9 +144,6 @@ func (b *bucket) nodes() []*Node {
 }
 
 func (b *bucket) contains(node *Node) bool {
-	b.lock.RLock()
-	defer b.lock.RUnlock()
-
 	for _, n := range b.list {
 		if n.ID == node.ID {
 			return true
