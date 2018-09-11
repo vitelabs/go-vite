@@ -186,47 +186,48 @@ func (trie *Trie) traverseSave(batch *leveldb.Batch, node *TrieNode) error {
 }
 
 func (trie *Trie) SetValue(key []byte, value []byte) {
-	if len(key) == 0 {
-		return
-	}
-
 	var leafNode *TrieNode
 	if len(value) > 32 {
 		valueHash, _ := types.BytesToHash(crypto.Hash256(value))
 		leafNode = NewHashNode(&valueHash)
-
-		trie.unSavedRefValueMap[valueHash] = value
+		defer func() {
+			trie.unSavedRefValueMap[valueHash] = value
+		}()
 	} else {
 		leafNode = NewValueNode(value)
 
 	}
 
 	trie.Root = trie.setValue(trie.Root, key, leafNode)
-
 }
 
 func (trie *Trie) setValue(node *TrieNode, key []byte, leafNode *TrieNode) *TrieNode {
-	// Final node
-	if len(key) == 0 {
-		return leafNode
-	}
-
 	// Create short_node when node is nil
 	if node == nil {
-		shortNode := NewShortNode(key, nil)
-		shortNode.SetChild(leafNode)
-		return shortNode
+		if len(key) != 0 {
+			shortNode := NewShortNode(key, nil)
+			shortNode.SetChild(leafNode)
+			return shortNode
+		} else {
+			// Final node
+			return leafNode
+		}
+
 	}
 
 	// Normal node
 	switch node.NodeType() {
 	case TRIE_FULL_NODE:
-		firstChar := key[0]
-
 		// Hash is not correct, so clear
 		newNode := node.Copy()
 		newNode.SetHash(nil)
-		newNode.children[firstChar] = trie.setValue(newNode.children[firstChar], key[1:], leafNode)
+
+		if len(key) > 0 {
+			firstChar := key[0]
+			newNode.children[firstChar] = trie.setValue(newNode.children[firstChar], key[1:], leafNode)
+		} else {
+			newNode.children[byte(0)] = leafNode
+		}
 		return node
 	case TRIE_SHORT_NODE:
 
@@ -284,10 +285,22 @@ func (trie *Trie) setValue(node *TrieNode, key []byte, leafNode *TrieNode) *Trie
 			return fullNode
 		}
 	default:
-		fullNode := NewFullNode(nil)
-		fullNode.children[byte(0)] = node
-		fullNode.children[key[0]] = trie.setValue(nil, key[1:], leafNode)
-		return fullNode
+		if len(key) > 0 {
+			fullNode := NewFullNode(nil)
+			fullNode.children[byte(0)] = node
+			fullNode.children[key[0]] = trie.setValue(nil, key[1:], leafNode)
+			return fullNode
+		} else {
+			if node.NodeType() == TRIE_HASH_NODE {
+				valueHash, err := types.BytesToHash(node.value)
+				if err == nil {
+					if _, ok := trie.unSavedRefValueMap[valueHash]; ok {
+						delete(trie.unSavedRefValueMap, valueHash)
+					}
+				}
+			}
+			return leafNode
+		}
 	}
 
 	return nil
