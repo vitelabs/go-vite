@@ -187,6 +187,11 @@ func (db *NoDatabase) GetPledgeAmount(beneficial types.Address) *big.Int {
 	}
 }
 
+func (db *NoDatabase) GetDbIteratorByPrefix(prefix []byte) DbIterator {
+	// TODO
+	return nil
+}
+
 func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, hash12 types.Hash, snapshot2 *NoSnapshotBlock, timestamp int64) {
 	addr1, _ = types.BytesToAddress(util.HexToBytes("CA35B7D915458EF540ADE6068DFE2F44E8FA733C"))
 	db = NewNoDatabase()

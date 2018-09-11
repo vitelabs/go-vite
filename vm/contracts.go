@@ -599,6 +599,71 @@ func checkCondition(vm *VM, conditionId uint8, conditionParam []byte, conditionI
 	return nil
 }
 
+type CountingRuleCode string
+
+const (
+	CountingRuleOfBalance       CountingRuleCode = "counting1"
+	RegisterConditionOfSnapshot CountingRuleCode = "register1"
+	VoteConditionOfDefault      CountingRuleCode = "vote1"
+	VoteConditionOfBalance      CountingRuleCode = "vote2"
+)
+
+type createConsensusGroupCondition interface {
+	checkParam(param []byte, db VmDatabase) bool
+}
+
+var SimpleCountingRuleList = map[CountingRuleCode]createConsensusGroupCondition{
+	CountingRuleOfBalance:       &countingRuleOfBalance{},
+	RegisterConditionOfSnapshot: &registerConditionOfSnapshot{},
+	VoteConditionOfDefault:      &voteConditionOfDefault{},
+	VoteConditionOfBalance:      &voteConditionOfBalance{},
+}
+
+type countingRuleOfBalance struct{}
+
+func (c countingRuleOfBalance) checkParam(param []byte, db VmDatabase) bool {
+	if len(param) != 32 {
+		return false
+	}
+	if tokenId, err := types.BytesToTokenTypeId(util.LeftPadBytes(new(big.Int).SetBytes(param).Bytes(), 10)); err != nil || !db.IsExistToken(tokenId) {
+		return false
+	}
+	return true
+}
+
+type registerConditionOfSnapshot struct{}
+
+func (c registerConditionOfSnapshot) checkParam(param []byte, db VmDatabase) bool {
+	if len(param) != 96 {
+		return false
+	}
+	if tokenId, err := types.BytesToTokenTypeId(util.LeftPadBytes(new(big.Int).SetBytes(param[32:64]).Bytes(), 10)); err != nil || !db.IsExistToken(tokenId) {
+		return false
+	}
+	return true
+}
+
+type voteConditionOfDefault struct{}
+
+func (c voteConditionOfDefault) checkParam(param []byte, db VmDatabase) bool {
+	if len(param) != 0 {
+		return false
+	}
+	return true
+}
+
+type voteConditionOfBalance struct{}
+
+func (c voteConditionOfBalance) checkParam(param []byte, db VmDatabase) bool {
+	if len(param) != 64 {
+		return false
+	}
+	if tokenId, err := types.BytesToTokenTypeId(util.LeftPadBytes(new(big.Int).SetBytes(param[32:64]).Bytes(), 10)); err != nil || !db.IsExistToken(tokenId) {
+		return false
+	}
+	return true
+}
+
 func (p *consensusGroup) doReceive(vm *VM, block VmAccountBlock) error {
 	param := new(ParamCreateConsensusGroup)
 	p.UnpackMethod(param, MethodNameCreateConsensusGroup, block.Data())
@@ -619,4 +684,9 @@ func getKey(addr types.Address, gid types.Gid) types.Hash {
 	copy(data[2:12], gid[:])
 	copy(data[12:], addr[:])
 	return data
+}
+
+func getAddr(key []byte) types.Address {
+	addr, _ := types.BytesToAddress(key[12:])
+	return addr
 }

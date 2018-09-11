@@ -44,4 +44,11 @@ type VmDatabase interface {
 	LogListHash() types.Hash
 
 	GetPledgeAmount(beneficial types.Address) *big.Int
+
+	GetDbIteratorByPrefix(prefix []byte) DbIterator
+}
+
+type DbIterator interface {
+	HasNext() bool
+	Next() (key, value []byte)
 }

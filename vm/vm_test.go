@@ -50,6 +50,7 @@ func TestVmRun(t *testing.T) {
 	* 	}
 	* }
 	 */
+	balance1 := new(big.Int).Set(viteTotalSupply)
 	// send create
 	data13, _ := hex.DecodeString("00000000000000000001608060405260858060116000396000f300608060405260043610603e5763ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041663f021ab8f81146043575b600080fd5b604c600435604e565b005b6000805490910190555600a165627a7a72305820b8d8d60a46c6ac6569047b17b012aa1ea458271f9bc8078ef0cff9208999d0900029")
 	hash13 := types.DataHash([]byte{1, 3})
@@ -68,11 +69,13 @@ func TestVmRun(t *testing.T) {
 	vm := NewVM(db, CreateNoAccountBlock)
 	vm.Debug = true
 	sendCreateBlockList, isRetry, err := vm.Run(block13)
+	balance1.Sub(balance1, block13.Amount())
+	balance1.Sub(balance1, block13.CreateFee())
 	if len(sendCreateBlockList) != 1 ||
 		isRetry ||
 		err != nil ||
 		sendCreateBlockList[0].Quota() != 28936 ||
-		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(big.NewInt(4e18)) != 0 {
+		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(balance1) != 0 {
 		t.Fatalf("send create transaction error")
 	}
 	db.accountBlockMap[addr1][hash13] = sendCreateBlockList[0]
@@ -80,6 +83,7 @@ func TestVmRun(t *testing.T) {
 	// receive create
 	addr2 := sendCreateBlockList[0].ToAddress()
 	db.storageMap[AddressPledge][types.DataHash(addr2.Bytes())], _ = ABI_pledge.PackVariable(VariableNamePledgeBeneficial, big.NewInt(1e18))
+	balance2 := big.NewInt(0)
 
 	hash21 := types.DataHash([]byte{2, 1})
 	block21 := &NoAccountBlock{
@@ -94,9 +98,10 @@ func TestVmRun(t *testing.T) {
 	vm = NewVM(db, CreateNoAccountBlock)
 	vm.Debug = true
 	receiveCreateBlockList, isRetry, err := vm.Run(block21)
+	balance2.Add(balance2, block13.Amount())
 	if len(receiveCreateBlockList) != 1 || isRetry || err != nil ||
 		receiveCreateBlockList[0].Quota() != 0 ||
-		db.balanceMap[addr2][util.ViteTokenTypeId].Cmp(big.NewInt(1e18)) != 0 {
+		db.balanceMap[addr2][util.ViteTokenTypeId].Cmp(balance2) != 0 {
 		t.Fatalf("receive create transaction error")
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]VmAccountBlock)
@@ -120,9 +125,10 @@ func TestVmRun(t *testing.T) {
 	vm = NewVM(db, CreateNoAccountBlock)
 	vm.Debug = true
 	sendCallBlockList, isRetry, err := vm.Run(block14)
+	balance1.Sub(balance1, block14.Amount())
 	if len(sendCallBlockList) != 1 || isRetry || err != nil ||
 		sendCallBlockList[0].Quota() != 21464 ||
-		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(big.NewInt(3e18)) != 0 {
+		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(balance1) != 0 {
 		t.Fatalf("send call transaction error")
 	}
 	db.accountBlockMap[addr1][hash14] = sendCallBlockList[0]
@@ -142,6 +148,7 @@ func TestVmRun(t *testing.T) {
 	vm = NewVM(db, CreateNoAccountBlock)
 	vm.Debug = true
 	receiveCallBlockList, isRetry, err := vm.Run(block22)
+	balance2.Add(balance2, block14.Amount())
 	if len(receiveCallBlockList) != 1 || isRetry || err != nil ||
 		receiveCallBlockList[0].Quota() != 41330 ||
 		db.balanceMap[addr2][util.ViteTokenTypeId].Cmp(big.NewInt(2e18)) != 0 {
@@ -166,10 +173,11 @@ func TestVmRun(t *testing.T) {
 	vm = NewVM(db, CreateNoAccountBlock)
 	vm.Debug = true
 	sendMintageBlockList, isRetry, err := vm.Run(block15)
+	balance1.Sub(balance1, block15.createFee)
 	if len(sendMintageBlockList) != 1 || isRetry || err != nil ||
 		sendMintageBlockList[0].Quota() != 22152 ||
 		sendMintageBlockList[0].CreateFee().Cmp(big.NewInt(1e18)) != 0 ||
-		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(big.NewInt(2e18)) != 0 {
+		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(balance1) != 0 {
 		t.Fatalf("send mintage transaction error")
 	}
 	db.accountBlockMap[addr1][hash15] = sendMintageBlockList[0]
@@ -192,7 +200,7 @@ func TestVmRun(t *testing.T) {
 	receiveMintageBlockList, isRetry, err := vm.Run(block23)
 	if len(receiveMintageBlockList) != 1 || isRetry || err != nil ||
 		receiveMintageBlockList[0].Quota() != 21000 ||
-		db.balanceMap[addr2][util.ViteTokenTypeId].Cmp(big.NewInt(2e18)) != 0 ||
+		db.balanceMap[addr2][util.ViteTokenTypeId].Cmp(balance2) != 0 ||
 		db.balanceMap[addr2][myTokenId].Cmp(big.NewInt(1e18)) != 0 {
 		t.Fatalf("receive mintage transaction error")
 	}
