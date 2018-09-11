@@ -29,6 +29,15 @@ func (*AccountBlockMeta) DbDeserialize([]byte) error {
 	return nil
 }
 
+const (
+	BlockTypeSendCreate byte = iota + 1
+	BlockTypeSendCall
+	BlockTypeSendMintage
+	BlockTypeSendReward
+	BlockTypeReceive
+	BlockTypeReceiveError
+)
+
 type AccountBlock struct {
 	Meta *AccountBlockMeta
 
