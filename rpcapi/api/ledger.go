@@ -12,53 +12,6 @@ import (
 
 // !!! Block = Transaction = TX
 
-// Send tx parms
-type SendTxParms struct {
-	SelfAddr    types.Address     // who sends the tx
-	ToAddr      types.Address     // who receives the tx
-	TokenTypeId types.TokenTypeId // which token will be sent
-	Passphrase  string            // sender`s passphrase
-	Amount      string            // the amount of specific token will be sent. bigInt
-}
-
-type SimpleBlock struct {
-	Timestamp      uint64
-	Amount         string        // the amount of a specific token had been sent in this block.  bigInt
-	FromAddr       types.Address // who sends the tx
-	ToAddr         types.Address // who receives the tx
-	Status         int           // 0 means unknow, 1 means open (unconfirmed), 2 means closed(already confirmed)
-	Hash           types.Hash    // bigInt. the blocks hash
-	Balance        string        // current balance
-	ConfirmedTimes string        // block`s confirmed times
-}
-
-type BalanceInfo struct {
-	TokenSymbol string // token symbol example  1200 (symbol)
-	TokenName   string // token name
-	TokenTypeId types.TokenTypeId
-	Balance     string
-}
-
-type GetAccountResponse struct {
-	Addr         types.Address // Account address
-	BalanceInfos []BalanceInfo // Account Balance Infos
-	BlockHeight  string        // Account BlockHeight also represents all blocks belong to the account. bigInt.
-}
-
-type GetUnconfirmedInfoResponse struct {
-	Addr                 types.Address // Account address
-	BalanceInfos         []BalanceInfo // Account unconfirmed BalanceInfos (In-transit money)
-	UnConfirmedBlocksLen string        // the length of unconfirmed blocks. bigInt
-}
-
-type InitSyncResponse struct {
-	StartHeight      string // bigInt. where we start sync
-	TargetHeight     string // bigInt. when CurrentHeight == TargetHeight means that sync complete
-	CurrentHeight    string // bigInt.
-	IsFirstSyncDone  bool   // true means sync complete
-	IsStartFirstSync bool   // true means sync start
-}
-
 func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 	return &LedgerApi{
 		ledgerManager: vite.Ledger(),
@@ -105,7 +58,7 @@ func (l *LedgerApi) CreateTxWithPassphrase(params *SendTxParms) error {
 	return nil
 }
 
-func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]SimpleBlock, error) {
+func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]ledger.AccountBlock, error) {
 	log.Info("GetBlocksByAccAddr")
 
 	list, getErr := l.ledgerManager.Ac().GetBlocksByAccAddr(&addr, index, 1, count)
@@ -119,40 +72,73 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int)
 		return nil, getErr.Err
 	}
 
-	simpleBlocks := make([]SimpleBlock, len(list))
+	simpleBlocks := make([]ledger.AccountBlock, len(list))
 	for i, v := range list {
-
-		simpleBlocks[i] = SimpleBlock{
-			Timestamp: v.Timestamp,
-			Hash:      *v.Hash,
-		}
-
-		if v.From != nil {
-			simpleBlocks[i].FromAddr = *v.From
-		}
-
-		if v.To != nil {
-			simpleBlocks[i].ToAddr = *v.To
-		}
-
-		if v.Amount != nil {
-			simpleBlocks[i].Amount = v.Amount.String()
-		}
-
-		if v.Meta != nil {
-			simpleBlocks[i].Status = v.Meta.Status
-		}
-
-		if v.Balance != nil {
-			simpleBlocks[i].Balance = v.Balance.String()
-		}
+		block := accountBlockToSimpleBlock(v)
 
 		times := l.getBlockConfirmedTimes(v)
 		if times != nil {
-			simpleBlocks[i].ConfirmedTimes = times.String()
+			//block.ConfirmedTimes = times.String()
 		}
+		simpleBlocks[i] = *block
 	}
 	return simpleBlocks, nil
+}
+
+func accountBlockToSimpleBlock(v *ledger.AccountBlock) *ledger.AccountBlock {
+
+	if v.AccountAddress != nil {
+
+	}
+
+	//var a = AccountBlock{
+	//	Meta: AccountBlockMeta{
+	//		AccountId:     "",
+	//		Height:        "",
+	//		Status:        0,
+	//		IsSnapshotted: false,
+	//	},
+	//	AccountAddress:         types.Address{},
+	//	PublicKey:              "",
+	//	To:                     types.Address{},
+	//	From:                   types.Address{},
+	//	FromHash:               types.Hash{},
+	//	PrevHash:               types.Hash{},
+	//	Hash:                   types.Hash{},
+	//	Balance:                "",
+	//	Amount:                 "",
+	//	Timestamp:              0,
+	//	TokenId:                types.TokenTypeId{},
+	//	LastBlockHeightInToken: "",
+	//	Data:                   "",
+	//	SnapshotTimestamp:      types.Hash{},
+	//	Signature:              nil,
+	//	Nonce:                  nil,
+	//	Difficulty:             nil,
+	//	FAmount:                "",
+	//	ConfirmedTimes:         "",
+	//}
+
+	simpleBlock := ledger.AccountBlock{
+		Timestamp: v.Timestamp,
+		Hash:      v.Hash,
+	}
+	//if v.From != nil {
+	//	simpleBlock.From = *v.From
+	//}
+	//if v.To != nil {
+	//	simpleBlock.To = *v.To
+	//}
+	//if v.Amount != nil {
+	//	simpleBlock.Amount = v.Amount.String()
+	//}
+	//if v.Meta != nil {
+	//	simpleBlock.Meta.Status = v.Meta.Status
+	//}
+	//if v.Balance != nil {
+	//	simpleBlock.Balance = v.Balance.String()
+	//}
+	return &simpleBlock
 }
 
 func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.Int {
@@ -182,7 +168,7 @@ func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.Int 
 	return times
 }
 
-func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int, count int) ([]SimpleBlock, error) {
+func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int, count int) ([]ledger.AccountBlock, error) {
 	log.Info("GetUnconfirmedBlocksByAccAddr")
 	return nil, ErrNotSupport
 }
@@ -298,17 +284,27 @@ func (l *LedgerApi) GetSnapshotChainHeight() (string, error) {
 	return "", nil
 }
 
-func (l *LedgerApi) StartAutoConfirmTx(addr []string, reply *string) error {
+func (l *LedgerApi) GetLatestBlock(addr types.Address) (ledger.AccountBlock, error) {
+	log.Info("GetLatestBlock")
+	b, getError := l.ledgerManager.Ac().GetLatestBlock(&addr)
+	if getError != nil {
+		return ledger.AccountBlock{}, getError.Err
+	}
+	return *accountBlockToSimpleBlock(b), nil
+}
+
+func (l *LedgerApi) CreateTx(block *ledger.AccountBlock) error {
 	return nil
 }
 
-func (l *LedgerApi) StopAutoConfirmTx(addr []string, reply *string) error {
-	return nil
-}
+//func (l *LedgerApi) StartAutoConfirmTx(addr []string, reply *string) error {
+//	return nil
+//}
+//
+//func (l *LedgerApi) StopAutoConfirmTx(addr []string, reply *string) error {
+//	return nil
+//}
 
 type PublicTxApi struct {
 	txApi *LedgerApi
 }
-
-
-
