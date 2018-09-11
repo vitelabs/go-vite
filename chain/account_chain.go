@@ -16,7 +16,6 @@ type BlockMapQueryParam struct {
 }
 
 func (c *Chain) InsertAccountBlock(accountBlock *ledger.AccountBlock, vmContext *vm_context.VmContext, needBroadCast bool) error {
-
 	return nil
 }
 

@@ -125,8 +125,33 @@ func TestNewTrie(t *testing.T) {
 	fmt.Printf("%d\n", len(trie.unSavedRefValueMap))
 	fmt.Println()
 
+	fmt.Println("11.1")
+	trie.SetValue([]byte("t"), []byte("abc"))
+	fmt.Printf("%s\n", trie.GetValue(nil))
+	fmt.Printf("%s\n", trie.GetValue([]byte("test")))
+	fmt.Printf("%s\n", trie.GetValue([]byte("tesa")))
+	fmt.Printf("%s\n", trie.GetValue([]byte("tesab")))
+	fmt.Printf("%s\n", trie.GetValue([]byte("aofjas")))
+	fmt.Printf("%s\n", trie.GetValue([]byte("tesabcd")))
+	fmt.Printf("%s\n", trie.GetValue([]byte("t")))
+	fmt.Printf("%d\n", len(trie.unSavedRefValueMap))
+	fmt.Println()
+
 	fmt.Println(12)
 	trie.SetValue([]byte("a"), []byte("a1230xm9"))
+	fmt.Printf("%s\n", trie.GetValue(nil))
+	fmt.Printf("%s\n", trie.GetValue([]byte("test")))
+	fmt.Printf("%s\n", trie.GetValue([]byte("tesa")))
+	fmt.Printf("%s\n", trie.GetValue([]byte("tesab")))
+	fmt.Printf("%s\n", trie.GetValue([]byte("aofjas")))
+	fmt.Printf("%s\n", trie.GetValue([]byte("tesabcd")))
+	fmt.Printf("%s\n", trie.GetValue([]byte("t")))
+	fmt.Printf("%s\n", trie.GetValue([]byte("a")))
+	fmt.Printf("%d\n", len(trie.unSavedRefValueMap))
+	fmt.Println()
+
+	fmt.Println("12.1")
+	trie.SetValue([]byte("a"), []byte("a10xm9"))
 	fmt.Printf("%s\n", trie.GetValue(nil))
 	fmt.Printf("%s\n", trie.GetValue([]byte("test")))
 	fmt.Printf("%s\n", trie.GetValue([]byte("tesa")))
@@ -214,7 +239,7 @@ func TestNewTrie(t *testing.T) {
 	fmt.Println()
 }
 
-func TestNewTrie2(t *testing.T) {
+func TestTrieHash(t *testing.T) {
 	db := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
 	defer db.Close()
 
@@ -225,15 +250,20 @@ func TestNewTrie2(t *testing.T) {
 		t.Fatal(ntErr)
 	}
 
-	trie.SetValue([]byte("test"), []byte("value.hash"))
-	fmt.Printf("%+v\n", trie.Root)
-	fmt.Printf("%+v\n", trie.Root.child)
-	fmt.Println()
-
-	trie.SetValue([]byte("testabcdef"), []byte("value.hash2"))
-	fmt.Printf("%+v\n", trie.Root)
-	fmt.Printf("%+v\n", trie.Root.child.children[byte(0)])
-	fmt.Printf("%+v\n", trie.Root.child.children[byte('a')])
-	fmt.Printf("%+v\n", trie.Root.child.children[byte('a')].child)
-	fmt.Println()
+	trie.SetValue(nil, []byte("NilNilNilNilNil"))
+	fmt.Println(trie.Hash())
+	fmt.Println(trie.Hash())
+	fmt.Println(trie.Hash())
+	trie.SetValue(nil, []byte("isNil"))
+	fmt.Println(trie.Hash())
+	trie.SetValue([]byte("IamG"), []byte("ki10$%^%&@#!@#"))
+	fmt.Println(trie.Hash())
+	trie.SetValue([]byte("IamGood"), []byte("a1230xm90zm19ma"))
+	fmt.Println(trie.Hash())
+	fmt.Println(trie.Hash())
+	fmt.Println(trie.Hash())
+	fmt.Println(trie.Hash())
+	fmt.Println(trie.Hash())
+	trie.SetValue([]byte("tesab"), []byte("value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555"))
+	fmt.Println(trie.Hash())
 }

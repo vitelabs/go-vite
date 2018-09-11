@@ -15,22 +15,20 @@ type Trie struct {
 	cachePool *TrieNodePool
 	log       log15.Logger
 
-	RootHash *types.Hash
-	Root     *TrieNode
+	Root *TrieNode
 
 	unSavedRefValueMap map[types.Hash][]byte
 }
 
 func NewTrie(db *leveldb.DB, rootHash *types.Hash, pool *TrieNodePool) (*Trie, error) {
 	trie := &Trie{
-		db:       db,
-		RootHash: rootHash,
-		log:      log15.New("module", "trie"),
+		db:  db,
+		log: log15.New("module", "trie"),
 
 		unSavedRefValueMap: make(map[types.Hash][]byte),
 	}
 
-	trie.loadFromDb()
+	trie.loadFromDb(rootHash)
 	return trie, nil
 }
 
@@ -71,6 +69,22 @@ func (trie *Trie) saveNodeInDb(batch *leveldb.Batch, node *TrieNode) error {
 	return nil
 }
 
+func (trie *Trie) deleteUnSavedRefValueMap(node *TrieNode) {
+	if node == nil ||
+		node.NodeType() != TRIE_HASH_NODE {
+		return
+	}
+
+	valueHash, err := types.BytesToHash(node.value)
+	if err != nil {
+		return
+	}
+	if _, ok := trie.unSavedRefValueMap[valueHash]; ok {
+		delete(trie.unSavedRefValueMap, valueHash)
+	}
+
+}
+
 func (trie *Trie) saveRefValueMap(batch *leveldb.Batch) {
 	for key, value := range trie.unSavedRefValueMap {
 		dbKey, _ := database.EncodeKey(database.DBKP_TRIE_REF_VALUE, key.Bytes())
@@ -105,12 +119,12 @@ func (trie *Trie) getNode(key *types.Hash) *TrieNode {
 	return node
 }
 
-func (trie *Trie) loadFromDb() {
-	if trie.RootHash == nil {
+func (trie *Trie) loadFromDb(rootHash *types.Hash) {
+	if rootHash == nil {
 		return
 	}
 
-	trie.Root = trie.traverseLoad(trie.RootHash)
+	trie.Root = trie.traverseLoad(rootHash)
 }
 
 func (trie *Trie) traverseLoad(hash *types.Hash) *TrieNode {
@@ -130,8 +144,12 @@ func (trie *Trie) traverseLoad(hash *types.Hash) *TrieNode {
 	return node
 }
 
-func (trie *Trie) computeHash() {
+func (trie *Trie) Hash() *types.Hash {
+	if trie.Root == nil {
+		return nil
+	}
 
+	return trie.Root.Hash()
 }
 
 func (trie *Trie) Copy() *Trie {
@@ -140,8 +158,7 @@ func (trie *Trie) Copy() *Trie {
 		cachePool: trie.cachePool,
 		log:       trie.log,
 
-		RootHash: trie.RootHash,
-		Root:     trie.Root.Copy(),
+		Root: trie.Root.Copy(true),
 	}
 }
 
@@ -219,16 +236,16 @@ func (trie *Trie) setValue(node *TrieNode, key []byte, leafNode *TrieNode) *Trie
 	switch node.NodeType() {
 	case TRIE_FULL_NODE:
 		// Hash is not correct, so clear
-		newNode := node.Copy()
-		newNode.SetHash(nil)
+		newNode := node.Copy(false)
 
 		if len(key) > 0 {
 			firstChar := key[0]
 			newNode.children[firstChar] = trie.setValue(newNode.children[firstChar], key[1:], leafNode)
 		} else {
+			trie.deleteUnSavedRefValueMap(newNode.children[byte(0)])
 			newNode.children[byte(0)] = leafNode
 		}
-		return node
+		return newNode
 	case TRIE_SHORT_NODE:
 
 		var keyChar byte
@@ -253,14 +270,14 @@ func (trie *Trie) setValue(node *TrieNode, key []byte, leafNode *TrieNode) *Trie
 				node.child.NodeType() == TRIE_VALUE_NODE ||
 				node.child.NodeType() == TRIE_HASH_NODE {
 
-				// Hash is not correct, so clear
-				node.SetHash(nil)
-				node.SetChild(leafNode)
-				return node
+				trie.deleteUnSavedRefValueMap(node.child)
+
+				newNode := node.Copy(false)
+				newNode.SetChild(leafNode)
+
+				return newNode
 			} else if node.child.NodeType() == TRIE_FULL_NODE {
-				fullNode = node.child.Copy()
-				// Hash is not correct, so clear
-				fullNode.SetHash(nil)
+				fullNode = node.child.Copy(false)
 			}
 		}
 
@@ -291,14 +308,7 @@ func (trie *Trie) setValue(node *TrieNode, key []byte, leafNode *TrieNode) *Trie
 			fullNode.children[key[0]] = trie.setValue(nil, key[1:], leafNode)
 			return fullNode
 		} else {
-			if node.NodeType() == TRIE_HASH_NODE {
-				valueHash, err := types.BytesToHash(node.value)
-				if err == nil {
-					if _, ok := trie.unSavedRefValueMap[valueHash]; ok {
-						delete(trie.unSavedRefValueMap, valueHash)
-					}
-				}
-			}
+			trie.deleteUnSavedRefValueMap(node)
 			return leafNode
 		}
 	}
