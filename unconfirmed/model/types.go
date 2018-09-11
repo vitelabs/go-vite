@@ -32,6 +32,7 @@ type Tx struct {
 	amount big.Int
 }
 
-func (t *TokenInfo) LoadData() {
-
+type AccountInfoCache struct {
 }
+
+

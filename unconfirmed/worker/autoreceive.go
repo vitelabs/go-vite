@@ -40,9 +40,9 @@ func NewAutoReceiveWorker(address *types.Address, filters map[types.TokenTypeId]
 	return &AutoReceiveWorker{
 		address:    address,
 		status:     Create,
-		log:        log15.New("AutoReceiveWorker addr", address),
 		isSleeping: false,
 		filters:    filters,
+		log:        log15.New("AutoReceiveWorker addr", address),
 	}
 }
 

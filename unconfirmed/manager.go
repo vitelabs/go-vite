@@ -12,10 +12,6 @@ import (
 	"time"
 )
 
-var (
-	slog = log15.New("module", "db.go")
-)
-
 type Manager struct {
 	Vite    Vite
 	uAccess *model.UAccess
@@ -26,10 +22,9 @@ type Manager struct {
 	unlockEventListener   chan keystore.UnlockEvent
 	firstSyncDoneListener chan int
 	rightEventListener    chan *worker.RightEvent
-
-	unlockLid    int
-	rightLid     int
-	firstSyncLid int
+	unlockLid             int
+	rightLid              int
+	firstSyncLid          int
 
 	log log15.Logger
 }
@@ -45,7 +40,7 @@ func NewManager(vite Vite, dataDir string) *Manager {
 		firstSyncDoneListener: make(chan int),
 		rightEventListener:    make(chan *worker.RightEvent),
 
-		log: slog.New("w", "manager"),
+		log: log15.New("w", "manager"),
 	}
 }
 
