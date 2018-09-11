@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"strconv"
@@ -24,10 +23,10 @@ type precompiledContract interface {
 }
 
 var simpleContracts = map[types.Address]precompiledContract{
-	AddressRegister:       &register{ABI_register},
-	AddressVote:           &vote{ABI_vote},
-	AddressPledge:         &pledge{ABI_pledge},
-	AddressConsensusGroup: &consensusGroup{ABI_consensusGroup},
+	AddressRegister:       &register{},
+	AddressVote:           &vote{},
+	AddressPledge:         &pledge{},
+	AddressConsensusGroup: &consensusGroup{},
 }
 
 func getPrecompiledContract(address types.Address) (precompiledContract, bool) {
@@ -36,14 +35,13 @@ func getPrecompiledContract(address types.Address) (precompiledContract, bool) {
 }
 
 type register struct {
-	abi.ABIContract
 }
 
 func (p *register) createFee(vm *VM, block VmAccountBlock) *big.Int {
 	return big.NewInt(0)
 }
 func (p *register) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	if method, err := p.MethodById(block.Data()[0:4]); err == nil {
+	if method, err := ABI_register.MethodById(block.Data()[0:4]); err == nil {
 		switch method.Name {
 		case MethodNameRegister:
 			return p.doSendRegister(vm, block, quotaLeft)
@@ -73,7 +71,7 @@ func (p *register) doSendRegister(vm *VM, block VmAccountBlock, quotaLeft uint64
 	}
 
 	gid := new(types.Gid)
-	err = p.UnpackMethod(gid, MethodNameRegister, block.Data())
+	err = ABI_register.UnpackMethod(gid, MethodNameRegister, block.Data())
 	if err != nil || !isExistGid(vm.Db, *gid) {
 		return quotaLeft, ErrInvalidData
 	}
@@ -95,14 +93,14 @@ func (p *register) doSendCancelRegister(vm *VM, block VmAccountBlock, quotaLeft 
 		return quotaLeft, ErrInvalidData
 	}
 	gid := new(types.Gid)
-	err = p.UnpackMethod(gid, MethodNameCancelRegister, block.Data())
+	err = ABI_register.UnpackMethod(gid, MethodNameCancelRegister, block.Data())
 	if err != nil || !isExistGid(vm.Db, *gid) {
 		return quotaLeft, ErrInvalidData
 	}
 
 	locHash := getKey(block.AccountAddress(), *gid)
 	old := new(VariableRegistration)
-	err = p.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
+	err = ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
 	if err != nil || old.Timestamp+registerLockTime < vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp() {
 		return quotaLeft, ErrInvalidData
 	}
@@ -120,13 +118,13 @@ func (p *register) doSendReward(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 		return quotaLeft, ErrInvalidData
 	}
 	param := new(ParamReward)
-	err = p.UnpackMethod(param, MethodNameReward, block.Data())
+	err = ABI_register.UnpackMethod(param, MethodNameReward, block.Data())
 	if err != nil || !util.IsSnapshotGid(param.Gid) {
 		return quotaLeft, ErrInvalidData
 	}
 	locHash := getKey(block.AccountAddress(), param.Gid)
 	old := new(VariableRegistration)
-	err = p.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
+	err = ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
 	if err != nil {
 		return quotaLeft, ErrInvalidData
 	}
@@ -153,7 +151,7 @@ func (p *register) doSendReward(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 	}
 
 	calcReward(vm, block.AccountAddress().Bytes(), old.RewardHeight, count, param.Amount)
-	data, err := p.PackMethod(MethodNameReward, param.Gid, newRewardHeight, old.RewardHeight, param.Amount)
+	data, err := ABI_register.PackMethod(MethodNameReward, param.Gid, newRewardHeight, old.RewardHeight, param.Amount)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -188,7 +186,7 @@ func calcReward(vm *VM, producer []byte, startHeight *big.Int, count uint64, rew
 }
 
 func (p *register) doReceive(vm *VM, block VmAccountBlock) error {
-	if method, err := p.MethodById(block.Data()[0:4]); err == nil {
+	if method, err := ABI_register.MethodById(block.Data()[0:4]); err == nil {
 		switch method.Name {
 		case MethodNameRegister:
 			return p.doReceiveRegister(vm, block)
@@ -202,14 +200,14 @@ func (p *register) doReceive(vm *VM, block VmAccountBlock) error {
 }
 func (p *register) doReceiveRegister(vm *VM, block VmAccountBlock) error {
 	gid := new(types.Gid)
-	p.UnpackMethod(gid, MethodNameRegister, block.Data())
+	ABI_register.UnpackMethod(gid, MethodNameRegister, block.Data())
 	snapshotBlock := vm.Db.SnapshotBlock(block.SnapshotHash())
 	rewardHeight := snapshotBlock.Height()
 	locHash := getKey(block.AccountAddress(), *gid)
 	oldData := vm.Db.Storage(block.ToAddress(), locHash)
 	if len(oldData) > 0 {
 		old := new(VariableRegistration)
-		err := p.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
+		err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
 		if err != nil || old.Amount.Sign() > 0 {
 			// duplicate register
 			return ErrInvalidData
@@ -217,24 +215,24 @@ func (p *register) doReceiveRegister(vm *VM, block VmAccountBlock) error {
 		// reward of last being a super node is not drained
 		rewardHeight = old.RewardHeight
 	}
-	registerInfo, _ := p.PackVariable(VariableNameRegistration, block.Amount(), snapshotBlock.Timestamp(), rewardHeight, common.Big0)
+	registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, block.Amount(), snapshotBlock.Timestamp(), rewardHeight, common.Big0)
 	vm.Db.SetStorage(block.ToAddress(), locHash, registerInfo)
 	return nil
 }
 func (p *register) doReceiveCancelRegister(vm *VM, block VmAccountBlock) error {
 	gid := new(types.Gid)
-	p.UnpackMethod(gid, MethodNameCancelRegister, block.Data())
+	ABI_register.UnpackMethod(gid, MethodNameCancelRegister, block.Data())
 
 	locHash := getKey(block.AccountAddress(), *gid)
 	old := new(VariableRegistration)
-	err := p.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
+	err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
 	if err != nil || old.Amount.Sign() == 0 {
 		return ErrInvalidData
 	}
 
 	// update lock amount and loc start timestamp
 	snapshotBlock := vm.Db.SnapshotBlock(block.SnapshotHash())
-	registerInfo, _ := p.PackVariable(VariableNameRegistration, common.Big0, int64(0), old.RewardHeight, snapshotBlock.Height())
+	registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, common.Big0, int64(0), old.RewardHeight, snapshotBlock.Height())
 	vm.Db.SetStorage(block.ToAddress(), locHash, registerInfo)
 	// return locked ViteToken
 	refundBlock := vm.createBlock(block.ToAddress(), block.AccountAddress(), BlockTypeSendCall, block.Depth()+1)
@@ -246,10 +244,10 @@ func (p *register) doReceiveCancelRegister(vm *VM, block VmAccountBlock) error {
 }
 func (p *register) doReceiveReward(vm *VM, block VmAccountBlock) error {
 	param := new(ParamReward)
-	p.UnpackMethod(param, MethodNameReward, block.Data())
+	ABI_register.UnpackMethod(param, MethodNameReward, block.Data())
 	locHash := getKey(block.AccountAddress(), param.Gid)
 	old := new(VariableRegistration)
-	err := p.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
+	err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.Storage(block.ToAddress(), locHash))
 	if err != nil || old.RewardHeight.Cmp(param.StartHeight) != 0 {
 		return ErrInvalidData
 	}
@@ -262,11 +260,11 @@ func (p *register) doReceiveReward(vm *VM, block VmAccountBlock) error {
 			vm.Db.SetStorage(block.ToAddress(), locHash, nil)
 		case -1:
 			// get reward partly, update storage
-			registerInfo, _ := p.PackVariable(VariableNameRegistration, old.Amount, old.Timestamp, param.EndHeight, old.CancelHeight)
+			registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, old.Amount, old.Timestamp, param.EndHeight, old.CancelHeight)
 			vm.Db.SetStorage(block.ToAddress(), locHash, registerInfo)
 		}
 	} else {
-		registerInfo, _ := p.PackVariable(VariableNameRegistration, old.Amount, old.Timestamp, param.EndHeight, old.CancelHeight)
+		registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, old.Amount, old.Timestamp, param.EndHeight, old.CancelHeight)
 		vm.Db.SetStorage(block.ToAddress(), locHash, registerInfo)
 	}
 
@@ -282,7 +280,6 @@ func (p *register) doReceiveReward(vm *VM, block VmAccountBlock) error {
 }
 
 type vote struct {
-	abi.ABIContract
 }
 
 func (p *vote) createFee(vm *VM, block VmAccountBlock) *big.Int {
@@ -290,7 +287,7 @@ func (p *vote) createFee(vm *VM, block VmAccountBlock) *big.Int {
 }
 
 func (p *vote) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	if method, err := p.MethodById(block.Data()[0:4]); err == nil {
+	if method, err := ABI_vote.MethodById(block.Data()[0:4]); err == nil {
 		switch method.Name {
 		case MethodNameVote:
 			return p.doSendVote(vm, block, quotaLeft)
@@ -316,7 +313,7 @@ func (p *vote) doSendVote(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint6
 		return quotaLeft, ErrInvalidData
 	}
 	param := new(ParamVote)
-	err = p.UnpackMethod(param, MethodNameVote, block.Data())
+	err = ABI_vote.UnpackMethod(param, MethodNameVote, block.Data())
 	if err != nil || !isExistGid(vm.Db, param.Gid) || !vm.Db.IsExistAddress(param.Node) {
 		return quotaLeft, ErrInvalidData
 	}
@@ -338,14 +335,14 @@ func (p *vote) doSendCancelVote(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 		return quotaLeft, ErrInvalidData
 	}
 	gid := new(types.Gid)
-	err = p.UnpackMethod(gid, MethodNameCancelVote, block.Data())
+	err = ABI_vote.UnpackMethod(gid, MethodNameCancelVote, block.Data())
 	if err != nil || !isExistGid(vm.Db, *gid) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
 func (p *vote) doReceive(vm *VM, block VmAccountBlock) error {
-	if method, err := p.MethodById(block.Data()[0:4]); err == nil {
+	if method, err := ABI_vote.MethodById(block.Data()[0:4]); err == nil {
 		switch method.Name {
 		case MethodNameVote:
 			return p.doReceiveVote(vm, block)
@@ -357,32 +354,30 @@ func (p *vote) doReceive(vm *VM, block VmAccountBlock) error {
 }
 func (p *vote) doReceiveVote(vm *VM, block VmAccountBlock) error {
 	param := new(ParamVote)
-	p.UnpackMethod(param, MethodNameVote, block.Data())
+	ABI_vote.UnpackMethod(param, MethodNameVote, block.Data())
 	// storage key: 00(0:2) + gid(2:12) + voter address(12:32)
 	locHash := getKey(block.AccountAddress(), param.Gid)
 	// storage value: superNodeAddress(0:32)
-	voteStatus, _ := p.PackVariable(VariableNameVoteStatus, param.Node)
+	voteStatus, _ := ABI_vote.PackVariable(VariableNameVoteStatus, param.Node)
 	vm.Db.SetStorage(block.ToAddress(), locHash, voteStatus)
 	return nil
 }
 func (p *vote) doReceiveCancelVote(vm *VM, block VmAccountBlock) error {
 	gid := new(types.Gid)
-	p.UnpackMethod(gid, MethodNameCancelVote, block.Data())
+	ABI_vote.UnpackMethod(gid, MethodNameCancelVote, block.Data())
 	locHash := getKey(block.AccountAddress(), *gid)
 	vm.Db.SetStorage(block.ToAddress(), locHash, nil)
 	return nil
 }
 
-type pledge struct {
-	abi.ABIContract
-}
+type pledge struct{}
 
 func (p *pledge) createFee(vm *VM, block VmAccountBlock) *big.Int {
 	return big.NewInt(0)
 }
 
 func (p *pledge) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	if method, err := p.MethodById(block.Data()[0:4]); err == nil {
+	if method, err := ABI_pledge.MethodById(block.Data()[0:4]); err == nil {
 		switch method.Name {
 		case MethodNamePledge:
 			return p.doSendPledge(vm, block, quotaLeft)
@@ -409,7 +404,7 @@ func (p *pledge) doSendPledge(vm *VM, block VmAccountBlock, quotaLeft uint64) (u
 		return quotaLeft, ErrInvalidData
 	}
 	param := new(ParamPledge)
-	err = p.UnpackMethod(param, MethodNamePledge, block.Data())
+	err = ABI_pledge.UnpackMethod(param, MethodNamePledge, block.Data())
 	if err != nil || !vm.Db.IsExistAddress(param.Beneficial) {
 		return quotaLeft, ErrInvalidData
 	}
@@ -435,7 +430,7 @@ func (p *pledge) doSendCancelPledge(vm *VM, block VmAccountBlock, quotaLeft uint
 		return quotaLeft, ErrInvalidData
 	}
 	param := new(ParamCancelPledge)
-	err = p.UnpackMethod(param, MethodNameCancelPledge, block.Data())
+	err = ABI_pledge.UnpackMethod(param, MethodNameCancelPledge, block.Data())
 	if err != nil || !vm.Db.IsExistAddress(param.Beneficial) {
 		return quotaLeft, ErrInvalidData
 	}
@@ -443,7 +438,7 @@ func (p *pledge) doSendCancelPledge(vm *VM, block VmAccountBlock, quotaLeft uint
 }
 
 func (p *pledge) doReceive(vm *VM, block VmAccountBlock) error {
-	if method, err := p.MethodById(block.Data()[0:4]); err == nil {
+	if method, err := ABI_pledge.MethodById(block.Data()[0:4]); err == nil {
 		switch method.Name {
 		case MethodNamePledge:
 			return p.doReceivePledge(vm, block)
@@ -456,7 +451,7 @@ func (p *pledge) doReceive(vm *VM, block VmAccountBlock) error {
 
 func (p *pledge) doReceivePledge(vm *VM, block VmAccountBlock) error {
 	param := new(ParamPledge)
-	p.UnpackMethod(param, MethodNamePledge, block.Data())
+	ABI_pledge.UnpackMethod(param, MethodNamePledge, block.Data())
 	// storage key for pledge beneficial: hash(beneficial)
 	locHashBeneficial := types.DataHash(param.Beneficial.Bytes())
 	// storage key for pledge: hash(owner, hash(beneficial))
@@ -466,14 +461,14 @@ func (p *pledge) doReceivePledge(vm *VM, block VmAccountBlock) error {
 	amount := new(big.Int)
 	if len(oldPledgeData) > 0 {
 		oldPledge := new(VariablePledgeInfo)
-		p.UnpackVariable(oldPledge, VariableNamePledgeInfo, oldPledgeData)
+		ABI_pledge.UnpackVariable(oldPledge, VariableNamePledgeInfo, oldPledgeData)
 		if param.WithdrawTime < oldPledge.WithdrawTime {
 			return ErrInvalidData
 		}
 		amount = oldPledge.Amount
 	}
 	amount.Add(amount, block.Amount())
-	pledgeInfo, _ := p.PackVariable(VariableNamePledgeInfo, amount, param.WithdrawTime)
+	pledgeInfo, _ := ABI_pledge.PackVariable(VariableNamePledgeInfo, amount, param.WithdrawTime)
 	vm.Db.SetStorage(block.ToAddress(), locHashPledge, pledgeInfo)
 
 	// storage value for quota: quota amount(0:32)
@@ -481,27 +476,27 @@ func (p *pledge) doReceivePledge(vm *VM, block VmAccountBlock) error {
 	beneficialAmount := new(big.Int)
 	if len(oldBeneficialData) > 0 {
 		oldBeneficial := new(VariablePledgeBeneficial)
-		p.UnpackVariable(oldBeneficial, VariableNamePledgeBeneficial, oldBeneficialData)
+		ABI_pledge.UnpackVariable(oldBeneficial, VariableNamePledgeBeneficial, oldBeneficialData)
 		beneficialAmount = oldBeneficial.Amount
 	}
 	beneficialAmount.Add(beneficialAmount, block.Amount())
-	beneficialData, _ := p.PackVariable(VariableNamePledgeBeneficial, beneficialAmount)
+	beneficialData, _ := ABI_pledge.PackVariable(VariableNamePledgeBeneficial, beneficialAmount)
 	vm.Db.SetStorage(block.ToAddress(), locHashBeneficial, beneficialData)
 	return nil
 }
 func (p *pledge) doReceiveCancelPledge(vm *VM, block VmAccountBlock) error {
 	param := new(ParamCancelPledge)
-	p.UnpackMethod(param, MethodNameCancelPledge, block.Data())
+	ABI_pledge.UnpackMethod(param, MethodNameCancelPledge, block.Data())
 	locHashBeneficial := types.DataHash(param.Beneficial.Bytes())
 	locHashPledge := types.DataHash(append(block.AccountAddress().Bytes(), locHashBeneficial.Bytes()...))
 	oldPledge := new(VariablePledgeInfo)
-	err := p.UnpackVariable(oldPledge, VariableNamePledgeInfo, vm.Db.Storage(block.ToAddress(), locHashPledge))
+	err := ABI_pledge.UnpackVariable(oldPledge, VariableNamePledgeInfo, vm.Db.Storage(block.ToAddress(), locHashPledge))
 	if err != nil || oldPledge.WithdrawTime > vm.Db.SnapshotBlock(block.SnapshotHash()).Timestamp() || oldPledge.Amount.Cmp(param.Amount) < 0 {
 		return ErrInvalidData
 	}
 	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)
 	oldBeneficial := new(VariablePledgeBeneficial)
-	err = p.UnpackVariable(oldBeneficial, VariableNamePledgeBeneficial, vm.Db.Storage(block.ToAddress(), locHashBeneficial))
+	err = ABI_pledge.UnpackVariable(oldBeneficial, VariableNamePledgeBeneficial, vm.Db.Storage(block.ToAddress(), locHashBeneficial))
 	if err != nil || oldBeneficial.Amount.Cmp(param.Amount) < 0 {
 		return ErrInvalidData
 	}
@@ -510,14 +505,14 @@ func (p *pledge) doReceiveCancelPledge(vm *VM, block VmAccountBlock) error {
 	if oldPledge.Amount.Sign() == 0 {
 		vm.Db.SetStorage(block.ToAddress(), locHashPledge, nil)
 	} else {
-		pledgeInfo, _ := p.PackVariable(VariableNamePledgeInfo, oldPledge.Amount, oldPledge.WithdrawTime)
+		pledgeInfo, _ := ABI_pledge.PackVariable(VariableNamePledgeInfo, oldPledge.Amount, oldPledge.WithdrawTime)
 		vm.Db.SetStorage(block.ToAddress(), locHashPledge, pledgeInfo)
 	}
 
 	if oldBeneficial.Amount.Sign() == 0 {
 		vm.Db.SetStorage(block.ToAddress(), locHashBeneficial, nil)
 	} else {
-		pledgeBeneficial, _ := p.PackVariable(VariableNamePledgeBeneficial, oldBeneficial.Amount)
+		pledgeBeneficial, _ := ABI_pledge.PackVariable(VariableNamePledgeBeneficial, oldBeneficial.Amount)
 		vm.Db.SetStorage(block.ToAddress(), locHashBeneficial, pledgeBeneficial)
 	}
 
@@ -530,9 +525,7 @@ func (p *pledge) doReceiveCancelPledge(vm *VM, block VmAccountBlock) error {
 	return nil
 }
 
-type consensusGroup struct {
-	abi.ABIContract
-}
+type consensusGroup struct{}
 
 func (p *consensusGroup) createFee(vm *VM, block VmAccountBlock) *big.Int {
 	return new(big.Int).Set(createConsensusGroupFee)
@@ -549,11 +542,11 @@ func (p *consensusGroup) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 		return quotaLeft, ErrInvalidData
 	}
 	param := new(ParamCreateConsensusGroup)
-	err = p.UnpackMethod(param, MethodNameCreateConsensusGroup, block.Data())
+	err = ABI_consensusGroup.UnpackMethod(param, MethodNameCreateConsensusGroup, block.Data())
 	if err != nil {
 		return quotaLeft, err
 	}
-	if err := checkCreateConsensusGroupData(vm, param); err != nil {
+	if err := p.checkCreateConsensusGroupData(vm, param); err != nil {
 		return quotaLeft, err
 	}
 	// data: methodSelector(0:4) + gid(4:36) + ConsensusGroup
@@ -561,7 +554,7 @@ func (p *consensusGroup) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 	if util.AllZero(gid.Bytes()) || isExistGid(vm.Db, gid) {
 		return quotaLeft, ErrInvalidData
 	}
-	paramData, _ := p.PackMethod(MethodNameCreateConsensusGroup, gid, param.NodeCount, param.Interval, param.CountingRuleId, param.CountingRuleParam, param.RegisterConditionId, param.RegisterConditionParam, param.VoteConditionId, param.VoteConditionParam)
+	paramData, _ := ABI_consensusGroup.PackMethod(MethodNameCreateConsensusGroup, gid, param.NodeCount, param.Interval, param.CountingRuleId, param.CountingRuleParam, param.RegisterConditionId, param.RegisterConditionParam, param.VoteConditionId, param.VoteConditionParam)
 	block.SetData(paramData)
 	quotaLeft, err = useQuotaForData(block.Data(), quotaLeft)
 	if err != nil {
@@ -569,23 +562,23 @@ func (p *consensusGroup) doSend(vm *VM, block VmAccountBlock, quotaLeft uint64) 
 	}
 	return quotaLeft, nil
 }
-func checkCreateConsensusGroupData(vm *VM, param *ParamCreateConsensusGroup) error {
+func (p *consensusGroup) checkCreateConsensusGroupData(vm *VM, param *ParamCreateConsensusGroup) error {
 	if param.NodeCount < cgNodeCountMin || param.NodeCount > cgNodeCountMax ||
 		param.Interval < cgIntervalMin || param.Interval > cgIntervalMax {
 		return ErrInvalidData
 	}
-	if err := checkCondition(vm, param.CountingRuleId, param.CountingRuleParam, "counting"); err != nil {
+	if err := p.checkCondition(vm, param.CountingRuleId, param.CountingRuleParam, "counting"); err != nil {
 		return ErrInvalidData
 	}
-	if err := checkCondition(vm, param.RegisterConditionId, param.RegisterConditionParam, "register"); err != nil {
+	if err := p.checkCondition(vm, param.RegisterConditionId, param.RegisterConditionParam, "register"); err != nil {
 		return ErrInvalidData
 	}
-	if err := checkCondition(vm, param.VoteConditionId, param.VoteConditionParam, "vote"); err != nil {
+	if err := p.checkCondition(vm, param.VoteConditionId, param.VoteConditionParam, "vote"); err != nil {
 		return ErrInvalidData
 	}
 	return nil
 }
-func checkCondition(vm *VM, conditionId uint8, conditionParam []byte, conditionIdPrefix string) error {
+func (p *consensusGroup) checkCondition(vm *VM, conditionId uint8, conditionParam []byte, conditionIdPrefix string) error {
 	condition, ok := SimpleCountingRuleList[CountingRuleCode(conditionIdPrefix+strconv.Itoa(int(conditionId)))]
 	if !ok {
 		return ErrInvalidData
@@ -596,6 +589,17 @@ func checkCondition(vm *VM, conditionId uint8, conditionParam []byte, conditionI
 		}
 		return nil
 	}
+	return nil
+}
+func (p *consensusGroup) doReceive(vm *VM, block VmAccountBlock) error {
+	param := new(ParamCreateConsensusGroup)
+	ABI_consensusGroup.UnpackMethod(param, MethodNameCreateConsensusGroup, block.Data())
+	locHash := types.DataHash(param.Gid.Bytes())
+	if len(vm.Db.Storage(block.ToAddress(), locHash)) > 0 {
+		return ErrIdCollision
+	}
+	groupInfo, _ := ABI_consensusGroup.PackVariable(VariableNameConsensusGroupInfo, param.NodeCount, param.Interval, param.CountingRuleId, param.CountingRuleParam, param.RegisterConditionId, param.RegisterConditionParam, param.VoteConditionId, param.VoteConditionParam)
+	vm.Db.SetStorage(block.ToAddress(), locHash, groupInfo)
 	return nil
 }
 
@@ -622,10 +626,9 @@ var SimpleCountingRuleList = map[CountingRuleCode]createConsensusGroupCondition{
 type countingRuleOfBalance struct{}
 
 func (c countingRuleOfBalance) checkParam(param []byte, db VmDatabase) bool {
-	if len(param) != 32 {
-		return false
-	}
-	if tokenId, err := types.BytesToTokenTypeId(util.LeftPadBytes(new(big.Int).SetBytes(param).Bytes(), 10)); err != nil || !db.IsExistToken(tokenId) {
+	v := new(VariableConditionCounting1)
+	err := ABI_consensusGroup.UnpackVariable(v, VariableNameConditionCounting1, param)
+	if err != nil || !db.IsExistToken(v.tokenId) {
 		return false
 	}
 	return true
@@ -634,10 +637,9 @@ func (c countingRuleOfBalance) checkParam(param []byte, db VmDatabase) bool {
 type registerConditionOfSnapshot struct{}
 
 func (c registerConditionOfSnapshot) checkParam(param []byte, db VmDatabase) bool {
-	if len(param) != 96 {
-		return false
-	}
-	if tokenId, err := types.BytesToTokenTypeId(util.LeftPadBytes(new(big.Int).SetBytes(param[32:64]).Bytes(), 10)); err != nil || !db.IsExistToken(tokenId) {
+	v := new(VariableConditionRegister1)
+	err := ABI_consensusGroup.UnpackVariable(v, VariableNameConditionRegister1, param)
+	if err != nil || !db.IsExistToken(v.pledgeToken) {
 		return false
 	}
 	return true
@@ -655,26 +657,14 @@ func (c voteConditionOfDefault) checkParam(param []byte, db VmDatabase) bool {
 type voteConditionOfBalance struct{}
 
 func (c voteConditionOfBalance) checkParam(param []byte, db VmDatabase) bool {
-	if len(param) != 64 {
-		return false
-	}
-	if tokenId, err := types.BytesToTokenTypeId(util.LeftPadBytes(new(big.Int).SetBytes(param[32:64]).Bytes(), 10)); err != nil || !db.IsExistToken(tokenId) {
+	v := new(VariableConditionVote2)
+	err := ABI_consensusGroup.UnpackVariable(v, VariableNameConditionVote2, param)
+	if err != nil || !db.IsExistToken(v.keepToken) {
 		return false
 	}
 	return true
 }
 
-func (p *consensusGroup) doReceive(vm *VM, block VmAccountBlock) error {
-	param := new(ParamCreateConsensusGroup)
-	p.UnpackMethod(param, MethodNameCreateConsensusGroup, block.Data())
-	locHash := types.DataHash(param.Gid.Bytes())
-	if len(vm.Db.Storage(block.ToAddress(), locHash)) > 0 {
-		return ErrIdCollision
-	}
-	groupInfo, _ := p.PackVariable(VariableNameConsensusGroupInfo, param.NodeCount, param.Interval, param.CountingRuleId, param.CountingRuleParam, param.RegisterConditionId, param.RegisterConditionParam, param.VoteConditionId, param.VoteConditionParam)
-	vm.Db.SetStorage(block.ToAddress(), locHash, groupInfo)
-	return nil
-}
 func isUserAccount(db VmDatabase, addr types.Address) bool {
 	return len(db.ContractCode(addr)) == 0
 }

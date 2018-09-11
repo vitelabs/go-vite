@@ -57,3 +57,14 @@ func GetConsensusGroupList(db VmDatabase) []*VariableConsensusGroupInfo {
 	}
 	return consensusGroupInfoList
 }
+
+// get consensus group info by gid
+func GetConsensusGroup(db VmDatabase, gid types.Gid) *VariableConsensusGroupInfo {
+	data := db.Storage(AddressConsensusGroup, types.DataHash(gid.Bytes()))
+	if len(data) > 0 {
+		consensusGroupInfo := new(VariableConsensusGroupInfo)
+		ABI_pledge.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)
+		return consensusGroupInfo
+	}
+	return nil
+}
