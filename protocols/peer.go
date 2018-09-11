@@ -12,7 +12,7 @@ type Set interface {
 	Has(interface{}) bool
 	Add(interface{})
 	Del(interface{})
-	Count() int
+	Count() uint
 }
 
 // used for mark request type
@@ -35,6 +35,8 @@ func (r *reqInfo) Replay() {
 
 }
 
+const filterCap = 100000
+
 // @section Peer for protocol handle, not p2p Peer.
 type Peer struct {
 	ts      Transport
@@ -47,8 +49,7 @@ type Peer struct {
 	// use this channel to ensure that only one goroutine send msg simultaneously.
 	sending chan struct{}
 
-	KnownSnapshotBlocks Set
-	KnownAccountBlocks  Set
+	KnownBlocks Set
 
 	Log log15.Logger
 
@@ -58,15 +59,18 @@ type Peer struct {
 	sendSnapshotBlock chan *ledger.SnapshotBlock
 	sendAccountBlock  chan *ledger.AccountBlock
 
-	outstandingReqs []*reqInfo
-
 	// response performance
 	Speed int
 }
 
 func newPeer() *Peer {
 	return &Peer{
-		sending: make(chan struct{}, 1),
+		sending:           make(chan struct{}, 1),
+		Log:               log15.New("module", "net/peer"),
+		term:              make(chan struct{}),
+		sendSnapshotBlock: make(chan *ledger.SnapshotBlock),
+		sendAccountBlock:  make(chan *ledger.AccountBlock),
+		KnownBlocks:       NewCuckooSet(filterCap),
 	}
 }
 
@@ -133,6 +137,10 @@ func (p *Peer) RequestAccountBlocks() {
 }
 
 func (p *Peer) RequestSubLedger() {
+
+}
+
+func (p *Peer) Send(set MsgSet, code MsgCode, msg Serializable) {
 
 }
 

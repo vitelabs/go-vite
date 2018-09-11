@@ -5,6 +5,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/protocols/protos"
 	"github.com/vitelabs/go-vite/vitepb"
 	"math/big"
 )
@@ -36,6 +37,7 @@ type Serializable interface {
 }
 
 type Msg struct {
+	Set     MsgSet
 	Code    MsgCode
 	Payload []byte
 }
@@ -65,26 +67,50 @@ type BlockID struct {
 	Height *big.Int
 }
 
-var ZERO_HASH = types.Hash{}
-
-func (this *BlockID) Equal(hash types.Hash, height *big.Int) bool {
+func (b *BlockID) Equal(hash types.Hash, height *big.Int) bool {
 	equalHash := true
 	equalHeight := true
-	if hash != ZERO_HASH && this.Hash != ZERO_HASH {
-		equalHash = hash == this.Hash
+
+	if hash != types.ZERO_HASH && b.Hash != types.ZERO_HASH {
+		equalHash = hash == b.Hash
 	}
-	if height != nil && this.Height != nil {
-		equalHeight = height.Cmp(this.Height) == 0
+
+	if height != nil && b.Height != nil {
+		equalHeight = height.Cmp(b.Height) == 0
 	}
 
 	return equalHash && equalHeight
 }
 
-func (this *BlockID) Serialize() ([]byte, error) {
+func (b *BlockID) proto() *protos.BlockID {
+	return &protos.BlockID{
+		Hash:   b.Hash[:],
+		Height: b.Height.Bytes(),
+	}
+}
 
+func (b *BlockID) deProto(pb *protos.BlockID) {
+	copy(b.Hash[:], pb.Hash)
+	b.Height = new(big.Int)
+	b.Height.SetBytes(pb.Height)
+}
+
+func (b *BlockID) Serialize() ([]byte, error) {
+	return proto.Marshal(b.proto())
+}
+
+func (b *BlockID) Deserialize(data []byte) error {
+	pb := &protos.BlockID{}
+	err := proto.Unmarshal(data, pb)
+	if err != nil {
+		return err
+	}
+	b.deProto(pb)
+	return nil
 }
 
 // @section MsgCode
+type MsgSet uint64
 type MsgCode uint64
 
 const (
@@ -133,12 +159,39 @@ func (t MsgCode) String() string {
 type Segment struct {
 	From    *BlockID
 	To      *BlockID
-	Step    int
+	Step    uint32
 	Forward bool
 }
 
-func (this *Segment) Serialize() ([]byte, error) {
+func (s *Segment) proto() *protos.Segment {
+	return &protos.Segment{
+		From:    s.From.proto(),
+		To:      s.To.proto(),
+		Step:    s.Step,
+		Forward: s.Forward,
+	}
+}
 
+func (s *Segment) Serialize() ([]byte, error) {
+	return proto.Marshal(s.proto())
+}
+
+func (s *Segment) Deserialize(data []byte) error {
+	pb := &protos.Segment{}
+	err := proto.Unmarshal(data, pb)
+	if err != nil {
+		return err
+	}
+
+	s.Forward = pb.Forward
+	s.Step = pb.Step
+
+	s.From = new(BlockID)
+	s.To = new(BlockID)
+	s.From.deProto(pb.From)
+	s.To.deProto(pb.To)
+
+	return nil
 }
 
 type AccountSegment map[string]*Segment
