@@ -263,6 +263,36 @@ func (ac *AccountChain) CreateTx(block *ledger.AccountBlock) error {
 	return ac.CreateTxWithPassphrase(block, "")
 }
 
+func (ac *AccountChain) GetBlocks(addr *types.Address, originBlockHash *types.Hash, count uint64) (ledger.AccountBlockList, *types.GetError) {
+	if originBlockHash == nil {
+		latestblock, err := ac.GetLatestBlock(addr)
+		if err != nil {
+			return nil, &types.GetError{
+				Code: 1,
+				Err:  err,
+			}
+		}
+
+		if latestblock == nil {
+			return nil, nil
+		}
+		originBlockHash = latestblock.Hash
+	}
+	blocks, err := ac.acAccess.GetBlocksFromOrigin(originBlockHash, count, false)
+	if err != nil {
+		return nil, &types.GetError{
+			Code: 2,
+			Err:  err,
+		}
+	}
+
+	// Reverse
+	for i, j := 0, len(blocks)-1; i < j; i, j = i+1, j-1 {
+		blocks[i], blocks[j] = blocks[j], blocks[i]
+	}
+
+	return blocks, nil
+}
 func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error {
 	syncInfo := ac.vite.Ledger().Sc().GetFirstSyncInfo()
 	if !syncInfo.IsFirstSyncDone {
