@@ -2,8 +2,10 @@ package trie
 
 import (
 	"fmt"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
 	"path/filepath"
 	"testing"
 )
@@ -266,4 +268,64 @@ func TestTrieHash(t *testing.T) {
 	fmt.Println(trie.Hash())
 	trie.SetValue([]byte("tesab"), []byte("value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555"))
 	fmt.Println(trie.Hash())
+	fmt.Println(trie.Hash())
+	fmt.Println(trie.Hash())
+	fmt.Println(trie.Hash())
+	fmt.Println(trie.Hash())
+	trie.SetValue([]byte("tesab"), []byte("value.555val"))
+	fmt.Println(trie.Hash())
+	trie.SetValue([]byte("tesa"), []byte("vale....asdfasdfasdfvalue.555val"))
+	fmt.Println(trie.Hash())
+	trie.SetValue([]byte("tes"), []byte("asdfvale....asdfasdfasdfvalue.555val"))
+	fmt.Println(trie.Hash())
+	trie.SetValue([]byte("tesabcd"), []byte("asdfvale....asdfasdfasdfvalue.555val"))
+	fmt.Println(trie.Hash())
+	trie.SetValue([]byte("t"), []byte("asdfvale....asdfasdfasdfvalue.555valasd"))
+	fmt.Println(trie.Hash())
+}
+
+func TestTrieSaveAndLoad(t *testing.T) {
+	db := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
+	defer db.Close()
+
+	pool := NewTrieNodePool()
+
+	trie, ntErr := NewTrie(db, nil, pool)
+	if ntErr != nil {
+		t.Fatal(ntErr)
+	}
+	trie.SetValue(nil, []byte("NilNilNilNilNil"))
+	trie.SetValue([]byte("IamG"), []byte("ki10$%^%&@#!@#"))
+	trie.SetValue([]byte("IamGood"), []byte("a1230xm90zm19ma"))
+	trie.SetValue([]byte("tesab"), []byte("value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555"))
+
+	trie.SetValue([]byte("tesab"), []byte("value.555val"))
+	trie.SetValue([]byte("tesa"), []byte("vale....asdfasdfasdfvalue.555val"))
+	trie.SetValue([]byte("tesa"), []byte("vale....asdfasdfasdfvalue.555val"))
+	trie.SetValue([]byte("tes"), []byte("asdfvale....asdfasdfasdfvalue.555val"))
+	trie.SetValue([]byte("tesabcd"), []byte("asdfvale....asdfasdfasdfvalue.555val"))
+	trie.SetValue([]byte("t"), []byte("asdfvale....asdfasdfasdfvalue.555valasd"))
+	fmt.Println(trie.Hash())
+
+	batch := new(leveldb.Batch)
+	callback, _ := trie.Save(batch)
+	db.Write(batch, nil)
+	callback()
+
+	trie = nil
+
+	rootHash, _ := types.HexToHash("9df5e11da5cdaea43fa69991fb7cf575ec00c73e90d98cf67dbf2e9bdca9a998")
+	newTrie, ntErr := NewTrie(db, &rootHash, pool)
+	if ntErr != nil {
+		t.Fatal(ntErr)
+	}
+	fmt.Printf("%s\n", newTrie.GetValue([]byte("IamG")))
+	fmt.Printf("%s\n", newTrie.GetValue([]byte("IamGood")))
+	fmt.Printf("%s\n", newTrie.GetValue([]byte("tesab")))
+	fmt.Printf("%s\n", newTrie.GetValue([]byte("tesa")))
+	fmt.Printf("%s\n", newTrie.GetValue([]byte("tes")))
+	fmt.Printf("%s\n", newTrie.GetValue([]byte("tesabcd")))
+	fmt.Printf("%s\n", newTrie.GetValue([]byte("t")))
+	fmt.Println(newTrie.Hash())
+
 }

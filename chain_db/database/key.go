@@ -1,15 +1,16 @@
 package database
 
 import (
+	"encoding/binary"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/vitepb"
-	"math/big"
 )
 
 const (
-	KEY_MAX = byte(iota)
-	KEY_BYTE_SLICE
+	KEY_BYTE_SLICE = byte(iota)
 	KEY_BIG_INT
+
+	KEY_MAX = 255
 )
 
 func DecodeKey(buf []byte) (*vitepb.DbKey, error) {
@@ -31,18 +32,15 @@ func EncodeKey(prefix uint32, partionList ...interface{}) ([]byte, error) {
 		var buffer []byte
 		var src []byte
 		switch partion.(type) {
-		case *big.Int:
-			src = partion.(*big.Int).Bytes()
-			if len(src) <= 0 {
-				src = []byte{0}
-			}
-			buffer = append(buffer, KEY_BIG_INT)
+		case uint64:
+			src = make([]byte, 8)
+			binary.BigEndian.PutUint64(src, partion.(uint64))
 		case []byte:
 			src = partion.([]byte)
 			buffer = append(buffer, KEY_BYTE_SLICE)
 		case string:
 			if partion.(string) == "KEY_MAX" {
-				buffer = append(buffer, KEY_MAX)
+				buffer = append(buffer, KEY_MAX-1)
 			}
 		}
 

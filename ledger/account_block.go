@@ -61,6 +61,8 @@ type AccountBlock struct {
 	Signature         []byte
 }
 
+// TODO: compute send block hash
+
 func (*AccountBlock) GetComputeHash() types.Hash {
 	hash, _ := types.BytesToHash([]byte("abcdeabcdeabcdeabcde"))
 	return hash
