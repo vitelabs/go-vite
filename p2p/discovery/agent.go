@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/monitor"
 	"net"
 	"sync"
 	"time"
@@ -90,6 +91,8 @@ type res struct {
 }
 
 func (d *udpAgent) start() {
+	discvLog.Info("discv agent start")
+
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -120,9 +123,13 @@ func (d *udpAgent) ping(node *Node) error {
 		return err
 	}
 
+	send := time.Now()
+
 	return d.wait(node.ID, pongCode, func(m Message) bool {
 		pong, ok := m.(*Pong)
 		if ok && pong.Ping == hash {
+			pongReceived := time.Now()
+			monitor.LogDuration("p2p/discv", "ping", pongReceived.Sub(send).Nanoseconds())
 			return true
 		}
 		return false
@@ -155,6 +162,7 @@ func (d *udpAgent) findnode(n *Node, ID NodeID) (nodes []*Node, err error) {
 	if err != nil {
 		return nodes, err
 	}
+	findSend := time.Now()
 
 	nodes = make([]*Node, 0, K)
 	total := 0
@@ -167,7 +175,7 @@ func (d *udpAgent) findnode(n *Node, ID NodeID) (nodes []*Node, err error) {
 				}
 				total++
 			}
-
+			monitor.LogDuration("p2p/discv", "findnode", time.Now().Sub(findSend).Nanoseconds())
 			return total >= K
 		}
 		return false
@@ -223,6 +231,8 @@ func (d *udpAgent) wait(ID NodeID, code packetCode, handleRes waitCallback) erro
 }
 
 func (d *udpAgent) stop() {
+	discvLog.Info("discv agent stop")
+
 	select {
 	case <-d.stopped:
 	default:

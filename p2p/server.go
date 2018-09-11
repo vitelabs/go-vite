@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"net"
 	"path/filepath"
@@ -232,9 +233,7 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 		svr.createTransport = NewPBTS
 	}
 
-	svr.SetHandshake()
-
-	svr.log.Info("server created", "name", svr.Name, "network", svr.NetID.String(), "db", svr.Database, "maxPeers", svr.MaxPeers, "maxPendingPeers", svr.MaxPendingPeers, "maxActivePeers", svr.MaxActivePeers(), "maxPassivePeers", svr.MaxPassivePeers())
+	//svr.log.Info("server created", "name", svr.Name, "network", svr.NetID.String(), "db", svr.Database, "maxPeers", svr.MaxPeers, "maxPendingPeers", svr.MaxPendingPeers, "maxActivePeers", svr.MaxActivePeers(), "maxPassivePeers", svr.MaxPassivePeers())
 
 	return svr, nil
 }
@@ -288,6 +287,7 @@ func (svr *Server) Start() error {
 		return errors.New("server is already running")
 	}
 	svr.running = true
+	p2pServerLog.Info("p2p server start")
 
 	// udp discover
 	udpAddr, err := net.ResolveUDPAddr("udp", svr.Addr)
@@ -295,6 +295,8 @@ func (svr *Server) Start() error {
 		return err
 	}
 	svr.Discovery(udpAddr)
+
+	//svr.SetHandshake()
 
 	// tcp listener
 	tcpAddr, err := net.ResolveTCPAddr("tcp", svr.Addr)
@@ -306,7 +308,7 @@ func (svr *Server) Start() error {
 	// task loop
 	svr.waitDown.Add(1)
 	go svr.ScheduleTask()
-
+	p2pServerLog.Info("p2p server started")
 	return nil
 }
 
@@ -329,8 +331,9 @@ func (svr *Server) Discovery(addr *net.UDPAddr) {
 	})
 
 	svr.discv = discovery
+	svr.SetHandshake()
 
-	discovery.Start()
+	go discovery.Start()
 }
 
 func (svr *Server) Listen(addr *net.TCPAddr) {
@@ -473,6 +476,7 @@ func (svr *Server) ScheduleTask() {
 	}
 	scheduleTasks := func() {
 		taskQueue = runTasks(taskQueue)
+		p2pServerLog.Info("server run tasks", "tasks", len(taskQueue))
 		if uint32(len(activeTasks)) < defaultMaxActiveDail {
 			newTasks := dm.CreateTasks(peers, blocknodes)
 			if len(newTasks) > 0 {
@@ -497,6 +501,8 @@ schedule:
 				p := NewPeer(c)
 				peers[p.ID()] = p
 				svr.log.Info("create new peer", "ID", c.id.String())
+				monitor.LogDuration("p2p/peer", "add", int64(len(peers)))
+
 				go svr.runPeer(p)
 
 				if c.is(inbound) {
@@ -509,6 +515,7 @@ schedule:
 		case p := <-svr.delPeer:
 			delete(peers, p.ID())
 			svr.log.Info("delete peer", "ID", p.ID().String())
+			monitor.LogDuration("p2p/peer", "del", int64(len(peers)))
 
 			if p.TS.is(inbound) {
 				passivePeersCount--
@@ -601,6 +608,9 @@ func (t *discoverTask) Perform(svr *Server) {
 	var target discovery.NodeID
 	rand.Read(target[:])
 	t.results = svr.discv.Lookup(target)
+
+	monitor.LogDuration("p2p/server", "lookup", int64(svr.PeersCount()))
+
 	p2pServerLog.Info(fmt.Sprintf("discv tab lookup %s %d nodes\n", target, len(t.results)))
 }
 
@@ -727,6 +737,8 @@ func (dm *DialManager) CreateTasks(peers map[discovery.NodeID]*Peer, blockList m
 		})
 		dm.wating = true
 	}
+
+	p2pServerLog.Info("p2p server create tasks", "tasks", len(tasks))
 
 	return tasks
 }

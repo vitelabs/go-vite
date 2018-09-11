@@ -3,6 +3,7 @@ package discovery
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/monitor"
 	"net"
 	"sync"
 	"time"
@@ -55,6 +56,8 @@ type Discovery struct {
 }
 
 func (d *Discovery) Start() {
+	discvLog.Info("discv start")
+
 	checkTicker := time.NewTicker(checkInterval)
 	refreshTicker := time.NewTimer(tRefresh)
 	storeTicker := time.NewTicker(storeDuration)
@@ -227,6 +230,8 @@ func (d *Discovery) HandleMsg(res *packet) error {
 
 	switch res.code {
 	case pingCode:
+		monitor.LogEvent("p2p/discv", "ping-receive")
+
 		d.db.setLastPing(res.fromID, time.Now())
 
 		d.agent.pong(n, res.hash)
@@ -237,11 +242,15 @@ func (d *Discovery) HandleMsg(res *packet) error {
 		}
 		d.tab.addNode(n)
 	case pongCode:
+		monitor.LogEvent("p2p/discv", "pong-receive")
+
 		if !d.agent.want(res) {
 			return errUnsolicitedMsg
 		}
 		d.db.setLastPong(res.fromID, time.Now())
 	case findnodeCode:
+		monitor.LogEvent("p2p/discv", "find-receive")
+
 		if !d.db.hasChecked(res.fromID) {
 			return errUnsolicitedMsg
 		}
@@ -253,6 +262,8 @@ func (d *Discovery) HandleMsg(res *packet) error {
 			return errUnkownMsg
 		}
 	case neighborsCode:
+		monitor.LogEvent("p2p/discv", "neighbors-receive")
+
 		if !d.agent.want(res) {
 			return errUnsolicitedMsg
 		}
@@ -292,6 +303,8 @@ func (d *Discovery) ID() NodeID {
 }
 
 func (d *Discovery) Stop() {
+	discvLog.Info("discv stop")
+
 	select {
 	case <-d.stop:
 	default:
