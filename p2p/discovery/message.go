@@ -68,7 +68,8 @@ type Message interface {
 type Ping struct {
 	ID         NodeID
 	IP         net.IP
-	Port       uint16
+	UDP        uint16
+	TCP        uint16
 	Expiration time.Time
 }
 
@@ -80,7 +81,8 @@ func (p *Ping) serialize() ([]byte, error) {
 	pingpb := &protos.Ping{
 		ID:         p.ID[:],
 		IP:         p.IP,
-		Port:       uint32(p.Port),
+		UDP:        uint32(p.UDP),
+		TCP:        uint32(p.TCP),
 		Expiration: p.Expiration.Unix(),
 	}
 	return proto.Marshal(pingpb)
@@ -94,7 +96,8 @@ func (p *Ping) deserialize(buf []byte) error {
 	}
 	copy(p.ID[:], pingpb.ID)
 	p.IP = pingpb.IP
-	p.Port = uint16(pingpb.Port)
+	p.UDP = uint16(pingpb.UDP)
+	p.TCP = uint16(pingpb.TCP)
 	p.Expiration = time.Unix(pingpb.Expiration, 0)
 
 	return nil
@@ -118,8 +121,6 @@ func (p *Ping) isExpired() bool {
 type Pong struct {
 	ID         NodeID
 	Ping       types.Hash
-	IP         net.IP
-	Port       uint16
 	Expiration time.Time
 }
 
@@ -130,9 +131,6 @@ func (p *Pong) sender() NodeID {
 func (p *Pong) serialize() ([]byte, error) {
 	pongpb := &protos.Pong{
 		ID:         p.ID[:],
-		Ping:       p.Ping[:],
-		IP:         p.IP,
-		Port:       uint32(p.Port),
 		Expiration: p.Expiration.Unix(),
 	}
 	return proto.Marshal(pongpb)
@@ -145,9 +143,6 @@ func (p *Pong) deserialize(buf []byte) error {
 		return err
 	}
 	copy(p.ID[:], pongpb.ID)
-	copy(p.Ping[:], pongpb.Ping)
-	p.IP = pongpb.IP
-	p.Port = uint16(pongpb.Port)
 	p.Expiration = time.Unix(pongpb.Expiration, 0)
 
 	return nil

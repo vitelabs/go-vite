@@ -108,10 +108,11 @@ func (d *udpAgent) ping(node *Node) error {
 		return nil
 	}
 
-	hash, err := d.send(node.Addr(), pingCode, &Ping{
+	hash, err := d.send(node.UDPAddr(), pingCode, &Ping{
 		ID:         d.self.ID,
 		IP:         d.self.IP,
-		Port:       d.self.Port,
+		UDP:        d.self.UDP,
+		TCP:        d.self.TCP,
 		Expiration: getExpiration(),
 	})
 
@@ -133,7 +134,7 @@ func (d *udpAgent) pong(node *Node, ack types.Hash) error {
 		return nil
 	}
 
-	_, err := d.send(node.Addr(), pongCode, &Pong{
+	_, err := d.send(node.UDPAddr(), pongCode, &Pong{
 		ID:         d.self.ID,
 		Ping:       ack,
 		Expiration: getExpiration(),
@@ -145,7 +146,7 @@ func (d *udpAgent) pong(node *Node, ack types.Hash) error {
 func (d *udpAgent) findnode(n *Node, ID NodeID) (nodes []*Node, err error) {
 	discvLog.Info(fmt.Sprintf("find %s to %s\n", ID, n))
 
-	_, err = d.send(n.Addr(), findnodeCode, &FindNode{
+	_, err = d.send(n.UDPAddr(), findnodeCode, &FindNode{
 		ID:         d.self.ID,
 		Target:     ID,
 		Expiration: getExpiration(),
@@ -187,7 +188,7 @@ func (d *udpAgent) sendNeighbors(n *Node, nodes []*Node) error {
 		carriage = append(carriage, node)
 		if len(carriage) == d.maxNeighborsOneTrip {
 			neighbors.Nodes = carriage
-			_, err := d.send(n.Addr(), neighborsCode, neighbors)
+			_, err := d.send(n.UDPAddr(), neighborsCode, neighbors)
 			if err != nil {
 				sent = true
 			}
@@ -197,7 +198,7 @@ func (d *udpAgent) sendNeighbors(n *Node, nodes []*Node) error {
 
 	if !sent || len(carriage) > 0 {
 		neighbors.Nodes = carriage
-		d.send(n.Addr(), neighborsCode, neighbors)
+		d.send(n.UDPAddr(), neighborsCode, neighbors)
 	}
 
 	return nil

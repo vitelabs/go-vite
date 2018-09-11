@@ -5,28 +5,53 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/protos"
 	"net"
 )
 
-type NetworkID uint32
-
 const Version uint32 = 1
+
+type NetworkID uint32
 
 const (
 	MainNet NetworkID = iota + 1
-	TestNet
+	Aquarius
+	Pisces
+	Aries
+	Taurus
+	Gemini
+	Cancer
+	Leo
+	Virgo
+	Libra
+	Scorpio
+	Sagittarius
+	Capricorn
 )
 
+var network = [...]string{
+	MainNet:     "MainNet",
+	Aquarius:    "Aquarius",
+	Pisces:      "Pisces",
+	Aries:       "Aries",
+	Taurus:      "Taurus",
+	Gemini:      "Gemini",
+	Cancer:      "Cancer",
+	Leo:         "Leo",
+	Virgo:       "Virgo",
+	Libra:       "Libra",
+	Scorpio:     "Scorpio",
+	Sagittarius: "Sagittarius",
+	Capricorn:   "Capricorn",
+}
+
 func (i NetworkID) String() string {
-	switch i {
-	case MainNet:
-		return "MainNet"
-	case TestNet:
-		return "TestNet"
-	default:
-		return "Unknown"
+	if i >= MainNet && i <= Capricorn {
+		return network[i]
 	}
+
+	return "Unknown"
 }
 
 // @section Msg
@@ -53,14 +78,13 @@ type MsgReadWriter interface {
 type Handshake struct {
 	NetID   NetworkID
 	Name    string
-	ID      NodeID
+	ID      discovery.NodeID
 	Version uint32
 }
 
 func (hs *Handshake) Serialize() ([]byte, error) {
 	hspb := &protos.Handshake{
 		NetID:   uint32(hs.NetID),
-		Name:    hs.Name,
 		ID:      hs.ID[:],
 		Version: hs.Version,
 	}
@@ -76,7 +100,6 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 	}
 
 	copy(hs.ID[:], hspb.ID)
-	hs.Name = hspb.Name
 	hs.NetID = NetworkID(hspb.NetID)
 	hs.Version = hspb.Version
 	return nil

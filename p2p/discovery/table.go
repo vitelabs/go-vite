@@ -251,6 +251,11 @@ func (tb *table) delete(node *Node) {
 	bucket.remove(node)
 }
 
+func (tb *table) bubble(node *Node) {
+	bucket := tb.getBucket(node.ID)
+	bucket.add(node)
+}
+
 func (tb *table) findNeighbors(target NodeID) []*Node {
 	neighbors := &neighbors{pivot: target}
 

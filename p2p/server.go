@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p/discovery"
 	"net"
 	"path/filepath"
 	"sync"
@@ -50,6 +51,15 @@ var firmNodes = [...]string{
 	//"vnode://9df2e11399398176fa58638592cf1b2e0e804ae92ac55f09905618fdb239c03c@150.109.40.169:8483",
 }
 
+type Discovery interface {
+	Lookup(discovery.NodeID) []*discovery.Node
+	Resolve(discovery.NodeID) *discovery.Node
+	RandomNodes([]*discovery.Node) int
+	ID() discovery.NodeID
+	Start()
+	Stop()
+}
+
 // type of conn
 type connFlag int
 
@@ -67,7 +77,7 @@ type TSConn struct {
 	transport
 	flags connFlag
 	cont  chan error
-	id    NodeID
+	id    discovery.NodeID
 	name  string
 }
 
@@ -115,20 +125,20 @@ type Server struct {
 
 	delPeer chan *Peer
 
-	blocknode chan *Node
+	blocknode chan *discovery.Node
 
 	// execute operations to peers by sequences.
 	peersOps chan peersOperator
 	// wait for operation done.
 	peersOpsDone chan struct{}
 
-	ntab *table
+	discv Discovery
 
 	ourHandshake *Handshake
 
 	ProtoHandler peerHandler
 
-	BootNodes []*Node
+	BootNodes []*discovery.Node
 
 	log log15.Logger
 }
@@ -180,15 +190,15 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 	}
 
 	// parse svr.Config.BootNodes to []*Node
-	nodes := make([]*Node, 0, len(svr.Config.BootNodes)+len(firmNodes))
+	nodes := make([]*discovery.Node, 0, len(svr.Config.BootNodes)+len(firmNodes))
 	for _, str := range svr.Config.BootNodes {
-		node, err := ParseNode(str)
+		node, err := discovery.ParseNode(str)
 		if err == nil {
 			nodes = append(nodes, node)
 		}
 	}
 	for _, fnode := range firmNodes {
-		node, err := ParseNode(fnode)
+		node, err := discovery.ParseNode(fnode)
 		if err == nil {
 			nodes = append(nodes, node)
 		}
@@ -201,7 +211,7 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 	svr.delPeer = make(chan *Peer)
 	svr.peersOps = make(chan peersOperator)
 	svr.peersOpsDone = make(chan struct{})
-	svr.blocknode = make(chan *Node)
+	svr.blocknode = make(chan *discovery.Node)
 
 	if svr.MaxPeers == 0 {
 		svr.MaxPeers = defaultMaxPeers
@@ -229,10 +239,10 @@ func NewServer(cfg *config.P2P, handler peerHandler) (svr *Server, err error) {
 	return svr, nil
 }
 
-type peersOperator func(nodeTable map[NodeID]*Peer)
+type peersOperator func(nodeTable map[discovery.NodeID]*Peer)
 
 func (svr *Server) Peers() (peers []*Peer) {
-	map2slice := func(nodeTable map[NodeID]*Peer) {
+	map2slice := func(nodeTable map[discovery.NodeID]*Peer) {
 		for _, node := range nodeTable {
 			peers = append(peers, node)
 		}
@@ -246,7 +256,7 @@ func (svr *Server) Peers() (peers []*Peer) {
 }
 
 func (svr *Server) PeersCount() (amount int) {
-	count := func(nodeTable map[NodeID]*Peer) {
+	count := func(nodeTable map[discovery.NodeID]*Peer) {
 		amount = len(nodeTable)
 	}
 	select {
@@ -301,46 +311,26 @@ func (svr *Server) Start() error {
 }
 
 func (svr *Server) SetHandshake() {
-	var id NodeID
-
-	if svr.PublicKey == nil {
-		id = priv2ID(svr.PrivateKey)
-	} else {
-		copy(id[:], svr.PublicKey)
-	}
-
 	svr.ourHandshake = &Handshake{
-		NetID:   svr.NetID,
-		Name:    svr.Name,
-		ID:      id,
-		Version: Version,
+		svr.NetID,
+		svr.Name,
+		svr.discv.ID(),
+		Version,
 	}
 }
 
 func (svr *Server) Discovery(addr *net.UDPAddr) {
-	cfg := &DiscvConfig{
+	discovery := discovery.New(&discovery.Config{
 		Priv:      svr.PrivateKey,
-		Pub:       svr.PublicKey,
 		DBPath:    svr.Database,
 		BootNodes: svr.BootNodes,
-		Addr:      addr,
-	}
+		Addr:      addr.String(),
+		PubAddr:   addr.String(),
+	})
 
-	tab, laddr, err := newDiscover(cfg)
+	svr.discv = discovery
 
-	if err != nil {
-		svr.log.Crit("udp discv", "err", err)
-	}
-
-	if !laddr.IP.IsLoopback() {
-		svr.waitDown.Add(1)
-		go func() {
-			natMap(svr.stopped, "udp", laddr.Port, laddr.Port, 0)
-			svr.waitDown.Done()
-		}()
-	}
-
-	svr.ntab = tab
+	discovery.Start()
 }
 
 func (svr *Server) Listen(addr *net.TCPAddr) {
@@ -424,7 +414,7 @@ func (svr *Server) SetupConn(conn net.Conn, flag connFlag) error {
 	return nil
 }
 
-func (svr *Server) CheckConn(peers map[NodeID]*Peer, c *TSConn, passivePeersCount uint) error {
+func (svr *Server) CheckConn(peers map[discovery.NodeID]*Peer, c *TSConn, passivePeersCount uint) error {
 	if uint(len(peers)) >= svr.MaxPeers {
 		return DiscTooManyPeers
 	}
@@ -434,14 +424,14 @@ func (svr *Server) CheckConn(peers map[NodeID]*Peer, c *TSConn, passivePeersCoun
 	if peers[c.id] != nil {
 		return DiscAlreadyConnected
 	}
-	if c.id == svr.ntab.self.ID {
+	if c.id == svr.discv.ID() {
 		return DiscSelf
 	}
 	return nil
 }
 
 type blockNode struct {
-	node      *Node
+	node      *discovery.Node
 	blockTime time.Time
 }
 
@@ -450,15 +440,15 @@ var defaultBlockTimeout = 2 * time.Minute
 func (svr *Server) ScheduleTask() {
 	defer svr.waitDown.Done()
 
-	dm := NewDialManager(svr.ntab, svr.MaxActivePeers(), svr.BootNodes)
-	peers := make(map[NodeID]*Peer)
+	dm := NewDialManager(svr.discv, svr.MaxActivePeers(), svr.BootNodes)
+	peers := make(map[discovery.NodeID]*Peer)
 	taskHasDone := make(chan Task, defaultMaxActiveDail)
 
 	var passivePeersCount uint = 0
 	var activeTasks []Task
 	var taskQueue []Task
 
-	blocknodes := make(map[NodeID]*blockNode)
+	blocknodes := make(map[discovery.NodeID]*blockNode)
 	cleanBlockTicker := time.NewTicker(defaultBlockTimeout)
 	defer cleanBlockTicker.Stop()
 
@@ -544,8 +534,8 @@ schedule:
 
 	svr.log.Info("out of tcp task loop")
 
-	if svr.ntab != nil {
-		svr.ntab.stop()
+	if svr.discv != nil {
+		svr.discv.Stop()
 	}
 
 	for _, p := range peers {
@@ -580,8 +570,8 @@ func (svr *Server) Stop() {
 		svr.listener.Close()
 	}
 
-	if svr.ntab != nil {
-		svr.ntab.stop()
+	if svr.discv != nil {
+		svr.discv.Stop()
 	}
 
 	close(svr.stopped)
@@ -593,13 +583,9 @@ type NodeDailer struct {
 	*net.Dialer
 }
 
-func (d *NodeDailer) DailNode(target *Node) (net.Conn, error) {
-	addr := net.TCPAddr{
-		IP:   target.IP,
-		Port: int(target.Port),
-	}
+func (d *NodeDailer) DailNode(target *discovery.Node) (net.Conn, error) {
 	p2pServerLog.Info("tcp dial", "node", target)
-	return d.Dialer.Dial("tcp", addr.String())
+	return d.Dialer.Dial("tcp", target.TCPAddr().String())
 }
 
 // @section Task
@@ -608,25 +594,25 @@ type Task interface {
 }
 
 type discoverTask struct {
-	results []*Node
+	results []*discovery.Node
 }
 
 func (t *discoverTask) Perform(svr *Server) {
-	var target NodeID
+	var target discovery.NodeID
 	rand.Read(target[:])
-	t.results = svr.ntab.lookup(target)
+	t.results = svr.discv.Lookup(target)
 	p2pServerLog.Info(fmt.Sprintf("discv tab lookup %s %d nodes\n", target, len(t.results)))
 }
 
 type dialTask struct {
 	flag         connFlag
-	target       *Node
+	target       *discovery.Node
 	lastResolved time.Time
 	duration     time.Duration
 }
 
 func (t *dialTask) Perform(svr *Server) {
-	if t.target.ID == svr.ntab.self.ID {
+	if t.target.ID == svr.discv.ID() {
 		return
 	}
 
@@ -655,22 +641,22 @@ func (t *waitTask) Perform(svr *Server) {
 // @section DialManager
 type DialManager struct {
 	maxDials    uint
-	dialing     map[NodeID]connFlag
+	dialing     map[discovery.NodeID]connFlag
 	start       time.Time
-	bootNodes   []*Node
+	bootNodes   []*discovery.Node
 	looking     bool
 	wating      bool
-	lookResults []*Node
-	ntab        *table
+	lookResults []*discovery.Node
+	discv       Discovery
 }
 
-func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]*blockNode) []Task {
+func (dm *DialManager) CreateTasks(peers map[discovery.NodeID]*Peer, blockList map[discovery.NodeID]*blockNode) []Task {
 	if dm.start.IsZero() {
 		dm.start = time.Now()
 	}
 
 	var tasks []Task
-	addDailTask := func(flag connFlag, n *Node) bool {
+	addDailTask := func(flag connFlag, n *discovery.Node) bool {
 		if _, ok := blockList[n.ID]; ok {
 			return false
 		}
@@ -699,11 +685,13 @@ func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]
 		}
 	}
 
-	// bootNodes
-	for i := 0; i < len(dm.bootNodes) && dials > 0; i++ {
-		bootNode := dm.bootNodes[i]
+	// dial one bootNodes
+	if len(peers) == 0 && dials > 0 {
+		boot := dm.bootNodes[0]
+		copy(dm.bootNodes[:], dm.bootNodes[1:])
+		dm.bootNodes[len(dm.bootNodes)-1] = boot
 
-		if addDailTask(outbound, bootNode) {
+		if addDailTask(outbound, boot) {
 			dials--
 		}
 	}
@@ -711,8 +699,8 @@ func (dm *DialManager) CreateTasks(peers map[NodeID]*Peer, blockList map[NodeID]
 	// randomNodes from table
 	randomCandidates := dials / 2
 	if randomCandidates > 0 {
-		randomNodes := make([]*Node, randomCandidates)
-		n := dm.ntab.readRandomNodes(randomNodes)
+		randomNodes := make([]*discovery.Node, randomCandidates)
+		n := dm.discv.RandomNodes(randomNodes)
 		for i := 0; i < n; i++ {
 			if addDailTask(outbound, randomNodes[i]) {
 				dials--
@@ -750,7 +738,7 @@ func (dm *DialManager) TaskDone(t Task) {
 	case *discoverTask:
 		dm.looking = false
 
-		self := dm.ntab.self.ID
+		self := dm.discv.ID()
 		for _, node := range t2.results {
 			if self != node.ID {
 				dm.lookResults = append(dm.lookResults, node)
@@ -761,7 +749,7 @@ func (dm *DialManager) TaskDone(t Task) {
 	}
 }
 
-func (dm *DialManager) checkDial(n *Node, peers map[NodeID]*Peer) error {
+func (dm *DialManager) checkDial(n *discovery.Node, peers map[discovery.NodeID]*Peer) error {
 	_, exist := dm.dialing[n.ID]
 	if exist {
 		return fmt.Errorf("%s is dialing", n)
@@ -769,24 +757,24 @@ func (dm *DialManager) checkDial(n *Node, peers map[NodeID]*Peer) error {
 	if peers[n.ID] != nil {
 		return fmt.Errorf("%s has connected", n)
 	}
-	if n.ID == dm.ntab.self.ID {
+	if n.ID == dm.discv.ID() {
 		return errors.New("self node")
 	}
 
 	return nil
 }
 
-func NewDialManager(ntab *table, maxDials uint, bootNodes []*Node) *DialManager {
+func NewDialManager(discv Discovery, maxDials uint, bootNodes []*discovery.Node) *DialManager {
 	return &DialManager{
 		maxDials:  maxDials,
 		bootNodes: copyNodes(bootNodes), // dm will modify bootNodes
-		dialing:   make(map[NodeID]connFlag),
-		ntab:      ntab,
+		dialing:   make(map[discovery.NodeID]connFlag),
+		discv:     discv,
 	}
 }
 
-func copyNodes(nodes []*Node) []*Node {
-	cpnodes := make([]*Node, len((nodes)))
+func copyNodes(nodes []*discovery.Node) []*discovery.Node {
+	cpnodes := make([]*discovery.Node, len((nodes)))
 
 	for i, nodep := range nodes {
 		node := *nodep

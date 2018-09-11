@@ -17,17 +17,13 @@ func TestUnpack(t *testing.T) {
 		ID: id,
 	}
 
-	data, hash, err := p.Pack(priv)
+	data, _, err := p.pack(priv)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, hash2, err := unPacket(data)
+	_, err = unPacket(data)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if hash != hash2 {
-		t.Fail()
 	}
 }

@@ -75,7 +75,14 @@ loop:
 		case <-checkTicker.C:
 			n := d.tab.pickOldest()
 			if n != nil {
-				go d.Lookup(n.ID)
+				go func() {
+					err := d.agent.ping(n)
+					if err != nil {
+						d.tab.delete(n)
+					} else {
+						d.tab.bubble(n)
+					}
+				}()
 			}
 
 		case <-storeTicker.C:
@@ -119,6 +126,10 @@ func (d *Discovery) findNode(to *Node, target NodeID) ([]*Node, error) {
 	}
 
 	return nodes, err
+}
+
+func (d *Discovery) RandomNodes(result []*Node) int {
+	return d.tab.randomNodes(result)
 }
 
 func (d *Discovery) Lookup(id NodeID) []*Node {
@@ -209,9 +220,9 @@ func (d *Discovery) HandleMsg(res *packet) error {
 		return errMsgExpired
 	}
 	n := &Node{
-		ID:   res.fromID,
-		IP:   res.from.IP,
-		Port: uint16(res.from.Port),
+		ID:  res.fromID,
+		IP:  res.from.IP,
+		UDP: uint16(res.from.Port),
 	}
 
 	switch res.code {
@@ -276,6 +287,10 @@ func (d *Discovery) loadInitNodes() {
 	}
 }
 
+func (d *Discovery) ID() NodeID {
+	return d.self.ID
+}
+
 func (d *Discovery) Stop() {
 	select {
 	case <-d.stop:
@@ -310,9 +325,9 @@ func New(cfg *Config) *Discovery {
 	}
 
 	node := &Node{
-		ID:   ID,
-		IP:   realAddr.IP,
-		Port: uint16(realAddr.Port),
+		ID:  ID,
+		IP:  realAddr.IP,
+		UDP: uint16(realAddr.Port),
 	}
 
 	discvLog.Info(node.String())

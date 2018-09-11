@@ -4,72 +4,16 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p/discovery"
 	"sync"
 	"time"
 )
-
-var pingInterval = 15 * time.Second
 
 const (
 	baseProtocolBand = 16
 	discMsg          = 1
 	handshakeMsg     = 4
 )
-
-// @section peer error
-type DiscReason uint
-
-const (
-	DiscRequested DiscReason = iota
-	DiscNetworkError
-	DiscProtocolError
-	DiscUselessPeer
-	DiscTooManyPeers
-	DiscTooManyPassivePeers
-	DiscAlreadyConnected
-	DiscIncompatibleVersion
-	DiscInvalidIdentity
-	DiscQuitting
-	DiscUnexpectedIdentity
-	DiscSelf
-	DiscReadTimeout
-	DiscSubprotocolError = 0x10
-)
-
-var discReasonToString = [...]string{
-	DiscRequested:           "disconnect requested",
-	DiscNetworkError:        "network error",
-	DiscProtocolError:       "breach of protocol",
-	DiscUselessPeer:         "useless peer",
-	DiscTooManyPeers:        "too many peers",
-	DiscTooManyPassivePeers: "too many passive peers",
-	DiscAlreadyConnected:    "already connected",
-	DiscIncompatibleVersion: "incompatible p2p protocol version",
-	DiscInvalidIdentity:     "invalid node identity",
-	DiscQuitting:            "client quitting",
-	DiscUnexpectedIdentity:  "unexpected identity",
-	DiscSelf:                "connected to self",
-	DiscReadTimeout:         "read timeout",
-	DiscSubprotocolError:    "subprotocol error",
-}
-
-func (d DiscReason) String() string {
-	if len(discReasonToString) < int(d) {
-		return fmt.Sprintf("unknown disconnect reason %d", d)
-	}
-	return discReasonToString[d]
-}
-
-func (d DiscReason) Error() string {
-	return d.String()
-}
-
-func errTodiscReason(err error) DiscReason {
-	if reason, ok := err.(DiscReason); ok {
-		return reason
-	}
-	return DiscSubprotocolError
-}
 
 // @section Peer
 type Peer struct {
@@ -97,7 +41,7 @@ func NewPeer(ts *TSConn) *Peer {
 }
 
 func (p *Peer) run(protoHandler peerHandler) (err error) {
-	p.log.Info("run peer", "ID", p.ID().String())
+	p.log.Info("run peer", "ID", p.ID().Brief())
 
 	p.wg.Add(1)
 	go p.readLoop()
@@ -107,7 +51,7 @@ func (p *Peer) run(protoHandler peerHandler) (err error) {
 		p.protoHandler = protoHandler
 		p.wg.Add(1)
 		go func() {
-			p.log.Info("proto handle peer", "ID", p.ID().String())
+			p.log.Info("proto handle peer", "ID", p.ID().Brief())
 			protoHandler(p)
 			p.wg.Done()
 		}()
@@ -130,7 +74,7 @@ loop:
 	return err
 }
 
-func (p *Peer) ID() NodeID {
+func (p *Peer) ID() discovery.NodeID {
 	return p.TS.id
 }
 
