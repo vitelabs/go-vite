@@ -6,8 +6,6 @@ import (
 	"math/big"
 )
 
-type Gid [10]byte
-
 const (
 	ACTION_ADD_BALANCE = iota
 	ACTION_SUB_BALANCE
@@ -55,7 +53,6 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 	}
 
 	vmContext.currentSnapshotBlock = currentSnapshotBlock
-
 	return vmContext, nil
 }
 
@@ -71,10 +68,12 @@ func (context *VmContext) ActionList() []*Action {
 	return context.actionList
 }
 
+// TODO: 没有钱返回0
 func (context *VmContext) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
 	return context.cache.balance[*tokenTypeId]
 }
 
+// TODO: 当账号不存在时创建账号
 func (context *VmContext) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
 	context.addAction(ACTION_ADD_BALANCE, []interface{}{tokenTypeId, amount})
 	currentBalance := context.cache.balance[*tokenTypeId]
@@ -87,49 +86,56 @@ func (context *VmContext) SubBalance(tokenTypeId *types.TokenTypeId, amount *big
 	currentBalance.Sub(currentBalance, amount)
 }
 
-func (context *VmContext) GetSnapshotBlock(hash *types.Hash) (*ledger.SnapshotBlock, error) {
-
-	return nil, nil
+func (context *VmContext) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock {
+	return nil
 }
 
-func (context *VmContext) GetSnapshotBlockByHeight(height *big.Int) (*ledger.SnapshotBlock, error) {
+func (context *VmContext) GetSnapshotBlocks(startHeight *big.Int, count uint64, forward bool) []*ledger.SnapshotBlock {
+	return nil
+}
 
-	return nil, nil
+func (context *VmContext) GetSnapshotBlockByHeight(height *big.Int) *ledger.SnapshotBlock {
+
+	return nil
 }
 
 func (context *VmContext) Reset() {
 
 }
 
-func (context *VmContext) SetContractGid(gid *Gid, open bool) {
+func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address, open bool) {
 
 }
 
-func (context *VmContext) SetContractCode(gid *Gid, code []byte) {
+func (context *VmContext) SetContractCode(gid *types.Gid, code []byte) {
 
 }
 
-func (context *VmContext) GetContractCode() []byte {
+func (context *VmContext) GetContractCode(addr *types.Address) []byte {
 	return nil
 }
 
-func (context *VmContext) SetToken() {
+func (context *VmContext) SetToken(token *ledger.Token) {
 
 }
 
-func (context *VmContext) GetToken(id *types.TokenTypeId) {
-
+func (context *VmContext) GetToken(id *types.TokenTypeId) *ledger.Token {
+	return nil
 }
 
 func (context *VmContext) SetStorage(key []byte, value []byte) {
 
 }
 
-func (context *VmContext) GetStorage(key []byte) {
-
+func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
+	return nil
 }
 
 func (context *VmContext) GetStorageHash() *types.Hash {
+	return nil
+}
+
+func (context *VmContext) GetGid() *types.Gid {
 	return nil
 }
 
@@ -153,4 +159,8 @@ func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
 	accountBlock, _ := context.chain.GetAccountBlockByHash(hash)
 	return accountBlock
+}
+
+func (context *VmContext) NewStorageIterator(prefix []byte) *StorageIterator {
+	return &StorageIterator{}
 }
