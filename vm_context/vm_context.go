@@ -4,7 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
-)git
+)
 
 const (
 	ACTION_ADD_BALANCE = iota
