@@ -3,24 +3,32 @@ package ledger
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"math/big"
+	"time"
 )
 
+type SnapshotContentItem struct {
+	AccountBlockHeight uint64
+	AccountBlockHash   types.Hash
+}
+
 type SnapshotBlock struct {
-	Hash     *types.Hash
-	PrevHash *types.Hash
-	Height   *big.Int
-	Producer *types.Address
+	Hash     types.Hash
+	PrevHash types.Hash
+	Height   uint64
+	Producer types.Address
 
 	PublicKey ed25519.PublicKey
 	Signature []byte
 
-	Timestamp    int64
-	SnapshotHash *types.Hash
+	Timestamp *time.Time
+
+	SnapshotHash    types.Hash
+	SnapshotContent map[types.Address]*SnapshotContentItem
 }
 
-func (*SnapshotBlock) ComputeHash() *types.Hash {
-	return nil
+func (*SnapshotBlock) ComputeHash() types.Hash {
+	hash, _ := types.BytesToHash([]byte("abcdeabcdeabcdeabcde"))
+	return hash
 }
 
 func (*SnapshotBlock) VerifySignature() bool {

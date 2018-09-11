@@ -5,12 +5,12 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (c *Chain) GetSnapshotBlocks() {
-
+func (c *Chain) GetSnapshotBlocks(containSnapshotContent bool) (blocks []*ledger.SnapshotBlock, returnErr error) {
+	return nil, nil
 }
 
-func (c *Chain) GetSnapshotContent() {
-
+func (c *Chain) GetSnapshotContent(snapshotHash types.Hash) (block *ledger.SnapshotContentItem, returnErr error) {
+	return nil, nil
 }
 
 func (c *Chain) GetSbAndSc() {
