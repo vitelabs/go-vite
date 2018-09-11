@@ -12,3 +12,7 @@ type Token struct {
 	Decimals    int
 	TotalSupply *big.Int
 }
+
+func ViteTokenId() *types.TokenTypeId {
+	return nil
+}

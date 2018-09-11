@@ -58,3 +58,7 @@ func (*SnapshotBlock) FileSerialize([]byte) ([]byte, error) {
 func (*SnapshotBlock) FileDeserialize([]byte) error {
 	return nil
 }
+
+func GetGenesesSnapshotBlock() *SnapshotBlock {
+	return nil
+}

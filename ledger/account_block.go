@@ -46,15 +46,15 @@ type AccountBlock struct {
 	Amount  *big.Int
 	TokenId types.TokenTypeId
 
-	QuotaFee    *big.Int
-	ContractFee *big.Int
+	Quota uint64
+	Fee   *big.Int
 
 	SnapshotHash types.Hash
-	Data         string
+	Data         []byte
 
-	Timestamp *time.Time
-	StateHash types.Hash
-	LogHash   types.Hash
+	Timestamp   *time.Time
+	StorageHash types.Hash
+	LogHash     types.Hash
 
 	Nonce             []byte
 	SendBlockHashList []types.Hash
@@ -91,5 +91,21 @@ func (*AccountBlock) FileSerialize([]byte) ([]byte, error) {
 }
 
 func (*AccountBlock) FileDeserialize([]byte) error {
+	return nil
+}
+
+func GenesesMintageBlock() *AccountBlock {
+	return nil
+}
+
+func GenesesMintageReceiveBlock() *AccountBlock {
+	return nil
+}
+
+func GenesesCreateGroupBlock() *AccountBlock {
+	return nil
+}
+
+func GenesesCreateGroupReceiveBlock() *AccountBlock {
 	return nil
 }
