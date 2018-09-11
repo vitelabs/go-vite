@@ -6,7 +6,7 @@ import (
 )
 
 type Token struct {
-	TokenId   *types.TokenTypeId
+	TokenId   types.TokenTypeId
 	TokenName string
 
 	Decimals    int
