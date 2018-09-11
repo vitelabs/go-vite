@@ -6,9 +6,13 @@ import (
 )
 
 type Token struct {
-	TokenId   *types.TokenTypeId
+	TokenId   types.TokenTypeId
 	TokenName string
 
 	Decimals    int
 	TotalSupply *big.Int
+}
+
+func ViteTokenId() *types.TokenTypeId {
+	return nil
 }
