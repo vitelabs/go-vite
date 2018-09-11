@@ -93,8 +93,9 @@ func (vm *VM) sendCreate(block VmAccountBlock, quotaTotal, quotaAddition uint64)
 	if err != nil {
 		return nil, err
 	}
-	if !checkContractFee(block.CreateFee()) {
-		return nil, ErrInvalidContractFee
+	contractFee, err := calcContractFee(block.Data())
+	if err != nil {
+		return nil, ErrInvalidData
 	}
 	gid, _ := types.BytesToGid(block.Data()[:10])
 	if !isExistGid(vm.Db, gid) {
@@ -109,9 +110,12 @@ func (vm *VM) sendCreate(block VmAccountBlock, quotaTotal, quotaAddition uint64)
 	if bytes.Equal(contractAddr.Bytes(), util.EmptyAddress.Bytes()) || vm.Db.IsExistAddress(contractAddr) {
 		return nil, ErrContractAddressCreationFail
 	}
+	block.SetCreateFee(contractFee)
 	// sub balance and service fee
 	vm.Db.SubBalance(block.AccountAddress(), block.TokenId(), block.Amount())
-	vm.Db.SubBalance(block.AccountAddress(), util.ViteTokenTypeId, block.CreateFee())
+	if block.CreateFee() != nil {
+		vm.Db.SubBalance(block.AccountAddress(), util.ViteTokenTypeId, block.CreateFee())
+	}
 	vm.updateBlock(block, block.AccountAddress(), nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
 	block.SetToAddress(contractAddr)
 	vm.Db.SetContractGid(contractAddr, gid, false)
@@ -364,7 +368,7 @@ func (vm *VM) calcCreateQuota(fee *big.Int) uint64 {
 func (vm *VM) quotaLeft(addr types.Address, block VmAccountBlock) (uint64, uint64) {
 	// quotaInit = pledge amount of account address at current snapshot block status(attov) / quotaByPledge
 	// get extra quota if calc PoW before a send transaction
-	quotaInit := util.Min(new(big.Int).Div(vm.Db.GetPledgeAmount(addr), quotaByPledge).Uint64(), quotaLimit)
+	quotaInit := util.Min(new(big.Int).Div(GetPledgeAmount(vm.Db, addr), quotaByPledge).Uint64(), quotaLimit)
 	quotaAddition := uint64(0)
 	if len(block.Nonce()) > 0 {
 		quotaAddition = quotaForPoW
@@ -450,7 +454,7 @@ func (vm *VM) revert() {
 }
 
 func (vm *VM) canTransfer(addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
-	if feeAmount.Sign() == 0 {
+	if feeAmount == nil || feeAmount.Sign() == 0 {
 		return tokenAmount.Cmp(vm.Db.Balance(addr, tokenTypeId)) <= 0
 	} else if util.IsViteToken(tokenTypeId) {
 		balance := new(big.Int).Add(tokenAmount, feeAmount)
@@ -485,8 +489,8 @@ func (vm *VM) checkToken(data []byte) error {
 	return nil
 }
 
-func checkContractFee(fee *big.Int) bool {
-	return contractFeeMin.Cmp(fee) <= 0 && contractFeeMax.Cmp(fee) >= 0
+func calcContractFee(data []byte) (*big.Int, error) {
+	return contractFee, nil
 }
 
 func calcMintageFee(data []byte) (*big.Int, error) {

@@ -62,7 +62,6 @@ func TestVmRun(t *testing.T) {
 		amount:         big.NewInt(1e18),
 		tokenId:        util.ViteTokenTypeId,
 		snapshotHash:   snapshot2.Hash(),
-		createFee:      big.NewInt(1e18),
 		depth:          1,
 		data:           data13,
 	}
@@ -70,11 +69,12 @@ func TestVmRun(t *testing.T) {
 	vm.Debug = true
 	sendCreateBlockList, isRetry, err := vm.Run(block13)
 	balance1.Sub(balance1, block13.Amount())
-	balance1.Sub(balance1, block13.CreateFee())
+	balance1.Sub(balance1, contractFee)
 	if len(sendCreateBlockList) != 1 ||
 		isRetry ||
 		err != nil ||
 		sendCreateBlockList[0].Quota() != 28936 ||
+		sendCreateBlockList[0].CreateFee().Cmp(contractFee) != 0 ||
 		db.balanceMap[addr1][util.ViteTokenTypeId].Cmp(balance1) != 0 {
 		t.Fatalf("send create transaction error")
 	}

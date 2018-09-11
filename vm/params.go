@@ -94,9 +94,9 @@ const (
 )
 
 var (
-	contractFeeMin = big.NewInt(0)
 	contractFeeMax = big.NewInt(1e18)
 	mintageFee     = big.NewInt(1e18)
+	contractFee    = big.NewInt(1e18)
 
 	quotaByCreateFeeAttov   = big.NewInt(1e9)
 	quotaByPledge           = big.NewInt(1e9)

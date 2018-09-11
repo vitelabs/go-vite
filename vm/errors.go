@@ -6,7 +6,6 @@ var (
 	ErrOutOfQuota                  = errors.New("out of quota")
 	ErrDepth                       = errors.New("max call Depth exceeded")
 	ErrInsufficientBalance         = errors.New("insufficient balance for transfer")
-	ErrInvalidContractFee          = errors.New("invalid contract fee for create contract")
 	ErrContractAddressCreationFail = errors.New("contract address creation fail")
 	ErrAddressCollision            = errors.New("contract address collision")
 	ErrTokenIdCreationFail         = errors.New("token id creation fail")

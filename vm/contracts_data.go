@@ -39,7 +39,7 @@ func GetPledgeAmount(db VmDatabase, beneficial types.Address) *big.Int {
 	locHash := types.DataHash(beneficial.Bytes())
 	beneficialAmount := new(VariablePledgeBeneficial)
 	err := ABI_pledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.Storage(AddressPledge, locHash))
-	if err != nil {
+	if err == nil {
 		return beneficialAmount.Amount
 	}
 	return big.NewInt(0)

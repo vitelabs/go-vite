@@ -176,17 +176,6 @@ func (db *NoDatabase) LogListHash() types.Hash {
 	return util.EmptyHash
 }
 
-func (db *NoDatabase) GetPledgeAmount(beneficial types.Address) *big.Int {
-	data := db.storageMap[AddressPledge][types.DataHash(beneficial.Bytes())]
-	if len(data) > 0 {
-		paramBeneficialAmount := new(VariablePledgeBeneficial)
-		ABI_pledge.UnpackVariable(paramBeneficialAmount, VariableNamePledgeBeneficial, data)
-		return paramBeneficialAmount.Amount
-	} else {
-		return big.NewInt(0)
-	}
-}
-
 func (db *NoDatabase) GetDbIteratorByPrefix(prefix []byte) DbIterator {
 	// TODO
 	return nil
