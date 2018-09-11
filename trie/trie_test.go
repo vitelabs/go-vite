@@ -306,6 +306,7 @@ func TestTrieSaveAndLoad(t *testing.T) {
 	trie.SetValue([]byte("tesabcd"), []byte("asdfvale....asdfasdfasdfvalue.555val"))
 	trie.SetValue([]byte("t"), []byte("asdfvale....asdfasdfasdfvalue.555valasd"))
 	fmt.Println(trie.Hash())
+	fmt.Println()
 
 	batch := new(leveldb.Batch)
 	callback, _ := trie.Save(batch)
@@ -327,5 +328,75 @@ func TestTrieSaveAndLoad(t *testing.T) {
 	fmt.Printf("%s\n", newTrie.GetValue([]byte("tesabcd")))
 	fmt.Printf("%s\n", newTrie.GetValue([]byte("t")))
 	fmt.Println(newTrie.Hash())
+	fmt.Println()
+	newTrie = nil
+
+	newTri2, ntErr := NewTrie(db, &rootHash, pool)
+	if ntErr != nil {
+		t.Fatal(ntErr)
+	}
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("IamG")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("IamGood")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesab")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesa")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tes")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesabcd")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("t")))
+	fmt.Println(newTri2.Hash())
+	fmt.Println()
+
+	newTri2.SetValue([]byte("tesab"), []byte("value.hahaha123"))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("IamG")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("IamGood")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesab")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesa")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tes")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesabcd")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("t")))
+	fmt.Println(newTri2.Hash())
+	fmt.Println()
+
+	newTri2.SetValue([]byte("IamGood"), []byte("Yes you are good."))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("IamG")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("IamGood")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesab")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesa")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tes")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesabcd")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("t")))
+	fmt.Println(newTri2.Hash())
+	fmt.Println()
+
+	batch2 := new(leveldb.Batch)
+	callback2, _ := newTri2.Save(batch2)
+	if err := db.Write(batch2, nil); err != nil {
+		t.Fatal(err)
+	}
+	callback2()
+
+	rootHash2 := newTri2.Hash()
+	newTrie3, _ := NewTrie(db, rootHash2, pool)
+	fmt.Printf("%s\n", newTrie3.GetValue([]byte("IamG")))
+	fmt.Printf("%s\n", newTrie3.GetValue([]byte("IamGood")))
+	fmt.Printf("%s\n", newTrie3.GetValue([]byte("tesab")))
+	fmt.Printf("%s\n", newTrie3.GetValue([]byte("tesa")))
+	fmt.Printf("%s\n", newTrie3.GetValue([]byte("tes")))
+	fmt.Printf("%s\n", newTrie3.GetValue([]byte("tesabcd")))
+	fmt.Printf("%s\n", newTrie3.GetValue([]byte("t")))
+	fmt.Println(newTrie3.Hash())
+	fmt.Println()
+
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("IamG")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("IamGood")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesab")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesa")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tes")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesabcd")))
+	fmt.Printf("%s\n", newTri2.GetValue([]byte("t")))
+	fmt.Println(newTri2.Hash())
+	fmt.Println()
+}
+
+func TestTrieCopy(t *testing.T) {
 
 }

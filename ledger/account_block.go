@@ -9,7 +9,7 @@ import (
 
 type AccountBlockMeta struct {
 	// Account id
-	AccountId *big.Int
+	AccountId uint64
 
 	// Height
 	Height uint64

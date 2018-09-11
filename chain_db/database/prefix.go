@@ -1,7 +1,7 @@
 package database
 
 const (
-	DBKP_ACCOUNTID_INDEX = iota + 1
+	DBKP_ACCOUNTID_INDEX = byte(iota)
 
 	DBKP_ACCOUNT
 
