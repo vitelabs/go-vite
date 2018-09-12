@@ -8,7 +8,7 @@ import (
 )
 
 type UnconfirmedMeta struct {
-	Gid     []byte
+	Gid     types.Gid
 	Address types.Address
 	Hash    types.Hash
 }

@@ -3,7 +3,6 @@ package model
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
 	"math/rand"
 	"testing"
 	"time"
@@ -19,7 +18,7 @@ func MakeDate() []*ledger.AccountBlock {
 		addrList = append(addrList, &addr)
 	}
 	for _, v := range addrList {
-		height := big.NewInt(int64(time.Now().UnixNano()))
+		height := uint64(time.Now().UnixNano())
 		h := height
 		for i := 0; i < TO_COUNT; i++ {
 			//bal := make(map[types.TokenTypeId]*big.Int)
@@ -28,28 +27,28 @@ func MakeDate() []*ledger.AccountBlock {
 			block := &ledger.AccountBlock{
 				Meta:              nil,
 				BlockType:         0,
-				Hash:              nil,
+				Hash:              types.Hash{},
 				Height:            h,
-				PrevHash:          nil,
-				AccountAddress:    v,
+				PrevHash:          types.Hash{},
+				AccountAddress:    *v,
 				PublicKey:         nil,
-				ToAddress:         addrList[rand.Intn(TO_COUNT)],
-				FromBlockHash:     nil,
+				ToAddress:         *addrList[rand.Intn(TO_COUNT)],
+				FromBlockHash:     types.Hash{},
 				Amount:            nil,
-				TokenId:           nil,
-				QuotaFee:          nil,
-				ContractFee:       nil,
-				SnapshotHash:      nil,
-				Data:              "",
-				Timestamp:         0,
-				StateHash:         nil,
-				LogHash:           nil,
+				TokenId:           types.TokenTypeId{},
+				Quota:             0,
+				Fee:               nil,
+				SnapshotHash:      types.Hash{},
+				Data:              nil,
+				Timestamp:         nil,
+				StateHash:         types.Hash{},
+				LogHash:           types.Hash{},
 				Nonce:             nil,
 				SendBlockHashList: nil,
 				Signature:         nil,
 			}
 			blockList = append(blockList, block)
-			h = height.Add(h, big.NewInt(1))
+			h = h + 1
 		}
 	}
 	return blockList

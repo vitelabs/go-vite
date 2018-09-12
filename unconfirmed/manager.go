@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	slog = log15.New("module", "db.go")
+	slog = log15.New("module", "unconfirmed.go")
 )
 
 type Manager struct {
@@ -162,13 +162,13 @@ func (manager *Manager) loop() {
 						manager.log.Error("GetAddrListByGid Error", err)
 						continue
 					}
-					w = worker.NewContractWorker(manager.uAccess, event.Gid, event.Address, addressList)
+					w = worker.NewContractWorker(manager.uAccess, manager.Vite.WalletManager(), event.Gid, event.Address, addressList)
 					manager.contractWorkers[*event.Gid] = w
 
 					break
 				}
-				nowTime := uint64(time.Now().Unix())
-				if nowTime >= event.StartTs && nowTime < event.EndTs {
+				nowTime := time.Now().Unix()
+				if nowTime >= event.Timestamp.Unix() && nowTime < event.EndTs.Unix() {
 					w.Start(event)
 				} else {
 					w.Close()
