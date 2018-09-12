@@ -55,7 +55,14 @@ func (h Hash) Big() *big.Int {
 }
 
 func BigToHash(b *big.Int) (Hash, error) {
-	return BytesToHash(b.Bytes())
+	slice := b.Bytes()
+	if len(slice) < HashSize {
+		padded := make([]byte, HashSize)
+		copy(padded[HashSize-len(slice):], slice)
+		return BytesToHash(padded)
+	} else {
+		return BytesToHash(slice)
+	}
 }
 
 func DataHash(data []byte) Hash {
