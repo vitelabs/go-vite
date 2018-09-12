@@ -126,7 +126,6 @@ func LedgerAccBlockToRpc(lb *ledger.AccountBlock, confirmedTime *big.Int) *Accou
 
 	if lb.Meta != nil {
 		ra.Meta = &AccountBlockMeta{
-			AccountId:     lb.Meta.AccountId,
 			Height:        lb.Meta.Height,
 			Status:        lb.Meta.Status,
 			IsSnapshotted: lb.Meta.IsSnapshotted,

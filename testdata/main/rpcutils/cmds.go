@@ -291,7 +291,7 @@ func GetUnconfirmedBlocksByAccAddr(client *rpc.Client, param []string) {
 		i, _ = strconv.Atoi(param[1])
 	}
 	var blocks []api.AccountBlock
-	err := client.Call(&blocks, "ledger_getUnconfirmedInfo", param[0], i, 10)
+	err := client.Call(&blocks, "ledger_getUnconfirmedBlocksByAccAddr", param[0], i, 10)
 	if err != nil {
 		fmt.Println(err)
 		return
