@@ -16,6 +16,7 @@ type BlockMapQueryParam struct {
 }
 
 func (c *Chain) InsertAccountBlock(accountBlock *ledger.AccountBlock, vmContext *vm_context.VmContext, needBroadCast bool) error {
+
 	return nil
 }
 
@@ -34,18 +35,14 @@ func (c *Chain) GetAccountBlockMap(queryParams map[types.Address]*BlockMapQueryP
 			continue
 		}
 
-		var startHeight, endHeight, gap = &big.Int{}, &big.Int{}, &big.Int{}
-		gap.SetUint64(params.Count)
+		var startHeight, endHeight = uint64(0), uint64(0)
 
 		if params.Forward {
-			startHeight.Set(blockMeta.Height)
-			endHeight.Add(startHeight, gap)
-			endHeight.Sub(endHeight, big.NewInt(1))
+			startHeight = blockMeta.Height
+			endHeight = startHeight + params.Count - 1
 		} else {
-			endHeight.Set(blockMeta.Height)
-			// Because leveldb iterator range is [a, b)
-			startHeight.Sub(endHeight, gap)
-			startHeight.Add(startHeight, big.NewInt(1))
+			endHeight = blockMeta.Height
+			startHeight = endHeight - params.Count + 1
 		}
 
 		blockList, gbErr := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight)
@@ -161,13 +158,8 @@ func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 		}
 	}
 
-	endHeight := &big.Int{}
-	endHeight.Set(latestBlock.Height)
-	endHeight.Sub(endHeight, big.NewInt(int64(index*count)))
-
-	startHeight := &big.Int{}
-	startHeight.Set(endHeight)
-	startHeight.Sub(startHeight, big.NewInt(int64(num*count)-1))
+	endHeight := latestBlock.Height - uint64(index*count)
+	startHeight := endHeight - uint64(num*count) - 1
 
 	blockList, err := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight)
 
@@ -183,7 +175,7 @@ func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 	// Query block meta list
 	for _, block := range blockList {
 		block.PublicKey = account.PublicKey
-		blockMeta, err := c.chainDb.Ac.GetBlockMeta(block.Hash)
+		blockMeta, err := c.chainDb.Ac.GetBlockMeta(&block.Hash)
 		if err != nil {
 			return nil, &types.GetError{
 				Code: 5,
