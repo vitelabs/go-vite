@@ -4,9 +4,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/db_helper"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
 )
 
 type Account struct {
@@ -19,7 +17,7 @@ func NewAccount(db *leveldb.DB) *Account {
 	}
 }
 
-func (accountAccess *Account) GetAddressById(accountId *big.Int) (*types.Address, error) {
+func (accountAccess *Account) GetAddressById(accountId uint64) (*types.Address, error) {
 	keyAccountAddress, _ := database.EncodeKey(database.DBKP_ACCOUNTID_INDEX, accountId)
 	data, dgErr := accountAccess.db.Get(keyAccountAddress, nil)
 

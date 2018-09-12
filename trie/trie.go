@@ -22,8 +22,9 @@ type Trie struct {
 
 func NewTrie(db *leveldb.DB, rootHash *types.Hash, pool *TrieNodePool) (*Trie, error) {
 	trie := &Trie{
-		db:  db,
-		log: log15.New("module", "trie"),
+		db:        db,
+		cachePool: pool,
+		log:       log15.New("module", "trie"),
 
 		unSavedRefValueMap: make(map[types.Hash][]byte),
 	}
@@ -36,7 +37,10 @@ func (trie *Trie) getNodeFromDb(key *types.Hash) *TrieNode {
 	dbKey, _ := database.EncodeKey(database.DBKP_TRIE_NODE, key.Bytes())
 	value, err := trie.db.Get(dbKey, nil)
 	if err != nil {
-		trie.log.Error("Query trie node failed from the database, error is "+err.Error(), "method", "getNodeFromDb")
+		if err != leveldb.ErrNotFound {
+			trie.log.Error("Query trie node failed from the database, error is "+err.Error(), "method", "getNodeFromDb")
+		}
+
 		return nil
 	}
 	trieNode := &TrieNode{}
@@ -50,15 +54,7 @@ func (trie *Trie) getNodeFromDb(key *types.Hash) *TrieNode {
 }
 
 func (trie *Trie) saveNodeInDb(batch *leveldb.Batch, node *TrieNode) error {
-	if node.Hash() == nil {
-		return errors.New("saveNodeInDb() failed, because node.Hash() is nil.")
-	}
-	dbKey, _ := database.EncodeKey(database.DBKP_TRIE_NODE, node.Hash())
-	cachedNode := trie.getNode(node.Hash())
-	if cachedNode != nil {
-		return nil
-	}
-
+	dbKey, _ := database.EncodeKey(database.DBKP_TRIE_NODE, node.Hash().Bytes())
 	data, err := node.DbSerialize()
 
 	if err != nil {
@@ -162,27 +158,26 @@ func (trie *Trie) Copy() *Trie {
 	}
 }
 
-func (trie *Trie) Save() error {
-	batch := new(leveldb.Batch)
+func (trie *Trie) Save(batch *leveldb.Batch) (successCallback func(), returnErr error) {
 	err := trie.traverseSave(batch, trie.Root)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	trie.saveRefValueMap(batch)
 
-	writeErr := trie.db.Write(batch, nil)
-	if writeErr != nil {
-		return writeErr
-	}
-
-	trie.unSavedRefValueMap = make(map[types.Hash][]byte)
-	return nil
-
+	return func() {
+		trie.unSavedRefValueMap = make(map[types.Hash][]byte)
+	}, nil
 }
 
 func (trie *Trie) traverseSave(batch *leveldb.Batch, node *TrieNode) error {
 	if node == nil {
+		return nil
+	}
+
+	// Cached, no save
+	if trie.getNode(node.Hash()) != nil {
 		return nil
 	}
 
