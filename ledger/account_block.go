@@ -61,9 +61,9 @@ type AccountBlock struct {
 	SnapshotHash types.Hash
 	Data         []byte
 
-	Timestamp   *time.Time
-	StorageHash types.Hash
-	LogHash     types.Hash
+	Timestamp *time.Time
+	StateHash types.Hash
+	LogHash   types.Hash
 
 	Nonce             []byte
 	SendBlockHashList []types.Hash
