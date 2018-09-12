@@ -39,6 +39,7 @@ func Help() {
 	fmt.Println("getscheight:                            GetSnapshotChainHeight")
 	fmt.Println("maykeystore:                            maykeystore")
 	fmt.Println("walletdatedir:                          get walletdatedir")
+	fmt.Println("getLatest [address]:                    getLatest blocks")
 	fmt.Println("quit:                                   quit")
 }
 
@@ -114,8 +115,8 @@ func Cmd(client *rpc.Client) {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			CreateTxWithPassphrase(client, param)
 		} else if strings.HasPrefix(input, "unconfirmblocks") {
-			//param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
-			//GetUnconfirmedBlocksByAccAddr(client, param)
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			GetUnconfirmedBlocksByAccAddr(client, param)
 		} else if strings.HasPrefix(input, "unconfirminfo") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			GetUnconfirmedInfo(client, param)
@@ -124,6 +125,9 @@ func Cmd(client *rpc.Client) {
 		} else if strings.HasPrefix(input, "newtesttoken") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			newTesttoken(param)
+		} else if strings.HasPrefix(input, "getLatest") {
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			GetLatestBlock(client, param[0])
 		} else if strings.HasPrefix(input, "help") {
 			Help()
 		} else {
@@ -277,6 +281,35 @@ func CreateTxWithPassphrase(client *rpc.Client, param []string) {
 	}
 	fmt.Println("success")
 }
+func GetUnconfirmedBlocksByAccAddr(client *rpc.Client, param []string) {
+	if len(param) == 0 {
+		println("err param")
+		return
+	}
+	i := 0
+	if len(param) == 2 {
+		i, _ = strconv.Atoi(param[1])
+	}
+	var blocks []api.AccountBlock
+	err := client.Call(&blocks, "ledger_getUnconfirmedInfo", param[0], i, 10)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	//for _, value := range blocks {
+	//	fmt.Println(value.Hash)
+	//}
+}
+
+func GetLatestBlock(client *rpc.Client, param string) {
+	var blocks api.AccountBlock
+	err := client.Call(&blocks, "ledger_getLatestBlock", param)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+}
 
 func GetBlocksByAccAddr(client *rpc.Client, param []string) {
 	if len(param) == 0 {
@@ -287,7 +320,7 @@ func GetBlocksByAccAddr(client *rpc.Client, param []string) {
 	if len(param) == 2 {
 		i, _ = strconv.Atoi(param[1])
 	}
-	var blocks []api.SimpleBlock
+	var blocks []api.AccountBlock
 	err := client.Call(&blocks, "ledger_getBlocksByAccAddr", param[0], i, 10)
 	if err != nil {
 		fmt.Println(err)

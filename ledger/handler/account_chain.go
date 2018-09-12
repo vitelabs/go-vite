@@ -293,6 +293,7 @@ func (ac *AccountChain) GetBlocks(addr *types.Address, originBlockHash *types.Ha
 
 	return blocks, nil
 }
+
 func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error {
 	syncInfo := ac.vite.Ledger().Sc().GetFirstSyncInfo()
 	if !syncInfo.IsFirstSyncDone {

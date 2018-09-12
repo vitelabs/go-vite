@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
@@ -58,7 +59,7 @@ func (l *LedgerApi) CreateTxWithPassphrase(params *SendTxParms) error {
 	return nil
 }
 
-func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]ledger.AccountBlock, error) {
+func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]AccountBlock, error) {
 	log.Info("GetBlocksByAccAddr")
 
 	list, getErr := l.ledgerManager.Ac().GetBlocksByAccAddr(&addr, index, 1, count)
@@ -72,73 +73,14 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int)
 		return nil, getErr.Err
 	}
 
-	simpleBlocks := make([]ledger.AccountBlock, len(list))
+	simpleBlocks := make([]AccountBlock, len(list))
 	for i, v := range list {
-		block := accountBlockToSimpleBlock(v)
 
 		times := l.getBlockConfirmedTimes(v)
-		if times != nil {
-			//block.ConfirmedTimes = times.String()
-		}
+		block := LedgerAccBlockToRpc(v, times)
 		simpleBlocks[i] = *block
 	}
 	return simpleBlocks, nil
-}
-
-func accountBlockToSimpleBlock(v *ledger.AccountBlock) *ledger.AccountBlock {
-
-	if v.AccountAddress != nil {
-
-	}
-
-	//var a = AccountBlock{
-	//	Meta: AccountBlockMeta{
-	//		AccountId:     "",
-	//		Height:        "",
-	//		Status:        0,
-	//		IsSnapshotted: false,
-	//	},
-	//	AccountAddress:         types.Address{},
-	//	PublicKey:              "",
-	//	To:                     types.Address{},
-	//	From:                   types.Address{},
-	//	FromHash:               types.Hash{},
-	//	PrevHash:               types.Hash{},
-	//	Hash:                   types.Hash{},
-	//	Balance:                "",
-	//	Amount:                 "",
-	//	Timestamp:              0,
-	//	TokenId:                types.TokenTypeId{},
-	//	LastBlockHeightInToken: "",
-	//	Data:                   "",
-	//	SnapshotTimestamp:      types.Hash{},
-	//	Signature:              nil,
-	//	Nonce:                  nil,
-	//	Difficulty:             nil,
-	//	FAmount:                "",
-	//	ConfirmedTimes:         "",
-	//}
-
-	simpleBlock := ledger.AccountBlock{
-		Timestamp: v.Timestamp,
-		Hash:      v.Hash,
-	}
-	//if v.From != nil {
-	//	simpleBlock.From = *v.From
-	//}
-	//if v.To != nil {
-	//	simpleBlock.To = *v.To
-	//}
-	//if v.Amount != nil {
-	//	simpleBlock.Amount = v.Amount.String()
-	//}
-	//if v.Meta != nil {
-	//	simpleBlock.Meta.Status = v.Meta.Status
-	//}
-	//if v.Balance != nil {
-	//	simpleBlock.Balance = v.Balance.String()
-	//}
-	return &simpleBlock
 }
 
 func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.Int {
@@ -168,9 +110,20 @@ func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.Int 
 	return times
 }
 
-func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int, count int) ([]ledger.AccountBlock, error) {
+func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int, count int) ([]AccountBlock, error) {
 	log.Info("GetUnconfirmedBlocksByAccAddr")
-	return nil, ErrNotSupport
+	blocks, e := l.ledgerManager.Ac().GetUnconfirmedTxBlocks(index, 1, count, &addr)
+	if e != nil {
+		return nil, e
+	}
+	if len(blocks) == 0 {
+		return nil, nil
+	}
+	result := make([]AccountBlock, len(blocks))
+	for key, value := range blocks {
+		result[key] = *LedgerAccBlockToRpc(value, nil)
+	}
+	return result, nil
 }
 
 func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (GetAccountResponse, error) {
@@ -284,17 +237,25 @@ func (l *LedgerApi) GetSnapshotChainHeight() (string, error) {
 	return "", nil
 }
 
-func (l *LedgerApi) GetLatestBlock(addr types.Address) (ledger.AccountBlock, error) {
+func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 	log.Info("GetLatestBlock")
 	b, getError := l.ledgerManager.Ac().GetLatestBlock(&addr)
 	if getError != nil {
-		return ledger.AccountBlock{}, getError.Err
+		return nil, getError.Err
 	}
-	return *accountBlockToSimpleBlock(b), nil
+	return LedgerAccBlockToRpc(b, nil), nil
 }
 
-func (l *LedgerApi) CreateTx(block *ledger.AccountBlock) error {
-	return nil
+func (l *LedgerApi) CreateTx(block *AccountBlock) error {
+	log.Info("CreateTx")
+	if block == nil {
+		return errors.New("block nil")
+	}
+	accountBlock, e := block.ToLedgerAccBlock()
+	if e != nil {
+		return e
+	}
+	return l.ledgerManager.Ac().CreateTx(accountBlock)
 }
 
 //func (l *LedgerApi) StartAutoConfirmTx(addr []string, reply *string) error {

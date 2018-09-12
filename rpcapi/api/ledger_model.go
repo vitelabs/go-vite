@@ -1,10 +1,10 @@
 package api
 
 import (
-	"math/big"
+	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"encoding/hex"
+	"math/big"
 )
 
 type AccountBlockMeta struct {
@@ -39,6 +39,7 @@ type AccountBlock struct {
 }
 
 func (ra *AccountBlock) ToLedgerAccBlock() (*ledger.AccountBlock, error) {
+
 	PublicKey, e := hex.DecodeString(ra.PublicKey)
 	if e != nil {
 		log.Error("ToLedgerAccBlock decode PublicKey", "err", e)
@@ -64,10 +65,7 @@ func (ra *AccountBlock) ToLedgerAccBlock() (*ledger.AccountBlock, error) {
 	lam = nil
 	if ra.Meta != nil {
 		lam = &ledger.AccountBlockMeta{
-			AccountId:     ra.Meta.AccountId,
-			Height:        ra.Meta.Height,
-			Status:        ra.Meta.Status,
-			IsSnapshotted: ra.Meta.IsSnapshotted,
+			Height: ra.Meta.Height,
 		}
 	}
 	Data := ""
