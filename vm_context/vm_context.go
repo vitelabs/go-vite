@@ -8,32 +8,10 @@ import (
 	"math/big"
 )
 
-const (
-	ACTION_ADD_BALANCE = iota
-	ACTION_SUB_BALANCE
-	ACTION_SET_GID
-	ACTION_SET_CONTRACT
-	ACTION_SET_TOKEN
-	ACTION_SET_STORAGE
-	ACTION_ADD_LOG
-)
-
 var (
 	STORAGE_KEY_BALANCE = []byte("$balance")
 	STORAGE_KEY_CODE    = []byte("$code")
 )
-
-type Action struct {
-	ActionType int32
-	Params     []interface{}
-}
-
-func NewAction(actionType int32, params []interface{}) *Action {
-	return &Action{
-		ActionType: actionType,
-		Params:     params,
-	}
-}
 
 type VmContext struct {
 	chain   Chain
@@ -43,16 +21,13 @@ type VmContext struct {
 	prevAccountBlock     *ledger.AccountBlock
 	trie                 *trie.Trie
 
-	actionList []*Action
-	cache      *VmContextCache
+	unsavedCache *UnsavedCache
 }
 
 func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) (*VmContext, error) {
 	vmContext := &VmContext{
 		chain:   chain,
 		address: addr,
-
-		cache: NewVmContextCache(),
 	}
 
 	currentSnapshotBlock, err := chain.GetSnapshotBlockByHash(snapshotBlockHash)
@@ -68,26 +43,19 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 	vmContext.currentSnapshotBlock = currentSnapshotBlock
 	vmContext.prevAccountBlock = prevAccountBlock
 	vmContext.trie = chain.GetStateTrie(prevAccountBlockHash)
+	vmContext.unsavedCache = NewUnsavedCache(vmContext.trie)
 
 	return vmContext, nil
-}
-
-func (context *VmContext) addAction(actionType int32, params []interface{}) {
-	context.actionList = append(context.actionList, NewAction(actionType, params))
 }
 
 func (context *VmContext) Address() *types.Address {
 	return context.address
 }
 
-func (context *VmContext) ActionList() []*Action {
-	return context.actionList
-}
-
 func (context *VmContext) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
 	var balance = big.NewInt(0)
 	if bytes.Equal(addr.Bytes(), context.Address().Bytes()) {
-		if cacheBalance := context.cache.balance[*tokenTypeId]; cacheBalance != nil {
+		if cacheBalance := context.unsavedCache.balance[*tokenTypeId]; cacheBalance != nil {
 			balance = cacheBalance
 		} else {
 			balanceBytes := context.trie.GetValue(append(STORAGE_KEY_BALANCE, tokenTypeId.Bytes()...))
@@ -109,31 +77,23 @@ func (context *VmContext) GetBalance(addr *types.Address, tokenTypeId *types.Tok
 	return balance
 }
 
-// TODO: 当账号不存在时创建账号
 func (context *VmContext) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
-	var currentBalance = big.NewInt(0)
-	if cacheBalance := context.cache.balance[*tokenTypeId]; cacheBalance != nil {
-		currentBalance = cacheBalance
-	}
+	currentBalance := context.GetBalance(context.address, tokenTypeId)
 	currentBalance.Add(currentBalance, amount)
-	context.cache.balance[*tokenTypeId] = currentBalance
-
-	context.addAction(ACTION_ADD_BALANCE, []interface{}{tokenTypeId, amount})
+	context.unsavedCache.balance[*tokenTypeId] = currentBalance
 }
 
 func (context *VmContext) SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
-	currentBalance := context.cache.balance[*tokenTypeId]
-	if currentBalance == nil {
+	currentBalance := context.GetBalance(context.address, tokenTypeId)
+
+	newCurrentBalance := &big.Int{}
+	newCurrentBalance.SetBytes(currentBalance.Bytes())
+	newCurrentBalance.Sub(currentBalance, amount)
+
+	if newCurrentBalance.Cmp(big.NewInt(0)) < 0 {
 		return
 	}
-	currentBalance.Sub(currentBalance, amount)
-	if currentBalance.Cmp(big.NewInt(0)) < 0 {
-		return
-	}
-
-	context.cache.balance[*tokenTypeId] = currentBalance
-
-	context.addAction(ACTION_SUB_BALANCE, []interface{}{tokenTypeId, amount})
+	context.unsavedCache.balance[*tokenTypeId] = newCurrentBalance
 }
 
 func (context *VmContext) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock {
@@ -150,7 +110,7 @@ func (context *VmContext) GetSnapshotBlockByHeight(height uint64) *ledger.Snapsh
 }
 
 func (context *VmContext) Reset() {
-
+	context.unsavedCache = NewUnsavedCache(context.trie)
 }
 
 func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address, open bool) {
@@ -190,12 +150,11 @@ func (context *VmContext) GetGid() *types.Gid {
 }
 
 func (context *VmContext) AddLog(log *ledger.VmLog) {
-	context.addAction(ACTION_ADD_LOG, []interface{}{log})
-	context.cache.logList = append(context.cache.logList, log)
+	context.unsavedCache.logList = append(context.unsavedCache.logList, log)
 }
 
 func (context *VmContext) GetLogListHash() *types.Hash {
-	return context.cache.logList.Hash()
+	return context.unsavedCache.logList.Hash()
 }
 
 func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
