@@ -9,7 +9,7 @@ import (
 
 type AccountBlockMeta struct {
 	// Account id
-	AccountId *big.Int
+	AccountId uint64
 
 	// Height
 	Height uint64
@@ -69,6 +69,8 @@ type AccountBlock struct {
 	SendBlockHashList []types.Hash
 	Signature         []byte
 }
+
+// TODO: compute send block hash
 
 func (*AccountBlock) GetComputeHash() types.Hash {
 	hash, _ := types.BytesToHash([]byte("abcdeabcdeabcdeabcde"))

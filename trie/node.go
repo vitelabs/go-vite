@@ -1,8 +1,10 @@
 package trie
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/vitepb"
 )
 
 const (
@@ -121,10 +123,84 @@ func (trieNode *TrieNode) NodeType() byte {
 	return trieNode.nodeType
 }
 
-func (*TrieNode) DbSerialize() ([]byte, error) {
-	return nil, nil
+func (trieNode *TrieNode) parseChildrenToPb(children map[byte]*TrieNode) map[uint32][]byte {
+	if children == nil {
+		return nil
+	}
+
+	var parsedChildren = make(map[uint32][]byte, len(children))
+	for key, child := range children {
+		parsedChildren[uint32(key)] = child.Hash().Bytes()
+	}
+	return parsedChildren
 }
 
-func (*TrieNode) DbDeserialize([]byte) error {
+func (trieNode *TrieNode) DbSerialize() ([]byte, error) {
+	trieNodePB := &vitepb.TrieNode{
+		NodeType: uint32(trieNode.NodeType()),
+	}
+	switch trieNode.NodeType() {
+	case TRIE_FULL_NODE:
+		trieNodePB.Children = trieNode.parseChildrenToPb(trieNode.children)
+	case TRIE_SHORT_NODE:
+		trieNodePB.Key = trieNode.key
+		trieNodePB.Child = trieNode.child.Hash().Bytes()
+	case TRIE_HASH_NODE:
+		fallthrough
+	case TRIE_VALUE_NODE:
+		trieNodePB.Value = trieNode.value
+	}
+
+	return proto.Marshal(trieNodePB)
+}
+
+func (trieNode *TrieNode) parsePbToChildren(children map[uint32][]byte) (map[byte]*TrieNode, error) {
+	var parsedChildren = make(map[byte]*TrieNode)
+	for key, child := range children {
+		childHash, err := types.BytesToHash(child)
+		if err != nil {
+			return nil, err
+		}
+
+		parsedChildren[byte(key)] = &TrieNode{
+			hash: &childHash,
+		}
+	}
+
+	return parsedChildren, nil
+}
+
+func (trieNode *TrieNode) DbDeserialize(buf []byte) error {
+	trieNodePB := &vitepb.TrieNode{}
+	if err := proto.Unmarshal(buf, trieNodePB); err != nil {
+		return err
+	}
+
+	nodeType := byte(trieNodePB.NodeType)
+	trieNode.nodeType = byte(nodeType)
+
+	switch nodeType {
+	case TRIE_FULL_NODE:
+		var err error
+		trieNode.children, err = trieNode.parsePbToChildren(trieNodePB.Children)
+		if err != nil {
+			return err
+		}
+
+	case TRIE_SHORT_NODE:
+		trieNode.key = trieNodePB.Key
+		childHash, err := types.BytesToHash(trieNodePB.Child)
+		if err != nil {
+			return err
+		}
+		trieNode.child = &TrieNode{
+			hash: &childHash,
+		}
+	case TRIE_HASH_NODE:
+		fallthrough
+	case TRIE_VALUE_NODE:
+		trieNode.value = trieNodePB.Value
+	}
+
 	return nil
 }
