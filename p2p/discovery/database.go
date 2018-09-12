@@ -14,25 +14,44 @@ import (
 )
 
 type nodeDB struct {
-	db *leveldb.DB
-	id NodeID
+	db   *leveldb.DB
+	id   NodeID
+	stop chan struct{}
 }
 
 const (
-	dbVersion  = "version"
-	dbPrefix   = "discv"
-	dbNode     = "node"
-	dbPing     = "ping"
-	dbPong     = "pong"
-	dbFindFail = "findfail"
+	dbDiscvRoot     = "discv"
+	dbDiscvPing     = dbDiscvRoot + ":ping"
+	dbDiscvPong     = dbDiscvRoot + ":pong"
+	dbDiscvFindFail = dbDiscvRoot + ":findfail"
 )
 
-func newDB(path string, version int, id NodeID) (*nodeDB, error) {
+var (
+	dbVersion            = []byte("version")       // the version key
+	dbItemPrefix         = []byte("node:")         // all item key prefix, except above dbVersion
+	dbDiscvRootBytes     = []byte(dbDiscvRoot)     // the node key, store node info
+	dbDiscvPingBytes     = []byte(dbDiscvPing)     // store the last time ping received from node
+	dbDiscvPongBytes     = []byte(dbDiscvPong)     // store the last time pong received from node
+	dbDiscvFindFailBytes = []byte(dbDiscvFindFail) // store the fail times node respond our findnode message
+)
+
+var dbCleanInterval = time.Hour
+var dbStoreInterval = 5 * time.Minute
+
+func newDB(path string, version int, id NodeID) (db *nodeDB, err error) {
 	if path == "" {
-		return newMemDB(id)
+		db, err = newMemDB(id)
 	} else {
-		return newFileDB(path, version, id)
+		db, err = newFileDB(path, version, id)
 	}
+
+	if err != nil {
+		return
+	}
+
+	go db.cleanLoop()
+
+	return
 }
 
 func newMemDB(id NodeID) (*nodeDB, error) {
@@ -57,10 +76,10 @@ func newFileDB(path string, version int, id NodeID) (*nodeDB, error) {
 	}
 
 	vBytes := encodeVarint(int64(version))
-	oldVBytes, err := db.Get([]byte(dbVersion), nil)
+	oldVBytes, err := db.Get(dbVersion, nil)
 
 	if err == leveldb.ErrNotFound {
-		err = db.Put([]byte(dbVersion), vBytes, nil)
+		err = db.Put(dbVersion, vBytes, nil)
 
 		if err != nil {
 			db.Close()
@@ -90,29 +109,29 @@ func newFileDB(path string, version int, id NodeID) (*nodeDB, error) {
 	return nil, err
 }
 
-func genKey(id NodeID, field string) []byte {
+func genKey(id NodeID, field []byte) []byte {
 	if id.IsZero() {
-		return []byte(field)
+		return field
 	}
 
 	return bytes.Join([][]byte{
-		[]byte(dbPrefix),
+		dbItemPrefix,
 		id[:],
-		[]byte(field),
+		field,
 	}, nil)
 }
 
-func parseKey(key []byte) (id NodeID, field string) {
-	if bytes.HasPrefix(key, []byte(dbPrefix)) {
-		prefixLen := len(dbPrefix)
+func parseKey(key []byte) (id NodeID, field []byte) {
+	if bytes.HasPrefix(key, dbItemPrefix) {
+		prefixLen := len(dbItemPrefix)
 		idLength := len(id)
 		headLength := prefixLen + idLength
 
 		copy(id[:], key[idLength:headLength])
-		return id, string(key[headLength:])
+		return id, key[headLength:]
 	}
 
-	return id, string(key)
+	return id, key
 }
 
 func decodeVarint(varint []byte) int64 {
@@ -130,7 +149,7 @@ func encodeVarint(i int64) []byte {
 }
 
 func (db *nodeDB) retrieveNode(ID NodeID) *Node {
-	data, err := db.db.Get(genKey(ID, dbNode), nil)
+	data, err := db.db.Get(genKey(ID, dbDiscvRootBytes), nil)
 	if err != nil {
 		return nil
 	}
@@ -143,8 +162,8 @@ func (db *nodeDB) retrieveNode(ID NodeID) *Node {
 	return node
 }
 
-func (db *nodeDB) updateNode(node *Node) error {
-	key := genKey(node.ID, dbNode)
+func (db *nodeDB) storeNode(node *Node) error {
+	key := genKey(node.ID, dbDiscvRootBytes)
 	data, err := node.Serialize()
 	if err != nil {
 		return err
@@ -154,7 +173,7 @@ func (db *nodeDB) updateNode(node *Node) error {
 
 // remove all data about the specific NodeID
 func (db *nodeDB) deleteNode(ID NodeID) error {
-	itr := db.db.NewIterator(util.BytesPrefix(genKey(ID, "")), nil)
+	itr := db.db.NewIterator(util.BytesPrefix(genKey(ID, nil)), nil)
 	defer itr.Release()
 
 	for itr.Next() {
@@ -179,7 +198,7 @@ func (db *nodeDB) randomNodes(count int, maxAge time.Duration) []*Node {
 		rand.Read(id[:])
 		id[0] = h + id[0]%16
 
-		iterator.Seek(genKey(id, dbNode))
+		iterator.Seek(genKey(id, dbDiscvRootBytes))
 
 		node := nextNode(iterator)
 
@@ -207,11 +226,8 @@ func (db *nodeDB) retrieveInt64(key []byte) int64 {
 	if err != nil {
 		return 0
 	}
-	val, read := binary.Varint(buf)
-	if read <= 0 {
-		return 0
-	}
-	return val
+
+	return decodeVarint(buf)
 }
 
 func (db *nodeDB) storeInt64(key []byte, n int64) error {
@@ -223,22 +239,22 @@ func (db *nodeDB) storeInt64(key []byte, n int64) error {
 
 // get the last time when receive ping msg from id
 func (db *nodeDB) getLastPing(id NodeID) time.Time {
-	return time.Unix(db.retrieveInt64(genKey(id, dbPing)), 0)
+	return time.Unix(db.retrieveInt64(genKey(id, dbDiscvPingBytes)), 0)
 }
 
 // set the last time when receive ping msg from id
 func (db *nodeDB) setLastPing(id NodeID, instance time.Time) error {
-	return db.storeInt64(genKey(id, dbPing), instance.Unix())
+	return db.storeInt64(genKey(id, dbDiscvPingBytes), instance.Unix())
 }
 
 // get the last time when receive pong msg from id
 func (db *nodeDB) getLastPong(id NodeID) time.Time {
-	return time.Unix(db.retrieveInt64(genKey(id, dbPong)), 0)
+	return time.Unix(db.retrieveInt64(genKey(id, dbDiscvPongBytes)), 0)
 }
 
 // set the last time when receive pong msg from id
 func (db *nodeDB) setLastPong(id NodeID, instance time.Time) error {
-	return db.storeInt64(genKey(id, dbPong), instance.Unix())
+	return db.storeInt64(genKey(id, dbDiscvPongBytes), instance.Unix())
 }
 
 // in the last 24 hours, id has been pingpong checked
@@ -248,16 +264,53 @@ func (db *nodeDB) hasChecked(id NodeID) bool {
 
 // get the times of findnode from id fails
 func (db *nodeDB) getFindNodeFails(id NodeID) int {
-	return int(db.retrieveInt64(genKey(id, dbFindFail)))
+	return int(db.retrieveInt64(genKey(id, dbDiscvFindFailBytes)))
 }
 
 // set the times of findnode from id fails
 func (db *nodeDB) setFindNodeFails(id NodeID, fails int) error {
-	return db.storeInt64(genKey(id, dbFindFail), int64(fails))
+	return db.storeInt64(genKey(id, dbDiscvFindFailBytes), int64(fails))
+}
+
+func (db *nodeDB) cleanLoop() {
+	cleanTicker := time.NewTicker(dbCleanInterval)
+	defer cleanTicker.Stop()
+
+loop:
+	for {
+		select {
+		case <-db.stop:
+			break loop
+		case <-cleanTicker.C:
+			db.cleanStaleNodes()
+		}
+	}
+}
+
+func (db *nodeDB) cleanStaleNodes() {
+	now := time.Now()
+
+	it := db.db.NewIterator(nil, nil)
+	defer it.Release()
+
+	for it.Next() {
+		id, field := parseKey(it.Key())
+		if !bytes.Equal(field, dbDiscvRootBytes) {
+			continue
+		}
+		if lastpong := db.getLastPong(id); now.Sub(lastpong) > tExpire {
+			db.deleteNode(id)
+		}
+	}
 }
 
 func (db *nodeDB) close() {
-	db.db.Close()
+	select {
+	case <-db.stop:
+	default:
+		db.db.Close()
+		close(db.stop)
+	}
 }
 
 // helper functions
@@ -271,20 +324,16 @@ func contains(nodes []*Node, node *Node) bool {
 }
 
 func nextNode(iterator iterator.Iterator) *Node {
-	var field string
-	var data []byte
-	var err error
-
 	node := new(Node)
 	for iterator.Next() {
-		_, field = parseKey(iterator.Key())
+		_, field := parseKey(iterator.Key())
 
-		if field != dbNode {
+		if !bytes.Equal(field, dbDiscvRootBytes) {
 			continue
 		}
 
-		data = iterator.Value()
-		err = node.Deserialize(data)
+		data := iterator.Value()
+		err := node.Deserialize(data)
 
 		if err != nil {
 			continue

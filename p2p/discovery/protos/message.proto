@@ -21,7 +21,8 @@ message Ping {
 
 message Pong {
     bytes ID = 1;
-    int64 Expiration = 2;
+    bytes Ping = 2;
+    int64 Expiration = 3;
 }
 
 message FindNode {

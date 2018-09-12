@@ -46,7 +46,8 @@ func (b *bucket) add(node *Node) (toCheck *Node) {
 		return
 	}
 
-	if b.update(node) {
+	// node has been in bucket, update the node info
+	if b.bubble(node.ID) {
 		return
 	}
 
@@ -84,17 +85,6 @@ func (b *bucket) bubbleNode(node *Node) bool {
 	return b.bubble(node.ID)
 }
 
-func (b *bucket) update(node *Node) bool {
-	for i, n := range b.list {
-		if n.ID == node.ID {
-			b.list[i] = node
-			return true
-		}
-	}
-
-	return false
-}
-
 func (b *bucket) replace(old, new *Node) {
 	for i, n := range b.list {
 		if n.ID == old.ID {
@@ -128,8 +118,14 @@ func (b *bucket) remove(id NodeID) {
 	}
 }
 
-func (b *bucket) nodes() []*Node {
-	return b.list
+func (b *bucket) node(id NodeID) (*Node, int) {
+	for i, n := range b.list {
+		if n.ID.Equal(id) {
+			return n, i
+		}
+	}
+
+	return nil, -1
 }
 
 func (b *bucket) contains(node *Node) bool {
@@ -143,42 +139,54 @@ func (b *bucket) contains(node *Node) bool {
 }
 
 // @section table
-const seedCount = 20
-const seedMaxAge = 7 * 24 * time.Hour
 const minPingInterval = 3 * time.Minute
 
 type table struct {
-	lock      sync.RWMutex
-	buckets   [N]*bucket
-	bootNodes []*Node
-	self      NodeID
-	rand      *mrand.Rand
+	lock    sync.RWMutex
+	buckets []*bucket
+	self    NodeID
+	rand    *mrand.Rand
 }
 
-func newTable(self NodeID, bootNodes []*Node) *table {
+func newTable(self NodeID, bucketCount int) *table {
 	tab := &table{
-		self:      self,
-		bootNodes: bootNodes,
-		rand:      mrand.New(mrand.NewSource(0)),
+		self: self,
+		rand: mrand.New(mrand.NewSource(0)),
 	}
 
 	// init buckets
+	if bucketCount == 0 {
+		bucketCount = N
+	}
+	tab.buckets = make([]*bucket, bucketCount)
 	for i, _ := range tab.buckets {
-		tab.buckets[i] = &bucket{}
+		tab.buckets[i] = newBucket(K)
 	}
 
-	tab.resetRand()
+	tab.initRand()
 
 	return tab
 }
 
-func (tab *table) resetRand() {
+func (tab *table) refresh() {
+	tab.lock.Lock()
+	defer tab.lock.Unlock()
+
+	tab.initRand()
+
+	for i, _ := range tab.buckets {
+		tab.buckets[i] = newBucket(K)
+	}
+}
+
+func (tab *table) initRand() {
 	var b [8]byte
 	crand.Read(b[:])
 
 	tab.lock.Lock()
+	defer tab.lock.Unlock()
+
 	tab.rand.Seed(int64(binary.BigEndian.Uint64(b[:])))
-	tab.lock.Unlock()
 }
 
 func (tab *table) randomNodes(dest []*Node) (count int) {
@@ -187,18 +195,19 @@ func (tab *table) randomNodes(dest []*Node) (count int) {
 
 	var allNodes [][]*Node
 	for _, b := range tab.buckets {
-		if b.length > 0 {
-			allNodes = append(allNodes, b.list[:b.length])
+		if len(b.list) > 0 {
+			allNodes = append(allNodes, b.list)
 		}
 	}
 
-	if len(allNodes) == 0 {
+	rows := len(allNodes)
+	if rows == 0 {
 		return 0
 	}
 
 	// shuffle
-	for i := 0; i < len(allNodes); i++ {
-		j := tab.rand.Intn(len(allNodes))
+	for i := 0; i < rows; i++ {
+		j := tab.rand.Intn(rows)
 		allNodes[i], allNodes[j] = allNodes[j], allNodes[i]
 	}
 
@@ -208,6 +217,7 @@ func (tab *table) randomNodes(dest []*Node) (count int) {
 		count++
 
 		if len(b) == 1 {
+			// remove this slice
 			allNodes = append(allNodes[:j], allNodes[j+1:]...)
 		} else {
 			allNodes[j] = b[:len(b)-1]
@@ -220,24 +230,69 @@ func (tab *table) randomNodes(dest []*Node) (count int) {
 	return
 }
 
-func (tab *table) addNode(node *Node) {
+func (tab *table) addNode(node *Node) *Node {
 	if node == nil {
-		return
+		return nil
 	}
-	if node.ID == tab.self {
-		return
+	if node.ID.Equal(tab.self) {
+		return nil
 	}
 
+	tab.lock.Lock()
+	defer tab.lock.Unlock()
+
+	node.addAt = time.Now()
 	bucket := tab.getBucket(node.ID)
-	// todo check
-	bucket.add(node)
+	return bucket.add(node)
+}
+
+// if bucket is full, then we nil ping-pong check the oldest node
+func (tab *table) mustAddNode(node *Node, check func(*Node) bool) {
+	toChecked := tab.addNode(node)
+	if toChecked != nil && check != nil {
+		// check the old node failed, then replace it
+		if !check(toChecked) {
+			tab.lock.Lock()
+			defer tab.lock.Unlock()
+			node.addAt = time.Now()
+			tab.replaceNode(toChecked, node)
+		}
+	}
 }
 
 func (tab *table) replaceNode(old, new *Node) {
+	if old == nil || new == nil {
+		return
+	}
 
+	tab.lock.Lock()
+	defer tab.lock.Unlock()
+
+	new.addAt = time.Now()
+	bucket := tab.getBucket(old.ID)
+	bucket.replace(old, new)
+}
+
+func (tab *table) updateNode(node *Node) {
+	if node == nil {
+		return
+	}
+
+	tab.lock.Lock()
+	defer tab.lock.Unlock()
+
+	bucket := tab.getBucket(node.ID)
+	old, index := bucket.node(node.ID)
+	if old != nil {
+		node.addAt = old.addAt
+		bucket.replaceAt(node, index)
+	}
 }
 
 func (tab *table) addNodes(nodes []*Node) {
+	tab.lock.Lock()
+	defer tab.lock.Unlock()
+
 	for _, n := range nodes {
 		tab.addNode(n)
 	}
@@ -251,7 +306,7 @@ func (tab *table) getBucket(id NodeID) *bucket {
 	return tab.buckets[d-minDistance-1]
 }
 
-func (tab *table) delete(node *Node) {
+func (tab *table) removeNode(node *Node) {
 	tab.lock.Lock()
 	defer tab.lock.Unlock()
 
@@ -259,41 +314,56 @@ func (tab *table) delete(node *Node) {
 	bucket.removeNode(node)
 }
 
-func (tab *table) bubble(node *Node) {
-	bucket := tab.getBucket(node.ID)
-	bucket.add(node)
+func (tab *table) remove(id NodeID) {
+	tab.lock.Lock()
+	defer tab.lock.Unlock()
+
+	bucket := tab.getBucket(id)
+	bucket.remove(id)
 }
 
-func (tab *table) findNeighbors(target NodeID) []*Node {
-	neighbors := &neighbors{pivot: target}
+func (tab *table) bubble(node *Node) {
+	tab.lock.Lock()
+	defer tab.lock.Unlock()
+
+	bucket := tab.getBucket(node.ID)
+	bucket.bubble(node.ID)
+}
+
+func (tab *table) findNeighbors(target NodeID, count int) *neighbors {
+	tab.lock.RLock()
+	defer tab.lock.RUnlock()
+
+	neighbors := newNeighbors(target, count)
 
 	tab.traverse(func(n *Node) {
-		neighbors.push(n, K)
+		neighbors.push(n)
 	})
 
-	return neighbors.nodes
+	return neighbors
 }
 
 func (tab *table) traverse(fn func(*Node)) {
+	tab.lock.RLock()
+	defer tab.lock.RUnlock()
+
 	for _, b := range tab.buckets {
-		for _, n := range b.nodes() {
+		for _, n := range b.list {
 			fn(n)
 		}
 	}
 }
 
 func (tab *table) pickOldest() (n *Node) {
+	tab.lock.RLock()
+	defer tab.lock.RUnlock()
+
 	now := time.Now()
 
 	for i := range tab.rand.Perm(N) {
-		b := tab.buckets[i]
-		n = b.oldest()
+		n = tab.buckets[i].oldest()
 
-		if n == nil {
-			continue
-		}
-
-		if now.Sub(n.lastPing) < minPingInterval {
+		if n == nil || now.Sub(n.lastPing) < minPingInterval {
 			continue
 		}
 
@@ -303,26 +373,34 @@ func (tab *table) pickOldest() (n *Node) {
 	return
 }
 
-// @section closet
-// closest nodes to the target NodeID
+// @section neighbors
+// neighbors around the pivot
 type neighbors struct {
 	nodes []*Node
 	pivot NodeID
 }
 
-func (c *neighbors) push(n *Node, count int) {
+func newNeighbors(pivot NodeID, cap int) *neighbors {
+	return &neighbors{
+		nodes: make([]*Node, 0, cap),
+		pivot: pivot,
+	}
+}
+
+func (c *neighbors) push(n *Node) {
 	if n == nil {
 		return
 	}
 
 	length := len(c.nodes)
+
 	// sort.Search may return the index out of range
 	further := sort.Search(length, func(i int) bool {
 		return disCmp(c.pivot, c.nodes[i].ID, n.ID) > 0
 	})
 
 	// closest Nodes list is full.
-	if length >= count {
+	if length >= cap(c.nodes) {
 		// replace the further one.
 		if further < length {
 			c.nodes[further] = n
