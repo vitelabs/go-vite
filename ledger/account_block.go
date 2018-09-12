@@ -4,14 +4,15 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"math/big"
+	"time"
 )
 
 type AccountBlockMeta struct {
 	// Account id
-	AccountId *big.Int
+	AccountId uint64
 
 	// Height
-	Height *big.Int
+	Height uint64
 
 	// Block status, 1 means open, 2 means closed
 	Status int
@@ -28,40 +29,52 @@ func (*AccountBlockMeta) DbDeserialize([]byte) error {
 	return nil
 }
 
+const (
+	BlockTypeSendCreate byte = iota + 1
+	BlockTypeSendCall
+	BlockTypeSendMintage
+	BlockTypeSendReward
+	BlockTypeReceive
+	BlockTypeReceiveError
+)
+
 type AccountBlock struct {
 	Meta *AccountBlockMeta
 
 	BlockType byte
-	Hash      *types.Hash
-	Height    *big.Int
-	PrevHash  *types.Hash
+	Hash      types.Hash
+	Height    uint64
+	PrevHash  types.Hash
 
-	AccountAddress *types.Address
+	AccountAddress types.Address
 
 	PublicKey     ed25519.PublicKey
-	ToAddress     *types.Address
-	FromBlockHash *types.Hash
+	ToAddress     types.Address
+	FromBlockHash types.Hash
 
 	Amount  *big.Int
-	TokenId *types.TokenTypeId
+	TokenId types.TokenTypeId
 
-	QuotaFee    *big.Int
-	ContractFee *big.Int
+	Quota uint64
+	Fee   *big.Int
 
-	SnapshotHash *types.Hash
-	Data         string
+	SnapshotHash types.Hash
+	Data         []byte
 
-	Timestamp int64
-	StateHash *types.Hash
-	LogHash   *types.Hash
+	Timestamp *time.Time
+	StateHash types.Hash
+	LogHash   types.Hash
 
 	Nonce             []byte
-	SendBlockHashList []*types.Hash
+	SendBlockHashList []types.Hash
 	Signature         []byte
 }
 
-func (*AccountBlock) GetComputeHash() *types.Hash {
-	return nil
+// TODO: compute send block hash
+
+func (*AccountBlock) GetComputeHash() types.Hash {
+	hash, _ := types.BytesToHash([]byte("abcdeabcdeabcdeabcde"))
+	return hash
 }
 
 func (*AccountBlock) VerifySignature() bool {
@@ -89,5 +102,21 @@ func (*AccountBlock) FileSerialize([]byte) ([]byte, error) {
 }
 
 func (*AccountBlock) FileDeserialize([]byte) error {
+	return nil
+}
+
+func GenesesMintageBlock() *AccountBlock {
+	return nil
+}
+
+func GenesesMintageReceiveBlock() *AccountBlock {
+	return nil
+}
+
+func GenesesCreateGroupBlock() *AccountBlock {
+	return nil
+}
+
+func GenesesCreateGroupReceiveBlock() *AccountBlock {
 	return nil
 }

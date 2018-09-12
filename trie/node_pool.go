@@ -16,8 +16,8 @@ type TrieNodePool struct {
 func NewTrieNodePool() *TrieNodePool {
 	return &TrieNodePool{
 		nodes:    make(map[types.Hash]*TrieNode),
-		limit:    1000000,
-		clearNum: 200000,
+		limit:    10000000,
+		clearNum: 1000000,
 	}
 }
 

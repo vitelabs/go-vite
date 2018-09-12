@@ -3,7 +3,7 @@ package ledger
 import "github.com/vitelabs/go-vite/common/types"
 
 type VmLog struct {
-	Topics []*types.Hash
+	Topics []types.Hash
 	Data   []byte
 }
 
