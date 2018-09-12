@@ -4,27 +4,23 @@ import (
 	"bytes"
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
+	"time"
 )
-
-type VmToken struct {
-	tokenId     types.TokenTypeId
-	tokenName   string
-	owner       types.Address
-	totalSupply *big.Int
-	decimals    uint64
-}
 
 type NoDatabase struct {
 	balanceMap        map[types.Address]map[types.TokenTypeId]*big.Int
 	storageMap        map[types.Address]map[types.Hash][]byte
 	codeMap           map[types.Address][]byte
 	contractGidMap    map[types.Address]types.Gid
-	logList           []Log
-	snapshotBlockList []VmSnapshotBlock
-	accountBlockMap   map[types.Address]map[types.Hash]VmAccountBlock
-	tokenMap          map[types.TokenTypeId]VmToken
+	logList           []*ledger.VmLog
+	snapshotBlockList []*ledger.SnapshotBlock
+	accountBlockMap   map[types.Address]map[types.Hash]*ledger.AccountBlock
+	tokenMap          map[types.TokenTypeId]*ledger.Token
+	addr              types.Address
 }
 
 func NewNoDatabase() *NoDatabase {
@@ -35,125 +31,115 @@ func NewNoDatabase() *NoDatabase {
 		storageMap:        make(map[types.Address]map[types.Hash][]byte),
 		codeMap:           make(map[types.Address][]byte),
 		contractGidMap:    make(map[types.Address]types.Gid),
-		logList:           make([]Log, 0),
-		snapshotBlockList: make([]VmSnapshotBlock, 0),
-		accountBlockMap:   make(map[types.Address]map[types.Hash]VmAccountBlock),
-		tokenMap:          make(map[types.TokenTypeId]VmToken),
+		logList:           make([]*ledger.VmLog, 0),
+		snapshotBlockList: make([]*ledger.SnapshotBlock, 0),
+		accountBlockMap:   make(map[types.Address]map[types.Hash]*ledger.AccountBlock),
+		tokenMap:          make(map[types.TokenTypeId]*ledger.Token),
 	}
 }
 
-func (db *NoDatabase) Balance(addr types.Address, tokenId types.TokenTypeId) *big.Int {
-	if balance, ok := db.balanceMap[addr][tokenId]; ok {
+func (db *NoDatabase) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
+	if balance, ok := db.balanceMap[db.addr][*tokenTypeId]; ok {
 		return new(big.Int).Set(balance)
 	} else {
 		return big.NewInt(0)
 	}
 }
-func (db *NoDatabase) SubBalance(addr types.Address, tokenId types.TokenTypeId, amount *big.Int) {
-	balance, ok := db.balanceMap[addr][tokenId]
+func (db *NoDatabase) SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+	balance, ok := db.balanceMap[db.addr][*tokenTypeId]
 	if ok && balance.Cmp(amount) >= 0 {
-		db.balanceMap[addr][tokenId] = new(big.Int).Sub(balance, amount)
+		db.balanceMap[db.addr][*tokenTypeId] = new(big.Int).Sub(balance, amount)
 	}
 }
-func (db *NoDatabase) AddBalance(addr types.Address, tokenId types.TokenTypeId, amount *big.Int) {
-	if balance, ok := db.balanceMap[addr][tokenId]; ok {
-		db.balanceMap[addr][tokenId] = new(big.Int).Add(balance, amount)
+func (db *NoDatabase) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+	if balance, ok := db.balanceMap[db.addr][*tokenTypeId]; ok {
+		db.balanceMap[db.addr][*tokenTypeId] = new(big.Int).Add(balance, amount)
 	} else {
-		if _, ok := db.balanceMap[addr]; !ok {
-			db.balanceMap[addr] = make(map[types.TokenTypeId]*big.Int)
+		if _, ok := db.balanceMap[db.addr]; !ok {
+			db.balanceMap[db.addr] = make(map[types.TokenTypeId]*big.Int)
 		}
-		db.balanceMap[addr][tokenId] = amount
+		db.balanceMap[db.addr][*tokenTypeId] = amount
 	}
 
 }
-func (db *NoDatabase) SnapshotBlock(snapshotHash types.Hash) VmSnapshotBlock {
+func (db *NoDatabase) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock {
 	for len := len(db.snapshotBlockList) - 1; len >= 0; len = len - 1 {
 		block := db.snapshotBlockList[len]
-		if bytes.Equal(block.Hash().Bytes(), snapshotHash.Bytes()) {
+		if bytes.Equal(block.Hash.Bytes(), hash.Bytes()) {
 			return block
 		}
 	}
 	return nil
 
 }
-func (db *NoDatabase) SnapshotBlockByHeight(height *big.Int) VmSnapshotBlock {
-	if int(height.Int64()) < len(db.snapshotBlockList) {
-		return db.snapshotBlockList[height.Int64()-1]
+func (db *NoDatabase) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
+	if height < uint64(len(db.snapshotBlockList)) {
+		return db.snapshotBlockList[height-1]
 	}
 	return nil
 }
-func (db *NoDatabase) SnapshotBlockList(startHeight *big.Int, count uint64, forward bool) []VmSnapshotBlock {
+func (db *NoDatabase) GetSnapshotBlocks(startHeight uint64, count uint64, forward bool) []*ledger.SnapshotBlock {
 	if forward {
-		start := startHeight.Uint64()
+		start := startHeight
 		end := start + count
 		return db.snapshotBlockList[start:end]
 	} else {
-		end := startHeight.Uint64() - 1
+		end := startHeight - 1
 		start := end - count
 		return db.snapshotBlockList[start:end]
 	}
 }
 
-func (db *NoDatabase) SnapshotHeight(snapshotHash types.Hash) *big.Int {
-	block := db.SnapshotBlock(snapshotHash)
-	if block != nil {
-		return block.Height()
-	} else {
-		return big.NewInt(0)
-	}
-}
-func (db *NoDatabase) AccountBlock(addr types.Address, blockHash types.Hash) VmAccountBlock {
-	if VmAccountBlock, ok := db.accountBlockMap[addr][blockHash]; ok {
-		return VmAccountBlock
+func (db *NoDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
+	if block, ok := db.accountBlockMap[db.addr][*hash]; ok {
+		return block
 	} else {
 		return nil
 	}
 }
-func (db *NoDatabase) Rollback() {}
-func (db *NoDatabase) IsExistAddress(addr types.Address) bool {
-	_, ok := db.accountBlockMap[addr]
+func (db *NoDatabase) Reset() {}
+func (db *NoDatabase) IsAddressExisted(addr *types.Address) bool {
+	_, ok := db.accountBlockMap[*addr]
 	if !ok {
-		_, ok := getPrecompiledContract(addr)
+		_, ok := getPrecompiledContract(*addr)
 		return ok
 	}
 	return ok
 }
-func (db *NoDatabase) IsExistToken(tokenId types.TokenTypeId) bool {
-	_, ok := db.tokenMap[tokenId]
-	return ok
+func (db *NoDatabase) GetToken(id *types.TokenTypeId) *ledger.Token {
+	return db.tokenMap[*id]
 }
-func (db *NoDatabase) CreateToken(tokenId types.TokenTypeId, tokenName string, owner types.Address, totelSupply *big.Int, decimals uint64) bool {
-	if _, ok := db.tokenMap[tokenId]; !ok {
-		db.tokenMap[tokenId] = VmToken{tokenId: tokenId, tokenName: tokenName, owner: owner, totalSupply: totelSupply, decimals: decimals}
-		return true
-	} else {
-		return false
+func (db *NoDatabase) SetToken(token *ledger.Token) {
+	if _, ok := db.tokenMap[token.TokenId]; !ok {
+		db.tokenMap[token.TokenId] = token
 	}
 }
-func (db *NoDatabase) SetContractGid(addr types.Address, gid types.Gid, open bool) {}
-func (db *NoDatabase) SetContractCode(addr types.Address, gid types.Gid, code []byte) {
-	db.codeMap[addr] = code
-	db.contractGidMap[addr] = gid
+func (db *NoDatabase) SetContractGid(gid *types.Gid, addr *types.Address, open bool) {}
+func (db *NoDatabase) SetContractCode(gid *types.Gid, code []byte) {
+	db.codeMap[db.addr] = code
+	db.contractGidMap[db.addr] = *gid
 }
-func (db *NoDatabase) ContractCode(addr types.Address) []byte {
-	if code, ok := db.codeMap[addr]; ok {
+func (db *NoDatabase) GetContractCode(addr *types.Address) []byte {
+	if code, ok := db.codeMap[*addr]; ok {
 		return code
 	} else {
 		return nil
 	}
 }
-func (db *NoDatabase) Storage(addr types.Address, loc types.Hash) []byte {
-	if data, ok := db.storageMap[addr][loc]; ok {
+func (db *NoDatabase) GetStorage(addr *types.Address, key []byte) []byte {
+	locHash, _ := types.BytesToHash(key)
+	if data, ok := db.storageMap[*addr][locHash]; ok {
 		return data
 	} else {
 		return []byte{}
 	}
 }
-func (db *NoDatabase) SetStorage(addr types.Address, loc types.Hash, value []byte) {
-	if _, ok := db.storageMap[addr]; !ok {
-		db.storageMap[addr] = make(map[types.Hash][]byte)
+func (db *NoDatabase) SetStorage(key []byte, value []byte) {
+	locHash, _ := types.BytesToHash(key)
+	if _, ok := db.storageMap[db.addr]; !ok {
+		db.storageMap[db.addr] = make(map[types.Hash][]byte)
 	}
-	db.storageMap[addr][loc] = value
+	db.storageMap[db.addr][locHash] = value
 }
 func (db *NoDatabase) PrintStorage(addr types.Address) string {
 	if storage, ok := db.storageMap[addr]; ok {
@@ -166,71 +152,71 @@ func (db *NoDatabase) PrintStorage(addr types.Address) string {
 		return ""
 	}
 }
-func (db *NoDatabase) StorageHash(addr types.Address) types.Hash {
-	return util.EmptyHash
+func (db *NoDatabase) GetStorageHash() *types.Hash {
+	return &util.EmptyHash
 }
-func (db *NoDatabase) AddLog(log *Log) {
-	db.logList = append(db.logList, *log)
+func (db *NoDatabase) AddLog(log *ledger.VmLog) {
+	db.logList = append(db.logList, log)
 }
-func (db *NoDatabase) LogListHash() types.Hash {
-	return util.EmptyHash
+func (db *NoDatabase) GetLogListHash() *types.Hash {
+	return &util.EmptyHash
 }
 
-func (db *NoDatabase) GetDbIteratorByPrefix(prefix []byte) DbIterator {
+func (db *NoDatabase) NewStorageIterator(prefix []byte) *vm_context.StorageIterator {
 	// TODO
 	return nil
 }
 
-func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, hash12 types.Hash, snapshot2 *NoSnapshotBlock, timestamp int64) {
+func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {
 	addr1, _ = types.BytesToAddress(util.HexToBytes("CA35B7D915458EF540ADE6068DFE2F44E8FA733C"))
 	db = NewNoDatabase()
-	db.tokenMap[util.ViteTokenTypeId] = VmToken{tokenId: util.ViteTokenTypeId, tokenName: "ViteToken", owner: addr1, totalSupply: viteTotalSupply, decimals: 18}
+	db.tokenMap[*ledger.ViteTokenId()] = &ledger.Token{TokenId: *ledger.ViteTokenId(), TokenName: "ViteToken", TotalSupply: viteTotalSupply, Decimals: 18}
 
 	timestamp = 1536214502
-	snapshot1 := &NoSnapshotBlock{height: big.NewInt(1), timestamp: timestamp - 1, hash: types.DataHash([]byte{10, 1})}
+	t1 := time.Unix(timestamp-1, 0)
+	snapshot1 := &ledger.SnapshotBlock{Height: 1, Timestamp: &t1, Hash: types.DataHash([]byte{10, 1})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
-	snapshot2 = &NoSnapshotBlock{height: big.NewInt(2), timestamp: timestamp, hash: types.DataHash([]byte{10, 2})}
+	t2 := time.Unix(timestamp, 0)
+	snapshot2 = &ledger.SnapshotBlock{Height: 2, Timestamp: &t2, Hash: types.DataHash([]byte{10, 2})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot2)
 
 	hash11 := types.DataHash([]byte{1, 1})
-	block11 := &NoAccountBlock{
-		height:         big.NewInt(1),
-		toAddress:      addr1,
-		accountAddress: addr1,
-		blockType:      BlockTypeSendCall,
-		amount:         viteTotalSupply,
-		tokenId:        util.ViteTokenTypeId,
-		snapshotHash:   snapshot1.Hash(),
-		depth:          1,
+	block11 := &ledger.AccountBlock{
+		Height:         1,
+		ToAddress:      addr1,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeSendCall,
+		Amount:         viteTotalSupply,
+		TokenId:        *ledger.ViteTokenId(),
+		SnapshotHash:   snapshot1.Hash,
 	}
-	db.accountBlockMap[addr1] = make(map[types.Hash]VmAccountBlock)
+	db.accountBlockMap[addr1] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr1][hash11] = block11
 	hash12 = types.DataHash([]byte{1, 2})
-	block12 := &NoAccountBlock{
-		height:         big.NewInt(2),
-		toAddress:      addr1,
-		accountAddress: addr1,
-		fromBlockHash:  hash11,
-		blockType:      BlockTypeReceive,
-		prevHash:       hash11,
-		amount:         viteTotalSupply,
-		tokenId:        util.ViteTokenTypeId,
-		snapshotHash:   snapshot1.Hash(),
-		depth:          1,
+	block12 := &ledger.AccountBlock{
+		Height:         2,
+		ToAddress:      addr1,
+		AccountAddress: addr1,
+		FromBlockHash:  hash11,
+		BlockType:      ledger.BlockTypeReceive,
+		PrevHash:       hash11,
+		Amount:         viteTotalSupply,
+		TokenId:        *ledger.ViteTokenId(),
+		SnapshotHash:   snapshot1.Hash,
 	}
 	db.accountBlockMap[addr1][hash12] = block12
 
 	db.balanceMap[addr1] = make(map[types.TokenTypeId]*big.Int)
-	db.balanceMap[addr1][util.ViteTokenTypeId] = new(big.Int).Set(db.tokenMap[util.ViteTokenTypeId].totalSupply)
+	db.balanceMap[addr1][*ledger.ViteTokenId()] = new(big.Int).Set(db.tokenMap[*ledger.ViteTokenId()].TotalSupply)
 
 	db.storageMap[AddressConsensusGroup] = make(map[types.Hash][]byte)
 	db.storageMap[AddressConsensusGroup][types.DataHash(util.SnapshotGid.Bytes())], _ = ABI_consensusGroup.PackVariable(VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
 		uint8(1),
-		util.LeftPadBytes(util.ViteTokenTypeId.Bytes(), 32),
+		util.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32),
 		uint8(1),
-		util.JoinBytes(util.LeftPadBytes(registerAmount.Bytes(), 32), util.LeftPadBytes(util.ViteTokenTypeId.Bytes(), 32), util.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), 32)),
+		util.JoinBytes(util.LeftPadBytes(registerAmount.Bytes(), 32), util.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32), util.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), 32)),
 		uint8(1),
 		[]byte{})
 

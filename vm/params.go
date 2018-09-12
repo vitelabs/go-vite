@@ -63,6 +63,10 @@ const (
 
 	quotaForPoW uint64 = 21000
 
+	rewardHeightLimit     uint64 = 50
+	rewardGapLimit        uint64 = 30000000
+	getBlockByHeightLimit uint64 = 256
+
 	//GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
 	//MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.
 	//GenesisGasLimit      uint64 = 4712388 // Gas limit of the Genesis block.
@@ -100,10 +104,7 @@ var (
 
 	quotaByCreateFeeAttov   = big.NewInt(1e9)
 	quotaByPledge           = big.NewInt(1e9)
-	rewardHeightLimit       = big.NewInt(50)
-	rewardGapLimit          = big.NewInt(30000000)
 	rewardPerBlock          = attovPerVite
-	dbPageSizeBig           = new(big.Int).SetUint64(dbPageSize)
 	attovPerVite            = big.NewInt(1e18)
 	registerAmount          = new(big.Int).Mul(big.NewInt(1e6), attovPerVite)
 	createConsensusGroupFee = new(big.Int).Mul(big.NewInt(1e6), attovPerVite)

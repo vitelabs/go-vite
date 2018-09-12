@@ -14,5 +14,5 @@ type Token struct {
 }
 
 func ViteTokenId() *types.TokenTypeId {
-	return nil
+	return &types.TokenTypeId{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 }

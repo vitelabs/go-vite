@@ -2,51 +2,39 @@ package vm
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 )
 
-type Log struct {
-	// list of topics provided by the contract
-	Topics []types.Hash
-	// supplied by the contract, usually ABI-encoded
-	Data []byte
-}
-
 type VmDatabase interface {
-	Balance(addr types.Address, tokenId types.TokenTypeId) *big.Int
-	SubBalance(addr types.Address, tokenId types.TokenTypeId, amount *big.Int)
-	AddBalance(addr types.Address, tokenId types.TokenTypeId, amount *big.Int)
-
-	SnapshotBlock(snapshotHash types.Hash) VmSnapshotBlock
-	SnapshotBlockByHeight(height *big.Int) VmSnapshotBlock
+	GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int
+	AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int)
+	SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int)
+	GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock
+	GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock
 	// forward=true return (startHeight, startHeight+count], forward=false return [startHeight-count, start)
-	SnapshotBlockList(startHeight *big.Int, count uint64, forward bool) []VmSnapshotBlock
+	GetSnapshotBlocks(startHeight uint64, count uint64, forward bool) []*ledger.SnapshotBlock
 
-	AccountBlock(addr types.Address, blockHash types.Hash) VmAccountBlock
+	GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock
 
-	Rollback()
+	Reset()
 
-	IsExistAddress(addr types.Address) bool
+	IsAddressExisted(addr *types.Address) bool
 
-	IsExistToken(tokenId types.TokenTypeId) bool
-	CreateToken(tokenId types.TokenTypeId, tokenName string, owner types.Address, totelSupply *big.Int, decimals uint64) bool
+	GetToken(id *types.TokenTypeId) *ledger.Token
+	SetToken(token *ledger.Token)
 
-	SetContractGid(addr types.Address, gid types.Gid, open bool)
-	SetContractCode(addr types.Address, gid types.Gid, code []byte)
-	ContractCode(addr types.Address) []byte
+	SetContractGid(gid *types.Gid, addr *types.Address, open bool)
+	SetContractCode(gid *types.Gid, code []byte)
+	GetContractCode(addr *types.Address) []byte
 
-	Storage(addr types.Address, loc types.Hash) []byte
-	SetStorage(addr types.Address, loc types.Hash, value []byte)
-	PrintStorage(addr types.Address) string
-	StorageHash(addr types.Address) types.Hash
+	GetStorage(addr *types.Address, key []byte) []byte
+	SetStorage(key []byte, value []byte)
+	GetStorageHash() *types.Hash
 
-	AddLog(*Log)
-	LogListHash() types.Hash
+	AddLog(log *ledger.VmLog)
+	GetLogListHash() *types.Hash
 
-	GetDbIteratorByPrefix(prefix []byte) DbIterator
-}
-
-type DbIterator interface {
-	HasNext() bool
-	Next() (key, value []byte)
+	NewStorageIterator(prefix []byte) *vm_context.StorageIterator
 }

@@ -7,10 +7,13 @@ import (
 
 // get register address of gid
 func GetRegisterList(db VmDatabase, gid types.Gid) []types.Address {
-	iterator := db.GetDbIteratorByPrefix(gid.Bytes())
+	iterator := db.NewStorageIterator(gid.Bytes())
 	registerList := make([]types.Address, 0)
-	for iterator.HasNext() {
-		key, value := iterator.Next()
+	for {
+		key, value, ok := iterator.Next()
+		if !ok {
+			break
+		}
 		registration := new(VariableRegistration)
 		ABI_register.UnpackVariable(registration, VariableNameRegistration, value)
 		if registration.Amount.Sign() > 0 {
@@ -22,10 +25,13 @@ func GetRegisterList(db VmDatabase, gid types.Gid) []types.Address {
 
 // get voters of gid, return map<voter, super node>
 func GetVoteMap(db VmDatabase, gid types.Gid) map[types.Address]types.Address {
-	iterator := db.GetDbIteratorByPrefix(gid.Bytes())
+	iterator := db.NewStorageIterator(gid.Bytes())
 	voteMap := make(map[types.Address]types.Address)
-	for iterator.HasNext() {
-		key, value := iterator.Next()
+	for {
+		key, value, ok := iterator.Next()
+		if !ok {
+			break
+		}
 		voterAddr := getAddr(key)
 		registerAddr := new(types.Address)
 		ABI_vote.UnpackVariable(registerAddr, VariableNameVoteStatus, value)
@@ -36,9 +42,9 @@ func GetVoteMap(db VmDatabase, gid types.Gid) map[types.Address]types.Address {
 
 // get beneficial pledge amount
 func GetPledgeAmount(db VmDatabase, beneficial types.Address) *big.Int {
-	locHash := types.DataHash(beneficial.Bytes())
+	locHash := types.DataHash(beneficial.Bytes()).Bytes()
 	beneficialAmount := new(VariablePledgeBeneficial)
-	err := ABI_pledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.Storage(AddressPledge, locHash))
+	err := ABI_pledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, locHash))
 	if err == nil {
 		return beneficialAmount.Amount
 	}
@@ -47,10 +53,13 @@ func GetPledgeAmount(db VmDatabase, beneficial types.Address) *big.Int {
 
 // get all consensus group info
 func GetConsensusGroupList(db VmDatabase) []*VariableConsensusGroupInfo {
-	iterator := db.GetDbIteratorByPrefix(nil)
+	iterator := db.NewStorageIterator(nil)
 	consensusGroupInfoList := make([]*VariableConsensusGroupInfo, 0)
-	for iterator.HasNext() {
-		_, value := iterator.Next()
+	for {
+		_, value, ok := iterator.Next()
+		if !ok {
+			break
+		}
 		consensusGroupInfo := new(VariableConsensusGroupInfo)
 		ABI_pledge.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value)
 		consensusGroupInfoList = append(consensusGroupInfoList, consensusGroupInfo)
@@ -60,7 +69,7 @@ func GetConsensusGroupList(db VmDatabase) []*VariableConsensusGroupInfo {
 
 // get consensus group info by gid
 func GetConsensusGroup(db VmDatabase, gid types.Gid) *VariableConsensusGroupInfo {
-	data := db.Storage(AddressConsensusGroup, types.DataHash(gid.Bytes()))
+	data := db.GetStorage(&AddressConsensusGroup, types.DataHash(gid.Bytes()).Bytes())
 	if len(data) > 0 {
 		consensusGroupInfo := new(VariableConsensusGroupInfo)
 		ABI_pledge.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)

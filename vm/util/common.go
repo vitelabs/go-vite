@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 )
 
@@ -36,12 +37,11 @@ var (
 	EmptyWord        = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 	// TODO system id
-	ViteTokenTypeId = types.TokenTypeId{}
-	SnapshotGid     = types.Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+	SnapshotGid = types.Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 )
 
 func IsViteToken(tokenId types.TokenTypeId) bool {
-	return bytes.Equal(tokenId.Bytes(), ViteTokenTypeId.Bytes())
+	return bytes.Equal(tokenId.Bytes(), ledger.ViteTokenId().Bytes())
 }
 func IsSnapshotGid(gid types.Gid) bool {
 	return bytes.Equal(gid.Bytes(), SnapshotGid.Bytes())

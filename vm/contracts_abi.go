@@ -32,8 +32,8 @@ const json_register = `
 [
 	{"type":"function","name":"Register", "inputs":[{"name":"gid","type":"gid"}]},
 	{"type":"function","name":"CancelRegister","inputs":[{"name":"gid","type":"gid"}]},
-	{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"endHeight","type":"uint256"},{"name":"startHeight","type":"uint256"},{"name":"amount","type":"uint256"}]},
-	{"type":"variable","name":"registration","inputs":[{"name":"amount","type":"uint256"},{"name":"timestamp","type":"int64"},{"name":"rewardHeight","type":"uint256"},{"name":"cancelHeight","type":"uint256"}]}
+	{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"endHeight","type":"uint64"},{"name":"startHeight","type":"uint64"},{"name":"amount","type":"uint256"}]},
+	{"type":"variable","name":"registration","inputs":[{"name":"amount","type":"uint256"},{"name":"timestamp","type":"int64"},{"name":"rewardHeight","type":"uint64"},{"name":"cancelHeight","type":"uint64"}]}
 ]`
 const json_vote = `
 [
@@ -67,13 +67,13 @@ var (
 type VariableRegistration struct {
 	Amount       *big.Int
 	Timestamp    int64
-	RewardHeight *big.Int
-	CancelHeight *big.Int
+	RewardHeight uint64
+	CancelHeight uint64
 }
 type ParamReward struct {
 	Gid         types.Gid
-	EndHeight   *big.Int
-	StartHeight *big.Int
+	EndHeight   uint64
+	StartHeight uint64
 	Amount      *big.Int
 }
 type ParamVote struct {
@@ -105,17 +105,14 @@ type VariableConsensusGroupInfo struct {
 	VoteConditionId        uint8
 	VoteConditionParam     []byte
 }
-type VariableConditionCounting1 struct {
-	tokenId types.TokenTypeId
-}
 type VariableConditionRegister1 struct {
-	pledgeAmount *big.Int
-	pledgeToken  types.TokenTypeId
-	pledgeTime   int64
+	PledgeAmount *big.Int
+	PledgeToken  types.TokenTypeId
+	PledgeTime   int64
 }
 type VariableConditionVote2 struct {
-	keepAmount *big.Int
-	keepToken  types.TokenTypeId
+	KeepAmount *big.Int
+	KeepToken  types.TokenTypeId
 }
 type ParamCreateConsensusGroup struct {
 	Gid types.Gid

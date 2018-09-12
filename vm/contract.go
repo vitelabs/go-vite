@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/util"
 	"sync/atomic"
@@ -19,12 +20,12 @@ type contract struct {
 	jumpdests              destinations
 	code                   []byte
 	codeAddr               types.Address
-	block                  VmAccountBlock
+	block                  *ledger.AccountBlock
 	quotaLeft, quotaRefund uint64
 	intPool                *intPool
 }
 
-func newContract(caller types.Address, address types.Address, block VmAccountBlock, quotaLeft, quotaRefund uint64) *contract {
+func newContract(caller types.Address, address types.Address, block *ledger.AccountBlock, quotaLeft, quotaRefund uint64) *contract {
 	return &contract{caller: caller,
 		address:     address,
 		block:       block,
@@ -113,7 +114,7 @@ func (c *contract) run(vm *VM) (ret []byte, err error) {
 		if vm.Debug {
 			logger.Info("current code", "code", hex.EncodeToString(c.code[currentPc:]))
 			fmt.Printf("code: %v \n", hex.EncodeToString(c.code[currentPc:]))
-			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemo ry: [%v]\nstorage: [%v]\nquotaLeft: %v, quotaRefund: %v\n", opCodeToString[op], currentPc, st.print(), mem.print(), vm.Db.PrintStorage(c.address), c.quotaLeft, c.quotaRefund)
+			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemo ry: [%v]\nquotaLeft: %v, quotaRefund: %v\n", opCodeToString[op], currentPc, st.print(), mem.print(), c.quotaLeft, c.quotaRefund)
 			fmt.Println("--------------------")
 		}
 
