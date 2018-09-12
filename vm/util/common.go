@@ -35,16 +35,13 @@ var (
 	EmptyAddress     = types.Address{}
 	EmptyTokenTypeId = types.TokenTypeId{}
 	EmptyWord        = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-
-	// TODO system id
-	SnapshotGid = types.Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 )
 
 func IsViteToken(tokenId types.TokenTypeId) bool {
 	return bytes.Equal(tokenId.Bytes(), ledger.ViteTokenId().Bytes())
 }
 func IsSnapshotGid(gid types.Gid) bool {
-	return bytes.Equal(gid.Bytes(), SnapshotGid.Bytes())
+	return bytes.Equal(gid.Bytes(), ledger.CommonGid().Bytes())
 }
 
 // ToWordSize returns the ceiled word size required for memory expansion.

@@ -211,7 +211,7 @@ func (p *register) doReceiveRegister(vm *VM, block *ledger.AccountBlock) error {
 	if len(oldData) > 0 {
 		old := new(VariableRegistration)
 		err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.ToAddress, locHash))
-		if err != nil || old.Amount.Sign() > 0 {
+		if err != nil || old.Timestamp > 0 {
 			// duplicate register
 			return ErrInvalidData
 		}
@@ -232,7 +232,7 @@ func (p *register) doReceiveCancelRegister(vm *VM, block *ledger.AccountBlock) e
 	locHash := getKey(block.AccountAddress, *gid)
 	old := new(VariableRegistration)
 	err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.ToAddress, locHash))
-	if err != nil || old.Amount.Sign() == 0 {
+	if err != nil || old.Timestamp == 0 {
 		return ErrInvalidData
 	}
 
@@ -241,8 +241,10 @@ func (p *register) doReceiveCancelRegister(vm *VM, block *ledger.AccountBlock) e
 	registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, common.Big0, int64(0), old.RewardHeight, snapshotBlock.Height)
 	vm.Db.SetStorage(locHash, registerInfo)
 	// return locked ViteToken
-	refundBlock := &ledger.AccountBlock{AccountAddress: block.ToAddress, ToAddress: block.AccountAddress, BlockType: ledger.BlockTypeSendCall, Amount: old.Amount, TokenId: *ledger.ViteTokenId(), Height: block.Height + 1}
-	vm.blockList = append(vm.blockList, refundBlock)
+	if old.Amount.Sign() > 0 {
+		refundBlock := &ledger.AccountBlock{AccountAddress: block.ToAddress, ToAddress: block.AccountAddress, BlockType: ledger.BlockTypeSendCall, Amount: old.Amount, TokenId: *ledger.ViteTokenId(), Height: block.Height + 1}
+		vm.blockList = append(vm.blockList, refundBlock)
+	}
 	return nil
 }
 func (p *register) doReceiveReward(vm *VM, block *ledger.AccountBlock) error {

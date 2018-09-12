@@ -155,7 +155,7 @@ func (vm *VM) receiveCreate(block *ledger.AccountBlock, quotaTotal uint64) (bloc
 		if err == nil {
 			codeHash, _ := types.BytesToHash(code)
 			gid, _ := types.BytesToGid(blockData[:10])
-			vm.Db.SetContractCode(&gid, code)
+			vm.Db.SetContractCode(code)
 			vm.updateBlock(block, block.ToAddress, nil, 0, codeHash.Bytes())
 			err = vm.doSendBlockList(quotaTotal - block.Quota)
 			if err == nil {
@@ -317,10 +317,10 @@ func (vm *VM) receiveMintage(block *ledger.AccountBlock) (blockList []*ledger.Ac
 	if err != nil {
 		return nil, util.Retry, err
 	}
-	decimals := new(big.Int).SetBytes(block.Data[32:64]).Int64()
-	tokenName := util.BytesToString(block.Data[96:])
+	param := new(VariableMintage)
+	ABI_mintage.UnpackVariable(param, VariableNameMintage, block.Data)
 	if vm.Db.GetToken(&block.TokenId) != nil {
-		vm.Db.SetToken(&ledger.Token{TokenId: block.TokenId, TokenName: tokenName, TotalSupply: block.Amount, Decimals: int(decimals)})
+		vm.Db.SetToken(&ledger.Token{TokenId: block.TokenId, TokenName: param.TokenName, TotalSupply: block.Amount, Decimals: int(param.Decimals)})
 		vm.updateBlock(block, block.AccountAddress, ErrIdCollision, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, ErrIdCollision), nil)
 		return vm.blockList, util.NoRetry, ErrIdCollision
 	}
@@ -397,6 +397,7 @@ func (vm *VM) quotaLeft(addr types.Address, block *ledger.AccountBlock) (uint64,
 
 func (vm *VM) updateBlock(block *ledger.AccountBlock, addr types.Address, err error, quota uint64, result []byte) {
 	block.Quota = quota
+	block.StateHash = *vm.Db.GetStorageHash()
 	if block.BlockType == ledger.BlockTypeReceive || block.BlockType == ledger.BlockTypeReceiveError {
 		// data = fixed byte of execution result + result
 		if err == nil {
@@ -407,7 +408,6 @@ func (vm *VM) updateBlock(block *ledger.AccountBlock, addr types.Address, err er
 			block.Data = append(DataResultPrefixFail, result...)
 		}
 
-		block.StorageHash = *vm.Db.GetStorageHash()
 		block.LogHash = *vm.Db.GetLogListHash()
 		if err == ErrOutOfQuota {
 			block.BlockType = ledger.BlockTypeReceiveError
@@ -465,25 +465,15 @@ func (vm *VM) canTransfer(addr types.Address, tokenTypeId types.TokenTypeId, tok
 }
 
 func (vm *VM) checkToken(data []byte) error {
-	if len(data) != 128 {
+	param := new(VariableMintage)
+	err := ABI_mintage.UnpackVariable(param, VariableNameMintage, data)
+	if err != nil {
 		return ErrInvalidData
 	}
-	if !bytes.Equal(data[0:32], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64}) {
+	if param.Decimals < tokenDecimalsMin || param.Decimals > tokenDecimalsMax {
 		return ErrInvalidData
 	}
-	decimals := new(big.Int).SetBytes(data[32:64]).Uint64()
-	if decimals <= tokenDecimalsMin || decimals > tokenDecimalsMax {
-		return ErrInvalidData
-	}
-	length := int(new(big.Int).SetBytes(data[64:96]).Uint64())
-	if length > tokenNameLengthLimit {
-		return ErrInvalidData
-	}
-	tokenName := util.BytesToString(data[96:])
-	if len(tokenName) != length {
-		return ErrInvalidData
-	}
-	if ok, _ := regexp.MatchString("^[a-zA-Z]+$", tokenName); !ok {
+	if ok, _ := regexp.MatchString("^[a-zA-Z]+$", param.TokenName); !ok {
 		return ErrInvalidData
 	}
 	return nil

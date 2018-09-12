@@ -14,5 +14,5 @@ type ConsensusGroup struct {
 }
 
 func CommonGid() *types.Gid {
-	return nil
+	return &types.Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 }
