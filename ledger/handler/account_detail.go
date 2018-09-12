@@ -132,3 +132,7 @@ func (ac *AccountChain) GetUnconfirmedTxBlocks(index, num, count int, addr *type
 	}
 	return blocks, nil
 }
+
+func (ac *AccountChain) GetToken(tti types.TokenTypeId) (*ledger.Token, error) {
+	return ac.tAccess.GetByTokenId(&tti)
+}

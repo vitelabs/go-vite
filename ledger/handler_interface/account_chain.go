@@ -25,6 +25,7 @@ type AccountChain interface {
 	GetAccount(accountAddress *types.Address) (*Account, error)
 	Download(peer *protoTypes.Peer, needSyncData []*access.WscNeedSyncErrData)
 	GetUnconfirmedTxBlocks(index, num, count int, addr *types.Address) ([]*ledger.AccountBlock, error)
+	GetToken(tti types.TokenTypeId) (*ledger.Token, error)
 }
 
 // pack the data for handler

@@ -40,6 +40,8 @@ func Help() {
 	fmt.Println("maykeystore:                            maykeystore")
 	fmt.Println("walletdatedir:                          get walletdatedir")
 	fmt.Println("getLatest [address]:                    getLatest blocks")
+	fmt.Println("getToken [tti]:                         get token info")
+	fmt.Println("getBlocksByHash [address][hash][count]: getBlocksByHash")
 	fmt.Println("quit:                                   quit")
 }
 
@@ -128,6 +130,12 @@ func Cmd(client *rpc.Client) {
 		} else if strings.HasPrefix(input, "getLatest") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			GetLatestBlock(client, param[0])
+		} else if strings.HasPrefix(input, "getTokenInfo") {
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			GetTokenInfo(client, param[0])
+		} else if strings.HasPrefix(input, "getBlocksByHash") {
+			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
+			GetBlocksByHash(client, param)
 		} else if strings.HasPrefix(input, "help") {
 			Help()
 		} else {
@@ -219,6 +227,18 @@ func ImportPriv(client *rpc.Client, param []string) {
 }
 
 func ExportPriv(client *rpc.Client, param []string) {
+}
+
+func GetTokenInfo(client *rpc.Client, param string) {
+	client.Call(nil, "ledger_getTokenMintage", param)
+}
+
+func GetBlocksByHash(client *rpc.Client, param []string) {
+	if len(param) != 3 {
+		fmt.Println("err params length 1 address 2 hash 3 count")
+	}
+	count, _ := strconv.Atoi(param[2])
+	client.Call(nil, "ledger_getBlocksByHash", param[0], param[1], count)
 }
 
 // net work

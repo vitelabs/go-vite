@@ -98,6 +98,17 @@ func (ra *AccountBlock) ToLedgerAccBlock() (*ledger.AccountBlock, error) {
 	return &la, nil
 }
 
+func LedgerAccBlocksToRpcAccBlocks(lists ledger.AccountBlockList, l *LedgerApi) []AccountBlock {
+	simpleBlocks := make([]AccountBlock, len(lists))
+	for i, v := range lists {
+
+		times := l.getBlockConfirmedTimes(v)
+		block := LedgerAccBlockToRpc(v, times)
+		simpleBlocks[i] = *block
+	}
+	return simpleBlocks
+}
+
 func LedgerAccBlockToRpc(lb *ledger.AccountBlock, confirmedTime *big.Int) *AccountBlock {
 	if lb == nil {
 		return nil

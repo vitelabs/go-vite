@@ -59,6 +59,15 @@ func (l *LedgerApi) CreateTxWithPassphrase(params *SendTxParms) error {
 	return nil
 }
 
+func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash types.Hash, count uint64) ([]AccountBlock, error) {
+	log.Info("GetBlocksByHash")
+	lists, getError := l.ledgerManager.Ac().GetBlocks(&addr, &originBlockHash, count)
+	if getError != nil {
+		return nil, getError.Err
+	}
+	return LedgerAccBlocksToRpcAccBlocks(lists, l), nil
+}
+
 func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]AccountBlock, error) {
 	log.Info("GetBlocksByAccAddr")
 
@@ -73,14 +82,7 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int)
 		return nil, getErr.Err
 	}
 
-	simpleBlocks := make([]AccountBlock, len(list))
-	for i, v := range list {
-
-		times := l.getBlockConfirmedTimes(v)
-		block := LedgerAccBlockToRpc(v, times)
-		simpleBlocks[i] = *block
-	}
-	return simpleBlocks, nil
+	return LedgerAccBlocksToRpcAccBlocks(list, l), nil
 }
 
 func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.Int {
@@ -256,6 +258,19 @@ func (l *LedgerApi) CreateTx(block *AccountBlock) error {
 		return e
 	}
 	return l.ledgerManager.Ac().CreateTx(accountBlock)
+}
+
+func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*ledger.Mintage, error) {
+	log.Info("GetTokenMintage")
+	token, e := l.ledgerManager.Ac().GetToken(tti)
+	if e != nil {
+		return nil, e
+	}
+	if token.Mintage == nil {
+		return nil, errors.New("token.Mintage nil")
+	}
+	return token.Mintage, nil
+
 }
 
 //func (l *LedgerApi) StartAutoConfirmTx(addr []string, reply *string) error {
