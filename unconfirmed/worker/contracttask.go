@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
 	"sync"
 	"time"
@@ -140,7 +139,7 @@ func (task *ContractTask) ProcessAQueue(fItem *model.FromItem) (intoBlackList bo
 			return true
 		}
 
-		gen, err := generator.NewGenerator(task.uAccess.Chain, task.args.SnapshotHash, &block.PrevHash, &block.AccountAddress)
+		gen, err := generator.NewGenerator(task.uAccess.Chain, task.wAccess.KeystoreManager, task.args.SnapshotHash, &block.PrevHash, &block.AccountAddress)
 		if err != nil {
 			task.log.Error("NewGenerator Error", err)
 			return true
@@ -150,14 +149,6 @@ func (task *ContractTask) ProcessAQueue(fItem *model.FromItem) (intoBlackList bo
 			task.log.Error("GenerateTx error ignore, ", "error", err)
 		}
 		blockGen := genResult.BlockGenList[0]
-		//todo: only sign the first block, special care for contract's BlockList returned
-		var signErr error
-		blockGen.Block.Signature, blockGen.Block.PublicKey, signErr =
-			task.wAccess.KeystoreManager.SignData(blockGen.Block.AccountAddress, blockGen.Block.Hash.Bytes())
-		if signErr != nil {
-			task.log.Error("SignData Error", signErr)
-			return true
-		}
 
 		if genResult.BlockGenList == nil {
 			if genResult.IsRetry == true {
@@ -213,7 +204,7 @@ func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) (*led
 	task.log.Info("PackReceiveBlock", "sendBlock",
 		task.log.New("sendBlock.Hash", sendBlock.Hash), task.log.New("sendBlock.To", sendBlock.ToAddress))
 
-	// todo pack the block with task.args
+	// fixme：remaining Nonce to add
 	block := &ledger.AccountBlock{
 		BlockType:         0,
 		Hash:              types.Hash{},
@@ -246,4 +237,3 @@ func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) (*led
 	}
 	return block, nil
 }
-
