@@ -280,7 +280,7 @@ func opNot(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 func opByte(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	th, val := stack.pop(), stack.peek()
 	if th.Cmp(util.Big32) < 0 {
-		b := util.Byte(val, 32, int(th.Int64()))
+		b := util.Byte(val, util.WordSize, int(th.Int64()))
 		val.SetUint64(uint64(b))
 	} else {
 		val.SetUint64(0)
@@ -487,7 +487,7 @@ func opPop(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 
 func opMload(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	offset := stack.pop()
-	val := c.intPool.get().SetBytes(memory.get(offset.Int64(), 32))
+	val := c.intPool.get().SetBytes(memory.get(offset.Int64(), util.WordSize))
 	stack.push(val)
 
 	c.intPool.put(offset)

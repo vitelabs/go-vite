@@ -10,7 +10,7 @@ import (
 // bytes slice
 func packBytesSlice(bytes []byte, l int) []byte {
 	len := packNum(reflect.ValueOf(l))
-	return append(len, util.RightPadBytes(bytes, (l+31)/32*32)...)
+	return append(len, util.RightPadBytes(bytes, (l+util.WordSize-1)/util.WordSize*util.WordSize)...)
 }
 
 // packElement packs the given reflect value according to the abi specification in
@@ -26,24 +26,24 @@ func packElement(t Type, reflectValue reflect.Value) []byte {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
 
-		return util.LeftPadBytes(reflectValue.Bytes(), 32)
+		return util.LeftPadBytes(reflectValue.Bytes(), util.WordSize)
 	case GidTy:
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
 
-		return util.LeftPadBytes(reflectValue.Bytes(), 32)
+		return util.LeftPadBytes(reflectValue.Bytes(), util.WordSize)
 	case TokenIdTy:
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
 
-		return util.LeftPadBytes(reflectValue.Bytes(), 32)
+		return util.LeftPadBytes(reflectValue.Bytes(), util.WordSize)
 	case BoolTy:
 		if reflectValue.Bool() {
-			return util.PaddedBigBytes(util.Big1, 32)
+			return util.PaddedBigBytes(util.Big1, util.WordSize)
 		}
-		return util.PaddedBigBytes(util.Big0, 32)
+		return util.PaddedBigBytes(util.Big0, util.WordSize)
 	case BytesTy:
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
@@ -53,7 +53,7 @@ func packElement(t Type, reflectValue reflect.Value) []byte {
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
-		return util.RightPadBytes(reflectValue.Bytes(), 32)
+		return util.RightPadBytes(reflectValue.Bytes(), util.WordSize)
 	default:
 		panic("abi: fatal error")
 	}

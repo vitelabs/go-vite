@@ -15,6 +15,8 @@ const (
 	WordBits = 32 << (uint64(^big.Word(0)) >> 63)
 	// number of bytes in a big.Word
 	WordBytes = WordBits / 8
+	// number of bytes in a vm word
+	WordSize = 32
 
 	Retry   = true
 	NoRetry = false
@@ -30,11 +32,6 @@ var (
 	Tt255   = BigPow(2, 255)
 	Tt256   = BigPow(2, 256)
 	Tt256m1 = new(big.Int).Sub(Tt256, big.NewInt(1))
-
-	EmptyHash        = types.Hash{}
-	EmptyAddress     = types.Address{}
-	EmptyTokenTypeId = types.TokenTypeId{}
-	EmptyWord        = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 )
 
 func IsViteToken(tokenId types.TokenTypeId) bool {
@@ -46,11 +43,11 @@ func IsSnapshotGid(gid types.Gid) bool {
 
 // ToWordSize returns the ceiled word size required for memory expansion.
 func ToWordSize(size uint64) uint64 {
-	if size > MaxUint64-31 {
-		return MaxUint64/32 + 1
+	if size > MaxUint64-WordSize+1 {
+		return MaxUint64/WordSize + 1
 	}
 
-	return (size + 31) / 32
+	return (size + WordSize - 1) / WordSize
 }
 
 // BigUint64 returns the integer casted to a uint64 and returns whether it

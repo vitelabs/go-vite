@@ -33,6 +33,7 @@ func NewVM(db VmDatabase) *VM {
 }
 
 func (vm *VM) Run(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (blockList []*ledger.AccountBlock, isRetry bool, err error) {
+	// TODO copy block
 	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		block.Data = sendBlock.Data
@@ -95,7 +96,7 @@ func (vm *VM) sendCreate(block *ledger.AccountBlock, quotaTotal, quotaAddition u
 	if err != nil {
 		return nil, ErrInvalidData
 	}
-	gid, _ := types.BytesToGid(block.Data[:10])
+	gid, _ := types.BytesToGid(block.Data[:types.GidSize])
 	if !isExistGid(vm.Db, gid) {
 		return nil, ErrInvalidData
 	}
@@ -105,7 +106,7 @@ func (vm *VM) sendCreate(block *ledger.AccountBlock, quotaTotal, quotaAddition u
 	// create address
 	contractAddr := createContractAddress(block.AccountAddress, block.Height, block.PrevHash, block.Data, block.SnapshotHash)
 
-	if bytes.Equal(contractAddr.Bytes(), util.EmptyAddress.Bytes()) || vm.Db.IsAddressExisted(&contractAddr) {
+	if vm.Db.IsAddressExisted(&contractAddr) {
 		return nil, ErrContractAddressCreationFail
 	}
 	block.Fee = contractFee
@@ -142,7 +143,7 @@ func (vm *VM) receiveCreate(block *ledger.AccountBlock, quotaTotal uint64) (bloc
 	vm.Db.AddBalance(&block.TokenId, block.Amount)
 
 	blockData := block.Data
-	block.Data = blockData[10:]
+	block.Data = blockData[types.GidSize:]
 	defer func() { block.Data = blockData }()
 
 	// init contract state and set contract code
@@ -154,7 +155,7 @@ func (vm *VM) receiveCreate(block *ledger.AccountBlock, quotaTotal uint64) (bloc
 		c.quotaLeft, err = useQuota(c.quotaLeft, codeCost)
 		if err == nil {
 			codeHash, _ := types.BytesToHash(code)
-			gid, _ := types.BytesToGid(blockData[:10])
+			gid, _ := types.BytesToGid(blockData[:types.GidSize])
 			vm.Db.SetContractCode(code)
 			vm.updateBlock(block, block.ToAddress, nil, 0, codeHash.Bytes())
 			err = vm.doSendBlockList(quotaTotal - block.Quota)
@@ -292,7 +293,7 @@ func (vm *VM) sendMintage(block *ledger.AccountBlock, quotaTotal, quotaAddition 
 
 	// create tokenId and check collision
 	tokenTypeId := createTokenId(block.AccountAddress, block.ToAddress, block.Height, block.PrevHash, block.SnapshotHash)
-	if bytes.Equal(tokenTypeId.Bytes(), util.EmptyTokenTypeId.Bytes()) || vm.Db.GetToken(&tokenTypeId) != nil {
+	if vm.Db.GetToken(&tokenTypeId) != nil {
 		return nil, ErrTokenIdCreationFail
 	}
 

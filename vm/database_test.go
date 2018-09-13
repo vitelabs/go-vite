@@ -156,13 +156,13 @@ func (db *NoDatabase) PrintStorage(addr types.Address) string {
 	}
 }
 func (db *NoDatabase) GetStorageHash() *types.Hash {
-	return &util.EmptyHash
+	return &types.Hash{}
 }
 func (db *NoDatabase) AddLog(log *ledger.VmLog) {
 	db.logList = append(db.logList, log)
 }
 func (db *NoDatabase) GetLogListHash() *types.Hash {
-	return &util.EmptyHash
+	return &types.Hash{}
 }
 
 func (db *NoDatabase) NewStorageIterator(prefix []byte) *vm_context.StorageIterator {
@@ -217,9 +217,9 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 		uint8(25),
 		int64(3),
 		uint8(1),
-		util.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32),
+		util.LeftPadBytes(ledger.ViteTokenId().Bytes(), util.WordSize),
 		uint8(1),
-		util.JoinBytes(util.LeftPadBytes(registerAmount.Bytes(), 32), util.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32), util.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), 32)),
+		util.JoinBytes(util.LeftPadBytes(registerAmount.Bytes(), util.WordSize), util.LeftPadBytes(ledger.ViteTokenId().Bytes(), util.WordSize), util.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), util.WordSize)),
 		uint8(1),
 		[]byte{})
 

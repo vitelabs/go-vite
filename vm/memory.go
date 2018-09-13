@@ -89,11 +89,11 @@ func (m *memory) print() string {
 	var result string
 	if len(m.store) > 0 {
 		addr := 0
-		for i := 0; i+32 <= len(m.store); i += 32 {
-			if i+32 < len(m.store) {
-				result += strconv.Itoa(addr) + "=>" + hex.EncodeToString(m.store[i:i+32]) + ", "
+		for i := 0; i+util.WordSize <= len(m.store); i += util.WordSize {
+			if i+util.WordSize < len(m.store) {
+				result += strconv.Itoa(addr) + "=>" + hex.EncodeToString(m.store[i:i+util.WordSize]) + ", "
 			} else {
-				result += strconv.Itoa(addr) + "=>" + hex.EncodeToString(m.store[i:i+32])
+				result += strconv.Itoa(addr) + "=>" + hex.EncodeToString(m.store[i:i+util.WordSize])
 			}
 			addr++
 		}
