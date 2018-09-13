@@ -342,8 +342,8 @@ func TestMethodPack(t *testing.T) {
 	}
 
 	sig := abi.Methods["slice"].Id()
-	sig = append(sig, util.LeftPadBytes([]byte{1}, 32)...)
-	sig = append(sig, util.LeftPadBytes([]byte{2}, 32)...)
+	sig = append(sig, util.LeftPadBytes([]byte{1}, util.WordSize)...)
+	sig = append(sig, util.LeftPadBytes([]byte{2}, util.WordSize)...)
 
 	packed, err := abi.PackMethod("slice", []uint32{1, 2})
 	if err != nil {
@@ -356,10 +356,10 @@ func TestMethodPack(t *testing.T) {
 
 	var addrA, addrB = types.Address{1}, types.Address{2}
 	sig = abi.Methods["sliceAddress"].Id()
-	sig = append(sig, util.LeftPadBytes([]byte{32}, 32)...)
-	sig = append(sig, util.LeftPadBytes([]byte{2}, 32)...)
-	sig = append(sig, util.LeftPadBytes(addrA[:], 32)...)
-	sig = append(sig, util.LeftPadBytes(addrB[:], 32)...)
+	sig = append(sig, util.LeftPadBytes([]byte{32}, util.WordSize)...)
+	sig = append(sig, util.LeftPadBytes([]byte{2}, util.WordSize)...)
+	sig = append(sig, util.LeftPadBytes(addrA[:], util.WordSize)...)
+	sig = append(sig, util.LeftPadBytes(addrB[:], util.WordSize)...)
 
 	packed, err = abi.PackMethod("sliceAddress", []types.Address{addrA, addrB})
 	if err != nil {
@@ -371,14 +371,14 @@ func TestMethodPack(t *testing.T) {
 
 	var addrC, addrD = types.Address{3}, types.Address{4}
 	sig = abi.Methods["sliceMultiAddress"].Id()
-	sig = append(sig, util.LeftPadBytes([]byte{64}, 32)...)
-	sig = append(sig, util.LeftPadBytes([]byte{160}, 32)...)
-	sig = append(sig, util.LeftPadBytes([]byte{2}, 32)...)
-	sig = append(sig, util.LeftPadBytes(addrA[:], 32)...)
-	sig = append(sig, util.LeftPadBytes(addrB[:], 32)...)
-	sig = append(sig, util.LeftPadBytes([]byte{2}, 32)...)
-	sig = append(sig, util.LeftPadBytes(addrC[:], 32)...)
-	sig = append(sig, util.LeftPadBytes(addrD[:], 32)...)
+	sig = append(sig, util.LeftPadBytes([]byte{64}, util.WordSize)...)
+	sig = append(sig, util.LeftPadBytes([]byte{160}, util.WordSize)...)
+	sig = append(sig, util.LeftPadBytes([]byte{2}, util.WordSize)...)
+	sig = append(sig, util.LeftPadBytes(addrA[:], util.WordSize)...)
+	sig = append(sig, util.LeftPadBytes(addrB[:], util.WordSize)...)
+	sig = append(sig, util.LeftPadBytes([]byte{2}, util.WordSize)...)
+	sig = append(sig, util.LeftPadBytes(addrC[:], util.WordSize)...)
+	sig = append(sig, util.LeftPadBytes(addrD[:], util.WordSize)...)
 
 	packed, err = abi.PackMethod("sliceMultiAddress", []types.Address{addrA, addrB}, []types.Address{addrC, addrD})
 	if err != nil {
@@ -389,8 +389,8 @@ func TestMethodPack(t *testing.T) {
 	}
 
 	sig = abi.Methods["slice256"].Id()
-	sig = append(sig, util.LeftPadBytes([]byte{1}, 32)...)
-	sig = append(sig, util.LeftPadBytes([]byte{2}, 32)...)
+	sig = append(sig, util.LeftPadBytes([]byte{1}, util.WordSize)...)
+	sig = append(sig, util.LeftPadBytes([]byte{2}, util.WordSize)...)
 
 	packed, err = abi.PackMethod("slice256", []*big.Int{big.NewInt(1), big.NewInt(2)})
 	if err != nil {

@@ -3,6 +3,7 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -18,7 +19,7 @@ func TestContractsRun(t *testing.T) {
 	db, addr1, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
 	// register
 	addr2 := AddressRegister
-	block13Data, err := ABI_register.PackMethod(MethodNameRegister, util.SnapshotGid)
+	block13Data, err := ABI_register.PackMethod(MethodNameRegister, *ledger.CommonGid())
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -53,12 +54,12 @@ func TestContractsRun(t *testing.T) {
 	}
 	vm = NewVM(db)
 	vm.Debug = true
-	locHashRegister, _ := types.BytesToHash(getKey(addr1, util.SnapshotGid))
+	locHashRegister, _ := types.BytesToHash(getKey(addr1, *ledger.CommonGid()))
 	db.addr = addr2
 	receiveRegisterBlockList, isRetry, err := vm.Run(block21, block13)
 	if len(receiveRegisterBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 ||
-		!bytes.Equal(db.storageMap[addr2][locHashRegister], util.JoinBytes(util.LeftPadBytes(block13.Amount.Bytes(), 32), util.LeftPadBytes(new(big.Int).SetInt64(snapshot2.Timestamp.Unix()).Bytes(), 32), util.LeftPadBytes(new(big.Int).SetUint64(snapshot2.Height).Bytes(), 32), util.LeftPadBytes(util.Big0.Bytes(), 32))) ||
+		!bytes.Equal(db.storageMap[addr2][locHashRegister], util.JoinBytes(util.LeftPadBytes(block13.Amount.Bytes(), util.WordSize), util.LeftPadBytes(new(big.Int).SetInt64(snapshot2.Timestamp.Unix()).Bytes(), 32), util.LeftPadBytes(new(big.Int).SetUint64(snapshot2.Height).Bytes(), 32), util.LeftPadBytes(util.Big0.Bytes(), 32))) ||
 		receiveRegisterBlockList[0].Quota != 0 {
 		t.Fatalf("receive register transaction error")
 	}
@@ -74,7 +75,7 @@ func TestContractsRun(t *testing.T) {
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot4)
 
 	hash14 := types.DataHash([]byte{1, 4})
-	block14Data, _ := ABI_register.PackMethod(MethodNameCancelRegister, util.SnapshotGid)
+	block14Data, _ := ABI_register.PackMethod(MethodNameCancelRegister, *ledger.CommonGid())
 	block14 := &ledger.AccountBlock{
 		Height:         4,
 		ToAddress:      addr2,
@@ -114,7 +115,7 @@ func TestContractsRun(t *testing.T) {
 	if len(receiveCancelRegisterBlockList) != 2 || isRetry || err != nil ||
 		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(util.Big0) != 0 ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 ||
-		!bytes.Equal(db.storageMap[addr2][locHashRegister], util.JoinBytes(util.EmptyWord, util.EmptyWord, util.LeftPadBytes(new(big.Int).SetUint64(snapshot2.Height).Bytes(), 32), util.LeftPadBytes(new(big.Int).SetUint64(snapshot4.Height).Bytes(), 32))) ||
+		!bytes.Equal(db.storageMap[addr2][locHashRegister], util.JoinBytes(util.LeftPadBytes([]byte{}, util.WordSize), util.LeftPadBytes([]byte{}, 32), util.LeftPadBytes(new(big.Int).SetUint64(snapshot2.Height).Bytes(), 32), util.LeftPadBytes(new(big.Int).SetUint64(snapshot4.Height).Bytes(), 32))) ||
 		receiveCancelRegisterBlockList[0].Quota != 0 ||
 		receiveCancelRegisterBlockList[1].Quota != 0 ||
 		receiveCancelRegisterBlockList[1].Height != 3 ||
@@ -156,7 +157,7 @@ func TestContractsRun(t *testing.T) {
 		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
 	}
 	snapshot54 := db.snapshotBlockList[53]
-	block16Data, _ := ABI_register.PackMethod(MethodNameReward, util.SnapshotGid, uint64(0), uint64(0), common.Big0)
+	block16Data, _ := ABI_register.PackMethod(MethodNameReward, *ledger.CommonGid(), uint64(0), uint64(0), common.Big0)
 	hash16 := types.DataHash([]byte{1, 6})
 	block16 := &ledger.AccountBlock{
 		Height:         6,
@@ -174,7 +175,7 @@ func TestContractsRun(t *testing.T) {
 	db.addr = addr1
 	sendRewardBlockList, isRetry, err := vm.Run(block16, nil)
 	reward := new(big.Int).Mul(big.NewInt(2), rewardPerBlock)
-	block16DataExpected, _ := ABI_register.PackMethod(MethodNameReward, util.SnapshotGid, snapshot4.Height, snapshot2.Height, reward)
+	block16DataExpected, _ := ABI_register.PackMethod(MethodNameReward, *ledger.CommonGid(), snapshot4.Height, snapshot2.Height, reward)
 	if len(sendRewardBlockList) != 1 || isRetry || err != nil ||
 		sendRewardBlockList[0].Quota != 84760 ||
 		!bytes.Equal(sendRewardBlockList[0].Data, block16DataExpected) {
@@ -236,7 +237,7 @@ func TestContractsRun(t *testing.T) {
 
 	// vote
 	addr3 := AddressVote
-	block18Data, _ := ABI_vote.PackMethod(MethodNameVote, util.SnapshotGid, addr1)
+	block18Data, _ := ABI_vote.PackMethod(MethodNameVote, *ledger.CommonGid(), addr1)
 	hash18 := types.DataHash([]byte{1, 8})
 	block18 := &ledger.AccountBlock{
 		Height:         8,
@@ -273,18 +274,18 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr3
 	receiveVoteBlockList, isRetry, err := vm.Run(block31, block18)
-	locHashVote, _ := types.BytesToHash(getKey(addr1, util.SnapshotGid))
+	locHashVote, _ := types.BytesToHash(getKey(addr1, *ledger.CommonGid()))
 	if len(receiveVoteBlockList) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr3][locHashVote], util.LeftPadBytes(addr1.Bytes(), 32)) ||
+		!bytes.Equal(db.storageMap[addr3][locHashVote], util.LeftPadBytes(addr1.Bytes(), util.WordSize)) ||
 		receiveVoteBlockList[0].Quota != 0 {
 		t.Fatalf("receive vote transaction error")
 	}
 	db.accountBlockMap[addr3] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr3][hash31] = receiveVoteBlockList[0]
 
-	addr4, _, _ := types.CreateAddress()
+	addr4, _ := types.BytesToAddress(util.HexToBytes("e5bf58cacfb74cf8c49a1d5e59d3919c9a4cb9ed"))
 	db.accountBlockMap[addr4] = make(map[types.Hash]*ledger.AccountBlock)
-	block19Data, _ := ABI_vote.PackMethod(MethodNameVote, util.SnapshotGid, addr4)
+	block19Data, _ := ABI_vote.PackMethod(MethodNameVote, *ledger.CommonGid(), addr4)
 	hash19 := types.DataHash([]byte{1, 9})
 	block19 := &ledger.AccountBlock{
 		Height:         9,
@@ -322,14 +323,14 @@ func TestContractsRun(t *testing.T) {
 	db.addr = addr3
 	receiveVoteBlockList2, isRetry, err := vm.Run(block32, block19)
 	if len(receiveVoteBlockList2) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr3][locHashVote], util.LeftPadBytes(addr4.Bytes(), 32)) ||
+		!bytes.Equal(db.storageMap[addr3][locHashVote], util.LeftPadBytes(addr4.Bytes(), util.WordSize)) ||
 		receiveVoteBlockList2[0].Quota != 0 {
 		t.Fatalf("receive vote transaction 2 error")
 	}
 	db.accountBlockMap[addr3][hash32] = receiveVoteBlockList2[0]
 
 	// cancel vote
-	block1aData, _ := ABI_vote.PackMethod(MethodNameCancelVote, util.SnapshotGid)
+	block1aData, _ := ABI_vote.PackMethod(MethodNameCancelVote, *ledger.CommonGid())
 	hash1a := types.DataHash([]byte{1, 10})
 	block1a := &ledger.AccountBlock{
 		Height:         10,
@@ -418,8 +419,8 @@ func TestContractsRun(t *testing.T) {
 	locHashQuota := types.DataHash(addr4.Bytes())
 	locHashPledge := types.DataHash(append(addr1.Bytes(), locHashQuota.Bytes()...))
 	if len(receivePledgeBlockList) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr5][locHashPledge], util.JoinBytes(util.LeftPadBytes(pledgeAmount.Bytes(), 32), util.LeftPadBytes(new(big.Int).SetInt64(withdrawTime).Bytes(), 32))) ||
-		!bytes.Equal(db.storageMap[addr5][locHashQuota], util.LeftPadBytes(pledgeAmount.Bytes(), 32)) ||
+		!bytes.Equal(db.storageMap[addr5][locHashPledge], util.JoinBytes(util.LeftPadBytes(pledgeAmount.Bytes(), util.WordSize), util.LeftPadBytes(new(big.Int).SetInt64(withdrawTime).Bytes(), util.WordSize))) ||
+		!bytes.Equal(db.storageMap[addr5][locHashQuota], util.LeftPadBytes(pledgeAmount.Bytes(), util.WordSize)) ||
 		db.balanceMap[addr5][*ledger.ViteTokenId()].Cmp(pledgeAmount) != 0 ||
 		receivePledgeBlockList[0].Quota != 0 {
 		t.Fatalf("receive pledge transaction error")
@@ -468,8 +469,8 @@ func TestContractsRun(t *testing.T) {
 	receivePledgeBlockList2, isRetry, err := vm.Run(block52, block1c)
 	newPledgeAmount := new(big.Int).Add(pledgeAmount, pledgeAmount)
 	if len(receivePledgeBlockList2) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr5][locHashPledge], util.JoinBytes(util.LeftPadBytes(newPledgeAmount.Bytes(), 32), util.LeftPadBytes(new(big.Int).SetInt64(withdrawTime).Bytes(), 32))) ||
-		!bytes.Equal(db.storageMap[addr5][locHashQuota], util.LeftPadBytes(newPledgeAmount.Bytes(), 32)) ||
+		!bytes.Equal(db.storageMap[addr5][locHashPledge], util.JoinBytes(util.LeftPadBytes(newPledgeAmount.Bytes(), util.WordSize), util.LeftPadBytes(new(big.Int).SetInt64(withdrawTime).Bytes(), util.WordSize))) ||
+		!bytes.Equal(db.storageMap[addr5][locHashQuota], util.LeftPadBytes(newPledgeAmount.Bytes(), util.WordSize)) ||
 		db.balanceMap[addr5][*ledger.ViteTokenId()].Cmp(newPledgeAmount) != 0 ||
 		receivePledgeBlockList2[0].Quota != 0 {
 		t.Fatalf("receive pledge transaction 2 error")
@@ -520,8 +521,8 @@ func TestContractsRun(t *testing.T) {
 	receiveCancelPledgeBlockList, isRetry, err := vm.Run(block53, block1d)
 	if len(receiveCancelPledgeBlockList) != 2 || isRetry || err != nil ||
 		receiveCancelPledgeBlockList[1].Height != 4 ||
-		!bytes.Equal(db.storageMap[addr5][locHashPledge], util.JoinBytes(util.LeftPadBytes(pledgeAmount.Bytes(), 32), util.LeftPadBytes(new(big.Int).SetInt64(withdrawTime).Bytes(), 32))) ||
-		!bytes.Equal(db.storageMap[addr5][locHashQuota], util.LeftPadBytes(pledgeAmount.Bytes(), 32)) ||
+		!bytes.Equal(db.storageMap[addr5][locHashPledge], util.JoinBytes(util.LeftPadBytes(pledgeAmount.Bytes(), util.WordSize), util.LeftPadBytes(new(big.Int).SetInt64(withdrawTime).Bytes(), util.WordSize))) ||
+		!bytes.Equal(db.storageMap[addr5][locHashQuota], util.LeftPadBytes(pledgeAmount.Bytes(), util.WordSize)) ||
 		db.balanceMap[addr5][*ledger.ViteTokenId()].Cmp(pledgeAmount) != 0 ||
 		receiveCancelPledgeBlockList[0].Quota != 0 ||
 		receiveCancelPledgeBlockList[1].Quota != 0 {
@@ -634,9 +635,9 @@ func TestConsensusGroup(t *testing.T) {
 		uint8(25),
 		int64(3),
 		uint8(1),
-		util.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32),
+		util.LeftPadBytes(ledger.ViteTokenId().Bytes(), util.WordSize),
 		uint8(1),
-		util.JoinBytes(util.LeftPadBytes(big.NewInt(1e18).Bytes(), 32), util.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32), util.LeftPadBytes(big.NewInt(84600).Bytes(), 32)),
+		util.JoinBytes(util.LeftPadBytes(big.NewInt(1e18).Bytes(), util.WordSize), util.LeftPadBytes(ledger.ViteTokenId().Bytes(), util.WordSize), util.LeftPadBytes(big.NewInt(84600).Bytes(), util.WordSize)),
 		uint8(1),
 		[]byte{})
 	hash13 := types.DataHash([]byte{1, 3})
@@ -683,9 +684,9 @@ func TestConsensusGroup(t *testing.T) {
 		uint8(25),
 		int64(3),
 		uint8(1),
-		util.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32),
+		util.LeftPadBytes(ledger.ViteTokenId().Bytes(), util.WordSize),
 		uint8(1),
-		util.JoinBytes(util.LeftPadBytes(big.NewInt(1e18).Bytes(), 32), util.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32), util.LeftPadBytes(big.NewInt(84600).Bytes(), 32)),
+		util.JoinBytes(util.LeftPadBytes(big.NewInt(1e18).Bytes(), util.WordSize), util.LeftPadBytes(ledger.ViteTokenId().Bytes(), util.WordSize), util.LeftPadBytes(big.NewInt(84600).Bytes(), util.WordSize)),
 		uint8(1),
 		[]byte{})
 	if len(receiveCreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
@@ -701,4 +702,53 @@ func TestBytesToGid(t *testing.T) {
 	timestamp := time.Now().Unix()
 	t.Log(timestamp)
 	t.Log(hex.EncodeToString(big.NewInt(timestamp).Bytes()))
+}
+
+func TestGenesisBlockData(t *testing.T) {
+	// vite owner mintage genesis block
+	tokenName := "ViteToken"
+	decimals := uint8(18)
+	mintageData, _ := ABI_mintage.PackVariable(VariableNameMintage, tokenName, decimals)
+	totalSupply := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9))
+	fmt.Println("-------------vite owner mintage genesis block-------------")
+	fmt.Println("address: viteAddress")
+	fmt.Printf("AccountBlock{\n\tBlockType: ledger.BlockTypeReceive,\n\tAccountAddress: viteAddress,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:*ledger.ViteTokenId(),\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
+		1, totalSupply, big.NewInt(0), hex.EncodeToString(mintageData))
+	fmt.Printf("Storage:{\n\t$balance:*ledger.ViteTokenId():%v\n}\n", totalSupply)
+	fmt.Printf("SetToken{\n\tTokenId: *ledger.ViteTokenId(),\n\tTokenName: %v,\n\tTotalSupply: %v,\n\tDecimals: %v\n}\n", tokenName, totalSupply, decimals)
+
+	// snapshot consensus group and common consensus group genesis block
+	snapshotGid := types.Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	conditionCountingData, _ := ABI_consensusGroup.PackVariable(VariableNameConditionCounting1, *ledger.ViteTokenId())
+	conditionRegisterData, _ := ABI_consensusGroup.PackVariable(VariableNameConditionRegister1, registerAmount, *ledger.ViteTokenId(), registerLockTime)
+	consensusGroupData, _ := ABI_consensusGroup.PackVariable(VariableNameConsensusGroupInfo,
+		uint8(25),
+		int64(3),
+		uint8(1),
+		conditionCountingData,
+		uint8(1),
+		conditionRegisterData,
+		uint8(1),
+		[]byte{})
+	fmt.Println("-------------snapshot consensus group and common consensus group genesis block-------------")
+	fmt.Printf("address:%v\n", hex.EncodeToString(AddressConsensusGroup.Bytes()))
+	fmt.Printf("AccountBlock{\n\tBlockType: ledger.BlockTypeReceive,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:*ledger.ViteTokenId(),\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
+		hex.EncodeToString(AddressConsensusGroup.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
+	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(types.DataHash(snapshotGid.Bytes()).Bytes()), consensusGroupData, hex.EncodeToString(types.DataHash(ledger.ViteTokenId().Bytes()).Bytes()), consensusGroupData)
+
+	// snapshot consensus group and common consensus group register genesis block
+	fmt.Println("-------------snapshot consensus group and common consensus group register genesis block-------------")
+	fmt.Printf("address:%v\n", hex.EncodeToString(AddressRegister.Bytes()))
+	fmt.Printf("AccountBlock{\n\tBlockType: ledger.BlockTypeReceive,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:*ledger.ViteTokenId(),\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
+		hex.EncodeToString(AddressRegister.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
+	fmt.Printf("Storage:{\n")
+	timestamp := time.Now().Unix() + registerLockTime
+	registerData, _ := ABI_register.PackVariable(VariableNameRegistration, common.Big0, timestamp, uint64(1), uint64(0))
+	for i := 0; i < 25; i++ {
+		superNodeAddr, _, _ := types.CreateAddress()
+		snapshotKey := getKey(superNodeAddr, snapshotGid)
+		commonKey := getKey(superNodeAddr, *ledger.CommonGid())
+		fmt.Printf("\t%v: %v\n\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData), hex.EncodeToString(commonKey), hex.EncodeToString(registerData))
+	}
+	fmt.Println("}")
 }

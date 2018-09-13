@@ -39,8 +39,8 @@ const (
 	quotaLimitForTransaction uint64 = 800000  // Maximum quota of a transaction
 	quotaLimit               uint64 = 3000000 // Maximum quota of an account referring to one snapshot block
 	tokenNameLengthLimit     int    = 20      // Maximum length of a token name
-	tokenDecimalsMin         uint64 = 0       // Minimum value of a token decimals(exclude)
-	tokenDecimalsMax         uint64 = 18      // Maximum value of a token decimals(include)
+	tokenDecimalsMin         uint8  = 0       // Minimum value of a token decimals(exclude)
+	tokenDecimalsMax         uint8  = 18      // Maximum value of a token decimals(include)
 
 	registerGas             uint64 = 62200
 	cancelRegisterGas       uint64 = 83200

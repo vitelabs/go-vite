@@ -35,15 +35,15 @@ func memoryReturnDataCopy(stack *stack) *big.Int {
 }
 
 func memoryMLoad(stack *stack) *big.Int {
-	return calcMemSize(stack.back(0), big.NewInt(32))
+	return calcMemSize(stack.back(0), util.Big32)
 }
 
 func memoryMStore(stack *stack) *big.Int {
-	return calcMemSize(stack.back(0), big.NewInt(32))
+	return calcMemSize(stack.back(0), util.Big32)
 }
 
 func memoryMStore8(stack *stack) *big.Int {
-	return calcMemSize(stack.back(0), big.NewInt(1))
+	return calcMemSize(stack.back(0), util.Big1)
 }
 
 func memoryLog(stack *stack) *big.Int {

@@ -8,6 +8,8 @@ import (
 )
 
 const (
+	VariableNameMintage = "mintage"
+
 	MethodNameRegister       = "Register"
 	MethodNameCancelRegister = "CancelRegister"
 	MethodNameReward         = "Reward"
@@ -28,6 +30,12 @@ const (
 	VariableNameConditionRegister1 = "register1"
 	VariableNameConditionVote2     = "vote2"
 )
+
+const json_mintage = `
+[
+	{"type":"variable","name":"mintage","inputs":[{"name":"tokenName","type":"string"},{"name":"decimals","type":"uint8"}]}
+]
+`
 const json_register = `
 [
 	{"type":"function","name":"Register", "inputs":[{"name":"gid","type":"gid"}]},
@@ -58,11 +66,17 @@ const json_consensusGroup = `
 ]`
 
 var (
+	ABI_mintage, _        = abi.JSONToABIContract(strings.NewReader(json_mintage))
 	ABI_register, _       = abi.JSONToABIContract(strings.NewReader(json_register))
 	ABI_vote, _           = abi.JSONToABIContract(strings.NewReader(json_vote))
 	ABI_pledge, _         = abi.JSONToABIContract(strings.NewReader(json_pledge))
 	ABI_consensusGroup, _ = abi.JSONToABIContract(strings.NewReader(json_consensusGroup))
 )
+
+type VariableMintage struct {
+	TokenName string
+	Decimals  uint8
+}
 
 type VariableRegistration struct {
 	Amount       *big.Int

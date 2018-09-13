@@ -79,7 +79,7 @@ func readFixedBytes(t Type, word []byte) (interface{}, error) {
 
 func getFullElemSize(elem *Type) int {
 	//all other should be counted as 32 (slices have pointers to respective elements)
-	size := 32
+	size := util.WordSize
 	//arrays wrap it, each element being the same size
 	for elem.T == ArrayTy {
 		size *= elem.Size
@@ -93,8 +93,8 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 	if size < 0 {
 		return nil, fmt.Errorf("cannot marshal input to array, size is negative (%d)", size)
 	}
-	if start+32*size > len(output) {
-		return nil, fmt.Errorf("abi: cannot marshal in to go array: offset %d would go over slice boundary (len=%d)", len(output), start+32*size)
+	if start+util.WordSize*size > len(output) {
+		return nil, fmt.Errorf("abi: cannot marshal in to go array: offset %d would go over slice boundary (len=%d)", len(output), start+util.WordSize*size)
 	}
 
 	// this value will become our slice or our array, depending on the type
@@ -112,7 +112,7 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 
 	// Arrays have packed elements, resulting in longer unpack steps.
 	// Slices have just 32 bytes per element (pointing to the contents).
-	elemSize := 32
+	elemSize := util.WordSize
 	if t.T == ArrayTy {
 		elemSize = getFullElemSize(t.Elem)
 	}
@@ -135,8 +135,8 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 // toGoType parses the output bytes and recursively assigns the value of these bytes
 // into a go type with accordance with the ABI spec.
 func toGoType(index int, t Type, output []byte) (interface{}, error) {
-	if index+32 > len(output) {
-		return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+32)
+	if index+util.WordSize > len(output) {
+		return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+util.WordSize)
 	}
 
 	var (
@@ -152,7 +152,7 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 			return nil, err
 		}
 	} else {
-		returnOutput = output[index : index+32]
+		returnOutput = output[index : index+util.WordSize]
 	}
 
 	switch t.T {
@@ -167,13 +167,13 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 	case BoolTy:
 		return readBool(returnOutput)
 	case AddressTy:
-		addr, _ := types.BytesToAddress(returnOutput[32-types.AddressSize : 32])
+		addr, _ := types.BytesToAddress(returnOutput[util.WordSize-types.AddressSize : util.WordSize])
 		return addr, nil
 	case GidTy:
-		gid, _ := types.BytesToGid(returnOutput[22:32])
+		gid, _ := types.BytesToGid(returnOutput[util.WordSize-types.GidSize : util.WordSize])
 		return gid, nil
 	case TokenIdTy:
-		tokenId, _ := types.BytesToTokenTypeId(returnOutput[22:32])
+		tokenId, _ := types.BytesToTokenTypeId(returnOutput[util.WordSize-types.TokenTypeIdSize : util.WordSize])
 		return tokenId, nil
 	case HashTy:
 		hash, _ := types.BytesToHash(returnOutput)
@@ -191,7 +191,7 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 
 // interprets a 32 byte slice as an offset and then determines which indice to look to decode the type.
 func lengthPrefixPointsTo(index int, output []byte) (start int, length int, err error) {
-	bigOffsetEnd := big.NewInt(0).SetBytes(output[index : index+32])
+	bigOffsetEnd := big.NewInt(0).SetBytes(output[index : index+util.WordSize])
 	bigOffsetEnd.Add(bigOffsetEnd, util.Big32)
 	outputLength := big.NewInt(int64(len(output)))
 
@@ -204,7 +204,7 @@ func lengthPrefixPointsTo(index int, output []byte) (start int, length int, err 
 	}
 
 	offsetEnd := int(bigOffsetEnd.Uint64())
-	lengthBig := big.NewInt(0).SetBytes(output[offsetEnd-32 : offsetEnd])
+	lengthBig := big.NewInt(0).SetBytes(output[offsetEnd-util.WordSize : offsetEnd])
 
 	totalSize := big.NewInt(0)
 	totalSize.Add(totalSize, bigOffsetEnd)
