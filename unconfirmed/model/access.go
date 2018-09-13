@@ -11,9 +11,8 @@ import (
 )
 
 type UAccess struct {
-	store *UnconfirmedSet
-	chain *chain.Chain
-
+	store                *UnconfirmedSet
+	Chain                *chain.Chain
 	commonAccountInfoMap map[types.Address]*CommonAccountInfo
 	newCommonTxListener  map[types.Address]func()
 	newContractListener  map[types.Gid]func()
@@ -23,7 +22,7 @@ type UAccess struct {
 
 func NewUAccess(chain *chain.Chain, dataDir string) *UAccess {
 	uAccess := &UAccess{
-		chain:                chain,
+		Chain:                chain,
 		commonAccountInfoMap: make(map[types.Address]*CommonAccountInfo),
 		newCommonTxListener:  make(map[types.Address]func()),
 		newContractListener:  make(map[types.Gid]func()),
@@ -79,6 +78,9 @@ func (access *UAccess) WriteUnconfirmed(writeType bool, batch *leveldb.Batch, bl
 
 		// fixme: whether need to wait the block insert into chain and try the following
 		access.NewSignalToWorker(block)
+
+		// todo: maintain the gid-contractAddress into VmDB
+		// AddConsensusGroup(group ConsensusGroup...)
 
 	case writeType == false:
 		// writeType == false: delete processed UnconfirmedMeta
@@ -136,7 +138,7 @@ func (access *UAccess) GetUnconfirmedBlocks(index, num, count uint64, addr *type
 		return nil, err
 	}
 	for _, v := range hashList {
-		block, err := access.chain.GetAccountBlockByHash(v)
+		block, err := access.Chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
 			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
 			continue
@@ -187,20 +189,20 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 		return nil, err
 	}
 	for _, v := range hashList {
-		block, err := access.chain.GetAccountBlockByHash(v)
+		block, err := access.Chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
 			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
 			continue
 		}
-		ti, ok := infoMap[*block.TokenId]
+		ti, ok := infoMap[block.TokenId]
 		if !ok {
-			token, err := access.chain.GetTokenInfoById(block.TokenId)
+			token, err := access.Chain.GetTokenInfoById(&block.TokenId)
 			if err != nil {
 				access.log.Error("func GetUnconfirmedAccount.GetByTokenId failed", "error", err)
 				return nil, err
 			}
-			infoMap[*block.TokenId].Token = token.Mintage
-			infoMap[*block.TokenId].TotalAmount = *block.Amount
+			infoMap[block.TokenId].Token = token.Mintage
+			infoMap[block.TokenId].TotalAmount = *block.Amount
 		} else {
 			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
 		}

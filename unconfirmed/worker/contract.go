@@ -5,19 +5,23 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
+	"github.com/vitelabs/go-vite/wallet"
 	"sync"
+	"time"
 )
+
 type RightEvent struct {
 	Gid            *types.Gid
 	Address        *types.Address
-	StartTs        uint64
-	EndTs          uint64
+	Timestamp      time.Time
+	EndTs          time.Time
 	SnapshotHash   *types.Hash
 	SnapshotHeight int
 }
 
 type ContractWorker struct {
 	uAccess *model.UAccess
+	wAccess *wallet.Manager
 
 	gid                 *types.Gid
 	addresses           *types.Address
@@ -38,9 +42,10 @@ type ContractWorker struct {
 	log log15.Logger
 }
 
-func NewContractWorker(uAccess *model.UAccess, gid *types.Gid, address *types.Address, addressList []*types.Address) *ContractWorker {
+func NewContractWorker(uAccess *model.UAccess, walletAccess *wallet.Manager, gid *types.Gid, address *types.Address, addressList []*types.Address) *ContractWorker {
 	return &ContractWorker{
 		uAccess:                uAccess,
+		wAccess:                walletAccess,
 		gid:                    gid,
 		addresses:              address,
 		contractAddressList:    addressList,
@@ -65,10 +70,10 @@ func (w *ContractWorker) Start(event *RightEvent) {
 	})
 
 	for _, v := range w.contractTasks {
-		v.InitContractTask(w.uAccess, event)
+		v.InitContractTask(w.uAccess, w.wAccess, event)
 		go v.Start(&w.blackList)
 	}
-	go w.DispatchTask()
+	go w.DispatchTask(event.SnapshotHash)
 
 	w.status = Start
 }
@@ -113,9 +118,9 @@ func (w *ContractWorker) NewUnconfirmedTxAlarm() {
 	}
 }
 
-func (w *ContractWorker) DispatchTask() {
+func (w *ContractWorker) DispatchTask(snapshotHash *types.Hash) {
 	//todo add mutex
-	w.FetchNew()
+	w.FetchNew(snapshotHash)
 	for {
 		for i := 0; i < w.priorityToQueue.Len(); i++ {
 			tItem := heap.Pop(w.priorityToQueue).(*model.ToItem)
@@ -146,7 +151,7 @@ func (w *ContractWorker) DispatchTask() {
 			goto END
 		case <-w.dispatcherAlarm:
 			w.dispatcherSleep = false
-			w.FetchNew()
+			w.FetchNew(snapshotHash)
 		}
 	}
 END:
@@ -164,7 +169,7 @@ func (w *ContractWorker) FindAFreeTask() (index int) {
 	return -1
 }
 
-func (w *ContractWorker) FetchNew() {
+func (w *ContractWorker) FetchNew(snapshotHash *types.Hash) {
 	for i := 0; i < len(w.contractAddressList); i++ {
 		blockList, err := w.uAccess.GetUnconfirmedBlocks(0, 1, CONTRACT_FETCH_SIZE, w.contractAddressList[i])
 		if err != nil {
@@ -176,7 +181,9 @@ func (w *ContractWorker) FetchNew() {
 			// the other block which under the same to-from pair won't fetch any more during the same block-out period
 			var blKey = (*v).ToAddress.String() + (*v).AccountAddress.String()
 			if _, ok := w.blackList[blKey]; !ok {
-				w.priorityToQueue.InsertNew(v)
+				fromQuota := w.uAccess.Chain.GetAccountQuota(v.AccountAddress, snapshotHash)
+				toQuota := w.uAccess.Chain.GetAccountQuota(v.ToAddress, snapshotHash)
+				w.priorityToQueue.InsertNew(v, toQuota, fromQuota)
 			}
 		}
 	}

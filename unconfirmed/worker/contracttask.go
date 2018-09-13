@@ -1,10 +1,15 @@
 package worker
 
 import (
+	"errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
+	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/wallet"
 	"sync"
 	"time"
 )
@@ -18,8 +23,10 @@ const (
 )
 
 type ContractTask struct {
+	vite    vite.Vite
 	log     log15.Logger
 	uAccess *model.UAccess
+	wAccess *wallet.Manager
 
 	status       int
 	reRetry      bool
@@ -32,9 +39,10 @@ type ContractTask struct {
 	statusMutex sync.Mutex
 }
 
-func (task *ContractTask) InitContractTask(uAccess *model.UAccess, args *RightEvent) {
+func (task *ContractTask) InitContractTask(uAccess *model.UAccess, wAccess *wallet.Manager, args *RightEvent) {
 	task.log = log15.New("ContractTask")
 	task.uAccess = uAccess
+	task.wAccess = wAccess
 	task.status = Idle
 	task.reRetry = false
 	task.stopListener = make(chan struct{}, 1)
@@ -109,9 +117,6 @@ func (task *ContractTask) ProcessAQueue(fItem *model.FromItem) (intoBlackList bo
 		task.log.New("index", fItem.Index),
 		task.log.New("priority", fItem.Priority)))
 
-	// todo newVmDb
-	// NewVmDB(snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) error
-
 	bQueue := fItem.Value
 
 	for i := 0; i < bQueue.Size(); i++ {
@@ -122,49 +127,62 @@ func (task *ContractTask) ProcessAQueue(fItem *model.FromItem) (intoBlackList bo
 			return true
 		}
 
-		recvType, count := task.CheckChainReceiveCount(sBlock.ToAddress, sBlock.Hash)
+		recvType, count := task.CheckChainReceiveCount(&sBlock.ToAddress, &sBlock.Hash)
 		if recvType == 5 && count > MaxErrRecvCount {
 			task.log.Info("Delete the UnconfirmedMeta: the recvErrBlock reach the max-limit count of existence.")
 			task.uAccess.WriteUnconfirmed(false, nil, sBlock)
 			continue
 		}
 
-		block := task.PackReceiveBlock(sBlock)
-
-		isRetry, blockList, err := task.GenerateBlocks(block)
+		block, err := task.PackReceiveBlock(sBlock)
 		if err != nil {
-			task.log.Error("GenerateBlocks Error", err)
+			task.log.Error("PackReceiveBlock Error", err)
+			return true
 		}
 
-		// todo: maintain the gid-contractAddress into VmDB
-		// AddConsensusGroup(group ConsensusGroup...)
+		gen, err := generator.NewGenerator(task.uAccess.Chain, task.args.SnapshotHash, &block.PrevHash, &block.AccountAddress)
+		if err != nil {
+			task.log.Error("NewGenerator Error", err)
+			return true
+		}
+		genResult := gen.GenerateTx(generator.SourceTypeUnconfirmed, block)
+		if err != nil {
+			task.log.Error("GenerateTx error ignore, ", "error", err)
+		}
+		blockGen := genResult.BlockGenList[0]
+		//todo: only sign the first block, special care for contract's BlockList returned
+		var signErr error
+		blockGen.Block.Signature, blockGen.Block.PublicKey, signErr =
+			task.wAccess.KeystoreManager.SignData(blockGen.Block.AccountAddress, blockGen.Block.Hash.Bytes())
+		if signErr != nil {
+			task.log.Error("SignData Error", signErr)
+			return true
+		}
 
-		if blockList == nil {
-			if isRetry == true {
+		if genResult.BlockGenList == nil {
+			if genResult.IsRetry == true {
 				return true
 			} else {
 				task.uAccess.WriteUnconfirmed(false, nil, sBlock)
 			}
 		} else {
-			if isRetry == true {
+			if genResult.IsRetry == true {
 				return true
 			}
-			// todo 1.Check the time
-			// If time out of the out-block period,
-			// need to 1.stop the task 2.delete the DB and then 3.return true, else continue insert pool
-			nowTime := uint64(time.Now().Unix())
-			if nowTime >= task.args.EndTs {
+
+			nowTime := time.Now().Unix()
+			if nowTime >= task.args.EndTs.Unix() {
 				task.breaker <- struct{}{}
 				return true
 			}
 
-			if err := task.InertBlockListIntoPool(sBlock, blockList); err != nil {
+			if err := task.InertBlockListIntoPool(sBlock, blockGen); err != nil {
 				return true
 			}
 		}
 
 	WaitForVmDB:
-		if _, c := task.CheckChainReceiveCount(sBlock.ToAddress, sBlock.Hash); c < 1 {
+		if _, c := task.CheckChainReceiveCount(&sBlock.ToAddress, &sBlock.Hash); c < 1 {
 			task.log.Info("Wait for VmDB: the prev SendBlock's receiveBlock hasn't existed in Chain. ")
 			goto WaitForVmDB
 		}
@@ -185,31 +203,7 @@ func (task *ContractTask) CheckChainReceiveCount(fromAddress *types.Address, fro
 	return recvType, count
 }
 
-func (task *ContractTask) InertBlockListIntoPool(sendBlock *ledger.AccountBlock, blockList []*ledger.AccountBlock) error {
-	task.statusMutex.Lock()
-	defer task.statusMutex.Unlock()
-	if task.status != Running {
-		task.status = Running
-	}
-
-	task.log.Info("InertBlockListIntoPool")
-
-	// todo 2.Insert into Pool
-	// if insert return err, this func return false, else return true
-
-	return nil
-}
-
-func (task *ContractTask) GenerateBlocks(recvBlock *ledger.AccountBlock) (isRetry bool, blockList []*ledger.AccountBlock, err error) {
-	task.statusMutex.Lock()
-	defer task.statusMutex.Unlock()
-	if task.status != Running {
-		task.status = Running
-	}
-	return false, nil, nil
-}
-
-func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) *ledger.AccountBlock {
+func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) (*ledger.AccountBlock, error) {
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
 	if task.status != Running {
@@ -219,37 +213,37 @@ func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) *ledg
 	task.log.Info("PackReceiveBlock", "sendBlock",
 		task.log.New("sendBlock.Hash", sendBlock.Hash), task.log.New("sendBlock.To", sendBlock.ToAddress))
 
-	// todo pack the block with task.args, comput hash, Sign,
+	// todo pack the block with task.args
 	block := &ledger.AccountBlock{
-		Meta:              nil,
 		BlockType:         0,
-		Hash:              nil,
-		Height:            nil,
-		PrevHash:          nil,
+		Hash:              types.Hash{},
+		Height:            0,
+		PrevHash:          types.Hash{},
 		AccountAddress:    sendBlock.ToAddress,
-		PublicKey:         nil,
-		ToAddress:         sendBlock.AccountAddress,
+		PublicKey:         nil, // contractAddress's receiveBlock's publicKey is from consensus node
+		ToAddress:         types.Address{},
 		FromBlockHash:     sendBlock.Hash,
 		Amount:            sendBlock.Amount,
 		TokenId:           sendBlock.TokenId,
-		QuotaFee:          nil,
-		ContractFee:       nil,
-		SnapshotHash:      task.args.SnapshotHash,
-		Data:              "",
-		Timestamp:         0,
-		StateHash:         nil,
-		LogHash:           nil,
+		Quota:             sendBlock.Quota,
+		Fee:               sendBlock.Fee,
+		SnapshotHash:      *task.args.SnapshotHash,
+		Data:              sendBlock.Data,
+		Timestamp:         &task.args.Timestamp,
+		StateHash:         types.Hash{},
+		LogHash:           types.Hash{},
 		Nonce:             nil,
 		SendBlockHashList: nil,
 		Signature:         nil,
 	}
-
-	hash, err := block.ComputeHash()
+	preBlock, err := task.uAccess.Chain.GetLatestAccountBlock(&block.AccountAddress)
 	if err != nil {
-		task.log.Error("ComputeHash Error")
-		return nil
+		return nil, errors.New("GetLatestAccountBlock error" + err.Error())
 	}
-	block.Hash = hash
-
-	return block
+	if preBlock != nil {
+		block.Hash = preBlock.Hash
+		block.Height = preBlock.Height + 1
+	}
+	return block, nil
 }
+

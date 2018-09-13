@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+var (
+	slog = log15.New("module", "unconfirmed")
+)
+
 type Manager struct {
 	Vite    Vite
 	uAccess *model.UAccess
@@ -22,9 +26,10 @@ type Manager struct {
 	unlockEventListener   chan keystore.UnlockEvent
 	firstSyncDoneListener chan int
 	rightEventListener    chan *worker.RightEvent
-	unlockLid             int
-	rightLid              int
-	firstSyncLid          int
+
+	unlockLid    int
+	rightLid     int
+	firstSyncLid int
 
 	log log15.Logger
 }
@@ -40,7 +45,7 @@ func NewManager(vite Vite, dataDir string) *Manager {
 		firstSyncDoneListener: make(chan int),
 		rightEventListener:    make(chan *worker.RightEvent),
 
-		log: log15.New("w", "manager"),
+		log: slog.New("w", "manager"),
 	}
 }
 
@@ -157,13 +162,13 @@ func (manager *Manager) loop() {
 						manager.log.Error("GetAddrListByGid Error", err)
 						continue
 					}
-					w = worker.NewContractWorker(manager.uAccess, event.Gid, event.Address, addressList)
+					w = worker.NewContractWorker(manager.uAccess, manager.Vite.WalletManager(), event.Gid, event.Address, addressList)
 					manager.contractWorkers[*event.Gid] = w
 
 					break
 				}
-				nowTime := uint64(time.Now().Unix())
-				if nowTime >= event.StartTs && nowTime < event.EndTs {
+				nowTime := time.Now().Unix()
+				if nowTime >= event.Timestamp.Unix() && nowTime < event.EndTs.Unix() {
 					w.Start(event)
 				} else {
 					w.Close()

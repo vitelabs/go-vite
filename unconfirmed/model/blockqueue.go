@@ -1,8 +1,8 @@
 package model
 
 import (
-	"sync"
 	"github.com/vitelabs/go-vite/ledger"
+	"sync"
 )
 
 type BlockQueue struct {
@@ -15,7 +15,7 @@ func (q *BlockQueue) Enqueue(block *ledger.AccountBlock) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	for k, v := range q.items {
-		if block.Height.Cmp(v.Height) == -1 {
+		if block.Height < v.Height {
 			newSlice := q.items[0 : k-1]
 			newSlice = append(newSlice, block)
 		}
