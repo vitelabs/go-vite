@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestToWorkSize(t *testing.T) {
+func TestToWordSize(t *testing.T) {
 	tests := []struct {
 		byteSize uint64
 		wordSize uint64

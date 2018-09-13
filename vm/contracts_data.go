@@ -16,7 +16,7 @@ func GetRegisterList(db VmDatabase, gid types.Gid) []types.Address {
 		}
 		registration := new(VariableRegistration)
 		ABI_register.UnpackVariable(registration, VariableNameRegistration, value)
-		if registration.Amount.Sign() > 0 {
+		if registration.Timestamp > 0 {
 			registerList = append(registerList, getAddr(key))
 		}
 	}

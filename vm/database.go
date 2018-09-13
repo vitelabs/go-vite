@@ -26,7 +26,7 @@ type VmDatabase interface {
 	SetToken(token *ledger.Token)
 
 	SetContractGid(gid *types.Gid, addr *types.Address, open bool)
-	SetContractCode(gid *types.Gid, code []byte)
+	SetContractCode(code []byte)
 	GetContractCode(addr *types.Address) []byte
 
 	GetStorage(addr *types.Address, key []byte) []byte

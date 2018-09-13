@@ -2,6 +2,7 @@ package abi
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -121,17 +122,17 @@ func NewType(t string) (typ Type, err error) {
 	case "address":
 		typ.Kind = reflect.Array
 		typ.Type = addressT
-		typ.Size = 20
+		typ.Size = types.AddressSize
 		typ.T = AddressTy
 	case "gid":
 		typ.Kind = reflect.Array
 		typ.Type = gidT
-		typ.Size = 10
+		typ.Size = types.GidSize
 		typ.T = GidTy
 	case "tokenId":
 		typ.Kind = reflect.Array
 		typ.Type = tokenIdT
-		typ.Size = 10
+		typ.Size = types.TokenTypeIdSize
 		typ.T = TokenIdTy
 	case "string":
 		typ.Kind = reflect.String

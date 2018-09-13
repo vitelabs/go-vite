@@ -336,7 +336,7 @@ func TestEventIndexedWithArrayUnpack(t *testing.T) {
 	// number of fields that will be encoded * 32
 	b.Write(packNum(reflect.ValueOf(32)))
 	b.Write(packNum(reflect.ValueOf(len(stringOut))))
-	b.Write(util.RightPadBytes([]byte(stringOut), 32))
+	b.Write(util.RightPadBytes([]byte(stringOut), util.WordSize))
 	var rst testStruct
 	require.NoError(t, abi.UnpackEvent(&rst, "test", b.Bytes()))
 	require.Equal(t, [2]uint8{0, 0}, rst.Value1)

@@ -91,7 +91,7 @@ func (c *contract) run(vm *VM) (ret []byte, err error) {
 			if overflow {
 				return nil, errGasUintOverflow
 			}
-			if memorySize, overflow = util.SafeMul(util.ToWordSize(memSize), 32); overflow {
+			if memorySize, overflow = util.SafeMul(util.ToWordSize(memSize), util.WordSize); overflow {
 				return nil, errGasUintOverflow
 			}
 		}
