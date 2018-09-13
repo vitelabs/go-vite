@@ -11,4 +11,7 @@ type Chain interface {
 	GetSnapshotBlockByHash(hash *types.Hash) (block *ledger.SnapshotBlock, returnErr error)
 	GetAccountBlockByHash(blockHash *types.Hash) (block *ledger.AccountBlock, returnErr error)
 	GetStateTrie(hash *types.Hash) *trie.Trie
+	GetTokenInfoById(tokenId *types.TokenTypeId) (*ledger.Token, error)
+
+	NewStateTrie() *trie.Trie
 }

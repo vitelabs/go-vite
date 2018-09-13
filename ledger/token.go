@@ -9,7 +9,7 @@ type Token struct {
 	TokenId   types.TokenTypeId
 	TokenName string
 
-	Decimals    int
+	Decimals    uint8
 	TotalSupply *big.Int
 }
 
