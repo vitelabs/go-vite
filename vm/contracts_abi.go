@@ -8,7 +8,9 @@ import (
 )
 
 const (
-	VariableNameMintage = "mintage"
+	MethodNameMintage             = "Mintage"
+	MethodNameMintageCancelPledge = "CancelPledge"
+	VariableNameMintage           = "mintage"
 
 	MethodNameRegister       = "Register"
 	MethodNameCancelRegister = "CancelRegister"
@@ -33,7 +35,9 @@ const (
 
 const json_mintage = `
 [
-	{"type":"variable","name":"mintage","inputs":[{"name":"tokenName","type":"string"},{"name":"decimals","type":"uint8"}]}
+	{"type":"function","name":"Mintage","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"}]},
+	{"type":"function","name":"CancelPledge","inputs":[{"name":"tokenId","type":"tokenId"}]},
+	{"type":"variable","name":"mintage","inputs":[{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"owner","type":"address"},{"name":"pledgeAmount","type":"uint256"},{"name":"timestamp","type":"int64"}]}
 ]
 `
 const json_register = `
@@ -73,9 +77,21 @@ var (
 	ABI_consensusGroup, _ = abi.JSONToABIContract(strings.NewReader(json_consensusGroup))
 )
 
-type VariableMintage struct {
-	TokenName string
-	Decimals  uint8
+type ParamMintage struct {
+	TokenId     types.TokenTypeId
+	TokenName   string
+	TokenSymbol string
+	TotalSupply *big.Int
+	Decimals    uint8
+}
+type TokenInfo struct {
+	TokenName    string
+	TokenSymbol  string
+	TotalSupply  *big.Int
+	Decimals     uint8
+	Owner        types.Address
+	PledgeAmount *big.Int
+	Timestamp    int64
 }
 
 type VariableRegistration struct {
@@ -109,7 +125,7 @@ type ParamCancelPledge struct {
 	Beneficial types.Address
 	Amount     *big.Int
 }
-type VariableConsensusGroupInfo struct {
+type ConsensusGroupInfo struct {
 	NodeCount              uint8
 	Interval               int64
 	CountingRuleId         uint8
@@ -130,5 +146,5 @@ type VariableConditionVote2 struct {
 }
 type ParamCreateConsensusGroup struct {
 	Gid types.Gid
-	VariableConsensusGroupInfo
+	ConsensusGroupInfo
 }

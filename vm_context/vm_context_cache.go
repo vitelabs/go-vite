@@ -4,7 +4,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
-	"math/big"
 )
 
 type ContractGid struct {
@@ -13,39 +12,74 @@ type ContractGid struct {
 	open bool
 }
 
-type ContractCode struct {
-	gid  *types.Gid
-	code []byte
+func (contractGid *ContractGid) Gid() *types.Gid {
+	return contractGid.gid
+}
+
+func (contractGid *ContractGid) Addr() *types.Address {
+	return contractGid.addr
+}
+
+func (contractGid *ContractGid) Open() bool {
+	return contractGid.open
 }
 
 type UnsavedCache struct {
-	balance          map[types.TokenTypeId]*big.Int
-	logList          ledger.VmLogList
-	contractGidList  []*ContractGid
-	contractCodeList []*ContractCode
-	tokenList        []*ledger.Token
-	trie             *trie.Trie
+	contractGidList []*ContractGid
+
+	logList ledger.VmLogList
+	storage map[string][]byte
+
+	trie *trie.Trie
+
+	trieDirty bool
 }
 
-func NewUnsavedCache(oldTrie *trie.Trie) *UnsavedCache {
+func NewUnsavedCache(trie *trie.Trie) *UnsavedCache {
 	return &UnsavedCache{
-		balance: make(map[types.TokenTypeId]*big.Int),
-		trie:    oldTrie.Copy(),
+		storage: make(map[string][]byte),
+
+		trie:      trie.Copy(),
+		trieDirty: false,
 	}
 }
 
-func (cache *UnsavedCache) Balance() map[types.TokenTypeId]*big.Int {
-	return cache.balance
+func (cache *UnsavedCache) Copy() *UnsavedCache {
+	return &UnsavedCache{
+		trie:      cache.Trie().Copy(),
+		trieDirty: false,
+	}
 }
 
-func (cache *UnsavedCache) setBalance(tokenTypeId *types.TokenTypeId, balance *big.Int) {
-	cache.balance[*tokenTypeId] = balance
+func (cache *UnsavedCache) Trie() *trie.Trie {
+	if cache.trieDirty {
+		for key, value := range cache.storage {
+			cache.trie.SetValue([]byte(key), value)
+		}
+
+		cache.storage = make(map[string][]byte)
+		cache.trieDirty = false
+	}
+	return cache.trie
+}
+
+func (cache *UnsavedCache) SetStorage(key []byte, value []byte) {
+	cache.storage[string(key)] = value
+	cache.trieDirty = true
+}
+
+func (cache *UnsavedCache) GetStorage(key []byte) []byte {
+	return cache.storage[string(key)]
+}
+
+func (cache *UnsavedCache) ContractGidList() []*ContractGid {
+	return cache.contractGidList
 }
 
 func (cache *UnsavedCache) LogList() ledger.VmLogList {
 	return cache.logList
 }
 
-func (cache *UnsavedCache) addLog(log *ledger.VmLog) {
-	cache.logList = append(cache.logList, log)
+func (cache *UnsavedCache) Storage() map[string][]byte {
+	return cache.storage
 }

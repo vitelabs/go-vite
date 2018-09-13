@@ -10,30 +10,6 @@ import (
 	"testing"
 )
 
-func TestGetTokenInfo(t *testing.T) {
-	tests := []struct {
-		data   string
-		result error
-	}{
-		{"00", ErrInvalidData},
-		{"00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000", nil},
-		{"00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000", ErrInvalidData},
-		{"00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000019000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000", ErrInvalidData},
-		{"00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000013000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000", ErrInvalidData},
-		{"00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000001556697465546f6b656e0000000000000000000000000000000000000000000000", ErrInvalidData},
-		{"00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000001456697465546f6b656e0000000000000000000000000000000000000000000000", ErrInvalidData},
-		{"0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000093c697465546f6b656e0000000000000000000000000000000000000000000000", ErrInvalidData},
-	}
-	vm := &VM{Db: NewNoDatabase(), instructionSet: simpleInstructionSet}
-	for i, test := range tests {
-		inputdata, _ := hex.DecodeString(test.data)
-		err := vm.checkToken(inputdata)
-		if err != test.result {
-			t.Fatalf("%v th check token data fail %v %v", i, test, err)
-		}
-	}
-}
-
 func TestVmRun(t *testing.T) {
 	// prepare db
 	viteTotalSupply := big.NewInt(6e18)
@@ -88,8 +64,7 @@ func TestVmRun(t *testing.T) {
 	hash21 := types.DataHash([]byte{2, 1})
 	block21 := &ledger.AccountBlock{
 		Height:         1,
-		AccountAddress: addr1,
-		ToAddress:      addr2,
+		AccountAddress: addr2,
 		FromBlockHash:  hash13,
 		BlockType:      ledger.BlockTypeReceive,
 		SnapshotHash:   snapshot2.Hash,
@@ -97,6 +72,7 @@ func TestVmRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr2
+	updateReveiceBlockBySendBlock(block21, block13)
 	receiveCreateBlockList, isRetry, err := vm.Run(block21, block13)
 	balance2.Add(balance2, block13.Amount)
 	if len(receiveCreateBlockList) != 1 || isRetry || err != nil ||
@@ -138,8 +114,7 @@ func TestVmRun(t *testing.T) {
 	hash22 := types.DataHash([]byte{2, 2})
 	block22 := &ledger.AccountBlock{
 		Height:         2,
-		AccountAddress: addr1,
-		ToAddress:      addr2,
+		AccountAddress: addr2,
 		FromBlockHash:  hash14,
 		PrevHash:       hash21,
 		BlockType:      ledger.BlockTypeReceive,
@@ -148,6 +123,7 @@ func TestVmRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr2
+	updateReveiceBlockBySendBlock(block22, block14)
 	receiveCallBlockList, isRetry, err := vm.Run(block22, block14)
 	balance2.Add(balance2, block14.Amount)
 	if len(receiveCallBlockList) != 1 || isRetry || err != nil ||
@@ -157,116 +133,66 @@ func TestVmRun(t *testing.T) {
 	}
 	db.accountBlockMap[addr2][hash22] = receiveCallBlockList[0]
 
-	// send mintage
-	data15, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000074d79546f6b656e00000000000000000000000000000000000000000000000000")
-	hash15 := types.DataHash([]byte{1, 5})
+	// TODO error case
+	// send call error, insufficient balance
+	data15, _ := hex.DecodeString("f021ab8f0000000000000000000000000000000000000000000000000000000000000005")
 	block15 := &ledger.AccountBlock{
 		Height:         5,
 		AccountAddress: addr1,
 		ToAddress:      addr2,
-		BlockType:      ledger.BlockTypeSendMintage,
+		BlockType:      ledger.BlockTypeSendCall,
 		PrevHash:       hash14,
-		Amount:         big.NewInt(1e18),
+		Amount:         big.NewInt(4e18),
+		TokenId:        *ledger.ViteTokenId(),
 		SnapshotHash:   snapshot2.Hash,
 		Data:           data15,
 	}
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr1
-	sendMintageBlockList, isRetry, err := vm.Run(block15, nil)
-	balance1.Sub(balance1, block15.Fee)
-	if len(sendMintageBlockList) != 1 || isRetry || err != nil ||
-		sendMintageBlockList[0].Quota != 22152 ||
-		sendMintageBlockList[0].Fee.Cmp(big.NewInt(1e18)) != 0 ||
-		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 {
-		t.Fatalf("send mintage transaction error")
-	}
-	db.accountBlockMap[addr1][hash15] = sendMintageBlockList[0]
-	myTokenId := sendMintageBlockList[0].TokenId
-
-	// receive mintage
-	hash23 := types.DataHash([]byte{2, 3})
-	block23 := &ledger.AccountBlock{
-		Height:         3,
-		AccountAddress: addr1,
-		ToAddress:      addr2,
-		PrevHash:       hash22,
-		FromBlockHash:  hash15,
-		BlockType:      ledger.BlockTypeReceive,
-		SnapshotHash:   snapshot2.Hash,
-	}
-	vm = NewVM(db)
-	vm.Debug = true
-	db.addr = addr2
-	receiveMintageBlockList, isRetry, err := vm.Run(block23, block15)
-	if len(receiveMintageBlockList) != 1 || isRetry || err != nil ||
-		receiveMintageBlockList[0].Quota != 21000 ||
-		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(balance2) != 0 ||
-		db.balanceMap[addr2][myTokenId].Cmp(big.NewInt(1e18)) != 0 {
-		t.Fatalf("receive mintage transaction error")
-	}
-	db.accountBlockMap[addr2][hash23] = receiveMintageBlockList[0]
-
-	// TODO error case
-	// send call error, insufficient balance
-	data16, _ := hex.DecodeString("f021ab8f0000000000000000000000000000000000000000000000000000000000000005")
-	block16 := &ledger.AccountBlock{
-		Height:         6,
-		AccountAddress: addr1,
-		ToAddress:      addr2,
-		BlockType:      ledger.BlockTypeSendCall,
-		PrevHash:       hash15,
-		Amount:         big.NewInt(3e18),
-		TokenId:        *ledger.ViteTokenId(),
-		SnapshotHash:   snapshot2.Hash,
-		Data:           data16,
-	}
-	vm = NewVM(db)
-	vm.Debug = true
-	db.addr = addr1
-	sendCallBlockList2, isRetry, err := vm.Run(block16, nil)
+	sendCallBlockList2, isRetry, err := vm.Run(block15, nil)
 	if len(sendCallBlockList2) != 0 || err != ErrInsufficientBalance {
 		t.Fatalf("send call transaction 2 error")
 	}
 	// receive call error, execution revert
-	data16, _ = hex.DecodeString("")
-	hash16 := types.DataHash([]byte{1, 6})
-	block16 = &ledger.AccountBlock{
-		Height:         6,
+	data15, _ = hex.DecodeString("")
+	hash15 := types.DataHash([]byte{1, 5})
+	block15 = &ledger.AccountBlock{
+		Height:         5,
 		AccountAddress: addr1,
 		ToAddress:      addr2,
 		BlockType:      ledger.BlockTypeSendCall,
-		PrevHash:       hash15,
+		PrevHash:       hash14,
 		Amount:         big.NewInt(50),
 		TokenId:        *ledger.ViteTokenId(),
 		SnapshotHash:   snapshot2.Hash,
-		Data:           data16,
+		Data:           data15,
 	}
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr1
-	sendCallBlockList2, isRetry, err = vm.Run(block16, nil)
-	db.accountBlockMap[addr1][hash16] = sendCallBlockList2[0]
+	sendCallBlockList2, isRetry, err = vm.Run(block15, nil)
+	db.accountBlockMap[addr1][hash15] = sendCallBlockList2[0]
 	// receive call
-	hash24 := types.DataHash([]byte{2, 4})
-	block24 := &ledger.AccountBlock{
-		Height:         4,
-		AccountAddress: addr1,
-		ToAddress:      addr2,
-		FromBlockHash:  hash16,
-		PrevHash:       hash23,
+	hash23 := types.DataHash([]byte{2, 3})
+	block23 := &ledger.AccountBlock{
+		Height:         3,
+		AccountAddress: addr2,
+		FromBlockHash:  hash15,
+		PrevHash:       hash22,
 		BlockType:      ledger.BlockTypeReceive,
 		SnapshotHash:   snapshot2.Hash,
 	}
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr2
-	receiveCallBlockList2, isRetry, err := vm.Run(block24, block16)
+	updateReveiceBlockBySendBlock(block23, block15)
+	receiveCallBlockList2, isRetry, err := vm.Run(block23, block15)
 	if len(receiveCallBlockList2) != 1 || isRetry || err != ErrExecutionReverted ||
 		receiveCallBlockList2[0].Quota != 21046 {
 		t.Fatalf("receive call transaction error")
 	}
-	db.accountBlockMap[addr2][hash24] = receiveCallBlockList2[0]
+	db.accountBlockMap[addr2][hash23] = receiveCallBlockList2[0]
 }
 
 func TestDelegateCall(t *testing.T) {
@@ -311,4 +237,11 @@ func TestQuotaUsed(t *testing.T) {
 			t.Fatalf("%v th calculate quota used failed, expected %v, got %v", i, test.quotaUsed, quotaUsed)
 		}
 	}
+}
+
+func updateReveiceBlockBySendBlock(receiveBlock, sendBlock *ledger.AccountBlock) {
+	receiveBlock.Data = sendBlock.Data
+	receiveBlock.Fee = sendBlock.Fee
+	receiveBlock.Amount = sendBlock.Amount
+	receiveBlock.TokenId = sendBlock.TokenId
 }

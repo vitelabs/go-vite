@@ -32,7 +32,6 @@ func (*AccountBlockMeta) DbDeserialize([]byte) error {
 const (
 	BlockTypeSendCreate byte = iota + 1
 	BlockTypeSendCall
-	BlockTypeSendMintage
 	BlockTypeSendReward
 	BlockTypeReceive
 	BlockTypeReceiveError
@@ -63,14 +62,12 @@ type AccountBlock struct {
 
 	Timestamp *time.Time
 	StateHash types.Hash
-	LogHash   types.Hash
 
-	Nonce             []byte
-	SendBlockHashList []types.Hash
-	Signature         []byte
+	LogHash *types.Hash
+
+	Nonce     []byte
+	Signature []byte
 }
-
-// TODO: compute send block hash
 
 func (*AccountBlock) GetComputeHash() types.Hash {
 	hash, _ := types.BytesToHash([]byte("abcdeabcdeabcdeabcde"))

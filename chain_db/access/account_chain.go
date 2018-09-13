@@ -52,6 +52,9 @@ func (ac *AccountChain) GetLatestBlock(accountId uint64) (*ledger.AccountBlock, 
 	defer iter.Release()
 
 	if !iter.Last() {
+		if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+			return nil, err
+		}
 		return nil, nil
 	}
 	block := &ledger.AccountBlock{}
@@ -125,4 +128,12 @@ func (ac *AccountChain) GetBlockMeta(blockHash *types.Hash) (*ledger.AccountBloc
 	}
 
 	return blockMeta, nil
+}
+
+func (ac *AccountChain) WriteVmLogList(batch *leveldb.Batch, logList ledger.VmLogList) error {
+	return nil
+}
+
+func (ac *AccountChain) WriteContractGid(batch *leveldb.Batch, gid *types.Gid, addr *types.Address, open bool) error {
+	return nil
 }

@@ -1,11 +1,12 @@
 package access
 
 import (
+	"encoding/binary"
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain_db/database"
-	"github.com/vitelabs/go-vite/db_helper"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -19,11 +20,36 @@ func NewSnapshotChain(db *leveldb.DB) *SnapshotChain {
 	}
 }
 
-func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
-	key, ckErr := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, "KEY_MAX")
-	if ckErr != nil {
-		return nil, ckErr
+func (sc *SnapshotChain) WriteSnapshotHash(batch *leveldb.Batch, hash *types.Hash, height uint64) {
+	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCKHASH, hash.Bytes())
+	heightBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(heightBytes, height)
+
+	batch.Put(key, heightBytes)
+}
+
+func (sc *SnapshotChain) WriteSnapshotContent(batch *leveldb.Batch, height uint64, snapshotContent ledger.SnapshotContent) error {
+	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTCONTENT, height)
+	data, sErr := snapshotContent.DbSerialize()
+	if sErr != nil {
+		return sErr
 	}
+	batch.Put(key, data)
+	return nil
+}
+
+func (sc *SnapshotChain) WriteSnapshotBlock(batch *leveldb.Batch, snapshotBlock *ledger.SnapshotBlock) error {
+	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, snapshotBlock.Height)
+	data, sErr := snapshotBlock.DbSerialize()
+	if sErr != nil {
+		return sErr
+	}
+	batch.Put(key, data)
+	return nil
+}
+
+func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
+	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK)
 
 	iter := sc.db.NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
@@ -43,10 +69,7 @@ func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
 }
 
 func (sc *SnapshotChain) GetGenesesBlock() (*ledger.SnapshotBlock, error) {
-	key, ckErr := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, "KEY_MAX")
-	if ckErr != nil {
-		return nil, ckErr
-	}
+	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK)
 
 	iter := sc.db.NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()

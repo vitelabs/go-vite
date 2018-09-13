@@ -22,9 +22,6 @@ type VmDatabase interface {
 
 	IsAddressExisted(addr *types.Address) bool
 
-	GetToken(id *types.TokenTypeId) *ledger.Token
-	SetToken(token *ledger.Token)
-
 	SetContractGid(gid *types.Gid, addr *types.Address, open bool)
 	SetContractCode(code []byte)
 	GetContractCode(addr *types.Address) []byte

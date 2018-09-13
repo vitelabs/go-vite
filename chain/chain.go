@@ -5,7 +5,9 @@ import (
 	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/trie"
 	"path/filepath"
+	"sync"
 )
 
 type Chain struct {
@@ -13,12 +15,20 @@ type Chain struct {
 	chainDb    *chain_db.ChainDb
 	compressor *compress.Compressor
 
+	trieNodePool  *trie.TrieNodePool
+	stateTriePool *StateTriePool
+
+	createAccountLock sync.Mutex
+
+	net Net
 }
 
-func NewChain(cfg *config.Config) *Chain {
+func NewChain(net Net, cfg *config.Config) *Chain {
 	chain := &Chain{
 		log: log15.New("module", "chain"),
 	}
+
+	chain.stateTriePool = NewStateTriePool(chain)
 
 	chainDb := chain_db.NewChainDb(filepath.Join(cfg.DataDir, "chain"))
 	if chainDb == nil {
@@ -29,6 +39,8 @@ func NewChain(cfg *config.Config) *Chain {
 
 	compressor := compress.NewCompressor()
 	chain.compressor = compressor
+
+	chain.trieNodePool = trie.NewTrieNodePool()
 
 	return chain
 }
