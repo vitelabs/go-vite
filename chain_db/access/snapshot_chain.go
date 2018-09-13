@@ -5,7 +5,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain_db/database"
-	"github.com/vitelabs/go-vite/db_helper"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
