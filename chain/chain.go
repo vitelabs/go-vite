@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/trie"
 	"path/filepath"
 )
 
@@ -12,6 +13,8 @@ type Chain struct {
 	log        log15.Logger
 	chainDb    *chain_db.ChainDb
 	compressor *compress.Compressor
+
+	trieNodePool *trie.TrieNodePool
 }
 
 func NewChain(cfg *config.Config) *Chain {
@@ -28,6 +31,8 @@ func NewChain(cfg *config.Config) *Chain {
 
 	compressor := compress.NewCompressor()
 	chain.compressor = compressor
+
+	chain.trieNodePool = trie.NewTrieNodePool()
 
 	return chain
 }

@@ -64,12 +64,9 @@ type AccountBlock struct {
 	StateHash types.Hash
 	LogHash   types.Hash
 
-	Nonce             []byte
-	SendBlockHashList []types.Hash
-	Signature         []byte
+	Nonce     []byte
+	Signature []byte
 }
-
-// TODO: compute send block hash
 
 func (*AccountBlock) GetComputeHash() types.Hash {
 	hash, _ := types.BytesToHash([]byte("abcdeabcdeabcdeabcde"))

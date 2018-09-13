@@ -2,10 +2,10 @@ package chain
 
 import (
 	"errors"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 )
 
@@ -15,8 +15,80 @@ type BlockMapQueryParam struct {
 	Forward         bool
 }
 
-func (c *Chain) InsertAccountBlock(accountBlock *ledger.AccountBlock, vmContext *vm_context.VmContext, needBroadCast bool) error {
+// TODO: WriteBlock
+func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*ledger.VmAccountBlock, needBroadCast bool) error {
+	batch := new(leveldb.Batch)
+	trieSaveCallback := make([]func(), 0)
+	var account *ledger.Account
 
+	// Write vmContext
+	for _, vmAccountBlock := range vmAccountBlocks {
+		accountBlock := vmAccountBlock.AccountBlock
+		vmContext := vmAccountBlock.VmContext
+
+		if vmContext != nil {
+			unsavedCache := vmContext.UnsavedCache()
+			// Save trie
+			if callback, saveTrieErr := unsavedCache.Trie().Save(batch); saveTrieErr != nil {
+				c.log.Error("SaveTrie failed, error is "+saveTrieErr.Error(), "method", "InsertAccountBlock")
+				return saveTrieErr
+			} else {
+				trieSaveCallback = append(trieSaveCallback, callback)
+			}
+
+			// Save log list
+			if logList := unsavedCache.LogList(); len(logList) > 0 {
+				if err := c.chainDb.Ac.WriteVmLogList(batch, logList); err != nil {
+					c.log.Error("WriteVmLogList failed, error is "+err.Error(), "method", "InsertAccountBlock")
+					return err
+				}
+			}
+
+			// Save contract gid list
+			if contractGidList := unsavedCache.ContractGidList(); len(contractGidList) > 0 {
+				for _, contractGid := range contractGidList {
+					if err := c.chainDb.Ac.WriteContractGid(batch, contractGid.Gid(), contractGid.Addr(), contractGid.Open()); err != nil {
+						c.log.Error("WriteContractGid failed, error is "+err.Error(), "method", "InsertAccountBlock")
+						return err
+					}
+				}
+			}
+		}
+
+		if account == nil {
+			var getAccountErr error
+			if account, getAccountErr = c.chainDb.Account.GetAccountByAddress(&accountBlock.AccountAddress); getAccountErr != nil {
+				if getAccountErr == leveldb.ErrNotFound {
+					// TODO create account
+					// Create account, need lock
+				} else {
+					c.log.Error("GetAccountByAddress failed, error is "+getAccountErr.Error(), "method", "InsertAccountBlock")
+					return getAccountErr
+				}
+			}
+		} else if accountBlock.AccountAddress != account.AccountAddress {
+			err := errors.New("AccountAddress is not same")
+			c.log.Error("Error is "+err.Error(), "method", "InsertAccountBlock")
+			return err
+		}
+
+		// Save block
+		c.chainDb.Ac.WriteBlock(batch, account.AccountId, accountBlock)
+
+		// Save block meta
+		c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.Hash, accountBlock.Meta)
+	}
+
+	// Write db
+	if err := c.chainDb.Commit(batch); err != nil {
+		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertAccountBlock")
+		return err
+	}
+
+	// After write db
+	for _, callback := range trieSaveCallback {
+		callback()
+	}
 	return nil
 }
 
@@ -103,6 +175,10 @@ func (c *Chain) GetAccountBlockByHash(blockHash *types.Hash) (block *ledger.Acco
 
 	block, err := c.chainDb.Ac.GetBlock(blockHash)
 	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return nil, nil
+		}
+
 		return nil, &types.GetError{
 			Code: 1,
 			Err:  errors.New("Query block failed. Error is " + err.Error()),
@@ -126,6 +202,7 @@ func (c *Chain) GetAccountBlockByHash(blockHash *types.Hash) (block *ledger.Acco
 	}
 
 	block.PublicKey = account.PublicKey
+	return block, nil
 }
 
 func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count int) (blocks []*ledger.AccountBlock, err error) {

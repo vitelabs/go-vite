@@ -20,7 +20,7 @@ type Trie struct {
 	unSavedRefValueMap map[types.Hash][]byte
 }
 
-func NewTrie(db *leveldb.DB, rootHash *types.Hash, pool *TrieNodePool) (*Trie, error) {
+func NewTrie(db *leveldb.DB, rootHash *types.Hash, pool *TrieNodePool) *Trie {
 	trie := &Trie{
 		db:        db,
 		cachePool: pool,
@@ -30,7 +30,7 @@ func NewTrie(db *leveldb.DB, rootHash *types.Hash, pool *TrieNodePool) (*Trie, e
 	}
 
 	trie.loadFromDb(rootHash)
-	return trie, nil
+	return trie
 }
 
 func (trie *Trie) getNodeFromDb(key *types.Hash) *TrieNode {
