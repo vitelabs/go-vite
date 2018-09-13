@@ -52,6 +52,9 @@ func (ac *AccountChain) GetLatestBlock(accountId uint64) (*ledger.AccountBlock, 
 	defer iter.Release()
 
 	if !iter.Last() {
+		if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+			return nil, err
+		}
 		return nil, nil
 	}
 	block := &ledger.AccountBlock{}

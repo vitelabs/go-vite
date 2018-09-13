@@ -6,6 +6,7 @@ import (
 )
 
 func (c *Chain) GetStateTrie(stateHash *types.Hash) *trie.Trie {
+
 	return nil
 }
 

@@ -63,7 +63,8 @@ type AccountBlock struct {
 
 	Timestamp *time.Time
 	StateHash types.Hash
-	LogHash   types.Hash
+
+	LogHash *types.Hash
 
 	Nonce     []byte
 	Signature []byte

@@ -13,6 +13,10 @@ var (
 	STORAGE_KEY_CODE    = []byte("$code")
 )
 
+func BalanceKey(tokenTypeId *types.TokenTypeId) []byte {
+	return append(STORAGE_KEY_BALANCE, tokenTypeId.Bytes()...)
+}
+
 type VmContext struct {
 	chain   Chain
 	address *types.Address
@@ -22,12 +26,15 @@ type VmContext struct {
 	trie                 *trie.Trie
 
 	unsavedCache *UnsavedCache
+	frozen       bool
 }
 
 func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) (*VmContext, error) {
 	vmContext := &VmContext{
 		chain:   chain,
 		address: addr,
+
+		frozen: false,
 	}
 
 	currentSnapshotBlock, err := chain.GetSnapshotBlockByHash(snapshotBlockHash)
@@ -53,6 +60,20 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 	return vmContext, nil
 }
 
+func (context *VmContext) CopyAndFreeze() *VmContext {
+	unsavedCache := context.unsavedCache.Copy()
+	context.frozen = true
+	return &VmContext{
+		chain:                context.chain,
+		address:              context.address,
+		currentSnapshotBlock: context.currentSnapshotBlock,
+
+		trie:         unsavedCache.Trie().Copy(),
+		unsavedCache: unsavedCache,
+		frozen:       false,
+	}
+}
+
 func (context *VmContext) Address() *types.Address {
 	return context.address
 }
@@ -64,30 +85,32 @@ func (context *VmContext) isSelf(addr *types.Address) bool {
 	return addr == nil || bytes.Equal(addr.Bytes(), context.Address().Bytes())
 }
 
-func (context *VmContext) balanceKey(tokenTypeId *types.TokenTypeId) []byte {
-	return append(STORAGE_KEY_BALANCE, tokenTypeId.Bytes()...)
-}
-
 func (context *VmContext) codeKey() []byte {
 	return STORAGE_KEY_CODE
 }
 
 func (context *VmContext) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
 	var balance = big.NewInt(0)
-	if balanceBytes := context.GetStorage(addr, context.balanceKey(tokenTypeId)); balanceBytes != nil {
+	if balanceBytes := context.GetStorage(addr, BalanceKey(tokenTypeId)); balanceBytes != nil {
 		balance.SetBytes(balanceBytes)
 	}
 	return balance
 }
 
 func (context *VmContext) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+	if context.frozen {
+		return
+	}
 	currentBalance := context.GetBalance(context.address, tokenTypeId)
 	currentBalance.Add(currentBalance, amount)
 
-	context.SetStorage(context.balanceKey(tokenTypeId), currentBalance.Bytes())
+	context.SetStorage(BalanceKey(tokenTypeId), currentBalance.Bytes())
 }
 
 func (context *VmContext) SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+	if context.frozen {
+		return
+	}
 	currentBalance := context.GetBalance(context.address, tokenTypeId)
 
 	newCurrentBalance := &big.Int{}
@@ -98,7 +121,7 @@ func (context *VmContext) SubBalance(tokenTypeId *types.TokenTypeId, amount *big
 		return
 	}
 
-	context.SetStorage(context.balanceKey(tokenTypeId), newCurrentBalance.Bytes())
+	context.SetStorage(BalanceKey(tokenTypeId), newCurrentBalance.Bytes())
 }
 
 func (context *VmContext) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock {
@@ -115,10 +138,15 @@ func (context *VmContext) GetSnapshotBlockByHeight(height uint64) *ledger.Snapsh
 }
 
 func (context *VmContext) Reset() {
+	context.frozen = false
 	context.unsavedCache = NewUnsavedCache(context.trie)
 }
 
 func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address, open bool) {
+	if context.frozen {
+		return
+	}
+
 	contractGid := &ContractGid{
 		gid:  gid,
 		addr: addr,
@@ -128,6 +156,10 @@ func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address, op
 }
 
 func (context *VmContext) SetContractCode(code []byte) {
+	if context.frozen {
+		return
+	}
+
 	context.SetStorage(context.codeKey(), code)
 }
 
@@ -152,6 +184,9 @@ func (context *VmContext) GetToken(id *types.TokenTypeId) *ledger.Token {
 }
 
 func (context *VmContext) SetStorage(key []byte, value []byte) {
+	if context.frozen {
+		return
+	}
 	context.unsavedCache.SetStorage(key, value)
 }
 
@@ -180,11 +215,10 @@ func (context *VmContext) GetGid() *types.Gid {
 	return nil
 }
 
-func (context *VmContext) AddSendBlock(accountBlock *ledger.AccountBlock) {
-	context.unsavedCache.sendBlocks = append(context.unsavedCache.sendBlocks, accountBlock)
-}
-
 func (context *VmContext) AddLog(log *ledger.VmLog) {
+	if context.frozen {
+		return
+	}
 	context.unsavedCache.logList = append(context.unsavedCache.logList, log)
 }
 
