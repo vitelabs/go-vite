@@ -17,9 +17,9 @@ type SimpleAutoReceiveFilterPair struct {
 }
 
 type AutoReceiveWorker struct {
-	log     log15.Logger
-	address *types.Address
-	uAccess *model.UAccess
+	log         log15.Logger
+	address     types.Address
+	accInfoPool *model.UnconfirmedBlocksPool
 
 	//blockQueue *BlockQueue
 	priorityFromQueue *model.PriorityFromQueue
@@ -36,7 +36,7 @@ type AutoReceiveWorker struct {
 	statusMutex sync.Mutex
 }
 
-func NewAutoReceiveWorker(address *types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
+func NewAutoReceiveWorker(address types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
 		address:    address,
 		status:     Create,
@@ -59,9 +59,11 @@ func (w *AutoReceiveWorker) Start() {
 		w.status = Start
 		w.statusMutex.Unlock()
 
-		w.uAccess.AddCommonTxLis(w.address, func() {
+		w.accInfoPool.AddCommonTxLis(w.address, func() {
 			w.NewUnconfirmedTxAlarm()
 		})
+
+		w.accInfoPool.AcquireAccountInfoCache(w.address)
 
 		go w.startWork()
 	} else {
@@ -86,10 +88,13 @@ func (w *AutoReceiveWorker) Stop() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Stop {
+
+		w.accInfoPool.ReleaseAccountInfoCache(w.address)
+
 		w.breaker <- struct{}{}
 		close(w.breaker)
 
-		w.uAccess.RemoveCommonTxLis(w.address)
+		w.accInfoPool.RemoveCommonTxLis(w.address)
 		close(w.newUnconfirmedTxAlarm)
 
 		// make sure we can stop the worker
@@ -119,24 +124,22 @@ func (w *AutoReceiveWorker) NewUnconfirmedTxAlarm() {
 
 func (w *AutoReceiveWorker) startWork() {
 	w.log.Info("worker startWork is called")
-	w.FetchNewOne()
 
 	for {
-		w.log.Debug("worker working")
-		for i := 0; i < w.priorityFromQueue.Len(); i++ {
-			if w.Status() == Stop {
-				goto END
-			}
-			fItem := heap.Pop(w.priorityFromQueue).(*model.FromItem)
-			blockQueue := fItem.Value
-			for j := 0; j < blockQueue.Size(); j++ {
-				recvBlock := blockQueue.Dequeue()
-				w.ProcessOneBlock(recvBlock)
-			}
+		if w.Status() == Stop {
+			goto END
 		}
 
-		w.isSleeping = true
-		w.log.Info("worker Start sleep")
+		tx := w.accInfoPool.GetNextTx(w.address)
+		if tx != nil {
+			minAmount, ok := w.filters[tx.TokenId]
+			if !ok || tx.Amount.Cmp(&minAmount) < 0 {
+				continue
+			}
+			w.ProcessOneBlock(tx)
+			continue
+		}
+
 		select {
 		case <-w.newUnconfirmedTxAlarm:
 			w.log.Info("worker Start awake")
@@ -145,22 +148,13 @@ func (w *AutoReceiveWorker) startWork() {
 			w.log.Info("worker broken")
 			break
 		}
+
 	}
+
 END:
 	w.log.Info("worker send stopDispatcherListener ")
 	w.stopListener <- struct{}{}
 	w.log.Info("worker end work")
-}
-
-func (w *AutoReceiveWorker) FetchNewOne() {
-	blockList, err := w.uAccess.GetUnconfirmedBlocks(0, 1, COMMON_FETCH_SIZE, w.address)
-	if err != nil {
-		w.log.Error("CommonTxWorker.FetchNew.GetUnconfirmedBlocks", "error", err)
-		return
-	}
-	for _, v := range blockList {
-		w.priorityFromQueue.InsertNew(v)
-	}
 }
 
 func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {

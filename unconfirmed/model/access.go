@@ -1,7 +1,6 @@
 package model
 
 import (
-	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
@@ -11,22 +10,16 @@ import (
 )
 
 type UAccess struct {
-	store                *UnconfirmedSet
-	Chain                *chain.Chain
-	commonAccountInfoMap map[types.Address]*CommonAccountInfo
-	newCommonTxListener  map[types.Address]func()
-	newContractListener  map[types.Gid]func()
-
-	log log15.Logger
+	store *UnconfirmedSet
+	chain *chain.Chain
+	log   log15.Logger
 }
 
 func NewUAccess(chain *chain.Chain, dataDir string) *UAccess {
 	uAccess := &UAccess{
-		Chain:                chain,
-		commonAccountInfoMap: make(map[types.Address]*CommonAccountInfo),
-		newCommonTxListener:  make(map[types.Address]func()),
-		newContractListener:  make(map[types.Gid]func()),
-		log:                  log15.New("w", "uAccess"),
+		chain: chain,
+
+		log: log15.New("w", "uAccess"),
 	}
 	dbDir := filepath.Join(dataDir, "chain")
 	db, err := leveldb.OpenFile(dbDir, nil)
@@ -37,76 +30,19 @@ func NewUAccess(chain *chain.Chain, dataDir string) *UAccess {
 	return uAccess
 }
 
-func (access *UAccess) AddCommonTxLis(addr *types.Address, f func()) {
-	access.newCommonTxListener[*addr] = f
-}
-func (access *UAccess) RemoveCommonTxLis(addr *types.Address) {
-	delete(access.newCommonTxListener, *addr)
-}
-
-func (access *UAccess) AddContractLis(gid *types.Gid, f func()) {
-	access.newContractListener[*gid] = f
-}
-func (access *UAccess) RemoveContractLis(gid *types.Gid) {
-	delete(access.newContractListener, *gid)
-}
-
-func (access *UAccess) NewSignalToWorker(block *ledger.AccountBlock) {
-	if block.IsContractTx() {
-		if f, ok := access.newContractListener[*block.Gid]; ok {
-			f()
-		}
-	} else {
-		if f, ok := access.newCommonTxListener[*block.ToAddress]; ok {
-			f()
-		}
-	}
-}
-
 func (access *UAccess) GetAddrListByGid(gid *types.Gid) (addrList []*types.Address, err error) {
 	return nil, nil
 }
 
-func (access *UAccess) WriteUnconfirmed(writeType bool, batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	select {
-	case writeType == true:
-		// writeType == true: add new UnconfirmedMeta
-		if err := access.writeUnconfirmedMeta(batch, block); err != nil {
-			access.log.Error("writeUnconfirmedMeta", "error", err)
-			return err
-		}
-
-		// fixme: whether need to wait the block insert into chain and try the following
-		access.NewSignalToWorker(block)
-
-		// todo: maintain the gid-contractAddress into VmDB
-		// AddConsensusGroup(group ConsensusGroup...)
-
-	case writeType == false:
-		// writeType == false: delete processed UnconfirmedMeta
-		if err := access.deleteUnconfirmedMeta(batch, block); err != nil {
-			access.log.Error("deleteUnconfirmedMeta", "error", err)
-			return err
-		}
-	}
-
-	// fixme: whether need to wait the block insert into chain and try the following
-	if err := access.UpdateCommonAccInfo(writeType, block); err != nil {
-		access.log.Error("UpdateCommonAccInfo", "error", err)
-	}
-
-	return nil
-}
-
 func (access *UAccess) writeUnconfirmedMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
-	if err = access.store.WriteMeta(batch, block.ToAddress, block.Hash); err != nil {
+	if err = access.store.WriteMeta(batch, &block.ToAddress, &block.Hash); err != nil {
 		access.log.Error("WriteMeta", "error", err)
 	}
 	return nil
 }
 
 func (access *UAccess) deleteUnconfirmedMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
-	if err = access.store.DeleteMeta(batch, block.ToAddress, block.Hash); err != nil {
+	if err = access.store.DeleteMeta(batch, &block.ToAddress, &block.Hash); err != nil {
 		access.log.Error("DeleteMeta", "error", err)
 	}
 	return nil
@@ -138,7 +74,7 @@ func (access *UAccess) GetUnconfirmedBlocks(index, num, count uint64, addr *type
 		return nil, err
 	}
 	for _, v := range hashList {
-		block, err := access.Chain.GetAccountBlockByHash(v)
+		block, err := access.chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
 			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
 			continue
@@ -148,58 +84,58 @@ func (access *UAccess) GetUnconfirmedBlocks(index, num, count uint64, addr *type
 	return nil, nil
 }
 
-// first get from cache
 func (access *UAccess) GetCommonAccInfo(addr *types.Address) (info *CommonAccountInfo, err error) {
-	if _, ok := access.commonAccountInfoMap[*addr]; !ok {
-		if err = access.LoadCommonAccInfo(addr); err != nil {
-			access.log.Error("GetCommonAccInfo.LoadCommonAccInfo", "error", err)
-			return nil, err
-		}
+	infoMap, number, err := access.GetCommonAccTokenInfoMap(addr)
+	if err != nil {
+		return nil, err
 	}
-	info, _ = access.commonAccountInfoMap[*addr]
+	info = &CommonAccountInfo{
+		AccountAddress: addr,
+		TotalNumber:    number,
+		TokenInfoMap:   infoMap,
+	}
+
 	return info, nil
 }
 
-// force load from db
-func (access *UAccess) LoadCommonAccInfo(addr *types.Address) error {
-	if _, ok := access.commonAccountInfoMap[*addr]; !ok {
-		number, err := access.store.GetCountByAddress(addr)
-		if err != nil {
-			return err
-		}
-		infoMap, err := access.GetCommonAccTokenInfoMap(addr)
-		if err != nil {
-			return err
-		}
-		info := &CommonAccountInfo{
-			AccountAddress: addr,
-			TotalNumber:    number,
-			TokenInfoMap:   infoMap,
-		}
-		access.commonAccountInfoMap[*addr] = info
+func (access *UAccess) GetAllUnconfirmedBlocks(addr types.Address) (blockList []*ledger.AccountBlock, err error) {
+	hashList, err := access.store.GetHashList(&addr)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	result := make([]*ledger.AccountBlock, len(hashList))
+
+	for i, v := range hashList {
+		block, err := access.chain.GetAccountBlockByHash(v)
+		if err != nil || block == nil {
+			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
+			continue
+		}
+		result[i] = block
+	}
+
+	return result, nil
 }
 
-func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.TokenTypeId]*TokenInfo, error) {
+func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.TokenTypeId]*TokenInfo, uint64, error) {
 	infoMap := make(map[types.TokenTypeId]*TokenInfo)
 	hashList, err := access.store.GetHashList(addr)
 	if err != nil {
 		access.log.Error("GetCommonAccTokenInfoMap.GetHashList", "error", err)
-		return nil, err
+		return nil, 0, err
 	}
 	for _, v := range hashList {
-		block, err := access.Chain.GetAccountBlockByHash(v)
+		block, err := access.chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
 			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
 			continue
 		}
 		ti, ok := infoMap[block.TokenId]
 		if !ok {
-			token, err := access.Chain.GetTokenInfoById(&block.TokenId)
+			token, err := access.chain.GetTokenInfoById(&block.TokenId)
 			if err != nil {
 				access.log.Error("func GetUnconfirmedAccount.GetByTokenId failed", "error", err)
-				return nil, err
+				return nil, 0, err
 			}
 			infoMap[block.TokenId].Token = token.Mintage
 			infoMap[block.TokenId].TotalAmount = *block.Amount
@@ -208,44 +144,5 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 		}
 
 	}
-	return infoMap, err
-}
-
-func (access *UAccess) UpdateCommonAccInfo(writeType bool, block *ledger.AccountBlock) error {
-	tiMap, ok := access.commonAccountInfoMap[*block.ToAddress]
-	if !ok {
-		access.log.Info("UpdateCommonAccInfo：no memory maintenance:",
-			"reason", "send-to address doesn't belong to current manager")
-		return nil
-	}
-	select {
-	case writeType == true:
-		ti, ok := tiMap.TokenInfoMap[*block.TokenId]
-		if !ok {
-			token, err := access.chain.GetTokenInfoById(block.TokenId)
-			if err != nil {
-				return errors.New("func UpdateCommonAccInfo.GetByTokenId failed" + err.Error())
-			}
-			tiMap.TokenInfoMap[*block.TokenId].Token = token.Mintage
-			tiMap.TokenInfoMap[*block.TokenId].TotalAmount = *block.Amount
-		} else {
-			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
-		}
-
-	case writeType == false:
-		ti, ok := tiMap.TokenInfoMap[*block.TokenId]
-		if !ok {
-			return errors.New("find no memory tokenInfo, so can't update when writeType is false")
-		} else {
-			if ti.TotalAmount.Cmp(block.Amount) == -1 {
-				return errors.New("conflict with the memory info, so can't update when writeType is false")
-			}
-			if ti.TotalAmount.Cmp(block.Amount) == 0 {
-				delete(tiMap.TokenInfoMap, *block.TokenId)
-			} else {
-				ti.TotalAmount.Sub(&ti.TotalAmount, block.Amount)
-			}
-		}
-	}
-	return nil
+	return infoMap, uint64(len(hashList)), err
 }
