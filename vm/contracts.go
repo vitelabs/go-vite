@@ -57,7 +57,7 @@ func (p *register) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) 
 	return quotaLeft, ErrInvalidData
 }
 
-// register to become a super node of a consensus group, lock 100w ViteToken for 3 month
+// register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
 func (p *register) doSendRegister(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := useQuota(quotaLeft, registerGas)
 	if err != nil {
@@ -211,7 +211,7 @@ func (p *register) doReceiveRegister(vm *VM, block *ledger.AccountBlock) error {
 	if len(oldData) > 0 {
 		old := new(VariableRegistration)
 		err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.ToAddress, locHash))
-		if err != nil || old.Amount.Sign() > 0 {
+		if err != nil || old.Timestamp > 0 {
 			// duplicate register
 			return ErrInvalidData
 		}
@@ -232,7 +232,7 @@ func (p *register) doReceiveCancelRegister(vm *VM, block *ledger.AccountBlock) e
 	locHash := getKey(block.AccountAddress, *gid)
 	old := new(VariableRegistration)
 	err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.ToAddress, locHash))
-	if err != nil || old.Amount.Sign() == 0 {
+	if err != nil || old.Timestamp == 0 {
 		return ErrInvalidData
 	}
 
@@ -241,8 +241,10 @@ func (p *register) doReceiveCancelRegister(vm *VM, block *ledger.AccountBlock) e
 	registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, common.Big0, int64(0), old.RewardHeight, snapshotBlock.Height)
 	vm.Db.SetStorage(locHash, registerInfo)
 	// return locked ViteToken
-	refundBlock := &ledger.AccountBlock{AccountAddress: block.ToAddress, ToAddress: block.AccountAddress, BlockType: ledger.BlockTypeSendCall, Amount: old.Amount, TokenId: *ledger.ViteTokenId(), Height: block.Height + 1}
-	vm.blockList = append(vm.blockList, refundBlock)
+	if old.Amount.Sign() > 0 {
+		refundBlock := &ledger.AccountBlock{AccountAddress: block.ToAddress, ToAddress: block.AccountAddress, BlockType: ledger.BlockTypeSendCall, Amount: old.Amount, TokenId: *ledger.ViteTokenId(), Height: block.Height + 1}
+		vm.blockList = append(vm.blockList, refundBlock)
+	}
 	return nil
 }
 func (p *register) doReceiveReward(vm *VM, block *ledger.AccountBlock) error {
@@ -356,7 +358,6 @@ func (p *vote) doReceiveVote(vm *VM, block *ledger.AccountBlock) error {
 	ABI_vote.UnpackMethod(param, MethodNameVote, block.Data)
 	// storage key: 00(0:2) + gid(2:12) + voter address(12:32)
 	locHash := getKey(block.AccountAddress, param.Gid)
-	// storage value: superNodeAddress(0:32)
 	voteStatus, _ := ABI_vote.PackVariable(VariableNameVoteStatus, param.Node)
 	vm.Db.SetStorage(locHash, voteStatus)
 	return nil
@@ -455,7 +456,6 @@ func (p *pledge) doReceivePledge(vm *VM, block *ledger.AccountBlock) error {
 	locHashBeneficial := types.DataHash(param.Beneficial.Bytes()).Bytes()
 	// storage key for pledge: hash(owner, hash(beneficial))
 	locHashPledge := types.DataHash(append(block.AccountAddress.Bytes(), locHashBeneficial...)).Bytes()
-	// storage value for pledge: pledge amount(0:32) + withdrawTime(32:64)
 	oldPledgeData := vm.Db.GetStorage(&block.ToAddress, locHashPledge)
 	amount := new(big.Int)
 	if len(oldPledgeData) > 0 {

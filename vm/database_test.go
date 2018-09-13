@@ -15,7 +15,7 @@ type NoDatabase struct {
 	balanceMap        map[types.Address]map[types.TokenTypeId]*big.Int
 	storageMap        map[types.Address]map[types.Hash][]byte
 	codeMap           map[types.Address][]byte
-	contractGidMap    map[types.Address]types.Gid
+	contractGidMap    map[types.Address]*types.Gid
 	logList           []*ledger.VmLog
 	snapshotBlockList []*ledger.SnapshotBlock
 	accountBlockMap   map[types.Address]map[types.Hash]*ledger.AccountBlock
@@ -25,12 +25,12 @@ type NoDatabase struct {
 
 func NewNoDatabase() *NoDatabase {
 	consensusGroupMap := make(map[types.Gid]consensusGroup)
-	consensusGroupMap[util.SnapshotGid] = consensusGroup{}
+	consensusGroupMap[*ledger.CommonGid()] = consensusGroup{}
 	return &NoDatabase{
 		balanceMap:        make(map[types.Address]map[types.TokenTypeId]*big.Int),
 		storageMap:        make(map[types.Address]map[types.Hash][]byte),
 		codeMap:           make(map[types.Address][]byte),
-		contractGidMap:    make(map[types.Address]types.Gid),
+		contractGidMap:    make(map[types.Address]*types.Gid),
 		logList:           make([]*ledger.VmLog, 0),
 		snapshotBlockList: make([]*ledger.SnapshotBlock, 0),
 		accountBlockMap:   make(map[types.Address]map[types.Hash]*ledger.AccountBlock),
@@ -114,10 +114,13 @@ func (db *NoDatabase) SetToken(token *ledger.Token) {
 		db.tokenMap[token.TokenId] = token
 	}
 }
-func (db *NoDatabase) SetContractGid(gid *types.Gid, addr *types.Address, open bool) {}
-func (db *NoDatabase) SetContractCode(gid *types.Gid, code []byte) {
+func (db *NoDatabase) SetContractGid(gid *types.Gid, addr *types.Address, open bool) {
+	if !open {
+		db.contractGidMap[db.addr] = gid
+	}
+}
+func (db *NoDatabase) SetContractCode(code []byte) {
 	db.codeMap[db.addr] = code
-	db.contractGidMap[db.addr] = *gid
 }
 func (db *NoDatabase) GetContractCode(addr *types.Address) []byte {
 	if code, ok := db.codeMap[*addr]; ok {
@@ -153,13 +156,13 @@ func (db *NoDatabase) PrintStorage(addr types.Address) string {
 	}
 }
 func (db *NoDatabase) GetStorageHash() *types.Hash {
-	return &util.EmptyHash
+	return &types.Hash{}
 }
 func (db *NoDatabase) AddLog(log *ledger.VmLog) {
 	db.logList = append(db.logList, log)
 }
 func (db *NoDatabase) GetLogListHash() *types.Hash {
-	return &util.EmptyHash
+	return &types.Hash{}
 }
 
 func (db *NoDatabase) NewStorageIterator(prefix []byte) *vm_context.StorageIterator {
@@ -210,13 +213,13 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 	db.balanceMap[addr1][*ledger.ViteTokenId()] = new(big.Int).Set(db.tokenMap[*ledger.ViteTokenId()].TotalSupply)
 
 	db.storageMap[AddressConsensusGroup] = make(map[types.Hash][]byte)
-	db.storageMap[AddressConsensusGroup][types.DataHash(util.SnapshotGid.Bytes())], _ = ABI_consensusGroup.PackVariable(VariableNameConsensusGroupInfo,
+	db.storageMap[AddressConsensusGroup][types.DataHash(ledger.CommonGid().Bytes())], _ = ABI_consensusGroup.PackVariable(VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
 		uint8(1),
-		util.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32),
+		util.LeftPadBytes(ledger.ViteTokenId().Bytes(), util.WordSize),
 		uint8(1),
-		util.JoinBytes(util.LeftPadBytes(registerAmount.Bytes(), 32), util.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32), util.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), 32)),
+		util.JoinBytes(util.LeftPadBytes(registerAmount.Bytes(), util.WordSize), util.LeftPadBytes(ledger.ViteTokenId().Bytes(), util.WordSize), util.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), util.WordSize)),
 		uint8(1),
 		[]byte{})
 

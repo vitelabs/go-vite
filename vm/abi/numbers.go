@@ -25,5 +25,5 @@ var (
 
 // U256 converts a big Int into a 256bit VM number.
 func U256(n *big.Int) []byte {
-	return util.PaddedBigBytes(util.U256(n), 32)
+	return util.PaddedBigBytes(util.U256(n), util.WordSize)
 }
