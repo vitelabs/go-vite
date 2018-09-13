@@ -46,8 +46,7 @@ func TestContractsRun(t *testing.T) {
 	hash21 := types.DataHash([]byte{2, 1})
 	block21 := &ledger.AccountBlock{
 		Height:         1,
-		ToAddress:      addr2,
-		AccountAddress: addr1,
+		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash13,
 		SnapshotHash:   snapshot2.Hash,
@@ -56,6 +55,7 @@ func TestContractsRun(t *testing.T) {
 	vm.Debug = true
 	locHashRegister, _ := types.BytesToHash(getKey(addr1, *ledger.CommonGid()))
 	db.addr = addr2
+	updateReveiceBlockBySendBlock(block21, block13)
 	receiveRegisterBlockList, isRetry, err := vm.Run(block21, block13)
 	if len(receiveRegisterBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 ||
@@ -101,8 +101,7 @@ func TestContractsRun(t *testing.T) {
 	hash22 := types.DataHash([]byte{2, 2})
 	block22 := &ledger.AccountBlock{
 		Height:         2,
-		ToAddress:      addr2,
-		AccountAddress: addr1,
+		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash21,
 		FromBlockHash:  hash14,
@@ -111,6 +110,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr2
+	updateReveiceBlockBySendBlock(block22, block14)
 	receiveCancelRegisterBlockList, isRetry, err := vm.Run(block22, block14)
 	if len(receiveCancelRegisterBlockList) != 2 || isRetry || err != nil ||
 		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(util.Big0) != 0 ||
@@ -131,8 +131,7 @@ func TestContractsRun(t *testing.T) {
 	hash15 := types.DataHash([]byte{1, 5})
 	block15 := &ledger.AccountBlock{
 		Height:         5,
-		ToAddress:      addr1,
-		AccountAddress: addr2,
+		AccountAddress: addr1,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash14,
 		FromBlockHash:  hash23,
@@ -141,6 +140,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr1
+	updateReveiceBlockBySendBlock(block15, receiveCancelRegisterBlockList[1])
 	receiveCancelRegisterRefundBlockList, isRetry, err := vm.Run(block15, receiveCancelRegisterBlockList[1])
 	if len(receiveCancelRegisterRefundBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(util.Big0) != 0 ||
@@ -186,8 +186,7 @@ func TestContractsRun(t *testing.T) {
 	hash24 := types.DataHash([]byte{2, 4})
 	block24 := &ledger.AccountBlock{
 		Height:         4,
-		ToAddress:      addr2,
-		AccountAddress: addr1,
+		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash23,
 		FromBlockHash:  hash16,
@@ -196,6 +195,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr2
+	updateReveiceBlockBySendBlock(block24, block16)
 	receiveRewardBlockList, isRetry, err := vm.Run(block24, block16)
 	if len(receiveRewardBlockList) != 2 || isRetry || err != nil ||
 		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(util.Big0) != 0 ||
@@ -216,8 +216,7 @@ func TestContractsRun(t *testing.T) {
 	hash17 := types.DataHash([]byte{1, 7})
 	block17 := &ledger.AccountBlock{
 		Height:         7,
-		ToAddress:      addr1,
-		AccountAddress: addr2,
+		AccountAddress: addr1,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash16,
 		FromBlockHash:  hash25,
@@ -226,6 +225,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr1
+	updateReveiceBlockBySendBlock(block17, receiveRewardBlockList[1])
 	receiveRewardRefundBlockList, isRetry, err := vm.Run(block17, receiveRewardBlockList[1])
 	if len(receiveRewardRefundBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(util.Big0) != 0 ||
@@ -263,8 +263,7 @@ func TestContractsRun(t *testing.T) {
 	hash31 := types.DataHash([]byte{3, 1})
 	block31 := &ledger.AccountBlock{
 		Height:         1,
-		ToAddress:      addr3,
-		AccountAddress: addr1,
+		AccountAddress: addr3,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash25,
 		FromBlockHash:  hash18,
@@ -273,6 +272,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr3
+	updateReveiceBlockBySendBlock(block31, block18)
 	receiveVoteBlockList, isRetry, err := vm.Run(block31, block18)
 	locHashVote, _ := types.BytesToHash(getKey(addr1, *ledger.CommonGid()))
 	if len(receiveVoteBlockList) != 1 || isRetry || err != nil ||
@@ -311,8 +311,7 @@ func TestContractsRun(t *testing.T) {
 	hash32 := types.DataHash([]byte{3, 2})
 	block32 := &ledger.AccountBlock{
 		Height:         2,
-		ToAddress:      addr3,
-		AccountAddress: addr1,
+		AccountAddress: addr3,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash31,
 		FromBlockHash:  hash19,
@@ -321,6 +320,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr3
+	updateReveiceBlockBySendBlock(block32, block19)
 	receiveVoteBlockList2, isRetry, err := vm.Run(block32, block19)
 	if len(receiveVoteBlockList2) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr3][locHashVote], util.LeftPadBytes(addr4.Bytes(), util.WordSize)) ||
@@ -356,8 +356,7 @@ func TestContractsRun(t *testing.T) {
 	hash33 := types.DataHash([]byte{3, 3})
 	block33 := &ledger.AccountBlock{
 		Height:         3,
-		ToAddress:      addr3,
-		AccountAddress: addr1,
+		AccountAddress: addr3,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash32,
 		FromBlockHash:  hash1a,
@@ -366,6 +365,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr3
+	updateReveiceBlockBySendBlock(block33, block1a)
 	receiveCancelVoteBlockList, isRetry, err := vm.Run(block33, block1a)
 	if len(receiveCancelVoteBlockList) != 1 || isRetry || err != nil ||
 		len(db.storageMap[addr3][locHashVote]) != 0 ||
@@ -405,8 +405,7 @@ func TestContractsRun(t *testing.T) {
 	hash51 := types.DataHash([]byte{5, 1})
 	block51 := &ledger.AccountBlock{
 		Height:         1,
-		ToAddress:      addr5,
-		AccountAddress: addr1,
+		AccountAddress: addr5,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash33,
 		FromBlockHash:  hash1b,
@@ -415,6 +414,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr5
+	updateReveiceBlockBySendBlock(block51, block1b)
 	receivePledgeBlockList, isRetry, err := vm.Run(block51, block1b)
 	locHashQuota := types.DataHash(addr4.Bytes())
 	locHashPledge := types.DataHash(append(addr1.Bytes(), locHashQuota.Bytes()...))
@@ -456,8 +456,7 @@ func TestContractsRun(t *testing.T) {
 	hash52 := types.DataHash([]byte{5, 2})
 	block52 := &ledger.AccountBlock{
 		Height:         2,
-		ToAddress:      addr5,
-		AccountAddress: addr1,
+		AccountAddress: addr5,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash51,
 		FromBlockHash:  hash1c,
@@ -466,6 +465,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr5
+	updateReveiceBlockBySendBlock(block52, block1c)
 	receivePledgeBlockList2, isRetry, err := vm.Run(block52, block1c)
 	newPledgeAmount := new(big.Int).Add(pledgeAmount, pledgeAmount)
 	if len(receivePledgeBlockList2) != 1 || isRetry || err != nil ||
@@ -508,8 +508,7 @@ func TestContractsRun(t *testing.T) {
 	hash53 := types.DataHash([]byte{5, 3})
 	block53 := &ledger.AccountBlock{
 		Height:         3,
-		ToAddress:      addr5,
-		AccountAddress: addr1,
+		AccountAddress: addr5,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash52,
 		FromBlockHash:  hash1d,
@@ -518,6 +517,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr5
+	updateReveiceBlockBySendBlock(block53, block1d)
 	receiveCancelPledgeBlockList, isRetry, err := vm.Run(block53, block1d)
 	if len(receiveCancelPledgeBlockList) != 2 || isRetry || err != nil ||
 		receiveCancelPledgeBlockList[1].Height != 4 ||
@@ -535,8 +535,7 @@ func TestContractsRun(t *testing.T) {
 	hash1e := types.DataHash([]byte{1, 14})
 	block1e := &ledger.AccountBlock{
 		Height:         14,
-		ToAddress:      addr1,
-		AccountAddress: addr5,
+		AccountAddress: addr1,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash1d,
 		FromBlockHash:  hash54,
@@ -545,6 +544,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr1
+	updateReveiceBlockBySendBlock(block1e, receiveCancelPledgeBlockList[1])
 	receiveCancelPledgeRefundBlockList, isRetry, err := vm.Run(block1e, receiveCancelPledgeBlockList[1])
 	if len(receiveCancelPledgeRefundBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(viteTotalSupply) != 0 ||
@@ -579,8 +579,7 @@ func TestContractsRun(t *testing.T) {
 	hash55 := types.DataHash([]byte{5, 5})
 	block55 := &ledger.AccountBlock{
 		Height:         5,
-		ToAddress:      addr5,
-		AccountAddress: addr1,
+		AccountAddress: addr5,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash54,
 		FromBlockHash:  hash1f,
@@ -589,6 +588,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr5
+	updateReveiceBlockBySendBlock(block55, block1f)
 	receiveCancelPledgeBlockList2, isRetry, err := vm.Run(block55, block1f)
 	if len(receiveCancelPledgeBlockList2) != 2 || isRetry || err != nil ||
 		receiveCancelPledgeBlockList2[1].Height != 6 ||
@@ -606,8 +606,7 @@ func TestContractsRun(t *testing.T) {
 	hash1g := types.DataHash([]byte{1, 16})
 	block1g := &ledger.AccountBlock{
 		Height:         16,
-		ToAddress:      addr1,
-		AccountAddress: addr5,
+		AccountAddress: addr1,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash1f,
 		FromBlockHash:  hash56,
@@ -616,6 +615,7 @@ func TestContractsRun(t *testing.T) {
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr1
+	updateReveiceBlockBySendBlock(block1g, receiveCancelPledgeBlockList2[1])
 	receiveCancelPledgeRefundBlockList2, isRetry, err := vm.Run(block1g, receiveCancelPledgeBlockList2[1])
 	if len(receiveCancelPledgeRefundBlockList2) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(new(big.Int).Add(viteTotalSupply, pledgeAmount)) != 0 ||
@@ -669,8 +669,7 @@ func TestConsensusGroup(t *testing.T) {
 	hash21 := types.DataHash([]byte{2, 1})
 	block21 := &ledger.AccountBlock{
 		Height:         1,
-		ToAddress:      addr2,
-		AccountAddress: addr1,
+		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash13,
 		SnapshotHash:   snapshot2.Hash,
@@ -679,6 +678,7 @@ func TestConsensusGroup(t *testing.T) {
 	vm.Debug = true
 	locHash := types.DataHash(block13.Data[26:36])
 	db.addr = addr2
+	updateReveiceBlockBySendBlock(block21, block13)
 	receiveCreateConsensusGroupBlockList, isRetry, err := vm.Run(block21, block13)
 	groupInfo, _ := ABI_consensusGroup.PackVariable(VariableNameConsensusGroupInfo,
 		uint8(25),
@@ -698,18 +698,15 @@ func TestConsensusGroup(t *testing.T) {
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr2][hash21] = receiveCreateConsensusGroupBlockList[0]
 }
-func TestBytesToGid(t *testing.T) {
-	timestamp := time.Now().Unix()
-	t.Log(timestamp)
-	t.Log(hex.EncodeToString(big.NewInt(timestamp).Bytes()))
-}
 
 func TestGenesisBlockData(t *testing.T) {
 	// vite owner mintage genesis block
 	tokenName := "ViteToken"
+	tokenSymbol := "ViteToken"
 	decimals := uint8(18)
-	mintageData, _ := ABI_mintage.PackVariable(VariableNameMintage, tokenName, decimals)
 	totalSupply := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9))
+	viteAddress, _, _ := types.CreateAddress()
+	mintageData, _ := ABI_mintage.PackVariable(VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, viteAddress, big.NewInt(0), int64(0))
 	fmt.Println("-------------vite owner mintage genesis block-------------")
 	fmt.Println("address: viteAddress")
 	fmt.Printf("AccountBlock{\n\tBlockType: ledger.BlockTypeReceive,\n\tAccountAddress: viteAddress,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:*ledger.ViteTokenId(),\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
@@ -751,4 +748,35 @@ func TestGenesisBlockData(t *testing.T) {
 		fmt.Printf("\t%v: %v\n\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData), hex.EncodeToString(commonKey), hex.EncodeToString(registerData))
 	}
 	fmt.Println("}")
+}
+
+func TestGetTokenInfo(t *testing.T) {
+	tests := []struct {
+		data   string
+		err    error
+		result bool
+	}{
+		{"00", ErrInvalidData, false},
+		{"46d0ce8b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000033b2e3c9fd0803ce80000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000", nil, true},
+		{"46d0ce8b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000033b2e3c9fd0803ce80000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000009", ErrInvalidData, true},
+		{"46d0ce8b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000033b2e3c9fd0803ce80000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000956697465546f6b651F0000000000000000000000000000000000000000000000", nil, false},
+		{"46d0ce8b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000033b2e3c9fd0803ce80000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000956697465546f6b651F0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000956697465546f6b651F0000000000000000000000000000000000000000000000", nil, false},
+		{"46d0ce8b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000033b2e3c9fd0803ce80000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a56697465546f6b656e0000000000000000000000000000000000000000000000", nil, false},
+		{"46d0ce8b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000033b2e3c9fd0803ce80000000000000000000000000000000000000000000000000000000000000000000013000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000", nil, false},
+	}
+	for i, test := range tests {
+		inputdata, _ := hex.DecodeString(test.data)
+		param := new(ParamMintage)
+		err := ABI_mintage.UnpackMethod(param, MethodNameMintage, inputdata)
+		if test.err != nil && err == nil {
+			t.Logf("%v th expected error", i)
+		} else if test.err == nil && err != nil {
+			t.Logf("%v th unexpected error", i)
+		} else if test.err == nil {
+			err = checkToken(*param)
+			if test.result != (err == nil) {
+				t.Fatalf("%v th check token data fail %v %v", i, test, err)
+			}
+		}
+	}
 }

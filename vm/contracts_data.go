@@ -2,8 +2,24 @@ package vm
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
+
+func GetTokenById(db VmDatabase, tokenId types.TokenTypeId) *TokenInfo {
+	data := db.GetStorage(&AddressMintage, util.LeftPadBytes(tokenId.Bytes(), types.HashSize))
+	if len(data) > 0 {
+		tokenInfo := new(TokenInfo)
+		ABI_mintage.UnpackVariable(tokenInfo, VariableNameMintage, data)
+		return tokenInfo
+	}
+	return nil
+}
+
+func GetTokenList(db VmDatabase) []*TokenInfo {
+	// TODO
+	return nil
+}
 
 // get register address of gid
 func GetRegisterList(db VmDatabase, gid types.Gid) []types.Address {
@@ -52,15 +68,15 @@ func GetPledgeAmount(db VmDatabase, beneficial types.Address) *big.Int {
 }
 
 // get all consensus group info
-func GetConsensusGroupList(db VmDatabase) []*VariableConsensusGroupInfo {
+func GetConsensusGroupList(db VmDatabase) []*ConsensusGroupInfo {
 	iterator := db.NewStorageIterator(nil)
-	consensusGroupInfoList := make([]*VariableConsensusGroupInfo, 0)
+	consensusGroupInfoList := make([]*ConsensusGroupInfo, 0)
 	for {
 		_, value, ok := iterator.Next()
 		if !ok {
 			break
 		}
-		consensusGroupInfo := new(VariableConsensusGroupInfo)
+		consensusGroupInfo := new(ConsensusGroupInfo)
 		ABI_pledge.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value)
 		consensusGroupInfoList = append(consensusGroupInfoList, consensusGroupInfo)
 	}
@@ -68,10 +84,10 @@ func GetConsensusGroupList(db VmDatabase) []*VariableConsensusGroupInfo {
 }
 
 // get consensus group info by gid
-func GetConsensusGroup(db VmDatabase, gid types.Gid) *VariableConsensusGroupInfo {
+func GetConsensusGroup(db VmDatabase, gid types.Gid) *ConsensusGroupInfo {
 	data := db.GetStorage(&AddressConsensusGroup, types.DataHash(gid.Bytes()).Bytes())
 	if len(data) > 0 {
-		consensusGroupInfo := new(VariableConsensusGroupInfo)
+		consensusGroupInfo := new(ConsensusGroupInfo)
 		ABI_pledge.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)
 		return consensusGroupInfo
 	}

@@ -32,7 +32,6 @@ func (*AccountBlockMeta) DbDeserialize([]byte) error {
 const (
 	BlockTypeSendCreate byte = iota + 1
 	BlockTypeSendCall
-	BlockTypeSendMintage
 	BlockTypeSendReward
 	BlockTypeReceive
 	BlockTypeReceiveError
