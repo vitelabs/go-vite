@@ -290,7 +290,7 @@ func (vm *VM) calcCreateQuota(fee *big.Int) uint64 {
 func (vm *VM) quotaLeft(addr types.Address, block *ledger.AccountBlock) (uint64, uint64) {
 	// quotaInit = pledge amount of account address at current snapshot block status(attov) / quotaByPledge
 	// get extra quota if calc PoW before a send transaction
-	quotaInit := helper.Min(new(big.Int).Div(GetPledgeAmount(vm.Db, addr), quotaByPledge).Uint64(), quotaLimit)
+	quotaInit := helper.Min(new(big.Int).Div(contractsData.GetPledgeAmount(vm.Db, addr), quotaByPledge).Uint64(), quotaLimit)
 	quotaAddition := uint64(0)
 	if len(block.Nonce) > 0 {
 		quotaAddition = quotaForPoW

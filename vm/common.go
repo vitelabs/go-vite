@@ -6,13 +6,17 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+const (
+	Retry   = true
+	NoRetry = false
+)
+
 var (
 	DataResultPrefixSuccess = []byte{0}
 	DataResultPrefixRevert  = []byte{1}
 	DataResultPrefixFail    = []byte{2}
 
-	Retry   = true
-	NoRetry = false
+	contractsData = &ContractsData{}
 )
 
 func IsViteToken(tokenId types.TokenTypeId) bool {

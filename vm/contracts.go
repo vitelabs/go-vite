@@ -677,7 +677,7 @@ type countingRuleOfBalance struct{}
 func (c countingRuleOfBalance) checkParam(param []byte, db VmDatabase) bool {
 	v := new(types.TokenTypeId)
 	err := ABI_consensusGroup.UnpackVariable(v, VariableNameConditionCounting1, param)
-	if err != nil || GetTokenById(db, *v) == nil {
+	if err != nil || contractsData.GetTokenById(db, *v) == nil {
 		return false
 	}
 	return true
@@ -688,7 +688,7 @@ type registerConditionOfSnapshot struct{}
 func (c registerConditionOfSnapshot) checkParam(param []byte, db VmDatabase) bool {
 	v := new(VariableConditionRegister1)
 	err := ABI_consensusGroup.UnpackVariable(v, VariableNameConditionRegister1, param)
-	if err != nil || GetTokenById(db, v.PledgeToken) == nil {
+	if err != nil || contractsData.GetTokenById(db, v.PledgeToken) == nil {
 		return false
 	}
 	return true
@@ -708,7 +708,7 @@ type voteConditionOfBalance struct{}
 func (c voteConditionOfBalance) checkParam(param []byte, db VmDatabase) bool {
 	v := new(VariableConditionVote2)
 	err := ABI_consensusGroup.UnpackVariable(v, VariableNameConditionVote2, param)
-	if err != nil || GetTokenById(db, v.KeepToken) == nil {
+	if err != nil || contractsData.GetTokenById(db, v.KeepToken) == nil {
 		return false
 	}
 	return true
@@ -737,7 +737,7 @@ func (p *pMintage) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) 
 		return quotaLeft, err
 	}
 	tokenId := types.CreateTokenTypeId(block.AccountAddress.Bytes(), new(big.Int).SetUint64(block.Height).Bytes(), block.PrevHash.Bytes(), block.SnapshotHash.Bytes())
-	if GetTokenById(vm.Db, tokenId) != nil {
+	if contractsData.GetTokenById(vm.Db, tokenId) != nil {
 		return quotaLeft, ErrIdCollision
 	}
 	block.Data, _ = ABI_mintage.PackMethod(MethodNameMintage, tokenId, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals)
@@ -797,7 +797,7 @@ func (p *pMintageCancelPledge) doSend(vm *VM, block *ledger.AccountBlock, quotaL
 	if err != nil {
 		return quotaLeft, ErrInvalidData
 	}
-	tokenInfo := GetTokenById(vm.Db, *tokenId)
+	tokenInfo := contractsData.GetTokenById(vm.Db, *tokenId)
 	if !bytes.Equal(tokenInfo.Owner.Bytes(), block.AccountAddress.Bytes()) || tokenInfo.PledgeAmount.Sign() == 0 || tokenInfo.Timestamp > vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp.Unix() {
 		return quotaLeft, ErrInvalidData
 	}
