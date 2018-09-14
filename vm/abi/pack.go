@@ -1,7 +1,7 @@
 package abi
 
 import (
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 	"reflect"
 )
@@ -10,7 +10,7 @@ import (
 // bytes slice
 func packBytesSlice(bytes []byte, l int) []byte {
 	len := packNum(reflect.ValueOf(l))
-	return append(len, util.RightPadBytes(bytes, (l+util.WordSize-1)/util.WordSize*util.WordSize)...)
+	return append(len, helper.RightPadBytes(bytes, (l+helper.WordSize-1)/helper.WordSize*helper.WordSize)...)
 }
 
 // packElement packs the given reflect value according to the abi specification in
@@ -26,24 +26,24 @@ func packElement(t Type, reflectValue reflect.Value) []byte {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
 
-		return util.LeftPadBytes(reflectValue.Bytes(), util.WordSize)
+		return helper.LeftPadBytes(reflectValue.Bytes(), helper.WordSize)
 	case GidTy:
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
 
-		return util.LeftPadBytes(reflectValue.Bytes(), util.WordSize)
+		return helper.LeftPadBytes(reflectValue.Bytes(), helper.WordSize)
 	case TokenIdTy:
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
 
-		return util.LeftPadBytes(reflectValue.Bytes(), util.WordSize)
+		return helper.LeftPadBytes(reflectValue.Bytes(), helper.WordSize)
 	case BoolTy:
 		if reflectValue.Bool() {
-			return util.PaddedBigBytes(util.Big1, util.WordSize)
+			return helper.PaddedBigBytes(helper.Big1, helper.WordSize)
 		}
-		return util.PaddedBigBytes(util.Big0, util.WordSize)
+		return helper.PaddedBigBytes(helper.Big0, helper.WordSize)
 	case BytesTy:
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
@@ -53,7 +53,7 @@ func packElement(t Type, reflectValue reflect.Value) []byte {
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
-		return util.RightPadBytes(reflectValue.Bytes(), util.WordSize)
+		return helper.RightPadBytes(reflectValue.Bytes(), helper.WordSize)
 	default:
 		panic("abi: fatal error")
 	}

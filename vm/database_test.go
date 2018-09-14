@@ -3,9 +3,9 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"time"
@@ -155,10 +155,10 @@ func (db *NoDatabase) NewStorageIterator(prefix []byte) *vm_context.StorageItera
 }
 
 func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {
-	addr1, _ = types.BytesToAddress(util.HexToBytes("CA35B7D915458EF540ADE6068DFE2F44E8FA733C"))
+	addr1, _ = types.BytesToAddress(helper.HexToBytes("CA35B7D915458EF540ADE6068DFE2F44E8FA733C"))
 	db = NewNoDatabase()
 	db.storageMap[AddressMintage] = make(map[types.Hash][]byte)
-	viteTokenIdLoc, _ := types.BytesToHash(util.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32))
+	viteTokenIdLoc, _ := types.BytesToHash(helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32))
 	db.storageMap[AddressMintage][viteTokenIdLoc], _ = ABI_mintage.PackVariable(VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), int64(0))
 
 	timestamp = 1536214502
@@ -199,13 +199,14 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 	db.balanceMap[addr1][*ledger.ViteTokenId()] = new(big.Int).Set(viteTotalSupply)
 
 	db.storageMap[AddressConsensusGroup] = make(map[types.Hash][]byte)
-	db.storageMap[AddressConsensusGroup][types.DataHash(ledger.CommonGid().Bytes())], _ = ABI_consensusGroup.PackVariable(VariableNameConsensusGroupInfo,
+	consensusGroupKey, _ := types.BytesToHash(getConsensusGroupKey(*ledger.CommonGid()))
+	db.storageMap[AddressConsensusGroup][consensusGroupKey], _ = ABI_consensusGroup.PackVariable(VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
 		uint8(1),
-		util.LeftPadBytes(ledger.ViteTokenId().Bytes(), util.WordSize),
+		helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize),
 		uint8(1),
-		util.JoinBytes(util.LeftPadBytes(registerAmount.Bytes(), util.WordSize), util.LeftPadBytes(ledger.ViteTokenId().Bytes(), util.WordSize), util.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), util.WordSize)),
+		helper.JoinBytes(helper.LeftPadBytes(registerAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), helper.WordSize)),
 		uint8(1),
 		[]byte{})
 

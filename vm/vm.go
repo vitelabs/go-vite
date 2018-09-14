@@ -6,9 +6,9 @@ package vm
 import (
 	"bytes"
 	"errors"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"sync/atomic"
 )
@@ -45,21 +45,21 @@ func (vm *VM) Run(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (b
 		quotaTotal, quotaAddition := vm.quotaLeft(block.AccountAddress, block)
 		block, err = vm.sendCreate(block, quotaTotal, quotaAddition)
 		if err != nil {
-			return nil, util.NoRetry, err
+			return nil, NoRetry, err
 		} else {
-			return []*ledger.AccountBlock{block}, util.NoRetry, nil
+			return []*ledger.AccountBlock{block}, NoRetry, nil
 		}
 	case ledger.BlockTypeSendCall:
 		quotaTotal, quotaAddition := vm.quotaLeft(block.AccountAddress, block)
 		block, err = vm.sendCall(block, quotaTotal, quotaAddition)
 		if err != nil {
-			return nil, util.NoRetry, err
+			return nil, NoRetry, err
 		} else {
-			return []*ledger.AccountBlock{block}, util.NoRetry, nil
+			return []*ledger.AccountBlock{block}, NoRetry, nil
 		}
 	}
 
-	return nil, util.NoRetry, errors.New("transaction type not supported")
+	return nil, NoRetry, errors.New("transaction type not supported")
 }
 
 func (vm *VM) Cancel() {
@@ -112,16 +112,16 @@ func (vm *VM) sendCreate(block *ledger.AccountBlock, quotaTotal, quotaAddition u
 func (vm *VM) receiveCreate(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, quotaTotal uint64) (blockList []*ledger.AccountBlock, isRetry bool, err error) {
 	quotaLeft := quotaTotal
 	if vm.Db.IsAddressExisted(&block.AccountAddress) {
-		return nil, util.NoRetry, ErrAddressCollision
+		return nil, NoRetry, ErrAddressCollision
 	}
 	// check can make transaction
 	cost, err := intrinsicGasCost(nil, true)
 	if err != nil {
-		return nil, util.NoRetry, err
+		return nil, NoRetry, err
 	}
 	quotaLeft, err = useQuota(quotaLeft, cost)
 	if err != nil {
-		return nil, util.NoRetry, err
+		return nil, NoRetry, err
 	}
 
 	vm.blockList = []*ledger.AccountBlock{block}
@@ -148,13 +148,13 @@ func (vm *VM) receiveCreate(block *ledger.AccountBlock, sendBlock *ledger.Accoun
 			err = vm.doSendBlockList(quotaTotal - block.Quota)
 			if err == nil {
 				vm.Db.SetContractGid(&gid, &block.AccountAddress, true)
-				return vm.blockList, util.NoRetry, nil
+				return vm.blockList, NoRetry, nil
 			}
 		}
 	}
 
 	vm.revert()
-	return nil, util.NoRetry, err
+	return nil, NoRetry, err
 }
 
 func (vm *VM) sendCall(block *ledger.AccountBlock, quotaTotal, quotaAddition uint64) (*ledger.AccountBlock, error) {
@@ -173,7 +173,7 @@ func (vm *VM) sendCall(block *ledger.AccountBlock, quotaTotal, quotaAddition uin
 		vm.Db.SubBalance(&block.TokenId, block.Amount)
 		vm.Db.SubBalance(ledger.ViteTokenId(), block.Fee)
 	} else {
-		block.Fee = util.Big0
+		block.Fee = helper.Big0
 		cost, err := intrinsicGasCost(block.Data, false)
 		if err != nil {
 			return nil, err
@@ -207,12 +207,12 @@ func (vm *VM) receiveCall(block *ledger.AccountBlock, sendBlock *ledger.AccountB
 			vm.updateBlock(block, err, 0, nil)
 			err = vm.doSendBlockList(txGas)
 			if err == nil {
-				return vm.blockList, util.NoRetry, nil
+				return vm.blockList, NoRetry, nil
 			}
 		}
 		vm.revert()
 		vm.updateBlock(block, err, 0, nil)
-		return vm.blockList, util.NoRetry, err
+		return vm.blockList, NoRetry, err
 	} else {
 		// check can make transaction
 		quotaTotal, quotaAddition := vm.quotaLeft(block.AccountAddress, block)
@@ -220,11 +220,11 @@ func (vm *VM) receiveCall(block *ledger.AccountBlock, sendBlock *ledger.AccountB
 		quotaRefund := uint64(0)
 		cost, err := intrinsicGasCost(nil, false)
 		if err != nil {
-			return nil, util.NoRetry, err
+			return nil, NoRetry, err
 		}
 		quotaLeft, err = useQuota(quotaLeft, cost)
 		if err != nil {
-			return nil, util.Retry, err
+			return nil, Retry, err
 		}
 		vm.blockList = []*ledger.AccountBlock{block}
 		// add balance, create account if not exist
@@ -233,7 +233,7 @@ func (vm *VM) receiveCall(block *ledger.AccountBlock, sendBlock *ledger.AccountB
 		code := vm.Db.GetContractCode(&block.AccountAddress)
 		if len(code) == 0 {
 			vm.updateBlock(block, nil, quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil), nil)
-			return vm.blockList, util.NoRetry, nil
+			return vm.blockList, NoRetry, nil
 		}
 		// run code
 		c := newContract(sendBlock.AccountAddress, block.AccountAddress, block, quotaLeft, quotaRefund)
@@ -243,7 +243,7 @@ func (vm *VM) receiveCall(block *ledger.AccountBlock, sendBlock *ledger.AccountB
 			vm.updateBlock(block, nil, quotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, nil), nil)
 			err = vm.doSendBlockList(quotaTotal - quotaAddition - block.Quota)
 			if err == nil {
-				return vm.blockList, util.NoRetry, nil
+				return vm.blockList, NoRetry, nil
 			}
 		}
 
@@ -264,7 +264,7 @@ func (vm *VM) sendReward(block *ledger.AccountBlock, quotaTotal, quotaAddition u
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(block.AccountAddress.Bytes(), AddressRegister.Bytes()) {
+	if !bytes.Equal(block.AccountAddress.Bytes(), AddressRegister.Bytes()) && !bytes.Equal(block.AccountAddress.Bytes(), AddressMintage.Bytes()) {
 		return nil, ErrInvalidData
 	}
 	vm.updateBlock(block, nil, 0, nil)
@@ -282,7 +282,7 @@ func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract)
 func (vm *VM) calcCreateQuota(fee *big.Int) uint64 {
 	quota := new(big.Int).Div(fee, quotaByCreateFeeAttov)
 	if quota.IsUint64() {
-		return util.Min(quotaLimitForTransaction, quota.Uint64())
+		return helper.Min(quotaLimitForTransaction, quota.Uint64())
 	}
 	return quotaLimitForTransaction
 }
@@ -290,7 +290,7 @@ func (vm *VM) calcCreateQuota(fee *big.Int) uint64 {
 func (vm *VM) quotaLeft(addr types.Address, block *ledger.AccountBlock) (uint64, uint64) {
 	// quotaInit = pledge amount of account address at current snapshot block status(attov) / quotaByPledge
 	// get extra quota if calc PoW before a send transaction
-	quotaInit := util.Min(new(big.Int).Div(GetPledgeAmount(vm.Db, addr), quotaByPledge).Uint64(), quotaLimit)
+	quotaInit := helper.Min(new(big.Int).Div(contractsData.GetPledgeAmount(vm.Db, addr), quotaByPledge).Uint64(), quotaLimit)
 	quotaAddition := uint64(0)
 	if len(block.Nonce) > 0 {
 		quotaAddition = quotaForPoW
@@ -331,7 +331,7 @@ func (vm *VM) updateBlock(block *ledger.AccountBlock, err error, quota uint64, r
 			block.Data = append(DataResultPrefixFail, result...)
 		}
 
-		block.LogHash = *vm.Db.GetLogListHash()
+		block.LogHash = vm.Db.GetLogListHash()
 		if err == ErrOutOfQuota {
 			block.BlockType = ledger.BlockTypeReceiveError
 		} else {
@@ -368,7 +368,7 @@ func (vm *VM) revert() {
 func (vm *VM) canTransfer(addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 	if feeAmount == nil || feeAmount.Sign() == 0 {
 		return tokenAmount.Cmp(vm.Db.GetBalance(&addr, &tokenTypeId)) <= 0
-	} else if util.IsViteToken(tokenTypeId) {
+	} else if IsViteToken(tokenTypeId) {
 		balance := new(big.Int).Add(tokenAmount, feeAmount)
 		return balance.Cmp(vm.Db.GetBalance(&addr, &tokenTypeId)) <= 0
 	} else {
@@ -393,7 +393,7 @@ func quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err err
 		if quotaTotal-quotaLeft < quotaAddition {
 			return 0
 		} else {
-			return quotaTotal - quotaLeft - quotaAddition - util.Min(quotaRefund, (quotaTotal-quotaAddition-quotaLeft)/2)
+			return quotaTotal - quotaLeft - quotaAddition - helper.Min(quotaRefund, (quotaTotal-quotaAddition-quotaLeft)/2)
 		}
 	}
 }
@@ -403,7 +403,7 @@ func createContractAddress(addr types.Address, height uint64, prevHash types.Has
 }
 
 func isExistGid(db VmDatabase, gid types.Gid) bool {
-	value := db.GetStorage(&AddressConsensusGroup, types.DataHash(gid.Bytes()).Bytes())
+	value := db.GetStorage(&AddressConsensusGroup, getConsensusGroupKey(gid))
 	return len(value) > 0
 }
 

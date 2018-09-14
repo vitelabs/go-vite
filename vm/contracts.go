@@ -2,12 +2,11 @@ package vm
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/abi"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"regexp"
 	"strconv"
@@ -35,9 +34,10 @@ type precompiledContractMethod interface {
 var simpleContracts = map[types.Address]*precompiledContract{
 	AddressRegister: {
 		map[string]precompiledContractMethod{
-			MethodNameRegister:       &pRegister{},
-			MethodNameCancelRegister: &pCancelRegister{},
-			MethodNameReward:         &pReward{},
+			MethodNameRegister:           &pRegister{},
+			MethodNameCancelRegister:     &pCancelRegister{},
+			MethodNameReward:             &pReward{},
+			MethodNameUpdateRegistration: &pUpdateRegistration{},
 		},
 		ABI_register,
 	},
@@ -103,40 +103,42 @@ func (p *pRegister) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64)
 		return quotaLeft, err
 	}
 	if block.Amount.Cmp(registerAmount) != 0 ||
-		!util.IsViteToken(block.TokenId) ||
-		!isUserAccount(vm.Db, block.AccountAddress) {
+		!IsViteToken(block.TokenId) {
 		return quotaLeft, ErrInvalidData
 	}
 
-	gid := new(types.Gid)
-	err = ABI_register.UnpackMethod(gid, MethodNameRegister, block.Data)
-	if err != nil || !isExistGid(vm.Db, *gid) {
+	param := new(ParamRegister)
+	err = ABI_register.UnpackMethod(param, MethodNameRegister, block.Data)
+	if err != nil || !isExistGid(vm.Db, param.Gid) ||
+		!vm.Db.IsAddressExisted(&param.BeneficialAddr) ||
+		!vm.Db.IsAddressExisted(&param.NodeAddr) ||
+		!isUserAccount(vm.Db, param.NodeAddr) {
+		return quotaLeft, ErrInvalidData
+	}
+	if len(vm.Db.GetStorage(&AddressRegister, getRegisterKey(param.Name, param.Gid))) > 0 {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
 func (p *pRegister) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
-	gid := new(types.Gid)
-	ABI_register.UnpackMethod(gid, MethodNameRegister, block.Data)
+	param := new(ParamRegister)
+	ABI_register.UnpackMethod(param, MethodNameRegister, block.Data)
 	snapshotBlock := vm.Db.GetSnapshotBlock(&block.SnapshotHash)
 	rewardHeight := snapshotBlock.Height
-	locHash := getKey(sendBlock.AccountAddress, *gid)
-	oldData := vm.Db.GetStorage(&block.AccountAddress, locHash)
+	key := getRegisterKey(param.Name, param.Gid)
+	oldData := vm.Db.GetStorage(&block.AccountAddress, key)
 	if len(oldData) > 0 {
-		old := new(VariableRegistration)
-		err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.AccountAddress, locHash))
-		if err != nil || old.Timestamp > 0 {
+		old := new(types.Registration)
+		ABI_register.UnpackVariable(old, VariableNameRegistration, oldData)
+		if old.Timestamp > 0 {
 			// duplicate register
 			return ErrInvalidData
 		}
 		// reward of last being a super node is not drained
 		rewardHeight = old.RewardHeight
 	}
-	registerInfo, err := ABI_register.PackVariable(VariableNameRegistration, block.Amount, snapshotBlock.Timestamp.Unix(), rewardHeight, uint64(0))
-	if err != nil {
-		fmt.Println(err)
-	}
-	vm.Db.SetStorage(locHash, registerInfo)
+	registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, param.Name, param.NodeAddr, sendBlock.AccountAddress, param.BeneficialAddr, block.Amount, snapshotBlock.Timestamp.Unix(), rewardHeight, uint64(0))
+	vm.Db.SetStorage(key, registerInfo)
 	return nil
 }
 
@@ -161,35 +163,37 @@ func (p *pCancelRegister) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft u
 		!isUserAccount(vm.Db, block.AccountAddress) {
 		return quotaLeft, ErrInvalidData
 	}
-	gid := new(types.Gid)
-	err = ABI_register.UnpackMethod(gid, MethodNameCancelRegister, block.Data)
-	if err != nil || !isExistGid(vm.Db, *gid) {
+	param := new(ParamCancelRegister)
+	err = ABI_register.UnpackMethod(param, MethodNameCancelRegister, block.Data)
+	if err != nil || !isExistGid(vm.Db, param.Gid) {
 		return quotaLeft, ErrInvalidData
 	}
 
-	locHash := getKey(block.AccountAddress, *gid)
-	old := new(VariableRegistration)
-	err = ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.ToAddress, locHash))
-	if err != nil || time.Unix(old.Timestamp+registerLockTime, 0).Before(*vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp) {
+	key := getRegisterKey(param.Name, param.Gid)
+	old := new(types.Registration)
+	err = ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.ToAddress, key))
+	if err != nil || !bytes.Equal(old.PledgeAddr.Bytes(), block.AccountAddress.Bytes()) ||
+		old.Timestamp == 0 ||
+		old.Timestamp+registerLockTime < vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp.Unix() {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
 func (p *pCancelRegister) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
-	gid := new(types.Gid)
-	ABI_register.UnpackMethod(gid, MethodNameCancelRegister, block.Data)
+	param := new(ParamCancelRegister)
+	ABI_register.UnpackMethod(param, MethodNameCancelRegister, block.Data)
 
-	locHash := getKey(sendBlock.AccountAddress, *gid)
-	old := new(VariableRegistration)
-	err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.AccountAddress, locHash))
+	key := getRegisterKey(param.Name, param.Gid)
+	old := new(types.Registration)
+	err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.AccountAddress, key))
 	if err != nil || old.Timestamp == 0 {
 		return ErrInvalidData
 	}
 
 	// update lock amount and loc start timestamp
 	snapshotBlock := vm.Db.GetSnapshotBlock(&block.SnapshotHash)
-	registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, common.Big0, int64(0), old.RewardHeight, snapshotBlock.Height)
-	vm.Db.SetStorage(locHash, registerInfo)
+	registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, param.Name, old.NodeAddr, old.PledgeAddr, old.BeneficialAddr, common.Big0, int64(0), old.RewardHeight, snapshotBlock.Height)
+	vm.Db.SetStorage(key, registerInfo)
 	// return locked ViteToken
 	if old.Amount.Sign() > 0 {
 		vm.blockList = append(vm.blockList, makeSendBlock(block, sendBlock.AccountAddress, ledger.BlockTypeSendCall, old.Amount, *ledger.ViteTokenId(), []byte{}))
@@ -216,22 +220,22 @@ func (p *pReward) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (
 	}
 	param := new(ParamReward)
 	err = ABI_register.UnpackMethod(param, MethodNameReward, block.Data)
-	if err != nil || !util.IsSnapshotGid(param.Gid) {
+	if err != nil || !IsSnapshotGid(param.Gid) {
 		return quotaLeft, ErrInvalidData
 	}
-	locHash := getKey(block.AccountAddress, param.Gid)
-	old := new(VariableRegistration)
-	err = ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.ToAddress, locHash))
-	if err != nil {
+	key := getRegisterKey(param.Name, param.Gid)
+	old := new(types.Registration)
+	err = ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.ToAddress, key))
+	if err != nil || !bytes.Equal(block.AccountAddress.Bytes(), old.BeneficialAddr.Bytes()) {
 		return quotaLeft, ErrInvalidData
 	}
 	// newRewardHeight := min(currentSnapshotHeight-50, userDefined, cancelSnapshotHeight)
 	newRewardHeight := vm.Db.GetSnapshotBlock(&block.SnapshotHash).Height - rewardHeightLimit
 	if param.EndHeight > 0 {
-		newRewardHeight = util.Min(newRewardHeight, param.EndHeight)
+		newRewardHeight = helper.Min(newRewardHeight, param.EndHeight)
 	}
 	if old.CancelHeight > 0 {
-		newRewardHeight = util.Min(newRewardHeight, old.CancelHeight)
+		newRewardHeight = helper.Min(newRewardHeight, old.CancelHeight)
 	}
 	if newRewardHeight <= old.RewardHeight {
 		return quotaLeft, ErrInvalidData
@@ -248,7 +252,7 @@ func (p *pReward) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (
 	}
 
 	calcReward(vm, block.AccountAddress.Bytes(), old.RewardHeight, count, param.Amount)
-	data, err := ABI_register.PackMethod(MethodNameReward, param.Gid, newRewardHeight, old.RewardHeight, param.Amount)
+	data, err := ABI_register.PackMethod(MethodNameReward, param.Gid, param.Name, newRewardHeight, old.RewardHeight, param.Amount)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -283,10 +287,10 @@ func calcReward(vm *VM, producer []byte, startHeight uint64, count uint64, rewar
 func (p *pReward) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(ParamReward)
 	ABI_register.UnpackMethod(param, MethodNameReward, block.Data)
-	locHash := getKey(sendBlock.AccountAddress, param.Gid)
-	old := new(VariableRegistration)
-	err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.AccountAddress, locHash))
-	if err != nil || old.RewardHeight != param.StartHeight {
+	key := getRegisterKey(param.Name, param.Gid)
+	old := new(types.Registration)
+	err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.AccountAddress, key))
+	if err != nil || old.RewardHeight != param.StartHeight || !bytes.Equal(sendBlock.AccountAddress.Bytes(), old.BeneficialAddr.Bytes()) {
 		return ErrInvalidData
 	}
 	if old.CancelHeight > 0 {
@@ -294,21 +298,74 @@ func (p *pReward) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledge
 			return ErrInvalidData
 		} else if param.EndHeight == old.CancelHeight {
 			// delete storage when register canceled and reward drained
-			vm.Db.SetStorage(locHash, nil)
+			vm.Db.SetStorage(key, nil)
 		} else {
 			// get reward partly, update storage
-			registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, old.Amount, old.Timestamp, param.EndHeight, old.CancelHeight)
-			vm.Db.SetStorage(locHash, registerInfo)
+			registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, old.Name, old.NodeAddr, old.PledgeAddr, old.BeneficialAddr, old.Amount, old.Timestamp, param.EndHeight, old.CancelHeight)
+			vm.Db.SetStorage(key, registerInfo)
 		}
 	} else {
-		registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, old.Amount, old.Timestamp, param.EndHeight, old.CancelHeight)
-		vm.Db.SetStorage(locHash, registerInfo)
+		registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, old.Name, old.NodeAddr, old.PledgeAddr, old.BeneficialAddr, old.Amount, old.Timestamp, param.EndHeight, old.CancelHeight)
+		vm.Db.SetStorage(key, registerInfo)
 	}
 
 	if param.Amount.Sign() > 0 {
 		// create reward and return
 		vm.blockList = append(vm.blockList, makeSendBlock(block, sendBlock.AccountAddress, ledger.BlockTypeSendReward, param.Amount, *ledger.ViteTokenId(), []byte{}))
 	}
+	return nil
+}
+
+type pUpdateRegistration struct {
+}
+
+func (p *pUpdateRegistration) getFee(vm *VM, block *ledger.AccountBlock) *big.Int {
+	return big.NewInt(0)
+}
+
+// update registration info
+func (p *pUpdateRegistration) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, updateRegistrationGas)
+	if err != nil {
+		return quotaLeft, err
+	}
+	quotaLeft, err = useQuotaForData(block.Data, quotaLeft)
+	if err != nil {
+		return quotaLeft, err
+	}
+	if block.Amount.Sign() != 0 {
+		return quotaLeft, ErrInvalidData
+	}
+
+	param := new(ParamRegister)
+	err = ABI_register.UnpackMethod(param, MethodNameUpdateRegistration, block.Data)
+	if err != nil ||
+		!vm.Db.IsAddressExisted(&param.BeneficialAddr) ||
+		!vm.Db.IsAddressExisted(&param.NodeAddr) ||
+		!isUserAccount(vm.Db, param.NodeAddr) {
+		return quotaLeft, ErrInvalidData
+	}
+	old := new(types.Registration)
+	err = ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&AddressRegister, getRegisterKey(param.Name, param.Gid)))
+	if err != nil ||
+		!bytes.Equal(old.PledgeAddr.Bytes(), block.AccountAddress.Bytes()) ||
+		old.Timestamp == 0 ||
+		(bytes.Equal(old.BeneficialAddr.Bytes(), param.BeneficialAddr.Bytes()) && bytes.Equal(old.NodeAddr.Bytes(), param.BeneficialAddr.Bytes())) {
+		return quotaLeft, ErrInvalidData
+	}
+	return quotaLeft, nil
+}
+func (p *pUpdateRegistration) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
+	param := new(ParamRegister)
+	ABI_register.UnpackMethod(param, MethodNameUpdateRegistration, block.Data)
+	key := getRegisterKey(param.Name, param.Gid)
+	old := new(types.Registration)
+	err := ABI_register.UnpackVariable(old, VariableNameRegistration, vm.Db.GetStorage(&block.AccountAddress, key))
+	if err != nil || old.Timestamp == 0 {
+		return ErrInvalidData
+	}
+	registerInfo, _ := ABI_register.PackVariable(VariableNameRegistration, old.Name, param.NodeAddr, old.PledgeAddr, param.BeneficialAddr, old.Amount, old.Timestamp, old.RewardHeight, old.CancelHeight)
+	vm.Db.SetStorage(key, registerInfo)
 	return nil
 }
 
@@ -335,7 +392,7 @@ func (p *pVote) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (ui
 	}
 	param := new(ParamVote)
 	err = ABI_vote.UnpackMethod(param, MethodNameVote, block.Data)
-	if err != nil || !isExistGid(vm.Db, param.Gid) || !vm.Db.IsAddressExisted(&param.Node) {
+	if err != nil || !isExistGid(vm.Db, param.Gid) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
@@ -345,8 +402,8 @@ func (p *pVote) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.
 	param := new(ParamVote)
 	ABI_vote.UnpackMethod(param, MethodNameVote, block.Data)
 	// storage key: 00(0:2) + gid(2:12) + voter address(12:32)
-	locHash := getKey(sendBlock.AccountAddress, param.Gid)
-	voteStatus, _ := ABI_vote.PackVariable(VariableNameVoteStatus, param.Node)
+	locHash := getVoteKey(sendBlock.AccountAddress, param.Gid)
+	voteStatus, _ := ABI_vote.PackVariable(VariableNameVoteStatus, param.NodeName)
 	vm.Db.SetStorage(locHash, voteStatus)
 	return nil
 }
@@ -383,7 +440,7 @@ func (p *pCancelVote) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint6
 func (p *pCancelVote) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
 	gid := new(types.Gid)
 	ABI_vote.UnpackMethod(gid, MethodNameCancelVote, block.Data)
-	locHash := getKey(sendBlock.AccountAddress, *gid)
+	locHash := getVoteKey(sendBlock.AccountAddress, *gid)
 	vm.Db.SetStorage(locHash, nil)
 	return nil
 }
@@ -405,7 +462,7 @@ func (p *pPledge) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (
 		return quotaLeft, err
 	}
 	if block.Amount.Sign() == 0 ||
-		!util.IsViteToken(block.TokenId) ||
+		!IsViteToken(block.TokenId) ||
 		!isUserAccount(vm.Db, block.AccountAddress) {
 		return quotaLeft, ErrInvalidData
 	}
@@ -536,7 +593,7 @@ func (p *pCreateConsensusGroup) doSend(vm *VM, block *ledger.AccountBlock, quota
 		!isUserAccount(vm.Db, block.AccountAddress) {
 		return quotaLeft, ErrInvalidData
 	}
-	param := new(ParamCreateConsensusGroup)
+	param := new(types.ConsensusGroupInfo)
 	err = ABI_consensusGroup.UnpackMethod(param, MethodNameCreateConsensusGroup, block.Data)
 	if err != nil {
 		return quotaLeft, err
@@ -557,7 +614,7 @@ func (p *pCreateConsensusGroup) doSend(vm *VM, block *ledger.AccountBlock, quota
 	}
 	return quotaLeft, nil
 }
-func (p *pCreateConsensusGroup) checkCreateConsensusGroupData(vm *VM, param *ParamCreateConsensusGroup) error {
+func (p *pCreateConsensusGroup) checkCreateConsensusGroupData(vm *VM, param *types.ConsensusGroupInfo) error {
 	if param.NodeCount < cgNodeCountMin || param.NodeCount > cgNodeCountMax ||
 		param.Interval < cgIntervalMin || param.Interval > cgIntervalMax {
 		return ErrInvalidData
@@ -584,14 +641,14 @@ func (p *pCreateConsensusGroup) checkCondition(vm *VM, conditionId uint8, condit
 	return nil
 }
 func (p *pCreateConsensusGroup) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
-	param := new(ParamCreateConsensusGroup)
+	param := new(types.ConsensusGroupInfo)
 	ABI_consensusGroup.UnpackMethod(param, MethodNameCreateConsensusGroup, block.Data)
-	locHash := types.DataHash(param.Gid.Bytes()).Bytes()
-	if len(vm.Db.GetStorage(&block.AccountAddress, locHash)) > 0 {
+	key := getConsensusGroupKey(param.Gid)
+	if len(vm.Db.GetStorage(&block.AccountAddress, key)) > 0 {
 		return ErrIdCollision
 	}
 	groupInfo, _ := ABI_consensusGroup.PackVariable(VariableNameConsensusGroupInfo, param.NodeCount, param.Interval, param.CountingRuleId, param.CountingRuleParam, param.RegisterConditionId, param.RegisterConditionParam, param.VoteConditionId, param.VoteConditionParam)
-	vm.Db.SetStorage(locHash, groupInfo)
+	vm.Db.SetStorage(key, groupInfo)
 	return nil
 }
 
@@ -620,7 +677,7 @@ type countingRuleOfBalance struct{}
 func (c countingRuleOfBalance) checkParam(param []byte, db VmDatabase) bool {
 	v := new(types.TokenTypeId)
 	err := ABI_consensusGroup.UnpackVariable(v, VariableNameConditionCounting1, param)
-	if err != nil || GetTokenById(db, *v) == nil {
+	if err != nil || contractsData.GetTokenById(db, *v) == nil {
 		return false
 	}
 	return true
@@ -631,7 +688,7 @@ type registerConditionOfSnapshot struct{}
 func (c registerConditionOfSnapshot) checkParam(param []byte, db VmDatabase) bool {
 	v := new(VariableConditionRegister1)
 	err := ABI_consensusGroup.UnpackVariable(v, VariableNameConditionRegister1, param)
-	if err != nil || GetTokenById(db, v.PledgeToken) == nil {
+	if err != nil || contractsData.GetTokenById(db, v.PledgeToken) == nil {
 		return false
 	}
 	return true
@@ -651,7 +708,7 @@ type voteConditionOfBalance struct{}
 func (c voteConditionOfBalance) checkParam(param []byte, db VmDatabase) bool {
 	v := new(VariableConditionVote2)
 	err := ABI_consensusGroup.UnpackVariable(v, VariableNameConditionVote2, param)
-	if err != nil || GetTokenById(db, v.KeepToken) == nil {
+	if err != nil || contractsData.GetTokenById(db, v.KeepToken) == nil {
 		return false
 	}
 	return true
@@ -680,7 +737,7 @@ func (p *pMintage) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) 
 		return quotaLeft, err
 	}
 	tokenId := types.CreateTokenTypeId(block.AccountAddress.Bytes(), new(big.Int).SetUint64(block.Height).Bytes(), block.PrevHash.Bytes(), block.SnapshotHash.Bytes())
-	if GetTokenById(vm.Db, tokenId) != nil {
+	if contractsData.GetTokenById(vm.Db, tokenId) != nil {
 		return quotaLeft, ErrIdCollision
 	}
 	block.Data, _ = ABI_mintage.PackMethod(MethodNameMintage, tokenId, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals)
@@ -696,10 +753,10 @@ func checkToken(param ParamMintage) error {
 		len(param.TokenSymbol) == 0 || len(param.TokenSymbol) > tokenSymbolLengthMax {
 		return ErrInvalidData
 	}
-	if ok, _ := regexp.MatchString("^[a-zA-Z]+$", param.TokenName); !ok {
+	if ok, _ := regexp.MatchString("^([0-9a-zA-Z_]+[ ]?)*[0-9a-zA-Z_]$", param.TokenName); !ok {
 		return ErrInvalidData
 	}
-	if ok, _ := regexp.MatchString("^[a-zA-Z]+$", param.TokenSymbol); !ok {
+	if ok, _ := regexp.MatchString("^([0-9a-zA-Z_]+[ ]?)*[0-9a-zA-Z_]$", param.TokenSymbol); !ok {
 		return ErrInvalidData
 	}
 	return nil
@@ -707,12 +764,17 @@ func checkToken(param ParamMintage) error {
 func (p *pMintage) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(ParamMintage)
 	ABI_mintage.UnpackMethod(param, MethodNameMintage, block.Data)
-	locHash := util.LeftPadBytes(param.TokenId.Bytes(), 32)
-	if len(vm.Db.GetStorage(&block.AccountAddress, locHash)) > 0 {
+	key := helper.LeftPadBytes(param.TokenId.Bytes(), 32)
+	if len(vm.Db.GetStorage(&block.AccountAddress, key)) > 0 {
 		return ErrIdCollision
 	}
-	tokenInfo, _ := ABI_mintage.PackVariable(VariableNameMintage, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals, sendBlock.AccountAddress, sendBlock.Amount, vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp.Unix()+mintagePledgeTime)
-	vm.Db.SetStorage(locHash, tokenInfo)
+	var tokenInfo []byte
+	if block.Amount.Sign() == 0 {
+		tokenInfo, _ = ABI_mintage.PackVariable(VariableNameMintage, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals, sendBlock.AccountAddress, sendBlock.Amount, int64(0))
+	} else {
+		tokenInfo, _ = ABI_mintage.PackVariable(VariableNameMintage, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals, sendBlock.AccountAddress, sendBlock.Amount, vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp.Unix()+mintagePledgeTime)
+	}
+	vm.Db.SetStorage(key, tokenInfo)
 	vm.blockList = append(vm.blockList, makeSendBlock(block, sendBlock.AccountAddress, ledger.BlockTypeSendReward, param.TotalSupply, param.TokenId, []byte{}))
 	return nil
 }
@@ -740,7 +802,7 @@ func (p *pMintageCancelPledge) doSend(vm *VM, block *ledger.AccountBlock, quotaL
 	if err != nil {
 		return quotaLeft, ErrInvalidData
 	}
-	tokenInfo := GetTokenById(vm.Db, *tokenId)
+	tokenInfo := contractsData.GetTokenById(vm.Db, *tokenId)
 	if !bytes.Equal(tokenInfo.Owner.Bytes(), block.AccountAddress.Bytes()) || tokenInfo.PledgeAmount.Sign() == 0 || tokenInfo.Timestamp > vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp.Unix() {
 		return quotaLeft, ErrInvalidData
 	}
@@ -749,8 +811,8 @@ func (p *pMintageCancelPledge) doSend(vm *VM, block *ledger.AccountBlock, quotaL
 func (p *pMintageCancelPledge) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
 	tokenId := new(types.TokenTypeId)
 	ABI_mintage.UnpackMethod(tokenId, MethodNameMintageCancelPledge, block.Data)
-	storageKey := util.LeftPadBytes(tokenId.Bytes(), types.HashSize)
-	tokenInfo := new(TokenInfo)
+	storageKey := helper.LeftPadBytes(tokenId.Bytes(), types.HashSize)
+	tokenInfo := new(types.TokenInfo)
 	ABI_mintage.UnpackVariable(tokenInfo, VariableNameMintage, vm.Db.GetStorage(&block.AccountAddress, storageKey))
 	newTokenInfo, _ := ABI_mintage.PackVariable(VariableNameMintage, tokenInfo.TokenName, tokenInfo.TokenSymbol, tokenInfo.TotalSupply, tokenInfo.Decimals, tokenInfo.Owner, big.NewInt(0), int64(0))
 	vm.Db.SetStorage(storageKey, newTokenInfo)
@@ -761,16 +823,4 @@ func (p *pMintageCancelPledge) doReceive(vm *VM, block *ledger.AccountBlock, sen
 }
 func isUserAccount(db VmDatabase, addr types.Address) bool {
 	return len(db.GetContractCode(&addr)) == 0
-}
-
-func getKey(addr types.Address, gid types.Gid) []byte {
-	var data = make([]byte, types.HashSize)
-	copy(data[2:12], gid[:])
-	copy(data[12:], addr[:])
-	return data
-}
-
-func getAddr(key []byte) types.Address {
-	addr, _ := types.BytesToAddress(key[12:])
-	return addr
 }

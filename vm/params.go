@@ -41,11 +41,12 @@ const (
 
 	tokenDecimalsMin     uint8 = 0  // Minimum value of a token decimals(include)
 	tokenDecimalsMax     uint8 = 18 // Maximum value of a token decimals(include)
-	tokenNameLengthMax   int   = 20 // Maximum length of a token name(include)
+	tokenNameLengthMax   int   = 40 // Maximum length of a token name(include)
 	tokenSymbolLengthMax int   = 10 // Maximum length of a token symbol(include)
 	mintagePledgeTime    int64 = 3600 * 24 * 3
 
 	registerGas             uint64 = 62200
+	updateRegistrationGas   uint64 = 62200
 	cancelRegisterGas       uint64 = 83200
 	rewardGas               uint64 = 83200
 	calcRewardGasPerPage    uint64 = 200

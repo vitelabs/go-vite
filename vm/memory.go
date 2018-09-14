@@ -2,7 +2,7 @@ package vm
 
 import (
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 	"strconv"
 )
@@ -60,7 +60,7 @@ func (m *memory) getPtr(offset, size int64) []byte {
 // set sets offset + size to amount
 func (m *memory) set(offset, size uint64, value []byte) {
 	// It's possible the offset is greater than 0 and size equals 0. This is because
-	// the calcMemSize (util.go) could potentially return 0 when size is zero (NO-OP)
+	// the calcMemSize (helper.go) could potentially return 0 when size is zero (NO-OP)
 	if size > 0 {
 		// length of store may never be less than offset + size.
 		// The store should be resized PRIOR to setting the memory
@@ -82,18 +82,18 @@ func (m *memory) set32(offset uint64, val *big.Int) {
 	// Zero the memory area
 	copy(m.store[offset:offset+32], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 	// Fill in relevant bits
-	util.ReadBits(val, m.store[offset:offset+32])
+	helper.ReadBits(val, m.store[offset:offset+32])
 }
 
 func (m *memory) print() string {
 	var result string
 	if len(m.store) > 0 {
 		addr := 0
-		for i := 0; i+util.WordSize <= len(m.store); i += util.WordSize {
-			if i+util.WordSize < len(m.store) {
-				result += strconv.Itoa(addr) + "=>" + hex.EncodeToString(m.store[i:i+util.WordSize]) + ", "
+		for i := 0; i+helper.WordSize <= len(m.store); i += helper.WordSize {
+			if i+helper.WordSize < len(m.store) {
+				result += strconv.Itoa(addr) + "=>" + hex.EncodeToString(m.store[i:i+helper.WordSize]) + ", "
 			} else {
-				result += strconv.Itoa(addr) + "=>" + hex.EncodeToString(m.store[i:i+util.WordSize])
+				result += strconv.Itoa(addr) + "=>" + hex.EncodeToString(m.store[i:i+helper.WordSize])
 			}
 			addr++
 		}
