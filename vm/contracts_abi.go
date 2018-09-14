@@ -1,18 +1,19 @@
 package vm
 
 import (
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"strings"
 )
 
 const (
-	MethodNameRegister       = "Register"
-	MethodNameCancelRegister = "CancelRegister"
-	MethodNameReward         = "Reward"
-	VariableNameRegistration = "registration"
+	MethodNameRegister           = "Register"
+	MethodNameCancelRegister     = "CancelRegister"
+	MethodNameReward             = "Reward"
+	MethodNameUpdateRegistration = "UpdateRegistration"
+	VariableNameRegistration     = "registration"
 
 	MethodNameVote         = "Vote"
 	MethodNameCancelVote   = "CancelVote"
@@ -37,7 +38,7 @@ const (
 const json_register = `
 [
 	{"type":"function","name":"Register", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"beneficialAddr","type":"address"}]},
-	{"type":"function","name":"UpdateRegister", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"beneficialAddr","type":"address"}]},
+	{"type":"function","name":"UpdateRegistration", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"beneficialAddr","type":"address"}]},
 	{"type":"function","name":"CancelRegister","inputs":[{"name":"gid","type":"gid"}, {"name":"name","type":"string"}]},
 	{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"endHeight","type":"uint64"},{"name":"startHeight","type":"uint64"},{"name":"amount","type":"uint256"}]},
 	{"type":"variable","name":"registration","inputs":[{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"pledgeAddr","type":"address"},{"name":"beneficialAddr","type":"address"},{"name":"amount","type":"uint256"},{"name":"timestamp","type":"int64"},{"name":"rewardHeight","type":"uint64"},{"name":"cancelHeight","type":"uint64"}]}
@@ -96,23 +97,9 @@ type ParamReward struct {
 	StartHeight uint64
 	Amount      *big.Int
 }
-type VariableRegistration struct {
-	Name           string
-	NodeAddr       types.Address
-	PledgeAddr     types.Address
-	BeneficialAddr types.Address
-	Amount         *big.Int
-	Timestamp      int64
-	RewardHeight   uint64
-	CancelHeight   uint64
-}
 type ParamVote struct {
 	Gid      types.Gid
 	NodeName string
-}
-type VoteInfo struct {
-	VoterAddr types.Address
-	NodeName  string
 }
 type VariablePledgeInfo struct {
 	Amount       *big.Int
@@ -129,20 +116,6 @@ type ParamCancelPledge struct {
 	Beneficial types.Address
 	Amount     *big.Int
 }
-type VariableConsensusGroupInfo struct {
-	NodeCount              uint8
-	Interval               int64
-	CountingRuleId         uint8
-	CountingRuleParam      []byte
-	RegisterConditionId    uint8
-	RegisterConditionParam []byte
-	VoteConditionId        uint8
-	VoteConditionParam     []byte
-}
-type ConsensusGroupInfo struct {
-	VariableConsensusGroupInfo
-	Gid types.Gid
-}
 type VariableConditionRegister1 struct {
 	PledgeAmount *big.Int
 	PledgeToken  types.TokenTypeId
@@ -152,25 +125,12 @@ type VariableConditionVote2 struct {
 	KeepAmount *big.Int
 	KeepToken  types.TokenTypeId
 }
-type ParamCreateConsensusGroup struct {
-	Gid types.Gid
-	VariableConsensusGroupInfo
-}
 type ParamMintage struct {
 	TokenId     types.TokenTypeId
 	TokenName   string
 	TokenSymbol string
 	TotalSupply *big.Int
 	Decimals    uint8
-}
-type TokenInfo struct {
-	TokenName    string
-	TokenSymbol  string
-	TotalSupply  *big.Int
-	Decimals     uint8
-	Owner        types.Address
-	PledgeAmount *big.Int
-	Timestamp    int64
 }
 
 func getRegisterKey(name string, gid types.Gid) []byte {
@@ -190,7 +150,7 @@ func getAddrFromVoteKey(key []byte) types.Address {
 	return addr
 }
 func getConsensusGroupKey(gid types.Gid) []byte {
-	return util.LeftPadBytes(gid.Bytes(), types.HashSize)
+	return helper.LeftPadBytes(gid.Bytes(), types.HashSize)
 }
 func getGidFromConsensusGroupKey(key []byte) types.Gid {
 	gid, _ := types.BytesToGid(key[types.HashSize-types.GidSize:])

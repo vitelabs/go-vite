@@ -1,8 +1,8 @@
 package vm
 
 import (
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/util"
 )
 
 // memoryGasCosts calculates the quadratic gas for memory expansion. It does so
@@ -23,8 +23,8 @@ func memoryGasCost(mem *memory, newMemSize uint64) (uint64, error) {
 		return 0, errGasUintOverflow
 	}
 
-	newMemSizeWords := util.ToWordSize(newMemSize)
-	newMemSize = newMemSizeWords * util.WordSize
+	newMemSizeWords := helper.ToWordSize(newMemSize)
+	newMemSize = newMemSizeWords * helper.WordSize
 
 	if newMemSize > uint64(mem.len()) {
 		square := newMemSizeWords * newMemSizeWords
@@ -53,7 +53,7 @@ func gasExp(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (
 		gas      = expByteLen * expByteGas // no overflow check required. Max is 256 * expByteGas gas
 		overflow bool
 	)
-	if gas, overflow = util.SafeAdd(gas, slowStepGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, slowStepGas); overflow {
 		return 0, errGasUintOverflow
 	}
 	return gas, nil
@@ -66,18 +66,18 @@ func gasBlake2b(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint6
 		return 0, err
 	}
 
-	if gas, overflow = util.SafeAdd(gas, blake2bGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, blake2bGas); overflow {
 		return 0, errGasUintOverflow
 	}
 
-	wordGas, overflow := util.BigUint64(stack.back(1))
+	wordGas, overflow := helper.BigUint64(stack.back(1))
 	if overflow {
 		return 0, errGasUintOverflow
 	}
-	if wordGas, overflow = util.SafeMul(util.ToWordSize(wordGas), blake2bWordGas); overflow {
+	if wordGas, overflow = helper.SafeMul(helper.ToWordSize(wordGas), blake2bWordGas); overflow {
 		return 0, errGasUintOverflow
 	}
-	if gas, overflow = util.SafeAdd(gas, wordGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, wordGas); overflow {
 		return 0, errGasUintOverflow
 	}
 	return gas, nil
@@ -90,20 +90,20 @@ func gasCallDataCopy(vm *VM, c *contract, stack *stack, mem *memory, memorySize 
 	}
 
 	var overflow bool
-	if gas, overflow = util.SafeAdd(gas, fastestStepGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, fastestStepGas); overflow {
 		return 0, errGasUintOverflow
 	}
 
-	words, overflow := util.BigUint64(stack.back(2))
+	words, overflow := helper.BigUint64(stack.back(2))
 	if overflow {
 		return 0, errGasUintOverflow
 	}
 
-	if words, overflow = util.SafeMul(util.ToWordSize(words), copyGas); overflow {
+	if words, overflow = helper.SafeMul(helper.ToWordSize(words), copyGas); overflow {
 		return 0, errGasUintOverflow
 	}
 
-	if gas, overflow = util.SafeAdd(gas, words); overflow {
+	if gas, overflow = helper.SafeAdd(gas, words); overflow {
 		return 0, errGasUintOverflow
 	}
 	return gas, nil
@@ -116,18 +116,18 @@ func gasCodeCopy(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint
 	}
 
 	var overflow bool
-	if gas, overflow = util.SafeAdd(gas, fastestStepGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, fastestStepGas); overflow {
 		return 0, errGasUintOverflow
 	}
 
-	wordGas, overflow := util.BigUint64(stack.back(2))
+	wordGas, overflow := helper.BigUint64(stack.back(2))
 	if overflow {
 		return 0, errGasUintOverflow
 	}
-	if wordGas, overflow = util.SafeMul(util.ToWordSize(wordGas), copyGas); overflow {
+	if wordGas, overflow = helper.SafeMul(helper.ToWordSize(wordGas), copyGas); overflow {
 		return 0, errGasUintOverflow
 	}
-	if gas, overflow = util.SafeAdd(gas, wordGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, wordGas); overflow {
 		return 0, errGasUintOverflow
 	}
 	return gas, nil
@@ -140,20 +140,20 @@ func gasExtCodeCopy(vm *VM, c *contract, stack *stack, mem *memory, memorySize u
 	}
 
 	var overflow bool
-	if gas, overflow = util.SafeAdd(gas, extCodeCopyGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, extCodeCopyGas); overflow {
 		return 0, errGasUintOverflow
 	}
 
-	wordGas, overflow := util.BigUint64(stack.back(3))
+	wordGas, overflow := helper.BigUint64(stack.back(3))
 	if overflow {
 		return 0, errGasUintOverflow
 	}
 
-	if wordGas, overflow = util.SafeMul(util.ToWordSize(wordGas), copyGas); overflow {
+	if wordGas, overflow = helper.SafeMul(helper.ToWordSize(wordGas), copyGas); overflow {
 		return 0, errGasUintOverflow
 	}
 
-	if gas, overflow = util.SafeAdd(gas, wordGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, wordGas); overflow {
 		return 0, errGasUintOverflow
 	}
 	return gas, nil
@@ -166,20 +166,20 @@ func gasReturnDataCopy(vm *VM, c *contract, stack *stack, mem *memory, memorySiz
 	}
 
 	var overflow bool
-	if gas, overflow = util.SafeAdd(gas, fastestStepGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, fastestStepGas); overflow {
 		return 0, errGasUintOverflow
 	}
 
-	words, overflow := util.BigUint64(stack.back(2))
+	words, overflow := helper.BigUint64(stack.back(2))
 	if overflow {
 		return 0, errGasUintOverflow
 	}
 
-	if words, overflow = util.SafeMul(util.ToWordSize(words), copyGas); overflow {
+	if words, overflow = helper.SafeMul(helper.ToWordSize(words), copyGas); overflow {
 		return 0, errGasUintOverflow
 	}
 
-	if gas, overflow = util.SafeAdd(gas, words); overflow {
+	if gas, overflow = helper.SafeAdd(gas, words); overflow {
 		return 0, errGasUintOverflow
 	}
 	return gas, nil
@@ -191,7 +191,7 @@ func gasMLoad(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64)
 	if err != nil {
 		return 0, errGasUintOverflow
 	}
-	if gas, overflow = util.SafeAdd(gas, fastestStepGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, fastestStepGas); overflow {
 		return 0, errGasUintOverflow
 	}
 	return gas, nil
@@ -203,7 +203,7 @@ func gasMStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 	if err != nil {
 		return 0, errGasUintOverflow
 	}
-	if gas, overflow = util.SafeAdd(gas, fastestStepGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, fastestStepGas); overflow {
 		return 0, errGasUintOverflow
 	}
 	return gas, nil
@@ -215,7 +215,7 @@ func gasMStore8(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint6
 	if err != nil {
 		return 0, errGasUintOverflow
 	}
-	if gas, overflow = util.SafeAdd(gas, fastestStepGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, fastestStepGas); overflow {
 		return 0, errGasUintOverflow
 	}
 	return gas, nil
@@ -252,7 +252,7 @@ func gasSwap(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) 
 
 func makeGasLog(n uint64) gasFunc {
 	return func(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
-		requestedSize, overflow := util.BigUint64(stack.back(1))
+		requestedSize, overflow := helper.BigUint64(stack.back(1))
 		if overflow {
 			return 0, errGasUintOverflow
 		}
@@ -262,18 +262,18 @@ func makeGasLog(n uint64) gasFunc {
 			return 0, err
 		}
 
-		if gas, overflow = util.SafeAdd(gas, logGas); overflow {
+		if gas, overflow = helper.SafeAdd(gas, logGas); overflow {
 			return 0, errGasUintOverflow
 		}
-		if gas, overflow = util.SafeAdd(gas, n*logTopicGas); overflow {
+		if gas, overflow = helper.SafeAdd(gas, n*logTopicGas); overflow {
 			return 0, errGasUintOverflow
 		}
 
 		var memorySizeGas uint64
-		if memorySizeGas, overflow = util.SafeMul(requestedSize, logDataGas); overflow {
+		if memorySizeGas, overflow = helper.SafeMul(requestedSize, logDataGas); overflow {
 			return 0, errGasUintOverflow
 		}
-		if gas, overflow = util.SafeAdd(gas, memorySizeGas); overflow {
+		if gas, overflow = helper.SafeAdd(gas, memorySizeGas); overflow {
 			return 0, errGasUintOverflow
 		}
 		return gas, nil
@@ -286,7 +286,7 @@ func gasDelegateCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize 
 		return 0, err
 	}
 	var overflow bool
-	if gas, overflow = util.SafeAdd(gas, callGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, callGas); overflow {
 		return 0, errGasUintOverflow
 	}
 	return gas, nil
@@ -308,7 +308,7 @@ func intrinsicGasCost(data []byte, isCreate bool) (uint64, error) {
 		gas = txGas
 	}
 	gasData, err := dataGasCost(data)
-	if err != nil || util.MaxUint64-gas < gasData {
+	if err != nil || helper.MaxUint64-gas < gasData {
 		return 0, errGasUintOverflow
 	}
 	return gas + gasData, nil
@@ -323,13 +323,13 @@ func dataGasCost(data []byte) (uint64, error) {
 				nonZeroByteCount++
 			}
 		}
-		if util.MaxUint64/txDataNonZeroGas < nonZeroByteCount {
+		if helper.MaxUint64/txDataNonZeroGas < nonZeroByteCount {
 			return 0, errGasUintOverflow
 		}
 		gas = nonZeroByteCount * txDataNonZeroGas
 
 		zeroByteCount := uint64(len(data)) - nonZeroByteCount
-		if (util.MaxUint64-gas)/txDataZeroGas < zeroByteCount {
+		if (helper.MaxUint64-gas)/txDataZeroGas < zeroByteCount {
 			return 0, errGasUintOverflow
 		}
 		gas += zeroByteCount * txDataZeroGas
