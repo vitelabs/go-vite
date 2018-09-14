@@ -1,22 +1,25 @@
-package types
+package contracts
 
-import "math/big"
+import (
+	"github.com/vitelabs/go-vite/common/types"
+	"math/big"
+)
 
 type TokenInfo struct {
 	TokenName    string
 	TokenSymbol  string
 	TotalSupply  *big.Int
 	Decimals     uint8
-	Owner        Address
+	Owner        types.Address
 	PledgeAmount *big.Int
 	Timestamp    int64
 }
 
 type Registration struct {
 	Name           string
-	NodeAddr       Address
-	PledgeAddr     Address
-	BeneficialAddr Address
+	NodeAddr       types.Address
+	PledgeAddr     types.Address
+	BeneficialAddr types.Address
 	Amount         *big.Int
 	Timestamp      int64
 	RewardHeight   uint64
@@ -24,11 +27,11 @@ type Registration struct {
 }
 
 type VoteInfo struct {
-	VoterAddr Address
+	VoterAddr types.Address
 	NodeName  string
 }
 type ConsensusGroupInfo struct {
-	Gid                    Gid
+	Gid                    types.Gid
 	NodeCount              uint8
 	Interval               int64
 	CountingRuleId         uint8
