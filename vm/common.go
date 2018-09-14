@@ -15,8 +15,6 @@ var (
 	DataResultPrefixSuccess = []byte{0}
 	DataResultPrefixRevert  = []byte{1}
 	DataResultPrefixFail    = []byte{2}
-
-	contractsData = &ContractsData{}
 )
 
 func IsViteToken(tokenId types.TokenTypeId) bool {
