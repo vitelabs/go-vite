@@ -29,7 +29,7 @@ type VmContext struct {
 	frozen       bool
 }
 
-func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) (*VmContext, error) {
+func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) (VmDatabase, error) {
 	vmContext := &VmContext{
 		chain:   chain,
 		address: addr,
@@ -42,13 +42,26 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 		return nil, err
 	}
 
-	prevAccountBlock, err := chain.GetAccountBlockByHash(prevAccountBlockHash)
-	if err != nil {
-		return nil, err
+	vmContext.currentSnapshotBlock = currentSnapshotBlock
+
+	var prevAccountBlock *ledger.AccountBlock
+	if prevAccountBlockHash == nil {
+		var err error
+		prevAccountBlock, err = chain.GetConfirmAccountBlock(currentSnapshotBlock.Height, addr)
+		if err != nil {
+			return nil, err
+		}
+
+	} else {
+		var err error
+		prevAccountBlock, err = chain.GetAccountBlockByHash(prevAccountBlockHash)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	vmContext.currentSnapshotBlock = currentSnapshotBlock
 	vmContext.prevAccountBlock = prevAccountBlock
+
 	vmContext.trie = chain.GetStateTrie(prevAccountBlockHash)
 
 	if vmContext.trie == nil {
@@ -60,7 +73,7 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 	return vmContext, nil
 }
 
-func (context *VmContext) CopyAndFreeze() *VmContext {
+func (context *VmContext) CopyAndFreeze() VmDatabase {
 	unsavedCache := context.unsavedCache.Copy()
 	context.frozen = true
 	return &VmContext{
@@ -125,7 +138,16 @@ func (context *VmContext) SubBalance(tokenTypeId *types.TokenTypeId, amount *big
 }
 
 func (context *VmContext) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock {
-	return nil
+	snapshotBlock, _ := context.chain.GetSnapshotBlockByHash(hash)
+	if snapshotBlock == nil {
+		return nil
+	}
+
+	if snapshotBlock.Height > context.currentSnapshotBlock.Height {
+		return nil
+	}
+
+	return snapshotBlock
 }
 
 func (context *VmContext) GetSnapshotBlocks(startHeight uint64, count uint64, forward bool) []*ledger.SnapshotBlock {
@@ -167,22 +189,6 @@ func (context *VmContext) GetContractCode(addr *types.Address) []byte {
 	return context.GetStorage(addr, context.codeKey())
 }
 
-func (context *VmContext) GetToken(id *types.TokenTypeId) *ledger.Token {
-	return nil
-	//var token *ledger.Token
-	//for _, unsavedToken := range context.unsavedCache.tokenList {
-	//	if bytes.Equal(unsavedToken.TokenId.Bytes(), token.TokenId.Bytes()) {
-	//		token = unsavedToken
-	//		break
-	//	}
-	//}
-	//if token == nil {
-	//	token, _ = context.chain.GetTokenInfoById(id)
-	//}
-	//
-	//return token
-}
-
 func (context *VmContext) SetStorage(key []byte, value []byte) {
 	if context.frozen {
 		return
@@ -190,6 +196,7 @@ func (context *VmContext) SetStorage(key []byte, value []byte) {
 	context.unsavedCache.SetStorage(key, value)
 }
 
+// TODO: other address
 func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
 	if context.isSelf(addr) {
 		if value := context.unsavedCache.GetStorage(key); value != nil {
@@ -198,7 +205,7 @@ func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
 
 		return context.trie.GetValue(key)
 	} else {
-		latestAccountBlock := context.GetLatestAccountBlock(addr)
+		latestAccountBlock := context.getLatestAccountBlock(addr)
 		if latestAccountBlock != nil {
 			trie := context.chain.GetStateTrie(&latestAccountBlock.StateHash)
 			return trie.GetValue(key)
@@ -227,14 +234,14 @@ func (context *VmContext) GetLogListHash() *types.Hash {
 }
 
 func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
-	account := context.chain.GetAccount(addr)
+	account, _ := context.chain.GetAccount(addr)
 	if account == nil {
 		return false
 	}
 	return true
 }
 
-func (context *VmContext) GetLatestAccountBlock(addr *types.Address) *ledger.AccountBlock {
+func (context *VmContext) getLatestAccountBlock(addr *types.Address) *ledger.AccountBlock {
 	return nil
 }
 

@@ -251,7 +251,6 @@ func (c *Chain) GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.T
 }
 
 func (c *Chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
-
 	block, err := c.chainDb.Ac.GetBlock(blockHash)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
@@ -350,4 +349,12 @@ func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 	}
 
 	return blockList, nil
+}
+
+func (c *Chain) GetUnConfirmAccountBlocks(addr *types.Address) ([]*ledger.AccountBlock, error) {
+	return nil, nil
+}
+
+func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) ([]*ledger.AccountBlock, error) {
+	return nil, nil
 }

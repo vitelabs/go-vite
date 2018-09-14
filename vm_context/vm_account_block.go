@@ -8,7 +8,7 @@ import (
 
 type VmAccountBlock struct {
 	AccountBlock *ledger.AccountBlock
-	VmContext    *VmDatabase
+	VmContext    VmDatabase
 }
 
 type VmDatabase interface {
@@ -22,6 +22,7 @@ type VmDatabase interface {
 
 	GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock
 
+	UnsavedCache() *UnsavedCache
 	Reset()
 
 	IsAddressExisted(addr *types.Address) bool
@@ -39,5 +40,6 @@ type VmDatabase interface {
 
 	NewStorageIterator(prefix []byte) *StorageIterator
 
-	CopyAndFreeze() *VmDatabase
+	CopyAndFreeze() VmDatabase
+	Address() *types.Address
 }
