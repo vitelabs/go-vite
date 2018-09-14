@@ -1,8 +1,6 @@
 package worker
 
 import (
-	"container/heap"
-	"container/list"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -19,10 +17,7 @@ type SimpleAutoReceiveFilterPair struct {
 type AutoReceiveWorker struct {
 	log         log15.Logger
 	address     types.Address
-	accInfoPool *model.UnconfirmedBlocksPool
-
-	//blockQueue *BlockQueue
-	priorityFromQueue *model.PriorityFromQueue
+	accInfoPool *model.UnconfirmedBlocksCache
 
 	status                int
 	isSleeping            bool
@@ -30,8 +25,7 @@ type AutoReceiveWorker struct {
 	stopListener          chan struct{}
 	newUnconfirmedTxAlarm chan struct{}
 
-	filters        map[types.TokenTypeId]big.Int
-	currentElement list.Element
+	filters map[types.TokenTypeId]big.Int
 
 	statusMutex sync.Mutex
 }
@@ -182,7 +176,7 @@ func (w *AutoReceiveWorker) PackReceiveBlock(sendBlock *ledger.AccountBlock) *le
 	w.log.Info("PackReceiveBlock", "sendBlock",
 		w.log.New("sendBlock.Hash", sendBlock.Hash), w.log.New("sendBlock.To", sendBlock.ToAddress))
 
-	// todo pack the block with w.args, comput hash, Sign,
+	// todo pack the block with w.args, compute hash, Sign,
 	block := &ledger.AccountBlock{
 		Meta:              nil,
 		BlockType:         0,

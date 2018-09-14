@@ -90,9 +90,9 @@ func (access *UAccess) GetCommonAccInfo(addr *types.Address) (info *CommonAccoun
 		return nil, err
 	}
 	info = &CommonAccountInfo{
-		AccountAddress: addr,
-		TotalNumber:    number,
-		TokenInfoMap:   infoMap,
+		AccountAddress:      addr,
+		TotalNumber:         number,
+		TokenBalanceInfoMap: infoMap,
 	}
 
 	return info, nil
@@ -117,8 +117,8 @@ func (access *UAccess) GetAllUnconfirmedBlocks(addr types.Address) (blockList []
 	return result, nil
 }
 
-func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.TokenTypeId]*TokenInfo, uint64, error) {
-	infoMap := make(map[types.TokenTypeId]*TokenInfo)
+func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.TokenTypeId]*TokenBalanceInfo, uint64, error) {
+	infoMap := make(map[types.TokenTypeId]*TokenBalanceInfo)
 	hashList, err := access.store.GetHashList(addr)
 	if err != nil {
 		access.log.Error("GetCommonAccTokenInfoMap.GetHashList", "error", err)

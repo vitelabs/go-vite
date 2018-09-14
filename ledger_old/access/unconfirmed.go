@@ -125,8 +125,8 @@ func (ucfa *UnconfirmedAccess) WriteBlock(batch *leveldb.Batch, block *ledger.Ac
 	if uAccMeta != nil {
 		// [tmp] Check data.
 		//uLog.Info("UnconfirmedDB: before write:")
-		//uLog.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoMap:")
-		//for idx, tokenInfo := range uAccMeta.TokenInfoMap {
+		//uLog.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenBalanceInfoMap:")
+		//for idx, tokenInfo := range uAccMeta.TokenBalanceInfoMap {
 		//	uLog.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
 		//}
 
@@ -223,8 +223,8 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 
 	//// [tmp] Check data.
 	//uLog.Info("UnconfirmedDB: before delete:")
-	//uLog.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenInfoMap:")
-	//for idx, tokenInfo := range uAccMeta.TokenInfoMap {
+	//uLog.Info("UnconfirmedMeta: AccountId:", uAccMeta.AccountId, ", TotalNumber:", uAccMeta.TotalNumber, ", TokenBalanceInfoMap:")
+	//for idx, tokenInfo := range uAccMeta.TokenBalanceInfoMap {
 	//	uLog.Info("TokenInfo", idx, ":", tokenInfo.TokenId, tokenInfo.TotalAmount)
 	//}
 
@@ -267,7 +267,7 @@ func (ucfa *UnconfirmedAccess) DeleteBlock(batch *leveldb.Batch, block *ledger.A
 	}
 
 	// if HashList is empty,
-	// Delete key-value of the HashList and remove the TokenInfo from the TokenInfoMap.
+	// Delete key-value of the HashList and remove the TokenInfo from the TokenBalanceInfoMap.
 	if len(hashList) <= 0 {
 		if err := ucfa.store.DeleteHashList(batch, block.To, block.TokenId); err != nil {
 			return &AcWriteError{

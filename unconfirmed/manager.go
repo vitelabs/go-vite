@@ -17,8 +17,9 @@ var (
 )
 
 type Manager struct {
-	Vite    Vite
-	uAccess *model.UAccess
+	Vite                  Vite
+	uAccess               *model.UAccess
+	unconfirmedBlocksPool *model.UnconfirmedBlocksCache
 
 	commonTxWorkers map[types.Address]*worker.AutoReceiveWorker
 	contractWorkers map[types.Gid]*worker.ContractWorker
@@ -35,7 +36,7 @@ type Manager struct {
 }
 
 func NewManager(vite Vite, dataDir string) *Manager {
-	return &Manager{
+	m := &Manager{
 		Vite:            vite,
 		commonTxWorkers: make(map[types.Address]*worker.AutoReceiveWorker),
 		contractWorkers: make(map[types.Gid]*worker.ContractWorker),
@@ -47,6 +48,8 @@ func NewManager(vite Vite, dataDir string) *Manager {
 
 		log: slog.New("w", "manager"),
 	}
+	m.unconfirmedBlocksPool = model.NewUnconfirmedBlocksPool(m.uAccess)
+	return m
 }
 
 func (manager *Manager) InitAndStartWork() {
@@ -94,7 +97,7 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 
 	w, found := manager.commonTxWorkers[addr]
 	if !found {
-		w = worker.NewAutoReceiveWorker(&addr, filter)
+		w = worker.NewAutoReceiveWorker(addr, filter)
 		manager.log.Info("Manager get event new Worker")
 		manager.commonTxWorkers[addr] = w
 	}
