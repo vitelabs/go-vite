@@ -189,6 +189,24 @@ func (ac *AccountChain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList,
 	return vmLogList, err
 }
 
+func (ac *AccountChain) GetConfirmHeight(accountBlock *ledger.AccountBlock) (uint64, error) {
+	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCKMETA, accountBlock.Hash.Bytes())
+
+	iter := ac.db.NewIterator(util.BytesPrefix(key), nil)
+	defer iter.Release()
+	for iter.Next() {
+		accountBlockMeta := &ledger.AccountBlockMeta{}
+		if dsErr := accountBlockMeta.DbDeserialize(iter.Value()); dsErr != nil {
+			return 0, dsErr
+		}
+
+		if accountBlockMeta.SnapshotHeight > 0 {
+			return accountBlockMeta.SnapshotHeight, nil
+		}
+	}
+	return 0, nil
+}
+
 func (ac *AccountChain) WriteVmLogList(batch *leveldb.Batch, logList ledger.VmLogList) error {
 	return nil
 }

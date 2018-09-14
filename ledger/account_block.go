@@ -17,8 +17,8 @@ type AccountBlockMeta struct {
 	// Block status, 1 means open, 2 means closed
 	Status int
 
-	// Is snapshotted
-	IsSnapshot bool
+	// Height of Snapshot block which confirm this account block
+	SnapshotHeight uint64
 }
 
 func (*AccountBlockMeta) DbSerialize() ([]byte, error) {

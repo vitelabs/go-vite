@@ -49,16 +49,21 @@ func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, needBro
 		}
 	}
 
+	if needBroadCast {
+		// TODO broadcast
+		netErr := c.net.Broadcast()
+		if netErr != nil {
+			c.log.Error("Broadcast failed, error is "+netErr.Error(), "method", "InsertSnapshotBlock")
+			return netErr
+		}
+	}
+
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
 	}
 
-	if needBroadCast {
-		// TODO broadcast
-		c.net.Broadcast()
-	}
 	return nil
 }
 func (c *Chain) GetSnapshotBlocks(originBlockHash *types.Hash, count uint64, forward, containSnapshotContent bool) (blocks []*ledger.SnapshotBlock, returnErr error) {
@@ -185,10 +190,42 @@ func (c *Chain) GetSbHashList(originBlockHash *types.Hash, count, step int, forw
 	return c.chainDb.Sc.GetSbHashList(height, count, step, forward), nil
 }
 
-func (c *Chain) GetConfirmBlock() {
+func (c *Chain) GetConfirmBlock(accountBlock *ledger.AccountBlock) *ledger.SnapshotBlock {
+	height, ghErr := c.chainDb.Ac.GetConfirmHeight(accountBlock)
+	if ghErr != nil {
+		c.log.Error("GetConfirmHeight failed, error is "+ghErr.Error(), "method", "GetConfirmBlock")
+		return nil
+	}
 
+	snapshotBlock, gsErr := c.chainDb.Sc.GetSnapshotBlock(height)
+	if gsErr != nil {
+		c.log.Error("GetSnapshotBlock failed, error is "+ghErr.Error(), "method", "GetConfirmBlock")
+		return nil
+	}
+
+	return snapshotBlock
 }
 
-func (c *Chain) GetConfirmTimes() {
+func (c *Chain) GetConfirmTimes(accountBlock *ledger.AccountBlock) uint64 {
+	height, ghErr := c.chainDb.Ac.GetConfirmHeight(accountBlock)
+	if ghErr != nil {
+		c.log.Error("GetConfirmHeight failed, error is "+ghErr.Error(), "method", "GetConfirmTimes")
+		return 0
+	}
 
+	if height <= 0 {
+		return 0
+	}
+	latestBlock, latestErr := c.GetLatestSnapshotBlock()
+	if latestErr != nil {
+		c.log.Error("GetLatestSnapshotBlock failed, error is "+latestErr.Error(), "method", "GetConfirmTimes")
+		return 0
+	}
+
+	if latestBlock == nil {
+		c.log.Error("latestBlock is nil, error is "+latestErr.Error(), "method", "GetConfirmTimes")
+		return 0
+	}
+
+	return latestBlock.Height - height + 1
 }

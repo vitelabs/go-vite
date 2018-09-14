@@ -1,5 +1,5 @@
 package chain
 
 type Net interface {
-	Broadcast()
+	Broadcast() error
 }

@@ -91,6 +91,15 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.Hash, accountBlock.Meta)
 	}
 
+	if needBroadCast {
+		// TODO broadcast
+		netErr := c.net.Broadcast()
+		if netErr != nil {
+			c.log.Error("Broadcast failed, error is "+netErr.Error(), "method", "InsertAccountBlock")
+			return netErr
+		}
+	}
+
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertAccountBlock")
@@ -103,11 +112,6 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	// After write db
 	for _, callback := range trieSaveCallback {
 		callback()
-	}
-
-	if needBroadCast {
-		// TODO broadcast
-		c.net.Broadcast()
 	}
 
 	return nil
