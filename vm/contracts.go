@@ -764,12 +764,17 @@ func checkToken(param ParamMintage) error {
 func (p *pMintage) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(ParamMintage)
 	ABI_mintage.UnpackMethod(param, MethodNameMintage, block.Data)
-	locHash := helper.LeftPadBytes(param.TokenId.Bytes(), 32)
-	if len(vm.Db.GetStorage(&block.AccountAddress, locHash)) > 0 {
+	key := helper.LeftPadBytes(param.TokenId.Bytes(), 32)
+	if len(vm.Db.GetStorage(&block.AccountAddress, key)) > 0 {
 		return ErrIdCollision
 	}
-	tokenInfo, _ := ABI_mintage.PackVariable(VariableNameMintage, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals, sendBlock.AccountAddress, sendBlock.Amount, vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp.Unix()+mintagePledgeTime)
-	vm.Db.SetStorage(locHash, tokenInfo)
+	var tokenInfo []byte
+	if block.Amount.Sign() == 0 {
+		tokenInfo, _ = ABI_mintage.PackVariable(VariableNameMintage, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals, sendBlock.AccountAddress, sendBlock.Amount, int64(0))
+	} else {
+		tokenInfo, _ = ABI_mintage.PackVariable(VariableNameMintage, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals, sendBlock.AccountAddress, sendBlock.Amount, vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp.Unix()+mintagePledgeTime)
+	}
+	vm.Db.SetStorage(key, tokenInfo)
 	vm.blockList = append(vm.blockList, makeSendBlock(block, sendBlock.AccountAddress, ledger.BlockTypeSendReward, param.TotalSupply, param.TokenId, []byte{}))
 	return nil
 }

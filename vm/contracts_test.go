@@ -189,7 +189,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	hash24 := types.DataHash([]byte{2, 4})
 	db.accountBlockMap[addr2][hash24] = receiveCancelRegisterBlockList[1]
 
-	hash16 := types.DataHash([]byte{1, 5})
+	hash16 := types.DataHash([]byte{1, 6})
 	block16 := &ledger.AccountBlock{
 		Height:         6,
 		AccountAddress: addr1,
@@ -308,7 +308,7 @@ func TestContractsVote(t *testing.T) {
 	addr3 := AddressVote
 	nodeName := "super1"
 	block13Data, _ := ABI_vote.PackMethod(MethodNameVote, *ledger.CommonGid(), nodeName)
-	hash13 := types.DataHash([]byte{1, 6})
+	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
 		ToAddress:      addr3,
@@ -358,7 +358,7 @@ func TestContractsVote(t *testing.T) {
 	db.accountBlockMap[addr4] = make(map[types.Hash]*ledger.AccountBlock)
 	nodeName2 := "super2"
 	block14Data, _ := ABI_vote.PackMethod(MethodNameVote, *ledger.CommonGid(), nodeName2)
-	hash14 := types.DataHash([]byte{1, 9})
+	hash14 := types.DataHash([]byte{1, 4})
 	block14 := &ledger.AccountBlock{
 		Height:         4,
 		ToAddress:      addr3,
@@ -404,7 +404,7 @@ func TestContractsVote(t *testing.T) {
 	db.accountBlockMap[addr3][hash32] = receiveVoteBlockList2[0]
 	// cancel vote
 	block15Data, _ := ABI_vote.PackMethod(MethodNameCancelVote, *ledger.CommonGid())
-	hash15 := types.DataHash([]byte{1, 10})
+	hash15 := types.DataHash([]byte{1, 5})
 	block15 := &ledger.AccountBlock{
 		Height:         5,
 		ToAddress:      addr3,
@@ -460,7 +460,7 @@ func TestContractsPledge(t *testing.T) {
 	pledgeAmount := big.NewInt(2e18)
 	withdrawTime := timestamp + pledgeTime
 	block13Data, err := ABI_pledge.PackMethod(MethodNamePledge, addr4, withdrawTime)
-	hash13 := types.DataHash([]byte{1, 11})
+	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
 		ToAddress:      addr5,
@@ -512,7 +512,7 @@ func TestContractsPledge(t *testing.T) {
 
 	withdrawTime = timestamp + 100 + pledgeTime
 	block14Data, _ := ABI_pledge.PackMethod(MethodNamePledge, addr4, withdrawTime)
-	hash14 := types.DataHash([]byte{1, 12})
+	hash14 := types.DataHash([]byte{1, 4})
 	block14 := &ledger.AccountBlock{
 		Height:         4,
 		ToAddress:      addr5,
@@ -566,7 +566,7 @@ func TestContractsPledge(t *testing.T) {
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot55)
 
 	block15Data, _ := ABI_pledge.PackMethod(MethodNameCancelPledge, addr4, pledgeAmount)
-	hash15 := types.DataHash([]byte{1, 13})
+	hash15 := types.DataHash([]byte{1, 5})
 	block15 := &ledger.AccountBlock{
 		Height:         5,
 		ToAddress:      addr5,
@@ -615,7 +615,7 @@ func TestContractsPledge(t *testing.T) {
 	hash54 := types.DataHash([]byte{5, 4})
 	db.accountBlockMap[addr5][hash54] = receiveCancelPledgeBlockList[1]
 
-	hash16 := types.DataHash([]byte{1, 14})
+	hash16 := types.DataHash([]byte{1, 6})
 	block16 := &ledger.AccountBlock{
 		Height:         6,
 		AccountAddress: addr1,
@@ -637,28 +637,28 @@ func TestContractsPledge(t *testing.T) {
 	}
 	db.accountBlockMap[addr1][hash16] = receiveCancelPledgeRefundBlockList[0]
 
-	block1dData, _ := ABI_pledge.PackMethod(MethodNameCancelPledge, addr4, pledgeAmount)
-	hash1d := types.DataHash([]byte{1, 15})
-	block1d := &ledger.AccountBlock{
-		Height:         13,
+	block17Data, _ := ABI_pledge.PackMethod(MethodNameCancelPledge, addr4, pledgeAmount)
+	hash17 := types.DataHash([]byte{1, 7})
+	block17 := &ledger.AccountBlock{
+		Height:         17,
 		ToAddress:      addr5,
 		AccountAddress: addr1,
 		Amount:         helper.Big0,
 		TokenId:        *ledger.ViteTokenId(),
 		BlockType:      ledger.BlockTypeSendCall,
 		PrevHash:       hash16,
-		Data:           block1dData,
+		Data:           block17Data,
 		SnapshotHash:   snapshot55.Hash,
 	}
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr1
-	sendCancelPledgeBlockList2, isRetry, err := vm.Run(block1d, nil)
+	sendCancelPledgeBlockList2, isRetry, err := vm.Run(block17, nil)
 	if len(sendCancelPledgeBlockList2) != 1 || isRetry || err != nil ||
 		sendCancelPledgeBlockList2[0].Quota != 105592 {
 		t.Fatalf("send cancel pledge transaction 2 error")
 	}
-	db.accountBlockMap[addr1][hash1d] = sendCancelPledgeBlockList2[0]
+	db.accountBlockMap[addr1][hash17] = sendCancelPledgeBlockList2[0]
 
 	hash55 := types.DataHash([]byte{5, 5})
 	block55 := &ledger.AccountBlock{
@@ -666,14 +666,14 @@ func TestContractsPledge(t *testing.T) {
 		AccountAddress: addr5,
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash54,
-		FromBlockHash:  hash1d,
+		FromBlockHash:  hash17,
 		SnapshotHash:   snapshot55.Hash,
 	}
 	vm = NewVM(db)
 	vm.Debug = true
 	db.addr = addr5
-	updateReveiceBlockBySendBlock(block55, block1d)
-	receiveCancelPledgeBlockList2, isRetry, err := vm.Run(block55, block1d)
+	updateReveiceBlockBySendBlock(block55, sendCancelPledgeBlockList2[0])
+	receiveCancelPledgeBlockList2, isRetry, err := vm.Run(block55, sendCancelPledgeBlockList2[0])
 	if len(receiveCancelPledgeBlockList2) != 2 || isRetry || err != nil ||
 		receiveCancelPledgeBlockList2[1].Height != 6 ||
 		len(db.storageMap[addr5][locHashPledge]) != 0 ||
@@ -687,12 +687,12 @@ func TestContractsPledge(t *testing.T) {
 	hash56 := types.DataHash([]byte{5, 6})
 	db.accountBlockMap[addr5][hash56] = receiveCancelPledgeBlockList2[1]
 
-	hash17 := types.DataHash([]byte{1, 16})
-	block17 := &ledger.AccountBlock{
-		Height:         7,
+	hash18 := types.DataHash([]byte{1, 8})
+	block18 := &ledger.AccountBlock{
+		Height:         8,
 		AccountAddress: addr1,
 		BlockType:      ledger.BlockTypeReceive,
-		PrevHash:       hash1d,
+		PrevHash:       hash18,
 		FromBlockHash:  hash56,
 		SnapshotHash:   snapshot55.Hash,
 	}
@@ -700,14 +700,14 @@ func TestContractsPledge(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr1
 	balance1.Add(balance1, pledgeAmount)
-	updateReveiceBlockBySendBlock(block17, receiveCancelPledgeBlockList2[1])
-	receiveCancelPledgeRefundBlockList2, isRetry, err := vm.Run(block17, receiveCancelPledgeBlockList2[1])
+	updateReveiceBlockBySendBlock(block18, receiveCancelPledgeBlockList2[1])
+	receiveCancelPledgeRefundBlockList2, isRetry, err := vm.Run(block18, receiveCancelPledgeBlockList2[1])
 	if len(receiveCancelPledgeRefundBlockList2) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 ||
 		receiveCancelPledgeRefundBlockList2[0].Quota != 21000 {
 		t.Fatalf("receive cancel pledge refund transaction 2 error")
 	}
-	db.accountBlockMap[addr1][hash17] = receiveCancelPledgeRefundBlockList2[0]
+	db.accountBlockMap[addr1][hash18] = receiveCancelPledgeRefundBlockList2[0]
 }
 
 func TestConsensusGroup(t *testing.T) {
@@ -782,6 +782,94 @@ func TestConsensusGroup(t *testing.T) {
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr2][hash21] = receiveCreateConsensusGroupBlockList[0]
+}
+
+func TestMintage(t *testing.T) {
+	// prepare db
+	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
+	db, addr1, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
+	// mintage
+	balance1 := new(big.Int).Set(viteTotalSupply)
+	addr2 := AddressMintage
+	tokenName := "test token"
+	tokenSymbol := "t"
+	totalSupply := big.NewInt(1e10)
+	decimals := uint8(3)
+	block13Data, err := ABI_mintage.PackMethod(MethodNameMintage, types.TokenTypeId{}, tokenName, tokenSymbol, totalSupply, decimals)
+	hash13 := types.DataHash([]byte{1, 3})
+	block13 := &ledger.AccountBlock{
+		Height:         3,
+		ToAddress:      addr2,
+		AccountAddress: addr1,
+		Amount:         big.NewInt(0),
+		TokenId:        *ledger.ViteTokenId(),
+		BlockType:      ledger.BlockTypeSendCall,
+		PrevHash:       hash12,
+		Data:           block13Data,
+		SnapshotHash:   snapshot2.Hash,
+	}
+	vm := NewVM(db)
+	vm.Debug = true
+	db.addr = addr1
+	sendMintageBlockList, isRetry, err := vm.Run(block13, nil)
+	block13DataGas, _ := dataGasCost(sendMintageBlockList[0].Data)
+	balance1.Sub(balance1, mintageFee)
+	if len(sendMintageBlockList) != 1 || isRetry || err != nil ||
+		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 ||
+		sendMintageBlockList[0].Fee.Cmp(mintageFee) != 0 ||
+		sendMintageBlockList[0].Amount.Cmp(big.NewInt(0)) != 0 ||
+		sendMintageBlockList[0].Quota != block13DataGas+mintageGas {
+		t.Fatalf("send mintage transaction error")
+	}
+	db.accountBlockMap[addr1][hash13] = sendMintageBlockList[0]
+
+	hash21 := types.DataHash([]byte{2, 1})
+	block21 := &ledger.AccountBlock{
+		Height:         1,
+		AccountAddress: addr2,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash13,
+		SnapshotHash:   snapshot2.Hash,
+	}
+	vm = NewVM(db)
+	vm.Debug = true
+	db.addr = addr2
+	updateReveiceBlockBySendBlock(block21, sendMintageBlockList[0])
+	receiveMintageBlockList, isRetry, err := vm.Run(block21, sendMintageBlockList[0])
+	tokenId, _ := types.BytesToTokenTypeId(sendMintageBlockList[0].Data[26:36])
+	key, _ := types.BytesToHash(sendMintageBlockList[0].Data[4:36])
+	tokenInfoData, _ := ABI_mintage.PackVariable(VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, addr1, big.NewInt(0), int64(0))
+	if len(receiveMintageBlockList) != 2 || isRetry || err != nil ||
+		!bytes.Equal(db.storageMap[addr2][key], tokenInfoData) ||
+		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(helper.Big0) != 0 ||
+		receiveMintageBlockList[0].Quota != 0 {
+		t.Fatalf("receive mintage transaction error")
+	}
+	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
+	db.accountBlockMap[addr2][hash21] = receiveMintageBlockList[0]
+	hash22 := types.DataHash([]byte{2, 2})
+	db.accountBlockMap[addr2][hash22] = receiveMintageBlockList[1]
+
+	hash14 := types.DataHash([]byte{1, 4})
+	block14 := &ledger.AccountBlock{
+		Height:         4,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash22,
+		PrevHash:       hash13,
+		SnapshotHash:   snapshot2.Hash,
+	}
+	vm = NewVM(db)
+	vm.Debug = true
+	db.addr = addr1
+	updateReveiceBlockBySendBlock(block14, receiveMintageBlockList[1])
+	receiveMintageRewardBlockList, isRetry, err := vm.Run(block14, receiveMintageBlockList[1])
+	if len(receiveMintageRewardBlockList) != 1 || isRetry || err != nil ||
+		db.balanceMap[addr1][tokenId].Cmp(totalSupply) != 0 ||
+		receiveMintageRewardBlockList[0].Quota != 21000 {
+		t.Fatalf("receive mintage reward transaction error")
+	}
+	db.accountBlockMap[addr1][hash14] = receiveMintageRewardBlockList[0]
 }
 
 func TestGenesisBlockData(t *testing.T) {
@@ -870,6 +958,8 @@ func TestCheckTokenName(t *testing.T) {
 		data string
 		exp  bool
 	}{
+		{"", false},
+		{" ", false},
 		{"a", true},
 		{"ab", true},
 		{"ab ", false},

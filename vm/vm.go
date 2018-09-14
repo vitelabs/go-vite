@@ -264,7 +264,7 @@ func (vm *VM) sendReward(block *ledger.AccountBlock, quotaTotal, quotaAddition u
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(block.AccountAddress.Bytes(), AddressRegister.Bytes()) {
+	if !bytes.Equal(block.AccountAddress.Bytes(), AddressRegister.Bytes()) && !bytes.Equal(block.AccountAddress.Bytes(), AddressMintage.Bytes()) {
 		return nil, ErrInvalidData
 	}
 	vm.updateBlock(block, nil, 0, nil)
