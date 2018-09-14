@@ -16,7 +16,7 @@ func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, needBro
 	}
 
 	// Save snapshot content
-	if err := c.chainDb.Sc.WriteSnapshotContent(batch, snapshotBlock.Height, snapshotBlock.SnapshotContent); err != nil {
+	if err := c.chainDb.Sc.WriteSnapshotContent(batch, &snapshotBlock.SnapshotHash, snapshotBlock.SnapshotContent); err != nil {
 		c.log.Error("WriteSnapshotContent failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
 	}
@@ -55,62 +55,134 @@ func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, needBro
 		return err
 	}
 
+	if needBroadCast {
+		// TODO broadcast
+		c.net.Broadcast()
+	}
 	return nil
 }
-func (c *Chain) GetSnapshotBlocks(containSnapshotContent bool) (blocks []*ledger.SnapshotBlock, returnErr error) {
-	return nil, nil
+func (c *Chain) GetSnapshotBlocks(originBlockHash *types.Hash, count uint64, forward, containSnapshotContent bool) (blocks []*ledger.SnapshotBlock, returnErr error) {
+	block, gsErr := c.GetSnapshotBlockByHash(originBlockHash)
+	if gsErr != nil {
+		c.log.Error("GetSnapshotBlockByHash failed, error is "+gsErr.Error(), "method", "GetSnapshotBlocks")
+		return nil, gsErr
+	}
+
+	blocks, gErr := c.chainDb.Sc.GetSnapshotBlocks(block.Height, count, forward, containSnapshotContent)
+	if gErr != nil {
+		c.log.Error("GetSnapshotBlocks failed, error is "+gErr.Error(), "method", "GetSnapshotBlocks")
+		return nil, gsErr
+	}
+	return blocks, gErr
 }
 
-func (c *Chain) GetSnapshotContent(snapshotHash types.Hash) (block *ledger.SnapshotContentItem, returnErr error) {
-	return nil, nil
-}
+func (c *Chain) GetSnapshotContent(snapshotHash *types.Hash) (ledger.SnapshotContent, error) {
+	snapshotContent, err := c.chainDb.Sc.GetSnapshotContent(snapshotHash)
+	if err != nil {
+		c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotContent")
+		return nil, err
+	}
 
-func (c *Chain) GetSbAndSc() {
-
+	return snapshotContent, nil
 }
 
 func (c *Chain) GetSnapshotBlockByHash(hash *types.Hash) (block *ledger.SnapshotBlock, returnErr error) {
-	return nil, nil
+	height, err := c.chainDb.Sc.GetSnapshotBlockHeight(hash)
+	if err != nil {
+		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSnapshotBlockByHash")
+		return nil, err
+	}
+	if height <= 0 {
+		return nil, nil
+	}
+
+	block, gsbErr := c.chainDb.Sc.GetSnapshotBlock(height)
+	if gsbErr != nil {
+		c.log.Error("GetSnapshotBlock failed, error is "+err.Error(), "method", "GetSnapshotBlockByHash")
+		return nil, gsbErr
+	}
+
+	if block != nil {
+		snapshotContent, err := c.chainDb.Sc.GetSnapshotContent(&block.SnapshotHash)
+		if err != nil {
+			c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotBlockByHash")
+			return nil, err
+		}
+
+		block.SnapshotContent = snapshotContent
+	}
+
+	return block, nil
 }
 
-func (c *Chain) GetLatestSnapshotBlock() (block *ledger.SnapshotBlock, returnErr error) {
-	defer func() {
-		if returnErr != nil {
-			c.log.Error(returnErr.Error(), "method", "GetLatestSnapshotBlock")
-		}
-	}()
+func (c *Chain) GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 
 	block, err := c.chainDb.Sc.GetLatestBlock()
 	if err != nil {
+		c.log.Error("GetLatestBlock failed, error is "+err.Error(), "method", "GetLatestSnapshotBlock")
 		return nil, &types.GetError{
 			Code: 1,
 			Err:  err,
 		}
 	}
 
+	if block != nil {
+		snapshotContent, err := c.chainDb.Sc.GetSnapshotContent(&block.SnapshotHash)
+		if err != nil {
+			c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetLatestSnapshotBlock")
+			return nil, &types.GetError{
+				Code: 2,
+				Err:  err,
+			}
+		}
+
+		block.SnapshotContent = snapshotContent
+	}
+
 	return block, nil
 }
 
-func (c *Chain) GetGenesesSnapshotBlock() (block *ledger.SnapshotBlock, returnErr error) {
-	defer func() {
-		if returnErr != nil {
-			c.log.Error(returnErr.Error(), "method", "GetGenesesSnapshotBlock")
-		}
-	}()
-
+func (c *Chain) GetGenesesSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	block, err := c.chainDb.Sc.GetGenesesBlock()
 	if err != nil {
+		c.log.Error("GetGenesesBlock failed, error is "+err.Error(), "method", "GetGenesesSnapshotBlock")
 		return nil, &types.GetError{
 			Code: 1,
 			Err:  err,
 		}
 	}
 
+	if block != nil {
+		snapshotContent, err := c.chainDb.Sc.GetSnapshotContent(&block.SnapshotHash)
+		if err != nil {
+			c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetGenesesSnapshotBlock")
+			return nil, &types.GetError{
+				Code: 2,
+				Err:  err,
+			}
+		}
+
+		block.SnapshotContent = snapshotContent
+	}
+
 	return block, nil
 }
 
-func (c *Chain) GetSbHashList() {
+func (c *Chain) GetSbHashList(originBlockHash *types.Hash, count, step int, forward bool) ([]*types.Hash, error) {
+	height, err := c.chainDb.Sc.GetSnapshotBlockHeight(originBlockHash)
+	if err != nil {
+		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSbHashList")
+		return nil, &types.GetError{
+			Code: 1,
+			Err:  err,
+		}
+	}
 
+	if height <= 0 {
+		return nil, nil
+	}
+
+	return c.chainDb.Sc.GetSbHashList(height, count, step, forward), nil
 }
 
 func (c *Chain) GetConfirmBlock() {

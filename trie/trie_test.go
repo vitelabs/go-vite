@@ -16,10 +16,7 @@ func TestNewTrie(t *testing.T) {
 
 	pool := NewTrieNodePool()
 
-	trie, ntErr := NewTrie(db, nil, pool)
-	if ntErr != nil {
-		t.Fatal(ntErr)
-	}
+	trie := NewTrie(db, nil, pool)
 
 	fmt.Println(1)
 	trie.SetValue(nil, []byte("NilNilNilNilNil"))
@@ -247,11 +244,7 @@ func TestTrieHash(t *testing.T) {
 
 	pool := NewTrieNodePool()
 
-	trie, ntErr := NewTrie(db, nil, pool)
-	if ntErr != nil {
-		t.Fatal(ntErr)
-	}
-
+	trie := NewTrie(db, nil, pool)
 	trie.SetValue(nil, []byte("NilNilNilNilNil"))
 	fmt.Println(trie.Hash())
 	fmt.Println(trie.Hash())
@@ -290,10 +283,7 @@ func TestTrieSaveAndLoad(t *testing.T) {
 
 	pool := NewTrieNodePool()
 
-	trie, ntErr := NewTrie(db, nil, pool)
-	if ntErr != nil {
-		t.Fatal(ntErr)
-	}
+	trie := NewTrie(db, nil, pool)
 	trie.SetValue(nil, []byte("NilNilNilNilNil"))
 	trie.SetValue([]byte("IamG"), []byte("ki10$%^%&@#!@#"))
 	trie.SetValue([]byte("IamGood"), []byte("a1230xm90zm19ma"))
@@ -316,10 +306,8 @@ func TestTrieSaveAndLoad(t *testing.T) {
 	trie = nil
 
 	rootHash, _ := types.HexToHash("9df5e11da5cdaea43fa69991fb7cf575ec00c73e90d98cf67dbf2e9bdca9a998")
-	newTrie, ntErr := NewTrie(db, &rootHash, pool)
-	if ntErr != nil {
-		t.Fatal(ntErr)
-	}
+	newTrie := NewTrie(db, &rootHash, pool)
+
 	fmt.Printf("%s\n", newTrie.GetValue([]byte("IamG")))
 	fmt.Printf("%s\n", newTrie.GetValue([]byte("IamGood")))
 	fmt.Printf("%s\n", newTrie.GetValue([]byte("tesab")))
@@ -331,10 +319,8 @@ func TestTrieSaveAndLoad(t *testing.T) {
 	fmt.Println()
 	newTrie = nil
 
-	newTri2, ntErr := NewTrie(db, &rootHash, pool)
-	if ntErr != nil {
-		t.Fatal(ntErr)
-	}
+	newTri2 := NewTrie(db, &rootHash, pool)
+
 	fmt.Printf("%s\n", newTri2.GetValue([]byte("IamG")))
 	fmt.Printf("%s\n", newTri2.GetValue([]byte("IamGood")))
 	fmt.Printf("%s\n", newTri2.GetValue([]byte("tesab")))
@@ -375,7 +361,7 @@ func TestTrieSaveAndLoad(t *testing.T) {
 	callback2()
 
 	rootHash2 := newTri2.Hash()
-	newTrie3, _ := NewTrie(db, rootHash2, pool)
+	newTrie3 := NewTrie(db, rootHash2, pool)
 	fmt.Printf("%s\n", newTrie3.GetValue([]byte("IamG")))
 	fmt.Printf("%s\n", newTrie3.GetValue([]byte("IamGood")))
 	fmt.Printf("%s\n", newTrie3.GetValue([]byte("tesab")))

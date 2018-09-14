@@ -244,5 +244,5 @@ func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.Accoun
 }
 
 func (context *VmContext) NewStorageIterator(prefix []byte) *StorageIterator {
-	return &StorageIterator{}
+	return NewStorageIterator(context.unsavedCache.Trie(), prefix)
 }
