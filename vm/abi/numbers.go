@@ -1,8 +1,8 @@
 package abi
 
 import (
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"reflect"
 )
@@ -25,5 +25,5 @@ var (
 
 // U256 converts a big Int into a 256bit VM number.
 func U256(n *big.Int) []byte {
-	return util.PaddedBigBytes(util.U256(n), util.WordSize)
+	return helper.PaddedBigBytes(helper.U256(n), helper.WordSize)
 }

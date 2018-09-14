@@ -1,10 +1,7 @@
-package util
+package helper
 
 import (
-	"bytes"
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 )
 
@@ -17,9 +14,6 @@ const (
 	WordBytes = WordBits / 8
 	// number of bytes in a vm word
 	WordSize = 32
-
-	Retry   = true
-	NoRetry = false
 )
 
 var (
@@ -33,13 +27,6 @@ var (
 	Tt256   = BigPow(2, 256)
 	Tt256m1 = new(big.Int).Sub(Tt256, big.NewInt(1))
 )
-
-func IsViteToken(tokenId types.TokenTypeId) bool {
-	return bytes.Equal(tokenId.Bytes(), ledger.ViteTokenId().Bytes())
-}
-func IsSnapshotGid(gid types.Gid) bool {
-	return bytes.Equal(gid.Bytes(), ledger.CommonGid().Bytes())
-}
 
 // ToWordSize returns the ceiled word size required for memory expansion.
 func ToWordSize(size uint64) uint64 {

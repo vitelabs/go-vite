@@ -3,7 +3,7 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 	"testing"
 )
@@ -37,10 +37,10 @@ func TestMemory(t *testing.T) {
 		t.Fatalf("memory change ptr error")
 	}
 
-	mem.set32(0, util.Tt255)
+	mem.set32(0, helper.Tt255)
 	cpy3 := mem.get(0, 32)
-	if bytes.Compare(cpy3, util.Tt255.Bytes()) != 0 {
-		t.Fatalf("memory set32 error, expected %v, got %v", util.Tt255.Bytes(), cpy3)
+	if bytes.Compare(cpy3, helper.Tt255.Bytes()) != 0 {
+		t.Fatalf("memory set32 error, expected %v, got %v", helper.Tt255.Bytes(), cpy3)
 	}
 
 	t.Log(mem.print())

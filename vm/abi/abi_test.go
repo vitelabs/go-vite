@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/util"
 	"log"
 	"math/big"
 	"reflect"
@@ -262,7 +262,7 @@ func ExampleJSON() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	addr, _ := types.BytesToAddress(util.LeftPadBytes(util.HexToBytes("01"), types.AddressSize))
+	addr, _ := types.BytesToAddress(helper.LeftPadBytes(helper.HexToBytes("01"), types.AddressSize))
 	out, err := abi.PackMethod("isBar", addr)
 	if err != nil {
 		log.Fatalln(err)
@@ -292,11 +292,11 @@ func TestInputVariableInputLength(t *testing.T) {
 		t.Error(err)
 	}
 
-	offset := make([]byte, util.WordSize)
-	offset[util.WordSize-1] = util.WordSize
-	length := make([]byte, util.WordSize)
-	length[util.WordSize-1] = byte(len(strin))
-	value := util.RightPadBytes([]byte(strin), util.WordSize)
+	offset := make([]byte, helper.WordSize)
+	offset[helper.WordSize-1] = helper.WordSize
+	length := make([]byte, helper.WordSize)
+	length[helper.WordSize-1] = byte(len(strin))
+	value := helper.RightPadBytes([]byte(strin), helper.WordSize)
 	exp := append(offset, append(length, value...)...)
 
 	// ignore first 4 bytes of the output. This is the function identifier
@@ -324,17 +324,17 @@ func TestInputVariableInputLength(t *testing.T) {
 		t.Error(err)
 	}
 
-	offset1 := make([]byte, util.WordSize)
-	offset1[util.WordSize-1] = 64
-	length1 := make([]byte, util.WordSize)
-	length1[util.WordSize-1] = byte(len(str1))
-	value1 := util.RightPadBytes([]byte(str1), util.WordSize)
+	offset1 := make([]byte, helper.WordSize)
+	offset1[helper.WordSize-1] = 64
+	length1 := make([]byte, helper.WordSize)
+	length1[helper.WordSize-1] = byte(len(str1))
+	value1 := helper.RightPadBytes([]byte(str1), helper.WordSize)
 
-	offset2 := make([]byte, util.WordSize)
-	offset2[util.WordSize-1] = 128
-	length2 := make([]byte, util.WordSize)
-	length2[util.WordSize-1] = byte(len(str2))
-	value2 := util.RightPadBytes([]byte(str2), util.WordSize)
+	offset2 := make([]byte, helper.WordSize)
+	offset2[helper.WordSize-1] = 128
+	length2 := make([]byte, helper.WordSize)
+	length2[helper.WordSize-1] = byte(len(str2))
+	value2 := helper.RightPadBytes([]byte(str2), helper.WordSize)
 
 	exp2 := append(offset1, offset2...)
 	exp2 = append(exp2, append(length1, value1...)...)
@@ -353,12 +353,12 @@ func TestInputVariableInputLength(t *testing.T) {
 		t.Error(err)
 	}
 
-	offset1 = make([]byte, util.WordSize)
-	offset1[util.WordSize-1] = 64
-	length1 = make([]byte, util.WordSize)
-	length1[util.WordSize-1] = byte(len(str1))
-	value1 = util.RightPadBytes([]byte(str1), 64)
-	offset2[util.WordSize-1] = 160
+	offset1 = make([]byte, helper.WordSize)
+	offset1[helper.WordSize-1] = 64
+	length1 = make([]byte, helper.WordSize)
+	length1[helper.WordSize-1] = byte(len(str1))
+	value1 = helper.RightPadBytes([]byte(str1), 64)
+	offset2[helper.WordSize-1] = 160
 
 	exp2 = append(offset1, offset2...)
 	exp2 = append(exp2, append(length1, value1...)...)
@@ -378,17 +378,17 @@ func TestInputVariableInputLength(t *testing.T) {
 		t.Error(err)
 	}
 
-	offset1 = make([]byte, util.WordSize)
-	offset1[util.WordSize-1] = 64
-	length1 = make([]byte, util.WordSize)
-	length1[util.WordSize-1] = byte(len(str1))
-	value1 = util.RightPadBytes([]byte(str1), 64)
+	offset1 = make([]byte, helper.WordSize)
+	offset1[helper.WordSize-1] = 64
+	length1 = make([]byte, helper.WordSize)
+	length1[helper.WordSize-1] = byte(len(str1))
+	value1 = helper.RightPadBytes([]byte(str1), 64)
 
-	offset2 = make([]byte, util.WordSize)
-	offset2[util.WordSize-1] = 160
-	length2 = make([]byte, util.WordSize)
-	length2[util.WordSize-1] = byte(len(str2))
-	value2 = util.RightPadBytes([]byte(str2), 64)
+	offset2 = make([]byte, helper.WordSize)
+	offset2[helper.WordSize-1] = 160
+	length2 = make([]byte, helper.WordSize)
+	length2[helper.WordSize-1] = byte(len(str2))
+	value2 = helper.RightPadBytes([]byte(str2), 64)
 
 	exp2 = append(offset1, offset2...)
 	exp2 = append(exp2, append(length1, value1...)...)
@@ -424,13 +424,13 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	}
 
 	// generate expected output
-	offset := make([]byte, util.WordSize)
-	offset[util.WordSize-1] = 96
-	length := make([]byte, util.WordSize)
-	length[util.WordSize-1] = byte(len(strin))
-	strvalue := util.RightPadBytes([]byte(strin), util.WordSize)
-	arrinvalue1 := util.LeftPadBytes(arrin[0].Bytes(), util.WordSize)
-	arrinvalue2 := util.LeftPadBytes(arrin[1].Bytes(), util.WordSize)
+	offset := make([]byte, helper.WordSize)
+	offset[helper.WordSize-1] = 96
+	length := make([]byte, helper.WordSize)
+	length[helper.WordSize-1] = byte(len(strin))
+	strvalue := helper.RightPadBytes([]byte(strin), helper.WordSize)
+	arrinvalue1 := helper.LeftPadBytes(arrin[0].Bytes(), helper.WordSize)
+	arrinvalue2 := helper.LeftPadBytes(arrin[1].Bytes(), helper.WordSize)
 	exp := append(offset, arrinvalue1...)
 	exp = append(exp, arrinvalue2...)
 	exp = append(exp, append(length, strvalue...)...)
@@ -450,13 +450,13 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	}
 
 	// generate expected output
-	offset = make([]byte, util.WordSize)
-	offset[util.WordSize-1] = 96
-	length = make([]byte, util.WordSize)
-	length[util.WordSize-1] = byte(len(strin))
-	strvalue = util.RightPadBytes([]byte(strin), util.WordSize)
-	arrinvalue1 = util.LeftPadBytes(arrin[0].Bytes(), util.WordSize)
-	arrinvalue2 = util.LeftPadBytes(arrin[1].Bytes(), util.WordSize)
+	offset = make([]byte, helper.WordSize)
+	offset[helper.WordSize-1] = 96
+	length = make([]byte, helper.WordSize)
+	length[helper.WordSize-1] = byte(len(strin))
+	strvalue = helper.RightPadBytes([]byte(strin), helper.WordSize)
+	arrinvalue1 = helper.LeftPadBytes(arrin[0].Bytes(), helper.WordSize)
+	arrinvalue2 = helper.LeftPadBytes(arrin[1].Bytes(), helper.WordSize)
 	exp = append(offset, arrinvalue1...)
 	exp = append(exp, arrinvalue2...)
 	exp = append(exp, append(length, strvalue...)...)
@@ -477,20 +477,20 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	}
 
 	// generate expected output
-	stroffset := make([]byte, util.WordSize)
-	stroffset[util.WordSize-1] = 128
-	strlength := make([]byte, util.WordSize)
-	strlength[util.WordSize-1] = byte(len(strin))
-	strvalue = util.RightPadBytes([]byte(strin), util.WordSize)
-	fixedarrinvalue1 := util.LeftPadBytes(fixedarrin[0].Bytes(), util.WordSize)
-	fixedarrinvalue2 := util.LeftPadBytes(fixedarrin[1].Bytes(), util.WordSize)
-	dynarroffset := make([]byte, util.WordSize)
-	dynarroffset[util.WordSize-1] = byte(160 + ((len(strin)/util.WordSize)+1)*util.WordSize)
-	dynarrlength := make([]byte, util.WordSize)
-	dynarrlength[util.WordSize-1] = byte(len(dynarrin))
-	dynarrinvalue1 := util.LeftPadBytes(dynarrin[0].Bytes(), util.WordSize)
-	dynarrinvalue2 := util.LeftPadBytes(dynarrin[1].Bytes(), util.WordSize)
-	dynarrinvalue3 := util.LeftPadBytes(dynarrin[2].Bytes(), util.WordSize)
+	stroffset := make([]byte, helper.WordSize)
+	stroffset[helper.WordSize-1] = 128
+	strlength := make([]byte, helper.WordSize)
+	strlength[helper.WordSize-1] = byte(len(strin))
+	strvalue = helper.RightPadBytes([]byte(strin), helper.WordSize)
+	fixedarrinvalue1 := helper.LeftPadBytes(fixedarrin[0].Bytes(), helper.WordSize)
+	fixedarrinvalue2 := helper.LeftPadBytes(fixedarrin[1].Bytes(), helper.WordSize)
+	dynarroffset := make([]byte, helper.WordSize)
+	dynarroffset[helper.WordSize-1] = byte(160 + ((len(strin)/helper.WordSize)+1)*helper.WordSize)
+	dynarrlength := make([]byte, helper.WordSize)
+	dynarrlength[helper.WordSize-1] = byte(len(dynarrin))
+	dynarrinvalue1 := helper.LeftPadBytes(dynarrin[0].Bytes(), helper.WordSize)
+	dynarrinvalue2 := helper.LeftPadBytes(dynarrin[1].Bytes(), helper.WordSize)
+	dynarrinvalue3 := helper.LeftPadBytes(dynarrin[2].Bytes(), helper.WordSize)
 	exp = append(stroffset, fixedarrinvalue1...)
 	exp = append(exp, fixedarrinvalue2...)
 	exp = append(exp, dynarroffset...)
@@ -516,16 +516,16 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	}
 
 	// generate expected output
-	stroffset = make([]byte, util.WordSize)
-	stroffset[util.WordSize-1] = 192
-	strlength = make([]byte, util.WordSize)
-	strlength[util.WordSize-1] = byte(len(strin))
-	strvalue = util.RightPadBytes([]byte(strin), util.WordSize)
-	fixedarrin1value1 := util.LeftPadBytes(fixedarrin1[0].Bytes(), util.WordSize)
-	fixedarrin1value2 := util.LeftPadBytes(fixedarrin1[1].Bytes(), util.WordSize)
-	fixedarrin2value1 := util.LeftPadBytes(fixedarrin2[0].Bytes(), util.WordSize)
-	fixedarrin2value2 := util.LeftPadBytes(fixedarrin2[1].Bytes(), util.WordSize)
-	fixedarrin2value3 := util.LeftPadBytes(fixedarrin2[2].Bytes(), util.WordSize)
+	stroffset = make([]byte, helper.WordSize)
+	stroffset[helper.WordSize-1] = 192
+	strlength = make([]byte, helper.WordSize)
+	strlength[helper.WordSize-1] = byte(len(strin))
+	strvalue = helper.RightPadBytes([]byte(strin), helper.WordSize)
+	fixedarrin1value1 := helper.LeftPadBytes(fixedarrin1[0].Bytes(), helper.WordSize)
+	fixedarrin1value2 := helper.LeftPadBytes(fixedarrin1[1].Bytes(), helper.WordSize)
+	fixedarrin2value1 := helper.LeftPadBytes(fixedarrin2[0].Bytes(), helper.WordSize)
+	fixedarrin2value2 := helper.LeftPadBytes(fixedarrin2[1].Bytes(), helper.WordSize)
+	fixedarrin2value3 := helper.LeftPadBytes(fixedarrin2[2].Bytes(), helper.WordSize)
 	exp = append(stroffset, fixedarrin1value1...)
 	exp = append(exp, fixedarrin1value2...)
 	exp = append(exp, fixedarrin2value1...)
@@ -550,21 +550,21 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	}
 
 	// generate expected output
-	stroffset = make([]byte, util.WordSize)
-	stroffset[util.WordSize-1] = 224
-	strlength = make([]byte, util.WordSize)
-	strlength[util.WordSize-1] = byte(len(strin))
-	strvalue = util.RightPadBytes([]byte(strin), util.WordSize)
-	fixedarrin1value1 = util.LeftPadBytes(fixedarrin1[0].Bytes(), util.WordSize)
-	fixedarrin1value2 = util.LeftPadBytes(fixedarrin1[1].Bytes(), util.WordSize)
-	dynarroffset = U256(big.NewInt(int64(256 + ((len(strin)/util.WordSize)+1)*util.WordSize)))
-	dynarrlength = make([]byte, util.WordSize)
-	dynarrlength[util.WordSize-1] = byte(len(dynarrin))
-	dynarrinvalue1 = util.LeftPadBytes(dynarrin[0].Bytes(), util.WordSize)
-	dynarrinvalue2 = util.LeftPadBytes(dynarrin[1].Bytes(), util.WordSize)
-	fixedarrin2value1 = util.LeftPadBytes(fixedarrin2[0].Bytes(), util.WordSize)
-	fixedarrin2value2 = util.LeftPadBytes(fixedarrin2[1].Bytes(), util.WordSize)
-	fixedarrin2value3 = util.LeftPadBytes(fixedarrin2[2].Bytes(), util.WordSize)
+	stroffset = make([]byte, helper.WordSize)
+	stroffset[helper.WordSize-1] = 224
+	strlength = make([]byte, helper.WordSize)
+	strlength[helper.WordSize-1] = byte(len(strin))
+	strvalue = helper.RightPadBytes([]byte(strin), helper.WordSize)
+	fixedarrin1value1 = helper.LeftPadBytes(fixedarrin1[0].Bytes(), helper.WordSize)
+	fixedarrin1value2 = helper.LeftPadBytes(fixedarrin1[1].Bytes(), helper.WordSize)
+	dynarroffset = U256(big.NewInt(int64(256 + ((len(strin)/helper.WordSize)+1)*helper.WordSize)))
+	dynarrlength = make([]byte, helper.WordSize)
+	dynarrlength[helper.WordSize-1] = byte(len(dynarrin))
+	dynarrinvalue1 = helper.LeftPadBytes(dynarrin[0].Bytes(), helper.WordSize)
+	dynarrinvalue2 = helper.LeftPadBytes(dynarrin[1].Bytes(), helper.WordSize)
+	fixedarrin2value1 = helper.LeftPadBytes(fixedarrin2[0].Bytes(), helper.WordSize)
+	fixedarrin2value2 = helper.LeftPadBytes(fixedarrin2[1].Bytes(), helper.WordSize)
+	fixedarrin2value3 = helper.LeftPadBytes(fixedarrin2[2].Bytes(), helper.WordSize)
 	exp = append(stroffset, fixedarrin1value1...)
 	exp = append(exp, fixedarrin1value2...)
 	exp = append(exp, dynarroffset...)
@@ -737,7 +737,7 @@ func TestUnpackEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data)%util.WordSize == 0 {
+	if len(data)%helper.WordSize == 0 {
 		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
 	}
 

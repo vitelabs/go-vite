@@ -46,6 +46,7 @@ const (
 	mintagePledgeTime    int64 = 3600 * 24 * 3
 
 	registerGas             uint64 = 62200
+	updateRegistrationGas   uint64 = 62200
 	cancelRegisterGas       uint64 = 83200
 	rewardGas               uint64 = 83200
 	calcRewardGasPerPage    uint64 = 200

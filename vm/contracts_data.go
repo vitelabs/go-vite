@@ -1,31 +1,31 @@
 package vm
 
 import (
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
 
-func GetTokenById(db VmDatabase, tokenId types.TokenTypeId) *TokenInfo {
-	data := db.GetStorage(&AddressMintage, util.LeftPadBytes(tokenId.Bytes(), types.HashSize))
+func GetTokenById(db VmDatabase, tokenId types.TokenTypeId) *types.TokenInfo {
+	data := db.GetStorage(&AddressMintage, helper.LeftPadBytes(tokenId.Bytes(), types.HashSize))
 	if len(data) > 0 {
-		tokenInfo := new(TokenInfo)
+		tokenInfo := new(types.TokenInfo)
 		ABI_mintage.UnpackVariable(tokenInfo, VariableNameMintage, data)
 		return tokenInfo
 	}
 	return nil
 }
 
-func GetTokenMap(db VmDatabase) map[types.TokenTypeId]*TokenInfo {
+func GetTokenMap(db VmDatabase) map[types.TokenTypeId]*types.TokenInfo {
 	iterator := db.NewStorageIterator(nil)
-	tokenInfoMap := make(map[types.TokenTypeId]*TokenInfo)
+	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
 			break
 		}
 		tokenId, _ := types.BytesToTokenTypeId(key[types.HashSize-types.TokenTypeIdSize:])
-		tokenInfo := new(TokenInfo)
+		tokenInfo := new(types.TokenInfo)
 		ABI_register.UnpackVariable(tokenInfo, VariableNameMintage, value)
 		tokenInfoMap[tokenId] = tokenInfo
 	}
@@ -33,15 +33,15 @@ func GetTokenMap(db VmDatabase) map[types.TokenTypeId]*TokenInfo {
 }
 
 // get register address of gid
-func GetRegisterList(db VmDatabase, gid types.Gid) []*VariableRegistration {
+func GetRegisterList(db VmDatabase, gid types.Gid) []*types.Registration {
 	iterator := db.NewStorageIterator(gid.Bytes())
-	registerList := make([]*VariableRegistration, 0)
+	registerList := make([]*types.Registration, 0)
 	for {
 		_, value, ok := iterator.Next()
 		if !ok {
 			break
 		}
-		registration := new(VariableRegistration)
+		registration := new(types.Registration)
 		ABI_register.UnpackVariable(registration, VariableNameRegistration, value)
 		if registration.Timestamp > 0 {
 			registerList = append(registerList, registration)
@@ -51,9 +51,9 @@ func GetRegisterList(db VmDatabase, gid types.Gid) []*VariableRegistration {
 }
 
 // get voters of gid, return map<voter, super node>
-func GetVoteMap(db VmDatabase, gid types.Gid) []*VoteInfo {
+func GetVoteMap(db VmDatabase, gid types.Gid) []*types.VoteInfo {
 	iterator := db.NewStorageIterator(gid.Bytes())
-	voteInfoList := make([]*VoteInfo, 0)
+	voteInfoList := make([]*types.VoteInfo, 0)
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
@@ -62,7 +62,7 @@ func GetVoteMap(db VmDatabase, gid types.Gid) []*VoteInfo {
 		voterAddr := getAddrFromVoteKey(key)
 		nodeName := new(string)
 		ABI_vote.UnpackVariable(nodeName, VariableNameVoteStatus, value)
-		voteInfoList = append(voteInfoList, &VoteInfo{voterAddr, *nodeName})
+		voteInfoList = append(voteInfoList, &types.VoteInfo{voterAddr, *nodeName})
 	}
 	return voteInfoList
 }
@@ -79,28 +79,30 @@ func GetPledgeAmount(db VmDatabase, beneficial types.Address) *big.Int {
 }
 
 // get all consensus group info
-func GetConsensusGroupList(db VmDatabase) []*ConsensusGroupInfo {
+func GetConsensusGroupList(db VmDatabase) []*types.ConsensusGroupInfo {
 	iterator := db.NewStorageIterator(nil)
-	consensusGroupInfoList := make([]*ConsensusGroupInfo, 0)
+	consensusGroupInfoList := make([]*types.ConsensusGroupInfo, 0)
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
 			break
 		}
-		variable := new(VariableConsensusGroupInfo)
-		ABI_pledge.UnpackVariable(variable, VariableNameConsensusGroupInfo, value)
-		consensusGroupInfoList = append(consensusGroupInfoList, &ConsensusGroupInfo{*variable, getGidFromConsensusGroupKey(key)})
+		consensusGroupInfo := new(types.ConsensusGroupInfo)
+		ABI_pledge.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value)
+		consensusGroupInfo.Gid = getGidFromConsensusGroupKey(key)
+		consensusGroupInfoList = append(consensusGroupInfoList, consensusGroupInfo)
 	}
 	return consensusGroupInfoList
 }
 
 // get consensus group info by gid
-func GetConsensusGroup(db VmDatabase, gid types.Gid) *ConsensusGroupInfo {
+func GetConsensusGroup(db VmDatabase, gid types.Gid) *types.ConsensusGroupInfo {
 	data := db.GetStorage(&AddressConsensusGroup, types.DataHash(gid.Bytes()).Bytes())
 	if len(data) > 0 {
-		variable := new(VariableConsensusGroupInfo)
-		ABI_pledge.UnpackVariable(variable, VariableNameConsensusGroupInfo, data)
-		return &ConsensusGroupInfo{*variable, gid}
+		consensusGroupInfo := new(types.ConsensusGroupInfo)
+		ABI_pledge.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)
+		consensusGroupInfo.Gid = gid
+		return consensusGroupInfo
 	}
 	return nil
 }
