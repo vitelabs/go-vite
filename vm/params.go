@@ -41,7 +41,7 @@ const (
 
 	tokenDecimalsMin     uint8 = 0  // Minimum value of a token decimals(include)
 	tokenDecimalsMax     uint8 = 18 // Maximum value of a token decimals(include)
-	tokenNameLengthMax   int   = 20 // Maximum length of a token name(include)
+	tokenNameLengthMax   int   = 40 // Maximum length of a token name(include)
 	tokenSymbolLengthMax int   = 10 // Maximum length of a token symbol(include)
 	mintagePledgeTime    int64 = 3600 * 24 * 3
 

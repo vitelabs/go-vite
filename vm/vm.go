@@ -331,7 +331,7 @@ func (vm *VM) updateBlock(block *ledger.AccountBlock, err error, quota uint64, r
 			block.Data = append(DataResultPrefixFail, result...)
 		}
 
-		block.LogHash = *vm.Db.GetLogListHash()
+		block.LogHash = vm.Db.GetLogListHash()
 		if err == ErrOutOfQuota {
 			block.BlockType = ledger.BlockTypeReceiveError
 		} else {
@@ -403,7 +403,7 @@ func createContractAddress(addr types.Address, height uint64, prevHash types.Has
 }
 
 func isExistGid(db VmDatabase, gid types.Gid) bool {
-	value := db.GetStorage(&AddressConsensusGroup, types.DataHash(gid.Bytes()).Bytes())
+	value := db.GetStorage(&AddressConsensusGroup, getConsensusGroupKey(gid))
 	return len(value) > 0
 }
 
