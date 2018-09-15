@@ -18,6 +18,8 @@ const (
 
 // obtaining the account info from cache or db and manage the cache lifecycle
 type UnconfirmedBlocksPool struct {
+	dbAccess *UAccess
+
 	fullCache          map[types.Address]*unconfirmedBlocksCache
 	fullCacheDeadTimer map[types.Address]*time.Timer
 	fullCacheMutex     sync.RWMutex
@@ -26,7 +28,6 @@ type UnconfirmedBlocksPool struct {
 	simpleCacheDeadTimer map[types.Address]*time.Timer
 	simpleCacheMutex     sync.RWMutex
 
-	dbAccess *UAccess
 
 	newCommonTxListener map[types.Address]func()
 	newContractListener map[types.Gid]func()
@@ -88,6 +89,7 @@ func (p *UnconfirmedBlocksPool) addSimpleCache(addr types.Address, accountInfo *
 }
 
 func (p *UnconfirmedBlocksPool) GetCommonAccountInfo(addr types.Address) (*CommonAccountInfo, error) {
+	// first load in simple cache
 	p.simpleCacheMutex.RLock()
 	if c, ok := p.simpleCache[addr]; ok {
 		p.simpleCacheDeadTimer[addr].Reset(simpleCacheExpireTime)
@@ -96,9 +98,9 @@ func (p *UnconfirmedBlocksPool) GetCommonAccountInfo(addr types.Address) (*Commo
 	}
 	p.simpleCacheMutex.RUnlock()
 
+	// second load from full cache
 	p.fullCacheMutex.RLock()
 	defer p.fullCacheMutex.RUnlock()
-
 	if fullcache, ok := p.fullCache[addr]; ok {
 		accountInfo := fullcache.toCommonAccountInfo(p.dbAccess.chain.GetTokenInfoById)
 		if accountInfo != nil {
@@ -107,11 +109,11 @@ func (p *UnconfirmedBlocksPool) GetCommonAccountInfo(addr types.Address) (*Commo
 		}
 	}
 
+	// third load from db
 	accountInfo, e := p.dbAccess.GetCommonAccInfo(&addr)
 	if e != nil {
 		return nil, e
 	}
-
 	if accountInfo != nil {
 		p.addSimpleCache(addr, accountInfo)
 	}
