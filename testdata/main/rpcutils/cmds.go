@@ -39,9 +39,10 @@ func Help() {
 	fmt.Println("getscheight:                            GetSnapshotChainHeight")
 	fmt.Println("maykeystore:                            maykeystore")
 	fmt.Println("walletdatedir:                          get walletdatedir")
-	fmt.Println("getLatest [address]:                    getLatest blocks")
+	fmt.Println("getLatestBlocks [address]:                    getLatest blocks")
 	fmt.Println("getToken [tti]:                         get token info")
 	fmt.Println("getBlocksByHash [address][hash][count]: getBlocksByHash")
+	fmt.Println("getLatestSnapshotChainHash:            GetLatestSnapshotChainHash")
 	fmt.Println("quit:                                   quit")
 }
 
@@ -127,7 +128,7 @@ func Cmd(client *rpc.Client) {
 		} else if strings.HasPrefix(input, "newtesttoken") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			newTesttoken(param)
-		} else if strings.HasPrefix(input, "getLatest") {
+		} else if strings.HasPrefix(input, "getLatestBlocks") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			GetLatestBlock(client, param[0])
 		} else if strings.HasPrefix(input, "getTokenInfo") {
@@ -136,6 +137,8 @@ func Cmd(client *rpc.Client) {
 		} else if strings.HasPrefix(input, "getBlocksByHash") {
 			param := strings.Split(strings.TrimRight(input, "\n"), " ")[1:]
 			GetBlocksByHash(client, param)
+		} else if strings.HasPrefix(input, "getLatestSnapshotChainHash") {
+			GetLatestSnapshotChainHash(client)
 		} else if strings.HasPrefix(input, "help") {
 			Help()
 		} else {
@@ -143,6 +146,7 @@ func Cmd(client *rpc.Client) {
 		}
 	}
 }
+
 
 func WalletDataDir(client *rpc.Client) {
 	s := ""
@@ -227,6 +231,10 @@ func ImportPriv(client *rpc.Client, param []string) {
 }
 
 func ExportPriv(client *rpc.Client, param []string) {
+}
+
+func GetLatestSnapshotChainHash(client *rpc.Client) {
+	client.Call(&client, "ledger_getLatestSnapshotChainHash")
 }
 
 func GetTokenInfo(client *rpc.Client, param string) {

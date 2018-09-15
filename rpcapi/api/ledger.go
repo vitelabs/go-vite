@@ -239,6 +239,19 @@ func (l *LedgerApi) GetSnapshotChainHeight() (string, error) {
 	return "", nil
 }
 
+func (l *LedgerApi) GetLatestSnapshotChainHash() (*types.Hash, error) {
+	log.Info("GetLatestSnapshotChainHash")
+	block, e := l.ledgerManager.Sc().GetLatestBlock()
+	if e != nil {
+		log.Error(e.Error())
+		return nil, e
+	}
+	if block != nil && block.Hash != nil {
+		return block.Hash, nil
+	}
+	return nil, nil
+}
+
 func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 	log.Info("GetLatestBlock")
 	b, getError := l.ledgerManager.Ac().GetLatestBlock(&addr)
