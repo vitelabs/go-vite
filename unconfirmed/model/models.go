@@ -1,14 +1,13 @@
 package model
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"math/big"
 	"container/list"
-	"time"
+	"github.com/vitelabs/go-vite/common/types"
 	oldledger "github.com/vitelabs/go-vite/ledger_old"
-
+	"math/big"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"sync"
 )
 
 type UnconfirmedMeta struct {
@@ -30,10 +29,25 @@ type TokenBalanceInfo struct {
 }
 
 type unconfirmedBlocksCache struct {
-	blocks         list.List
-	lastUpdateTime time.Time
-	currentEle     *list.Element
-	// lastReadTime   time.Time
+	blocks     list.List
+	currentEle *list.Element
+
+	referenceCount int
+	referenceMutex sync.Mutex
+}
+
+func (c *unconfirmedBlocksCache) addReferenceCount() int {
+	c.referenceMutex.Lock()
+	defer c.referenceMutex.Unlock()
+	c.referenceCount += 1
+	return c.referenceCount
+}
+
+func (c *unconfirmedBlocksCache) subReferenceCount() int {
+	c.referenceMutex.Lock()
+	defer c.referenceMutex.Unlock()
+	c.referenceCount -= 1
+	return c.referenceCount
 }
 
 func (c *unconfirmedBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti *types.TokenTypeId) (*ledger.Token, error)) *CommonAccountInfo {

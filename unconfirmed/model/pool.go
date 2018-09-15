@@ -11,13 +11,20 @@ import (
 	"time"
 )
 
+const (
+	fullCacheExpireTime   = 2 * time.Minute
+	simpleCacheExpireTime = 20 * time.Minute
+)
+
 // obtaining the account info from cache or db and manage the cache lifecycle
 type UnconfirmedBlocksPool struct {
-	fullCache      map[types.Address]*unconfirmedBlocksCache
-	fullCacheMutex sync.RWMutex
+	fullCache          map[types.Address]*unconfirmedBlocksCache
+	fullCacheDeadTimer map[types.Address]*time.Timer
+	fullCacheMutex     sync.RWMutex
 
-	simpleCache      map[types.Address]*CommonAccountInfo
-	simpleCacheMutex sync.RWMutex
+	simpleCache          map[types.Address]*CommonAccountInfo
+	simpleCacheDeadTimer map[types.Address]*time.Timer
+	simpleCacheMutex     sync.RWMutex
 
 	dbAccess *UAccess
 
@@ -45,26 +52,71 @@ func (p *UnconfirmedBlocksPool) Start() {
 }
 
 func (p *UnconfirmedBlocksPool) Stop() {
+	p.simpleCacheMutex.Lock()
+	for _, v := range p.simpleCacheDeadTimer {
+		if v != nil {
+			v.Stop()
+		}
+	}
+	p.simpleCache = nil
+	p.simpleCacheMutex.Unlock()
 
+	p.fullCacheMutex.Lock()
+	for _, v := range p.fullCacheDeadTimer {
+		if v != nil {
+			v.Stop()
+		}
+	}
+	p.fullCache = nil
+	p.fullCacheMutex.Unlock()
 }
 
-func (p *UnconfirmedBlocksPool) GetCommonAccountInfo(addr types.Address) (info *CommonAccountInfo, err error) {
+func (p *UnconfirmedBlocksPool) addSimpleCache(addr types.Address, accountInfo *CommonAccountInfo) {
+	p.simpleCacheMutex.Lock()
+	p.simpleCache[addr] = accountInfo
+	p.simpleCacheMutex.Unlock()
+	timer, ok := p.simpleCacheDeadTimer[addr]
+	if ok && timer != nil {
+		timer.Reset(simpleCacheExpireTime)
+	} else {
+		p.simpleCacheDeadTimer[addr] = time.AfterFunc(simpleCacheExpireTime, func() {
+			p.simpleCacheMutex.Lock()
+			delete(p.simpleCache, addr)
+			p.simpleCacheMutex.Unlock()
+		})
+	}
+}
+
+func (p *UnconfirmedBlocksPool) GetCommonAccountInfo(addr types.Address) (*CommonAccountInfo, error) {
 	p.simpleCacheMutex.RLock()
 	if c, ok := p.simpleCache[addr]; ok {
+		p.simpleCacheDeadTimer[addr].Reset(simpleCacheExpireTime)
 		p.simpleCacheMutex.RUnlock()
 		return c, nil
 	}
 	p.simpleCacheMutex.RUnlock()
 
 	p.fullCacheMutex.RLock()
-	if f, ok := p.fullCache[addr]; ok {
-		accountInfo := f.toCommonAccountInfo(p.dbAccess.chain.GetTokenInfoById)
-		p.fullCacheMutex.RUnlock()
-		return accountInfo, nil
-	}
-	p.fullCacheMutex.RUnlock()
+	defer p.fullCacheMutex.RUnlock()
 
-	return p.dbAccess.GetCommonAccInfo(&addr)
+	if fullcache, ok := p.fullCache[addr]; ok {
+		accountInfo := fullcache.toCommonAccountInfo(p.dbAccess.chain.GetTokenInfoById)
+		if accountInfo != nil {
+			p.addSimpleCache(addr, accountInfo)
+			return accountInfo, nil
+		}
+	}
+
+	accountInfo, e := p.dbAccess.GetCommonAccInfo(&addr)
+	if e != nil {
+		return nil, e
+	}
+
+	if accountInfo != nil {
+		p.addSimpleCache(addr, accountInfo)
+	}
+
+	return accountInfo, nil
 
 }
 
@@ -81,10 +133,19 @@ func (p *UnconfirmedBlocksPool) GetNextTx(address types.Address) *ledger.Account
 
 func (p *UnconfirmedBlocksPool) AcquireAccountInfoCache(address types.Address) error {
 	p.fullCacheMutex.RLock()
-	if _, ok := p.fullCache[address]; ok {
+
+	if t, ok := p.fullCacheDeadTimer[address]; ok {
+		if t != nil {
+			t.Stop()
+		}
+	}
+
+	if c, ok := p.fullCache[address]; ok {
+		c.addReferenceCount()
 		p.fullCacheMutex.RUnlock()
 		return nil
 	}
+	p.fullCacheMutex.RUnlock()
 
 	p.fullCacheMutex.Lock()
 	defer p.fullCacheMutex.Unlock()
@@ -101,19 +162,32 @@ func (p *UnconfirmedBlocksPool) AcquireAccountInfoCache(address types.Address) e
 	p.fullCache[address] = &unconfirmedBlocksCache{
 		blocks:         *list,
 		currentEle:     list.Front(),
-		lastUpdateTime: time.Now(),
+		referenceCount: 1,
 	}
 
 	return nil
 }
 
 func (p *UnconfirmedBlocksPool) ReleaseAccountInfoCache(address types.Address) error {
-	//  todo keep the cache in memory some time
+	p.fullCacheMutex.RLock()
+	c, ok := p.fullCache[address]
+	if !ok {
+		p.fullCacheMutex.RUnlock()
+		return nil
+	}
+	if c.subReferenceCount() <= 0 {
+		p.fullCacheMutex.RUnlock()
+		p.fullCacheDeadTimer[address] = time.AfterFunc(fullCacheExpireTime, func() {
+			p.DeleteFullCache(address)
+		})
+		return nil
+	}
+	p.fullCacheMutex.RUnlock()
 
 	return nil
 }
 
-func (p *UnconfirmedBlocksPool) ClearAccountInfoCache(address types.Address) {
+func (p *UnconfirmedBlocksPool) DeleteFullCache(address types.Address) {
 	p.fullCacheMutex.Lock()
 	defer p.fullCacheMutex.Unlock()
 	delete(p.fullCache, address)

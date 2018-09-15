@@ -107,10 +107,7 @@ func (task *ContractTask) Status() int {
 
 func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList bool) {
 	// get db.go block from subQueue
-	task.log.Info("Process the fromQueue,", task.log.New("fromQueueDetail",
-		task.log.New("fromAddress", fItem.Key),
-		task.log.New("index", fItem.Index),
-		task.log.New("priority", fItem.Priority)))
+	task.log.Info("Process the fromQueue,", "fromAddress", fItem.Key, "index", fItem.Index, "priority", fItem.Priority)
 
 	bQueue := fItem.Value
 
