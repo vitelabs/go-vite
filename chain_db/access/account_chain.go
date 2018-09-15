@@ -134,13 +134,17 @@ func (ac *AccountChain) GetBlock(blockHash *types.Hash) (*ledger.AccountBlock, e
 
 	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, blockMeta.AccountId, blockMeta.Height)
 
-	block, err := ac.db.Get(key, nil)
-	if err != nil {
-		return nil, err
+	iter := ac.db.NewIterator(util.BytesPrefix(key), nil)
+	defer iter.Release()
+	if !iter.Last() {
+		if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+			return nil, err
+		}
+		return nil, nil
 	}
 
 	accountBlock := &ledger.AccountBlock{}
-	accountBlock.DbDeserialize(block)
+	accountBlock.DbDeserialize(iter.Value())
 
 	accountBlock.Hash = *blockHash
 	accountBlockMeta, err := ac.GetBlockMeta(&accountBlock.Hash)

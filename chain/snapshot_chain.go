@@ -16,7 +16,7 @@ func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	}
 
 	// Save snapshot content
-	if err := c.chainDb.Sc.WriteSnapshotContent(batch, &snapshotBlock.SnapshotHash, snapshotBlock.SnapshotContent); err != nil {
+	if err := c.chainDb.Sc.WriteSnapshotContent(batch, snapshotBlock.Height, snapshotBlock.SnapshotContent); err != nil {
 		c.log.Error("WriteSnapshotContent failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
 	}
@@ -77,16 +77,6 @@ func (c *Chain) GetSnapshotBlocksByHeight(height uint64, count uint64, forward, 
 		return nil, gErr
 	}
 	return blocks, gErr
-}
-
-func (c *Chain) GetSnapshotContent(snapshotHash *types.Hash) (ledger.SnapshotContent, error) {
-	snapshotContent, err := c.chainDb.Sc.GetSnapshotContent(snapshotHash)
-	if err != nil {
-		c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotContent")
-		return nil, err
-	}
-
-	return snapshotContent, nil
 }
 
 func (c *Chain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
@@ -235,4 +225,14 @@ func (c *Chain) GetConfirmTimes(accountBlock *ledger.AccountBlock) uint64 {
 // TODO: cache
 func (c *Chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {
 	return nil, nil
+}
+
+func (c *Chain) DeleteSnapshotBlocks(toHeight uint64) ([]*ledger.SnapshotBlock, []*ledger.AccountBlock, error) {
+	currentLatesetSnapshot, getLatestErr := c.GetLatestSnapshotBlock()
+	if getLatestErr != nil {
+		c.log.Error("getLatestSnapshotBlock is nil, error is "+getLatestErr.Error(), "method", "DeleteSnapshotBlocks")
+		return nil, nil, getLatestErr
+	}
+
+	return nil, nil, nil
 }

@@ -98,6 +98,11 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	}
 
 	lastVmAccountBlock := vmAccountBlocks[len(vmAccountBlocks)-1]
+
+	// Set needSnapshotCache
+	c.needSnapshotCache.Add(&account.AccountAddress, lastVmAccountBlock.AccountBlock.Height, &lastVmAccountBlock.AccountBlock.Hash)
+
+	// Set stateTriePool
 	c.stateTriePool.Set(&lastVmAccountBlock.AccountBlock.AccountAddress, lastVmAccountBlock.VmContext.UnsavedCache().Trie())
 
 	// After write db

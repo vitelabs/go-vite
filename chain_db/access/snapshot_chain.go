@@ -34,8 +34,8 @@ func (sc *SnapshotChain) WriteSnapshotHash(batch *leveldb.Batch, hash *types.Has
 	batch.Put(key, heightBytes)
 }
 
-func (sc *SnapshotChain) WriteSnapshotContent(batch *leveldb.Batch, snapshotHash *types.Hash, snapshotContent ledger.SnapshotContent) error {
-	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTCONTENT, snapshotHash.Bytes())
+func (sc *SnapshotChain) WriteSnapshotContent(batch *leveldb.Batch, snapshotHeight uint64, snapshotContent ledger.SnapshotContent) error {
+	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTCONTENT, snapshotHeight)
 	data, sErr := snapshotContent.DbSerialize()
 	if sErr != nil {
 		return sErr
@@ -98,8 +98,8 @@ func (sc *SnapshotChain) GetGenesesBlock() (*ledger.SnapshotBlock, error) {
 	return sb, nil
 }
 
-func (sc *SnapshotChain) GetSnapshotContent(snapshotHash *types.Hash) (ledger.SnapshotContent, error) {
-	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTCONTENT, snapshotHash.Bytes())
+func (sc *SnapshotChain) GetSnapshotContent(snapshotBlockHeight uint64) (ledger.SnapshotContent, error) {
+	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTCONTENT, snapshotBlockHeight)
 	data, err := sc.db.Get(key, nil)
 	if err != nil {
 		if err != leveldb.ErrNotFound {
@@ -138,7 +138,7 @@ func (sc *SnapshotChain) GetSnapshotBlocks(height uint64, count uint64, forward,
 		}
 
 		if containSnapshotContent {
-			snapshotContent, err := sc.GetSnapshotContent(&block.SnapshotHash)
+			snapshotContent, err := sc.GetSnapshotContent(block.Height)
 			if err != nil {
 				return blocks, err
 			}
@@ -219,4 +219,63 @@ func (sc *SnapshotChain) GetSbHashList(height uint64, count, step int, forward b
 		hashList = append(hashList, sc.getBlockHash(iter.Key()))
 	}
 	return hashList
+}
+
+func (sc *SnapshotChain) GetNeedDeleteSnapshotContent(maxAccountId uint64, ToSnapshotBlockHeight uint64) (ledger.SnapshotContent, error) {
+	needDeleteSnapshotContent := ledger.SnapshotContent{}
+
+	for i := uint64(0); i < maxAccountId; i++ {
+		blockKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, i)
+		//blockMetaKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCKMETA, i)
+
+		iter := sc.db.NewIterator(util.BytesPrefix(blockKey), nil)
+		defer iter.Release()
+		if !iter.Last() {
+			return nil, nil
+		}
+
+		for iter.Prev() {
+			if err := iter.Error(); err != nil {
+				if err != leveldb.ErrNotFound {
+					return nil, err
+				}
+				break
+			}
+
+			accountBlock := &ledger.AccountBlock{}
+
+			if dsErr := accountBlock.DbDeserialize(iter.Value()); dsErr == nil {
+				return nil, dsErr
+			}
+
+		}
+
+	}
+
+	//startKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, toHeight)
+	//endKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK)
+	//iter := sc.db.NewIterator(&util.Range{Start: startKey, Limit: endKey}, nil)
+	//defer iter.Release()
+	//
+	//currentHeight := toHeight
+	//for iter.Next() {
+	//	if err := iter.Error(); err != nil {
+	//		if err == leveldb.ErrNotFound {
+	//			return needDeleteSnapshotContent, nil
+	//		}
+	//		return nil, err
+	//	}
+	//
+	//	snapshotContent, gscErr := sc.GetSnapshotContent(currentHeight)
+	//	if gscErr != nil {
+	//		return nil, gscErr
+	//	}
+	//
+	//	for addr, snapshotContentItem := range snapshotContent {
+	//		needDeleteSnapshotContent[addr] = snapshotContentItem
+	//	}
+	//	currentHeight++
+	//}
+
+	return needDeleteSnapshotContent, nil
 }

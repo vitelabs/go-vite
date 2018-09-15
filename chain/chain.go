@@ -19,6 +19,8 @@ type Chain struct {
 	stateTriePool *StateTriePool
 
 	createAccountLock sync.Mutex
+
+	needSnapshotCache *NeedSnapshotCache
 }
 
 func NewChain(cfg *config.Config) *Chain {
@@ -39,6 +41,8 @@ func NewChain(cfg *config.Config) *Chain {
 	chain.compressor = compressor
 
 	chain.trieNodePool = trie.NewTrieNodePool()
+
+	chain.needSnapshotCache = NewNeedSnapshotContent(chain)
 
 	return chain
 }
