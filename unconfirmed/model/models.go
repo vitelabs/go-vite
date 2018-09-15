@@ -3,10 +3,10 @@ package model
 import (
 	"container/list"
 	"github.com/vitelabs/go-vite/common/types"
-	oldledger "github.com/vitelabs/go-vite/ledger_old"
-	"math/big"
+	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"math/big"
 	"sync"
 )
 
@@ -23,7 +23,7 @@ type CommonAccountInfo struct {
 }
 
 type TokenBalanceInfo struct {
-	Token       oldledger.Mintage
+	Token       contracts.TokenInfo
 	TotalAmount big.Int
 	Number      uint64
 }
@@ -50,7 +50,7 @@ func (c *unconfirmedBlocksCache) subReferenceCount() int {
 	return c.referenceCount
 }
 
-func (c *unconfirmedBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti *types.TokenTypeId) (*ledger.Token, error)) *CommonAccountInfo {
+func (c *unconfirmedBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti *types.TokenTypeId) (*contracts.TokenInfo, error)) *CommonAccountInfo {
 	log := log15.New("unconfirmedBlocksCache", "toCommonAccountInfo")
 
 	ele := c.blocks.Front()
@@ -66,8 +66,13 @@ func (c *unconfirmedBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti *
 				log.Error(err.Error())
 				continue
 			}
-			infoMap[block.TokenId].Token = token.Mintage
+			if token == nil {
+				log.Error("token nil")
+				continue
+			}
+			infoMap[block.TokenId].Token = *token
 			infoMap[block.TokenId].TotalAmount = *block.Amount
+			infoMap[block.TokenId].Number = 1
 		} else {
 			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
 		}

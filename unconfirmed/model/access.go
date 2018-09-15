@@ -18,7 +18,6 @@ type UAccess struct {
 func NewUAccess(chain *chain.Chain, dataDir string) *UAccess {
 	uAccess := &UAccess{
 		chain: chain,
-
 		log: log15.New("w", "uAccess"),
 	}
 	dbDir := filepath.Join(dataDir, "chain")

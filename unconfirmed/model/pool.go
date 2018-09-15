@@ -28,7 +28,6 @@ type UnconfirmedBlocksPool struct {
 	simpleCacheDeadTimer map[types.Address]*time.Timer
 	simpleCacheMutex     sync.RWMutex
 
-
 	newCommonTxListener map[types.Address]func()
 	newContractListener map[types.Gid]func()
 
@@ -256,7 +255,10 @@ func (p *UnconfirmedBlocksPool) updateSimpleCache(writeType bool, block *ledger.
 			if err != nil {
 				return errors.New("func UpdateCommonAccInfo.GetByTokenId failed" + err.Error())
 			}
-			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Token = token.Mintage
+			if token == nil {
+				return errors.New("func UpdateCommonAccInfo.GetByTokenId failed token nil")
+			}
+			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Token = *token
 			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].TotalAmount = *block.Amount
 			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Number = 1
 		}
@@ -294,8 +296,10 @@ func (p *UnconfirmedBlocksPool) updateCache(writeType bool, block *ledger.Accoun
 }
 
 func (p *UnconfirmedBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
-	if block.IsContractTx() {
-		if f, ok := p.newContractListener[*block.Gid]; ok {
+	// todo @lyd will support it
+	gid := p.dbAccess.chain.GetGid(block.AccountAddress)
+	if gid != nil {
+		if f, ok := p.newContractListener[gid]; ok {
 			f()
 		}
 	} else {
