@@ -6,6 +6,15 @@ import (
 	"time"
 )
 
+type SnapshotContent map[types.Address]*SnapshotContentItem
+
+func (*SnapshotContent) DbSerialize() ([]byte, error) {
+	return nil, nil
+}
+func (*SnapshotContent) DbDeserialize([]byte) error {
+	return nil
+}
+
 type SnapshotContentItem struct {
 	AccountBlockHeight uint64
 	AccountBlockHash   types.Hash
@@ -23,7 +32,7 @@ type SnapshotBlock struct {
 	Timestamp *time.Time
 
 	SnapshotHash    types.Hash
-	SnapshotContent map[types.Address]*SnapshotContentItem
+	SnapshotContent SnapshotContent
 }
 
 func (*SnapshotBlock) ComputeHash() types.Hash {

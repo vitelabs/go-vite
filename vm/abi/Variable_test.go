@@ -4,15 +4,14 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/util"
 )
 
 // TestVariableMultiValueWithArrayUnpack verifies that array fields will be counted after parsing array.
@@ -158,8 +157,8 @@ func TestVariableTuple(t *testing.T) {
 	bigintExpected := big.NewInt(1000000)
 	bigintExpected2 := big.NewInt(2218516807680)
 	bigintExpected3 := big.NewInt(1000001)
-	addr1, _ := types.BytesToAddress(util.HexToBytes("00Ce0d46d924CC8437c806721496599FC3FFA268"))
-	addr2, _ := types.BytesToAddress(util.HexToBytes("CA35B7D915458EF540ADE6068DFE2F44E8FA733C"))
+	addr1, _ := types.BytesToAddress(helper.HexToBytes("00Ce0d46d924CC8437c806721496599FC3FFA268"))
+	addr2, _ := types.BytesToAddress(helper.HexToBytes("CA35B7D915458EF540ADE6068DFE2F44E8FA733C"))
 	var testCases = []struct {
 		data     string
 		dest     interface{}
@@ -367,7 +366,7 @@ func TestVariableIndexedWithArrayUnpack(t *testing.T) {
 	b.Write(packNum(reflect.ValueOf(2)))
 	b.Write(packNum(reflect.ValueOf(96)))
 	b.Write(packNum(reflect.ValueOf(len(stringOut))))
-	b.Write(util.RightPadBytes([]byte(stringOut), 32))
+	b.Write(helper.RightPadBytes([]byte(stringOut), 32))
 
 	data, err := abi.PackVariable("test", [2]uint8{1, 2}, stringOut)
 	if err != nil {

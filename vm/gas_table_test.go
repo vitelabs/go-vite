@@ -1,7 +1,7 @@
 package vm
 
 import (
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/common/helper"
 	"testing"
 )
 
@@ -20,7 +20,7 @@ func TestMemoryGasCost(t *testing.T) {
 		t.Error("expected error")
 	}
 
-	_, err = memoryGasCost(&memory{}, util.MaxUint64-64)
+	_, err = memoryGasCost(&memory{}, helper.MaxUint64-64)
 	if err == nil {
 		t.Errorf("Expected error")
 	}

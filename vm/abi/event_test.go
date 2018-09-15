@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/util"
 )
 
 var jsonEventTransfer = []byte(`{
@@ -164,7 +164,7 @@ func TestEventTupleUnpack(t *testing.T) {
 	bigintExpected := big.NewInt(1000000)
 	bigintExpected2 := big.NewInt(2218516807680)
 	bigintExpected3 := big.NewInt(1000001)
-	addr, _ := types.BytesToAddress(util.HexToBytes("00Ce0d46d924CC8437c806721496599FC3FFA268"))
+	addr, _ := types.BytesToAddress(helper.HexToBytes("00Ce0d46d924CC8437c806721496599FC3FFA268"))
 	var testCases = []struct {
 		data     string
 		dest     interface{}
@@ -336,7 +336,7 @@ func TestEventIndexedWithArrayUnpack(t *testing.T) {
 	// number of fields that will be encoded * 32
 	b.Write(packNum(reflect.ValueOf(32)))
 	b.Write(packNum(reflect.ValueOf(len(stringOut))))
-	b.Write(util.RightPadBytes([]byte(stringOut), util.WordSize))
+	b.Write(helper.RightPadBytes([]byte(stringOut), helper.WordSize))
 	var rst testStruct
 	require.NoError(t, abi.UnpackEvent(&rst, "test", b.Bytes()))
 	require.Equal(t, [2]uint8{0, 0}, rst.Value1)

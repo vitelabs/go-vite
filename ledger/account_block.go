@@ -17,8 +17,8 @@ type AccountBlockMeta struct {
 	// Block status, 1 means open, 2 means closed
 	Status int
 
-	// Is snapshotted
-	IsSnapshot bool
+	// Height of Snapshot block which confirm this account block
+	SnapshotHeight uint64
 }
 
 func (*AccountBlockMeta) DbSerialize() ([]byte, error) {
@@ -32,7 +32,6 @@ func (*AccountBlockMeta) DbDeserialize([]byte) error {
 const (
 	BlockTypeSendCreate byte = iota + 1
 	BlockTypeSendCall
-	BlockTypeSendMintage
 	BlockTypeSendReward
 	BlockTypeReceive
 	BlockTypeReceiveError
@@ -63,7 +62,8 @@ type AccountBlock struct {
 
 	Timestamp *time.Time
 	StateHash types.Hash
-	LogHash   types.Hash
+
+	LogHash *types.Hash
 
 	Nonce     []byte
 	Signature []byte

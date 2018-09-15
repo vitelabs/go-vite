@@ -3,10 +3,10 @@ package vm
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm/util"
 	"sync/atomic"
 )
 
@@ -87,11 +87,11 @@ func (c *contract) run(vm *VM) (ret []byte, err error) {
 
 		var memorySize uint64
 		if operation.memorySize != nil {
-			memSize, overflow := util.BigUint64(operation.memorySize(st))
+			memSize, overflow := helper.BigUint64(operation.memorySize(st))
 			if overflow {
 				return nil, errGasUintOverflow
 			}
-			if memorySize, overflow = util.SafeMul(util.ToWordSize(memSize), util.WordSize); overflow {
+			if memorySize, overflow = helper.SafeMul(helper.ToWordSize(memSize), helper.WordSize); overflow {
 				return nil, errGasUintOverflow
 			}
 		}
@@ -114,7 +114,7 @@ func (c *contract) run(vm *VM) (ret []byte, err error) {
 		if vm.Debug {
 			logger.Info("current code", "code", hex.EncodeToString(c.code[currentPc:]))
 			fmt.Printf("code: %v \n", hex.EncodeToString(c.code[currentPc:]))
-			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemo ry: [%v]\nquotaLeft: %v, quotaRefund: %v\n", opCodeToString[op], currentPc, st.print(), mem.print(), c.quotaLeft, c.quotaRefund)
+			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemory: [%v]\nquotaLeft: %v, quotaRefund: %v\n", opCodeToString[op], currentPc, st.print(), mem.print(), c.quotaLeft, c.quotaRefund)
 			fmt.Println("--------------------")
 		}
 

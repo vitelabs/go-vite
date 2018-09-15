@@ -1,4 +1,4 @@
-package util
+package helper
 
 // SafeMul returns multiplication result and whether overflow occurred.
 func SafeMul(x, y uint64) (uint64, bool) {

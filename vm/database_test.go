@@ -3,9 +3,10 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"time"
@@ -19,13 +20,10 @@ type NoDatabase struct {
 	logList           []*ledger.VmLog
 	snapshotBlockList []*ledger.SnapshotBlock
 	accountBlockMap   map[types.Address]map[types.Hash]*ledger.AccountBlock
-	tokenMap          map[types.TokenTypeId]*ledger.Token
 	addr              types.Address
 }
 
 func NewNoDatabase() *NoDatabase {
-	consensusGroupMap := make(map[types.Gid]consensusGroup)
-	consensusGroupMap[*ledger.CommonGid()] = consensusGroup{}
 	return &NoDatabase{
 		balanceMap:        make(map[types.Address]map[types.TokenTypeId]*big.Int),
 		storageMap:        make(map[types.Address]map[types.Hash][]byte),
@@ -34,7 +32,6 @@ func NewNoDatabase() *NoDatabase {
 		logList:           make([]*ledger.VmLog, 0),
 		snapshotBlockList: make([]*ledger.SnapshotBlock, 0),
 		accountBlockMap:   make(map[types.Address]map[types.Hash]*ledger.AccountBlock),
-		tokenMap:          make(map[types.TokenTypeId]*ledger.Token),
 	}
 }
 
@@ -100,19 +97,7 @@ func (db *NoDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlo
 func (db *NoDatabase) Reset() {}
 func (db *NoDatabase) IsAddressExisted(addr *types.Address) bool {
 	_, ok := db.accountBlockMap[*addr]
-	if !ok {
-		_, ok := getPrecompiledContract(*addr)
-		return ok
-	}
 	return ok
-}
-func (db *NoDatabase) GetToken(id *types.TokenTypeId) *ledger.Token {
-	return db.tokenMap[*id]
-}
-func (db *NoDatabase) SetToken(token *ledger.Token) {
-	if _, ok := db.tokenMap[token.TokenId]; !ok {
-		db.tokenMap[token.TokenId] = token
-	}
 }
 func (db *NoDatabase) SetContractGid(gid *types.Gid, addr *types.Address, open bool) {
 	if !open {
@@ -170,10 +155,17 @@ func (db *NoDatabase) NewStorageIterator(prefix []byte) *vm_context.StorageItera
 	return nil
 }
 
+func (db *NoDatabase) CopyAndFreeze() *vm_context.VmDatabase {
+	// TODO
+	return nil
+}
+
 func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {
-	addr1, _ = types.BytesToAddress(util.HexToBytes("CA35B7D915458EF540ADE6068DFE2F44E8FA733C"))
+	addr1, _ = types.BytesToAddress(helper.HexToBytes("CA35B7D915458EF540ADE6068DFE2F44E8FA733C"))
 	db = NewNoDatabase()
-	db.tokenMap[*ledger.ViteTokenId()] = &ledger.Token{TokenId: *ledger.ViteTokenId(), TokenName: "ViteToken", TotalSupply: viteTotalSupply, Decimals: 18}
+	db.storageMap[contracts.AddressMintage] = make(map[types.Hash][]byte)
+	viteTokenIdLoc, _ := types.BytesToHash(helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32))
+	db.storageMap[contracts.AddressMintage][viteTokenIdLoc], _ = contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), int64(0))
 
 	timestamp = 1536214502
 	t1 := time.Unix(timestamp-1, 0)
@@ -210,20 +202,21 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 	db.accountBlockMap[addr1][hash12] = block12
 
 	db.balanceMap[addr1] = make(map[types.TokenTypeId]*big.Int)
-	db.balanceMap[addr1][*ledger.ViteTokenId()] = new(big.Int).Set(db.tokenMap[*ledger.ViteTokenId()].TotalSupply)
+	db.balanceMap[addr1][*ledger.ViteTokenId()] = new(big.Int).Set(viteTotalSupply)
 
-	db.storageMap[AddressConsensusGroup] = make(map[types.Hash][]byte)
-	db.storageMap[AddressConsensusGroup][types.DataHash(ledger.CommonGid().Bytes())], _ = ABI_consensusGroup.PackVariable(VariableNameConsensusGroupInfo,
+	db.storageMap[contracts.AddressConsensusGroup] = make(map[types.Hash][]byte)
+	consensusGroupKey, _ := types.BytesToHash(contracts.GetConsensusGroupKey(*ledger.CommonGid()))
+	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey], _ = contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
 		uint8(1),
-		util.LeftPadBytes(ledger.ViteTokenId().Bytes(), util.WordSize),
+		helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize),
 		uint8(1),
-		util.JoinBytes(util.LeftPadBytes(registerAmount.Bytes(), util.WordSize), util.LeftPadBytes(ledger.ViteTokenId().Bytes(), util.WordSize), util.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), util.WordSize)),
+		helper.JoinBytes(helper.LeftPadBytes(registerAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), helper.WordSize)),
 		uint8(1),
 		[]byte{})
 
-	db.storageMap[AddressPledge] = make(map[types.Hash][]byte)
-	db.storageMap[AddressPledge][types.DataHash(addr1.Bytes())], _ = ABI_pledge.PackVariable(VariableNamePledgeBeneficial, big.NewInt(1e18))
+	db.storageMap[contracts.AddressPledge] = make(map[types.Hash][]byte)
+	db.storageMap[contracts.AddressPledge][types.DataHash(addr1.Bytes())], _ = contracts.ABI_pledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	return
 }

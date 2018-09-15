@@ -6,7 +6,7 @@ import (
 )
 
 func (c *Chain) GetStateTrie(stateHash *types.Hash) *trie.Trie {
-	return nil
+	return trie.NewTrie(c.chainDb.Db(), stateHash, c.trieNodePool)
 }
 
 func (c *Chain) NewStateTrie() *trie.Trie {

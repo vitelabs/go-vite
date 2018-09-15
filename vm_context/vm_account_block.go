@@ -1,11 +1,15 @@
-package vm
+package vm_context
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 )
+
+type VmAccountBlock struct {
+	AccountBlock *ledger.AccountBlock
+	VmContext    VmDatabase
+}
 
 type VmDatabase interface {
 	GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int
@@ -18,12 +22,10 @@ type VmDatabase interface {
 
 	GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock
 
+	UnsavedCache() *UnsavedCache
 	Reset()
 
 	IsAddressExisted(addr *types.Address) bool
-
-	GetToken(id *types.TokenTypeId) *ledger.Token
-	SetToken(token *ledger.Token)
 
 	SetContractGid(gid *types.Gid, addr *types.Address, open bool)
 	SetContractCode(code []byte)
@@ -36,5 +38,10 @@ type VmDatabase interface {
 	AddLog(log *ledger.VmLog)
 	GetLogListHash() *types.Hash
 
-	NewStorageIterator(prefix []byte) *vm_context.StorageIterator
+	NewStorageIterator(prefix []byte) *StorageIterator
+
+	CopyAndFreeze() VmDatabase
+	Address() *types.Address
+	CurrentSnapshotBlock() *ledger.SnapshotBlock
+	PrevAccountBlock() *ledger.AccountBlock
 }

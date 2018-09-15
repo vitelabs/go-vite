@@ -311,9 +311,7 @@ func (trie *Trie) setValue(node *TrieNode, key []byte, leafNode *TrieNode) *Trie
 	return nil
 }
 
-func (trie *Trie) GetValue(key []byte) []byte {
-
-	leafNode := trie.getLeafNode(trie.Root, key)
+func (trie *Trie) LeafNodeValue(leafNode *TrieNode) []byte {
 	if leafNode == nil {
 		return nil
 	}
@@ -325,9 +323,20 @@ func (trie *Trie) GetValue(key []byte) []byte {
 	case TRIE_HASH_NODE:
 		value, _ := trie.getRefValue(leafNode.value)
 		return value
+	default:
+		return nil
 	}
+}
 
-	return nil
+func (trie *Trie) GetValue(key []byte) []byte {
+
+	leafNode := trie.getLeafNode(trie.Root, key)
+
+	return trie.LeafNodeValue(leafNode)
+}
+
+func (trie *Trie) NewIterator(prefix []byte) *Iterator {
+	return NewIterator(trie, prefix)
 }
 
 func (trie *Trie) getLeafNode(node *TrieNode, key []byte) *TrieNode {

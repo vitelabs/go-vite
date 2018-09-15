@@ -3,7 +3,7 @@ package abi
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/common/helper"
 	"reflect"
 	"strings"
 )
@@ -186,7 +186,7 @@ func (arguments Arguments) UnpackValues(data []byte) ([]interface{}, error) {
 	retval := make([]interface{}, 0, arguments.LengthNonIndexed())
 	virtualArgs := 0
 	for index, arg := range arguments.NonIndexed() {
-		marshalledValue, err := toGoType((index+virtualArgs)*util.WordSize, arg.Type, data)
+		marshalledValue, err := toGoType((index+virtualArgs)*helper.WordSize, arg.Type, data)
 		if arg.Type.T == ArrayTy {
 			// If we have a static array, like [3]uint256, these are coded as
 			// just like uint256,uint256,uint256.
@@ -229,9 +229,9 @@ func (arguments Arguments) Pack(args ...interface{}) ([]byte, error) {
 	inputOffset := 0
 	for _, abiArg := range abiArgs {
 		if abiArg.Type.T == ArrayTy {
-			inputOffset += util.WordSize * abiArg.Type.Size
+			inputOffset += helper.WordSize * abiArg.Type.Size
 		} else {
-			inputOffset += util.WordSize
+			inputOffset += helper.WordSize
 		}
 	}
 	var ret []byte

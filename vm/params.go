@@ -38,11 +38,15 @@ const (
 	stackLimit               uint64 = 1024    // Maximum size of VM stack allowed.
 	quotaLimitForTransaction uint64 = 800000  // Maximum quota of a transaction
 	quotaLimit               uint64 = 3000000 // Maximum quota of an account referring to one snapshot block
-	tokenNameLengthLimit     int    = 20      // Maximum length of a token name
-	tokenDecimalsMin         uint8  = 0       // Minimum value of a token decimals(exclude)
-	tokenDecimalsMax         uint8  = 18      // Maximum value of a token decimals(include)
+
+	tokenDecimalsMin     uint8 = 0  // Minimum value of a token decimals(include)
+	tokenDecimalsMax     uint8 = 18 // Maximum value of a token decimals(include)
+	tokenNameLengthMax   int   = 40 // Maximum length of a token name(include)
+	tokenSymbolLengthMax int   = 10 // Maximum length of a token symbol(include)
+	mintagePledgeTime    int64 = 3600 * 24 * 3
 
 	registerGas             uint64 = 62200
+	updateRegistrationGas   uint64 = 62200
 	cancelRegisterGas       uint64 = 83200
 	rewardGas               uint64 = 83200
 	calcRewardGasPerPage    uint64 = 200
@@ -51,6 +55,8 @@ const (
 	pledgeGas               uint64 = 82400
 	cancelPledgeGas         uint64 = 103400
 	createConsensusGroupGas uint64 = 62200
+	mintageGas              uint64 = 62200
+	mintageCancelPledgeGas  uint64 = 62200
 
 	registerLockTime int64  = 3600 * 24 * 90
 	dbPageSize       uint64 = 10000
@@ -99,7 +105,6 @@ const (
 
 var (
 	contractFeeMax = big.NewInt(1e18)
-	mintageFee     = big.NewInt(1e18)
 	contractFee    = big.NewInt(1e18)
 
 	quotaByCreateFeeAttov   = big.NewInt(1e9)
@@ -108,4 +113,6 @@ var (
 	attovPerVite            = big.NewInt(1e18)
 	registerAmount          = new(big.Int).Mul(big.NewInt(1e6), attovPerVite)
 	createConsensusGroupFee = new(big.Int).Mul(big.NewInt(1e6), attovPerVite)
+	mintageFee              = new(big.Int).Mul(big.NewInt(1e3), attovPerVite)
+	mintagePledgeAmount     = new(big.Int).Mul(big.NewInt(1e4), attovPerVite)
 )

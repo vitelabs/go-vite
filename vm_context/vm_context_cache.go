@@ -27,9 +27,8 @@ func (contractGid *ContractGid) Open() bool {
 type UnsavedCache struct {
 	contractGidList []*ContractGid
 
-	logList    ledger.VmLogList
-	storage    map[string][]byte
-	sendBlocks []*ledger.AccountBlock
+	logList ledger.VmLogList
+	storage map[string][]byte
 
 	trie *trie.Trie
 
@@ -45,8 +44,11 @@ func NewUnsavedCache(trie *trie.Trie) *UnsavedCache {
 	}
 }
 
-func (cache *UnsavedCache) SendBlocks() []*ledger.AccountBlock {
-	return cache.sendBlocks
+func (cache *UnsavedCache) Copy() *UnsavedCache {
+	return &UnsavedCache{
+		trie:      cache.Trie().Copy(),
+		trieDirty: false,
+	}
 }
 
 func (cache *UnsavedCache) Trie() *trie.Trie {
@@ -54,6 +56,9 @@ func (cache *UnsavedCache) Trie() *trie.Trie {
 		for key, value := range cache.storage {
 			cache.trie.SetValue([]byte(key), value)
 		}
+
+		cache.storage = make(map[string][]byte)
+		cache.trieDirty = false
 	}
 	return cache.trie
 }
