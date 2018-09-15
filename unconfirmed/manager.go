@@ -10,15 +10,17 @@ import (
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"math/big"
 	"time"
+	"github.com/vitelabs/go-vite/producer"
 )
 
 var (
-	slog = log15.New("module", "unconfirmed.go")
+	slog = log15.New("module", "unconfirmed")
 )
 
 type Manager struct {
-	Vite    Vite
-	uAccess *model.UAccess
+	Vite                  Vite
+	uAccess               *model.UAccess
+	unconfirmedBlocksPool *model.UnconfirmedBlocksPool
 
 	commonTxWorkers map[types.Address]*worker.AutoReceiveWorker
 	contractWorkers map[types.Gid]*worker.ContractWorker
@@ -35,7 +37,7 @@ type Manager struct {
 }
 
 func NewManager(vite Vite, dataDir string) *Manager {
-	return &Manager{
+	m := &Manager{
 		Vite:            vite,
 		commonTxWorkers: make(map[types.Address]*worker.AutoReceiveWorker),
 		contractWorkers: make(map[types.Gid]*worker.ContractWorker),
@@ -47,14 +49,17 @@ func NewManager(vite Vite, dataDir string) *Manager {
 
 		log: slog.New("w", "manager"),
 	}
+	m.unconfirmedBlocksPool = model.NewUnconfirmedBlocksPool(m.uAccess)
+	return m
 }
 
 func (manager *Manager) InitAndStartWork() {
 
-	manager.Vite.Chain().RegisterFirstSyncDown(manager.firstSyncDoneListener)
+	//manager.Vite.Chain().RegisterFirstSyncDown(manager.firstSyncDoneListener)
+
 	manager.unlockLid = manager.Vite.WalletManager().KeystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
 
-	// todo 注册Miner 监听器 manager.rightLid = manager.Vite.
+	manager.Vite.Producer().SetAccountEventFunc(manager.producerStartEventFunc)
 
 	//todo add newContractListener????
 
@@ -62,8 +67,13 @@ func (manager *Manager) InitAndStartWork() {
 
 func (manager *Manager) Close() error {
 	manager.log.Info("close")
+
 	manager.Vite.WalletManager().KeystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
+
+	manager.Vite.Producer().SetAccountEventFunc(nil)
+
 	// todo manager.Vite.Ledger().RemoveFirstSyncDownListener(manager.firstSyncDoneListener)
+
 	for _, v := range manager.commonTxWorkers {
 		v.Close()
 	}
@@ -94,7 +104,7 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 
 	w, found := manager.commonTxWorkers[addr]
 	if !found {
-		w = worker.NewAutoReceiveWorker(&addr, filter)
+		w = worker.NewAutoReceiveWorker(addr, filter)
 		manager.log.Info("Manager get event new Worker")
 		manager.commonTxWorkers[addr] = w
 	}
@@ -121,59 +131,43 @@ func (manager *Manager) addressLockStateChangeFunc(event keystore.UnlockEvent) {
 	}
 }
 
+func (manager *Manager) producerStartEventFunc(accevent producer.AccountEvent) {
+	manager.log.Info("producerStartEventFunc receive event")
+	event, ok := accevent.(producer.AccountStartEvent)
+	if !ok {
+		manager.log.Info("producerStartEventFunc not support this event")
+		return
+	}
+
+	if !manager.Vite.WalletManager().KeystoreManager.IsUnLocked(event.Address) {
+		manager.log.Error(" receive a right event but address locked", "event", event)
+		return
+	}
+
+	w, found := manager.contractWorkers[event.Gid]
+	if !found {
+		w, e := worker.NewContractWorker(manager.unconfirmedBlocksPool, manager.Vite.WalletManager(), event)
+		if e != nil {
+			manager.log.Error(e.Error())
+			return
+		}
+		manager.contractWorkers[event.Gid] = w
+	}
+
+	nowTime := time.Now()
+	if nowTime.After(event.Stime) && nowTime.Before(event.Etime) {
+		w.Start()
+	} else {
+		w.Stop()
+	}
+}
+
 // remove it in the future
 func (manager *Manager) loop() {
 	loopLog := manager.log.New("loop")
 
-	//status, _ := manager.Vite.WalletManager().KeystoreManager.Status()
-	//for k, v := range status {
-	//	if err := manager.uAccess.LoadCommonAccInfo(&k); err != nil {
-	//		manager.log.Error("loop: manager.uAccess.LoadCommonAccInfo", "error", err)
-	//		continue
-	//	}
-	//	if v == keystore.UnLocked {
-	//		commonTxWorker := worker.NewCommonTxWorker(manager.Vite, &k)
-	//		loopLog.Info("Manager find a new unlock address ", "Worker", k.String())
-	//		manager.commonTxWorkers[k] = commonTxWorker
-	//		commonTxWorker.Start()
-	//	}
-	//}
-
 	for {
 		select {
-		case event, ok := <-manager.rightEventListener:
-			{
-				loopLog.Info("<-manager.rightEventListener ", "event", event)
-
-				if !ok {
-					manager.log.Info("Manager rightEvent channel close")
-					break
-				}
-
-				if !manager.Vite.WalletManager().KeystoreManager.IsUnLocked(*event.Address) {
-					manager.log.Error(" receive a right event but address locked", "event", event)
-					break
-				}
-
-				w, found := manager.contractWorkers[*event.Gid]
-				if !found {
-					addressList, err := manager.uAccess.GetAddrListByGid(event.Gid)
-					if err != nil || addressList == nil || len(addressList) < 0 {
-						manager.log.Error("GetAddrListByGid Error", err)
-						continue
-					}
-					w = worker.NewContractWorker(manager.uAccess, manager.Vite.WalletManager(), event.Gid, event.Address, addressList)
-					manager.contractWorkers[*event.Gid] = w
-
-					break
-				}
-				nowTime := time.Now().Unix()
-				if nowTime >= event.Timestamp.Unix() && nowTime < event.EndTs.Unix() {
-					w.Start(event)
-				} else {
-					w.Close()
-				}
-			}
 		case done, ok := <-manager.firstSyncDoneListener:
 			{
 				loopLog.Info("<-manager.firstSyncDoneListener ", "done", done)
@@ -181,15 +175,8 @@ func (manager *Manager) loop() {
 					manager.log.Info("Manager firstSyncDoneListener channel close")
 					break
 				}
-
-				//for _, worker := range manager.commonTxWorkers {
-				//	worker.IsFirstSyncDone(done)
-				//}
-
 			}
-
 		}
-
 	}
 }
 

@@ -1,8 +1,6 @@
 package worker
 
 import (
-	"container/heap"
-	"container/list"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -17,12 +15,9 @@ type SimpleAutoReceiveFilterPair struct {
 }
 
 type AutoReceiveWorker struct {
-	log     log15.Logger
-	address *types.Address
-	uAccess *model.UAccess
-
-	//blockQueue *BlockQueue
-	priorityFromQueue *model.PriorityFromQueue
+	log         log15.Logger
+	address     types.Address
+	accInfoPool *model.UnconfirmedBlocksPool
 
 	status                int
 	isSleeping            bool
@@ -30,19 +25,18 @@ type AutoReceiveWorker struct {
 	stopListener          chan struct{}
 	newUnconfirmedTxAlarm chan struct{}
 
-	filters        map[types.TokenTypeId]big.Int
-	currentElement list.Element
+	filters map[types.TokenTypeId]big.Int
 
 	statusMutex sync.Mutex
 }
 
-func NewAutoReceiveWorker(address *types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
+func NewAutoReceiveWorker(address types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
 		address:    address,
 		status:     Create,
-		log:        log15.New("AutoReceiveWorker addr", address),
 		isSleeping: false,
 		filters:    filters,
+		log:        log15.New("AutoReceiveWorker addr", address),
 	}
 }
 
@@ -59,9 +53,11 @@ func (w *AutoReceiveWorker) Start() {
 		w.status = Start
 		w.statusMutex.Unlock()
 
-		w.uAccess.AddCommonTxLis(w.address, func() {
+		w.accInfoPool.AddCommonTxLis(w.address, func() {
 			w.NewUnconfirmedTxAlarm()
 		})
+
+		w.accInfoPool.AcquireAccountInfoCache(w.address)
 
 		go w.startWork()
 	} else {
@@ -86,10 +82,13 @@ func (w *AutoReceiveWorker) Stop() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Stop {
+
+		w.accInfoPool.ReleaseAccountInfoCache(w.address)
+
 		w.breaker <- struct{}{}
 		close(w.breaker)
 
-		w.uAccess.RemoveCommonTxLis(w.address)
+		w.accInfoPool.RemoveCommonTxLis(w.address)
 		close(w.newUnconfirmedTxAlarm)
 
 		// make sure we can stop the worker
@@ -119,24 +118,22 @@ func (w *AutoReceiveWorker) NewUnconfirmedTxAlarm() {
 
 func (w *AutoReceiveWorker) startWork() {
 	w.log.Info("worker startWork is called")
-	w.FetchNewOne()
 
 	for {
-		w.log.Debug("worker working")
-		for i := 0; i < w.priorityFromQueue.Len(); i++ {
-			if w.Status() == Stop {
-				goto END
-			}
-			fItem := heap.Pop(w.priorityFromQueue).(*model.FromItem)
-			blockQueue := fItem.Value
-			for j := 0; j < blockQueue.Size(); j++ {
-				recvBlock := blockQueue.Dequeue()
-				w.ProcessOneBlock(recvBlock)
-			}
+		if w.Status() == Stop {
+			goto END
 		}
 
-		w.isSleeping = true
-		w.log.Info("worker Start sleep")
+		tx := w.accInfoPool.GetNextTx(w.address)
+		if tx != nil {
+			minAmount, ok := w.filters[tx.TokenId]
+			if !ok || tx.Amount.Cmp(&minAmount) < 0 {
+				continue
+			}
+			w.ProcessOneBlock(tx)
+			continue
+		}
+
 		select {
 		case <-w.newUnconfirmedTxAlarm:
 			w.log.Info("worker Start awake")
@@ -145,22 +142,13 @@ func (w *AutoReceiveWorker) startWork() {
 			w.log.Info("worker broken")
 			break
 		}
+
 	}
+
 END:
 	w.log.Info("worker send stopDispatcherListener ")
 	w.stopListener <- struct{}{}
 	w.log.Info("worker end work")
-}
-
-func (w *AutoReceiveWorker) FetchNewOne() {
-	blockList, err := w.uAccess.GetUnconfirmedBlocks(0, 1, COMMON_FETCH_SIZE, w.address)
-	if err != nil {
-		w.log.Error("CommonTxWorker.FetchNew.GetUnconfirmedBlocks", "error", err)
-		return
-	}
-	for _, v := range blockList {
-		w.priorityFromQueue.InsertNew(v)
-	}
 }
 
 func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
@@ -188,7 +176,7 @@ func (w *AutoReceiveWorker) PackReceiveBlock(sendBlock *ledger.AccountBlock) *le
 	w.log.Info("PackReceiveBlock", "sendBlock",
 		w.log.New("sendBlock.Hash", sendBlock.Hash), w.log.New("sendBlock.To", sendBlock.ToAddress))
 
-	// todo pack the block with w.args, comput hash, Sign,
+	// todo pack the block with w.args, compute hash, Sign,
 	block := &ledger.AccountBlock{
 		Meta:              nil,
 		BlockType:         0,
