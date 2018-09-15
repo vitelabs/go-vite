@@ -15,7 +15,7 @@ import (
 
 const (
 	MaxErrRecvCount = 3
-
+	Idle            = Create
 )
 
 type ContractTask struct {
@@ -41,14 +41,14 @@ func NewContractTask(worker *ContractWorker, index int) *ContractTask {
 	return &ContractTask{
 		blocksPool:   worker.blocksPool,
 		wallet:       worker.wallet,
-		status:       Create,
+		status:       Idle,
 		reRetry:      false,
 		stopListener: make(chan struct{}),
 		breaker:      make(chan struct{}),
 		subQueue:     make(chan *model.FromItem),
 		accevent:     worker.accevent,
 		cworker:      worker,
-		log:          worker.log.New("tid", index),
+		log:          worker.log.New("taskid", index),
 	}
 }
 
@@ -69,7 +69,7 @@ func (task *ContractTask) Start() {
 		default:
 			break
 		}
-		task.status = Create
+		task.status = Idle
 	}
 END:
 	task.log.Info("ContractTask send stopDispatcherListener ")
