@@ -6,23 +6,23 @@ import (
 	"math/big"
 )
 
-type syncState int
+type SyncState int
 
 const (
-	syncNotStart syncState = iota
-	syncing
-	syncdone
-	syncerr
+	SyncNotStart SyncState = iota
+	Syncing
+	Syncdone
+	Syncerr
 )
 
 var syncStatus = [...]string{
-	syncNotStart: "Sync Not Start",
-	syncing:      "Synchronising",
-	syncdone:     "Sync done",
-	syncerr:      "Sync error",
+	SyncNotStart: "Sync Not Start",
+	Syncing:      "Synchronising",
+	Syncdone:     "Sync done",
+	Syncerr:      "Sync error",
 }
 
-func (this syncState) String() string {
+func (this SyncState) String() string {
 	return syncStatus[this]
 }
 

@@ -4,11 +4,23 @@ package protos;
 
 // tcp message
 message Disc {
-    uint32 reason = 1;
+    uint64 reason = 1;
 }
 
 message Handshake {
-    uint32 NetID = 1;
+    uint64 NetID = 1;
+    string Name = 2;
     bytes ID = 3;
-    uint32 Version = 4;
+    repeated CmdSet CmdSets = 4;
+    uint64 Version = 5;
+}
+
+message CmdSet {
+    uint64 ID = 1;
+    string Name = 2;
+}
+
+message Topo {
+    string Pivot = 1;
+    repeated string Peers = 2;
 }

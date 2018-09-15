@@ -22,7 +22,7 @@ type Net struct {
 	// for sync
 	FromHeight   *big.Int
 	TargetHeight *big.Int
-	syncState
+	SyncState
 	StateLock     sync.RWMutex
 	SyncStartHook func(*big.Int, *big.Int)
 	SyncDoneHook  func(*big.Int, *big.Int)
@@ -57,7 +57,7 @@ func (n *Net) Stop() {
 func (this *Net) Syncing() bool {
 	this.StateLock.RLock()
 	defer this.StateLock.RUnlock()
-	return this.syncState == syncing
+	return this.SyncState == syncing
 }
 
 func (n *Net) ReceiveConn(conn net.Conn) {
@@ -106,6 +106,14 @@ func (n *Net) SubscribeSnapshotBlock() *accountBlockSub {
 	return n.accountFeed.Subscribe()
 }
 
+func (n *Net) SubscribeSyncStatus(func(SyncState)) (subId int) {
+
+}
+
+func (n *Net) UnsubscribeSyncStatus(subId int) {
+
+}
+
 // get current netInfo (peers, syncStatus, ...)
 func (n *Net) Status() *NetStatus {
 	running := true
@@ -124,7 +132,7 @@ func (n *Net) Status() *NetStatus {
 
 type NetStatus struct {
 	Peers      []*PeerInfo
-	SyncStatus syncState
+	SyncStatus SyncState
 	Uptime     time.Duration
 	Running    bool
 }

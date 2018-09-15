@@ -20,7 +20,7 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // tcp message
 type Disc struct {
-	Reason               uint32   `protobuf:"varint,1,opt,name=reason,proto3" json:"reason,omitempty"`
+	Reason               uint64   `protobuf:"varint,1,opt,name=reason,proto3" json:"reason,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -30,7 +30,7 @@ func (m *Disc) Reset()         { *m = Disc{} }
 func (m *Disc) String() string { return proto.CompactTextString(m) }
 func (*Disc) ProtoMessage()    {}
 func (*Disc) Descriptor() ([]byte, []int) {
-	return fileDescriptor_message_74037835d4b98f87, []int{0}
+	return fileDescriptor_message_a8a12a18c08f2940, []int{0}
 }
 func (m *Disc) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Disc.Unmarshal(m, b)
@@ -50,7 +50,7 @@ func (m *Disc) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Disc proto.InternalMessageInfo
 
-func (m *Disc) GetReason() uint32 {
+func (m *Disc) GetReason() uint64 {
 	if m != nil {
 		return m.Reason
 	}
@@ -58,19 +58,21 @@ func (m *Disc) GetReason() uint32 {
 }
 
 type Handshake struct {
-	NetID                uint32   `protobuf:"varint,1,opt,name=NetID,proto3" json:"NetID,omitempty"`
-	ID                   []byte   `protobuf:"bytes,3,opt,name=ID,proto3" json:"ID,omitempty"`
-	Version              uint32   `protobuf:"varint,4,opt,name=Version,proto3" json:"Version,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	NetID                uint64    `protobuf:"varint,1,opt,name=NetID,proto3" json:"NetID,omitempty"`
+	Name                 string    `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
+	ID                   []byte    `protobuf:"bytes,3,opt,name=ID,proto3" json:"ID,omitempty"`
+	CmdSets              []*CmdSet `protobuf:"bytes,4,rep,name=CmdSets,proto3" json:"CmdSets,omitempty"`
+	Version              uint64    `protobuf:"varint,5,opt,name=Version,proto3" json:"Version,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
 }
 
 func (m *Handshake) Reset()         { *m = Handshake{} }
 func (m *Handshake) String() string { return proto.CompactTextString(m) }
 func (*Handshake) ProtoMessage()    {}
 func (*Handshake) Descriptor() ([]byte, []int) {
-	return fileDescriptor_message_74037835d4b98f87, []int{1}
+	return fileDescriptor_message_a8a12a18c08f2940, []int{1}
 }
 func (m *Handshake) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Handshake.Unmarshal(m, b)
@@ -90,11 +92,18 @@ func (m *Handshake) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Handshake proto.InternalMessageInfo
 
-func (m *Handshake) GetNetID() uint32 {
+func (m *Handshake) GetNetID() uint64 {
 	if m != nil {
 		return m.NetID
 	}
 	return 0
+}
+
+func (m *Handshake) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
 }
 
 func (m *Handshake) GetID() []byte {
@@ -104,29 +113,135 @@ func (m *Handshake) GetID() []byte {
 	return nil
 }
 
-func (m *Handshake) GetVersion() uint32 {
+func (m *Handshake) GetCmdSets() []*CmdSet {
+	if m != nil {
+		return m.CmdSets
+	}
+	return nil
+}
+
+func (m *Handshake) GetVersion() uint64 {
 	if m != nil {
 		return m.Version
 	}
 	return 0
 }
 
+type CmdSet struct {
+	ID                   uint64   `protobuf:"varint,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	Name                 string   `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CmdSet) Reset()         { *m = CmdSet{} }
+func (m *CmdSet) String() string { return proto.CompactTextString(m) }
+func (*CmdSet) ProtoMessage()    {}
+func (*CmdSet) Descriptor() ([]byte, []int) {
+	return fileDescriptor_message_a8a12a18c08f2940, []int{2}
+}
+func (m *CmdSet) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CmdSet.Unmarshal(m, b)
+}
+func (m *CmdSet) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CmdSet.Marshal(b, m, deterministic)
+}
+func (dst *CmdSet) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CmdSet.Merge(dst, src)
+}
+func (m *CmdSet) XXX_Size() int {
+	return xxx_messageInfo_CmdSet.Size(m)
+}
+func (m *CmdSet) XXX_DiscardUnknown() {
+	xxx_messageInfo_CmdSet.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CmdSet proto.InternalMessageInfo
+
+func (m *CmdSet) GetID() uint64 {
+	if m != nil {
+		return m.ID
+	}
+	return 0
+}
+
+func (m *CmdSet) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+type Topo struct {
+	Pivot                string   `protobuf:"bytes,1,opt,name=Pivot,proto3" json:"Pivot,omitempty"`
+	Peers                []string `protobuf:"bytes,2,rep,name=Peers,proto3" json:"Peers,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Topo) Reset()         { *m = Topo{} }
+func (m *Topo) String() string { return proto.CompactTextString(m) }
+func (*Topo) ProtoMessage()    {}
+func (*Topo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_message_a8a12a18c08f2940, []int{3}
+}
+func (m *Topo) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Topo.Unmarshal(m, b)
+}
+func (m *Topo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Topo.Marshal(b, m, deterministic)
+}
+func (dst *Topo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Topo.Merge(dst, src)
+}
+func (m *Topo) XXX_Size() int {
+	return xxx_messageInfo_Topo.Size(m)
+}
+func (m *Topo) XXX_DiscardUnknown() {
+	xxx_messageInfo_Topo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Topo proto.InternalMessageInfo
+
+func (m *Topo) GetPivot() string {
+	if m != nil {
+		return m.Pivot
+	}
+	return ""
+}
+
+func (m *Topo) GetPeers() []string {
+	if m != nil {
+		return m.Peers
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Disc)(nil), "protos.Disc")
 	proto.RegisterType((*Handshake)(nil), "protos.Handshake")
+	proto.RegisterType((*CmdSet)(nil), "protos.CmdSet")
+	proto.RegisterType((*Topo)(nil), "protos.Topo")
 }
 
-func init() { proto.RegisterFile("message.proto", fileDescriptor_message_74037835d4b98f87) }
+func init() { proto.RegisterFile("message.proto", fileDescriptor_message_a8a12a18c08f2940) }
 
-var fileDescriptor_message_74037835d4b98f87 = []byte{
-	// 133 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xcd, 0x4d, 0x2d, 0x2e,
-	0x4e, 0x4c, 0x4f, 0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x03, 0x53, 0xc5, 0x4a, 0x72,
-	0x5c, 0x2c, 0x2e, 0x99, 0xc5, 0xc9, 0x42, 0x62, 0x5c, 0x6c, 0x45, 0xa9, 0x89, 0xc5, 0xf9, 0x79,
-	0x12, 0x8c, 0x0a, 0x8c, 0x1a, 0xbc, 0x41, 0x50, 0x9e, 0x92, 0x37, 0x17, 0xa7, 0x47, 0x62, 0x5e,
-	0x4a, 0x71, 0x46, 0x62, 0x76, 0xaa, 0x90, 0x08, 0x17, 0xab, 0x5f, 0x6a, 0x89, 0xa7, 0x0b, 0x54,
-	0x0d, 0x84, 0x23, 0xc4, 0xc7, 0xc5, 0xe4, 0xe9, 0x22, 0xc1, 0xac, 0xc0, 0xa8, 0xc1, 0x13, 0xc4,
-	0xe4, 0xe9, 0x22, 0x24, 0xc1, 0xc5, 0x1e, 0x96, 0x5a, 0x54, 0x9c, 0x99, 0x9f, 0x27, 0xc1, 0x02,
-	0x56, 0x07, 0xe3, 0x26, 0x41, 0x2c, 0x35, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0x9e, 0x47, 0x64,
-	0x5b, 0x8c, 0x00, 0x00, 0x00,
+var fileDescriptor_message_a8a12a18c08f2940 = []byte{
+	// 221 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x90, 0xc1, 0x4a, 0x03, 0x31,
+	0x10, 0x86, 0x49, 0x36, 0xdd, 0xb2, 0xa3, 0xf6, 0x30, 0x88, 0xe4, 0x24, 0x61, 0x4f, 0x39, 0x48,
+	0x0f, 0xf5, 0x11, 0xcc, 0xc1, 0xbd, 0x14, 0x89, 0xe2, 0x3d, 0xda, 0x41, 0x17, 0xd9, 0x4d, 0xc9,
+	0x04, 0xdf, 0xc1, 0xb7, 0x96, 0x26, 0xdb, 0x5b, 0x4f, 0xc9, 0xf7, 0xe7, 0x27, 0xf3, 0x31, 0x70,
+	0x33, 0x11, 0x73, 0xf8, 0xa2, 0xed, 0x31, 0xc5, 0x1c, 0xb1, 0x2d, 0x07, 0xf7, 0xf7, 0xa0, 0xdc,
+	0xc8, 0x9f, 0x78, 0x07, 0x6d, 0xa2, 0xc0, 0x71, 0xd6, 0xc2, 0x08, 0xab, 0xfc, 0x42, 0xfd, 0x9f,
+	0x80, 0xee, 0x39, 0xcc, 0x07, 0xfe, 0x0e, 0x3f, 0x84, 0xb7, 0xb0, 0xda, 0x53, 0x1e, 0xdc, 0x52,
+	0xaa, 0x80, 0x08, 0x6a, 0x1f, 0x26, 0xd2, 0xd2, 0x08, 0xdb, 0xf9, 0x72, 0xc7, 0x0d, 0xc8, 0xc1,
+	0xe9, 0xc6, 0x08, 0x7b, 0xed, 0xe5, 0xe0, 0xd0, 0xc2, 0xfa, 0x69, 0x3a, 0xbc, 0x52, 0x66, 0xad,
+	0x4c, 0x63, 0xaf, 0x76, 0x9b, 0x2a, 0xc2, 0xdb, 0x1a, 0xfb, 0xf3, 0x33, 0x6a, 0x58, 0xbf, 0x53,
+	0xe2, 0x31, 0xce, 0x7a, 0x55, 0xa6, 0x9c, 0xb1, 0x7f, 0x80, 0xb6, 0x96, 0x96, 0xdf, 0xab, 0x84,
+	0xbc, 0x6c, 0xd0, 0xef, 0x40, 0xbd, 0xc5, 0x63, 0x3c, 0x39, 0xbf, 0x8c, 0xbf, 0x31, 0x97, 0x7a,
+	0xe7, 0x2b, 0x94, 0x94, 0x28, 0xb1, 0x96, 0xa6, 0x29, 0xe9, 0x09, 0x3e, 0xea, 0x56, 0x1e, 0xff,
+	0x03, 0x00, 0x00, 0xff, 0xff, 0xbc, 0x30, 0x00, 0xd4, 0x2d, 0x01, 0x00, 0x00,
 }

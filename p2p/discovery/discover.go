@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/p2p/nat"
 	"net"
 	"sync"
 	"time"
@@ -42,29 +43,29 @@ type Config struct {
 	Priv      ed25519.PrivateKey
 	DBPath    string
 	BootNodes []*Node
-	Addr      string // use for discover server listen, usually is local address
-	PubAddr   string // announced to other peers, usually is public address
+	Conn      *net.UDPConn
 }
 
 type Discovery struct {
-	bootNodes []*Node
-	self      *Node
-
-	agent discvAgent
-
-	pool wtList
-	tab  *table
-	db   *nodeDB
-	stop chan struct{}
-	lock sync.RWMutex
-
-	// use for refresh node table
-	refreshing  bool
+	bootNodes   []*Node
+	self        *Node
+	selfLock    sync.RWMutex
+	agent       discvAgent
+	pool        wtList
+	tab         *table
+	db          *nodeDB
+	stop        chan struct{}
+	lock        sync.RWMutex
+	refreshing  bool // use for refresh node table
 	refreshDone chan struct{}
+	wg          sync.WaitGroup
 }
 
 func (d *Discovery) Start() {
 	discvLog.Info(fmt.Sprintf("discovery server start %s\n", d.self))
+
+	d.wg.Add(1) // wait for NAT mapping done
+	go d.mapping()
 
 	go d.keepTable()
 
@@ -73,6 +74,13 @@ func (d *Discovery) Start() {
 	<-d.stop
 	// clean
 	d.db.close()
+	d.wg.Wait()
+}
+
+func (d *Discovery) Self() *Node {
+	d.selfLock.RLock()
+	defer d.selfLock.RUnlock()
+	return d.self
 }
 
 func (d *Discovery) keepTable() {
@@ -187,7 +195,7 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 	}
 
 	asked := make(map[NodeID]struct{}) // nodes has sent findnode message
-	asked[d.self.ID] = struct{}{}
+	asked[d.Self().ID] = struct{}{}
 
 	// all nodes of responsive neighbors, use for filter to ensure the same node pushed once
 	hasPushedIntoResult := make(map[NodeID]struct{})
@@ -358,7 +366,7 @@ func (d *Discovery) loadInitNodes() {
 }
 
 func (d *Discovery) ID() NodeID {
-	return d.self.ID
+	return d.Self().ID
 }
 
 func (d *Discovery) Stop() {
@@ -369,6 +377,40 @@ func (d *Discovery) Stop() {
 	default:
 		close(d.stop)
 	}
+}
+
+func (d *Discovery) SetNode(ip net.IP, udp, tcp uint16) {
+	d.selfLock.Lock()
+	defer d.selfLock.Unlock()
+
+	if ip != nil {
+		d.self.IP = ip
+	}
+	if udp != 0 {
+		d.self.UDP = udp
+	}
+	if tcp != 0 {
+		d.self.TCP = tcp
+	}
+}
+
+func (d *Discovery) mapping() {
+	out := make(chan *nat.Addr)
+	go nat.Map(d.stop, "udp", int(d.self.UDP), int(d.self.UDP), "vite discovery", 0, out)
+
+loop:
+	for {
+		select {
+		case <-d.stop:
+			break loop
+		case addr := <-out:
+			if addr.IsValid() {
+				d.SetNode(addr.IP, uint16(addr.Port), 0)
+			}
+		}
+	}
+
+	d.wg.Done()
 }
 
 func New(cfg *Config) *Discovery {
@@ -382,27 +424,12 @@ func New(cfg *Config) *Discovery {
 		discvLog.Crit("create p2p db", "error", err)
 	}
 
-	udpAddr, err := net.ResolveUDPAddr("udp", cfg.Addr)
-	if err != nil {
-		discvLog.Crit("discv listen udp", "error", err)
-	}
-
-	conn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		discvLog.Crit("discv listen udp", "error", err)
-	}
-
-	pubAddr, err := net.ResolveUDPAddr("udp", cfg.PubAddr)
-	realAddr := pubAddr
-	if err != nil {
-		realAddr = conn.LocalAddr().(*net.UDPAddr)
-		discvLog.Info("discv get public address", "error", err)
-	}
+	localAddr, _ := cfg.Conn.LocalAddr().(*net.UDPAddr)
 
 	node := &Node{
 		ID:  ID,
-		IP:  realAddr.IP,
-		UDP: uint16(realAddr.Port),
+		IP:  localAddr.IP,
+		UDP: uint16(localAddr.Port),
 	}
 
 	d := &Discovery{
@@ -418,7 +445,7 @@ func New(cfg *Config) *Discovery {
 	d.agent = &udpAgent{
 		maxNeighborsOneTrip: maxNeighborsNodes,
 		self:                node,
-		conn:                conn,
+		conn:                cfg.Conn,
 		priv:                cfg.Priv,
 		term:                make(chan struct{}),
 		running:             false,

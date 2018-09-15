@@ -58,6 +58,9 @@ loop:
 	for {
 		select {
 		case <-wtl.term:
+			for _, wt := range wtl.list {
+				wt.errch <- errStopped
+			}
 			break loop
 		case w := <-wtl.add:
 			wtl.list = append(wtl.list, w)
@@ -127,6 +130,7 @@ type udpAgent struct {
 	wtl                 *wtList
 }
 
+// should run as goroutine
 func (d *udpAgent) start() {
 	discvLog.Info("discv agent start")
 
@@ -140,7 +144,10 @@ func (d *udpAgent) start() {
 
 	d.wtl = newWtList()
 
+	// should not run as goroutine
 	d.readLoop()
+
+	d.wtl.stop()
 }
 
 // implements discvAgent interface
@@ -289,7 +296,6 @@ func (d *udpAgent) stop() {
 	case <-d.term:
 	default:
 		close(d.term)
-		d.conn.Close()
 	}
 }
 
