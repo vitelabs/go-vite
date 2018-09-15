@@ -158,10 +158,20 @@ func (context *VmContext) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlo
 	return snapshotBlock
 }
 
-// TODO
-func (context *VmContext) GetSnapshotBlocks(startHeight uint64, count uint64, forward bool) []*ledger.SnapshotBlock {
+func (context *VmContext) GetSnapshotBlocks(startHeight, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
+	if startHeight > context.currentSnapshotBlock.Height {
+		return nil
+	}
 
-	return nil
+	if forward {
+		maxCount := context.currentSnapshotBlock.Height - startHeight + 1
+		if count > maxCount {
+			count = maxCount
+		}
+	}
+
+	snapshotBlocks, _ := context.chain.GetSnapshotBlocksByHeight(startHeight, count, forward, containSnapshotContent)
+	return snapshotBlocks
 }
 
 func (context *VmContext) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
@@ -178,7 +188,7 @@ func (context *VmContext) Reset() {
 	context.unsavedCache = NewUnsavedCache(context.trie)
 }
 
-func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address, open bool) {
+func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address) {
 	if context.frozen {
 		return
 	}
@@ -186,7 +196,6 @@ func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address, op
 	contractGid := &ContractGid{
 		gid:  gid,
 		addr: addr,
-		open: open,
 	}
 	context.unsavedCache.contractGidList = append(context.unsavedCache.contractGidList, contractGid)
 }
@@ -210,7 +219,6 @@ func (context *VmContext) SetStorage(key []byte, value []byte) {
 	context.unsavedCache.SetStorage(key, value)
 }
 
-// TODO: other address
 func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
 	if context.isSelf(addr) {
 		if value := context.unsavedCache.GetStorage(key); value != nil {
@@ -219,7 +227,7 @@ func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
 
 		return context.trie.GetValue(key)
 	} else {
-		latestAccountBlock := context.getLatestAccountBlock(addr)
+		latestAccountBlock, _ := context.chain.GetConfirmAccountBlock(context.currentSnapshotBlock.Height, addr)
 		if latestAccountBlock != nil {
 			trie := context.chain.GetStateTrie(&latestAccountBlock.StateHash)
 			return trie.GetValue(key)
@@ -232,9 +240,9 @@ func (context *VmContext) GetStorageHash() *types.Hash {
 	return context.unsavedCache.Trie().Hash()
 }
 
-// TODO
 func (context *VmContext) GetGid() *types.Gid {
-	return nil
+	gid, _ := context.chain.GetContractGid(context.address)
+	return gid
 }
 
 func (context *VmContext) AddLog(log *ledger.VmLog) {
@@ -254,11 +262,6 @@ func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 		return false
 	}
 	return true
-}
-
-// TODO
-func (context *VmContext) getLatestAccountBlock(addr *types.Address) *ledger.AccountBlock {
-	return nil
 }
 
 func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {

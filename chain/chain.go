@@ -19,11 +19,9 @@ type Chain struct {
 	stateTriePool *StateTriePool
 
 	createAccountLock sync.Mutex
-
-	net Net
 }
 
-func NewChain(net Net, cfg *config.Config) *Chain {
+func NewChain(cfg *config.Config) *Chain {
 	chain := &Chain{
 		log: log15.New("module", "chain"),
 	}

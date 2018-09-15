@@ -6,7 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, needBroadCast bool) error {
+func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	batch := new(leveldb.Batch)
 
 	// Save snapshot block
@@ -49,15 +49,6 @@ func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, needBro
 		}
 	}
 
-	if needBroadCast {
-		// TODO broadcast
-		netErr := c.net.Broadcast()
-		if netErr != nil {
-			c.log.Error("Broadcast failed, error is "+netErr.Error(), "method", "InsertSnapshotBlock")
-			return netErr
-		}
-	}
-
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
@@ -66,17 +57,24 @@ func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, needBro
 
 	return nil
 }
-func (c *Chain) GetSnapshotBlocks(originBlockHash *types.Hash, count uint64, forward, containSnapshotContent bool) (blocks []*ledger.SnapshotBlock, returnErr error) {
+func (c *Chain) GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
 	block, gsErr := c.GetSnapshotBlockByHash(originBlockHash)
 	if gsErr != nil {
 		c.log.Error("GetSnapshotBlockByHash failed, error is "+gsErr.Error(), "method", "GetSnapshotBlocks")
 		return nil, gsErr
 	}
+	if block == nil {
+		return nil, nil
+	}
 
-	blocks, gErr := c.chainDb.Sc.GetSnapshotBlocks(block.Height, count, forward, containSnapshotContent)
+	return c.GetSnapshotBlocksByHeight(block.Height, count, forward, containSnapshotContent)
+}
+
+func (c *Chain) GetSnapshotBlocksByHeight(height uint64, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
+	blocks, gErr := c.chainDb.Sc.GetSnapshotBlocks(height, count, forward, containSnapshotContent)
 	if gErr != nil {
-		c.log.Error("GetSnapshotBlocks failed, error is "+gErr.Error(), "method", "GetSnapshotBlocks")
-		return nil, gsErr
+		c.log.Error("GetSnapshotBlocks failed, error is "+gErr.Error(), "method", "GetSnapshotBlocksByHeight")
+		return nil, gErr
 	}
 	return blocks, gErr
 }
@@ -232,4 +230,9 @@ func (c *Chain) GetConfirmTimes(accountBlock *ledger.AccountBlock) uint64 {
 	}
 
 	return latestBlock.Height - height + 1
+}
+
+// TODO: cache
+func (c *Chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {
+	return nil, nil
 }

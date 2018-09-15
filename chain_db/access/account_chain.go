@@ -211,6 +211,10 @@ func (ac *AccountChain) WriteVmLogList(batch *leveldb.Batch, logList ledger.VmLo
 	return nil
 }
 
-func (ac *AccountChain) WriteContractGid(batch *leveldb.Batch, gid *types.Gid, addr *types.Address, open bool) error {
+func (ac *AccountChain) WriteContractGid(batch *leveldb.Batch, gid *types.Gid, addr *types.Address) error {
 	return nil
+}
+
+func (ac *AccountChain) GetContractGid(addr *types.Address) (*types.Gid, error) {
+	return nil, nil
 }

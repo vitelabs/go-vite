@@ -18,7 +18,7 @@ type VmDatabase interface {
 	GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock
 	GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock
 	// forward=true return (startHeight, startHeight+count], forward=false return [startHeight-count, start)
-	GetSnapshotBlocks(startHeight uint64, count uint64, forward bool) []*ledger.SnapshotBlock
+	GetSnapshotBlocks(startHeight uint64, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock
 
 	GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock
 
@@ -27,7 +27,7 @@ type VmDatabase interface {
 
 	IsAddressExisted(addr *types.Address) bool
 
-	SetContractGid(gid *types.Gid, addr *types.Address, open bool)
+	SetContractGid(gid *types.Gid, addr *types.Address)
 	SetContractCode(code []byte)
 	GetContractCode(addr *types.Address) []byte
 
@@ -41,6 +41,8 @@ type VmDatabase interface {
 	NewStorageIterator(prefix []byte) *StorageIterator
 
 	CopyAndFreeze() VmDatabase
+
+	GetGid() *types.Gid
 	Address() *types.Address
 	CurrentSnapshotBlock() *ledger.SnapshotBlock
 	PrevAccountBlock() *ledger.AccountBlock

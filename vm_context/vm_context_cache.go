@@ -9,7 +9,6 @@ import (
 type ContractGid struct {
 	gid  *types.Gid
 	addr *types.Address
-	open bool
 }
 
 func (contractGid *ContractGid) Gid() *types.Gid {
@@ -18,10 +17,6 @@ func (contractGid *ContractGid) Gid() *types.Gid {
 
 func (contractGid *ContractGid) Addr() *types.Address {
 	return contractGid.addr
-}
-
-func (contractGid *ContractGid) Open() bool {
-	return contractGid.open
 }
 
 type UnsavedCache struct {

@@ -16,7 +16,7 @@ type BlockMapQueryParam struct {
 	Forward         bool
 }
 
-func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock, needBroadCast bool) error {
+func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
 	batch := new(leveldb.Batch)
 	trieSaveCallback := make([]func(), 0)
 	var account *ledger.Account
@@ -47,7 +47,7 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			// Save contract gid list
 			if contractGidList := unsavedCache.ContractGidList(); len(contractGidList) > 0 {
 				for _, contractGid := range contractGidList {
-					if err := c.chainDb.Ac.WriteContractGid(batch, contractGid.Gid(), contractGid.Addr(), contractGid.Open()); err != nil {
+					if err := c.chainDb.Ac.WriteContractGid(batch, contractGid.Gid(), contractGid.Addr()); err != nil {
 						c.log.Error("WriteContractGid failed, error is "+err.Error(), "method", "InsertAccountBlock")
 						return err
 					}
@@ -89,15 +89,6 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 
 		// Save block meta
 		c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.Hash, accountBlock.Meta)
-	}
-
-	if needBroadCast {
-		// TODO broadcast
-		netErr := c.net.Broadcast()
-		if netErr != nil {
-			c.log.Error("Broadcast failed, error is "+netErr.Error(), "method", "InsertAccountBlock")
-			return netErr
-		}
 	}
 
 	// Write db

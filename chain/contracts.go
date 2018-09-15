@@ -7,6 +7,10 @@ import (
 	"math/big"
 )
 
+func (c *Chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
+	return nil, nil
+}
+
 func (c *Chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) []*contracts.Registration {
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressRegister)
 	if err != nil {

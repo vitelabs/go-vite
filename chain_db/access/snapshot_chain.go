@@ -220,7 +220,3 @@ func (sc *SnapshotChain) GetSbHashList(height uint64, count, step int, forward b
 	}
 	return hashList
 }
-
-func (sc *SnapshotChain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {
-	return nil, nil
-}
