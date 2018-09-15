@@ -10,6 +10,7 @@ import (
 type Chain interface {
 	GetAccount(address *types.Address) (*ledger.Account, error)
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 	GetStateTrie(hash *types.Hash) *trie.Trie
 	GetTokenInfoById(tokenId *types.TokenTypeId) (*contracts.TokenInfo, error)

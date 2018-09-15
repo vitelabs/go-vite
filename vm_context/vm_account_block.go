@@ -42,4 +42,6 @@ type VmDatabase interface {
 
 	CopyAndFreeze() VmDatabase
 	Address() *types.Address
+	CurrentSnapshotBlock() *ledger.SnapshotBlock
+	PrevAccountBlock() *ledger.AccountBlock
 }

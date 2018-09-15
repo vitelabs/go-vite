@@ -90,6 +90,14 @@ func (context *VmContext) CopyAndFreeze() VmDatabase {
 func (context *VmContext) Address() *types.Address {
 	return context.address
 }
+
+func (context *VmContext) CurrentSnapshotBlock() *ledger.SnapshotBlock {
+	return context.currentSnapshotBlock
+}
+func (context *VmContext) PrevAccountBlock() *ledger.AccountBlock {
+	return context.prevAccountBlock
+}
+
 func (context *VmContext) UnsavedCache() *UnsavedCache {
 	return context.unsavedCache
 }
@@ -150,13 +158,19 @@ func (context *VmContext) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlo
 	return snapshotBlock
 }
 
+// TODO
 func (context *VmContext) GetSnapshotBlocks(startHeight uint64, count uint64, forward bool) []*ledger.SnapshotBlock {
+
 	return nil
 }
 
 func (context *VmContext) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
+	if height > context.currentSnapshotBlock.Height {
+		return nil
+	}
+	snapshotBlock, _ := context.chain.GetSnapshotBlockByHeight(height)
 
-	return nil
+	return snapshotBlock
 }
 
 func (context *VmContext) Reset() {
@@ -218,6 +232,7 @@ func (context *VmContext) GetStorageHash() *types.Hash {
 	return context.unsavedCache.Trie().Hash()
 }
 
+// TODO
 func (context *VmContext) GetGid() *types.Gid {
 	return nil
 }
@@ -241,6 +256,7 @@ func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 	return true
 }
 
+// TODO
 func (context *VmContext) getLatestAccountBlock(addr *types.Address) *ledger.AccountBlock {
 	return nil
 }
