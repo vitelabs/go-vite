@@ -91,6 +91,15 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.Hash, accountBlock.Meta)
 	}
 
+	if needBroadCast {
+		// TODO broadcast
+		netErr := c.net.Broadcast()
+		if netErr != nil {
+			c.log.Error("Broadcast failed, error is "+netErr.Error(), "method", "InsertAccountBlock")
+			return netErr
+		}
+	}
+
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertAccountBlock")
@@ -103,11 +112,6 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	// After write db
 	for _, callback := range trieSaveCallback {
 		callback()
-	}
-
-	if needBroadCast {
-		// TODO broadcast
-		c.net.Broadcast()
 	}
 
 	return nil
@@ -150,18 +154,13 @@ func (c *Chain) GetAccountBlockMap(queryParams map[types.Address]*BlockMapQueryP
 	return queryResult
 }
 
-func (c *Chain) GetLatestAccountBlock(addr *types.Address) (block *ledger.AccountBlock, err error) {
-	defer func() {
-		if err != nil {
-			c.log.Error(err.Error(), "method", "GetLatestAccountBlock")
-		}
-	}()
-
+func (c *Chain) GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error) {
 	account, err := c.chainDb.Account.GetAccountByAddress(addr)
 	if err != nil {
+		c.log.Error("Query account meta failed. Error is "+err.Error(), "method", "GetLatestAccountBlock")
 		return nil, &types.GetError{
 			Code: 1,
-			Err:  errors.New("Query account meta failed. Error is " + err.Error()),
+			Err:  err,
 		}
 	}
 
@@ -171,39 +170,67 @@ func (c *Chain) GetLatestAccountBlock(addr *types.Address) (block *ledger.Accoun
 
 	block, gErr := c.chainDb.Ac.GetLatestBlock(account.AccountId)
 	if gErr != nil {
+		c.log.Error("Query latest block failed. Error is "+gErr.Error(), "method", "GetLatestAccountBlock")
+
 		return nil, &types.GetError{
 			Code: 2,
-			Err:  errors.New("Query latest block failed. Error is " + gErr.Error()),
+			Err:  err,
 		}
 	}
 	return block, nil
 }
 
-func (c *Chain) GetAbHashList() {
+func (c *Chain) GetAbHashList(originBlockHash *types.Hash, count, step int, forward bool) ([]*types.Hash, error) {
+	block, err := c.GetAccountBlockByHash(originBlockHash)
+	if block == nil || err != nil {
+		if err != nil {
+			c.log.Error("GetAccountBlockByHash failed, error is "+err.Error(), "method", "GetAbHashList")
+			return nil, err
+		}
+		return nil, nil
+	}
 
+	account, err := c.chainDb.Account.GetAccountByAddress(&block.AccountAddress)
+	if account == nil || err != nil {
+		if err != nil {
+			c.log.Error("GetAccountByAddress failed, error is "+err.Error(), "method", "GetAbHashList")
+			return nil, err
+		}
+		return nil, nil
+	}
+
+	return c.chainDb.Ac.GetAbHashList(account.AccountId, block.Height, count, step, forward), nil
 }
 
 func (c *Chain) GetAccountBalance(addr *types.Address) (map[types.TokenTypeId]*big.Int, error) {
-	_, err := c.stateTriePool.Get(addr)
+	trie, err := c.stateTriePool.Get(addr)
 	if err != nil {
 		c.log.Error("GetTrie failed, error is "+err.Error(), "method", "GetAccountBalanceByTokenId")
 		return nil, err
 	}
-	//storageIterator := trie.
-	//latestBlock, err := c.GetLatestAccountBlock(addr)
-	//if err != nil {
-	//	c.log.Error("GetLatestAccountBlock failed, error is " + err.Error(), "method", "GetAccountBalance")
-	//	return err
-	//}
-	//stateTrie := trie.
-	//vmContext, newVmErr:= vm_context.NewVmContext(c, nil, latestBlock.Hash, addr)
-	//if newVmErr != nil {
-	//	c.log.Error("NewVmContext failed, error is " + newVmErr.Error(), "method", "GetAccountBalance")
-	//	return newVmErr
-	//}
-	//
-	//vmContext.
-	return nil, nil
+	storageIterator := trie.NewIterator(vm_context.STORAGE_KEY_BALANCE)
+	balanceMap := make(map[types.TokenTypeId]*big.Int)
+	prefixKeyLen := len(vm_context.STORAGE_KEY_BALANCE)
+	for {
+		key, value, ok := storageIterator.Next()
+		if !ok {
+			break
+		}
+
+		tokenIdBytes := key[prefixKeyLen:]
+		tokenId, err := types.BytesToTokenTypeId(tokenIdBytes)
+		if err != nil {
+			c.log.Error("types.BytesToTokenTypeId failed, error is "+err.Error(), "method", "GetAccountBalanceByTokenId")
+			return nil, err
+		}
+
+		balance := big.NewInt(0)
+		balance.SetBytes(value)
+
+		balanceMap[tokenId] = balance
+	}
+
+	return balanceMap, nil
 }
 
 func (c *Chain) GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error) {
@@ -223,38 +250,36 @@ func (c *Chain) GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.T
 	return balance, nil
 }
 
-func (c *Chain) GetAccountBlockByHash(blockHash *types.Hash) (block *ledger.AccountBlock, returnErr error) {
-	defer func() {
-		if returnErr != nil {
-			c.log.Error(returnErr.Error(), "method", "GetAccountBlockByHash")
-		}
-	}()
-
+func (c *Chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
 	block, err := c.chainDb.Ac.GetBlock(blockHash)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
 			return nil, nil
 		}
 
+		c.log.Error("Query block failed. Error is "+err.Error(), "method", "GetAccountBlockByHash")
 		return nil, &types.GetError{
 			Code: 1,
-			Err:  errors.New("Query block failed. Error is " + err.Error()),
+			Err:  err,
 		}
 	}
 
 	address, err := c.chainDb.Account.GetAddressById(block.Meta.AccountId)
 	if err != nil {
+		c.log.Error("Query account id failed. Error is "+err.Error(), "method", "GetAccountBlockByHash")
 		return nil, &types.GetError{
 			Code: 2,
-			Err:  errors.New("Query account id failed. Error is " + err.Error()),
+			Err:  err,
 		}
 	}
 
 	account, err := c.chainDb.Account.GetAccountByAddress(address)
 	if err != nil {
+		c.log.Error("Query account failed. Error is "+err.Error(), "method", "GetAccountBlockByHash")
+
 		return nil, &types.GetError{
 			Code: 3,
-			Err:  errors.New("Query account failed. Error is " + err.Error()),
+			Err:  err,
 		}
 	}
 
@@ -262,33 +287,34 @@ func (c *Chain) GetAccountBlockByHash(blockHash *types.Hash) (block *ledger.Acco
 	return block, nil
 }
 
-func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count int) (blocks []*ledger.AccountBlock, err error) {
-	defer func() {
-		if err != nil {
-			c.log.Error(err.Error(), "method", "GetAccountBlocksByAddress")
-		}
-	}()
-
+func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count int) ([]*ledger.AccountBlock, error) {
 	if num == 0 || count == 0 {
+		err := errors.New("Num or count can not be 0")
+		c.log.Error(err.Error(), "method", "GetAccountBlocksByAddress")
+
 		return nil, &types.GetError{
 			Code: 1,
-			Err:  errors.New("Num or count can not be 0"),
+			Err:  err,
 		}
 	}
 
 	account, err := c.chainDb.Account.GetAccountByAddress(addr)
 	if err != nil {
+		c.log.Error("Query account meta failed. Error is "+err.Error(), "method", "GetAccountBlocksByAddress")
+
 		return nil, &types.GetError{
 			Code: 2,
-			Err:  errors.New("Query account meta failed. Error is " + err.Error()),
+			Err:  err,
 		}
 	}
 
 	latestBlock, glErr := c.chainDb.Ac.GetLatestBlock(account.AccountId)
 	if glErr != nil {
+
+		c.log.Error("Query latest block failed. Error is "+glErr.Error(), "method", "GetAccountBlocksByAddress")
 		return nil, &types.GetError{
 			Code: 3,
-			Err:  errors.New("Query latest block failed. Error is " + glErr.Error()),
+			Err:  glErr,
 		}
 	}
 
@@ -298,9 +324,10 @@ func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 	blockList, err := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight)
 
 	if err != nil {
+		c.log.Error("Query block list failed. Error is "+err.Error(), "method", "GetAccountBlocksByAddress")
 		return nil, &types.GetError{
 			Code: 4,
-			Err:  errors.New("Query block list failed. Error is " + err.Error()),
+			Err:  err,
 		}
 	}
 
@@ -311,13 +338,23 @@ func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 		block.PublicKey = account.PublicKey
 		blockMeta, err := c.chainDb.Ac.GetBlockMeta(&block.Hash)
 		if err != nil {
+			c.log.Error("Query block meta list failed. Error is "+err.Error(), "method", "GetAccountBlocksByAddress")
+
 			return nil, &types.GetError{
 				Code: 5,
-				Err:  errors.New("Query block meta list failed. Error is " + err.Error()),
+				Err:  err,
 			}
 		}
 		block.Meta = blockMeta
 	}
 
 	return blockList, nil
+}
+
+func (c *Chain) GetUnConfirmAccountBlocks(addr *types.Address) ([]*ledger.AccountBlock, error) {
+	return nil, nil
+}
+
+func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) ([]*ledger.AccountBlock, error) {
+	return nil, nil
 }

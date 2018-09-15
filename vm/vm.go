@@ -8,7 +8,9 @@ import (
 	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"sync/atomic"
 )
@@ -19,7 +21,7 @@ type VMConfig struct {
 
 type VM struct {
 	VMConfig
-	Db VmDatabase
+	Db vm_context.VmDatabase
 
 	abort          int32
 	instructionSet [256]operation
@@ -27,7 +29,7 @@ type VM struct {
 	returnData     []byte
 }
 
-func NewVM(db VmDatabase) *VM {
+func NewVM(db vm_context.VmDatabase) *VM {
 	return &VM{Db: db, instructionSet: simpleInstructionSet}
 }
 
@@ -264,7 +266,7 @@ func (vm *VM) sendReward(block *ledger.AccountBlock, quotaTotal, quotaAddition u
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(block.AccountAddress.Bytes(), AddressRegister.Bytes()) {
+	if !bytes.Equal(block.AccountAddress.Bytes(), contracts.AddressRegister.Bytes()) && !bytes.Equal(block.AccountAddress.Bytes(), contracts.AddressMintage.Bytes()) {
 		return nil, ErrInvalidData
 	}
 	vm.updateBlock(block, nil, 0, nil)
@@ -290,7 +292,7 @@ func (vm *VM) calcCreateQuota(fee *big.Int) uint64 {
 func (vm *VM) quotaLeft(addr types.Address, block *ledger.AccountBlock) (uint64, uint64) {
 	// quotaInit = pledge amount of account address at current snapshot block status(attov) / quotaByPledge
 	// get extra quota if calc PoW before a send transaction
-	quotaInit := helper.Min(new(big.Int).Div(GetPledgeAmount(vm.Db, addr), quotaByPledge).Uint64(), quotaLimit)
+	quotaInit := helper.Min(new(big.Int).Div(contracts.GetPledgeAmount(vm.Db, addr), quotaByPledge).Uint64(), quotaLimit)
 	quotaAddition := uint64(0)
 	if len(block.Nonce) > 0 {
 		quotaAddition = quotaForPoW
@@ -402,8 +404,8 @@ func createContractAddress(addr types.Address, height uint64, prevHash types.Has
 	return types.CreateContractAddress(addr.Bytes(), new(big.Int).SetUint64(height).Bytes(), prevHash.Bytes(), code, snapshotHash.Bytes())
 }
 
-func isExistGid(db VmDatabase, gid types.Gid) bool {
-	value := db.GetStorage(&AddressConsensusGroup, getConsensusGroupKey(gid))
+func isExistGid(db vm_context.VmDatabase, gid types.Gid) bool {
+	value := db.GetStorage(&contracts.AddressConsensusGroup, contracts.GetConsensusGroupKey(gid))
 	return len(value) > 0
 }
 

@@ -24,4 +24,6 @@ const (
 	DBKP_TRIE_NODE = byte(11)
 
 	DBKP_TRIE_REF_VALUE = byte(12)
+
+	DBKP_LOG_LIST = byte(13)
 )

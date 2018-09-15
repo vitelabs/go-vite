@@ -1,4 +1,4 @@
-package vm
+package contracts
 
 import (
 	"github.com/vitelabs/go-vite/common/helper"
@@ -133,26 +133,26 @@ type ParamMintage struct {
 	Decimals    uint8
 }
 
-func getRegisterKey(name string, gid types.Gid) []byte {
+func GetRegisterKey(name string, gid types.Gid) []byte {
 	var data = make([]byte, types.HashSize)
 	copy(data[0:10], gid[:])
 	copy(data[10:], types.DataHash([]byte(name)).Bytes()[10:])
 	return data
 }
-func getVoteKey(addr types.Address, gid types.Gid) []byte {
+func GetVoteKey(addr types.Address, gid types.Gid) []byte {
 	var data = make([]byte, types.HashSize)
 	copy(data[2:12], gid[:])
 	copy(data[12:], addr[:])
 	return data
 }
-func getAddrFromVoteKey(key []byte) types.Address {
+func GetAddrFromVoteKey(key []byte) types.Address {
 	addr, _ := types.BytesToAddress(key[12:])
 	return addr
 }
-func getConsensusGroupKey(gid types.Gid) []byte {
+func GetConsensusGroupKey(gid types.Gid) []byte {
 	return helper.LeftPadBytes(gid.Bytes(), types.HashSize)
 }
-func getGidFromConsensusGroupKey(key []byte) types.Gid {
+func GetGidFromConsensusGroupKey(key []byte) types.Gid {
 	gid, _ := types.BytesToGid(key[types.HashSize-types.GidSize:])
 	return gid
 }
