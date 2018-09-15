@@ -12,7 +12,7 @@ import (
 )
 
 // obtaining the account info from cache or db and manage the cache lifecycle
-type UnconfirmedBlocksCache struct {
+type UnconfirmedBlocksPool struct {
 	fullCache      map[types.Address]*unconfirmedBlocksCache
 	fullCacheMutex sync.RWMutex
 
@@ -27,24 +27,28 @@ type UnconfirmedBlocksCache struct {
 	log log15.Logger
 }
 
-func NewUnconfirmedBlocksPool(dbAccess *UAccess) *UnconfirmedBlocksCache {
-	return &UnconfirmedBlocksCache{
+func NewUnconfirmedBlocksPool(dbAccess *UAccess) *UnconfirmedBlocksPool {
+	return &UnconfirmedBlocksPool{
 		fullCache:   make(map[types.Address]*unconfirmedBlocksCache),
 		simpleCache: make(map[types.Address]*CommonAccountInfo),
 		dbAccess:    dbAccess,
-		log:         log15.New("unconfirmed", "UnconfirmedBlocksCache"),
+		log:         log15.New("unconfirmed", "UnconfirmedBlocksPool"),
 	}
 }
 
-func (p *UnconfirmedBlocksCache) Start() {
+func (p *UnconfirmedBlocksPool) GetAddrListByGid(gid types.Gid) (addrList []*types.Address, err error) {
+	return p.dbAccess.GetAddrListByGid(gid)
+}
+
+func (p *UnconfirmedBlocksPool) Start() {
 
 }
 
-func (p *UnconfirmedBlocksCache) Stop() {
+func (p *UnconfirmedBlocksPool) Stop() {
 
 }
 
-func (p *UnconfirmedBlocksCache) GetCommonAccountInfo(addr types.Address) (info *CommonAccountInfo, err error) {
+func (p *UnconfirmedBlocksPool) GetCommonAccountInfo(addr types.Address) (info *CommonAccountInfo, err error) {
 	p.simpleCacheMutex.RLock()
 	if c, ok := p.simpleCache[addr]; ok {
 		p.simpleCacheMutex.RUnlock()
@@ -64,7 +68,7 @@ func (p *UnconfirmedBlocksCache) GetCommonAccountInfo(addr types.Address) (info 
 
 }
 
-func (p *UnconfirmedBlocksCache) GetNextTx(address types.Address) *ledger.AccountBlock {
+func (p *UnconfirmedBlocksPool) GetNextTx(address types.Address) *ledger.AccountBlock {
 	p.fullCacheMutex.RLock()
 	defer p.fullCacheMutex.RUnlock()
 	c, ok := p.fullCache[address]
@@ -75,7 +79,7 @@ func (p *UnconfirmedBlocksCache) GetNextTx(address types.Address) *ledger.Accoun
 	return c.GetNextTx()
 }
 
-func (p *UnconfirmedBlocksCache) AcquireAccountInfoCache(address types.Address) error {
+func (p *UnconfirmedBlocksPool) AcquireAccountInfoCache(address types.Address) error {
 	p.fullCacheMutex.RLock()
 	if _, ok := p.fullCache[address]; ok {
 		p.fullCacheMutex.RUnlock()
@@ -103,19 +107,19 @@ func (p *UnconfirmedBlocksCache) AcquireAccountInfoCache(address types.Address) 
 	return nil
 }
 
-func (p *UnconfirmedBlocksCache) ReleaseAccountInfoCache(address types.Address) error {
+func (p *UnconfirmedBlocksPool) ReleaseAccountInfoCache(address types.Address) error {
 	//  todo keep the cache in memory some time
 
 	return nil
 }
 
-func (p *UnconfirmedBlocksCache) ClearAccountInfoCache(address types.Address) {
+func (p *UnconfirmedBlocksPool) ClearAccountInfoCache(address types.Address) {
 	p.fullCacheMutex.Lock()
 	defer p.fullCacheMutex.Unlock()
 	delete(p.fullCache, address)
 }
 
-func (p *UnconfirmedBlocksCache) WriteUnconfirmed(writeType bool, batch *leveldb.Batch, block *ledger.AccountBlock) error {
+func (p *UnconfirmedBlocksPool) WriteUnconfirmed(writeType bool, batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	if writeType { // add
 		if err := p.dbAccess.writeUnconfirmedMeta(batch, block); err != nil {
 			p.log.Error("writeUnconfirmedMeta", "error", err)
@@ -137,7 +141,7 @@ func (p *UnconfirmedBlocksCache) WriteUnconfirmed(writeType bool, batch *leveldb
 	return nil
 }
 
-func (p *UnconfirmedBlocksCache) updateFullCache(writeType bool, block *ledger.AccountBlock) error {
+func (p *UnconfirmedBlocksPool) updateFullCache(writeType bool, block *ledger.AccountBlock) error {
 	p.fullCacheMutex.Lock()
 	defer p.fullCacheMutex.Unlock()
 
@@ -156,7 +160,7 @@ func (p *UnconfirmedBlocksCache) updateFullCache(writeType bool, block *ledger.A
 	return nil
 }
 
-func (p *UnconfirmedBlocksCache) updateSimpleCache(writeType bool, block *ledger.AccountBlock) error {
+func (p *UnconfirmedBlocksPool) updateSimpleCache(writeType bool, block *ledger.AccountBlock) error {
 	p.simpleCacheMutex.Lock()
 	defer p.simpleCacheMutex.Unlock()
 
@@ -201,7 +205,7 @@ func (p *UnconfirmedBlocksCache) updateSimpleCache(writeType bool, block *ledger
 	return nil
 }
 
-func (p *UnconfirmedBlocksCache) updateCache(writeType bool, block *ledger.AccountBlock) {
+func (p *UnconfirmedBlocksPool) updateCache(writeType bool, block *ledger.AccountBlock) {
 	e := p.updateFullCache(writeType, block)
 	if e != nil {
 		p.log.Error("updateFullCache", "err", e)
@@ -213,7 +217,7 @@ func (p *UnconfirmedBlocksCache) updateCache(writeType bool, block *ledger.Accou
 	}
 }
 
-func (p *UnconfirmedBlocksCache) NewSignalToWorker(block *ledger.AccountBlock) {
+func (p *UnconfirmedBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
 	if block.IsContractTx() {
 		if f, ok := p.newContractListener[*block.Gid]; ok {
 			f()
@@ -225,18 +229,18 @@ func (p *UnconfirmedBlocksCache) NewSignalToWorker(block *ledger.AccountBlock) {
 	}
 }
 
-func (p *UnconfirmedBlocksCache) AddCommonTxLis(addr types.Address, f func()) {
+func (p *UnconfirmedBlocksPool) AddCommonTxLis(addr types.Address, f func()) {
 	p.newCommonTxListener[addr] = f
 }
 
-func (p *UnconfirmedBlocksCache) RemoveCommonTxLis(addr types.Address) {
+func (p *UnconfirmedBlocksPool) RemoveCommonTxLis(addr types.Address) {
 	delete(p.newCommonTxListener, addr)
 }
 
-func (p *UnconfirmedBlocksCache) AddContractLis(gid types.Gid, f func()) {
+func (p *UnconfirmedBlocksPool) AddContractLis(gid types.Gid, f func()) {
 	p.newContractListener[gid] = f
 }
 
-func (p *UnconfirmedBlocksCache) RemoveContractLis(gid types.Gid) {
+func (p *UnconfirmedBlocksPool) RemoveContractLis(gid types.Gid) {
 	delete(p.newContractListener, gid)
 }

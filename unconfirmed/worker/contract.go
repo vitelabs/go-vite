@@ -2,32 +2,27 @@ package worker
 
 import (
 	"container/heap"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
 	"github.com/vitelabs/go-vite/wallet"
 	"sync"
-	"time"
 )
 
-type RightEvent struct {
-	Gid            *types.Gid
-	Address        *types.Address
-	Timestamp      time.Time
-	EndTs          time.Time
-	SnapshotHash   *types.Hash
-	SnapshotHeight int
-}
-
 type ContractWorker struct {
-	uAccess *model.UAccess
-	wAccess *wallet.Manager
+	wallet     *wallet.Manager
+	blocksPool *model.UnconfirmedBlocksPool
 
-	gid                 *types.Gid
-	addresses           *types.Address
+	gid                 types.Gid
+	address             types.Address
+	accevent            producer.AccountStartEvent
 	contractAddressList []*types.Address
 
-	status                 int
+	status      int
+	statusMutex sync.Mutex
+
 	dispatcherSleep        bool
 	dispatcherAlarm        chan struct{}
 	breaker                chan struct{}
@@ -35,47 +30,93 @@ type ContractWorker struct {
 
 	contractTasks   []*ContractTask
 	priorityToQueue *model.PriorityToQueue
-	blackList       map[string]bool // map[(toAddress+fromAddress).String]
 
-	statusMutex sync.Mutex
+	blackList      map[types.Hash]bool // map[(toAddress+fromAddress).String]
+	blackListMutex sync.RWMutex
 
 	log log15.Logger
 }
 
-func NewContractWorker(uAccess *model.UAccess, walletAccess *wallet.Manager, gid *types.Gid, address *types.Address, addressList []*types.Address) *ContractWorker {
-	return &ContractWorker{
-		uAccess:                uAccess,
-		wAccess:                walletAccess,
-		gid:                    gid,
-		addresses:              address,
-		contractAddressList:    addressList,
-		status:                 Create,
-		dispatcherSleep:        false,
-		dispatcherAlarm:        make(chan struct{}, 1),
-		breaker:                make(chan struct{}, 1),
-		stopDispatcherListener: make(chan struct{}, 1),
-		contractTasks:          make([]*ContractTask, CONTRACT_TASK_SIZE),
-		blackList:              make(map[string]bool),
-		log:                    log15.New("ContractWorker addr", address.String(), "gid", gid),
+func NewContractWorker(blocksPool *model.UnconfirmedBlocksPool, wallet *wallet.Manager, accevent producer.AccountStartEvent) (*ContractWorker, error) {
+
+	addressList, err := blocksPool.GetAddrListByGid(accevent.Gid)
+
+	if err != nil {
+		return nil, err
 	}
+
+	if len(addressList) <= 0 {
+		return nil, errors.New("newContractWorker addressList nil")
+	}
+
+	return &ContractWorker{
+		blocksPool: blocksPool,
+		wallet:     wallet,
+
+		accevent:            accevent,
+		gid:                 accevent.Gid,
+		address:             accevent.Address,
+		contractAddressList: addressList,
+
+		status:          Create,
+		dispatcherSleep: false,
+
+		dispatcherAlarm:        make(chan struct{}),
+		breaker:                make(chan struct{}),
+		stopDispatcherListener: make(chan struct{}),
+
+		contractTasks: make([]*ContractTask, CONTRACT_TASK_SIZE),
+		blackList:     make(map[types.Hash]bool),
+
+		log: log15.New("ContractWorker ", "addr", accevent.Address, "gid", accevent.Gid),
+	}, nil
 }
 
-func (w *ContractWorker) Start(event *RightEvent) {
+func (w *ContractWorker) addIntoBlackList(from types.Address, to types.Address) {
+	key := types.DataListHash(from.Bytes(), to.Bytes())
+	w.blackListMutex.Lock()
+	defer w.blackListMutex.Unlock()
+	w.blackList[key] = true
+}
+
+func (w *ContractWorker) deleteBlackListItem(from types.Address, to types.Address) {
+	key := types.DataListHash(from.Bytes(), to.Bytes())
+	w.blackListMutex.Lock()
+	defer w.blackListMutex.Unlock()
+	delete(w.blackList, key)
+}
+
+func (w *ContractWorker) isInBlackList(from types.Address, to types.Address) bool {
+	key := types.DataListHash(from.Bytes(), to.Bytes())
+	w.blackListMutex.RLock()
+	defer w.blackListMutex.RUnlock()
+	_, ok := w.blackList[key]
+	return ok
+}
+
+func (w *ContractWorker) Start() {
 	w.log.Info("worker startWork is called")
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
+	if w.status != Start {
 
-	w.uAccess.AddContractLis(w.gid, func() {
+		w.blocksPool.AddContractLis(w.gid, func() {
+			w.NewUnconfirmedTxAlarm()
+		})
+
+		for i, v := range w.contractTasks {
+			v = NewContractTask(w, i)
+			go v.Start()
+		}
+
+		go w.DispatchTask(event.SnapshotHash)
+
+		w.status = Start
+	} else {
+		// awake it in order to run at least once
 		w.NewUnconfirmedTxAlarm()
-	})
-
-	for _, v := range w.contractTasks {
-		v.InitContractTask(w.uAccess, w.wAccess, event)
-		go v.Start(&w.blackList)
 	}
-	go w.DispatchTask(event.SnapshotHash)
 
-	w.status = Start
 }
 
 func (w *ContractWorker) Stop() {
@@ -86,7 +127,7 @@ func (w *ContractWorker) Stop() {
 		w.breaker <- struct{}{}
 		// todo: to clear tomap
 
-		w.uAccess.RemoveContractLis(w.gid)
+		w.blocksPool.RemoveContractLis(w.gid)
 		w.dispatcherSleep = true
 		close(w.dispatcherAlarm)
 

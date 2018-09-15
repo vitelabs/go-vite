@@ -69,3 +69,8 @@ func DataHash(data []byte) Hash {
 	h, _ := BytesToHash(crypto.Hash256(data))
 	return h
 }
+
+func DataListHash(data ...[]byte) Hash {
+	h, _ := BytesToHash(crypto.Hash256(data...))
+	return h
+}

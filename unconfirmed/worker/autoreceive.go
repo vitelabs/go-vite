@@ -17,7 +17,7 @@ type SimpleAutoReceiveFilterPair struct {
 type AutoReceiveWorker struct {
 	log         log15.Logger
 	address     types.Address
-	accInfoPool *model.UnconfirmedBlocksCache
+	accInfoPool *model.UnconfirmedBlocksPool
 
 	status                int
 	isSleeping            bool

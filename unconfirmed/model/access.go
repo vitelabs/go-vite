@@ -30,7 +30,7 @@ func NewUAccess(chain *chain.Chain, dataDir string) *UAccess {
 	return uAccess
 }
 
-func (access *UAccess) GetAddrListByGid(gid *types.Gid) (addrList []*types.Address, err error) {
+func (access *UAccess) GetAddrListByGid(gid types.Gid) (addrList []*types.Address, err error) {
 	return nil, nil
 }
 

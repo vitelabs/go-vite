@@ -6,65 +6,61 @@ import (
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
-	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet"
 	"sync"
 	"time"
 )
 
 const (
-	Idle = iota
-	Running
-	Waiting
-	Dead
 	MaxErrRecvCount = 3
+
 )
 
 type ContractTask struct {
-	vite    vite.Vite
-	log     log15.Logger
-	uAccess *model.UAccess
-	wAccess *wallet.Manager
+	blocksPool *model.UnconfirmedBlocksPool
+	wallet     *wallet.Manager
 
-	status       int
-	reRetry      bool
+	status      int
+	statusMutex sync.Mutex
+
+	reRetry bool
+
 	stopListener chan struct{}
 	breaker      chan struct{}
 
 	subQueue chan *model.FromItem
-	args     *RightEvent
+	accevent producer.AccountStartEvent
+	cworker  *ContractWorker
 
-	statusMutex sync.Mutex
+	log log15.Logger
 }
 
-func (task *ContractTask) InitContractTask(uAccess *model.UAccess, wAccess *wallet.Manager, args *RightEvent) {
-	task.log = log15.New("ContractTask")
-	task.uAccess = uAccess
-	task.wAccess = wAccess
-	task.status = Idle
-	task.reRetry = false
-	task.stopListener = make(chan struct{}, 1)
-	task.breaker = make(chan struct{}, 1)
-	task.args = args
-	task.subQueue = make(chan *model.FromItem, 1)
+func NewContractTask(worker *ContractWorker, index int) *ContractTask {
+	return &ContractTask{
+		blocksPool:   worker.blocksPool,
+		wallet:       worker.wallet,
+		status:       Create,
+		reRetry:      false,
+		stopListener: make(chan struct{}),
+		breaker:      make(chan struct{}),
+		subQueue:     make(chan *model.FromItem),
+		accevent:     worker.accevent,
+		cworker:      worker,
+		log:          worker.log.New("tid", index),
+	}
 }
 
-func (task *ContractTask) Start(blackList *map[string]bool) {
+func (task *ContractTask) Start() {
 	for {
-		task.statusMutex.Lock()
-		defer task.statusMutex.Unlock()
-
-		if task.status == Dead {
+		if task.status == Stop {
 			goto END
 		}
 
 		fItem := task.GetFromItem()
-		if intoBlackListBool := task.ProcessAQueue(fItem); intoBlackListBool == true {
-			var blKey = fItem.Value.Front().ToAddress.String() + fItem.Key.String()
-			if _, ok := (*blackList)[blKey]; !ok {
-				(*blackList)[blKey] = true
-			}
+		if task.ProcessOneQueue(fItem) {
+			task.cworker.addIntoBlackList(fItem.Key, fItem.Value.Front().ToAddress)
 		}
 
 		select {
@@ -73,7 +69,7 @@ func (task *ContractTask) Start(blackList *map[string]bool) {
 		default:
 			break
 		}
-		task.status = Idle
+		task.status = Create
 	}
 END:
 	task.log.Info("ContractTask send stopDispatcherListener ")
@@ -84,7 +80,7 @@ END:
 func (task *ContractTask) Stop() {
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
-	if task.status != Dead {
+	if task.status != Stop {
 
 		task.breaker <- struct{}{}
 		close(task.breaker)
@@ -94,7 +90,7 @@ func (task *ContractTask) Stop() {
 
 		close(task.subQueue)
 
-		task.status = Dead
+		task.status = Stop
 	}
 }
 
@@ -109,7 +105,7 @@ func (task *ContractTask) Status() int {
 	return task.status
 }
 
-func (task *ContractTask) ProcessAQueue(fItem *model.FromItem) (intoBlackList bool) {
+func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList bool) {
 	// get db.go block from subQueue
 	task.log.Info("Process the fromQueue,", task.log.New("fromQueueDetail",
 		task.log.New("fromAddress", fItem.Key),
@@ -129,7 +125,7 @@ func (task *ContractTask) ProcessAQueue(fItem *model.FromItem) (intoBlackList bo
 		recvType, count := task.CheckChainReceiveCount(&sBlock.ToAddress, &sBlock.Hash)
 		if recvType == 5 && count > MaxErrRecvCount {
 			task.log.Info("Delete the UnconfirmedMeta: the recvErrBlock reach the max-limit count of existence.")
-			task.uAccess.WriteUnconfirmed(false, nil, sBlock)
+			task.blocksPool.WriteUnconfirmed(false, nil, sBlock)
 			continue
 		}
 
@@ -139,7 +135,7 @@ func (task *ContractTask) ProcessAQueue(fItem *model.FromItem) (intoBlackList bo
 			return true
 		}
 
-		gen, err := generator.NewGenerator(task.uAccess.Chain, task.wAccess.KeystoreManager, task.args.SnapshotHash, &block.PrevHash, &block.AccountAddress)
+		gen, err := generator.NewGenerator(task.blocksPool.Chain, task.wallet.KeystoreManager, task.args.SnapshotHash, &block.PrevHash, &block.AccountAddress)
 		if err != nil {
 			task.log.Error("NewGenerator Error", err)
 			return true
@@ -154,7 +150,7 @@ func (task *ContractTask) ProcessAQueue(fItem *model.FromItem) (intoBlackList bo
 			if genResult.IsRetry == true {
 				return true
 			} else {
-				task.uAccess.WriteUnconfirmed(false, nil, sBlock)
+				task.blocksPool.WriteUnconfirmed(false, nil, sBlock)
 			}
 		} else {
 			if genResult.IsRetry == true {
@@ -186,7 +182,7 @@ func (task *ContractTask) GetFromItem() *model.FromItem {
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
 	fItem := <-task.subQueue
-	task.status = Running
+	task.status = Start
 	return fItem
 }
 
@@ -197,8 +193,8 @@ func (task *ContractTask) CheckChainReceiveCount(fromAddress *types.Address, fro
 func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) (*ledger.AccountBlock, error) {
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
-	if task.status != Running {
-		task.status = Running
+	if task.status != Start {
+		task.status = Start
 	}
 
 	task.log.Info("PackReceiveBlock", "sendBlock",
@@ -227,7 +223,7 @@ func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) (*led
 		SendBlockHashList: nil,
 		Signature:         nil,
 	}
-	preBlock, err := task.uAccess.Chain.GetLatestAccountBlock(&block.AccountAddress)
+	preBlock, err := task.blocksPool.Chain.GetLatestAccountBlock(&block.AccountAddress)
 	if err != nil {
 		return nil, errors.New("GetLatestAccountBlock error" + err.Error())
 	}

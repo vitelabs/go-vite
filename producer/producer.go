@@ -6,12 +6,12 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-type AccountEvent struct {
+type AccountEvent interface {
 }
 
 type AccountStartEvent struct {
 	AccountEvent
-	Gid     uint32
+	Gid     types.Gid
 	Address types.Address
 	Stime   time.Time
 	Etime   time.Time
