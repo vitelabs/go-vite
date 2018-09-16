@@ -135,7 +135,7 @@ func help() {
 	fmt.Println("unconfirmblocks [address]:              show db.go blocks in given address ")
 	fmt.Println("unconfirminfo [address]:                show db.go info in given address ")
 	fmt.Println("syncinfo:                               show first sync info")
-	fmt.Println("newtesttoken [address]:                 transfer 100 Vite form Genesis address to given address")
+	fmt.Println("newtesttoken [address]:                 transfer 100 vite form Genesis address to given address")
 	fmt.Println("help:                                   show help")
 	fmt.Println("quit:                                   quit")
 }

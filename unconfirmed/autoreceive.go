@@ -1,4 +1,4 @@
-package worker
+package unconfirmed
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
@@ -15,9 +15,11 @@ type SimpleAutoReceiveFilterPair struct {
 }
 
 type AutoReceiveWorker struct {
-	log         log15.Logger
-	address     types.Address
-	accInfoPool *model.UnconfirmedBlocksPool
+	log     log15.Logger
+	address types.Address
+
+	uBlocksPool *model.UnconfirmedBlocksPool
+	manager     *Manager
 
 	status                int
 	isSleeping            bool
@@ -30,34 +32,37 @@ type AutoReceiveWorker struct {
 	statusMutex sync.Mutex
 }
 
-func NewAutoReceiveWorker(address types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
+func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
-		address:    address,
-		status:     Create,
-		isSleeping: false,
-		filters:    filters,
-		log:        log15.New("AutoReceiveWorker addr", address),
+		manager:     manager,
+		uBlocksPool: manager.unconfirmedBlocksPool,
+		address:     address,
+		status:      Create,
+		isSleeping:  false,
+		filters:     filters,
+		log:         log15.New("AutoReceiveWorker addr", address),
 	}
 }
 
 func (w *AutoReceiveWorker) Start() {
+
 	w.log.Info("Start()", "current status", w.status)
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Start {
 
-		w.breaker = make(chan struct{}, 1)
+		w.breaker = make(chan struct{})
 		w.newUnconfirmedTxAlarm = make(chan struct{}, 100)
 		w.stopListener = make(chan struct{})
 
 		w.status = Start
 		w.statusMutex.Unlock()
 
-		w.accInfoPool.AddCommonTxLis(w.address, func() {
+		w.uBlocksPool.AddCommonTxLis(w.address, func() {
 			w.NewUnconfirmedTxAlarm()
 		})
 
-		w.accInfoPool.AcquireAccountInfoCache(w.address)
+		w.uBlocksPool.AcquireAccountInfoCache(w.address)
 
 		go w.startWork()
 	} else {
@@ -83,12 +88,12 @@ func (w *AutoReceiveWorker) Stop() {
 	defer w.statusMutex.Unlock()
 	if w.status != Stop {
 
-		w.accInfoPool.ReleaseAccountInfoCache(w.address)
+		w.uBlocksPool.ReleaseAccountInfoCache(w.address)
 
 		w.breaker <- struct{}{}
 		close(w.breaker)
 
-		w.accInfoPool.RemoveCommonTxLis(w.address)
+		w.uBlocksPool.RemoveCommonTxLis(w.address)
 		close(w.newUnconfirmedTxAlarm)
 
 		// make sure we can stop the worker
@@ -124,7 +129,7 @@ func (w *AutoReceiveWorker) startWork() {
 			goto END
 		}
 
-		tx := w.accInfoPool.GetNextTx(w.address)
+		tx := w.uBlocksPool.GetNextTx(w.address)
 		if tx != nil {
 			minAmount, ok := w.filters[tx.TokenId]
 			if !ok || tx.Amount.Cmp(&minAmount) < 0 {
@@ -152,65 +157,66 @@ END:
 }
 
 func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
-	// todo 1.ExistInPool
-
-	//todo 2.PackReceiveBlock
-	recvBlock := w.PackReceiveBlock(sendBlock)
-
-	//todo 3.GenerateBlocks
-
-	//todo 4.InertBlockIntoPool
-	err := w.InertBlockIntoPool(recvBlock)
-	if err != nil {
-
-	}
+	//// todo 1.ExistInPool
+	//
+	////todo 2.PackReceiveBlock
+	//recvBlock := w.PackReceiveBlock(sendBlock)
+	//
+	////todo 3.GenerateBlocks
+	//
+	////todo 4.InertBlockIntoPool
+	//err := w.InertBlockIntoPool(recvBlock)
+	//if err != nil {
+	//
+	//}
 }
 
-func (w *AutoReceiveWorker) PackReceiveBlock(sendBlock *ledger.AccountBlock) *ledger.AccountBlock {
-	w.statusMutex.Lock()
-	defer w.statusMutex.Unlock()
-	if w.status != Running {
-		w.status = Running
-	}
-
-	w.log.Info("PackReceiveBlock", "sendBlock",
-		w.log.New("sendBlock.Hash", sendBlock.Hash), w.log.New("sendBlock.To", sendBlock.ToAddress))
-
-	// todo pack the block with w.args, compute hash, Sign,
-	block := &ledger.AccountBlock{
-		Meta:              nil,
-		BlockType:         0,
-		Hash:              nil,
-		Height:            nil,
-		PrevHash:          nil,
-		AccountAddress:    nil,
-		PublicKey:         nil,
-		ToAddress:         nil,
-		FromBlockHash:     nil,
-		Amount:            nil,
-		TokenId:           nil,
-		QuotaFee:          nil,
-		ContractFee:       nil,
-		SnapshotHash:      nil,
-		Data:              "",
-		Timestamp:         0,
-		StateHash:         nil,
-		LogHash:           nil,
-		Nonce:             nil,
-		SendBlockHashList: nil,
-		Signature:         nil,
-	}
-
-	hash, err := block.ComputeHash()
-	if err != nil {
-		w.log.Error("ComputeHash Error")
-		return nil
-	}
-	block.Hash = hash
-
-	return block
-}
-
-func (w *AutoReceiveWorker) InertBlockIntoPool(recvBlock *ledger.AccountBlock) error {
-	return nil
-}
+//
+//func (w *AutoReceiveWorker) PackReceiveBlock(sendBlock *ledger.AccountBlock) *ledger.AccountBlock {
+//	w.statusMutex.Lock()
+//	defer w.statusMutex.Unlock()
+//	if w.status != Start {
+//		w.status = Start
+//	}
+//
+//	w.log.Info("PackReceiveBlock", "sendBlock",
+//		w.log.New("sendBlock.Hash", sendBlock.Hash), w.log.New("sendBlock.To", sendBlock.ToAddress))
+//
+//	// todo pack the block with w.args, compute hash, Sign,
+//	block := &ledger.AccountBlock{
+//		Meta:              nil,
+//		BlockType:         0,
+//		Hash:              nil,
+//		Height:            nil,
+//		PrevHash:          nil,
+//		AccountAddress:    nil,
+//		PublicKey:         nil,
+//		ToAddress:         nil,
+//		FromBlockHash:     nil,
+//		Amount:            nil,
+//		TokenId:           nil,
+//		QuotaFee:          nil,
+//		ContractFee:       nil,
+//		SnapshotHash:      nil,
+//		Data:              "",
+//		Timestamp:         0,
+//		StateHash:         nil,
+//		LogHash:           nil,
+//		Nonce:             nil,
+//		SendBlockHashList: nil,
+//		Signature:         nil,
+//	}
+//
+//	hash, err := block.ComputeHash()
+//	if err != nil {
+//		w.log.Error("ComputeHash Error")
+//		return nil
+//	}
+//	block.Hash = hash
+//
+//	return block
+//}
+//
+//func (w *AutoReceiveWorker) InertBlockIntoPool(recvBlock *ledger.AccountBlock) error {
+//	return nil
+//}

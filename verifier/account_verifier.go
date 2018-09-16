@@ -18,12 +18,12 @@ const (
 
 type AccountVerifier struct {
 	chainReader     ChainReader
-	committeeReader CommitteeReader
+	committeeReader ProducerReader
 
 	log log15.Logger
 }
 
-func NewAccountVerifier(chain ChainReader, committee CommitteeReader) *AccountVerifier {
+func NewAccountVerifier(chain ChainReader, committee ProducerReader) *AccountVerifier {
 	verifier := &AccountVerifier{
 		chainReader:     chain,
 		committeeReader: committee,

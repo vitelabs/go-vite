@@ -1,25 +1,21 @@
-package worker
+package unconfirmed
 
 import (
 	"container/heap"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/wallet"
 	"sync"
 )
 
 type ContractWorker struct {
-	chain      *chain.Chain
-	wallet     *wallet.Manager
-	pool       PoolAccess
-	blocksPool *model.UnconfirmedBlocksPool
-	verifer    *verifier.AccountVerifier
+	manager *Manager
+
+	uBlocksPool *model.UnconfirmedBlocksPool
+	verifer     *verifier.AccountVerifier
 
 	gid                 types.Gid
 	address             types.Address
@@ -43,10 +39,9 @@ type ContractWorker struct {
 	log log15.Logger
 }
 
-func NewContractWorker(blocksPool *model.UnconfirmedBlocksPool, wallet *wallet.Manager, chain *chain.Chain,
-	committee consensus.Verifier, accEvent producer.AccountStartEvent) (*ContractWorker, error) {
+func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) (*ContractWorker, error) {
 
-	addressList, err := blocksPool.GetAddrListByGid(accEvent.Gid)
+	addressList, err := manager.unconfirmedBlocksPool.GetAddrListByGid(accEvent.Gid)
 
 	if err != nil {
 		return nil, err
@@ -57,10 +52,8 @@ func NewContractWorker(blocksPool *model.UnconfirmedBlocksPool, wallet *wallet.M
 	}
 
 	return &ContractWorker{
-		blocksPool: blocksPool,
-		wallet:     wallet,
-		chain:      chain,
-		verifer:    verifier.NewAccountVerifier(chain, committee),
+		uBlocksPool: manager.unconfirmedBlocksPool,
+		verifer:     verifier.NewAccountVerifier(manager.vite.Chain(), manager.vite.Producer()),
 
 		accevent:            accEvent,
 		gid:                 accEvent.Gid,
@@ -81,35 +74,13 @@ func NewContractWorker(blocksPool *model.UnconfirmedBlocksPool, wallet *wallet.M
 	}, nil
 }
 
-func (w *ContractWorker) addIntoBlackList(from types.Address, to types.Address) {
-	key := types.DataListHash(from.Bytes(), to.Bytes())
-	w.blackListMutex.Lock()
-	defer w.blackListMutex.Unlock()
-	w.blackList[key] = true
-}
-
-func (w *ContractWorker) deleteBlackListItem(from types.Address, to types.Address) {
-	key := types.DataListHash(from.Bytes(), to.Bytes())
-	w.blackListMutex.Lock()
-	defer w.blackListMutex.Unlock()
-	delete(w.blackList, key)
-}
-
-func (w *ContractWorker) isInBlackList(from types.Address, to types.Address) bool {
-	key := types.DataListHash(from.Bytes(), to.Bytes())
-	w.blackListMutex.RLock()
-	defer w.blackListMutex.RUnlock()
-	_, ok := w.blackList[key]
-	return ok
-}
-
 func (w *ContractWorker) Start() {
 	w.log.Info("worker startWork is called")
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Start {
 
-		w.blocksPool.AddContractLis(w.gid, func() {
+		w.uBlocksPool.AddContractLis(w.gid, func() {
 			w.NewUnconfirmedTxAlarm()
 		})
 
@@ -136,7 +107,7 @@ func (w *ContractWorker) Stop() {
 		w.breaker <- struct{}{}
 		// todo: to clear tomap
 
-		w.blocksPool.RemoveContractLis(w.gid)
+		w.uBlocksPool.RemoveContractLis(w.gid)
 		w.dispatcherSleep = true
 		close(w.dispatcherAlarm)
 
@@ -237,4 +208,26 @@ func (w *ContractWorker) FetchNew(snapshotHash *types.Hash) {
 			}
 		}
 	}
+}
+
+func (w *ContractWorker) addIntoBlackList(from types.Address, to types.Address) {
+	key := types.DataListHash(from.Bytes(), to.Bytes())
+	w.blackListMutex.Lock()
+	defer w.blackListMutex.Unlock()
+	w.blackList[key] = true
+}
+
+func (w *ContractWorker) deleteBlackListItem(from types.Address, to types.Address) {
+	key := types.DataListHash(from.Bytes(), to.Bytes())
+	w.blackListMutex.Lock()
+	defer w.blackListMutex.Unlock()
+	delete(w.blackList, key)
+}
+
+func (w *ContractWorker) isInBlackList(from types.Address, to types.Address) bool {
+	key := types.DataListHash(from.Bytes(), to.Bytes())
+	w.blackListMutex.RLock()
+	defer w.blackListMutex.RUnlock()
+	_, ok := w.blackList[key]
+	return ok
 }

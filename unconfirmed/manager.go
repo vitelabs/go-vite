@@ -3,10 +3,12 @@ package unconfirmed
 import (
 	"github.com/vitelabs/go-vite/common/types"
 
+	"errors"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
-	"github.com/vitelabs/go-vite/unconfirmed/worker"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"math/big"
@@ -14,38 +16,32 @@ import (
 )
 
 var (
-	slog = log15.New("module", "unconfirmed")
+	slog           = log15.New("module", "unconfirmed")
+	ErrNotSyncdone = errors.New("net status has not sync done")
 )
 
 type Manager struct {
-	Vite                  Vite
+	vite Vite
+	pool PoolAccess
+
 	uAccess               *model.UAccess
 	unconfirmedBlocksPool *model.UnconfirmedBlocksPool
 
-	commonTxWorkers map[types.Address]*worker.AutoReceiveWorker
-	contractWorkers map[types.Gid]*worker.ContractWorker
+	commonTxWorkers map[types.Address]*AutoReceiveWorker
+	contractWorkers map[types.Gid]*ContractWorker
 
-	unlockEventListener   chan keystore.UnlockEvent
-	firstSyncDoneListener chan int
-	rightEventListener    chan *producer.AccountStartEvent
-
-	unlockLid    int
-	rightLid     int
-	firstSyncLid int
+	unlockLid   int
+	netStateLid int
 
 	log log15.Logger
 }
 
 func NewManager(vite Vite, dataDir string) *Manager {
 	m := &Manager{
-		Vite:            vite,
-		commonTxWorkers: make(map[types.Address]*worker.AutoReceiveWorker),
-		contractWorkers: make(map[types.Gid]*worker.ContractWorker),
+		vite:            vite,
+		commonTxWorkers: make(map[types.Address]*AutoReceiveWorker),
+		contractWorkers: make(map[types.Gid]*ContractWorker),
 		uAccess:         model.NewUAccess(vite.Chain(), dataDir),
-
-		unlockEventListener:   make(chan keystore.UnlockEvent),
-		firstSyncDoneListener: make(chan int),
-		rightEventListener:    make(chan *producer.AccountStartEvent),
 
 		log: slog.New("w", "manager"),
 	}
@@ -54,71 +50,48 @@ func NewManager(vite Vite, dataDir string) *Manager {
 }
 
 func (manager *Manager) InitAndStartWork() {
-
-	//manager.Vite.Chain().RegisterFirstSyncDown(manager.firstSyncDoneListener)
-
-	manager.unlockLid = manager.Vite.WalletManager().KeystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
-
-	manager.Vite.Producer().SetAccountEventFunc(manager.producerStartEventFunc)
-
-	//todo add newContractListener????
-
+	manager.netStateLid = manager.vite.Net().SubscribeSyncStatus(manager.netStateChanged)
+	manager.unlockLid = manager.vite.WalletManager().KeystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
+	manager.vite.Producer().SetAccountEventFunc(manager.producerStartEventFunc)
 }
 
-func (manager *Manager) Close() error {
-	manager.log.Info("close")
-
-	manager.Vite.WalletManager().KeystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
-
-	manager.Vite.Producer().SetAccountEventFunc(nil)
-
-	// todo manager.Vite.Ledger().RemoveFirstSyncDownListener(manager.firstSyncDoneListener)
-
+func (manager *Manager) stopAllWorks() {
 	for _, v := range manager.commonTxWorkers {
 		v.Close()
 	}
 	for _, v := range manager.contractWorkers {
 		v.Close()
 	}
-	return nil
-
 }
 
-func (manager *Manager) SetAutoReceiveFilter(addr types.Address, filter map[types.TokenTypeId]big.Int) {
-	if w, ok := manager.commonTxWorkers[addr]; ok {
-		w.SetAutoReceiveFilter(filter)
+func (manager *Manager) startAllWorks() {
+	for _, v := range manager.commonTxWorkers {
+		v.Start()
+	}
+	for _, v := range manager.contractWorkers {
+		v.Start()
 	}
 }
 
-func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[types.TokenTypeId]big.Int) error {
-	manager.log.Info("StartAutoReceiveWorker ", "addr", addr)
+func (manager *Manager) Close() error {
+	manager.log.Info("close")
 
-	keystoreManager := manager.Vite.WalletManager().KeystoreManager
+	manager.vite.Net().UnsubscribeSyncStatus(manager.netStateLid)
+	manager.vite.WalletManager().KeystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
+	manager.vite.Producer().SetAccountEventFunc(nil)
 
-	if _, e := keystoreManager.Find(addr); e != nil {
-		return e
-	}
-	if !keystoreManager.IsUnLocked(addr) {
-		return walleterrors.ErrLocked
-	}
+	manager.stopAllWorks()
 
-	w, found := manager.commonTxWorkers[addr]
-	if !found {
-		w = worker.NewAutoReceiveWorker(addr, filter)
-		manager.log.Info("Manager get event new Worker")
-		manager.commonTxWorkers[addr] = w
-	}
-	w.Start()
 	return nil
 }
 
-func (manager *Manager) StopAutoReceiveWorker(addr types.Address) error {
-	manager.log.Info("StopAutoReceiveWorker ", "addr", addr)
-	w, found := manager.commonTxWorkers[addr]
-	if found {
-		w.Stop()
+func (manager *Manager) netStateChanged(state net.SyncState) {
+	manager.log.Info("receive a net evnet", "state", state)
+	if state == net.Syncdone {
+		manager.startAllWorks()
+	} else {
+		manager.stopAllWorks()
 	}
-	return nil
 }
 
 func (manager *Manager) addressLockStateChangeFunc(event keystore.UnlockEvent) {
@@ -132,21 +105,26 @@ func (manager *Manager) addressLockStateChangeFunc(event keystore.UnlockEvent) {
 }
 
 func (manager *Manager) producerStartEventFunc(accevent producer.AccountEvent) {
-	manager.log.Info("producerStartEventFunc receive event")
+	netstate := manager.vite.Net().Status().SyncState
+	manager.log.Info("producerStartEventFunc receive event", "netstate", netstate)
+	if netstate != net.Syncdone {
+		return
+	}
+
 	event, ok := accevent.(producer.AccountStartEvent)
 	if !ok {
 		manager.log.Info("producerStartEventFunc not support this event")
 		return
 	}
 
-	if !manager.Vite.WalletManager().KeystoreManager.IsUnLocked(event.Address) {
+	if !manager.vite.WalletManager().KeystoreManager.IsUnLocked(event.Address) {
 		manager.log.Error(" receive a right event but address locked", "event", event)
 		return
 	}
 
 	w, found := manager.contractWorkers[event.Gid]
 	if !found {
-		w, e := worker.NewContractWorker(manager.unconfirmedBlocksPool, manager.Vite.WalletManager(), manager.Vite.Chain(), event)
+		w, e := NewContractWorker(manager, event)
 		if e != nil {
 			manager.log.Error(e.Error())
 			return
@@ -162,32 +140,48 @@ func (manager *Manager) producerStartEventFunc(accevent producer.AccountEvent) {
 	}
 }
 
-// remove it in the future
-func (manager *Manager) loop() {
-	loopLog := manager.log.New("loop")
+func (manager *Manager) insertBlockToPool(b *ledger.AccountBlock) error {
+	return manager.pool.AddBlock(b)
+}
 
-	for {
-		select {
-		case done, ok := <-manager.firstSyncDoneListener:
-			{
-				loopLog.Info("<-manager.firstSyncDoneListener ", "done", done)
-				if !ok {
-					manager.log.Info("Manager firstSyncDoneListener channel close")
-					break
-				}
-			}
-		}
+func (manager *Manager) SetAutoReceiveFilter(addr types.Address, filter map[types.TokenTypeId]big.Int) {
+	if w, ok := manager.commonTxWorkers[addr]; ok {
+		w.SetAutoReceiveFilter(filter)
 	}
 }
 
-//func (manager *Manager) initUnlockedAddress() {
-//	status, _ := manager.Vite.WalletManager().KeystoreManager.Status()
-//	for k, v := range status {
-//		if v == keystore.UnLocked {
-//			commonTxWorker := worker.NewAutoReceiveWorker(manager.Vite, &k)
-//			manager.log.Info("Manager find a new unlock address ", "Worker", k.String())
-//			manager.commonTxWorkers[k] = commonTxWorker
-//			commonTxWorker.Start()
-//		}
-//	}
-//}
+func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[types.TokenTypeId]big.Int) error {
+	netstate := manager.vite.Net().Status().SyncState
+	manager.log.Info("StartAutoReceiveWorker ", "addr", addr, "netstate", netstate)
+
+	if netstate != net.Syncdone {
+		return ErrNotSyncdone
+	}
+
+	keystoreManager := manager.vite.WalletManager().KeystoreManager
+
+	if _, e := keystoreManager.Find(addr); e != nil {
+		return e
+	}
+	if !keystoreManager.IsUnLocked(addr) {
+		return walleterrors.ErrLocked
+	}
+
+	w, found := manager.commonTxWorkers[addr]
+	if !found {
+		w = NewAutoReceiveWorker(manager, addr, filter)
+		manager.log.Info("Manager get event new Worker")
+		manager.commonTxWorkers[addr] = w
+	}
+	w.Start()
+	return nil
+}
+
+func (manager *Manager) StopAutoReceiveWorker(addr types.Address) error {
+	manager.log.Info("StopAutoReceiveWorker ", "addr", addr)
+	w, found := manager.commonTxWorkers[addr]
+	if found {
+		w.Stop()
+	}
+	return nil
+}

@@ -1,4 +1,4 @@
-package worker
+package unconfirmed
 
 import (
 	"errors"
@@ -44,7 +44,7 @@ type ContractTask struct {
 
 func NewContractTask(worker *ContractWorker, index int) *ContractTask {
 	return &ContractTask{
-		blocksPool:   worker.blocksPool,
+		blocksPool:   worker.uBlocksPool,
 		wallet:       worker.wallet,
 		pool:         worker.pool,
 		chain:        worker.chain,
