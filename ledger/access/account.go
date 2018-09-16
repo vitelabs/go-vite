@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vitedb"
 	"math/big"
+	"errors"
 )
 
 type AccountAccess struct {
@@ -53,6 +54,9 @@ func (aa *AccountAccess) CreateNewAccountMeta(batch *leveldb.Batch, accountAddre
 }
 
 func (aa *AccountAccess) GetAccountMeta(accountAddress *types.Address) (*ledger.AccountMeta, error) {
+	if accountAccess == nil {
+		return nil, errors.New("GetAccountMeta accountAddress nil")
+	}
 	data, err := aa.store.GetAccountMetaByAddress(accountAddress)
 	if err != nil {
 		aa.log.Error(err.Error())
