@@ -1,6 +1,7 @@
 package protocols
 
 import (
+	"github.com/seiflotfy/cuckoofilter"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
@@ -10,33 +11,33 @@ import (
 )
 
 type Net struct {
-	start        time.Time
-	peers        *peerSet
-	snapshotFeed *snapshotBlockFeed
-	accountFeed  *accountBlockFeed
-
-	stop chan struct{}
-
-	pool *reqPool
-
-	// for sync
-	FromHeight   *big.Int
-	TargetHeight *big.Int
-	SyncState
-	StateLock     sync.RWMutex
+	start         time.Time
+	peers         *peerSet
+	snapshotFeed  *snapshotBlockFeed
+	accountFeed   *accountBlockFeed
+	term          chan struct{}
+	pool          *reqPool
+	FromHeight    *big.Int
+	TargetHeight  *big.Int
+	syncState     SyncState
+	slock         sync.RWMutex // use for syncState change
 	SyncStartHook func(*big.Int, *big.Int)
 	SyncDoneHook  func(*big.Int, *big.Int)
 	SyncErrHook   func(*big.Int, *big.Int)
-
+	stateFeed     *SyncStateFeed
 	SnapshotChain BlockChain
+	blockRecord   *cuckoofilter.CuckooFilter // record blocks has retrieved from network
 }
 
 func New() *Net {
-	peers := NewPeerSet()
 	n := &Net{
-		peers:        peers,
-		snapshotFeed: NewSnapshotBlockFeed(),
-		accountFeed:  NewAccountBlockFeed(),
+		peers:        NewPeerSet(),
+		snapshotFeed: new(snapshotBlockFeed),
+		accountFeed:  new(accountBlockFeed),
+		stateFeed:    new(SyncStateFeed),
+		term:         make(chan struct{}),
+		pool:         new(reqPool),
+		blockRecord:  cuckoofilter.NewCuckooFilter(10000),
 	}
 
 	return n
@@ -48,21 +49,28 @@ func (n *Net) Start() {
 
 func (n *Net) Stop() {
 	select {
-	case <-n.stop:
+	case <-n.term:
 	default:
-		close(n.stop)
+		close(n.term)
 	}
 }
 
-func (this *Net) Syncing() bool {
-	this.StateLock.RLock()
-	defer this.StateLock.RUnlock()
-	return this.SyncState == syncing
+func (n *Net) Syncing() bool {
+	n.slock.RLock()
+	defer n.slock.RUnlock()
+	return n.syncState == Syncing
+}
+
+func (n *Net) SetSyncState(st SyncState) {
+	n.slock.Lock()
+	defer n.slock.Unlock()
+	n.syncState = st
+	n.stateFeed.Notify(st)
 }
 
 func (n *Net) ReceiveConn(conn net.Conn) {
 	select {
-	case <-n.stop:
+	case <-n.term:
 	default:
 	}
 
@@ -98,41 +106,58 @@ func (n *Net) FetchAccountBlocks(a ac) {
 
 }
 
-func (n *Net) SubscribeAccountBlock() *snapshotBlockSub {
-	return n.snapshotFeed.Subscribe()
+func (n *Net) SubscribeAccountBlock(fn func(block *ledger.AccountBlock)) (subId int) {
+	return n.accountFeed.Sub(fn)
 }
 
-func (n *Net) SubscribeSnapshotBlock() *accountBlockSub {
-	return n.accountFeed.Subscribe()
+func (n *Net) UnsubscribeAccountBlock(subId int) {
+	n.accountFeed.Unsub(subId)
 }
 
-func (n *Net) SubscribeSyncStatus(func(SyncState)) (subId int) {
+func (n *Net) receiveAccountBlock(block *ledger.AccountBlock) {
+	n.accountFeed.Notify(block)
+}
 
+func (n *Net) SubscribeSnapshotBlock(fn func(block *ledger.SnapshotBlock)) (subId int) {
+	return n.snapshotFeed.Sub(fn)
+}
+
+func (n *Net) UnsubscribeSnapshotBlock(subId int) {
+	n.snapshotFeed.Unsub(subId)
+}
+
+func (n *Net) receiveSnapshotBlock(block *ledger.SnapshotBlock) {
+	n.snapshotFeed.Notify(block)
+}
+
+func (n *Net) SubscribeSyncStatus(fn func(SyncState)) (subId int) {
+	return n.stateFeed.Sub(fn)
 }
 
 func (n *Net) UnsubscribeSyncStatus(subId int) {
-
+	n.stateFeed.Unsub(subId)
 }
 
 // get current netInfo (peers, syncStatus, ...)
 func (n *Net) Status() *NetStatus {
 	running := true
 	select {
-	case <-n.stop:
+	case <-n.term:
 		running = false
 	default:
 	}
 
 	return &NetStatus{
-		Peers:   n.peers.Info(),
-		Running: running,
-		Uptime:  time.Now().Sub(n.start),
+		Peers:      n.peers.Info(),
+		Running:    running,
+		Uptime:     time.Now().Sub(n.start),
+		SyncStatus: n.syncState.String(),
 	}
 }
 
 type NetStatus struct {
 	Peers      []*PeerInfo
-	SyncStatus SyncState
+	SyncStatus string
 	Uptime     time.Duration
 	Running    bool
 }

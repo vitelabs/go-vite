@@ -203,6 +203,6 @@ func (p *reqPool) Execute(r *req) {
 	}
 }
 
-func (p *reqPool) Receive(peerId string, code MsgCode) {
+func (p *reqPool) Receive(peerId string, code Cmd) {
 
 }

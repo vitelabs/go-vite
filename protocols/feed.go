@@ -1,198 +1,72 @@
 package protocols
 
 import (
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/ledger"
 	"sync"
 )
 
-var errShouldUnsubscribe = errors.New("Should Unsubscribe")
-
-// snapshotblockfeed
-
+// @section snapshotblockfeed
 type snapshotBlockFeed struct {
-	chans   []chan<- *ledger.SnapshotBlock
-	newChan chan chan<- *ledger.SnapshotBlock
-	delChan chan chan<- *ledger.SnapshotBlock
-	event   chan *ledger.SnapshotBlock
-	stop    chan struct{}
+	lock      sync.RWMutex
+	subs      map[int]func(*ledger.SnapshotBlock)
+	currentId int
 }
 
-func NewSnapshotBlockFeed() *snapshotBlockFeed {
-	f := &snapshotBlockFeed{
-		chans:   make([]chan<- *ledger.SnapshotBlock, 0, 1),
-		newChan: make(chan chan<- *ledger.SnapshotBlock),
-		delChan: make(chan chan<- *ledger.SnapshotBlock),
-		event:   make(chan *ledger.SnapshotBlock),
-		stop:    make(chan struct{}),
-	}
+func (s *snapshotBlockFeed) Sub(fn func(*ledger.SnapshotBlock)) int {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
-	f.loop()
-
-	return f
+	s.currentId++
+	s.subs[s.currentId] = fn
+	return s.currentId
 }
 
-func (f *snapshotBlockFeed) loop() {
-loop:
-	for {
-		select {
-		case <-f.stop:
-			for _, c := range f.chans {
-				close(c)
-			}
-			break loop
-		case ch := <-f.newChan:
-			f.chans = append(f.chans, ch)
-		case ch := <-f.delChan:
-			for i, c := range f.chans {
-				if c == ch {
-					f.chans = append(f.chans[:i], f.chans[i+1:]...)
-				}
-			}
-			close(ch)
-		case block := <-f.event:
-			for _, c := range f.chans {
-				c <- block
-			}
+func (s *snapshotBlockFeed) Unsub(subId int) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	delete(s.subs, subId)
+}
+
+func (s *snapshotBlockFeed) Notify(block *ledger.SnapshotBlock) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	for _, fn := range s.subs {
+		if fn != nil {
+			go fn(block)
 		}
 	}
 }
 
-func (f *snapshotBlockFeed) Subscribe() *snapshotBlockSub {
-	ch := make(chan *ledger.SnapshotBlock)
-
-	return &snapshotBlockSub{
-		feed:    f,
-		channel: ch,
-	}
-}
-
-func (f *snapshotBlockFeed) emit(block *ledger.SnapshotBlock) {
-	f.event <- block
-}
-
-func (f *snapshotBlockFeed) remove(s *snapshotBlockSub) {
-	select {
-	case <-f.stop:
-	default:
-		f.delChan <- s.channel
-	}
-}
-
-func (f *snapshotBlockFeed) destroy() {
-	select {
-	case <-f.stop:
-	default:
-		close(f.stop)
-	}
-}
-
-type snapshotBlockSub struct {
-	feed    *snapshotBlockFeed
-	channel chan *ledger.SnapshotBlock
-	once    sync.Once
-}
-
-func (s *snapshotBlockSub) Chan() <-chan *ledger.SnapshotBlock {
-	return s.channel
-}
-
-func (s *snapshotBlockSub) Unsubscribe() {
-	s.once.Do(func() {
-		s.feed.remove(s)
-	})
-}
-
-// accountblockfeed
+// @section accountBlockFeed
 type accountBlockFeed struct {
-	chans   []chan<- *ledger.AccountBlock
-	newChan chan chan<- *ledger.AccountBlock
-	delChan chan chan<- *ledger.AccountBlock
-	event   chan *ledger.AccountBlock
-	stop    chan struct{}
+	lock      sync.RWMutex
+	subs      map[int]func(block *ledger.AccountBlock)
+	currentId int
 }
 
-func NewAccountBlockFeed() *accountBlockFeed {
-	f := &accountBlockFeed{
-		chans:   make([]chan<- *ledger.AccountBlock, 0, 1),
-		newChan: make(chan chan<- *ledger.AccountBlock),
-		delChan: make(chan chan<- *ledger.AccountBlock),
-		event:   make(chan *ledger.AccountBlock),
-		stop:    make(chan struct{}),
-	}
+func (s *accountBlockFeed) Sub(fn func(*ledger.AccountBlock)) int {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
-	f.loop()
-
-	return f
+	s.currentId++
+	s.subs[s.currentId] = fn
+	return s.currentId
 }
 
-func (f *accountBlockFeed) loop() {
-loop:
-	for {
-		select {
-		case <-f.stop:
-			for _, c := range f.chans {
-				close(c)
-			}
-			break loop
-		case ch := <-f.newChan:
-			f.chans = append(f.chans, ch)
-		case ch := <-f.delChan:
-			for i, c := range f.chans {
-				if c == ch {
-					f.chans = append(f.chans[:i], f.chans[i+1:]...)
-				}
-			}
-			close(ch)
-		case block := <-f.event:
-			for _, c := range f.chans {
-				c <- block
-			}
+func (s *accountBlockFeed) Unsub(subId int) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	delete(s.subs, subId)
+}
+
+func (s *accountBlockFeed) Notify(block *ledger.AccountBlock) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	for _, fn := range s.subs {
+		if fn != nil {
+			go fn(block)
 		}
 	}
-}
-
-func (f *accountBlockFeed) Subscribe() *accountBlockSub {
-	ch := make(chan *ledger.AccountBlock)
-
-	return &accountBlockSub{
-		feed:    f,
-		channel: ch,
-	}
-}
-
-func (f *accountBlockFeed) emit(block *ledger.AccountBlock) {
-	f.event <- block
-}
-
-func (f *accountBlockFeed) remove(s *accountBlockSub) {
-	select {
-	case <-f.stop:
-	default:
-		f.delChan <- s.channel
-	}
-}
-
-func (f *accountBlockFeed) destroy() {
-	select {
-	case <-f.stop:
-	default:
-		close(f.stop)
-	}
-}
-
-type accountBlockSub struct {
-	feed    *accountBlockFeed
-	channel chan *ledger.AccountBlock
-	once    sync.Once
-}
-
-func (s *accountBlockSub) Chan() <-chan *ledger.AccountBlock {
-	return s.channel
-}
-
-func (s *accountBlockSub) Unsubscribe() {
-	s.once.Do(func() {
-		s.feed.remove(s)
-	})
 }

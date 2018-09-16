@@ -10,56 +10,8 @@ import (
 	"math/big"
 )
 
-const Version uint32 = 2
-
-type NetID uint32
-
-const (
-	MainNet NetID = iota + 1
-	TestNet
-)
-
-func (i NetID) String() string {
-	switch i {
-	case MainNet:
-		return "MainNet"
-	case TestNet:
-		return "TestNet"
-	default:
-		return "Unknown"
-	}
-}
-
-// @section Msg
-type Serializable interface {
-	Serialize() ([]byte, error)
-	Deserialize([]byte) error
-}
-
-type Msg struct {
-	Set     MsgSet
-	Code    MsgCode
-	Payload []byte
-}
-
-// @section Transport
-type MsgReader interface {
-	ReadMsg() (Msg, error)
-}
-
-type MsgWriter interface {
-	WriteMsg(Msg) error
-}
-
-type MsgReadWriter interface {
-	MsgReader
-	MsgWriter
-}
-
-type Transport interface {
-	MsgReadWriter
-	Close(ExceptionMsg)
-}
+const CmdSetName = "vite"
+const CmdSetID uint64 = 2
 
 // @section BlockID
 type BlockID struct {
@@ -109,18 +61,20 @@ func (b *BlockID) Deserialize(data []byte) error {
 	return nil
 }
 
-// @section MsgCode
-type MsgSet uint64
-type MsgCode uint64
+// @section Cmd
+type CmdSet uint64
+type Cmd uint64
 
 const (
-	HandShakeCode MsgCode = iota
+	HandshakeCode Cmd = iota
 	StatusCode
 	GetSubLedgerCode
 	GetSnapshotBlockHeadersCode
 	GetSnapshotBlockBodiesCode
 	GetSnapshotBlocksCode
+	GetSnapshotBlocksByHashCode
 	GetAccountBlocksCode
+	GetAccountBlocksByHashCode
 	SubLedgerCode
 	SnapshotBlockHeadersCode
 	SnapshotBlockBodiesCode
@@ -132,13 +86,15 @@ const (
 )
 
 var msgNames = [...]string{
-	HandShakeCode:               "HandShakeMsg",
+	HandshakeCode:               "HandShakeMsg",
 	StatusCode:                  "StatusMsg",
 	GetSubLedgerCode:            "GetSubLedgerMsg",
 	GetSnapshotBlockHeadersCode: "GetSnapshotBlockHeadersMsg",
 	GetSnapshotBlockBodiesCode:  "GetSnapshotBlockBodiesMsg",
 	GetSnapshotBlocksCode:       "GetSnapshotBlocksMsg",
+	GetSnapshotBlocksByHashCode: "GetSnapshotBlocksByHashMsg",
 	GetAccountBlocksCode:        "GetAccountBlocksMsg",
+	GetAccountBlocksByHashCode:  "GetAccountBlocksByHashMsg",
 	SubLedgerCode:               "SubLedgerMsg",
 	SnapshotBlockHeadersCode:    "SnapshotBlockHeadersMsg",
 	SnapshotBlockBodiesCode:     "SnapshotBlockBodiesMsg",
@@ -147,7 +103,7 @@ var msgNames = [...]string{
 	NewSnapshotBlockCode:        "NewSnapshotBlockMsg",
 }
 
-func (t MsgCode) String() string {
+func (t Cmd) String() string {
 	if t == ExceptionCode {
 		return "ExceptionMsg"
 	}
@@ -159,7 +115,7 @@ func (t MsgCode) String() string {
 type Segment struct {
 	From    *BlockID
 	To      *BlockID
-	Step    uint32
+	Step    uint64
 	Forward bool
 }
 
@@ -196,43 +152,49 @@ func (s *Segment) Deserialize(data []byte) error {
 
 type AccountSegment map[string]*Segment
 
-func (this *AccountSegment) Serialize() ([]byte, error) {
+func (as AccountSegment) Serialize() ([]byte, error) {
+	// todo
 
+	return nil, nil
+}
+
+func (as AccountSegment) Deserialize(data []byte) error {
+	// todo
+	return nil
 }
 
 // @message HandShake
-
 type HandShakeMsg struct {
-	NetID
-	Version      uint32
+	Version      uint64
+	NetID        uint64
 	Height       *big.Int
 	CurrentBlock types.Hash
 	GenesisBlock types.Hash
 }
 
 func (st *HandShakeMsg) Serialize() ([]byte, error) {
-	stpb := &vitepb.StatusMsg{
-		ProtocolVersion: st.Version,
-		Height:          st.Height.Bytes(),
-		CurrentBlock:    st.CurrentBlock[:],
-		GenesisBlock:    st.GenesisBlock[:],
+	pb := &vitepb.StatusMsg{
+		Version:      st.Version,
+		Height:       st.Height.Bytes(),
+		CurrentBlock: st.CurrentBlock[:],
+		GenesisBlock: st.GenesisBlock[:],
 	}
 
-	return proto.Marshal(stpb)
+	return proto.Marshal(pb)
 }
 
 func (st *HandShakeMsg) Deserialize(data []byte) error {
-	stpb := &vitepb.StatusMsg{}
-	err := proto.Unmarshal(data, stpb)
+	pb := new(vitepb.StatusMsg)
+	err := proto.Unmarshal(data, pb)
 	if err != nil {
 		return err
 	}
-	st.Version = stpb.ProtocolVersion
+	st.Version = pb.Version
 
 	bi := new(big.Int)
-	st.Height = bi.SetBytes(stpb.Height)
-	copy(st.GenesisBlock[:], stpb.GenesisBlock)
-	copy(st.CurrentBlock[:], stpb.CurrentBlock)
+	st.Height = bi.SetBytes(pb.Height)
+	copy(st.GenesisBlock[:], pb.GenesisBlock)
+	copy(st.CurrentBlock[:], pb.CurrentBlock)
 
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
+	"sync"
 )
 
 type SyncState int
@@ -22,8 +23,39 @@ var syncStatus = [...]string{
 	Syncerr:      "Sync error",
 }
 
-func (this SyncState) String() string {
-	return syncStatus[this]
+func (s SyncState) String() string {
+	return syncStatus[s]
+}
+
+type SyncStateFeed struct {
+	lock      sync.RWMutex
+	currentId int
+	subs      map[int]func(SyncState)
+}
+
+func (s *SyncStateFeed) Sub(fn func(SyncState)) int {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.currentId++
+	s.subs[s.currentId] = fn
+	return s.currentId
+}
+
+func (s *SyncStateFeed) Unsub(subId int) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	delete(s.subs, subId)
+}
+func (s *SyncStateFeed) Notify(st SyncState) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	for _, fn := range s.subs {
+		if fn != nil {
+			go fn(st)
+		}
+	}
 }
 
 type BlockChain interface {

@@ -10,7 +10,7 @@ message BlockID {
 message Segment {
     BlockID From = 1;
     BlockID To = 2;
-    uint32 step = 3;
+    uint64 step = 3;
     bool Forward = 4;
 }
 
