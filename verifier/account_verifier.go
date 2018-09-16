@@ -2,6 +2,7 @@ package verifier
 
 import (
 	"bytes"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -10,7 +11,9 @@ import (
 )
 
 const (
-	TimeOut = float64(48)
+	TimeOut             = float64(48)
+	MaxRecvTypeCount    = 1
+	MaxRecvErrTypeCount = 3
 )
 
 type AccountVerifier struct {
@@ -177,6 +180,28 @@ func (self *AccountVerifier) VerifyConfirmed(block *ledger.AccountBlock) bool {
 	return true
 }
 
+func (self *AccountVerifier) VerifyReceiveReachLimit(sendBlock *ledger.AccountBlock) bool {
+	recvTime := self.chainReader.GetReceiveTimes(&sendBlock.ToAddress, &sendBlock.Hash)
+
+	if sendBlock.BlockType == ledger.BlockTypeReceiveError && recvTime >= MaxRecvErrTypeCount {
+		return true
+	}
+	if sendBlock.BlockType == ledger.BlockTypeReceive && recvTime >= MaxRecvTypeCount {
+		return true
+	}
+
+	return false
+}
+
+func (self *AccountVerifier) VerifyUnconfirmedPriorBlockReceived(priorBlockHash *types.Hash) VerifyResult {
+	existBlock, err := self.chainReader.GetAccountBlockByHash(priorBlockHash)
+	if err != nil || existBlock == nil {
+		self.log.Info("VerifyUnconfirmedPriorBlockReceived: the prev block hasn't existed in Chain. ")
+		return PENDING
+	}
+	return SUCCESS
+}
+
 func (self *AccountVerifier) VerifyforProducer(block *ledger.AccountBlock) *AccountBlockVerifyStat {
 	defer monitor.LogTime("verify", "accountProducer", time.Now())
 
@@ -214,11 +239,6 @@ func (self *AccountVerifier) VerifyforP2P(block *ledger.AccountBlock) bool {
 		return true
 	}
 	return false
-}
-
-// todo
-func (self *AccountVerifier) VerifyUnconfirmed(block *ledger.AccountBlock) VerifyResult {
-	return FAIL
 }
 
 type AccountBlockVerifyStat struct {

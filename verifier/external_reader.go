@@ -24,6 +24,7 @@ type AccountReader interface {
 	GetAccountBlockByHash(blockHash *types.Hash) (block *ledger.AccountBlock, err error)
 	GetContractGid(addr *types.Address) (*types.Gid, error)
 	GetGenesisBlockFirst() *ledger.AccountBlock
+	GetReceiveTimes(addr *types.Address, fromBlockHash *types.Hash) uint8
 }
 
 type CommitteeReader interface {

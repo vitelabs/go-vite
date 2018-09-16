@@ -4,13 +4,13 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
 	"github.com/vitelabs/go-vite/unconfirmed/worker"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"math/big"
 	"time"
-	"github.com/vitelabs/go-vite/producer"
 )
 
 var (
@@ -146,7 +146,7 @@ func (manager *Manager) producerStartEventFunc(accevent producer.AccountEvent) {
 
 	w, found := manager.contractWorkers[event.Gid]
 	if !found {
-		w, e := worker.NewContractWorker(manager.unconfirmedBlocksPool, manager.Vite.WalletManager(), event)
+		w, e := worker.NewContractWorker(manager.unconfirmedBlocksPool, manager.Vite.WalletManager(), manager.Vite.Chain(), event)
 		if e != nil {
 			manager.log.Error(e.Error())
 			return

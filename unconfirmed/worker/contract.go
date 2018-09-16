@@ -3,18 +3,23 @@ package worker
 import (
 	"container/heap"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
+	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/wallet"
 	"sync"
 )
 
 type ContractWorker struct {
+	chain      *chain.Chain
 	wallet     *wallet.Manager
 	pool       PoolAccess
 	blocksPool *model.UnconfirmedBlocksPool
+	verifer    *verifier.AccountVerifier
 
 	gid                 types.Gid
 	address             types.Address
@@ -38,9 +43,10 @@ type ContractWorker struct {
 	log log15.Logger
 }
 
-func NewContractWorker(blocksPool *model.UnconfirmedBlocksPool, wallet *wallet.Manager, accevent producer.AccountStartEvent) (*ContractWorker, error) {
+func NewContractWorker(blocksPool *model.UnconfirmedBlocksPool, wallet *wallet.Manager, chain *chain.Chain,
+	committee consensus.Verifier, accEvent producer.AccountStartEvent) (*ContractWorker, error) {
 
-	addressList, err := blocksPool.GetAddrListByGid(accevent.Gid)
+	addressList, err := blocksPool.GetAddrListByGid(accEvent.Gid)
 
 	if err != nil {
 		return nil, err
@@ -53,10 +59,12 @@ func NewContractWorker(blocksPool *model.UnconfirmedBlocksPool, wallet *wallet.M
 	return &ContractWorker{
 		blocksPool: blocksPool,
 		wallet:     wallet,
+		chain:      chain,
+		verifer:    verifier.NewAccountVerifier(chain, committee),
 
-		accevent:            accevent,
-		gid:                 accevent.Gid,
-		address:             accevent.Address,
+		accevent:            accEvent,
+		gid:                 accEvent.Gid,
+		address:             accEvent.Address,
 		contractAddressList: addressList,
 
 		status:          Create,
@@ -69,7 +77,7 @@ func NewContractWorker(blocksPool *model.UnconfirmedBlocksPool, wallet *wallet.M
 		contractTasks: make([]*ContractTask, CONTRACT_TASK_SIZE),
 		blackList:     make(map[types.Hash]bool),
 
-		log: log15.New("ContractWorker ", "addr", accevent.Address, "gid", accevent.Gid),
+		log: log15.New("ContractWorker ", "addr", accEvent.Address, "gid", accEvent.Gid),
 	}, nil
 }
 

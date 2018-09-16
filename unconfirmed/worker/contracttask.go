@@ -2,12 +2,14 @@ package worker
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
+	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/wallet"
 	"sync"
 	"time"
@@ -22,6 +24,8 @@ type ContractTask struct {
 	blocksPool *model.UnconfirmedBlocksPool
 	wallet     *wallet.Manager
 	pool       PoolAccess
+	chain      *chain.Chain
+	verifier   *verifier.AccountVerifier
 
 	status      int
 	statusMutex sync.Mutex
@@ -43,6 +47,8 @@ func NewContractTask(worker *ContractWorker, index int) *ContractTask {
 		blocksPool:   worker.blocksPool,
 		wallet:       worker.wallet,
 		pool:         worker.pool,
+		chain:        worker.chain,
+		verifier:     worker.verifer,
 		status:       Idle,
 		reRetry:      false,
 		stopListener: make(chan struct{}),
@@ -114,6 +120,7 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 	bQueue := fItem.Value
 
 	for i := 0; i < bQueue.Size(); i++ {
+		var priorBlock *ledger.AccountBlock
 		sBlock := bQueue.Dequeue()
 		task.log.Info("Process to make the receiveBlock, its'sendBlock detail:", task.log.New("hash", sBlock.Hash))
 
@@ -122,9 +129,8 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 			return true
 		}
 
-		recvType, count := task.CheckChainReceiveCount(&sBlock.ToAddress, &sBlock.Hash)
-		if recvType == 5 && count > MaxErrRecvCount {
-			task.log.Info("Delete the UnconfirmedMeta: the recvErrBlock reach the max-limit count of existence.")
+		if task.verifier.VerifyReceiveReachLimit(sBlock) {
+			task.log.Info("Delete the UnconfirmedMeta: the recvBlock reach the max-limit count of existence.")
 			task.blocksPool.WriteUnconfirmed(false, nil, sBlock)
 			continue
 		}
@@ -135,7 +141,7 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 			return true
 		}
 
-		gen, err := generator.NewGenerator(task.blocksPool.Chain, task.wallet.KeystoreManager,
+		gen, err := generator.NewGenerator(task.chain, task.wallet.KeystoreManager,
 			&task.accevent.SnapshotHash, &block.PrevHash, &block.AccountAddress)
 		if err != nil {
 			task.log.Error("NewGenerator Error", err)
@@ -162,17 +168,18 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 				task.breaker <- struct{}{}
 				return true
 			}
-			for _, v := range genResult.BlockGenList {
+			for k, v := range genResult.BlockGenList {
 				if err := task.pool.AddDirectBlock(sBlock, v); err != nil {
 					return true
 				}
+				if k == len(genResult.BlockGenList)-1 {
+					priorBlock = v.AccountBlock
+				}
+
 			}
 		}
-		// todo verify for Vm, wait for(the pending) the chance
 	WaitForVmDB:
-		block, err := task.Chain.GetAccountBlockByHash(&genResult.BlockGenList[0].AccountBlock.Hash)
-		if err != nil || block == nil {
-			task.log.Info("Wait for VmDB: the prev block hasn't existed in Chain. ")
+		if task.verifier.VerifyUnconfirmedPriorBlockReceived(&priorBlock.Hash) == verifier.PENDING {
 			goto WaitForVmDB
 		}
 	}
@@ -186,10 +193,6 @@ func (task *ContractTask) GetFromItem() *model.FromItem {
 	fItem := <-task.subQueue
 	task.status = Start
 	return fItem
-}
-
-func (task *ContractTask) CheckChainReceiveCount(fromAddress *types.Address, fromHash *types.Hash) (recvType int, count int) {
-	return recvType, count
 }
 
 func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) (*ledger.AccountBlock, error) {
@@ -224,7 +227,7 @@ func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock) (*led
 		Nonce:          nil,
 		Signature:      nil,
 	}
-	preBlock, err := task.blocksPool.GetLatestAccountBlock(&block.AccountAddress)
+	preBlock, err := task.chain.GetLatestAccountBlock(&block.AccountAddress)
 	if err != nil {
 		return nil, errors.New("GetLatestAccountBlock error" + err.Error())
 	}
