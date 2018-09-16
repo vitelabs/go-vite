@@ -3,7 +3,6 @@ package net
 import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
-	"math/big"
 	"sync"
 	"time"
 )
@@ -39,14 +38,14 @@ func (s reqStatus) String() string {
 }
 
 type req struct {
-	id      uint64
-	peer    *Peer
-	count   int // Count the number of times the req was requested
-	params  Params
-	status  reqStatus
-	time    time.Time
-	timeout time.Duration
-	lock    sync.Mutex
+	id         uint64
+	peer       *Peer
+	count      int // Count the number of times the req was requested
+	params     Params
+	status     reqStatus
+	time       time.Time
+	expiration time.Duration
+	lock       sync.Mutex
 }
 
 func (r *req) Equal(r2 interface{}) bool {
@@ -138,7 +137,7 @@ loop:
 		case <-ticker.C:
 			now = time.Now()
 			for _, req := range p.pending {
-				if now.Sub(req.time) > req.timeout {
+				if now.Sub(req.time) > req.expiration {
 					p.log.Error("req timeout")
 					p.errChan <- req
 				}
@@ -187,9 +186,7 @@ func (p *reqPool) Add(r *req) {
 func (p *reqPool) Execute(r *req) {
 	delete(p.waiting, r.id)
 
-	height := new(big.Int)
-	height.SetUint64(r.params.Ceil())
-	peers := p.peers.Pick(height)
+	peers := p.peers.Pick(r.params.Ceil())
 
 	for _, peer := range peers {
 		if _, ok := p.pending[peer.ID]; !ok {

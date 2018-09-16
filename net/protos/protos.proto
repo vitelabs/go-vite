@@ -4,7 +4,7 @@ package protos;
 
 message BlockID {
     bytes Hash = 1;
-    bytes Height = 2;
+    uint64 Height = 2;
 }
 
 message Segment {

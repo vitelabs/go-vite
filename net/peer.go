@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"io/ioutil"
-	"math/big"
 	"sync"
 )
 
@@ -47,7 +46,7 @@ type Peer struct {
 	ts                p2p.MsgReadWriter
 	ID                string
 	head              types.Hash
-	height            *big.Int
+	height            uint64
 	Version           uint64
 	Lock              sync.RWMutex
 	sending           chan struct{} // use this channel to ensure that only one goroutine send msg simultaneously.
@@ -65,7 +64,6 @@ func newPeer(p *p2p.Peer, ts p2p.MsgReadWriter, version uint64) *Peer {
 		ts:                ts,
 		ID:                p.ID().Brief(),
 		Version:           version,
-		height:            new(big.Int),
 		sending:           make(chan struct{}, 1),
 		KnownBlocks:       NewCuckooSet(filterCap),
 		Log:               log15.New("module", "net/peer"),
@@ -76,7 +74,7 @@ func newPeer(p *p2p.Peer, ts p2p.MsgReadWriter, version uint64) *Peer {
 	}
 }
 
-func (p *Peer) Handshake(netId uint64, height *big.Int, current, genesis types.Hash) error {
+func (p *Peer) Handshake(netId uint64, height uint64, current, genesis types.Hash) error {
 	errch := make(chan error, 1)
 	go func() {
 		errch <- p.Send(HandshakeCode, &HandShakeMsg{
@@ -135,7 +133,7 @@ func (p *Peer) ReadHandshake() (their *HandShakeMsg, err error) {
 	return
 }
 
-func (p *Peer) SetHead(head types.Hash, height *big.Int) {
+func (p *Peer) SetHead(head types.Hash, height uint64) {
 	p.Lock.Lock()
 	defer p.Lock.Unlock()
 
@@ -167,10 +165,14 @@ func (p *Peer) Broadcast() {
 	}
 }
 
+func (p *Peer) SeeBlock(hash types.Hash) {
+	p.Lock.Lock()
+	defer p.Lock.Unlock()
+	p.KnownBlocks.Add(hash)
+}
+
 // response
 func (p *Peer) SendSnapshotBlockHeaders(headers) error {
-	// todo
-
 	return p.Send(SnapshotBlockHeadersCode, headers)
 }
 
@@ -178,20 +180,48 @@ func (p *Peer) SendSnapshotBlockBodies(bodies) error {
 	return p.Send(SnapshotBlockBodiesCode, bodies)
 }
 
-func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock) error {
-	return p.Send(SnapshotBlocksCode, bs)
+func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock) (err error) {
+	err = p.Send(SnapshotBlocksCode, bs)
+
+	if err != nil {
+		return
+	}
+
+	for _, b := range bs {
+		p.SeeBlock(b.Hash)
+	}
+
+	return
 }
 
-func (p *Peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) error {
-	return p.Send(NewSnapshotBlockCode, b)
+func (p *Peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
+	err = p.Send(NewSnapshotBlockCode, b)
+
+	if err != nil {
+		return
+	}
+
+	p.SeeBlock(b.Hash)
+
+	return
 }
 
-func (p *Peer) SendAccountBlocks(abs []*ledger.AccountBlock) error {
-	return p.Send(AccountBlocksCode, abs)
+func (p *Peer) SendAccountBlocks(abs []*ledger.AccountBlock) (err error) {
+	err = p.Send(AccountBlocksCode, abs)
+
+	if err != nil {
+		return
+	}
+
+	for _, b := range abs {
+		p.SeeBlock(b.Hash)
+	}
+
+	return nil
 }
 
 func (p *Peer) SendSubLedger() error {
-	return p.Send(SubLedgerCode, abs)
+	return p.Send(SubLedgerCode)
 }
 
 // request
@@ -246,6 +276,10 @@ func (p *Peer) Info() *PeerInfo {
 	return &PeerInfo{}
 }
 
+func (p *Peer) Receive(cmd uint64, payload interface{}) {
+
+}
+
 // @section PeerSet
 type peerSet struct {
 	peers map[string]*Peer
@@ -262,12 +296,11 @@ func (m *peerSet) BestPeer() (best *Peer) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
-	maxHeight := new(big.Int)
-	var peerHeight *big.Int
+	var maxHeight uint64
 	for _, peer := range m.peers {
-		peerHeight = peer.Head().Height
-		if peerHeight != nil && peerHeight.Cmp(maxHeight) > 0 {
-			maxHeight = peer.Head().Height
+		peerHeight := peer.Head().Height
+		if peerHeight > maxHeight {
+			maxHeight = peerHeight
 			best = peer
 		}
 	}
@@ -299,12 +332,12 @@ func (m *peerSet) Count() int {
 	return len(m.peers)
 }
 
-func (m *peerSet) Pick(height *big.Int) (peers []*Peer) {
+func (m *peerSet) Pick(height uint64) (peers []*Peer) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
 	for _, p := range m.peers {
-		if p.Head().Height.Cmp(height) > 0 {
+		if p.Head().Height > height {
 			peers = append(peers, p)
 		}
 	}
@@ -317,6 +350,19 @@ func (m *peerSet) Info() (info []*PeerInfo) {
 
 	for _, peer := range m.peers {
 		info = append(info, peer.Info())
+	}
+
+	return
+}
+
+func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*Peer) {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+
+	for _, peer := range m.peers {
+		if !peer.KnownBlocks.Has(hash) {
+			peers = append(peers, peer)
+		}
 	}
 
 	return

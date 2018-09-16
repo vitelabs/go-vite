@@ -21,7 +21,7 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type StatusMsg struct {
 	NetID                uint64   `protobuf:"varint,1,opt,name=NetID,proto3" json:"NetID,omitempty"`
 	Version              uint64   `protobuf:"varint,2,opt,name=Version,proto3" json:"Version,omitempty"`
-	Height               []byte   `protobuf:"bytes,3,opt,name=Height,proto3" json:"Height,omitempty"`
+	Height               uint64   `protobuf:"varint,3,opt,name=Height,proto3" json:"Height,omitempty"`
 	CurrentBlock         []byte   `protobuf:"bytes,4,opt,name=CurrentBlock,proto3" json:"CurrentBlock,omitempty"`
 	GenesisBlock         []byte   `protobuf:"bytes,5,opt,name=GenesisBlock,proto3" json:"GenesisBlock,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -33,7 +33,7 @@ func (m *StatusMsg) Reset()         { *m = StatusMsg{} }
 func (m *StatusMsg) String() string { return proto.CompactTextString(m) }
 func (*StatusMsg) ProtoMessage()    {}
 func (*StatusMsg) Descriptor() ([]byte, []int) {
-	return fileDescriptor_message_9ea9f286e7d7a7fb, []int{0}
+	return fileDescriptor_message_389235869ecb78a6, []int{0}
 }
 func (m *StatusMsg) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StatusMsg.Unmarshal(m, b)
@@ -67,11 +67,11 @@ func (m *StatusMsg) GetVersion() uint64 {
 	return 0
 }
 
-func (m *StatusMsg) GetHeight() []byte {
+func (m *StatusMsg) GetHeight() uint64 {
 	if m != nil {
 		return m.Height
 	}
-	return nil
+	return 0
 }
 
 func (m *StatusMsg) GetCurrentBlock() []byte {
@@ -101,7 +101,7 @@ func (m *GetSnapshotBlocksMsg) Reset()         { *m = GetSnapshotBlocksMsg{} }
 func (m *GetSnapshotBlocksMsg) String() string { return proto.CompactTextString(m) }
 func (*GetSnapshotBlocksMsg) ProtoMessage()    {}
 func (*GetSnapshotBlocksMsg) Descriptor() ([]byte, []int) {
-	return fileDescriptor_message_9ea9f286e7d7a7fb, []int{1}
+	return fileDescriptor_message_389235869ecb78a6, []int{1}
 }
 func (m *GetSnapshotBlocksMsg) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetSnapshotBlocksMsg.Unmarshal(m, b)
@@ -153,7 +153,7 @@ func (m *SnapshotBlocksMsg) Reset()         { *m = SnapshotBlocksMsg{} }
 func (m *SnapshotBlocksMsg) String() string { return proto.CompactTextString(m) }
 func (*SnapshotBlocksMsg) ProtoMessage()    {}
 func (*SnapshotBlocksMsg) Descriptor() ([]byte, []int) {
-	return fileDescriptor_message_9ea9f286e7d7a7fb, []int{2}
+	return fileDescriptor_message_389235869ecb78a6, []int{2}
 }
 func (m *SnapshotBlocksMsg) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SnapshotBlocksMsg.Unmarshal(m, b)
@@ -193,7 +193,7 @@ func (m *GetAccountBlocksMsg) Reset()         { *m = GetAccountBlocksMsg{} }
 func (m *GetAccountBlocksMsg) String() string { return proto.CompactTextString(m) }
 func (*GetAccountBlocksMsg) ProtoMessage()    {}
 func (*GetAccountBlocksMsg) Descriptor() ([]byte, []int) {
-	return fileDescriptor_message_9ea9f286e7d7a7fb, []int{3}
+	return fileDescriptor_message_389235869ecb78a6, []int{3}
 }
 func (m *GetAccountBlocksMsg) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetAccountBlocksMsg.Unmarshal(m, b)
@@ -245,7 +245,7 @@ func (m *AccountBlocksMsg) Reset()         { *m = AccountBlocksMsg{} }
 func (m *AccountBlocksMsg) String() string { return proto.CompactTextString(m) }
 func (*AccountBlocksMsg) ProtoMessage()    {}
 func (*AccountBlocksMsg) Descriptor() ([]byte, []int) {
-	return fileDescriptor_message_9ea9f286e7d7a7fb, []int{4}
+	return fileDescriptor_message_389235869ecb78a6, []int{4}
 }
 func (m *AccountBlocksMsg) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccountBlocksMsg.Unmarshal(m, b)
@@ -280,9 +280,9 @@ func init() {
 	proto.RegisterType((*AccountBlocksMsg)(nil), "vitepb.AccountBlocksMsg")
 }
 
-func init() { proto.RegisterFile("vitepb/message.proto", fileDescriptor_message_9ea9f286e7d7a7fb) }
+func init() { proto.RegisterFile("vitepb/message.proto", fileDescriptor_message_389235869ecb78a6) }
 
-var fileDescriptor_message_9ea9f286e7d7a7fb = []byte{
+var fileDescriptor_message_389235869ecb78a6 = []byte{
 	// 300 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x91, 0xb1, 0x4e, 0xc3, 0x30,
 	0x10, 0x86, 0x15, 0xda, 0x06, 0x38, 0x3a, 0x40, 0xa8, 0x8a, 0xd5, 0x01, 0xaa, 0x4c, 0x9d, 0x5a,
@@ -293,8 +293,8 @@ var fileDescriptor_message_9ea9f286e7d7a7fb = []byte{
 	0xe6, 0xef, 0x6b, 0x81, 0x64, 0xb9, 0xc9, 0x99, 0x9b, 0x6b, 0x91, 0x96, 0x7a, 0x23, 0x3b, 0x40,
 	0xf8, 0xe3, 0xc1, 0xfe, 0x8a, 0x52, 0xaa, 0xf4, 0xa3, 0x2e, 0x82, 0x11, 0x0c, 0x96, 0x48, 0x0f,
 	0x37, 0xcc, 0x9b, 0x7a, 0xb3, 0x7e, 0x62, 0x43, 0xc0, 0x60, 0xf7, 0x19, 0x95, 0xe6, 0x52, 0xb0,
-	0x1d, 0xd3, 0x37, 0x31, 0x18, 0x83, 0x7f, 0x8f, 0xbc, 0xd8, 0x10, 0xeb, 0x4d, 0xbd, 0xd9, 0x30,
-	0x71, 0x29, 0x08, 0x61, 0x18, 0x55, 0x4a, 0xa1, 0xa0, 0xeb, 0xfa, 0x3f, 0xd6, 0x37, 0xd3, 0xad,
+	0x1d, 0xd3, 0x37, 0x31, 0x18, 0x83, 0x7f, 0x8f, 0xbc, 0xd8, 0x10, 0xeb, 0x99, 0x81, 0x4b, 0x41,
+	0x08, 0xc3, 0xa8, 0x52, 0x0a, 0x05, 0x5d, 0xd7, 0xff, 0xb1, 0xfe, 0xd4, 0x9b, 0x0d, 0x93, 0xad,
 	0xae, 0x66, 0x62, 0x14, 0xa8, 0xb9, 0xb6, 0xcc, 0xc0, 0x32, 0xed, 0x2e, 0x7c, 0x85, 0x51, 0x8c,
 	0xb4, 0x72, 0xf2, 0xa6, 0x33, 0x9e, 0x63, 0xf0, 0x9f, 0x14, 0x2f, 0xb8, 0x30, 0xa2, 0xc3, 0xc4,
 	0xa5, 0xda, 0x3f, 0xaa, 0xf7, 0xe0, 0x3c, 0x6d, 0xa8, 0xfd, 0xef, 0xa4, 0xfa, 0x4e, 0xd5, 0x9b,
@@ -302,5 +302,5 @@ var fileDescriptor_message_9ea9f286e7d7a7fb = []byte{
 	0xa6, 0xbd, 0xd9, 0xc1, 0x05, 0x9b, 0xdb, 0x25, 0xce, 0xb7, 0xd0, 0x25, 0x52, 0xe2, 0xb8, 0xf0,
 	0x05, 0x8e, 0x63, 0xa4, 0x2b, 0x7b, 0x83, 0xff, 0xb7, 0x8c, 0xe0, 0xb0, 0xf3, 0xf6, 0xe2, 0x4f,
 	0xb2, 0x67, 0x24, 0x4f, 0x1a, 0xc9, 0x36, 0xd9, 0x72, 0xcc, 0x7c, 0x73, 0xef, 0xcb, 0xdf, 0x00,
-	0x00, 0x00, 0xff, 0xff, 0xac, 0xf3, 0x53, 0x88, 0x50, 0x02, 0x00, 0x00,
+	0x00, 0x00, 0xff, 0xff, 0xff, 0x57, 0x0a, 0xbe, 0x50, 0x02, 0x00, 0x00,
 }
