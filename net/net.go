@@ -4,6 +4,7 @@ import (
 	"github.com/seiflotfy/cuckoofilter"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"io/ioutil"
 	"log"
 	"math/big"
 	"net"
@@ -94,35 +95,100 @@ func (n *Net) HandlePeer(p *Peer) {
 		log.Fatal("cannot get genesis block", err)
 	}
 
-	err := p.Handshake(n.NetID, head.Height, head.Hash, genesis.Hash)
+	err = p.Handshake(n.NetID, head.Height, head.Hash, genesis.Hash)
 	if err != nil {
 		return
 	}
 }
 
-func (n *Net) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock, propagate bool) {
+func (n *Net) HandleMsg(p *Peer) (err error) {
+	msg, err := p.ts.ReadMsg()
+	if err != nil {
+		return
+	}
+	defer msg.Discard()
 
+	Code := Cmd(msg.Cmd)
+	if Code == HandshakeCode {
+		return errHandshakeTwice
+	}
+
+	payload, err := ioutil.ReadAll(msg.Payload)
+	if err != nil {
+		return
+	}
+
+	switch Cmd(msg.Cmd) {
+	case StatusCode:
+		status := new(BlockID)
+		err = status.Deserialize(payload)
+		if err != nil {
+			return
+		}
+		p.SetHead(status.Hash, status.Height)
+	case GetSubLedgerCode:
+		seg := new(Segment)
+		err = seg.Deserialize(payload)
+		if err != nil {
+			return
+		}
+
+	case GetSnapshotBlockHeadersCode:
+	case GetSnapshotBlockBodiesCode:
+	case GetSnapshotBlocksCode:
+	case GetSnapshotBlocksByHashCode:
+	case GetAccountBlocksCode:
+	case GetAccountBlocksByHashCode:
+	case SubLedgerCode:
+	case SnapshotBlockHeadersCode:
+	case SnapshotBlockBodiesCode:
+	case SnapshotBlocksCode:
+	case AccountBlocksCode:
+	case NewSnapshotBlockCode:
+	case ExceptionCode:
+	default:
+
+	}
+
+	return nil
+}
+
+func (n *Net) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock, propagate bool) {
+	for _, block := range blocks {
+		go func(b *ledger.SnapshotBlock) {
+			peers := n.peers.UnknownBlock(block.Hash)
+
+			for _, peer := range peers {
+				go peer.SendNewSnapshotBlock(block)
+			}
+		}(block)
+	}
 }
 
 func (n *Net) BroadcastAccountBlocks(blocks []*ledger.AccountBlock, propagate bool) {
+	for _, block := range blocks {
+		peers := n.peers.UnknownBlock(block.Hash)
+		for _, peer := range peers {
+			go func(peers []*Peer, b *ledger.AccountBlock) {
+				peer.SendAccountBlocks([]*ledger.AccountBlock{block})
+			}(peers, block)
+		}
+	}
+}
+
+func (n *Net) FetchSnapshotBlocks(s *Segment) {
 
 }
 
-type snap struct {
-	From    types.Hash
-	To      types.Hash
-	Count   uint64
-	Forward bool
-	Step    int
-}
-
-func (n *Net) FetchSnapshotBlocks(s *snap) {
+func (n *Net) FetchSnapshotBlocksByHash(hashes []types.Hash) {
 
 }
 
-type ac map[types.Address]*snap
+func (n *Net) FetchAccountBlocks(as AccountSegment) {
 
-func (n *Net) FetchAccountBlocks(a ac) {
+}
+
+func (n *Net) FetchAccountBlocksByHash(hashes []types.Hash) {
 
 }
 
@@ -167,17 +233,21 @@ func (n *Net) Status() *NetStatus {
 	default:
 	}
 
+	n.slock.RLock()
+	st := n.syncState
+	n.slock.RUnlock()
+
 	return &NetStatus{
-		Peers:      n.peers.Info(),
-		Running:    running,
-		Uptime:     time.Now().Sub(n.start),
-		SyncStatus: n.syncState.String(),
+		Peers:     n.peers.Info(),
+		Running:   running,
+		Uptime:    time.Now().Sub(n.start),
+		SyncState: st,
 	}
 }
 
 type NetStatus struct {
-	Peers      []*PeerInfo
-	SyncStatus string
-	Uptime     time.Duration
-	Running    bool
+	Peers     []*PeerInfo
+	SyncState SyncState
+	Uptime    time.Duration
+	Running   bool
 }

@@ -3,12 +3,14 @@ package net
 import (
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/protocols/protos"
+	"github.com/vitelabs/go-vite/net/protos"
 	"github.com/vitelabs/go-vite/vitepb"
-	"math/big"
 )
+
+var errHandshakeTwice = errors.New("handshake should send only once")
 
 const CmdSetName = "vite"
 const CmdSetID uint64 = 2
@@ -16,10 +18,10 @@ const CmdSetID uint64 = 2
 // @section BlockID
 type BlockID struct {
 	Hash   types.Hash
-	Height *big.Int
+	Height uint64
 }
 
-func (b *BlockID) Equal(hash types.Hash, height *big.Int) bool {
+func (b *BlockID) Equal(hash types.Hash, height uint64) bool {
 	equalHash := true
 	equalHeight := true
 
@@ -27,8 +29,8 @@ func (b *BlockID) Equal(hash types.Hash, height *big.Int) bool {
 		equalHash = hash == b.Hash
 	}
 
-	if height != nil && b.Height != nil {
-		equalHeight = height.Cmp(b.Height) == 0
+	if height != 0 && b.Height != 0 {
+		equalHeight = height == b.Height
 	}
 
 	return equalHash && equalHeight
@@ -37,14 +39,13 @@ func (b *BlockID) Equal(hash types.Hash, height *big.Int) bool {
 func (b *BlockID) proto() *protos.BlockID {
 	return &protos.BlockID{
 		Hash:   b.Hash[:],
-		Height: b.Height.Bytes(),
+		Height: b.Height,
 	}
 }
 
 func (b *BlockID) deProto(pb *protos.BlockID) {
 	copy(b.Hash[:], pb.Hash)
-	b.Height = new(big.Int)
-	b.Height.SetBytes(pb.Height)
+	b.Height = b.Height
 }
 
 func (b *BlockID) Serialize() ([]byte, error) {
@@ -52,7 +53,7 @@ func (b *BlockID) Serialize() ([]byte, error) {
 }
 
 func (b *BlockID) Deserialize(data []byte) error {
-	pb := &protos.BlockID{}
+	pb := new(protos.BlockID)
 	err := proto.Unmarshal(data, pb)
 	if err != nil {
 		return err
@@ -167,7 +168,7 @@ func (as AccountSegment) Deserialize(data []byte) error {
 type HandShakeMsg struct {
 	Version      uint64
 	NetID        uint64
-	Height       *big.Int
+	Height       uint64
 	CurrentBlock types.Hash
 	GenesisBlock types.Hash
 }
@@ -175,7 +176,7 @@ type HandShakeMsg struct {
 func (st *HandShakeMsg) Serialize() ([]byte, error) {
 	pb := &vitepb.StatusMsg{
 		Version:      st.Version,
-		Height:       st.Height.Bytes(),
+		Height:       st.Height,
 		CurrentBlock: st.CurrentBlock[:],
 		GenesisBlock: st.GenesisBlock[:],
 	}
@@ -191,8 +192,7 @@ func (st *HandShakeMsg) Deserialize(data []byte) error {
 	}
 	st.Version = pb.Version
 
-	bi := new(big.Int)
-	st.Height = bi.SetBytes(pb.Height)
+	st.Height = pb.Height
 	copy(st.GenesisBlock[:], pb.GenesisBlock)
 	copy(st.CurrentBlock[:], pb.CurrentBlock)
 
