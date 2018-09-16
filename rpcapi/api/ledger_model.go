@@ -4,12 +4,11 @@ import (
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
 )
 
 type AccountBlockMeta struct {
-	AccountId     *big.Int `json:",omitempty"`
-	Height        *big.Int `json:",omitempty"`
+	AccountId     *string `json:",omitempty"`
+	Height        *string `json:",omitempty"`
 	Status        int // Block status, 1 means open, 2 means closed
 	IsSnapshotted bool
 }
@@ -24,18 +23,18 @@ type AccountBlock struct {
 	FromHash               *types.Hash        `json:",omitempty"` // hex string. Correlative send block hash, exists in receive block
 	PrevHash               *types.Hash        `json:",omitempty"` // Last block hash
 	Hash                   *types.Hash        `json:",omitempty"` // Block hash
-	Balance                *big.Int           `json:",omitempty"` // bigint. Balance of current account. if the block is generate by the client, the balance can be empty
-	Amount                 *big.Int           `json:",omitempty"` // bigint. Amount of this transaction
+	Balance                *string            `json:",omitempty"` // bigint. Balance of current account. if the block is generate by the client, the balance can be empty
+	Amount                 *string            `json:",omitempty"` // bigint. Amount of this transaction
 	Timestamp              uint64                                 // Timestamp second
 	TokenId                *types.TokenTypeId `json:",omitempty"` // Id of token received or sent
-	LastBlockHeightInToken *big.Int           `json:",omitempty"` // // [Optional] Height of last transaction block in this token. if the block is generate by the client it can be nil
+	LastBlockHeightInToken *string            `json:",omitempty"` // // [Optional] Height of last transaction block in this token. if the block is generate by the client it can be nil
 	Data                   *string            `json:",omitempty"` // Data requested or repsonsed
 	SnapshotTimestamp      *types.Hash        `json:",omitempty"` // Snapshot timestamp second
 	Signature              string                                 // Signature of current block
 	Nonce                  string                                 // PoW nounce
 	Difficulty             string                                 // PoW difficulty
-	FAmount                *big.Int           `json:",omitempty"` // bigint. Service fee
-	ConfirmedTimes         *big.Int           `json:",omitempty"` // bigint block`s confirmed times
+	FAmount                *string            `json:",omitempty"` // bigint. Service fee
+	ConfirmedTimes         *string            `json:",omitempty"` // bigint block`s confirmed times
 }
 
 func (ra *AccountBlock) ToLedgerAccBlock() (*ledger.AccountBlock, error) {
@@ -65,7 +64,7 @@ func (ra *AccountBlock) ToLedgerAccBlock() (*ledger.AccountBlock, error) {
 	lam = nil
 	if ra.Meta != nil {
 		lam = &ledger.AccountBlockMeta{
-			Height: ra.Meta.Height,
+			Height: stringToBigInt(ra.Meta.Height),
 		}
 	}
 	Data := ""
@@ -82,17 +81,17 @@ func (ra *AccountBlock) ToLedgerAccBlock() (*ledger.AccountBlock, error) {
 		FromHash:               ra.FromHash,
 		PrevHash:               ra.PrevHash,
 		Hash:                   ra.Hash,
-		Balance:                ra.Balance,
-		Amount:                 ra.Amount,
+		Balance:                stringToBigInt(ra.Balance),
+		Amount:                 stringToBigInt(ra.Amount),
 		Timestamp:              ra.Timestamp,
 		TokenId:                ra.TokenId,
-		LastBlockHeightInToken: ra.LastBlockHeightInToken,
+		LastBlockHeightInToken: stringToBigInt(ra.LastBlockHeightInToken),
 		Data:                   Data,
 		SnapshotTimestamp:      ra.SnapshotTimestamp,
 		Signature:              Signature,
 		Nounce:                 Nonce,
 		Difficulty:             Difficulty,
-		FAmount:                ra.FAmount,
+		FAmount:                stringToBigInt(ra.FAmount),
 	}
 
 	return &la, nil
@@ -109,35 +108,36 @@ func LedgerAccBlocksToRpcAccBlocks(lists ledger.AccountBlockList, l *LedgerApi) 
 	return simpleBlocks
 }
 
-func LedgerAccBlockToRpc(lb *ledger.AccountBlock, confirmedTime *big.Int) *AccountBlock {
+func LedgerAccBlockToRpc(lb *ledger.AccountBlock, confirmedTime *string) *AccountBlock {
 	if lb == nil {
 		return nil
 	}
 	ra := AccountBlock{
-		LastBlockHeightInToken: lb.LastBlockHeightInToken,
+		LastBlockHeightInToken: bigIntToString(lb.LastBlockHeightInToken),
 		AccountAddress:         lb.AccountAddress,
 		To:                     lb.To,
 		From:                   lb.From,
 		FromHash:               lb.FromHash,
 		PrevHash:               lb.PrevHash,
-		Balance:                lb.Balance,
-		Amount:                 lb.Amount,
+		Balance:                bigIntToString(lb.Balance),
+		Amount:                 bigIntToString(lb.Amount),
 		Timestamp:              lb.Timestamp,
 		TokenId:                lb.TokenId,
 		Data:                   &lb.Data,
 		SnapshotTimestamp:      lb.SnapshotTimestamp,
-		FAmount:                lb.FAmount,
-		ConfirmedTimes:         confirmedTime,
+		FAmount:                bigIntToString(lb.FAmount),
 		Hash:                   lb.Hash,
 		PublicKey:              hex.EncodeToString(lb.PublicKey),
 		Signature:              hex.EncodeToString(lb.Signature),
 		Nonce:                  hex.EncodeToString(lb.Nounce),
 		Difficulty:             hex.EncodeToString(lb.Difficulty),
+
+		ConfirmedTimes: confirmedTime,
 	}
 
 	if lb.Meta != nil {
 		ra.Meta = &AccountBlockMeta{
-			Height:        lb.Meta.Height,
+			Height:        bigIntToString(lb.Meta.Height),
 			Status:        lb.Meta.Status,
 			IsSnapshotted: lb.Meta.IsSnapshotted,
 		}
@@ -192,4 +192,28 @@ type InitSyncResponse struct {
 	CurrentHeight    string // bigInt.
 	IsFirstSyncDone  bool   // true means sync complete
 	IsStartFirstSync bool   // true means sync start
+}
+
+type Mintage struct {
+	Name   string
+	Id     *types.TokenTypeId
+	Symbol string
+
+	Owner       *types.Address
+	Decimals    int
+	TotalSupply *string
+}
+
+func rawMintageToRpc(l *ledger.Mintage) *Mintage {
+	if l == nil {
+		return nil
+	}
+	return &Mintage{
+		Name:        l.Name,
+		Id:          l.Id,
+		Symbol:      l.Symbol,
+		Owner:       l.Owner,
+		Decimals:    l.Decimals,
+		TotalSupply: bigIntToString(l.TotalSupply),
+	}
 }

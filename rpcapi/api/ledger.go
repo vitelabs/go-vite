@@ -85,7 +85,7 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int)
 	return LedgerAccBlocksToRpcAccBlocks(list, l), nil
 }
 
-func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.Int {
+func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *string {
 	log.Info("getBlockConfirmedTimes")
 	sc := l.ledgerManager.Sc()
 	sb, e := sc.GetConfirmBlock(block)
@@ -108,8 +108,8 @@ func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.Int 
 		log.Info("GetConfirmTimes nil")
 		return nil
 	}
-
-	return times
+	s := times.String()
+	return &s
 }
 
 func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int, count int) ([]AccountBlock, error) {
@@ -273,7 +273,7 @@ func (l *LedgerApi) CreateTx(block *AccountBlock) error {
 	return l.ledgerManager.Ac().CreateTx(accountBlock)
 }
 
-func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*ledger.Mintage, error) {
+func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*Mintage, error) {
 	log.Info("GetTokenMintage")
 	token, e := l.ledgerManager.Ac().GetToken(tti)
 	if e != nil {
@@ -282,7 +282,7 @@ func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*ledger.Mintage, err
 	if token.Mintage == nil {
 		return nil, errors.New("token.Mintage nil")
 	}
-	return token.Mintage, nil
+	return rawMintageToRpc(token.Mintage), nil
 
 }
 
