@@ -1,4 +1,4 @@
-package protocols
+package net
 
 import (
 	"github.com/vitelabs/go-vite/common/types"

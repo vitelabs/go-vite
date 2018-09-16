@@ -1,16 +1,22 @@
-package protocols
+package net
 
 import (
 	"github.com/seiflotfy/cuckoofilter"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"log"
 	"math/big"
 	"net"
 	"sync"
 	"time"
 )
 
+type Config struct {
+	NetID uint64
+}
+
 type Net struct {
+	*Config
 	start         time.Time
 	peers         *peerSet
 	snapshotFeed  *snapshotBlockFeed
@@ -29,8 +35,9 @@ type Net struct {
 	blockRecord   *cuckoofilter.CuckooFilter // record blocks has retrieved from network
 }
 
-func New() *Net {
+func New(cfg *Config) *Net {
 	n := &Net{
+		Config:       cfg,
 		peers:        NewPeerSet(),
 		snapshotFeed: new(snapshotBlockFeed),
 		accountFeed:  new(accountBlockFeed),
@@ -77,7 +84,20 @@ func (n *Net) ReceiveConn(conn net.Conn) {
 }
 
 func (n *Net) HandlePeer(p *Peer) {
+	head, err := n.SnapshotChain.GetLatestSnapshotBlock()
+	if err != nil {
+		log.Fatal("cannot get current block", err)
+	}
 
+	genesis, err := n.SnapshotChain.GetGenesesBlock()
+	if err != nil {
+		log.Fatal("cannot get genesis block", err)
+	}
+
+	err := p.Handshake(n.NetID, head.Height, head.Hash, genesis.Hash)
+	if err != nil {
+		return
+	}
 }
 
 func (n *Net) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock, propagate bool) {
