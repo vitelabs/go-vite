@@ -1,6 +1,11 @@
 package worker
 
-import "runtime"
+import (
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm_context"
+	"runtime"
+)
 
 const (
 	Create = iota
@@ -22,3 +27,9 @@ var (
 	CONTRACT_TASK_SIZE  = uint64(2 * POMAXPROCS)
 	CONTRACT_FETCH_SIZE = uint64(2 * POMAXPROCS)
 )
+
+type PoolAccess interface {
+	AddBlock(block *ledger.AccountBlock) error
+	AddDirectBlock(block *ledger.AccountBlock, blockGen *vm_context.VmAccountBlock) error
+	ExistInPool(address *types.Address, fromBlockHash *types.Hash) bool
+}

@@ -13,6 +13,7 @@ import (
 
 type ContractWorker struct {
 	wallet     *wallet.Manager
+	pool       PoolAccess
 	blocksPool *model.UnconfirmedBlocksPool
 
 	gid                 types.Gid
@@ -109,7 +110,7 @@ func (w *ContractWorker) Start() {
 			go v.Start()
 		}
 
-		go w.DispatchTask(event.SnapshotHash)
+		go w.DispatchTask(&w.accevent.SnapshotHash)
 
 		w.status = Start
 	} else {

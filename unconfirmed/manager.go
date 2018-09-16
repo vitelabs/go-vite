@@ -27,7 +27,7 @@ type Manager struct {
 
 	unlockEventListener   chan keystore.UnlockEvent
 	firstSyncDoneListener chan int
-	rightEventListener    chan *worker.RightEvent
+	rightEventListener    chan *producer.AccountStartEvent
 
 	unlockLid    int
 	rightLid     int
@@ -45,7 +45,7 @@ func NewManager(vite Vite, dataDir string) *Manager {
 
 		unlockEventListener:   make(chan keystore.UnlockEvent),
 		firstSyncDoneListener: make(chan int),
-		rightEventListener:    make(chan *worker.RightEvent),
+		rightEventListener:    make(chan *producer.AccountStartEvent),
 
 		log: slog.New("w", "manager"),
 	}
