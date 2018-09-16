@@ -16,6 +16,7 @@ type BlockMapQueryParam struct {
 	Forward         bool
 }
 
+// TODO: RefSnapshotHeight、Modify send block meta
 func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
 	batch := new(leveldb.Batch)
 	trieSaveCallback := make([]func(), 0)
@@ -47,10 +48,7 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			// Save contract gid list
 			if contractGidList := unsavedCache.ContractGidList(); len(contractGidList) > 0 {
 				for _, contractGid := range contractGidList {
-					if err := c.chainDb.Ac.WriteContractGid(batch, contractGid.Gid(), contractGid.Addr()); err != nil {
-						c.log.Error("WriteContractGid failed, error is "+err.Error(), "method", "InsertAccountBlock")
-						return err
-					}
+					c.chainDb.Ac.WriteContractGid(batch, contractGid.Gid(), contractGid.Addr())
 				}
 			}
 		}
@@ -351,6 +349,7 @@ func (c *Chain) GetUnConfirmAccountBlocks(addr *types.Address) ([]*ledger.Accoun
 	return nil, nil
 }
 
+// TODO rebuild need_snapshot_cache
 func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) ([]*ledger.AccountBlock, error) {
 	return nil, nil
 }

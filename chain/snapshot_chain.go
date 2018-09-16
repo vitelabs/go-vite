@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+// TODO modify account block meta
 func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	batch := new(leveldb.Batch)
 
@@ -30,11 +31,11 @@ func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 
 	if getErr != nil {
 		c.log.Error("GetAccountByAddress failed, error is "+getErr.Error(), "method", "InsertSnapshotBlock")
-		// Create account
 		return getErr
 	}
 
 	if account == nil {
+		// Create account
 		c.createAccountLock.Lock()
 		defer c.createAccountLock.Unlock()
 
@@ -53,6 +54,11 @@ func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	if err := c.chainDb.Commit(batch); err != nil {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
+	}
+
+	// Delete needSnapshotCache
+	for addr, item := range snapshotBlock.SnapshotContent {
+		c.needSnapshotCache.Remove(&addr, item.AccountBlockHeight)
 	}
 
 	return nil
@@ -222,17 +228,74 @@ func (c *Chain) GetConfirmTimes(accountBlock *ledger.AccountBlock) uint64 {
 	return latestBlock.Height - height + 1
 }
 
-// TODO: cache
 func (c *Chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {
-	return nil, nil
-}
-
-func (c *Chain) DeleteSnapshotBlocks(toHeight uint64) ([]*ledger.SnapshotBlock, []*ledger.AccountBlock, error) {
-	currentLatesetSnapshot, getLatestErr := c.GetLatestSnapshotBlock()
-	if getLatestErr != nil {
-		c.log.Error("getLatestSnapshotBlock is nil, error is "+getLatestErr.Error(), "method", "DeleteSnapshotBlocks")
-		return nil, nil, getLatestErr
+	account, getAccountIdErr := c.chainDb.Account.GetAccountByAddress(address)
+	if getAccountIdErr != nil {
+		c.log.Error("GetAccountByAddress failed, error is "+getAccountIdErr.Error(), "method", "GetConfirmAccountBlock")
+		return nil, types.GetError{
+			Code: 1,
+			Err:  getAccountIdErr,
+		}
+	}
+	if account == nil {
+		return nil, nil
 	}
 
-	return nil, nil, nil
+	accountBlock, err := c.chainDb.Ac.GetConfirmAccountBlock(snapshotHeight, account.AccountId)
+	if err != nil {
+		c.log.Error("GetConfirmAccountBlock failed, error is "+err.Error(), "method", "GetConfirmAccountBlock")
+		return nil, types.GetError{
+			Code: 2,
+			Err:  err,
+		}
+	}
+	return accountBlock, nil
+}
+
+// TODO rebuild need_snapshot_cache
+// Block only contains hash and height
+func (c *Chain) DeleteSnapshotBlocksByHeight(toHeight uint64) ([]*ledger.SnapshotBlock, []*ledger.AccountBlock, error) {
+	maxAccountId, err := c.chainDb.Account.GetLastAccountId()
+	if err != nil {
+		c.log.Error("GetLastAccountId failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksByHeight")
+		return nil, nil, err
+	}
+
+	planToDelete, getPlanErr := c.chainDb.Ac.GetPlanToDelete(maxAccountId, toHeight)
+	if getPlanErr != nil {
+		c.log.Error("GetPlanToDelete failed, error is "+getPlanErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
+	}
+
+	deleteMap, reopenList, getDeleteAndReopenErr := c.chainDb.Ac.GetDeleteMapAndReopenList(planToDelete)
+	if getDeleteAndReopenErr != nil {
+		c.log.Error("GetDeleteMapAndReopenList failed, error is "+getDeleteAndReopenErr.Error(), "method", "DeleteSnapshotBlocks")
+		return nil, nil, getDeleteAndReopenErr
+	}
+
+	batch := new(leveldb.Batch)
+	deleteSnapshotBlocks, deleteSnapshotBlocksErr := c.chainDb.Sc.DeleteByHeight(batch, toHeight)
+	if deleteSnapshotBlocksErr != nil {
+		c.log.Error("DeleteByHeight failed, error is "+deleteSnapshotBlocksErr.Error(), "method", "DeleteSnapshotBlocks")
+		return nil, nil, deleteSnapshotBlocksErr
+	}
+
+	deleteAccountBlocks, deleteAccountBlocksErr := c.chainDb.Ac.Delete(batch, deleteMap)
+	if deleteAccountBlocksErr != nil {
+		c.log.Error("Delete failed, error is "+deleteAccountBlocksErr.Error(), "method", "DeleteSnapshotBlocks")
+		return nil, nil, deleteAccountBlocksErr
+	}
+
+	reopenErr := c.chainDb.Ac.ReopenSendBlocks(batch, reopenList, deleteMap)
+	if reopenErr != nil {
+		c.log.Error("ReopenSendBlocks failed, error is "+reopenErr.Error(), "method", "DeleteSnapshotBlocks")
+		return nil, nil, reopenErr
+	}
+
+	writeErr := c.chainDb.Commit(batch)
+	if writeErr != nil {
+		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocks")
+		return nil, nil, writeErr
+	}
+
+	return deleteSnapshotBlocks, deleteAccountBlocks, nil
 }

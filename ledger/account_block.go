@@ -15,10 +15,13 @@ type AccountBlockMeta struct {
 	Height uint64
 
 	// Block status, 1 means open, 2 means closed
-	Status int
+	ReceiveBlockHeight uint64
 
 	// Height of Snapshot block which confirm this account block
 	SnapshotHeight uint64
+
+	// Height of Snapshot block which pointed by this account block
+	RefSnapshotHeight uint64
 }
 
 func (*AccountBlockMeta) DbSerialize() ([]byte, error) {
@@ -100,6 +103,14 @@ func (*AccountBlock) FileSerialize([]byte) ([]byte, error) {
 
 func (*AccountBlock) FileDeserialize([]byte) error {
 	return nil
+}
+
+func (*AccountBlock) IsSendBlock() bool {
+	return false
+}
+
+func (*AccountBlock) IsReceiveBlock() bool {
+	return true
 }
 
 func GenesesMintageBlock() *AccountBlock {

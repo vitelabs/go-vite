@@ -60,9 +60,10 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 		}
 	}
 
-	vmContext.prevAccountBlock = prevAccountBlock
-
-	vmContext.trie = chain.GetStateTrie(prevAccountBlockHash)
+	if prevAccountBlock != nil {
+		vmContext.prevAccountBlock = prevAccountBlock
+		vmContext.trie = chain.GetStateTrie(&prevAccountBlock.StateHash)
+	}
 
 	if vmContext.trie == nil {
 		vmContext.trie = chain.NewStateTrie()

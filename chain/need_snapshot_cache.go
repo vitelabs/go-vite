@@ -36,9 +36,15 @@ func (cache *NeedSnapshotCache) Add(addr *types.Address, accountBlockHeight uint
 	cache.snapshotContent[*addr] = snapshotContentItem
 }
 
-func (cache *NeedSnapshotCache) Remove(addr *types.Address) {
+func (cache *NeedSnapshotCache) Remove(addr *types.Address, height uint64) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
+	cachedSnapshotContentItem := cache.snapshotContent[*addr]
+	if cachedSnapshotContentItem == nil {
+		return
+	}
 
-	delete(cache.snapshotContent, *addr)
+	if cachedSnapshotContentItem.AccountBlockHeight <= height {
+		delete(cache.snapshotContent, *addr)
+	}
 }
