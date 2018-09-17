@@ -17,12 +17,14 @@ func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 	return &LedgerApi{
 		ledgerManager: vite.Ledger(),
 		signer:        vite.Signer(),
+		MintageCache:  make(map[types.TokenTypeId]*Mintage),
 	}
 }
 
 type LedgerApi struct {
 	ledgerManager handler_interface.Manager
 	signer        *signer.Master
+	MintageCache  map[types.TokenTypeId]*Mintage
 }
 
 func (l LedgerApi) String() string {
@@ -59,16 +61,16 @@ func (l *LedgerApi) CreateTxWithPassphrase(params *SendTxParms) error {
 	return nil
 }
 
-func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash types.Hash, count uint64) ([]AccountBlock, error) {
+func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error) {
 	log.Info("GetBlocksByHash")
-	lists, getError := l.ledgerManager.Ac().GetBlocks(&addr, &originBlockHash, count)
+	lists, getError := l.ledgerManager.Ac().GetBlocks(&addr, originBlockHash, count)
 	if getError != nil {
 		return nil, getError.Err
 	}
 	return LedgerAccBlocksToRpcAccBlocks(lists, l), nil
 }
 
-func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]AccountBlock, error) {
+func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int, needTokenInfo *bool) ([]*AccountBlock, error) {
 	log.Info("GetBlocksByAccAddr")
 
 	list, getErr := l.ledgerManager.Ac().GetBlocksByAccAddr(&addr, index, 1, count)
@@ -81,8 +83,21 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int)
 		}
 		return nil, getErr.Err
 	}
+	blocks := LedgerAccBlocksToRpcAccBlocks(list, l)
+	if needTokenInfo != nil && *needTokenInfo {
+		for _, value := range blocks {
+			if m, ok := l.MintageCache[*value.TokenId]; ok {
+				value.Mintage = m
+			}
+			token, e := l.ledgerManager.Ac().GetToken(*value.TokenId)
+			if e == nil {
+				value.Mintage = rawMintageToRpc(token.Mintage)
+				l.MintageCache[*value.TokenId] = value.Mintage
+			}
+		}
+	}
 
-	return LedgerAccBlocksToRpcAccBlocks(list, l), nil
+	return blocks, nil
 }
 
 func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *string {
@@ -158,10 +173,8 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (GetAccountResponse,
 				amount = v.TotalAmount.String()
 			}
 			bs[i] = BalanceInfo{
-				TokenSymbol: v.Token.Symbol,
-				TokenName:   v.Token.Name,
-				TokenTypeId: *v.Token.Id,
-				Balance:     amount,
+				Mintage: rawMintageToRpc(v.Token),
+				Balance: amount,
 			}
 		}
 
@@ -197,10 +210,8 @@ func (l *LedgerApi) GetUnconfirmedInfo(addr types.Address) (GetUnconfirmedInfoRe
 		blances := make([]BalanceInfo, len(account.TokenInfoList))
 		for k, v := range account.TokenInfoList {
 			blances[k] = BalanceInfo{
-				TokenSymbol: v.Token.Symbol,
-				TokenName:   v.Token.Name,
-				TokenTypeId: *v.Token.Id,
-				Balance:     v.TotalAmount.String(),
+				Mintage: rawMintageToRpc(v.Token),
+				Balance: v.TotalAmount.String(),
 			}
 		}
 		response.BalanceInfos = blances
@@ -252,7 +263,7 @@ func (l *LedgerApi) GetLatestSnapshotChainHash() (*types.Hash, error) {
 	return nil, nil
 }
 
-func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
+func (l *LedgerApi) GetLatestBlock(addr types.Address, needToken *bool) (*AccountBlock, error) {
 	log.Info("GetLatestBlock")
 	b, getError := l.ledgerManager.Ac().GetLatestBlock(&addr)
 	if getError != nil {
@@ -261,8 +272,8 @@ func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 	return LedgerAccBlockToRpc(b, nil), nil
 }
 
-func (l *LedgerApi) CreateTx(block *AccountBlock) error {
-	log.Info("CreateTx")
+func (l *LedgerApi) SendTx(block *AccountBlock) error {
+	log.Info("SendTx")
 	if block == nil {
 		return errors.New("block nil")
 	}

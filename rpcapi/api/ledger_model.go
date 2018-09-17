@@ -29,11 +29,12 @@ type AccountBlock struct {
 	LastBlockHeightInToken *string            `json:"lastBlockHeightInToken,omitempty"` // // [Optional] Height of last transaction block in this token. if the block is generate by the client it can be nil
 	Data                   *string            `json:"data,omitempty"`                   // Data requested or repsonsed
 	SnapshotTimestamp      *types.Hash        `json:"snapshotTimestamp,omitempty"`      // Snapshot timestamp second
-	Signature              string             `json:"signature"`                        // Signature of current block
-	Nonce                  string             `json:"nonce"`                            // PoW nounce
-	Difficulty             string             `json:"difficulty"`                       // PoW difficulty
-	FAmount                *string            `json:"fAmount,omitempty"`                // bigint. Service fee
-	ConfirmedTimes         *string            `json:"confirmedTimes,omitempty"`         // bigint block`s confirmed times
+	Signature      string   `json:"signature"`                        // Signature of current block
+	Nonce          string   `json:"nonce"`                            // PoW nounce
+	Difficulty     string   `json:"difficulty"`                       // PoW difficulty
+	FAmount        *string  `json:"fAmount,omitempty"`                // bigint. Service fee
+	ConfirmedTimes *string  `json:"confirmedTimes,omitempty"`         // bigint block`s confirmed times
+	Mintage        *Mintage `json:"mintage,omitempty"`
 }
 
 func (ra *AccountBlock) ToLedgerAccBlock() (*ledger.AccountBlock, error) {
@@ -96,13 +97,13 @@ func (ra *AccountBlock) ToLedgerAccBlock() (*ledger.AccountBlock, error) {
 	return &la, nil
 }
 
-func LedgerAccBlocksToRpcAccBlocks(lists ledger.AccountBlockList, l *LedgerApi) []AccountBlock {
-	simpleBlocks := make([]AccountBlock, len(lists))
+func LedgerAccBlocksToRpcAccBlocks(lists ledger.AccountBlockList, l *LedgerApi) []*AccountBlock {
+	simpleBlocks := make([]*AccountBlock, len(lists))
 	for i, v := range lists {
 
 		times := l.getBlockConfirmedTimes(v)
 		block := LedgerAccBlockToRpc(v, times)
-		simpleBlocks[i] = *block
+		simpleBlocks[i] = block
 	}
 	return simpleBlocks
 }
@@ -155,10 +156,9 @@ type SendTxParms struct {
 }
 
 type BalanceInfo struct {
-	TokenSymbol string            `json:"tokenSymbol"` // token symbol example  1200 (symbol)
-	TokenName   string            `json:"tokenName"`   // token name
-	TokenTypeId types.TokenTypeId `json:"tokenTypeId"`
-	Balance     string            `json:"balance"`
+	Mintage *Mintage `json:"mintage"`
+
+	Balance string `json:"balance"`
 }
 
 type GetAccountResponse struct {
