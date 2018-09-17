@@ -1,22 +1,18 @@
 package vite
 
 import (
-	ledgerHandler "github.com/vitelabs/go-vite/ledger/handler"
-	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/protocols"
-	"github.com/vitelabs/go-vite/wallet"
-
-	"github.com/vitelabs/go-vite/ledger/handler_interface"
-	protoInterface "github.com/vitelabs/go-vite/protocols/interfaces"
-
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/ledger_old/handler_interface"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/miner"
+	"github.com/vitelabs/go-vite/net"
+	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/signer"
+	"github.com/vitelabs/go-vite/wallet"
 	"time"
 )
 
@@ -24,7 +20,7 @@ type Vite struct {
 	config        *config.Config
 	ledger        *ledgerHandler.Manager
 	p2p           *p2p.Server
-	pm            *protocols.ProtocolManager
+	pm            *net.Net
 	walletManager *wallet.Manager
 	signer        *signer.Master
 	verifier      consensus.Verifier
@@ -62,13 +58,9 @@ func New(cfg *config.Config) (*Vite, error) {
 	vite.signer = signer.NewMaster(vite)
 	vite.signer.InitAndStartLoop()
 
-	vite.pm = protocols.NewProtocolManager(vite)
+	vite.pm = net.New(vite)
 
-	var initP2pErr error
-	vite.p2p, initP2pErr = p2p.NewServer(cfg.P2P, vite.pm.HandlePeer)
-	if initP2pErr != nil {
-		log.Crit(initP2pErr.Error())
-	}
+	vite.p2p = p2p.New(cfg.P2P)
 
 	genesisTime := time.Unix(int64(ledger.GetSnapshotGenesisBlock().Timestamp), 0)
 	committee := consensus.NewCommittee(genesisTime, int32(cfg.MinerInterval), int32(len(consensus.DefaultMembers)))

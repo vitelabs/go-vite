@@ -13,6 +13,8 @@ const (
 
 type Hash [HashSize]byte
 
+var ZERO_HASH = Hash{}
+
 func BytesToHash(b []byte) (Hash, error) {
 	var h Hash
 	err := h.SetBytes(b)
@@ -54,8 +56,19 @@ func (h Hash) Big() *big.Int {
 	return new(big.Int).SetBytes(h[:])
 }
 
+func (h Hash) IsZero() bool {
+	return h == ZERO_HASH
+}
+
 func BigToHash(b *big.Int) (Hash, error) {
-	return BytesToHash(b.Bytes())
+	slice := b.Bytes()
+	if len(slice) < HashSize {
+		padded := make([]byte, HashSize)
+		copy(padded[HashSize-len(slice):], slice)
+		return BytesToHash(padded)
+	} else {
+		return BytesToHash(slice)
+	}
 }
 
 func DataHash(data []byte) Hash {

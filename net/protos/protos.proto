@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package protos;
+
+message BlockID {
+    bytes Hash = 1;
+    uint64 Height = 2;
+}
+
+message Segment {
+    BlockID From = 1;
+    BlockID To = 2;
+    uint64 step = 3;
+    bool Forward = 4;
+}
+
+message AccountSegment {
+    map<string, Segment> Segment = 1;
+}
