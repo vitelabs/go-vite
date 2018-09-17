@@ -87,6 +87,10 @@ func (c *unconfirmedBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti *
 	return &ca
 }
 
+func (c *unconfirmedBlocksCache) ResetCursor() {
+	c.currentEle = c.blocks.Front()
+}
+
 func (c *unconfirmedBlocksCache) GetNextTx() *ledger.AccountBlock {
 	if c.currentEle == nil {
 		return nil

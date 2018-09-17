@@ -40,7 +40,7 @@ func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[t
 		status:      Create,
 		isSleeping:  false,
 		filters:     filters,
-		log:         log15.New("AutoReceiveWorker addr", address),
+		log:         log15.New("worker", "a", "addr", address),
 	}
 }
 
@@ -52,11 +52,8 @@ func (w *AutoReceiveWorker) Start() {
 	if w.status != Start {
 
 		w.breaker = make(chan struct{})
-		w.newUnconfirmedTxAlarm = make(chan struct{}, 100)
+		w.newUnconfirmedTxAlarm = make(chan struct{})
 		w.stopListener = make(chan struct{})
-
-		w.status = Start
-		w.statusMutex.Unlock()
 
 		w.uBlocksPool.AddCommonTxLis(w.address, func() {
 			w.NewUnconfirmedTxAlarm()
@@ -65,21 +62,14 @@ func (w *AutoReceiveWorker) Start() {
 		w.uBlocksPool.AcquireAccountInfoCache(w.address)
 
 		go w.startWork()
+
+		w.status = Start
+
 	} else {
 		// awake it in order to run at least once
 		w.NewUnconfirmedTxAlarm()
 	}
-}
-
-func (w *AutoReceiveWorker) Restart() {
-	w.log.Info("Restart()", "current status", w.status)
-	w.statusMutex.Lock()
-	defer w.statusMutex.Unlock()
-}
-
-func (w *AutoReceiveWorker) SetAutoReceiveFilter(filters map[types.TokenTypeId]big.Int) {
-	w.filters = filters
-	w.Restart()
+	w.log.Info("end start")
 }
 
 func (w *AutoReceiveWorker) Stop() {
@@ -102,6 +92,50 @@ func (w *AutoReceiveWorker) Stop() {
 
 		w.status = Stop
 	}
+	w.log.Info("stopped")
+}
+
+func (w *AutoReceiveWorker) ResetAutoReceiveFilter(filters map[types.TokenTypeId]big.Int) {
+	w.log.Info("ResetAutoReceiveFilter", "len", len(filters))
+	w.filters = filters
+	if w.Status() == Start {
+		w.uBlocksPool.ResetCacheCursor(w.address)
+	}
+}
+
+func (w *AutoReceiveWorker) startWork() {
+	w.log.Info("startWork")
+
+	for {
+		w.isSleeping = false
+		if w.Status() == Stop {
+			goto END
+		}
+
+		tx := w.uBlocksPool.GetNextTx(w.address)
+		if tx != nil {
+			minAmount, ok := w.filters[tx.TokenId]
+			if !ok || tx.Amount.Cmp(&minAmount) < 0 {
+				continue
+			}
+			w.ProcessOneBlock(tx)
+			continue
+		}
+
+		w.isSleeping = true
+		select {
+		case <-w.newUnconfirmedTxAlarm:
+			w.log.Info("start awake")
+		case <-w.breaker:
+			w.log.Info("worker broken")
+			break
+		}
+	}
+
+END:
+	w.log.Info("startWork end called")
+	w.stopListener <- struct{}{}
+	w.log.Info("startWork end")
 }
 
 func (w *AutoReceiveWorker) Close() error {
@@ -119,40 +153,6 @@ func (w *AutoReceiveWorker) NewUnconfirmedTxAlarm() {
 	if w.isSleeping {
 		w.newUnconfirmedTxAlarm <- struct{}{}
 	}
-}
-
-func (w *AutoReceiveWorker) startWork() {
-	w.log.Info("worker startWork is called")
-
-	for {
-		if w.Status() == Stop {
-			goto END
-		}
-
-		tx := w.uBlocksPool.GetNextTx(w.address)
-		if tx != nil {
-			minAmount, ok := w.filters[tx.TokenId]
-			if !ok || tx.Amount.Cmp(&minAmount) < 0 {
-				continue
-			}
-			w.ProcessOneBlock(tx)
-			continue
-		}
-
-		select {
-		case <-w.newUnconfirmedTxAlarm:
-			w.log.Info("worker Start awake")
-			continue
-		case <-w.breaker:
-			w.log.Info("worker broken")
-			break
-		}
-	}
-
-END:
-	w.log.Info("worker send stopDispatcherListener ")
-	w.stopListener <- struct{}{}
-	w.log.Info("worker end work")
 }
 
 func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {

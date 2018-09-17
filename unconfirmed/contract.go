@@ -25,8 +25,8 @@ type ContractWorker struct {
 	status      int
 	statusMutex sync.Mutex
 
-	dispatcherSleep bool
-	dispatcherAlarm chan struct{}
+	isSleep               bool
+	newUnconfirmedTxAlarm chan struct{}
 
 	breaker                chan struct{}
 	stopDispatcherListener chan struct{}
@@ -61,41 +61,19 @@ func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) (*
 		accEvent:               accEvent,
 		contractAddressList:    addressList,
 		status:                 Create,
-		dispatcherSleep:        false,
-		dispatcherAlarm:        make(chan struct{}),
+		isSleep:                false,
+		newUnconfirmedTxAlarm:  make(chan struct{}),
 		breaker:                make(chan struct{}),
 		stopDispatcherListener: make(chan struct{}),
 		contractTasks:          make([]*ContractTask, CONTRACT_TASK_SIZE),
 		blackList:              make(map[types.Hash]bool),
-		log:                    log15.New("ContractWorker ", "addr", accEvent.Address, "gid", accEvent.Gid),
+		log:                    log15.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid),
 	}, nil
 
 }
 
-func (w *ContractWorker) dispatchTask(index int) *model.FromItem {
-	w.priorityToQueueMutex.Lock()
-	defer w.priorityToQueueMutex.Unlock()
-
-	if w.priorityToQueue.Len() == 0 {
-		w.log.Info("priorityToQueue empty now get from db")
-		w.FetchNewFromDb()
-		if w.priorityToQueue.Len() == 0 {
-			w.log.Info("priorityToQueue db empty")
-			return nil
-		}
-		return nil
-	}
-	tItem := heap.Pop(w.priorityToQueue).(*model.ToItem)
-	priorityFromQueue := tItem.Value
-	for j := 0; j < priorityFromQueue.Len(); j++ {
-		fItem := heap.Pop(priorityFromQueue).(*model.FromItem)
-		return fItem
-	}
-	return nil
-}
-
 func (w *ContractWorker) Start() {
-	w.log.Info("worker startWork is called")
+	w.log.Info("Start()", "current status", w.status)
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Start {
@@ -116,10 +94,11 @@ func (w *ContractWorker) Start() {
 		// awake it in order to run at least once
 		w.NewUnconfirmedTxAlarm()
 	}
-
+	w.log.Info("end start")
 }
 
 func (w *ContractWorker) Stop() {
+	w.log.Info("Stop()", "current status", w.status)
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Stop {
@@ -128,8 +107,8 @@ func (w *ContractWorker) Stop() {
 		// todo: to clear tomap
 
 		w.uBlocksPool.RemoveContractLis(w.gid)
-		w.dispatcherSleep = true
-		close(w.dispatcherAlarm)
+		w.isSleep = true
+		close(w.newUnconfirmedTxAlarm)
 
 		<-w.stopDispatcherListener
 		close(w.stopDispatcherListener)
@@ -140,6 +119,7 @@ func (w *ContractWorker) Stop() {
 		}
 		w.status = Stop
 	}
+	w.log.Info("stopped")
 }
 
 func (w *ContractWorker) Close() error {
@@ -153,31 +133,61 @@ func (w ContractWorker) Status() int {
 	return w.status
 }
 
+func (w *ContractWorker) dispatchTask(index int) *model.FromItem {
+	w.log.Info("dispatchTask", "index", index)
+	w.priorityToQueueMutex.Lock()
+	defer w.priorityToQueueMutex.Unlock()
+
+	if w.priorityToQueue.Len() == 0 {
+		w.log.Info("priorityToQueue empty now get from db")
+		w.FetchNewFromDb()
+		if w.priorityToQueue.Len() == 0 {
+			w.log.Info("priorityToQueue db empty")
+			return nil
+		}
+		return nil
+	}
+
+	tItem := heap.Pop(w.priorityToQueue).(*model.ToItem)
+	priorityFromQueue := tItem.Value
+	for j := 0; j < priorityFromQueue.Len(); j++ {
+		fItem := heap.Pop(priorityFromQueue).(*model.FromItem)
+		return fItem
+	}
+	return nil
+}
+
 func (w *ContractWorker) NewUnconfirmedTxAlarm() {
-	if w.dispatcherSleep {
-		w.dispatcherAlarm <- struct{}{}
+	if w.isSleep {
+		w.newUnconfirmedTxAlarm <- struct{}{}
 	}
 }
 
 func (w *ContractWorker) waitingNewBlock() {
+	w.log.Info("waitingNewBlock")
 	for {
+		w.isSleep = false
+		if w.Status() == Stop {
+			goto END
+		}
+
 		for _, v := range w.contractTasks {
 			v.WakeUp()
 		}
 
-		w.dispatcherSleep = true
-
+		w.isSleep = true
 		select {
+		case <-w.newUnconfirmedTxAlarm:
+			w.log.Info("start awake")
 		case <-w.breaker:
-			goto END
-		case <-w.dispatcherAlarm:
-			w.dispatcherSleep = false
+			w.log.Info("worker broken")
+			break
 		}
 	}
 END:
-	w.log.Info("ContractWorker send stopDispatcherListener")
+	w.log.Info("waitingNewBlock end called")
 	w.stopDispatcherListener <- struct{}{}
-	w.log.Info("ContractWorker waitingNewBlock end")
+	w.log.Info("waitingNewBlock end")
 }
 
 func (w *ContractWorker) FetchNewFromDb() {
@@ -201,6 +211,7 @@ func (w *ContractWorker) FetchNewFromDb() {
 }
 
 func (w *ContractWorker) addIntoBlackList(from types.Address, to types.Address) {
+	w.log.Info("addIntoBlackList", "from", from, "to", to)
 	key := types.DataListHash(from.Bytes(), to.Bytes())
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
@@ -208,6 +219,7 @@ func (w *ContractWorker) addIntoBlackList(from types.Address, to types.Address) 
 }
 
 func (w *ContractWorker) deleteBlackListItem(from types.Address, to types.Address) {
+	w.log.Info("deleteBlackListItem", "from", from, "to", to)
 	key := types.DataListHash(from.Bytes(), to.Bytes())
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
@@ -219,5 +231,6 @@ func (w *ContractWorker) isInBlackList(from types.Address, to types.Address) boo
 	w.blackListMutex.RLock()
 	defer w.blackListMutex.RUnlock()
 	_, ok := w.blackList[key]
+	w.log.Info("isInBlackList", "from", from, "to", to, "in", ok)
 	return ok
 }

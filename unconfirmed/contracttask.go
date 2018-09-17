@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/wallet"
 	"sync"
 	"time"
 )
@@ -31,7 +30,7 @@ type ContractTask struct {
 	wakeup     chan struct{}
 
 	accEvent producer.AccountStartEvent
-	cworker  *ContractWorker
+	worker   *ContractWorker
 
 	getNewBlocksFunc func(index int) *model.FromItem
 
@@ -42,6 +41,7 @@ func NewContractTask(worker *ContractWorker, index int, getNewBlocksFunc func(in
 	return &ContractTask{
 		taskId:           index,
 		blocksPool:       worker.uBlocksPool,
+		pool:             worker.manager.pool,
 		verifier:         worker.verifier,
 		genBuilder:       worker.manager.genBuilder,
 		status:           Create,
@@ -49,53 +49,15 @@ func NewContractTask(worker *ContractWorker, index int, getNewBlocksFunc func(in
 		breaker:          make(chan struct{}),
 		wakeup:           make(chan struct{}),
 		accEvent:         worker.accEvent,
-		cworker:          worker,
+		worker:          worker,
 		getNewBlocksFunc: getNewBlocksFunc,
 
 		log: worker.log.New("taskid", index),
 	}
 }
-func (task *ContractTask) WakeUp() {
-	if task.isSleeping {
-		task.wakeup <- struct{}{}
-	}
-}
-
-func (task *ContractTask) work() {
-	for {
-		task.isSleeping = false
-		if task.status == Stop {
-			goto END
-		}
-
-		fItem := task.getNewBlocksFunc(task.taskId)
-		if fItem == nil {
-			goto WAIT
-		}
-
-		if task.ProcessOneQueue(fItem) {
-			task.cworker.addIntoBlackList(fItem.Key, fItem.Value.Front().ToAddress)
-		}
-
-		continue
-
-	WAIT:
-		task.isSleeping = true
-		select {
-		case <-task.wakeup:
-		case <-task.breaker:
-			goto END
-		default:
-			break
-		}
-	}
-END:
-	task.log.Info("ContractTask send stopDispatcherListener ")
-	task.stopListener <- struct{}{}
-	task.log.Info("ContractTask Stop")
-}
 
 func (task *ContractTask) Start() {
+	task.log.Info("Start()", "current status", task.status)
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
 	if task.status != Start {
@@ -105,9 +67,11 @@ func (task *ContractTask) Start() {
 
 		task.status = Start
 	}
+	task.log.Info("end start")
 }
 
 func (task *ContractTask) Stop() {
+	task.log.Info("Stop()", "current status", task.status)
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
 	if task.status != Stop {
@@ -122,6 +86,48 @@ func (task *ContractTask) Stop() {
 
 		task.status = Stop
 	}
+	task.log.Info("stopped")
+}
+
+func (task *ContractTask) WakeUp() {
+	if task.isSleeping {
+		task.wakeup <- struct{}{}
+	}
+}
+
+func (task *ContractTask) work() {
+	task.log.Info("work()")
+	for {
+		task.isSleeping = false
+		if task.status == Stop {
+			goto END
+		}
+
+		fItem := task.getNewBlocksFunc(task.taskId)
+		if fItem == nil {
+			goto WAIT
+		}
+
+		if task.ProcessOneQueue(fItem) {
+			task.worker.addIntoBlackList(fItem.Key, fItem.Value.Front().ToAddress)
+		}
+
+		continue
+
+	WAIT:
+		task.isSleeping = true
+		select {
+		case <-task.wakeup:
+			task.log.Info("start awake")
+		case <-task.breaker:
+			task.log.Info("worker broken")
+			break
+		}
+	}
+END:
+	task.log.Info("work end called ")
+	task.stopListener <- struct{}{}
+	task.log.Info("work end")
 }
 
 func (task *ContractTask) Close() error {
@@ -190,7 +196,7 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 				return true
 			}
 
-			if err := task.cworker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
+			if err := task.worker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
 				return true
 			}
 
