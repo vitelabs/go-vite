@@ -11,9 +11,9 @@ import (
 )
 
 type HexSignedTuple struct {
-	Message    string `json:"Message"`
-	SignedData string `json:"SignedData"`
-	Pubkey     string `json:"Pubkey"`
+	Message    string `json:"message"`
+	SignedData string `json:"signedData"`
+	Pubkey     string `json:"pubkey"`
 }
 
 type IsMayValidKeystoreFileResponse struct {

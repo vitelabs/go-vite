@@ -7,34 +7,33 @@ import (
 )
 
 type AccountBlockMeta struct {
-	AccountId     *string `json:",omitempty"`
-	Height        *string `json:",omitempty"`
-	Status        int // Block status, 1 means open, 2 means closed
-	IsSnapshotted bool
+	AccountId     *string `json:"accountId,omitempty"`
+	Height        *string `json:"height,omitempty"`
+	Status        int     `json:"status"`
+	IsSnapshotted bool    `json:"isSnapshotted"`
 }
 
 type AccountBlock struct {
-	// if the block is generate by the client, it must not be nil and the Height in it must be validate. if the block is a response it maybe be nil
-	Meta                   *AccountBlockMeta  `json:",omitempty"`
-	AccountAddress         *types.Address     `json:",omitempty"` // Self account
-	PublicKey              string             `json:",omitempty"` // hex ed25519 public key string
-	To                     *types.Address     `json:",omitempty"` // Receiver account, exists in send block
-	From                   *types.Address     `json:",omitempty"` // [Optional] Sender account, exists in receive block
-	FromHash               *types.Hash        `json:",omitempty"` // hex string. Correlative send block hash, exists in receive block
-	PrevHash               *types.Hash        `json:",omitempty"` // Last block hash
-	Hash                   *types.Hash        `json:",omitempty"` // Block hash
-	Balance                *string            `json:",omitempty"` // bigint. Balance of current account. if the block is generate by the client, the balance can be empty
-	Amount                 *string            `json:",omitempty"` // bigint. Amount of this transaction
-	Timestamp              uint64                                 // Timestamp second
-	TokenId                *types.TokenTypeId `json:",omitempty"` // Id of token received or sent
-	LastBlockHeightInToken *string            `json:",omitempty"` // // [Optional] Height of last transaction block in this token. if the block is generate by the client it can be nil
-	Data                   *string            `json:",omitempty"` // Data requested or repsonsed
-	SnapshotTimestamp      *types.Hash        `json:",omitempty"` // Snapshot timestamp second
-	Signature              string                                 // Signature of current block
-	Nonce                  string                                 // PoW nounce
-	Difficulty             string                                 // PoW difficulty
-	FAmount                *string            `json:",omitempty"` // bigint. Service fee
-	ConfirmedTimes         *string            `json:",omitempty"` // bigint block`s confirmed times
+	Meta                   *AccountBlockMeta  `json:"meta,omitempty"`                   // if the block is generate by the client, it must not be nil and the Height in it must be validate. if the block is a response it maybe be nil
+	AccountAddress         *types.Address     `json:"accountAddress,omitempty"`         // Self account
+	PublicKey              string             `json:"publicKey,omitempty"`              // hex ed25519 public key string
+	To                     *types.Address     `json:"to,omitempty"`                     // Receiver account, exists in send block
+	From                   *types.Address     `json:"from,omitempty"`                   // [Optional] Sender account, exists in receive block
+	FromHash               *types.Hash        `json:"fromHash,omitempty"`               // hex string. Correlative send block hash, exists in receive block
+	PrevHash               *types.Hash        `json:"prevHash,omitempty"`               // Last block hash
+	Hash                   *types.Hash        `json:"hash,omitempty"`                   // Block hash
+	Balance                *string            `json:"balance,omitempty"`                // bigint. Balance of current account. if the block is generate by the client, the balance can be empty
+	Amount                 *string            `json:"amount,omitempty"`                 // bigint. Amount of this transaction
+	Timestamp              uint64             `json:"timestamp"`                        // Timestamp second
+	TokenId                *types.TokenTypeId `json:"tokenId,omitempty"`                // Id of token received or sent
+	LastBlockHeightInToken *string            `json:"lastBlockHeightInToken,omitempty"` // // [Optional] Height of last transaction block in this token. if the block is generate by the client it can be nil
+	Data                   *string            `json:"data,omitempty"`                   // Data requested or repsonsed
+	SnapshotTimestamp      *types.Hash        `json:"snapshotTimestamp,omitempty"`      // Snapshot timestamp second
+	Signature              string             `json:"signature"`                        // Signature of current block
+	Nonce                  string             `json:"nonce"`                            // PoW nounce
+	Difficulty             string             `json:"difficulty"`                       // PoW difficulty
+	FAmount                *string            `json:"fAmount,omitempty"`                // bigint. Service fee
+	ConfirmedTimes         *string            `json:"confirmedTimes,omitempty"`         // bigint block`s confirmed times
 }
 
 func (ra *AccountBlock) ToLedgerAccBlock() (*ledger.AccountBlock, error) {
@@ -148,60 +147,47 @@ func LedgerAccBlockToRpc(lb *ledger.AccountBlock, confirmedTime *string) *Accoun
 
 // Send tx parms
 type SendTxParms struct {
-	SelfAddr    types.Address     // who sends the tx
-	ToAddr      types.Address     // who receives the tx
-	TokenTypeId types.TokenTypeId // which token will be sent
-	Passphrase  string            // sender`s passphrase
-	Amount      string            // the amount of specific token will be sent. bigInt
+	SelfAddr    types.Address     `json:"selfAddr"`    // who sends the tx
+	ToAddr      types.Address     `json:"toAddr"`      // who receives the tx
+	TokenTypeId types.TokenTypeId `json:"tokenTypeId"` // which token will be sent
+	Passphrase  string            `json:"passphrase"`  // sender`s passphrase
+	Amount      string            `json:"amount"`      // the amount of specific token will be sent. bigInt
 }
 
-//type SimpleBlock struct {
-//	Timestamp      uint64
-//	Amount         string        // the amount of a specific token had been sent in this block.  bigInt
-//	FromAddr       types.Address // who sends the tx
-//	ToAddr         types.Address // who receives the tx
-//	Status         int           // 0 means unknow, 1 means open (unconfirmed), 2 means closed(already confirmed)
-//	Hash           types.Hash    // bigInt. the blocks hash
-//	Balance        string        // current balance
-//	ConfirmedTimes string        // block`s confirmed times
-//	Height         string        // bigint todo add it
-//}
-
 type BalanceInfo struct {
-	TokenSymbol string // token symbol example  1200 (symbol)
-	TokenName   string // token name
-	TokenTypeId types.TokenTypeId
-	Balance     string
+	TokenSymbol string            `json:"tokenSymbol"` // token symbol example  1200 (symbol)
+	TokenName   string            `json:"tokenName"`   // token name
+	TokenTypeId types.TokenTypeId `json:"tokenTypeId"`
+	Balance     string            `json:"balance"`
 }
 
 type GetAccountResponse struct {
-	Addr         types.Address // Account address
-	BalanceInfos []BalanceInfo // Account Balance Infos
-	BlockHeight  string        // Account BlockHeight also represents all blocks belong to the account. bigInt.
+	Addr         types.Address `json:"addr"`         // Account address
+	BalanceInfos []BalanceInfo `json:"balanceInfos"` // Account Balance Infos
+	BlockHeight  string        `json:"blockHeight"`  // Account BlockHeight also represents all blocks belong to the account. bigInt.
 }
 
 type GetUnconfirmedInfoResponse struct {
-	Addr                 types.Address // Account address
-	BalanceInfos         []BalanceInfo // Account unconfirmed BalanceInfos (In-transit money)
-	UnConfirmedBlocksLen string        // the length of unconfirmed blocks. bigInt
+	Addr                 types.Address `json:"addr"`                 // Account address
+	BalanceInfos         []BalanceInfo `json:"balanceInfos"`         // Account unconfirmed BalanceInfos (In-transit money)
+	UnConfirmedBlocksLen string        `json:"unConfirmedBlocksLen"` // the length of unconfirmed blocks. bigInt
 }
 
 type InitSyncResponse struct {
-	StartHeight      string // bigInt. where we start sync
-	TargetHeight     string // bigInt. when CurrentHeight == TargetHeight means that sync complete
-	CurrentHeight    string // bigInt.
-	IsFirstSyncDone  bool   // true means sync complete
-	IsStartFirstSync bool   // true means sync start
+	StartHeight      string `json:"startHeight"`      // bigInt. where we start sync
+	TargetHeight     string `json:"targetHeight"`     // bigInt. when CurrentHeight == TargetHeight means that sync complete
+	CurrentHeight    string `json:"currentHeight"`    // bigInt.
+	IsFirstSyncDone  bool   `json:"isFirstSyncDone"`  // true means sync complete
+	IsStartFirstSync bool   `json:"isStartFirstSync"` // true means sync start
 }
 
 type Mintage struct {
-	Name   string
-	Id     *types.TokenTypeId
-	Symbol string
-
-	Owner       *types.Address
-	Decimals    int
-	TotalSupply *string
+	Name        string             `json:"name"`
+	Id          *types.TokenTypeId `json:"id"`
+	Symbol      string             `json:"symbol"`
+	Owner       *types.Address     `json:"owner"`
+	Decimals    int                `json:"decimals"`
+	TotalSupply *string            `json:"totalSupply"`
 }
 
 func rawMintageToRpc(l *ledger.Mintage) *Mintage {
