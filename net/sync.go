@@ -12,6 +12,7 @@ var errSynced = errors.New("Syncing")
 
 var waitEnoughPeers = 10 * time.Second
 var enoughPeers = 3
+var waitForChainGrow = 5 * time.Minute
 
 type SyncState int
 
@@ -71,9 +72,7 @@ type BlockChain interface {
 	GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
 	GetGenesesBlock() (*ledger.SnapshotBlock, error)
 	GetSubLedger(startHeight uint64, endHeight uint64) ([]*ledger.SnapshotBlock, []*ledger.AccountBlock, error)
-
-	GetAbHashList(segment *Segment) ([]*types.Hash, error)
-	GetSbHashList(segment *Segment) ([]*types.Hash, error)
-	GetSnapshotContent(snapshotBlockHash *types.Hash)
-	//GetSbAndSc(originBlockHash *types.Hash, count uint64, forward bool)([]*ledger.SnapshotBlock, []map, error)
+	GetAbHashList(segment *Segment) ([]types.Hash, error)
+	GetSbHashList(segment *Segment) ([]types.Hash, error)
+	GetSnapshotContent(snapshotBlockHash types.Hash)
 }

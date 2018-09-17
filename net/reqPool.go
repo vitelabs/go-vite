@@ -148,7 +148,8 @@ func NewReqPool(peers *peerSet) *reqPool {
 		errChan:   make(chan *req, 1),
 		doneChan:  make(chan *req, 1),
 		stop:      make(chan struct{}),
-		log:       log15.New("module", "net/reqpool"),
+
+		log: log15.New("module", "net/reqpool"),
 	}
 
 	pool.loop()
@@ -172,11 +173,7 @@ loop:
 			delete(p.pending, req.id)
 			p.done[req.id] = req
 		case req := <-p.errChan:
-			peerId := req.peer.ID
-			delete(p.busyPeers, peerId)
-			delete(p.pending, req.id)
-
-			p.Add(req)
+			p.Retry(req)
 		case now := <-ticker.C:
 			for _, req := range p.pending {
 				if now.After(req.expiration) {
@@ -194,6 +191,14 @@ loop:
 
 	p.waiting = nil
 	p.done = nil
+}
+
+func (p *reqPool) Retry(req *req) {
+	peerId := req.peer.ID
+	delete(p.busyPeers, peerId)
+	delete(p.pending, req.id)
+
+	go p.Execute(req)
 }
 
 func (p *reqPool) Add(r *req) {
@@ -229,15 +234,18 @@ func (p *reqPool) Add(r *req) {
 func (p *reqPool) Execute(r *req) {
 	delete(p.waiting, r.id)
 
-	peers := p.peers.Pick(r.param.Ceil())
+	// if req has no given peer, then choose one
+	if r.peer == nil {
+		peers := p.peers.Pick(r.param.Ceil())
 
-	for _, peer := range peers {
-		if _, ok := p.busyPeers[peer.ID]; !ok {
-			r.peer = peer
-			// set pending
-			p.busyPeers[peer.ID] = r
-			p.pending[r.id] = r
-			break
+		for _, peer := range peers {
+			if _, ok := p.busyPeers[peer.ID]; !ok {
+				r.peer = peer
+				// set pending
+				p.busyPeers[peer.ID] = r
+				p.pending[r.id] = r
+				break
+			}
 		}
 	}
 

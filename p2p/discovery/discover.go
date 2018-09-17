@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/p2p/block"
 	"github.com/vitelabs/go-vite/p2p/nat"
 	"net"
 	"sync"
@@ -59,6 +60,7 @@ type Discovery struct {
 	refreshing  bool // use for refresh node table
 	refreshDone chan struct{}
 	wg          sync.WaitGroup
+	blockList   *block.CuckooSet
 }
 
 func (d *Discovery) Start() {
@@ -440,6 +442,7 @@ func New(cfg *Config) *Discovery {
 		stop:        make(chan struct{}),
 		refreshing:  false,
 		refreshDone: make(chan struct{}),
+		blockList:   block.NewCuckooSet(1000),
 	}
 
 	d.agent = &udpAgent{

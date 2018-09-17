@@ -418,6 +418,20 @@ func (m *peerSet) Pick(height uint64) (peers []*Peer) {
 			peers = append(peers, p)
 		}
 	}
+
+	return
+}
+
+func (m *peerSet) PickIdle(height uint64) (peers []*Peer) {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+
+	for _, p := range m.peers {
+		if p.Head().Height > height && len(p.jobs) == 0 {
+			peers = append(peers, p)
+		}
+	}
+
 	return
 }
 

@@ -42,6 +42,10 @@ func (b *BlockID) Equal(hash types.Hash, height uint64) bool {
 	return equalHash && equalHeight
 }
 
+func (b *BlockID) Ceil() uint64 {
+	return b.Height
+}
+
 func (b *BlockID) proto() *protos.BlockID {
 	return &protos.BlockID{
 		Hash:   b.Hash[:],
@@ -135,6 +139,17 @@ func (s *Segment) proto() *protos.Segment {
 	}
 }
 
+func (b *Segment) deProto(pb *protos.Segment) {
+	b.From = new(BlockID)
+	b.From.deProto(pb.From)
+
+	b.To = new(BlockID)
+	b.To.deProto(pb.To)
+
+	b.Step = pb.Step
+	b.Forward = pb.Forward
+}
+
 func (s *Segment) Serialize() ([]byte, error) {
 	return proto.Marshal(s.proto())
 }
@@ -170,6 +185,11 @@ func (s *Segment) Equal(v interface{}) bool {
 	return fromeq && toeq && stepeq && feq
 }
 
+func (s *Segment) Ceil() uint64 {
+	return s.From.Height
+}
+
+// @section Hashes
 type Hashes []types.Hash
 
 func (hs Hashes) Serialize() ([]byte, error) {
@@ -199,6 +219,10 @@ func (hs Hashes) Equal(v interface{}) bool {
 	return true
 }
 
+func (hs Hashes) Ceil() uint64 {
+	return 0
+}
+
 func (hs Hashes) Contain(hash types.Hash) bool {
 	for _, h := range hs {
 		if h == hash {
@@ -223,7 +247,12 @@ func (as AccountSegment) Deserialize(data []byte) error {
 }
 
 func (as AccountSegment) Equal(v interface{}) bool {
+	// todo
+	return true
+}
 
+func (as AccountSegment) Ceil(v interface{}) uint64 {
+	return 0
 }
 
 type subLedgerMsg struct {
@@ -275,10 +304,6 @@ func (st *HandShakeMsg) Deserialize(data []byte) error {
 }
 
 type GetSubLedgerMsg = *Segment
-
-func (s *Segment) Ceil() uint64 {
-	panic("implement me")
-}
 
 type GetSnapshotBlockHeadersMsg = *Segment
 type GetSnapshotBlockBodiesMsg []*types.Hash
