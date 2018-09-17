@@ -4,11 +4,13 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 
 	"errors"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
+	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"math/big"
@@ -21,11 +23,13 @@ var (
 )
 
 type Manager struct {
-	vite Vite
-	pool PoolAccess
-
+	vite                  Vite
+	pool                  PoolAccess
 	uAccess               *model.UAccess
 	unconfirmedBlocksPool *model.UnconfirmedBlocksPool
+
+	genBuilder *generator.GenBuilder
+	verifier   *verifier.AccountVerifier
 
 	commonTxWorkers map[types.Address]*AutoReceiveWorker
 	contractWorkers map[types.Gid]*ContractWorker
@@ -46,6 +50,12 @@ func NewManager(vite Vite, dataDir string) *Manager {
 		log: slog.New("w", "manager"),
 	}
 	m.unconfirmedBlocksPool = model.NewUnconfirmedBlocksPool(m.uAccess)
+
+	m.genBuilder = generator.NewGenBuilder()
+	m.genBuilder.SetDependentModule(vite.Chain(), vite.WalletManager().KeystoreManager)
+
+	m.verifier = verifier.NewAccountVerifier(vite.Chain(), vite.Producer())
+
 	return m
 }
 
