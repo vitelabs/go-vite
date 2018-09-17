@@ -10,17 +10,17 @@ import (
 )
 
 type UAccess struct {
+	Chain *chain.Chain
 	store *UnconfirmedSet
-	chain *chain.Chain
 	log   log15.Logger
 }
 
 func NewUAccess(chain *chain.Chain, dataDir string) *UAccess {
 	uAccess := &UAccess{
-		chain: chain,
-		log: log15.New("w", "uAccess"),
+		Chain: chain,
+		log:   log15.New("w", "uAccess"),
 	}
-	dbDir := filepath.Join(dataDir, "chain")
+	dbDir := filepath.Join(dataDir, "Chain")
 	db, err := leveldb.OpenFile(dbDir, nil)
 	if err != nil {
 		uAccess.log.Error("ChainDb not find or create DB failed")
@@ -73,7 +73,7 @@ func (access *UAccess) GetUnconfirmedBlocks(index, num, count uint64, addr *type
 		return nil, err
 	}
 	for _, v := range hashList {
-		block, err := access.chain.GetAccountBlockByHash(v)
+		block, err := access.Chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
 			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
 			continue
@@ -105,7 +105,7 @@ func (access *UAccess) GetAllUnconfirmedBlocks(addr types.Address) (blockList []
 	result := make([]*ledger.AccountBlock, len(hashList))
 
 	for i, v := range hashList {
-		block, err := access.chain.GetAccountBlockByHash(v)
+		block, err := access.Chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
 			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
 			continue
@@ -124,14 +124,14 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 		return nil, 0, err
 	}
 	for _, v := range hashList {
-		block, err := access.chain.GetAccountBlockByHash(v)
+		block, err := access.Chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
 			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
 			continue
 		}
 		ti, ok := infoMap[block.TokenId]
 		if !ok {
-			token, err := access.chain.GetTokenInfoById(&block.TokenId)
+			token, err := access.Chain.GetTokenInfoById(&block.TokenId)
 			if err != nil {
 				access.log.Error("func GetUnconfirmedAccount.GetByTokenId failed", "error", err)
 				return nil, 0, err
@@ -144,4 +144,8 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 
 	}
 	return infoMap, uint64(len(hashList)), err
+}
+func (access *UAccess) GetAccountQuota(addresses types.Address, hashes types.Hash) uint64 {
+	//todo @;yd
+	return 0
 }

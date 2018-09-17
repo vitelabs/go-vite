@@ -147,7 +147,6 @@ func (w *AutoReceiveWorker) startWork() {
 			w.log.Info("worker broken")
 			break
 		}
-
 	}
 
 END:

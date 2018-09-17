@@ -101,7 +101,7 @@ func (p *UnconfirmedBlocksPool) GetCommonAccountInfo(addr types.Address) (*Commo
 	p.fullCacheMutex.RLock()
 	defer p.fullCacheMutex.RUnlock()
 	if fullcache, ok := p.fullCache[addr]; ok {
-		accountInfo := fullcache.toCommonAccountInfo(p.dbAccess.chain.GetTokenInfoById)
+		accountInfo := fullcache.toCommonAccountInfo(p.dbAccess.Chain.GetTokenInfoById)
 		if accountInfo != nil {
 			p.addSimpleCache(addr, accountInfo)
 			return accountInfo, nil
@@ -201,7 +201,7 @@ func (p *UnconfirmedBlocksPool) WriteUnconfirmed(writeType bool, batch *leveldb.
 			return err
 		}
 
-		// fixme: @gx whether need to wait the block insert into chain and try the following
+		// fixme: @gx whether need to wait the block insert into Chain and try the following
 		p.NewSignalToWorker(block)
 	} else { // delete
 		if err := p.dbAccess.deleteUnconfirmedMeta(batch, block); err != nil {
@@ -210,7 +210,7 @@ func (p *UnconfirmedBlocksPool) WriteUnconfirmed(writeType bool, batch *leveldb.
 		}
 	}
 
-	// fixme: @gx whether need to wait the block insert into chain and try the following
+	// fixme: @gx whether need to wait the block insert into Chain and try the following
 	p.updateCache(writeType, block)
 
 	return nil
@@ -251,7 +251,7 @@ func (p *UnconfirmedBlocksPool) updateSimpleCache(writeType bool, block *ledger.
 			tokenBalanceInfo.TotalAmount.Add(&tokenBalanceInfo.TotalAmount, block.Amount)
 			tokenBalanceInfo.Number += 1
 		} else {
-			token, err := p.dbAccess.chain.GetTokenInfoById(&block.TokenId)
+			token, err := p.dbAccess.Chain.GetTokenInfoById(&block.TokenId)
 			if err != nil {
 				return errors.New("func UpdateCommonAccInfo.GetByTokenId failed" + err.Error())
 			}
@@ -297,7 +297,7 @@ func (p *UnconfirmedBlocksPool) updateCache(writeType bool, block *ledger.Accoun
 
 func (p *UnconfirmedBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
 	// todo @lyd will support it
-	gid := p.dbAccess.chain.GetGid(block.AccountAddress)
+	gid := p.dbAccess.Chain.GetGid(block.AccountAddress)
 	if gid != nil {
 		if f, ok := p.newContractListener[gid]; ok {
 			f()
@@ -307,6 +307,10 @@ func (p *UnconfirmedBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
 			f()
 		}
 	}
+}
+
+func (p *UnconfirmedBlocksPool) GetUnconfirmedBlocks(index, num, count uint64, addr *types.Address) (blockList []*ledger.AccountBlock, err error) {
+	return p.dbAccess.GetUnconfirmedBlocks(index, num, count, addr)
 }
 
 func (p *UnconfirmedBlocksPool) AddCommonTxLis(addr types.Address, f func()) {

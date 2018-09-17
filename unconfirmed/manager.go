@@ -19,7 +19,7 @@ import (
 
 var (
 	slog           = log15.New("module", "unconfirmed")
-	ErrNotSyncdone = errors.New("net status has not sync done")
+	ErrNotSyncDone = errors.New("net status has not sync done")
 )
 
 type Manager struct {
@@ -165,7 +165,7 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 	manager.log.Info("StartAutoReceiveWorker ", "addr", addr, "netstate", netstate)
 
 	if netstate != net.Syncdone {
-		return ErrNotSyncdone
+		return ErrNotSyncDone
 	}
 
 	keystoreManager := manager.vite.WalletManager().KeystoreManager

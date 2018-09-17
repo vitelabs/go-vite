@@ -4,19 +4,15 @@ import (
 	"container/heap"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
-	"github.com/vitelabs/go-vite/verifier"
 	"sync"
 )
 
 type ContractWorker struct {
 	manager *Manager
 
-	verifer     *verifier.AccountVerifier
-	genBuilder  *generator.GenBuilder
 	uBlocksPool *model.UnconfirmedBlocksPool
 
 	gid                 types.Gid
@@ -27,13 +23,16 @@ type ContractWorker struct {
 	status      int
 	statusMutex sync.Mutex
 
-	dispatcherSleep        bool
-	dispatcherAlarm        chan struct{}
+	dispatcherSleep bool
+	dispatcherAlarm chan struct{}
+
 	breaker                chan struct{}
 	stopDispatcherListener chan struct{}
 
-	contractTasks   []*ContractTask
-	priorityToQueue *model.PriorityToQueue
+	contractTasks []*ContractTask
+
+	priorityToQueue      *model.PriorityToQueue
+	priorityToQueueMutex sync.RWMutex
 
 	blackList      map[types.Hash]bool // map[(toAddress+fromAddress).String]
 	blackListMutex sync.RWMutex
@@ -44,37 +43,52 @@ type ContractWorker struct {
 func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) (*ContractWorker, error) {
 
 	addressList, err := manager.unconfirmedBlocksPool.GetAddrListByGid(accEvent.Gid)
-
 	if err != nil {
 		return nil, err
 	}
-
 	if len(addressList) <= 0 {
 		return nil, errors.New("newContractWorker addressList nil")
 	}
 
 	return &ContractWorker{
-		verifer:     manager.verifier,
-		genBuilder:  manager.genBuilder,
-		uBlocksPool: manager.unconfirmedBlocksPool,
-
-		accEvent:            accEvent,
-		gid:                 accEvent.Gid,
-		address:             accEvent.Address,
-		contractAddressList: addressList,
-
-		status:          Create,
-		dispatcherSleep: false,
-
+		manager:                manager,
+		uBlocksPool:            manager.unconfirmedBlocksPool,
+		gid:                    accEvent.Gid,
+		address:                accEvent.Address,
+		accEvent:               accEvent,
+		contractAddressList:    addressList,
+		status:                 Create,
+		dispatcherSleep:        false,
 		dispatcherAlarm:        make(chan struct{}),
 		breaker:                make(chan struct{}),
 		stopDispatcherListener: make(chan struct{}),
-
-		contractTasks: make([]*ContractTask, CONTRACT_TASK_SIZE),
-		blackList:     make(map[types.Hash]bool),
-
-		log: log15.New("ContractWorker ", "addr", accEvent.Address, "gid", accEvent.Gid),
+		contractTasks:          make([]*ContractTask, CONTRACT_TASK_SIZE),
+		blackList:              make(map[types.Hash]bool),
+		log:                    log15.New("ContractWorker ", "addr", accEvent.Address, "gid", accEvent.Gid),
 	}, nil
+
+}
+
+func (w *ContractWorker) dispatchTask(index int) *model.FromItem {
+	w.priorityToQueueMutex.Lock()
+	defer w.priorityToQueueMutex.Unlock()
+
+	if w.priorityToQueue.Len() == 0 {
+		w.log.Info("priorityToQueue empty now get from db")
+		w.FetchNewFromDb()
+		if w.priorityToQueue.Len() == 0 {
+			w.log.Info("priorityToQueue db empty")
+			return nil
+		}
+		return nil
+	}
+	tItem := heap.Pop(w.priorityToQueue).(*model.ToItem)
+	priorityFromQueue := tItem.Value
+	for j := 0; j < priorityFromQueue.Len(); j++ {
+		fItem := heap.Pop(priorityFromQueue).(*model.FromItem)
+		return fItem
+	}
+	return nil
 }
 
 func (w *ContractWorker) Start() {
@@ -88,11 +102,11 @@ func (w *ContractWorker) Start() {
 		})
 
 		for i, v := range w.contractTasks {
-			v = NewContractTask(w, i)
-			go v.Start()
+			v = NewContractTask(w, i, w.dispatchTask)
+			v.Start()
 		}
 
-		go w.DispatchTask(&w.accEvent.SnapshotHash)
+		go w.waitingNewBlock()
 
 		w.status = Start
 	} else {
@@ -142,30 +156,10 @@ func (w *ContractWorker) NewUnconfirmedTxAlarm() {
 	}
 }
 
-func (w *ContractWorker) DispatchTask(snapshotHash *types.Hash) {
-	//todo add mutex
-	w.FetchNew(snapshotHash)
+func (w *ContractWorker) waitingNewBlock() {
 	for {
-		for i := 0; i < w.priorityToQueue.Len(); i++ {
-			tItem := heap.Pop(w.priorityToQueue).(*model.ToItem)
-			priorityFromQueue := tItem.Value
-			for j := 0; j < priorityFromQueue.Len(); j++ {
-			FINDFREETASK:
-				if w.Status() == Stop {
-					// clear blackList
-					w.blackList = nil
-					// fixme: to clear priorityToQueue?
-					goto END
-				}
-
-				freeTaskIndex := w.FindAFreeTask()
-				if freeTaskIndex == -1 {
-					goto FINDFREETASK
-				}
-
-				fItem := heap.Pop(priorityFromQueue).(*model.FromItem)
-				w.contractTasks[freeTaskIndex].subQueue <- fItem
-			}
+		for _, v := range w.contractTasks {
+			v.WakeUp()
 		}
 
 		w.dispatcherSleep = true
@@ -175,38 +169,28 @@ func (w *ContractWorker) DispatchTask(snapshotHash *types.Hash) {
 			goto END
 		case <-w.dispatcherAlarm:
 			w.dispatcherSleep = false
-			w.FetchNew(snapshotHash)
 		}
 	}
 END:
 	w.log.Info("ContractWorker send stopDispatcherListener")
 	w.stopDispatcherListener <- struct{}{}
-	w.log.Info("ContractWorker DispatchTask end")
+	w.log.Info("ContractWorker waitingNewBlock end")
 }
 
-func (w *ContractWorker) FindAFreeTask() (index int) {
-	for k, v := range w.contractTasks {
-		if v.status == Idle {
-			return k
-		}
-	}
-	return -1
-}
-
-func (w *ContractWorker) FetchNew(snapshotHash *types.Hash) {
+func (w *ContractWorker) FetchNewFromDb() {
+	snapshotHash := w.accEvent.SnapshotHash
 	for i := 0; i < len(w.contractAddressList); i++ {
-		blockList, err := w.uAccess.GetUnconfirmedBlocks(0, 1, CONTRACT_FETCH_SIZE, w.contractAddressList[i])
+		blockList, err := w.uBlocksPool.GetUnconfirmedBlocks(0, 1, CONTRACT_FETCH_SIZE, w.contractAddressList[i])
 		if err != nil {
-			w.log.Error("ContractWorker.FetchNew.GetUnconfirmedBlocks", "error", err)
+			w.log.Error("FetchNewFromDb.GetUnconfirmedBlocks", "error", err)
 			continue
 		}
 		for _, v := range blockList {
 			// when a to-from pair  was added into blackList,
 			// the other block which under the same to-from pair won't fetch any more during the same block-out period
-			var blKey = (*v).ToAddress.String() + (*v).AccountAddress.String()
-			if _, ok := w.blackList[blKey]; !ok {
-				fromQuota := w.uAccess.Chain.GetAccountQuota(v.AccountAddress, snapshotHash)
-				toQuota := w.uAccess.Chain.GetAccountQuota(v.ToAddress, snapshotHash)
+			if w.isInBlackList(v.AccountAddress, v.ToAddress) {
+				fromQuota := w.manager.uAccess.GetAccountQuota(v.AccountAddress, snapshotHash)
+				toQuota := w.manager.uAccess.GetAccountQuota(v.ToAddress, snapshotHash)
 				w.priorityToQueue.InsertNew(v, toQuota, fromQuota)
 			}
 		}

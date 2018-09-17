@@ -12,11 +12,9 @@ import (
 	"time"
 )
 
-const (
-	Idle = Create
-)
-
 type ContractTask struct {
+	taskId int
+
 	blocksPool *model.UnconfirmedBlocksPool
 	pool       PoolAccess
 	verifier   *verifier.AccountVerifier
@@ -25,58 +23,88 @@ type ContractTask struct {
 	status      int
 	statusMutex sync.Mutex
 
-	reRetry bool
-
 	stopListener chan struct{}
 	breaker      chan struct{}
 
-	subQueue chan *model.FromItem
-	accevent producer.AccountStartEvent
+	isSleeping bool
+	wakeup     chan struct{}
+
+	accEvent producer.AccountStartEvent
 	cworker  *ContractWorker
+
+	getNewBlocksFunc func(index int) *model.FromItem
 
 	log log15.Logger
 }
 
-func NewContractTask(worker *ContractWorker, index int) *ContractTask {
+func NewContractTask(worker *ContractWorker, index int, getNewBlocksFunc func(index int) *model.FromItem) *ContractTask {
 	return &ContractTask{
-		blocksPool:   worker.uBlocksPool,
-		pool:         worker.pool,
-		verifier:     worker.verifer,
-		genBuilder:   worker.genBuilder,
-		status:       Idle,
-		reRetry:      false,
-		stopListener: make(chan struct{}),
-		breaker:      make(chan struct{}),
-		subQueue:     make(chan *model.FromItem),
-		accevent:     worker.accEvent,
-		cworker:      worker,
-		log:          worker.log.New("taskid", index),
+		taskId:           index,
+		blocksPool:       worker.uBlocksPool,
+		pool:             worker.pool,
+		verifier:         worker.manager.verifier,
+		genBuilder:       worker.manager.genBuilder,
+		status:           Create,
+		stopListener:     make(chan struct{}),
+		breaker:          make(chan struct{}),
+		wakeup:           make(chan struct{}),
+		accEvent:         worker.accEvent,
+		cworker:          worker,
+		getNewBlocksFunc: getNewBlocksFunc,
+
+		log: worker.log.New("taskid", index),
+	}
+}
+func (task *ContractTask) WakeUp() {
+	if task.isSleeping {
+		task.wakeup <- struct{}{}
 	}
 }
 
-func (task *ContractTask) Start() {
+func (task *ContractTask) work() {
 	for {
+		task.isSleeping = false
 		if task.status == Stop {
 			goto END
 		}
 
-		fItem := task.GetFromItem()
+		fItem := task.getNewBlocksFunc(task.taskId)
+		if fItem == nil {
+			goto WAIT
+		}
+
 		if task.ProcessOneQueue(fItem) {
 			task.cworker.addIntoBlackList(fItem.Key, fItem.Value.Front().ToAddress)
 		}
 
+		continue
+
+	WAIT:
+		task.isSleeping = true
 		select {
+		case <-task.wakeup:
 		case <-task.breaker:
 			goto END
 		default:
 			break
 		}
-		task.status = Idle
 	}
 END:
 	task.log.Info("ContractTask send stopDispatcherListener ")
 	task.stopListener <- struct{}{}
 	task.log.Info("ContractTask Stop")
+}
+
+func (task *ContractTask) Start() {
+	task.statusMutex.Lock()
+	defer task.statusMutex.Unlock()
+	if task.status != Start {
+		task.isSleeping = false
+
+		go task.work()
+
+		task.status = Start
+	}
 }
 
 func (task *ContractTask) Stop() {
@@ -90,7 +118,7 @@ func (task *ContractTask) Stop() {
 		<-task.stopListener
 		close(task.stopListener)
 
-		close(task.subQueue)
+		close(task.wakeup)
 
 		task.status = Stop
 	}
@@ -108,7 +136,7 @@ func (task *ContractTask) Status() int {
 }
 
 func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList bool) {
-	// get db.go block from subQueue
+	// get db.go block from wakeup
 	task.log.Info("Process the fromQueue,", "fromAddress", fItem.Key, "index", fItem.Index, "priority", fItem.Priority)
 
 	bQueue := fItem.Value
@@ -129,12 +157,12 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 			continue
 		}
 
-		block, err := task.PackReceiveBlock(sBlock, &task.accevent.SnapshotHash, task.accevent.Timestamp)
+		block, err := task.PackReceiveBlock(sBlock, &task.accEvent.SnapshotHash, task.accEvent.Timestamp)
 		if err != nil {
 			task.log.Error("PackReceiveBlock Error", err)
 			return true
 		}
-		genBuilder, err := task.genBuilder.PrepareVm(&task.accevent.SnapshotHash, &block.PrevHash, &block.AccountAddress)
+		genBuilder, err := task.genBuilder.PrepareVm(&task.accEvent.SnapshotHash, &block.PrevHash, &block.AccountAddress)
 		if err != nil {
 			task.log.Error("NewGenerator Error", err)
 			return true
@@ -157,7 +185,7 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 			}
 
 			nowTime := time.Now().Unix()
-			if nowTime >= task.accevent.Etime.Unix() {
+			if nowTime >= task.accEvent.Etime.Unix() {
 				task.breaker <- struct{}{}
 				return true
 			}
@@ -180,15 +208,7 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 	return false
 }
 
-func (task *ContractTask) GetFromItem() *model.FromItem {
-	task.statusMutex.Lock()
-	defer task.statusMutex.Unlock()
-	fItem := <-task.subQueue
-	task.status = Start
-	return fItem
-}
-
-func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock, snapshotHash *types.Hash, timestamp *time.Time) (*ledger.AccountBlock, error) {
+func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock, snapshotHash *types.Hash, timestamp time.Time) (*ledger.AccountBlock, error) {
 	//task.statusMutex.Lock()
 	//defer task.statusMutex.Unlock()
 	//if task.status != Start {
@@ -228,5 +248,5 @@ func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock, snaps
 	//	block.Hash = preBlock.Hash
 	//	block.Height = preBlock.Height + 1
 	//}
-	return block, nil
+	return nil, nil
 }
