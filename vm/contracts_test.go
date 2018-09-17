@@ -873,56 +873,6 @@ func TestMintage(t *testing.T) {
 	db.accountBlockMap[addr1][hash14] = receiveMintageRewardBlockList[0].AccountBlock
 }
 
-func TestGenesisBlockData(t *testing.T) {
-	// vite owner mintage genesis block
-	tokenName := "ViteToken"
-	tokenSymbol := "ViteToken"
-	decimals := uint8(18)
-	totalSupply := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9))
-	viteAddress, _, _ := types.CreateAddress()
-	mintageData, _ := contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, viteAddress, big.NewInt(0), int64(0))
-	fmt.Println("-------------vite owner mintage genesis block-------------")
-	fmt.Println("address: viteAddress")
-	fmt.Printf("AccountBlock{\n\tBlockType: ledger.BlockTypeReceive,\n\tAccountAddress: viteAddress,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:*ledger.ViteTokenId(),\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
-		1, totalSupply, big.NewInt(0), hex.EncodeToString(mintageData))
-	fmt.Printf("Storage:{\n\t$balance:*ledger.ViteTokenId():%v\n}\n", totalSupply)
-	fmt.Printf("SetToken{\n\tTokenId: *ledger.ViteTokenId(),\n\tTokenName: %v,\n\tTotalSupply: %v,\n\tDecimals: %v\n}\n", tokenName, totalSupply, decimals)
-
-	// snapshot consensus group and common consensus group genesis block
-	snapshotGid := types.Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	conditionCountingData, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConditionCounting1, *ledger.ViteTokenId())
-	conditionRegisterData, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConditionRegister1, registerAmount, *ledger.ViteTokenId(), registerLockTime)
-	consensusGroupData, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
-		uint8(25),
-		int64(3),
-		uint8(1),
-		conditionCountingData,
-		uint8(1),
-		conditionRegisterData,
-		uint8(1),
-		[]byte{})
-	fmt.Println("-------------snapshot consensus group and common consensus group genesis block-------------")
-	fmt.Printf("address:%v\n", hex.EncodeToString(contracts.AddressConsensusGroup.Bytes()))
-	fmt.Printf("AccountBlock{\n\tBlockType: ledger.BlockTypeReceive,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:*ledger.ViteTokenId(),\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
-		hex.EncodeToString(contracts.AddressConsensusGroup.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
-	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(types.DataHash(snapshotGid.Bytes()).Bytes()), consensusGroupData, hex.EncodeToString(types.DataHash(ledger.ViteTokenId().Bytes()).Bytes()), consensusGroupData)
-
-	// snapshot consensus group and common consensus group register genesis block
-	fmt.Println("-------------snapshot consensus group and common consensus group register genesis block-------------")
-	fmt.Printf("address:%v\n", hex.EncodeToString(contracts.AddressRegister.Bytes()))
-	fmt.Printf("AccountBlock{\n\tBlockType: ledger.BlockTypeReceive,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:*ledger.ViteTokenId(),\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
-		hex.EncodeToString(contracts.AddressRegister.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
-	fmt.Printf("Storage:{\n")
-	timestamp := time.Now().Unix() + registerLockTime
-	registerData, _ := contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, common.Big0, timestamp, uint64(1), uint64(0))
-	for i := 0; i < 25; i++ {
-		snapshotKey := contracts.GetRegisterKey("snapshotNode1", snapshotGid)
-		commonKey := contracts.GetRegisterKey("commonNode1", *ledger.CommonGid())
-		fmt.Printf("\t%v: %v\n\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData), hex.EncodeToString(commonKey), hex.EncodeToString(registerData))
-	}
-	fmt.Println("}")
-}
-
 func TestCheckTokenInfo(t *testing.T) {
 	tests := []struct {
 		data   string
@@ -978,4 +928,56 @@ func TestCheckTokenName(t *testing.T) {
 			t.Fatalf("match string error, [%v] expected %v, got %v", test.data, test.exp, ok)
 		}
 	}
+}
+
+func TestGenesisBlockData(t *testing.T) {
+	tokenName := "ViteToken"
+	tokenSymbol := "ViteToken"
+	decimals := uint8(18)
+	totalSupply := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9))
+	viteAddress, _, _ := types.CreateAddress()
+	mintageData, _ := contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, viteAddress, big.NewInt(0), int64(0))
+	fmt.Println("-------------mintage genesis block-------------")
+	fmt.Printf("address: %v\n", hex.EncodeToString(contracts.AddressMintage.Bytes()))
+	fmt.Printf("AccountBlock{\n\tBlockType: %v\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:*ledger.ViteTokenId(),\n\tQuota:0,\n\tFee:%v\n}\n",
+		ledger.BlockTypeReceive, hex.EncodeToString(contracts.AddressMintage.Bytes()), 1, big.NewInt(0), big.NewInt(0))
+	fmt.Printf("Storage:{\n\t%v:%v\n}\n", hex.EncodeToString(helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32)), hex.EncodeToString(mintageData))
+
+	fmt.Println("-------------vite owner genesis block-------------")
+	fmt.Println("address: viteAddress")
+	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: viteAddress,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:*ledger.ViteTokenId(),\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
+		ledger.BlockTypeReceive, 1, totalSupply, big.NewInt(0), hex.EncodeToString(mintageData))
+	fmt.Printf("Storage:{\n\t$balance:*ledger.ViteTokenId():%v\n}\n", totalSupply)
+
+	snapshotGid := types.Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	conditionCountingData, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConditionCounting1, *ledger.ViteTokenId())
+	conditionRegisterData, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConditionRegister1, registerAmount, *ledger.ViteTokenId(), registerLockTime)
+	consensusGroupData, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+		uint8(25),
+		int64(3),
+		uint8(1),
+		conditionCountingData,
+		uint8(1),
+		conditionRegisterData,
+		uint8(1),
+		[]byte{})
+	fmt.Println("-------------snapshot consensus group and common consensus group genesis block-------------")
+	fmt.Printf("address:%v\n", hex.EncodeToString(contracts.AddressConsensusGroup.Bytes()))
+	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:*ledger.ViteTokenId(),\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
+		ledger.BlockTypeReceive, hex.EncodeToString(contracts.AddressConsensusGroup.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
+	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(types.DataHash(snapshotGid.Bytes()).Bytes()), consensusGroupData, hex.EncodeToString(types.DataHash(ledger.ViteTokenId().Bytes()).Bytes()), consensusGroupData)
+
+	fmt.Println("-------------snapshot consensus group and common consensus group register genesis block-------------")
+	fmt.Printf("address:%v\n", hex.EncodeToString(contracts.AddressRegister.Bytes()))
+	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:*ledger.ViteTokenId(),\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
+		ledger.BlockTypeReceive, hex.EncodeToString(contracts.AddressRegister.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
+	fmt.Printf("Storage:{\n")
+	timestamp := time.Now().Unix() + registerLockTime
+	registerData, _ := contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, common.Big0, timestamp, uint64(1), uint64(0))
+	for i := 0; i < 25; i++ {
+		snapshotKey := contracts.GetRegisterKey("snapshotNode1", snapshotGid)
+		commonKey := contracts.GetRegisterKey("commonNode1", *ledger.CommonGid())
+		fmt.Printf("\t%v: %v\n\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData), hex.EncodeToString(commonKey), hex.EncodeToString(registerData))
+	}
+	fmt.Println("}")
 }
