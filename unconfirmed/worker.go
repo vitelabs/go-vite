@@ -1,9 +1,6 @@
 package unconfirmed
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_context"
 	"runtime"
 )
 
@@ -28,8 +25,4 @@ var (
 	CONTRACT_FETCH_SIZE = uint64(2 * POMAXPROCS)
 )
 
-type PoolAccess interface {
-	AddBlock(block *ledger.AccountBlock) error
-	AddDirectBlock(block *ledger.AccountBlock, blockGen *vm_context.VmAccountBlock) error
-	ExistInPool(address *types.Address, fromBlockHash *types.Hash) bool
-}
+

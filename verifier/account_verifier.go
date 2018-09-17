@@ -25,10 +25,10 @@ type AccountVerifier struct {
 	log log15.Logger
 }
 
-func NewAccountVerifier(chain ChainReader, committee ConsensusReader) *AccountVerifier {
+func NewAccountVerifier(chain ChainReader, consensus ConsensusReader) *AccountVerifier {
 	verifier := &AccountVerifier{
 		chainReader:     chain,
-		consensusReader: committee,
+		consensusReader: consensus,
 		log:             nil,
 	}
 	verifier.log = log15.New("")
@@ -59,10 +59,16 @@ func (self *AccountVerifier) VerifyforProducer(block *ledger.AccountBlock) (Veri
 	return stat.VerifyResult(), stat
 }
 
-func (self *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) ([]*vm_context.VmAccountBlock, error) {
+func (self *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (this *vm_context.VmAccountBlock, others []*vm_context.VmAccountBlock, err error) {
 	//if result, err := self.VerifySelfDependence(block); result != FAIL && err == nil {
 	//}
 	// todo add generatorP2PTx
+	return nil, nil, nil
+}
+
+func (self *AccountVerifier) VerifyforRPC() ([]*vm_context.VmAccountBlock, error) {
+	// todo 1.arg to be message or block
+	// todo 2.generateBlock
 	return nil, nil
 }
 
@@ -232,10 +238,14 @@ func (self *AccountVerifier) VerifyTimeOut(block *ledger.AccountBlock) bool {
 func (self *AccountVerifier) VerifyConfirmed(block *ledger.AccountBlock) bool {
 	defer monitor.LogTime("verify", "accountConfirmed", time.Now())
 
-	if confirmedBlock, err := self.chainReader.GetConfirmBlock(block); confirmedBlock == nil || err != nil {
+	if confirmedBlock := self.chainReader.GetConfirmBlock(block); confirmedBlock == nil {
 		self.log.Error("not Confirmed yet")
 		return false
 	}
+	//if confirmedBlock, err := self.chainReader.GetConfirmBlock(block); confirmedBlock == nil || err != nil {
+	//	self.log.Error("not Confirmed yet")
+	//	return false
+	//}
 	return true
 }
 

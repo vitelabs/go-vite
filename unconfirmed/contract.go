@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
+	"github.com/vitelabs/go-vite/verifier"
 	"sync"
 )
 
@@ -14,6 +15,7 @@ type ContractWorker struct {
 	manager *Manager
 
 	uBlocksPool *model.UnconfirmedBlocksPool
+	verifier    *verifier.AccountVerifier
 
 	gid                 types.Gid
 	address             types.Address
@@ -53,6 +55,7 @@ func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) (*
 	return &ContractWorker{
 		manager:                manager,
 		uBlocksPool:            manager.unconfirmedBlocksPool,
+		verifier:               verifier.NewAccountVerifier(manager.vite.Chain(), manager.vite),
 		gid:                    accEvent.Gid,
 		address:                accEvent.Address,
 		accEvent:               accEvent,

@@ -21,3 +21,6 @@ type IncomingMessage struct {
 
 	SnapshotHeight *types.Hash
 }
+
+type RpcMessage struct {
+}

@@ -26,8 +26,6 @@ type Generator struct {
 	log log15.Logger
 }
 
-type SignerFunc func(a types.Address, data []byte, passphrase string) (signedData, pubkey []byte, err error)
-
 func (gen *Generator) GenerateWithBlock(sourceType byte, block *ledger.AccountBlock, sigFunc SignerFunc) *GenResult {
 	select {
 	case sourceType == SourceTypeP2P:
@@ -68,6 +66,13 @@ func (gen *Generator) generateP2PTx(block *ledger.AccountBlock, sigFunc SignerFu
 	}
 
 	blockList[0].AccountBlock.Hash = blockList[0].AccountBlock.GetComputeHash()
+	if sigFunc != nil {
+		blockList[0].AccountBlock.Signature, blockList[0].AccountBlock.PublicKey, err = sigFunc(
+			blockList[0].AccountBlock.AccountAddress, blockList[0].AccountBlock.Hash.Bytes())
+		if err != nil {
+			gen.log.Error("generateInitiateTx.Sign()", "Error", err)
+		}
+	}
 
 	return &GenResult{
 		BlockGenList: blockList,
@@ -93,13 +98,13 @@ func (gen *Generator) generateInitiateTx(block *ledger.AccountBlock, sigFunc Sig
 
 	blockList[0].AccountBlock.Hash = blockList[0].AccountBlock.GetComputeHash()
 
-	//var signErr error
-	//if blockList[0].AccountBlock.Signature, blockList[0].AccountBlock.PublicKey, signErr =
-	//	gen.signer.SignDataWithPassphrase(blockList[0].AccountBlock.AccountAddress, passphrase,
-	//		blockList[0].AccountBlock.Hash.Bytes()); signErr != nil {
-	//	gen.log.Error("SignData Error", signErr)
-	//	return nil
-	//}
+	if sigFunc != nil {
+		blockList[0].AccountBlock.Signature, blockList[0].AccountBlock.PublicKey, err = sigFunc(
+			blockList[0].AccountBlock.AccountAddress, blockList[0].AccountBlock.Hash.Bytes())
+		if err != nil {
+			gen.log.Error("generateInitiateTx.Sign()", "Error", err)
+		}
+	}
 
 	return &GenResult{
 		BlockGenList: blockList,
@@ -117,12 +122,13 @@ func (gen *Generator) generateUnconfirmedTx(block *ledger.AccountBlock, sigFunc 
 
 	blockList[0].AccountBlock.Hash = blockList[0].AccountBlock.GetComputeHash()
 
-	//var signErr error
-	//if blockList[0].AccountBlock.Signature, blockList[0].AccountBlock.PublicKey, signErr =
-	//	gen.signer.SignData(blockList[0].AccountBlock.AccountAddress, blockList[0].AccountBlock.Hash.Bytes()); signErr != nil {
-	//	gen.log.Error("SignData Error", signErr)
-	//	return nil
-	//}
+	if sigFunc != nil {
+		blockList[0].AccountBlock.Signature, blockList[0].AccountBlock.PublicKey, err = sigFunc(
+			blockList[0].AccountBlock.AccountAddress, blockList[0].AccountBlock.Hash.Bytes())
+		if err != nil {
+			gen.log.Error("generateUnconfirmedTx.Sign()", "Error", err)
+		}
+	}
 
 	return &GenResult{
 		BlockGenList: blockList,
@@ -201,6 +207,21 @@ func (gen *Generator) PackUnconfirmedReceiveBlock(sendBlock *ledger.AccountBlock
 	}
 
 	return block
+}
+
+func (gen *Generator) PackBlockWithRPCMessage(message *RpcMessage) (*ledger.AccountBlock, error) {
+	return nil, nil
+}
+
+type SignerFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
+
+func (gen *Generator) Sign(addr types.Address, passphrase string, data []byte) (signedData, pubkey []byte, err error) {
+	if passphrase == "" {
+		return gen.signer.SignData(addr, data)
+
+	} else {
+		return gen.signer.SignDataWithPassphrase(addr, passphrase, data)
+	}
 }
 
 type GenResult struct {
