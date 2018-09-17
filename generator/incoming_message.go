@@ -17,6 +17,7 @@ type IncomingMessage struct {
 	TokenId types.TokenTypeId
 	Amount  *big.Int
 	Data    []byte
+	Quota   uint64
 
 	SnapshotHeight *types.Hash
 }

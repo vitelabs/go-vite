@@ -2,6 +2,7 @@ package unconfirmed
 
 import (
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/vm_context"
@@ -14,4 +15,5 @@ type Vite interface {
 	WalletManager() *wallet.Manager
 	VmContext() *vm_context.Chain
 	Producer() producer.Producer
+	ConsensusVerifier() consensus.Verifier
 }
