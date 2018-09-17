@@ -1,11 +1,14 @@
 package net
 
 import (
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"sync"
 )
+
+var errSynced = errors.New("Syncing")
 
 type SyncState int
 

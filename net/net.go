@@ -1,12 +1,12 @@
 package net
 
 import (
+	"github.com/pkg/errors"
 	"github.com/seiflotfy/cuckoofilter"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"io/ioutil"
 	"log"
-	"math/big"
 	"net"
 	"sync"
 	"time"
@@ -24,27 +24,29 @@ type Net struct {
 	accountFeed   *accountBlockFeed
 	term          chan struct{}
 	pool          *reqPool
-	FromHeight    *big.Int
-	TargetHeight  *big.Int
+	FromHeight    uint64
+	TargetHeight  uint64
 	syncState     SyncState
 	slock         sync.RWMutex // use for syncState change
-	SyncStartHook func(*big.Int, *big.Int)
-	SyncDoneHook  func(*big.Int, *big.Int)
-	SyncErrHook   func(*big.Int, *big.Int)
+	SyncStartHook func(uint64, uint64)
+	SyncDoneHook  func(uint64, uint64)
+	SyncErrHook   func(uint64, uint64)
 	stateFeed     *SyncStateFeed
 	SnapshotChain BlockChain
 	blockRecord   *cuckoofilter.CuckooFilter // record blocks has retrieved from network
 }
 
 func New(cfg *Config) *Net {
+	peerSet := NewPeerSet()
+
 	n := &Net{
 		Config:       cfg,
-		peers:        NewPeerSet(),
+		peers:        peerSet,
 		snapshotFeed: new(snapshotBlockFeed),
 		accountFeed:  new(accountBlockFeed),
 		stateFeed:    new(SyncStateFeed),
 		term:         make(chan struct{}),
-		pool:         new(reqPool),
+		pool:         NewReqPool(peerSet),
 		blockRecord:  cuckoofilter.NewCuckooFilter(10000),
 	}
 
@@ -74,6 +76,13 @@ func (n *Net) SetSyncState(st SyncState) {
 	defer n.slock.Unlock()
 	n.syncState = st
 	n.stateFeed.Notify(st)
+}
+
+func (n *Net) SyncState() SyncState {
+	n.slock.Lock()
+	defer n.slock.Unlock()
+
+	return n.syncState
 }
 
 func (n *Net) ReceiveConn(conn net.Conn) {
@@ -141,13 +150,18 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 	case GetAccountBlocksByHashCode:
 	case SubLedgerCode:
 	case SnapshotBlockHeadersCode:
+		// todo mark blocks to peer
 	case SnapshotBlockBodiesCode:
+		// todo mark blocks to peer
 	case SnapshotBlocksCode:
+		// todo mark blocks to peer
 	case AccountBlocksCode:
+		// todo mark blocks to peer
 	case NewSnapshotBlockCode:
+		// todo mark blocks to peer
 	case ExceptionCode:
 	default:
-
+		return errors.New("unknown message")
 	}
 
 	return nil
@@ -222,6 +236,39 @@ func (n *Net) SubscribeSyncStatus(fn func(SyncState)) (subId int) {
 
 func (n *Net) UnsubscribeSyncStatus(subId int) {
 	n.stateFeed.Unsub(subId)
+}
+
+func (n *Net) syncWithPeer(p *Peer) error {
+	if n.Syncing() {
+		return errSynced
+	}
+
+	current, err := n.SnapshotChain.GetLatestSnapshotBlock()
+	if err != nil {
+		return err
+	}
+
+	err = p.RequestSnapshotBlocks(&Segment{
+		From:    &BlockID{current.Hash, current.Height},
+		To:      &BlockID{p.head, p.height},
+		Step:    0,
+		Forward: true,
+	})
+
+	return err
+}
+
+func (n *Net) startPeer(p *Peer) {
+	n.peers.Add(p)
+
+	go p.Broadcast()
+
+	n.syncWithPeer(p)
+}
+
+func (n *Net) removePeer(p *Peer) {
+	p.Destroy()
+	n.peers.Del(p)
 }
 
 // get current netInfo (peers, syncStatus, ...)

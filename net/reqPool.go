@@ -3,6 +3,7 @@ package net
 import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p"
 	"sync"
 	"time"
 )
@@ -15,8 +16,9 @@ const expireCheckInterval = 30 * time.Second
 var errHasNoSuitablePeer = errors.New("has no suitable peer")
 
 type Params interface {
+	p2p.Serializable
 	Equal(interface{}) bool
-	Ceil() uint64
+	Ceil() uint64 // the minimal height of snapshotchain
 }
 
 type reqStatus int
@@ -37,15 +39,38 @@ func (s reqStatus) String() string {
 	return reqStatusText[s]
 }
 
+type reqParam struct {
+	Cmd
+	Params
+}
+
+type reqCallback func(Cmd, interface{}) (done bool, err error)
 type req struct {
 	id         uint64
 	peer       *Peer
 	count      int // Count the number of times the req was requested
-	params     Params
+	param      *reqParam
 	status     reqStatus
-	time       time.Time
-	expiration time.Duration
-	lock       sync.Mutex
+	addedAt    time.Time
+	timeout    time.Duration
+	expiration time.Time
+	lock       sync.RWMutex
+	callback   reqCallback // when peer get response, call the callback to judge whether req is done or error
+	errch      chan error  // if callback encounter error, then send the error to this channel
+	done       chan bool   // if callback is executed, send the first result to this channel
+}
+
+func newReq(cmd Cmd, params Params, callback reqCallback, timeout time.Duration) *req {
+	return &req{
+		param: &reqParam{
+			cmd,
+			params,
+		},
+		timeout:  timeout,
+		callback: callback,
+		errch:    make(chan error, 1),
+		done:     make(chan bool, 1),
+	}
 }
 
 func (r *req) Equal(r2 interface{}) bool {
@@ -58,11 +83,13 @@ func (r *req) Equal(r2 interface{}) bool {
 		return true
 	}
 
-	return r.params.Equal(r3.params)
+	return r.param.Equal(r3.param)
 }
 
 // send the req to Peer immediately
-func (r *req) Execute() {
+var errNoRequestedPeer = errors.New("request has no matched peer")
+
+func (r *req) Execute() (done bool, err error) {
 	r.lock.Lock()
 
 	if r.status == reqPending {
@@ -71,13 +98,27 @@ func (r *req) Execute() {
 	}
 	r.count = 0
 	r.status = reqPending
-	r.time = time.Now()
 
 	r.lock.Unlock()
+
+	if r.peer != nil {
+		r.expiration = time.Now().Add(r.timeout)
+		r.peer.execute(r)
+		return <-r.done, <-r.errch
+	}
+
+	return false, errNoRequestedPeer
 }
 
 func (r *req) Cancel() {
+	r.lock.Lock()
+	defer r.lock.Unlock()
 
+	r.status = reqDone
+
+	if r.peer != nil {
+		r.peer.delete(r)
+	}
 }
 
 const MAX_ID uint64 = ^(uint64(0))
@@ -85,14 +126,14 @@ const INIT_ID uint64 = 1
 
 type reqPool struct {
 	waiting   map[uint64]*req
-	pending   map[string]*req
+	pending   map[uint64]*req
 	done      map[uint64]*req
+	busyPeers map[string]*req
 	mu        sync.RWMutex
 	currentID uint64
 	peers     *peerSet
 	errChan   chan *req
 	doneChan  chan *req
-	addChan   chan *req
 	stop      chan struct{}
 	log       log15.Logger
 }
@@ -100,13 +141,12 @@ type reqPool struct {
 func NewReqPool(peers *peerSet) *reqPool {
 	pool := &reqPool{
 		waiting:   make(map[uint64]*req, 100),
-		pending:   make(map[string]*req, 20),
+		pending:   make(map[uint64]*req, 20),
 		done:      make(map[uint64]*req, 100),
 		currentID: INIT_ID,
 		peers:     peers,
 		errChan:   make(chan *req, 1),
 		doneChan:  make(chan *req, 1),
-		addChan:   make(chan *req, 1),
 		stop:      make(chan struct{}),
 		log:       log15.New("module", "net/reqpool"),
 	}
@@ -120,24 +160,26 @@ func (p *reqPool) loop() {
 	ticker := time.NewTicker(expireCheckInterval)
 	defer ticker.Stop()
 
-	now := time.Now()
 loop:
 	for {
 		select {
 		case <-p.stop:
 			break loop
 		case req := <-p.doneChan:
+			req.status = reqDone
 			peerId := req.peer.ID
-			delete(p.pending, peerId)
+			delete(p.busyPeers, peerId)
+			delete(p.pending, req.id)
 			p.done[req.id] = req
 		case req := <-p.errChan:
 			peerId := req.peer.ID
-			delete(p.pending, peerId)
+			delete(p.busyPeers, peerId)
+			delete(p.pending, req.id)
+
 			p.Add(req)
-		case <-ticker.C:
-			now = time.Now()
+		case now := <-ticker.C:
 			for _, req := range p.pending {
-				if now.Sub(req.time) > req.expiration {
+				if now.After(req.expiration) {
 					p.log.Error("req timeout")
 					p.errChan <- req
 				}
@@ -154,17 +196,25 @@ loop:
 	p.done = nil
 }
 
-func (p *reqPool) Mark(r *req) {
+func (p *reqPool) Add(r *req) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	for _, req := range p.waiting {
-		if req.Equal(r) {
-			r.count++
-			return
+	r.addedAt = time.Now()
+
+	for _, queue := range []map[uint64]*req{p.waiting, p.pending, p.done} {
+		for _, req := range queue {
+			if req.Equal(r) {
+				r.count++
+				if r.count >= reqCountCacheLimit {
+					p.Execute(r)
+				}
+				return
+			}
 		}
 	}
 
+	// request at the first time
 	if p.currentID == MAX_ID {
 		p.currentID = INIT_ID
 	} else {
@@ -172,34 +222,29 @@ func (p *reqPool) Mark(r *req) {
 	}
 
 	r.id = p.currentID
-	p.waiting[r.id] = r
-}
-
-func (p *reqPool) Add(r *req) {
-	p.Mark(r)
-
-	if r.count >= reqCountCacheLimit {
-		p.Execute(r)
-	}
+	r.count = 1
+	p.Execute(r)
 }
 
 func (p *reqPool) Execute(r *req) {
 	delete(p.waiting, r.id)
 
-	peers := p.peers.Pick(r.params.Ceil())
+	peers := p.peers.Pick(r.param.Ceil())
 
 	for _, peer := range peers {
-		if _, ok := p.pending[peer.ID]; !ok {
+		if _, ok := p.busyPeers[peer.ID]; !ok {
 			r.peer = peer
+			// set pending
+			p.busyPeers[peer.ID] = r
+			p.pending[r.id] = r
 			break
 		}
 	}
 
-	if r.peer != nil {
-		r.Execute()
+	done, err := r.Execute()
+	if err != nil {
+		p.errChan <- r
+	} else if done {
+		p.doneChan <- r
 	}
-}
-
-func (p *reqPool) Receive(peerId string, code Cmd) {
-
 }
