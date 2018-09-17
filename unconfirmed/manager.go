@@ -54,7 +54,7 @@ func NewManager(vite Vite, dataDir string) *Manager {
 	m.genBuilder = generator.NewGenBuilder()
 	m.genBuilder.SetDependentModule(vite.Chain(), vite.WalletManager().KeystoreManager)
 
-	m.verifier = verifier.NewAccountVerifier(vite.Chain(), vite.Producer())
+	m.verifier = verifier.NewAccountVerifier(vite.Chain(), vite.ConsensusVerifier())
 
 	return m
 }

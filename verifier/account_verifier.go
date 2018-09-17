@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/vm_context"
 	"time"
 )
 
@@ -19,15 +20,15 @@ const (
 
 type AccountVerifier struct {
 	chainReader     ChainReader
-	committeeReader ProducerReader
+	consensusReader ConsensusReader
 
 	log log15.Logger
 }
 
-func NewAccountVerifier(chain ChainReader, committee ProducerReader) *AccountVerifier {
+func NewAccountVerifier(chain ChainReader, committee ConsensusReader) *AccountVerifier {
 	verifier := &AccountVerifier{
 		chainReader:     chain,
-		committeeReader: committee,
+		consensusReader: committee,
 		log:             nil,
 	}
 	verifier.log = log15.New("")
@@ -38,7 +39,7 @@ func (self *AccountVerifier) newVerifyStat(block *ledger.AccountBlock) *AccountB
 	return &AccountBlockVerifyStat{}
 }
 
-func (self *AccountVerifier) VerifyforProducer(block *ledger.AccountBlock) *AccountBlockVerifyStat {
+func (self *AccountVerifier) VerifyforProducer(block *ledger.AccountBlock) (VerifyResult, *AccountBlockVerifyStat) {
 	defer monitor.LogTime("verify", "accountProducer", time.Now())
 
 	stat := self.newVerifyStat(block)
@@ -49,32 +50,20 @@ func (self *AccountVerifier) VerifyforProducer(block *ledger.AccountBlock) *Acco
 		stat.referredFromResult = FAIL
 		stat.accountTask = nil
 		stat.snapshotTask = nil
-		return stat
+	} else {
+		self.verifySelf(block, stat)
+		self.verifyFrom(block, stat)
+		self.verifySnapshot(block, stat)
+
 	}
-
-	self.verifySelf(block, stat)
-	self.verifyFrom(block, stat)
-	self.verifySnapshot(block, stat)
-
-	if stat.VerifyResult() == PENDING {
-		stat.accountTask = &AccountPendingTask{
-			Addr:   &block.AccountAddress,
-			Hash:   &block.Hash,
-			Height: block.Height,
-		}
-		stat.snapshotTask = &SnapshotPendingTask{
-			Hash: &block.SnapshotHash,
-		}
-	}
-
-	return stat
+	return stat.VerifyResult(), stat
 }
 
-func (self *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) bool {
-	if result, err := self.VerifySelfDependence(block); result != FAIL && err == nil {
-		return true
-	}
-	return false
+func (self *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) ([]*vm_context.VmAccountBlock, error) {
+	//if result, err := self.VerifySelfDependence(block); result != FAIL && err == nil {
+	//}
+	// todo add generatorP2PTx
+	return nil, nil
 }
 
 func (self *AccountVerifier) VerifyforP2P(block *ledger.AccountBlock) bool {
@@ -92,7 +81,7 @@ func (self *AccountVerifier) verifyGenesis(block *ledger.AccountBlock, stat *Acc
 		bytes.Equal(block.Hash.Bytes(), self.chainReader.GetGenesisBlockFirst().Hash.Bytes())
 }
 
-func (self *AccountVerifier) verifySelf(block *ledger.AccountBlock, stat *AccountBlockVerifyStat) bool {
+func (self *AccountVerifier) verifySelf(block *ledger.AccountBlock, stat *AccountBlockVerifyStat) {
 	defer monitor.LogTime("verify", "accountSelf", time.Now())
 
 	stat1, err1 := self.VerifySelfDataValidity(block)
@@ -104,57 +93,63 @@ func (self *AccountVerifier) verifySelf(block *ledger.AccountBlock, stat *Accoun
 	select {
 	case stat1 == PENDING && stat2 == PENDING:
 		stat.referredSelfResult = PENDING
-		return true
+		stat.accountTask = &AccountPendingTask{
+			Addr:   &block.AccountAddress,
+			Hash:   &block.Hash,
+			Height: block.Height,
+		}
 	case stat1 == SUCCESS && stat2 == SUCCESS:
 		stat.referredSelfResult = SUCCESS
-		return true
 	default:
 		stat.referredSelfResult = FAIL
-		return false
 	}
 }
 
-func (self *AccountVerifier) verifyFrom(block *ledger.AccountBlock, stat *AccountBlockVerifyStat) bool {
+func (self *AccountVerifier) verifyFrom(block *ledger.AccountBlock, stat *AccountBlockVerifyStat) {
 	defer monitor.LogTime("verify", "accountFrom", time.Now())
 
 	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
 		fromBlock, err := self.chainReader.GetAccountBlockByHash(&block.FromBlockHash)
 		if err != nil || fromBlock == nil {
-			stat.errMsg += errors.New("verifyFrom.GetAccountBlockByHash").Error()
-			self.log.Error(stat.errMsg, "error", err)
-			stat.referredFromResult = FAIL
-			return false
+			self.log.Info("verifyFrom.GetAccountBlockByHash", "error", err)
+			stat.accountTask = &AccountPendingTask{
+				Addr:   nil,
+				Hash:   &block.FromBlockHash,
+				Height: 0,
+			}
+			stat.referredFromResult = PENDING
 		} else {
 			stat.referredFromResult = SUCCESS
-			return true
 		}
 	} else {
-		stat.errMsg += errors.New("verifyFrom: send doesn't have fromBlock").Error()
-		self.log.Info(stat.errMsg)
-		stat.referredFromResult = FAIL
-		return false
+		self.log.Info("verifyFrom: send doesn't have fromBlock")
+		stat.referredFromResult = SUCCESS
 	}
 }
 
-func (self *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, stat *AccountBlockVerifyStat) bool {
+func (self *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, stat *AccountBlockVerifyStat) {
 	defer monitor.LogTime("verify", "accountSnapshot", time.Now())
 
 	snapshotBlock, err := self.chainReader.GetSnapshotBlockByHash(&block.SnapshotHash)
 	if err != nil || snapshotBlock == nil {
-		stat.errMsg += errors.New("verifySnapshot.GetSnapshotBlockByHash").Error()
-		self.log.Error(stat.errMsg, "error", err)
-		return false
+		self.log.Info("verifySnapshot.GetSnapshotBlockByHash", "error", err)
+		stat.snapshotTask = &SnapshotPendingTask{
+			Hash: &block.SnapshotHash,
+		}
+		stat.referredFromResult = PENDING
 	}
 
 	if !self.VerifyTimeOut(block) && self.VerifyConfirmed(block) {
 		stat.referredSnapshotResult = SUCCESS
-		return true
 	} else {
 		stat.errMsg += errors.New("verify Snapshot timeout or prevBlock still not confirmed").Error()
 		self.log.Error(stat.errMsg)
 		stat.referredSnapshotResult = FAIL
-		return false
 	}
+}
+
+func (self *AccountVerifier) VerifyBlockIntegrity(block *ledger.AccountBlock) bool {
+	return false
 }
 
 func (self *AccountVerifier) VerifySelfDataValidity(block *ledger.AccountBlock) (VerifyResult, error) {
@@ -267,7 +262,7 @@ func (self *AccountVerifier) VerifyUnconfirmedPriorBlockReceived(priorBlockHash 
 }
 
 func (self *AccountVerifier) VerifyIsProducerLegal(block *ledger.AccountBlock) bool {
-	if err := self.committeeReader.VerifyAccountProducer(block); err != nil {
+	if err := self.consensusReader.VerifyAccountProducer(block); err != nil {
 		self.log.Error("VerifySelfDataValidity: the block producer is illegal")
 		return false
 	}

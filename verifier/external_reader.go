@@ -27,6 +27,6 @@ type AccountReader interface {
 	GetReceiveTimes(addr *types.Address, fromBlockHash *types.Hash) uint8
 }
 
-type ProducerReader interface {
+type ConsensusReader interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) error
 }
