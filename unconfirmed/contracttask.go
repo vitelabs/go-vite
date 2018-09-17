@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
 	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/wallet"
 	"sync"
 	"time"
 )
@@ -16,7 +17,7 @@ type ContractTask struct {
 	taskId int
 
 	blocksPool *model.UnconfirmedBlocksPool
-	pool       PoolAccess
+	pool       PoolReader
 	verifier   *verifier.AccountVerifier
 	genBuilder *generator.GenBuilder
 
@@ -41,8 +42,7 @@ func NewContractTask(worker *ContractWorker, index int, getNewBlocksFunc func(in
 	return &ContractTask{
 		taskId:           index,
 		blocksPool:       worker.uBlocksPool,
-		pool:             worker.pool,
-		verifier:         worker.manager.verifier,
+		verifier:         worker.verifier,
 		genBuilder:       worker.manager.genBuilder,
 		status:           Create,
 		stopListener:     make(chan struct{}),
@@ -146,7 +146,7 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 		sBlock := bQueue.Dequeue()
 		task.log.Info("Process to make the receiveBlock, its'sendBlock detail:", task.log.New("hash", sBlock.Hash))
 
-		if task.pool.ExistInPool(&sBlock.ToAddress, &sBlock.Hash) {
+		if task.pool.ExistInPool(sBlock.ToAddress, sBlock.Hash) {
 			// Don't deal with it for the time being
 			return true
 		}
@@ -157,18 +157,18 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 			continue
 		}
 
-		block, err := task.PackReceiveBlock(sBlock, &task.accEvent.SnapshotHash, task.accEvent.Timestamp)
-		if err != nil {
-			task.log.Error("PackReceiveBlock Error", err)
-			return true
-		}
 		genBuilder, err := task.genBuilder.PrepareVm(&task.accEvent.SnapshotHash, &block.PrevHash, &block.AccountAddress)
 		if err != nil {
 			task.log.Error("NewGenerator Error", err)
 			return true
 		}
 
-		genResult := genBuilder.Build().GenerateWithBlock(generator.SourceTypeUnconfirmed, block)
+		gen := genBuilder.Build()
+		recvBlock := gen.PackUnconfirmedReceiveBlock(sBlock, &task.accEvent.SnapshotHash, &task.accEvent.Timestamp)
+		genResult := gen.GenerateWithBlock(generator.SourceTypeUnconfirmed, recvBlock,
+			func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+				return gen.Sign(addr, "", data)
+			})
 		if err != nil {
 			task.log.Error("GenerateTx error ignore, ", "error", err)
 		}
@@ -189,15 +189,12 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 				task.breaker <- struct{}{}
 				return true
 			}
-			for k, v := range genResult.BlockGenList {
-				if err := task.pool.AddDirectBlock(sBlock, v); err != nil {
-					return true
-				}
-				if k == len(genResult.BlockGenList)-1 {
-					priorBlock = v.AccountBlock
-				}
 
+			if err := task.cworker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
+				return true
 			}
+
+			priorBlock = genResult.BlockGenList[len(genResult.BlockGenList)-1].AccountBlock
 		}
 	WaitForVmDB:
 		if task.verifier.VerifyUnconfirmedPriorBlockReceived(&priorBlock.Hash) == false {
@@ -206,47 +203,4 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 	}
 
 	return false
-}
-
-func (task *ContractTask) PackReceiveBlock(sendBlock *ledger.AccountBlock, snapshotHash *types.Hash, timestamp time.Time) (*ledger.AccountBlock, error) {
-	//task.statusMutex.Lock()
-	//defer task.statusMutex.Unlock()
-	//if task.status != Start {
-	//	task.status = Start
-	//}
-	//
-	//task.log.Info("PackReceiveBlock", "sendBlock",
-	//	task.log.New("sendBlock.Hash", sendBlock.Hash), task.log.New("sendBlock.To", sendBlock.ToAddress))
-	//
-	//// fixme：remaining Nonce to add
-	//block := &ledger.AccountBlock{
-	//	BlockType:      0,
-	//	Hash:           types.Hash{},
-	//	Height:         0,
-	//	PrevHash:       types.Hash{},
-	//	AccountAddress: sendBlock.ToAddress,
-	//	PublicKey:      nil, // contractAddress's receiveBlock's publicKey is from consensus node
-	//	ToAddress:      types.Address{},
-	//	FromBlockHash:  sendBlock.Hash,
-	//	Amount:         sendBlock.Amount,
-	//	TokenId:        sendBlock.TokenId,
-	//	Quota:          sendBlock.Quota,
-	//	Fee:            sendBlock.Fee,
-	//	SnapshotHash:   task.accEvent.SnapshotHash,
-	//	Data:           sendBlock.Data,
-	//	Timestamp:      task.accEvent.Timestamp,
-	//	StateHash:      types.Hash{},
-	//	LogHash:        nil,
-	//	Nonce:          nil,
-	//	Signature:      nil,
-	//}
-	//preBlock, err := task.chain.GetLatestAccountBlock(&block.AccountAddress)
-	//if err != nil {
-	//	return nil, errors.New("GetLatestAccountBlock error" + err.Error())
-	//}
-	//if preBlock != nil {
-	//	block.Hash = preBlock.Hash
-	//	block.Height = preBlock.Height + 1
-	//}
-	return nil, nil
 }

@@ -5,12 +5,11 @@ import (
 
 	"errors"
 	"github.com/vitelabs/go-vite/generator"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
-	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"math/big"
@@ -24,12 +23,11 @@ var (
 
 type Manager struct {
 	vite                  Vite
-	pool                  PoolAccess
+	pool                  PoolReader
 	uAccess               *model.UAccess
 	unconfirmedBlocksPool *model.UnconfirmedBlocksPool
 
 	genBuilder *generator.GenBuilder
-	verifier   *verifier.AccountVerifier
 
 	commonTxWorkers map[types.Address]*AutoReceiveWorker
 	contractWorkers map[types.Gid]*ContractWorker
@@ -43,18 +41,16 @@ type Manager struct {
 func NewManager(vite Vite, dataDir string) *Manager {
 	m := &Manager{
 		vite:            vite,
+		pool:            vite,
+		uAccess:         model.NewUAccess(vite.Chain(), dataDir),
 		commonTxWorkers: make(map[types.Address]*AutoReceiveWorker),
 		contractWorkers: make(map[types.Gid]*ContractWorker),
-		uAccess:         model.NewUAccess(vite.Chain(), dataDir),
-
-		log: slog.New("w", "manager"),
+		log:             slog.New("w", "manager"),
 	}
 	m.unconfirmedBlocksPool = model.NewUnconfirmedBlocksPool(m.uAccess)
 
 	m.genBuilder = generator.NewGenBuilder()
 	m.genBuilder.SetDependentModule(vite.Chain(), vite.WalletManager().KeystoreManager)
-
-	m.verifier = verifier.NewAccountVerifier(vite.Chain(), vite.ConsensusVerifier())
 
 	return m
 }
@@ -150,8 +146,18 @@ func (manager *Manager) producerStartEventFunc(accevent producer.AccountEvent) {
 	}
 }
 
-func (manager *Manager) insertBlockToPool(b *ledger.AccountBlock) error {
-	return manager.pool.AddBlock(b)
+func (manager *Manager) insertCommonBlockToPool(blockList []*vm_context.VmAccountBlock) error {
+	return manager.pool.AddDirectAccountBlock(blockList[0].AccountBlock.AccountAddress, blockList[0])
+}
+
+func (manager *Manager) insertContractBlocksToPool(blockList []*vm_context.VmAccountBlock) error {
+	if len(blockList) > 1 {
+		return manager.pool.AddDirectAccountBlocks(blockList[0].AccountBlock.AccountAddress,
+			blockList[0], blockList[1:])
+	} else {
+		return manager.pool.AddDirectAccountBlocks(blockList[0].AccountBlock.AccountAddress,
+			blockList[0], nil)
+	}
 }
 
 func (manager *Manager) SetAutoReceiveFilter(addr types.Address, filter map[types.TokenTypeId]big.Int) {
