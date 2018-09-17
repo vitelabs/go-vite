@@ -151,6 +151,58 @@ func (s *Segment) Deserialize(data []byte) error {
 	return nil
 }
 
+func (s *Segment) Equal(v interface{}) bool {
+	s2, ok := v.(*Segment)
+	if !ok {
+		return false
+	}
+	fromeq := s.From.Equal(s2.From.Hash, s2.From.Height)
+	toeq := s.To.Equal(s2.To.Hash, s2.To.Height)
+	stepeq := s.Step == s2.Step
+	feq := s.Forward == s2.Forward
+
+	return fromeq && toeq && stepeq && feq
+}
+
+type Hashes []types.Hash
+
+func (hs Hashes) Serialize() ([]byte, error) {
+	panic("implement me")
+}
+
+func (hs Hashes) Deserialize(buf []byte) error {
+	panic("implement me")
+}
+
+func (hs Hashes) Equal(v interface{}) bool {
+	h2, ok := v.(Hashes)
+	if !ok {
+		return false
+	}
+
+	if len(hs) != len(h2) {
+		return false
+	}
+
+	for _, hash := range hs {
+		if !h2.Contain(hash) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (hs Hashes) Contain(hash types.Hash) bool {
+	for _, h := range hs {
+		if h == hash {
+			return true
+		}
+	}
+
+	return false
+}
+
 type AccountSegment map[string]*Segment
 
 func (as AccountSegment) Serialize() ([]byte, error) {
@@ -162,6 +214,10 @@ func (as AccountSegment) Serialize() ([]byte, error) {
 func (as AccountSegment) Deserialize(data []byte) error {
 	// todo
 	return nil
+}
+
+func (as AccountSegment) Equal(v interface{}) bool {
+
 }
 
 // @message HandShake
