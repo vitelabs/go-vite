@@ -52,7 +52,7 @@ func NewManager(vite Vite, dataDir string) *Manager {
 	m.unconfirmedBlocksPool = model.NewUnconfirmedBlocksPool(m.uAccess)
 
 	m.genBuilder = generator.NewGenBuilder()
-	m.genBuilder.SetDependentModule(vite.Chain(), vite.WalletManager())
+	m.genBuilder.SetDependentModule(vite.Chain(), vite.WalletManager().KeystoreManager)
 
 	m.verifier = verifier.NewAccountVerifier(vite.Chain(), vite.Producer())
 

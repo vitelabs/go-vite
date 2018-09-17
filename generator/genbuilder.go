@@ -31,7 +31,8 @@ func (builder *GenBuilder) PrepareVm(snapshotBlockHash *types.Hash, prevAccountB
 	if err != nil {
 		return builder, err
 	}
-	builder.generator.Vm = *vm.NewVM(vmContext)
+	builder.generator.VmContext = vmContext
+	builder.generator.Vm = *vm.NewVM()
 	return builder, nil
 }
 

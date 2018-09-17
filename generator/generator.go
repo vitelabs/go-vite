@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 )
 
 const (
@@ -15,7 +16,8 @@ const (
 )
 
 type Generator struct {
-	Vm vm.VM
+	Vm        vm.VM
+	VmContext vmctxt_interface.VmDatabase
 
 	chain  vm_context.Chain
 	signer SignManager
@@ -51,28 +53,21 @@ func (gen *Generator) generateP2PTx(block *ledger.AccountBlock) *GenResult {
 	gen.log.Info("generateP2PTx", "BlockType", block.BlockType)
 	// todo  run the the complete set of verify
 
-	var blockList []*ledger.AccountBlock
+	var blockList []*vm_context.VmAccountBlock
 	var isRetry bool
 	var err error
 
 	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
-		sendBlock := gen.Vm.Db.GetAccountBlockByHash(&block.FromBlockHash)
-		blockList, isRetry, err = gen.Vm.Run(block, sendBlock)
+		sendBlock := gen.VmContext.GetAccountBlockByHash(&block.FromBlockHash)
+		blockList, isRetry, err = gen.Vm.Run(gen.VmContext, block, sendBlock)
 	} else {
-		blockList, isRetry, err = gen.Vm.Run(block, nil)
+		blockList, isRetry, err = gen.Vm.Run(gen.VmContext, block, nil)
 	}
 
-	blockList[0].Hash = blockList[0].GetComputeHash()
-
-	var blockGenList []*vm_context.VmAccountBlock
-	blockGen := &vm_context.VmAccountBlock{
-		AccountBlock: blockList[0],
-		VmContext:    nil,
-	}
-	blockGenList = append(blockGenList, blockGen)
+	blockList[0].AccountBlock.Hash = blockList[0].AccountBlock.GetComputeHash()
 
 	return &GenResult{
-		BlockGenList: blockGenList,
+		BlockGenList: blockList,
 		IsRetry:      isRetry,
 		Err:          err,
 	}
@@ -82,36 +77,29 @@ func (gen *Generator) generateP2PTx(block *ledger.AccountBlock) *GenResult {
 func (gen *Generator) generateInitiateTx(block *ledger.AccountBlock, passphrase string) *GenResult {
 	gen.log.Info("generateInitiateTx", "BlockType", block.BlockType)
 
-	var blockList []*ledger.AccountBlock
+	var blockList []*vm_context.VmAccountBlock
 	var isRetry bool
 	var err error
 
 	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
-		sendBlock := gen.Vm.Db.GetAccountBlockByHash(&block.FromBlockHash)
-		blockList, isRetry, err = gen.Vm.Run(block, sendBlock)
+		sendBlock := gen.VmContext.GetAccountBlockByHash(&block.FromBlockHash)
+		blockList, isRetry, err = gen.Vm.Run(gen.VmContext, block, sendBlock)
 	} else {
-		blockList, isRetry, err = gen.Vm.Run(block, nil)
+		blockList, isRetry, err = gen.Vm.Run(gen.VmContext, block, nil)
 	}
 
-	blockList[0].Hash = blockList[0].GetComputeHash()
+	blockList[0].AccountBlock.Hash = blockList[0].AccountBlock.GetComputeHash()
 
 	var signErr error
-	if blockList[0].Signature, blockList[0].PublicKey, signErr =
-		gen.signer.SignDataWithPassphrase(blockList[0].AccountAddress, passphrase,
-			blockList[0].Hash.Bytes()); signErr != nil {
+	if blockList[0].AccountBlock.Signature, blockList[0].AccountBlock.PublicKey, signErr =
+		gen.signer.SignDataWithPassphrase(blockList[0].AccountBlock.AccountAddress, passphrase,
+			blockList[0].AccountBlock.Hash.Bytes()); signErr != nil {
 		gen.log.Error("SignData Error", signErr)
 		return nil
 	}
 
-	var blockGenList []*vm_context.VmAccountBlock
-	blockGen := &vm_context.VmAccountBlock{
-		AccountBlock: blockList[0],
-		VmContext:    nil,
-	}
-	blockGenList = append(blockGenList, blockGen)
-
 	return &GenResult{
-		BlockGenList: blockGenList,
+		BlockGenList: blockList,
 		IsRetry:      isRetry,
 		Err:          err,
 	}
@@ -121,33 +109,20 @@ func (gen *Generator) generateInitiateTx(block *ledger.AccountBlock, passphrase 
 func (gen *Generator) generateUnconfirmedTx(block *ledger.AccountBlock) *GenResult {
 	gen.log.Info("generateUnconfirmedTx", "BlockType", block.BlockType)
 
-	sendBlock := gen.Vm.Db.GetAccountBlockByHash(&block.FromBlockHash)
-	blockList, isRetry, err := gen.Vm.Run(block, sendBlock)
+	sendBlock := gen.VmContext.GetAccountBlockByHash(&block.FromBlockHash)
+	blockList, isRetry, err := gen.Vm.Run(gen.VmContext, block, sendBlock)
 
-	var blockGenList []*vm_context.VmAccountBlock
-	for k, v := range blockList {
-		v.Hash = v.GetComputeHash()
-		blockGen := &vm_context.VmAccountBlock{
-			AccountBlock: v,
-			VmContext:    nil,
-		}
+	blockList[0].AccountBlock.Hash = blockList[0].AccountBlock.GetComputeHash()
 
-		if k == 0 {
-			blockGen.VmContext = gen.Vm.Db
-
-			var signErr error
-			if blockGen.AccountBlock.Signature, blockGen.AccountBlock.PublicKey, signErr =
-				gen.signer.SignData(blockGen.AccountBlock.AccountAddress, blockGen.AccountBlock.Hash.Bytes()); signErr != nil {
-				gen.log.Error("SignData Error", signErr)
-				return nil
-			}
-
-		}
-		blockGenList = append(blockGenList, blockGen)
+	var signErr error
+	if blockList[0].AccountBlock.Signature, blockList[0].AccountBlock.PublicKey, signErr =
+		gen.signer.SignData(blockList[0].AccountBlock.AccountAddress, blockList[0].AccountBlock.Hash.Bytes()); signErr != nil {
+		gen.log.Error("SignData Error", signErr)
+		return nil
 	}
 
 	return &GenResult{
-		BlockGenList: blockGenList,
+		BlockGenList: blockList,
 		IsRetry:      isRetry,
 		Err:          err,
 	}
@@ -170,11 +145,11 @@ func (gen *Generator) PackBlockWithMessage(message *IncomingMessage) *ledger.Acc
 		block.ToAddress = *message.ToAddress
 	}
 
-	latestBlock := gen.Vm.Db.PrevAccountBlock()
+	latestBlock := gen.VmContext.PrevAccountBlock()
 	block.Height = latestBlock.Height + 1
 	block.PrevHash = latestBlock.Hash
 
-	latestSnapshotBlock := gen.Vm.Db.CurrentSnapshotBlock()
+	latestSnapshotBlock := gen.VmContext.CurrentSnapshotBlock()
 	block.SnapshotHash = latestSnapshotBlock.Hash
 
 	return block
