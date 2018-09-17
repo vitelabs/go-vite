@@ -15,7 +15,12 @@ var (
 	AddressMintage, _        = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5})
 )
 
-func GetTokenById(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) *TokenInfo {
+type StorageDatabase interface {
+	GetStorage(addr *types.Address, key []byte) []byte
+	NewStorageIterator(prefix []byte) vmctxt_interface.StorageIterator
+}
+
+func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *TokenInfo {
 	data := db.GetStorage(&AddressMintage, helper.LeftPadBytes(tokenId.Bytes(), types.HashSize))
 	if len(data) > 0 {
 		tokenInfo := new(TokenInfo)
@@ -25,7 +30,7 @@ func GetTokenById(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) *To
 	return nil
 }
 
-func GetTokenMap(db vmctxt_interface.VmDatabase) map[types.TokenTypeId]*TokenInfo {
+func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*TokenInfo {
 	iterator := db.NewStorageIterator(nil)
 	tokenInfoMap := make(map[types.TokenTypeId]*TokenInfo)
 	for {
@@ -41,8 +46,7 @@ func GetTokenMap(db vmctxt_interface.VmDatabase) map[types.TokenTypeId]*TokenInf
 	return tokenInfoMap
 }
 
-// get register address of gid
-func GetRegisterList(db vmctxt_interface.VmDatabase, gid types.Gid) []*Registration {
+func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 	iterator := db.NewStorageIterator(gid.Bytes())
 	registerList := make([]*Registration, 0)
 	for {
@@ -59,8 +63,7 @@ func GetRegisterList(db vmctxt_interface.VmDatabase, gid types.Gid) []*Registrat
 	return registerList
 }
 
-// get voters of gid, return map<voter, super node>
-func GetVoteMap(db vmctxt_interface.VmDatabase, gid types.Gid) []*VoteInfo {
+func GetVoteMap(db StorageDatabase, gid types.Gid) []*VoteInfo {
 	iterator := db.NewStorageIterator(gid.Bytes())
 	voteInfoList := make([]*VoteInfo, 0)
 	for {
@@ -76,8 +79,7 @@ func GetVoteMap(db vmctxt_interface.VmDatabase, gid types.Gid) []*VoteInfo {
 	return voteInfoList
 }
 
-// get beneficial pledge amount
-func GetPledgeAmount(db vmctxt_interface.VmDatabase, beneficial types.Address) *big.Int {
+func GetPledgeAmount(db StorageDatabase, beneficial types.Address) *big.Int {
 	locHash := types.DataHash(beneficial.Bytes()).Bytes()
 	beneficialAmount := new(VariablePledgeBeneficial)
 	err := ABI_pledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, locHash))
@@ -87,8 +89,7 @@ func GetPledgeAmount(db vmctxt_interface.VmDatabase, beneficial types.Address) *
 	return big.NewInt(0)
 }
 
-// get all consensus group info
-func GetConsensusGroupList(db vmctxt_interface.VmDatabase) []*ConsensusGroupInfo {
+func GetConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 	iterator := db.NewStorageIterator(nil)
 	consensusGroupInfoList := make([]*ConsensusGroupInfo, 0)
 	for {
@@ -97,19 +98,18 @@ func GetConsensusGroupList(db vmctxt_interface.VmDatabase) []*ConsensusGroupInfo
 			break
 		}
 		consensusGroupInfo := new(ConsensusGroupInfo)
-		ABI_pledge.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value)
+		ABI_consensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value)
 		consensusGroupInfo.Gid = GetGidFromConsensusGroupKey(key)
 		consensusGroupInfoList = append(consensusGroupInfoList, consensusGroupInfo)
 	}
 	return consensusGroupInfoList
 }
 
-// get consensus group info by gid
-func GetConsensusGroup(db vmctxt_interface.VmDatabase, gid types.Gid) *ConsensusGroupInfo {
-	data := db.GetStorage(&AddressConsensusGroup, types.DataHash(gid.Bytes()).Bytes())
+func GetConsensusGroup(db StorageDatabase, gid types.Gid) *ConsensusGroupInfo {
+	data := db.GetStorage(&AddressConsensusGroup, GetConsensusGroupKey(gid))
 	if len(data) > 0 {
 		consensusGroupInfo := new(ConsensusGroupInfo)
-		ABI_pledge.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)
+		ABI_consensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)
 		consensusGroupInfo.Gid = gid
 		return consensusGroupInfo
 	}

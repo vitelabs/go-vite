@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
 	"time"
 )
@@ -75,7 +75,7 @@ func (db *NoDatabase) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBl
 	}
 	return nil
 }
-func (db *NoDatabase) GetSnapshotBlocks(startHeight uint64, count uint64, forward bool) []*ledger.SnapshotBlock {
+func (db *NoDatabase) GetSnapshotBlocks(startHeight uint64, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
 	if forward {
 		start := startHeight
 		end := start + count
@@ -99,10 +99,8 @@ func (db *NoDatabase) IsAddressExisted(addr *types.Address) bool {
 	_, ok := db.accountBlockMap[*addr]
 	return ok
 }
-func (db *NoDatabase) SetContractGid(gid *types.Gid, addr *types.Address, open bool) {
-	if !open {
-		db.contractGidMap[db.addr] = gid
-	}
+func (db *NoDatabase) SetContractGid(gid *types.Gid, addr *types.Address) {
+	db.contractGidMap[db.addr] = gid
 }
 func (db *NoDatabase) SetContractCode(code []byte) {
 	db.codeMap[db.addr] = code
@@ -150,13 +148,28 @@ func (db *NoDatabase) GetLogListHash() *types.Hash {
 	return &types.Hash{}
 }
 
-func (db *NoDatabase) NewStorageIterator(prefix []byte) *vm_context.StorageIterator {
+func (db *NoDatabase) NewStorageIterator(prefix []byte) vmctxt_interface.StorageIterator {
 	// TODO
 	return nil
 }
 
-func (db *NoDatabase) CopyAndFreeze() *vm_context.VmDatabase {
-	// TODO
+func (db *NoDatabase) CopyAndFreeze() vmctxt_interface.VmDatabase {
+	return db
+}
+
+func (db *NoDatabase) GetGid() *types.Gid {
+	return nil
+}
+func (db *NoDatabase) Address() *types.Address {
+	return nil
+}
+func (db *NoDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
+	return nil
+}
+func (db *NoDatabase) PrevAccountBlock() *ledger.AccountBlock {
+	return nil
+}
+func (db *NoDatabase) UnsavedCache() vmctxt_interface.UnsavedCache {
 	return nil
 }
 
@@ -209,13 +222,12 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey], _ = contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
-		uint8(1),
+		uint8(0),
 		helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize),
-		uint8(1),
-		helper.JoinBytes(helper.LeftPadBytes(registerAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), helper.WordSize)),
-		uint8(1),
+		uint8(0),
+		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), attovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600*24*90).Bytes(), helper.WordSize)),
+		uint8(0),
 		[]byte{})
-
 	db.storageMap[contracts.AddressPledge] = make(map[types.Hash][]byte)
 	db.storageMap[contracts.AddressPledge][types.DataHash(addr1.Bytes())], _ = contracts.ABI_pledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	return
