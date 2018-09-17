@@ -4,8 +4,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/seiflotfy/cuckoofilter"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/discovery"
+	"sync"
 	"time"
 )
 
@@ -197,4 +200,29 @@ func NewDialManager(discv Discovery, maxDials uint, bootNodes []*discovery.Node)
 type agent struct {
 	host  *Server
 	discv Discovery
+}
+
+type topoHandler struct {
+	record cuckoofilter.CuckooFilter
+	lock   sync.RWMutex
+}
+
+func (th *topoHandler) Add(hash types.Hash) {
+	th.lock.Lock()
+	defer th.lock.Unlock()
+	th.record.Insert(hash[:])
+}
+func (th *topoHandler) Has(hash types.Hash) bool {
+	th.lock.RLock()
+	defer th.lock.RUnlock()
+
+	return th.record.Lookup(hash[:])
+}
+
+func (th *topoHandler) Broadcast(topo *Topo, peers []*Peer) {
+	th.lock.RLock()
+	defer th.lock.RUnlock()
+	for _, peer := range peers {
+		go Send(peer.rw, baseProtocolCmdSet, topoCmd, topo)
+	}
 }
