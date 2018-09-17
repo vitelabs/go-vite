@@ -21,7 +21,7 @@ type precompiledContract struct {
 	abi abi.ABIContract
 }
 type precompiledContractMethod interface {
-	getFee(vm *VM, block *vm_context.VmAccountBlock) *big.Int
+	getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error)
 	doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error)
 	doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error
 }
@@ -83,8 +83,8 @@ func getPrecompiledContract(addr types.Address, methodSelector []byte) (precompi
 type pRegister struct {
 }
 
-func (p *pRegister) getFee(vm *VM, block *vm_context.VmAccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pRegister) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
@@ -140,8 +140,8 @@ func (p *pRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBloc
 type pCancelRegister struct {
 }
 
-func (p *pCancelRegister) getFee(vm *VM, block *vm_context.VmAccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pCancelRegister) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
@@ -199,8 +199,8 @@ func (p *pCancelRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, se
 type pReward struct {
 }
 
-func (p *pReward) getFee(vm *VM, block *vm_context.VmAccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pReward) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // get reward of generating snapshot block
@@ -314,8 +314,8 @@ func (p *pReward) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock 
 type pUpdateRegistration struct {
 }
 
-func (p *pUpdateRegistration) getFee(vm *VM, block *vm_context.VmAccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pUpdateRegistration) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // update registration info
@@ -367,8 +367,8 @@ func (p *pUpdateRegistration) doReceive(vm *VM, block *vm_context.VmAccountBlock
 type pVote struct {
 }
 
-func (p *pVote) getFee(vm *VM, block *vm_context.VmAccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pVote) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // vote for a super node of a consensus group
@@ -406,8 +406,8 @@ func (p *pVote) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *l
 type pCancelVote struct {
 }
 
-func (p *pCancelVote) getFee(vm *VM, block *vm_context.VmAccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pCancelVote) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // cancel vote for a super node of a consensus group
@@ -442,8 +442,8 @@ func (p *pCancelVote) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBl
 
 type pPledge struct{}
 
-func (p *pPledge) getFee(vm *VM, block *vm_context.VmAccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pPledge) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // pledge ViteToken for a beneficial to get quota
@@ -509,8 +509,8 @@ func (p *pPledge) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock 
 
 type pCancelPledge struct{}
 
-func (p *pCancelPledge) getFee(vm *VM, block *vm_context.VmAccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pCancelPledge) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // cancel pledge ViteToken
@@ -574,8 +574,8 @@ func (p *pCancelPledge) doReceive(vm *VM, block *vm_context.VmAccountBlock, send
 
 type pCreateConsensusGroup struct{}
 
-func (p *pCreateConsensusGroup) getFee(vm *VM, block *vm_context.VmAccountBlock) *big.Int {
-	return new(big.Int).Set(createConsensusGroupFee)
+func (p *pCreateConsensusGroup) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return new(big.Int).Set(createConsensusGroupFee), nil
 }
 
 // create consensus group
@@ -711,11 +711,13 @@ func (c voteConditionOfBalance) checkParam(param []byte, db vmctxt_interface.VmD
 
 type pMintage struct{}
 
-func (p *pMintage) getFee(vm *VM, block *vm_context.VmAccountBlock) *big.Int {
+func (p *pMintage) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
 	if block.AccountBlock.Amount.Cmp(mintagePledgeAmount) == 0 {
-		return big.NewInt(0)
+		return big.NewInt(0), nil
+	} else if block.AccountBlock.Amount.Sign() > 0 {
+		return big.NewInt(0), ErrInvalidData
 	}
-	return new(big.Int).Set(mintageFee)
+	return new(big.Int).Set(mintageFee), nil
 }
 
 func (p *pMintage) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
@@ -776,8 +778,8 @@ func (p *pMintage) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock
 
 type pMintageCancelPledge struct{}
 
-func (p *pMintageCancelPledge) getFee(vm *VM, block *vm_context.VmAccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pMintageCancelPledge) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 func (p *pMintageCancelPledge) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
