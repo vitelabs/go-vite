@@ -8,9 +8,13 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/net/protos"
 	"github.com/vitelabs/go-vite/vitepb"
+	"time"
 )
 
 var errHandshakeTwice = errors.New("handshake should send only once")
+var errMsgTimeout = errors.New("message response timeout")
+
+var subledgerTimeout = 10 * time.Second
 
 const CmdSetName = "vite"
 const CmdSetID uint64 = 2
@@ -220,6 +224,19 @@ func (as AccountSegment) Equal(v interface{}) bool {
 
 }
 
+type subLedgerMsg struct {
+	snapshotblocks []*ledger.SnapshotBlock
+	accountblocks  []*ledger.AccountBlock
+}
+
+func (s *subLedgerMsg) Serialize() ([]byte, error) {
+	panic("implement me")
+}
+
+func (s *subLedgerMsg) Deserialize(buf []byte) error {
+	panic("implement me")
+}
+
 // @message HandShake
 type HandShakeMsg struct {
 	Version      uint64
@@ -256,6 +273,11 @@ func (st *HandShakeMsg) Deserialize(data []byte) error {
 }
 
 type GetSubLedgerMsg = *Segment
+
+func (s *Segment) Ceil() uint64 {
+	panic("implement me")
+}
+
 type GetSnapshotBlockHeadersMsg = *Segment
 type GetSnapshotBlockBodiesMsg []*types.Hash
 type GetSnapshotBlocksMsg []*types.Hash
@@ -268,12 +290,12 @@ type SubLedgerMsg struct {
 // todo type SnapshotBlockHeadersMsg
 // todo type SnapshotBlockBodiesMsg
 type SnapshotBlocksMsg = []*ledger.SnapshotBlock
-type AccountBlocksMsg map[string]*ledger.AccountBlock
+type AccountBlocksMsg map[string][]*ledger.AccountBlock
 
 type NewBlockMsg *ledger.SnapshotBlock
 
 // @message ExceptionMsg
-type ExceptionMsg uint
+type ExceptionMsg uint64
 
 const (
 	Fork                ExceptionMsg = iota // you have forked
@@ -305,13 +327,13 @@ func (exp ExceptionMsg) String() string {
 	return execption[exp]
 }
 
-func (exp *ExceptionMsg) Serialize() ([]byte, error) {
+func (exp ExceptionMsg) Serialize() ([]byte, error) {
 	buf := make([]byte, 10)
-	n := binary.PutUvarint(buf, uint64(*exp))
+	n := binary.PutUvarint(buf, uint64(exp))
 	return buf[:n], nil
 }
-func (exp *ExceptionMsg) Deserialize(buf []byte) error {
+func (exp ExceptionMsg) Deserialize(buf []byte) error {
 	i, _ := binary.Varint(buf)
-	*exp = ExceptionMsg(i)
+	exp = ExceptionMsg(i)
 	return nil
 }
