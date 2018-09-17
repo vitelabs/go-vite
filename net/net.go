@@ -82,15 +82,20 @@ func (n *Net) checkChainHeight()  {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
+	begin := time.Now()
+
 	for {
 		select {
-		case <- ticker.C:
+		case now := <- ticker.C:
 			current, err := n.SnapshotChain.GetLatestSnapshotBlock()
 			if err != nil {
 				return
 			}
 			if current.Height == n.TargetHeight {
 				n.SetSyncState(Syncdone)
+			}
+			if now.Sub(begin) > waitForChainGrow {
+				n.SetSyncState(Syncerr)
 			}
 		case <- n.term:
 			return

@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/p2p/block"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/nat"
 	"net"
@@ -83,6 +84,8 @@ type Server struct {
 	log log15.Logger
 
 	peers *PeerSet
+
+	blockList *block.CuckooSet
 }
 
 func New(cfg Config) *Server {
@@ -110,6 +113,7 @@ func New(cfg Config) *Server {
 		addPeer:   make(chan *conn),
 		delPeer:   make(chan *Peer),
 		BootNodes: addFirmNodes(cfg.BootNodes),
+		blockList: block.NewCuckooSet(1000),
 	}
 
 	if svr.Dialer == nil {
