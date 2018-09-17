@@ -291,6 +291,8 @@ func (p *Peer) handleMsg(msg *Msg) error {
 				return err
 			}
 			return reason
+		case topoCmd:
+
 		default:
 			return msg.Discard()
 		}
