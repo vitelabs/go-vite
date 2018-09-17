@@ -15,6 +15,8 @@ var errHandshakeTwice = errors.New("handshake should send only once")
 var errMsgTimeout = errors.New("message response timeout")
 
 var subledgerTimeout = 10 * time.Second
+var accountBlocksTimeout = 30 * time.Second
+var snapshotBlocksTimeout = time.Minute
 
 const CmdSetName = "vite"
 const CmdSetID uint64 = 2
