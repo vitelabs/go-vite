@@ -3,7 +3,7 @@ package contracts
 import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
 )
 
@@ -15,7 +15,12 @@ var (
 	AddressMintage, _        = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5})
 )
 
-func GetTokenById(db vm_context.VmDatabase, tokenId types.TokenTypeId) *TokenInfo {
+type StorageDatabase interface {
+	GetStorage(addr *types.Address, key []byte) []byte
+	NewStorageIterator(prefix []byte) vmctxt_interface.StorageIterator
+}
+
+func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *TokenInfo {
 	data := db.GetStorage(&AddressMintage, helper.LeftPadBytes(tokenId.Bytes(), types.HashSize))
 	if len(data) > 0 {
 		tokenInfo := new(TokenInfo)
@@ -25,7 +30,7 @@ func GetTokenById(db vm_context.VmDatabase, tokenId types.TokenTypeId) *TokenInf
 	return nil
 }
 
-func GetTokenMap(db vm_context.VmDatabase) map[types.TokenTypeId]*TokenInfo {
+func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*TokenInfo {
 	iterator := db.NewStorageIterator(nil)
 	tokenInfoMap := make(map[types.TokenTypeId]*TokenInfo)
 	for {
@@ -41,8 +46,7 @@ func GetTokenMap(db vm_context.VmDatabase) map[types.TokenTypeId]*TokenInfo {
 	return tokenInfoMap
 }
 
-// get register address of gid
-func GetRegisterList(db vm_context.VmDatabase, gid types.Gid) []*Registration {
+func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 	iterator := db.NewStorageIterator(gid.Bytes())
 	registerList := make([]*Registration, 0)
 	for {
@@ -59,8 +63,7 @@ func GetRegisterList(db vm_context.VmDatabase, gid types.Gid) []*Registration {
 	return registerList
 }
 
-// get voters of gid, return map<voter, super node>
-func GetVoteMap(db vm_context.VmDatabase, gid types.Gid) []*VoteInfo {
+func GetVoteMap(db StorageDatabase, gid types.Gid) []*VoteInfo {
 	iterator := db.NewStorageIterator(gid.Bytes())
 	voteInfoList := make([]*VoteInfo, 0)
 	for {
@@ -76,8 +79,7 @@ func GetVoteMap(db vm_context.VmDatabase, gid types.Gid) []*VoteInfo {
 	return voteInfoList
 }
 
-// get beneficial pledge amount
-func GetPledgeAmount(db vm_context.VmDatabase, beneficial types.Address) *big.Int {
+func GetPledgeAmount(db StorageDatabase, beneficial types.Address) *big.Int {
 	locHash := types.DataHash(beneficial.Bytes()).Bytes()
 	beneficialAmount := new(VariablePledgeBeneficial)
 	err := ABI_pledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, locHash))
@@ -87,8 +89,7 @@ func GetPledgeAmount(db vm_context.VmDatabase, beneficial types.Address) *big.In
 	return big.NewInt(0)
 }
 
-// get all consensus group info
-func GetConsensusGroupList(db vm_context.VmDatabase) []*ConsensusGroupInfo {
+func GetConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 	iterator := db.NewStorageIterator(nil)
 	consensusGroupInfoList := make([]*ConsensusGroupInfo, 0)
 	for {
@@ -104,8 +105,7 @@ func GetConsensusGroupList(db vm_context.VmDatabase) []*ConsensusGroupInfo {
 	return consensusGroupInfoList
 }
 
-// get consensus group info by gid
-func GetConsensusGroup(db vm_context.VmDatabase, gid types.Gid) *ConsensusGroupInfo {
+func GetConsensusGroup(db StorageDatabase, gid types.Gid) *ConsensusGroupInfo {
 	data := db.GetStorage(&AddressConsensusGroup, types.DataHash(gid.Bytes()).Bytes())
 	if len(data) > 0 {
 		consensusGroupInfo := new(ConsensusGroupInfo)
