@@ -58,6 +58,23 @@ func (ac *AccountChain) WriteBlockMeta(batch *leveldb.Batch, blockHash *types.Ha
 	return nil
 }
 
+func (ac *AccountChain) GetHashByHeight(accountId uint64, height uint64) (*types.Hash, error) {
+	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, height)
+	iter := ac.db.NewIterator(util.BytesPrefix(key), nil)
+	defer iter.Release()
+
+	if !iter.Last() {
+		if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+			return nil, err
+		}
+
+		return nil, nil
+	}
+
+	return getAccountBlockHash(iter.Key()), nil
+
+}
+
 func (ac *AccountChain) GetAbHashList(accountId uint64, height uint64, count, step int, forward bool) []*types.Hash {
 	hashList := make([]*types.Hash, 0)
 	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, height)

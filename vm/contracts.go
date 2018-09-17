@@ -3,12 +3,13 @@ package vm
 import (
 	"bytes"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/vitelabs/go-vite/abi"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
 	"regexp"
 	"strconv"
@@ -20,9 +21,9 @@ type precompiledContract struct {
 	abi abi.ABIContract
 }
 type precompiledContractMethod interface {
-	getFee(vm *VM, block *ledger.AccountBlock) *big.Int
-	doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error)
-	doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error
+	getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error)
+	doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error)
+	doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error
 }
 
 var simpleContracts = map[types.Address]*precompiledContract{
@@ -82,45 +83,45 @@ func getPrecompiledContract(addr types.Address, methodSelector []byte) (precompi
 type pRegister struct {
 }
 
-func (p *pRegister) getFee(vm *VM, block *ledger.AccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pRegister) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
-func (p *pRegister) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *pRegister) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := useQuota(quotaLeft, registerGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	quotaLeft, err = useQuotaForData(block.Data, quotaLeft)
+	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Cmp(registerAmount) != 0 ||
-		!IsViteToken(block.TokenId) {
+	if block.AccountBlock.Amount.Cmp(registerAmount) != 0 ||
+		!IsViteToken(block.AccountBlock.TokenId) {
 		return quotaLeft, ErrInvalidData
 	}
 
 	param := new(contracts.ParamRegister)
-	err = contracts.ABI_register.UnpackMethod(param, contracts.MethodNameRegister, block.Data)
-	if err != nil || !isExistGid(vm.Db, param.Gid) ||
-		!vm.Db.IsAddressExisted(&param.BeneficialAddr) ||
-		!vm.Db.IsAddressExisted(&param.NodeAddr) ||
-		!isUserAccount(vm.Db, param.NodeAddr) {
+	err = contracts.ABI_register.UnpackMethod(param, contracts.MethodNameRegister, block.AccountBlock.Data)
+	if err != nil || !isExistGid(block.VmContext, param.Gid) ||
+		!block.VmContext.IsAddressExisted(&param.BeneficialAddr) ||
+		!block.VmContext.IsAddressExisted(&param.NodeAddr) ||
+		!isUserAccount(block.VmContext, param.NodeAddr) {
 		return quotaLeft, ErrInvalidData
 	}
-	if len(vm.Db.GetStorage(&contracts.AddressRegister, contracts.GetRegisterKey(param.Name, param.Gid))) > 0 {
+	if len(block.VmContext.GetStorage(&contracts.AddressRegister, contracts.GetRegisterKey(param.Name, param.Gid))) > 0 {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
-func (p *pRegister) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
+func (p *pRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(contracts.ParamRegister)
-	contracts.ABI_register.UnpackMethod(param, contracts.MethodNameRegister, block.Data)
-	snapshotBlock := vm.Db.GetSnapshotBlock(&block.SnapshotHash)
+	contracts.ABI_register.UnpackMethod(param, contracts.MethodNameRegister, block.AccountBlock.Data)
+	snapshotBlock := block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash)
 	rewardHeight := snapshotBlock.Height
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
-	oldData := vm.Db.GetStorage(&block.AccountAddress, key)
+	oldData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key)
 	if len(oldData) > 0 {
 		old := new(contracts.Registration)
 		contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, oldData)
@@ -131,66 +132,66 @@ func (p *pRegister) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *led
 		// reward of last being a super node is not drained
 		rewardHeight = old.RewardHeight
 	}
-	registerInfo, _ := contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, param.Name, param.NodeAddr, sendBlock.AccountAddress, param.BeneficialAddr, block.Amount, snapshotBlock.Timestamp.Unix(), rewardHeight, uint64(0))
-	vm.Db.SetStorage(key, registerInfo)
+	registerInfo, _ := contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, param.Name, param.NodeAddr, sendBlock.AccountAddress, param.BeneficialAddr, block.AccountBlock.Amount, snapshotBlock.Timestamp.Unix(), rewardHeight, uint64(0))
+	block.VmContext.SetStorage(key, registerInfo)
 	return nil
 }
 
 type pCancelRegister struct {
 }
 
-func (p *pCancelRegister) getFee(vm *VM, block *ledger.AccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pCancelRegister) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
-func (p *pCancelRegister) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *pCancelRegister) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := useQuota(quotaLeft, cancelRegisterGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	quotaLeft, err = useQuotaForData(block.Data, quotaLeft)
+	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Sign() != 0 ||
-		!isUserAccount(vm.Db, block.AccountAddress) {
+	if block.AccountBlock.Amount.Sign() != 0 ||
+		!isUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
 		return quotaLeft, ErrInvalidData
 	}
 	param := new(contracts.ParamCancelRegister)
-	err = contracts.ABI_register.UnpackMethod(param, contracts.MethodNameCancelRegister, block.Data)
-	if err != nil || !isExistGid(vm.Db, param.Gid) {
+	err = contracts.ABI_register.UnpackMethod(param, contracts.MethodNameCancelRegister, block.AccountBlock.Data)
+	if err != nil || !isExistGid(block.VmContext, param.Gid) {
 		return quotaLeft, ErrInvalidData
 	}
 
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
 	old := new(contracts.Registration)
-	err = contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, vm.Db.GetStorage(&block.ToAddress, key))
-	if err != nil || !bytes.Equal(old.PledgeAddr.Bytes(), block.AccountAddress.Bytes()) ||
+	err = contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.ToAddress, key))
+	if err != nil || !bytes.Equal(old.PledgeAddr.Bytes(), block.AccountBlock.AccountAddress.Bytes()) ||
 		old.Timestamp == 0 ||
-		old.Timestamp+registerLockTime < vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp.Unix() {
+		old.Timestamp+registerLockTime < block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash).Timestamp.Unix() {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
-func (p *pCancelRegister) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
+func (p *pCancelRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(contracts.ParamCancelRegister)
-	contracts.ABI_register.UnpackMethod(param, contracts.MethodNameCancelRegister, block.Data)
+	contracts.ABI_register.UnpackMethod(param, contracts.MethodNameCancelRegister, block.AccountBlock.Data)
 
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
 	old := new(contracts.Registration)
-	err := contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, vm.Db.GetStorage(&block.AccountAddress, key))
+	err := contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
 	if err != nil || old.Timestamp == 0 {
 		return ErrInvalidData
 	}
 
 	// update lock amount and loc start timestamp
-	snapshotBlock := vm.Db.GetSnapshotBlock(&block.SnapshotHash)
+	snapshotBlock := block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash)
 	registerInfo, _ := contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, param.Name, old.NodeAddr, old.PledgeAddr, old.BeneficialAddr, common.Big0, int64(0), old.RewardHeight, snapshotBlock.Height)
-	vm.Db.SetStorage(key, registerInfo)
+	block.VmContext.SetStorage(key, registerInfo)
 	// return locked ViteToken
 	if old.Amount.Sign() > 0 {
-		vm.blockList = append(vm.blockList, makeSendBlock(block, sendBlock.AccountAddress, ledger.BlockTypeSendCall, old.Amount, *ledger.ViteTokenId(), []byte{}))
+		vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, sendBlock.AccountAddress, ledger.BlockTypeSendCall, old.Amount, *ledger.ViteTokenId(), []byte{}), nil})
 	}
 	return nil
 }
@@ -198,33 +199,33 @@ func (p *pCancelRegister) doReceive(vm *VM, block *ledger.AccountBlock, sendBloc
 type pReward struct {
 }
 
-func (p *pReward) getFee(vm *VM, block *ledger.AccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pReward) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // get reward of generating snapshot block
-func (p *pReward) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *pReward) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := useQuota(quotaLeft, rewardGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Sign() != 0 ||
-		!isUserAccount(vm.Db, block.AccountAddress) {
+	if block.AccountBlock.Amount.Sign() != 0 ||
+		!isUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
 		return quotaLeft, ErrInvalidData
 	}
 	param := new(contracts.ParamReward)
-	err = contracts.ABI_register.UnpackMethod(param, contracts.MethodNameReward, block.Data)
+	err = contracts.ABI_register.UnpackMethod(param, contracts.MethodNameReward, block.AccountBlock.Data)
 	if err != nil || !IsSnapshotGid(param.Gid) {
 		return quotaLeft, ErrInvalidData
 	}
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
 	old := new(contracts.Registration)
-	err = contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, vm.Db.GetStorage(&block.ToAddress, key))
-	if err != nil || !bytes.Equal(block.AccountAddress.Bytes(), old.BeneficialAddr.Bytes()) {
+	err = contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.ToAddress, key))
+	if err != nil || !bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), old.BeneficialAddr.Bytes()) {
 		return quotaLeft, ErrInvalidData
 	}
 	// newRewardHeight := min(currentSnapshotHeight-50, userDefined, cancelSnapshotHeight)
-	newRewardHeight := vm.Db.GetSnapshotBlock(&block.SnapshotHash).Height - rewardHeightLimit
+	newRewardHeight := block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash).Height - rewardHeightLimit
 	if param.EndHeight > 0 {
 		newRewardHeight = helper.Min(newRewardHeight, param.EndHeight)
 	}
@@ -245,27 +246,27 @@ func (p *pReward) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (
 		return quotaLeft, err
 	}
 
-	calcReward(vm, block.AccountAddress.Bytes(), old.RewardHeight, count, param.Amount)
+	calcReward(block.VmContext, block.AccountBlock.AccountAddress.Bytes(), old.RewardHeight, count, param.Amount)
 	data, err := contracts.ABI_register.PackMethod(contracts.MethodNameReward, param.Gid, param.Name, newRewardHeight, old.RewardHeight, param.Amount)
 	if err != nil {
 		return quotaLeft, err
 	}
-	block.Data = data
-	quotaLeft, err = useQuotaForData(block.Data, quotaLeft)
+	block.AccountBlock.Data = data
+	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
 	return quotaLeft, nil
 }
-func calcReward(vm *VM, producer []byte, startHeight uint64, count uint64, reward *big.Int) {
+func calcReward(db vmctxt_interface.VmDatabase, producer []byte, startHeight uint64, count uint64, reward *big.Int) {
 	var rewardCount uint64
 	for count > 0 {
 		var list []*ledger.SnapshotBlock
 		if count < dbPageSize {
-			list = vm.Db.GetSnapshotBlocks(startHeight, count, true)
+			list = db.GetSnapshotBlocks(startHeight, count, true, false)
 			count = 0
 		} else {
-			list = vm.Db.GetSnapshotBlocks(startHeight, dbPageSize, true)
+			list = db.GetSnapshotBlocks(startHeight, dbPageSize, true, false)
 			count = count - dbPageSize
 			startHeight = startHeight + dbPageSize
 		}
@@ -278,12 +279,12 @@ func calcReward(vm *VM, producer []byte, startHeight uint64, count uint64, rewar
 	reward.SetUint64(rewardCount)
 	reward.Mul(rewardPerBlock, reward)
 }
-func (p *pReward) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
+func (p *pReward) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(contracts.ParamReward)
-	contracts.ABI_register.UnpackMethod(param, contracts.MethodNameReward, block.Data)
+	contracts.ABI_register.UnpackMethod(param, contracts.MethodNameReward, block.AccountBlock.Data)
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
 	old := new(contracts.Registration)
-	err := contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, vm.Db.GetStorage(&block.AccountAddress, key))
+	err := contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
 	if err != nil || old.RewardHeight != param.StartHeight || !bytes.Equal(sendBlock.AccountAddress.Bytes(), old.BeneficialAddr.Bytes()) {
 		return ErrInvalidData
 	}
@@ -292,20 +293,20 @@ func (p *pReward) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledge
 			return ErrInvalidData
 		} else if param.EndHeight == old.CancelHeight {
 			// delete storage when register canceled and reward drained
-			vm.Db.SetStorage(key, nil)
+			block.VmContext.SetStorage(key, nil)
 		} else {
 			// get reward partly, update storage
 			registerInfo, _ := contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, old.Name, old.NodeAddr, old.PledgeAddr, old.BeneficialAddr, old.Amount, old.Timestamp, param.EndHeight, old.CancelHeight)
-			vm.Db.SetStorage(key, registerInfo)
+			block.VmContext.SetStorage(key, registerInfo)
 		}
 	} else {
 		registerInfo, _ := contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, old.Name, old.NodeAddr, old.PledgeAddr, old.BeneficialAddr, old.Amount, old.Timestamp, param.EndHeight, old.CancelHeight)
-		vm.Db.SetStorage(key, registerInfo)
+		block.VmContext.SetStorage(key, registerInfo)
 	}
 
 	if param.Amount.Sign() > 0 {
 		// create reward and return
-		vm.blockList = append(vm.blockList, makeSendBlock(block, sendBlock.AccountAddress, ledger.BlockTypeSendReward, param.Amount, *ledger.ViteTokenId(), []byte{}))
+		vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, sendBlock.AccountAddress, ledger.BlockTypeSendReward, param.Amount, *ledger.ViteTokenId(), []byte{}), nil})
 	}
 	return nil
 }
@@ -313,172 +314,172 @@ func (p *pReward) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledge
 type pUpdateRegistration struct {
 }
 
-func (p *pUpdateRegistration) getFee(vm *VM, block *ledger.AccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pUpdateRegistration) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // update registration info
-func (p *pUpdateRegistration) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *pUpdateRegistration) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := useQuota(quotaLeft, updateRegistrationGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	quotaLeft, err = useQuotaForData(block.Data, quotaLeft)
+	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Sign() != 0 {
+	if block.AccountBlock.Amount.Sign() != 0 {
 		return quotaLeft, ErrInvalidData
 	}
 
 	param := new(contracts.ParamRegister)
-	err = contracts.ABI_register.UnpackMethod(param, contracts.MethodNameUpdateRegistration, block.Data)
+	err = contracts.ABI_register.UnpackMethod(param, contracts.MethodNameUpdateRegistration, block.AccountBlock.Data)
 	if err != nil ||
-		!vm.Db.IsAddressExisted(&param.BeneficialAddr) ||
-		!vm.Db.IsAddressExisted(&param.NodeAddr) ||
-		!isUserAccount(vm.Db, param.NodeAddr) {
+		!block.VmContext.IsAddressExisted(&param.BeneficialAddr) ||
+		!block.VmContext.IsAddressExisted(&param.NodeAddr) ||
+		!isUserAccount(block.VmContext, param.NodeAddr) {
 		return quotaLeft, ErrInvalidData
 	}
 	old := new(contracts.Registration)
-	err = contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, vm.Db.GetStorage(&contracts.AddressRegister, contracts.GetRegisterKey(param.Name, param.Gid)))
+	err = contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&contracts.AddressRegister, contracts.GetRegisterKey(param.Name, param.Gid)))
 	if err != nil ||
-		!bytes.Equal(old.PledgeAddr.Bytes(), block.AccountAddress.Bytes()) ||
+		!bytes.Equal(old.PledgeAddr.Bytes(), block.AccountBlock.AccountAddress.Bytes()) ||
 		old.Timestamp == 0 ||
 		(bytes.Equal(old.BeneficialAddr.Bytes(), param.BeneficialAddr.Bytes()) && bytes.Equal(old.NodeAddr.Bytes(), param.BeneficialAddr.Bytes())) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
-func (p *pUpdateRegistration) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
+func (p *pUpdateRegistration) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(contracts.ParamRegister)
-	contracts.ABI_register.UnpackMethod(param, contracts.MethodNameUpdateRegistration, block.Data)
+	contracts.ABI_register.UnpackMethod(param, contracts.MethodNameUpdateRegistration, block.AccountBlock.Data)
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
 	old := new(contracts.Registration)
-	err := contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, vm.Db.GetStorage(&block.AccountAddress, key))
+	err := contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
 	if err != nil || old.Timestamp == 0 {
 		return ErrInvalidData
 	}
 	registerInfo, _ := contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, old.Name, param.NodeAddr, old.PledgeAddr, param.BeneficialAddr, old.Amount, old.Timestamp, old.RewardHeight, old.CancelHeight)
-	vm.Db.SetStorage(key, registerInfo)
+	block.VmContext.SetStorage(key, registerInfo)
 	return nil
 }
 
 type pVote struct {
 }
 
-func (p *pVote) getFee(vm *VM, block *ledger.AccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pVote) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // vote for a super node of a consensus group
-func (p *pVote) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *pVote) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := useQuota(quotaLeft, voteGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	quotaLeft, err = useQuotaForData(block.Data, quotaLeft)
+	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Sign() != 0 ||
-		!isUserAccount(vm.Db, block.AccountAddress) {
+	if block.AccountBlock.Amount.Sign() != 0 ||
+		!isUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
 		return quotaLeft, ErrInvalidData
 	}
 	param := new(contracts.ParamVote)
-	err = contracts.ABI_vote.UnpackMethod(param, contracts.MethodNameVote, block.Data)
-	if err != nil || !isExistGid(vm.Db, param.Gid) {
+	err = contracts.ABI_vote.UnpackMethod(param, contracts.MethodNameVote, block.AccountBlock.Data)
+	if err != nil || !isExistGid(block.VmContext, param.Gid) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
 
-func (p *pVote) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
+func (p *pVote) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(contracts.ParamVote)
-	contracts.ABI_vote.UnpackMethod(param, contracts.MethodNameVote, block.Data)
+	contracts.ABI_vote.UnpackMethod(param, contracts.MethodNameVote, block.AccountBlock.Data)
 	// storage key: 00(0:2) + gid(2:12) + voter address(12:32)
 	locHash := contracts.GetVoteKey(sendBlock.AccountAddress, param.Gid)
 	voteStatus, _ := contracts.ABI_vote.PackVariable(contracts.VariableNameVoteStatus, param.NodeName)
-	vm.Db.SetStorage(locHash, voteStatus)
+	block.VmContext.SetStorage(locHash, voteStatus)
 	return nil
 }
 
 type pCancelVote struct {
 }
 
-func (p *pCancelVote) getFee(vm *VM, block *ledger.AccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pCancelVote) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // cancel vote for a super node of a consensus group
-func (p *pCancelVote) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *pCancelVote) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := useQuota(quotaLeft, cancelVoteGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	quotaLeft, err = useQuotaForData(block.Data, quotaLeft)
+	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Sign() != 0 ||
-		!isUserAccount(vm.Db, block.AccountAddress) {
+	if block.AccountBlock.Amount.Sign() != 0 ||
+		!isUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
 		return quotaLeft, ErrInvalidData
 	}
 	gid := new(types.Gid)
-	err = contracts.ABI_vote.UnpackMethod(gid, contracts.MethodNameCancelVote, block.Data)
-	if err != nil || !isExistGid(vm.Db, *gid) {
+	err = contracts.ABI_vote.UnpackMethod(gid, contracts.MethodNameCancelVote, block.AccountBlock.Data)
+	if err != nil || !isExistGid(block.VmContext, *gid) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
 
-func (p *pCancelVote) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
+func (p *pCancelVote) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	gid := new(types.Gid)
-	contracts.ABI_vote.UnpackMethod(gid, contracts.MethodNameCancelVote, block.Data)
+	contracts.ABI_vote.UnpackMethod(gid, contracts.MethodNameCancelVote, block.AccountBlock.Data)
 	locHash := contracts.GetVoteKey(sendBlock.AccountAddress, *gid)
-	vm.Db.SetStorage(locHash, nil)
+	block.VmContext.SetStorage(locHash, nil)
 	return nil
 }
 
 type pPledge struct{}
 
-func (p *pPledge) getFee(vm *VM, block *ledger.AccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pPledge) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // pledge ViteToken for a beneficial to get quota
-func (p *pPledge) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *pPledge) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := useQuota(quotaLeft, pledgeGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	quotaLeft, err = useQuotaForData(block.Data, quotaLeft)
+	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Sign() == 0 ||
-		!IsViteToken(block.TokenId) ||
-		!isUserAccount(vm.Db, block.AccountAddress) {
+	if block.AccountBlock.Amount.Sign() == 0 ||
+		!IsViteToken(block.AccountBlock.TokenId) ||
+		!isUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
 		return quotaLeft, ErrInvalidData
 	}
 	param := new(contracts.ParamPledge)
-	err = contracts.ABI_pledge.UnpackMethod(param, contracts.MethodNamePledge, block.Data)
-	if err != nil || !vm.Db.IsAddressExisted(&param.Beneficial) {
+	err = contracts.ABI_pledge.UnpackMethod(param, contracts.MethodNamePledge, block.AccountBlock.Data)
+	if err != nil || !block.VmContext.IsAddressExisted(&param.Beneficial) {
 		return quotaLeft, ErrInvalidData
 	}
 
-	if time.Unix(param.WithdrawTime-pledgeTime, 0).Before(*vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp) {
+	if time.Unix(param.WithdrawTime-pledgeTime, 0).Before(*block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash).Timestamp) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
-func (p *pPledge) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
+func (p *pPledge) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(contracts.ParamPledge)
-	contracts.ABI_pledge.UnpackMethod(param, contracts.MethodNamePledge, block.Data)
+	contracts.ABI_pledge.UnpackMethod(param, contracts.MethodNamePledge, block.AccountBlock.Data)
 	// storage key for pledge beneficial: hash(beneficial)
 	locHashBeneficial := types.DataHash(param.Beneficial.Bytes()).Bytes()
 	// storage key for pledge: hash(owner, hash(beneficial))
 	locHashPledge := types.DataHash(append(sendBlock.AccountAddress.Bytes(), locHashBeneficial...)).Bytes()
-	oldPledgeData := vm.Db.GetStorage(&block.AccountAddress, locHashPledge)
+	oldPledgeData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, locHashPledge)
 	amount := new(big.Int)
 	if len(oldPledgeData) > 0 {
 		oldPledge := new(contracts.VariablePledgeInfo)
@@ -488,161 +489,161 @@ func (p *pPledge) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledge
 		}
 		amount = oldPledge.Amount
 	}
-	amount.Add(amount, block.Amount)
+	amount.Add(amount, block.AccountBlock.Amount)
 	pledgeInfo, _ := contracts.ABI_pledge.PackVariable(contracts.VariableNamePledgeInfo, amount, param.WithdrawTime)
-	vm.Db.SetStorage(locHashPledge, pledgeInfo)
+	block.VmContext.SetStorage(locHashPledge, pledgeInfo)
 
 	// storage value for quota: quota amount(0:32)
-	oldBeneficialData := vm.Db.GetStorage(&block.AccountAddress, locHashBeneficial)
+	oldBeneficialData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, locHashBeneficial)
 	beneficialAmount := new(big.Int)
 	if len(oldBeneficialData) > 0 {
 		oldBeneficial := new(contracts.VariablePledgeBeneficial)
 		contracts.ABI_pledge.UnpackVariable(oldBeneficial, contracts.VariableNamePledgeBeneficial, oldBeneficialData)
 		beneficialAmount = oldBeneficial.Amount
 	}
-	beneficialAmount.Add(beneficialAmount, block.Amount)
+	beneficialAmount.Add(beneficialAmount, block.AccountBlock.Amount)
 	beneficialData, _ := contracts.ABI_pledge.PackVariable(contracts.VariableNamePledgeBeneficial, beneficialAmount)
-	vm.Db.SetStorage(locHashBeneficial, beneficialData)
+	block.VmContext.SetStorage(locHashBeneficial, beneficialData)
 	return nil
 }
 
 type pCancelPledge struct{}
 
-func (p *pCancelPledge) getFee(vm *VM, block *ledger.AccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pCancelPledge) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 // cancel pledge ViteToken
-func (p *pCancelPledge) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *pCancelPledge) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := useQuota(quotaLeft, cancelPledgeGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	quotaLeft, err = useQuotaForData(block.Data, quotaLeft)
+	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Sign() > 0 ||
-		!isUserAccount(vm.Db, block.AccountAddress) {
+	if block.AccountBlock.Amount.Sign() > 0 ||
+		!isUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
 		return quotaLeft, ErrInvalidData
 	}
 	param := new(contracts.ParamCancelPledge)
-	err = contracts.ABI_pledge.UnpackMethod(param, contracts.MethodNameCancelPledge, block.Data)
-	if err != nil || !vm.Db.IsAddressExisted(&param.Beneficial) {
+	err = contracts.ABI_pledge.UnpackMethod(param, contracts.MethodNameCancelPledge, block.AccountBlock.Data)
+	if err != nil || !block.VmContext.IsAddressExisted(&param.Beneficial) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
 
-func (p *pCancelPledge) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
+func (p *pCancelPledge) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(contracts.ParamCancelPledge)
-	contracts.ABI_pledge.UnpackMethod(param, contracts.MethodNameCancelPledge, block.Data)
+	contracts.ABI_pledge.UnpackMethod(param, contracts.MethodNameCancelPledge, block.AccountBlock.Data)
 	locHashBeneficial := types.DataHash(param.Beneficial.Bytes()).Bytes()
 	locHashPledge := types.DataHash(append(sendBlock.AccountAddress.Bytes(), locHashBeneficial...)).Bytes()
 	oldPledge := new(contracts.VariablePledgeInfo)
-	err := contracts.ABI_pledge.UnpackVariable(oldPledge, contracts.VariableNamePledgeInfo, vm.Db.GetStorage(&block.AccountAddress, locHashPledge))
-	if err != nil || time.Unix(oldPledge.WithdrawTime, 0).After(*vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp) || oldPledge.Amount.Cmp(param.Amount) < 0 {
+	err := contracts.ABI_pledge.UnpackVariable(oldPledge, contracts.VariableNamePledgeInfo, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, locHashPledge))
+	if err != nil || time.Unix(oldPledge.WithdrawTime, 0).After(*block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash).Timestamp) || oldPledge.Amount.Cmp(param.Amount) < 0 {
 		return ErrInvalidData
 	}
 	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)
 	oldBeneficial := new(contracts.VariablePledgeBeneficial)
-	err = contracts.ABI_pledge.UnpackVariable(oldBeneficial, contracts.VariableNamePledgeBeneficial, vm.Db.GetStorage(&block.AccountAddress, locHashBeneficial))
+	err = contracts.ABI_pledge.UnpackVariable(oldBeneficial, contracts.VariableNamePledgeBeneficial, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, locHashBeneficial))
 	if err != nil || oldBeneficial.Amount.Cmp(param.Amount) < 0 {
 		return ErrInvalidData
 	}
 	oldBeneficial.Amount.Sub(oldBeneficial.Amount, param.Amount)
 
 	if oldPledge.Amount.Sign() == 0 {
-		vm.Db.SetStorage(locHashPledge, nil)
+		block.VmContext.SetStorage(locHashPledge, nil)
 	} else {
 		pledgeInfo, _ := contracts.ABI_pledge.PackVariable(contracts.VariableNamePledgeInfo, oldPledge.Amount, oldPledge.WithdrawTime)
-		vm.Db.SetStorage(locHashPledge, pledgeInfo)
+		block.VmContext.SetStorage(locHashPledge, pledgeInfo)
 	}
 
 	if oldBeneficial.Amount.Sign() == 0 {
-		vm.Db.SetStorage(locHashBeneficial, nil)
+		block.VmContext.SetStorage(locHashBeneficial, nil)
 	} else {
 		pledgeBeneficial, _ := contracts.ABI_pledge.PackVariable(contracts.VariableNamePledgeBeneficial, oldBeneficial.Amount)
-		vm.Db.SetStorage(locHashBeneficial, pledgeBeneficial)
+		block.VmContext.SetStorage(locHashBeneficial, pledgeBeneficial)
 	}
 
 	// append refund block
-	vm.blockList = append(vm.blockList, makeSendBlock(block, sendBlock.AccountAddress, ledger.BlockTypeSendCall, param.Amount, *ledger.ViteTokenId(), []byte{}))
+	vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, sendBlock.AccountAddress, ledger.BlockTypeSendCall, param.Amount, *ledger.ViteTokenId(), []byte{}), nil})
 	return nil
 }
 
 type pCreateConsensusGroup struct{}
 
-func (p *pCreateConsensusGroup) getFee(vm *VM, block *ledger.AccountBlock) *big.Int {
-	return new(big.Int).Set(createConsensusGroupFee)
+func (p *pCreateConsensusGroup) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return new(big.Int).Set(createConsensusGroupFee), nil
 }
 
 // create consensus group
-func (p *pCreateConsensusGroup) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *pCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := useQuota(quotaLeft, createConsensusGroupGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Sign() != 0 ||
-		!isUserAccount(vm.Db, block.AccountAddress) {
+	if block.AccountBlock.Amount.Sign() != 0 ||
+		!isUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
 		return quotaLeft, ErrInvalidData
 	}
 	param := new(contracts.ConsensusGroupInfo)
-	err = contracts.ABI_consensusGroup.UnpackMethod(param, contracts.MethodNameCreateConsensusGroup, block.Data)
+	err = contracts.ABI_consensusGroup.UnpackMethod(param, contracts.MethodNameCreateConsensusGroup, block.AccountBlock.Data)
 	if err != nil {
 		return quotaLeft, err
 	}
-	if err := p.checkCreateConsensusGroupData(vm, param); err != nil {
+	if err := p.checkCreateConsensusGroupData(block.VmContext, param); err != nil {
 		return quotaLeft, err
 	}
 	// data: methodSelector(0:4) + gid(4:36) + ConsensusGroup
-	gid := types.DataToGid(block.AccountAddress.Bytes(), new(big.Int).SetUint64(block.Height).Bytes(), block.PrevHash.Bytes(), block.SnapshotHash.Bytes())
-	if isExistGid(vm.Db, gid) {
+	gid := types.DataToGid(block.AccountBlock.AccountAddress.Bytes(), new(big.Int).SetUint64(block.AccountBlock.Height).Bytes(), block.AccountBlock.PrevHash.Bytes(), block.AccountBlock.SnapshotHash.Bytes())
+	if isExistGid(block.VmContext, gid) {
 		return quotaLeft, ErrInvalidData
 	}
 	paramData, _ := contracts.ABI_consensusGroup.PackMethod(contracts.MethodNameCreateConsensusGroup, gid, param.NodeCount, param.Interval, param.CountingRuleId, param.CountingRuleParam, param.RegisterConditionId, param.RegisterConditionParam, param.VoteConditionId, param.VoteConditionParam)
-	block.Data = paramData
-	quotaLeft, err = useQuotaForData(block.Data, quotaLeft)
+	block.AccountBlock.Data = paramData
+	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
 	return quotaLeft, nil
 }
-func (p *pCreateConsensusGroup) checkCreateConsensusGroupData(vm *VM, param *contracts.ConsensusGroupInfo) error {
+func (p *pCreateConsensusGroup) checkCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *contracts.ConsensusGroupInfo) error {
 	if param.NodeCount < cgNodeCountMin || param.NodeCount > cgNodeCountMax ||
 		param.Interval < cgIntervalMin || param.Interval > cgIntervalMax {
 		return ErrInvalidData
 	}
-	if err := p.checkCondition(vm, param.CountingRuleId, param.CountingRuleParam, "counting"); err != nil {
+	if err := p.checkCondition(db, param.CountingRuleId, param.CountingRuleParam, "counting"); err != nil {
 		return ErrInvalidData
 	}
-	if err := p.checkCondition(vm, param.RegisterConditionId, param.RegisterConditionParam, "register"); err != nil {
+	if err := p.checkCondition(db, param.RegisterConditionId, param.RegisterConditionParam, "register"); err != nil {
 		return ErrInvalidData
 	}
-	if err := p.checkCondition(vm, param.VoteConditionId, param.VoteConditionParam, "vote"); err != nil {
+	if err := p.checkCondition(db, param.VoteConditionId, param.VoteConditionParam, "vote"); err != nil {
 		return ErrInvalidData
 	}
 	return nil
 }
-func (p *pCreateConsensusGroup) checkCondition(vm *VM, conditionId uint8, conditionParam []byte, conditionIdPrefix string) error {
+func (p *pCreateConsensusGroup) checkCondition(db vmctxt_interface.VmDatabase, conditionId uint8, conditionParam []byte, conditionIdPrefix string) error {
 	condition, ok := SimpleCountingRuleList[CountingRuleCode(conditionIdPrefix+strconv.Itoa(int(conditionId)))]
 	if !ok {
 		return ErrInvalidData
 	}
-	if ok := condition.checkParam(conditionParam, vm.Db); !ok {
+	if ok := condition.checkParam(conditionParam, db); !ok {
 		return ErrInvalidData
 	}
 	return nil
 }
-func (p *pCreateConsensusGroup) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
+func (p *pCreateConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(contracts.ConsensusGroupInfo)
-	contracts.ABI_consensusGroup.UnpackMethod(param, contracts.MethodNameCreateConsensusGroup, block.Data)
+	contracts.ABI_consensusGroup.UnpackMethod(param, contracts.MethodNameCreateConsensusGroup, block.AccountBlock.Data)
 	key := contracts.GetConsensusGroupKey(param.Gid)
-	if len(vm.Db.GetStorage(&block.AccountAddress, key)) > 0 {
+	if len(block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key)) > 0 {
 		return ErrIdCollision
 	}
 	groupInfo, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo, param.NodeCount, param.Interval, param.CountingRuleId, param.CountingRuleParam, param.RegisterConditionId, param.RegisterConditionParam, param.VoteConditionId, param.VoteConditionParam)
-	vm.Db.SetStorage(key, groupInfo)
+	block.VmContext.SetStorage(key, groupInfo)
 	return nil
 }
 
@@ -656,7 +657,7 @@ const (
 )
 
 type createConsensusGroupCondition interface {
-	checkParam(param []byte, db vm_context.VmDatabase) bool
+	checkParam(param []byte, db vmctxt_interface.VmDatabase) bool
 }
 
 var SimpleCountingRuleList = map[CountingRuleCode]createConsensusGroupCondition{
@@ -668,7 +669,7 @@ var SimpleCountingRuleList = map[CountingRuleCode]createConsensusGroupCondition{
 
 type countingRuleOfBalance struct{}
 
-func (c countingRuleOfBalance) checkParam(param []byte, db vm_context.VmDatabase) bool {
+func (c countingRuleOfBalance) checkParam(param []byte, db vmctxt_interface.VmDatabase) bool {
 	v := new(types.TokenTypeId)
 	err := contracts.ABI_consensusGroup.UnpackVariable(v, contracts.VariableNameConditionCounting1, param)
 	if err != nil || contracts.GetTokenById(db, *v) == nil {
@@ -679,7 +680,7 @@ func (c countingRuleOfBalance) checkParam(param []byte, db vm_context.VmDatabase
 
 type registerConditionOfSnapshot struct{}
 
-func (c registerConditionOfSnapshot) checkParam(param []byte, db vm_context.VmDatabase) bool {
+func (c registerConditionOfSnapshot) checkParam(param []byte, db vmctxt_interface.VmDatabase) bool {
 	v := new(contracts.VariableConditionRegister1)
 	err := contracts.ABI_consensusGroup.UnpackVariable(v, contracts.VariableNameConditionRegister1, param)
 	if err != nil || contracts.GetTokenById(db, v.PledgeToken) == nil {
@@ -690,7 +691,7 @@ func (c registerConditionOfSnapshot) checkParam(param []byte, db vm_context.VmDa
 
 type voteConditionOfDefault struct{}
 
-func (c voteConditionOfDefault) checkParam(param []byte, db vm_context.VmDatabase) bool {
+func (c voteConditionOfDefault) checkParam(param []byte, db vmctxt_interface.VmDatabase) bool {
 	if len(param) != 0 {
 		return false
 	}
@@ -699,7 +700,7 @@ func (c voteConditionOfDefault) checkParam(param []byte, db vm_context.VmDatabas
 
 type voteConditionOfBalance struct{}
 
-func (c voteConditionOfBalance) checkParam(param []byte, db vm_context.VmDatabase) bool {
+func (c voteConditionOfBalance) checkParam(param []byte, db vmctxt_interface.VmDatabase) bool {
 	v := new(contracts.VariableConditionVote2)
 	err := contracts.ABI_consensusGroup.UnpackVariable(v, contracts.VariableNameConditionVote2, param)
 	if err != nil || contracts.GetTokenById(db, v.KeepToken) == nil {
@@ -710,32 +711,34 @@ func (c voteConditionOfBalance) checkParam(param []byte, db vm_context.VmDatabas
 
 type pMintage struct{}
 
-func (p *pMintage) getFee(vm *VM, block *ledger.AccountBlock) *big.Int {
-	if block.Amount.Cmp(mintagePledgeAmount) == 0 {
-		return big.NewInt(0)
+func (p *pMintage) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	if block.AccountBlock.Amount.Cmp(mintagePledgeAmount) == 0 {
+		return big.NewInt(0), nil
+	} else if block.AccountBlock.Amount.Sign() > 0 {
+		return big.NewInt(0), ErrInvalidData
 	}
-	return new(big.Int).Set(mintageFee)
+	return new(big.Int).Set(mintageFee), nil
 }
 
-func (p *pMintage) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *pMintage) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := useQuota(quotaLeft, mintageGas)
 	if err != nil {
 		return quotaLeft, err
 	}
 	param := new(contracts.ParamMintage)
-	err = contracts.ABI_mintage.UnpackMethod(param, contracts.MethodNameMintage, block.Data)
+	err = contracts.ABI_mintage.UnpackMethod(param, contracts.MethodNameMintage, block.AccountBlock.Data)
 	if err != nil {
 		return quotaLeft, err
 	}
 	if err = checkToken(*param); err != nil {
 		return quotaLeft, err
 	}
-	tokenId := types.CreateTokenTypeId(block.AccountAddress.Bytes(), new(big.Int).SetUint64(block.Height).Bytes(), block.PrevHash.Bytes(), block.SnapshotHash.Bytes())
-	if contracts.GetTokenById(vm.Db, tokenId) != nil {
+	tokenId := types.CreateTokenTypeId(block.AccountBlock.AccountAddress.Bytes(), new(big.Int).SetUint64(block.AccountBlock.Height).Bytes(), block.AccountBlock.PrevHash.Bytes(), block.AccountBlock.SnapshotHash.Bytes())
+	if contracts.GetTokenById(block.VmContext, tokenId) != nil {
 		return quotaLeft, ErrIdCollision
 	}
-	block.Data, _ = contracts.ABI_mintage.PackMethod(contracts.MethodNameMintage, tokenId, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals)
-	quotaLeft, err = useQuotaForData(block.Data, quotaLeft)
+	block.AccountBlock.Data, _ = contracts.ABI_mintage.PackMethod(contracts.MethodNameMintage, tokenId, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals)
+	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -755,66 +758,66 @@ func checkToken(param contracts.ParamMintage) error {
 	}
 	return nil
 }
-func (p *pMintage) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
+func (p *pMintage) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(contracts.ParamMintage)
-	contracts.ABI_mintage.UnpackMethod(param, contracts.MethodNameMintage, block.Data)
+	contracts.ABI_mintage.UnpackMethod(param, contracts.MethodNameMintage, block.AccountBlock.Data)
 	key := helper.LeftPadBytes(param.TokenId.Bytes(), 32)
-	if len(vm.Db.GetStorage(&block.AccountAddress, key)) > 0 {
+	if len(block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key)) > 0 {
 		return ErrIdCollision
 	}
 	var tokenInfo []byte
-	if block.Amount.Sign() == 0 {
+	if block.AccountBlock.Amount.Sign() == 0 {
 		tokenInfo, _ = contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals, sendBlock.AccountAddress, sendBlock.Amount, int64(0))
 	} else {
-		tokenInfo, _ = contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals, sendBlock.AccountAddress, sendBlock.Amount, vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp.Unix()+mintagePledgeTime)
+		tokenInfo, _ = contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals, sendBlock.AccountAddress, sendBlock.Amount, block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash).Timestamp.Unix()+mintagePledgeTime)
 	}
-	vm.Db.SetStorage(key, tokenInfo)
-	vm.blockList = append(vm.blockList, makeSendBlock(block, sendBlock.AccountAddress, ledger.BlockTypeSendReward, param.TotalSupply, param.TokenId, []byte{}))
+	block.VmContext.SetStorage(key, tokenInfo)
+	vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, sendBlock.AccountAddress, ledger.BlockTypeSendReward, param.TotalSupply, param.TokenId, []byte{}), nil})
 	return nil
 }
 
 type pMintageCancelPledge struct{}
 
-func (p *pMintageCancelPledge) getFee(vm *VM, block *ledger.AccountBlock) *big.Int {
-	return big.NewInt(0)
+func (p *pMintageCancelPledge) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
-func (p *pMintageCancelPledge) doSend(vm *VM, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *pMintageCancelPledge) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := useQuota(quotaLeft, mintageGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	quotaLeft, err = useQuotaForData(block.Data, quotaLeft)
+	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Sign() > 0 {
+	if block.AccountBlock.Amount.Sign() > 0 {
 		return quotaLeft, ErrInvalidData
 	}
 	tokenId := new(types.TokenTypeId)
-	err = contracts.ABI_mintage.UnpackMethod(tokenId, contracts.MethodNameMintageCancelPledge, block.Data)
+	err = contracts.ABI_mintage.UnpackMethod(tokenId, contracts.MethodNameMintageCancelPledge, block.AccountBlock.Data)
 	if err != nil {
 		return quotaLeft, ErrInvalidData
 	}
-	tokenInfo := contracts.GetTokenById(vm.Db, *tokenId)
-	if !bytes.Equal(tokenInfo.Owner.Bytes(), block.AccountAddress.Bytes()) || tokenInfo.PledgeAmount.Sign() == 0 || tokenInfo.Timestamp > vm.Db.GetSnapshotBlock(&block.SnapshotHash).Timestamp.Unix() {
+	tokenInfo := contracts.GetTokenById(block.VmContext, *tokenId)
+	if !bytes.Equal(tokenInfo.Owner.Bytes(), block.AccountBlock.AccountAddress.Bytes()) || tokenInfo.PledgeAmount.Sign() == 0 || tokenInfo.Timestamp > block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash).Timestamp.Unix() {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
-func (p *pMintageCancelPledge) doReceive(vm *VM, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) error {
+func (p *pMintageCancelPledge) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	tokenId := new(types.TokenTypeId)
-	contracts.ABI_mintage.UnpackMethod(tokenId, contracts.MethodNameMintageCancelPledge, block.Data)
+	contracts.ABI_mintage.UnpackMethod(tokenId, contracts.MethodNameMintageCancelPledge, block.AccountBlock.Data)
 	storageKey := helper.LeftPadBytes(tokenId.Bytes(), types.HashSize)
 	tokenInfo := new(contracts.TokenInfo)
-	contracts.ABI_mintage.UnpackVariable(tokenInfo, contracts.VariableNameMintage, vm.Db.GetStorage(&block.AccountAddress, storageKey))
+	contracts.ABI_mintage.UnpackVariable(tokenInfo, contracts.VariableNameMintage, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, storageKey))
 	newTokenInfo, _ := contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, tokenInfo.TokenName, tokenInfo.TokenSymbol, tokenInfo.TotalSupply, tokenInfo.Decimals, tokenInfo.Owner, big.NewInt(0), int64(0))
-	vm.Db.SetStorage(storageKey, newTokenInfo)
+	block.VmContext.SetStorage(storageKey, newTokenInfo)
 	if tokenInfo.PledgeAmount.Sign() > 0 {
-		vm.blockList = append(vm.blockList, makeSendBlock(block, tokenInfo.Owner, ledger.BlockTypeSendCall, tokenInfo.PledgeAmount, *ledger.ViteTokenId(), []byte{}))
+		vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, tokenInfo.Owner, ledger.BlockTypeSendCall, tokenInfo.PledgeAmount, *ledger.ViteTokenId(), []byte{}), nil})
 	}
 	return nil
 }
-func isUserAccount(db vm_context.VmDatabase, addr types.Address) bool {
+func isUserAccount(db vmctxt_interface.VmDatabase, addr types.Address) bool {
 	return len(db.GetContractCode(&addr)) == 0
 }

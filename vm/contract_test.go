@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm_context"
 	"log"
 	"math/big"
 	"os"
@@ -47,11 +48,11 @@ func TestRun(t *testing.T) {
 		{[]byte{byte(CALLVALUE), byte(DUP1), byte(ISZERO), byte(NOT), byte(PUSH2), 0, 12, byte(JUMPI), byte(PUSH1), 0, byte(DUP1), byte(REVERT), byte(JUMPDEST), byte(PUSH1), 32, byte(PUSH1), 0, byte(DUP2), byte(DUP2), byte(MSTORE), byte(RETURN)}, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32}, nil, 999957, 0, "jumpi"},
 	}
 	for _, test := range tests {
-		vm := &VM{Db: NewNoDatabase(), instructionSet: simpleInstructionSet}
+		vm := &VM{instructionSet: simpleInstructionSet}
 		vm.Debug = true
 		receiveCallBlock := &ledger.AccountBlock{AccountAddress: types.Address{}, ToAddress: types.Address{}, BlockType: ledger.BlockTypeReceive}
 		receiveCallBlock.Amount = big.NewInt(10)
-		c := newContract(receiveCallBlock.AccountAddress, receiveCallBlock.ToAddress, receiveCallBlock, 1000000, 0)
+		c := newContract(receiveCallBlock.AccountAddress, receiveCallBlock.ToAddress, &vm_context.VmAccountBlock{receiveCallBlock, NewNoDatabase()}, 1000000, 0)
 		c.setCallCode(types.Address{}, test.input)
 		ret, err := c.run(vm)
 		if bytes.Compare(ret, test.result) != 0 || c.quotaLeft != test.quotaLeft || c.quotaRefund != test.quotaRefund || (err == nil && test.err != nil) || (err != nil && test.err == nil) {

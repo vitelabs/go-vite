@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm_context"
 	"sync/atomic"
 )
 
@@ -20,12 +20,12 @@ type contract struct {
 	jumpdests              destinations
 	code                   []byte
 	codeAddr               types.Address
-	block                  *ledger.AccountBlock
+	block                  *vm_context.VmAccountBlock
 	quotaLeft, quotaRefund uint64
 	intPool                *intPool
 }
 
-func newContract(caller types.Address, address types.Address, block *ledger.AccountBlock, quotaLeft, quotaRefund uint64) *contract {
+func newContract(caller types.Address, address types.Address, block *vm_context.VmAccountBlock, quotaLeft, quotaRefund uint64) *contract {
 	return &contract{caller: caller,
 		address:     address,
 		block:       block,
