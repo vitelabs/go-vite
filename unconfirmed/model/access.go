@@ -130,21 +130,24 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 			continue
 		}
 		ti, ok := infoMap[block.TokenId]
-		if !ok {
+		if ok {
+			ti.Number += 1
+			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
+		} else {
 			token, err := access.Chain.GetTokenInfoById(&block.TokenId)
 			if err != nil {
 				access.log.Error("func GetUnconfirmedAccount.GetByTokenId failed", "error", err)
 				return nil, 0, err
 			}
-			infoMap[block.TokenId].Token = token.Mintage
+			infoMap[block.TokenId].Token = *token
 			infoMap[block.TokenId].TotalAmount = *block.Amount
-		} else {
-			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
+			infoMap[block.TokenId].Number = 1
 		}
 
 	}
 	return infoMap, uint64(len(hashList)), err
 }
+
 func (access *UAccess) GetAccountQuota(addresses types.Address, hashes types.Hash) uint64 {
 	//todo @;yd
 	return 0

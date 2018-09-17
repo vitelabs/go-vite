@@ -156,7 +156,7 @@ func (manager *Manager) insertBlockToPool(b *ledger.AccountBlock) error {
 
 func (manager *Manager) SetAutoReceiveFilter(addr types.Address, filter map[types.TokenTypeId]big.Int) {
 	if w, ok := manager.commonTxWorkers[addr]; ok {
-		w.SetAutoReceiveFilter(filter)
+		w.ResetAutoReceiveFilter(filter)
 	}
 }
 
