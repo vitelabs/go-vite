@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"regexp"
 	"testing"
@@ -45,7 +44,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr1
 	block13DataGas, _ := dataGasCost(block13Data)
-	sendRegisterBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block13, db}, nil)
+	sendRegisterBlockList, isRetry, err := vm.Run(db, block13, nil)
 	balance1.Sub(balance1, block13.Amount)
 	if len(sendRegisterBlockList) != 1 || isRetry || err != nil ||
 		sendRegisterBlockList[0].AccountBlock.Quota != block13DataGas+registerGas ||
@@ -68,7 +67,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	registrationData, _ := contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, nodeName, addr7, addr1, addr6, block13.Amount, snapshot2.Timestamp.Unix(), snapshot2.Height, uint64(0))
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block21, sendRegisterBlockList[0].AccountBlock)
-	receiveRegisterBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block21, db}, sendRegisterBlockList[0].AccountBlock)
+	receiveRegisterBlockList, isRetry, err := vm.Run(db, block21, sendRegisterBlockList[0].AccountBlock)
 	if len(receiveRegisterBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][locHashRegister], registrationData) ||
@@ -96,7 +95,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr1
 	block14DataGas, _ := dataGasCost(block14Data)
-	sendRegisterBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block14, db}, nil)
+	sendRegisterBlockList2, isRetry, err := vm.Run(db, block14, nil)
 	if len(sendRegisterBlockList2) != 1 || isRetry || err != nil ||
 		sendRegisterBlockList2[0].AccountBlock.Quota != block14DataGas+updateRegistrationGas ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 {
@@ -118,7 +117,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	registrationData, _ = contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, nodeName, addr6, addr1, addr7, block13.Amount, snapshot2.Timestamp.Unix(), snapshot2.Height, uint64(0))
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block22, sendRegisterBlockList2[0].AccountBlock)
-	receiveRegisterBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block22, db}, sendRegisterBlockList2[0].AccountBlock)
+	receiveRegisterBlockList2, isRetry, err := vm.Run(db, block22, sendRegisterBlockList2[0].AccountBlock)
 	if len(receiveRegisterBlockList2) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][locHashRegister], registrationData) ||
@@ -152,7 +151,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr1
 	block15DataGas, _ := dataGasCost(block15Data)
-	sendCancelRegisterBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block15, db}, nil)
+	sendCancelRegisterBlockList, isRetry, err := vm.Run(db, block15, nil)
 	if len(sendCancelRegisterBlockList) != 1 || isRetry || err != nil ||
 		sendCancelRegisterBlockList[0].AccountBlock.Quota != block15DataGas+cancelRegisterGas ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 {
@@ -173,7 +172,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block23, sendCancelRegisterBlockList[0].AccountBlock)
-	receiveCancelRegisterBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block23, db}, block15)
+	receiveCancelRegisterBlockList, isRetry, err := vm.Run(db, block23, block15)
 	registrationData, _ = contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, nodeName, addr6, addr1, addr7, helper.Big0, int64(0), snapshot2.Height, snapshot4.Height)
 	if len(receiveCancelRegisterBlockList) != 2 || isRetry || err != nil ||
 		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(helper.Big0) != 0 ||
@@ -205,7 +204,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	db.addr = addr1
 	balance1.Add(balance1, block13.Amount)
 	updateReveiceBlockBySendBlock(block16, receiveCancelRegisterBlockList[1].AccountBlock)
-	receiveCancelRegisterRefundBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block16, db}, receiveCancelRegisterBlockList[1].AccountBlock)
+	receiveCancelRegisterRefundBlockList, isRetry, err := vm.Run(db, block16, receiveCancelRegisterBlockList[1].AccountBlock)
 	if len(receiveCancelRegisterRefundBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(helper.Big0) != 0 ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 ||
@@ -238,7 +237,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr7
-	sendRewardBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block71, db}, nil)
+	sendRewardBlockList, isRetry, err := vm.Run(db, block71, nil)
 	block71DataGas, _ := dataGasCost(sendRewardBlockList[0].AccountBlock.Data)
 	reward := new(big.Int).Mul(big.NewInt(2), rewardPerBlock)
 	block71DataExpected, _ := contracts.ABI_register.PackMethod(contracts.MethodNameReward, *ledger.CommonGid(), nodeName, snapshot4.Height, snapshot2.Height, reward)
@@ -262,7 +261,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block25, block71)
-	receiveRewardBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block25, db}, block71)
+	receiveRewardBlockList, isRetry, err := vm.Run(db, block25, block71)
 	if len(receiveRewardBlockList) != 2 || isRetry || err != nil ||
 		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(helper.Big0) != 0 ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(viteTotalSupply) != 0 ||
@@ -292,7 +291,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr7
 	updateReveiceBlockBySendBlock(block72, receiveRewardBlockList[1].AccountBlock)
-	receiveRewardRefundBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block72, db}, receiveRewardBlockList[1].AccountBlock)
+	receiveRewardRefundBlockList, isRetry, err := vm.Run(db, block72, receiveRewardBlockList[1].AccountBlock)
 	if len(receiveRewardRefundBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(helper.Big0) != 0 ||
 		db.balanceMap[addr7][*ledger.ViteTokenId()].Cmp(reward) != 0 ||
@@ -326,7 +325,7 @@ func TestContractsVote(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr1
 	block13DataGas, _ := dataGasCost(block13.Data)
-	sendVoteBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block13, db}, nil)
+	sendVoteBlockList, isRetry, err := vm.Run(db, block13, nil)
 	if len(sendVoteBlockList) != 1 || isRetry || err != nil ||
 		sendVoteBlockList[0].AccountBlock.Quota != block13DataGas+voteGas {
 		t.Fatalf("send vote transaction error")
@@ -345,7 +344,7 @@ func TestContractsVote(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr3
 	updateReveiceBlockBySendBlock(block31, block13)
-	receiveVoteBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block31, db}, block13)
+	receiveVoteBlockList, isRetry, err := vm.Run(db, block31, block13)
 	locHashVote, _ := types.BytesToHash(contracts.GetVoteKey(addr1, *ledger.CommonGid()))
 	voteData, _ := contracts.ABI_vote.PackVariable(contracts.VariableNameVoteStatus, nodeName)
 	if len(receiveVoteBlockList) != 1 || isRetry || err != nil ||
@@ -375,7 +374,7 @@ func TestContractsVote(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendVoteBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block14, db}, nil)
+	sendVoteBlockList2, isRetry, err := vm.Run(db, block14, nil)
 	block14DataGas, _ := dataGasCost(block14.Data)
 	if len(sendVoteBlockList2) != 1 || isRetry || err != nil ||
 		sendVoteBlockList2[0].AccountBlock.Quota != block14DataGas+voteGas {
@@ -396,7 +395,7 @@ func TestContractsVote(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr3
 	updateReveiceBlockBySendBlock(block32, block14)
-	receiveVoteBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block32, db}, block14)
+	receiveVoteBlockList2, isRetry, err := vm.Run(db, block32, block14)
 	voteData, _ = contracts.ABI_vote.PackVariable(contracts.VariableNameVoteStatus, nodeName2)
 	if len(receiveVoteBlockList2) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr3][locHashVote], voteData) ||
@@ -421,7 +420,7 @@ func TestContractsVote(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendCancelVoteBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block15, db}, nil)
+	sendCancelVoteBlockList, isRetry, err := vm.Run(db, block15, nil)
 	if len(sendCancelVoteBlockList) != 1 || isRetry || err != nil ||
 		sendCancelVoteBlockList[0].AccountBlock.Quota != 62464 {
 		t.Fatalf("send cancel vote transaction error")
@@ -441,7 +440,7 @@ func TestContractsVote(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr3
 	updateReveiceBlockBySendBlock(block33, block15)
-	receiveCancelVoteBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block33, db}, block15)
+	receiveCancelVoteBlockList, isRetry, err := vm.Run(db, block33, block15)
 	if len(receiveCancelVoteBlockList) != 1 || isRetry || err != nil ||
 		len(db.storageMap[addr3][locHashVote]) != 0 ||
 		receiveCancelVoteBlockList[0].AccountBlock.Quota != 0 {
@@ -477,7 +476,7 @@ func TestContractsPledge(t *testing.T) {
 	vm := NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendPledgeBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block13, db}, nil)
+	sendPledgeBlockList, isRetry, err := vm.Run(db, block13, nil)
 	block13DataGas, _ := dataGasCost(sendPledgeBlockList[0].AccountBlock.Data)
 	balance1.Sub(balance1, pledgeAmount)
 	if len(sendPledgeBlockList) != 1 || isRetry || err != nil ||
@@ -499,7 +498,7 @@ func TestContractsPledge(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr5
 	updateReveiceBlockBySendBlock(block51, block13)
-	receivePledgeBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block51, db}, block13)
+	receivePledgeBlockList, isRetry, err := vm.Run(db, block51, block13)
 	locHashQuota := types.DataHash(addr4.Bytes())
 	locHashPledge := types.DataHash(append(addr1.Bytes(), locHashQuota.Bytes()...))
 	if len(receivePledgeBlockList) != 1 || isRetry || err != nil ||
@@ -529,7 +528,7 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendPledgeBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block14, db}, nil)
+	sendPledgeBlockList2, isRetry, err := vm.Run(db, block14, nil)
 	balance1.Sub(balance1, pledgeAmount)
 	if len(sendPledgeBlockList2) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 ||
@@ -551,7 +550,7 @@ func TestContractsPledge(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr5
 	updateReveiceBlockBySendBlock(block52, block14)
-	receivePledgeBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block52, db}, block14)
+	receivePledgeBlockList2, isRetry, err := vm.Run(db, block52, block14)
 	newPledgeAmount := new(big.Int).Add(pledgeAmount, pledgeAmount)
 	if len(receivePledgeBlockList2) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr5][locHashPledge], helper.JoinBytes(helper.LeftPadBytes(newPledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetInt64(withdrawTime).Bytes(), helper.WordSize))) ||
@@ -583,7 +582,7 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendCancelPledgeBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block15, db}, nil)
+	sendCancelPledgeBlockList, isRetry, err := vm.Run(db, block15, nil)
 	if len(sendCancelPledgeBlockList) != 1 || isRetry || err != nil ||
 		sendCancelPledgeBlockList[0].AccountBlock.Quota != 105592 {
 		t.Fatalf("send cancel pledge transaction error")
@@ -603,7 +602,7 @@ func TestContractsPledge(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr5
 	updateReveiceBlockBySendBlock(block53, block15)
-	receiveCancelPledgeBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block53, db}, block15)
+	receiveCancelPledgeBlockList, isRetry, err := vm.Run(db, block53, block15)
 	if len(receiveCancelPledgeBlockList) != 2 || isRetry || err != nil ||
 		receiveCancelPledgeBlockList[1].AccountBlock.Height != 4 ||
 		!bytes.Equal(db.storageMap[addr5][locHashPledge], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetInt64(withdrawTime).Bytes(), helper.WordSize))) ||
@@ -630,7 +629,7 @@ func TestContractsPledge(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr1
 	updateReveiceBlockBySendBlock(block16, receiveCancelPledgeBlockList[1].AccountBlock)
-	receiveCancelPledgeRefundBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block16, db}, receiveCancelPledgeBlockList[1].AccountBlock)
+	receiveCancelPledgeRefundBlockList, isRetry, err := vm.Run(db, block16, receiveCancelPledgeBlockList[1].AccountBlock)
 	balance1.Add(balance1, pledgeAmount)
 	if len(receiveCancelPledgeRefundBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 ||
@@ -655,7 +654,7 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendCancelPledgeBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block17, db}, nil)
+	sendCancelPledgeBlockList2, isRetry, err := vm.Run(db, block17, nil)
 	if len(sendCancelPledgeBlockList2) != 1 || isRetry || err != nil ||
 		sendCancelPledgeBlockList2[0].AccountBlock.Quota != 105592 {
 		t.Fatalf("send cancel pledge transaction 2 error")
@@ -675,7 +674,7 @@ func TestContractsPledge(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr5
 	updateReveiceBlockBySendBlock(block55, sendCancelPledgeBlockList2[0].AccountBlock)
-	receiveCancelPledgeBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block55, db}, sendCancelPledgeBlockList2[0].AccountBlock)
+	receiveCancelPledgeBlockList2, isRetry, err := vm.Run(db, block55, sendCancelPledgeBlockList2[0].AccountBlock)
 	if len(receiveCancelPledgeBlockList2) != 2 || isRetry || err != nil ||
 		receiveCancelPledgeBlockList2[1].AccountBlock.Height != 6 ||
 		len(db.storageMap[addr5][locHashPledge]) != 0 ||
@@ -703,7 +702,7 @@ func TestContractsPledge(t *testing.T) {
 	db.addr = addr1
 	balance1.Add(balance1, pledgeAmount)
 	updateReveiceBlockBySendBlock(block18, receiveCancelPledgeBlockList2[1].AccountBlock)
-	receiveCancelPledgeRefundBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block18, db}, receiveCancelPledgeBlockList2[1].AccountBlock)
+	receiveCancelPledgeRefundBlockList2, isRetry, err := vm.Run(db, block18, receiveCancelPledgeBlockList2[1].AccountBlock)
 	if len(receiveCancelPledgeRefundBlockList2) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 ||
 		receiveCancelPledgeRefundBlockList2[0].AccountBlock.Quota != 21000 {
@@ -742,7 +741,7 @@ func TestConsensusGroup(t *testing.T) {
 	vm := NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendCreateConsensusGroupBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block13, db}, nil)
+	sendCreateConsensusGroupBlockList, isRetry, err := vm.Run(db, block13, nil)
 	quota13, _ := dataGasCost(block13.Data)
 	if len(sendCreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
 		sendCreateConsensusGroupBlockList[0].AccountBlock.Quota != quota13+createConsensusGroupGas ||
@@ -766,7 +765,7 @@ func TestConsensusGroup(t *testing.T) {
 	locHash, _ := types.BytesToHash(block13.Data[4:36])
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block21, block13)
-	receiveCreateConsensusGroupBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block21, db}, block13)
+	receiveCreateConsensusGroupBlockList, isRetry, err := vm.Run(db, block21, block13)
 	groupInfo, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
@@ -813,7 +812,7 @@ func TestMintage(t *testing.T) {
 	vm := NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendMintageBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block13, db}, nil)
+	sendMintageBlockList, isRetry, err := vm.Run(db, block13, nil)
 	block13DataGas, _ := dataGasCost(sendMintageBlockList[0].AccountBlock.Data)
 	balance1.Sub(balance1, mintageFee)
 	if len(sendMintageBlockList) != 1 || isRetry || err != nil ||
@@ -837,7 +836,7 @@ func TestMintage(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block21, sendMintageBlockList[0].AccountBlock)
-	receiveMintageBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block21, db}, sendMintageBlockList[0].AccountBlock)
+	receiveMintageBlockList, isRetry, err := vm.Run(db, block21, sendMintageBlockList[0].AccountBlock)
 	tokenId, _ := types.BytesToTokenTypeId(sendMintageBlockList[0].AccountBlock.Data[26:36])
 	key, _ := types.BytesToHash(sendMintageBlockList[0].AccountBlock.Data[4:36])
 	tokenInfoData, _ := contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, addr1, big.NewInt(0), int64(0))
@@ -865,7 +864,7 @@ func TestMintage(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr1
 	updateReveiceBlockBySendBlock(block14, receiveMintageBlockList[1].AccountBlock)
-	receiveMintageRewardBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block14, db}, receiveMintageBlockList[1].AccountBlock)
+	receiveMintageRewardBlockList, isRetry, err := vm.Run(db, block14, receiveMintageBlockList[1].AccountBlock)
 	if len(receiveMintageRewardBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][tokenId].Cmp(totalSupply) != 0 ||
 		receiveMintageRewardBlockList[0].AccountBlock.Quota != 21000 {

@@ -33,31 +33,32 @@ func NewVM() *VM {
 	return &VM{instructionSet: simpleInstructionSet}
 }
 
-func (vm *VM) Run(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
+func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
 	// TODO copy block
-	switch block.AccountBlock.BlockType {
+	blockContext := &vm_context.VmAccountBlock{block, database}
+	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		// block data, amount, tokenId, fee is already changed to send block data by generator
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
-			return vm.receiveCreate(block, sendBlock, vm.calcCreateQuota(block.AccountBlock.Fee))
+			return vm.receiveCreate(blockContext, sendBlock, vm.calcCreateQuota(block.Fee))
 		} else if sendBlock.BlockType == ledger.BlockTypeSendCall || sendBlock.BlockType == ledger.BlockTypeSendReward {
-			return vm.receiveCall(block, sendBlock)
+			return vm.receiveCall(blockContext, sendBlock)
 		}
 	case ledger.BlockTypeSendCreate:
-		quotaTotal, quotaAddition := vm.quotaLeft(block.AccountBlock.AccountAddress, block)
-		block, err = vm.sendCreate(block, quotaTotal, quotaAddition)
+		quotaTotal, quotaAddition := vm.quotaLeft(block.AccountAddress, blockContext)
+		blockContext, err = vm.sendCreate(blockContext, quotaTotal, quotaAddition)
 		if err != nil {
 			return nil, NoRetry, err
 		} else {
-			return []*vm_context.VmAccountBlock{block}, NoRetry, nil
+			return []*vm_context.VmAccountBlock{blockContext}, NoRetry, nil
 		}
 	case ledger.BlockTypeSendCall:
-		quotaTotal, quotaAddition := vm.quotaLeft(block.AccountBlock.AccountAddress, block)
-		block, err = vm.sendCall(block, quotaTotal, quotaAddition)
+		quotaTotal, quotaAddition := vm.quotaLeft(block.AccountAddress, blockContext)
+		blockContext, err = vm.sendCall(blockContext, quotaTotal, quotaAddition)
 		if err != nil {
 			return nil, NoRetry, err
 		} else {
-			return []*vm_context.VmAccountBlock{block}, NoRetry, nil
+			return []*vm_context.VmAccountBlock{blockContext}, NoRetry, nil
 		}
 	}
 
@@ -162,7 +163,10 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 	quotaLeft := quotaTotal
 	if p, ok := getPrecompiledContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
 		var err error
-		block.AccountBlock.Fee = p.getFee(vm, block)
+		block.AccountBlock.Fee, err = p.getFee(vm, block)
+		if err != nil {
+			return nil, err
+		}
 		if !vm.canTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
 			return nil, ErrInsufficientBalance
 		}

@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"testing"
 )
@@ -45,7 +44,7 @@ func TestVmRun(t *testing.T) {
 	vm := NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendCreateBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block13, db}, nil)
+	sendCreateBlockList, isRetry, err := vm.Run(db, block13, nil)
 	balance1.Sub(balance1, block13.Amount)
 	balance1.Sub(balance1, contractFee)
 	if len(sendCreateBlockList) != 1 ||
@@ -75,7 +74,7 @@ func TestVmRun(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block21, block13)
-	receiveCreateBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block21, db}, block13)
+	receiveCreateBlockList, isRetry, err := vm.Run(db, block21, block13)
 	balance2.Add(balance2, block13.Amount)
 	if len(receiveCreateBlockList) != 1 || isRetry || err != nil ||
 		receiveCreateBlockList[0].AccountBlock.Quota != 0 ||
@@ -103,7 +102,7 @@ func TestVmRun(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendCallBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block14, db}, nil)
+	sendCallBlockList, isRetry, err := vm.Run(db, block14, nil)
 	balance1.Sub(balance1, block14.Amount)
 	if len(sendCallBlockList) != 1 || isRetry || err != nil ||
 		sendCallBlockList[0].AccountBlock.Quota != 21464 ||
@@ -126,7 +125,7 @@ func TestVmRun(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block22, block14)
-	receiveCallBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block22, db}, block14)
+	receiveCallBlockList, isRetry, err := vm.Run(db, block22, block14)
 	balance2.Add(balance2, block14.Amount)
 	if len(receiveCallBlockList) != 1 || isRetry || err != nil ||
 		receiveCallBlockList[0].AccountBlock.Quota != 41330 ||
@@ -152,7 +151,7 @@ func TestVmRun(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendCallBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block15, db}, nil)
+	sendCallBlockList2, isRetry, err := vm.Run(db, block15, nil)
 	if len(sendCallBlockList2) != 0 || err != ErrInsufficientBalance {
 		t.Fatalf("send call transaction 2 error")
 	}
@@ -173,7 +172,7 @@ func TestVmRun(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendCallBlockList2, isRetry, err = vm.Run(&vm_context.VmAccountBlock{block15, db}, nil)
+	sendCallBlockList2, isRetry, err = vm.Run(db, block15, nil)
 	db.accountBlockMap[addr1][hash15] = sendCallBlockList2[0].AccountBlock
 	// receive call
 	hash23 := types.DataHash([]byte{2, 3})
@@ -189,7 +188,7 @@ func TestVmRun(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block23, block15)
-	receiveCallBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block23, db}, block15)
+	receiveCallBlockList2, isRetry, err := vm.Run(db, block23, block15)
 	if len(receiveCallBlockList2) != 1 || isRetry || err != ErrExecutionReverted ||
 		receiveCallBlockList2[0].AccountBlock.Quota != 21046 {
 		t.Fatalf("receive call transaction error")
