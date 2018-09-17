@@ -85,10 +85,10 @@ func TestVmContext_AddBalance(t *testing.T) {
 	vmContext.AddBalance(&mockTokenTypeId, big.NewInt(12))
 	fmt.Println(vmContext.GetBalance(nil, &mockTokenTypeId))
 
-	vmContext.SetContractGid(&mockGid, vmContext.Address(), false)
+	vmContext.SetContractGid(&mockGid, vmContext.Address())
 	fmt.Printf("%+v\n", vmContext.UnsavedCache().ContractGidList()[0])
 
-	vmContext.SetContractGid(&mockGid, vmContext.Address(), true)
+	vmContext.SetContractGid(&mockGid, vmContext.Address())
 	fmt.Printf("%+v\n", vmContext.UnsavedCache().ContractGidList()[1])
 
 	fmt.Printf("%+v\n", vmContext.UnsavedCache())

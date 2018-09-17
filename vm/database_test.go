@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
 	"time"
 )
@@ -75,7 +75,7 @@ func (db *NoDatabase) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBl
 	}
 	return nil
 }
-func (db *NoDatabase) GetSnapshotBlocks(startHeight uint64, count uint64, forward bool) []*ledger.SnapshotBlock {
+func (db *NoDatabase) GetSnapshotBlocks(startHeight uint64, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
 	if forward {
 		start := startHeight
 		end := start + count
@@ -99,10 +99,8 @@ func (db *NoDatabase) IsAddressExisted(addr *types.Address) bool {
 	_, ok := db.accountBlockMap[*addr]
 	return ok
 }
-func (db *NoDatabase) SetContractGid(gid *types.Gid, addr *types.Address, open bool) {
-	if !open {
-		db.contractGidMap[db.addr] = gid
-	}
+func (db *NoDatabase) SetContractGid(gid *types.Gid, addr *types.Address) {
+	db.contractGidMap[db.addr] = gid
 }
 func (db *NoDatabase) SetContractCode(code []byte) {
 	db.codeMap[db.addr] = code
@@ -150,13 +148,28 @@ func (db *NoDatabase) GetLogListHash() *types.Hash {
 	return &types.Hash{}
 }
 
-func (db *NoDatabase) NewStorageIterator(prefix []byte) *vm_context.StorageIterator {
+func (db *NoDatabase) NewStorageIterator(prefix []byte) vmctxt_interface.StorageIterator {
 	// TODO
 	return nil
 }
 
-func (db *NoDatabase) CopyAndFreeze() *vm_context.VmDatabase {
-	// TODO
+func (db *NoDatabase) CopyAndFreeze() vmctxt_interface.VmDatabase {
+	return db
+}
+
+func (db *NoDatabase) GetGid() *types.Gid {
+	return nil
+}
+func (db *NoDatabase) Address() *types.Address {
+	return nil
+}
+func (db *NoDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
+	return nil
+}
+func (db *NoDatabase) PrevAccountBlock() *ledger.AccountBlock {
+	return nil
+}
+func (db *NoDatabase) UnsavedCache() vmctxt_interface.UnsavedCache {
 	return nil
 }
 

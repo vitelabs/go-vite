@@ -16,7 +16,8 @@ type BlockMapQueryParam struct {
 	Forward         bool
 }
 
-func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock, needBroadCast bool) error {
+// TODO: RefSnapshotHeight、Modify send block meta
+func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
 	batch := new(leveldb.Batch)
 	trieSaveCallback := make([]func(), 0)
 	var account *ledger.Account
@@ -47,10 +48,7 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			// Save contract gid list
 			if contractGidList := unsavedCache.ContractGidList(); len(contractGidList) > 0 {
 				for _, contractGid := range contractGidList {
-					if err := c.chainDb.Ac.WriteContractGid(batch, contractGid.Gid(), contractGid.Addr(), contractGid.Open()); err != nil {
-						c.log.Error("WriteContractGid failed, error is "+err.Error(), "method", "InsertAccountBlock")
-						return err
-					}
+					c.chainDb.Ac.WriteContractGid(batch, contractGid.Gid(), contractGid.Addr())
 				}
 			}
 		}
@@ -91,15 +89,6 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.Hash, accountBlock.Meta)
 	}
 
-	if needBroadCast {
-		// TODO broadcast
-		netErr := c.net.Broadcast()
-		if netErr != nil {
-			c.log.Error("Broadcast failed, error is "+netErr.Error(), "method", "InsertAccountBlock")
-			return netErr
-		}
-	}
-
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertAccountBlock")
@@ -107,6 +96,11 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	}
 
 	lastVmAccountBlock := vmAccountBlocks[len(vmAccountBlocks)-1]
+
+	// Set needSnapshotCache
+	c.needSnapshotCache.Add(&account.AccountAddress, lastVmAccountBlock.AccountBlock.Height, &lastVmAccountBlock.AccountBlock.Hash)
+
+	// Set stateTriePool
 	c.stateTriePool.Set(&lastVmAccountBlock.AccountBlock.AccountAddress, lastVmAccountBlock.VmContext.UnsavedCache().Trie())
 
 	// After write db
@@ -250,6 +244,21 @@ func (c *Chain) GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.T
 	return balance, nil
 }
 
+func (c *Chain) GetAccountBlockHashByHeight(addr *types.Address, height uint64) (*types.Hash, error) {
+	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
+	if accountErr != nil {
+		c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "GetAccountBlockHashByHeight")
+		return nil, accountErr
+	}
+
+	hash, getHashErr := c.chainDb.Ac.GetHashByHeight(account.AccountId, height)
+	if getHashErr != nil {
+		c.log.Error("GetHashByHeight failed, error is "+getHashErr.Error(), "method", "GetAccountBlockHashByHeight")
+		return nil, getHashErr
+	}
+	return hash, nil
+}
+
 func (c *Chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
 	block, err := c.chainDb.Ac.GetBlock(blockHash)
 	if err != nil {
@@ -352,9 +361,25 @@ func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 }
 
 func (c *Chain) GetUnConfirmAccountBlocks(addr *types.Address) ([]*ledger.AccountBlock, error) {
-	return nil, nil
+	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
+	if accountErr != nil {
+		c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "GetUnConfirmAccountBlocks")
+		return nil, accountErr
+	}
+
+	if account != nil {
+		return nil, nil
+	}
+
+	blocks, unConfirmErr := c.chainDb.Ac.GetUnConfirmAccountBlocks(account.AccountId)
+	if unConfirmErr != nil {
+		c.log.Error("GetUnConfirmAccountBlocks failed, error is "+unConfirmErr.Error(), "method", "GetUnConfirmAccountBlocks")
+		return nil, unConfirmErr
+	}
+	return blocks, nil
 }
 
-func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) ([]*ledger.AccountBlock, error) {
-	return nil, nil
+// TODO rebuild need_snapshot_cache
+func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) ([]*ledger.HashHeight, []*ledger.HashHeight, error) {
+	return nil, nil, nil
 }

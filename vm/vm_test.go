@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"testing"
 )
@@ -41,24 +42,24 @@ func TestVmRun(t *testing.T) {
 		SnapshotHash:   snapshot2.Hash,
 		Data:           data13,
 	}
-	vm := NewVM(db)
+	vm := NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendCreateBlockList, isRetry, err := vm.Run(block13, nil)
+	sendCreateBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block13, db}, nil)
 	balance1.Sub(balance1, block13.Amount)
 	balance1.Sub(balance1, contractFee)
 	if len(sendCreateBlockList) != 1 ||
 		isRetry ||
 		err != nil ||
-		sendCreateBlockList[0].Quota != 28936 ||
-		sendCreateBlockList[0].Fee.Cmp(contractFee) != 0 ||
+		sendCreateBlockList[0].AccountBlock.Quota != 28936 ||
+		sendCreateBlockList[0].AccountBlock.Fee.Cmp(contractFee) != 0 ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 {
 		t.Fatalf("send create transaction error")
 	}
-	db.accountBlockMap[addr1][hash13] = sendCreateBlockList[0]
+	db.accountBlockMap[addr1][hash13] = sendCreateBlockList[0].AccountBlock
 
 	// receive create
-	addr2 := sendCreateBlockList[0].ToAddress
+	addr2 := sendCreateBlockList[0].AccountBlock.ToAddress
 	db.storageMap[contracts.AddressPledge][types.DataHash(addr2.Bytes())], _ = contracts.ABI_pledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	balance2 := big.NewInt(0)
 
@@ -70,20 +71,20 @@ func TestVmRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		SnapshotHash:   snapshot2.Hash,
 	}
-	vm = NewVM(db)
+	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block21, block13)
-	receiveCreateBlockList, isRetry, err := vm.Run(block21, block13)
+	receiveCreateBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block21, db}, block13)
 	balance2.Add(balance2, block13.Amount)
 	if len(receiveCreateBlockList) != 1 || isRetry || err != nil ||
-		receiveCreateBlockList[0].Quota != 0 ||
+		receiveCreateBlockList[0].AccountBlock.Quota != 0 ||
 		!bytes.Equal(db.contractGidMap[addr1].Bytes(), ledger.CommonGid().Bytes()) ||
 		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(balance2) != 0 {
 		t.Fatalf("receive create transaction error")
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
-	db.accountBlockMap[addr2][hash21] = receiveCreateBlockList[0]
+	db.accountBlockMap[addr2][hash21] = receiveCreateBlockList[0].AccountBlock
 
 	// send call
 	data14, _ := hex.DecodeString("f021ab8f0000000000000000000000000000000000000000000000000000000000000005")
@@ -99,17 +100,17 @@ func TestVmRun(t *testing.T) {
 		SnapshotHash:   snapshot2.Hash,
 		Data:           data14,
 	}
-	vm = NewVM(db)
+	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendCallBlockList, isRetry, err := vm.Run(block14, nil)
+	sendCallBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block14, db}, nil)
 	balance1.Sub(balance1, block14.Amount)
 	if len(sendCallBlockList) != 1 || isRetry || err != nil ||
-		sendCallBlockList[0].Quota != 21464 ||
+		sendCallBlockList[0].AccountBlock.Quota != 21464 ||
 		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 {
 		t.Fatalf("send call transaction error")
 	}
-	db.accountBlockMap[addr1][hash14] = sendCallBlockList[0]
+	db.accountBlockMap[addr1][hash14] = sendCallBlockList[0].AccountBlock
 
 	// receive call
 	hash22 := types.DataHash([]byte{2, 2})
@@ -121,18 +122,18 @@ func TestVmRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		SnapshotHash:   snapshot2.Hash,
 	}
-	vm = NewVM(db)
+	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block22, block14)
-	receiveCallBlockList, isRetry, err := vm.Run(block22, block14)
+	receiveCallBlockList, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block22, db}, block14)
 	balance2.Add(balance2, block14.Amount)
 	if len(receiveCallBlockList) != 1 || isRetry || err != nil ||
-		receiveCallBlockList[0].Quota != 41330 ||
+		receiveCallBlockList[0].AccountBlock.Quota != 41330 ||
 		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(big.NewInt(2e18)) != 0 {
 		t.Fatalf("receive call transaction error")
 	}
-	db.accountBlockMap[addr2][hash22] = receiveCallBlockList[0]
+	db.accountBlockMap[addr2][hash22] = receiveCallBlockList[0].AccountBlock
 
 	// TODO error case
 	// send call error, insufficient balance
@@ -148,10 +149,10 @@ func TestVmRun(t *testing.T) {
 		SnapshotHash:   snapshot2.Hash,
 		Data:           data15,
 	}
-	vm = NewVM(db)
+	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendCallBlockList2, isRetry, err := vm.Run(block15, nil)
+	sendCallBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block15, db}, nil)
 	if len(sendCallBlockList2) != 0 || err != ErrInsufficientBalance {
 		t.Fatalf("send call transaction 2 error")
 	}
@@ -169,11 +170,11 @@ func TestVmRun(t *testing.T) {
 		SnapshotHash:   snapshot2.Hash,
 		Data:           data15,
 	}
-	vm = NewVM(db)
+	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
-	sendCallBlockList2, isRetry, err = vm.Run(block15, nil)
-	db.accountBlockMap[addr1][hash15] = sendCallBlockList2[0]
+	sendCallBlockList2, isRetry, err = vm.Run(&vm_context.VmAccountBlock{block15, db}, nil)
+	db.accountBlockMap[addr1][hash15] = sendCallBlockList2[0].AccountBlock
 	// receive call
 	hash23 := types.DataHash([]byte{2, 3})
 	block23 := &ledger.AccountBlock{
@@ -184,16 +185,16 @@ func TestVmRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		SnapshotHash:   snapshot2.Hash,
 	}
-	vm = NewVM(db)
+	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block23, block15)
-	receiveCallBlockList2, isRetry, err := vm.Run(block23, block15)
+	receiveCallBlockList2, isRetry, err := vm.Run(&vm_context.VmAccountBlock{block23, db}, block15)
 	if len(receiveCallBlockList2) != 1 || isRetry || err != ErrExecutionReverted ||
-		receiveCallBlockList2[0].Quota != 21046 {
+		receiveCallBlockList2[0].AccountBlock.Quota != 21046 {
 		t.Fatalf("receive call transaction error")
 	}
-	db.accountBlockMap[addr2][hash23] = receiveCallBlockList2[0]
+	db.accountBlockMap[addr2][hash23] = receiveCallBlockList2[0].AccountBlock
 }
 
 func TestDelegateCall(t *testing.T) {

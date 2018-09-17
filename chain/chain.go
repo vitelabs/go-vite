@@ -20,10 +20,10 @@ type Chain struct {
 
 	createAccountLock sync.Mutex
 
-	net Net
+	needSnapshotCache *NeedSnapshotCache
 }
 
-func NewChain(net Net, cfg *config.Config) *Chain {
+func NewChain(cfg *config.Config) *Chain {
 	chain := &Chain{
 		log: log15.New("module", "chain"),
 	}
@@ -41,6 +41,8 @@ func NewChain(net Net, cfg *config.Config) *Chain {
 	chain.compressor = compressor
 
 	chain.trieNodePool = trie.NewTrieNodePool()
+
+	chain.needSnapshotCache = NewNeedSnapshotContent(chain)
 
 	return chain
 }

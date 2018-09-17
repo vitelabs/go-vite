@@ -10,6 +10,12 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+func getSnapshotBlockHash(dbKey []byte) *types.Hash {
+	hashBytes := dbKey[9:]
+	hash, _ := types.BytesToHash(hashBytes)
+	return &hash
+}
+
 type SnapshotChain struct {
 	db *leveldb.DB
 }
@@ -20,12 +26,6 @@ func NewSnapshotChain(db *leveldb.DB) *SnapshotChain {
 	}
 }
 
-func (sc *SnapshotChain) getBlockHash(dbKey []byte) *types.Hash {
-	hashBytes := dbKey[17:]
-	hash, _ := types.BytesToHash(hashBytes)
-	return &hash
-}
-
 func (sc *SnapshotChain) WriteSnapshotHash(batch *leveldb.Batch, hash *types.Hash, height uint64) {
 	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCKHASH, hash.Bytes())
 	heightBytes := make([]byte, 8)
@@ -34,8 +34,8 @@ func (sc *SnapshotChain) WriteSnapshotHash(batch *leveldb.Batch, hash *types.Has
 	batch.Put(key, heightBytes)
 }
 
-func (sc *SnapshotChain) WriteSnapshotContent(batch *leveldb.Batch, snapshotHash *types.Hash, snapshotContent ledger.SnapshotContent) error {
-	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTCONTENT, snapshotHash.Bytes())
+func (sc *SnapshotChain) WriteSnapshotContent(batch *leveldb.Batch, snapshotHeight uint64, snapshotContent ledger.SnapshotContent) error {
+	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTCONTENT, snapshotHeight)
 	data, sErr := snapshotContent.DbSerialize()
 	if sErr != nil {
 		return sErr
@@ -71,7 +71,7 @@ func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
 		return nil, sdErr
 	}
 
-	sb.Hash = *sc.getBlockHash(iter.Key())
+	sb.Hash = *getSnapshotBlockHash(iter.Key())
 
 	return sb, nil
 }
@@ -93,13 +93,13 @@ func (sc *SnapshotChain) GetGenesesBlock() (*ledger.SnapshotBlock, error) {
 		return nil, sdErr
 	}
 
-	sb.Hash = *sc.getBlockHash(iter.Key())
+	sb.Hash = *getSnapshotBlockHash(iter.Key())
 
 	return sb, nil
 }
 
-func (sc *SnapshotChain) GetSnapshotContent(snapshotHash *types.Hash) (ledger.SnapshotContent, error) {
-	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTCONTENT, snapshotHash.Bytes())
+func (sc *SnapshotChain) GetSnapshotContent(snapshotBlockHeight uint64) (ledger.SnapshotContent, error) {
+	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTCONTENT, snapshotBlockHeight)
 	data, err := sc.db.Get(key, nil)
 	if err != nil {
 		if err != leveldb.ErrNotFound {
@@ -138,14 +138,14 @@ func (sc *SnapshotChain) GetSnapshotBlocks(height uint64, count uint64, forward,
 		}
 
 		if containSnapshotContent {
-			snapshotContent, err := sc.GetSnapshotContent(&block.SnapshotHash)
+			snapshotContent, err := sc.GetSnapshotContent(block.Height)
 			if err != nil {
 				return blocks, err
 			}
 			block.SnapshotContent = snapshotContent
 		}
 
-		block.Hash = *sc.getBlockHash(iter.Key())
+		block.Hash = *getSnapshotBlockHash(iter.Key())
 		blocks = append(blocks, block)
 		currentHeight++
 	}
@@ -185,7 +185,7 @@ func (sc *SnapshotChain) GetSnapshotBlock(height uint64) (*ledger.SnapshotBlock,
 		return nil, dsErr
 	}
 
-	snapshotBlock.Hash = *sc.getBlockHash(iter.Key())
+	snapshotBlock.Hash = *getSnapshotBlockHash(iter.Key())
 	return snapshotBlock, nil
 
 }
@@ -197,6 +197,7 @@ func (sc *SnapshotChain) GetSbHashList(height uint64, count, step int, forward b
 	defer iter.Release()
 
 	if forward {
+
 		iter.Next()
 	} else {
 		iter.Prev()
@@ -216,11 +217,47 @@ func (sc *SnapshotChain) GetSbHashList(height uint64, count, step int, forward b
 			}
 		}
 
-		hashList = append(hashList, sc.getBlockHash(iter.Key()))
+		hashList = append(hashList, getSnapshotBlockHash(iter.Key()))
 	}
+
 	return hashList
 }
 
-func (sc *SnapshotChain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {
-	return nil, nil
+func (sc *SnapshotChain) DeleteByHeight(batch *leveldb.Batch, toHeight uint64) ([]*ledger.SnapshotBlock, error) {
+
+	deleteList := make([]*ledger.SnapshotBlock, 0)
+
+	endBlockKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK)
+	startBlockKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, toHeight)
+	iter := sc.db.NewIterator(&util.Range{Start: startBlockKey, Limit: endBlockKey}, nil)
+	defer iter.Release()
+
+	currentHeight := toHeight
+	for iter.Next() {
+		if err := iter.Error(); err != nil {
+			if err != leveldb.ErrNotFound {
+				iter.Release()
+				return nil, err
+			}
+			break
+		}
+
+		hash := getSnapshotBlockHash(iter.Key())
+		batch.Delete(iter.Key())
+
+		snapshotContentKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTCONTENT, currentHeight)
+		batch.Delete(snapshotContentKey)
+
+		snapshotBlockHashIndex, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCKHASH, hash.Bytes())
+		batch.Delete(snapshotBlockHashIndex)
+
+		deleteList = append(deleteList, &ledger.SnapshotBlock{
+			Hash:   *hash,
+			Height: currentHeight,
+		})
+
+		currentHeight++
+	}
+
+	return deleteList, nil
 }
