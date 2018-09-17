@@ -13,6 +13,8 @@ const (
 
 type Hash [HashSize]byte
 
+var ZERO_HASH = Hash{}
+
 func BytesToHash(b []byte) (Hash, error) {
 	var h Hash
 	err := h.SetBytes(b)
@@ -52,6 +54,10 @@ func (h Hash) String() string {
 
 func (h Hash) Big() *big.Int {
 	return new(big.Int).SetBytes(h[:])
+}
+
+func (h Hash) IsZero() bool {
+	return h == ZERO_HASH
 }
 
 func BigToHash(b *big.Int) (Hash, error) {

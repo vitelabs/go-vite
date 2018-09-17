@@ -27,7 +27,7 @@ func init() {
 	rand.Seed(time.Now().Unix())
 	fileName := path.Join(dir, "backend.log."+PID)
 
-	log15.Info("monitor-log", fileName)
+	log15.Info("", "monitor-log", fileName)
 
 	logger = log15.New("logtype", "1", "appkey", "govite", "PID", PID)
 	logger.SetHandler(

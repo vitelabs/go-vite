@@ -33,7 +33,7 @@ func (m *TrieNode) Reset()         { *m = TrieNode{} }
 func (m *TrieNode) String() string { return proto.CompactTextString(m) }
 func (*TrieNode) ProtoMessage()    {}
 func (*TrieNode) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trie_node_29a65ae309a2641d, []int{0}
+	return fileDescriptor_trie_node_911d8d6a044f3ba4, []int{0}
 }
 func (m *TrieNode) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TrieNode.Unmarshal(m, b)
@@ -93,9 +93,9 @@ func init() {
 	proto.RegisterMapType((map[uint32][]byte)(nil), "vitepb.TrieNode.ChildrenEntry")
 }
 
-func init() { proto.RegisterFile("vitepb/trie_node.proto", fileDescriptor_trie_node_29a65ae309a2641d) }
+func init() { proto.RegisterFile("vitepb/trie_node.proto", fileDescriptor_trie_node_911d8d6a044f3ba4) }
 
-var fileDescriptor_trie_node_29a65ae309a2641d = []byte{
+var fileDescriptor_trie_node_911d8d6a044f3ba4 = []byte{
 	// 188 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x2b, 0xcb, 0x2c, 0x49,
 	0x2d, 0x48, 0xd2, 0x2f, 0x29, 0xca, 0x4c, 0x8d, 0xcf, 0xcb, 0x4f, 0x49, 0xd5, 0x2b, 0x28, 0xca,
