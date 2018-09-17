@@ -128,7 +128,7 @@ func (w *AutoReceiveWorker) startWork() {
 			w.log.Info("start awake")
 		case <-w.breaker:
 			w.log.Info("worker broken")
-			break
+			goto END
 		}
 	}
 

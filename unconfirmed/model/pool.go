@@ -329,10 +329,13 @@ func (p *UnconfirmedBlocksPool) updateCache(writeType bool, block *ledger.Accoun
 }
 
 func (p *UnconfirmedBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
-	// todo @lyd will support it
-	gid := p.dbAccess.Chain.GetGid(block.AccountAddress)
+	gid, err := p.dbAccess.Chain.GetContractGid(&block.AccountAddress)
+	if err != nil {
+		p.log.Error("NewSignalToWorker", "err", err)
+		return
+	}
 	if gid != nil {
-		if f, ok := p.newContractListener[gid]; ok {
+		if f, ok := p.newContractListener[*gid]; ok {
 			f()
 		}
 	} else {

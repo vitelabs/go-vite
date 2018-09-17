@@ -121,7 +121,7 @@ func (task *ContractTask) work() {
 			task.log.Info("start awake")
 		case <-task.breaker:
 			task.log.Info("worker broken")
-			break
+			goto END
 		}
 	}
 END:

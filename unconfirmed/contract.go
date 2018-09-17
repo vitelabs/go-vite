@@ -178,7 +178,7 @@ func (w *ContractWorker) waitingNewBlock() {
 			w.log.Info("start awake")
 		case <-w.breaker:
 			w.log.Info("worker broken")
-			break
+			goto END
 		}
 	}
 END:
