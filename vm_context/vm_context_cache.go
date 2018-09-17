@@ -40,13 +40,6 @@ func NewUnsavedCache(trie *trie.Trie) *UnsavedCache {
 	}
 }
 
-func (cache *UnsavedCache) Copy() vmctxt_interface.UnsavedCache {
-	return &UnsavedCache{
-		trie:      cache.Trie().Copy(),
-		trieDirty: false,
-	}
-}
-
 func (cache *UnsavedCache) Trie() *trie.Trie {
 	if cache.trieDirty {
 		for key, value := range cache.storage {

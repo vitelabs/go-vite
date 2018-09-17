@@ -76,15 +76,15 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 }
 
 func (context *VmContext) CopyAndFreeze() vmctxt_interface.VmDatabase {
-	unsavedCache := context.unsavedCache.Copy()
+	copyTrie := context.unsavedCache.Trie().Copy()
 	context.frozen = true
 	return &VmContext{
 		chain:                context.chain,
 		address:              context.address,
 		currentSnapshotBlock: context.currentSnapshotBlock,
 
-		trie:         unsavedCache.Trie().Copy(),
-		unsavedCache: unsavedCache,
+		trie:         copyTrie,
+		unsavedCache: NewUnsavedCache(copyTrie),
 		frozen:       false,
 	}
 }

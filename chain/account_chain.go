@@ -244,8 +244,19 @@ func (c *Chain) GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.T
 	return balance, nil
 }
 
-func (c *Chain) GetAccountBlockHashByHeight(addr *types.Address, height uint64) (types.Hash, error) {
-	return nil, nil
+func (c *Chain) GetAccountBlockHashByHeight(addr *types.Address, height uint64) (*types.Hash, error) {
+	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
+	if accountErr != nil {
+		c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "GetAccountBlockHashByHeight")
+		return nil, accountErr
+	}
+
+	hash, getHashErr := c.chainDb.Ac.GetHashByHeight(account.AccountId, height)
+	if getHashErr != nil {
+		c.log.Error("GetHashByHeight failed, error is "+getHashErr.Error(), "method", "GetAccountBlockHashByHeight")
+		return nil, getHashErr
+	}
+	return hash, nil
 }
 
 func (c *Chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
