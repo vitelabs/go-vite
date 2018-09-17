@@ -16,7 +16,7 @@ type AccountStartEvent struct {
 	Stime   time.Time
 	Etime   time.Time
 
-	Timestamp      uint64     // add to block
+	Timestamp      time.Time  // add to block
 	SnapshotHash   types.Hash // add to block
 	SnapshotHeight uint64     // add to block
 }
