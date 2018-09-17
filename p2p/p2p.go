@@ -194,6 +194,7 @@ func (svr *Server) MaxInboundPeers() uint {
 }
 
 func (svr *Server) Start() error {
+	// todo svr.lock maybe use atomic
 	svr.lock.Lock()
 	if svr.running {
 		svr.lock.Unlock()
@@ -244,22 +245,20 @@ func (svr *Server) Start() error {
 }
 
 func (svr *Server) mapping(lport int) {
+	defer svr.wg.Done()
 	out := make(chan *nat.Addr)
 	go nat.Map(svr.term, "tcp", lport, lport, "vite p2p", 0, out)
 
-loop:
 	for {
 		select {
 		case <-svr.term:
-			break loop
+			return
 		case addr := <-out:
 			if addr.IsValid() {
 				svr.discv.SetNode(nil, 0, uint16(addr.Port))
 			}
 		}
 	}
-
-	svr.wg.Done()
 }
 
 func (svr *Server) setHandshake() {

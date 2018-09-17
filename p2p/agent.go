@@ -197,11 +197,6 @@ func NewDialManager(discv Discovery, maxDials uint, bootNodes []*discovery.Node)
 	}
 }
 
-type agent struct {
-	host  *Server
-	discv Discovery
-}
-
 type topoHandler struct {
 	record cuckoofilter.CuckooFilter
 	lock   sync.RWMutex

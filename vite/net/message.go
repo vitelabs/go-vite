@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/net/protos"
+	"github.com/vitelabs/go-vite/vite/net/protos"
 	"github.com/vitelabs/go-vite/vitepb"
 	"time"
 )
@@ -337,7 +337,7 @@ const (
 	UnIdenticalGenesis
 )
 
-var execption = [...]string{
+var exception = [...]string{
 	Fork:                "you have forked",
 	Missing:             "I don`t have the resource you requested",
 	Canceled:            "the request have been canceled",
@@ -351,7 +351,11 @@ var execption = [...]string{
 }
 
 func (exp ExceptionMsg) String() string {
-	return execption[exp]
+	return exception[exp]
+}
+
+func (exp ExceptionMsg) Error() string {
+	return exception[exp]
 }
 
 func (exp ExceptionMsg) Serialize() ([]byte, error) {
@@ -360,7 +364,15 @@ func (exp ExceptionMsg) Serialize() ([]byte, error) {
 	return buf[:n], nil
 }
 func (exp ExceptionMsg) Deserialize(buf []byte) error {
-	i, _ := binary.Varint(buf)
-	exp = ExceptionMsg(i)
-	return nil
+	panic("use deserializeException instead")
+}
+
+func deserializeException(buf []byte) (e ExceptionMsg, err error) {
+	u64, n := binary.Varint(buf)
+	if n != len(buf) {
+		err = errors.New("use incomplete data")
+		return
+	}
+
+	return ExceptionMsg(u64), nil
 }

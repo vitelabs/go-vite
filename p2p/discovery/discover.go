@@ -21,7 +21,7 @@ var tExpire = 24 * time.Hour          // nodes have been ping-pong checked durin
 var tRefresh = 1 * time.Hour          // refresh the node table at tRefresh intervals
 var storeInterval = 5 * time.Minute   // store nodes in table to db at storeDuration intervals
 var checkInterval = 3 * time.Minute   // check the oldest node in table at checkInterval intervals
-var minStayDuration = 5 * time.Minute // min duration node stay in table can be store in db
+var minStayDuration = 5 * time.Minute // minimal duration node stay in table can be store in db
 
 func Priv2NodeID(priv ed25519.PrivateKey) (NodeID, error) {
 	pub := priv.PubByte()

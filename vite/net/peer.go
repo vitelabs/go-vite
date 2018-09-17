@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/block"
 	"io/ioutil"
 	"sync"
 )
@@ -47,7 +48,7 @@ type Peer struct {
 	height            uint64
 	Version           uint64
 	Lock              sync.RWMutex
-	KnownBlocks       Set
+	KnownBlocks       *block.CuckooSet
 	Log               log15.Logger
 	term              chan struct{}
 	sendSnapshotBlock chan *ledger.SnapshotBlock  // sending new snapshotblock
@@ -63,7 +64,7 @@ func newPeer(p *p2p.Peer, ts p2p.MsgReadWriter, version uint64) *Peer {
 		ts:                ts,
 		ID:                p.ID().Brief(),
 		Version:           version,
-		KnownBlocks:       NewCuckooSet(filterCap),
+		KnownBlocks:       block.NewCuckooSet(filterCap),
 		Log:               log15.New("module", "net/peer"),
 		term:              make(chan struct{}),
 		sendSnapshotBlock: make(chan *ledger.SnapshotBlock),
@@ -150,18 +151,18 @@ func (p *Peer) Head() *BlockID {
 	}
 }
 
-func (p *Peer) Broadcast() {
-	for {
-		select {
-		case abs := <-p.sendAccountBlocks:
-			p.SendAccountBlocks(abs)
-		case b := <-p.sendSnapshotBlock:
-			p.SendNewSnapshotBlock(b)
-		case <-p.term:
-			return
-		}
-	}
-}
+//func (p *Peer) Broadcast() {
+//	for {
+//		select {
+//		case abs := <-p.sendAccountBlocks:
+//			p.SendAccountBlocks(abs)
+//		case b := <-p.sendSnapshotBlock:
+//			p.SendNewSnapshotBlock(b)
+//		case <-p.term:
+//			return
+//		}
+//	}
+//}
 
 func (p *Peer) SeeBlock(hash types.Hash) {
 	p.Lock.Lock()

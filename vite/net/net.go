@@ -138,6 +138,7 @@ func (n *Net) HandlePeer(p *Peer) {
 
 	err = p.Handshake(n.NetID, head.Height, head.Hash, genesis.Hash)
 	if err != nil {
+		n.removePeer(p)
 		return
 	}
 
@@ -221,9 +222,7 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 		n.receiveSnapshotBlock(subledger.snapshotblocks)
 		n.receiveAccountBlocks(subledger.accountblocks)
 	case SnapshotBlockHeadersCode:
-		// todo mark blocks to peer
 	case SnapshotBlockBodiesCode:
-		// todo mark blocks to peer
 	case SnapshotBlocksCode:
 		blocks := []*ledger.SnapshotBlock
 
@@ -263,6 +262,11 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 		p.SeeBlock(block.Hash)
 		n.BroadcastSnapshotBlock(block, false)
 	case ExceptionCode:
+		exception, err := deserializeException(payload)
+		if err != nil {
+			return
+		}
+		p.receive(ExceptionCode, exception)
 	default:
 		return errors.New("unknown message")
 	}
@@ -393,6 +397,7 @@ func (n *Net) UnsubscribeAccountBlock(subId int) {
 
 func (n *Net) receiveAccountBlocks(blocks []*ledger.AccountBlock) {
 	for _, block := range blocks {
+		// todo verify
 		if !n.blockRecord.Lookup(block.Hash[:]) {
 			n.blockRecord.InsertUnique(block.Hash[:])
 			n.accountFeed.Notify(block)
@@ -410,6 +415,7 @@ func (n *Net) UnsubscribeSnapshotBlock(subId int) {
 
 func (n *Net) receiveSnapshotBlock(blocks []*ledger.SnapshotBlock) {
 	for _, block := range blocks {
+		// todo verify
 		if !n.blockRecord.Lookup(block.Hash[:]) {
 			n.blockRecord.InsertUnique(block.Hash[:])
 			n.snapshotFeed.Notify(block)
@@ -474,6 +480,10 @@ func (n *Net) syncWithPeer(p *Peer) error {
 	}
 
 	req := newReq(GetSubLedgerCode, seg, func(cmd Cmd, v interface{}) (done bool, err error) {
+		if cmd == ExceptionCode && v == Missing {
+			return false, Missing
+		}
+
 		if cmd != SubLedgerCode {
 			return false, nil
 		}
@@ -490,7 +500,7 @@ func (n *Net) syncWithPeer(p *Peer) error {
 	timer := time.NewTimer(subledgerTimeout)
 	defer timer.Stop()
 
-	p.execute(req)
+	n.pool.Add(req)
 
 	for {
 		var done bool
@@ -514,9 +524,43 @@ func (n *Net) syncWithPeer(p *Peer) error {
 func (n *Net) startPeer(p *Peer) {
 	n.peers.Add(p)
 
-	go p.Broadcast()
+	go n.heartbeat(p)
 
-	n.syncWithPeer(p)
+	go n.syncWithPeer(p)
+
+	for {
+		select {
+		case <- n.term:
+			return
+		default:
+		}
+
+		if err := n.HandleMsg(p); err != nil {
+			n.removePeer(p)
+		}
+	}
+}
+
+func (n *Net) heartbeat(p *Peer)  {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <- n.term:
+			return
+		case <- ticker.C:
+			current, err := n.SnapshotChain.GetLatestSnapshotBlock()
+			if err != nil {
+				return
+			}
+
+			p.Send(StatusCode, &BlockID{
+				Hash:   current.Hash,
+				Height: current.Height,
+			})
+		}
+	}
 }
 
 func (n *Net) removePeer(p *Peer) {
