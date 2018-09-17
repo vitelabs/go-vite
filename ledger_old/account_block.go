@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"bytes"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -183,6 +184,7 @@ func (ab *AccountBlock) ComputeHash() (*types.Hash, error) {
 	}
 
 	source = append(source, []byte(string(ab.Timestamp))...)
+	fmt.Println([]byte(string(ab.Timestamp)))
 
 	if ab.Data != "" {
 		source = append(source, []byte(ab.Data)...)

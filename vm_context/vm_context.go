@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
 )
 
@@ -29,7 +30,7 @@ type VmContext struct {
 	frozen       bool
 }
 
-func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) (VmDatabase, error) {
+func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) (vmctxt_interface.VmDatabase, error) {
 	vmContext := &VmContext{
 		chain:   chain,
 		address: addr,
@@ -60,9 +61,10 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 		}
 	}
 
-	vmContext.prevAccountBlock = prevAccountBlock
-
-	vmContext.trie = chain.GetStateTrie(prevAccountBlockHash)
+	if prevAccountBlock != nil {
+		vmContext.prevAccountBlock = prevAccountBlock
+		vmContext.trie = chain.GetStateTrie(&prevAccountBlock.StateHash)
+	}
 
 	if vmContext.trie == nil {
 		vmContext.trie = chain.NewStateTrie()
@@ -73,7 +75,7 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 	return vmContext, nil
 }
 
-func (context *VmContext) CopyAndFreeze() VmDatabase {
+func (context *VmContext) CopyAndFreeze() vmctxt_interface.VmDatabase {
 	unsavedCache := context.unsavedCache.Copy()
 	context.frozen = true
 	return &VmContext{
@@ -98,7 +100,7 @@ func (context *VmContext) PrevAccountBlock() *ledger.AccountBlock {
 	return context.prevAccountBlock
 }
 
-func (context *VmContext) UnsavedCache() *UnsavedCache {
+func (context *VmContext) UnsavedCache() vmctxt_interface.UnsavedCache {
 	return context.unsavedCache
 }
 
@@ -158,10 +160,20 @@ func (context *VmContext) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlo
 	return snapshotBlock
 }
 
-// TODO
-func (context *VmContext) GetSnapshotBlocks(startHeight uint64, count uint64, forward bool) []*ledger.SnapshotBlock {
+func (context *VmContext) GetSnapshotBlocks(startHeight, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
+	if startHeight > context.currentSnapshotBlock.Height {
+		return nil
+	}
 
-	return nil
+	if forward {
+		maxCount := context.currentSnapshotBlock.Height - startHeight + 1
+		if count > maxCount {
+			count = maxCount
+		}
+	}
+
+	snapshotBlocks, _ := context.chain.GetSnapshotBlocksByHeight(startHeight, count, forward, containSnapshotContent)
+	return snapshotBlocks
 }
 
 func (context *VmContext) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
@@ -178,7 +190,7 @@ func (context *VmContext) Reset() {
 	context.unsavedCache = NewUnsavedCache(context.trie)
 }
 
-func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address, open bool) {
+func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address) {
 	if context.frozen {
 		return
 	}
@@ -186,7 +198,6 @@ func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address, op
 	contractGid := &ContractGid{
 		gid:  gid,
 		addr: addr,
-		open: open,
 	}
 	context.unsavedCache.contractGidList = append(context.unsavedCache.contractGidList, contractGid)
 }
@@ -210,7 +221,6 @@ func (context *VmContext) SetStorage(key []byte, value []byte) {
 	context.unsavedCache.SetStorage(key, value)
 }
 
-// TODO: other address
 func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
 	if context.isSelf(addr) {
 		if value := context.unsavedCache.GetStorage(key); value != nil {
@@ -219,7 +229,7 @@ func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
 
 		return context.trie.GetValue(key)
 	} else {
-		latestAccountBlock := context.getLatestAccountBlock(addr)
+		latestAccountBlock, _ := context.chain.GetConfirmAccountBlock(context.currentSnapshotBlock.Height, addr)
 		if latestAccountBlock != nil {
 			trie := context.chain.GetStateTrie(&latestAccountBlock.StateHash)
 			return trie.GetValue(key)
@@ -232,9 +242,9 @@ func (context *VmContext) GetStorageHash() *types.Hash {
 	return context.unsavedCache.Trie().Hash()
 }
 
-// TODO
 func (context *VmContext) GetGid() *types.Gid {
-	return nil
+	gid, _ := context.chain.GetContractGid(context.address)
+	return gid
 }
 
 func (context *VmContext) AddLog(log *ledger.VmLog) {
@@ -256,16 +266,11 @@ func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 	return true
 }
 
-// TODO
-func (context *VmContext) getLatestAccountBlock(addr *types.Address) *ledger.AccountBlock {
-	return nil
-}
-
 func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
 	accountBlock, _ := context.chain.GetAccountBlockByHash(hash)
 	return accountBlock
 }
 
-func (context *VmContext) NewStorageIterator(prefix []byte) *StorageIterator {
+func (context *VmContext) NewStorageIterator(prefix []byte) vmctxt_interface.StorageIterator {
 	return NewStorageIterator(context.unsavedCache.Trie(), prefix)
 }

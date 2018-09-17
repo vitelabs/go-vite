@@ -4,12 +4,12 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 )
 
 type ContractGid struct {
 	gid  *types.Gid
 	addr *types.Address
-	open bool
 }
 
 func (contractGid *ContractGid) Gid() *types.Gid {
@@ -20,12 +20,8 @@ func (contractGid *ContractGid) Addr() *types.Address {
 	return contractGid.addr
 }
 
-func (contractGid *ContractGid) Open() bool {
-	return contractGid.open
-}
-
 type UnsavedCache struct {
-	contractGidList []*ContractGid
+	contractGidList []vmctxt_interface.ContractGid
 
 	logList ledger.VmLogList
 	storage map[string][]byte
@@ -44,7 +40,7 @@ func NewUnsavedCache(trie *trie.Trie) *UnsavedCache {
 	}
 }
 
-func (cache *UnsavedCache) Copy() *UnsavedCache {
+func (cache *UnsavedCache) Copy() vmctxt_interface.UnsavedCache {
 	return &UnsavedCache{
 		trie:      cache.Trie().Copy(),
 		trieDirty: false,
@@ -72,7 +68,7 @@ func (cache *UnsavedCache) GetStorage(key []byte) []byte {
 	return cache.storage[string(key)]
 }
 
-func (cache *UnsavedCache) ContractGidList() []*ContractGid {
+func (cache *UnsavedCache) ContractGidList() []vmctxt_interface.ContractGid {
 	return cache.contractGidList
 }
 
