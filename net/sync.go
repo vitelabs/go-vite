@@ -4,11 +4,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
 	"sync"
+	"time"
 )
 
 var errSynced = errors.New("Syncing")
+
+var waitEnoughPeers = 10 * time.Second
+var enoughPeers = 3
 
 type SyncState int
 
@@ -67,7 +70,7 @@ type BlockChain interface {
 	GetLatestAccountBlock(addr string) (*ledger.AccountBlock, error)
 	GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
 	GetGenesesBlock() (*ledger.SnapshotBlock, error)
-	GetSubLedger(startHeight *big.Int, endHeight *big.Int) ([]*ledger.SnapshotBlock, []*ledger.AccountBlock, error)
+	GetSubLedger(startHeight uint64, endHeight uint64) ([]*ledger.SnapshotBlock, []*ledger.AccountBlock, error)
 
 	GetAbHashList(segment *Segment) ([]*types.Hash, error)
 	GetSbHashList(segment *Segment) ([]*types.Hash, error)
