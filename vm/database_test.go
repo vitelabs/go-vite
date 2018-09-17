@@ -222,13 +222,12 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey], _ = contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
-		uint8(1),
+		uint8(0),
 		helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize),
-		uint8(1),
-		helper.JoinBytes(helper.LeftPadBytes(registerAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), helper.WordSize)),
-		uint8(1),
+		uint8(0),
+		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), attovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600*24*90).Bytes(), helper.WordSize)),
+		uint8(0),
 		[]byte{})
-
 	db.storageMap[contracts.AddressPledge] = make(map[types.Hash][]byte)
 	db.storageMap[contracts.AddressPledge][types.DataHash(addr1.Bytes())], _ = contracts.ABI_pledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	return

@@ -720,11 +720,11 @@ func TestConsensusGroup(t *testing.T) {
 		types.Gid{},
 		uint8(25),
 		int64(3),
-		uint8(1),
+		uint8(0),
 		helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize),
-		uint8(1),
+		uint8(0),
 		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
-		uint8(1),
+		uint8(0),
 		[]byte{})
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
@@ -769,11 +769,11 @@ func TestConsensusGroup(t *testing.T) {
 	groupInfo, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
-		uint8(1),
+		uint8(0),
 		helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize),
-		uint8(1),
+		uint8(0),
 		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
-		uint8(1),
+		uint8(0),
 		[]byte{})
 	if len(receiveCreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr2][*ledger.ViteTokenId()].Sign() != 0 ||
@@ -950,8 +950,8 @@ func TestGenesisBlockData(t *testing.T) {
 	fmt.Printf("Storage:{\n\t$balance:*ledger.ViteTokenId():%v\n}\n", totalSupply)
 
 	snapshotGid := types.Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	conditionCountingData, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConditionCounting1, *ledger.ViteTokenId())
-	conditionRegisterData, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConditionRegister1, registerAmount, *ledger.ViteTokenId(), registerLockTime)
+	conditionCountingData, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConditionCountingOfBalance, *ledger.ViteTokenId())
+	conditionRegisterData, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(1e6), attovPerVite), *ledger.ViteTokenId(), int64(3600*24*90))
 	consensusGroupData, _ := contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
@@ -972,7 +972,7 @@ func TestGenesisBlockData(t *testing.T) {
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:*ledger.ViteTokenId(),\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
 		ledger.BlockTypeReceive, hex.EncodeToString(contracts.AddressRegister.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
 	fmt.Printf("Storage:{\n")
-	timestamp := time.Now().Unix() + registerLockTime
+	timestamp := time.Now().Unix() + int64(3600*24*90)
 	registerData, _ := contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, common.Big0, timestamp, uint64(1), uint64(0))
 	for i := 0; i < 25; i++ {
 		snapshotKey := contracts.GetRegisterKey("snapshotNode1", snapshotGid)
