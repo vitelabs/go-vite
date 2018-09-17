@@ -244,6 +244,10 @@ func (c *Chain) GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.T
 	return balance, nil
 }
 
+func (c *Chain) GetAccountBlockHashByHeight(addr *types.Address, height uint64) (types.Hash, error) {
+	return nil, nil
+}
+
 func (c *Chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
 	block, err := c.chainDb.Ac.GetBlock(blockHash)
 	if err != nil {
@@ -346,10 +350,25 @@ func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 }
 
 func (c *Chain) GetUnConfirmAccountBlocks(addr *types.Address) ([]*ledger.AccountBlock, error) {
-	return nil, nil
+	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
+	if accountErr != nil {
+		c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "GetUnConfirmAccountBlocks")
+		return nil, accountErr
+	}
+
+	if account != nil {
+		return nil, nil
+	}
+
+	blocks, unConfirmErr := c.chainDb.Ac.GetUnConfirmAccountBlocks(account.AccountId)
+	if unConfirmErr != nil {
+		c.log.Error("GetUnConfirmAccountBlocks failed, error is "+unConfirmErr.Error(), "method", "GetUnConfirmAccountBlocks")
+		return nil, unConfirmErr
+	}
+	return blocks, nil
 }
 
 // TODO rebuild need_snapshot_cache
-func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) ([]*ledger.AccountBlock, error) {
-	return nil, nil
+func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) ([]*ledger.HashHeight, []*ledger.HashHeight, error) {
+	return nil, nil, nil
 }

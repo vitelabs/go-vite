@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
 )
 
@@ -29,7 +30,7 @@ type VmContext struct {
 	frozen       bool
 }
 
-func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) (VmDatabase, error) {
+func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) (vmctxt_interface.VmDatabase, error) {
 	vmContext := &VmContext{
 		chain:   chain,
 		address: addr,
@@ -74,7 +75,7 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 	return vmContext, nil
 }
 
-func (context *VmContext) CopyAndFreeze() VmDatabase {
+func (context *VmContext) CopyAndFreeze() vmctxt_interface.VmDatabase {
 	unsavedCache := context.unsavedCache.Copy()
 	context.frozen = true
 	return &VmContext{
@@ -99,7 +100,7 @@ func (context *VmContext) PrevAccountBlock() *ledger.AccountBlock {
 	return context.prevAccountBlock
 }
 
-func (context *VmContext) UnsavedCache() *UnsavedCache {
+func (context *VmContext) UnsavedCache() vmctxt_interface.UnsavedCache {
 	return context.unsavedCache
 }
 
@@ -270,6 +271,6 @@ func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.Accoun
 	return accountBlock
 }
 
-func (context *VmContext) NewStorageIterator(prefix []byte) *StorageIterator {
+func (context *VmContext) NewStorageIterator(prefix []byte) vmctxt_interface.StorageIterator {
 	return NewStorageIterator(context.unsavedCache.Trie(), prefix)
 }

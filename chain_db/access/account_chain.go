@@ -482,3 +482,42 @@ func (ac *AccountChain) GetConfirmAccountBlock(snapshotHeight uint64, accountId 
 
 	return nil, nil
 }
+
+func (ac *AccountChain) GetUnConfirmAccountBlocks(accountId uint64) ([]*ledger.AccountBlock, error) {
+	accountBlocks := make([]*ledger.AccountBlock, 0)
+	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId)
+
+	iter := ac.db.NewIterator(util.BytesPrefix(key), nil)
+	defer iter.Release()
+
+	iter.Last()
+	for iter.Prev() {
+		if err := iter.Error(); err != nil {
+			if err != leveldb.ErrNotFound {
+				return nil, err
+			}
+			return accountBlocks, nil
+		}
+
+		accountBlockHash := getAccountBlockHash(iter.Key())
+		accountBlockMeta, getMetaErr := ac.GetBlockMeta(accountBlockHash)
+		if getMetaErr != nil {
+			return nil, getMetaErr
+		}
+		if accountBlockMeta.SnapshotHeight <= 0 {
+			accountBlock := &ledger.AccountBlock{}
+			if dsErr := accountBlock.DbDeserialize(iter.Value()); dsErr != nil {
+				return nil, dsErr
+			}
+
+			accountBlock.Hash = *accountBlockHash
+			accountBlock.Meta = accountBlockMeta
+
+			accountBlocks = append(accountBlocks, accountBlock)
+		} else {
+			return accountBlocks, nil
+		}
+	}
+
+	return accountBlocks, nil
+}
