@@ -17,24 +17,10 @@ const (
 type Generator struct {
 	Vm vm.VM
 
-	Signer   SignManager
-	Verifier Verifier
+	chain  vm_context.Chain
+	signer SignManager
 
 	log log15.Logger
-}
-
-func NewGenerator(chain vm_context.Chain, wManager SignManager,
-	snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
-	vmContext, err := vm_context.NewVmContext(chain, snapshotBlockHash, prevAccountBlockHash, addr)
-	if err != nil {
-		return nil, err
-	}
-	vm := vm.NewVM(vmContext)
-	return &Generator{
-		Vm:     *vm,
-		Signer: wManager,
-		log:    log15.New("module", "ContractTask"),
-	}, nil
 }
 
 func (gen *Generator) GenerateWithBlock(sourceType byte, block *ledger.AccountBlock) *GenResult {
@@ -49,7 +35,7 @@ func (gen *Generator) GenerateWithBlock(sourceType byte, block *ledger.AccountBl
 }
 
 func (gen *Generator) GenerateWithMessage(message *IncomingMessage, passphrase string) *GenResult {
-	block := gen.PackBlockVmNeeded(message)
+	block := gen.PackBlockWithMessage(message)
 	return gen.GenerateBlockWithPassphrase(SourceTypeUserInitiate, block, passphrase)
 }
 
@@ -111,7 +97,7 @@ func (gen *Generator) generateInitiateTx(block *ledger.AccountBlock, passphrase 
 
 	var signErr error
 	if blockList[0].Signature, blockList[0].PublicKey, signErr =
-		gen.Signer.SignDataWithPassphrase(blockList[0].AccountAddress, passphrase,
+		gen.signer.SignDataWithPassphrase(blockList[0].AccountAddress, passphrase,
 			blockList[0].Hash.Bytes()); signErr != nil {
 		gen.log.Error("SignData Error", signErr)
 		return nil
@@ -151,7 +137,7 @@ func (gen *Generator) generateUnconfirmedTx(block *ledger.AccountBlock) *GenResu
 
 			var signErr error
 			if blockGen.AccountBlock.Signature, blockGen.AccountBlock.PublicKey, signErr =
-				gen.Signer.SignData(blockGen.AccountBlock.AccountAddress, blockGen.AccountBlock.Hash.Bytes()); signErr != nil {
+				gen.signer.SignData(blockGen.AccountBlock.AccountAddress, blockGen.AccountBlock.Hash.Bytes()); signErr != nil {
 				gen.log.Error("SignData Error", signErr)
 				return nil
 			}
@@ -192,6 +178,10 @@ func (gen *Generator) PackBlockWithMessage(message *IncomingMessage) *ledger.Acc
 	block.SnapshotHash = latestSnapshotBlock.Hash
 
 	return block
+}
+
+func (gen *Generator) PackBlockWithSendBlock(sendBlock *ledger.AccountBlock, snapshot *types.Hash) *ledger.AccountBlock {
+	return nil
 }
 
 type GenResult struct {

@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
@@ -14,12 +15,13 @@ import (
 type ContractWorker struct {
 	manager *Manager
 
-	uBlocksPool *model.UnconfirmedBlocksPool
 	verifer     *verifier.AccountVerifier
+	genBuilder  *generator.GenBuilder
+	uBlocksPool *model.UnconfirmedBlocksPool
 
 	gid                 types.Gid
 	address             types.Address
-	accevent            producer.AccountStartEvent
+	accEvent            producer.AccountStartEvent
 	contractAddressList []*types.Address
 
 	status      int
@@ -52,10 +54,11 @@ func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) (*
 	}
 
 	return &ContractWorker{
+		verifer:     manager.verifier,
+		genBuilder:  manager.genBuilder,
 		uBlocksPool: manager.unconfirmedBlocksPool,
-		verifer:     verifier.NewAccountVerifier(manager.vite.Chain(), manager.vite.Producer()),
 
-		accevent:            accEvent,
+		accEvent:            accEvent,
 		gid:                 accEvent.Gid,
 		address:             accEvent.Address,
 		contractAddressList: addressList,
@@ -89,7 +92,7 @@ func (w *ContractWorker) Start() {
 			go v.Start()
 		}
 
-		go w.DispatchTask(&w.accevent.SnapshotHash)
+		go w.DispatchTask(&w.accEvent.SnapshotHash)
 
 		w.status = Start
 	} else {
