@@ -30,9 +30,6 @@ type Net struct {
 	TargetHeight  uint64
 	syncState     SyncState
 	slock         sync.RWMutex // use for syncState change
-	SyncStartHook func(uint64, uint64)
-	SyncDoneHook  func(uint64, uint64)
-	SyncErrHook   func(uint64, uint64)
 	stateFeed     *SyncStateFeed
 	SnapshotChain BlockChain
 	blockRecord   *cuckoofilter.CuckooFilter // record blocks has retrieved from network
@@ -315,13 +312,26 @@ func (n *Net) FetchSnapshotBlocks(s *Segment) {
 		}
 
 		return true, nil
-	}, 30*time.Second)
+	}, snapshotBlocksTimeout)
 
 	n.pool.Add(req)
 }
 
 func (n *Net) FetchSnapshotBlocksByHash(hashes []types.Hash) {
+	strangeHashes := make([]types.Hash, 0, len(hashes))
+	for _, hash := range hashes {
+		if !n.blockRecord.Lookup(hash[:]) {
+			strangeHashes = append(strangeHashes, hash)
+		}
+	}
 
+	if len(strangeHashes) != 0 {
+		req := newReq(GetAccountBlocksByHashCode, strangeHashes, func(cmd Cmd, i interface{}) (done bool, err error) {
+
+		}, snapshotBlocksTimeout)
+
+		n.pool.Add(req)
+	}
 }
 
 func (n *Net) FetchAccountBlocks(as AccountSegment) {
@@ -346,13 +356,26 @@ func (n *Net) FetchAccountBlocks(as AccountSegment) {
 		}
 
 		return true, nil
-	}, 30*time.Second)
+	}, accountBlocksTimeout)
 
 	n.pool.Add(req)
 }
 
 func (n *Net) FetchAccountBlocksByHash(hashes []types.Hash) {
+	strangeHashes := make([]types.Hash, 0, len(hashes))
+	for _, hash := range hashes {
+		if !n.blockRecord.Lookup(hash[:]) {
+			strangeHashes = append(strangeHashes, hash)
+		}
+	}
 
+	if len(strangeHashes) != 0 {
+		req := newReq(GetSnapshotBlocksByHashCode, strangeHashes, func(cmd Cmd, i interface{}) (done bool, err error) {
+
+		}, snapshotBlocksTimeout)
+
+		n.pool.Add(req)
+	}
 }
 
 func (n *Net) SubscribeAccountBlock(fn func(block *ledger.AccountBlock)) (subId int) {

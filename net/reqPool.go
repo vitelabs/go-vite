@@ -207,7 +207,7 @@ func (p *reqPool) Add(r *req) {
 			if req.Equal(r) {
 				r.count++
 				if r.count >= reqCountCacheLimit {
-					p.Execute(r)
+					go p.Execute(r)
 				}
 				return
 			}
@@ -223,7 +223,7 @@ func (p *reqPool) Add(r *req) {
 
 	r.id = p.currentID
 	r.count = 1
-	p.Execute(r)
+	go p.Execute(r)
 }
 
 func (p *reqPool) Execute(r *req) {
