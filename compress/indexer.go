@@ -4,17 +4,20 @@ import (
 	"bufio"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
-	"math/big"
 	"os"
 	"path"
+	"strconv"
+	"strings"
 )
 
+const INDEX_SEP = ",,,"
+
 type indexItem struct {
-	startHeight *big.Int
-	endHeight   *big.Int
+	startHeight uint64
+	endHeight   uint64
 
 	filename string
-	filesize uint64
+	fileSize uint64
 
 	blockNumbers uint64
 }
@@ -24,7 +27,7 @@ type Indexer struct {
 	indexList []*indexItem
 }
 
-var indexerLog = log15.New("module", "indexer")
+var indexerLog = log15.New("module", "compressor")
 
 func NewIndexer(dir string) *Indexer {
 	indexFileName := path.Join(dir, "index")
@@ -37,7 +40,7 @@ func NewIndexer(dir string) *Indexer {
 		file, cErr = os.Create(indexFileName)
 
 		if cErr != nil {
-			indexerLog.Crit(cErr.Error())
+			indexerLog.Crit(cErr.Error(), "method", "NewIndexer")
 		}
 	}
 
@@ -45,43 +48,102 @@ func NewIndexer(dir string) *Indexer {
 		file: file,
 	}
 
-	indexer.readFromFile()
+	if err := indexer.loadFromFile(); err != nil {
+		indexerLog.Crit(err.Error(), "method", "NewIndexer")
+	}
+
 	return indexer
 }
 
-func (indexer *Indexer) readFromFile() {
+func (indexer *Indexer) Add(item *indexItem) error {
+
+	return nil
+}
+
+func (indexer *Indexer) Delete() {
+
+}
+
+func (indexer *Indexer) loadFromFile() error {
 	indexer.indexList = make([]*indexItem, 0)
 	//indexer.file.Seek(0, io.SeekStart)
-
 	reader := bufio.NewReader(indexer.file)
 
 	for {
 		var line []byte
-		var rErr error
 
 		for {
 			rLine, isPrefix, err := reader.ReadLine()
 
 			if err != nil {
-				rErr = err
+				if err != io.EOF {
+					return err
+				}
 				break
 			}
 
 			line = append(line, rLine...)
-
 			if !isPrefix {
 				break
 			}
-			indexerLog.Error(err.Error())
 		}
 
 		if len(line) >= 0 {
 			indexerLog.Info(string(line))
 		}
 
-		if rErr == io.EOF {
-			break
+		item, parseErr := indexer.parseLine(line)
+		if parseErr != nil {
+			return parseErr
 		}
 
+		indexer.indexList = append(indexer.indexList, item)
 	}
+
+	return nil
+}
+
+func (indexer *Indexer) parseLine(line []byte) (*indexItem, error) {
+	segs := strings.Split(string(line), INDEX_SEP)
+
+	startHeight, err1 := strconv.ParseUint(segs[0], 10, 64)
+	if err1 != nil {
+		return nil, err1
+	}
+
+	endHeight, err2 := strconv.ParseUint(segs[1], 10, 64)
+	if err1 != nil {
+		return nil, err2
+	}
+
+	filename := segs[2]
+
+	fileSize, err3 := strconv.ParseUint(segs[3], 10, 64)
+	if err3 != nil {
+		return nil, err3
+	}
+
+	blockNumbers, err4 := strconv.ParseUint(segs[4], 10, 64)
+	if err4 != nil {
+		return nil, err4
+	}
+
+	item := &indexItem{
+		startHeight:  startHeight,
+		endHeight:    endHeight,
+		filename:     filename,
+		fileSize:     fileSize,
+		blockNumbers: blockNumbers,
+	}
+	return item, nil
+}
+
+func (indexer *Indexer) formatToLine(item *indexItem) []byte {
+	lineString := ""
+	lineString += strconv.FormatUint(item.startHeight, 10) + INDEX_SEP
+	lineString += strconv.FormatUint(item.endHeight, 10) + INDEX_SEP
+	lineString += item.filename + INDEX_SEP
+	lineString += strconv.FormatUint(item.fileSize, 10) + INDEX_SEP
+	lineString += strconv.FormatUint(item.blockNumbers, 10)
+	return []byte(lineString)
 }

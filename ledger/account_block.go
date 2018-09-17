@@ -72,6 +72,10 @@ type AccountBlock struct {
 	Signature []byte
 }
 
+func (*AccountBlock) Copy() *AccountBlock {
+	return nil
+}
+
 func (*AccountBlock) GetComputeHash() types.Hash {
 	hash, _ := types.BytesToHash([]byte("abcdeabcdeabcdeabcde"))
 	return hash
@@ -105,12 +109,12 @@ func (*AccountBlock) FileDeserialize([]byte) error {
 	return nil
 }
 
-func (*AccountBlock) IsSendBlock() bool {
-	return false
+func (block *AccountBlock) IsSendBlock() bool {
+	return block.BlockType == BlockTypeSendCreate || block.BlockType == BlockTypeSendCall || block.BlockType == BlockTypeSendReward
 }
 
-func (*AccountBlock) IsReceiveBlock() bool {
-	return true
+func (block *AccountBlock) IsReceiveBlock() bool {
+	return block.BlockType == BlockTypeReceive || block.BlockType == BlockTypeReceiveError
 }
 
 func GenesesMintageBlock() *AccountBlock {

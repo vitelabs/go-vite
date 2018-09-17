@@ -6,7 +6,6 @@ import (
 )
 
 type UnsavedCache interface {
-	Copy() UnsavedCache
 	Trie() *trie.Trie
 	SetStorage(key []byte, value []byte)
 	GetStorage(key []byte) []byte

@@ -3,52 +3,51 @@ package compress
 import (
 	"github.com/vitelabs/go-vite/log15"
 	"io"
-	"math/big"
+	"os"
 )
 
 var compressorTaskLog = log15.New("module", "compressorTask")
 
 type taskInfo struct {
-	beginHeight  *big.Int
-	targetHeight *big.Int
+	beginHeight  uint64
+	targetHeight uint64
 }
 
-func (ti *taskInfo) Split(gap int64) []*taskInfo {
-	gapBigInt := big.NewInt(gap)
-	oneBigInt := big.NewInt(1)
+func (ti *taskInfo) Split(gap uint64) []*taskInfo {
+	tiList := make([]*taskInfo, 0)
 
-	tiList := []*taskInfo{}
+	segStartHeight := ti.beginHeight
 
-	segStartHeight := &big.Int{}
-	segStartHeight.Set(ti.beginHeight)
-
-	for segStartHeight.Cmp(ti.targetHeight) <= 0 {
-		segEndHeight := &big.Int{}
-		segEndHeight.Add(segStartHeight, gapBigInt)
-		segEndHeight.Sub(segEndHeight, oneBigInt)
-		if segEndHeight.Cmp(ti.targetHeight) > 0 {
-			segEndHeight.Set(ti.targetHeight)
+	for segStartHeight <= ti.targetHeight {
+		segEndHeight := segStartHeight + gap - 1
+		if segEndHeight > ti.targetHeight {
+			segEndHeight = ti.targetHeight
 		}
+
 		tiList = append(tiList, &taskInfo{
 			beginHeight:  segStartHeight,
 			targetHeight: segEndHeight,
 		})
 
-		segStartHeight = &big.Int{}
-		segStartHeight.Add(segEndHeight, oneBigInt)
+		segStartHeight = segEndHeight + 1
 	}
 
 	return tiList
 }
 
 type CompressorTask struct {
-	splitSize int64
+	splitSize uint64
 	tmpFile   string
+	chain     Chain
+	log       log15.Logger
 }
 
-func NewCompressorTask() *CompressorTask {
+func NewCompressorTask(chain Chain, tmpFile string) *CompressorTask {
 	compressorTask := &CompressorTask{
 		splitSize: 10,
+		chain:     chain,
+		tmpFile:   tmpFile,
+		log:       log15.New("module", "compressor/task"),
 	}
 
 	return compressorTask
@@ -66,20 +65,25 @@ func (task *CompressorTask) Run() {
 	taskLen := len(taskInfoList)
 	currentTaskIndex := 0
 
-	formatterErr := BlockFormatter(NewFileWriter(task.tmpFile), func() ([]block, error) {
+	tmpFileWriter := NewFileWriter(task.tmpFile)
+	formatterErr := BlockFormatter(tmpFileWriter, func() ([]block, error) {
 		if currentTaskIndex > taskLen {
 			return nil, io.EOF
 		}
 
-		return task.getSubLedger(taskInfoList[currentTaskIndex])
+		blocks, err := task.getSubLedger(taskInfoList[currentTaskIndex])
+		currentTaskIndex++
+		return blocks, err
 	})
+	tmpFileWriter.Close()
 
 	if formatterErr != nil {
-		// todo: Clear tmp file
+		os.Remove(task.tmpFile)
+		task.log.Error("Block write failed, error is "+formatterErr.Error(), "method", "Run")
 		return
 	}
 
-	// todo: Write db index
+	// todo: Write index
 
 }
 
@@ -88,7 +92,22 @@ func (task *CompressorTask) getTaskInfo() *taskInfo {
 }
 
 func (task *CompressorTask) getSubLedger(ti *taskInfo) ([]block, error) {
-	return nil, nil
+	snapshotBlocks, accountChainSubLedger, err := task.chain.GetConfirmSubLedger(ti.beginHeight, ti.targetHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	blocks := make([]block, 0)
+	for _, snapshotBlock := range snapshotBlocks {
+		blocks = append(blocks, snapshotBlock)
+	}
+
+	for _, accountChain := range accountChainSubLedger {
+		for _, accountBlock := range accountChain {
+			blocks = append(blocks, accountBlock)
+		}
+	}
+	return blocks, nil
 }
 
 func (task *CompressorTask) writeIndex() {
