@@ -248,7 +248,7 @@ func (p *pReward) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uin
 		return quotaLeft, err
 	}
 
-	calcReward(block.VmContext, block.AccountBlock.AccountAddress.Bytes(), old.RewardHeight, count, param.Amount)
+	calcReward(block.VmContext, block.AccountBlock.AccountAddress.Bytes(), old.RewardHeight+1, count, param.Amount)
 	data, err := contracts.ABI_register.PackMethod(contracts.MethodNameReward, param.Gid, param.Name, newRewardHeight, old.RewardHeight, param.Amount)
 	if err != nil {
 		return quotaLeft, err
