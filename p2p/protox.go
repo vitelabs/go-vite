@@ -44,17 +44,17 @@ func BytesToReader(data []byte) io.Reader {
 	return buf
 }
 
-func PackMsg(cmdset, cmd uint64, s Serializable) (*Msg, error) {
+func PackMsg(cmdSetId, cmd uint64, s Serializable) (*Msg, error) {
 	r, size, err := EncodeToReader(s)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Msg{
-		CmdSet:  cmdset,
-		Cmd:     cmd,
-		Size:    size,
-		Payload: r,
+		CmdSetID: cmdSetId,
+		Cmd:      cmd,
+		Size:     size,
+		Payload:  r,
 	}, nil
 }
 
@@ -69,7 +69,7 @@ func (prw *protoMsgRW) ReadMsg() (msg Msg, err error) {
 		return
 	}
 
-	msg.CmdSet = binary.BigEndian.Uint64(head[:8])
+	msg.CmdSetID = binary.BigEndian.Uint64(head[:8])
 	msg.Cmd = binary.BigEndian.Uint64(head[8:16])
 	msg.Size = binary.BigEndian.Uint64(head[16:24])
 
@@ -129,7 +129,7 @@ func (prw *protoMsgRW) WriteMsg(msg Msg) (err error) {
 	}
 
 	head := make([]byte, headerLength)
-	binary.BigEndian.PutUint64(head[:8], msg.CmdSet)
+	binary.BigEndian.PutUint64(head[:8], msg.CmdSetID)
 	binary.BigEndian.PutUint64(head[8:16], msg.Cmd)
 	binary.BigEndian.PutUint64(head[16:24], msg.Size)
 
@@ -208,8 +208,8 @@ func readHandshake(r MsgReader) (h *Handshake, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if msg.CmdSet != baseProtocolCmdSet {
-		return nil, fmt.Errorf("should be baseProtocolCmdSet, got %x\n", msg.CmdSet)
+	if msg.CmdSetID != baseProtocolCmdSet {
+		return nil, fmt.Errorf("should be baseProtocolCmdSet, got %x\n", msg.CmdSetID)
 	}
 
 	payload, err := ioutil.ReadAll(msg.Payload)

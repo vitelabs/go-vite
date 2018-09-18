@@ -7,10 +7,12 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p"
 	"io/ioutil"
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -25,15 +27,19 @@ type Net struct {
 	snapshotFeed  *snapshotBlockFeed
 	accountFeed   *accountBlockFeed
 	term          chan struct{}
+	newPeer chan *Peer
 	pool          *reqPool
 	FromHeight    uint64
 	TargetHeight  uint64
 	syncState     SyncState
+	downloaded int32	// atomic, indicate whether the first sync data has download from bestPeer
 	slock         sync.RWMutex // use for syncState change
 	stateFeed     *SyncStateFeed
 	SnapshotChain BlockChain
 	blockRecord   *cuckoofilter.CuckooFilter // record blocks has retrieved from network
 	log log15.Logger
+	Protocols []*p2p.Protocol
+	wg sync.WaitGroup
 }
 
 func New(cfg *Config) *Net {
@@ -46,9 +52,29 @@ func New(cfg *Config) *Net {
 		accountFeed:  new(accountBlockFeed),
 		stateFeed:    new(SyncStateFeed),
 		term:         make(chan struct{}),
+		newPeer: make(chan *Peer),
 		pool:         NewReqPool(peerSet),
 		blockRecord:  cuckoofilter.NewCuckooFilter(10000),
 		log: log15.New("module", "vite/net"),
+	}
+
+	n.Protocols = make([]*p2p.Protocol, len(cmdSets))
+	for i, cmdset := range cmdSets {
+		n.Protocols[i] = &p2p.Protocol{
+			Name:   CmdSetName,
+			ID:     cmdset,
+			Handle: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
+				peer := newPeer(p, rw, cmdset)
+				select {
+				case n.newPeer <- peer:
+					n.wg.Add(1)
+					defer n.wg.Done()
+					return n.HandlePeer(p)
+				case <- n.term:
+					return p2p.DiscQuitting
+				}
+			},
+		}
 	}
 
 	return n
@@ -125,7 +151,7 @@ func (n *Net) ReceiveConn(conn net.Conn) {
 
 }
 
-func (n *Net) HandlePeer(p *Peer) {
+func (n *Net) HandlePeer(p *Peer) error {
 	head, err := n.SnapshotChain.GetLatestSnapshotBlock()
 	if err != nil {
 		log.Fatal("cannot get current block", err)
@@ -305,7 +331,13 @@ func (n *Net) BroadcastAccountBlocks(blocks []*ledger.AccountBlock, propagate bo
 	}
 }
 
+// todo request param defined to `FetchRequest`
 func (n *Net) FetchSnapshotBlocks(s *Segment) {
+	// if the sync data has not downloaded, then ignore fetch request
+	if atomic.LoadInt32(&n.downloaded) == 0 {
+		return
+	}
+
 	req := newReq(GetSnapshotBlocksCode, s, func(cmd Cmd, i interface{}) (done bool, err error) {
 		if cmd != SnapshotBlocksCode {
 			return false, nil
@@ -327,6 +359,11 @@ func (n *Net) FetchSnapshotBlocks(s *Segment) {
 }
 
 func (n *Net) FetchSnapshotBlocksByHash(hashes []types.Hash) {
+	// if the sync data has not downloaded, then ignore fetch request
+	if atomic.LoadInt32(&n.downloaded) == 0 {
+		return
+	}
+
 	strangeHashes := make([]types.Hash, 0, len(hashes))
 	for _, hash := range hashes {
 		if !n.blockRecord.Lookup(hash[:]) {
@@ -344,6 +381,11 @@ func (n *Net) FetchSnapshotBlocksByHash(hashes []types.Hash) {
 }
 
 func (n *Net) FetchAccountBlocks(as AccountSegment) {
+	// if the sync data has not downloaded, then ignore fetch request
+	if atomic.LoadInt32(&n.downloaded) == 0 {
+		return
+	}
+
 	req := newReq(GetAccountBlocksCode, as, func(cmd Cmd, i interface{}) (done bool, err error) {
 		if cmd != AccountBlocksCode {
 			return false, nil
@@ -371,6 +413,11 @@ func (n *Net) FetchAccountBlocks(as AccountSegment) {
 }
 
 func (n *Net) FetchAccountBlocksByHash(hashes []types.Hash) {
+	// if the sync data has not downloaded, then ignore fetch request
+	if atomic.LoadInt32(&n.downloaded) == 0 {
+		return
+	}
+
 	strangeHashes := make([]types.Hash, 0, len(hashes))
 	for _, hash := range hashes {
 		if !n.blockRecord.Lookup(hash[:]) {

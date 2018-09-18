@@ -2,6 +2,8 @@ package p2p
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/seiflotfy/cuckoofilter"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/protos"
 	"io"
@@ -100,8 +102,8 @@ func (s *CmdSet) Proto() *protos.CmdSet {
 
 // @section Msg
 type Msg struct {
-	CmdSet uint64
-	Cmd    uint64
+	CmdSetID uint64
+	Cmd      uint64
 	// how many bytes in payload, used to quickly determine whether payload is valid
 	Size       uint64
 	Payload    io.Reader
@@ -137,8 +139,6 @@ type Protocol struct {
 	Name string
 	// use for message command set, should be unique
 	ID uint64
-	// how many commands the protocol used.
-	Band uint64
 	// read and write Msg with rw
 	Handle func(p *Peer, rw MsgReadWriter) error
 }
@@ -238,4 +238,22 @@ func (t *Topo) Deserialize(buf []byte) error {
 	t.Peers = pb.Peers
 
 	return nil
+}
+
+type topoHandler struct {
+	record cuckoofilter.CuckooFilter
+}
+
+func (th *topoHandler) Add(hash types.Hash) {
+
+	th.record.Insert(hash[:])
+}
+func (th *topoHandler) Has(hash types.Hash) bool {
+	return th.record.Lookup(hash[:])
+}
+
+func (th *topoHandler) Broadcast(topo *Topo, peers []*Peer) {
+	for _, peer := range peers {
+		go Send(peer.rw, baseProtocolCmdSet, topoCmd, topo)
+	}
 }

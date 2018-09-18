@@ -4,88 +4,92 @@ import (
 	"crypto/rand"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/block"
-	"github.com/vitelabs/go-vite/p2p/nat"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 const seedCount = 20
 const seedMaxAge = 7 * 24 * time.Hour
 
-var tExpire = 24 * time.Hour          // nodes have been ping-pong checked during this time period are considered valid
-var tRefresh = 1 * time.Hour          // refresh the node table at tRefresh intervals
-var storeInterval = 5 * time.Minute   // store nodes in table to db at storeDuration intervals
-var checkInterval = 3 * time.Minute   // check the oldest node in table at checkInterval intervals
-var minStayDuration = 5 * time.Minute // minimal duration node stay in table can be store in db
+var tExpire = 24 * time.Hour        // nodes have been ping-pong checked during this time period are considered valid
+var tRefresh = 1 * time.Hour        // refresh the node table at tRefresh intervals
+var storeInterval = 5 * time.Minute // store nodes in table to db at storeDuration intervals
+var checkInterval = 3 * time.Minute // check the oldest node in table at checkInterval intervals
+var stayInTable = 5 * time.Minute   // minimal duration node stay in table can be store in db
+
+var errUnsolicitedMsg = errors.New("unsolicited message")
+var errMsgExpired = errors.New("message has expired")
+var errUnkownMsg = errors.New("unknown message")
+var errExtractPing = errors.New("extract message error, should be ping")
+var errExtractFindNode = errors.New("extract message error, should be findnode")
 
 func Priv2NodeID(priv ed25519.PrivateKey) (NodeID, error) {
 	pub := priv.PubByte()
 	return Bytes2NodeID(pub)
 }
 
-type discvAgent interface {
-	start()
-	stop()
-	ping(node *Node) error
-	pong(node *Node, ack types.Hash) error
-	findnode(n *Node, ID NodeID) (nodes []*Node, err error)
-	sendNeighbors(n *Node, nodes []*Node) error
-	need(p *packet) bool
-	wait(NodeID, packetCode, waitIsDone) error
-}
-
-// @section config
+// @section Discovery
 type Config struct {
 	Priv      ed25519.PrivateKey
 	DBPath    string
 	BootNodes []*Node
 	Conn      *net.UDPConn
+	Self      *Node
 }
 
 type Discovery struct {
 	bootNodes   []*Node
 	self        *Node
-	selfLock    sync.RWMutex
-	agent       discvAgent
-	pool        wtList
+	agent       *agent
 	tab         *table
 	db          *nodeDB
-	stop        chan struct{}
-	lock        sync.RWMutex
-	refreshing  bool // use for refresh node table
+	term        chan struct{}
+	refreshing  int32 // atomic, whether indicate node table is refreshing
 	refreshDone chan struct{}
 	wg          sync.WaitGroup
 	blockList   *block.CuckooSet
 }
 
 func (d *Discovery) Start() {
-	discvLog.Info(fmt.Sprintf("discovery server start %s\n", d.self))
-
-	d.wg.Add(1) // wait for NAT mapping done
-	go d.mapping()
-
+	d.wg.Add(1)
 	go d.keepTable()
 
+	d.wg.Add(1)
 	go d.agent.start()
 
-	<-d.stop
-	// clean
-	d.db.close()
-	d.wg.Wait()
+	discvLog.Info(fmt.Sprintf("discovery server start %s\n", d.self))
 }
 
-func (d *Discovery) Self() *Node {
-	d.selfLock.RLock()
-	defer d.selfLock.RUnlock()
-	return d.self
+func (d *Discovery) Stop() {
+	select {
+	case <-d.term:
+	default:
+		close(d.term)
+	}
+
+	d.wg.Wait()
+
+	discvLog.Info(fmt.Sprintf("discovery server %s stop\n", d.self))
+}
+
+func (d *Discovery) Block(ID NodeID, IP net.IP) {
+	if !ID.IsZero() {
+		d.blockList.Add(ID[:])
+	}
+	if IP != nil {
+		d.blockList.Add(IP)
+	}
+
 }
 
 func (d *Discovery) keepTable() {
+	defer d.wg.Done()
+
 	checkTicker := time.NewTicker(checkInterval)
 	refreshTicker := time.NewTimer(tRefresh)
 	storeTicker := time.NewTicker(storeInterval)
@@ -94,9 +98,8 @@ func (d *Discovery) keepTable() {
 	defer refreshTicker.Stop()
 	defer storeTicker.Stop()
 
-	go d.RefreshTable()
+	d.RefreshTable()
 
-loop:
 	for {
 		select {
 		case <-refreshTicker.C:
@@ -118,13 +121,13 @@ loop:
 		case <-storeTicker.C:
 			now := time.Now()
 			go d.tab.traverse(func(n *Node) {
-				if now.Sub(n.addAt) > minStayDuration {
+				if now.Sub(n.addAt) > stayInTable {
 					d.db.storeNode(n)
 				}
 			})
 
-		case <-d.stop:
-			break loop
+		case <-d.term:
+			return
 		}
 	}
 }
@@ -197,7 +200,7 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 	}
 
 	asked := make(map[NodeID]struct{}) // nodes has sent findnode message
-	asked[d.Self().ID] = struct{}{}
+	asked[d.self.ID] = struct{}{}
 
 	// all nodes of responsive neighbors, use for filter to ensure the same node pushed once
 	hasPushedIntoResult := make(map[NodeID]struct{})
@@ -254,12 +257,6 @@ func (d *Discovery) Resolve(id NodeID) *Node {
 
 	return nil
 }
-
-var errUnsolicitedMsg = errors.New("unsolicited message")
-var errMsgExpired = errors.New("message has expired")
-var errUnkownMsg = errors.New("unknown message")
-var errExtractPing = errors.New("extract message error, should be ping")
-var errExtractFindNode = errors.New("extract message error, should be findnode")
 
 func (d *Discovery) HandleMsg(res *packet) error {
 	if res.msg.isExpired() {
@@ -332,14 +329,13 @@ func (d *Discovery) HandleMsg(res *packet) error {
 }
 
 func (d *Discovery) RefreshTable() {
-	d.lock.Lock()
-	if d.refreshing {
-		d.lock.Unlock()
-		<-d.refreshDone
+	if !atomic.CompareAndSwapInt32(&d.refreshing, 0, 1) {
+		select {
+		case <-d.term:
+		case <-d.refreshDone:
+		}
 		return
 	}
-	d.refreshing = true
-	d.lock.Unlock()
 
 	// do refresh routine
 	d.tab.initRand()
@@ -354,8 +350,8 @@ func (d *Discovery) RefreshTable() {
 	}
 
 	// set the right state after refresh
+	atomic.CompareAndSwapInt32(&d.refreshing, 1, 0)
 	close(d.refreshDone)
-	d.refreshing = false
 	d.refreshDone = make(chan struct{})
 }
 
@@ -367,92 +363,30 @@ func (d *Discovery) loadInitNodes() {
 	}
 }
 
-func (d *Discovery) ID() NodeID {
-	return d.Self().ID
-}
-
-func (d *Discovery) Stop() {
-	discvLog.Info(fmt.Sprintf("discovery server start %s\n", d.self))
-
-	select {
-	case <-d.stop:
-	default:
-		close(d.stop)
-	}
-}
-
-func (d *Discovery) SetNode(ip net.IP, udp, tcp uint16) {
-	d.selfLock.Lock()
-	defer d.selfLock.Unlock()
-
-	if ip != nil {
-		d.self.IP = ip
-	}
-	if udp != 0 {
-		d.self.UDP = udp
-	}
-	if tcp != 0 {
-		d.self.TCP = tcp
-	}
-}
-
-func (d *Discovery) mapping() {
-	out := make(chan *nat.Addr)
-	go nat.Map(d.stop, "udp", int(d.self.UDP), int(d.self.UDP), "vite discovery", 0, out)
-
-loop:
-	for {
-		select {
-		case <-d.stop:
-			break loop
-		case addr := <-out:
-			if addr.IsValid() {
-				d.SetNode(addr.IP, uint16(addr.Port), 0)
-			}
-		}
-	}
-
-	d.wg.Done()
-}
-
 func New(cfg *Config) *Discovery {
-	ID, err := Priv2NodeID(cfg.Priv)
-	if err != nil {
-		discvLog.Crit("generate NodeID from privateKey error", "error", err)
-	}
-
-	db, err := newDB(cfg.DBPath, 2, ID)
+	db, err := newDB(cfg.DBPath, 2, cfg.Self.ID)
 	if err != nil {
 		discvLog.Crit("create p2p db", "error", err)
 	}
 
-	localAddr, _ := cfg.Conn.LocalAddr().(*net.UDPAddr)
-
-	node := &Node{
-		ID:  ID,
-		IP:  localAddr.IP,
-		UDP: uint16(localAddr.Port),
-	}
-
 	d := &Discovery{
 		bootNodes:   cfg.BootNodes,
-		self:        node,
-		tab:         newTable(ID, N),
+		self:        cfg.Self,
+		tab:         newTable(cfg.Self.ID, N),
 		db:          db,
-		stop:        make(chan struct{}),
-		refreshing:  false,
+		term:        make(chan struct{}),
+		refreshing:  0,
 		refreshDone: make(chan struct{}),
 		blockList:   block.NewCuckooSet(1000),
 	}
 
-	d.agent = &udpAgent{
-		maxNeighborsOneTrip: maxNeighborsNodes,
-		self:                node,
-		conn:                cfg.Conn,
-		priv:                cfg.Priv,
-		term:                make(chan struct{}),
-		running:             false,
-		packetHandler:       d.HandleMsg,
+	d.agent = &agent{
+		self:       cfg.Self,
+		conn:       cfg.Conn,
+		priv:       cfg.Priv,
+		term:       make(chan struct{}),
+		pktHandler: d.HandleMsg,
+		wtl:        newWtList(),
 	}
 
 	return d

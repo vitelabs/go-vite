@@ -76,15 +76,12 @@ var errMissPort = errors.New("missing port")
 var errInvalidScheme = errors.New("invalid scheme")
 
 type Node struct {
-	ID               NodeID
-	IP               net.IP
-	UDP              uint16
-	TCP              uint16
-	lastPing         time.Time
-	lastPong         time.Time
-	lastPingReceived time.Time
-	lastPongReceived time.Time
-	addAt            time.Time
+	ID       NodeID
+	IP       net.IP
+	UDP      uint16
+	TCP      uint16
+	addAt    time.Time
+	lastPing time.Time
 }
 
 func (n *Node) proto() *protos.Node {

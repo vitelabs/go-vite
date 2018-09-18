@@ -18,9 +18,6 @@ var subledgerTimeout = 10 * time.Second
 var accountBlocksTimeout = 30 * time.Second
 var snapshotBlocksTimeout = time.Minute
 
-const CmdSetName = "vite"
-const CmdSetID uint64 = 2
-
 // @section BlockID
 type BlockID struct {
 	Hash   types.Hash
@@ -73,11 +70,14 @@ func (b *BlockID) Deserialize(data []byte) error {
 }
 
 // @section Cmd
-type CmdSet uint64
-type Cmd uint64
+const CmdSetName = "vite"
+
+var cmdSets = []uint64{2}
+
+type cmd uint64
 
 const (
-	HandshakeCode Cmd = iota
+	HandshakeCode cmd = iota
 	StatusCode
 	GetSubLedgerCode
 	GetSnapshotBlockHeadersCode
@@ -114,7 +114,7 @@ var msgNames = [...]string{
 	NewSnapshotBlockCode:        "NewSnapshotBlockMsg",
 }
 
-func (t Cmd) String() string {
+func (t cmd) String() string {
 	if t == ExceptionCode {
 		return "ExceptionMsg"
 	}
@@ -126,6 +126,7 @@ func (t Cmd) String() string {
 type Segment struct {
 	From    *BlockID
 	To      *BlockID
+	Count   uint64
 	Step    uint64
 	Forward bool
 }

@@ -20,22 +20,67 @@ const alpha = 3
 const minDistance = 239
 const maxFindFails = 5
 
-// there is no need bucket have a lock,
-// because we operate bucket through table, so table lock is feasible
+type nodeList struct {
+	node *Node
+	next *nodeList
+}
+
+func (n *nodeList) tail() (item *nodeList) {
+	for item = n; item.next != nil; item = item.next {
+		// do nothing
+	}
+	return
+}
+
+// bucket no need possess a lock
+// because we operate bucket through table, so use table lock is more suited
 type bucket struct {
-	list []*Node
+	list *nodeList // contains an head item
 	cap  int
+	size int
 }
 
 func newBucket(cap int) *bucket {
 	if cap == 0 {
-		cap = 16
+		cap = K
 	}
 
 	return &bucket{
-		list: make([]*Node, 0, cap),
+		list: new(nodeList),
 		cap:  cap,
 	}
+}
+
+func (b *bucket) reset() {
+	b.size = 0
+	b.list.next = nil
+}
+
+// return the first item, except head item, may be nil
+func (b *bucket) head() *nodeList {
+	return b.list.next
+}
+
+// the last item
+func (b *bucket) tail() (item *nodeList) {
+	return b.list.tail()
+}
+
+// move the node whose NodeID is id to tail
+func (b *bucket) bubble(id NodeID) bool {
+	for prev, current := b.list, b.list.next; current != nil; prev, current = current, current.next {
+		if current.node.ID == id {
+			// move the target Item to tail
+			for prev.next = current.next; prev.next != nil; prev = prev.next {
+				// do nothing
+			}
+			current.next = nil
+			prev.next = current
+			return true
+		}
+	}
+
+	return false
 }
 
 // if node exists in bucket, then move node to tail, return nil
@@ -51,34 +96,17 @@ func (b *bucket) add(node *Node) (toCheck *Node) {
 		return
 	}
 
-	// bucket is not full
-	if len(b.list) < b.cap {
-		b.list = append(b.list, node)
+	// bucket is not full, add to tail
+	if b.size < b.cap {
+		b.tail().next = &nodeList{
+			node: node,
+			next: nil,
+		}
+		b.size++
 		return
 	}
 
-	for i, n := range b.list {
-		// move to tail
-		if n.ID == node.ID {
-			copy(b.list[i:], b.list[i+1:])
-			b.list[len(b.list)-1] = node
-			return
-		}
-	}
-
-	return b.list[0]
-}
-
-// move the node whose NodeID is id to tail
-func (b *bucket) bubble(id NodeID) bool {
-	for i, node := range b.list {
-		if node.ID == id {
-			copy(b.list[i:], b.list[i+1:])
-			b.list[len(b.list)-1] = node
-			return true
-		}
-	}
-	return false
+	return b.head().node
 }
 
 func (b *bucket) bubbleNode(node *Node) bool {
@@ -86,23 +114,17 @@ func (b *bucket) bubbleNode(node *Node) bool {
 }
 
 func (b *bucket) replace(old, new *Node) {
-	for i, n := range b.list {
-		if n.ID == old.ID {
-			b.list[i] = new
+	item := b.head()
+	for item.next != nil {
+		if item.node.ID == old.ID {
+			item.node = new
 			return
 		}
 	}
 }
 
-func (b *bucket) replaceAt(new *Node, i int) {
-	b.list[i] = new
-}
-
 func (b *bucket) oldest() *Node {
-	if len(b.list) > 0 {
-		return b.list[0]
-	}
-	return nil
+	return b.head().node
 }
 
 func (b *bucket) removeNode(node *Node) {
@@ -110,32 +132,52 @@ func (b *bucket) removeNode(node *Node) {
 }
 
 func (b *bucket) remove(id NodeID) {
-	for i, n := range b.list {
-		if n.ID == id {
-			copy(b.list[i:], b.list[i+1:])
-			b.list = b.list[:len(b.list)-1]
+	prev, item := b.list, b.list.next
+	for item != nil {
+		if item.node.ID == id {
+			prev.next = item.next
+			b.size--
+			return
 		}
+		prev, item = item, item.next
 	}
 }
 
-func (b *bucket) node(id NodeID) (*Node, int) {
-	for i, n := range b.list {
-		if n.ID.Equal(id) {
-			return n, i
+func (b *bucket) node(id NodeID) *Node {
+	item := b.list.next
+	for item != nil {
+		if item.node.ID == id {
+			return item.node
 		}
+		item = item.next
 	}
 
-	return nil, -1
+	return nil
 }
 
 func (b *bucket) contains(node *Node) bool {
-	for _, n := range b.list {
-		if n.ID == node.ID {
+	item := b.list.next
+	for item != nil {
+		if item.node.ID == node.ID {
 			return true
 		}
+		item = item.next
 	}
 
 	return false
+}
+
+func (b *bucket) nodes() []*Node {
+	if b.size == 0 {
+		return nil
+	}
+
+	nodes := make([]*Node, b.size)
+	for i, item := 0, b.head().next; item != nil; i++ {
+		nodes[i] = item.node
+	}
+
+	return nodes
 }
 
 // @section table
@@ -175,7 +217,7 @@ func (tab *table) refresh() {
 	tab.initRand()
 
 	for i, _ := range tab.buckets {
-		tab.buckets[i] = newBucket(K)
+		tab.buckets[i].reset()
 	}
 }
 
@@ -195,8 +237,8 @@ func (tab *table) randomNodes(dest []*Node) (count int) {
 
 	var allNodes [][]*Node
 	for _, b := range tab.buckets {
-		if len(b.list) > 0 {
-			allNodes = append(allNodes, b.list)
+		if b.size > 0 {
+			allNodes = append(allNodes, b.nodes())
 		}
 	}
 
@@ -282,10 +324,11 @@ func (tab *table) updateNode(node *Node) {
 	defer tab.lock.Unlock()
 
 	bucket := tab.getBucket(node.ID)
-	old, index := bucket.node(node.ID)
+	old := bucket.node(node.ID)
+
 	if old != nil {
 		node.addAt = old.addAt
-		bucket.replaceAt(node, index)
+		bucket.replace(node, node)
 	}
 }
 
@@ -348,7 +391,7 @@ func (tab *table) traverse(fn func(*Node)) {
 	defer tab.lock.RUnlock()
 
 	for _, b := range tab.buckets {
-		for _, n := range b.list {
+		for _, n := range b.nodes() {
 			fn(n)
 		}
 	}

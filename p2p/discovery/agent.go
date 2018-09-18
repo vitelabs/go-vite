@@ -8,10 +8,17 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
+const maxNeighborsOneTrip = 10
+
 var watingTimeout = 10 * time.Second // must be enough little, at least than checkInterval
+
+var errStopped = errors.New("discovery server has stopped")
+var errWaitOvertime = errors.New("wait for response timeout")
+var errSendToSelf = errors.New("send discovery message to self")
 
 // after send query. wating for reply.
 type waitIsDone func(Message) bool
@@ -22,6 +29,16 @@ type wait struct {
 	handle     waitIsDone
 	expiration time.Time
 	errch      chan error
+	next       *wait
+}
+
+func (n *wait) traverse(fn func(prev, current *wait)) {
+	prev, current := n, n.next
+
+	for current != nil {
+		fn(prev, current)
+		prev, current = current, current.next
+	}
 }
 
 type res struct {
@@ -32,38 +49,34 @@ type res struct {
 }
 
 type wtList struct {
-	list []*wait
-	term chan struct{}
-	add  chan *wait
-	rec  chan *res
+	list  *wait
+	count int
+	add   chan *wait
+	rec   chan *res
 }
 
 func newWtList() *wtList {
-	wt := &wtList{
-		term: make(chan struct{}),
+	return &wtList{
+		list: new(wait),
 		add:  make(chan *wait),
 		rec:  make(chan *res),
 	}
-
-	go wt.loop()
-
-	return wt
 }
 
-func (wtl *wtList) loop() {
+func (wtl *wtList) loop(stop <-chan struct{}) {
 	checkTicker := time.NewTicker(watingTimeout / 2)
 	defer checkTicker.Stop()
 
-loop:
 	for {
 		select {
-		case <-wtl.term:
-			for _, wt := range wtl.list {
+		case <-stop:
+			wtl.list.traverse(func(_, wt *wait) {
 				wt.errch <- errStopped
-			}
-			break loop
+			})
+			return
 		case w := <-wtl.add:
-			wtl.list = append(wtl.list, w)
+			wtl.list.next = w
+			wtl.count++
 		case r := <-wtl.rec:
 			wtl.handle(r)
 		case <-checkTicker.C:
@@ -72,86 +85,82 @@ loop:
 	}
 }
 
-func (wtl *wtList) stop() {
-	select {
-	case <-wtl.term:
-	default:
-		close(wtl.term)
-	}
-}
-
 func (wtl *wtList) handle(rs *res) {
-	var err error
-	for i, wt := range wtl.list {
-		if wt.expectFrom == rs.from && wt.expectCode == rs.code {
+	wtl.list.traverse(func(prev, current *wait) {
+		if current.expectFrom == rs.from && current.expectCode == rs.code {
 			done := true
-			if wt.handle != nil {
-				done = wt.handle(rs.data)
+			if current.handle != nil {
+				done = current.handle(rs.data)
 			}
 
 			rs.matched <- done
-			wt.errch <- err
+			current.errch <- nil
 
 			if done {
-				wtl.list = append(wtl.list[:i], wtl.list[i+1:]...)
-				wtl.list = wtl.list[:len(wtl.list)-1]
+				// remove current wait from list
+				prev.next = current.next
+				wtl.count--
 			}
-			return
 		}
-	}
+	})
 }
 
 func (wtl *wtList) clean() {
 	now := time.Now()
-	i := 0
-	for _, wt := range wtl.list {
-		if wt.expiration.Before(now) {
-			wt.errch <- errWaitOvertime
-		} else {
-			wtl.list[i] = wt
-			i++
+	wtl.list.traverse(func(prev, current *wait) {
+		if current.expiration.Before(now) {
+			current.errch <- errWaitOvertime
+			// remove current wait from list
+			prev.next = current.next
+			wtl.count--
 		}
-	}
+	})
 }
 
 // @section agent
-var errStopped = errors.New("discovery server has stopped")
-var errWaitOvertime = errors.New("wait for response timeout")
-
-type udpAgent struct {
-	maxNeighborsOneTrip int
-	self                *Node
-	conn                *net.UDPConn
-	priv                ed25519.PrivateKey
-	term                chan struct{}
-	lock                sync.RWMutex
-	running             bool
-	packetHandler       func(*packet) error
-	wtl                 *wtList
+type agent struct {
+	self       *Node
+	conn       *net.UDPConn
+	priv       ed25519.PrivateKey
+	term       chan struct{}
+	running    int32 // atomic
+	pktHandler func(*packet) error
+	wtl        *wtList
+	wg         sync.WaitGroup
 }
 
 // should run as goroutine
-func (d *udpAgent) start() {
-	discvLog.Info("discv agent start")
-
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	if d.running {
+func (d *agent) start() {
+	if !atomic.CompareAndSwapInt32(&d.running, 0, 1) {
 		return
 	}
-	d.running = true
 
-	d.wtl = newWtList()
+	discvLog.Info("discv agent start")
+
+	d.wg.Add(1)
+	go func() {
+		d.wtl.loop(d.term)
+		d.wg.Done()
+	}()
 
 	// should not run as goroutine
-	d.readLoop()
+	d.wg.Add(1)
+	go d.readLoop()
+}
 
-	d.wtl.stop()
+func (d *agent) stop() {
+	if !atomic.CompareAndSwapInt32(&d.running, 1, 0) {
+		return
+	}
+
+	discvLog.Info("discovery agent stop")
+
+	close(d.term)
+	d.wg.Wait()
 }
 
 // implements discvAgent interface
-func (d *udpAgent) ping(node *Node) error {
+func (d *agent) ping(node *Node) error {
 	if node.ID == d.self.ID {
 		return nil
 	}
@@ -180,7 +189,7 @@ func (d *udpAgent) ping(node *Node) error {
 	})
 }
 
-func (d *udpAgent) pong(node *Node, ack types.Hash) error {
+func (d *agent) pong(node *Node, ack types.Hash) error {
 	if node.ID == d.self.ID {
 		return nil
 	}
@@ -195,9 +204,7 @@ func (d *udpAgent) pong(node *Node, ack types.Hash) error {
 }
 
 // should ping-pong checked before
-func (d *udpAgent) findnode(n *Node, ID NodeID) (nodes []*Node, err error) {
-	discvLog.Info(fmt.Sprintf("find %s to %s\n", ID, n))
-
+func (d *agent) findnode(n *Node, ID NodeID) (nodes []*Node, err error) {
 	_, err = d.send(n.UDPAddr(), findnodeCode, &FindNode{
 		ID:         d.self.ID,
 		Target:     ID,
@@ -230,19 +237,19 @@ func (d *udpAgent) findnode(n *Node, ID NodeID) (nodes []*Node, err error) {
 	return
 }
 
-func (d *udpAgent) sendNeighbors(n *Node, nodes []*Node) (err error) {
+func (d *agent) sendNeighbors(n *Node, nodes []*Node) (err error) {
 	neighbors := &Neighbors{
 		ID:         d.self.ID,
 		Expiration: getExpiration(),
 	}
 
 	// send nodes in batches
-	carriage := make([]*Node, 0, d.maxNeighborsOneTrip)
+	carriage := make([]*Node, 0, maxNeighborsOneTrip)
 	sent := false
 	for _, node := range nodes {
 		carriage = append(carriage, node)
 
-		if len(carriage) == d.maxNeighborsOneTrip {
+		if len(carriage) == maxNeighborsOneTrip {
 			neighbors.Nodes = carriage
 			_, err = d.send(n.UDPAddr(), neighborsCode, neighbors)
 
@@ -271,14 +278,14 @@ func (d *udpAgent) sendNeighbors(n *Node, nodes []*Node) (err error) {
 	return
 }
 
-func (d *udpAgent) wait(ID NodeID, code packetCode, handleRes waitIsDone) error {
+func (d *agent) wait(ID NodeID, code packetCode, handle waitIsDone) error {
 	errch := make(chan error, 1)
 
 	select {
 	case d.wtl.add <- &wait{
 		expectFrom: ID,
 		expectCode: code,
-		handle:     handleRes,
+		handle:     handle,
 		expiration: time.Now().Add(watingTimeout),
 		errch:      errch,
 	}:
@@ -289,46 +296,34 @@ func (d *udpAgent) wait(ID NodeID, code packetCode, handleRes waitIsDone) error 
 	return <-errch
 }
 
-func (d *udpAgent) stop() {
-	discvLog.Info("discovery agent stop")
+func (d *agent) readLoop() {
+	defer d.wg.Done()
+	defer d.conn.Close()
 
-	select {
-	case <-d.term:
-	default:
-		close(d.term)
-	}
-}
-
-func (d *udpAgent) readLoop() {
 	buf := make([]byte, maxPacketLength)
 
-loop:
 	for {
 		select {
 		case <-d.term:
-			break loop
+			return
 		default:
-		}
+			n, addr, err := d.conn.ReadFromUDP(buf)
 
-		n, addr, err := d.conn.ReadFromUDP(buf)
+			p, err := unPacket(buf[:n])
+			if err != nil {
+				discvLog.Error(fmt.Sprintf("unpack message from %s error: %v\n", addr, err))
+				continue
+			}
+			p.from = addr
 
-		p, err := unPacket(buf[:n])
-		if err != nil {
-			discvLog.Error(fmt.Sprintf("unpack message from %s error: %v\n", addr, err))
-			continue
-		}
-		p.from = addr
-
-		err = d.packetHandler(p)
-		if err != nil {
-			discvLog.Error(fmt.Sprintf("handle message %s from %s@%s error: %v\n", p.code, p.fromID, p.from, err))
+			if err = d.pktHandler(p); err != nil {
+				discvLog.Error(fmt.Sprintf("handle message %s from %s@%s error: %v\n", p.code, p.fromID, p.from, err))
+			}
 		}
 	}
-
-	d.conn.Close()
 }
 
-func (d *udpAgent) send(addr *net.UDPAddr, code packetCode, m Message) (hash types.Hash, err error) {
+func (d *agent) send(addr *net.UDPAddr, code packetCode, m Message) (hash types.Hash, err error) {
 	data, hash, err := m.pack(d.priv)
 
 	if err != nil {
@@ -343,7 +338,7 @@ func (d *udpAgent) send(addr *net.UDPAddr, code packetCode, m Message) (hash typ
 	}
 
 	if n != len(data) {
-		err = fmt.Errorf("send incomplete message %s (%d/%dbytes) to %s\n", code, n, len(data))
+		err = fmt.Errorf("send incomplete message %s (%d/%dbytes) to %s\n", code, n, len(data), addr)
 		discvLog.Error(err.Error())
 		return
 	}
@@ -353,7 +348,7 @@ func (d *udpAgent) send(addr *net.UDPAddr, code packetCode, m Message) (hash typ
 	return
 }
 
-func (d *udpAgent) need(p *packet) bool {
+func (d *agent) need(p *packet) bool {
 	matched := make(chan bool, 1)
 	select {
 	case <-d.term:
