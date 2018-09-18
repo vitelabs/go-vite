@@ -67,8 +67,11 @@ func (c *Compressor) Start() bool {
 			default:
 				if currentCount >= c.checkCount {
 					currentCount = 0
-					task := NewCompressorTask(c.chain, filepath.Join(c.dir, "subgraph_tmp"))
-					task.Run()
+					tmpFileName := filepath.Join(c.dir, "subgraph_tmp")
+					task := NewCompressorTask(c.chain, tmpFileName, c.indexer.LatestHeight())
+					if result := task.Run(); result.IsSuccess {
+						c.indexer.Add(result.Ti, tmpFileName)
+					}
 				}
 				time.Sleep(c.checkInterval)
 				currentCount++

@@ -25,14 +25,17 @@ type indexItem struct {
 type Indexer struct {
 	file      *os.File
 	indexList []*indexItem
+	log       log15.Logger
 }
-
-var indexerLog = log15.New("module", "compressor")
 
 func NewIndexer(dir string) *Indexer {
 	indexFileName := path.Join(dir, "index")
 	var file *os.File
 	var oErr error
+
+	indexer := &Indexer{
+		log: log15.New("module", "compressor/index"),
+	}
 
 	file, oErr = os.OpenFile(indexFileName, os.O_RDWR, 0666)
 	if !os.IsExist(oErr) {
@@ -40,24 +43,60 @@ func NewIndexer(dir string) *Indexer {
 		file, cErr = os.Create(indexFileName)
 
 		if cErr != nil {
-			indexerLog.Crit(cErr.Error(), "method", "NewIndexer")
+			indexer.log.Crit(cErr.Error(), "method", "NewIndexer")
 		}
 	}
 
-	indexer := &Indexer{
-		file: file,
-	}
+	indexer.file = file
 
 	if err := indexer.loadFromFile(); err != nil {
-		indexerLog.Crit(err.Error(), "method", "NewIndexer")
+		indexer.log.Crit(err.Error(), "method", "NewIndexer")
 	}
 
 	return indexer
 }
 
-func (indexer *Indexer) Add(item *indexItem) error {
+func (indexer *Indexer) LatestHeight() uint64 {
+	if lastItem := indexer.indexList[len(indexer.indexList)-1]; lastItem != nil {
+		return lastItem.endHeight
+	}
+	return 0
+}
 
+func (indexer *Indexer) Add(ti *taskInfo, tmpFile string, blockNumbers uint64) error {
+	if lastItem := indexer.indexList[len(indexer.indexList)-1]; lastItem != nil {
+		if ti.beginHeight != lastItem.endHeight+1 {
+			indexer.log.Error("ti.beginHeight != lastItem.endHeight + 1", "method", "Add")
+			return nil
+		}
+	}
+
+	newFileName := indexer.newFileName(ti.beginHeight, ti.targetHeight)
+
+	//os.Rename()
+
+	newItem := &indexItem{
+		startHeight: ti.beginHeight,
+		endHeight:   ti.targetHeight,
+
+		filename: newFileName,
+
+		//fileSize: ,
+		blockNumbers: blockNumbers,
+	}
+
+	_, writeErr := indexer.file.WriteString(indexer.formatToLine(newItem) + "\n")
+
+	if writeErr != nil {
+		return writeErr
+	}
+
+	indexer.indexList = append(indexer.indexList, newItem)
 	return nil
+}
+
+func (indexer *Indexer) newFileName(startHeight uint64, endHeight uint64) string {
+	return "subgraph_" + strconv.FormatUint(startHeight, 10) + "_" + strconv.FormatUint(endHeight, 10)
 }
 
 func (indexer *Indexer) Delete() {
@@ -89,7 +128,7 @@ func (indexer *Indexer) loadFromFile() error {
 		}
 
 		if len(line) >= 0 {
-			indexerLog.Info(string(line))
+			indexer.log.Info(string(line))
 		}
 
 		item, parseErr := indexer.parseLine(line)
@@ -138,12 +177,12 @@ func (indexer *Indexer) parseLine(line []byte) (*indexItem, error) {
 	return item, nil
 }
 
-func (indexer *Indexer) formatToLine(item *indexItem) []byte {
+func (indexer *Indexer) formatToLine(item *indexItem) string {
 	lineString := ""
 	lineString += strconv.FormatUint(item.startHeight, 10) + INDEX_SEP
 	lineString += strconv.FormatUint(item.endHeight, 10) + INDEX_SEP
 	lineString += item.filename + INDEX_SEP
 	lineString += strconv.FormatUint(item.fileSize, 10) + INDEX_SEP
 	lineString += strconv.FormatUint(item.blockNumbers, 10)
-	return []byte(lineString)
+	return lineString
 }
