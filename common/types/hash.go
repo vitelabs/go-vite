@@ -75,3 +75,24 @@ func DataHash(data []byte) Hash {
 	h, _ := BytesToHash(crypto.Hash256(data))
 	return h
 }
+
+func DataListHash(data ...[]byte) Hash {
+	h, _ := BytesToHash(crypto.Hash256(data...))
+	return h
+}
+
+func (h *Hash) UnmarshalJSON(input []byte) error {
+	if !isString(input) {
+		return ErrJsonNotString
+	}
+	hash, e := HexToHash(string(trimLeftRightQuotation(input)))
+	if e != nil {
+		return e
+	}
+	h.SetBytes(hash.Bytes())
+	return nil
+}
+
+func (h Hash) MarshalText() ([]byte, error) {
+	return []byte(h.String()), nil
+}

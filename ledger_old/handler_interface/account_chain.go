@@ -12,6 +12,8 @@ type AccountChain interface {
 	HandleGetBlocks(*protoTypes.GetAccountBlocksMsg, *protoTypes.Peer, uint64) error
 	HandleSendBlocks(*protoTypes.AccountBlocksMsg, *protoTypes.Peer, uint64) error
 	GetAccountByAccAddr(addr *types.Address) (*ledger.AccountMeta, error)
+	GetLatestBlock(addr *types.Address) (*ledger.AccountBlock, *types.GetError)
+	GetBlocks(addr *types.Address, originBlockHash *types.Hash, count uint64) (ledger.AccountBlockList, *types.GetError)
 	GetBlocksByAccAddr(addr *types.Address, index, num, count int) (ledger.AccountBlockList, *types.GetError)
 	CreateTx(block *ledger.AccountBlock) error
 	CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error
@@ -22,6 +24,8 @@ type AccountChain interface {
 	RemoveListener(addr types.Address)
 	GetAccount(accountAddress *types.Address) (*Account, error)
 	Download(peer *protoTypes.Peer, needSyncData []*access.WscNeedSyncErrData)
+	GetUnconfirmedTxBlocks(index, num, count int, addr *types.Address) ([]*ledger.AccountBlock, error)
+	GetToken(tti types.TokenTypeId) (*ledger.Token, error)
 }
 
 // pack the data for handler
@@ -31,13 +35,13 @@ type TokenInfo struct {
 }
 
 type UnconfirmedAccount struct {
-	AccountAddress *types.Address
-	TotalNumber    *big.Int
-	TokenInfoList  []*TokenInfo
+	Address       *types.Address
+	TotalNumber   *big.Int
+	TokenInfoList []*TokenInfo
 }
 
 type Account struct {
-	AccountAddress *types.Address
-	BlockHeight    *big.Int
-	TokenInfoList  []*TokenInfo
+	Address       *types.Address
+	BlockHeight   *big.Int
+	TokenInfoList []*TokenInfo
 }

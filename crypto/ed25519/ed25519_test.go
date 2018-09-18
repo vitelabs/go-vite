@@ -77,21 +77,29 @@ func TestUnmarshalMarshalDeterministic(t *testing.T) {
 }
 
 func TestSignVerify(t *testing.T) {
-	var zero zeroReader
-	public, private, _ := GenerateKey(zero)
-	println("Generate Pub key : ", hex.EncodeToString(public))
 
-	message := []byte("test message")
-	sig := Sign(private, message)
-	println("Sign :", len(sig), hex.EncodeToString(sig))
-	if !Verify(public, message, sig) {
-		t.Errorf("valid signature rejected")
+	for i := 0; i < 10; i++ {
+		public, private, _ := GenerateKey(nil)
+		println()
+		println("priv: ", hex.EncodeToString(private))
+		println("pub: ", hex.EncodeToString(public))
+		message := "1234567890TEST"
+		messageByte := []byte(message)
+		println("message: ", hex.EncodeToString(messageByte))
+		sig := Sign(private, messageByte)
+		println("signdata: ", hex.EncodeToString(sig))
 	}
 
-	wrongMessage := []byte("wrong message")
-	if Verify(public, wrongMessage, sig) {
-		t.Errorf("signature of different message accepted")
-	}
+	//message := "12345678901234567890"
+	//pub := "5AD4455C87AF117B3A56AC816AE9BF9C92E566803C177FB206669F0F53609471"
+	//signdata := "3761078C2BDBF90807A22E0309A6F0D5AD6765455466B840662A32F6AC044B98BC46726C4905449537DB5AA88CCA0F8B93F8C0249B3A826E0CE6A6F7D2019504"
+	//M, _ := hex.DecodeString(message)
+	//P, _ := hex.DecodeString(pub)
+	//S, _ := hex.DecodeString(signdata)
+	//if !Verify(P, M, S) {
+	//	t.Fatal("not pass")
+	//}
+
 }
 
 func TestSignVerifyRandom(t *testing.T) {
