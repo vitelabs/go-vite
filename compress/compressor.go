@@ -45,6 +45,7 @@ func NewCompressor(chain Chain, dataDir string) *Compressor {
 	return c
 }
 
+// TODO time.ticker
 func (c *Compressor) Start() bool {
 	c.statusLock.Lock()
 	defer c.statusLock.Unlock()
@@ -68,10 +69,12 @@ func (c *Compressor) Start() bool {
 				if currentCount >= c.checkCount {
 					currentCount = 0
 					tmpFileName := filepath.Join(c.dir, "subgraph_tmp")
+
 					task := NewCompressorTask(c.chain, tmpFileName, c.indexer.LatestHeight())
 					if result := task.Run(); result.IsSuccess {
-						c.indexer.Add(result.Ti, tmpFileName)
+						c.indexer.Add(result.Ti, tmpFileName, result.BlockNumbers)
 					}
+					task.Clear()
 				}
 				time.Sleep(c.checkInterval)
 				currentCount++

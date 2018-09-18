@@ -26,16 +26,18 @@ func (pool *StateTriePool) unsafeSet(address *types.Address, trie *trie.Trie) {
 func (pool *StateTriePool) Set(address *types.Address, trie *trie.Trie) {
 	pool.setLock.Lock()
 	defer pool.setLock.Unlock()
+
 	pool.unsafeSet(address, trie)
 }
 
+// TODO: Map can't read an write in the same time
 func (pool *StateTriePool) Get(address *types.Address) (*trie.Trie, error) {
+	pool.setLock.Lock()
+	defer pool.setLock.Unlock()
+
 	if cachedTrie := pool.cache[*address]; cachedTrie != nil {
 		return cachedTrie, nil
 	}
-
-	pool.setLock.Lock()
-	defer pool.setLock.Unlock()
 
 	latestBlock, err := pool.chain.GetLatestAccountBlock(address)
 	if err != nil {
@@ -43,9 +45,9 @@ func (pool *StateTriePool) Get(address *types.Address) (*trie.Trie, error) {
 	}
 
 	if latestBlock != nil {
-		stateTir := pool.chain.GetStateTrie(&latestBlock.StateHash)
-		pool.unsafeSet(address, stateTir)
-		return stateTir, nil
+		stateTrie := pool.chain.GetStateTrie(&latestBlock.StateHash)
+		pool.unsafeSet(address, stateTrie)
+		return stateTrie, nil
 	}
 	return nil, nil
 }

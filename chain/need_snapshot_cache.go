@@ -24,6 +24,7 @@ func (cache *NeedSnapshotCache) Add(addr *types.Address, accountBlockHeight uint
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 
+	// TODO log error
 	if cachedSnapshotContentItem := cache.snapshotContent[*addr]; cachedSnapshotContentItem != nil && cachedSnapshotContentItem.AccountBlockHeight >= accountBlockHeight {
 		return
 	}
@@ -40,6 +41,7 @@ func (cache *NeedSnapshotCache) Remove(addr *types.Address, height uint64) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 	cachedSnapshotContentItem := cache.snapshotContent[*addr]
+	// TODO log error
 	if cachedSnapshotContentItem == nil {
 		return
 	}

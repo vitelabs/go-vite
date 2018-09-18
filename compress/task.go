@@ -98,7 +98,6 @@ func (task *CompressorTask) Run() *TaskRunResult {
 	tmpFileWriter.Close()
 
 	if formatterErr != nil {
-		os.Remove(task.tmpFile)
 		task.log.Error("Block write failed, error is "+formatterErr.Error(), "method", "Run")
 		return &TaskRunResult{
 			Ti:           ti,
@@ -112,6 +111,10 @@ func (task *CompressorTask) Run() *TaskRunResult {
 		IsSuccess:    true,
 		BlockNumbers: blockNumbers,
 	}
+}
+
+func (task *CompressorTask) Clear() {
+	os.Remove(task.tmpFile)
 }
 
 func (task *CompressorTask) getTaskInfo() *taskInfo {

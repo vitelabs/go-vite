@@ -7,6 +7,7 @@ import (
 	"math/big"
 )
 
+// TODO
 func (c *Chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 	return nil, nil
 }
