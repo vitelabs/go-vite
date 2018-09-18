@@ -24,12 +24,12 @@ type Generator struct {
 	vmContext vmctxt_interface.VmDatabase
 
 	chain  Chain
-	signer SignManager
+	signer Signer
 
 	log log15.Logger
 }
 
-func NewGenerator(chain Chain, wSigner SignManager) *Generator {
+func NewGenerator(chain Chain, wSigner Signer) *Generator {
 	return &Generator{
 		chain:  chain,
 		signer: wSigner,
@@ -37,18 +37,28 @@ func NewGenerator(chain Chain, wSigner SignManager) *Generator {
 	}
 }
 
-func (gen *Generator) PrepareVm(snapshotBlockHash *types.Hash, addr *types.Address) error {
+func (gen *Generator) PrepareVm(snapshotBlockHash, preBlockHash *types.Hash, addr *types.Address) error {
+	var sbHash, pbHash *types.Hash
 	if snapshotBlockHash == nil {
 		snapshotBlock, err := gen.chain.GetLatestSnapshotBlock()
 		if err != nil || snapshotBlock == nil {
 			return errors.New("PrepareVm.GetLatestSnapshotBlock, Error:" + err.Error())
 		}
+		sbHash = &snapshotBlock.Hash
+	} else {
+		sbHash = snapshotBlockHash
 	}
-	preBlock, err := gen.chain.GetLatestAccountBlock(addr)
-	if err != nil || preBlock == nil {
-		return errors.New("PrepareVm.GetLatestAccountBlock, Error:" + err.Error())
+	if preBlockHash == nil {
+		preBlock, err := gen.chain.GetLatestAccountBlock(addr)
+		if err != nil || preBlock == nil {
+			return errors.New("PrepareVm.GetLatestAccountBlock, Error:" + err.Error())
+		}
+		pbHash = &preBlock.Hash
+	} else {
+		pbHash = preBlockHash
 	}
-	vmContext, err := vm_context.NewVmContext(gen.chain, snapshotBlockHash, &preBlock.FromBlockHash, addr)
+
+	vmContext, err := vm_context.NewVmContext(gen.chain, sbHash, pbHash, addr)
 	if err != nil {
 		return err
 	}

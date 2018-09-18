@@ -6,7 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
-type SignManager interface {
+type Signer interface {
 	SignData(a types.Address, data []byte) (signedData, pubkey []byte, err error)
 	SignDataWithPassphrase(a types.Address, passphrase string, data []byte) (signedData, pubkey []byte, err error)
 }

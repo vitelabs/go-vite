@@ -153,6 +153,10 @@ func (manager *Manager) insertContractBlocksToPool(blockList []*vm_context.VmAcc
 	}
 }
 
+func (manager *Manager) checkExistInPool(addr types.Address, fromBlockHash types.Hash) bool {
+	return manager.pool.ExistInPool(addr, fromBlockHash)
+}
+
 func (manager *Manager) SetAutoReceiveFilter(addr types.Address, filter map[types.TokenTypeId]big.Int) {
 	if w, ok := manager.commonTxWorkers[addr]; ok {
 		w.ResetAutoReceiveFilter(filter)

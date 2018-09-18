@@ -3,7 +3,6 @@ package unconfirmed
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
@@ -13,47 +12,45 @@ import (
 )
 
 type ContractTask struct {
-	taskId int
+	taskId   int
+	worker   *ContractWorker
+	accEvent producer.AccountStartEvent
 
-	blocksPool *model.UnconfirmedBlocksPool
-	pool       PoolReader
-	verifier   *verifier.AccountVerifier
 	generator  *generator.Generator
+	verifier   *verifier.AccountVerifier
+	blocksPool *model.UnconfirmedBlocksPool
 
 	status      int
 	statusMutex sync.Mutex
 
-	stopListener chan struct{}
 	breaker      chan struct{}
+	stopListener chan struct{}
 
-	isSleeping bool
-	wakeup     chan struct{}
-
-	accEvent producer.AccountStartEvent
-	worker   *ContractWorker
-
+	isSleeping       bool
+	wakeup           chan struct{}
 	getNewBlocksFunc func(index int) *model.FromItem
 
 	log log15.Logger
 }
 
 func NewContractTask(worker *ContractWorker, index int, getNewBlocksFunc func(index int) *model.FromItem) *ContractTask {
-	return &ContractTask{
+	task := &ContractTask{
 		taskId:           index,
-		blocksPool:       worker.uBlocksPool,
-		pool:             worker.manager.pool,
+		worker:           worker,
+		accEvent:         worker.accEvent,
 		verifier:         worker.verifier,
-		generator:        generator.NewGenerator(worker.manager.vite.Chain(), worker.manager.vite.WalletManager().KeystoreManager),
+		blocksPool:       worker.uBlocksPool,
 		status:           Create,
 		stopListener:     make(chan struct{}),
 		breaker:          make(chan struct{}),
 		wakeup:           make(chan struct{}),
-		accEvent:         worker.accEvent,
-		worker:           worker,
 		getNewBlocksFunc: getNewBlocksFunc,
-
-		log: worker.log.New("taskid", index),
+		log:              worker.log.New("taskid", index),
 	}
+	task.generator = generator.NewGenerator(worker.manager.vite.Chain(),
+		worker.manager.vite.WalletManager().KeystoreManager)
+
+	return task
 }
 
 func (task *ContractTask) Start() {
@@ -75,7 +72,6 @@ func (task *ContractTask) Stop() {
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
 	if task.status != Stop {
-
 		task.breaker <- struct{}{}
 		close(task.breaker)
 
@@ -148,11 +144,11 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 	bQueue := fItem.Value
 
 	for i := 0; i < bQueue.Size(); i++ {
-		var priorBlock *ledger.AccountBlock
+
 		sBlock := bQueue.Dequeue()
 		task.log.Info("Process to make the receiveBlock, its'sendBlock detail:", task.log.New("hash", sBlock.Hash))
 
-		if task.pool.ExistInPool(sBlock.ToAddress, sBlock.Hash) {
+		if task.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
 			// Don't deal with it for the time being
 			return true
 		}
@@ -163,7 +159,7 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 			continue
 		}
 
-		err := task.generator.PrepareVm(&task.accEvent.SnapshotHash, &sBlock.ToAddress)
+		err := task.generator.PrepareVm(&task.accEvent.SnapshotHash, nil, &sBlock.ToAddress)
 		if err != nil {
 			task.log.Error("NewGenerator Error", err)
 			return true
@@ -202,16 +198,9 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 			if err := task.worker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
 				return true
 			}
-
-			priorBlock = genResult.BlockGenList[len(genResult.BlockGenList)-1].AccountBlock
 		}
 
-		//todo add Listener
-	WaitForVmDB:
-		if task.verifier.VerifyUnconfirmedPriorBlockReceived(&priorBlock.Hash) == false {
-			goto WaitForVmDB
-		}
+		// todo maintain gid-contractList
 	}
-
 	return false
 }

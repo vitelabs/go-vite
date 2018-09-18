@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
@@ -19,15 +20,17 @@ const (
 )
 
 type AccountVerifier struct {
-	chainReader     ChainReader
-	consensusReader ConsensusReader
+	chain           Chain
+	signer          Signer
+	consensusReader Consensus
 
 	log log15.Logger
 }
 
-func NewAccountVerifier(chain ChainReader, consensus ConsensusReader) *AccountVerifier {
+func NewAccountVerifier(chain Chain, consensus Consensus, signer Signer) *AccountVerifier {
 	verifier := &AccountVerifier{
-		chainReader:     chain,
+		chain:           chain,
+		signer:          signer,
 		consensusReader: consensus,
 		log:             nil,
 	}
@@ -60,10 +63,24 @@ func (self *AccountVerifier) VerifyforProducer(block *ledger.AccountBlock) (Veri
 }
 
 func (self *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (this *vm_context.VmAccountBlock, others []*vm_context.VmAccountBlock, err error) {
-	//if result, err := self.VerifySelfDependence(block); result != FAIL && err == nil {
-	//}
-	// todo add generatorP2PTx
-	return nil, nil, nil
+	defer monitor.LogTime("verify", "VerifyforVM", time.Now())
+
+	gen := generator.NewGenerator(self.chain.Chain(), self.signer)
+	if err = gen.PrepareVm(&block.SnapshotHash, &block.PrevHash, &block.AccountAddress); err != nil {
+		return nil, nil, err
+	}
+	genResult := gen.GenerateWithP2PBlock(block, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+		return gen.Sign(addr, nil, data)
+	})
+	if genResult == nil {
+		return nil, nil, errors.New("GenerateWithP2PBlock failed")
+	}
+
+	this = genResult.BlockGenList[0]
+	if len(genResult.BlockGenList) > 1 {
+		others = genResult.BlockGenList[1:]
+	}
+	return this, others, nil
 }
 
 func (self *AccountVerifier) VerifyforRPC() ([]*vm_context.VmAccountBlock, error) {
@@ -83,8 +100,8 @@ func (self *AccountVerifier) verifyGenesis(block *ledger.AccountBlock, stat *Acc
 	defer monitor.LogTime("verify", "accountGenesis", time.Now())
 	//fixme ask Liz for the GetGenesisBlockFirst() and GetGenesisBlockSecond()
 	return block.PrevHash.Bytes() == nil &&
-		bytes.Equal(block.Signature, self.chainReader.GetGenesisBlockFirst().Signature) &&
-		bytes.Equal(block.Hash.Bytes(), self.chainReader.GetGenesisBlockFirst().Hash.Bytes())
+		bytes.Equal(block.Signature, self.chain.Chain().GetGenesisBlockFirst().Signature) &&
+		bytes.Equal(block.Hash.Bytes(), self.chain.Chain().GetGenesisBlockFirst().Hash.Bytes())
 }
 
 func (self *AccountVerifier) verifySelf(block *ledger.AccountBlock, stat *AccountBlockVerifyStat) {
@@ -115,7 +132,7 @@ func (self *AccountVerifier) verifyFrom(block *ledger.AccountBlock, stat *Accoun
 	defer monitor.LogTime("verify", "accountFrom", time.Now())
 
 	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
-		fromBlock, err := self.chainReader.GetAccountBlockByHash(&block.FromBlockHash)
+		fromBlock, err := self.chain.Chain().GetAccountBlockByHash(&block.FromBlockHash)
 		if err != nil || fromBlock == nil {
 			self.log.Info("verifyFrom.GetAccountBlockByHash", "error", err)
 			stat.accountTask = &AccountPendingTask{
@@ -136,7 +153,7 @@ func (self *AccountVerifier) verifyFrom(block *ledger.AccountBlock, stat *Accoun
 func (self *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, stat *AccountBlockVerifyStat) {
 	defer monitor.LogTime("verify", "accountSnapshot", time.Now())
 
-	snapshotBlock, err := self.chainReader.GetSnapshotBlockByHash(&block.SnapshotHash)
+	snapshotBlock, err := self.chain.Chain().GetSnapshotBlockByHash(&block.SnapshotHash)
 	if err != nil || snapshotBlock == nil {
 		self.log.Info("verifySnapshot.GetSnapshotBlockByHash", "error", err)
 		stat.snapshotTask = &SnapshotPendingTask{
@@ -168,7 +185,7 @@ func (self *AccountVerifier) VerifySelfDataValidity(block *ledger.AccountBlock) 
 		return FAIL, errMsg
 	}
 
-	gid, _ := self.chainReader.GetContractGid(&block.AccountAddress)
+	gid, _ := self.chain.Chain().GetContractGid(&block.AccountAddress)
 	if gid != nil && (block.BlockType == ledger.BlockTypeSendCall || block.BlockType == ledger.BlockTypeSendCreate) {
 		if block.Signature == nil && block.PublicKey == nil {
 			return PENDING, nil
@@ -198,7 +215,7 @@ func (self *AccountVerifier) VerifySelfDependence(block *ledger.AccountBlock) (V
 	defer monitor.LogTime("verify", "accountSelfDependence", time.Now())
 	var errMsg error
 
-	latestBlock, err := self.chainReader.GetLatestAccountBlock(&block.AccountAddress)
+	latestBlock, err := self.chain.Chain().GetLatestAccountBlock(&block.AccountAddress)
 	if err != nil {
 		errMsg = errors.New("VerifySelfDependence.GetLatestAccountBlock failed")
 		self.log.Error(errMsg.Error(), "error", err)
@@ -206,7 +223,7 @@ func (self *AccountVerifier) VerifySelfDependence(block *ledger.AccountBlock) (V
 	}
 
 	var isContractSend bool
-	gid, _ := self.chainReader.GetContractGid(&block.AccountAddress)
+	gid, _ := self.chain.Chain().GetContractGid(&block.AccountAddress)
 	if gid != nil && (block.BlockType == ledger.BlockTypeSendCall || block.BlockType == ledger.BlockTypeSendCreate) {
 		isContractSend = true
 	} else {
@@ -238,19 +255,15 @@ func (self *AccountVerifier) VerifyTimeOut(block *ledger.AccountBlock) bool {
 func (self *AccountVerifier) VerifyConfirmed(block *ledger.AccountBlock) bool {
 	defer monitor.LogTime("verify", "accountConfirmed", time.Now())
 
-	if confirmedBlock := self.chainReader.GetConfirmBlock(block); confirmedBlock == nil {
+	if confirmedBlock := self.chain.Chain().GetConfirmBlock(block); confirmedBlock == nil {
 		self.log.Error("not Confirmed yet")
 		return false
 	}
-	//if confirmedBlock, err := self.chainReader.GetConfirmBlock(block); confirmedBlock == nil || err != nil {
-	//	self.log.Error("not Confirmed yet")
-	//	return false
-	//}
 	return true
 }
 
 func (self *AccountVerifier) VerifyReceiveReachLimit(sendBlock *ledger.AccountBlock) bool {
-	recvTime := self.chainReader.GetReceiveTimes(&sendBlock.ToAddress, &sendBlock.Hash)
+	recvTime := self.chain.Chain().GetReceiveTimes(&sendBlock.ToAddress, &sendBlock.Hash)
 
 	if sendBlock.BlockType == ledger.BlockTypeReceiveError && recvTime >= MaxRecvErrTypeCount {
 		return true
@@ -262,15 +275,6 @@ func (self *AccountVerifier) VerifyReceiveReachLimit(sendBlock *ledger.AccountBl
 	return false
 }
 
-func (self *AccountVerifier) VerifyUnconfirmedPriorBlockReceived(priorBlockHash *types.Hash) bool {
-	existBlock, err := self.chainReader.GetAccountBlockByHash(priorBlockHash)
-	if err != nil || existBlock == nil {
-		self.log.Info("VerifyUnconfirmedPriorBlockReceived: the prev block hasn't existed in Chain. ")
-		return false
-	}
-	return true
-}
-
 func (self *AccountVerifier) VerifyIsProducerLegal(block *ledger.AccountBlock) bool {
 	if err := self.consensusReader.VerifyAccountProducer(block); err != nil {
 		self.log.Error("VerifySelfDataValidity: the block producer is illegal")
@@ -278,6 +282,15 @@ func (self *AccountVerifier) VerifyIsProducerLegal(block *ledger.AccountBlock) b
 	}
 	return true
 }
+
+//func (self *AccountVerifier) VerifyUnconfirmedPriorBlockReceived(priorBlockHash *types.Hash) bool {
+//	existBlock, err := self.chain.GetAccountBlockByHash(priorBlockHash)
+//	if err != nil || existBlock == nil {
+//		self.log.Info("VerifyUnconfirmedPriorBlockReceived: the prev block hasn't existed in Chain. ")
+//		return false
+//	}
+//	return true
+//}
 
 type AccountBlockVerifyStat struct {
 	referredSnapshotResult VerifyResult

@@ -19,9 +19,9 @@ type AutoReceiveWorker struct {
 	log     log15.Logger
 	address types.Address
 
-	uBlocksPool *model.UnconfirmedBlocksPool
 	manager     *Manager
 	generator   *generator.Generator
+	uBlocksPool *model.UnconfirmedBlocksPool
 
 	status                int
 	isSleeping            bool
@@ -159,26 +159,29 @@ func (w *AutoReceiveWorker) NewUnconfirmedTxAlarm() {
 }
 
 func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
-	//// todo 1.ExistInPool
-	//
-	////todo 2.PackReceiveBlock
-	//recvBlock := w.PackReceiveBlock(sendBlock)
-	//
-	////todo 3.GenerateBlocks
-	err := w.generator.PrepareVm(nil, &sendBlock.ToAddress)
-	if err != nil {
-
+	if w.manager.checkExistInPool(sendBlock.ToAddress, sendBlock.FromBlockHash) {
+		w.log.Info("ProcessOneBlock.checkExistInPool failed")
+		return
 	}
-	genResult, err := w.generator.GenerateWithUnconfirmed(*sendBlock, nil,
+
+	err := w.generator.PrepareVm(nil, nil, &sendBlock.ToAddress)
+	if err != nil {
+		w.log.Error("ProcessOneBlock.PrepareVm failed", "error", err)
+		return
+	}
+
+	genResult, genErr := w.generator.GenerateWithUnconfirmed(*sendBlock, nil,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			return w.generator.Sign(addr, nil, data)
 		})
-	if err != nil {
-		w.log.Error("GenerateTx error ignore, ", "error", err)
+	if genErr != nil {
+		w.log.Error("GenerateTx error ignore, ", "error", genErr)
+		return
 	}
-	////todo 4.InertBlockIntoPool
-	err := w.manager.insertCommonBlockToPool(genResult.BlockGenList)
-	if err != nil {
 
+	poolErr := w.manager.insertCommonBlockToPool(genResult.BlockGenList)
+	if poolErr != nil {
+		w.log.Error("insertCommonBlockToPool failed, ", "error", poolErr)
+		return
 	}
 }
