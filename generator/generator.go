@@ -16,6 +16,8 @@ const (
 	SourceTypeUnconfirmed
 )
 
+type SignerFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
+
 type Generator struct {
 	Vm        vm.VM
 	VmContext vmctxt_interface.VmDatabase
@@ -213,14 +215,11 @@ func (gen *Generator) PackBlockWithRPCMessage(message *RpcMessage) (*ledger.Acco
 	return nil, nil
 }
 
-type SignerFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
-
-func (gen *Generator) Sign(addr types.Address, passphrase string, data []byte) (signedData, pubkey []byte, err error) {
-	if passphrase == "" {
+func (gen *Generator) Sign(addr types.Address, passphrase *string, data []byte) (signedData, pubkey []byte, err error) {
+	if passphrase == nil {
 		return gen.signer.SignData(addr, data)
-
 	} else {
-		return gen.signer.SignDataWithPassphrase(addr, passphrase, data)
+		return gen.signer.SignDataWithPassphrase(addr, *passphrase, data)
 	}
 }
 

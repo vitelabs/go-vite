@@ -49,7 +49,7 @@ func NewContractTask(worker *ContractWorker, index int, getNewBlocksFunc func(in
 		breaker:          make(chan struct{}),
 		wakeup:           make(chan struct{}),
 		accEvent:         worker.accEvent,
-		worker:          worker,
+		worker:           worker,
 		getNewBlocksFunc: getNewBlocksFunc,
 
 		log: worker.log.New("taskid", index),
@@ -173,7 +173,7 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 		recvBlock := gen.PackUnconfirmedReceiveBlock(sBlock, &task.accEvent.SnapshotHash, &task.accEvent.Timestamp)
 		genResult := gen.GenerateWithBlock(generator.SourceTypeUnconfirmed, recvBlock,
 			func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-				return gen.Sign(addr, "", data)
+				return gen.Sign(addr, nil, data)
 			})
 		if err != nil {
 			task.log.Error("GenerateTx error ignore, ", "error", err)
@@ -202,6 +202,7 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 
 			priorBlock = genResult.BlockGenList[len(genResult.BlockGenList)-1].AccountBlock
 		}
+		// todo @lyd wait event
 	WaitForVmDB:
 		if task.verifier.VerifyUnconfirmedPriorBlockReceived(&priorBlock.Hash) == false {
 			goto WaitForVmDB
