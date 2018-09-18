@@ -11,9 +11,14 @@ import (
 )
 
 type HexSignedTuple struct {
-	Message    string `json:"Message"`
-	SignedData string `json:"SignedData"`
-	Pubkey     string `json:"Pubkey"`
+	Message    string `json:"message"`
+	SignedData string `json:"signedData"`
+	Pubkey     string `json:"pubkey"`
+}
+
+type IsMayValidKeystoreFileResponse struct {
+	Maybe      bool
+	MayAddress types.Address
 }
 
 func NewWalletApi(vite *vite.Vite) *WalletApi {
@@ -149,13 +154,17 @@ func (m *WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, pa
 	return t, nil
 }
 
-func (m *WalletApi) IsMayValidKeystoreFile(path string) types.Address {
+func (m *WalletApi) IsMayValidKeystoreFile(path string) IsMayValidKeystoreFileResponse {
 	log.Info("IsValidKeystoreFile")
 	b, addr, _ := keystore.IsMayValidKeystoreFile(path)
 	if b && addr != nil {
-		return *addr
+		return IsMayValidKeystoreFileResponse{
+			true, *addr,
+		}
 	}
-	return types.Address{}
+	return IsMayValidKeystoreFileResponse{
+		false, types.Address{},
+	}
 }
 
 func (m WalletApi) GetDataDir() string {

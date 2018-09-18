@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
@@ -12,63 +13,18 @@ import (
 
 // !!! Block = Transaction = TX
 
-// Send tx parms
-type SendTxParms struct {
-	SelfAddr    types.Address     // who sends the tx
-	ToAddr      types.Address     // who receives the tx
-	TokenTypeId types.TokenTypeId // which token will be sent
-	Passphrase  string            // sender`s passphrase
-	Amount      string            // the amount of specific token will be sent. bigInt
-}
-
-type SimpleBlock struct {
-	Timestamp      uint64
-	Amount         string        // the amount of a specific token had been sent in this block.  bigInt
-	FromAddr       types.Address // who sends the tx
-	ToAddr         types.Address // who receives the tx
-	Status         int           // 0 means unknow, 1 means open (unconfirmed), 2 means closed(already confirmed)
-	Hash           types.Hash    // bigInt. the blocks hash
-	Balance        string        // current balance
-	ConfirmedTimes string        // block`s confirmed times
-}
-
-type BalanceInfo struct {
-	TokenSymbol string // token symbol example  1200 (symbol)
-	TokenName   string // token name
-	TokenTypeId types.TokenTypeId
-	Balance     string
-}
-
-type GetAccountResponse struct {
-	Addr         types.Address // Account address
-	BalanceInfos []BalanceInfo // Account Balance Infos
-	BlockHeight  string        // Account BlockHeight also represents all blocks belong to the account. bigInt.
-}
-
-type GetUnconfirmedInfoResponse struct {
-	Addr                 types.Address // Account address
-	BalanceInfos         []BalanceInfo // Account unconfirmed BalanceInfos (In-transit money)
-	UnConfirmedBlocksLen string        // the length of unconfirmed blocks. bigInt
-}
-
-type InitSyncResponse struct {
-	StartHeight      string // bigInt. where we start sync
-	TargetHeight     string // bigInt. when CurrentHeight == TargetHeight means that sync complete
-	CurrentHeight    string // bigInt.
-	IsFirstSyncDone  bool   // true means sync complete
-	IsStartFirstSync bool   // true means sync start
-}
-
 func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 	return &LedgerApi{
 		ledgerManager: vite.Ledger(),
 		signer:        vite.Signer(),
+		MintageCache:  make(map[types.TokenTypeId]*Mintage),
 	}
 }
 
 type LedgerApi struct {
 	ledgerManager handler_interface.Manager
 	signer        *signer.Master
+	MintageCache  map[types.TokenTypeId]*Mintage
 }
 
 func (l LedgerApi) String() string {
@@ -105,7 +61,16 @@ func (l *LedgerApi) CreateTxWithPassphrase(params *SendTxParms) error {
 	return nil
 }
 
-func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]SimpleBlock, error) {
+func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error) {
+	log.Info("GetBlocksByHash")
+	lists, getError := l.ledgerManager.Ac().GetBlocks(&addr, originBlockHash, count)
+	if getError != nil {
+		return nil, getError.Err
+	}
+	return LedgerAccBlocksToRpcAccBlocks(lists, l), nil
+}
+
+func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int, needTokenInfo *bool) ([]*AccountBlock, error) {
 	log.Info("GetBlocksByAccAddr")
 
 	list, getErr := l.ledgerManager.Ac().GetBlocksByAccAddr(&addr, index, 1, count)
@@ -118,44 +83,24 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int)
 		}
 		return nil, getErr.Err
 	}
-
-	simpleBlocks := make([]SimpleBlock, len(list))
-	for i, v := range list {
-
-		simpleBlocks[i] = SimpleBlock{
-			Timestamp: v.Timestamp,
-			Hash:      *v.Hash,
-		}
-
-		if v.From != nil {
-			simpleBlocks[i].FromAddr = *v.From
-		}
-
-		if v.To != nil {
-			simpleBlocks[i].ToAddr = *v.To
-		}
-
-		if v.Amount != nil {
-			simpleBlocks[i].Amount = v.Amount.String()
-		}
-
-		if v.Meta != nil {
-			simpleBlocks[i].Status = v.Meta.Status
-		}
-
-		if v.Balance != nil {
-			simpleBlocks[i].Balance = v.Balance.String()
-		}
-
-		times := l.getBlockConfirmedTimes(v)
-		if times != nil {
-			simpleBlocks[i].ConfirmedTimes = times.String()
+	blocks := LedgerAccBlocksToRpcAccBlocks(list, l)
+	if needTokenInfo != nil && *needTokenInfo {
+		for _, value := range blocks {
+			if m, ok := l.MintageCache[*value.TokenId]; ok {
+				value.Mintage = m
+			}
+			token, e := l.ledgerManager.Ac().GetToken(*value.TokenId)
+			if e == nil {
+				value.Mintage = rawMintageToRpc(token.Mintage)
+				l.MintageCache[*value.TokenId] = value.Mintage
+			}
 		}
 	}
-	return simpleBlocks, nil
+
+	return blocks, nil
 }
 
-func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.Int {
+func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *string {
 	log.Info("getBlockConfirmedTimes")
 	sc := l.ledgerManager.Sc()
 	sb, e := sc.GetConfirmBlock(block)
@@ -178,13 +123,24 @@ func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *big.Int 
 		log.Info("GetConfirmTimes nil")
 		return nil
 	}
-
-	return times
+	s := times.String()
+	return &s
 }
 
-func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int, count int) ([]SimpleBlock, error) {
+func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int, count int) ([]AccountBlock, error) {
 	log.Info("GetUnconfirmedBlocksByAccAddr")
-	return nil, ErrNotSupport
+	blocks, e := l.ledgerManager.Ac().GetUnconfirmedTxBlocks(index, 1, count, &addr)
+	if e != nil {
+		return nil, e
+	}
+	if len(blocks) == 0 {
+		return nil, nil
+	}
+	result := make([]AccountBlock, len(blocks))
+	for key, value := range blocks {
+		result[key] = *LedgerAccBlockToRpc(value, nil)
+	}
+	return result, nil
 }
 
 func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (GetAccountResponse, error) {
@@ -217,10 +173,8 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (GetAccountResponse,
 				amount = v.TotalAmount.String()
 			}
 			bs[i] = BalanceInfo{
-				TokenSymbol: v.Token.Symbol,
-				TokenName:   v.Token.Name,
-				TokenTypeId: *v.Token.Id,
-				Balance:     amount,
+				Mintage: rawMintageToRpc(v.Token),
+				Balance: amount,
 			}
 		}
 
@@ -256,10 +210,8 @@ func (l *LedgerApi) GetUnconfirmedInfo(addr types.Address) (GetUnconfirmedInfoRe
 		blances := make([]BalanceInfo, len(account.TokenInfoList))
 		for k, v := range account.TokenInfoList {
 			blances[k] = BalanceInfo{
-				TokenSymbol: v.Token.Symbol,
-				TokenName:   v.Token.Name,
-				TokenTypeId: *v.Token.Id,
-				Balance:     v.TotalAmount.String(),
+				Mintage: rawMintageToRpc(v.Token),
+				Balance: v.TotalAmount.String(),
 			}
 		}
 		response.BalanceInfos = blances
@@ -298,17 +250,61 @@ func (l *LedgerApi) GetSnapshotChainHeight() (string, error) {
 	return "", nil
 }
 
-func (l *LedgerApi) StartAutoConfirmTx(addr []string, reply *string) error {
-	return nil
+func (l *LedgerApi) GetLatestSnapshotChainHash() (*types.Hash, error) {
+	log.Info("GetLatestSnapshotChainHash")
+	block, e := l.ledgerManager.Sc().GetLatestBlock()
+	if e != nil {
+		log.Error(e.Error())
+		return nil, e
+	}
+	if block != nil && block.Hash != nil {
+		return block.Hash, nil
+	}
+	return nil, nil
 }
 
-func (l *LedgerApi) StopAutoConfirmTx(addr []string, reply *string) error {
-	return nil
+func (l *LedgerApi) GetLatestBlock(addr types.Address, needToken *bool) (*AccountBlock, error) {
+	log.Info("GetLatestBlock")
+	b, getError := l.ledgerManager.Ac().GetLatestBlock(&addr)
+	if getError != nil {
+		return nil, getError.Err
+	}
+	return LedgerAccBlockToRpc(b, nil), nil
 }
+
+func (l *LedgerApi) SendTx(block *AccountBlock) error {
+	log.Info("SendTx")
+	if block == nil {
+		return errors.New("block nil")
+	}
+	accountBlock, e := block.ToLedgerAccBlock()
+	if e != nil {
+		return e
+	}
+	return l.ledgerManager.Ac().CreateTx(accountBlock)
+}
+
+func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*Mintage, error) {
+	log.Info("GetTokenMintage")
+	token, e := l.ledgerManager.Ac().GetToken(tti)
+	if e != nil {
+		return nil, e
+	}
+	if token.Mintage == nil {
+		return nil, errors.New("token.Mintage nil")
+	}
+	return rawMintageToRpc(token.Mintage), nil
+
+}
+
+//func (l *LedgerApi) StartAutoConfirmTx(addr []string, reply *string) error {
+//	return nil
+//}
+//
+//func (l *LedgerApi) StopAutoConfirmTx(addr []string, reply *string) error {
+//	return nil
+//}
 
 type PublicTxApi struct {
 	txApi *LedgerApi
 }
-
-
-

@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/ledger/handler_interface"
+	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 )
 
@@ -112,4 +112,27 @@ func (ac *AccountChain) AddListener(addr types.Address, change chan<- struct{}) 
 
 func (ac *AccountChain) RemoveListener(addr types.Address) {
 	ac.uAccess.RemoveListener(addr)
+}
+
+func (ac *AccountChain) GetUnconfirmedTxBlocks(index, num, count int, addr *types.Address) ([]*ledger.AccountBlock, error) {
+	hashs, err := ac.uAccess.GetUnconfirmedHashs(index, num, count, addr)
+	if err != nil {
+		adLog.Error("func GetUnconfirmedTxBlocks failed", "error", err)
+		return nil, nil
+	}
+	var blocks []*ledger.AccountBlock
+	for _, v := range hashs {
+		block, err := ac.acAccess.GetBlockByHash(v)
+		if err != nil {
+			adLog.Error("func GetBlockByHash error", "error", err,
+				adLog.New("accountAddress", addr), adLog.New("hash", v))
+			continue
+		}
+		blocks = append(blocks, block)
+	}
+	return blocks, nil
+}
+
+func (ac *AccountChain) GetToken(tti types.TokenTypeId) (*ledger.Token, error) {
+	return ac.tAccess.GetByTokenId(&tti)
 }

@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	client, err := rpc.DialHTTP("http://127.0.0.1:48132")
+	client, err := rpc.DialHTTP("http://192.168.31.235:48132")
 	if err != nil {
 		panic(err)
 	}
