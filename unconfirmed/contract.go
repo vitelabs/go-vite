@@ -25,9 +25,8 @@ type ContractWorker struct {
 	status      int
 	statusMutex sync.Mutex
 
-	isSleep               bool
-	newUnconfirmedTxAlarm chan struct{}
-
+	isSleep                bool
+	newUnconfirmedTxAlarm  chan struct{}
 	breaker                chan struct{}
 	stopDispatcherListener chan struct{}
 
@@ -38,6 +37,8 @@ type ContractWorker struct {
 
 	blackList      map[types.Hash]bool // map[(toAddress+fromAddress).String]
 	blackListMutex sync.RWMutex
+
+	lastAddrIndex int
 
 	log log15.Logger
 }
@@ -113,10 +114,17 @@ func (w *ContractWorker) Stop() {
 		<-w.stopDispatcherListener
 		close(w.stopDispatcherListener)
 
-		// todo 2. Stop all task
+		w.log.Info("stop all task")
+		wg := new(sync.WaitGroup)
 		for _, v := range w.contractTasks {
-			v.Stop()
+			wg.Add(1)
+			go func() {
+				v.Stop()
+				wg.Done()
+			}()
 		}
+		wg.Wait()
+		w.log.Info("all task stopped")
 		w.status = Stop
 	}
 	w.log.Info("stopped")
@@ -140,12 +148,15 @@ func (w *ContractWorker) dispatchTask(index int) *model.FromItem {
 
 	if w.priorityToQueue.Len() == 0 {
 		w.log.Info("priorityToQueue empty now get from db")
-		w.FetchNewFromDb()
-		if w.priorityToQueue.Len() == 0 {
-			w.log.Info("priorityToQueue db empty")
-			return nil
+		for !w.FetchNewFromDb() {
+			if w.priorityToQueue.Len() != 0 {
+				break
+			}
 		}
-		return nil
+	}
+
+	if w.priorityToQueue.Len() == 0 {
+		w.log.Info("priorityToQueue empty cache and db")
 	}
 
 	tItem := heap.Pop(w.priorityToQueue).(*model.ToItem)
@@ -173,6 +184,9 @@ func (w *ContractWorker) waitingNewBlock() {
 
 		for _, v := range w.contractTasks {
 			v.WakeUp()
+			if w.priorityToQueue.Len() == 0 {
+				break
+			}
 		}
 
 		w.isSleep = true
@@ -190,24 +204,42 @@ END:
 	w.log.Info("waitingNewBlock end")
 }
 
-func (w *ContractWorker) FetchNewFromDb() {
+func (w *ContractWorker) FetchNewFromDb() bool {
 	snapshotHash := w.accEvent.SnapshotHash
-	for i := 0; i < len(w.contractAddressList); i++ {
-		blockList, err := w.uBlocksPool.GetUnconfirmedBlocks(0, 1, CONTRACT_FETCH_SIZE, w.contractAddressList[i])
-		if err != nil {
-			w.log.Error("FetchNewFromDb.GetUnconfirmedBlocks", "error", err)
-			continue
-		}
-		for _, v := range blockList {
-			// when a to-from pair  was added into blackList,
-			// the other block which under the same to-from pair won't fetch any more during the same block-out period
-			if w.isInBlackList(v.AccountAddress, v.ToAddress) {
-				fromQuota := w.manager.uAccess.GetAccountQuota(v.AccountAddress, snapshotHash)
-				toQuota := w.manager.uAccess.GetAccountQuota(v.ToAddress, snapshotHash)
-				w.priorityToQueue.InsertNew(v, toQuota, fromQuota)
+	i := w.lastAddrIndex
+	for ; i < len(w.contractAddressList) && (i-w.lastAddrIndex) < CONTRACT_TASK_SIZE; i++ {
+		count := 0
+		nextIndex := 0
+		for {
+			blockList, err := w.uBlocksPool.GetUnconfirmedBlocks(uint64(nextIndex), 1, uint64(CONTRACT_FETCH_SIZE), w.contractAddressList[i])
+			if blockList == nil {
+				break
+			}
+			if err != nil {
+				w.log.Error("FetchNewFromDb.GetUnconfirmedBlocks", "error", err)
+				break
+			}
+			for _, v := range blockList {
+				if !w.isInBlackList(v.AccountAddress, v.ToAddress) {
+					fromQuota := w.manager.uAccess.GetAccountQuota(v.AccountAddress, snapshotHash)
+					toQuota := w.manager.uAccess.GetAccountQuota(v.ToAddress, snapshotHash)
+					w.priorityToQueue.InsertNew(v, toQuota, fromQuota)
+					count++
+				}
+			}
+			if count < CONTRACT_FETCH_SIZE {
+				nextIndex++
+			} else {
+				break
 			}
 		}
 	}
+	w.lastAddrIndex = i
+	if w.lastAddrIndex >= len(w.contractAddressList) {
+		w.lastAddrIndex = 0
+		return true
+	}
+	return false
 }
 
 func (w *ContractWorker) addIntoBlackList(from types.Address, to types.Address) {
