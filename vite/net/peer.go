@@ -34,13 +34,11 @@ type reqInfo struct {
 	size uint64
 }
 
-func (r *reqInfo) Replay() {
-
-}
-
 const filterCap = 100000
 
 // @section Peer for protocol handle, not p2p Peer.
+var errPeerTermed = errors.New("peer has been terminated")
+
 type Peer struct {
 	*p2p.Peer
 	ts                p2p.MsgReadWriter
@@ -49,13 +47,14 @@ type Peer struct {
 	height            uint64
 	Version           uint64
 	Lock              sync.RWMutex
-	sending           chan struct{} // use this channel to ensure that only one goroutine send msg simultaneously.
 	KnownBlocks       Set
 	Log               log15.Logger
 	term              chan struct{}
 	sendSnapshotBlock chan *ledger.SnapshotBlock  // sending new snapshotblock
 	sendAccountBlocks chan []*ledger.AccountBlock // sending new accountblocks
 	Speed             int                         // response performance
+	jobLock           sync.RWMutex
+	jobs              []*req
 }
 
 func newPeer(p *p2p.Peer, ts p2p.MsgReadWriter, version uint64) *Peer {
@@ -64,7 +63,6 @@ func newPeer(p *p2p.Peer, ts p2p.MsgReadWriter, version uint64) *Peer {
 		ts:                ts,
 		ID:                p.ID().Brief(),
 		Version:           version,
-		sending:           make(chan struct{}, 1),
 		KnownBlocks:       NewCuckooSet(filterCap),
 		Log:               log15.New("module", "net/peer"),
 		term:              make(chan struct{}),
@@ -171,6 +169,53 @@ func (p *Peer) SeeBlock(hash types.Hash) {
 	p.KnownBlocks.Add(hash)
 }
 
+func (p *Peer) execute(r *req) error {
+	p.jobLock.Lock()
+	defer p.jobLock.Unlock()
+
+	select {
+	case <-p.term:
+		return errPeerTermed
+	default:
+		p.jobs = append(p.jobs, r)
+		return r.peer.Send(r.param.Cmd, r.param.Params)
+	}
+}
+
+func (p *Peer) delete(r *req) {
+	p.jobLock.Lock()
+	defer p.jobLock.Unlock()
+
+	i := 0
+	for j, req := range p.jobs {
+		if !req.Equal(r) {
+			p.jobs[i] = p.jobs[j]
+			i++
+		}
+	}
+
+	p.jobs = p.jobs[:i]
+}
+
+func (p *Peer) receive(cmd Cmd, data interface{}) {
+	p.jobLock.RLock()
+	defer p.jobLock.RUnlock()
+
+	for _, job := range p.jobs {
+		go func(r *req) {
+			if r.callback != nil {
+				done, err := r.callback(cmd, data)
+				r.errch <- err
+				r.done <- done
+
+				if err != nil || done {
+					p.delete(r)
+				}
+			}
+		}(job)
+	}
+}
+
 // response
 func (p *Peer) SendSnapshotBlockHeaders(headers) error {
 	return p.Send(SnapshotBlockHeadersCode, headers)
@@ -262,6 +307,15 @@ func (p *Peer) Destroy() {
 	case <-p.term:
 	default:
 		close(p.term)
+
+		p.jobLock.Lock()
+		defer p.jobLock.Unlock()
+		// put jobs back to reqPool
+		for _, job := range p.jobs {
+			job.errch <- errPeerTermed
+		}
+
+		p.jobs = nil
 	}
 }
 
@@ -276,14 +330,26 @@ func (p *Peer) Info() *PeerInfo {
 	return &PeerInfo{}
 }
 
-func (p *Peer) Receive(cmd uint64, payload interface{}) {
-
+func (p *Peer) Receive(cmd Cmd, payload interface{}) {
+	p.jobLock.RLock()
+	defer p.jobLock.RUnlock()
+	for _, job := range p.jobs {
+		if job.callback != nil {
+			done, err := job.callback(cmd, payload)
+			job.done <- done
+			job.errch <- err
+		}
+	}
 }
 
 // @section PeerSet
+var errSetHasClosed = errors.New("peer set has closed")
+var errSetHasPeer = errors.New("peer is existed")
+
 type peerSet struct {
-	peers map[string]*Peer
-	rw    sync.RWMutex
+	peers  map[string]*Peer
+	rw     sync.RWMutex
+	closed bool
 }
 
 func NewPeerSet() *peerSet {
@@ -292,6 +358,7 @@ func NewPeerSet() *peerSet {
 	}
 }
 
+// the tallest peer
 func (m *peerSet) BestPeer() (best *Peer) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
@@ -313,10 +380,19 @@ func (m *peerSet) Has(id string) bool {
 	return ok
 }
 
-func (m *peerSet) Add(peer *Peer) {
+func (m *peerSet) Add(peer *Peer) error {
 	m.rw.Lock()
+	defer m.rw.Unlock()
+
+	if m.closed {
+		return errSetHasClosed
+	}
+	if _, ok := m.peers[peer.ID]; ok {
+		return errSetHasPeer
+	}
+
 	m.peers[peer.ID] = peer
-	m.rw.Unlock()
+	return nil
 }
 
 func (m *peerSet) Del(peer *Peer) {
@@ -332,6 +408,7 @@ func (m *peerSet) Count() int {
 	return len(m.peers)
 }
 
+// pick peers whose height taller than the target height
 func (m *peerSet) Pick(height uint64) (peers []*Peer) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
@@ -341,6 +418,20 @@ func (m *peerSet) Pick(height uint64) (peers []*Peer) {
 			peers = append(peers, p)
 		}
 	}
+
+	return
+}
+
+func (m *peerSet) PickIdle(height uint64) (peers []*Peer) {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+
+	for _, p := range m.peers {
+		if p.Head().Height > height && len(p.jobs) == 0 {
+			peers = append(peers, p)
+		}
+	}
+
 	return
 }
 
@@ -366,4 +457,15 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*Peer) {
 	}
 
 	return
+}
+
+func (m *peerSet) close() {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+
+	for _, peer := range m.peers {
+		peer.Disconnect(p2p.DiscQuitting)
+	}
+
+	m.closed = true
 }

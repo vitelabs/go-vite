@@ -8,9 +8,15 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/net/protos"
 	"github.com/vitelabs/go-vite/vitepb"
+	"time"
 )
 
 var errHandshakeTwice = errors.New("handshake should send only once")
+var errMsgTimeout = errors.New("message response timeout")
+
+var subledgerTimeout = 10 * time.Second
+var accountBlocksTimeout = 30 * time.Second
+var snapshotBlocksTimeout = time.Minute
 
 const CmdSetName = "vite"
 const CmdSetID uint64 = 2
@@ -34,6 +40,10 @@ func (b *BlockID) Equal(hash types.Hash, height uint64) bool {
 	}
 
 	return equalHash && equalHeight
+}
+
+func (b *BlockID) Ceil() uint64 {
+	return b.Height
 }
 
 func (b *BlockID) proto() *protos.BlockID {
@@ -129,6 +139,17 @@ func (s *Segment) proto() *protos.Segment {
 	}
 }
 
+func (b *Segment) deProto(pb *protos.Segment) {
+	b.From = new(BlockID)
+	b.From.deProto(pb.From)
+
+	b.To = new(BlockID)
+	b.To.deProto(pb.To)
+
+	b.Step = pb.Step
+	b.Forward = pb.Forward
+}
+
 func (s *Segment) Serialize() ([]byte, error) {
 	return proto.Marshal(s.proto())
 }
@@ -151,6 +172,67 @@ func (s *Segment) Deserialize(data []byte) error {
 	return nil
 }
 
+func (s *Segment) Equal(v interface{}) bool {
+	s2, ok := v.(*Segment)
+	if !ok {
+		return false
+	}
+	fromeq := s.From.Equal(s2.From.Hash, s2.From.Height)
+	toeq := s.To.Equal(s2.To.Hash, s2.To.Height)
+	stepeq := s.Step == s2.Step
+	feq := s.Forward == s2.Forward
+
+	return fromeq && toeq && stepeq && feq
+}
+
+func (s *Segment) Ceil() uint64 {
+	return s.From.Height
+}
+
+// @section Hashes
+type Hashes []types.Hash
+
+func (hs Hashes) Serialize() ([]byte, error) {
+	panic("implement me")
+}
+
+func (hs Hashes) Deserialize(buf []byte) error {
+	panic("implement me")
+}
+
+func (hs Hashes) Equal(v interface{}) bool {
+	h2, ok := v.(Hashes)
+	if !ok {
+		return false
+	}
+
+	if len(hs) != len(h2) {
+		return false
+	}
+
+	for _, hash := range hs {
+		if !h2.Contain(hash) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (hs Hashes) Ceil() uint64 {
+	return 0
+}
+
+func (hs Hashes) Contain(hash types.Hash) bool {
+	for _, h := range hs {
+		if h == hash {
+			return true
+		}
+	}
+
+	return false
+}
+
 type AccountSegment map[string]*Segment
 
 func (as AccountSegment) Serialize() ([]byte, error) {
@@ -162,6 +244,28 @@ func (as AccountSegment) Serialize() ([]byte, error) {
 func (as AccountSegment) Deserialize(data []byte) error {
 	// todo
 	return nil
+}
+
+func (as AccountSegment) Equal(v interface{}) bool {
+	// todo
+	return true
+}
+
+func (as AccountSegment) Ceil(v interface{}) uint64 {
+	return 0
+}
+
+type subLedgerMsg struct {
+	snapshotblocks []*ledger.SnapshotBlock
+	accountblocks  []*ledger.AccountBlock
+}
+
+func (s *subLedgerMsg) Serialize() ([]byte, error) {
+	panic("implement me")
+}
+
+func (s *subLedgerMsg) Deserialize(buf []byte) error {
+	panic("implement me")
 }
 
 // @message HandShake
@@ -200,6 +304,7 @@ func (st *HandShakeMsg) Deserialize(data []byte) error {
 }
 
 type GetSubLedgerMsg = *Segment
+
 type GetSnapshotBlockHeadersMsg = *Segment
 type GetSnapshotBlockBodiesMsg []*types.Hash
 type GetSnapshotBlocksMsg []*types.Hash
@@ -212,12 +317,12 @@ type SubLedgerMsg struct {
 // todo type SnapshotBlockHeadersMsg
 // todo type SnapshotBlockBodiesMsg
 type SnapshotBlocksMsg = []*ledger.SnapshotBlock
-type AccountBlocksMsg map[string]*ledger.AccountBlock
+type AccountBlocksMsg map[string][]*ledger.AccountBlock
 
 type NewBlockMsg *ledger.SnapshotBlock
 
 // @message ExceptionMsg
-type ExceptionMsg uint
+type ExceptionMsg uint64
 
 const (
 	Fork                ExceptionMsg = iota // you have forked
@@ -249,13 +354,13 @@ func (exp ExceptionMsg) String() string {
 	return execption[exp]
 }
 
-func (exp *ExceptionMsg) Serialize() ([]byte, error) {
+func (exp ExceptionMsg) Serialize() ([]byte, error) {
 	buf := make([]byte, 10)
-	n := binary.PutUvarint(buf, uint64(*exp))
+	n := binary.PutUvarint(buf, uint64(exp))
 	return buf[:n], nil
 }
-func (exp *ExceptionMsg) Deserialize(buf []byte) error {
+func (exp ExceptionMsg) Deserialize(buf []byte) error {
 	i, _ := binary.Varint(buf)
-	*exp = ExceptionMsg(i)
+	exp = ExceptionMsg(i)
 	return nil
 }
