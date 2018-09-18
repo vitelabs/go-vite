@@ -128,3 +128,8 @@ func GenesesCreateGroupBlock() *AccountBlock {
 func GenesesCreateGroupReceiveBlock() *AccountBlock {
 	return nil
 }
+
+func (ab AccountBlock) IsContractTx() bool {
+	//return len(ab.Code) != 0
+	return false
+}

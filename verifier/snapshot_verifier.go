@@ -15,7 +15,7 @@ type SnapshotVerifier struct {
 }
 
 func NewSnapshotVerifier() *SnapshotVerifier {
-	// todo add chain reader
+	// todo add chain chainReader
 	verifier := &SnapshotVerifier{}
 	return verifier
 }

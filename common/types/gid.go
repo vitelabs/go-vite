@@ -8,10 +8,16 @@ import (
 
 const GidSize = 10
 
+var (
+	PRIVATE_GID  = [GidSize]byte{0}
+	SNAPSHOT_GID = [GidSize]byte{1}
+	DELEGATE_GID = [GidSize]byte{2}
+)
+
 type Gid [GidSize]byte
 
 func DataToGid(data ...[]byte) Gid {
-	gid, _ := BytesToGid(crypto.Hash(10, data...))
+	gid, _ := BytesToGid(crypto.Hash(GidSize, data...))
 	return gid
 }
 

@@ -76,6 +76,11 @@ func DataHash(data []byte) Hash {
 	return h
 }
 
+func DataListHash(data ...[]byte) Hash {
+	h, _ := BytesToHash(crypto.Hash256(data...))
+	return h
+}
+
 func (h *Hash) UnmarshalJSON(input []byte) error {
 	if !isString(input) {
 		return ErrJsonNotString
