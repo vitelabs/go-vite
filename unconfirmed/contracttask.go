@@ -18,7 +18,7 @@ type ContractTask struct {
 	blocksPool *model.UnconfirmedBlocksPool
 	pool       PoolReader
 	verifier   *verifier.AccountVerifier
-	genBuilder *generator.GenBuilder
+	generator  *generator.Generator
 
 	status      int
 	statusMutex sync.Mutex
@@ -43,7 +43,7 @@ func NewContractTask(worker *ContractWorker, index int, getNewBlocksFunc func(in
 		blocksPool:       worker.uBlocksPool,
 		pool:             worker.manager.pool,
 		verifier:         worker.verifier,
-		genBuilder:       worker.manager.genBuilder,
+		generator:        generator.NewGenerator(worker.manager.vite.Chain(), worker.manager.vite.WalletManager().KeystoreManager),
 		status:           Create,
 		stopListener:     make(chan struct{}),
 		breaker:          make(chan struct{}),
@@ -121,7 +121,7 @@ func (task *ContractTask) work() {
 			task.log.Info("start awake")
 		case <-task.breaker:
 			task.log.Info("worker broken")
-			goto END
+			break
 		}
 	}
 END:
@@ -163,17 +163,20 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 			continue
 		}
 
-		genBuilder, err := task.genBuilder.PrepareVm(&task.accEvent.SnapshotHash, &block.PrevHash, &block.AccountAddress)
+		err := task.generator.PrepareVm(&task.accEvent.SnapshotHash, &sBlock.ToAddress)
 		if err != nil {
 			task.log.Error("NewGenerator Error", err)
 			return true
 		}
 
-		gen := genBuilder.Build()
-		recvBlock := gen.PackUnconfirmedReceiveBlock(sBlock, &task.accEvent.SnapshotHash, &task.accEvent.Timestamp)
-		genResult := gen.GenerateWithBlock(generator.SourceTypeUnconfirmed, recvBlock,
+		consensusMessage := &generator.ConsensusMessage{
+			SnapshotHash: task.accEvent.SnapshotHash,
+			Timestamp:    task.accEvent.Timestamp,
+			Producer:     task.accEvent.Address,
+		}
+		genResult, err := task.generator.GenerateWithUnconfirmed(*sBlock, consensusMessage,
 			func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-				return gen.Sign(addr, nil, data)
+				return task.generator.Sign(addr, nil, data)
 			})
 		if err != nil {
 			task.log.Error("GenerateTx error ignore, ", "error", err)
@@ -202,7 +205,8 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 
 			priorBlock = genResult.BlockGenList[len(genResult.BlockGenList)-1].AccountBlock
 		}
-		// todo @lyd wait event
+
+		//todo add Listener
 	WaitForVmDB:
 		if task.verifier.VerifyUnconfirmedPriorBlockReceived(&priorBlock.Hash) == false {
 			goto WaitForVmDB
