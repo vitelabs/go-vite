@@ -7,9 +7,12 @@
 .idea
 .DS_Store
 gvite
+testdata/trie
 
 # Test binary, build with `go test -c`
 *.test
+testdata/trie
+testdata/vm_context
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out

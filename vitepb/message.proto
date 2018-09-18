@@ -6,9 +6,9 @@ import "vitepb/account_block_net.proto";
 import "vitepb/snapshot_block_net.proto";
 
 message StatusMsg {
-    uint64 NetworkId = 1;
-    uint32 ProtocolVersion = 2;
-    bytes Height = 3;
+    uint64 NetID = 1;
+    uint64 Version = 2;
+    uint64 Height = 3;
     bytes CurrentBlock = 4;
     bytes GenesisBlock = 5;
 }
