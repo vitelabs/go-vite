@@ -11,7 +11,7 @@ type VmDatabase interface {
 	AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int)
 	SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int)
 	GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock
-	// forward=true return (startHeight, startHeight+count], forward=false return [startHeight-count, start)
+	// forward=true return [startHeight, startHeight+count), forward=false return (startHeight-count, startHeight]
 	GetSnapshotBlocks(startHeight uint64, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock
 
 	GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock
