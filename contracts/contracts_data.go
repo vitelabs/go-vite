@@ -98,7 +98,7 @@ func GetConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 			break
 		}
 		consensusGroupInfo := new(ConsensusGroupInfo)
-		ABI_pledge.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value)
+		ABI_consensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value)
 		consensusGroupInfo.Gid = GetGidFromConsensusGroupKey(key)
 		consensusGroupInfoList = append(consensusGroupInfoList, consensusGroupInfo)
 	}
@@ -106,10 +106,10 @@ func GetConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 }
 
 func GetConsensusGroup(db StorageDatabase, gid types.Gid) *ConsensusGroupInfo {
-	data := db.GetStorage(&AddressConsensusGroup, types.DataHash(gid.Bytes()).Bytes())
+	data := db.GetStorage(&AddressConsensusGroup, GetConsensusGroupKey(gid))
 	if len(data) > 0 {
 		consensusGroupInfo := new(ConsensusGroupInfo)
-		ABI_pledge.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)
+		ABI_consensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)
 		consensusGroupInfo.Gid = gid
 		return consensusGroupInfo
 	}

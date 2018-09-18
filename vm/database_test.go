@@ -177,7 +177,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 	addr1, _ = types.BytesToAddress(helper.HexToBytes("CA35B7D915458EF540ADE6068DFE2F44E8FA733C"))
 	db = NewNoDatabase()
 	db.storageMap[contracts.AddressMintage] = make(map[types.Hash][]byte)
-	viteTokenIdLoc, _ := types.BytesToHash(helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32))
+	viteTokenIdLoc, _ := types.BytesToHash(helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), 32))
 	db.storageMap[contracts.AddressMintage][viteTokenIdLoc], _ = contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), int64(0))
 
 	timestamp = 1536214502
@@ -195,7 +195,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 		AccountAddress: addr1,
 		BlockType:      ledger.BlockTypeSendCall,
 		Amount:         viteTotalSupply,
-		TokenId:        *ledger.ViteTokenId(),
+		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot1.Hash,
 	}
 	db.accountBlockMap[addr1] = make(map[types.Hash]*ledger.AccountBlock)
@@ -209,26 +209,25 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash11,
 		Amount:         viteTotalSupply,
-		TokenId:        *ledger.ViteTokenId(),
+		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot1.Hash,
 	}
 	db.accountBlockMap[addr1][hash12] = block12
 
 	db.balanceMap[addr1] = make(map[types.TokenTypeId]*big.Int)
-	db.balanceMap[addr1][*ledger.ViteTokenId()] = new(big.Int).Set(viteTotalSupply)
+	db.balanceMap[addr1][ledger.ViteTokenId] = new(big.Int).Set(viteTotalSupply)
 
 	db.storageMap[contracts.AddressConsensusGroup] = make(map[types.Hash][]byte)
 	consensusGroupKey, _ := types.BytesToHash(contracts.GetConsensusGroupKey(*ledger.CommonGid()))
 	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey], _ = contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
-		uint8(1),
-		helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize),
-		uint8(1),
-		helper.JoinBytes(helper.LeftPadBytes(registerAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(registerLockTime).Bytes(), helper.WordSize)),
-		uint8(1),
+		uint8(0),
+		helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize),
+		uint8(0),
+		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), attovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600*24*90).Bytes(), helper.WordSize)),
+		uint8(0),
 		[]byte{})
-
 	db.storageMap[contracts.AddressPledge] = make(map[types.Hash][]byte)
 	db.storageMap[contracts.AddressPledge][types.DataHash(addr1.Bytes())], _ = contracts.ABI_pledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	return

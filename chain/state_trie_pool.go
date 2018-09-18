@@ -27,7 +27,6 @@ func (pool *StateTriePool) Set(address *types.Address, trie *trie.Trie) {
 	pool.setLock.Lock()
 	defer pool.setLock.Unlock()
 	pool.unsafeSet(address, trie)
-	//pool.unsafeSet(address, trie)
 }
 
 func (pool *StateTriePool) Get(address *types.Address) (*trie.Trie, error) {
