@@ -18,10 +18,10 @@ type Account struct {
 	PublicKey      ed25519.PublicKey
 }
 
-func (*Account) DbSerialize() ([]byte, error) {
+func (*Account) Serialize() ([]byte, error) {
 	return nil, nil
 }
 
-func (*Account) DbDeserialize([]byte) error {
+func (*Account) Deserialize([]byte) error {
 	return nil
 }
