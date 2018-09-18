@@ -453,8 +453,8 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *st
 func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	tmp := stack.pop()
 	height := tmp.Uint64()
-	snapshotHeight := c.block.VmContext.GetSnapshotBlock(&c.block.AccountBlock.SnapshotHash).Height
-	n := snapshotHeight - 256
+	snapshotHeight := c.block.VmContext.CurrentSnapshotBlock().Height
+	n := snapshotHeight - getBlockByHeightLimit
 	if height > n && height <= snapshotHeight {
 		stack.push(c.intPool.get().SetBytes(c.block.VmContext.GetSnapshotBlockByHeight(height).Hash.Bytes()))
 	} else {
@@ -466,12 +466,12 @@ func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) 
 }
 
 func opTimestamp(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(helper.U256(c.intPool.get().SetInt64((c.block.VmContext.GetSnapshotBlock(&c.block.AccountBlock.SnapshotHash).Timestamp.Unix()))))
+	stack.push(helper.U256(c.intPool.get().SetInt64((c.block.VmContext.CurrentSnapshotBlock().Timestamp.Unix()))))
 	return nil, nil
 }
 
 func opHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(helper.U256(c.intPool.get().SetUint64(c.block.VmContext.GetSnapshotBlock(&c.block.AccountBlock.SnapshotHash).Height)))
+	stack.push(helper.U256(c.intPool.get().SetUint64(c.block.VmContext.CurrentSnapshotBlock().Height)))
 	return nil, nil
 }
 

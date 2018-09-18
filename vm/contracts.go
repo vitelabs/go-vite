@@ -122,7 +122,7 @@ func (p *pRegister) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft u
 func (p *pRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(contracts.ParamRegister)
 	contracts.ABI_register.UnpackMethod(param, contracts.MethodNameRegister, block.AccountBlock.Data)
-	snapshotBlock := block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash)
+	snapshotBlock := block.VmContext.CurrentSnapshotBlock()
 	rewardHeight := snapshotBlock.Height
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
 	oldData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key)
@@ -188,12 +188,12 @@ func (p *pCancelRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, se
 	}
 
 	// update lock amount and loc start timestamp
-	snapshotBlock := block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash)
+	snapshotBlock := block.VmContext.CurrentSnapshotBlock()
 	registerInfo, _ := contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, param.Name, old.NodeAddr, old.PledgeAddr, old.BeneficialAddr, common.Big0, int64(0), old.RewardHeight, snapshotBlock.Height)
 	block.VmContext.SetStorage(key, registerInfo)
 	// return locked ViteToken
 	if old.Amount.Sign() > 0 {
-		vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, sendBlock.AccountAddress, ledger.BlockTypeSendCall, old.Amount, *ledger.ViteTokenId(), []byte{}), nil})
+		vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, sendBlock.AccountAddress, ledger.BlockTypeSendCall, old.Amount, ledger.ViteTokenId, []byte{}), nil})
 	}
 	return nil
 }
@@ -227,7 +227,7 @@ func (p *pReward) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uin
 		return quotaLeft, ErrInvalidData
 	}
 	// newRewardHeight := min(currentSnapshotHeight-50, userDefined, cancelSnapshotHeight)
-	newRewardHeight := block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash).Height - rewardHeightLimit
+	newRewardHeight := block.VmContext.CurrentSnapshotBlock().Height - rewardHeightLimit
 	if param.EndHeight > 0 {
 		newRewardHeight = helper.Min(newRewardHeight, param.EndHeight)
 	}
@@ -308,7 +308,7 @@ func (p *pReward) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock 
 
 	if param.Amount.Sign() > 0 {
 		// create reward and return
-		vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, sendBlock.AccountAddress, ledger.BlockTypeSendReward, param.Amount, *ledger.ViteTokenId(), []byte{}), nil})
+		vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, sendBlock.AccountAddress, ledger.BlockTypeSendReward, param.Amount, ledger.ViteTokenId, []byte{}), nil})
 	}
 	return nil
 }
@@ -474,7 +474,7 @@ func (p *pPledge) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uin
 		return quotaLeft, ErrInvalidData
 	}
 
-	if time.Unix(param.WithdrawTime-pledgeTime, 0).Before(*block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash).Timestamp) {
+	if time.Unix(param.WithdrawTime-pledgeTime, 0).Before(*block.VmContext.CurrentSnapshotBlock().Timestamp) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
@@ -549,7 +549,7 @@ func (p *pCancelPledge) doReceive(vm *VM, block *vm_context.VmAccountBlock, send
 	locHashPledge := types.DataHash(append(sendBlock.AccountAddress.Bytes(), locHashBeneficial...)).Bytes()
 	oldPledge := new(contracts.VariablePledgeInfo)
 	err := contracts.ABI_pledge.UnpackVariable(oldPledge, contracts.VariableNamePledgeInfo, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, locHashPledge))
-	if err != nil || time.Unix(oldPledge.WithdrawTime, 0).After(*block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash).Timestamp) || oldPledge.Amount.Cmp(param.Amount) < 0 {
+	if err != nil || time.Unix(oldPledge.WithdrawTime, 0).After(*block.VmContext.CurrentSnapshotBlock().Timestamp) || oldPledge.Amount.Cmp(param.Amount) < 0 {
 		return ErrInvalidData
 	}
 	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)
@@ -575,7 +575,7 @@ func (p *pCancelPledge) doReceive(vm *VM, block *vm_context.VmAccountBlock, send
 	}
 
 	// append refund block
-	vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, sendBlock.AccountAddress, ledger.BlockTypeSendCall, param.Amount, *ledger.ViteTokenId(), []byte{}), nil})
+	vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, sendBlock.AccountAddress, ledger.BlockTypeSendCall, param.Amount, ledger.ViteTokenId, []byte{}), nil})
 	return nil
 }
 
@@ -717,6 +717,9 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 			!isUserAccount(block.VmContext, blockParam.NodeAddr) {
 			return false
 		}
+		if ok, _ := regexp.MatchString("^[0-9a-zA-Z]{1,40}$", blockParam.Name); !ok {
+			return false
+		}
 		param := new(contracts.VariableConditionRegisterOfPledge)
 		contracts.ABI_consensusGroup.UnpackVariable(param, contracts.VariableNameConditionRegisterOfPledge, paramData)
 		if block.AccountBlock.Amount.Cmp(param.PledgeAmount) != 0 || !bytes.Equal(block.AccountBlock.TokenId.Bytes(), param.PledgeToken.Bytes()) {
@@ -737,7 +740,7 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 		err := contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.ToAddress, key))
 		if err != nil || !bytes.Equal(old.PledgeAddr.Bytes(), block.AccountBlock.AccountAddress.Bytes()) ||
 			old.Timestamp == 0 ||
-			old.Timestamp+param.PledgeTime < block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash).Timestamp.Unix() {
+			old.Timestamp+param.PledgeTime < block.VmContext.CurrentSnapshotBlock().Timestamp.Unix() {
 			return false
 		}
 	case contracts.MethodNameUpdateRegistration:
@@ -861,7 +864,7 @@ func (p *pMintage) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock
 	if block.AccountBlock.Amount.Sign() == 0 {
 		tokenInfo, _ = contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals, sendBlock.AccountAddress, sendBlock.Amount, int64(0))
 	} else {
-		tokenInfo, _ = contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals, sendBlock.AccountAddress, sendBlock.Amount, block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash).Timestamp.Unix()+mintagePledgeTime)
+		tokenInfo, _ = contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals, sendBlock.AccountAddress, sendBlock.Amount, block.VmContext.CurrentSnapshotBlock().Timestamp.Unix()+mintagePledgeTime)
 	}
 	block.VmContext.SetStorage(key, tokenInfo)
 	vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, sendBlock.AccountAddress, ledger.BlockTypeSendReward, param.TotalSupply, param.TokenId, []byte{}), nil})
@@ -892,7 +895,7 @@ func (p *pMintageCancelPledge) doSend(vm *VM, block *vm_context.VmAccountBlock, 
 		return quotaLeft, ErrInvalidData
 	}
 	tokenInfo := contracts.GetTokenById(block.VmContext, *tokenId)
-	if !bytes.Equal(tokenInfo.Owner.Bytes(), block.AccountBlock.AccountAddress.Bytes()) || tokenInfo.PledgeAmount.Sign() == 0 || tokenInfo.Timestamp > block.VmContext.GetSnapshotBlock(&block.AccountBlock.SnapshotHash).Timestamp.Unix() {
+	if !bytes.Equal(tokenInfo.Owner.Bytes(), block.AccountBlock.AccountAddress.Bytes()) || tokenInfo.PledgeAmount.Sign() == 0 || tokenInfo.Timestamp > block.VmContext.CurrentSnapshotBlock().Timestamp.Unix() {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
@@ -906,7 +909,7 @@ func (p *pMintageCancelPledge) doReceive(vm *VM, block *vm_context.VmAccountBloc
 	newTokenInfo, _ := contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, tokenInfo.TokenName, tokenInfo.TokenSymbol, tokenInfo.TotalSupply, tokenInfo.Decimals, tokenInfo.Owner, big.NewInt(0), int64(0))
 	block.VmContext.SetStorage(storageKey, newTokenInfo)
 	if tokenInfo.PledgeAmount.Sign() > 0 {
-		vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, tokenInfo.Owner, ledger.BlockTypeSendCall, tokenInfo.PledgeAmount, *ledger.ViteTokenId(), []byte{}), nil})
+		vm.blockList = append(vm.blockList, &vm_context.VmAccountBlock{makeSendBlock(block.AccountBlock, tokenInfo.Owner, ledger.BlockTypeSendCall, tokenInfo.PledgeAmount, ledger.ViteTokenId, []byte{}), nil})
 	}
 	return nil
 }
