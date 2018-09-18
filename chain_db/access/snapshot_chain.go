@@ -197,7 +197,6 @@ func (sc *SnapshotChain) GetSbHashList(height uint64, count, step int, forward b
 	defer iter.Release()
 
 	if forward {
-
 		iter.Next()
 	} else {
 		iter.Prev()
@@ -234,12 +233,15 @@ func (sc *SnapshotChain) DeleteByHeight(batch *leveldb.Batch, toHeight uint64) (
 
 	currentHeight := toHeight
 	for iter.Next() {
-		if err := iter.Error(); err != nil {
-			if err != leveldb.ErrNotFound {
-				iter.Release()
-				return nil, err
-			}
-			break
+		snapshotBlock := &ledger.SnapshotBlock{}
+		if sdErr := snapshotBlock.DbDeserialize(iter.Value()); sdErr != nil {
+			return nil, sdErr
+		}
+
+		var getContentErr error
+		snapshotBlock.SnapshotContent, getContentErr = sc.GetSnapshotContent(currentHeight)
+		if getContentErr != nil {
+			return nil, getContentErr
 		}
 
 		hash := getSnapshotBlockHash(iter.Key())
@@ -251,12 +253,13 @@ func (sc *SnapshotChain) DeleteByHeight(batch *leveldb.Batch, toHeight uint64) (
 		snapshotBlockHashIndex, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCKHASH, hash.Bytes())
 		batch.Delete(snapshotBlockHashIndex)
 
-		deleteList = append(deleteList, &ledger.SnapshotBlock{
-			Hash:   *hash,
-			Height: currentHeight,
-		})
+		deleteList = append(deleteList, snapshotBlock)
 
 		currentHeight++
+	}
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		iter.Release()
+		return nil, err
 	}
 
 	return deleteList, nil

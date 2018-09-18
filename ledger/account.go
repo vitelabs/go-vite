@@ -5,6 +5,13 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
+const (
+	AccountTypeError    = 0
+	AccountTypeNotExist = 1
+	AccountTypeGeneral  = 2
+	AccountTypeContract = 3
+)
+
 type Account struct {
 	AccountAddress types.Address
 	AccountId      uint64

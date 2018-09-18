@@ -7,6 +7,28 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+// 0 means error, 1 means not exist, 2 means general account, 3 means contract account.
+func (c *Chain) AccountType(address *types.Address) (uint64, error) {
+	account, err := c.GetAccount(address)
+	if err != nil {
+		return ledger.AccountTypeError, err
+	}
+
+	if account == nil {
+		return ledger.AccountTypeNotExist, nil
+	}
+
+	gid, getGidErr := c.GetContractGid(address)
+	if getGidErr != nil {
+		return ledger.AccountTypeError, getGidErr
+	}
+
+	if gid == nil {
+		return ledger.AccountTypeGeneral, nil
+	}
+	return ledger.AccountTypeContract, nil
+}
+
 func (c *Chain) GetAccount(address *types.Address) (*ledger.Account, error) {
 	account, err := c.chainDb.Account.GetAccountByAddress(address)
 	if err != nil {
