@@ -157,6 +157,7 @@ func (w *ContractWorker) dispatchTask(index int) *model.FromItem {
 
 	if w.priorityToQueue.Len() == 0 {
 		w.log.Info("priorityToQueue empty cache and db")
+		return nil
 	}
 
 	tItem := heap.Pop(w.priorityToQueue).(*model.ToItem)
