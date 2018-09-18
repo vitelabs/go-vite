@@ -32,3 +32,35 @@ message GetAccountBlocksMsg {
 message AccountBlocksMsg {
     repeated vitepb.AccountBlockNet blocks = 3;
 }
+
+// version 2
+message BlockID {
+    bytes Hash = 1;
+    uint64 Height = 2;
+}
+
+message Segment {
+    BlockID From = 1;
+    BlockID To = 2;
+    uint64 Step = 3;
+}
+
+message AccountSegment {
+    bytes Address = 1;
+    Segment Segment = 2;
+}
+
+message MultiAccountSegment {
+    repeated AccountSegment Segments = 1;
+}
+
+message FileList {
+    repeated string Files = 1;
+    uint64 Start = 2;
+    uint64 End = 3;
+}
+
+message SubLedger {
+    repeated vitepb.SnapshotBlockNet SBlocks = 1;
+    repeated vitepb.AccountBlockNet ABlocks = 2;
+}

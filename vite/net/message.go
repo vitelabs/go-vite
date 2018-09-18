@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vite/net/protos"
 	"github.com/vitelabs/go-vite/vitepb"
 	"time"
 )
@@ -25,32 +24,21 @@ type BlockID struct {
 }
 
 func (b *BlockID) Equal(hash types.Hash, height uint64) bool {
-	equalHash := true
-	equalHeight := true
-
-	if hash != types.ZERO_HASH && b.Hash != types.ZERO_HASH {
-		equalHash = hash == b.Hash
-	}
-
-	if height != 0 && b.Height != 0 {
-		equalHeight = height == b.Height
-	}
-
-	return equalHash && equalHeight
+	return b.Hash == hash && b.Height == height
 }
 
 func (b *BlockID) Ceil() uint64 {
 	return b.Height
 }
 
-func (b *BlockID) proto() *protos.BlockID {
-	return &protos.BlockID{
+func (b *BlockID) proto() *vitepb.BlockID {
+	return &vitepb.BlockID{
 		Hash:   b.Hash[:],
 		Height: b.Height,
 	}
 }
 
-func (b *BlockID) deProto(pb *protos.BlockID) {
+func (b *BlockID) deProto(pb *vitepb.BlockID) {
 	copy(b.Hash[:], pb.Hash)
 	b.Height = b.Height
 }
@@ -60,7 +48,7 @@ func (b *BlockID) Serialize() ([]byte, error) {
 }
 
 func (b *BlockID) Deserialize(data []byte) error {
-	pb := new(protos.BlockID)
+	pb := new(vitepb.BlockID)
 	err := proto.Unmarshal(data, pb)
 	if err != nil {
 		return err
@@ -87,6 +75,7 @@ const (
 	GetAccountBlocksCode
 	GetAccountBlocksByHashCode
 	SubLedgerCode
+	FileListCode
 	SnapshotBlockHeadersCode
 	SnapshotBlockBodiesCode
 	SnapshotBlocksCode
@@ -107,6 +96,7 @@ var msgNames = [...]string{
 	GetAccountBlocksCode:        "GetAccountBlocksMsg",
 	GetAccountBlocksByHashCode:  "GetAccountBlocksByHashMsg",
 	SubLedgerCode:               "SubLedgerMsg",
+	FileListCode:                "FileListMsg",
 	SnapshotBlockHeadersCode:    "SnapshotBlockHeadersMsg",
 	SnapshotBlockBodiesCode:     "SnapshotBlockBodiesMsg",
 	SnapshotBlocksCode:          "SnapshotBlocksMsg",
@@ -121,26 +111,22 @@ func (t cmd) String() string {
 	return msgNames[t]
 }
 
-// @section Msg Param
-
+// @section use to query subLedger
 type Segment struct {
-	From    *BlockID
-	To      *BlockID
-	Count   uint64
-	Step    uint64
-	Forward bool
+	From *BlockID // From.Height must little than To.height
+	To   *BlockID
+	Step uint64
 }
 
-func (s *Segment) proto() *protos.Segment {
-	return &protos.Segment{
-		From:    s.From.proto(),
-		To:      s.To.proto(),
-		Step:    s.Step,
-		Forward: s.Forward,
+func (s *Segment) proto() *vitepb.Segment {
+	return &vitepb.Segment{
+		From: s.From.proto(),
+		To:   s.To.proto(),
+		Step: s.Step,
 	}
 }
 
-func (b *Segment) deProto(pb *protos.Segment) {
+func (b *Segment) deProto(pb *vitepb.Segment) {
 	b.From = new(BlockID)
 	b.From.deProto(pb.From)
 
@@ -148,7 +134,6 @@ func (b *Segment) deProto(pb *protos.Segment) {
 	b.To.deProto(pb.To)
 
 	b.Step = pb.Step
-	b.Forward = pb.Forward
 }
 
 func (s *Segment) Serialize() ([]byte, error) {
@@ -156,19 +141,13 @@ func (s *Segment) Serialize() ([]byte, error) {
 }
 
 func (s *Segment) Deserialize(data []byte) error {
-	pb := &protos.Segment{}
+	pb := &vitepb.Segment{}
 	err := proto.Unmarshal(data, pb)
 	if err != nil {
 		return err
 	}
 
-	s.Forward = pb.Forward
-	s.Step = pb.Step
-
-	s.From = new(BlockID)
-	s.To = new(BlockID)
-	s.From.deProto(pb.From)
-	s.To.deProto(pb.To)
+	s.deProto(pb)
 
 	return nil
 }
@@ -178,77 +157,70 @@ func (s *Segment) Equal(v interface{}) bool {
 	if !ok {
 		return false
 	}
+
 	fromeq := s.From.Equal(s2.From.Hash, s2.From.Height)
 	toeq := s.To.Equal(s2.To.Hash, s2.To.Height)
 	stepeq := s.Step == s2.Step
-	feq := s.Forward == s2.Forward
 
-	return fromeq && toeq && stepeq && feq
+	return fromeq && toeq && stepeq
 }
 
 func (s *Segment) Ceil() uint64 {
 	return s.From.Height
 }
 
-// @section Hashes
-type Hashes []types.Hash
-
-func (hs Hashes) Serialize() ([]byte, error) {
-	panic("implement me")
-}
-
-func (hs Hashes) Deserialize(buf []byte) error {
-	panic("implement me")
-}
-
-func (hs Hashes) Equal(v interface{}) bool {
-	h2, ok := v.(Hashes)
-	if !ok {
-		return false
-	}
-
-	if len(hs) != len(h2) {
-		return false
-	}
-
-	for _, hash := range hs {
-		if !h2.Contain(hash) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (hs Hashes) Ceil() uint64 {
-	return 0
-}
-
-func (hs Hashes) Contain(hash types.Hash) bool {
-	for _, h := range hs {
-		if h == hash {
-			return true
-		}
-	}
-
-	return false
-}
-
-type AccountSegment map[string]*Segment
+// @section use to query accountblocks
+type AccountSegment map[types.Address]*Segment
 
 func (as AccountSegment) Serialize() ([]byte, error) {
-	// todo
+	pb := new(vitepb.MultiAccountSegment)
+	pb.Segments = make([]*vitepb.AccountSegment, len(as))
 
-	return nil, nil
+	i := 0
+	for address, seg := range as {
+		pb.Segments[i] = &vitepb.AccountSegment{
+			Address: address[:],
+			Segment: seg.proto(),
+		}
+		i++
+	}
+
+	return proto.Marshal(pb)
 }
 
 func (as AccountSegment) Deserialize(data []byte) error {
-	// todo
+	pb := new(vitepb.MultiAccountSegment)
+	err := proto.Unmarshal(data, pb)
+	if err != nil {
+		return err
+	}
+
+	for _, pseg := range pb.Segments {
+		var address types.Address
+		copy(address[:], pseg.Address)
+
+		seg := new(Segment)
+		seg.deProto(pseg.Segment)
+
+		as[address] = seg
+	}
+
 	return nil
 }
 
 func (as AccountSegment) Equal(v interface{}) bool {
-	// todo
+	as2, ok := v.(AccountSegment)
+	if !ok {
+		return false
+	}
+
+	for address, seg := range as {
+		if seg2, ok := as2[address]; ok && seg.Equal(seg2) {
+			continue
+		}
+
+		return false
+	}
 	return true
 }
 
@@ -256,16 +228,69 @@ func (as AccountSegment) Ceil(v interface{}) uint64 {
 	return 0
 }
 
-type subLedgerMsg struct {
-	snapshotblocks []*ledger.SnapshotBlock
-	accountblocks  []*ledger.AccountBlock
+// @section subLedger response
+type FileList struct {
+	Files []string
+	Start uint64 // start and end means need query blocks from chainDB
+	End   uint64 // because files don`t contain the latest snapshotblocks
 }
 
-func (s *subLedgerMsg) Serialize() ([]byte, error) {
+func (f *FileList) Serialize() ([]byte, error) {
 	panic("implement me")
 }
 
-func (s *subLedgerMsg) Deserialize(buf []byte) error {
+func (f *FileList) Deserialize(buf []byte) error {
+	panic("implement me")
+}
+
+// @section subLedger query from chainDB
+type SubLedger struct {
+	SBlocks []*ledger.SnapshotBlock
+	ABlocks []*ledger.AccountBlock
+}
+
+func (s *SubLedger) Serialize() ([]byte, error) {
+	pb := new(vitepb.SubLedger)
+	pb.SBlocks = make([]*vitepb.SnapshotBlockNet, len(s.SBlocks))
+	pb.ABlocks = make([]*vitepb.AccountBlockNet, len(s.ABlocks))
+
+	//var spb *vitepb.SnapshotBlockNet
+	//for i, block := range s.SBlocks {
+	//	spb = new(vitepb.SnapshotBlockNet)
+	//	spb.
+	//		pb.SBlocks[i] = pb
+	//}
+
+	return proto.Marshal(pb)
+}
+
+func (s *SubLedger) Deserialize(buf []byte) error {
+	panic("implement me")
+}
+
+// @section AccountBlocks
+type AccountBlocks struct {
+	Blocks []*ledger.AccountBlock
+}
+
+func (as *AccountBlocks) Serialize() ([]byte, error) {
+	panic("implement me")
+}
+
+func (as *AccountBlocks) Deserialize(buf []byte) error {
+	panic("implement me")
+}
+
+// @section SnapshotBlocks
+type SnapshotBlocks struct {
+	Blocks []*ledger.SnapshotBlock
+}
+
+func (s *SnapshotBlocks) Serialize() ([]byte, error) {
+	panic("implement me")
+}
+
+func (s *SnapshotBlocks) Deserialize(buf []byte) error {
 	panic("implement me")
 }
 
@@ -303,24 +328,6 @@ func (st *HandShakeMsg) Deserialize(data []byte) error {
 
 	return nil
 }
-
-type GetSubLedgerMsg = *Segment
-
-type GetSnapshotBlockHeadersMsg = *Segment
-type GetSnapshotBlockBodiesMsg []*types.Hash
-type GetSnapshotBlocksMsg []*types.Hash
-type GetAccountBlocksMsg = AccountSegment
-
-type SubLedgerMsg struct {
-	Files []string
-}
-
-// todo type SnapshotBlockHeadersMsg
-// todo type SnapshotBlockBodiesMsg
-type SnapshotBlocksMsg = []*ledger.SnapshotBlock
-type AccountBlocksMsg map[string][]*ledger.AccountBlock
-
-type NewBlockMsg *ledger.SnapshotBlock
 
 // @message ExceptionMsg
 type ExceptionMsg uint64
