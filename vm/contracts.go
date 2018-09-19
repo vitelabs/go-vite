@@ -129,7 +129,7 @@ func (p *pRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBloc
 	if len(oldData) > 0 {
 		old := new(contracts.Registration)
 		contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, oldData)
-		if old.Timestamp > 0 {
+		if old.CancelHeight == 0 {
 			// duplicate register
 			return ErrInvalidData
 		}
@@ -183,7 +183,7 @@ func (p *pCancelRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, se
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
 	old := new(contracts.Registration)
 	err := contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
-	if err != nil || old.Timestamp == 0 {
+	if err != nil || old.CancelHeight > 0 {
 		return ErrInvalidData
 	}
 
@@ -355,7 +355,7 @@ func (p *pUpdateRegistration) doReceive(vm *VM, block *vm_context.VmAccountBlock
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
 	old := new(contracts.Registration)
 	err := contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
-	if err != nil || old.Timestamp == 0 {
+	if err != nil || old.CancelHeight > 0 {
 		return ErrInvalidData
 	}
 	registerInfo, _ := contracts.ABI_register.PackVariable(contracts.VariableNameRegistration, old.Name, param.NodeAddr, old.PledgeAddr, param.BeneficialAddr, old.Amount, old.Timestamp, old.RewardHeight, old.CancelHeight)
@@ -739,7 +739,7 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 		old := new(contracts.Registration)
 		err := contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.ToAddress, key))
 		if err != nil || !bytes.Equal(old.PledgeAddr.Bytes(), block.AccountBlock.AccountAddress.Bytes()) ||
-			old.Timestamp == 0 ||
+			old.CancelHeight > 0 ||
 			old.Timestamp+param.PledgeTime < block.VmContext.CurrentSnapshotBlock().Timestamp.Unix() {
 			return false
 		}
@@ -757,7 +757,7 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 		err := contracts.ABI_register.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&contracts.AddressRegister, contracts.GetRegisterKey(blockParam.Name, blockParam.Gid)))
 		if err != nil ||
 			!bytes.Equal(old.PledgeAddr.Bytes(), block.AccountBlock.AccountAddress.Bytes()) ||
-			old.Timestamp == 0 ||
+			old.CancelHeight > 0 ||
 			(bytes.Equal(old.BeneficialAddr.Bytes(), blockParam.BeneficialAddr.Bytes()) && bytes.Equal(old.NodeAddr.Bytes(), blockParam.BeneficialAddr.Bytes())) {
 			return false
 		}
