@@ -24,7 +24,7 @@ const topoCmd = 2
 const traceCmd = 3
 
 const headerLength = 32
-const maxPayloadSize = ^uint64(0)
+const maxPayloadSize uint64 = ^uint64(0)>>32 - 1
 
 var errMsgTooLarge = errors.New("message payload is two large")
 var errPeerTermed = errors.New("peer has been terminated")

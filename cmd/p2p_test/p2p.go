@@ -85,6 +85,7 @@ func main() {
 			"vnode://7c6a2b920764b6dddbca05bb6efa1c9bcd90d894f6e9b107f137fc496c802346@170.106.1.142:8483",
 			"vnode://2840979ae06833634764c19e72e6edbf39595ff268f558afb16af99895aba3d8@49.51.168.181:8483",
 		},
+		KafKa: []string{"118.25.228.148:9092"},
 	}
 
 	if p2pCfg.PrivateKey != "" {
