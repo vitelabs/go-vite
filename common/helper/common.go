@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	MaxUint64 = 1<<64 - 1
+	MaxUint64 = uint64(1<<64 - 1)
 
 	// number of bits in a big.Word
 	WordBits = 32 << (uint64(^big.Word(0)) >> 63)

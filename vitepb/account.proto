@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package vitepb;
 
-message AccountMeta {
+message Account {
     bytes accountId = 1;
     repeated AccountSimpleToken tokenList = 2;
     bytes publicKey = 3;

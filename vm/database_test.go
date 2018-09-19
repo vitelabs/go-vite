@@ -245,7 +245,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	db.balanceMap[addr1][ledger.ViteTokenId] = new(big.Int).Set(viteTotalSupply)
 
 	db.storageMap[contracts.AddressConsensusGroup] = make(map[types.Hash][]byte)
-	consensusGroupKey, _ := types.BytesToHash(contracts.GetConsensusGroupKey(*ledger.CommonGid()))
+	consensusGroupKey, _ := types.BytesToHash(contracts.GetConsensusGroupKey(ledger.CommonGid()))
 	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey], _ = contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),

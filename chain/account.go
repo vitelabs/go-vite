@@ -47,11 +47,9 @@ func (c *Chain) newAccountId() (uint64, error) {
 }
 
 func (c *Chain) createAccount(batch *leveldb.Batch, accountId uint64, address *types.Address, publicKey ed25519.PublicKey) error {
-	// TODO create account
 	account := &ledger.Account{
-		AccountAddress: *address,
-		AccountId:      accountId,
-		PublicKey:      publicKey,
+		AccountId: accountId,
+		PublicKey: publicKey,
 	}
 
 	c.chainDb.Account.WriteAccountIndex(batch, accountId, address)

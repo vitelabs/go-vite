@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package vitepb;
+
+message AccountBlock {
+    uint32 blockType = 1;
+    bytes hash = 2;
+    uint64 height = 3;
+    bytes prevHash = 4;
+
+    bytes accountAddress = 5;
+
+    bytes publicKey = 6;
+
+    bytes toAddress = 7;
+
+    bytes fromBlockHash = 8;
+
+    bytes amount = 9;
+
+    bytes tokenId = 10;
+
+    uint64 quota = 11;
+
+    bytes fee = 12;
+
+    bytes snapshotHash = 13;
+
+    bytes data = 14;
+
+    uint64 timestamp = 15;
+
+    bytes StateHash = 16;
+
+    bytes logHash = 17;
+
+    bytes nonce = 18;
+
+    bytes signature = 19;
+}

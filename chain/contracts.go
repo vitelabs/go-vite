@@ -7,9 +7,14 @@ import (
 	"math/big"
 )
 
-// TODO
 func (c *Chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
-	return nil, nil
+	gid, err := c.chainDb.Ac.GetContractGid(addr)
+	if err != nil {
+		c.log.Error("GetContractGid failed, error is "+err.Error(), "method", "GetContractGid")
+		return nil, err
+	}
+
+	return gid, nil
 }
 
 func (c *Chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) []*contracts.Registration {
@@ -48,6 +53,12 @@ func (c *Chain) GetConsensusGroupList(snapshotHash types.Hash) []*contracts.Cons
 	return contracts.GetConsensusGroupList(vmContext)
 }
 
+// TODO
 func (c *Chain) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) map[types.Address]*big.Int {
 	return nil
+}
+
+// TODO
+func (c *Chain) GetTokenInfoById(tokenId *types.TokenTypeId) (*contracts.TokenInfo, error) {
+	return nil, nil
 }

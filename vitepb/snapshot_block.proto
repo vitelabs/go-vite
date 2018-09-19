@@ -1,0 +1,16 @@
+syntax="proto3";
+
+package vitepb;
+
+message SnapshotBlock {
+    bytes hash = 1;
+    bytes prevHash = 2;
+    uint64 height = 3;
+    bytes publicKey = 4;
+
+
+    bytes signature = 5;
+
+    uint64 timestamp = 6;
+    bytes snapshotHash = 7;
+}

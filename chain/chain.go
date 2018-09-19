@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/chain_db"
 	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/trie"
 	"path/filepath"
@@ -21,11 +22,14 @@ type Chain struct {
 	createAccountLock sync.Mutex
 
 	needSnapshotCache *NeedSnapshotCache
+
+	genesesSnapshotBlock *ledger.SnapshotBlock
 }
 
 func NewChain(cfg *config.Config) *Chain {
 	chain := &Chain{
-		log: log15.New("module", "chain"),
+		log:                  log15.New("module", "chain"),
+		genesesSnapshotBlock: ledger.GetGenesesSnapshotBlock(),
 	}
 
 	chain.stateTriePool = NewStateTriePool(chain)
@@ -47,7 +51,13 @@ func NewChain(cfg *config.Config) *Chain {
 	return chain
 }
 
-// TODO return chainDb
+func (c *Chain) Compressor() *compress.Compressor {
+	return c.compressor
+}
+
+func (c *Chain) ChainDb() *chain_db.ChainDb {
+	return c.chainDb
+}
 
 func (c *Chain) Start() {
 	// Start compress in the background
