@@ -59,6 +59,10 @@ var (
 	}
 
 	// Network Settings
+	IdentityFlag = cli.StringFlag{
+		Name:  "identity", //mapping:p2p.Name
+		Usage: "Custom node name",
+	}
 	NetworkIdFlag = cli.UintFlag{
 		Name: "networkid", //mapping:p2p.NetID
 		Usage: "Network identifier (integer," +
@@ -76,10 +80,6 @@ var (
 			" 12=Sagittarius," +
 			" 13=Capricorn,)",
 		Value: config.GlobalConfig.NetID,
-	}
-	IdentityFlag = cli.StringFlag{
-		Name:  "identity", //mapping:p2p.Name
-		Usage: "Custom node name",
 	}
 	MaxPeersFlag = cli.UintFlag{
 		Name:  "maxpeers", //mapping:p2p.MaxPeers
@@ -101,3 +101,41 @@ var (
 		Usage: "P2P node key as hex",
 	}
 )
+
+// SetNodeConfig applies node-related command line flags to the config.
+func SetNodeConfig(ctx *cli.Context, cfg *config.Config) {
+
+	//Global Config
+	if dataDir := ctx.GlobalString(DataDirFlag.Name); len(dataDir) > 0 {
+		cfg.DataDir = dataDir
+	}
+
+	//Network Config
+	if identity := ctx.GlobalString(IdentityFlag.Name); len(identity) > 0 {
+		cfg.Name = identity
+	}
+
+	if ctx.GlobalIsSet(NetworkIdFlag.Name) {
+		cfg.NetID = ctx.GlobalUint(NetworkIdFlag.Name)
+	}
+
+	if ctx.GlobalIsSet(MaxPeersFlag.Name) {
+		cfg.MaxPeers = ctx.GlobalUint(MaxPeersFlag.Name)
+	}
+
+	// TODO p2p will use uint
+	if ctx.GlobalIsSet(MaxPendingPeersFlag.Name) {
+		cfg.MaxPendingPeers = ctx.GlobalInt(MaxPendingPeersFlag.Name)
+	}
+
+	if ctx.GlobalIsSet(ListenPortFlag.Name) {
+		cfg.Addr = ctx.GlobalString(ListenPortFlag.Name)
+	}
+
+	if ctx.GlobalIsSet(NodeKeyHexFlag.Name) {
+		cfg.PrivateKey = ctx.GlobalString(NodeKeyHexFlag.Name)
+	}
+
+	//TODO other config missing
+
+}

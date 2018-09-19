@@ -1,34 +1,40 @@
 package main
 
 import (
+	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
-	"github.com/vitelabs/go-vite/vite"
 	"gopkg.in/urfave/cli.v1"
 )
 
-func makeConfigNode() *config.Config {
+func makeConfigNode(ctx *cli.Context) (*node.Node, *config.Config) {
 
-	//TODO
+	//Load defaults
+	//inside create default config and try load config from json file
+	cfg := config.GlobalConfig
 
-	var localconfig = config.GlobalConfig
-
-	if s, e := localconfig.RunLogDirFile(); e == nil {
+	//Config log to file
+	if fileName, e := cfg.RunLogDirFile(); e == nil {
 		log15.Root().SetHandler(
-			log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(s, log15.TerminalFormat())),
+			log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(fileName, log15.TerminalFormat())),
 		)
 	}
 
-	return localconfig
+	// Apply flags
+	utils.SetNodeConfig(ctx, cfg)
+	node, err := node.New(cfg)
+
+	if err != nil {
+		log15.Error("Failed to create the node: %v", err)
+	}
+
+	//TODO future will Apply other flags
+
+	return node, cfg
 }
 
-func makeFullNode(ctx *cli.Context) (*node.Node, error) {
-	cfg := makeConfigNode()
-	vnode, err := vite.New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	//return vnode, nil
-	return nil, nil
+func makeFullNode(ctx *cli.Context) *node.Node {
+	node, _ := makeConfigNode(ctx)
+	return node
 }

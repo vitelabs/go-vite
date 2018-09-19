@@ -3,14 +3,9 @@ package main
 import (
 	//_ "net/http/pprof"
 	"fmt"
-	"github.com/vitelabs/go-vite/cmd/rpc_vite"
 	"github.com/vitelabs/go-vite/cmd/utils"
-	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
-	"github.com/vitelabs/go-vite/vite"
 	"gopkg.in/urfave/cli.v1"
-	"net/http"
 	"os"
 	"sort"
 )
@@ -70,31 +65,9 @@ func gvite(ctx *cli.Context) error {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 
-	node, err := makeFullNode(ctx)
-
-	node.Logger.New("module", "gvite/main")
+	node := makeFullNode(ctx)
 
 	startNode(ctx, node)
-
-	// TODO the flowing delete
-	mainLog := log15.New("module", "gvite/main")
-
-	go func() {
-		err := http.ListenAndServe("localhost:6060", nil)
-		if err != nil {
-			mainLog.Error(err.Error())
-		}
-	}()
-
-	//localConfig := makeConfigNode()
-	localConfig := config.GlobalConfig
-	vnode, err := vite.New(localConfig)
-
-	if err != nil {
-		mainLog.Crit("Start vite failed.", "err", err)
-	}
-
-	rpc_vite.StartIpcRpcEndpoint(vnode, localConfig.DataDir)
 
 	return nil
 }
@@ -103,5 +76,7 @@ func startNode(cli *cli.Context, node *node.Node) {
 
 	// Start up the node
 	utils.StartNode(node)
+
+	//TODO start other
 
 }
