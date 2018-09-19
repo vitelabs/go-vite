@@ -35,7 +35,7 @@ type ContractWorker struct {
 	priorityToQueue      *model.PriorityToQueue
 	priorityToQueueMutex sync.RWMutex
 
-	blackList      map[types.Hash]bool // map[(toAddress+fromAddress).String]
+	blackList      map[types.Hash]bool // map[Hash(from, to)]bool
 	blackListMutex sync.RWMutex
 
 	lastAddrIndex int
@@ -264,6 +264,8 @@ func (w *ContractWorker) isInBlackList(from types.Address, to types.Address) boo
 	w.blackListMutex.RLock()
 	defer w.blackListMutex.RUnlock()
 	_, ok := w.blackList[key]
-	w.log.Info("isInBlackList", "from", from, "to", to, "in", ok)
+	if ok {
+		w.log.Info("isInBlackList", "from", from, "to", to, "in", ok)
+	}
 	return ok
 }
