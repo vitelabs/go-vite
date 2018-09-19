@@ -543,9 +543,10 @@ func TestContractsPledge(t *testing.T) {
 	db.addr = addr1
 	sendPledgeBlockList2, isRetry, err := vm.Run(db, block14, nil)
 	balance1.Sub(balance1, pledgeAmount)
+	quota14DataGas, _ := dataGasCost(sendPledgeBlockList2[0].AccountBlock.Data)
 	if len(sendPledgeBlockList2) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
-		sendPledgeBlockList2[0].AccountBlock.Quota != 84464 {
+		sendPledgeBlockList2[0].AccountBlock.Quota != quota14DataGas+pledgeGas {
 		t.Fatalf("send pledge transaction 2 error")
 	}
 	db.accountBlockMap[addr1][hash14] = sendPledgeBlockList2[0].AccountBlock

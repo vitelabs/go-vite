@@ -56,7 +56,7 @@ func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 		}
 		registration := new(Registration)
 		ABI_register.UnpackVariable(registration, VariableNameRegistration, value)
-		if registration.Timestamp > 0 {
+		if registration.CancelHeight == 0 {
 			registerList = append(registerList, registration)
 		}
 	}

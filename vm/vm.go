@@ -23,14 +23,13 @@ type VMConfig struct {
 type VM struct {
 	VMConfig
 
-	abort          int32
-	instructionSet [256]operation
-	blockList      []*vm_context.VmAccountBlock
-	returnData     []byte
+	abort      int32
+	blockList  []*vm_context.VmAccountBlock
+	returnData []byte
 }
 
 func NewVM() *VM {
-	return &VM{instructionSet: simpleInstructionSet}
+	return &VM{}
 }
 
 func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
@@ -276,7 +275,7 @@ func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 }
 
 func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract) (ret []byte, err error) {
-	cNew := newContract(c.caller, c.address, c.block, c.quotaLeft, c.quotaRefund)
+	cNew := c.copyContract()
 	cNew.setCallCode(contractAddr, c.block.VmContext.GetContractCode(&contractAddr))
 	ret, err = cNew.run(vm)
 	c.quotaLeft, c.quotaRefund = cNew.quotaLeft, cNew.quotaRefund
