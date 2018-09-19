@@ -12,7 +12,7 @@ type FileWriter struct {
 	file *os.File
 }
 
-func NewFileWriter(filename string) io.Writer {
+func NewFileWriter(filename string) io.WriteCloser {
 	file, err := os.Create(filename)
 
 	if err != nil {
@@ -29,7 +29,6 @@ func (fw *FileWriter) Write(data []byte) (int, error) {
 	return fw.file.Write(data)
 }
 
-func (fw *FileWriter) Close() {
-	fw.file.Close()
-	return
+func (fw *FileWriter) Close() error {
+	return fw.file.Close()
 }

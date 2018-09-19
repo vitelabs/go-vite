@@ -58,9 +58,8 @@ const (
 	mintageGas              uint64 = 62200
 	mintageCancelPledgeGas  uint64 = 62200
 
-	registerLockTime int64  = 3600 * 24 * 90
-	dbPageSize       uint64 = 10000
-	pledgeTime       int64  = 3600 * 24 * 3 // minimum pledge time in  second
+	dbPageSize uint64 = 10000
+	pledgeTime int64  = 3600 * 24 * 3 // minimum pledge time in  second
 
 	cgNodeCountMin uint8 = 10
 	cgNodeCountMax uint8 = 50
@@ -111,7 +110,6 @@ var (
 	quotaByPledge           = big.NewInt(1e9)
 	rewardPerBlock          = attovPerVite
 	attovPerVite            = big.NewInt(1e18)
-	registerAmount          = new(big.Int).Mul(big.NewInt(1e6), attovPerVite)
 	createConsensusGroupFee = new(big.Int).Mul(big.NewInt(1e6), attovPerVite)
 	mintageFee              = new(big.Int).Mul(big.NewInt(1e3), attovPerVite)
 	mintagePledgeAmount     = new(big.Int).Mul(big.NewInt(1e4), attovPerVite)

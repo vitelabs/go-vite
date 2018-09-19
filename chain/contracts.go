@@ -46,3 +46,7 @@ func (c *Chain) GetConsensusGroupList(snapshotHash types.Hash) []*contracts.Cons
 	}
 	return contracts.GetConsensusGroupList(vmContext)
 }
+
+func (c *Chain) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) map[types.Address]*big.Int {
+	return nil
+}

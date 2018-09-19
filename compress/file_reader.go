@@ -12,7 +12,7 @@ type FileReader struct {
 	file *os.File
 }
 
-func NewFileReader(filename string) io.Reader {
+func NewFileReader(filename string) io.ReadCloser {
 	file, err := os.Open(filename)
 
 	if err != nil {
