@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/contracts"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"regexp"
@@ -23,7 +23,8 @@ func TestContractsRegisterRun(t *testing.T) {
 	// register
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr6, _, _ := types.CreateAddress()
-	addr7, _, _ := types.CreateAddress()
+	addr7, privateKey, _ := types.CreateAddress()
+	publicKey := ed25519.PublicKey(privateKey.PubByte())
 	db.accountBlockMap[addr6] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr7] = make(map[types.Hash]*ledger.AccountBlock)
 	addr2 := contracts.AddressRegister
@@ -137,10 +138,10 @@ func TestContractsRegisterRun(t *testing.T) {
 
 	// cancel register
 	time3 := time.Unix(timestamp+1, 0)
-	snapshot3 := &ledger.SnapshotBlock{Height: 3, Timestamp: &time3, Hash: types.DataHash([]byte{10, 3}), Producer: addr7}
+	snapshot3 := &ledger.SnapshotBlock{Height: 3, Timestamp: &time3, Hash: types.DataHash([]byte{10, 3}), PublicKey: publicKey}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot3)
 	time4 := time.Unix(timestamp+2, 0)
-	snapshot4 := &ledger.SnapshotBlock{Height: 4, Timestamp: &time4, Hash: types.DataHash([]byte{10, 4}), Producer: addr7}
+	snapshot4 := &ledger.SnapshotBlock{Height: 4, Timestamp: &time4, Hash: types.DataHash([]byte{10, 4}), PublicKey: publicKey}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot4)
 
 	hash15 := types.DataHash([]byte{1, 5})
@@ -226,12 +227,12 @@ func TestContractsRegisterRun(t *testing.T) {
 	// reward
 	for i := uint64(1); i <= 50; i++ {
 		timei := time.Unix(timestamp+2+int64(i), 0)
-		snapshoti := &ledger.SnapshotBlock{Height: 4 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(4 + i)}), Producer: addr7}
+		snapshoti := &ledger.SnapshotBlock{Height: 4 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(4 + i)}), PublicKey: publicKey}
 		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
 	}
 	snapshot54 := db.snapshotBlockList[53]
 	db.storageMap[contracts.AddressPledge][types.DataHash(addr7.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
-	block71Data, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, *ledger.CommonGid(), nodeName, uint64(0), uint64(0), common.Big0)
+	block71Data, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, *ledger.CommonGid(), nodeName, uint64(0), uint64(0), helper.Big0)
 	hash71 := types.DataHash([]byte{7, 1})
 	block71 := &ledger.AccountBlock{
 		Height:         1,
@@ -593,7 +594,7 @@ func TestContractsPledge(t *testing.T) {
 
 	// cancel pledge
 	time55 := time.Unix(timestamp+100+pledgeTime, 0)
-	snapshot55 := &ledger.SnapshotBlock{Height: 55, Timestamp: &time55, Hash: types.DataHash([]byte{10, 55}), Producer: addr1}
+	snapshot55 := &ledger.SnapshotBlock{Height: 55, Timestamp: &time55, Hash: types.DataHash([]byte{10, 55})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot55)
 
 	block15Data, _ := contracts.ABIPledge.PackMethod(contracts.MethodNameCancelPledge, addr4, pledgeAmount)
@@ -1028,7 +1029,7 @@ func TestGenesisBlockData(t *testing.T) {
 	timestamp := time.Now().Unix() + int64(3600*24*90)
 	for i := 1; i <= 25; i++ {
 		addr, _, _ := types.CreateAddress()
-		registerData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, "node"+strconv.Itoa(i), addr, addr, addr, common.Big0, timestamp, uint64(1), uint64(0))
+		registerData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, "node"+strconv.Itoa(i), addr, addr, addr, helper.Big0, timestamp, uint64(1), uint64(0))
 		snapshotKey := contracts.GetRegisterKey("snapshotNode1", snapshotGid)
 		commonKey := contracts.GetRegisterKey("commonNode1", *ledger.CommonGid())
 		fmt.Printf("\t%v: %v\n\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData), hex.EncodeToString(commonKey), hex.EncodeToString(registerData))

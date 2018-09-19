@@ -2,7 +2,6 @@ package vm
 
 import (
 	"bytes"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/vitelabs/go-vite/abi"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -189,7 +188,7 @@ func (p *pCancelRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, se
 
 	// update lock amount and loc start timestamp
 	snapshotBlock := block.VmContext.CurrentSnapshotBlock()
-	registerInfo, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, param.Name, old.NodeAddr, old.PledgeAddr, old.BeneficialAddr, common.Big0, int64(0), old.RewardHeight, snapshotBlock.Height)
+	registerInfo, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, param.Name, old.NodeAddr, old.PledgeAddr, old.BeneficialAddr, helper.Big0, int64(0), old.RewardHeight, snapshotBlock.Height)
 	block.VmContext.SetStorage(key, registerInfo)
 	// return locked ViteToken
 	if old.Amount.Sign() > 0 {
@@ -273,7 +272,7 @@ func calcReward(db vmctxt_interface.VmDatabase, producer []byte, startHeight uin
 			startHeight = startHeight + dbPageSize
 		}
 		for _, block := range list {
-			if bytes.Equal(block.Producer.Bytes(), producer) {
+			if bytes.Equal(block.Producer().Bytes(), producer) {
 				rewardCount++
 			}
 		}
