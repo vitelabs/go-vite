@@ -37,7 +37,7 @@ func NewChain(cfg *config.Config) *Chain {
 	}
 	chain.chainDb = chainDb
 
-	compressor := compress.NewCompressor()
+	compressor := compress.NewCompressor(chain, cfg.DataDir)
 	chain.compressor = compressor
 
 	chain.trieNodePool = trie.NewTrieNodePool()
@@ -46,6 +46,8 @@ func NewChain(cfg *config.Config) *Chain {
 
 	return chain
 }
+
+// TODO return chainDb
 
 func (c *Chain) Start() {
 	// Start compress in the background

@@ -2,6 +2,7 @@ package compress
 
 import (
 	"github.com/vitelabs/go-vite/log15"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -17,13 +18,37 @@ type Compressor struct {
 	stopSignal chan int
 	status     int // 0 is stop, 1 is start
 	statusLock sync.Mutex
+	wg         sync.WaitGroup
+
+	dir string
+
+	chain Chain
+
+	indexer *Indexer
+	ticker  *time.Ticker
+
+	tickerDuration time.Duration
 }
 
-func NewCompressor() *Compressor {
-	return &Compressor{
+func NewCompressor(chain Chain, dataDir string) *Compressor {
+	c := &Compressor{
 		stopSignal: make(chan int),
 		status:     STOPPED,
+		chain:      chain,
+		dir:        filepath.Join(dataDir, "ledger_files"),
+
+		tickerDuration: time.Minute * 10,
 	}
+
+	c.indexer = NewIndexer(c.dir)
+	return c
+}
+
+func (c *Compressor) Indexer() *Indexer {
+	return c.indexer
+}
+func (c *Compressor) FileReader() *FileReader {
+	return nil
 }
 
 func (c *Compressor) Start() bool {
@@ -34,20 +59,27 @@ func (c *Compressor) Start() bool {
 		compressorLog.Error("Compressor is running, Don't start again.")
 		return false
 	}
-	c.status = RUNNING
 
+	c.status = RUNNING
+	c.ticker = time.NewTicker(c.tickerDuration)
+
+	c.wg.Add(1)
 	go func() {
+		defer c.wg.Done()
+
 		for {
 			select {
 			case <-c.stopSignal:
-				c.statusLock.Lock()
-				defer c.statusLock.Unlock()
-
-				c.stopSignal = make(chan int)
-				c.status = STOPPED
 				return
-			default:
-				time.Sleep(time.Microsecond * 500)
+
+			case <-c.ticker.C:
+				tmpFileName := filepath.Join(c.dir, "subgraph_tmp")
+				task := NewCompressorTask(c.chain, tmpFileName, c.indexer.LatestHeight())
+				if result := task.Run(); result.IsSuccess {
+					c.indexer.Add(result.Ti, tmpFileName, result.BlockNumbers)
+				}
+				task.Clear()
+
 			}
 		}
 	}()
@@ -56,5 +88,13 @@ func (c *Compressor) Start() bool {
 }
 
 func (c *Compressor) Stop() {
+	c.statusLock.Lock()
+	defer c.statusLock.Unlock()
+
+	c.ticker.Stop()
 	c.stopSignal <- 1
+	c.wg.Wait()
+
+	c.stopSignal = make(chan int)
+	c.status = STOPPED
 }

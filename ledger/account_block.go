@@ -1,11 +1,16 @@
 package ledger
 
 import (
+	"encoding/binary"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 	"time"
 )
+
+var accountBlockLog = log15.New("module", "ledger/account_block")
 
 type AccountBlockMeta struct {
 	// Account id
@@ -24,11 +29,11 @@ type AccountBlockMeta struct {
 	RefSnapshotHeight uint64
 }
 
-func (*AccountBlockMeta) DbSerialize() ([]byte, error) {
+func (*AccountBlockMeta) Serialize() ([]byte, error) {
 	return nil, nil
 }
 
-func (*AccountBlockMeta) DbDeserialize([]byte) error {
+func (*AccountBlockMeta) Deserialize([]byte) error {
 	return nil
 }
 
@@ -42,6 +47,8 @@ const (
 
 type AccountBlock struct {
 	Meta *AccountBlockMeta
+
+	producer *types.Address
 
 	BlockType byte
 	Hash      types.Hash
@@ -72,16 +79,97 @@ type AccountBlock struct {
 	Signature []byte
 }
 
-func (*AccountBlock) GetComputeHash() types.Hash {
-	hash, _ := types.BytesToHash([]byte("abcdeabcdeabcdeabcde"))
+func (*AccountBlock) Copy() *AccountBlock {
+	return nil
+}
+
+func (ab *AccountBlock) Producer() types.Address {
+	if ab.producer == nil {
+		producer := types.PubkeyToAddress(ab.PublicKey)
+		ab.producer = &producer
+	}
+	return *ab.producer
+}
+
+func (ab *AccountBlock) Proto() {
+
+}
+
+func (ab *AccountBlock) DeProto() {
+
+}
+
+func (ab *AccountBlock) ComputeHash() types.Hash {
+	var source []byte
+	// BlockType
+	source = append(source, ab.BlockType)
+
+	// PrevHash
+	source = append(source, ab.PrevHash.Bytes()...)
+
+	// Height
+	heightBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(heightBytes, ab.Height)
+	source = append(source, heightBytes...)
+
+	// AccountAddress
+	source = append(source, ab.AccountAddress.Bytes()...)
+
+	if ab.IsSendBlock() {
+		// ToAddress
+		source = append(source, ab.ToAddress.Bytes()...)
+		// Amount
+		source = append(source, ab.Amount.Bytes()...)
+		// TokenId
+		source = append(source, ab.TokenId.Bytes()...)
+	} else {
+		// FromBlockHash
+		source = append(source, ab.FromBlockHash.Bytes()...)
+	}
+
+	// Quota
+	quotaBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(quotaBytes, ab.Quota)
+	source = append(source, quotaBytes...)
+
+	// Fee
+	source = append(source, ab.Fee.Bytes()...)
+
+	// SnapshotHash
+	source = append(source, ab.SnapshotHash.Bytes()...)
+
+	// Data
+	source = append(source, ab.Data...)
+
+	// Timestamp
+	unixTimeBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(unixTimeBytes, uint64(ab.Timestamp.Unix()))
+	source = append(source, unixTimeBytes...)
+
+	// StateHash
+	source = append(source, ab.StateHash.Bytes()...)
+
+	// LogHash
+	if ab.LogHash != nil {
+		source = append(source, ab.LogHash.Bytes()...)
+	}
+
+	// Nonce
+	source = append(source, ab.Nonce...)
+
+	hash, _ := types.BytesToHash(crypto.Hash256(source))
 	return hash
 }
 
-func (*AccountBlock) VerifySignature() bool {
-	return true
+func (ab *AccountBlock) VerifySignature() bool {
+	isVerified, verifyErr := crypto.VerifySig(ab.PublicKey, ab.Hash.Bytes(), ab.Signature)
+	if verifyErr != nil {
+		accountBlockLog.Error("crypto.VerifySig failed, error is "+verifyErr.Error(), "method", "VerifySignature")
+	}
+	return isVerified
 }
 
-func (*AccountBlock) DbSerialize() ([]byte, error) {
+func (ab *AccountBlock) DbSerialize() ([]byte, error) {
 	return nil, nil
 }
 
@@ -89,28 +177,20 @@ func (*AccountBlock) DbDeserialize([]byte) error {
 	return nil
 }
 
-func (*AccountBlock) NetSerialize() ([]byte, error) {
+func (*AccountBlock) Serialize() ([]byte, error) {
 	return nil, nil
 }
 
-func (*AccountBlock) NetDeserialize([]byte) error {
+func (*AccountBlock) Deserialize([]byte) error {
 	return nil
 }
 
-func (*AccountBlock) FileSerialize([]byte) ([]byte, error) {
-	return nil, nil
+func (ab *AccountBlock) IsSendBlock() bool {
+	return ab.BlockType == BlockTypeSendCreate || ab.BlockType == BlockTypeSendCall || ab.BlockType == BlockTypeSendReward
 }
 
-func (*AccountBlock) FileDeserialize([]byte) error {
-	return nil
-}
-
-func (*AccountBlock) IsSendBlock() bool {
-	return false
-}
-
-func (*AccountBlock) IsReceiveBlock() bool {
-	return true
+func (ab *AccountBlock) IsReceiveBlock() bool {
+	return ab.BlockType == BlockTypeReceive || ab.BlockType == BlockTypeReceiveError
 }
 
 func GenesesMintageBlock() *AccountBlock {

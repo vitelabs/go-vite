@@ -135,29 +135,13 @@ func (context *VmContext) SubBalance(tokenTypeId *types.TokenTypeId, amount *big
 		return
 	}
 	currentBalance := context.GetBalance(context.address, tokenTypeId)
+	currentBalance.Sub(currentBalance, amount)
 
-	newCurrentBalance := &big.Int{}
-	newCurrentBalance.SetBytes(currentBalance.Bytes())
-	newCurrentBalance.Sub(currentBalance, amount)
-
-	if newCurrentBalance.Cmp(big.NewInt(0)) < 0 {
+	if currentBalance.Sign() < 0 {
 		return
 	}
 
-	context.SetStorage(BalanceKey(tokenTypeId), newCurrentBalance.Bytes())
-}
-
-func (context *VmContext) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock {
-	snapshotBlock, _ := context.chain.GetSnapshotBlockByHash(hash)
-	if snapshotBlock == nil {
-		return nil
-	}
-
-	if snapshotBlock.Height > context.currentSnapshotBlock.Height {
-		return nil
-	}
-
-	return snapshotBlock
+	context.SetStorage(BalanceKey(tokenTypeId), currentBalance.Bytes())
 }
 
 func (context *VmContext) GetSnapshotBlocks(startHeight, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
@@ -186,7 +170,6 @@ func (context *VmContext) GetSnapshotBlockByHeight(height uint64) *ledger.Snapsh
 }
 
 func (context *VmContext) Reset() {
-	context.frozen = false
 	context.unsavedCache = NewUnsavedCache(context.trie)
 }
 
@@ -217,6 +200,11 @@ func (context *VmContext) GetContractCode(addr *types.Address) []byte {
 func (context *VmContext) SetStorage(key []byte, value []byte) {
 	if context.frozen {
 		return
+	}
+
+	// For unsaved judge.
+	if value == nil {
+		value = make([]byte, 0)
 	}
 	context.unsavedCache.SetStorage(key, value)
 }
