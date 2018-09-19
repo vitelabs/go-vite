@@ -1,12 +1,43 @@
 package utils
 
 import (
-	"gopkg.in/urfave/cli.v1"
-	"path/filepath"
-	"os"
 	"github.com/vitelabs/go-vite/cmd/params"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/config"
+	"gopkg.in/urfave/cli.v1"
+	"os"
+	"path/filepath"
 )
+
+var (
+	CommandHelpTemplate = `{{.cmd.Name}}{{if .cmd.Subcommands}} command{{end}}{{if .cmd.Flags}} [command options]{{end}} [arguments...]
+{{if .cmd.Description}}{{.cmd.Description}}
+{{end}}{{if .cmd.Subcommands}}
+SUBCOMMANDS:
+	{{range .cmd.Subcommands}}{{.Name}}{{with .ShortName}}, {{.}}{{end}}{{ "\t" }}{{.Usage}}
+	{{end}}{{end}}{{if .categorizedFlags}}
+{{range $idx, $categorized := .categorizedFlags}}{{$categorized.Name}} OPTIONS:
+{{range $categorized.Flags}}{{"\t"}}{{.}}
+{{end}}
+{{end}}{{end}}`
+)
+
+func init() {
+	cli.AppHelpTemplate = `{{.Name}} {{if .Flags}}[global options] {{end}}command{{if .Flags}} [command options]{{end}} [arguments...]
+
+VERSION:
+   {{.Version}}
+
+COMMANDS:
+   {{range .Commands}}{{.Name}}{{with .ShortName}}, {{.}}{{end}}{{ "\t" }}{{.Usage}}
+   {{end}}{{if .Flags}}
+GLOBAL OPTIONS:
+   {{range .Flags}}{{.}}
+   {{end}}{{end}}
+`
+
+	cli.CommandHelpTemplate = CommandHelpTemplate
+}
 
 func NewApp() *cli.App {
 	app := cli.NewApp()
@@ -24,15 +55,49 @@ var (
 	DataDirFlag = DirectoryFlag{
 		Name:  "datadir",
 		Usage: "use for store all files",
-		Value: DirectoryString{common.DefaultDataDir()},
+		Value: DirectoryString{common.DefaultDataDir()}, // TODO Distinguish different environmental addresses
 	}
-	KeystoreDirFlag = DirectoryFlag{
-		Name:  "keystore",
-		Usage: "Directory for the keystore (default = inside the datadir)",
+
+	// Network Settings
+	NetworkIdFlag = cli.UintFlag{
+		Name: "networkid", //mapping:p2p.NetID
+		Usage: "Network identifier (integer," +
+			" 1=MainNet," +
+			" 2=Aquarius," +
+			" 3=Pisces," +
+			" 4=Aries," +
+			" 5=Taurus," +
+			" 6=Gemini," +
+			" 7=Cancer," +
+			" 8=Leo," +
+			" 9=Virgo," +
+			" 10=Libra," +
+			" 11=Scorpio," +
+			" 12=Sagittarius," +
+			" 13=Capricorn,)",
+		Value: config.GlobalConfig.NetID,
 	}
-	PasswordFileFlag = cli.StringFlag{
-		Name: "password",
-		Usage: "password file to use for non-interactive password input",
-		Value: "",
+	IdentityFlag = cli.StringFlag{
+		Name:  "identity", //mapping:p2p.Name
+		Usage: "Custom node name",
+	}
+	MaxPeersFlag = cli.UintFlag{
+		Name:  "maxpeers", //mapping:p2p.MaxPeers
+		Usage: "Maximum number of network peers (network disabled if set to 0)",
+		Value: config.GlobalConfig.MaxPeers,
+	}
+	MaxPendingPeersFlag = cli.UintFlag{
+		Name:  "maxpendpeers", //mapping:p2p.MaxPendingPeers
+		Usage: "Maximum number of pending connection attempts (defaults used if set to 0)",
+		Value: config.GlobalConfig.MaxPeers,
+	}
+	ListenPortFlag = cli.IntFlag{
+		Name:  "port", //mapping:p2p.Addr
+		Usage: "Network listening port",
+		Value: 8483,
+	}
+	NodeKeyHexFlag = cli.StringFlag{
+		Name:  "nodekeyhex", //mapping:p2p.PrivateKey
+		Usage: "P2P node key as hex",
 	}
 )

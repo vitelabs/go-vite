@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/node"
 	"github.com/vitelabs/go-vite/vite"
 	"gopkg.in/urfave/cli.v1"
 	"net/http"
@@ -23,8 +24,13 @@ var (
 	app = utils.NewApp()
 
 	nodeFlags = []cli.Flag{
+		utils.IdentityFlag,
 		utils.DataDirFlag,
-		utils.KeystoreDirFlag,
+		utils.NetworkIdFlag,
+		utils.ListenPortFlag,
+		utils.NodeKeyHexFlag,
+		utils.MaxPeersFlag,
+		utils.MaxPendingPeersFlag,
 	}
 )
 
@@ -34,17 +40,10 @@ func init() {
 	//app.HideVersion = true
 	app.Copyright = "Copyright 2018-2024 The go-vite Authors"
 	app.Commands = []cli.Command{
-		// ledgercmd.go
-		//initCommand,
+		initCommand,
 		heightCommand,
-
-		// aidcmd.go
 		versionCommand,
-
-		// accountcmd.go
 		accountCommand,
-
-		// consolecmd.go
 		consoleCommand,
 		attachCommand,
 	}
@@ -52,6 +51,9 @@ func init() {
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	app.Flags = append(app.Flags, nodeFlags...)
+
+	//TODO missing app.Before
+	//TODO missing app.After
 }
 
 func main() {
@@ -63,7 +65,18 @@ func main() {
 
 func gvite(ctx *cli.Context) error {
 
-	fmt.Println("Hello Vite!")
+	//TODO invalid is why
+	if args := ctx.Args(); len(args) > 0 {
+		return fmt.Errorf("invalid command: %q", args[0])
+	}
+
+	node, err := makeFullNode(ctx)
+
+	node.Logger.New("module", "gvite/main")
+
+	startNode(ctx, node)
+
+	// TODO the flowing delete
 	mainLog := log15.New("module", "gvite/main")
 
 	go func() {
@@ -84,4 +97,11 @@ func gvite(ctx *cli.Context) error {
 	rpc_vite.StartIpcRpcEndpoint(vnode, localConfig.DataDir)
 
 	return nil
+}
+
+func startNode(cli *cli.Context, node *node.Node) {
+
+	// Start up the node
+	utils.StartNode(node)
+
 }

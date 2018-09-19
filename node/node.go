@@ -14,7 +14,7 @@ import (
 type Node struct {
 	config *config.Config
 
-	p2pConfig p2p.Config
+	p2pConfig *config.P2P // p2p config
 	p2pServer *p2p.Server
 
 	vite *vite.Vite
@@ -34,14 +34,28 @@ type Node struct {
 	wsListener net.Listener   // Websocket RPC listener socket to server API requests
 	wsHandler  *netrpc.Server // Websocket RPC request handler to process the API requests
 
-	logger log15.Logger
+	stop chan struct{} // Channel to wait for termination notifications
+
+	Logger log15.Logger
 }
 
 func New(conf *config.Config) (*Node, error) {
+
 	return nil, nil
 }
 
 func (node *Node) Start() error {
+
+	//TODO miss Lock
+
+	if node.p2pServer != nil {
+		return ErrNodeRunning
+	}
+
+	//TODO miss dataDir judge
+
+	node.p2pConfig = node.config.P2P
+
 	return nil
 }
 
