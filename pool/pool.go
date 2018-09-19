@@ -166,7 +166,12 @@ func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) error {
 func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 	self.rwMutex.RLock()
 	defer self.rwMutex.RUnlock()
-	return self.pendingSc.AddDirectBlock(newSnapshotPoolBlock(block, self.version))
+	cBlock := newSnapshotPoolBlock(block, self.version)
+	err := self.pendingSc.AddDirectBlock(cBlock)
+	if err != nil {
+		self.pendingSc.f.broadcastBlock(block)
+	}
+	return err
 }
 
 func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock) error {
@@ -180,7 +185,12 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 	self.rwMutex.RLock()
 	defer self.rwMutex.RUnlock()
 	ac := self.selfPendingAc(address)
-	return ac.AddDirectBlock(newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version))
+	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version)
+	err := ac.AddDirectBlock(cBlock)
+	if err != nil {
+		ac.f.broadcastBlock(block.AccountBlock)
+	}
+	return err
 
 }
 func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.AccountBlock) error {
@@ -201,7 +211,11 @@ func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_con
 	for _, v := range sendBlocks {
 		accountPoolBlocks = append(accountPoolBlocks, newAccountPoolBlock(v.AccountBlock, v.VmContext, self.version))
 	}
-	return ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmContext, self.version), accountPoolBlocks)
+	err := ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmContext, self.version), accountPoolBlocks)
+	if err != nil {
+		ac.f.broadcastReceivedBlocks(received, sendBlocks)
+	}
+	return err
 }
 
 func (self *pool) ExistInPool(address types.Address, requestHash types.Hash) bool {

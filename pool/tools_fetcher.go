@@ -3,12 +3,12 @@ package pool
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/viteshan/naive-vite/syncer"
 )
 
 type commonSyncer interface {
 	fetch(hashHeight commonHashHeight, prevCnt uint64)
-	broadcast(block commonBlock)
 }
 
 type accountSyncer struct {
@@ -16,10 +16,14 @@ type accountSyncer struct {
 	fetcher syncer.Fetcher
 }
 
-func (self *accountSyncer) broadcast(block commonBlock) {
+func (self *accountSyncer) broadcastBlock(block *ledger.AccountBlock) {
 	panic("implement me")
 }
 func (self *accountSyncer) broadcastBlocks(block []*ledger.AccountBlock) {
+	panic("implement me")
+}
+
+func (self *accountSyncer) broadcastReceivedBlocks(received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) {
 	panic("implement me")
 }
 
@@ -31,7 +35,7 @@ type snapshotSyncer struct {
 	fetcher syncer.Fetcher
 }
 
-func (self *snapshotSyncer) broadcast(block commonBlock) {
+func (self *snapshotSyncer) broadcastBlock(block *ledger.SnapshotBlock) {
 	panic("implement me")
 }
 
