@@ -102,10 +102,10 @@ func (s *CmdSet) Proto() *protos.CmdSet {
 
 // @section Msg
 type Msg struct {
-	CmdSetID uint64
-	Cmd      uint64
-	// how many bytes in payload, used to quickly determine whether payload is valid
-	Size       uint64
+	CmdSetID   uint64
+	Cmd        uint64
+	Id         uint64 // as message context
+	Size       uint64 // how many bytes in payload, used to quickly determine whether payload is valid
 	Payload    io.Reader
 	ReceivedAt time.Time
 }

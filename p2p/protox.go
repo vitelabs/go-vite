@@ -44,7 +44,7 @@ func BytesToReader(data []byte) io.Reader {
 	return buf
 }
 
-func PackMsg(cmdSetId, cmd uint64, s Serializable) (*Msg, error) {
+func PackMsg(cmdSetId, cmd, id uint64, s Serializable) (*Msg, error) {
 	r, size, err := EncodeToReader(s)
 	if err != nil {
 		return nil, err
@@ -71,7 +71,8 @@ func (prw *protoMsgRW) ReadMsg() (msg Msg, err error) {
 
 	msg.CmdSetID = binary.BigEndian.Uint64(head[:8])
 	msg.Cmd = binary.BigEndian.Uint64(head[8:16])
-	msg.Size = binary.BigEndian.Uint64(head[16:24])
+	msg.Id = binary.BigEndian.Uint64(head[16:24])
+	msg.Size = binary.BigEndian.Uint64(head[24:32])
 
 	if msg.Size > maxPayloadSize {
 		err = errMsgTooLarge
@@ -131,7 +132,8 @@ func (prw *protoMsgRW) WriteMsg(msg Msg) (err error) {
 	head := make([]byte, headerLength)
 	binary.BigEndian.PutUint64(head[:8], msg.CmdSetID)
 	binary.BigEndian.PutUint64(head[8:16], msg.Cmd)
-	binary.BigEndian.PutUint64(head[16:24], msg.Size)
+	binary.BigEndian.PutUint64(head[16:24], msg.Id)
+	binary.BigEndian.PutUint64(head[24:32], msg.Size)
 
 	// write header
 	if _, err = prw.fd.Write(head); err != nil {
@@ -242,15 +244,15 @@ func (p *protox) close(err error) {
 
 	if p.rw != nil {
 		if reason, ok := err.(DiscReason); ok && reason != DiscNetworkError {
-			Send(p.rw, baseProtocolCmdSet, discCmd, reason)
+			Send(p.rw, baseProtocolCmdSet, discCmd, 0, reason)
 		}
 	}
 
 	p.fd.Close()
 }
 
-func Send(w MsgWriter, cmdset, cmd uint64, s Serializable) error {
-	msg, err := PackMsg(cmdset, cmd, s)
+func Send(w MsgWriter, cmdset, cmd, id uint64, s Serializable) error {
+	msg, err := PackMsg(cmdset, cmd, id, s)
 	if err != nil {
 		return err
 	}
