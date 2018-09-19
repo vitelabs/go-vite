@@ -7,8 +7,8 @@ import (
 )
 
 type block interface {
-	FileSerialize() ([]byte, error)
-	FileDeSerialize([]byte) (block, error)
+	Serialize() ([]byte, error)
+	Deserialize([]byte) error
 }
 
 type blocksGetter func() ([]block, error)
@@ -24,7 +24,7 @@ func BlockFormatter(writer io.Writer, getter blocksGetter) error {
 		}
 
 		for _, block := range blocks {
-			blockBytes, sErr := block.FileSerialize()
+			blockBytes, sErr := block.Serialize()
 			if sErr != nil {
 				blockFormatterLog.Error("Serialize failed, error is " + sErr.Error())
 				return sErr
@@ -50,7 +50,6 @@ func BlockFormatter(writer io.Writer, getter blocksGetter) error {
 				}
 				writtenSize += n
 			}
-
 		}
 
 		if gErr == io.EOF {

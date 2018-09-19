@@ -112,7 +112,7 @@ func (sc *SnapshotChain) GetSnapshotContent(snapshotBlockHeight uint64) (ledger.
 	}
 
 	snapshotContent := ledger.SnapshotContent{}
-	snapshotContent.DbDeserialize(data)
+	snapshotContent.Deserialize(data)
 
 	return snapshotContent, nil
 }
