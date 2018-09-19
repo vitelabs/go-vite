@@ -262,9 +262,9 @@ func (d *agent) sendNeighbors(n *Node, nodes []*Node) (err error) {
 
 			if err != nil {
 				sent = true
-				discvLog.Info(fmt.Sprintf("send %d neighbors to %s\n", len(carriage), n))
+				discvLog.Info(fmt.Sprintf("send %d neighbors to %s", len(carriage), n))
 			} else {
-				discvLog.Error(fmt.Sprintf("send %d neighbors to %s error: %v\n", len(carriage), n, err))
+				discvLog.Error(fmt.Sprintf("send %d neighbors to %s error: %v", len(carriage), n, err))
 			}
 			carriage = carriage[:0]
 		}
@@ -276,9 +276,9 @@ func (d *agent) sendNeighbors(n *Node, nodes []*Node) (err error) {
 		_, err = d.send(n.UDPAddr(), neighborsCode, neighbors)
 
 		if err != nil {
-			discvLog.Info(fmt.Sprintf("send %d neighbors to %s\n", len(carriage), n))
+			discvLog.Info(fmt.Sprintf("send %d neighbors to %s", len(carriage), n))
 		} else {
-			discvLog.Error(fmt.Sprintf("send %d neighbors to %s error: %v\n", len(carriage), n, err))
+			discvLog.Error(fmt.Sprintf("send %d neighbors to %s error: %v", len(carriage), n, err))
 		}
 	}
 
@@ -316,9 +316,16 @@ func (d *agent) readLoop() {
 		default:
 			n, addr, err := d.conn.ReadFromUDP(buf)
 
+			if err != nil {
+				continue
+			}
+
 			p, err := unPacket(buf[:n])
 			if err != nil {
-				discvLog.Error(fmt.Sprintf("unpack message from %s error: %v\n", addr, err))
+				discvLog.Error(fmt.Sprintf("unpack message from %s error: %v", addr, err))
+				d.send(addr, exceptionCode, &Exception{
+					Code: eCannotUnpack,
+				})
 				continue
 			}
 
@@ -327,7 +334,7 @@ func (d *agent) readLoop() {
 			p.from = addr
 
 			if err = d.pktHandler(p); err != nil {
-				discvLog.Error(fmt.Sprintf("handle message %s from %s@%s error: %v\n", p.code, p.fromID, p.from, err))
+				discvLog.Error(fmt.Sprintf("handle message %s from %s@%s error: %v", p.code, p.fromID, p.from, err))
 			}
 		}
 	}
@@ -337,13 +344,13 @@ func (d *agent) send(addr *net.UDPAddr, code packetCode, m Message) (hash types.
 	data, hash, err := m.pack(d.priv)
 
 	if err != nil {
-		discvLog.Error(fmt.Sprintf("pack message %s to %s error: %v\n", code, addr, err))
+		discvLog.Error(fmt.Sprintf("pack message %s to %s error: %v", code, addr, err))
 		return
 	}
 
 	n, err := d.conn.WriteToUDP(data, addr)
 	if err != nil {
-		discvLog.Error(fmt.Sprintf("send message %s to %s error: %v\n", code, addr, err))
+		discvLog.Error(fmt.Sprintf("send message %s to %s error: %v", code, addr, err))
 		return
 	}
 
@@ -353,7 +360,7 @@ func (d *agent) send(addr *net.UDPAddr, code packetCode, m Message) (hash types.
 		return
 	}
 
-	discvLog.Info(fmt.Sprintf("send message %s to %s done\n", code, addr))
+	discvLog.Info(fmt.Sprintf("send message %s to %s done", code, addr))
 
 	monitor.LogEvent("p2p/discv", code.String())
 

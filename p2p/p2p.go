@@ -37,11 +37,12 @@ type Config struct {
 	MaxPeers        uint               // max peers can be connected
 	MaxPendingPeers uint               // max peers waiting for connect
 	MaxInboundRatio uint               // max inbound peers: MaxPeers / MaxInboundRatio
-	Port            uint16             // TCP and UDP listen port
+	Port            uint               // TCP and UDP listen port
 	Database        string             // the directory for storing node table
 	PrivateKey      ed25519.PrivateKey // use for encrypt message, the corresponding public key use for NodeID
 	Protocols       []*Protocol        // protocols server supported
 	BootNodes       []*discovery.Node
+	KafKa           []string
 }
 
 type Server struct {
@@ -61,22 +62,10 @@ type Server struct {
 	self         *discovery.Node
 	agent        *agent
 	log          log15.Logger
+	producer     *producer
 }
 
 func New(cfg Config) *Server {
-	//if p2pCfg.PrivateKey != "" {
-	//	priv, err := hex.DecodeString(p2pCfg.PrivateKey)
-	//	if err == nil {
-	//		cfg.PrivateKey = ed25519.PrivateKey(priv)
-	//		cfg.PublicKey = cfg.PrivateKey.PubByte()
-	//	} else {
-	//		p2pServerLog.Error("privateKey decode", "err", err)
-	//		cfg.PublicKey, cfg.PrivateKey, err = getServerKey(cfg.Database)
-	//	}
-	//} else {
-	//	cfg.PublicKey, cfg.PrivateKey, err = getServerKey(cfg.Database)
-	//}
-
 	safeCfg := EnsureConfig(cfg)
 
 	svr := &Server{
@@ -90,6 +79,13 @@ func New(cfg Config) *Server {
 		BootNodes: addFirmNodes(cfg.BootNodes),
 		blockList: block.NewCuckooSet(100),
 		topo:      newTopoHandler(),
+	}
+
+	if svr.KafKa != nil {
+		producer, err := newProducer(svr.KafKa)
+		if err == nil {
+			svr.producer = producer
+		}
 	}
 
 	return svr
@@ -163,7 +159,7 @@ func (svr *Server) Start() error {
 
 	svr.setHandshake(ID)
 
-	addr := "0.0.0.0:" + strconv.Itoa(int(svr.Port))
+	addr := "0.0.0.0:" + strconv.FormatUint(uint64(svr.Port), 10)
 	// udp discover
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
@@ -185,11 +181,8 @@ func (svr *Server) Start() error {
 	if err != nil {
 		svr.log.Crit("tcp listening error", "err", err)
 	} else {
-		svr.log.Info(fmt.Sprintf("tcp listening at %s\n", tcpAddr))
+		svr.log.Info(fmt.Sprintf("tcp listening at %s", tcpAddr))
 	}
-	// mapping udp and tcp
-	go nat.Map(svr.term, "udp", int(svr.self.UDP), int(svr.self.UDP), "vite p2p udp", 0, svr.updateNode)
-	go nat.Map(svr.term, "tcp", int(svr.self.TCP), int(svr.self.TCP), "vite p2p tcp", 0, svr.updateNode)
 
 	node := &discovery.Node{
 		ID:  ID,
@@ -198,6 +191,9 @@ func (svr *Server) Start() error {
 		TCP: uint16(tcpAddr.Port),
 	}
 	svr.self = node
+	// mapping udp and tcp
+	go nat.Map(svr.term, "udp", int(svr.self.UDP), int(svr.self.UDP), "vite p2p udp", 0, svr.updateNode)
+	go nat.Map(svr.term, "tcp", int(svr.self.TCP), int(svr.self.TCP), "vite p2p tcp", 0, svr.updateNode)
 
 	svr.discv = discovery.New(&discovery.Config{
 		Priv:      svr.PrivateKey,
@@ -282,19 +278,19 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 		term:      make(chan struct{}),
 	}
 
-	svr.log.Info(fmt.Sprintf("begin handshake with %s\n", c.RemoteAddr()))
+	svr.log.Info(fmt.Sprintf("begin handshake with %s", c.RemoteAddr()))
 
 	their, err := ts.Handshake(svr.ourHandshake)
 
 	if err != nil {
 		ts.close(err)
-		svr.log.Error(fmt.Sprintf("handshake error with %s: %v\n", c.RemoteAddr(), err))
+		svr.log.Error(fmt.Sprintf("handshake error with %s: %v", c.RemoteAddr(), err))
 	} else {
 		ts.id = their.ID
 		ts.name = their.Name
 		ts.cmdSets = their.CmdSets
 
-		svr.log.Info(fmt.Sprintf("handshake with %s@%s done\n", ts.id, c.RemoteAddr()))
+		svr.log.Info(fmt.Sprintf("handshake with %s@%s done", ts.id, c.RemoteAddr()))
 		svr.addPeer <- ts
 	}
 
@@ -370,7 +366,7 @@ func (svr *Server) loop() {
 			})
 		case e := <-svr.topo.rec:
 			monitor.LogEvent("p2p", "topo")
-			svr.topo.Handle(e, svr.peers)
+			svr.topo.Handle(e, svr)
 		}
 	}
 

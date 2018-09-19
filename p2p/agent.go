@@ -28,7 +28,7 @@ func (t *discoverTask) Perform(a *agent) {
 
 	monitor.LogDuration("p2p/server", "lookup", int64(a.svr.PeersCount()))
 
-	p2pServerLog.Info(fmt.Sprintf("discv tab lookup %s %d nodes\n", t.target, len(t.results)))
+	p2pServerLog.Info(fmt.Sprintf("discv tab lookup %s %d nodes", t.target, len(t.results)))
 }
 
 // @section dial, connect to node
@@ -39,7 +39,7 @@ type dialTask struct {
 func (t *dialTask) Perform(a *agent) {
 	conn, err := a.Dialer.Dial("tcp", t.target.TCPAddr().String())
 	if err != nil {
-		p2pServerLog.Error(fmt.Sprintf("tcp dial node %s error: %v\n", t.target, err))
+		p2pServerLog.Error(fmt.Sprintf("tcp dial node %s error: %v", t.target, err))
 		return
 	}
 
@@ -186,7 +186,7 @@ func (a *agent) createTasks(tasks *list.List) {
 		a.wating = true
 	}
 
-	p2pServerLog.Info(fmt.Sprintf("p2p server create %d tasks\n", canDials-restDials))
+	p2pServerLog.Info(fmt.Sprintf("p2p server create %d tasks", canDials-restDials))
 }
 
 func (a *agent) TaskDone(t Task) {

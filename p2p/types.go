@@ -1,10 +1,7 @@
 package p2p
 
 import (
-	"fmt"
 	"github.com/golang/protobuf/proto"
-	"github.com/seiflotfy/cuckoofilter"
-	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/protos"
 	"io"
@@ -213,78 +210,4 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 	hs.CmdSets = cmdsets
 
 	return nil
-}
-
-// @section topo
-type Topo struct {
-	Pivot string
-	Peers []string
-}
-
-// add Hash(32bit) to Front, use for determine if it has been received
-func (t *Topo) Serialize() ([]byte, error) {
-	data, err := proto.Marshal(&protos.Topo{
-		Pivot: t.Pivot,
-		Peers: t.Peers,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	hash := crypto.Hash(32, data)
-
-	return append(hash, data...), nil
-}
-
-func (t *Topo) Deserialize(buf []byte) error {
-	pb := new(protos.Topo)
-	err := proto.Unmarshal(buf, pb)
-	if err != nil {
-		return err
-	}
-
-	t.Pivot = pb.Pivot
-	t.Peers = pb.Peers
-
-	return nil
-}
-
-type topoEvent struct {
-	msg    *Msg
-	sender *Peer
-}
-
-type topoHandler struct {
-	record *cuckoofilter.CuckooFilter
-	rec    chan *topoEvent
-}
-
-func newTopoHandler() *topoHandler {
-	return &topoHandler{
-		record: cuckoofilter.NewCuckooFilter(1000),
-		rec:    make(chan *topoEvent, 10),
-	}
-}
-
-func (th *topoHandler) Handle(event *topoEvent, peers *PeerSet) {
-	defer event.msg.Discard()
-
-	hash := make([]byte, 32)
-	n, err := event.msg.Payload.Read(hash)
-	if n != 32 || err != nil {
-		p2pServerLog.Info(fmt.Sprintf("receive invalid topoMsg from %s@%s", event.sender.ID(), event.sender.RemoteAddr()))
-		return
-	}
-
-	if th.record.Lookup(hash) {
-		p2pServerLog.Info("has receivede the same topoMsg")
-		return
-	}
-
-	th.record.Insert(hash)
-	go peers.Traverse(func(id discovery.NodeID, p *Peer) {
-		if p.ID() != event.sender.ID() {
-			SendMsg(p.rw, *event.msg)
-		}
-	})
 }

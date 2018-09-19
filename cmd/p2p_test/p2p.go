@@ -1,14 +1,17 @@
 package main
 
 import (
+	"encoding/hex"
 	"flag"
 	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
-	"log"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"time"
 )
 
 func parseConfig() *config.Config {
@@ -48,10 +51,44 @@ func main() {
 		)
 	}
 
-	svr, err := p2p.NewServer(parsedConfig.P2P, nil)
-	if err != nil {
-		log.Fatal(err)
+	p2pCfg := parsedConfig.P2P
+
+	addr, _ := net.ResolveTCPAddr("tcp", p2pCfg.Addr)
+
+	cfg := p2p.Config{
+		Name:            p2pCfg.Name,
+		NetID:           p2p.NetworkID(p2pCfg.NetID),
+		MaxPeers:        p2pCfg.MaxPeers,
+		MaxPendingPeers: uint(p2pCfg.MaxPendingPeers),
+		MaxInboundRatio: p2pCfg.MaxPassivePeersRatio,
+		Port:            uint(addr.Port),
+		Database:        p2pCfg.Datadir,
+		PrivateKey:      nil,
+		Protocols: []*p2p.Protocol{
+			{
+				Name: "p2p-test",
+				// use for message command set, should be unique
+				ID: 1,
+				// read and write Msg with rw
+				Handle: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
+					for {
+						time.Sleep(time.Hour)
+					}
+					return nil
+				},
+			},
+		},
+		BootNodes: nil,
 	}
+
+	if p2pCfg.PrivateKey != "" {
+		priv, err := hex.DecodeString(p2pCfg.PrivateKey)
+		if err == nil {
+			cfg.PrivateKey = ed25519.PrivateKey(priv)
+		}
+	}
+
+	svr := p2p.New(cfg)
 
 	pending := make(chan struct{})
 	svr.Start()

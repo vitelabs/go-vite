@@ -62,7 +62,7 @@ func (d *Discovery) Start() {
 	d.wg.Add(1)
 	go d.agent.start()
 
-	discvLog.Info(fmt.Sprintf("discovery server start %s\n", d.self))
+	discvLog.Info(fmt.Sprintf("discovery server start %s", d.self))
 }
 
 func (d *Discovery) Stop() {
@@ -74,7 +74,7 @@ func (d *Discovery) Stop() {
 
 	d.wg.Wait()
 
-	discvLog.Info(fmt.Sprintf("discovery server %s stop\n", d.self))
+	discvLog.Info(fmt.Sprintf("discovery server %s stop", d.self))
 }
 
 func (d *Discovery) Block(ID NodeID, IP net.IP) {
@@ -135,11 +135,11 @@ func (d *Discovery) keepTable() {
 func (d *Discovery) findNode(to *Node, target NodeID) (nodes []*Node, err error) {
 	// if the last ping-pong checked has too long, then do ping-pong check again
 	if !d.db.hasChecked(to.ID) {
-		discvLog.Info(fmt.Sprintf("find %s to %s should ping/pong check first\n", target, to.UDPAddr()))
+		discvLog.Info(fmt.Sprintf("find %s to %s should ping/pong check first", target, to.UDPAddr()))
 
 		err = d.agent.ping(to)
 		if err != nil {
-			discvLog.Error(fmt.Sprintf("ping %s before find %s \n", to.UDPAddr(), target), "error", err)
+			discvLog.Error(fmt.Sprintf("ping %s before find %s", to.UDPAddr(), target), "error", err)
 			return
 		}
 
@@ -153,13 +153,13 @@ func (d *Discovery) findNode(to *Node, target NodeID) (nodes []*Node, err error)
 	if err != nil || len(nodes) == 0 {
 		findFails++
 		d.db.setFindNodeFails(to.ID, findFails)
-		discvLog.Info(fmt.Sprintf("find %s to %s fails\n", target, to.UDPAddr()), "error", err, "neighbors", len(nodes))
+		discvLog.Info(fmt.Sprintf("find %s to %s fails", target, to.UDPAddr()), "error", err, "neighbors", len(nodes))
 
 		if findFails > maxFindFails {
 			d.tab.removeNode(to)
 		}
 	} else {
-		discvLog.Info(fmt.Sprintf("find %s to %s success\n", target, to.UDPAddr()), "error", err, "neighbors", len(nodes))
+		discvLog.Info(fmt.Sprintf("find %s to %s success", target, to.UDPAddr()), "error", err, "neighbors", len(nodes))
 
 		// add as many nodes as possible
 		for _, n := range nodes {
@@ -263,7 +263,7 @@ func (d *Discovery) HandleMsg(res *packet) error {
 		return errMsgExpired
 	}
 
-	discvLog.Info(fmt.Sprintf("receive %s from %s@%s\n", res.code, res.fromID, res.from))
+	discvLog.Info(fmt.Sprintf("receive %s from %s@%s", res.code, res.fromID, res.from))
 
 	switch res.code {
 	case pingCode:
@@ -322,6 +322,9 @@ func (d *Discovery) HandleMsg(res *packet) error {
 			return errUnsolicitedMsg
 		}
 	default:
+		d.agent.send(res.from, exceptionCode, &Exception{
+			Code: eUnKnown,
+		})
 		return errUnkownMsg
 	}
 

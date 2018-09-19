@@ -164,6 +164,9 @@ func newProtoX(fd net.Conn) *protox {
 	fd.SetReadDeadline(time.Now().Add(handshakeTimeout))
 	return &protox{
 		fd: fd,
+		rw: &protoMsgRW{
+			fd: fd,
+		},
 	}
 }
 

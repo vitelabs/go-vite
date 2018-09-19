@@ -173,7 +173,7 @@ func (b *bucket) nodes() []*Node {
 	}
 
 	nodes := make([]*Node, b.size)
-	for i, item := 0, b.head().next; item != nil; i++ {
+	for i, item := 0, b.head().next; item != nil; i, item = i+1, item.next {
 		nodes[i] = item.node
 	}
 

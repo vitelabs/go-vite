@@ -300,7 +300,7 @@ func (p *Peer) handleMsg(msg *Msg) error {
 			select {
 			case p.topoChan <- &topoEvent{msg, p}:
 			default:
-				p.log.Info(fmt.Sprintf("msgReport channel is blocked, discard topoMsg from %s@%s\n", p.ID(), p.RemoteAddr()))
+				p.log.Info(fmt.Sprintf("msgReport channel is blocked, discard topoMsg from %s@%s", p.ID(), p.RemoteAddr()))
 				msg.Discard()
 			}
 		default:
@@ -313,11 +313,11 @@ func (p *Peer) handleMsg(msg *Msg) error {
 		} else {
 			select {
 			case <-p.term:
-				p.log.Error(fmt.Sprintf("peer has been terminated, cannot handle message %d/%d\n", cmdset, cmd))
+				p.log.Error(fmt.Sprintf("peer has been terminated, cannot handle message %d/%d", cmdset, cmd))
 				return errPeerTermed
 			case pf.input <- msg:
 			default:
-				p.log.Warn(fmt.Sprintf("protoFrame is busy, discard message %d/%d\n", cmdset, cmd))
+				p.log.Warn(fmt.Sprintf("protoFrame is busy, discard message %d/%d", cmdset, cmd))
 				return msg.Discard()
 			}
 		}
