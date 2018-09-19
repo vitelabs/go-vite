@@ -5,11 +5,10 @@ import (
 	"math/big"
 )
 
-// IN MY 2017 MACBOOK PRO which cpu is---- Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz----, that target costs about 1.5 seconds
+// IN MY 2017 MACBOOK PRO which cpu is---- Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz----, that target costs about 2 seconds
 const DUMMY_TARGET = "000003FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
 
-// if the block is the first block in its accountchain: nonce + HASH(accountaddress) <= target
-//  else:  nonce + prehash <= target
+// data = prehash + address; nonce + data < target
 func GetPowNonce(target *big.Int, data []byte) *big.Int {
 	if target == nil {
 		target, _ = new(big.Int).SetString(DUMMY_TARGET, 16)
@@ -25,7 +24,5 @@ func GetPowNonce(target *big.Int, data []byte) *big.Int {
 		}
 		from = from.Add(from, step)
 	}
-
 	return from
-
 }

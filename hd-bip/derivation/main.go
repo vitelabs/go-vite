@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	ViteAccountPrefix      = "m/44'/999'"
-	VitePrimaryAccountPath = "m/44'/999'/0'"
-	ViteAccountPathFormat  = "m/44'/999'/%d'"
+	ViteAccountPrefix      = "m/44'/666666'"
+	VitePrimaryAccountPath = "m/44'/666666'/0'"
+	ViteAccountPathFormat  = "m/44'/666666'/%d'"
 	FirstHardenedIndex     = 1 << 31 // bip 44, hardened child key mast begin with 2^32
 	seedModifier           = "ed25519 blake2b seed"
 )
