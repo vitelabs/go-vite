@@ -24,11 +24,11 @@ const (
 	VariableNamePledgeInfo       = "pledgeInfo"
 	VariableNamePledgeBeneficial = "pledgeBeneficial"
 
-	MethodNameCreateConsensusGroup = "CreateConsensusGroup"
-	VariableNameConsensusGroupInfo = "consensusGroupInfo"
-	VariableNameConditionCounting1 = "counting1"
-	VariableNameConditionRegister1 = "register1"
-	VariableNameConditionVote2     = "vote2"
+	MethodNameCreateConsensusGroup         = "CreateConsensusGroup"
+	VariableNameConsensusGroupInfo         = "consensusGroupInfo"
+	VariableNameConditionCountingOfBalance = "countingOfBalance"
+	VariableNameConditionRegisterOfPledge  = "registerOfPledge"
+	VariableNameConditionVoteOfKeepToken   = "voteOfKeepToken"
 
 	MethodNameMintage             = "Mintage"
 	MethodNameMintageCancelPledge = "CancelPledge"
@@ -60,9 +60,9 @@ const json_consensusGroup = `
 [
 	{"type":"function","name":"CreateConsensusGroup", "inputs":[{"name":"gid","type":"gid"},{"name":"nodeCount","type":"uint8"},{"name":"interval","type":"int64"},{"name":"countingRuleId","type":"uint8"},{"name":"countingRuleParam","type":"bytes"},{"name":"registerConditionId","type":"uint8"},{"name":"registerConditionParam","type":"bytes"},{"name":"voteConditionId","type":"uint8"},{"name":"voteConditionParam","type":"bytes"}]},
 	{"type":"variable","name":"consensusGroupInfo","inputs":[{"name":"nodeCount","type":"uint8"},{"name":"interval","type":"int64"},{"name":"countingRuleId","type":"uint8"},{"name":"countingRuleParam","type":"bytes"},{"name":"registerConditionId","type":"uint8"},{"name":"registerConditionParam","type":"bytes"},{"name":"voteConditionId","type":"uint8"},{"name":"voteConditionParam","type":"bytes"}]},
-	{"type":"variable","name":"counting1","inputs":[{"name":"tokenId","type":"tokenId"}]},
-	{"type":"variable","name":"register1","inputs":[{"name":"pledgeAmount","type":"uint256"},{"name":"pledgeToken","type":"tokenId"},{"name":"pledgeTime","type":"int64"}]},
-	{"type":"variable","name":"vote2","inputs":[{"name":"keepAmount","type":"uint256"},{"name":"keepToken","type":"tokenId"}]}
+	{"type":"variable","name":"countingOfBalance","inputs":[{"name":"tokenId","type":"tokenId"}]},
+	{"type":"variable","name":"registerOfPledge","inputs":[{"name":"pledgeAmount","type":"uint256"},{"name":"pledgeToken","type":"tokenId"},{"name":"pledgeTime","type":"int64"}]},
+	{"type":"variable","name":"voteOfKeepToken","inputs":[{"name":"keepAmount","type":"uint256"},{"name":"keepToken","type":"tokenId"}]}
 ]`
 const json_mintage = `
 [
@@ -116,12 +116,12 @@ type ParamCancelPledge struct {
 	Beneficial types.Address
 	Amount     *big.Int
 }
-type VariableConditionRegister1 struct {
+type VariableConditionRegisterOfPledge struct {
 	PledgeAmount *big.Int
 	PledgeToken  types.TokenTypeId
 	PledgeTime   int64
 }
-type VariableConditionVote2 struct {
+type VariableConditionVoteOfKeepToken struct {
 	KeepAmount *big.Int
 	KeepToken  types.TokenTypeId
 }
