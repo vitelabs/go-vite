@@ -86,7 +86,7 @@ func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 	if err != nil {
 		return nil, ErrInvalidData
 	}
-	gid, _ := types.BytesToGid(block.AccountBlock.Data[:types.GidSize])
+	gid := contracts.GetGidFromCreateContractData(block.AccountBlock.Data)
 	if !isExistGid(block.VmContext, gid) {
 		return nil, ErrInvalidData
 	}

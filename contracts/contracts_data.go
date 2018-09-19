@@ -40,7 +40,7 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*TokenInfo {
 		}
 		tokenId, _ := types.BytesToTokenTypeId(key[types.HashSize-types.TokenTypeIdSize:])
 		tokenInfo := new(TokenInfo)
-		ABI_register.UnpackVariable(tokenInfo, VariableNameMintage, value)
+		ABI_mintage.UnpackVariable(tokenInfo, VariableNameMintage, value)
 		tokenInfoMap[tokenId] = tokenInfo
 	}
 	return tokenInfoMap
@@ -63,7 +63,7 @@ func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 	return registerList
 }
 
-func GetVoteMap(db StorageDatabase, gid types.Gid) []*VoteInfo {
+func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
 	iterator := db.NewStorageIterator(gid.Bytes())
 	voteInfoList := make([]*VoteInfo, 0)
 	for {
@@ -114,4 +114,9 @@ func GetConsensusGroup(db StorageDatabase, gid types.Gid) *ConsensusGroupInfo {
 		return consensusGroupInfo
 	}
 	return nil
+}
+
+func GetGidFromCreateContractData(data []byte) types.Gid {
+	gid, _ := types.BytesToGid(data[:types.GidSize])
+	return gid
 }

@@ -126,6 +126,12 @@ func TestContractsRegisterRun(t *testing.T) {
 	}
 	db.accountBlockMap[addr2][hash22] = receiveRegisterBlockList2[0].AccountBlock
 
+	// get contracts data
+	db.addr = contracts.AddressRegister
+	if registerList := contracts.GetRegisterList(db, *ledger.CommonGid()); len(registerList) != 1 || registerList[0].Name != nodeName {
+		t.Fatalf("get register list failed")
+	}
+
 	// cancel register
 	time3 := time.Unix(timestamp+1, 0)
 	snapshot3 := &ledger.SnapshotBlock{Height: 3, Timestamp: &time3, Hash: types.DataHash([]byte{10, 3}), Producer: addr7}
@@ -216,7 +222,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	// reward
 	for i := uint64(1); i <= 50; i++ {
 		timei := time.Unix(timestamp+2+int64(i), 0)
-		snapshoti := &ledger.SnapshotBlock{Height: 4 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(4 + i)}), Producer: addr1}
+		snapshoti := &ledger.SnapshotBlock{Height: 4 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(4 + i)}), Producer: addr7}
 		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
 	}
 	snapshot54 := db.snapshotBlockList[53]
@@ -403,6 +409,13 @@ func TestContractsVote(t *testing.T) {
 		t.Fatalf("receive vote transaction 2 error")
 	}
 	db.accountBlockMap[addr3][hash32] = receiveVoteBlockList2[0].AccountBlock
+
+	// get contracts data
+	db.addr = contracts.AddressVote
+	if voteList := contracts.GetVoteList(db, *ledger.CommonGid()); len(voteList) != 1 || voteList[0].NodeName != nodeName2 {
+		t.Fatalf("get vote list failed")
+	}
+
 	// cancel vote
 	block15Data, _ := contracts.ABI_vote.PackMethod(contracts.MethodNameCancelVote, *ledger.CommonGid())
 	hash15 := types.DataHash([]byte{1, 5})
@@ -560,6 +573,12 @@ func TestContractsPledge(t *testing.T) {
 		t.Fatalf("receive pledge transaction 2 error")
 	}
 	db.accountBlockMap[addr5][hash52] = receivePledgeBlockList2[0].AccountBlock
+
+	// get contracts data
+	db.addr = contracts.AddressPledge
+	if pledgeAmount := contracts.GetPledgeAmount(db, addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
+		t.Fatalf("get pledge amount failed")
+	}
 
 	// cancel pledge
 	time55 := time.Unix(timestamp+100+pledgeTime, 0)
@@ -762,7 +781,7 @@ func TestConsensusGroup(t *testing.T) {
 	}
 	vm = NewVM()
 	vm.Debug = true
-	locHash, _ := types.BytesToHash(block13.Data[4:36])
+	locHash, _ := types.BytesToHash(sendCreateConsensusGroupBlockList[0].AccountBlock.Data[4:36])
 	db.addr = addr2
 	updateReveiceBlockBySendBlock(block21, block13)
 	receiveCreateConsensusGroupBlockList, isRetry, err := vm.Run(db, block21, block13)
@@ -783,6 +802,16 @@ func TestConsensusGroup(t *testing.T) {
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr2][hash21] = receiveCreateConsensusGroupBlockList[0].AccountBlock
+
+	// get contracts data
+	gid, _ := types.BytesToGid(sendCreateConsensusGroupBlockList[0].AccountBlock.Data[26:36])
+	db.addr = contracts.AddressConsensusGroup
+	if groupInfo := contracts.GetConsensusGroup(db, gid); groupInfo == nil || groupInfo.NodeCount != 25 {
+		t.Fatalf("get group info failed")
+	}
+	if groupInfoList := contracts.GetConsensusGroupList(db); len(groupInfoList) != 2 || groupInfoList[0].NodeCount != 25 {
+		t.Fatalf("get group info list failed")
+	}
 }
 
 func TestMintage(t *testing.T) {
@@ -871,6 +900,15 @@ func TestMintage(t *testing.T) {
 		t.Fatalf("receive mintage reward transaction error")
 	}
 	db.accountBlockMap[addr1][hash14] = receiveMintageRewardBlockList[0].AccountBlock
+
+	// get contracts data
+	db.addr = contracts.AddressMintage
+	if tokenInfo := contracts.GetTokenById(db, tokenId); tokenInfo == nil || tokenInfo.TokenName != tokenName {
+		t.Fatalf("get token by id failed")
+	}
+	if tokenMap := contracts.GetTokenMap(db); len(tokenMap) != 2 || tokenMap[tokenId].TokenName != tokenName {
+		t.Fatalf("get token map failed")
+	}
 }
 
 func TestCheckTokenInfo(t *testing.T) {
