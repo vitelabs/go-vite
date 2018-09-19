@@ -25,27 +25,26 @@ func MakeDate() []*ledger.AccountBlock {
 			//bal[Vite_TokenId] = big.NewInt(1)
 
 			block := &ledger.AccountBlock{
-				Meta:              nil,
-				BlockType:         0,
-				Hash:              types.Hash{},
-				Height:            h,
-				PrevHash:          types.Hash{},
-				AccountAddress:    *v,
-				PublicKey:         nil,
-				ToAddress:         *addrList[rand.Intn(TO_COUNT)],
-				FromBlockHash:     types.Hash{},
-				Amount:            nil,
-				TokenId:           types.TokenTypeId{},
-				Quota:             0,
-				Fee:               nil,
-				SnapshotHash:      types.Hash{},
-				Data:              nil,
-				Timestamp:         nil,
-				StateHash:         types.Hash{},
-				LogHash:           types.Hash{},
-				Nonce:             nil,
-				SendBlockHashList: nil,
-				Signature:         nil,
+				Meta:           nil,
+				BlockType:      0,
+				Hash:           types.Hash{},
+				Height:         h,
+				PrevHash:       types.Hash{},
+				AccountAddress: *v,
+				PublicKey:      nil,
+				ToAddress:      *addrList[rand.Intn(TO_COUNT)],
+				FromBlockHash:  types.Hash{},
+				Amount:         nil,
+				TokenId:        types.TokenTypeId{},
+				Quota:          0,
+				Fee:            nil,
+				SnapshotHash:   types.Hash{},
+				Data:           nil,
+				Timestamp:      nil,
+				StateHash:      types.Hash{},
+				LogHash:        &types.Hash{},
+				Nonce:          nil,
+				Signature:      nil,
 			}
 			blockList = append(blockList, block)
 			h = h + 1
@@ -63,8 +62,8 @@ func Example_priorityQueue() {
 }
 
 func TestPriorityFromQueue_InsertNew(t *testing.T) {
-	blockList := MakeDate()
-	t.Log(blockList)
+	//blockList := MakeDate()
+	//t.Log(blockList)
 	//var priorityFromQueue *PriorityFromQueue
 	//t.Log("priorityFromQueue start to insert blocks")
 	//for _, v := range blockList {

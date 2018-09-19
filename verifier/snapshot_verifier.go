@@ -11,11 +11,11 @@ import (
 )
 
 type SnapshotVerifier struct {
-	reader ChainReader
+	reader Chain
 }
 
 func NewSnapshotVerifier() *SnapshotVerifier {
-	// todo add chain chainReader
+	// todo add chain chain
 	verifier := &SnapshotVerifier{}
 	return verifier
 }

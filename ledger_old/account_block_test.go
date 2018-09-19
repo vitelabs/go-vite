@@ -7,21 +7,24 @@ import (
 )
 
 func TestAccountBlock_ComputeHash(t *testing.T) {
-	address, _ := types.HexToAddress("vite_85ffbcd9fcd341838811fd96aae5f0b02e0ae141b4e70fcecb")
-	fromHash, _ := types.HexToHash("2415413b0c4c73d2ff7c23be16a74cbc89a94f34b97bdf7db79de841a21d8033")
-	prevHash, _ := types.HexToHash("6afb1e1bbe26a5ddc7aa658784f1eb58a278fbd31b06c3e6974a8cbf08e79073")
-	snapshotTimestamp, _ := types.HexToHash("52893cb69d6aa6fd1938692cfb91c93a8602ffc41f518fc08444380ae51f6a56")
+	address, _ := types.HexToAddress("vite_4827fbc6827797ac4d9e814affb34b4c5fa85d39bf96d105e7")
+	//fromHash, _ := types.HexToHash("23a3ea450176ea92e4d7c0943db364bffd305b2befea4ee2d36725f9831f5b4d")
+	toAddress, _ := types.HexToAddress("vite_18068b64b49852e1c4dfbc304c4e606011e068836260bc9975")
+	prevHash, _ := types.HexToHash("810007e4c84fe1624bae5105130165a462fe66d22d1bd8c2431b463b75bde0b3")
+	snapshotTimestamp, _ := types.HexToHash("606770e4dea298d492f99a2d40e4be5468baa0dba408f93f443bbf9a47db26f0")
 
 	block := &AccountBlock{
 		Meta: &AccountBlockMeta{
-			Height: big.NewInt(100),
+			Height: big.NewInt(3),
 		},
-		AccountAddress:    &address,
-		FromHash:          &fromHash,
+		AccountAddress: &address,
+		//FromHash:          &fromHash,
+		To:                &toAddress,
 		PrevHash:          &prevHash,
-		Timestamp:         uint64(1537009137),
+		Timestamp:         uint64(1537271245),
 		TokenId:           &MockViteTokenId,
-		Data:              "12345",
+		Amount:            big.NewInt(1234567890123456789),
+		Data:              "",
 		SnapshotTimestamp: &snapshotTimestamp,
 		Nounce:            []byte{0, 0, 0, 0, 0},
 		Difficulty:        []byte{0, 0, 0, 0, 0},
@@ -30,6 +33,7 @@ func TestAccountBlock_ComputeHash(t *testing.T) {
 
 	hash, _ := block.ComputeHash()
 	if hash.String() != "2455cc5e710f3ad2ee1dda716ad78e44443d8bcfb12fa456f1cc09e1b2e5c56f" {
+		t.Log(hash.String())
 		t.Fatal("ComputeHash error !!!")
 	}
 }

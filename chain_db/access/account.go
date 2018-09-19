@@ -25,7 +25,8 @@ func (accountAccess *Account) WriteAccountIndex(batch *leveldb.Batch, accountId 
 }
 
 func (accountAccess *Account) WriteAccount(batch *leveldb.Batch, account *ledger.Account) error {
-	accountKey, _ := database.EncodeKey(database.DBKP_ACCOUNT, account)
+	// TODO key
+	accountKey, _ := database.EncodeKey(database.DBKP_ACCOUNT, account.AccountAddress.Bytes())
 	data, err := account.DbSerialize()
 	if err != nil {
 		return err

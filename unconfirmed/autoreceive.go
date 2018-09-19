@@ -2,6 +2,7 @@ package unconfirmed
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
@@ -18,8 +19,9 @@ type AutoReceiveWorker struct {
 	log     log15.Logger
 	address types.Address
 
-	uBlocksPool *model.UnconfirmedBlocksPool
 	manager     *Manager
+	generator   *generator.Generator
+	uBlocksPool *model.UnconfirmedBlocksPool
 
 	status                int
 	isSleeping            bool
@@ -36,6 +38,7 @@ func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[t
 	return &AutoReceiveWorker{
 		manager:     manager,
 		uBlocksPool: manager.unconfirmedBlocksPool,
+		generator:   generator.NewGenerator(manager.vite.Chain(), manager.vite.WalletManager().KeystoreManager),
 		address:     address,
 		status:      Create,
 		isSleeping:  false,
@@ -156,66 +159,29 @@ func (w *AutoReceiveWorker) NewUnconfirmedTxAlarm() {
 }
 
 func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
-	//// todo 1.ExistInPool
-	//
-	////todo 2.PackReceiveBlock
-	//recvBlock := w.PackReceiveBlock(sendBlock)
-	//
-	////todo 3.GenerateBlocks
-	//
-	////todo 4.InertBlockIntoPool
-	//err := w.InertBlockIntoPool(recvBlock)
-	//if err != nil {
-	//
-	//}
-}
+	if w.manager.checkExistInPool(sendBlock.ToAddress, sendBlock.FromBlockHash) {
+		w.log.Info("ProcessOneBlock.checkExistInPool failed")
+		return
+	}
 
-//
-//func (w *AutoReceiveWorker) PackReceiveBlock(sendBlock *ledger.AccountBlock) *ledger.AccountBlock {
-//	w.statusMutex.Lock()
-//	defer w.statusMutex.Unlock()
-//	if w.status != Start {
-//		w.status = Start
-//	}
-//
-//	w.log.Info("PackReceiveBlock", "sendBlock",
-//		w.log.New("sendBlock.Hash", sendBlock.Hash), w.log.New("sendBlock.To", sendBlock.ToAddress))
-//
-//	// todo pack the block with w.args, compute hash, Sign,
-//	block := &ledger.AccountBlock{
-//		Meta:              nil,
-//		BlockType:         0,
-//		Hash:              nil,
-//		Height:            nil,
-//		PrevHash:          nil,
-//		AccountAddress:    nil,
-//		PublicKey:         nil,
-//		ToAddress:         nil,
-//		FromBlockHash:     nil,
-//		Amount:            nil,
-//		TokenId:           nil,
-//		QuotaFee:          nil,
-//		ContractFee:       nil,
-//		SnapshotHash:      nil,
-//		Data:              "",
-//		Timestamp:         0,
-//		StateHash:         nil,
-//		LogHash:           nil,
-//		Nonce:             nil,
-//		SendBlockHashList: nil,
-//		Signature:         nil,
-//	}
-//
-//	hash, err := block.ComputeHash()
-//	if err != nil {
-//		w.log.Error("ComputeHash Error")
-//		return nil
-//	}
-//	block.Hash = hash
-//
-//	return block
-//}
-//
-//func (w *AutoReceiveWorker) InertBlockIntoPool(recvBlock *ledger.AccountBlock) error {
-//	return nil
-//}
+	err := w.generator.PrepareVm(nil, nil, &sendBlock.ToAddress)
+	if err != nil {
+		w.log.Error("ProcessOneBlock.PrepareVm failed", "error", err)
+		return
+	}
+
+	genResult, genErr := w.generator.GenerateWithUnconfirmed(*sendBlock, nil,
+		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+			return w.generator.Sign(addr, nil, data)
+		})
+	if genErr != nil {
+		w.log.Error("GenerateTx error ignore, ", "error", genErr)
+		return
+	}
+
+	poolErr := w.manager.insertCommonBlockToPool(genResult.BlockGenList)
+	if poolErr != nil {
+		w.log.Error("insertCommonBlockToPool failed, ", "error", poolErr)
+		return
+	}
+}
