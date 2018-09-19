@@ -173,6 +173,8 @@ func (d *agent) ping(node *Node) error {
 		Expiration: getExpiration(),
 	})
 
+	discvLog.Info("ping", "target", node.String())
+
 	if err != nil {
 		return err
 	}
@@ -200,11 +202,15 @@ func (d *agent) pong(node *Node, ack types.Hash) error {
 		Expiration: getExpiration(),
 	})
 
+	discvLog.Info("pong", "target", node.String())
+
 	return err
 }
 
 // should ping-pong checked before
 func (d *agent) findnode(n *Node, ID NodeID) (nodes []*Node, err error) {
+	monitor.LogEvent("p2p/discv", "findnode")
+
 	_, err = d.send(n.UDPAddr(), findnodeCode, &FindNode{
 		ID:         d.self.ID,
 		Target:     ID,
@@ -216,6 +222,7 @@ func (d *agent) findnode(n *Node, ID NodeID) (nodes []*Node, err error) {
 	}
 
 	send := time.Now()
+	discvLog.Info("findnode", "target", ID.String(), "to", n.String())
 
 	nodes = make([]*Node, 0, K)
 	total := 0
@@ -314,6 +321,9 @@ func (d *agent) readLoop() {
 				discvLog.Error(fmt.Sprintf("unpack message from %s error: %v\n", addr, err))
 				continue
 			}
+
+			monitor.LogEvent("p2p/discv", "msg")
+
 			p.from = addr
 
 			if err = d.pktHandler(p); err != nil {
@@ -344,6 +354,8 @@ func (d *agent) send(addr *net.UDPAddr, code packetCode, m Message) (hash types.
 	}
 
 	discvLog.Info(fmt.Sprintf("send message %s to %s done\n", code, addr))
+
+	monitor.LogEvent("p2p/discv", code.String())
 
 	return
 }

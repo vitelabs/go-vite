@@ -32,6 +32,14 @@ var firmNodes = [...]string{
 	//"vnode://9df2e11399398176fa58638592cf1b2e0e804ae92ac55f09905618fdb239c03c@150.109.40.169:8483",
 }
 
+const (
+	DefaultMaxPeers        uint      = 50
+	DefaultMaxPendingPeers uint      = 20
+	DefaultMaxInboundRatio uint      = 2
+	DefaultPort            uint16    = 8483
+	DefaultNetID           NetworkID = Aquarius
+)
+
 const P2PDir = "p2p"
 const privKeyFileName = "priv.key"
 
@@ -100,23 +108,23 @@ func getServerKey(p2pDir string) (pub ed25519.PublicKey, priv ed25519.PrivateKey
 
 func EnsureConfig(cfg Config) *Config {
 	if cfg.NetID == 0 {
-		cfg.NetID = Aquarius
+		cfg.NetID = DefaultNetID
 	}
 
 	if cfg.MaxPeers == 0 {
-		cfg.MaxPeers = defaultMaxPeers
+		cfg.MaxPeers = DefaultMaxPeers
 	}
 
 	if cfg.MaxPendingPeers == 0 {
-		cfg.MaxPendingPeers = defaultMaxPendingPeers
+		cfg.MaxPendingPeers = DefaultMaxPendingPeers
 	}
 
 	if cfg.MaxInboundRatio == 0 {
-		cfg.MaxInboundRatio = 2
+		cfg.MaxInboundRatio = DefaultMaxInboundRatio
 	}
 
-	if cfg.Addr == "" {
-		cfg.Addr = "0.0.0.0:8483"
+	if cfg.Port == 0 {
+		cfg.Port = DefaultPort
 	}
 
 	if cfg.Database == "" {

@@ -10,20 +10,15 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/block"
 	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/p2p/nat"
 	"net"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
 var p2pServerLog = log15.New("module", "p2p/server")
-
-const (
-	defaultMaxPeers             = 50
-	defaultDialTimeout          = 10 * time.Second
-	defaultMaxPendingPeers uint = 20
-	defaultMaxActiveDail   uint = 16
-)
 
 var errSvrStarted = errors.New("Server has started")
 var errSvrStopped = errors.New("Server has stopped")
@@ -42,7 +37,7 @@ type Config struct {
 	MaxPeers        uint               // max peers can be connected
 	MaxPendingPeers uint               // max peers waiting for connect
 	MaxInboundRatio uint               // max inbound peers: MaxPeers / MaxInboundRatio
-	Addr            string             // TCP listen address
+	Port            uint16             // TCP and UDP listen port
 	Database        string             // the directory for storing node table
 	PrivateKey      ed25519.PrivateKey // use for encrypt message, the corresponding public key use for NodeID
 	Protocols       []*Protocol        // protocols server supported
@@ -115,15 +110,15 @@ func (svr *Server) NodeInfo() *NodeInfo {
 	}
 
 	return &NodeInfo{
-		ID:   svr.self.ID.String(),
-		Name: svr.Name,
-		Url:  svr.self.String(),
-		IP:   svr.Addr,
-		Ports: ports{
-			Discovery: 0,
-			Listener:  0,
+		ID:    svr.self.ID.String(),
+		Name:  svr.Name,
+		Url:   svr.self.String(),
+		NetID: svr.NetID,
+		Address: &address{
+			IP:  svr.self.IP,
+			TCP: svr.self.TCP,
+			UDP: svr.self.UDP,
 		},
-		Address:   "",
 		Protocols: protocols,
 	}
 }
@@ -168,8 +163,9 @@ func (svr *Server) Start() error {
 
 	svr.setHandshake(ID)
 
+	addr := "0.0.0.0:" + strconv.Itoa(int(svr.Port))
 	// udp discover
-	udpAddr, err := net.ResolveUDPAddr("udp", svr.Addr)
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return err
 	}
@@ -180,7 +176,7 @@ func (svr *Server) Start() error {
 	}
 
 	// tcp listener
-	tcpAddr, err := net.ResolveTCPAddr("tcp", svr.Addr)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		svr.log.Crit("tcp listening error", "err", err)
 	}
@@ -191,10 +187,9 @@ func (svr *Server) Start() error {
 	} else {
 		svr.log.Info(fmt.Sprintf("tcp listening at %s\n", tcpAddr))
 	}
-
-	// todo mapping UDP and TCP
-	svr.wg.Add(1)
-	go svr.mapping(tcpAddr.Port)
+	// mapping udp and tcp
+	go nat.Map(svr.term, "udp", int(svr.self.UDP), int(svr.self.UDP), "vite p2p udp", 0, svr.updateNode)
+	go nat.Map(svr.term, "tcp", int(svr.self.TCP), int(svr.self.TCP), "vite p2p tcp", 0, svr.updateNode)
 
 	node := &discovery.Node{
 		ID:  ID,
@@ -229,26 +224,12 @@ func (svr *Server) Start() error {
 	return nil
 }
 
-func (svr *Server) mapping(lport int) {
-	//defer svr.wg.Done()
-	//out := make(chan *nat.Addr)
-
-	//svr.wg.Add(1)
-	//go func() {
-	//	defer svr.wg.Done()
-	//	nat.Map(svr.term, "tcp", lport, lport, "vite p2p", 0, out)
-	//}()
-	//
-	//for {
-	//	select {
-	//	case <-svr.term:
-	//		return
-	//	case addr := <-out:
-	//		if addr.IsValid() {
-	//			svr.discv.SetNode(nil, 0, uint16(addr.Port))
-	//		}
-	//	}
-	//}
+func (svr *Server) updateNode(addr *nat.Addr) {
+	if addr.Proto == "tcp" {
+		svr.self.TCP = uint16(addr.Port)
+	} else {
+		svr.self.UDP = uint16(addr.Port)
+	}
 }
 
 func (svr *Server) setHandshake(ID discovery.NodeID) {
@@ -388,6 +369,7 @@ func (svr *Server) loop() {
 				}
 			})
 		case e := <-svr.topo.rec:
+			monitor.LogEvent("p2p", "topo")
 			svr.topo.Handle(e, svr.peers)
 		}
 	}
@@ -424,13 +406,12 @@ type NodeInfo struct {
 	Name      string    `json:"name"`
 	Url       string    `json:"url"`
 	NetID     NetworkID `json:"netId"`
-	IP        string    `json:"ip"`
-	Ports     ports     `json:"ports"`
-	Address   string    `json:"address"`
+	Address   *address  `json:"address"`
 	Protocols []string  `json:"protocols"`
 }
 
-type ports struct {
-	Discovery uint16 `json:"discovery"`
-	Listener  uint16 `json:"listener"`
+type address struct {
+	IP  net.IP `json:"ip"`
+	TCP uint16 `json:"tcp"`
+	UDP uint16 `json:"udp"`
 }

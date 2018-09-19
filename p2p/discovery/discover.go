@@ -337,6 +337,8 @@ func (d *Discovery) RefreshTable() {
 		return
 	}
 
+	monitor.LogEvent("p2p/discv", "refreshTable")
+
 	// do refresh routine
 	d.tab.initRand()
 	d.loadInitNodes()

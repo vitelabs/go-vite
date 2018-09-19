@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"io"
 	"net"
@@ -269,6 +270,8 @@ func (p *Peer) readLoop(out chan<- error) {
 			out <- err
 			return
 		}
+
+		monitor.LogEvent("p2p/peer", "msg")
 
 		msg.ReceivedAt = time.Now()
 

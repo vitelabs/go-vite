@@ -105,6 +105,8 @@ func (a *agent) taskLoop() {
 			return
 		default:
 			if e := tasks.Front(); e != nil {
+				monitor.LogEvent("p2p/dial", "task")
+
 				task, _ := e.Value.(Task)
 				task.Perform(a)
 				tasks.Remove(e)
