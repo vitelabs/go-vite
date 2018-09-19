@@ -41,7 +41,7 @@ type Config struct {
 	Database        string             // the directory for storing node table
 	PrivateKey      ed25519.PrivateKey // use for encrypt message, the corresponding public key use for NodeID
 	Protocols       []*Protocol        // protocols server supported
-	BootNodes       []*discovery.Node
+	BootNodes       []string
 	KafKa           []string
 }
 

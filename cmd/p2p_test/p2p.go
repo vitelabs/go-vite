@@ -78,7 +78,13 @@ func main() {
 				},
 			},
 		},
-		BootNodes: nil,
+		BootNodes: []string{
+			"vnode://33e43481729850fc66cef7f42abebd8cb2f1c74f0b09a5bf03da34780a0a5606@150.109.120.109:8483",
+			"vnode://7194af5b7032cb470c41b313e2675e2c3ba3377e66617247012b8d638552fb17@150.109.17.20:8483",
+			"vnode://087c45631c3ec9a5dbd1189084ee40c8c4c0f36731ef2c2cb7987da421d08ba9@162.62.21.17:8483",
+			"vnode://7c6a2b920764b6dddbca05bb6efa1c9bcd90d894f6e9b107f137fc496c802346@170.106.1.142:8483",
+			"vnode://2840979ae06833634764c19e72e6edbf39595ff268f558afb16af99895aba3d8@49.51.168.181:8483",
+		},
 	}
 
 	if p2pCfg.PrivateKey != "" {
