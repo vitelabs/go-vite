@@ -2,6 +2,7 @@ package pool
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/viteshan/naive-vite/common/face"
 )
@@ -26,6 +27,9 @@ func (self *snapshotVerifier) verify(b commonBlock) *poolVerifyStat {
 }
 func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) *poolSnapshotVerifyStat {
 	return &poolSnapshotVerifyStat{}
+}
+func (self *snapshotVerifier) verifyAccountTimeount(current *ledger.SnapshotBlock, refer *ledger.SnapshotBlock) bool {
+	return current.Height-refer.Height > 60*24
 }
 
 type accountVerifier struct {
@@ -59,6 +63,14 @@ func (self *accountVerifier) verifyNormalAccount(b commonBlock) *poolAccountVeri
 }
 
 func (self *accountVerifier) verifyContractAccount(b commonBlock) *poolAccountVerifyStat {
+	//block := b.(*accountPoolBlock)
+	//result, stat := self.accountVerifier.VerifyforProducer(block.block)
+	//
+	//this, otherBlocks, e := self.accountVerifier.VerifyforVM(block.block)
+	return &poolAccountVerifyStat{}
+}
+
+func (self *accountVerifier) verifyTimeout(block *ledger.AccountBlock) *poolAccountVerifyStat {
 	//block := b.(*accountPoolBlock)
 	//result, stat := self.accountVerifier.VerifyforProducer(block.block)
 	//

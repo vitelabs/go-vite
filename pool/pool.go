@@ -11,6 +11,8 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/wallet"
+	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/viteshan/naive-vite/common"
 	"github.com/viteshan/naive-vite/common/face"
 	"github.com/viteshan/naive-vite/common/log"
@@ -81,6 +83,7 @@ type pool struct {
 	pendingAc sync.Map
 	fetcher   syncer.Fetcher
 	bc        ch.Chain
+	wt        wallet.Manager
 
 	snapshotVerifier *verifier.SnapshotVerifier
 	accountVerifier  *verifier.AccountVerifier
@@ -101,7 +104,7 @@ func NewPool(bc ch.Chain) BlockPool {
 func (self *pool) Init(f syncer.Fetcher) {
 	self.fetcher = f
 	rw := &snapshotCh{version: self.version}
-	fe := &snapshotFetcher{fetcher: f}
+	fe := &snapshotSyncer{fetcher: f}
 	v := &snapshotVerifier{}
 	snapshotPool := newSnapshotPool("snapshotPool", self.version, v, fe, rw)
 	snapshotPool.init(
@@ -144,6 +147,7 @@ func (self *pool) Start() {
 	self.pendingSc.Start()
 	go self.loopTryInsert()
 	go self.loopCompact()
+	go self.loopBroadcastAndDel()
 }
 func (self *pool) Stop() {
 	self.pendingSc.Stop()
@@ -322,32 +326,11 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.SnapshotContent
 
 func (self *pool) ForkAccountTo(addr types.Address, h *ledger.SnapshotContentItem) error {
 	this := self.selfPendingAc(addr)
+	err := self.rollbackAccountTo(this, h.AccountBlockHash, h.AccountBlockHeight)
 
-	// find in disk
-	chainHash := this.rw.getHashByHeight(h.AccountBlockHeight)
-	if chainHash != nil && *chainHash == h.AccountBlockHash {
-		// disk block is ok
+	if err != nil {
 		return nil
 	}
-	// todo  del some blcoks
-	snapshots, accounts, e := this.rw.delToHeight(h.AccountBlockHeight)
-	if e != nil {
-		return e
-	}
-
-	// todo rollback snapshot chain
-	err := self.pendingSc.rollbackCurrent(snapshots)
-	if err != nil {
-		return err
-	}
-	// todo rollback accounts chain
-	for k, v := range accounts {
-		err = self.selfPendingAc(k).rollbackCurrent(v)
-		if err != nil {
-			return err
-		}
-	}
-
 	// find in tree
 	targetChain := this.findInTree(h.AccountBlockHash, h.AccountBlockHeight)
 
@@ -365,6 +348,29 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.SnapshotContentIte
 	return err
 }
 
+func (self *pool) rollbackAccountTo(p *accountPool, hash types.Hash, height uint64) error {
+
+	// todo  del some blcoks
+	snapshots, accounts, e := p.rw.delToHeight(height)
+	if e != nil {
+		return e
+	}
+
+	// todo rollback snapshot chain
+	err := self.pendingSc.rollbackCurrent(snapshots)
+	if err != nil {
+		return err
+	}
+	// todo rollback accounts chain
+	for k, v := range accounts {
+		err = self.selfPendingAc(k).rollbackCurrent(v)
+		if err != nil {
+			return err
+		}
+	}
+	return err
+}
+
 func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	chain, ok := self.pendingAc.Load(addr)
 
@@ -373,7 +379,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	}
 
 	rw := &accountCh{address: addr, rw: self.bc, version: self.version}
-	f := &accountFetcher{address: addr, fetcher: self.fetcher}
+	f := &accountSyncer{address: addr, fetcher: self.fetcher}
 	v := &accountVerifier{}
 	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version)
 
@@ -394,6 +400,7 @@ func (self *pool) loopTryInsert() {
 	defer self.wg.Done()
 
 	t := time.NewTicker(time.Millisecond * 20)
+	defer t.Stop()
 	sum := 0
 	for {
 		select {
@@ -438,6 +445,7 @@ func (self *pool) loopCompact() {
 	defer self.wg.Done()
 
 	t := time.NewTicker(time.Millisecond * 40)
+	defer t.Stop()
 	sum := 0
 	for {
 		select {
@@ -454,6 +462,46 @@ func (self *pool) loopCompact() {
 			sum += self.accountsCompact()
 		}
 	}
+}
+func (self *pool) loopBroadcastAndDel() {
+	self.wg.Add(1)
+	defer self.wg.Done()
+
+	broadcastT := time.NewTicker(time.Second * 30)
+	delT := time.NewTicker(time.Second * 40)
+
+	defer broadcastT.Stop()
+	defer delT.Stop()
+	for {
+		select {
+		case <-self.closed:
+			return
+		case <-broadcastT.C:
+			addrList := self.listUnlockedAddr()
+			for _, addr := range addrList {
+				self.selfPendingAc(addr).broadcastUnConfirmedBlocks()
+			}
+		case <-delT.C:
+			addrList := self.listUnlockedAddr()
+			for _, addr := range addrList {
+				self.delTimeoutUnConfirmedBlocks(addr)
+			}
+		}
+	}
+
+}
+func (self *pool) listUnlockedAddr() []types.Address {
+	var todoAddress []types.Address
+	status, e := self.wt.KeystoreManager.Status()
+	if e != nil {
+		return todoAddress
+	}
+	for k, v := range status {
+		if v == keystore.Locked {
+			todoAddress = append(todoAddress, k)
+		}
+	}
+	return todoAddress
 }
 
 func (self *pool) accountsCompact() int {
@@ -492,4 +540,18 @@ func (self *pool) fetchForTask(task verifyTask) []*face.FetchRequest {
 		}
 	}
 	return existReqs
+}
+func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
+	headSnapshot := self.pendingSc.rw.headSnapshot()
+	ac := self.selfPendingAc(addr)
+	firstUnconfirmedBlock := ac.rw.getFirstUnconfirmedBlock()
+	referSnapshot := self.pendingSc.rw.getSnapshotBlockByHash(firstUnconfirmedBlock.SnapshotHash)
+
+	// verify account timeout
+	if !self.pendingSc.v.verifyAccountTimeount(headSnapshot, referSnapshot) {
+		self.pendingSc.stw()
+		defer self.pendingSc.unStw()
+		// rollback to block
+		self.rollbackAccountTo(ac, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
+	}
 }

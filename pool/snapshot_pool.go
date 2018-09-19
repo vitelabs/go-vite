@@ -19,7 +19,7 @@ type snapshotPool struct {
 	pool   *pool
 	rw     *snapshotCh
 	v      *snapshotVerifier
-	f      *snapshotFetcher
+	f      *snapshotSyncer
 }
 
 func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion) *snapshotPoolBlock {
@@ -47,7 +47,7 @@ func newSnapshotPool(
 	name string,
 	version *ForkVersion,
 	v *snapshotVerifier,
-	f *snapshotFetcher,
+	f *snapshotSyncer,
 	rw *snapshotCh,
 
 ) *snapshotPool {
@@ -161,6 +161,13 @@ func (self *snapshotPool) loopCheckCurrentInsert() {
 	}
 }
 
+func (self *snapshotPool) stw() {
+	self.rwMu.Lock()
+
+}
+func (self *snapshotPool) unStw() {
+	self.rwMu.Unlock()
+}
 func (self *snapshotPool) snapshotTryInsert() (*poolSnapshotVerifyStat, commonBlock) {
 	self.rwMu.RLock()
 	defer self.rwMu.RUnlock()

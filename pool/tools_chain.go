@@ -7,6 +7,7 @@ import (
 	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	//"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type chainRw interface {
@@ -86,6 +87,12 @@ func (self *accountCh) accountType() accountType {
 	// todo
 	return NONE
 }
+func (self *accountCh) getUnConfirmedBlocks() []*ledger.AccountBlock {
+	return nil
+}
+func (self *accountCh) getFirstUnconfirmedBlock() *ledger.AccountBlock {
+
+}
 
 //func (self *accountCh) findAboveSnapshotHeight(height uint64) *common.AccountStateBlock {
 //	return self.bc.FindAccountAboveSnapshotHeight(self.address, height)
@@ -111,6 +118,24 @@ func (self *snapshotCh) head() commonBlock {
 	//	return nil
 	//}
 	//return block
+	return nil
+}
+
+func (self *snapshotCh) headSnapshot() *ledger.SnapshotBlock {
+	//block, _ := self.bc.HeadSnapshot()
+	//if block == nil {
+	//	return nil
+	//}
+	//return block
+	return nil
+}
+
+func (self *snapshotCh) getSnapshotBlockByHash(hash types.Hash) *ledger.SnapshotBlock {
+	//head := self.bc.GetSnapshotByHeight(height)
+	//if head == nil {
+	//	return nil
+	//}
+	//return head
 	return nil
 }
 
