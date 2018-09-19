@@ -36,7 +36,7 @@ func (sc *SnapshotChain) WriteSnapshotHash(batch *leveldb.Batch, hash *types.Has
 
 func (sc *SnapshotChain) WriteSnapshotContent(batch *leveldb.Batch, snapshotHeight uint64, snapshotContent ledger.SnapshotContent) error {
 	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTCONTENT, snapshotHeight)
-	data, sErr := snapshotContent.DbSerialize()
+	data, sErr := snapshotContent.Serialize()
 	if sErr != nil {
 		return sErr
 	}

@@ -47,6 +47,9 @@ func NewCompressor(chain Chain, dataDir string) *Compressor {
 func (c *Compressor) Indexer() *Indexer {
 	return c.indexer
 }
+func (c *Compressor) FileReader() *FileReader {
+	return nil
+}
 
 func (c *Compressor) Start() bool {
 	c.statusLock.Lock()
