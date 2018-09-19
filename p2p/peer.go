@@ -101,9 +101,10 @@ type Peer struct {
 	disc        chan DiscReason
 	protoErr    chan error
 	log         log15.Logger
+	topoChan    chan<- *topoEvent // some msg need other handler
 }
 
-func NewPeer(conn *conn, ourSet []*Protocol) (*Peer, error) {
+func NewPeer(conn *conn, ourSet []*Protocol, topoChan chan<- *topoEvent) (*Peer, error) {
 	protoFrames := createProtoFrames(ourSet, conn.cmdSets, conn)
 
 	if len(protoFrames) == 0 {
@@ -118,6 +119,7 @@ func NewPeer(conn *conn, ourSet []*Protocol) (*Peer, error) {
 		disc:        make(chan DiscReason),
 		log:         log15.New("module", "p2p/peer"),
 		protoErr:    make(chan error, len(protoFrames)+1), // additional baseProtocol error
+		topoChan:    topoChan,
 	}, nil
 }
 
@@ -292,7 +294,12 @@ func (p *Peer) handleMsg(msg *Msg) error {
 			}
 			return reason
 		case topoCmd:
-			// todo
+			select {
+			case p.topoChan <- &topoEvent{msg, p}:
+			default:
+				p.log.Info(fmt.Sprintf("msgReport channel is blocked, discard topoMsg from %s@%s\n", p.ID(), p.RemoteAddr()))
+				msg.Discard()
+			}
 		default:
 			return msg.Discard()
 		}

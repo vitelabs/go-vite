@@ -62,6 +62,7 @@ type Server struct {
 	BootNodes    []*discovery.Node
 	peers        *PeerSet
 	blockList    *block.CuckooSet
+	topo         *topoHandler
 	self         *discovery.Node
 	agent        *agent
 	log          log15.Logger
@@ -92,7 +93,8 @@ func New(cfg Config) *Server {
 		addPeer:   make(chan *conn, 1),
 		delPeer:   make(chan *Peer, 1),
 		BootNodes: addFirmNodes(cfg.BootNodes),
-		blockList: block.NewCuckooSet(1000),
+		blockList: block.NewCuckooSet(100),
+		topo:      newTopoHandler(),
 	}
 
 	return svr
@@ -356,7 +358,7 @@ func (svr *Server) loop() {
 		case c := <-svr.addPeer:
 			err := svr.checkConn(c)
 			if err == nil {
-				if p, err := NewPeer(c, svr.Protocols); err != nil {
+				if p, err := NewPeer(c, svr.Protocols, svr.topo.rec); err != nil {
 					svr.peers.Add(p)
 
 					peersCount := svr.peers.Size()
@@ -380,11 +382,13 @@ func (svr *Server) loop() {
 		case <-topoTicker.C:
 			topo := svr.Topology()
 			go svr.peers.Traverse(func(id discovery.NodeID, p *Peer) {
-				err := Send(p.rw, baseProtocolCmdSet, topoCmd, topo)
+				err := Send(p.rw, baseProtocolCmdSet, topoCmd, 0, topo)
 				if err != nil {
 					p.protoErr <- err
 				}
 			})
+		case e := <-svr.topo.rec:
+			svr.topo.Handle(e, svr.peers)
 		}
 	}
 

@@ -53,11 +53,13 @@ func PackMsg(cmdSetId, cmd, id uint64, s Serializable) (*Msg, error) {
 	return &Msg{
 		CmdSetID: cmdSetId,
 		Cmd:      cmd,
+		Id:       id,
 		Size:     size,
 		Payload:  r,
 	}, nil
 }
 
+// the most basic Msg transport
 type protoMsgRW struct {
 	fd           io.ReadWriter
 	compressible bool
@@ -186,7 +188,7 @@ func (p *protox) Handshake(ours *Handshake) (their *Handshake, err error) {
 	errch := make(chan error, 1)
 
 	go func() {
-		errch <- Send(p.rw, baseProtocolCmdSet, handshakeCmd, ours)
+		errch <- Send(p.rw, baseProtocolCmdSet, handshakeCmd, 0, ours)
 	}()
 
 	if their, err = readHandshake(p.rw); err != nil {
