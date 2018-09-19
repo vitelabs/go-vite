@@ -20,6 +20,7 @@ type contract struct {
 	quotaLeft, quotaRefund uint64
 	intPool                *intPool
 	i                      *interpreter
+	returnData             []byte
 }
 
 func newContract(caller types.Address, address types.Address, block *vm_context.VmAccountBlock, quotaLeft, quotaRefund uint64) *contract {
@@ -60,10 +61,6 @@ func (c *contract) setCallCode(addr types.Address, code []byte) {
 }
 
 func (c *contract) run(vm *VM) (ret []byte, err error) {
-	if len(c.code) == 0 {
-		return nil, nil
-	}
-
 	c.intPool = poolOfIntPools.get()
 	defer func() {
 		poolOfIntPools.put(c.intPool)

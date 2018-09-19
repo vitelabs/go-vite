@@ -7,9 +7,9 @@ import (
 )
 
 func TestContractsABIInit(t *testing.T) {
-	tests := []string{json_register, json_vote, json_pledge, json_consensusGroup, json_mintage}
+	tests := []string{jsonRegister, jsonVote, jsonPledge, jsonConsensusGroup, jsonMintage}
 	for _, data := range tests {
-		if _, err := abi.JSONToABIContract(strings.NewReader(json_register)); err != nil {
+		if _, err := abi.JSONToABIContract(strings.NewReader(jsonRegister)); err != nil {
 			t.Fatalf("json to abi failed, %v, %v", data, err)
 		}
 	}
