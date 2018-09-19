@@ -5,6 +5,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"time"
 )
 
 func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
@@ -261,6 +262,11 @@ func (c *Chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 	}
 
 	return latestBlock.Height - height + 1, nil
+}
+
+// TODO
+func (c *Chain) GetSnapshotBlockBeforeTime(time *time.Time) (*ledger.SnapshotBlock, error) {
+	return nil, nil
 }
 
 func (c *Chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {

@@ -48,6 +48,8 @@ const (
 type AccountBlock struct {
 	Meta *AccountBlockMeta
 
+	producer *types.Address
+
 	BlockType byte
 	Hash      types.Hash
 	Height    uint64
@@ -79,6 +81,14 @@ type AccountBlock struct {
 
 func (*AccountBlock) Copy() *AccountBlock {
 	return nil
+}
+
+func (ab *AccountBlock) Producer() types.Address {
+	if ab.producer == nil {
+		producer := types.PubkeyToAddress(ab.PublicKey)
+		ab.producer = &producer
+	}
+	return *ab.producer
 }
 
 func (ab *AccountBlock) Proto() {

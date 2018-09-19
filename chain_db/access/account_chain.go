@@ -48,7 +48,7 @@ func (ac *AccountChain) WriteBlock(batch *leveldb.Batch, accountId uint64, block
 }
 
 func (ac *AccountChain) WriteBlockMeta(batch *leveldb.Batch, blockHash *types.Hash, blockMeta *ledger.AccountBlockMeta) error {
-	buf, err := blockMeta.DbSerialize()
+	buf, err := blockMeta.Serialize()
 	if err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func (ac *AccountChain) GetBlockMeta(blockHash *types.Hash) (*ledger.AccountBloc
 	}
 
 	blockMeta := &ledger.AccountBlockMeta{}
-	if err := blockMeta.DbDeserialize(blockMetaBytes); err != nil {
+	if err := blockMeta.Deserialize(blockMetaBytes); err != nil {
 		return nil, err
 	}
 
@@ -240,7 +240,7 @@ func (ac *AccountChain) getConfirmHeight(accountBlockHash *types.Hash) (uint64, 
 	}
 
 	accountBlockMeta := &ledger.AccountBlockMeta{}
-	if dsErr := accountBlockMeta.DbDeserialize(data); dsErr != nil {
+	if dsErr := accountBlockMeta.Deserialize(data); dsErr != nil {
 		return 0, nil, dsErr
 	}
 

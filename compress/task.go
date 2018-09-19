@@ -8,6 +8,8 @@ import (
 
 var compressorTaskLog = log15.New("module", "compressorTask")
 
+const writeMax = 1024 * 1024 * 200 // 200M
+
 type taskInfo struct {
 	beginHeight  uint64
 	targetHeight uint64
@@ -84,8 +86,14 @@ func (task *CompressorTask) Run() *TaskRunResult {
 
 	tmpFileWriter := NewFileWriter(task.tmpFile)
 	var blockNumbers = uint64(0)
-	formatterErr := BlockFormatter(tmpFileWriter, func() ([]block, error) {
-		if currentTaskIndex > taskLen {
+
+	writeBlocks := uint64(0)
+	// Limit write length
+	formatterErr := BlockFormatter(tmpFileWriter, func(hasWrite uint64, hasWriteBlocks uint64) ([]block, error) {
+
+		writeBlocks = hasWriteBlocks
+		if currentTaskIndex > taskLen ||
+			hasWrite >= writeMax {
 			return nil, io.EOF
 		}
 
@@ -95,6 +103,7 @@ func (task *CompressorTask) Run() *TaskRunResult {
 
 		return blocks, err
 	})
+
 	tmpFileWriter.Close()
 
 	if formatterErr != nil {
@@ -107,7 +116,10 @@ func (task *CompressorTask) Run() *TaskRunResult {
 	}
 
 	return &TaskRunResult{
-		Ti:           ti,
+		Ti: &taskInfo{
+			beginHeight:  ti.beginHeight,
+			targetHeight: writeBlocks,
+		},
 		IsSuccess:    true,
 		BlockNumbers: blockNumbers,
 	}

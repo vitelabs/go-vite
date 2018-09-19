@@ -30,7 +30,7 @@ type SnapshotBlock struct {
 	Hash     types.Hash
 	PrevHash types.Hash
 	Height   uint64
-	Producer types.Address
+	producer *types.Address
 
 	PublicKey ed25519.PublicKey
 	Signature []byte
@@ -51,8 +51,8 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 	binary.BigEndian.PutUint64(heightBytes, sb.Height)
 	source = append(source, heightBytes...)
 
-	// Producer
-	source = append(source, sb.Producer.Bytes()...)
+	// PublicKey
+	source = append(source, sb.PublicKey...)
 
 	// Timestamp
 	unixTimeBytes := make([]byte, 8)
@@ -64,6 +64,14 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 
 	hash, _ := types.BytesToHash(crypto.Hash256(source))
 	return hash
+}
+
+func (sb *SnapshotBlock) Producer() types.Address {
+	if sb.producer == nil {
+		producer := types.PubkeyToAddress(sb.PublicKey)
+		sb.producer = &producer
+	}
+	return *sb.producer
 }
 
 func (sb *SnapshotBlock) VerifySignature() bool {
