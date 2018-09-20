@@ -5,12 +5,50 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (c *Chain) GetSubLedgerIndex() {
+func (c *Chain) GetSubLedgerByHeight(startHeight uint64, count int, forward bool) ([]string, [][2]uint64) {
+	beginHeight, endHeight := uint64(0), uint64(0)
+	if forward {
+		beginHeight = startHeight
+		endHeight = startHeight + uint64(count) - 1
+	} else {
+		beginHeight = startHeight - uint64(count) + 1
+		endHeight = startHeight
+	}
 
+	fileList := c.compressor.Indexer().Get(beginHeight, endHeight)
+
+	var fileNameList []string
+
+	var rangeList [][2]uint64
+	for _, fileItem := range fileList {
+		fileNameList = append(fileNameList, fileItem.FileName())
+		if beginHeight < fileItem.StartHeight() {
+			rangeList = append(rangeList, [2]uint64{beginHeight, fileItem.StartHeight()})
+		}
+		beginHeight = fileItem.EndHeight() + 1
+	}
+
+	if len(fileList) > 0 && fileList[len(fileList)-1].EndHeight() < endHeight {
+		rangeList = append(rangeList, [2]uint64{fileList[len(fileList)-1].EndHeight() + 1, endHeight})
+	}
+
+	return fileNameList, rangeList
 }
 
-func (c *Chain) GetSubLedger() {
+func (c *Chain) GetSubLedgerByHash(startBlockHash *types.Hash, count int, forward bool) ([]string, [][2]uint64, error) {
+	startHeight, err := c.chainDb.Sc.GetSnapshotBlockHeight(startBlockHash)
+	if err != nil {
+		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSubLedgerByHash")
+		return nil, nil, err
+	}
 
+	if startHeight == 0 {
+		c.log.Error("startHeight is 0", "method", "GetSubLedgerByHash")
+		return nil, nil, err
+	}
+
+	fileNameList, rangeList := c.GetSubLedgerByHeight(startHeight, count, forward)
+	return fileNameList, rangeList, nil
 }
 
 func (c *Chain) GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {

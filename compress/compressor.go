@@ -22,12 +22,12 @@ type Compressor struct {
 
 	dir string
 
-	checkInterval time.Duration
-	checkCount    int
-
 	chain Chain
 
 	indexer *Indexer
+	ticker  *time.Ticker
+
+	tickerDuration time.Duration
 }
 
 func NewCompressor(chain Chain, dataDir string) *Compressor {
@@ -37,12 +37,18 @@ func NewCompressor(chain Chain, dataDir string) *Compressor {
 		chain:      chain,
 		dir:        filepath.Join(dataDir, "ledger_files"),
 
-		checkInterval: time.Second * 10,
-		checkCount:    60,
+		tickerDuration: time.Minute * 10,
 	}
 
 	c.indexer = NewIndexer(c.dir)
 	return c
+}
+
+func (c *Compressor) Indexer() *Indexer {
+	return c.indexer
+}
+func (c *Compressor) FileReader() *FileReader {
+	return nil
 }
 
 func (c *Compressor) Start() bool {
@@ -53,25 +59,27 @@ func (c *Compressor) Start() bool {
 		compressorLog.Error("Compressor is running, Don't start again.")
 		return false
 	}
+
 	c.status = RUNNING
+	c.ticker = time.NewTicker(c.tickerDuration)
 
 	c.wg.Add(1)
 	go func() {
 		defer c.wg.Done()
 
-		currentCount := 0
 		for {
 			select {
 			case <-c.stopSignal:
 				return
-			default:
-				if currentCount >= c.checkCount {
-					currentCount = 0
-					task := NewCompressorTask(c.chain, filepath.Join(c.dir, "subgraph_tmp"))
-					task.Run()
+
+			case <-c.ticker.C:
+				tmpFileName := filepath.Join(c.dir, "subgraph_tmp")
+				task := NewCompressorTask(c.chain, tmpFileName, c.indexer.LatestHeight())
+				if result := task.Run(); result.IsSuccess {
+					c.indexer.Add(result.Ti, tmpFileName, result.BlockNumbers)
 				}
-				time.Sleep(c.checkInterval)
-				currentCount++
+				task.Clear()
+
 			}
 		}
 	}()
@@ -83,6 +91,7 @@ func (c *Compressor) Stop() {
 	c.statusLock.Lock()
 	defer c.statusLock.Unlock()
 
+	c.ticker.Stop()
 	c.stopSignal <- 1
 	c.wg.Wait()
 

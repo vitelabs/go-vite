@@ -8,6 +8,8 @@ import (
 
 var compressorTaskLog = log15.New("module", "compressorTask")
 
+const writeMax = 1024 * 1024 * 200 // 200M
+
 type taskInfo struct {
 	beginHeight  uint64
 	targetHeight uint64
@@ -36,28 +38,45 @@ func (ti *taskInfo) Split(gap uint64) []*taskInfo {
 }
 
 type CompressorTask struct {
-	splitSize uint64
-	tmpFile   string
-	chain     Chain
-	log       log15.Logger
+	splitSize      uint64
+	tmpFile        string
+	chain          Chain
+	indexerHeight  uint64
+	startHeightGap uint64
+	endHeightGap   uint64
+	log            log15.Logger
 }
 
-func NewCompressorTask(chain Chain, tmpFile string) *CompressorTask {
+func NewCompressorTask(chain Chain, tmpFile string, indexerHeight uint64) *CompressorTask {
 	compressorTask := &CompressorTask{
 		splitSize: 10,
 		chain:     chain,
 		tmpFile:   tmpFile,
 		log:       log15.New("module", "compressor/task"),
+
+		indexerHeight:  indexerHeight,
+		startHeightGap: 7200,
+		endHeightGap:   3600,
 	}
 
 	return compressorTask
 }
 
-func (task *CompressorTask) Run() {
+type TaskRunResult struct {
+	Ti           *taskInfo
+	IsSuccess    bool
+	BlockNumbers uint64
+}
+
+func (task *CompressorTask) Run() *TaskRunResult {
 	// Get task info
 	var ti *taskInfo
 	if ti = task.getTaskInfo(); ti == nil {
-		return
+		return &TaskRunResult{
+			Ti:           ti,
+			IsSuccess:    false,
+			BlockNumbers: 0,
+		}
 	}
 
 	taskInfoList := ti.Split(task.splitSize)
@@ -66,29 +85,64 @@ func (task *CompressorTask) Run() {
 	currentTaskIndex := 0
 
 	tmpFileWriter := NewFileWriter(task.tmpFile)
-	formatterErr := BlockFormatter(tmpFileWriter, func() ([]block, error) {
-		if currentTaskIndex > taskLen {
+	var blockNumbers = uint64(0)
+
+	writeBlocks := uint64(0)
+	// Limit write length
+	formatterErr := BlockFormatter(tmpFileWriter, func(hasWrite uint64, hasWriteBlocks uint64) ([]block, error) {
+
+		writeBlocks = hasWriteBlocks
+		if currentTaskIndex > taskLen ||
+			hasWrite >= writeMax {
 			return nil, io.EOF
 		}
 
 		blocks, err := task.getSubLedger(taskInfoList[currentTaskIndex])
 		currentTaskIndex++
+		blockNumbers += uint64(len(blocks))
+
 		return blocks, err
 	})
+
 	tmpFileWriter.Close()
 
 	if formatterErr != nil {
-		os.Remove(task.tmpFile)
 		task.log.Error("Block write failed, error is "+formatterErr.Error(), "method", "Run")
-		return
+		return &TaskRunResult{
+			Ti:           ti,
+			IsSuccess:    false,
+			BlockNumbers: 0,
+		}
 	}
 
-	// todo: Write index
+	return &TaskRunResult{
+		Ti: &taskInfo{
+			beginHeight:  ti.beginHeight,
+			targetHeight: writeBlocks,
+		},
+		IsSuccess:    true,
+		BlockNumbers: blockNumbers,
+	}
+}
 
+func (task *CompressorTask) Clear() {
+	os.Remove(task.tmpFile)
 }
 
 func (task *CompressorTask) getTaskInfo() *taskInfo {
-	return &taskInfo{}
+	latestSnapshotBlock, err := task.chain.GetLatestSnapshotBlock()
+	if err != nil {
+		task.log.Error("GetLatestSnapshotBlock failed, error is "+err.Error(), "method", "getTaskInfo")
+		return nil
+	}
+
+	if latestSnapshotBlock.Height-task.indexerHeight > task.startHeightGap {
+		return &taskInfo{
+			beginHeight:  task.indexerHeight + 1,
+			targetHeight: latestSnapshotBlock.Height - task.endHeightGap,
+		}
+	}
+	return nil
 }
 
 func (task *CompressorTask) getSubLedger(ti *taskInfo) ([]block, error) {
@@ -108,8 +162,4 @@ func (task *CompressorTask) getSubLedger(ti *taskInfo) ([]block, error) {
 		}
 	}
 	return blocks, nil
-}
-
-func (task *CompressorTask) writeIndex() {
-
 }

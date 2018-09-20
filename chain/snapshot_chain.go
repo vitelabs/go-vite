@@ -5,6 +5,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"time"
 )
 
 func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
@@ -27,6 +28,7 @@ func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 		accountId, newAccountIdErr := c.newAccountId()
 		if newAccountIdErr != nil {
 			c.log.Error("newAccountId failed, error is "+newAccountIdErr.Error(), "method", "InsertSnapshotBlock")
+			return newAccountIdErr
 		}
 
 		if err := c.createAccount(batch, accountId, &address, snapshotBlock.PublicKey); err != nil {
@@ -132,6 +134,7 @@ func (c *Chain) GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock,
 	return c.GetSnapshotBlockByHeight(height)
 }
 
+// TODO cache
 func (c *Chain) GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 
 	block, err := c.chainDb.Sc.GetLatestBlock()
@@ -159,6 +162,7 @@ func (c *Chain) GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	return block, nil
 }
 
+// TODO read code
 func (c *Chain) GetGenesesSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	block, err := c.chainDb.Sc.GetGenesesBlock()
 	if err != nil {
@@ -224,6 +228,7 @@ func (c *Chain) GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotB
 	return snapshotBlock, nil
 }
 
+// TODO 调用上面
 func (c *Chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 	height, ghErr := c.chainDb.Ac.GetConfirmHeight(accountBlockHash)
 	if ghErr != nil {
@@ -259,6 +264,11 @@ func (c *Chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 	return latestBlock.Height - height + 1, nil
 }
 
+// TODO
+func (c *Chain) GetSnapshotBlockBeforeTime(time *time.Time) (*ledger.SnapshotBlock, error) {
+	return nil, nil
+}
+
 func (c *Chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {
 	account, getAccountIdErr := c.chainDb.Account.GetAccountByAddress(address)
 	if getAccountIdErr != nil {
@@ -283,14 +293,16 @@ func (c *Chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Add
 	return accountBlock, nil
 }
 
-// Block only contains hash and height
-func (c *Chain) DeleteSnapshotBlocksByHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+//TODO by 2 to
+func (c *Chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
 
 	batch := new(leveldb.Batch)
 	snapshotBlocks, accountBlocksMap, err := c.deleteSnapshotBlocksByHeight(batch, toHeight)
 	for addr, accountBlocks := range accountBlocksMap {
 		c.needSnapshotCache.Remove(&addr, accountBlocks[len(accountBlocks)-1].Height)
 	}
+
+	// TODO Add needSnapshotCache, think 2 case
 	return snapshotBlocks, accountBlocksMap, err
 }
 
@@ -317,7 +329,7 @@ func (c *Chain) deleteSnapshotBlocksByHeight(batch *leveldb.Batch, toHeight uint
 		toHeight = needDeleteSnapshotBlockHeight
 	}
 
-	deleteSnapshotBlocks, deleteSnapshotBlocksErr := c.chainDb.Sc.DeleteByHeight(batch, toHeight)
+	deleteSnapshotBlocks, deleteSnapshotBlocksErr := c.chainDb.Sc.DeleteToHeight(batch, toHeight)
 	if deleteSnapshotBlocksErr != nil {
 		c.log.Error("DeleteByHeight failed, error is "+deleteSnapshotBlocksErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 		return nil, nil, deleteSnapshotBlocksErr

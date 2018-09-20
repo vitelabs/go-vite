@@ -45,7 +45,7 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 				}
 			}
 
-			// Save contract gid list
+			// TODO: Save contract gid list
 			if contractGidList := unsavedCache.ContractGidList(); len(contractGidList) > 0 {
 				for _, contractGid := range contractGidList {
 					c.chainDb.Ac.WriteContractGid(batch, contractGid.Gid(), contractGid.Addr())
@@ -68,6 +68,7 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 				accountId, newAccountIdErr := c.newAccountId()
 				if newAccountIdErr != nil {
 					c.log.Error("newAccountId failed, error is "+newAccountIdErr.Error(), "method", "InsertAccountBlocks")
+					return newAccountIdErr
 				}
 
 				if err := c.createAccount(batch, accountId, &accountBlock.AccountAddress, accountBlock.PublicKey); err != nil {
@@ -236,6 +237,7 @@ func (c *Chain) GetAccountBalance(addr *types.Address) (map[types.TokenTypeId]*b
 		c.log.Error("GetTrie failed, error is "+err.Error(), "method", "GetAccountBalanceByTokenId")
 		return nil, err
 	}
+	// TODO trie is nil
 	storageIterator := trie.NewIterator(vm_context.STORAGE_KEY_BALANCE)
 	balanceMap := make(map[types.TokenTypeId]*big.Int)
 	prefixKeyLen := len(vm_context.STORAGE_KEY_BALANCE)

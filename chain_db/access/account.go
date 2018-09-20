@@ -25,8 +25,9 @@ func (accountAccess *Account) WriteAccountIndex(batch *leveldb.Batch, accountId 
 }
 
 func (accountAccess *Account) WriteAccount(batch *leveldb.Batch, account *ledger.Account) error {
-	accountKey, _ := database.EncodeKey(database.DBKP_ACCOUNT, account)
-	data, err := account.DbSerialize()
+	// TODO key
+	accountKey, _ := database.EncodeKey(database.DBKP_ACCOUNT, account.AccountAddress.Bytes())
+	data, err := account.Serialize()
 	if err != nil {
 		return err
 	}
@@ -77,7 +78,7 @@ func (accountAccess *Account) GetAccountByAddress(address *types.Address) (*ledg
 		return nil, nil
 	}
 	account := &ledger.Account{}
-	dsErr := account.DbDeserialize(data)
+	dsErr := account.Deserialize(data)
 
 	if dsErr != nil {
 		return nil, dsErr

@@ -47,6 +47,8 @@ func NewChain(cfg *config.Config) *Chain {
 	return chain
 }
 
+// TODO return chainDb
+
 func (c *Chain) Start() {
 	// Start compress in the background
 	c.compressor.Start()

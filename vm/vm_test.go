@@ -37,7 +37,8 @@ func TestVmRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeSendCreate,
 		PrevHash:       hash12,
 		Amount:         big.NewInt(1e18),
-		TokenId:        *ledger.ViteTokenId(),
+		Fee:            big.NewInt(0),
+		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot2.Hash,
 		Data:           data13,
 	}
@@ -52,14 +53,14 @@ func TestVmRun(t *testing.T) {
 		err != nil ||
 		sendCreateBlockList[0].AccountBlock.Quota != 28936 ||
 		sendCreateBlockList[0].AccountBlock.Fee.Cmp(contractFee) != 0 ||
-		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 {
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
 		t.Fatalf("send create transaction error")
 	}
 	db.accountBlockMap[addr1][hash13] = sendCreateBlockList[0].AccountBlock
 
 	// receive create
 	addr2 := sendCreateBlockList[0].AccountBlock.ToAddress
-	db.storageMap[contracts.AddressPledge][types.DataHash(addr2.Bytes())], _ = contracts.ABI_pledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
+	db.storageMap[contracts.AddressPledge][types.DataHash(addr2.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	balance2 := big.NewInt(0)
 
 	hash21 := types.DataHash([]byte{2, 1})
@@ -79,7 +80,7 @@ func TestVmRun(t *testing.T) {
 	if len(receiveCreateBlockList) != 1 || isRetry || err != nil ||
 		receiveCreateBlockList[0].AccountBlock.Quota != 0 ||
 		!bytes.Equal(db.contractGidMap[addr1].Bytes(), ledger.CommonGid().Bytes()) ||
-		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(balance2) != 0 {
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(balance2) != 0 {
 		t.Fatalf("receive create transaction error")
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
@@ -93,9 +94,10 @@ func TestVmRun(t *testing.T) {
 		AccountAddress: addr1,
 		ToAddress:      addr2,
 		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
 		PrevHash:       hash13,
 		Amount:         big.NewInt(1e18),
-		TokenId:        *ledger.ViteTokenId(),
+		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot2.Hash,
 		Data:           data14,
 	}
@@ -106,7 +108,7 @@ func TestVmRun(t *testing.T) {
 	balance1.Sub(balance1, block14.Amount)
 	if len(sendCallBlockList) != 1 || isRetry || err != nil ||
 		sendCallBlockList[0].AccountBlock.Quota != 21464 ||
-		db.balanceMap[addr1][*ledger.ViteTokenId()].Cmp(balance1) != 0 {
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
 		t.Fatalf("send call transaction error")
 	}
 	db.accountBlockMap[addr1][hash14] = sendCallBlockList[0].AccountBlock
@@ -129,7 +131,7 @@ func TestVmRun(t *testing.T) {
 	balance2.Add(balance2, block14.Amount)
 	if len(receiveCallBlockList) != 1 || isRetry || err != nil ||
 		receiveCallBlockList[0].AccountBlock.Quota != 41330 ||
-		db.balanceMap[addr2][*ledger.ViteTokenId()].Cmp(big.NewInt(2e18)) != 0 {
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(big.NewInt(2e18)) != 0 {
 		t.Fatalf("receive call transaction error")
 	}
 	db.accountBlockMap[addr2][hash22] = receiveCallBlockList[0].AccountBlock
@@ -142,9 +144,10 @@ func TestVmRun(t *testing.T) {
 		AccountAddress: addr1,
 		ToAddress:      addr2,
 		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
 		PrevHash:       hash14,
 		Amount:         big.NewInt(4e18),
-		TokenId:        *ledger.ViteTokenId(),
+		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot2.Hash,
 		Data:           data15,
 	}
@@ -163,9 +166,10 @@ func TestVmRun(t *testing.T) {
 		AccountAddress: addr1,
 		ToAddress:      addr2,
 		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
 		PrevHash:       hash14,
 		Amount:         big.NewInt(50),
-		TokenId:        *ledger.ViteTokenId(),
+		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot2.Hash,
 		Data:           data15,
 	}

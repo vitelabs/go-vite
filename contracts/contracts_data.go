@@ -1,7 +1,6 @@
 package contracts
 
 import (
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
@@ -21,10 +20,10 @@ type StorageDatabase interface {
 }
 
 func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *TokenInfo {
-	data := db.GetStorage(&AddressMintage, helper.LeftPadBytes(tokenId.Bytes(), types.HashSize))
+	data := db.GetStorage(&AddressMintage, GetMintageKey(tokenId))
 	if len(data) > 0 {
 		tokenInfo := new(TokenInfo)
-		ABI_mintage.UnpackVariable(tokenInfo, VariableNameMintage, data)
+		ABIMintage.UnpackVariable(tokenInfo, VariableNameMintage, data)
 		return tokenInfo
 	}
 	return nil
@@ -38,9 +37,9 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*TokenInfo {
 		if !ok {
 			break
 		}
-		tokenId, _ := types.BytesToTokenTypeId(key[types.HashSize-types.TokenTypeIdSize:])
+		tokenId := GetTokenIdFromMintageKey(key)
 		tokenInfo := new(TokenInfo)
-		ABI_register.UnpackVariable(tokenInfo, VariableNameMintage, value)
+		ABIMintage.UnpackVariable(tokenInfo, VariableNameMintage, value)
 		tokenInfoMap[tokenId] = tokenInfo
 	}
 	return tokenInfoMap
@@ -55,15 +54,15 @@ func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 			break
 		}
 		registration := new(Registration)
-		ABI_register.UnpackVariable(registration, VariableNameRegistration, value)
-		if registration.Timestamp > 0 {
+		ABIRegister.UnpackVariable(registration, VariableNameRegistration, value)
+		if registration.CancelHeight == 0 {
 			registerList = append(registerList, registration)
 		}
 	}
 	return registerList
 }
 
-func GetVoteMap(db StorageDatabase, gid types.Gid) []*VoteInfo {
+func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
 	iterator := db.NewStorageIterator(gid.Bytes())
 	voteInfoList := make([]*VoteInfo, 0)
 	for {
@@ -73,16 +72,16 @@ func GetVoteMap(db StorageDatabase, gid types.Gid) []*VoteInfo {
 		}
 		voterAddr := GetAddrFromVoteKey(key)
 		nodeName := new(string)
-		ABI_vote.UnpackVariable(nodeName, VariableNameVoteStatus, value)
+		ABIVote.UnpackVariable(nodeName, VariableNameVoteStatus, value)
 		voteInfoList = append(voteInfoList, &VoteInfo{voterAddr, *nodeName})
 	}
 	return voteInfoList
 }
 
 func GetPledgeAmount(db StorageDatabase, beneficial types.Address) *big.Int {
-	locHash := types.DataHash(beneficial.Bytes()).Bytes()
+	key := GetPledgeBeneficialKey(beneficial)
 	beneficialAmount := new(VariablePledgeBeneficial)
-	err := ABI_pledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, locHash))
+	err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, key))
 	if err == nil {
 		return beneficialAmount.Amount
 	}
@@ -98,7 +97,7 @@ func GetConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 			break
 		}
 		consensusGroupInfo := new(ConsensusGroupInfo)
-		ABI_consensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value)
+		ABIConsensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value)
 		consensusGroupInfo.Gid = GetGidFromConsensusGroupKey(key)
 		consensusGroupInfoList = append(consensusGroupInfoList, consensusGroupInfo)
 	}
@@ -109,9 +108,14 @@ func GetConsensusGroup(db StorageDatabase, gid types.Gid) *ConsensusGroupInfo {
 	data := db.GetStorage(&AddressConsensusGroup, GetConsensusGroupKey(gid))
 	if len(data) > 0 {
 		consensusGroupInfo := new(ConsensusGroupInfo)
-		ABI_consensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)
+		ABIConsensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)
 		consensusGroupInfo.Gid = gid
 		return consensusGroupInfo
 	}
 	return nil
+}
+
+func GetGidFromCreateContractData(data []byte) types.Gid {
+	gid, _ := types.BytesToGid(data[:types.GidSize])
+	return gid
 }
