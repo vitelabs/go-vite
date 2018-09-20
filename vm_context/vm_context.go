@@ -46,11 +46,7 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 			return nil, err
 		}
 	} else {
-		var err error
-		currentSnapshotBlock, err = chain.GetLatestSnapshotBlock()
-		if err != nil {
-			return nil, err
-		}
+		currentSnapshotBlock = chain.GetLatestSnapshotBlock()
 	}
 
 	vmContext.currentSnapshotBlock = currentSnapshotBlock

@@ -132,11 +132,7 @@ func (task *CompressorTask) Clear() {
 }
 
 func (task *CompressorTask) getTaskInfo() *taskInfo {
-	latestSnapshotBlock, err := task.chain.GetLatestSnapshotBlock()
-	if err != nil {
-		task.log.Error("GetLatestSnapshotBlock failed, error is "+err.Error(), "method", "getTaskInfo")
-		return nil
-	}
+	latestSnapshotBlock := task.chain.GetLatestSnapshotBlock()
 
 	if latestSnapshotBlock.Height-task.indexerHeight > task.startHeightGap {
 		ti := &taskInfo{
