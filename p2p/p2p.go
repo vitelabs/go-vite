@@ -206,15 +206,21 @@ func (svr *Server) Start() error {
 	svr.discv.Start()
 
 	svr.agent = newAgent(svr)
-	svr.agent.start()
 
 	// tcp listener
 	svr.wg.Add(1)
 	go svr.listenLoop(listener)
 
-	// task loop
+	// peer manager
 	svr.wg.Add(1)
 	go svr.loop()
+
+	// task loop
+	svr.wg.Add(1)
+	go func() {
+		svr.agent.scheduleTasks(svr.term)
+		svr.wg.Done()
+	}()
 
 	p2pServerLog.Info("p2p server started")
 	return nil
@@ -334,8 +340,9 @@ func (svr *Server) loop() {
 			goto END
 		case c := <-svr.addPeer:
 			err := svr.checkConn(c)
+
 			if err == nil {
-				if p, err := NewPeer(c, svr.Protocols, svr.topo.rec); err != nil {
+				if p, err := NewPeer(c, svr.Protocols, svr.topo.rec); err == nil {
 					svr.peers.Add(p)
 
 					peersCount := svr.peers.Size()
@@ -343,6 +350,8 @@ func (svr *Server) loop() {
 					monitor.LogDuration("p2p/peer", "add", int64(peersCount))
 
 					go svr.runPeer(p)
+				} else {
+					svr.log.Error(fmt.Sprintf("create new peer error: %v", err))
 				}
 			} else {
 				c.close(err)
@@ -357,6 +366,8 @@ func (svr *Server) loop() {
 			monitor.LogDuration("p2p/peer", "del", int64(peersCount))
 
 		case <-topoTicker.C:
+			monitor.LogEvent("p2p/peer", "topo")
+
 			topo := svr.Topology()
 			go svr.peers.Traverse(func(id discovery.NodeID, p *Peer) {
 				err := Send(p.rw, baseProtocolCmdSet, topoCmd, 0, topo)
@@ -390,7 +401,6 @@ func (svr *Server) Stop() {
 	}
 
 	svr.discv.Stop()
-	svr.agent.stop()
 
 	close(svr.term)
 	svr.wg.Wait()

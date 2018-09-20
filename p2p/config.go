@@ -146,14 +146,23 @@ func EnsureConfig(cfg Config) *Config {
 func addFirmNodes(bootnodes []string) (nodes []*discovery.Node) {
 	nodes = make([]*discovery.Node, 0, len(bootnodes)+len(firmNodes))
 
-	for _, list := range [][]string{firmNodes, bootnodes} {
-		for _, nodeURL := range list {
-			node, err := discovery.ParseNode(nodeURL)
-			if err == nil {
-				nodes = append(nodes, node)
-			}
+	//for _, list := range [][]string{firmNodes, bootnodes} {
+	//	for _, nodeURL := range list {
+	//		node, err := discovery.ParseNode(nodeURL)
+	//		if err == nil {
+	//			nodes = append(nodes, node)
+	//		}
+	//	}
+	//}
+
+	for _, nodeURL := range bootnodes {
+		node, err := discovery.ParseNode(nodeURL)
+		if err == nil {
+			nodes = append(nodes, node)
 		}
 	}
+
+	fmt.Printf("%d bootnodes\n", len(nodes))
 
 	return
 }

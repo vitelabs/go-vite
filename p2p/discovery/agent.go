@@ -64,7 +64,7 @@ func newWtList() *wtList {
 }
 
 func (wtl *wtList) loop(stop <-chan struct{}) {
-	checkTicker := time.NewTicker(watingTimeout / 2)
+	checkTicker := time.NewTicker(watingTimeout)
 	defer checkTicker.Stop()
 
 	for {
@@ -86,23 +86,21 @@ func (wtl *wtList) loop(stop <-chan struct{}) {
 }
 
 func (wtl *wtList) handle(rs *res) {
+	matched := false
 	wtl.list.traverse(func(prev, current *wait) {
 		if current.expectFrom == rs.from && current.expectCode == rs.code {
-			done := true
-			if current.handle != nil {
-				done = current.handle(rs.data)
-			}
+			matched = true
 
-			rs.matched <- done
-			current.errch <- nil
-
-			if done {
+			if current.handle(rs.data) {
+				current.errch <- nil
 				// remove current wait from list
 				prev.next = current.next
 				wtl.count--
 			}
 		}
 	})
+
+	rs.matched <- matched
 }
 
 func (wtl *wtList) clean() {
@@ -135,7 +133,7 @@ func (d *agent) start() {
 		return
 	}
 
-	discvLog.Info("discv agent start")
+	discvLog.Info("discovery agent start")
 
 	d.wg.Add(1)
 	go func() {
@@ -173,10 +171,11 @@ func (d *agent) ping(node *Node) error {
 		Expiration: getExpiration(),
 	})
 
-	discvLog.Info("ping", "target", node.String())
-
 	if err != nil {
+		discvLog.Error(fmt.Sprintf("send ping to %s error: %v", node, err))
 		return err
+	} else {
+		discvLog.Info(fmt.Sprintf("send ping to %s done", node))
 	}
 
 	send := time.Now()
@@ -202,7 +201,11 @@ func (d *agent) pong(node *Node, ack types.Hash) error {
 		Expiration: getExpiration(),
 	})
 
-	discvLog.Info("pong", "target", node.String())
+	if err != nil {
+		discvLog.Error(fmt.Sprintf("send ping to %s error: %v", node, err))
+	} else {
+		discvLog.Info(fmt.Sprintf("send ping to %s done", node))
+	}
 
 	return err
 }
@@ -218,12 +221,13 @@ func (d *agent) findnode(n *Node, ID NodeID) (nodes []*Node, err error) {
 	})
 
 	if err != nil {
+		discvLog.Error(fmt.Sprintf("send findnode %s to %s error: %v", ID, n, err))
 		return
+	} else {
+		discvLog.Info(fmt.Sprintf("send findnode %s to %s done", ID, n))
 	}
 
 	send := time.Now()
-	discvLog.Info("findnode", "target", ID.String(), "to", n.String())
-
 	nodes = make([]*Node, 0, K)
 	total := 0
 	err = d.wait(n.ID, neighborsCode, func(m Message) bool {
@@ -261,10 +265,10 @@ func (d *agent) sendNeighbors(n *Node, nodes []*Node) (err error) {
 			_, err = d.send(n.UDPAddr(), neighborsCode, neighbors)
 
 			if err != nil {
-				sent = true
-				discvLog.Info(fmt.Sprintf("send %d neighbors to %s", len(carriage), n))
-			} else {
 				discvLog.Error(fmt.Sprintf("send %d neighbors to %s error: %v", len(carriage), n, err))
+			} else {
+				sent = true
+				discvLog.Error(fmt.Sprintf("send %d neighbors to %s done", len(carriage), n))
 			}
 			carriage = carriage[:0]
 		}
@@ -276,9 +280,9 @@ func (d *agent) sendNeighbors(n *Node, nodes []*Node) (err error) {
 		_, err = d.send(n.UDPAddr(), neighborsCode, neighbors)
 
 		if err != nil {
-			discvLog.Info(fmt.Sprintf("send %d neighbors to %s", len(carriage), n))
-		} else {
 			discvLog.Error(fmt.Sprintf("send %d neighbors to %s error: %v", len(carriage), n, err))
+		} else {
+			discvLog.Info(fmt.Sprintf("send %d neighbors to %s done", len(carriage), n))
 		}
 	}
 
@@ -317,13 +321,14 @@ func (d *agent) readLoop() {
 			n, addr, err := d.conn.ReadFromUDP(buf)
 
 			if err != nil {
+				discvLog.Error(fmt.Sprintf("udp read error %v", err))
 				continue
 			}
 
 			p, err := unPacket(buf[:n])
 			if err != nil {
 				discvLog.Error(fmt.Sprintf("unpack message from %s error: %v", addr, err))
-				d.send(addr, exceptionCode, &Exception{
+				go d.send(addr, exceptionCode, &Exception{
 					Code: eCannotUnpack,
 				})
 				continue
@@ -333,9 +338,7 @@ func (d *agent) readLoop() {
 
 			p.from = addr
 
-			if err = d.pktHandler(p); err != nil {
-				discvLog.Error(fmt.Sprintf("handle message %s from %s@%s error: %v", p.code, p.fromID, p.from, err))
-			}
+			go d.pktHandler(p)
 		}
 	}
 }
@@ -359,8 +362,6 @@ func (d *agent) send(addr *net.UDPAddr, code packetCode, m Message) (hash types.
 		discvLog.Error(err.Error())
 		return
 	}
-
-	discvLog.Info(fmt.Sprintf("send message %s to %s done", code, addr))
 
 	monitor.LogEvent("p2p/discv", code.String())
 

@@ -56,11 +56,6 @@ func (b *bucket) reset() {
 	b.list.next = nil
 }
 
-// return the first item, except head item, may be nil
-func (b *bucket) head() *nodeList {
-	return b.list.next
-}
-
 // the last item
 func (b *bucket) tail() (item *nodeList) {
 	return b.list.tail()
@@ -85,7 +80,7 @@ func (b *bucket) bubble(id NodeID) bool {
 
 // if node exists in bucket, then move node to tail, return nil
 // if bucket is not full, add node at tail, return nil
-// return the head item, wait to ping-pong checked
+// return the first item, wait to ping-pong checked
 func (b *bucket) add(node *Node) (toCheck *Node) {
 	if node == nil {
 		return
@@ -106,7 +101,7 @@ func (b *bucket) add(node *Node) (toCheck *Node) {
 		return
 	}
 
-	return b.head().node
+	return b.oldest()
 }
 
 func (b *bucket) bubbleNode(node *Node) bool {
@@ -114,7 +109,7 @@ func (b *bucket) bubbleNode(node *Node) bool {
 }
 
 func (b *bucket) replace(old, new *Node) {
-	item := b.head()
+	item := b.list
 	for item.next != nil {
 		if item.node.ID == old.ID {
 			item.node = new
@@ -124,7 +119,12 @@ func (b *bucket) replace(old, new *Node) {
 }
 
 func (b *bucket) oldest() *Node {
-	return b.head().node
+	first := b.list.next
+	if first == nil {
+		return nil
+	}
+
+	return first.node
 }
 
 func (b *bucket) removeNode(node *Node) {
@@ -173,7 +173,7 @@ func (b *bucket) nodes() []*Node {
 	}
 
 	nodes := make([]*Node, b.size)
-	for i, item := 0, b.head().next; item != nil; i, item = i+1, item.next {
+	for i, item := 0, b.list.next; item != nil; i, item = i+1, item.next {
 		nodes[i] = item.node
 	}
 

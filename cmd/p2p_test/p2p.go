@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"log"
 	"net"
-	"net/http"
 	_ "net/http/pprof"
 	"time"
 )
@@ -78,8 +77,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = http.ListenAndServe("localhost:6060", nil)
-	if err != nil {
-		log.Println("pprof server error: ", err)
-	}
+	//err = http.ListenAndServe("localhost:6060", nil)
+	//if err != nil {
+	//	log.Println("pprof server error: ", err)
+	//}
+	pending := make(chan struct{})
+	<-pending
 }
