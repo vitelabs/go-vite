@@ -2,17 +2,8 @@ package ledger
 
 import "github.com/vitelabs/go-vite/common/types"
 
-type ConsensusGroup struct {
-	nodeCount              uint8
-	interval               int64
-	countingRuleId         uint8
-	countingRuleParam      []byte
-	registerConditionId    uint8
-	registerConditionParam []byte
-	voteConditionId        uint8
-	voteConditionParam     []byte
-}
+var commonGid = types.Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 
-func CommonGid() *types.Gid {
-	return &types.Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+func CommonGid() types.Gid {
+	return commonGid
 }

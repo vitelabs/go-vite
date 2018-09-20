@@ -162,31 +162,8 @@ func (c *Chain) GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	return block, nil
 }
 
-// TODO read code
-func (c *Chain) GetGenesesSnapshotBlock() (*ledger.SnapshotBlock, error) {
-	block, err := c.chainDb.Sc.GetGenesesBlock()
-	if err != nil {
-		c.log.Error("GetGenesesBlock failed, error is "+err.Error(), "method", "GetGenesesSnapshotBlock")
-		return nil, &types.GetError{
-			Code: 1,
-			Err:  err,
-		}
-	}
-
-	if block != nil {
-		snapshotContent, err := c.chainDb.Sc.GetSnapshotContent(block.Height)
-		if err != nil {
-			c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetGenesesSnapshotBlock")
-			return nil, &types.GetError{
-				Code: 2,
-				Err:  err,
-			}
-		}
-
-		block.SnapshotContent = snapshotContent
-	}
-
-	return block, nil
+func (c *Chain) GetGenesesSnapshotBlock() *ledger.SnapshotBlock {
+	return c.genesesSnapshotBlock
 }
 
 func (c *Chain) GetSbHashList(originBlockHash *types.Hash, count, step int, forward bool) ([]*types.Hash, error) {
@@ -228,7 +205,6 @@ func (c *Chain) GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotB
 	return snapshotBlock, nil
 }
 
-// TODO 调用上面
 func (c *Chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 	height, ghErr := c.chainDb.Ac.GetConfirmHeight(accountBlockHash)
 	if ghErr != nil {
@@ -290,10 +266,14 @@ func (c *Chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Add
 			Err:  err,
 		}
 	}
+
+	if accountBlock != nil {
+		accountBlock.PublicKey = account.PublicKey
+	}
+
 	return accountBlock, nil
 }
 
-//TODO by 2 to
 func (c *Chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
 
 	batch := new(leveldb.Batch)
@@ -318,15 +298,10 @@ func (c *Chain) deleteSnapshotBlocksByHeight(batch *leveldb.Batch, toHeight uint
 		c.log.Error("GetPlanToDelete failed, error is "+getPlanErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 	}
 
-	deleteMap, reopenList, needDeleteSnapshotBlockHeight, getDeleteAndReopenErr := c.chainDb.Ac.GetDeleteMapAndReopenList(planToDelete)
+	deleteMap, reopenList, getDeleteAndReopenErr := c.chainDb.Ac.GetDeleteMapAndReopenList(planToDelete, false)
 	if getDeleteAndReopenErr != nil {
 		c.log.Error("GetDeleteMapAndReopenList failed, error is "+getDeleteAndReopenErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 		return nil, nil, getDeleteAndReopenErr
-	}
-
-	// More safe
-	if toHeight > needDeleteSnapshotBlockHeight {
-		toHeight = needDeleteSnapshotBlockHeight
 	}
 
 	deleteSnapshotBlocks, deleteSnapshotBlocksErr := c.chainDb.Sc.DeleteToHeight(batch, toHeight)

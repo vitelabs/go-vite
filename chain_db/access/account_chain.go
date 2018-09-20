@@ -5,6 +5,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain_db/database"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -164,20 +165,19 @@ func (ac *AccountChain) GetBlock(blockHash *types.Hash) (*ledger.AccountBlock, e
 		return nil, gbmErr
 	}
 
-	// TODO +blockHash
-	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, blockMeta.AccountId, blockMeta.Height)
+	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, blockMeta.AccountId, blockMeta.Height, blockHash.Bytes())
 
-	iter := ac.db.NewIterator(util.BytesPrefix(key), nil)
-	defer iter.Release()
-	if !iter.Last() {
-		if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+	data, err := ac.db.Get(key, nil)
+
+	if err != nil {
+		if err != leveldb.ErrNotFound {
 			return nil, err
 		}
 		return nil, nil
 	}
 
 	accountBlock := &ledger.AccountBlock{}
-	if dsErr := accountBlock.DbDeserialize(iter.Value()); dsErr != nil {
+	if dsErr := accountBlock.DbDeserialize(data); dsErr != nil {
 		return nil, dsErr
 	}
 
@@ -262,7 +262,7 @@ func (ac *AccountChain) GetConfirmHeight(accountBlockHash *types.Hash) (uint64, 
 	}
 
 	startKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountBlockMeta.AccountId, accountBlockMeta.Height+1)
-	endKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountBlockMeta.AccountId)
+	endKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountBlockMeta.AccountId, helper.MaxUint64)
 
 	iter := ac.db.NewIterator(&util.Range{Start: startKey, Limit: endKey}, nil)
 	defer iter.Release()
@@ -304,7 +304,6 @@ func (ac *AccountChain) DeleteVmLogList(batch *leveldb.Batch, logListHash *types
 	batch.Delete(key)
 }
 
-// TODO 直接去sendBlock的data里解析，需要处理不一致的问题，增大了存储
 func (ac *AccountChain) WriteContractGid(batch *leveldb.Batch, gid *types.Gid, addr *types.Address) {
 	key, _ := database.EncodeKey(database.DBKP_ADDR_GID, addr.Bytes())
 	batch.Put(key, gid.Bytes())
@@ -356,7 +355,8 @@ func (ac *AccountChain) deleteChain(batch *leveldb.Batch, accountId uint64, toHe
 	deletedChain := make([]*ledger.AccountBlock, 0)
 
 	startKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, toHeight)
-	endKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId)
+	endKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, helper.MaxUint64)
+
 	iter := ac.db.NewIterator(&util.Range{Start: startKey, Limit: endKey}, nil)
 	defer iter.Release()
 
@@ -366,6 +366,7 @@ func (ac *AccountChain) deleteChain(batch *leveldb.Batch, accountId uint64, toHe
 		if dsErr := deleteBlock.DbDeserialize(iter.Value()); dsErr != nil {
 			return nil, dsErr
 		}
+		// TODO publicKey
 
 		deleteBlock.Hash = *getAccountBlockHash(iter.Key())
 
@@ -407,19 +408,17 @@ func (ac *AccountChain) Delete(batch *leveldb.Batch, deleteMap map[uint64]uint64
 	return deleted, nil
 }
 
-func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64) (map[uint64]uint64, []*types.Hash, uint64, error) {
+func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64, needExtendDelete bool) (map[uint64]uint64, []*types.Hash, error) {
 	currentNeedDelete := planToDelete
 
 	deleteMap := make(map[uint64]uint64)
 	reopenList := make([]*types.Hash, 0)
 
-	needDeleteSnapshotBlockHeight := uint64(0)
-
 	for len(currentNeedDelete) > 0 {
 		nextNeedDelete := make(map[uint64]uint64)
 
 		for accountId, needDeleteHeight := range currentNeedDelete {
-			endHeight := uint64(0)
+			endHeight := helper.MaxUint64
 			if deleteHeight := deleteMap[accountId]; deleteHeight != 0 {
 				if deleteHeight <= needDeleteHeight {
 					continue
@@ -433,14 +432,7 @@ func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64
 			}
 
 			startKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, needDeleteHeight)
-
-			// TODO accountId + 1 or endHeight is max uint64
-			var endKey []byte
-			if endHeight == 0 {
-				endKey, _ = database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId+1)
-			} else {
-				endKey, _ = database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, endHeight)
-			}
+			endKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, endHeight)
 
 			iter := ac.db.NewIterator(&util.Range{Start: startKey, Limit: endKey}, nil)
 
@@ -449,41 +441,28 @@ func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64
 
 				if dsErr := accountBlock.DbDeserialize(iter.Value()); dsErr == nil {
 					iter.Release()
-					return nil, nil, 0, dsErr
+					return nil, nil, dsErr
 				}
 
-				blockHash := getAccountBlockHash(iter.Key())
-				accountBlockMeta, getBmErr := ac.GetBlockMeta(blockHash)
-				if getBmErr != nil {
-					iter.Release()
-					return nil, nil, 0, getBmErr
-				}
+				if needExtendDelete && accountBlock.IsSendBlock() {
+					blockHash := getAccountBlockHash(iter.Key())
+					accountBlockMeta, getBmErr := ac.GetBlockMeta(blockHash)
+					if getBmErr != nil {
+						iter.Release()
+						return nil, nil, getBmErr
+					}
 
-				// TODO 加埋点, 不需要这段逻辑
-				if needDeleteSnapshotBlockHeight == 0 ||
-					(accountBlockMeta.SnapshotHeight > 0 && accountBlockMeta.SnapshotHeight < needDeleteSnapshotBlockHeight) {
-					needDeleteSnapshotBlockHeight = accountBlockMeta.SnapshotHeight
-				}
-
-				// TODO 不需要这段逻辑
-				if accountBlock.IsSendBlock() {
 					receiveBlockHeight := accountBlockMeta.ReceiveBlockHeight
 					if receiveBlockHeight > 0 {
 						receiveBlockMeta, getFromBlockMetaErr := ac.GetBlockMeta(&accountBlock.FromBlockHash)
 						if getFromBlockMetaErr != nil {
 							iter.Release()
-							return nil, nil, 0, getFromBlockMetaErr
+							return nil, nil, getFromBlockMetaErr
 						}
 						receiveAccountId := receiveBlockMeta.AccountId
 
 						if currentDeleteHeight, nextDeleteHeight := currentNeedDelete[receiveAccountId], nextNeedDelete[receiveAccountId]; !(currentDeleteHeight != 0 && currentDeleteHeight <= receiveBlockHeight ||
 							nextDeleteHeight != 0 && nextDeleteHeight <= receiveBlockHeight) {
-
-							if needDeleteSnapshotBlockHeight == 0 ||
-								receiveBlockHeight < needDeleteSnapshotBlockHeight {
-								needDeleteSnapshotBlockHeight = receiveBlockHeight
-							}
-
 							nextNeedDelete[receiveAccountId] = receiveBlockHeight
 						}
 					}
@@ -493,7 +472,7 @@ func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64
 			}
 			if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 				iter.Release()
-				return nil, nil, 0, err
+				return nil, nil, err
 			}
 			iter.Release()
 		}
@@ -501,7 +480,7 @@ func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64
 		currentNeedDelete = nextNeedDelete
 	}
 
-	return deleteMap, reopenList, needDeleteSnapshotBlockHeight, nil
+	return deleteMap, reopenList, nil
 }
 
 // TODO: cache
@@ -513,7 +492,6 @@ func (ac *AccountChain) GetPlanToDelete(maxAccountId uint64, snapshotBlockHeight
 
 		iter := ac.db.NewIterator(util.BytesPrefix(blockKey), nil)
 		if !iter.Last() {
-			// TODO 判断iter.Error()
 			iter.Release()
 			return nil, nil
 		}
@@ -547,7 +525,7 @@ func (ac *AccountChain) GetPlanToDelete(maxAccountId uint64, snapshotBlockHeight
 	return planToDelete, nil
 }
 
-// TODO +cache, 因为只给内置合约调用, 性能测试
+// TODO Add cache, call frequently.
 func (ac *AccountChain) GetConfirmAccountBlock(snapshotHeight uint64, accountId uint64) (*ledger.AccountBlock, error) {
 	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId)
 

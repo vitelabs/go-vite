@@ -1,6 +1,7 @@
 package compress
 
 import (
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
 	"os"
@@ -88,8 +89,9 @@ func (task *CompressorTask) Run() *TaskRunResult {
 	var blockNumbers = uint64(0)
 
 	writeBlocks := uint64(0)
+
 	// Limit write length
-	formatterErr := BlockFormatter(tmpFileWriter, func(hasWrite uint64, hasWriteBlocks uint64) ([]block, error) {
+	formatterErr := BlockFormatter(tmpFileWriter, func(hasWrite uint64, hasWriteBlocks uint64) ([]ledger.Block, error) {
 
 		writeBlocks = hasWriteBlocks
 		if currentTaskIndex > taskLen ||
@@ -145,13 +147,13 @@ func (task *CompressorTask) getTaskInfo() *taskInfo {
 	return nil
 }
 
-func (task *CompressorTask) getSubLedger(ti *taskInfo) ([]block, error) {
+func (task *CompressorTask) getSubLedger(ti *taskInfo) ([]ledger.Block, error) {
 	snapshotBlocks, accountChainSubLedger, err := task.chain.GetConfirmSubLedger(ti.beginHeight, ti.targetHeight)
 	if err != nil {
 		return nil, err
 	}
 
-	blocks := make([]block, 0)
+	blocks := make([]ledger.Block, 0)
 	for _, snapshotBlock := range snapshotBlocks {
 		blocks = append(blocks, snapshotBlock)
 	}

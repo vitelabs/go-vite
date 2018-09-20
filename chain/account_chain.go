@@ -16,7 +16,6 @@ type BlockMapQueryParam struct {
 	Forward         bool
 }
 
-// TODO: write onRoad
 func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
 	batch := new(leveldb.Batch)
 	trieSaveCallback := make([]func(), 0)
@@ -45,7 +44,6 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 				}
 			}
 
-			// TODO: Save contract gid list
 			if contractGidList := unsavedCache.ContractGidList(); len(contractGidList) > 0 {
 				for _, contractGid := range contractGidList {
 					c.chainDb.Ac.WriteContractGid(batch, contractGid.Gid(), contractGid.Addr())
@@ -177,6 +175,10 @@ func (c *Chain) GetAccountBlockMap(queryParams map[types.Address]*BlockMapQueryP
 			continue
 		}
 
+		for _, block := range blockList {
+			block.PublicKey = account.PublicKey
+		}
+
 		queryResult[addr] = blockList
 	}
 
@@ -206,6 +208,10 @@ func (c *Chain) GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock
 			Err:  err,
 		}
 	}
+	if block != nil {
+		block.PublicKey = account.PublicKey
+	}
+
 	return block, nil
 }
 
@@ -237,7 +243,10 @@ func (c *Chain) GetAccountBalance(addr *types.Address) (map[types.TokenTypeId]*b
 		c.log.Error("GetTrie failed, error is "+err.Error(), "method", "GetAccountBalanceByTokenId")
 		return nil, err
 	}
-	// TODO trie is nil
+
+	if trie == nil {
+		return nil, nil
+	}
 	storageIterator := trie.NewIterator(vm_context.STORAGE_KEY_BALANCE)
 	balanceMap := make(map[types.TokenTypeId]*big.Int)
 	prefixKeyLen := len(vm_context.STORAGE_KEY_BALANCE)
@@ -363,8 +372,16 @@ func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 		}
 	}
 
-	endHeight := latestBlock.Height - uint64(index*count)
-	startHeight := endHeight - uint64(num*count) - 1
+	startHeight, endHeight := uint64(1), uint64(0)
+	if latestBlock.Height > uint64(index*count) {
+		endHeight = latestBlock.Height - uint64(index*count)
+	} else {
+		return nil, nil
+	}
+
+	if endHeight > uint64(num*count) {
+		startHeight = endHeight - uint64(num*count)
+	}
 
 	blockList, err := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight)
 
@@ -396,6 +413,16 @@ func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 	return blockList, nil
 }
 
+// TODO
+func (c *Chain) GetFirstUnConfirmAccountBlock(addr *types.Address) (*ledger.AccountBlock, error) {
+	return nil, nil
+}
+
+// TODO
+func (c *Chain) GetFirstUnConfirmAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error) {
+	return nil, nil
+}
+
 func (c *Chain) GetUnConfirmAccountBlocks(addr *types.Address) ([]*ledger.AccountBlock, error) {
 	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
 	if accountErr != nil {
@@ -418,28 +445,34 @@ func (c *Chain) GetUnConfirmAccountBlocks(addr *types.Address) ([]*ledger.Accoun
 			Err:  unConfirmErr,
 		}
 	}
+
+	for _, block := range blocks {
+		block.PublicKey = account.PublicKey
+	}
+
 	return blocks, nil
 }
 
-func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+// Check一下
+func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error) {
 	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
 	if accountErr != nil {
 		c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "DeleteAccountBlocks")
-		return nil, nil, &types.GetError{
+		return nil, &types.GetError{
 			Code: 1,
 			Err:  accountErr,
 		}
 	}
 	if account == nil {
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	planToDelete := map[uint64]uint64{account.AccountId: toHeight}
 
-	deleteMap, reopenList, snapshotHeight, getErr := c.chainDb.Ac.GetDeleteMapAndReopenList(planToDelete)
+	deleteMap, reopenList, getErr := c.chainDb.Ac.GetDeleteMapAndReopenList(planToDelete, true)
 	if getErr != nil {
 		c.log.Error("GetDeleteMapAndReopenList failed, error is "+getErr.Error(), "method", "DeleteAccountBlocks")
-		return nil, nil, &types.GetError{
+		return nil, &types.GetError{
 			Code: 2,
 			Err:  getErr,
 		}
@@ -449,51 +482,24 @@ func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) ([]*le
 	deleteAccountBlocks, deleteAccountBlocksErr := c.chainDb.Ac.Delete(batch, deleteMap)
 	if deleteAccountBlocksErr != nil {
 		c.log.Error("Delete failed, error is "+deleteAccountBlocksErr.Error(), "method", "DeleteAccountBlocks")
-		return nil, nil, deleteAccountBlocksErr
+		return nil, deleteAccountBlocksErr
 	}
 
 	reopenErr := c.chainDb.Ac.ReopenSendBlocks(batch, reopenList, deleteMap)
 	if reopenErr != nil {
 		c.log.Error("ReopenSendBlocks failed, error is "+reopenErr.Error(), "method", "DeleteAccountBlocks")
-		return nil, nil, reopenErr
-	}
-
-	deleteSnapshotBlocks := make([]*ledger.SnapshotBlock, 0)
-	if snapshotHeight != 0 {
-		dAccountBlocks := make(map[types.Address][]*ledger.AccountBlock)
-		var err error
-		deleteSnapshotBlocks, dAccountBlocks, err = c.deleteSnapshotBlocksByHeight(batch, snapshotHeight)
-		if err != nil {
-			c.log.Error("DeleteSnapshotBlocksByHeight failed, error is "+err.Error(), "method", "DeleteAccountBlocks")
-			return nil, nil, reopenErr
-		}
-
-		for address, chain := range dAccountBlocks {
-			if deleteItem := deleteAccountBlocks[address]; len(deleteItem) <= 0 {
-				deleteAccountBlocks[address] = chain
-			} else {
-				needMergeChain := make([]*ledger.AccountBlock, 0)
-				for _, block := range chain {
-					if block.Height >= deleteAccountBlocks[address][0].Height {
-						break
-					}
-
-					needMergeChain = append(needMergeChain, block)
-				}
-				deleteAccountBlocks[address] = append(needMergeChain, deleteAccountBlocks[address]...)
-			}
-		}
+		return nil, reopenErr
 	}
 
 	writeErr := c.chainDb.Commit(batch)
 	if writeErr != nil {
 		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteAccountBlocks")
-		return nil, nil, writeErr
+		return nil, writeErr
 	}
 
 	for addr, accountBlocks := range deleteAccountBlocks {
 		c.needSnapshotCache.Remove(&addr, accountBlocks[len(accountBlocks)-1].Height)
 	}
 
-	return deleteSnapshotBlocks, deleteAccountBlocks, nil
+	return deleteAccountBlocks, nil
 }

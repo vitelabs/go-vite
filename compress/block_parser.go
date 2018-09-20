@@ -3,19 +3,28 @@ package compress
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
 )
 
-type blockProcessor func([]byte)
+type blockProcessor func(block ledger.Block)
 
 type blockParserCache struct {
 	currentBlockSize       uint32
 	currentBlockSizeBuffer []byte
+	currentBlockType       byte
 	currentBlockBuffer     []byte
 
 	reader    io.Reader
 	processor blockProcessor
+}
+
+func (blockParser *blockParserCache) RefreshCache() {
+	blockParser.currentBlockSize = 0
+	blockParser.currentBlockSizeBuffer = make([]byte, 0, 4)
+	blockParser.currentBlockType = 0
+	blockParser.currentBlockBuffer = make([]byte, 0, blockParser.currentBlockSize)
 }
 
 var blockParserLog = log15.New("module", "compress", "block_parser")
@@ -30,6 +39,8 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 		processor: processor,
 	}
 
+	blockParser.RefreshCache()
+
 	for {
 		readBytes := make([]byte, readNum)
 		_, rErr := reader.Read(readBytes)
@@ -42,12 +53,7 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 		buffer := bytes.NewBuffer(readBytes)
 
 		for buffer.Len() > 0 {
-			if buffer.Len() != 0 &&
-				blockParser.currentBlockSize == 0 {
-
-				if len(blockParser.currentBlockSizeBuffer) == 0 {
-					blockParser.currentBlockSizeBuffer = make([]byte, 0, 4)
-				}
+			if blockParser.currentBlockSize == 0 {
 
 				readNum := 4 - len(blockParser.currentBlockSizeBuffer)
 
@@ -55,14 +61,12 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 				blockParser.currentBlockSizeBuffer = append(blockParser.currentBlockSizeBuffer, sizeBytes...)
 
 				if len(blockParser.currentBlockSizeBuffer) >= 4 {
-					blockParser.currentBlockSize = binary.LittleEndian.Uint32(blockParser.currentBlockSizeBuffer)
+					blockParser.currentBlockSize = binary.BigEndian.Uint32(blockParser.currentBlockSizeBuffer)
 				}
-			}
-
-			if buffer.Len() != 0 && blockParser.currentBlockSize != 0 {
-				if len(blockParser.currentBlockBuffer) == 0 {
-					blockParser.currentBlockBuffer = make([]byte, 0, blockParser.currentBlockSize)
-				}
+			} else if blockParser.currentBlockSize != 0 && blockParser.currentBlockType == 0 {
+				readBytes := buffer.Next(1)
+				blockParser.currentBlockType = readBytes[0]
+			} else {
 				readNum := blockParser.currentBlockSize - uint32(len(blockParser.currentBlockBuffer))
 
 				blockBytes := buffer.Next(int(readNum))
@@ -70,7 +74,21 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 				blockParser.currentBlockBuffer = append(blockParser.currentBlockBuffer, blockBytes...)
 
 				if uint32(len(blockParser.currentBlockBuffer)) >= blockParser.currentBlockSize {
-					processor(blockParser.currentBlockBuffer)
+					var block ledger.Block
+					switch blockParser.currentBlockType {
+					case BlockTypeAccountBlock:
+						block = &ledger.AccountBlock{}
+					case BlockTypeSnapshotBlock:
+						block = &ledger.SnapshotBlock{}
+					default:
+						blockParserLog.Error("Unknown block type", "method", "BlockParser")
+					}
+					if block != nil {
+						block.Deserialize(blockParser.currentBlockBuffer)
+						processor(block)
+					}
+
+					blockParser.RefreshCache()
 				}
 			}
 		}
