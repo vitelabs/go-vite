@@ -23,32 +23,48 @@ type Chain struct {
 
 	needSnapshotCache *NeedSnapshotCache
 
-	genesesSnapshotBlock *ledger.SnapshotBlock
+	genesisSnapshotBlock *ledger.SnapshotBlock
+	dataDir              string
+
+	em *eventManager
 }
 
 func NewChain(cfg *config.Config) *Chain {
 	chain := &Chain{
 		log:                  log15.New("module", "chain"),
-		genesesSnapshotBlock: ledger.GetGenesesSnapshotBlock(),
+		genesisSnapshotBlock: ledger.GetGenesisSnapshotBlock(),
+		dataDir:              cfg.DataDir,
 	}
-
-	chain.stateTriePool = NewStateTriePool(chain)
-
-	chainDb := chain_db.NewChainDb(filepath.Join(cfg.DataDir, "chain"))
-	if chainDb == nil {
-		chain.log.Error("NewChain failed")
-		return nil
-	}
-	chain.chainDb = chainDb
-
-	compressor := compress.NewCompressor(chain, cfg.DataDir)
-	chain.compressor = compressor
-
-	chain.trieNodePool = trie.NewTrieNodePool()
-
-	chain.needSnapshotCache = NewNeedSnapshotContent(chain)
 
 	return chain
+}
+
+func (c *Chain) Init() {
+	c.log.Info("Init chain module")
+	c.stateTriePool = NewStateTriePool(c)
+
+	chainDb := chain_db.NewChainDb(filepath.Join(c.dataDir, "chain"))
+
+	if chainDb == nil {
+		c.log.Crit("NewChain failed")
+	}
+	c.chainDb = chainDb
+
+	compressor := compress.NewCompressor(c, c.dataDir)
+	c.compressor = compressor
+
+	c.trieNodePool = trie.NewTrieNodePool()
+
+	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
+	if getSubLedgerErr != nil {
+		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "NewChain")
+	}
+
+	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
+
+	c.em = newEventManager()
+
+	c.log.Info("Chain module initialized")
 }
 
 func (c *Chain) Compressor() *compress.Compressor {
@@ -61,10 +77,39 @@ func (c *Chain) ChainDb() *chain_db.ChainDb {
 
 func (c *Chain) Start() {
 	// Start compress in the background
+	c.log.Info("Start chain module")
+
 	c.compressor.Start()
+
+	c.log.Info("Chain module started")
 }
 
 func (c *Chain) Stop() {
 	// Stop compress
+	c.log.Info("Stop chain module")
+
 	c.compressor.Stop()
+
+	c.log.Info("Chain module stopped")
+}
+
+func (c *Chain) destroy() {
+	c.log.Info("Destroy chain module")
+	// stateTriePool
+	c.stateTriePool = nil
+
+	// close db
+	c.chainDb.Db().Close()
+	c.chainDb = nil
+
+	// compressor
+	c.compressor = nil
+
+	// trieNodePool
+	c.trieNodePool = nil
+
+	// needSnapshotCache
+	c.needSnapshotCache = nil
+
+	c.log.Info("Chain module destroyed")
 }

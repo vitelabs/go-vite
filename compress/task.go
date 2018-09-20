@@ -44,7 +44,7 @@ type CompressorTask struct {
 	chain          Chain
 	indexerHeight  uint64
 	startHeightGap uint64
-	endHeightGap   uint64
+	taskGap        uint64
 	log            log15.Logger
 }
 
@@ -57,7 +57,7 @@ func NewCompressorTask(chain Chain, tmpFile string, indexerHeight uint64) *Compr
 
 		indexerHeight:  indexerHeight,
 		startHeightGap: 7200,
-		endHeightGap:   3600,
+		taskGap:        3600,
 	}
 
 	return compressorTask
@@ -139,10 +139,11 @@ func (task *CompressorTask) getTaskInfo() *taskInfo {
 	}
 
 	if latestSnapshotBlock.Height-task.indexerHeight > task.startHeightGap {
-		return &taskInfo{
-			beginHeight:  task.indexerHeight + 1,
-			targetHeight: latestSnapshotBlock.Height - task.endHeightGap,
+		ti := &taskInfo{
+			beginHeight: task.indexerHeight + 1,
 		}
+		ti.targetHeight = ti.beginHeight + task.taskGap - 1
+		return ti
 	}
 	return nil
 }

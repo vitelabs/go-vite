@@ -29,6 +29,7 @@ func (c *Chain) AccountType(address *types.Address) (uint64, error) {
 	return ledger.AccountTypeContract, nil
 }
 
+// TODO cache
 func (c *Chain) GetAccount(address *types.Address) (*ledger.Account, error) {
 	account, err := c.chainDb.Account.GetAccountByAddress(address)
 	if err != nil {

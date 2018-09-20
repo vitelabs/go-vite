@@ -101,15 +101,15 @@ func (*SnapshotBlock) Deserialize([]byte) error {
 	return nil
 }
 
-func GetGenesesSnapshotBlock() *SnapshotBlock {
+func GetGenesisSnapshotBlock() *SnapshotBlock {
 	timestamp := time.Unix(1537361101, 0)
-	genesesSnapshotBlock := &SnapshotBlock{
+	genesisSnapshotBlock := &SnapshotBlock{
 		Height:    1,
 		Timestamp: &timestamp,
 		PublicKey: GenesisPublicKey,
 	}
-	genesesSnapshotBlock.Hash = genesesSnapshotBlock.ComputeHash()
-	genesesSnapshotBlock.Signature, _ = hex.DecodeString("2147fb12ea96ab8561c02c9333ad4e0afc8420f036107582c269bb7e2ebf16443536996bacebef17455703de8a9a6c95998ed3fb3a7a4f44adb0c196572fb20b")
+	genesisSnapshotBlock.Hash = genesisSnapshotBlock.ComputeHash()
+	genesisSnapshotBlock.Signature, _ = hex.DecodeString("2147fb12ea96ab8561c02c9333ad4e0afc8420f036107582c269bb7e2ebf16443536996bacebef17455703de8a9a6c95998ed3fb3a7a4f44adb0c196572fb20b")
 
-	return genesesSnapshotBlock
+	return genesisSnapshotBlock
 }

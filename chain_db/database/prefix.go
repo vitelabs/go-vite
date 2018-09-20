@@ -26,6 +26,4 @@ const (
 	DBKP_TRIE_REF_VALUE = byte(12)
 
 	DBKP_LOG_LIST = byte(13)
-
-	DBKP_ADDR_GID = byte(14)
 )

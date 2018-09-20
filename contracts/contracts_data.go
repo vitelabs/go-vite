@@ -80,6 +80,7 @@ func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
 }
 
 func GetPledgeAmount(db StorageDatabase, beneficial types.Address) *big.Int {
+
 	locHash := types.DataHash(beneficial.Bytes()).Bytes()
 	beneficialAmount := new(VariablePledgeBeneficial)
 	err := ABI_pledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, locHash))

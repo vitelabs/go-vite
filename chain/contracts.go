@@ -7,8 +7,15 @@ import (
 	"math/big"
 )
 
+// TODO cache
 func (c *Chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
-	gid, err := c.chainDb.Ac.GetContractGid(addr)
+	account, getAccountErr := c.chainDb.Account.GetAccountByAddress(addr)
+	if getAccountErr != nil {
+		c.log.Error("Query account failed. Error is "+getAccountErr.Error(), "method", "GetContractGid")
+		return nil, getAccountErr
+	}
+
+	gid, err := c.chainDb.Ac.GetContractGid(account.AccountId)
 	if err != nil {
 		c.log.Error("GetContractGid failed, error is "+err.Error(), "method", "GetContractGid")
 		return nil, err
@@ -53,12 +60,25 @@ func (c *Chain) GetConsensusGroupList(snapshotHash types.Hash) []*contracts.Cons
 	return contracts.GetConsensusGroupList(vmContext)
 }
 
-// TODO
 func (c *Chain) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) map[types.Address]*big.Int {
-	return nil
+	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
+	if err != nil {
+		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetBalanceList")
+		return nil
+	}
+
+	var balanceList map[types.Address]*big.Int
+	for _, addr := range addressList {
+		balanceList[addr] = vmContext.GetBalance(&addr, &tokenTypeId)
+	}
+	return balanceList
 }
 
-// TODO
-func (c *Chain) GetTokenInfoById(tokenId *types.TokenTypeId) (*contracts.TokenInfo, error) {
-	return nil, nil
+func (c *Chain) GetTokenInfoById(tokenId *types.TokenTypeId) *contracts.TokenInfo {
+	vmContext, err := vm_context.NewVmContext(c, nil, nil, &contracts.AddressMintage)
+	if err != nil {
+		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetTokenInfoById")
+		return nil
+	}
+	return contracts.GetTokenById(vmContext, *tokenId)
 }

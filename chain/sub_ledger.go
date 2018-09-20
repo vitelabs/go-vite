@@ -58,19 +58,7 @@ func (c *Chain) GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledg
 		return nil, nil, err
 	}
 
-	chainRangeSet := make(map[types.Address][2]uint64)
-	for _, snapshotBlock := range snapshotBlocks {
-		for addr, snapshotContent := range snapshotBlock.SnapshotContent {
-			height := snapshotContent.AccountBlockHeight
-			if chainRange := chainRangeSet[addr]; chainRange[0] == 0 {
-				chainRangeSet[addr] = [2]uint64{height, height}
-			} else if chainRange[0] > height {
-				chainRange[0] = height
-			} else if chainRange[1] < height {
-				chainRange[1] = height
-			}
-		}
-	}
+	chainRangeSet := c.getChainRangeSet(snapshotBlocks)
 
 	accountChainSubLedger, getErr := c.getChainSet(chainRangeSet)
 	if getErr != nil {
@@ -80,7 +68,7 @@ func (c *Chain) GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledg
 	return snapshotBlocks, accountChainSubLedger, nil
 }
 
-func (c *Chain) getChainSet(queryParams map[types.Address][2]uint64) (map[types.Address][]*ledger.AccountBlock, error) {
+func (c *Chain) getChainSet(queryParams map[types.Address][2]*ledger.HashHeight) (map[types.Address][]*ledger.AccountBlock, error) {
 	queryResult := make(map[types.Address][]*ledger.AccountBlock)
 	for addr, params := range queryParams {
 		account, gaErr := c.chainDb.Account.GetAccountByAddress(&addr)
@@ -89,7 +77,7 @@ func (c *Chain) getChainSet(queryParams map[types.Address][2]uint64) (map[types.
 			return nil, gaErr
 		}
 
-		var startHeight, endHeight = params[0], params[1]
+		var startHeight, endHeight = params[0].Height, params[1].Height
 
 		blockList, gbErr := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight)
 
