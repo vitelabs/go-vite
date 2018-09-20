@@ -428,7 +428,7 @@ func opExtCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack
 }
 
 func opReturnDataSize(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.get().SetUint64(uint64(len(vm.returnData))))
+	stack.push(c.intPool.get().SetUint64(uint64(len(c.returnData))))
 	return nil, nil
 }
 
@@ -442,10 +442,10 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *st
 	)
 	defer c.intPool.put(memOffset, dataOffset, length, end)
 
-	if end.BitLen() > 64 || uint64(len(vm.returnData)) < end.Uint64() {
+	if end.BitLen() > 64 || uint64(len(c.returnData)) < end.Uint64() {
 		return nil, errReturnDataOutOfBounds
 	}
-	memory.set(memOffset.Uint64(), length.Uint64(), vm.returnData[dataOffset.Uint64():end.Uint64()])
+	memory.set(memOffset.Uint64(), length.Uint64(), c.returnData[dataOffset.Uint64():end.Uint64()])
 
 	return nil, nil
 }

@@ -205,7 +205,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	db = NewNoDatabase()
 	db.storageMap[contracts.AddressMintage] = make(map[types.Hash][]byte)
 	viteTokenIdLoc, _ := types.BytesToHash(helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), 32))
-	db.storageMap[contracts.AddressMintage][viteTokenIdLoc], _ = contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), int64(0))
+	db.storageMap[contracts.AddressMintage][viteTokenIdLoc], _ = contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), int64(0))
 
 	timestamp = 1536214502
 	t1 := time.Unix(timestamp-1, 0)
@@ -221,6 +221,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		ToAddress:      addr1,
 		AccountAddress: addr1,
 		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
 		Amount:         viteTotalSupply,
 		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot1.Hash,
@@ -246,7 +247,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 
 	db.storageMap[contracts.AddressConsensusGroup] = make(map[types.Hash][]byte)
 	consensusGroupKey, _ := types.BytesToHash(contracts.GetConsensusGroupKey(*ledger.CommonGid()))
-	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey], _ = contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey], _ = contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
 		uint8(0),
@@ -256,6 +257,6 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		uint8(0),
 		[]byte{})
 	db.storageMap[contracts.AddressPledge] = make(map[types.Hash][]byte)
-	db.storageMap[contracts.AddressPledge][types.DataHash(addr1.Bytes())], _ = contracts.ABI_pledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
+	db.storageMap[contracts.AddressPledge][types.DataHash(addr1.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	return
 }

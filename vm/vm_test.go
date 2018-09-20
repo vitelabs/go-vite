@@ -37,6 +37,7 @@ func TestVmRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeSendCreate,
 		PrevHash:       hash12,
 		Amount:         big.NewInt(1e18),
+		Fee:            big.NewInt(0),
 		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot2.Hash,
 		Data:           data13,
@@ -59,7 +60,7 @@ func TestVmRun(t *testing.T) {
 
 	// receive create
 	addr2 := sendCreateBlockList[0].AccountBlock.ToAddress
-	db.storageMap[contracts.AddressPledge][types.DataHash(addr2.Bytes())], _ = contracts.ABI_pledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
+	db.storageMap[contracts.AddressPledge][types.DataHash(addr2.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	balance2 := big.NewInt(0)
 
 	hash21 := types.DataHash([]byte{2, 1})
@@ -93,6 +94,7 @@ func TestVmRun(t *testing.T) {
 		AccountAddress: addr1,
 		ToAddress:      addr2,
 		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
 		PrevHash:       hash13,
 		Amount:         big.NewInt(1e18),
 		TokenId:        ledger.ViteTokenId,
@@ -142,6 +144,7 @@ func TestVmRun(t *testing.T) {
 		AccountAddress: addr1,
 		ToAddress:      addr2,
 		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
 		PrevHash:       hash14,
 		Amount:         big.NewInt(4e18),
 		TokenId:        ledger.ViteTokenId,
@@ -163,6 +166,7 @@ func TestVmRun(t *testing.T) {
 		AccountAddress: addr1,
 		ToAddress:      addr2,
 		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
 		PrevHash:       hash14,
 		Amount:         big.NewInt(50),
 		TokenId:        ledger.ViteTokenId,

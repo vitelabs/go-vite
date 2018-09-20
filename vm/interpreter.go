@@ -16,7 +16,7 @@ func newInterpreter() *interpreter {
 }
 
 func (i *interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
-	vm.returnData = nil
+	c.returnData = nil
 
 	var (
 		op   opCode
@@ -73,7 +73,7 @@ func (i *interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		}
 
 		if operation.returns {
-			vm.returnData = res
+			c.returnData = res
 		}
 
 		switch {

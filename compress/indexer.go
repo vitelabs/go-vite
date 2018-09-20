@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 const INDEX_SEP = ",,,"
@@ -23,10 +25,23 @@ type indexItem struct {
 	blockNumbers uint64
 }
 
+func (item *indexItem) StartHeight() uint64 {
+	return item.startHeight
+}
+
+func (item *indexItem) EndHeight() uint64 {
+	return item.endHeight
+}
+
+func (item *indexItem) FileName() string {
+	return item.filename
+}
+
 type Indexer struct {
 	file      *os.File
 	indexList []*indexItem
 	log       log15.Logger
+	lock      sync.RWMutex
 
 	dir string
 }
@@ -59,6 +74,8 @@ func NewIndexer(dir string) *Indexer {
 			indexer.log.Crit("truncate failed, error is "+tErr.Error(), "method", "NewIndexer")
 		}
 	}
+
+	indexer.checkAndDeleteDataFile()
 
 	return indexer
 }
@@ -106,19 +123,32 @@ func (indexer *Indexer) check(item *indexItem) (bool, error) {
 	return true, nil
 }
 
-func (indexer *Indexer) checkDataFile() (bool, error) {
-	// Rename err
-	//fileSize, fileSizeErr := indexer.getFileSize(item.filename)
-	//
-	//if fileSizeErr != nil {
-	//	indexer.log.Error("getFileSize failed, error is "+fileSizeErr.Error(), "method", "Add")
-	//	return false, fileSizeErr
-	//}
-	//
-	//if fileSize != item.fileSize {
-	//	return false, nil
-	//}
-	//return true, nil
+func (indexer *Indexer) checkAndDeleteDataFile() {
+	indexListMap := make(map[string]int, 0)
+
+	for _, item := range indexer.indexList {
+		indexListMap[item.filename] = 1
+	}
+	allFileNames := indexer.getAllFileNames()
+	for _, fileName := range allFileNames {
+		if strings.HasPrefix(fileName, "subgraph") {
+			if value := indexListMap[fileName]; value == 0 {
+				indexer.delete(filepath.Join(indexer.dir, fileName))
+			}
+		}
+	}
+}
+
+func (indexer *Indexer) flushToFile() {
+	indexer.file.Truncate(0)
+	for _, indexItem := range indexer.indexList {
+		_, err := indexer.file.WriteString(indexer.formatToLine(indexItem) + "\n")
+		if err != nil {
+			indexer.log.Error("WriteString failed, error is "+err.Error(), "method", "flushToFile")
+			time.Sleep(time.Second)
+			indexer.flushToFile()
+		}
+	}
 }
 
 func (indexer *Indexer) delete(filename string) {
@@ -250,7 +280,81 @@ func (indexer *Indexer) LatestHeight() uint64 {
 	return 0
 }
 
+func (indexer *Indexer) Get(startBlockHeight uint64, endBlockHeight uint64) []*indexItem {
+	indexer.lock.RLock()
+	defer indexer.lock.RUnlock()
+
+	var fileNameList []*indexItem
+	if len(indexer.indexList) <= 0 {
+		return fileNameList
+	}
+	if indexer.indexList[len(indexer.indexList)-1].endHeight < startBlockHeight ||
+		indexer.indexList[0].startHeight > endBlockHeight {
+		return fileNameList
+	}
+
+	currentIndexList := indexer.indexList[:]
+
+	for {
+		if len(currentIndexList) <= 0 {
+			break
+		}
+		currentPointer := len(currentIndexList) / 2
+		currentIndexItem := currentIndexList[currentPointer]
+		// Inner gap
+		if startBlockHeight >= currentIndexItem.startHeight && startBlockHeight <= currentIndexItem.endHeight ||
+			endBlockHeight <= currentIndexItem.endHeight && endBlockHeight >= currentIndexItem.startHeight {
+			for i := currentPointer - 1; i >= 0; i-- {
+				if currentIndexList[i].startHeight > endBlockHeight {
+					break
+				}
+
+				fileNameList = append(fileNameList, currentIndexList[i])
+			}
+
+			fileNameList = append(fileNameList, currentIndexItem)
+
+			for i := currentPointer + 1; i < len(currentIndexList); i++ {
+				if currentIndexList[i].endHeight < startBlockHeight {
+					break
+				}
+
+				fileNameList = append(fileNameList, currentIndexList[i])
+			}
+		} else if endBlockHeight < currentIndexItem.endHeight {
+			currentIndexList = indexer.indexList[:currentPointer]
+		} else {
+			currentIndexList = indexer.indexList[0:currentPointer]
+		}
+	}
+	return fileNameList
+}
+func (indexer *Indexer) Delete(toHeight uint64) error {
+	indexer.lock.Lock()
+	defer indexer.lock.Unlock()
+
+	var needDeleteIndex = 0
+	for i := len(indexer.indexList) - 1; i >= 0; i-- {
+		indexItem := indexer.indexList[i]
+		if indexItem.endHeight < toHeight {
+			break
+		}
+		needDeleteIndex = i
+	}
+
+	if needDeleteIndex <= 0 {
+		return nil
+	}
+
+	indexer.indexList = indexer.indexList[:needDeleteIndex]
+	indexer.flushToFile()
+	return nil
+}
+
 func (indexer *Indexer) Add(ti *taskInfo, tmpFile string, blockNumbers uint64) error {
+	indexer.lock.Lock()
+	defer indexer.lock.Unlock()
+
 	if lastItem := indexer.indexList[len(indexer.indexList)-1]; lastItem != nil {
 		if ti.beginHeight != lastItem.endHeight+1 {
 			indexer.log.Error("ti.beginHeight != lastItem.endHeight + 1", "method", "Add")
