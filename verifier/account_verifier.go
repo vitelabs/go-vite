@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"time"
@@ -212,6 +213,7 @@ func (verifier *AccountVerifier) verifySelfDataValidity(block *ledger.AccountBlo
 	defer monitor.LogTime("verify", "accountSelfDataValidity", time.Now())
 
 	isContractAddr := verifier.verifyIsContractAddress(&block.AccountAddress)
+	isReceivedBlock := verifier.verifyIsReceiveBlock(block)
 
 	if block.Amount == nil {
 		block.Amount = big.NewInt(0)
@@ -219,13 +221,6 @@ func (verifier *AccountVerifier) verifySelfDataValidity(block *ledger.AccountBlo
 	if block.Fee == nil {
 		block.Fee = big.NewInt(0)
 	}
-	if block.PublicKey == nil || block.Timestamp == nil || block.Data == nil || block.Signature == nil ||
-		(block.LogHash == nil && isContractAddr && verifier.verifyIsReceiveBlock(block)) {
-		return FAIL, errors.New("block integrity miss")
-	}
-
-	// todo verify Nonce
-
 	if block.Amount.Sign() < 0 || block.Amount.BitLen() > MaxBigIntLen {
 		return FAIL, errors.New("block.Amount out of bounds")
 	}
@@ -233,8 +228,24 @@ func (verifier *AccountVerifier) verifySelfDataValidity(block *ledger.AccountBlo
 		return FAIL, errors.New("block.Fee out of bounds")
 	}
 
+	if block.Timestamp == nil {
+		return FAIL, errors.New("block integrity miss")
+	}
+
+	if block.PublicKey == nil || block.Signature == nil {
+		if !isContractAddr || !isReceivedBlock {
+			return FAIL, errors.New("block.PublicKey or block.Signature can't be nil")
+		}
+	}
+
+	// data = Hash(address + prehash); nonce + data < target. if prehash == nil {data = Hash(address)}
+	hash256Data := crypto.Hash256(block.AccountAddress.Bytes(), block.PrevHash.Bytes())
+	if !pow.CheckNonce(pow.DummyTarget, new(big.Int).SetBytes(block.Nonce), hash256Data) {
+		return FAIL, errors.New("block.Nonce verify failed")
+	}
+
 	if !verifier.verifySelfSig(block) {
-		return FAIL, errors.New("verify hash or signature failed")
+		return FAIL, errors.New("block.Hash or block.Signature verify failed")
 	}
 
 	return SUCCESS, nil
