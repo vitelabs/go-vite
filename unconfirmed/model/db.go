@@ -83,12 +83,18 @@ func (ucf *UnconfirmedSet) GetHashList(addr *types.Address) (hashs []*types.Hash
 	return hashs, nil
 }
 
-func (ucf *UnconfirmedSet) WriteMeta(batch *leveldb.Batch, addr *types.Address, hash *types.Hash) error {
+func (ucf *UnconfirmedSet) WriteMeta(batch *leveldb.Batch, addr *types.Address, hash *types.Hash, count uint8) error {
 	key, err := database.EncodeKey(database.DBKP_UNCONFIRMEDMETA, addr.Bytes(), hash.Bytes())
 	if err != nil {
 		return err
 	}
-	batch.Put(key, []byte("1"))
+	if batch == nil {
+		if err := ucf.db.Put(key, []byte{count}, nil); err != nil {
+			return err
+		}
+	} else {
+		batch.Put(key, []byte{count})
+	}
 	return nil
 }
 
@@ -97,6 +103,53 @@ func (ucf *UnconfirmedSet) DeleteMeta(batch *leveldb.Batch, addr *types.Address,
 	if err != nil {
 		return err
 	}
-	batch.Delete(key)
+	if batch == nil {
+		if err := ucf.db.Delete(key, nil); err != nil {
+			return err
+		}
+	} else {
+		batch.Delete(key)
+	}
 	return nil
+}
+
+func (ucf *UnconfirmedSet) GetMeta(addr *types.Address, hash *types.Hash) ([]byte, error) {
+	key, err := database.EncodeKey(database.DBKP_UNCONFIRMEDMETA, addr.Bytes(), hash.Bytes())
+	if err != nil {
+		if err != leveldb.ErrNotFound {
+			return nil, err
+		}
+		return nil, nil
+	}
+	value, err := ucf.db.Get(key, nil)
+	return value, nil
+}
+
+func (ucf *UnconfirmedSet) WriteGidAddrList(gid *types.Gid, addrList []*types.Address) error {
+	key, err := database.EncodeKey(database.DBKP_GID_ADDR, gid.Bytes())
+	if err != nil {
+		return err
+	}
+	data, err := AddrListDbSerialize(addrList)
+	if err != nil {
+		return err
+	}
+	ucf.db.Put(key, data, nil)
+	return nil
+}
+
+func (ucf *UnconfirmedSet) GetContractAddrList(gid *types.Gid) ([]*types.Address, error) {
+	key, err := database.EncodeKey(database.DBKP_GID_ADDR, gid.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := ucf.db.Get(key, nil)
+	if err != nil {
+		if err != leveldb.ErrNotFound {
+			return nil, err
+		}
+		return nil, nil
+	}
+	return AddrListDbDeserialize(data)
 }

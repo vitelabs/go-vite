@@ -1,0 +1,7 @@
+syntax="proto3";
+
+package vitepb;
+
+message AddressList {
+    repeated bytes addressList = 1;
+}

@@ -28,4 +28,6 @@ const (
 	DBKP_LOG_LIST = byte(13)
 
 	DBKP_ADDR_GID = byte(14)
+
+	DBKP_GID_ADDR = byte(15)
 )

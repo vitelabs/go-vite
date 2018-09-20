@@ -3,7 +3,6 @@ package unconfirmed
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/unconfirmed/model"
@@ -13,47 +12,45 @@ import (
 )
 
 type ContractTask struct {
-	taskId int
+	taskId   int
+	worker   *ContractWorker
+	accEvent producer.AccountStartEvent
 
-	blocksPool *model.UnconfirmedBlocksPool
-	pool       PoolReader
+	generator  *generator.Generator
 	verifier   *verifier.AccountVerifier
-	genBuilder *generator.GenBuilder
+	blocksPool *model.UnconfirmedBlocksPool
 
 	status      int
 	statusMutex sync.Mutex
 
-	stopListener chan struct{}
 	breaker      chan struct{}
+	stopListener chan struct{}
 
-	isSleeping bool
-	wakeup     chan struct{}
-
-	accEvent producer.AccountStartEvent
-	worker   *ContractWorker
-
+	isSleeping       bool
+	wakeup           chan struct{}
 	getNewBlocksFunc func(index int) *model.FromItem
 
 	log log15.Logger
 }
 
 func NewContractTask(worker *ContractWorker, index int, getNewBlocksFunc func(index int) *model.FromItem) *ContractTask {
-	return &ContractTask{
+	task := &ContractTask{
 		taskId:           index,
-		blocksPool:       worker.uBlocksPool,
-		pool:             worker.manager.pool,
+		worker:           worker,
+		accEvent:         worker.accEvent,
 		verifier:         worker.verifier,
-		genBuilder:       worker.manager.genBuilder,
+		blocksPool:       worker.uBlocksPool,
 		status:           Create,
 		stopListener:     make(chan struct{}),
 		breaker:          make(chan struct{}),
 		wakeup:           make(chan struct{}),
-		accEvent:         worker.accEvent,
-		worker:           worker,
 		getNewBlocksFunc: getNewBlocksFunc,
-
-		log: worker.log.New("taskid", index),
+		log:              worker.log.New("taskid", index),
 	}
+	task.generator = generator.NewGenerator(worker.manager.vite.Chain(),
+		worker.manager.vite.WalletManager().KeystoreManager)
+
+	return task
 }
 
 func (task *ContractTask) Start() {
@@ -75,7 +72,6 @@ func (task *ContractTask) Stop() {
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
 	if task.status != Stop {
-
 		task.breaker <- struct{}{}
 		close(task.breaker)
 
@@ -121,7 +117,7 @@ func (task *ContractTask) work() {
 			task.log.Info("start awake")
 		case <-task.breaker:
 			task.log.Info("worker broken")
-			goto END
+			break
 		}
 	}
 END:
@@ -148,45 +144,42 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 	bQueue := fItem.Value
 
 	for i := 0; i < bQueue.Size(); i++ {
-		var priorBlock *ledger.AccountBlock
+
 		sBlock := bQueue.Dequeue()
 		task.log.Info("Process to make the receiveBlock, its'sendBlock detail:", task.log.New("hash", sBlock.Hash))
 
-		if task.pool.ExistInPool(sBlock.ToAddress, sBlock.Hash) {
+		if task.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
 			// Don't deal with it for the time being
 			return true
 		}
 
-		if task.verifier.VerifyReceiveReachLimit(sBlock) {
-			task.log.Info("Delete the UnconfirmedMeta: the recvBlock reach the max-limit count of existence.")
-			task.blocksPool.WriteUnconfirmed(false, nil, sBlock)
-			continue
-		}
-
-		genBuilder, err := task.genBuilder.PrepareVm(&task.accEvent.SnapshotHash, &block.PrevHash, &block.AccountAddress)
+		err := task.generator.PrepareVm(&task.accEvent.SnapshotHash, nil, &sBlock.ToAddress)
 		if err != nil {
 			task.log.Error("NewGenerator Error", err)
 			return true
 		}
 
-		gen := genBuilder.Build()
-		recvBlock := gen.PackUnconfirmedReceiveBlock(sBlock, &task.accEvent.SnapshotHash, &task.accEvent.Timestamp)
-		genResult := gen.GenerateWithBlock(generator.SourceTypeUnconfirmed, recvBlock,
+		consensusMessage := &generator.ConsensusMessage{
+			SnapshotHash: task.accEvent.SnapshotHash,
+			Timestamp:    task.accEvent.Timestamp,
+			Producer:     task.accEvent.Address,
+		}
+		genResult, err := task.generator.GenerateWithUnconfirmed(*sBlock, consensusMessage,
 			func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-				return gen.Sign(addr, nil, data)
+				return task.generator.Sign(addr, nil, data)
 			})
 		if err != nil {
 			task.log.Error("GenerateTx error ignore, ", "error", err)
 		}
 
 		if genResult.BlockGenList == nil {
-			if genResult.IsRetry == true {
+			if genResult.IsRetry {
 				return true
 			} else {
 				task.blocksPool.WriteUnconfirmed(false, nil, sBlock)
 			}
 		} else {
-			if genResult.IsRetry == true {
+			if genResult.IsRetry {
 				return true
 			}
 
@@ -199,15 +192,7 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 			if err := task.worker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
 				return true
 			}
-
-			priorBlock = genResult.BlockGenList[len(genResult.BlockGenList)-1].AccountBlock
-		}
-		// todo @lyd wait event
-	WaitForVmDB:
-		if task.verifier.VerifyUnconfirmedPriorBlockReceived(&priorBlock.Hash) == false {
-			goto WaitForVmDB
 		}
 	}
-
 	return false
 }

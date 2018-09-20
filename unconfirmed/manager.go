@@ -4,7 +4,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 
 	"errors"
-	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer"
@@ -27,8 +26,6 @@ type Manager struct {
 	uAccess               *model.UAccess
 	unconfirmedBlocksPool *model.UnconfirmedBlocksPool
 
-	genBuilder *generator.GenBuilder
-
 	commonTxWorkers map[types.Address]*AutoReceiveWorker
 	contractWorkers map[types.Gid]*ContractWorker
 
@@ -48,10 +45,6 @@ func NewManager(vite Vite, dataDir string) *Manager {
 		log:             slog.New("w", "manager"),
 	}
 	m.unconfirmedBlocksPool = model.NewUnconfirmedBlocksPool(m.uAccess)
-
-	m.genBuilder = generator.NewGenBuilder()
-	m.genBuilder.SetDependentModule(vite.Chain(), vite.WalletManager().KeystoreManager)
-
 	return m
 }
 
@@ -124,7 +117,7 @@ func (manager *Manager) producerStartEventFunc(accevent producer.AccountEvent) {
 	}
 
 	if !manager.vite.WalletManager().KeystoreManager.IsUnLocked(event.Address) {
-		manager.log.Error(" receive a right event but address locked", "event", event)
+		manager.log.Error("receive a right event but address locked", "event", event)
 		return
 	}
 
@@ -158,6 +151,10 @@ func (manager *Manager) insertContractBlocksToPool(blockList []*vm_context.VmAcc
 		return manager.pool.AddDirectAccountBlocks(blockList[0].AccountBlock.AccountAddress,
 			blockList[0], nil)
 	}
+}
+
+func (manager *Manager) checkExistInPool(addr types.Address, fromBlockHash types.Hash) bool {
+	return manager.pool.ExistInPool(addr, fromBlockHash)
 }
 
 func (manager *Manager) SetAutoReceiveFilter(addr types.Address, filter map[types.TokenTypeId]big.Int) {

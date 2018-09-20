@@ -29,21 +29,74 @@ func NewUAccess(chain *chain.Chain, dataDir string) *UAccess {
 	return uAccess
 }
 
-func (access *UAccess) GetAddrListByGid(gid types.Gid) (addrList []*types.Address, err error) {
-	return nil, nil
+func (access *UAccess) GetAddrListByGid(gid *types.Gid) (addrList []*types.Address, err error) {
+	return access.store.GetContractAddrList(gid)
+}
+
+func (access *UAccess) WriteGidAddList(gid *types.Gid, address types.Address) error {
+	var addrList []*types.Address
+	var err error
+
+	addrList, err = access.GetAddrListByGid(gid)
+	if addrList == nil && err != nil {
+		access.log.Error("GetMeta", "error", err)
+		return err
+	} else {
+		addrList = append(addrList, &address)
+		return access.store.WriteGidAddrList(gid, addrList)
+	}
+}
+
+func (access *UAccess) WriteAddrsToGid(gid *types.Gid, addrs []*types.Address) (err error) {
+	var addrList []*types.Address
+	addrList, err = access.GetAddrListByGid(gid)
+	if err != nil {
+		access.log.Error("GetAddrListByGid", "error", err)
+		return err
+	}
+	addrList = append(addrList, addrs...)
+	if err = access.store.WriteGidAddrList(gid, addrList); err != nil {
+		access.log.Error("WriteGidAddrList", "error", err)
+		return err
+	}
+	return nil
 }
 
 func (access *UAccess) writeUnconfirmedMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
-	if err = access.store.WriteMeta(batch, &block.ToAddress, &block.Hash); err != nil {
-		access.log.Error("WriteMeta", "error", err)
+	addr := &block.ToAddress
+	hash := &block.FromBlockHash
+
+	value, err := access.store.GetMeta(addr, hash)
+	if value == nil {
+		if err != nil {
+			access.log.Error("GetMeta", "error", err)
+			return err
+		} else {
+			return access.store.WriteMeta(batch, addr, hash, 0)
+		}
+	} else {
+		count := uint8(value[0])
+		if count >= 3 {
+			if err := access.store.DeleteMeta(batch, addr, hash); err != nil {
+				return err
+			}
+			return nil
+		} else {
+			count++
+			return access.store.WriteMeta(batch, addr, hash, count)
+		}
 	}
-	return nil
 }
 
 func (access *UAccess) deleteUnconfirmedMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
 	if err = access.store.DeleteMeta(batch, &block.ToAddress, &block.Hash); err != nil {
 		access.log.Error("DeleteMeta", "error", err)
 	}
+	return nil
+}
+
+func (access *UAccess) revertUnconfirmedMeta(writeType bool, batch *leveldb.Batch, block *ledger.AccountBlock) error {
+	// todo
 	return nil
 }
 
@@ -148,7 +201,16 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 	return infoMap, uint64(len(hashList)), err
 }
 
-func (access *UAccess) GetAccountQuota(addresses types.Address, hashes types.Hash) uint64 {
-	//todo @;yd
+func (access *UAccess) GetAccountQuota(addr types.Address, hashes types.Hash) uint64 {
 	return 0
+}
+
+func (access *UAccess) GetReceiveTimes(addr *types.Address, hash *types.Hash) (uint8, error) {
+	value, err := access.store.GetMeta(addr, hash)
+	if err != nil {
+		// include find nil and db errs
+		access.log.Error("GetMeta", "error", err)
+		return 0, err
+	}
+	return uint8(value[0]), nil
 }
