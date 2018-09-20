@@ -54,7 +54,7 @@ func New(cfg *config.Config) (*Vite, error) {
 
 	vite.ledger = ledgerHandler.NewManager(vite, cfg.DataDir)
 
-	vite.walletManager = wallet.NewManagerAndInit(cfg.DataDir)
+	vite.walletManager = wallet.New(cfg.DataDir)
 	vite.signer = signer.NewMaster(vite)
 	vite.signer.InitAndStartLoop()
 

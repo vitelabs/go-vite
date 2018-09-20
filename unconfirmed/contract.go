@@ -30,7 +30,7 @@ type ContractWorker struct {
 	breaker                chan struct{}
 	stopDispatcherListener chan struct{}
 
-	contractTasks []*ContractTask
+	contractTasks []*ContractTaskProcessor
 
 	priorityToQueue      *model.PriorityToQueue
 	priorityToQueueMutex sync.RWMutex
@@ -56,7 +56,7 @@ func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) (*
 	return &ContractWorker{
 		manager:                manager,
 		uBlocksPool:            manager.unconfirmedBlocksPool,
-		verifier:               verifier.NewAccountVerifier(manager.vite.Chain(), manager.vite),
+		verifier:               verifier.NewAccountVerifier(nil, nil, nil), // todo
 		gid:                    accEvent.Gid,
 		address:                accEvent.Address,
 		accEvent:               accEvent,
@@ -66,7 +66,7 @@ func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) (*
 		newUnconfirmedTxAlarm:  make(chan struct{}),
 		breaker:                make(chan struct{}),
 		stopDispatcherListener: make(chan struct{}),
-		contractTasks:          make([]*ContractTask, CONTRACT_TASK_SIZE),
+		contractTasks:          make([]*ContractTaskProcessor, CONTRACT_TASK_SIZE),
 		blackList:              make(map[types.Hash]bool),
 		log:                    log15.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid),
 	}, nil
@@ -84,7 +84,7 @@ func (w *ContractWorker) Start() {
 		})
 
 		for i, v := range w.contractTasks {
-			v = NewContractTask(w, i, w.dispatchTask)
+			v = NewContractTaskProcessor(w, i, w.dispatchTask)
 			v.Start()
 		}
 
@@ -105,7 +105,6 @@ func (w *ContractWorker) Stop() {
 	if w.status != Stop {
 
 		w.breaker <- struct{}{}
-		// todo: to clear tomap
 
 		w.uBlocksPool.RemoveContractLis(w.gid)
 		w.isSleep = true
@@ -205,9 +204,11 @@ END:
 	w.log.Info("waitingNewBlock end")
 }
 
+// true means traverse all contract address
 func (w *ContractWorker) FetchNewFromDb() bool {
 	snapshotHash := w.accEvent.SnapshotHash
 	i := w.lastAddrIndex
+	// fetch CONTRACT_TASK_SIZE contract address at most
 	for ; i < len(w.contractAddressList) && (i-w.lastAddrIndex) < CONTRACT_TASK_SIZE; i++ {
 		count := 0
 		nextIndex := 0

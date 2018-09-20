@@ -5,7 +5,8 @@ import (
 	"math/big"
 )
 
-// IN MY 2017 MACBOOK PRO which cpu is---- Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz----, that target costs about 2 seconds
+// IN MY 2017 MACBOOK PRO which cpu is---- Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz----, that target costs about 2.14 seconds
+// average 2.1429137205785e+09 max 35658900929 min 63118 sum 21429137205785 standard deviation 2.381750598860289e+09
 var DummyTarget, _ = new(big.Int).SetString("000003FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
 
 // data = Hash(address + prehash); nonce + data < target. if prehash == nil {data = Hash(address)}

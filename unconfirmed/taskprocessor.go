@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-type ContractTask struct {
+type ContractTaskProcessor struct {
 	taskId   int
 	worker   *ContractWorker
 	accEvent producer.AccountStartEvent
@@ -33,8 +33,8 @@ type ContractTask struct {
 	log log15.Logger
 }
 
-func NewContractTask(worker *ContractWorker, index int, getNewBlocksFunc func(index int) *model.FromItem) *ContractTask {
-	task := &ContractTask{
+func NewContractTaskProcessor(worker *ContractWorker, index int, getNewBlocksFunc func(index int) *model.FromItem) *ContractTaskProcessor {
+	task := &ContractTaskProcessor{
 		taskId:           index,
 		worker:           worker,
 		accEvent:         worker.accEvent,
@@ -53,7 +53,7 @@ func NewContractTask(worker *ContractWorker, index int, getNewBlocksFunc func(in
 	return task
 }
 
-func (task *ContractTask) Start() {
+func (task *ContractTaskProcessor) Start() {
 	task.log.Info("Start()", "current status", task.status)
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
@@ -67,7 +67,7 @@ func (task *ContractTask) Start() {
 	task.log.Info("end start")
 }
 
-func (task *ContractTask) Stop() {
+func (task *ContractTaskProcessor) Stop() {
 	task.log.Info("Stop()", "current status", task.status)
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
@@ -85,13 +85,13 @@ func (task *ContractTask) Stop() {
 	task.log.Info("stopped")
 }
 
-func (task *ContractTask) WakeUp() {
+func (task *ContractTaskProcessor) WakeUp() {
 	if task.isSleeping {
 		task.wakeup <- struct{}{}
 	}
 }
 
-func (task *ContractTask) work() {
+func (task *ContractTaskProcessor) work() {
 	task.log.Info("work()")
 	for {
 		task.isSleeping = false
@@ -125,18 +125,18 @@ END:
 	task.log.Info("work end")
 }
 
-func (task *ContractTask) Close() error {
+func (task *ContractTaskProcessor) Close() error {
 	task.Stop()
 	return nil
 }
 
-func (task *ContractTask) Status() int {
+func (task *ContractTaskProcessor) Status() int {
 	task.statusMutex.Lock()
 	defer task.statusMutex.Unlock()
 	return task.status
 }
 
-func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList bool) {
+func (task *ContractTaskProcessor) ProcessOneQueue(fItem *model.FromItem) (intoBlackList bool) {
 	// get db.go block from wakeup
 	task.log.Info("Process the fromQueue,", "fromAddress", fItem.Key, "index", fItem.Index, "priority", fItem.Priority)
 

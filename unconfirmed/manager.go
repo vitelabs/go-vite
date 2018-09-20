@@ -157,6 +157,9 @@ func (manager *Manager) producerStartEventFunc(accevent producer.AccountEvent) {
 	nowTime := time.Now()
 	if nowTime.After(event.Stime) && nowTime.Before(event.Etime) {
 		w.Start()
+		time.AfterFunc(event.Etime.Sub(nowTime), func() {
+			w.Stop()
+		})
 	} else {
 		w.Stop()
 	}

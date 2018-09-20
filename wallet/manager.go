@@ -8,21 +8,24 @@ import (
 
 type Manager struct {
 	KeystoreManager *keystore.Manager
-	DateDir         string
+	config          *Config
 }
 
-func NewManagerAndInit(walletdir string) *Manager {
-
-	if walletdir == "" {
-		walletdir = filepath.Join(common.DefaultDataDir(), "wallet")
+func New(config *Config) *Manager {
+	if config == nil {
+		config = &Config{DataDir: filepath.Join(common.DefaultDataDir(), "wallet")}
 	}
-	walletdir = filepath.Join(walletdir, "wallet")
-	km := keystore.NewManager(walletdir)
-
+	km := keystore.NewManager(config.DataDir)
 	km.Init()
-
 	return &Manager{
 		KeystoreManager: km,
-		DateDir:         walletdir,
+		config:          config,
 	}
+}
+
+func (m *Manager) Start() {
+
+}
+func (m *Manager) Stop() {
+
 }

@@ -76,7 +76,7 @@ func (p *UnconfirmedBlocksPool) Close() error {
 }
 
 func (p *UnconfirmedBlocksPool) addSimpleCache(addr types.Address, accountInfo *CommonAccountInfo) {
-	p.log.Info("addSimpleCache", "addr", addr, "TotalNumber", accountInfo.TotalNumber)
+	//p.log.Info("addSimpleCache", "addr", addr, "TotalNumber", accountInfo.TotalNumber)
 	p.simpleCache.Store(addr, accountInfo)
 
 	timer, ok := p.simpleCacheDeadTimer.Load(addr)
@@ -204,6 +204,7 @@ func (p *UnconfirmedBlocksPool) DeleteFullCache(address types.Address) {
 	p.fullCache.Delete(address)
 }
 
+// todo support batch
 func (p *UnconfirmedBlocksPool) WriteUnconfirmed(writeType bool, batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	p.log.Info("WriteUnconfirmed ", "writeType", writeType)
 
@@ -212,6 +213,7 @@ func (p *UnconfirmedBlocksPool) WriteUnconfirmed(writeType bool, batch *leveldb.
 			p.log.Error("writeUnconfirmedMeta", "error", err)
 			return err
 		}
+		// todo
 		p.NewSignalToWorker(block)
 	} else { // delete
 		if err := p.dbAccess.deleteUnconfirmedMeta(batch, block); err != nil {
@@ -219,6 +221,7 @@ func (p *UnconfirmedBlocksPool) WriteUnconfirmed(writeType bool, batch *leveldb.
 			return err
 		}
 	}
+	// todo 确认写好之后 再更新
 	p.updateCache(writeType, block)
 	return nil
 }
@@ -236,8 +239,9 @@ func (p *UnconfirmedBlocksPool) RevertUnconfirmed(writeType bool, batch *leveldb
 func (p *UnconfirmedBlocksPool) updateFullCache(writeType bool, block *ledger.AccountBlock) error {
 	v, ok := p.fullCache.Load(block.ToAddress)
 	fullCache := v.(*unconfirmedBlocksCache)
+	// todo check == 0
 	if !ok || fullCache.blocks.Len() == 0 {
-		p.log.Info("updateCache：no fullCache")
+		//p.log.Info("updateCache：no fullCache")
 		return nil
 	}
 
@@ -250,11 +254,12 @@ func (p *UnconfirmedBlocksPool) updateFullCache(writeType bool, block *ledger.Ac
 	return nil
 }
 
+// todo add mutex
 func (p *UnconfirmedBlocksPool) updateSimpleCache(writeType bool, block *ledger.AccountBlock) error {
 
 	value, ok := p.simpleCache.Load(block.ToAddress)
 	if !ok {
-		p.log.Info("updateSimpleCache：no cache")
+		// p.log.Info("updateSimpleCache：no cache")
 		return nil
 	}
 	simpleAccountInfo := value.(*CommonAccountInfo)
@@ -265,6 +270,7 @@ func (p *UnconfirmedBlocksPool) updateSimpleCache(writeType bool, block *ledger.
 			tokenBalanceInfo.TotalAmount.Add(&tokenBalanceInfo.TotalAmount, block.Amount)
 			tokenBalanceInfo.Number += 1
 		} else {
+			// todo remove token info
 			token, err := p.dbAccess.Chain.GetTokenInfoById(&block.TokenId)
 			if err != nil {
 				return errors.New("func UpdateCommonAccInfo.GetByTokenId failed" + err.Error())
