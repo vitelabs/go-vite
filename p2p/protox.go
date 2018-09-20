@@ -44,20 +44,22 @@ func BytesToReader(data []byte) io.Reader {
 	return buf
 }
 
-func PackMsg(cmdset, cmd uint64, s Serializable) (*Msg, error) {
+func PackMsg(cmdSetId, cmd, id uint64, s Serializable) (*Msg, error) {
 	r, size, err := EncodeToReader(s)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Msg{
-		CmdSet:  cmdset,
-		Cmd:     cmd,
-		Size:    size,
-		Payload: r,
+		CmdSetID: cmdSetId,
+		Cmd:      cmd,
+		Id:       id,
+		Size:     size,
+		Payload:  r,
 	}, nil
 }
 
+// the most basic Msg transport
 type protoMsgRW struct {
 	fd           io.ReadWriter
 	compressible bool
@@ -69,9 +71,10 @@ func (prw *protoMsgRW) ReadMsg() (msg Msg, err error) {
 		return
 	}
 
-	msg.CmdSet = binary.BigEndian.Uint64(head[:8])
+	msg.CmdSetID = binary.BigEndian.Uint64(head[:8])
 	msg.Cmd = binary.BigEndian.Uint64(head[8:16])
-	msg.Size = binary.BigEndian.Uint64(head[16:24])
+	msg.Id = binary.BigEndian.Uint64(head[16:24])
+	msg.Size = binary.BigEndian.Uint64(head[24:32])
 
 	if msg.Size > maxPayloadSize {
 		err = errMsgTooLarge
@@ -129,9 +132,10 @@ func (prw *protoMsgRW) WriteMsg(msg Msg) (err error) {
 	}
 
 	head := make([]byte, headerLength)
-	binary.BigEndian.PutUint64(head[:8], msg.CmdSet)
+	binary.BigEndian.PutUint64(head[:8], msg.CmdSetID)
 	binary.BigEndian.PutUint64(head[8:16], msg.Cmd)
-	binary.BigEndian.PutUint64(head[16:24], msg.Size)
+	binary.BigEndian.PutUint64(head[16:24], msg.Id)
+	binary.BigEndian.PutUint64(head[24:32], msg.Size)
 
 	// write header
 	if _, err = prw.fd.Write(head); err != nil {
@@ -160,6 +164,9 @@ func newProtoX(fd net.Conn) *protox {
 	fd.SetReadDeadline(time.Now().Add(handshakeTimeout))
 	return &protox{
 		fd: fd,
+		rw: &protoMsgRW{
+			fd: fd,
+		},
 	}
 }
 
@@ -184,7 +191,7 @@ func (p *protox) Handshake(ours *Handshake) (their *Handshake, err error) {
 	errch := make(chan error, 1)
 
 	go func() {
-		errch <- Send(p.rw, baseProtocolCmdSet, handshakeCmd, ours)
+		errch <- Send(p.rw, baseProtocolCmdSet, handshakeCmd, 0, ours)
 	}()
 
 	if their, err = readHandshake(p.rw); err != nil {
@@ -208,8 +215,8 @@ func readHandshake(r MsgReader) (h *Handshake, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if msg.CmdSet != baseProtocolCmdSet {
-		return nil, fmt.Errorf("should be baseProtocolCmdSet, got %x\n", msg.CmdSet)
+	if msg.CmdSetID != baseProtocolCmdSet {
+		return nil, fmt.Errorf("should be baseProtocolCmdSet, got %x\n", msg.CmdSetID)
 	}
 
 	payload, err := ioutil.ReadAll(msg.Payload)
@@ -242,15 +249,15 @@ func (p *protox) close(err error) {
 
 	if p.rw != nil {
 		if reason, ok := err.(DiscReason); ok && reason != DiscNetworkError {
-			Send(p.rw, baseProtocolCmdSet, discCmd, reason)
+			Send(p.rw, baseProtocolCmdSet, discCmd, 0, reason)
 		}
 	}
 
 	p.fd.Close()
 }
 
-func Send(w MsgWriter, cmdset, cmd uint64, s Serializable) error {
-	msg, err := PackMsg(cmdset, cmd, s)
+func Send(w MsgWriter, cmdset, cmd, id uint64, s Serializable) error {
+	msg, err := PackMsg(cmdset, cmd, id, s)
 	if err != nil {
 		return err
 	}

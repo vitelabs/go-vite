@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"io"
 	"net"
@@ -61,7 +62,7 @@ type protoFrame struct {
 func newProtoFrame(protocol *Protocol, rw MsgReadWriter) *protoFrame {
 	return &protoFrame{
 		Protocol: protocol,
-		input:    make(chan *Msg),
+		input:    make(chan *Msg, 1),
 		w:        rw,
 	}
 }
@@ -76,8 +77,8 @@ func (pf *protoFrame) ReadMsg() (msg Msg, err error) {
 }
 
 func (pf *protoFrame) WriteMsg(msg Msg) error {
-	if msg.CmdSet != pf.ID {
-		return fmt.Errorf("protoFrame %x cannot write message of CmdSet %x", pf.ID, msg.CmdSet)
+	if msg.CmdSetID != pf.ID {
+		return fmt.Errorf("protoFrame %x cannot write message of CmdSet %x", pf.ID, msg.CmdSetID)
 	}
 
 	select {
@@ -101,9 +102,10 @@ type Peer struct {
 	disc        chan DiscReason
 	protoErr    chan error
 	log         log15.Logger
+	topoChan    chan<- *topoEvent // some msg need other handler
 }
 
-func NewPeer(conn *conn, ourSet []*Protocol) (*Peer, error) {
+func NewPeer(conn *conn, ourSet []*Protocol, topoChan chan<- *topoEvent) (*Peer, error) {
 	protoFrames := createProtoFrames(ourSet, conn.cmdSets, conn)
 
 	if len(protoFrames) == 0 {
@@ -118,6 +120,7 @@ func NewPeer(conn *conn, ourSet []*Protocol) (*Peer, error) {
 		disc:        make(chan DiscReason),
 		log:         log15.New("module", "p2p/peer"),
 		protoErr:    make(chan error, len(protoFrames)+1), // additional baseProtocol error
+		topoChan:    topoChan,
 	}, nil
 }
 
@@ -166,10 +169,8 @@ func (p *Peer) Info() *PeerInfo {
 		ID:      p.ID().String(),
 		Name:    p.Name(),
 		CmdSets: cmdSetsInfo,
-		Network: &PeerNetInfo{
-			Address: p.RemoteAddr().String(),
-			Inbound: p.rw.is(inbound),
-		},
+		Address: p.RemoteAddr().String(),
+		Inbound: p.rw.is(inbound),
 	}
 }
 
@@ -195,9 +196,9 @@ func (p *Peer) protoFrame(CmdSetID uint64) *protoFrame {
 func (p *Peer) runProtocols() (chan<- struct{}, <-chan error) {
 	canWrite := make(chan struct{}, 1)
 	writeErr := make(chan error, 1)
-	//protoErr := make(chan error, len(p.protoFrames))
 
 	p.wg.Add(len(p.protoFrames))
+
 	for _, proto := range p.protoFrames {
 		proto.term = p.term
 		proto.canWrite = canWrite
@@ -216,16 +217,17 @@ func (p *Peer) runProtocols() (chan<- struct{}, <-chan error) {
 	return canWrite, writeErr
 }
 
-func (p *Peer) start() (err error) {
+func (p *Peer) run() (err error) {
 	canWrite, writeErr := p.runProtocols()
 	canWrite <- struct{}{}
 
 	readErr := make(chan error, 1)
+
+	p.wg.Add(1)
 	go p.readLoop(readErr)
 
 	var reason DiscReason
 
-loop:
 	for {
 		select {
 		case err = <-readErr:
@@ -234,22 +236,23 @@ loop:
 			} else {
 				reason = DiscNetworkError
 			}
-			break loop
+			goto END
 		case err = <-writeErr:
 			if err != nil {
 				reason = DiscNetworkError
-				break loop
+				goto END
 			}
 			canWrite <- struct{}{}
 		case err = <-p.protoErr:
 			reason = errTodiscReason(err)
-			break loop
+			goto END
 		case reason = <-p.disc:
 			reason = errTodiscReason(reason)
-			break loop
+			goto END
 		}
 	}
 
+END:
 	close(p.term)
 	p.wg.Wait()
 	p.rw.close(reason)
@@ -257,31 +260,33 @@ loop:
 	return err
 }
 
-func (p *Peer) readLoop(errch chan<- error) {
+func (p *Peer) readLoop(out chan<- error) {
 	defer p.wg.Done()
 
 	for {
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
 			p.log.Error("peer read error", "ID", p.ID().String(), "error", err)
-			errch <- err
+			out <- err
 			return
 		}
+
+		monitor.LogEvent("p2p/peer", "msg")
 
 		msg.ReceivedAt = time.Now()
 
 		err = p.handleMsg(&msg)
 		if err != nil {
-			errch <- err
+			out <- err
 			return
 		}
 	}
 }
 
 func (p *Peer) handleMsg(msg *Msg) error {
-	p.log.Info("peer handle message", "CmdSet", msg.CmdSet, "Cmd", msg.Cmd, "from", p.ID().String())
+	p.log.Info("peer handle message", "CmdSet", msg.CmdSetID, "Cmd", msg.Cmd, "from", p.ID().String())
 
-	cmdset, cmd := msg.CmdSet, msg.Cmd
+	cmdset, cmd := msg.CmdSetID, msg.Cmd
 
 	if cmdset == baseProtocolCmdSet {
 		switch cmd {
@@ -292,19 +297,28 @@ func (p *Peer) handleMsg(msg *Msg) error {
 			}
 			return reason
 		case topoCmd:
-
+			select {
+			case p.topoChan <- &topoEvent{msg, p}:
+			default:
+				p.log.Info(fmt.Sprintf("msgReport channel is blocked, discard topoMsg from %s@%s", p.ID(), p.RemoteAddr()))
+				msg.Discard()
+			}
 		default:
 			return msg.Discard()
 		}
 	} else {
-		protoFrame := p.protoFrame(cmdset)
-		if protoFrame == nil {
-			return fmt.Errorf("cannot handle message %d/%d\n", cmdset, cmd)
+		pf := p.protoFrame(cmdset)
+		if pf == nil {
+			return fmt.Errorf("missing suitable protoFrame to handle message %d/%d\n", cmdset, cmd)
 		} else {
 			select {
 			case <-p.term:
+				p.log.Error(fmt.Sprintf("peer has been terminated, cannot handle message %d/%d", cmdset, cmd))
 				return errPeerTermed
-			case protoFrame.input <- msg:
+			case pf.input <- msg:
+			default:
+				p.log.Warn(fmt.Sprintf("protoFrame is busy, discard message %d/%d", cmdset, cmd))
+				return msg.Discard()
 			}
 		}
 	}
@@ -314,40 +328,57 @@ func (p *Peer) handleMsg(msg *Msg) error {
 
 // @section PeerSet
 type PeerSet struct {
-	lock  sync.RWMutex
-	peers map[discovery.NodeID]*Peer
+	peers    map[discovery.NodeID]*Peer
+	inbound  int
+	outbound int
+}
+
+func newPeerSet() *PeerSet {
+	return &PeerSet{
+		peers: make(map[discovery.NodeID]*Peer),
+	}
 }
 
 func (s *PeerSet) Add(p *Peer) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	if _, ok := s.peers[p.ID()]; ok {
 		return DiscAlreadyConnected
 	}
 
 	s.peers[p.ID()] = p
+	if p.rw.is(inbound) {
+		s.inbound++
+	} else {
+		s.outbound++
+	}
+
 	return nil
 }
 
 func (s *PeerSet) Del(p *Peer) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	delete(s.peers, p.ID())
+	if p.rw.is(inbound) {
+		s.inbound--
+	} else {
+		s.outbound--
+	}
+}
+
+func (s *PeerSet) Has(id discovery.NodeID) bool {
+	_, ok := s.peers[id]
+	return ok
+}
+
+func (s *PeerSet) Clear(p *Peer) {
+	s.peers = nil
+	s.inbound = 0
+	s.outbound = 0
 }
 
 func (s *PeerSet) Size() int {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
 	return len(s.peers)
 }
 
 func (s *PeerSet) Info() []*PeerInfo {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
 	info := make([]*PeerInfo, s.Size())
 	i := 0
 	for _, p := range s.peers {
@@ -359,24 +390,17 @@ func (s *PeerSet) Info() []*PeerInfo {
 }
 
 func (s *PeerSet) Traverse(fn func(id discovery.NodeID, p *Peer)) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
 	for id, p := range s.peers {
 		id, p := id, p
-		go fn(id, p)
+		fn(id, p)
 	}
 }
 
 // @section PeerInfo
 type PeerInfo struct {
-	ID      string       `json:"id"`
-	Name    string       `json:"name"`
-	CmdSets []string     `json:"caps"`
-	Network *PeerNetInfo `json:"network"`
-}
-
-type PeerNetInfo struct {
-	Address string `json:"Address"`
-	Inbound bool   `json:"inbound"`
+	ID      string   `json:"id"`
+	Name    string   `json:"name"`
+	CmdSets []string `json:"caps"`
+	Address string   `json:"address"`
+	Inbound bool     `json:"inbound"`
 }

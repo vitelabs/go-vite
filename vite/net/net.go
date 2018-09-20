@@ -7,10 +7,12 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p"
 	"io/ioutil"
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -25,15 +27,19 @@ type Net struct {
 	snapshotFeed  *snapshotBlockFeed
 	accountFeed   *accountBlockFeed
 	term          chan struct{}
+	newPeer       chan *Peer
 	pool          *reqPool
 	FromHeight    uint64
 	TargetHeight  uint64
 	syncState     SyncState
+	downloaded    int32        // atomic, indicate whether the first sync data has download from bestPeer
 	slock         sync.RWMutex // use for syncState change
 	stateFeed     *SyncStateFeed
 	SnapshotChain BlockChain
 	blockRecord   *cuckoofilter.CuckooFilter // record blocks has retrieved from network
-	log log15.Logger
+	log           log15.Logger
+	Protocols     []*p2p.Protocol
+	wg            sync.WaitGroup
 }
 
 func New(cfg *Config) *Net {
@@ -46,9 +52,29 @@ func New(cfg *Config) *Net {
 		accountFeed:  new(accountBlockFeed),
 		stateFeed:    new(SyncStateFeed),
 		term:         make(chan struct{}),
+		newPeer:      make(chan *Peer),
 		pool:         NewReqPool(peerSet),
 		blockRecord:  cuckoofilter.NewCuckooFilter(10000),
-		log: log15.New("module", "vite/net"),
+		log:          log15.New("module", "vite/net"),
+	}
+
+	n.Protocols = make([]*p2p.Protocol, len(cmdSets))
+	for i, cmdset := range cmdSets {
+		n.Protocols[i] = &p2p.Protocol{
+			Name: CmdSetName,
+			ID:   cmdset,
+			Handle: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
+				peer := newPeer(p, rw, cmdset)
+				select {
+				case n.newPeer <- peer:
+					n.wg.Add(1)
+					defer n.wg.Done()
+					return n.HandlePeer(p)
+				case <-n.term:
+					return p2p.DiscQuitting
+				}
+			},
+		}
 	}
 
 	return n
@@ -78,7 +104,7 @@ func (n *Net) startSync() {
 	go n.checkChainHeight()
 }
 
-func (n *Net) checkChainHeight()  {
+func (n *Net) checkChainHeight() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
@@ -86,7 +112,7 @@ func (n *Net) checkChainHeight()  {
 
 	for {
 		select {
-		case now := <- ticker.C:
+		case now := <-ticker.C:
 			current, err := n.SnapshotChain.GetLatestSnapshotBlock()
 			if err != nil {
 				return
@@ -97,7 +123,7 @@ func (n *Net) checkChainHeight()  {
 			if now.Sub(begin) > waitForChainGrow {
 				n.SetSyncState(Syncerr)
 			}
-		case <- n.term:
+		case <-n.term:
 			return
 		}
 	}
@@ -125,7 +151,7 @@ func (n *Net) ReceiveConn(conn net.Conn) {
 
 }
 
-func (n *Net) HandlePeer(p *Peer) {
+func (n *Net) HandlePeer(p *Peer) error {
 	head, err := n.SnapshotChain.GetLatestSnapshotBlock()
 	if err != nil {
 		log.Fatal("cannot get current block", err)
@@ -138,6 +164,7 @@ func (n *Net) HandlePeer(p *Peer) {
 
 	err = p.Handshake(n.NetID, head.Height, head.Hash, genesis.Hash)
 	if err != nil {
+		n.removePeer(p)
 		return
 	}
 
@@ -151,8 +178,8 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 	}
 	defer msg.Discard()
 
-	Code := Cmd(msg.Cmd)
-	if Code == HandshakeCode {
+	code := cmd(msg.Cmd)
+	if code == HandshakeCode {
 		return errHandshakeTwice
 	}
 
@@ -161,7 +188,7 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 		return
 	}
 
-	switch Cmd(msg.Cmd) {
+	switch code {
 	case StatusCode:
 		status := new(BlockID)
 		err = status.Deserialize(payload)
@@ -180,15 +207,13 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 		if err != nil {
 			p.Send(ExceptionCode, Missing)
 		} else {
-			p.Send(SubLedgerCode, &subLedgerMsg{
-				snapshotblocks: snapshotblocks,
-				accountblocks:  accountblocks,
+			p.Send(SubLedgerCode, &SubLedger{
+				SBlocks: snapshotblocks,
+				ABlocks: accountblocks,
 			})
 		}
-	case GetSnapshotBlockHeadersCode:
-	case GetSnapshotBlockBodiesCode:
 	case GetSnapshotBlocksCode:
-	case GetSnapshotBlocksByHashCode:
+
 	case GetAccountBlocksCode:
 		as := new(AccountSegment)
 		err = as.Deserialize(payload)
@@ -202,9 +227,16 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 		} else {
 			p.Send(AccountBlocksCode, accountMap)
 		}
-	case GetAccountBlocksByHashCode:
+	case FileListCode:
+		fs := new(FileList)
+		err = fs.Deserialize(payload)
+		if err != nil {
+			return
+		}
+		// todo get file
+
 	case SubLedgerCode:
-		subledger := new(subLedgerMsg)
+		subledger := new(SubLedger)
 		err = subledger.Deserialize(payload)
 		if err != nil {
 			return
@@ -212,20 +244,16 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 
 		p.receive(SubLedgerCode, subledger)
 
-		for _, block := range subledger.snapshotblocks {
+		for _, block := range subledger.SBlocks {
 			p.SeeBlock(block.Hash)
 		}
-		for _, block := range subledger.accountblocks {
+		for _, block := range subledger.ABlocks {
 			p.SeeBlock(block.Hash)
 		}
-		n.receiveSnapshotBlock(subledger.snapshotblocks)
-		n.receiveAccountBlocks(subledger.accountblocks)
-	case SnapshotBlockHeadersCode:
-		// todo mark blocks to peer
-	case SnapshotBlockBodiesCode:
-		// todo mark blocks to peer
+		//n.receiveSnapshotBlock(subledger.snapshotblocks)
+		//n.receiveAccountBlocks(subledger.accountblocks)
 	case SnapshotBlocksCode:
-		blocks := []*ledger.SnapshotBlock
+		blocks := new(SnapshotBlocks)
 
 		err = blocks.Deserialize(payload)
 		if err != nil {
@@ -234,12 +262,12 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 
 		p.receive(SnapshotBlocksCode, blocks)
 
-		for _, block := range blocks {
+		for _, block := range blocks.Blocks {
 			p.SeeBlock(block.Hash)
 		}
 		n.receiveSnapshotBlock(blocks)
 	case AccountBlocksCode:
-		blocks := []*ledger.AccountBlock
+		blocks := new(AccountBlocks)
 
 		err = blocks.Deserialize(payload)
 		if err != nil {
@@ -248,10 +276,11 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 
 		p.receive(AccountBlocksCode, blocks)
 
-		for _, block := range blocks {
+		for _, block := range blocks.Blocks {
 			p.SeeBlock(block.Hash)
 		}
 		n.receiveAccountBlocks(blocks)
+		n.BroadcastAccountBlocks(blocks)
 	case NewSnapshotBlockCode:
 		block := new(ledger.SnapshotBlock)
 		err = block.Deserialize(payload)
@@ -259,10 +288,14 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 			return
 		}
 
-		p.receive(NewSnapshotBlockCode, block)
 		p.SeeBlock(block.Hash)
-		n.BroadcastSnapshotBlock(block, false)
+		n.BroadcastSnapshotBlock(block)
 	case ExceptionCode:
+		exception, err := deserializeException(payload)
+		if err != nil {
+			return
+		}
+		p.receive(ExceptionCode, exception)
 	default:
 		return errors.New("unknown message")
 	}
@@ -270,7 +303,7 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 	return nil
 }
 
-func (n *Net) BroadcastSnapshotBlock(block *ledger.SnapshotBlock, propagate bool) {
+func (n *Net) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	peers := n.peers.UnknownBlock(block.Hash)
 
 	for _, peer := range peers {
@@ -278,7 +311,7 @@ func (n *Net) BroadcastSnapshotBlock(block *ledger.SnapshotBlock, propagate bool
 	}
 }
 
-func (n *Net) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock, propagate bool) {
+func (n *Net) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 	for _, block := range blocks {
 		go func(b *ledger.SnapshotBlock) {
 			peers := n.peers.UnknownBlock(block.Hash)
@@ -290,7 +323,7 @@ func (n *Net) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock, propagate 
 	}
 }
 
-func (n *Net) BroadcastAccountBlocks(blocks []*ledger.AccountBlock, propagate bool) {
+func (n *Net) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {
 	for _, block := range blocks {
 		peers := n.peers.UnknownBlock(block.Hash)
 		for _, peer := range peers {
@@ -301,7 +334,12 @@ func (n *Net) BroadcastAccountBlocks(blocks []*ledger.AccountBlock, propagate bo
 	}
 }
 
-func (n *Net) FetchSnapshotBlocks(s *Segment) {
+func (n *Net) FetchSnapshotBlocks(start types.Hash, count uint64) {
+	// if the sync data has not downloaded, then ignore fetch request
+	if atomic.LoadInt32(&n.downloaded) == 0 {
+		return
+	}
+
 	req := newReq(GetSnapshotBlocksCode, s, func(cmd Cmd, i interface{}) (done bool, err error) {
 		if cmd != SnapshotBlocksCode {
 			return false, nil
@@ -322,24 +360,12 @@ func (n *Net) FetchSnapshotBlocks(s *Segment) {
 	n.pool.Add(req)
 }
 
-func (n *Net) FetchSnapshotBlocksByHash(hashes []types.Hash) {
-	strangeHashes := make([]types.Hash, 0, len(hashes))
-	for _, hash := range hashes {
-		if !n.blockRecord.Lookup(hash[:]) {
-			strangeHashes = append(strangeHashes, hash)
-		}
+func (n *Net) FetchAccountBlocks(start types.Hash, count uint64, address types.Address) {
+	// if the sync data has not downloaded, then ignore fetch request
+	if atomic.LoadInt32(&n.downloaded) == 0 {
+		return
 	}
 
-	if len(strangeHashes) != 0 {
-		req := newReq(GetAccountBlocksByHashCode, strangeHashes, func(cmd Cmd, i interface{}) (done bool, err error) {
-
-		}, snapshotBlocksTimeout)
-
-		n.pool.Add(req)
-	}
-}
-
-func (n *Net) FetchAccountBlocks(as AccountSegment) {
 	req := newReq(GetAccountBlocksCode, as, func(cmd Cmd, i interface{}) (done bool, err error) {
 		if cmd != AccountBlocksCode {
 			return false, nil
@@ -367,6 +393,11 @@ func (n *Net) FetchAccountBlocks(as AccountSegment) {
 }
 
 func (n *Net) FetchAccountBlocksByHash(hashes []types.Hash) {
+	// if the sync data has not downloaded, then ignore fetch request
+	if atomic.LoadInt32(&n.downloaded) == 0 {
+		return
+	}
+
 	strangeHashes := make([]types.Hash, 0, len(hashes))
 	for _, hash := range hashes {
 		if !n.blockRecord.Lookup(hash[:]) {
@@ -393,6 +424,7 @@ func (n *Net) UnsubscribeAccountBlock(subId int) {
 
 func (n *Net) receiveAccountBlocks(blocks []*ledger.AccountBlock) {
 	for _, block := range blocks {
+		// todo verify
 		if !n.blockRecord.Lookup(block.Hash[:]) {
 			n.blockRecord.InsertUnique(block.Hash[:])
 			n.accountFeed.Notify(block)
@@ -410,6 +442,7 @@ func (n *Net) UnsubscribeSnapshotBlock(subId int) {
 
 func (n *Net) receiveSnapshotBlock(blocks []*ledger.SnapshotBlock) {
 	for _, block := range blocks {
+		// todo verify
 		if !n.blockRecord.Lookup(block.Hash[:]) {
 			n.blockRecord.InsertUnique(block.Hash[:])
 			n.snapshotFeed.Notify(block)
@@ -429,12 +462,12 @@ func (n *Net) preSync() {
 	timer := time.NewTimer(waitEnoughPeers)
 	defer timer.Stop()
 
-	loop:
+loop:
 	for {
 		select {
-		case <- timer.C:
+		case <-timer.C:
 			break loop
-		case <- n.term:
+		case <-n.term:
 			return
 		default:
 			if n.peers.Count() >= enoughPeers {
@@ -474,6 +507,10 @@ func (n *Net) syncWithPeer(p *Peer) error {
 	}
 
 	req := newReq(GetSubLedgerCode, seg, func(cmd Cmd, v interface{}) (done bool, err error) {
+		if cmd == ExceptionCode && v == Missing {
+			return false, Missing
+		}
+
 		if cmd != SubLedgerCode {
 			return false, nil
 		}
@@ -490,16 +527,16 @@ func (n *Net) syncWithPeer(p *Peer) error {
 	timer := time.NewTimer(subledgerTimeout)
 	defer timer.Stop()
 
-	p.execute(req)
+	n.pool.Add(req)
 
 	for {
 		var done bool
 		var err error
 
 		select {
-		case done = <- req.done:
-			case err = <- req.errch:
-		case <- timer.C:
+		case done = <-req.done:
+		case err = <-req.errch:
+		case <-timer.C:
 			return errMsgTimeout
 		}
 
@@ -514,9 +551,43 @@ func (n *Net) syncWithPeer(p *Peer) error {
 func (n *Net) startPeer(p *Peer) {
 	n.peers.Add(p)
 
-	go p.Broadcast()
+	go n.heartbeat(p)
 
-	n.syncWithPeer(p)
+	go n.syncWithPeer(p)
+
+	for {
+		select {
+		case <-n.term:
+			return
+		default:
+		}
+
+		if err := n.HandleMsg(p); err != nil {
+			n.removePeer(p)
+		}
+	}
+}
+
+func (n *Net) heartbeat(p *Peer) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-n.term:
+			return
+		case <-ticker.C:
+			current, err := n.SnapshotChain.GetLatestSnapshotBlock()
+			if err != nil {
+				return
+			}
+
+			p.Send(StatusCode, &BlockID{
+				Hash:   current.Hash,
+				Height: current.Height,
+			})
+		}
+	}
 }
 
 func (n *Net) removePeer(p *Peer) {

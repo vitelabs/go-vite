@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -33,6 +34,7 @@ const (
 	pongCode
 	findnodeCode
 	neighborsCode
+	exceptionCode
 )
 
 var packetStrs = [...]string{
@@ -310,6 +312,64 @@ func (n *Neighbors) pack(priv ed25519.PrivateKey) (pkt []byte, hash types.Hash, 
 
 func (n *Neighbors) isExpired() bool {
 	return isExpired(n.Expiration)
+}
+
+// @section Exception
+type eCode uint64
+
+const (
+	eCannotUnpack eCode = iota + 1
+	eLowVersion
+	eBlocked
+	eUnKnown
+)
+
+var eMsg = [...]string{
+	eCannotUnpack: "can`t unpack message, maybe not the same discovery version",
+	eLowVersion:   "your version is lower, maybe you should upgrade",
+	eBlocked:      "you are blocked",
+	eUnKnown:      "unknown discovery message",
+}
+
+func (e eCode) String() string {
+	return eMsg[e]
+}
+
+type Exception struct {
+	Code eCode
+}
+
+func (e *Exception) serialize() ([]byte, error) {
+	buf := make([]byte, binary.MaxVarintLen64)
+	int := binary.PutUvarint(buf, uint64(e.Code))
+	return buf[:int], nil
+}
+
+func (e *Exception) deserialize(buf []byte) error {
+	code, n := binary.Varint(buf)
+	if n <= 0 {
+		return errors.New("parse error")
+	}
+	e.Code = eCode(code)
+	return nil
+}
+
+func (e *Exception) pack(priv ed25519.PrivateKey) (pkt []byte, hash types.Hash, err error) {
+	payload, err := e.serialize()
+	if err != nil {
+		return
+	}
+
+	pkt, hash = composePacket(priv, neighborsCode, payload)
+	return
+}
+
+func (e *Exception) isExpired() bool {
+	return false
+}
+
+func (e *Exception) sender() (id NodeID) {
+	return
 }
 
 // version code checksum signature payload

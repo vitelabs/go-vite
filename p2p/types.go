@@ -100,10 +100,10 @@ func (s *CmdSet) Proto() *protos.CmdSet {
 
 // @section Msg
 type Msg struct {
-	CmdSet uint64
-	Cmd    uint64
-	// how many bytes in payload, used to quickly determine whether payload is valid
-	Size       uint64
+	CmdSetID   uint64
+	Cmd        uint64
+	Id         uint64 // as message context
+	Size       uint64 // how many bytes in payload, used to quickly determine whether payload is valid
 	Payload    io.Reader
 	ReceivedAt time.Time
 }
@@ -137,8 +137,6 @@ type Protocol struct {
 	Name string
 	// use for message command set, should be unique
 	ID uint64
-	// how many commands the protocol used.
-	Band uint64
 	// read and write Msg with rw
 	Handle func(p *Peer, rw MsgReadWriter) error
 }
@@ -210,32 +208,6 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 	}
 
 	hs.CmdSets = cmdsets
-
-	return nil
-}
-
-// @section topo
-type Topo struct {
-	Pivot string
-	Peers []string
-}
-
-func (t *Topo) Serialize() ([]byte, error) {
-	return proto.Marshal(&protos.Topo{
-		Pivot: t.Pivot,
-		Peers: t.Peers,
-	})
-}
-
-func (t *Topo) Deserialize(buf []byte) error {
-	pb := new(protos.Topo)
-	err := proto.Unmarshal(buf, pb)
-	if err != nil {
-		return err
-	}
-
-	t.Pivot = pb.Pivot
-	t.Peers = pb.Peers
 
 	return nil
 }
