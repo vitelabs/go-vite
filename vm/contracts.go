@@ -50,7 +50,9 @@ var simpleContracts = map[types.Address]*precompiledContract{
 	},
 	contracts.AddressConsensusGroup: {
 		map[string]precompiledContractMethod{
-			contracts.MethodNameCreateConsensusGroup: &pCreateConsensusGroup{},
+			contracts.MethodNameCreateConsensusGroup:   &pCreateConsensusGroup{},
+			contracts.MethodNameCancelConsensusGroup:   &pCancelConsensusGroup{},
+			contracts.MethodNameReCreateConsensusGroup: &pReCreateConsensusGroup{},
 		},
 		contracts.ABIConsensusGroup,
 	},
@@ -237,9 +239,6 @@ func (p *pReward) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uin
 		return quotaLeft, ErrInvalidData
 	}
 	heightGap := newRewardHeight - old.RewardHeight
-	if heightGap > rewardGapLimit {
-		return quotaLeft, ErrInvalidData
-	}
 
 	count := heightGap
 	quotaLeft, err = useQuota(quotaLeft, ((count+dbPageSize-1)/dbPageSize)*calcRewardGasPerPage)
@@ -580,7 +579,7 @@ func (p *pCancelPledge) doReceive(vm *VM, block *vm_context.VmAccountBlock, send
 type pCreateConsensusGroup struct{}
 
 func (p *pCreateConsensusGroup) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
-	return new(big.Int).Set(createConsensusGroupFee), nil
+	return big.NewInt(0), nil
 }
 
 // create consensus group
@@ -589,7 +588,8 @@ func (p *pCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock,
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.AccountBlock.Amount.Sign() != 0 ||
+	if block.AccountBlock.Amount.Cmp(createConsensusGroupPledgeAmount) != 0 ||
+		!IsViteToken(block.AccountBlock.TokenId) ||
 		!isUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
 		return quotaLeft, ErrInvalidData
 	}
@@ -602,11 +602,25 @@ func (p *pCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock,
 		return quotaLeft, err
 	}
 	// data: methodSelector(0:4) + gid(4:36) + ConsensusGroup
-	gid := types.DataToGid(block.AccountBlock.AccountAddress.Bytes(), new(big.Int).SetUint64(block.AccountBlock.Height).Bytes(), block.AccountBlock.PrevHash.Bytes(), block.AccountBlock.SnapshotHash.Bytes())
+	gid := types.DataToGid(
+		block.AccountBlock.AccountAddress.Bytes(),
+		new(big.Int).SetUint64(block.AccountBlock.Height).Bytes(),
+		block.AccountBlock.PrevHash.Bytes(),
+		block.AccountBlock.SnapshotHash.Bytes())
 	if isExistGid(block.VmContext, gid) {
 		return quotaLeft, ErrInvalidData
 	}
-	paramData, _ := contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameCreateConsensusGroup, gid, param.NodeCount, param.Interval, param.CountingRuleId, param.CountingRuleParam, param.RegisterConditionId, param.RegisterConditionParam, param.VoteConditionId, param.VoteConditionParam)
+	paramData, _ := contracts.ABIConsensusGroup.PackMethod(
+		contracts.MethodNameCreateConsensusGroup,
+		gid,
+		param.NodeCount,
+		param.Interval,
+		param.CountingRuleId,
+		param.CountingRuleParam,
+		param.RegisterConditionId,
+		param.RegisterConditionParam,
+		param.VoteConditionId,
+		param.VoteConditionParam)
 	block.AccountBlock.Data = paramData
 	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
@@ -647,8 +661,153 @@ func (p *pCreateConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountBlo
 	if len(block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key)) > 0 {
 		return ErrIdCollision
 	}
-	groupInfo, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo, param.NodeCount, param.Interval, param.CountingRuleId, param.CountingRuleParam, param.RegisterConditionId, param.RegisterConditionParam, param.VoteConditionId, param.VoteConditionParam)
+	groupInfo, _ := contracts.ABIConsensusGroup.PackVariable(
+		contracts.VariableNameConsensusGroupInfo,
+		param.NodeCount,
+		param.Interval,
+		param.CountingRuleId,
+		param.CountingRuleParam,
+		param.RegisterConditionId,
+		param.RegisterConditionParam,
+		param.VoteConditionId,
+		param.VoteConditionParam,
+		sendBlock.AccountAddress,
+		block.AccountBlock.Amount,
+		block.VmContext.CurrentSnapshotBlock().Timestamp.Unix()+createConsensusGroupPledgeTime)
 	block.VmContext.SetStorage(key, groupInfo)
+	return nil
+}
+
+type pCancelConsensusGroup struct{}
+
+func (p *pCancelConsensusGroup) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+// cancel consensus group and get pledge back
+func (p *pCancelConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, cancelConsensusGroupGas)
+	if err != nil {
+		return quotaLeft, err
+	}
+	quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft)
+	if err != nil {
+		return quotaLeft, err
+	}
+	if block.AccountBlock.Amount.Sign() != 0 ||
+		!isUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
+		return quotaLeft, ErrInvalidData
+	}
+	gid := new(types.Gid)
+	err = contracts.ABIConsensusGroup.UnpackMethod(gid, contracts.MethodNameCancelConsensusGroup, block.AccountBlock.Data)
+	if err != nil {
+		return quotaLeft, err
+	}
+	groupInfo := contracts.GetConsensusGroup(block.VmContext, *gid)
+	if groupInfo == nil ||
+		!bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), groupInfo.Owner.Bytes()) ||
+		!groupInfo.IsActive() ||
+		groupInfo.WithdrawTime < block.VmContext.CurrentSnapshotBlock().Timestamp.Unix() {
+		return quotaLeft, ErrInvalidData
+	}
+	return quotaLeft, nil
+}
+func (p *pCancelConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
+	gid := new(types.Gid)
+	contracts.ABIConsensusGroup.UnpackMethod(gid, contracts.MethodNameCancelConsensusGroup, block.AccountBlock.Data)
+	key := contracts.GetConsensusGroupKey(*gid)
+	groupInfo := contracts.GetConsensusGroup(block.VmContext, *gid)
+	if groupInfo == nil ||
+		!groupInfo.IsActive() ||
+		groupInfo.WithdrawTime < block.VmContext.CurrentSnapshotBlock().Timestamp.Unix() {
+		return ErrInvalidData
+	}
+	newGroupInfo, _ := contracts.ABIConsensusGroup.PackVariable(
+		contracts.VariableNameConsensusGroupInfo,
+		groupInfo.NodeCount,
+		groupInfo.Interval,
+		groupInfo.CountingRuleId,
+		groupInfo.CountingRuleParam,
+		groupInfo.RegisterConditionId,
+		groupInfo.RegisterConditionParam,
+		groupInfo.VoteConditionId,
+		groupInfo.VoteConditionParam,
+		groupInfo.Owner,
+		helper.Big0,
+		int64(0))
+	block.VmContext.SetStorage(key, newGroupInfo)
+	if groupInfo.PledgeAmount.Sign() > 0 {
+		vm.blockList = append(vm.blockList,
+			&vm_context.VmAccountBlock{
+				makeSendBlock(
+					block.AccountBlock,
+					sendBlock.AccountAddress,
+					ledger.BlockTypeSendCall,
+					groupInfo.PledgeAmount,
+					ledger.ViteTokenId,
+					vm.getNewBlockHeight(block),
+					[]byte{},
+				),
+				nil,
+			})
+	}
+	return nil
+}
+
+type pReCreateConsensusGroup struct{}
+
+func (p *pReCreateConsensusGroup) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+// pledge for a canceled consensus group
+func (p *pReCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := useQuota(quotaLeft, reCreateConsensusGroupGas)
+	if err != nil {
+		return quotaLeft, err
+	}
+	if quotaLeft, err = useQuotaForData(block.AccountBlock.Data, quotaLeft); err != nil {
+		return quotaLeft, err
+	}
+	if block.AccountBlock.Amount.Cmp(createConsensusGroupPledgeAmount) != 0 ||
+		!IsViteToken(block.AccountBlock.TokenId) ||
+		!isUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
+		return quotaLeft, ErrInvalidData
+	}
+	gid := new(types.Gid)
+	if err = contracts.ABIConsensusGroup.UnpackMethod(gid, contracts.MethodNameReCreateConsensusGroup, block.AccountBlock.Data); err != nil {
+		return quotaLeft, err
+	}
+	if groupInfo := contracts.GetConsensusGroup(block.VmContext, *gid); groupInfo == nil ||
+		!bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), groupInfo.Owner.Bytes()) ||
+		groupInfo.IsActive() {
+		return quotaLeft, ErrInvalidData
+	}
+	return quotaLeft, nil
+}
+func (p *pReCreateConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
+	gid := new(types.Gid)
+	contracts.ABIConsensusGroup.UnpackMethod(gid, contracts.MethodNameReCreateConsensusGroup, block.AccountBlock.Data)
+	key := contracts.GetConsensusGroupKey(*gid)
+	groupInfo := contracts.GetConsensusGroup(block.VmContext, *gid)
+	if groupInfo == nil ||
+		groupInfo.IsActive() {
+		return ErrInvalidData
+	}
+	newGroupInfo, _ := contracts.ABIConsensusGroup.PackVariable(
+		contracts.VariableNameConsensusGroupInfo,
+		groupInfo.NodeCount,
+		groupInfo.Interval,
+		groupInfo.CountingRuleId,
+		groupInfo.CountingRuleParam,
+		groupInfo.RegisterConditionId,
+		groupInfo.RegisterConditionParam,
+		groupInfo.VoteConditionId,
+		groupInfo.VoteConditionParam,
+		groupInfo.Owner,
+		block.AccountBlock.Amount,
+		block.VmContext.CurrentSnapshotBlock().Timestamp.Unix()+createConsensusGroupPledgeTime)
+	block.VmContext.SetStorage(key, newGroupInfo)
 	return nil
 }
 
@@ -715,7 +874,7 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 			!isUserAccount(block.VmContext, blockParam.NodeAddr) {
 			return false
 		}
-		if ok, _ := regexp.MatchString("^[0-9a-zA-Z]{1,40}$", blockParam.Name); !ok {
+		if ok, _ := regexp.MatchString("^[0-9a-zA-Z_.]{1,40}$", blockParam.Name); !ok {
 			return false
 		}
 		param := new(contracts.VariableConditionRegisterOfPledge)
@@ -838,7 +997,7 @@ func (p *pMintage) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft ui
 	return quotaLeft, nil
 }
 func checkToken(param contracts.ParamMintage) error {
-	if param.Decimals < tokenDecimalsMin || param.Decimals > tokenDecimalsMax ||
+	if param.TotalSupply.Cmp(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(param.Decimals)), nil)) < 0 ||
 		len(param.TokenName) == 0 || len(param.TokenName) > tokenNameLengthMax ||
 		len(param.TokenSymbol) == 0 || len(param.TokenSymbol) > tokenSymbolLengthMax {
 		return ErrInvalidData

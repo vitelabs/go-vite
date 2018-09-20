@@ -745,7 +745,7 @@ func TestContractsPledge(t *testing.T) {
 }
 
 func TestConsensusGroup(t *testing.T) {
-	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
+	viteTotalSupply := viteTotalSupply
 	db, addr1, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
 
 	addr2 := contracts.AddressConsensusGroup
@@ -767,7 +767,7 @@ func TestConsensusGroup(t *testing.T) {
 		BlockType:      ledger.BlockTypeSendCall,
 		Fee:            big.NewInt(0),
 		PrevHash:       hash12,
-		Amount:         big.NewInt(0),
+		Amount:         createConsensusGroupPledgeAmount,
 		TokenId:        ledger.ViteTokenId,
 		Data:           block13Data,
 		SnapshotHash:   snapshot2.Hash,
@@ -776,12 +776,13 @@ func TestConsensusGroup(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr1
 	sendCreateConsensusGroupBlockList, isRetry, err := vm.Run(db, block13, nil)
+	balance1 := new(big.Int).Sub(viteTotalSupply, createConsensusGroupPledgeAmount)
 	quota13, _ := dataGasCost(block13.Data)
 	if len(sendCreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
 		sendCreateConsensusGroupBlockList[0].AccountBlock.Quota != quota13+createConsensusGroupGas ||
 		!helper.AllZero(block13.Data[4:26]) || helper.AllZero(block13.Data[26:36]) ||
-		block13.Fee.Cmp(createConsensusGroupFee) != 0 ||
-		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18))) != 0 {
+		block13.Fee.Cmp(helper.Big0) != 0 ||
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
 		t.Fatalf("send create consensus group transaction error")
 	}
 	db.accountBlockMap[addr1][hash13] = sendCreateConsensusGroupBlockList[0].AccountBlock
@@ -808,9 +809,12 @@ func TestConsensusGroup(t *testing.T) {
 		uint8(0),
 		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
 		uint8(0),
-		[]byte{})
+		[]byte{},
+		addr1,
+		createConsensusGroupPledgeAmount,
+		snapshot2.Timestamp.Unix()+createConsensusGroupPledgeTime)
 	if len(receiveCreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
-		db.balanceMap[addr2][ledger.ViteTokenId].Sign() != 0 ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(createConsensusGroupPledgeAmount) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][locHash], groupInfo) ||
 		receiveCreateConsensusGroupBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive create consensus group transaction error")
@@ -824,7 +828,7 @@ func TestConsensusGroup(t *testing.T) {
 	if groupInfo := contracts.GetConsensusGroup(db, gid); groupInfo == nil || groupInfo.NodeCount != 25 {
 		t.Fatalf("get group info failed")
 	}
-	if groupInfoList := contracts.GetConsensusGroupList(db); len(groupInfoList) != 2 || groupInfoList[0].NodeCount != 25 {
+	if groupInfoList := contracts.GetActiveConsensusGroupList(db); len(groupInfoList) != 2 || groupInfoList[0].NodeCount != 25 {
 		t.Fatalf("get group info list failed")
 	}
 }
@@ -939,7 +943,7 @@ func TestCheckTokenInfo(t *testing.T) {
 		{"46d0ce8b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000033b2e3c9fd0803ce80000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000956697465546f6b651F0000000000000000000000000000000000000000000000", nil, false},
 		{"46d0ce8b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000033b2e3c9fd0803ce80000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000956697465546f6b651F0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000956697465546f6b651F0000000000000000000000000000000000000000000000", nil, false},
 		{"46d0ce8b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000033b2e3c9fd0803ce80000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a56697465546f6b656e0000000000000000000000000000000000000000000000", nil, false},
-		{"46d0ce8b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000033b2e3c9fd0803ce80000000000000000000000000000000000000000000000000000000000000000000013000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000", nil, false},
+		{"46d0ce8b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000033b2e3c9fd0803ce8000000000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000956697465546f6b656e0000000000000000000000000000000000000000000000", nil, false},
 	}
 	for i, test := range tests {
 		inputdata, _ := hex.DecodeString(test.data)
@@ -1000,7 +1004,7 @@ func TestGenesisBlockData(t *testing.T) {
 	fmt.Println("-------------vite owner genesis block-------------")
 	fmt.Println("address: viteAddress")
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: viteAddress,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
-		ledger.BlockTypeReceive, 1, totalSupply, big.NewInt(0), hex.EncodeToString(mintageData))
+		ledger.BlockTypeReceive, 1, totalSupply, big.NewInt(0), []byte{})
 	fmt.Printf("Storage:{\n\t$balance:ledger.ViteTokenId:%v\n}\n", totalSupply)
 
 	snapshotGid := types.Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -1014,7 +1018,10 @@ func TestGenesisBlockData(t *testing.T) {
 		uint8(1),
 		conditionRegisterData,
 		uint8(1),
-		[]byte{})
+		[]byte{},
+		viteAddress,
+		big.NewInt(0),
+		time.Now().Unix()+createConsensusGroupPledgeTime)
 	fmt.Println("-------------snapshot consensus group and common consensus group genesis block-------------")
 	fmt.Printf("address:%v\n", hex.EncodeToString(contracts.AddressConsensusGroup.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",

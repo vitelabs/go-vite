@@ -25,6 +25,8 @@ const (
 	VariableNamePledgeBeneficial = "pledgeBeneficial"
 
 	MethodNameCreateConsensusGroup         = "CreateConsensusGroup"
+	MethodNameCancelConsensusGroup         = "CancelConsensusGroup"
+	MethodNameReCreateConsensusGroup       = "ReCreateConsensusGroup"
 	VariableNameConsensusGroupInfo         = "consensusGroupInfo"
 	VariableNameConditionCountingOfBalance = "countingOfBalance"
 	VariableNameConditionRegisterOfPledge  = "registerOfPledge"
@@ -59,7 +61,9 @@ const jsonPledge = `
 const jsonConsensusGroup = `
 [
 	{"type":"function","name":"CreateConsensusGroup", "inputs":[{"name":"gid","type":"gid"},{"name":"nodeCount","type":"uint8"},{"name":"interval","type":"int64"},{"name":"countingRuleId","type":"uint8"},{"name":"countingRuleParam","type":"bytes"},{"name":"registerConditionId","type":"uint8"},{"name":"registerConditionParam","type":"bytes"},{"name":"voteConditionId","type":"uint8"},{"name":"voteConditionParam","type":"bytes"}]},
-	{"type":"variable","name":"consensusGroupInfo","inputs":[{"name":"nodeCount","type":"uint8"},{"name":"interval","type":"int64"},{"name":"countingRuleId","type":"uint8"},{"name":"countingRuleParam","type":"bytes"},{"name":"registerConditionId","type":"uint8"},{"name":"registerConditionParam","type":"bytes"},{"name":"voteConditionId","type":"uint8"},{"name":"voteConditionParam","type":"bytes"}]},
+	{"type":"function","name":"CancelConsensusGroup", "inputs":[{"name":"gid","type":"gid"}]},
+	{"type":"function","name":"ReCreateConsensusGroup", "inputs":[{"name":"gid","type":"gid"}]},
+	{"type":"variable","name":"consensusGroupInfo","inputs":[{"name":"nodeCount","type":"uint8"},{"name":"interval","type":"int64"},{"name":"countingRuleId","type":"uint8"},{"name":"countingRuleParam","type":"bytes"},{"name":"registerConditionId","type":"uint8"},{"name":"registerConditionParam","type":"bytes"},{"name":"voteConditionId","type":"uint8"},{"name":"voteConditionParam","type":"bytes"},{"name":"owner","type":"address"},{"name":"pledgeAmount","type":"uint256"},{"name":"withdrawTime","type":"int64"}]},
 	{"type":"variable","name":"countingOfBalance","inputs":[{"name":"tokenId","type":"tokenId"}]},
 	{"type":"variable","name":"registerOfPledge","inputs":[{"name":"pledgeAmount","type":"uint256"},{"name":"pledgeToken","type":"tokenId"},{"name":"pledgeTime","type":"int64"}]},
 	{"type":"variable","name":"voteOfKeepToken","inputs":[{"name":"keepAmount","type":"uint256"},{"name":"keepToken","type":"tokenId"}]}

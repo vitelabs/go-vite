@@ -42,10 +42,10 @@ func (c *Chain) GetPledgeAmount(snapshotHash types.Hash, beneficial types.Addres
 func (c *Chain) GetConsensusGroupList(snapshotHash types.Hash) []*contracts.ConsensusGroupInfo {
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressRegister)
 	if err != nil {
-		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetConsensusGroupList")
+		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetActiveConsensusGroupList")
 		return nil
 	}
-	return contracts.GetConsensusGroupList(vmContext)
+	return contracts.GetActiveConsensusGroupList(vmContext)
 }
 
 func (c *Chain) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) map[types.Address]*big.Int {
