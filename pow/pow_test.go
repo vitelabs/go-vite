@@ -13,7 +13,7 @@ import (
 )
 
 func TestGetPowNonce(t *testing.T) {
-	N := 10000
+	N := 5
 	data := crypto.Hash256([]byte{1})
 	timeList := make([]int64, N)
 	for i := 0; i < N; i++ {

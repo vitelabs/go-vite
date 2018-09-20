@@ -17,9 +17,10 @@ func GetPowNonce(target *big.Int, data []byte) *big.Int {
 	}
 
 	nonce := crypto.GetEntropyCSPRNG(32)
-	targetBytes := target.Bytes()
+	targetBytes := Fix32SizeBytes(target.Bytes())
 	for {
-		if QuickLess(crypto.Hash256(nonce, data), targetBytes) {
+		v := crypto.Hash256(nonce, data)
+		if QuickLess(v, targetBytes) {
 			break
 		}
 		nonce = QuickInc(nonce)
@@ -45,4 +46,13 @@ func QuickInc(x []byte) []byte {
 }
 func QuickLess(x, y []byte) bool {
 	return bytes.Compare(x, y) < 0
+}
+
+func Fix32SizeBytes(b []byte) []byte {
+	r := make([]byte, 32)
+	delta := 32 - len(b)
+	if delta > 0 {
+		copy(r[delta:], b)
+	}
+	return r
 }
