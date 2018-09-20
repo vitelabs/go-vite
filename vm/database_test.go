@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type NoDatabase struct {
+type testDatabase struct {
 	balanceMap        map[types.Address]map[types.TokenTypeId]*big.Int
 	storageMap        map[types.Address]map[types.Hash][]byte
 	codeMap           map[types.Address][]byte
@@ -23,8 +23,8 @@ type NoDatabase struct {
 	addr              types.Address
 }
 
-func NewNoDatabase() *NoDatabase {
-	return &NoDatabase{
+func NewNoDatabase() *testDatabase {
+	return &testDatabase{
 		balanceMap:        make(map[types.Address]map[types.TokenTypeId]*big.Int),
 		storageMap:        make(map[types.Address]map[types.Hash][]byte),
 		codeMap:           make(map[types.Address][]byte),
@@ -35,20 +35,20 @@ func NewNoDatabase() *NoDatabase {
 	}
 }
 
-func (db *NoDatabase) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
+func (db *testDatabase) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
 	if balance, ok := db.balanceMap[db.addr][*tokenTypeId]; ok {
 		return new(big.Int).Set(balance)
 	} else {
 		return big.NewInt(0)
 	}
 }
-func (db *NoDatabase) SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+func (db *testDatabase) SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
 	balance, ok := db.balanceMap[db.addr][*tokenTypeId]
 	if ok && balance.Cmp(amount) >= 0 {
 		db.balanceMap[db.addr][*tokenTypeId] = new(big.Int).Sub(balance, amount)
 	}
 }
-func (db *NoDatabase) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+func (db *testDatabase) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
 	if balance, ok := db.balanceMap[db.addr][*tokenTypeId]; ok {
 		db.balanceMap[db.addr][*tokenTypeId] = new(big.Int).Add(balance, amount)
 	} else {
@@ -59,7 +59,7 @@ func (db *NoDatabase) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int
 	}
 
 }
-func (db *NoDatabase) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock {
+func (db *testDatabase) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock {
 	for len := len(db.snapshotBlockList) - 1; len >= 0; len = len - 1 {
 		block := db.snapshotBlockList[len]
 		if bytes.Equal(block.Hash.Bytes(), hash.Bytes()) {
@@ -69,13 +69,13 @@ func (db *NoDatabase) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock {
 	return nil
 
 }
-func (db *NoDatabase) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
+func (db *testDatabase) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
 	if height < uint64(len(db.snapshotBlockList)) {
 		return db.snapshotBlockList[height-1]
 	}
 	return nil
 }
-func (db *NoDatabase) GetSnapshotBlocks(startHeight uint64, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
+func (db *testDatabase) GetSnapshotBlocks(startHeight uint64, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
 	if forward {
 		start := startHeight
 		end := start + count
@@ -87,32 +87,32 @@ func (db *NoDatabase) GetSnapshotBlocks(startHeight uint64, count uint64, forwar
 	}
 }
 
-func (db *NoDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
+func (db *testDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
 	if block, ok := db.accountBlockMap[db.addr][*hash]; ok {
 		return block
 	} else {
 		return nil
 	}
 }
-func (db *NoDatabase) Reset() {}
-func (db *NoDatabase) IsAddressExisted(addr *types.Address) bool {
+func (db *testDatabase) Reset() {}
+func (db *testDatabase) IsAddressExisted(addr *types.Address) bool {
 	_, ok := db.accountBlockMap[*addr]
 	return ok
 }
-func (db *NoDatabase) SetContractGid(gid *types.Gid, addr *types.Address) {
+func (db *testDatabase) SetContractGid(gid *types.Gid, addr *types.Address) {
 	db.contractGidMap[db.addr] = gid
 }
-func (db *NoDatabase) SetContractCode(code []byte) {
+func (db *testDatabase) SetContractCode(code []byte) {
 	db.codeMap[db.addr] = code
 }
-func (db *NoDatabase) GetContractCode(addr *types.Address) []byte {
+func (db *testDatabase) GetContractCode(addr *types.Address) []byte {
 	if code, ok := db.codeMap[*addr]; ok {
 		return code
 	} else {
 		return nil
 	}
 }
-func (db *NoDatabase) GetStorage(addr *types.Address, key []byte) []byte {
+func (db *testDatabase) GetStorage(addr *types.Address, key []byte) []byte {
 	locHash, _ := types.BytesToHash(key)
 	if data, ok := db.storageMap[*addr][locHash]; ok {
 		return data
@@ -120,14 +120,14 @@ func (db *NoDatabase) GetStorage(addr *types.Address, key []byte) []byte {
 		return []byte{}
 	}
 }
-func (db *NoDatabase) SetStorage(key []byte, value []byte) {
+func (db *testDatabase) SetStorage(key []byte, value []byte) {
 	locHash, _ := types.BytesToHash(key)
 	if _, ok := db.storageMap[db.addr]; !ok {
 		db.storageMap[db.addr] = make(map[types.Hash][]byte)
 	}
 	db.storageMap[db.addr][locHash] = value
 }
-func (db *NoDatabase) PrintStorage(addr types.Address) string {
+func (db *testDatabase) PrintStorage(addr types.Address) string {
 	if storage, ok := db.storageMap[addr]; ok {
 		var str string
 		for key, value := range storage {
@@ -138,46 +138,73 @@ func (db *NoDatabase) PrintStorage(addr types.Address) string {
 		return ""
 	}
 }
-func (db *NoDatabase) GetStorageHash() *types.Hash {
+func (db *testDatabase) GetStorageHash() *types.Hash {
 	return &types.Hash{}
 }
-func (db *NoDatabase) AddLog(log *ledger.VmLog) {
+func (db *testDatabase) AddLog(log *ledger.VmLog) {
 	db.logList = append(db.logList, log)
 }
-func (db *NoDatabase) GetLogListHash() *types.Hash {
+func (db *testDatabase) GetLogListHash() *types.Hash {
 	return &types.Hash{}
 }
 
-func (db *NoDatabase) NewStorageIterator(prefix []byte) vmctxt_interface.StorageIterator {
-	// TODO
-	return nil
+type testIteratorItem struct {
+	key, value []byte
+}
+type testIterator struct {
+	index int
+	items []testIteratorItem
 }
 
-func (db *NoDatabase) CopyAndFreeze() vmctxt_interface.VmDatabase {
+func (i *testIterator) Next() (key, value []byte, ok bool) {
+	if i.index < len(i.items) {
+		item := i.items[i.index]
+		i.index = i.index + 1
+		return item.key, item.value, true
+	}
+	return []byte{}, []byte{}, false
+}
+
+func (db *testDatabase) NewStorageIterator(prefix []byte) vmctxt_interface.StorageIterator {
+	storageMap := db.storageMap[db.addr]
+	items := make([]testIteratorItem, 0)
+	for key, value := range storageMap {
+		if len(prefix) > 0 {
+			if bytes.Equal(key.Bytes()[:len(prefix)], prefix) {
+				items = append(items, testIteratorItem{key.Bytes(), value})
+			}
+		} else {
+			items = append(items, testIteratorItem{key.Bytes(), value})
+		}
+	}
+	return &testIterator{0, items}
+}
+
+func (db *testDatabase) CopyAndFreeze() vmctxt_interface.VmDatabase {
 	return db
 }
 
-func (db *NoDatabase) GetGid() *types.Gid {
+func (db *testDatabase) GetGid() *types.Gid {
 	return nil
 }
-func (db *NoDatabase) Address() *types.Address {
+func (db *testDatabase) Address() *types.Address {
 	return nil
 }
-func (db *NoDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
+func (db *testDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
+	return db.snapshotBlockList[len(db.snapshotBlockList)-1]
+}
+func (db *testDatabase) PrevAccountBlock() *ledger.AccountBlock {
 	return nil
 }
-func (db *NoDatabase) PrevAccountBlock() *ledger.AccountBlock {
-	return nil
-}
-func (db *NoDatabase) UnsavedCache() vmctxt_interface.UnsavedCache {
+func (db *testDatabase) UnsavedCache() vmctxt_interface.UnsavedCache {
 	return nil
 }
 
-func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {
+func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {
 	addr1, _ = types.BytesToAddress(helper.HexToBytes("CA35B7D915458EF540ADE6068DFE2F44E8FA733C"))
 	db = NewNoDatabase()
 	db.storageMap[contracts.AddressMintage] = make(map[types.Hash][]byte)
-	viteTokenIdLoc, _ := types.BytesToHash(helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), 32))
+	viteTokenIdLoc, _ := types.BytesToHash(helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), 32))
 	db.storageMap[contracts.AddressMintage][viteTokenIdLoc], _ = contracts.ABI_mintage.PackVariable(contracts.VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), int64(0))
 
 	timestamp = 1536214502
@@ -195,7 +222,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 		AccountAddress: addr1,
 		BlockType:      ledger.BlockTypeSendCall,
 		Amount:         viteTotalSupply,
-		TokenId:        *ledger.ViteTokenId(),
+		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot1.Hash,
 	}
 	db.accountBlockMap[addr1] = make(map[types.Hash]*ledger.AccountBlock)
@@ -209,13 +236,13 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash11,
 		Amount:         viteTotalSupply,
-		TokenId:        *ledger.ViteTokenId(),
+		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot1.Hash,
 	}
 	db.accountBlockMap[addr1][hash12] = block12
 
 	db.balanceMap[addr1] = make(map[types.TokenTypeId]*big.Int)
-	db.balanceMap[addr1][*ledger.ViteTokenId()] = new(big.Int).Set(viteTotalSupply)
+	db.balanceMap[addr1][ledger.ViteTokenId] = new(big.Int).Set(viteTotalSupply)
 
 	db.storageMap[contracts.AddressConsensusGroup] = make(map[types.Hash][]byte)
 	consensusGroupKey, _ := types.BytesToHash(contracts.GetConsensusGroupKey(*ledger.CommonGid()))
@@ -223,9 +250,9 @@ func prepareDb(viteTotalSupply *big.Int) (db *NoDatabase, addr1 types.Address, h
 		uint8(25),
 		int64(3),
 		uint8(0),
-		helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize),
+		helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize),
 		uint8(0),
-		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), attovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId().Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600*24*90).Bytes(), helper.WordSize)),
+		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), attovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600*24*90).Bytes(), helper.WordSize)),
 		uint8(0),
 		[]byte{})
 	db.storageMap[contracts.AddressPledge] = make(map[types.Hash][]byte)

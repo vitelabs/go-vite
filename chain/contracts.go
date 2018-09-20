@@ -7,6 +7,7 @@ import (
 	"math/big"
 )
 
+// TODO
 func (c *Chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 	return nil, nil
 }
@@ -23,10 +24,10 @@ func (c *Chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) []*contr
 func (c *Chain) GetVoteMap(snapshotHash types.Hash, gid types.Gid) []*contracts.VoteInfo {
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressRegister)
 	if err != nil {
-		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetVoteMap")
+		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetVoteList")
 		return nil
 	}
-	return contracts.GetVoteMap(vmContext, gid)
+	return contracts.GetVoteList(vmContext, gid)
 }
 
 func (c *Chain) GetPledgeAmount(snapshotHash types.Hash, beneficial types.Address) *big.Int {

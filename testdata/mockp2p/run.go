@@ -122,7 +122,7 @@ func createReceiveBlock(addr *types.Address, fromHash *types.Hash) *ledger.Accou
 }
 
 func mockSnapshot(v *vite.Vite) {
-	fmt.Println("Current AccountAddress: ", AccountMockDataList[0].Addr.Hex())
+	fmt.Println("Current Address: ", AccountMockDataList[0].Addr.Hex())
 	fmt.Println("Current PublicKey: ", AccountMockDataList[0].PublicKey.Hex())
 	fmt.Println("Current PrivateKey: ", AccountMockDataList[0].PrivateKey.Hex())
 
@@ -154,7 +154,7 @@ func mockSnapshot(v *vite.Vite) {
 func mockAccount(v *vite.Vite, index int) {
 	//publicKey, privateKey, _ := ed25519.GenerateKey(rand.Reader)
 	// addr, _ := types.PubkeyToAddress(publicKey)
-	fmt.Println("Current AccountAddress: ", AccountMockDataList[index].Addr.Hex())
+	fmt.Println("Current Address: ", AccountMockDataList[index].Addr.Hex())
 	fmt.Println("Current PublicKey: ", AccountMockDataList[index].PublicKey.Hex())
 	fmt.Println("Current PrivateKey: ", AccountMockDataList[index].PrivateKey.Hex())
 

@@ -32,3 +32,18 @@ func HomeDir() string {
 	return ""
 }
 
+func DefaultHttpEndpoint() string {
+	return ":48132"
+}
+
+func DefaultWSEndpoint() string {
+	return ":31420"
+}
+
+func DefaultIpcFile() string {
+	endpoint := "vite.ipc"
+	if runtime.GOOS == "windows" {
+		endpoint = `\\.\pipe\vite.ipc`
+	}
+	return endpoint
+}

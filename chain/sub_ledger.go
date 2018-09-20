@@ -5,12 +5,12 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (c *Chain) GetSubLedgerIndex() {
-
+func (c *Chain) GetSubLedgerByHeight(startHeight uint64, count int, forward bool) ([]string, [][2]uint64, error) {
+	return nil, nil, nil
 }
 
-func (c *Chain) GetSubLedger() {
-
+func (c *Chain) GetSubLedgerByHash(startBlockHash uint64, count int, forward bool) ([]string, [][2]uint64, error) {
+	return nil, nil, nil
 }
 
 func (c *Chain) GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {

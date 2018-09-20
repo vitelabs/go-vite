@@ -117,7 +117,7 @@ func (manager *Manager) producerStartEventFunc(accevent producer.AccountEvent) {
 	}
 
 	if !manager.vite.WalletManager().KeystoreManager.IsUnLocked(event.Address) {
-		manager.log.Error(" receive a right event but address locked", "event", event)
+		manager.log.Error("receive a right event but address locked", "event", event)
 		return
 	}
 

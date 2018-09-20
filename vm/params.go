@@ -45,6 +45,7 @@ const (
 	tokenSymbolLengthMax int   = 10 // Maximum length of a token symbol(include)
 	mintagePledgeTime    int64 = 3600 * 24 * 3
 
+	// precompiled contract gas
 	registerGas             uint64 = 62200
 	updateRegistrationGas   uint64 = 62200
 	cancelRegisterGas       uint64 = 83200
@@ -58,8 +59,7 @@ const (
 	mintageGas              uint64 = 62200
 	mintageCancelPledgeGas  uint64 = 62200
 
-	dbPageSize uint64 = 10000
-	pledgeTime int64  = 3600 * 24 * 3 // minimum pledge time in  second
+	pledgeTime int64 = 3600 * 24 * 3 // minimum pledge time in  second
 
 	cgNodeCountMin uint8 = 10
 	cgNodeCountMax uint8 = 50
@@ -69,42 +69,19 @@ const (
 	quotaForPoW uint64 = 21000
 
 	rewardHeightLimit     uint64 = 50
-	rewardGapLimit        uint64 = 30000000
+	rewardGapLimit        uint64 = 31536000
+	dbPageSize            uint64 = 10000
 	getBlockByHeightLimit uint64 = 256
 
-	//GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
-	//MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.
-	//GenesisGasLimit      uint64 = 4712388 // Gas limit of the Genesis block.
-	//
-	//MaximumExtraDataSize  uint64 = 32    // Maximum size extra data may be after Genesis.
 	//CallValueTransferGas  uint64 = 9000  // Paid for CALL when the amount transfer is non-zero.
 	//CallNewAccountGas     uint64 = 25000 // Paid for CALL when the destination address didn't exist prior.
 	//CallStipend           uint64 = 2300  // Free gas given at beginning of call.
-	//EpochDuration    uint64 = 30000 // Duration between proof-of-work epochs.
-	//TierStepGas      uint64 = 0     // Once per operation, for a selection of them.
-	//SuicideRefundGas uint64 = 24000 // Refunded following a suicide operation.
-	//
-	//MaxCodeSize = 24576 // Maximum bytecode to permit for a contract
-	//
-	//// Precompiled contract gas prices
-	//
-	//EcrecoverGas            uint64 = 3000   // Elliptic curve sender recovery gas price
-	//Sha256BaseGas           uint64 = 60     // Base price for a SHA256 operation
-	//Sha256PerWordGas        uint64 = 12     // Per-word price for a SHA256 operation
-	//Ripemd160BaseGas        uint64 = 600    // Base price for a RIPEMD160 operation
-	//Ripemd160PerWordGas     uint64 = 120    // Per-word price for a RIPEMD160 operation
-	//IdentityBaseGas         uint64 = 15     // Base price for a data copy operation
-	//IdentityPerWordGas      uint64 = 3      // Per-work price for a data copy operation
-	//ModExpQuadCoeffDiv      uint64 = 20     // Divisor for the quadratic particle of the big int modular exponentiation
-	//Bn256AddGas             uint64 = 500    // Gas needed for an elliptic curve addition
-	//Bn256ScalarMulGas       uint64 = 40000  // Gas needed for an elliptic curve scalar multiplication
-	//Bn256PairingBaseGas     uint64 = 100000 // Base price for an elliptic curve pairing check
-	//Bn256PairingPerPointGas uint64 = 80000  // Per-point price for an elliptic curve pairing check
+
+	MaxCodeSize = 24576 // Maximum bytecode to permit for a contract
 )
 
 var (
-	contractFeeMax = big.NewInt(1e18)
-	contractFee    = big.NewInt(1e18)
+	contractFee = big.NewInt(1e18)
 
 	quotaByCreateFeeAttov   = big.NewInt(1e9)
 	quotaByPledge           = big.NewInt(1e9)

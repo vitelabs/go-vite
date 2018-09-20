@@ -2,10 +2,11 @@ package types
 
 import (
 	"bytes"
-	"testing"
+	"encoding/json"
 	"fmt"
+	"testing"
+	"github.com/stretchr/testify/assert"
 )
-
 
 func TestCreateContractAddress(t *testing.T) {
 	addr := CreateContractAddress([]byte{1, 2, 3}, []byte{1, 2, 3})
@@ -14,7 +15,6 @@ func TestCreateContractAddress(t *testing.T) {
 		t.Fatal("Not valid")
 	}
 }
-
 
 func TestCreateRandomAddress(t *testing.T) {
 	addr, priv, _ := CreateAddress()
@@ -76,4 +76,15 @@ func TestAddressValid(t *testing.T) {
 func BenchmarkCreateAddress(b *testing.B) {
 	addr, _, _ := CreateAddress()
 	println(addr.Hex())
+}
+
+func TestAddress_UnmarshalJSON(t *testing.T) {
+	addr0, _, _ := CreateAddress()
+	marshal, _ := json.Marshal(addr0)
+	var addr Address
+	e := json.Unmarshal([]byte(marshal), &addr)
+	if e != nil {
+		t.Fatal(e)
+	}
+	assert.Equal(t, addr0.String(), addr.String())
 }

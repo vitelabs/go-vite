@@ -20,16 +20,17 @@ const (
 type UnconfirmedBlocksPool struct {
 	dbAccess *UAccess
 
-	fullCache          map[types.Address]*unconfirmedBlocksCache
-	fullCacheDeadTimer map[types.Address]*time.Timer
-	fullCacheMutex     sync.RWMutex
+	fullCache          *sync.Map // map[types.Address]*unconfirmedBlocksCache
+	fullCacheDeadTimer *sync.Map // map[types.Address]*time.Timer
 
-	simpleCache          map[types.Address]*CommonAccountInfo
-	simpleCacheDeadTimer map[types.Address]*time.Timer
-	simpleCacheMutex     sync.RWMutex
+	simpleCache          *sync.Map // map[types.Address]*CommonAccountInfo
+	simpleCacheDeadTimer *sync.Map //map[types.Address]*time.Timer
 
-	newCommonTxListener map[types.Address]func()
-	newContractListener map[types.Gid]func()
+	newCommonTxListener   map[types.Address]func()
+	commonTxListenerMutex sync.RWMutex
+
+	newContractListener   map[types.Gid]func()
+	contractListenerMutex sync.RWMutex
 
 	log log15.Logger
 }
@@ -37,10 +38,10 @@ type UnconfirmedBlocksPool struct {
 func NewUnconfirmedBlocksPool(dbAccess *UAccess) *UnconfirmedBlocksPool {
 	return &UnconfirmedBlocksPool{
 		dbAccess:             dbAccess,
-		fullCache:            make(map[types.Address]*unconfirmedBlocksCache),
-		fullCacheDeadTimer:   make(map[types.Address]*time.Timer),
-		simpleCache:          make(map[types.Address]*CommonAccountInfo),
-		simpleCacheDeadTimer: make(map[types.Address]*time.Timer),
+		fullCache:            &sync.Map{},
+		fullCacheDeadTimer:   &sync.Map{},
+		simpleCache:          &sync.Map{},
+		simpleCacheDeadTimer: &sync.Map{},
 		newCommonTxListener:  make(map[types.Address]func()),
 		newContractListener:  make(map[types.Gid]func()),
 		log:                  log15.New("unconfirmed", "UnconfirmedBlocksPool"),
@@ -53,62 +54,56 @@ func (p *UnconfirmedBlocksPool) GetAddrListByGid(gid types.Gid) (addrList []*typ
 
 func (p *UnconfirmedBlocksPool) Close() error {
 	p.log.Info("Close()")
-	p.simpleCacheMutex.Lock()
-	for _, v := range p.simpleCacheDeadTimer {
-		if v != nil {
-			v.Stop()
-		}
-	}
-	p.simpleCache = nil
-	p.simpleCacheMutex.Unlock()
 
-	p.fullCacheMutex.Lock()
-	for _, v := range p.fullCacheDeadTimer {
-		if v != nil {
-			v.Stop()
+	p.simpleCacheDeadTimer.Range(func(_, value interface{}) bool {
+		if value != nil {
+			value.(*time.Timer).Stop()
 		}
-	}
+		return true
+	})
+	p.simpleCache = nil
+
+	p.fullCacheDeadTimer.Range(func(_, value interface{}) bool {
+		if value != nil {
+			value.(*time.Timer).Stop()
+		}
+		return true
+	})
 	p.fullCache = nil
-	p.fullCacheMutex.Unlock()
+
 	p.log.Info("Close() end")
 	return nil
 }
 
 func (p *UnconfirmedBlocksPool) addSimpleCache(addr types.Address, accountInfo *CommonAccountInfo) {
 	p.log.Info("addSimpleCache", "addr", addr, "TotalNumber", accountInfo.TotalNumber)
-	p.simpleCacheMutex.Lock()
-	p.simpleCache[addr] = accountInfo
-	p.simpleCacheMutex.Unlock()
+	p.simpleCache.Store(addr, accountInfo)
 
-	timer, ok := p.simpleCacheDeadTimer[addr]
+	timer, ok := p.simpleCacheDeadTimer.Load(addr)
 	if ok && timer != nil {
 		p.log.Info("addSimpleCache Reset timer")
-		timer.Reset(simpleCacheExpireTime)
+		timer.(*time.Timer).Reset(simpleCacheExpireTime)
 	} else {
-		p.simpleCacheDeadTimer[addr] = time.AfterFunc(simpleCacheExpireTime, func() {
+		p.simpleCacheDeadTimer.Store(addr, time.AfterFunc(simpleCacheExpireTime, func() {
 			p.log.Info("simple cache end life delete it", "addr", addr)
-			p.simpleCacheMutex.Lock()
-			delete(p.simpleCache, addr)
-			p.simpleCacheMutex.Unlock()
-		})
+			p.simpleCache.Delete(addr)
+		}))
 	}
 }
 
 func (p *UnconfirmedBlocksPool) GetCommonAccountInfo(addr types.Address) (*CommonAccountInfo, error) {
 	p.log.Info("first load in simple cache", "addr", addr)
-	p.simpleCacheMutex.RLock()
-	if c, ok := p.simpleCache[addr]; ok {
-		p.simpleCacheDeadTimer[addr].Reset(simpleCacheExpireTime)
-		p.simpleCacheMutex.RUnlock()
-		return c, nil
+	if c, ok := p.simpleCache.Load(addr); ok {
+		v, ok := p.simpleCacheDeadTimer.Load(addr)
+		if ok {
+			v.(*time.Timer).Reset(simpleCacheExpireTime)
+		}
+		return c.(*CommonAccountInfo), nil
 	}
-	p.simpleCacheMutex.RUnlock()
 
 	p.log.Info("second load from full cache", "addr", addr)
-	p.fullCacheMutex.RLock()
-	defer p.fullCacheMutex.RUnlock()
-	if fullcache, ok := p.fullCache[addr]; ok {
-		accountInfo := fullcache.toCommonAccountInfo(p.dbAccess.Chain.GetTokenInfoById)
+	if fullcache, ok := p.fullCache.Load(addr); ok {
+		accountInfo := fullcache.(*unconfirmedBlocksCache).toCommonAccountInfo(p.dbAccess.Chain.GetTokenInfoById)
 		if accountInfo != nil {
 			p.addSimpleCache(addr, accountInfo)
 			return accountInfo, nil
@@ -130,49 +125,37 @@ func (p *UnconfirmedBlocksPool) GetCommonAccountInfo(addr types.Address) (*Commo
 
 func (p *UnconfirmedBlocksPool) GetNextTx(addr types.Address) *ledger.AccountBlock {
 	p.log.Info("GetNextTx", "addr", addr)
-	p.fullCacheMutex.RLock()
-	defer p.fullCacheMutex.RUnlock()
-	c, ok := p.fullCache[addr]
+	c, ok := p.fullCache.Load(addr)
 	if !ok {
-		p.fullCacheMutex.RUnlock()
 		return nil
 	}
-	return c.GetNextTx()
+	return c.(*unconfirmedBlocksCache).GetNextTx()
 }
 
 func (p *UnconfirmedBlocksPool) ResetCacheCursor(addr types.Address) {
 	p.log.Info("ResetCacheCursor", "addr", addr)
-	p.fullCacheMutex.RLock()
-	defer p.fullCacheMutex.RUnlock()
-	c, ok := p.fullCache[addr]
+	c, ok := p.fullCache.Load(addr)
 	if !ok {
-		p.fullCacheMutex.RUnlock()
 		return
 	}
-	c.ResetCursor()
+	c.(*unconfirmedBlocksCache).ResetCursor()
 }
 
 func (p *UnconfirmedBlocksPool) AcquireAccountInfoCache(addr types.Address) error {
 	log := p.log.New("AcquireAccountInfoCache", addr)
-	p.fullCacheMutex.RLock()
-
-	if t, ok := p.fullCacheDeadTimer[addr]; ok {
+	if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
 		if t != nil {
 			log.Info("stop timer")
-			t.Stop()
+			t.(*time.Timer).Stop()
 		}
 	}
 
-	if c, ok := p.fullCache[addr]; ok {
-		c.addReferenceCount()
-		log.Info("found in cache", "ref", c.referenceCount)
-		p.fullCacheMutex.RUnlock()
+	if c, ok := p.fullCache.Load(addr); ok {
+		c.(*unconfirmedBlocksCache).addReferenceCount()
+		log.Info("found in cache", "ref", c.(*unconfirmedBlocksCache).referenceCount)
 		return nil
 	}
-	p.fullCacheMutex.RUnlock()
 
-	p.fullCacheMutex.Lock()
-	defer p.fullCacheMutex.Unlock()
 	blocks, e := p.dbAccess.GetAllUnconfirmedBlocks(addr)
 	if e != nil {
 		log.Error("get from db", "err", e)
@@ -185,45 +168,40 @@ func (p *UnconfirmedBlocksPool) AcquireAccountInfoCache(addr types.Address) erro
 		list.PushBack(value)
 	}
 
-	p.fullCache[addr] = &unconfirmedBlocksCache{
+	p.fullCache.Store(addr, &unconfirmedBlocksCache{
 		blocks:         *list,
 		currentEle:     list.Front(),
 		referenceCount: 1,
-	}
+	})
 
 	return nil
 }
 
 func (p *UnconfirmedBlocksPool) ReleaseAccountInfoCache(addr types.Address) error {
 	log := p.log.New("ReleaseAccountInfoCache", addr)
-	p.fullCacheMutex.RLock()
-	c, ok := p.fullCache[addr]
+	v, ok := p.fullCache.Load(addr)
 	if !ok {
 		log.Info("no cache found")
-		p.fullCacheMutex.RUnlock()
 		return nil
 	}
+	c := v.(*unconfirmedBlocksCache)
 	if c.subReferenceCount() <= 0 {
 		log.Info("cache found ref <= 0 delete cache")
-		p.fullCacheMutex.RUnlock()
 
-		p.fullCache[addr].ResetCursor()
-		p.fullCacheDeadTimer[addr] = time.AfterFunc(fullCacheExpireTime, func() {
+		c.ResetCursor()
+		p.fullCacheDeadTimer.Store(addr, time.AfterFunc(fullCacheExpireTime, func() {
 			log.Info("cache delete")
 			p.DeleteFullCache(addr)
-		})
+		}))
 		return nil
 	}
 	log.Info("after release", "ref", c.referenceCount)
-	p.fullCacheMutex.RUnlock()
 
 	return nil
 }
 
 func (p *UnconfirmedBlocksPool) DeleteFullCache(address types.Address) {
-	p.fullCacheMutex.Lock()
-	defer p.fullCacheMutex.Unlock()
-	delete(p.fullCache, address)
+	p.fullCache.Delete(address)
 }
 
 func (p *UnconfirmedBlocksPool) WriteUnconfirmed(writeType bool, batch *leveldb.Batch, block *ledger.AccountBlock) error {
@@ -256,10 +234,8 @@ func (p *UnconfirmedBlocksPool) RevertUnconfirmed(writeType bool, batch *leveldb
 }
 
 func (p *UnconfirmedBlocksPool) updateFullCache(writeType bool, block *ledger.AccountBlock) error {
-	p.fullCacheMutex.Lock()
-	defer p.fullCacheMutex.Unlock()
-
-	fullCache, ok := p.fullCache[block.ToAddress]
+	v, ok := p.fullCache.Load(block.ToAddress)
+	fullCache := v.(*unconfirmedBlocksCache)
 	if !ok || fullCache.blocks.Len() == 0 {
 		p.log.Info("updateCache：no fullCache")
 		return nil
@@ -275,14 +251,13 @@ func (p *UnconfirmedBlocksPool) updateFullCache(writeType bool, block *ledger.Ac
 }
 
 func (p *UnconfirmedBlocksPool) updateSimpleCache(writeType bool, block *ledger.AccountBlock) error {
-	p.simpleCacheMutex.Lock()
-	defer p.simpleCacheMutex.Unlock()
 
-	simpleAccountInfo, ok := p.simpleCache[block.ToAddress]
+	value, ok := p.simpleCache.Load(block.ToAddress)
 	if !ok {
 		p.log.Info("updateSimpleCache：no cache")
 		return nil
 	}
+	simpleAccountInfo := value.(*CommonAccountInfo)
 
 	tokenBalanceInfo, ok := simpleAccountInfo.TokenBalanceInfoMap[block.TokenId]
 	if writeType {
@@ -341,10 +316,14 @@ func (p *UnconfirmedBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
 		return
 	}
 	if gid != nil {
+		p.contractListenerMutex.RLock()
+		defer p.contractListenerMutex.RUnlock()
 		if f, ok := p.newContractListener[*gid]; ok {
 			f()
 		}
 	} else {
+		p.commonTxListenerMutex.RLock()
+		defer p.commonTxListenerMutex.RUnlock()
 		if f, ok := p.newCommonTxListener[block.ToAddress]; ok {
 			f()
 		}
@@ -356,17 +335,25 @@ func (p *UnconfirmedBlocksPool) GetUnconfirmedBlocks(index, num, count uint64, a
 }
 
 func (p *UnconfirmedBlocksPool) AddCommonTxLis(addr types.Address, f func()) {
+	p.commonTxListenerMutex.Lock()
+	defer p.commonTxListenerMutex.Unlock()
 	p.newCommonTxListener[addr] = f
 }
 
 func (p *UnconfirmedBlocksPool) RemoveCommonTxLis(addr types.Address) {
+	p.commonTxListenerMutex.Lock()
+	defer p.commonTxListenerMutex.Unlock()
 	delete(p.newCommonTxListener, addr)
 }
 
 func (p *UnconfirmedBlocksPool) AddContractLis(gid types.Gid, f func()) {
+	p.contractListenerMutex.Lock()
+	defer p.contractListenerMutex.Unlock()
 	p.newContractListener[gid] = f
 }
 
 func (p *UnconfirmedBlocksPool) RemoveContractLis(gid types.Gid) {
+	p.contractListenerMutex.Lock()
+	defer p.contractListenerMutex.Unlock()
 	delete(p.newContractListener, gid)
 }

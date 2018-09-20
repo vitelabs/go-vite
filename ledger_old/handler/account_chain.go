@@ -177,6 +177,17 @@ func (ac *AccountChain) startDownloaderTimer() {
 	}()
 }
 
+func (ac *AccountChain) GetLatestBlock(addr *types.Address) (*ledger.AccountBlock, *types.GetError) {
+	block, err := ac.acAccess.GetLatestBlockByAccountAddress(addr)
+	if err != nil {
+		return nil, &types.GetError{
+			Code: 1,
+			Err:  err,
+		}
+	}
+	return block, nil
+}
+
 func (ac *AccountChain) Download(peer *protoTypes.Peer, needSyncData []*access.WscNeedSyncErrData) {
 	for _, item := range needSyncData {
 		ac.downloadLock.Lock()
@@ -252,6 +263,37 @@ func (ac *AccountChain) CreateTx(block *ledger.AccountBlock) error {
 	return ac.CreateTxWithPassphrase(block, "")
 }
 
+func (ac *AccountChain) GetBlocks(addr *types.Address, originBlockHash *types.Hash, count uint64) (ledger.AccountBlockList, *types.GetError) {
+	if originBlockHash == nil {
+		latestblock, err := ac.GetLatestBlock(addr)
+		if err != nil {
+			return nil, &types.GetError{
+				Code: 1,
+				Err:  err,
+			}
+		}
+
+		if latestblock == nil {
+			return nil, nil
+		}
+		originBlockHash = latestblock.Hash
+	}
+	blocks, err := ac.acAccess.GetBlocksFromOrigin(originBlockHash, count, false)
+	if err != nil {
+		return nil, &types.GetError{
+			Code: 2,
+			Err:  err,
+		}
+	}
+
+	// Reverse
+	for i, j := 0, len(blocks)-1; i < j; i, j = i+1, j-1 {
+		blocks[i], blocks[j] = blocks[j], blocks[i]
+	}
+
+	return blocks, nil
+}
+
 func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passphrase string) error {
 	syncInfo := ac.vite.Ledger().Sc().GetFirstSyncInfo()
 	if !syncInfo.IsFirstSyncDone {
@@ -281,48 +323,60 @@ func (ac *AccountChain) CreateTxWithPassphrase(block *ledger.AccountBlock, passp
 	acLog.Info("AccountChain CreateTx: get account meta success.")
 
 	// Set prevHash
-	latestBlock, err := ac.acAccess.GetLatestBlockByAccountAddress(block.AccountAddress)
+	if block.PrevHash == nil {
+		latestBlock, err := ac.acAccess.GetLatestBlockByAccountAddress(block.AccountAddress)
+		acLog.Info("AccountChain CreateTx: get latestBlock success.")
 
-	if err != nil {
-		return err
-	}
-
-	if latestBlock != nil {
-		block.PrevHash = latestBlock.Hash
-	}
-	acLog.Info("AccountChain CreateTx: get latestBlock success.")
-
-	// Set Snapshot Timestamp
-	currentSnapshotBlock, err := ac.scAccess.GetLatestBlock()
-	if err != nil {
-		return err
-	}
-
-	acLog.Info("AccountChain CreateTx: get currentSnapshotBlock success.")
-	// Hack
-	if currentSnapshotBlock.Height.Cmp(big.NewInt(20)) <= 0 {
-		block.SnapshotTimestamp = currentSnapshotBlock.Hash
-	} else {
-		snapshotBlockHeight := &big.Int{}
-		if currentSnapshotBlock.Height.Cmp(big.NewInt(40)) <= 0 {
-			snapshotBlockHeight = big.NewInt(20)
-		} else {
-			snapshotBlockHeight.Sub(currentSnapshotBlock.Height, big.NewInt(20))
-		}
-		snapshotBlock, err := ac.scAccess.GetBlockByHeight(snapshotBlockHeight)
 		if err != nil {
 			return err
 		}
-		block.SnapshotTimestamp = snapshotBlock.Hash
+
+		if latestBlock != nil {
+			block.PrevHash = latestBlock.Hash
+		}
+	}
+
+	// Set Snapshot Timestamp
+	if block.SnapshotTimestamp == nil {
+		currentSnapshotBlock, err := ac.scAccess.GetLatestBlock()
+		if err != nil {
+			return err
+		}
+
+		acLog.Info("AccountChain CreateTx: get currentSnapshotBlock success.")
+		// Hack
+		if currentSnapshotBlock.Height.Cmp(big.NewInt(20)) <= 0 {
+			block.SnapshotTimestamp = currentSnapshotBlock.Hash
+		} else {
+			snapshotBlockHeight := &big.Int{}
+			if currentSnapshotBlock.Height.Cmp(big.NewInt(40)) <= 0 {
+				snapshotBlockHeight = big.NewInt(20)
+			} else {
+				snapshotBlockHeight.Sub(currentSnapshotBlock.Height, big.NewInt(20))
+			}
+			snapshotBlock, err := ac.scAccess.GetBlockByHeight(snapshotBlockHeight)
+			if err != nil {
+				return err
+			}
+			block.SnapshotTimestamp = snapshotBlock.Hash
+		}
 	}
 
 	// Set Timestamp
-	block.Timestamp = uint64(time.Now().Unix())
+	if block.Timestamp == 0 {
+		block.Timestamp = uint64(time.Now().Unix())
+	}
 
 	// Set Pow params: Nounce、Difficulty
-	block.Nounce = []byte{0, 0, 0, 0, 0}
-	block.Difficulty = []byte{0, 0, 0, 0, 0}
-	block.FAmount = big.NewInt(0)
+	if block.Nounce == nil {
+		block.Nounce = []byte{0, 0, 0, 0, 0}
+	}
+	if block.Difficulty == nil {
+		block.Difficulty = []byte{0, 0, 0, 0, 0}
+	}
+	if block.FAmount == nil {
+		block.FAmount = big.NewInt(0)
+	}
 
 	// Set PublicKey
 	if accountMeta != nil {

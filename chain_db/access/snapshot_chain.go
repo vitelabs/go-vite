@@ -61,6 +61,7 @@ func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
 	defer iter.Release()
 
 	if !iter.Last() {
+		// TODO leveldb.ErrNotFound
 		return nil, errors.New("GetLatestBlock failed. Because the SnapshotChain has no block")
 	}
 
@@ -76,6 +77,7 @@ func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
 	return sb, nil
 }
 
+// TODO genesis, 从代码里面取
 func (sc *SnapshotChain) GetGenesesBlock() (*ledger.SnapshotBlock, error) {
 	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK)
 
@@ -83,6 +85,7 @@ func (sc *SnapshotChain) GetGenesesBlock() (*ledger.SnapshotBlock, error) {
 	defer iter.Release()
 
 	if !iter.Next() {
+		// TODO leveldb.ErrNotFound
 		return nil, errors.New("GetGenesesBlock failed. Because the SnapshotChain has no block")
 	}
 
@@ -222,10 +225,12 @@ func (sc *SnapshotChain) GetSbHashList(height uint64, count, step int, forward b
 	return hashList
 }
 
-func (sc *SnapshotChain) DeleteByHeight(batch *leveldb.Batch, toHeight uint64) ([]*ledger.SnapshotBlock, error) {
+// Delete list contains the to height
+func (sc *SnapshotChain) DeleteToHeight(batch *leveldb.Batch, toHeight uint64) ([]*ledger.SnapshotBlock, error) {
 
 	deleteList := make([]*ledger.SnapshotBlock, 0)
 
+	// TODO: Max height
 	endBlockKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK)
 	startBlockKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, toHeight)
 	iter := sc.db.NewIterator(&util.Range{Start: startBlockKey, Limit: endBlockKey}, nil)
@@ -245,12 +250,15 @@ func (sc *SnapshotChain) DeleteByHeight(batch *leveldb.Batch, toHeight uint64) (
 		}
 
 		hash := getSnapshotBlockHash(iter.Key())
+		// Delete snapshot block
 		batch.Delete(iter.Key())
 
 		snapshotContentKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTCONTENT, currentHeight)
+		// Delete snapshot content
 		batch.Delete(snapshotContentKey)
 
 		snapshotBlockHashIndex, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCKHASH, hash.Bytes())
+		// Delete snapshot hash index
 		batch.Delete(snapshotBlockHashIndex)
 
 		deleteList = append(deleteList, snapshotBlock)

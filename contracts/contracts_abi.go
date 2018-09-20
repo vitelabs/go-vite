@@ -141,7 +141,7 @@ func GetRegisterKey(name string, gid types.Gid) []byte {
 }
 func GetVoteKey(addr types.Address, gid types.Gid) []byte {
 	var data = make([]byte, types.HashSize)
-	copy(data[2:12], gid[:])
+	copy(data[0:10], gid[:])
 	copy(data[12:], addr[:])
 	return data
 }
