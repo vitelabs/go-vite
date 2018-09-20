@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/vitepb"
 	"time"
 )
 
@@ -85,7 +86,38 @@ func (sb *SnapshotBlock) VerifySignature() bool {
 	return isVerified
 }
 
+func (sb *SnapshotBlock) Proto() *vitepb.SnapshotBlock {
+	pb := &vitepb.SnapshotBlock{}
+	pb.Hash = sb.Hash.Bytes()
+	pb.PrevHash = sb.PrevHash.Bytes()
+	pb.Height = sb.Height
+	pb.PublicKey = sb.PublicKey
+	pb.Signature = sb.Signature
+	pb.Timestamp = uint64(sb.Timestamp.UnixNano())
+	if sb.SnapshotHash != nil {
+		pb.SnapshotHash = sb.SnapshotHash.Bytes()
+	}
+
+	return pb
+}
+
+func (sb *SnapshotBlock) DeProto(pb *vitepb.SnapshotBlock) {
+	sb.Hash, _ = types.BytesToHash(pb.Hash)
+	sb.PrevHash, _ = types.BytesToHash(pb.PrevHash)
+	sb.Height = pb.Height
+	sb.PublicKey = pb.PublicKey
+	sb.Signature = pb.Signature
+	// TODO Timestamp
+	//sb.Timestamp = pb.Timestamp
+
+	if len(pb.SnapshotHash) >= 0 {
+		snapshotHash, _ := types.BytesToHash(pb.SnapshotHash)
+		sb.SnapshotHash = &snapshotHash
+	}
+}
+
 func (*SnapshotBlock) DbSerialize() ([]byte, error) {
+
 	return nil, nil
 }
 
