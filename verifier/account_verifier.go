@@ -133,7 +133,7 @@ func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlo
 
 	var errMsg error
 	if verifier.verifyIsContractAddress(&block.AccountAddress) {
-		if verifier.verifyIsReceiveBlock(block) {
+		if block.IsReceiveBlock() {
 			if conErr := verifier.consensusReader.VerifyAccountProducer(block); conErr != nil {
 				errMsg = errors.New("the block producer is illegal")
 				verifier.log.Error(errMsg.Error(), "error", conErr)
@@ -161,7 +161,7 @@ func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlo
 func (verifier *AccountVerifier) verifyFrom(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) {
 	defer monitor.LogTime("verify", "accountFrom", time.Now())
 
-	if verifier.verifyIsReceiveBlock(block) {
+	if block.IsReceiveBlock() {
 		fromBlock, err := verifier.chain.Chain().GetAccountBlockByHash(&block.FromBlockHash)
 		if err != nil || fromBlock == nil {
 			verifier.log.Info("GetAccountBlockByHash", "error", err)
@@ -213,7 +213,6 @@ func (verifier *AccountVerifier) verifySelfDataValidity(block *ledger.AccountBlo
 	defer monitor.LogTime("verify", "accountSelfDataValidity", time.Now())
 
 	isContractAddr := verifier.verifyIsContractAddress(&block.AccountAddress)
-	isReceivedBlock := verifier.verifyIsReceiveBlock(block)
 
 	if block.Amount == nil {
 		block.Amount = big.NewInt(0)
@@ -233,7 +232,7 @@ func (verifier *AccountVerifier) verifySelfDataValidity(block *ledger.AccountBlo
 	}
 
 	if block.PublicKey == nil || block.Signature == nil {
-		if !isContractAddr || !isReceivedBlock {
+		if !isContractAddr || block.IsReceiveBlock() {
 			return FAIL, errors.New("block.PublicKey or block.Signature can't be nil")
 		}
 	}
@@ -315,13 +314,6 @@ func (verifier *AccountVerifier) verifyIsContractAddress(addr *types.Address) bo
 		verifier.log.Error("GetContractGid failed", "Error", err)
 	}
 	if gid != nil {
-		return true
-	}
-	return false
-}
-
-func (verifier *AccountVerifier) verifyIsReceiveBlock(block *ledger.AccountBlock) bool {
-	if (block.BlockType != ledger.BlockTypeSendCall) && (block.BlockType != ledger.BlockTypeSendCreate) {
 		return true
 	}
 	return false

@@ -56,7 +56,7 @@ func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) (*
 	return &ContractWorker{
 		manager:                manager,
 		uBlocksPool:            manager.unconfirmedBlocksPool,
-		verifier:               verifier.NewAccountVerifier(manager.vite.Chain(), manager.vite),
+		verifier:               verifier.NewAccountVerifier(manager.vite, manager.vite, manager.vite.WalletManager().KeystoreManager),
 		gid:                    accEvent.Gid,
 		address:                accEvent.Address,
 		accEvent:               accEvent,
@@ -222,6 +222,7 @@ func (w *ContractWorker) FetchNewFromDb() bool {
 			}
 			for _, v := range blockList {
 				if !w.isInBlackList(v.AccountAddress, v.ToAddress) {
+					// fixme: quota还是抵押vite
 					fromQuota := w.manager.uAccess.GetAccountQuota(v.AccountAddress, snapshotHash)
 					toQuota := w.manager.uAccess.GetAccountQuota(v.ToAddress, snapshotHash)
 					w.priorityToQueue.InsertNew(v, toQuota, fromQuota)

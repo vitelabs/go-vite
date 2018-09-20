@@ -54,7 +54,6 @@ func MakeDate() []*ledger.AccountBlock {
 }
 
 func Example_priorityQueue() {
-
 	// heap.Init(&pq)
 	// heap.Push(&pq, item)
 	// heap.Pop(&pq, item)

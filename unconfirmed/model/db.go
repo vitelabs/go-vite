@@ -125,7 +125,7 @@ func (ucf *UnconfirmedSet) GetMeta(addr *types.Address, hash *types.Hash) ([]byt
 	return value, nil
 }
 
-func (ucf *UnconfirmedSet) WriteGidAddrList(gid *types.Gid, addrList []*types.Address) error {
+func (ucf *UnconfirmedSet) WriteGidAddrList(batch *leveldb.Batch, gid *types.Gid, addrList []*types.Address) error {
 	key, err := database.EncodeKey(database.DBKP_GID_ADDR, gid.Bytes())
 	if err != nil {
 		return err
@@ -134,7 +134,15 @@ func (ucf *UnconfirmedSet) WriteGidAddrList(gid *types.Gid, addrList []*types.Ad
 	if err != nil {
 		return err
 	}
-	ucf.db.Put(key, data, nil)
+
+	if batch == nil {
+		if err := ucf.db.Put(key, data, nil); err != nil {
+			return err
+		}
+	} else {
+		batch.Put(key, data)
+	}
+
 	return nil
 }
 
