@@ -12,6 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"math/big"
+	"sync"
 	"time"
 )
 
@@ -58,21 +59,41 @@ func (manager *Manager) InitAndStartWork() {
 }
 
 func (manager *Manager) stopAllWorks() {
+	var wg = sync.WaitGroup{}
 	for _, v := range manager.commonTxWorkers {
-		v.Close()
+		wg.Add(1)
+		go func() {
+			v.Stop()
+			wg.Done()
+		}()
 	}
 	for _, v := range manager.contractWorkers {
-		v.Close()
+		wg.Add(1)
+		go func() {
+			v.Stop()
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
 
 func (manager *Manager) startAllWorks() {
+	var wg = sync.WaitGroup{}
 	for _, v := range manager.commonTxWorkers {
-		v.Start()
+		wg.Add(1)
+		go func() {
+			v.Start()
+			wg.Done()
+		}()
 	}
 	for _, v := range manager.contractWorkers {
-		v.Start()
+		wg.Add(1)
+		go func() {
+			v.Start()
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
 
 func (manager *Manager) Close() error {
