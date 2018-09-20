@@ -153,12 +153,6 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 			return true
 		}
 
-		if task.verifier.VerifyReceiveReachLimit(sBlock) {
-			task.log.Info("Delete the UnconfirmedMeta: the recvBlock reach the max-limit count of existence.")
-			task.blocksPool.WriteUnconfirmed(false, nil, sBlock)
-			continue
-		}
-
 		err := task.generator.PrepareVm(&task.accEvent.SnapshotHash, nil, &sBlock.ToAddress)
 		if err != nil {
 			task.log.Error("NewGenerator Error", err)
@@ -179,13 +173,13 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 		}
 
 		if genResult.BlockGenList == nil {
-			if genResult.IsRetry == true {
+			if genResult.IsRetry {
 				return true
 			} else {
 				task.blocksPool.WriteUnconfirmed(false, nil, sBlock)
 			}
 		} else {
-			if genResult.IsRetry == true {
+			if genResult.IsRetry {
 				return true
 			}
 
@@ -199,8 +193,6 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 				return true
 			}
 		}
-
-		// todo maintain gid-contractList
 	}
 	return false
 }

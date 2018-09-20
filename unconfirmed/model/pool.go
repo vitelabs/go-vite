@@ -48,7 +48,7 @@ func NewUnconfirmedBlocksPool(dbAccess *UAccess) *UnconfirmedBlocksPool {
 }
 
 func (p *UnconfirmedBlocksPool) GetAddrListByGid(gid types.Gid) (addrList []*types.Address, err error) {
-	return p.dbAccess.GetAddrListByGid(gid)
+	return p.dbAccess.GetAddrListByGid(&gid)
 }
 
 func (p *UnconfirmedBlocksPool) Close() error {
@@ -228,13 +228,12 @@ func (p *UnconfirmedBlocksPool) DeleteFullCache(address types.Address) {
 
 func (p *UnconfirmedBlocksPool) WriteUnconfirmed(writeType bool, batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	p.log.Info("WriteUnconfirmed ", "writeType", writeType)
+
 	if writeType {
 		if err := p.dbAccess.writeUnconfirmedMeta(batch, block); err != nil {
 			p.log.Error("writeUnconfirmedMeta", "error", err)
 			return err
 		}
-
-		// fixme: @gx whether need to wait the block insert into Chain and try the following
 		p.NewSignalToWorker(block)
 	} else { // delete
 		if err := p.dbAccess.deleteUnconfirmedMeta(batch, block); err != nil {
@@ -242,10 +241,17 @@ func (p *UnconfirmedBlocksPool) WriteUnconfirmed(writeType bool, batch *leveldb.
 			return err
 		}
 	}
-
-	// fixme: @gx whether need to wait the block insert into Chain and try the following
 	p.updateCache(writeType, block)
+	return nil
+}
 
+func (p *UnconfirmedBlocksPool) RevertUnconfirmed(writeType bool, batch *leveldb.Batch, blockList []*ledger.AccountBlock) error {
+	// todo
+	for _, v := range blockList {
+		if err := p.dbAccess.revertUnconfirmedMeta(writeType, batch, v); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

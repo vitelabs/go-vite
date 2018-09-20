@@ -179,6 +179,11 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 		return
 	}
 
+	if genResult.BlockGenList == nil {
+		w.log.Error("GenerateWithUnconfirmed failed, BlockGenList is nil")
+		return
+	}
+
 	poolErr := w.manager.insertCommonBlockToPool(genResult.BlockGenList)
 	if poolErr != nil {
 		w.log.Error("insertCommonBlockToPool failed, ", "error", poolErr)

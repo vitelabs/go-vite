@@ -67,6 +67,7 @@ func (gen *Generator) PrepareVm(snapshotBlockHash, preBlockHash *types.Hash, add
 	return nil
 }
 
+//  todo maintain the sendCreate Block's gidToAddrList
 func (gen *Generator) GenerateWithMessage(message *IncomingMessage, sigFunc SignerFunc) (*GenResult, error) {
 	block, err := gen.PackBlockWithMessage(message)
 	if err != nil {
@@ -88,6 +89,7 @@ func (gen *Generator) GenerateWithUnconfirmed(sendBlock ledger.AccountBlock, con
 	return gen.generateBlock(SourceTypeUnconfirmed, block, &sendBlock, sigFunc), nil
 }
 
+//  todo maintain the sendCreate Block's gidToAddrList
 func (gen *Generator) GenerateWithP2PBlock(block *ledger.AccountBlock, sigFunc SignerFunc) *GenResult {
 	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
 		sendBlock := gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash)
