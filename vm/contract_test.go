@@ -48,7 +48,7 @@ func TestRun(t *testing.T) {
 		{[]byte{byte(CALLVALUE), byte(DUP1), byte(ISZERO), byte(NOT), byte(PUSH2), 0, 12, byte(JUMPI), byte(PUSH1), 0, byte(DUP1), byte(REVERT), byte(JUMPDEST), byte(PUSH1), 32, byte(PUSH1), 0, byte(DUP2), byte(DUP2), byte(MSTORE), byte(RETURN)}, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32}, nil, 999957, 0, "jumpi"},
 	}
 	for _, test := range tests {
-		vm := &VM{}
+		vm := NewVM()
 		vm.Debug = true
 		receiveCallBlock := &ledger.AccountBlock{AccountAddress: types.Address{}, ToAddress: types.Address{}, BlockType: ledger.BlockTypeReceive}
 		receiveCallBlock.Amount = big.NewInt(10)

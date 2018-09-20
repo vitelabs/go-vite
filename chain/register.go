@@ -1,20 +1,24 @@
 package chain
 
 import (
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_context"
 	"sync"
 )
 
-type insertProcessorFunc func(blocks []*vm_context.VmAccountBlock)
-type deleteProcessorFunc func(blocks []*ledger.AccountBlock)
+type insertProcessorFunc func(batch *leveldb.Batch, blocks []*vm_context.VmAccountBlock) error
+type insertProcessorFuncSuccess func(blocks []*vm_context.VmAccountBlock)
+type deleteProcessorFunc func(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error
+type deleteProcessorFuncSuccess func(subLedger map[types.Address][]*ledger.AccountBlock)
 
 const (
-	InsertAccountBlocks        = uint8(1)
-	InsertAccountBlocksSuccess = uint8(2)
+	InsertAccountBlocksEvent        = uint8(1)
+	InsertAccountBlocksSuccessEvent = uint8(2)
 
-	DeleteAccountBlocks        = uint8(3)
-	DeleteAccountBlocksSuccess = uint8(4)
+	DeleteAccountBlocksEvent        = uint8(3)
+	DeleteAccountBlocksSuccessEvent = uint8(4)
 )
 
 type listener struct {
@@ -36,20 +40,21 @@ func newEventManager() *eventManager {
 	}
 }
 
-func (em *eventManager) trigger(actionId uint8, data interface{}) {
+func (em *eventManager) trigger(actionId uint8, data ...interface{}) error {
 	listenerList := em.eventListener[actionId]
 	for _, listener := range listenerList {
 		switch actionId {
-		case InsertAccountBlocks:
-			fallthrough
-		case InsertAccountBlocksSuccess:
-			listener.processor.(insertProcessorFunc)(data.([]*vm_context.VmAccountBlock))
-		case DeleteAccountBlocks:
-			fallthrough
-		case DeleteAccountBlocksSuccess:
-			listener.processor.(deleteProcessorFunc)(data.([]*ledger.AccountBlock))
+		case InsertAccountBlocksEvent:
+			return listener.processor.(insertProcessorFunc)(data[0].(*leveldb.Batch), data[1].([]*vm_context.VmAccountBlock))
+		case InsertAccountBlocksSuccessEvent:
+			listener.processor.(insertProcessorFuncSuccess)(data[0].([]*vm_context.VmAccountBlock))
+		case DeleteAccountBlocksEvent:
+			return listener.processor.(deleteProcessorFunc)(data[0].(*leveldb.Batch), data[1].(map[types.Address][]*ledger.AccountBlock))
+		case DeleteAccountBlocksSuccessEvent:
+			listener.processor.(deleteProcessorFuncSuccess)(data[0].(map[types.Address][]*ledger.AccountBlock))
 		}
 	}
+	return nil
 }
 
 func (em *eventManager) register(actionId uint8, processor interface{}) uint64 {
@@ -83,17 +88,17 @@ func (c *Chain) UnRegister(listenerId uint64) {
 }
 
 func (c *Chain) RegisterInsertAccountBlocks(processor insertProcessorFunc) uint64 {
-	return c.em.register(InsertAccountBlocks, processor)
+	return c.em.register(InsertAccountBlocksEvent, processor)
 }
 
-func (c *Chain) RegisterInsertAccountBlocksSuccess(processor insertProcessorFunc) uint64 {
-	return c.em.register(InsertAccountBlocksSuccess, processor)
+func (c *Chain) RegisterInsertAccountBlocksSuccess(processor insertProcessorFuncSuccess) uint64 {
+	return c.em.register(InsertAccountBlocksSuccessEvent, processor)
 }
 
 func (c *Chain) RegisterDeleteAccountBlocks(processor deleteProcessorFunc) uint64 {
-	return c.em.register(DeleteAccountBlocks, processor)
+	return c.em.register(DeleteAccountBlocksEvent, processor)
 }
 
-func (c *Chain) RegisterDeleteAccountBlocksSuccess(processor deleteProcessorFunc) uint64 {
-	return c.em.register(DeleteAccountBlocksSuccess, processor)
+func (c *Chain) RegisterDeleteAccountBlocksSuccess(processor deleteProcessorFuncSuccess) uint64 {
+	return c.em.register(DeleteAccountBlocksSuccessEvent, processor)
 }

@@ -17,7 +17,6 @@ type BlockMapQueryParam struct {
 }
 
 // TODO 获取vite的抵押额度
-// TODO write onRoad
 func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
 	batch := new(leveldb.Batch)
 	trieSaveCallback := make([]func(), 0)
@@ -118,6 +117,10 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		}
 	}
 
+	if triggerErr := c.em.trigger(InsertAccountBlocksEvent, batch, vmAccountBlocks); triggerErr != nil {
+		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "InsertAccountBlocks")
+		return triggerErr
+	}
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertAccountBlocks")
@@ -137,6 +140,7 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		callback()
 	}
 
+	c.em.trigger(InsertAccountBlocksSuccessEvent, vmAccountBlocks)
 	return nil
 }
 
@@ -429,13 +433,7 @@ func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 
 // TODO query db
 func (c *Chain) GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error) {
-	latestSnapshotBlock, latestBlockErr := c.chainDb.Sc.GetLatestBlock()
-	if latestBlockErr != nil {
-		c.log.Error("GetLatestSnapshotBlock failed, error is "+latestBlockErr.Error(), "method", "GetFirstConfirmedAccountBlockBySbHeight")
-		return nil, latestBlockErr
-	}
-
-	gap := snapshotBlockHeight - latestSnapshotBlock.Height
+	gap := snapshotBlockHeight - c.GetLatestSnapshotBlock().Height
 	if gap > 1 {
 		// Error
 		err := errors.New("the difference in height between snapshotBlockHeight and latestSnapshotBlock.Height is greater than one")
@@ -508,11 +506,6 @@ func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		return nil, reopenErr
 	}
 
-	writeErr := c.chainDb.Commit(batch)
-	if writeErr != nil {
-		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteAccountBlocks")
-		return nil, writeErr
-	}
 	subLedger, toSubLedgerErr := c.subLedgerAccountIdToAccountAddress(deleteAccountBlocks)
 
 	if toSubLedgerErr != nil {
@@ -520,9 +513,22 @@ func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		return nil, toSubLedgerErr
 	}
 
+	if triggerErr := c.em.trigger(DeleteAccountBlocksEvent, subLedger); triggerErr != nil {
+		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "DeleteAccountBlocks")
+		return nil, triggerErr
+	}
+
+	writeErr := c.chainDb.Commit(batch)
+	if writeErr != nil {
+		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteAccountBlocks")
+		return nil, writeErr
+	}
+
 	for addr, accountBlocks := range subLedger {
 		c.needSnapshotCache.Remove(&addr, accountBlocks[len(accountBlocks)-1].Height)
 	}
+
+	c.em.trigger(DeleteAccountBlocksSuccessEvent, deleteAccountBlocks)
 
 	return subLedger, nil
 }

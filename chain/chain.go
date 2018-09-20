@@ -24,7 +24,9 @@ type Chain struct {
 	needSnapshotCache *NeedSnapshotCache
 
 	genesisSnapshotBlock *ledger.SnapshotBlock
-	dataDir              string
+	latestSnapshotBlock  *ledger.SnapshotBlock
+
+	dataDir string
 
 	em *eventManager
 }
@@ -41,20 +43,31 @@ func NewChain(cfg *config.Config) *Chain {
 
 func (c *Chain) Init() {
 	c.log.Info("Init chain module")
+	// stateTriePool
 	c.stateTriePool = NewStateTriePool(c)
 
+	// chainDb
 	chainDb := chain_db.NewChainDb(filepath.Join(c.dataDir, "chain"))
-
 	if chainDb == nil {
-		c.log.Crit("NewChain failed")
+		c.log.Crit("NewChain failed, db init failed")
 	}
 	c.chainDb = chainDb
 
+	// compressor
 	compressor := compress.NewCompressor(c, c.dataDir)
 	c.compressor = compressor
 
+	// trieNodePool
 	c.trieNodePool = trie.NewTrieNodePool()
 
+	// latestSnapshotBlock
+	var getLatestBlockErr error
+	c.latestSnapshotBlock, getLatestBlockErr = c.chainDb.Sc.GetLatestBlock()
+	if getLatestBlockErr != nil {
+		c.log.Crit("GetLatestBlock failed, error is "+getLatestBlockErr.Error(), "method", "NewChain")
+	}
+
+	// needSnapshotCache
 	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
 	if getSubLedgerErr != nil {
 		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "NewChain")
@@ -62,6 +75,7 @@ func (c *Chain) Init() {
 
 	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
 
+	// eventManager
 	c.em = newEventManager()
 
 	c.log.Info("Chain module initialized")
