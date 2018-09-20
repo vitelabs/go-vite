@@ -23,11 +23,11 @@ type ContractTask struct {
 	status      int
 	statusMutex sync.Mutex
 
+	isSleeping   bool
+	wakeup       chan struct{}
 	breaker      chan struct{}
 	stopListener chan struct{}
 
-	isSleeping       bool
-	wakeup           chan struct{}
 	getNewBlocksFunc func(index int) *model.FromItem
 
 	log log15.Logger
@@ -107,7 +107,6 @@ func (task *ContractTask) work() {
 		if task.ProcessOneQueue(fItem) {
 			task.worker.addIntoBlackList(fItem.Key, fItem.Value.Front().ToAddress)
 		}
-
 		continue
 
 	WAIT:

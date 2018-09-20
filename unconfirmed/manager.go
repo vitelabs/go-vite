@@ -17,11 +17,13 @@ import (
 
 var (
 	slog           = log15.New("module", "unconfirmed")
-	ErrNotSyncDone = errors.New("net status has not sync done")
+	ErrNotSyncDone = errors.New("network synchronization is not complete")
 )
 
 type Manager struct {
-	vite                  Vite
+	vite            Vite
+	keystoreManager *keystore.Manager
+
 	pool                  PoolReader
 	uAccess               *model.UAccess
 	unconfirmedBlocksPool *model.UnconfirmedBlocksPool
@@ -39,6 +41,7 @@ func NewManager(vite Vite, dataDir string) *Manager {
 	m := &Manager{
 		vite:            vite,
 		pool:            vite,
+		keystoreManager: vite.WalletManager().KeystoreManager,
 		uAccess:         model.NewUAccess(vite.Chain(), dataDir),
 		commonTxWorkers: make(map[types.Address]*AutoReceiveWorker),
 		contractWorkers: make(map[types.Gid]*ContractWorker),
@@ -49,8 +52,8 @@ func NewManager(vite Vite, dataDir string) *Manager {
 }
 
 func (manager *Manager) InitAndStartWork() {
-	manager.netStateLid = manager.vite.Net().SubscribeSyncStatus(manager.netStateChanged)
-	manager.unlockLid = manager.vite.WalletManager().KeystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
+	manager.netStateLid = manager.vite.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
+	manager.unlockLid = manager.keystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
 	manager.vite.Producer().SetAccountEventFunc(manager.producerStartEventFunc)
 }
 
@@ -74,18 +77,17 @@ func (manager *Manager) startAllWorks() {
 
 func (manager *Manager) Close() error {
 	manager.log.Info("close")
-
 	manager.vite.Net().UnsubscribeSyncStatus(manager.netStateLid)
-	manager.vite.WalletManager().KeystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
+	manager.keystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
 	manager.vite.Producer().SetAccountEventFunc(nil)
 
 	manager.stopAllWorks()
-
+	manager.log.Info("close end")
 	return nil
 }
 
-func (manager *Manager) netStateChanged(state net.SyncState) {
-	manager.log.Info("receive a net evnet", "state", state)
+func (manager *Manager) netStateChangedFunc(state net.SyncState) {
+	manager.log.Info("receive a net event", "state", state)
 	if state == net.Syncdone {
 		manager.startAllWorks()
 	} else {
@@ -116,7 +118,7 @@ func (manager *Manager) producerStartEventFunc(accevent producer.AccountEvent) {
 		return
 	}
 
-	if !manager.vite.WalletManager().KeystoreManager.IsUnLocked(event.Address) {
+	if !manager.keystoreManager.IsUnLocked(event.Address) {
 		manager.log.Error("receive a right event but address locked", "event", event)
 		return
 	}
@@ -157,7 +159,7 @@ func (manager *Manager) checkExistInPool(addr types.Address, fromBlockHash types
 	return manager.pool.ExistInPool(addr, fromBlockHash)
 }
 
-func (manager *Manager) SetAutoReceiveFilter(addr types.Address, filter map[types.TokenTypeId]big.Int) {
+func (manager *Manager) ResetAutoReceiveFilter(addr types.Address, filter map[types.TokenTypeId]big.Int) {
 	if w, ok := manager.commonTxWorkers[addr]; ok {
 		w.ResetAutoReceiveFilter(filter)
 	}
@@ -171,7 +173,7 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 		return ErrNotSyncDone
 	}
 
-	keystoreManager := manager.vite.WalletManager().KeystoreManager
+	keystoreManager := manager.keystoreManager
 
 	if _, e := keystoreManager.Find(addr); e != nil {
 		return e
