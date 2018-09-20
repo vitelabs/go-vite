@@ -100,13 +100,10 @@ func (access *UAccess) deleteUnconfirmedMeta(batch *leveldb.Batch, block *ledger
 		access.log.Error("can't find the corresponding sendBlock")
 		return err
 	}
-
-	if err = access.store.DeleteMeta(batch, &block.ToAddress, &block.Hash); err != nil {
-		access.log.Error("DeleteMeta", "error", err)
-	}
 	count := uint8(value[0])
 	if count >= 3 {
 		if err := access.store.DeleteMeta(batch, addr, hash); err != nil {
+			access.log.Error("DeleteMeta", "error", err)
 			return err
 		}
 		return nil

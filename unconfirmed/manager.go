@@ -62,9 +62,9 @@ func (manager *Manager) InitAndStartWork() {
 
 	// fixme
 	//manager.writeSuccLid = manager.vite.Chain().RegisterInsertAccountBlocksSuccess()
-	//manager.deleteSuccLid = manager.vite.Chain().RegisterDeleteAccountBlocksSuccess(processor processorFunc)
-	//manager.writeOnRoadLid = manager.vite.Chain().RegisterInsertAccountBlocks(manager.unconfirmedBlocksPool.WriteUnconfirmed)
-	//manager.deleteOnRoadLid = manager.vite.Chain().RegisterDeleteAccountBlocks(manager.unconfirmedBlocksPool.DeleteUnconfirmed)
+	//manager.deleteSuccLid = manager.vite.Chain().RegisterDeleteAccountBlocksSuccess(processor processorFunc()
+	manager.writeOnRoadLid = manager.vite.Chain().RegisterInsertAccountBlocks(manager.unconfirmedBlocksPool.WriteUnconfirmed)
+	manager.deleteOnRoadLid = manager.vite.Chain().RegisterDeleteAccountBlocks(manager.unconfirmedBlocksPool.DeleteUnconfirmed)
 }
 
 func (manager *Manager) stopAllWorks() {
@@ -92,8 +92,8 @@ func (manager *Manager) Close() error {
 	manager.vite.Producer().SetAccountEventFunc(nil)
 
 	// fixme
-	//manager.vite.Chain().UnRegister(manager.writeOnRoadLid)
-	//manager.vite.Chain().UnRegister(manager.deleteOnRoadLid)
+	manager.vite.Chain().UnRegister(manager.writeOnRoadLid)
+	manager.vite.Chain().UnRegister(manager.deleteOnRoadLid)
 	//manager.vite.Chain().UnRegister(manager.writeSuccLid)
 	//manager.vite.Chain().UnRegister(manager.deleteSuccLid)
 
