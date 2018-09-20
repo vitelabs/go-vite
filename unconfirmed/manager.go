@@ -147,11 +147,9 @@ func (manager *Manager) insertCommonBlockToPool(blockList []*vm_context.VmAccoun
 
 func (manager *Manager) insertContractBlocksToPool(blockList []*vm_context.VmAccountBlock) error {
 	if len(blockList) > 1 {
-		return manager.pool.AddDirectAccountBlocks(blockList[0].AccountBlock.AccountAddress,
-			blockList[0], blockList[1:])
+		return manager.pool.AddDirectAccountBlocks(blockList[0].AccountBlock.AccountAddress, blockList[0], blockList[1:])
 	} else {
-		return manager.pool.AddDirectAccountBlocks(blockList[0].AccountBlock.AccountAddress,
-			blockList[0], nil)
+		return manager.pool.AddDirectAccountBlocks(blockList[0].AccountBlock.AccountAddress, blockList[0], nil)
 	}
 }
 

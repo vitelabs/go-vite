@@ -163,10 +163,9 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 			Timestamp:    task.accEvent.Timestamp,
 			Producer:     task.accEvent.Address,
 		}
-		genResult, err := task.generator.GenerateWithUnconfirmed(*sBlock, consensusMessage,
-			func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-				return task.generator.Sign(addr, nil, data)
-			})
+		genResult, err := task.generator.GenerateWithUnconfirmed(*sBlock, consensusMessage, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+			return task.generator.Sign(addr, nil, data)
+		})
 		if err != nil {
 			task.log.Error("GenerateTx error ignore, ", "error", err)
 		}
@@ -174,9 +173,8 @@ func (task *ContractTask) ProcessOneQueue(fItem *model.FromItem) (intoBlackList 
 		if genResult.BlockGenList == nil {
 			if genResult.IsRetry {
 				return true
-			} else {
-				task.blocksPool.WriteUnconfirmed(false, nil, sBlock)
 			}
+			task.blocksPool.WriteUnconfirmed(false, nil, sBlock)
 		} else {
 			if genResult.IsRetry {
 				return true

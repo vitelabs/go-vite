@@ -15,10 +15,8 @@ import (
 )
 
 const (
-	TimeOutHeight       = uint64(24 * 30 / 3600)
-	MaxRecvTypeCount    = 1
-	MaxRecvErrTypeCount = 3
-	MaxBigIntLen        = 256
+	TimeOutHeight = uint64(24 * 30 * 3600)
+	MaxBigIntLen  = 256
 )
 
 type AccountVerifier struct {
@@ -34,9 +32,8 @@ func NewAccountVerifier(chain Chain, consensus Consensus, signer Signer) *Accoun
 		chain:           chain,
 		signer:          signer,
 		consensusReader: consensus,
-		log:             nil,
+		log:             log15.New("class", "AccountVerifier"),
 	}
-	verifier.log = log15.New("")
 	return verifier
 }
 
@@ -67,7 +64,7 @@ func (self *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (this *vm_c
 	genResult := gen.GenerateWithP2PBlock(block, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		return gen.Sign(addr, nil, data)
 	})
-	if genResult == nil {
+	if genResult == nil || len(genResult.BlockGenList) == 0 {
 		return nil, nil, errors.New("GenerateWithP2PBlock failed")
 	}
 
@@ -91,30 +88,38 @@ func (self *AccountVerifier) VerifyforRPC() ([]*vm_context.VmAccountBlock, error
 	return nil, nil
 }
 
-func (self *AccountVerifier) verifySelf(block *ledger.AccountBlock, stat *AccountBlockVerifyStat) {
+func (self *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) {
 	defer monitor.LogTime("verify", "accountSelf", time.Now())
 
-	stat1, err1 := self.verifyProducerLegality(block)
-	stat2, err2 := self.verifySelfDataValidity(block)
-	stat3, err3 := self.verifySelfDependence(block)
+	isFail := func(result VerifyResult, err error, stat *AccountBlockVerifyStat) bool {
+		if result == FAIL {
+			stat.referredSelfResult = FAIL
+			if err != nil {
+				stat.errMsg += err.Error()
+			}
+			return true
+		}
+		return false
+	}
 
-	select {
-	case stat1 == FAIL || stat2 == FAIL || stat3 == FAIL:
-		if err1 != nil {
-			stat.errMsg += err1.Error()
-		}
-		if err2 != nil {
-			stat.errMsg += err2.Error()
-		}
-		if err3 != nil {
-			stat.errMsg += err3.Error()
-		}
-		stat.referredSelfResult = FAIL
-	case stat1 == SUCCESS && stat2 == SUCCESS && stat3 == SUCCESS:
-		stat.referredSelfResult = SUCCESS
-	default:
-		stat.referredSelfResult = PENDING
-		stat.accountTask = &AccountPendingTask{
+	step1, err1 := self.verifyProducerLegality(block)
+	if isFail(step1, err1, verifyStatResult) {
+		return
+	}
+	step2, err2 := self.verifySelfDataValidity(block)
+	if isFail(step2, err2, verifyStatResult) {
+		return
+	}
+	step3, err3 := self.verifySelfDependence(block)
+	if isFail(step3, err3, verifyStatResult) {
+		return
+	}
+
+	if step1 == SUCCESS && step2 == SUCCESS && step3 == SUCCESS {
+		verifyStatResult.referredSelfResult = SUCCESS
+	} else {
+		verifyStatResult.referredSelfResult = PENDING
+		verifyStatResult.accountTask = &AccountPendingTask{
 			Addr:   &block.AccountAddress,
 			Hash:   &block.Hash,
 			Height: block.Height,
@@ -134,7 +139,7 @@ func (self *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock) 
 				self.log.Error(errMsg.Error())
 				return FAIL, errMsg
 			} else {
-				if conErr := self.consensusReader.VerifyAccountProducer(block); errMsg != nil {
+				if conErr := self.consensusReader.VerifyAccountProducer(block); conErr != nil {
 					errMsg = errors.New("verifySelfDataValidity: the block producer is illegal")
 					self.log.Error(errMsg.Error(), "error", conErr)
 					return FAIL, errMsg
@@ -142,7 +147,7 @@ func (self *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock) 
 				return SUCCESS, nil
 			}
 		} else {
-			// contractAddr sendBlock
+			// fixme delete contractAddr sendBlock
 			if block.Signature == nil && block.PublicKey == nil {
 				return PENDING, nil
 			} else {
@@ -187,7 +192,7 @@ func (self *AccountVerifier) verifyFrom(block *ledger.AccountBlock, stat *Accoun
 
 func (self *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, stat *AccountBlockVerifyStat) {
 	defer monitor.LogTime("verify", "accountSnapshot", time.Now())
-
+	// fixme
 	snapshotBlock, err := self.chain.Chain().GetSnapshotBlockByHash(&block.SnapshotHash)
 	if err != nil || snapshotBlock == nil {
 		self.log.Info("verifySnapshot.GetSnapshotBlockByHash failed", "error", err)
@@ -234,10 +239,10 @@ func (self *AccountVerifier) verifySelfDataValidity(block *ledger.AccountBlock) 
 		return FAIL, errors.New("block.Fee out of bounds")
 	}
 
-	computedHash := block.GetComputeHash()
+	computedHash := block.ComputeHash()
 	if block.Hash.Bytes() == nil || !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()) {
 		errMsg = errors.New("verifySelfDataValidity: CheckHash failed")
-		self.log.Error(errMsg.Error(), "Hash", block.Hash.String())
+		self.log.Error(errMsg.Error(), "Hash", block.Hash)
 		return FAIL, errMsg
 	}
 
