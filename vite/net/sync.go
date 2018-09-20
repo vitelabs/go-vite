@@ -14,7 +14,7 @@ var waitEnoughPeers = 10 * time.Second
 var enoughPeers = 3
 var waitForChainGrow = 5 * time.Minute
 
-type SyncState int
+type SyncState int32
 
 const (
 	SyncNotStart SyncState = iota

@@ -67,13 +67,16 @@ type cmd uint64
 const (
 	HandshakeCode cmd = iota
 	StatusCode
+	ForkCode // tell peer it has forked
 	GetSubLedgerCode
 	GetSnapshotBlockHeadersCode
 	GetSnapshotBlockBodiesCode
 	GetSnapshotBlocksCode
 	GetSnapshotBlocksByHashCode
-	GetAccountBlocksCode
-	GetAccountBlocksByHashCode
+	GetAccountBlocksCode       // query single AccountChain
+	GetMultiAccountBlocksCode  // query multi AccountChain
+	GetAccountBlocksByHashCode // query accountBlocks by hashList
+	GetFileCode
 	SubLedgerCode
 	FileListCode
 	SnapshotBlockHeadersCode
@@ -88,13 +91,16 @@ const (
 var msgNames = [...]string{
 	HandshakeCode:               "HandShakeMsg",
 	StatusCode:                  "StatusMsg",
+	ForkCode:                    "ForkMsg",
 	GetSubLedgerCode:            "GetSubLedgerMsg",
 	GetSnapshotBlockHeadersCode: "GetSnapshotBlockHeadersMsg",
 	GetSnapshotBlockBodiesCode:  "GetSnapshotBlockBodiesMsg",
 	GetSnapshotBlocksCode:       "GetSnapshotBlocksMsg",
 	GetSnapshotBlocksByHashCode: "GetSnapshotBlocksByHashMsg",
 	GetAccountBlocksCode:        "GetAccountBlocksMsg",
+	GetMultiAccountBlocksCode:   "GetMultiAccountBlocksMsg",
 	GetAccountBlocksByHashCode:  "GetAccountBlocksByHashMsg",
+	GetFileCode:                 "GetFileMsg",
 	SubLedgerCode:               "SubLedgerMsg",
 	FileListCode:                "FileListMsg",
 	SnapshotBlockHeadersCode:    "SnapshotBlockHeadersMsg",
@@ -111,29 +117,46 @@ func (t cmd) String() string {
 	return msgNames[t]
 }
 
-// @section use to query subLedger
-type Segment struct {
-	From *BlockID // From.Height must little than To.height
-	To   *BlockID
-	Step uint64
-}
-
-func (s *Segment) proto() *vitepb.Segment {
-	return &vitepb.Segment{
-		From: s.From.proto(),
-		To:   s.To.proto(),
-		Step: s.Step,
+func (t cmd) canReceive(t2 cmd) bool {
+	switch t {
+	case HandshakeCode:
+		return t2 == HandshakeCode
+	case GetSubLedgerCode:
+		return t2 == FileListCode || t2 == SubLedgerCode || t2 == ForkCode
+	case GetSnapshotBlockHeadersCode:
+		return t2 == SnapshotBlockHeadersCode || t2 == ForkCode
+	case GetSnapshotBlockBodiesCode:
+		return t2 == SnapshotBlockBodiesCode || t2 == ForkCode
+	case GetSnapshotBlocksCode:
+		return t2 == SnapshotBlocksCode || t2 == ForkCode
+	case GetSnapshotBlocksByHashCode:
+		return t2 == SnapshotBlocksCode || t2 == ForkCode
+	case GetAccountBlocksCode:
+		return t2 == AccountBlocksCode || t2 == ForkCode
+	case GetMultiAccountBlocksCode:
+		return t2 == AccountBlocksCode || t2 == ForkCode
+	case GetAccountBlocksByHashCode:
+		return t2 == AccountBlocksCode || t2 == ForkCode
+	default:
+		return false
 	}
 }
 
+// @section use to query subLedger
+type Segment struct {
+	Origin  types.Hash // From.Height must little than To.height
+	Start   uint64
+	Count   uint64
+	Forward bool
+	Step    uint64
+}
+
+func (s *Segment) proto() *vitepb.Segment {
+	return &vitepb.Segment{}
+}
+
 func (b *Segment) deProto(pb *vitepb.Segment) {
-	b.From = new(BlockID)
-	b.From.deProto(pb.From)
 
-	b.To = new(BlockID)
-	b.To.deProto(pb.To)
-
-	b.Step = pb.Step
 }
 
 func (s *Segment) Serialize() ([]byte, error) {
@@ -158,21 +181,94 @@ func (s *Segment) Equal(v interface{}) bool {
 		return false
 	}
 
-	fromeq := s.From.Equal(s2.From.Hash, s2.From.Height)
-	toeq := s.To.Equal(s2.To.Hash, s2.To.Height)
-	stepeq := s.Step == s2.Step
-
-	return fromeq && toeq && stepeq
 }
 
 func (s *Segment) Ceil() uint64 {
-	return s.From.Height
+	if s.Forward {
+		return s.Start + s.Count
+	}
+
+	return s.Start
+}
+
+func (s *Segment) floor() uint64 {
+	if s.Forward {
+		return s.Start
+	}
+	return s.Start - s.Count
+}
+
+func (s *Segment) Handle(res *response) error {
+
+}
+
+// split long chain segment to small chunks
+const batch = 3600
+
+func (s *Segment) split() (segs []*Segment) {
+	if s.Count <= batch {
+		segs = append(segs, s)
+		return
+	}
+
+	start := s.floor()
+	end := s.Ceil()
+
+	for from, step := start, start; step <= end; from = step + 1 {
+		step = ((from / batch) + 1) * batch
+		if step >= end {
+			step = end
+		}
+
+		segs = append(segs, &Segment{
+			Start:   from,
+			Count:   step - from,
+			Forward: true,
+		})
+	}
+
+	return
+}
+
+// @section Forked
+type Forked struct {
+	StepID []*BlockID
+}
+
+func (f *Forked) Serialize() ([]byte, error) {
+	panic("implement me")
+}
+
+func (f *Forked) Deserialize(buf []byte) error {
+	panic("implement me")
+}
+
+// @section single address
+type AccountSegment struct {
+	Address types.Address
+	Segment *Segment
+}
+
+func (as *AccountSegment) Serialize() ([]byte, error) {
+	panic("implement me")
+}
+
+func (as *AccountSegment) Deserialize(buf []byte) error {
+	panic("implement me")
+}
+
+func (as *AccountSegment) Equal(v interface{}) bool {
+	panic("implement me")
+}
+
+func (as *AccountSegment) Ceil() uint64 {
+	panic("implement me")
 }
 
 // @section use to query accountblocks
-type AccountSegment map[types.Address]*Segment
+type MultiAccountSegment map[types.Address]*Segment
 
-func (as AccountSegment) Serialize() ([]byte, error) {
+func (as MultiAccountSegment) Serialize() ([]byte, error) {
 	pb := new(vitepb.MultiAccountSegment)
 	pb.Segments = make([]*vitepb.AccountSegment, len(as))
 
@@ -188,7 +284,7 @@ func (as AccountSegment) Serialize() ([]byte, error) {
 	return proto.Marshal(pb)
 }
 
-func (as AccountSegment) Deserialize(data []byte) error {
+func (as MultiAccountSegment) Deserialize(data []byte) error {
 	pb := new(vitepb.MultiAccountSegment)
 	err := proto.Unmarshal(data, pb)
 	if err != nil {
@@ -208,8 +304,8 @@ func (as AccountSegment) Deserialize(data []byte) error {
 	return nil
 }
 
-func (as AccountSegment) Equal(v interface{}) bool {
-	as2, ok := v.(AccountSegment)
+func (as MultiAccountSegment) Equal(v interface{}) bool {
+	as2, ok := v.(MultiAccountSegment)
 	if !ok {
 		return false
 	}
@@ -224,7 +320,7 @@ func (as AccountSegment) Equal(v interface{}) bool {
 	return true
 }
 
-func (as AccountSegment) Ceil(v interface{}) uint64 {
+func (as MultiAccountSegment) Ceil(v interface{}) uint64 {
 	return 0
 }
 
@@ -233,6 +329,7 @@ type FileList struct {
 	Files []string
 	Start uint64 // start and end means need query blocks from chainDB
 	End   uint64 // because files don`t contain the latest snapshotblocks
+	Nonce uint64 // use only once
 }
 
 func (f *FileList) Serialize() ([]byte, error) {
@@ -240,6 +337,20 @@ func (f *FileList) Serialize() ([]byte, error) {
 }
 
 func (f *FileList) Deserialize(buf []byte) error {
+	panic("implement me")
+}
+
+// @section
+type FileRequest struct {
+	File  string
+	Nonce uint64
+}
+
+func (f *FileRequest) Serialize() ([]byte, error) {
+	panic("implement me")
+}
+
+func (f *FileRequest) Deserialize(buf []byte) error {
 	panic("implement me")
 }
 
@@ -299,6 +410,7 @@ type HandShakeMsg struct {
 	Version      uint64
 	NetID        uint64
 	Height       uint64
+	Port         uint16
 	CurrentBlock types.Hash
 	GenesisBlock types.Hash
 }
@@ -309,6 +421,7 @@ func (st *HandShakeMsg) Serialize() ([]byte, error) {
 		Height:       st.Height,
 		CurrentBlock: st.CurrentBlock[:],
 		GenesisBlock: st.GenesisBlock[:],
+		Port:         uint32(st.Port),
 	}
 
 	return proto.Marshal(pb)
@@ -320,9 +433,10 @@ func (st *HandShakeMsg) Deserialize(data []byte) error {
 	if err != nil {
 		return err
 	}
-	st.Version = pb.Version
 
+	st.Version = pb.Version
 	st.Height = pb.Height
+	st.Port = uint16(pb.Port)
 	copy(st.GenesisBlock[:], pb.GenesisBlock)
 	copy(st.CurrentBlock[:], pb.CurrentBlock)
 

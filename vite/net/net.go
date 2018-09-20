@@ -1,7 +1,6 @@
 package net
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"github.com/seiflotfy/cuckoofilter"
 	"github.com/vitelabs/go-vite/common/types"
@@ -10,14 +9,15 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"io/ioutil"
 	"log"
-	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
 type Config struct {
-	NetID uint64
+	NetID      uint64
+	Port       uint16
+	BlockChain BlockChain
 }
 
 type Net struct {
@@ -27,35 +27,40 @@ type Net struct {
 	snapshotFeed  *snapshotBlockFeed
 	accountFeed   *accountBlockFeed
 	term          chan struct{}
-	newPeer       chan *Peer
-	pool          *reqPool
+	pool          *requestPool
 	FromHeight    uint64
 	TargetHeight  uint64
-	syncState     SyncState
-	downloaded    int32        // atomic, indicate whether the first sync data has download from bestPeer
-	slock         sync.RWMutex // use for syncState change
+	syncState     int32 // atomic
+	downloaded    int32 // atomic, indicate whether the first sync data has download from bestPeer
 	stateFeed     *SyncStateFeed
 	SnapshotChain BlockChain
 	blockRecord   *cuckoofilter.CuckooFilter // record blocks has retrieved from network
 	log           log15.Logger
 	Protocols     []*p2p.Protocol
 	wg            sync.WaitGroup
+	fileServer    *FileServer
 }
 
-func New(cfg *Config) *Net {
+func New(cfg *Config) (*Net, error) {
 	peerSet := NewPeerSet()
 
+	fileServer, err := newFileServer(cfg.Port)
+	if err != nil {
+		return nil, err
+	}
+
 	n := &Net{
-		Config:       cfg,
-		peers:        peerSet,
-		snapshotFeed: new(snapshotBlockFeed),
-		accountFeed:  new(accountBlockFeed),
-		stateFeed:    new(SyncStateFeed),
-		term:         make(chan struct{}),
-		newPeer:      make(chan *Peer),
-		pool:         NewReqPool(peerSet),
-		blockRecord:  cuckoofilter.NewCuckooFilter(10000),
-		log:          log15.New("module", "vite/net"),
+		Config:        cfg,
+		peers:         peerSet,
+		snapshotFeed:  new(snapshotBlockFeed),
+		accountFeed:   new(accountBlockFeed),
+		stateFeed:     new(SyncStateFeed),
+		term:          make(chan struct{}),
+		pool:          newRequestPool(peerSet),
+		SnapshotChain: cfg.BlockChain,
+		blockRecord:   cuckoofilter.NewCuckooFilter(10000),
+		log:           log15.New("module", "vite/net"),
+		fileServer:    fileServer,
 	}
 
 	n.Protocols = make([]*p2p.Protocol, len(cmdSets))
@@ -64,25 +69,18 @@ func New(cfg *Config) *Net {
 			Name: CmdSetName,
 			ID:   cmdset,
 			Handle: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
+				// will be called by p2p.Peer.runProtocols use goroutine
 				peer := newPeer(p, rw, cmdset)
-				select {
-				case n.newPeer <- peer:
-					n.wg.Add(1)
-					defer n.wg.Done()
-					return n.HandlePeer(p)
-				case <-n.term:
-					return p2p.DiscQuitting
-				}
+				return n.HandlePeer(peer)
 			},
 		}
 	}
 
-	return n
+	return n, nil
 }
 
 func (n *Net) Start() {
 	n.start = time.Now()
-	go n.preSync()
 }
 
 func (n *Net) Stop() {
@@ -91,66 +89,54 @@ func (n *Net) Stop() {
 	default:
 		close(n.term)
 	}
+
+	n.fileServer.stop()
 }
 
 func (n *Net) Syncing() bool {
-	n.slock.RLock()
-	defer n.slock.RUnlock()
-	return n.syncState == Syncing
+	return atomic.LoadInt32(&n.syncState) == int32(Syncing)
 }
 
-func (n *Net) startSync() {
-	n.SetSyncState(Syncing)
-	go n.checkChainHeight()
-}
-
-func (n *Net) checkChainHeight() {
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
-
-	begin := time.Now()
-
-	for {
-		select {
-		case now := <-ticker.C:
-			current, err := n.SnapshotChain.GetLatestSnapshotBlock()
-			if err != nil {
-				return
-			}
-			if current.Height == n.TargetHeight {
-				n.SetSyncState(Syncdone)
-			}
-			if now.Sub(begin) > waitForChainGrow {
-				n.SetSyncState(Syncerr)
-			}
-		case <-n.term:
-			return
-		}
-	}
-}
+//func (n *Net) startSync() {
+//	n.SetSyncState(Syncing)
+//	go n.checkChainHeight()
+//}
+//
+//func (n *Net) checkChainHeight() {
+//	ticker := time.NewTicker(1 * time.Minute)
+//	defer ticker.Stop()
+//
+//	begin := time.Now()
+//
+//	for {
+//		select {
+//		case now := <-ticker.C:
+//			current, err := n.SnapshotChain.GetLatestSnapshotBlock()
+//			if err != nil {
+//				return
+//			}
+//			if current.Height == n.TargetHeight {
+//				n.SetSyncState(Syncdone)
+//			}
+//			if now.Sub(begin) > waitForChainGrow {
+//				n.SetSyncState(Syncerr)
+//			}
+//		case <-n.term:
+//			return
+//		}
+//	}
+//}
 
 func (n *Net) SetSyncState(st SyncState) {
-	n.slock.Lock()
-	defer n.slock.Unlock()
-	n.syncState = st
+	atomic.StoreInt32(&n.syncState, int32(st))
 	n.stateFeed.Notify(st)
 }
 
 func (n *Net) SyncState() SyncState {
-	n.slock.Lock()
-	defer n.slock.Unlock()
-
-	return n.syncState
+	return SyncState(atomic.LoadInt32(&n.syncState))
 }
 
-func (n *Net) ReceiveConn(conn net.Conn) {
-	select {
-	case <-n.term:
-	default:
-	}
-
-}
-
+// the main method, handle peer
 func (n *Net) HandlePeer(p *Peer) error {
 	head, err := n.SnapshotChain.GetLatestSnapshotBlock()
 	if err != nil {
@@ -164,14 +150,45 @@ func (n *Net) HandlePeer(p *Peer) error {
 
 	err = p.Handshake(n.NetID, head.Height, head.Hash, genesis.Hash)
 	if err != nil {
-		n.removePeer(p)
-		return
+		return err
 	}
 
-	n.startPeer(p)
+	return n.startPeer(p)
 }
 
-func (n *Net) HandleMsg(p *Peer) (err error) {
+func (n *Net) startPeer(p *Peer) error {
+	n.peers.Add(p)
+	defer n.peers.Del(p)
+
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	go n.sync()
+
+	for {
+		select {
+		case <-n.term:
+			return p2p.DiscQuitting
+		case err := <-p.reqErr:
+			return err
+		case <-ticker.C:
+			current, err := n.SnapshotChain.GetLatestSnapshotBlock()
+			if err == nil {
+				p.Send(StatusCode, &BlockID{
+					Hash:   current.Hash,
+					Height: current.Height,
+				})
+			}
+
+		default:
+			if err := n.handleMsg(p); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func (n *Net) handleMsg(p *Peer) (err error) {
 	msg, err := p.ts.ReadMsg()
 	if err != nil {
 		return
@@ -303,6 +320,62 @@ func (n *Net) HandleMsg(p *Peer) (err error) {
 	return nil
 }
 
+func (n *Net) sync() {
+	// set syncing
+	if !atomic.CompareAndSwapInt32(&n.syncState, 0, 1) {
+		return
+	}
+
+	// set syncdone
+	defer atomic.CompareAndSwapInt32(&n.syncState, 1, 2)
+
+	for {
+		select {
+		case <-n.term:
+			return
+		default:
+			if n.peers.Count() >= enoughPeers {
+				goto SYNC
+			} else {
+				time.Sleep(3 * time.Second)
+			}
+		}
+	}
+
+SYNC:
+	bestPeer := n.peers.BestPeer()
+	if bestPeer == nil {
+		n.log.Info("syncdone: bestPeer is nil")
+		return
+	}
+
+	current, err := n.SnapshotChain.GetLatestSnapshotBlock()
+	if err != nil {
+		n.log.Error("can`t getLatestSnapshotBlock", "error", err)
+		return
+	}
+
+	peerHead := bestPeer.Head()
+
+	peerHeight := peerHead.Height
+	if peerHeight <= current.Height {
+		n.log.Info("syncdone: bestPeer is lower than me")
+		return
+	}
+
+	n.FromHeight = current.Height
+	n.TargetHeight = peerHeight
+
+	seg := &Segment{
+		Origin: &BlockID{current.Hash, current.Height},
+		To:     &BlockID{peerHead.Hash, peerHeight},
+		Count:  peerHeight - current.Height,
+	}
+
+	req := newRequest(GetSubLedgerCode, seg, subledgerTimeout)
+	n.pool.add(req)
+}
+
 func (n *Net) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	peers := n.peers.UnknownBlock(block.Hash)
 
@@ -340,24 +413,14 @@ func (n *Net) FetchSnapshotBlocks(start types.Hash, count uint64) {
 		return
 	}
 
-	req := newReq(GetSnapshotBlocksCode, s, func(cmd Cmd, i interface{}) (done bool, err error) {
-		if cmd != SnapshotBlocksCode {
-			return false, nil
-		}
-		blocks, ok := i.(SnapshotBlocksMsg)
-		if !ok {
-			return false, nil
-		}
-		n.receiveSnapshotBlock(blocks)
-
-		if uint64(len(blocks)) != (s.To.Height - s.From.Height) {
-			return false, fmt.Errorf("incomplete snapshotblocks")
-		}
-
-		return true, nil
+	req := newRequest(GetSnapshotBlocksCode, &Segment{
+		From: &BlockID{
+			Hash: start,
+		},
+		Count: count,
 	}, snapshotBlocksTimeout)
 
-	n.pool.Add(req)
+	n.pool.add(req)
 }
 
 func (n *Net) FetchAccountBlocks(start types.Hash, count uint64, address types.Address) {
@@ -366,52 +429,17 @@ func (n *Net) FetchAccountBlocks(start types.Hash, count uint64, address types.A
 		return
 	}
 
-	req := newReq(GetAccountBlocksCode, as, func(cmd Cmd, i interface{}) (done bool, err error) {
-		if cmd != AccountBlocksCode {
-			return false, nil
-		}
-		mapBlocks, ok := i.(AccountBlocksMsg)
-		if !ok {
-			return false, nil
-		}
-		for account, blocks := range mapBlocks {
-			if as[account] == nil {
-				return false, fmt.Errorf("missing accountblocks of account %s", account)
-			}
-
-			n.receiveAccountBlocks(blocks)
-
-			if uint64(len(blocks)) != (as[account].To.Height - as[account].From.Height) {
-				return false, fmt.Errorf("incomplete accountblocks of account %s", account)
-			}
-		}
-
-		return true, nil
+	req := newRequest(GetAccountBlocksCode, &AccountSegment{
+		Address: address,
+		Segment: &Segment{
+			From: &BlockID{
+				Hash: start,
+			},
+			Count: count,
+		},
 	}, accountBlocksTimeout)
 
-	n.pool.Add(req)
-}
-
-func (n *Net) FetchAccountBlocksByHash(hashes []types.Hash) {
-	// if the sync data has not downloaded, then ignore fetch request
-	if atomic.LoadInt32(&n.downloaded) == 0 {
-		return
-	}
-
-	strangeHashes := make([]types.Hash, 0, len(hashes))
-	for _, hash := range hashes {
-		if !n.blockRecord.Lookup(hash[:]) {
-			strangeHashes = append(strangeHashes, hash)
-		}
-	}
-
-	if len(strangeHashes) != 0 {
-		req := newReq(GetSnapshotBlocksByHashCode, strangeHashes, func(cmd Cmd, i interface{}) (done bool, err error) {
-
-		}, snapshotBlocksTimeout)
-
-		n.pool.Add(req)
-	}
+	n.pool.add(req)
 }
 
 func (n *Net) SubscribeAccountBlock(fn func(block *ledger.AccountBlock)) (subId int) {
@@ -458,143 +486,6 @@ func (n *Net) UnsubscribeSyncStatus(subId int) {
 	n.stateFeed.Unsub(subId)
 }
 
-func (n *Net) preSync() {
-	timer := time.NewTimer(waitEnoughPeers)
-	defer timer.Stop()
-
-loop:
-	for {
-		select {
-		case <-timer.C:
-			break loop
-		case <-n.term:
-			return
-		default:
-			if n.peers.Count() >= enoughPeers {
-				break loop
-			}
-		}
-	}
-
-	n.syncWithPeer(n.peers.BestPeer())
-}
-
-func (n *Net) syncWithPeer(p *Peer) error {
-	if n.Syncing() {
-		return errSynced
-	}
-
-	current, err := n.SnapshotChain.GetLatestSnapshotBlock()
-	if err != nil {
-		n.log.Error("getLatestSnapshotBlock error", "error", err)
-		return nil
-	}
-
-	peerHeight := p.Head().Height
-	if peerHeight <= current.Height {
-		return nil
-	}
-
-	n.FromHeight = current.Height
-	n.TargetHeight = peerHeight
-	n.startSync()
-
-	seg := &Segment{
-		From:    &BlockID{current.Hash, current.Height},
-		To:      &BlockID{p.head, p.height},
-		Step:    0,
-		Forward: true,
-	}
-
-	req := newReq(GetSubLedgerCode, seg, func(cmd Cmd, v interface{}) (done bool, err error) {
-		if cmd == ExceptionCode && v == Missing {
-			return false, Missing
-		}
-
-		if cmd != SubLedgerCode {
-			return false, nil
-		}
-		subledger, ok := v.(subLedgerMsg)
-		if !ok {
-			return false, fmt.Errorf("not SubLedgerMsg")
-		}
-		if uint64(len(subledger.snapshotblocks)) != (seg.To.Height - seg.From.Height) {
-			return false, fmt.Errorf("incomplete snapshot blocks")
-		}
-		return true, nil
-	}, subledgerTimeout)
-
-	timer := time.NewTimer(subledgerTimeout)
-	defer timer.Stop()
-
-	n.pool.Add(req)
-
-	for {
-		var done bool
-		var err error
-
-		select {
-		case done = <-req.done:
-		case err = <-req.errch:
-		case <-timer.C:
-			return errMsgTimeout
-		}
-
-		if done && err == nil {
-			return nil
-		}
-	}
-
-	return nil
-}
-
-func (n *Net) startPeer(p *Peer) {
-	n.peers.Add(p)
-
-	go n.heartbeat(p)
-
-	go n.syncWithPeer(p)
-
-	for {
-		select {
-		case <-n.term:
-			return
-		default:
-		}
-
-		if err := n.HandleMsg(p); err != nil {
-			n.removePeer(p)
-		}
-	}
-}
-
-func (n *Net) heartbeat(p *Peer) {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-n.term:
-			return
-		case <-ticker.C:
-			current, err := n.SnapshotChain.GetLatestSnapshotBlock()
-			if err != nil {
-				return
-			}
-
-			p.Send(StatusCode, &BlockID{
-				Hash:   current.Hash,
-				Height: current.Height,
-			})
-		}
-	}
-}
-
-func (n *Net) removePeer(p *Peer) {
-	p.Destroy()
-	n.peers.Del(p)
-}
-
 // get current netInfo (peers, syncStatus, ...)
 func (n *Net) Status() *NetStatus {
 	running := true
@@ -604,15 +495,11 @@ func (n *Net) Status() *NetStatus {
 	default:
 	}
 
-	n.slock.RLock()
-	st := n.syncState
-	n.slock.RUnlock()
-
 	return &NetStatus{
 		Peers:     n.peers.Info(),
 		Running:   running,
 		Uptime:    time.Now().Sub(n.start),
-		SyncState: st,
+		SyncState: SyncState(atomic.LoadInt32(&n.syncState)),
 	}
 }
 

@@ -54,8 +54,8 @@ type Peer struct {
 	sendSnapshotBlock chan *ledger.SnapshotBlock  // sending new snapshotblock
 	sendAccountBlocks chan []*ledger.AccountBlock // sending new accountblocks
 	Speed             int                         // response performance
-	jobLock           sync.RWMutex
-	jobs              []*req
+	reqs              *request
+	reqErr            chan error // pending reqs got error (eg. timeout)
 }
 
 func newPeer(p *p2p.Peer, ts p2p.MsgReadWriter, version uint64) *Peer {
@@ -70,7 +70,13 @@ func newPeer(p *p2p.Peer, ts p2p.MsgReadWriter, version uint64) *Peer {
 		sendSnapshotBlock: make(chan *ledger.SnapshotBlock),
 		sendAccountBlocks: make(chan []*ledger.AccountBlock),
 		Speed:             0,
+		reqs:              &request{},
+		reqErr:            make(chan error, 1),
 	}
+}
+
+func (p *Peer) delRequest(req *request) {
+
 }
 
 func (p *Peer) Handshake(netId uint64, height uint64, current, genesis types.Hash) error {
