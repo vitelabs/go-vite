@@ -1,6 +1,7 @@
 package pow
 
 import (
+	"bytes"
 	"github.com/vitelabs/go-vite/crypto"
 	"math/big"
 )
@@ -15,18 +16,15 @@ func GetPowNonce(target *big.Int, data []byte) *big.Int {
 		return nil
 	}
 
-	csprng := crypto.GetEntropyCSPRNG(32)
-	from := new(big.Int).SetBytes(csprng)
-	calc := new(big.Int)
-	step := big.NewInt(1)
+	nonce := crypto.GetEntropyCSPRNG(32)
+	targetBytes := target.Bytes()
 	for {
-		calc.SetBytes(crypto.Hash256(from.Bytes(), data))
-		if calc.Cmp(target) < 0 {
+		if QuickLess(crypto.Hash256(nonce, data), targetBytes) {
 			break
 		}
-		from = from.Add(from, step)
+		nonce = QuickInc(nonce)
 	}
-	return from
+	return new(big.Int).SetBytes(nonce)
 }
 
 func CheckNonce(target, nonce *big.Int, data []byte) bool {
@@ -34,4 +32,17 @@ func CheckNonce(target, nonce *big.Int, data []byte) bool {
 		return false
 	}
 	return new(big.Int).SetBytes(crypto.Hash256(nonce.Bytes(), data)).Cmp(target) < 0
+}
+
+func QuickInc(x []byte) []byte {
+	for i := 1; i <= len(x); i++ {
+		x[len(x)-i] = x[len(x)-i] + 1
+		if x[len(x)-i] != 0 {
+			return x
+		}
+	}
+	return x
+}
+func QuickLess(x, y []byte) bool {
+	return bytes.Compare(x, y) < 0
 }

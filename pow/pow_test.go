@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"testing"
 	"time"
+	"bytes"
 )
 
 func TestGetPowNonce(t *testing.T) {
@@ -52,4 +53,22 @@ func statistics(data []int64) (timeMax, timeMin, timeSum int64, average, std flo
 	}
 	std = math.Sqrt(vSum / float64(len(data)))
 	return timeMax, timeMin, timeSum, average, std
+}
+
+func TestQuickInc(t *testing.T) {
+	data := []struct {
+		x      []byte
+		target []byte
+		expect bool
+	}{
+		{[]byte{1, 2}, []byte{1, 3}, true},
+		{[]byte{1, 0xFF}, []byte{2, 0}, true},
+		{[]byte{0XFF, 0xFF}, []byte{0, 0}, true},
+		{[]byte{0X1F, 0xFF}, []byte{0, 0}, false},
+	}
+	for _, v := range data {
+		t1 := pow.QuickInc(v.x)
+		fmt.Println(t1)
+		assert.Equal(t, v.expect, bytes.Equal(t1, v.target))
+	}
 }
