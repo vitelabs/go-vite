@@ -60,6 +60,8 @@ func main() {
 			},
 		},
 		BootNodes: p2pCfg.BootNodes,
+
+		KafKa: p2pCfg.Kafka,
 	}
 
 	if p2pCfg.PrivateKey != "" {

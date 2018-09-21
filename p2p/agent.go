@@ -107,16 +107,18 @@ func newAgent(svr *Server) *agent {
 	return a
 }
 
-func (a *agent) scheduleTasks(stop <-chan struct{}) {
+func (a *agent) scheduleTasks(stop <-chan struct{}, taskDone chan<- struct{}) {
 	for {
 		select {
 		case <-stop:
 			return
-		default:
+		case <- a.runingSlots:
 			if e := a.tasks.Front(); e != nil {
 				task, _ := e.Value.(Task)
 				task.Perform(a)
 				a.tasks.Remove(e)
+
+				taskDone<- struct{}{}
 				a.runingSlots <- struct{}{}
 			} else {
 				a.createTasks()

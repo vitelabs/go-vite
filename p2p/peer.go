@@ -263,12 +263,35 @@ END:
 func (p *Peer) readLoop(out chan<- error) {
 	defer p.wg.Done()
 
+	var maxDelay = time.Second
+	var tempDelay time.Duration
+
 	for {
+		select {
+		case <- p.term:
+			return
+		default:
+			// do nothing
+		}
+
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
-			p.log.Error("peer read error", "ID", p.ID().String(), "error", err)
-			out <- err
-			return
+			if err, ok := err.(net.Error); ok && err.Temporary() {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
+				}
+				if tempDelay > maxDelay {
+					tempDelay = maxDelay
+				}
+
+				time.Sleep(tempDelay)
+			} else {
+				p.log.Error("peer read error", "ID", p.ID().String(), "error", err)
+				out <- err
+				return
+			}
 		}
 
 		monitor.LogEvent("p2p/peer", "msg")
@@ -297,10 +320,12 @@ func (p *Peer) handleMsg(msg *Msg) error {
 			}
 			return reason
 		case topoCmd:
+			p.log.Info(fmt.Sprintf("receive topo from %s@%s", p.ID(), p.RemoteAddr()))
+
 			select {
 			case p.topoChan <- &topoEvent{msg, p}:
 			default:
-				p.log.Info(fmt.Sprintf("msgReport channel is blocked, discard topoMsg from %s@%s", p.ID(), p.RemoteAddr()))
+				p.log.Error(fmt.Sprintf("discard topoMsg: receive channel is block: %s@%s", p.ID(), p.RemoteAddr()))
 				msg.Discard()
 			}
 		default:
@@ -329,6 +354,7 @@ func (p *Peer) handleMsg(msg *Msg) error {
 // @section PeerSet
 type PeerSet struct {
 	peers    map[discovery.NodeID]*Peer
+	lock sync.RWMutex
 	inbound  int
 	outbound int
 }
@@ -340,6 +366,9 @@ func newPeerSet() *PeerSet {
 }
 
 func (s *PeerSet) Add(p *Peer) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	if _, ok := s.peers[p.ID()]; ok {
 		return DiscAlreadyConnected
 	}
@@ -355,6 +384,9 @@ func (s *PeerSet) Add(p *Peer) error {
 }
 
 func (s *PeerSet) Del(p *Peer) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	delete(s.peers, p.ID())
 	if p.rw.is(inbound) {
 		s.inbound--
@@ -364,21 +396,33 @@ func (s *PeerSet) Del(p *Peer) {
 }
 
 func (s *PeerSet) Has(id discovery.NodeID) bool {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
 	_, ok := s.peers[id]
 	return ok
 }
 
 func (s *PeerSet) Clear(p *Peer) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	s.peers = nil
 	s.inbound = 0
 	s.outbound = 0
 }
 
 func (s *PeerSet) Size() int {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
 	return len(s.peers)
 }
 
 func (s *PeerSet) Info() []*PeerInfo {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
 	info := make([]*PeerInfo, s.Size())
 	i := 0
 	for _, p := range s.peers {
@@ -390,6 +434,9 @@ func (s *PeerSet) Info() []*PeerInfo {
 }
 
 func (s *PeerSet) Traverse(fn func(id discovery.NodeID, p *Peer)) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
 	for id, p := range s.peers {
 		id, p := id, p
 		fn(id, p)

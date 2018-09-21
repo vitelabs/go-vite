@@ -121,9 +121,10 @@ func (th *topoHandler) Handle(event *topoEvent, svr *Server) {
 	if svr.producer != nil {
 		data, err := ioutil.ReadAll(event.msg.Payload)
 		if err != nil {
-			p2pServerLog.Info("can`t read topoMsg payload, so can`t send to Kafka")
+			p2pServerLog.Error("can`t read topoMsg payload, so can`t send to Kafka")
 		} else {
 			svr.producer.write("p2p_status_event", data)
+			p2pServerLog.Info("report topoMsg to kafka")
 		}
 	}
 }

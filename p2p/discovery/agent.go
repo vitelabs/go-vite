@@ -335,7 +335,7 @@ func (d *agent) readLoop() {
 
 	var tempDelay time.Duration
 	var maxDelay = time.Second
-fmt.Println("readloop")
+
 	for {
 		select {
 		case <-d.term:

@@ -172,7 +172,7 @@ func newProtoX(fd net.Conn) *protox {
 
 func (p *protox) ReadMsg() (msg Msg, err error) {
 	p.rLock.Lock()
-	defer p.rLock.Lock()
+	defer p.rLock.Unlock()
 
 	p.fd.SetReadDeadline(time.Now().Add(msgReadTimeout))
 

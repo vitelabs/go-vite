@@ -8,6 +8,9 @@
             "vnode://fdddbd58b6fd9059d7751b16f51fb1db77cb2f0801aa6c447eefacbcecb6945d@127.0.0.1:8483",
             "vnode://58b9ac27b5578d0632ef9ac204298b3eba5047488c10cce1eb2e191db1c054f1@127.0.0.1:8484",
             "vnode://dcf3e93b0ab38e1f359af9772d493e20414fbd552b21768f9837ae7b0f01f0cb@127.0.0.1:8485"
+        ],
+        "Kafka": [
+            "118.25.228.148:9092"
         ]
     },
     "Miner": {

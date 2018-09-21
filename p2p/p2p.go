@@ -86,6 +86,7 @@ func New(cfg Config) *Server {
 
 		if err == nil {
 			svr.producer = producer
+			svr.log.Info("create kafka client")
 		} else {
 			svr.log.Error(fmt.Sprintf("can`t create kafka client: %v", err))
 		}
@@ -354,10 +355,16 @@ func (svr *Server) loop() {
 	topoTicker := time.NewTicker(topoInterval)
 	defer topoTicker.Stop()
 
+	shouldSchedule := make(chan struct{})
+
+	go svr.agent.scheduleTasks(svr.term, shouldSchedule)
+
 	for {
 		select {
 		case <-svr.term:
 			goto END
+		case <-shouldSchedule:
+			// do nothing
 		case c := <-svr.addPeer:
 			err := svr.checkConn(c)
 
@@ -400,6 +407,7 @@ func (svr *Server) loop() {
 			})
 		case e := <-svr.topo.rec:
 			monitor.LogEvent("p2p", "topo-receive")
+			svr.log.Info(fmt.Sprintf("receive topo from %s", e.sender))
 			svr.topo.Handle(e, svr)
 		}
 	}
