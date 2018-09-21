@@ -4,7 +4,6 @@ import (
 	//_ "net/http/pprof"
 	"fmt"
 	"github.com/vitelabs/go-vite/cmd/utils"
-	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
 	"os"
 	"sort"
@@ -26,6 +25,7 @@ var (
 		utils.NodeKeyHexFlag,
 		utils.MaxPeersFlag,
 		utils.MaxPendingPeersFlag,
+		utils.ConfigFileFlag,
 	}
 )
 
@@ -61,22 +61,13 @@ func main() {
 func gvite(ctx *cli.Context) error {
 
 	//TODO invalid is why
+	fmt.Println(os.Args)
+
 	if args := ctx.Args(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 
-	node := makeFullNode(ctx)
+	nodeManager := NewNodeManager(ctx)
 
-	startNode(ctx, node)
-
-	return nil
-}
-
-func startNode(cli *cli.Context, node *node.Node) {
-
-	// Start up the node
-	utils.StartNode(node)
-
-	//TODO start other
-
+	return nodeManager.Start()
 }

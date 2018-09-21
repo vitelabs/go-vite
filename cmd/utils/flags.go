@@ -1,54 +1,10 @@
 package utils
 
 import (
-	"github.com/vitelabs/go-vite/cmd/params"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/config"
 	"gopkg.in/urfave/cli.v1"
-	"os"
-	"path/filepath"
 )
-
-var (
-	CommandHelpTemplate = `{{.cmd.Name}}{{if .cmd.Subcommands}} command{{end}}{{if .cmd.Flags}} [command options]{{end}} [arguments...]
-{{if .cmd.Description}}{{.cmd.Description}}
-{{end}}{{if .cmd.Subcommands}}
-SUBCOMMANDS:
-	{{range .cmd.Subcommands}}{{.Name}}{{with .ShortName}}, {{.}}{{end}}{{ "\t" }}{{.Usage}}
-	{{end}}{{end}}{{if .categorizedFlags}}
-{{range $idx, $categorized := .categorizedFlags}}{{$categorized.Name}} OPTIONS:
-{{range $categorized.Flags}}{{"\t"}}{{.}}
-{{end}}
-{{end}}{{end}}`
-)
-
-func init() {
-	cli.AppHelpTemplate = `{{.Name}} {{if .Flags}}[global options] {{end}}command{{if .Flags}} [command options]{{end}} [arguments...]
-
-VERSION:
-   {{.Version}}
-
-COMMANDS:
-   {{range .Commands}}{{.Name}}{{with .ShortName}}, {{.}}{{end}}{{ "\t" }}{{.Usage}}
-   {{end}}{{if .Flags}}
-GLOBAL OPTIONS:
-   {{range .Flags}}{{.}}
-   {{end}}{{end}}
-`
-
-	cli.CommandHelpTemplate = CommandHelpTemplate
-}
-
-func NewApp() *cli.App {
-	app := cli.NewApp()
-	app.Name = filepath.Base(os.Args[0])
-	app.Author = ""
-	app.Email = ""
-	app.Version = params.Version
-	app.Usage = "the go-vite cli application"
-
-	return app
-}
 
 var (
 	// General settings
@@ -56,6 +12,17 @@ var (
 		Name:  "datadir",
 		Usage: "use for store all files",
 		Value: DirectoryString{common.DefaultDataDir()}, // TODO Distinguish different environmental addresses
+	}
+
+	KeyStoreDirFlag = DirectoryFlag{
+		Name:  "keystore",
+		Usage: "Directory for the keystore (default = inside the datadir)",
+	}
+
+	// Config settings
+	ConfigFileFlag = cli.StringFlag{
+		Name:  "config",
+		Usage: "Json configuration file",
 	}
 
 	// Network Settings
@@ -94,48 +61,52 @@ var (
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port", //mapping:p2p.Addr
 		Usage: "Network listening port",
-		Value: 8483,
+		Value: common.DefaultP2PPort,
 	}
 	NodeKeyHexFlag = cli.StringFlag{
 		Name:  "nodekeyhex", //mapping:p2p.PrivateKey
 		Usage: "P2P node key as hex",
 	}
+
+	//IPC Settings
+	IPCEnabledFlag = cli.BoolFlag{
+		Name:  "ipc",
+		Usage: "Enable the IPC-RPC server",
+	}
+	IPCPathFlag = DirectoryFlag{
+		Name:  "ipcpath",
+		Usage: "Filename for IPC socket/pipe within the datadir (explicit paths escape it)",
+	}
+
+	//HTTP Settings
+	RPCEnabledFlag = cli.BoolFlag{
+		Name:  "rpc",
+		Usage: "Enable the HTTP-RPC server",
+	}
+	RPCListenAddrFlag = cli.StringFlag{
+		Name:  "rpcaddr",
+		Usage: "HTTP-RPC server listening interface",
+		Value: common.DefaultHTTPHost,
+	}
+	RPCPortFlag = cli.IntFlag{
+		Name:  "rpcport",
+		Usage: "HTTP-RPC server listening port",
+		Value: common.DefaultHTTPPort,
+	}
+
+	//WS Settings
+	WSEnabledFlag = cli.BoolFlag{
+		Name:  "ws",
+		Usage: "Enable the WS-RPC server",
+	}
+	WSListenAddrFlag = cli.StringFlag{
+		Name:  "wsaddr",
+		Usage: "WS-RPC server listening interface",
+		Value: common.DefaultWSHost,
+	}
+	WSPortFlag = cli.IntFlag{
+		Name:  "wsport",
+		Usage: "WS-RPC server listening port",
+		Value: common.DefaultWSPort,
+	}
 )
-
-// SetNodeConfig applies node-related command line flags to the config.
-func SetNodeConfig(ctx *cli.Context, cfg *config.Config) {
-
-	//Global Config
-	if dataDir := ctx.GlobalString(DataDirFlag.Name); len(dataDir) > 0 {
-		cfg.DataDir = dataDir
-	}
-
-	//Network Config
-	if identity := ctx.GlobalString(IdentityFlag.Name); len(identity) > 0 {
-		cfg.Name = identity
-	}
-
-	if ctx.GlobalIsSet(NetworkIdFlag.Name) {
-		cfg.NetID = ctx.GlobalUint(NetworkIdFlag.Name)
-	}
-
-	if ctx.GlobalIsSet(MaxPeersFlag.Name) {
-		cfg.MaxPeers = ctx.GlobalUint(MaxPeersFlag.Name)
-	}
-
-	// TODO p2p will use uint
-	if ctx.GlobalIsSet(MaxPendingPeersFlag.Name) {
-		cfg.MaxPendingPeers = ctx.GlobalInt(MaxPendingPeersFlag.Name)
-	}
-
-	if ctx.GlobalIsSet(ListenPortFlag.Name) {
-		cfg.Addr = ctx.GlobalString(ListenPortFlag.Name)
-	}
-
-	if ctx.GlobalIsSet(NodeKeyHexFlag.Name) {
-		cfg.PrivateKey = ctx.GlobalString(NodeKeyHexFlag.Name)
-	}
-
-	//TODO other config missing
-
-}

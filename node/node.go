@@ -16,14 +16,18 @@ import (
 
 // Node is a container that manages p2p、rpc、vite modules
 type Node struct {
-	config *config.Config
+	config *Config
 
-	p2pConfig p2p.Config // p2p config
+	//vite
+	viteConfig config.Config
+	vite       *vite.Vite
+
+	//p2p
+	p2pConfig config.P2P
 	p2pServer *p2p.Server
 
-	vite *vite.Vite
-
-	rpcAPIs []rpc.API // List of APIs currently provided by the node
+	//TODO: in the future need
+	//rpcAPIs []rpc.API // List of APIs currently provided by the node
 
 	ipcEndpoint string         // IPC endpoint to listen at (empty = IPC disabled)
 	ipcListener net.Listener   // IPC RPC listener socket to serve API requests
@@ -44,7 +48,7 @@ type Node struct {
 }
 
 // New creates a new P2P node
-func New(conf *config.Config) (*Node, error) {
+func New(conf *Config) (*Node, error) {
 
 	// Copy config and resolve the datadir so future changes to the current working directory don't affect the node.
 	confCopy := *conf
@@ -54,15 +58,19 @@ func New(conf *config.Config) (*Node, error) {
 		if err != nil {
 			return nil, err
 		}
+		//TODO
 		conf.DataDir = absDataDir
 	}
-
-	//TODO something wo don't need now
+	conf.P2P.Datadir = conf.DataDir
 
 	return &Node{
-		config:    conf,
-		p2pConfig: *conf.P2P,
-		Logger:    log15.New("module", "gvite/main"),
+		config:       conf,
+		p2pConfig:    conf.P2P,
+		viteConfig:   conf.makeViteConfig(),
+		ipcEndpoint:  conf.IPCEndpoint(),
+		httpEndpoint: conf.HTTPEndpoint(),
+		wsEndpoint:   conf.WSEndpoint(),
+		Logger:       log15.New("module", "gvite/node"),
 	}, nil
 }
 
@@ -81,7 +89,7 @@ func (node *Node) Start() error {
 	}
 
 	//Initialize the p2p server
-	p2pServer := p2p.New(p2p.Config{})
+	p2pServer := p2p.New(*node.p2pConfig)
 
 	vite, err := vite.New(cfg)
 
@@ -97,7 +105,22 @@ func (node *Node) Start() error {
 }
 
 func (node *Node) Stop() error {
+
+	//TODO
+
 	return nil
+}
+
+func (node *Node) Wait() {
+	node.lock.RLock()
+	if node.p2pServer == nil {
+		node.lock.RUnlock()
+	}
+
+	stop := node.stop
+	node.lock.RUnlock()
+
+	<-stop
 }
 
 func (node *Node) openDataDir() error {
