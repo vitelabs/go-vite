@@ -117,9 +117,9 @@ func (n *Node) Validate() error {
 		return errMissIP
 	}
 
-	if n.IP.IsLoopback() || n.IP.IsMulticast() || n.IP.IsUnspecified() {
-		return errInvalidIP
-	}
+	//if n.IP.IsLoopback() || n.IP.IsMulticast() || n.IP.IsUnspecified() {
+	//	return errInvalidIP
+	//}
 
 	if n.UDP == 0 {
 		return errMissPort
