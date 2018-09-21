@@ -20,8 +20,8 @@ import (
 
 var p2pServerLog = log15.New("module", "p2p/server")
 
-var errSvrStarted = errors.New("Server has started")
-var errSvrStopped = errors.New("Server has stopped")
+var errSvrStarted = errors.New("server has started")
+var errSvrStopped = errors.New("server has stopped")
 
 type Discovery interface {
 	Lookup(discovery.NodeID) []*discovery.Node
@@ -83,8 +83,11 @@ func New(cfg Config) *Server {
 
 	if svr.KafKa != nil {
 		producer, err := newProducer(svr.KafKa)
+
 		if err == nil {
 			svr.producer = producer
+		} else {
+			svr.log.Error(fmt.Sprintf("can`t create kafka client: %v", err))
 		}
 	}
 
@@ -215,13 +218,6 @@ func (svr *Server) Start() error {
 	svr.wg.Add(1)
 	go svr.loop()
 
-	// task loop
-	svr.wg.Add(1)
-	go func() {
-		svr.agent.scheduleTasks(svr.term)
-		svr.wg.Done()
-	}()
-
 	p2pServerLog.Info("p2p server started")
 	return nil
 }
@@ -253,6 +249,9 @@ func (svr *Server) listenLoop(listener *net.TCPListener) {
 
 	var conn net.Conn
 	var err error
+	var tempDelay time.Duration
+	maxDelay := time.Second
+
 	for {
 		select {
 		case svr.pending <- struct{}{}:
@@ -260,11 +259,32 @@ func (svr *Server) listenLoop(listener *net.TCPListener) {
 				conn, err = listener.Accept()
 
 				if err != nil {
-					svr.log.Error("tcp accept error", "error", err)
-					continue
+					svr.log.Error(fmt.Sprintf("tcp read error %v", err))
+
+					if err, ok := err.(net.Error); ok && err.Temporary() {
+						if tempDelay == 0 {
+							tempDelay = 5 * time.Millisecond
+						} else {
+							tempDelay *= 2
+						}
+
+						if tempDelay > maxDelay {
+							tempDelay = maxDelay
+						}
+
+						svr.log.Info(fmt.Sprintf("tcp read tempError, wait %d Millisecond", tempDelay))
+
+						time.Sleep(tempDelay)
+
+						continue
+					}
+
+					return
 				}
+
 				break
 			}
+
 			go svr.setupConn(conn, inbound)
 		case <-svr.term:
 			close(svr.pending)
@@ -366,17 +386,20 @@ func (svr *Server) loop() {
 			monitor.LogDuration("p2p/peer", "del", int64(peersCount))
 
 		case <-topoTicker.C:
-			monitor.LogEvent("p2p/peer", "topo")
+			monitor.LogEvent("p2p/peer", "topo-send")
 
 			topo := svr.Topology()
 			go svr.peers.Traverse(func(id discovery.NodeID, p *Peer) {
 				err := Send(p.rw, baseProtocolCmdSet, topoCmd, 0, topo)
 				if err != nil {
+					svr.log.Error(fmt.Sprintf("send topo to %s error: %v", p.ID(), err))
 					p.protoErr <- err
+				} else {
+					svr.log.Info(fmt.Sprintf("send topo to %s done", p.ID()))
 				}
 			})
 		case e := <-svr.topo.rec:
-			monitor.LogEvent("p2p", "topo")
+			monitor.LogEvent("p2p", "topo-receive")
 			svr.topo.Handle(e, svr)
 		}
 	}

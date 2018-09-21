@@ -107,7 +107,7 @@ func (th *topoHandler) Handle(event *topoEvent, svr *Server) {
 	}
 
 	if th.record.Lookup(hash) {
-		p2pServerLog.Info("has receivede the same topoMsg")
+		p2pServerLog.Info("has received the same topoMsg")
 		return
 	}
 

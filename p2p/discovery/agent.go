@@ -313,6 +313,9 @@ func (d *agent) readLoop() {
 
 	buf := make([]byte, maxPacketLength)
 
+	var tempDelay time.Duration
+	var maxDelay = time.Second
+
 	for {
 		select {
 		case <-d.term:
@@ -322,8 +325,29 @@ func (d *agent) readLoop() {
 
 			if err != nil {
 				discvLog.Error(fmt.Sprintf("udp read error %v", err))
-				continue
+
+				if err, ok := err.(net.Error); ok && err.Temporary() {
+					if tempDelay == 0 {
+						tempDelay = 5 * time.Millisecond
+					} else {
+						tempDelay *= 2
+					}
+
+					if tempDelay > maxDelay {
+						tempDelay = maxDelay
+					}
+
+					discvLog.Info(fmt.Sprintf("udp read tempError, wait %d Millisecond", tempDelay))
+
+					time.Sleep(tempDelay)
+
+					continue
+				}
+
+				return
 			}
+
+			tempDelay = 0
 
 			p, err := unPacket(buf[:n])
 			if err != nil {
