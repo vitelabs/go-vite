@@ -1,8 +1,12 @@
 package node
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/discovery"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -75,6 +79,48 @@ func (c *Config) makeViteConfig() config.Config {
 		P2P:     &c.P2P,
 		DataDir: c.DataDir,
 	}
+}
+
+func (c *Config) makeP2PConfig() p2p.Config {
+	return p2p.Config{
+		Name:            c.P2P.Name,
+		NetID:           p2p.NetworkID(c.P2P.NetID),
+		MaxPeers:        c.P2P.MaxPeers,
+		MaxPendingPeers: c.P2P.MaxPendingPeers,
+		MaxInboundRatio: c.P2P.MaxInboundRatio,
+		Port:            c.P2P.Port,
+		Database:        c.P2P.Datadir,
+		PrivateKey:      c.PrivateKey(),
+		//Protocols:nil,
+		BootNodes: c.P2P.BootNodes,
+		//KafKa:nil,
+	}
+}
+
+func (c *Config) BootNodes() []*discovery.Node {
+
+	if len(c.P2P.BootNodes) > 0 {
+		var nodes []*discovery.Node
+		for _, str := range c.P2P.BootNodes {
+			n, err := discovery.ParseNode(str)
+			if err == nil {
+				return append(nodes, n)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Config) PrivateKey() ed25519.PrivateKey {
+
+	if c.P2P.PrivateKey != "" {
+		privateKey, err := hex.DecodeString(c.P2P.PrivateKey)
+		if err == nil {
+			return ed25519.PrivateKey(privateKey)
+		}
+	}
+
+	return nil
 }
 
 // HTTPEndpoint resolves an HTTP endpoint based on the configured host interface

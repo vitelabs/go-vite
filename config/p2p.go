@@ -9,16 +9,16 @@ type P2P struct {
 	// `MaxPeers` is the maximum number of peers that can be connected.
 	MaxPeers uint `json:"MaxPeers"`
 
-	// `MaxPassivePeersRatio` is the ratio of MaxPeers that initiate an active connection to this node.
-	// the actual value is `MaxPeers / MaxPassivePeersRatio`
-	MaxPassivePeersRatio uint `json:"MaxPassivePeersRatio"`
+	// `MaxInboundRatio` is the ratio of MaxPeers that initiate an active connection to this node.
+	// the actual value is `MaxPeers / MaxInboundRatio`
+	MaxInboundRatio uint `json:"MaxInboundRatio"`
 
 	// `MaxPendingPeers` is the maximum number of peers that wait to connect.
-	MaxPendingPeers uint32 `json:"MaxPendingPeers"`
+	MaxPendingPeers uint `json:"MaxPendingPeers"`
 
 	BootNodes []string `json:"BootNodes"`
 
-	Addr string `json:"Addr"`
+	Port uint `json:"Port"`
 
 	Datadir string `json:"Datadir"`
 

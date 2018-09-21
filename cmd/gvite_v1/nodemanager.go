@@ -2,9 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/vitelabs/go-vite/cmd/utils"
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
@@ -61,7 +59,7 @@ func makeNodeConfig(ctx *cli.Context) *node.Config {
 
 	// Load config file.
 	if file := ctx.GlobalString(utils.ConfigFileFlag.Name); file != "" {
-		//TODO 注意Logger覆盖
+
 		if jsonConf, err := ioutil.ReadFile(file); err == nil {
 			err = json.Unmarshal(jsonConf, &cfg)
 			if err != nil {
@@ -103,13 +101,12 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.P2P.MaxPeers = ctx.GlobalUint(utils.MaxPeersFlag.Name)
 	}
 
-	// TODO p2p will use uint
 	if ctx.GlobalIsSet(utils.MaxPendingPeersFlag.Name) {
-		cfg.P2P.MaxPendingPeers = ctx.GlobalInt(utils.MaxPendingPeersFlag.Name)
+		cfg.P2P.MaxPendingPeers = ctx.GlobalUint(utils.MaxPendingPeersFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.ListenPortFlag.Name) {
-		cfg.P2P.Addr = fmt.Sprintf(":%d", ctx.GlobalInt(utils.ListenPortFlag.Name))
+		cfg.P2P.Port = ctx.GlobalUint(utils.ListenPortFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.NodeKeyHexFlag.Name) {
