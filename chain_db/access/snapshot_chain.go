@@ -2,10 +2,10 @@ package access
 
 import (
 	"encoding/binary"
-	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain_db/database"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -61,32 +61,10 @@ func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
 	defer iter.Release()
 
 	if !iter.Last() {
-		// TODO leveldb.ErrNotFound
-		return nil, errors.New("GetLatestBlock failed. Because the SnapshotChain has no block")
-	}
-
-	sb := &ledger.SnapshotBlock{}
-	sdErr := sb.DbDeserialize(iter.Value())
-
-	if sdErr != nil {
-		return nil, sdErr
-	}
-
-	sb.Hash = *getSnapshotBlockHash(iter.Key())
-
-	return sb, nil
-}
-
-// TODO genesis, 从代码里面取
-func (sc *SnapshotChain) GetGenesesBlock() (*ledger.SnapshotBlock, error) {
-	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK)
-
-	iter := sc.db.NewIterator(util.BytesPrefix(key), nil)
-	defer iter.Release()
-
-	if !iter.Next() {
-		// TODO leveldb.ErrNotFound
-		return nil, errors.New("GetGenesesBlock failed. Because the SnapshotChain has no block")
+		if err := iter.Error(); err != leveldb.ErrNotFound {
+			return nil, err
+		}
+		return nil, nil
 	}
 
 	sb := &ledger.SnapshotBlock{}
@@ -123,7 +101,11 @@ func (sc *SnapshotChain) GetSnapshotBlocks(height uint64, count uint64, forward,
 		startHeight = height
 		endHeight = height + count
 	} else {
-		startHeight = height - count + 1
+		if height > count {
+			startHeight = height - count
+		}
+		startHeight += 1
+
 		endHeight = height + 1
 	}
 
@@ -230,9 +212,9 @@ func (sc *SnapshotChain) DeleteToHeight(batch *leveldb.Batch, toHeight uint64) (
 
 	deleteList := make([]*ledger.SnapshotBlock, 0)
 
-	// TODO: Max height
-	endBlockKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK)
 	startBlockKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, toHeight)
+	endBlockKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, helper.MaxUint64)
+
 	iter := sc.db.NewIterator(&util.Range{Start: startBlockKey, Limit: endBlockKey}, nil)
 	defer iter.Release()
 

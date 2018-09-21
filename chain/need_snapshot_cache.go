@@ -3,50 +3,62 @@ package chain
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"sync"
 )
 
 type NeedSnapshotCache struct {
-	chain           *Chain
-	snapshotContent ledger.SnapshotContent
+	chain     *Chain
+	subLedger map[types.Address][]*ledger.AccountBlock
 
 	lock sync.Mutex
+	log  log15.Logger
 }
 
-func NewNeedSnapshotContent(chain *Chain) *NeedSnapshotCache {
-	return &NeedSnapshotCache{
-		chain:           chain,
-		snapshotContent: ledger.SnapshotContent{},
+func NewNeedSnapshotContent(chain *Chain, unconfirmedSubLedger map[types.Address][]*ledger.AccountBlock) *NeedSnapshotCache {
+	cache := &NeedSnapshotCache{
+		chain:     chain,
+		subLedger: unconfirmedSubLedger,
+		log:       log15.New("module", "chain/NeedSnapshotCache"),
 	}
+
+	return cache
 }
 
-func (cache *NeedSnapshotCache) Add(addr *types.Address, accountBlockHeight uint64, accountBlockHash *types.Hash) {
+func (cache *NeedSnapshotCache) Get(addr *types.Address) []*ledger.AccountBlock {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+	return cache.subLedger[*addr]
+}
+
+func (cache *NeedSnapshotCache) Add(addr *types.Address, accountBlock *ledger.AccountBlock) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 
-	// TODO log error
-	if cachedSnapshotContentItem := cache.snapshotContent[*addr]; cachedSnapshotContentItem != nil && cachedSnapshotContentItem.AccountBlockHeight >= accountBlockHeight {
+	if cachedChain := cache.subLedger[*addr]; cachedChain != nil && cachedChain[len(cachedChain)-1].Height >= accountBlock.Height {
+		cache.log.Error("Can't add", "method", "Add")
 		return
 	}
 
-	snapshotContentItem := &ledger.SnapshotContentItem{
-		AccountBlockHeight: accountBlockHeight,
-		AccountBlockHash:   *accountBlockHash,
-	}
-
-	cache.snapshotContent[*addr] = snapshotContentItem
+	cache.subLedger[*addr] = append(cache.subLedger[*addr], accountBlock)
 }
 
 func (cache *NeedSnapshotCache) Remove(addr *types.Address, height uint64) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
-	cachedSnapshotContentItem := cache.snapshotContent[*addr]
-	// TODO log error
-	if cachedSnapshotContentItem == nil {
+	cachedChain := cache.subLedger[*addr]
+	if cachedChain == nil {
+		cache.log.Error("Can't remove", "method", "Remove")
 		return
 	}
 
-	if cachedSnapshotContentItem.AccountBlockHeight <= height {
-		delete(cache.snapshotContent, *addr)
+	var deletedIndex = -1
+	for index, item := range cachedChain {
+		if item.Height > height {
+			break
+		}
+		deletedIndex = index
 	}
+	cachedChain = cachedChain[deletedIndex+1:]
+	cache.subLedger[*addr] = cachedChain
 }

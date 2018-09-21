@@ -55,7 +55,7 @@ func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 		}
 		registration := new(Registration)
 		ABIRegister.UnpackVariable(registration, VariableNameRegistration, value)
-		if registration.CancelHeight == 0 {
+		if registration.IsActive() {
 			registerList = append(registerList, registration)
 		}
 	}
@@ -88,7 +88,7 @@ func GetPledgeAmount(db StorageDatabase, beneficial types.Address) *big.Int {
 	return big.NewInt(0)
 }
 
-func GetConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
+func GetActiveConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 	iterator := db.NewStorageIterator(nil)
 	consensusGroupInfoList := make([]*ConsensusGroupInfo, 0)
 	for {
@@ -98,8 +98,10 @@ func GetConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 		}
 		consensusGroupInfo := new(ConsensusGroupInfo)
 		ABIConsensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value)
-		consensusGroupInfo.Gid = GetGidFromConsensusGroupKey(key)
-		consensusGroupInfoList = append(consensusGroupInfoList, consensusGroupInfo)
+		if consensusGroupInfo.IsActive() {
+			consensusGroupInfo.Gid = GetGidFromConsensusGroupKey(key)
+			consensusGroupInfoList = append(consensusGroupInfoList, consensusGroupInfo)
+		}
 	}
 	return consensusGroupInfoList
 }
