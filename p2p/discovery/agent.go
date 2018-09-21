@@ -321,49 +321,49 @@ func (d *agent) readLoop() {
 		case <-d.term:
 			return
 		default:
-			n, addr, err := d.conn.ReadFromUDP(buf)
+		}
 
-			if err != nil {
-				discvLog.Error(fmt.Sprintf("udp read error %v", err))
+		n, addr, err := d.conn.ReadFromUDP(buf)
 
-				if err, ok := err.(net.Error); ok && err.Temporary() {
-					if tempDelay == 0 {
-						tempDelay = 5 * time.Millisecond
-					} else {
-						tempDelay *= 2
-					}
+		if err != nil {
+			discvLog.Error(fmt.Sprintf("udp read error %v", err))
 
-					if tempDelay > maxDelay {
-						tempDelay = maxDelay
-					}
-
-					discvLog.Info(fmt.Sprintf("udp read tempError, wait %d Millisecond", tempDelay))
-
-					time.Sleep(tempDelay)
-
-					continue
+			if err, ok := err.(net.Error); ok && err.Temporary() {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
 				}
 
-				return
-			}
+				if tempDelay > maxDelay {
+					tempDelay = maxDelay
+				}
 
-			tempDelay = 0
+				discvLog.Info(fmt.Sprintf("udp read tempError, wait %d Millisecond", tempDelay))
 
-			p, err := unPacket(buf[:n])
-			if err != nil {
-				discvLog.Error(fmt.Sprintf("unpack message from %s error: %v", addr, err))
-				go d.send(addr, exceptionCode, &Exception{
-					Code: eCannotUnpack,
-				})
+				time.Sleep(tempDelay)
+
 				continue
 			}
 
-			monitor.LogEvent("p2p/discv", "msg")
-
-			p.from = addr
-
-			go d.pktHandler(p)
+			return
 		}
+
+		tempDelay = 0
+
+		p, err := unPacket(buf[:n])
+		if err != nil {
+			discvLog.Error(fmt.Sprintf("unpack message from %s error: %v", addr, err))
+			go d.send(addr, exceptionCode, &Exception{
+				Code: eCannotUnpack,
+			})
+			continue
+		}
+
+		monitor.LogEvent("p2p/discv", "msg")
+
+		p.from = addr
+		go d.pktHandler(p)
 	}
 }
 

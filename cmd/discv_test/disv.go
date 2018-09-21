@@ -52,7 +52,7 @@ func main() {
 	var priv ed25519.PrivateKey
 
 	if p2pCfg.PrivateKey != "" {
-		priv, err := hex.DecodeString(p2pCfg.PrivateKey)
+		priv, err = hex.DecodeString(p2pCfg.PrivateKey)
 		if err == nil {
 			priv = ed25519.PrivateKey(priv)
 		}

@@ -131,22 +131,23 @@ func (d *Discovery) keepTable() {
 
 func (d *Discovery) findNode(to *Node, target NodeID) (nodes []*Node, err error) {
 	// if the last ping-pong checked has too long, then do ping-pong check again
-	if !d.db.hasChecked(to.ID) {
-		err = d.agent.ping(to)
-		if err != nil {
-			discvLog.Error(fmt.Sprintf("ping %s before find %s error: %v\n", to.UDPAddr(), target, err))
-			return
-		} else {
-			discvLog.Info(fmt.Sprintf("ping %s before find %s done", to.UDPAddr(), target))
-		}
-
-		d.agent.wait(to.ID, pingCode, func(Message) bool {
-			return true
-		})
-	}
+	//if !d.db.hasChecked(to.ID) {
+	//	err = d.agent.ping(to)
+	//	if err != nil {
+	//		discvLog.Error(fmt.Sprintf("ping %s before find %s error: %v\n", to.UDPAddr(), target, err))
+	//		return
+	//	} else {
+	//		discvLog.Info(fmt.Sprintf("ping %s before find %s done", to.UDPAddr(), target))
+	//	}
+	//
+	//	d.agent.wait(to.ID, pingCode, func(Message) bool {
+	//		return true
+	//	})
+	//}
 
 	nodes, err = d.agent.findnode(to, target)
 	findFails := d.db.getFindNodeFails(to.ID)
+
 	if err != nil || len(nodes) == 0 {
 		findFails++
 		d.db.setFindNodeFails(to.ID, findFails)
@@ -212,6 +213,7 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 			if _, ok := asked[n.ID]; !ok {
 				asked[n.ID] = struct{}{}
 				go func() {
+					fmt.Println("send find")
 					nodes, _ := d.findNode(n, id)
 					reply <- nodes
 				}()
@@ -231,10 +233,11 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 				}
 			}
 		}
+		fmt.Println("got replay")
 
 		queries--
 	}
-
+fmt.Println("look done")
 	return result.nodes
 }
 
@@ -296,9 +299,9 @@ func (d *Discovery) HandleMsg(res *packet) error {
 	case findnodeCode:
 		monitor.LogEvent("p2p/discv", "find-receive")
 
-		if !d.db.hasChecked(res.fromID) {
-			return errUnsolicitedMsg
-		}
+		//if !d.db.hasChecked(res.fromID) {
+		//	return errUnsolicitedMsg
+		//}
 
 		findMsg, ok := res.msg.(*FindNode)
 		if !ok {
@@ -315,7 +318,12 @@ func (d *Discovery) HandleMsg(res *packet) error {
 
 		d.agent.sendNeighbors(node, nodes)
 	case neighborsCode:
-		discvLog.Info(fmt.Sprintf("receive %s from %s@%s", res.code, res.fromID, res.from))
+		n, ok := res.msg.(*Neighbors)
+
+		if ok {
+			discvLog.Info(fmt.Sprintf("receive %d %s from %s@%s", len(n.Nodes), res.code, res.fromID, res.from))
+		}
+
 		monitor.LogEvent("p2p/discv", "neighbors-receive")
 
 		if !d.agent.need(res) {
