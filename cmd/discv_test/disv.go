@@ -5,11 +5,10 @@ import (
 	"flag"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/discovery"
 	"log"
 	"net"
 	_ "net/http/pprof"
-	"time"
 )
 
 func parseConfig() *config.Config {
@@ -34,47 +33,51 @@ func main() {
 
 	p2pCfg := parsedConfig.P2P
 
-	addr, _ := net.ResolveTCPAddr("tcp", p2pCfg.Addr)
+	addr, _ := net.ResolveUDPAddr("udp", p2pCfg.Addr)
 
-	cfg := p2p.Config{
-		Name:            p2pCfg.Name,
-		NetID:           p2p.NetworkID(p2pCfg.NetID),
-		MaxPeers:        p2pCfg.MaxPeers,
-		MaxPendingPeers: uint(p2pCfg.MaxPendingPeers),
-		MaxInboundRatio: p2pCfg.MaxPassivePeersRatio,
-		Port:            uint(addr.Port),
-		Database:        p2pCfg.Datadir,
-		PrivateKey:      nil,
-		Protocols: []*p2p.Protocol{
-			{
-				Name: "p2p-test",
-				// use for message command set, should be unique
-				ID: 1,
-				// read and write Msg with rw
-				Handle: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
-					for {
-						time.Sleep(time.Hour)
-					}
-					return nil
-				},
-			},
-		},
-		BootNodes: p2pCfg.BootNodes,
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	var nodes []*discovery.Node
+	for _, str := range p2pCfg.BootNodes {
+		n, err := discovery.ParseNode(str)
+		if err == nil {
+			nodes = append(nodes, n)
+		}
+	}
+
+
+	var priv ed25519.PrivateKey
 
 	if p2pCfg.PrivateKey != "" {
 		priv, err := hex.DecodeString(p2pCfg.PrivateKey)
 		if err == nil {
-			cfg.PrivateKey = ed25519.PrivateKey(priv)
+			priv = ed25519.PrivateKey(priv)
 		}
+	} else {
+		log.Fatal("privateKey is nil")
 	}
 
-	svr := p2p.New(cfg)
+	ID, _ := discovery.Priv2NodeID(priv)
 
-	err := svr.Start()
-	if err != nil {
-		log.Fatal(err)
+	discvCfg := &discovery.Config{
+		Priv:      priv,
+		DBPath:    "",
+		BootNodes: nodes,
+		Conn:      conn,
+		Self:      &discovery.Node{
+			ID:  ID,
+			IP:  addr.IP,
+			UDP: uint16(addr.Port),
+			TCP: uint16(addr.Port),
+		},
 	}
+
+	svr := discovery.New(discvCfg)
+
+	svr.Start()
 
 	//err = http.ListenAndServe("localhost:6060", nil)
 	//if err != nil {
