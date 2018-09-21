@@ -212,11 +212,11 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 			n := result.nodes[i]
 			if _, ok := asked[n.ID]; !ok {
 				asked[n.ID] = struct{}{}
-				go func() {
+				go func(n *Node) {
 					fmt.Println("send find")
 					nodes, _ := d.findNode(n, id)
 					reply <- nodes
-				}()
+				}(n)
 				queries++
 			}
 		}
