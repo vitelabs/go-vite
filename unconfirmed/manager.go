@@ -32,8 +32,12 @@ type Manager struct {
 	commonTxWorkers map[types.Address]*AutoReceiveWorker
 	contractWorkers map[types.Gid]*ContractWorker
 
-	unlockLid   int
-	netStateLid int
+	unlockLid       int
+	netStateLid     int
+	writeOnRoadLid  uint64
+	deleteOnRoadLid uint64
+	writeSuccLid    uint64
+	deleteSuccLid   uint64
 
 	log log15.Logger
 }
@@ -56,6 +60,12 @@ func (manager *Manager) InitAndStartWork() {
 	manager.netStateLid = manager.vite.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
 	manager.unlockLid = manager.keystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
 	manager.vite.Producer().SetAccountEventFunc(manager.producerStartEventFunc)
+
+	// fixme
+	//manager.writeSuccLid = manager.vite.Chain().RegisterInsertAccountBlocksSuccess()
+	//manager.deleteSuccLid = manager.vite.Chain().RegisterDeleteAccountBlocksSuccess(processor processorFunc()
+	manager.writeOnRoadLid = manager.vite.Chain().RegisterInsertAccountBlocks(manager.unconfirmedBlocksPool.WriteUnconfirmed)
+	manager.deleteOnRoadLid = manager.vite.Chain().RegisterDeleteAccountBlocks(manager.unconfirmedBlocksPool.DeleteUnconfirmed)
 }
 
 func (manager *Manager) stopAllWorks() {
@@ -101,6 +111,12 @@ func (manager *Manager) Close() error {
 	manager.vite.Net().UnsubscribeSyncStatus(manager.netStateLid)
 	manager.keystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
 	manager.vite.Producer().SetAccountEventFunc(nil)
+
+	// fixme
+	manager.vite.Chain().UnRegister(manager.writeOnRoadLid)
+	manager.vite.Chain().UnRegister(manager.deleteOnRoadLid)
+	//manager.vite.Chain().UnRegister(manager.writeSuccLid)
+	//manager.vite.Chain().UnRegister(manager.deleteSuccLid)
 
 	manager.stopAllWorks()
 	manager.log.Info("close end")

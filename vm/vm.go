@@ -25,10 +25,12 @@ type VM struct {
 
 	abort     int32
 	blockList []*vm_context.VmAccountBlock
+
+	i *Interpreter
 }
 
 func NewVM() *VM {
-	return &VM{}
+	return &VM{i: simpleInterpreter}
 }
 
 func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
@@ -276,7 +278,7 @@ func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract) (ret []byte, err error) {
 	code := c.block.VmContext.GetContractCode(&contractAddr)
 	if len(code) > 0 {
-		cNew := c.copyContract()
+		cNew := newContract(c.caller, c.address, c.block, c.quotaLeft, c.quotaRefund)
 		cNew.setCallCode(contractAddr, code)
 		ret, err = cNew.run(vm)
 		c.quotaLeft, c.quotaRefund = cNew.quotaLeft, cNew.quotaRefund
@@ -286,7 +288,8 @@ func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract)
 }
 
 func (vm *VM) calcCreateQuota(fee *big.Int) uint64 {
-	quota := new(big.Int).Div(fee, quotaByCreateFeeAttov)
+	// TODO calc create fee
+	quota := new(big.Int).Div(fee, quotaByPledge)
 	if quota.IsUint64() {
 		return helper.Min(quotaLimitForTransaction, quota.Uint64())
 	}
@@ -294,8 +297,13 @@ func (vm *VM) calcCreateQuota(fee *big.Int) uint64 {
 }
 
 func (vm *VM) quotaLeft(block *vm_context.VmAccountBlock) (uint64, uint64) {
-	// quotaInit = pledge amount of account address at current snapshot block status(attov) / quotaByPledge
-	// get extra quota if calc PoW before a send transaction
+	// quotaInit = (pledge amount of account address at current snapshot status / quotaByPledge)
+	// 				* snapshot height gap between current block and prevBlock
+	// 				- quota used by prevBlock referring to the same snapshot
+	// quotaByPledge is within a range decided by net congestion
+	// user account gets extra quota to send or receive a transfer transaction without data if calc PoW
+	// contract account has a quota limit decided by consensus group
+	// TODO calc quota
 	quotaInit := helper.Min(new(big.Int).Div(contracts.GetPledgeAmount(block.VmContext, block.AccountBlock.AccountAddress), quotaByPledge).Uint64(), quotaLimit)
 	quotaAddition := uint64(0)
 	if len(block.AccountBlock.Nonce) > 0 {
@@ -378,7 +386,7 @@ func (vm *VM) getNewBlockHeight(block *vm_context.VmAccountBlock) uint64 {
 }
 
 func calcContractFee(data []byte) (*big.Int, error) {
-	return contractFee, nil
+	return createContractFee, nil
 }
 
 func quotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {

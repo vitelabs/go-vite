@@ -246,8 +246,13 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	db.balanceMap[addr1][ledger.ViteTokenId] = new(big.Int).Set(viteTotalSupply)
 
 	db.storageMap[contracts.AddressConsensusGroup] = make(map[types.Hash][]byte)
+<<<<<<< HEAD
+	consensusGroupKey, _ := types.BytesToHash(contracts.GetConsensusGroupKey(ledger.CommonGid()))
+	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey], _ = contracts.ABI_consensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+=======
 	consensusGroupKey, _ := types.BytesToHash(contracts.GetConsensusGroupKey(*ledger.CommonGid()))
 	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey], _ = contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+>>>>>>> b3d8be3b9a26d79ad12032363c37207c6b3a7d95
 		uint8(25),
 		int64(3),
 		uint8(0),
@@ -255,7 +260,10 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		uint8(0),
 		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), attovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600*24*90).Bytes(), helper.WordSize)),
 		uint8(0),
-		[]byte{})
+		[]byte{},
+		addr1,
+		big.NewInt(0),
+		timestamp+createConsensusGroupPledgeTime)
 	db.storageMap[contracts.AddressPledge] = make(map[types.Hash][]byte)
 	db.storageMap[contracts.AddressPledge][types.DataHash(addr1.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	return

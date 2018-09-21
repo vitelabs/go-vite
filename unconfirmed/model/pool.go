@@ -5,8 +5,11 @@ import (
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"sync"
 	"time"
 )
@@ -49,7 +52,7 @@ func NewUnconfirmedBlocksPool(dbAccess *UAccess) *UnconfirmedBlocksPool {
 }
 
 func (p *UnconfirmedBlocksPool) GetAddrListByGid(gid types.Gid) (addrList []*types.Address, err error) {
-	return p.dbAccess.GetAddrListByGid(&gid)
+	return p.dbAccess.GetContractAddrListByGid(&gid)
 }
 
 func (p *UnconfirmedBlocksPool) Close() error {
@@ -205,20 +208,24 @@ func (p *UnconfirmedBlocksPool) DeleteFullCache(address types.Address) {
 }
 
 // todo support batch
-func (p *UnconfirmedBlocksPool) WriteUnconfirmed(writeType bool, batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	p.log.Info("WriteUnconfirmed ", "writeType", writeType)
+func (p *UnconfirmedBlocksPool) WriteUnconfirmed(batch *leveldb.Batch, blockList []*vm_context.VmAccountBlock) error {
+	p.log.Info("WriteUnconfirmed ")
 
-	if writeType {
-		if err := p.dbAccess.writeUnconfirmedMeta(batch, block); err != nil {
+	for _, v := range blockList {if v.AccountBlock.IsSendBlock() {
+		if err := p.dbAccess.writeUnconfirmedMeta(batch, v.AccountBlock); err != nil {
 			p.log.Error("writeUnconfirmedMeta", "error", err)
 			return err
-		}
-		// todo
-		p.NewSignalToWorker(block)
-	} else { // delete
-		if err := p.dbAccess.deleteUnconfirmedMeta(batch, block); err != nil {
+		}// add the gid-contractAddrList relationship
+			var unsavedCache vmctxt_interface.UnsavedCache
+			unsavedCache = v.VmContext.UnsavedCache()
+			gidList := unsavedCache.ContractGidList()
+			for _, v := range gidList {
+		// todop.dbAccess.WriteContractAddrToGid(batch, *v.Gid(), *v.Addr())
+			}
+	} else {
+		if err := p.dbAccess.deleteUnconfirmedMeta(batch, v.AccountBlock); err != nil {
 			p.log.Error("deleteUnconfirmedMeta", "error", err)
-			return err
+			return err}
 		}
 	}
 	// todo 确认写好之后 再更新
@@ -226,11 +233,33 @@ func (p *UnconfirmedBlocksPool) WriteUnconfirmed(writeType bool, batch *leveldb.
 	return nil
 }
 
-func (p *UnconfirmedBlocksPool) RevertUnconfirmed(writeType bool, batch *leveldb.Batch, blockList []*ledger.AccountBlock) error {
-	// todo
-	for _, v := range blockList {
-		if err := p.dbAccess.revertUnconfirmedMeta(writeType, batch, v); err != nil {
-			return err
+// DeleteUnRoad means to revert according to bifurcation
+func (p *UnconfirmedBlocksPool) DeleteUnconfirmed(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
+	p.log.Info("DeleteUnconfirmed: revert")
+	for _, blockList := range subLedger {
+		for _, v := range blockList {
+			if v.IsReceiveBlock() {
+				sendBlock, err := p.dbAccess.Chain.GetAccountBlockByHash(&v.FromBlockHash)
+				if err != nil {
+					p.log.Error("GetAccountBlockByHash", "error", err)
+					return err
+				}
+				if err := p.dbAccess.writeUnconfirmedMeta(batch, sendBlock); err != nil {
+					p.log.Error("revert receiveBlock failed", "error", err)
+					return err
+				}
+			} else {
+				if err := p.dbAccess.deleteUnconfirmedMeta(batch, v); err != nil {
+					p.log.Error("revert sendBlock failed", "error", err)
+					return err
+				}
+
+				// delete the gid-contractAddrList relationship
+				gidList := contracts.GetGidFromCreateContractData(v.Data)
+				for _, v := range gidList {
+					p.dbAccess.DeleteContractAddrFromGid(batch, *v.Gid(), *v.Addr())
+				}
+			}
 		}
 	}
 	return nil

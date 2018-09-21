@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
@@ -29,37 +30,41 @@ func NewUAccess(chain *chain.Chain, dataDir string) *UAccess {
 	return uAccess
 }
 
-func (access *UAccess) GetAddrListByGid(gid *types.Gid) (addrList []*types.Address, err error) {
+func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) (addrList []*types.Address, err error) {
 	return access.store.GetContractAddrList(gid)
 }
 
-func (access *UAccess) WriteGidAddList(gid *types.Gid, address types.Address) error {
+func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid types.Gid, address types.Address) error {
 	var addrList []*types.Address
 	var err error
 
-	addrList, err = access.GetAddrListByGid(gid)
+	addrList, err = access.GetContractAddrListByGid(&gid)
 	if addrList == nil && err != nil {
 		access.log.Error("GetMeta", "error", err)
 		return err
 	} else {
 		addrList = append(addrList, &address)
-		return access.store.WriteGidAddrList(gid, addrList)
+		return access.store.WriteGidAddrList(batch, &gid, addrList)
 	}
 }
 
-func (access *UAccess) WriteAddrsToGid(gid *types.Gid, addrs []*types.Address) (err error) {
+func (access *UAccess) DeleteContractAddrFromGid(batch *leveldb.Batch, gid types.Gid, address types.Address) error {
 	var addrList []*types.Address
-	addrList, err = access.GetAddrListByGid(gid)
-	if err != nil {
-		access.log.Error("GetAddrListByGid", "error", err)
+	var err error
+
+	addrList, err = access.GetContractAddrListByGid(&gid)
+	if addrList == nil || err != nil {
+		access.log.Error("GetContractAddrListByGid", "error", err)
 		return err
+	} else {
+		for k, v := range addrList {
+			if bytes.Equal(v.Bytes(), address.Bytes()) {
+				addrList = append(addrList[0:k-1], addrList[k+1:]...)
+				break
+			}
+		}
+		return access.store.WriteGidAddrList(batch, &gid, addrList)
 	}
-	addrList = append(addrList, addrs...)
-	if err = access.store.WriteGidAddrList(gid, addrList); err != nil {
-		access.log.Error("WriteGidAddrList", "error", err)
-		return err
-	}
-	return nil
 }
 
 func (access *UAccess) writeUnconfirmedMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
@@ -68,35 +73,44 @@ func (access *UAccess) writeUnconfirmedMeta(batch *leveldb.Batch, block *ledger.
 
 	value, err := access.store.GetMeta(addr, hash)
 	if value == nil {
+		// the commonSend add func
 		if err != nil {
 			access.log.Error("GetMeta", "error", err)
 			return err
-		} else {
-			return access.store.WriteMeta(batch, addr, hash, 0)
 		}
+		return access.store.WriteMeta(batch, addr, hash, 0)
 	} else {
+		// add the revert recvblock's sendBlock
 		count := uint8(value[0])
-		if count >= 3 {
-			if err := access.store.DeleteMeta(batch, addr, hash); err != nil {
-				return err
-			}
-			return nil
-		} else {
-			count++
+		if count > 0 {
+			count--
 			return access.store.WriteMeta(batch, addr, hash, count)
 		}
+		return nil
 	}
 }
 
+// only to delete the exist sendBlock, including the received-incorrect block and th correct block
 func (access *UAccess) deleteUnconfirmedMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
-	if err = access.store.DeleteMeta(batch, &block.ToAddress, &block.Hash); err != nil {
-		access.log.Error("DeleteMeta", "error", err)
-	}
-	return nil
-}
+	addr := &block.ToAddress
+	hash := &block.FromBlockHash
 
-func (access *UAccess) revertUnconfirmedMeta(writeType bool, batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	// todo
+	value, err := access.store.GetMeta(addr, hash)
+	if value == nil {
+		access.log.Error("can't find the corresponding sendBlock")
+		return err
+	}
+	count := uint8(value[0])
+	if count >= 3 {
+		if err := access.store.DeleteMeta(batch, addr, hash); err != nil {
+			access.log.Error("DeleteMeta", "error", err)
+			return err
+		}
+		return nil
+	} else {
+		count++
+		return access.store.WriteMeta(batch, addr, hash, count)
+	}
 	return nil
 }
 

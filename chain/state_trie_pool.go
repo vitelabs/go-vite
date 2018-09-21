@@ -30,7 +30,6 @@ func (pool *StateTriePool) Set(address *types.Address, trie *trie.Trie) {
 	pool.unsafeSet(address, trie)
 }
 
-// TODO: Map can't read an write in the same time
 func (pool *StateTriePool) Get(address *types.Address) (*trie.Trie, error) {
 	pool.setLock.Lock()
 	defer pool.setLock.Unlock()
