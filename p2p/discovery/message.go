@@ -288,7 +288,7 @@ func (n *Neighbors) deserialize(buf []byte) (err error) {
 
 	for _, npb := range pb.Nodes {
 		node, err := protoToNode(npb)
-		if err != nil {
+		if err == nil {
 			nodes = append(nodes, node)
 		}
 	}
