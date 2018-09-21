@@ -236,31 +236,31 @@ func (p *UnconfirmedBlocksPool) WriteUnconfirmed(batch *leveldb.Batch, blockList
 }
 
 // DeleteUnRoad means to revert according to bifurcation
-func (p *UnconfirmedBlocksPool) DeleteUnconfirmed(batch *leveldb.Batch, blockList []*ledger.AccountBlock) error {
+func (p *UnconfirmedBlocksPool) DeleteUnconfirmed(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
 	p.log.Info("DeleteUnconfirmed: revert")
+	for _, blockList := range subLedger {
+		for _, v := range blockList {
+			if v.IsReceiveBlock() {
+				sendBlock, err := p.dbAccess.Chain.GetAccountBlockByHash(&v.FromBlockHash)
+				if err != nil {
+					p.log.Error("GetAccountBlockByHash", "error", err)
+					return err
+				}
+				if err := p.dbAccess.writeUnconfirmedMeta(batch, sendBlock); err != nil {
+					p.log.Error("revert receiveBlock failed", "error", err)
+					return err
+				}
+			} else {
+				if err := p.dbAccess.deleteUnconfirmedMeta(batch, v); err != nil {
+					p.log.Error("revert sendBlock failed", "error", err)
+					return err
+				}
 
-	for _, v := range blockList {
-		if v.IsReceiveBlock() {
-			sendBlock, err := p.dbAccess.Chain.GetAccountBlockByHash(&v.FromBlockHash)
-			if err != nil {
-				p.log.Error("GetAccountBlockByHash", "error", err)
-				return err
-			}
-			if err := p.dbAccess.writeUnconfirmedMeta(batch, sendBlock); err != nil {
-				p.log.Error("revert receiveBlock failed", "error", err)
-				return err
-			}
-			return nil
-		} else {
-			if err := p.dbAccess.deleteUnconfirmedMeta(batch, v); err != nil {
-				p.log.Error("revert sendBlock failed", "error", err)
-				return err
-			}
-
-			// delete the gid-contractAddrList relationship
-			gidList := contracts.GetGidFromCreateContractData(v.Data)
-			for _, v := range gidList {
-				p.dbAccess.DeleteContractAddrFromGid(batch, *v.Gid(), *v.Addr())
+				// delete the gid-contractAddrList relationship
+				gidList := contracts.GetGidFromCreateContractData(v.Data)
+				for _, v := range gidList {
+					p.dbAccess.DeleteContractAddrFromGid(batch, *v.Gid(), *v.Addr())
+				}
 			}
 		}
 	}
