@@ -10,10 +10,11 @@ import (
 	"testing"
 	"time"
 	"bytes"
+	"golang.org/x/crypto/blake2b"
 )
 
 func TestGetPowNonce(t *testing.T) {
-	N := 5
+	N := 200
 	data := crypto.Hash256([]byte{1})
 	timeList := make([]int64, N)
 	for i := 0; i < N; i++ {
@@ -72,3 +73,11 @@ func TestQuickInc(t *testing.T) {
 		assert.Equal(t, v.expect, bytes.Equal(t1, v.target))
 	}
 }
+
+func TestHash256(t *testing.T) {
+	hash2561 := blake2b.Sum256([]byte{1, 2, 1, 3})
+	sum256 := crypto.Hash256([]byte{1, 2}, []byte{1, 3})
+	assert.Equal(t, hash2561[:], sum256[:])
+	assert.Equal(t, crypto.Hash256([]byte{1, 2}, []byte{1, 3}), sum256[:])
+}
+
