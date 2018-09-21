@@ -29,15 +29,39 @@ type wait struct {
 	handle     waitIsDone
 	expiration time.Time
 	errch      chan error
-	next       *wait
+	next *wait
 }
 
-func (n *wait) traverse(fn func(prev, current *wait)) {
-	prev, current := n, n.next
+type wtList struct {
+	*wait
+	tail *wait
+	count int
+}
 
-	for current != nil {
+func newWtList() *wtList {
+	head := &wait{}
+	return &wtList{
+		wait: head,
+		tail: head,
+	}
+}
+
+func (n *wtList) append(w *wait) {
+	n.tail.next =w
+	n.tail = w
+	n.count++
+}
+
+func (n *wtList) remove(prev, current *wait) {
+	prev.next = current.next
+	if current.next == nil {
+		n.tail = prev
+	}
+	n.count--
+}
+func (n *wtList) traverse(fn func(prev, current *wait)) {
+	for prev, current := n.wait, n.wait.next; current != nil; prev, current = current, current.next {
 		fn(prev, current)
-		prev, current = current, current.next
 	}
 }
 
@@ -48,54 +72,51 @@ type res struct {
 	matched chan bool
 }
 
-type wtList struct {
-	list  *wait
-	count int
+type wtPool struct {
+	list  *wtList
 	add   chan *wait
 	rec   chan *res
 }
 
-func newWtList() *wtList {
-	return &wtList{
-		list: new(wait),
+func newWtPool() *wtPool {
+	return &wtPool{
+		list: newWtList(),
 		add:  make(chan *wait),
 		rec:  make(chan *res),
 	}
 }
 
-func (wtl *wtList) loop(stop <-chan struct{}) {
+func (p *wtPool) loop(stop <-chan struct{}) {
 	checkTicker := time.NewTicker(watingTimeout)
 	defer checkTicker.Stop()
 
 	for {
 		select {
 		case <-stop:
-			wtl.list.traverse(func(_, wt *wait) {
+			p.list.traverse(func(_, wt *wait) {
 				wt.errch <- errStopped
 			})
 			return
-		case w := <-wtl.add:
-			wtl.list.next = w
-			wtl.count++
-		case r := <-wtl.rec:
-			wtl.handle(r)
+		case w := <-p.add:
+			p.list.append(w)
+		case r := <-p.rec:
+			p.handle(r)
 		case <-checkTicker.C:
-			wtl.clean()
+			p.clean()
 		}
 	}
 }
 
-func (wtl *wtList) handle(rs *res) {
+func (p *wtPool) handle(rs *res) {
 	matched := false
-	wtl.list.traverse(func(prev, current *wait) {
+	p.list.traverse(func(prev, current *wait) {
 		if current.expectFrom == rs.from && current.expectCode == rs.code {
 			matched = true
 
 			if current.handle(rs.data) {
 				current.errch <- nil
 				// remove current wait from list
-				prev.next = current.next
-				wtl.count--
+				p.list.remove(prev, current)
 			}
 		}
 	})
@@ -103,14 +124,13 @@ func (wtl *wtList) handle(rs *res) {
 	rs.matched <- matched
 }
 
-func (wtl *wtList) clean() {
+func (p *wtPool) clean() {
 	now := time.Now()
-	wtl.list.traverse(func(prev, current *wait) {
+	p.list.traverse(func(prev, current *wait) {
 		if current.expiration.Before(now) {
 			current.errch <- errWaitOvertime
 			// remove current wait from list
-			prev.next = current.next
-			wtl.count--
+			p.list.remove(prev, current)
 		}
 	})
 }
@@ -123,7 +143,7 @@ type agent struct {
 	term       chan struct{}
 	running    int32 // atomic
 	pktHandler func(*packet) error
-	wtl        *wtList
+	pool        *wtPool
 	wg         sync.WaitGroup
 }
 
@@ -137,7 +157,7 @@ func (d *agent) start() {
 
 	d.wg.Add(1)
 	go func() {
-		d.wtl.loop(d.term)
+		d.pool.loop(d.term)
 		d.wg.Done()
 	}()
 
@@ -293,7 +313,7 @@ func (d *agent) wait(ID NodeID, code packetCode, handle waitIsDone) error {
 	errch := make(chan error, 1)
 
 	select {
-	case d.wtl.add <- &wait{
+	case d.pool.add <- &wait{
 		expectFrom: ID,
 		expectCode: code,
 		handle:     handle,
@@ -315,7 +335,7 @@ func (d *agent) readLoop() {
 
 	var tempDelay time.Duration
 	var maxDelay = time.Second
-
+fmt.Println("readloop")
 	for {
 		select {
 		case <-d.term:
@@ -397,7 +417,7 @@ func (d *agent) need(p *packet) bool {
 	select {
 	case <-d.term:
 		return false
-	case d.wtl.rec <- &res{
+	case d.pool.rec <- &res{
 		from:    p.fromID,
 		code:    p.code,
 		data:    p.msg,

@@ -213,7 +213,6 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 			if _, ok := asked[n.ID]; !ok {
 				asked[n.ID] = struct{}{}
 				go func(n *Node) {
-					fmt.Println("send find")
 					nodes, _ := d.findNode(n, id)
 					reply <- nodes
 				}(n)
@@ -225,7 +224,9 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 			break
 		}
 
-		for _, n := range <-reply {
+		nodes := <- reply
+		queries--
+		for _, n := range nodes {
 			if n != nil {
 				if _, ok := hasPushedIntoResult[n.ID]; !ok {
 					hasPushedIntoResult[n.ID] = struct{}{}
@@ -233,11 +234,8 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 				}
 			}
 		}
-		fmt.Println("got replay")
-
-		queries--
 	}
-fmt.Println("look done")
+
 	return result.nodes
 }
 
@@ -369,6 +367,7 @@ func (d *Discovery) RefreshTable() {
 	atomic.CompareAndSwapInt32(&d.refreshing, 1, 0)
 	close(d.refreshDone)
 	d.refreshDone = make(chan struct{})
+	discvLog.Info("refresh table done")
 }
 
 func (d *Discovery) loadInitNodes() {
@@ -402,7 +401,7 @@ func New(cfg *Config) *Discovery {
 		priv:       cfg.Priv,
 		term:       make(chan struct{}),
 		pktHandler: d.HandleMsg,
-		wtl:        newWtList(),
+		pool:        newWtPool(),
 	}
 
 	return d
