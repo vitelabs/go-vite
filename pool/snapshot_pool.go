@@ -72,6 +72,7 @@ func (self *snapshotPool) init(
 }
 
 func (self *snapshotPool) loopCheckFork() {
+	self.wg.Add(1)
 	defer self.wg.Done()
 	for {
 		select {
@@ -131,6 +132,7 @@ func (self *snapshotPool) snapshotFork(longest Chain, current Chain) error {
 }
 
 func (self *snapshotPool) loop() {
+	self.wg.Add(1)
 	defer self.wg.Done()
 	for {
 		select {
@@ -218,9 +220,7 @@ L:
 	return nil, nil
 }
 func (self *snapshotPool) Start() {
-	self.wg.Add(1)
 	go self.loop()
-	self.wg.Add(1)
 	go self.loopCheckFork()
 	log.Info("snapshot_pool[%s] started.", self.Id)
 }

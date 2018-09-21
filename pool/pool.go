@@ -92,12 +92,13 @@ type pool struct {
 	acMu    sync.Mutex
 	version *ForkVersion
 
-	closed chan struct{}
-	wg     sync.WaitGroup
+	closed      chan struct{}
+	wg          sync.WaitGroup
+	accountCond *sync.Cond // if new block add, notify
 }
 
 func NewPool(bc ch.Chain) BlockPool {
-	self := &pool{bc: bc, rwMutex: &sync.RWMutex{}, version: &ForkVersion{}, closed: make(chan struct{})}
+	self := &pool{bc: bc, rwMutex: &sync.RWMutex{}, version: &ForkVersion{}, closed: make(chan struct{}), accountCond: sync.NewCond(&sync.Mutex{})}
 	return self
 }
 
@@ -177,6 +178,10 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock) error {
 	log.Info("receive account block from network. addr:%s, height:%d, hash:%s.", address, block.Height, block.Hash)
 	self.selfPendingAc(address).AddBlock(newAccountPoolBlock(block, nil, self.version))
+
+	self.accountCond.L.Lock()
+	defer self.accountCond.L.Unlock()
+	self.accountCond.Broadcast()
 	return nil
 }
 
@@ -184,20 +189,29 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 	defer monitor.LogTime("pool", "addDirectAccount", time.Now())
 	self.rwMutex.RLock()
 	defer self.rwMutex.RUnlock()
+
 	ac := self.selfPendingAc(address)
 	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version)
 	err := ac.AddDirectBlock(cBlock)
 	if err != nil {
 		ac.f.broadcastBlock(block.AccountBlock)
 	}
+	self.accountCond.L.Lock()
+	defer self.accountCond.L.Unlock()
+	self.accountCond.Broadcast()
 	return err
 
 }
 func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.AccountBlock) error {
 	defer monitor.LogTime("pool", "addAccountArr", time.Now())
+
 	for _, b := range blocks {
 		self.AddAccountBlock(address, b)
 	}
+
+	self.accountCond.L.Lock()
+	defer self.accountCond.L.Unlock()
+	self.accountCond.Broadcast()
 	return nil
 }
 
@@ -215,6 +229,10 @@ func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_con
 	if err != nil {
 		ac.f.broadcastReceivedBlocks(received, sendBlocks)
 	}
+
+	self.accountCond.L.Lock()
+	defer self.accountCond.L.Unlock()
+	self.accountCond.Broadcast()
 	return err
 }
 
@@ -422,7 +440,9 @@ func (self *pool) loopTryInsert() {
 			return
 		case <-t.C:
 			if sum == 0 {
-				time.Sleep(time.Millisecond * 10)
+				self.accountCond.L.Lock()
+				self.accountCond.Wait()
+				self.accountCond.L.Unlock()
 				monitor.LogEvent("pool", "tryInsertSleep")
 			}
 			sum = 0
@@ -467,7 +487,9 @@ func (self *pool) loopCompact() {
 			return
 		case <-t.C:
 			if sum == 0 {
-				time.Sleep(time.Millisecond * 20)
+				self.accountCond.L.Lock()
+				self.accountCond.Wait()
+				self.accountCond.L.Unlock()
 			}
 			sum = 0
 
