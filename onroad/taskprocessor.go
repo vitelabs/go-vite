@@ -1,11 +1,11 @@
-package unconfirmed
+package onroad
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer"
-	"github.com/vitelabs/go-vite/unconfirmed/model"
+	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/verifier"
 	"sync"
 	"time"
@@ -18,13 +18,14 @@ type ContractTaskProcessor struct {
 
 	generator  *generator.Generator
 	verifier   *verifier.AccountVerifier
-	blocksPool *model.UnconfirmedBlocksPool
+	blocksPool *model.OnroadBlocksPool
 
 	status      int
 	statusMutex sync.Mutex
 
 	isSleeping   bool
 	wakeup       chan struct{}
+	sync.Cond
 	breaker      chan struct{}
 	stopListener chan struct{}
 
@@ -168,7 +169,7 @@ func (task *ContractTaskProcessor) processOneQueue(fItem *model.FromItem) (intoB
 			Timestamp:    task.accEvent.Timestamp,
 			Producer:     task.accEvent.Address,
 		}
-		genResult, err := task.generator.GenerateWithUnconfirmed(*sBlock, consensusMessage, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+		genResult, err := task.generator.GenerateWithOnroad(*sBlock, consensusMessage, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			return task.generator.Sign(addr, nil, data)
 		})
 		if err != nil {
@@ -179,7 +180,7 @@ func (task *ContractTaskProcessor) processOneQueue(fItem *model.FromItem) (intoB
 			if genResult.IsRetry {
 				return true
 			}
-			task.blocksPool.WriteUnconfirmed(false, nil, sBlock)
+			task.blocksPool.WriteOnroad(false, nil, sBlock)
 		} else {
 			if genResult.IsRetry {
 				// todo 写到pool里

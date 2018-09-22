@@ -1,11 +1,11 @@
-package unconfirmed
+package onroad
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/unconfirmed/model"
+	"github.com/vitelabs/go-vite/onroad/model"
 	"math/big"
 	"sync"
 )
@@ -21,13 +21,13 @@ type AutoReceiveWorker struct {
 
 	manager     *Manager
 	generator   *generator.Generator
-	uBlocksPool *model.UnconfirmedBlocksPool
+	uBlocksPool *model.OnroadBlocksPool
 
-	status                int
-	isSleeping            bool
-	breaker               chan struct{}
-	stopListener          chan struct{}
-	newUnconfirmedTxAlarm chan struct{}
+	status           int
+	isSleeping       bool
+	breaker          chan struct{}
+	stopListener     chan struct{}
+	newOnroadTxAlarm chan struct{}
 
 	filters map[types.TokenTypeId]big.Int
 
@@ -37,7 +37,7 @@ type AutoReceiveWorker struct {
 func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
 		manager:     manager,
-		uBlocksPool: manager.unconfirmedBlocksPool,
+		uBlocksPool: manager.onroadBlocksPool,
 		generator:   generator.NewGenerator(manager.vite.Chain(), manager.vite.WalletManager().KeystoreManager),
 		address:     address,
 		status:      Create,
@@ -55,11 +55,11 @@ func (w *AutoReceiveWorker) Start() {
 	if w.status != Start {
 
 		w.breaker = make(chan struct{})
-		w.newUnconfirmedTxAlarm = make(chan struct{})
+		w.newOnroadTxAlarm = make(chan struct{})
 		w.stopListener = make(chan struct{})
 
 		w.uBlocksPool.AddCommonTxLis(w.address, func() {
-			w.NewUnconfirmedTxAlarm()
+			w.NewOnroadTxAlarm()
 		})
 
 		w.uBlocksPool.AcquireAccountInfoCache(w.address)
@@ -70,7 +70,7 @@ func (w *AutoReceiveWorker) Start() {
 
 	} else {
 		// awake it in order to run at least once
-		w.NewUnconfirmedTxAlarm()
+		w.NewOnroadTxAlarm()
 	}
 	w.log.Info("end start")
 }
@@ -87,7 +87,7 @@ func (w *AutoReceiveWorker) Stop() {
 		close(w.breaker)
 
 		w.uBlocksPool.RemoveCommonTxLis(w.address)
-		close(w.newUnconfirmedTxAlarm)
+		close(w.newOnroadTxAlarm)
 
 		// make sure we can stop the worker
 		<-w.stopListener
@@ -127,7 +127,7 @@ LOOP:
 
 		w.isSleeping = true
 		select {
-		case <-w.newUnconfirmedTxAlarm:
+		case <-w.newOnroadTxAlarm:
 			w.log.Info("start awake")
 		case <-w.breaker:
 			w.log.Info("worker broken")
@@ -151,9 +151,9 @@ func (w AutoReceiveWorker) Status() int {
 	return w.status
 }
 
-func (w *AutoReceiveWorker) NewUnconfirmedTxAlarm() {
+func (w *AutoReceiveWorker) NewOnroadTxAlarm() {
 	if w.isSleeping {
-		w.newUnconfirmedTxAlarm <- struct{}{}
+		w.newOnroadTxAlarm <- struct{}{}
 	}
 }
 
@@ -169,7 +169,7 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 		return
 	}
 
-	genResult, genErr := w.generator.GenerateWithUnconfirmed(*sendBlock, nil,
+	genResult, genErr := w.generator.GenerateWithOnroad(*sendBlock, nil,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			return w.generator.Sign(addr, nil, data)
 		})
@@ -179,7 +179,7 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 	}
 
 	if genResult.BlockGenList == nil {
-		w.log.Error("GenerateWithUnconfirmed failed, BlockGenList is nil")
+		w.log.Error("GenerateWithOnroad failed, BlockGenList is nil")
 		return
 	}
 

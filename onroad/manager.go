@@ -1,4 +1,4 @@
-package unconfirmed
+package onroad
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer"
-	"github.com/vitelabs/go-vite/unconfirmed/model"
+	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	slog           = log15.New("module", "unconfirmed")
+	slog           = log15.New("module", "onroad")
 	ErrNotSyncDone = errors.New("network synchronization is not complete")
 )
 
@@ -25,9 +25,9 @@ type Manager struct {
 	vite            Vite
 	keystoreManager *keystore.Manager
 
-	pool                  PoolReader
-	uAccess               *model.UAccess
-	unconfirmedBlocksPool *model.UnconfirmedBlocksPool
+	pool             PoolReader
+	uAccess          *model.UAccess
+	onroadBlocksPool *model.OnroadBlocksPool
 
 	commonTxWorkers map[types.Address]*AutoReceiveWorker
 	contractWorkers map[types.Gid]*ContractWorker
@@ -52,7 +52,7 @@ func NewManager(vite Vite, dataDir string) *Manager {
 		contractWorkers: make(map[types.Gid]*ContractWorker),
 		log:             slog.New("w", "manager"),
 	}
-	m.unconfirmedBlocksPool = model.NewUnconfirmedBlocksPool(m.uAccess)
+	m.onroadBlocksPool = model.NewOnroadBlocksPool(m.uAccess)
 	return m
 }
 
@@ -64,8 +64,8 @@ func (manager *Manager) InitAndStartWork() {
 	// fixme
 	//manager.writeSuccLid = manager.vite.Chain().RegisterInsertAccountBlocksSuccess()
 	//manager.deleteSuccLid = manager.vite.Chain().RegisterDeleteAccountBlocksSuccess(processor processorFunc()
-	manager.writeOnRoadLid = manager.vite.Chain().RegisterInsertAccountBlocks(manager.unconfirmedBlocksPool.WriteUnconfirmed)
-	manager.deleteOnRoadLid = manager.vite.Chain().RegisterDeleteAccountBlocks(manager.unconfirmedBlocksPool.DeleteUnconfirmed)
+	manager.writeOnRoadLid = manager.vite.Chain().RegisterInsertAccountBlocks(manager.onroadBlocksPool.WriteOnroad)
+	manager.deleteOnRoadLid = manager.vite.Chain().RegisterDeleteAccountBlocks(manager.onroadBlocksPool.DeleteOnroad)
 }
 
 func (manager *Manager) stopAllWorks() {

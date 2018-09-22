@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-type UnconfirmedMeta struct {
+type OnroadMeta struct {
 	Gid     []byte
 	Address types.Address
 	Hash    types.Hash
@@ -30,7 +30,7 @@ type TokenBalanceInfo struct {
 	Number      uint64
 }
 
-type unconfirmedBlocksCache struct {
+type onroadBlocksCache struct {
 	blocks     list.List
 	currentEle *list.Element
 
@@ -38,22 +38,22 @@ type unconfirmedBlocksCache struct {
 	referenceMutex sync.Mutex
 }
 
-func (c *unconfirmedBlocksCache) addReferenceCount() int {
+func (c *onroadBlocksCache) addReferenceCount() int {
 	c.referenceMutex.Lock()
 	defer c.referenceMutex.Unlock()
 	c.referenceCount += 1
 	return c.referenceCount
 }
 
-func (c *unconfirmedBlocksCache) subReferenceCount() int {
+func (c *onroadBlocksCache) subReferenceCount() int {
 	c.referenceMutex.Lock()
 	defer c.referenceMutex.Unlock()
 	c.referenceCount -= 1
 	return c.referenceCount
 }
 
-func (c *unconfirmedBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti *types.TokenTypeId) (*contracts.TokenInfo, error)) *CommonAccountInfo {
-	log := log15.New("unconfirmedBlocksCache", "toCommonAccountInfo")
+func (c *onroadBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti *types.TokenTypeId) (*contracts.TokenInfo, error)) *CommonAccountInfo {
+	log := log15.New("onroadBlocksCache", "toCommonAccountInfo")
 
 	ele := c.blocks.Front()
 	var ca CommonAccountInfo
@@ -89,11 +89,11 @@ func (c *unconfirmedBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti *
 	return &ca
 }
 
-func (c *unconfirmedBlocksCache) ResetCursor() {
+func (c *onroadBlocksCache) ResetCursor() {
 	c.currentEle = c.blocks.Front()
 }
 
-func (c *unconfirmedBlocksCache) GetNextTx() *ledger.AccountBlock {
+func (c *onroadBlocksCache) GetNextTx() *ledger.AccountBlock {
 	if c.currentEle == nil {
 		return nil
 	}
@@ -103,11 +103,11 @@ func (c *unconfirmedBlocksCache) GetNextTx() *ledger.AccountBlock {
 	return block
 }
 
-func (c *unconfirmedBlocksCache) addTx(b *ledger.AccountBlock) {
+func (c *onroadBlocksCache) addTx(b *ledger.AccountBlock) {
 	c.blocks.PushBack(b)
 }
 
-func (c *unconfirmedBlocksCache) rmTx(b *ledger.AccountBlock) {
+func (c *onroadBlocksCache) rmTx(b *ledger.AccountBlock) {
 	if b == nil {
 		return
 	}

@@ -1,4 +1,4 @@
-// Data structures stored: key[DBKP_UNCONFIRMEDMETA.address.hash]=value[markType]
+// Data structures stored: key[DBKP_ONROADMETA.address.hash]=value[markType]
 // markType: []byte("1"),represents true;[]byte("0"),represents false
 
 package model
@@ -10,19 +10,19 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-type UnconfirmedSet struct {
+type OnroadSet struct {
 	db *leveldb.DB
 }
 
-func NewUnconfirmedSet(db *leveldb.DB) *UnconfirmedSet {
-	return &UnconfirmedSet{
+func NewOnroadSet(db *leveldb.DB) *OnroadSet {
+	return &OnroadSet{
 		db: db,
 	}
 }
 
-func (ucf *UnconfirmedSet) GetCountByAddress(addr *types.Address) (count uint64, err error) {
+func (ucf *OnroadSet) GetCountByAddress(addr *types.Address) (count uint64, err error) {
 	count = 0
-	key, err := database.EncodeKey(database.DBKP_UNCONFIRMEDMETA, addr.Bytes(), "KEY_MAX")
+	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), "KEY_MAX")
 
 	if err != nil {
 		return 0, err
@@ -37,8 +37,8 @@ func (ucf *UnconfirmedSet) GetCountByAddress(addr *types.Address) (count uint64,
 	return count, nil
 }
 
-func (ucf *UnconfirmedSet) GetHashsByCount(count uint64, addr *types.Address) (hashs []*types.Hash, err error) {
-	key, err := database.EncodeKey(database.DBKP_UNCONFIRMEDMETA, addr.Bytes(), "KEY_MAX")
+func (ucf *OnroadSet) GetHashsByCount(count uint64, addr *types.Address) (hashs []*types.Hash, err error) {
+	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), "KEY_MAX")
 	if err != nil {
 		return nil, err
 	}
@@ -60,8 +60,8 @@ func (ucf *UnconfirmedSet) GetHashsByCount(count uint64, addr *types.Address) (h
 	return hashs, nil
 }
 
-func (ucf *UnconfirmedSet) GetHashList(addr *types.Address) (hashs []*types.Hash, err error) {
-	key, err := database.EncodeKey(database.DBKP_UNCONFIRMEDMETA, addr.Bytes(), "KEY_MAX")
+func (ucf *OnroadSet) GetHashList(addr *types.Address) (hashs []*types.Hash, err error) {
+	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), "KEY_MAX")
 	if err != nil {
 		return nil, err
 	}
@@ -83,8 +83,8 @@ func (ucf *UnconfirmedSet) GetHashList(addr *types.Address) (hashs []*types.Hash
 	return hashs, nil
 }
 
-func (ucf *UnconfirmedSet) WriteMeta(batch *leveldb.Batch, addr *types.Address, hash *types.Hash, count uint8) error {
-	key, err := database.EncodeKey(database.DBKP_UNCONFIRMEDMETA, addr.Bytes(), hash.Bytes())
+func (ucf *OnroadSet) WriteMeta(batch *leveldb.Batch, addr *types.Address, hash *types.Hash, count uint8) error {
+	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), hash.Bytes())
 	if err != nil {
 		return err
 	}
@@ -98,8 +98,8 @@ func (ucf *UnconfirmedSet) WriteMeta(batch *leveldb.Batch, addr *types.Address, 
 	return nil
 }
 
-func (ucf *UnconfirmedSet) DeleteMeta(batch *leveldb.Batch, addr *types.Address, hash *types.Hash) error {
-	key, err := database.EncodeKey(database.DBKP_UNCONFIRMEDMETA, addr.Bytes(), hash.Bytes())
+func (ucf *OnroadSet) DeleteMeta(batch *leveldb.Batch, addr *types.Address, hash *types.Hash) error {
+	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), hash.Bytes())
 	if err != nil {
 		return err
 	}
@@ -113,8 +113,8 @@ func (ucf *UnconfirmedSet) DeleteMeta(batch *leveldb.Batch, addr *types.Address,
 	return nil
 }
 
-func (ucf *UnconfirmedSet) GetMeta(addr *types.Address, hash *types.Hash) ([]byte, error) {
-	key, err := database.EncodeKey(database.DBKP_UNCONFIRMEDMETA, addr.Bytes(), hash.Bytes())
+func (ucf *OnroadSet) GetMeta(addr *types.Address, hash *types.Hash) ([]byte, error) {
+	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), hash.Bytes())
 	if err != nil {
 		if err != leveldb.ErrNotFound {
 			return nil, err
@@ -125,7 +125,7 @@ func (ucf *UnconfirmedSet) GetMeta(addr *types.Address, hash *types.Hash) ([]byt
 	return value, nil
 }
 
-func (ucf *UnconfirmedSet) WriteGidAddrList(batch *leveldb.Batch, gid *types.Gid, addrList []*types.Address) error {
+func (ucf *OnroadSet) WriteGidAddrList(batch *leveldb.Batch, gid *types.Gid, addrList []*types.Address) error {
 	key, err := database.EncodeKey(database.DBKP_GID_ADDR, gid.Bytes())
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func (ucf *UnconfirmedSet) WriteGidAddrList(batch *leveldb.Batch, gid *types.Gid
 	return nil
 }
 
-func (ucf *UnconfirmedSet) GetContractAddrList(gid *types.Gid) ([]*types.Address, error) {
+func (ucf *OnroadSet) GetContractAddrList(gid *types.Gid) ([]*types.Address, error) {
 	key, err := database.EncodeKey(database.DBKP_GID_ADDR, gid.Bytes())
 	if err != nil {
 		return nil, err

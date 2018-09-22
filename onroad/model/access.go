@@ -12,7 +12,7 @@ import (
 
 type UAccess struct {
 	Chain *chain.Chain
-	store *UnconfirmedSet
+	store *OnroadSet
 	log   log15.Logger
 }
 
@@ -26,7 +26,7 @@ func NewUAccess(chain *chain.Chain, dataDir string) *UAccess {
 	if err != nil {
 		uAccess.log.Error("ChainDb not find or create DB failed")
 	}
-	uAccess.store = NewUnconfirmedSet(db)
+	uAccess.store = NewOnroadSet(db)
 	return uAccess
 }
 
@@ -67,7 +67,7 @@ func (access *UAccess) DeleteContractAddrFromGid(batch *leveldb.Batch, gid types
 	}
 }
 
-func (access *UAccess) writeUnconfirmedMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
+func (access *UAccess) writeOnroadMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
 	addr := &block.ToAddress
 	hash := &block.FromBlockHash
 
@@ -91,7 +91,7 @@ func (access *UAccess) writeUnconfirmedMeta(batch *leveldb.Batch, block *ledger.
 }
 
 // only to delete the exist sendBlock, including the received-incorrect block and th correct block
-func (access *UAccess) deleteUnconfirmedMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
+func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
 	addr := &block.ToAddress
 	hash := &block.FromBlockHash
 
@@ -114,11 +114,11 @@ func (access *UAccess) deleteUnconfirmedMeta(batch *leveldb.Batch, block *ledger
 	return nil
 }
 
-func (access *UAccess) GetUnconfirmedHashs(index, num, count uint64, addr *types.Address) ([]*types.Hash, error) {
+func (access *UAccess) GetOnroadHashs(index, num, count uint64, addr *types.Address) ([]*types.Hash, error) {
 	totalCount := (index + num) * count
 	maxCount, err := access.store.GetCountByAddress(addr)
 	if err != nil && err != leveldb.ErrNotFound {
-		access.log.Error("GetUnconfirmedHashs", "error", err)
+		access.log.Error("GetOnroadHashs", "error", err)
 		return nil, err
 	}
 	if totalCount > maxCount {
@@ -134,8 +134,8 @@ func (access *UAccess) GetUnconfirmedHashs(index, num, count uint64, addr *types
 	return hashList, nil
 }
 
-func (access *UAccess) GetUnconfirmedBlocks(index, num, count uint64, addr *types.Address) (blockList []*ledger.AccountBlock, err error) {
-	hashList, err := access.GetUnconfirmedHashs(index, num, count, addr)
+func (access *UAccess) GetOnroadBlocks(index, num, count uint64, addr *types.Address) (blockList []*ledger.AccountBlock, err error) {
+	hashList, err := access.GetOnroadHashs(index, num, count, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (access *UAccess) GetCommonAccInfo(addr *types.Address) (info *CommonAccoun
 	return info, nil
 }
 
-func (access *UAccess) GetAllUnconfirmedBlocks(addr types.Address) (blockList []*ledger.AccountBlock, err error) {
+func (access *UAccess) GetAllOnroadBlocks(addr types.Address) (blockList []*ledger.AccountBlock, err error) {
 	hashList, err := access.store.GetHashList(&addr)
 	if err != nil {
 		return nil, err
@@ -203,7 +203,6 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 		} else {
 			token, err := access.Chain.GetTokenInfoById(&block.TokenId)
 			if err != nil {
-				access.log.Error("func GetUnconfirmedAccount.GetByTokenId failed", "error", err)
 				return nil, 0, err
 			}
 			infoMap[block.TokenId].Token = *token

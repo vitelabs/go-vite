@@ -20,10 +20,10 @@ const (
 )
 
 // obtaining the account info from cache or db and manage the cache lifecycle
-type UnconfirmedBlocksPool struct {
+type OnroadBlocksPool struct {
 	dbAccess *UAccess
 
-	fullCache          *sync.Map // map[types.Address]*unconfirmedBlocksCache
+	fullCache          *sync.Map // map[types.Address]*onroadBlocksCache
 	fullCacheDeadTimer *sync.Map // map[types.Address]*time.Timer
 
 	simpleCache          *sync.Map // map[types.Address]*CommonAccountInfo
@@ -38,8 +38,8 @@ type UnconfirmedBlocksPool struct {
 	log log15.Logger
 }
 
-func NewUnconfirmedBlocksPool(dbAccess *UAccess) *UnconfirmedBlocksPool {
-	return &UnconfirmedBlocksPool{
+func NewOnroadBlocksPool(dbAccess *UAccess) *OnroadBlocksPool {
+	return &OnroadBlocksPool{
 		dbAccess:             dbAccess,
 		fullCache:            &sync.Map{},
 		fullCacheDeadTimer:   &sync.Map{},
@@ -47,15 +47,15 @@ func NewUnconfirmedBlocksPool(dbAccess *UAccess) *UnconfirmedBlocksPool {
 		simpleCacheDeadTimer: &sync.Map{},
 		newCommonTxListener:  make(map[types.Address]func()),
 		newContractListener:  make(map[types.Gid]func()),
-		log:                  log15.New("unconfirmed", "UnconfirmedBlocksPool"),
+		log:                  log15.New("onroad", "OnroadBlocksPool"),
 	}
 }
 
-func (p *UnconfirmedBlocksPool) GetAddrListByGid(gid types.Gid) (addrList []*types.Address, err error) {
+func (p *OnroadBlocksPool) GetAddrListByGid(gid types.Gid) (addrList []*types.Address, err error) {
 	return p.dbAccess.GetContractAddrListByGid(&gid)
 }
 
-func (p *UnconfirmedBlocksPool) Close() error {
+func (p *OnroadBlocksPool) Close() error {
 	p.log.Info("Close()")
 
 	p.simpleCacheDeadTimer.Range(func(_, value interface{}) bool {
@@ -78,7 +78,7 @@ func (p *UnconfirmedBlocksPool) Close() error {
 	return nil
 }
 
-func (p *UnconfirmedBlocksPool) addSimpleCache(addr types.Address, accountInfo *CommonAccountInfo) {
+func (p *OnroadBlocksPool) addSimpleCache(addr types.Address, accountInfo *CommonAccountInfo) {
 	//p.log.Info("addSimpleCache", "addr", addr, "TotalNumber", accountInfo.TotalNumber)
 	p.simpleCache.Store(addr, accountInfo)
 
@@ -94,7 +94,7 @@ func (p *UnconfirmedBlocksPool) addSimpleCache(addr types.Address, accountInfo *
 	}
 }
 
-func (p *UnconfirmedBlocksPool) GetCommonAccountInfo(addr types.Address) (*CommonAccountInfo, error) {
+func (p *OnroadBlocksPool) GetCommonAccountInfo(addr types.Address) (*CommonAccountInfo, error) {
 	p.log.Info("first load in simple cache", "addr", addr)
 	if c, ok := p.simpleCache.Load(addr); ok {
 		v, ok := p.simpleCacheDeadTimer.Load(addr)
@@ -106,7 +106,7 @@ func (p *UnconfirmedBlocksPool) GetCommonAccountInfo(addr types.Address) (*Commo
 
 	p.log.Info("second load from full cache", "addr", addr)
 	if fullcache, ok := p.fullCache.Load(addr); ok {
-		accountInfo := fullcache.(*unconfirmedBlocksCache).toCommonAccountInfo(p.dbAccess.Chain.GetTokenInfoById)
+		accountInfo := fullcache.(*onroadBlocksCache).toCommonAccountInfo(p.dbAccess.Chain.GetTokenInfoById)
 		if accountInfo != nil {
 			p.addSimpleCache(addr, accountInfo)
 			return accountInfo, nil
@@ -126,25 +126,25 @@ func (p *UnconfirmedBlocksPool) GetCommonAccountInfo(addr types.Address) (*Commo
 
 }
 
-func (p *UnconfirmedBlocksPool) GetNextTx(addr types.Address) *ledger.AccountBlock {
+func (p *OnroadBlocksPool) GetNextTx(addr types.Address) *ledger.AccountBlock {
 	p.log.Info("GetNextTx", "addr", addr)
 	c, ok := p.fullCache.Load(addr)
 	if !ok {
 		return nil
 	}
-	return c.(*unconfirmedBlocksCache).GetNextTx()
+	return c.(*onroadBlocksCache).GetNextTx()
 }
 
-func (p *UnconfirmedBlocksPool) ResetCacheCursor(addr types.Address) {
+func (p *OnroadBlocksPool) ResetCacheCursor(addr types.Address) {
 	p.log.Info("ResetCacheCursor", "addr", addr)
 	c, ok := p.fullCache.Load(addr)
 	if !ok {
 		return
 	}
-	c.(*unconfirmedBlocksCache).ResetCursor()
+	c.(*onroadBlocksCache).ResetCursor()
 }
 
-func (p *UnconfirmedBlocksPool) AcquireAccountInfoCache(addr types.Address) error {
+func (p *OnroadBlocksPool) AcquireAccountInfoCache(addr types.Address) error {
 	log := p.log.New("AcquireAccountInfoCache", addr)
 	if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
 		if t != nil {
@@ -154,12 +154,12 @@ func (p *UnconfirmedBlocksPool) AcquireAccountInfoCache(addr types.Address) erro
 	}
 
 	if c, ok := p.fullCache.Load(addr); ok {
-		c.(*unconfirmedBlocksCache).addReferenceCount()
-		log.Info("found in cache", "ref", c.(*unconfirmedBlocksCache).referenceCount)
+		c.(*onroadBlocksCache).addReferenceCount()
+		log.Info("found in cache", "ref", c.(*onroadBlocksCache).referenceCount)
 		return nil
 	}
 
-	blocks, e := p.dbAccess.GetAllUnconfirmedBlocks(addr)
+	blocks, e := p.dbAccess.GetAllOnroadBlocks(addr)
 	if e != nil {
 		log.Error("get from db", "err", e)
 		return e
@@ -171,7 +171,7 @@ func (p *UnconfirmedBlocksPool) AcquireAccountInfoCache(addr types.Address) erro
 		list.PushBack(value)
 	}
 
-	p.fullCache.Store(addr, &unconfirmedBlocksCache{
+	p.fullCache.Store(addr, &onroadBlocksCache{
 		blocks:         *list,
 		currentEle:     list.Front(),
 		referenceCount: 1,
@@ -180,14 +180,14 @@ func (p *UnconfirmedBlocksPool) AcquireAccountInfoCache(addr types.Address) erro
 	return nil
 }
 
-func (p *UnconfirmedBlocksPool) ReleaseAccountInfoCache(addr types.Address) error {
+func (p *OnroadBlocksPool) ReleaseAccountInfoCache(addr types.Address) error {
 	log := p.log.New("ReleaseAccountInfoCache", addr)
 	v, ok := p.fullCache.Load(addr)
 	if !ok {
 		log.Info("no cache found")
 		return nil
 	}
-	c := v.(*unconfirmedBlocksCache)
+	c := v.(*onroadBlocksCache)
 	if c.subReferenceCount() <= 0 {
 		log.Info("cache found ref <= 0 delete cache")
 
@@ -203,17 +203,17 @@ func (p *UnconfirmedBlocksPool) ReleaseAccountInfoCache(addr types.Address) erro
 	return nil
 }
 
-func (p *UnconfirmedBlocksPool) DeleteFullCache(address types.Address) {
+func (p *OnroadBlocksPool) DeleteFullCache(address types.Address) {
 	p.fullCache.Delete(address)
 }
 
 // todo support batch
-func (p *UnconfirmedBlocksPool) WriteUnconfirmed(batch *leveldb.Batch, blockList []*vm_context.VmAccountBlock) error {
-	p.log.Info("WriteUnconfirmed ")
+func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_context.VmAccountBlock) error {
+	p.log.Info("WriteOnroad ")
 
 	for _, v := range blockList {if v.AccountBlock.IsSendBlock() {
-		if err := p.dbAccess.writeUnconfirmedMeta(batch, v.AccountBlock); err != nil {
-			p.log.Error("writeUnconfirmedMeta", "error", err)
+		if err := p.dbAccess.writeOnroadMeta(batch, v.AccountBlock); err != nil {
+			p.log.Error("writeOnroadMeta", "error", err)
 			return err
 		}// add the gid-contractAddrList relationship
 			var unsavedCache vmctxt_interface.UnsavedCache
@@ -223,8 +223,8 @@ func (p *UnconfirmedBlocksPool) WriteUnconfirmed(batch *leveldb.Batch, blockList
 		// todop.dbAccess.WriteContractAddrToGid(batch, *v.Gid(), *v.Addr())
 			}
 	} else {
-		if err := p.dbAccess.deleteUnconfirmedMeta(batch, v.AccountBlock); err != nil {
-			p.log.Error("deleteUnconfirmedMeta", "error", err)
+		if err := p.dbAccess.deleteOnroadMeta(batch, v.AccountBlock); err != nil {
+			p.log.Error("deleteOnroadMeta", "error", err)
 			return err}
 		}
 	}
@@ -234,8 +234,8 @@ func (p *UnconfirmedBlocksPool) WriteUnconfirmed(batch *leveldb.Batch, blockList
 }
 
 // DeleteUnRoad means to revert according to bifurcation
-func (p *UnconfirmedBlocksPool) DeleteUnconfirmed(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
-	p.log.Info("DeleteUnconfirmed: revert")
+func (p *OnroadBlocksPool) DeleteOnroad(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
+	p.log.Info("DeleteOnroad: revert")
 	for _, blockList := range subLedger {
 		for _, v := range blockList {
 			if v.IsReceiveBlock() {
@@ -244,12 +244,12 @@ func (p *UnconfirmedBlocksPool) DeleteUnconfirmed(batch *leveldb.Batch, subLedge
 					p.log.Error("GetAccountBlockByHash", "error", err)
 					return err
 				}
-				if err := p.dbAccess.writeUnconfirmedMeta(batch, sendBlock); err != nil {
+				if err := p.dbAccess.writeOnroadMeta(batch, sendBlock); err != nil {
 					p.log.Error("revert receiveBlock failed", "error", err)
 					return err
 				}
 			} else {
-				if err := p.dbAccess.deleteUnconfirmedMeta(batch, v); err != nil {
+				if err := p.dbAccess.deleteOnroadMeta(batch, v); err != nil {
 					p.log.Error("revert sendBlock failed", "error", err)
 					return err
 				}
@@ -265,9 +265,9 @@ func (p *UnconfirmedBlocksPool) DeleteUnconfirmed(batch *leveldb.Batch, subLedge
 	return nil
 }
 
-func (p *UnconfirmedBlocksPool) updateFullCache(writeType bool, block *ledger.AccountBlock) error {
+func (p *OnroadBlocksPool) updateFullCache(writeType bool, block *ledger.AccountBlock) error {
 	v, ok := p.fullCache.Load(block.ToAddress)
-	fullCache := v.(*unconfirmedBlocksCache)
+	fullCache := v.(*onroadBlocksCache)
 	// todo check == 0
 	if !ok || fullCache.blocks.Len() == 0 {
 		//p.log.Info("updateCache：no fullCache")
@@ -284,7 +284,7 @@ func (p *UnconfirmedBlocksPool) updateFullCache(writeType bool, block *ledger.Ac
 }
 
 // todo add mutex
-func (p *UnconfirmedBlocksPool) updateSimpleCache(writeType bool, block *ledger.AccountBlock) error {
+func (p *OnroadBlocksPool) updateSimpleCache(writeType bool, block *ledger.AccountBlock) error {
 
 	value, ok := p.simpleCache.Load(block.ToAddress)
 	if !ok {
@@ -332,7 +332,7 @@ func (p *UnconfirmedBlocksPool) updateSimpleCache(writeType bool, block *ledger.
 	return nil
 }
 
-func (p *UnconfirmedBlocksPool) updateCache(writeType bool, block *ledger.AccountBlock) {
+func (p *OnroadBlocksPool) updateCache(writeType bool, block *ledger.AccountBlock) {
 	e := p.updateFullCache(writeType, block)
 	if e != nil {
 		p.log.Error("updateFullCache", "err", e)
@@ -344,7 +344,7 @@ func (p *UnconfirmedBlocksPool) updateCache(writeType bool, block *ledger.Accoun
 	}
 }
 
-func (p *UnconfirmedBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
+func (p *OnroadBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
 	gid, err := p.dbAccess.Chain.GetContractGid(&block.AccountAddress)
 	if err != nil {
 		p.log.Error("NewSignalToWorker", "err", err)
@@ -365,29 +365,29 @@ func (p *UnconfirmedBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
 	}
 }
 
-func (p *UnconfirmedBlocksPool) GetUnconfirmedBlocks(index, num, count uint64, addr *types.Address) (blockList []*ledger.AccountBlock, err error) {
-	return p.dbAccess.GetUnconfirmedBlocks(index, num, count, addr)
+func (p *OnroadBlocksPool) GetOnroadBlocks(index, num, count uint64, addr *types.Address) (blockList []*ledger.AccountBlock, err error) {
+	return p.dbAccess.GetOnroadBlocks(index, num, count, addr)
 }
 
-func (p *UnconfirmedBlocksPool) AddCommonTxLis(addr types.Address, f func()) {
+func (p *OnroadBlocksPool) AddCommonTxLis(addr types.Address, f func()) {
 	p.commonTxListenerMutex.Lock()
 	defer p.commonTxListenerMutex.Unlock()
 	p.newCommonTxListener[addr] = f
 }
 
-func (p *UnconfirmedBlocksPool) RemoveCommonTxLis(addr types.Address) {
+func (p *OnroadBlocksPool) RemoveCommonTxLis(addr types.Address) {
 	p.commonTxListenerMutex.Lock()
 	defer p.commonTxListenerMutex.Unlock()
 	delete(p.newCommonTxListener, addr)
 }
 
-func (p *UnconfirmedBlocksPool) AddContractLis(gid types.Gid, f func()) {
+func (p *OnroadBlocksPool) AddContractLis(gid types.Gid, f func()) {
 	p.contractListenerMutex.Lock()
 	defer p.contractListenerMutex.Unlock()
 	p.newContractListener[gid] = f
 }
 
-func (p *UnconfirmedBlocksPool) RemoveContractLis(gid types.Gid) {
+func (p *OnroadBlocksPool) RemoveContractLis(gid types.Gid) {
 	p.contractListenerMutex.Lock()
 	defer p.contractListenerMutex.Unlock()
 	delete(p.newContractListener, gid)

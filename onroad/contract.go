@@ -1,4 +1,4 @@
-package unconfirmed
+package onroad
 
 import (
 	"container/heap"
@@ -6,7 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer"
-	"github.com/vitelabs/go-vite/unconfirmed/model"
+	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/verifier"
 	"sync"
 )
@@ -15,7 +15,7 @@ import (
 type ContractWorker struct {
 	manager *Manager
 
-	uBlocksPool *model.UnconfirmedBlocksPool
+	uBlocksPool *model.OnroadBlocksPool
 	verifier    *verifier.AccountVerifier
 
 	gid                 types.Gid
@@ -28,7 +28,7 @@ type ContractWorker struct {
 
 	// todo use sync.Cond
 	isSleep                bool
-	newUnconfirmedTxAlarm  chan struct{}
+	newOnroadTxAlarm       chan struct{}
 	breaker                chan struct{}
 	stopDispatcherListener chan struct{}
 
@@ -47,7 +47,7 @@ type ContractWorker struct {
 
 func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) (*ContractWorker, error) {
 
-	addressList, err := manager.unconfirmedBlocksPool.GetAddrListByGid(accEvent.Gid)
+	addressList, err := manager.onroadBlocksPool.GetAddrListByGid(accEvent.Gid)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) (*
 
 	return &ContractWorker{
 		manager:                manager,
-		uBlocksPool:            manager.unconfirmedBlocksPool,
+		uBlocksPool:            manager.onroadBlocksPool,
 		verifier:               verifier.NewAccountVerifier(nil, nil, nil), // todo
 		gid:                    accEvent.Gid,
 		address:                accEvent.Address,
@@ -65,7 +65,7 @@ func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) (*
 		contractAddressList:    addressList,
 		status:                 Create,
 		isSleep:                false,
-		newUnconfirmedTxAlarm:  make(chan struct{}),
+		newOnroadTxAlarm:       make(chan struct{}),
 		breaker:                make(chan struct{}),
 		stopDispatcherListener: make(chan struct{}),
 		contractTasks:          make([]*ContractTaskProcessor, CONTRACT_TASK_SIZE),
@@ -82,7 +82,7 @@ func (w *ContractWorker) Start() {
 	if w.status != Start {
 
 		w.uBlocksPool.AddContractLis(w.gid, func() {
-			w.NewUnconfirmedTxAlarm()
+			w.NewOnroadTxAlarm()
 		})
 
 		for i, v := range w.contractTasks {
@@ -95,7 +95,7 @@ func (w *ContractWorker) Start() {
 		w.status = Start
 	} else {
 		// awake it in order to run at least once
-		w.NewUnconfirmedTxAlarm()
+		w.NewOnroadTxAlarm()
 	}
 	w.log.Info("end start")
 }
@@ -110,7 +110,7 @@ func (w *ContractWorker) Stop() {
 
 		w.uBlocksPool.RemoveContractLis(w.gid)
 		w.isSleep = true
-		close(w.newUnconfirmedTxAlarm)
+		close(w.newOnroadTxAlarm)
 
 		<-w.stopDispatcherListener
 		close(w.stopDispatcherListener)
@@ -170,9 +170,9 @@ func (w *ContractWorker) dispatchTask(index int) *model.FromItem {
 	return nil
 }
 
-func (w *ContractWorker) NewUnconfirmedTxAlarm() {
+func (w *ContractWorker) NewOnroadTxAlarm() {
 	if w.isSleep {
-		w.newUnconfirmedTxAlarm <- struct{}{}
+		w.newOnroadTxAlarm <- struct{}{}
 	}
 }
 
@@ -197,7 +197,7 @@ LOOP:
 
 		w.isSleep = true
 		select {
-		case <-w.newUnconfirmedTxAlarm:
+		case <-w.newOnroadTxAlarm:
 			w.log.Info("start awake")
 		case <-w.breaker:
 			w.log.Info("worker broken")
@@ -219,12 +219,12 @@ func (w *ContractWorker) FetchNewFromDb() bool {
 		count := 0
 		nextIndex := 0
 		for {
-			blockList, err := w.uBlocksPool.GetUnconfirmedBlocks(uint64(nextIndex), 1, uint64(CONTRACT_FETCH_SIZE), w.contractAddressList[i])
+			blockList, err := w.uBlocksPool.GetOnroadBlocks(uint64(nextIndex), 1, uint64(CONTRACT_FETCH_SIZE), w.contractAddressList[i])
 			if blockList == nil {
 				break
 			}
 			if err != nil {
-				w.log.Error("FetchNewFromDb.GetUnconfirmedBlocks", "error", err)
+				w.log.Error("FetchNewFromDb.GetOnroadBlocks", "error", err)
 				break
 			}
 			for _, v := range blockList {

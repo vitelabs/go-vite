@@ -89,7 +89,7 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 
 }
 
-func (gen *Generator) GenerateWithUnconfirmed(sendBlock ledger.AccountBlock, consensusMsg *ConsensusMessage, signFunc SignFunc) (*GenResult, error) {
+func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensusMsg *ConsensusMessage, signFunc SignFunc) (*GenResult, error) {
 	block, err := gen.PackBlockWithSendBlock(&sendBlock, consensusMsg)
 	if err != nil {
 		return nil, err
