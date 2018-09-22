@@ -1,33 +1,46 @@
 package pow_test
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/pow"
+	"golang.org/x/crypto/blake2b"
 	"math"
-	"math/big"
 	"testing"
 	"time"
-	"bytes"
-	"golang.org/x/crypto/blake2b"
+	"sync"
 )
 
 func TestGetPowNonce(t *testing.T) {
-	N := 200
+	N := 10
+	breaker := make(chan struct{})
 	data := crypto.Hash256([]byte{1})
+	mutex := sync.Mutex{}
 	timeList := make([]int64, N)
 	for i := 0; i < N; i++ {
-		startTime := time.Now()
-		nonce := pow.GetPowNonce(pow.DummyTarget, data)
-		assert.True(t, pow.CheckNonce(pow.DummyTarget, nonce, data))
-		d := time.Now().Sub(startTime).Nanoseconds()
-		fmt.Println("#", i, ":", d/1e6, "ms", "nonce", nonce)
-		timeList[i] = d
-	}
+		go func(i int) {
+			select {
+			case <-breaker:
+			default:
+				fmt.Println(i)
+				startTime := time.Now()
+				nonce := pow.GetPowNonce(nil, types.DataHash([]byte{1}))
+				assert.True(t, pow.CheckPowNonce(nil, nonce, data))
+				d := time.Now().Sub(startTime).Nanoseconds()
+				fmt.Println("#", i, ":", d/1e6, "ms", "nonce", nonce)
+				mutex.Lock()
+				timeList[i] = d
+				mutex.Unlock()
+				close(breaker)
+			}
+		}(i)
 
-	d, _ := new(big.Int).SetString("1", 10)
-	assert.False(t, pow.CheckNonce(pow.DummyTarget, d, data))
+	}
+	<-breaker
+
 	max, min, timeSum, average, std := statistics(timeList)
 	fmt.Println("average", average, "max", max, "min", min, "sum", timeSum, "standard deviation", std)
 }
@@ -80,4 +93,3 @@ func TestHash256(t *testing.T) {
 	assert.Equal(t, hash2561[:], sum256[:])
 	assert.Equal(t, crypto.Hash256([]byte{1, 2}, []byte{1, 3}), sum256[:])
 }
-

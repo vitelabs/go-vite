@@ -1,42 +1,52 @@
 package pow
 
 import (
+	"encoding/binary"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
-	"golang.org/x/crypto/blake2b"
 	"math/big"
 )
 
-// IN MY 2017 MACBOOK PRO which cpu is---- Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz----, that target costs about 1.8 seconds
-// average 2.1429137205785e+09 max 35658900929 min 63118 sum 21429137205785 standard deviation 2.381750598860289e+09
-var DummyTarget, _ = new(big.Int).SetString("000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16)
+// IN MY 2017 MACBOOK PRO which cpu is---- Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz----
+// average 2.17099039203e+10 max 73782690184 min 641170149 sum 217099039203 standard deviation 2.0826136795592163e+10
+const (
+	FullThreshold = 0xffffffc000000000
+)
 
-const size = 32
+// data = Hash(address + prehash); data + nonce < target.
+func GetPowNonce(difficulty *big.Int, dataHash types.Hash) [8]byte {
+	rng := crypto.GetEntropyCSPRNG(8)
+	data := dataHash.Bytes()
 
-// data = Hash(address + prehash); data + nonce < target. if prehash == nil {data = Hash(address)}
-func GetPowNonce(target *big.Int, data []byte) *big.Int {
-	if target == nil {
-		return nil
-	}
-	nonce := crypto.GetEntropyCSPRNG(size)
-	targetBytes := Fixed32SizeBytes(target.Bytes())
-	calcBytes := make([]byte, 64)
-	l := copy(calcBytes, data)
-	copy(calcBytes[l:], nonce)
+	calc, target := prepareData(difficulty, data, rng)
 	for {
-		if QuickLess(blake2b.Sum256(calcBytes), targetBytes) {
+		if QuickGreater(crypto.Hash(8, calc), target[:]) {
 			break
 		}
-		calcBytes = QuickInc(calcBytes)
+		calc = QuickInc(calc)
 	}
-	return new(big.Int).SetBytes(calcBytes[size:])
+
+	var arr [8]byte
+	copy(arr[:], calc[32:])
+	return arr
 }
 
-func CheckNonce(target, nonce *big.Int, data []byte) bool {
-	if target == nil || nonce == nil {
-		return false
-	}
-	v := crypto.Hash256(data, nonce.Bytes())
-	return new(big.Int).SetBytes(v).Cmp(target) < 0
+func CheckPowNonce(difficulty *big.Int, nonce [8]byte, data []byte) bool {
+	calc, target := prepareData(difficulty, data, nonce[:])
+	return QuickGreater(crypto.Hash(8, calc), target[:])
+}
+
+func prepareData(difficulty *big.Int, data []byte, nonce []byte) ([]byte, [8]byte) {
+	threshold := getThresholdByDifficulty(difficulty)
+	calc := make([]byte, 40)
+	l := copy(calc, data)
+	copy(calc[l:], nonce[:])
+	target := Uint64ToByteArray(threshold)
+	return calc, target
+}
+
+func getThresholdByDifficulty(difficulty *big.Int) uint64 {
+	return FullThreshold
 }
 
 func QuickInc(x []byte) []byte {
@@ -49,13 +59,13 @@ func QuickInc(x []byte) []byte {
 	return x
 }
 
-func QuickLess(x, y [size]byte) bool {
-	for i := 0; i < size; i++ {
+func QuickGreater(x, y []byte) bool {
+	for i := 0; i < 8; i++ {
 		if x[i] > y[i] {
-			return false
+			return true
 		}
 		if x[i] < y[i] {
-			return true
+			return false
 		}
 		if x[i] == y[i] {
 			continue
@@ -64,11 +74,8 @@ func QuickLess(x, y [size]byte) bool {
 	return false
 }
 
-func Fixed32SizeBytes(b []byte) [size]byte {
-	r := [size]byte{}
-	delta := size - len(b)
-	if delta > 0 {
-		copy(r[delta:], b)
-	}
-	return r
+func Uint64ToByteArray(i uint64) [8]byte {
+	var n [8]byte
+	binary.BigEndian.PutUint64(n[:], i)
+	return n
 }

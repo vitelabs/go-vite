@@ -93,33 +93,32 @@ func (task *ContractTaskProcessor) WakeUp() {
 
 func (task *ContractTaskProcessor) work() {
 	task.log.Info("work()")
+LOOP:
 	for {
 		task.isSleeping = false
 		if task.status == Stop {
-			goto END
+			break
 		}
 
 		fItem := task.getNewBlocksFunc(task.taskId)
-		if fItem == nil {
-			goto WAIT
+		if fItem != nil {
+			if task.processOneQueue(fItem) {
+				task.worker.addIntoBlackList(fItem.Key, fItem.Value.Front().ToAddress)
+			} else {
+				continue
+			}
 		}
 
-		if task.ProcessOneQueue(fItem) {
-			task.worker.addIntoBlackList(fItem.Key, fItem.Value.Front().ToAddress)
-		}
-		continue
-
-	WAIT:
 		task.isSleeping = true
 		select {
 		case <-task.wakeup:
 			task.log.Info("start awake")
 		case <-task.breaker:
 			task.log.Info("worker broken")
-			break
+			break LOOP
 		}
 	}
-END:
+
 	task.log.Info("work end called ")
 	task.stopListener <- struct{}{}
 	task.log.Info("work end")
@@ -136,12 +135,18 @@ func (task *ContractTaskProcessor) Status() int {
 	return task.status
 }
 
-func (task *ContractTaskProcessor) ProcessOneQueue(fItem *model.FromItem) (intoBlackList bool) {
+func (task *ContractTaskProcessor) processOneQueue(fItem *model.FromItem) (intoBlackList bool) {
 	// get db.go block from wakeup
-	task.log.Info("Process the fromQueue,", "fromAddress", fItem.Key, "index", fItem.Index, "priority", fItem.Priority)
+	//task.log.Info("Process the fromQueue,", "fromAddress", fItem.Key, "index", fItem.Index, "priority", fItem.Priority)
 
 	bQueue := fItem.Value
 
+	// todo fix
+	/**
+	for bQueue.Dequeue()!=nil {
+
+	}
+	 */
 	for i := 0; i < bQueue.Size(); i++ {
 
 		sBlock := bQueue.Dequeue()
@@ -177,9 +182,11 @@ func (task *ContractTaskProcessor) ProcessOneQueue(fItem *model.FromItem) (intoB
 			task.blocksPool.WriteUnconfirmed(false, nil, sBlock)
 		} else {
 			if genResult.IsRetry {
+				// todo 写到pool里
 				return true
 			}
 
+			// todo
 			nowTime := time.Now().Unix()
 			if nowTime >= task.accEvent.Etime.Unix() {
 				task.breaker <- struct{}{}

@@ -11,6 +11,7 @@ import (
 	"sync"
 )
 
+//
 type ContractWorker struct {
 	manager *Manager
 
@@ -25,6 +26,7 @@ type ContractWorker struct {
 	status      int
 	statusMutex sync.Mutex
 
+	// todo use sync.Cond
 	isSleep                bool
 	newUnconfirmedTxAlarm  chan struct{}
 	breaker                chan struct{}
@@ -141,7 +143,7 @@ func (w ContractWorker) Status() int {
 }
 
 func (w *ContractWorker) dispatchTask(index int) *model.FromItem {
-	w.log.Info("dispatchTask", "index", index)
+	//w.log.Info("dispatchTask", "index", index)
 	w.priorityToQueueMutex.Lock()
 	defer w.priorityToQueueMutex.Unlock()
 
@@ -182,10 +184,13 @@ func (w *ContractWorker) waitingNewBlock() {
 			goto END
 		}
 
-		for _, v := range w.contractTasks {
-			v.WakeUp()
-			if w.priorityToQueue.Len() == 0 {
-				break
+		if w.priorityToQueue.Len() != 0 {
+			for _, v := range w.contractTasks {
+				v.WakeUp()
+				// todo mutex
+				if w.priorityToQueue.Len() == 0 {
+					break
+				}
 			}
 		}
 
@@ -244,6 +249,7 @@ func (w *ContractWorker) FetchNewFromDb() bool {
 	return false
 }
 
+// fixme 把from去掉
 func (w *ContractWorker) addIntoBlackList(from types.Address, to types.Address) {
 	w.log.Info("addIntoBlackList", "from", from, "to", to)
 	key := types.DataListHash(from.Bytes(), to.Bytes())

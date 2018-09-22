@@ -44,6 +44,8 @@ func NewGenerator(chain Chain, wSigner Signer) *Generator {
 }
 
 func (gen *Generator) PrepareVm(snapshotBlockHash, preBlockHash *types.Hash, addr *types.Address) error {
+	//fixme @gx 和炎达交流一下
+
 	var sbHash, pbHash *types.Hash
 	if snapshotBlockHash == nil {
 		snapshotBlock, err := gen.chain.GetLatestSnapshotBlock()
