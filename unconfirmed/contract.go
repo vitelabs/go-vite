@@ -178,10 +178,11 @@ func (w *ContractWorker) NewUnconfirmedTxAlarm() {
 
 func (w *ContractWorker) waitingNewBlock() {
 	w.log.Info("waitingNewBlock")
+LOOP:
 	for {
 		w.isSleep = false
 		if w.Status() == Stop {
-			goto END
+			break
 		}
 
 		if w.priorityToQueue.Len() != 0 {
@@ -200,10 +201,10 @@ func (w *ContractWorker) waitingNewBlock() {
 			w.log.Info("start awake")
 		case <-w.breaker:
 			w.log.Info("worker broken")
-			goto END
+			break LOOP
 		}
 	}
-END:
+
 	w.log.Info("waitingNewBlock end called")
 	w.stopDispatcherListener <- struct{}{}
 	w.log.Info("waitingNewBlock end")

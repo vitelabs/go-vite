@@ -25,7 +25,6 @@ func TestGetPowNonce(t *testing.T) {
 			select {
 			case <-breaker:
 			default:
-				fmt.Println(i)
 				startTime := time.Now()
 				nonce := pow.GetPowNonce(nil, types.DataHash([]byte{1}))
 				assert.True(t, pow.CheckPowNonce(nil, nonce, data))

@@ -108,11 +108,11 @@ func (w *AutoReceiveWorker) ResetAutoReceiveFilter(filters map[types.TokenTypeId
 
 func (w *AutoReceiveWorker) startWork() {
 	w.log.Info("startWork")
-
+LOOP:
 	for {
 		w.isSleeping = false
 		if w.Status() == Stop {
-			goto END
+			break
 		}
 
 		tx := w.uBlocksPool.GetNextTx(w.address)
@@ -131,11 +131,10 @@ func (w *AutoReceiveWorker) startWork() {
 			w.log.Info("start awake")
 		case <-w.breaker:
 			w.log.Info("worker broken")
-			goto END
+			break LOOP
 		}
 	}
 
-END:
 	w.log.Info("startWork end called")
 	w.stopListener <- struct{}{}
 	w.log.Info("startWork end")
