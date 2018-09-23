@@ -6,99 +6,57 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/p2p/list"
 	"net"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
 const maxNeighborsOneTrip = 10
-
-var watingTimeout = 10 * time.Second // must be enough little, at least than checkInterval
 
 var errStopped = errors.New("discovery server has stopped")
 var errWaitOvertime = errors.New("wait for response timeout")
 var errSendToSelf = errors.New("send discovery message to self")
 
 // after send query. wating for reply.
-type waitIsDone func(Message) bool
+type waitIsDone func(Message, error, *wait) bool
 
 type wait struct {
 	expectFrom NodeID
 	expectCode packetCode
+	sourceHash types.Hash
 	handle     waitIsDone
 	expiration time.Time
-	errch      chan error
-	next *wait
-}
-
-type wtList struct {
-	*wait
-	tail *wait
-	count int
-}
-
-func newWtList() *wtList {
-	head := &wait{}
-	return &wtList{
-		wait: head,
-		tail: head,
-	}
-}
-
-func (n *wtList) append(w *wait) {
-	n.tail.next =w
-	n.tail = w
-	n.count++
-}
-
-func (n *wtList) remove(prev, current *wait) {
-	prev.next = current.next
-	if current.next == nil {
-		n.tail = prev
-	}
-	n.count--
-}
-func (n *wtList) traverse(fn func(prev, current *wait)) {
-	for prev, current := n.wait, n.wait.next; current != nil; prev, current = current, current.next {
-		fn(prev, current)
-	}
-}
-
-type res struct {
-	from    NodeID
-	code    packetCode
-	data    Message
-	matched chan bool
 }
 
 type wtPool struct {
-	list  *wtList
+	list  *list.List
 	add   chan *wait
-	rec   chan *res
+	rec   chan *packet
 }
 
 func newWtPool() *wtPool {
 	return &wtPool{
-		list: newWtList(),
+		list: list.New(),
 		add:  make(chan *wait),
-		rec:  make(chan *res),
+		rec:  make(chan *packet),
 	}
 }
 
 func (p *wtPool) loop(stop <-chan struct{}) {
-	checkTicker := time.NewTicker(watingTimeout)
+	checkTicker := time.NewTicker(expiration)
 	defer checkTicker.Stop()
 
 	for {
 		select {
 		case <-stop:
-			p.list.traverse(func(_, wt *wait) {
-				wt.errch <- errStopped
+			p.list.Traverse(func(_, e *list.Element) {
+				wt, _ := e.Value.(*wait)
+				wt.handle(nil, errStopped, wt)
 			})
 			return
 		case w := <-p.add:
-			p.list.append(w)
+			p.list.Append(w)
 		case r := <-p.rec:
 			p.handle(r)
 		case <-checkTicker.C:
@@ -107,32 +65,36 @@ func (p *wtPool) loop(stop <-chan struct{}) {
 	}
 }
 
-func (p *wtPool) handle(rs *res) {
-	matched := false
-	p.list.traverse(func(prev, current *wait) {
-		if current.expectFrom == rs.from && current.expectCode == rs.code {
-			matched = true
-
-			if current.handle(rs.data) {
-				current.errch <- nil
+func (p *wtPool) handle(rs *packet) {
+	p.list.Traverse(func(prev, current *list.Element) {
+		wt, _ := current.Value.(*wait)
+		if wt.expectFrom == rs.fromID && wt.expectCode == rs.code {
+			if wt.handle(rs.msg, nil, wt) {
 				// remove current wait from list
-				p.list.remove(prev, current)
+				p.list.Remove(prev, current)
 			}
 		}
 	})
-
-	rs.matched <- matched
 }
 
 func (p *wtPool) clean() {
 	now := time.Now()
-	p.list.traverse(func(prev, current *wait) {
-		if current.expiration.Before(now) {
-			current.errch <- errWaitOvertime
+	p.list.Traverse(func(prev, current *list.Element) {
+		wt, _ := current.Value.(*wait)
+		if wt.expiration.Before(now) {
+			wt.handle(nil, errWaitOvertime, wt)
 			// remove current wait from list
-			p.list.remove(prev, current)
+			p.list.Remove(prev, current)
 		}
 	})
+}
+
+// @section send
+type sendPkt struct {
+	addr *net.UDPAddr
+	code packetCode
+	msg Message
+	wait *wait
 }
 
 // @section agent
@@ -141,18 +103,15 @@ type agent struct {
 	conn       *net.UDPConn
 	priv       ed25519.PrivateKey
 	term       chan struct{}
-	running    int32 // atomic
-	pktHandler func(*packet) error
+	pktHandler func(*packet)
 	pool        *wtPool
 	wg         sync.WaitGroup
+	write chan *sendPkt
+	read chan *packet
 }
 
 // should run as goroutine
 func (d *agent) start() {
-	if !atomic.CompareAndSwapInt32(&d.running, 0, 1) {
-		return
-	}
-
 	discvLog.Info("discovery agent start")
 
 	d.wg.Add(1)
@@ -164,13 +123,15 @@ func (d *agent) start() {
 	// should not run as goroutine
 	d.wg.Add(1)
 	go d.readLoop()
+
+	d.wg.Add(1)
+	go d.writeLoop()
+
+	d.wg.Add(1)
+	go d.handleLoop()
 }
 
 func (d *agent) stop() {
-	if !atomic.CompareAndSwapInt32(&d.running, 1, 0) {
-		return
-	}
-
 	discvLog.Info("discovery agent stop")
 
 	close(d.term)
@@ -178,97 +139,99 @@ func (d *agent) stop() {
 }
 
 // implements discvAgent interface
-func (d *agent) ping(node *Node) error {
+func (d *agent) ping(node *Node, callback func(*Node, error)) {
 	if node.ID == d.self.ID {
-		return nil
+		return
 	}
 
-	hash, err := d.send(node.UDPAddr(), pingCode, &Ping{
-		ID:         d.self.ID,
-		IP:         d.self.IP,
-		UDP:        d.self.UDP,
-		TCP:        d.self.TCP,
-		Expiration: getExpiration(),
-	})
+	d.send(&sendPkt{
+		addr: node.UDPAddr(),
+		code: pingCode,
+		msg:  &Ping{
+			ID:         d.self.ID,
+			IP:         d.self.IP,
+			UDP:        d.self.UDP,
+			TCP:        d.self.TCP,
+			Expiration: getExpiration(),
+		},
+		wait: &wait{
+			expectFrom: node.ID,
+			expectCode: pongCode,
+			handle:    func(m Message, err error, wt *wait) bool {
+				defer callback(node, err)
 
-	if err != nil {
-		discvLog.Error(fmt.Sprintf("send ping to %s error: %v", node, err))
-		return err
-	} else {
-		discvLog.Info(fmt.Sprintf("send ping to %s done", node))
-	}
+				if err != nil {
+					return false
+				}
 
-	send := time.Now()
+				pong, _ := m.(*Pong)
+				if pong.Ping == wt.sourceHash {
+					return true
+				}
 
-	return d.wait(node.ID, pongCode, func(m Message) bool {
-		pong, ok := m.(*Pong)
-		if ok && pong.Ping == hash {
-			monitor.LogDuration("p2p/discv", "ping", time.Now().Sub(send).Nanoseconds())
-			return true
-		}
-		return false
+				err = errUnsolicitedMsg
+				return false
+			},
+		},
 	})
 }
 
-func (d *agent) pong(node *Node, ack types.Hash) error {
+func (d *agent) pong(node *Node, ack types.Hash) {
 	if node.ID == d.self.ID {
-		return nil
+		return
 	}
 
-	_, err := d.send(node.UDPAddr(), pongCode, &Pong{
-		ID:         d.self.ID,
-		Ping:       ack,
-		Expiration: getExpiration(),
+	d.send(&sendPkt{
+		addr: node.UDPAddr(),
+		code: pongCode,
+		msg:  &Pong{
+			ID:         d.self.ID,
+			Ping:       ack,
+			Expiration: getExpiration(),
+		},
 	})
-
-	if err != nil {
-		discvLog.Error(fmt.Sprintf("send ping to %s error: %v", node, err))
-	} else {
-		discvLog.Info(fmt.Sprintf("send ping to %s done", node))
-	}
-
-	return err
 }
 
 // should ping-pong checked before
-func (d *agent) findnode(n *Node, ID NodeID) (nodes []*Node, err error) {
-	monitor.LogEvent("p2p/discv", "findnode")
-
-	_, err = d.send(n.UDPAddr(), findnodeCode, &FindNode{
-		ID:         d.self.ID,
-		Target:     ID,
-		Expiration: getExpiration(),
-	})
-
-	if err != nil {
-		discvLog.Error(fmt.Sprintf("send findnode %s to %s error: %v", ID, n, err))
-		return
-	} else {
-		discvLog.Info(fmt.Sprintf("send findnode %s to %s done", ID, n))
-	}
-
-	send := time.Now()
-	nodes = make([]*Node, 0, K)
-	total := 0
-	err = d.wait(n.ID, neighborsCode, func(m Message) bool {
-		neighbors, ok := m.(*Neighbors)
-		if ok {
-			for _, n := range neighbors.Nodes {
-				if n.Validate() == nil {
-					nodes = append(nodes, n)
+func (d *agent) findnode(n *Node, ID NodeID, callback func([]*Node, error)) {
+	d.send(&sendPkt{
+		addr: n.UDPAddr(),
+		code: findnodeCode,
+		msg:  &FindNode{
+			ID:         d.self.ID,
+			Target:     ID,
+			Expiration: getExpiration(),
+		},
+		wait: &wait{
+			expectFrom: n.ID,
+			expectCode: neighborsCode,
+			handle:     func(m Message, err error, _ *wait) bool {
+				if err != nil {
+					callback(nil, err)
+					return true
 				}
-				total++
-			}
-			monitor.LogDuration("p2p/discv", "findnode", time.Now().Sub(send).Nanoseconds())
-			return total >= K
-		}
-		return false
-	})
 
-	return
+				neighbors, _ := m.(*Neighbors)
+
+				total := 0
+				nodes := make([]*Node, 0, K)
+
+				for _, n := range neighbors.Nodes {
+					if n.Validate() == nil {
+						nodes = append(nodes, n)
+					}
+					total++
+				}
+
+				callback(nodes, nil)
+
+				return total >= K
+			},
+		},
+	})
 }
 
-func (d *agent) sendNeighbors(n *Node, nodes []*Node) (err error) {
+func (d *agent) sendNeighbors(n *Node, nodes []*Node) {
 	neighbors := &Neighbors{
 		ID:         d.self.ID,
 		Expiration: getExpiration(),
@@ -282,14 +245,11 @@ func (d *agent) sendNeighbors(n *Node, nodes []*Node) (err error) {
 
 		if len(carriage) == maxNeighborsOneTrip {
 			neighbors.Nodes = carriage
-			_, err = d.send(n.UDPAddr(), neighborsCode, neighbors)
-
-			if err != nil {
-				discvLog.Error(fmt.Sprintf("send %d neighbors to %s error: %v", len(carriage), n, err))
-			} else {
-				sent = true
-				discvLog.Error(fmt.Sprintf("send %d neighbors to %s done", len(carriage), n))
-			}
+			d.send(&sendPkt{
+				addr: n.UDPAddr(),
+				code: neighborsCode,
+				msg:  neighbors,
+			})
 			carriage = carriage[:0]
 		}
 	}
@@ -297,39 +257,17 @@ func (d *agent) sendNeighbors(n *Node, nodes []*Node) (err error) {
 	// send nodes even if the list is empty
 	if !sent || len(carriage) > 0 {
 		neighbors.Nodes = carriage
-		_, err = d.send(n.UDPAddr(), neighborsCode, neighbors)
-
-		if err != nil {
-			discvLog.Error(fmt.Sprintf("send %d neighbors to %s error: %v", len(carriage), n, err))
-		} else {
-			discvLog.Info(fmt.Sprintf("send %d neighbors to %s done", len(carriage), n))
-		}
+		d.send(&sendPkt{
+			addr: n.UDPAddr(),
+			code: neighborsCode,
+			msg:  neighbors,
+		})
 	}
-
-	return
 }
 
-func (d *agent) wait(ID NodeID, code packetCode, handle waitIsDone) error {
-	errch := make(chan error, 1)
-
-	select {
-	case d.pool.add <- &wait{
-		expectFrom: ID,
-		expectCode: code,
-		handle:     handle,
-		expiration: time.Now().Add(watingTimeout),
-		errch:      errch,
-	}:
-	case <-d.term:
-		errch <- errStopped
-	}
-
-	return <-errch
-}
-
-func (d *agent) readLoop() {
-	defer d.wg.Done()
-	defer d.conn.Close()
+func (a *agent) readLoop() {
+	defer a.wg.Done()
+	defer a.conn.Close()
 
 	buf := make([]byte, maxPacketLength)
 
@@ -338,12 +276,12 @@ func (d *agent) readLoop() {
 
 	for {
 		select {
-		case <-d.term:
+		case <-a.term:
 			return
 		default:
 		}
 
-		n, addr, err := d.conn.ReadFromUDP(buf)
+		n, addr, err := a.conn.ReadFromUDP(buf)
 
 		if err != nil {
 			discvLog.Error(fmt.Sprintf("udp read error %v", err))
@@ -374,55 +312,77 @@ func (d *agent) readLoop() {
 		p, err := unPacket(buf[:n])
 		if err != nil {
 			discvLog.Error(fmt.Sprintf("unpack message from %s error: %v", addr, err))
-			go d.send(addr, exceptionCode, &Exception{
-				Code: eCannotUnpack,
+			a.send(&sendPkt{
+				addr: addr,
+				code: exceptionCode,
+				msg:  &Exception{Code: eCannotUnpack,},
 			})
 			continue
 		}
 
-		monitor.LogEvent("p2p/discv", "msg")
-
 		p.from = addr
-		go d.pktHandler(p)
+
+		if p.code == pongCode || p.code == neighborsCode {
+			a.pool.rec <- p
+		}
+
+		select {
+		case a.read <- p:
+		default:
+			discvLog.Error("discovery packet read channel is block")
+		}
 	}
 }
 
-func (d *agent) send(addr *net.UDPAddr, code packetCode, m Message) (hash types.Hash, err error) {
-	data, hash, err := m.pack(d.priv)
+func (a *agent) writeLoop() {
+	defer a.wg.Done()
 
-	if err != nil {
-		discvLog.Error(fmt.Sprintf("pack message %s to %s error: %v", code, addr, err))
-		return
+	for {
+		select {
+		case <-a.term:
+			return
+		case s := <- a.write:
+			data, hash, err := s.msg.pack(a.priv)
+
+			if err != nil {
+				discvLog.Error(fmt.Sprintf("pack message %s to %s error: %v", s.msg, s.addr, err))
+				continue
+			}
+
+			n, err := a.conn.WriteToUDP(data, s.addr)
+
+			if err != nil {
+				discvLog.Error(fmt.Sprintf("send message %s to %s error: %v", s.msg, s.addr, err))
+			} else if n != len(data) {
+				discvLog.Error(fmt.Sprintf("send incomplete message %s (%d/%dbytes) to %s\n", s.msg, n, len(data), s.addr))
+			} else {
+				monitor.LogEvent("p2p/discv", "send " + s.code.String())
+				discvLog.Info(fmt.Sprintf("send message %s to %s done\n", s.msg, s.addr))
+
+				if s.wait != nil {
+					s.wait.sourceHash = hash
+					s.wait.expiration = getExpiration()
+					a.pool.add <- s.wait
+				}
+			}
+		}
 	}
-
-	n, err := d.conn.WriteToUDP(data, addr)
-	if err != nil {
-		discvLog.Error(fmt.Sprintf("send message %s to %s error: %v", code, addr, err))
-		return
-	}
-
-	if n != len(data) {
-		err = fmt.Errorf("send incomplete message %s (%d/%dbytes) to %s\n", code, n, len(data), addr)
-		discvLog.Error(err.Error())
-		return
-	}
-
-	monitor.LogEvent("p2p/discv", code.String())
-
-	return
 }
 
-func (d *agent) need(p *packet) bool {
-	matched := make(chan bool, 1)
-	select {
-	case <-d.term:
-		return false
-	case d.pool.rec <- &res{
-		from:    p.fromID,
-		code:    p.code,
-		data:    p.msg,
-		matched: matched,
-	}:
-		return <-matched
+func (a *agent) handleLoop() {
+	defer a.wg.Done()
+
+	for {
+		select {
+		case <-a.term:
+			return
+			case p:= <-a.read:
+				a.pktHandler(p)
+
+		}
 	}
+}
+
+func (a *agent) send(pkt *sendPkt) {
+	a.write <- pkt
 }

@@ -57,7 +57,7 @@ type Discovery struct {
 
 func (d *Discovery) Start() {
 	d.wg.Add(1)
-	go d.keepTable()
+	go d.tableLoop()
 
 	d.wg.Add(1)
 	go d.agent.start()
@@ -86,7 +86,7 @@ func (d *Discovery) Block(ID NodeID, IP net.IP) {
 	}
 }
 
-func (d *Discovery) keepTable() {
+func (d *Discovery) tableLoop() {
 	defer d.wg.Done()
 
 	checkTicker := time.NewTicker(checkInterval)
@@ -107,12 +107,14 @@ func (d *Discovery) keepTable() {
 		case <-checkTicker.C:
 			n := d.tab.pickOldest()
 			if n != nil {
-				err := d.agent.ping(n)
-				if err != nil {
-					d.tab.removeNode(n)
-				} else {
-					d.tab.bubble(n)
-				}
+				d.agent.ping(n, func(node *Node, err error) {
+					if err == nil {
+						d.tab.bubble(n)
+					} else {
+						discvLog.Error(fmt.Sprintf("check oldest node error: %v", err))
+						d.tab.removeNode(n)
+					}
+				})
 			}
 
 		case <-storeTicker.C:
@@ -129,49 +131,20 @@ func (d *Discovery) keepTable() {
 	}
 }
 
-func (d *Discovery) findNode(to *Node, target NodeID) (nodes []*Node, err error) {
-	// if the last ping-pong checked has too long, then do ping-pong check again
-	//if !d.db.hasChecked(to.ID) {
-	//	err = d.agent.ping(to)
-	//	if err != nil {
-	//		discvLog.Error(fmt.Sprintf("ping %s before find %s error: %v\n", to.UDPAddr(), target, err))
-	//		return
-	//	} else {
-	//		discvLog.Info(fmt.Sprintf("ping %s before find %s done", to.UDPAddr(), target))
-	//	}
-	//
-	//	d.agent.wait(to.ID, pingCode, func(Message) bool {
-	//		return true
-	//	})
-	//}
+func (d *Discovery) findNode(to *Node, target NodeID, callback func(n *Node, nodes []*Node)) {
+	d.agent.findnode(to, target, func(nodes []*Node, err error) {
+		callback(to, nodes)
+		if len(nodes) == 0 {
+			discvLog.Error(fmt.Sprintf("find %s to %s, got %d neighbors, error: %v", target, to.UDPAddr(), len(nodes), err))
+		} else {
+			discvLog.Info(fmt.Sprintf("find %s to %s, got %d neighbors", target, to.UDPAddr(), len(nodes)))
 
-	nodes, err = d.agent.findnode(to, target)
-	findFails := d.db.getFindNodeFails(to.ID)
-
-	if err != nil || len(nodes) == 0 {
-		findFails++
-		d.db.setFindNodeFails(to.ID, findFails)
-		discvLog.Info(fmt.Sprintf("find %s to %s, got %d neighbors, error: %v", target, to.UDPAddr(), len(nodes), err))
-
-		if findFails > maxFindFails {
-			d.tab.removeNode(to)
-			discvLog.Info(fmt.Sprintf("find %s to %s, fails %d times, remove it", target, to.UDPAddr(), findFails))
+			// add as many nodes as possible
+			for _, n := range nodes {
+				d.tab.addNode(n)
+			}
 		}
-	} else {
-		discvLog.Info(fmt.Sprintf("find %s to %s, got %d neighbors", target, to.UDPAddr(), len(nodes)))
-
-		// add as many nodes as possible
-		for _, n := range nodes {
-			d.tab.addNode(n)
-		}
-
-		if findFails > 0 {
-			findFails--
-			d.db.setFindNodeFails(to.ID, findFails)
-		}
-	}
-
-	return nodes, err
+	})
 }
 
 func (d *Discovery) RandomNodes(result []*Node) int {
@@ -212,10 +185,9 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 			n := result.nodes[i]
 			if _, ok := asked[n.ID]; !ok {
 				asked[n.ID] = struct{}{}
-				go func(n *Node) {
-					nodes, _ := d.findNode(n, id)
+				d.findNode(n, id, func(n *Node, nodes []*Node) {
 					reply <- nodes
-				}(n)
+				})
 				queries++
 			}
 		}
@@ -257,19 +229,17 @@ func (d *Discovery) Resolve(id NodeID) *Node {
 	return nil
 }
 
-func (d *Discovery) HandleMsg(res *packet) error {
+func (d *Discovery) HandleMsg(res *packet) {
 	if res.msg.isExpired() {
-		return errMsgExpired
+		return
 	}
+
+	discvLog.Info(fmt.Sprintf("receive %s from %s@%s", res.msg, res.fromID, res.from))
 
 	switch res.code {
 	case pingCode:
-		discvLog.Info(fmt.Sprintf("receive %s from %s@%s", res.code, res.fromID, res.from))
 		monitor.LogEvent("p2p/discv", "ping-receive")
-		ping, ok := res.msg.(*Ping)
-		if !ok {
-			return errExtractPing
-		}
+		ping, _ := res.msg.(*Ping)
 
 		node := &Node{
 			ID:  res.fromID,
@@ -280,33 +250,16 @@ func (d *Discovery) HandleMsg(res *packet) error {
 
 		d.db.setLastPing(res.fromID, time.Now())
 		d.agent.pong(node, res.hash)
-		d.agent.need(res)
-
-		if !d.db.hasChecked(res.fromID) {
-			d.agent.ping(node)
-		}
 		d.tab.addNode(node)
-	case pongCode:
-		discvLog.Info(fmt.Sprintf("receive %s from %s@%s", res.code, res.fromID, res.from))
-		monitor.LogEvent("p2p/discv", "pong-receive")
 
-		if !d.agent.need(res) {
-			return errUnsolicitedMsg
-		}
+	case pongCode:
+		monitor.LogEvent("p2p/discv", "pong-receive")
 		d.db.setLastPong(res.fromID, time.Now())
+
 	case findnodeCode:
 		monitor.LogEvent("p2p/discv", "find-receive")
 
-		//if !d.db.hasChecked(res.fromID) {
-		//	return errUnsolicitedMsg
-		//}
-
-		findMsg, ok := res.msg.(*FindNode)
-		if !ok {
-			return errExtractFindNode
-		}
-
-		discvLog.Info(fmt.Sprintf("receive findnode %s from %s@%s", findMsg.Target, res.fromID, res.from))
+		findMsg, _ := res.msg.(*FindNode)
 		nodes := d.tab.findNeighbors(findMsg.Target, K).nodes
 		node := &Node{
 			ID:  res.fromID,
@@ -316,26 +269,17 @@ func (d *Discovery) HandleMsg(res *packet) error {
 
 		d.agent.sendNeighbors(node, nodes)
 	case neighborsCode:
-		n, ok := res.msg.(*Neighbors)
-
-		if ok {
-			discvLog.Info(fmt.Sprintf("receive %d %s from %s@%s", len(n.Nodes), res.code, res.fromID, res.from))
-		}
-
 		monitor.LogEvent("p2p/discv", "neighbors-receive")
 
-		if !d.agent.need(res) {
-			return errUnsolicitedMsg
-		}
 	default:
-		discvLog.Info(fmt.Sprintf("receive %s from %s@%s", res.code, res.fromID, res.from))
-		d.agent.send(res.from, exceptionCode, &Exception{
-			Code: eUnKnown,
+		d.agent.send(&sendPkt{
+			addr: res.from,
+			code: exceptionCode,
+			msg:  &Exception{
+				Code: eUnKnown,
+			},
 		})
-		return errUnkownMsg
 	}
-
-	return nil
 }
 
 func (d *Discovery) RefreshTable() {
@@ -401,7 +345,9 @@ func New(cfg *Config) *Discovery {
 		priv:       cfg.Priv,
 		term:       make(chan struct{}),
 		pktHandler: d.HandleMsg,
-		pool:        newWtPool(),
+		pool:       newWtPool(),
+		write: make(chan *sendPkt, 100),
+		read: make(chan *packet, 100),
 	}
 
 	return d
