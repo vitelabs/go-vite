@@ -1,7 +1,7 @@
 package p2p
 
 import (
-	"container/list"
+	"github.com/vitelabs/go-vite/p2p/list"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -28,8 +28,6 @@ type discoverTask struct {
 }
 
 func (t *discoverTask) Perform(a *agent) {
-	defer a.TaskDone(t)
-
 	a.log.Info(fmt.Sprintf("run discoveryTask, find %s", t.target))
 
 	t.results = a.svr.discv.Lookup(t.target)
@@ -45,8 +43,6 @@ type dialTask struct {
 }
 
 func (t *dialTask) Perform(a *agent) {
-	defer a.TaskDone(t)
-
 	a.log.Info(fmt.Sprintf("run dialTask to %s", t.target))
 
 	conn, err := a.Dialer.Dial("tcp", t.target.TCPAddr().String())
@@ -64,8 +60,6 @@ type waitTask struct {
 }
 
 func (t *waitTask) Perform(a *agent) {
-	defer a.TaskDone(t)
-
 	a.log.Info("run waitTask")
 
 	time.Sleep(t.Duration)
@@ -83,7 +77,7 @@ type agent struct {
 	svr         *Server
 	log         log15.Logger
 	tasks       *list.List
-	runingSlots chan struct{}
+	running chan struct{}
 }
 
 func newAgent(svr *Server) *agent {
@@ -97,11 +91,7 @@ func newAgent(svr *Server) *agent {
 		svr:         svr,
 		log:         log15.New("module", "p2p/agent"),
 		tasks:       list.New(),
-		runingSlots: make(chan struct{}, maxRunTasks),
-	}
-
-	for i := 0; i < maxRunTasks; i++ {
-		a.runingSlots <- struct{}{}
+		running: make(chan struct{}, maxRunTasks),
 	}
 
 	return a
@@ -112,16 +102,16 @@ func (a *agent) scheduleTasks(stop <-chan struct{}, taskDone chan<- struct{}) {
 		select {
 		case <-stop:
 			return
-		case <- a.runingSlots:
-			if e := a.tasks.Front(); e != nil {
-				task, _ := e.Value.(Task)
-				task.Perform(a)
-				a.tasks.Remove(e)
-
-				taskDone<- struct{}{}
-				a.runingSlots <- struct{}{}
+		case a.running <- struct{}{}:
+			if t := a.tasks.Shift(); t != nil {
+				t, _ := t.(Task)
+				go func(t Task) {
+					t.Perform(a)
+					<- a.running
+				}(t)
 			} else {
-				a.createTasks()
+				a.running <- struct{}{}
+				taskDone<- struct{}{}
 			}
 		}
 	}
@@ -154,7 +144,7 @@ func (a *agent) createTasks() uint {
 
 		task, err := a.createDialTask(boot)
 		if err == nil {
-			a.tasks.PushBack(task)
+			a.tasks.Append(task)
 			restDials--
 			a.log.Info(fmt.Sprintf("create dialTask: bootnode<%s>", boot))
 		}
@@ -171,7 +161,7 @@ func (a *agent) createTasks() uint {
 		for i := 0; i < n; i++ {
 			task, err := a.createDialTask(randomNodes[i])
 			if err == nil {
-				a.tasks.PushBack(task)
+				a.tasks.Append(task)
 				restDials--
 
 				a.log.Info(fmt.Sprintf("create dialTask: random<%s>", randomNodes[i]))
@@ -184,7 +174,7 @@ func (a *agent) createTasks() uint {
 		task, err := a.createDialTask(a.lookResults[resultIndex])
 
 		if err == nil {
-			a.tasks.PushBack(task)
+			a.tasks.Append(task)
 			restDials--
 
 			a.log.Info(fmt.Sprintf("create dialTask: lookResult<%s>", a.lookResults[resultIndex]))
@@ -195,7 +185,7 @@ func (a *agent) createTasks() uint {
 	if len(a.lookResults) == 0 && !a.looking {
 		var id discovery.NodeID
 		rand.Read(id[:])
-		a.tasks.PushBack(&discoverTask{
+		a.tasks.Append(&discoverTask{
 			target: id,
 		})
 
@@ -206,7 +196,7 @@ func (a *agent) createTasks() uint {
 	}
 
 	if canDials-restDials == 0 && !a.wating {
-		a.tasks.PushBack(&waitTask{
+		a.tasks.Append(&waitTask{
 			Duration: 3 * time.Minute,
 		})
 		a.wating = true

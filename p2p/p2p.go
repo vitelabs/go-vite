@@ -19,7 +19,6 @@ import (
 )
 
 var p2pServerLog = log15.New("module", "p2p/server")
-
 var errSvrStarted = errors.New("server has started")
 var errSvrStopped = errors.New("server has stopped")
 
@@ -81,7 +80,7 @@ func New(cfg Config) *Server {
 		topo:      newTopoHandler(),
 	}
 
-	if svr.KafKa != nil {
+	if len(svr.KafKa) != 0 {
 		producer, err := newProducer(svr.KafKa)
 
 		if err == nil {
@@ -247,6 +246,7 @@ func (svr *Server) setHandshake(ID discovery.NodeID) {
 
 func (svr *Server) listenLoop(listener *net.TCPListener) {
 	defer svr.wg.Done()
+	defer listener.Close()
 
 	var conn net.Conn
 	var err error
@@ -288,21 +288,15 @@ func (svr *Server) listenLoop(listener *net.TCPListener) {
 
 			go svr.setupConn(conn, inbound)
 		case <-svr.term:
-			close(svr.pending)
-			goto END
+			return
 		}
 	}
-
-END:
-	listener.Close()
 }
 
 func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 	ts := &conn{
-		fd:        c,
-		transport: newProtoX(c),
+		AsyncMsgConn: NewAsyncMsgConn(c, nil),
 		flags:     flag,
-		term:      make(chan struct{}),
 	}
 
 	svr.log.Info(fmt.Sprintf("begin handshake with %s", c.RemoteAddr()))
@@ -310,7 +304,7 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 	their, err := ts.Handshake(svr.ourHandshake)
 
 	if err != nil {
-		ts.close(err)
+		ts.Close(err)
 		svr.log.Error(fmt.Sprintf("handshake error with %s: %v", c.RemoteAddr(), err))
 	} else {
 		ts.id = their.ID
@@ -364,7 +358,7 @@ func (svr *Server) loop() {
 		case <-svr.term:
 			goto END
 		case <-shouldSchedule:
-			// do nothing
+			svr.agent.createTasks()
 		case c := <-svr.addPeer:
 			err := svr.checkConn(c)
 
@@ -381,7 +375,7 @@ func (svr *Server) loop() {
 					svr.log.Error(fmt.Sprintf("create new peer error: %v", err))
 				}
 			} else {
-				c.close(err)
+				c.Close(err)
 				svr.log.Error("cannot create new peer", "error", err)
 			}
 
@@ -397,13 +391,7 @@ func (svr *Server) loop() {
 
 			topo := svr.Topology()
 			go svr.peers.Traverse(func(id discovery.NodeID, p *Peer) {
-				err := Send(p.rw, baseProtocolCmdSet, topoCmd, 0, topo)
-				if err != nil {
-					svr.log.Error(fmt.Sprintf("send topo to %s error: %v", p.ID(), err))
-					p.protoErr <- err
-				} else {
-					svr.log.Info(fmt.Sprintf("send topo to %s done", p.ID()))
-				}
+				p.Send(baseProtocolCmdSet, topoCmd, 0, topo)
 			})
 		case e := <-svr.topo.rec:
 			monitor.LogEvent("p2p", "topo-receive")

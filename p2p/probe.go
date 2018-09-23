@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/protos"
 	"gopkg.in/Shopify/sarama.v1"
-	"io/ioutil"
 	"time"
 )
 
@@ -99,13 +98,14 @@ func newTopoHandler() *topoHandler {
 func (th *topoHandler) Handle(event *topoEvent, svr *Server) {
 	defer event.msg.Discard()
 
-	hash := make([]byte, 32)
-	n, err := event.msg.Payload.Read(hash)
-	if n != 32 || err != nil {
+	length := len(event.msg.Payload)
+
+	if length < 32 {
 		p2pServerLog.Info(fmt.Sprintf("receive invalid topoMsg from %s@%s", event.sender.ID(), event.sender.RemoteAddr()))
 		return
 	}
 
+	hash := event.msg.Payload[:32]
 	if th.record.Lookup(hash) {
 		p2pServerLog.Info("has received the same topoMsg")
 		return
@@ -114,17 +114,12 @@ func (th *topoHandler) Handle(event *topoEvent, svr *Server) {
 	th.record.Insert(hash)
 	go svr.peers.Traverse(func(id discovery.NodeID, p *Peer) {
 		if p.ID() != event.sender.ID() {
-			SendMsg(p.rw, *event.msg)
+			p.SendMsg(event.msg)
 		}
 	})
 
 	if svr.producer != nil {
-		data, err := ioutil.ReadAll(event.msg.Payload)
-		if err != nil {
-			p2pServerLog.Error("can`t read topoMsg payload, so can`t send to Kafka")
-		} else {
-			svr.producer.write("p2p_status_event", data)
+			svr.producer.write("p2p_status_event", event.msg.Payload)
 			p2pServerLog.Info("report topoMsg to kafka")
-		}
 	}
 }

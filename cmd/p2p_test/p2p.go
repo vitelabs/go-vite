@@ -9,7 +9,6 @@ import (
 	"log"
 	"net"
 	_ "net/http/pprof"
-	"time"
 )
 
 func parseConfig() *config.Config {
@@ -53,7 +52,10 @@ func main() {
 				// read and write Msg with rw
 				Handle: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 					for {
-						time.Sleep(time.Hour)
+						_, err := rw.ReadMsg()
+						if err != nil {
+							return err
+						}
 					}
 					return nil
 				},

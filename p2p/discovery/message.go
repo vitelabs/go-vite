@@ -416,7 +416,7 @@ func unPacket(data []byte) (p *packet, err error) {
 	pktVersion := data[0]
 
 	if pktVersion != version {
-		return nil, fmt.Errorf("unmatched discovery packet version: received packet version is %d, but we are %d \n", pktVersion, version)
+		return nil, fmt.Errorf("unmatched discovery packet version: received packet version is %d, but we are %d", pktVersion, version)
 	}
 
 	pktCode := packetCode(data[1])

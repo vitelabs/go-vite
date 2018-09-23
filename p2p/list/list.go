@@ -29,6 +29,16 @@ func (l *List) Append(data interface{}) {
 	l.count++
 }
 
+func (l *List) Shift() interface{} {
+	e := l.l.next
+	if e == nil {
+		return nil
+	}
+
+	l.Remove(l.l, e)
+	return e.Value
+}
+
 func (l *List) Remove(prev, current *Element) {
 	prev.next = current.next
 	if current.next == nil {

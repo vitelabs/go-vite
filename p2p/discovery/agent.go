@@ -354,10 +354,10 @@ func (a *agent) writeLoop() {
 			if err != nil {
 				discvLog.Error(fmt.Sprintf("send message %s to %s error: %v", s.msg, s.addr, err))
 			} else if n != len(data) {
-				discvLog.Error(fmt.Sprintf("send incomplete message %s (%d/%dbytes) to %s\n", s.msg, n, len(data), s.addr))
+				discvLog.Error(fmt.Sprintf("send incomplete message %s (%d/%dbytes) to %s", s.msg, n, len(data), s.addr))
 			} else {
 				monitor.LogEvent("p2p/discv", "send " + s.code.String())
-				discvLog.Info(fmt.Sprintf("send message %s to %s done\n", s.msg, s.addr))
+				discvLog.Info(fmt.Sprintf("send message %s to %s done", s.msg, s.addr))
 
 				if s.wait != nil {
 					s.wait.sourceHash = hash
