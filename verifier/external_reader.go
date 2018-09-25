@@ -1,32 +1,34 @@
 package verifier
 
 import (
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-type ChainReader interface {
-	AccountReader
-	SnapshotReader
+type Chain interface {
+	//AccountReader
+	//SnapshotReader
+	Chain() *chain.Chain
 }
 
-type SnapshotReader interface {
-	GenesisSnapshot() *ledger.SnapshotBlock
-	HeadSnapshot() (*ledger.SnapshotBlock, error)
-	GetSnapshotBlockByHash(hash *types.Hash) (block *ledger.SnapshotBlock, returnErr error)
-	GetConfirmBlock(block *ledger.AccountBlock) (*ledger.SnapshotBlock, error)
-	GetConfirmTimes(snapshotBlock *ledger.SnapshotBlock) (uint64, error)
-}
-
-type AccountReader interface {
-	HeadAccount(address *types.Address) (*ledger.AccountBlock, error)
-	GetLatestAccountBlock(addr *types.Address) (block *ledger.AccountBlock, err error)
-	GetAccountBlockByHash(blockHash *types.Hash) (block *ledger.AccountBlock, err error)
-	GetContractGid(addr *types.Address) (*types.Gid, error)
-	GetGenesisBlockFirst() *ledger.AccountBlock
-	GetReceiveTimes(addr *types.Address, fromBlockHash *types.Hash) uint8
-}
-
-type ConsensusReader interface {
+type Consensus interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) error
 }
+
+type Signer interface {
+	SignData(a types.Address, data []byte) (signedData, pubkey []byte, err error)
+	SignDataWithPassphrase(a types.Address, passphrase string, data []byte) (signedData, pubkey []byte, err error)
+}
+
+//type SnapshotReader interface {
+//	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+//	GetConfirmBlock(accountBlock *ledger.AccountBlock) *ledger.SnapshotBlock
+//	GetConfirmTimes(accountBlock *ledger.AccountBlock) uint64
+//}
+//
+//type AccountReader interface {
+//	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
+//	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
+//	GetContractGid(addr *types.Address) (*types.Gid, error)
+//}

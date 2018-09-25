@@ -564,3 +564,5 @@ func GetGenesisBlockSecond(prevHash *types.Hash, fromHash *types.Hash) *AccountB
 
 var AccountGenesisBlockFirst = GetGenesisBlockFirst()
 var AccountGenesisBlockSecond = GetGenesisBlockSecond(AccountGenesisBlockFirst.Hash, AccountGenesisBlockFirst.Hash)
+
+

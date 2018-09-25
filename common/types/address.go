@@ -108,3 +108,19 @@ func getAddressChecksumFromHex(hexStr string) ([addressChecksumSize]byte, error)
 	_, err := hex.Decode(b[:], []byte(hexStr[2*AddressSize+addressPrefixLen:]))
 	return b, err
 }
+
+func (a *Address) UnmarshalJSON(input []byte) error {
+	if !isString(input) {
+		return ErrJsonNotString
+	}
+	addresses, e := HexToAddress(string(trimLeftRightQuotation(input)))
+	if e != nil {
+		return e
+	}
+	a.SetBytes(addresses.Bytes())
+	return nil
+}
+
+func (a Address) MarshalText() ([]byte, error) {
+	return []byte(a.String()), nil
+}

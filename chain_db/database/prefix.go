@@ -15,9 +15,9 @@ const (
 
 	DBKP_SNAPSHOTCONTENT = byte(7)
 
-	DBKP_UNCONFIRMEDMETA = byte(8)
+	DBKP_ONROADMETA = byte(8)
 
-	DBKP_UNCONFIRMEDHASHLIST = byte(9)
+	DBKP_ONROADHASHLIST = byte(9)
 
 	DBKP_ACCOUNTBLOCK_COUNTER = byte(10)
 
@@ -26,4 +26,8 @@ const (
 	DBKP_TRIE_REF_VALUE = byte(12)
 
 	DBKP_LOG_LIST = byte(13)
+
+	DBKP_ADDR_GID = byte(14)
+
+	DBKP_GID_ADDR = byte(15)
 )
