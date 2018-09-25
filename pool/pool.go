@@ -13,7 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/keystore"
-	"github.com/viteshan/naive-vite/common"
 	"github.com/viteshan/naive-vite/common/face"
 	"github.com/viteshan/naive-vite/common/log"
 	"github.com/viteshan/naive-vite/syncer"
@@ -98,7 +97,7 @@ type pool struct {
 }
 
 func NewPool(bc ch.Chain) BlockPool {
-	self := &pool{bc: bc, rwMutex: &sync.RWMutex{}, version: &ForkVersion{}, closed: make(chan struct{}), accountCond: sync.NewCond(&sync.Mutex{})}
+	self := &pool{bc: bc, rwMutex: &sync.RWMutex{}, version: &ForkVersion{}, accountCond: sync.NewCond(&sync.Mutex{})}
 	return self
 }
 
@@ -145,6 +144,7 @@ func (self *pool) Info(addr *types.Address) string {
 	}
 }
 func (self *pool) Start() {
+	self.closed = make(chan struct{})
 	self.pendingSc.Start()
 	go self.loopTryInsert()
 	go self.loopCompact()
@@ -241,38 +241,6 @@ func (self *pool) ExistInPool(address types.Address, requestHash types.Hash) boo
 	return self.selfPendingAc(address).ExistInCurrent(requestHash)
 }
 
-//func (self *pool) ForkAccounts(keyPoint *ledger.SnapshotBlock, forkPoint *ledger.SnapshotBlock) error {
-//	tasks := make(map[string]*common.AccountHashH)
-//	self.pendingAc.Range(func(k, v interface{}) bool {
-//		a := v.(*accountPool)
-//		ok, block, err := a.FindRollbackPointByReferSnapshot(forkPoint.Height(), forkPoint.Hash())
-//		if err != nil {
-//			log.Error("%v", err)
-//			return true
-//		}
-//		if !ok {
-//			return true
-//		} else {
-//			h := common.NewAccountHashH(k.(string), block.Hash(), block.Height())
-//			tasks[h.Addr] = h
-//		}
-//		return true
-//		//}
-//	})
-//	waitRollbackAccounts := self.getWaitRollbackAccounts(tasks)
-//
-//	for _, v := range waitRollbackAccounts {
-//		err := self.selfPendingAc(v.Addr).Rollback(v.Height, v.Hash)
-//		if err != nil {
-//			return err
-//		}
-//	}
-//	for _, v := range keyPoint.Accounts {
-//		self.ForkAccountTo(v)
-//	}
-//	return nil
-//}
-
 func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 
 	for k, v := range accounts {
@@ -281,67 +249,6 @@ func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 	return nil
 }
 
-//func (self *pool) getWaitRollbackAccounts(tasks map[string]*common.AccountHashH) map[string]*common.AccountHashH {
-//	waitRollback := make(map[string]*common.AccountHashH)
-//	for {
-//		var sendBlocks []*ledger.AccountBlock
-//		for k, v := range tasks {
-//			delete(tasks, k)
-//			if canAdd(waitRollback, v) {
-//				waitRollback[v.Addr] = v
-//			}
-//			addWaitRollback(waitRollback, v)
-//			tmpBlocks, err := self.selfPendingAc(v.Addr).TryRollback(v.Height, v.Hash)
-//			if err == nil {
-//				for _, v := range tmpBlocks {
-//					sendBlocks = append(sendBlocks, v)
-//				}
-//			} else {
-//				log.Error("%v", err)
-//			}
-//		}
-//		for _, v := range sendBlocks {
-//			sourceHash := v.Hash()
-//			req := self.bc.GetAccountBySourceHash(v.To, sourceHash)
-//			h := &common.AccountHashH{Addr: req.Signer(), HashHeight: common.HashHeight{Hash: req.Hash(), Height: req.Height()}}
-//			if req != nil {
-//				if canAdd(tasks, h) {
-//					tasks[h.Addr] = h
-//				}
-//			}
-//		}
-//		if len(tasks) == 0 {
-//			break
-//		}
-//	}
-//
-//	return waitRollback
-//}
-
-// h is closer to genesis
-func canAdd(hs map[string]*common.AccountHashH, h *common.AccountHashH) bool {
-	hashH := hs[h.Addr]
-	if hashH == nil {
-		return true
-	}
-
-	if h.Height < hashH.Height {
-		return true
-	}
-	return false
-}
-func addWaitRollback(hs map[string]*common.AccountHashH, h *common.AccountHashH) {
-	hashH := hs[h.Addr]
-	if hashH == nil {
-		hs[h.Addr] = h
-		return
-	}
-
-	if hashH.Height < h.Height {
-		hs[h.Addr] = h
-		return
-	}
-}
 func (self *pool) PendingAccountTo(addr types.Address, h *ledger.SnapshotContentItem) error {
 	this := self.selfPendingAc(addr)
 

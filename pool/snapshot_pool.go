@@ -54,7 +54,6 @@ func newSnapshotPool(
 	pool := &snapshotPool{}
 	pool.Id = name
 	pool.version = version
-	pool.closed = make(chan struct{})
 	pool.rw = rw
 	pool.v = v
 	pool.f = f
@@ -220,6 +219,7 @@ L:
 	return nil, nil
 }
 func (self *snapshotPool) Start() {
+	self.closed = make(chan struct{})
 	go self.loop()
 	go self.loopCheckFork()
 	log.Info("snapshot_pool[%s] started.", self.Id)
