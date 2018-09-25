@@ -2,12 +2,10 @@ package model
 
 import (
 	"container/list"
-	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vitepb"
 	"math/big"
 	"sync"
 )
@@ -125,32 +123,34 @@ func (c *onroadBlocksCache) rmTx(b *ledger.AccountBlock) {
 }
 
 func AddrListDbSerialize(addrList []*types.Address) ([]byte, error) {
-	var aList [][]byte
-	for _, addr := range addrList {
-		aList = append(aList, addr.Bytes())
-	}
-	var addrListPB = &vitepb.AddressList{
-		AddressList: aList,
-	}
-	data, err := proto.Marshal(addrListPB)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
+	//var aList [][]byte
+	//for _, addr := range addrList {
+	//	aList = append(aList, addr.Bytes())
+	//}
+	//var addrListPB = &vitepb.AddressList{
+	//	AddressList: aList,
+	//}
+	//data, err := proto.Marshal(addrListPB)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//return data, nil
+	return nil, nil
 }
 
 func AddrListDbDeserialize(buf []byte) ([]*types.Address, error) {
-	var addrListPB = &vitepb.AddressList{}
-	if err := proto.Unmarshal(buf, addrListPB); err != nil {
-		return nil, err
-	}
-	var addrList []*types.Address
-	for _, addrPB := range addrListPB.AddressList {
-		addr, err := types.BytesToAddress(addrPB)
-		if err != nil {
-			return nil, err
-		}
-		addrList = append(addrList, &addr)
-	}
-	return addrList, nil
+	//var addrListPB = &vitepb.AddressList{}
+	//if err := proto.Unmarshal(buf, addrListPB); err != nil {
+	//	return nil, err
+	//}
+	//var addrList []*types.Address
+	//for _, addrPB := range addrListPB.AddressList {
+	//	addr, err := types.BytesToAddress(addrPB)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	addrList = append(addrList, &addr)
+	//}
+	//return addrList, nil
+	return nil, nil
 }
