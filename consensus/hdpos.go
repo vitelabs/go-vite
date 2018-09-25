@@ -1,10 +1,10 @@
 package consensus
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
+	"math/big"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 var DefaultMembers = []string{
@@ -53,219 +53,59 @@ type SubscribeMem struct {
 // backing account.
 type SignerFn func(a types.Address, data []byte) (signedData, pubkey []byte, err error)
 
-// update committee result
-type Committee struct {
-	types.LifecycleStatus
-	interval     int32
-	memberCnt    int32
-	teller       *teller
-	subscribeMem *SubscribeMem
-	signer       types.Address
-	signerFn     SignerFn
-}
-
-func (self *Committee) Seal() error {
-	return nil
-}
-func (self *Committee) Authorize(signer types.Address, fn SignerFn) {
-	self.signer = signer
-	self.signerFn = fn
-}
-
-func (self *Committee) Verify(reader SnapshotReader, header *ledger.SnapshotBlock) (bool, error) {
-	result, err := self.verifyProducer(header)
-	if result && err == nil {
-		return true, nil
-	}
-	return false, nil
-}
-
-func (self *Committee) verifyProducer(header *ledger.SnapshotBlock) (bool, error) {
-	electionResult := self.teller.electionTime(time.Unix(int64(header.Timestamp), 0))
-
-	for _, plan := range electionResult.plans {
-		if plan.member == *header.Producer {
-			if uint64(plan.sTime.Unix()) == header.Timestamp {
-				return true, nil
-			} else {
-				return false, nil
-			}
-		}
-	}
-	return false, nil
-}
-
-func NewCommittee(genesisTime time.Time, interval int32, memberCnt int32) *Committee {
-	committee := &Committee{interval: interval, memberCnt: memberCnt}
-	committee.teller = newTeller(genesisTime, interval, memberCnt)
-	return committee
-}
-
-func (self *Committee) Init() {
-	self.PreInit()
-	defer self.PostInit()
-}
-
-func (self *Committee) Start() {
-	self.PreStart()
-	defer self.PostStart()
-
-	go self.update()
-}
-
-func (self *Committee) Stop() {
-	self.PreStop()
-	defer self.PostStop()
-}
-
-func (self *Committee) Subscribe(subscribeMem *SubscribeMem) {
-	self.subscribeMem = subscribeMem
-}
-
-func (self *Committee) update() {
-	log := log15.New("module", "committee")
-	var lastIndex int32 = -1
-	var lastRemoveTime = time.Now()
-	for !self.Stopped() {
-		var current *memberPlan = nil
-		electionResult := self.teller.electionTime(time.Now())
-
-		if electionResult == nil {
-			log.Error("can't get election result. time is " + time.Now().Format(time.RFC3339Nano) + "\".")
-			time.Sleep(time.Duration(self.interval) * time.Second)
-			// error handle
-			continue
-		}
-
-		if electionResult.index <= lastIndex {
-			time.Sleep(electionResult.eTime.Sub(time.Now()))
-			continue
-		}
-		mem := self.subscribeMem
-		if mem == nil {
-			time.Sleep(electionResult.eTime.Sub(time.Now()))
-			continue
-		}
-
-		plans := electionResult.plans
-		for _, plan := range plans {
-			if plan.member == mem.Mem {
-				current = plan
-				break
-			}
-		}
-
-		if current != nil && lastIndex != -1 {
-			time.Sleep(current.sTime.Sub(time.Now()))
-
-			// write timeout
-			select {
-			case mem.Notify <- current.sTime:
-			case <-time.After(electionResult.eTime.Sub(time.Now())):
-				log.Error("timeout for notify miner. miner time is \"" + current.sTime.Format(time.RFC3339Nano) + "\".")
-				continue
-			}
-			time.Sleep(electionResult.eTime.Sub(time.Now()))
-		} else {
-			time.Sleep(electionResult.eTime.Sub(time.Now()))
-		}
-		lastIndex = electionResult.index
-
-		// clear ever hour
-		removeTime := time.Now().Add(-time.Hour)
-		if lastRemoveTime.Before(removeTime) {
-			self.teller.removePrevious(removeTime)
-			lastRemoveTime = removeTime
-		}
-
-	}
-}
-
 type membersInfo struct {
 	genesisTime time.Time
-	memberCnt   int32
-	interval    int32 // unit: second
+	memberCnt   int32 // Number of producer
+	interval    int32 // unit: second, time interval at which the block is generated
+	perCnt      int32 // Number of blocks generated per node
+	randCnt     int32
+	LowestLimit *big.Int
 }
 
 type memberPlan struct {
-	sTime  time.Time
-	member types.Address
+	STime  time.Time
+	Member types.Address
 }
 
 type electionResult struct {
-	plans []*memberPlan
-	sTime time.Time
-	eTime time.Time
-	index int32
+	Plans  []*memberPlan
+	STime  time.Time
+	ETime  time.Time
+	Index  int32
+	Hash   types.Hash
+	Height uint64
 }
 
 func (self *membersInfo) genPlan(index int32, members []types.Address) *electionResult {
 	result := electionResult{}
-	planInterval := self.interval * self.memberCnt
-	var sTime time.Time = self.genesisTime.Add(time.Duration(planInterval*index) * time.Second)
-	result.sTime = sTime
-	plans := make([]*memberPlan, 0, len(members))
+	sTime := self.genSTime(index)
+	result.STime = sTime
+
+	var plans []*memberPlan
 	for _, member := range members {
-		plan := memberPlan{sTime: sTime, member: member}
-		plans = append(plans, &plan)
-		sTime = sTime.Add(time.Duration(self.interval) * time.Second)
+		for i := int32(0); i < self.perCnt; i++ {
+			etime := sTime.Add(time.Duration(self.interval) * time.Second)
+			plan := memberPlan{STime: sTime, Member: member}
+			plans = append(plans, &plan)
+			sTime = etime
+		}
 	}
-	result.eTime = sTime
-	result.plans = plans
-	result.index = index
+	result.ETime = self.genETime(index)
+	result.Plans = plans
+	result.Index = index
 	return &result
 }
 
 func (self *membersInfo) time2Index(t time.Time) int32 {
 	subSec := int64(t.Sub(self.genesisTime).Seconds())
-	i := subSec / int64((self.interval * self.memberCnt))
+	i := subSec / int64((self.interval * self.memberCnt * self.perCnt))
 	return int32(i)
 }
-
-// Ensure that all nodes get same result
-type teller struct {
-	info        *membersInfo
-	electionHis map[int32]*electionResult
+func (self *membersInfo) genSTime(index int32) time.Time {
+	planInterval := self.interval * self.memberCnt * self.perCnt
+	return self.genesisTime.Add(time.Duration(planInterval*index) * time.Second)
 }
-
-func newTeller(genesisTime time.Time, interval int32, memberCnt int32) *teller {
-	t := &teller{}
-	t.info = &membersInfo{genesisTime: genesisTime, memberCnt: memberCnt, interval: interval}
-	t.electionHis = make(map[int32]*electionResult)
-	return t
-}
-
-func (self *teller) voteResults() ([]types.Address, error) {
-	// record vote and elect
-	return conv(DefaultMembers), nil
-}
-
-func (self *teller) electionIndex(index int32) *electionResult {
-	result, ok := self.electionHis[index]
-	if ok {
-		return result
-	} else {
-		voteResults, err := self.voteResults()
-		if err == nil {
-			plans := self.info.genPlan(index, voteResults)
-			self.electionHis[index] = plans
-			return plans
-		}
-	}
-	return nil
-}
-
-func (self *teller) electionTime(t time.Time) *electionResult {
-	index := self.info.time2Index(t)
-	return self.electionIndex(index)
-}
-func (self *teller) removePrevious(rtime time.Time) int32 {
-	var i int32 = 0
-	for k, v := range self.electionHis {
-		if v.eTime.Before(rtime) {
-			delete(self.electionHis, k)
-			i = i + 1
-		}
-	}
-	return i
+func (self *membersInfo) genETime(index int32) time.Time {
+	planInterval := self.interval * self.memberCnt * self.perCnt
+	return self.genesisTime.Add(time.Duration(planInterval*index+1) * time.Second)
 }

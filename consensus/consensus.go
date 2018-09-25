@@ -13,10 +13,12 @@ type SnapshotHeader struct {
 	Producer  *types.Address
 }
 
-type Verifier interface {
-	Verify(reader SnapshotReader, block *ledger.SnapshotBlock) (bool, error)
+type ConsensusVerifier interface {
+	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
+	VerifySnapshotProducer(block *ledger.SnapshotBlock) (bool, error)
 }
 
-type Seal interface {
-	Seal() error
+type HashHeight struct {
+	Hash   types.Hash
+	Height uint64
 }

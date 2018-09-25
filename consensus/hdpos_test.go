@@ -1,19 +1,22 @@
 package consensus
 
 import (
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/wallet/keystore"
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/gavv/monotime"
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/wallet/keystore"
 )
 
 func genAddress(n int) []types.Address {
 	dir := common.GoViteTestDataDir()
 	kp := keystore.NewManager(dir)
 	kp.Init()
-
 
 	addressArr := make([]types.Address, n)
 	for i := 0; i < n; i++ {
@@ -30,10 +33,10 @@ func TestGenPlan(t *testing.T) {
 	var n = 10
 	for i := 0; i < n; i++ {
 		result := info.genPlan(int32(i), genAddress(n))
-		plans := result.plans
+		plans := result.Plans
 		for i, p := range plans {
-			println(strconv.Itoa(i) + ":\t" + p.sTime.Format(time.StampMilli) + "\t" + p.member.String() + "\t" +
-				result.sTime.Format(time.StampMilli) + "\t" + result.eTime.Format(time.StampMilli))
+			println(strconv.Itoa(i) + ":\t" + p.STime.Format(time.StampMilli) + "\t" + p.Member.String() + "\t" +
+				result.STime.Format(time.StampMilli) + "\t" + result.ETime.Format(time.StampMilli))
 		}
 	}
 }
@@ -55,13 +58,42 @@ func TestTime2Index(t *testing.T) {
 
 }
 
-func TestUpdate(t *testing.T) {
-	address := genAddress(1)
-	mem := SubscribeMem{Mem: address[0], Notify: make(chan time.Time)}
-	committee := NewCommittee(time.Now(), 1, 4)
-	committee.Subscribe(&mem)
+func TestUpdate(tt *testing.T) {
+	//address := genAddress(1)
+	//mem := SubscribeMem{Mem: address[0], Notify: times}
+	committee := NewCommittee(time.Now(), 1, int32(len(DefaultMembers)), 3, &chainRw{})
+	//committee.Subscribe(&mem)
 
-	committee.update()
+	println("nano sec:" + strconv.FormatInt(time.Millisecond.Nanoseconds(), 10))
+	committee.Subscribe(types.SNAPSHOT_GID, "test", nil, func(addr types.Address, t time.Time) {
+		println("addr: " + addr.Hex() +
+			"\tdiff:" + strconv.FormatInt(time.Now().Sub(t).Nanoseconds(), 10) +
+			"\ttime:" + t.String())
+
+		in := false
+		electionResult, _ := committee.snapshot.electionTime(t)
+		for _, plan := range electionResult.Plans {
+			if plan.Member == addr {
+				if plan.STime.Unix() == t.Unix() {
+					in = true
+					break
+				}
+			}
+		}
+		if !in {
+			bytes, _ := json.Marshal(electionResult)
+			tt.Error("can't find timeIndex, time:"+t.String()+", address:"+addr.String(), string(bytes))
+		}
+
+	})
+
+	committee.Init()
+	go func() {
+		committee.Start()
+	}()
+
+	time.Sleep(150 * time.Second)
+	committee.Stop()
 }
 func TestGen(t *testing.T) {
 	address := genAddress(4)
@@ -71,11 +103,25 @@ func TestGen(t *testing.T) {
 }
 
 func TestRemovePrevious(t *testing.T) {
-	teller := newTeller(time.Now(), 1, 4)
+	teller := newTeller(time.Now(), 1, 4, 3, &chainRw{})
 	for i := 0; i < 10; i++ {
 		teller.electionIndex(int32(i))
 	}
 	time.Sleep(10 * time.Second)
 	cnt := teller.removePrevious(time.Now())
 	println("个数:\t" + strconv.Itoa(int(cnt)))
+}
+
+func TestMonotime(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		var start, elapsed time.Duration
+
+		start = monotime.Now()
+		time.Sleep(time.Millisecond * 500)
+		elapsed = monotime.Since(start)
+
+		fmt.Println(elapsed)
+	}
+
+	// Prints: 1.062759ms
 }

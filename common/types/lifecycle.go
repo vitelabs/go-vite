@@ -26,7 +26,7 @@ func (self *LifecycleStatus) PostStop() bool {
 }
 
 func (self *LifecycleStatus) Stopped() bool {
-	return self.Status == 6
+	return self.Status == 6 || self.Status == 5
 }
 func (self *LifecycleStatus) GetStatus() int32 {
 	return self.Status
