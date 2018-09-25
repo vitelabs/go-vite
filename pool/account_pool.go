@@ -255,27 +255,6 @@ func genBlocks(received *accountPoolBlock, cp *chainPool, sends []*accountPoolBl
 	}
 }
 
-func (self *accountPool) insertAccountFailCallback(b commonBlock) {
-	log.Info("do nothing. height:%d, hash:%s, pool:%s", b.Height(), b.Hash(), self.Id)
-}
-
-func (self *accountPool) insertAccountSuccessCallback(b commonBlock) {
-	log.Info("do nothing. height:%d, hash:%s, pool:%s", b.Height(), b.Hash(), self.Id)
-}
-func (self *accountPool) FindInChain(hash types.Hash, height uint64) bool {
-	for _, c := range self.chainpool.chains {
-		b := c.getBlock(height, false)
-		if b == nil {
-			continue
-		} else {
-			if b.Hash() == hash {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func (self *accountPool) findInPool(hash types.Hash, height uint64) bool {
 	for _, c := range self.chainpool.chains {
 		b := c.getBlock(height, false)
