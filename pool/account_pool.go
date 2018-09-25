@@ -67,83 +67,6 @@ func (self *accountPool) Init(
 	self.BCPool.init(self.rw, tools)
 }
 
-// 1. must be in diskchain
-//func (self *accountPool) TryRollback(rollbackHeight uint64, rollbackHash types.Hash) ([]*ledger.AccountBlock, error) {
-//	{ // check logic
-//		w := self.chainpool.diskChain.getBlock(rollbackHeight, false)
-//		if w == nil || w.Hash() != rollbackHash {
-//			return nil, errors.New("error rollback cmd.")
-//		}
-//	}
-//
-//	head := self.chainpool.diskChain.Head()
-//
-//	var sendBlocks []*ledger.AccountBlock
-//
-//	headHeight := head.Height()
-//	for i := headHeight; i > rollbackHeight; i-- {
-//		w := self.chainpool.diskChain.getBlock(i, false)
-//		if w == nil {
-//			continue
-//		}
-//		block := w.block.(*ledger.AccountBlock)
-//		if block.BlockType == common.SEND {
-//			sendBlocks = append(sendBlocks, block)
-//		}
-//	}
-//	return sendBlocks, nil
-//}
-
-// rollback to current
-//func (self *accountPool) FindRollbackPointByReferSnapshot(snapshotHeight uint64, snapshotHash string) (bool, *ledger.AccountBlock, error) {
-//	head := self.chainpool.diskChain.Head().(*ledger.AccountBlock)
-//	if head.SnapshotHeight < snapshotHeight {
-//		return false, nil, nil
-//	}
-//
-//	accountBlock := self.rw.findAboveSnapshotHeight(snapshotHeight)
-//	if accountBlock == nil {
-//		return true, nil, nil
-//	} else {
-//		return true, accountBlock, nil
-//	}
-//}
-
-//func (self *accountPool) FindRollbackPointForAccountHashH(height uint64, hash types.Hash) (bool, *ledger.AccountBlock, Chain, error) {
-//	chain := self.whichChain(height, hash)
-//	if chain == nil {
-//		return false, nil, nil, nil
-//	}
-//	if chain.id() == self.chainpool.current.id() {
-//		return false, nil, nil, nil
-//	}
-//	_, forkPoint, err := self.getForkPointByChains(chain, self.chainpool.current)
-//	if err != nil {
-//		return false, nil, nil, err
-//	}
-//	return true, forkPoint.(*ledger.AccountBlock), chain, nil
-//}
-
-func (self *accountPool) loop() int {
-	//if !self.compactLock.TryLock() {
-	//	return 0
-	//} else {
-	//	defer self.compactLock.UnLock()
-	//}
-	//
-	//now := time.Now()
-	//if now.After(self.loopTime.Add(time.Millisecond * 200)) {
-	//	self.loopTime = now
-	//	sum := 0
-	//	sum = sum + self.loopGenSnippetChains()
-	//	sum = sum + self.loopAppendChains()
-	//	sum = sum + self.loopFetchForSnippets()
-	//	sum = sum + self.TryInsert()
-	//	return sum
-	//}
-	return 0
-}
-
 /**
 1. compact for data
 	1.1. free blocks
@@ -279,10 +202,10 @@ func (self *accountPool) tryInsert() verifyTask {
 
 	return self.v.newSuccessTask()
 }
-func (self *accountPool) verifySuccess(block *accountPoolBlock, stat *poolAccountVerifyStat) (error, uint64) {
+func (self *accountPool) verifySuccess(block *accountPoolBlock, sends []*accountPoolBlock) (error, uint64) {
 	cp := self.chainpool
 
-	blocks, forked, err := genBlocks(block, cp, stat)
+	blocks, forked, err := genBlocks(block, cp, sends)
 	if err != nil {
 		return err, 0
 	}
@@ -296,18 +219,18 @@ func (self *accountPool) verifySuccess(block *accountPoolBlock, stat *poolAccoun
 		self.blockpool.afterInsert(b)
 		self.afterInsertBlock(b)
 	}
-	return nil, uint64(len(stat.sends))
+	return nil, uint64(len(sends))
 }
 
 // result,(need fork)
-func genBlocks(received *accountPoolBlock, cp *chainPool, stat *poolAccountVerifyStat) ([]commonBlock, *forkedChain, error) {
+func genBlocks(received *accountPoolBlock, cp *chainPool, sends []*accountPoolBlock) ([]commonBlock, *forkedChain, error) {
 	current := cp.current
 
 	var newChain *forkedChain
 	var err error
 	var result = []commonBlock{received}
 
-	for _, b := range stat.sends {
+	for _, b := range sends {
 		tmp := current.getHeightBlock(b.Height())
 		if newChain != nil {
 			// forked chain
@@ -393,12 +316,16 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks 
 	case verifier.FAIL:
 		return errors.New(stat.errMsg())
 	case verifier.SUCCESS:
-		err := self.rw.insertBlocks(received, sendBlocks)
+		fchain, blocks, err := self.genDirectBlocks(stat.blocks)
 		if err != nil {
 			return err
 		}
-		head := self.chainpool.diskChain.Head()
-		self.chainpool.insertNotify(head)
+
+		self.chainpool.writeBlocksToChain(fchain, blocks)
+		if err != nil {
+			return err
+		}
+		self.chainpool.currentModifyToChain(fchain)
 		return nil
 	default:
 		log.Fatal("verify unexpected.")
@@ -455,4 +382,13 @@ func (self *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
 	} else {
 		return nil
 	}
+}
+func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (*forkedChain, []commonBlock, error) {
+	var results []commonBlock
+	fchain, err := self.chainpool.forkFrom(self.chainpool.current, blocks[0].Height()-1)
+	for _, b := range blocks {
+		fchain.addHead(b)
+		results = append(results, b)
+	}
+	return fchain, results, nil
 }

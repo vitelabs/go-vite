@@ -107,7 +107,7 @@ func (self *poolAccountVerifyStat) task() verifyTask {
 }
 
 type poolAccountVerifyStat struct {
-	sends []*accountPoolBlock
+	blocks []*accountPoolBlock
 }
 
 func (self *poolAccountVerifyStat) verifyResult() verifier.VerifyResult {
