@@ -14,5 +14,4 @@ type Signer interface {
 type Chain interface {
 	vm_context.Chain
 	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
-	GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
 }

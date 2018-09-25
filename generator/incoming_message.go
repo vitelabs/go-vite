@@ -22,13 +22,14 @@ type IncomingMessage struct {
 }
 
 func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
-	select {
+	switch {
 	case im.BlockType == ledger.BlockTypeSendCall:
 		block.BlockType = im.BlockType
 
 		if im.ToAddress != nil {
 			block.ToAddress = *im.ToAddress
 		} else {
+			// fixme return err
 			block.ToAddress = types.Address{}
 		}
 		block.FromBlockHash = types.Hash{}
@@ -49,6 +50,7 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 		if im.ToAddress != nil {
 			block.ToAddress = *im.ToAddress
 		} else {
+			// fixme return err
 			block.ToAddress = types.Address{}
 		}
 		block.FromBlockHash = types.Hash{}
@@ -56,7 +58,7 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 		block.Amount = &im.Amount
 		block.Nonce = im.Nonce
 
-		if im.Data != nil {
+		if len(im.Data) > 0 {
 			block.Data = im.Data
 		} else {
 			return nil, errors.New("BlockTypeSendCreate's Data can't be nil")
@@ -75,12 +77,14 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 		if im.FromBlockHash != nil {
 			block.FromBlockHash = *im.FromBlockHash
 		} else {
+			// fixme return err
 			block.FromBlockHash = types.Hash{}
 		}
 		block.Amount = &im.Amount
 		block.Nonce = im.Nonce
 		block.Data = im.Data
 
+		// fixme
 		if im.TokenId != nil {
 			block.TokenId = *im.TokenId
 		} else {
@@ -94,4 +98,5 @@ type ConsensusMessage struct {
 	SnapshotHash types.Hash
 	Timestamp    time.Time
 	Producer     types.Address
+	gid          types.Gid
 }

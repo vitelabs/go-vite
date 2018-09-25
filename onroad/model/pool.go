@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_context"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"sync"
 	"time"
 )
@@ -207,29 +206,37 @@ func (p *OnroadBlocksPool) DeleteFullCache(address types.Address) {
 	p.fullCache.Delete(address)
 }
 
-// todo support batch
 func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_context.VmAccountBlock) error {
 	p.log.Info("WriteOnroad ")
 
-	for _, v := range blockList {if v.AccountBlock.IsSendBlock() {
-		if err := p.dbAccess.writeOnroadMeta(batch, v.AccountBlock); err != nil {
-			p.log.Error("writeOnroadMeta", "error", err)
-			return err
-		}// add the gid-contractAddrList relationship
-			var unsavedCache vmctxt_interface.UnsavedCache
-			unsavedCache = v.VmContext.UnsavedCache()
-			gidList := unsavedCache.ContractGidList()
-			for _, v := range gidList {
-		// todop.dbAccess.WriteContractAddrToGid(batch, *v.Gid(), *v.Addr())
+	for _, v := range blockList {
+		if v.AccountBlock.IsSendBlock() {
+			// basic writeMeta func
+			if err := p.dbAccess.writeOnroadMeta(batch, v.AccountBlock); err != nil {
+				p.log.Error("writeOnroadMeta", "error", err)
+				return err
 			}
-	} else {
-		if err := p.dbAccess.deleteOnroadMeta(batch, v.AccountBlock); err != nil {
-			p.log.Error("deleteOnroadMeta", "error", err)
-			return err}
+
+			if v.AccountBlock.BlockType == ledger.BlockTypeSendCreate {
+				unsavedCache := v.VmContext.UnsavedCache()
+				gidList := unsavedCache.ContractGidList()
+				for _, v := range gidList {
+					if err := p.dbAccess.WriteContractAddrToGid(batch, *v.Gid(), *v.Addr()); err != nil {
+						p.log.Error("WriteContractAddrToGid", "error", err)
+						return err
+					}
+				}
+			}
+
+		} else {
+			if err := p.dbAccess.deleteOnroadMeta(batch, v.AccountBlock); err != nil {
+				p.log.Error("deleteOnroadMeta", "error", err)
+				return err
+			}
 		}
 	}
 	// todo 确认写好之后 再更新
-	p.updateCache(writeType, block)
+	// p.updateCache(writeType, block)
 	return nil
 }
 

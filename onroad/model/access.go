@@ -2,12 +2,17 @@ package model
 
 import (
 	"bytes"
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"path/filepath"
+)
+
+const (
+	MaxReceiveErrCount = 3
 )
 
 type UAccess struct {
@@ -68,50 +73,68 @@ func (access *UAccess) DeleteContractAddrFromGid(batch *leveldb.Batch, gid types
 }
 
 func (access *UAccess) writeOnroadMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
-	addr := &block.ToAddress
-	hash := &block.FromBlockHash
-
-	value, err := access.store.GetMeta(addr, hash)
-	if value == nil {
-		// the commonSend add func
-		if err != nil {
-			access.log.Error("GetMeta", "error", err)
-			return err
-		}
-		return access.store.WriteMeta(batch, addr, hash, 0)
+	if block.IsSendBlock() {
+		// call from the common WriteOnroad func to add new onRoadTx
+		return access.store.WriteMeta(batch, &block.ToAddress, &block.Hash, 0)
 	} else {
-		// add the revert recvblock's sendBlock
-		count := uint8(value[0])
-		if count > 0 {
-			count--
-			return access.store.WriteMeta(batch, addr, hash, count)
+		// call from the DeleteOnroad(revert) func
+		addr := &block.AccountAddress
+		hash := &block.FromBlockHash
+		value, err := access.store.GetMeta(addr, hash)
+		if len(value) == 0 {
+			if err == nil {
+				if block.BlockType == ledger.BlockTypeReceiveError {
+					if err := access.store.DecreaseReceiveErrCount(batch, hash, addr); err != nil {
+						return err
+					}
+				}
+				if count, err := access.store.GetReceiveErrCount(hash, addr); err == nil {
+					return access.store.WriteMeta(batch, addr, hash, count-1)
+				}
+				return err
+			}
+			return errors.New("GetMeta error:" + err.Error())
+		} else {
+			count := uint8(value[0])
+			if count >= 1 && count <= MaxReceiveErrCount && block.BlockType == ledger.BlockTypeReceiveError {
+				return access.store.WriteMeta(batch, addr, hash, count-1)
+			}
+			return nil
 		}
-		return nil
 	}
 }
 
-// only to delete the exist sendBlock, including the received-incorrect block and th correct block
 func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
-	addr := &block.ToAddress
-	hash := &block.FromBlockHash
+	if block.IsReceiveBlock() {
+		// call from the WriteOnroad func to handle the onRoadTx's receiveBlock
+		addr := &block.AccountAddress
+		hash := &block.FromBlockHash
+		if block.IsContractTx() {
+			value, err := access.store.GetMeta(addr, hash)
+			if len(value) == 0 {
+				if err == nil {
+					access.log.Info("the corresponding sendBlock has already been delete")
+					return nil
+				}
+				return errors.New("GetMeta error:" + err.Error())
+			}
 
-	value, err := access.store.GetMeta(addr, hash)
-	if value == nil {
-		access.log.Error("can't find the corresponding sendBlock")
-		return err
-	}
-	count := uint8(value[0])
-	if count >= 3 {
-		if err := access.store.DeleteMeta(batch, addr, hash); err != nil {
-			access.log.Error("DeleteMeta", "error", err)
-			return err
+			count := uint8(value[0])
+			if block.BlockType == ledger.BlockTypeReceiveError && count < MaxReceiveErrCount {
+				if err := access.store.IncreaseReceiveErrCount(batch, hash, addr); err != nil {
+					return err
+				}
+				if err := access.store.WriteMeta(batch, addr, hash, count+1); err != nil {
+					return err
+				}
+				return nil
+			}
 		}
-		return nil
+		return access.store.DeleteMeta(batch, addr, hash)
 	} else {
-		count++
-		return access.store.WriteMeta(batch, addr, hash, count)
+		// call from the  DeleteOnroad(revert) func to handle sendBlock
+		return access.store.DeleteMeta(batch, &block.ToAddress, &block.Hash)
 	}
-	return nil
 }
 
 func (access *UAccess) GetOnroadHashs(index, num, count uint64, addr *types.Address) ([]*types.Hash, error) {
@@ -201,13 +224,14 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 			ti.Number += 1
 			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
 		} else {
-			token, err := access.Chain.GetTokenInfoById(&block.TokenId)
-			if err != nil {
-				return nil, 0, err
-			}
-			infoMap[block.TokenId].Token = *token
-			infoMap[block.TokenId].TotalAmount = *block.Amount
-			infoMap[block.TokenId].Number = 1
+			// fixme
+			//token, err := access.Chain.GetTokenInfoById(&block.TokenId)
+			//if err != nil {
+			//	return nil, 0, err
+			//}
+			//infoMap[block.TokenId].Token = *token
+			//infoMap[block.TokenId].TotalAmount = *block.Amount
+			//infoMap[block.TokenId].Number = 1
 		}
 
 	}
