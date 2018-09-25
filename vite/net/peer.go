@@ -9,6 +9,8 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/list"
+	"github.com/vitelabs/go-vite/vite/net/message"
+	"net"
 	"sync"
 	"sync/atomic"
 )
@@ -24,6 +26,7 @@ type Peer struct {
 	ID                string
 	head              types.Hash
 	height            uint64
+	filePort uint16
 	CmdSet           uint64
 	msgId uint64	// atomic, auto_increment, use for mark unique message
 	KnownBlocks       *cuckoofilter.CuckooFilter
@@ -47,7 +50,14 @@ func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 	}
 }
 
-func (p *Peer) Handshake(our *HandShakeMsg) error {
+func (p *Peer) FileAddress() *net.TCPAddr {
+	return &net.TCPAddr{
+		IP:   p.IP(),
+		Port: int(p.filePort),
+	}
+}
+
+func (p *Peer) Handshake(our *message.HandShake) error {
 	errch := make(chan error, 1)
 	go func() {
 		errch <- p.Send(HandshakeCode, 0, our)
@@ -66,7 +76,7 @@ func (p *Peer) Handshake(our *HandShakeMsg) error {
 		return fmt.Errorf("different protocol, our %d, their %d\n", p.CmdSet, their.CmdSet)
 	}
 
-	if their.GenesisBlock != our.GenesisBlock {
+	if their.Genesis != our.Genesis {
 		return errors.New("different genesis block")
 	}
 
@@ -74,12 +84,13 @@ func (p *Peer) Handshake(our *HandShakeMsg) error {
 		return fmt.Errorf("different network, our %d, their %d\n", our.NetID, their.NetID)
 	}
 
-	p.SetHead(their.CurrentBlock, their.Height)
+	p.SetHead(their.Current, their.Height)
+	p.filePort = their.Port
 
 	return nil
 }
 
-func (p *Peer) ReadHandshake() (their *HandShakeMsg, err error) {
+func (p *Peer) ReadHandshake() (their *message.HandShake, err error) {
 	msg, err := p.mrw.ReadMsg()
 
 	if err != nil {
@@ -91,7 +102,7 @@ func (p *Peer) ReadHandshake() (their *HandShakeMsg, err error) {
 		return
 	}
 
-	their = new(HandShakeMsg)
+	their = new(message.HandShake)
 
 	err = their.Deserialize(msg.Payload)
 
@@ -144,7 +155,9 @@ func (p *Peer) delRequest(r *request) {
 
 // response
 func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error) {
-	err = p.Send(SnapshotBlocksCode, msgId, bs)
+	err = p.Send(SnapshotBlocksCode, msgId, &message.SnapshotBlocks{
+		Blocks: bs,
+	})
 
 	if err != nil {
 		return
@@ -169,8 +182,11 @@ func (p *Peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
 	return
 }
 
-func (p *Peer) SendAccountBlocks(abs []*ledger.AccountBlock, msgId uint64) (err error) {
-	err = p.Send(AccountBlocksCode, msgId, abs)
+func (p *Peer) SendAccountBlocks(addr types.Address, abs []*ledger.AccountBlock, msgId uint64) (err error) {
+	err = p.Send(AccountBlocksCode, msgId, &message.AccountBlocks{
+		Address: addr,
+		Blocks:  abs,
+	})
 
 	if err != nil {
 		return
@@ -180,40 +196,42 @@ func (p *Peer) SendAccountBlocks(abs []*ledger.AccountBlock, msgId uint64) (err 
 		p.SeeBlock(b.Hash)
 	}
 
-	return nil
+	return
 }
 
-func (p *Peer) SendFileList(fs *FileList, msgId uint64) error {
+func (p *Peer) SendFileList(fs *message.FileList, msgId uint64) error {
 	return p.Send(FileListCode, msgId, fs)
 }
-func (p *Peer) SendSubLedger(s *SubLedger, msgId uint64) error {
+
+func (p *Peer) SendSubLedger(s *message.SubLedger, msgId uint64) error {
+	for _, b := range s.ABlocks {
+		p.SeeBlock(b.Hash)
+	}
+	for _, b := range s.SBlocks {
+		p.SeeBlock(b.Hash)
+	}
+
 	return p.Send(SubLedgerCode, msgId, s)
 }
 
+func (p *Peer) SendFork(s *message.Fork, msgId uint64) error {
+	return p.Send(ForkCode, msgId, s)
+}
+
 // request
-func (p *Peer) RequestSnapshotBlocks(s *Segment) error {
-	atomic.AddUint64(&p.msgId, 1)
-	return p.Send(GetSnapshotBlocksCode, p.msgId, s)
+func (p *Peer) GetSnapshotBlocks(s *message.GetSnapshotBlocks) error {
+	id := atomic.AddUint64(&p.msgId, 1)
+	return p.Send(GetSnapshotBlocksCode, id, s)
 }
 
-func (p *Peer) RequestSnapshotBlocksByHash(hashes []types.Hash) error {
-	atomic.AddUint64(&p.msgId, 1)
-	return p.Send(GetSnapshotBlocksByHashCode, p.msgId, hashes)
+func (p *Peer) GetAccountBlocks(as *message.GetAccountBlocks) error {
+	id := atomic.AddUint64(&p.msgId, 1)
+	return p.Send(GetAccountBlocksCode, id, as)
 }
 
-func (p *Peer) RequestAccountBlocks(as AccountSegment) error {
-	atomic.AddUint64(&p.msgId, 1)
-	return p.Send(GetAccountBlocksCode, p.msgId, as)
-}
-
-func (p *Peer) RequestAccountBlocksByHash(hashes []types.Hash) error {
-	atomic.AddUint64(&p.msgId, 1)
-	return p.Send(GetAccountBlocksByHashCode, p.msgId, hashes)
-}
-
-func (p *Peer) RequestSubLedger(s *Segment) error {
-	atomic.AddUint64(&p.msgId, 1)
-	return p.Send(GetSubLedgerCode, p.msgId, s)
+func (p *Peer) GetSubLedger(s *message.GetSnapshotBlocks) error {
+	id := atomic.AddUint64(&p.msgId, 1)
+	return p.Send(GetSubLedgerCode, id, s)
 }
 
 func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
@@ -230,7 +248,6 @@ func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
 		Payload:    data,
 	})
 	}
-
 
 type PeerInfo struct {
 	Addr   string

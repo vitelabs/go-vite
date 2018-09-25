@@ -151,8 +151,12 @@ func (p *Peer) CmdSets() []*CmdSet {
 	return p.ts.cmdSets
 }
 
-func (p *Peer) RemoteAddr() net.Addr {
-	return p.ts.fd.RemoteAddr()
+func (p *Peer) RemoteAddr() *net.TCPAddr {
+	return p.ts.fd.RemoteAddr().(*net.TCPAddr)
+}
+
+func (p *Peer) IP() net.IP {
+	return p.RemoteAddr().IP
 }
 
 func (p *Peer) Info() *PeerInfo {
@@ -235,7 +239,6 @@ func (p *Peer) run() (err error) {
 }
 
 func (p *Peer) SendMsg(msg *Msg) {
-	msg.CmdSetID = p.
 	p.ts.SendMsg(msg)
 }
 

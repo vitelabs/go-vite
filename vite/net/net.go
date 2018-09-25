@@ -3,26 +3,37 @@ package net
 import (
 	"github.com/pkg/errors"
 	"github.com/seiflotfy/cuckoofilter"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
-	"io/ioutil"
-	"log"
+	"github.com/vitelabs/go-vite/vite/net/message"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
+type Chain interface {
+	GetAccountBlockMap(queryParams map[types.Address]*chain.BlockMapQueryParam) map[types.Address][]*ledger.AccountBlock
+	GetAbHashList(originBlockHash *types.Hash, count, step int, forward bool) ([]*types.Hash, error)
+	GetSubLedgerByHeight(startHeight uint64, count int, forward bool) ([]string, [][2]uint64)
+	GetSubLedgerByHash(startBlockHash *types.Hash, count int, forward bool) ([]string, [][2]uint64, error)
+	GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
+	GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
+	GetSnapshotBlocksByHeight(height uint64, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
+	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
+}
+
 type Config struct {
 	NetID      uint64
 	Port       uint16
-	BlockChain BlockChain
+	Chain Chain
 }
 
 type Net struct {
 	*Config
-	start         time.Time
 	peers         *peerSet
 	snapshotFeed  *snapshotBlockFeed
 	accountFeed   *accountBlockFeed
@@ -33,7 +44,6 @@ type Net struct {
 	syncState     int32 // atomic
 	downloaded    int32 // atomic, indicate whether the first sync data has download from bestPeer
 	stateFeed     *SyncStateFeed
-	SnapshotChain BlockChain
 	blockRecord   *cuckoofilter.CuckooFilter // record blocks has retrieved from network
 	log           log15.Logger
 	Protocols     []*p2p.Protocol
@@ -57,7 +67,6 @@ func New(cfg *Config) (*Net, error) {
 		stateFeed:     new(SyncStateFeed),
 		term:          make(chan struct{}),
 		pool:          newRequestPool(peerSet),
-		SnapshotChain: cfg.BlockChain,
 		blockRecord:   cuckoofilter.NewCuckooFilter(10000),
 		log:           log15.New("module", "vite/net"),
 		fileServer:    fileServer,
@@ -77,10 +86,6 @@ func New(cfg *Config) (*Net, error) {
 	}
 
 	return n, nil
-}
-
-func (n *Net) Start() {
-	n.start = time.Now()
 }
 
 func (n *Net) Stop() {
@@ -138,17 +143,18 @@ func (n *Net) SyncState() SyncState {
 
 // the main method, handle peer
 func (n *Net) HandlePeer(p *Peer) error {
-	head, err := n.SnapshotChain.GetLatestSnapshotBlock()
-	if err != nil {
-		log.Fatal("cannot get current block", err)
-	}
+	current := n.Chain.GetLatestSnapshotBlock()
+	genesis := n.Chain.GetGenesisSnapshotBlock()
 
-	genesis, err := n.SnapshotChain.GetGenesesBlock()
-	if err != nil {
-		log.Fatal("cannot get genesis block", err)
-	}
+	err := p.Handshake(&message.HandShake{
+		CmdSet:       p.CmdSet,
+		NetID:        n.NetID,
+		Height:       current.Height,
+		Port:         n.Port,
+		Current: current.Hash,
+		Genesis: genesis.Hash,
+	})
 
-	err = p.Handshake(n.NetID, head.Height, head.Hash, genesis.Hash)
 	if err != nil {
 		return err
 	}
@@ -172,14 +178,11 @@ func (n *Net) startPeer(p *Peer) error {
 		case err := <-p.reqErr:
 			return err
 		case <-ticker.C:
-			current, err := n.SnapshotChain.GetLatestSnapshotBlock()
-			if err == nil {
-				p.Send(StatusCode, 0, &BlockID{
-					Hash:   current.Hash,
-					Height: current.Height,
-				})
-			}
-
+			current := n.Chain.GetLatestSnapshotBlock()
+			p.Send(StatusCode, 0, &message.BlockID{
+				Hash:   current.Hash,
+				Height: current.Height,
+			})
 		default:
 			if err := n.handleMsg(p); err != nil {
 				return err
@@ -188,10 +191,11 @@ func (n *Net) startPeer(p *Peer) error {
 	}
 
 	close(p.term)
+	return nil
 }
 
 func (n *Net) handleMsg(p *Peer) (err error) {
-	msg, err := p.ts.ReadMsg()
+	msg, err := p.mrw.ReadMsg()
 	if err != nil {
 		return
 	}
@@ -202,66 +206,106 @@ func (n *Net) handleMsg(p *Peer) (err error) {
 		return errHandshakeTwice
 	}
 
-	payload, err := ioutil.ReadAll(msg.Payload)
-	if err != nil {
-		return
-	}
-
 	switch code {
 	case StatusCode:
-		status := new(BlockID)
-		err = status.Deserialize(payload)
+		status := new(message.BlockID)
+		err = status.Deserialize(msg.Payload)
 		if err != nil {
 			return
 		}
 		p.SetHead(status.Hash, status.Height)
 	case GetSubLedgerCode:
-		seg := new(Segment)
-		err = seg.Deserialize(payload)
+		req := new(message.GetSnapshotBlocks)
+		err = req.Deserialize(msg.Payload)
 		if err != nil {
 			return
 		}
+// todo
+//		var files []*message.File
+//		var batch [][2]uint64
+//		if req.From.Height != 0 {
+//			files, batch, err = n.Chain.GetSubLedgerByHeight(&req.From.Hash, req.Count, req.Forward)
+//		} else {
+//			files, batch, err = n.Chain.GetSubLedgerByHash(&req.From.Hash, req.Count, req.Forward)
+//		}
 
-		snapshotblocks, accountblocks, err := n.SnapshotChain.GetSubLedger(seg.From.Height, seg.To.Height)
 		if err != nil {
-			p.Send(ExceptionCode, Missing)
+			p.Send(ExceptionCode, msg.Id, message.Missing)
 		} else {
-			p.Send(SubLedgerCode, &SubLedger{
-				SBlocks: snapshotblocks,
-				ABlocks: accountblocks,
+			p.Send(FileListCode, msg.Id, &message.FileList{
+				Files: nil,
+				Start: 0,
+				End:   0,
+				Nonce: 0,
 			})
 		}
 	case GetSnapshotBlocksCode:
-
-	case GetAccountBlocksCode:
-		as := new(AccountSegment)
-		err = as.Deserialize(payload)
+		req := new(message.GetSnapshotBlocks)
+		err = req.Deserialize(msg.Payload)
 		if err != nil {
 			return
 		}
 
-		accountMap, err := n.SnapshotChain.GetAccountBlockMap(*as)
-		if err != nil {
-			p.Send(ExceptionCode, Missing)
+		var blocks []*ledger.SnapshotBlock
+		if req.From.Height != 0 {
+			n.Chain.GetSnapshotBlocksByHeight(req.From.Height, req.Count, req.Forward, false)
 		} else {
-			p.Send(AccountBlocksCode, accountMap)
+			n.Chain.GetSnapshotBlocksByHash(&req.From.Hash, req.Count, req.Forward, false)
 		}
+
+		p.Send(SnapshotBlocksCode, msg.Id, &message.SnapshotBlocks{
+			Blocks: blocks,
+		})
+	case GetFullSnapshotBlocksCode:
+		req := new(message.GetSnapshotBlocks)
+		err = req.Deserialize(msg.Payload)
+		if err != nil {
+			return
+		}
+
+		var blocks []*ledger.SnapshotBlock
+		if req.From.Height != 0 {
+			n.Chain.GetSnapshotBlocksByHeight(req.From.Height, req.Count, req.Forward, true)
+		} else {
+			n.Chain.GetSnapshotBlocksByHash(&req.From.Hash, req.Count, req.Forward, true)
+		}
+
+		p.Send(FullSnapshotBlocksCode, msg.Id, &message.SnapshotBlocks{
+			Blocks: blocks,
+		})
+	case GetAccountBlocksCode:
+		as := new(message.GetAccountBlocks)
+		err = as.Deserialize(msg.Payload)
+		if err != nil {
+			return
+		}
+
+		query := make(map[types.Address]*chain.BlockMapQueryParam, 1)
+		query[as.Address] = &chain.BlockMapQueryParam{
+			OriginBlockHash: &as.From.Hash,
+			Count:           as.Count,
+			Forward:         as.Forward,
+		}
+
+		mblocks := n.Chain.GetAccountBlockMap(query)
+		p.Send(AccountBlocksCode, msg.Id, &message.AccountBlocks{
+			Address: as.Address,
+			Blocks:  mblocks[as.Address],
+		})
 	case FileListCode:
-		fs := new(FileList)
-		err = fs.Deserialize(payload)
+		fs := new(message.FileList)
+		err = fs.Deserialize(msg.Payload)
 		if err != nil {
 			return
 		}
-		// todo get file
 
+		// todo request file
 	case SubLedgerCode:
-		subledger := new(SubLedger)
-		err = subledger.Deserialize(payload)
+		subledger := new(message.SubLedger)
+		err = subledger.Deserialize(msg.Payload)
 		if err != nil {
 			return
 		}
-
-		p.receive(SubLedgerCode, subledger)
 
 		for _, block := range subledger.SBlocks {
 			p.SeeBlock(block.Hash)
@@ -269,52 +313,64 @@ func (n *Net) handleMsg(p *Peer) (err error) {
 		for _, block := range subledger.ABlocks {
 			p.SeeBlock(block.Hash)
 		}
-		//n.receiveSnapshotBlock(subledger.snapshotblocks)
-		//n.receiveAccountBlocks(subledger.accountblocks)
 	case SnapshotBlocksCode:
-		blocks := new(SnapshotBlocks)
+		blocks := new(message.SnapshotBlocks)
 
-		err = blocks.Deserialize(payload)
+		err = blocks.Deserialize(msg.Payload)
 		if err != nil {
 			return
 		}
 
-		p.receive(SnapshotBlocksCode, blocks)
-
 		for _, block := range blocks.Blocks {
 			p.SeeBlock(block.Hash)
 		}
-		n.receiveSnapshotBlock(blocks)
 	case AccountBlocksCode:
-		blocks := new(AccountBlocks)
+		blocks := new(message.AccountBlocks)
 
-		err = blocks.Deserialize(payload)
+		err = blocks.Deserialize(msg.Payload)
 		if err != nil {
 			return
 		}
 
-		p.receive(AccountBlocksCode, blocks)
-
 		for _, block := range blocks.Blocks {
 			p.SeeBlock(block.Hash)
 		}
-		n.receiveAccountBlocks(blocks)
-		n.BroadcastAccountBlocks(blocks)
 	case NewSnapshotBlockCode:
 		block := new(ledger.SnapshotBlock)
-		err = block.Deserialize(payload)
+		err = block.Deserialize(msg.Payload)
 		if err != nil {
 			return
 		}
 
 		p.SeeBlock(block.Hash)
 		n.BroadcastSnapshotBlock(block)
-	case ExceptionCode:
-		exception, err := deserializeException(payload)
+	case ForkCode:
+		fork := new(message.Fork)
+		err := fork.Deserialize(msg.Payload)
 		if err != nil {
 			return
 		}
-		p.receive(ExceptionCode, exception)
+
+		var commonID *message.BlockID
+		for _, id := range fork.List {
+			blocks, err := n.Chain.GetSnapshotBlocksByHeight(id.Height, 1, true, false)
+			if err == nil && blocks[0].Hash == id.Hash {
+				commonID = id
+				return
+			}
+		}
+		// after get commonID, resend the request message
+		p.GetSnapshotBlocks(&message.GetSnapshotBlocks{
+			From:    commonID,
+			Count:   p.height - commonID.Height,
+			Forward: true,
+		})
+	case ExceptionCode:
+		exception, err := message.DeserializeException(msg.Payload)
+		if err != nil {
+			return
+		}
+		// todo handle exception
 	default:
 		return errors.New("unknown message")
 	}
@@ -351,15 +407,9 @@ SYNC:
 		return
 	}
 
-	current, err := n.SnapshotChain.GetLatestSnapshotBlock()
-	if err != nil {
-		n.log.Error("can`t getLatestSnapshotBlock", "error", err)
-		return
-	}
+	current := n.Chain.GetLatestSnapshotBlock()
 
-	peerHead := bestPeer.Head()
-
-	peerHeight := peerHead.Height
+	peerHeight := bestPeer.height
 	if peerHeight <= current.Height {
 		n.log.Info("syncdone: bestPeer is lower than me")
 		return
@@ -368,44 +418,31 @@ SYNC:
 	n.FromHeight = current.Height
 	n.TargetHeight = peerHeight
 
-	seg := &Segment{
-		Origin: &BlockID{current.Hash, current.Height},
-		To:     &BlockID{peerHead.Hash, peerHeight},
-		Count:  peerHeight - current.Height,
+	param := &message.GetSnapshotBlocks{
+		From: &message.BlockID{
+			Hash:   current.Hash,
+			Height: current.Height,
+		},
+		Count:   peerHeight - n.FromHeight,
+		Forward: true,
 	}
 
-	req := newRequest(GetSubLedgerCode, seg, subledgerTimeout)
-	n.pool.add(req)
+	bestPeer.GetSubLedger(param)
 }
 
 func (n *Net) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	peers := n.peers.UnknownBlock(block.Hash)
-
 	for _, peer := range peers {
 		go peer.SendNewSnapshotBlock(block)
 	}
 }
 
-func (n *Net) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
-	for _, block := range blocks {
-		go func(b *ledger.SnapshotBlock) {
-			peers := n.peers.UnknownBlock(block.Hash)
-
-			for _, peer := range peers {
-				go peer.SendNewSnapshotBlock(block)
-			}
-		}(block)
-	}
-}
-
-func (n *Net) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {
-	for _, block := range blocks {
-		peers := n.peers.UnknownBlock(block.Hash)
-		for _, peer := range peers {
-			go func(peers []*Peer, b *ledger.AccountBlock) {
-				peer.SendAccountBlocks([]*ledger.AccountBlock{block})
-			}(peers, block)
-		}
+func (n *Net) BroadcastAccountBlock(addr types.Address, block *ledger.AccountBlock) {
+	peers := n.peers.UnknownBlock(block.Hash)
+	for _, peer := range peers {
+		go func(peer *Peer) {
+			peer.SendAccountBlocks(addr, []*ledger.AccountBlock{block}, 0)
+		}(peer)
 	}
 }
 
@@ -415,11 +452,10 @@ func (n *Net) FetchSnapshotBlocks(start types.Hash, count uint64) {
 		return
 	}
 
-	req := newRequest(GetSnapshotBlocksCode, &Segment{
-		From: &BlockID{
-			Hash: start,
-		},
+	req := newRequest(GetSnapshotBlocksCode, &message.GetSnapshotBlocks{
+		From: &message.BlockID{Hash: start,},
 		Count: count,
+		Forward: true,
 	}, snapshotBlocksTimeout)
 
 	n.pool.add(req)
@@ -431,14 +467,11 @@ func (n *Net) FetchAccountBlocks(start types.Hash, count uint64, address types.A
 		return
 	}
 
-	req := newRequest(GetAccountBlocksCode, &AccountSegment{
+	req := newRequest(GetAccountBlocksCode, &message.GetAccountBlocks{
 		Address: address,
-		Segment: &Segment{
-			From: &BlockID{
-				Hash: start,
-			},
-			Count: count,
-		},
+		From:    &message.BlockID{Hash:   start,},
+		Count:   count,
+		Forward: true,
 	}, accountBlocksTimeout)
 
 	n.pool.add(req)
@@ -500,7 +533,6 @@ func (n *Net) Status() *NetStatus {
 	return &NetStatus{
 		Peers:     n.peers.Info(),
 		Running:   running,
-		Uptime:    time.Now().Sub(n.start),
 		SyncState: SyncState(atomic.LoadInt32(&n.syncState)),
 	}
 }
@@ -508,6 +540,5 @@ func (n *Net) Status() *NetStatus {
 type NetStatus struct {
 	Peers     []*PeerInfo
 	SyncState SyncState
-	Uptime    time.Duration
 	Running   bool
 }
