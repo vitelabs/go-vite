@@ -16,13 +16,14 @@ import (
 
 type accountPool struct {
 	BCPool
-	mu         sync.Locker // read lock, snapshot insert and account insert
-	rw         *accountCh
-	verifyTask verifyTask
-	loopTime   time.Time
-	address    types.Address
-	v          *accountVerifier
-	f          *accountSyncer
+	mu            sync.Locker // read lock, snapshot insert and account insert
+	rw            *accountCh
+	verifyTask    verifyTask
+	loopTime      time.Time
+	address       types.Address
+	v             *accountVerifier
+	f             *accountSyncer
+	receivedIndex sync.Map
 }
 
 func newAccountPoolBlock(block *ledger.AccountBlock, vmBlock vmctxt_interface.VmDatabase, version *ForkVersion) *accountPoolBlock {
@@ -258,6 +259,7 @@ func (self *accountPool) tryInsert() verifyTask {
 					return self.v.newFailTask()
 				} else {
 					self.blockpool.afterInsert(block)
+					self.afterInsertBlock(block)
 				}
 			} else {
 				return self.v.newSuccessTask()
@@ -282,7 +284,7 @@ func (self *accountPool) insertAccountSuccessCallback(b commonBlock) {
 }
 func (self *accountPool) FindInChain(hash types.Hash, height uint64) bool {
 	for _, c := range self.chainpool.chains {
-		b := c.heightBlocks[height]
+		b := c.getBlock(height, false)
 		if b == nil {
 			continue
 		} else {
@@ -296,7 +298,7 @@ func (self *accountPool) FindInChain(hash types.Hash, height uint64) bool {
 
 func (self *accountPool) findInPool(hash types.Hash, height uint64) bool {
 	for _, c := range self.chainpool.chains {
-		b := c.heightBlocks[height]
+		b := c.getBlock(height, false)
 		if b == nil {
 			continue
 		} else {
@@ -360,4 +362,32 @@ func (self *accountPool) getFirstTimeoutUnConfirmedBlock(snapshotHead *ledger.Sn
 		return block
 	}
 	return nil
+}
+func (self *accountPool) AddSendBlock(block *ledger.AccountBlock) {
+	if block.IsReceiveBlock() {
+		self.receivedIndex.Store(block.FromBlockHash, block)
+	}
+}
+func (self *accountPool) afterInsertBlock(b commonBlock) {
+	block := b.(*accountPoolBlock)
+	self.receivedIndex.Delete(block.block.FromBlockHash)
+}
+
+func (self *accountPool) ExistInCurrent(fromHash types.Hash) bool {
+	// received in pool
+	b, ok := self.receivedIndex.Load(fromHash)
+	if !ok {
+		return false
+	}
+
+	block := b.(*ledger.AccountBlock)
+	h := block.Height
+	// block in current
+	received := self.chainpool.current.getBlock(h, false)
+	if received == nil {
+		return false
+	} else {
+		return true
+	}
+	return ok
 }

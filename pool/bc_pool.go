@@ -3,18 +3,16 @@ package pool
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"math/big"
-
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/viteshan/naive-vite/common"
-	"github.com/viteshan/naive-vite/common/face"
 	"github.com/viteshan/naive-vite/common/log"
 )
 
@@ -48,7 +46,8 @@ type BCPool struct {
 	version *ForkVersion
 	rMu     sync.Mutex // direct add and loop insert
 
-	compactLock *common.NonBlockLock // snippet,chain
+	compactLock  *common.NonBlockLock // snippet,chain
+	LIMIT_HEIGHT uint64
 }
 
 type blockPool struct {
@@ -118,7 +117,7 @@ func (self *diskChain) id() string {
 func (self *diskChain) Head() commonBlock {
 	head := self.rw.head()
 	if head == nil {
-		return self.rw.getBlock(common.EmptyHeight) // hack implement
+		return self.rw.getBlock(types.EmptyHeight) // hack implement
 	}
 
 	return head
@@ -194,17 +193,38 @@ type forkedChain struct {
 	headHash   types.Hash
 	tailHash   types.Hash
 	referChain heightChainReader
+	heightMu   sync.RWMutex
 }
 
 func (self *forkedChain) getBlock(height uint64, refer bool) commonBlock {
-	block, ok := self.heightBlocks[height]
-	if ok {
+	block := self.getHeightBlock(height)
+	if block != nil {
 		return block
 	}
 	if refer {
 		return self.referChain.getBlock(height, refer)
 	}
 	return nil
+}
+func (self *forkedChain) getHeightBlock(height uint64) commonBlock {
+	self.heightMu.RLock()
+	defer self.heightMu.RUnlock()
+	block, ok := self.heightBlocks[height]
+	if ok {
+		return block
+	} else {
+		return nil
+	}
+}
+func (self *forkedChain) setHeightBlock(height uint64, b commonBlock) {
+	self.heightMu.Lock()
+	defer self.heightMu.Unlock()
+	if b != nil {
+		self.heightBlocks[height] = b
+	} else {
+		// nil means delete
+		delete(self.heightBlocks, height)
+	}
 }
 
 func (self *forkedChain) Head() commonBlock {
@@ -250,6 +270,7 @@ func (self *BCPool) init(rw chainRw,
 
 	self.chainpool.init()
 
+	self.LIMIT_HEIGHT = 60 * 60
 }
 
 func (self *chainPool) genChainId() string {
@@ -297,7 +318,7 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 
 func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) {
 	for i := to.tailHeight; i > from.tailHeight; i-- {
-		w := from.heightBlocks[i]
+		w := from.getBlock(i, false)
 		from.removeTail(w)
 		to.addTail(w)
 	}
@@ -313,32 +334,6 @@ func (self *chainPool) currentModify(initBlock commonBlock) {
 	self.current = new
 	self.chains[new.chainId] = new
 }
-
-// fork, insert, forkedChain
-//func (self *chainPool) forky(wrapper commonBlock, chains []*forkedChain) (bool, bool, *forkedChain) {
-//	block := wrapper.block
-//	bHeight := block.Height()
-//	bPreHash := block.PreHash()
-//	bHash := block.Hash()
-//	for _, c := range chains {
-//		if bHeight == c.headHeight+1 && bPreHash == c.headHash {
-//			return false, true, c
-//		}
-//		//bHeight <= c.tailHeight
-//		if bHeight > c.headHeight {
-//			continue
-//		}
-//		pre := c.getBlock(bHeight - 1)
-//		uncle := c.getBlock(bHeight)
-//		if pre != nil &&
-//			uncle != nil &&
-//			pre.block.Hash() == bPreHash &&
-//			uncle.block.Hash() != bHash {
-//			return true, false, c
-//		}
-//	}
-//	return false, false, nil
-//}
 
 func (self *chainPool) forky(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain) {
 	for _, c := range chains {
@@ -625,19 +620,19 @@ func (self *forkedChain) init(initBlock commonBlock) {
 func (self *forkedChain) addHead(w commonBlock) {
 	self.headHash = w.Hash()
 	self.headHeight = w.Height()
-	self.heightBlocks[w.Height()] = w
+	self.setHeightBlock(w.Height(), w)
 }
 
 func (self *forkedChain) removeTail(w commonBlock) {
 	self.tailHash = w.Hash()
 	self.tailHeight = w.Height()
-	delete(self.heightBlocks, w.Height())
+	self.setHeightBlock(w.Height(), nil)
 }
 
 func (self *forkedChain) addTail(w commonBlock) {
 	self.tailHash = w.PreHash()
 	self.tailHeight = w.Height() - 1
-	self.heightBlocks[w.Height()] = w
+	self.setHeightBlock(w.Height(), w)
 }
 
 func (self *forkedChain) String() string {
@@ -980,14 +975,28 @@ func (self *BCPool) loop() {
 	}
 }
 
-func (self *BCPool) ExistInCurrent(request face.FetchRequest) bool {
+func (self *BCPool) loopDelUselessChain() {
+	if len(self.blockpool.freeBlocks) == 0 {
+		return
+	}
+
+	if len(self.chainpool.chains) == 1 {
+		return
+	}
+
+	// if an insert operation is in progress, do nothing.
 	if !self.compactLock.TryLock() {
-		return false
+		return
 	} else {
 		defer self.compactLock.UnLock()
 	}
-	_, ok := self.chainpool.current.heightBlocks[request.Height]
-	return ok
+
+	height := self.chainpool.current.tailHeight
+	for k, c := range self.chainpool.chains {
+		if c.headHeight+self.LIMIT_HEIGHT < height {
+			delete(self.chainpool.chains, k)
+		}
+	}
 }
 
 func splitToMap(chains []*snippetChain) map[types.Hash]*snippetChain {

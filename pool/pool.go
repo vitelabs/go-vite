@@ -178,6 +178,7 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock) error {
 	log.Info("receive account block from network. addr:%s, height:%d, hash:%s.", address, block.Height, block.Hash)
 	self.selfPendingAc(address).AddBlock(newAccountPoolBlock(block, nil, self.version))
+	self.selfPendingAc(address).AddSendBlock(block)
 
 	self.accountCond.L.Lock()
 	defer self.accountCond.L.Unlock()
@@ -237,7 +238,7 @@ func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_con
 }
 
 func (self *pool) ExistInPool(address types.Address, requestHash types.Hash) bool {
-	panic("implement me")
+	return self.selfPendingAc(address).ExistInCurrent(requestHash)
 }
 
 //func (self *pool) ForkAccounts(keyPoint *ledger.SnapshotBlock, forkPoint *ledger.SnapshotBlock) error {
@@ -505,6 +506,7 @@ func (self *pool) loopBroadcastAndDel() {
 
 	broadcastT := time.NewTicker(time.Second * 30)
 	delT := time.NewTicker(time.Second * 40)
+	delUselessChainT := time.NewTicker(time.Minute * 20)
 
 	defer broadcastT.Stop()
 	defer delT.Stop()
@@ -522,10 +524,26 @@ func (self *pool) loopBroadcastAndDel() {
 			for _, addr := range addrList {
 				self.delTimeoutUnConfirmedBlocks(addr)
 			}
+		case <-delUselessChainT.C:
+			// del some useless chain in pool
+			self.delUseLessChains()
 		}
 	}
-
 }
+
+func (self *pool) delUseLessChains() {
+	self.pendingSc.loopDelUselessChain()
+	var pendings []*accountPool
+	self.pendingAc.Range(func(_, v interface{}) bool {
+		p := v.(*accountPool)
+		pendings = append(pendings, p)
+		return true
+	})
+	for _, v := range pendings {
+		v.loopDelUselessChain()
+	}
+}
+
 func (self *pool) listUnlockedAddr() []types.Address {
 	var todoAddress []types.Address
 	status, e := self.wt.KeystoreManager.Status()
