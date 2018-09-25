@@ -2,19 +2,20 @@ package pool
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
 	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/viteshan/naive-vite/common/face"
-	"github.com/viteshan/naive-vite/common/log"
 	"github.com/viteshan/naive-vite/syncer"
 )
 
@@ -94,10 +95,13 @@ type pool struct {
 	closed      chan struct{}
 	wg          sync.WaitGroup
 	accountCond *sync.Cond // if new block add, notify
+
+	log log15.Logger
 }
 
 func NewPool(bc ch.Chain) BlockPool {
 	self := &pool{bc: bc, rwMutex: &sync.RWMutex{}, version: &ForkVersion{}, accountCond: sync.NewCond(&sync.Mutex{})}
+	self.log = log15.New("module", "pool")
 	return self
 }
 
@@ -106,7 +110,7 @@ func (self *pool) Init(f syncer.Fetcher) {
 	rw := &snapshotCh{version: self.version}
 	fe := &snapshotSyncer{fetcher: f}
 	v := &snapshotVerifier{}
-	snapshotPool := newSnapshotPool("snapshotPool", self.version, v, fe, rw)
+	snapshotPool := newSnapshotPool("snapshotPool", self.version, v, fe, rw, self.log)
 	snapshotPool.init(
 		newTools(fe, v, rw),
 		self.rwMutex,
@@ -158,7 +162,7 @@ func (self *pool) Stop() {
 
 func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) error {
 
-	log.Info("receive snapshot block from network. height:%d, hash:%s.", block.Height, block.Hash)
+	self.log.Info("receive snapshot block from network. height:" + strconv.FormatUint(block.Height, 10) + ", hash:" + block.Hash.String() + ".")
 
 	self.pendingSc.AddBlock(newSnapshotPoolBlock(block, self.version))
 	return nil
@@ -176,7 +180,7 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 }
 
 func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock) error {
-	log.Info("receive account block from network. addr:%s, height:%d, hash:%s.", address, block.Height, block.Hash)
+	self.log.Info(fmt.Sprintf("receive account block from network. addr:%s, height:%d, hash:%s.", address, block.Height, block.Hash))
 	self.selfPendingAc(address).AddBlock(newAccountPoolBlock(block, nil, self.version))
 	self.selfPendingAc(address).AddSendBlock(block)
 
@@ -321,7 +325,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	rw := &accountCh{address: addr, rw: self.bc, version: self.version}
 	f := &accountSyncer{address: addr, fetcher: self.fetcher}
 	v := &accountVerifier{}
-	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version)
+	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.log)
 
 	p.Init(newTools(f, v, rw), self.rwMutex.RLocker())
 
@@ -496,7 +500,7 @@ func (self *pool) fetchForTask(task verifyTask) []*face.FetchRequest {
 		if !exist {
 			self.fetcher.Fetch(r)
 		} else {
-			log.Info("block[%s] exist, should not fetch.", r.String())
+			self.log.Info(fmt.Sprintf("block[%s] exist, should not fetch.", r.String()))
 			existReqs = append(existReqs, &r)
 		}
 	}

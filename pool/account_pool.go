@@ -8,10 +8,10 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
-	"github.com/viteshan/naive-vite/common/log"
 )
 
 type accountPool struct {
@@ -24,6 +24,7 @@ type accountPool struct {
 	v             *accountVerifier
 	f             *accountSyncer
 	receivedIndex sync.Map
+	log           log15.Logger
 }
 
 func newAccountPoolBlock(block *ledger.AccountBlock, vmBlock vmctxt_interface.VmDatabase, version *ForkVersion) *accountPoolBlock {
@@ -48,12 +49,13 @@ func (self *accountPoolBlock) PreHash() types.Hash {
 	return self.block.PrevHash
 }
 
-func newAccountPool(name string, rw *accountCh, v *ForkVersion) *accountPool {
+func newAccountPool(name string, rw *accountCh, v *ForkVersion, log log15.Logger) *accountPool {
 	pool := &accountPool{}
 	pool.Id = name
 	pool.rw = rw
 	pool.version = v
 	pool.loopTime = time.Now()
+	pool.log = log.New("name", name)
 	return pool
 }
 
@@ -157,7 +159,7 @@ func (self *accountPool) tryInsert() verifyTask {
 	minH := current.tailHeight + 1
 	headH := current.headHeight
 	n := 0
-	for i := minH; i <= headH; i++ {
+	for i := minH; i <= headH; {
 		block := self.getCurrentBlock(i)
 		if block == nil {
 			return self.v.newSuccessTask()
@@ -175,35 +177,35 @@ func (self *accountPool) tryInsert() verifyTask {
 		case verifier.PENDING:
 			return stat.task()
 		case verifier.FAIL:
-			log.Error("account block verify fail. block info:account[%s],hash[%s],height[%d]",
-				result, self.address.String(), block.Hash(), block.Height())
+			self.log.Error("account block verify fail. ",
+				"hash", block.Hash(), "height", block.Height())
 			return self.v.newFailTask()
 		case verifier.SUCCESS:
 			if block.Height() == current.tailHeight+1 {
-				err, cnt := self.verifySuccess(block, stat)
-				i = i + cnt
+				err, cnt := self.verifySuccess(stat.blocks)
 				if err != nil {
-					log.Error("account block write fail. block info:account[%s],hash[%s],height[%d], err:%v",
-						result, self.address.String(), block.Hash(), block.Height(), err)
+					self.log.Error("account block write fail. ",
+						"hash", block.Hash(), "height", block.Height(), "error", err)
 					return self.v.newFailTask()
 				}
+				i = i + cnt
 			} else {
 				return self.v.newSuccessTask()
 			}
 		default:
 			// shutdown process
-			log.Fatal("Unexpected things happened. verify result is %d. block info:account[%s],hash[%s],height[%d]",
-				result, self.address, block.Hash(), block.Height())
+			self.log.Crit("Unexpected things happened.",
+				"hash", block.Hash(), "height", block.Height(), "result", result)
 			return self.v.newFailTask()
 		}
 	}
 
 	return self.v.newSuccessTask()
 }
-func (self *accountPool) verifySuccess(block *accountPoolBlock, sends []*accountPoolBlock) (error, uint64) {
+func (self *accountPool) verifySuccess(bs []*accountPoolBlock) (error, uint64) {
 	cp := self.chainpool
 
-	blocks, forked, err := genBlocks(block, cp, sends)
+	blocks, forked, err := genBlocks(cp, bs)
 	if err != nil {
 		return err, 0
 	}
@@ -217,18 +219,18 @@ func (self *accountPool) verifySuccess(block *accountPoolBlock, sends []*account
 		self.blockpool.afterInsert(b)
 		self.afterInsertBlock(b)
 	}
-	return nil, uint64(len(sends))
+	return nil, uint64(len(bs))
 }
 
 // result,(need fork)
-func genBlocks(received *accountPoolBlock, cp *chainPool, sends []*accountPoolBlock) ([]commonBlock, *forkedChain, error) {
+func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, *forkedChain, error) {
 	current := cp.current
 
 	var newChain *forkedChain
 	var err error
-	var result = []commonBlock{received}
+	var result = []commonBlock{}
 
-	for _, b := range sends {
+	for _, b := range bs {
 		tmp := current.getHeightBlock(b.Height())
 		if newChain != nil {
 			// forked chain
@@ -305,7 +307,7 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks 
 		self.chainpool.currentModifyToChain(fchain)
 		return nil
 	default:
-		log.Fatal("verify unexpected.")
+		self.log.Crit("verify unexpected.")
 		return errors.New("verify unexpected")
 	}
 }

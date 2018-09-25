@@ -1,11 +1,9 @@
 package pool
 
 import (
-	"testing"
-
 	"sort"
-
 	"strconv"
+	"testing"
 
 	"github.com/vitelabs/go-vite/ledger"
 )

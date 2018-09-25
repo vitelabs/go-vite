@@ -6,8 +6,8 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/viteshan/naive-vite/common/log"
 )
 
 type snapshotPool struct {
@@ -49,7 +49,7 @@ func newSnapshotPool(
 	v *snapshotVerifier,
 	f *snapshotSyncer,
 	rw *snapshotCh,
-
+	log log15.Logger,
 ) *snapshotPool {
 	pool := &snapshotPool{}
 	pool.Id = name
@@ -57,6 +57,7 @@ func newSnapshotPool(
 	pool.rw = rw
 	pool.v = v
 	pool.f = f
+	pool.log = log.New("name", name)
 	return pool
 }
 
@@ -96,14 +97,14 @@ func (self *snapshotPool) checkFork() {
 }
 
 func (self *snapshotPool) snapshotFork(longest Chain, current Chain) error {
-	log.Warn("[try]snapshot chain start fork.longest chain:%s, currentchain:%s", longest.ChainId(), current.ChainId())
+	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId())
 	self.rwMu.Lock()
 	defer self.rwMu.Unlock()
-	log.Warn("[lock]snapshot chain start fork.longest chain:%s, currentchain:%s", longest.ChainId(), current.ChainId())
+	self.log.Warn("[lock]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId())
 
 	k, _, err := self.getForkPoint(longest, current)
 	if err != nil {
-		log.Error("get snapshot forkPoint err. err:%v", err)
+		self.log.Error("get snapshot forkPoint err.", "err", err)
 		return err
 	}
 	keyPoint := k.(*snapshotPoolBlock)
@@ -194,15 +195,15 @@ L:
 		case verifier.PENDING:
 			return stat, block
 		case verifier.FAIL:
-			log.Error("snapshot verify fail. block info:hash[%s],height[%d], %s",
-				result, block.Hash(), block.Height(), stat.errMsg())
+			self.log.Error("snapshot verify fail."+stat.errMsg(),
+				"hash", block.Hash(), "height", block.Height())
 			return stat, block
 		case verifier.SUCCESS:
 			if block.Height() == current.tailHeight+1 {
 				err := pool.writeToChain(current, block)
 				if err != nil {
-					log.Error("insert snapshot chain fail. block info:hash[%s],height[%d], err:%v",
-						block.Hash(), block.Height(), err)
+					self.log.Error("insert snapshot chain fail.",
+						"hash", block.Hash(), "height", block.Height(), "err", err)
 					break L
 				} else {
 					self.blockpool.afterInsert(block)
@@ -211,8 +212,8 @@ L:
 				break L
 			}
 		default:
-			log.Fatal("Unexpected things happened. verify result is %d. block info:account[%s],hash[%s],height[%d]",
-				result, block.Hash(), block.Height())
+			self.log.Crit("Unexpected things happened. ",
+				"result", result, "hash", block.Hash(), "height", block.Height())
 			break L
 		}
 	}
@@ -222,12 +223,12 @@ func (self *snapshotPool) Start() {
 	self.closed = make(chan struct{})
 	go self.loop()
 	go self.loopCheckFork()
-	log.Info("snapshot_pool[%s] started.", self.Id)
+	self.log.Info("snapshot_pool started.")
 }
 func (self *snapshotPool) Stop() {
 	close(self.closed)
 	self.wg.Wait()
-	log.Info("snapshot_pool[%s] stopped.", self.Id)
+	self.log.Info("snapshot_pool stopped.")
 }
 
 func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnapshotVerifyStat) {
