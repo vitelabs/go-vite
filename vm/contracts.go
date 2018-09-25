@@ -228,6 +228,9 @@ func (p *pReward) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uin
 		return quotaLeft, ErrInvalidData
 	}
 	// newRewardHeight := min(currentSnapshotHeight-50, userDefined, cancelSnapshotHeight)
+	if block.VmContext.CurrentSnapshotBlock().Height < rewardHeightLimit {
+		return quotaLeft, ErrInvalidData
+	}
 	newRewardHeight := block.VmContext.CurrentSnapshotBlock().Height - rewardHeightLimit
 	if param.EndHeight > 0 {
 		newRewardHeight = helper.Min(newRewardHeight, param.EndHeight)
@@ -707,7 +710,7 @@ func (p *pCancelConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock,
 	if groupInfo == nil ||
 		!bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), groupInfo.Owner.Bytes()) ||
 		!groupInfo.IsActive() ||
-		groupInfo.WithdrawTime < block.VmContext.CurrentSnapshotBlock().Timestamp.Unix() {
+		groupInfo.WithdrawTime > block.VmContext.CurrentSnapshotBlock().Timestamp.Unix() {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
@@ -719,7 +722,7 @@ func (p *pCancelConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountBlo
 	groupInfo := contracts.GetConsensusGroup(block.VmContext, *gid)
 	if groupInfo == nil ||
 		!groupInfo.IsActive() ||
-		groupInfo.WithdrawTime < block.VmContext.CurrentSnapshotBlock().Timestamp.Unix() {
+		groupInfo.WithdrawTime > block.VmContext.CurrentSnapshotBlock().Timestamp.Unix() {
 		return ErrInvalidData
 	}
 	newGroupInfo, _ := contracts.ABIConsensusGroup.PackVariable(

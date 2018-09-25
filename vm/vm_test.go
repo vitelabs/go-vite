@@ -8,7 +8,9 @@ import (
 	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
+	"strconv"
 	"testing"
+	"time"
 )
 
 func TestVmRun(t *testing.T) {
@@ -249,4 +251,42 @@ func updateReveiceBlockBySendBlock(receiveBlock, sendBlock *ledger.AccountBlock)
 	receiveBlock.Fee = sendBlock.Fee
 	receiveBlock.Amount = sendBlock.Amount
 	receiveBlock.TokenId = sendBlock.TokenId
+}
+
+func BenchmarkVMTransfer(b *testing.B) {
+	viteTotalSupply := viteTotalSupply
+	db, addr1, hash12, _, timestamp := prepareDb(viteTotalSupply)
+	for i := 3; i < b.N+3; i++ {
+		timestamp = timestamp + 1
+		ti := time.Unix(timestamp, 0)
+		snapshoti := &ledger.SnapshotBlock{Height: uint64(i), Timestamp: &ti, Hash: types.DataHash([]byte(strconv.Itoa(i)))}
+		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
+	}
+
+	// send call
+	b.ResetTimer()
+	prevHash := hash12
+	addr2, _, _ := types.CreateAddress()
+	amount := big.NewInt(1)
+	db.addr = addr1
+	for i := 3; i < b.N+3; i++ {
+		hashi := types.DataHash([]byte(strconv.Itoa(i)))
+		blocki := &ledger.AccountBlock{
+			Height:         uint64(i),
+			AccountAddress: addr1,
+			ToAddress:      addr2,
+			BlockType:      ledger.BlockTypeSendCall,
+			PrevHash:       prevHash,
+			Amount:         amount,
+			TokenId:        ledger.ViteTokenId,
+			SnapshotHash:   types.DataHash([]byte(strconv.Itoa(i))),
+		}
+		vm := NewVM()
+		sendCallBlockList, _, err := vm.Run(db, blocki, nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+		db.accountBlockMap[addr1][hashi] = sendCallBlockList[0].AccountBlock
+		prevHash = hashi
+	}
 }

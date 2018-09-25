@@ -225,12 +225,12 @@ func TestContractsRegisterRun(t *testing.T) {
 	db.accountBlockMap[addr1][hash16] = receiveCancelRegisterRefundBlockList[0].AccountBlock
 
 	// reward
-	for i := uint64(1); i <= 50; i++ {
+	for i := uint64(1); i <= rewardHeightLimit; i++ {
 		timei := time.Unix(timestamp+2+int64(i), 0)
 		snapshoti := &ledger.SnapshotBlock{Height: 4 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(4 + i)}), PublicKey: publicKey}
 		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
 	}
-	snapshot54 := db.snapshotBlockList[53]
+	currentSnapshotBlock := db.snapshotBlockList[len(db.snapshotBlockList)-1]
 	db.storageMap[contracts.AddressPledge][types.DataHash(addr7.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	block71Data, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, *ledger.CommonGid(), nodeName, uint64(0), uint64(0), helper.Big0)
 	hash71 := types.DataHash([]byte{7, 1})
@@ -244,7 +244,7 @@ func TestContractsRegisterRun(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash16,
 		Data:           block71Data,
-		SnapshotHash:   snapshot54.Hash,
+		SnapshotHash:   currentSnapshotBlock.Hash,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -267,7 +267,7 @@ func TestContractsRegisterRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash23,
 		FromBlockHash:  hash71,
-		SnapshotHash:   snapshot54.Hash,
+		SnapshotHash:   currentSnapshotBlock.Hash,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -297,7 +297,7 @@ func TestContractsRegisterRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash71,
 		FromBlockHash:  hash25,
-		SnapshotHash:   snapshot54.Hash,
+		SnapshotHash:   currentSnapshotBlock.Hash,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -746,7 +746,7 @@ func TestContractsPledge(t *testing.T) {
 
 func TestConsensusGroup(t *testing.T) {
 	viteTotalSupply := viteTotalSupply
-	db, addr1, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
+	db, addr1, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
 
 	addr2 := contracts.AddressConsensusGroup
 	block13Data, _ := contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameCreateConsensusGroup,
@@ -799,8 +799,8 @@ func TestConsensusGroup(t *testing.T) {
 	vm.Debug = true
 	locHash, _ := types.BytesToHash(sendCreateConsensusGroupBlockList[0].AccountBlock.Data[4:36])
 	db.addr = addr2
-	updateReveiceBlockBySendBlock(block21, block13)
-	receiveCreateConsensusGroupBlockList, isRetry, err := vm.Run(db, block21, block13)
+	updateReveiceBlockBySendBlock(block21, sendCreateConsensusGroupBlockList[0].AccountBlock)
+	receiveCreateConsensusGroupBlockList, isRetry, err := vm.Run(db, block21, sendCreateConsensusGroupBlockList[0].AccountBlock)
 	groupInfo, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
@@ -830,6 +830,178 @@ func TestConsensusGroup(t *testing.T) {
 	}
 	if groupInfoList := contracts.GetActiveConsensusGroupList(db); len(groupInfoList) != 2 || groupInfoList[0].NodeCount != 25 {
 		t.Fatalf("get group info list failed")
+	}
+
+	// cancel consensus group
+	for i := uint64(1); i <= uint64(createConsensusGroupPledgeTime); i++ {
+		timei := time.Unix(timestamp+2+int64(i), 0)
+		snapshoti := &ledger.SnapshotBlock{Height: 2 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(2 + i)})}
+		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
+	}
+	newSnapshot := db.snapshotBlockList[len(db.snapshotBlockList)-1]
+
+	block14Data, _ := contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameCancelConsensusGroup, gid)
+	hash14 := types.DataHash([]byte{1, 4})
+	block14 := &ledger.AccountBlock{
+		Height:         4,
+		ToAddress:      addr2,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
+		PrevHash:       hash13,
+		Amount:         big.NewInt(0),
+		TokenId:        ledger.ViteTokenId,
+		Data:           block14Data,
+		SnapshotHash:   newSnapshot.Hash,
+	}
+	vm = NewVM()
+	vm.Debug = true
+	db.addr = addr1
+	sendCancelConsensusGroupBlockList, isRetry, err := vm.Run(db, block14, nil)
+	quota14, _ := dataGasCost(block14.Data)
+	if len(sendCancelConsensusGroupBlockList) != 1 || isRetry || err != nil ||
+		sendCancelConsensusGroupBlockList[0].AccountBlock.Quota != quota14+cancelConsensusGroupGas ||
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
+		t.Fatalf("send cancel consensus group transaction error")
+	}
+	db.accountBlockMap[addr1][hash14] = sendCancelConsensusGroupBlockList[0].AccountBlock
+
+	hash22 := types.DataHash([]byte{2, 2})
+	block22 := &ledger.AccountBlock{
+		Height:         2,
+		AccountAddress: addr2,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash14,
+		SnapshotHash:   newSnapshot.Hash,
+	}
+	vm = NewVM()
+	vm.Debug = true
+	db.addr = addr2
+	updateReveiceBlockBySendBlock(block22, sendCancelConsensusGroupBlockList[0].AccountBlock)
+	receiveCancelConsensusGroupBlockList, isRetry, err := vm.Run(db, block22, sendCancelConsensusGroupBlockList[0].AccountBlock)
+	groupInfo, _ = contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+		uint8(25),
+		int64(3),
+		uint8(0),
+		helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize),
+		uint8(0),
+		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
+		uint8(0),
+		[]byte{},
+		addr1,
+		helper.Big0,
+		int64(0))
+	if len(receiveCancelConsensusGroupBlockList) != 2 || isRetry || err != nil ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Sign() != 0 ||
+		!bytes.Equal(db.storageMap[addr2][locHash], groupInfo) ||
+		receiveCancelConsensusGroupBlockList[0].AccountBlock.Quota != 0 ||
+		receiveCancelConsensusGroupBlockList[1].AccountBlock.Height != 3 ||
+		receiveCancelConsensusGroupBlockList[1].AccountBlock.Quota != 0 ||
+		receiveCancelConsensusGroupBlockList[1].AccountBlock.Amount.Cmp(createConsensusGroupPledgeAmount) != 0 ||
+		!IsViteToken(receiveCancelConsensusGroupBlockList[1].AccountBlock.TokenId) {
+		t.Fatalf("receive cancel consensus group transaction error")
+	}
+	db.accountBlockMap[addr2][hash22] = receiveCancelConsensusGroupBlockList[0].AccountBlock
+	hash23 := types.DataHash([]byte{2, 3})
+	db.accountBlockMap[addr2][hash23] = receiveCancelConsensusGroupBlockList[1].AccountBlock
+
+	hash15 := types.DataHash([]byte{1, 5})
+	block15 := &ledger.AccountBlock{
+		Height:         5,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash23,
+		SnapshotHash:   newSnapshot.Hash,
+	}
+	vm = NewVM()
+	vm.Debug = true
+	db.addr = addr1
+	updateReveiceBlockBySendBlock(block15, receiveCancelConsensusGroupBlockList[1].AccountBlock)
+	receiveCancelConsensusGroupRefundBlockList, isRetry, err := vm.Run(db, block15, receiveCancelConsensusGroupBlockList[1].AccountBlock)
+	balance1.Add(balance1, createConsensusGroupPledgeAmount)
+	if len(receiveCancelConsensusGroupRefundBlockList) != 1 || isRetry || err != nil ||
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
+		receiveCancelConsensusGroupRefundBlockList[0].AccountBlock.Quota != 21000 {
+		t.Fatalf("receive cancel consensus group refund transaction error")
+	}
+	db.accountBlockMap[addr1][hash15] = receiveCancelConsensusGroupBlockList[0].AccountBlock
+
+	// get contracts data
+	db.addr = contracts.AddressConsensusGroup
+	if groupInfo := contracts.GetConsensusGroup(db, gid); groupInfo == nil || groupInfo.NodeCount != 25 {
+		t.Fatalf("get group info failed")
+	}
+	if groupInfoList := contracts.GetActiveConsensusGroupList(db); len(groupInfoList) != 1 || groupInfoList[0].NodeCount != 25 {
+		t.Fatalf("get active group info list failed")
+	}
+
+	// TODO recreate consensus group
+	block16Data, _ := contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameReCreateConsensusGroup, gid)
+	hash16 := types.DataHash([]byte{1, 6})
+	block16 := &ledger.AccountBlock{
+		Height:         6,
+		ToAddress:      addr2,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeSendCall,
+		PrevHash:       hash13,
+		Amount:         createConsensusGroupPledgeAmount,
+		TokenId:        ledger.ViteTokenId,
+		Data:           block16Data,
+		SnapshotHash:   newSnapshot.Hash,
+	}
+	vm = NewVM()
+	vm.Debug = true
+	db.addr = addr1
+	sendRecreateConsensusGroupBlockList, isRetry, err := vm.Run(db, block16, nil)
+	quota16, _ := dataGasCost(block16.Data)
+	balance1.Sub(balance1, createConsensusGroupPledgeAmount)
+	if len(sendRecreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
+		sendRecreateConsensusGroupBlockList[0].AccountBlock.Quota != quota16+reCreateConsensusGroupGas ||
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
+		t.Fatalf("send recreate consensus group transaction error")
+	}
+	db.accountBlockMap[addr1][hash16] = sendRecreateConsensusGroupBlockList[0].AccountBlock
+
+	hash24 := types.DataHash([]byte{2, 4})
+	block24 := &ledger.AccountBlock{
+		Height:         4,
+		AccountAddress: addr2,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash16,
+		SnapshotHash:   newSnapshot.Hash,
+	}
+	vm = NewVM()
+	vm.Debug = true
+	db.addr = addr2
+	updateReveiceBlockBySendBlock(block24, sendRecreateConsensusGroupBlockList[0].AccountBlock)
+	receiveRecreateConsensusGroupBlockList, isRetry, err := vm.Run(db, block24, sendRecreateConsensusGroupBlockList[0].AccountBlock)
+	groupInfo, _ = contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+		uint8(25),
+		int64(3),
+		uint8(0),
+		helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize),
+		uint8(0),
+		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
+		uint8(0),
+		[]byte{},
+		addr1,
+		createConsensusGroupPledgeAmount,
+		newSnapshot.Timestamp.Unix()+createConsensusGroupPledgeTime)
+	if len(receiveRecreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(createConsensusGroupPledgeAmount) != 0 ||
+		!bytes.Equal(db.storageMap[addr2][locHash], groupInfo) ||
+		receiveRecreateConsensusGroupBlockList[0].AccountBlock.Quota != 0 {
+		t.Fatalf("receive cancel consensus group transaction error")
+	}
+	db.accountBlockMap[addr2][hash24] = receiveRecreateConsensusGroupBlockList[0].AccountBlock
+
+	// get contracts data
+	db.addr = contracts.AddressConsensusGroup
+	if groupInfo := contracts.GetConsensusGroup(db, gid); groupInfo == nil || groupInfo.NodeCount != 25 {
+		t.Fatalf("get group info failed")
+	}
+	if groupInfoList := contracts.GetActiveConsensusGroupList(db); len(groupInfoList) != 2 || groupInfoList[0].NodeCount != 25 {
+		t.Fatalf("get active group info list failed")
 	}
 }
 

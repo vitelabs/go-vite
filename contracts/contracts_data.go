@@ -88,6 +88,18 @@ func GetPledgeAmount(db StorageDatabase, beneficial types.Address) *big.Int {
 	return big.NewInt(0)
 }
 
+var quotaByPledge = big.NewInt(1e9)
+
+func GetPledgeQuota(db StorageDatabase, beneficial types.Address) uint64 {
+	key := GetPledgeBeneficialKey(beneficial)
+	beneficialAmount := new(VariablePledgeBeneficial)
+	err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, key))
+	if err == nil {
+		return beneficialAmount.Amount.Div(beneficialAmount.Amount, quotaByPledge).Uint64()
+	}
+	return 0
+}
+
 func GetActiveConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 	iterator := db.NewStorageIterator(nil)
 	consensusGroupInfoList := make([]*ConsensusGroupInfo, 0)
