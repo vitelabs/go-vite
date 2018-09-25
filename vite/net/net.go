@@ -174,7 +174,7 @@ func (n *Net) startPeer(p *Peer) error {
 		case <-ticker.C:
 			current, err := n.SnapshotChain.GetLatestSnapshotBlock()
 			if err == nil {
-				p.Send(StatusCode, &BlockID{
+				p.Send(StatusCode, 0, &BlockID{
 					Hash:   current.Hash,
 					Height: current.Height,
 				})
@@ -186,6 +186,8 @@ func (n *Net) startPeer(p *Peer) error {
 			}
 		}
 	}
+
+	close(p.term)
 }
 
 func (n *Net) handleMsg(p *Peer) (err error) {

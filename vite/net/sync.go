@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/p2p"
 	"sync"
 	"time"
 )
@@ -21,6 +22,7 @@ const (
 	Syncing
 	Syncdone
 	Syncerr
+	SyncCancel
 )
 
 var syncStatus = [...]string{
@@ -28,6 +30,7 @@ var syncStatus = [...]string{
 	Syncing:      "Synchronising",
 	Syncdone:     "Sync done",
 	Syncerr:      "Sync error",
+	SyncCancel: "Sync canceled",
 }
 
 func (s SyncState) String() string {
@@ -55,6 +58,7 @@ func (s *SyncStateFeed) Unsub(subId int) {
 
 	delete(s.subs, subId)
 }
+
 func (s *SyncStateFeed) Notify(st SyncState) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
@@ -63,6 +67,57 @@ func (s *SyncStateFeed) Notify(st SyncState) {
 			go fn(st)
 		}
 	}
+}
+
+type syncTask struct {
+	from    uint64
+	target  uint64
+	state     SyncState // atomic
+	downloaded    int32 // atomic, indicate whether the first sync data has download from bestPeer
+	done chan struct{}
+	newPeer chan struct{}
+	feed     *SyncStateFeed
+	chain BlockChain
+	peers *peerSet
+	peer *Peer
+}
+
+func (t *syncTask) start() {
+	start := time.NewTimer(waitEnoughPeers)
+	defer start.Stop()
+
+	loop:
+	for {
+		select {
+		case <- t.newPeer:
+			if t.peers.Count() >= enoughPeers {
+				break loop
+			}
+		case <- start.C:
+			break loop
+		}
+	}
+
+	p := t.peers.BestPeer()
+	if p == nil {
+		t.change(Syncerr)
+		return
+	}
+
+	deadline := time.NewTimer(waitForChainGrow)
+	defer deadline.Stop()
+	p.SendMsg(&p2p.Msg{
+		CmdSetID:   0,
+		Cmd:        0,
+		Id:         0,
+		Size:       0,
+		Payload:    nil,
+	})
+}
+
+func (t *syncTask) change(s SyncState) {
+	t.state = s
+	t.feed.Notify(s)
 }
 
 type BlockChain interface {

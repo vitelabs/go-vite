@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/list"
 	"time"
 )
 
@@ -21,7 +22,6 @@ type requestParam interface {
 	p2p.Serializable
 	Equal(interface{}) bool
 	Ceil() uint64 // peer who`s height taller than this value can handle it
-	Handle(*response) error
 }
 
 type reqStatus int
@@ -43,31 +43,22 @@ func (s reqStatus) String() string {
 }
 
 // request
-type response struct {
-	cmd
-	msgId  uint64
-	sender *Peer
-	msg    p2p.Serializable
-}
+//type Request interface {
+//	Perform(p *Peer)
+//	Cancel()
+//	Handle(msg *p2p.Msg, p *Peer) bool
+//	Expired() bool
+//	Msg() *p2p.Msg
+//}
 
 type request struct {
-	cmd        // message type
-	id         uint64
 	peer       *Peer
 	count      int // Count the number of times the req was requested
+	cmd        // message type
+	id         uint64	// message id
 	param      requestParam
 	timeout    time.Duration
 	expiration time.Time
-	next       *request // linked list
-	done       chan bool
-}
-
-func newRequest(cmd cmd, param requestParam, timeout time.Duration) *request {
-	return &request{
-		cmd:     cmd,
-		param:   param,
-		timeout: timeout,
-	}
 }
 
 func (r *request) equal(r2 *request) bool {
@@ -78,79 +69,18 @@ func (r *request) equal(r2 *request) bool {
 	return r.cmd == r2.cmd && r.param.Equal(r2.param)
 }
 
-// done means request has fulfilled, can be removed from pending queue,
-// error means request catch error, should be retry
-func (r *request) handle(res *response) (done bool, err error) {
-	//if r.cmd
+// means request has fulfilled, can be removed from pending queue
+func (r *request) Handle(msg *p2p.Msg) bool {
+	if msg.Id != r.id {
+		return false
+	}
+
 }
 
-func (r *request) cancel() {
+func (r *request) Cancel() {
 	if r.peer != nil {
 		r.peer.delRequest(r)
 	}
-}
-
-// request queue
-type requestQueue struct {
-	head *request // the head(null) item
-	tail *request // the last item
-	size int
-}
-
-func newReqQueue() *requestQueue {
-	req := new(request)
-
-	return &requestQueue{
-		head: req,
-		tail: req,
-		size: 0,
-	}
-}
-
-// append to tail
-func (q *requestQueue) append(r *request) {
-	q.tail.next = r
-	q.tail = r
-	q.size++
-}
-
-// append r after target, if can`t find target, then append to tail
-func (q *requestQueue) add(r *request, target *request) {
-	for item := q.head; item.next != nil; item = item.next {
-		if item.equal(target) {
-			r.next = target.next
-			target.next = r
-			q.size++
-			return
-		}
-	}
-
-	q.append(r)
-}
-
-// cont indicate whether continue traverse
-func (q *requestQueue) traverse(fn func(prev, current *request) (cont bool)) {
-	for prev, current := q.head, q.head.next; current != nil; prev, current = current, current.next {
-		if !fn(prev, current) {
-			break
-		}
-	}
-}
-
-// pick the first item
-func (q *requestQueue) shift() (item *request) {
-	item = q.head.next
-	if item != nil {
-		q.head.next = item.next
-		q.size--
-	}
-
-	// if item is the last item, then redirect tail to head
-	if item == q.tail {
-		q.tail = q.head
-	}
-
-	return
 }
 
 // @section requestPool
@@ -178,14 +108,14 @@ func isSnapshotRequest(cmd cmd) bool {
 }
 
 type requestPool struct {
-	snapshotQueue *requestQueue
-	accountQueue  map[types.Address]*requestQueue
+	snapshotQueue *list.List
+	accountQueue  map[types.Address]*list.List
 	pending       map[uint64]*request // has executed, wait for response
 	done          map[uint64]*request
 	busyPeers     map[string]struct{} // mark peers whether has request for handle
 	currentID     uint64              // unique id
 	peers         *peerSet
-	errChan       chan *request
+	retryChan         chan *request
 	doneChan      chan *request
 	term          chan struct{}
 	log           log15.Logger
@@ -193,13 +123,13 @@ type requestPool struct {
 
 func newRequestPool(peers *peerSet) *requestPool {
 	pool := &requestPool{
-		snapshotQueue: new(requestQueue),
-		accountQueue:  make(map[types.Address]*requestQueue, 100),
+		snapshotQueue: list.New(),
+		accountQueue:  make(map[types.Address]*list.List, 100),
 		pending:       make(map[uint64]*request, 20),
 		done:          make(map[uint64]*request, 100),
 		currentID:     INIT_ID,
 		peers:         peers,
-		errChan:       make(chan *request, 1),
+		retryChan:         make(chan *request, 1),
 		doneChan:      make(chan *request, 1),
 		term:          make(chan struct{}),
 		log:           log15.New("module", "net/reqpool"),
@@ -222,13 +152,14 @@ func (p *requestPool) loop() {
 	ticker := time.NewTicker(expireCheckInterval)
 	defer ticker.Stop()
 
+	loop:
 	for {
 		select {
 		case <-p.term:
-			goto END
+			break loop
 		case req := <-p.doneChan:
 			p.fulfill(req)
-		case req := <-p.errChan:
+		case req := <-p.retryChan:
 			p.retry(req)
 		case now := <-ticker.C:
 			for _, req := range p.pending {
@@ -244,17 +175,17 @@ func (p *requestPool) loop() {
 				}
 			}
 		default:
-			r := p.snapshotQueue.shift()
-			if err := p.execute(r); err != nil {
-				p.retry(r)
+			r := p.snapshotQueue.Shift()
+			if r != nil {
+				req, _ := r.(*request)
+				p.do(req);
 			}
 		}
 	}
 
-END:
 	for k, r := range p.pending {
 		delete(p.pending, k)
-		r.cancel()
+		r.Cancel()
 	}
 }
 
@@ -263,7 +194,7 @@ func (p *requestPool) retry(r *request) {
 	delete(p.busyPeers, peerId)
 	delete(p.pending, r.id)
 
-	p.execute(r)
+	p.do(r)
 }
 
 func (p *requestPool) fulfill(r *request) {
@@ -288,32 +219,30 @@ func (p *requestPool) add(r *request) {
 
 	// todo split long chain request to small chunk
 	if isSnapshotRequest(r.cmd) {
-		p.snapshotQueue.append(r)
+		p.snapshotQueue.Append(r)
 	} else {
 		as, _ := r.param.(*AccountSegment)
 
 		queue, ok := p.accountQueue[as.Address]
 		if !ok {
-			q := newReqQueue()
-			p.accountQueue[as.Address] = q
-			queue = q
+			queue = list.New()
+			p.accountQueue[as.Address] = queue
 		}
-		queue.append(r)
+		queue.Append(r)
 	}
 }
 
-func (p *requestPool) execute(r *request) error {
+func (p *requestPool) do(r *request) {
 	p.pickPeer(r)
 
 	if r.peer == nil {
-		// todo peer maybe nil
+		return
 	}
 
 	// set status
 	p.busyPeers[r.peer.ID] = struct{}{}
 	p.pending[r.id] = r
-
-	return r.peer.Send(r.cmd, r.param)
+	r.peer.doRequest(r)
 }
 
 func (p *requestPool) pickPeer(r *request) {
@@ -327,16 +256,6 @@ func (p *requestPool) pickPeer(r *request) {
 		if _, ok := p.busyPeers[peer.ID]; !ok {
 			r.peer = peer
 			return
-		}
-	}
-}
-
-func (p *requestPool) handleResponse(res *response) {
-	for id, req := range p.pending {
-		if req.peer == res.sender && id == res.msgId {
-			if err := req.param.Handle(res); err == nil {
-				p.fulfill(req)
-			}
 		}
 	}
 }

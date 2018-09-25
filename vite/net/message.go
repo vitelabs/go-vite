@@ -325,8 +325,14 @@ func (as MultiAccountSegment) Ceil(v interface{}) uint64 {
 }
 
 // @section subLedger response
+type file struct {
+	Name string
+	Start uint64
+	End uint64
+}
+
 type FileList struct {
-	Files []string
+	Files []*file
 	Start uint64 // start and end means need query blocks from chainDB
 	End   uint64 // because files don`t contain the latest snapshotblocks
 	Nonce uint64 // use only once
@@ -341,16 +347,16 @@ func (f *FileList) Deserialize(buf []byte) error {
 }
 
 // @section
-type FileRequest struct {
+type FileRequestMsg struct {
 	File  string
 	Nonce uint64
 }
 
-func (f *FileRequest) Serialize() ([]byte, error) {
+func (f *FileRequestMsg) Serialize() ([]byte, error) {
 	panic("implement me")
 }
 
-func (f *FileRequest) Deserialize(buf []byte) error {
+func (f *FileRequestMsg) Deserialize(buf []byte) error {
 	panic("implement me")
 }
 
@@ -407,7 +413,7 @@ func (s *SnapshotBlocks) Deserialize(buf []byte) error {
 
 // @message HandShake
 type HandShakeMsg struct {
-	Version      uint64
+	CmdSet      uint64
 	NetID        uint64
 	Height       uint64
 	Port         uint16
@@ -417,7 +423,7 @@ type HandShakeMsg struct {
 
 func (st *HandShakeMsg) Serialize() ([]byte, error) {
 	pb := &vitepb.StatusMsg{
-		Version:      st.Version,
+		Version:      st.CmdSet,
 		Height:       st.Height,
 		CurrentBlock: st.CurrentBlock[:],
 		GenesisBlock: st.GenesisBlock[:],
@@ -434,7 +440,7 @@ func (st *HandShakeMsg) Deserialize(data []byte) error {
 		return err
 	}
 
-	st.Version = pb.Version
+	st.CmdSet = pb.Version
 	st.Height = pb.Height
 	st.Port = uint16(pb.Port)
 	copy(st.GenesisBlock[:], pb.GenesisBlock)

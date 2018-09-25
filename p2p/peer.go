@@ -235,6 +235,7 @@ func (p *Peer) run() (err error) {
 }
 
 func (p *Peer) SendMsg(msg *Msg) {
+	msg.CmdSetID = p.
 	p.ts.SendMsg(msg)
 }
 

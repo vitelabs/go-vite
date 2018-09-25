@@ -3,37 +3,15 @@ package net
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/seiflotfy/cuckoofilter"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/p2p/block"
-	"io/ioutil"
+	"github.com/vitelabs/go-vite/p2p/list"
 	"sync"
+	"sync/atomic"
 )
-
-type Set interface {
-	Has(interface{}) bool
-	Add(interface{})
-	Del(interface{})
-	Count() uint
-}
-
-// used for mark request type
-type reqFlag int
-
-const (
-	snapshotHeadersFlag reqFlag = iota
-	accountblocksFlag
-	snapshotBlocksFlag
-	blocksFlag
-)
-
-type reqInfo struct {
-	id   uint64
-	flag reqFlag
-	size uint64
-}
 
 const filterCap = 100000
 
@@ -42,53 +20,37 @@ var errPeerTermed = errors.New("peer has been terminated")
 
 type Peer struct {
 	*p2p.Peer
-	ts                p2p.MsgReadWriter
+	mrw                p2p.MsgReadWriter
 	ID                string
 	head              types.Hash
 	height            uint64
-	Version           uint64
-	Lock              sync.RWMutex
-	KnownBlocks       *block.CuckooSet
+	CmdSet           uint64
+	msgId uint64	// atomic, auto_increment, use for mark unique message
+	KnownBlocks       *cuckoofilter.CuckooFilter
 	Log               log15.Logger
 	term              chan struct{}
-	sendSnapshotBlock chan *ledger.SnapshotBlock  // sending new snapshotblock
-	sendAccountBlocks chan []*ledger.AccountBlock // sending new accountblocks
-	Speed             int                         // response performance
-	reqs              *request
+	reqs              *list.List
 	reqErr            chan error // pending reqs got error (eg. timeout)
 }
 
-func newPeer(p *p2p.Peer, ts p2p.MsgReadWriter, version uint64) *Peer {
+func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 	return &Peer{
 		Peer:              p,
-		ts:                ts,
+		mrw:                mrw,
 		ID:                p.ID().Brief(),
-		Version:           version,
-		KnownBlocks:       block.NewCuckooSet(filterCap),
+		CmdSet:           cmdSet,
+		KnownBlocks:       cuckoofilter.NewCuckooFilter(filterCap),
 		Log:               log15.New("module", "net/peer"),
 		term:              make(chan struct{}),
-		sendSnapshotBlock: make(chan *ledger.SnapshotBlock),
-		sendAccountBlocks: make(chan []*ledger.AccountBlock),
-		Speed:             0,
-		reqs:              &request{},
+		reqs:              list.New(),
 		reqErr:            make(chan error, 1),
 	}
 }
 
-func (p *Peer) delRequest(req *request) {
-
-}
-
-func (p *Peer) Handshake(netId uint64, height uint64, current, genesis types.Hash) error {
+func (p *Peer) Handshake(our *HandShakeMsg) error {
 	errch := make(chan error, 1)
 	go func() {
-		errch <- p.Send(HandshakeCode, &HandShakeMsg{
-			Version:      p.Version,
-			NetID:        netId,
-			Height:       height,
-			CurrentBlock: current,
-			GenesisBlock: genesis,
-		})
+		errch <- p.Send(HandshakeCode, 0, our)
 	}()
 
 	their, err := p.ReadHandshake()
@@ -100,16 +62,16 @@ func (p *Peer) Handshake(netId uint64, height uint64, current, genesis types.Has
 		return err
 	}
 
-	if their.Version != p.Version {
-		return fmt.Errorf("different protocol version, our %d, their %d\n", p.Version, their.Version)
+	if their.CmdSet != p.CmdSet {
+		return fmt.Errorf("different protocol, our %d, their %d\n", p.CmdSet, their.CmdSet)
 	}
 
-	if their.GenesisBlock != genesis {
+	if their.GenesisBlock != our.GenesisBlock {
 		return errors.New("different genesis block")
 	}
 
-	if their.NetID != netId {
-		return fmt.Errorf("different network, our %d, their %d\n", netId, their.NetID)
+	if their.NetID != our.NetID {
+		return fmt.Errorf("different network, our %d, their %d\n", our.NetID, their.NetID)
 	}
 
 	p.SetHead(their.CurrentBlock, their.Height)
@@ -118,122 +80,71 @@ func (p *Peer) Handshake(netId uint64, height uint64, current, genesis types.Has
 }
 
 func (p *Peer) ReadHandshake() (their *HandShakeMsg, err error) {
-	msg, err := p.ts.ReadMsg()
+	msg, err := p.mrw.ReadMsg()
+
 	if err != nil {
 		return
 	}
+
 	if msg.Cmd != uint64(HandshakeCode) {
 		err = fmt.Errorf("should be HandshakeCode %d, got %d\n", HandshakeCode, msg.Cmd)
 		return
 	}
+
 	their = new(HandShakeMsg)
 
-	data, err := ioutil.ReadAll(msg.Payload)
-	if err != nil {
-		return
-	}
-
-	err = their.Deserialize(data)
+	err = their.Deserialize(msg.Payload)
 
 	return
 }
 
 func (p *Peer) SetHead(head types.Hash, height uint64) {
-	p.Lock.Lock()
-	defer p.Lock.Unlock()
-
 	p.head = head
 	p.height = height
-	p.Log.Info("update status", "ID", p.ID, "height", p.height, "head", p.Head)
+	p.Log.Info("update status", "ID", p.ID, "height", p.height, "head", p.head)
 }
-
-func (p *Peer) Head() *BlockID {
-	p.Lock.RLock()
-	defer p.Lock.RUnlock()
-
-	return &BlockID{
-		Hash:   p.head,
-		Height: p.height,
-	}
-}
-
-//func (p *Peer) Broadcast() {
-//	for {
-//		select {
-//		case abs := <-p.sendAccountBlocks:
-//			p.SendAccountBlocks(abs)
-//		case b := <-p.sendSnapshotBlock:
-//			p.SendNewSnapshotBlock(b)
-//		case <-p.term:
-//			return
-//		}
-//	}
-//}
 
 func (p *Peer) SeeBlock(hash types.Hash) {
-	p.Lock.Lock()
-	defer p.Lock.Unlock()
-	p.KnownBlocks.Add(hash)
+	p.KnownBlocks.InsertUnique(hash[:])
 }
 
-func (p *Peer) execute(r *req) error {
-	p.jobLock.Lock()
-	defer p.jobLock.Unlock()
-
+func (p *Peer) doRequest(r *request) error {
 	select {
 	case <-p.term:
 		return errPeerTermed
 	default:
-		p.jobs = append(p.jobs, r)
-		return r.peer.Send(r.param.Cmd, r.param.Params)
+		p.reqs.Append(r)
+		return r.peer.Send(r.cmd, r.id, r.param)
 	}
 }
 
-func (p *Peer) delete(r *req) {
-	p.jobLock.Lock()
-	defer p.jobLock.Unlock()
-
-	i := 0
-	for j, req := range p.jobs {
-		if !req.Equal(r) {
-			p.jobs[i] = p.jobs[j]
-			i++
+func (p *Peer) delRequest(r *request) {
+	p.reqs.Traverse(func(prev, current *list.Element) {
+		if current.Value == r {
+			p.reqs.Remove(prev, current)
 		}
-	}
-
-	p.jobs = p.jobs[:i]
+	})
 }
 
-func (p *Peer) receive(cmd Cmd, data interface{}) {
-	p.jobLock.RLock()
-	defer p.jobLock.RUnlock()
-
-	for _, job := range p.jobs {
-		go func(r *req) {
-			if r.callback != nil {
-				done, err := r.callback(cmd, data)
-				r.errch <- err
-				r.done <- done
-
-				if err != nil || done {
-					p.delete(r)
-				}
-			}
-		}(job)
-	}
-}
+//func (p *Peer) receive(msg *p2p.Msg) {
+	//for _, job := range p.jobs {
+	//	go func(r *req) {
+	//		if r.callback != nil {
+	//			done, err := r.callback(cmd, data)
+	//			r.errch <- err
+	//			r.done <- done
+	//
+	//			if err != nil || done {
+	//				p.delete(r)
+	//			}
+	//		}
+	//	}(job)
+	//}
+//}
 
 // response
-func (p *Peer) SendSnapshotBlockHeaders(headers) error {
-	return p.Send(SnapshotBlockHeadersCode, headers)
-}
-
-func (p *Peer) SendSnapshotBlockBodies(bodies) error {
-	return p.Send(SnapshotBlockBodiesCode, bodies)
-}
-
-func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock) (err error) {
-	err = p.Send(SnapshotBlocksCode, bs)
+func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error) {
+	err = p.Send(SnapshotBlocksCode, msgId, bs)
 
 	if err != nil {
 		return
@@ -247,7 +158,7 @@ func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock) (err error) {
 }
 
 func (p *Peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
-	err = p.Send(NewSnapshotBlockCode, b)
+	err = p.Send(NewSnapshotBlockCode, 0, b)
 
 	if err != nil {
 		return
@@ -258,8 +169,8 @@ func (p *Peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
 	return
 }
 
-func (p *Peer) SendAccountBlocks(abs []*ledger.AccountBlock) (err error) {
-	err = p.Send(AccountBlocksCode, abs)
+func (p *Peer) SendAccountBlocks(abs []*ledger.AccountBlock, msgId uint64) (err error) {
+	err = p.Send(AccountBlocksCode, msgId, abs)
 
 	if err != nil {
 		return
@@ -272,59 +183,54 @@ func (p *Peer) SendAccountBlocks(abs []*ledger.AccountBlock) (err error) {
 	return nil
 }
 
-func (p *Peer) SendSubLedger() error {
-	return p.Send(SubLedgerCode)
+func (p *Peer) SendFileList(fs *FileList, msgId uint64) error {
+	return p.Send(FileListCode, msgId, fs)
+}
+func (p *Peer) SendSubLedger(s *SubLedger, msgId uint64) error {
+	return p.Send(SubLedgerCode, msgId, s)
 }
 
 // request
-func (p *Peer) RequestSnapshotHeaders(s *Segment) error {
-	return p.Send(GetSnapshotBlockHeadersCode, s)
-}
-
-func (p *Peer) RequestSnapshotBodies(hashes []types.Hash) error {
-	return p.Send(GetSnapshotBlockBodiesCode, hashes)
-}
-
 func (p *Peer) RequestSnapshotBlocks(s *Segment) error {
-	return p.Send(GetSnapshotBlocksCode, s)
+	atomic.AddUint64(&p.msgId, 1)
+	return p.Send(GetSnapshotBlocksCode, p.msgId, s)
 }
 
 func (p *Peer) RequestSnapshotBlocksByHash(hashes []types.Hash) error {
-	return p.Send(GetSnapshotBlocksByHashCode, hashes)
+	atomic.AddUint64(&p.msgId, 1)
+	return p.Send(GetSnapshotBlocksByHashCode, p.msgId, hashes)
 }
 
 func (p *Peer) RequestAccountBlocks(as AccountSegment) error {
-	return p.Send(GetAccountBlocksCode, as)
+	atomic.AddUint64(&p.msgId, 1)
+	return p.Send(GetAccountBlocksCode, p.msgId, as)
 }
 
 func (p *Peer) RequestAccountBlocksByHash(hashes []types.Hash) error {
-	return p.Send(GetAccountBlocksByHashCode, hashes)
+	atomic.AddUint64(&p.msgId, 1)
+	return p.Send(GetAccountBlocksByHashCode, p.msgId, hashes)
 }
 
 func (p *Peer) RequestSubLedger(s *Segment) error {
-	return p.Send(GetSubLedgerCode, s)
+	atomic.AddUint64(&p.msgId, 1)
+	return p.Send(GetSubLedgerCode, p.msgId, s)
 }
 
-func (p *Peer) Send(code Cmd, msg p2p.Serializable) error {
-	return p2p.Send(p.ts, uint64(CmdSetID), uint64(code), msg)
-}
-
-func (p *Peer) Destroy() {
-	select {
-	case <-p.term:
-	default:
-		close(p.term)
-
-		p.jobLock.Lock()
-		defer p.jobLock.Unlock()
-		// put jobs back to reqPool
-		for _, job := range p.jobs {
-			job.errch <- errPeerTermed
-		}
-
-		p.jobs = nil
+func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
+	data, err := payload.Serialize()
+	if err != nil {
+		return err
 	}
-}
+
+	return p.mrw.WriteMsg(&p2p.Msg{
+		CmdSetID:   p.CmdSet,
+		Cmd:        uint64(code),
+		Id:         msgId,
+		Size:       uint64(len(data)),
+		Payload:    data,
+	})
+	}
+
 
 type PeerInfo struct {
 	Addr   string
@@ -335,18 +241,6 @@ type PeerInfo struct {
 
 func (p *Peer) Info() *PeerInfo {
 	return &PeerInfo{}
-}
-
-func (p *Peer) Receive(cmd Cmd, payload interface{}) {
-	p.jobLock.RLock()
-	defer p.jobLock.RUnlock()
-	for _, job := range p.jobs {
-		if job.callback != nil {
-			done, err := job.callback(cmd, payload)
-			job.done <- done
-			job.errch <- err
-		}
-	}
 }
 
 // @section PeerSet
@@ -372,7 +266,7 @@ func (m *peerSet) BestPeer() (best *Peer) {
 
 	var maxHeight uint64
 	for _, peer := range m.peers {
-		peerHeight := peer.Head().Height
+		peerHeight := peer.height
 		if peerHeight > maxHeight {
 			maxHeight = peerHeight
 			best = peer
@@ -421,20 +315,7 @@ func (m *peerSet) Pick(height uint64) (peers []*Peer) {
 	defer m.rw.RUnlock()
 
 	for _, p := range m.peers {
-		if p.Head().Height > height {
-			peers = append(peers, p)
-		}
-	}
-
-	return
-}
-
-func (m *peerSet) PickIdle(height uint64) (peers []*Peer) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
-
-	for _, p := range m.peers {
-		if p.Head().Height > height && len(p.jobs) == 0 {
+		if p.height > height {
 			peers = append(peers, p)
 		}
 	}
@@ -458,7 +339,7 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*Peer) {
 	defer m.rw.RUnlock()
 
 	for _, peer := range m.peers {
-		if !peer.KnownBlocks.Has(hash) {
+		if !peer.KnownBlocks.Lookup(hash[:]) {
 			peers = append(peers, peer)
 		}
 	}

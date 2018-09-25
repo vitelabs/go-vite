@@ -1,12 +1,9 @@
 package net
 
 import (
-	"encoding/binary"
 	"fmt"
-	"github.com/golang/snappy"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
-	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -14,7 +11,7 @@ import (
 
 type FileServer struct {
 	ln     net.Listener
-	record map[uint64]string
+	record map[uint64]string	// use to record nonce bind peerId
 	term   chan struct{}
 	log    log15.Logger
 	wg     sync.WaitGroup
@@ -77,21 +74,14 @@ func (s *FileServer) handleConn(conn net.Conn) {
 			// send disconnect msg
 
 		default:
-			msg, err := ReadMsg(conn)
+			msg, err := p2p.ReadMsg(conn, true)
 			if err != nil {
 				return
 			}
 
 			if cmd(msg.Cmd) == GetFileCode {
-				data := make([]byte, msg.Size)
-				n, err := io.ReadFull(msg.Payload, data)
-				if err != nil {
-					s.log.Error(fmt.Sprintf("read message %s payload error", GetFileCode), "error", err)
-					return
-				}
-
-				req := new(FileRequest)
-				err = req.Deserialize(data[:n])
+				req := new(FileRequestMsg)
+				err = req.Deserialize(msg.Payload)
 				if err != nil {
 					s.log.Error(fmt.Sprintf("can`t parse message %s", GetFileCode), "error", err)
 				}
@@ -113,42 +103,14 @@ func (s *FileServer) delRecord(nonce uint64) {
 	delete(s.record, nonce)
 }
 
-// helper functions
+// @section fileRequest
+type FileRequest struct {
+	file *file
+	nonce uint64
+	peer *Peer
+	done chan struct{}
+}
 
-func ReadMsg(fd io.Reader) (msg p2p.Msg, err error) {
-	head := make([]byte, 32)
-	if _, err = io.ReadFull(fd, head); err != nil {
-		return
-	}
+func (f *FileRequest) Perform(p *Peer) {
 
-	msg.CmdSetID = binary.BigEndian.Uint64(head[:8])
-	msg.Cmd = binary.BigEndian.Uint64(head[8:16])
-	msg.Id = binary.BigEndian.Uint64(head[16:24])
-	msg.Size = binary.BigEndian.Uint64(head[24:32])
-
-	payload := make([]byte, msg.Size)
-	n, err := io.ReadFull(fd, payload)
-	if err != nil {
-		return
-	}
-	if uint64(n) != msg.Size {
-		err = fmt.Errorf("read incomplete message %d/%d\n", n, msg.Size)
-		return
-	}
-
-	var fullSize int
-	fullSize, err = snappy.DecodedLen(payload)
-	if err != nil {
-		return
-	}
-
-	payload, err = snappy.Decode(nil, payload)
-	if err != nil {
-		return
-	}
-	msg.Size = uint64(fullSize)
-
-	msg.Payload = p2p.BytesToReader(payload)
-
-	return
 }
