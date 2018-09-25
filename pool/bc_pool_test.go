@@ -91,7 +91,7 @@ func (self *TestSyncer) fetch(hash common.HashHeight, prevCnt int) {
 	//		} else {
 	//			return
 	//		}
-	//		prev = block.PreHash()
+	//		prev = block.PrevHash()
 	//	}
 	//
 	//}()

@@ -8,7 +8,7 @@ import (
 )
 
 type commonSyncer interface {
-	fetch(hashHeight commonHashHeight, prevCnt uint64)
+	fetch(hashHeight ledger.HashHeight, prevCnt uint64)
 }
 
 type accountSyncer struct {
@@ -27,7 +27,7 @@ func (self *accountSyncer) broadcastReceivedBlocks(received *vm_context.VmAccoun
 	panic("implement me")
 }
 
-func (self *accountSyncer) fetch(hashHeight commonHashHeight, prevCnt uint64) {
+func (self *accountSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
 	//self.fetcher.Fetch(face.FetchRequest{Hash: hashHeight.Hash, Height: hashHeight.Height, PrevCnt: prevCnt, Chain: self.address})
 }
 
@@ -39,6 +39,6 @@ func (self *snapshotSyncer) broadcastBlock(block *ledger.SnapshotBlock) {
 	panic("implement me")
 }
 
-func (self *snapshotSyncer) fetch(hashHeight commonHashHeight, prevCnt uint64) {
+func (self *snapshotSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
 	//self.fetcher.Fetch(face.FetchRequest{Hash: hashHeight.Hash, Height: hashHeight.Height, PrevCnt: prevCnt, Chain: self.address})
 }

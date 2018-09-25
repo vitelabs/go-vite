@@ -33,7 +33,8 @@ type PoolWriter interface {
 }
 
 type PoolReader interface {
-	ExistInPool(address types.Address, requestHash types.Hash) bool // request对应的response是否在current链上
+	// received block in current? (key is requestHash)
+	ExistInPool(address types.Address, requestHash types.Hash) bool
 }
 
 type BlockPool interface {
@@ -41,6 +42,7 @@ type BlockPool interface {
 	PoolReader
 	Start()
 	Stop()
+	// todo need use subscribe net
 	Init(syncer.Fetcher)
 	Info(addr *types.Address) string
 }
@@ -48,14 +50,10 @@ type BlockPool interface {
 type commonBlock interface {
 	Height() uint64
 	Hash() types.Hash
-	PreHash() types.Hash
+	PrevHash() types.Hash
 	checkForkVersion() bool
 	resetForkVersion()
 	forkVersion() int
-}
-type commonHashHeight struct {
-	Hash   types.Hash
-	Height uint64
 }
 
 func newForkBlock(v *ForkVersion) *forkBlock {
@@ -80,16 +78,16 @@ func (self *forkBlock) resetForkVersion() {
 
 type pool struct {
 	pendingSc *snapshotPool
-	pendingAc sync.Map
-	fetcher   syncer.Fetcher
-	bc        ch.Chain
-	wt        wallet.Manager
+	pendingAc sync.Map // key:address v:*accountPool
+
+	fetcher syncer.Fetcher
+	bc      ch.Chain
+	wt      wallet.Manager
 
 	snapshotVerifier *verifier.SnapshotVerifier
 	accountVerifier  *verifier.AccountVerifier
 
 	rwMutex *sync.RWMutex
-	acMu    sync.Mutex
 	version *ForkVersion
 
 	closed      chan struct{}
@@ -182,7 +180,7 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock) error {
 	self.log.Info(fmt.Sprintf("receive account block from network. addr:%s, height:%d, hash:%s.", address, block.Height, block.Hash))
 	self.selfPendingAc(address).AddBlock(newAccountPoolBlock(block, nil, self.version))
-	self.selfPendingAc(address).AddSendBlock(block)
+	self.selfPendingAc(address).AddReceivedBlock(block)
 
 	self.accountCond.L.Lock()
 	defer self.accountCond.L.Unlock()
@@ -263,7 +261,7 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.SnapshotContent
 	}
 	inPool := this.findInPool(h.AccountBlockHash, h.AccountBlockHeight)
 	if !inPool {
-		this.f.fetch(commonHashHeight{Hash: h.AccountBlockHash, Height: h.AccountBlockHeight}, 5)
+		this.f.fetch(ledger.HashHeight{Hash: h.AccountBlockHash, Height: h.AccountBlockHeight}, 5)
 	}
 	return nil
 }
@@ -273,39 +271,35 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.SnapshotContentIte
 	err := self.rollbackAccountTo(this, h.AccountBlockHash, h.AccountBlockHeight)
 
 	if err != nil {
-		return nil
+		return err
 	}
 	// find in tree
 	targetChain := this.findInTree(h.AccountBlockHash, h.AccountBlockHeight)
 
 	if targetChain == nil {
-		this.f.fetch(commonHashHeight{Height: h.AccountBlockHeight, Hash: h.AccountBlockHash}, 5)
-		return nil
-	}
-
-	// todo modify pool current
-	if targetChain != nil {
-		err = this.CurrentModifyToChain(targetChain)
-	} else {
+		cnt := h.AccountBlockHeight - this.chainpool.diskChain.Head().Height()
+		this.f.fetch(ledger.HashHeight{Height: h.AccountBlockHeight, Hash: h.AccountBlockHash}, cnt)
 		err = this.CurrentModifyToEmpty()
+	} else {
+		err = this.CurrentModifyToChain(targetChain)
 	}
+	self.version.Inc()
 	return err
 }
 
 func (self *pool) rollbackAccountTo(p *accountPool, hash types.Hash, height uint64) error {
-
-	// todo  del some blcoks
+	// del some blcoks
 	snapshots, accounts, e := p.rw.delToHeight(height)
 	if e != nil {
 		return e
 	}
 
-	// todo rollback snapshot chain
+	// rollback snapshot chain in pool
 	err := self.pendingSc.rollbackCurrent(snapshots)
 	if err != nil {
 		return err
 	}
-	// todo rollback accounts chain
+	// rollback accounts chain in pool
 	for k, v := range accounts {
 		err = self.selfPendingAc(k).rollbackCurrent(v)
 		if err != nil {
@@ -322,6 +316,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 		return chain.(*accountPool)
 	}
 
+	// lazy load
 	rw := &accountCh{address: addr, rw: self.bc, version: self.version}
 	f := &accountSyncer{address: addr, fetcher: self.fetcher}
 	v := &accountVerifier{}
@@ -329,15 +324,8 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 
 	p.Init(newTools(f, v, rw), self.rwMutex.RLocker())
 
-	self.acMu.Lock()
-	defer self.acMu.Unlock()
-	chain, ok = self.pendingAc.Load(addr)
-	if ok {
-		return chain.(*accountPool)
-	}
-	self.pendingAc.Store(addr, p)
-	return p
-
+	chain, _ = self.pendingAc.LoadOrStore(addr, p)
+	return chain.(*accountPool)
 }
 func (self *pool) loopTryInsert() {
 	self.wg.Add(1)
@@ -417,7 +405,7 @@ func (self *pool) loopBroadcastAndDel() {
 
 	broadcastT := time.NewTicker(time.Second * 30)
 	delT := time.NewTicker(time.Second * 40)
-	delUselessChainT := time.NewTicker(time.Minute * 20)
+	delUselessChainT := time.NewTicker(time.Minute)
 
 	defer broadcastT.Stop()
 	defer delT.Stop()
@@ -509,7 +497,10 @@ func (self *pool) fetchForTask(task verifyTask) []*face.FetchRequest {
 func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 	headSnapshot := self.pendingSc.rw.headSnapshot()
 	ac := self.selfPendingAc(addr)
-	firstUnconfirmedBlock := ac.rw.getFirstUnconfirmedBlock()
+	firstUnconfirmedBlock := ac.rw.getFirstUnconfirmedBlock(headSnapshot)
+	if firstUnconfirmedBlock == nil {
+		return
+	}
 	referSnapshot := self.pendingSc.rw.getSnapshotBlockByHash(firstUnconfirmedBlock.SnapshotHash)
 
 	// verify account timeout
@@ -518,5 +509,7 @@ func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 		defer self.pendingSc.unStw()
 		// rollback to block
 		self.rollbackAccountTo(ac, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
+		// fork happened
+		self.version.Inc()
 	}
 }

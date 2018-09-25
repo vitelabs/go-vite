@@ -39,7 +39,7 @@ func (self *snapshotPoolBlock) Hash() types.Hash {
 	return self.block.Hash
 }
 
-func (self *snapshotPoolBlock) PreHash() types.Hash {
+func (self *snapshotPoolBlock) PrevHash() types.Hash {
 	return self.block.PrevHash
 }
 

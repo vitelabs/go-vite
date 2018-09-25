@@ -45,7 +45,7 @@ func (self *accountPoolBlock) Hash() types.Hash {
 	return self.block.Hash
 }
 
-func (self *accountPoolBlock) PreHash() types.Hash {
+func (self *accountPoolBlock) PrevHash() types.Hash {
 	return self.block.PrevHash
 }
 
@@ -238,7 +238,7 @@ func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, *forkedCha
 		} else {
 			if tmp == nil || tmp.Hash() != b.Hash() {
 				// forked chain
-				newChain, err = cp.forkFrom(current, b.Height()-1, b.PreHash())
+				newChain, err = cp.forkFrom(current, b.Height()-1, b.PrevHash())
 				if err != nil {
 					return nil, nil, err
 				}
@@ -299,12 +299,14 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks 
 		if err != nil {
 			return err
 		}
-
-		self.chainpool.writeBlocksToChain(fchain, blocks)
+		err = self.chainpool.writeBlocksToChain(fchain, blocks)
 		if err != nil {
 			return err
 		}
-		self.chainpool.currentModifyToChain(fchain)
+		err = self.chainpool.currentModifyToChain(fchain)
+		if err != nil {
+			return err
+		}
 		return nil
 	default:
 		self.log.Crit("verify unexpected.")
@@ -317,23 +319,16 @@ func (self *accountPool) broadcastUnConfirmedBlocks() {
 	self.f.broadcastBlocks(blocks)
 }
 
-func (self *accountPool) getFirstTimeoutUnConfirmedBlock(snapshotHead *ledger.SnapshotBlock) *ledger.AccountBlock {
-	block := self.rw.getFirstUnconfirmedBlock()
-	// todo need timeout tools
-	self.v.verifyTimeout(snapshotHead.Timestamp, block)
-	if block.Timestamp.Before(time.Now().Add(-time.Hour * 24)) {
-		return block
-	}
-	return nil
-}
-func (self *accountPool) AddSendBlock(block *ledger.AccountBlock) {
+func (self *accountPool) AddReceivedBlock(block *ledger.AccountBlock) {
 	if block.IsReceiveBlock() {
 		self.receivedIndex.Store(block.FromBlockHash, block)
 	}
 }
 func (self *accountPool) afterInsertBlock(b commonBlock) {
 	block := b.(*accountPoolBlock)
-	self.receivedIndex.Delete(block.block.FromBlockHash)
+	if block.block.IsReceiveBlock() {
+		self.receivedIndex.Delete(block.block.FromBlockHash)
+	}
 }
 
 func (self *accountPool) ExistInCurrent(fromHash types.Hash) bool {
@@ -347,7 +342,7 @@ func (self *accountPool) ExistInCurrent(fromHash types.Hash) bool {
 	h := block.Height
 	// block in current
 	received := self.chainpool.current.getBlock(h, false)
-	if received == nil {
+	if received == nil || received.Hash() != block.Hash {
 		return false
 	} else {
 		return true
@@ -364,7 +359,7 @@ func (self *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
 }
 func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (*forkedChain, []commonBlock, error) {
 	var results []commonBlock
-	fchain, err := self.chainpool.forkFrom(self.chainpool.current, blocks[0].Height()-1, blocks[0].PreHash())
+	fchain, err := self.chainpool.forkFrom(self.chainpool.current, blocks[0].Height()-1, blocks[0].PrevHash())
 	if err != nil {
 		return nil, nil, err
 	}
