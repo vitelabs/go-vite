@@ -1,0 +1,12 @@
+syntax="proto3";
+
+package vitepb;
+
+message VmLog {
+    repeated bytes topics = 1;
+    bytes data = 2;
+}
+
+message VmLogList {
+    repeated VmLog list = 1;
+}

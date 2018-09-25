@@ -1,6 +1,7 @@
 package compress
 
 import (
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
 	"os"
@@ -43,7 +44,7 @@ type CompressorTask struct {
 	chain          Chain
 	indexerHeight  uint64
 	startHeightGap uint64
-	endHeightGap   uint64
+	taskGap        uint64
 	log            log15.Logger
 }
 
@@ -56,7 +57,7 @@ func NewCompressorTask(chain Chain, tmpFile string, indexerHeight uint64) *Compr
 
 		indexerHeight:  indexerHeight,
 		startHeightGap: 7200,
-		endHeightGap:   3600,
+		taskGap:        3600,
 	}
 
 	return compressorTask
@@ -88,8 +89,9 @@ func (task *CompressorTask) Run() *TaskRunResult {
 	var blockNumbers = uint64(0)
 
 	writeBlocks := uint64(0)
+
 	// Limit write length
-	formatterErr := BlockFormatter(tmpFileWriter, func(hasWrite uint64, hasWriteBlocks uint64) ([]block, error) {
+	formatterErr := BlockFormatter(tmpFileWriter, func(hasWrite uint64, hasWriteBlocks uint64) ([]ledger.Block, error) {
 
 		writeBlocks = hasWriteBlocks
 		if currentTaskIndex > taskLen ||
@@ -130,28 +132,25 @@ func (task *CompressorTask) Clear() {
 }
 
 func (task *CompressorTask) getTaskInfo() *taskInfo {
-	latestSnapshotBlock, err := task.chain.GetLatestSnapshotBlock()
-	if err != nil {
-		task.log.Error("GetLatestSnapshotBlock failed, error is "+err.Error(), "method", "getTaskInfo")
-		return nil
-	}
+	latestSnapshotBlock := task.chain.GetLatestSnapshotBlock()
 
 	if latestSnapshotBlock.Height-task.indexerHeight > task.startHeightGap {
-		return &taskInfo{
-			beginHeight:  task.indexerHeight + 1,
-			targetHeight: latestSnapshotBlock.Height - task.endHeightGap,
+		ti := &taskInfo{
+			beginHeight: task.indexerHeight + 1,
 		}
+		ti.targetHeight = ti.beginHeight + task.taskGap - 1
+		return ti
 	}
 	return nil
 }
 
-func (task *CompressorTask) getSubLedger(ti *taskInfo) ([]block, error) {
+func (task *CompressorTask) getSubLedger(ti *taskInfo) ([]ledger.Block, error) {
 	snapshotBlocks, accountChainSubLedger, err := task.chain.GetConfirmSubLedger(ti.beginHeight, ti.targetHeight)
 	if err != nil {
 		return nil, err
 	}
 
-	blocks := make([]block, 0)
+	blocks := make([]ledger.Block, 0)
 	for _, snapshotBlock := range snapshotBlocks {
 		blocks = append(blocks, snapshotBlock)
 	}

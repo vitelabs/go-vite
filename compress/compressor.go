@@ -1,7 +1,10 @@
 package compress
 
 import (
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"io"
+	"path"
 	"path/filepath"
 	"sync"
 	"time"
@@ -47,8 +50,13 @@ func NewCompressor(chain Chain, dataDir string) *Compressor {
 func (c *Compressor) Indexer() *Indexer {
 	return c.indexer
 }
-func (c *Compressor) FileReader() *FileReader {
-	return nil
+
+func (c *Compressor) FileReader(filename string) io.ReadCloser {
+	return NewFileReader(path.Join(c.dir, filename))
+}
+
+func (c *Compressor) BlockParser(reader io.Reader, processFunc func(block ledger.Block)) {
+	BlockParser(reader, processFunc)
 }
 
 func (c *Compressor) Start() bool {

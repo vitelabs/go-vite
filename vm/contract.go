@@ -19,7 +19,7 @@ type contract struct {
 	block                  *vm_context.VmAccountBlock
 	quotaLeft, quotaRefund uint64
 	intPool                *intPool
-	i                      *interpreter
+	returnData             []byte
 }
 
 func newContract(caller types.Address, address types.Address, block *vm_context.VmAccountBlock, quotaLeft, quotaRefund uint64) *contract {
@@ -29,17 +29,7 @@ func newContract(caller types.Address, address types.Address, block *vm_context.
 		quotaLeft:   quotaLeft,
 		quotaRefund: quotaRefund,
 		jumpdests:   make(destinations),
-		i:           newInterpreter()}
-}
-
-func (c *contract) copyContract() *contract {
-	return &contract{caller: c.caller,
-		address:     c.address,
-		block:       c.block,
-		quotaLeft:   c.quotaLeft,
-		quotaRefund: c.quotaRefund,
-		jumpdests:   make(destinations),
-		i:           c.i}
+	}
 }
 
 func (c *contract) getOp(n uint64) opCode {
@@ -60,15 +50,11 @@ func (c *contract) setCallCode(addr types.Address, code []byte) {
 }
 
 func (c *contract) run(vm *VM) (ret []byte, err error) {
-	if len(c.code) == 0 {
-		return nil, nil
-	}
-
 	c.intPool = poolOfIntPools.get()
 	defer func() {
 		poolOfIntPools.put(c.intPool)
 		c.intPool = nil
 	}()
 
-	return c.i.Run(vm, c)
+	return vm.i.Run(vm, c)
 }

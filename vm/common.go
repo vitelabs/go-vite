@@ -21,7 +21,7 @@ func IsViteToken(tokenId types.TokenTypeId) bool {
 	return bytes.Equal(tokenId.Bytes(), ledger.ViteTokenId.Bytes())
 }
 func IsSnapshotGid(gid types.Gid) bool {
-	return bytes.Equal(gid.Bytes(), ledger.CommonGid().Bytes())
+	return bytes.Equal(gid.Bytes(), ledger.CommonGid.Bytes())
 }
 
 func useQuota(quota, cost uint64) (uint64, error) {

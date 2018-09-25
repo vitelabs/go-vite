@@ -7,16 +7,16 @@ import (
 	"sync/atomic"
 )
 
-type interpreter struct {
+type Interpreter struct {
 	instructionSet [256]operation
 }
 
-func newInterpreter() *interpreter {
-	return &interpreter{simpleInstructionSet}
-}
+var (
+	simpleInterpreter = &Interpreter{simpleInstructionSet}
+)
 
-func (i *interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
-	vm.returnData = nil
+func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
+	c.returnData = nil
 
 	var (
 		op   opCode
@@ -73,7 +73,7 @@ func (i *interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		}
 
 		if operation.returns {
-			vm.returnData = res
+			c.returnData = res
 		}
 
 		switch {

@@ -20,7 +20,7 @@ type AccountBlockMeta struct {
 	Height uint64
 
 	// Block status, 1 means open, 2 means closed
-	ReceiveBlockHeight uint64
+	ReceiveBlockHeights []uint64
 
 	// Height of Snapshot block which confirm this account block
 	SnapshotHeight uint64
