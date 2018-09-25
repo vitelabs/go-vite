@@ -2,8 +2,8 @@ syntax="proto3";
 
 package vitepb;
 
-import "vitepb/account_block_net.proto";
-import "vitepb/snapshot_block_net.proto";
+import "vitepb/account_block.proto";
+import "vitepb/snapshot_block.proto";
 
 message StatusMsg {
     uint64 NetID = 1;
@@ -21,7 +21,7 @@ message GetSnapshotBlocksMsg {
 }
 
 message SnapshotBlocksMsg {
-    repeated vitepb.SnapshotBlockNet blocks = 1;
+    repeated vitepb.SnapshotBlock blocks = 1;
 }
 
 message GetAccountBlocksMsg {
@@ -31,7 +31,7 @@ message GetAccountBlocksMsg {
 }
 
 message AccountBlocksMsg {
-    repeated vitepb.AccountBlockNet blocks = 3;
+    repeated vitepb.AccountBlock blocks = 3;
 }
 
 // version 2
@@ -62,6 +62,6 @@ message FileList {
 }
 
 message SubLedger {
-    repeated vitepb.SnapshotBlockNet SBlocks = 1;
-    repeated vitepb.AccountBlockNet ABlocks = 2;
+    repeated vitepb.SnapshotBlock SBlocks = 1;
+    repeated vitepb.AccountBlock ABlocks = 2;
 }

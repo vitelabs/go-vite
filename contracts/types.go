@@ -26,10 +26,15 @@ type Registration struct {
 	CancelHeight   uint64
 }
 
+func (r *Registration) IsActive() bool {
+	return r.CancelHeight == 0
+}
+
 type VoteInfo struct {
 	VoterAddr types.Address
 	NodeName  string
 }
+
 type ConsensusGroupInfo struct {
 	Gid                    types.Gid
 	NodeCount              uint8
@@ -40,4 +45,11 @@ type ConsensusGroupInfo struct {
 	RegisterConditionParam []byte
 	VoteConditionId        uint8
 	VoteConditionParam     []byte
+	Owner                  types.Address
+	PledgeAmount           *big.Int
+	WithdrawTime           int64
+}
+
+func (groupInfo *ConsensusGroupInfo) IsActive() bool {
+	return groupInfo.WithdrawTime > 0
 }

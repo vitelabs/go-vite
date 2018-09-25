@@ -20,7 +20,7 @@ type AccountBlockMeta struct {
 	Height uint64
 
 	// Block status, 1 means open, 2 means closed
-	ReceiveBlockHeight uint64
+	ReceiveBlockHeights []uint64
 
 	// Height of Snapshot block which confirm this account block
 	SnapshotHeight uint64
@@ -47,6 +47,8 @@ const (
 
 type AccountBlock struct {
 	Meta *AccountBlockMeta
+
+	producer *types.Address
 
 	BlockType byte
 	Hash      types.Hash
@@ -79,6 +81,14 @@ type AccountBlock struct {
 
 func (*AccountBlock) Copy() *AccountBlock {
 	return nil
+}
+
+func (ab *AccountBlock) Producer() types.Address {
+	if ab.producer == nil {
+		producer := types.PubkeyToAddress(ab.PublicKey)
+		ab.producer = &producer
+	}
+	return *ab.producer
 }
 
 func (ab *AccountBlock) Proto() {
