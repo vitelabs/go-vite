@@ -81,7 +81,7 @@ func TestVmRun(t *testing.T) {
 	balance2.Add(balance2, block13.Amount)
 	if len(receiveCreateBlockList) != 1 || isRetry || err != nil ||
 		receiveCreateBlockList[0].AccountBlock.Quota != 0 ||
-		!bytes.Equal(db.contractGidMap[addr1].Bytes(), ledger.CommonGid().Bytes()) ||
+		!bytes.Equal(db.contractGidMap[addr1].Bytes(), ledger.CommonGid.Bytes()) ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(balance2) != 0 {
 		t.Fatalf("receive create transaction error")
 	}

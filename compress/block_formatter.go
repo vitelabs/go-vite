@@ -2,16 +2,18 @@ package compress
 
 import (
 	"encoding/binary"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
 )
 
-type block interface {
-	Serialize() ([]byte, error)
-	Deserialize([]byte) error
-}
+const (
+	BlockTypeUnknow        = 1
+	BlockTypeAccountBlock  = 2
+	BlockTypeSnapshotBlock = 3
+)
 
-type blocksGetter func(uint64, uint64) ([]block, error)
+type blocksGetter func(uint64, uint64) ([]ledger.Block, error)
 
 var blockFormatterLog = log15.New("module", "compress", "block_formatter")
 
@@ -39,8 +41,18 @@ func BlockFormatter(writer io.Writer, getter blocksGetter) error {
 			sizeBytes := make([]byte, 4)
 			binary.BigEndian.PutUint32(sizeBytes, size)
 
-			needWrite := make([]byte, 4+size)
+			var typeByte byte
+			switch block.(type) {
+			case *ledger.AccountBlock:
+				typeByte = BlockTypeAccountBlock
+			case *ledger.SnapshotBlock:
+				typeByte = BlockTypeSnapshotBlock
+			default:
+				typeByte = BlockTypeUnknow
+			}
+			needWrite := make([]byte, 4+1+size)
 			needWrite = append(needWrite, sizeBytes...)
+			needWrite = append(needWrite, typeByte)
 			needWrite = append(needWrite, blockBytes...)
 
 			writtenSize := 0
