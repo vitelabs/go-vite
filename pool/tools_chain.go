@@ -85,19 +85,11 @@ func (self *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Addr
 	return nil, nil, nil
 }
 
-func (self *accountCh) accountContract() bool {
-	// todo
-	return false
-}
-func (self *accountCh) accountContract() bool {
-	// todo
-	return false
-}
 func (self *accountCh) getUnConfirmedBlocks() []*ledger.AccountBlock {
 	return nil
 }
 func (self *accountCh) getFirstUnconfirmedBlock() *ledger.AccountBlock {
-
+	return nil
 }
 
 //func (self *accountCh) findAboveSnapshotHeight(height uint64) *common.AccountStateBlock {

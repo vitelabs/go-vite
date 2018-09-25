@@ -24,7 +24,6 @@ type accountPool struct {
 	v             *accountVerifier
 	f             *accountSyncer
 	receivedIndex sync.Map
-	contract      bool
 }
 
 func newAccountPoolBlock(block *ledger.AccountBlock, vmBlock vmctxt_interface.VmDatabase, version *ForkVersion) *accountPoolBlock {
@@ -63,7 +62,6 @@ func (self *accountPool) Init(
 	mu sync.Locker) {
 
 	self.mu = mu
-	self.contract = self.rw.accountContract()
 	self.BCPool.init(self.rw, tools)
 }
 
