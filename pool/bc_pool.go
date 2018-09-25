@@ -78,10 +78,13 @@ func (self *chainPool) forkChain(forked *forkedChain, snippet *snippetChain) (*f
 	return new, nil
 }
 
-func (self *chainPool) forkFrom(forked *forkedChain, height uint64) (*forkedChain, error) {
+func (self *chainPool) forkFrom(forked *forkedChain, height uint64, hash types.Hash) (*forkedChain, error) {
+	if height == forked.headHeight && hash == forked.headHash {
+		return forked, nil
+	}
 	new := &forkedChain{}
 
-	block := forked.getHeightBlock(height)
+	block := forked.getBlock(height, true)
 	if block == nil {
 		return nil, errors.New("block is not exist")
 	}

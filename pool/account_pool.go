@@ -238,7 +238,7 @@ func genBlocks(received *accountPoolBlock, cp *chainPool, sends []*accountPoolBl
 		} else {
 			if tmp == nil || tmp.Hash() != b.Hash() {
 				// forked chain
-				newChain, err = cp.forkFrom(current, b.Height()-1)
+				newChain, err = cp.forkFrom(current, b.Height()-1, b.PreHash())
 				if err != nil {
 					return nil, nil, err
 				}
@@ -364,7 +364,10 @@ func (self *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
 }
 func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (*forkedChain, []commonBlock, error) {
 	var results []commonBlock
-	fchain, err := self.chainpool.forkFrom(self.chainpool.current, blocks[0].Height()-1)
+	fchain, err := self.chainpool.forkFrom(self.chainpool.current, blocks[0].Height()-1, blocks[0].PreHash())
+	if err != nil {
+		return nil, nil, err
+	}
 	for _, b := range blocks {
 		fchain.addHead(b)
 		results = append(results, b)
