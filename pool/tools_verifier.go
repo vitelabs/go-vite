@@ -62,7 +62,7 @@ func (self *accountVerifier) verifyNormalAccount(b commonBlock) *poolAccountVeri
 	return &poolAccountVerifyStat{}
 }
 
-func (self *accountVerifier) verifyContractAccount(b commonBlock) *poolAccountVerifyStat {
+func (self *accountVerifier) verifyContractAccount(received *accountPoolBlock, sends []*accountPoolBlock) *poolAccountVerifyStat {
 	//block := b.(*accountPoolBlock)
 	//result, stat := self.accountVerifier.VerifyforProducer(block.block)
 	//
@@ -107,6 +107,7 @@ func (self *poolAccountVerifyStat) task() verifyTask {
 }
 
 type poolAccountVerifyStat struct {
+	sends []*accountPoolBlock
 }
 
 func (self *poolAccountVerifyStat) verifyResult() verifier.VerifyResult {

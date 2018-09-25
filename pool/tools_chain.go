@@ -11,8 +11,10 @@ import (
 )
 
 type chainRw interface {
-	insertChain(block commonBlock) error
-	removeChain(block commonBlock) error
+	insertBlock(block commonBlock) error
+	removeBlock(block commonBlock) error
+
+	insertBlocks(blocks []commonBlock) error
 
 	head() commonBlock
 	getBlock(height uint64) commonBlock
@@ -32,7 +34,7 @@ type accountCh struct {
 	version *ForkVersion
 }
 
-func (self *accountCh) insertChain(block commonBlock) error {
+func (self *accountCh) insertBlock(block commonBlock) error {
 	if !block.checkForkVersion() {
 		return errors.New("error fork version. current:" + self.version.String() + ", target:" + strconv.FormatInt(int64(block.forkVersion()), 10))
 	}
@@ -41,7 +43,7 @@ func (self *accountCh) insertChain(block commonBlock) error {
 	//return self.bc.InsertAccountBlock(self.address, block.(*common.AccountStateBlock))
 }
 
-func (self *accountCh) removeChain(block commonBlock) error {
+func (self *accountCh) removeBlock(block commonBlock) error {
 	return nil
 	//return self.bc.RemoveAccountHead(self.address, block.(*common.AccountStateBlock))
 }
@@ -67,7 +69,7 @@ func (self *accountCh) getBlock(height uint64) commonBlock {
 	return nil
 }
 
-func (self *accountCh) insertBlocks(received *accountPoolBlock, sendBlocks []*accountPoolBlock) error {
+func (self *accountCh) insertBlocks(sendBlocks []commonBlock) error {
 	//if !block.checkForkVersion() {
 	//	return errors.New("error fork version. current:" + self.version.String() + ", target:" + strconv.FormatInt(int64(block.forkVersion()), 10))
 	//}
@@ -83,9 +85,13 @@ func (self *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Addr
 	return nil, nil, nil
 }
 
-func (self *accountCh) accountType() accountType {
+func (self *accountCh) accountContract() bool {
 	// todo
-	return NONE
+	return false
+}
+func (self *accountCh) accountContract() bool {
+	// todo
+	return false
 }
 func (self *accountCh) getUnConfirmedBlocks() []*ledger.AccountBlock {
 	return nil
@@ -143,12 +149,20 @@ func (self *snapshotCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 	return nil, nil, nil
 }
 
-func (self *snapshotCh) insertChain(block commonBlock) error {
+func (self *snapshotCh) insertBlock(block commonBlock) error {
 	//return self.bc.InsertSnapshotBlock(block.(*common.SnapshotBlock))
 	return nil
 }
 
-func (self *snapshotCh) removeChain(block commonBlock) error {
+func (self *snapshotCh) insertBlocks(sendBlocks []commonBlock) error {
+	//if !block.checkForkVersion() {
+	//	return errors.New("error fork version. current:" + self.version.String() + ", target:" + strconv.FormatInt(int64(block.forkVersion()), 10))
+	//}
+	return nil
+	//return self.bc.InsertAccountBlock(self.address, block.(*common.AccountStateBlock))
+}
+
+func (self *snapshotCh) removeBlock(block commonBlock) error {
 	//return self.bc.RemoveSnapshotHead(block.(*common.SnapshotBlock))
 	return nil
 }

@@ -78,6 +78,20 @@ func (self *chainPool) forkChain(forked *forkedChain, snippet *snippetChain) (*f
 	return new, nil
 }
 
+func (self *chainPool) forkFrom(forked *forkedChain, height uint64) (*forkedChain, error) {
+	new := &forkedChain{}
+
+	block := forked.getHeightBlock(height)
+	if block == nil {
+		return nil, errors.New("block is not exist")
+	}
+	new.init(block)
+	new.referChain = forked
+	new.chainId = self.genChainId()
+	self.chains[new.chainId] = new
+	return new, nil
+}
+
 type diskChain struct {
 	rw      chainRw
 	chainId string
@@ -557,7 +571,7 @@ func (self *chainPool) insertNotify(head commonBlock) {
 func (self *chainPool) writeToChain(chain *forkedChain, block commonBlock) error {
 	height := block.Height()
 	hash := block.Hash()
-	err := self.diskChain.rw.insertChain(block)
+	err := self.diskChain.rw.insertBlock(block)
 	if err == nil {
 		chain.removeTail(block)
 		//self.fixReferInsert(chain, self.diskChain, height)
@@ -566,6 +580,22 @@ func (self *chainPool) writeToChain(chain *forkedChain, block commonBlock) error
 		log.Error("waiting pool insert forkedChain fail. height:[%d], hash:[%s]", height, hash)
 		return err
 	}
+}
+
+func (self *chainPool) writeBlocksToChain(chain *forkedChain, blocks []commonBlock) error {
+	if len(blocks) == 0 {
+		return nil
+	}
+	err := self.diskChain.rw.insertBlocks(blocks)
+
+	if err != nil {
+		log.Error("pool insert Chain fail. height:[%d], hash:[%s], len:[%d]", blocks[0].Height(), blocks[0].Hash(), len(blocks))
+		return err
+	}
+	for _, b := range blocks {
+		chain.removeTail(b)
+	}
+	return nil
 }
 func (self *chainPool) printChains() {
 	result := "\n---------------" + self.poolId + "--start-----------------\n"
@@ -741,7 +771,7 @@ func (self *BCPool) AddDirectBlock(block commonBlock) error {
 	case verifier.FAIL:
 		return errors.New(stat.errMsg())
 	case verifier.SUCCESS:
-		err := self.chainpool.diskChain.rw.insertChain(block)
+		err := self.chainpool.diskChain.rw.insertBlock(block)
 		if err != nil {
 			return err
 		}

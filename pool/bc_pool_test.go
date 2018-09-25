@@ -161,7 +161,7 @@ func TestBcPool(t *testing.T) {
 
 func TestInsertChain(t *testing.T) {
 	//reader := &TestChainReader{head: &test.TestBlock{Thash: "1", Theight: 1, TpreHash: "0", Tsigner: signer, Ttimestamp: time.Now()}}
-	//reader.insertChain(&test.TestBlock{Thash: "1", Theight: 1, TpreHash: "0", Tsigner: "viteshan", Ttimestamp: time.Now()}, 1)
+	//reader.insertBlock(&test.TestBlock{Thash: "1", Theight: 1, TpreHash: "0", Tsigner: "viteshan", Ttimestamp: time.Now()}, 1)
 }
 
 func TestFetchSnippet(t *testing.T) {

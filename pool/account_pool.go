@@ -24,6 +24,7 @@ type accountPool struct {
 	v             *accountVerifier
 	f             *accountSyncer
 	receivedIndex sync.Map
+	contract      bool
 }
 
 func newAccountPoolBlock(block *ledger.AccountBlock, vmBlock vmctxt_interface.VmDatabase, version *ForkVersion) *accountPoolBlock {
@@ -62,6 +63,7 @@ func (self *accountPool) Init(
 	mu sync.Locker) {
 
 	self.mu = mu
+	self.contract = self.rw.accountContract()
 	self.BCPool.init(self.rw, tools)
 }
 
@@ -200,6 +202,7 @@ func (self *accountPool) TryInsert() verifyTask {
 
 	// try insert block to real chain
 	defer monitor.LogTime("pool", "accountTryInsert", time.Now())
+
 	task := self.tryInsert()
 	self.verifyTask = task
 	if task != nil {
@@ -234,13 +237,17 @@ func (self *accountPool) tryInsert() verifyTask {
 	headH := current.headHeight
 	n := 0
 	for i := minH; i <= headH; i++ {
-		block := current.getBlock(i, false)
+		block := self.getCurrentBlock(i)
+		if block == nil {
+			return self.v.newSuccessTask()
+		}
+
 		block.resetForkVersion()
 		n++
-		stat := self.v.verifyAccount(block.(*accountPoolBlock))
+		stat := self.v.verifyAccount(block)
 		if !block.checkForkVersion() {
 			block.resetForkVersion()
-			//return verifier.NewSuccessTask()
+			return self.v.newSuccessTask()
 		}
 		result := stat.verifyResult()
 		switch result {
@@ -252,14 +259,12 @@ func (self *accountPool) tryInsert() verifyTask {
 			return self.v.newFailTask()
 		case verifier.SUCCESS:
 			if block.Height() == current.tailHeight+1 {
-				err := cp.writeToChain(current, block)
+				err, cnt := self.verifySuccess(block, stat)
+				i = i + cnt
 				if err != nil {
 					log.Error("account block write fail. block info:account[%s],hash[%s],height[%d], err:%v",
 						result, self.address.String(), block.Hash(), block.Height(), err)
 					return self.v.newFailTask()
-				} else {
-					self.blockpool.afterInsert(block)
-					self.afterInsertBlock(block)
 				}
 			} else {
 				return self.v.newSuccessTask()
@@ -273,6 +278,58 @@ func (self *accountPool) tryInsert() verifyTask {
 	}
 
 	return self.v.newSuccessTask()
+}
+func (self *accountPool) verifySuccess(block *accountPoolBlock, stat *poolAccountVerifyStat) (error, uint64) {
+	cp := self.chainpool
+
+	blocks, forked, err := genBlocks(block, cp, stat)
+	if err != nil {
+		return err, 0
+	}
+
+	err = cp.writeBlocksToChain(forked, blocks)
+	if err != nil {
+		return err, 0
+	}
+	cp.currentModifyToChain(forked)
+	for _, b := range blocks {
+		self.blockpool.afterInsert(b)
+		self.afterInsertBlock(b)
+	}
+	return nil, uint64(len(stat.sends))
+}
+
+// result,(need fork)
+func genBlocks(received *accountPoolBlock, cp *chainPool, stat *poolAccountVerifyStat) ([]commonBlock, *forkedChain, error) {
+	current := cp.current
+
+	var newChain *forkedChain
+	var err error
+	var result = []commonBlock{received}
+
+	for _, b := range stat.sends {
+		tmp := current.getHeightBlock(b.Height())
+		if newChain != nil {
+			// forked chain
+			newChain.addHead(tmp)
+		} else {
+			if tmp == nil || tmp.Hash() != b.Hash() {
+				// forked chain
+				newChain, err = cp.forkFrom(current, b.Height()-1)
+				if err != nil {
+					return nil, nil, err
+				}
+				newChain.addHead(tmp)
+			}
+		}
+		result = append(result, b)
+	}
+
+	if newChain == nil {
+		return result, current, nil
+	} else {
+		return result, newChain, nil
+	}
 }
 
 func (self *accountPool) insertAccountFailCallback(b commonBlock) {
@@ -328,7 +385,7 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks 
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
 
-	stat := self.v.verifyAccount(received)
+	stat := self.v.verifyContractAccount(received, sendBlocks)
 	result := stat.verifyResult()
 	switch result {
 	case verifier.PENDING:
@@ -390,4 +447,12 @@ func (self *accountPool) ExistInCurrent(fromHash types.Hash) bool {
 		return true
 	}
 	return ok
+}
+func (self *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
+	b := self.chainpool.current.getBlock(i, false)
+	if b != nil {
+		return b.(*accountPoolBlock)
+	} else {
+		return nil
+	}
 }
