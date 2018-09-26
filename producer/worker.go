@@ -68,8 +68,16 @@ func (self *worker) genAndInsert(e *consensus.Event) {
 	defer self.tools.ledgerUnLock()
 
 	// generate snapshot block
-	b := self.tools.generateSnapshot(e)
+	b, err := self.tools.generateSnapshot(e)
+	if err != nil {
+		wLog.Error("produce snapshot block fail[generate].", "err", err)
+		return
+	}
 
 	// insert snapshot block
-	self.tools.insertSnapshot(b)
+	err = self.tools.insertSnapshot(b)
+	if err != nil {
+		wLog.Error("produce snapshot block fail[insert].", "err", err)
+		return
+	}
 }
