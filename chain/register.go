@@ -36,6 +36,7 @@ type eventManager struct {
 func newEventManager() *eventManager {
 	return &eventManager{
 		eventListener: make(map[uint8][]*listener),
+
 		maxListenerId: 0,
 	}
 }

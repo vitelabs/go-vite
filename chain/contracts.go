@@ -3,19 +3,28 @@ package chain
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/contracts"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 )
+
+// TODO
+func (c *Chain) GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error) {
+	return nil, nil
+}
 
 // TODO cache
 func (c *Chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 	account, getAccountErr := c.chainDb.Account.GetAccountByAddress(addr)
 	if getAccountErr != nil {
+
 		c.log.Error("Query account failed. Error is "+getAccountErr.Error(), "method", "GetContractGid")
+
 		return nil, getAccountErr
 	}
 
 	gid, err := c.chainDb.Ac.GetContractGid(account.AccountId)
+
 	if err != nil {
 		c.log.Error("GetContractGid failed, error is "+err.Error(), "method", "GetContractGid")
 		return nil, err

@@ -71,7 +71,8 @@ type SnapshotContentItem struct {
 }
 
 type SnapshotBlock struct {
-	Hash     types.Hash
+	Hash types.Hash
+
 	PrevHash types.Hash
 	Height   uint64
 	producer *types.Address
