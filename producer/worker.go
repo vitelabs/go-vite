@@ -14,14 +14,14 @@ var wLog = log15.New("module", "miner/worker")
 // worker
 type worker struct {
 	producerLifecycle
-	chain    *tools
+	tools    *tools
 	coinbase types.Address
 	mu       sync.Mutex
 	wg       sync.WaitGroup
 }
 
 func newWorker(chain *tools, coinbase types.Address) *worker {
-	return &worker{chain: chain, coinbase: coinbase}
+	return &worker{tools: chain, coinbase: coinbase}
 }
 
 func (self *worker) Init() error {
@@ -37,6 +37,7 @@ func (self *worker) Start() error {
 		return errors.New("pre start fail.")
 	}
 	defer self.PostStart()
+	return nil
 }
 
 func (self *worker) Stop() error {
@@ -50,6 +51,10 @@ func (self *worker) Stop() error {
 
 func (self *worker) produceSnapshot(e consensus.Event) {
 	self.wg.Add(1)
+	if !self.tools.checkAddressLock(e.Address) {
+		mLog.Error("coinbase must be unlock.", "addr", e.Address.String())
+		return
+	}
 	go self.genAndInsert(&e)
 }
 
@@ -58,13 +63,13 @@ func (self *worker) genAndInsert(e *consensus.Event) {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	// lock pool
-	self.chain.lock()
+	self.tools.ledgerLock()
 	// unlock pool
-	defer self.chain.unLock()
+	defer self.tools.ledgerUnLock()
 
 	// generate snapshot block
-	b := self.chain.generateSnapshot(e)
+	b := self.tools.generateSnapshot(e)
 
 	// insert snapshot block
-	self.chain.insertSnapshot(b)
+	self.tools.insertSnapshot(b)
 }

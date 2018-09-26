@@ -30,6 +30,10 @@ type PoolWriter interface {
 	AddAccountBlocks(address types.Address, blocks []*ledger.AccountBlock) error
 	// for contract account
 	AddDirectAccountBlocks(address types.Address, received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) error
+
+	Lock()
+
+	UnLock()
 }
 
 type PoolReader interface {
@@ -95,6 +99,14 @@ type pool struct {
 	accountCond *sync.Cond // if new block add, notify
 
 	log log15.Logger
+}
+
+func (self *pool) Lock() {
+	self.pendingSc.stw()
+}
+
+func (self *pool) UnLock() {
+	self.pendingSc.unStw()
 }
 
 func NewPool(bc ch.Chain) BlockPool {

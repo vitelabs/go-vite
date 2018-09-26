@@ -5,6 +5,8 @@ import (
 
 	"sync/atomic"
 
+	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -69,7 +71,7 @@ func (self *producerLifecycle) PostStart() bool {
 
 type producer struct {
 	producerLifecycle
-	chain                *tools
+	tools                *tools
 	mining               int32
 	coinbase             types.Address // address
 	worker               *worker
@@ -82,7 +84,7 @@ type producer struct {
 
 func NewProducer(rw SnapshotChainRW, downloaderRegister DownloaderRegister, coinbase types.Address, cs consensus.Consensus) *producer {
 	chain := newChainRw()
-	miner := &producer{chain: chain, coinbase: coinbase}
+	miner := &producer{tools: chain, coinbase: coinbase}
 
 	miner.cs = cs
 	miner.worker = newWorker(chain, coinbase)
@@ -97,9 +99,14 @@ func (self *producer) Init() error {
 	}
 	defer self.PostInit()
 
+	if !self.tools.checkAddressLock(self.coinbase) {
+		return errors.New(fmt.Sprintf("coinbase[%s] must be unlock.", self.coinbase.String()))
+	}
+
 	if err := self.worker.Init(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -146,7 +153,10 @@ func (self *producer) producerContract(e consensus.Event) {
 	fn := self.accountFn
 
 	if fn != nil {
-		// todo check coinbase unlock
+		if !self.tools.checkAddressLock(e.Address) {
+			mLog.Error("coinbase must be unlock.", "addr", e.Address.String())
+			return
+		}
 		go fn(AccountStartEvent{
 			Gid:            e.Gid,
 			Address:        e.Address,
