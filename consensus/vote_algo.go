@@ -61,6 +61,7 @@ func (self *algo) filterSimple(votes []*Vote, info *membersInfo) []*Vote {
 }
 
 func (self *algo) calRandCnt(total int32, randNum int32) int {
+	// the random number can't be greater than 1/3
 	if total/3 > randNum {
 		return int(randNum)
 	} else {
