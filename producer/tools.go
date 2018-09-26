@@ -26,19 +26,6 @@ func (self *tools) ledgerUnLock() {
 	self.pool.UnLock()
 }
 
-//Hash     types.Hash
-//PrevHash types.Hash
-//Height   uint64
-//producer *types.Address
-//
-//PublicKey ed25519.PublicKey
-//Signature []byte
-//
-//Timestamp *time.Time
-//
-//SnapshotHash    *types.Hash
-//SnapshotContent SnapshotContent
-
 func (self *tools) generateSnapshot(e *consensus.Event) (*ledger.SnapshotBlock, error) {
 	head := self.chain.GetLatestSnapshotBlock()
 	accounts := self.generateAccounts(head)
@@ -66,9 +53,9 @@ func (self *tools) insertSnapshot(block *ledger.SnapshotBlock) error {
 	return nil
 }
 
-func newChainRw() *tools {
+func newChainRw(ch *chain.Chain) *tools {
 	log := log15.New("module", "tools")
-	return &tools{log: log}
+	return &tools{chain: ch, log: log}
 }
 
 func (self *tools) checkAddressLock(address types.Address) bool {

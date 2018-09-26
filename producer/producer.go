@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
@@ -82,8 +83,8 @@ type producer struct {
 	accountFn            func(AccountEvent)
 }
 
-func NewProducer(rw SnapshotChainRW, downloaderRegister DownloaderRegister, coinbase types.Address, cs consensus.Consensus) *producer {
-	chain := newChainRw()
+func NewProducer(rw *chain.Chain, downloaderRegister DownloaderRegister, coinbase types.Address, cs consensus.Consensus) *producer {
+	chain := newChainRw(rw)
 	miner := &producer{tools: chain, coinbase: coinbase}
 
 	miner.cs = cs
