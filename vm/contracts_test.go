@@ -30,7 +30,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	db.accountBlockMap[addr7] = make(map[types.Hash]*ledger.AccountBlock)
 	addr2 := contracts.AddressRegister
 	nodeName := "super1"
-	block13Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, ledger.CommonGid, nodeName, addr7, addr6)
+	block13Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr7, addr6)
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -67,7 +67,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	}
 	vm = NewVM()
 	vm.Debug = true
-	locHashRegister, _ := types.BytesToHash(contracts.GetRegisterKey(nodeName, ledger.CommonGid))
+	locHashRegister, _ := types.BytesToHash(contracts.GetRegisterKey(nodeName, types.SNAPSHOT_GID))
 	registrationData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr7, addr1, addr6, block13.Amount, snapshot2.Timestamp.Unix(), snapshot2.Height, uint64(0))
 	db.addr = addr2
 	receiveRegisterBlockList, isRetry, err := vm.Run(db, block21, sendRegisterBlockList[0].AccountBlock)
@@ -81,7 +81,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	db.accountBlockMap[addr2][hash21] = receiveRegisterBlockList[0].AccountBlock
 
 	// update registration
-	block14Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration, ledger.CommonGid, nodeName, addr6, addr7)
+	block14Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration, types.SNAPSHOT_GID, nodeName, addr6, addr7)
 	hash14 := types.DataHash([]byte{1, 4})
 	block14 := &ledger.AccountBlock{
 		Height:         4,
@@ -131,7 +131,7 @@ func TestContractsRegisterRun(t *testing.T) {
 
 	// get contracts data
 	db.addr = contracts.AddressRegister
-	if registerList := contracts.GetRegisterList(db, ledger.CommonGid); len(registerList) != 1 || registerList[0].Name != nodeName {
+	if registerList := contracts.GetRegisterList(db, types.SNAPSHOT_GID); len(registerList) != 1 || registerList[0].Name != nodeName {
 		t.Fatalf("get register list failed")
 	}
 
@@ -144,7 +144,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot4)
 
 	hash15 := types.DataHash([]byte{1, 5})
-	block15Data, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameCancelRegister, ledger.CommonGid, nodeName)
+	block15Data, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameCancelRegister, types.SNAPSHOT_GID, nodeName)
 	block15 := &ledger.AccountBlock{
 		Height:         5,
 		ToAddress:      addr2,
@@ -230,7 +230,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	currentSnapshotBlock := db.snapshotBlockList[len(db.snapshotBlockList)-1]
 	db.storageMap[contracts.AddressPledge][types.DataHash(addr1.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	db.storageMap[contracts.AddressPledge][types.DataHash(addr7.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
-	block17Data, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, ledger.CommonGid, nodeName, uint64(0), uint64(0), helper.Big0)
+	block17Data, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, nodeName, uint64(0), uint64(0), helper.Big0)
 	hash17 := types.DataHash([]byte{1, 7})
 	block17 := &ledger.AccountBlock{
 		Height:         7,
@@ -250,7 +250,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	sendRewardBlockList, isRetry, err := vm.Run(db, block17, nil)
 	block17DataGas, _ := quota.DataGasCost(sendRewardBlockList[0].AccountBlock.Data)
 	reward := new(big.Int).Mul(big.NewInt(2), rewardPerBlock)
-	block17DataExpected, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, ledger.CommonGid, nodeName, snapshot4.Height, snapshot2.Height, reward)
+	block17DataExpected, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, nodeName, snapshot4.Height, snapshot2.Height, reward)
 	if len(sendRewardBlockList) != 1 || isRetry || err != nil ||
 		sendRewardBlockList[0].AccountBlock.Quota != block17DataGas+rewardGas+calcRewardGasPerPage ||
 		!bytes.Equal(sendRewardBlockList[0].AccountBlock.Data, block17DataExpected) {
@@ -315,7 +315,7 @@ func TestContractsVote(t *testing.T) {
 	// vote
 	addr3 := contracts.AddressVote
 	nodeName := "super1"
-	block13Data, _ := contracts.ABIVote.PackMethod(contracts.MethodNameVote, ledger.CommonGid, nodeName)
+	block13Data, _ := contracts.ABIVote.PackMethod(contracts.MethodNameVote, types.SNAPSHOT_GID, nodeName)
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -352,7 +352,7 @@ func TestContractsVote(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr3
 	receiveVoteBlockList, isRetry, err := vm.Run(db, block31, sendVoteBlockList[0].AccountBlock)
-	locHashVote, _ := types.BytesToHash(contracts.GetVoteKey(addr1, ledger.CommonGid))
+	locHashVote, _ := types.BytesToHash(contracts.GetVoteKey(addr1, types.SNAPSHOT_GID))
 	voteData, _ := contracts.ABIVote.PackVariable(contracts.VariableNameVoteStatus, nodeName)
 	if len(receiveVoteBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr3][locHashVote], voteData) ||
@@ -365,7 +365,7 @@ func TestContractsVote(t *testing.T) {
 	addr4, _ := types.BytesToAddress(helper.HexToBytes("e5bf58cacfb74cf8c49a1d5e59d3919c9a4cb9ed"))
 	db.accountBlockMap[addr4] = make(map[types.Hash]*ledger.AccountBlock)
 	nodeName2 := "super2"
-	block14Data, _ := contracts.ABIVote.PackMethod(contracts.MethodNameVote, ledger.CommonGid, nodeName2)
+	block14Data, _ := contracts.ABIVote.PackMethod(contracts.MethodNameVote, types.SNAPSHOT_GID, nodeName2)
 	hash14 := types.DataHash([]byte{1, 4})
 	block14 := &ledger.AccountBlock{
 		Height:         4,
@@ -413,12 +413,12 @@ func TestContractsVote(t *testing.T) {
 
 	// get contracts data
 	db.addr = contracts.AddressVote
-	if voteList := contracts.GetVoteList(db, ledger.CommonGid); len(voteList) != 1 || voteList[0].NodeName != nodeName2 {
+	if voteList := contracts.GetVoteList(db, types.SNAPSHOT_GID); len(voteList) != 1 || voteList[0].NodeName != nodeName2 {
 		t.Fatalf("get vote list failed")
 	}
 
 	// cancel vote
-	block15Data, _ := contracts.ABIVote.PackMethod(contracts.MethodNameCancelVote, ledger.CommonGid)
+	block15Data, _ := contracts.ABIVote.PackMethod(contracts.MethodNameCancelVote, types.SNAPSHOT_GID)
 	hash15 := types.DataHash([]byte{1, 5})
 	block15 := &ledger.AccountBlock{
 		Height:         5,
@@ -813,7 +813,7 @@ func TestConsensusGroup(t *testing.T) {
 	if groupInfo := contracts.GetConsensusGroup(db, gid); groupInfo == nil || groupInfo.NodeCount != 25 {
 		t.Fatalf("get group info failed")
 	}
-	if groupInfoList := contracts.GetActiveConsensusGroupList(db); len(groupInfoList) != 2 || groupInfoList[0].NodeCount != 25 {
+	if groupInfoList := contracts.GetActiveConsensusGroupList(db); len(groupInfoList) != 3 || groupInfoList[0].NodeCount != 25 {
 		t.Fatalf("get group info list failed")
 	}
 
@@ -914,7 +914,7 @@ func TestConsensusGroup(t *testing.T) {
 	if groupInfo := contracts.GetConsensusGroup(db, gid); groupInfo == nil || groupInfo.NodeCount != 25 {
 		t.Fatalf("get group info failed")
 	}
-	if groupInfoList := contracts.GetActiveConsensusGroupList(db); len(groupInfoList) != 1 || groupInfoList[0].NodeCount != 25 {
+	if groupInfoList := contracts.GetActiveConsensusGroupList(db); len(groupInfoList) != 2 || groupInfoList[0].NodeCount != 25 {
 		t.Fatalf("get active group info list failed")
 	}
 
@@ -982,7 +982,7 @@ func TestConsensusGroup(t *testing.T) {
 	if groupInfo := contracts.GetConsensusGroup(db, gid); groupInfo == nil || groupInfo.NodeCount != 25 {
 		t.Fatalf("get group info failed")
 	}
-	if groupInfoList := contracts.GetActiveConsensusGroupList(db); len(groupInfoList) != 2 || groupInfoList[0].NodeCount != 25 {
+	if groupInfoList := contracts.GetActiveConsensusGroupList(db); len(groupInfoList) != 3 || groupInfoList[0].NodeCount != 25 {
 		t.Fatalf("get active group info list failed")
 	}
 }
@@ -1159,7 +1159,6 @@ func TestGenesisBlockData(t *testing.T) {
 		ledger.BlockTypeReceive, 1, totalSupply, big.NewInt(0), []byte{})
 	fmt.Printf("Storage:{\n\t$balance:ledger.ViteTokenId:%v\n}\n", totalSupply)
 
-	snapshotGid := types.Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	conditionCountingData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionCountingOfBalance, ledger.ViteTokenId)
 	conditionRegisterData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(1e6), attovPerVite), ledger.ViteTokenId, int64(3600*24*90))
 	consensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
@@ -1178,7 +1177,7 @@ func TestGenesisBlockData(t *testing.T) {
 	fmt.Printf("address:%v\n", hex.EncodeToString(contracts.AddressConsensusGroup.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
 		ledger.BlockTypeReceive, hex.EncodeToString(contracts.AddressConsensusGroup.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
-	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(types.DataHash(snapshotGid.Bytes()).Bytes()), hex.EncodeToString(consensusGroupData), hex.EncodeToString(types.DataHash(ledger.ViteTokenId.Bytes()).Bytes()), hex.EncodeToString(consensusGroupData))
+	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(types.DataHash(types.SNAPSHOT_GID.Bytes()).Bytes()), hex.EncodeToString(consensusGroupData), hex.EncodeToString(types.DataHash(ledger.ViteTokenId.Bytes()).Bytes()), hex.EncodeToString(consensusGroupData))
 
 	fmt.Println("-------------snapshot consensus group and common consensus group register genesis block-------------")
 	fmt.Printf("address:%v\n", hex.EncodeToString(contracts.AddressRegister.Bytes()))
@@ -1189,8 +1188,8 @@ func TestGenesisBlockData(t *testing.T) {
 	for i := 1; i <= 25; i++ {
 		addr, _, _ := types.CreateAddress()
 		registerData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, "node"+strconv.Itoa(i), addr, addr, addr, helper.Big0, timestamp, uint64(1), uint64(0))
-		snapshotKey := contracts.GetRegisterKey("snapshotNode1", snapshotGid)
-		commonKey := contracts.GetRegisterKey("commonNode1", ledger.CommonGid)
+		snapshotKey := contracts.GetRegisterKey("snapshotNode1", types.SNAPSHOT_GID)
+		commonKey := contracts.GetRegisterKey("commonNode1", types.DELEGATE_GID)
 		fmt.Printf("\t%v: %v\n\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData), hex.EncodeToString(commonKey), hex.EncodeToString(registerData))
 	}
 	fmt.Println("}")

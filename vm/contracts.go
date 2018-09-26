@@ -457,7 +457,7 @@ func (p *pVote) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint6
 
 	param := new(contracts.ParamVote)
 	err = contracts.ABIVote.UnpackMethod(param, contracts.MethodNameVote, block.AccountBlock.Data)
-	if err != nil {
+	if err != nil || param.Gid == types.DELEGATE_GID {
 		return quotaLeft, ErrInvalidData
 	}
 
@@ -701,8 +701,6 @@ func (p *pCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock,
 		gid,
 		param.NodeCount,
 		param.Interval,
-		param.CountingRuleId,
-		param.CountingRuleParam,
 		param.RegisterConditionId,
 		param.RegisterConditionParam,
 		param.VoteConditionId,
@@ -719,7 +717,7 @@ func (p *pCreateConsensusGroup) checkCreateConsensusGroupData(db vmctxt_interfac
 		param.Interval < cgIntervalMin || param.Interval > cgIntervalMax {
 		return ErrInvalidData
 	}
-	if err := p.checkCondition(db, param.CountingRuleId, param.CountingRuleParam, CountingRulePrefix); err != nil {
+	if contracts.GetTokenById(db, param.CountingTokenId) == nil {
 		return ErrInvalidData
 	}
 	if err := p.checkCondition(db, param.RegisterConditionId, param.RegisterConditionParam, RegisterConditionPrefix); err != nil {
@@ -751,8 +749,6 @@ func (p *pCreateConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountBlo
 		contracts.VariableNameConsensusGroupInfo,
 		param.NodeCount,
 		param.Interval,
-		param.CountingRuleId,
-		param.CountingRuleParam,
 		param.RegisterConditionId,
 		param.RegisterConditionParam,
 		param.VoteConditionId,
@@ -812,8 +808,6 @@ func (p *pCancelConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountBlo
 		contracts.VariableNameConsensusGroupInfo,
 		groupInfo.NodeCount,
 		groupInfo.Interval,
-		groupInfo.CountingRuleId,
-		groupInfo.CountingRuleParam,
 		groupInfo.RegisterConditionId,
 		groupInfo.RegisterConditionParam,
 		groupInfo.VoteConditionId,
@@ -884,8 +878,6 @@ func (p *pReCreateConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountB
 		contracts.VariableNameConsensusGroupInfo,
 		groupInfo.NodeCount,
 		groupInfo.Interval,
-		groupInfo.CountingRuleId,
-		groupInfo.CountingRuleParam,
 		groupInfo.RegisterConditionId,
 		groupInfo.RegisterConditionParam,
 		groupInfo.VoteConditionId,
@@ -900,10 +892,8 @@ func (p *pReCreateConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountB
 type CountingRuleCode uint
 
 const (
-	CountingRulePrefix                           = 0
 	RegisterConditionPrefix                      = 10
 	VoteConditionPrefix                          = 20
-	CountingRuleOfBalance       CountingRuleCode = 0
 	RegisterConditionOfSnapshot CountingRuleCode = 10
 	VoteConditionOfDefault      CountingRuleCode = 20
 	VoteConditionOfBalance      CountingRuleCode = 21
@@ -915,7 +905,6 @@ type createConsensusGroupCondition interface {
 }
 
 var SimpleCountingRuleList = map[CountingRuleCode]createConsensusGroupCondition{
-	CountingRuleOfBalance:       &countingRuleOfBalance{},
 	RegisterConditionOfSnapshot: &registerConditionOfPledge{},
 	VoteConditionOfDefault:      &voteConditionOfDefault{},
 	VoteConditionOfBalance:      &voteConditionOfKeepToken{},
@@ -924,20 +913,6 @@ var SimpleCountingRuleList = map[CountingRuleCode]createConsensusGroupCondition{
 func getConsensusGroupCondition(conditionId uint8, conditionIdPrefix uint) (createConsensusGroupCondition, bool) {
 	condition, ok := SimpleCountingRuleList[CountingRuleCode(conditionIdPrefix+uint(conditionId))]
 	return condition, ok
-}
-
-type countingRuleOfBalance struct{}
-
-func (c countingRuleOfBalance) checkParam(param []byte, db vmctxt_interface.VmDatabase) bool {
-	v := new(types.TokenTypeId)
-	err := contracts.ABIConsensusGroup.UnpackVariable(v, contracts.VariableNameConditionCountingOfBalance, param)
-	if err != nil || contracts.GetTokenById(db, *v) == nil {
-		return false
-	}
-	return true
-}
-func (c countingRuleOfBalance) checkData(paramData []byte, block *vm_context.VmAccountBlock, blockParamInterface interface{}, method string) bool {
-	return true
 }
 
 type registerConditionOfPledge struct{}

@@ -59,16 +59,6 @@ func (db *testDatabase) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.I
 	}
 
 }
-func (db *testDatabase) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock {
-	for len := len(db.snapshotBlockList) - 1; len >= 0; len = len - 1 {
-		block := db.snapshotBlockList[len]
-		if block.Hash == *hash {
-			return block
-		}
-	}
-	return nil
-
-}
 func (db *testDatabase) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
 	if height < uint64(len(db.snapshotBlockList)) {
 		return db.snapshotBlockList[height-1]
@@ -85,6 +75,15 @@ func (db *testDatabase) GetSnapshotBlocks(startHeight uint64, count uint64, forw
 		start := end - count
 		return db.snapshotBlockList[start:end]
 	}
+}
+func (db *testDatabase) GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock {
+	for len := len(db.snapshotBlockList) - 1; len >= 0; len = len - 1 {
+		block := db.snapshotBlockList[len]
+		if block.Hash == *hash {
+			return block
+		}
+	}
+	return nil
 }
 
 func (db *testDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
@@ -246,8 +245,8 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	db.balanceMap[addr1][ledger.ViteTokenId] = new(big.Int).Set(viteTotalSupply)
 
 	db.storageMap[contracts.AddressConsensusGroup] = make(map[types.Hash][]byte)
-	consensusGroupKey, _ := types.BytesToHash(contracts.GetConsensusGroupKey(ledger.CommonGid))
-	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey], _ = contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+	consensusGroupKey, _ := types.BytesToHash(contracts.GetConsensusGroupKey(types.SNAPSHOT_GID))
+	consensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
 		uint8(0),
@@ -259,6 +258,9 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		addr1,
 		big.NewInt(0),
 		timestamp+createConsensusGroupPledgeTime)
+	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey] = consensusGroupData
+	consensusGroupKey, _ = types.BytesToHash(contracts.GetConsensusGroupKey(types.DELEGATE_GID))
+	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey] = consensusGroupData
 	db.storageMap[contracts.AddressPledge] = make(map[types.Hash][]byte)
 	db.storageMap[contracts.AddressPledge][types.DataHash(addr1.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	return

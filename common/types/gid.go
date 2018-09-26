@@ -9,9 +9,9 @@ import (
 const GidSize = 10
 
 var (
-	PRIVATE_GID  = [GidSize]byte{0}
-	SNAPSHOT_GID = [GidSize]byte{1}
-	DELEGATE_GID = [GidSize]byte{2}
+	PRIVATE_GID  = Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	SNAPSHOT_GID = Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+	DELEGATE_GID = Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 2}
 )
 
 type Gid [GidSize]byte

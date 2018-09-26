@@ -41,8 +41,8 @@ type ConsensusGroupInfo struct {
 	Interval               int64
 	PreCount               uint64 // TODO
 	RandCount              uint8
-	CountingRuleId         uint8
-	CountingRuleParam      []byte
+	RandRange              uint8
+	CountingTokenId        types.TokenTypeId
 	RegisterConditionId    uint8
 	RegisterConditionParam []byte
 	VoteConditionId        uint8
