@@ -8,7 +8,6 @@ import (
 
 type algo struct {
 	info *membersInfo
-	r    int32
 }
 
 func (self *algo) findSeed(votes []*Vote) int64 {
@@ -16,18 +15,18 @@ func (self *algo) findSeed(votes []*Vote) int64 {
 	for _, v := range votes {
 		result.Add(result, v.balance)
 	}
-	return result.Int64()
+	return result.Add(result, self.info.seed).Int64()
 }
 
 func (self *algo) shuffleVotes(votes []*Vote) []*Vote {
-	seed := self.findSeed(votes) + 10
-	lenght := len(votes)
-	randMembers := make([]bool, lenght)
+	seed := self.findSeed(votes)
+	l := len(votes)
+	randMembers := make([]bool, l)
 	var result []*Vote
 	random := rand.New(rand.NewSource(seed))
 
-	for i := 0; i < lenght; {
-		r := random.Intn(lenght)
+	for i := 0; i < l; {
+		r := random.Intn(l)
 		flag := randMembers[r]
 		if flag {
 			continue

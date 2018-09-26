@@ -60,6 +60,7 @@ type membersInfo struct {
 	perCnt      int32 // Number of blocks generated per node
 	randCnt     int32
 	LowestLimit *big.Int
+	seed        *big.Int
 }
 
 type memberPlan struct {

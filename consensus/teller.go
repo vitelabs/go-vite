@@ -23,7 +23,7 @@ func newTeller(info *membersInfo, rw *chainRw) *teller {
 	t := &teller{rw: rw}
 	//t.info = &membersInfo{genesisTime: genesisTime, memberCnt: memberCnt, interval: interval, perCnt: perCnt, randCnt: 2, LowestLimit: big.NewInt(1000)}
 	t.info = info
-	t.algo = &algo{info: t.info, r: 10}
+	t.algo = &algo{info: t.info}
 	//t.electionHis = make(map[int32]*electionResult)
 	return t
 }

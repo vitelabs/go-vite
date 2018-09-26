@@ -7,6 +7,7 @@ import (
 
 	"sync"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -48,6 +49,9 @@ func (self *committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (boo
 	if !ok {
 		t = self.initTeller(gid)
 	}
+	if t == nil {
+		return false, errors.New("consensus group not exist")
+	}
 	tel := t.(*teller)
 	electionResult, err := tel.electionTime(*header.Timestamp)
 	if err != nil {
@@ -58,6 +62,9 @@ func (self *committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (boo
 }
 func (self *committee) initTeller(gid types.Gid) *teller {
 	info := self.rw.GetMemberInfo(gid, self.genesis)
+	if info == nil {
+		return nil
+	}
 	t := newTeller(info, self.rw)
 	self.tellers.Store(gid, t)
 	return t
@@ -68,6 +75,9 @@ func (self *committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool,
 	t, ok := self.tellers.Load(gid)
 	if !ok {
 		t = self.initTeller(gid)
+	}
+	if t == nil {
+		return false, errors.New("consensus group not exist")
 	}
 	tel := t.(*teller)
 
