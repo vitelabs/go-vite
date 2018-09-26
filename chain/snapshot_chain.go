@@ -1,11 +1,16 @@
 package chain
 
 import (
+	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"time"
 )
+
+func (c *Chain) GetNeedSnapshotContent() {
+
+}
 
 func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	batch := new(leveldb.Batch)
@@ -199,71 +204,60 @@ func (c *Chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 	return c.GetLatestSnapshotBlock().Height - height + 1, nil
 }
 
-// TODO
 func (c *Chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error) {
-	blockCreatedUnixTime := blockCreatedTime.Unix()
-	blockCreatedUnixNanoTime := blockCreatedTime.UnixNano()
-
 	latestBlock := c.GetLatestSnapshotBlock()
-	//gap := uint64(latestBlock.Timestamp.Unix() - blockCreatedUnixTime)
-	//if gap < 0 {
-	//	return latestBlock, nil
-	//}
+	genesisBlock := c.GetGenesisSnapshotBlock()
+	if latestBlock.Timestamp.Before(*blockCreatedTime) {
+		return latestBlock, nil
+	}
 
-	tryHeight := latestBlock.Height
+	if genesisBlock.Timestamp.After(*blockCreatedTime) {
+		return nil, nil
+	}
+
+	blockCreatedUnixTime := blockCreatedTime.Unix()
+
+	start := genesisBlock
+	end := latestBlock
 
 	for {
-		//tryHeight := latestBlock.Height - gap
-
-		var tryBlock, tryBlockNext *ledger.SnapshotBlock
-
-		if tryHeight >= latestBlock.Height {
-			tryBlock = latestBlock
-			tryBlockNext = nil
-		} else if tryHeight < 1 {
-			tryBlock = nil
-			tryBlockNext = c.genesisSnapshotBlock
-		} else {
+		if end.Height-start.Height <= 1 {
 			var err error
-			tryBlock, err = c.chainDb.Sc.GetSnapshotBlock(tryHeight, false)
+			start.SnapshotContent, err = c.chainDb.Sc.GetSnapshotContent(start.Height)
 			if err != nil {
-				c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
+				c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
 				return nil, err
 			}
 
-			tryBlockNext, err = c.chainDb.Sc.GetSnapshotBlock(tryHeight+1, false)
-			if err != nil {
-				c.log.Error("Get the next try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
-				return nil, err
+			return start, nil
+		}
+		if end.Timestamp.Before(*start.Timestamp) {
+			err := errors.New("end.Timestamp.Before(start.Timestamp)")
+			return nil, err
+		}
+
+		nextEdgeHeight := start.Height + 1
+		step := uint64(end.Timestamp.Unix()-start.Timestamp.Unix()) / (end.Height - start.Height)
+		if step != 0 {
+			startHeightGap := uint64(blockCreatedUnixTime-start.Timestamp.Unix()) / step
+			if startHeightGap != 0 {
+				nextEdgeHeight = start.Height + startHeightGap
 			}
 		}
 
-		if tryBlock.Timestamp.UnixNano() < blockCreatedUnixNanoTime && (tryBlockNext == nil || tryBlockNext.Timestamp.UnixNano() >= blockCreatedUnixNanoTime) {
-			// TODO
-			return tryBlock, nil
-		} else if tryBlock == nil && tryBlockNext.Timestamp.UnixNano() < blockCreatedUnixNanoTime {
+		nextEdge, err := c.chainDb.Sc.GetSnapshotBlock(nextEdgeHeight, false)
 
-		}
-
-		tryBlock, err := c.chainDb.Sc.GetSnapshotBlock(tryHeight, false)
 		if err != nil {
 			c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
 			return nil, err
 		}
 
-		tryBlockNext, nErr := c.chainDb.Sc.GetSnapshotBlock(tryHeight+1, false)
-		if nErr != nil {
-			c.log.Error("Get the next try block failed, error is "+nErr.Error(), "method", "GetSnapshotBlockBeforeTime")
-			return nil, err
-		}
-
-		if tryBlock.Timestamp.UnixNano() < blockCreatedUnixTime && tryBlockNext.Timestamp.After(*blockCreatedTime) {
-
-			return tryBlock, nil
+		if nextEdge.Timestamp.After(*blockCreatedTime) || nextEdge.Timestamp.Equal(*blockCreatedTime) {
+			end = nextEdge
+		} else {
+			start = nextEdge
 		}
 	}
-
-	return nil, nil
 }
 
 func (c *Chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {

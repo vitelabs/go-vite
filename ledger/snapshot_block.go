@@ -61,8 +61,8 @@ func (sc *SnapshotContent) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (*SnapshotContent) Hash() []byte {
-	return nil
+func (*SnapshotContent) Hash() types.Hash {
+	return types.Hash{}
 }
 
 type SnapshotContentItem struct {
