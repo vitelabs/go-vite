@@ -1,9 +1,7 @@
 package vm
 
 import (
-	"bytes"
 	"encoding/hex"
-	"errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
@@ -76,12 +74,11 @@ func TestVmRun(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr2
-	updateReveiceBlockBySendBlock(block21, block13)
-	receiveCreateBlockList, isRetry, err := vm.Run(db, block21, block13)
+	receiveCreateBlockList, isRetry, err := vm.Run(db, block21, sendCreateBlockList[0].AccountBlock)
 	balance2.Add(balance2, block13.Amount)
 	if len(receiveCreateBlockList) != 1 || isRetry || err != nil ||
 		receiveCreateBlockList[0].AccountBlock.Quota != 0 ||
-		!bytes.Equal(db.contractGidMap[addr1].Bytes(), ledger.CommonGid.Bytes()) ||
+		*db.contractGidMap[addr1] != ledger.CommonGid ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(balance2) != 0 {
 		t.Fatalf("receive create transaction error")
 	}
@@ -128,8 +125,7 @@ func TestVmRun(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr2
-	updateReveiceBlockBySendBlock(block22, block14)
-	receiveCallBlockList, isRetry, err := vm.Run(db, block22, block14)
+	receiveCallBlockList, isRetry, err := vm.Run(db, block22, sendCallBlockList[0].AccountBlock)
 	balance2.Add(balance2, block14.Amount)
 	if len(receiveCallBlockList) != 1 || isRetry || err != nil ||
 		receiveCallBlockList[0].AccountBlock.Quota != 41330 ||
@@ -193,8 +189,7 @@ func TestVmRun(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr2
-	updateReveiceBlockBySendBlock(block23, block15)
-	receiveCallBlockList2, isRetry, err := vm.Run(db, block23, block15)
+	receiveCallBlockList2, isRetry, err := vm.Run(db, block23, sendCallBlockList2[0].AccountBlock)
 	if len(receiveCallBlockList2) != 1 || isRetry || err != ErrExecutionReverted ||
 		receiveCallBlockList2[0].AccountBlock.Quota != 21046 {
 		t.Fatalf("receive call transaction error")
@@ -207,50 +202,6 @@ func TestDelegateCall(t *testing.T) {
 	// prepare db, add account1, add account2 with code, add account3 with code
 	// send call
 	// receive call
-}
-
-func TestQuotaLeft(t *testing.T) {
-	// TODO
-	// prepare db
-	// calc quota
-}
-
-func TestQuotaUsed(t *testing.T) {
-	tests := []struct {
-		quotaTotal, quotaAddition, quotaLeft, quotaRefund, quotaUsed uint64
-		err                                                          error
-	}{
-		{15000, 5000, 10001, 0, 0, nil},
-		{15000, 5000, 9999, 0, 1, nil},
-		{10000, 0, 9999, 0, 1, nil},
-		{10000, 0, 5000, 1000, 4000, nil},
-		{10000, 0, 5000, 5000, 2500, nil},
-		{15000, 5000, 5000, 5000, 2500, nil},
-		{15000, 5000, 10001, 0, 10000, ErrOutOfQuota},
-		{15000, 5000, 9999, 0, 10000, ErrOutOfQuota},
-		{10000, 0, 9999, 0, 10000, ErrOutOfQuota},
-		{10000, 0, 5000, 1000, 10000, ErrOutOfQuota},
-		{10000, 0, 5000, 5000, 10000, ErrOutOfQuota},
-		{15000, 5000, 5000, 5000, 10000, ErrOutOfQuota},
-		{15000, 5000, 10001, 0, 0, errors.New("")},
-		{15000, 5000, 9999, 0, 1, errors.New("")},
-		{10000, 0, 9999, 0, 1, errors.New("")},
-		{10000, 0, 5000, 1000, 5000, errors.New("")},
-		{15000, 5000, 5000, 5000, 5000, errors.New("")},
-	}
-	for i, test := range tests {
-		quotaUsed := quotaUsed(test.quotaTotal, test.quotaAddition, test.quotaLeft, test.quotaRefund, test.err)
-		if quotaUsed != test.quotaUsed {
-			t.Fatalf("%v th calculate quota used failed, expected %v, got %v", i, test.quotaUsed, quotaUsed)
-		}
-	}
-}
-
-func updateReveiceBlockBySendBlock(receiveBlock, sendBlock *ledger.AccountBlock) {
-	receiveBlock.Data = sendBlock.Data
-	receiveBlock.Fee = sendBlock.Fee
-	receiveBlock.Amount = sendBlock.Amount
-	receiveBlock.TokenId = sendBlock.TokenId
 }
 
 func BenchmarkVMTransfer(b *testing.B) {

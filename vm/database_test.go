@@ -62,7 +62,7 @@ func (db *testDatabase) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.I
 func (db *testDatabase) GetSnapshotBlock(hash *types.Hash) *ledger.SnapshotBlock {
 	for len := len(db.snapshotBlockList) - 1; len >= 0; len = len - 1 {
 		block := db.snapshotBlockList[len]
-		if bytes.Equal(block.Hash.Bytes(), hash.Bytes()) {
+		if block.Hash == *hash {
 			return block
 		}
 	}

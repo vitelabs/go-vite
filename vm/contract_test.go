@@ -50,12 +50,34 @@ func TestRun(t *testing.T) {
 	for _, test := range tests {
 		vm := NewVM()
 		vm.Debug = true
-		receiveCallBlock := &ledger.AccountBlock{AccountAddress: types.Address{}, ToAddress: types.Address{}, BlockType: ledger.BlockTypeReceive}
-		receiveCallBlock.Amount = big.NewInt(10)
-		c := newContract(receiveCallBlock.AccountAddress, receiveCallBlock.ToAddress, &vm_context.VmAccountBlock{receiveCallBlock, NewNoDatabase()}, 1000000, 0)
+		sendCallBlock := ledger.AccountBlock{
+			AccountAddress: types.Address{},
+			ToAddress:      types.Address{},
+			BlockType:      ledger.BlockTypeSendCall,
+			Data:           test.input,
+			Amount:         big.NewInt(10),
+			Fee:            big.NewInt(0),
+			TokenId:        ledger.ViteTokenId,
+		}
+		receiveCallBlock := &ledger.AccountBlock{
+			AccountAddress: types.Address{},
+			ToAddress:      types.Address{},
+			BlockType:      ledger.BlockTypeReceive,
+		}
+		c := newContract(
+			receiveCallBlock.AccountAddress,
+			receiveCallBlock.ToAddress,
+			&vm_context.VmAccountBlock{receiveCallBlock, NewNoDatabase()},
+			&sendCallBlock,
+			1000000,
+			0)
 		c.setCallCode(types.Address{}, test.input)
 		ret, err := c.run(vm)
-		if bytes.Compare(ret, test.result) != 0 || c.quotaLeft != test.quotaLeft || c.quotaRefund != test.quotaRefund || (err == nil && test.err != nil) || (err != nil && test.err == nil) {
+		if bytes.Compare(ret, test.result) != 0 ||
+			c.quotaLeft != test.quotaLeft ||
+			c.quotaRefund != test.quotaRefund ||
+			(err == nil && test.err != nil) ||
+			(err != nil && test.err == nil) {
 			t.Fatalf("contract run failed, summary: %v", test.summary)
 		}
 	}

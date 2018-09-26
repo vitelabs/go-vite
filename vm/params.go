@@ -6,41 +6,35 @@ import (
 )
 
 const (
-	quickStepGas          uint64 = 2
-	fastestStepGas        uint64 = 3
-	fastStepGas           uint64 = 5
-	midStepGas            uint64 = 8
-	slowStepGas           uint64 = 10
-	extStepGas            uint64 = 20
-	extCodeSizeGas        uint64 = 700
-	extCodeCopyGas        uint64 = 700
-	balanceGas            uint64 = 400
-	sLoadGas              uint64 = 200
-	expByteGas            uint64 = 50
-	txGas                 uint64 = 21000 // Per transaction not creating a contract.
-	txContractCreationGas uint64 = 53000 // Per transaction that creates a contract.
-	txDataZeroGas         uint64 = 4     // Per byte of data attached to a transaction that equals zero.
-	txDataNonZeroGas      uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero.
-	quadCoeffDiv          uint64 = 512   // Divisor for the quadratic particle of the memory cost equation.
-	logGas                uint64 = 375   // Per LOG* operation.
-	logTopicGas           uint64 = 375   // Multiplied by the * of the LOG*, per LOG transaction. e.g. LOG0 incurs 0 * c_txLogTopicGas, LOG4 incurs 4 * c_txLogTopicGas.
-	logDataGas            uint64 = 8     // Per byte in a LOG* operation's data.
-	blake2bGas            uint64 = 30    // Once per Blake2b operation.
-	blake2bWordGas        uint64 = 6     // Once per word of the Blake2b operation's data.
-	sstoreSetGas          uint64 = 20000 // Once per SSTORE operation
-	sstoreResetGas        uint64 = 5000  // Once per SSTORE operation if the zeroness changes from zero.
-	sstoreClearGas        uint64 = 5000  // Once per SSTORE operation if the zeroness doesn't change.
-	sstoreRefundGas       uint64 = 15000 // Once per SSTORE operation if the zeroness changes to zero.
-	jumpdestGas           uint64 = 1     // Jumpdest gas cost.
-	callGas               uint64 = 700   // Once per CALL operation & message call transaction.
-	contractCodeGas       uint64 = 200   // Per byte in contract code
-	copyGas               uint64 = 3     //
-	memoryGas             uint64 = 3     // Times the address of the (highest referenced byte in memory + 1). NOTE: referencing happens on read, write and in instructions such as RETURN and CALL.
+	quickStepGas    uint64 = 2
+	fastestStepGas  uint64 = 3
+	fastStepGas     uint64 = 5
+	midStepGas      uint64 = 8
+	slowStepGas     uint64 = 10
+	extStepGas      uint64 = 20
+	extCodeSizeGas  uint64 = 700
+	extCodeCopyGas  uint64 = 700
+	balanceGas      uint64 = 400
+	sLoadGas        uint64 = 200
+	expByteGas      uint64 = 50
+	quadCoeffDiv    uint64 = 512   // Divisor for the quadratic particle of the memory cost equation.
+	logGas          uint64 = 375   // Per LOG* operation.
+	logTopicGas     uint64 = 375   // Multiplied by the * of the LOG*, per LOG transaction. e.g. LOG0 incurs 0 * c_txLogTopicGas, LOG4 incurs 4 * c_txLogTopicGas.
+	logDataGas      uint64 = 8     // Per byte in a LOG* operation's data.
+	blake2bGas      uint64 = 30    // Once per Blake2b operation.
+	blake2bWordGas  uint64 = 6     // Once per word of the Blake2b operation's data.
+	sstoreSetGas    uint64 = 20000 // Once per SSTORE operation
+	sstoreResetGas  uint64 = 5000  // Once per SSTORE operation if the zeroness changes from zero.
+	sstoreClearGas  uint64 = 5000  // Once per SSTORE operation if the zeroness doesn't change.
+	sstoreRefundGas uint64 = 15000 // Once per SSTORE operation if the zeroness changes to zero.
+	jumpdestGas     uint64 = 1     // Jumpdest gas cost.
+	callGas         uint64 = 700   // Once per CALL operation & message call transaction.
+	contractCodeGas uint64 = 200   // Per byte in contract code
+	copyGas         uint64 = 3     //
+	memoryGas       uint64 = 3     // Times the address of the (highest referenced byte in memory + 1). NOTE: referencing happens on read, write and in instructions such as RETURN and CALL.
 
-	callCreateDepth          uint64 = 1024    // Maximum Depth of call/create stack.
-	stackLimit               uint64 = 1024    // Maximum size of VM stack allowed.
-	quotaLimitForTransaction uint64 = 800000  // Maximum quota of a transaction
-	quotaLimit               uint64 = 3000000 // Maximum quota of an account referring to one snapshot block
+	// callCreateDepth          uint64 = 1024    // Maximum Depth of call/create stack.
+	stackLimit uint64 = 1024 // Maximum size of VM stack allowed.
 
 	// precompiled contract gas
 	registerGas               uint64 = 62200

@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/vm/quota"
 	"sync/atomic"
 )
 
@@ -54,7 +55,7 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		if err != nil {
 			return nil, err
 		}
-		c.quotaLeft, err = useQuota(c.quotaLeft, cost)
+		c.quotaLeft, err = quota.UseQuota(c.quotaLeft, cost)
 		if err != nil {
 			return nil, err
 		}

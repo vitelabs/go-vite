@@ -2,6 +2,7 @@ package vm
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_context"
 )
@@ -17,15 +18,17 @@ type contract struct {
 	code                   []byte
 	codeAddr               types.Address
 	block                  *vm_context.VmAccountBlock
+	sendBlock              *ledger.AccountBlock
 	quotaLeft, quotaRefund uint64
 	intPool                *intPool
 	returnData             []byte
 }
 
-func newContract(caller types.Address, address types.Address, block *vm_context.VmAccountBlock, quotaLeft, quotaRefund uint64) *contract {
+func newContract(caller types.Address, address types.Address, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock, quotaLeft, quotaRefund uint64) *contract {
 	return &contract{caller: caller,
 		address:     address,
 		block:       block,
+		sendBlock:   sendBlock,
 		quotaLeft:   quotaLeft,
 		quotaRefund: quotaRefund,
 		jumpdests:   make(destinations),
