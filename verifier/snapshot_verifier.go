@@ -193,5 +193,8 @@ func (self *SnapshotVerifier) newVerifyStat(b *ledger.SnapshotBlock) *SnapshotBl
 	// todo init account hashH
 	stat := &SnapshotBlockVerifyStat{result: PENDING}
 	stat.results = make(map[types.Address]VerifyResult)
+	for k := range b.SnapshotContent {
+		stat.results[k] = PENDING
+	}
 	return stat
 }
