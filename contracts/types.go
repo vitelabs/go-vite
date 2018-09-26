@@ -36,13 +36,13 @@ type VoteInfo struct {
 }
 
 type ConsensusGroupInfo struct {
-	Gid                    types.Gid
-	NodeCount              uint8
-	Interval               int64
-	PreCount               uint64 // TODO
-	RandCount              uint8
-	CountingRuleId         uint8
-	CountingRuleParam      []byte
+	Gid                    types.Gid         // Consensus group id
+	NodeCount              uint8             // Active miner count
+	Interval               int64             // Timestamp gap between two continuous block
+	PerCount               int64             // Continuous block generation interval count
+	RandCount              uint8             // Random miner count
+	RandRank               uint8             // Chose random miner with a rank limit of vote
+	CountingTokenId        types.TokenTypeId // Token id for selecting miner through vote
 	RegisterConditionId    uint8
 	RegisterConditionParam []byte
 	VoteConditionId        uint8

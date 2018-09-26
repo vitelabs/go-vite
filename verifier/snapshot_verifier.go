@@ -118,25 +118,32 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 		stat.errMsg = err.Error()
 		return stat
 	}
+	err = self.verifyAccounts(block, stat)
+	if err != nil {
+		stat.errMsg = err.Error()
+		return stat
+	}
+	for _, v := range stat.results {
+		if v == FAIL || v == PENDING {
+			return stat
+		}
+	}
+
 	err = self.verifyAccountsTimeout(block, stat)
 	if err != nil {
 		stat.errMsg = err.Error()
 		return stat
 	}
 
-	err = self.verifyAccounts(block, stat)
-	if err != nil {
-		stat.errMsg = err.Error()
-		return stat
-	}
+	// todo verify producer
+	return stat
+}
 
-	return stat
-}
-func (self *SnapshotVerifier) VerifyProducer(block *ledger.SnapshotBlock) *SnapshotBlockVerifyStat {
-	defer monitor.LogTime("verify", "snapshotProducer", time.Now())
-	stat := self.newVerifyStat(block)
-	return stat
-}
+//func (self *SnapshotVerifier) VerifyProducer(block *ledger.SnapshotBlock) *SnapshotBlockVerifyStat {
+//	defer monitor.LogTime("verify", "snapshotProducer", time.Now())
+//	stat := self.newVerifyStat(block)
+//	return stat
+//}
 
 type AccountHashH struct {
 	Addr   *types.Address

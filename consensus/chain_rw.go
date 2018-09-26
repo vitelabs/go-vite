@@ -71,6 +71,7 @@ func (self *chainRw) GenVote(snapshotHash types.Hash, registration *contracts.Re
 			addrs = append(addrs, v.VoterAddr)
 		}
 	}
+	// todo vitetokenId -->>>
 	balanceMap := self.rw.GetBalanceList(snapshotHash, ledger.ViteTokenId, addrs)
 
 	result := &Vote{balance: big.NewInt(0), name: registration.Name, addr: registration.NodeAddr}

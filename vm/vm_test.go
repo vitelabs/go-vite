@@ -29,7 +29,7 @@ func TestVmRun(t *testing.T) {
 	 */
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	// send create
-	data13, _ := hex.DecodeString("00000000000000000001608060405260858060116000396000f300608060405260043610603e5763ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041663f021ab8f81146043575b600080fd5b604c600435604e565b005b6000805490910190555600a165627a7a72305820b8d8d60a46c6ac6569047b17b012aa1ea458271f9bc8078ef0cff9208999d0900029")
+	data13, _ := hex.DecodeString("00000000000000000002608060405260858060116000396000f300608060405260043610603e5763ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041663f021ab8f81146043575b600080fd5b604c600435604e565b005b6000805490910190555600a165627a7a72305820b8d8d60a46c6ac6569047b17b012aa1ea458271f9bc8078ef0cff9208999d0900029")
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -78,7 +78,7 @@ func TestVmRun(t *testing.T) {
 	balance2.Add(balance2, block13.Amount)
 	if len(receiveCreateBlockList) != 1 || isRetry || err != nil ||
 		receiveCreateBlockList[0].AccountBlock.Quota != 0 ||
-		*db.contractGidMap[addr1] != ledger.CommonGid ||
+		*db.contractGidMap[addr1] != types.DELEGATE_GID ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(balance2) != 0 {
 		t.Fatalf("receive create transaction error")
 	}

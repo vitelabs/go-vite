@@ -10,40 +10,37 @@ type algo struct {
 	info *membersInfo
 }
 
-func (self *algo) findSeed(votes []*Vote) int64 {
+// balance + snapshotHeight + gid
+func (self *algo) findSeed(votes []*Vote, sheight uint64) int64 {
 	result := big.NewInt(0)
 	for _, v := range votes {
 		result.Add(result, v.balance)
 	}
+	result.Add(result, new(big.Int).SetUint64(sheight))
 	return result.Add(result, self.info.seed).Int64()
 }
 
-func (self *algo) shuffleVotes(votes []*Vote) []*Vote {
-	seed := self.findSeed(votes)
+func (self *algo) shuffleVotes(votes []*Vote) (result []*Vote) {
+	seed := self.findSeed(votes, 1)
 	l := len(votes)
-	randMembers := make([]bool, l)
-	var result []*Vote
 	random := rand.New(rand.NewSource(seed))
+	perm := random.Perm(l)
 
-	for i := 0; i < l; {
-		r := random.Intn(l)
-		flag := randMembers[r]
-		if flag {
-			continue
-		} else {
-			randMembers[r] = true
-			i++
-			result = append(result, votes[r])
-		}
+	for _, v := range perm {
+		result = append(result, votes[v])
 	}
 	return result
 }
 
 func (self *algo) filterVotes(votes []*Vote) []*Vote {
 	// simple filter for low balance
-	votes = self.filterSimple(votes, self.info)
+	simpleVotes := self.filterSimple(votes, self.info)
 
-	votes = self.filterRand(votes)
+	if int32(len(simpleVotes)) < self.info.memberCnt {
+		simpleVotes = votes
+	}
+
+	votes = self.filterRand(simpleVotes)
 
 	return votes
 }
@@ -62,6 +59,7 @@ func (self *algo) filterSimple(votes []*Vote, info *membersInfo) []*Vote {
 
 func (self *algo) calRandCnt(total int32, randNum int32) int {
 	// the random number can't be greater than 1/3
+	// todo need detail info
 	if total/3 > randNum {
 		return int(randNum)
 	} else {
@@ -75,17 +73,18 @@ func (self *algo) filterRand(votes []*Vote) []*Vote {
 	if int32(length) < total {
 		return votes
 	}
-	seed := self.findSeed(votes)
+	seed := self.findSeed(votes, 1)
 
 	randCnt := self.calRandCnt(total, self.info.randCnt)
 	topTotal := int(total) - randCnt
 
-	randMembers := make([]bool, length-topTotal)
+	leftTotal := length - topTotal
+	randMembers := make([]bool, leftTotal)
 	random := rand.New(rand.NewSource(seed))
 
 	// cal rand index
 	for i := 0; i < randCnt; {
-		r := random.Intn(length - topTotal)
+		r := random.Intn(leftTotal)
 		flag := randMembers[r]
 		if flag {
 			continue
@@ -96,15 +95,11 @@ func (self *algo) filterRand(votes []*Vote) []*Vote {
 	}
 
 	// generate result for top and rand
-	var result []*Vote
-	for k, v := range votes {
-		if k < topTotal {
-			result = append(result, v)
-			continue
-		}
-		if randMembers[k-topTotal] {
-			result = append(result, v)
-			continue
+	// todo unit test
+	result := votes[0:topTotal]
+	for k, b := range randMembers {
+		if b {
+			result = append(result, votes[k+topTotal])
 		}
 	}
 	return result
