@@ -180,7 +180,9 @@ func (task *ContractTaskProcessor) processOneQueue(fItem *model.FromItem) (intoB
 			if genResult.IsRetry {
 				return true
 			}
-			task.blocksPool.WriteOnroad(false, nil, sBlock)
+			// fix delete bug
+			//task.worker.manager.uAccess.Delete()managerWriteUnconfirmed(nil, sBlock)
+			//task.blocksPool.WriteOnroad(false, nil, sBlock)
 		} else {
 			if genResult.IsRetry {
 				// todo 写到pool里

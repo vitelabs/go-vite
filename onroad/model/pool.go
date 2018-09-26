@@ -5,11 +5,9 @@ import (
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_context"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"sync"
 	"time"
 )
@@ -105,13 +103,14 @@ func (p *OnroadBlocksPool) GetCommonAccountInfo(addr types.Address) (*CommonAcco
 	}
 
 	p.log.Info("second load from full cache", "addr", addr)
-	if fullcache, ok := p.fullCache.Load(addr); ok {
-		accountInfo := fullcache.(*onroadBlocksCache).toCommonAccountInfo(p.dbAccess.Chain.GetTokenInfoById)
-		if accountInfo != nil {
-			p.addSimpleCache(addr, accountInfo)
-			return accountInfo, nil
-		}
-	}
+	// fixme: getTokenId func
+	//if fullcache, ok := p.fullCache.Load(addr); ok {
+	//	accountInfo := fullcache.(*onroadBlocksCache).toCommonAccountInfo(p.dbAccess.Chain.GetTokenInfoById)
+	//	if accountInfo != nil {
+	//		p.addSimpleCache(addr, accountInfo)
+	//		return accountInfo, nil
+	//	}
+	//}
 
 	p.log.Info("third load from db", "addr", addr)
 	accountInfo, e := p.dbAccess.GetCommonAccInfo(&addr)
@@ -207,29 +206,37 @@ func (p *OnroadBlocksPool) DeleteFullCache(address types.Address) {
 	p.fullCache.Delete(address)
 }
 
-// todo support batch
 func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_context.VmAccountBlock) error {
 	p.log.Info("WriteOnroad ")
 
-	for _, v := range blockList {if v.AccountBlock.IsSendBlock() {
-		if err := p.dbAccess.writeOnroadMeta(batch, v.AccountBlock); err != nil {
-			p.log.Error("writeOnroadMeta", "error", err)
-			return err
-		}// add the gid-contractAddrList relationship
-			var unsavedCache vmctxt_interface.UnsavedCache
-			unsavedCache = v.VmContext.UnsavedCache()
-			gidList := unsavedCache.ContractGidList()
-			for _, v := range gidList {
-		// todop.dbAccess.WriteContractAddrToGid(batch, *v.Gid(), *v.Addr())
+	for _, v := range blockList {
+		if v.AccountBlock.IsSendBlock() {
+			// basic writeMeta func
+			if err := p.dbAccess.writeOnroadMeta(batch, v.AccountBlock); err != nil {
+				p.log.Error("writeOnroadMeta", "error", err)
+				return err
 			}
-	} else {
-		if err := p.dbAccess.deleteOnroadMeta(batch, v.AccountBlock); err != nil {
-			p.log.Error("deleteOnroadMeta", "error", err)
-			return err}
+
+			if v.AccountBlock.BlockType == ledger.BlockTypeSendCreate {
+				unsavedCache := v.VmContext.UnsavedCache()
+				gidList := unsavedCache.ContractGidList()
+				for _, v := range gidList {
+					if err := p.dbAccess.WriteContractAddrToGid(batch, *v.Gid(), *v.Addr()); err != nil {
+						p.log.Error("WriteContractAddrToGid", "error", err)
+						return err
+					}
+				}
+			}
+
+		} else {
+			if err := p.dbAccess.deleteOnroadMeta(batch, v.AccountBlock); err != nil {
+				p.log.Error("deleteOnroadMeta", "error", err)
+				return err
+			}
 		}
 	}
 	// todo 确认写好之后 再更新
-	p.updateCache(writeType, block)
+	// p.updateCache(writeType, block)
 	return nil
 }
 
@@ -254,11 +261,12 @@ func (p *OnroadBlocksPool) DeleteOnroad(batch *leveldb.Batch, subLedger map[type
 					return err
 				}
 
+				// fixme: wait for func @yd
 				// delete the gid-contractAddrList relationship
-				gidList := contracts.GetGidFromCreateContractData(v.Data)
-				for _, v := range gidList {
-					p.dbAccess.DeleteContractAddrFromGid(batch, *v.Gid(), *v.Addr())
-				}
+				//gidList := contracts.GetGidFromCreateContractData(v.Data)
+				//for _, v := range gidList {
+				//	p.dbAccess.DeleteContractAddrFromGid(batch, *v.Gid(), *v.Addr())
+				//}
 			}
 		}
 	}
@@ -299,17 +307,17 @@ func (p *OnroadBlocksPool) updateSimpleCache(writeType bool, block *ledger.Accou
 			tokenBalanceInfo.TotalAmount.Add(&tokenBalanceInfo.TotalAmount, block.Amount)
 			tokenBalanceInfo.Number += 1
 		} else {
-			// todo remove token info
-			token, err := p.dbAccess.Chain.GetTokenInfoById(&block.TokenId)
-			if err != nil {
-				return errors.New("func UpdateCommonAccInfo.GetByTokenId failed" + err.Error())
-			}
-			if token == nil {
-				return errors.New("func UpdateCommonAccInfo.GetByTokenId failed token nil")
-			}
-			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Token = *token
-			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].TotalAmount = *block.Amount
-			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Number = 1
+			// fixme: remove token info?
+			//token, err := p.dbAccess.Chain.GetTokenInfoById(&block.TokenId)
+			//if err != nil {
+			//	return errors.New("func UpdateCommonAccInfo.GetByTokenId failed" + err.Error())
+			//}
+			//if token == nil {
+			//	return errors.New("func UpdateCommonAccInfo.GetByTokenId failed token nil")
+			//}
+			//simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Token = *token
+			//simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].TotalAmount = *block.Amount
+			//simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Number = 1
 		}
 		simpleAccountInfo.TotalNumber += 1
 	} else {
