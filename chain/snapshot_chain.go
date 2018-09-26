@@ -103,7 +103,7 @@ func (c *Chain) GetSnapshotBlocksByHeight(height uint64, count uint64, forward, 
 }
 
 func (c *Chain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
-	block, gsbErr := c.chainDb.Sc.GetSnapshotBlock(height)
+	block, gsbErr := c.chainDb.Sc.GetSnapshotBlock(height, true)
 	if gsbErr != nil {
 		c.log.Error("GetSnapshotBlock failed, error is "+gsbErr.Error(), "method", "GetSnapshotBlockByHeight")
 		return nil, gsbErr
@@ -170,7 +170,7 @@ func (c *Chain) GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotB
 		}
 	}
 
-	snapshotBlock, gsErr := c.chainDb.Sc.GetSnapshotBlock(height)
+	snapshotBlock, gsErr := c.chainDb.Sc.GetSnapshotBlock(height, true)
 	if gsErr != nil {
 		c.log.Error("GetSnapshotBlock failed, error is "+ghErr.Error(), "method", "GetConfirmBlock")
 		return nil, &types.GetError{
@@ -200,7 +200,68 @@ func (c *Chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 }
 
 // TODO
-func (c *Chain) GetSnapshotBlockBeforeTime(time *time.Time) (*ledger.SnapshotBlock, error) {
+func (c *Chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error) {
+	blockCreatedUnixTime := blockCreatedTime.Unix()
+	blockCreatedUnixNanoTime := blockCreatedTime.UnixNano()
+
+	latestBlock := c.GetLatestSnapshotBlock()
+	//gap := uint64(latestBlock.Timestamp.Unix() - blockCreatedUnixTime)
+	//if gap < 0 {
+	//	return latestBlock, nil
+	//}
+
+	tryHeight := latestBlock.Height
+
+	for {
+		//tryHeight := latestBlock.Height - gap
+
+		var tryBlock, tryBlockNext *ledger.SnapshotBlock
+
+		if tryHeight >= latestBlock.Height {
+			tryBlock = latestBlock
+			tryBlockNext = nil
+		} else if tryHeight < 1 {
+			tryBlock = nil
+			tryBlockNext = c.genesisSnapshotBlock
+		} else {
+			var err error
+			tryBlock, err = c.chainDb.Sc.GetSnapshotBlock(tryHeight, false)
+			if err != nil {
+				c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
+				return nil, err
+			}
+
+			tryBlockNext, err = c.chainDb.Sc.GetSnapshotBlock(tryHeight+1, false)
+			if err != nil {
+				c.log.Error("Get the next try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
+				return nil, err
+			}
+		}
+
+		if tryBlock.Timestamp.UnixNano() < blockCreatedUnixNanoTime && (tryBlockNext == nil || tryBlockNext.Timestamp.UnixNano() >= blockCreatedUnixNanoTime) {
+			// TODO
+			return tryBlock, nil
+		} else if tryBlock == nil && tryBlockNext.Timestamp.UnixNano() < blockCreatedUnixNanoTime {
+
+		}
+
+		tryBlock, err := c.chainDb.Sc.GetSnapshotBlock(tryHeight, false)
+		if err != nil {
+			c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
+			return nil, err
+		}
+
+		tryBlockNext, nErr := c.chainDb.Sc.GetSnapshotBlock(tryHeight+1, false)
+		if nErr != nil {
+			c.log.Error("Get the next try block failed, error is "+nErr.Error(), "method", "GetSnapshotBlockBeforeTime")
+			return nil, err
+		}
+
+		if tryBlock.Timestamp.UnixNano() < blockCreatedUnixTime && tryBlockNext.Timestamp.After(*blockCreatedTime) {
+
+			return tryBlock, nil
+		}
+	}
 
 	return nil, nil
 }
@@ -239,6 +300,7 @@ func (c *Chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Add
 	return accountBlock, nil
 }
 
+// TODO +toHeight judge
 func (c *Chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
 	batch := new(leveldb.Batch)
 	snapshotBlocks, accountBlocksMap, err := c.deleteSnapshotBlocksByHeight(batch, toHeight)
@@ -302,7 +364,7 @@ func (c *Chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, nil, triggerErr
 	}
 
-	prevSnapshotBlock, prevSnapshotBlockErr := c.chainDb.Sc.GetSnapshotBlock(snapshotBlocks[0].Height - 1)
+	prevSnapshotBlock, prevSnapshotBlockErr := c.chainDb.Sc.GetSnapshotBlock(snapshotBlocks[0].Height-1, true)
 	if prevSnapshotBlockErr != nil {
 		c.log.Error("GetSnapshotBlock failed, error is "+prevSnapshotBlockErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 		return nil, nil, prevSnapshotBlockErr

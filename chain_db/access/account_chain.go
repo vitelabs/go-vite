@@ -224,8 +224,8 @@ func (ac *AccountChain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList,
 		return nil, nil
 	}
 
-	vmLogList := ledger.VmLogList{}
-	if dErr := vmLogList.Deserialize(data); dErr != nil {
+	vmLogList, dErr := ledger.VmLogListDeserialize(data)
+	if dErr != nil {
 		return nil, err
 	}
 
@@ -506,6 +506,7 @@ func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64
 					})
 				}
 			}
+
 			if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 				iter.Release()
 				return nil, nil, err

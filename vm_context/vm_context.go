@@ -53,12 +53,13 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 
 	var prevAccountBlock *ledger.AccountBlock
 	if prevAccountBlockHash == nil {
-		var err error
-		prevAccountBlock, err = chain.GetConfirmAccountBlock(currentSnapshotBlock.Height, addr)
-		if err != nil {
-			return nil, err
+		if addr != nil {
+			var err error
+			prevAccountBlock, err = chain.GetConfirmAccountBlock(currentSnapshotBlock.Height, addr)
+			if err != nil {
+				return nil, err
+			}
 		}
-
 	} else {
 		var err error
 		prevAccountBlock, err = chain.GetAccountBlockByHash(prevAccountBlockHash)

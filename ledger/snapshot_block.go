@@ -3,19 +3,61 @@ package ledger
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
 	"time"
 )
 
+var snapshotBlockLog = log15.New("module", "ledger/snapshot_block")
+
 type SnapshotContent map[types.Address]*SnapshotContentItem
 
-func (*SnapshotContent) Serialize() ([]byte, error) {
-	return nil, nil
+func (sc SnapshotContent) DeProto(pb *vitepb.SnapshotContent) {
+	for addrString, snapshotItem := range pb.Content {
+		addr, _ := types.HexToAddress(addrString)
+		accountBlockHash, _ := types.BytesToHash(snapshotItem.AccountBlockHash)
+
+		sc[addr] = &SnapshotContentItem{
+			AccountBlockHeight: snapshotItem.AccountBlockHeight,
+			AccountBlockHash:   accountBlockHash,
+		}
+	}
 }
-func (*SnapshotContent) Deserialize([]byte) error {
+
+func (sc SnapshotContent) Proto() *vitepb.SnapshotContent {
+	pb := &vitepb.SnapshotContent{
+		Content: make(map[string]*vitepb.SnapshotItem),
+	}
+
+	for addr, snapshotItem := range sc {
+		pb.Content[addr.String()] = &vitepb.SnapshotItem{
+			AccountBlockHash:   snapshotItem.AccountBlockHash.Bytes(),
+			AccountBlockHeight: snapshotItem.AccountBlockHeight,
+		}
+	}
+	return pb
+}
+
+func (sc *SnapshotContent) Serialize() ([]byte, error) {
+	pb := sc.Proto()
+	buf, err := proto.Marshal(pb)
+	if err != nil {
+		snapshotBlockLog.Error("proto.Marshal failed, error is "+err.Error(), "method", "SnapshotContent.Serialize")
+	}
+	return buf, nil
+}
+func (sc *SnapshotContent) Deserialize(buf []byte) error {
+	pb := &vitepb.SnapshotContent{}
+	unmarshalErr := proto.Unmarshal(buf, pb)
+	if unmarshalErr != nil {
+		snapshotBlockLog.Error("proto.Unmarshal failed, error is "+unmarshalErr.Error(), "method", "SnapshotContent.Deserialize")
+	}
+
+	sc.DeProto(pb)
 	return nil
 }
 
@@ -86,16 +128,24 @@ func (sb *SnapshotBlock) VerifySignature() bool {
 	return isVerified
 }
 
-func (sb *SnapshotBlock) Proto() *vitepb.SnapshotBlock {
+func (sb *SnapshotBlock) proto() *vitepb.SnapshotBlock {
 	pb := &vitepb.SnapshotBlock{}
 	pb.Hash = sb.Hash.Bytes()
 	pb.PrevHash = sb.PrevHash.Bytes()
 	pb.Height = sb.Height
 	pb.PublicKey = sb.PublicKey
 	pb.Signature = sb.Signature
-	pb.Timestamp = uint64(sb.Timestamp.UnixNano())
+	pb.Timestamp = sb.Timestamp.UnixNano()
 	if sb.SnapshotHash != nil {
 		pb.SnapshotHash = sb.SnapshotHash.Bytes()
+	}
+	return pb
+}
+
+func (sb *SnapshotBlock) Proto() *vitepb.SnapshotBlock {
+	pb := sb.proto()
+	if sb.SnapshotContent != nil {
+		pb.SnapshotContent = sb.SnapshotContent.Proto()
 	}
 
 	return pb
@@ -107,29 +157,47 @@ func (sb *SnapshotBlock) DeProto(pb *vitepb.SnapshotBlock) {
 	sb.Height = pb.Height
 	sb.PublicKey = pb.PublicKey
 	sb.Signature = pb.Signature
-	// TODO Timestamp
-	//sb.Timestamp = pb.Timestamp
+
+	timestamp := time.Unix(0, pb.Timestamp)
+	sb.Timestamp = &timestamp
 
 	if len(pb.SnapshotHash) >= 0 {
 		snapshotHash, _ := types.BytesToHash(pb.SnapshotHash)
 		sb.SnapshotHash = &snapshotHash
 	}
+
+	if pb.SnapshotContent != nil {
+		sb.SnapshotContent = SnapshotContent{}
+		sb.SnapshotContent.DeProto(pb.SnapshotContent)
+	}
 }
 
-func (*SnapshotBlock) DbSerialize() ([]byte, error) {
-
-	return nil, nil
+func (sb *SnapshotBlock) DbSerialize() ([]byte, error) {
+	pb := sb.proto()
+	buf, err := proto.Marshal(pb)
+	if err != nil {
+		snapshotBlockLog.Error("proto.Marshal failed, error is "+err.Error(), "method", "SnapshotBlock.DbSerialize")
+	}
+	return buf, nil
 }
 
-func (*SnapshotBlock) DbDeserialize([]byte) error {
-	return nil
+func (sb *SnapshotBlock) Serialize() ([]byte, error) {
+	pb := sb.Proto()
+	buf, err := proto.Marshal(pb)
+	if err != nil {
+		snapshotBlockLog.Error("proto.Marshal failed, error is "+err.Error(), "method", "SnapshotBlock.Serialize")
+	}
+	return buf, nil
 }
 
-func (*SnapshotBlock) Serialize() ([]byte, error) {
-	return nil, nil
-}
+func (sb *SnapshotBlock) Deserialize(buf []byte) error {
+	pb := &vitepb.SnapshotBlock{}
+	unmarshalErr := proto.Unmarshal(buf, pb)
+	if unmarshalErr != nil {
+		snapshotBlockLog.Error("proto.Unmarshal failed, error is "+unmarshalErr.Error(), "method", "SnapshotBlock.Deserialize")
+	}
 
-func (*SnapshotBlock) Deserialize([]byte) error {
+	sb.DeProto(pb)
 	return nil
 }
 

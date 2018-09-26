@@ -2,6 +2,8 @@ syntax="proto3";
 
 package vitepb;
 
+import "vitepb/snapshot_content.proto";
+
 message SnapshotBlock {
     bytes hash = 1;
     bytes prevHash = 2;
@@ -11,6 +13,8 @@ message SnapshotBlock {
 
     bytes signature = 5;
 
-    uint64 timestamp = 6;
+    int64 timestamp = 6;
     bytes snapshotHash = 7;
+
+    SnapshotContent snapshotContent = 8;
 }

@@ -17,6 +17,7 @@ type BlockMapQueryParam struct {
 }
 
 // TODO 获取vite的抵押额度
+// TODO isBlockExisted
 func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
 	batch := new(leveldb.Batch)
 	trieSaveCallback := make([]func(), 0)
@@ -89,6 +90,7 @@ func (c *Chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			c.log.Error("GetSnapshotBlockHeight failed, error is "+getSnapshotHeightErr.Error(), "method", "InsertAccountBlocks")
 			return getSnapshotHeightErr
 		}
+
 		blockMeta := &ledger.AccountBlockMeta{
 			AccountId:         account.AccountId,
 			Height:            accountBlock.Height,
@@ -225,7 +227,7 @@ func (c *Chain) GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock
 	return block, nil
 }
 
-func (c *Chain) GetAbHashList(originBlockHash *types.Hash, count, step int, forward bool) ([]*types.Hash, error) {
+func (c *Chain) GetAbHashList(originBlockHash *types.Hash, count, step uint64, forward bool) ([]*types.Hash, error) {
 	block, err := c.GetAccountBlockByHash(originBlockHash)
 	if block == nil || err != nil {
 		if err != nil {
@@ -431,7 +433,6 @@ func (c *Chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 	return blockList, nil
 }
 
-// TODO query db
 func (c *Chain) GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error) {
 	gap := snapshotBlockHeight - c.GetLatestSnapshotBlock().Height
 	if gap > 1 {
@@ -468,7 +469,7 @@ func (c *Chain) GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.Account
 	return c.needSnapshotCache.Get(addr)
 }
 
-// Check一下
+// Check一下 TODO +toHeight judge
 func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error) {
 	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
 	if accountErr != nil {
@@ -478,6 +479,7 @@ func (c *Chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 			Err:  accountErr,
 		}
 	}
+
 	if account == nil {
 		return nil, nil
 	}

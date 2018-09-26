@@ -5,13 +5,14 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (c *Chain) GetSubLedgerByHeight(startHeight uint64, count int, forward bool) ([]string, [][2]uint64) {
+// TODO
+func (c *Chain) GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]string, [][2]uint64) {
 	beginHeight, endHeight := uint64(0), uint64(0)
 	if forward {
 		beginHeight = startHeight
-		endHeight = startHeight + uint64(count) - 1
+		endHeight = startHeight + count - 1
 	} else {
-		beginHeight = startHeight - uint64(count) + 1
+		beginHeight = startHeight - count + 1
 		endHeight = startHeight
 	}
 
@@ -35,7 +36,7 @@ func (c *Chain) GetSubLedgerByHeight(startHeight uint64, count int, forward bool
 	return fileNameList, rangeList
 }
 
-func (c *Chain) GetSubLedgerByHash(startBlockHash *types.Hash, count int, forward bool) ([]string, [][2]uint64, error) {
+func (c *Chain) GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]string, [][2]uint64, error) {
 	startHeight, err := c.chainDb.Sc.GetSnapshotBlockHeight(startBlockHash)
 	if err != nil {
 		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSubLedgerByHash")
