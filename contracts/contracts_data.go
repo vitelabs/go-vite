@@ -63,6 +63,9 @@ func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 }
 
 func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
+	if gid == types.DELEGATE_GID {
+		gid = types.SNAPSHOT_GID
+	}
 	iterator := db.NewStorageIterator(gid.Bytes())
 	voteInfoList := make([]*VoteInfo, 0)
 	for {

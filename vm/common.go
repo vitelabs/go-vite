@@ -14,5 +14,5 @@ func IsViteToken(tokenId types.TokenTypeId) bool {
 	return tokenId == ledger.ViteTokenId
 }
 func IsSnapshotGid(gid types.Gid) bool {
-	return gid == ledger.CommonGid
+	return gid == types.SNAPSHOT_GID
 }

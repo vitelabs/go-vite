@@ -31,6 +31,7 @@ type quotaDb interface {
 	GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock
 	CurrentSnapshotBlock() *ledger.SnapshotBlock
 	PrevAccountBlock() *ledger.AccountBlock
+	GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock
 }
 
 func CalcQuota(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
@@ -43,13 +44,14 @@ func CalcQuota(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quo
 	// TODO calc quotaLimit
 	// TODO calc quotaByPledge
 	quotaLimitForAccount := quotaLimit
-	quotaInit := helper.Min(new(big.Int).Div(contracts.GetPledgeAmount(db, addr), quotaByPledge).Uint64(), quotaLimitForAccount)
+	quotaInitBig := new(big.Int).Div(contracts.GetPledgeAmount(db, addr), quotaByPledge)
 	quotaAddition = uint64(0)
 	if pow {
 		quotaAddition = quotaForPoW
 	}
 	currentSnapshotHash := db.CurrentSnapshotBlock().Hash
 	prevBlock := db.PrevAccountBlock()
+	quotaUsed := uint64(0)
 	for {
 		if prevBlock != nil && currentSnapshotHash == prevBlock.SnapshotHash {
 			// quick fail on a receive error block referencing to the same snapshot block
@@ -57,14 +59,28 @@ func CalcQuota(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quo
 			if prevBlock.BlockType == ledger.BlockTypeReceiveError || (len(prevBlock.Nonce) > 0 && pow) {
 				return 0, 0
 			}
-			quotaInit = quotaInit - prevBlock.Quota
+			quotaUsed = quotaUsed + prevBlock.Quota
 			prevBlock = db.GetAccountBlockByHash(&prevBlock.PrevHash)
 		} else {
-			if quotaLimitForAccount-quotaAddition < quotaInit {
-				quotaAddition = quotaLimitForAccount - quotaInit
+			if prevBlock == nil {
+				quotaInitBig.Mul(quotaInitBig, new(big.Int).SetUint64(db.CurrentSnapshotBlock().Height))
+			} else {
+				quotaInitBig.Mul(quotaInitBig, new(big.Int).SetUint64(db.CurrentSnapshotBlock().Height-db.GetSnapshotBlockByHash(&prevBlock.SnapshotHash).Height))
+			}
+			if quotaInitBig.BitLen() > 64 {
 				quotaTotal = quotaLimitForAccount
 			} else {
-				quotaTotal = quotaInit + quotaAddition
+				quotaTotal = helper.Min(quotaInitBig.Uint64(), quotaLimitForAccount)
+			}
+			if quotaTotal < quotaUsed {
+				return 0, 0
+			}
+			quotaTotal = quotaTotal - quotaUsed
+			if quotaLimitForAccount-quotaAddition < quotaTotal {
+				quotaAddition = quotaLimitForAccount - quotaTotal
+				quotaTotal = quotaLimitForAccount
+			} else {
+				quotaTotal = quotaTotal + quotaAddition
 			}
 			return quotaTotal, quotaAddition
 		}
