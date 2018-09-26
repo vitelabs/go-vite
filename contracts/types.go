@@ -39,6 +39,8 @@ type ConsensusGroupInfo struct {
 	Gid                    types.Gid
 	NodeCount              uint8
 	Interval               int64
+	PreCount               uint64 // TODO
+	RandCount              uint8
 	CountingRuleId         uint8
 	CountingRuleParam      []byte
 	RegisterConditionId    uint8
