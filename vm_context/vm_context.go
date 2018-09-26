@@ -176,6 +176,14 @@ func (context *VmContext) GetSnapshotBlockByHeight(height uint64) *ledger.Snapsh
 	return snapshotBlock
 }
 
+func (context *VmContext) GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock {
+	snapshotBlock, _ := context.chain.GetSnapshotBlockByHash(hash)
+	if snapshotBlock != nil && snapshotBlock.Height > context.currentSnapshotBlock.Height {
+		return nil
+	}
+	return snapshotBlock
+}
+
 func (context *VmContext) Reset() {
 	context.unsavedCache = NewUnsavedCache(context.trie)
 }

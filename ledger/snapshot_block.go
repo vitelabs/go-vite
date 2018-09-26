@@ -8,22 +8,23 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vitepb"
 	"time"
 )
 
 var snapshotBlockLog = log15.New("module", "ledger/snapshot_block")
 
-type SnapshotContent map[types.Address]*SnapshotContentItem
+type SnapshotContent map[types.Address]*HashHeight
 
 func (sc SnapshotContent) DeProto(pb *vitepb.SnapshotContent) {
 	for addrString, snapshotItem := range pb.Content {
 		addr, _ := types.HexToAddress(addrString)
 		accountBlockHash, _ := types.BytesToHash(snapshotItem.AccountBlockHash)
 
-		sc[addr] = &SnapshotContentItem{
-			AccountBlockHeight: snapshotItem.AccountBlockHeight,
-			AccountBlockHash:   accountBlockHash,
+		sc[addr] = &HashHeight{
+			Height: snapshotItem.AccountBlockHeight,
+			Hash:   accountBlockHash,
 		}
 	}
 }
@@ -35,8 +36,8 @@ func (sc SnapshotContent) Proto() *vitepb.SnapshotContent {
 
 	for addr, snapshotItem := range sc {
 		pb.Content[addr.String()] = &vitepb.SnapshotItem{
-			AccountBlockHash:   snapshotItem.AccountBlockHash.Bytes(),
-			AccountBlockHeight: snapshotItem.AccountBlockHeight,
+			AccountBlockHash:   snapshotItem.Hash.Bytes(),
+			AccountBlockHeight: snapshotItem.Height,
 		}
 	}
 	return pb
@@ -61,15 +62,6 @@ func (sc *SnapshotContent) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (*SnapshotContent) Hash() types.Hash {
-	return types.Hash{}
-}
-
-type SnapshotContentItem struct {
-	AccountBlockHeight uint64
-	AccountBlockHash   types.Hash
-}
-
 type SnapshotBlock struct {
 	Hash types.Hash
 
@@ -81,8 +73,9 @@ type SnapshotBlock struct {
 	Signature []byte
 
 	Timestamp *time.Time
+	StateHash types.Hash
 
-	SnapshotHash    *types.Hash
+	StateTrie       *trie.Trie
 	SnapshotContent SnapshotContent
 }
 
@@ -105,9 +98,7 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 	source = append(source, unixTimeBytes...)
 
 	// SnapshotHash
-	if sb.SnapshotHash != nil {
-		source = append(source, sb.SnapshotHash.Bytes()...)
-	}
+	source = append(source, sb.StateHash.Bytes()...)
 
 	hash, _ := types.BytesToHash(crypto.Hash256(source))
 	return hash
@@ -137,9 +128,7 @@ func (sb *SnapshotBlock) proto() *vitepb.SnapshotBlock {
 	pb.PublicKey = sb.PublicKey
 	pb.Signature = sb.Signature
 	pb.Timestamp = sb.Timestamp.UnixNano()
-	if sb.SnapshotHash != nil {
-		pb.SnapshotHash = sb.SnapshotHash.Bytes()
-	}
+	pb.StateHash = sb.StateHash.Bytes()
 	return pb
 }
 
@@ -162,10 +151,7 @@ func (sb *SnapshotBlock) DeProto(pb *vitepb.SnapshotBlock) {
 	timestamp := time.Unix(0, pb.Timestamp)
 	sb.Timestamp = &timestamp
 
-	if len(pb.SnapshotHash) >= 0 {
-		snapshotHash, _ := types.BytesToHash(pb.SnapshotHash)
-		sb.SnapshotHash = &snapshotHash
-	}
+	sb.StateHash, _ = types.BytesToHash(pb.StateHash)
 
 	if pb.SnapshotContent != nil {
 		sb.SnapshotContent = SnapshotContent{}

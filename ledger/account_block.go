@@ -32,9 +32,13 @@ type AccountBlockMeta struct {
 	RefSnapshotHeight uint64
 }
 
-// TODO
-func (*AccountBlockMeta) Copy() *AccountBlockMeta {
-	return nil
+func (abm *AccountBlockMeta) Copy() *AccountBlockMeta {
+	newAbm := *abm
+
+	newAbm.ReceiveBlockHeights = make([]uint64, len(abm.ReceiveBlockHeights))
+	copy(newAbm.ReceiveBlockHeights, abm.ReceiveBlockHeights)
+
+	return &newAbm
 }
 
 func (abm *AccountBlockMeta) Proto() *vitepb.AccountBlockMeta {
@@ -113,11 +117,44 @@ type AccountBlock struct {
 	Signature []byte
 }
 
-// TODO Deep copy
 func (ab *AccountBlock) Copy() *AccountBlock {
-	newAb := &AccountBlock{}
+	newAb := *ab
 
-	return newAb
+	if ab.Meta != nil {
+		newAb.Meta = ab.Meta.Copy()
+	}
+
+	if ab.producer != nil {
+		producer := *ab.producer
+		newAb.producer = &producer
+	}
+
+	if ab.Amount != nil {
+		newAb.Amount = big.NewInt(0).SetBytes(ab.Amount.Bytes())
+	}
+
+	if ab.Fee != nil {
+		newAb.Fee = big.NewInt(0).SetBytes(ab.Fee.Bytes())
+	}
+	newAb.SnapshotHash = ab.SnapshotHash
+
+	newAb.Data = make([]byte, len(ab.Data))
+	copy(newAb.Data, ab.Data)
+
+	timestamp := time.Unix(0, ab.Timestamp.UnixNano())
+	newAb.Timestamp = &timestamp
+
+	if ab.LogHash != nil {
+		logHash := *ab.LogHash
+		newAb.LogHash = &logHash
+	}
+
+	newAb.Nonce = make([]byte, len(ab.Nonce))
+	copy(newAb.Nonce, ab.Nonce)
+
+	newAb.Signature = make([]byte, len(ab.Signature))
+	copy(newAb.Signature, ab.Signature)
+	return &newAb
 }
 
 func (ab *AccountBlock) Producer() types.Address {
@@ -149,7 +186,7 @@ func (ab *AccountBlock) proto() *vitepb.AccountBlock {
 	pb.SnapshotHash = ab.SnapshotHash.Bytes()
 	pb.Data = ab.Data
 	pb.Timestamp = ab.Timestamp.UnixNano()
-	pb.StateHash = ab.StateHash.Bytes()
+
 	if ab.LogHash != nil {
 		pb.LogHash = ab.LogHash.Bytes()
 	}
@@ -262,9 +299,6 @@ func (ab *AccountBlock) ComputeHash() types.Hash {
 	unixTimeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(unixTimeBytes, uint64(ab.Timestamp.Unix()))
 	source = append(source, unixTimeBytes...)
-
-	// StateHash
-	source = append(source, ab.StateHash.Bytes()...)
 
 	// LogHash
 	if ab.LogHash != nil {

@@ -3,6 +3,7 @@ package ledger
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/vitepb"
 )
 
@@ -13,8 +14,19 @@ type VmLog struct {
 
 type VmLogList []*VmLog
 
-func (VmLogList) Hash() *types.Hash {
-	return nil
+func (vll VmLogList) Hash() *types.Hash {
+	var source []byte
+
+	// Nonce
+	for _, vmLog := range vll {
+		for _, topic := range vmLog.Topics {
+			source = append(source, topic.Bytes()...)
+		}
+		source = append(source, vmLog.Data...)
+	}
+
+	hash, _ := types.BytesToHash(crypto.Hash256(source))
+	return &hash
 }
 
 func (vll VmLogList) Proto() *vitepb.VmLogList {

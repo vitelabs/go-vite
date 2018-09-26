@@ -14,7 +14,7 @@ message SnapshotBlock {
     bytes signature = 5;
 
     int64 timestamp = 6;
-    bytes snapshotHash = 7;
+    bytes stateHash = 7;
 
     SnapshotContent snapshotContent = 8;
 }
