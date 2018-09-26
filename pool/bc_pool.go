@@ -697,7 +697,7 @@ func (self *BCPool) loopGenSnippetChains() int {
 	//  self.chainpool.snippetChains
 	// todo why copy ?
 	sortPending := copyValuesFrom(self.blockpool.freeBlocks)
-	sort.Sort(ByHeight(sortPending)) // todo reserve
+	sort.Sort(sort.Reverse(ByHeight(sortPending)))
 
 	// todo why copy ?
 	chains := copyMap(self.chainpool.snippetChains)

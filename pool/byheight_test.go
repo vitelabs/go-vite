@@ -12,6 +12,7 @@ func TestByHeight(t *testing.T) {
 	blocks := genCommonBlocks(10)
 
 	sort.Sort(ByHeight(blocks))
+
 	for k, v := range blocks {
 		println(strconv.Itoa(k) + "::" + strconv.FormatUint(v.Height(), 10))
 	}
