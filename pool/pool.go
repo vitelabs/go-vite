@@ -96,7 +96,7 @@ type pool struct {
 	snapshotVerifier *verifier.SnapshotVerifier
 	accountVerifier  *verifier.AccountVerifier
 
-	rwMutex *sync.RWMutex
+	rwMutex sync.RWMutex
 	version *ForkVersion
 
 	closed      chan struct{}
@@ -107,15 +107,23 @@ type pool struct {
 }
 
 func (self *pool) Lock() {
-	self.pendingSc.stw()
+	self.rwMutex.Lock()
 }
 
 func (self *pool) UnLock() {
-	self.pendingSc.unStw()
+	self.rwMutex.Unlock()
+}
+
+func (self *pool) RLock() {
+	self.rwMutex.RLock()
+}
+
+func (self *pool) RUnLock() {
+	self.rwMutex.RUnlock()
 }
 
 func NewPool(bc ch.Chain) BlockPool {
-	self := &pool{bc: bc, rwMutex: &sync.RWMutex{}, version: &ForkVersion{}, accountCond: sync.NewCond(&sync.Mutex{})}
+	self := &pool{bc: bc, rwMutex: sync.RWMutex{}, version: &ForkVersion{}, accountCond: sync.NewCond(&sync.Mutex{})}
 	self.log = log15.New("module", "pool")
 	return self
 }
@@ -128,7 +136,6 @@ func (self *pool) Init(f syncer.Fetcher) {
 	snapshotPool := newSnapshotPool("snapshotPool", self.version, v, fe, rw, self.log)
 	snapshotPool.init(
 		newTools(fe, v, rw),
-		self.rwMutex,
 		self)
 
 	self.pendingSc = snapshotPool
@@ -205,8 +212,8 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 
 func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context.VmAccountBlock) error {
 	defer monitor.LogTime("pool", "addDirectAccount", time.Now())
-	self.rwMutex.RLock()
-	defer self.rwMutex.RUnlock()
+	self.RLock()
+	defer self.RUnLock()
 
 	ac := self.selfPendingAc(address)
 	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version)
@@ -235,8 +242,8 @@ func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Accou
 
 func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) error {
 	defer monitor.LogTime("pool", "addDirectAccountArr", time.Now())
-	self.rwMutex.RLock()
-	defer self.rwMutex.RUnlock()
+	self.RLock()
+	defer self.RUnLock()
 	ac := self.selfPendingAc(address)
 	// todo
 	var accountPoolBlocks []*accountPoolBlock
@@ -339,7 +346,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	v := &accountVerifier{}
 	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.log)
 
-	p.Init(newTools(f, v, rw), self.rwMutex.RLocker())
+	p.Init(newTools(f, v, rw), self)
 
 	chain, _ = self.pendingAc.LoadOrStore(addr, p)
 	return chain.(*accountPool)
@@ -522,8 +529,8 @@ func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 
 	// verify account timeout
 	if !self.pendingSc.v.verifyAccountTimeount(headSnapshot, referSnapshot) {
-		self.pendingSc.stw()
-		defer self.pendingSc.unStw()
+		self.Lock()
+		defer self.UnLock()
 		self.RollbackAccountTo(addr, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
 	}
 }

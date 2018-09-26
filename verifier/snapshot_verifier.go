@@ -15,13 +15,12 @@ import (
 )
 
 type SnapshotVerifier struct {
-	reader chain.Chain
+	reader *chain.Chain
 	cs     consensus.Verifier
 }
 
-func NewSnapshotVerifier() *SnapshotVerifier {
-	// todo add chain chain
-	verifier := &SnapshotVerifier{}
+func NewSnapshotVerifier(ch *chain.Chain, cs consensus.Verifier) *SnapshotVerifier {
+	verifier := &SnapshotVerifier{reader: ch, cs: cs}
 	return verifier
 }
 
@@ -190,7 +189,6 @@ func (self *SnapshotBlockVerifyStat) VerifyResult() VerifyResult {
 }
 
 func (self *SnapshotVerifier) newVerifyStat(b *ledger.SnapshotBlock) *SnapshotBlockVerifyStat {
-	// todo init account hashH
 	stat := &SnapshotBlockVerifyStat{result: PENDING}
 	stat.results = make(map[types.Address]VerifyResult)
 	for k := range b.SnapshotContent {

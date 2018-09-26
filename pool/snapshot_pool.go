@@ -12,7 +12,7 @@ import (
 
 type snapshotPool struct {
 	BCPool
-	rwMu *sync.RWMutex
+	//rwMu *sync.RWMutex
 	//consensus consensus.AccountsConsensus
 	closed chan struct{}
 	wg     sync.WaitGroup
@@ -63,9 +63,7 @@ func newSnapshotPool(
 
 func (self *snapshotPool) init(
 	tools *tools,
-	rwMu *sync.RWMutex,
 	pool *pool) {
-	self.rwMu = rwMu
 	//self.consensus = accountsConsensus
 	self.pool = pool
 	self.BCPool.init(self.rw, tools)
@@ -98,8 +96,8 @@ func (self *snapshotPool) checkFork() {
 
 func (self *snapshotPool) snapshotFork(longest Chain, current Chain) error {
 	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId())
-	self.rwMu.Lock()
-	defer self.rwMu.Unlock()
+	self.pool.Lock()
+	defer self.pool.RUnLock()
 	self.log.Warn("[lock]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId())
 
 	k, _, err := self.getForkPoint(longest, current)
@@ -163,16 +161,11 @@ func (self *snapshotPool) loopCheckCurrentInsert() {
 	}
 }
 
-func (self *snapshotPool) stw() {
-	self.rwMu.Lock()
-
-}
-func (self *snapshotPool) unStw() {
-	self.rwMu.Unlock()
-}
 func (self *snapshotPool) snapshotTryInsert() (*poolSnapshotVerifyStat, commonBlock) {
-	self.rwMu.RLock()
-	defer self.rwMu.RUnlock()
+	self.pool.RLock()
+	defer self.pool.RUnLock()
+	self.rMu.Lock()
+	defer self.rMu.Lock()
 
 	pool := self.chainpool
 	current := pool.current
@@ -232,8 +225,8 @@ func (self *snapshotPool) Stop() {
 }
 
 func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnapshotVerifyStat) {
-	self.rwMu.Lock()
-	defer self.rwMu.Unlock()
+	self.pool.Lock()
+	defer self.pool.UnLock()
 
 	block := b.block
 	results := stat.results
