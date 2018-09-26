@@ -5,13 +5,14 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (c *Chain) GetSubLedgerByHeight(startHeight uint64, count int, forward bool) ([]string, [][2]uint64) {
+// TODO
+func (c *chain) GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]string, [][2]uint64) {
 	beginHeight, endHeight := uint64(0), uint64(0)
 	if forward {
 		beginHeight = startHeight
-		endHeight = startHeight + uint64(count) - 1
+		endHeight = startHeight + count - 1
 	} else {
-		beginHeight = startHeight - uint64(count) + 1
+		beginHeight = startHeight - count + 1
 		endHeight = startHeight
 	}
 
@@ -35,7 +36,7 @@ func (c *Chain) GetSubLedgerByHeight(startHeight uint64, count int, forward bool
 	return fileNameList, rangeList
 }
 
-func (c *Chain) GetSubLedgerByHash(startBlockHash *types.Hash, count int, forward bool) ([]string, [][2]uint64, error) {
+func (c *chain) GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]string, [][2]uint64, error) {
 	startHeight, err := c.chainDb.Sc.GetSnapshotBlockHeight(startBlockHash)
 	if err != nil {
 		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSubLedgerByHash")
@@ -51,7 +52,7 @@ func (c *Chain) GetSubLedgerByHash(startBlockHash *types.Hash, count int, forwar
 	return fileNameList, rangeList, nil
 }
 
-func (c *Chain) GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+func (c *chain) GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
 	count := toHeight - fromHeight + 1
 	snapshotBlocks, err := c.GetSnapshotBlocksByHeight(fromHeight, count, true, true)
 	if err != nil {
@@ -68,7 +69,7 @@ func (c *Chain) GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledg
 	return snapshotBlocks, accountChainSubLedger, nil
 }
 
-func (c *Chain) getChainSet(queryParams map[types.Address][2]*ledger.HashHeight) (map[types.Address][]*ledger.AccountBlock, error) {
+func (c *chain) getChainSet(queryParams map[types.Address][2]*ledger.HashHeight) (map[types.Address][]*ledger.AccountBlock, error) {
 	queryResult := make(map[types.Address][]*ledger.AccountBlock)
 	for addr, params := range queryParams {
 		account, gaErr := c.chainDb.Account.GetAccountByAddress(&addr)

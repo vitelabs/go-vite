@@ -8,5 +8,5 @@ message SnapshotItem {
 }
 
 message SnapshotContent {
-     map<string, SnapshotItem> snapshot = 1;
+    map<string, SnapshotItem> content = 1;
 }

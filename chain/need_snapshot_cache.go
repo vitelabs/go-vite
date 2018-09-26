@@ -8,14 +8,14 @@ import (
 )
 
 type NeedSnapshotCache struct {
-	chain     *Chain
+	chain     *chain
 	subLedger map[types.Address][]*ledger.AccountBlock
 
 	lock sync.Mutex
 	log  log15.Logger
 }
 
-func NewNeedSnapshotContent(chain *Chain, unconfirmedSubLedger map[types.Address][]*ledger.AccountBlock) *NeedSnapshotCache {
+func NewNeedSnapshotContent(chain *chain, unconfirmedSubLedger map[types.Address][]*ledger.AccountBlock) *NeedSnapshotCache {
 	cache := &NeedSnapshotCache{
 		chain:     chain,
 		subLedger: unconfirmedSubLedger,
@@ -23,6 +23,18 @@ func NewNeedSnapshotContent(chain *Chain, unconfirmedSubLedger map[types.Address
 	}
 
 	return cache
+}
+
+func (cache *NeedSnapshotCache) GetSnapshotContent() ledger.SnapshotContent {
+	content := ledger.SnapshotContent{}
+	for addr, chain := range cache.subLedger {
+		lastBlock := chain[len(chain)-1]
+		content[addr] = &ledger.HashHeight{
+			Height: lastBlock.Height,
+			Hash:   lastBlock.Hash,
+		}
+	}
+	return content
 }
 
 func (cache *NeedSnapshotCache) Get(addr *types.Address) []*ledger.AccountBlock {

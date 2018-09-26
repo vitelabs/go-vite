@@ -1,6 +1,7 @@
 package access
 
 import (
+	"encoding/binary"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -15,6 +16,11 @@ func getAccountBlockHash(dbKey []byte) *types.Hash {
 	hashBytes := dbKey[17:]
 	hash, _ := types.BytesToHash(hashBytes)
 	return &hash
+}
+
+func getAccountBlockHeight(dbKey []byte) uint64 {
+	heightBytes := dbKey[9:17]
+	return binary.BigEndian.Uint64(heightBytes)
 }
 
 type AccountChain struct {
@@ -78,8 +84,8 @@ func (ac *AccountChain) GetHashByHeight(accountId uint64, height uint64) (*types
 
 }
 
-func (ac *AccountChain) GetAbHashList(accountId uint64, height uint64, count, step int, forward bool) []*types.Hash {
-	hashList := make([]*types.Hash, 0)
+func (ac *AccountChain) GetAbHashList(accountId uint64, height, count, step uint64, forward bool) []*ledger.HashHeight {
+	hashList := make([]*ledger.HashHeight, 0)
 	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, height)
 	iter := ac.db.NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
@@ -90,8 +96,8 @@ func (ac *AccountChain) GetAbHashList(accountId uint64, height uint64, count, st
 		iter.Prev()
 	}
 
-	for j := 0; j < count; j++ {
-		for i := 0; i < step; i++ {
+	for j := uint64(0); j < count; j++ {
+		for i := uint64(0); i < step; i++ {
 			var ok bool
 			if forward {
 				ok = iter.Next()
@@ -103,7 +109,10 @@ func (ac *AccountChain) GetAbHashList(accountId uint64, height uint64, count, st
 				return hashList
 			}
 		}
-		hashList = append(hashList, getAccountBlockHash(iter.Key()))
+		hashList = append(hashList, &ledger.HashHeight{
+			Hash:   *getAccountBlockHash(iter.Key()),
+			Height: getAccountBlockHeight(iter.Key()),
+		})
 	}
 	return hashList
 }
@@ -224,8 +233,8 @@ func (ac *AccountChain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList,
 		return nil, nil
 	}
 
-	vmLogList := ledger.VmLogList{}
-	if dErr := vmLogList.Deserialize(data); dErr != nil {
+	vmLogList, dErr := ledger.VmLogListDeserialize(data)
+	if dErr != nil {
 		return nil, err
 	}
 
@@ -506,6 +515,7 @@ func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64
 					})
 				}
 			}
+
 			if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 				iter.Release()
 				return nil, nil, err
@@ -608,7 +618,6 @@ func (ac *AccountChain) GetConfirmAccountBlock(snapshotHeight uint64, accountId 
 	return nil, nil
 }
 
-// TODO
 func (ac *AccountChain) GetUnConfirmAccountBlockBeforeSbHeight(snapshotHeight uint64, accountId uint64) (*ledger.AccountBlock, error) {
 	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId)
 

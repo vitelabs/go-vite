@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-type Chain struct {
+type chain struct {
 	log        log15.Logger
 	chainDb    *chain_db.ChainDb
 	compressor *compress.Compressor
@@ -31,8 +31,8 @@ type Chain struct {
 	em *eventManager
 }
 
-func NewChain(cfg *config.Config) *Chain {
-	chain := &Chain{
+func NewChain(cfg *config.Config) Chain {
+	chain := &chain{
 		log:                  log15.New("module", "chain"),
 		genesisSnapshotBlock: ledger.GetGenesisSnapshotBlock(),
 		dataDir:              cfg.DataDir,
@@ -41,7 +41,7 @@ func NewChain(cfg *config.Config) *Chain {
 	return chain
 }
 
-func (c *Chain) Init() {
+func (c *chain) Init() {
 	c.log.Info("Init chain module")
 	// stateTriePool
 	c.stateTriePool = NewStateTriePool(c)
@@ -81,15 +81,15 @@ func (c *Chain) Init() {
 	c.log.Info("Chain module initialized")
 }
 
-func (c *Chain) Compressor() *compress.Compressor {
+func (c *chain) Compressor() *compress.Compressor {
 	return c.compressor
 }
 
-func (c *Chain) ChainDb() *chain_db.ChainDb {
+func (c *chain) ChainDb() *chain_db.ChainDb {
 	return c.chainDb
 }
 
-func (c *Chain) Start() {
+func (c *chain) Start() {
 	// Start compress in the background
 	c.log.Info("Start chain module")
 
@@ -98,7 +98,7 @@ func (c *Chain) Start() {
 	c.log.Info("Chain module started")
 }
 
-func (c *Chain) Stop() {
+func (c *chain) Stop() {
 	// Stop compress
 	c.log.Info("Stop chain module")
 
@@ -107,7 +107,7 @@ func (c *Chain) Stop() {
 	c.log.Info("Chain module stopped")
 }
 
-func (c *Chain) destroy() {
+func (c *chain) destroy() {
 	c.log.Info("Destroy chain module")
 	// stateTriePool
 	c.stateTriePool = nil
