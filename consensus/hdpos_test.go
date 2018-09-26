@@ -9,6 +9,7 @@ import (
 
 	"github.com/gavv/monotime"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 )
@@ -65,7 +66,9 @@ func TestUpdate(tt *testing.T) {
 	//committee.Subscribe(&mem)
 
 	println("nano sec:" + strconv.FormatInt(time.Millisecond.Nanoseconds(), 10))
-	committee.Subscribe(types.SNAPSHOT_GID, "test", nil, func(addr types.Address, t time.Time) {
+	committee.Subscribe(types.SNAPSHOT_GID, "test", nil, func(e Event) {
+		addr := e.Address
+		t := e.Stime
 		println("addr: " + addr.Hex() +
 			"\tdiff:" + strconv.FormatInt(time.Now().Sub(t).Nanoseconds(), 10) +
 			"\ttime:" + t.String())
@@ -103,7 +106,9 @@ func TestGen(t *testing.T) {
 }
 
 func TestRemovePrevious(t *testing.T) {
-	teller := newTeller(time.Now(), 1, 4, 3, &chainRw{})
+	info := &membersInfo{genesisTime: time.Now(), memberCnt: 4, interval: 1, perCnt: 1, randCnt: 10, LowestLimit: helper.Big0}
+
+	teller := newTeller(info, &chainRw{})
 	for i := 0; i < 10; i++ {
 		teller.electionIndex(int32(i))
 	}

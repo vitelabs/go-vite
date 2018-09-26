@@ -64,6 +64,7 @@ type membersInfo struct {
 
 type memberPlan struct {
 	STime  time.Time
+	ETime  time.Time
 	Member types.Address
 }
 
@@ -85,7 +86,7 @@ func (self *membersInfo) genPlan(index int32, members []types.Address) *election
 	for _, member := range members {
 		for i := int32(0); i < self.perCnt; i++ {
 			etime := sTime.Add(time.Duration(self.interval) * time.Second)
-			plan := memberPlan{STime: sTime, Member: member}
+			plan := memberPlan{STime: sTime, ETime: etime, Member: member}
 			plans = append(plans, &plan)
 			sTime = etime
 		}

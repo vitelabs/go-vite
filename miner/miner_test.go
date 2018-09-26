@@ -1,12 +1,13 @@
 package miner
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus"
-	"github.com/vitelabs/go-vite/ledger"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type SnapshotRW struct {
@@ -30,21 +31,21 @@ func (self *SnapshotRW) funcDownloaderRegisterAuto(ch chan<- int) {
 	}()
 }
 
-func genMiner(committee *consensus.Committee) (*Miner, *SnapshotRW) {
+func genMiner(committee *consensus.committee) (*Miner, *SnapshotRW) {
 	coinbase, _ := types.HexToAddress("vite_2ad1b8f936f015fc80a2a5857dffb84b39f7675ab69ae31fc8")
 	rw := &SnapshotRW{}
 	miner := NewMiner(rw, rw.funcDownloaderRegister, coinbase, committee)
 	return miner, rw
 }
 
-func genMinerAuto(committee *consensus.Committee) (*Miner, *SnapshotRW) {
+func genMinerAuto(committee *consensus.committee) (*Miner, *SnapshotRW) {
 	coinbase, _ := types.HexToAddress("vite_2ad1b8f936f015fc80a2a5857dffb84b39f7675ab69ae31fc8")
 	rw := &SnapshotRW{}
 	miner := NewMiner(rw, rw.funcDownloaderRegisterAuto, coinbase, committee)
 	return miner, rw
 }
 
-func genCommitee() *consensus.Committee {
+func genCommitee() *consensus.committee {
 	genesisTime := time.Unix(int64(ledger.GetSnapshotGenesisBlock().Timestamp), 0)
 	committee := consensus.NewCommittee(genesisTime, 1, int32(len(consensus.DefaultMembers)))
 	return committee

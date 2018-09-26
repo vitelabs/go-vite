@@ -7,6 +7,7 @@ import (
 
 	"sync"
 
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -15,12 +16,12 @@ import (
 type subscribeEvent struct {
 	addr *types.Address
 	gid  types.Gid
-	fn   func(types.Address, time.Time)
+	fn   func(Event)
 }
 
 // update committee result
-type Committee struct {
-	types.LifecycleStatus
+type committee struct {
+	common.LifecycleStatus
 
 	genesis  time.Time
 	rw       *chainRw
@@ -36,15 +37,12 @@ type Committee struct {
 	wg sync.WaitGroup
 }
 
-func (self *Committee) Seal() error {
-	return nil
-}
-func (self *Committee) Authorize(signer types.Address, fn SignerFn) {
+func (self *committee) Authorize(signer types.Address, fn SignerFn) {
 	self.signer = signer
 	self.signerFn = fn
 }
 
-func (self *Committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
+func (self *committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
 	gid := types.SNAPSHOT_GID
 	t, ok := self.tellers.Load(gid)
 	if !ok {
@@ -58,14 +56,14 @@ func (self *Committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (boo
 
 	return self.verifyProducer(*header.Timestamp, header.Producer(), electionResult), nil
 }
-func (self *Committee) initTeller(gid types.Gid) *teller {
+func (self *committee) initTeller(gid types.Gid) *teller {
 	info := self.rw.GetMemberInfo(gid, self.genesis)
 	t := newTeller(info, self.rw)
 	self.tellers.Store(gid, t)
 	return t
 }
 
-func (self *Committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool, error) {
+func (self *committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool, error) {
 	gid := types.DELEGATE_GID
 	t, ok := self.tellers.Load(gid)
 	if !ok {
@@ -84,7 +82,7 @@ func (self *Committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool,
 	return self.verifyProducer(*header.Timestamp, header.Producer(), electionResult), nil
 }
 
-func (self *Committee) verifyProducer(t time.Time, address types.Address, result *electionResult) bool {
+func (self *committee) verifyProducer(t time.Time, address types.Address, result *electionResult) bool {
 	if result == nil {
 		return false
 	}
@@ -100,19 +98,19 @@ func (self *Committee) verifyProducer(t time.Time, address types.Address, result
 	return true
 }
 
-func NewCommittee(genesisTime time.Time, interval int32, memberCnt int32, perCnt int32, rw *chainRw) *Committee {
-	committee := &Committee{rw: rw, genesis: genesisTime}
+func NewCommittee(genesisTime time.Time, interval int32, memberCnt int32, perCnt int32, rw *chainRw) *committee {
+	committee := &committee{rw: rw, genesis: genesisTime}
 	return committee
 }
 
-func (self *Committee) Init() {
+func (self *committee) Init() {
 	self.PreInit()
 	defer self.PostInit()
 	self.snapshot = self.initTeller(types.SNAPSHOT_GID)
 	self.contract = self.initTeller(types.DELEGATE_GID)
 }
 
-func (self *Committee) Start() {
+func (self *committee) Start() {
 	self.PreStart()
 	defer self.PostStart()
 
@@ -125,13 +123,13 @@ func (self *Committee) Start() {
 	go self.update(self.contract, contractSubs.(*sync.Map))
 }
 
-func (self *Committee) Stop() {
+func (self *committee) Stop() {
 	self.PreStop()
 	defer self.PostStop()
 	self.wg.Wait()
 }
 
-func (self *Committee) Subscribe(gid types.Gid, id string, addr *types.Address, fn func(addr types.Address, time time.Time)) {
+func (self *committee) Subscribe(gid types.Gid, id string, addr *types.Address, fn func(Event)) {
 	value, ok := self.subscribes.Load(gid)
 	if !ok {
 		value, _ = self.subscribes.LoadOrStore(gid, &sync.Map{})
@@ -139,7 +137,7 @@ func (self *Committee) Subscribe(gid types.Gid, id string, addr *types.Address, 
 	v := value.(*sync.Map)
 	v.Store(id, &subscribeEvent{addr: addr, fn: fn})
 }
-func (self *Committee) UnSubscribe(gid types.Gid, id string) {
+func (self *committee) UnSubscribe(gid types.Gid, id string) {
 	value, ok := self.subscribes.Load(gid)
 	if !ok {
 		return
@@ -148,7 +146,7 @@ func (self *Committee) UnSubscribe(gid types.Gid, id string) {
 	v.Delete(id)
 }
 
-func (self *Committee) update(t *teller, m *sync.Map) {
+func (self *committee) update(t *teller, m *sync.Map) {
 	defer self.wg.Done()
 	log := log15.New("module", "committee")
 
@@ -203,7 +201,7 @@ func copyMap(m *sync.Map) map[string]*subscribeEvent {
 	return result
 }
 
-func (self *Committee) event(e *subscribeEvent, result *electionResult) {
+func (self *committee) event(e *subscribeEvent, result *electionResult) {
 	self.wg.Done()
 	defer self.wg.Done()
 	if e.addr == nil {
@@ -214,7 +212,7 @@ func (self *Committee) event(e *subscribeEvent, result *electionResult) {
 	}
 }
 
-func (self *Committee) eventAll(e *subscribeEvent, result *electionResult) {
+func (self *committee) eventAll(e *subscribeEvent, result *electionResult) {
 	for _, p := range result.Plans {
 		now := time.Now()
 		sub := p.STime.Sub(now)
@@ -226,10 +224,10 @@ func (self *Committee) eventAll(e *subscribeEvent, result *electionResult) {
 			time.Sleep(sub)
 		}
 
-		e.fn(p.Member, p.STime)
+		e.fn(newConsensusEvent(result, p, e))
 	}
 }
-func (self *Committee) eventAddr(e *subscribeEvent, result *electionResult) {
+func (self *committee) eventAddr(e *subscribeEvent, result *electionResult) {
 	for _, p := range result.Plans {
 		if p.Member == *e.addr {
 			now := time.Now()
@@ -240,7 +238,19 @@ func (self *Committee) eventAddr(e *subscribeEvent, result *electionResult) {
 			if sub > time.Millisecond*10 {
 				time.Sleep(sub)
 			}
-			e.fn(p.Member, p.STime)
+			e.fn(newConsensusEvent(result, p, e))
 		}
+	}
+}
+
+func newConsensusEvent(r *electionResult, p *memberPlan, e *subscribeEvent) Event {
+	return Event{
+		Gid:            e.gid,
+		Address:        p.Member,
+		Stime:          p.STime,
+		Etime:          p.ETime,
+		Timestamp:      p.STime,
+		SnapshotHash:   r.Hash,
+		SnapshotHeight: r.Height,
 	}
 }

@@ -1,6 +1,8 @@
-package types
+package common
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 type LifecycleStatus struct {
 	Status int32 // 0:origin 1: initing 2:inited 3:starting 4:started 5:stopping 6:stopped
