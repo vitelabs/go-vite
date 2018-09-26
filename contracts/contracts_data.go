@@ -95,6 +95,7 @@ func GetPledgeQuota(db StorageDatabase, beneficial types.Address) uint64 {
 	beneficialAmount := new(VariablePledgeBeneficial)
 	err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, key))
 	if err == nil {
+		// TODO
 		return beneficialAmount.Amount.Div(beneficialAmount.Amount, quotaByPledge).Uint64()
 	}
 	return 0
