@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -108,8 +109,13 @@ func (self *committee) verifyProducer(t time.Time, address types.Address, result
 	return true
 }
 
-func NewCommittee(genesisTime time.Time, interval int32, memberCnt int32, perCnt int32, rw *chainRw) *committee {
-	committee := &committee{rw: rw, genesis: genesisTime}
+func NewCommittee(genesisTime time.Time, ch *chain.Chain) *committee {
+
+	committee := &committee{rw: &chainRw{rw: ch}, genesis: genesisTime}
+	return committee
+}
+func NewConsensus(genesisTime time.Time, ch ch) *committee {
+	committee := &committee{rw: &chainRw{rw: ch}, genesis: genesisTime}
 	return committee
 }
 
