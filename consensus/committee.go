@@ -61,14 +61,16 @@ func (self *committee) initTeller(gid types.Gid) *teller {
 	if info == nil {
 		return nil
 	}
-	t := newTeller(info, self.rw)
+	t := newTeller(info, gid, self.rw)
 	self.tellers.Store(gid, t)
 	return t
 }
 
 func (self *committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool, error) {
-	gid := types.DELEGATE_GID
-	// todo groupid ???
+	gid, err := self.getGid(header)
+	if err != nil {
+		return false, err
+	}
 	t, ok := self.tellers.Load(gid)
 	if !ok {
 		t = self.initTeller(gid)
@@ -256,6 +258,10 @@ func (self *committee) eventAddr(e *subscribeEvent, result *electionResult) {
 			e.fn(newConsensusEvent(result, p, e))
 		}
 	}
+}
+func (self *committee) getGid(block *ledger.AccountBlock) (types.Gid, error) {
+	// todo @lyd
+	return types.DELEGATE_GID, nil
 }
 
 func newConsensusEvent(r *electionResult, p *memberPlan, e *subscribeEvent) Event {

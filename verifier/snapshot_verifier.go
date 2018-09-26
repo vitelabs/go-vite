@@ -9,12 +9,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
 )
 
 type SnapshotVerifier struct {
 	reader chain.Chain
+	cs     consensus.Verifier
 }
 
 func NewSnapshotVerifier() *SnapshotVerifier {
@@ -103,7 +105,7 @@ func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, snapshotH
 }
 
 func (self *SnapshotVerifier) VerifyTimeout(nowHeight uint64, referHeight uint64) bool {
-	if nowHeight-referHeight > 60*60*24 {
+	if nowHeight-referHeight > types.AccountLimitSnapshotHeight {
 		return false
 	}
 	return true
@@ -118,6 +120,8 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 		stat.errMsg = err.Error()
 		return stat
 	}
+
+	// verify accounts exist
 	err = self.verifyAccounts(block, stat)
 	if err != nil {
 		stat.errMsg = err.Error()
@@ -129,13 +133,24 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 		}
 	}
 
+	// verify accounts timeout
 	err = self.verifyAccountsTimeout(block, stat)
 	if err != nil {
 		stat.errMsg = err.Error()
 		return stat
 	}
 
-	// todo verify producer
+	// verify producer
+	result, e := self.cs.VerifySnapshotProducer(block)
+	if e != nil {
+		stat.result = FAIL
+		stat.errMsg = e.Error()
+		return stat
+	}
+	if !result {
+		stat.result = FAIL
+		return stat
+	}
 	return stat
 }
 
