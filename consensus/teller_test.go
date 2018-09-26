@@ -8,6 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"math/rand"
+
+	"sort"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 )
@@ -102,4 +106,19 @@ func mockAddress(i int) types.Address {
 }
 func TestMockAddress(t *testing.T) {
 	println(mockAddress(21).String())
+}
+
+func TestByBalance_Len(t *testing.T) {
+	random := rand.New(rand.NewSource(2))
+	perm := random.Perm(20)
+	sort.Ints(perm)
+	for _, v := range perm {
+		println(v)
+	}
+}
+
+func TestTime(t *testing.T) {
+	sTime := time.Now()
+	etime := sTime.Add(time.Second * 20)
+	println(sTime.Unix() == etime.Unix())
 }

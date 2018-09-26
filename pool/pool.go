@@ -21,7 +21,6 @@ import (
 
 type PoolWriter interface {
 	AddSnapshotBlock(block *ledger.SnapshotBlock) error
-	AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error
 
 	AddAccountBlock(address types.Address, block *ledger.AccountBlock) error
 	// for normal account
@@ -30,10 +29,16 @@ type PoolWriter interface {
 	AddAccountBlocks(address types.Address, blocks []*ledger.AccountBlock) error
 	// for contract account
 	AddDirectAccountBlocks(address types.Address, received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) error
+}
 
+type SnapshotProducerWriter interface {
 	Lock()
 
 	UnLock()
+
+	AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error
+
+	RollbackAccountTo(addr types.Address, hash types.Hash, height uint64) error
 }
 
 type PoolReader interface {
@@ -179,8 +184,6 @@ func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) error {
 }
 
 func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
-	self.rwMutex.RLock()
-	defer self.rwMutex.RUnlock()
 	cBlock := newSnapshotPoolBlock(block, self.version)
 	err := self.pendingSc.AddDirectBlock(cBlock)
 	if err != nil {
@@ -207,7 +210,7 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 
 	ac := self.selfPendingAc(address)
 	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version)
-	err := ac.AddDirectBlock(cBlock)
+	err := ac.AddDirectBlocks(cBlock, nil)
 	if err != nil {
 		ac.f.broadcastBlock(block.AccountBlock)
 	}
@@ -280,7 +283,7 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.SnapshotContent
 
 func (self *pool) ForkAccountTo(addr types.Address, h *ledger.SnapshotContentItem) error {
 	this := self.selfPendingAc(addr)
-	err := self.rollbackAccountTo(this, h.AccountBlockHash, h.AccountBlockHeight)
+	err := self.RollbackAccountTo(addr, h.AccountBlockHash, h.AccountBlockHeight)
 
 	if err != nil {
 		return err
@@ -299,7 +302,9 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.SnapshotContentIte
 	return err
 }
 
-func (self *pool) rollbackAccountTo(p *accountPool, hash types.Hash, height uint64) error {
+func (self *pool) RollbackAccountTo(addr types.Address, hash types.Hash, height uint64) error {
+	p := self.selfPendingAc(addr)
+
 	// del some blcoks
 	snapshots, accounts, e := p.rw.delToHeight(height)
 	if e != nil {
@@ -519,9 +524,6 @@ func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 	if !self.pendingSc.v.verifyAccountTimeount(headSnapshot, referSnapshot) {
 		self.pendingSc.stw()
 		defer self.pendingSc.unStw()
-		// rollback to block
-		self.rollbackAccountTo(ac, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
-		// fork happened
-		self.version.Inc()
+		self.RollbackAccountTo(addr, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
 	}
 }

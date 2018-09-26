@@ -30,6 +30,7 @@ func newTeller(info *membersInfo, rw *chainRw) *teller {
 
 func (self *teller) voteResults(t time.Time) ([]types.Address, *ledger.HashHeight, error) {
 	// record vote
+	// todo gid ??
 	votes, hashH, err := self.rw.CalVotes(types.SNAPSHOT_GID, t)
 	if err != nil {
 		return nil, nil, err

@@ -83,6 +83,7 @@ type producer struct {
 	accountFn            func(AccountEvent)
 }
 
+// todo syncDone
 func NewProducer(rw *chain.Chain, downloaderRegister DownloaderRegister, coinbase types.Address, cs consensus.Consensus) *producer {
 	chain := newChainRw(rw)
 	miner := &producer{tools: chain, coinbase: coinbase}

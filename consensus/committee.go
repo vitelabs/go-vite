@@ -39,11 +39,6 @@ type committee struct {
 	wg sync.WaitGroup
 }
 
-func (self *committee) Authorize(signer types.Address, fn SignerFn) {
-	self.signer = signer
-	self.signerFn = fn
-}
-
 func (self *committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
 	gid := types.SNAPSHOT_GID
 	t, ok := self.tellers.Load(gid)
@@ -73,6 +68,7 @@ func (self *committee) initTeller(gid types.Gid) *teller {
 
 func (self *committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool, error) {
 	gid := types.DELEGATE_GID
+	// todo groupid ???
 	t, ok := self.tellers.Load(gid)
 	if !ok {
 		t = self.initTeller(gid)
@@ -119,11 +115,14 @@ func NewConsensus(genesisTime time.Time, ch ch) *committee {
 	return committee
 }
 
-func (self *committee) Init() {
-	self.PreInit()
+func (self *committee) Init() error {
+	if !self.PreInit() {
+		return errors.New("pre init fail.")
+	}
 	defer self.PostInit()
 	self.snapshot = self.initTeller(types.SNAPSHOT_GID)
 	self.contract = self.initTeller(types.DELEGATE_GID)
+	return nil
 }
 
 func (self *committee) Start() {
