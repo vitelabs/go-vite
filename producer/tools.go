@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
@@ -10,9 +11,10 @@ import (
 )
 
 type tools struct {
-	log  log15.Logger
-	wt   wallet.Manager
-	pool pool.PoolWriter
+	log   log15.Logger
+	wt    wallet.Manager
+	pool  pool.PoolWriter
+	chain chain.Chain
 }
 
 func (self *tools) ledgerLock() {
