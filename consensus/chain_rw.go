@@ -53,7 +53,7 @@ type Vote struct {
 	balance *big.Int
 }
 
-func (self *chainRw) CalVotes(gid types.Gid, t time.Time) ([]*Vote, *HashHeight, error) {
+func (self *chainRw) CalVotes(gid types.Gid, t time.Time) ([]*Vote, *ledger.HashHeight, error) {
 	block, e := self.GetSnapshotBlockBeforeTime(&t)
 
 	if e != nil {
@@ -81,10 +81,10 @@ func (self *chainRw) CalVotes(gid types.Gid, t time.Time) ([]*Vote, *HashHeight,
 	for _, v := range registerList {
 		_, ok := voteMap[v.Name]
 		if ok {
-			registers = append(registers, self.GenVote(head.SnapshotHash, v, votes))
+			registers = append(registers, self.GenVote(head.Hash, v, votes))
 		}
 	}
-	return registers, &HashHeight{Height: head.Height, Hash: head.Hash}, nil
+	return registers, &ledger.HashHeight{Height: head.Height, Hash: head.Hash}, nil
 }
 func (self *chainRw) GenVote(snapshotHash types.Hash, registration *contracts.Registration, infos []*contracts.VoteInfo) *Vote {
 	var addrs []types.Address

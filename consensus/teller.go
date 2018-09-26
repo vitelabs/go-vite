@@ -7,6 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/contracts"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 // Ensure that all nodes get same result
@@ -27,7 +28,7 @@ func newTeller(info *membersInfo, rw *chainRw) *teller {
 	return t
 }
 
-func (self *teller) voteResults(t time.Time) ([]types.Address, *HashHeight, error) {
+func (self *teller) voteResults(t time.Time) ([]types.Address, *ledger.HashHeight, error) {
 	// record vote
 	votes, hashH, err := self.rw.CalVotes(types.SNAPSHOT_GID, t)
 	if err != nil {
