@@ -4,7 +4,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/protos"
-	"io"
 	"io/ioutil"
 	"strconv"
 	"time"
@@ -100,25 +99,32 @@ func (s *CmdSet) Proto() *protos.CmdSet {
 
 // @section Msg
 type Msg struct {
-	CmdSet uint64
-	Cmd    uint64
-	// how many bytes in payload, used to quickly determine whether payload is valid
-	Size       uint64
-	Payload    io.Reader
+	CmdSetID   uint64
+	Cmd        uint64
+	Id         uint64 // as message context
+	Size       uint64 // how many bytes in payload, used to quickly determine whether payload is valid
+	Payload    []byte
 	ReceivedAt time.Time
 }
 
-func (msg *Msg) Discard() error {
-	_, err := io.Copy(ioutil.Discard, msg.Payload)
-	return err
+func (msg *Msg) Discard() (err error) {
+	if len(msg.Payload) != 0 {
+		_, err = ioutil.Discard.Write(msg.Payload)
+	}
+
+	return
+}
+
+func (msg *Msg) String() string {
+	return strconv.FormatUint(msg.CmdSetID, 10) + "/" + strconv.FormatUint(msg.Cmd, 10) + "/" + strconv.FormatUint(msg.Id, 10)
 }
 
 type MsgReader interface {
-	ReadMsg() (Msg, error)
+	ReadMsg() (*Msg, error)
 }
 
 type MsgWriter interface {
-	WriteMsg(Msg) error
+	WriteMsg(*Msg) error
 }
 
 type MsgReadWriter interface {
@@ -137,8 +143,6 @@ type Protocol struct {
 	Name string
 	// use for message command set, should be unique
 	ID uint64
-	// how many commands the protocol used.
-	Band uint64
 	// read and write Msg with rw
 	Handle func(p *Peer, rw MsgReadWriter) error
 }
@@ -210,32 +214,6 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 	}
 
 	hs.CmdSets = cmdsets
-
-	return nil
-}
-
-// @section topo
-type Topo struct {
-	Pivot string
-	Peers []string
-}
-
-func (t *Topo) Serialize() ([]byte, error) {
-	return proto.Marshal(&protos.Topo{
-		Pivot: t.Pivot,
-		Peers: t.Peers,
-	})
-}
-
-func (t *Topo) Deserialize(buf []byte) error {
-	pb := new(protos.Topo)
-	err := proto.Unmarshal(buf, pb)
-	if err != nil {
-		return err
-	}
-
-	t.Pivot = pb.Pivot
-	t.Peers = pb.Peers
 
 	return nil
 }

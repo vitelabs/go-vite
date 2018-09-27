@@ -26,6 +26,7 @@ const (
 	DiscUnexpectedIdentity
 	DiscSelf
 	DiscReadTimeout
+	DiscResponseTimeout
 	DiscSubprotocolError = 0x10
 )
 
@@ -43,6 +44,7 @@ var discReasonStr = [...]string{
 	DiscUnexpectedIdentity:  "unexpected identity",
 	DiscSelf:                "connected to self",
 	DiscReadTimeout:         "read timeout",
+	DiscResponseTimeout:     "waite response timeout",
 	DiscSubprotocolError:    "subprotocol error",
 }
 
@@ -86,7 +88,7 @@ func DeserializeDiscReason(buf []byte) (DiscReason, error) {
 		return DiscReason(r64), nil
 	}
 
-	return 0, fmt.Errorf("unknown disconnect reason %d\n", r64)
+	return 0, fmt.Errorf("unknown disconnect reason %d", r64)
 }
 
 func ReadDiscReason(r io.Reader) (DiscReason, error) {
