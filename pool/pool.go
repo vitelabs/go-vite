@@ -273,34 +273,34 @@ func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 	return nil
 }
 
-func (self *pool) PendingAccountTo(addr types.Address, h *ledger.SnapshotContentItem) error {
+func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) error {
 	this := self.selfPendingAc(addr)
 
-	targetChain := this.findInTree(h.AccountBlockHash, h.AccountBlockHeight)
+	targetChain := this.findInTree(h.Hash, h.Height)
 	if targetChain != nil {
 		this.CurrentModifyToChain(targetChain)
 		return nil
 	}
-	inPool := this.findInPool(h.AccountBlockHash, h.AccountBlockHeight)
+	inPool := this.findInPool(h.Hash, h.Height)
 	if !inPool {
-		this.f.fetch(ledger.HashHeight{Hash: h.AccountBlockHash, Height: h.AccountBlockHeight}, 5)
+		this.f.fetch(ledger.HashHeight{Hash: h.Hash, Height: h.Height}, 5)
 	}
 	return nil
 }
 
-func (self *pool) ForkAccountTo(addr types.Address, h *ledger.SnapshotContentItem) error {
+func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
 	this := self.selfPendingAc(addr)
-	err := self.RollbackAccountTo(addr, h.AccountBlockHash, h.AccountBlockHeight)
+	err := self.RollbackAccountTo(addr, h.Hash, h.Height)
 
 	if err != nil {
 		return err
 	}
 	// find in tree
-	targetChain := this.findInTree(h.AccountBlockHash, h.AccountBlockHeight)
+	targetChain := this.findInTree(h.Hash, h.Height)
 
 	if targetChain == nil {
-		cnt := h.AccountBlockHeight - this.chainpool.diskChain.Head().Height()
-		this.f.fetch(ledger.HashHeight{Height: h.AccountBlockHeight, Hash: h.AccountBlockHash}, cnt)
+		cnt := h.Height - this.chainpool.diskChain.Head().Height()
+		this.f.fetch(ledger.HashHeight{Height: h.Height, Hash: h.Hash}, cnt)
 		err = this.CurrentModifyToEmpty()
 	} else {
 		err = this.CurrentModifyToChain(targetChain)

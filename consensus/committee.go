@@ -107,7 +107,7 @@ func (self *committee) verifyProducer(t time.Time, address types.Address, result
 	return true
 }
 
-func NewCommittee(genesisTime time.Time, ch *chain.Chain) *committee {
+func NewCommittee(genesisTime time.Time, ch chain.Chain) *committee {
 
 	committee := &committee{rw: &chainRw{rw: ch}, genesis: genesisTime}
 	return committee

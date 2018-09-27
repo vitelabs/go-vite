@@ -15,11 +15,11 @@ import (
 )
 
 type SnapshotVerifier struct {
-	reader *chain.Chain
+	reader chain.Chain
 	cs     consensus.Verifier
 }
 
-func NewSnapshotVerifier(ch *chain.Chain, cs consensus.Verifier) *SnapshotVerifier {
+func NewSnapshotVerifier(ch chain.Chain, cs consensus.Verifier) *SnapshotVerifier {
 	verifier := &SnapshotVerifier{reader: ch, cs: cs}
 	return verifier
 }
@@ -40,19 +40,19 @@ func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *Snap
 func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, stat *SnapshotBlockVerifyStat) error {
 	defer monitor.LogTime("verify", "snapshotAccounts", time.Now())
 	for addr, b := range block.SnapshotContent {
-		hash, e := self.reader.GetAccountBlockHashByHeight(&addr, b.AccountBlockHeight)
+		hash, e := self.reader.GetAccountBlockHashByHeight(&addr, b.Height)
 		if e != nil {
 			return e
 		}
 		if hash == nil {
 			stat.results[addr] = PENDING
-		} else if *hash == b.AccountBlockHash {
+		} else if *hash == b.Hash {
 			stat.results[addr] = SUCCESS
 		} else {
 			stat.results[addr] = FAIL
 			stat.result = FAIL
 			return errors.New(fmt.Sprintf("account[%s] fork, height:[%d], hash:[%s]",
-				addr.String(), b.AccountBlockHeight, b.AccountBlockHash))
+				addr.String(), b.Height, b.Hash))
 		}
 	}
 	return nil
