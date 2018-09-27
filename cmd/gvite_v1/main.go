@@ -11,9 +11,6 @@ import (
 )
 
 // gvite is the official command-line client for Vite
-const (
-	ClientIdentifier = "gvite"
-)
 
 var (
 	app = utils.NewApp()

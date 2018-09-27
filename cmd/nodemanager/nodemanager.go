@@ -12,6 +12,10 @@ import (
 	"syscall"
 )
 
+const (
+	ClientIdentifier = "gvite"
+)
+
 type NodeManager struct {
 	ctx    *cli.Context
 	node   *node.Node
