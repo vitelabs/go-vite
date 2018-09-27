@@ -133,7 +133,7 @@ func (self *pool) Init(s syncer) {
 	v := &snapshotVerifier{}
 	snapshotPool := newSnapshotPool("snapshotPool", self.version, v, fe, rw, self.log)
 	snapshotPool.init(
-		newTools(fe, v, rw),
+		newTools(fe, rw),
 		self)
 
 	self.pendingSc = snapshotPool

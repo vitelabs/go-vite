@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -250,5 +251,30 @@ func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSn
 		if result == verifier.PENDING {
 			self.pool.PendingAccountTo(k, account)
 		}
+	}
+}
+
+func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) error {
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
+
+	stat := self.v.verifySnapshot(block)
+	result := stat.verifyResult()
+	switch result {
+	case verifier.PENDING:
+		return errors.New("pending for something")
+	case verifier.FAIL:
+		return errors.New(stat.errMsg())
+	case verifier.SUCCESS:
+		err := self.chainpool.diskChain.rw.insertBlock(block)
+		if err != nil {
+			return err
+		}
+		head := self.chainpool.diskChain.Head()
+		self.chainpool.insertNotify(head)
+		return nil
+	default:
+		self.log.Crit("verify unexpected.")
+		return errors.New("verify unexpected")
 	}
 }

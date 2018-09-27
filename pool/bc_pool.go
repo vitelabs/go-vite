@@ -15,7 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/verifier"
 )
 
 type Chain interface {
@@ -733,30 +732,7 @@ func (self *BCPool) loopGenSnippetChains() int {
 	self.chainpool.snippetChains = final
 	return i
 }
-func (self *BCPool) AddDirectBlock(block commonBlock) error {
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
 
-	stat := self.tools.verifier.verify(block)
-	result := stat.verifyResult()
-	switch result {
-	case verifier.PENDING:
-		return errors.New("pending for something")
-	case verifier.FAIL:
-		return errors.New(stat.errMsg())
-	case verifier.SUCCESS:
-		err := self.chainpool.diskChain.rw.insertBlock(block)
-		if err != nil {
-			return err
-		}
-		head := self.chainpool.diskChain.Head()
-		self.chainpool.insertNotify(head)
-		return nil
-	default:
-		self.log.Crit("verify unexpected.")
-		return errors.New("verify unexpected")
-	}
-}
 func (self *BCPool) loopAppendChains() int {
 	if len(self.chainpool.snippetChains) == 0 {
 		return 0

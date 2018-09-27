@@ -188,6 +188,10 @@ func (self *SnapshotBlockVerifyStat) VerifyResult() VerifyResult {
 	return self.result
 }
 
+func (self *SnapshotBlockVerifyStat) Results() map[types.Address]VerifyResult {
+	return self.results
+}
+
 func (self *SnapshotVerifier) newVerifyStat(b *ledger.SnapshotBlock) *SnapshotBlockVerifyStat {
 	stat := &SnapshotBlockVerifyStat{result: PENDING}
 	stat.results = make(map[types.Address]VerifyResult)
