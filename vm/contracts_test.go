@@ -1188,8 +1188,8 @@ func TestGenesisBlockData(t *testing.T) {
 		time.Now().Unix()+createConsensusGroupPledgeTime)
 	commonConsensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
-		int64(1),
 		int64(3),
+		int64(1),
 		uint8(2),
 		uint8(50),
 		ledger.ViteTokenId,

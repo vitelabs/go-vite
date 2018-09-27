@@ -17,6 +17,7 @@ const (
 
 var publicKey, _ = hex.DecodeString("3af9a47a11140c681c2b2a85a4ce987fab0692589b2ce233bf7e174bd430177a")
 var GenesisPublicKey = ed25519.PublicKey(publicKey)
+var GenesisAccountAddress = types.PubkeyToAddress(GenesisPublicKey)
 
 type Account struct {
 	AccountAddress types.Address

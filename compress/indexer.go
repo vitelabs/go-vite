@@ -52,17 +52,17 @@ func NewIndexer(dir string) *Indexer {
 	var oErr error
 
 	indexer := &Indexer{
-		log: log15.New("module", "compressor/index"),
+		log: log15.New("module", "compressor/indexer"),
 		dir: dir,
 	}
 
 	file, oErr = os.OpenFile(indexFileName, os.O_RDWR, 0666)
-	if !os.IsExist(oErr) {
+	if os.IsNotExist(oErr) {
 		var cErr error
 		file, cErr = os.Create(indexFileName)
 
 		if cErr != nil {
-			indexer.log.Crit(cErr.Error(), "method", "NewIndexer")
+			indexer.log.Crit("Create file failed, error is "+cErr.Error(), "method", "NewIndexer")
 		}
 	}
 
@@ -78,6 +78,14 @@ func NewIndexer(dir string) *Indexer {
 	indexer.checkAndDeleteDataFile()
 
 	return indexer
+}
+
+func (indexer *Indexer) Clear() {
+	indexer.lock.Lock()
+	defer indexer.lock.Unlock()
+
+	indexer.file.Close()
+	indexer.file = nil
 }
 
 func (indexer *Indexer) getFileSize(filename string) (int64, error) {
@@ -203,10 +211,11 @@ func (indexer *Indexer) loadFromFile() (int64, error) {
 			}
 		}
 
-		if len(line) >= 0 {
-			indexer.log.Info(string(line))
+		if len(line) <= 0 {
+			break
 		}
 
+		//indexer.log.Info(string(line))
 		item, parseErr := indexer.parseLine(line)
 		if parseErr != nil {
 			indexer.log.Error("ParseLine failed, error is "+parseErr.Error(), "method", "loadFromFile")

@@ -159,8 +159,13 @@ func (ab *AccountBlock) Copy() *AccountBlock {
 
 func (ab *AccountBlock) Producer() types.Address {
 	if ab.producer == nil {
-		producer := types.PubkeyToAddress(ab.PublicKey)
-		ab.producer = &producer
+		if len(ab.PublicKey) > 0 {
+			producer := types.PubkeyToAddress(ab.PublicKey)
+			ab.producer = &producer
+		} else {
+			ab.producer = &ab.AccountAddress
+		}
+
 	}
 	return *ab.producer
 }
@@ -180,9 +185,7 @@ func (ab *AccountBlock) proto() *vitepb.AccountBlock {
 	}
 
 	pb.Quota = ab.Quota
-	if ab.Fee != nil {
-		pb.Fee = ab.Fee.Bytes()
-	}
+	pb.Fee = ab.Fee.Bytes()
 	pb.SnapshotHash = ab.SnapshotHash.Bytes()
 	pb.Data = ab.Data
 	pb.Timestamp = ab.Timestamp.UnixNano()
@@ -197,7 +200,7 @@ func (ab *AccountBlock) proto() *vitepb.AccountBlock {
 
 func (ab *AccountBlock) DbProto() *vitepb.AccountBlock {
 	pb := ab.proto()
-	if !bytes.Equal(ab.Producer().Bytes(), ab.AccountAddress.Bytes()) {
+	if len(ab.Producer()) > 0 && !bytes.Equal(ab.Producer().Bytes(), ab.AccountAddress.Bytes()) {
 		pb.PublicKey = ab.PublicKey
 	}
 
@@ -224,8 +227,9 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) {
 	if len(pb.TokenId) >= 0 {
 		ab.TokenId, _ = types.BytesToTokenTypeId(pb.TokenId)
 	}
+
+	ab.Amount = big.NewInt(0)
 	if len(pb.Amount) >= 0 {
-		ab.Amount = big.NewInt(0)
 		ab.Amount.SetBytes(pb.Amount)
 	}
 
@@ -233,8 +237,9 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) {
 		ab.FromBlockHash, _ = types.BytesToHash(pb.FromBlockHash)
 	}
 	ab.Quota = pb.Quota
+
+	ab.Fee = big.NewInt(0)
 	if len(pb.Fee) >= 0 {
-		ab.Fee = big.NewInt(0)
 		ab.Fee.SetBytes(pb.Fee)
 	}
 
@@ -353,20 +358,4 @@ func (ab *AccountBlock) IsSendBlock() bool {
 
 func (ab *AccountBlock) IsReceiveBlock() bool {
 	return ab.BlockType == BlockTypeReceive || ab.BlockType == BlockTypeReceiveError
-}
-
-func GenesesMintageBlock() *AccountBlock {
-	return nil
-}
-
-func GenesesMintageReceiveBlock() *AccountBlock {
-	return nil
-}
-
-func GenesesCreateGroupBlock() *AccountBlock {
-	return nil
-}
-
-func GenesesCreateGroupReceiveBlock() *AccountBlock {
-	return nil
 }

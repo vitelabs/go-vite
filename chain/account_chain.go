@@ -5,6 +5,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
@@ -24,26 +25,33 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	var account *ledger.Account
 
 	// Write vmContext
+	var publicKey ed25519.PublicKey
 	for _, vmAccountBlock := range vmAccountBlocks {
 		accountBlock := vmAccountBlock.AccountBlock
-		vmContext := vmAccountBlock.VmContext
 
-		if vmContext != nil {
-			unsavedCache := vmContext.UnsavedCache()
-			// Save trie
-			if callback, saveTrieErr := unsavedCache.Trie().Save(batch); saveTrieErr != nil {
-				c.log.Error("SaveTrie failed, error is "+saveTrieErr.Error(), "method", "InsertAccountBlocks")
-				return saveTrieErr
-			} else {
-				trieSaveCallback = append(trieSaveCallback, callback)
+		if len(publicKey) > 0 {
+			if len(accountBlock.PublicKey) <= 0 {
+				accountBlock.PublicKey = publicKey
 			}
+		} else {
+			publicKey = accountBlock.PublicKey
+		}
 
-			// Save log list
-			if logList := unsavedCache.LogList(); len(logList) > 0 {
-				if err := c.chainDb.Ac.WriteVmLogList(batch, logList); err != nil {
-					c.log.Error("WriteVmLogList failed, error is "+err.Error(), "method", "InsertAccountBlocks")
-					return err
-				}
+		vmContext := vmAccountBlock.VmContext
+		unsavedCache := vmContext.UnsavedCache()
+		// Save trie
+		if callback, saveTrieErr := unsavedCache.Trie().Save(batch); saveTrieErr != nil {
+			c.log.Error("SaveTrie failed, error is "+saveTrieErr.Error(), "method", "InsertAccountBlocks")
+			return saveTrieErr
+		} else {
+			trieSaveCallback = append(trieSaveCallback, callback)
+		}
+
+		// Save log list
+		if logList := unsavedCache.LogList(); len(logList) > 0 {
+			if err := c.chainDb.Ac.WriteVmLogList(batch, logList); err != nil {
+				c.log.Error("WriteVmLogList failed, error is "+err.Error(), "method", "InsertAccountBlocks")
+				return err
 			}
 		}
 
@@ -65,9 +73,10 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 					return newAccountIdErr
 				}
 
-				if err := c.createAccount(batch, accountId, &accountBlock.AccountAddress, accountBlock.PublicKey); err != nil {
-					c.log.Error("createAccount failed, error is "+getErr.Error(), "method", "InsertAccountBlocks")
-					return err
+				var caErr error
+				if account, caErr = c.createAccount(batch, accountId, &accountBlock.AccountAddress, accountBlock.PublicKey); caErr != nil {
+					c.log.Error("createAccount failed, error is "+caErr.Error(), "method", "InsertAccountBlocks")
+					return caErr
 				}
 			}
 
@@ -104,11 +113,13 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 				c.log.Error("GetBlockMeta failed, error is "+getBlockMetaErr.Error(), "method", "InsertAccountBlocks")
 			}
 
-			sendBlockMeta.ReceiveBlockHeights = append(sendBlockMeta.ReceiveBlockHeights, accountBlock.Height)
-			saveSendBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.Hash, sendBlockMeta)
-			if saveSendBlockMetaErr != nil {
-				c.log.Error("WriteSendBlockMeta failed, error is "+saveSendBlockMetaErr.Error(), "method", "InsertAccountBlocks")
-				return saveSendBlockMetaErr
+			if sendBlockMeta != nil {
+				sendBlockMeta.ReceiveBlockHeights = append(sendBlockMeta.ReceiveBlockHeights, accountBlock.Height)
+				saveSendBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.Hash, sendBlockMeta)
+				if saveSendBlockMetaErr != nil {
+					c.log.Error("WriteSendBlockMeta failed, error is "+saveSendBlockMetaErr.Error(), "method", "InsertAccountBlocks")
+					return saveSendBlockMetaErr
+				}
 			}
 		}
 
@@ -132,7 +143,9 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	lastVmAccountBlock := vmAccountBlocks[len(vmAccountBlocks)-1]
 
 	// Set needSnapshotCache
-	c.needSnapshotCache.Add(&account.AccountAddress, lastVmAccountBlock.AccountBlock)
+	if c.needSnapshotCache != nil {
+		c.needSnapshotCache.Add(&account.AccountAddress, lastVmAccountBlock.AccountBlock)
+	}
 
 	// Set stateTriePool
 	c.stateTriePool.Set(&lastVmAccountBlock.AccountBlock.AccountAddress, lastVmAccountBlock.VmContext.UnsavedCache().Trie())
@@ -318,6 +331,8 @@ func (c *chain) GetAccountBlockHashByHeight(addr *types.Address, height uint64) 
 	}
 	return hash, nil
 }
+
+// TODO GetAccountBlockByHeight
 
 func (c *chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
 	block, err := c.chainDb.Ac.GetBlock(blockHash)

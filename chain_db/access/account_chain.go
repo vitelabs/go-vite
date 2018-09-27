@@ -209,8 +209,8 @@ func (ac *AccountChain) GetBlockMeta(blockHash *types.Hash) (*ledger.AccountBloc
 	}
 	blockMetaBytes, err := ac.db.Get(key, nil)
 	if err != nil {
-		if err != leveldb.ErrNotFound {
-			return nil, err
+		if err == leveldb.ErrNotFound {
+			return nil, nil
 		}
 		return nil, err
 	}

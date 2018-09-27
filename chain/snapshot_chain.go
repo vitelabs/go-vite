@@ -42,9 +42,10 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 			return newAccountIdErr
 		}
 
-		if err := c.createAccount(batch, accountId, &address, snapshotBlock.PublicKey); err != nil {
-			c.log.Error("createAccount failed, error is "+getErr.Error(), "method", "InsertSnapshotBlock")
-			return err
+		var caErr error
+		if account, caErr = c.createAccount(batch, accountId, &address, snapshotBlock.PublicKey); caErr != nil {
+			c.log.Error("createAccount failed, error is "+caErr.Error(), "method", "InsertSnapshotBlock")
+			return caErr
 		}
 	}
 
