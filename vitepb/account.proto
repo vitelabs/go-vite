@@ -3,12 +3,6 @@ syntax = "proto3";
 package vitepb;
 
 message Account {
-    bytes accountId = 1;
-    repeated AccountSimpleToken tokenList = 2;
-    bytes publicKey = 3;
-}
-
-message AccountSimpleToken {
-    bytes tokenId = 1;
-    bytes lastAccountBlockHeight = 2;
+    uint64 accountId = 1;
+    bytes publicKey = 2;
 }

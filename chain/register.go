@@ -36,6 +36,7 @@ type eventManager struct {
 func newEventManager() *eventManager {
 	return &eventManager{
 		eventListener: make(map[uint8][]*listener),
+
 		maxListenerId: 0,
 	}
 }
@@ -83,22 +84,22 @@ func (em *eventManager) unRegister(listenerId uint64) {
 	}
 }
 
-func (c *Chain) UnRegister(listenerId uint64) {
+func (c *chain) UnRegister(listenerId uint64) {
 	c.em.unRegister(listenerId)
 }
 
-func (c *Chain) RegisterInsertAccountBlocks(processor insertProcessorFunc) uint64 {
+func (c *chain) RegisterInsertAccountBlocks(processor insertProcessorFunc) uint64 {
 	return c.em.register(InsertAccountBlocksEvent, processor)
 }
 
-func (c *Chain) RegisterInsertAccountBlocksSuccess(processor insertProcessorFuncSuccess) uint64 {
+func (c *chain) RegisterInsertAccountBlocksSuccess(processor insertProcessorFuncSuccess) uint64 {
 	return c.em.register(InsertAccountBlocksSuccessEvent, processor)
 }
 
-func (c *Chain) RegisterDeleteAccountBlocks(processor deleteProcessorFunc) uint64 {
+func (c *chain) RegisterDeleteAccountBlocks(processor deleteProcessorFunc) uint64 {
 	return c.em.register(DeleteAccountBlocksEvent, processor)
 }
 
-func (c *Chain) RegisterDeleteAccountBlocksSuccess(processor deleteProcessorFuncSuccess) uint64 {
+func (c *chain) RegisterDeleteAccountBlocksSuccess(processor deleteProcessorFuncSuccess) uint64 {
 	return c.em.register(DeleteAccountBlocksSuccessEvent, processor)
 }

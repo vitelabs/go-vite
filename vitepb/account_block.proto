@@ -28,7 +28,7 @@ message AccountBlock {
 
     bytes data = 14;
 
-    uint64 timestamp = 15;
+    int64 timestamp = 15;
 
     bytes StateHash = 16;
 

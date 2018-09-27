@@ -1,13 +1,25 @@
 package chain
 
 import (
+	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/trie"
 	"time"
 )
 
-func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
+// TODO
+func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) *trie.Trie {
+	return nil
+}
+
+func (c *chain) GetNeedSnapshotContent() ledger.SnapshotContent {
+	return c.needSnapshotCache.GetSnapshotContent()
+}
+
+// TODO save trie
+func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	batch := new(leveldb.Batch)
 
 	// Check and create account
@@ -44,14 +56,14 @@ func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 
 	// Save snapshot content
 	for _, accountBlockHashHeight := range snapshotBlock.SnapshotContent {
-		accountBlockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(&accountBlockHashHeight.AccountBlockHash)
+		accountBlockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(&accountBlockHashHeight.Hash)
 		if blockMetaErr != nil {
 			c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "InsertSnapshotBlock")
 			return blockMetaErr
 		}
 
 		accountBlockMeta.SnapshotHeight = snapshotBlock.Height
-		if saveSendBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlockHashHeight.AccountBlockHash, accountBlockMeta); saveSendBlockMetaErr != nil {
+		if saveSendBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlockHashHeight.Hash, accountBlockMeta); saveSendBlockMetaErr != nil {
 			c.log.Error("SaveBlockMeta failed, error is "+saveSendBlockMetaErr.Error(), "method", "InsertSnapshotBlock")
 			return blockMetaErr
 		}
@@ -75,12 +87,12 @@ func (c *Chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	c.latestSnapshotBlock = snapshotBlock
 	// Delete needSnapshotCache
 	for addr, item := range snapshotBlock.SnapshotContent {
-		c.needSnapshotCache.Remove(&addr, item.AccountBlockHeight)
+		c.needSnapshotCache.Remove(&addr, item.Height)
 	}
 
 	return nil
 }
-func (c *Chain) GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
+func (c *chain) GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
 	block, gsErr := c.GetSnapshotBlockByHash(originBlockHash)
 	if gsErr != nil {
 		c.log.Error("GetSnapshotBlockByHash failed, error is "+gsErr.Error(), "method", "GetSnapshotBlocksByHash")
@@ -93,7 +105,7 @@ func (c *Chain) GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint6
 	return c.GetSnapshotBlocksByHeight(block.Height, count, forward, containSnapshotContent)
 }
 
-func (c *Chain) GetSnapshotBlocksByHeight(height uint64, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
+func (c *chain) GetSnapshotBlocksByHeight(height uint64, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
 	blocks, gErr := c.chainDb.Sc.GetSnapshotBlocks(height, count, forward, containSnapshotContent)
 	if gErr != nil {
 		c.log.Error("GetSnapshotBlocks failed, error is "+gErr.Error(), "method", "GetSnapshotBlocksByHeight")
@@ -102,8 +114,8 @@ func (c *Chain) GetSnapshotBlocksByHeight(height uint64, count uint64, forward, 
 	return blocks, gErr
 }
 
-func (c *Chain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
-	block, gsbErr := c.chainDb.Sc.GetSnapshotBlock(height)
+func (c *chain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	block, gsbErr := c.chainDb.Sc.GetSnapshotBlock(height, true)
 	if gsbErr != nil {
 		c.log.Error("GetSnapshotBlock failed, error is "+gsbErr.Error(), "method", "GetSnapshotBlockByHeight")
 		return nil, gsbErr
@@ -122,7 +134,7 @@ func (c *Chain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, 
 	return block, nil
 }
 
-func (c *Chain) GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error) {
+func (c *chain) GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error) {
 	height, err := c.chainDb.Sc.GetSnapshotBlockHeight(hash)
 	if err != nil {
 		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSnapshotBlockByHash")
@@ -135,15 +147,15 @@ func (c *Chain) GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock,
 	return c.GetSnapshotBlockByHeight(height)
 }
 
-func (c *Chain) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
+func (c *chain) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 	return c.latestSnapshotBlock
 }
 
-func (c *Chain) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
+func (c *chain) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 	return c.genesisSnapshotBlock
 }
 
-func (c *Chain) GetSbHashList(originBlockHash *types.Hash, count, step int, forward bool) ([]*types.Hash, error) {
+func (c *chain) GetSbHashList(originBlockHash *types.Hash, count, step int, forward bool) ([]*types.Hash, error) {
 	height, err := c.chainDb.Sc.GetSnapshotBlockHeight(originBlockHash)
 	if err != nil {
 		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSbHashList")
@@ -160,7 +172,7 @@ func (c *Chain) GetSbHashList(originBlockHash *types.Hash, count, step int, forw
 	return c.chainDb.Sc.GetSbHashList(height, count, step, forward), nil
 }
 
-func (c *Chain) GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotBlock, error) {
+func (c *chain) GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotBlock, error) {
 	height, ghErr := c.chainDb.Ac.GetConfirmHeight(accountBlockHash)
 	if ghErr != nil {
 		c.log.Error("GetConfirmHeight failed, error is "+ghErr.Error(), "method", "GetConfirmBlock")
@@ -170,7 +182,7 @@ func (c *Chain) GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotB
 		}
 	}
 
-	snapshotBlock, gsErr := c.chainDb.Sc.GetSnapshotBlock(height)
+	snapshotBlock, gsErr := c.chainDb.Sc.GetSnapshotBlock(height, true)
 	if gsErr != nil {
 		c.log.Error("GetSnapshotBlock failed, error is "+ghErr.Error(), "method", "GetConfirmBlock")
 		return nil, &types.GetError{
@@ -182,7 +194,7 @@ func (c *Chain) GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotB
 	return snapshotBlock, nil
 }
 
-func (c *Chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
+func (c *chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 	height, ghErr := c.chainDb.Ac.GetConfirmHeight(accountBlockHash)
 	if ghErr != nil {
 		c.log.Error("GetConfirmHeight failed, error is "+ghErr.Error(), "method", "GetConfirmTimes")
@@ -199,13 +211,63 @@ func (c *Chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 	return c.GetLatestSnapshotBlock().Height - height + 1, nil
 }
 
-// TODO
-func (c *Chain) GetSnapshotBlockBeforeTime(time *time.Time) (*ledger.SnapshotBlock, error) {
+func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error) {
+	latestBlock := c.GetLatestSnapshotBlock()
+	genesisBlock := c.GetGenesisSnapshotBlock()
+	if latestBlock.Timestamp.Before(*blockCreatedTime) {
+		return latestBlock, nil
+	}
 
-	return nil, nil
+	if genesisBlock.Timestamp.After(*blockCreatedTime) {
+		return nil, nil
+	}
+
+	blockCreatedUnixTime := blockCreatedTime.Unix()
+
+	start := genesisBlock
+	end := latestBlock
+
+	for {
+		if end.Height-start.Height <= 1 {
+			var err error
+			start.SnapshotContent, err = c.chainDb.Sc.GetSnapshotContent(start.Height)
+			if err != nil {
+				c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
+				return nil, err
+			}
+
+			return start, nil
+		}
+		if end.Timestamp.Before(*start.Timestamp) {
+			err := errors.New("end.Timestamp.Before(start.Timestamp)")
+			return nil, err
+		}
+
+		nextEdgeHeight := start.Height + 1
+		step := uint64(end.Timestamp.Unix()-start.Timestamp.Unix()) / (end.Height - start.Height)
+		if step != 0 {
+			startHeightGap := uint64(blockCreatedUnixTime-start.Timestamp.Unix()) / step
+			if startHeightGap != 0 {
+				nextEdgeHeight = start.Height + startHeightGap
+			}
+		}
+
+		nextEdge, err := c.chainDb.Sc.GetSnapshotBlock(nextEdgeHeight, false)
+
+		if err != nil {
+			c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
+			return nil, err
+		}
+
+		if nextEdge.Timestamp.After(*blockCreatedTime) || nextEdge.Timestamp.Equal(*blockCreatedTime) {
+			end = nextEdge
+		} else {
+			start = nextEdge
+		}
+	}
 }
 
-func (c *Chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {
+func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {
 	account, getAccountIdErr := c.chainDb.Account.GetAccountByAddress(address)
 	if getAccountIdErr != nil {
 		c.log.Error("GetAccountByAddress failed, error is "+getAccountIdErr.Error(), "method", "GetConfirmAccountBlock")
@@ -239,7 +301,8 @@ func (c *Chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Add
 	return accountBlock, nil
 }
 
-func (c *Chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+// TODO +toHeight judge
+func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
 	batch := new(leveldb.Batch)
 	snapshotBlocks, accountBlocksMap, err := c.deleteSnapshotBlocksByHeight(batch, toHeight)
 	if err != nil {
@@ -302,7 +365,7 @@ func (c *Chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, nil, triggerErr
 	}
 
-	prevSnapshotBlock, prevSnapshotBlockErr := c.chainDb.Sc.GetSnapshotBlock(snapshotBlocks[0].Height - 1)
+	prevSnapshotBlock, prevSnapshotBlockErr := c.chainDb.Sc.GetSnapshotBlock(snapshotBlocks[0].Height-1, true)
 	if prevSnapshotBlockErr != nil {
 		c.log.Error("GetSnapshotBlock failed, error is "+prevSnapshotBlockErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 		return nil, nil, prevSnapshotBlockErr
@@ -326,7 +389,7 @@ func (c *Chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	return snapshotBlocks, accountBlocksMap, nil
 }
 
-func (c *Chain) deleteSnapshotBlocksByHeight(batch *leveldb.Batch, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+func (c *chain) deleteSnapshotBlocksByHeight(batch *leveldb.Batch, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
 	maxAccountId, err := c.chainDb.Account.GetLastAccountId()
 	if err != nil {
 		c.log.Error("GetLastAccountId failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksByHeight")
@@ -372,30 +435,30 @@ func (c *Chain) deleteSnapshotBlocksByHeight(batch *leveldb.Batch, toHeight uint
 	return deleteSnapshotBlocks, subLedger, nil
 }
 
-func (c *Chain) getChainRangeSet(snapshotBlocks []*ledger.SnapshotBlock) map[types.Address][2]*ledger.HashHeight {
+func (c *chain) getChainRangeSet(snapshotBlocks []*ledger.SnapshotBlock) map[types.Address][2]*ledger.HashHeight {
 	chainRangeSet := make(map[types.Address][2]*ledger.HashHeight)
 	for _, snapshotBlock := range snapshotBlocks {
 		for addr, snapshotContent := range snapshotBlock.SnapshotContent {
-			height := snapshotContent.AccountBlockHeight
+			height := snapshotContent.Height
 			if chainRange := chainRangeSet[addr]; chainRange[0] == nil {
 				chainRangeSet[addr] = [2]*ledger.HashHeight{
 					{
-						Hash:   snapshotContent.AccountBlockHash,
-						Height: snapshotContent.AccountBlockHeight,
+						Hash:   snapshotContent.Hash,
+						Height: snapshotContent.Height,
 					}, {
-						Hash:   snapshotContent.AccountBlockHash,
-						Height: snapshotContent.AccountBlockHeight,
+						Hash:   snapshotContent.Hash,
+						Height: snapshotContent.Height,
 					},
 				}
 			} else if chainRange[0].Height > height {
 				chainRange[0] = &ledger.HashHeight{
-					Hash:   snapshotContent.AccountBlockHash,
-					Height: snapshotContent.AccountBlockHeight,
+					Hash:   snapshotContent.Hash,
+					Height: snapshotContent.Height,
 				}
 			} else if chainRange[1].Height < height {
 				chainRange[1] = &ledger.HashHeight{
-					Hash:   snapshotContent.AccountBlockHash,
-					Height: snapshotContent.AccountBlockHeight,
+					Hash:   snapshotContent.Hash,
+					Height: snapshotContent.Height,
 				}
 			}
 		}
