@@ -92,23 +92,10 @@ func (self *chainRw) GetMemberInfo(gid types.Gid, genesis time.Time) *membersInf
 				interval:    int32(v.Interval),
 				memberCnt:   int32(v.NodeCount),
 				seed:        new(big.Int).SetBytes(v.Gid.Bytes()),
-				//perCnt: ,
-				//randCnt:     new(big.Int).SetBytes(v.Gid.Bytes()).Uint64(),
-				//LowestLimit:,
+				perCnt:      int32(v.PerCount),
+				randCnt:     int32(v.RandCount),
+				randRange:   int32(v.RandRank),
 			}
-		}
-	}
-
-	if result != nil {
-		switch gid {
-		case types.SNAPSHOT_GID:
-			result.perCnt = 3
-			result.LowestLimit = big.NewInt(0)
-			break
-		case types.DELEGATE_GID:
-			result.perCnt = 1
-			result.LowestLimit = big.NewInt(0)
-			break
 		}
 	}
 	return result

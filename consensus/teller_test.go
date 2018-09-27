@@ -19,7 +19,7 @@ import (
 func TestFilterVotes(t *testing.T) {
 	info := &membersInfo{genesisTime: time.Now(), memberCnt: 25, interval: 1, perCnt: 3, randCnt: 10, LowestLimit: helper.Big0}
 
-	teller := newTeller(info, &chainRw{})
+	teller := newTeller(info, types.DELEGATE_GID, &chainRw{})
 	votes := genVotes(10)
 	testFilterVotes(t, teller, votes)
 	testFilterVotes(t, teller, genVotes(21))
@@ -31,8 +31,8 @@ func TestFilterVotes(t *testing.T) {
 }
 
 func testFilterVotes(t *testing.T, teller *teller, votes []*Vote) {
-	fVotes1 := teller.algo.filterVotes(votes)
-	fVotes2 := teller.algo.filterVotes(votes)
+	fVotes1 := teller.algo.filterVotes(votes, nil)
+	fVotes2 := teller.algo.filterVotes(votes, nil)
 
 	result := ""
 	for k, v := range fVotes1 {
@@ -48,11 +48,11 @@ func TestShuffleVotes(t *testing.T) {
 
 	info := &membersInfo{genesisTime: time.Now(), memberCnt: 25, interval: 1, perCnt: 3, randCnt: 10, LowestLimit: helper.Big0}
 
-	teller := newTeller(info, &chainRw{})
+	teller := newTeller(info, types.DELEGATE_GID, &chainRw{})
 
 	votes := genVotes(11)
-	shuffleVotes1 := teller.algo.shuffleVotes(votes)
-	shuffleVotes2 := teller.algo.shuffleVotes(votes)
+	shuffleVotes1 := teller.algo.shuffleVotes(votes, nil)
+	shuffleVotes2 := teller.algo.shuffleVotes(votes, nil)
 
 	result := ""
 	for k, v := range shuffleVotes1 {
@@ -67,7 +67,7 @@ func TestShuffleVotes(t *testing.T) {
 func TestGenPlans(t *testing.T) {
 	info := &membersInfo{genesisTime: time.Now(), memberCnt: 25, interval: 1, perCnt: 3, randCnt: 10, LowestLimit: helper.Big0}
 
-	teller := newTeller(info, &chainRw{})
+	teller := newTeller(info, types.DELEGATE_GID, &chainRw{})
 
 	votes := genVotes(20)
 	testGenPlan(t, teller, votes, 60)
@@ -76,7 +76,7 @@ func TestGenPlans(t *testing.T) {
 
 }
 func testGenPlan(t *testing.T, teller *teller, votes []*Vote, expectedCnt int) {
-	votes = teller.algo.filterVotes(votes)
+	votes = teller.algo.filterVotes(votes, nil)
 
 	plans := teller.info.genPlan(teller.info.time2Index(time.Now()), teller.convertToAddress(votes))
 	for _, v := range plans.Plans {
@@ -121,4 +121,14 @@ func TestTime(t *testing.T) {
 	sTime := time.Now()
 	etime := sTime.Add(time.Second * 20)
 	println(sTime.Unix() == etime.Unix())
+}
+
+func TestSlice(t *testing.T) {
+	perm := rand.Perm(10)
+
+	r := perm[0:5]
+
+	for _, v := range r {
+		println(v)
+	}
 }

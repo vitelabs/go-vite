@@ -47,14 +47,12 @@ func (self *algo) filterVotes(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
 	return votes
 }
 
-func (self *algo) filterSimple(votes []*Vote, info *membersInfo) []*Vote {
-	var result []*Vote
-	for _, v := range votes {
-		if v.balance.Cmp(info.LowestLimit) < 0 {
-			continue
-		}
-		result = append(result, v)
+func (self *algo) filterSimple(votes []*Vote, info *membersInfo) (result []*Vote) {
+	if int32(len(votes)) < info.randRange {
+		return votes
 	}
+	sort.Sort(byBalance(votes))
+	result = votes[0:info.randRange]
 	return result
 
 }
