@@ -34,6 +34,13 @@ type quotaDb interface {
 	GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock
 }
 
+func GetPledgeQuota(db quotaDb, beneficial types.Address) uint64 {
+	// TODO cache
+	// TODO benchmark
+	quotaTotal, _ := CalcQuota(db, beneficial, false)
+	return quotaTotal
+}
+
 func CalcQuota(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
 	// quotaInit = (pledge amount of account address at current snapshot status / quotaByPledge)
 	// 				* snapshot height gap between current block and prevBlock

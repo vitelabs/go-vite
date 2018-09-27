@@ -518,14 +518,18 @@ type Fetcher interface {
 	FetchAccountBlocks(start types.Hash, count uint64, address types.Address)
 }
 
+type SnapshotBlockCallback func(block *ledger.SnapshotBlock)
+type AccountblockCallback func(addr types.Address, block *ledger.AccountBlock)
+type SyncStateCallback func(SyncState)
+
 type Subscriber interface {
-	SubscribeAccountBlock(fn func(block *ledger.AccountBlock)) (subId int)
+	SubscribeAccountBlock(fn AccountblockCallback) (subId int)
 	UnsubscribeAccountBlock(subId int)
 
-	SubscribeSnapshotBlock(fn func(block *ledger.SnapshotBlock)) (subId int)
+	SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int)
 	UnsubscribeSnapshotBlock(subId int)
 
-	SubscribeSyncStatus(fn func(SyncState)) (subId int)
+	SubscribeSyncStatus(fn SyncStateCallback) (subId int)
 	UnsubscribeSyncStatus(subId int)
 }
 
@@ -576,7 +580,7 @@ func (n *Net) FetchAccountBlocks(start types.Hash, count uint64, address types.A
 	//n.pool.add(req)
 }
 
-func (n *Net) SubscribeAccountBlock(fn func(block *ledger.AccountBlock)) (subId int) {
+func (n *Net) SubscribeAccountBlock(fn func(addr types.Address, block *ledger.AccountBlock)) (subId int) {
 	return n.accountFeed.Sub(fn)
 }
 

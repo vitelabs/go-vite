@@ -701,6 +701,10 @@ func (p *pCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock,
 		gid,
 		param.NodeCount,
 		param.Interval,
+		param.PerCount,
+		param.RandCount,
+		param.RandRank,
+		param.CountingTokenId,
 		param.RegisterConditionId,
 		param.RegisterConditionParam,
 		param.VoteConditionId,
@@ -714,7 +718,11 @@ func (p *pCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock,
 }
 func (p *pCreateConsensusGroup) checkCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *contracts.ConsensusGroupInfo) error {
 	if param.NodeCount < cgNodeCountMin || param.NodeCount > cgNodeCountMax ||
-		param.Interval < cgIntervalMin || param.Interval > cgIntervalMax {
+		param.Interval < cgIntervalMin || param.Interval > cgIntervalMax ||
+		param.PerCount < cgIntervalMin || param.PerCount > cgIntervalMax ||
+		param.PerCount*param.Interval < cgIntervalMin || param.PerCount*param.Interval > cgIntervalMax ||
+		param.RandCount > param.NodeCount ||
+		(param.RandCount > 0 && param.RandRank < param.NodeCount) {
 		return ErrInvalidData
 	}
 	if contracts.GetTokenById(db, param.CountingTokenId) == nil {
@@ -749,6 +757,10 @@ func (p *pCreateConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountBlo
 		contracts.VariableNameConsensusGroupInfo,
 		param.NodeCount,
 		param.Interval,
+		param.PerCount,
+		param.RandCount,
+		param.RandRank,
+		param.CountingTokenId,
 		param.RegisterConditionId,
 		param.RegisterConditionParam,
 		param.VoteConditionId,
@@ -808,6 +820,10 @@ func (p *pCancelConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountBlo
 		contracts.VariableNameConsensusGroupInfo,
 		groupInfo.NodeCount,
 		groupInfo.Interval,
+		groupInfo.PerCount,
+		groupInfo.RandCount,
+		groupInfo.RandRank,
+		groupInfo.CountingTokenId,
 		groupInfo.RegisterConditionId,
 		groupInfo.RegisterConditionParam,
 		groupInfo.VoteConditionId,
@@ -878,6 +894,10 @@ func (p *pReCreateConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountB
 		contracts.VariableNameConsensusGroupInfo,
 		groupInfo.NodeCount,
 		groupInfo.Interval,
+		groupInfo.PerCount,
+		groupInfo.RandCount,
+		groupInfo.RandRank,
+		groupInfo.CountingTokenId,
 		groupInfo.RegisterConditionId,
 		groupInfo.RegisterConditionParam,
 		groupInfo.VoteConditionId,

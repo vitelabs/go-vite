@@ -47,10 +47,10 @@ func (s SyncState) String() string {
 type SyncStateFeed struct {
 	lock      sync.RWMutex
 	currentId int
-	subs      map[int]func(SyncState)
+	subs      map[int]SyncStateCallback
 }
 
-func (s *SyncStateFeed) Sub(fn func(SyncState)) int {
+func (s *SyncStateFeed) Sub(fn SyncStateCallback) int {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 

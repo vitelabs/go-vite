@@ -58,6 +58,10 @@ const (
 	cgNodeCountMax                 uint8 = 101     // Maximum node count of consensus group
 	cgIntervalMin                  int64 = 1       // Minimum interval of consensus group in second
 	cgIntervalMax                  int64 = 10 * 60 // Maximum interval of consensus group in second
+	cgPerCountMin                  int64 = 1
+	cgPerCountMax                  int64 = 10 * 60
+	cgPerIntervalMin               int64 = 1
+	cgPerIntervalMax               int64 = 10 * 60
 	createConsensusGroupPledgeTime int64 = 3600 * 24 * 3
 
 	quotaForPoW uint64 = 21000

@@ -198,7 +198,7 @@ func TestVmRun(t *testing.T) {
 }
 
 func TestDelegateCall(t *testing.T) {
-	// TODO
+	// TODO test delegate call
 	// prepare db, add account1, add account2 with code, add account3 with code
 	// send call
 	// receive call
