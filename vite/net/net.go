@@ -523,13 +523,22 @@ type AccountblockCallback func(addr types.Address, block *ledger.AccountBlock)
 type SyncStateCallback func(SyncState)
 
 type Subscriber interface {
+	// return the subId, use to unsubscibe
+	// subId is always larger than 0
 	SubscribeAccountBlock(fn AccountblockCallback) (subId int)
+	// if subId is 0, then ignore
 	UnsubscribeAccountBlock(subId int)
 
+	// return the subId, use to unsubscibe
+	// subId is always larger than 0
 	SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int)
+	// if subId is 0, then ignore
 	UnsubscribeSnapshotBlock(subId int)
 
+	// return the subId, use to unsubscibe
+	// subId is always larger than 0
 	SubscribeSyncStatus(fn SyncStateCallback) (subId int)
+	// if subId is 0, then ignore
 	UnsubscribeSyncStatus(subId int)
 }
 

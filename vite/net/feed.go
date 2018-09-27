@@ -22,6 +22,10 @@ func (s *snapshotBlockFeed) Sub(fn SnapshotBlockCallback) int {
 }
 
 func (s *snapshotBlockFeed) Unsub(subId int) {
+	if subId <= 0 {
+		return
+	}
+
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -55,6 +59,10 @@ func (s *accountBlockFeed) Sub(fn AccountblockCallback) int {
 }
 
 func (s *accountBlockFeed) Unsub(subId int) {
+	if subId <= 0 {
+		return
+	}
+
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
