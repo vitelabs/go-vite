@@ -1,9 +1,9 @@
 package contracts
 
 import (
-	"github.com/vitelabs/go-vite/abi"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
 	"strings"
 )

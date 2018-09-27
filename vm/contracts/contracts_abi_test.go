@@ -1,8 +1,8 @@
 package contracts
 
 import (
-	"github.com/vitelabs/go-vite/abi"
 	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/vm/abi"
 	"strings"
 	"testing"
 )

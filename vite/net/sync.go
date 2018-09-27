@@ -60,6 +60,10 @@ func (s *SyncStateFeed) Sub(fn SyncStateCallback) int {
 }
 
 func (s *SyncStateFeed) Unsub(subId int) {
+	if subId <= 0 {
+		return
+	}
+
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -69,6 +73,7 @@ func (s *SyncStateFeed) Unsub(subId int) {
 func (s *SyncStateFeed) Notify(st SyncState) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
+
 	for _, fn := range s.subs {
 		if fn != nil {
 			go fn(st)

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts"
 )
 
 // Ensure that all nodes get same result

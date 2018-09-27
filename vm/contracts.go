@@ -1,11 +1,11 @@
 package vm
 
 import (
-	"github.com/vitelabs/go-vite/abi"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
@@ -108,7 +108,7 @@ func (p *pRegister) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft u
 	if consensusGroupInfo == nil {
 		return quotaLeft, ErrInvalidData
 	}
-	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.RegisterConditionId, RegisterConditionPrefix); !ok {
+	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.RegisterConditionId, contracts.RegisterConditionPrefix); !ok {
 		return quotaLeft, ErrInvalidData
 	} else if !condition.checkData(consensusGroupInfo.RegisterConditionParam, block, param, contracts.MethodNameRegister) {
 		return quotaLeft, ErrInvalidData
@@ -179,7 +179,7 @@ func (p *pCancelRegister) doSend(vm *VM, block *vm_context.VmAccountBlock, quota
 	if consensusGroupInfo == nil {
 		return quotaLeft, ErrInvalidData
 	}
-	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.RegisterConditionId, RegisterConditionPrefix); !ok {
+	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.RegisterConditionId, contracts.RegisterConditionPrefix); !ok {
 		return quotaLeft, ErrInvalidData
 	} else if !condition.checkData(consensusGroupInfo.RegisterConditionParam, block, param, contracts.MethodNameCancelRegister) {
 		return quotaLeft, ErrInvalidData
@@ -407,7 +407,7 @@ func (p *pUpdateRegistration) doSend(vm *VM, block *vm_context.VmAccountBlock, q
 	if consensusGroupInfo == nil {
 		return quotaLeft, ErrInvalidData
 	}
-	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.RegisterConditionId, RegisterConditionPrefix); !ok {
+	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.RegisterConditionId, contracts.RegisterConditionPrefix); !ok {
 		return quotaLeft, ErrInvalidData
 	} else if !condition.checkData(consensusGroupInfo.RegisterConditionParam, block, param, contracts.MethodNameUpdateRegistration) {
 		return quotaLeft, ErrInvalidData
@@ -465,7 +465,7 @@ func (p *pVote) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint6
 	if consensusGroupInfo == nil {
 		return quotaLeft, ErrInvalidData
 	}
-	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.VoteConditionId, VoteConditionPrefix); !ok {
+	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.VoteConditionId, contracts.VoteConditionPrefix); !ok {
 		return quotaLeft, ErrInvalidData
 	} else if !condition.checkData(consensusGroupInfo.VoteConditionParam, block, param, contracts.MethodNameVote) {
 		return quotaLeft, ErrInvalidData
@@ -728,15 +728,15 @@ func (p *pCreateConsensusGroup) checkCreateConsensusGroupData(db vmctxt_interfac
 	if contracts.GetTokenById(db, param.CountingTokenId) == nil {
 		return ErrInvalidData
 	}
-	if err := p.checkCondition(db, param.RegisterConditionId, param.RegisterConditionParam, RegisterConditionPrefix); err != nil {
+	if err := p.checkCondition(db, param.RegisterConditionId, param.RegisterConditionParam, contracts.RegisterConditionPrefix); err != nil {
 		return ErrInvalidData
 	}
-	if err := p.checkCondition(db, param.VoteConditionId, param.VoteConditionParam, VoteConditionPrefix); err != nil {
+	if err := p.checkCondition(db, param.VoteConditionId, param.VoteConditionParam, contracts.VoteConditionPrefix); err != nil {
 		return ErrInvalidData
 	}
 	return nil
 }
-func (p *pCreateConsensusGroup) checkCondition(db vmctxt_interface.VmDatabase, conditionId uint8, conditionParam []byte, conditionIdPrefix uint) error {
+func (p *pCreateConsensusGroup) checkCondition(db vmctxt_interface.VmDatabase, conditionId uint8, conditionParam []byte, conditionIdPrefix contracts.ConditionCode) error {
 	condition, ok := getConsensusGroupCondition(conditionId, conditionIdPrefix)
 	if !ok {
 		return ErrInvalidData
@@ -909,29 +909,19 @@ func (p *pReCreateConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountB
 	return nil
 }
 
-type CountingRuleCode uint
-
-const (
-	RegisterConditionPrefix                      = 10
-	VoteConditionPrefix                          = 20
-	RegisterConditionOfSnapshot CountingRuleCode = 10
-	VoteConditionOfDefault      CountingRuleCode = 20
-	VoteConditionOfBalance      CountingRuleCode = 21
-)
-
 type createConsensusGroupCondition interface {
 	checkParam(param []byte, db vmctxt_interface.VmDatabase) bool
 	checkData(paramData []byte, block *vm_context.VmAccountBlock, blockParamInterface interface{}, method string) bool
 }
 
-var SimpleCountingRuleList = map[CountingRuleCode]createConsensusGroupCondition{
-	RegisterConditionOfSnapshot: &registerConditionOfPledge{},
-	VoteConditionOfDefault:      &voteConditionOfDefault{},
-	VoteConditionOfBalance:      &voteConditionOfKeepToken{},
+var SimpleCountingRuleList = map[contracts.ConditionCode]createConsensusGroupCondition{
+	contracts.RegisterConditionOfSnapshot: &registerConditionOfPledge{},
+	contracts.VoteConditionOfDefault:      &voteConditionOfDefault{},
+	contracts.VoteConditionOfBalance:      &voteConditionOfKeepToken{},
 }
 
-func getConsensusGroupCondition(conditionId uint8, conditionIdPrefix uint) (createConsensusGroupCondition, bool) {
-	condition, ok := SimpleCountingRuleList[CountingRuleCode(conditionIdPrefix+uint(conditionId))]
+func getConsensusGroupCondition(conditionId uint8, conditionIdPrefix contracts.ConditionCode) (createConsensusGroupCondition, bool) {
+	condition, ok := SimpleCountingRuleList[conditionIdPrefix+contracts.ConditionCode(conditionId)]
 	return condition, ok
 }
 
