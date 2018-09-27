@@ -11,40 +11,48 @@ type verifyTask interface {
 	done() bool
 	requests() []face.FetchRequest
 }
-type commonVerifier interface {
-	verify(b commonBlock) *poolVerifyStat
-}
 
 type snapshotVerifier struct {
+	v verifier.SnapshotVerifier
 }
 
-func (self *snapshotVerifier) verify(b commonBlock) *poolVerifyStat {
-	//block := b.(*accountPoolBlock)
-	//result, stat := self.accountVerifier.VerifyforProducer(block.block)
-	//
-	//this, otherBlocks, e := self.accountVerifier.VerifyforVM(block.block)
-	return &poolVerifyStat{}
+func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) (result *poolSnapshotVerifyStat) {
+	stat := self.v.VerifyReferred(block.block)
+	result.results = stat.Results()
+	return
 }
-func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) *poolSnapshotVerifyStat {
-	return &poolSnapshotVerifyStat{}
-}
-func (self *snapshotVerifier) verifyAccountTimeount(current *ledger.SnapshotBlock, refer *ledger.SnapshotBlock) bool {
-	return current.Height-refer.Height > 60*24
+func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock, refer *ledger.SnapshotBlock) bool {
+	return self.v.VerifyTimeout(current.Height, refer.Height)
 }
 
 type accountVerifier struct {
+	v verifier.AccountVerifier
 }
 
-func (self *accountVerifier) verify(b commonBlock) *poolVerifyStat {
-	//block := b.(*accountPoolBlock)
-	//result, stat := self.accountVerifier.VerifyforProducer(block.block)
-	//
-	//this, otherBlocks, e := self.accountVerifier.VerifyforVM(block.block)
-	return &poolVerifyStat{}
-}
+func (self *accountVerifier) verifyAccount(b *accountPoolBlock) (result *poolAccountVerifyStat) {
+	// todo how to fix for stat
+	verifyResult, _ := self.v.VerifyReferred(b.block)
+	result.result = verifyResult
+	switch verifyResult {
+	case verifier.SUCCESS:
+		blocks, err := self.v.VerifyforVM(b.block)
+		if err != nil {
+			result.result = verifier.FAIL
+			return
+		}
+		var bs []*accountPoolBlock
+		for _, v := range blocks {
+			bs = append(bs, newAccountPoolBlock(v.AccountBlock, v.VmContext, b.v))
+		}
+		result.blocks = bs
+		return
+	case verifier.PENDING:
+		return
+	case verifier.FAIL:
+		return
+	}
 
-func (self *accountVerifier) verifyAccount(block *accountPoolBlock) *poolAccountVerifyStat {
-	return &poolAccountVerifyStat{}
+	return
 }
 func (self *accountVerifier) newSuccessTask() verifyTask {
 	return nil
@@ -108,6 +116,7 @@ func (self *poolAccountVerifyStat) task() verifyTask {
 
 type poolAccountVerifyStat struct {
 	blocks []*accountPoolBlock
+	result verifier.VerifyResult
 }
 
 func (self *poolAccountVerifyStat) verifyResult() verifier.VerifyResult {

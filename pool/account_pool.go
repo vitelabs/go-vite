@@ -16,7 +16,6 @@ import (
 
 type accountPool struct {
 	BCPool
-	mu            sync.Locker // read lock, snapshot insert and account insert
 	rw            *accountCh
 	verifyTask    verifyTask
 	loopTime      time.Time
@@ -25,6 +24,7 @@ type accountPool struct {
 	f             *accountSyncer
 	receivedIndex sync.Map
 	log           log15.Logger
+	pool          *pool
 }
 
 func newAccountPoolBlock(block *ledger.AccountBlock, vmBlock vmctxt_interface.VmDatabase, version *ForkVersion) *accountPoolBlock {
@@ -60,10 +60,8 @@ func newAccountPool(name string, rw *accountCh, v *ForkVersion, log log15.Logger
 }
 
 func (self *accountPool) Init(
-	tools *tools,
-	mu sync.Locker) {
-
-	self.mu = mu
+	tools *tools, pool *pool) {
+	self.pool = pool
 	self.BCPool.init(self.rw, tools)
 }
 
@@ -120,8 +118,8 @@ func (self *accountPool) TryInsert() verifyTask {
 		return nil
 	}
 	// lock other chain insert
-	self.mu.Lock()
-	defer self.mu.Unlock()
+	self.pool.RLock()
+	defer self.pool.RUnLock()
 
 	// try insert block to real chain
 	defer monitor.LogTime("pool", "accountTryInsert", time.Now())

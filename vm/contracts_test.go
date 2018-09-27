@@ -1163,7 +1163,7 @@ func TestGenesisBlockData(t *testing.T) {
 	fmt.Printf("address: %v\n", hex.EncodeToString(contracts.AddressMintage.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v\n}\n",
 		ledger.BlockTypeReceive, hex.EncodeToString(contracts.AddressMintage.Bytes()), 1, big.NewInt(0), big.NewInt(0))
-	fmt.Printf("Storage:{\n\t%v:%v\n}\n", hex.EncodeToString(helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), 32)), hex.EncodeToString(mintageData))
+	fmt.Printf("Storage:{\n\t%v:%v\n}\n", hex.EncodeToString(contracts.GetMintageKey(ledger.ViteTokenId)), hex.EncodeToString(mintageData))
 
 	fmt.Println("-------------vite owner genesis block-------------")
 	fmt.Println("address: viteAddress")
@@ -1204,7 +1204,7 @@ func TestGenesisBlockData(t *testing.T) {
 	fmt.Printf("address:%v\n", hex.EncodeToString(contracts.AddressConsensusGroup.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
 		ledger.BlockTypeReceive, hex.EncodeToString(contracts.AddressConsensusGroup.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
-	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(types.DataHash(types.SNAPSHOT_GID.Bytes()).Bytes()), hex.EncodeToString(snapshotConsensusGroupData), hex.EncodeToString(types.DataHash(types.DELEGATE_GID.Bytes()).Bytes()), hex.EncodeToString(commonConsensusGroupData))
+	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(contracts.GetConsensusGroupKey(types.SNAPSHOT_GID)), hex.EncodeToString(snapshotConsensusGroupData), hex.EncodeToString(contracts.GetConsensusGroupKey(types.DELEGATE_GID)), hex.EncodeToString(commonConsensusGroupData))
 
 	fmt.Println("-------------snapshot consensus group and common consensus group register genesis block-------------")
 	fmt.Printf("address:%v\n", hex.EncodeToString(contracts.AddressRegister.Bytes()))
@@ -1216,8 +1216,7 @@ func TestGenesisBlockData(t *testing.T) {
 		addr, _, _ := types.CreateAddress()
 		registerData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, "node"+strconv.Itoa(i), addr, addr, addr, helper.Big0, timestamp, uint64(1), uint64(0))
 		snapshotKey := contracts.GetRegisterKey("snapshotNode1", types.SNAPSHOT_GID)
-		commonKey := contracts.GetRegisterKey("commonNode1", types.DELEGATE_GID)
-		fmt.Printf("\t%v: %v\n\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData), hex.EncodeToString(commonKey), hex.EncodeToString(registerData))
+		fmt.Printf("\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData))
 	}
 	fmt.Println("}")
 }

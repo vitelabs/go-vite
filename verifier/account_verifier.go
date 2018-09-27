@@ -2,6 +2,9 @@ package verifier
 
 import (
 	"bytes"
+	"math/big"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -10,8 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
-	"time"
 )
 
 const (
@@ -55,25 +56,21 @@ func (verifier *AccountVerifier) VerifyReferred(block *ledger.AccountBlock) (Ver
 }
 
 // todo: verify vm result: all changed
-func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (this *vm_context.VmAccountBlock, others []*vm_context.VmAccountBlock, err error) {
+func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks []*vm_context.VmAccountBlock, err error) {
 	defer monitor.LogTime("verify", "VerifyforVM", time.Now())
 
 	gen := generator.NewGenerator(verifier.chain.Chain(), verifier.signer)
 	if err = gen.PrepareVm(&block.SnapshotHash, &block.PrevHash, &block.AccountAddress); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	genResult := gen.GenerateWithP2PBlock(block, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		return gen.Sign(addr, nil, data)
 	})
 	if genResult == nil || len(genResult.BlockGenList) == 0 {
-		return nil, nil, errors.New("GenerateWithP2PBlock failed")
+		return nil, errors.New("GenerateWithP2PBlock failed")
 	}
 
-	this = genResult.BlockGenList[0]
-	if len(genResult.BlockGenList) > 1 {
-		others = genResult.BlockGenList[1:]
-	}
-	return this, others, nil
+	return genResult.BlockGenList, nil
 }
 
 func (verifier *AccountVerifier) VerifyforP2P(block *ledger.AccountBlock) bool {

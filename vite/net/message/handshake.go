@@ -6,7 +6,6 @@ import (
 
 type HandShake struct {
 	CmdSet      uint64
-	NetID        uint64
 	Height       uint64
 	Port         uint16
 	Current types.Hash

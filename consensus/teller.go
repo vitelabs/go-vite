@@ -17,12 +17,14 @@ type teller struct {
 	electionHis sync.Map
 	rw          *chainRw
 	algo        *algo
+	gid         types.Gid
 }
 
-func newTeller(info *membersInfo, rw *chainRw) *teller {
+func newTeller(info *membersInfo, gid types.Gid, rw *chainRw) *teller {
 	t := &teller{rw: rw}
 	//t.info = &membersInfo{genesisTime: genesisTime, memberCnt: memberCnt, interval: interval, perCnt: perCnt, randCnt: 2, LowestLimit: big.NewInt(1000)}
 	t.info = info
+	t.gid = gid
 	t.algo = &algo{info: t.info}
 	//t.electionHis = make(map[int32]*electionResult)
 	return t
@@ -30,15 +32,14 @@ func newTeller(info *membersInfo, rw *chainRw) *teller {
 
 func (self *teller) voteResults(t time.Time) ([]types.Address, *ledger.HashHeight, error) {
 	// record vote
-	// todo gid ??
-	votes, hashH, err := self.rw.CalVotes(types.SNAPSHOT_GID, t)
+	votes, hashH, err := self.rw.CalVotes(self.gid, t)
 	if err != nil {
 		return nil, nil, err
 	}
 	// filter size of members
-	finalVotes := self.algo.filterVotes(votes)
+	finalVotes := self.algo.filterVotes(votes, hashH)
 	// shuffle the members
-	finalVotes = self.algo.shuffleVotes(finalVotes)
+	finalVotes = self.algo.shuffleVotes(finalVotes, hashH)
 	return self.convertToAddress(finalVotes), hashH, nil
 }
 

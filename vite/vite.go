@@ -74,8 +74,10 @@ func New(cfg *config.Config) (vite *Vite, err error) {
 
 func (v *Vite) Start(svr *p2p.Server) {
 	v.p2p = svr
-	// mount to p2p.Server
-	svr.Protocols = append(svr.Protocols, v.Net.Protocols...)
+}
+
+func (v *Vite) Protocols() []*p2p.Protocol {
+	return v.Net.Protocols
 }
 
 func (v *Vite) Stop() {

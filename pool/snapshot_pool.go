@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -12,7 +13,7 @@ import (
 
 type snapshotPool struct {
 	BCPool
-	rwMu *sync.RWMutex
+	//rwMu *sync.RWMutex
 	//consensus consensus.AccountsConsensus
 	closed chan struct{}
 	wg     sync.WaitGroup
@@ -63,9 +64,7 @@ func newSnapshotPool(
 
 func (self *snapshotPool) init(
 	tools *tools,
-	rwMu *sync.RWMutex,
 	pool *pool) {
-	self.rwMu = rwMu
 	//self.consensus = accountsConsensus
 	self.pool = pool
 	self.BCPool.init(self.rw, tools)
@@ -98,8 +97,8 @@ func (self *snapshotPool) checkFork() {
 
 func (self *snapshotPool) snapshotFork(longest Chain, current Chain) error {
 	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId())
-	self.rwMu.Lock()
-	defer self.rwMu.Unlock()
+	self.pool.Lock()
+	defer self.pool.RUnLock()
 	self.log.Warn("[lock]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId())
 
 	k, _, err := self.getForkPoint(longest, current)
@@ -163,16 +162,11 @@ func (self *snapshotPool) loopCheckCurrentInsert() {
 	}
 }
 
-func (self *snapshotPool) stw() {
-	self.rwMu.Lock()
-
-}
-func (self *snapshotPool) unStw() {
-	self.rwMu.Unlock()
-}
 func (self *snapshotPool) snapshotTryInsert() (*poolSnapshotVerifyStat, commonBlock) {
-	self.rwMu.RLock()
-	defer self.rwMu.RUnlock()
+	self.pool.RLock()
+	defer self.pool.RUnLock()
+	self.rMu.Lock()
+	defer self.rMu.Lock()
 
 	pool := self.chainpool
 	current := pool.current
@@ -232,8 +226,8 @@ func (self *snapshotPool) Stop() {
 }
 
 func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnapshotVerifyStat) {
-	self.rwMu.Lock()
-	defer self.rwMu.Unlock()
+	self.pool.Lock()
+	defer self.pool.UnLock()
 
 	block := b.block
 	results := stat.results
@@ -257,5 +251,30 @@ func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSn
 		if result == verifier.PENDING {
 			self.pool.PendingAccountTo(k, account)
 		}
+	}
+}
+
+func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) error {
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
+
+	stat := self.v.verifySnapshot(block)
+	result := stat.verifyResult()
+	switch result {
+	case verifier.PENDING:
+		return errors.New("pending for something")
+	case verifier.FAIL:
+		return errors.New(stat.errMsg())
+	case verifier.SUCCESS:
+		err := self.chainpool.diskChain.rw.insertBlock(block)
+		if err != nil {
+			return err
+		}
+		head := self.chainpool.diskChain.Head()
+		self.chainpool.insertNotify(head)
+		return nil
+	default:
+		self.log.Crit("verify unexpected.")
+		return errors.New("verify unexpected")
 	}
 }

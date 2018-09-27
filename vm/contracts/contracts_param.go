@@ -6,10 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/abi"
 )
 
-// unpack byte silce to param variables
-// pack consensus group condition params by condition id
-// unpack consensus group condition param byte slice by condition id
-
 var (
 	precompiledContractsAbiMap = map[types.Address]abi.ABIContract{
 		AddressRegister:       ABIRegister,
@@ -35,14 +31,26 @@ func PackMethodParam(contractsAddr types.Address, methodName string, params ...i
 type ConditionCode uint8
 
 const (
-	RegisterConditionPrefix     ConditionCode = 10
-	VoteConditionPrefix         ConditionCode = 20
-	RegisterConditionOfSnapshot ConditionCode = 10
-	VoteConditionOfDefault      ConditionCode = 20
-	VoteConditionOfBalance      ConditionCode = 21
+	RegisterConditionPrefix   ConditionCode = 10
+	VoteConditionPrefix       ConditionCode = 20
+	RegisterConditionOfPledge ConditionCode = 10
+	VoteConditionOfDefault    ConditionCode = 20
+	VoteConditionOfBalance    ConditionCode = 21
 )
 
-func PackConsensusGroupConditionParam(conditionIdPrefix ConditionCode, conditionId ConditionCode) ([]byte, error) {
-	// TODO
-	return nil, nil
+var (
+	consensusGroupConditionIdNameMap = map[ConditionCode]string{
+		RegisterConditionOfPledge: VariableNameConditionRegisterOfPledge,
+		VoteConditionOfBalance:    VariableNameConditionVoteOfBalance,
+	}
+)
+
+// pack consensus group condition params by condition id
+func PackConsensusGroupConditionParam(conditionIdPrefix ConditionCode, conditionId uint8, params ...interface{}) ([]byte, error) {
+	if name, ok := consensusGroupConditionIdNameMap[conditionIdPrefix+ConditionCode(conditionId)]; ok {
+		if data, err := ABIConsensusGroup.PackVariable(name, params...); err == nil {
+			return data, nil
+		}
+	}
+	return nil, errInvalidParam
 }
