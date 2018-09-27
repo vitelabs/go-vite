@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/wallet"
 	"net"
 	"os"
 	"path/filepath"
@@ -18,6 +19,9 @@ import (
 // Node is a container that manages p2p、rpc、vite modules
 type Node struct {
 	config *Config
+
+	//wallet
+	acctManager *wallet.Manager
 
 	//vite
 	viteConfig config.Config
@@ -66,6 +70,7 @@ func New(conf *Config) (*Node, error) {
 
 	return &Node{
 		config:       conf,
+		acctManager:  wallet.NewManagerAndInit(conf.KeyStoreDir), //Ensure that the AccountManager method works before the node has started.
 		p2pConfig:    conf.makeP2PConfig(),
 		viteConfig:   conf.makeViteConfig(),
 		ipcEndpoint:  conf.IPCEndpoint(),

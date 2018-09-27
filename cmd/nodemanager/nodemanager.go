@@ -1,4 +1,4 @@
-package main
+package nodemanager
 
 import (
 	"encoding/json"
@@ -7,6 +7,9 @@ import (
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
 	"io/ioutil"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 type NodeManager struct {
@@ -18,7 +21,7 @@ type NodeManager struct {
 func NewNodeManager(ctx *cli.Context) NodeManager {
 	return NodeManager{
 		ctx:    ctx,
-		node:   makeFullNode(ctx),
+		node:   MakeFullNode(ctx),
 		logger: log15.New("module", "main/nodemanager"),
 	}
 }
@@ -26,15 +29,15 @@ func NewNodeManager(ctx *cli.Context) NodeManager {
 func (nodeManager *NodeManager) Start() error {
 
 	// Start up the node
-	utils.StartNode(nodeManager.node)
+	StartNode(nodeManager.node)
 
 	nodeManager.node.Wait()
 	return nil
 }
 
-func makeFullNode(ctx *cli.Context) *node.Node {
+func MakeFullNode(ctx *cli.Context) *node.Node {
 
-	nodeConfig := makeNodeConfig(ctx)
+	nodeConfig := MakeNodeConfig(ctx)
 
 	node, err := node.New(nodeConfig)
 
@@ -44,7 +47,7 @@ func makeFullNode(ctx *cli.Context) *node.Node {
 	return node
 }
 
-func makeNodeConfig(ctx *cli.Context) *node.Config {
+func MakeNodeConfig(ctx *cli.Context) *node.Config {
 
 	cfg := node.DefaultNodeConfig
 	cfg.Name = ClientIdentifier
@@ -83,6 +86,7 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.DataDir = dataDir
 	}
 
+	//Wallet
 	if ctx.GlobalIsSet(utils.KeyStoreDirFlag.Name) {
 		cfg.KeyStoreDir = ctx.GlobalString(utils.KeyStoreDirFlag.Name)
 	}
@@ -142,4 +146,27 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.WSPort = ctx.GlobalInt(utils.WSPortFlag.Name)
 	}
 
+}
+
+func StartNode(node *node.Node) {
+
+	if err := node.Start(); err != nil {
+		log15.Error("Error staring protocol node: %v", err)
+	}
+
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		defer signal.Stop(c)
+		<-c
+		log15.Info("Got interrupt, shutting down...")
+		go node.Stop()
+		for i := 10; i > 0; i-- {
+			<-c
+			if i > 1 {
+				log15.Warn("Already shutting down, interrupt more to panic.", "times", i-1)
+			}
+		}
+
+	}()
 }

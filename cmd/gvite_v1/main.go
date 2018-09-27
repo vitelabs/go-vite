@@ -3,6 +3,7 @@ package main
 import (
 	//_ "net/http/pprof"
 	"fmt"
+	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"gopkg.in/urfave/cli.v1"
 	"os"
@@ -67,7 +68,7 @@ func gvite(ctx *cli.Context) error {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 
-	nodeManager := NewNodeManager(ctx)
+	nodeManager := nodemanager.NewNodeManager(ctx)
 
 	return nodeManager.Start()
 }
