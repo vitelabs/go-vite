@@ -2,8 +2,8 @@ package chain
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/contracts"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 )
