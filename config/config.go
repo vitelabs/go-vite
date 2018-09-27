@@ -17,6 +17,8 @@ type Config struct {
 
 	// global keys
 	DataDir string `json:"DataDir"`
+	// for file transfer
+	FilePort uint	`json:"Port"`
 }
 
 func (c Config) RunLogDir() string {
@@ -47,7 +49,7 @@ func defaultConfig() {
 			MaxPassivePeersRatio: 2,
 			MaxPendingPeers:      20,
 			BootNodes:            nil,
-			Addr:                 "0.0.0.0:8483",
+			Port:                 8483,
 			Datadir:              common.DefaultDataDir(),
 			NetID:                6,
 		},
@@ -60,6 +62,7 @@ func defaultConfig() {
 			IsDownload: true, // Default download ledger zip
 		},
 		DataDir: common.DefaultDataDir(),
+		FilePort: 8484,
 	}
 }
 

@@ -40,7 +40,6 @@ type Chain interface {
 }
 
 type Config struct {
-	NetID      uint64
 	Port       uint16
 	Chain Chain
 }
