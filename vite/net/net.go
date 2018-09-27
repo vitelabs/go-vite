@@ -62,11 +62,12 @@ type Net struct {
 	wg            sync.WaitGroup
 	fileServer    *FileServer
 	newBlocks []*ledger.SnapshotBlock	// before syncDone, cache newBlocks
+	syncer *syncer
 }
 
 func New(cfg *Config) (*Net, error) {
 	peerSet := NewPeerSet()
-	//pool := newRequestPool(peerSet)
+	pool := newRequestPool(peerSet)
 
 	fileServer, err := newFileServer(cfg.Port, cfg.Chain, peerSet, nil)
 	if err != nil {
@@ -84,6 +85,7 @@ func New(cfg *Config) (*Net, error) {
 		blockRecord:   cuckoofilter.NewCuckooFilter(10000),
 		log:           log15.New("module", "vite/net"),
 		fileServer:    fileServer,
+		syncer: newSyncer(cfg.Chain, peerSet, pool),
 	}
 
 	n.Protocols = make([]*p2p.Protocol, len(cmdSets))
@@ -116,36 +118,6 @@ func (n *Net) Syncing() bool {
 	return atomic.LoadInt32(&n.syncState) == int32(Syncing)
 }
 
-//func (n *Net) startSync() {
-//	n.SetSyncState(Syncing)
-//	go n.checkChainHeight()
-//}
-//
-//func (n *Net) checkChainHeight() {
-//	ticker := time.NewTicker(1 * time.Minute)
-//	defer ticker.Stop()
-//
-//	begin := time.Now()
-//
-//	for {
-//		select {
-//		case now := <-ticker.C:
-//			current, err := n.SnapshotChain.GetLatestSnapshotBlock()
-//			if err != nil {
-//				return
-//			}
-//			if current.Height == n.TargetHeight {
-//				n.SetSyncState(Syncdone)
-//			}
-//			if now.Sub(begin) > waitForChainGrow {
-//				n.SetSyncState(Syncerr)
-//			}
-//		case <-n.term:
-//			return
-//		}
-//	}
-//}
-
 func (n *Net) SetSyncState(st SyncState) {
 	atomic.StoreInt32(&n.syncState, int32(st))
 	n.stateFeed.Notify(st)
@@ -155,14 +127,13 @@ func (n *Net) SyncState() SyncState {
 	return SyncState(atomic.LoadInt32(&n.syncState))
 }
 
-// the main method, handle peer
+// will be called by p2p.Server, run as goroutine
 func (n *Net) HandlePeer(p *Peer) error {
 	current := n.Chain.GetLatestSnapshotBlock()
 	genesis := n.Chain.GetGenesisSnapshotBlock()
 
 	err := p.Handshake(&message.HandShake{
 		CmdSet:       p.CmdSet,
-		NetID:        n.NetID,
 		Height:       current.Height,
 		Port:         n.Port,
 		Current: current.Hash,
@@ -510,6 +481,7 @@ SYNC:
 type Broadcaster interface {
 	BroadcastSnapshotBlock(block *ledger.SnapshotBlock)
 	BroadcastAccountBlock(addr types.Address, block *ledger.AccountBlock)
+	BroadcastAccountBlocks(addr types.Address, blocks []*ledger.AccountBlock)
 }
 
 type Fetcher interface {
@@ -554,6 +526,12 @@ func (n *Net) BroadcastAccountBlock(addr types.Address, block *ledger.AccountBlo
 		go func(peer *Peer) {
 			peer.SendAccountBlocks(addr, []*ledger.AccountBlock{block}, 0)
 		}(peer)
+	}
+}
+
+func (n *Net) BroadcastAccountBlocks(addr types.Address, blocks []*ledger.AccountBlock) {
+	for _, block := range blocks {
+		n.BroadcastAccountBlock(addr, block)
 	}
 }
 

@@ -77,10 +77,6 @@ func (p *Peer) Handshake(our *message.HandShake) error {
 		return errors.New("different genesis block")
 	}
 
-	if their.NetID != our.NetID {
-		return fmt.Errorf("different network, our %d, their %d\n", our.NetID, their.NetID)
-	}
-
 	p.SetHead(their.Current, their.Height)
 	p.filePort = their.Port
 
@@ -167,8 +163,10 @@ func (p *Peer) SendFileList(fs *message.FileList, msgId uint64) error {
 }
 
 func (p *Peer) SendSubLedger(s *message.SubLedger, msgId uint64) error {
-	for _, b := range s.ABlocks {
-		p.SeeBlock(b.Hash)
+	for _, blocks := range s.ABlocks {
+		for _, block := range blocks {
+			p.SeeBlock(block.Hash)
+		}
 	}
 	for _, b := range s.SBlocks {
 		p.SeeBlock(b.Hash)
