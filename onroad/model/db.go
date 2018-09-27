@@ -203,8 +203,25 @@ func (ucf *OnroadSet) DecreaseReceiveErrCount(batch *leveldb.Batch, hash *types.
 		} else {
 			return ucf.db.Delete(key, nil)
 		}
-
 	}
+}
+func (ucf *OnroadSet) DeleteReceiveErrCount(batch *leveldb.Batch, hash *types.Hash, addr *types.Address) error {
+	key, err := database.EncodeKey(database.DBKP_ONROADRECEIVEERR, hash.Bytes(), addr.Bytes())
+	if err != nil {
+		return err
+	}
+	if _, err := ucf.db.Get(key, nil); err != nil {
+		if err != leveldb.ErrNotFound {
+			return err
+		}
+		return nil
+	}
+	if batch != nil {
+		batch.Delete(key)
+	} else {
+		return ucf.db.Delete(key, nil)
+	}
+	return nil
 }
 
 func (ucf *OnroadSet) GetReceiveErrCount(hash *types.Hash, addr *types.Address) (uint8, error) {

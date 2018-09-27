@@ -29,8 +29,7 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 		if im.ToAddress != nil {
 			block.ToAddress = *im.ToAddress
 		} else {
-			// fixme return err
-			block.ToAddress = types.Address{}
+			return nil, errors.New("BlockTypeSendCall's ToAddress can't be nil")
 		}
 		block.FromBlockHash = types.Hash{}
 
@@ -50,8 +49,7 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 		if im.ToAddress != nil {
 			block.ToAddress = *im.ToAddress
 		} else {
-			// fixme return err
-			block.ToAddress = types.Address{}
+			return nil, errors.New("BlockTypeSendCall's ToAddress can't be nil")
 		}
 		block.FromBlockHash = types.Hash{}
 
@@ -77,8 +75,7 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 		if im.FromBlockHash != nil {
 			block.FromBlockHash = *im.FromBlockHash
 		} else {
-			// fixme return err
-			block.FromBlockHash = types.Hash{}
+			return nil, errors.New("BlockTypeReceive's FromBlockHash can't be nil")
 		}
 		block.Amount = &im.Amount
 		block.Nonce = im.Nonce

@@ -43,26 +43,8 @@ func NewGenerator(chain Chain, wSigner Signer) *Generator {
 	}
 }
 
-func (gen *Generator) PrepareVm(snapshotBlockHash, preBlockHash *types.Hash, addr *types.Address) error {
-	//fixme @gx 和炎达交流一下
-	var sbHash, pbHash *types.Hash
-	if snapshotBlockHash == nil {
-		snapshotBlock := gen.chain.GetLatestSnapshotBlock()
-		sbHash = &snapshotBlock.Hash
-	} else {
-		sbHash = snapshotBlockHash
-	}
-	if preBlockHash == nil {
-		preBlock, err := gen.chain.GetLatestAccountBlock(addr)
-		if err != nil || preBlock == nil {
-			return errors.New("PrepareVm.GetLatestAccountBlock, Error:" + err.Error())
-		}
-		pbHash = &preBlock.Hash
-	} else {
-		pbHash = preBlockHash
-	}
-
-	vmContext, err := vm_context.NewVmContext(gen.chain, sbHash, pbHash, addr)
+func (gen *Generator) PrepareVm(snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) error {
+	vmContext, err := vm_context.NewVmContext(gen.chain, snapshotBlockHash, prevBlockHash, addr)
 	if err != nil {
 		return err
 	}
