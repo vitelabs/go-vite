@@ -317,13 +317,14 @@ func (verifier *AccountVerifier) VerifySigature(block *ledger.AccountBlock) bool
 	return true
 }
 
+// fixme
 func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock) bool {
 	// check nonce: data = Hash(address + prehash); nonce + data < target. if prehash == nil {data = Hash(address)}
 	if len(block.Nonce) != 0 {
 		var nonce [8]byte
 		copy(nonce[:], block.Nonce[:8])
 		hash256Data := crypto.Hash256(block.AccountAddress.Bytes(), block.PrevHash.Bytes())
-		if !pow.CheckPowNonce(big.NewInt(pow.FullThreshold), nonce, hash256Data) {
+		if !pow.CheckPowNonce(nil, nonce, hash256Data) {
 			return false
 		}
 	}
