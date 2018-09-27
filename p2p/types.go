@@ -4,7 +4,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/protos"
-	"io"
 	"io/ioutil"
 	"strconv"
 	"time"
@@ -104,21 +103,28 @@ type Msg struct {
 	Cmd        uint64
 	Id         uint64 // as message context
 	Size       uint64 // how many bytes in payload, used to quickly determine whether payload is valid
-	Payload    io.Reader
+	Payload    []byte
 	ReceivedAt time.Time
 }
 
-func (msg *Msg) Discard() error {
-	_, err := io.Copy(ioutil.Discard, msg.Payload)
-	return err
+func (msg *Msg) Discard() (err error) {
+	if len(msg.Payload) != 0 {
+		_, err = ioutil.Discard.Write(msg.Payload)
+	}
+
+	return
+}
+
+func (msg *Msg) String() string {
+	return strconv.FormatUint(msg.CmdSetID, 10) + "/" + strconv.FormatUint(msg.Cmd, 10) + "/" + strconv.FormatUint(msg.Id, 10)
 }
 
 type MsgReader interface {
-	ReadMsg() (Msg, error)
+	ReadMsg() (*Msg, error)
 }
 
 type MsgWriter interface {
-	WriteMsg(Msg) error
+	WriteMsg(*Msg) error
 }
 
 type MsgReadWriter interface {

@@ -68,13 +68,19 @@ func (sc *SnapshotChain) GetLatestBlock() (*ledger.SnapshotBlock, error) {
 	}
 
 	sb := &ledger.SnapshotBlock{}
-	sdErr := sb.DbDeserialize(iter.Value())
+	sdErr := sb.Deserialize(iter.Value())
 
 	if sdErr != nil {
 		return nil, sdErr
 	}
 
 	sb.Hash = *getSnapshotBlockHash(iter.Key())
+
+	var getContentErr error
+	sb.SnapshotContent, getContentErr = sc.GetSnapshotContent(sb.Height)
+	if getContentErr != nil {
+		return nil, getContentErr
+	}
 
 	return sb, nil
 }
@@ -118,7 +124,7 @@ func (sc *SnapshotChain) GetSnapshotBlocks(height uint64, count uint64, forward,
 	for i := uint64(0); i < count && iter.Next(); i++ {
 		data := iter.Value()
 		block := &ledger.SnapshotBlock{}
-		if dsErr := block.DbDeserialize(data); dsErr != nil {
+		if dsErr := block.Deserialize(data); dsErr != nil {
 			return blocks, dsErr
 		}
 
@@ -152,7 +158,7 @@ func (sc *SnapshotChain) GetSnapshotBlockHeight(snapshotHash *types.Hash) (uint6
 
 }
 
-func (sc *SnapshotChain) GetSnapshotBlock(height uint64) (*ledger.SnapshotBlock, error) {
+func (sc *SnapshotChain) GetSnapshotBlock(height uint64, containsSnapshotContent bool) (*ledger.SnapshotBlock, error) {
 	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, height)
 
 	iter := sc.db.NewIterator(util.BytesPrefix(key), nil)
@@ -166,13 +172,21 @@ func (sc *SnapshotChain) GetSnapshotBlock(height uint64) (*ledger.SnapshotBlock,
 	}
 
 	snapshotBlock := &ledger.SnapshotBlock{}
-	if dsErr := snapshotBlock.DbDeserialize(iter.Value()); dsErr != nil {
+	if dsErr := snapshotBlock.Deserialize(iter.Value()); dsErr != nil {
 		return nil, dsErr
 	}
 
 	snapshotBlock.Hash = *getSnapshotBlockHash(iter.Key())
-	return snapshotBlock, nil
 
+	if containsSnapshotContent {
+		var getContentErr error
+		snapshotBlock.SnapshotContent, getContentErr = sc.GetSnapshotContent(snapshotBlock.Height)
+		if getContentErr != nil {
+			return nil, getContentErr
+		}
+	}
+
+	return snapshotBlock, nil
 }
 
 func (sc *SnapshotChain) GetSbHashList(height uint64, count, step int, forward bool) []*types.Hash {
@@ -221,7 +235,7 @@ func (sc *SnapshotChain) DeleteToHeight(batch *leveldb.Batch, toHeight uint64) (
 	currentHeight := toHeight
 	for iter.Next() {
 		snapshotBlock := &ledger.SnapshotBlock{}
-		if sdErr := snapshotBlock.DbDeserialize(iter.Value()); sdErr != nil {
+		if sdErr := snapshotBlock.Deserialize(iter.Value()); sdErr != nil {
 			return nil, sdErr
 		}
 

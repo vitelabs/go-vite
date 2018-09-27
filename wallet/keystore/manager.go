@@ -38,7 +38,6 @@ type Manager struct {
 	mutex       sync.RWMutex
 	isInited    bool
 
-	//unlockChanged      map[int]chan<- UnlockEvent
 	unlockChangedLis   map[int]func(event UnlockEvent)
 	unlockChangedIndex int
 	log                log15.Logger

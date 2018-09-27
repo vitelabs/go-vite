@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/discovery/protos"
 	"net"
+	"strconv"
 	"time"
 )
 
@@ -72,6 +73,7 @@ type Message interface {
 	pack(ed25519.PrivateKey) ([]byte, types.Hash, error)
 	isExpired() bool
 	sender() NodeID
+	String() string
 }
 
 // message Ping
@@ -133,6 +135,10 @@ func (p *Ping) isExpired() bool {
 	return isExpired(p.Expiration)
 }
 
+func (p *Ping) String() string {
+	return "ping"
+}
+
 // message Pong
 type Pong struct {
 	ID         NodeID
@@ -185,6 +191,10 @@ func (p *Pong) pack(key ed25519.PrivateKey) (pkt []byte, hash types.Hash, err er
 
 func (p *Pong) isExpired() bool {
 	return isExpired(p.Expiration)
+}
+
+func (p *Pong) String() string {
+	return "pong<" + p.Ping.String() + ">"
 }
 
 // @message findnode
@@ -246,6 +256,10 @@ func (f *FindNode) isExpired() bool {
 	return isExpired(f.Expiration)
 }
 
+func (f *FindNode) String() string {
+	return "findnode<" + f.Target.String() + ">"
+}
+
 // @message neighbors
 type Neighbors struct {
 	ID         NodeID
@@ -288,7 +302,7 @@ func (n *Neighbors) deserialize(buf []byte) (err error) {
 
 	for _, npb := range pb.Nodes {
 		node, err := protoToNode(npb)
-		if err != nil {
+		if err == nil {
 			nodes = append(nodes, node)
 		}
 	}
@@ -312,6 +326,10 @@ func (n *Neighbors) pack(priv ed25519.PrivateKey) (pkt []byte, hash types.Hash, 
 
 func (n *Neighbors) isExpired() bool {
 	return isExpired(n.Expiration)
+}
+
+func (n *Neighbors) String() string {
+	return "neighbors<" + strconv.Itoa(len(n.Nodes)) + ">"
 }
 
 // @section Exception
@@ -372,6 +390,10 @@ func (e *Exception) sender() (id NodeID) {
 	return
 }
 
+func (n *Exception) String() string {
+	return "exception<" + n.Code.String() + ">"
+}
+
 // version code checksum signature payload
 func composePacket(priv ed25519.PrivateKey, code packetCode, payload []byte) (data []byte, hash types.Hash) {
 	sig := ed25519.Sign(priv, payload)
@@ -394,7 +416,7 @@ func unPacket(data []byte) (p *packet, err error) {
 	pktVersion := data[0]
 
 	if pktVersion != version {
-		return nil, fmt.Errorf("unmatched discovery packet version: received packet version is %d, but we are %d \n", pktVersion, version)
+		return nil, fmt.Errorf("unmatched discovery packet version: received packet version is %d, but we are %d", pktVersion, version)
 	}
 
 	pktCode := packetCode(data[1])

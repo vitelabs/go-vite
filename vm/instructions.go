@@ -362,17 +362,17 @@ func opCaller(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 }
 
 func opCallValue(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.get().Set(c.block.AccountBlock.Amount))
+	stack.push(c.intPool.get().Set(c.sendBlock.Amount))
 	return nil, nil
 }
 
 func opCallDataLoad(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.get().SetBytes(helper.GetDataBig(c.block.AccountBlock.Data, stack.pop(), helper.Big32)))
+	stack.push(c.intPool.get().SetBytes(helper.GetDataBig(c.sendBlock.Data, stack.pop(), helper.Big32)))
 	return nil, nil
 }
 
 func opCallDataSize(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.get().SetInt64(int64(len(c.block.AccountBlock.Data))))
+	stack.push(c.intPool.get().SetInt64(int64(len(c.sendBlock.Data))))
 	return nil, nil
 }
 
@@ -382,7 +382,7 @@ func opCallDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stac
 		dataOffset = stack.pop()
 		length     = stack.pop()
 	)
-	memory.set(memOffset.Uint64(), length.Uint64(), helper.GetDataBig(c.block.AccountBlock.Data, dataOffset, length))
+	memory.set(memOffset.Uint64(), length.Uint64(), helper.GetDataBig(c.sendBlock.Data, dataOffset, length))
 
 	c.intPool.put(memOffset, dataOffset, length)
 	return nil, nil
@@ -476,7 +476,7 @@ func opHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 }
 
 func opTokenId(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.get().SetBytes(c.block.AccountBlock.TokenId.Bytes()))
+	stack.push(c.intPool.get().SetBytes(c.sendBlock.TokenId.Bytes()))
 	return nil, nil
 }
 

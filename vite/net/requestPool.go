@@ -1,9 +1,11 @@
 package net
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/list"
 	"time"
 )
 
@@ -15,99 +17,60 @@ const expireCheckInterval = 30 * time.Second
 var errHasNoSuitablePeer = errors.New("has no suitable peer")
 var errNoRequestedPeer = errors.New("request has no matched peer")
 
-type Params interface {
-	p2p.Serializable
-	Equal(interface{}) bool
-	Ceil() uint64 // the minimal height of snapshotchain
-}
-
-type reqStatus int
+type reqState byte
 
 const (
-	reqWaiting reqStatus = iota
+	reqWaiting reqState = iota
 	reqPending
 	reqDone
+	reqError
 )
 
-var reqStatusText = [...]string{
+var reqStatus = [...]string{
 	reqWaiting: "waiting",
 	reqPending: "pending",
 	reqDone:    "done",
+	reqError: "error",
 }
 
-func (s reqStatus) String() string {
-	return reqStatusText[s]
-}
-
-type reqParam struct {
-	cmd
-	Params
-}
-
-type request struct {
-	cmd
-	id         uint64
-	peer       *Peer
-	count      int // Count the number of times the req was requested
-	param      Params
-	timeout    time.Duration
-	expiration time.Time
-	next       *request // linked list
-}
-
-func newReq(cmd cmd, params Params, timeout time.Duration) *request {
-	return &request{
-		param: &reqParam{
-			cmd,
-			params,
-		},
-		timeout: timeout,
-	}
-}
-
-func (r *request) Equal(r2 *request) bool {
-	if r.id == r2.id {
-		return true
-	}
-
-	return r.param.Equal(r2.param)
-}
-
-func (r *request) Cancel() {
-	if r.peer != nil {
-		r.peer.delete(r)
-	}
+func (s reqState) String() string {
+	return reqStatus[s]
 }
 
 // @section requestPool
-const MAX_ID = ^(uint64(0))
+const MAX_ID = ^(uint64(0)) - 1
 const INIT_ID uint64 = 1
 
 type requestPool struct {
-	queue     *request
-	pending   map[uint64]*request // has executed, wait for response
-	done      map[uint64]*request
-	busyPeers map[string]struct{} // mark peers whether has request for handle
-	currentID uint64              // unique id
-	peers     *peerSet
-	errChan   chan *request
-	doneChan  chan *request
-	term      chan struct{}
-	log       log15.Logger
+	queue *list.List
+	pending       map[uint64]Request // has executed, wait for response
+	busyPeers     map[string]uint64 // key: string, value: pending request id
+	currentID     uint64              // unique id
+	peers         *peerSet
+	add chan Request
+	retryChan         chan uint64
+	doneChan      chan uint64
+	term          chan struct{}
+	log           log15.Logger
+	peerEvent chan *peerEvent
 }
 
 func newRequestPool(peers *peerSet) *requestPool {
 	pool := &requestPool{
-		queue:     &request{},
-		pending:   make(map[uint64]*request, 20),
-		done:      make(map[uint64]*request, 100),
-		currentID: INIT_ID,
-		peers:     peers,
-		errChan:   make(chan *request, 1),
-		doneChan:  make(chan *request, 1),
-		term:      make(chan struct{}),
-		log:       log15.New("module", "net/reqpool"),
+		queue: list.New(),
+		pending:       make(map[uint64]Request, 20),
+		busyPeers: make(map[string]uint64),
+		currentID:     INIT_ID,
+		peers:         peers,
+		add: make(chan Request, 100),
+		retryChan:         make(chan uint64, 100),
+		doneChan:      make(chan uint64, 100),
+		term:          make(chan struct{}),
+		log:           log15.New("module", "net/reqpool"),
+		peerEvent: make(chan *peerEvent),
 	}
+
+	peers.Sub(pool.peerEvent)
 
 	go pool.loop()
 
@@ -119,6 +82,7 @@ func (p *requestPool) stop() {
 	case <-p.term:
 	default:
 		close(p.term)
+		p.peers.Unsub(p.peerEvent)
 	}
 }
 
@@ -126,96 +90,100 @@ func (p *requestPool) loop() {
 	ticker := time.NewTicker(expireCheckInterval)
 	defer ticker.Stop()
 
-	var expiration time.Time
-
+	loop:
 	for {
 		select {
 		case <-p.term:
-			goto END
-		case req := <-p.doneChan:
-			peerId := req.peer.ID
-			delete(p.busyPeers, peerId)
-			delete(p.pending, req.id)
-			p.done[req.id] = req
-		case req := <-p.errChan:
-			p.Retry(req)
-		case now := <-ticker.C:
-			for _, req := range p.pending {
-				if now.After(req.expiration) {
-					p.log.Error("req timeout")
-					p.errChan <- req
+			break loop
+		case r := <- p.add:
+			if p.currentID == MAX_ID {
+				p.currentID = INIT_ID
+			} else {
+				p.currentID++
+			}
+
+			r.setId(p.currentID)
+			p.queue.Append(r)
+		case e := <- p.peerEvent:
+			if e.code == delPeer {
+				peerId := e.peer.ID
+				if id, ok := p.busyPeers[peerId]; ok {
+					p.retryChan <- id
 				}
+			}
+		case id := <-p.doneChan:
+			r := p.pending[id]
+			if r != nil {
+				peerId := r.peer().ID
+				delete(p.busyPeers, peerId)
+				delete(p.pending, r.id())
+
+				if pid := r.pid(); pid != 0 {
+					parent := p.pending[pid]
+					parent.childDone(r)
+				}
+			}
+		case id := <-p.retryChan:
+			r := p.pending[id]
+			if r != nil {
+				peerId := r.peer().ID
+				delete(p.busyPeers, peerId)
+				delete(p.pending, r.id())
+
+				if !r.run(p.peers, true) {
+					p.Add(r)
+				}
+			}
+		case <-ticker.C:
+			for _, r := range p.pending {
+				if r.expired() {
+					select {
+					case <-p.term:
+					default:
+					}
+
+					p.log.Error(fmt.Sprintf("request %d wait from %s timeout", r.id, r.peer().ID))
+					p.Retry(r)
+				}
+			}
+		default:
+			r := p.queue.Shift()
+			if r != nil {
+				req, _ := r.(Request)
+				p.do(req);
 			}
 		}
 	}
-END:
-	for k, r := range p.pending {
-		delete(p.pending, k)
-		r.Cancel()
-	}
 }
 
-func (p *requestPool) Retry(req *req) {
-	peerId := req.peer.ID
-	delete(p.busyPeers, peerId)
-	delete(p.pending, req.id)
-
-	go p.Execute(req)
-}
-
-func (p *requestPool) Add(r *req) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	r.addedAt = time.Now()
-
-	for _, queue := range []map[uint64]*req{p.waiting, p.pending, p.done} {
-		for _, req := range queue {
-			if req.Equal(r) {
-				r.count++
-				if r.count >= reqCountCacheLimit {
-					go p.Execute(r)
-				}
-				return
-			}
-		}
-	}
-
-	// request at the first time
+func (p *requestPool) Add(r Request) {
 	if p.currentID == MAX_ID {
 		p.currentID = INIT_ID
 	} else {
 		p.currentID++
 	}
 
-	r.id = p.currentID
-	r.count = 1
-	//
-	go p.Execute(r)
+	r.setId(p.currentID)
+	p.queue.Append(r)
 }
 
-func (p *requestPool) Execute(r *req) {
-	delete(p.waiting, r.id)
+func (p *requestPool) Retry(r Request) {
+	p.retryChan <- r.id()
+}
 
-	// if req has no given peer, then choose one
-	if r.peer == nil {
-		peers := p.peers.Pick(r.param.Ceil())
+func (p *requestPool) Done(r Request) {
+	p.doneChan <- r.id()
+}
 
-		for _, peer := range peers {
-			if _, ok := p.busyPeers[peer.ID]; !ok {
-				r.peer = peer
-				// set pending
-				p.busyPeers[peer.ID] = r
-				p.pending[r.id] = r
-				break
-			}
-		}
+func (p *requestPool) receive(cmd cmd, id uint64, data p2p.Serializable, peer *Peer) {
+	if r, ok := p.pending[id]; ok {
+		r.handle(cmd, data, peer)
 	}
+}
 
-	done, err := r.Execute()
-	if err != nil {
-		p.errChan <- r
-	} else if done {
-		p.doneChan <- r
+func (p *requestPool) do(r Request) {
+	if r.run(p.peers, false) {
+		p.busyPeers[r.peer().ID] = r.id()
+		p.pending[r.id()] = r
 	}
 }

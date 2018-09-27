@@ -38,21 +38,28 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 		frozen: false,
 	}
 
-	currentSnapshotBlock, err := chain.GetSnapshotBlockByHash(snapshotBlockHash)
-	if err != nil {
-		return nil, err
+	var currentSnapshotBlock *ledger.SnapshotBlock
+	if snapshotBlockHash == nil {
+		var err error
+		currentSnapshotBlock, err = chain.GetSnapshotBlockByHash(snapshotBlockHash)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		currentSnapshotBlock = chain.GetLatestSnapshotBlock()
 	}
 
 	vmContext.currentSnapshotBlock = currentSnapshotBlock
 
 	var prevAccountBlock *ledger.AccountBlock
 	if prevAccountBlockHash == nil {
-		var err error
-		prevAccountBlock, err = chain.GetConfirmAccountBlock(currentSnapshotBlock.Height, addr)
-		if err != nil {
-			return nil, err
+		if addr != nil {
+			var err error
+			prevAccountBlock, err = chain.GetConfirmAccountBlock(currentSnapshotBlock.Height, addr)
+			if err != nil {
+				return nil, err
+			}
 		}
-
 	} else {
 		var err error
 		prevAccountBlock, err = chain.GetAccountBlockByHash(prevAccountBlockHash)
@@ -166,6 +173,14 @@ func (context *VmContext) GetSnapshotBlockByHeight(height uint64) *ledger.Snapsh
 	}
 	snapshotBlock, _ := context.chain.GetSnapshotBlockByHeight(height)
 
+	return snapshotBlock
+}
+
+func (context *VmContext) GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock {
+	snapshotBlock, _ := context.chain.GetSnapshotBlockByHash(hash)
+	if snapshotBlock != nil && snapshotBlock.Height > context.currentSnapshotBlock.Height {
+		return nil
+	}
 	return snapshotBlock
 }
 

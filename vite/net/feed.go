@@ -8,11 +8,11 @@ import (
 // @section snapshotblockfeed
 type snapshotBlockFeed struct {
 	lock      sync.RWMutex
-	subs      map[int]func(*ledger.SnapshotBlock)
+	subs      map[int]SnapshotBlockCallback
 	currentId int
 }
 
-func (s *snapshotBlockFeed) Sub(fn func(*ledger.SnapshotBlock)) int {
+func (s *snapshotBlockFeed) Sub(fn SnapshotBlockCallback) int {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -22,6 +22,10 @@ func (s *snapshotBlockFeed) Sub(fn func(*ledger.SnapshotBlock)) int {
 }
 
 func (s *snapshotBlockFeed) Unsub(subId int) {
+	if subId <= 0 {
+		return
+	}
+
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -41,11 +45,11 @@ func (s *snapshotBlockFeed) Notify(block *ledger.SnapshotBlock) {
 // @section accountBlockFeed
 type accountBlockFeed struct {
 	lock      sync.RWMutex
-	subs      map[int]func(block *ledger.AccountBlock)
+	subs      map[int]AccountblockCallback
 	currentId int
 }
 
-func (s *accountBlockFeed) Sub(fn func(*ledger.AccountBlock)) int {
+func (s *accountBlockFeed) Sub(fn AccountblockCallback) int {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -55,6 +59,10 @@ func (s *accountBlockFeed) Sub(fn func(*ledger.AccountBlock)) int {
 }
 
 func (s *accountBlockFeed) Unsub(subId int) {
+	if subId <= 0 {
+		return
+	}
+
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -66,7 +74,7 @@ func (s *accountBlockFeed) Notify(block *ledger.AccountBlock) {
 	defer s.lock.RUnlock()
 	for _, fn := range s.subs {
 		if fn != nil {
-			go fn(block)
+			go fn(block.AccountAddress, block)
 		}
 	}
 }

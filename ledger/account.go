@@ -2,8 +2,10 @@ package ledger
 
 import (
 	"encoding/hex"
+	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/vitepb"
 )
 
 const (
@@ -22,10 +24,28 @@ type Account struct {
 	PublicKey      ed25519.PublicKey
 }
 
-func (*Account) Serialize() ([]byte, error) {
-	return nil, nil
+func (account *Account) Proto() *vitepb.Account {
+	pb := &vitepb.Account{}
+	pb.AccountId = account.AccountId
+	pb.PublicKey = account.PublicKey
+	return pb
 }
 
-func (*Account) Deserialize([]byte) error {
+func (account *Account) DeProto(pb *vitepb.Account) {
+	account.AccountId = pb.AccountId
+	account.PublicKey = pb.PublicKey
+	account.AccountAddress, _ = types.BytesToAddress(pb.PublicKey)
+}
+
+func (account *Account) Serialize() ([]byte, error) {
+	return proto.Marshal(account.Proto())
+}
+
+func (account *Account) Deserialize(buf []byte) error {
+	pb := &vitepb.Account{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
+		return err
+	}
+	account.DeProto(pb)
 	return nil
 }

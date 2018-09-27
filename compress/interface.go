@@ -7,5 +7,5 @@ import (
 
 type Chain interface {
 	GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
-	GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
+	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 }

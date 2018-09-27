@@ -1,6 +1,7 @@
 package access
 
 import (
+	"encoding/binary"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -8,12 +9,18 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts"
 )
 
 func getAccountBlockHash(dbKey []byte) *types.Hash {
 	hashBytes := dbKey[17:]
 	hash, _ := types.BytesToHash(hashBytes)
 	return &hash
+}
+
+func getAccountBlockHeight(dbKey []byte) uint64 {
+	heightBytes := dbKey[9:17]
+	return binary.BigEndian.Uint64(heightBytes)
 }
 
 type AccountChain struct {
@@ -77,8 +84,8 @@ func (ac *AccountChain) GetHashByHeight(accountId uint64, height uint64) (*types
 
 }
 
-func (ac *AccountChain) GetAbHashList(accountId uint64, height uint64, count, step int, forward bool) []*types.Hash {
-	hashList := make([]*types.Hash, 0)
+func (ac *AccountChain) GetAbHashList(accountId uint64, height, count, step uint64, forward bool) []*ledger.HashHeight {
+	hashList := make([]*ledger.HashHeight, 0)
 	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, height)
 	iter := ac.db.NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
@@ -89,8 +96,8 @@ func (ac *AccountChain) GetAbHashList(accountId uint64, height uint64, count, st
 		iter.Prev()
 	}
 
-	for j := 0; j < count; j++ {
-		for i := 0; i < step; i++ {
+	for j := uint64(0); j < count; j++ {
+		for i := uint64(0); i < step; i++ {
 			var ok bool
 			if forward {
 				ok = iter.Next()
@@ -102,7 +109,10 @@ func (ac *AccountChain) GetAbHashList(accountId uint64, height uint64, count, st
 				return hashList
 			}
 		}
-		hashList = append(hashList, getAccountBlockHash(iter.Key()))
+		hashList = append(hashList, &ledger.HashHeight{
+			Hash:   *getAccountBlockHash(iter.Key()),
+			Height: getAccountBlockHeight(iter.Key()),
+		})
 	}
 	return hashList
 }
@@ -223,8 +233,8 @@ func (ac *AccountChain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList,
 		return nil, nil
 	}
 
-	vmLogList := ledger.VmLogList{}
-	if dErr := vmLogList.Deserialize(data); dErr != nil {
+	vmLogList, dErr := ledger.VmLogListDeserialize(data)
+	if dErr != nil {
 		return nil, err
 	}
 
@@ -304,33 +314,59 @@ func (ac *AccountChain) DeleteVmLogList(batch *leveldb.Batch, logListHash *types
 	batch.Delete(key)
 }
 
-func (ac *AccountChain) WriteContractGid(batch *leveldb.Batch, gid *types.Gid, addr *types.Address) {
-	key, _ := database.EncodeKey(database.DBKP_ADDR_GID, addr.Bytes())
-	batch.Put(key, gid.Bytes())
+func (ac *AccountChain) GetBlockByHeight(accountId uint64, height uint64) (*ledger.AccountBlock, error) {
+	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, height)
+
+	iter := ac.db.NewIterator(util.BytesPrefix(key), nil)
+	if !iter.Last() {
+		if err := iter.Error(); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
+
+	accountBlock := &ledger.AccountBlock{}
+	if dsErr := accountBlock.DbDeserialize(iter.Value()); dsErr != nil {
+		return nil, dsErr
+	}
+
+	accountBlock.Hash = *getAccountBlockHash(iter.Key())
+
+	return accountBlock, nil
 }
 
-func (ac *AccountChain) GetContractGid(addr *types.Address) (*types.Gid, error) {
-	key, _ := database.EncodeKey(database.DBKP_ADDR_GID, addr.Bytes())
-	data, err := ac.db.Get(key, nil)
+func (ac *AccountChain) GetContractGid(accountId uint64) (*types.Gid, error) {
+	genesisBlock, err := ac.GetBlockByHeight(accountId, 1)
+
 	if err != nil {
 		return nil, err
 	}
 
-	gid, err2 := types.BytesToGid(data)
-	if err2 != nil {
-		return nil, err2
+	if genesisBlock == nil {
+		return nil, nil
+
 	}
+
+	fromBlock, getBlockErr := ac.GetBlock(&genesisBlock.FromBlockHash)
+	if getBlockErr == nil {
+		return nil, getBlockErr
+	}
+
+	if fromBlock == nil {
+		return nil, nil
+	}
+
+	if fromBlock.BlockType != ledger.BlockTypeSendCreate {
+		return nil, nil
+	}
+
+	gid := contracts.GetGidFromCreateContractData(fromBlock.Data)
 	return &gid, nil
 }
 
-func (ac *AccountChain) DeleteContract(batch *leveldb.Batch, addr *types.Address) {
-	key, _ := database.EncodeKey(database.DBKP_ADDR_GID, addr.Bytes())
-	batch.Delete(key)
-}
-
-func (ac *AccountChain) ReopenSendBlocks(batch *leveldb.Batch, reopenList []*types.Hash, deletedMap map[uint64]uint64) error {
-	for _, blockHash := range reopenList {
-		blockMeta, err := ac.GetBlockMeta(blockHash)
+func (ac *AccountChain) ReopenSendBlocks(batch *leveldb.Batch, reopenList []*ledger.HashHeight, deletedMap map[uint64]uint64) error {
+	for _, reopenItem := range reopenList {
+		blockMeta, err := ac.GetBlockMeta(&reopenItem.Hash)
 		if err != nil {
 			return err
 		}
@@ -342,8 +378,17 @@ func (ac *AccountChain) ReopenSendBlocks(batch *leveldb.Batch, reopenList []*typ
 		if deletedHeight := deletedMap[blockMeta.AccountId]; deletedHeight != 0 && blockMeta.Height >= deletedHeight {
 			continue
 		}
-		blockMeta.ReceiveBlockHeight = 0
-		writeErr := ac.WriteBlockMeta(batch, blockHash, blockMeta)
+
+		newReceiveBlockHeights := blockMeta.ReceiveBlockHeights
+
+		for index, receiveBlockHeight := range blockMeta.ReceiveBlockHeights {
+			if receiveBlockHeight == reopenItem.Height {
+				newReceiveBlockHeights = append(blockMeta.ReceiveBlockHeights[:index], blockMeta.ReceiveBlockHeights[index+1:]...)
+				break
+			}
+		}
+		blockMeta.ReceiveBlockHeights = newReceiveBlockHeights
+		writeErr := ac.WriteBlockMeta(batch, &reopenItem.Hash, blockMeta)
 		if writeErr != nil {
 			return err
 		}
@@ -366,14 +411,11 @@ func (ac *AccountChain) deleteChain(batch *leveldb.Batch, accountId uint64, toHe
 		if dsErr := deleteBlock.DbDeserialize(iter.Value()); dsErr != nil {
 			return nil, dsErr
 		}
-		// TODO publicKey
 
 		deleteBlock.Hash = *getAccountBlockHash(iter.Key())
 
 		// Delete vm log list
 		ac.DeleteVmLogList(batch, deleteBlock.LogHash)
-
-		// TODO: Delete contract gid
 
 		// Delete block
 		ac.DeleteBlock(batch, accountId, deleteBlock.Height, &deleteBlock.Hash)
@@ -382,7 +424,6 @@ func (ac *AccountChain) deleteChain(batch *leveldb.Batch, accountId uint64, toHe
 		ac.DeleteBlockMeta(batch, &deleteBlock.Hash)
 
 		deletedChain = append(deletedChain, deleteBlock)
-
 	}
 
 	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
@@ -392,8 +433,8 @@ func (ac *AccountChain) deleteChain(batch *leveldb.Batch, accountId uint64, toHe
 	return deletedChain, nil
 }
 
-func (ac *AccountChain) Delete(batch *leveldb.Batch, deleteMap map[uint64]uint64) (map[types.Address][]*ledger.AccountBlock, error) {
-	deleted := make(map[types.Address][]*ledger.AccountBlock)
+func (ac *AccountChain) Delete(batch *leveldb.Batch, deleteMap map[uint64]uint64) (map[uint64][]*ledger.AccountBlock, error) {
+	deleted := make(map[uint64][]*ledger.AccountBlock)
 	for accountId, deleteHeight := range deleteMap {
 		deletedChain, err := ac.deleteChain(batch, accountId, deleteHeight)
 		if err != nil {
@@ -401,18 +442,18 @@ func (ac *AccountChain) Delete(batch *leveldb.Batch, deleteMap map[uint64]uint64
 		}
 
 		if len(deletedChain) > 0 {
-			deleted[deletedChain[0].AccountAddress] = deletedChain
+			deleted[accountId] = deletedChain
 		}
 	}
 
 	return deleted, nil
 }
 
-func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64, needExtendDelete bool) (map[uint64]uint64, []*types.Hash, error) {
+func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64, needExtendDelete bool) (map[uint64]uint64, []*ledger.HashHeight, error) {
 	currentNeedDelete := planToDelete
 
-	deleteMap := make(map[uint64]uint64)
-	reopenList := make([]*types.Hash, 0)
+	var deleteMap map[uint64]uint64
+	var reopenList []*ledger.HashHeight
 
 	for len(currentNeedDelete) > 0 {
 		nextNeedDelete := make(map[uint64]uint64)
@@ -452,24 +493,29 @@ func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64
 						return nil, nil, getBmErr
 					}
 
-					receiveBlockHeight := accountBlockMeta.ReceiveBlockHeight
-					if receiveBlockHeight > 0 {
-						receiveBlockMeta, getFromBlockMetaErr := ac.GetBlockMeta(&accountBlock.FromBlockHash)
-						if getFromBlockMetaErr != nil {
-							iter.Release()
-							return nil, nil, getFromBlockMetaErr
-						}
-						receiveAccountId := receiveBlockMeta.AccountId
+					for _, receiveBlockHeight := range accountBlockMeta.ReceiveBlockHeights {
+						if receiveBlockHeight > 0 {
+							receiveBlockMeta, getFromBlockMetaErr := ac.GetBlockMeta(&accountBlock.FromBlockHash)
+							if getFromBlockMetaErr != nil {
+								iter.Release()
+								return nil, nil, getFromBlockMetaErr
+							}
+							receiveAccountId := receiveBlockMeta.AccountId
 
-						if currentDeleteHeight, nextDeleteHeight := currentNeedDelete[receiveAccountId], nextNeedDelete[receiveAccountId]; !(currentDeleteHeight != 0 && currentDeleteHeight <= receiveBlockHeight ||
-							nextDeleteHeight != 0 && nextDeleteHeight <= receiveBlockHeight) {
-							nextNeedDelete[receiveAccountId] = receiveBlockHeight
+							if currentDeleteHeight, nextDeleteHeight := currentNeedDelete[receiveAccountId], nextNeedDelete[receiveAccountId]; !(currentDeleteHeight != 0 && currentDeleteHeight <= receiveBlockHeight ||
+								nextDeleteHeight != 0 && nextDeleteHeight <= receiveBlockHeight) {
+								nextNeedDelete[receiveAccountId] = receiveBlockHeight
+							}
 						}
 					}
 				} else if accountBlock.IsReceiveBlock() {
-					reopenList = append(reopenList, &accountBlock.FromBlockHash)
+					reopenList = append(reopenList, &ledger.HashHeight{
+						Hash:   accountBlock.FromBlockHash,
+						Height: accountBlock.Height,
+					})
 				}
 			}
+
 			if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 				iter.Release()
 				return nil, nil, err
@@ -525,6 +571,20 @@ func (ac *AccountChain) GetPlanToDelete(maxAccountId uint64, snapshotBlockHeight
 	return planToDelete, nil
 }
 
+func (ac *AccountChain) GetUnConfirmedSubLedger(maxAccountId uint64) (map[uint64][]*ledger.AccountBlock, error) {
+	var unConfirmedAccountBlocks map[uint64][]*ledger.AccountBlock
+	for i := uint64(1); i <= maxAccountId; i++ {
+		blocks, err := ac.GetUnConfirmAccountBlocks(i, 0)
+		if err != nil {
+			return nil, err
+		}
+		if blocks != nil {
+			unConfirmedAccountBlocks[i] = blocks
+		}
+	}
+	return unConfirmedAccountBlocks, nil
+}
+
 // TODO Add cache, call frequently.
 func (ac *AccountChain) GetConfirmAccountBlock(snapshotHeight uint64, accountId uint64) (*ledger.AccountBlock, error) {
 	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId)
@@ -534,7 +594,6 @@ func (ac *AccountChain) GetConfirmAccountBlock(snapshotHeight uint64, accountId 
 
 	iter.Last()
 	for iter.Prev() {
-
 		accountBlockHash := getAccountBlockHash(iter.Key())
 		accountBlockMeta, getMetaErr := ac.GetBlockMeta(accountBlockHash)
 		if getMetaErr != nil {
@@ -551,6 +610,49 @@ func (ac *AccountChain) GetConfirmAccountBlock(snapshotHeight uint64, accountId 
 
 			return accountBlock, nil
 		}
+	}
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func (ac *AccountChain) GetUnConfirmAccountBlockBeforeSbHeight(snapshotHeight uint64, accountId uint64) (*ledger.AccountBlock, error) {
+	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId)
+
+	iter := ac.db.NewIterator(util.BytesPrefix(key), nil)
+	defer iter.Release()
+
+	iter.Last()
+
+	var prevBlockHash *types.Hash
+	var prevBlockMeta *ledger.AccountBlockMeta
+
+	for iter.Prev() {
+		accountBlockHash := getAccountBlockHash(iter.Key())
+		accountBlockMeta, getMetaErr := ac.GetBlockMeta(accountBlockHash)
+		if getMetaErr != nil {
+			return nil, getMetaErr
+		}
+		if accountBlockMeta.SnapshotHeight > 0 && accountBlockMeta.SnapshotHeight <= snapshotHeight-1 {
+			if prevBlockHash == nil {
+				return nil, nil
+			}
+			prevAccountBlock, err := ac.GetBlock(prevBlockHash)
+			if err != nil {
+				return nil, err
+			}
+
+			prevAccountBlock.Hash = *prevBlockHash
+			prevAccountBlock.Meta = prevBlockMeta
+
+			return prevAccountBlock, nil
+		}
+
+		prevBlockHash = accountBlockHash
+		prevBlockMeta = accountBlockMeta
+
 	}
 	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 		return nil, err

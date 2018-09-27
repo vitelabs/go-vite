@@ -8,7 +8,7 @@ import (
 )
 
 // 0 means error, 1 means not exist, 2 means general account, 3 means contract account.
-func (c *Chain) AccountType(address *types.Address) (uint64, error) {
+func (c *chain) AccountType(address *types.Address) (uint64, error) {
 	account, err := c.GetAccount(address)
 	if err != nil {
 		return ledger.AccountTypeError, err
@@ -29,7 +29,8 @@ func (c *Chain) AccountType(address *types.Address) (uint64, error) {
 	return ledger.AccountTypeContract, nil
 }
 
-func (c *Chain) GetAccount(address *types.Address) (*ledger.Account, error) {
+// TODO cache
+func (c *chain) GetAccount(address *types.Address) (*ledger.Account, error) {
 	account, err := c.chainDb.Account.GetAccountByAddress(address)
 	if err != nil {
 		c.log.Error("Query account failed, error is "+err.Error(), "method", "GetAccount")
@@ -38,7 +39,7 @@ func (c *Chain) GetAccount(address *types.Address) (*ledger.Account, error) {
 	return account, nil
 }
 
-func (c *Chain) newAccountId() (uint64, error) {
+func (c *chain) newAccountId() (uint64, error) {
 	lastAccountId, err := c.chainDb.Account.GetLastAccountId()
 	if err != nil {
 		return 0, err
@@ -46,7 +47,7 @@ func (c *Chain) newAccountId() (uint64, error) {
 	return lastAccountId + 1, nil
 }
 
-func (c *Chain) createAccount(batch *leveldb.Batch, accountId uint64, address *types.Address, publicKey ed25519.PublicKey) error {
+func (c *chain) createAccount(batch *leveldb.Batch, accountId uint64, address *types.Address, publicKey ed25519.PublicKey) error {
 	account := &ledger.Account{
 		AccountId: accountId,
 		PublicKey: publicKey,

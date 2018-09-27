@@ -1,7 +1,6 @@
 package p2p
 
 import (
-	"fmt"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/discovery"
@@ -93,7 +92,6 @@ func getServerKey(p2pDir string) (pub ed25519.PublicKey, priv ed25519.PrivateKey
 
 	if !getKeyOK {
 		n, err := fd.Write([]byte(priv))
-		fmt.Println(fd == nil)
 		if err != nil {
 			p2pServerLog.Info("write privateKey to p2p priv.key fail", "error", err)
 		} else if n != len(priv) {
@@ -146,12 +144,19 @@ func EnsureConfig(cfg Config) *Config {
 func addFirmNodes(bootnodes []string) (nodes []*discovery.Node) {
 	nodes = make([]*discovery.Node, 0, len(bootnodes)+len(firmNodes))
 
-	for _, list := range [][]string{firmNodes, bootnodes} {
-		for _, nodeURL := range list {
-			node, err := discovery.ParseNode(nodeURL)
-			if err == nil {
-				nodes = append(nodes, node)
-			}
+	//for _, list := range [][]string{firmNodes, bootnodes} {
+	//	for _, nodeURL := range list {
+	//		node, err := discovery.ParseNode(nodeURL)
+	//		if err == nil {
+	//			nodes = append(nodes, node)
+	//		}
+	//	}
+	//}
+
+	for _, nodeURL := range bootnodes {
+		node, err := discovery.ParseNode(nodeURL)
+		if err == nil {
+			nodes = append(nodes, node)
 		}
 	}
 

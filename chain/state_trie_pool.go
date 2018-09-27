@@ -8,11 +8,11 @@ import (
 
 type StateTriePool struct {
 	cache   map[types.Address]*trie.Trie
-	chain   *Chain
+	chain   *chain
 	setLock sync.Mutex
 }
 
-func NewStateTriePool(chain *Chain) *StateTriePool {
+func NewStateTriePool(chain *chain) *StateTriePool {
 	return &StateTriePool{
 		cache: make(map[types.Address]*trie.Trie),
 		chain: chain,

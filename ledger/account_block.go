@@ -1,11 +1,14 @@
 package ledger
 
 import (
+	"bytes"
 	"encoding/binary"
+	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vitepb"
 	"math/big"
 	"time"
 )
@@ -20,7 +23,7 @@ type AccountBlockMeta struct {
 	Height uint64
 
 	// Block status, 1 means open, 2 means closed
-	ReceiveBlockHeight uint64
+	ReceiveBlockHeights []uint64
 
 	// Height of Snapshot block which confirm this account block
 	SnapshotHeight uint64
@@ -29,11 +32,46 @@ type AccountBlockMeta struct {
 	RefSnapshotHeight uint64
 }
 
-func (*AccountBlockMeta) Serialize() ([]byte, error) {
-	return nil, nil
+func (abm *AccountBlockMeta) Copy() *AccountBlockMeta {
+	newAbm := *abm
+
+	newAbm.ReceiveBlockHeights = make([]uint64, len(abm.ReceiveBlockHeights))
+	copy(newAbm.ReceiveBlockHeights, abm.ReceiveBlockHeights)
+
+	return &newAbm
 }
 
-func (*AccountBlockMeta) Deserialize([]byte) error {
+func (abm *AccountBlockMeta) Proto() *vitepb.AccountBlockMeta {
+	pb := &vitepb.AccountBlockMeta{
+		AccountId:           abm.AccountId,
+		Height:              abm.Height,
+		ReceiveBlockHeights: abm.ReceiveBlockHeights,
+
+		SnapshotHeight:    abm.SnapshotHeight,
+		RefSnapshotHeight: abm.RefSnapshotHeight,
+	}
+	return pb
+}
+
+func (abm *AccountBlockMeta) DeProto(pb *vitepb.AccountBlockMeta) {
+	abm.AccountId = pb.AccountId
+	abm.Height = pb.Height
+	abm.ReceiveBlockHeights = pb.ReceiveBlockHeights
+	abm.SnapshotHeight = pb.SnapshotHeight
+	abm.RefSnapshotHeight = pb.RefSnapshotHeight
+}
+
+func (abm *AccountBlockMeta) Serialize() ([]byte, error) {
+	return proto.Marshal(abm.Proto())
+}
+
+func (abm *AccountBlockMeta) Deserialize(buf []byte) error {
+	pb := &vitepb.AccountBlockMeta{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
+		return err
+	}
+
+	abm.DeProto(pb)
 	return nil
 }
 
@@ -79,8 +117,44 @@ type AccountBlock struct {
 	Signature []byte
 }
 
-func (*AccountBlock) Copy() *AccountBlock {
-	return nil
+func (ab *AccountBlock) Copy() *AccountBlock {
+	newAb := *ab
+
+	if ab.Meta != nil {
+		newAb.Meta = ab.Meta.Copy()
+	}
+
+	if ab.producer != nil {
+		producer := *ab.producer
+		newAb.producer = &producer
+	}
+
+	if ab.Amount != nil {
+		newAb.Amount = big.NewInt(0).SetBytes(ab.Amount.Bytes())
+	}
+
+	if ab.Fee != nil {
+		newAb.Fee = big.NewInt(0).SetBytes(ab.Fee.Bytes())
+	}
+	newAb.SnapshotHash = ab.SnapshotHash
+
+	newAb.Data = make([]byte, len(ab.Data))
+	copy(newAb.Data, ab.Data)
+
+	timestamp := time.Unix(0, ab.Timestamp.UnixNano())
+	newAb.Timestamp = &timestamp
+
+	if ab.LogHash != nil {
+		logHash := *ab.LogHash
+		newAb.LogHash = &logHash
+	}
+
+	newAb.Nonce = make([]byte, len(ab.Nonce))
+	copy(newAb.Nonce, ab.Nonce)
+
+	newAb.Signature = make([]byte, len(ab.Signature))
+	copy(newAb.Signature, ab.Signature)
+	return &newAb
 }
 
 func (ab *AccountBlock) Producer() types.Address {
@@ -90,12 +164,92 @@ func (ab *AccountBlock) Producer() types.Address {
 	}
 	return *ab.producer
 }
+func (ab *AccountBlock) proto() *vitepb.AccountBlock {
+	pb := &vitepb.AccountBlock{}
+	pb.BlockType = uint32(ab.BlockType)
+	pb.Hash = ab.Hash.Bytes()
+	pb.Height = ab.Height
+	pb.PrevHash = ab.PrevHash.Bytes()
 
-func (ab *AccountBlock) Proto() {
+	if ab.IsSendBlock() {
+		pb.ToAddress = ab.ToAddress.Bytes()
+		pb.Amount = ab.Amount.Bytes()
+		pb.TokenId = ab.TokenId.Bytes()
+	} else {
+		pb.FromBlockHash = ab.FromBlockHash.Bytes()
+	}
 
+	pb.Quota = ab.Quota
+	if ab.Fee != nil {
+		pb.Fee = ab.Fee.Bytes()
+	}
+	pb.SnapshotHash = ab.SnapshotHash.Bytes()
+	pb.Data = ab.Data
+	pb.Timestamp = ab.Timestamp.UnixNano()
+
+	if ab.LogHash != nil {
+		pb.LogHash = ab.LogHash.Bytes()
+	}
+	pb.Nonce = ab.Nonce
+	pb.Signature = ab.Signature
+	return pb
 }
 
-func (ab *AccountBlock) DeProto() {
+func (ab *AccountBlock) DbProto() *vitepb.AccountBlock {
+	pb := ab.proto()
+	if !bytes.Equal(ab.Producer().Bytes(), ab.AccountAddress.Bytes()) {
+		pb.PublicKey = ab.PublicKey
+	}
+
+	return pb
+}
+
+func (ab *AccountBlock) Proto() *vitepb.AccountBlock {
+	pb := ab.proto()
+	pb.AccountAddress = ab.AccountAddress.Bytes()
+	pb.PublicKey = ab.PublicKey
+	return pb
+}
+
+func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) {
+	ab.BlockType = byte(pb.BlockType)
+	ab.Hash, _ = types.BytesToHash(pb.Hash)
+	ab.Height = pb.Height
+	ab.PrevHash, _ = types.BytesToHash(pb.PrevHash)
+	ab.AccountAddress, _ = types.BytesToAddress(pb.AccountAddress)
+	ab.PublicKey = pb.PublicKey
+	if len(pb.ToAddress) >= 0 {
+		ab.ToAddress, _ = types.BytesToAddress(pb.ToAddress)
+	}
+	if len(pb.TokenId) >= 0 {
+		ab.TokenId, _ = types.BytesToTokenTypeId(pb.TokenId)
+	}
+	if len(pb.Amount) >= 0 {
+		ab.Amount = big.NewInt(0)
+		ab.Amount.SetBytes(pb.Amount)
+	}
+
+	if len(pb.FromBlockHash) >= 0 {
+		ab.FromBlockHash, _ = types.BytesToHash(pb.FromBlockHash)
+	}
+	ab.Quota = pb.Quota
+	if len(pb.Fee) >= 0 {
+		ab.Fee = big.NewInt(0)
+		ab.Fee.SetBytes(pb.Fee)
+	}
+
+	ab.SnapshotHash, _ = types.BytesToHash(pb.SnapshotHash)
+	ab.Data = pb.Data
+	timestamp := time.Unix(0, pb.Timestamp)
+	ab.Timestamp = &timestamp
+	ab.StateHash, _ = types.BytesToHash(pb.StateHash)
+	if len(pb.LogHash) >= 0 {
+		logHash, _ := types.BytesToHash(pb.LogHash)
+		ab.LogHash = &logHash
+	}
+
+	ab.Nonce = pb.Nonce
+	ab.Signature = pb.Signature
 
 }
 
@@ -146,9 +300,6 @@ func (ab *AccountBlock) ComputeHash() types.Hash {
 	binary.BigEndian.PutUint64(unixTimeBytes, uint64(ab.Timestamp.Unix()))
 	source = append(source, unixTimeBytes...)
 
-	// StateHash
-	source = append(source, ab.StateHash.Bytes()...)
-
 	// LogHash
 	if ab.LogHash != nil {
 		source = append(source, ab.LogHash.Bytes()...)
@@ -170,18 +321,29 @@ func (ab *AccountBlock) VerifySignature() bool {
 }
 
 func (ab *AccountBlock) DbSerialize() ([]byte, error) {
-	return nil, nil
+	return proto.Marshal(ab.DbProto())
 }
 
-func (*AccountBlock) DbDeserialize([]byte) error {
+func (ab *AccountBlock) DbDeserialize(buf []byte) error {
+	pb := &vitepb.AccountBlock{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
+		return err
+	}
+	ab.DeProto(pb)
 	return nil
 }
 
-func (*AccountBlock) Serialize() ([]byte, error) {
-	return nil, nil
+func (ab *AccountBlock) Serialize() ([]byte, error) {
+	return proto.Marshal(ab.Proto())
 }
 
-func (*AccountBlock) Deserialize([]byte) error {
+func (ab *AccountBlock) Deserialize(buf []byte) error {
+	pb := &vitepb.AccountBlock{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
+		return err
+	}
+	ab.DeProto(pb)
+
 	return nil
 }
 

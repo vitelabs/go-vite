@@ -1,12 +1,13 @@
 package miner
 
 import (
-	"github.com/vitelabs/go-vite/log15"
+	"sync/atomic"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
-	"sync/atomic"
-	"time"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 var mLog = log15.New("module", "miner/miner")
@@ -50,14 +51,14 @@ type Miner struct {
 	mining               int32
 	coinbase             types.Address // address
 	worker               *worker
-	committee            *consensus.Committee
+	committee            *consensus.committee
 	mem                  *consensus.SubscribeMem
 	downloaderRegister   DownloaderRegister
 	downloaderRegisterCh chan int
 	dwlFinished          bool
 }
 
-func NewMiner(chain SnapshotChainRW, downloaderRegister DownloaderRegister, coinbase types.Address, committee *consensus.Committee) *Miner {
+func NewMiner(chain SnapshotChainRW, downloaderRegister DownloaderRegister, coinbase types.Address, committee *consensus.committee) *Miner {
 	miner := &Miner{chain: chain, coinbase: coinbase}
 
 	miner.committee = committee

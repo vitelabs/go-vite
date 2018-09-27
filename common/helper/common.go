@@ -19,6 +19,7 @@ const (
 var (
 	Big0   = big.NewInt(0)
 	Big1   = big.NewInt(1)
+	Big10  = big.NewInt(10)
 	Big32  = big.NewInt(32)
 	Big256 = big.NewInt(256)
 	Big257 = big.NewInt(257)
