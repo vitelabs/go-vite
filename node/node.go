@@ -25,7 +25,7 @@ type Node struct {
 
 	//vite
 	viteConfig config.Config
-	vite       *vite.Vite
+	viteServer *vite.Vite
 
 	//p2p
 	p2pConfig p2p.Config
@@ -144,6 +144,12 @@ func (node *Node) Stop() error {
 	if node.p2pServer == nil {
 		return ErrNodeStopped
 	}
+
+	//p2p
+	node.p2pServer.Stop()
+
+	//vite
+	node.viteServer.Stop()
 
 	// Terminate the API, services and the p2p server.
 	node.stopWS()
