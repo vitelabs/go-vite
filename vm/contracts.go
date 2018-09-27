@@ -100,7 +100,7 @@ func (p *pRegister) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft u
 
 	param := new(contracts.ParamRegister)
 	err = contracts.ABIRegister.UnpackMethod(param, contracts.MethodNameRegister, block.AccountBlock.Data)
-	if err != nil {
+	if err != nil || param.Gid == types.DELEGATE_GID {
 		return quotaLeft, ErrInvalidData
 	}
 
@@ -915,9 +915,9 @@ type createConsensusGroupCondition interface {
 }
 
 var SimpleCountingRuleList = map[contracts.ConditionCode]createConsensusGroupCondition{
-	contracts.RegisterConditionOfSnapshot: &registerConditionOfPledge{},
-	contracts.VoteConditionOfDefault:      &voteConditionOfDefault{},
-	contracts.VoteConditionOfBalance:      &voteConditionOfKeepToken{},
+	contracts.RegisterConditionOfPledge: &registerConditionOfPledge{},
+	contracts.VoteConditionOfDefault:    &voteConditionOfDefault{},
+	contracts.VoteConditionOfBalance:    &voteConditionOfKeepToken{},
 }
 
 func getConsensusGroupCondition(conditionId uint8, conditionIdPrefix contracts.ConditionCode) (createConsensusGroupCondition, bool) {
@@ -1016,7 +1016,7 @@ type voteConditionOfKeepToken struct{}
 
 func (c voteConditionOfKeepToken) checkParam(param []byte, db vmctxt_interface.VmDatabase) bool {
 	v := new(contracts.VariableConditionVoteOfKeepToken)
-	err := contracts.ABIConsensusGroup.UnpackVariable(v, contracts.VariableNameConditionVoteOfKeepToken, param)
+	err := contracts.ABIConsensusGroup.UnpackVariable(v, contracts.VariableNameConditionVoteOfBalance, param)
 	if err != nil || contracts.GetTokenById(db, v.KeepToken) == nil {
 		return false
 	}
@@ -1028,7 +1028,7 @@ func (c voteConditionOfKeepToken) checkData(paramData []byte, block *vm_context.
 		return false
 	}
 	param := new(contracts.VariableConditionVoteOfKeepToken)
-	contracts.ABIConsensusGroup.UnpackVariable(param, contracts.VariableNameConditionVoteOfKeepToken, paramData)
+	contracts.ABIConsensusGroup.UnpackVariable(param, contracts.VariableNameConditionVoteOfBalance, paramData)
 	if block.VmContext.GetBalance(&block.AccountBlock.AccountAddress, &param.KeepToken).Cmp(param.KeepAmount) < 0 {
 		return false
 	}
