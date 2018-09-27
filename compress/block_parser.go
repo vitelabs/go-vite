@@ -3,12 +3,13 @@ package compress
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
 )
 
-type blockProcessor func(block ledger.Block)
+type blockProcessor func(block ledger.Block, err error)
 
 type blockParserCache struct {
 	currentBlockSize       uint32
@@ -29,6 +30,7 @@ func (blockParser *blockParserCache) RefreshCache() {
 
 var blockParserLog = log15.New("module", "compress", "block_parser")
 
+// TODO err
 func BlockParser(reader io.Reader, processor blockProcessor) {
 	//r, w := io.Pipe()
 
@@ -81,11 +83,12 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 					case BlockTypeSnapshotBlock:
 						block = &ledger.SnapshotBlock{}
 					default:
-						blockParserLog.Error("Unknown block type", "method", "BlockParser")
+						err := errors.New("Unknown block type")
+						processor(nil, err)
 					}
 					if block != nil {
-						block.Deserialize(blockParser.currentBlockBuffer)
-						processor(block)
+						err := block.Deserialize(blockParser.currentBlockBuffer)
+						processor(block, err)
 					}
 
 					blockParser.RefreshCache()
