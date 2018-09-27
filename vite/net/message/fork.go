@@ -1,7 +1,9 @@
 package message
 
+import "github.com/vitelabs/go-vite/ledger"
+
 type Fork struct {
-	List []*BlockID
+	List []*ledger.HashHeight
 }
 
 func (f *Fork) Serialize() ([]byte, error) {

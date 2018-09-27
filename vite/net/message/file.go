@@ -8,8 +8,7 @@ type File struct {
 
 type FileList struct {
 	Files []*File
-	Start uint64 // start and end means need query blocks from chainDB
-	End   uint64 // because files don`t contain the latest snapshotblocks
+	Chunk [][2]uint64	// because files don`t contain the latest snapshotblocks
 	Nonce uint64 // use only once
 }
 
@@ -31,5 +30,17 @@ func (f *RequestFile) Serialize() ([]byte, error) {
 }
 
 func (f *RequestFile) Deserialize(buf []byte) error {
+	panic("implement me")
+}
+
+type Chunk struct {
+	Start, End uint64
+}
+
+func (c *Chunk) Serialize() ([]byte, error) {
+	panic("implement me")
+}
+
+func (c *Chunk) Deserialize(buf []byte) error {
 	panic("implement me")
 }

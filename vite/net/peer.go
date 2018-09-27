@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/p2p/list"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"net"
 	"sync"
@@ -32,8 +31,7 @@ type Peer struct {
 	KnownBlocks       *cuckoofilter.CuckooFilter
 	Log               log15.Logger
 	term              chan struct{}
-	reqs              *list.List
-	reqErr            chan error // pending reqs got error (eg. timeout)
+	errch chan error
 }
 
 func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
@@ -45,8 +43,7 @@ func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 		KnownBlocks:       cuckoofilter.NewCuckooFilter(filterCap),
 		Log:               log15.New("module", "net/peer"),
 		term:              make(chan struct{}),
-		reqs:              list.New(),
-		reqErr:            make(chan error, 1),
+		errch: make(chan error, 1),
 	}
 }
 
@@ -118,40 +115,6 @@ func (p *Peer) SetHead(head types.Hash, height uint64) {
 func (p *Peer) SeeBlock(hash types.Hash) {
 	p.KnownBlocks.InsertUnique(hash[:])
 }
-
-func (p *Peer) doRequest(r *request) error {
-	select {
-	case <-p.term:
-		return errPeerTermed
-	default:
-		p.reqs.Append(r)
-		return r.peer.Send(r.cmd, r.id, r.param)
-	}
-}
-
-func (p *Peer) delRequest(r *request) {
-	p.reqs.Traverse(func(prev, current *list.Element) {
-		if current.Value == r {
-			p.reqs.Remove(prev, current)
-		}
-	})
-}
-
-//func (p *Peer) receive(msg *p2p.Msg) {
-	//for _, job := range p.jobs {
-	//	go func(r *req) {
-	//		if r.callback != nil {
-	//			done, err := r.callback(cmd, data)
-	//			r.errch <- err
-	//			r.done <- done
-	//
-	//			if err != nil || done {
-	//				p.delete(r)
-	//			}
-	//		}
-	//	}(job)
-	//}
-//}
 
 // response
 func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error) {
@@ -264,15 +227,71 @@ func (p *Peer) Info() *PeerInfo {
 var errSetHasClosed = errors.New("peer set has closed")
 var errSetHasPeer = errors.New("peer is existed")
 
+type peerEventCode byte
+const (
+	addPeer peerEventCode = iota + 1
+	delPeer
+)
+
+type peerEvent struct {
+	code peerEventCode
+	peer *Peer
+	count int
+	err error
+}
+
 type peerSet struct {
 	peers  map[string]*Peer
 	rw     sync.RWMutex
-	closed bool
+	addSub []chan<- *peerEvent
+	delSub []chan<- *peerEvent
 }
 
 func NewPeerSet() *peerSet {
 	return &peerSet{
 		peers: make(map[string]*Peer),
+	}
+}
+
+func (m *peerSet) Sub(c chan <- *peerEvent) {
+	m.rw.Lock()
+	defer m.rw.Unlock()
+
+	m.addSub = append(m.addSub, c)
+	m.delSub = append(m.delSub, c)
+}
+
+func (m *peerSet) Unsub(c chan <- *peerEvent) {
+	m.rw.Lock()
+	defer m.rw.Unlock()
+
+	var i, j int
+	for i, j = 0, 0; i < len(m.addSub); i++ {
+		if m.addSub[i] != c {
+			m.addSub[j] = m.addSub[i]
+			j++
+		}
+	}
+	m.addSub = m.addSub[:j]
+
+	for i, j = 0, 0; i < len(m.delSub); i++ {
+		if m.addSub[i] != c {
+			m.delSub[j] = m.delSub[i]
+			j++
+		}
+	}
+	m.delSub = m.delSub[:j]
+}
+
+func (m *peerSet) Notify(e *peerEvent) {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+
+	for _, c := range m.addSub {
+		select {
+		case c <- e:
+		default:
+		}
 	}
 }
 
@@ -302,21 +321,29 @@ func (m *peerSet) Add(peer *Peer) error {
 	m.rw.Lock()
 	defer m.rw.Unlock()
 
-	if m.closed {
-		return errSetHasClosed
-	}
 	if _, ok := m.peers[peer.ID]; ok {
 		return errSetHasPeer
 	}
 
 	m.peers[peer.ID] = peer
+	m.Notify(&peerEvent{
+		code:  addPeer,
+		peer:  peer,
+		count: len(m.peers),
+	})
 	return nil
 }
 
 func (m *peerSet) Del(peer *Peer) {
 	m.rw.Lock()
+	defer m.rw.Unlock()
+
 	delete(m.peers, peer.ID)
-	m.rw.Unlock()
+	m.Notify(&peerEvent{
+		code:  delPeer,
+		peer:  peer,
+		count: len(m.peers),
+	})
 }
 
 func (m *peerSet) Count() int {
@@ -362,15 +389,4 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*Peer) {
 	}
 
 	return
-}
-
-func (m *peerSet) close() {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
-
-	for _, peer := range m.peers {
-		peer.Disconnect(p2p.DiscQuitting)
-	}
-
-	m.closed = true
 }
