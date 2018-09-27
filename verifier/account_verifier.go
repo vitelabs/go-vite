@@ -109,11 +109,11 @@ func (verifier *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifySt
 	//	return
 	//}
 
-	step1, err1 := verifier.verifyProducerLegality(block)
+	step1, err1 := verifier.verifyProducerLegality(block, verifyStatResult.accountTask)
 	if isFail(step1, err1, verifyStatResult) {
 		return
 	}
-	step2, err2 := verifier.verifySelfPrev(block)
+	step2, err2 := verifier.verifySelfPrev(block, verifyStatResult.accountTask)
 	if isFail(step2, err2, verifyStatResult) {
 		return
 	}
@@ -121,12 +121,13 @@ func (verifier *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifySt
 	if step1 == SUCCESS && step2 == SUCCESS {
 		verifyStatResult.referredSelfResult = SUCCESS
 	} else {
-		verifyStatResult.accountTask = append(verifyStatResult.accountTask, &AccountPendingTask{Hash: &block.Hash})
+		verifyStatResult.accountTask = append(verifyStatResult.accountTask,
+			&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.Hash})
 		verifyStatResult.referredSelfResult = PENDING
 	}
 }
 
-func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock) (VerifyResult, error) {
+func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock, task []*AccountPendingTask) (VerifyResult, error) {
 	defer monitor.LogTime("verify", "accountSelf", time.Now())
 
 	var errMsg error
@@ -191,7 +192,7 @@ func (verifier *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, veri
 		if err != nil {
 			verifier.log.Error("GetAccountBlockByHash", "error", err)
 		}
-		verifyStatResult.snapshotTask = &SnapshotPendingTask{Hash: &block.Hash}
+		verifyStatResult.snapshotTask = &SnapshotPendingTask{Hash: &block.SnapshotHash}
 		verifyStatResult.referredSnapshotResult = PENDING
 	} else {
 		if isSucc := verifier.VerifyTimeOut(snapshotBlock); !isSucc {
@@ -201,7 +202,7 @@ func (verifier *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, veri
 		verifyStatResult.referredSnapshotResult = SUCCESS
 	}
 
-	verifyStatResult.snapshotTask = &SnapshotPendingTask{Hash: &block.Hash}
+	verifyStatResult.snapshotTask = &SnapshotPendingTask{Hash: &block.SnapshotHash}
 	verifyStatResult.referredSnapshotResult = PENDING
 }
 
@@ -240,7 +241,7 @@ func (verifier *AccountVerifier) verifySelfDataValidity(block *ledger.AccountBlo
 	return true, nil
 }
 
-func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock) (VerifyResult, error) {
+func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock, task []*AccountPendingTask) (VerifyResult, error) {
 	defer monitor.LogTime("verify", "accountSelfDependence", time.Now())
 
 	latestBlock, err := verifier.chain.GetLatestAccountBlock(&block.AccountAddress)
@@ -257,6 +258,7 @@ func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock) (Ver
 				}
 				return SUCCESS, nil
 			}
+			task = append(task, &AccountPendingTask{nil, &block.PrevHash})
 			return PENDING, nil
 		}
 	} else {
@@ -267,7 +269,7 @@ func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock) (Ver
 		case block.PrevHash == latestBlock.Hash && block.Height == latestBlock.Height+1:
 			return SUCCESS, nil
 		case block.PrevHash != latestBlock.Hash && block.Height > latestBlock.Height+1:
-			// todo add pending
+			task = append(task, &AccountPendingTask{nil, &block.PrevHash})
 			return PENDING, nil
 		default:
 			return FAIL, errors.New("PreHash or Height is invalid")
