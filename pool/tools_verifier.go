@@ -28,7 +28,7 @@ func (self *snapshotVerifier) verify(b commonBlock) *poolVerifyStat {
 func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) *poolSnapshotVerifyStat {
 	return &poolSnapshotVerifyStat{}
 }
-func (self *snapshotVerifier) verifyAccountTimeount(current *ledger.SnapshotBlock, refer *ledger.SnapshotBlock) bool {
+func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock, refer *ledger.SnapshotBlock) bool {
 	return current.Height-refer.Height > 60*24
 }
 

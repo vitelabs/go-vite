@@ -1,5 +1,7 @@
 package pool
 
+import "github.com/vitelabs/go-vite/vite/net"
+
 type tools struct {
 	// if address == nil, snapshot tools
 	// else account fetcher
@@ -14,4 +16,10 @@ func newTools(f commonSyncer, v commonVerifier, rw chainRw) *tools {
 	self.verifier = v
 	self.rw = rw
 	return self
+}
+
+type syncer interface {
+	net.Broadcaster
+	net.Fetcher
+	net.Subscriber
 }
