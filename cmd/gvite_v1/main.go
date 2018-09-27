@@ -3,35 +3,84 @@ package main
 import (
 	//_ "net/http/pprof"
 	"fmt"
+	"github.com/vitelabs/go-vite/cmd/console"
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
+	"github.com/vitelabs/go-vite/cmd/params"
 	"github.com/vitelabs/go-vite/cmd/utils"
+	"github.com/vitelabs/go-vite/log15"
 	"gopkg.in/urfave/cli.v1"
 	"os"
+	"path/filepath"
+	"runtime"
 	"sort"
+	"time"
 )
 
 // gvite is the official command-line client for Vite
 
 var (
-	app = utils.NewApp()
+	log = log15.New("module", "gvite/main")
 
-	nodeFlags = []cli.Flag{
-		utils.IdentityFlag,
+	app = cli.NewApp()
+
+	//config
+	configFlags = []cli.Flag{
+		utils.ConfigFileFlag,
+	}
+	//general
+	generalFlags = []cli.Flag{
 		utils.DataDirFlag,
+		utils.KeyStoreDirFlag,
+	}
+
+	//p2p
+	p2pFlags = []cli.Flag{
+		utils.IdentityFlag, //TODO: change the flag name ?
 		utils.NetworkIdFlag,
-		utils.ListenPortFlag,
-		utils.NodeKeyHexFlag,
 		utils.MaxPeersFlag,
 		utils.MaxPendingPeersFlag,
-		utils.ConfigFileFlag,
+		utils.ListenPortFlag,
+		utils.NodeKeyHexFlag,
+	}
+
+	//IPC
+	ipcFlags = []cli.Flag{
+		utils.IPCEnabledFlag,
+		utils.IPCPathFlag,
+	}
+
+	//HTTP RPC
+	httpFlags = []cli.Flag{
+		utils.RPCEnabledFlag,
+		utils.RPCListenAddrFlag,
+		utils.RPCPortFlag,
+	}
+
+	//WS
+	wsFlags = []cli.Flag{
+		utils.WSEnabledFlag,
+		utils.WSListenAddrFlag,
+		utils.WSPortFlag,
 	}
 )
 
 func init() {
-	//Initialize the CLI app and start Gvite
-	app.Action = gvite
-	//app.HideVersion = true
+
+	//TODO: Whether the command name is fixed ？
+	app.Name = filepath.Base(os.Args[0])
+	app.HideVersion = false
+	app.Version = params.Version
+	app.Compiled = time.Now()
+	app.Authors = []cli.Author{
+		cli.Author{
+			Name:  "viteyuan",
+			Email: "viteyuan@163.com",
+		},
+	}
 	app.Copyright = "Copyright 2018-2024 The go-vite Authors"
+	app.Usage = "the go-vite cli application"
+
+	//Import: Please add the New command here
 	app.Commands = []cli.Command{
 		initCommand,
 		heightCommand,
@@ -40,13 +89,19 @@ func init() {
 		consoleCommand,
 		attachCommand,
 	}
-
 	sort.Sort(cli.CommandsByName(app.Commands))
 
-	app.Flags = append(app.Flags, nodeFlags...)
+	//Import: Please add the New Flags here
+	app.Flags = append(app.Flags, configFlags...)
+	app.Flags = append(app.Flags, generalFlags...)
+	app.Flags = append(app.Flags, p2pFlags...)
+	app.Flags = append(app.Flags, ipcFlags...)
+	app.Flags = append(app.Flags, httpFlags...)
+	app.Flags = append(app.Flags, wsFlags...)
 
-	//TODO missing app.Before
-	//TODO missing app.After
+	app.Before = beforeAction
+	app.Action = action
+	app.After = afterAction
 }
 
 func main() {
@@ -56,16 +111,30 @@ func main() {
 	}
 }
 
-func gvite(ctx *cli.Context) error {
+func beforeAction(ctx *cli.Context) error {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	//TODO invalid is why
-	fmt.Println(os.Args)
+	//TODO: we can add dashboard here
 
+	return nil
+}
+
+func action(ctx *cli.Context) error {
+
+	//Make sure No subCommands were entered,Only the flags
 	if args := ctx.Args(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 
-	nodeManager := nodemanager.NewNodeManager(ctx)
+	nodeManager := nodemanager.New(ctx)
 
 	return nodeManager.Start()
+}
+
+func afterAction(ctx *cli.Context) error {
+
+	// Resets terminal mode.
+	console.Stdin.Close()
+
+	return nil
 }

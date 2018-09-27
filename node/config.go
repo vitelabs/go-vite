@@ -15,8 +15,8 @@ import (
 )
 
 type Config struct {
-	Name    string `json:"NodeName"`
-	Version string `json:"NodeVersion"`
+	Name    string `json:"ConfigName"`
+	Version string `json:"ConfigVersion"`
 	DataDir string `json:"dataDir"`
 
 	P2P config.P2P `json:"P2P"`
@@ -87,7 +87,7 @@ func (c *Config) makeP2PConfig() p2p.Config {
 		NetID:           p2p.NetworkID(c.P2P.NetID),
 		MaxPeers:        c.P2P.MaxPeers,
 		MaxPendingPeers: c.P2P.MaxPendingPeers,
-		MaxInboundRatio: c.P2P.MaxInboundRatio,
+		MaxInboundRatio: c.P2P.MaxPassivePeersRatio,
 		Port:            c.P2P.Port,
 		Database:        c.P2P.Datadir,
 		PrivateKey:      c.PrivateKey(),

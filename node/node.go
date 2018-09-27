@@ -55,7 +55,7 @@ type Node struct {
 // New creates a new P2P node
 func New(conf *Config) (*Node, error) {
 
-	// Copy config and resolve the datadir so future changes to the current working directory don't affect the node.
+	// Copy config and resolve the dataDir so future changes to the current working directory don't affect the node.
 	confCopy := *conf
 	conf = &confCopy
 	if conf.DataDir != "" {
@@ -70,7 +70,7 @@ func New(conf *Config) (*Node, error) {
 
 	return &Node{
 		config:       conf,
-		acctManager:  wallet.NewManagerAndInit(conf.KeyStoreDir), //Ensure that the AccountManager method works before the node has started.
+		acctManager:  wallet.New(&wallet.Config{DataDir: conf.DataDir}),
 		p2pConfig:    conf.makeP2PConfig(),
 		viteConfig:   conf.makeViteConfig(),
 		ipcEndpoint:  conf.IPCEndpoint(),
@@ -85,6 +85,9 @@ func (node *Node) Start() error {
 	node.lock.Lock()
 	defer node.lock.Unlock()
 
+	//wallet start
+	node.acctManager.Start()
+
 	// Short circuit if the node's already running
 	if node.p2pServer != nil {
 		return ErrNodeRunning
@@ -95,20 +98,26 @@ func (node *Node) Start() error {
 	}
 
 	//Initialize the p2p server
-	p2pServer := p2p.New(node.p2pConfig)
+	node.p2pServer = p2p.New(node.p2pConfig)
 
-	vite, _ := vite.New(&node.viteConfig)
+	//Initialize the vite server
+	vite, err := vite.New(&node.viteConfig)
+	if err != nil {
+		node.log.Error(fmt.Sprint("vite new error: %v", err))
+		return err
+	}
+	node.viteServer = vite
 
-	p2pServer.Protocols = append(p2pServer.Protocols)
+	node.p2pServer.Protocols = append(node.p2pServer.Protocols, vite.Protocols()...)
 
-	p2pServer.Start()
+	node.p2pServer.Start()
 
-	//TODO
-	vite.Start(p2pServer)
+	// Start vite
+	node.viteServer.Start(node.p2pServer)
 
 	// Start rpc
-	// Get all the possible APIS
-	apis := rpcapi.GetAllApis(vite)
+	// Get all the possible Apis
+	apis := rpcapi.GetAllApis(node.viteServer)
 
 	if node.config.IPCEnabled {
 		if err := node.startIPC(apis); err != nil {
@@ -145,13 +154,16 @@ func (node *Node) Stop() error {
 		return ErrNodeStopped
 	}
 
+	//wallet
+	node.acctManager.Stop()
+
 	//p2p
 	node.p2pServer.Stop()
 
 	//vite
 	node.viteServer.Stop()
 
-	// Terminate the API, services and the p2p server.
+	//rpc
 	node.stopWS()
 	node.stopHTTP()
 	node.stopIPC()

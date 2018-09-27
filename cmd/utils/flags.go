@@ -7,6 +7,12 @@ import (
 )
 
 var (
+	// Config settings
+	ConfigFileFlag = cli.StringFlag{
+		Name:  "config",
+		Usage: "Json configuration file",
+	}
+
 	// General settings
 	DataDirFlag = DirectoryFlag{
 		Name:  "datadir",
@@ -17,12 +23,6 @@ var (
 	KeyStoreDirFlag = DirectoryFlag{
 		Name:  "keystore",
 		Usage: "Directory for the keystore (default = inside the datadir)",
-	}
-
-	// Config settings
-	ConfigFileFlag = cli.StringFlag{
-		Name:  "config",
-		Usage: "Json configuration file",
 	}
 
 	// Network Settings
@@ -78,7 +78,7 @@ var (
 		Usage: "Filename for IPC socket/pipe within the datadir (explicit paths escape it)",
 	}
 
-	//HTTP Settings
+	//HTTP RPC Settings
 	RPCEnabledFlag = cli.BoolFlag{
 		Name:  "rpc",
 		Usage: "Enable the HTTP-RPC server",

@@ -12,8 +12,8 @@ import (
 	"syscall"
 )
 
-const (
-	ClientIdentifier = "gvite"
+var (
+	log = log15.New("module", "gvite/nodemanager")
 )
 
 type NodeManager struct {
@@ -22,11 +22,11 @@ type NodeManager struct {
 	logger log15.Logger
 }
 
-func NewNodeManager(ctx *cli.Context) NodeManager {
+func New(ctx *cli.Context) NodeManager {
 	return NodeManager{
 		ctx:    ctx,
 		node:   MakeFullNode(ctx),
-		logger: log15.New("module", "main/nodemanager"),
+		logger: log,
 	}
 }
 
@@ -35,7 +35,6 @@ func (nodeManager *NodeManager) Start() error {
 	// Start up the node
 	StartNode(nodeManager.node)
 
-	nodeManager.node.Wait()
 	return nil
 }
 
@@ -46,7 +45,7 @@ func MakeFullNode(ctx *cli.Context) *node.Node {
 	node, err := node.New(nodeConfig)
 
 	if err != nil {
-		log15.Error("Failed to create the node: %v", err)
+		log.Error("Failed to create the node: %v", err)
 	}
 	return node
 }
@@ -54,31 +53,30 @@ func MakeFullNode(ctx *cli.Context) *node.Node {
 func MakeNodeConfig(ctx *cli.Context) *node.Config {
 
 	cfg := node.DefaultNodeConfig
-	cfg.Name = ClientIdentifier
-	cfg.IPCPath = "vite.ipc"
 
-	//Config log to file
+	// 1: Load config file.
+	if file := ctx.GlobalString(utils.ConfigFileFlag.Name); file != "" {
+
+		if jsonConf, err := ioutil.ReadFile(file); err == nil {
+			err = json.Unmarshal(jsonConf, &cfg)
+			if err != nil {
+				log.Info("cannot unmarshal the config file content, will use the default config", "error", err)
+			}
+		} else {
+			log.Info("cannot read the config file, will use the default config", "error", err)
+		}
+	}
+
+	// 2: Apply flags, Overwrite the configuration file configuration
+	mappingNodeConfig(ctx, &cfg)
+
+	//3: Config log to file
 	if fileName, e := cfg.NewRunLogDirFile(); e == nil {
 		log15.Root().SetHandler(
 			log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(fileName, log15.TerminalFormat())),
 		)
 	}
 
-	// Load config file.
-	if file := ctx.GlobalString(utils.ConfigFileFlag.Name); file != "" {
-
-		if jsonConf, err := ioutil.ReadFile(file); err == nil {
-			err = json.Unmarshal(jsonConf, &cfg)
-			if err != nil {
-				log15.Info("cannot unmarshal the config file content, will use the default config", "error", err)
-			}
-		} else {
-			log15.Info("cannot read the config file, will use the default config", "error", err)
-		}
-	}
-
-	// Apply flags
-	mappingNodeConfig(ctx, &cfg)
 	return &cfg
 }
 
@@ -154,23 +152,28 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 
 func StartNode(node *node.Node) {
 
+	// Start the node
 	if err := node.Start(); err != nil {
-		log15.Error("Error staring protocol node: %v", err)
+		log.Error("Error staring protocol node: %v", err)
 	}
 
+	// Listening event closes the node
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 		defer signal.Stop(c)
 		<-c
-		log15.Info("Got interrupt, shutting down...")
+		log.Info("Got interrupt, shutting down...")
 		go node.Stop()
 		for i := 10; i > 0; i-- {
 			<-c
 			if i > 1 {
-				log15.Warn("Already shutting down, interrupt more to panic.", "times", i-1)
+				log.Warn("Already shutting down, interrupt more to panic.", "times", i-1)
 			}
 		}
 
 	}()
+
+	//TODO:why
+	node.Wait()
 }
