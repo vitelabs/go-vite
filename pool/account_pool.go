@@ -285,7 +285,7 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks 
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
 
-	stat := self.v.verifyContractAccount(received, sendBlocks)
+	stat := self.v.verifyDirectAccount(received, sendBlocks)
 	result := stat.verifyResult()
 	switch result {
 	case verifier.PENDING:

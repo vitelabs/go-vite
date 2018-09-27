@@ -1,8 +1,11 @@
 package pool
 
 import (
+	"fmt"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/viteshan/naive-vite/common/face"
 )
@@ -26,9 +29,13 @@ func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock
 }
 
 type accountVerifier struct {
-	v verifier.AccountVerifier
+	v   verifier.AccountVerifier
+	log log15.Logger
 }
 
+/**
+if b is contract send block, result must be FAIL.
+*/
 func (self *accountVerifier) verifyAccount(b *accountPoolBlock) (result *poolAccountVerifyStat) {
 	// todo how to fix for stat
 	verifyResult, _ := self.v.VerifyReferred(b.block)
@@ -62,42 +69,23 @@ func (self *accountVerifier) newFailTask() verifyTask {
 	return nil
 }
 
-func (self *accountVerifier) verifyNormalAccount(b commonBlock) *poolAccountVerifyStat {
-	//block := b.(*accountPoolBlock)
-	//result, stat := self.accountVerifier.VerifyforProducer(block.block)
-	//
-	//this, otherBlocks, e := self.accountVerifier.VerifyforVM(block.block)
-	return &poolAccountVerifyStat{}
-}
-
-func (self *accountVerifier) verifyContractAccount(received *accountPoolBlock, sends []*accountPoolBlock) *poolAccountVerifyStat {
-	//block := b.(*accountPoolBlock)
-	//result, stat := self.accountVerifier.VerifyforProducer(block.block)
-	//
-	//this, otherBlocks, e := self.accountVerifier.VerifyforVM(block.block)
-	return &poolAccountVerifyStat{}
-}
-
-func (self *accountVerifier) verifyTimeout(block *ledger.AccountBlock) *poolAccountVerifyStat {
-	//block := b.(*accountPoolBlock)
-	//result, stat := self.accountVerifier.VerifyforProducer(block.block)
-	//
-	//this, otherBlocks, e := self.accountVerifier.VerifyforVM(block.block)
-	return &poolAccountVerifyStat{}
-}
-
-type poolVerifyStat struct {
-}
-
-func (self *poolVerifyStat) verifyResult() verifier.VerifyResult {
-	return verifier.SUCCESS
-}
-func (self *poolVerifyStat) errMsg() string {
-	return ""
-}
-
-func (self *poolVerifyStat) task() verifyTask {
-	return nil
+func (self *accountVerifier) verifyDirectAccount(received *accountPoolBlock, sends []*accountPoolBlock) (result *poolAccountVerifyStat) {
+	result = self.verifyAccount(received)
+	if result.result == verifier.SUCCESS {
+		if len(result.blocks) != len(sends)+1 {
+			self.log.Error(fmt.Sprintf("account verify fail. received:%s.", received.Hash()))
+			result.result = verifier.FAIL
+			return
+		}
+		for i, b := range sends {
+			if b.Hash() != result.blocks[i+1].Hash() {
+				self.log.Error(fmt.Sprintf("account verify fail. received:%s, send:%s, %s.", received.Hash(), b.Hash(), result.blocks[i+1].Hash()))
+				result.result = verifier.FAIL
+				return
+			}
+		}
+	}
+	return
 }
 
 type poolSnapshotVerifyStat struct {
