@@ -8,25 +8,17 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	//"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/vm_context"
 )
 
 type chainRw interface {
 	insertBlock(block commonBlock) error
-	removeBlock(block commonBlock) error
-
 	insertBlocks(blocks []commonBlock) error
 
 	head() commonBlock
 	getBlock(height uint64) commonBlock
 }
-
-type accountType uint64
-
-const (
-	NONE     accountType = 1
-	NORMAL   accountType = 2
-	CONTRACT accountType = 3
-)
 
 type accountCh struct {
 	address types.Address
@@ -34,68 +26,73 @@ type accountCh struct {
 	version *ForkVersion
 }
 
-func (self *accountCh) insertBlock(block commonBlock) error {
-	if !block.checkForkVersion() {
-		return errors.New("error fork version. current:" + self.version.String() + ", target:" + strconv.FormatInt(int64(block.forkVersion()), 10))
+func (self *accountCh) insertBlock(b commonBlock) error {
+	if !b.checkForkVersion() {
+		return errors.New("error fork version. current:" + self.version.String() + ", target:" + strconv.FormatInt(int64(b.forkVersion()), 10))
 	}
-	//self.rw.InsertAccountBlocks()
-	return nil
-	//return self.bc.InsertAccountBlock(self.address, block.(*common.AccountStateBlock))
-}
-
-func (self *accountCh) removeBlock(block commonBlock) error {
-	return nil
-	//return self.bc.RemoveAccountHead(self.address, block.(*common.AccountStateBlock))
+	block := b.(*accountPoolBlock)
+	accountBlock := &vm_context.VmAccountBlock{AccountBlock: block.block, VmContext: block.vmBlock}
+	return self.rw.InsertAccountBlocks([]*vm_context.VmAccountBlock{accountBlock})
 }
 
 func (self *accountCh) head() commonBlock {
-	//block, _ := self.bc.HeadAccount(self.address)
-	//if block == nil {
-	//	return nil
-	//}
-	//return block
-	return nil
+	block, e := self.rw.GetLatestAccountBlock(&self.address)
+	if e != nil {
+		return nil
+	}
+	if block == nil {
+		return nil
+	}
+
+	result := newAccountPoolBlock(block, nil, self.version)
+	return result
 }
 
 func (self *accountCh) getBlock(height uint64) commonBlock {
-	//if height == common.EmptyHeight {
-	//	return common.NewAccountBlock(height, "", "", "", time.Unix(0, 0), 0, 0, 0, "", common.SEND, "", "", nil)
-	//}
-	//block := self.bc.GetAccountByHeight(self.address, height)
-	//if block == nil {
-	//	return nil
-	//}
-	//return block
+	// todo
 	return nil
 }
 
-func (self *accountCh) insertBlocks(sendBlocks []commonBlock) error {
-	//if !block.checkForkVersion() {
-	//	return errors.New("error fork version. current:" + self.version.String() + ", target:" + strconv.FormatInt(int64(block.forkVersion()), 10))
-	//}
-	return nil
-	//return self.bc.InsertAccountBlock(self.address, block.(*common.AccountStateBlock))
-}
+func (self *accountCh) insertBlocks(bs []commonBlock) error {
+	var blocks []*vm_context.VmAccountBlock
+	for _, b := range bs {
+		block := b.(*accountPoolBlock)
+		blocks = append(blocks, &vm_context.VmAccountBlock{AccountBlock: block.block, VmContext: block.vmBlock})
+	}
 
-func (self *accountCh) getHashByHeight(height uint64) *types.Hash {
-	return nil
+	return self.rw.InsertAccountBlocks(blocks)
 }
 
 func (self *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Address][]commonBlock, error) {
-	return nil, nil, nil
+	bm, e := self.rw.DeleteAccountBlocks(&self.address, height)
+	if e != nil {
+		return nil, nil, e
+	}
+
+	var results map[types.Address][]commonBlock
+	for addr, bs := range bm {
+		var r []commonBlock
+		for _, b := range bs {
+			r = append(r, newAccountPoolBlock(b, nil, self.version))
+		}
+		results[addr] = r
+	}
+	return nil, results, nil
 }
 
 func (self *accountCh) getUnConfirmedBlocks() []*ledger.AccountBlock {
-	return nil
+	return self.rw.GetUnConfirmAccountBlocks(&self.address)
 }
 func (self *accountCh) getFirstUnconfirmedBlock(head *ledger.SnapshotBlock) *ledger.AccountBlock {
-	//head.Height + 1
-	return nil
+	block, e := self.rw.GetFirstConfirmedAccountBlockBySbHeight(head.Height+1, &self.address)
+	if e != nil {
+		return nil
+	}
+	if block == nil {
+		return nil
+	}
+	return block
 }
-
-//func (self *accountCh) findAboveSnapshotHeight(height uint64) *common.AccountStateBlock {
-//	return self.bc.FindAccountAboveSnapshotHeight(self.address, height)
-//}
 
 type snapshotCh struct {
 	bc      ch.Chain
@@ -103,59 +100,76 @@ type snapshotCh struct {
 }
 
 func (self *snapshotCh) getBlock(height uint64) commonBlock {
-	//head := self.bc.GetSnapshotByHeight(height)
-	//if head == nil {
-	//	return nil
-	//}
-	//return head
-	return nil
+	block, e := self.bc.GetSnapshotBlockByHeight(height)
+	if e != nil {
+		return nil
+	}
+	if block == nil {
+		return nil
+	}
+	return newSnapshotPoolBlock(block, self.version)
 }
 
 func (self *snapshotCh) head() commonBlock {
-	//block, _ := self.bc.HeadSnapshot()
-	//if block == nil {
-	//	return nil
-	//}
-	//return block
-	return nil
+	block := self.bc.GetLatestSnapshotBlock()
+	if block == nil {
+		return nil
+	}
+	return newSnapshotPoolBlock(block, self.version)
 }
 
 func (self *snapshotCh) headSnapshot() *ledger.SnapshotBlock {
-	//block, _ := self.bc.HeadSnapshot()
-	//if block == nil {
-	//	return nil
-	//}
-	//return block
-	return nil
+	block := self.bc.GetLatestSnapshotBlock()
+	if block == nil {
+		return nil
+	}
+	return block
 }
 
 func (self *snapshotCh) getSnapshotBlockByHash(hash types.Hash) *ledger.SnapshotBlock {
-	//head := self.bc.GetSnapshotByHeight(height)
-	//if head == nil {
-	//	return nil
-	//}
-	//return head
-	return nil
+	block, e := self.bc.GetSnapshotBlockByHash(&hash)
+	if e != nil {
+		return nil
+	}
+	if block == nil {
+		return nil
+	}
+	return block
 }
 
 func (self *snapshotCh) delToHeight(height uint64) ([]commonBlock, map[types.Address][]commonBlock, error) {
-	return nil, nil, nil
+	ss, bm, e := self.bc.DeleteSnapshotBlocksToHeight(height)
+	if e != nil {
+		return nil, nil, e
+	}
+
+	var accountResults map[types.Address][]commonBlock
+	for addr, bs := range bm {
+		var r []commonBlock
+		for _, b := range bs {
+			r = append(r, newAccountPoolBlock(b, nil, self.version))
+		}
+		accountResults[addr] = r
+	}
+	var snapshotResults []commonBlock
+	for _, s := range ss {
+		snapshotResults = append(snapshotResults, newSnapshotPoolBlock(s, self.version))
+	}
+	return snapshotResults, accountResults, nil
 }
 
 func (self *snapshotCh) insertBlock(block commonBlock) error {
-	//return self.bc.InsertSnapshotBlock(block.(*common.SnapshotBlock))
-	return nil
+	b := block.(*snapshotPoolBlock)
+	return self.bc.InsertSnapshotBlock(b.block)
 }
 
-func (self *snapshotCh) insertBlocks(sendBlocks []commonBlock) error {
-	//if !block.checkForkVersion() {
-	//	return errors.New("error fork version. current:" + self.version.String() + ", target:" + strconv.FormatInt(int64(block.forkVersion()), 10))
-	//}
-	return nil
-	//return self.bc.InsertAccountBlock(self.address, block.(*common.AccountStateBlock))
-}
-
-func (self *snapshotCh) removeBlock(block commonBlock) error {
-	//return self.bc.RemoveSnapshotHead(block.(*common.SnapshotBlock))
+func (self *snapshotCh) insertBlocks(bs []commonBlock) error {
+	monitor.LogEvent("pool", "NonSnapshot")
+	for _, b := range bs {
+		err := self.insertBlock(b)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }

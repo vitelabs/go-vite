@@ -9,17 +9,18 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
 )
 
 type SnapshotVerifier struct {
 	reader chain.Chain
+	cs     consensus.Verifier
 }
 
-func NewSnapshotVerifier() *SnapshotVerifier {
-	// todo add chain chain
-	verifier := &SnapshotVerifier{}
+func NewSnapshotVerifier(ch chain.Chain, cs consensus.Verifier) *SnapshotVerifier {
+	verifier := &SnapshotVerifier{reader: ch, cs: cs}
 	return verifier
 }
 
@@ -39,19 +40,19 @@ func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *Snap
 func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, stat *SnapshotBlockVerifyStat) error {
 	defer monitor.LogTime("verify", "snapshotAccounts", time.Now())
 	for addr, b := range block.SnapshotContent {
-		hash, e := self.reader.GetAccountBlockHashByHeight(&addr, b.AccountBlockHeight)
+		hash, e := self.reader.GetAccountBlockHashByHeight(&addr, b.Height)
 		if e != nil {
 			return e
 		}
 		if hash == nil {
 			stat.results[addr] = PENDING
-		} else if *hash == b.AccountBlockHash {
+		} else if *hash == b.Hash {
 			stat.results[addr] = SUCCESS
 		} else {
 			stat.results[addr] = FAIL
 			stat.result = FAIL
 			return errors.New(fmt.Sprintf("account[%s] fork, height:[%d], hash:[%s]",
-				addr.String(), b.AccountBlockHeight, b.AccountBlockHash))
+				addr.String(), b.Height, b.Hash))
 		}
 	}
 	return nil
@@ -103,7 +104,7 @@ func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, snapshotH
 }
 
 func (self *SnapshotVerifier) VerifyTimeout(nowHeight uint64, referHeight uint64) bool {
-	if nowHeight-referHeight > 60*60*24 {
+	if nowHeight-referHeight > types.AccountLimitSnapshotHeight {
 		return false
 	}
 	return true
@@ -118,6 +119,8 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 		stat.errMsg = err.Error()
 		return stat
 	}
+
+	// verify accounts exist
 	err = self.verifyAccounts(block, stat)
 	if err != nil {
 		stat.errMsg = err.Error()
@@ -129,13 +132,24 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 		}
 	}
 
+	// verify accounts timeout
 	err = self.verifyAccountsTimeout(block, stat)
 	if err != nil {
 		stat.errMsg = err.Error()
 		return stat
 	}
 
-	// todo verify producer
+	// verify producer
+	result, e := self.cs.VerifySnapshotProducer(block)
+	if e != nil {
+		stat.result = FAIL
+		stat.errMsg = e.Error()
+		return stat
+	}
+	if !result {
+		stat.result = FAIL
+		return stat
+	}
 	return stat
 }
 
@@ -174,9 +188,15 @@ func (self *SnapshotBlockVerifyStat) VerifyResult() VerifyResult {
 	return self.result
 }
 
+func (self *SnapshotBlockVerifyStat) Results() map[types.Address]VerifyResult {
+	return self.results
+}
+
 func (self *SnapshotVerifier) newVerifyStat(b *ledger.SnapshotBlock) *SnapshotBlockVerifyStat {
-	// todo init account hashH
 	stat := &SnapshotBlockVerifyStat{result: PENDING}
 	stat.results = make(map[types.Address]VerifyResult)
+	for k := range b.SnapshotContent {
+		stat.results[k] = PENDING
+	}
 	return stat
 }

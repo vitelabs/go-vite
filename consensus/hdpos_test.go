@@ -108,7 +108,7 @@ func TestGen(t *testing.T) {
 func TestRemovePrevious(t *testing.T) {
 	info := &membersInfo{genesisTime: time.Now(), memberCnt: 4, interval: 1, perCnt: 1, randCnt: 10, LowestLimit: helper.Big0}
 
-	teller := newTeller(info, &chainRw{})
+	teller := newTeller(info, types.DELEGATE_GID, &chainRw{})
 	for i := 0; i < 10; i++ {
 		teller.electionIndex(int32(i))
 	}

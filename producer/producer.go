@@ -84,7 +84,7 @@ type producer struct {
 }
 
 // todo syncDone
-func NewProducer(rw *chain.Chain, downloaderRegister DownloaderRegister, coinbase types.Address, cs consensus.Consensus) *producer {
+func NewProducer(rw chain.Chain, downloaderRegister DownloaderRegister, coinbase types.Address, cs consensus.Consensus) *producer {
 	chain := newChainRw(rw)
 	miner := &producer{tools: chain, coinbase: coinbase}
 

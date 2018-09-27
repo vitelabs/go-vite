@@ -18,7 +18,7 @@ type tools struct {
 	log       log15.Logger
 	wt        wallet.Manager
 	pool      pool.SnapshotProducerWriter
-	chain     *chain.Chain
+	chain     chain.Chain
 	sVerifier *verifier.SnapshotVerifier
 }
 
@@ -59,7 +59,7 @@ func (self *tools) insertSnapshot(block *ledger.SnapshotBlock) error {
 	return nil
 }
 
-func newChainRw(ch *chain.Chain) *tools {
+func newChainRw(ch chain.Chain) *tools {
 	log := log15.New("module", "tools")
 	return &tools{chain: ch, log: log}
 }
@@ -93,7 +93,7 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 				b.Hash.String(),
 				b.Height))
 		}
-		finalAccounts[b.AccountAddress] = &ledger.SnapshotContentItem{AccountBlockHash: b.Hash, AccountBlockHeight: b.Height}
+		finalAccounts[b.AccountAddress] = &ledger.HashHeight{Hash: b.Hash, Height: b.Height}
 	}
 	return finalAccounts, nil
 }

@@ -4,7 +4,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_context"
-	"github.com/viteshan/naive-vite/syncer"
 )
 
 type commonSyncer interface {
@@ -13,32 +12,37 @@ type commonSyncer interface {
 
 type accountSyncer struct {
 	address types.Address
-	fetcher syncer.Fetcher
+	fetcher syncer
 }
 
 func (self *accountSyncer) broadcastBlock(block *ledger.AccountBlock) {
-	panic("implement me")
+	self.fetcher.BroadcastAccountBlock(self.address, block)
 }
-func (self *accountSyncer) broadcastBlocks(block []*ledger.AccountBlock) {
-	panic("implement me")
+func (self *accountSyncer) broadcastBlocks(blocks []*ledger.AccountBlock) {
+	self.fetcher.BroadcastAccountBlocks(self.address, blocks)
 }
 
 func (self *accountSyncer) broadcastReceivedBlocks(received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) {
-	panic("implement me")
+	var blocks []*ledger.AccountBlock
+
+	blocks = append(blocks, received.AccountBlock)
+	for _, b := range sendBlocks {
+		blocks = append(blocks, b.AccountBlock)
+	}
 }
 
 func (self *accountSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
-	//self.fetcher.Fetch(face.FetchRequest{Hash: hashHeight.Hash, Height: hashHeight.Height, PrevCnt: prevCnt, Chain: self.address})
+	self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, self.address)
 }
 
 type snapshotSyncer struct {
-	fetcher syncer.Fetcher
+	fetcher syncer
 }
 
 func (self *snapshotSyncer) broadcastBlock(block *ledger.SnapshotBlock) {
-	panic("implement me")
+	self.fetcher.BroadcastSnapshotBlock(block)
 }
 
 func (self *snapshotSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
-	//self.fetcher.Fetch(face.FetchRequest{Hash: hashHeight.Hash, Height: hashHeight.Height, PrevCnt: prevCnt, Chain: self.address})
+	self.fetcher.FetchSnapshotBlocks(hashHeight.Hash, prevCnt)
 }
