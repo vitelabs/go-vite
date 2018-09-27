@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p"
 	"log"
-	"net"
 	_ "net/http/pprof"
 )
 
@@ -16,7 +15,7 @@ func parseConfig() *config.Config {
 
 	flag.StringVar(&globalConfig.Name, "name", globalConfig.Name, "boot name")
 	flag.UintVar(&globalConfig.MaxPeers, "peers", globalConfig.MaxPeers, "max number of connections will be connected")
-	flag.StringVar(&globalConfig.Addr, "addr", globalConfig.Addr, "will be listen by vite")
+	flag.UintVar(&globalConfig.Port, "port", globalConfig.Port, "will be listen by vite")
 	flag.StringVar(&globalConfig.PrivateKey, "priv", globalConfig.PrivateKey, "hex encode of ed25519 privateKey, use for sign message")
 	flag.StringVar(&globalConfig.DataDir, "dir", globalConfig.DataDir, "use for store all files")
 	flag.UintVar(&globalConfig.NetID, "netid", globalConfig.NetID, "the network vite will connect")
@@ -33,15 +32,13 @@ func main() {
 
 	p2pCfg := parsedConfig.P2P
 
-	addr, _ := net.ResolveTCPAddr("tcp", p2pCfg.Addr)
-
 	cfg := p2p.Config{
 		Name:            p2pCfg.Name,
 		NetID:           p2p.NetworkID(p2pCfg.NetID),
 		MaxPeers:        p2pCfg.MaxPeers,
 		MaxPendingPeers: uint(p2pCfg.MaxPendingPeers),
 		MaxInboundRatio: p2pCfg.MaxPassivePeersRatio,
-		Port:            uint(addr.Port),
+		Port:            uint(p2pCfg.Port),
 		Database:        p2pCfg.Datadir,
 		PrivateKey:      nil,
 		Protocols: []*p2p.Protocol{

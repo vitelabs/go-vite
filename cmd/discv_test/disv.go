@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	_ "net/http/pprof"
+	"strconv"
 )
 
 func parseConfig() *config.Config {
@@ -16,7 +17,7 @@ func parseConfig() *config.Config {
 
 	flag.StringVar(&globalConfig.Name, "name", globalConfig.Name, "boot name")
 	flag.UintVar(&globalConfig.MaxPeers, "peers", globalConfig.MaxPeers, "max number of connections will be connected")
-	flag.StringVar(&globalConfig.Addr, "addr", globalConfig.Addr, "will be listen by vite")
+	flag.UintVar(&globalConfig.Port, "port", globalConfig.Port, "will be listen by vite")
 	flag.StringVar(&globalConfig.PrivateKey, "priv", globalConfig.PrivateKey, "hex encode of ed25519 privateKey, use for sign message")
 	flag.StringVar(&globalConfig.DataDir, "dir", globalConfig.DataDir, "use for store all files")
 	flag.UintVar(&globalConfig.NetID, "netid", globalConfig.NetID, "the network vite will connect")
@@ -33,7 +34,7 @@ func main() {
 
 	p2pCfg := parsedConfig.P2P
 
-	addr, _ := net.ResolveUDPAddr("udp", p2pCfg.Addr)
+	addr, _ := net.ResolveUDPAddr("udp", "0.0.0.0:" + strconv.FormatUint(uint64(p2pCfg.Port), 10))
 
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
