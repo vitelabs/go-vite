@@ -1,7 +1,6 @@
 package p2p
 
 import (
-	"fmt"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/discovery"
@@ -9,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-var firmNodes = [...]string{
+var firmNodes = []string{
 	"vnode://33e43481729850fc66cef7f42abebd8cb2f1c74f0b09a5bf03da34780a0a5606@150.109.40.224:8483",
 	"vnode://7194af5b7032cb470c41b313e2675e2c3ba3377e66617247012b8d638552fb17@150.109.62.152:8483",
 	"vnode://087c45631c3ec9a5dbd1189084ee40c8c4c0f36731ef2c2cb7987da421d08ba9@150.109.104.203:8483",
@@ -31,6 +30,14 @@ var firmNodes = [...]string{
 	//"vnode://de1f3a591b551591fb7d20e478da0371def3d62726b90ffca6932e38a25ebe84@150.109.38.29:8483",
 	//"vnode://9df2e11399398176fa58638592cf1b2e0e804ae92ac55f09905618fdb239c03c@150.109.40.169:8483",
 }
+
+const (
+	DefaultMaxPeers        uint      = 50
+	DefaultMaxPendingPeers uint      = 20
+	DefaultMaxInboundRatio uint      = 2
+	DefaultPort            uint      = 8483
+	DefaultNetID           NetworkID = Aquarius
+)
 
 const P2PDir = "p2p"
 const privKeyFileName = "priv.key"
@@ -85,7 +92,6 @@ func getServerKey(p2pDir string) (pub ed25519.PublicKey, priv ed25519.PrivateKey
 
 	if !getKeyOK {
 		n, err := fd.Write([]byte(priv))
-		fmt.Println(fd == nil)
 		if err != nil {
 			p2pServerLog.Info("write privateKey to p2p priv.key fail", "error", err)
 		} else if n != len(priv) {
@@ -100,23 +106,23 @@ func getServerKey(p2pDir string) (pub ed25519.PublicKey, priv ed25519.PrivateKey
 
 func EnsureConfig(cfg Config) *Config {
 	if cfg.NetID == 0 {
-		cfg.NetID = Aquarius
+		cfg.NetID = DefaultNetID
 	}
 
 	if cfg.MaxPeers == 0 {
-		cfg.MaxPeers = defaultMaxPeers
+		cfg.MaxPeers = DefaultMaxPeers
 	}
 
 	if cfg.MaxPendingPeers == 0 {
-		cfg.MaxPendingPeers = defaultMaxPendingPeers
+		cfg.MaxPendingPeers = DefaultMaxPendingPeers
 	}
 
 	if cfg.MaxInboundRatio == 0 {
-		cfg.MaxInboundRatio = 2
+		cfg.MaxInboundRatio = DefaultMaxInboundRatio
 	}
 
-	if cfg.Addr == "" {
-		cfg.Addr = "0.0.0.0:8483"
+	if cfg.Port == 0 {
+		cfg.Port = DefaultPort
 	}
 
 	if cfg.Database == "" {
@@ -135,12 +141,19 @@ func EnsureConfig(cfg Config) *Config {
 	return &cfg
 }
 
-func addFirmNodes(bootnodes []*discovery.Node) (nodes []*discovery.Node) {
+func addFirmNodes(bootnodes []string) (nodes []*discovery.Node) {
 	nodes = make([]*discovery.Node, 0, len(bootnodes)+len(firmNodes))
 
-	copy(nodes, copyNodes(bootnodes))
+	//for _, list := range [][]string{firmNodes, bootnodes} {
+	//	for _, nodeURL := range list {
+	//		node, err := discovery.ParseNode(nodeURL)
+	//		if err == nil {
+	//			nodes = append(nodes, node)
+	//		}
+	//	}
+	//}
 
-	for _, nodeURL := range firmNodes {
+	for _, nodeURL := range bootnodes {
 		node, err := discovery.ParseNode(nodeURL)
 		if err == nil {
 			nodes = append(nodes, node)

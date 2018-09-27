@@ -23,6 +23,8 @@ type P2P struct {
 	Datadir string `json:"Datadir"`
 
 	NetID uint `json:"NetID"`
+
+	Kafka []string `json:"Kafka"`
 }
 
 //func MergeP2PConfig(cfg *P2P) *P2P {

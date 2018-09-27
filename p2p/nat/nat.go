@@ -15,8 +15,9 @@ var lock sync.Mutex
 var defaultLifetime = 15 * time.Minute
 
 type Addr struct {
-	IP   net.IP
-	Port int
+	Proto string
+	IP    net.IP
+	Port  int
 }
 
 func isValidIP(ip net.IP) bool {
@@ -40,7 +41,7 @@ func New() (clt nat.NAT, err error) {
 	return client, err
 }
 
-func Map(stop <-chan struct{}, protocol string, lPort, ePort int, desc string, lifetime time.Duration, out chan<- *Addr) {
+func Map(stop <-chan struct{}, protocol string, lPort, ePort int, desc string, lifetime time.Duration, callback func(*Addr)) {
 	if lifetime == 0 {
 		lifetime = defaultLifetime
 	}
@@ -48,30 +49,39 @@ func Map(stop <-chan struct{}, protocol string, lPort, ePort int, desc string, l
 	timer := time.NewTimer(lifetime)
 	defer timer.Stop()
 
+	try := 0
 	addr := new(Addr)
 
-loop:
 	for {
-		_, err := New()
-		if err == nil {
-			addr.Port = mapping(protocol, lPort, ePort, desc, lifetime)
-			addr.IP, err = client.GetExternalAddress()
+		if try >= 3 {
+			return
 		}
 
-		if addr.IsValid() {
-			out <- addr
-		} else {
+		_, err := New()
+
+		if err != nil {
+			time.Sleep(time.Second)
+			try++
 			continue
+		}
+
+		addr.Proto = protocol
+		addr.Port = mapping(protocol, lPort, ePort, desc, lifetime)
+		addr.IP, err = client.GetExternalAddress()
+
+		if addr.IsValid() && callback != nil {
+			callback(addr)
 		}
 
 		select {
 		case <-stop:
-			break loop
+			goto END
 		case <-timer.C:
 			timer.Reset(lifetime)
 		}
 	}
 
+END:
 	client.DeletePortMapping(protocol, lPort)
 }
 
