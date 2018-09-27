@@ -16,12 +16,12 @@ const (
 )
 
 type UAccess struct {
-	Chain *chain.Chain
+	Chain chain.Chain
 	store *OnroadSet
 	log   log15.Logger
 }
 
-func NewUAccess(chain *chain.Chain, dataDir string) *UAccess {
+func NewUAccess(chain chain.Chain, dataDir string) *UAccess {
 	uAccess := &UAccess{
 		Chain: chain,
 		log:   log15.New("w", "uAccess"),
@@ -80,26 +80,32 @@ func (access *UAccess) writeOnroadMeta(batch *leveldb.Batch, block *ledger.Accou
 		// call from the DeleteOnroad(revert) func
 		addr := &block.AccountAddress
 		hash := &block.FromBlockHash
+
 		value, err := access.store.GetMeta(addr, hash)
 		if len(value) == 0 {
 			if err == nil {
-				if block.BlockType == ledger.BlockTypeReceiveError {
-					if err := access.store.DecreaseReceiveErrCount(batch, hash, addr); err != nil {
-						return err
-					}
-				}
 				if count, err := access.store.GetReceiveErrCount(hash, addr); err == nil {
-					return access.store.WriteMeta(batch, addr, hash, count-1)
+					if block.BlockType == ledger.BlockTypeReceiveError {
+						if err := access.store.DecreaseReceiveErrCount(batch, hash, addr); err != nil {
+							return err
+						}
+						return access.store.WriteMeta(batch, addr, hash, count-1)
+					} else {
+						return access.store.WriteMeta(batch, addr, hash, count)
+					}
 				}
 				return err
 			}
 			return errors.New("GetMeta error:" + err.Error())
 		} else {
-			count := uint8(value[0])
-			if count >= 1 && count <= MaxReceiveErrCount && block.BlockType == ledger.BlockTypeReceiveError {
+			// count := uint8(value[0])
+			if count, err := access.store.GetReceiveErrCount(hash, addr); err == nil {
+				if err := access.store.DecreaseReceiveErrCount(batch, hash, addr); err != nil {
+					return err
+				}
 				return access.store.WriteMeta(batch, addr, hash, count-1)
 			}
-			return nil
+			return err
 		}
 	}
 }
@@ -109,7 +115,12 @@ func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.Acco
 		// call from the WriteOnroad func to handle the onRoadTx's receiveBlock
 		addr := &block.AccountAddress
 		hash := &block.FromBlockHash
-		if block.IsContractTx() {
+
+		code, err := access.Chain.AccountType(&block.AccountAddress)
+		switch {
+		case code == ledger.AccountTypeGeneral:
+			return access.store.DeleteMeta(batch, addr, hash)
+		case code == ledger.AccountTypeContract:
 			value, err := access.store.GetMeta(addr, hash)
 			if len(value) == 0 {
 				if err == nil {
@@ -118,21 +129,31 @@ func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.Acco
 				}
 				return errors.New("GetMeta error:" + err.Error())
 			}
-
-			count := uint8(value[0])
-			if block.BlockType == ledger.BlockTypeReceiveError && count < MaxReceiveErrCount {
-				if err := access.store.IncreaseReceiveErrCount(batch, hash, addr); err != nil {
-					return err
+			//count := uint8(value[0])
+			if count, err := access.store.GetReceiveErrCount(hash, addr); err == nil {
+				if block.BlockType == ledger.BlockTypeReceiveError {
+					if count < MaxReceiveErrCount {
+						if err := access.store.IncreaseReceiveErrCount(batch, hash, addr); err != nil {
+							return err
+						}
+						return access.store.WriteMeta(batch, addr, hash, count+1)
+					}
 				}
-				if err := access.store.WriteMeta(batch, addr, hash, count+1); err != nil {
-					return err
-				}
-				return nil
+				return access.store.DeleteMeta(batch, addr, hash)
+			} else {
+				return err
 			}
+		default:
+			if err != nil {
+				access.log.Error("AccountType", "error", err)
+			}
+			return errors.New("AccountType error or not exist")
 		}
-		return access.store.DeleteMeta(batch, addr, hash)
 	} else {
 		// call from the  DeleteOnroad(revert) func to handle sendBlock
+		if err := access.store.DeleteReceiveErrCount(batch, &block.Hash, &block.ToAddress); err != nil {
+			return err
+		}
 		return access.store.DeleteMeta(batch, &block.ToAddress, &block.Hash)
 	}
 }

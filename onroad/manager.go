@@ -5,7 +5,7 @@ import (
 
 	"errors"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/net"
+	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/vm_context"

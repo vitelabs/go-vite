@@ -4,8 +4,8 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/onroad/model"
+	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/verifier"
 	"sync"
 	"time"
@@ -23,8 +23,8 @@ type ContractTaskProcessor struct {
 	status      int
 	statusMutex sync.Mutex
 
-	isSleeping   bool
-	wakeup       chan struct{}
+	isSleeping bool
+	wakeup     chan struct{}
 	sync.Cond
 	breaker      chan struct{}
 	stopListener chan struct{}
@@ -142,15 +142,7 @@ func (task *ContractTaskProcessor) processOneQueue(fItem *model.FromItem) (intoB
 
 	bQueue := fItem.Value
 
-	// todo fix
-	/**
-	for bQueue.Dequeue()!=nil {
-
-	}
-	 */
-	for i := 0; i < bQueue.Size(); i++ {
-
-		sBlock := bQueue.Dequeue()
+	for sBlock := bQueue.Dequeue(); sBlock != nil; {
 		task.log.Info("Process to make the receiveBlock, its'sendBlock detail:", task.log.New("hash", sBlock.Hash))
 
 		if task.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
@@ -176,30 +168,33 @@ func (task *ContractTaskProcessor) processOneQueue(fItem *model.FromItem) (intoB
 			task.log.Error("GenerateTx error ignore, ", "error", err)
 		}
 
-		if genResult.BlockGenList == nil {
-			if genResult.IsRetry {
-				return true
-			}
-			// fix delete bug
-			//task.worker.manager.uAccess.Delete()managerWriteUnconfirmed(nil, sBlock)
-			//task.blocksPool.WriteOnroad(false, nil, sBlock)
-		} else {
-			if genResult.IsRetry {
-				// todo 写到pool里
-				return true
-			}
-
-			// todo
-			nowTime := time.Now().Unix()
-			if nowTime >= task.accEvent.Etime.Unix() {
-				task.breaker <- struct{}{}
-				return true
-			}
-
+		if task.isTimeout() {
+			return
+		}
+		if len(genResult.BlockGenList) > 0 && genResult.BlockGenList != nil {
 			if err := task.worker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
 				return true
 			}
+			if genResult.IsRetry {
+				return true
+			}
+		} else {
+			if genResult.IsRetry {
+				return true
+			}
+			if err := task.blocksPool.DeleteDirect(sBlock); err != nil {
+				return true
+			}
 		}
+	}
+	return false
+}
+
+func (task *ContractTaskProcessor) isTimeout() bool {
+	now := time.Now()
+	if now.After(task.accEvent.Etime) {
+		task.breaker <- struct{}{}
+		return true
 	}
 	return false
 }

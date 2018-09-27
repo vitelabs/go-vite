@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_context"
@@ -227,7 +228,6 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 					}
 				}
 			}
-
 		} else {
 			if err := p.dbAccess.deleteOnroadMeta(batch, v.AccountBlock); err != nil {
 				p.log.Error("deleteOnroadMeta", "error", err)
@@ -240,13 +240,41 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 	return nil
 }
 
+func (p *OnroadBlocksPool) DeleteDirect(sendBlock *ledger.AccountBlock) error {
+	return p.dbAccess.store.DeleteMeta(nil, &sendBlock.ToAddress, &sendBlock.Hash)
+}
+
+type signBlock struct {
+	block  *ledger.AccountBlock
+	ignore bool
+}
+
+func copyToSignLedger(subLedger map[types.Address][]*ledger.AccountBlock) map[types.Address][]*signBlock {
+	var handlerLedger map[types.Address][]*signBlock
+	for k, blockList := range subLedger {
+		for _, v := range blockList {
+			handlerLedger[k] = append(handlerLedger[k], &signBlock{v, false})
+		}
+	}
+	return handlerLedger
+}
+
 // DeleteUnRoad means to revert according to bifurcation
 func (p *OnroadBlocksPool) DeleteOnroad(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
 	p.log.Info("DeleteOnroad: revert")
-	for _, blockList := range subLedger {
-		for _, v := range blockList {
-			if v.IsReceiveBlock() {
-				sendBlock, err := p.dbAccess.Chain.GetAccountBlockByHash(&v.FromBlockHash)
+
+	signLedger := copyToSignLedger(subLedger)
+	for _, blockList := range signLedger {
+		// the blockList is sorted by height with ascending order
+		for i := len(blockList); i > 0; i-- {
+			v := blockList[i]
+
+			if v.block.IsReceiveBlock() {
+				if v.ignore == true {
+					continue
+				}
+
+				sendBlock, err := p.dbAccess.Chain.GetAccountBlockByHash(&v.block.FromBlockHash)
 				if err != nil {
 					p.log.Error("GetAccountBlockByHash", "error", err)
 					return err
@@ -256,21 +284,32 @@ func (p *OnroadBlocksPool) DeleteOnroad(batch *leveldb.Batch, subLedger map[type
 					return err
 				}
 			} else {
-				if err := p.dbAccess.deleteOnroadMeta(batch, v); err != nil {
-					p.log.Error("revert sendBlock failed", "error", err)
+				existInSubLedger(v.block, signLedger)
+				if err := p.dbAccess.deleteOnroadMeta(batch, v.block); err != nil {
+					p.log.Error("revert the sendBlock's and the referred failed", "error", err)
 					return err
 				}
 
 				// fixme: wait for func @yd
 				// delete the gid-contractAddrList relationship
-				//gidList := contracts.GetGidFromCreateContractData(v.Data)
-				//for _, v := range gidList {
-				//	p.dbAccess.DeleteContractAddrFromGid(batch, *v.Gid(), *v.Addr())
-				//}
+				gid := contracts.GetGidFromCreateContractData(v.block.Data)
+				p.dbAccess.DeleteContractAddrFromGid(batch, gid, v.block.ToAddress)
 			}
 		}
 	}
 	return nil
+}
+
+func existInSubLedger(block *ledger.AccountBlock, ignoreLedger map[types.Address][]*signBlock) {
+	if block.IsSendBlock() {
+		if bl, ok := ignoreLedger[block.ToAddress]; ok {
+			for _, v := range bl {
+				if v.block.FromBlockHash == block.Hash {
+					v.ignore = true
+				}
+			}
+		}
+	}
 }
 
 func (p *OnroadBlocksPool) updateFullCache(writeType bool, block *ledger.AccountBlock) error {

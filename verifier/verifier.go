@@ -13,9 +13,8 @@ const (
 )
 
 type AccountPendingTask struct {
-	Addr   *types.Address
-	Hash   *types.Hash
-	Height uint64
+	Addr *types.Address
+	Hash *types.Hash
 }
 type SnapshotPendingTask struct {
 	Hash *types.Hash
