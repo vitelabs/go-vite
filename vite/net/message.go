@@ -337,13 +337,13 @@ func (c *getChunkHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 }
 
 // @section blocks
-type blockReceiver interface {
+type BlockReceiver interface {
 	receiveSnapshotBlocks(blocks []*ledger.SnapshotBlock)
 	receiveAccountBlocks(blocks map[types.Address][]*ledger.AccountBlock)
 }
 
 type blocksHandler struct {
-	rec blockReceiver
+	rec BlockReceiver
 }
 
 func (s *blocksHandler) ID() string {

@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/vite/net/message"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -82,6 +82,14 @@ func (s *SyncStateFeed) Notify(st SyncState) {
 }
 
 // @section syncer
+// the minimal height difference between snapshot chain of ours and bestPeer
+// if the difference is little than this value, then we deem no need sync
+const minHeightDifference = 3600
+
+func enoughtHeightDiff(our, their uint64) bool {
+	return our > their || their - our < minHeightDifference
+}
+
 type syncer struct {
 	from       *ledger.HashHeight	// exclude
 	to     *ledger.HashHeight	// include
@@ -98,26 +106,39 @@ type syncer struct {
 	sblockCount uint64 // atomic
 	sblockCap  uint64
 	log log15.Logger
+	running int32
+	defaultRec BlockReceiver
 }
 
-func newSyncer(chain Chain, set *peerSet, pool *requestPool) *syncer {
+func newSyncer(chain Chain, set *peerSet, pool *requestPool, rec BlockReceiver) *syncer {
 	s := &syncer{
 		state: SyncNotStart,
 		term: make(chan struct{}),
 		downloaded: make(chan struct{}, 1),
+		feed: &SyncStateFeed{
+			subs:      make(map[int]SyncStateCallback),
+		},
 		chain: chain,
 		peers: set,
 		pEvent: make(chan *peerEvent),
 		pool: pool,
 		log: log15.New("module", "net/syncer"),
+		defaultRec: rec,
 	}
 
+	// subscribe peer add/del event
 	set.Sub(s.pEvent)
 
 	return s
 }
 
-func (s *syncer) start() {
+func (s *syncer) sync() {
+	if !atomic.CompareAndSwapInt32(&s.running, 0, 1) {
+		return
+	}
+
+	defer atomic.StoreInt32(&s.running, 0)
+
 	start := time.NewTimer(waitEnoughPeers)
 	defer start.Stop()
 
@@ -136,21 +157,38 @@ func (s *syncer) start() {
 		}
 	}
 
-// for now syncState is SyncNotStart
+	// for now syncState is SyncNotStart
 	p := s.peers.BestPeer()
 	if p == nil {
 		s.change(Syncerr)
 		return
 	}
 
+	// compare snapshot chain height
+	current := s.chain.GetLatestSnapshotBlock()
+	if enoughtHeightDiff(current.Height, p.height) {
+		s.change(Syncdone)
+		return
+	}
+
+	s.from = &ledger.HashHeight{
+		Height: current.Height,
+		Hash:   current.Hash,
+	}
+	s.to = &ledger.HashHeight{
+		Height: p.height,
+		Hash:   p.head,
+	}
+	s.sblockCap = p.height - current.Height
+
 	s.change(Syncing)
 
-	p.SendMsg(&p2p.Msg{
-		CmdSetID:   0,
-		Cmd:        0,
-		Id:         0,
-		Size:       0,
-		Payload:    nil,
+	p.GetSubLedger(&message.GetSnapshotBlocks{
+		From:    &ledger.HashHeight{
+			Height: s.from.Height + 1,
+		},
+		Count:   s.sblockCap,
+		Forward: true,
 	})
 
 	// for now syncState is syncing
@@ -169,14 +207,14 @@ func (s *syncer) start() {
 				if e.peer.height >= targetHeight {
 					bestPeer := s.peers.BestPeer()
 					if bestPeer != nil {
-						// the best peer is lower than our targetHeight
-						if bestPeer.height < targetHeight {
+						current := s.chain.GetLatestSnapshotBlock()
+						if enoughtHeightDiff(current.Height, bestPeer.height) {
 							s.setTarget(&ledger.HashHeight{
 								Height:bestPeer.height,
 								Hash: bestPeer.head,
 							})
-						} else if bestPeer.height < s.from.Height {
-							// we are tallest
+						} else {
+							// no need sync
 							s.change(Syncdone)
 						}
 					} else {
@@ -273,11 +311,7 @@ func (s *syncer) insert(block *ledger.SnapshotBlock) bool {
 	return false
 }
 
-func (s *syncer) receive(blocks []*ledger.SnapshotBlock, mblocks map[types.Address][]*ledger.AccountBlock) {
-	for addr, ablocks := range mblocks {
-		s.mblocks[addr] = append(s.mblocks[addr], ablocks...)
-	}
-
+func (s *syncer) receiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 	for _, block := range blocks {
 		s.insert(block)
 	}
@@ -290,6 +324,12 @@ func (s *syncer) receive(blocks []*ledger.SnapshotBlock, mblocks map[types.Addre
 		snapshotblocks(s.sblocks).Sort()
 
 		s.downloaded <- struct{}{}
+	}
+}
+
+func (s *syncer) receiveAccountBlocks(mblocks map[types.Address][]*ledger.AccountBlock) {
+	for addr, ablocks := range mblocks {
+		s.mblocks[addr] = append(s.mblocks[addr], ablocks...)
 	}
 }
 
@@ -329,6 +369,3 @@ func (a snapshotblocks) Swap(i, j int) {
 func (a snapshotblocks) Sort() {
 	sort.Sort(a)
 }
-
-// @section MsgHandlers
-

@@ -28,16 +28,36 @@ type fileReq struct {
 }
 
 type FileServer struct {
-	ln     net.Listener
-	conns map[string]*connContext	// all connections
-	record map[uint64]struct{}	// use to record nonce bind peerId
-	request chan *fileReq
-	term   chan struct{}
-	log    log15.Logger
-	wg     sync.WaitGroup
-	chain Chain
-	peers *peerSet
-	receiver blockReceiver
+	ln       net.Listener
+	conns    map[string]*connContext	// all connections
+	record   map[uint64]struct{}	// use to record nonce bind peerId
+	request  chan *fileReq
+	term     chan struct{}
+	log      log15.Logger
+	wg       sync.WaitGroup
+	chain    Chain
+	peers    *peerSet
+	receiver BlockReceiver
+}
+
+func newFileServer(port uint16, chain Chain, set *peerSet, receiver BlockReceiver) (*FileServer, error) {
+	ln, err := net.Listen("tcp", "0.0.0.0:"+strconv.FormatUint(uint64(port), 10))
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &FileServer{
+		ln:       ln,
+		conns:    make(map[string]*connContext),
+		record:   make(map[uint64]struct{}),
+		request:  make(chan *fileReq, 10),
+		term:     make(chan struct{}),
+		log:      log15.New("module", "net/fileServer"),
+		chain:    chain,
+		peers:    set,
+		receiver: receiver,
+	}, nil
 }
 
 func (f *FileServer) ID() string {
@@ -73,26 +93,6 @@ func (f *FileServer) Handle(msg *p2p.Msg, sender *Peer) error {
 	}
 
 	return nil
-}
-
-func newFileServer(port uint16, chain Chain, set *peerSet, receiver blockReceiver) (*FileServer, error) {
-	ln, err := net.Listen("tcp", "0.0.0.0:"+strconv.FormatUint(uint64(port), 10))
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &FileServer{
-		ln:       ln,
-		conns:    make(map[string]*connContext),
-		record:   make(map[uint64]struct{}),
-		request:  make(chan *fileReq, 10),
-		term:     make(chan struct{}),
-		log:      log15.New("module", "net/fileServer"),
-		chain:    chain,
-		peers:    set,
-		receiver: receiver,
-	}, nil
 }
 
 func (s *FileServer) start() {
