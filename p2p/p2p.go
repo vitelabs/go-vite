@@ -8,33 +8,26 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/p2p/block"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/nat"
 	"net"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 var p2pServerLog = log15.New("module", "p2p/server")
-
-const (
-	defaultMaxPeers             = 50
-	defaultDialTimeout          = 10 * time.Second
-	defaultMaxPendingPeers uint = 20
-	defaultMaxActiveDail   uint = 16
-)
-
-var errSvrStopped = errors.New("Server has stopped")
+var errSvrStarted = errors.New("server has started")
+var errSvrStopped = errors.New("server has stopped")
 
 type Discovery interface {
 	Lookup(discovery.NodeID) []*discovery.Node
 	Resolve(discovery.NodeID) *discovery.Node
 	RandomNodes([]*discovery.Node) int
-	ID() discovery.NodeID
 	Start()
 	Stop()
-	SetNode(ip net.IP, udp, tcp uint16)
-	Self() *discovery.Node
 }
 
 type Config struct {
@@ -43,80 +36,58 @@ type Config struct {
 	MaxPeers        uint               // max peers can be connected
 	MaxPendingPeers uint               // max peers waiting for connect
 	MaxInboundRatio uint               // max inbound peers: MaxPeers / MaxInboundRatio
-	Addr            string             // TCP listen address
+	Port            uint               // TCP and UDP listen port
 	Database        string             // the directory for storing node table
 	PrivateKey      ed25519.PrivateKey // use for encrypt message, the corresponding public key use for NodeID
 	Protocols       []*Protocol        // protocols server supported
-	BootNodes       []*discovery.Node
+	BootNodes       []string
+	KafKa           []string
 }
 
 type Server struct {
 	*Config
-
-	running bool
-
-	lock sync.Mutex
-
-	// Wait for all jobs done
-	wg sync.WaitGroup
-
-	Dialer *NodeDailer
-
-	// TCP listener
-	listener *net.TCPListener
-
-	// Indicate whether the server has term. If term, zero-value can be read from this channel.
-	term chan struct{}
-
-	pending chan struct{}
-
-	addPeer chan *conn
-
-	delPeer chan *Peer
-
-	discv Discovery
-
+	running      int32          // atomic
+	wg           sync.WaitGroup // Wait for all jobs done
+	term         chan struct{}
+	pending      chan struct{} // how many connection can wait for handshake
+	addPeer      chan *conn
+	delPeer      chan *Peer
+	discv        Discovery
 	ourHandshake *Handshake
-
-	BootNodes []*discovery.Node
-
-	log log15.Logger
-
-	peers *PeerSet
+	BootNodes    []*discovery.Node
+	peers        *PeerSet
+	blockList    *block.CuckooSet
+	topo         *topoHandler
+	self         *discovery.Node
+	agent        *agent
+	log          log15.Logger
+	producer     *producer
 }
 
 func New(cfg Config) *Server {
-	//if p2pCfg.PrivateKey != "" {
-	//	priv, err := hex.DecodeString(p2pCfg.PrivateKey)
-	//	if err == nil {
-	//		cfg.PrivateKey = ed25519.PrivateKey(priv)
-	//		cfg.PublicKey = cfg.PrivateKey.PubByte()
-	//	} else {
-	//		p2pServerLog.Error("privateKey decode", "err", err)
-	//		cfg.PublicKey, cfg.PrivateKey, err = getServerKey(cfg.Database)
-	//	}
-	//} else {
-	//	cfg.PublicKey, cfg.PrivateKey, err = getServerKey(cfg.Database)
-	//}
-
 	safeCfg := EnsureConfig(cfg)
 
 	svr := &Server{
 		Config:    safeCfg,
 		log:       p2pServerLog.New("module", "p2p/server"),
-		peers:     new(PeerSet),
+		peers:     newPeerSet(),
 		term:      make(chan struct{}),
 		pending:   make(chan struct{}, cfg.MaxPendingPeers),
-		addPeer:   make(chan *conn),
-		delPeer:   make(chan *Peer),
+		addPeer:   make(chan *conn, 1),
+		delPeer:   make(chan *Peer, 1),
 		BootNodes: addFirmNodes(cfg.BootNodes),
+		blockList: block.NewCuckooSet(100),
+		topo:      newTopoHandler(),
 	}
 
-	if svr.Dialer == nil {
-		svr.Dialer = &NodeDailer{
-			&net.Dialer{
-				Timeout: defaultDialTimeout,
-			},
+	if len(svr.KafKa) != 0 {
+		producer, err := newProducer(svr.KafKa)
+
+		if err == nil {
+			svr.producer = producer
+			svr.log.Info("create kafka client")
+		} else {
+			svr.log.Error(fmt.Sprintf("can`t create kafka client: %v", err))
 		}
 	}
 
@@ -131,32 +102,22 @@ func (svr *Server) PeersCount() (amount int) {
 	return svr.peers.Size()
 }
 
-func (svr *Server) Node() *discovery.Node {
-	return svr.discv.Self()
-}
-
-func (svr *Server) ID() discovery.NodeID {
-	return svr.Node().ID
-}
-
 func (svr *Server) NodeInfo() *NodeInfo {
-	// todo
-
 	protocols := make([]string, len(svr.Protocols))
 	for i, protocol := range svr.Protocols {
 		protocols[i] = protocol.String()
 	}
 
 	return &NodeInfo{
-		ID:   svr.ID().String(),
-		Name: svr.Name,
-		Url:  svr.Node().String(),
-		IP:   svr.Addr,
-		Ports: ports{
-			Discovery: 0,
-			Listener:  0,
+		ID:    svr.self.ID.String(),
+		Name:  svr.Name,
+		Url:   svr.self.String(),
+		NetID: svr.NetID,
+		Address: &address{
+			IP:  svr.self.IP,
+			TCP: svr.self.TCP,
+			UDP: svr.self.UDP,
 		},
-		Address:   "",
 		Protocols: protocols,
 	}
 }
@@ -166,7 +127,7 @@ func (svr *Server) Topology() *Topo {
 	count := svr.PeersCount()
 
 	topo := &Topo{
-		Pivot: svr.Node().String(),
+		Pivot: svr.self.String(),
 		Peers: make([]string, count),
 	}
 
@@ -181,27 +142,29 @@ func (svr *Server) Available() bool {
 	return svr.PeersCount() > 0
 }
 
-func (svr *Server) MaxOutboundPeers() uint {
-	return svr.MaxPeers - svr.MaxInboundPeers()
+func (svr *Server) maxOutboundPeers() uint {
+	return svr.MaxPeers - svr.maxInboundPeers()
 }
 
-func (svr *Server) MaxInboundPeers() uint {
+func (svr *Server) maxInboundPeers() uint {
 	return svr.MaxPeers / svr.MaxInboundRatio
 }
 
 func (svr *Server) Start() error {
-	svr.lock.Lock()
-	if svr.running {
-		svr.lock.Unlock()
-		return nil
+	if !atomic.CompareAndSwapInt32(&svr.running, 0, 1) {
+		return errSvrStarted
 	}
-	svr.running = true
-	svr.lock.Unlock()
 
-	p2pServerLog.Info("p2p server start")
+	ID, err := discovery.Priv2NodeID(svr.Config.PrivateKey)
+	if err != nil {
+		return err
+	}
 
+	svr.setHandshake(ID)
+
+	addr := "0.0.0.0:" + strconv.FormatUint(uint64(svr.Port), 10)
 	// udp discover
-	udpAddr, err := net.ResolveUDPAddr("udp", svr.Addr)
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return err
 	}
@@ -211,54 +174,63 @@ func (svr *Server) Start() error {
 		return err
 	}
 
+	// tcp listener
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
+	if err != nil {
+		svr.log.Crit("tcp listening error", "err", err)
+	}
+
+	listener, err := net.ListenTCP("tcp", tcpAddr)
+	if err != nil {
+		svr.log.Crit("tcp listening error", "err", err)
+	} else {
+		svr.log.Info(fmt.Sprintf("tcp listening at %s", tcpAddr))
+	}
+
+	node := &discovery.Node{
+		ID:  ID,
+		IP:  udpAddr.IP,
+		UDP: uint16(udpAddr.Port),
+		TCP: uint16(tcpAddr.Port),
+	}
+	svr.self = node
+	// mapping udp and tcp
+	go nat.Map(svr.term, "udp", int(svr.self.UDP), int(svr.self.UDP), "vite p2p udp", 0, svr.updateNode)
+	go nat.Map(svr.term, "tcp", int(svr.self.TCP), int(svr.self.TCP), "vite p2p tcp", 0, svr.updateNode)
+
 	svr.discv = discovery.New(&discovery.Config{
 		Priv:      svr.PrivateKey,
 		DBPath:    svr.Database,
 		BootNodes: svr.BootNodes,
 		Conn:      conn,
+		Self:      node,
 	})
 
-	svr.setHandshake()
+	svr.discv.Start()
 
-	go svr.discv.Start()
+	svr.agent = newAgent(svr)
 
 	// tcp listener
-	tcpAddr, err := net.ResolveTCPAddr("tcp", svr.Addr)
-	if err != nil {
-		return err
-	}
-	go svr.Listen(tcpAddr)
-
 	svr.wg.Add(1)
-	go svr.mapping(tcpAddr.Port)
+	go svr.listenLoop(listener)
 
-	// task loop
+	// peer manager
 	svr.wg.Add(1)
 	go svr.loop()
+
 	p2pServerLog.Info("p2p server started")
 	return nil
 }
 
-func (svr *Server) mapping(lport int) {
-	out := make(chan *nat.Addr)
-	go nat.Map(svr.term, "tcp", lport, lport, "vite p2p", 0, out)
-
-loop:
-	for {
-		select {
-		case <-svr.term:
-			break loop
-		case addr := <-out:
-			if addr.IsValid() {
-				svr.discv.SetNode(nil, 0, uint16(addr.Port))
-			}
-		}
+func (svr *Server) updateNode(addr *nat.Addr) {
+	if addr.Proto == "tcp" {
+		svr.self.TCP = uint16(addr.Port)
+	} else {
+		svr.self.UDP = uint16(addr.Port)
 	}
-
-	svr.wg.Done()
 }
 
-func (svr *Server) setHandshake() {
+func (svr *Server) setHandshake(ID discovery.NodeID) {
 	cmdsets := make([]*CmdSet, len(svr.Protocols))
 	for i, p := range svr.Protocols {
 		cmdsets[i] = p.CmdSet()
@@ -267,259 +239,190 @@ func (svr *Server) setHandshake() {
 		Version: Version,
 		Name:    svr.Name,
 		NetID:   svr.NetID,
-		ID:      svr.Node().ID,
+		ID:      ID,
 		CmdSets: cmdsets,
 	}
 }
 
-func (svr *Server) Listen(addr *net.TCPAddr) {
-	listener, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		svr.log.Crit("tcp listen", "err", err)
-	} else {
-		svr.log.Info("tcp listening", "addr", addr.String())
-	}
-
-	svr.listener = listener
-
-	svr.wg.Add(1)
-	go svr.handleConn()
-}
-
-func (svr *Server) handleConn() {
+func (svr *Server) listenLoop(listener *net.TCPListener) {
 	defer svr.wg.Done()
+	defer listener.Close()
 
 	var conn net.Conn
 	var err error
+	var tempDelay time.Duration
+	maxDelay := time.Second
 
 	for {
 		select {
 		case svr.pending <- struct{}{}:
 			for {
-				conn, err = svr.listener.Accept()
+				conn, err = listener.Accept()
 
 				if err != nil {
-					svr.log.Error("tcp accept error", "error", err)
-					continue
+					svr.log.Error(fmt.Sprintf("tcp read error %v", err))
+
+					if err, ok := err.(net.Error); ok && err.Temporary() {
+						if tempDelay == 0 {
+							tempDelay = 5 * time.Millisecond
+						} else {
+							tempDelay *= 2
+						}
+
+						if tempDelay > maxDelay {
+							tempDelay = maxDelay
+						}
+
+						svr.log.Info(fmt.Sprintf("tcp read tempError, wait %d Millisecond", tempDelay))
+
+						time.Sleep(tempDelay)
+
+						continue
+					}
+
+					return
 				}
+
 				break
 			}
-			go svr.SetupConn(conn, inbound)
+
+			go svr.setupConn(conn, inbound)
 		case <-svr.term:
-			close(svr.pending)
+			return
 		}
 	}
 }
 
-func (svr *Server) SetupConn(c net.Conn, flag connFlag) {
-	svr.log.Info("new tcp conn", "from", c.RemoteAddr().String())
-
-	defer func() {
-		<-svr.pending
-	}()
-
+func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 	ts := &conn{
-		fd:        c,
-		transport: newProtoX(c),
+		AsyncMsgConn: NewAsyncMsgConn(c, nil),
 		flags:     flag,
-		term:      make(chan struct{}),
 	}
 
-	svr.log.Info("begin handshake", "with", c.RemoteAddr().String())
+	svr.log.Info(fmt.Sprintf("begin handshake with %s", c.RemoteAddr()))
 
-	peerhandshake, err := ts.Handshake(svr.ourHandshake)
+	their, err := ts.Handshake(svr.ourHandshake)
 
 	if err != nil {
-		svr.log.Error("handshake error", "with", c.RemoteAddr(), "error", err)
-		ts.close(err)
+		ts.Close(err)
+		svr.log.Error(fmt.Sprintf("handshake error with %s: %v", c.RemoteAddr(), err))
 	} else {
-		ts.id = peerhandshake.ID
-		ts.name = peerhandshake.Name
-		ts.cmdSets = peerhandshake.CmdSets
+		ts.id = their.ID
+		ts.name = their.Name
+		ts.cmdSets = their.CmdSets
 
-		svr.log.Info(fmt.Sprintf("handshake with %s@%s\n", ts.id, c.RemoteAddr()))
+		svr.log.Info(fmt.Sprintf("handshake with %s@%s done", ts.id, c.RemoteAddr()))
+		svr.addPeer <- ts
 	}
 
-	svr.addPeer <- ts
+	<-svr.pending
 }
 
-func (svr *Server) CheckConn(peers map[discovery.NodeID]*Peer, c *conn, passivePeersCount uint) error {
-	if uint(len(peers)) >= svr.MaxPeers {
+func (svr *Server) checkConn(c *conn) error {
+	if uint(svr.peers.Size()) >= svr.MaxPeers {
 		return DiscTooManyPeers
 	}
-	if passivePeersCount >= svr.MaxInboundPeers() {
+
+	if uint(svr.peers.inbound) >= svr.maxInboundPeers() {
 		return DiscTooManyPassivePeers
 	}
-	if peers[c.id] != nil {
+
+	if svr.peers.Has(c.id) {
 		return DiscAlreadyConnected
 	}
-	if c.id == svr.discv.ID() {
+
+	if c.id == svr.self.ID {
 		return DiscSelf
 	}
+
 	return nil
 }
-
-type blockNode struct {
-	node      *discovery.Node
-	blockTime time.Time
-}
-
-var defaultBlockTimeout = 2 * time.Minute
-var topoTicker = time.Minute
 
 func (svr *Server) loop() {
 	defer svr.wg.Done()
 
 	// broadcast topo to peers
+	topoInterval := time.Minute
 	if svr.NetID == MainNet {
-		topoTicker = 10 * time.Minute
+		topoInterval = 10 * time.Minute
 	}
-	topoTicker := time.NewTicker(topoTicker)
+	topoTicker := time.NewTicker(topoInterval)
 	defer topoTicker.Stop()
 
-	dm := NewDialManager(svr.discv, svr.MaxOutboundPeers(), svr.BootNodes)
-	peers := make(map[discovery.NodeID]*Peer)
-	taskHasDone := make(chan Task, defaultMaxActiveDail)
+	shouldSchedule := make(chan struct{})
 
-	var passivePeersCount uint = 0
-	var activeTasks []Task
-	var taskQueue []Task
+	go svr.agent.scheduleTasks(svr.term, shouldSchedule)
 
-	blocknodes := make(map[discovery.NodeID]*blockNode)
-	cleanBlockTicker := time.NewTicker(defaultBlockTimeout)
-	defer cleanBlockTicker.Stop()
-
-	delActiveTask := func(t Task) {
-		for i, at := range activeTasks {
-			if at == t {
-				activeTasks = append(activeTasks[:i], activeTasks[i+1:]...)
-			}
-		}
-	}
-	runTasks := func(ts []Task) (rest []Task) {
-		i := 0
-		for ; uint(len(activeTasks)) < defaultMaxActiveDail && i < len(ts); i++ {
-			t := ts[i]
-			go func() {
-				t.Perform(svr)
-				taskHasDone <- t
-			}()
-			activeTasks = append(activeTasks, t)
-		}
-		return ts[i:]
-	}
-	scheduleTasks := func() {
-		taskQueue = runTasks(taskQueue)
-		p2pServerLog.Info("server run tasks", "tasks", len(taskQueue))
-		if uint(len(activeTasks)) < defaultMaxActiveDail {
-			newTasks := dm.CreateTasks(peers, blocknodes)
-			if len(newTasks) > 0 {
-				taskQueue = append(taskQueue, runTasks(newTasks)...)
-			}
-		}
-	}
-
-loop:
 	for {
-		scheduleTasks()
-
 		select {
 		case <-svr.term:
-			break loop
-		case t := <-taskHasDone:
-			dm.TaskDone(t)
-			delActiveTask(t)
+			goto END
+		case <-shouldSchedule:
+			svr.agent.createTasks()
 		case c := <-svr.addPeer:
-			err := svr.CheckConn(peers, c, passivePeersCount)
+			err := svr.checkConn(c)
+
 			if err == nil {
-				if p, err := NewPeer(c, svr.Protocols); err != nil {
-					peers[p.ID()] = p
-					svr.log.Info("create new peer", "ID", c.id.String())
-					monitor.LogDuration("p2p/peer", "add", int64(len(peers)))
+				if p, err := NewPeer(c, svr.Protocols, svr.topo.rec); err == nil {
+					svr.peers.Add(p)
+
+					peersCount := svr.peers.Size()
+					svr.log.Info("create new peer", "ID", c.id.String(), "total", peersCount)
+					monitor.LogDuration("p2p/peer", "add", int64(peersCount))
 
 					go svr.runPeer(p)
-
-					if c.is(inbound) {
-						passivePeersCount++
-					}
+				} else {
+					svr.log.Error(fmt.Sprintf("create new peer error: %v", err))
 				}
 			} else {
-				c.close(err)
-				svr.log.Error("create new peer error", "error", err)
+				c.Close(err)
+				svr.log.Error("cannot create new peer", "error", err)
 			}
-		case p := <-svr.delPeer:
-			delete(peers, p.ID())
-			svr.log.Info("delete peer", "ID", p.ID().String())
-			monitor.LogDuration("p2p/peer", "del", int64(len(peers)))
 
-			if p.rw.is(inbound) {
-				passivePeersCount--
-			}
+		case p := <-svr.delPeer:
+			svr.peers.Del(p)
+
+			peersCount := svr.peers.Size()
+			svr.log.Info("delete peer", "ID", p.ID().String(), "total", peersCount)
+			monitor.LogDuration("p2p/peer", "del", int64(peersCount))
+
 		case <-topoTicker.C:
+			monitor.LogEvent("p2p/peer", "topo-send")
+
 			topo := svr.Topology()
 			go svr.peers.Traverse(func(id discovery.NodeID, p *Peer) {
-				err := Send(p.rw, baseProtocolCmdSet, topoCmd, topo)
-				if err != nil {
-					p.protoErr <- err
-				}
+				p.Send(baseProtocolCmdSet, topoCmd, 0, topo)
 			})
+		case e := <-svr.topo.rec:
+			monitor.LogEvent("p2p", "topo-receive")
+			svr.log.Info(fmt.Sprintf("receive topo from %s", e.sender))
+			svr.topo.Handle(e, svr)
 		}
 	}
 
-	svr.log.Info("out of tcp task loop")
-
-	if svr.discv != nil {
-		svr.discv.Stop()
-	}
-
-	for _, p := range peers {
+END:
+	svr.peers.Traverse(func(id discovery.NodeID, p *Peer) {
 		p.Disconnect(DiscQuitting)
-	}
-
-	// wait for peers work down.
-	for p := range svr.delPeer {
-		delete(peers, p.ID())
-	}
+	})
 }
 
 func (svr *Server) runPeer(p *Peer) {
-	err := p.start()
+	err := p.run()
 	if err != nil {
 		svr.log.Error("run peer error", "error", err)
 	}
-	svr.peers.Del(p)
+	svr.delPeer <- p
 }
 
 func (svr *Server) Stop() {
-	svr.lock.Lock()
-	defer svr.lock.Unlock()
-
-	if !svr.running {
+	if !atomic.CompareAndSwapInt32(&svr.running, 1, 0) {
 		return
 	}
 
-	svr.running = false
-
-	if svr.listener != nil {
-		svr.listener.Close()
-	}
-
-	if svr.discv != nil {
-		svr.discv.Stop()
-	}
+	svr.discv.Stop()
 
 	close(svr.term)
 	svr.wg.Wait()
-}
-
-// @section Dialer
-type NodeDailer struct {
-	*net.Dialer
-}
-
-func (d *NodeDailer) DailNode(target *discovery.Node) (net.Conn, error) {
-	p2pServerLog.Info("tcp dial", "node", target)
-	return d.Dialer.Dial("tcp", target.TCPAddr().String())
 }
 
 // @section NodeInfo
@@ -528,13 +431,12 @@ type NodeInfo struct {
 	Name      string    `json:"name"`
 	Url       string    `json:"url"`
 	NetID     NetworkID `json:"netId"`
-	IP        string    `json:"ip"`
-	Ports     ports     `json:"ports"`
-	Address   string    `json:"address"`
+	Address   *address  `json:"address"`
 	Protocols []string  `json:"protocols"`
 }
 
-type ports struct {
-	Discovery uint16 `json:"discovery"`
-	Listener  uint16 `json:"listener"`
+type address struct {
+	IP  net.IP `json:"ip"`
+	TCP uint16 `json:"tcp"`
+	UDP uint16 `json:"udp"`
 }
