@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 var p2pServerLog = log15.New("module", "p2p/server")
@@ -246,8 +245,6 @@ func (svr *Server) listenLoop() {
 
 	var conn net.Conn
 	var err error
-	var tempDelay time.Duration
-	maxDelay := time.Second
 
 	for {
 		select {
@@ -255,31 +252,9 @@ func (svr *Server) listenLoop() {
 			for {
 				conn, err = svr.ln.Accept()
 
-				if err != nil {
-					if err, ok := err.(net.Error); ok && err.Temporary() {
-						if tempDelay == 0 {
-							tempDelay = 5 * time.Millisecond
-						} else {
-							tempDelay *= 2
-						}
-
-						if tempDelay > maxDelay {
-							tempDelay = maxDelay
-						}
-
-						svr.log.Info(fmt.Sprintf("tcp accept tempError, wait %s", tempDelay))
-
-						time.Sleep(tempDelay)
-
-						continue
-					}
-
-					svr.log.Error(fmt.Sprintf("tcp accept error %v", err))
-
-					return
+				if err == nil {
+					break
 				}
-
-				break
 			}
 
 			go svr.setupConn(conn, inbound)

@@ -41,25 +41,7 @@ func main() {
 		MaxInboundRatio: p2pCfg.MaxPassivePeersRatio,
 		Port:            uint(p2pCfg.Port),
 		Database:        p2pCfg.Datadir,
-		PrivateKey:      nil,
-		Protocols: []*p2p.Protocol{
-			{
-				Name: "p2p-test",
-				// use for message command set, should be unique
-				ID: 1,
-				// read and write Msg with rw
-				Handle: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
-					for {
-						_, err := rw.ReadMsg()
-						if err != nil {
-							return err
-						}
-					}
-					return nil
-				},
-			},
-		},
-		BootNodes: p2pCfg.BootNodes,
+		BootNodes:       p2pCfg.BootNodes,
 	}
 
 	if p2pCfg.PrivateKey != "" {
