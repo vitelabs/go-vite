@@ -92,8 +92,6 @@ func (p *Ping) sender() NodeID {
 func (p *Ping) serialize() ([]byte, error) {
 	pb := &protos.Ping{
 		ID:         p.ID[:],
-		IP:         p.IP,
-		UDP:        uint32(p.UDP),
 		TCP:        uint32(p.TCP),
 		Expiration: p.Expiration.Unix(),
 	}
@@ -113,8 +111,6 @@ func (p *Ping) deserialize(buf []byte) error {
 	}
 
 	p.ID = id
-	p.IP = pb.IP
-	p.UDP = uint16(pb.UDP)
 	p.TCP = uint16(pb.TCP)
 	p.Expiration = time.Unix(pb.Expiration, 0)
 
@@ -143,6 +139,7 @@ func (p *Ping) String() string {
 type Pong struct {
 	ID         NodeID
 	Ping       types.Hash
+	IP         net.IP
 	Expiration time.Time
 }
 
@@ -154,6 +151,7 @@ func (p *Pong) serialize() ([]byte, error) {
 	pb := &protos.Pong{
 		ID:         p.ID[:],
 		Ping:       p.Ping[:],
+		IP:         p.IP,
 		Expiration: p.Expiration.Unix(),
 	}
 	return proto.Marshal(pb)
@@ -172,6 +170,7 @@ func (p *Pong) deserialize(buf []byte) error {
 	}
 
 	p.ID = id
+	p.IP = pb.IP
 	copy(p.Ping[:], pb.Ping)
 	p.Expiration = time.Unix(pb.Expiration, 0)
 

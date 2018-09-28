@@ -12,38 +12,6 @@ import (
 	"time"
 )
 
-//var bufferPool = sync.Pool{
-//	New: func() interface{} {
-//		return new(bytes.Buffer)
-//	},
-//}
-//
-//func Buffer() *bytes.Buffer {
-//	return bufferPool.Get().(*bytes.Buffer)
-//}
-//
-//func EncodeToReader(s Serializable) (r io.Reader, size uint64, err error) {
-//	data, err := s.Serialize()
-//	if err != nil {
-//		return
-//	}
-//
-//	return BytesToReader(data), uint64(len(data)), nil
-//}
-//
-//func BytesToReader(data []byte) io.Reader {
-//	buf := bufferPool.Get().(*bytes.Buffer)
-//	buf.Reset()
-//
-//	n, err := buf.Write(data)
-//	if err != nil || n != len(data) {
-//		bufferPool.Put(buf)
-//		return bytes.NewReader(data)
-//	}
-//
-//	return buf
-//}
-
 func PackMsg(cmdSetId, cmd, id uint64, s Serializable) (*Msg, error) {
 	data, err := s.Serialize()
 	if err != nil {
@@ -152,6 +120,9 @@ var handshakeTimeout = 10 * time.Second
 var msgReadTimeout = 40 * time.Second
 var msgWriteTimeout = 20 * time.Second
 
+const readBufferLen = 100
+const writeBufferLen = 100
+
 type AsyncMsgConn struct {
 	fd    net.Conn
 	rw    *MsgRw
@@ -162,7 +133,7 @@ type AsyncMsgConn struct {
 	_rqueue chan *Msg
 	_close error	// close reason
 	log log15.Logger
-	errored int32	// atomic, indicate whehter there is an error
+	errored int32	// atomic, indicate whehter there is an error, readErr(1), writeErr(2)
 	errch chan error	// report errch to upper layer
 }
 
@@ -176,9 +147,9 @@ func NewAsyncMsgConn(fd net.Conn, handler func(msg *Msg)) *AsyncMsgConn {
 		},
 		handler: handler,
 		term: make(chan struct{}),
-		_wqueue: make(chan *Msg, 100),
-		_rqueue: make(chan *Msg, 100),
-		errch: make(chan error),
+		_wqueue: make(chan *Msg, writeBufferLen),
+		_rqueue: make(chan *Msg, readBufferLen),
+		errch: make(chan error, 1),
 		log: log15.New("module", "p2p/AsyncMsgConn", "end", fd.RemoteAddr().String()),
 	}
 }
@@ -198,16 +169,16 @@ func (c *AsyncMsgConn) Close(err error) {
 	select {
 	case <- c.term:
 	default:
-		c._close = err
 		c.log.Error(fmt.Sprintf("close: %v", err))
+		c._close = err
 		close(c.term)
+		c.wg.Wait()
+		c.log.Error(fmt.Sprintf("closed: %v", err))
 	}
-
-	c.wg.Wait()
 }
 
-func (c *AsyncMsgConn) report(err error) {
-	if atomic.CompareAndSwapInt32(&c.errored,0, 1) {
+func (c *AsyncMsgConn) report(t int32, err error) {
+	if atomic.CompareAndSwapInt32(&c.errored,0, t) {
 		c.errch <- err
 	}
 }
@@ -216,9 +187,6 @@ func (c *AsyncMsgConn) readLoop() {
 	defer c.wg.Done()
 	defer close(c._rqueue)
 
-	var tempDelay time.Duration
-	var maxDelay = time.Second
-
 	for {
 		select {
 		case <- c.term:
@@ -226,7 +194,6 @@ func (c *AsyncMsgConn) readLoop() {
 		default:
 		}
 
-		c.fd.SetReadDeadline(time.Now().Add(msgReadTimeout))
 		msg, err := c.rw.ReadMsg()
 
 		if err == nil {
@@ -236,23 +203,9 @@ func (c *AsyncMsgConn) readLoop() {
 				msg.Discard()
 				c.log.Error(fmt.Sprintf("can`t put message %s to read_queue<%d>, then discard", msg, len(c._rqueue)))
 			}
-		} else if err, ok := err.(net.Error); ok && err.Temporary() {
-			if tempDelay == 0 {
-				tempDelay = 5 * time.Millisecond
-			} else {
-				tempDelay *= 2
-			}
-
-			if tempDelay > maxDelay {
-				tempDelay = maxDelay
-			}
-
-			c.log.Warn(fmt.Sprintf("udp read tempError, wait %d Millisecond", tempDelay))
-
-			time.Sleep(tempDelay)
 		} else {
 			c.log.Error(fmt.Sprintf("read message error: %v", err))
-			c.report(err)
+			c.report(1, err)
 			return
 		}
 	}
@@ -260,14 +213,13 @@ func (c *AsyncMsgConn) readLoop() {
 
 func (c *AsyncMsgConn) _write(msg *Msg) {
 	// there is an error
-	if atomic.LoadInt32(&c.errored) == 1 {
+	if atomic.LoadInt32(&c.errored) != 0 {
 		return
 	}
 
-	c.fd.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
 	err := c.rw.WriteMsg(msg)
 	if err != nil {
-		c.report(err)
+		c.report(2, err)
 		c.log.Error(fmt.Sprintf("write message %s to %s error: %v", msg, c.fd.RemoteAddr(), err))
 	} else {
 		c.log.Info(fmt.Sprintf("write message %s to %s done", msg, c.fd.RemoteAddr()))
@@ -290,12 +242,14 @@ func (c *AsyncMsgConn) writeLoop() {
 
 	close(c._wqueue)
 
-	for msg := range c._wqueue {
-		c._write(msg)
-	}
+	if atomic.LoadInt32(&c.errored) == 0 {
+		for msg := range c._wqueue {
+			c._write(msg)
+		}
 
-	if reason, ok := c._close.(DiscReason); ok && reason != DiscNetworkError {
-		c.Send(baseProtocolCmdSet, discCmd, 0, reason)
+		if reason, ok := c._close.(DiscReason); ok && reason != DiscNetworkError {
+			c.Send(baseProtocolCmdSet, discCmd, 0, reason)
+		}
 	}
 }
 
@@ -308,7 +262,11 @@ func (c *AsyncMsgConn) handleLoop() {
 		case <- c.term:
 			break loop
 		case msg := <- c._rqueue:
-			c.handler(msg)
+			if msg != nil {
+				c.handler(msg)
+			} else {
+				break loop
+			}
 		}
 	}
 

@@ -9,5 +9,6 @@
 	"Miner": {
 	    "Miner": true,
 	    "Coinbase": "vite_946e7f9554cc5efc6e404a6510c3c6a098ac4296c049cc348b"
-	}
+	},
+	"~/"
     }
