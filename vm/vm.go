@@ -112,7 +112,7 @@ func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 	if block.AccountBlock.Fee != nil {
 		block.VmContext.SubBalance(&ledger.ViteTokenId, block.AccountBlock.Fee)
 	}
-	vm.updateBlock(block, nil, quota.QuotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil))
+	vm.updateBlock(block, nil, quota.CalcQuotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil))
 	block.VmContext.SetContractGid(&gid, &contractAddr)
 	return block, nil
 }
@@ -198,7 +198,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 	if isPrecompiledContractAddress(block.AccountBlock.AccountAddress) {
 		quotaUsed = 0
 	} else {
-		quotaUsed = quota.QuotaUsed(quotaTotal, quotaAddition, quotaLeft, 0, nil)
+		quotaUsed = quota.CalcQuotaUsed(quotaTotal, quotaAddition, quotaLeft, 0, nil)
 	}
 	vm.updateBlock(block, nil, quotaUsed)
 	return block, nil
@@ -240,7 +240,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		// do transfer transaction if account code size is zero
 		code := block.VmContext.GetContractCode(&block.AccountBlock.AccountAddress)
 		if len(code) == 0 {
-			vm.updateBlock(block, nil, quota.QuotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil))
+			vm.updateBlock(block, nil, quota.CalcQuotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil))
 			return vm.blockList, NoRetry, nil
 		}
 		// run code
@@ -249,7 +249,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		_, err = c.run(vm)
 		if err == nil {
 			block.AccountBlock.Data = block.VmContext.GetStorageHash().Bytes()
-			vm.updateBlock(block, nil, quota.QuotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, nil))
+			vm.updateBlock(block, nil, quota.CalcQuotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, nil))
 			err = vm.doSendBlockList(quotaTotal - quotaAddition - block.AccountBlock.Quota)
 			if err == nil {
 				return vm.blockList, NoRetry, nil
@@ -258,7 +258,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 
 		vm.revert(block)
 		block.AccountBlock.Data = nil
-		vm.updateBlock(block, err, quota.QuotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, err))
+		vm.updateBlock(block, err, quota.CalcQuotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, err))
 		return vm.blockList, err == quota.ErrOutOfQuota, err
 	}
 }

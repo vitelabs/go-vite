@@ -608,8 +608,9 @@ func TestContractsPledge(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr1
 	sendCancelPledgeBlockList, isRetry, err := vm.Run(db, block15, nil)
+	block15DataGasCost, _ := quota.DataGasCost(sendCancelPledgeBlockList[0].AccountBlock.Data)
 	if len(sendCancelPledgeBlockList) != 1 || isRetry || err != nil ||
-		sendCancelPledgeBlockList[0].AccountBlock.Quota != 105592 {
+		sendCancelPledgeBlockList[0].AccountBlock.Quota != block15DataGasCost+cancelPledgeGas {
 		t.Fatalf("send cancel pledge transaction error")
 	}
 	db.accountBlockMap[addr1][hash15] = sendCancelPledgeBlockList[0].AccountBlock
