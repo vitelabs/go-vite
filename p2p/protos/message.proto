@@ -13,9 +13,26 @@ message Handshake {
     bytes ID = 3;
     repeated CmdSet CmdSets = 4;
     uint64 Version = 5;
+    bytes RemoteIP = 6;
+	uint32 RemotePort = 7;
 }
 
 message CmdSet {
     uint64 ID = 1;
     string Name = 2;
+}
+
+message ConnProperty {
+    string LocalID = 1;
+    bytes LocalIP = 2;
+    uint32 LocalPort = 3;
+    string RemoteID = 4;
+    bytes RemoteIP = 5;
+    uint32 RemotePort = 6;
+}
+
+message Topo {
+    string Pivot = 1;
+    repeated ConnProperty Peers = 2;
+    int64 Time = 3;
 }
