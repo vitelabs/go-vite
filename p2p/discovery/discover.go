@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"github.com/pkg/errors"
@@ -270,7 +271,11 @@ func (d *Discovery) HandleMsg(res *packet) {
 
 		pong := res.msg.(*Pong)
 		// get our public IP
-		d.self.IP = pong.IP
+		if len(pong.IP) == 0 || bytes.Equal(pong.IP, net.IPv4zero) || bytes.Equal(pong.IP, net.IPv6zero) {
+			// do nothing
+		} else {
+			d.self.IP = pong.IP
+		}
 
 		d.db.setLastPong(res.fromID, time.Now())
 	case findnodeCode:
