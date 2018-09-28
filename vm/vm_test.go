@@ -1,11 +1,14 @@
 package vm
 
 import (
+	"bytes"
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/quota"
+	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"strconv"
 	"testing"
@@ -135,7 +138,6 @@ func TestVmRun(t *testing.T) {
 	}
 	db.accountBlockMap[addr2][hash22] = receiveCallBlockList[0].AccountBlock
 
-	// TODO error case
 	// send call error, insufficient balance
 	data15, _ := hex.DecodeString("f021ab8f0000000000000000000000000000000000000000000000000000000000000005")
 	block15 := &ledger.AccountBlock{
@@ -199,14 +201,47 @@ func TestVmRun(t *testing.T) {
 }
 
 func TestDelegateCall(t *testing.T) {
-	// TODO test delegate call
 	// prepare db, add account1, add account2 with code, add account3 with code
-	// send call
-	// receive call
+	db := NewNoDatabase()
+	// code1 return 1+2
+	addr1, _, _ := types.CreateAddress()
+	code1 := []byte{byte(PUSH1), 1, byte(PUSH1), 2, byte(ADD), byte(PUSH1), 32, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE), byte(PUSH1), 32, byte(SWAP1), byte(RETURN)}
+	db.codeMap = make(map[types.Address][]byte)
+	db.codeMap[addr1] = code1
+
+	addr2, _, _ := types.CreateAddress()
+	code2 := helper.JoinBytes([]byte{byte(PUSH1), 32, byte(PUSH1), 0, byte(PUSH1), 0, byte(PUSH1), 0, byte(PUSH20)}, addr1.Bytes(), []byte{byte(DELEGATECALL), byte(PUSH1), 32, byte(PUSH1), 0, byte(RETURN)})
+	db.codeMap[addr2] = code2
+
+	vm := NewVM()
+	vm.Debug = true
+	sendCallBlock := ledger.AccountBlock{
+		AccountAddress: addr1,
+		ToAddress:      addr2,
+		BlockType:      ledger.BlockTypeSendCall,
+		Amount:         big.NewInt(10),
+		Fee:            big.NewInt(0),
+		TokenId:        ledger.ViteTokenId,
+	}
+	receiveCallBlock := &ledger.AccountBlock{
+		AccountAddress: addr2,
+		BlockType:      ledger.BlockTypeReceive,
+	}
+	c := newContract(
+		addr2,
+		addr2,
+		&vm_context.VmAccountBlock{receiveCallBlock, db},
+		&sendCallBlock,
+		1000000,
+		0)
+	c.setCallCode(addr2, code2)
+	ret, err := c.run(vm)
+	if err != nil || !bytes.Equal(ret, helper.LeftPadBytes([]byte{3}, 32)) {
+		t.Fatalf("delegate call error")
+	}
 }
 
 func TestCalcQuota(t *testing.T) {
-	// TODO
 	// prepare db
 	addr1, _, _ := types.CreateAddress()
 	db := NewNoDatabase()
