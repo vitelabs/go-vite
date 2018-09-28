@@ -111,7 +111,10 @@ func (t *TopoHandler) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 				return nil
 			}
 
-			t.Receive(msg, peer)
+			if t.Receive(msg, peer); err != nil {
+				t.log.Error(fmt.Sprintf("Topo handle error: %v", err))
+				return err
+			}
 		}
 	}
 }
@@ -170,24 +173,24 @@ func (t *TopoHandler) Topology() *Topo {
 	return topo
 }
 
-func (t *TopoHandler) Receive(msg *p2p.Msg, sender *Peer) {
+func (t *TopoHandler) Receive(msg *p2p.Msg, sender *Peer) (err error) {
 	defer msg.Discard()
 
 	length := len(msg.Payload)
 
 	if length < 32 {
-		t.log.Info(fmt.Sprintf("receive invalid topoMsg from %s@%s", sender.ID(), sender.RemoteAddr()))
+		err = fmt.Errorf("receive invalid topoMsg from %s@%s", sender.ID(), sender.RemoteAddr())
 		return
 	}
 
 	hash := msg.Payload[:32]
 	if t.record.Lookup(hash) {
-		t.log.Info(fmt.Sprintf("has received the same topoMsg: %s", hex.EncodeToString(hash)))
+		err = fmt.Errorf("has received the same topoMsg: %s", hex.EncodeToString(hash))
 		return
 	}
 
 	topo := new(Topo)
-	err := topo.Deserialize(msg.Payload[32:])
+	err = topo.Deserialize(msg.Payload[32:])
 	if err != nil {
 		t.log.Error(fmt.Sprintf("deserialize topoMsg error: %v", err))
 		return
@@ -211,6 +214,8 @@ func (t *TopoHandler) Receive(msg *p2p.Msg, sender *Peer) {
 		t.write("p2p_status_event", topo.Json())
 		t.log.Info("report topoMsg to kafka")
 	}
+
+	return nil
 }
 
 func (t *TopoHandler) write(topic string, data []byte) {

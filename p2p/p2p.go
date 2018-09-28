@@ -277,6 +277,10 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 	if err != nil {
 		ts.Close(err)
 		svr.log.Error(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
+	} else if their.NetID != svr.NetID {
+		err = fmt.Errorf("different NetID: our %s, their %s", svr.NetID, their.NetID)
+		ts.Close(err)
+		svr.log.Error(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
 	} else {
 		ts.id = their.ID
 		ts.name = their.Name
