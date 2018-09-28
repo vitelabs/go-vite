@@ -34,6 +34,9 @@ func NewTrie(db *leveldb.DB, rootHash *types.Hash, pool *TrieNodePool) *Trie {
 }
 
 func (trie *Trie) getNodeFromDb(key *types.Hash) *TrieNode {
+	if trie.db == nil {
+		return nil
+	}
 	dbKey, _ := database.EncodeKey(database.DBKP_TRIE_NODE, key.Bytes())
 	value, err := trie.db.Get(dbKey, nil)
 	if err != nil {
@@ -98,19 +101,28 @@ func (trie *Trie) getRefValue(key []byte) ([]byte, error) {
 		return value, nil
 	}
 
+	if trie.db == nil {
+		return nil, nil
+	}
+
 	dbKey, _ := database.EncodeKey(database.DBKP_TRIE_REF_VALUE, key)
 	return trie.db.Get(dbKey, nil)
 }
 
 func (trie *Trie) getNode(key *types.Hash) *TrieNode {
-	node := trie.cachePool.Get(key)
-	if node != nil {
-		return node
+
+	if trie.cachePool != nil {
+		node := trie.cachePool.Get(key)
+		if node != nil {
+			return node
+		}
 	}
 
-	node = trie.getNodeFromDb(key)
+	node := trie.getNodeFromDb(key)
 	if node != nil {
-		trie.cachePool.Set(key, node)
+		if trie.cachePool != nil {
+			trie.cachePool.Set(key, node)
+		}
 	}
 	return node
 }
@@ -149,13 +161,17 @@ func (trie *Trie) Hash() *types.Hash {
 }
 
 func (trie *Trie) Copy() *Trie {
-	return &Trie{
+	newTrie := &Trie{
 		db:        trie.db,
 		cachePool: trie.cachePool,
 		log:       trie.log,
 
-		Root: trie.Root.Copy(true),
+		unSavedRefValueMap: make(map[types.Hash][]byte),
 	}
+	if trie.Root != nil {
+		newTrie.Root = trie.Root.Copy(true)
+	}
+	return newTrie
 }
 
 func (trie *Trie) Save(batch *leveldb.Batch) (successCallback func(), returnErr error) {

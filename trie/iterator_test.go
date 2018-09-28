@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewIterator(t *testing.T) {
-	db := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
+	db, _ := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
 	defer db.Close()
 
 	pool := NewTrieNodePool()

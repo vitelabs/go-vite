@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
@@ -28,6 +29,21 @@ type VmContext struct {
 
 	unsavedCache *UnsavedCache
 	frozen       bool
+
+	log log15.Logger
+}
+
+func NewEmptyVmContextByTrie(t *trie.Trie) vmctxt_interface.VmDatabase {
+	if t == nil {
+		t = trie.NewTrie(nil, nil, nil)
+	}
+
+	vmContext := &VmContext{
+		frozen: false,
+		trie:   t,
+	}
+	vmContext.unsavedCache = NewUnsavedCache(t)
+	return vmContext
 }
 
 func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash, addr *types.Address) (vmctxt_interface.VmDatabase, error) {
@@ -36,17 +52,18 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 		address: addr,
 
 		frozen: false,
+		log:    log15.New("module", "vmContext"),
 	}
 
 	var currentSnapshotBlock *ledger.SnapshotBlock
 	if snapshotBlockHash == nil {
+		currentSnapshotBlock = chain.GetLatestSnapshotBlock()
+	} else {
 		var err error
 		currentSnapshotBlock, err = chain.GetSnapshotBlockByHash(snapshotBlockHash)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		currentSnapshotBlock = chain.GetLatestSnapshotBlock()
 	}
 
 	vmContext.currentSnapshotBlock = currentSnapshotBlock
@@ -55,7 +72,7 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 	if prevAccountBlockHash == nil {
 		if addr != nil {
 			var err error
-			prevAccountBlock, err = chain.GetConfirmAccountBlock(currentSnapshotBlock.Height, addr)
+			prevAccountBlock, err = chain.GetLatestAccountBlock(addr)
 			if err != nil {
 				return nil, err
 			}
@@ -132,6 +149,7 @@ func (context *VmContext) AddBalance(tokenTypeId *types.TokenTypeId, amount *big
 		return
 	}
 	currentBalance := context.GetBalance(context.address, tokenTypeId)
+
 	currentBalance.Add(currentBalance, amount)
 
 	context.SetStorage(BalanceKey(tokenTypeId), currentBalance.Bytes())
@@ -152,6 +170,12 @@ func (context *VmContext) SubBalance(tokenTypeId *types.TokenTypeId, amount *big
 }
 
 func (context *VmContext) GetSnapshotBlocks(startHeight, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
+	// For NewEmptyVmContextByTrie
+	if context.chain == nil {
+		context.log.Error("context.chain is nil", "method", "GetSnapshotBlocks")
+		return nil
+	}
+
 	if startHeight > context.currentSnapshotBlock.Height {
 		return nil
 	}
@@ -168,6 +192,12 @@ func (context *VmContext) GetSnapshotBlocks(startHeight, count uint64, forward, 
 }
 
 func (context *VmContext) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
+	// For NewEmptyVmContextByTrie
+	if context.chain == nil {
+		context.log.Error("context.chain is nil", "method", "GetSnapshotBlockByHeight")
+		return nil
+	}
+
 	if height > context.currentSnapshotBlock.Height {
 		return nil
 	}
@@ -177,6 +207,12 @@ func (context *VmContext) GetSnapshotBlockByHeight(height uint64) *ledger.Snapsh
 }
 
 func (context *VmContext) GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock {
+	// For NewEmptyVmContextByTrie
+	if context.chain == nil {
+		context.log.Error("context.chain is nil", "method", "GetSnapshotBlockByHash")
+		return nil
+	}
+
 	snapshotBlock, _ := context.chain.GetSnapshotBlockByHash(hash)
 	if snapshotBlock != nil && snapshotBlock.Height > context.currentSnapshotBlock.Height {
 		return nil
@@ -231,7 +267,7 @@ func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
 		}
 
 		return context.trie.GetValue(key)
-	} else {
+	} else if context.chain != nil {
 		latestAccountBlock, _ := context.chain.GetConfirmAccountBlock(context.currentSnapshotBlock.Height, addr)
 		if latestAccountBlock != nil {
 			trie := context.chain.GetStateTrie(&latestAccountBlock.StateHash)
@@ -246,6 +282,10 @@ func (context *VmContext) GetStorageHash() *types.Hash {
 }
 
 func (context *VmContext) GetGid() *types.Gid {
+	if context.chain == nil {
+		context.log.Error("context.chain is nil", "method", "GetGid")
+		return nil
+	}
 	gid, _ := context.chain.GetContractGid(context.address)
 	return gid
 }
@@ -262,6 +302,11 @@ func (context *VmContext) GetLogListHash() *types.Hash {
 }
 
 func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
+	if context.chain == nil {
+		context.log.Error("context.chain is nil", "method", "IsAddressExisted")
+		return false
+	}
+
 	account, _ := context.chain.GetAccount(addr)
 	if account == nil {
 		return false
@@ -270,6 +315,11 @@ func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 }
 
 func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
+	if context.chain == nil {
+		context.log.Error("context.chain is nil", "method", "GetAccountBlockByHash")
+		return nil
+	}
+
 	accountBlock, _ := context.chain.GetAccountBlockByHash(hash)
 	return accountBlock
 }
