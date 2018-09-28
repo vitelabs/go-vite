@@ -94,12 +94,15 @@ func WriteMsg(writer io.Writer, compressible bool, msg *Msg) (err error) {
 	binary.BigEndian.PutUint64(head[24:32], msg.Size)
 
 	// write header
-	if _, err = writer.Write(head); err != nil {
+	var n int
+	if n, err = writer.Write(head); err != nil {
 		return
+	} else if n != headerLength {
+		return fmt.Errorf("write incomplement message header %d/%d bytes", n, headerLength)
 	}
 
 	// write payload
-	if n, err := writer.Write(msg.Payload); err != nil {
+	if n, err = writer.Write(msg.Payload); err != nil {
 		return
 	} else if uint64(n) != msg.Size {
 		return fmt.Errorf("write incomplement message %d/%d bytes", n, msg.Size)
