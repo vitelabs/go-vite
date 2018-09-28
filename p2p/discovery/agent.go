@@ -187,6 +187,7 @@ func (d *agent) pong(node *Node, ack types.Hash) {
 		msg: &Pong{
 			ID:         d.self.ID,
 			Ping:       ack,
+			IP:         node.IP,
 			Expiration: getExpiration(),
 		},
 	})

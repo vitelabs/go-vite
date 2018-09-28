@@ -149,6 +149,8 @@ func (t *TopoHandler) sendLoop() {
 					})
 					return true
 				})
+
+				t.write("p2p_status_event", topo.Json())
 			}
 		}
 	}
@@ -163,8 +165,8 @@ func (t *TopoHandler) Topology() *Topo {
 	}
 
 	t.peers.Range(func(key, value interface{}) bool {
-		str := key.(string)
-		topo.Peers = append(topo.Peers, str)
+		p := value.(*Peer)
+		topo.Peers = append(topo.Peers, p.String())
 		return true
 	})
 
