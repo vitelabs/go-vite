@@ -215,12 +215,13 @@ func (t *TopoHandler) Receive(msg *p2p.Msg, sender *Peer) {
 	topo := new(Topo)
 	err := topo.Deserialize(msg.Payload[32:])
 	if err != nil {
+		t.log.Error(fmt.Sprintf("deserialize topoMsg error: %v", err))
+
 		select {
 		case sender.errch <- err:
 		default:
 		}
 
-		t.log.Error(fmt.Sprintf("deserialize topoMsg error: %v", err))
 		return
 	}
 
