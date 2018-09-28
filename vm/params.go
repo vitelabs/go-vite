@@ -64,8 +64,6 @@ const (
 	cgPerIntervalMax               int64 = 10 * 60
 	createConsensusGroupPledgeTime int64 = 3600 * 24 * 3
 
-	quotaForPoW uint64 = 21000
-
 	rewardHeightLimit     uint64 = 60 * 30 // Get snapshot block reward of 30 minutes before current
 	dbPageSize            uint64 = 10000   // Batch get snapshot blocks from vm database to calc snapshot block reward
 	getBlockByHeightLimit uint64 = 256
@@ -85,9 +83,9 @@ var (
 	createContractFee = new(big.Int).Mul(helper.Big10, attovPerVite)
 
 	viteTotalSupply                  = new(big.Int).Mul(big.NewInt(1e9), attovPerVite)
-	quotaByPledge                    = big.NewInt(1e9)
 	rewardPerBlock                   = new(big.Int).Div(viteTotalSupply, big.NewInt(1051200000)) // Reward pre snapshot block, rewardPreBlock * blockNumPerYear / viteTotalSupply = 3%
 	attovPerVite                     = big.NewInt(1e18)
+	pledgeAmountMin                  = new(big.Int).Mul(big.NewInt(10), attovPerVite)
 	mintageFee                       = new(big.Int).Mul(big.NewInt(1e3), attovPerVite) // Mintage cost choice 1, destroy ViteToken
 	mintagePledgeAmount              = new(big.Int).Mul(big.NewInt(1e5), attovPerVite) // Mintage cost choice 2, pledge ViteToken for 3 month
 	createConsensusGroupPledgeAmount = new(big.Int).Mul(big.NewInt(1000), attovPerVite)

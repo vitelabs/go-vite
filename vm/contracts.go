@@ -11,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
 	"regexp"
-	"time"
 )
 
 type precompiledContract struct {
@@ -537,44 +536,34 @@ func (p *pPledge) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uin
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.AccountBlock.Amount.Sign() == 0 ||
+	if block.AccountBlock.Amount.Cmp(pledgeAmountMin) < 0 ||
 		!IsViteToken(block.AccountBlock.TokenId) ||
 		!isUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
 		return quotaLeft, ErrInvalidData
 	}
-	param := new(contracts.ParamPledge)
-	err = contracts.ABIPledge.UnpackMethod(param, contracts.MethodNamePledge, block.AccountBlock.Data)
-	if err != nil || !block.VmContext.IsAddressExisted(&param.Beneficial) {
-		return quotaLeft, ErrInvalidData
-	}
-
-	if time.Unix(param.WithdrawTime-pledgeTime, 0).Before(*block.VmContext.CurrentSnapshotBlock().Timestamp) {
+	beneficialAddr := new(types.Address)
+	err = contracts.ABIPledge.UnpackMethod(beneficialAddr, contracts.MethodNamePledge, block.AccountBlock.Data)
+	if err != nil || !block.VmContext.IsAddressExisted(beneficialAddr) {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil
 }
 func (p *pPledge) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
-	param := new(contracts.ParamPledge)
-	contracts.ABIPledge.UnpackMethod(param, contracts.MethodNamePledge, sendBlock.Data)
-	// storage key for pledge beneficial: hash(beneficial)
-	beneficialKey := contracts.GetPledgeBeneficialKey(param.Beneficial)
-	// storage key for pledge: hash(owner, hash(beneficial))
+	beneficialAddr := new(types.Address)
+	contracts.ABIPledge.UnpackMethod(beneficialAddr, contracts.MethodNamePledge, sendBlock.Data)
+	beneficialKey := contracts.GetPledgeBeneficialKey(*beneficialAddr)
 	pledgeKey := contracts.GetPledgeKey(sendBlock.AccountAddress, beneficialKey)
 	oldPledgeData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, pledgeKey)
 	amount := new(big.Int)
 	if len(oldPledgeData) > 0 {
-		oldPledge := new(contracts.VariablePledgeInfo)
+		oldPledge := new(contracts.PledgeInfo)
 		contracts.ABIPledge.UnpackVariable(oldPledge, contracts.VariableNamePledgeInfo, oldPledgeData)
-		if param.WithdrawTime < oldPledge.WithdrawTime {
-			return ErrInvalidData
-		}
 		amount = oldPledge.Amount
 	}
 	amount.Add(amount, sendBlock.Amount)
-	pledgeInfo, _ := contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeInfo, amount, param.WithdrawTime)
+	pledgeInfo, _ := contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeInfo, amount, block.VmContext.CurrentSnapshotBlock().Timestamp.Unix()+pledgeTime)
 	block.VmContext.SetStorage(pledgeKey, pledgeInfo)
 
-	// storage value for quota: quota amount(0:32)
 	oldBeneficialData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, beneficialKey)
 	beneficialAmount := new(big.Int)
 	if len(oldBeneficialData) > 0 {
@@ -621,9 +610,9 @@ func (p *pCancelPledge) doReceive(vm *VM, block *vm_context.VmAccountBlock, send
 	contracts.ABIPledge.UnpackMethod(param, contracts.MethodNameCancelPledge, sendBlock.Data)
 	beneficialKey := contracts.GetPledgeBeneficialKey(param.Beneficial)
 	pledgeKey := contracts.GetPledgeKey(sendBlock.AccountAddress, beneficialKey)
-	oldPledge := new(contracts.VariablePledgeInfo)
+	oldPledge := new(contracts.PledgeInfo)
 	err := contracts.ABIPledge.UnpackVariable(oldPledge, contracts.VariableNamePledgeInfo, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, pledgeKey))
-	if err != nil || time.Unix(oldPledge.WithdrawTime, 0).After(*block.VmContext.CurrentSnapshotBlock().Timestamp) || oldPledge.Amount.Cmp(param.Amount) < 0 {
+	if err != nil || oldPledge.WithdrawTime > block.VmContext.CurrentSnapshotBlock().Timestamp.Unix() || oldPledge.Amount.Cmp(param.Amount) < 0 {
 		return ErrInvalidData
 	}
 	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)
@@ -719,8 +708,8 @@ func (p *pCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock,
 func (p *pCreateConsensusGroup) checkCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *contracts.ConsensusGroupInfo) error {
 	if param.NodeCount < cgNodeCountMin || param.NodeCount > cgNodeCountMax ||
 		param.Interval < cgIntervalMin || param.Interval > cgIntervalMax ||
-		param.PerCount < cgIntervalMin || param.PerCount > cgIntervalMax ||
-		param.PerCount*param.Interval < cgIntervalMin || param.PerCount*param.Interval > cgIntervalMax ||
+		param.PerCount < cgPerCountMin || param.PerCount > cgPerCountMax ||
+		param.PerCount*param.Interval < cgPerIntervalMin || param.PerCount*param.Interval > cgPerIntervalMax ||
 		param.RandCount > param.NodeCount ||
 		(param.RandCount > 0 && param.RandRank < param.NodeCount) {
 		return ErrInvalidData

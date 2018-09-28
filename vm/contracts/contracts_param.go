@@ -33,9 +33,9 @@ type ConditionCode uint8
 const (
 	RegisterConditionPrefix   ConditionCode = 10
 	VoteConditionPrefix       ConditionCode = 20
-	RegisterConditionOfPledge ConditionCode = 10
-	VoteConditionOfDefault    ConditionCode = 20
-	VoteConditionOfBalance    ConditionCode = 21
+	RegisterConditionOfPledge ConditionCode = 11
+	VoteConditionOfDefault    ConditionCode = 21
+	VoteConditionOfBalance    ConditionCode = 22
 )
 
 var (

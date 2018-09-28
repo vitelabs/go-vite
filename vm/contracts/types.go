@@ -35,6 +35,12 @@ type VoteInfo struct {
 	NodeName  string
 }
 
+type PledgeInfo struct {
+	Amount         *big.Int
+	WithdrawTime   int64
+	BeneficialAddr types.Address
+}
+
 type ConsensusGroupInfo struct {
 	Gid                    types.Gid         // Consensus group id
 	NodeCount              uint8             // Active miner count
