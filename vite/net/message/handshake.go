@@ -5,9 +5,9 @@ import (
 )
 
 type HandShake struct {
-	CmdSet      uint64
-	Height       uint64
-	Port         uint16
+	CmdSet  uint64
+	Height  uint64
+	Port    uint16
 	Current types.Hash
 	Genesis types.Hash
 }

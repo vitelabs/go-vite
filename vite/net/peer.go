@@ -21,29 +21,29 @@ var errPeerTermed = errors.New("peer has been terminated")
 
 type Peer struct {
 	*p2p.Peer
-	mrw                p2p.MsgReadWriter
-	ID                string
-	head              types.Hash
-	height            uint64
-	filePort uint16
-	CmdSet           uint64
-	msgId uint64	// atomic, auto_increment, use for mark unique message
-	KnownBlocks       *cuckoofilter.CuckooFilter
-	Log               log15.Logger
-	term              chan struct{}
-	errch chan error
+	mrw         p2p.MsgReadWriter
+	ID          string
+	head        types.Hash // hash of the top snapshotblock in snapshotchain
+	height      uint64     // height of the snapshotchain
+	filePort    uint16     // fileServer port, for request file
+	CmdSet      uint64     // which cmdSet it belongs
+	msgId       uint64     // atomic, auto_increment, use for mark unique message
+	KnownBlocks *cuckoofilter.CuckooFilter
+	Log         log15.Logger
+	term        chan struct{}
+	errch       chan error
 }
 
 func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 	return &Peer{
-		Peer:              p,
-		mrw:                mrw,
-		ID:                p.ID().Brief(),
-		CmdSet:           cmdSet,
-		KnownBlocks:       cuckoofilter.NewCuckooFilter(filterCap),
-		Log:               log15.New("module", "net/peer"),
-		term:              make(chan struct{}),
-		errch: make(chan error, 1),
+		Peer:        p,
+		mrw:         mrw,
+		ID:          p.ID().Brief(),
+		CmdSet:      cmdSet,
+		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
+		Log:         log15.New("module", "net/peer"),
+		term:        make(chan struct{}),
+		errch:       make(chan error, 1),
 	}
 }
 
@@ -202,13 +202,13 @@ func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
 	}
 
 	return p.mrw.WriteMsg(&p2p.Msg{
-		CmdSetID:   p.CmdSet,
-		Cmd:        uint64(code),
-		Id:         msgId,
-		Size:       uint64(len(data)),
-		Payload:    data,
+		CmdSetID: p.CmdSet,
+		Cmd:      uint64(code),
+		Id:       msgId,
+		Size:     uint64(len(data)),
+		Payload:  data,
 	})
-	}
+}
 
 type PeerInfo struct {
 	Addr   string
@@ -226,16 +226,17 @@ var errSetHasClosed = errors.New("peer set has closed")
 var errSetHasPeer = errors.New("peer is existed")
 
 type peerEventCode byte
+
 const (
 	addPeer peerEventCode = iota + 1
 	delPeer
 )
 
 type peerEvent struct {
-	code peerEventCode
-	peer *Peer
+	code  peerEventCode
+	peer  *Peer
 	count int
-	err error
+	err   error
 }
 
 type peerSet struct {
@@ -251,7 +252,7 @@ func NewPeerSet() *peerSet {
 	}
 }
 
-func (m *peerSet) Sub(c chan <- *peerEvent) {
+func (m *peerSet) Sub(c chan<- *peerEvent) {
 	m.rw.Lock()
 	defer m.rw.Unlock()
 
@@ -259,7 +260,7 @@ func (m *peerSet) Sub(c chan <- *peerEvent) {
 	m.delSub = append(m.delSub, c)
 }
 
-func (m *peerSet) Unsub(c chan <- *peerEvent) {
+func (m *peerSet) Unsub(c chan<- *peerEvent) {
 	m.rw.Lock()
 	defer m.rw.Unlock()
 
