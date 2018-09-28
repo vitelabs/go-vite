@@ -215,7 +215,6 @@ func (p *Peer) runProtocol(proto *protoFrame, canWrite chan struct{}) {
 	proto.canWrite = canWrite
 
 	err := proto.Handle(p, proto)
-	p.log.Error(fmt.Sprintf("protocol %s is done: %v", proto, err))
 	p.protoDone <- &protoDone{proto.String(), err}
 }
 
@@ -233,6 +232,7 @@ loop:
 			// we have been told will disconnect
 			break loop
 		case e := <-p.protoDone:
+			p.log.Error(fmt.Sprintf("protocol %s is done: %v", e.name, err))
 			delete(p.protoFrames, e.name)
 			if len(p.protoFrames) == 0 {
 				// all protocols have done
