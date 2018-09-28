@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 var p2pServerLog = log15.New("module", "p2p/server")
@@ -27,6 +28,7 @@ type Discovery interface {
 	RandomNodes([]*discovery.Node) int
 	Start()
 	Stop()
+	SubNodes(ch chan<- *discovery.Node)
 }
 
 type Config struct {
@@ -44,21 +46,22 @@ type Config struct {
 
 type Server struct {
 	*Config
-	running        int32          // atomic
-	wg             sync.WaitGroup // Wait for all jobs done
-	term           chan struct{}
-	pending        chan struct{} // how many connection can wait for handshake
-	addPeer        chan *conn
-	delPeer        chan *Peer
-	discv          Discovery
-	handShakeBytes []byte // handshake data, after signature
-	BootNodes      []*discovery.Node
-	peers          *PeerSet
-	blockList      *block.CuckooSet
-	self           *discovery.Node
-	agent          *agent
-	log            log15.Logger
-	ln             net.Listener
+	running   int32          // atomic
+	wg        sync.WaitGroup // Wait for all jobs done
+	term      chan struct{}
+	pending   chan struct{} // how many connection can wait for handshake
+	addPeer   chan *conn
+	delPeer   chan *Peer
+	discv     Discovery
+	handshake *Handshake
+	BootNodes []*discovery.Node
+	peers     *PeerSet
+	blockList *block.CuckooSet
+	self      *discovery.Node
+	//agent          *agent
+	log      log15.Logger
+	ln       net.Listener
+	nodeChan chan *discovery.Node
 }
 
 func New(cfg Config) (svr *Server, err error) {
@@ -117,6 +120,7 @@ func New(cfg Config) (svr *Server, err error) {
 			UDP: uint16(udpAddr.Port),
 			TCP: uint16(tcpAddr.Port),
 		},
+		nodeChan: make(chan *discovery.Node, 10),
 	}
 
 	svr.discv = discovery.New(&discovery.Config{
@@ -127,7 +131,9 @@ func New(cfg Config) (svr *Server, err error) {
 		Self:      svr.self,
 	})
 
-	svr.agent = newAgent(svr)
+	svr.discv.SubNodes(svr.nodeChan)
+
+	//svr.agent = newAgent(svr)
 
 	return
 }
@@ -194,6 +200,9 @@ func (svr *Server) Start() error {
 
 	svr.discv.Start()
 
+	svr.wg.Add(1)
+	go svr.dialLoop()
+
 	// tcp listener
 	svr.wg.Add(1)
 	go svr.listenLoop()
@@ -219,7 +228,8 @@ func (svr *Server) setHandshake() error {
 	for i, p := range svr.Protocols {
 		cmdsets[i] = p.CmdSet()
 	}
-	ours := &Handshake{
+
+	svr.handshake = &Handshake{
 		Version: Version,
 		Name:    svr.Name,
 		NetID:   svr.NetID,
@@ -227,16 +237,36 @@ func (svr *Server) setHandshake() error {
 		CmdSets: cmdsets,
 	}
 
-	data, err := ours.Serialize()
-	if err != nil {
-		return err
+	return nil
+}
+
+func (svr *Server) dialLoop() {
+	defer svr.wg.Done()
+
+	dialer := &net.Dialer{
+		Timeout: 3 * time.Second,
 	}
 
-	sig := ed25519.Sign(svr.PrivateKey, data)
-	data = append(sig, data...)
+	for {
+		select {
+		case <-svr.term:
+			return
+		case svr.pending <- struct{}{}:
+			var node *discovery.Node
+			for node = range svr.nodeChan {
+				if err := svr.checkConn(node.ID, outbound); err == nil {
+					break
+				}
+			}
 
-	svr.handShakeBytes = data
-	return nil
+			svr.log.Info(fmt.Sprintf("got node: %s", node))
+			if conn, err := dialer.Dial("tcp", node.TCPAddr().String()); err == nil {
+				go svr.setupConn(conn, outbound)
+			} else {
+				svr.log.Error(fmt.Sprintf("dial node %s failed: %v", node, err))
+			}
+		}
+	}
 }
 
 func (svr *Server) listenLoop() {
@@ -272,7 +302,20 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 
 	svr.log.Info(fmt.Sprintf("begin handshake with %s", c.RemoteAddr()))
 
-	their, err := ts.Handshake(svr.handShakeBytes)
+	// handshake data, add remoteIP and remotePort
+	handshake := *svr.handshake
+	tcpAddr := c.RemoteAddr().(*net.TCPAddr)
+	handshake.RemoteIP = tcpAddr.IP
+	handshake.RemotePort = uint16(tcpAddr.Port)
+	data, err := handshake.Serialize()
+	if err != nil {
+		ts.Close(nil)
+		return
+	}
+	sig := ed25519.Sign(svr.PrivateKey, data)
+	data = append(sig, data...)
+
+	their, err := ts.Handshake(data)
 
 	if err != nil {
 		ts.Close(err)
@@ -282,31 +325,39 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 		ts.Close(err)
 		svr.log.Error(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
 	} else {
-		ts.id = their.ID
 		ts.name = their.Name
 		ts.cmdSets = their.CmdSets
 
-		svr.log.Info(fmt.Sprintf("handshake with %s@%s done", ts.id, c.RemoteAddr()))
+		// use to discribe the connection
+		ts.remoteID = their.ID
+		ts.remoteIP = handshake.RemoteIP
+		ts.remotePort = handshake.RemotePort
+
+		ts.localID = svr.self.ID
+		ts.localIP = their.RemoteIP
+		ts.localPort = their.RemotePort
+
+		svr.log.Info(fmt.Sprintf("handshake with %s@%s done", ts.remoteID, c.RemoteAddr()))
 		svr.addPeer <- ts
 	}
 
 	<-svr.pending
 }
 
-func (svr *Server) checkConn(c *conn) error {
+func (svr *Server) checkConn(id discovery.NodeID, flag connFlag) error {
 	if uint(svr.peers.Size()) >= svr.MaxPeers {
 		return DiscTooManyPeers
 	}
 
-	if uint(svr.peers.inbound) >= svr.maxInboundPeers() {
+	if flag.is(inbound) && uint(svr.peers.inbound) >= svr.maxInboundPeers() {
 		return DiscTooManyPassivePeers
 	}
 
-	if svr.peers.Has(c.id) {
+	if svr.peers.Has(id) {
 		return DiscAlreadyConnected
 	}
 
-	if c.id == svr.self.ID {
+	if id == svr.self.ID {
 		return DiscSelf
 	}
 
@@ -316,19 +367,19 @@ func (svr *Server) checkConn(c *conn) error {
 func (svr *Server) loop() {
 	defer svr.wg.Done()
 
-	shouldSchedule := make(chan struct{})
+	//shouldSchedule := make(chan struct{})
 
-	go svr.agent.scheduleTasks(svr.term, shouldSchedule)
+	//go svr.agent.scheduleTasks(svr.term, shouldSchedule)
 
 loop:
 	for {
 		select {
 		case <-svr.term:
 			break loop
-		case <-shouldSchedule:
-			svr.agent.createTasks()
+		//case <-shouldSchedule:
+		//	svr.agent.createTasks()
 		case c := <-svr.addPeer:
-			err := svr.checkConn(c)
+			err := svr.checkConn(c.remoteID, c.flags)
 
 			if err == nil {
 				if p, err := NewPeer(c, svr.Protocols); err == nil {
@@ -381,7 +432,7 @@ func (svr *Server) Stop() {
 
 // @section NodeInfo
 type NodeInfo struct {
-	ID        string    `json:"id"`
+	ID        string    `json:"remoteID"`
 	Name      string    `json:"name"`
 	Url       string    `json:"url"`
 	NetID     NetworkID `json:"netId"`

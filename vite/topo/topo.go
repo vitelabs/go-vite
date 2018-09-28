@@ -10,7 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vite/topo/protos"
+	"github.com/vitelabs/go-vite/p2p/protos"
 	"gopkg.in/Shopify/sarama.v1"
 	"sync"
 	"time"
@@ -25,9 +25,15 @@ type TopoHandler struct {
 	prod   sarama.AsyncProducer
 	log    log15.Logger
 	term   chan struct{}
+	rec    chan *TopoEvent
 	record *cuckoofilter.CuckooFilter
 	p2p    *p2p.Server
 	wg     sync.WaitGroup
+}
+
+type TopoEvent struct {
+	msg    *p2p.Msg
+	sender *Peer
 }
 
 func New(addrs []string) (t *TopoHandler, err error) {
@@ -35,6 +41,7 @@ func New(addrs []string) (t *TopoHandler, err error) {
 		peers:  new(sync.Map),
 		log:    log15.New("module", "Topo"),
 		term:   make(chan struct{}),
+		rec:    make(chan *TopoEvent, 10),
 		record: cuckoofilter.NewCuckooFilter(1000),
 	}
 
@@ -69,6 +76,9 @@ func (t *TopoHandler) Start(svr *p2p.Server) {
 
 	t.wg.Add(1)
 	go t.sendLoop()
+
+	t.wg.Add(1)
+	go t.handleLoop()
 }
 
 func (t *TopoHandler) Stop() {
@@ -86,11 +96,12 @@ func (t *TopoHandler) Stop() {
 
 type Peer struct {
 	*p2p.Peer
-	rw p2p.MsgReadWriter
+	rw    p2p.MsgReadWriter
+	errch chan error // async handle msg, error report to this channel
 }
 
 func (t *TopoHandler) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
-	peer := &Peer{p, rw}
+	peer := &Peer{p, rw, make(chan error, 1)}
 	t.peers.Store(p.String(), peer)
 	defer t.peers.Delete(p.String())
 
@@ -98,7 +109,8 @@ func (t *TopoHandler) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 		select {
 		case <-t.term:
 			return nil
-
+		case err := <-peer.errch:
+			return err
 		default:
 			msg, err := rw.ReadMsg()
 			if err != nil {
@@ -111,10 +123,29 @@ func (t *TopoHandler) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 				return nil
 			}
 
-			if t.Receive(msg, peer); err != nil {
-				t.log.Error(fmt.Sprintf("Topo handle error: %v", err))
-				return err
+			length := len(msg.Payload)
+
+			if length < 32 {
+				return fmt.Errorf("receive invalid topoMsg from %s", p)
 			}
+
+			t.rec <- &TopoEvent{
+				msg:    msg,
+				sender: peer,
+			}
+		}
+	}
+}
+
+func (t *TopoHandler) handleLoop() {
+	defer t.wg.Done()
+
+	for {
+		select {
+		case <-t.term:
+			return
+		case e := <-t.rec:
+			t.Receive(e.msg, e.sender)
 		}
 	}
 }
@@ -143,7 +174,6 @@ func (t *TopoHandler) sendLoop() {
 					peer.rw.WriteMsg(&p2p.Msg{
 						CmdSetID: CmdSet,
 						Cmd:      topoCmd,
-						Id:       0,
 						Size:     uint64(len(data)),
 						Payload:  data,
 					})
@@ -160,38 +190,36 @@ func (t *TopoHandler) sendLoop() {
 func (t *TopoHandler) Topology() *Topo {
 	topo := &Topo{
 		Pivot: t.p2p.URL(),
-		Peers: make([]string, 0, 10),
+		Peers: make([]*p2p.ConnProperty, 0, 10),
 		Time:  time.Now(),
 	}
 
 	t.peers.Range(func(key, value interface{}) bool {
 		p := value.(*Peer)
-		topo.Peers = append(topo.Peers, p.String())
+		topo.Peers = append(topo.Peers, p.GetConnProperty())
 		return true
 	})
 
 	return topo
 }
 
-func (t *TopoHandler) Receive(msg *p2p.Msg, sender *Peer) (err error) {
+func (t *TopoHandler) Receive(msg *p2p.Msg, sender *Peer) {
 	defer msg.Discard()
-
-	length := len(msg.Payload)
-
-	if length < 32 {
-		err = fmt.Errorf("receive invalid topoMsg from %s@%s", sender.ID(), sender.RemoteAddr())
-		return
-	}
 
 	hash := msg.Payload[:32]
 	if t.record.Lookup(hash) {
-		err = fmt.Errorf("has received the same topoMsg: %s", hex.EncodeToString(hash))
+		t.log.Warn(fmt.Sprintf("has received the same topoMsg: %s", hex.EncodeToString(hash)))
 		return
 	}
 
 	topo := new(Topo)
-	err = topo.Deserialize(msg.Payload[32:])
+	err := topo.Deserialize(msg.Payload[32:])
 	if err != nil {
+		select {
+		case sender.errch <- err:
+		default:
+		}
+
 		t.log.Error(fmt.Sprintf("deserialize topoMsg error: %v", err))
 		return
 	}
@@ -209,21 +237,22 @@ func (t *TopoHandler) Receive(msg *p2p.Msg, sender *Peer) (err error) {
 		return true
 	})
 
-	if t.prod != nil {
-		monitor.LogEvent("topo", "report")
-		t.write("p2p_status_event", topo.Json())
-		t.log.Info("report topoMsg to kafka")
-	}
-
-	return nil
+	t.write("p2p_status_event", topo.Json())
 }
 
 func (t *TopoHandler) write(topic string, data []byte) {
+	if t.prod == nil {
+		return
+	}
+
 	t.prod.Input() <- &sarama.ProducerMessage{
 		Topic:     topic,
 		Value:     sarama.ByteEncoder(data),
 		Timestamp: time.Now(),
 	}
+
+	monitor.LogEvent("topo", "report")
+	t.log.Info("report topoMsg to kafka")
 }
 
 func (t *TopoHandler) Protocol() *p2p.Protocol {
@@ -236,16 +265,22 @@ func (t *TopoHandler) Protocol() *p2p.Protocol {
 
 // @section topo
 type Topo struct {
-	Pivot string    `json:"pivot"`
-	Peers []string  `json:"peers"`
-	Time  time.Time `json:"time"`
+	Pivot string              `json:"pivot"`
+	Peers []*p2p.ConnProperty `json:"peers"`
+	Time  time.Time           `json:"time"`
 }
 
 // add Hash(32bit) to Front, use for determine if it has been received
 func (t *Topo) Serialize() ([]byte, error) {
+	pbs := make([]*protos.ConnProperty, len(t.Peers))
+
+	for i, cp := range t.Peers {
+		pbs[i] = cp.Proto()
+	}
+
 	data, err := proto.Marshal(&protos.Topo{
 		Pivot: t.Pivot,
-		Peers: t.Peers,
+		Peers: pbs,
 		Time:  t.Time.Unix(),
 	})
 
@@ -265,13 +300,19 @@ func (t *Topo) Deserialize(buf []byte) error {
 		return err
 	}
 
+	for _, cpb := range pb.Peers {
+		cp := new(p2p.ConnProperty)
+		cp.Deproto(cpb)
+		t.Peers = append(t.Peers, cp)
+	}
+
 	t.Pivot = pb.Pivot
-	t.Peers = pb.Peers
 	t.Time = time.Unix(pb.Time, 0)
 
 	return nil
 }
 
+// report to kafka
 func (t *Topo) Json() []byte {
 	buf, _ := json.Marshal(t)
 	return buf

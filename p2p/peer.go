@@ -2,9 +2,11 @@ package p2p
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/p2p/protos"
 	"io"
 	"net"
 	"sync"
@@ -32,10 +34,15 @@ var errPeerTsBusy = errors.New("peer transport is busy, can`t write message")
 
 type conn struct {
 	*AsyncMsgConn
-	flags   connFlag
-	cmdSets []*CmdSet
-	name    string
-	id      discovery.NodeID
+	flags      connFlag
+	cmdSets    []*CmdSet
+	name       string
+	localID    discovery.NodeID
+	localIP    net.IP
+	localPort  uint16
+	remoteID   discovery.NodeID
+	remoteIP   net.IP
+	remotePort uint16
 }
 
 func (c *conn) is(flag connFlag) bool {
@@ -142,7 +149,7 @@ func createProtoFrames(ourSet []*Protocol, theirSet []*CmdSet, conn *conn) map[s
 }
 
 func (p *Peer) ID() discovery.NodeID {
-	return p.ts.id
+	return p.ts.remoteID
 }
 
 func (p *Peer) Name() string {
@@ -163,6 +170,62 @@ func (p *Peer) RemoteAddr() *net.TCPAddr {
 
 func (p *Peer) IP() net.IP {
 	return p.RemoteAddr().IP
+}
+
+type ConnProperty struct {
+	LocalID    string `json:"localID"`
+	LocalIP    net.IP `json:"localIP"`
+	LocalPort  uint16 `json:"localPort"`
+	RemoteID   string `json:"remoteID"`
+	RemoteIP   net.IP `json:"remoteIP"`
+	RemotePort uint16 `json:"remotePort"`
+}
+
+func (cp *ConnProperty) Serialize() ([]byte, error) {
+	return proto.Marshal(cp.Proto())
+}
+
+func (cp *ConnProperty) Deserialize(buf []byte) error {
+	pb := new(protos.ConnProperty)
+	err := proto.Unmarshal(buf, pb)
+	if err != nil {
+		return err
+	}
+
+	cp.Deproto(pb)
+	return nil
+}
+
+func (cp *ConnProperty) Proto() *protos.ConnProperty {
+	return &protos.ConnProperty{
+		LocalID:    cp.LocalID,
+		LocalIP:    cp.LocalIP,
+		LocalPort:  uint32(cp.LocalPort),
+		RemoteID:   cp.RemoteID,
+		RemoteIP:   cp.RemoteIP,
+		RemotePort: uint32(cp.RemotePort),
+	}
+}
+
+func (cp *ConnProperty) Deproto(pb *protos.ConnProperty) {
+	cp.LocalID = pb.LocalID
+	cp.LocalIP = pb.LocalIP
+	cp.LocalPort = uint16(pb.LocalPort)
+
+	cp.RemoteID = pb.RemoteID
+	cp.RemoteIP = pb.RemoteIP
+	cp.RemotePort = uint16(pb.RemotePort)
+}
+
+func (p *Peer) GetConnProperty() *ConnProperty {
+	return &ConnProperty{
+		LocalID:    p.ts.localID.String(),
+		LocalIP:    p.ts.localIP,
+		LocalPort:  p.ts.localPort,
+		RemoteID:   p.ts.remoteID.String(),
+		RemoteIP:   p.ts.remoteIP,
+		RemotePort: p.ts.remotePort,
+	}
 }
 
 func (p *Peer) Info() *PeerInfo {
@@ -385,7 +448,7 @@ func (s *PeerSet) Traverse(fn func(id discovery.NodeID, p *Peer)) {
 
 // @section PeerInfo
 type PeerInfo struct {
-	ID      string   `json:"id"`
+	ID      string   `json:"remoteID"`
 	Name    string   `json:"name"`
 	CmdSets []string `json:"caps"`
 	Address string   `json:"address"`
