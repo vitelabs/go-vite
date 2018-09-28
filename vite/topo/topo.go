@@ -27,6 +27,7 @@ type TopoHandler struct {
 	term   chan struct{}
 	record *cuckoofilter.CuckooFilter
 	p2p    *p2p.Server
+	wg     sync.WaitGroup
 }
 
 func New(addrs []string) (p *TopoHandler, err error) {
@@ -64,6 +65,9 @@ func New(addrs []string) (p *TopoHandler, err error) {
 
 func (t *TopoHandler) Start(svr *p2p.Server) {
 	t.p2p = svr
+
+	t.wg.Add(1)
+	go t.sendLoop()
 }
 
 func (t *TopoHandler) Stop() {
@@ -71,6 +75,7 @@ func (t *TopoHandler) Stop() {
 	case <-t.term:
 	default:
 		close(t.term)
+		t.wg.Wait()
 	}
 }
 
@@ -92,22 +97,6 @@ func (t *TopoHandler) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 		case <-t.term:
 			return nil
 
-		case <-ticker.C:
-			monitor.LogEvent("topo", "send")
-			topo := t.Topology()
-
-			data, err := topo.Serialize()
-			if err != nil {
-				t.log.Error(fmt.Sprintf("serialize topo error: %v", err))
-			} else {
-				rw.WriteMsg(&p2p.Msg{
-					CmdSetID: CmdSet,
-					Cmd:      topoCmd,
-					Id:       0,
-					Size:     uint64(len(data)),
-					Payload:  data,
-				})
-			}
 		default:
 			msg, err := rw.ReadMsg()
 			if err != nil {
@@ -121,6 +110,41 @@ func (t *TopoHandler) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 			}
 
 			t.Receive(msg, peer)
+		}
+	}
+}
+
+func (t *TopoHandler) sendLoop() {
+	defer t.wg.Done()
+
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-t.term:
+			return
+
+		case <-ticker.C:
+			monitor.LogEvent("topo", "send")
+			topo := t.Topology()
+
+			data, err := topo.Serialize()
+			if err != nil {
+				t.log.Error(fmt.Sprintf("serialize topo error: %v", err))
+			} else {
+				t.peers.Range(func(key, value interface{}) bool {
+					peer := value.(*Peer)
+					peer.rw.WriteMsg(&p2p.Msg{
+						CmdSetID: CmdSet,
+						Cmd:      topoCmd,
+						Id:       0,
+						Size:     uint64(len(data)),
+						Payload:  data,
+					})
+					return true
+				})
+			}
 		}
 	}
 }

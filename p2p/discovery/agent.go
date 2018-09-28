@@ -214,7 +214,7 @@ func (d *agent) findnode(n *Node, ID NodeID, callback func([]*Node, error)) {
 				neighbors, _ := m.(*Neighbors)
 
 				total := 0
-				nodes := make([]*Node, 0, K)
+				nodes := make([]*Node, 0, maxNeighborsOneTrip)
 
 				for _, n := range neighbors.Nodes {
 					if n.Validate() == nil {
@@ -224,8 +224,7 @@ func (d *agent) findnode(n *Node, ID NodeID, callback func([]*Node, error)) {
 				}
 
 				callback(nodes, nil)
-
-				return total >= K
+				return true
 			},
 		},
 	})

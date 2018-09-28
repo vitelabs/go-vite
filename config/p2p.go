@@ -18,11 +18,9 @@ type P2P struct {
 
 	BootNodes []string `json:"BootNodes"`
 
-	Port uint `json:"Addr"`
+	Port uint `json:"Port"`
 
 	Datadir string `json:"Datadir"`
 
 	NetID uint `json:"NetID"`
-
-	Kafka []string `json:"Kafka"`
 }
