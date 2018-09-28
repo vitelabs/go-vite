@@ -77,25 +77,33 @@ func New(cfg Config) (svr *Server, err error) {
 		return
 	}
 
+	log := log15.New("module", "p2p/server")
+
 	udpConn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
 		return
 	}
+	log.Info(fmt.Sprintf("udp listen at %s", udpAddr))
 
 	// tcp listener
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
+		// close the open udp connection
+		udpConn.Close()
 		return
 	}
 
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
+		// close the open udp connection
+		udpConn.Close()
 		return
 	}
+	log.Info(fmt.Sprintf("tcp listen at %s", tcpAddr))
 
 	svr = &Server{
 		Config:    safeCfg,
-		log:       log15.New("module", "p2p/server"),
+		log:       log,
 		peers:     NewPeerSet(),
 		term:      make(chan struct{}),
 		pending:   make(chan struct{}, cfg.MaxPendingPeers),
@@ -174,6 +182,8 @@ func (svr *Server) Start() error {
 		return errSvrStarted
 	}
 
+	svr.log.Info("p2p server start")
+
 	err := svr.setHandshake()
 	if err != nil {
 		return err
@@ -246,8 +256,6 @@ func (svr *Server) listenLoop() {
 				conn, err = svr.ln.Accept()
 
 				if err != nil {
-					svr.log.Error(fmt.Sprintf("tcp accept error %v", err))
-
 					if err, ok := err.(net.Error); ok && err.Temporary() {
 						if tempDelay == 0 {
 							tempDelay = 5 * time.Millisecond
@@ -265,6 +273,8 @@ func (svr *Server) listenLoop() {
 
 						continue
 					}
+
+					svr.log.Error(fmt.Sprintf("tcp accept error %v", err))
 
 					return
 				}
@@ -346,7 +356,7 @@ loop:
 					svr.peers.Add(p)
 
 					peersCount := svr.peers.Size()
-					svr.log.Info("create new peer", "ID", c.id.String(), "total", peersCount)
+					svr.log.Info(fmt.Sprintf("create new peer %s, total: %d", p, peersCount))
 					monitor.LogDuration("p2p/peer", "add", int64(peersCount))
 
 					go svr.runPeer(p)

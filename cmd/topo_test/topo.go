@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/hex"
 	"flag"
-	"fmt"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p"
@@ -69,7 +68,7 @@ func main() {
 			cfg.PrivateKey = ed25519.PrivateKey(priv)
 		}
 	}
-	fmt.Println(cfg.PrivateKey)
+
 	svr, err := p2p.New(cfg)
 	if err != nil {
 		log.Fatal(err)

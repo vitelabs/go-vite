@@ -38,15 +38,24 @@ func New(addrs []string) (p *TopoHandler, err error) {
 	}
 
 	if len(addrs) != 0 {
-		config := sarama.NewConfig()
-		prod, err := sarama.NewAsyncProducer(addrs, config)
-
-		if err != nil {
-			p.log.Error("can`t create sarama.AsyncProducer", "error", err)
-			return p, err
+		var i, j int
+		for i = 0; i < len(addrs); i++ {
+			if addrs[i] != "" {
+				addrs[j] = addrs[i]
+			}
 		}
+		addrs = addrs[:j]
+		if len(addrs) != 0 {
+			config := sarama.NewConfig()
+			prod, err := sarama.NewAsyncProducer(addrs, config)
 
-		p.prod = prod
+			if err != nil {
+				p.log.Error("can`t create sarama.AsyncProducer", "error", err)
+				return p, err
+			}
+
+			p.prod = prod
+		}
 	}
 
 	return p, nil
@@ -83,7 +92,7 @@ func (t *TopoHandler) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 			return nil
 
 		case <-ticker.C:
-			monitor.LogEvent("p2p/peer", "topo-send")
+			monitor.LogEvent("topo", "send")
 			topo := t.Topology()
 
 			data, err := topo.Serialize()
@@ -154,6 +163,8 @@ func (t *TopoHandler) Receive(msg *p2p.Msg, sender *Peer) {
 		return
 	}
 
+	monitor.LogEvent("topo", "receive")
+
 	t.record.InsertUnique(hash)
 	t.peers.Range(func(key, value interface{}) bool {
 		id := key.(string)
@@ -163,8 +174,11 @@ func (t *TopoHandler) Receive(msg *p2p.Msg, sender *Peer) {
 		return true
 	})
 
-	t.write("p2p_status_event", topo.Json())
-	t.log.Info("report topoMsg to kafka")
+	if t.prod != nil {
+		monitor.LogEvent("topo", "report")
+		t.write("p2p_status_event", topo.Json())
+		t.log.Info("report topoMsg to kafka")
+	}
 }
 
 func (t *TopoHandler) write(topic string, data []byte) {
