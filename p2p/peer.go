@@ -220,6 +220,8 @@ func (p *Peer) runProtocol(proto *protoFrame, canWrite chan struct{}) {
 }
 
 func (p *Peer) run() (err error) {
+	p.log.Info(fmt.Sprintf("%s run", p))
+
 	p.ts.Start()
 
 	p.runProtocols()
@@ -248,6 +250,7 @@ loop:
 	p.ts.Close(err)
 	p.wg.Wait()
 
+	p.log.Info(fmt.Sprintf("%s run done: %v", p, err))
 	return err
 }
 

@@ -4,7 +4,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/golang/snappy"
+	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/monitor"
 	"io"
 	"net"
 	"sync"
@@ -19,11 +22,11 @@ func PackMsg(cmdSetId, cmd, id uint64, s Serializable) (*Msg, error) {
 	}
 
 	return &Msg{
-		CmdSetID:   cmdSetId,
-		Cmd:        cmd,
-		Id:         id,
-		Size:       uint64(len(data)),
-		Payload:    data,
+		CmdSetID: cmdSetId,
+		Cmd:      cmd,
+		Id:       id,
+		Size:     uint64(len(data)),
+		Payload:  data,
 	}, nil
 }
 
@@ -96,7 +99,11 @@ func WriteMsg(writer io.Writer, compressible bool, msg *Msg) (err error) {
 	}
 
 	// write payload
-	_, err = writer.Write(msg.Payload)
+	if n, err := writer.Write(msg.Payload); err != nil {
+		return
+	} else if uint64(n) != msg.Size {
+		return fmt.Errorf("write incomplement message %d/%d bytes", n, msg.Size)
+	}
 
 	return
 }
@@ -124,17 +131,17 @@ const readBufferLen = 100
 const writeBufferLen = 100
 
 type AsyncMsgConn struct {
-	fd    net.Conn
-	rw    *MsgRw
+	fd      net.Conn
+	rw      *MsgRw
 	handler func(msg *Msg)
-	term chan struct{}
-	wg sync.WaitGroup
+	term    chan struct{}
+	wg      sync.WaitGroup
 	_wqueue chan *Msg
 	_rqueue chan *Msg
-	_close error	// close reason
-	log log15.Logger
-	errored int32	// atomic, indicate whehter there is an error, readErr(1), writeErr(2)
-	errch chan error	// report errch to upper layer
+	_reason error // close reason
+	log     log15.Logger
+	errored int32      // atomic, indicate whehter there is an error, readErr(1), writeErr(2)
+	errch   chan error // report errch to upper layer
 }
 
 // create an AsyncMsgConn, fd is the basic connection
@@ -142,15 +149,15 @@ func NewAsyncMsgConn(fd net.Conn, handler func(msg *Msg)) *AsyncMsgConn {
 	return &AsyncMsgConn{
 		fd: fd,
 		rw: &MsgRw{
-			fd: fd,
+			fd:           fd,
 			compressible: true,
 		},
 		handler: handler,
-		term: make(chan struct{}),
+		term:    make(chan struct{}),
 		_wqueue: make(chan *Msg, writeBufferLen),
 		_rqueue: make(chan *Msg, readBufferLen),
-		errch: make(chan error, 1),
-		log: log15.New("module", "p2p/AsyncMsgConn", "end", fd.RemoteAddr().String()),
+		errch:   make(chan error, 1),
+		log:     log15.New("module", "p2p/AsyncMsgConn", "end", fd.RemoteAddr().String()),
 	}
 }
 
@@ -167,10 +174,10 @@ func (c *AsyncMsgConn) Start() {
 
 func (c *AsyncMsgConn) Close(err error) {
 	select {
-	case <- c.term:
+	case <-c.term:
 	default:
 		c.log.Error(fmt.Sprintf("close: %v", err))
-		c._close = err
+		c._reason = err
 		close(c.term)
 		c.wg.Wait()
 		c.log.Error(fmt.Sprintf("closed: %v", err))
@@ -178,7 +185,7 @@ func (c *AsyncMsgConn) Close(err error) {
 }
 
 func (c *AsyncMsgConn) report(t int32, err error) {
-	if atomic.CompareAndSwapInt32(&c.errored,0, t) {
+	if atomic.CompareAndSwapInt32(&c.errored, 0, t) {
 		c.errch <- err
 	}
 }
@@ -189,7 +196,7 @@ func (c *AsyncMsgConn) readLoop() {
 
 	for {
 		select {
-		case <- c.term:
+		case <-c.term:
 			return
 		default:
 		}
@@ -197,12 +204,8 @@ func (c *AsyncMsgConn) readLoop() {
 		msg, err := c.rw.ReadMsg()
 
 		if err == nil {
-			select {
-			case c._rqueue <- msg:
-			default:
-				msg.Discard()
-				c.log.Error(fmt.Sprintf("can`t put message %s to read_queue<%d>, then discard", msg, len(c._rqueue)))
-			}
+			c._rqueue <- msg
+			monitor.LogEvent("async-conn-read", c.fd.RemoteAddr().String())
 		} else {
 			c.log.Error(fmt.Sprintf("read message error: %v", err))
 			c.report(1, err)
@@ -218,6 +221,8 @@ func (c *AsyncMsgConn) _write(msg *Msg) {
 	}
 
 	err := c.rw.WriteMsg(msg)
+	monitor.LogEvent("async-conn-write", c.fd.RemoteAddr().String())
+
 	if err != nil {
 		c.report(2, err)
 		c.log.Error(fmt.Sprintf("write message %s to %s error: %v", msg, c.fd.RemoteAddr(), err))
@@ -230,12 +235,12 @@ func (c *AsyncMsgConn) writeLoop() {
 	defer c.wg.Done()
 	defer c.fd.Close()
 
-	loop:
+loop:
 	for {
 		select {
-		case <- c.term:
+		case <-c.term:
 			break loop
-		case msg := <- c._wqueue:
+		case msg := <-c._wqueue:
 			c._write(msg)
 		}
 	}
@@ -247,7 +252,7 @@ func (c *AsyncMsgConn) writeLoop() {
 			c._write(msg)
 		}
 
-		if reason, ok := c._close.(DiscReason); ok && reason != DiscNetworkError {
+		if reason, ok := c._reason.(DiscReason); ok && reason != DiscNetworkError {
 			c.Send(baseProtocolCmdSet, discCmd, 0, reason)
 		}
 	}
@@ -256,12 +261,12 @@ func (c *AsyncMsgConn) writeLoop() {
 func (c *AsyncMsgConn) handleLoop() {
 	defer c.wg.Done()
 
-	loop:
+loop:
 	for {
 		select {
-		case <- c.term:
+		case <-c.term:
 			break loop
-		case msg := <- c._rqueue:
+		case msg := <-c._rqueue:
 			if msg != nil {
 				c.handler(msg)
 			} else {
@@ -302,27 +307,33 @@ func (c *AsyncMsgConn) encHandshake() {
 	// todo
 }
 
-func (c *AsyncMsgConn) Handshake(ours *Handshake) (their *Handshake, err error) {
-	msg, err := PackMsg(baseProtocolCmdSet, handshakeCmd, 0, ours)
-	if err != nil {
-		return
-	}
-
-	errch := make(chan error, 1)
-	go func() {
-		errch <- c.rw.WriteMsg(msg)
-	}()
+// send Handshake data, after signature with ed25519 algorithm
+func (c *AsyncMsgConn) Handshake(data []byte) (their *Handshake, err error) {
+	send := make(chan error, 1)
+	go sendHandMsg(c.rw, &Msg{
+		CmdSetID: baseProtocolCmdSet,
+		Cmd:      handshakeCmd,
+		Id:       0,
+		Size:     uint64(len(data)),
+		Payload:  data,
+	}, send)
 
 	if their, err = readHandshake(c.rw); err != nil {
 		return
 	}
 
-	if err = <- errch; err != nil {
+	if err = <-send; err != nil {
 		return
 	}
 
 	return
 }
+
+func sendHandMsg(w MsgWriter, hand *Msg, sendErr chan<- error) {
+	sendErr <- w.WriteMsg(hand)
+}
+
+var errorHandshakeVerify = errors.New("signature of handshake Msg verify failed")
 
 func readHandshake(r MsgReader) (h *Handshake, err error) {
 	msg, err := r.ReadMsg()
@@ -347,20 +358,14 @@ func readHandshake(r MsgReader) (h *Handshake, err error) {
 	}
 
 	h = new(Handshake)
-	err = h.Deserialize(msg.Payload)
-
-	return
-}
-
-func Send(w MsgWriter, cmdset, cmd, id uint64, s Serializable) error {
-	msg, err := PackMsg(cmdset, cmd, id, s)
+	err = h.Deserialize(msg.Payload[64:])
 	if err != nil {
-		return err
+		return
 	}
 
-	return w.WriteMsg(msg)
-}
+	if !ed25519.Verify(h.ID[:], msg.Payload[64:], msg.Payload[:64]) {
+		return nil, errorHandshakeVerify
+	}
 
-func SendMsg(w MsgWriter, msg *Msg) error {
-	return w.WriteMsg(msg)
+	return
 }
