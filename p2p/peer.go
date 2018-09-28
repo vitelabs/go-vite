@@ -54,7 +54,7 @@ func newProtoFrame(protocol *Protocol, conn *conn) *protoFrame {
 	return &protoFrame{
 		Protocol: protocol,
 		conn:     conn,
-		input:    make(chan *Msg, 1),
+		input:    make(chan *Msg, 10),
 	}
 }
 
@@ -192,7 +192,7 @@ func (p *Peer) Disconnect(reason DiscReason) {
 
 func (p *Peer) protoFrame(CmdSetID uint64) *protoFrame {
 	for _, pf := range p.protoFrames {
-		if pf.CmdSet().ID == CmdSetID {
+		if pf.ID == CmdSetID {
 			return pf
 		}
 	}

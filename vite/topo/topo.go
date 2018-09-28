@@ -94,9 +94,6 @@ func (t *TopoHandler) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 	t.peers.Store(p.String(), peer)
 	defer t.peers.Delete(p.String())
 
-	ticker := time.NewTicker(time.Minute)
-	defer ticker.Stop()
-
 	for {
 		select {
 		case <-t.term:
