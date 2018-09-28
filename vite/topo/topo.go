@@ -42,6 +42,7 @@ func New(addrs []string) (p *TopoHandler, err error) {
 		for i = 0; i < len(addrs); i++ {
 			if addrs[i] != "" {
 				addrs[j] = addrs[i]
+				j++
 			}
 		}
 		addrs = addrs[:j]
