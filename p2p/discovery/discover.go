@@ -69,12 +69,14 @@ func (d *Discovery) Stop() {
 	select {
 	case <-d.term:
 	default:
+		discvLog.Info(fmt.Sprintf("discovery server %s stop", d.self))
+
 		close(d.term)
+		d.agent.stop()
+		d.wg.Wait()
+
+		discvLog.Info(fmt.Sprintf("discovery server %s stopped", d.self))
 	}
-
-	d.wg.Wait()
-
-	discvLog.Info(fmt.Sprintf("discovery server %s stop", d.self))
 }
 
 func (d *Discovery) Block(ID NodeID, IP net.IP) {
@@ -180,7 +182,14 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 	reply := make(chan []*Node, alpha)
 	queries := 0
 
+loop:
 	for {
+		select {
+		case <-d.term:
+			break loop
+		default:
+		}
+
 		for i := 0; i < len(result.nodes) && queries < alpha; i++ {
 			n := result.nodes[i]
 			if _, ok := asked[n.ID]; !ok {
@@ -196,13 +205,17 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 			break
 		}
 
-		nodes := <- reply
-		queries--
-		for _, n := range nodes {
-			if n != nil {
-				if _, ok := hasPushedIntoResult[n.ID]; !ok {
-					hasPushedIntoResult[n.ID] = struct{}{}
-					result.push(n)
+		select {
+		case <-d.term:
+			break loop
+		case nodes := <-reply:
+			queries--
+			for _, n := range nodes {
+				if n != nil {
+					if _, ok := hasPushedIntoResult[n.ID]; !ok {
+						hasPushedIntoResult[n.ID] = struct{}{}
+						result.push(n)
+					}
 				}
 			}
 		}
@@ -239,7 +252,7 @@ func (d *Discovery) HandleMsg(res *packet) {
 	switch res.code {
 	case pingCode:
 		monitor.LogEvent("p2p/discv", "ping-receive")
-		ping, _ := res.msg.(*Ping)
+		ping := res.msg.(*Ping)
 
 		node := &Node{
 			ID:  res.fromID,
@@ -254,12 +267,16 @@ func (d *Discovery) HandleMsg(res *packet) {
 
 	case pongCode:
 		monitor.LogEvent("p2p/discv", "pong-receive")
-		d.db.setLastPong(res.fromID, time.Now())
 
+		pong := res.msg.(*Pong)
+		// get our public IP
+		d.self.IP = pong.IP
+
+		d.db.setLastPong(res.fromID, time.Now())
 	case findnodeCode:
 		monitor.LogEvent("p2p/discv", "find-receive")
 
-		findMsg, _ := res.msg.(*FindNode)
+		findMsg := res.msg.(*FindNode)
 		nodes := d.tab.findNeighbors(findMsg.Target, K).nodes
 		node := &Node{
 			ID:  res.fromID,
@@ -275,7 +292,7 @@ func (d *Discovery) HandleMsg(res *packet) {
 		d.agent.send(&sendPkt{
 			addr: res.from,
 			code: exceptionCode,
-			msg:  &Exception{
+			msg: &Exception{
 				Code: eUnKnown,
 			},
 		})
@@ -346,8 +363,8 @@ func New(cfg *Config) *Discovery {
 		term:       make(chan struct{}),
 		pktHandler: d.HandleMsg,
 		pool:       newWtPool(),
-		write: make(chan *sendPkt, 100),
-		read: make(chan *packet, 100),
+		write:      make(chan *sendPkt, 100),
+		read:       make(chan *packet, 100),
 	}
 
 	return d
