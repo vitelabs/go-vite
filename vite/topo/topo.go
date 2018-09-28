@@ -43,7 +43,7 @@ func New(addrs []string) (p *TopoHandler, err error) {
 
 		if err != nil {
 			p.log.Error("can`t create sarama.AsyncProducer", "error", err)
-			return
+			return p, err
 		}
 
 		p.prod = prod

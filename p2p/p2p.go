@@ -45,32 +45,32 @@ type Config struct {
 
 type Server struct {
 	*Config
-	running      int32          // atomic
-	wg           sync.WaitGroup // Wait for all jobs done
-	term         chan struct{}
-	pending      chan struct{} // how many connection can wait for handshake
-	addPeer      chan *conn
-	delPeer      chan *Peer
-	discv        Discovery
-	ourHandshake *Handshake
-	BootNodes    []*discovery.Node
-	peers        *PeerSet
-	blockList    *block.CuckooSet
-	self         *discovery.Node
-	agent        *agent
-	log          log15.Logger
-	ln           net.Listener
+	running        int32          // atomic
+	wg             sync.WaitGroup // Wait for all jobs done
+	term           chan struct{}
+	pending        chan struct{} // how many connection can wait for handshake
+	addPeer        chan *conn
+	delPeer        chan *Peer
+	discv          Discovery
+	handShakeBytes []byte // handshake data, after signature
+	BootNodes      []*discovery.Node
+	peers          *PeerSet
+	blockList      *block.CuckooSet
+	self           *discovery.Node
+	agent          *agent
+	log            log15.Logger
+	ln             net.Listener
 }
 
 func New(cfg Config) (svr *Server, err error) {
 	safeCfg := EnsureConfig(cfg)
 
-	ID, err := discovery.Priv2NodeID(svr.Config.PrivateKey)
+	ID, err := discovery.Priv2NodeID(cfg.PrivateKey)
 	if err != nil {
 		return
 	}
 
-	addr := "0.0.0.0:" + strconv.FormatUint(uint64(svr.Port), 10)
+	addr := "0.0.0.0:" + strconv.FormatUint(uint64(cfg.Port), 10)
 	// udp discover
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
@@ -85,14 +85,12 @@ func New(cfg Config) (svr *Server, err error) {
 	// tcp listener
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
-		svr.log.Crit("tcp listening error", "err", err)
+		return
 	}
 
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
-		svr.log.Crit("tcp listening error", "err", err)
-	} else {
-		svr.log.Info(fmt.Sprintf("tcp listening at %s", tcpAddr))
+		return
 	}
 
 	svr = &Server{
@@ -176,7 +174,10 @@ func (svr *Server) Start() error {
 		return errSvrStarted
 	}
 
-	svr.setHandshake()
+	err := svr.setHandshake()
+	if err != nil {
+		return err
+	}
 
 	// mapping udp and tcp
 	go nat.Map(svr.term, "udp", int(svr.self.UDP), int(svr.self.UDP), "vite p2p udp", 0, svr.updateNode)
@@ -204,18 +205,29 @@ func (svr *Server) updateNode(addr *nat.Addr) {
 	}
 }
 
-func (svr *Server) setHandshake() {
+func (svr *Server) setHandshake() error {
 	cmdsets := make([]*CmdSet, len(svr.Protocols))
 	for i, p := range svr.Protocols {
 		cmdsets[i] = p.CmdSet()
 	}
-	svr.ourHandshake = &Handshake{
+	ours := &Handshake{
 		Version: Version,
 		Name:    svr.Name,
 		NetID:   svr.NetID,
 		ID:      svr.self.ID,
 		CmdSets: cmdsets,
 	}
+
+	data, err := ours.Serialize()
+	if err != nil {
+		return err
+	}
+
+	sig := ed25519.Sign(svr.PrivateKey, data)
+	data = append(sig, data...)
+
+	svr.handShakeBytes = data
+	return nil
 }
 
 func (svr *Server) listenLoop() {
@@ -275,7 +287,7 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 
 	svr.log.Info(fmt.Sprintf("begin handshake with %s", c.RemoteAddr()))
 
-	their, err := ts.Handshake(svr.ourHandshake)
+	their, err := ts.Handshake(svr.handShakeBytes)
 
 	if err != nil {
 		ts.Close(err)
