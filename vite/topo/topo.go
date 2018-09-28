@@ -30,8 +30,8 @@ type TopoHandler struct {
 	wg     sync.WaitGroup
 }
 
-func New(addrs []string) (p *TopoHandler, err error) {
-	p = &TopoHandler{
+func New(addrs []string) (t *TopoHandler, err error) {
+	t = &TopoHandler{
 		peers:  new(sync.Map),
 		log:    log15.New("module", "Topo"),
 		term:   make(chan struct{}),
@@ -52,15 +52,16 @@ func New(addrs []string) (p *TopoHandler, err error) {
 			prod, err := sarama.NewAsyncProducer(addrs, config)
 
 			if err != nil {
-				p.log.Error("can`t create sarama.AsyncProducer", "error", err)
-				return p, err
+				t.log.Error(fmt.Sprintf("create topo producer error: %v", err))
+				return nil, err
 			}
 
-			p.prod = prod
+			t.log.Info("topo producer created")
+			t.prod = prod
 		}
 	}
 
-	return p, nil
+	return t, nil
 }
 
 func (t *TopoHandler) Start(svr *p2p.Server) {
@@ -74,8 +75,12 @@ func (t *TopoHandler) Stop() {
 	select {
 	case <-t.term:
 	default:
+		t.log.Info("topo stop")
+
 		close(t.term)
 		t.wg.Wait()
+
+		t.log.Info("topo stopped")
 	}
 }
 
@@ -117,7 +122,7 @@ func (t *TopoHandler) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 func (t *TopoHandler) sendLoop() {
 	defer t.wg.Done()
 
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -154,6 +159,7 @@ func (t *TopoHandler) Topology() *Topo {
 	topo := &Topo{
 		Pivot: t.p2p.URL(),
 		Peers: make([]string, 0, 10),
+		Time:  time.Now(),
 	}
 
 	t.peers.Range(func(key, value interface{}) bool {
@@ -191,10 +197,12 @@ func (t *TopoHandler) Receive(msg *p2p.Msg, sender *Peer) {
 	monitor.LogEvent("topo", "receive")
 
 	t.record.InsertUnique(hash)
+	// broadcast to other peer
 	t.peers.Range(func(key, value interface{}) bool {
 		id := key.(string)
+		p := value.(*Peer)
 		if id != sender.String() {
-			sender.rw.WriteMsg(msg)
+			p.rw.WriteMsg(msg)
 		}
 		return true
 	})
