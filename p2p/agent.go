@@ -1,13 +1,13 @@
 package p2p
 
 import (
-	"github.com/vitelabs/go-vite/p2p/list"
 	"crypto/rand"
 	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/p2p/list"
 	"net"
 	"time"
 )
@@ -51,6 +51,7 @@ func (t *dialTask) Perform(a *agent) {
 		return
 	}
 
+	a.svr.pending <- struct{}{}
 	a.svr.setupConn(conn, outbound)
 }
 
@@ -77,7 +78,7 @@ type agent struct {
 	svr         *Server
 	log         log15.Logger
 	tasks       *list.List
-	running chan struct{}
+	running     chan struct{}
 }
 
 func newAgent(svr *Server) *agent {
@@ -85,13 +86,13 @@ func newAgent(svr *Server) *agent {
 		Dialer: &net.Dialer{
 			Timeout: 3 * time.Second,
 		},
-		maxDials:    svr.maxOutboundPeers(),
-		dialing:     make(map[discovery.NodeID]connFlag),
-		bootNodes:   copyNodes(svr.BootNodes), // agent will modify bootNodes, so use copies
-		svr:         svr,
-		log:         log15.New("module", "p2p/agent"),
-		tasks:       list.New(),
-		running: make(chan struct{}, maxRunTasks),
+		maxDials:  svr.maxOutboundPeers(),
+		dialing:   make(map[discovery.NodeID]connFlag),
+		bootNodes: copyNodes(svr.BootNodes), // agent will modify bootNodes, so use copies
+		svr:       svr,
+		log:       log15.New("module", "p2p/agent"),
+		tasks:     list.New(),
+		running:   make(chan struct{}, maxRunTasks),
 	}
 
 	return a
@@ -107,11 +108,11 @@ func (a *agent) scheduleTasks(stop <-chan struct{}, taskDone chan<- struct{}) {
 				t, _ := t.(Task)
 				go func(t Task) {
 					t.Perform(a)
-					<- a.running
+					<-a.running
 				}(t)
 			} else {
 				a.running <- struct{}{}
-				taskDone<- struct{}{}
+				taskDone <- struct{}{}
 			}
 		}
 	}
@@ -137,7 +138,7 @@ func (a *agent) createTasks() uint {
 	restDials := canDials
 
 	// dial one bootNodes
-	if a.svr.peers.Size() == 0 && restDials > 0 {
+	if a.svr.peers.Size() == 0 && restDials > 0 && len(a.bootNodes) > 0 {
 		boot := a.bootNodes[0]
 		copy(a.bootNodes[:], a.bootNodes[1:])
 		a.bootNodes[len(a.bootNodes)-1] = boot

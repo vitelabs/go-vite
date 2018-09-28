@@ -38,34 +38,34 @@ type Chain interface {
 }
 
 type Config struct {
-	Port       uint16
+	Port  uint16
 	Chain Chain
 }
 
 type Net struct {
 	*Config
-	peers         *peerSet
-	snapshotFeed  *snapshotBlockFeed
-	accountFeed   *accountBlockFeed
-	term          chan struct{}
-	blockRecord   *cuckoofilter.CuckooFilter // record blocks has retrieved from network
-	log           log15.Logger
-	Protocols     []*p2p.Protocol	// mount to p2p.Server
-	wg            sync.WaitGroup
-	fileServer    *FileServer
-	newBlocks []*ledger.SnapshotBlock	// before syncDone, cache newBlocks
-	syncer *syncer
-	handlers map[cmd]MsgHandler
+	peers        *peerSet
+	snapshotFeed *snapshotBlockFeed
+	accountFeed  *accountBlockFeed
+	term         chan struct{}
+	blockRecord  *cuckoofilter.CuckooFilter // record blocks has retrieved from network
+	log          log15.Logger
+	Protocols    []*p2p.Protocol // mount to p2p.Server
+	wg           sync.WaitGroup
+	fileServer   *FileServer
+	newBlocks    []*ledger.SnapshotBlock // before syncDone, cache newBlocks
+	syncer       *syncer
+	handlers     map[cmd]MsgHandler
 }
 
 func New(cfg *Config) (*Net, error) {
 	n := &Net{
-		Config:        cfg,
-		snapshotFeed:  new(snapshotBlockFeed),
-		accountFeed:   new(accountBlockFeed),
-		term:          make(chan struct{}),
-		blockRecord:   cuckoofilter.NewCuckooFilter(10000),
-		log:           log15.New("module", "vite/net"),
+		Config:       cfg,
+		snapshotFeed: new(snapshotBlockFeed),
+		accountFeed:  new(accountBlockFeed),
+		term:         make(chan struct{}),
+		blockRecord:  cuckoofilter.NewCuckooFilter(10000),
+		log:          log15.New("module", "vite/net"),
 	}
 
 	peerSet := NewPeerSet()
@@ -140,9 +140,9 @@ func (n *Net) HandlePeer(p *Peer) error {
 	genesis := n.Chain.GetGenesisSnapshotBlock()
 
 	err := p.Handshake(&message.HandShake{
-		CmdSet:       p.CmdSet,
-		Height:       current.Height,
-		Port:         n.Port,
+		CmdSet:  p.CmdSet,
+		Height:  current.Height,
+		Port:    n.Port,
 		Current: current.Hash,
 		Genesis: genesis.Hash,
 	})

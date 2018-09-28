@@ -30,9 +30,9 @@ type wait struct {
 }
 
 type wtPool struct {
-	list  *list.List
-	add   chan *wait
-	rec   chan *packet
+	list *list.List
+	add  chan *wait
+	rec  chan *packet
 }
 
 func newWtPool() *wtPool {
@@ -93,7 +93,7 @@ func (p *wtPool) clean() {
 type sendPkt struct {
 	addr *net.UDPAddr
 	code packetCode
-	msg Message
+	msg  Message
 	wait *wait
 }
 
@@ -104,10 +104,10 @@ type agent struct {
 	priv       ed25519.PrivateKey
 	term       chan struct{}
 	pktHandler func(*packet)
-	pool        *wtPool
+	pool       *wtPool
 	wg         sync.WaitGroup
-	write chan *sendPkt
-	read chan *packet
+	write      chan *sendPkt
+	read       chan *packet
 }
 
 // should run as goroutine
@@ -147,7 +147,7 @@ func (d *agent) ping(node *Node, callback func(*Node, error)) {
 	d.send(&sendPkt{
 		addr: node.UDPAddr(),
 		code: pingCode,
-		msg:  &Ping{
+		msg: &Ping{
 			ID:         d.self.ID,
 			IP:         d.self.IP,
 			UDP:        d.self.UDP,
@@ -157,7 +157,7 @@ func (d *agent) ping(node *Node, callback func(*Node, error)) {
 		wait: &wait{
 			expectFrom: node.ID,
 			expectCode: pongCode,
-			handle:    func(m Message, err error, wt *wait) bool {
+			handle: func(m Message, err error, wt *wait) bool {
 				defer callback(node, err)
 
 				if err != nil {
@@ -184,9 +184,10 @@ func (d *agent) pong(node *Node, ack types.Hash) {
 	d.send(&sendPkt{
 		addr: node.UDPAddr(),
 		code: pongCode,
-		msg:  &Pong{
+		msg: &Pong{
 			ID:         d.self.ID,
 			Ping:       ack,
+			IP:         node.IP,
 			Expiration: getExpiration(),
 		},
 	})
@@ -197,7 +198,7 @@ func (d *agent) findnode(n *Node, ID NodeID, callback func([]*Node, error)) {
 	d.send(&sendPkt{
 		addr: n.UDPAddr(),
 		code: findnodeCode,
-		msg:  &FindNode{
+		msg: &FindNode{
 			ID:         d.self.ID,
 			Target:     ID,
 			Expiration: getExpiration(),
@@ -205,7 +206,7 @@ func (d *agent) findnode(n *Node, ID NodeID, callback func([]*Node, error)) {
 		wait: &wait{
 			expectFrom: n.ID,
 			expectCode: neighborsCode,
-			handle:     func(m Message, err error, _ *wait) bool {
+			handle: func(m Message, err error, _ *wait) bool {
 				if err != nil {
 					callback(nil, err)
 					return true
@@ -214,7 +215,7 @@ func (d *agent) findnode(n *Node, ID NodeID, callback func([]*Node, error)) {
 				neighbors, _ := m.(*Neighbors)
 
 				total := 0
-				nodes := make([]*Node, 0, K)
+				nodes := make([]*Node, 0, maxNeighborsOneTrip)
 
 				for _, n := range neighbors.Nodes {
 					if n.Validate() == nil {
@@ -224,8 +225,7 @@ func (d *agent) findnode(n *Node, ID NodeID, callback func([]*Node, error)) {
 				}
 
 				callback(nodes, nil)
-
-				return total >= K
+				return true
 			},
 		},
 	})
@@ -297,7 +297,7 @@ func (a *agent) readLoop() {
 					tempDelay = maxDelay
 				}
 
-				discvLog.Info(fmt.Sprintf("udp read tempError, wait %d Millisecond", tempDelay))
+				discvLog.Info(fmt.Sprintf("udp read tempError, wait %s", tempDelay))
 
 				time.Sleep(tempDelay)
 
@@ -315,7 +315,7 @@ func (a *agent) readLoop() {
 			a.send(&sendPkt{
 				addr: addr,
 				code: exceptionCode,
-				msg:  &Exception{Code: eCannotUnpack,},
+				msg:  &Exception{Code: eCannotUnpack},
 			})
 			continue
 		}
@@ -341,7 +341,7 @@ func (a *agent) writeLoop() {
 		select {
 		case <-a.term:
 			return
-		case s := <- a.write:
+		case s := <-a.write:
 			data, hash, err := s.msg.pack(a.priv)
 
 			if err != nil {
@@ -356,7 +356,7 @@ func (a *agent) writeLoop() {
 			} else if n != len(data) {
 				discvLog.Error(fmt.Sprintf("send incomplete message %s (%d/%dbytes) to %s", s.msg, n, len(data), s.addr))
 			} else {
-				monitor.LogEvent("p2p/discv", "send " + s.code.String())
+				monitor.LogEvent("p2p/discv", "send "+s.code.String())
 				discvLog.Info(fmt.Sprintf("send message %s to %s done", s.msg, s.addr))
 
 				if s.wait != nil {
@@ -376,9 +376,8 @@ func (a *agent) handleLoop() {
 		select {
 		case <-a.term:
 			return
-			case p:= <-a.read:
-				a.pktHandler(p)
-
+		case p := <-a.read:
+			a.pktHandler(p)
 		}
 	}
 }

@@ -19,8 +19,3 @@ message CmdSet {
     uint64 ID = 1;
     string Name = 2;
 }
-
-message Topo {
-    string Pivot = 1;
-    repeated string Peers = 2;
-}

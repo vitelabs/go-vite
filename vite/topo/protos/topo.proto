@@ -1,0 +1,10 @@
+syntax="proto3";
+
+
+package protos;
+
+message Topo {
+    string Pivot = 1;
+    repeated string Peers = 2;
+    int64 Time = 3;
+}
