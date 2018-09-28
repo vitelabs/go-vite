@@ -17,8 +17,6 @@ type BlockMapQueryParam struct {
 	Forward         bool
 }
 
-// TODO 获取vite的抵押额度
-
 func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
 	batch := new(leveldb.Batch)
 	trieSaveCallback := make([]func(), 0)
@@ -115,7 +113,7 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 
 			if sendBlockMeta != nil {
 				sendBlockMeta.ReceiveBlockHeights = append(sendBlockMeta.ReceiveBlockHeights, accountBlock.Height)
-				saveSendBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.Hash, sendBlockMeta)
+				saveSendBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.FromBlockHash, sendBlockMeta)
 				if saveSendBlockMetaErr != nil {
 					c.log.Error("WriteSendBlockMeta failed, error is "+saveSendBlockMetaErr.Error(), "method", "InsertAccountBlocks")
 					return saveSendBlockMetaErr
@@ -159,35 +157,59 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	return nil
 }
 
+// No block meta
 func (c *chain) GetAccountBlocksByHash(addr types.Address, origin *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error) {
-	blockMeta, gbmErr := c.chainDb.Ac.GetBlockMeta(origin)
-	if gbmErr != nil {
-		c.log.Error("Query block meta failed. Error is "+gbmErr.Error(), "method", "GetAccountBlocksByHash")
-		return nil, gbmErr
+	startHeight := uint64(1)
+	if origin != nil {
+		blockMeta, gbmErr := c.chainDb.Ac.GetBlockMeta(origin)
+		if gbmErr != nil {
+			c.log.Error("Query block meta failed. Error is "+gbmErr.Error(), "method", "GetAccountBlocksByHash")
+			return nil, gbmErr
+		}
+		startHeight = blockMeta.Height
+	} else if !forward {
+		account, gaErr := c.chainDb.Account.GetAccountByAddress(&addr)
+		if gaErr != nil {
+			c.log.Error("Query account failed. Error is "+gaErr.Error(), "method", "GetAccountBlocksByHash")
+			return nil, gaErr
+		}
+
+		block, gbErr := c.chainDb.Ac.GetLatestBlock(account.AccountId)
+		if gbErr != nil {
+			c.log.Error("Query block failed. Error is "+gbErr.Error(), "method", "GetAccountBlocksByHash")
+			return nil, gbErr
+		}
+
+		if block == nil {
+			return nil, nil
+		}
+		startHeight = block.Height
 	}
 
-	return c.GetAccountBlocksByHeight(addr, blockMeta.Height, count, forward)
+	return c.GetAccountBlocksByHeight(addr, startHeight, count, forward)
 }
 
+// No block meta
 func (c *chain) GetAccountBlocksByHeight(addr types.Address, start, count uint64, forward bool) ([]*ledger.AccountBlock, error) {
 	account, gaErr := c.chainDb.Account.GetAccountByAddress(&addr)
 	if gaErr != nil {
 		c.log.Error("Query account failed. Error is "+gaErr.Error(), "method", "GetAccountBlocksByHeight")
 		return nil, gaErr
 	}
-	var startHeight, endHeight = uint64(0), uint64(0)
+	var startHeight, endHeight = uint64(1), uint64(1)
 
 	if forward {
 		startHeight = start
 		endHeight = startHeight + count - 1
 
 	} else {
-
 		endHeight = start
-		startHeight = endHeight - count + 1
+		if endHeight >= count {
+			startHeight = endHeight - count + 1
+		}
 	}
 
-	blockList, gbErr := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight)
+	blockList, gbErr := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight, forward)
 	if gbErr != nil {
 		c.log.Error("Query block failed. Error is "+gbErr.Error(), "method", "GetAccountBlocksByHeight")
 		return nil, gbErr
@@ -203,6 +225,7 @@ func (c *chain) GetAccountBlocksByHeight(addr types.Address, start, count uint64
 	return blockList, nil
 }
 
+// No block meta
 func (c *chain) GetAccountBlockMap(queryParams map[types.Address]*BlockMapQueryParam) map[types.Address][]*ledger.AccountBlock {
 	queryResult := make(map[types.Address][]*ledger.AccountBlock)
 	for addr, params := range queryParams {
@@ -252,23 +275,10 @@ func (c *chain) GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock
 	return block, nil
 }
 
-func (c *chain) GetAbHashList(addr types.Address, start, count, step uint64, forward bool) ([]*ledger.HashHeight, error) {
-	account, err := c.chainDb.Account.GetAccountByAddress(&addr)
-	if account == nil || err != nil {
-		if err != nil {
-			c.log.Error("GetAccountByAddress failed, error is "+err.Error(), "method", "GetAbHashList")
-			return nil, err
-		}
-		return nil, nil
-	}
-
-	return c.chainDb.Ac.GetAbHashList(account.AccountId, start, count, step, forward), nil
-}
-
 func (c *chain) GetAccountBalance(addr *types.Address) (map[types.TokenTypeId]*big.Int, error) {
 	trie, err := c.stateTriePool.Get(addr)
 	if err != nil {
-		c.log.Error("GetTrie failed, error is "+err.Error(), "method", "GetAccountBalanceByTokenId")
+		c.log.Error("GetTrie failed, error is "+err.Error(), "method", "GetAccountBalance")
 		return nil, err
 	}
 
@@ -287,7 +297,7 @@ func (c *chain) GetAccountBalance(addr *types.Address) (map[types.TokenTypeId]*b
 		tokenIdBytes := key[prefixKeyLen:]
 		tokenId, err := types.BytesToTokenTypeId(tokenIdBytes)
 		if err != nil {
-			c.log.Error("types.BytesToTokenTypeId failed, error is "+err.Error(), "method", "GetAccountBalanceByTokenId")
+			c.log.Error("types.BytesToTokenTypeId failed, error is "+err.Error(), "method", "GetAccountBalance")
 			return nil, err
 		}
 
@@ -332,8 +342,39 @@ func (c *chain) GetAccountBlockHashByHeight(addr *types.Address, height uint64) 
 	return hash, nil
 }
 
-// TODO GetAccountBlockByHeight
+func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error) {
+	account, err := c.chainDb.Account.GetAccountByAddress(addr)
+	if err != nil {
+		c.log.Error("Query account failed. Error is "+err.Error(), "method", "GetAccountBlockByHeight")
 
+		return nil, &types.GetError{
+			Code: 1,
+			Err:  err,
+		}
+	}
+
+	block, err := c.chainDb.Ac.GetBlockByHeight(account.AccountId, height)
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return nil, nil
+		}
+
+		c.log.Error("Query block failed. Error is "+err.Error(), "method", "GetAccountBlockByHeight")
+		return nil, &types.GetError{
+			Code: 2,
+			Err:  err,
+		}
+	}
+
+	block.AccountAddress = account.AccountAddress
+	// Not contract account block
+	if len(block.PublicKey) == 0 {
+		block.PublicKey = account.PublicKey
+	}
+	return block, nil
+}
+
+// With block meta
 func (c *chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
 	block, err := c.chainDb.Ac.GetBlock(blockHash)
 	if err != nil {
@@ -414,10 +455,10 @@ func (c *chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 	}
 
 	if endHeight > uint64(num*count) {
-		startHeight = endHeight - uint64(num*count)
+		startHeight = endHeight - uint64(num*count) + 1
 	}
 
-	blockList, err := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight)
+	blockList, err := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight, false)
 
 	if err != nil {
 		c.log.Error("Query block list failed. Error is "+err.Error(), "method", "GetAccountBlocksByAddress")
@@ -456,7 +497,7 @@ func (c *chain) GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint
 	if gap > 1 {
 		// Error
 		err := errors.New("the difference in height between snapshotBlockHeight and latestSnapshotBlock.Height is greater than one")
-		c.log.Error(err.Error(), "method", "GetLatestBlock")
+		c.log.Error(err.Error(), "method", "GetFirstConfirmedAccountBlockBySbHeight")
 		return nil, err
 	} else if gap == 1 {
 		// Cache
@@ -467,17 +508,39 @@ func (c *chain) GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint
 		return nil, nil
 	} else {
 		// Query db
+		snapshotContent, gscErr := c.chainDb.Sc.GetSnapshotContent(snapshotBlockHeight)
+		if gscErr != nil {
+			c.log.Error("GetSnapshotContent failed, error is "+gscErr.Error(), "method", "GetFirstConfirmedAccountBlockBySbHeight")
+			return nil, gscErr
+		}
+
+		if snapshotContent == nil {
+			c.log.Error("snapshotContent is nil", "method", "GetFirstConfirmedAccountBlockBySbHeight")
+			return nil, nil
+		}
+
+		snapshotItem := snapshotContent[*addr]
+		if snapshotItem == nil {
+			return nil, nil
+		}
+
 		account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
 		if accountErr != nil {
 			c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "GetFirstConfirmedAccountBlockBySbHeight")
 			return nil, accountErr
 		}
 
-		block, unConfirmErr := c.chainDb.Ac.GetUnConfirmAccountBlockBeforeSbHeight(snapshotBlockHeight, account.AccountId)
+		block, unConfirmErr := c.chainDb.Ac.GetFirstConfirmedBlockBeforeOrAtAbHeight(account.AccountId, snapshotItem.Height)
 
 		if unConfirmErr != nil {
-			c.log.Error("GetUnConfirmAccountBlockBeforeSbHeight failed, error is "+unConfirmErr.Error(), "method", "GetFirstConfirmedAccountBlockBySbHeight")
+			c.log.Error("GetFirstConfirmedBlockBeforeOrAtAbHeight failed, error is "+unConfirmErr.Error(), "method", "GetFirstConfirmedAccountBlockBySbHeight")
 			return nil, unConfirmErr
+		}
+
+		block.AccountAddress = account.AccountAddress
+		// Not contract account block
+		if len(block.PublicKey) == 0 {
+			block.PublicKey = account.PublicKey
 		}
 		return block, nil
 	}
@@ -576,7 +639,7 @@ func (c *chain) getUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBl
 }
 
 func (c *chain) subLedgerAccountIdToAccountAddress(subLedger map[uint64][]*ledger.AccountBlock) (map[types.Address][]*ledger.AccountBlock, error) {
-	var finalSubLedger map[types.Address][]*ledger.AccountBlock
+	finalSubLedger := make(map[types.Address][]*ledger.AccountBlock)
 	for accountId, chain := range subLedger {
 		address, err := c.chainDb.Account.GetAddressById(accountId)
 		if err != nil {

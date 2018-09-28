@@ -57,13 +57,13 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 
 	var currentSnapshotBlock *ledger.SnapshotBlock
 	if snapshotBlockHash == nil {
+		currentSnapshotBlock = chain.GetLatestSnapshotBlock()
+	} else {
 		var err error
 		currentSnapshotBlock, err = chain.GetSnapshotBlockByHash(snapshotBlockHash)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		currentSnapshotBlock = chain.GetLatestSnapshotBlock()
 	}
 
 	vmContext.currentSnapshotBlock = currentSnapshotBlock
@@ -72,7 +72,7 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 	if prevAccountBlockHash == nil {
 		if addr != nil {
 			var err error
-			prevAccountBlock, err = chain.GetConfirmAccountBlock(currentSnapshotBlock.Height, addr)
+			prevAccountBlock, err = chain.GetLatestAccountBlock(addr)
 			if err != nil {
 				return nil, err
 			}
@@ -149,6 +149,7 @@ func (context *VmContext) AddBalance(tokenTypeId *types.TokenTypeId, amount *big
 		return
 	}
 	currentBalance := context.GetBalance(context.address, tokenTypeId)
+
 	currentBalance.Add(currentBalance, amount)
 
 	context.SetStorage(BalanceKey(tokenTypeId), currentBalance.Bytes())

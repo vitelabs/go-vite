@@ -185,7 +185,13 @@ func (ab *AccountBlock) proto() *vitepb.AccountBlock {
 	}
 
 	pb.Quota = ab.Quota
-	pb.Fee = ab.Fee.Bytes()
+
+	fee := ab.Fee
+	if fee == nil {
+		fee = big.NewInt(0)
+	}
+	pb.Fee = fee.Bytes()
+
 	pb.SnapshotHash = ab.SnapshotHash.Bytes()
 	pb.Data = ab.Data
 	pb.Timestamp = ab.Timestamp.UnixNano()
@@ -200,6 +206,7 @@ func (ab *AccountBlock) proto() *vitepb.AccountBlock {
 
 func (ab *AccountBlock) DbProto() *vitepb.AccountBlock {
 	pb := ab.proto()
+	pb.StateHash = ab.StateHash.Bytes()
 	if len(ab.Producer()) > 0 && !bytes.Equal(ab.Producer().Bytes(), ab.AccountAddress.Bytes()) {
 		pb.PublicKey = ab.PublicKey
 	}
@@ -292,7 +299,11 @@ func (ab *AccountBlock) ComputeHash() types.Hash {
 	source = append(source, quotaBytes...)
 
 	// Fee
-	source = append(source, ab.Fee.Bytes()...)
+	fee := ab.Fee
+	if fee == nil {
+		fee = big.NewInt(0)
+	}
+	source = append(source, fee.Bytes()...)
 
 	// SnapshotHash
 	source = append(source, ab.SnapshotHash.Bytes()...)
