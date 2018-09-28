@@ -58,10 +58,10 @@ func (c *chain) GetVoteMap(snapshotHash types.Hash, gid types.Gid) []*contracts.
 func (c *chain) GetPledgeAmount(snapshotHash types.Hash, beneficial types.Address) *big.Int {
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressRegister)
 	if err != nil {
-		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeAmount")
+		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeBeneficialAmount")
 		return nil
 	}
-	return contracts.GetPledgeAmount(vmContext, beneficial)
+	return contracts.GetPledgeBeneficialAmount(vmContext, beneficial)
 }
 
 func (c *chain) GetConsensusGroupList(snapshotHash types.Hash) []*contracts.ConsensusGroupInfo {

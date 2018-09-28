@@ -41,17 +41,21 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address) uint64 {
 	return quotaTotal
 }
 
+// TODO pow bool to difficulty *big.Int
 func CalcQuota(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
-	// quotaInit = (pledge amount of account address at current snapshot status / quotaByPledge)
-	// 				* snapshot height gap between current block and prevBlock
-	// 				- quota used by prevBlock referring to the same snapshot
-	// quotaByPledge is within a range decided by net congestion
-	// user account gets extra quota to send or receive a transfer transaction without data if calc PoW
-	// contract account has a quota limit decided by consensus group
-	// TODO calc quotaLimit
-	// TODO calc quotaByPledge
+	// quotaInit = quotaLimitForAccount * (1 - 2/(1 + e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount)))
+	// 				- quota used by prevBlock referring to the same snapshot hash
+	// quotaAddition = quotaLimitForAccount * (1 - 2/(1 + e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount)))
+	//				- quotaLimitForAccount * (1 - 2/(1 + e**(fPledge * snapshotHeightGap * pledgeAmount)))
+	// e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount) is discrete to reduce computation complexity
+	// quotaLimitForAccount is within a range decided by net congestion and net capacity
+	// user account gets extra quota to send or receive a transaction if calc PoW, extra quota num is according to difficulty
+	// contract account only gets quota via pledge
+	// user account genesis block must calculate a PoW to get quota
+	// TODO
+	// The following code is just a simple implementation for test net.
 	quotaLimitForAccount := quotaLimit
-	quotaInitBig := new(big.Int).Div(contracts.GetPledgeAmount(db, addr), quotaByPledge)
+	quotaInitBig := new(big.Int).Div(contracts.GetPledgeBeneficialAmount(db, addr), quotaByPledge)
 	quotaAddition = uint64(0)
 	if pow {
 		quotaAddition = quotaForPoW

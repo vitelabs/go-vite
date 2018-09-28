@@ -60,7 +60,7 @@ func TestVmRun(t *testing.T) {
 
 	// receive create
 	addr2 := sendCreateBlockList[0].AccountBlock.ToAddress
-	db.storageMap[contracts.AddressPledge][types.DataHash(addr2.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
+	db.storageMap[contracts.AddressPledge][string(contracts.GetPledgeBeneficialKey(addr2))], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	balance2 := big.NewInt(0)
 
 	hash21 := types.DataHash([]byte{2, 1})

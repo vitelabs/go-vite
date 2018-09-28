@@ -81,7 +81,7 @@ func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
 	return voteInfoList
 }
 
-func GetPledgeAmount(db StorageDatabase, beneficial types.Address) *big.Int {
+func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) *big.Int {
 	key := GetPledgeBeneficialKey(beneficial)
 	beneficialAmount := new(VariablePledgeBeneficial)
 	err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, key))
@@ -89,6 +89,24 @@ func GetPledgeAmount(db StorageDatabase, beneficial types.Address) *big.Int {
 		return beneficialAmount.Amount
 	}
 	return big.NewInt(0)
+}
+
+func GetPledgeAmount(db StorageDatabase, addr types.Address) []*PledgeInfo {
+	iterator := db.NewStorageIterator(addr.Bytes())
+	pledgeInfoList := make([]*PledgeInfo, 0)
+	for {
+		key, value, ok := iterator.Next()
+		if !ok {
+			break
+		}
+		if IsPledgeKey(key) {
+			pledgeInfo := new(PledgeInfo)
+			ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value)
+			pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(key)
+			pledgeInfoList = append(pledgeInfoList, pledgeInfo)
+		}
+	}
+	return pledgeInfoList
 }
 
 func GetActiveConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {

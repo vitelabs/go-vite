@@ -14,7 +14,7 @@ import (
 
 type testDatabase struct {
 	balanceMap        map[types.Address]map[types.TokenTypeId]*big.Int
-	storageMap        map[types.Address]map[types.Hash][]byte
+	storageMap        map[types.Address]map[string][]byte
 	codeMap           map[types.Address][]byte
 	contractGidMap    map[types.Address]*types.Gid
 	logList           []*ledger.VmLog
@@ -26,7 +26,7 @@ type testDatabase struct {
 func NewNoDatabase() *testDatabase {
 	return &testDatabase{
 		balanceMap:        make(map[types.Address]map[types.TokenTypeId]*big.Int),
-		storageMap:        make(map[types.Address]map[types.Hash][]byte),
+		storageMap:        make(map[types.Address]map[string][]byte),
 		codeMap:           make(map[types.Address][]byte),
 		contractGidMap:    make(map[types.Address]*types.Gid),
 		logList:           make([]*ledger.VmLog, 0),
@@ -112,25 +112,23 @@ func (db *testDatabase) GetContractCode(addr *types.Address) []byte {
 	}
 }
 func (db *testDatabase) GetStorage(addr *types.Address, key []byte) []byte {
-	locHash, _ := types.BytesToHash(key)
-	if data, ok := db.storageMap[*addr][locHash]; ok {
+	if data, ok := db.storageMap[*addr][string(key)]; ok {
 		return data
 	} else {
 		return []byte{}
 	}
 }
 func (db *testDatabase) SetStorage(key []byte, value []byte) {
-	locHash, _ := types.BytesToHash(key)
 	if _, ok := db.storageMap[db.addr]; !ok {
-		db.storageMap[db.addr] = make(map[types.Hash][]byte)
+		db.storageMap[db.addr] = make(map[string][]byte)
 	}
-	db.storageMap[db.addr][locHash] = value
+	db.storageMap[db.addr][string(key)] = value
 }
 func (db *testDatabase) PrintStorage(addr types.Address) string {
 	if storage, ok := db.storageMap[addr]; ok {
 		var str string
 		for key, value := range storage {
-			str += hex.EncodeToString(key.Bytes()) + "=>" + hex.EncodeToString(value) + ", "
+			str += key + "=>" + hex.EncodeToString(value) + ", "
 		}
 		return str
 	} else {
@@ -169,11 +167,11 @@ func (db *testDatabase) NewStorageIterator(prefix []byte) vmctxt_interface.Stora
 	items := make([]testIteratorItem, 0)
 	for key, value := range storageMap {
 		if len(prefix) > 0 {
-			if bytes.Equal(key.Bytes()[:len(prefix)], prefix) {
-				items = append(items, testIteratorItem{key.Bytes(), value})
+			if bytes.Equal([]byte(key)[:len(prefix)], prefix) {
+				items = append(items, testIteratorItem{[]byte(key), value})
 			}
 		} else {
-			items = append(items, testIteratorItem{key.Bytes(), value})
+			items = append(items, testIteratorItem{[]byte(key), value})
 		}
 	}
 	return &testIterator{0, items}
@@ -193,6 +191,12 @@ func (db *testDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
 	return db.snapshotBlockList[len(db.snapshotBlockList)-1]
 }
 func (db *testDatabase) PrevAccountBlock() *ledger.AccountBlock {
+	height := uint64(len(db.accountBlockMap[db.addr]))
+	for _, block := range db.accountBlockMap[db.addr] {
+		if block.Height == height {
+			return block
+		}
+	}
 	return nil
 }
 func (db *testDatabase) UnsavedCache() vmctxt_interface.UnsavedCache {
@@ -202,9 +206,9 @@ func (db *testDatabase) UnsavedCache() vmctxt_interface.UnsavedCache {
 func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {
 	addr1, _ = types.BytesToAddress(helper.HexToBytes("CA35B7D915458EF540ADE6068DFE2F44E8FA733C"))
 	db = NewNoDatabase()
-	db.storageMap[contracts.AddressMintage] = make(map[types.Hash][]byte)
+	db.storageMap[contracts.AddressMintage] = make(map[string][]byte)
 	viteTokenIdLoc, _ := types.BytesToHash(helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), 32))
-	db.storageMap[contracts.AddressMintage][viteTokenIdLoc], _ = contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), int64(0))
+	db.storageMap[contracts.AddressMintage][string(viteTokenIdLoc.Bytes())], _ = contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), int64(0))
 
 	timestamp = 1536214502
 	t1 := time.Unix(timestamp-1, 0)
@@ -244,7 +248,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	db.balanceMap[addr1] = make(map[types.TokenTypeId]*big.Int)
 	db.balanceMap[addr1][ledger.ViteTokenId] = new(big.Int).Set(viteTotalSupply)
 
-	db.storageMap[contracts.AddressConsensusGroup] = make(map[types.Hash][]byte)
+	db.storageMap[contracts.AddressConsensusGroup] = make(map[string][]byte)
 	consensusGroupKey, _ := types.BytesToHash(contracts.GetConsensusGroupKey(types.SNAPSHOT_GID))
 	consensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
@@ -253,31 +257,31 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		uint8(2),
 		uint8(50),
 		ledger.ViteTokenId,
-		uint8(0),
+		uint8(1),
 		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), attovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600*24*90).Bytes(), helper.WordSize)),
-		uint8(0),
+		uint8(1),
 		[]byte{},
 		addr1,
 		big.NewInt(0),
 		timestamp+createConsensusGroupPledgeTime)
-	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey] = consensusGroupData
+	db.storageMap[contracts.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
 	consensusGroupKey, _ = types.BytesToHash(contracts.GetConsensusGroupKey(types.DELEGATE_GID))
 	consensusGroupData, _ = contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
-		int64(1),
 		int64(3),
+		int64(1),
 		uint8(2),
 		uint8(50),
 		ledger.ViteTokenId,
-		uint8(0),
+		uint8(1),
 		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), attovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600*24*90).Bytes(), helper.WordSize)),
-		uint8(0),
+		uint8(1),
 		[]byte{},
 		addr1,
 		big.NewInt(0),
 		timestamp+createConsensusGroupPledgeTime)
-	db.storageMap[contracts.AddressConsensusGroup][consensusGroupKey] = consensusGroupData
-	db.storageMap[contracts.AddressPledge] = make(map[types.Hash][]byte)
-	db.storageMap[contracts.AddressPledge][types.DataHash(addr1.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
+	db.storageMap[contracts.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
+	db.storageMap[contracts.AddressPledge] = make(map[string][]byte)
+	db.storageMap[contracts.AddressPledge][string(contracts.GetPledgeBeneficialKey(addr1))], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	return
 }
