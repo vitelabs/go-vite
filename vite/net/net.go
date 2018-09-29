@@ -27,6 +27,9 @@ type Chain interface {
 	GetAccountBlocksByHash(addr types.Address, origin *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error)
 	GetAccountBlocksByHeight(addr types.Address, start, count uint64, forward bool) ([]*ledger.AccountBlock, error)
 
+	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
+	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
+
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
@@ -247,18 +250,16 @@ func (n *Net) BroadcastAccountBlocks(addr types.Address, blocks []*ledger.Accoun
 	n.broadcaster.BroadcastAccountBlocks(addr, blocks)
 }
 
-func (n *Net) FetchSnapshotBlocks(start types.Hash, count uint64) {
-	// if the sync data has not downloaded, then ignore fetch request
-	n.fetcher.FetchSnapshotBlocks(start, count)
+func (n *Net) FetchSnapshotBlocks(start uint64, count uint64, hash *types.Hash) {
+	n.fetcher.FetchSnapshotBlocks(start, count, hash)
 }
 
-func (n *Net) FetchAccountBlocks(start types.Hash, count uint64, address types.Address) {
-	// if the sync data has not downloaded, then ignore fetch request
+func (n *Net) FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) {
+	n.fetcher.FetchAccountBlocks(start, count, address)
 }
 
 func (n *Net) SubscribeAccountBlock(fn AccountblockCallback) (subId int) {
 	return n.receiver.aFeed.Sub(fn)
-
 }
 
 func (n *Net) UnsubscribeAccountBlock(subId int) {

@@ -11,9 +11,11 @@ import (
 )
 
 type Fetcher interface {
-	FetchSnapshotBlocks(start *ledger.HashHeight, count uint64)
-	// address may be nil
-	FetchAccountBlocks(start types.Hash, count uint64, address types.Address)
+	// start is required, because we need start + count to find appropriate peer
+	FetchSnapshotBlocks(start uint64, count uint64, hash *types.Hash)
+
+	// address is optional
+	FetchAccountBlocks(start types.Hash, count uint64, address *types.Address)
 }
 
 type fetcher struct {
@@ -35,7 +37,7 @@ func newFetcher(filter Filter, peers *peerSet, receiver Receiver, pool RequestPo
 	}
 }
 
-func (f *fetcher) FetchSnapshotBlocks(from *ledger.HashHeight, count uint64) {
+func (f *fetcher) FetchSnapshotBlocks(start uint64, count uint64, hash *types.Hash) {
 	monitor.LogEvent("net/fetch", "s")
 
 	if atomic.LoadInt32(&f.ready) == 0 {
@@ -44,13 +46,12 @@ func (f *fetcher) FetchSnapshotBlocks(from *ledger.HashHeight, count uint64) {
 	}
 
 	m := &message.GetSnapshotBlocks{
-		From:    from,
+		From:    &ledger.HashHeight{start, *hash},
 		Count:   count,
 		Forward: true,
 	}
 
-	// todo height is required
-	peers := f.peers.Pick(from.Height + count)
+	peers := f.peers.Pick(start + count)
 	if len(peers) != 0 {
 		p := peers[0]
 		id := f.pool.MsgID()
@@ -65,7 +66,7 @@ func (f *fetcher) FetchSnapshotBlocks(from *ledger.HashHeight, count uint64) {
 	}
 }
 
-func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address types.Address) {
+func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) {
 	monitor.LogEvent("net/fetch", "a")
 
 	if atomic.LoadInt32(&f.ready) == 0 {
@@ -73,8 +74,12 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address typ
 		return
 	}
 
+	addr := NULL_ADDRESS
+	if address != nil {
+		addr = *address
+	}
 	m := &message.GetAccountBlocks{
-		Address: address,
+		Address: addr,
 		From: &ledger.HashHeight{
 			Hash: start,
 		},

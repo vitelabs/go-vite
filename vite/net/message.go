@@ -2,6 +2,7 @@ package net
 
 import (
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
@@ -200,11 +201,22 @@ func (a *getAccountBlocksHandler) Cmds() []cmd {
 	return []cmd{GetAccountBlocksCode}
 }
 
+var NULL_ADDRESS = types.Address{}
+
 func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 	as := new(message.GetAccountBlocks)
 	err := as.Deserialize(msg.Payload)
 	if err != nil {
 		return err
+	}
+
+	// get correct address
+	if as.Address == NULL_ADDRESS {
+		block, err := a.chain.GetAccountBlockByHash(&as.From.Hash)
+		if err != nil {
+			return sender.Send(ExceptionCode, msg.Id, message.Missing)
+		}
+		as.Address = block.AccountAddress
 	}
 
 	var blocks []*ledger.AccountBlock

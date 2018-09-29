@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/vite/net/message"
 	"time"
 )
 
@@ -39,7 +40,10 @@ func (b *broadcaster) BroadcastAccountBlock(addr types.Address, block *ledger.Ac
 
 	peers := b.peers.UnknownBlock(block.Hash)
 	for _, peer := range peers {
-		peer.SendAccountBlocks(addr, []*ledger.AccountBlock{block}, 0)
+		peer.SendAccountBlocks(&message.AccountBlocks{
+			Address: addr,
+			Blocks:  []*ledger.AccountBlock{block},
+		}, 0)
 	}
 
 	monitor.LogDuration("net/broadcast", "a", time.Now().Sub(t).Nanoseconds())
