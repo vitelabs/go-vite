@@ -72,7 +72,7 @@ func (d *Discovery) Stop() {
 	select {
 	case <-d.term:
 	default:
-		discvLog.Info(fmt.Sprintf("discovery server %s stop", d.self))
+		discvLog.Info(fmt.Sprintf("discovery server %s term", d.self))
 
 		close(d.term)
 		d.agent.stop()

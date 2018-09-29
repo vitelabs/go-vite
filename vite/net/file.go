@@ -180,17 +180,17 @@ func newFileClient(chain Chain) *fileClient {
 	}
 }
 
-func (this *fileClient) start() {
-	this.wg.Add(1)
-	go this.loop()
+func (fc *fileClient) start() {
+	fc.wg.Add(1)
+	go fc.loop()
 }
 
-func (this *fileClient) stop() {
+func (fc *fileClient) stop() {
 	select {
-	case <-this.term:
+	case <-fc.term:
 	default:
-		close(this.term)
-		this.wg.Wait()
+		close(fc.term)
+		fc.wg.Wait()
 	}
 }
 
@@ -198,8 +198,8 @@ func (fc *fileClient) request(r *fileReq) {
 	fc._request <- r
 }
 
-func (f *fileClient) loop() {
-	defer f.wg.Done()
+func (fc *fileClient) loop() {
+	defer fc.wg.Done()
 
 	wait := make([]*fileReq, 0, 10)
 
@@ -222,21 +222,21 @@ func (f *fileClient) loop() {
 			p2p.WriteMsg(ctx, true, noNeed)
 		}
 
-		delete(f.conns, ctx.addr)
+		delete(fc.conns, ctx.addr)
 		ctx.Close()
 	}
 
 loop:
 	for {
 		select {
-		case <-f.term:
+		case <-fc.term:
 			break loop
 
-		case req := <-f._request:
+		case req := <-fc._request:
 			addr := req.addr()
 			var ctx *connContext
 			var ok bool
-			if ctx, ok = f.conns[addr]; !ok {
+			if ctx, ok = fc.conns[addr]; !ok {
 				conn, err := net.Dial("tcp", addr)
 				if err != nil {
 					req.done(err)
@@ -247,18 +247,18 @@ loop:
 					addr: addr,
 					idle: true,
 				}
-				f.conns[addr] = ctx
+				fc.conns[addr] = ctx
 			}
 
 			if ctx.idle {
 				ctx.req = req
-				f.wg.Add(1)
-				go f.exe(ctx)
+				fc.wg.Add(1)
+				go fc.exe(ctx)
 			} else {
 				wait = append(wait, req)
 			}
 
-		case ctx := <-f.idle:
+		case ctx := <-fc.idle:
 			ctx.idle = true
 			ctx.idleT = time.Now()
 			for i, req := range wait {
@@ -271,13 +271,13 @@ loop:
 				}
 			}
 
-		case e := <-f.delConn:
+		case e := <-fc.delConn:
 			delCtx(e.ctx, true)
-			f.log.Error(fmt.Sprintf("delete connection %s: %v", e.ctx.addr, e.err))
+			fc.log.Error(fmt.Sprintf("delete connection %s: %v", e.ctx.addr, e.err))
 
 		case t := <-ticker.C:
 			// remote the idle connection
-			for _, ctx := range f.conns {
+			for _, ctx := range fc.conns {
 				if ctx.idle && t.Sub(ctx.idleT) > idleTimeout {
 					delCtx(ctx, false)
 				}
@@ -285,23 +285,23 @@ loop:
 		}
 	}
 
-	for _, ctx := range f.conns {
+	for _, ctx := range fc.conns {
 		delCtx(ctx, false)
 	}
 
-	close(f.idle)
-	for ctx := range f.idle {
+	for i := 0; i < len(fc.idle); i++ {
+		ctx := <-fc.idle
 		delCtx(ctx, false)
 	}
 
-	close(f.delConn)
-	for e := range f.delConn {
+	for i := 0; i < len(fc.delConn); i++ {
+		e := <-fc.delConn
 		delCtx(e.ctx, true)
 	}
 }
 
-func (f *fileClient) exe(ctx *connContext) {
-	defer f.wg.Done()
+func (fc *fileClient) exe(ctx *connContext) {
+	defer fc.wg.Done()
 
 	req := ctx.req
 	filenames := make([]string, len(req.files))
@@ -316,7 +316,7 @@ func (f *fileClient) exe(ctx *connContext) {
 	data, err := msg.Serialize()
 	if err != nil {
 		req.done(err)
-		f.idle <- ctx
+		fc.idle <- ctx
 		return
 	}
 
@@ -329,16 +329,16 @@ func (f *fileClient) exe(ctx *connContext) {
 	})
 	if err != nil {
 		req.done(err)
-		f.delConn <- &delCtxEvent{ctx, err}
+		fc.delConn <- &delCtxEvent{ctx, err}
 		return
 	}
 
-	sblocks, mblocks, err := f.readBlocks(ctx)
+	sblocks, mblocks, err := fc.readBlocks(ctx)
 	if err != nil {
 		req.done(err)
-		f.delConn <- &delCtxEvent{ctx, err}
+		fc.delConn <- &delCtxEvent{ctx, err}
 	} else {
-		f.idle <- ctx
+		fc.idle <- ctx
 		req.rec(sblocks, mblocks)
 		req.done(nil)
 	}
@@ -347,16 +347,16 @@ func (f *fileClient) exe(ctx *connContext) {
 var errResTimeout = errors.New("wait for file response timeout")
 var errFlieClientStopped = errors.New("fileClient stopped")
 
-func (f *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBlock, mblocks map[types.Address][]*ledger.AccountBlock, err error) {
+func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBlock, mblocks map[types.Address][]*ledger.AccountBlock, err error) {
 	select {
-	case <-f.term:
+	case <-fc.term:
 		err = errFlieClientStopped
 		return
 	default:
 		sblocks = make([]*ledger.SnapshotBlock, 0, ctx.req.file.End-ctx.req.file.Start+1)
 		mblocks = make(map[types.Address][]*ledger.AccountBlock)
 
-		f.chain.Compressor().BlockParser(ctx, func(block ledger.Block, err error) {
+		fc.chain.Compressor().BlockParser(ctx, func(block ledger.Block, err error) {
 			if err != nil {
 				return
 			}

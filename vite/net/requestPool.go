@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -32,6 +33,7 @@ type requestPool struct {
 	del     chan uint64
 	term    chan struct{}
 	log     log15.Logger
+	wg      sync.WaitGroup
 }
 
 // as message handler
@@ -65,6 +67,7 @@ func newRequestPool() *requestPool {
 		log:     log15.New("module", "net/reqpool"),
 	}
 
+	pool.wg.Add(1)
 	go pool.loop()
 
 	return pool
@@ -75,10 +78,13 @@ func (p *requestPool) stop() {
 	case <-p.term:
 	default:
 		close(p.term)
+		p.wg.Wait()
 	}
 }
 
 func (p *requestPool) loop() {
+	defer p.wg.Done()
+
 	expireCheckInterval := 10 * time.Second
 	ticker := time.NewTicker(expireCheckInterval)
 	defer ticker.Stop()
@@ -94,8 +100,7 @@ loop:
 			r.Run()
 
 		case id := <-p.retry:
-			r, ok := p.pending[id]
-			if ok {
+			if r, ok := p.pending[id]; ok {
 				// todo goroutine
 				r.Run()
 			}
@@ -113,21 +118,20 @@ loop:
 	}
 
 	// clean job
-	close(p.add)
-	for r := range p.add {
+	for i := 0; i < len(p.add); i++ {
+		r := <-p.add
 		r.Done(errPoolStopped)
 	}
 
-	close(p.retry)
-	for id := range p.retry {
-		r, ok := p.pending[id]
-		if ok {
+	for i := 0; i < len(p.retry); i++ {
+		id := <-p.retry
+		if r, ok := p.pending[id]; ok {
 			r.Done(errPoolStopped)
 		}
 	}
 
-	close(p.del)
-	for id := range p.del {
+	for i := 0; i < len(p.retry); i++ {
+		id := <-p.del
 		delete(p.pending, id)
 	}
 

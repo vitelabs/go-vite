@@ -250,10 +250,9 @@ loop:
 		}
 	}
 
-	close(c._wqueue)
-
 	if atomic.LoadInt32(&c.errored) == 0 {
-		for msg := range c._wqueue {
+		for i := 0; i < len(c._wqueue); i++ {
+			msg := <-c._wqueue
 			c._write(msg)
 		}
 
