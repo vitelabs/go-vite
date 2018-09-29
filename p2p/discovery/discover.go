@@ -22,6 +22,7 @@ var tRefresh = 1 * time.Hour        // refresh the node table at tRefresh interv
 var storeInterval = 5 * time.Minute // store nodes in table to db at storeDuration intervals
 var checkInterval = 3 * time.Minute // check the oldest node in table at checkInterval intervals
 var stayInTable = 5 * time.Minute   // minimal duration node stay in table can be store in db
+var findInterval = 5 * time.Minute
 
 var errUnsolicitedMsg = errors.New("unsolicited message")
 var errMsgExpired = errors.New("message has expired")
@@ -54,6 +55,7 @@ type Discovery struct {
 	refreshDone chan struct{}
 	wg          sync.WaitGroup
 	blockList   *block.CuckooSet
+	subs        []chan<- *Node
 }
 
 func (d *Discovery) Start() {
@@ -95,10 +97,12 @@ func (d *Discovery) tableLoop() {
 	checkTicker := time.NewTicker(checkInterval)
 	refreshTicker := time.NewTimer(tRefresh)
 	storeTicker := time.NewTicker(storeInterval)
+	findTicker := time.NewTicker(findInterval)
 
 	defer checkTicker.Stop()
 	defer refreshTicker.Stop()
 	defer storeTicker.Stop()
+	defer findTicker.Stop()
 
 	d.RefreshTable()
 
@@ -119,6 +123,9 @@ func (d *Discovery) tableLoop() {
 					}
 				})
 			}
+
+		case <-findTicker.C:
+			d.lookup(d.self.ID, false)
 
 		case <-storeTicker.C:
 			now := time.Now()
@@ -265,7 +272,7 @@ func (d *Discovery) HandleMsg(res *packet) {
 		d.db.setLastPing(res.fromID, time.Now())
 		d.agent.pong(node, res.hash)
 		d.tab.addNode(node)
-
+		d.notify(node)
 	case pongCode:
 		monitor.LogEvent("p2p/discv", "pong-receive")
 
@@ -290,6 +297,7 @@ func (d *Discovery) HandleMsg(res *packet) {
 		}
 
 		d.agent.sendNeighbors(node, nodes)
+		d.tab.addNode(node)
 	case neighborsCode:
 		monitor.LogEvent("p2p/discv", "neighbors-receive")
 
@@ -320,13 +328,16 @@ func (d *Discovery) RefreshTable() {
 	// do refresh routine
 	d.tab.initRand()
 	d.loadInitNodes()
-	d.lookup(d.self.ID, false)
+
+	nodes := d.lookup(d.self.ID, false)
+	d.batchNotify(nodes)
 
 	// find random NodeID in order to improve the defense of eclipse attack
 	for i := 0; i < alpha; i++ {
 		var id NodeID
 		rand.Read(id[:])
-		d.lookup(id, false)
+		nodes = d.lookup(id, false)
+		d.batchNotify(nodes)
 	}
 
 	// set the right state after refresh
@@ -339,8 +350,30 @@ func (d *Discovery) RefreshTable() {
 func (d *Discovery) loadInitNodes() {
 	nodes := d.db.randomNodes(seedCount, seedMaxAge) // get random nodes from db
 	nodes = append(nodes, d.bootNodes...)
+
+	discvLog.Info(fmt.Sprintf("got %d nodes from db", len(nodes)))
+
 	for _, node := range nodes {
 		d.tab.addNode(node)
+	}
+}
+
+func (d *Discovery) SubNodes(ch chan<- *Node) {
+	d.subs = append(d.subs, ch)
+}
+
+func (d *Discovery) notify(node *Node) {
+	for _, ch := range d.subs {
+		select {
+		case ch <- node:
+		default:
+		}
+	}
+}
+
+func (d *Discovery) batchNotify(nodes []*Node) {
+	for _, node := range nodes {
+		d.notify(node)
 	}
 }
 
