@@ -40,8 +40,7 @@ func (accountAccess *Account) GetLastAccountId() (uint64, error) {
 	iter := accountAccess.db.NewIterator(util.BytesPrefix(key), nil)
 
 	if !iter.Last() {
-		err := iter.Error()
-		if err != leveldb.ErrNotFound {
+		if err := iter.Error(); err != leveldb.ErrNotFound {
 			return 0, err
 		}
 		return 0, nil

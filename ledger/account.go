@@ -1,7 +1,6 @@
 package ledger
 
 import (
-	"encoding/hex"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -15,8 +14,7 @@ const (
 	AccountTypeContract = 3
 )
 
-var publicKey, _ = hex.DecodeString("3af9a47a11140c681c2b2a85a4ce987fab0692589b2ce233bf7e174bd430177a")
-var GenesisPublicKey = ed25519.PublicKey(publicKey)
+var GenesisAccountAddress, _ = types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
 
 type Account struct {
 	AccountAddress types.Address

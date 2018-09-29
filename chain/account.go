@@ -47,15 +47,16 @@ func (c *chain) newAccountId() (uint64, error) {
 	return lastAccountId + 1, nil
 }
 
-func (c *chain) createAccount(batch *leveldb.Batch, accountId uint64, address *types.Address, publicKey ed25519.PublicKey) error {
+func (c *chain) createAccount(batch *leveldb.Batch, accountId uint64, address *types.Address, publicKey ed25519.PublicKey) (*ledger.Account, error) {
 	account := &ledger.Account{
-		AccountId: accountId,
-		PublicKey: publicKey,
+		AccountAddress: *address,
+		AccountId:      accountId,
+		PublicKey:      publicKey,
 	}
 
 	c.chainDb.Account.WriteAccountIndex(batch, accountId, address)
 	if err := c.chainDb.Account.WriteAccount(batch, account); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return account, nil
 }
