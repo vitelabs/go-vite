@@ -283,6 +283,10 @@ func (indexer *Indexer) formatToLine(item *indexItem) string {
 }
 
 func (indexer *Indexer) LatestHeight() uint64 {
+	if len(indexer.indexList) <= 0 {
+		return 0
+	}
+
 	if lastItem := indexer.indexList[len(indexer.indexList)-1]; lastItem != nil {
 		return lastItem.endHeight
 	}

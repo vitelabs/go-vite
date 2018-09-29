@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	STOPPED = 0
-	RUNNING = 1
+	STOPPED      = 0
+	RUNNING      = 1
+	TASK_RUNNING = 2
 )
 
 var compressorLog = log15.New("module", "compressor")
@@ -107,6 +108,7 @@ func (c *Compressor) Start() bool {
 		return false
 	}
 
+	c.log.Info("Compressor started.", "method", "Start")
 	c.status = RUNNING
 	c.ticker = time.NewTicker(c.tickerDuration)
 
@@ -121,17 +123,32 @@ func (c *Compressor) Start() bool {
 				return
 
 			case <-c.ticker.C:
-				tmpFileName := filepath.Join(c.dir, "subgraph_tmp")
-				task := NewCompressorTask(c.chain, tmpFileName, c.indexer.LatestHeight())
-				if result := task.Run(); result.IsSuccess {
-					c.indexer.Add(result.Ti, tmpFileName, result.BlockNumbers)
-				}
-				task.Clear()
+				c.RunTask()
 			}
 		}
 	}()
 
 	return true
+}
+
+func (c *Compressor) RunTask() {
+	c.statusLock.Lock()
+	defer c.statusLock.Unlock()
+	if c.status != RUNNING {
+		compressorLog.Error("Compressor is not running, Can't run task.")
+		return
+	}
+
+	c.status = TASK_RUNNING
+
+	tmpFileName := filepath.Join(c.dir, "subgraph_tmp")
+	task := NewCompressorTask(c.chain, tmpFileName, c.indexer.LatestHeight())
+	if result := task.Run(); result.IsSuccess {
+		c.indexer.Add(result.Ti, tmpFileName, result.BlockNumbers)
+	}
+	task.Clear()
+
+	c.status = RUNNING
 }
 
 func (c *Compressor) Stop() {
@@ -141,6 +158,7 @@ func (c *Compressor) Stop() {
 	if c.status == STOPPED {
 		return
 	}
+	c.log.Info("Compressor stopped.", "method", "Stop")
 
 	// stop ticker
 	c.ticker.Stop()

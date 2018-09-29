@@ -1,6 +1,10 @@
-package compress
+package chain
 
-var compressor *Compressor
+import "testing"
+
+func TestNewCompressor(t *testing.T) {
+
+}
 
 //func TestMain(m *testing.M) {
 //	compressor = NewCompressor()

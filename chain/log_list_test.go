@@ -1,11 +1,13 @@
 package chain
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
+	"testing"
 	"time"
 )
 
@@ -34,7 +36,9 @@ func sendViteBlock() (*vm_context.VmAccountBlock, error) {
 		AccountAddress: ledger.GenesisAccountAddress,
 		ToAddress:      toAddress,
 		Amount:         sendAmount,
+		TokenId:        ledger.ViteTokenId,
 		Height:         nextHeight,
+		Fee:            big.NewInt(0),
 		PublicKey:      publicKey,
 		SnapshotHash:   GenesisSnapshotBlock.Hash,
 		Timestamp:      &now,
@@ -43,6 +47,16 @@ func sendViteBlock() (*vm_context.VmAccountBlock, error) {
 	}
 
 	vmContext.SubBalance(&GenesisMintageSendBlock.TokenId, sendAmount)
+	logHash1, _ := types.HexToHash("1e7f1b0e23a05127e38dca416cf5f4968189e8bd3385c3a1bf554393b0ca8b58")
+	logHash2, _ := types.HexToHash("706b00a2ae1725fb5d90b3b7a76d76c922eb075be485749f987af7aa46a66785")
+	vmContext.AddLog(&ledger.VmLog{
+		Topics: []types.Hash{
+			logHash1, logHash2,
+		},
+		Data: []byte("Yes, I am log"),
+	})
+
+	sendBlock.LogHash = vmContext.GetLogListHash()
 	sendBlock.StateHash = *vmContext.GetStorageHash()
 	sendBlock.Hash = sendBlock.ComputeHash()
 	return &vm_context.VmAccountBlock{
@@ -51,7 +65,21 @@ func sendViteBlock() (*vm_context.VmAccountBlock, error) {
 	}, nil
 }
 
-//
-//func TestGetVmLogList() {
-//
-//}
+func TestGetVmLogList(t *testing.T) {
+	chainInstance := getChainInstance()
+	blocks, err := sendViteBlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	chainInstance.InsertAccountBlocks([]*vm_context.VmAccountBlock{
+		blocks,
+	})
+
+	logList, err2 := chainInstance.GetVmLogList(blocks.AccountBlock.LogHash)
+	if err2 != nil {
+		t.Fatal(err2)
+	}
+	for index, log := range logList {
+		fmt.Printf("%d: %+v\n", index, log)
+	}
+}

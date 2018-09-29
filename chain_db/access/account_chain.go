@@ -442,7 +442,7 @@ func (ac *AccountChain) Delete(batch *leveldb.Batch, deleteMap map[uint64]uint64
 func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64, needExtendDelete bool) (map[uint64]uint64, []*ledger.HashHeight, error) {
 	currentNeedDelete := planToDelete
 
-	var deleteMap map[uint64]uint64
+	deleteMap := make(map[uint64]uint64)
 	var reopenList []*ledger.HashHeight
 
 	for len(currentNeedDelete) > 0 {
