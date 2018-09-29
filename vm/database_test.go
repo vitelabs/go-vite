@@ -65,16 +65,26 @@ func (db *testDatabase) GetSnapshotBlockByHeight(height uint64) *ledger.Snapshot
 	}
 	return nil
 }
+
+// forward=true return [startHeight, startHeight+count), forward=false return (startHeight-count, startHeight]
 func (db *testDatabase) GetSnapshotBlocks(startHeight uint64, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
+	blockList := make([]*ledger.SnapshotBlock, 0)
+	var start, end uint64
 	if forward {
-		start := startHeight
-		end := start + count
-		return db.snapshotBlockList[start:end]
+		start = startHeight
+		end = start + count
 	} else {
-		end := startHeight - 1
-		start := end - count
-		return db.snapshotBlockList[start:end]
+		end = startHeight + 1
+		start = end - count
 	}
+	for _, block := range db.snapshotBlockList {
+		if block.Height >= start && block.Height < end {
+			blockList = append(blockList, block)
+		} else if block.Height >= end {
+			break
+		}
+	}
+	return blockList
 }
 func (db *testDatabase) GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock {
 	for len := len(db.snapshotBlockList) - 1; len >= 0; len = len - 1 {
@@ -208,7 +218,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	db = NewNoDatabase()
 	db.storageMap[contracts.AddressMintage] = make(map[string][]byte)
 	viteTokenIdLoc, _ := types.BytesToHash(helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), 32))
-	db.storageMap[contracts.AddressMintage][string(viteTokenIdLoc.Bytes())], _ = contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), int64(0))
+	db.storageMap[contracts.AddressMintage][string(viteTokenIdLoc.Bytes())], _ = contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), uint64(0))
 
 	timestamp = 1536214502
 	t1 := time.Unix(timestamp-1, 0)
@@ -263,7 +273,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		[]byte{},
 		addr1,
 		big.NewInt(0),
-		timestamp+createConsensusGroupPledgeTime)
+		uint64(1))
 	db.storageMap[contracts.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
 	consensusGroupKey, _ = types.BytesToHash(contracts.GetConsensusGroupKey(types.DELEGATE_GID))
 	consensusGroupData, _ = contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
@@ -279,7 +289,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		[]byte{},
 		addr1,
 		big.NewInt(0),
-		timestamp+createConsensusGroupPledgeTime)
+		uint64(1))
 	db.storageMap[contracts.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
 	db.storageMap[contracts.AddressPledge] = make(map[string][]byte)
 	db.storageMap[contracts.AddressPledge][string(contracts.GetPledgeBeneficialKey(addr1))], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
