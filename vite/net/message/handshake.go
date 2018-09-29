@@ -12,10 +12,10 @@ type HandShake struct {
 	Genesis types.Hash
 }
 
-func (st *HandShake) Serialize() ([]byte, error) {
+func (h *HandShake) Serialize() ([]byte, error) {
 	return nil, nil
 }
 
-func (st *HandShake) Deserialize(data []byte) error {
+func (h *HandShake) Deserialize(data []byte) error {
 	return nil
 }

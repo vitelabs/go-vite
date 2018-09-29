@@ -62,7 +62,7 @@ func (m *Disc) GetReason() uint64 {
 
 type Handshake struct {
 	NetID                uint64    `protobuf:"varint,1,opt,name=NetID,proto3" json:"NetID,omitempty"`
-	Name                 string    `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
+	Name                 string    `protobuf:"bytes,2,opt,name=Names,proto3" json:"Names,omitempty"`
 	ID                   []byte    `protobuf:"bytes,3,opt,name=ID,proto3" json:"ID,omitempty"`
 	CmdSets              []*CmdSet `protobuf:"bytes,4,rep,name=CmdSets,proto3" json:"CmdSets,omitempty"`
 	Version              uint64    `protobuf:"varint,5,opt,name=Version,proto3" json:"Version,omitempty"`
@@ -149,7 +149,7 @@ func (m *Handshake) GetRemotePort() uint32 {
 
 type CmdSet struct {
 	ID                   uint64   `protobuf:"varint,1,opt,name=ID,proto3" json:"ID,omitempty"`
-	Name                 string   `protobuf:"bytes,2,opt,name=Name,proto3" json:"Name,omitempty"`
+	Name                 string   `protobuf:"bytes,2,opt,name=Names,proto3" json:"Names,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
