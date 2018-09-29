@@ -62,6 +62,13 @@ var (
 		utils.WSListenAddrFlag,
 		utils.WSPortFlag,
 	}
+
+	//Console
+	consoleFlags = []cli.Flag{
+		utils.JSPathFlag,
+		utils.ExecFlag,
+		utils.PreloadJSFlag,
+	}
 )
 
 func init() {
@@ -73,8 +80,8 @@ func init() {
 	app.Compiled = time.Now()
 	app.Authors = []cli.Author{
 		cli.Author{
-			Name:  "viteyuan",
-			Email: "viteyuan@163.com",
+			Name:  "viteLabs",
+			Email: "XXX@vite.org",
 		},
 	}
 	app.Copyright = "Copyright 2018-2024 The go-vite Authors"
@@ -82,9 +89,14 @@ func init() {
 
 	//Import: Please add the New command here
 	app.Commands = []cli.Command{
+		//misc
 		initCommand,
-		heightCommand,
 		versionCommand,
+		//console
+		consoleCommand,
+		attachCommand,
+
+		heightCommand,
 		accountCommand,
 		consoleCommand,
 		attachCommand,
@@ -92,12 +104,7 @@ func init() {
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	//Import: Please add the New Flags here
-	app.Flags = append(app.Flags, configFlags...)
-	app.Flags = append(app.Flags, generalFlags...)
-	app.Flags = append(app.Flags, p2pFlags...)
-	app.Flags = append(app.Flags, ipcFlags...)
-	app.Flags = append(app.Flags, httpFlags...)
-	app.Flags = append(app.Flags, wsFlags...)
+	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags)
 
 	app.Before = beforeAction
 	app.Action = action
@@ -126,7 +133,7 @@ func action(ctx *cli.Context) error {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 
-	nodeManager := nodemanager.New(ctx)
+	nodeManager := nodemanager.New(ctx, nodemanager.FullNodeMaker{})
 
 	return nodeManager.Start()
 }

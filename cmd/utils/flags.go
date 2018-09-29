@@ -109,4 +109,45 @@ var (
 		Usage: "WS-RPC server listening port",
 		Value: common.DefaultWSPort,
 	}
+
+	//Console Settings
+	JSPathFlag = cli.StringFlag{
+		Name:  "jspath",
+		Usage: "JavaScript root path for `loadScript`",
+		Value: ".",
+	}
+	ExecFlag = cli.StringFlag{
+		Name:  "exec",
+		Usage: "Execute JavaScript statement",
+	}
+	PreloadJSFlag = cli.StringFlag{
+		Name:  "preload",
+		Usage: "Comma separated list of JavaScript files to preload into the console",
+	}
 )
+
+// This allows the use of the existing configuration functionality.
+// When all flags are migrated this function can be removed and the existing
+// configuration functionality must be changed that is uses local flags
+func MigrateFlags(action func(ctx *cli.Context) error) func(*cli.Context) error {
+	return func(ctx *cli.Context) error {
+		for _, name := range ctx.FlagNames() {
+			if ctx.IsSet(name) {
+				ctx.GlobalSet(name, ctx.String(name))
+			}
+		}
+		return action(ctx)
+	}
+}
+
+// merge flags
+func MergeFlags(flagsSet ...[]cli.Flag) []cli.Flag {
+
+	mergeFlags := []cli.Flag{}
+
+	for _, flags := range flagsSet {
+
+		mergeFlags = append(mergeFlags, flags...)
+	}
+	return mergeFlags
+}

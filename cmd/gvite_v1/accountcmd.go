@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/cmd/console"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/rpc/api/impl"
+	"github.com/vitelabs/go-vite/rpcapi/impl"
 	"github.com/vitelabs/go-vite/vite"
 	"gopkg.in/urfave/cli.v1"
 	"io/ioutil"

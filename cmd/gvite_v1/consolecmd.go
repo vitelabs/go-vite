@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/vitelabs/go-vite/cmd/console"
+	"github.com/vitelabs/go-vite/cmd/nodemanager"
+	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/rpc"
 	"gopkg.in/urfave/cli.v1"
@@ -13,16 +15,20 @@ import (
 )
 
 var (
+	consoleNeedFlags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags)
+
 	consoleCommand = cli.Command{
-		Action: consoleCmd,
-		Name:   "console",
-		Usage:  "Start a console",
-		//Category: "CONSOLE COMMANDS",
+		Action:   utils.MigrateFlags(consoleAction),
+		Name:     "console",
+		Usage:    "Start a console",
+		Flags:    consoleFlags,
+		Category: "CONSOLE COMMANDS",
 		Description: `
-		The Gvite console is an interactive shell for the JavaScript runtime environment`,
+		The Gvite console is an interactive shell for the JavaScript runtime environment
+        which exposes a node admin interface as well as the Ðapp JavaScript API.`,
 	}
 	attachCommand = cli.Command{
-		Action: remoteConsole,
+		Action: utils.MigrateFlags(acctchAction),
 		Name:   "attach",
 		Usage:  "Start an interactive console runtime",
 		//Category: "CONSOLE COMMANDS",
@@ -30,7 +36,12 @@ var (
 	}
 )
 
-func consoleCmd(ctx *cli.Context) error {
+func consoleAction(ctx *cli.Context) error {
+	//Create and start the node based on the CLI flags
+	manager := nodemanager.New(ctx, nodemanager.FullNodeMaker{})
+	manager.Start()
+	defer manager.Stop()
+
 	config := console.Config{
 		DataDir: common.DefaultDataDir(),
 		DocRoot: common.DefaultDataDir(),
@@ -51,7 +62,7 @@ func consoleCmd(ctx *cli.Context) error {
 	return nil
 }
 
-func remoteConsole(ctx *cli.Context) error {
+func acctchAction(ctx *cli.Context) error {
 	ipcapiURL := filepath.Join(common.DefaultDataDir(), rpc.DefaultIpcFile())
 	if runtime.GOOS == "windows" {
 		ipcapiURL = rpc.DefaultIpcFile()

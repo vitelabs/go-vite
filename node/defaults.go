@@ -6,7 +6,7 @@ import (
 )
 
 var DefaultNodeConfig = Config{
-	Name:     "gvite-config",
+	Name:     "node-config",
 	IPCPath:  "vite.ipc",
 	DataDir:  common.DefaultDataDir(),
 	HttpPort: common.DefaultHTTPPort,

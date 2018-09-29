@@ -1,10 +1,7 @@
 package utils
 
 import (
-	"github.com/vitelabs/go-vite/cmd/params"
 	"gopkg.in/urfave/cli.v1"
-	"os"
-	"path/filepath"
 )
 
 var (
@@ -35,14 +32,4 @@ GLOBAL OPTIONS:
 `
 
 	cli.CommandHelpTemplate = CommandHelpTemplate
-}
-
-func NewApp() *cli.App {
-	app := cli.NewApp()
-	app.Name = filepath.Base(os.Args[0])
-	app.Author = ""
-	app.Email = ""
-	app.Version = params.Version
-	app.Usage = "the go-vite cli application"
-	return app
 }

@@ -7,40 +7,14 @@ import (
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
 	"io/ioutil"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
-var (
-	log = log15.New("module", "gvite/nodemanager")
-)
-
-type NodeManager struct {
-	ctx    *cli.Context
-	node   *node.Node
-	logger log15.Logger
+type FullNodeMaker struct {
 }
 
-func New(ctx *cli.Context) NodeManager {
-	return NodeManager{
-		ctx:    ctx,
-		node:   MakeFullNode(ctx),
-		logger: log,
-	}
-}
+func (maker FullNodeMaker) MakeNode(ctx *cli.Context) *node.Node {
 
-func (nodeManager *NodeManager) Start() error {
-
-	// Start up the node
-	StartNode(nodeManager.node)
-
-	return nil
-}
-
-func MakeFullNode(ctx *cli.Context) *node.Node {
-
-	nodeConfig := MakeNodeConfig(ctx)
+	nodeConfig := maker.MakeNodeConfig(ctx)
 
 	node, err := node.New(nodeConfig)
 
@@ -50,7 +24,7 @@ func MakeFullNode(ctx *cli.Context) *node.Node {
 	return node
 }
 
-func MakeNodeConfig(ctx *cli.Context) *node.Config {
+func (maker FullNodeMaker) MakeNodeConfig(ctx *cli.Context) *node.Config {
 
 	cfg := node.DefaultNodeConfig
 
@@ -71,7 +45,7 @@ func MakeNodeConfig(ctx *cli.Context) *node.Config {
 	mappingNodeConfig(ctx, &cfg)
 
 	//3: Config log to file
-	if fileName, e := cfg.NewRunLogDirFile(); e == nil {
+	if fileName, e := cfg.RunLogFile(); e == nil {
 		log15.Root().SetHandler(
 			log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(fileName, log15.TerminalFormat())),
 		)
@@ -148,32 +122,4 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.WSPort = ctx.GlobalInt(utils.WSPortFlag.Name)
 	}
 
-}
-
-func StartNode(node *node.Node) {
-
-	// Start the node
-	if err := node.Start(); err != nil {
-		log.Error("Error staring protocol node: %v", err)
-	}
-
-	// Listening event closes the node
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-		defer signal.Stop(c)
-		<-c
-		log.Info("Got interrupt, shutting down...")
-		go node.Stop()
-		for i := 10; i > 0; i-- {
-			<-c
-			if i > 1 {
-				log.Warn("Already shutting down, interrupt more to panic.", "times", i-1)
-			}
-		}
-
-	}()
-
-	//TODO:why
-	node.Wait()
 }

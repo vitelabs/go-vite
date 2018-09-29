@@ -42,7 +42,18 @@ func init() {
 	app.Action = gvite
 	//app.HideVersion = true
 	app.Copyright = "Copyright 2018-2024 The go-vite Authors"
-	app.Commands = []cli.Command{}
+
+	testCommand := cli.Command{
+		Action:    testAction,
+		Name:      "test",
+		Usage:     "Display test information",
+		ArgsUsage: " ",
+		Category:  "MISCELLANEOUS COMMANDS",
+	}
+
+	app.Commands = []cli.Command{
+		testCommand,
+	}
 
 	sort.Sort(cli.CommandsByName(app.Commands))
 
@@ -62,6 +73,7 @@ func main() {
 func gvite(ctx *cli.Context) error {
 
 	//TODO invalid is why
+	log.Info("gvite here")
 	log.Info(fmt.Sprintf("os.args.len is %v", os.Args))
 	log.Info(fmt.Sprintf("ctx.args.len is %v", ctx.Args()))
 	log.Info(fmt.Sprintf("IdentityFlag.Name is %v", ctx.GlobalString(IdentityFlag.Name)))
@@ -78,5 +90,10 @@ func gvite(ctx *cli.Context) error {
 }
 
 func doSomething(ctx *cli.Context) {
+	log.Info("doSomething here")
+}
 
+func testAction(ctx *cli.Context) error {
+	log.Info("testAction here")
+	return nil
 }
