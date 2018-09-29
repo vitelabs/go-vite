@@ -42,6 +42,9 @@ func consoleAction(ctx *cli.Context) error {
 	manager.Start()
 	defer manager.Stop()
 
+	//Attach to the newly started node and start the JavaScript console
+	client, err := manager.Node().Attach()
+
 	config := console.Config{
 		DataDir: common.DefaultDataDir(),
 		DocRoot: common.DefaultDataDir(),

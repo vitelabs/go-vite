@@ -26,6 +26,21 @@ var (
 	}
 
 	// Network Settings
+	TestNetFlag = cli.BoolFlag{
+		Name:  "testnet",
+		Usage: "Ropsten network: pre-configured proof-of-work test network",
+	}
+
+	DevNetFlag = cli.BoolFlag{
+		Name:  "devnet",
+		Usage: "Rinkeby network: pre-configured proof-of-authority dev network",
+	}
+
+	MainNetFlag = cli.BoolFlag{
+		Name:  "mainnet",
+		Usage: "Rinkeby network: pre-configured proof-of-authority prod network",
+	}
+
 	IdentityFlag = cli.StringFlag{
 		Name:  "identity", //mapping:p2p.Name
 		Usage: "Custom node name",
@@ -34,18 +49,8 @@ var (
 		Name: "networkid", //mapping:p2p.NetID
 		Usage: "Network identifier (integer," +
 			" 1=MainNet," +
-			" 2=Aquarius," +
-			" 3=Pisces," +
-			" 4=Aries," +
-			" 5=Taurus," +
-			" 6=Gemini," +
-			" 7=Cancer," +
-			" 8=Leo," +
-			" 9=Virgo," +
-			" 10=Libra," +
-			" 11=Scorpio," +
-			" 12=Sagittarius," +
-			" 13=Capricorn,)",
+			" 2=TestNet," +
+			" 3~12=DevNet,)",
 		Value: config.GlobalConfig.NetID,
 	}
 	MaxPeersFlag = cli.UintFlag{

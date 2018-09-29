@@ -35,7 +35,10 @@ var (
 
 	//p2p
 	p2pFlags = []cli.Flag{
-		utils.IdentityFlag, //TODO: change the flag name ?
+		utils.DevNetFlag,
+		utils.TestNetFlag,
+		utils.MainNetFlag,
+		utils.IdentityFlag,
 		utils.NetworkIdFlag,
 		utils.MaxPeersFlag,
 		utils.MaxPendingPeersFlag,
@@ -93,13 +96,8 @@ func init() {
 		initCommand,
 		versionCommand,
 		//console
-		consoleCommand,
-		attachCommand,
-
-		heightCommand,
-		accountCommand,
-		consoleCommand,
-		attachCommand,
+		//consoleCommand,
+		//attachCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 

@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
 	"io/ioutil"
+	"path/filepath"
 )
 
 type FullNodeMaker struct {
@@ -14,8 +15,9 @@ type FullNodeMaker struct {
 
 func (maker FullNodeMaker) MakeNode(ctx *cli.Context) *node.Node {
 
+	// 1: Make Node.Config
 	nodeConfig := maker.MakeNodeConfig(ctx)
-
+	// 2: New Node
 	node, err := node.New(nodeConfig)
 
 	if err != nil {
@@ -29,27 +31,16 @@ func (maker FullNodeMaker) MakeNodeConfig(ctx *cli.Context) *node.Config {
 	cfg := node.DefaultNodeConfig
 
 	// 1: Load config file.
-	if file := ctx.GlobalString(utils.ConfigFileFlag.Name); file != "" {
-
-		if jsonConf, err := ioutil.ReadFile(file); err == nil {
-			err = json.Unmarshal(jsonConf, &cfg)
-			if err != nil {
-				log.Info("cannot unmarshal the config file content, will use the default config", "error", err)
-			}
-		} else {
-			log.Info("cannot read the config file, will use the default config", "error", err)
-		}
-	}
+	loadNodeConfigFromFile(ctx, &cfg)
 
 	// 2: Apply flags, Overwrite the configuration file configuration
 	mappingNodeConfig(ctx, &cfg)
 
-	//3: Config log to file
-	if fileName, e := cfg.RunLogFile(); e == nil {
-		log15.Root().SetHandler(
-			log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(fileName, log15.TerminalFormat())),
-		)
-	}
+	// 3: Override any default configs for hard coded networks.
+	overrideDefaultConfigs(ctx, &cfg)
+
+	// 4: Config log to file
+	makeRunLogFile(&cfg)
 
 	return &cfg
 }
@@ -69,28 +60,23 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 
 	//Network Config
 	if identity := ctx.GlobalString(utils.IdentityFlag.Name); len(identity) > 0 {
-		cfg.Name = identity
-		cfg.P2P.Name = identity
-	}
-
-	if ctx.GlobalIsSet(utils.NetworkIdFlag.Name) {
-		cfg.P2P.NetID = ctx.GlobalUint(utils.NetworkIdFlag.Name)
+		cfg.Identity = identity
 	}
 
 	if ctx.GlobalIsSet(utils.MaxPeersFlag.Name) {
-		cfg.P2P.MaxPeers = ctx.GlobalUint(utils.MaxPeersFlag.Name)
+		cfg.MaxPeers = ctx.GlobalUint(utils.MaxPeersFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.MaxPendingPeersFlag.Name) {
-		cfg.P2P.MaxPendingPeers = ctx.GlobalUint(utils.MaxPendingPeersFlag.Name)
+		cfg.MaxPendingPeers = ctx.GlobalUint(utils.MaxPendingPeersFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.ListenPortFlag.Name) {
-		cfg.P2P.Port = ctx.GlobalUint(utils.ListenPortFlag.Name)
+		cfg.Port = ctx.GlobalUint(utils.ListenPortFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.NodeKeyHexFlag.Name) {
-		cfg.P2P.PrivateKey = ctx.GlobalString(utils.NodeKeyHexFlag.Name)
+		cfg.SetPrivateKey(ctx.GlobalString(utils.NodeKeyHexFlag.Name))
 	}
 
 	//Ipc Config
@@ -122,4 +108,62 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.WSPort = ctx.GlobalInt(utils.WSPortFlag.Name)
 	}
 
+}
+
+func overrideDefaultConfigs(ctx *cli.Context, cfg *node.Config) {
+
+	if ctx.GlobalBool(utils.DevNetFlag.Name) {
+		cfg.NetSelect = "dev"
+		//network override
+		if cfg.NetID < 3 {
+			cfg.NetID = 3
+		}
+		//dataDir override
+		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "devdata")
+		//abs dataDir
+		cfg.DataDirPathAbs()
+		return
+	}
+
+	if ctx.GlobalBool(utils.TestNetFlag.Name) {
+		cfg.NetSelect = "test"
+		if cfg.NetID != 2 {
+			cfg.NetID = 2
+		}
+		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "testdata")
+		cfg.DataDirPathAbs()
+		return
+	}
+
+	if ctx.GlobalBool(utils.MainNetFlag.Name) {
+		cfg.NetSelect = "main"
+		if cfg.NetID != 1 {
+			cfg.NetID = 1
+		}
+		cfg.DataDirPathAbs()
+		return
+	}
+}
+
+func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) {
+
+	if file := ctx.GlobalString(utils.ConfigFileFlag.Name); file != "" {
+
+		if jsonConf, err := ioutil.ReadFile(file); err == nil {
+			err = json.Unmarshal(jsonConf, &cfg)
+			if err != nil {
+				log.Info("cannot unmarshal the config file content, will use the default config", "error", err)
+			}
+		} else {
+			log.Info("cannot read the config file, will use the default config", "error", err)
+		}
+	}
+}
+
+func makeRunLogFile(cfg *node.Config) {
+	if fileName, e := cfg.RunLogFile(); e == nil {
+		log15.Root().SetHandler(
+			log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(fileName, log15.TerminalFormat())),
+		)
+	}
 }

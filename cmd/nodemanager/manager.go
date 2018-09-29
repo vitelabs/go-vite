@@ -24,19 +24,23 @@ func New(ctx *cli.Context, maker NodeMaker) NodeManager {
 
 func (nodeManager *NodeManager) Start() error {
 
-	// Start up the node
+	// 1: Start up the node
 	StartNode(nodeManager.node)
-	// Waiting for node to close
+
+	// 2: Waiting for node to close
 	WaitNode(nodeManager.node)
+
 	return nil
 }
 
 func (nodeManager *NodeManager) Stop() error {
 
 	StopNode(nodeManager.node)
+
 	return nil
 }
 
 func (nodeManager *NodeManager) Node() *node.Node {
+
 	return nodeManager.node
 }

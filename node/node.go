@@ -57,8 +57,6 @@ type Node struct {
 }
 
 func New(conf *Config) (*Node, error) {
-	conf = CopyConf(conf)
-	conf.DataDirPathAbs()
 	return &Node{
 		config:       conf,
 		walletConfig: conf.makeWalletConfig(),

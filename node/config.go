@@ -16,14 +16,22 @@ import (
 )
 
 type Config struct {
-	Name    string `json:"ConfigName"`
-	Version string `json:"ConfigVersion"`
+	DataDir string `json:"DataDir"`
 
-	DataDir     string `json:"DataDir"`
 	KeyStoreDir string `json:"KeyStoreDir"`
 
-	P2P config.P2P `json:"P2P"`
+	// p2p
+	NetSelect            string
+	Identity             string   `json:"Identity"`
+	privateKey           string   `json:"PrivateKey"`
+	MaxPeers             uint     `json:"MaxPeers"`
+	MaxPassivePeersRatio uint     `json:"MaxPassivePeersRatio"`
+	MaxPendingPeers      uint     `json:"MaxPendingPeers"`
+	bootNodes            []string `json:"BootNodes"`
+	Port                 uint     `json:"Port"`
+	NetID                uint     `json:"NetID"`
 
+	//rpc
 	RPCEnabled bool `json:"RPCEnabled"`
 	IPCEnabled bool `json:"IPCEnabled"`
 	WSEnabled  bool `json:"WSEnabled"`
@@ -42,23 +50,37 @@ func (c *Config) makeWalletConfig() *wallet.Config {
 
 func (c *Config) makeViteConfig() *config.Config {
 	return &config.Config{
-		P2P:     &c.P2P,
+		P2P:     c.makeConfigP2P(),
 		DataDir: c.DataDir,
+	}
+}
+
+func (c *Config) makeConfigP2P() *config.P2P {
+	return &config.P2P{
+		Name:                 c.Identity,
+		NetID:                c.NetID,
+		MaxPeers:             c.MaxPeers,
+		MaxPendingPeers:      c.MaxPendingPeers,
+		MaxPassivePeersRatio: c.MaxPassivePeersRatio,
+		Port:                 c.Port,
+		Datadir:              c.DataDir,
+		PrivateKey:           c.privateKey,
+		BootNodes:            c.bootNodes,
 	}
 }
 
 func (c *Config) makeP2PConfig() *p2p.Config {
 	return &p2p.Config{
-		Name:            c.P2P.Name,
-		NetID:           p2p.NetworkID(c.P2P.NetID),
-		MaxPeers:        c.P2P.MaxPeers,
-		MaxPendingPeers: c.P2P.MaxPendingPeers,
-		MaxInboundRatio: c.P2P.MaxPassivePeersRatio,
-		Port:            c.P2P.Port,
-		Database:        c.P2P.Datadir,
+		Name:            c.Identity,
+		NetID:           p2p.NetworkID(c.NetID),
+		MaxPeers:        c.MaxPeers,
+		MaxPendingPeers: c.MaxPendingPeers,
+		MaxInboundRatio: c.MaxPassivePeersRatio,
+		Port:            c.Port,
+		Database:        c.DataDir,
 		PrivateKey:      c.PrivateKey(),
 		//Protocols:nil,
-		BootNodes: c.P2P.BootNodes,
+		BootNodes: c.bootNodes,
 		//KafKa:nil,
 	}
 }
@@ -77,23 +99,14 @@ func (c *Config) WSEndpoint() string {
 	return fmt.Sprintf("%s:%d", c.WSHost, c.WSPort)
 }
 
-func (c *Config) RunLogDir() string {
-	return filepath.Join(c.DataDir, "runlog")
-}
-
-func (c *Config) RunLogFile() (string, error) {
-	filename := time.Now().Format("2006-01-02") + ".log"
-	if err := os.MkdirAll(c.RunLogDir(), 0777); err != nil {
-		return "", err
-	}
-	return filepath.Join(c.RunLogDir(), filename), nil
-
+func (c *Config) SetPrivateKey(privateKey string) {
+	c.privateKey = privateKey
 }
 
 func (c *Config) PrivateKey() ed25519.PrivateKey {
 
-	if c.P2P.PrivateKey != "" {
-		privateKey, err := hex.DecodeString(c.P2P.PrivateKey)
+	if c.privateKey != "" {
+		privateKey, err := hex.DecodeString(c.privateKey)
 		if err == nil {
 			return ed25519.PrivateKey(privateKey)
 		}
@@ -104,9 +117,9 @@ func (c *Config) PrivateKey() ed25519.PrivateKey {
 
 func (c *Config) BootNodes() []*discovery.Node {
 
-	if len(c.P2P.BootNodes) > 0 {
+	if len(c.bootNodes) > 0 {
 		var nodes []*discovery.Node
-		for _, str := range c.P2P.BootNodes {
+		for _, str := range c.bootNodes {
 			n, err := discovery.ParseNode(str)
 			if err == nil {
 				return append(nodes, n)
@@ -138,6 +151,19 @@ func (c *Config) IPCEndpoint() string {
 	return c.IPCPath
 }
 
+func (c *Config) RunLogDir() string {
+	return filepath.Join(c.DataDir, "runlog")
+}
+
+func (c *Config) RunLogFile() (string, error) {
+	filename := time.Now().Format("2006-01-02") + ".log"
+	if err := os.MkdirAll(c.RunLogDir(), 0777); err != nil {
+		return "", err
+	}
+	return filepath.Join(c.RunLogDir(), filename), nil
+
+}
+
 //resolve the dataDir so future changes to the current working directory don't affect the node
 func (c *Config) DataDirPathAbs() error {
 
@@ -148,6 +174,5 @@ func (c *Config) DataDirPathAbs() error {
 		}
 		c.DataDir = absDataDir
 	}
-	c.P2P.Datadir = c.DataDir
 	return nil
 }
