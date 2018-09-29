@@ -14,9 +14,6 @@ import (
 
 // all query include start block
 type Chain interface {
-	// query common Hash
-	GetAbHashList(start, count, step uint64, forward bool) ([]*ledger.HashHeight, error)
-
 	// the second return value mean chunk befor/after file
 	GetSubLedgerByHeight(start, count uint64, forward bool) ([]string, [][2]uint64)
 	GetSubLedgerByHash(origin *types.Hash, count uint64, forward bool) ([]string, [][2]uint64, error)
@@ -64,13 +61,15 @@ func New(cfg *Config) (*Net, error) {
 		return nil, err
 	}
 
+	fc := newFileClient(cfg.Chain)
+
 	peers := NewPeerSet()
 	pool := newRequestPool()
 
 	broadcaster := newBroadcaster(peers)
 	filter := newFilter()
 	receiver := newReceiver(broadcaster)
-	syncer := newSyncer(cfg.Chain, peers, pool, receiver)
+	syncer := newSyncer(cfg.Chain, peers, pool, receiver, fc)
 	fetcher := newFetcher(filter, peers, receiver, pool)
 
 	syncer.feed.Sub(receiver.listen) // subscribe sync status
@@ -84,7 +83,7 @@ func New(cfg *Config) (*Net, error) {
 		receiver:    receiver,
 		broadcaster: broadcaster,
 		fs:          fs,
-		fc:          newFileClient(cfg.Chain),
+		fc:          fc,
 		term:        make(chan struct{}),
 		log:         log15.New("module", "vite/net"),
 	}
@@ -107,7 +106,6 @@ func New(cfg *Config) (*Net, error) {
 		},
 	})
 
-	// start
 	go n.fs.start()
 
 	go n.fc.start()

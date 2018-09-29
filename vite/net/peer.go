@@ -357,3 +357,17 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*Peer) {
 
 	return
 }
+
+type Peers []*Peer
+
+func (s Peers) Len() int {
+	return len(s)
+}
+
+func (s Peers) Less(i, j int) bool {
+	return s[i].height < s[j].height
+}
+
+func (s Peers) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}

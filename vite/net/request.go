@@ -2,11 +2,11 @@ package net
 
 import (
 	"errors"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
+	"sort"
 	"time"
 )
 
@@ -54,6 +54,83 @@ var errMissingPeer = errors.New("request missing peer")
 var errUnknownResErr = errors.New("unknown response exception")
 var errUnExpectedRes = errors.New("unexpected response")
 
+const safeHeight uint64 = 3600 // peer`s height max taller than from + 3600
+const minBlocks uint64 = 3600  // minimal snapshot blocks per subLedger request
+const maxBlocks uint64 = 10800 // maximal snapshot blocks per subLedger request
+
+type subLedgerPiece struct {
+	from  uint64
+	count uint64
+	peer  *Peer
+}
+
+// split large subledger request to many small pieces
+func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
+	// sort peers from low to high
+	sort.Sort(peers)
+
+	// choose the tallest peer
+	if to-from+1 < minBlocks {
+		cs = append(cs, &subLedgerPiece{
+			from:  from,
+			count: to - from + 1,
+			peer:  peers[len(peers)-1],
+		})
+		return
+	}
+
+	var p, t uint64 // piece length
+	for _, peer := range peers {
+		if peer.height > from+safeHeight {
+			p = peer.height - from - safeHeight
+
+			// peer not high enough
+			if p < minBlocks {
+				continue
+			}
+
+			// piece too large
+			if p > maxBlocks {
+				p = maxBlocks
+			}
+
+			// piece end
+			t = from + p
+
+			// piece end exceed target height
+			if t > to {
+				p = to - from + 1
+			}
+			// reset piece is too small, then collapse to one piece
+			if to < t+minBlocks {
+				p += to - t
+			}
+
+			cs = append(cs, &subLedgerPiece{
+				from:  from,
+				count: p,
+				peer:  peer,
+			})
+
+			from = p + 1
+			if from > to {
+				break
+			}
+		}
+	}
+
+	// reset piece, alloc to best peer
+	if from < to {
+		cs = append(cs, &subLedgerPiece{
+			from:  from,
+			count: to - from + 1,
+			peer:  peers[len(peers)-1],
+		})
+	}
+
+	return
+}
+
 type subLedgerRequest struct {
 	id         uint64 // unique id
 	peer       *Peer
@@ -84,80 +161,36 @@ func (s *subLedgerRequest) Expired() bool {
 	return time.Now().After(s.expiration)
 }
 
-func (s *subLedgerRequest) Handle(cmd cmd, data []byte, peer *Peer) {
-	s.act(cmd, data, peer)
+func (s *subLedgerRequest) Handle(msg *p2p.Msg, peer *Peer) {
 
-	switch cmd {
-	case FileListCode:
-		msg := new(message.FileList)
-		err := msg.Deserialize(data)
-		if err != nil {
-			s.done(s.id, fmt.Errorf("deserialize message %s error: %v", cmd, err))
-			return
-		}
-
-		for _, file := range msg.Files {
-			r := &fileRequest{
-				_id:        getMsgId(),
-				_pid:       s.id,
-				nonce:      msg.Nonce,
-				file:       file,
-				_peer:      peer,
-				expiration: time.Now().Add(2 * time.Minute),
-				rec:        s.rec,
-				done:       s.childDone,
-			}
-		}
-
-		for _, chunk := range msg.Chunk {
-			if chunk[1]-chunk[0] != 0 {
-				c := &chunkRequest{
-					_id:        getMsgId(),
-					_pid:       s.id,
-					start:      chunk[0],
-					end:        chunk[1],
-					_peer:      peer,
-					expiration: time.Now().Add(30 * time.Second),
-					rec:        s.rec,
-					done:       s.childDone,
-				}
-			}
-		}
-	case ExceptionCode:
-		exp, err := message.DeserializeException(data)
-		if err == nil {
-			s.done(s.id, exp)
-		} else {
-			s.done(s.id, errUnknownResErr)
-		}
-	default:
-		s.done(s.id, fmt.Errorf("unexpected response %s", cmd))
-	}
-}
-
-// @request for file
-type fileRequest struct {
-	_id, _pid uint64
-	nonce     uint64
-	file      *message.File
-	_peer     *Peer
-
-	fc *fileClient
-
-	rec  receiveBlocks
-	done doneCallback
-
-	expiration time.Time
 }
 
 // @request for chunk
 type chunkRequest struct {
-	_id, _pid  uint64
+	id         uint64
 	start, end uint64
-	_peer      *Peer
-
-	rec  receiveBlocks
-	done doneCallback
-
+	peer       *Peer
+	rec        receiveBlocks
+	done       doneCallback
 	expiration time.Time
+}
+
+func (c *chunkRequest) Done(err error) {
+	panic("implement me")
+}
+
+func (c *chunkRequest) Expired() bool {
+	panic("implement me")
+}
+
+func (c *chunkRequest) Handle(msg *p2p.Msg, peer *Peer) {
+	panic("implement me")
+}
+
+func (c *chunkRequest) ID() uint64 {
+	panic("implement me")
+}
+
+func (c *chunkRequest) Run() {
+	panic("implement me")
 }

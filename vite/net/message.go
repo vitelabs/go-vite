@@ -209,14 +209,14 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 
 	var blocks []*ledger.AccountBlock
 	if as.From.Height != 0 {
-		blocks, err = a.chain.GetAccountBlocksByHeight(*as.Address, as.From.Height, as.Count, as.Forward)
+		blocks, err = a.chain.GetAccountBlocksByHeight(as.Address, as.From.Height, as.Count, as.Forward)
 	} else {
-		blocks, err = a.chain.GetAccountBlocksByHash(*as.Address, &as.From.Hash, as.Count, as.Forward)
+		blocks, err = a.chain.GetAccountBlocksByHash(as.Address, &as.From.Hash, as.Count, as.Forward)
 	}
 
 	if err != nil {
 		return sender.SendAccountBlocks(&message.AccountBlocks{
-			Address: *as.Address,
+			Address: as.Address,
 			Blocks:  blocks,
 		}, msg.Id)
 	} else {

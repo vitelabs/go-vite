@@ -356,7 +356,11 @@ func (f *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBlo
 		sblocks = make([]*ledger.SnapshotBlock, 0, ctx.req.file.End-ctx.req.file.Start+1)
 		mblocks = make(map[types.Address][]*ledger.AccountBlock)
 
-		f.chain.Compressor().BlockParser(ctx, func(block ledger.Block) {
+		f.chain.Compressor().BlockParser(ctx, func(block ledger.Block, err error) {
+			if err != nil {
+				return
+			}
+
 			switch block.(type) {
 			case *ledger.SnapshotBlock:
 				sblocks = append(sblocks, block.(*ledger.SnapshotBlock))
@@ -369,6 +373,6 @@ func (f *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBlo
 			}
 		})
 
-		return sblocks, mblocks, nil
+		return
 	}
 }

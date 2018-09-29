@@ -1,9 +1,11 @@
 package net
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"sort"
 	"sync"
@@ -110,9 +112,10 @@ type syncer struct {
 	log        log15.Logger
 	running    int32
 	receiver   Receiver
+	fc         *fileClient
 }
 
-func newSyncer(chain Chain, peers *peerSet, pool *requestPool, receiver Receiver) *syncer {
+func newSyncer(chain Chain, peers *peerSet, pool *requestPool, receiver Receiver, fc *fileClient) *syncer {
 	s := &syncer{
 		state:      SyncNotStart,
 		term:       make(chan struct{}),
@@ -124,6 +127,7 @@ func newSyncer(chain Chain, peers *peerSet, pool *requestPool, receiver Receiver
 		pool:       pool,
 		log:        log15.New("module", "net/syncer"),
 		receiver:   receiver,
+		fc:         fc,
 	}
 
 	// subscribe peer add/del event
@@ -270,14 +274,84 @@ func (s *syncer) setTarget(to uint64) {
 }
 
 func (s *syncer) syncPeer(peer *Peer) {
-	msgId := s.pool.MsgID()
-	peer.Send(GetSubLedgerCode, msgId, &message.GetSubLedger{
-		From: &ledger.HashHeight{
-			Height: s.from,
-		},
-		Count:   s.total,
-		Forward: true,
-	})
+	pieces := splitSubLedger(s.from, s.to, s.peers.Pick(s.from))
+
+	for _, piece := range pieces {
+		msgId := s.pool.MsgID()
+
+		req := &subLedgerRequest{
+			id:   msgId,
+			peer: piece.peer,
+			msg: &message.GetSubLedger{
+				From:    &ledger.HashHeight{Height: s.from},
+				Count:   piece.count,
+				Forward: true,
+			},
+			act:        nil,
+			done:       nil,
+			expiration: time.Now().Add(10 * time.Second),
+		}
+
+		s.pool.Add(req)
+	}
+}
+
+func (a *syncer) Handle(pkt *p2p.Msg, sender *Peer) error {
+	cmd := cmd(pkt.Cmd)
+	switch cmd {
+	case FileListCode:
+		msg := new(message.FileList)
+		err := msg.Deserialize(pkt.Payload)
+		if err != nil {
+			a.log.Error(fmt.Sprintf("deserialize message %s error: %v", cmd, err))
+			return err
+		}
+
+		// request files
+		a.fc.request(&fileReq{
+			files: msg.Files,
+			nonce: msg.Nonce,
+			peer:  sender,
+			rec:   a.receiveBlocks,
+			done:  nil,
+		})
+
+		// request chunks
+		for _, chunk := range msg.Chunk {
+			if chunk[1]-chunk[0] > 0 {
+				msgId := a.pool.MsgID()
+
+				c := &chunkRequest{
+					id:         msgId,
+					start:      chunk[0],
+					end:        chunk[1],
+					peer:       sender,
+					rec:        a.receiveBlocks,
+					done:       nil,
+					expiration: time.Now().Add(30 * time.Second),
+				}
+
+				a.pool.Add(c)
+			}
+		}
+
+	case SubLedgerCode:
+		msg := new(message.SubLedger)
+		err := msg.Deserialize(pkt.Payload)
+		if err != nil {
+			a.log.Error(fmt.Sprintf("deserialize message %s error: %v", cmd, err))
+			return err
+		}
+
+		a.receiveBlocks(msg.SBlocks, msg.ABlocks)
+	case ExceptionCode:
+		exp, err := message.DeserializeException(pkt.Payload)
+		// todo
+	default:
+
+	}
+
+	return nil
 }
 
 func (s *syncer) setState(t SyncState) {
@@ -301,29 +375,22 @@ func (s *syncer) insert(block *ledger.SnapshotBlock) {
 	}
 }
 
-func (s *syncer) receiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
-	for _, block := range blocks {
+func (s *syncer) receiveBlocks(sblocks []*ledger.SnapshotBlock, mblocks map[types.Address][]*ledger.AccountBlock) {
+	s.receiver.ReceiveAccountBlocks(mblocks)
+
+	for _, block := range sblocks {
 		s.insert(block)
 	}
 
 	if atomic.LoadUint64(&s.count) == s.total {
-		// all blocks have downloaded, then rank it
-		for _, ablocks := range s.mblocks {
-			accountblocks(ablocks).Sort()
-		}
-		snapshotblocks(s.sblocks).Sort()
+		// all blocks have downloaded, then deliver to receiver
+		s.receiver.ReceiveSnapshotBlocks(s.blocks)
 
 		s.downloaded <- struct{}{}
 	}
 }
 
-func (s *syncer) receiveAccountBlocks(mblocks map[types.Address][]*ledger.AccountBlock) {
-	for addr, ablocks := range mblocks {
-		s.mblocks[addr] = append(s.mblocks[addr], ablocks...)
-	}
-}
-
-// @section helper
+// @section helper to rank
 type accountblocks []*ledger.AccountBlock
 
 func (a accountblocks) Len() int {
