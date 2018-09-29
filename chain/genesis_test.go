@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestCreateAccount(t *testing.T) {
+func TestGenesis(t *testing.T) {
 	//for i := 0; i < 25; i++ {
 	//	addr, pri, _ := types.CreateAddress()
 	//	fmt.Println(i + 1)

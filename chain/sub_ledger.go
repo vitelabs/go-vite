@@ -80,7 +80,7 @@ func (c *chain) getChainSet(queryParams map[types.Address][2]*ledger.HashHeight)
 
 		var startHeight, endHeight = params[0].Height, params[1].Height
 
-		blockList, gbErr := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight)
+		blockList, gbErr := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight, true)
 
 		if gbErr != nil {
 			c.log.Error("GetBlockListByAccountId failed. Error is "+gbErr.Error(), "method", "getChainSet")

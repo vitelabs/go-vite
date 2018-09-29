@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -40,13 +39,13 @@ func init() {
 	GenesisSnapshotBlock = genesisSnapshotBlock()
 }
 
+var genesisTrieNodePool = trie.NewTrieNodePool()
 var genesisTimestamp = time.Unix(1537361101, 0)
 
 func genesisSnapshotBlock() ledger.SnapshotBlock {
 	genesisSnapshotBlock := ledger.SnapshotBlock{
 		Height:    1,
 		Timestamp: &genesisTimestamp,
-		PublicKey: ledger.GenesisPublicKey,
 	}
 
 	snapshotContent := ledger.SnapshotContent{
@@ -74,8 +73,6 @@ func genesisSnapshotBlock() ledger.SnapshotBlock {
 	genesisSnapshotBlock.StateTrie = stateTrie
 	genesisSnapshotBlock.Hash = genesisSnapshotBlock.ComputeHash()
 
-	genesisSnapshotBlock.Signature, _ = hex.DecodeString("42aa62748c3655e4a911b4d68fd8646d66ec8e2e5a71cd94df3d0f776f7a58d83ff70afd5ab4da158955a3c550bd9943d67d0091c5fb00975696c0703d535608")
-
 	return genesisSnapshotBlock
 }
 
@@ -87,14 +84,13 @@ func genesisMintageBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 		BlockType:      ledger.BlockTypeReceive,
 		Height:         1,
 		AccountAddress: contracts.AddressMintage,
-		PublicKey:      ledger.GenesisPublicKey,
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 
 		Timestamp: &timestamp,
 	}
 
-	vmContext := vm_context.NewEmptyVmContextByTrie(nil)
+	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
 	tokenName := "Vite Token"
 	tokenSymbol := "VITE"
 	decimals := uint8(18)
@@ -104,7 +100,6 @@ func genesisMintageBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 
 	block.StateHash = *vmContext.GetStorageHash()
 	block.Hash = block.ComputeHash()
-	block.Signature, _ = hex.DecodeString("1fa7f85de753e1741ba7b92cbc01c49f7dd54f0d3815e7f368d95d8c511499dde1b628944f1f85c0670ecba54be08c7374c165cae540fee4ac517cc825469003")
 
 	return block, vmContext
 }
@@ -117,7 +112,6 @@ func genesisMintageSendBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase
 		Height:         2,
 		AccountAddress: contracts.AddressMintage,
 		ToAddress:      ledger.GenesisAccountAddress,
-		PublicKey:      ledger.GenesisPublicKey,
 		Amount:         totalSupply,
 		TokenId:        ledger.ViteTokenId,
 		Fee:            big.NewInt(0),
@@ -125,7 +119,6 @@ func genesisMintageSendBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase
 		Timestamp:      &timestamp,
 	}
 	block.Hash = block.ComputeHash()
-	block.Signature, _ = hex.DecodeString("0db9eea19460d90fce2d6f307c132061f3a68d89bdd9ac2768383dbd9774f15784073795be442fa7335a61532887ff3f6ee93a59d694b95660ae04383eb9f40d")
 
 	return block, GenesisMintageBlockVC.CopyAndFreeze()
 }
@@ -137,7 +130,6 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 		BlockType:      ledger.BlockTypeReceive,
 		Height:         1,
 		AccountAddress: contracts.AddressConsensusGroup,
-		PublicKey:      ledger.GenesisPublicKey, //todo
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 
@@ -176,13 +168,12 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 		big.NewInt(0),
 		int64(1))
 
-	vmContext := vm_context.NewEmptyVmContextByTrie(nil)
+	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
 	vmContext.SetStorage(contracts.GetConsensusGroupKey(types.SNAPSHOT_GID), snapshotConsensusGroupData)
 	vmContext.SetStorage(contracts.GetConsensusGroupKey(types.DELEGATE_GID), commonConsensusGroupData)
 
 	block.StateHash = *vmContext.GetStorageHash()
 	block.Hash = block.ComputeHash()
-	block.Signature, _ = hex.DecodeString("46aa9174c006665da1461961cfdd4dda7133c7682e89672296ef21e76ebb56435df65f6e10b3af3012a53e22e62f469f80a156f659a4d32fc6e7e40c1e353701")
 
 	return block, vmContext
 }
@@ -194,7 +185,6 @@ func genesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 		BlockType:      ledger.BlockTypeReceive,
 		Height:         1,
 		AccountAddress: contracts.AddressRegister,
-		PublicKey:      ledger.GenesisPublicKey, //todo
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 
@@ -235,7 +225,7 @@ func genesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 		addrList = append(addrList, addr)
 	}
 
-	vmContext := vm_context.NewEmptyVmContextByTrie(nil)
+	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
 	for index, addr := range addrList {
 		nodeName := "s" + strconv.Itoa(index+1)
 		registerData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr, addr, addr, helper.Big0, int64(1), uint64(1), uint64(0))
@@ -244,7 +234,6 @@ func genesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 
 	block.StateHash = *vmContext.GetStorageHash()
 	block.Hash = block.ComputeHash()
-	block.Signature, _ = hex.DecodeString("169c1c1dc64fadc3067c173ecda8972a87b912871a9d8a0318f35a69939fc1ad1235f8cbe38ad5e0770a4a82f3b5f81c3aab7516d8dc1c6525b23f0ee7fc7505")
 
 	return block, vmContext
 }

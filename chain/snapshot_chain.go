@@ -87,8 +87,10 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	// Set cache
 	c.latestSnapshotBlock = snapshotBlock
 	// Delete needSnapshotCache
-	for addr, item := range snapshotBlock.SnapshotContent {
-		c.needSnapshotCache.Remove(&addr, item.Height)
+	if c.needSnapshotCache != nil {
+		for addr, item := range snapshotBlock.SnapshotContent {
+			c.needSnapshotCache.Remove(&addr, item.Height)
+		}
 	}
 
 	return nil
@@ -154,23 +156,6 @@ func (c *chain) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 
 func (c *chain) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 	return c.genesisSnapshotBlock
-}
-
-func (c *chain) GetSbHashList(originBlockHash *types.Hash, count, step int, forward bool) ([]*types.Hash, error) {
-	height, err := c.chainDb.Sc.GetSnapshotBlockHeight(originBlockHash)
-	if err != nil {
-		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSbHashList")
-		return nil, &types.GetError{
-			Code: 1,
-			Err:  err,
-		}
-	}
-
-	if height <= 0 {
-		return nil, nil
-	}
-
-	return c.chainDb.Sc.GetSbHashList(height, count, step, forward), nil
 }
 
 func (c *chain) GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotBlock, error) {
