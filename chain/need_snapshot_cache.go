@@ -26,7 +26,7 @@ func NewNeedSnapshotContent(chain *chain, unconfirmedSubLedger map[types.Address
 }
 
 func (cache *NeedSnapshotCache) GetSnapshotContent() ledger.SnapshotContent {
-	content := ledger.SnapshotContent{}
+	content := make(ledger.SnapshotContent, 0)
 	for addr, chain := range cache.subLedger {
 		lastBlock := chain[len(chain)-1]
 		content[addr] = &ledger.HashHeight{
@@ -41,6 +41,25 @@ func (cache *NeedSnapshotCache) Get(addr *types.Address) []*ledger.AccountBlock 
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 	return cache.subLedger[*addr]
+}
+func (cache *NeedSnapshotCache) GetBlockByHashHeight(addr *types.Address, hashHeight *ledger.HashHeight) *ledger.AccountBlock {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	blocks := cache.subLedger[*addr]
+	if blocks == nil {
+		return nil
+	}
+	if blocks[0].Height > hashHeight.Height || blocks[len(blocks)-1].Height > hashHeight.Height {
+		return nil
+	}
+
+	for _, block := range blocks {
+		if block.Hash == hashHeight.Hash {
+			return block
+		}
+	}
+	return nil
 }
 
 func (cache *NeedSnapshotCache) Add(addr *types.Address, accountBlock *ledger.AccountBlock) {

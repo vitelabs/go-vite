@@ -145,7 +145,7 @@ func (sc *SnapshotChain) GetSnapshotBlocks(height uint64, count uint64, forward,
 }
 
 func (sc *SnapshotChain) GetSnapshotBlockHeight(snapshotHash *types.Hash) (uint64, error) {
-	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCKHASH, snapshotHash)
+	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCKHASH, snapshotHash.Bytes())
 	data, err := sc.db.Get(key, nil)
 	if err != nil {
 		if err == leveldb.ErrNotFound {

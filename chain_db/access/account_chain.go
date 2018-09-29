@@ -229,7 +229,10 @@ func (ac *AccountChain) getConfirmHeight(accountBlockHash *types.Hash) (uint64, 
 	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCKMETA, accountBlockHash.Bytes())
 	data, err := ac.db.Get(key, nil)
 	if err != nil {
-		return 0, nil, err
+		if err != leveldb.ErrNotFound {
+			return 0, nil, err
+		}
+		return 0, nil, nil
 	}
 
 	accountBlockMeta := &ledger.AccountBlockMeta{}
@@ -252,6 +255,10 @@ func (ac *AccountChain) GetConfirmHeight(accountBlockHash *types.Hash) (uint64, 
 
 	if confirmHeight > 0 {
 		return confirmHeight, nil
+	}
+
+	if accountBlockMeta == nil {
+		return 0, nil
 	}
 
 	startKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountBlockMeta.AccountId, accountBlockMeta.Height+1)
@@ -559,7 +566,7 @@ func (ac *AccountChain) GetUnConfirmedSubLedger(maxAccountId uint64) (map[uint64
 		if err != nil {
 			return nil, err
 		}
-		if blocks != nil {
+		if len(blocks) > 0 {
 			unConfirmedAccountBlocks[i] = blocks
 		}
 	}

@@ -9,16 +9,34 @@ import (
 	"time"
 )
 
-// TODO
-func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) *trie.Trie {
-	return nil
+func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error) {
+	prevTrie := c.GetStateTrie(&prevStateHash)
+	if prevTrie == nil {
+		prevTrie = c.NewStateTrie()
+	}
+	currentTrie := prevTrie.Copy()
+	for addr, item := range snapshotContent {
+		block := c.needSnapshotCache.GetBlockByHashHeight(&addr, item)
+		if block == nil {
+			var err error
+			block, err = c.chainDb.Ac.GetBlock(&item.Hash)
+			if err != nil {
+				c.log.Error("GetBlock failed, error is "+err.Error(), "method", "GenStateTrie")
+				return nil, err
+			}
+			if block != nil {
+				currentTrie.SetValue(addr.Bytes(), block.StateHash.Bytes())
+			}
+		}
+	}
+
+	return currentTrie, nil
 }
 
 func (c *chain) GetNeedSnapshotContent() ledger.SnapshotContent {
 	return c.needSnapshotCache.GetSnapshotContent()
 }
 
-// TODO save trie
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	batch := new(leveldb.Batch)
 
@@ -78,11 +96,22 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	// Save snapshot hash index
 	c.chainDb.Sc.WriteSnapshotHash(batch, &snapshotBlock.Hash, snapshotBlock.Height)
 
+	// Save state trie
+	var trieSaveCallback func()
+	var saveTrieErr error
+	if trieSaveCallback, saveTrieErr = snapshotBlock.StateTrie.Save(batch); saveTrieErr != nil {
+		c.log.Error("Save state trie failed, error is "+saveTrieErr.Error(), "method", "InsertSnapshotBlock")
+		return saveTrieErr
+	}
+
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
 	}
+
+	// After write db
+	trieSaveCallback()
 
 	// Set cache
 	c.latestSnapshotBlock = snapshotBlock
@@ -96,16 +125,23 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	return nil
 }
 func (c *chain) GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
-	block, gsErr := c.GetSnapshotBlockByHash(originBlockHash)
-	if gsErr != nil {
-		c.log.Error("GetSnapshotBlockByHash failed, error is "+gsErr.Error(), "method", "GetSnapshotBlocksByHash")
-		return nil, gsErr
-	}
-	if block == nil {
-		return nil, nil
+	startHeight := uint64(1)
+	if originBlockHash != nil {
+		block, gsErr := c.GetSnapshotBlockByHash(originBlockHash)
+		if gsErr != nil {
+			c.log.Error("GetSnapshotBlockByHash failed, error is "+gsErr.Error(), "method", "GetSnapshotBlocksByHash")
+			return nil, gsErr
+		}
+		if block == nil {
+			return nil, nil
+		}
+		startHeight = block.Height
+	} else if !forward {
+		block := c.GetLatestSnapshotBlock()
+		startHeight = block.Height
 	}
 
-	return c.GetSnapshotBlocksByHeight(block.Height, count, forward, containSnapshotContent)
+	return c.GetSnapshotBlocksByHeight(startHeight, count, forward, containSnapshotContent)
 }
 
 func (c *chain) GetSnapshotBlocksByHeight(height uint64, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
@@ -166,6 +202,10 @@ func (c *chain) GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotB
 			Code: 1,
 			Err:  ghErr,
 		}
+	}
+
+	if height <= 0 {
+		return nil, nil
 	}
 
 	snapshotBlock, gsErr := c.chainDb.Sc.GetSnapshotBlock(height, true)
@@ -287,8 +327,11 @@ func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Add
 	return accountBlock, nil
 }
 
-// TODO +toHeight judge
 func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+	if toHeight <= 0 || toHeight > c.GetLatestSnapshotBlock().Height {
+		return nil, nil, nil
+	}
+
 	batch := new(leveldb.Batch)
 	snapshotBlocks, accountBlocksMap, err := c.deleteSnapshotBlocksByHeight(batch, toHeight)
 	if err != nil {

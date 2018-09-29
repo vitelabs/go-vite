@@ -33,7 +33,7 @@ type Chain interface {
 	ChainDb() *chain_db.ChainDb
 	Start()
 	Stop()
-	GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) *trie.Trie
+	GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
 	GetNeedSnapshotContent() ledger.SnapshotContent
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error
 	GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
