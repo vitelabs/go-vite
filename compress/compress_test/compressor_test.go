@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/config"
@@ -120,13 +121,14 @@ func getNewSnapshotBlock() (*ledger.SnapshotBlock, error) {
 
 	snapshotBlock.StateTrie = trie
 	snapshotBlock.StateHash = *trie.Hash()
+	snapshotBlock.Hash = snapshotBlock.ComputeHash()
 
 	return snapshotBlock, err
 }
 
 func TestRunTask(t *testing.T) {
 	chainInstance := getChainInstance()
-	compressor := compress.NewCompressor(chainInstance, common.DefaultDataDir())
+	compressor := chainInstance.Compressor()
 	compressor.RunTask()
 
 	compressor.Start()
@@ -156,17 +158,44 @@ func TestRunTask(t *testing.T) {
 
 func TestBlockParser(t *testing.T) {
 	chainInstance := getChainInstance()
-	metas := chainInstance.Compressor().Indexer().Get(200, 3000)
-	for _, meta := range metas {
-		fileReader := chainInstance.Compressor().FileReader(meta.Filename)
-		compress.BlockParser(fileReader, func(block ledger.Block, err error) {
-			switch block.(type) {
-			case *ledger.AccountBlock:
-				fmt.Printf("Ab %d\n", block.(*ledger.AccountBlock).Height)
-			case *ledger.SnapshotBlock:
-				fmt.Printf("Sb %d\n", block.(*ledger.SnapshotBlock).Height)
-			}
-		})
+	ranges := [][2]uint64{
+		{200, 3000},
+		{200, 10000},
+		{1, 300},
+		{1, 10000000},
+		{3601, 7201},
+		{8090, 7201},
+		{1000000, 10000000},
+		{1, 1},
+		{3601, 3602},
 	}
+	for i := 0; i < len(ranges); i++ {
+		min, max := helper.MaxUint64, uint64(0)
 
+		metas := chainInstance.Compressor().Indexer().Get(ranges[i][0], ranges[i][1])
+		for _, meta := range metas {
+			fmt.Printf("%+v\n", meta)
+			fileReader := chainInstance.Compressor().FileReader(meta.Filename)
+
+			compress.BlockParser(fileReader, func(block ledger.Block, err error) {
+				if err != nil {
+					t.Fatal(err.Error())
+				}
+				switch block.(type) {
+				case *ledger.AccountBlock:
+				case *ledger.SnapshotBlock:
+					sb := block.(*ledger.SnapshotBlock)
+					if min > sb.Height {
+						min = sb.Height
+					}
+					if max < sb.Height {
+						max = sb.Height
+					}
+				}
+			})
+		}
+
+		fmt.Printf("min is %d, max is %d", min, max)
+		fmt.Println()
+	}
 }

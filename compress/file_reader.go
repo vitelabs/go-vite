@@ -8,10 +8,6 @@ import (
 
 var fileReaderLog = log15.New("module", "file_reader")
 
-type FileReader struct {
-	file *os.File
-}
-
 func NewFileReader(filename string) io.ReadCloser {
 	file, err := os.Open(filename)
 
@@ -21,13 +17,4 @@ func NewFileReader(filename string) io.ReadCloser {
 	}
 
 	return file
-}
-
-func (fw *FileReader) Read(p []byte) (int, error) {
-	return fw.file.Read(p)
-}
-
-func (fw *FileReader) Close() {
-	fw.file.Close()
-	return
 }
