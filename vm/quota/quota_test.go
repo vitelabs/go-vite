@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestQuotaUsed(t *testing.T) {
+func TestCalcQuotaUsed(t *testing.T) {
 	tests := []struct {
 		quotaTotal, quotaAddition, quotaLeft, quotaRefund, quotaUsed uint64
 		err                                                          error
@@ -29,17 +29,11 @@ func TestQuotaUsed(t *testing.T) {
 		{15000, 5000, 5000, 5000, 5000, errors.New("")},
 	}
 	for i, test := range tests {
-		quotaUsed := QuotaUsed(test.quotaTotal, test.quotaAddition, test.quotaLeft, test.quotaRefund, test.err)
+		quotaUsed := CalcQuotaUsed(test.quotaTotal, test.quotaAddition, test.quotaLeft, test.quotaRefund, test.err)
 		if quotaUsed != test.quotaUsed {
 			t.Fatalf("%v th calculate quota used failed, expected %v, got %v", i, test.quotaUsed, quotaUsed)
 		}
 	}
-}
-
-func TestQuotaLeft(t *testing.T) {
-	// TODO
-	// prepare db
-	// calc quota
 }
 
 func TestUseQuota(t *testing.T) {

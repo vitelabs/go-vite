@@ -6,13 +6,13 @@ import (
 )
 
 type TokenInfo struct {
-	TokenName    string
-	TokenSymbol  string
-	TotalSupply  *big.Int
-	Decimals     uint8
-	Owner        types.Address
-	PledgeAmount *big.Int
-	Timestamp    int64
+	TokenName      string
+	TokenSymbol    string
+	TotalSupply    *big.Int
+	Decimals       uint8
+	Owner          types.Address
+	PledgeAmount   *big.Int
+	WithdrawHeight uint64
 }
 
 type Registration struct {
@@ -21,7 +21,7 @@ type Registration struct {
 	PledgeAddr     types.Address
 	BeneficialAddr types.Address
 	Amount         *big.Int
-	Timestamp      int64
+	PledgeHeight   uint64
 	RewardHeight   uint64
 	CancelHeight   uint64
 }
@@ -37,7 +37,7 @@ type VoteInfo struct {
 
 type PledgeInfo struct {
 	Amount         *big.Int
-	WithdrawTime   int64
+	WithdrawHeight uint64
 	BeneficialAddr types.Address
 }
 
@@ -55,9 +55,9 @@ type ConsensusGroupInfo struct {
 	VoteConditionParam     []byte
 	Owner                  types.Address
 	PledgeAmount           *big.Int
-	WithdrawTime           int64
+	WithdrawHeight         uint64
 }
 
 func (groupInfo *ConsensusGroupInfo) IsActive() bool {
-	return groupInfo.WithdrawTime > 0
+	return groupInfo.WithdrawHeight > 0
 }
