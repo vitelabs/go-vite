@@ -20,25 +20,27 @@ type broadNewSnapshotBlock interface {
 	BroadcastSnapshotBlock(block *ledger.SnapshotBlock)
 }
 
+// receive blocks and record them, construct skeleton to filter subsequent fetch
 type receiver struct {
 	ready       int32 // atomic, can report newBlock to pool
 	newBlocks   []*ledger.SnapshotBlock
-	sblocks     []*ledger.SnapshotBlock
+	sblocks     [][]*ledger.SnapshotBlock
 	mblocks     map[types.Address][]*ledger.AccountBlock
 	sFeed       *snapshotBlockFeed
 	aFeed       *accountBlockFeed
+	verifier    Verifier
 	broadcaster broadNewSnapshotBlock
 	record      *cuckoofilter.CuckooFilter
 }
 
-func newReceiver(broadcaster broadNewSnapshotBlock) *receiver {
+func newReceiver(verifier Verifier, broadcaster broadNewSnapshotBlock) *receiver {
 	return &receiver{
-		ready:       0,
 		newBlocks:   make([]*ledger.SnapshotBlock, 0, 100),
-		sblocks:     make([]*ledger.SnapshotBlock, 0, 1000),
+		sblocks:     make([][]*ledger.SnapshotBlock, 0, 10),
 		mblocks:     make(map[types.Address][]*ledger.AccountBlock, 100),
 		sFeed:       newSnapshotBlockFeed(),
 		aFeed:       newAccountBlockFeed(),
+		verifier:    verifier,
 		broadcaster: broadcaster,
 		record:      cuckoofilter.NewCuckooFilter(10000),
 	}
@@ -76,6 +78,7 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 		return
 	}
 
+	// record
 	s.record.Insert(block.Hash[:])
 
 	if atomic.LoadInt32(&s.ready) == 0 {
@@ -88,12 +91,11 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 	monitor.LogDuration("net/receiver", "nb", time.Now().Sub(t).Nanoseconds())
 }
 
-// todo add record
 func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 	t := time.Now()
 
 	if atomic.LoadInt32(&s.ready) == 0 {
-		s.newBlocks = append(s.newBlocks, blocks...)
+		s.sblocks = append(s.sblocks, blocks)
 	} else {
 		for _, block := range blocks {
 			s.sFeed.Notify(block)
@@ -103,7 +105,6 @@ func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 	monitor.LogDuration("net/receiver", "bs", time.Now().Sub(t).Nanoseconds())
 }
 
-// todo add record
 func (s *receiver) ReceiveAccountBlocks(mblocks map[types.Address][]*ledger.AccountBlock) {
 	t := time.Now()
 
@@ -124,19 +125,58 @@ func (s *receiver) ReceiveAccountBlocks(mblocks map[types.Address][]*ledger.Acco
 
 func (s *receiver) listen(st SyncState) {
 	if st == Syncdone || st == SyncDownloaded {
-		for _, block := range s.sblocks {
-			s.sFeed.Notify(block)
+		// caution: s.sblocks and s.mblocks is mutating concurrently
+		// so we keep waterMark, after ready, handle rest blocks
+		sblockMark := len(s.sblocks)
+		mblockMark := make(map[types.Address]int)
+		for addr, ablocks := range s.mblocks {
+			mblockMark[addr] = len(ablocks)
 		}
-		s.sblocks = s.sblocks[:0]
 
-		for addr, blocks := range s.mblocks {
-			for _, block := range blocks {
-				s.aFeed.Notify(block)
+		for i := 0; i < sblockMark; i++ {
+			sblocks := s.sblocks[i]
+			for _, block := range sblocks {
+				s.sFeed.Notify(block)
+				s.record.InsertUnique(block.Hash[:])
 			}
+		}
 
-			s.mblocks[addr] = s.mblocks[addr][:0]
+		//s.sblocks = s.sblocks[:0]
+
+		for addr, length := range mblockMark {
+			for i := 0; i < length; i++ {
+				block := s.mblocks[addr][i]
+				s.aFeed.Notify(block)
+				s.record.InsertUnique(block.Hash[:])
+			}
 		}
 
 		atomic.StoreInt32(&s.ready, 1)
+
+		// rest blocks
+		for i := sblockMark; i < len(s.sblocks); i++ {
+			sblocks := s.sblocks[i]
+			for _, block := range sblocks {
+				s.sFeed.Notify(block)
+				s.record.InsertUnique(block.Hash[:])
+			}
+		}
+
+		for addr, length := range mblockMark {
+			for i := length; i < len(s.mblocks[addr]); i++ {
+				block := s.mblocks[addr][i]
+				s.aFeed.Notify(block)
+				s.record.InsertUnique(block.Hash[:])
+			}
+		}
+
+		// new blocks
+		for _, block := range s.newBlocks {
+			s.sFeed.Notify(block)
+		}
+
+		// clear job
+		s.sblocks = s.sblocks[:0]
+		s.mblocks = nil
 	}
 }

@@ -145,7 +145,7 @@ func (s *syncer) stop() {
 	}
 }
 
-func (s *syncer) sync() {
+func (s *syncer) start() {
 	if !atomic.CompareAndSwapInt32(&s.running, 0, 1) {
 		return
 	}
@@ -192,7 +192,7 @@ wait:
 	s.setState(Syncing)
 
 	// begin sync with peer
-	s.syncPeer(p)
+	s.sync(s.from, s.to)
 
 	// for now syncState is syncing
 	deadline := time.NewTimer(downloadTimeout)
@@ -255,7 +255,8 @@ func (s *syncer) setTarget(to uint64) {
 		copy(record, s.blocks)
 		s.blocks = record
 
-		// todo send taller task
+		// send taller task
+		s.sync(s.to+1, to)
 	} else {
 		// update valid count
 		for _, r := range s.blocks[total2:] {
@@ -273,7 +274,7 @@ func (s *syncer) setTarget(to uint64) {
 	s.to = to
 }
 
-func (s *syncer) syncPeer(peer *Peer) {
+func (s *syncer) sync(from, to uint64) {
 	pieces := splitSubLedger(s.from, s.to, s.peers.Pick(s.from))
 
 	for _, piece := range pieces {
@@ -287,12 +288,8 @@ func (s *syncer) syncPeer(peer *Peer) {
 				Count:   piece.count,
 				Forward: true,
 			},
-			act:        nil,
-			done:       nil,
 			expiration: time.Now().Add(10 * time.Second),
 		}
-
-		s.pool.Add(req)
 	}
 }
 
@@ -326,8 +323,6 @@ func (a *syncer) Handle(pkt *p2p.Msg, sender *Peer) error {
 					start:      chunk[0],
 					end:        chunk[1],
 					peer:       sender,
-					rec:        a.receiveBlocks,
-					done:       nil,
 					expiration: time.Now().Add(30 * time.Second),
 				}
 

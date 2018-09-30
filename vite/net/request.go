@@ -131,38 +131,13 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 	return
 }
 
+// @request for subLedger, will get FileList and Chunk
 type subLedgerRequest struct {
-	id         uint64 // unique id
+	id         uint64
 	peer       *Peer
 	msg        *message.GetSubLedger
 	state      reqState
-	act        msgReceive
-	done       doneCallback
 	expiration time.Time
-}
-
-func (s *subLedgerRequest) Done(err error) {
-
-}
-
-func (s *subLedgerRequest) Run() {
-	err := s.peer.Send(GetSubLedgerCode, s.id, s.msg)
-
-	if err != nil {
-		s.done(s.id, err)
-	}
-}
-
-func (s *subLedgerRequest) ID() uint64 {
-	return s.id
-}
-
-func (s *subLedgerRequest) Expired() bool {
-	return time.Now().After(s.expiration)
-}
-
-func (s *subLedgerRequest) Handle(msg *p2p.Msg, peer *Peer) {
-
 }
 
 // @request for chunk
@@ -170,27 +145,6 @@ type chunkRequest struct {
 	id         uint64
 	start, end uint64
 	peer       *Peer
-	rec        receiveBlocks
-	done       doneCallback
+	state      reqState
 	expiration time.Time
-}
-
-func (c *chunkRequest) Done(err error) {
-	panic("implement me")
-}
-
-func (c *chunkRequest) Expired() bool {
-	panic("implement me")
-}
-
-func (c *chunkRequest) Handle(msg *p2p.Msg, peer *Peer) {
-	panic("implement me")
-}
-
-func (c *chunkRequest) ID() uint64 {
-	panic("implement me")
-}
-
-func (c *chunkRequest) Run() {
-	panic("implement me")
 }

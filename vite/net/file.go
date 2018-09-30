@@ -285,10 +285,6 @@ loop:
 		}
 	}
 
-	for _, ctx := range fc.conns {
-		delCtx(ctx, false)
-	}
-
 	for i := 0; i < len(fc.idle); i++ {
 		ctx := <-fc.idle
 		delCtx(ctx, false)
@@ -297,6 +293,10 @@ loop:
 	for i := 0; i < len(fc.delConn); i++ {
 		e := <-fc.delConn
 		delCtx(e.ctx, true)
+	}
+
+	for _, ctx := range fc.conns {
+		delCtx(ctx, false)
 	}
 }
 

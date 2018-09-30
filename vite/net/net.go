@@ -36,9 +36,14 @@ type Chain interface {
 	Compressor() *compress.Compressor
 }
 
+type Verifier interface {
+	VerifyforP2P(block *ledger.AccountBlock) bool
+}
+
 type Config struct {
-	Port  uint16
-	Chain Chain
+	Port     uint16
+	Chain    Chain
+	Verifier Verifier
 }
 
 type Net struct {
@@ -71,7 +76,7 @@ func New(cfg *Config) (*Net, error) {
 
 	broadcaster := newBroadcaster(peers)
 	filter := newFilter()
-	receiver := newReceiver(broadcaster)
+	receiver := newReceiver(cfg.Verifier, broadcaster)
 	syncer := newSyncer(cfg.Chain, peers, pool, receiver, fc)
 	fetcher := newFetcher(filter, peers, receiver, pool)
 
@@ -169,7 +174,7 @@ func (n *Net) startPeer(p *Peer) error {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	go n.syncer.sync()
+	go n.syncer.start()
 
 	for {
 		select {
