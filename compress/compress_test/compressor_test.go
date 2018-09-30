@@ -153,3 +153,20 @@ func TestRunTask(t *testing.T) {
 		compressor.RunTask()
 	}
 }
+
+func TestBlockParser(t *testing.T) {
+	chainInstance := getChainInstance()
+	metas := chainInstance.Compressor().Indexer().Get(200, 3000)
+	for _, meta := range metas {
+		fileReader := chainInstance.Compressor().FileReader(meta.Filename)
+		compress.BlockParser(fileReader, func(block ledger.Block, err error) {
+			switch block.(type) {
+			case *ledger.AccountBlock:
+				fmt.Printf("Ab %d\n", block.(*ledger.AccountBlock).Height)
+			case *ledger.SnapshotBlock:
+				fmt.Printf("Sb %d\n", block.(*ledger.SnapshotBlock).Height)
+			}
+		})
+	}
+
+}
