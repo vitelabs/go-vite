@@ -91,5 +91,9 @@ func (cache *NeedSnapshotCache) Remove(addr *types.Address, height uint64) {
 		deletedIndex = index
 	}
 	cachedChain = cachedChain[deletedIndex+1:]
-	cache.subLedger[*addr] = cachedChain
+	if len(cachedChain) > 0 {
+		cache.subLedger[*addr] = cachedChain
+	} else {
+		delete(cache.subLedger, *addr)
+	}
 }

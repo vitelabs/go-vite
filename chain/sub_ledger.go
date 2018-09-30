@@ -5,9 +5,9 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-// TODO
-func (c *chain) GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]string, [][2]uint64) {
+func (c *chain) GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64) {
 	beginHeight, endHeight := uint64(0), uint64(0)
+
 	if forward {
 		beginHeight = startHeight
 		endHeight = startHeight + count - 1
@@ -18,22 +18,20 @@ func (c *chain) GetSubLedgerByHeight(startHeight uint64, count uint64, forward b
 
 	fileList := c.compressor.Indexer().Get(beginHeight, endHeight)
 
-	var fileNameList []string
-
 	var rangeList [][2]uint64
+
 	for _, fileItem := range fileList {
-		fileNameList = append(fileNameList, fileItem.FileName())
-		if beginHeight < fileItem.StartHeight() {
-			rangeList = append(rangeList, [2]uint64{beginHeight, fileItem.StartHeight()})
+		if beginHeight < fileItem.StartHeight {
+			rangeList = append(rangeList, [2]uint64{beginHeight, fileItem.StartHeight})
 		}
-		beginHeight = fileItem.EndHeight() + 1
+		beginHeight = fileItem.EndHeight + 1
 	}
 
-	if len(fileList) > 0 && fileList[len(fileList)-1].EndHeight() < endHeight {
-		rangeList = append(rangeList, [2]uint64{fileList[len(fileList)-1].EndHeight() + 1, endHeight})
+	if len(fileList) > 0 && fileList[len(fileList)-1].EndHeight < endHeight {
+		rangeList = append(rangeList, [2]uint64{fileList[len(fileList)-1].EndHeight + 1, endHeight})
 	}
 
-	return fileNameList, rangeList
+	return fileList, rangeList
 }
 
 func (c *chain) GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]string, [][2]uint64, error) {

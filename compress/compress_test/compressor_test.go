@@ -1,6 +1,7 @@
 package compress_test
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -79,7 +80,7 @@ func randomViteBlock() (*vm_context.VmAccountBlock, error) {
 		Signature:      []byte("test signature test signature test signature"),
 	}
 
-	vmContext.SubBalance(&chain.GenesisMintageSendBlock.TokenId, sendAmount)
+	vmContext.AddBalance(&chain.GenesisMintageSendBlock.TokenId, sendAmount)
 	logHash1, _ := types.HexToHash("1e7f1b0e23a05127e38dca416cf5f4968189e8bd3385c3a1bf554393b0ca8b58")
 	logHash2, _ := types.HexToHash("706b00a2ae1725fb5d90b3b7a76d76c922eb075be485749f987af7aa46a66785")
 	vmContext.AddLog(&ledger.VmLog{
@@ -129,17 +130,26 @@ func TestRunTask(t *testing.T) {
 	compressor.RunTask()
 
 	compressor.Start()
-	for i := 0; i < 10000; i++ {
-		block, err := randomViteBlock()
-		if err != nil {
-			t.Fatal(err)
+	latestBlock := chainInstance.GetLatestSnapshotBlock()
+	if latestBlock.Height < 100000 {
+		for i := uint64(0); i < uint64(100000)-latestBlock.Height; i++ {
+			block, err := randomViteBlock()
+			if err != nil {
+				t.Fatal(err)
+			}
+			chainInstance.InsertAccountBlocks([]*vm_context.VmAccountBlock{block})
+			sBlock, err1 := getNewSnapshotBlock()
+			if err1 != nil {
+				t.Fatal(err1)
+			}
+			chainInstance.InsertSnapshotBlock(sBlock)
+			if i%5000 == 0 {
+				fmt.Printf("insert %d snapshotBlock\n", i)
+			}
 		}
-		chainInstance.InsertAccountBlocks([]*vm_context.VmAccountBlock{block})
-		sBlock, err1 := getNewSnapshotBlock()
-		if err1 != nil {
-			t.Fatal(err1)
-		}
-		chainInstance.InsertSnapshotBlock(sBlock)
 	}
-	compressor.RunTask()
+
+	for i := 0; i < 100; i++ {
+		compressor.RunTask()
+	}
 }
