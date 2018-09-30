@@ -34,7 +34,7 @@ func (c *chain) GetSubLedgerByHeight(startHeight uint64, count uint64, forward b
 	return fileList, rangeList
 }
 
-func (c *chain) GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]string, [][2]uint64, error) {
+func (c *chain) GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64, error) {
 	startHeight, err := c.chainDb.Sc.GetSnapshotBlockHeight(startBlockHash)
 	if err != nil {
 		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSubLedgerByHash")
@@ -46,8 +46,8 @@ func (c *chain) GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, for
 		return nil, nil, err
 	}
 
-	fileNameList, rangeList := c.GetSubLedgerByHeight(startHeight, count, forward)
-	return fileNameList, rangeList, nil
+	fileList, rangeList := c.GetSubLedgerByHeight(startHeight, count, forward)
+	return fileList, rangeList, nil
 }
 
 func (c *chain) GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
