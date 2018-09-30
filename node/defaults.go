@@ -10,8 +10,9 @@ import (
 
 var DefaultNodeConfig = Config{
 	Identity:             "nodeServer",
-	IPCPath:              "vite.ipc",
+	IPCPath:              "gvite.ipc",
 	DataDir:              DefaultDataDir(),
+	KeyStoreDir:          DefaultDataDir(),
 	HttpPort:             common.DefaultHTTPPort,
 	WSPort:               common.DefaultWSPort,
 	privateKey:           "",

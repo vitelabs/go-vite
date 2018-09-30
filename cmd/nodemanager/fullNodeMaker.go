@@ -119,7 +119,7 @@ func overrideDefaultConfigs(ctx *cli.Context, cfg *node.Config) {
 			cfg.NetID = 3
 		}
 		//dataDir override
-		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "devdata")
+		cfg.DataDir = filepath.Join(cfg.DataDir, "devdata")
 		//abs dataDir
 		cfg.DataDirPathAbs()
 		return
@@ -130,7 +130,7 @@ func overrideDefaultConfigs(ctx *cli.Context, cfg *node.Config) {
 		if cfg.NetID != 2 {
 			cfg.NetID = 2
 		}
-		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "testdata")
+		cfg.DataDir = filepath.Join(cfg.DataDir, "testdata")
 		cfg.DataDirPathAbs()
 		return
 	}
@@ -140,7 +140,7 @@ func overrideDefaultConfigs(ctx *cli.Context, cfg *node.Config) {
 		if cfg.NetID != 1 {
 			cfg.NetID = 1
 		}
-		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "viteisbest")
+		cfg.DataDir = filepath.Join(cfg.DataDir, "viteisbest")
 		cfg.DataDirPathAbs()
 		return
 	}
