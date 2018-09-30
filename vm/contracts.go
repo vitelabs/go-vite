@@ -113,8 +113,14 @@ func (p *pRegister) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft u
 		return quotaLeft, ErrInvalidData
 	}
 
-	if len(block.VmContext.GetStorage(&contracts.AddressRegister, contracts.GetRegisterKey(param.Name, param.Gid))) > 0 {
-		return quotaLeft, ErrInvalidData
+	oldData := block.VmContext.GetStorage(&contracts.AddressRegister, contracts.GetRegisterKey(param.Name, param.Gid))
+	if len(oldData) > 0 {
+		old := new(contracts.Registration)
+		contracts.ABIRegister.UnpackVariable(old, contracts.VariableNameRegistration, oldData)
+		if old.IsActive() {
+			// duplicate register
+			return quotaLeft, ErrInvalidData
+		}
 	}
 	return quotaLeft, nil
 }
@@ -129,7 +135,7 @@ func (p *pRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBloc
 	if len(oldData) > 0 {
 		old := new(contracts.Registration)
 		contracts.ABIRegister.UnpackVariable(old, contracts.VariableNameRegistration, oldData)
-		if old.CancelHeight == 0 {
+		if old.IsActive() {
 			// duplicate register
 			return ErrInvalidData
 		}
@@ -195,7 +201,7 @@ func (p *pCancelRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, se
 		old,
 		contracts.VariableNameRegistration,
 		block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
-	if err != nil || old.CancelHeight > 0 {
+	if err != nil || !old.IsActive() {
 		return ErrInvalidData
 	}
 
@@ -264,7 +270,7 @@ func (p *pReward) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uin
 	if param.EndHeight > 0 {
 		newRewardHeight = helper.Min(newRewardHeight, param.EndHeight)
 	}
-	if old.CancelHeight > 0 {
+	if !old.IsActive() {
 		newRewardHeight = helper.Min(newRewardHeight, old.CancelHeight)
 	}
 	if newRewardHeight <= old.RewardHeight {
@@ -327,12 +333,9 @@ func (p *pReward) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock 
 	if err != nil || old.RewardHeight != param.StartHeight || sendBlock.AccountAddress != old.PledgeAddr {
 		return ErrInvalidData
 	}
-	if old.CancelHeight > 0 {
+	if !old.IsActive() {
 		if param.EndHeight > old.CancelHeight {
 			return ErrInvalidData
-		} else if param.EndHeight == old.CancelHeight {
-			// delete storage when register canceled and reward drained
-			block.VmContext.SetStorage(key, nil)
 		} else {
 			// get reward partly, update storage
 			registerInfo, _ := contracts.ABIRegister.PackVariable(
@@ -420,7 +423,7 @@ func (p *pUpdateRegistration) doReceive(vm *VM, block *vm_context.VmAccountBlock
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
 	old := new(contracts.Registration)
 	err := contracts.ABIRegister.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
-	if err != nil || old.CancelHeight > 0 {
+	if err != nil || !old.IsActive() {
 		return ErrInvalidData
 	}
 	registerInfo, _ := contracts.ABIRegister.PackVariable(
@@ -929,7 +932,7 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 	switch method {
 	case contracts.MethodNameRegister:
 		blockParam := blockParamInterface.(*contracts.ParamRegister)
-		if !block.VmContext.IsAddressExisted(&blockParam.BeneficialAddr) ||
+		if (blockParam.Gid == types.SNAPSHOT_GID && !block.VmContext.IsAddressExisted(&blockParam.BeneficialAddr)) ||
 			!block.VmContext.IsAddressExisted(&blockParam.NodeAddr) ||
 			!isUserAccount(block.VmContext, blockParam.NodeAddr) {
 			return false
@@ -956,7 +959,7 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 		old := new(contracts.Registration)
 		err := contracts.ABIRegister.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.ToAddress, key))
 		if err != nil || old.PledgeAddr != block.AccountBlock.AccountAddress ||
-			old.CancelHeight > 0 ||
+			!old.IsActive() ||
 			old.PledgeHeight+param.PledgeHeight > block.VmContext.CurrentSnapshotBlock().Height {
 			return false
 		}
@@ -965,7 +968,7 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 			return false
 		}
 		blockParam := blockParamInterface.(*contracts.ParamRegister)
-		if !block.VmContext.IsAddressExisted(&blockParam.BeneficialAddr) ||
+		if (blockParam.Gid == types.SNAPSHOT_GID && !block.VmContext.IsAddressExisted(&blockParam.BeneficialAddr)) ||
 			!block.VmContext.IsAddressExisted(&blockParam.NodeAddr) ||
 			!isUserAccount(block.VmContext, blockParam.NodeAddr) {
 			return false
@@ -977,7 +980,7 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 			block.VmContext.GetStorage(&contracts.AddressRegister, contracts.GetRegisterKey(blockParam.Name, blockParam.Gid)))
 		if err != nil ||
 			old.PledgeAddr != block.AccountBlock.AccountAddress ||
-			old.CancelHeight > 0 ||
+			!old.IsActive() ||
 			(old.BeneficialAddr == blockParam.BeneficialAddr && old.NodeAddr == blockParam.BeneficialAddr) {
 			return false
 		}
