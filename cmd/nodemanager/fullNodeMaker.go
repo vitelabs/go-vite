@@ -140,6 +140,7 @@ func overrideDefaultConfigs(ctx *cli.Context, cfg *node.Config) {
 		if cfg.NetID != 1 {
 			cfg.NetID = 1
 		}
+		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "viteisbest")
 		cfg.DataDirPathAbs()
 		return
 	}
