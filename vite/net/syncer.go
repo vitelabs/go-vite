@@ -96,11 +96,10 @@ func enoughtHeightDiff(our, their uint64) bool {
 }
 
 type syncer struct {
-	from, to   uint64                  // include
-	count      uint64                  // current amount of snapshotblocks have received
-	total      uint64                  // totol amount of snapshotblocks need download, equal: to - from + 1
-	blocks     []*ledger.SnapshotBlock // store blocks before all blocks downloaded, accountblocks can send to receiver
-	stLoc      sync.Mutex              // protect: count blocks total
+	from, to   uint64     // include
+	count      uint64     // current amount of snapshotblocks have received
+	total      uint64     // totol amount of snapshotblocks need download, equal: to - from + 1
+	stLoc      sync.Mutex // protect: count blocks total
 	state      SyncState
 	term       chan struct{}
 	downloaded chan struct{}
@@ -187,7 +186,6 @@ wait:
 	s.from = current.Height + 1
 	s.to = p.height
 	s.total = s.to - s.from + 1
-	s.blocks = make([]*ledger.SnapshotBlock, s.total)
 
 	s.setState(Syncing)
 
@@ -358,29 +356,26 @@ func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
 	return block.Height - s.from
 }
 
-func (s *syncer) insert(block *ledger.SnapshotBlock) {
-	offset := s.offset(block)
-
-	s.stLoc.Lock()
-	defer s.stLoc.Unlock()
-
-	if s.blocks[offset] == nil {
-		s.blocks[offset] = block
-		s.count++
-	}
-}
+//func (s *syncer) insert(block *ledger.SnapshotBlock) {
+//	offset := s.offset(block)
+//
+//	s.stLoc.Lock()
+//	defer s.stLoc.Unlock()
+//
+//	if s.blocks[offset] == nil {
+//		s.blocks[offset] = block
+//		s.count++
+//	}
+//}
 
 func (s *syncer) receiveBlocks(sblocks []*ledger.SnapshotBlock, mblocks map[types.Address][]*ledger.AccountBlock) {
 	s.receiver.ReceiveAccountBlocks(mblocks)
+	s.receiver.ReceiveSnapshotBlocks(sblocks)
 
-	for _, block := range sblocks {
-		s.insert(block)
-	}
+	atomic.AddUint64(&s.count, uint64(len(sblocks)))
 
-	if atomic.LoadUint64(&s.count) == s.total {
-		// all blocks have downloaded, then deliver to receiver
-		s.receiver.ReceiveSnapshotBlocks(s.blocks)
-
+	if atomic.LoadUint64(&s.count) >= s.total {
+		// all blocks have downloaded
 		s.downloaded <- struct{}{}
 	}
 }

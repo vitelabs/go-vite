@@ -15,8 +15,8 @@ import (
 // all query include start block
 type Chain interface {
 	// the second return value mean chunk befor/after file
-	GetSubLedgerByHeight(start, count uint64, forward bool) ([]string, [][2]uint64)
-	GetSubLedgerByHash(origin *types.Hash, count uint64, forward bool) ([]string, [][2]uint64, error)
+	GetSubLedgerByHeight(start, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64)
+	GetSubLedgerByHash(origin *types.Hash, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64, error)
 
 	// query chunk
 	GetConfirmSubLedger(start, end uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)

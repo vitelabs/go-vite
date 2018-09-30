@@ -1,9 +1,9 @@
 package net
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
@@ -15,8 +15,8 @@ import (
 	"time"
 )
 
-var fReadTimeout = 4 * time.Second
-var fWriteTimeout = 2 * time.Second
+var fReadTimeout = 20 * time.Second
+var fWriteTimeout = 20 * time.Second
 
 type fileServer struct {
 	ln     net.Listener
@@ -105,7 +105,7 @@ func (f *fileServer) handleConn(conn net.Conn) {
 
 				// send files
 				for _, filename := range req.Names {
-					conn.SetWriteDeadline(time.Now().Add(fWriteTimeout))
+					//conn.SetWriteDeadline(time.Now().Add(fWriteTimeout))
 					n, err := io.Copy(conn, f.chain.Compressor().FileReader(filename))
 
 					if err != nil {
@@ -146,7 +146,7 @@ type delCtxEvent struct {
 }
 
 type fileReq struct {
-	files []*message.File
+	files []*ledger.CompressedFileMeta
 	nonce uint64
 	peer  *Peer
 	rec   receiveBlocks
@@ -306,7 +306,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 	req := ctx.req
 	filenames := make([]string, len(req.files))
 	for i, file := range req.files {
-		filenames[i] = file.Name
+		filenames[i] = file.Filename
 	}
 	msg := &message.GetFiles{
 		Names: filenames,
@@ -333,13 +333,13 @@ func (fc *fileClient) exe(ctx *connContext) {
 		return
 	}
 
-	sblocks, mblocks, err := fc.readBlocks(ctx)
+	sblocks, ablocks, err := fc.readBlocks(ctx)
 	if err != nil {
 		req.done(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 	} else {
 		fc.idle <- ctx
-		req.rec(sblocks, mblocks)
+		req.rec(sblocks, ablocks)
 		req.done(nil)
 	}
 }
@@ -347,15 +347,29 @@ func (fc *fileClient) exe(ctx *connContext) {
 var errResTimeout = errors.New("wait for file response timeout")
 var errFlieClientStopped = errors.New("fileClient stopped")
 
-func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBlock, mblocks map[types.Address][]*ledger.AccountBlock, err error) {
+func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBlock, ablocks []*ledger.AccountBlock, err error) {
 	select {
 	case <-fc.term:
 		err = errFlieClientStopped
 		return
 	default:
-		sblocks = make([]*ledger.SnapshotBlock, 0, ctx.req.file.End-ctx.req.file.Start+1)
-		mblocks = make(map[types.Address][]*ledger.AccountBlock)
+		// total blocks: snapshotblocks & accountblocks
+		var total, count, sTotal, sCount, start uint64
+		start = ctx.req.files[0].StartHeight
+		for _, file := range ctx.req.files {
+			if file.StartHeight < start {
+				start = file.StartHeight
+			}
+			total += file.BlockNumbers
+			sTotal += file.EndHeight - file.StartHeight + 1
+		}
 
+		// snapshot block is sorted
+		sblocks = make([]*ledger.SnapshotBlock, sTotal)
+		ablocks = make([]*ledger.AccountBlock, 0, total-sTotal)
+
+		// set read deadline
+		//ctx.SetReadDeadline(time.Now().Add(total * time.Millisecond))
 		fc.chain.Compressor().BlockParser(ctx, func(block ledger.Block, err error) {
 			if err != nil {
 				return
@@ -363,16 +377,33 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 
 			switch block.(type) {
 			case *ledger.SnapshotBlock:
-				sblocks = append(sblocks, block.(*ledger.SnapshotBlock))
+				count++
+
+				block := block.(*ledger.SnapshotBlock)
+				index := block.Height - start
+
+				if sblocks[index] == nil {
+					sblocks[block.Height-start] = block
+					sCount++
+				} else {
+					fc.log.Warn("got repeated snapshotblock: %s/%d", hex.EncodeToString(block.Hash[:]), block.Height)
+				}
 			case *ledger.AccountBlock:
-				ablock := block.(*ledger.AccountBlock)
-				addr := ablock.AccountAddress
-				mblocks[addr] = append(mblocks[addr], ablock)
+				count++
+
+				block := block.(*ledger.AccountBlock)
+				ablocks = append(ablocks, block)
 			default:
-				// nothing
+				fc.log.Error("got other block type")
 			}
 		})
 
+		if count >= total && sCount >= sTotal {
+			fc.log.Info(fmt.Sprintf("got %d/%d sblocks, %d/%d ablocks", count, total, sCount, sTotal))
+			return
+		}
+
+		err = fmt.Errorf("incomplete blocks: %d/%d, %d/%d", count, total, sCount, sTotal)
 		return
 	}
 }

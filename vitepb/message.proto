@@ -19,22 +19,28 @@ message BlockID {
     uint64 Height = 2;
 }
 
-message File {
-    string Name = 1;
-    string Start = 2;
-    string End = 3;
+message CompressedFileMeta {
+    uint64 StartHeight = 1;
+    uint64 EndHeight = 2;
+    string Filename  =3;
+    int64 FileSize = 4;
+    uint64 BlockNumbers = 5;
 }
 
 message FileList {
-    repeated File Files = 1;
-    uint64 Start = 2;
-    uint64 End = 3;
-    uint64 Nonce = 4;
+    repeated CompressedFileMeta Files = 1;
+    repeated uint64 Chunks = 2;
+    uint64 Nonce = 3;
 }
 
-message RequestFile {
-    string File = 1;
+message GetFiles {
+    repeated string Names = 1;
     uint64 Nonce = 2;
+}
+
+message GetChunk {
+    uint64 Start = 1;
+    uint64 End = 2;
 }
 
 message SubLedger {

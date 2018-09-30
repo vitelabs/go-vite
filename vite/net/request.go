@@ -2,7 +2,6 @@ package net
 
 import (
 	"errors"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
@@ -46,7 +45,7 @@ type Request interface {
 	Expired() bool
 }
 
-type receiveBlocks func(sblocks []*ledger.SnapshotBlock, ablocks map[types.Address][]*ledger.AccountBlock)
+type receiveBlocks func(sblocks []*ledger.SnapshotBlock, ablocks []*ledger.AccountBlock)
 type doneCallback func(id uint64, err error)
 type msgReceive func(cmd cmd, data []byte, peer *Peer)
 

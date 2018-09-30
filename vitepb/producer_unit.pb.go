@@ -3,9 +3,11 @@
 
 package vitepb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -32,16 +34,17 @@ func (m *ProducerUnit) Reset()         { *m = ProducerUnit{} }
 func (m *ProducerUnit) String() string { return proto.CompactTextString(m) }
 func (*ProducerUnit) ProtoMessage()    {}
 func (*ProducerUnit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_producer_unit_bb5277b56534a77e, []int{0}
+	return fileDescriptor_7ae474955269868e, []int{0}
 }
+
 func (m *ProducerUnit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProducerUnit.Unmarshal(m, b)
 }
 func (m *ProducerUnit) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProducerUnit.Marshal(b, m, deterministic)
 }
-func (dst *ProducerUnit) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProducerUnit.Merge(dst, src)
+func (m *ProducerUnit) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProducerUnit.Merge(m, src)
 }
 func (m *ProducerUnit) XXX_Size() int {
 	return xxx_messageInfo_ProducerUnit.Size(m)
@@ -84,11 +87,9 @@ func init() {
 	proto.RegisterType((*ProducerUnit)(nil), "vitepb.ProducerUnit")
 }
 
-func init() {
-	proto.RegisterFile("vitepb/producer_unit.proto", fileDescriptor_producer_unit_bb5277b56534a77e)
-}
+func init() { proto.RegisterFile("vitepb/producer_unit.proto", fileDescriptor_7ae474955269868e) }
 
-var fileDescriptor_producer_unit_bb5277b56534a77e = []byte{
+var fileDescriptor_7ae474955269868e = []byte{
 	// 147 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x2a, 0xcb, 0x2c, 0x49,
 	0x2d, 0x48, 0xd2, 0x2f, 0x28, 0xca, 0x4f, 0x29, 0x4d, 0x4e, 0x2d, 0x8a, 0x2f, 0xcd, 0xcb, 0x2c,
