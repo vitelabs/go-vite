@@ -67,7 +67,6 @@ func (cache *NeedSnapshotCache) Add(addr *types.Address, accountBlock *ledger.Ac
 	defer cache.lock.Unlock()
 
 	if cachedChain := cache.subLedger[*addr]; len(cachedChain) > 0 && cachedChain[len(cachedChain)-1].Height >= accountBlock.Height {
-		cache.log.Error("Can't add", "method", "Add")
 		return
 	}
 
@@ -79,7 +78,6 @@ func (cache *NeedSnapshotCache) Remove(addr *types.Address, height uint64) {
 	defer cache.lock.Unlock()
 	cachedChain := cache.subLedger[*addr]
 	if cachedChain == nil {
-		cache.log.Error("Can't remove", "method", "Remove")
 		return
 	}
 

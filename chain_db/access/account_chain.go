@@ -354,11 +354,12 @@ func (ac *AccountChain) GetContractGid(accountId uint64) (*types.Gid, error) {
 	return &gid, nil
 }
 
-func (ac *AccountChain) ReopenSendBlocks(batch *leveldb.Batch, reopenList []*ledger.HashHeight, deletedMap map[uint64]uint64) error {
+func (ac *AccountChain) ReopenSendBlocks(batch *leveldb.Batch, reopenList []*ledger.HashHeight, deletedMap map[uint64]uint64) (map[types.Hash]*ledger.AccountBlockMeta, error) {
+	var blockMetas = make(map[types.Hash]*ledger.AccountBlockMeta)
 	for _, reopenItem := range reopenList {
 		blockMeta, err := ac.GetBlockMeta(&reopenItem.Hash)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if blockMeta == nil {
 			continue
@@ -380,10 +381,11 @@ func (ac *AccountChain) ReopenSendBlocks(batch *leveldb.Batch, reopenList []*led
 		blockMeta.ReceiveBlockHeights = newReceiveBlockHeights
 		writeErr := ac.WriteBlockMeta(batch, &reopenItem.Hash, blockMeta)
 		if writeErr != nil {
-			return err
+			return nil, err
 		}
+		blockMetas[reopenItem.Hash] = blockMeta
 	}
-	return nil
+	return blockMetas, nil
 }
 
 func (ac *AccountChain) deleteChain(batch *leveldb.Batch, accountId uint64, toHeight uint64) ([]*ledger.AccountBlock, error) {
@@ -470,7 +472,7 @@ func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64
 			for iter.Next() {
 				accountBlock := &ledger.AccountBlock{}
 
-				if dsErr := accountBlock.DbDeserialize(iter.Value()); dsErr == nil {
+				if dsErr := accountBlock.DbDeserialize(iter.Value()); dsErr != nil {
 					iter.Release()
 					return nil, nil, dsErr
 				}
