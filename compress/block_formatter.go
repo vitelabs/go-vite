@@ -50,7 +50,7 @@ func BlockFormatter(writer io.Writer, getter blocksGetter) error {
 			default:
 				typeByte = BlockTypeUnknow
 			}
-			needWrite := make([]byte, 4+1+size)
+			needWrite := make([]byte, 0, 4+1+size)
 			needWrite = append(needWrite, sizeBytes...)
 			needWrite = append(needWrite, typeByte)
 			needWrite = append(needWrite, blockBytes...)

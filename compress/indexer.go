@@ -275,14 +275,13 @@ func (indexer *Indexer) Get(startBlockHeight uint64, endBlockHeight uint64) []*l
 	indexer.lock.RLock()
 	defer indexer.lock.RUnlock()
 
-	var fileNameList []*ledger.CompressedFileMeta
-	if len(indexer.indexList) <= 0 {
-		return fileNameList
-	}
-	if indexer.indexList[len(indexer.indexList)-1].EndHeight < startBlockHeight ||
+	if startBlockHeight > endBlockHeight ||
+		len(indexer.indexList) <= 0 ||
+		indexer.indexList[len(indexer.indexList)-1].EndHeight < startBlockHeight ||
 		indexer.indexList[0].StartHeight > endBlockHeight {
-		return fileNameList
+		return nil
 	}
+	var fileNameList []*ledger.CompressedFileMeta
 
 	currentIndexList := indexer.indexList[:]
 
@@ -290,32 +289,41 @@ func (indexer *Indexer) Get(startBlockHeight uint64, endBlockHeight uint64) []*l
 		if len(currentIndexList) <= 0 {
 			break
 		}
+
 		currentPointer := len(currentIndexList) / 2
+
 		currentIndexItem := currentIndexList[currentPointer]
+
 		// Inner gap
-		if startBlockHeight >= currentIndexItem.StartHeight && startBlockHeight <= currentIndexItem.EndHeight ||
-			endBlockHeight <= currentIndexItem.EndHeight && endBlockHeight >= currentIndexItem.StartHeight {
+		startHeight := currentIndexItem.StartHeight
+		endHeight := currentIndexItem.EndHeight
+
+		if endBlockHeight < startHeight {
+			currentIndexList = indexer.indexList[:currentPointer]
+		} else if startBlockHeight > endHeight {
+			currentIndexList = indexer.indexList[currentPointer+1:]
+		} else {
 			for i := currentPointer - 1; i >= 0; i-- {
+				if currentIndexList[i].EndHeight < startBlockHeight {
+					break
+				}
+
+				// prepend, less garbage
+				fileNameList = append(fileNameList, nil)
+				copy(fileNameList[1:], fileNameList)
+				fileNameList[0] = currentIndexList[i]
+			}
+
+			fileNameList = append(fileNameList, currentIndexItem)
+
+			for i := currentPointer + 1; i < len(currentIndexList); i++ {
 				if currentIndexList[i].StartHeight > endBlockHeight {
 					break
 				}
 
 				fileNameList = append(fileNameList, currentIndexList[i])
 			}
-
-			fileNameList = append(fileNameList, currentIndexItem)
-
-			for i := currentPointer + 1; i < len(currentIndexList); i++ {
-				if currentIndexList[i].EndHeight < startBlockHeight {
-					break
-				}
-
-				fileNameList = append(fileNameList, currentIndexList[i])
-			}
-		} else if endBlockHeight < currentIndexItem.EndHeight {
-			currentIndexList = indexer.indexList[:currentPointer]
-		} else {
-			currentIndexList = indexer.indexList[0:currentPointer]
+			break
 		}
 	}
 	return fileNameList

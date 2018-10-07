@@ -8,10 +8,6 @@ import (
 
 var fileWriterLog = log15.New("module", "file_writer")
 
-type FileWriter struct {
-	file *os.File
-}
-
 func NewFileWriter(filename string) io.WriteCloser {
 	file, err := os.Create(filename)
 
@@ -20,15 +16,5 @@ func NewFileWriter(filename string) io.WriteCloser {
 		return nil
 	}
 
-	return &FileWriter{
-		file: file,
-	}
-}
-
-func (fw *FileWriter) Write(data []byte) (int, error) {
-	return fw.file.Write(data)
-}
-
-func (fw *FileWriter) Close() error {
-	return fw.file.Close()
+	return file
 }
