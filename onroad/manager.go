@@ -5,9 +5,9 @@ import (
 
 	"errors"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vite/net"
-	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/onroad/model"
+	"github.com/vitelabs/go-vite/producer"
+	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
@@ -47,7 +47,7 @@ func NewManager(vite Vite, dataDir string) *Manager {
 		vite:            vite,
 		pool:            vite,
 		keystoreManager: vite.WalletManager().KeystoreManager,
-		uAccess:         model.NewUAccess(vite.Chain(), dataDir),
+		uAccess:         model.NewUAccess(vite.Chain()),
 		commonTxWorkers: make(map[types.Address]*AutoReceiveWorker),
 		contractWorkers: make(map[types.Gid]*ContractWorker),
 		log:             slog.New("w", "manager"),

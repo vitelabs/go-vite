@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"path/filepath"
 )
 
 const (
@@ -21,17 +20,12 @@ type UAccess struct {
 	log   log15.Logger
 }
 
-func NewUAccess(chain chain.Chain, dataDir string) *UAccess {
+func NewUAccess(chain chain.Chain) *UAccess {
 	uAccess := &UAccess{
 		Chain: chain,
 		log:   log15.New("w", "uAccess"),
 	}
-	dbDir := filepath.Join(dataDir, "Chain")
-	db, err := leveldb.OpenFile(dbDir, nil)
-	if err != nil {
-		uAccess.log.Error("ChainDb not find or create DB failed")
-	}
-	uAccess.store = NewOnroadSet(db)
+	uAccess.store = NewOnroadSet(chain.ChainDb().Db())
 	return uAccess
 }
 
