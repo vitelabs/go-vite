@@ -125,7 +125,7 @@ func (ucf *OnroadSet) GetMeta(addr *types.Address, hash *types.Hash) ([]byte, er
 	return value, nil
 }
 
-func (ucf *OnroadSet) WriteGidAddrList(batch *leveldb.Batch, gid *types.Gid, addrList []*types.Address) error {
+func (ucf *OnroadSet) WriteGidAddrList(batch *leveldb.Batch, gid *types.Gid, addrList []types.Address) error {
 	key, err := database.EncodeKey(database.DBKP_GID_ADDR, gid.Bytes())
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func (ucf *OnroadSet) WriteGidAddrList(batch *leveldb.Batch, gid *types.Gid, add
 	return nil
 }
 
-func (ucf *OnroadSet) GetContractAddrList(gid *types.Gid) ([]*types.Address, error) {
+func (ucf *OnroadSet) GetContractAddrList(gid *types.Gid) ([]types.Address, error) {
 	key, err := database.EncodeKey(database.DBKP_GID_ADDR, gid.Bytes())
 	if err != nil {
 		return nil, err

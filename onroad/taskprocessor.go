@@ -28,12 +28,11 @@ type ContractTaskProcessor struct {
 	breaker      chan struct{}
 	stopListener chan struct{}
 
-	getNewTaskFunc func(index int) *contractTask
 
 	log log15.Logger
 }
 
-func NewContractTaskProcessor(worker *ContractWorker, index int, getNewTaskFunc func(index int) *contractTask) *ContractTaskProcessor {
+func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskProcessor {
 	task := &ContractTaskProcessor{
 		taskId:         index,
 		worker:         worker,
@@ -41,7 +40,6 @@ func NewContractTaskProcessor(worker *ContractWorker, index int, getNewTaskFunc 
 		verifier:       worker.verifier,
 		blocksPool:     worker.uBlocksPool,
 		status:         Create,
-		getNewTaskFunc: getNewTaskFunc,
 		log:            worker.log.New("taskid", index),
 	}
 	task.generator = generator.NewGenerator(worker.manager.vite.Chain(),
@@ -105,7 +103,7 @@ LOOP:
 			break
 		}
 
-		task := tp.getNewTaskFunc(tp.taskId)
+		task := tp.worker.popContractTask()
 		if task != nil {
 			tp.processOneAddress(task)
 			continue

@@ -1,6 +1,7 @@
 package onroad
 
 import (
+	"container/heap"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
@@ -22,15 +23,16 @@ type ContractWorker struct {
 	status      int
 	statusMutex sync.Mutex
 
-	// todo use sync.Cond
 	isSleep                bool
 	newOnroadTxAlarm       chan struct{}
 	breaker                chan struct{}
 	stopDispatcherListener chan struct{}
 
 	contractTaskProcessors []*ContractTaskProcessor
-	contractAddressList    []*types.Address
-	contractTaskPQueue     contractTaskPQueue
+	contractAddressList    []types.Address
+
+	contractTaskPQueue contractTaskPQueue
+	ctpMutex           sync.RWMutex
 
 	blackList      map[types.Hash]bool // map[Hash(from, to)]bool
 	blackListMutex sync.RWMutex
@@ -75,10 +77,9 @@ func (w *ContractWorker) Start() {
 		}
 		w.contractAddressList = addressList
 
-		// 2. get getAllAddrQuota it is a heavy operation so we call it only once in Start
-		w.contractTaskPQueue = make([]*contractTask, len(addressList))
-		if err = w.getAllAddrQuota(); err != nil {
-			w.log.Error("getAllAddrQuota ", "err", err)
+		// 2. get getAndSortAllAddrQuota it is a heavy operation so we call it only once in Start
+		if err = w.getAndSortAllAddrQuota(); err != nil {
+			w.log.Error("getAndSortAllAddrQuota ", "err", err)
 		}
 
 		// 3. init some local variables
@@ -86,12 +87,22 @@ func (w *ContractWorker) Start() {
 		w.breaker = make(chan struct{})
 		w.stopDispatcherListener = make(chan struct{})
 
-		w.uBlocksPool.AddContractLis(w.gid, func() {
+		w.uBlocksPool.AddContractLis(w.gid, func(address types.Address) {
+			q := w.manager.vite.Chain().GetPledgeQuota(w.accEvent.SnapshotHash, address)
+			c := &contractTask{
+				Addr:  address,
+				Quota: q,
+			}
+
+			w.ctpMutex.Lock()
+			heap.Push(&w.contractTaskPQueue, c)
+			w.ctpMutex.Unlock()
+
 			w.NewOnroadTxAlarm()
 		})
 
 		for i, v := range w.contractTaskProcessors {
-			v = NewContractTaskProcessor(w, i, w.dispatchTask)
+			v = NewContractTaskProcessor(w, i)
 			v.Start()
 		}
 
@@ -146,13 +157,11 @@ LOOP:
 			break
 		}
 
+		w.ctpMutex.RLock()
 		if w.contractTaskPQueue.Len() != 0 {
+			w.ctpMutex.RUnlock()
 			for _, v := range w.contractTaskProcessors {
 				v.WakeUp()
-				// todo mutex
-				if w.contractTaskPQueue.Len() == 0 {
-					break
-				}
 			}
 		}
 
@@ -171,22 +180,20 @@ LOOP:
 	w.log.Info("waitingNewBlock end")
 }
 
-func (w *ContractWorker) getAllAddrQuota() error {
-	return nil
-}
+func (w *ContractWorker) getAndSortAllAddrQuota() error {
+	w.contractTaskPQueue = make([]*contractTask, len(w.contractAddressList))
 
-func (w *ContractWorker) Close() error {
-	w.Stop()
-	return nil
-}
-
-func (w ContractWorker) Status() int {
-	w.statusMutex.Lock()
-	defer w.statusMutex.Unlock()
-	return w.status
-}
-
-func (w *ContractWorker) dispatchTask(index int) *contractTask {
+	quotas := w.manager.vite.Chain().GetPledgeQuotas(w.accEvent.SnapshotHash, w.contractAddressList)
+	i := 0
+	for key, value := range quotas {
+		w.contractTaskPQueue[i] = &contractTask{
+			Addr:  key,
+			Index: i,
+			Quota: value,
+		}
+		i++
+	}
+	heap.Init(&w.contractTaskPQueue)
 	return nil
 }
 
@@ -197,14 +204,20 @@ func (w *ContractWorker) NewOnroadTxAlarm() {
 }
 
 func (w *ContractWorker) pushContractTask(t *contractTask) {
-
+	w.ctpMutex.Lock()
+	defer w.ctpMutex.Unlock()
+	heap.Push(&w.contractTaskPQueue, t)
 }
 
 func (w *ContractWorker) popContractTask() *contractTask {
+	w.ctpMutex.Lock()
+	defer w.ctpMutex.Unlock()
+	if w.contractTaskPQueue.Len() > 0 {
+		return heap.Pop(&w.contractTaskPQueue).(*contractTask)
+	}
 	return nil
 }
 
-// fixme 把from去掉
 func (w *ContractWorker) addIntoBlackList(to types.Address) {
 	w.log.Info("addIntoBlackList", "to", to)
 	key := types.DataHash(to.Bytes())
@@ -222,4 +235,15 @@ func (w *ContractWorker) isInBlackList(to types.Address) bool {
 		w.log.Info("isInBlackList", "to", to, "in", ok)
 	}
 	return ok
+}
+
+func (w *ContractWorker) Close() error {
+	w.Stop()
+	return nil
+}
+
+func (w ContractWorker) Status() int {
+	w.statusMutex.Lock()
+	defer w.statusMutex.Unlock()
+	return w.status
 }
