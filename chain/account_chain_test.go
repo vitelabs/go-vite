@@ -158,6 +158,7 @@ func receiveViteBlock() (*vm_context.VmAccountBlock, error) {
 		nextHeight = latestBlock.Height + 1
 		prevHash = latestBlock.Hash
 	}
+
 	var receiveBlock = &ledger.AccountBlock{
 		PrevHash:       prevHash,
 		BlockType:      ledger.BlockTypeReceive,
@@ -307,25 +308,41 @@ func TestGetUnConfirmAccountBlocks(t *testing.T) {
 	}
 }
 
-// TODO need snapshot and other case
+// TODO need snapshot
 func TestDeleteAccountBlocks(t *testing.T) {
 	chainInstance := getChainInstance()
 
 	snapshotBlock, _ := newSnapshotBlock()
 	chainInstance.InsertSnapshotBlock(snapshotBlock)
 
-	blocks, addressList, _ := randomSendViteBlock(snapshotBlock.Hash)
+	blocks, addressList, _ := randomSendViteBlock(snapshotBlock.Hash, nil, nil)
 	chainInstance.InsertAccountBlocks(blocks)
 
-	blocks2, addressList2, _ := randomSendViteBlock(snapshotBlock.Hash)
+	blocks2, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addressList[0], &addressList[1])
 	chainInstance.InsertAccountBlocks(blocks2)
 
+	blocks3, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addressList[0], &addressList[1])
+	chainInstance.InsertAccountBlocks(blocks3)
+
+	snapshotBlock2, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(snapshotBlock2)
+
+	blocks4, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addressList[0], &addressList[1])
+	chainInstance.InsertAccountBlocks(blocks4)
+
+	blocks5, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addressList[0], &addressList[1])
+	chainInstance.InsertAccountBlocks(blocks5)
+
+	blocks6, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addressList[0], &addressList[1])
+	chainInstance.InsertAccountBlocks(blocks6)
+
+	blocks7, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addressList[0], &addressList[1])
+	chainInstance.InsertAccountBlocks(blocks7)
+
 	receiveBlock, _ := newReceiveBlock(snapshotBlock.Hash, addressList[1], blocks[0].AccountBlock.Hash)
-
-	receiveBlock2, _ := newReceiveBlock(snapshotBlock.Hash, addressList2[1], blocks2[0].AccountBlock.Hash)
-
 	chainInstance.InsertAccountBlocks(receiveBlock)
 
+	receiveBlock2, _ := newReceiveBlock(snapshotBlock.Hash, addressList[1], blocks2[0].AccountBlock.Hash)
 	chainInstance.InsertAccountBlocks(receiveBlock2)
 
 	var display = func() {
@@ -333,16 +350,9 @@ func TestDeleteAccountBlocks(t *testing.T) {
 		for _, block := range dBlocks1 {
 			fmt.Printf("%+v\n", block)
 		}
-		dBlocks2, _ := chainInstance.GetAccountBlocksByHeight(blocks2[0].AccountBlock.AccountAddress, 0, 10, true)
-		for _, block := range dBlocks2 {
-			fmt.Printf("%+v\n", block)
-		}
+
 		dBlocks3, _ := chainInstance.GetAccountBlocksByHeight(receiveBlock[0].AccountBlock.AccountAddress, 0, 10, true)
 		for _, block := range dBlocks3 {
-			fmt.Printf("%+v\n", block)
-		}
-		dBlocks4, _ := chainInstance.GetAccountBlocksByHeight(receiveBlock2[0].AccountBlock.AccountAddress, 0, 10, true)
-		for _, block := range dBlocks4 {
 			fmt.Printf("%+v\n", block)
 		}
 
@@ -352,8 +362,14 @@ func TestDeleteAccountBlocks(t *testing.T) {
 	}
 	display()
 	fmt.Println()
+	snapshotContent := chainInstance.GetNeedSnapshotContent()
+	for addr, hashHeight := range snapshotContent {
+		fmt.Printf("addr is %s\n", addr.String())
+		fmt.Printf("hash is %s, height is %d\n", hashHeight.Hash.String(), hashHeight.Height)
+	}
+	fmt.Println()
 
-	deleteSubLedger, err := chainInstance.DeleteAccountBlocks(&blocks[0].AccountBlock.AccountAddress, 1)
+	deleteSubLedger, err := chainInstance.DeleteAccountBlocks(&blocks[0].AccountBlock.AccountAddress, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,4 +381,12 @@ func TestDeleteAccountBlocks(t *testing.T) {
 	}
 	fmt.Println()
 	display()
+	fmt.Println()
+
+	snapshotContent2 := chainInstance.GetNeedSnapshotContent()
+	for addr, hashHeight := range snapshotContent2 {
+		fmt.Printf("addr is %s\n", addr.String())
+		fmt.Printf("hash is %s, height is %d\n", hashHeight.Hash.String(), hashHeight.Height)
+	}
+	fmt.Println()
 }
