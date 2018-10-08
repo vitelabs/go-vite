@@ -607,7 +607,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	}
 
 	for addr, accountBlocks := range subLedger {
-		c.needSnapshotCache.Remove(&addr, accountBlocks[len(accountBlocks)-1].Height)
+		c.needSnapshotCache.Remove(&addr, accountBlocks[0].Height)
 	}
 
 	c.em.trigger(DeleteAccountBlocksSuccessEvent, deleteAccountBlocks)

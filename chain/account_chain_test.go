@@ -158,6 +158,7 @@ func receiveViteBlock() (*vm_context.VmAccountBlock, error) {
 		nextHeight = latestBlock.Height + 1
 		prevHash = latestBlock.Hash
 	}
+
 	var receiveBlock = &ledger.AccountBlock{
 		PrevHash:       prevHash,
 		BlockType:      ledger.BlockTypeReceive,
@@ -339,11 +340,9 @@ func TestDeleteAccountBlocks(t *testing.T) {
 	chainInstance.InsertAccountBlocks(blocks7)
 
 	receiveBlock, _ := newReceiveBlock(snapshotBlock.Hash, addressList[1], blocks[0].AccountBlock.Hash)
-
-	receiveBlock2, _ := newReceiveBlock(snapshotBlock.Hash, addressList[1], blocks2[0].AccountBlock.Hash)
-
 	chainInstance.InsertAccountBlocks(receiveBlock)
 
+	receiveBlock2, _ := newReceiveBlock(snapshotBlock.Hash, addressList[1], blocks2[0].AccountBlock.Hash)
 	chainInstance.InsertAccountBlocks(receiveBlock2)
 
 	var display = func() {
@@ -370,7 +369,7 @@ func TestDeleteAccountBlocks(t *testing.T) {
 	}
 	fmt.Println()
 
-	deleteSubLedger, err := chainInstance.DeleteAccountBlocks(&blocks[0].AccountBlock.AccountAddress, 5)
+	deleteSubLedger, err := chainInstance.DeleteAccountBlocks(&blocks[0].AccountBlock.AccountAddress, 4)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -73,14 +73,13 @@ func (cache *NeedSnapshotCache) Add(addr *types.Address, accountBlock *ledger.Ac
 	cache.subLedger[*addr] = append(cache.subLedger[*addr], accountBlock)
 }
 
-func (cache *NeedSnapshotCache) Remove(addr *types.Address, height uint64) {
+func (cache *NeedSnapshotCache) HasSnapshot(addr *types.Address, height uint64) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 	cachedChain := cache.subLedger[*addr]
 	if cachedChain == nil {
 		return
 	}
-
 	var deletedIndex = -1
 	for index, item := range cachedChain {
 		if item.Height > height {
@@ -89,6 +88,30 @@ func (cache *NeedSnapshotCache) Remove(addr *types.Address, height uint64) {
 		deletedIndex = index
 	}
 	cachedChain = cachedChain[deletedIndex+1:]
+	if len(cachedChain) > 0 {
+		cache.subLedger[*addr] = cachedChain
+	} else {
+		delete(cache.subLedger, *addr)
+	}
+
+}
+
+func (cache *NeedSnapshotCache) Remove(addr *types.Address, height uint64) {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+	cachedChain := cache.subLedger[*addr]
+	if cachedChain == nil {
+		return
+	}
+
+	var deletedIndex = 0
+	for index, item := range cachedChain {
+		if item.Height >= height {
+			deletedIndex = index
+			break
+		}
+	}
+	cachedChain = cachedChain[:deletedIndex]
 	if len(cachedChain) > 0 {
 		cache.subLedger[*addr] = cachedChain
 	} else {
