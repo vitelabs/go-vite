@@ -96,11 +96,11 @@ func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 		return nil, ErrInsufficientBalance
 	}
 
-	contractAddr := types.CreateContractAddress(
-		block.AccountBlock.AccountAddress.Bytes(),
-		new(big.Int).SetUint64(block.AccountBlock.Height).Bytes(),
-		block.AccountBlock.PrevHash.Bytes(),
-		block.AccountBlock.SnapshotHash.Bytes())
+	contractAddr := contracts.NewContractAddress(
+		block.AccountBlock.AccountAddress,
+		block.AccountBlock.Height,
+		block.AccountBlock.PrevHash,
+		block.AccountBlock.SnapshotHash)
 	if block.VmContext.IsAddressExisted(&contractAddr) {
 		return nil, ErrContractAddressCreationFail
 	}

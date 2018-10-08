@@ -515,7 +515,7 @@ func TestContractsPledge(t *testing.T) {
 	receivePledgeBlockList, isRetry, err := vm.Run(db, block51, sendPledgeBlockList[0].AccountBlock)
 	beneficialKey := contracts.GetPledgeBeneficialKey(addr4)
 	pledgeKey := contracts.GetPledgeKey(addr1, beneficialKey)
-	withdrawHeight := snapshot2.Height + pledgeHeight
+	withdrawHeight := snapshot2.Height + minPledgeHeight
 	if len(receivePledgeBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr5][string(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize))) ||
 		!bytes.Equal(db.storageMap[addr5][string(beneficialKey)], helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize)) ||
@@ -587,7 +587,7 @@ func TestContractsPledge(t *testing.T) {
 	}
 
 	// cancel pledge
-	for i := uint64(1); i <= uint64(pledgeHeight); i++ {
+	for i := uint64(1); i <= uint64(minPledgeHeight); i++ {
 		timei := time.Unix(timestamp+100+int64(i), 0)
 		snapshoti := &ledger.SnapshotBlock{Height: 2 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(2 + i)})}
 		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
@@ -752,7 +752,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 		uint8(50),
 		ledger.ViteTokenId,
 		uint8(1),
-		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
+		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(259200).Bytes(), helper.WordSize)),
 		uint8(1),
 		[]byte{})
 	hash13 := types.DataHash([]byte{1, 3})
@@ -804,7 +804,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 		uint8(50),
 		ledger.ViteTokenId,
 		uint8(1),
-		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
+		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(259200).Bytes(), helper.WordSize)),
 		uint8(1),
 		[]byte{},
 		addr1,
@@ -883,7 +883,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 		uint8(50),
 		ledger.ViteTokenId,
 		uint8(1),
-		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
+		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(259200).Bytes(), helper.WordSize)),
 		uint8(1),
 		[]byte{},
 		addr1,
@@ -979,7 +979,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 		uint8(50),
 		ledger.ViteTokenId,
 		uint8(1),
-		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
+		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(259200).Bytes(), helper.WordSize)),
 		uint8(1),
 		[]byte{},
 		addr1,
