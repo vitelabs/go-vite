@@ -31,5 +31,5 @@ const (
 
 	DBKP_GID_ADDR = byte(15)
 
-	DBKP_KAFKA_SENDER = byte(16)
+	DBKP_BLOCK_EVENT = byte(16)
 )

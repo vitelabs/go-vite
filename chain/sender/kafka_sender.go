@@ -7,11 +7,6 @@ import (
 	"sync"
 )
 
-const (
-	STOPPED = iota
-	RUNNING
-)
-
 type message struct {
 	MsgType string `json:"type"`
 	Data    string `json:"data"`

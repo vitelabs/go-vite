@@ -24,8 +24,10 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 
 	// Write vmContext
 	var publicKey ed25519.PublicKey
+	var addBlockHashList []types.Hash
 	for _, vmAccountBlock := range vmAccountBlocks {
 		accountBlock := vmAccountBlock.AccountBlock
+		addBlockHashList = append(addBlockHashList, accountBlock.Hash)
 
 		if len(publicKey) > 0 {
 			if len(accountBlock.PublicKey) <= 0 {
@@ -57,11 +59,11 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			var getErr error
 			if account, getErr = c.chainDb.Account.GetAccountByAddress(&accountBlock.AccountAddress); getErr != nil {
 				c.log.Error("GetAccountByAddress failed, error is "+getErr.Error(), "method", "InsertAccountBlocks")
-				// Create account
 				return getErr
 			}
 
 			if account == nil {
+				// Create account
 				c.createAccountLock.Lock()
 				defer c.createAccountLock.Unlock()
 
@@ -98,13 +100,7 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			return getSnapshotHeightErr
 		}
 
-		blockMeta := &ledger.AccountBlockMeta{
-			AccountId:         account.AccountId,
-			Height:            accountBlock.Height,
-			SnapshotHeight:    0,
-			RefSnapshotHeight: refSnapshotHeight,
-		}
-
+		// If block is receive block, change status of the send block
 		if accountBlock.BlockType == ledger.BlockTypeReceive {
 			sendBlockMeta, getBlockMetaErr := c.chainDb.Ac.GetBlockMeta(&accountBlock.FromBlockHash)
 			if getBlockMetaErr != nil {
@@ -121,13 +117,26 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			}
 		}
 
+		// Save block meta
+		blockMeta := &ledger.AccountBlockMeta{
+			AccountId:         account.AccountId,
+			Height:            accountBlock.Height,
+			SnapshotHeight:    0,
+			RefSnapshotHeight: refSnapshotHeight,
+		}
+
 		saveBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.Hash, blockMeta)
 		if saveBlockMetaErr != nil {
 			c.log.Error("WriteBlockMeta failed, error is "+saveBlockMetaErr.Error(), "method", "InsertAccountBlocks")
 			return saveBlockMetaErr
 		}
+
 	}
 
+	// Add account block event
+	c.chainDb.Be.AddAccountBlocks(batch, addBlockHashList)
+
+	// trigger writing event
 	if triggerErr := c.em.trigger(InsertAccountBlocksEvent, batch, vmAccountBlocks); triggerErr != nil {
 		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "InsertAccountBlocks")
 		return triggerErr
@@ -153,6 +162,7 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		callback()
 	}
 
+	// trigger writing success event
 	c.em.trigger(InsertAccountBlocksSuccessEvent, vmAccountBlocks)
 	return nil
 }
@@ -599,6 +609,15 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "DeleteAccountBlocks")
 		return nil, triggerErr
 	}
+
+	// Write delete blocks event
+	var deleteHashList []types.Hash
+	for _, accountBlocks := range subLedger {
+		for _, block := range accountBlocks {
+			deleteHashList = append(deleteHashList, block.Hash)
+		}
+	}
+	c.chainDb.Be.DeleteAccountBlocks(batch, deleteHashList)
 
 	writeErr := c.chainDb.Commit(batch)
 	if writeErr != nil {

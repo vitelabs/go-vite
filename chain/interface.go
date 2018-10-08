@@ -41,6 +41,7 @@ type Chain interface {
 	Stop()
 	GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
 	GetNeedSnapshotContent() ledger.SnapshotContent
+
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error
 	GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
 	GetSnapshotBlocksByHeight(height uint64, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
@@ -57,7 +58,14 @@ type Chain interface {
 	GetContractGid(addr *types.Address) (*types.Gid, error)
 	GetRegisterList(snapshotHash types.Hash, gid types.Gid) []*contracts.Registration
 	GetVoteMap(snapshotHash types.Hash, gid types.Gid) []*contracts.VoteInfo
+
+	// Pledge amount
 	GetPledgeAmount(snapshotHash types.Hash, beneficial types.Address) *big.Int
+
+	// Pledge quota
+	GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) uint64
+	GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.Address) map[types.Address]uint64
+
 	GetConsensusGroupList(snapshotHash types.Hash) []*contracts.ConsensusGroupInfo
 	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) map[types.Address]*big.Int
 	GetTokenInfoById(tokenId *types.TokenTypeId) *contracts.TokenInfo
@@ -74,5 +82,4 @@ type Chain interface {
 	RegisterDeleteAccountBlocksSuccess(processor DeleteProcessorFuncSuccess) uint64
 	GetStateTrie(stateHash *types.Hash) *trie.Trie
 	NewStateTrie() *trie.Trie
-	GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) uint64
 }

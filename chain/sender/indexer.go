@@ -2,10 +2,8 @@ package sender
 
 import (
 	"encoding/binary"
-	"github.com/golang/protobuf/proto"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"github.com/vitelabs/go-vite/vitepb"
 )
 
 var (
@@ -17,28 +15,8 @@ var (
 type Indexer struct {
 	db *leveldb.DB
 
-	producerUnits []*ProducerUnit
-	total         uint64
-}
-
-type ProducerUnit struct {
-	brokerList []string
-	topic      string
-	version    string
-
-	hasSend uint64
-}
-
-func (producerUnit *ProducerUnit) Deserialize(buffer []byte) error {
-	pb := &vitepb.ProducerUnit{}
-	if err := proto.Unmarshal(buffer, pb); err != nil {
-		return err
-	}
-	producerUnit.topic = pb.Topic
-	producerUnit.brokerList = pb.BrokerList
-	producerUnit.version = pb.Version
-	producerUnit.hasSend = pb.HasSend
-	return nil
+	producers []*Producer
+	total     uint64
 }
 
 func NewIndexer(dirName string) (*Indexer, error) {
@@ -59,11 +37,11 @@ func NewIndexer(dirName string) (*Indexer, error) {
 
 	indexer.total = total
 
-	producerUnits, readPuErr := indexer.readProducerUnitsFromDb()
+	producers, readPuErr := indexer.readProducersFromDb()
 	if readPuErr != nil {
 		return nil, readPuErr
 	}
-	indexer.producerUnits = producerUnits
+	indexer.producers = producers
 
 	return indexer, nil
 }
@@ -77,11 +55,11 @@ func (indexer *Indexer) readTotalFromDb() (uint64, error) {
 	return binary.BigEndian.Uint64(value), nil
 }
 
-func (indexer *Indexer) readProducerUnitsFromDb() ([]*ProducerUnit, error) {
+func (indexer *Indexer) readProducersFromDb() ([]*Producer, error) {
 	iter := indexer.db.NewIterator(util.BytesPrefix([]byte{byte(DBKP_PRODUCER_UNIT)}), nil)
 	defer iter.Release()
 
-	var producerUnits []*ProducerUnit
+	var producers []*Producer
 	for {
 		iterOk := iter.Next()
 		if !iterOk {
@@ -91,13 +69,13 @@ func (indexer *Indexer) readProducerUnitsFromDb() ([]*ProducerUnit, error) {
 			break
 		}
 
-		producerUnit := &ProducerUnit{}
+		producerUnit := &Producer{}
 		if dsErr := producerUnit.Deserialize(iter.Value()); dsErr != nil {
 			return nil, dsErr
 		}
 
-		producerUnits = append(producerUnits, producerUnit)
+		producers = append(producers, producerUnit)
 	}
 
-	return producerUnits, nil
+	return producers, nil
 }

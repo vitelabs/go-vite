@@ -38,6 +38,19 @@ func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 	return gid, nil
 }
 
+func (c *chain) GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.Address) map[types.Address]uint64 {
+	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressPledge)
+	if err != nil {
+		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuotaList")
+		return nil
+	}
+
+	quotas := make(map[types.Address]uint64)
+	for _, addr := range beneficialList {
+		quotas[addr] = quota.GetPledgeQuota(vmContext, addr)
+	}
+	return quotas
+}
 func (c *chain) GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) uint64 {
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressPledge)
 	if err != nil {
