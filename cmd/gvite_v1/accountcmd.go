@@ -3,9 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/cmd/console"
+	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/rpcapi/impl"
-	"github.com/vitelabs/go-vite/vite"
 	"gopkg.in/urfave/cli.v1"
 	"io/ioutil"
 )
@@ -61,18 +60,22 @@ Prints the address.`,
 func accountList(ctx *cli.Context) error {
 	mainLog := log15.New("module", "accountcmd/accountList")
 
-	localconfig := makeConfigNode()
-	//localconfig := config.GlobalConfig
-	vnode, err := vite.New(localconfig)
-	if err != nil {
-		mainLog.Error(err.Error())
-	}
+	manager := nodemanager.New(ctx, nodemanager.FullNodeMaker{})
+	manager.Start()
+	defer manager.Stop()
 
-	walletApi := impl.NewWalletApi(vnode)
-
-	var result = new(string)
-	walletApi.ListAddress(nil, result)
-	fmt.Println(*result)
+	//localconfig := makeConfigNode()
+	////localconfig := config.GlobalConfig
+	//vnode, err := vite.New(localconfig)
+	//if err != nil {
+	//	mainLog.Error(err.Error())
+	//}
+	//
+	//walletApi := impl.NewWalletApi(vnode)
+	//
+	//var result = new(string)
+	//walletApi.ListAddress(nil, result)
+	//fmt.Println(*result)
 
 	//index := 0
 	//for _, addr := range vnode.WalletManager().KeystoreManager.Addresses() {
@@ -108,19 +111,19 @@ func getPassPhrase(prompt string, confirmation bool) string {
 func accountNew(ctx *cli.Context) error {
 	mainLog := log15.New("module", "accountcmd/accountNew")
 
-	localconfig := makeConfigNode()
-	vnode, err := vite.New(localconfig)
-	if err != nil {
-		mainLog.Error(err.Error())
-	}
-
-	walletApi := impl.NewWalletApi(vnode)
-
-	var result = new(string)
-	password := getPassPhrase("Your new account is locked with a password. Please give a password. Do not forget this password.", true)
-	passphare := []string{password}
-	walletApi.NewAddress(passphare, result)
-	fmt.Println(*result)
+	//localconfig := makeConfigNode()
+	//vnode, err := vite.New(localconfig)
+	//if err != nil {
+	//	mainLog.Error(err.Error())
+	//}
+	//
+	//walletApi := impl.NewWalletApi(vnode)
+	//
+	//var result = new(string)
+	//password := getPassPhrase("Your new account is locked with a password. Please give a password. Do not forget this password.", true)
+	//passphare := []string{password}
+	//walletApi.NewAddress(passphare, result)
+	//fmt.Println(*result)
 	return nil
 }
 
@@ -137,22 +140,22 @@ func accountImport(ctx *cli.Context) error {
 		mainLog.Error("keyfile must be given as argument")
 	}
 
-	localconfig := makeConfigNode()
-	vnode, err := vite.New(localconfig)
-	if err != nil {
-		mainLog.Error(err.Error())
-	}
-
-	walletApi := impl.NewWalletApi(vnode)
-
-	var result = new(string)
-	password, err := getPassFromFile(keyfile)
-	if err != nil {
-		mainLog.Error("read password from file error.")
-	}
-
-	passphare := []string{password}
-	walletApi.NewAddress(passphare, result)
-	fmt.Println(*result)
+	//localconfig := makeConfigNode()
+	//vnode, err := vite.New(localconfig)
+	//if err != nil {
+	//	mainLog.Error(err.Error())
+	//}
+	//
+	//walletApi := impl.NewWalletApi(vnode)
+	//
+	//var result = new(string)
+	//password, err := getPassFromFile(keyfile)
+	//if err != nil {
+	//	mainLog.Error("read password from file error.")
+	//}
+	//
+	//passphare := []string{password}
+	//walletApi.NewAddress(passphare, result)
+	//fmt.Println(*result)
 	return nil
 }

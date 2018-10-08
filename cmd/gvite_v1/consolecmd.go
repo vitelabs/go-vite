@@ -28,7 +28,7 @@ var (
         which exposes a node admin interface as well as the Ðapp JavaScript API.`,
 	}
 	attachCommand = cli.Command{
-		Action: utils.MigrateFlags(acctchAction),
+		Action: utils.MigrateFlags(attachAction),
 		Name:   "attach",
 		Usage:  "Start an interactive console runtime",
 		//Category: "CONSOLE COMMANDS",
@@ -48,7 +48,7 @@ func consoleAction(ctx *cli.Context) error {
 	config := console.Config{
 		DataDir: common.DefaultDataDir(),
 		DocRoot: common.DefaultDataDir(),
-		Client:  nil,
+		Client:  client,
 		Preload: nil,
 	}
 
@@ -65,10 +65,10 @@ func consoleAction(ctx *cli.Context) error {
 	return nil
 }
 
-func acctchAction(ctx *cli.Context) error {
-	ipcapiURL := filepath.Join(common.DefaultDataDir(), rpc.DefaultIpcFile())
+func attachAction(ctx *cli.Context) error {
+	ipcapiURL := filepath.Join(common.DefaultDataDir(), common.DefaultIpcFile())
 	if runtime.GOOS == "windows" {
-		ipcapiURL = rpc.DefaultIpcFile()
+		ipcapiURL = common.DefaultIpcFile()
 	}
 	client, err := rpc.DialIPC(context.Background(), ipcapiURL)
 	if err != nil {
