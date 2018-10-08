@@ -15,107 +15,50 @@ import (
 	"time"
 )
 
-type connContext struct {
-	net.Conn
-	idle chan struct{}
-	file *message.File
+var fReadTimeout = 4 * time.Second
+var fWriteTimeout = 2 * time.Second
+
+type fileServer struct {
+	ln     net.Listener
+	record map[uint64]struct{} // use to record nonce
+	term   chan struct{}
+	log    log15.Logger
+	wg     sync.WaitGroup
+	chain  Chain
 }
 
-type fileReq struct {
-	file *message.File
-	nonce uint64
-	peer *Peer
-}
-
-type FileServer struct {
-	ln       net.Listener
-	conns    map[string]*connContext	// all connections
-	record   map[uint64]struct{}	// use to record nonce bind peerId
-	request  chan *fileReq
-	term     chan struct{}
-	log      log15.Logger
-	wg       sync.WaitGroup
-	chain    Chain
-	peers    *peerSet
-	receiver BlockReceiver
-}
-
-func newFileServer(port uint16, chain Chain, set *peerSet, receiver BlockReceiver) (*FileServer, error) {
+func newFileServer(port uint16, chain Chain) (*fileServer, error) {
 	ln, err := net.Listen("tcp", "0.0.0.0:"+strconv.FormatUint(uint64(port), 10))
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &FileServer{
-		ln:       ln,
-		conns:    make(map[string]*connContext),
-		record:   make(map[uint64]struct{}),
-		request:  make(chan *fileReq, 10),
-		term:     make(chan struct{}),
-		log:      log15.New("module", "net/fileServer"),
-		chain:    chain,
-		peers:    set,
-		receiver: receiver,
+	return &fileServer{
+		ln:     ln,
+		record: make(map[uint64]struct{}),
+		term:   make(chan struct{}),
+		log:    log15.New("module", "net/fileServer"),
+		chain:  chain,
 	}, nil
 }
 
-func (f *FileServer) ID() string {
-	return "default file handler"
-}
-
-func (f *FileServer) Cmds() []cmd {
-	return []cmd{FileListCode}
-}
-
-func (f *FileServer) Handle(msg *p2p.Msg, sender *Peer) error {
-	fs := new(message.FileList)
-	err := fs.Deserialize(msg.Payload)
-	if err != nil {
-		return err
-	}
-
-	for _, file := range fs.Files {
-		f.request <- &fileReq{
-			file:  file,
-			nonce: fs.Nonce,
-			peer:  sender,
-		}
-	}
-
-	for _, chunk := range fs.Chunk {
-		if chunk[1] - chunk[0] != 0 {
-			sender.Send(GetChunkCode, msg.Id, &message.Chunk{
-				Start:chunk[0],
-				End: chunk[1],
-			})
-		}
-	}
-
-	return nil
-}
-
-func (s *FileServer) start() {
-	defer s.ln.Close()
-
-	s.wg.Add(1)
-	go s.sendLoop()
-
+func (s *fileServer) start() {
 	s.wg.Add(1)
 	go s.readLoop()
 }
 
-func (s *FileServer) stop() {
+func (s *fileServer) stop() {
 	select {
 	case <-s.term:
 	default:
 		close(s.term)
+		s.wg.Wait()
 	}
-
-	s.wg.Wait()
 }
 
-func (s *FileServer) readLoop() {
+func (s *fileServer) readLoop() {
+	defer s.ln.Close()
 	defer s.wg.Done()
 
 	for {
@@ -134,130 +77,290 @@ func (s *FileServer) readLoop() {
 	}
 }
 
-func (f *FileServer) handleConn(conn net.Conn) {
+func (f *fileServer) handleConn(conn net.Conn) {
 	defer conn.Close()
 	defer f.wg.Done()
 
-	timer := time.NewTimer(10 * time.Second)
-	defer timer.Stop()
-
 	for {
 		select {
 		case <-f.term:
 			return
-		case <- timer.C:
-			return
 		default:
+			conn.SetReadDeadline(time.Now().Add(fReadTimeout))
 			msg, err := p2p.ReadMsg(conn, true)
 			if err != nil {
+				f.log.Error(fmt.Sprintf("read message error: %v", err))
 				return
 			}
 
-			if cmd(msg.Cmd) == GetFileCode {
-				timer.Stop()
-
-				req := new(message.RequestFile)
+			code := cmd(msg.Cmd)
+			if code == GetFilesCode {
+				req := new(message.GetFiles)
 				err = req.Deserialize(msg.Payload)
 
 				if err != nil {
-					f.log.Error(fmt.Sprintf("can`t parse message %s", GetFileCode), "error", err)
+					f.log.Error(fmt.Sprintf("parse message %s error: %v", GetFilesCode, err))
 					return
 				}
 
-				nonce := req.Nonce
-				if _, ok := f.record[nonce]; ok {
-					io.Copy(conn, f.chain.Compressor().FileReader(req.Name))
-				} else {
-					f.log.Error("wrong nonce")
-				}
+				// send files
+				for _, filename := range req.Names {
+					conn.SetWriteDeadline(time.Now().Add(fWriteTimeout))
+					n, err := io.Copy(conn, f.chain.Compressor().FileReader(filename))
 
-				timer.Reset(10 * time.Second)
+					if err != nil {
+						f.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", req.Names, conn.RemoteAddr(), err))
+						return
+					} else {
+						f.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", req.Names, n, conn.RemoteAddr()))
+					}
+				}
+			} else if code == ExceptionCode {
+				exp, err := message.DeserializeException(msg.Payload)
+				if err != nil {
+					f.log.Error(fmt.Sprintf("deserialize exception message error: %v", err))
+					return
+				}
+				f.log.Info(exp.String())
+				return
+			} else {
+				f.log.Error(fmt.Sprintf("unexpected message code: %d", msg.Cmd))
 			}
 		}
 	}
 }
 
-func (f *FileServer) sendLoop() {
-	defer f.wg.Done()
+// @section fileClient
 
+type connContext struct {
+	net.Conn
+	req   *fileReq
+	addr  string
+	idle  bool
+	idleT time.Time
+}
+
+type delCtxEvent struct {
+	ctx *connContext
+	err error
+}
+
+type fileReq struct {
+	files []*message.File
+	nonce uint64
+	peer  *Peer
+	rec   receiveBlocks
+	done  func(err error)
+}
+
+func (r *fileReq) addr() string {
+	return r.peer.FileAddress().String()
+}
+
+type fileClient struct {
+	conns    map[string]*connContext
+	_request chan *fileReq
+	idle     chan *connContext
+	delConn  chan *delCtxEvent
+	chain    Chain
+	term     chan struct{}
+	log      log15.Logger
+	wg       sync.WaitGroup
+}
+
+func newFileClient(chain Chain) *fileClient {
+	return &fileClient{
+		conns:    make(map[string]*connContext),
+		_request: make(chan *fileReq, 4),
+		idle:     make(chan *connContext, 1),
+		delConn:  make(chan *delCtxEvent, 1),
+		chain:    chain,
+		term:     make(chan struct{}),
+		log:      log15.New("module", "net/fileClient"),
+	}
+}
+
+func (fc *fileClient) start() {
+	fc.wg.Add(1)
+	go fc.loop()
+}
+
+func (fc *fileClient) stop() {
+	select {
+	case <-fc.term:
+	default:
+		close(fc.term)
+		fc.wg.Wait()
+	}
+}
+
+func (fc *fileClient) request(r *fileReq) {
+	fc._request <- r
+}
+
+func (fc *fileClient) loop() {
+	defer fc.wg.Done()
+
+	wait := make([]*fileReq, 0, 10)
+
+	idleTimeout := 5 * time.Second
+	ticker := time.NewTicker(idleTimeout)
+	defer ticker.Stop()
+
+	exp := message.FileTransDone
+	data, _ := exp.Serialize()
+	noNeed := &p2p.Msg{
+		CmdSetID: CmdSet,
+		Cmd:      uint64(ExceptionCode),
+		Size:     uint64(len(data)),
+		Payload:  data,
+	}
+
+	delCtx := func(ctx *connContext, hasErr bool) {
+		if !hasErr {
+			ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
+			p2p.WriteMsg(ctx, true, noNeed)
+		}
+
+		delete(fc.conns, ctx.addr)
+		ctx.Close()
+	}
+
+loop:
 	for {
 		select {
-		case <-f.term:
-			return
-		case req := <- f.request:
-			addr := req.peer.FileAddress().String()
+		case <-fc.term:
+			break loop
+
+		case req := <-fc._request:
+			addr := req.addr()
 			var ctx *connContext
 			var ok bool
-			if ctx, ok = f.conns[addr]; !ok {
+			if ctx, ok = fc.conns[addr]; !ok {
 				conn, err := net.Dial("tcp", addr)
 				if err != nil {
-					return
+					req.done(err)
+					break
 				}
 				ctx = &connContext{
-					Conn:        conn,
-					idle:    make(chan struct{}, 1),
+					Conn: conn,
+					addr: addr,
+					idle: true,
 				}
-				ctx.idle <- struct{}{}
-				f.conns[addr] = ctx
+				fc.conns[addr] = ctx
 			}
 
-			select {
-			case <- ctx.idle:
-				ctx.file = req.file
-				f.wg.Add(1)
-				go f.Request(req, ctx)
-			default:
-				// put back
-				f.request <- req
+			if ctx.idle {
+				ctx.req = req
+				fc.wg.Add(1)
+				go fc.exe(ctx)
+			} else {
+				wait = append(wait, req)
+			}
+
+		case ctx := <-fc.idle:
+			ctx.idle = true
+			ctx.idleT = time.Now()
+			for i, req := range wait {
+				if req.addr() == ctx.addr {
+					ctx.idle = false
+					ctx.req = req
+
+					copy(wait[i:], wait[i+1:])
+					wait = wait[:len(wait)-1]
+				}
+			}
+
+		case e := <-fc.delConn:
+			delCtx(e.ctx, true)
+			fc.log.Error(fmt.Sprintf("delete connection %s: %v", e.ctx.addr, e.err))
+
+		case t := <-ticker.C:
+			// remote the idle connection
+			for _, ctx := range fc.conns {
+				if ctx.idle && t.Sub(ctx.idleT) > idleTimeout {
+					delCtx(ctx, false)
+				}
 			}
 		}
 	}
+
+	for i := 0; i < len(fc.idle); i++ {
+		ctx := <-fc.idle
+		delCtx(ctx, false)
+	}
+
+	for i := 0; i < len(fc.delConn); i++ {
+		e := <-fc.delConn
+		delCtx(e.ctx, true)
+	}
+
+	for _, ctx := range fc.conns {
+		delCtx(ctx, false)
+	}
 }
 
-func (f *FileServer) Request(req *fileReq, ctx *connContext) (err error) {
-	defer f.wg.Done()
+func (fc *fileClient) exe(ctx *connContext) {
+	defer fc.wg.Done()
 
-	msg := message.RequestFile{
-		Name:  req.file.Name,
+	req := ctx.req
+	filenames := make([]string, len(req.files))
+	for i, file := range req.files {
+		filenames[i] = file.Name
+	}
+	msg := &message.GetFiles{
+		Names: filenames,
 		Nonce: req.nonce,
 	}
 
 	data, err := msg.Serialize()
 	if err != nil {
+		req.done(err)
+		fc.idle <- ctx
 		return
 	}
 
-	n, err := ctx.Write(data)
+	ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
+	err = p2p.WriteMsg(ctx, true, &p2p.Msg{
+		CmdSetID: CmdSet,
+		Cmd:      uint64(GetFilesCode),
+		Size:     uint64(len(data)),
+		Payload:  data,
+	})
 	if err != nil {
+		req.done(err)
+		fc.delConn <- &delCtxEvent{ctx, err}
 		return
 	}
-	if n != len(data) {
-		return errors.New("send incompele fileRequest")
+
+	sblocks, mblocks, err := fc.readBlocks(ctx)
+	if err != nil {
+		req.done(err)
+		fc.delConn <- &delCtxEvent{ctx, err}
+	} else {
+		fc.idle <- ctx
+		req.rec(sblocks, mblocks)
+		req.done(nil)
 	}
-
-	f.readBlocks(ctx)
-
-	ctx.idle <- struct{}{}
-
-	return nil
 }
 
-func (f *FileServer) readBlocks(ctx *connContext) {
-	defer ctx.Close()
+var errResTimeout = errors.New("wait for file response timeout")
+var errFlieClientStopped = errors.New("fileClient stopped")
 
-	timer := time.NewTimer(10 * time.Second)
-	defer timer.Stop()
-
+func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBlock, mblocks map[types.Address][]*ledger.AccountBlock, err error) {
 	select {
-	case <- f.term:
-		return
-	case <- timer.C:
+	case <-fc.term:
+		err = errFlieClientStopped
 		return
 	default:
-		sblocks := make([]*ledger.SnapshotBlock, 0, ctx.file.End - ctx.file.Start + 1)
-		mblocks := make(map[types.Address][]*ledger.AccountBlock)
+		sblocks = make([]*ledger.SnapshotBlock, 0, ctx.req.file.End-ctx.req.file.Start+1)
+		mblocks = make(map[types.Address][]*ledger.AccountBlock)
 
-		f.chain.Compressor().BlockParser(ctx, func(block ledger.Block) {
+		fc.chain.Compressor().BlockParser(ctx, func(block ledger.Block, err error) {
+			if err != nil {
+				return
+			}
+
 			switch block.(type) {
 			case *ledger.SnapshotBlock:
 				sblocks = append(sblocks, block.(*ledger.SnapshotBlock))
@@ -269,12 +372,7 @@ func (f *FileServer) readBlocks(ctx *connContext) {
 				// nothing
 			}
 		})
-		f.receiver.receiveSnapshotBlocks(sblocks)
-		f.receiver.receiveAccountBlocks(mblocks)
 
-		if !timer.Stop() {
-			<- timer.C
-		}
-		timer.Reset(10 * time.Second)
+		return
 	}
 }

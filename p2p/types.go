@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/protos"
 	"io/ioutil"
+	"net"
 	"strconv"
 	"time"
 )
@@ -14,6 +15,7 @@ type NetworkID uint64
 
 const (
 	MainNet NetworkID = iota + 1
+	TestNet
 	Aquarius
 	Pisces
 	Aries
@@ -30,6 +32,7 @@ const (
 
 var network = [...]string{
 	MainNet:     "MainNet",
+	TestNet:     "TestNet",
 	Aquarius:    "Aquarius",
 	Pisces:      "Pisces",
 	Aries:       "Aries",
@@ -165,10 +168,14 @@ type Handshake struct {
 	Name string
 	// running at which network
 	NetID NetworkID
-	// peer id
+	// peer remoteID
 	ID discovery.NodeID
 	// command set supported
 	CmdSets []*CmdSet
+	// peer`s IP
+	RemoteIP net.IP
+	// peer`s Port
+	RemotePort uint16
 }
 
 func (hs *Handshake) Serialize() ([]byte, error) {
@@ -179,10 +186,12 @@ func (hs *Handshake) Serialize() ([]byte, error) {
 	}
 
 	hspb := &protos.Handshake{
-		NetID:   uint64(hs.NetID),
-		Name:    hs.Name,
-		ID:      hs.ID[:],
-		CmdSets: cmdsets,
+		NetID:      uint64(hs.NetID),
+		Name:       hs.Name,
+		ID:         hs.ID[:],
+		CmdSets:    cmdsets,
+		RemoteIP:   hs.RemoteIP,
+		RemotePort: uint32(hs.RemotePort),
 	}
 
 	return proto.Marshal(hspb)
@@ -204,6 +213,8 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 	hs.ID = id
 	hs.NetID = NetworkID(pb.NetID)
 	hs.Name = pb.Name
+	hs.RemoteIP = pb.RemoteIP
+	hs.RemotePort = uint16(pb.RemotePort)
 
 	cmdsets := make([]*CmdSet, len(pb.CmdSets))
 	for i, cmdset := range pb.CmdSets {

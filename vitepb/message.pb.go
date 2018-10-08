@@ -147,7 +147,7 @@ func (m *BlockID) GetHeight() uint64 {
 }
 
 type File struct {
-	Name                 string   `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	Name                 string   `protobuf:"bytes,1,opt,name=Names,proto3" json:"Names,omitempty"`
 	Start                string   `protobuf:"bytes,2,opt,name=Start,proto3" json:"Start,omitempty"`
 	End                  string   `protobuf:"bytes,3,opt,name=End,proto3" json:"End,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`

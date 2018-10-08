@@ -11,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"net"
 	"sync"
-	"sync/atomic"
 )
 
 const filterCap = 100000
@@ -21,29 +20,28 @@ var errPeerTermed = errors.New("peer has been terminated")
 
 type Peer struct {
 	*p2p.Peer
-	mrw                p2p.MsgReadWriter
-	ID                string
-	head              types.Hash
-	height            uint64
-	filePort uint16
-	CmdSet           uint64
-	msgId uint64	// atomic, auto_increment, use for mark unique message
-	KnownBlocks       *cuckoofilter.CuckooFilter
-	Log               log15.Logger
-	term              chan struct{}
-	errch chan error
+	mrw         p2p.MsgReadWriter
+	ID          string
+	head        types.Hash // hash of the top snapshotblock in snapshotchain
+	height      uint64     // height of the snapshotchain
+	filePort    uint16     // fileServer port, for request file
+	CmdSet      uint64     // which cmdSet it belongs
+	KnownBlocks *cuckoofilter.CuckooFilter
+	Log         log15.Logger
+	term        chan struct{}
+	errch       chan error
 }
 
 func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 	return &Peer{
-		Peer:              p,
-		mrw:                mrw,
-		ID:                p.ID().Brief(),
-		CmdSet:           cmdSet,
-		KnownBlocks:       cuckoofilter.NewCuckooFilter(filterCap),
-		Log:               log15.New("module", "net/peer"),
-		term:              make(chan struct{}),
-		errch: make(chan error, 1),
+		Peer:        p,
+		mrw:         mrw,
+		ID:          p.ID().Brief(),
+		CmdSet:      cmdSet,
+		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
+		Log:         log15.New("module", "net/peer"),
+		term:        make(chan struct{}),
+		errch:       make(chan error, 1),
 	}
 }
 
@@ -113,6 +111,26 @@ func (p *Peer) SeeBlock(hash types.Hash) {
 }
 
 // response
+func (p *Peer) SendSubLedger(s *message.SubLedger, msgId uint64) (err error) {
+	err = p.Send(SubLedgerCode, msgId, s)
+
+	if err != nil {
+		return
+	}
+
+	for _, blocks := range s.ABlocks {
+		for _, block := range blocks {
+			p.SeeBlock(block.Hash)
+		}
+	}
+
+	for _, b := range s.SBlocks {
+		p.SeeBlock(b.Hash)
+	}
+
+	return
+}
+
 func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error) {
 	err = p.Send(SnapshotBlocksCode, msgId, &message.SnapshotBlocks{
 		Blocks: bs,
@@ -123,6 +141,20 @@ func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err
 	}
 
 	for _, b := range bs {
+		p.SeeBlock(b.Hash)
+	}
+
+	return
+}
+
+func (p *Peer) SendAccountBlocks(s *message.AccountBlocks, msgId uint64) (err error) {
+	err = p.Send(AccountBlocksCode, msgId, s)
+
+	if err != nil {
+		return
+	}
+
+	for _, b := range s.Blocks {
 		p.SeeBlock(b.Hash)
 	}
 
@@ -141,60 +173,6 @@ func (p *Peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
 	return
 }
 
-func (p *Peer) SendAccountBlocks(addr types.Address, abs []*ledger.AccountBlock, msgId uint64) (err error) {
-	err = p.Send(AccountBlocksCode, msgId, &message.AccountBlocks{
-		Address: addr,
-		Blocks:  abs,
-	})
-
-	if err != nil {
-		return
-	}
-
-	for _, b := range abs {
-		p.SeeBlock(b.Hash)
-	}
-
-	return
-}
-
-func (p *Peer) SendFileList(fs *message.FileList, msgId uint64) error {
-	return p.Send(FileListCode, msgId, fs)
-}
-
-func (p *Peer) SendSubLedger(s *message.SubLedger, msgId uint64) error {
-	for _, blocks := range s.ABlocks {
-		for _, block := range blocks {
-			p.SeeBlock(block.Hash)
-		}
-	}
-	for _, b := range s.SBlocks {
-		p.SeeBlock(b.Hash)
-	}
-
-	return p.Send(SubLedgerCode, msgId, s)
-}
-
-func (p *Peer) SendFork(s *message.Fork, msgId uint64) error {
-	return p.Send(ForkCode, msgId, s)
-}
-
-// request
-func (p *Peer) GetSnapshotBlocks(s *message.GetSnapshotBlocks) error {
-	id := atomic.AddUint64(&p.msgId, 1)
-	return p.Send(GetSnapshotBlocksCode, id, s)
-}
-
-func (p *Peer) GetAccountBlocks(as *message.GetAccountBlocks) error {
-	id := atomic.AddUint64(&p.msgId, 1)
-	return p.Send(GetAccountBlocksCode, id, as)
-}
-
-func (p *Peer) GetSubLedger(s *message.GetSnapshotBlocks) error {
-	id := atomic.AddUint64(&p.msgId, 1)
-	return p.Send(GetSubLedgerCode, id, s)
-}
-
 func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
 	data, err := payload.Serialize()
 	if err != nil {
@@ -202,13 +180,13 @@ func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
 	}
 
 	return p.mrw.WriteMsg(&p2p.Msg{
-		CmdSetID:   p.CmdSet,
-		Cmd:        uint64(code),
-		Id:         msgId,
-		Size:       uint64(len(data)),
-		Payload:    data,
+		CmdSetID: p.CmdSet,
+		Cmd:      uint64(code),
+		Id:       msgId,
+		Size:     uint64(len(data)),
+		Payload:  data,
 	})
-	}
+}
 
 type PeerInfo struct {
 	Addr   string
@@ -218,31 +196,31 @@ type PeerInfo struct {
 }
 
 func (p *Peer) Info() *PeerInfo {
+	// todo
 	return &PeerInfo{}
 }
 
 // @section PeerSet
-var errSetHasClosed = errors.New("peer set has closed")
 var errSetHasPeer = errors.New("peer is existed")
 
 type peerEventCode byte
+
 const (
 	addPeer peerEventCode = iota + 1
 	delPeer
 )
 
 type peerEvent struct {
-	code peerEventCode
-	peer *Peer
+	code  peerEventCode
+	peer  *Peer
 	count int
-	err error
+	err   error
 }
 
 type peerSet struct {
-	peers  map[string]*Peer
-	rw     sync.RWMutex
-	addSub []chan<- *peerEvent
-	delSub []chan<- *peerEvent
+	peers map[string]*Peer
+	rw    sync.RWMutex
+	subs  []chan<- *peerEvent
 }
 
 func NewPeerSet() *peerSet {
@@ -251,41 +229,32 @@ func NewPeerSet() *peerSet {
 	}
 }
 
-func (m *peerSet) Sub(c chan <- *peerEvent) {
+func (m *peerSet) Sub(c chan<- *peerEvent) {
 	m.rw.Lock()
 	defer m.rw.Unlock()
 
-	m.addSub = append(m.addSub, c)
-	m.delSub = append(m.delSub, c)
+	m.subs = append(m.subs, c)
 }
 
-func (m *peerSet) Unsub(c chan <- *peerEvent) {
+func (m *peerSet) Unsub(c chan<- *peerEvent) {
 	m.rw.Lock()
 	defer m.rw.Unlock()
 
 	var i, j int
-	for i, j = 0, 0; i < len(m.addSub); i++ {
-		if m.addSub[i] != c {
-			m.addSub[j] = m.addSub[i]
+	for i, j = 0, 0; i < len(m.subs); i++ {
+		if m.subs[i] != c {
+			m.subs[j] = m.subs[i]
 			j++
 		}
 	}
-	m.addSub = m.addSub[:j]
-
-	for i, j = 0, 0; i < len(m.delSub); i++ {
-		if m.addSub[i] != c {
-			m.delSub[j] = m.delSub[i]
-			j++
-		}
-	}
-	m.delSub = m.delSub[:j]
+	m.subs = m.subs[:j]
 }
 
 func (m *peerSet) Notify(e *peerEvent) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
-	for _, c := range m.addSub {
+	for _, c := range m.subs {
 		select {
 		case c <- e:
 		default:
@@ -387,4 +356,18 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*Peer) {
 	}
 
 	return
+}
+
+type Peers []*Peer
+
+func (s Peers) Len() int {
+	return len(s)
+}
+
+func (s Peers) Less(i, j int) bool {
+	return s[i].height < s[j].height
+}
+
+func (s Peers) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
 }
