@@ -18,10 +18,11 @@ type Chain interface {
 	GetAccountBlocksByHeight(addr types.Address, start uint64, count uint64, forward bool) ([]*ledger.AccountBlock, error)
 	GetAccountBlockMap(queryParams map[types.Address]*BlockMapQueryParam) map[types.Address][]*ledger.AccountBlock
 	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
-	GetAbHashList(addr types.Address, start uint64, count uint64, step uint64, forward bool) ([]*ledger.HashHeight, error)
 	GetAccountBalance(addr *types.Address) (map[types.TokenTypeId]*big.Int, error)
 	GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
 	GetAccountBlockHashByHeight(addr *types.Address, height uint64) (*types.Hash, error)
+
+	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 	GetAccountBlocksByAddress(addr *types.Address, index int, num int, count int) ([]*ledger.AccountBlock, error)
 	GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error)
@@ -32,7 +33,7 @@ type Chain interface {
 	ChainDb() *chain_db.ChainDb
 	Start()
 	Stop()
-	GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) *trie.Trie
+	GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
 	GetNeedSnapshotContent() ledger.SnapshotContent
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error
 	GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
@@ -41,7 +42,6 @@ type Chain interface {
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
-	GetSbHashList(originBlockHash *types.Hash, count int, step int, forward bool) ([]*types.Hash, error)
 	GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error)
 	GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error)
@@ -57,8 +57,8 @@ type Chain interface {
 	GetTokenInfoById(tokenId *types.TokenTypeId) *contracts.TokenInfo
 	AccountType(address *types.Address) (uint64, error)
 	GetAccount(address *types.Address) (*ledger.Account, error)
-	GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]string, [][2]uint64)
-	GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]string, [][2]uint64, error)
+	GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64)
+	GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64, error)
 	GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
 	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)
 	UnRegister(listenerId uint64)
@@ -68,4 +68,5 @@ type Chain interface {
 	RegisterDeleteAccountBlocksSuccess(processor deleteProcessorFuncSuccess) uint64
 	GetStateTrie(stateHash *types.Hash) *trie.Trie
 	NewStateTrie() *trie.Trie
+	GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) uint64
 }

@@ -2,7 +2,6 @@ package ledger
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -73,9 +72,10 @@ type SnapshotBlock struct {
 	Signature []byte
 
 	Timestamp *time.Time
-	StateHash types.Hash
 
-	StateTrie       *trie.Trie
+	StateHash types.Hash
+	StateTrie *trie.Trie
+
 	SnapshotContent SnapshotContent
 }
 
@@ -186,17 +186,4 @@ func (sb *SnapshotBlock) Deserialize(buf []byte) error {
 
 	sb.DeProto(pb)
 	return nil
-}
-
-func GetGenesisSnapshotBlock() *SnapshotBlock {
-	timestamp := time.Unix(1537361101, 0)
-	genesisSnapshotBlock := &SnapshotBlock{
-		Height:    1,
-		Timestamp: &timestamp,
-		PublicKey: GenesisPublicKey,
-	}
-	genesisSnapshotBlock.Hash = genesisSnapshotBlock.ComputeHash()
-	genesisSnapshotBlock.Signature, _ = hex.DecodeString("2147fb12ea96ab8561c02c9333ad4e0afc8420f036107582c269bb7e2ebf16443536996bacebef17455703de8a9a6c95998ed3fb3a7a4f44adb0c196572fb20b")
-
-	return genesisSnapshotBlock
 }

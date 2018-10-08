@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 )
@@ -17,7 +18,7 @@ func (c *chain) GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types
 	return nil, nil
 }
 
-// TODO cache
+// TODO cache + inner contract
 func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 	account, getAccountErr := c.chainDb.Account.GetAccountByAddress(addr)
 	if getAccountErr != nil {
@@ -35,6 +36,15 @@ func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 	}
 
 	return gid, nil
+}
+
+func (c *chain) GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) uint64 {
+	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressPledge)
+	if err != nil {
+		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuota")
+		return 0
+	}
+	return quota.GetPledgeQuota(vmContext, beneficial)
 }
 
 func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) []*contracts.Registration {
@@ -58,10 +68,10 @@ func (c *chain) GetVoteMap(snapshotHash types.Hash, gid types.Gid) []*contracts.
 func (c *chain) GetPledgeAmount(snapshotHash types.Hash, beneficial types.Address) *big.Int {
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressRegister)
 	if err != nil {
-		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeAmount")
+		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeBeneficialAmount")
 		return nil
 	}
-	return contracts.GetPledgeAmount(vmContext, beneficial)
+	return contracts.GetPledgeBeneficialAmount(vmContext, beneficial)
 }
 
 func (c *chain) GetConsensusGroupList(snapshotHash types.Hash) []*contracts.ConsensusGroupInfo {

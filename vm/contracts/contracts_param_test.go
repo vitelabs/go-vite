@@ -16,7 +16,7 @@ func TestPackMethodParam(t *testing.T) {
 }
 
 func TestPackConsensusGroupConditionParam(t *testing.T) {
-	_, err := PackConsensusGroupConditionParam(RegisterConditionPrefix, uint8(0), big.NewInt(1), ledger.ViteTokenId, int64(10))
+	_, err := PackConsensusGroupConditionParam(RegisterConditionPrefix, uint8(1), big.NewInt(1), ledger.ViteTokenId, uint64(10))
 	if err != nil {
 		t.Fatalf("pack consensus group condition param failed")
 	}

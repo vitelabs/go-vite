@@ -74,11 +74,19 @@ func (trieNode *TrieNode) Copy(copyHash bool) *TrieNode {
 	newNode := &TrieNode{
 		nodeType: trieNode.nodeType,
 		children: trieNode.children,
-		key:      trieNode.key,
-		value:    trieNode.value,
+
+		child: trieNode.child,
 	}
-	if copyHash {
-		newNode.hash = trieNode.hash
+
+	newNode.key = make([]byte, len(trieNode.key))
+	copy(newNode.key, trieNode.key)
+
+	newNode.value = make([]byte, len(trieNode.value))
+	copy(newNode.value, trieNode.value)
+
+	if copyHash && trieNode.hash != nil {
+		newHash := *(trieNode.hash)
+		newNode.hash = &newHash
 	}
 	return newNode
 }

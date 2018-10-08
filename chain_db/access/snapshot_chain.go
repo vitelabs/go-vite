@@ -145,7 +145,7 @@ func (sc *SnapshotChain) GetSnapshotBlocks(height uint64, count uint64, forward,
 }
 
 func (sc *SnapshotChain) GetSnapshotBlockHeight(snapshotHash *types.Hash) (uint64, error) {
-	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCKHASH, snapshotHash)
+	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCKHASH, snapshotHash.Bytes())
 	data, err := sc.db.Get(key, nil)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
@@ -187,38 +187,6 @@ func (sc *SnapshotChain) GetSnapshotBlock(height uint64, containsSnapshotContent
 	}
 
 	return snapshotBlock, nil
-}
-
-func (sc *SnapshotChain) GetSbHashList(height uint64, count, step int, forward bool) []*types.Hash {
-	hashList := make([]*types.Hash, 0)
-	key, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, height)
-	iter := sc.db.NewIterator(util.BytesPrefix(key), nil)
-	defer iter.Release()
-
-	if forward {
-		iter.Next()
-	} else {
-		iter.Prev()
-	}
-
-	for j := 0; j < count; j++ {
-		for i := 0; i < step; i++ {
-			var ok bool
-			if forward {
-				ok = iter.Next()
-			} else {
-				ok = iter.Prev()
-			}
-
-			if !ok {
-				return hashList
-			}
-		}
-
-		hashList = append(hashList, getSnapshotBlockHash(iter.Key()))
-	}
-
-	return hashList
 }
 
 // Delete list contains the to height

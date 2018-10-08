@@ -29,6 +29,7 @@ func (tid *TokenTypeId) SetBytes(b []byte) error {
 func (tid TokenTypeId) Hex() string {
 	return TokenTypeIdPrefix + hex.EncodeToString(tid[:]) + hex.EncodeToString(vcrypto.Hash(tokenTypeIdChecksumSize, tid[:]))
 }
+
 func (tid TokenTypeId) Bytes() []byte { return tid[:] }
 func (tid TokenTypeId) String() string {
 	return tid.Hex()

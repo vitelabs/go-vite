@@ -26,7 +26,7 @@ func NewNeedSnapshotContent(chain *chain, unconfirmedSubLedger map[types.Address
 }
 
 func (cache *NeedSnapshotCache) GetSnapshotContent() ledger.SnapshotContent {
-	content := ledger.SnapshotContent{}
+	content := make(ledger.SnapshotContent, 0)
 	for addr, chain := range cache.subLedger {
 		lastBlock := chain[len(chain)-1]
 		content[addr] = &ledger.HashHeight{
@@ -42,13 +42,31 @@ func (cache *NeedSnapshotCache) Get(addr *types.Address) []*ledger.AccountBlock 
 	defer cache.lock.Unlock()
 	return cache.subLedger[*addr]
 }
+func (cache *NeedSnapshotCache) GetBlockByHashHeight(addr *types.Address, hashHeight *ledger.HashHeight) *ledger.AccountBlock {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	blocks := cache.subLedger[*addr]
+	if blocks == nil {
+		return nil
+	}
+	if blocks[0].Height > hashHeight.Height || blocks[len(blocks)-1].Height > hashHeight.Height {
+		return nil
+	}
+
+	for _, block := range blocks {
+		if block.Hash == hashHeight.Hash {
+			return block
+		}
+	}
+	return nil
+}
 
 func (cache *NeedSnapshotCache) Add(addr *types.Address, accountBlock *ledger.AccountBlock) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 
-	if cachedChain := cache.subLedger[*addr]; cachedChain != nil && cachedChain[len(cachedChain)-1].Height >= accountBlock.Height {
-		cache.log.Error("Can't add", "method", "Add")
+	if cachedChain := cache.subLedger[*addr]; len(cachedChain) > 0 && cachedChain[len(cachedChain)-1].Height >= accountBlock.Height {
 		return
 	}
 
@@ -60,7 +78,6 @@ func (cache *NeedSnapshotCache) Remove(addr *types.Address, height uint64) {
 	defer cache.lock.Unlock()
 	cachedChain := cache.subLedger[*addr]
 	if cachedChain == nil {
-		cache.log.Error("Can't remove", "method", "Remove")
 		return
 	}
 
@@ -72,5 +89,9 @@ func (cache *NeedSnapshotCache) Remove(addr *types.Address, height uint64) {
 		deletedIndex = index
 	}
 	cachedChain = cachedChain[deletedIndex+1:]
-	cache.subLedger[*addr] = cachedChain
+	if len(cachedChain) > 0 {
+		cache.subLedger[*addr] = cachedChain
+	} else {
+		delete(cache.subLedger, *addr)
+	}
 }

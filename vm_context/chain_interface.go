@@ -9,6 +9,8 @@ import (
 type Chain interface {
 	GetAccount(address *types.Address) (*ledger.Account, error)
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
+
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlocksByHeight(height uint64, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)

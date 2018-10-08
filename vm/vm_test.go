@@ -1,10 +1,14 @@
 package vm
 
 import (
+	"bytes"
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/quota"
+	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"strconv"
 	"testing"
@@ -60,7 +64,7 @@ func TestVmRun(t *testing.T) {
 
 	// receive create
 	addr2 := sendCreateBlockList[0].AccountBlock.ToAddress
-	db.storageMap[contracts.AddressPledge][types.DataHash(addr2.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
+	db.storageMap[contracts.AddressPledge][string(contracts.GetPledgeBeneficialKey(addr2))], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
 	balance2 := big.NewInt(0)
 
 	hash21 := types.DataHash([]byte{2, 1})
@@ -134,7 +138,6 @@ func TestVmRun(t *testing.T) {
 	}
 	db.accountBlockMap[addr2][hash22] = receiveCallBlockList[0].AccountBlock
 
-	// TODO error case
 	// send call error, insufficient balance
 	data15, _ := hex.DecodeString("f021ab8f0000000000000000000000000000000000000000000000000000000000000005")
 	block15 := &ledger.AccountBlock{
@@ -198,10 +201,252 @@ func TestVmRun(t *testing.T) {
 }
 
 func TestDelegateCall(t *testing.T) {
-	// TODO test delegate call
 	// prepare db, add account1, add account2 with code, add account3 with code
-	// send call
-	// receive call
+	db := NewNoDatabase()
+	// code1 return 1+2
+	addr1, _, _ := types.CreateAddress()
+	code1 := []byte{byte(PUSH1), 1, byte(PUSH1), 2, byte(ADD), byte(PUSH1), 32, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE), byte(PUSH1), 32, byte(SWAP1), byte(RETURN)}
+	db.codeMap = make(map[types.Address][]byte)
+	db.codeMap[addr1] = code1
+
+	addr2, _, _ := types.CreateAddress()
+	code2 := helper.JoinBytes([]byte{byte(PUSH1), 32, byte(PUSH1), 0, byte(PUSH1), 0, byte(PUSH1), 0, byte(PUSH20)}, addr1.Bytes(), []byte{byte(DELEGATECALL), byte(PUSH1), 32, byte(PUSH1), 0, byte(RETURN)})
+	db.codeMap[addr2] = code2
+
+	vm := NewVM()
+	vm.Debug = true
+	sendCallBlock := ledger.AccountBlock{
+		AccountAddress: addr1,
+		ToAddress:      addr2,
+		BlockType:      ledger.BlockTypeSendCall,
+		Amount:         big.NewInt(10),
+		Fee:            big.NewInt(0),
+		TokenId:        ledger.ViteTokenId,
+	}
+	receiveCallBlock := &ledger.AccountBlock{
+		AccountAddress: addr2,
+		BlockType:      ledger.BlockTypeReceive,
+	}
+	c := newContract(
+		addr2,
+		addr2,
+		&vm_context.VmAccountBlock{receiveCallBlock, db},
+		&sendCallBlock,
+		1000000,
+		0)
+	c.setCallCode(addr2, code2)
+	ret, err := c.run(vm)
+	if err != nil || !bytes.Equal(ret, helper.LeftPadBytes([]byte{3}, 32)) {
+		t.Fatalf("delegate call error")
+	}
+}
+
+func TestCalcQuota(t *testing.T) {
+	// prepare db
+	addr1, _, _ := types.CreateAddress()
+	db := NewNoDatabase()
+	timestamp := time.Unix(1536214502, 0)
+	snapshot1 := &ledger.SnapshotBlock{Height: 1, Timestamp: &timestamp, Hash: types.DataHash([]byte{10, 1})}
+	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
+
+	db.storageMap[contracts.AddressPledge] = make(map[string][]byte)
+	pledgeKey := string(contracts.GetPledgeBeneficialKey(addr1))
+	db.addr = addr1
+
+	// first account block without PoW, pledge amount reaches quota limit
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
+	quotaTotal, quotaAddition := quota.CalcQuota(db, addr1, false)
+	if quotaTotal != uint64(3000000) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, first account block without PoW, pledge amount reaches quota limit")
+	}
+	// first account block with PoW, pledge amount reaches quota limit
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(3000000) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, first account block with PoW, pledge amount reaches quota limit")
+	}
+
+	// first account block without PoW, pledge amount reaches no quota limit
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(2e9))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, false)
+	if quotaTotal != uint64(2) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, first account block without PoW, pledge amount reaches no quota limit")
+	}
+	// first account block without PoW, pledge amount reaches no quota limit
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(2e9))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(21002) || quotaAddition != uint64(21000) {
+		t.Logf("calc quota error, first account block without PoW, pledge amount reaches no quota limit")
+	}
+	// first account block with PoW, pledge amount reaches no quota limit, pledge amount + PoW reaches quota limit
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(298e13))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(3000000) || quotaAddition != uint64(20000) {
+		t.Logf("calc quota error, first account block with PoW, pledge amount reaches no quota limit, pledge amount + PoW reaches quota limit")
+	}
+
+	// prepare db
+	hash11 := types.DataHash([]byte{1, 1})
+	block11 := &ledger.AccountBlock{
+		Height:         1,
+		ToAddress:      addr1,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
+		Amount:         viteTotalSupply,
+		TokenId:        ledger.ViteTokenId,
+		SnapshotHash:   snapshot1.Hash,
+	}
+	db.accountBlockMap[addr1] = make(map[types.Hash]*ledger.AccountBlock)
+	db.accountBlockMap[addr1][hash11] = block11
+
+	timestamp = timestamp.Add(time.Second)
+	snapshot2 := &ledger.SnapshotBlock{Height: 2, Timestamp: &timestamp, Hash: types.DataHash([]byte{10, 2})}
+	db.snapshotBlockList = append(db.snapshotBlockList, snapshot2)
+
+	// second account block without PoW, pledge amount reaches quota limit, snapshot height gap=1
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, false)
+	if quotaTotal != uint64(3000000) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, second account block without PoW, pledge amount reaches quota limit, snapshot height gap=1")
+	}
+	// second account block with PoW, pledge amount reaches quota limit, snapshot height gap=1
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(3000000) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, second account block with PoW, pledge amount reaches quota limit, snapshot height gap=1")
+	}
+
+	// second account block without PoW, pledge amount reaches no quota limit, snapshot height gap=1
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(2e9))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, false)
+	if quotaTotal != uint64(2) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, second account block without PoW, pledge amount reaches no quota limit, snapshot height gap=1")
+	}
+	// second account block without PoW, pledge amount reaches no quota limit, snapshot height gap=1
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(2e9))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(21002) || quotaAddition != uint64(21000) {
+		t.Logf("calc quota error, second account block without PoW, pledge amount reaches no quota limit, snapshot height gap=1")
+	}
+	// second account block with PoW, pledge amount reaches no quota limit, pledge amount + PoW reaches quota limit, snapshot height gap=1
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(298e13))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(3000000) || quotaAddition != uint64(20000) {
+		t.Logf("calc quota error, second account block with PoW, pledge amount reaches no quota limit, pledge amount + PoW reaches quota limit, snapshot height gap=1")
+	}
+
+	// prepare db
+	timestamp = timestamp.Add(time.Second)
+	snapshot3 := &ledger.SnapshotBlock{Height: 3, Timestamp: &timestamp, Hash: types.DataHash([]byte{10, 3})}
+	db.snapshotBlockList = append(db.snapshotBlockList, snapshot3)
+
+	// second account block without PoW, pledge amount reaches quota limit, snapshot height gap=2
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, false)
+	if quotaTotal != uint64(3000000) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, second account block without PoW, pledge amount reaches quota limit, snapshot height gap=2")
+	}
+	// second account block with PoW, pledge amount reaches quota limit, snapshot height gap=2
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(3000000) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, second account block with PoW, pledge amount reaches quota limit, snapshot height gap=2")
+	}
+
+	// second account block without PoW, pledge amount reaches no quota limit, snapshot height gap=2
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(2e9))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, false)
+	if quotaTotal != uint64(4) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, second account block without PoW, pledge amount reaches no quota limit, snapshot height gap=2")
+	}
+	// second account block without PoW, pledge amount reaches no quota limit, snapshot height gap=2
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(2e9))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(21004) || quotaAddition != uint64(21000) {
+		t.Logf("calc quota error, second account block without PoW, pledge amount reaches no quota limit, snapshot height gap=2")
+	}
+	// second account block with PoW, pledge amount reaches no quota limit, pledge amount + PoW reaches quota limit, snapshot height gap=2
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(149e13))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(3000000) || quotaAddition != uint64(20000) {
+		t.Logf("calc quota error, second account block with PoW, pledge amount reaches no quota limit, pledge amount + PoW reaches quota limit, snapshot height gap=2")
+	}
+
+	// prepare db
+	hash12 := types.DataHash([]byte{1, 2})
+	block12 := &ledger.AccountBlock{
+		Height:         2,
+		ToAddress:      addr1,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
+		Amount:         viteTotalSupply,
+		TokenId:        ledger.ViteTokenId,
+		SnapshotHash:   snapshot3.Hash,
+		PrevHash:       hash11,
+		Quota:          uint64(21000),
+	}
+	db.accountBlockMap[addr1][hash12] = block12
+
+	// second account block referring to same snapshotBlock without PoW, pledge amount reaches quota limit, snapshot height gap=2
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, false)
+	if quotaTotal != uint64(2979000) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, second account block referring to same snapshotBlock without PoW, pledge amount reaches quota limit, snapshot height gap=2")
+	}
+	// second account block referring to same snapshotBlock with PoW, pledge amount reaches quota limit, snapshot height gap=2
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(3000000) || quotaAddition != uint64(21000) {
+		t.Logf("calc quota error, second account block referring to same snapshotBlock with PoW, pledge amount reaches quota limit, snapshot height gap=2")
+	}
+
+	// second account block referring to same snapshotBlock without PoW, pledge amount reaches no quota limit, snapshot height gap=2
+	// error case, quotaUsed > quotaInit
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(2e9))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, false)
+	if quotaTotal != uint64(0) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, second account block referring to same snapshotBlock without PoW, pledge amount reaches no quota limit, snapshot height gap=2")
+	}
+	// second account block referring to same snapshotBlock without PoW, pledge amount reaches no quota limit, snapshot height gap=2
+	// error case, quotaUsed > quotaInit
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(2e9))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(0) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, second account block referring to same snapshotBlock without PoW, pledge amount reaches no quota limit, snapshot height gap=2")
+	}
+	// second account block referring to same snapshotBlock with PoW, pledge amount reaches no quota limit, pledge amount + PoW reaches quota limit, snapshot height gap=2
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(149e13))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(2980000) || quotaAddition != uint64(21000) {
+		t.Logf("calc quota error, second account block referring to same snapshotBlock with PoW, pledge amount reaches no quota limit, pledge amount + PoW reaches quota limit, snapshot height gap=2")
+	}
+
+	// prepare db
+	hash13 := types.DataHash([]byte{1, 3})
+	block13 := &ledger.AccountBlock{
+		Height:         3,
+		ToAddress:      addr1,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeReceiveError,
+		Fee:            big.NewInt(0),
+		Amount:         viteTotalSupply,
+		TokenId:        ledger.ViteTokenId,
+		SnapshotHash:   snapshot3.Hash,
+		PrevHash:       hash12,
+		Quota:          uint64(0),
+	}
+	db.accountBlockMap[addr1][hash13] = block13
+	// second account block referring to same snapshotBlock with PoW, first block receive error
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(149e13))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, true)
+	if quotaTotal != uint64(0) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, second account block referring to same snapshotBlock with PoW, pledge amount reaches no quota limit, pledge amount + PoW reaches quota limit, snapshot height gap=2")
+	}
+	// second account block referring to same snapshotBlock without PoW, first block receive error
+	db.storageMap[contracts.AddressPledge][pledgeKey], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(149e13))
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, false)
+	if quotaTotal != uint64(0) || quotaAddition != uint64(0) {
+		t.Logf("calc quota error, second account block referring to same snapshotBlock with PoW, pledge amount reaches no quota limit, pledge amount + PoW reaches quota limit, snapshot height gap=2")
+	}
+
 }
 
 func BenchmarkVMTransfer(b *testing.B) {
