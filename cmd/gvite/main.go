@@ -54,5 +54,5 @@ func main() {
 		mainLog.Crit("Start vite failed.", "err", err)
 	}
 
-	rpc_vite.StartIpcRpcEndpoint(vnode, parsedConfig.DataDir)
+	rpc_vite.StartIpcRpc(vnode, parsedConfig.DataDir)
 }

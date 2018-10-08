@@ -2,9 +2,11 @@ package p2p
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/p2p/protos"
 	"io"
 	"net"
 	"sync"
@@ -19,11 +21,11 @@ const maxBaseProtocolPayloadSize = 10 * 1024
 
 const handshakeCmd = 0
 const discCmd = 1
-const topoCmd = 2
-const traceCmd = 3
 
 const headerLength = 32
 const maxPayloadSize uint64 = ^uint64(0)>>32 - 1
+
+const paralProtoFrame = 4
 
 var errMsgTooLarge = errors.New("message payload is two large")
 var errPeerTermed = errors.New("peer has been terminated")
@@ -32,10 +34,15 @@ var errPeerTsBusy = errors.New("peer transport is busy, can`t write message")
 
 type conn struct {
 	*AsyncMsgConn
-	flags   connFlag
-	cmdSets []*CmdSet
-	name    string
-	id discovery.NodeID
+	flags      connFlag
+	cmdSets    []*CmdSet
+	name       string
+	localID    discovery.NodeID
+	localIP    net.IP
+	localPort  uint16
+	remoteID   discovery.NodeID
+	remoteIP   net.IP
+	remotePort uint16
 }
 
 func (c *conn) is(flag connFlag) bool {
@@ -47,13 +54,14 @@ type protoFrame struct {
 	*conn
 	input    chan *Msg
 	term     chan struct{}
+	canWrite chan struct{} // if this frame can write message
 }
 
 func newProtoFrame(protocol *Protocol, conn *conn) *protoFrame {
 	return &protoFrame{
 		Protocol: protocol,
-		conn: conn,
-		input:    make(chan *Msg, 1),
+		conn:     conn,
+		input:    make(chan *Msg, 10),
 	}
 }
 
@@ -74,13 +82,20 @@ func (pf *protoFrame) WriteMsg(msg *Msg) error {
 	select {
 	case <-pf.term:
 		return errPeerTermed
-	default:
+	case pf.canWrite <- struct{}{}:
 		if pf.conn.SendMsg(msg) {
+			<-pf.canWrite
 			return nil
 		}
 
+		<-pf.canWrite
 		return errPeerTsBusy
 	}
+}
+
+type protoDone struct {
+	name string
+	err  error
 }
 
 // @section Peer
@@ -90,14 +105,13 @@ type Peer struct {
 	created     time.Time
 	wg          sync.WaitGroup
 	term        chan struct{}
-	disc        chan DiscReason	// for disconnect signal particularly
-	errch chan error	// for common error
-	protoDone   chan struct{}	// for protocols
+	disc        chan DiscReason // for disconnect signal particularly
+	errch       chan error      // for common error
+	protoDone   chan *protoDone // for protocols
 	log         log15.Logger
-	topoChan    chan<- *topoEvent // some msg need other handler
 }
 
-func NewPeer(conn *conn, ourSet []*Protocol, topoChan chan<- *topoEvent) (*Peer, error) {
+func NewPeer(conn *conn, ourSet []*Protocol) (*Peer, error) {
 	protoFrames := createProtoFrames(ourSet, conn.cmdSets, conn)
 
 	if len(protoFrames) == 0 {
@@ -109,11 +123,10 @@ func NewPeer(conn *conn, ourSet []*Protocol, topoChan chan<- *topoEvent) (*Peer,
 		protoFrames: protoFrames,
 		created:     time.Now(),
 		term:        make(chan struct{}),
-		disc: make(chan DiscReason, 1),
-		errch: make(chan error, 1),
+		disc:        make(chan DiscReason, 1),
+		errch:       make(chan error, 1),
 		log:         log15.New("module", "p2p/peer"),
-		protoDone:   make(chan struct{}, len(protoFrames)),
-		topoChan:    topoChan,
+		protoDone:   make(chan *protoDone, len(protoFrames)),
 	}
 
 	p.ts.handler = p.handleMsg
@@ -136,7 +149,7 @@ func createProtoFrames(ourSet []*Protocol, theirSet []*CmdSet, conn *conn) map[s
 }
 
 func (p *Peer) ID() discovery.NodeID {
-	return p.ts.id
+	return p.ts.remoteID
 }
 
 func (p *Peer) Name() string {
@@ -157,6 +170,62 @@ func (p *Peer) RemoteAddr() *net.TCPAddr {
 
 func (p *Peer) IP() net.IP {
 	return p.RemoteAddr().IP
+}
+
+type ConnProperty struct {
+	LocalID    string `json:"localID"`
+	LocalIP    net.IP `json:"localIP"`
+	LocalPort  uint16 `json:"localPort"`
+	RemoteID   string `json:"remoteID"`
+	RemoteIP   net.IP `json:"remoteIP"`
+	RemotePort uint16 `json:"remotePort"`
+}
+
+func (cp *ConnProperty) Serialize() ([]byte, error) {
+	return proto.Marshal(cp.Proto())
+}
+
+func (cp *ConnProperty) Deserialize(buf []byte) error {
+	pb := new(protos.ConnProperty)
+	err := proto.Unmarshal(buf, pb)
+	if err != nil {
+		return err
+	}
+
+	cp.Deproto(pb)
+	return nil
+}
+
+func (cp *ConnProperty) Proto() *protos.ConnProperty {
+	return &protos.ConnProperty{
+		LocalID:    cp.LocalID,
+		LocalIP:    cp.LocalIP,
+		LocalPort:  uint32(cp.LocalPort),
+		RemoteID:   cp.RemoteID,
+		RemoteIP:   cp.RemoteIP,
+		RemotePort: uint32(cp.RemotePort),
+	}
+}
+
+func (cp *ConnProperty) Deproto(pb *protos.ConnProperty) {
+	cp.LocalID = pb.LocalID
+	cp.LocalIP = pb.LocalIP
+	cp.LocalPort = uint16(pb.LocalPort)
+
+	cp.RemoteID = pb.RemoteID
+	cp.RemoteIP = pb.RemoteIP
+	cp.RemotePort = uint16(pb.RemotePort)
+}
+
+func (p *Peer) GetConnProperty() *ConnProperty {
+	return &ConnProperty{
+		LocalID:    p.ts.localID.String(),
+		LocalIP:    p.ts.localIP,
+		LocalPort:  p.ts.localPort,
+		RemoteID:   p.ts.remoteID.String(),
+		RemoteIP:   p.ts.remoteIP,
+		RemotePort: p.ts.remotePort,
+	}
 }
 
 func (p *Peer) Info() *PeerInfo {
@@ -186,7 +255,7 @@ func (p *Peer) Disconnect(reason DiscReason) {
 
 func (p *Peer) protoFrame(CmdSetID uint64) *protoFrame {
 	for _, pf := range p.protoFrames {
-		if pf.CmdSet().ID == CmdSetID {
+		if pf.ID == CmdSetID {
 			return pf
 		}
 	}
@@ -196,37 +265,46 @@ func (p *Peer) protoFrame(CmdSetID uint64) *protoFrame {
 
 func (p *Peer) runProtocols() {
 	p.wg.Add(len(p.protoFrames))
+	canWrite := make(chan struct{}, paralProtoFrame)
 
 	for _, proto := range p.protoFrames {
-		proto.term = p.term
-
-		go func(pf *protoFrame) {
-			defer p.wg.Done()
-
-			err := pf.Handle(p, pf)
-			p.log.Error(fmt.Sprintf("protocol %s is done: %v", proto, err))
-			delete(p.protoFrames, proto.String())
-			p.protoDone <- struct{}{}
-		}(proto)
+		go p.runProtocol(proto, canWrite)
 	}
 }
 
+func (p *Peer) runProtocol(proto *protoFrame, canWrite chan struct{}) {
+	defer p.wg.Done()
+	proto.term = p.term
+	proto.canWrite = canWrite
+
+	err := proto.Handle(p, proto)
+	p.protoDone <- &protoDone{proto.String(), err}
+}
+
 func (p *Peer) run() (err error) {
+	p.log.Info(fmt.Sprintf("peer %s run", p))
+
 	p.ts.Start()
 
-	loop:
+	p.runProtocols()
+
+loop:
 	for {
 		select {
-		case err = <- p.disc:
+		case err = <-p.disc:
 			// we have been told will disconnect
 			break loop
-		case <-p.protoDone:
+		case e := <-p.protoDone:
+			p.log.Error(fmt.Sprintf("protocol %s is done: %v", e.name, err))
+			delete(p.protoFrames, e.name)
 			if len(p.protoFrames) == 0 {
 				// all protocols have done
 				err = errProtoHandleDone
 				break loop
 			}
-		case err = <- p.ts.errch:	// error occur
+		case err = <-p.ts.errch: // error occur
+			break loop
+		case err = <-p.errch:
 			break loop
 		}
 	}
@@ -235,15 +313,8 @@ func (p *Peer) run() (err error) {
 	p.ts.Close(err)
 	p.wg.Wait()
 
+	p.log.Info(fmt.Sprintf("peer %s run done: %v", p, err))
 	return err
-}
-
-func (p *Peer) SendMsg(msg *Msg) {
-	p.ts.SendMsg(msg)
-}
-
-func (p *Peer) Send(cmdset, cmd, id uint64, s Serializable) {
-	p.ts.Send(cmdset, cmd, id, s)
 }
 
 func (p *Peer) handleMsg(msg *Msg) {
@@ -259,20 +330,17 @@ func (p *Peer) handleMsg(msg *Msg) {
 				p.disc <- reason
 			}
 			p.errch <- err
-		case topoCmd:
-			select {
-			case p.topoChan <- &topoEvent{msg, p}:
-			default:
-				p.log.Error(fmt.Sprintf("discard topoMsg: receive channel is block: %s@%s", p.ID(), p.RemoteAddr()))
-				msg.Discard()
-			}
 		default:
 			msg.Discard()
 		}
 	} else {
 		pf := p.protoFrame(cmdset)
 		if pf == nil {
-			p.errch <- fmt.Errorf("missing suitable protoFrame to handle message %d/%d", cmdset, cmd)
+			// may be error occur concurrently
+			select {
+			case p.errch <- fmt.Errorf("missing suitable protoFrame to handle message %d/%d", cmdset, cmd):
+			default:
+			}
 		} else {
 			select {
 			case <-p.term:
@@ -284,17 +352,17 @@ func (p *Peer) handleMsg(msg *Msg) {
 			}
 		}
 	}
-	}
+}
 
 // @section PeerSet
 type PeerSet struct {
 	peers    map[discovery.NodeID]*Peer
-	lock sync.RWMutex
+	lock     sync.RWMutex
 	inbound  int
 	outbound int
 }
 
-func newPeerSet() *PeerSet {
+func NewPeerSet() *PeerSet {
 	return &PeerSet{
 		peers: make(map[discovery.NodeID]*Peer),
 	}
@@ -380,7 +448,7 @@ func (s *PeerSet) Traverse(fn func(id discovery.NodeID, p *Peer)) {
 
 // @section PeerInfo
 type PeerInfo struct {
-	ID      string   `json:"id"`
+	ID      string   `json:"remoteID"`
 	Name    string   `json:"name"`
 	CmdSets []string `json:"caps"`
 	Address string   `json:"address"`

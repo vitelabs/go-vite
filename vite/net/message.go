@@ -1,8 +1,6 @@
 package net
 
 import (
-	"fmt"
-	"github.com/ethereum/go-ethereum/p2p/netutil"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -24,7 +22,7 @@ const hashStep = 20
 // @section Cmd
 const CmdSetName = "vite"
 
-var cmdSets = []uint64{2}
+const CmdSet = 2
 
 type cmd uint64
 
@@ -33,16 +31,16 @@ const (
 	StatusCode
 	ForkCode // tell peer it has forked, use for respond GetSnapshotBlocksCode
 	GetSubLedgerCode
-	GetSnapshotBlocksCode	// get snapshotblocks without content
+	GetSnapshotBlocksCode // get snapshotblocks without content
 	GetSnapshotBlocksContentCode
-	GetFullSnapshotBlocksCode	// get snapshotblocks with content
-	GetSnapshotBlocksByHashCode	// a batch of hash
+	GetFullSnapshotBlocksCode   // get snapshotblocks with content
+	GetSnapshotBlocksByHashCode // a batch of hash
 	GetSnapshotBlocksContentByHashCode
 	GetFullSnapshotBlocksByHashCode
 	GetAccountBlocksCode       // query single AccountChain
 	GetMultiAccountBlocksCode  // query multi AccountChain
 	GetAccountBlocksByHashCode // query accountBlocks by hashList
-	GetFileCode
+	GetFilesCode
 	GetChunkCode
 	SubLedgerCode
 	FileListCode
@@ -56,28 +54,28 @@ const (
 )
 
 var msgNames = [...]string{
-	HandshakeCode:               "HandShakeMsg",
-	StatusCode:                  "StatusMsg",
-	ForkCode:                    "ForkMsg",
-	GetSubLedgerCode:            "GetSubLedgerMsg",
-	GetSnapshotBlocksCode: "GetSnapshotBlocksMsg",
-	GetSnapshotBlocksContentCode:  "GetSnapshotBlocksContentMsg",
-	GetFullSnapshotBlocksCode:       "GetFullSnapshotBlocksMsg",
-	GetSnapshotBlocksByHashCode: "GetSnapshotBlocksByHashMsg",
+	HandshakeCode:                      "HandShakeMsg",
+	StatusCode:                         "StatusMsg",
+	ForkCode:                           "ForkMsg",
+	GetSubLedgerCode:                   "GetSubLedgerMsg",
+	GetSnapshotBlocksCode:              "GetSnapshotBlocksMsg",
+	GetSnapshotBlocksContentCode:       "GetSnapshotBlocksContentMsg",
+	GetFullSnapshotBlocksCode:          "GetFullSnapshotBlocksMsg",
+	GetSnapshotBlocksByHashCode:        "GetSnapshotBlocksByHashMsg",
 	GetSnapshotBlocksContentByHashCode: "GetSnapshotBlocksContentByHashMsg",
-	GetFullSnapshotBlocksByHashCode: "GetFullSnapshotBlocksByHashMsg",
-	GetAccountBlocksCode:        "GetAccountBlocksMsg",
-	GetMultiAccountBlocksCode:   "GetMultiAccountBlocksMsg",
-	GetAccountBlocksByHashCode:  "GetAccountBlocksByHashMsg",
-	GetFileCode:                 "GetFileMsg",
-	GetChunkCode: "GetChunkMsg",
-	SubLedgerCode:               "SubLedgerMsg",
-	FileListCode:                "FileListMsg",
-	SnapshotBlocksCode:    "SnapshotBlocksMsg",
-	SnapshotBlocksContentCode:     "SnapshotBlocksContentMsg",
-	FullSnapshotBlocksCode:          "FullSnapshotBlocksMsg",
-	AccountBlocksCode:           "AccountBlocksMsg",
-	NewSnapshotBlockCode:        "NewSnapshotBlockMsg",
+	GetFullSnapshotBlocksByHashCode:    "GetFullSnapshotBlocksByHashMsg",
+	GetAccountBlocksCode:               "GetAccountBlocksMsg",
+	GetMultiAccountBlocksCode:          "GetMultiAccountBlocksMsg",
+	GetAccountBlocksByHashCode:         "GetAccountBlocksByHashMsg",
+	GetFilesCode:                       "GetFileMsg",
+	GetChunkCode:                       "GetChunkMsg",
+	SubLedgerCode:                      "SubLedgerMsg",
+	FileListCode:                       "FileListMsg",
+	SnapshotBlocksCode:                 "SnapshotBlocksMsg",
+	SnapshotBlocksContentCode:          "SnapshotBlocksContentMsg",
+	FullSnapshotBlocksCode:             "FullSnapshotBlocksMsg",
+	AccountBlocksCode:                  "AccountBlocksMsg",
+	NewSnapshotBlockCode:               "NewSnapshotBlockMsg",
 }
 
 func (t cmd) String() string {
@@ -94,7 +92,8 @@ type MsgHandler interface {
 }
 
 // @section statusHandler
-type _statusHandler	func (msg *p2p.Msg, sender *Peer) error
+type _statusHandler func(msg *p2p.Msg, sender *Peer) error
+
 func statusHandler(msg *p2p.Msg, sender *Peer) error {
 	status := new(ledger.HashHeight)
 	err := status.Deserialize(msg.Payload)
@@ -116,73 +115,6 @@ func (s _statusHandler) Cmds() []cmd {
 
 func (s _statusHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 	return s(msg, sender)
-}
-
-// @section forkHandler
-type forkHandler struct {
-	chain Chain
-}
-
-func (f *forkHandler) ID() string {
-	return "default fork handler"
-}
-
-func (f *forkHandler) Cmds() []cmd {
-	return []cmd{ForkCode}
-}
-
-func (f *forkHandler) Handle(msg *p2p.Msg, sender *Peer) error {
-	fork := new(message.Fork)
-	err := fork.Deserialize(msg.Payload)
-	if err != nil {
-		return err
-	}
-
-	high := fork.List[0]
-	ids, err := f.chain.GetAbHashList(high.Height, uint64(len(fork.List)), hashStep, false)
-
-	var commonID *ledger.HashHeight
-	if err != nil {
-		// can`t get hashList, use binary search to find commonID
-		low, high := 0, len(fork.List)
-		for low < high {
-			mid := (low + high) / 2
-			id := fork.List[mid]
-			_, err = f.chain.GetSnapshotBlocksByHash(&id.Hash, 1, true, false)
-			if err == nil {
-				commonID = id
-				high = mid - 1
-			} else {
-				low = mid + 1
-			}
-		}
-	} else {
-		for i, id := range ids {
-			pid := fork.List[i]
-			if id.Equal(pid.Hash, pid.Height) {
-				commonID = id
-				break
-			}
-		}
-	}
-
-	if commonID != nil {
-		// get commonID, resend the request message
-		return sender.GetSnapshotBlocks(&message.GetSnapshotBlocks{
-			From:    commonID,
-			Count:   sender.height - commonID.Height,
-			Forward: true,
-		})
-	} else {
-		// can`t get commonID, then getSnapshotBlocks from the lowest block
-		// last item is lowest
-		lowest := fork.List[len(fork.List)-1].Height
-		return sender.GetSnapshotBlocks(&message.GetSnapshotBlocks{
-			From:    &ledger.HashHeight{Height: lowest,},
-			Count:   sender.height - lowest,
-			Forward: true,
-		})
-	}
 }
 
 // @section getSubLedgerHandler
@@ -250,21 +182,8 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 		blocks, err = s.chain.GetSnapshotBlocksByHash(&req.From.Hash, req.Count, req.Forward, false)
 	}
 
-	var ids []*ledger.HashHeight
 	if err != nil {
-		count := req.From.Height / hashStep
-		if count > maxStepHashCount {
-			count = maxStepHashCount
-		}
-		// from high to low
-		ids, err = s.chain.GetAbHashList(req.From.Height, count, hashStep, false)
-		if err != nil {
-			return err
-		}
-
-		return sender.SendFork(&message.Fork{
-			List: ids,
-		}, msg.Id)
+		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	} else {
 		return sender.SendSnapshotBlocks(blocks, msg.Id)
 	}
@@ -282,11 +201,22 @@ func (a *getAccountBlocksHandler) Cmds() []cmd {
 	return []cmd{GetAccountBlocksCode}
 }
 
+var NULL_ADDRESS = types.Address{}
+
 func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 	as := new(message.GetAccountBlocks)
 	err := as.Deserialize(msg.Payload)
 	if err != nil {
 		return err
+	}
+
+	// get correct address
+	if as.Address == NULL_ADDRESS {
+		block, err := a.chain.GetAccountBlockByHash(&as.From.Hash)
+		if err != nil {
+			return sender.Send(ExceptionCode, msg.Id, message.Missing)
+		}
+		as.Address = block.AccountAddress
 	}
 
 	var blocks []*ledger.AccountBlock
@@ -297,7 +227,10 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 	}
 
 	if err != nil {
-		return sender.SendAccountBlocks(as.Address, blocks, msg.Id)
+		return sender.SendAccountBlocks(&message.AccountBlocks{
+			Address: as.Address,
+			Blocks:  blocks,
+		}, msg.Id)
 	} else {
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
@@ -317,7 +250,7 @@ func (c *getChunkHandler) Cmds() []cmd {
 }
 
 func (c *getChunkHandler) Handle(msg *p2p.Msg, sender *Peer) error {
-	req := new(message.Chunk)
+	req := new(message.GetChunk)
 	err := req.Deserialize(msg.Payload)
 	if err != nil {
 		return err
@@ -332,104 +265,6 @@ func (c *getChunkHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 	} else {
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
-
-	return nil
-}
-
-// @section blocks
-type BlockReceiver interface {
-	receiveSnapshotBlocks(blocks []*ledger.SnapshotBlock)
-	receiveAccountBlocks(blocks map[types.Address][]*ledger.AccountBlock)
-}
-
-type blocksHandler struct {
-	rec BlockReceiver
-}
-
-func (s *blocksHandler) ID() string {
-	return "default blocks Handler"
-}
-
-func (s *blocksHandler) Cmds() []cmd {
-	return []cmd{SubLedgerCode, SnapshotBlocksCode, AccountBlocksCode}
-}
-
-func (s *blocksHandler) Handle(msg *p2p.Msg, sender *Peer) error {
-	var sblocks []*ledger.SnapshotBlock
-	var mblocks map[types.Address][]*ledger.AccountBlock
-
-	switch cmd(msg.Cmd) {
-	case SubLedgerCode:
-		subledger := new(message.SubLedger)
-		err := subledger.Deserialize(msg.Payload)
-		if err != nil {
-			return err
-		}
-		sblocks = subledger.SBlocks
-		mblocks = subledger.ABlocks
-	case SnapshotBlocksCode:
-		blocks := new(message.SnapshotBlocks)
-
-		err := blocks.Deserialize(msg.Payload)
-		if err != nil {
-			return err
-		}
-
-		sblocks = blocks.Blocks
-	case AccountBlocksCode:
-		blocks := new(message.AccountBlocks)
-
-		err := blocks.Deserialize(msg.Payload)
-		if err != nil {
-			return err
-		}
-
-		mblocks = make(map[types.Address][]*ledger.AccountBlock)
-		mblocks[blocks.Address] = blocks.Blocks
-	}
-
-	for _, block := range sblocks {
-		sender.SeeBlock(block.Hash)
-	}
-	for _, ablocks := range mblocks {
-		for _, ablock := range ablocks {
-			sender.SeeBlock(ablock.Hash)
-		}
-	}
-
-	s.rec.receiveSnapshotBlocks(sblocks)
-	s.rec.receiveAccountBlocks(mblocks)
-
-	return nil
-}
-
-type newblockReceiver interface {
-	BroadcastSnapshotBlock(block *ledger.SnapshotBlock)
-	receiveNewBlock(block *ledger.SnapshotBlock)
-}
-
-type newSnapshotBlockHandler struct {
-	rec newblockReceiver
-}
-
-func (s *newSnapshotBlockHandler) ID() string {
-	return "default new snapshotblocks Handler"
-}
-
-func (s *newSnapshotBlockHandler) Cmds() []cmd {
-	return []cmd{NewSnapshotBlockCode}
-}
-
-func (s *newSnapshotBlockHandler) Handle(msg *p2p.Msg, sender *Peer) error {
-	block := new(ledger.SnapshotBlock)
-	err := block.Deserialize(msg.Payload)
-	if err != nil {
-		return err
-	}
-
-	sender.SeeBlock(block.Hash)
-	s.rec.BroadcastSnapshotBlock(block)
-	s.rec.receiveNewBlock(block)
 
 	return nil
 }

@@ -13,16 +13,15 @@ message Node {
 
 message Ping {
     bytes ID = 1;
-    bytes IP = 2;
-    uint32 UDP = 3;
-    uint32 TCP = 4;
-    int64 Expiration = 5;
+    uint32 TCP = 2;
+    int64 Expiration = 3;
 }
 
 message Pong {
     bytes ID = 1;
     bytes Ping = 2;
-    int64 Expiration = 3;
+    bytes IP = 3;
+    int64 Expiration = 4;
 }
 
 message FindNode {

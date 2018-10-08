@@ -69,7 +69,7 @@ An example server which uses the JSON codec:
  server := NewServer()
  server.RegisterName("calculator", calculator")
 
- l, _ := net.ListenUnix("unix", &net.UnixAddr{Net: "unix", Name: "/tmp/calculator.sock"})
+ l, _ := net.ListenUnix("unix", &net.UnixAddr{Net: "unix", Names: "/tmp/calculator.sock"})
  for {
 	c, _ := l.AcceptUnix()
 	codec := v2.NewJSONCodec(c)

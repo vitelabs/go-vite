@@ -5,9 +5,9 @@ import (
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 	"sync"
 	"time"
@@ -244,37 +244,18 @@ func (p *OnroadBlocksPool) DeleteDirect(sendBlock *ledger.AccountBlock) error {
 	return p.dbAccess.store.DeleteMeta(nil, &sendBlock.ToAddress, &sendBlock.Hash)
 }
 
-type signBlock struct {
-	block  *ledger.AccountBlock
-	ignore bool
-}
-
-func copyToSignLedger(subLedger map[types.Address][]*ledger.AccountBlock) map[types.Address][]*signBlock {
-	var handlerLedger map[types.Address][]*signBlock
-	for k, blockList := range subLedger {
-		for _, v := range blockList {
-			handlerLedger[k] = append(handlerLedger[k], &signBlock{v, false})
-		}
-	}
-	return handlerLedger
-}
-
 // DeleteUnRoad means to revert according to bifurcation
 func (p *OnroadBlocksPool) DeleteOnroad(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
 	p.log.Info("DeleteOnroad: revert")
 
-	signLedger := copyToSignLedger(subLedger)
-	for _, blockList := range signLedger {
+	cutMap := excludeSubordinate(subLedger)
+	for _, blocks := range cutMap {
 		// the blockList is sorted by height with ascending order
-		for i := len(blockList); i > 0; i-- {
-			v := blockList[i]
+		for i := len(blocks); i > 0; i-- {
+			v := blocks[i]
 
-			if v.block.IsReceiveBlock() {
-				if v.ignore == true {
-					continue
-				}
-
-				sendBlock, err := p.dbAccess.Chain.GetAccountBlockByHash(&v.block.FromBlockHash)
+			if v.IsReceiveBlock() {
+				sendBlock, err := p.dbAccess.Chain.GetAccountBlockByHash(&v.FromBlockHash)
 				if err != nil {
 					p.log.Error("GetAccountBlockByHash", "error", err)
 					return err
@@ -284,32 +265,39 @@ func (p *OnroadBlocksPool) DeleteOnroad(batch *leveldb.Batch, subLedger map[type
 					return err
 				}
 			} else {
-				existInSubLedger(v.block, signLedger)
-				if err := p.dbAccess.deleteOnroadMeta(batch, v.block); err != nil {
+				if err := p.dbAccess.deleteOnroadMeta(batch, v); err != nil {
 					p.log.Error("revert the sendBlock's and the referred failed", "error", err)
 					return err
 				}
 
 				// fixme: wait for func @yd
 				// delete the gid-contractAddrList relationship
-				gid := contracts.GetGidFromCreateContractData(v.block.Data)
-				p.dbAccess.DeleteContractAddrFromGid(batch, gid, v.block.ToAddress)
+				gid := contracts.GetGidFromCreateContractData(v.Data)
+				p.dbAccess.DeleteContractAddrFromGid(batch, gid, v.ToAddress)
 			}
 		}
 	}
 	return nil
 }
 
-func existInSubLedger(block *ledger.AccountBlock, ignoreLedger map[types.Address][]*signBlock) {
-	if block.IsSendBlock() {
-		if bl, ok := ignoreLedger[block.ToAddress]; ok {
-			for _, v := range bl {
-				if v.block.FromBlockHash == block.Hash {
-					v.ignore = true
+func excludeSubordinate(subLedger map[types.Address][]*ledger.AccountBlock) map[types.Hash][]*ledger.AccountBlock {
+	var cutMap map[types.Hash][]*ledger.AccountBlock
+	for _, blockList := range subLedger {
+		for _, v := range blockList {
+			if v.IsSendBlock() {
+				if _, ok := cutMap[v.Hash]; ok {
+					cutMap[v.Hash] = nil
 				}
+				cutMap[v.Hash] = append(cutMap[v.Hash], v)
+			} else {
+				if bl, ok := cutMap[v.FromBlockHash]; ok && bl[len(bl)].IsSendBlock() {
+					continue
+				}
+				cutMap[v.FromBlockHash] = append(cutMap[v.FromBlockHash], v)
 			}
 		}
 	}
+	return cutMap
 }
 
 func (p *OnroadBlocksPool) updateFullCache(writeType bool, block *ledger.AccountBlock) error {

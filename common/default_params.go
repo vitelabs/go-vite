@@ -1,10 +1,18 @@
 package common
 
 import (
-	"path/filepath"
 	"os"
 	"os/user"
+	"path/filepath"
 	"runtime"
+)
+
+const (
+	DefaultHTTPHost = "localhost" // Default host interface for the HTTP RPC server
+	DefaultHTTPPort = 48132       // Default TCP port for the HTTP RPC server
+	DefaultWSHost   = "localhost" // Default host interface for the websocket RPC server
+	DefaultWSPort   = 31420       // Default TCP port for the websocket RPC server
+	DefaultP2PPort  = 8483
 )
 
 // DefaultDataDir is  $HOME/viteisbest/
