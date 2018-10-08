@@ -16,7 +16,7 @@ import (
 type nodeDB struct {
 	db   *leveldb.DB
 	id   NodeID
-	stop chan struct{}
+	term chan struct{}
 }
 
 const (
@@ -279,7 +279,7 @@ func (db *nodeDB) cleanLoop() {
 loop:
 	for {
 		select {
-		case <-db.stop:
+		case <-db.term:
 			break loop
 		case <-cleanTicker.C:
 			db.cleanStaleNodes()
@@ -306,10 +306,10 @@ func (db *nodeDB) cleanStaleNodes() {
 
 func (db *nodeDB) close() {
 	select {
-	case <-db.stop:
+	case <-db.term:
 	default:
 		db.db.Close()
-		close(db.stop)
+		close(db.term)
 	}
 }
 

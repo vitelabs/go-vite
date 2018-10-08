@@ -271,10 +271,11 @@ func TestContractsRegisterRun(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr2
 	receiveRewardBlockList, isRetry, err := vm.Run(db, block25, sendRewardBlockList[0].AccountBlock)
+	registrationData, _ = contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr6, addr1, addr7, helper.Big0, uint64(0), snapshot5.Height, snapshot5.Height)
 	if len(receiveRewardBlockList) != 2 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(viteTotalSupply) != 0 ||
-		len(db.storageMap[addr2][string(locHashRegister.Bytes())]) != 0 ||
+		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationData) ||
 		receiveRewardBlockList[0].AccountBlock.Quota != 0 ||
 		receiveRewardBlockList[1].AccountBlock.Quota != 0 ||
 		receiveRewardBlockList[1].AccountBlock.Height != 6 ||

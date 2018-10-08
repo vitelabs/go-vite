@@ -15,6 +15,7 @@ type NetworkID uint64
 
 const (
 	MainNet NetworkID = iota + 1
+	TestNet
 	Aquarius
 	Pisces
 	Aries
@@ -31,6 +32,7 @@ const (
 
 var network = [...]string{
 	MainNet:     "MainNet",
+	TestNet:     "TestNet",
 	Aquarius:    "Aquarius",
 	Pisces:      "Pisces",
 	Aries:       "Aries",

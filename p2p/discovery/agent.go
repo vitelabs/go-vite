@@ -132,7 +132,7 @@ func (d *agent) start() {
 }
 
 func (d *agent) stop() {
-	discvLog.Info("discovery agent stop")
+	discvLog.Info("discovery agent term")
 
 	close(d.term)
 	d.wg.Wait()

@@ -1,7 +1,7 @@
 package config
 
 type P2P struct {
-	Name string `json:"Name""`
+	Name string `json:"Names""`
 
 	// use for sign data
 	PrivateKey string `json:"PrivateKey"`

@@ -94,7 +94,7 @@ func genesisMintageBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	tokenName := "Vite Token"
 	tokenSymbol := "VITE"
 	decimals := uint8(18)
-	mintageData, _ := contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, ledger.GenesisAccountAddress, big.NewInt(0), int64(0))
+	mintageData, _ := contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, ledger.GenesisAccountAddress, big.NewInt(0), uint64(0))
 
 	vmContext.SetStorage(contracts.GetMintageKey(ledger.ViteTokenId), mintageData)
 
@@ -136,7 +136,7 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 		Timestamp: &timestamp,
 	}
 
-	conditionRegisterData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)), ledger.ViteTokenId, int64(3600*24*90))
+	conditionRegisterData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)), ledger.ViteTokenId, uint64(3600*24*90))
 
 	snapshotConsensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
@@ -151,7 +151,7 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 		[]byte{},
 		ledger.GenesisAccountAddress,
 		big.NewInt(0),
-		int64(1))
+		uint64(1))
 
 	commonConsensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
@@ -166,7 +166,7 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 		[]byte{},
 		ledger.GenesisAccountAddress,
 		big.NewInt(0),
-		int64(1))
+		uint64(1))
 
 	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
 	vmContext.SetStorage(contracts.GetConsensusGroupKey(types.SNAPSHOT_GID), snapshotConsensusGroupData)
@@ -228,7 +228,7 @@ func genesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
 	for index, addr := range addrList {
 		nodeName := "s" + strconv.Itoa(index+1)
-		registerData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr, addr, addr, helper.Big0, int64(1), uint64(1), uint64(0))
+		registerData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr, addr, addr, helper.Big0, uint64(1), uint64(1), uint64(0))
 		vmContext.SetStorage(contracts.GetRegisterKey(nodeName, types.SNAPSHOT_GID), registerData)
 	}
 

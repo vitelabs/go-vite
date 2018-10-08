@@ -8,7 +8,7 @@ import (
 type Exception uint64
 
 const (
-	Missing       	Exception = iota                       // I don`t have the resource you requested
+	Missing             Exception = iota // I don`t have the resource you requested
 	Canceled                             // the request have been canceled
 	Unsolicited                          // the request must have pre-checked
 	Blocked                              // you have been blocked
@@ -17,6 +17,7 @@ const (
 	DifferentNet
 	UnMatchedMsgVersion
 	UnIdenticalGenesis
+	FileTransDone
 )
 
 var exception = [...]string{
@@ -29,6 +30,7 @@ var exception = [...]string{
 	DifferentNet:        "we are at different network",
 	UnMatchedMsgVersion: "UnMatchedMsgVersion",
 	UnIdenticalGenesis:  "UnIdenticalGenesis",
+	FileTransDone:       "FileTransDone",
 }
 
 func (exp Exception) String() string {
@@ -44,6 +46,7 @@ func (exp Exception) Serialize() ([]byte, error) {
 	n := binary.PutUvarint(buf, uint64(exp))
 	return buf[:n], nil
 }
+
 func (exp Exception) Deserialize(buf []byte) error {
 	panic("use deserializeException instead")
 }
