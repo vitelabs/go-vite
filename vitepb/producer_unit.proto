@@ -1,0 +1,10 @@
+syntax="proto3";
+
+package vitepb;
+
+message ProducerUnit {
+    repeated string brokerList = 1;
+    string topic = 2;
+    string version = 3;
+    uint64 hasSend = 4;
+}

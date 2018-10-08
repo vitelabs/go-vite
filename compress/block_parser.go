@@ -30,7 +30,6 @@ func (blockParser *blockParserCache) RefreshCache() {
 
 var blockParserLog = log15.New("module", "compress/block_parser")
 
-// TODO err
 func BlockParser(reader io.Reader, processor blockProcessor) {
 	//r, w := io.Pipe()
 

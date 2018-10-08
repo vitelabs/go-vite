@@ -30,4 +30,6 @@ const (
 	DBKP_ADDR_GID = byte(14)
 
 	DBKP_GID_ADDR = byte(15)
+
+	DBKP_KAFKA_SENDER = byte(16)
 )

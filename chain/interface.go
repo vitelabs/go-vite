@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain_db"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/compress"
@@ -11,6 +12,11 @@ import (
 	"math/big"
 	"time"
 )
+
+type InsertProcessorFunc func(batch *leveldb.Batch, blocks []*vm_context.VmAccountBlock) error
+type InsertProcessorFuncSuccess func(blocks []*vm_context.VmAccountBlock)
+type DeleteProcessorFunc func(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error
+type DeleteProcessorFuncSuccess func(subLedger map[types.Address][]*ledger.AccountBlock)
 
 type Chain interface {
 	InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error
@@ -62,10 +68,10 @@ type Chain interface {
 	GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
 	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)
 	UnRegister(listenerId uint64)
-	RegisterInsertAccountBlocks(processor insertProcessorFunc) uint64
-	RegisterInsertAccountBlocksSuccess(processor insertProcessorFuncSuccess) uint64
-	RegisterDeleteAccountBlocks(processor deleteProcessorFunc) uint64
-	RegisterDeleteAccountBlocksSuccess(processor deleteProcessorFuncSuccess) uint64
+	RegisterInsertAccountBlocks(processor InsertProcessorFunc) uint64
+	RegisterInsertAccountBlocksSuccess(processor InsertProcessorFuncSuccess) uint64
+	RegisterDeleteAccountBlocks(processor DeleteProcessorFunc) uint64
+	RegisterDeleteAccountBlocksSuccess(processor DeleteProcessorFuncSuccess) uint64
 	GetStateTrie(stateHash *types.Hash) *trie.Trie
 	NewStateTrie() *trie.Trie
 	GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) uint64
