@@ -8,11 +8,6 @@ import (
 	"sync"
 )
 
-type insertProcessorFunc func(batch *leveldb.Batch, blocks []*vm_context.VmAccountBlock) error
-type insertProcessorFuncSuccess func(blocks []*vm_context.VmAccountBlock)
-type deleteProcessorFunc func(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error
-type deleteProcessorFuncSuccess func(subLedger map[types.Address][]*ledger.AccountBlock)
-
 const (
 	InsertAccountBlocksEvent        = uint8(1)
 	InsertAccountBlocksSuccessEvent = uint8(2)
@@ -46,13 +41,13 @@ func (em *eventManager) trigger(actionId uint8, data ...interface{}) error {
 	for _, listener := range listenerList {
 		switch actionId {
 		case InsertAccountBlocksEvent:
-			return listener.processor.(insertProcessorFunc)(data[0].(*leveldb.Batch), data[1].([]*vm_context.VmAccountBlock))
+			return listener.processor.(InsertProcessorFunc)(data[0].(*leveldb.Batch), data[1].([]*vm_context.VmAccountBlock))
 		case InsertAccountBlocksSuccessEvent:
-			listener.processor.(insertProcessorFuncSuccess)(data[0].([]*vm_context.VmAccountBlock))
+			listener.processor.(InsertProcessorFuncSuccess)(data[0].([]*vm_context.VmAccountBlock))
 		case DeleteAccountBlocksEvent:
-			return listener.processor.(deleteProcessorFunc)(data[0].(*leveldb.Batch), data[1].(map[types.Address][]*ledger.AccountBlock))
+			return listener.processor.(DeleteProcessorFunc)(data[0].(*leveldb.Batch), data[1].(map[types.Address][]*ledger.AccountBlock))
 		case DeleteAccountBlocksSuccessEvent:
-			listener.processor.(deleteProcessorFuncSuccess)(data[0].(map[types.Address][]*ledger.AccountBlock))
+			listener.processor.(DeleteProcessorFuncSuccess)(data[0].(map[types.Address][]*ledger.AccountBlock))
 		}
 	}
 	return nil
@@ -88,18 +83,18 @@ func (c *chain) UnRegister(listenerId uint64) {
 	c.em.unRegister(listenerId)
 }
 
-func (c *chain) RegisterInsertAccountBlocks(processor insertProcessorFunc) uint64 {
+func (c *chain) RegisterInsertAccountBlocks(processor InsertProcessorFunc) uint64 {
 	return c.em.register(InsertAccountBlocksEvent, processor)
 }
 
-func (c *chain) RegisterInsertAccountBlocksSuccess(processor insertProcessorFuncSuccess) uint64 {
+func (c *chain) RegisterInsertAccountBlocksSuccess(processor InsertProcessorFuncSuccess) uint64 {
 	return c.em.register(InsertAccountBlocksSuccessEvent, processor)
 }
 
-func (c *chain) RegisterDeleteAccountBlocks(processor deleteProcessorFunc) uint64 {
+func (c *chain) RegisterDeleteAccountBlocks(processor DeleteProcessorFunc) uint64 {
 	return c.em.register(DeleteAccountBlocksEvent, processor)
 }
 
-func (c *chain) RegisterDeleteAccountBlocksSuccess(processor deleteProcessorFuncSuccess) uint64 {
+func (c *chain) RegisterDeleteAccountBlocksSuccess(processor DeleteProcessorFuncSuccess) uint64 {
 	return c.em.register(DeleteAccountBlocksSuccessEvent, processor)
 }
