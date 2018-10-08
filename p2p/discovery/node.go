@@ -294,7 +294,7 @@ var matrix = [256]int{
 }
 
 // xor every byte of a and b from left to right.
-// stop at the first different byte (for brevity, we call it FDB).
+// term at the first different byte (for brevity, we call it FDB).
 // distance of a and b is bits-count of the FDB plus the bits-count of rest bytes.
 func calcDistance(a, b NodeID) int {
 	delta := 0

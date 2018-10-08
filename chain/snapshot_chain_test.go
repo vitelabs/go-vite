@@ -200,18 +200,24 @@ import (
 //	fmt.Printf("%+v\n", block4)
 //}
 
-func randomSendViteBlock(snapshotBlockHash types.Hash) ([]*vm_context.VmAccountBlock, []types.Address, error) {
+func randomSendViteBlock(snapshotBlockHash types.Hash, addr1 *types.Address, addr2 *types.Address) ([]*vm_context.VmAccountBlock, []types.Address, error) {
 	chainInstance := getChainInstance()
 	now := time.Now()
 
-	var accountAddress, _, _ = types.CreateAddress()
-	var toAddress, _, _ = types.CreateAddress()
+	if addr1 == nil {
+		accountAddress, _, _ := types.CreateAddress()
+		addr1 = &accountAddress
+	}
+	if addr2 == nil {
+		accountAddress, _, _ := types.CreateAddress()
+		addr2 = &accountAddress
+	}
 
-	vmContext, err := vm_context.NewVmContext(chainInstance, nil, nil, &accountAddress)
+	vmContext, err := vm_context.NewVmContext(chainInstance, nil, nil, addr1)
 	if err != nil {
 		return nil, nil, err
 	}
-	latestBlock, _ := chainInstance.GetLatestAccountBlock(&accountAddress)
+	latestBlock, _ := chainInstance.GetLatestAccountBlock(addr1)
 	nextHeight := uint64(1)
 	var prevHash types.Hash
 	if latestBlock != nil {
@@ -223,8 +229,8 @@ func randomSendViteBlock(snapshotBlockHash types.Hash) ([]*vm_context.VmAccountB
 	var sendBlock = &ledger.AccountBlock{
 		PrevHash:       prevHash,
 		BlockType:      ledger.BlockTypeSendCall,
-		AccountAddress: accountAddress,
-		ToAddress:      toAddress,
+		AccountAddress: *addr1,
+		ToAddress:      *addr2,
 		Amount:         sendAmount,
 		TokenId:        ledger.ViteTokenId,
 		Height:         nextHeight,
@@ -243,7 +249,7 @@ func randomSendViteBlock(snapshotBlockHash types.Hash) ([]*vm_context.VmAccountB
 	return []*vm_context.VmAccountBlock{{
 		AccountBlock: sendBlock,
 		VmContext:    vmContext,
-	}}, []types.Address{accountAddress, toAddress}, nil
+	}}, []types.Address{*addr1, *addr2}, nil
 }
 
 func newReceiveBlock(snapshotBlockHash types.Hash, accountAddress types.Address, fromHash types.Hash) ([]*vm_context.VmAccountBlock, error) {
@@ -323,13 +329,13 @@ func TestDeleteSnapshotBlocksToHeight(t *testing.T) {
 
 	chainInstance.InsertSnapshotBlock(snapshotBlock)
 
-	blocks, addressList, err := randomSendViteBlock(snapshotBlock.Hash)
+	blocks, addressList, err := randomSendViteBlock(snapshotBlock.Hash, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	chainInstance.InsertAccountBlocks(blocks)
 
-	blocks2, addressList2, err2 := randomSendViteBlock(snapshotBlock.Hash)
+	blocks2, addressList2, err2 := randomSendViteBlock(snapshotBlock.Hash, nil, nil)
 	if err2 != nil {
 		t.Fatal(err)
 	}
@@ -342,24 +348,11 @@ func TestDeleteSnapshotBlocksToHeight(t *testing.T) {
 
 	chainInstance.InsertSnapshotBlock(snapshotBlock2)
 
-	receiveBlock, err4 := newReceiveBlock(snapshotBlock2.Hash, addressList[1], blocks[0].AccountBlock.Hash)
-	if err4 != nil {
-		t.Fatal(err4)
-	}
+	receiveBlock, _ := newReceiveBlock(snapshotBlock2.Hash, addressList[1], blocks[0].AccountBlock.Hash)
+	chainInstance.InsertAccountBlocks(receiveBlock)
 
-	receiveBlock2, err5 := newReceiveBlock(snapshotBlock2.Hash, addressList2[1], blocks2[0].AccountBlock.Hash)
-	if err5 != nil {
-		t.Fatal(err5)
-	}
-
-	err6 := chainInstance.InsertAccountBlocks(receiveBlock)
-	if err6 != nil {
-		t.Fatal(err6)
-	}
-	err7 := chainInstance.InsertAccountBlocks(receiveBlock2)
-	if err7 != nil {
-		t.Fatal(err7)
-	}
+	receiveBlock2, _ := newReceiveBlock(snapshotBlock2.Hash, addressList2[1], blocks2[0].AccountBlock.Hash)
+	chainInstance.InsertAccountBlocks(receiveBlock2)
 
 	snapshotBlock3, _ := newSnapshotBlock()
 	chainInstance.InsertSnapshotBlock(snapshotBlock3)

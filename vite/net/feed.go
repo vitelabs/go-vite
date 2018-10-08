@@ -12,6 +12,12 @@ type snapshotBlockFeed struct {
 	currentId int
 }
 
+func newSnapshotBlockFeed() *snapshotBlockFeed {
+	return &snapshotBlockFeed{
+		subs: make(map[int]SnapshotBlockCallback),
+	}
+}
+
 func (s *snapshotBlockFeed) Sub(fn SnapshotBlockCallback) int {
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -47,6 +53,12 @@ type accountBlockFeed struct {
 	lock      sync.RWMutex
 	subs      map[int]AccountblockCallback
 	currentId int
+}
+
+func newAccountBlockFeed() *accountBlockFeed {
+	return &accountBlockFeed{
+		subs: make(map[int]AccountblockCallback),
+	}
 }
 
 func (s *accountBlockFeed) Sub(fn AccountblockCallback) int {

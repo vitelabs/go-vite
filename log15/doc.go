@@ -325,7 +325,7 @@ github.com/spacemonkeygo/spacelog
 
 golang's stdlib, notably io and net/http
 
-The Name
+The Names
 
 https://xkcd.com/927/
 

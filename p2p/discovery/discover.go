@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"github.com/pkg/errors"
@@ -21,6 +22,7 @@ var tRefresh = 1 * time.Hour        // refresh the node table at tRefresh interv
 var storeInterval = 5 * time.Minute // store nodes in table to db at storeDuration intervals
 var checkInterval = 3 * time.Minute // check the oldest node in table at checkInterval intervals
 var stayInTable = 5 * time.Minute   // minimal duration node stay in table can be store in db
+var findInterval = 5 * time.Minute
 
 var errUnsolicitedMsg = errors.New("unsolicited message")
 var errMsgExpired = errors.New("message has expired")
@@ -53,6 +55,7 @@ type Discovery struct {
 	refreshDone chan struct{}
 	wg          sync.WaitGroup
 	blockList   *block.CuckooSet
+	subs        []chan<- *Node
 }
 
 func (d *Discovery) Start() {
@@ -69,12 +72,14 @@ func (d *Discovery) Stop() {
 	select {
 	case <-d.term:
 	default:
+		discvLog.Info(fmt.Sprintf("discovery server %s term", d.self))
+
 		close(d.term)
+		d.agent.stop()
+		d.wg.Wait()
+
+		discvLog.Info(fmt.Sprintf("discovery server %s stopped", d.self))
 	}
-
-	d.wg.Wait()
-
-	discvLog.Info(fmt.Sprintf("discovery server %s stop", d.self))
 }
 
 func (d *Discovery) Block(ID NodeID, IP net.IP) {
@@ -92,10 +97,12 @@ func (d *Discovery) tableLoop() {
 	checkTicker := time.NewTicker(checkInterval)
 	refreshTicker := time.NewTimer(tRefresh)
 	storeTicker := time.NewTicker(storeInterval)
+	findTicker := time.NewTicker(findInterval)
 
 	defer checkTicker.Stop()
 	defer refreshTicker.Stop()
 	defer storeTicker.Stop()
+	defer findTicker.Stop()
 
 	d.RefreshTable()
 
@@ -116,6 +123,9 @@ func (d *Discovery) tableLoop() {
 					}
 				})
 			}
+
+		case <-findTicker.C:
+			d.lookup(d.self.ID, false)
 
 		case <-storeTicker.C:
 			now := time.Now()
@@ -180,7 +190,14 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 	reply := make(chan []*Node, alpha)
 	queries := 0
 
+loop:
 	for {
+		select {
+		case <-d.term:
+			break loop
+		default:
+		}
+
 		for i := 0; i < len(result.nodes) && queries < alpha; i++ {
 			n := result.nodes[i]
 			if _, ok := asked[n.ID]; !ok {
@@ -196,13 +213,17 @@ func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 			break
 		}
 
-		nodes := <- reply
-		queries--
-		for _, n := range nodes {
-			if n != nil {
-				if _, ok := hasPushedIntoResult[n.ID]; !ok {
-					hasPushedIntoResult[n.ID] = struct{}{}
-					result.push(n)
+		select {
+		case <-d.term:
+			break loop
+		case nodes := <-reply:
+			queries--
+			for _, n := range nodes {
+				if n != nil {
+					if _, ok := hasPushedIntoResult[n.ID]; !ok {
+						hasPushedIntoResult[n.ID] = struct{}{}
+						result.push(n)
+					}
 				}
 			}
 		}
@@ -239,7 +260,7 @@ func (d *Discovery) HandleMsg(res *packet) {
 	switch res.code {
 	case pingCode:
 		monitor.LogEvent("p2p/discv", "ping-receive")
-		ping, _ := res.msg.(*Ping)
+		ping := res.msg.(*Ping)
 
 		node := &Node{
 			ID:  res.fromID,
@@ -251,15 +272,23 @@ func (d *Discovery) HandleMsg(res *packet) {
 		d.db.setLastPing(res.fromID, time.Now())
 		d.agent.pong(node, res.hash)
 		d.tab.addNode(node)
-
+		d.notify(node)
 	case pongCode:
 		monitor.LogEvent("p2p/discv", "pong-receive")
-		d.db.setLastPong(res.fromID, time.Now())
 
+		pong := res.msg.(*Pong)
+		// get our public IP
+		if len(pong.IP) == 0 || bytes.Equal(pong.IP, net.IPv4zero) || bytes.Equal(pong.IP, net.IPv6zero) {
+			// do nothing
+		} else {
+			d.self.IP = pong.IP
+		}
+
+		d.db.setLastPong(res.fromID, time.Now())
 	case findnodeCode:
 		monitor.LogEvent("p2p/discv", "find-receive")
 
-		findMsg, _ := res.msg.(*FindNode)
+		findMsg := res.msg.(*FindNode)
 		nodes := d.tab.findNeighbors(findMsg.Target, K).nodes
 		node := &Node{
 			ID:  res.fromID,
@@ -268,6 +297,7 @@ func (d *Discovery) HandleMsg(res *packet) {
 		}
 
 		d.agent.sendNeighbors(node, nodes)
+		d.tab.addNode(node)
 	case neighborsCode:
 		monitor.LogEvent("p2p/discv", "neighbors-receive")
 
@@ -275,7 +305,7 @@ func (d *Discovery) HandleMsg(res *packet) {
 		d.agent.send(&sendPkt{
 			addr: res.from,
 			code: exceptionCode,
-			msg:  &Exception{
+			msg: &Exception{
 				Code: eUnKnown,
 			},
 		})
@@ -298,13 +328,16 @@ func (d *Discovery) RefreshTable() {
 	// do refresh routine
 	d.tab.initRand()
 	d.loadInitNodes()
-	d.lookup(d.self.ID, false)
+
+	nodes := d.lookup(d.self.ID, false)
+	d.batchNotify(nodes)
 
 	// find random NodeID in order to improve the defense of eclipse attack
 	for i := 0; i < alpha; i++ {
 		var id NodeID
 		rand.Read(id[:])
-		d.lookup(id, false)
+		nodes = d.lookup(id, false)
+		d.batchNotify(nodes)
 	}
 
 	// set the right state after refresh
@@ -317,8 +350,30 @@ func (d *Discovery) RefreshTable() {
 func (d *Discovery) loadInitNodes() {
 	nodes := d.db.randomNodes(seedCount, seedMaxAge) // get random nodes from db
 	nodes = append(nodes, d.bootNodes...)
+
+	discvLog.Info(fmt.Sprintf("got %d nodes from db", len(nodes)))
+
 	for _, node := range nodes {
 		d.tab.addNode(node)
+	}
+}
+
+func (d *Discovery) SubNodes(ch chan<- *Node) {
+	d.subs = append(d.subs, ch)
+}
+
+func (d *Discovery) notify(node *Node) {
+	for _, ch := range d.subs {
+		select {
+		case ch <- node:
+		default:
+		}
+	}
+}
+
+func (d *Discovery) batchNotify(nodes []*Node) {
+	for _, node := range nodes {
+		d.notify(node)
 	}
 }
 
@@ -346,8 +401,8 @@ func New(cfg *Config) *Discovery {
 		term:       make(chan struct{}),
 		pktHandler: d.HandleMsg,
 		pool:       newWtPool(),
-		write: make(chan *sendPkt, 100),
-		read: make(chan *packet, 100),
+		write:      make(chan *sendPkt, 100),
+		read:       make(chan *packet, 100),
 	}
 
 	return d
