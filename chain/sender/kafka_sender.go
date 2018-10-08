@@ -12,7 +12,7 @@ const (
 	RUNNING
 )
 
-type kafkaMessage struct {
+type message struct {
 	MsgType string `json:"type"`
 	Data    string `json:"data"`
 }
