@@ -26,5 +26,4 @@ func TestGenesis(t *testing.T) {
 	fmt.Printf("%+v\n", GenesisRegisterBlockVC)
 
 	fmt.Printf("%+v\n", GenesisSnapshotBlock)
-
 }

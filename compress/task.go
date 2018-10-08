@@ -88,18 +88,16 @@ func (task *CompressorTask) Run() *TaskRunResult {
 	tmpFileWriter := NewFileWriter(task.tmpFile)
 	var blockNumbers = uint64(0)
 
-	writeBlocks := uint64(0)
-
 	// Limit write length
 	formatterErr := BlockFormatter(tmpFileWriter, func(hasWrite uint64, hasWriteBlocks uint64) ([]ledger.Block, error) {
 
-		writeBlocks = hasWriteBlocks
-		if currentTaskIndex > taskLen ||
+		if currentTaskIndex >= taskLen ||
 			hasWrite >= writeMax {
 			return nil, io.EOF
 		}
 
 		blocks, err := task.getSubLedger(taskInfoList[currentTaskIndex])
+
 		currentTaskIndex++
 		blockNumbers += uint64(len(blocks))
 
@@ -118,10 +116,7 @@ func (task *CompressorTask) Run() *TaskRunResult {
 	}
 
 	return &TaskRunResult{
-		Ti: &taskInfo{
-			beginHeight:  ti.beginHeight,
-			targetHeight: writeBlocks,
-		},
+		Ti:           ti,
 		IsSuccess:    true,
 		BlockNumbers: blockNumbers,
 	}

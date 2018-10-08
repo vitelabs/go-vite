@@ -33,7 +33,7 @@ type Chain interface {
 	ChainDb() *chain_db.ChainDb
 	Start()
 	Stop()
-	GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) *trie.Trie
+	GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
 	GetNeedSnapshotContent() ledger.SnapshotContent
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error
 	GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
@@ -57,8 +57,8 @@ type Chain interface {
 	GetTokenInfoById(tokenId *types.TokenTypeId) *contracts.TokenInfo
 	AccountType(address *types.Address) (uint64, error)
 	GetAccount(address *types.Address) (*ledger.Account, error)
-	GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]string, [][2]uint64)
-	GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]string, [][2]uint64, error)
+	GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64)
+	GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64, error)
 	GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
 	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)
 	UnRegister(listenerId uint64)

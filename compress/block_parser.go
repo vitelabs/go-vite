@@ -28,7 +28,7 @@ func (blockParser *blockParserCache) RefreshCache() {
 	blockParser.currentBlockBuffer = make([]byte, 0, blockParser.currentBlockSize)
 }
 
-var blockParserLog = log15.New("module", "compress", "block_parser")
+var blockParserLog = log15.New("module", "compress/block_parser")
 
 // TODO err
 func BlockParser(reader io.Reader, processor blockProcessor) {
@@ -45,14 +45,14 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 
 	for {
 		readBytes := make([]byte, readNum)
-		_, rErr := reader.Read(readBytes)
+		readN, rErr := reader.Read(readBytes)
 
 		if rErr != nil && rErr != io.EOF {
 			blockParserLog.Error("Read failed, error is " + rErr.Error())
 			return
 		}
 
-		buffer := bytes.NewBuffer(readBytes)
+		buffer := bytes.NewBuffer(readBytes[:readN])
 
 		for buffer.Len() > 0 {
 			if blockParser.currentBlockSize == 0 {
@@ -68,6 +68,7 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 			} else if blockParser.currentBlockSize != 0 && blockParser.currentBlockType == 0 {
 				readBytes := buffer.Next(1)
 				blockParser.currentBlockType = readBytes[0]
+
 			} else {
 				readNum := blockParser.currentBlockSize - uint32(len(blockParser.currentBlockBuffer))
 
@@ -82,13 +83,12 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 						block = &ledger.AccountBlock{}
 					case BlockTypeSnapshotBlock:
 						block = &ledger.SnapshotBlock{}
-					default:
-						err := errors.New("Unknown block type")
-						processor(nil, err)
+
 					}
 					if block != nil {
-						err := block.Deserialize(blockParser.currentBlockBuffer)
-						processor(block, err)
+						processor(block, block.Deserialize(blockParser.currentBlockBuffer))
+					} else {
+						processor(nil, errors.New("Unknown block type"))
 					}
 
 					blockParser.RefreshCache()

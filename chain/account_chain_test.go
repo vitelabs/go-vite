@@ -306,3 +306,63 @@ func TestGetUnConfirmAccountBlocks(t *testing.T) {
 		fmt.Printf("%d: %+v\n", index, block)
 	}
 }
+
+// TODO need snapshot and other case
+func TestDeleteAccountBlocks(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	snapshotBlock, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(snapshotBlock)
+
+	blocks, addressList, _ := randomSendViteBlock(snapshotBlock.Hash)
+	chainInstance.InsertAccountBlocks(blocks)
+
+	blocks2, addressList2, _ := randomSendViteBlock(snapshotBlock.Hash)
+	chainInstance.InsertAccountBlocks(blocks2)
+
+	receiveBlock, _ := newReceiveBlock(snapshotBlock.Hash, addressList[1], blocks[0].AccountBlock.Hash)
+
+	receiveBlock2, _ := newReceiveBlock(snapshotBlock.Hash, addressList2[1], blocks2[0].AccountBlock.Hash)
+
+	chainInstance.InsertAccountBlocks(receiveBlock)
+
+	chainInstance.InsertAccountBlocks(receiveBlock2)
+
+	var display = func() {
+		dBlocks1, _ := chainInstance.GetAccountBlocksByHeight(blocks[0].AccountBlock.AccountAddress, 0, 10, true)
+		for _, block := range dBlocks1 {
+			fmt.Printf("%+v\n", block)
+		}
+		dBlocks2, _ := chainInstance.GetAccountBlocksByHeight(blocks2[0].AccountBlock.AccountAddress, 0, 10, true)
+		for _, block := range dBlocks2 {
+			fmt.Printf("%+v\n", block)
+		}
+		dBlocks3, _ := chainInstance.GetAccountBlocksByHeight(receiveBlock[0].AccountBlock.AccountAddress, 0, 10, true)
+		for _, block := range dBlocks3 {
+			fmt.Printf("%+v\n", block)
+		}
+		dBlocks4, _ := chainInstance.GetAccountBlocksByHeight(receiveBlock2[0].AccountBlock.AccountAddress, 0, 10, true)
+		for _, block := range dBlocks4 {
+			fmt.Printf("%+v\n", block)
+		}
+
+		latestBlock := chainInstance.GetLatestSnapshotBlock()
+		fmt.Printf("%+v\n", latestBlock)
+
+	}
+	display()
+	fmt.Println()
+
+	deleteSubLedger, err := chainInstance.DeleteAccountBlocks(&blocks[0].AccountBlock.AccountAddress, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for addr, blocks := range deleteSubLedger {
+		fmt.Printf("addr is %s\n", addr.String())
+		for _, block := range blocks {
+			fmt.Printf("%v\n", block)
+		}
+	}
+	fmt.Println()
+	display()
+}
