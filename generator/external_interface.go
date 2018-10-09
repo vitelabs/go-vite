@@ -2,7 +2,6 @@ package generator
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
@@ -13,6 +12,5 @@ type Signer interface {
 
 type Chain interface {
 	vm_context.Chain
-	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
 	AccountType(address *types.Address) (uint64, error)
 }
