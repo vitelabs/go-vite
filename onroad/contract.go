@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
-	"github.com/vitelabs/go-vite/producer"
+	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/verifier"
 	"sync"
 )
@@ -18,7 +18,7 @@ type ContractWorker struct {
 
 	gid      types.Gid
 	address  types.Address
-	accEvent producer.AccountStartEvent
+	accEvent producerevent.AccountStartEvent
 
 	status      int
 	statusMutex sync.Mutex
@@ -34,17 +34,17 @@ type ContractWorker struct {
 	contractTaskPQueue contractTaskPQueue
 	ctpMutex           sync.RWMutex
 
-	blackList      map[types.Hash]bool // map[Hash(from, to)]bool
+	blackList      map[types.Address]bool
 	blackListMutex sync.RWMutex
 
 	log log15.Logger
 }
 
-func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) *ContractWorker {
+func NewContractWorker(manager *Manager, accEvent producerevent.AccountStartEvent) *ContractWorker {
 	return &ContractWorker{
 		manager:     manager,
 		uBlocksPool: manager.onroadBlocksPool,
-		verifier:    verifier.NewAccountVerifier(nil, nil, nil), // todo
+		verifier:    verifier.NewAccountVerifier(manager.vite.Chain(), manager.vite),
 
 		gid:      accEvent.Gid,
 		address:  accEvent.Address,
@@ -54,7 +54,7 @@ func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) *C
 		isSleep: false,
 
 		contractTaskProcessors: make([]*ContractTaskProcessor, ContractTaskProcessorSize),
-		blackList:              make(map[types.Hash]bool),
+		blackList:              make(map[types.Address]bool),
 		log:                    slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid),
 	}
 }
@@ -66,7 +66,7 @@ func (w *ContractWorker) Start() {
 	if w.status != Start {
 
 		// 1. get gid`s all contract address if error happened return immediately
-		addressList, err := w.manager.onroadBlocksPool.GetAddrListByGid(w.gid)
+		addressList, err := w.manager.uAccess.GetContractAddrListByGid(&w.gid)
 		if err != nil {
 			w.log.Error("GetAddrListByGid ", "err", err)
 			return
@@ -88,6 +88,10 @@ func (w *ContractWorker) Start() {
 		w.stopDispatcherListener = make(chan struct{})
 
 		w.uBlocksPool.AddContractLis(w.gid, func(address types.Address) {
+			if w.isInBlackList(address) {
+				return
+			}
+
 			q := w.manager.vite.Chain().GetPledgeQuota(w.accEvent.SnapshotHash, address)
 			c := &contractTask{
 				Addr:  address,
@@ -218,21 +222,18 @@ func (w *ContractWorker) popContractTask() *contractTask {
 	return nil
 }
 
-func (w *ContractWorker) addIntoBlackList(to types.Address) {
-	w.log.Info("addIntoBlackList", "to", to)
-	key := types.DataHash(to.Bytes())
+func (w *ContractWorker) addIntoBlackList(addr types.Address) {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
-	w.blackList[key] = true
+	w.blackList[addr] = true
 }
 
-func (w *ContractWorker) isInBlackList(to types.Address) bool {
-	key := types.DataHash(to.Bytes())
+func (w *ContractWorker) isInBlackList(addr types.Address) bool {
 	w.blackListMutex.RLock()
 	defer w.blackListMutex.RUnlock()
-	_, ok := w.blackList[key]
+	_, ok := w.blackList[addr]
 	if ok {
-		w.log.Info("isInBlackList", "to", to, "in", ok)
+		w.log.Info("isInBlackList", "addr", addr, "in", ok)
 	}
 	return ok
 }
