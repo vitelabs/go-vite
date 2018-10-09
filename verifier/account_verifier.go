@@ -36,18 +36,18 @@ func NewAccountVerifier(chain Chain, consensus Consensus) *AccountVerifier {
 	return verifier
 }
 
-func (verifier *AccountVerifier) newVerifyStat(block *ledger.AccountBlock) *AccountBlockVerifyStat {
+func (verifier *AccountVerifier) newVerifyStat() *AccountBlockVerifyStat {
 	return &AccountBlockVerifyStat{}
 }
 
 func (verifier *AccountVerifier) VerifyforP2P(block *ledger.AccountBlock) bool {
 	if verifier.VerifyTimeNotYet(block) {
-		return true
+		return false
 	}
-	if isTrue, err := verifier.VerifyDataValidity(block); !isTrue || err == nil {
-		return true
+	if err := verifier.VerifyDataValidity(block); err != nil {
+		return false
 	}
-	return false
+	return true
 }
 
 func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock, gen *generator.Generator) (blocks []*vm_context.VmAccountBlock, err error) {
@@ -55,8 +55,9 @@ func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock, gen *g
 	if verifier.VerifyTimeNotYet(block) {
 		return nil, errors.New("VerifyTimeNotYet failed")
 	}
-	if isTrue, err := verifier.VerifyDataValidity(block); !isTrue || err == nil {
-		return nil, errors.New("VerifyDataValidity failed")
+	if err := verifier.VerifyDataValidity(block); err != nil {
+		//return nil, errors.New("VerifyDataValidity failed")
+		return nil, err
 	}
 	if verifyResult, _ := verifier.VerifyReferred(block); verifyResult != SUCCESS {
 		return nil, errors.New("VerifyReferred failed")
@@ -68,7 +69,13 @@ func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock, gen *g
 func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock, gen *generator.Generator) (blocks []*vm_context.VmAccountBlock, err error) {
 	defer monitor.LogTime("verify", "VerifyforVM", time.Now())
 
-	if err = gen.PrepareVm(&block.SnapshotHash, &block.PrevHash, &block.AccountAddress); err != nil {
+	var preHash *types.Hash
+	if block.Height == 1 {
+		preHash = nil
+	} else {
+		preHash = &block.PrevHash
+	}
+	if err = gen.PrepareVm(&block.SnapshotHash, preHash, &block.AccountAddress); err != nil {
 		return nil, err
 	}
 	genResult := gen.GenerateWithBlock(block, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
@@ -106,7 +113,7 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 func (verifier *AccountVerifier) VerifyReferred(block *ledger.AccountBlock) (VerifyResult, *AccountBlockVerifyStat) {
 	defer monitor.LogTime("verify", "accountReferredforPool", time.Now())
 
-	stat := verifier.newVerifyStat(block)
+	stat := verifier.newVerifyStat()
 
 	verifier.verifySelf(block, stat)
 	verifier.verifyFrom(block, stat)
@@ -224,15 +231,13 @@ func (verifier *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, veri
 		if isSucc := verifier.VerifyTimeOut(snapshotBlock); !isSucc {
 			verifyStatResult.errMsg += errors.New("VerifyTimeOut").Error()
 			verifyStatResult.referredSnapshotResult = FAIL
+		} else {
+			verifyStatResult.referredSnapshotResult = SUCCESS
 		}
-		verifyStatResult.referredSnapshotResult = SUCCESS
 	}
-
-	verifyStatResult.snapshotTask = &SnapshotPendingTask{Hash: &block.SnapshotHash}
-	verifyStatResult.referredSnapshotResult = PENDING
 }
 
-func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) (bool, error) {
+func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) error {
 	defer monitor.LogTime("verify", "accountSelfDataValidity", time.Now())
 
 	if block.Amount == nil {
@@ -242,29 +247,29 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 		block.Fee = big.NewInt(0)
 	}
 	if block.Amount.Sign() < 0 || block.Amount.BitLen() > MaxBigIntLen {
-		return false, errors.New("block.Amount out of bounds")
+		return errors.New("block.Amount out of bounds")
 	}
 	if block.Fee.Sign() < 0 || block.Fee.BitLen() > MaxBigIntLen {
-		return false, errors.New("block.Fee out of bounds")
+		return errors.New("block.Fee out of bounds")
 	}
 
 	if block.Timestamp == nil {
-		return false, errors.New("block integrity miss")
+		return errors.New("Timestamp can't be nil")
 	}
 
 	if !verifier.VerifyHash(block) {
-		return false, errors.New("VerifyHash failed")
+		return errors.New("VerifyHash failed")
 	}
 
 	if !verifier.VerifyNonce(block) {
-		return false, errors.New("VerifyNonce failed")
+		return errors.New("VerifyNonce failed")
 	}
 
 	if !verifier.VerifySigature(block) {
-		return false, errors.New("VerifySigature failed")
+		return errors.New("VerifySigature failed")
 	}
 
-	return true, nil
+	return nil
 }
 
 func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock, task []*AccountPendingTask) (VerifyResult, error) {
@@ -309,11 +314,11 @@ func (verifier *AccountVerifier) VerifyChainInsertQualification(block *ledger.Ac
 
 func (verifier *AccountVerifier) VerifyHash(block *ledger.AccountBlock) bool {
 	computedHash := block.ComputeHash()
-	if block.Hash.Bytes() == nil || !bytes.Equal(computedHash.Bytes(), block.Hash.Bytes()) {
-		verifier.log.Error("checkHash failed", "originHash", block.Hash)
+	if block.Hash.IsZero() || computedHash != block.Hash {
+		verifier.log.Error("checkHash failed", "originHash", block.Hash, "computedHash", computedHash)
 		return false
 	}
-	return false
+	return true
 }
 
 func (verifier *AccountVerifier) VerifySigature(block *ledger.AccountBlock) bool {
@@ -369,17 +374,17 @@ func (verifier *AccountVerifier) VerifyTimeNotYet(block *ledger.AccountBlock) bo
 	//  don't accept which timestamp doesn't satisfy within the (latestSnapshotBlock's + 1h) limit
 	currentSb := verifier.chain.GetLatestSnapshotBlock()
 	if block.Timestamp.Before(currentSb.Timestamp.Add(time.Hour)) {
-		return true
+		return false
 	}
-	return false
+	return true
 }
 
 func (verifier *AccountVerifier) VerifySnapshotOfReferredBlock(thisBlock *ledger.AccountBlock, referredBlock *ledger.AccountBlock) bool {
 	// referredBlock' snapshotBlock's height can't lower than thisBlock
 	thisSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&thisBlock.SnapshotHash)
-	prevSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&referredBlock.SnapshotHash)
-	if thisSnapshotBlock != nil && prevSnapshotBlock != nil {
-		if prevSnapshotBlock.Height <= thisSnapshotBlock.Height {
+	referredSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&referredBlock.SnapshotHash)
+	if thisSnapshotBlock != nil && referredSnapshotBlock != nil {
+		if referredSnapshotBlock.Height <= thisSnapshotBlock.Height {
 			return true
 		}
 	}
