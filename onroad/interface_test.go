@@ -36,18 +36,20 @@ func (testProducer) SetAccountEventFunc(func(event producerevent.AccountEvent)) 
 }
 
 type testVite struct {
+	chain  chain.Chain
+	wallet *wallet.Manager
 }
 
 func (testVite) Net() onroad.Net {
 	return new(testNet)
 }
 
-func (testVite) Chain() chain.Chain {
-	return chain.NewChain(nil)
+func (t testVite) Chain() chain.Chain {
+	return t.chain
 }
 
-func (testVite) WalletManager() *wallet.Manager {
-	return wallet.New(nil)
+func (t testVite) WalletManager() *wallet.Manager {
+	return t.wallet
 }
 
 func (testVite) Producer() onroad.Producer {
