@@ -2,14 +2,15 @@ package sender
 
 import (
 	"encoding/binary"
-	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/gin-gonic/gin/json"
 	"github.com/golang/protobuf/proto"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
+	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"sync"
 	"time"
@@ -159,12 +160,12 @@ func (producer *Producer) Start() error {
 	config.Producer.Return.Successes = true
 	config.Producer.Return.Errors = true
 
-	//kafkaProducer, err := sarama.NewAsyncProducer(producer.brokerList, config)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//producer.kafkaProducer = kafkaProducer
+	kafkaProducer, err := sarama.NewAsyncProducer(producer.brokerList, config)
+	if err != nil {
+		return err
+	}
+
+	producer.kafkaProducer = kafkaProducer
 	producer.status = RUNNING
 	producer.termination = make(chan int)
 
@@ -220,10 +221,17 @@ func (producer *Producer) send() {
 		return
 	}
 
+	defer func() {
+		if producer.hasSend > producer.dbHasSend {
+			if err := producer.saveHasSend(); err != nil {
+				producer.log.Error("saveHasSend failed, error is "+err.Error(), "method", "send")
+			}
+		}
+	}()
+
 	for i := start + 1; i <= end; i++ {
 		if producer.hasSend > producer.dbHasSend &&
 			producer.hasSend-producer.dbHasSend >= producer.dbRecordInterval {
-
 			if err := producer.saveHasSend(); err != nil {
 				producer.log.Error("saveHasSend failed, error is "+err.Error(), "method", "send")
 			}
@@ -252,10 +260,43 @@ func (producer *Producer) send() {
 					return
 				}
 				if block != nil {
+					// Wrap block
 					mqAccountBlock := &MqAccountBlock{}
 					mqAccountBlock.AccountBlock = *block
-					// TODO balance
-					mqAccountBlock.Balance = big.NewInt(10)
+
+					var sendBlock *ledger.AccountBlock
+
+					var tokenTypeId *types.TokenTypeId
+					if block.IsReceiveBlock() {
+						var err error
+						sendBlock, err = producer.chain.GetAccountBlockByHash(&block.FromBlockHash)
+
+						if err != nil {
+							producer.log.Error("Get send account block failed, error is "+err.Error(), "method", "send")
+							return
+						}
+
+						if sendBlock != nil {
+							tokenTypeId = &sendBlock.TokenId
+							// set token id
+							mqAccountBlock.TokenId = sendBlock.TokenId
+						}
+					} else {
+						tokenTypeId = &block.TokenId
+					}
+
+					balance := big.NewInt(0)
+
+					if tokenTypeId != nil {
+						vc, newVcErr := vm_context.NewVmContext(producer.chain, nil, &block.Hash, &block.AccountAddress)
+						if newVcErr != nil {
+							producer.log.Error("NewVmContext failed, error is "+newVcErr.Error(), "method", "send")
+							return
+						}
+						balance = vc.GetBalance(nil, tokenTypeId)
+					}
+
+					mqAccountBlock.Balance = balance
 					blocks = append(blocks, mqAccountBlock)
 				}
 			}
@@ -368,8 +409,6 @@ func (producer *Producer) sendMessage(msg *message) error {
 	if jsonErr != nil {
 		return jsonErr
 	}
-	fmt.Println(string(buf))
-	return nil
 
 	sMsg := &sarama.ProducerMessage{Topic: producer.topic, Value: sarama.StringEncoder(buf)}
 

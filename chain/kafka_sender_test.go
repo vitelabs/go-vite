@@ -21,8 +21,11 @@ func makeBlocks(chainInstance Chain, toBlockHeight uint64) {
 		chainInstance.InsertSnapshotBlock(snapshotBlock)
 
 		for j := 0; j < 10; j++ {
-			blocks, _, _ := randomSendViteBlock(snapshotBlock.Hash, &accountAddress1, &accountAddress2)
+			blocks, addressList, _ := randomSendViteBlock(snapshotBlock.Hash, &accountAddress1, &accountAddress2)
 			chainInstance.InsertAccountBlocks(blocks)
+
+			receiveBlocks, _ := newReceiveBlock(snapshotBlock.Hash, addressList[1], blocks[0].AccountBlock.Hash)
+			chainInstance.InsertAccountBlocks(receiveBlocks)
 		}
 
 		if (i+1)%100 == 0 {
@@ -35,7 +38,7 @@ func TestSend(t *testing.T) {
 	chainInstance := getChainInstance()
 
 	makeBlocks(chainInstance, 1000)
-	chainInstance.DeleteSnapshotBlocksToHeight(3)
+	//chainInstance.DeleteSnapshotBlocksToHeight(3)
 
 	channel := make(chan int)
 	<-channel
