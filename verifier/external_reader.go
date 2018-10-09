@@ -9,22 +9,16 @@ import (
 type Chain interface {
 	AccountReader
 	SnapshotReader
-	//Chain() *chain.Chain
 }
 
 type Consensus interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) error
 }
 
-type Signer interface {
-	SignData(a types.Address, data []byte) (signedData, pubkey []byte, err error)
-	SignDataWithPassphrase(a types.Address, passphrase string, data []byte) (signedData, pubkey []byte, err error)
-}
-
 type SnapshotReader interface {
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
-	GetConfirmBlock(accountBlock *ledger.AccountBlock) *ledger.SnapshotBlock
-	GetConfirmTimes(accountBlock *ledger.AccountBlock) uint64
+	GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error)
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlocksByHeight(height uint64, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)

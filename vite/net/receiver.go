@@ -125,7 +125,7 @@ func (s *receiver) ReceiveAccountBlocks(mblocks map[types.Address][]*ledger.Acco
 
 func (s *receiver) listen(st SyncState) {
 	if st == Syncdone || st == SyncDownloaded {
-		// caution: s.sblocks and s.mblocks is mutating concurrently
+		// caution: s.blocks and s.mblocks is mutating concurrently
 		// so we keep waterMark, after ready, handle rest blocks
 		sblockMark := len(s.sblocks)
 		mblockMark := make(map[types.Address]int)
@@ -140,8 +140,6 @@ func (s *receiver) listen(st SyncState) {
 				s.record.InsertUnique(block.Hash[:])
 			}
 		}
-
-		//s.sblocks = s.sblocks[:0]
 
 		for addr, length := range mblockMark {
 			for i := 0; i < length; i++ {

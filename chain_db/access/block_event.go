@@ -33,10 +33,10 @@ func NewBlockEvent(db *leveldb.DB) *BlockEvent {
 }
 
 var (
-	AddAccountBlockEvent     = byte(1)
-	DeleteAccountBlockEvent  = byte(2)
-	AddSnapshotBlockEvent    = byte(3)
-	DeleteSnapshotBlockEvent = byte(4)
+	AddAccountBlocksEvent     = byte(1)
+	DeleteAccountBlocksEvent  = byte(2)
+	AddSnapshotBlocksEvent    = byte(3)
+	DeleteSnapshotBlocksEvent = byte(4)
 )
 
 func (be *BlockEvent) newEventId() uint64 {
@@ -82,19 +82,40 @@ func (be *BlockEvent) LatestEventId() uint64 {
 	return be.latestEventId
 }
 
-func (be *BlockEvent) AddAccountBlocks(batch *leveldb.Batch, blockHashList []types.Hash) {
+func (be *BlockEvent) GetEvent(eventId uint64) (byte, []types.Hash, error) {
+	key, _ := database.EncodeKey(database.DBKP_BLOCK_EVENT, eventId)
+	value, err := be.db.Get(key, nil)
+	if err != nil {
+		if err != leveldb.ErrNotFound {
+			return byte(0), nil, err
+		}
+		return byte(0), nil, nil
+	}
 
-	be.writeEvent(batch, AddAccountBlockEvent, blockHashList)
+	eventType := value[0]
+	value = value[1:]
+
+	var blockHashList []types.Hash
+	for i := 0; i < types.HashSize/len(value); i++ {
+		var blockHash types.Hash
+		copy(blockHash[:], value[i*types.HashSize:(i+1)*types.HashSize])
+		blockHashList = append(blockHashList, blockHash)
+	}
+	return eventType, blockHashList, nil
+}
+
+func (be *BlockEvent) AddAccountBlocks(batch *leveldb.Batch, blockHashList []types.Hash) {
+	be.writeEvent(batch, AddAccountBlocksEvent, blockHashList)
 }
 
 func (be *BlockEvent) DeleteAccountBlocks(batch *leveldb.Batch, blockHashList []types.Hash) {
-	be.writeEvent(batch, DeleteAccountBlockEvent, blockHashList)
+	be.writeEvent(batch, DeleteAccountBlocksEvent, blockHashList)
 }
 
 func (be *BlockEvent) AddSnapshotBlocks(batch *leveldb.Batch, blockHashList []types.Hash) {
-	be.writeEvent(batch, AddSnapshotBlockEvent, blockHashList)
+	be.writeEvent(batch, AddSnapshotBlocksEvent, blockHashList)
 }
 
 func (be *BlockEvent) DeleteSnapshotBlocks(batch *leveldb.Batch, blockHashList []types.Hash) {
-	be.writeEvent(batch, DeleteSnapshotBlockEvent, blockHashList)
+	be.writeEvent(batch, DeleteSnapshotBlocksEvent, blockHashList)
 }

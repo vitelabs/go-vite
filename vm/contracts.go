@@ -683,7 +683,7 @@ func (p *pCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock,
 	if err != nil {
 		return quotaLeft, err
 	}
-	if err := p.checkCreateConsensusGroupData(block.VmContext, param); err != nil {
+	if err := checkCreateConsensusGroupData(block.VmContext, param); err != nil {
 		return quotaLeft, err
 	}
 	gid := contracts.NewGid(block.AccountBlock.AccountAddress, block.AccountBlock.Height, block.AccountBlock.PrevHash, block.AccountBlock.SnapshotHash)
@@ -710,7 +710,7 @@ func (p *pCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock,
 	}
 	return quotaLeft, nil
 }
-func (p *pCreateConsensusGroup) checkCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *contracts.ConsensusGroupInfo) error {
+func checkCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *contracts.ConsensusGroupInfo) error {
 	if param.NodeCount < cgNodeCountMin || param.NodeCount > cgNodeCountMax ||
 		param.Interval < cgIntervalMin || param.Interval > cgIntervalMax ||
 		param.PerCount < cgPerCountMin || param.PerCount > cgPerCountMax ||
@@ -723,15 +723,15 @@ func (p *pCreateConsensusGroup) checkCreateConsensusGroupData(db vmctxt_interfac
 	if contracts.GetTokenById(db, param.CountingTokenId) == nil {
 		return ErrInvalidData
 	}
-	if err := p.checkCondition(db, param.RegisterConditionId, param.RegisterConditionParam, contracts.RegisterConditionPrefix); err != nil {
+	if err := checkCondition(db, param.RegisterConditionId, param.RegisterConditionParam, contracts.RegisterConditionPrefix); err != nil {
 		return ErrInvalidData
 	}
-	if err := p.checkCondition(db, param.VoteConditionId, param.VoteConditionParam, contracts.VoteConditionPrefix); err != nil {
+	if err := checkCondition(db, param.VoteConditionId, param.VoteConditionParam, contracts.VoteConditionPrefix); err != nil {
 		return ErrInvalidData
 	}
 	return nil
 }
-func (p *pCreateConsensusGroup) checkCondition(db vmctxt_interface.VmDatabase, conditionId uint8, conditionParam []byte, conditionIdPrefix contracts.ConditionCode) error {
+func checkCondition(db vmctxt_interface.VmDatabase, conditionId uint8, conditionParam []byte, conditionIdPrefix contracts.ConditionCode) error {
 	condition, ok := getConsensusGroupCondition(conditionId, conditionIdPrefix)
 	if !ok {
 		return ErrInvalidData
