@@ -40,6 +40,11 @@ func newFetcher(filter Filter, peers *peerSet, receiver Receiver, pool RequestPo
 func (f *fetcher) FetchSnapshotBlocks(start uint64, count uint64, hash *types.Hash) {
 	monitor.LogEvent("net/fetch", "s")
 
+	// been suppressed
+	if hash != nil && f.filter.hold(*hash) {
+		return
+	}
+
 	if atomic.LoadInt32(&f.ready) == 0 {
 		f.log.Warn("not ready")
 		return
@@ -68,6 +73,11 @@ func (f *fetcher) FetchSnapshotBlocks(start uint64, count uint64, hash *types.Ha
 
 func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) {
 	monitor.LogEvent("net/fetch", "a")
+
+	// been suppressed
+	if f.filter.hold(start) {
+		return
+	}
 
 	if atomic.LoadInt32(&f.ready) == 0 {
 		f.log.Warn("not ready")

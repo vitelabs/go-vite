@@ -28,7 +28,7 @@ type Peer struct {
 	filePort    uint16     // fileServer port, for request file
 	CmdSet      uint64     // which cmdSet it belongs
 	KnownBlocks *cuckoofilter.CuckooFilter
-	Log         log15.Logger
+	log         log15.Logger
 	term        chan struct{}
 	errch       chan error
 }
@@ -40,7 +40,7 @@ func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 		ID:          p.ID().Brief(),
 		CmdSet:      cmdSet,
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
-		Log:         log15.New("module", "net/peer"),
+		log:         log15.New("module", "net/peer"),
 		term:        make(chan struct{}),
 		errch:       make(chan error, 1),
 	}
@@ -104,7 +104,7 @@ func (p *Peer) ReadHandshake() (their *message.HandShake, err error) {
 func (p *Peer) SetHead(head types.Hash, height uint64) {
 	p.head = head
 	p.height = height
-	p.Log.Info("update status", "ID", p.ID, "height", p.height, "head", p.head)
+	p.log.Info("update status", "ID", p.ID, "height", p.height, "head", p.head)
 }
 
 func (p *Peer) SeeBlock(hash types.Hash) {
@@ -175,18 +175,29 @@ func (p *Peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
 }
 
 func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
+	p.log.Info(fmt.Sprintf("send message %s to %s", code, p))
+
 	data, err := payload.Serialize()
 	if err != nil {
+		p.log.Error(fmt.Sprintf("send message %s to %s error: %v", code, p, err))
 		return err
 	}
 
-	return p.mrw.WriteMsg(&p2p.Msg{
+	err = p.mrw.WriteMsg(&p2p.Msg{
 		CmdSetID: p.CmdSet,
 		Cmd:      uint64(code),
 		Id:       msgId,
 		Size:     uint64(len(data)),
 		Payload:  data,
 	})
+
+	if err != nil {
+		p.log.Error(fmt.Sprintf("send message %s to %s error: %v", code, p, err))
+	} else {
+		p.log.Info(fmt.Sprintf("send message %s to %s done", code, p))
+	}
+
+	return err
 }
 
 type PeerInfo struct {
@@ -252,9 +263,6 @@ func (m *peerSet) Unsub(c chan<- *peerEvent) {
 }
 
 func (m *peerSet) Notify(e *peerEvent) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
-
 	for _, c := range m.subs {
 		select {
 		case c <- e:

@@ -160,7 +160,7 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 
 	w, found := manager.contractWorkers[event.Gid]
 	if !found {
-		w := NewContractWorker(manager, event)
+		w = NewContractWorker(manager, event)
 		manager.contractWorkers[event.Gid] = w
 	}
 

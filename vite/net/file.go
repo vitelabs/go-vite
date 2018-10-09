@@ -317,6 +317,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 		Payload:  data,
 	})
 	if err != nil {
+		fc.log.Error(fmt.Sprintf("requesFile to %s error: %v", ctx.addr, err))
 		req.Done(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 		return

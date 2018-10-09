@@ -76,7 +76,7 @@ func New(cfg *Config) (*Net, error) {
 
 	broadcaster := newBroadcaster(peers)
 	filter := newFilter()
-	receiver := newReceiver(cfg.Verifier, broadcaster)
+	receiver := newReceiver(cfg.Verifier, broadcaster, filter)
 	syncer := newSyncer(cfg.Chain, peers, pool, receiver, fc)
 	fetcher := newFetcher(filter, peers, receiver, pool)
 
@@ -160,6 +160,7 @@ func (n *Net) HandlePeer(p *Peer) error {
 	current := n.Chain.GetLatestSnapshotBlock()
 	genesis := n.Chain.GetGenesisSnapshotBlock()
 
+	n.log.Info(fmt.Sprintf("handshake with %s", p))
 	err := p.Handshake(&message.HandShake{
 		CmdSet:  p.CmdSet,
 		Height:  current.Height,
@@ -169,8 +170,10 @@ func (n *Net) HandlePeer(p *Peer) error {
 	})
 
 	if err != nil {
+		n.log.Error(fmt.Sprintf("handshake with %s error: %v", p, err))
 		return err
 	}
+	n.log.Info(fmt.Sprintf("handshake with %s done", p))
 
 	return n.startPeer(p)
 }
@@ -182,6 +185,7 @@ func (n *Net) startPeer(p *Peer) error {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
+	n.log.Info(fmt.Sprintf("startPeer %s", p))
 	go n.syncer.start()
 
 	for {
@@ -210,12 +214,16 @@ func (n *Net) startPeer(p *Peer) error {
 func (n *Net) handleMsg(p *Peer) (err error) {
 	msg, err := p.mrw.ReadMsg()
 	if err != nil {
+		n.log.Error(fmt.Sprintf("readMsg from %s error: %v", p, err))
 		return
 	}
 	defer msg.Discard()
 
 	code := cmd(msg.Cmd)
+	n.log.Info(fmt.Sprintf("readMsg %s from %s", code, p))
+
 	if code == HandshakeCode {
+		n.log.Error(fmt.Sprintf("handshake twice with %s", p))
 		return errHandshakeTwice
 	}
 
@@ -223,6 +231,8 @@ func (n *Net) handleMsg(p *Peer) (err error) {
 	if handler != nil {
 		return handler.Handle(msg, p)
 	}
+
+	n.log.Error(fmt.Sprintf("missing handler for message %s", code))
 
 	return fmt.Errorf("unknown message cmd %d", msg.Cmd)
 }

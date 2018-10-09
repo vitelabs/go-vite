@@ -1,7 +1,6 @@
 package net
 
 import (
-	"github.com/seiflotfy/cuckoofilter"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
@@ -30,10 +29,10 @@ type receiver struct {
 	aFeed       *accountBlockFeed
 	verifier    Verifier
 	broadcaster broadNewSnapshotBlock
-	record      *cuckoofilter.CuckooFilter
+	filter      Filter
 }
 
-func newReceiver(verifier Verifier, broadcaster broadNewSnapshotBlock) *receiver {
+func newReceiver(verifier Verifier, broadcaster broadNewSnapshotBlock, filter Filter) *receiver {
 	return &receiver{
 		newBlocks:   make([]*ledger.SnapshotBlock, 0, 100),
 		sblocks:     make([][]*ledger.SnapshotBlock, 0, 10),
@@ -42,7 +41,7 @@ func newReceiver(verifier Verifier, broadcaster broadNewSnapshotBlock) *receiver
 		aFeed:       newAccountBlockFeed(),
 		verifier:    verifier,
 		broadcaster: broadcaster,
-		record:      cuckoofilter.NewCuckooFilter(10000),
+		filter:      filter,
 	}
 }
 
@@ -69,17 +68,21 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 	return nil
 }
 
+func (s *receiver) mark(hash types.Hash) {
+	s.filter.done(hash)
+}
+
 // implementation Receiver
 func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 	t := time.Now()
 
-	if s.record.Lookup(block.Hash[:]) {
+	if s.filter.has(block.Hash) {
 		monitor.LogDuration("net/receiver", "nb2", time.Now().Sub(t).Nanoseconds())
 		return
 	}
 
 	// record
-	s.record.Insert(block.Hash[:])
+	s.mark(block.Hash)
 
 	if atomic.LoadInt32(&s.ready) == 0 {
 		s.newBlocks = append(s.newBlocks, block)
@@ -96,8 +99,13 @@ func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 
 	if atomic.LoadInt32(&s.ready) == 0 {
 		s.sblocks = append(s.sblocks, blocks)
+
+		for _, block := range blocks {
+			s.mark(block.Hash)
+		}
 	} else {
 		for _, block := range blocks {
+			s.mark(block.Hash)
 			s.sFeed.Notify(block)
 		}
 	}
@@ -111,11 +119,19 @@ func (s *receiver) ReceiveAccountBlocks(mblocks map[types.Address][]*ledger.Acco
 	if atomic.LoadInt32(&s.ready) == 0 {
 		for addr, blocks := range mblocks {
 			s.mblocks[addr] = append(s.mblocks[addr], blocks...)
+
+			for _, block := range blocks {
+				s.mark(block.Hash)
+			}
 		}
 	} else {
 		for _, blocks := range mblocks {
 			for _, block := range blocks {
-				s.aFeed.Notify(block)
+				// verify
+				if s.verifier.VerifyforP2P(block) {
+					s.aFeed.Notify(block)
+					s.mark(block.Hash)
+				}
 			}
 		}
 	}
@@ -137,7 +153,6 @@ func (s *receiver) listen(st SyncState) {
 			sblocks := s.sblocks[i]
 			for _, block := range sblocks {
 				s.sFeed.Notify(block)
-				s.record.InsertUnique(block.Hash[:])
 			}
 		}
 
@@ -145,7 +160,6 @@ func (s *receiver) listen(st SyncState) {
 			for i := 0; i < length; i++ {
 				block := s.mblocks[addr][i]
 				s.aFeed.Notify(block)
-				s.record.InsertUnique(block.Hash[:])
 			}
 		}
 
@@ -156,7 +170,6 @@ func (s *receiver) listen(st SyncState) {
 			sblocks := s.sblocks[i]
 			for _, block := range sblocks {
 				s.sFeed.Notify(block)
-				s.record.InsertUnique(block.Hash[:])
 			}
 		}
 
@@ -164,7 +177,6 @@ func (s *receiver) listen(st SyncState) {
 			for i := length; i < len(s.mblocks[addr]); i++ {
 				block := s.mblocks[addr][i]
 				s.aFeed.Notify(block)
-				s.record.InsertUnique(block.Hash[:])
 			}
 		}
 
