@@ -2,6 +2,7 @@ package sender
 
 import (
 	"encoding/binary"
+	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/gin-gonic/gin/json"
 	"github.com/golang/protobuf/proto"
@@ -9,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
+	"math/big"
 	"sync"
 	"time"
 )
@@ -22,6 +24,11 @@ type message struct {
 	MsgType string `json:"type"`
 	Data    string `json:"data"`
 	EventId uint64 `json:"eventId"`
+}
+
+type MqAccountBlock struct {
+	ledger.AccountBlock
+	Balance *big.Int
 }
 
 type Producer struct {
@@ -74,6 +81,10 @@ func NewProducer(producerId uint8, brokerList []string, topic string, chain Chai
 func (producer *Producer) init(producerId uint8, chain Chain, db *leveldb.DB) error {
 	producer.producerId = producerId
 
+	producer.chain = chain
+	producer.db = db
+	producer.dbRecordInterval = 100
+
 	hasSend, err := producer.getHasSend()
 	if err != nil {
 		return err
@@ -82,9 +93,6 @@ func (producer *Producer) init(producerId uint8, chain Chain, db *leveldb.DB) er
 	producer.hasSend = hasSend
 	producer.dbHasSend = hasSend
 
-	producer.chain = chain
-	producer.db = db
-	producer.dbRecordInterval = 100
 	return nil
 }
 func (producer *Producer) BrokerList() []string {
@@ -110,6 +118,7 @@ func (producer *Producer) IsSame(brokerList []string, topic string) bool {
 			if aBroker == tmpBrokerList[i] {
 				tmpBrokerList = append(tmpBrokerList[:i], tmpBrokerList[i+1:]...)
 				hasExist = true
+				break
 			}
 		}
 
@@ -150,12 +159,12 @@ func (producer *Producer) Start() error {
 	config.Producer.Return.Successes = true
 	config.Producer.Return.Errors = true
 
-	kafkaProducer, err := sarama.NewAsyncProducer(producer.brokerList, config)
-	if err != nil {
-		return err
-	}
-
-	producer.kafkaProducer = kafkaProducer
+	//kafkaProducer, err := sarama.NewAsyncProducer(producer.brokerList, config)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//producer.kafkaProducer = kafkaProducer
 	producer.status = RUNNING
 	producer.termination = make(chan int)
 
@@ -205,7 +214,12 @@ func (producer *Producer) Stop() {
 
 func (producer *Producer) send() {
 	start := producer.hasSend
-	end := producer.chain.GetLatestBlockEventId()
+	end, err := producer.chain.GetLatestBlockEventId()
+	if err != nil {
+		producer.log.Error("GetLatestBlockEventId failed, error is "+err.Error(), "method", "send")
+		return
+	}
+
 	for i := start + 1; i <= end; i++ {
 		if producer.hasSend > producer.dbHasSend &&
 			producer.hasSend-producer.dbHasSend >= producer.dbRecordInterval {
@@ -230,7 +244,7 @@ func (producer *Producer) send() {
 		// AddAccountBlocksEvent     = byte(1)
 		case byte(1):
 			m.MsgType = "InsertAccountBlocks"
-			var blocks []*ledger.AccountBlock
+			var blocks []*MqAccountBlock
 			for _, blockHash := range blockHashList {
 				block, err := producer.chain.GetAccountBlockByHash(&blockHash)
 				if err != nil {
@@ -238,8 +252,17 @@ func (producer *Producer) send() {
 					return
 				}
 				if block != nil {
-					blocks = append(blocks, block)
+					mqAccountBlock := &MqAccountBlock{}
+					mqAccountBlock.AccountBlock = *block
+					// TODO balance
+					mqAccountBlock.Balance = big.NewInt(10)
+					blocks = append(blocks, mqAccountBlock)
 				}
+			}
+
+			if len(blocks) <= 0 {
+				producer.hasSend = i
+				continue
 			}
 
 			buf, jsonErr := json.Marshal(blocks)
@@ -274,6 +297,12 @@ func (producer *Producer) send() {
 					blocks = append(blocks, block)
 				}
 			}
+
+			if len(blocks) <= 0 {
+				producer.hasSend = i
+				continue
+			}
+
 			buf, jsonErr := json.Marshal(blocks)
 			if jsonErr != nil {
 				producer.log.Error("[InsertSnapshotBlocks] json.Marshal failed, error is "+jsonErr.Error(), "method", "send")
@@ -339,6 +368,9 @@ func (producer *Producer) sendMessage(msg *message) error {
 	if jsonErr != nil {
 		return jsonErr
 	}
+	fmt.Println(string(buf))
+	return nil
+
 	sMsg := &sarama.ProducerMessage{Topic: producer.topic, Value: sarama.StringEncoder(buf)}
 
 	producer.kafkaProducer.Input() <- sMsg

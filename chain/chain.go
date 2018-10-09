@@ -202,7 +202,10 @@ func (c *chain) Start() {
 	// start kafka sender
 	if c.kafkaSender != nil {
 		for _, producer := range c.cfg.KafkaProducers {
-			c.kafkaSender.Start(producer.BrokerList, producer.Topic)
+			startErr := c.kafkaSender.Start(producer.BrokerList, producer.Topic)
+			if startErr != nil {
+				c.log.Crit("Start kafka sender failed, error is " + startErr.Error())
+			}
 		}
 	}
 
