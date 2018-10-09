@@ -3,7 +3,6 @@ package generator
 import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm"
@@ -153,21 +152,11 @@ func (gen *Generator) PackBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 		}
 		blockPacked.Timestamp = &consensusMsg.Timestamp
 		blockPacked.SnapshotHash = consensusMsg.SnapshotHash
-		publicKey, err := ed25519.HexToPublicKey(consensusMsg.Producer.String())
-		if err != nil {
-			return nil, err
-		}
-		blockPacked.PublicKey = publicKey
 	} else {
 		st := time.Now()
 		blockPacked.Timestamp = &st
 		snapshotBlock := gen.vmContext.CurrentSnapshotBlock()
 		blockPacked.SnapshotHash = snapshotBlock.Hash
-		publicKey, err := ed25519.HexToPublicKey(blockPacked.AccountAddress.String())
-		if err != nil {
-			return nil, err
-		}
-		blockPacked.PublicKey = publicKey
 	}
 	return blockPacked, nil
 }

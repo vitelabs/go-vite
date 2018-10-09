@@ -137,8 +137,3 @@ func GetConsensusGroup(db StorageDatabase, gid types.Gid) *ConsensusGroupInfo {
 	}
 	return nil
 }
-
-func GetGidFromCreateContractData(data []byte) types.Gid {
-	gid, _ := types.BytesToGid(data[:types.GidSize])
-	return gid
-}

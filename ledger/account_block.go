@@ -130,11 +130,11 @@ func (ab *AccountBlock) Copy() *AccountBlock {
 	}
 
 	if ab.Amount != nil {
-		newAb.Amount = big.NewInt(0).SetBytes(ab.Amount.Bytes())
+		newAb.Amount = new(big.Int).Set(ab.Amount)
 	}
 
 	if ab.Fee != nil {
-		newAb.Fee = big.NewInt(0).SetBytes(ab.Fee.Bytes())
+		newAb.Fee = new(big.Int).Set(ab.Fee)
 	}
 	newAb.SnapshotHash = ab.SnapshotHash
 

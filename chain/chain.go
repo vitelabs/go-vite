@@ -44,7 +44,9 @@ func NewChain(cfg *config.Config) Chain {
 }
 
 func (c *chain) Init() {
+	// Start initialize
 	c.log.Info("Init chain module")
+
 	// stateTriePool
 	c.stateTriePool = NewStateTriePool(c)
 
@@ -86,6 +88,7 @@ func (c *chain) Init() {
 	}
 	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
 
+	// Finish initialize
 	c.log.Info("Chain module initialized")
 }
 func (c *chain) checkAndInitData() {
@@ -137,6 +140,7 @@ func (c *chain) initData() {
 		AccountBlock: &GenesisConsensusGroupBlock,
 		VmContext:    GenesisConsensusGroupBlockVC,
 	}})
+
 	if err != nil {
 		c.log.Crit("InsertGenesisConsensusGroupBlock failed, error is "+err.Error(), "method", "initData")
 	}
