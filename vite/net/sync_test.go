@@ -121,11 +121,11 @@ func newSnapshotBlock(chainInstance chain.Chain) (*ledger.SnapshotBlock, error) 
 
 func makeBlocks(chainInstance chain.Chain, toBlockHeight uint64) {
 	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
-	if latestSnapshotBlock.Height >= toBlockHeight {
+	if toBlockHeight >= latestSnapshotBlock.Height {
 		return
 	}
 
-	count := latestSnapshotBlock.Height - toBlockHeight
+	count := toBlockHeight - latestSnapshotBlock.Height
 
 	accountAddress1, _, _ := types.CreateAddress()
 	accountAddress2, _, _ := types.CreateAddress()
