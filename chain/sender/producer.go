@@ -94,9 +94,28 @@ func (producer *Producer) Topic() string {
 	return producer.topic
 }
 
-// TODO
 func (producer *Producer) IsSame(brokerList []string, topic string) bool {
+	if producer.topic != topic ||
+		len(brokerList) != len(producer.brokerList) {
+		return false
+	}
 
+	tmpBrokerList := brokerList[:]
+	for _, aBroker := range producer.brokerList {
+		hasExist := false
+		tmpBrokerListLen := len(tmpBrokerList)
+
+		for i := 0; i < tmpBrokerListLen; i++ {
+			if aBroker == tmpBrokerList[i] {
+				tmpBrokerList = append(tmpBrokerList[:i], tmpBrokerList[i+1:]...)
+				hasExist = true
+			}
+		}
+
+		if !hasExist {
+			return false
+		}
+	}
 	return true
 }
 
