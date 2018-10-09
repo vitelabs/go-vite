@@ -1,22 +1,25 @@
 package net
 
 import (
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	config2 "github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
+	"path"
 	"strings"
 	"testing"
 	"time"
 )
 
-var config = p2p.Config{
+var p2pConfig = p2p.Config{
 	Name:            "",
 	NetID:           10,
 	MaxPeers:        100,
@@ -34,14 +37,14 @@ var needBlockHeight uint64
 func init() {
 	var bootNodes string
 
-	flag.StringVar(&config.Name, "node_name", "net_test", "server name")
+	flag.StringVar(&p2pConfig.Name, "node_name", "net_test", "server name")
 	flag.StringVar(&privateKey, "private_key", "", "server private key")
 	flag.StringVar(&bootNodes, "boot_nodes", "", "boot nodes")
 	flag.Uint64Var(&needBlockHeight, "need_block_height", 0, "need block height")
 
-	config.BootNodes = strings.Split(bootNodes, ",")
-
 	flag.Parse()
+
+	p2pConfig.BootNodes = strings.Split(bootNodes, ",")
 }
 func randomSendViteBlock(chainInstance chain.Chain, snapshotBlockHash types.Hash, addr1 *types.Address, addr2 *types.Address) ([]*vm_context.VmAccountBlock, []types.Address, error) {
 	now := time.Now()
@@ -166,7 +169,15 @@ func TestNet(t *testing.T) {
 		t.Error(err)
 	}
 
-	svr, err := p2p.New(config)
+	p2pConfig.Database = path.Join(common.DefaultDataDir(), "p2p")
+	priv, err := hex.DecodeString(privateKey)
+	if err == nil {
+		p2pConfig.PrivateKey = ed25519.PrivateKey(priv)
+	} else {
+		t.Error(err)
+	}
+
+	svr, err := p2p.New(p2pConfig)
 	if err != nil {
 		t.Error(err)
 	}
@@ -177,4 +188,7 @@ func TestNet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	pending := make(chan struct{})
+	<-pending
 }
