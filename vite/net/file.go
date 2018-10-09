@@ -147,11 +147,16 @@ type delCtxEvent struct {
 }
 
 type fileReq struct {
+	id    uint64
 	files []*ledger.CompressedFileMeta
 	nonce uint64
 	peer  *Peer
 	rec   receiveBlocks
-	done  func(err error)
+	done  func(id uint64, err error)
+}
+
+func (r *fileReq) Done(err error) {
+	r.done(r.id, err)
 }
 
 func (r *fileReq) addr() string {
@@ -240,7 +245,7 @@ loop:
 			if ctx, ok = fc.conns[addr]; !ok {
 				conn, err := net.Dial("tcp", addr)
 				if err != nil {
-					req.done(err)
+					req.Done(err)
 					break
 				}
 				ctx = &connContext{
@@ -316,7 +321,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 
 	data, err := msg.Serialize()
 	if err != nil {
-		req.done(err)
+		req.Done(err)
 		fc.idle <- ctx
 		return
 	}
@@ -329,19 +334,19 @@ func (fc *fileClient) exe(ctx *connContext) {
 		Payload:  data,
 	})
 	if err != nil {
-		req.done(err)
+		req.Done(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 		return
 	}
 
 	sblocks, ablocks, err := fc.readBlocks(ctx)
 	if err != nil {
-		req.done(err)
+		req.Done(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 	} else {
 		fc.idle <- ctx
 		req.rec(sblocks, ablocks)
-		req.done(nil)
+		req.Done(nil)
 	}
 }
 

@@ -16,6 +16,7 @@ type reqState byte
 const (
 	reqWaiting reqState = iota
 	reqPending
+	reqRespond
 	reqDone
 	reqError
 	reqCancel
@@ -24,6 +25,7 @@ const (
 var reqStatus = [...]string{
 	reqWaiting: "waiting",
 	reqPending: "pending",
+	reqRespond: "respond",
 	reqDone:    "done",
 	reqError:   "error",
 	reqCancel:  "canceled",
@@ -50,7 +52,6 @@ type Request interface {
 
 type receiveBlocks func(sblocks []*ledger.SnapshotBlock, mblocks map[types.Address][]*ledger.AccountBlock)
 type doneCallback func(id uint64, err error)
-type msgReceive func(cmd cmd, data []byte, peer *Peer)
 
 var errMissingPeer = errors.New("request missing peer")
 var errUnknownResErr = errors.New("unknown response exception")
@@ -137,7 +138,7 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 
 // @request for subLedger, will get FileList and Chunk
 type subLedgerRequest struct {
-	id         uint64
+	id, cid    uint64 // id & child_id
 	from, to   uint64
 	_retry     int
 	peer       *Peer
@@ -173,12 +174,14 @@ func (s *subLedgerRequest) Handle(ctx *context, pkt *p2p.Msg, peer *Peer) {
 		}
 
 		// request files
+		s.cid++
 		ctx.fc.request(&fileReq{
+			id:    s.cid,
 			files: msg.Files,
 			nonce: msg.Nonce,
 			peer:  peer,
 			rec:   ctx.syncer.receiveBlocks,
-			done:  s.Done,
+			done:  s.childDone,
 		})
 
 		// request chunks
@@ -192,7 +195,7 @@ func (s *subLedgerRequest) Handle(ctx *context, pkt *p2p.Msg, peer *Peer) {
 					end:        chunk[1],
 					peer:       peer,
 					expiration: time.Now().Add(30 * time.Second),
-					done:       s.done,
+					done:       s.childDone,
 				}
 
 				ctx.pool.Add(c)
@@ -208,14 +211,30 @@ func (s *subLedgerRequest) ID() uint64 {
 }
 
 func (s *subLedgerRequest) Run() {
-	s.peer.Send(SubLedgerCode, s.id, &message.GetSubLedger{
+	err := s.peer.Send(SubLedgerCode, s.id, &message.GetSubLedger{
 		From:    &ledger.HashHeight{Height: s.from},
 		Count:   s.to - s.from + 1,
 		Forward: true,
 	})
+
+	if err != nil {
+		s.Done(err)
+	} else {
+		s.state = reqPending
+	}
+}
+
+func (s *subLedgerRequest) childDone(id uint64, err error) {
+
 }
 
 func (s *subLedgerRequest) Done(err error) {
+	if err != nil {
+		s.state = reqError
+	} else {
+		s.state = reqDone
+	}
+
 	s.done(s.id, err)
 }
 
@@ -261,7 +280,7 @@ func (c *chunkRequest) Handle(ctx *context, pkt *p2p.Msg, peer *Peer) {
 		}
 
 		ctx.syncer.receiveBlocks(msg.SBlocks, msg.ABlocks)
-
+		c.Done(nil)
 	} else {
 		c.Retry(ctx, peer)
 	}
@@ -272,13 +291,25 @@ func (c *chunkRequest) ID() uint64 {
 }
 
 func (c *chunkRequest) Run() {
-	c.peer.Send(SubLedgerCode, c.id, &message.GetChunk{
+	err := c.peer.Send(SubLedgerCode, c.id, &message.GetChunk{
 		Start: c.start,
 		End:   c.end,
 	})
+
+	if err != nil {
+		c.state = reqError
+	} else {
+		c.state = reqPending
+	}
 }
 
 func (c *chunkRequest) Done(err error) {
+	if err != nil {
+		c.state = reqError
+	} else {
+		c.state = reqDone
+	}
+
 	c.done(c.id, err)
 }
 

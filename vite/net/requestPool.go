@@ -34,6 +34,7 @@ type requestPool struct {
 	term    chan struct{}
 	log     log15.Logger
 	wg      sync.WaitGroup
+	ctx     *context
 }
 
 // as message handler
@@ -49,7 +50,7 @@ func (p *requestPool) Handle(msg *p2p.Msg, sender *Peer) error {
 	for id, r := range p.pending {
 		if id == msg.Id {
 			// todo goroutine
-			r.Handle(msg, sender)
+			r.Handle(p.ctx, msg, sender)
 		}
 	}
 

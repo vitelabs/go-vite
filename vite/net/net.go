@@ -96,6 +96,13 @@ func New(cfg *Config) (*Net, error) {
 		log:         log15.New("module", "vite/net"),
 	}
 
+	pool.ctx = &context{
+		syncer: syncer,
+		peers:  peers,
+		pool:   pool,
+		fc:     fc,
+	}
+
 	n.AddHandler(_statusHandler(statusHandler))
 	n.AddHandler(&getSubLedgerHandler{cfg.Chain})
 	n.AddHandler(&getSnapshotBlocksHandler{cfg.Chain})
