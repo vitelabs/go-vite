@@ -2,6 +2,7 @@ package nodemanager
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
@@ -10,6 +11,8 @@ import (
 	"path/filepath"
 )
 
+var defaultNodeConfigFileName = "node_config.json"
+
 type FullNodeMaker struct {
 }
 
@@ -17,6 +20,7 @@ func (maker FullNodeMaker) MakeNode(ctx *cli.Context) *node.Node {
 
 	// 1: Make Node.Config
 	nodeConfig := maker.MakeNodeConfig(ctx)
+	log.Info(fmt.Sprintf("nodeConfig info: %v", nodeConfig))
 	// 2: New Node
 	node, err := node.New(nodeConfig)
 
@@ -148,17 +152,29 @@ func overrideDefaultConfigs(ctx *cli.Context, cfg *node.Config) {
 
 func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) {
 
+	// first read use settings
 	if file := ctx.GlobalString(utils.ConfigFileFlag.Name); file != "" {
 
 		if jsonConf, err := ioutil.ReadFile(file); err == nil {
 			err = json.Unmarshal(jsonConf, &cfg)
-			if err != nil {
-				log.Info("cannot unmarshal the config file content, will use the default config", "error", err)
+			if err == nil {
+				return
 			}
-		} else {
-			log.Info("cannot read the config file, will use the default config", "error", err)
+			log.Warn("cannot unmarshal the config file content", "error", err)
 		}
 	}
+
+	// second read default settings
+	log.Info(fmt.Sprintf("will use the default config %v", defaultNodeConfigFileName))
+
+	if jsonConf, err := ioutil.ReadFile(defaultNodeConfigFileName); err == nil {
+		err = json.Unmarshal(jsonConf, &cfg)
+		if err == nil {
+			return
+		}
+		log.Warn("cannot unmarshal the default config file content", "error", err)
+	}
+	log.Warn("read the default config file content error, The program will skip here and continue processing")
 }
 
 func makeRunLogFile(cfg *node.Config) {

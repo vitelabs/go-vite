@@ -20,6 +20,9 @@ type Config struct {
 
 	KeyStoreDir string `json:"KeyStoreDir"`
 
+	// template：["broker1,broker2,...|topic",""]
+	KafkaProducers []string `json:"KafkaProducers"`
+
 	// p2p
 	NetSelect            string
 	Identity             string   `json:"Identity"`
@@ -50,6 +53,7 @@ func (c *Config) makeWalletConfig() *wallet.Config {
 
 func (c *Config) makeViteConfig() *config.Config {
 	return &config.Config{
+		Chain:   c.makeChainConfig(),
 		P2P:     c.makeConfigP2P(),
 		DataDir: c.DataDir,
 	}
@@ -82,6 +86,41 @@ func (c *Config) makeP2PConfig() *p2p.Config {
 		//Protocols:nil,
 		BootNodes: c.bootNodes,
 		//KafKa:nil,
+	}
+}
+
+func (c *Config) makeChainConfig() *config.Chain {
+
+	if len(c.KafkaProducers) == 0 {
+		return &config.Chain{
+			KafkaProducers: nil,
+		}
+	}
+
+	// init kafkaProducers
+	kafkaProducers := make([]*config.KafkaProducer, len(c.KafkaProducers))
+
+	for i, kafkaProducer := range c.KafkaProducers {
+		splitKafkaProducer := strings.Split(kafkaProducer, "|")
+		if len(splitKafkaProducer) != 2 {
+			log.Warn(fmt.Sprintf("KafkaProducers is setting error，The program will skip here and continue processing"))
+			goto END
+		}
+
+		splitKafkaBroker := strings.Split(splitKafkaProducer[0], ",")
+		if len(splitKafkaBroker) == 0 {
+			log.Warn(fmt.Sprintf("KafkaProducers is setting error，The program will skip here and continue processing"))
+			goto END
+		}
+
+		kafkaProducers[i] = &config.KafkaProducer{
+			BrokerList: splitKafkaBroker,
+			Topic:      splitKafkaProducer[1],
+		}
+	}
+END:
+	return &config.Chain{
+		KafkaProducers: kafkaProducers,
 	}
 }
 

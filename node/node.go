@@ -65,6 +65,7 @@ func New(conf *Config) (*Node, error) {
 		ipcEndpoint:  conf.IPCEndpoint(),
 		httpEndpoint: conf.HTTPEndpoint(),
 		wsEndpoint:   conf.WSEndpoint(),
+		stop:         make(chan struct{}),
 	}, nil
 }
 
