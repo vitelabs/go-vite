@@ -4,8 +4,6 @@ import (
 	"container/list"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
 	"sync"
 )
@@ -24,7 +22,6 @@ type CommonAccountInfo struct {
 }
 
 type TokenBalanceInfo struct {
-	Token       contracts.TokenInfo
 	TotalAmount big.Int
 	Number      uint64
 }
@@ -38,8 +35,7 @@ type onroadBlocksCache struct {
 	referenceMutex sync.Mutex
 }
 
-func (c *onroadBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti types.TokenTypeId) (*contracts.TokenInfo, error)) *CommonAccountInfo {
-	log := log15.New("onroadBlocksCache", "toCommonAccountInfo")
+func (c *onroadBlocksCache) toCommonAccountInfo() *CommonAccountInfo {
 
 	c.listMutex.RLock()
 	defer c.listMutex.RUnlock()
@@ -51,16 +47,6 @@ func (c *onroadBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti types.
 		block := ele.Value.(*ledger.AccountBlock)
 		ti, ok := infoMap[block.TokenId]
 		if !ok {
-			token, err := GetTokenInfoById(block.TokenId)
-			if err != nil {
-				log.Error(err.Error())
-				continue
-			}
-			if token == nil {
-				log.Error("token nil")
-				continue
-			}
-			infoMap[block.TokenId].Token = *token
 			infoMap[block.TokenId].TotalAmount = *block.Amount
 			infoMap[block.TokenId].Number = 1
 		} else {

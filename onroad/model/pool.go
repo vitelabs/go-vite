@@ -79,7 +79,7 @@ func (p *OnroadBlocksPool) GetCommonAccountInfo(addr types.Address) (*CommonAcco
 
 	p.log.Debug("second load from full cache", "addr", addr)
 	if fullcache, ok := p.fullCache.Load(addr); ok {
-		accountInfo := fullcache.(*onroadBlocksCache).toCommonAccountInfo(p.GetTokenInfoById)
+		accountInfo := fullcache.(*onroadBlocksCache).toCommonAccountInfo()
 		if accountInfo != nil {
 			p.addSimpleCache(addr, accountInfo)
 			return accountInfo, nil
@@ -222,6 +222,7 @@ func (p *OnroadBlocksPool) DeleteDirect(sendBlock *ledger.AccountBlock) error {
 	return p.dbAccess.store.DeleteMeta(nil, &sendBlock.ToAddress, &sendBlock.Hash)
 }
 
+// fixme move it to rpc
 func (p *OnroadBlocksPool) GetTokenInfoById(tti types.TokenTypeId) (*contracts.TokenInfo, error) {
 	if t, ok := p.tokenInfoCache.Load(tti); ok {
 		return t.(*contracts.TokenInfo), nil
@@ -337,14 +338,6 @@ func (p *OnroadBlocksPool) updateSimpleCache(writeType bool, block *ledger.Accou
 			tokenBalanceInfo.TotalAmount.Add(&tokenBalanceInfo.TotalAmount, block.Amount)
 			tokenBalanceInfo.Number += 1
 		} else {
-			token, err := p.GetTokenInfoById(block.TokenId)
-			if err != nil {
-				p.log.Error("func updateSimpleCache.GetByTokenId failed" + err.Error())
-			}
-			if token == nil {
-				p.log.Error("func UpdateCommonAccInfo.GetByTokenId failed token nil")
-			}
-			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Token = *token
 			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].TotalAmount = *block.Amount
 			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Number = 1
 		}
