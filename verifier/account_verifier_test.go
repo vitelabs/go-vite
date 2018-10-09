@@ -16,13 +16,15 @@ import (
 	"time"
 )
 
-func TestAccountVerifier_VerifyforRPC(t *testing.T) {
-	var (
-		genesisAccountPrivKeyStr string
-	)
-	flag.StringVar(&genesisAccountPrivKeyStr, "k", "", "genesis account private key")
-	flag.Parse()
+var genesisAccountPrivKeyStr string
 
+func init() {
+	flag.StringVar(&genesisAccountPrivKeyStr, "k", "", "")
+	flag.Parse()
+	fmt.Println(genesisAccountPrivKeyStr)
+}
+
+func TestAccountVerifier_VerifyforRPC(t *testing.T) {
 	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
 	c.Init()
 	c.Start()
@@ -31,9 +33,6 @@ func TestAccountVerifier_VerifyforRPC(t *testing.T) {
 	gen := generator.NewGenerator(c, walletManager.KeystoreManager)
 
 	blockTime := time.Now()
-	/*addr, priv, _ := types.CreateAddress()
-	pubkey := priv.PubByte()
-	fmt.Println(addr.String())*/
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 	fromBlock, err := c.GetLatestAccountBlock(&contracts.AddressMintage)
