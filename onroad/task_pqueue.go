@@ -31,9 +31,9 @@ func (q *contractTaskPQueue) Len() int { return len(*q) }
 
 func (q *contractTaskPQueue) Less(i, j int) bool {
 	if (*q)[i].Quota < (*q)[j].Quota {
-		return true
-	} else {
 		return false
+	} else {
+		return true
 	}
 }
 

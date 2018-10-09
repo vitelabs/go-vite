@@ -5,16 +5,16 @@ import (
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
-	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/verifier"
 	"sync"
 	"time"
+	"github.com/vitelabs/go-vite/producer/producerevent"
 )
 
 type ContractTaskProcessor struct {
 	taskId   int
 	worker   *ContractWorker
-	accEvent producer.AccountStartEvent
+	accEvent producerevent.AccountStartEvent
 
 	generator  *generator.Generator
 	verifier   *verifier.AccountVerifier
