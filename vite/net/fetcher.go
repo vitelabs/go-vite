@@ -11,7 +11,7 @@ import (
 )
 
 type Fetcher interface {
-	// start is required, because we need start + count to find appropriate peer
+	// from is required, because we need from + count to find appropriate peer
 	FetchSnapshotBlocks(start uint64, count uint64, hash *types.Hash)
 
 	// address is optional
