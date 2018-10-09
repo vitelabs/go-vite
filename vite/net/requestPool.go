@@ -98,6 +98,7 @@ loop:
 		case r := <-p.add:
 			// todo goroutine
 			r.Run()
+			p.pending[r.ID()] = r
 
 		case id := <-p.retry:
 			if r, ok := p.pending[id]; ok {
@@ -169,7 +170,7 @@ func (p *requestPool) Retry(id uint64) bool {
 	case p.retry <- id:
 		return true
 	default:
-		p.log.Error("can`t retry request")
+		p.log.Error("can`t Retry request")
 		return false
 	}
 }

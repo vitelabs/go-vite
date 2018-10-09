@@ -1,12 +1,9 @@
 package net
 
 import (
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vite/net/message"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -96,9 +93,10 @@ func enoughtHeightDiff(our, their uint64) bool {
 }
 
 type syncer struct {
-	from, to   uint64     // include
-	count      uint64     // current amount of snapshotblocks have received
-	total      uint64     // totol amount of snapshotblocks need download, equal: to - from + 1
+	from, to   uint64 // include
+	count      uint64 // current amount of snapshotblocks have received
+	total      uint64 // totol amount of snapshotblocks need download, equal: to - from + 1
+	blocks     []*ledger.SnapshotBlock
 	stLoc      sync.Mutex // protect: count blocks total
 	state      SyncState
 	term       chan struct{}
@@ -190,6 +188,7 @@ wait:
 	s.setState(Syncing)
 
 	// begin sync with peer
+	s.blocks = make([]*ledger.SnapshotBlock, s.to-s.from+1)
 	s.sync(s.from, s.to)
 
 	// for now syncState is syncing
@@ -279,18 +278,25 @@ func (s *syncer) sync(from, to uint64) {
 		msgId := s.pool.MsgID()
 
 		req := &subLedgerRequest{
-			id:   msgId,
-			peer: piece.peer,
-			msg: &message.GetSubLedger{
-				From:    &ledger.HashHeight{Height: s.from},
-				Count:   piece.count,
-				Forward: true,
-			},
+			id:         msgId,
+			from:       piece.from,
+			to:         piece.from + piece.count - 1,
+			peer:       piece.peer,
 			expiration: time.Now().Add(10 * time.Second),
+			done:       s.reqCallback,
 		}
+
+		s.pool.Add(req)
 	}
 }
 
+func (s *syncer) reqCallback(id uint64, err error) {
+	if err != nil {
+		s.setState(Syncerr)
+	}
+}
+
+/*
 func (a *syncer) Handle(pkt *p2p.Msg, sender *Peer) error {
 	cmd := cmd(pkt.Cmd)
 	switch cmd {
@@ -312,7 +318,7 @@ func (a *syncer) Handle(pkt *p2p.Msg, sender *Peer) error {
 		})
 
 		// request chunks
-		for _, chunk := range msg.Chunk {
+		for _, chunk := range msg.Chunks {
 			if chunk[1]-chunk[0] > 0 {
 				msgId := a.pool.MsgID()
 
@@ -346,7 +352,7 @@ func (a *syncer) Handle(pkt *p2p.Msg, sender *Peer) error {
 
 	return nil
 }
-
+*/
 func (s *syncer) setState(t SyncState) {
 	s.state = t
 	s.feed.Notify(t)

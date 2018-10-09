@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
@@ -347,7 +348,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 var errResTimeout = errors.New("wait for file response timeout")
 var errFlieClientStopped = errors.New("fileClient stopped")
 
-func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBlock, ablocks []*ledger.AccountBlock, err error) {
+func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBlock, mblocks map[types.Address][]*ledger.AccountBlock, err error) {
 	select {
 	case <-fc.term:
 		err = errFlieClientStopped
@@ -366,7 +367,7 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 
 		// snapshot block is sorted
 		sblocks = make([]*ledger.SnapshotBlock, sTotal)
-		ablocks = make([]*ledger.AccountBlock, 0, total-sTotal)
+		mblocks = make(map[types.Address][]*ledger.AccountBlock)
 
 		// set read deadline
 		//ctx.SetReadDeadline(time.Now().Add(total * time.Millisecond))
@@ -392,14 +393,14 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 				count++
 
 				block := block.(*ledger.AccountBlock)
-				ablocks = append(ablocks, block)
+				mblocks[block.AccountAddress] = append(mblocks[block.AccountAddress], block)
 			default:
 				fc.log.Error("got other block type")
 			}
 		})
 
 		if count >= total && sCount >= sTotal {
-			fc.log.Info(fmt.Sprintf("got %d/%d sblocks, %d/%d ablocks", count, total, sCount, sTotal))
+			fc.log.Info(fmt.Sprintf("got %d/%d blocks, %d/%d ablocks", count, total, sCount, sTotal))
 			return
 		}
 
