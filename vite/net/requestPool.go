@@ -34,6 +34,7 @@ type requestPool struct {
 	term    chan struct{}
 	log     log15.Logger
 	wg      sync.WaitGroup
+	ctx     *context
 }
 
 // as message handler
@@ -49,7 +50,7 @@ func (p *requestPool) Handle(msg *p2p.Msg, sender *Peer) error {
 	for id, r := range p.pending {
 		if id == msg.Id {
 			// todo goroutine
-			r.Handle(msg, sender)
+			go r.Handle(p.ctx, msg, sender)
 		}
 	}
 
@@ -96,18 +97,21 @@ loop:
 			break loop
 
 		case r := <-p.add:
-			// todo goroutine
-			r.Run()
+			r.Run(p.ctx)
+			p.pending[r.ID()] = r
 
 		case id := <-p.retry:
 			if r, ok := p.pending[id]; ok {
-				// todo goroutine
-				r.Run()
+				r.Run(p.ctx)
 			}
 
 		case <-ticker.C:
 			for _, r := range p.pending {
-				if r.Expired() {
+				state := r.State()
+
+				if state == reqDone || state == reqError {
+					p.Del(r.ID())
+				} else if r.Expired() {
 					r.Done(errRequestTimeout)
 				}
 			}
@@ -169,7 +173,7 @@ func (p *requestPool) Retry(id uint64) bool {
 	case p.retry <- id:
 		return true
 	default:
-		p.log.Error("can`t retry request")
+		p.log.Error("can`t Retry request")
 		return false
 	}
 }

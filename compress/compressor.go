@@ -70,7 +70,10 @@ func (c *Compressor) createDataDir() error {
 }
 
 func (c *Compressor) ClearData() error {
-	c.Stop()
+	if c.Stop() {
+		defer c.Start()
+	}
+
 	c.indexer.Clear()
 	c.indexer = nil
 
@@ -83,7 +86,6 @@ func (c *Compressor) ClearData() error {
 	}
 
 	c.indexer = NewIndexer(c.dir)
-	c.Start()
 	return nil
 }
 
@@ -151,13 +153,14 @@ func (c *Compressor) RunTask() {
 	c.status = RUNNING
 }
 
-func (c *Compressor) Stop() {
+func (c *Compressor) Stop() bool {
 	c.statusLock.Lock()
 	defer c.statusLock.Unlock()
 
 	if c.status == STOPPED {
-		return
+		return false
 	}
+
 	c.log.Info("Compressor stopped.", "method", "Stop")
 
 	// stop ticker
@@ -172,4 +175,5 @@ func (c *Compressor) Stop() {
 	// reset status
 	c.stopSignal = make(chan int)
 	c.status = STOPPED
+	return true
 }
