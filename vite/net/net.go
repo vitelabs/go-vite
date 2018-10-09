@@ -76,7 +76,7 @@ func New(cfg *Config) (*Net, error) {
 
 	broadcaster := newBroadcaster(peers)
 	filter := newFilter()
-	receiver := newReceiver(cfg.Verifier, broadcaster)
+	receiver := newReceiver(cfg.Verifier, broadcaster, filter)
 	syncer := newSyncer(cfg.Chain, peers, pool, receiver, fc)
 	fetcher := newFetcher(filter, peers, receiver, pool)
 
