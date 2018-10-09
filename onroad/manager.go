@@ -1,9 +1,8 @@
 package onroad
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-
 	"errors"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer"
@@ -42,7 +41,7 @@ type Manager struct {
 	log log15.Logger
 }
 
-func NewManager(vite Vite, dataDir string) *Manager {
+func NewManager(vite Vite) *Manager {
 	m := &Manager{
 		vite:               vite,
 		pool:               vite,
