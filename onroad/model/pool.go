@@ -31,7 +31,7 @@ type OnroadBlocksPool struct {
 	newCommonTxListener   map[types.Address]func()
 	commonTxListenerMutex sync.RWMutex
 
-	newContractListener   map[types.Gid]func()
+	newContractListener   map[types.Gid]func(address types.Address)
 	contractListenerMutex sync.RWMutex
 
 	log log15.Logger
@@ -45,12 +45,12 @@ func NewOnroadBlocksPool(dbAccess *UAccess) *OnroadBlocksPool {
 		simpleCache:          &sync.Map{},
 		simpleCacheDeadTimer: &sync.Map{},
 		newCommonTxListener:  make(map[types.Address]func()),
-		newContractListener:  make(map[types.Gid]func()),
+		newContractListener:  make(map[types.Gid]func(address types.Address)),
 		log:                  log15.New("onroad", "OnroadBlocksPool"),
 	}
 }
 
-func (p *OnroadBlocksPool) GetAddrListByGid(gid types.Gid) (addrList []*types.Address, err error) {
+func (p *OnroadBlocksPool) GetAddrListByGid(gid types.Gid) (addrList []types.Address, err error) {
 	return p.dbAccess.GetContractAddrListByGid(&gid)
 }
 
@@ -389,7 +389,7 @@ func (p *OnroadBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
 		p.contractListenerMutex.RLock()
 		defer p.contractListenerMutex.RUnlock()
 		if f, ok := p.newContractListener[*gid]; ok {
-			f()
+			f(block.AccountAddress)
 		}
 	} else {
 		p.commonTxListenerMutex.RLock()
@@ -416,7 +416,7 @@ func (p *OnroadBlocksPool) RemoveCommonTxLis(addr types.Address) {
 	delete(p.newCommonTxListener, addr)
 }
 
-func (p *OnroadBlocksPool) AddContractLis(gid types.Gid, f func()) {
+func (p *OnroadBlocksPool) AddContractLis(gid types.Gid, f func(address types.Address)) {
 	p.contractListenerMutex.Lock()
 	defer p.contractListenerMutex.Unlock()
 	p.newContractListener[gid] = f

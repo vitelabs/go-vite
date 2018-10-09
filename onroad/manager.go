@@ -162,11 +162,7 @@ func (manager *Manager) producerStartEventFunc(accevent producer.AccountEvent) {
 
 	w, found := manager.contractWorkers[event.Gid]
 	if !found {
-		w, e := NewContractWorker(manager, event)
-		if e != nil {
-			manager.log.Error(e.Error())
-			return
-		}
+		w := NewContractWorker(manager, event)
 		manager.contractWorkers[event.Gid] = w
 	}
 

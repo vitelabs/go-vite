@@ -43,7 +43,7 @@ func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[t
 		status:      Create,
 		isSleeping:  false,
 		filters:     filters,
-		log:         log15.New("worker", "a", "addr", address),
+		log:         slog.New("worker", "a", "addr", address),
 	}
 }
 
@@ -79,7 +79,7 @@ func (w *AutoReceiveWorker) Stop() {
 	w.log.Info("Stop()", "current status", w.status)
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
-	if w.status != Stop {
+	if w.status == Start {
 
 		w.uBlocksPool.ReleaseAccountInfoCache(w.address)
 
