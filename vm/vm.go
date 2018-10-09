@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm_context"
@@ -35,6 +36,7 @@ func NewVM() *VM {
 }
 
 func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
+	defer monitor.LogTime("vm", "run", time.Now())
 	blockContext := &vm_context.VmAccountBlock{block.Copy(), database}
 	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
@@ -70,6 +72,7 @@ func (vm *VM) Cancel() {
 
 // send contract create transaction, create address, sub balance and service fee
 func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlock, error) {
+	defer monitor.LogTime("vm", "SendCreate", time.Now())
 	// check can make transaction
 	quotaLeft := quotaTotal
 	quotaRefund := uint64(0)
@@ -119,6 +122,7 @@ func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 
 // receive contract create transaction, create contract account, run initialization code, set contract code, do send blocks
 func (vm *VM) receiveCreate(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock, quotaTotal uint64) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
+	defer monitor.LogTime("vm", "ReceiveCreate", time.Now())
 	quotaLeft := quotaTotal
 	if block.VmContext.IsAddressExisted(&block.AccountBlock.AccountAddress) {
 		return nil, NoRetry, ErrAddressCollision
@@ -162,6 +166,7 @@ func (vm *VM) receiveCreate(block *vm_context.VmAccountBlock, sendBlock *ledger.
 }
 
 func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlock, error) {
+	defer monitor.LogTime("vm", "SendCall", time.Now())
 	// check can make transaction
 	quotaLeft := quotaTotal
 	if p, ok := getPrecompiledContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
@@ -206,6 +211,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 }
 
 func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
+	defer monitor.LogTime("vm", "ReceiveCall", time.Now())
 	if p, ok := getPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
 		vm.blockList = []*vm_context.VmAccountBlock{block}
 		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
@@ -264,6 +270,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 }
 
 func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlock, error) {
+	defer monitor.LogTime("vm", "SendReward", time.Now())
 	// check can make transaction
 	quotaLeft := quotaTotal
 	cost, err := quota.IntrinsicGasCost(block.AccountBlock.Data, false)
