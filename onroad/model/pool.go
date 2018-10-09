@@ -184,6 +184,16 @@ func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) erro
 	return nil
 }
 
+func (p *OnroadBlocksPool) WriteOnroadSuccess(blocks []*vm_context.VmAccountBlock) {
+	for _, v := range blocks {
+		if v.AccountBlock.IsSendBlock() {
+			p.updateCache(true, v.AccountBlock)
+		} else {
+			p.updateCache(false, v.AccountBlock)
+		}
+	}
+}
+
 func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_context.VmAccountBlock) error {
 	for _, v := range blockList {
 		if v.AccountBlock.IsSendBlock() {
@@ -203,15 +213,11 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 					}
 				}
 			}
-			p.updateCache(true, v.AccountBlock)
-
 		} else {
 			if err := p.dbAccess.deleteOnroadMeta(batch, v.AccountBlock); err != nil {
 				p.log.Error("deleteOnroadMeta", "error", err)
 				return err
 			}
-
-			p.updateCache(false, v.AccountBlock)
 		}
 	}
 
@@ -232,6 +238,29 @@ func (p *OnroadBlocksPool) GetTokenInfoById(tti types.TokenTypeId) (*contracts.T
 	return info, nil
 }
 
+func (p *OnroadBlocksPool) RevertOnroadSuccess(subLedger map[types.Address][]*ledger.AccountBlock) {
+	//async update the cache
+	go func() {
+		for addr, _ := range subLedger {
+			// if the full cache is in hold by a worker we will rebuild it else we delete it
+			if cache, ok := p.fullCache.Load(addr); ok {
+				c := cache.(*onroadBlocksCache)
+				if c.referenceCount > 0 {
+					p.loadFullCacheFromDb(addr)
+				} else {
+					if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
+						t.(*time.Timer).Stop()
+						p.fullCacheDeadTimer.Delete(addr)
+					}
+					p.fullCache.Delete(addr)
+				}
+			}
+
+			p.deleteSimpleCache(addr)
+		}
+
+	}()
+}
 // RevertOnroad means to revert according to bifurcation
 func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
 
@@ -257,36 +286,11 @@ func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[type
 					return err
 				}
 
-				// fixme: wait for func @yd
-				// delete the gid-contractAddrList relationship
 				gid := contracts.GetGidFromCreateContractData(v.Data)
 				p.dbAccess.DeleteContractAddrFromGid(batch, gid, v.ToAddress)
 			}
 		}
 	}
-
-	//async update the cache
-	go func() {
-		for addr, _ := range subLedger {
-			// if the full cache is in hold by a worker we will rebuild it else we delete it
-			if cache, ok := p.fullCache.Load(addr); ok {
-				c := cache.(*onroadBlocksCache)
-				if c.referenceCount > 0 {
-					p.loadFullCacheFromDb(addr)
-				} else {
-					if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
-						t.(*time.Timer).Stop()
-						p.fullCacheDeadTimer.Delete(addr)
-					}
-					p.fullCache.Delete(addr)
-				}
-			}
-
-			p.deleteSimpleCache(addr)
-		}
-
-	}()
-
 	return nil
 }
 

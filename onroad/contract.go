@@ -44,7 +44,7 @@ func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) *C
 	return &ContractWorker{
 		manager:     manager,
 		uBlocksPool: manager.onroadBlocksPool,
-		verifier:    verifier.NewAccountVerifier(nil, nil, nil), // todo
+		verifier:    verifier.NewAccountVerifier(manager.vite.Chain(), manager.vite),
 
 		gid:      accEvent.Gid,
 		address:  accEvent.Address,

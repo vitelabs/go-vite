@@ -61,10 +61,10 @@ func (manager *Manager) InitAndStartWork() {
 	manager.unlockLid = manager.keystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
 	manager.vite.Producer().SetAccountEventFunc(manager.producerStartEventFunc)
 
-	// fixme
-	//manager.writeSuccLid = manager.vite.Chain().RegisterInsertAccountBlocksSuccess()
-	//manager.deleteSuccLid = manager.vite.Chain().RegisterDeleteAccountBlocksSuccess(processor processorFunc()
+	manager.writeSuccLid = manager.vite.Chain().RegisterInsertAccountBlocksSuccess(manager.onroadBlocksPool.WriteOnroadSuccess)
 	manager.writeOnRoadLid = manager.vite.Chain().RegisterInsertAccountBlocks(manager.onroadBlocksPool.WriteOnroad)
+
+	manager.deleteSuccLid = manager.vite.Chain().RegisterDeleteAccountBlocksSuccess(manager.onroadBlocksPool.RevertOnroadSuccess)
 	manager.deleteOnRoadLid = manager.vite.Chain().RegisterDeleteAccountBlocks(manager.onroadBlocksPool.RevertOnroad)
 }
 
@@ -112,11 +112,10 @@ func (manager *Manager) Close() error {
 	manager.keystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
 	manager.vite.Producer().SetAccountEventFunc(nil)
 
-	// fixme
 	manager.vite.Chain().UnRegister(manager.writeOnRoadLid)
 	manager.vite.Chain().UnRegister(manager.deleteOnRoadLid)
-	//manager.vite.Chain().UnRegister(manager.writeSuccLid)
-	//manager.vite.Chain().UnRegister(manager.deleteSuccLid)
+	manager.vite.Chain().UnRegister(manager.writeSuccLid)
+	manager.vite.Chain().UnRegister(manager.deleteSuccLid)
 
 	manager.stopAllWorks()
 	manager.log.Info("close end")
