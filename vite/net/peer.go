@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"net"
+	"sort"
 	"sync"
 )
 
@@ -321,6 +322,7 @@ func (m *peerSet) Count() int {
 }
 
 // pick peers whose height taller than the target height
+// has sorted from low to high
 func (m *peerSet) Pick(height uint64) (peers []*Peer) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
@@ -330,6 +332,8 @@ func (m *peerSet) Pick(height uint64) (peers []*Peer) {
 			peers = append(peers, p)
 		}
 	}
+
+	sort.Sort(Peers(peers))
 
 	return
 }
@@ -358,6 +362,7 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*Peer) {
 	return
 }
 
+// @implementation sort.Interface
 type Peers []*Peer
 
 func (s Peers) Len() int {
