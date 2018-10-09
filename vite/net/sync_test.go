@@ -28,7 +28,7 @@ var config = p2p.Config{
 }
 
 var privateKey string
-var needMakeBlocks bool
+var needBlockHeight uint64
 
 // -node_name="lyd00" -private_key="xxx" -boot_nodes="xxx,xxx" -make_blocks=true
 func init() {
@@ -37,7 +37,7 @@ func init() {
 	flag.StringVar(&config.Name, "node_name", "net_test", "server name")
 	flag.StringVar(&privateKey, "private_key", "", "server private key")
 	flag.StringVar(&bootNodes, "boot_nodes", "", "boot nodes")
-	flag.BoolVar(&needMakeBlocks, "make_blocks", false, "whether need make blocks")
+	flag.Uint64Var(&needBlockHeight, "need_block_height", 0, "need block height")
 
 	config.BootNodes = strings.Split(bootNodes, ",")
 
@@ -119,11 +119,17 @@ func newSnapshotBlock(chainInstance chain.Chain) (*ledger.SnapshotBlock, error) 
 	return snapshotBlock, err
 }
 
-func makeBlocks(chainInstance chain.Chain) {
+func makeBlocks(chainInstance chain.Chain, toBlockHeight uint64) {
+	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
+	if latestSnapshotBlock.Height >= toBlockHeight {
+		return
+	}
+
+	count := latestSnapshotBlock.Height - toBlockHeight
+
 	accountAddress1, _, _ := types.CreateAddress()
 	accountAddress2, _, _ := types.CreateAddress()
-	for i := 0; i < 100000; i++ {
-
+	for i := uint64(0); i < count; i++ {
 		snapshotBlock, _ := newSnapshotBlock(chainInstance)
 		chainInstance.InsertSnapshotBlock(snapshotBlock)
 
@@ -146,8 +152,8 @@ func TestNet(t *testing.T) {
 	chainInstance.Init()
 	chainInstance.Start()
 
-	if needMakeBlocks {
-		makeBlocks(chainInstance)
+	if needBlockHeight > 0 {
+		makeBlocks(chainInstance, needBlockHeight)
 	}
 
 	net, err := New(&Config{
