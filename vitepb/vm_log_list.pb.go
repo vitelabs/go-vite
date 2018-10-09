@@ -3,9 +3,11 @@
 
 package vitepb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -30,16 +32,17 @@ func (m *VmLog) Reset()         { *m = VmLog{} }
 func (m *VmLog) String() string { return proto.CompactTextString(m) }
 func (*VmLog) ProtoMessage()    {}
 func (*VmLog) Descriptor() ([]byte, []int) {
-	return fileDescriptor_vm_log_list_fcaff2b569e5dee9, []int{0}
+	return fileDescriptor_6765d368524708d9, []int{0}
 }
+
 func (m *VmLog) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_VmLog.Unmarshal(m, b)
 }
 func (m *VmLog) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_VmLog.Marshal(b, m, deterministic)
 }
-func (dst *VmLog) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_VmLog.Merge(dst, src)
+func (m *VmLog) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_VmLog.Merge(m, src)
 }
 func (m *VmLog) XXX_Size() int {
 	return xxx_messageInfo_VmLog.Size(m)
@@ -75,16 +78,17 @@ func (m *VmLogList) Reset()         { *m = VmLogList{} }
 func (m *VmLogList) String() string { return proto.CompactTextString(m) }
 func (*VmLogList) ProtoMessage()    {}
 func (*VmLogList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_vm_log_list_fcaff2b569e5dee9, []int{1}
+	return fileDescriptor_6765d368524708d9, []int{1}
 }
+
 func (m *VmLogList) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_VmLogList.Unmarshal(m, b)
 }
 func (m *VmLogList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_VmLogList.Marshal(b, m, deterministic)
 }
-func (dst *VmLogList) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_VmLogList.Merge(dst, src)
+func (m *VmLogList) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_VmLogList.Merge(m, src)
 }
 func (m *VmLogList) XXX_Size() int {
 	return xxx_messageInfo_VmLogList.Size(m)
@@ -107,11 +111,9 @@ func init() {
 	proto.RegisterType((*VmLogList)(nil), "vitepb.VmLogList")
 }
 
-func init() {
-	proto.RegisterFile("vitepb/vm_log_list.proto", fileDescriptor_vm_log_list_fcaff2b569e5dee9)
-}
+func init() { proto.RegisterFile("vitepb/vm_log_list.proto", fileDescriptor_6765d368524708d9) }
 
-var fileDescriptor_vm_log_list_fcaff2b569e5dee9 = []byte{
+var fileDescriptor_6765d368524708d9 = []byte{
 	// 134 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x28, 0xcb, 0x2c, 0x49,
 	0x2d, 0x48, 0xd2, 0x2f, 0xcb, 0x8d, 0xcf, 0xc9, 0x4f, 0x8f, 0xcf, 0xc9, 0x2c, 0x2e, 0xd1, 0x2b,

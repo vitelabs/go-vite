@@ -137,21 +137,21 @@ func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 		return err
 	}
 
-	var files []*message.File
-	var batch [][2]uint64
+	var files []*ledger.CompressedFileMeta
+	var chunks [][2]uint64
 	if req.From.Height != 0 {
-		files, batch = s.chain.GetSubLedgerByHeight(req.From.Height, req.Count, req.Forward)
+		files, chunks = s.chain.GetSubLedgerByHeight(req.From.Height, req.Count, req.Forward)
 	} else {
-		files, batch, err = s.chain.GetSubLedgerByHash(&req.From.Hash, req.Count, req.Forward)
+		files, chunks, err = s.chain.GetSubLedgerByHash(&req.From.Hash, req.Count, req.Forward)
 	}
 
 	if err != nil {
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	} else {
 		return sender.Send(FileListCode, msg.Id, &message.FileList{
-			Files: files,
-			Chunk: batch,
-			Nonce: 0,
+			Files:  files,
+			Chunks: chunks,
+			Nonce:  0,
 		})
 	}
 }
