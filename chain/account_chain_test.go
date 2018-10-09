@@ -29,7 +29,7 @@ func TestGetAccountBlocksByHash(t *testing.T) {
 		fmt.Printf("%d: %+v\n", index, block)
 	}
 
-	startHash, _ := types.HexToHash("5b656deb57ab9095ba16ea98dc39098063e1604e084ed78200a854ec9d00acd0")
+	startHash, _ := types.HexToHash("f9380deea688b3afe206f52cc3cf2c2677bca1a0fbb4abdfa9d671bc26b22932")
 	blocks3, err3 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, &startHash, 10, true)
 	if err3 != nil {
 		t.Error(err3)
@@ -38,7 +38,7 @@ func TestGetAccountBlocksByHash(t *testing.T) {
 		fmt.Printf("%d: %+v\n", index, block)
 	}
 
-	endHash, _ := types.HexToHash("fe9297967d6d1cf1ea04ae8cba4d543777b52c130fe300f67ad0f7742af7a284")
+	endHash, _ := types.HexToHash("efe9be9b0e41f37dbb34899bb8891c5e150d35e8e907212128cffb7907b5292a")
 	blocks4, err4 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, &endHash, 10, false)
 	if err4 != nil {
 		t.Error(err4)
@@ -85,7 +85,7 @@ func TestGetAccountBlocksByHeight(t *testing.T) {
 
 func TestChain_GetAccountBlockMap(t *testing.T) {
 	chainInstance := getChainInstance()
-	startHash, _ := types.HexToHash("5b656deb57ab9095ba16ea98dc39098063e1604e084ed78200a854ec9d00acd0")
+	startHash, _ := types.HexToHash("f9380deea688b3afe206f52cc3cf2c2677bca1a0fbb4abdfa9d671bc26b22932")
 	queryParams1 := map[types.Address]*BlockMapQueryParam{
 		contracts.AddressMintage: {
 			OriginBlockHash: &startHash,
@@ -235,7 +235,7 @@ func TestGetAccountBlockByHeight(t *testing.T) {
 
 func TestGetAccountBlockByHash(t *testing.T) {
 	chainInstance := getChainInstance()
-	hash, _ := types.HexToHash("560397acdc3be462224e9834e791e1366e3464c852d1ab2c3f890f4e79960be7")
+	hash, _ := types.HexToHash("f9380deea688b3afe206f52cc3cf2c2677bca1a0fbb4abdfa9d671bc26b22932")
 	block, err := chainInstance.GetAccountBlockByHash(&hash)
 	if err != nil {
 		t.Error(err)

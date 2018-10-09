@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain_db"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/compress"
@@ -31,6 +32,9 @@ type chain struct {
 	dataDir string
 
 	em *eventManager
+
+	cfg         *config.Chain
+	kafkaSender *sender.KafkaSender
 }
 
 func NewChain(cfg *config.Config) Chain {
@@ -38,6 +42,12 @@ func NewChain(cfg *config.Config) Chain {
 		log:                  log15.New("module", "chain"),
 		genesisSnapshotBlock: &GenesisSnapshotBlock,
 		dataDir:              cfg.DataDir,
+
+		cfg: cfg.Chain,
+	}
+
+	if chain.cfg == nil {
+		chain.cfg = &config.Chain{}
 	}
 
 	return chain
@@ -88,6 +98,14 @@ func (c *chain) Init() {
 	}
 	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
 
+	// kafka sender
+	if len(c.cfg.KafkaProducers) > 0 {
+		var newKafkaErr error
+		c.kafkaSender, newKafkaErr = sender.NewKafkaSender(c, filepath.Join(c.dataDir, "ledger_mq"))
+		if newKafkaErr != nil {
+			c.log.Crit("NewKafkaSender failed, error is " + newKafkaErr.Error())
+		}
+	}
 	// Finish initialize
 	c.log.Info("Chain module initialized")
 }
@@ -122,6 +140,11 @@ func (c *chain) clearData() {
 func (c *chain) initData() {
 	// Write genesis snapshot block
 	var err error
+	// Insert snapshot block
+	err = c.InsertSnapshotBlock(&GenesisSnapshotBlock)
+	if err != nil {
+		c.log.Crit("WriteSnapshotBlock failed, error is "+err.Error(), "method", "initData")
+	}
 
 	// Insert mintage block
 	err = c.InsertAccountBlocks([]*vm_context.VmAccountBlock{{
@@ -154,8 +177,8 @@ func (c *chain) initData() {
 		c.log.Crit("InsertGenesisRegisterBlock failed, error is "+err.Error(), "method", "initData")
 	}
 
-	// Insert snapshot block
-	err = c.InsertSnapshotBlock(c.genesisSnapshotBlock)
+	// Insert second snapshot block
+	err = c.InsertSnapshotBlock(&SecondSnapshotBlock)
 	if err != nil {
 		c.log.Crit("WriteSnapshotBlock failed, error is "+err.Error(), "method", "initData")
 	}
@@ -173,8 +196,15 @@ func (c *chain) ChainDb() *chain_db.ChainDb {
 func (c *chain) Start() {
 	// Start compress in the background
 	c.log.Info("Start chain module")
-
+	// start compressor
 	c.compressor.Start()
+
+	// start kafka sender
+	if c.kafkaSender != nil {
+		for _, producer := range c.cfg.KafkaProducers {
+			c.kafkaSender.Start(producer.BrokerList, producer.Topic)
+		}
+	}
 
 	c.log.Info("Chain module started")
 }
@@ -183,7 +213,11 @@ func (c *chain) Stop() {
 	// Stop compress
 	c.log.Info("Stop chain module")
 
+	// stop compressor
 	c.compressor.Stop()
+
+	// stop kafka sender
+	c.kafkaSender.StopAll()
 
 	c.log.Info("Chain module stopped")
 }
@@ -205,6 +239,9 @@ func (c *chain) destroy() {
 
 	// needSnapshotCache
 	c.needSnapshotCache = nil
+
+	// kafka sender
+	c.kafkaSender = nil
 
 	c.log.Info("Chain module destroyed")
 }

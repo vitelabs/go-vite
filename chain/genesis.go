@@ -14,6 +14,7 @@ import (
 )
 
 var GenesisSnapshotBlock ledger.SnapshotBlock
+var SecondSnapshotBlock ledger.SnapshotBlock
 
 var GenesisMintageBlock ledger.AccountBlock
 var GenesisMintageBlockVC vmctxt_interface.VmDatabase
@@ -28,6 +29,8 @@ var GenesisRegisterBlock ledger.AccountBlock
 var GenesisRegisterBlockVC vmctxt_interface.VmDatabase
 
 func init() {
+	GenesisSnapshotBlock = genesisSnapshotBlock()
+
 	GenesisMintageBlock, GenesisMintageBlockVC = genesisMintageBlock()
 
 	GenesisMintageSendBlock, GenesisMintageSendBlockVC = genesisMintageSendBlock()
@@ -36,7 +39,7 @@ func init() {
 
 	GenesisRegisterBlock, GenesisRegisterBlockVC = genesisRegisterBlock()
 
-	GenesisSnapshotBlock = genesisSnapshotBlock()
+	SecondSnapshotBlock = secondSnapshotBlock()
 }
 
 var genesisTrieNodePool = trie.NewTrieNodePool()
@@ -46,6 +49,25 @@ func genesisSnapshotBlock() ledger.SnapshotBlock {
 	genesisSnapshotBlock := ledger.SnapshotBlock{
 		Height:    1,
 		Timestamp: &genesisTimestamp,
+	}
+	stateTrie := trie.NewTrie(nil, nil, nil)
+	stateTrie.SetValue([]byte("vite"), []byte("create something cool"))
+
+	genesisSnapshotBlock.StateTrie = stateTrie
+	genesisSnapshotBlock.StateHash = *stateTrie.Hash()
+
+	genesisSnapshotBlock.Hash = genesisSnapshotBlock.ComputeHash()
+
+	return genesisSnapshotBlock
+}
+
+func secondSnapshotBlock() ledger.SnapshotBlock {
+	timestamp := genesisTimestamp.Add(time.Second * 15)
+
+	genesisSnapshotBlock := ledger.SnapshotBlock{
+		Height:    GenesisSnapshotBlock.Height + 1,
+		Timestamp: &timestamp,
+		PrevHash:  GenesisSnapshotBlock.Hash,
 	}
 
 	snapshotContent := ledger.SnapshotContent{
@@ -87,7 +109,8 @@ func genesisMintageBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 
-		Timestamp: &timestamp,
+		Timestamp:    &timestamp,
+		SnapshotHash: GenesisSnapshotBlock.Hash,
 	}
 
 	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
@@ -116,6 +139,7 @@ func genesisMintageSendBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase
 		TokenId:        ledger.ViteTokenId,
 		Fee:            big.NewInt(0),
 		StateHash:      GenesisMintageBlock.StateHash,
+		SnapshotHash:   GenesisSnapshotBlock.Hash,
 		Timestamp:      &timestamp,
 	}
 	block.Hash = block.ComputeHash()
@@ -133,7 +157,8 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 
-		Timestamp: &timestamp,
+		SnapshotHash: GenesisSnapshotBlock.Hash,
+		Timestamp:    &timestamp,
 	}
 
 	conditionRegisterData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)), ledger.ViteTokenId, uint64(3600*24*90))
@@ -188,7 +213,8 @@ func genesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 
-		Timestamp: &timestamp,
+		SnapshotHash: GenesisSnapshotBlock.Hash,
+		Timestamp:    &timestamp,
 	}
 
 	addrStrList := []string{
