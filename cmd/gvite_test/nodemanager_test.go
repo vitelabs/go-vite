@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"gopkg.in/urfave/cli.v1"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"sync"
@@ -18,10 +20,80 @@ type TestNode struct {
 	lock sync.RWMutex
 }
 
+type TestObject struct {
+	Name *string
+	age  int
+}
+
+type TestNodeConfig struct {
+	DataDir string `json:"DataDir"`
+
+	KeyStoreDir string `json:"KeyStoreDir"`
+
+	// template：["broker1,broker2,...|topic",""]
+	KafkaProducers []string `json:"KafkaProducers"`
+
+	// p2p
+	NetSelect            string
+	Identity             string   `json:"Identity"`
+	privateKey           string   `json:"PrivateKey"`
+	MaxPeers             uint     `json:"MaxPeers"`
+	MaxPassivePeersRatio uint     `json:"MaxPassivePeersRatio"`
+	MaxPendingPeers      uint     `json:"MaxPendingPeers"`
+	bootNodes            []string `json:"BootNodes"`
+	Port                 uint     `json:"Port"`
+	NetID                uint     `json:"NetID"`
+
+	//rpc
+	RPCEnabled bool `json:"RPCEnabled"`
+	IPCEnabled bool `json:"IPCEnabled"`
+	WSEnabled  bool `json:"WSEnabled"`
+
+	IPCPath          string   `json:"IPCPath"`
+	HttpHost         string   `json:"HttpHost"`
+	HttpPort         int      `json:"HttpPort"`
+	HttpVirtualHosts []string `json:"HttpVirtualHosts"`
+	WSHost           string   `json:"WSHost"`
+	WSPort           int      `json:"WSPort"`
+}
+
 func NewTestNode() *TestNode {
 	return &TestNode{
 		stop: make(chan struct{}),
 	}
+}
+
+func TestNodeConfigParse(t *testing.T) {
+
+	testNodeConfig := TestNodeConfig{}
+	file := "node_config.json"
+
+	if jsonConf, err := ioutil.ReadFile(file); err == nil {
+		err = json.Unmarshal(jsonConf, &testNodeConfig)
+		if err != nil {
+			log.Info("cannot unmarshal the config file content, will use the default config", "error", err)
+		}
+	} else {
+		log.Info("cannot read the config file, will use the default config", "error", err)
+	}
+
+	log.Info(fmt.Sprintf("nodeConfig content: %v", testNodeConfig))
+
+}
+
+func TestSlice(t *testing.T) {
+	testNodes := []TestObject{}
+	//testNodes[0] = TestObject{
+	//	Name: "yuanyulei",
+	//	age:  1,
+	//}
+	log.Info(fmt.Sprintf("%v", testNodes))
+
+	testNodes1 := make([]TestObject, 1)
+	testNodes1[0] = TestObject{
+		age: 1,
+	}
+	log.Info(fmt.Sprintf("%v", testNodes1))
 }
 
 func (t *TestNode) Start() error {
