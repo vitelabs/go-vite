@@ -2,8 +2,8 @@ package sender
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"github.com/Shopify/sarama"
-	"github.com/gin-gonic/gin/json"
 	"github.com/golang/protobuf/proto"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
