@@ -71,7 +71,7 @@ func (access *UAccess) writeOnroadMeta(batch *leveldb.Batch, block *ledger.Accou
 		// call from the common WriteOnroad func to add new onRoadTx
 		return access.store.WriteMeta(batch, &block.ToAddress, &block.Hash, 0)
 	} else {
-		// call from the DeleteOnroad(revert) func
+		// call from the RevertOnroad(revert) func
 		addr := &block.AccountAddress
 		hash := &block.FromBlockHash
 
@@ -144,7 +144,7 @@ func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.Acco
 			return errors.New("AccountType error or not exist")
 		}
 	} else {
-		// call from the  DeleteOnroad(revert) func to handle sendBlock
+		// call from the  RevertOnroad(revert) func to handle sendBlock
 		if err := access.store.DeleteReceiveErrCount(batch, &block.Hash, &block.ToAddress); err != nil {
 			return err
 		}

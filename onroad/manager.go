@@ -29,8 +29,8 @@ type Manager struct {
 	uAccess          *model.UAccess
 	onroadBlocksPool *model.OnroadBlocksPool
 
-	commonTxWorkers map[types.Address]*AutoReceiveWorker
-	contractWorkers map[types.Gid]*ContractWorker
+	autoReceiveWorkers map[types.Address]*AutoReceiveWorker
+	contractWorkers    map[types.Gid]*ContractWorker
 
 	unlockLid       int
 	netStateLid     int
@@ -44,13 +44,13 @@ type Manager struct {
 
 func NewManager(vite Vite, dataDir string) *Manager {
 	m := &Manager{
-		vite:            vite,
-		pool:            vite,
-		keystoreManager: vite.WalletManager().KeystoreManager,
-		uAccess:         model.NewUAccess(vite.Chain()),
-		commonTxWorkers: make(map[types.Address]*AutoReceiveWorker),
-		contractWorkers: make(map[types.Gid]*ContractWorker),
-		log:             slog.New("w", "manager"),
+		vite:               vite,
+		pool:               vite,
+		keystoreManager:    vite.WalletManager().KeystoreManager,
+		uAccess:            model.NewUAccess(vite.Chain()),
+		autoReceiveWorkers: make(map[types.Address]*AutoReceiveWorker),
+		contractWorkers:    make(map[types.Gid]*ContractWorker),
+		log:                slog.New("w", "manager"),
 	}
 	m.onroadBlocksPool = model.NewOnroadBlocksPool(m.uAccess)
 	return m
@@ -65,12 +65,12 @@ func (manager *Manager) InitAndStartWork() {
 	//manager.writeSuccLid = manager.vite.Chain().RegisterInsertAccountBlocksSuccess()
 	//manager.deleteSuccLid = manager.vite.Chain().RegisterDeleteAccountBlocksSuccess(processor processorFunc()
 	manager.writeOnRoadLid = manager.vite.Chain().RegisterInsertAccountBlocks(manager.onroadBlocksPool.WriteOnroad)
-	manager.deleteOnRoadLid = manager.vite.Chain().RegisterDeleteAccountBlocks(manager.onroadBlocksPool.DeleteOnroad)
+	manager.deleteOnRoadLid = manager.vite.Chain().RegisterDeleteAccountBlocks(manager.onroadBlocksPool.RevertOnroad)
 }
 
 func (manager *Manager) stopAllWorks() {
 	var wg = sync.WaitGroup{}
-	for _, v := range manager.commonTxWorkers {
+	for _, v := range manager.autoReceiveWorkers {
 		wg.Add(1)
 		go func() {
 			v.Stop()
@@ -89,7 +89,7 @@ func (manager *Manager) stopAllWorks() {
 
 func (manager *Manager) startAllWorks() {
 	var wg = sync.WaitGroup{}
-	for _, v := range manager.commonTxWorkers {
+	for _, v := range manager.autoReceiveWorkers {
 		wg.Add(1)
 		go func() {
 			v.Start()
@@ -135,9 +135,9 @@ func (manager *Manager) netStateChangedFunc(state net.SyncState) {
 func (manager *Manager) addressLockStateChangeFunc(event keystore.UnlockEvent) {
 	manager.log.Info("addressLockStateChangeFunc ", "event", event)
 
-	w, found := manager.commonTxWorkers[event.Address]
+	w, found := manager.autoReceiveWorkers[event.Address]
 	if found && !event.Unlocked() {
-		manager.log.Info("found in commonTxWorkers stop it")
+		manager.log.Info("found in autoReceiveWorkers stop it")
 		go w.Stop()
 	}
 }
@@ -194,7 +194,7 @@ func (manager *Manager) checkExistInPool(addr types.Address, fromBlockHash types
 }
 
 func (manager *Manager) ResetAutoReceiveFilter(addr types.Address, filter map[types.TokenTypeId]big.Int) {
-	if w, ok := manager.commonTxWorkers[addr]; ok {
+	if w, ok := manager.autoReceiveWorkers[addr]; ok {
 		w.ResetAutoReceiveFilter(filter)
 	}
 }
@@ -216,11 +216,11 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 		return walleterrors.ErrLocked
 	}
 
-	w, found := manager.commonTxWorkers[addr]
+	w, found := manager.autoReceiveWorkers[addr]
 	if !found {
 		w = NewAutoReceiveWorker(manager, addr, filter)
 		manager.log.Info("Manager get event new Worker")
-		manager.commonTxWorkers[addr] = w
+		manager.autoReceiveWorkers[addr] = w
 	}
 	w.Start()
 	return nil
@@ -228,7 +228,7 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 
 func (manager *Manager) StopAutoReceiveWorker(addr types.Address) error {
 	manager.log.Info("StopAutoReceiveWorker ", "addr", addr)
-	w, found := manager.commonTxWorkers[addr]
+	w, found := manager.autoReceiveWorkers[addr]
 	if found {
 		w.Stop()
 	}

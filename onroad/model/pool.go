@@ -2,7 +2,6 @@ package model
 
 import (
 	"container/list"
-	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -16,6 +15,7 @@ import (
 const (
 	fullCacheExpireTime   = 2 * time.Minute
 	simpleCacheExpireTime = 20 * time.Minute
+	TokenCacheExpireTime  = 24 * 60 * time.Minute
 )
 
 // obtaining the account info from cache or db and manage the cache lifecycle
@@ -27,6 +27,8 @@ type OnroadBlocksPool struct {
 
 	simpleCache          *sync.Map // map[types.Address]*CommonAccountInfo
 	simpleCacheDeadTimer *sync.Map //map[types.Address]*time.Timer
+
+	tokenInfoCache *sync.Map // map[types.TokenTypeId]*contract.TokenInfo
 
 	newCommonTxListener   map[types.Address]func()
 	commonTxListenerMutex sync.RWMutex
@@ -50,35 +52,7 @@ func NewOnroadBlocksPool(dbAccess *UAccess) *OnroadBlocksPool {
 	}
 }
 
-func (p *OnroadBlocksPool) GetAddrListByGid(gid types.Gid) (addrList []types.Address, err error) {
-	return p.dbAccess.GetContractAddrListByGid(&gid)
-}
-
-func (p *OnroadBlocksPool) Close() error {
-	p.log.Info("Close()")
-
-	p.simpleCacheDeadTimer.Range(func(_, value interface{}) bool {
-		if value != nil {
-			value.(*time.Timer).Stop()
-		}
-		return true
-	})
-	p.simpleCache = nil
-
-	p.fullCacheDeadTimer.Range(func(_, value interface{}) bool {
-		if value != nil {
-			value.(*time.Timer).Stop()
-		}
-		return true
-	})
-	p.fullCache = nil
-
-	p.log.Info("Close() end")
-	return nil
-}
-
 func (p *OnroadBlocksPool) addSimpleCache(addr types.Address, accountInfo *CommonAccountInfo) {
-	//p.log.Info("addSimpleCache", "addr", addr, "TotalNumber", accountInfo.TotalNumber)
 	p.simpleCache.Store(addr, accountInfo)
 
 	timer, ok := p.simpleCacheDeadTimer.Load(addr)
@@ -94,7 +68,7 @@ func (p *OnroadBlocksPool) addSimpleCache(addr types.Address, accountInfo *Commo
 }
 
 func (p *OnroadBlocksPool) GetCommonAccountInfo(addr types.Address) (*CommonAccountInfo, error) {
-	p.log.Info("first load in simple cache", "addr", addr)
+	p.log.Debug("first load in simple cache", "addr", addr)
 	if c, ok := p.simpleCache.Load(addr); ok {
 		v, ok := p.simpleCacheDeadTimer.Load(addr)
 		if ok {
@@ -103,17 +77,16 @@ func (p *OnroadBlocksPool) GetCommonAccountInfo(addr types.Address) (*CommonAcco
 		return c.(*CommonAccountInfo), nil
 	}
 
-	p.log.Info("second load from full cache", "addr", addr)
-	// fixme: getTokenId func
-	//if fullcache, ok := p.fullCache.Load(addr); ok {
-	//	accountInfo := fullcache.(*onroadBlocksCache).toCommonAccountInfo(p.dbAccess.Chain.GetTokenInfoById)
-	//	if accountInfo != nil {
-	//		p.addSimpleCache(addr, accountInfo)
-	//		return accountInfo, nil
-	//	}
-	//}
+	p.log.Debug("second load from full cache", "addr", addr)
+	if fullcache, ok := p.fullCache.Load(addr); ok {
+		accountInfo := fullcache.(*onroadBlocksCache).toCommonAccountInfo(p.GetTokenInfoById)
+		if accountInfo != nil {
+			p.addSimpleCache(addr, accountInfo)
+			return accountInfo, nil
+		}
+	}
 
-	p.log.Info("third load from db", "addr", addr)
+	p.log.Debug("third load from db", "addr", addr)
 	accountInfo, e := p.dbAccess.GetCommonAccInfo(&addr)
 	if e != nil {
 		return nil, e
@@ -126,8 +99,8 @@ func (p *OnroadBlocksPool) GetCommonAccountInfo(addr types.Address) (*CommonAcco
 
 }
 
-func (p *OnroadBlocksPool) GetNextTx(addr types.Address) *ledger.AccountBlock {
-	p.log.Info("GetNextTx", "addr", addr)
+func (p *OnroadBlocksPool) GetNextCommonTx(addr types.Address) *ledger.AccountBlock {
+	p.log.Debug("GetNextCommonTx", "addr", addr)
 	c, ok := p.fullCache.Load(addr)
 	if !ok {
 		return nil
@@ -136,7 +109,7 @@ func (p *OnroadBlocksPool) GetNextTx(addr types.Address) *ledger.AccountBlock {
 }
 
 func (p *OnroadBlocksPool) ResetCacheCursor(addr types.Address) {
-	p.log.Info("ResetCacheCursor", "addr", addr)
+	p.log.Debug("ResetCacheCursor", "addr", addr)
 	c, ok := p.fullCache.Load(addr)
 	if !ok {
 		return
@@ -144,72 +117,74 @@ func (p *OnroadBlocksPool) ResetCacheCursor(addr types.Address) {
 	c.(*onroadBlocksCache).ResetCursor()
 }
 
-func (p *OnroadBlocksPool) AcquireAccountInfoCache(addr types.Address) error {
-	log := p.log.New("AcquireAccountInfoCache", addr)
-	if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
-		if t != nil {
-			log.Info("stop timer")
-			t.(*time.Timer).Stop()
-		}
-	}
-
-	if c, ok := p.fullCache.Load(addr); ok {
-		c.(*onroadBlocksCache).addReferenceCount()
-		log.Info("found in cache", "ref", c.(*onroadBlocksCache).referenceCount)
-		return nil
-	}
-
+func (p *OnroadBlocksPool) loadFullCacheFromDb(addr types.Address) error {
 	blocks, e := p.dbAccess.GetAllOnroadBlocks(addr)
 	if e != nil {
-		log.Error("get from db", "err", e)
 		return e
 	}
-	log.Info("get from db", "len", len(blocks))
+	p.log.Debug("get from db", "len", len(blocks))
 
 	list := list.New()
 	for _, value := range blocks {
 		list.PushBack(value)
 	}
 
-	p.fullCache.Store(addr, &onroadBlocksCache{
+	cache := &onroadBlocksCache{
 		blocks:         *list,
 		currentEle:     list.Front(),
 		referenceCount: 1,
-	})
+	}
+	p.fullCache.Store(addr, cache)
 
 	return nil
 }
 
-func (p *OnroadBlocksPool) ReleaseAccountInfoCache(addr types.Address) error {
-	log := p.log.New("ReleaseAccountInfoCache", addr)
+func (p *OnroadBlocksPool) AcquireFullOnroadBlocksCache(addr types.Address) {
+	log := p.log.New("AcquireFullOnroadBlocksCache", addr)
+	if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
+		if t != nil {
+			log.Debug("stop timer")
+			t.(*time.Timer).Stop()
+		}
+	}
+	// first load in cache
+	if c, ok := p.fullCache.Load(addr); ok {
+		c.(*onroadBlocksCache).addReferenceCount()
+		log.Debug("found in cache", "ref", c.(*onroadBlocksCache).referenceCount)
+		return
+	}
+
+	// second load in db
+	if e := p.loadFullCacheFromDb(addr); e != nil {
+		log.Error(e.Error())
+	}
+
+}
+
+func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) error {
+	log := p.log.New("ReleaseFullOnroadBlocksCache", addr)
 	v, ok := p.fullCache.Load(addr)
 	if !ok {
-		log.Info("no cache found")
+		log.Debug("no cache found")
 		return nil
 	}
 	c := v.(*onroadBlocksCache)
 	if c.subReferenceCount() <= 0 {
-		log.Info("cache found ref <= 0 delete cache")
+		log.Debug("cache found ref <= 0 delete cache")
 
 		c.ResetCursor()
 		p.fullCacheDeadTimer.Store(addr, time.AfterFunc(fullCacheExpireTime, func() {
-			log.Info("cache delete")
-			p.DeleteFullCache(addr)
+			log.Debug("cache delete")
+			p.fullCache.Delete(addr)
 		}))
 		return nil
 	}
-	log.Info("after release", "ref", c.referenceCount)
+	log.Debug("after release", "ref", c.referenceCount)
 
 	return nil
 }
 
-func (p *OnroadBlocksPool) DeleteFullCache(address types.Address) {
-	p.fullCache.Delete(address)
-}
-
 func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_context.VmAccountBlock) error {
-	p.log.Info("WriteOnroad ")
-
 	for _, v := range blockList {
 		if v.AccountBlock.IsSendBlock() {
 			// basic writeMeta func
@@ -228,15 +203,18 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 					}
 				}
 			}
+			p.updateCache(true, v.AccountBlock)
+
 		} else {
 			if err := p.dbAccess.deleteOnroadMeta(batch, v.AccountBlock); err != nil {
 				p.log.Error("deleteOnroadMeta", "error", err)
 				return err
 			}
+
+			p.updateCache(false, v.AccountBlock)
 		}
 	}
-	// todo 确认写好之后 再更新
-	// p.updateCache(writeType, block)
+
 	return nil
 }
 
@@ -244,9 +222,17 @@ func (p *OnroadBlocksPool) DeleteDirect(sendBlock *ledger.AccountBlock) error {
 	return p.dbAccess.store.DeleteMeta(nil, &sendBlock.ToAddress, &sendBlock.Hash)
 }
 
-// DeleteUnRoad means to revert according to bifurcation
-func (p *OnroadBlocksPool) DeleteOnroad(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
-	p.log.Info("DeleteOnroad: revert")
+func (p *OnroadBlocksPool) GetTokenInfoById(tti types.TokenTypeId) (*contracts.TokenInfo, error) {
+	if t, ok := p.tokenInfoCache.Load(tti); ok {
+		return t.(*contracts.TokenInfo), nil
+	}
+	info := p.dbAccess.Chain.GetTokenInfoById(&tti)
+	p.tokenInfoCache.Store(tti, info)
+	return info, nil
+}
+
+// RevertOnroad means to revert according to bifurcation
+func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
 
 	cutMap := excludeSubordinate(subLedger)
 	for _, blocks := range cutMap {
@@ -277,6 +263,29 @@ func (p *OnroadBlocksPool) DeleteOnroad(batch *leveldb.Batch, subLedger map[type
 			}
 		}
 	}
+
+	//async update the cache
+	go func() {
+		for addr, _ := range subLedger {
+			// if the full cache is in hold by a worker we will rebuild it else we delete it
+			if cache, ok := p.fullCache.Load(addr); ok {
+				c := cache.(*onroadBlocksCache)
+				if c.referenceCount > 0 {
+					p.loadFullCacheFromDb(addr)
+				} else {
+					if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
+						t.(*time.Timer).Stop()
+						p.fullCacheDeadTimer.Delete(addr)
+					}
+					p.fullCache.Delete(addr)
+				}
+			}
+
+			p.deleteSimpleCache(addr)
+		}
+
+	}()
+
 	return nil
 }
 
@@ -300,33 +309,27 @@ func excludeSubordinate(subLedger map[types.Address][]*ledger.AccountBlock) map[
 	return cutMap
 }
 
-func (p *OnroadBlocksPool) updateFullCache(writeType bool, block *ledger.AccountBlock) error {
-	v, ok := p.fullCache.Load(block.ToAddress)
-	fullCache := v.(*onroadBlocksCache)
-	// todo check == 0
-	if !ok || fullCache.blocks.Len() == 0 {
-		//p.log.Info("updateCache：no fullCache")
-		return nil
+func (p *OnroadBlocksPool) updateFullCache(writeType bool, block *ledger.AccountBlock) {
+	if v, ok := p.fullCache.Load(block.ToAddress); ok {
+		fullCache := v.(*onroadBlocksCache)
+		if writeType {
+			fullCache.addTx(block)
+		} else {
+			fullCache.rmTx(block)
+		}
 	}
-
-	if writeType {
-		fullCache.addTx(block)
-	} else {
-		fullCache.rmTx(block)
-	}
-
-	return nil
 }
 
-// todo add mutex
-func (p *OnroadBlocksPool) updateSimpleCache(writeType bool, block *ledger.AccountBlock) error {
+func (p *OnroadBlocksPool) updateSimpleCache(writeType bool, block *ledger.AccountBlock) {
 
 	value, ok := p.simpleCache.Load(block.ToAddress)
 	if !ok {
-		// p.log.Info("updateSimpleCache：no cache")
-		return nil
+		return
 	}
+
 	simpleAccountInfo := value.(*CommonAccountInfo)
+	simpleAccountInfo.mutex.Lock()
+	defer simpleAccountInfo.mutex.Unlock()
 
 	tokenBalanceInfo, ok := simpleAccountInfo.TokenBalanceInfoMap[block.TokenId]
 	if writeType {
@@ -334,49 +337,52 @@ func (p *OnroadBlocksPool) updateSimpleCache(writeType bool, block *ledger.Accou
 			tokenBalanceInfo.TotalAmount.Add(&tokenBalanceInfo.TotalAmount, block.Amount)
 			tokenBalanceInfo.Number += 1
 		} else {
-			// fixme: remove token info?
-			//token, err := p.dbAccess.Chain.GetTokenInfoById(&block.TokenId)
-			//if err != nil {
-			//	return errors.New("func UpdateCommonAccInfo.GetByTokenId failed" + err.Error())
-			//}
-			//if token == nil {
-			//	return errors.New("func UpdateCommonAccInfo.GetByTokenId failed token nil")
-			//}
-			//simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Token = *token
-			//simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].TotalAmount = *block.Amount
-			//simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Number = 1
+			token, err := p.GetTokenInfoById(block.TokenId)
+			if err != nil {
+				p.log.Error("func updateSimpleCache.GetByTokenId failed" + err.Error())
+			}
+			if token == nil {
+				p.log.Error("func UpdateCommonAccInfo.GetByTokenId failed token nil")
+			}
+			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Token = *token
+			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].TotalAmount = *block.Amount
+			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Number = 1
 		}
 		simpleAccountInfo.TotalNumber += 1
 	} else {
 		if ok {
 			if tokenBalanceInfo.TotalAmount.Cmp(block.Amount) == -1 {
-				return errors.New("conflict with the memory info, so can't update when writeType is false")
+				p.log.Error("conflict with the memory info, so can't update when writeType is false")
+				p.deleteSimpleCache(block.ToAddress)
 			}
 			if tokenBalanceInfo.TotalAmount.Cmp(block.Amount) == 0 {
 				delete(simpleAccountInfo.TokenBalanceInfoMap, block.TokenId)
 			} else {
 				tokenBalanceInfo.TotalAmount.Sub(&tokenBalanceInfo.TotalAmount, block.Amount)
 			}
-		} else {
-			p.log.Info("find no memory tokenInfo, so can't update when writeType is false")
 		}
 		simpleAccountInfo.TotalNumber -= 1
 		tokenBalanceInfo.Number -= 1
 	}
+}
 
-	return nil
+func (p *OnroadBlocksPool) deleteSimpleCache(addr types.Address) {
+	if t, ok := p.simpleCacheDeadTimer.Load(addr); ok {
+		t.(*time.Timer).Stop()
+		p.simpleCacheDeadTimer.Delete(addr)
+
+	}
+	if _, ok := p.simpleCache.Load(addr); ok {
+		p.simpleCache.Delete(addr)
+	}
 }
 
 func (p *OnroadBlocksPool) updateCache(writeType bool, block *ledger.AccountBlock) {
-	e := p.updateFullCache(writeType, block)
-	if e != nil {
-		p.log.Error("updateFullCache", "err", e)
-	}
 
-	e = p.updateSimpleCache(writeType, block)
-	if e != nil {
-		p.log.Error("updateSimpleCache", "err", e)
-	}
+	p.updateFullCache(writeType, block)
+
+	p.updateSimpleCache(writeType, block)
+
 }
 
 func (p *OnroadBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
@@ -400,8 +406,27 @@ func (p *OnroadBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
 	}
 }
 
-func (p *OnroadBlocksPool) GetOnroadBlocks(index, num, count uint64, addr *types.Address) (blockList []*ledger.AccountBlock, err error) {
-	return p.dbAccess.GetOnroadBlocks(index, num, count, addr)
+func (p *OnroadBlocksPool) Close() error {
+	p.log.Info("Close()")
+
+	p.simpleCacheDeadTimer.Range(func(_, value interface{}) bool {
+		if value != nil {
+			value.(*time.Timer).Stop()
+		}
+		return true
+	})
+	p.simpleCache = nil
+
+	p.fullCacheDeadTimer.Range(func(_, value interface{}) bool {
+		if value != nil {
+			value.(*time.Timer).Stop()
+		}
+		return true
+	})
+	p.fullCache = nil
+
+	p.log.Info("Close() end")
+	return nil
 }
 
 func (p *OnroadBlocksPool) AddCommonTxLis(addr types.Address, f func()) {
