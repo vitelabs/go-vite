@@ -48,7 +48,7 @@ func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid types.Gi
 }
 
 func (access *UAccess) DeleteContractAddrFromGid(batch *leveldb.Batch, gid types.Gid, address types.Address) error {
-	var addrList []*types.Address
+	var addrList []types.Address
 	var err error
 
 	addrList, err = access.GetContractAddrListByGid(&gid)
@@ -71,7 +71,7 @@ func (access *UAccess) writeOnroadMeta(batch *leveldb.Batch, block *ledger.Accou
 		// call from the common WriteOnroad func to add new onRoadTx
 		return access.store.WriteMeta(batch, &block.ToAddress, &block.Hash, 0)
 	} else {
-		// call from the DeleteOnroad(revert) func
+		// call from the RevertOnroad(revert) func
 		addr := &block.AccountAddress
 		hash := &block.FromBlockHash
 
@@ -144,7 +144,7 @@ func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.Acco
 			return errors.New("AccountType error or not exist")
 		}
 	} else {
-		// call from the  DeleteOnroad(revert) func to handle sendBlock
+		// call from the  RevertOnroad(revert) func to handle sendBlock
 		if err := access.store.DeleteReceiveErrCount(batch, &block.Hash, &block.ToAddress); err != nil {
 			return err
 		}
@@ -238,15 +238,6 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 		if ok {
 			ti.Number += 1
 			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
-		} else {
-			// fixme
-			//token, err := access.Chain.GetTokenInfoById(&block.TokenId)
-			//if err != nil {
-			//	return nil, 0, err
-			//}
-			//infoMap[block.TokenId].Token = *token
-			//infoMap[block.TokenId].TotalAmount = *block.Amount
-			//infoMap[block.TokenId].Number = 1
 		}
 
 	}

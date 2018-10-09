@@ -4,8 +4,6 @@ import (
 	"container/list"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
 	"sync"
 )
@@ -17,13 +15,13 @@ type OnroadMeta struct {
 }
 
 type CommonAccountInfo struct {
+	mutex               sync.RWMutex
 	AccountAddress      *types.Address
 	TotalNumber         uint64
 	TokenBalanceInfoMap map[types.TokenTypeId]*TokenBalanceInfo
 }
 
 type TokenBalanceInfo struct {
-	Token       contracts.TokenInfo
 	TotalAmount big.Int
 	Number      uint64
 }
@@ -31,28 +29,16 @@ type TokenBalanceInfo struct {
 type onroadBlocksCache struct {
 	blocks     list.List
 	currentEle *list.Element
+	listMutex  sync.RWMutex
 
 	referenceCount int
 	referenceMutex sync.Mutex
 }
 
-func (c *onroadBlocksCache) addReferenceCount() int {
-	c.referenceMutex.Lock()
-	defer c.referenceMutex.Unlock()
-	c.referenceCount += 1
-	return c.referenceCount
-}
+func (c *onroadBlocksCache) toCommonAccountInfo() *CommonAccountInfo {
 
-func (c *onroadBlocksCache) subReferenceCount() int {
-	c.referenceMutex.Lock()
-	defer c.referenceMutex.Unlock()
-	c.referenceCount -= 1
-	return c.referenceCount
-}
-
-func (c *onroadBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti *types.TokenTypeId) (*contracts.TokenInfo, error)) *CommonAccountInfo {
-	log := log15.New("onroadBlocksCache", "toCommonAccountInfo")
-
+	c.listMutex.RLock()
+	defer c.listMutex.RUnlock()
 	ele := c.blocks.Front()
 	var ca CommonAccountInfo
 	infoMap := make(map[types.TokenTypeId]*TokenBalanceInfo)
@@ -61,16 +47,6 @@ func (c *onroadBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti *types
 		block := ele.Value.(*ledger.AccountBlock)
 		ti, ok := infoMap[block.TokenId]
 		if !ok {
-			token, err := GetTokenInfoById(&block.TokenId)
-			if err != nil {
-				log.Error(err.Error())
-				continue
-			}
-			if token == nil {
-				log.Error("token nil")
-				continue
-			}
-			infoMap[block.TokenId].Token = *token
 			infoMap[block.TokenId].TotalAmount = *block.Amount
 			infoMap[block.TokenId].Number = 1
 		} else {
@@ -88,6 +64,8 @@ func (c *onroadBlocksCache) toCommonAccountInfo(GetTokenInfoById func(tti *types
 }
 
 func (c *onroadBlocksCache) ResetCursor() {
+	c.listMutex.RLock()
+	defer c.listMutex.RUnlock()
 	c.currentEle = c.blocks.Front()
 }
 
@@ -95,20 +73,28 @@ func (c *onroadBlocksCache) GetNextTx() *ledger.AccountBlock {
 	if c.currentEle == nil {
 		return nil
 	}
-
+	c.listMutex.Lock()
+	defer c.listMutex.Unlock()
 	block := c.currentEle.Value.(*ledger.AccountBlock)
 	c.currentEle = c.currentEle.Next()
 	return block
 }
 
 func (c *onroadBlocksCache) addTx(b *ledger.AccountBlock) {
+	c.listMutex.Lock()
+	defer c.listMutex.Unlock()
 	c.blocks.PushBack(b)
+	if c.currentEle == nil {
+		c.currentEle = c.blocks.Front()
+	}
 }
 
 func (c *onroadBlocksCache) rmTx(b *ledger.AccountBlock) {
 	if b == nil {
 		return
 	}
+	c.listMutex.Lock()
+	defer c.listMutex.Unlock()
 	ele := c.blocks.Front()
 	for ele != nil {
 		next := ele.Next()
@@ -120,6 +106,20 @@ func (c *onroadBlocksCache) rmTx(b *ledger.AccountBlock) {
 		}
 		ele = next
 	}
+}
+
+func (c *onroadBlocksCache) addReferenceCount() int {
+	c.referenceMutex.Lock()
+	defer c.referenceMutex.Unlock()
+	c.referenceCount += 1
+	return c.referenceCount
+}
+
+func (c *onroadBlocksCache) subReferenceCount() int {
+	c.referenceMutex.Lock()
+	defer c.referenceMutex.Unlock()
+	c.referenceCount -= 1
+	return c.referenceCount
 }
 
 func AddrListDbSerialize(addrList []types.Address) ([]byte, error) {
