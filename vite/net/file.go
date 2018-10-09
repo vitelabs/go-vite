@@ -1,6 +1,7 @@
 package net
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
@@ -15,8 +16,8 @@ import (
 	"time"
 )
 
-var fReadTimeout = 4 * time.Second
-var fWriteTimeout = 2 * time.Second
+var fReadTimeout = 20 * time.Second
+var fWriteTimeout = 20 * time.Second
 
 type fileServer struct {
 	ln     net.Listener
@@ -105,7 +106,7 @@ func (f *fileServer) handleConn(conn net.Conn) {
 
 				// send files
 				for _, filename := range req.Names {
-					conn.SetWriteDeadline(time.Now().Add(fWriteTimeout))
+					//conn.SetWriteDeadline(time.Now().Add(fWriteTimeout))
 					n, err := io.Copy(conn, f.chain.Compressor().FileReader(filename))
 
 					if err != nil {
@@ -134,7 +135,7 @@ func (f *fileServer) handleConn(conn net.Conn) {
 
 type connContext struct {
 	net.Conn
-	req   *fileReq
+	req   *fileRequest
 	addr  string
 	idle  bool
 	idleT time.Time
@@ -145,21 +146,9 @@ type delCtxEvent struct {
 	err error
 }
 
-type fileReq struct {
-	files []*message.File
-	nonce uint64
-	peer  *Peer
-	rec   receiveBlocks
-	done  func(err error)
-}
-
-func (r *fileReq) addr() string {
-	return r.peer.FileAddress().String()
-}
-
 type fileClient struct {
 	conns    map[string]*connContext
-	_request chan *fileReq
+	_request chan *fileRequest
 	idle     chan *connContext
 	delConn  chan *delCtxEvent
 	chain    Chain
@@ -171,7 +160,7 @@ type fileClient struct {
 func newFileClient(chain Chain) *fileClient {
 	return &fileClient{
 		conns:    make(map[string]*connContext),
-		_request: make(chan *fileReq, 4),
+		_request: make(chan *fileRequest, 4),
 		idle:     make(chan *connContext, 1),
 		delConn:  make(chan *delCtxEvent, 1),
 		chain:    chain,
@@ -194,14 +183,14 @@ func (fc *fileClient) stop() {
 	}
 }
 
-func (fc *fileClient) request(r *fileReq) {
+func (fc *fileClient) request(r *fileRequest) {
 	fc._request <- r
 }
 
 func (fc *fileClient) loop() {
 	defer fc.wg.Done()
 
-	wait := make([]*fileReq, 0, 10)
+	wait := make([]*fileRequest, 0, 10)
 
 	idleTimeout := 5 * time.Second
 	ticker := time.NewTicker(idleTimeout)
@@ -233,13 +222,13 @@ loop:
 			break loop
 
 		case req := <-fc._request:
-			addr := req.addr()
+			addr := req.Addr()
 			var ctx *connContext
 			var ok bool
 			if ctx, ok = fc.conns[addr]; !ok {
 				conn, err := net.Dial("tcp", addr)
 				if err != nil {
-					req.done(err)
+					req.Done(err)
 					break
 				}
 				ctx = &connContext{
@@ -262,7 +251,7 @@ loop:
 			ctx.idle = true
 			ctx.idleT = time.Now()
 			for i, req := range wait {
-				if req.addr() == ctx.addr {
+				if req.Addr() == ctx.addr {
 					ctx.idle = false
 					ctx.req = req
 
@@ -306,7 +295,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 	req := ctx.req
 	filenames := make([]string, len(req.files))
 	for i, file := range req.files {
-		filenames[i] = file.Name
+		filenames[i] = file.Filename
 	}
 	msg := &message.GetFiles{
 		Names: filenames,
@@ -315,7 +304,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 
 	data, err := msg.Serialize()
 	if err != nil {
-		req.done(err)
+		req.Done(err)
 		fc.idle <- ctx
 		return
 	}
@@ -328,19 +317,19 @@ func (fc *fileClient) exe(ctx *connContext) {
 		Payload:  data,
 	})
 	if err != nil {
-		req.done(err)
+		req.Done(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 		return
 	}
 
-	sblocks, mblocks, err := fc.readBlocks(ctx)
+	sblocks, ablocks, err := fc.readBlocks(ctx)
 	if err != nil {
-		req.done(err)
+		req.Done(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 	} else {
 		fc.idle <- ctx
-		req.rec(sblocks, mblocks)
-		req.done(nil)
+		req.rec(sblocks, ablocks)
+		req.Done(nil)
 	}
 }
 
@@ -353,9 +342,23 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 		err = errFlieClientStopped
 		return
 	default:
-		sblocks = make([]*ledger.SnapshotBlock, 0, ctx.req.file.End-ctx.req.file.Start+1)
+		// total blocks: snapshotblocks & accountblocks
+		var total, count, sTotal, sCount, start uint64
+		start = ctx.req.files[0].StartHeight
+		for _, file := range ctx.req.files {
+			if file.StartHeight < start {
+				start = file.StartHeight
+			}
+			total += file.BlockNumbers
+			sTotal += file.EndHeight - file.StartHeight + 1
+		}
+
+		// snapshot block is sorted
+		sblocks = make([]*ledger.SnapshotBlock, sTotal)
 		mblocks = make(map[types.Address][]*ledger.AccountBlock)
 
+		// set read deadline
+		//ctx.SetReadDeadline(time.Now().Add(total * time.Millisecond))
 		fc.chain.Compressor().BlockParser(ctx, func(block ledger.Block, err error) {
 			if err != nil {
 				return
@@ -363,16 +366,34 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 
 			switch block.(type) {
 			case *ledger.SnapshotBlock:
-				sblocks = append(sblocks, block.(*ledger.SnapshotBlock))
+				count++
+
+				block := block.(*ledger.SnapshotBlock)
+				index := block.Height - start
+
+				if sblocks[index] == nil {
+					sblocks[block.Height-start] = block
+					sCount++
+					ctx.req.current = block.Height
+				} else {
+					fc.log.Warn("got repeated snapshotblock: %s/%d", hex.EncodeToString(block.Hash[:]), block.Height)
+				}
 			case *ledger.AccountBlock:
-				ablock := block.(*ledger.AccountBlock)
-				addr := ablock.AccountAddress
-				mblocks[addr] = append(mblocks[addr], ablock)
+				count++
+
+				block := block.(*ledger.AccountBlock)
+				mblocks[block.AccountAddress] = append(mblocks[block.AccountAddress], block)
 			default:
-				// nothing
+				fc.log.Error("got other block type")
 			}
 		})
 
+		if count >= total && sCount >= sTotal {
+			fc.log.Info(fmt.Sprintf("got %d/%d blocks, %d/%d ablocks", count, total, sCount, sTotal))
+			return
+		}
+
+		err = fmt.Errorf("incomplete blocks: %d/%d, %d/%d", count, total, sCount, sTotal)
 		return
 	}
 }

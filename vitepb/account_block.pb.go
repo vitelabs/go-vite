@@ -3,9 +3,11 @@
 
 package vitepb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -47,16 +49,17 @@ func (m *AccountBlock) Reset()         { *m = AccountBlock{} }
 func (m *AccountBlock) String() string { return proto.CompactTextString(m) }
 func (*AccountBlock) ProtoMessage()    {}
 func (*AccountBlock) Descriptor() ([]byte, []int) {
-	return fileDescriptor_account_block_847122edc3e632fe, []int{0}
+	return fileDescriptor_2bf4766d5344eb21, []int{0}
 }
+
 func (m *AccountBlock) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccountBlock.Unmarshal(m, b)
 }
 func (m *AccountBlock) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AccountBlock.Marshal(b, m, deterministic)
 }
-func (dst *AccountBlock) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AccountBlock.Merge(dst, src)
+func (m *AccountBlock) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccountBlock.Merge(m, src)
 }
 func (m *AccountBlock) XXX_Size() int {
 	return xxx_messageInfo_AccountBlock.Size(m)
@@ -204,11 +207,9 @@ func init() {
 	proto.RegisterType((*AccountBlock)(nil), "vitepb.AccountBlock")
 }
 
-func init() {
-	proto.RegisterFile("vitepb/account_block.proto", fileDescriptor_account_block_847122edc3e632fe)
-}
+func init() { proto.RegisterFile("vitepb/account_block.proto", fileDescriptor_2bf4766d5344eb21) }
 
-var fileDescriptor_account_block_847122edc3e632fe = []byte{
+var fileDescriptor_2bf4766d5344eb21 = []byte{
 	// 336 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x92, 0x41, 0x4f, 0xc2, 0x40,
 	0x10, 0x85, 0x53, 0x29, 0x05, 0xd6, 0x82, 0xb8, 0x1a, 0x33, 0x21, 0x1e, 0x1a, 0x62, 0x4c, 0x4f,
