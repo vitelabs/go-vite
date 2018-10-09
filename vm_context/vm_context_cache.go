@@ -53,12 +53,22 @@ func (cache *UnsavedCache) Trie() *trie.Trie {
 }
 
 func (cache *UnsavedCache) SetStorage(key []byte, value []byte) {
+
+	// For unsaved judge.
+	if value == nil {
+		value = make([]byte, 0)
+	}
+
 	cache.storage[string(key)] = value
 	cache.trieDirty = true
 }
 
 func (cache *UnsavedCache) GetStorage(key []byte) []byte {
-	return cache.storage[string(key)]
+	if value := cache.storage[string(key)]; value != nil {
+		return value
+	}
+
+	return cache.trie.GetValue(key)
 }
 
 func (cache *UnsavedCache) ContractGidList() []vmctxt_interface.ContractGid {
