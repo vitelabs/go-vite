@@ -20,6 +20,9 @@ type Config struct {
 
 	KeyStoreDir string `json:"KeyStoreDir"`
 
+	// chain
+	ProducerBrokerList []string `json:"ProducerBrokerList"`
+
 	// p2p
 	NetSelect            string
 	Identity             string   `json:"Identity"`
@@ -50,6 +53,7 @@ func (c *Config) makeWalletConfig() *wallet.Config {
 
 func (c *Config) makeViteConfig() *config.Config {
 	return &config.Config{
+		Chain:   c.makeChainConfig(),
 		P2P:     c.makeConfigP2P(),
 		DataDir: c.DataDir,
 	}
@@ -83,6 +87,10 @@ func (c *Config) makeP2PConfig() *p2p.Config {
 		BootNodes: c.bootNodes,
 		//KafKa:nil,
 	}
+}
+
+func (c *Config) makeChainConfig() *config.Chain {
+	return &config.Chain{}
 }
 
 func (c *Config) HTTPEndpoint() string {

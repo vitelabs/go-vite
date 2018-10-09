@@ -1,21 +1,25 @@
 package net
 
 import (
+	"encoding/hex"
 	"flag"
+	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	config2 "github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
+	"path"
 	"strings"
 	"testing"
 	"time"
 )
 
-var config = p2p.Config{
+var p2pConfig = p2p.Config{
 	Name:            "",
 	NetID:           10,
 	MaxPeers:        100,
@@ -27,19 +31,20 @@ var config = p2p.Config{
 }
 
 var privateKey string
-var needMakeBlocks bool
+var needBlockHeight uint64
 
+// -node_name="lyd00" -private_key="xxx" -boot_nodes="xxx,xxx" -make_blocks=true
 func init() {
 	var bootNodes string
 
-	flag.StringVar(&config.Name, "name", "net_test", "server name")
-	flag.StringVar(&privateKey, "private key", "", "server private key")
-	flag.StringVar(&bootNodes, "boot nodes", "", "boot nodes")
-	flag.BoolVar(&needMakeBlocks, "make blocks", false, "whether need make blocks")
-
-	config.BootNodes = strings.Split(bootNodes, ",")
+	flag.StringVar(&p2pConfig.Name, "node_name", "net_test", "server name")
+	flag.StringVar(&privateKey, "private_key", "", "server private key")
+	flag.StringVar(&bootNodes, "boot_nodes", "", "boot nodes")
+	flag.Uint64Var(&needBlockHeight, "need_block_height", 0, "need block height")
 
 	flag.Parse()
+
+	p2pConfig.BootNodes = strings.Split(bootNodes, ",")
 }
 func randomSendViteBlock(chainInstance chain.Chain, snapshotBlockHash types.Hash, addr1 *types.Address, addr2 *types.Address) ([]*vm_context.VmAccountBlock, []types.Address, error) {
 	now := time.Now()
@@ -117,16 +122,27 @@ func newSnapshotBlock(chainInstance chain.Chain) (*ledger.SnapshotBlock, error) 
 	return snapshotBlock, err
 }
 
-func makeBlocks(chainInstance chain.Chain) {
+func makeBlocks(chainInstance chain.Chain, toBlockHeight uint64) {
+	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
+	if toBlockHeight >= latestSnapshotBlock.Height {
+		return
+	}
+
+	count := toBlockHeight - latestSnapshotBlock.Height
+
 	accountAddress1, _, _ := types.CreateAddress()
 	accountAddress2, _, _ := types.CreateAddress()
-	for i := 0; i < 1000000; i++ {
+	for i := uint64(0); i < count; i++ {
 		snapshotBlock, _ := newSnapshotBlock(chainInstance)
 		chainInstance.InsertSnapshotBlock(snapshotBlock)
 
 		for j := 0; j < 10; j++ {
 			blocks, _, _ := randomSendViteBlock(chainInstance, snapshotBlock.Hash, &accountAddress1, &accountAddress2)
 			chainInstance.InsertAccountBlocks(blocks)
+		}
+
+		if (i+1)%100 == 0 {
+			fmt.Printf("Make %d snapshot blocks.\n", i+1)
 		}
 	}
 }
@@ -139,8 +155,8 @@ func TestNet(t *testing.T) {
 	chainInstance.Init()
 	chainInstance.Start()
 
-	if needMakeBlocks {
-		makeBlocks(chainInstance)
+	if needBlockHeight > 0 {
+		makeBlocks(chainInstance, needBlockHeight)
 	}
 
 	net, err := New(&Config{
@@ -153,7 +169,15 @@ func TestNet(t *testing.T) {
 		t.Error(err)
 	}
 
-	svr, err := p2p.New(config)
+	p2pConfig.Database = path.Join(common.DefaultDataDir(), "p2p")
+	priv, err := hex.DecodeString(privateKey)
+	if err == nil {
+		p2pConfig.PrivateKey = ed25519.PrivateKey(priv)
+	} else {
+		t.Error(err)
+	}
+
+	svr, err := p2p.New(p2pConfig)
 	if err != nil {
 		t.Error(err)
 	}
@@ -164,4 +188,7 @@ func TestNet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	pending := make(chan struct{})
+	<-pending
 }

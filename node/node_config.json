@@ -17,5 +17,5 @@
   "HttpPort":48132,
   //"HttpVirtualHosts":["",""],
   "WSHost":"localhost",
-  "WSPort":41420
+  "WSPort":41420,
 }
