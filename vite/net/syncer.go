@@ -110,6 +110,7 @@ type syncer struct {
 	running    int32
 	receiver   Receiver
 	fc         *fileClient
+	reqs       []*subLedgerRequest
 }
 
 func newSyncer(chain Chain, peers *peerSet, pool *requestPool, receiver Receiver, fc *fileClient) *syncer {
@@ -280,11 +281,13 @@ func (s *syncer) sync(from, to uint64) {
 		req := &subLedgerRequest{
 			id:         msgId,
 			from:       piece.from,
-			to:         piece.from + piece.count - 1,
+			to:         piece.to,
 			peer:       piece.peer,
 			expiration: time.Now().Add(10 * time.Second),
 			done:       s.reqCallback,
 		}
+
+		s.reqs = append(s.reqs, req)
 
 		s.pool.Add(req)
 	}
@@ -296,63 +299,6 @@ func (s *syncer) reqCallback(id uint64, err error) {
 	}
 }
 
-/*
-func (a *syncer) Handle(pkt *p2p.Msg, sender *Peer) error {
-	cmd := cmd(pkt.Cmd)
-	switch cmd {
-	case FileListCode:
-		msg := new(message.FileList)
-		err := msg.Deserialize(pkt.Payload)
-		if err != nil {
-			a.log.Error(fmt.Sprintf("deserialize message %s error: %v", cmd, err))
-			return err
-		}
-
-		// request files
-		a.fc.request(&fileReq{
-			files: msg.Files,
-			nonce: msg.Nonce,
-			peer:  sender,
-			rec:   a.receiveBlocks,
-			done:  nil,
-		})
-
-		// request chunks
-		for _, chunk := range msg.Chunks {
-			if chunk[1]-chunk[0] > 0 {
-				msgId := a.pool.MsgID()
-
-				c := &chunkRequest{
-					id:         msgId,
-					start:      chunk[0],
-					end:        chunk[1],
-					peer:       sender,
-					expiration: time.Now().Add(30 * time.Second),
-				}
-
-				a.pool.Add(c)
-			}
-		}
-
-	case SubLedgerCode:
-		msg := new(message.SubLedger)
-		err := msg.Deserialize(pkt.Payload)
-		if err != nil {
-			a.log.Error(fmt.Sprintf("deserialize message %s error: %v", cmd, err))
-			return err
-		}
-
-		a.receiveBlocks(msg.SBlocks, msg.ABlocks)
-	case ExceptionCode:
-		exp, err := message.DeserializeException(pkt.Payload)
-		// todo
-	default:
-
-	}
-
-	return nil
-}
-*/
 func (s *syncer) setState(t SyncState) {
 	s.state = t
 	s.feed.Notify(t)

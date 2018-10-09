@@ -6,12 +6,11 @@ import "vitepb/account_block.proto";
 import "vitepb/snapshot_block.proto";
 
 message Handshake {
-    uint64 NetID = 1;
-    uint64 Version = 2;
-    uint64 Height = 3;
+    uint64 CmdSet = 1;
+    uint64 Height = 2;
+    uint32 Port = 3;
     bytes Current = 4;
     bytes Genesis = 5;
-    uint32 Port = 6;
 }
 
 message BlockID {
@@ -58,14 +57,14 @@ message SnapshotBlocks {
     repeated vitepb.SnapshotBlock Blocks = 1;
 }
 
-message GetAccountBlockByHeight {
+message GetAccountBlocks {
     bytes Address = 1;
     BlockID From = 2;
     uint64 Count = 3;
     bool Forward = 4;
 }
 
-message AccountBlocksMsg {
+message AccountBlocks {
     bytes Address = 1;
     repeated vitepb.AccountBlock Blocks = 3;
 }

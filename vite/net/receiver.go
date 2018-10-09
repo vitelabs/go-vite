@@ -141,8 +141,6 @@ func (s *receiver) listen(st SyncState) {
 			}
 		}
 
-		//s.blocks = s.blocks[:0]
-
 		for addr, length := range mblockMark {
 			for i := 0; i < length; i++ {
 				block := s.mblocks[addr][i]

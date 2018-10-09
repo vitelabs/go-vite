@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// all query include start block
+// all query include from block
 type Chain interface {
 	// the second return value mean chunk befor/after file
 	GetSubLedgerByHeight(start, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64)
@@ -62,7 +62,7 @@ type Net struct {
 	handlers    map[cmd]MsgHandler
 }
 
-// auto start
+// auto from
 func New(cfg *Config) (*Net, error) {
 	fs, err := newFileServer(cfg.Port, cfg.Chain)
 	if err != nil {

@@ -135,7 +135,7 @@ func (f *fileServer) handleConn(conn net.Conn) {
 
 type connContext struct {
 	net.Conn
-	req   *fileReq
+	req   *fileRequest
 	addr  string
 	idle  bool
 	idleT time.Time
@@ -146,26 +146,9 @@ type delCtxEvent struct {
 	err error
 }
 
-type fileReq struct {
-	id    uint64
-	files []*ledger.CompressedFileMeta
-	nonce uint64
-	peer  *Peer
-	rec   receiveBlocks
-	done  func(id uint64, err error)
-}
-
-func (r *fileReq) Done(err error) {
-	r.done(r.id, err)
-}
-
-func (r *fileReq) addr() string {
-	return r.peer.FileAddress().String()
-}
-
 type fileClient struct {
 	conns    map[string]*connContext
-	_request chan *fileReq
+	_request chan *fileRequest
 	idle     chan *connContext
 	delConn  chan *delCtxEvent
 	chain    Chain
@@ -177,7 +160,7 @@ type fileClient struct {
 func newFileClient(chain Chain) *fileClient {
 	return &fileClient{
 		conns:    make(map[string]*connContext),
-		_request: make(chan *fileReq, 4),
+		_request: make(chan *fileRequest, 4),
 		idle:     make(chan *connContext, 1),
 		delConn:  make(chan *delCtxEvent, 1),
 		chain:    chain,
@@ -200,14 +183,14 @@ func (fc *fileClient) stop() {
 	}
 }
 
-func (fc *fileClient) request(r *fileReq) {
+func (fc *fileClient) request(r *fileRequest) {
 	fc._request <- r
 }
 
 func (fc *fileClient) loop() {
 	defer fc.wg.Done()
 
-	wait := make([]*fileReq, 0, 10)
+	wait := make([]*fileRequest, 0, 10)
 
 	idleTimeout := 5 * time.Second
 	ticker := time.NewTicker(idleTimeout)
@@ -239,7 +222,7 @@ loop:
 			break loop
 
 		case req := <-fc._request:
-			addr := req.addr()
+			addr := req.Addr()
 			var ctx *connContext
 			var ok bool
 			if ctx, ok = fc.conns[addr]; !ok {
@@ -268,7 +251,7 @@ loop:
 			ctx.idle = true
 			ctx.idleT = time.Now()
 			for i, req := range wait {
-				if req.addr() == ctx.addr {
+				if req.Addr() == ctx.addr {
 					ctx.idle = false
 					ctx.req = req
 
@@ -391,6 +374,7 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 				if sblocks[index] == nil {
 					sblocks[block.Height-start] = block
 					sCount++
+					ctx.req.current = block.Height
 				} else {
 					fc.log.Warn("got repeated snapshotblock: %s/%d", hex.EncodeToString(block.Hash[:]), block.Height)
 				}
