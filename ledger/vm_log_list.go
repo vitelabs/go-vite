@@ -15,6 +15,9 @@ type VmLog struct {
 type VmLogList []*VmLog
 
 func (vll VmLogList) Hash() *types.Hash {
+	if len(vll) == 0 {
+		return nil
+	}
 	var source []byte
 
 	// Nonce
