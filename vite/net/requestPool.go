@@ -97,12 +97,12 @@ loop:
 			break loop
 
 		case r := <-p.add:
-			r.Run()
+			r.Run(p.ctx)
 			p.pending[r.ID()] = r
 
 		case id := <-p.retry:
 			if r, ok := p.pending[id]; ok {
-				r.Run()
+				r.Run(p.ctx)
 			}
 
 		case <-ticker.C:
