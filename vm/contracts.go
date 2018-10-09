@@ -262,48 +262,56 @@ func (p *pReward) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uin
 	if err != nil || block.AccountBlock.AccountAddress != old.PledgeAddr {
 		return quotaLeft, ErrInvalidData
 	}
-	// newRewardHeight := min(currentSnapshotHeight-50, userDefined, cancelSnapshotHeight)
 	if block.VmContext.CurrentSnapshotBlock().Height < rewardHeightLimit {
 		return quotaLeft, ErrInvalidData
 	}
-	newRewardHeight := block.VmContext.CurrentSnapshotBlock().Height - rewardHeightLimit
-	if param.EndHeight > 0 {
-		newRewardHeight = helper.Min(newRewardHeight, param.EndHeight)
-	}
-	if !old.IsActive() {
-		newRewardHeight = helper.Min(newRewardHeight, old.CancelHeight)
-	}
-	if newRewardHeight <= old.RewardHeight {
+
+	if param.EndHeight == 0 {
+		param.EndHeight = block.VmContext.CurrentSnapshotBlock().Height - rewardHeightLimit
+		if !old.IsActive() {
+			param.EndHeight = helper.Min(param.EndHeight, old.CancelHeight)
+		}
+	} else if param.EndHeight > block.VmContext.CurrentSnapshotBlock().Height-rewardHeightLimit ||
+		param.EndHeight > old.CancelHeight {
 		return quotaLeft, ErrInvalidData
 	}
-	heightGap := newRewardHeight - old.RewardHeight
 
-	count := heightGap
-	// TODO check uint64 overflow
-	quotaLeft, err = quota.UseQuota(quotaLeft, ((count+dbPageSize-1)/dbPageSize)*calcRewardGasPerPage)
-	if err != nil {
+	if param.StartHeight == 0 {
+		param.StartHeight = old.RewardHeight
+	}
+
+	if param.EndHeight <= param.StartHeight {
+		return quotaLeft, ErrInvalidData
+	}
+
+	count := param.EndHeight - param.StartHeight
+	// avoid uint64 overflow
+	if count > maxRewardCount {
+		return quotaLeft, err
+	}
+	if quotaLeft, err = quota.UseQuota(quotaLeft, ((count+dbPageSize-1)/dbPageSize)*calcRewardGasPerPage); err != nil {
 		return quotaLeft, err
 	}
 
-	calcReward(block.VmContext, old.NodeAddr, old.RewardHeight+1, count, param.Amount)
-	data, err := contracts.ABIRegister.PackMethod(
+	// calc snapshot block produce reward between param.StartHeight(excluded) and param.EndHeight(included)
+	calcReward(block.VmContext, old.NodeAddr, param.StartHeight, count, param.Amount)
+	block.AccountBlock.Data, err = contracts.ABIRegister.PackMethod(
 		contracts.MethodNameReward,
 		param.Gid,
 		param.Name,
-		newRewardHeight,
-		old.RewardHeight,
+		param.EndHeight,
+		param.StartHeight,
 		param.Amount)
 	if err != nil {
 		return quotaLeft, err
 	}
-	block.AccountBlock.Data = data
-	quotaLeft, err = quota.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
-	if err != nil {
+	if quotaLeft, err = quota.UseQuotaForData(block.AccountBlock.Data, quotaLeft); err != nil {
 		return quotaLeft, err
 	}
 	return quotaLeft, nil
 }
 func calcReward(db vmctxt_interface.VmDatabase, producer types.Address, startHeight uint64, count uint64, reward *big.Int) {
+	startHeight = startHeight + 1
 	var rewardCount uint64
 	for count > 0 {
 		var list []*ledger.SnapshotBlock
@@ -330,7 +338,7 @@ func (p *pReward) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock 
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
 	old := new(contracts.Registration)
 	err := contracts.ABIRegister.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
-	if err != nil || old.RewardHeight != param.StartHeight || sendBlock.AccountAddress != old.PledgeAddr {
+	if err != nil || old.RewardHeight > param.StartHeight || sendBlock.AccountAddress != old.PledgeAddr {
 		return ErrInvalidData
 	}
 	if !old.IsActive() {
@@ -564,7 +572,7 @@ func (p *pPledge) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock 
 		amount = oldPledge.Amount
 	}
 	amount.Add(amount, sendBlock.Amount)
-	pledgeInfo, _ := contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeInfo, amount, block.VmContext.CurrentSnapshotBlock().Height+pledgeHeight)
+	pledgeInfo, _ := contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeInfo, amount, block.VmContext.CurrentSnapshotBlock().Height+minPledgeHeight)
 	block.VmContext.SetStorage(pledgeKey, pledgeInfo)
 
 	oldBeneficialData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, beneficialKey)
@@ -660,7 +668,6 @@ func (p *pCreateConsensusGroup) getFee(vm *VM, block *vm_context.VmAccountBlock)
 	return big.NewInt(0), nil
 }
 
-// create consensus group
 func (p *pCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := quota.UseQuota(quotaLeft, createConsensusGroupGas)
 	if err != nil {
@@ -676,15 +683,10 @@ func (p *pCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock,
 	if err != nil {
 		return quotaLeft, err
 	}
-	if err := p.checkCreateConsensusGroupData(block.VmContext, param); err != nil {
+	if err := checkCreateConsensusGroupData(block.VmContext, param); err != nil {
 		return quotaLeft, err
 	}
-	// data: methodSelector(0:4) + gid(4:36) + ConsensusGroup
-	gid := types.DataToGid(
-		block.AccountBlock.AccountAddress.Bytes(),
-		new(big.Int).SetUint64(block.AccountBlock.Height).Bytes(),
-		block.AccountBlock.PrevHash.Bytes(),
-		block.AccountBlock.SnapshotHash.Bytes())
+	gid := contracts.NewGid(block.AccountBlock.AccountAddress, block.AccountBlock.Height, block.AccountBlock.PrevHash, block.AccountBlock.SnapshotHash)
 	if isExistGid(block.VmContext, gid) {
 		return quotaLeft, ErrInvalidData
 	}
@@ -708,10 +710,11 @@ func (p *pCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock,
 	}
 	return quotaLeft, nil
 }
-func (p *pCreateConsensusGroup) checkCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *contracts.ConsensusGroupInfo) error {
+func checkCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *contracts.ConsensusGroupInfo) error {
 	if param.NodeCount < cgNodeCountMin || param.NodeCount > cgNodeCountMax ||
 		param.Interval < cgIntervalMin || param.Interval > cgIntervalMax ||
 		param.PerCount < cgPerCountMin || param.PerCount > cgPerCountMax ||
+		// no overflow
 		param.PerCount*param.Interval < cgPerIntervalMin || param.PerCount*param.Interval > cgPerIntervalMax ||
 		param.RandCount > param.NodeCount ||
 		(param.RandCount > 0 && param.RandRank < param.NodeCount) {
@@ -720,15 +723,15 @@ func (p *pCreateConsensusGroup) checkCreateConsensusGroupData(db vmctxt_interfac
 	if contracts.GetTokenById(db, param.CountingTokenId) == nil {
 		return ErrInvalidData
 	}
-	if err := p.checkCondition(db, param.RegisterConditionId, param.RegisterConditionParam, contracts.RegisterConditionPrefix); err != nil {
+	if err := checkCondition(db, param.RegisterConditionId, param.RegisterConditionParam, contracts.RegisterConditionPrefix); err != nil {
 		return ErrInvalidData
 	}
-	if err := p.checkCondition(db, param.VoteConditionId, param.VoteConditionParam, contracts.VoteConditionPrefix); err != nil {
+	if err := checkCondition(db, param.VoteConditionId, param.VoteConditionParam, contracts.VoteConditionPrefix); err != nil {
 		return ErrInvalidData
 	}
 	return nil
 }
-func (p *pCreateConsensusGroup) checkCondition(db vmctxt_interface.VmDatabase, conditionId uint8, conditionParam []byte, conditionIdPrefix contracts.ConditionCode) error {
+func checkCondition(db vmctxt_interface.VmDatabase, conditionId uint8, conditionParam []byte, conditionIdPrefix contracts.ConditionCode) error {
 	condition, ok := getConsensusGroupCondition(conditionId, conditionIdPrefix)
 	if !ok {
 		return ErrInvalidData
@@ -770,7 +773,9 @@ func (p *pCancelConsensusGroup) getFee(vm *VM, block *vm_context.VmAccountBlock)
 	return big.NewInt(0), nil
 }
 
-// cancel consensus group and get pledge back
+// Cancel consensus group and get pledge back.
+// A canceled consensus group(no-active) will not generate contract blocks after cancel receive block is confirmed.
+// Consensus group name is kept even if canceled.
 func (p *pCancelConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := quota.UseQuota(quotaLeft, cancelConsensusGroupGas)
 	if err != nil {
@@ -848,7 +853,8 @@ func (p *pReCreateConsensusGroup) getFee(vm *VM, block *vm_context.VmAccountBloc
 	return big.NewInt(0), nil
 }
 
-// pledge for a canceled consensus group
+// Pledge again for a canceled consensus group.
+// A consensus group will start generate contract blocks after recreate receive block is confirmed.
 func (p *pReCreateConsensusGroup) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := quota.UseQuota(quotaLeft, reCreateConsensusGroupGas)
 	if err != nil {
@@ -922,7 +928,10 @@ type registerConditionOfPledge struct{}
 func (c registerConditionOfPledge) checkParam(param []byte, db vmctxt_interface.VmDatabase) bool {
 	v := new(contracts.VariableConditionRegisterOfPledge)
 	err := contracts.ABIConsensusGroup.UnpackVariable(v, contracts.VariableNameConditionRegisterOfPledge, param)
-	if err != nil || contracts.GetTokenById(db, v.PledgeToken) == nil {
+	if err != nil ||
+		contracts.GetTokenById(db, v.PledgeToken) == nil ||
+		v.PledgeAmount.Sign() == 0 ||
+		v.PledgeHeight < minPledgeHeight {
 		return false
 	}
 	return true
@@ -1009,7 +1018,7 @@ type voteConditionOfKeepToken struct{}
 func (c voteConditionOfKeepToken) checkParam(param []byte, db vmctxt_interface.VmDatabase) bool {
 	v := new(contracts.VariableConditionVoteOfKeepToken)
 	err := contracts.ABIConsensusGroup.UnpackVariable(v, contracts.VariableNameConditionVoteOfBalance, param)
-	if err != nil || contracts.GetTokenById(db, v.KeepToken) == nil {
+	if err != nil || contracts.GetTokenById(db, v.KeepToken) == nil || v.KeepAmount.Sign() == 0 {
 		return false
 	}
 	return true
@@ -1053,11 +1062,7 @@ func (p *pMintage) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft ui
 	if err = checkToken(*param); err != nil {
 		return quotaLeft, err
 	}
-	tokenId := types.CreateTokenTypeId(
-		block.AccountBlock.AccountAddress.Bytes(),
-		new(big.Int).SetUint64(block.AccountBlock.Height).Bytes(),
-		block.AccountBlock.PrevHash.Bytes(),
-		block.AccountBlock.SnapshotHash.Bytes())
+	tokenId := contracts.NewTokenId(block.AccountBlock.AccountAddress, block.AccountBlock.Height, block.AccountBlock.PrevHash, block.AccountBlock.SnapshotHash)
 	if contracts.GetTokenById(block.VmContext, tokenId) != nil {
 		return quotaLeft, ErrIdCollision
 	}

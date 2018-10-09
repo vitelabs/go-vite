@@ -27,9 +27,26 @@ type Producer struct {
 	wg sync.WaitGroup
 }
 
-func NewProducer() *Producer {
-	return &Producer{}
+func NewProducer(brokerList []string, topic string, version string) *Producer {
+	return &Producer{
+		brokerList: brokerList,
+		topic:      topic,
+		version:    version,
+	}
 }
+
+func (producer *Producer) BrokerList() []string {
+	return producer.brokerList
+}
+
+func (producer *Producer) Topic() string {
+	return producer.topic
+}
+
+func (producer *Producer) Version() string {
+	return producer.version
+}
+
 func (producer *Producer) Deserialize(buffer []byte) error {
 	pb := &vitepb.ProducerUnit{}
 	if err := proto.Unmarshal(buffer, pb); err != nil {
@@ -39,8 +56,12 @@ func (producer *Producer) Deserialize(buffer []byte) error {
 	producer.topic = pb.Topic
 	producer.brokerList = pb.BrokerList
 	producer.version = pb.Version
-	producer.hasSend = pb.HasSend
 	return nil
+}
+
+func (producer *Producer) Serialize() ([]byte, error) {
+
+	return nil, nil
 }
 
 func (producer *Producer) Start() {
