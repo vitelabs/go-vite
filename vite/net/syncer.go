@@ -153,6 +153,8 @@ func (s *syncer) start() {
 	start := time.NewTimer(waitEnoughPeers)
 	defer start.Stop()
 
+	s.log.Info("start sync")
+
 wait:
 	for {
 		select {
@@ -283,7 +285,7 @@ func (s *syncer) sync(from, to uint64) {
 			from:       piece.from,
 			to:         piece.to,
 			peer:       piece.peer,
-			expiration: time.Now().Add(10 * time.Second),
+			expiration: time.Now().Add(10 * time.Minute),
 			done:       s.reqCallback,
 		}
 

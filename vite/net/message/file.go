@@ -23,9 +23,10 @@ func (f *FileList) Serialize() ([]byte, error) {
 	pb.Nonce = f.Nonce
 
 	length := 2 * len(f.Chunks)
-	pb.Chunks = make([]uint64, 0, length)
-	for _, c := range f.Chunks {
-		pb.Chunks = append(pb.Chunks, c[0], c[1])
+	pb.Chunks = make([]uint64, length)
+	for i, c := range f.Chunks {
+		pb.Chunks[2*i] = c[0]
+		pb.Chunks[2*i+1] = c[1]
 	}
 
 	pb.Files = make([]*vitepb.CompressedFileMeta, len(f.Files))
