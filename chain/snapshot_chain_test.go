@@ -348,24 +348,11 @@ func TestDeleteSnapshotBlocksToHeight(t *testing.T) {
 
 	chainInstance.InsertSnapshotBlock(snapshotBlock2)
 
-	receiveBlock, err4 := newReceiveBlock(snapshotBlock2.Hash, addressList[1], blocks[0].AccountBlock.Hash)
-	if err4 != nil {
-		t.Fatal(err4)
-	}
+	receiveBlock, _ := newReceiveBlock(snapshotBlock2.Hash, addressList[1], blocks[0].AccountBlock.Hash)
+	chainInstance.InsertAccountBlocks(receiveBlock)
 
-	receiveBlock2, err5 := newReceiveBlock(snapshotBlock2.Hash, addressList2[1], blocks2[0].AccountBlock.Hash)
-	if err5 != nil {
-		t.Fatal(err5)
-	}
-
-	err6 := chainInstance.InsertAccountBlocks(receiveBlock)
-	if err6 != nil {
-		t.Fatal(err6)
-	}
-	err7 := chainInstance.InsertAccountBlocks(receiveBlock2)
-	if err7 != nil {
-		t.Fatal(err7)
-	}
+	receiveBlock2, _ := newReceiveBlock(snapshotBlock2.Hash, addressList2[1], blocks2[0].AccountBlock.Hash)
+	chainInstance.InsertAccountBlocks(receiveBlock2)
 
 	snapshotBlock3, _ := newSnapshotBlock()
 	chainInstance.InsertSnapshotBlock(snapshotBlock3)

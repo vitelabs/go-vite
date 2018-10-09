@@ -104,6 +104,9 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 		return saveTrieErr
 	}
 
+	// Add snapshot block event
+	c.chainDb.Be.AddSnapshotBlocks(batch, []types.Hash{snapshotBlock.Hash})
+
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
@@ -118,7 +121,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	// Delete needSnapshotCache
 	if c.needSnapshotCache != nil {
 		for addr, item := range snapshotBlock.SnapshotContent {
-			c.needSnapshotCache.Remove(&addr, item.Height)
+			c.needSnapshotCache.HasSnapshot(&addr, item.Height)
 		}
 	}
 
@@ -456,6 +459,23 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, nil, prevSnapshotBlockErr
 	}
 
+	// Add delete event
+	var deleteSbHashList []types.Hash
+	var deleteAbHashList []types.Hash
+
+	for _, block := range snapshotBlocks {
+		deleteSbHashList = append(deleteSbHashList, block.Hash)
+	}
+	for _, blocks := range accountBlocksMap {
+		for _, block := range blocks {
+			deleteAbHashList = append(deleteAbHashList, block.Hash)
+		}
+	}
+
+	c.chainDb.Be.DeleteSnapshotBlocks(batch, deleteSbHashList)
+	c.chainDb.Be.DeleteAccountBlocks(batch, deleteAbHashList)
+
+	// write db
 	writeErr := c.chainDb.Commit(batch)
 	if writeErr != nil {
 		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocksByHeight")

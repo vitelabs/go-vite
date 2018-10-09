@@ -3,11 +3,9 @@
 
 package vitepb
 
-import (
-	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	math "math"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -32,17 +30,16 @@ func (m *SnapshotItem) Reset()         { *m = SnapshotItem{} }
 func (m *SnapshotItem) String() string { return proto.CompactTextString(m) }
 func (*SnapshotItem) ProtoMessage()    {}
 func (*SnapshotItem) Descriptor() ([]byte, []int) {
-	return fileDescriptor_4e657edfb288950f, []int{0}
+	return fileDescriptor_snapshot_content_ea243e305b961d50, []int{0}
 }
-
 func (m *SnapshotItem) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SnapshotItem.Unmarshal(m, b)
 }
 func (m *SnapshotItem) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SnapshotItem.Marshal(b, m, deterministic)
 }
-func (m *SnapshotItem) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SnapshotItem.Merge(m, src)
+func (dst *SnapshotItem) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SnapshotItem.Merge(dst, src)
 }
 func (m *SnapshotItem) XXX_Size() int {
 	return xxx_messageInfo_SnapshotItem.Size(m)
@@ -78,17 +75,16 @@ func (m *SnapshotContent) Reset()         { *m = SnapshotContent{} }
 func (m *SnapshotContent) String() string { return proto.CompactTextString(m) }
 func (*SnapshotContent) ProtoMessage()    {}
 func (*SnapshotContent) Descriptor() ([]byte, []int) {
-	return fileDescriptor_4e657edfb288950f, []int{1}
+	return fileDescriptor_snapshot_content_ea243e305b961d50, []int{1}
 }
-
 func (m *SnapshotContent) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SnapshotContent.Unmarshal(m, b)
 }
 func (m *SnapshotContent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SnapshotContent.Marshal(b, m, deterministic)
 }
-func (m *SnapshotContent) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SnapshotContent.Merge(m, src)
+func (dst *SnapshotContent) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SnapshotContent.Merge(dst, src)
 }
 func (m *SnapshotContent) XXX_Size() int {
 	return xxx_messageInfo_SnapshotContent.Size(m)
@@ -112,9 +108,11 @@ func init() {
 	proto.RegisterMapType((map[string]*SnapshotItem)(nil), "vitepb.SnapshotContent.ContentEntry")
 }
 
-func init() { proto.RegisterFile("vitepb/snapshot_content.proto", fileDescriptor_4e657edfb288950f) }
+func init() {
+	proto.RegisterFile("vitepb/snapshot_content.proto", fileDescriptor_snapshot_content_ea243e305b961d50)
+}
 
-var fileDescriptor_4e657edfb288950f = []byte{
+var fileDescriptor_snapshot_content_ea243e305b961d50 = []byte{
 	// 211 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x2d, 0xcb, 0x2c, 0x49,
 	0x2d, 0x48, 0xd2, 0x2f, 0xce, 0x4b, 0x2c, 0x28, 0xce, 0xc8, 0x2f, 0x89, 0x4f, 0xce, 0xcf, 0x2b,
