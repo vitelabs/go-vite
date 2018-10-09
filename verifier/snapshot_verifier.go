@@ -28,7 +28,7 @@ func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *Snap
 	defer monitor.LogTime("verify", "snapshotSelf", time.Now())
 
 	if block.Height == types.GenesisHeight {
-		snapshotBlock := ledger.GetGenesisSnapshotBlock()
+		snapshotBlock := self.reader.GetGenesisSnapshotBlock()
 		if block.Hash != snapshotBlock.Hash {
 			stat.result = FAIL
 			return errors.New("genesis block error.")

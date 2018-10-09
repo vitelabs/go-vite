@@ -122,7 +122,7 @@ func (c *onroadBlocksCache) rmTx(b *ledger.AccountBlock) {
 	}
 }
 
-func AddrListDbSerialize(addrList []*types.Address) ([]byte, error) {
+func AddrListDbSerialize(addrList []types.Address) ([]byte, error) {
 	//var aList [][]byte
 	//for _, addr := range addrList {
 	//	aList = append(aList, addr.Bytes())
@@ -138,7 +138,7 @@ func AddrListDbSerialize(addrList []*types.Address) ([]byte, error) {
 	return nil, nil
 }
 
-func AddrListDbDeserialize(buf []byte) ([]*types.Address, error) {
+func AddrListDbDeserialize(buf []byte) ([]types.Address, error) {
 	//var addrListPB = &vitepb.AddressList{}
 	//if err := proto.Unmarshal(buf, addrListPB); err != nil {
 	//	return nil, err

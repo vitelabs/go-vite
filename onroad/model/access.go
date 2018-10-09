@@ -29,12 +29,12 @@ func NewUAccess(chain chain.Chain) *UAccess {
 	return uAccess
 }
 
-func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) (addrList []*types.Address, err error) {
+func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) (addrList []types.Address, err error) {
 	return access.store.GetContractAddrList(gid)
 }
 
 func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid types.Gid, address types.Address) error {
-	var addrList []*types.Address
+	var addrList []types.Address
 	var err error
 
 	addrList, err = access.GetContractAddrListByGid(&gid)
@@ -42,7 +42,7 @@ func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid types.Gi
 		access.log.Error("GetMeta", "error", err)
 		return err
 	} else {
-		addrList = append(addrList, &address)
+		addrList = append(addrList, address)
 		return access.store.WriteGidAddrList(batch, &gid, addrList)
 	}
 }

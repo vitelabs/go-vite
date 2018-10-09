@@ -42,6 +42,7 @@ const (
 	cancelRegisterGas         uint64 = 83200
 	rewardGas                 uint64 = 83200
 	calcRewardGasPerPage      uint64 = 200
+	maxRewardCount            uint64 = 150000000
 	voteGas                   uint64 = 62000
 	cancelVoteGas             uint64 = 62000
 	pledgeGas                 uint64 = 82400
@@ -52,7 +53,7 @@ const (
 	mintageGas                uint64 = 83200
 	mintageCancelPledgeGas    uint64 = 83200
 
-	pledgeHeight uint64 = 3600 * 24 * 3 // Minimum pledge time in second
+	minPledgeHeight uint64 = 3600 * 24 * 3 // Minimum pledge height
 
 	cgNodeCountMin                   uint8  = 3       // Minimum node count of consensus group
 	cgNodeCountMax                   uint8  = 101     // Maximum node count of consensus group
