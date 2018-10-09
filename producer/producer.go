@@ -1,8 +1,6 @@
 package producer
 
 import (
-	"time"
-
 	"sync/atomic"
 
 	"fmt"
@@ -14,29 +12,15 @@ import (
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/producer/producerevent"
 )
 
 // Package producer implements vite block creation
 
 var mLog = log15.New("module", "producer")
 
-type AccountEvent interface {
-}
-
-type AccountStartEvent struct {
-	AccountEvent
-	Gid     types.Gid
-	Address types.Address
-	Stime   time.Time
-	Etime   time.Time
-
-	Timestamp      time.Time  // add to block
-	SnapshotHash   types.Hash // add to block
-	SnapshotHeight uint64     // add to block
-}
-
 type Producer interface {
-	SetAccountEventFunc(func(AccountEvent))
+	SetAccountEventFunc(func(producerevent.AccountEvent))
 }
 
 // Backend wraps all methods required for mining.
@@ -80,7 +64,7 @@ type producer struct {
 	downloaderRegister   DownloaderRegister
 	downloaderRegisterCh chan int
 	dwlFinished          bool
-	accountFn            func(AccountEvent)
+	accountFn            func(producerevent.AccountEvent)
 }
 
 // todo syncDone
@@ -159,7 +143,7 @@ func (self *producer) producerContract(e consensus.Event) {
 			mLog.Error("coinbase must be unlock.", "addr", e.Address.String())
 			return
 		}
-		go fn(AccountStartEvent{
+		go fn(producerevent.AccountStartEvent{
 			Gid:            e.Gid,
 			Address:        e.Address,
 			Stime:          e.Stime,
@@ -171,6 +155,6 @@ func (self *producer) producerContract(e consensus.Event) {
 	}
 }
 
-func (self *producer) SetAccountEventFunc(accountFn func(AccountEvent)) {
+func (self *producer) SetAccountEventFunc(accountFn func(producerevent.AccountEvent)) {
 	self.accountFn = accountFn
 }

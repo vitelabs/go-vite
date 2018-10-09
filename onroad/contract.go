@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
-	"github.com/vitelabs/go-vite/producer"
+	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/verifier"
 	"sync"
 )
@@ -18,7 +18,7 @@ type ContractWorker struct {
 
 	gid      types.Gid
 	address  types.Address
-	accEvent producer.AccountStartEvent
+	accEvent producerevent.AccountStartEvent
 
 	status      int
 	statusMutex sync.Mutex
@@ -40,7 +40,7 @@ type ContractWorker struct {
 	log log15.Logger
 }
 
-func NewContractWorker(manager *Manager, accEvent producer.AccountStartEvent) *ContractWorker {
+func NewContractWorker(manager *Manager, accEvent producerevent.AccountStartEvent) *ContractWorker {
 	return &ContractWorker{
 		manager:     manager,
 		uBlocksPool: manager.onroadBlocksPool,
