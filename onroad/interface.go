@@ -4,17 +4,17 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
+	"github.com/vitelabs/go-vite/producer/producerevent"
 )
 
 type Vite interface {
-	Net() *net.Net
+	Net() Net
 	Chain() chain.Chain
 	WalletManager() *wallet.Manager
-	Producer() producer.Producer
+	Producer() Producer
 	PoolReader
 	ConsensusReader
 }
@@ -27,4 +27,17 @@ type PoolReader interface {
 
 type ConsensusReader interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) error
+}
+
+type Producer interface {
+	SetAccountEventFunc(func(event producerevent.AccountEvent))
+}
+
+type Net interface {
+	SubscribeSyncStatus(fn func(net.SyncState)) (subId int)
+	UnsubscribeSyncStatus(subId int)
+	Status() *net.NetStatus
+}
+
+type Chain interface {
 }

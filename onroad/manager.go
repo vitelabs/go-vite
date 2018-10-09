@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
-	"github.com/vitelabs/go-vite/producer"
+	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet/keystore"
@@ -55,7 +55,7 @@ func NewManager(vite Vite) *Manager {
 	return m
 }
 
-func (manager *Manager) InitAndStartWork() {
+func (manager *Manager) Init() {
 	manager.netStateLid = manager.vite.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
 	manager.unlockLid = manager.keystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
 	manager.vite.Producer().SetAccountEventFunc(manager.producerStartEventFunc)
@@ -140,14 +140,14 @@ func (manager *Manager) addressLockStateChangeFunc(event keystore.UnlockEvent) {
 	}
 }
 
-func (manager *Manager) producerStartEventFunc(accevent producer.AccountEvent) {
+func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEvent) {
 	netstate := manager.vite.Net().Status().SyncState
 	manager.log.Info("producerStartEventFunc receive event", "netstate", netstate)
 	if netstate != net.Syncdone {
 		return
 	}
 
-	event, ok := accevent.(producer.AccountStartEvent)
+	event, ok := accevent.(producerevent.AccountStartEvent)
 	if !ok {
 		manager.log.Info("producerStartEventFunc not support this event")
 		return

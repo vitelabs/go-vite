@@ -8,6 +8,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/chain_db"
 )
 
 type OnroadSet struct {
@@ -22,7 +23,7 @@ func NewOnroadSet(db *leveldb.DB) *OnroadSet {
 
 func (ucf *OnroadSet) GetCountByAddress(addr *types.Address) (count uint64, err error) {
 	count = 0
-	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), "KEY_MAX")
+	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), chain_db.KEY_MAX)
 
 	if err != nil {
 		return 0, err
