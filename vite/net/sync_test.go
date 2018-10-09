@@ -2,6 +2,7 @@ package net
 
 import (
 	"flag"
+	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -29,13 +30,14 @@ var config = p2p.Config{
 var privateKey string
 var needMakeBlocks bool
 
+// -node_name="lyd00" -private_key="xxx" -boot_nodes="xxx,xxx" -make_blocks=true
 func init() {
 	var bootNodes string
 
-	flag.StringVar(&config.Name, "name", "net_test", "server name")
-	flag.StringVar(&privateKey, "private key", "", "server private key")
-	flag.StringVar(&bootNodes, "boot nodes", "", "boot nodes")
-	flag.BoolVar(&needMakeBlocks, "make blocks", false, "whether need make blocks")
+	flag.StringVar(&config.Name, "node_name", "net_test", "server name")
+	flag.StringVar(&privateKey, "private_key", "", "server private key")
+	flag.StringVar(&bootNodes, "boot_nodes", "", "boot nodes")
+	flag.BoolVar(&needMakeBlocks, "make_blocks", false, "whether need make blocks")
 
 	config.BootNodes = strings.Split(bootNodes, ",")
 
@@ -120,13 +122,18 @@ func newSnapshotBlock(chainInstance chain.Chain) (*ledger.SnapshotBlock, error) 
 func makeBlocks(chainInstance chain.Chain) {
 	accountAddress1, _, _ := types.CreateAddress()
 	accountAddress2, _, _ := types.CreateAddress()
-	for i := 0; i < 1000000; i++ {
+	for i := 0; i < 100000; i++ {
+
 		snapshotBlock, _ := newSnapshotBlock(chainInstance)
 		chainInstance.InsertSnapshotBlock(snapshotBlock)
 
 		for j := 0; j < 10; j++ {
 			blocks, _, _ := randomSendViteBlock(chainInstance, snapshotBlock.Hash, &accountAddress1, &accountAddress2)
 			chainInstance.InsertAccountBlocks(blocks)
+		}
+
+		if (i+1)%100 == 0 {
+			fmt.Printf("Make %d snapshot blocks.\n", i+1)
 		}
 	}
 }
