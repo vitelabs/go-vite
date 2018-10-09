@@ -2,6 +2,7 @@ package nodemanager
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
@@ -17,6 +18,7 @@ func (maker FullNodeMaker) MakeNode(ctx *cli.Context) *node.Node {
 
 	// 1: Make Node.Config
 	nodeConfig := maker.MakeNodeConfig(ctx)
+	log.Info(fmt.Sprintf("nodeConfig info: %v", nodeConfig))
 	// 2: New Node
 	node, err := node.New(nodeConfig)
 
