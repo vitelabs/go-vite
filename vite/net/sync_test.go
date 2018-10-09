@@ -124,7 +124,7 @@ func newSnapshotBlock(chainInstance chain.Chain) (*ledger.SnapshotBlock, error) 
 
 func makeBlocks(chainInstance chain.Chain, toBlockHeight uint64) {
 	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
-	if toBlockHeight >= latestSnapshotBlock.Height {
+	if toBlockHeight <= latestSnapshotBlock.Height {
 		return
 	}
 

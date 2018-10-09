@@ -6,7 +6,7 @@ import (
 )
 
 type Chain interface {
-	GetLatestBlockEventId() uint64
+	GetLatestBlockEventId() (uint64, error)
 	GetEvent(eventId uint64) (byte, []types.Hash, error)
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)

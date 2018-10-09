@@ -13,8 +13,9 @@ import (
 type BlockEvent struct {
 	db *leveldb.DB
 
-	log           log15.Logger
-	eventIdLock   sync.RWMutex
+	log         log15.Logger
+	eventIdLock sync.RWMutex
+
 	latestEventId uint64
 }
 
@@ -72,14 +73,11 @@ func (be *BlockEvent) getLatestEventId() (uint64, error) {
 		return 0, nil
 	}
 
-	return binary.BigEndian.Uint64(iter.Value()), nil
+	return binary.BigEndian.Uint64(iter.Key()[1:9]), nil
 }
 
-func (be *BlockEvent) LatestEventId() uint64 {
-	be.eventIdLock.RLock()
-	defer be.eventIdLock.RUnlock()
-
-	return be.latestEventId
+func (be *BlockEvent) LatestEventId() (uint64, error) {
+	return be.getLatestEventId()
 }
 
 func (be *BlockEvent) GetEvent(eventId uint64) (byte, []types.Hash, error) {
@@ -96,7 +94,8 @@ func (be *BlockEvent) GetEvent(eventId uint64) (byte, []types.Hash, error) {
 	value = value[1:]
 
 	var blockHashList []types.Hash
-	for i := 0; i < types.HashSize/len(value); i++ {
+	hashCount := len(value) / types.HashSize
+	for i := 0; i < hashCount; i++ {
 		var blockHash types.Hash
 		copy(blockHash[:], value[i*types.HashSize:(i+1)*types.HashSize])
 		blockHashList = append(blockHashList, blockHash)

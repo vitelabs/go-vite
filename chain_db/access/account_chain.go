@@ -157,6 +157,9 @@ func (ac *AccountChain) GetBlock(blockHash *types.Hash) (*ledger.AccountBlock, e
 	if gbmErr != nil {
 		return nil, gbmErr
 	}
+	if blockMeta == nil {
+		return nil, nil
+	}
 
 	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, blockMeta.AccountId, blockMeta.Height, blockHash.Bytes())
 
