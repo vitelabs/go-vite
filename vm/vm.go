@@ -14,6 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
 	"sync/atomic"
+	"time"
 )
 
 type VMConfig struct {
@@ -34,8 +35,7 @@ func NewVM() *VM {
 }
 
 func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
-	// TODO copy block blockContext := &vm_context.VmAccountBlock{block.Copy(), database}
-	blockContext := &vm_context.VmAccountBlock{block, database}
+	blockContext := &vm_context.VmAccountBlock{block.Copy(), database}
 	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		// block data, amount, tokenId, fee is already changed to send block data by generator
@@ -335,12 +335,14 @@ func (vm *VM) revert(block *vm_context.VmAccountBlock) {
 }
 
 func (vm *VM) canTransfer(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
+	if feeAmount.Sign() == 0 {
+		return tokenAmount.Cmp(db.GetBalance(&addr, &tokenTypeId)) <= 0
+	}
 	if IsViteToken(tokenTypeId) {
 		balance := new(big.Int).Add(tokenAmount, feeAmount)
 		return balance.Cmp(db.GetBalance(&addr, &tokenTypeId)) <= 0
-	} else {
-		return tokenAmount.Cmp(db.GetBalance(&addr, &tokenTypeId)) <= 0 && feeAmount.Cmp(db.GetBalance(&addr, &ledger.ViteTokenId)) <= 0
 	}
+	return tokenAmount.Cmp(db.GetBalance(&addr, &tokenTypeId)) <= 0 && feeAmount.Cmp(db.GetBalance(&addr, &ledger.ViteTokenId)) <= 0
 }
 
 func (vm *VM) getNewBlockHeight(block *vm_context.VmAccountBlock) uint64 {
@@ -357,6 +359,7 @@ func isExistGid(db vmctxt_interface.VmDatabase, gid types.Gid) bool {
 }
 
 func makeSendBlock(block *ledger.AccountBlock, toAddress types.Address, blockType byte, amount *big.Int, tokenId types.TokenTypeId, height uint64, data []byte) *ledger.AccountBlock {
+	newTimestamp := time.Unix(0, block.Timestamp.UnixNano())
 	return &ledger.AccountBlock{
 		AccountAddress: block.AccountAddress,
 		ToAddress:      toAddress,
@@ -367,6 +370,6 @@ func makeSendBlock(block *ledger.AccountBlock, toAddress types.Address, blockTyp
 		SnapshotHash:   block.SnapshotHash,
 		Data:           data,
 		Fee:            big.NewInt(0),
-		Timestamp:      block.Timestamp,
+		Timestamp:      &newTimestamp,
 	}
 }
