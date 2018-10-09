@@ -9,16 +9,10 @@ import (
 type Chain interface {
 	AccountReader
 	SnapshotReader
-	//Chain() *chain.Chain
 }
 
 type Consensus interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) error
-}
-
-type Signer interface {
-	SignData(a types.Address, data []byte) (signedData, pubkey []byte, err error)
-	SignDataWithPassphrase(a types.Address, passphrase string, data []byte) (signedData, pubkey []byte, err error)
 }
 
 type SnapshotReader interface {
