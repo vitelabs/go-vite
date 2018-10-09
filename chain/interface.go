@@ -82,4 +82,8 @@ type Chain interface {
 	RegisterDeleteAccountBlocksSuccess(processor DeleteProcessorFuncSuccess) uint64
 	GetStateTrie(stateHash *types.Hash) *trie.Trie
 	NewStateTrie() *trie.Trie
+
+	// Be
+	GetLatestBlockEventId() uint64
+	GetEvent(eventId uint64) (byte, []types.Hash, error)
 }
