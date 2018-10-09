@@ -93,6 +93,7 @@ func New(cfg *Config) (*Net, error) {
 		fs:          fs,
 		fc:          fc,
 		term:        make(chan struct{}),
+		handlers:    make(map[cmd]MsgHandler),
 		log:         log15.New("module", "vite/net"),
 	}
 
