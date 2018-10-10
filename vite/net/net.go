@@ -142,6 +142,8 @@ func (n *Net) AddHandler(handler MsgHandler) {
 	}
 }
 
+func (n *Net) Start() {}
+
 func (n *Net) Stop() {
 	select {
 	case <-n.term:
@@ -243,9 +245,9 @@ func (n *Net) handleMsg(p *Peer) (err error) {
 	return fmt.Errorf("unknown message cmd %d", msg.Cmd)
 }
 
-type SnapshotBlockCallback func(block *ledger.SnapshotBlock)
-type AccountblockCallback func(addr types.Address, block *ledger.AccountBlock)
-type SyncStateCallback func(SyncState)
+type SnapshotBlockCallback = func(block *ledger.SnapshotBlock)
+type AccountblockCallback = func(addr types.Address, block *ledger.AccountBlock)
+type SyncStateCallback = func(SyncState)
 
 type Subscriber interface {
 	// return the subId, use to unsubscibe
@@ -303,7 +305,7 @@ func (n *Net) UnsubscribeSnapshotBlock(subId int) {
 	n.receiver.sFeed.Unsub(subId)
 }
 
-func (n *Net) SubscribeSyncStatus(fn func(SyncState)) (subId int) {
+func (n *Net) SubscribeSyncStatus(fn SyncStateCallback) (subId int) {
 	return n.syncer.feed.Sub(fn)
 }
 

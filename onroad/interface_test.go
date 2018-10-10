@@ -35,6 +35,9 @@ type testProducer struct {
 	f    func(event producerevent.AccountEvent)
 }
 
+type testPool struct {
+}
+
 func (t testProducer) produceEvent(duration time.Duration) {
 	t.f(producerevent.AccountStartEvent{
 		Gid:            types.SNAPSHOT_GID,
@@ -55,6 +58,7 @@ type testVite struct {
 	chain    chain.Chain
 	wallet   *wallet.Manager
 	producer onroad.Producer
+	pool     onroad.PoolReader
 }
 
 func (testVite) Net() onroad.Net {
@@ -72,16 +76,19 @@ func (t testVite) WalletManager() *wallet.Manager {
 func (t testVite) Producer() onroad.Producer {
 	return t.producer
 }
+func (t testVite) Pool() onroad.PoolReader {
+	return t.pool
+}
 
-func (testVite) ExistInPool(address types.Address, fromBlockHash types.Hash) bool {
+func (testPool) ExistInPool(address types.Address, fromBlockHash types.Hash) bool {
 	return false
 }
 
-func (testVite) AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_context.VmAccountBlock) error {
+func (testPool) AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_context.VmAccountBlock) error {
 	return nil
 }
 
-func (testVite) AddDirectAccountBlocks(address types.Address, received *vm_context.VmAccountBlock,
+func (testPool) AddDirectAccountBlocks(address types.Address, received *vm_context.VmAccountBlock,
 	sendBlocks []*vm_context.VmAccountBlock) error {
 	return nil
 }

@@ -3,10 +3,16 @@ package api
 import (
 	"encoding/hex"
 	"errors"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/generator"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pool"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet/keystore"
+	"math/big"
 	"time"
 )
 
@@ -14,6 +20,15 @@ type HexSignedTuple struct {
 	Message    string `json:"message"`
 	SignedData string `json:"signedData"`
 	Pubkey     string `json:"pubkey"`
+}
+
+type CreateTransferTxParms struct {
+	SelfAddr    types.Address
+	ToAddr      types.Address
+	TokenTypeId types.TokenTypeId
+	Passphrase  string
+	Amount      string
+	Data        []byte
 }
 
 type IsMayValidKeystoreFileResponse struct {
@@ -26,7 +41,9 @@ func NewWalletApi(vite *vite.Vite) *WalletApi {
 }
 
 type WalletApi struct {
-	km *keystore.Manager
+	km    *keystore.Manager
+	chain chain.Chain
+	pool  pool.PoolWriter
 }
 
 func (m WalletApi) String() string {
@@ -130,6 +147,53 @@ func (m *WalletApi) SignData(addr types.Address, hexMsg string) (HexSignedTuple,
 	}
 
 	return t, nil
+}
+
+func (m *WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
+
+	amount, ok := new(big.Int).SetString(params.Amount, 10)
+	if !ok {
+		return ErrStrToBigInt
+	}
+	block, e := m.chain.GetLatestAccountBlock(&params.SelfAddr)
+	if e != nil {
+		return e
+	}
+	preHash := types.Hash{}
+	if block != nil {
+		preHash = block.Hash
+	}
+
+	nonce := pow.GetPowNonce(nil, types.DataListHash(params.SelfAddr[:], preHash[:]))
+
+	msg := &generator.IncomingMessage{
+		BlockType:      ledger.BlockTypeSendCreate,
+		AccountAddress: params.SelfAddr,
+		ToAddress:      &params.ToAddr,
+		FromBlockHash:  &preHash,
+		TokenId:        &params.TokenTypeId,
+		Amount:         amount,
+		Fee:            nil,
+		Nonce:          nonce[:],
+		Data:           params.Data,
+	}
+
+	g, e := generator.NewGenerator(m.chain, nil, &preHash, &params.SelfAddr)
+	if e != nil {
+		return e
+	}
+	result, e := g.GenerateWithMessage(msg, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+		return m.km.SignDataWithPassphrase(addr, params.Passphrase, data)
+	})
+	if e != nil {
+		return e
+	}
+	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
+		return m.pool.AddDirectAccountBlock(params.SelfAddr, result.BlockGenList[0])
+	} else {
+		return errors.New("generator gen empty block")
+	}
+
 }
 
 func (m *WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, password string) (HexSignedTuple, error) {

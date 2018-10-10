@@ -2,9 +2,11 @@ package onroad
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
+	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_context"
@@ -13,7 +15,6 @@ import (
 	"math/big"
 	"sync"
 	"time"
-	"github.com/vitelabs/go-vite/chain"
 )
 
 var (
@@ -25,7 +26,7 @@ type Manager struct {
 	vite            Vite
 	keystoreManager *keystore.Manager
 
-	pool             PoolReader
+	pool             pool.BlockPool
 	uAccess          *model.UAccess
 	onroadBlocksPool *model.OnroadBlocksPool
 
@@ -45,7 +46,7 @@ type Manager struct {
 func NewManager(vite Vite) *Manager {
 	m := &Manager{
 		vite:               vite,
-		pool:               vite,
+		pool:               vite.Pool(),
 		keystoreManager:    vite.WalletManager().KeystoreManager,
 		uAccess:            model.NewUAccess(vite.Chain()),
 		autoReceiveWorkers: make(map[types.Address]*AutoReceiveWorker),

@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/config"
 	"time"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 func newOnroadBlocksPool() *OnroadBlocksPool {
@@ -25,5 +26,21 @@ func newOnroadBlocksPool() *OnroadBlocksPool {
 }
 
 func TestOnroadBlocksPool_AcquireFullOnroadBlocksCache(t *testing.T) {
+	addr, _, _ := types.CreateAddress()
+	pool := newOnroadBlocksPool()
+	for i := 0; i < 10; i++ {
+		go func() {
+			pool.AcquireFullOnroadBlocksCache(addr)
+			pool.AcquireFullOnroadBlocksCache(addr)
+			pool.ReleaseFullOnroadBlocksCache(addr)
+		}()
+		go func() {
+			pool.AcquireFullOnroadBlocksCache(addr)
+			pool.ReleaseFullOnroadBlocksCache(addr)
+			pool.ReleaseFullOnroadBlocksCache(addr)
+		}()
+	}
+
+	time.Sleep(20 * time.Second)
 
 }
