@@ -98,7 +98,7 @@ func (c *Compressor) FileReader(filename string) io.ReadCloser {
 }
 
 func (c *Compressor) BlockParser(reader io.Reader, processFunc func(block ledger.Block, err error)) {
-	BlockParser(reader, processFunc)
+	BlockParser(reader, 0, processFunc)
 }
 
 func (c *Compressor) Start() bool {
