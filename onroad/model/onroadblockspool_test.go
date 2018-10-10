@@ -1,18 +1,17 @@
 package model
 
 import (
-	"testing"
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/config"
-	"time"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
+	"testing"
+	"time"
 )
 
 func newOnroadBlocksPool() *OnroadBlocksPool {
 	chain := chain.NewChain(&config.Config{
 		P2P:      nil,
-		Miner:    nil,
 		DataDir:  common.GoViteTestDataDir(),
 		FilePort: 0,
 		Topo:     nil,
