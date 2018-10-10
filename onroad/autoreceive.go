@@ -163,20 +163,22 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 	gen, err := generator.NewGenerator(w.manager.vite.Chain(), w.manager.vite.WalletManager().KeystoreManager,
 		nil, nil, &sendBlock.ToAddress)
 	if err != nil {
-		w.log.Error("ProcessOneBlock.PrepareVm failed", "error", err)
+		w.log.Error("NewGenerator failed", "error", err)
 		return
 	}
 
-	genResult, genErr := gen.GenerateWithOnroad(*sendBlock, nil,
+	genResult, err := gen.GenerateWithOnroad(*sendBlock, nil,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			return gen.Sign(addr, nil, data)
 		})
-	if genErr != nil {
-		w.log.Error("GenerateTx error ignore, ", "error", genErr)
+	if err != nil {
+		w.log.Error("GenerateWithOnroad failed", "error", err)
 		return
 	}
-
-	if genResult.BlockGenList == nil {
+	if genResult.Err != nil {
+		w.log.Error("vm.Run error, ignore", genResult.Err)
+	}
+	if len(genResult.BlockGenList) == 0 {
 		w.log.Error("GenerateWithOnroad failed, BlockGenList is nil")
 		return
 	}
