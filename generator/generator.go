@@ -97,11 +97,12 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 			if k == 0 {
 				accountBlock := blockList[0].AccountBlock
 				if signFunc != nil {
-					var sigErr error
-					accountBlock.Signature, accountBlock.PublicKey, sigErr = signFunc(accountBlock.AccountAddress, accountBlock.Hash.Bytes())
-					if sigErr != nil {
-						return nil, errors.New("generate.Sign() " + "error:" + sigErr.Error())
+					signature, publicKey, e := signFunc(accountBlock.AccountAddress, accountBlock.Hash.Bytes())
+					if e != nil {
+						return nil, e
 					}
+					accountBlock.Signature = signature
+					accountBlock.PublicKey = publicKey
 				}
 			} else {
 				v.AccountBlock.PrevHash = blockList[k-1].AccountBlock.Hash

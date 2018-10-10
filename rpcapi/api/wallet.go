@@ -186,12 +186,17 @@ func (m *WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 		return m.km.SignDataWithPassphrase(addr, params.Passphrase, data)
 	})
 	if e != nil {
-		return e
+		newerr, _ := TryMakeConcernedError(e)
+		return newerr
+	}
+	if result.Err != nil {
+		newerr, _ := TryMakeConcernedError(e)
+		return newerr
 	}
 	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
 		return m.pool.AddDirectAccountBlock(params.SelfAddr, result.BlockGenList[0])
 	} else {
-		return errors.New("generator gen empty block")
+		return errors.New("generator gen an empty block")
 	}
 
 }

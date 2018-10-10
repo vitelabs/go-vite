@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
+	"github.com/vitelabs/go-vite/vm"
 )
 
 type JsonRpc2Error struct {
@@ -21,10 +22,10 @@ func (e JsonRpc2Error) ErrorCode() int {
 var (
 	ErrNotSupport = errors.New("not support this method")
 
-	//ErrBalanceNotEnough = JsonRpc2Error{
-	//	Message: ledgererrors.ErrBalanceNotEnough.Error(),
-	//	Code:    -35001,
-	//}
+	ErrBalanceNotEnough = JsonRpc2Error{
+		Message: vm.ErrInsufficientBalance.Error(),
+		Code:    -35001,
+	}
 
 	ErrDecryptKey = JsonRpc2Error{
 		Message: walleterrors.ErrDecryptKey.Error(),
@@ -43,7 +44,7 @@ func init() {
 	concernedErrorMap = make(map[string]JsonRpc2Error)
 	concernedErrorMap[ErrDecryptKey.Error()] = ErrDecryptKey
 	concernedErrorMap[AddressAlreadyUnLocked.Error()] = AddressAlreadyUnLocked
-	//concernedErrorMap[ErrBalanceNotEnough.Error()] = ErrBalanceNotEnough
+	concernedErrorMap[ErrBalanceNotEnough.Error()] = ErrBalanceNotEnough
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {
