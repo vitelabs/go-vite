@@ -150,6 +150,7 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 		stat.result = FAIL
 		return stat
 	}
+	stat.result = SUCCESS
 	return stat
 }
 

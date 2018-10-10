@@ -22,11 +22,12 @@ type snapshotVerifier struct {
 	v *verifier.SnapshotVerifier
 }
 
-func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) (result *poolSnapshotVerifyStat) {
+func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) *poolSnapshotVerifyStat {
+	result := &poolSnapshotVerifyStat{}
 	stat := self.v.VerifyReferred(block.block)
 	result.results = stat.Results()
 	result.result = stat.VerifyResult()
-	return
+	return result
 }
 func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock, refer *ledger.SnapshotBlock) bool {
 	return self.v.VerifyTimeout(current.Height, refer.Height)
