@@ -68,7 +68,7 @@ func TestCommittee_ReadByTime(t *testing.T) {
 
 	for _, v := range snapshotR {
 		if contractMap[v.Address] != true {
-			t.Error("address err")
+			t.Error("address err", v.Address.String())
 		}
 	}
 }
