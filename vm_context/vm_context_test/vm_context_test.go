@@ -1,15 +1,17 @@
 package vm_context_test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
-	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -24,12 +26,30 @@ var mockTokenTypeId, _ = types.HexToTokenTypeId("tti_000000000000000000004cfd")
 var mockAddress, _ = types.HexToAddress("vite_73728b44bda289359fcb298b0d07a6489757a84fb5cfc74527")
 var mockGid = types.Gid{12, 32, 43, 54, 23, 12, 23, 12, 4, 5}
 
-func TestVmContext_AddBalance(t *testing.T) {
-	chainInstance := chain.NewChain(&config.Config{
-		DataDir: filepath.Join(common.GoViteTestDataDir(), "trie"),
-	})
+var innerChainInstance chain.Chain
 
-	vmContext, err := vm_context.NewVmContext(chainInstance, &mockSnapshotBlockHash, &mockAccountBlockHash, &mockAddress)
+func getChainInstance() chain.Chain {
+	if innerChainInstance == nil {
+		innerChainInstance = chain.NewChain(&config.Config{
+			DataDir: common.DefaultDataDir(),
+			//Chain: &config.Chain{
+			//	KafkaProducers: []*config.KafkaProducer{{
+			//		Topic:      "test",
+			//		BrokerList: []string{"abc", "def"},
+			//	}},
+			//},
+		})
+		innerChainInstance.Init()
+		innerChainInstance.Start()
+	}
+
+	return innerChainInstance
+}
+
+func TestVmContext_AddBalance(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	vmContext, err := vm_context.NewVmContext(chainInstance, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,8 +72,8 @@ func TestVmContext_AddBalance(t *testing.T) {
 	vmContext.SetStorage([]byte("123"), []byte("456123asdf"))
 	vmContext.SetStorage([]byte("a12cs3"), []byte("456123sssasdf"))
 	fmt.Println(vmContext.UnsavedCache().Storage())
-	fmt.Println(vmContext.GetStorage(nil, []byte("123")))
-	fmt.Println(vmContext.GetStorage(nil, []byte("a12cs3")))
+	fmt.Printf("%s\n", vmContext.GetStorage(nil, []byte("123")))
+	fmt.Printf("%s\n", vmContext.GetStorage(nil, []byte("a12cs3")))
 
 	vmContext.AddBalance(&mockTokenTypeId, big.NewInt(10))
 	fmt.Println(vmContext.GetBalance(nil, &mockTokenTypeId))
@@ -103,4 +123,60 @@ func TestVmContext_AddBalance(t *testing.T) {
 	//
 	//log.Println(vmContext.ActionList()[2].Params[0].(*types.TokenTypeId).String())
 	//log.Println(vmContext.ActionList()[2].Params[1].(*big.Int).String())
+}
+
+func TestVmContextIterator(t *testing.T) {
+	chainInstance := getChainInstance()
+	vmContext, err := vm_context.NewVmContext(chainInstance, nil, nil, &contracts.AddressConsensusGroup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	//vmContext.SetStorage([]byte("123123123"), []byte("asdfsadfasdfasdf"))
+	//vmContext.SetStorage([]byte("1231231254"), []byte("asdfsadfasdfasdf"))
+	iterator := vmContext.NewStorageIterator(nil)
+	for {
+		key, value, ok := iterator.Next()
+		if !ok {
+			return
+		}
+		fmt.Printf("%v : %v\n", hex.EncodeToString(key), hex.EncodeToString(value))
+	}
+
+}
+
+func TestVmContextIterator2(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	var sw sync.WaitGroup
+	for j := 0; j < 1000; j++ {
+		sw.Add(1)
+		go func() {
+			defer sw.Done()
+			vmContext, err := vm_context.NewVmContext(chainInstance, nil, nil, &contracts.AddressRegister)
+			if err != nil {
+				t.Fatal(err)
+			}
+			//vmContext.SetStorage([]byte("123123123"), []byte("asdfsadfasdfasdf"))
+			//vmContext.SetStorage([]byte("1231231254"), []byte("asdfsadfasdfasdf"))
+			iterator := vmContext.NewStorageIterator(types.SNAPSHOT_GID.Bytes())
+
+			for {
+				_, value, ok := iterator.Next()
+				if !ok {
+					break
+				}
+				registration := new(contracts.Registration)
+				contracts.ABIRegister.UnpackVariable(registration, contracts.VariableNameRegistration, value)
+				if registration.IsActive() {
+					fmt.Println(registration.NodeAddr)
+					if registration.NodeAddr.String() == "vite_0000000000000000000000000000000000000000a4f3a0cb58" {
+						t.Fatal("error!!!")
+					}
+				}
+			}
+		}()
+	}
+
+	sw.Wait()
+
 }

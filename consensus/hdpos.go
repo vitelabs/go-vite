@@ -8,14 +8,15 @@ import (
 )
 
 type membersInfo struct {
-	genesisTime time.Time
-	memberCnt   int32 // Number of producer
-	interval    int32 // unit: second, time interval at which the block is generated
-	perCnt      int32 // Number of blocks generated per node
-	randCnt     int32
-	randRange   int32
-	LowestLimit *big.Int
-	seed        *big.Int
+	genesisTime     time.Time
+	memberCnt       int32 // Number of producer
+	interval        int32 // unit: second, time interval at which the block is generated
+	perCnt          int32 // Number of blocks generated per node
+	randCnt         int32
+	randRange       int32
+	LowestLimit     *big.Int
+	seed            *big.Int
+	countingTokenId types.TokenTypeId
 }
 
 type memberPlan struct {

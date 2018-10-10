@@ -6,13 +6,18 @@ import (
 	"github.com/vitelabs/go-vite/trie"
 )
 
+type Consensus interface {
+	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
+}
+
+type Signer interface {
+	SignData(a types.Address, data []byte) (signedData, pubkey []byte, err error)
+	SignDataWithPassphrase(a types.Address, passphrase string, data []byte) (signedData, pubkey []byte, err error)
+}
+
 type Chain interface {
 	AccountReader
 	SnapshotReader
-}
-
-type Consensus interface {
-	VerifyAccountProducer(block *ledger.AccountBlock) error
 }
 
 type SnapshotReader interface {

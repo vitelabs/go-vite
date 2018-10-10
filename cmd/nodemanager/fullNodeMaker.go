@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/cmd/utils"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
@@ -20,7 +21,7 @@ func (maker FullNodeMaker) MakeNode(ctx *cli.Context) *node.Node {
 
 	// 1: Make Node.Config
 	nodeConfig := maker.MakeNodeConfig(ctx)
-	log.Info(fmt.Sprintf("nodeConfig info: %v", nodeConfig))
+	log.Info(fmt.Sprintf("NodeConfig info: %v", nodeConfig))
 	// 2: New Node
 	node, err := node.New(nodeConfig)
 
@@ -33,15 +34,19 @@ func (maker FullNodeMaker) MakeNode(ctx *cli.Context) *node.Node {
 func (maker FullNodeMaker) MakeNodeConfig(ctx *cli.Context) *node.Config {
 
 	cfg := node.DefaultNodeConfig
+	log.Info(fmt.Sprintf("DefaultNodeconfig: %v", cfg))
 
 	// 1: Load config file.
 	loadNodeConfigFromFile(ctx, &cfg)
+	log.Info(fmt.Sprintf("After load config file: %v", cfg))
 
 	// 2: Apply flags, Overwrite the configuration file configuration
 	mappingNodeConfig(ctx, &cfg)
+	log.Info(fmt.Sprintf("After mapping cmd input: %v", cfg))
 
 	// 3: Override any default configs for hard coded networks.
-	overrideDefaultConfigs(ctx, &cfg)
+	overrideNodeConfigs(ctx, &cfg)
+	log.Info(fmt.Sprintf("Last override config: %v", cfg))
 
 	// 4: Config log to file
 	makeRunLogFile(&cfg)
@@ -58,8 +63,8 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 
 	//Wallet
-	if ctx.GlobalIsSet(utils.KeyStoreDirFlag.Name) {
-		cfg.KeyStoreDir = ctx.GlobalString(utils.KeyStoreDirFlag.Name)
+	if keyStoreDir := ctx.GlobalString(utils.KeyStoreDirFlag.Name); len(keyStoreDir) > 0 {
+		cfg.KeyStoreDir = keyStoreDir
 	}
 
 	//Network Config
@@ -79,22 +84,26 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.Port = ctx.GlobalUint(utils.ListenPortFlag.Name)
 	}
 
-	if ctx.GlobalIsSet(utils.NodeKeyHexFlag.Name) {
-		cfg.SetPrivateKey(ctx.GlobalString(utils.NodeKeyHexFlag.Name))
+	if nodeKeyHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); len(nodeKeyHex) > 0 {
+		cfg.SetPrivateKey(nodeKeyHex)
 	}
 
 	//Ipc Config
-	cfg.IPCEnabled = ctx.GlobalBool(utils.IPCEnabledFlag.Name)
+	if ctx.GlobalIsSet(utils.IPCEnabledFlag.Name) {
+		cfg.IPCEnabled = ctx.GlobalBool(utils.IPCEnabledFlag.Name)
+	}
 
-	if ctx.GlobalIsSet(utils.IPCPathFlag.Name) {
-		cfg.IPCPath = ctx.GlobalString(utils.IPCPathFlag.Name)
+	if ipcPath := ctx.GlobalString(utils.IPCPathFlag.Name); len(ipcPath) > 0 {
+		cfg.IPCPath = ipcPath
 	}
 
 	//Http Config
-	cfg.RPCEnabled = ctx.GlobalBool(utils.RPCEnabledFlag.Name)
+	if ctx.GlobalIsSet(utils.RPCEnabledFlag.Name) {
+		cfg.RPCEnabled = ctx.GlobalBool(utils.RPCEnabledFlag.Name)
+	}
 
-	if ctx.GlobalIsSet(utils.RPCListenAddrFlag.Name) {
-		cfg.HttpHost = ctx.GlobalString(utils.RPCListenAddrFlag.Name)
+	if httpHost := ctx.GlobalString(utils.RPCListenAddrFlag.Name); len(httpHost) > 0 {
+		cfg.HttpHost = httpHost
 	}
 
 	if ctx.GlobalIsSet(utils.RPCPortFlag.Name) {
@@ -102,10 +111,12 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 
 	//WS Config
-	cfg.WSEnabled = ctx.GlobalBool(utils.WSEnabledFlag.Name)
+	if ctx.GlobalIsSet(utils.WSEnabledFlag.Name) {
+		cfg.WSEnabled = ctx.GlobalBool(utils.WSEnabledFlag.Name)
+	}
 
-	if ctx.GlobalIsSet(utils.WSListenAddrFlag.Name) {
-		cfg.WSHost = ctx.GlobalString(utils.WSListenAddrFlag.Name)
+	if wsListenAddr := ctx.GlobalString(utils.WSListenAddrFlag.Name); len(wsListenAddr) > 0 {
+		cfg.WSHost = wsListenAddr
 	}
 
 	if ctx.GlobalIsSet(utils.WSPortFlag.Name) {
@@ -114,9 +125,17 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 
 }
 
-func overrideDefaultConfigs(ctx *cli.Context, cfg *node.Config) {
+func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
 
-	if ctx.GlobalBool(utils.DevNetFlag.Name) {
+	if len(cfg.DataDir) == 0 {
+		cfg.DataDir = common.DefaultDataDir()
+	}
+
+	if len(cfg.KeyStoreDir) == 0 {
+		cfg.KeyStoreDir = cfg.DataDir
+	}
+
+	if ctx.GlobalBool(utils.DevNetFlag.Name) || cfg.NetID > 2 {
 		cfg.NetSelect = "dev"
 		//network override
 		if cfg.NetID < 3 {
@@ -129,7 +148,7 @@ func overrideDefaultConfigs(ctx *cli.Context, cfg *node.Config) {
 		return
 	}
 
-	if ctx.GlobalBool(utils.TestNetFlag.Name) {
+	if ctx.GlobalBool(utils.TestNetFlag.Name) || cfg.NetID == 2 {
 		cfg.NetSelect = "test"
 		if cfg.NetID != 2 {
 			cfg.NetID = 2
@@ -139,12 +158,12 @@ func overrideDefaultConfigs(ctx *cli.Context, cfg *node.Config) {
 		return
 	}
 
-	if ctx.GlobalBool(utils.MainNetFlag.Name) {
+	if ctx.GlobalBool(utils.MainNetFlag.Name) || cfg.NetID == 1 {
 		cfg.NetSelect = "main"
 		if cfg.NetID != 1 {
 			cfg.NetID = 1
 		}
-		cfg.DataDir = filepath.Join(cfg.DataDir, "viteisbest")
+		cfg.DataDir = filepath.Join(cfg.DataDir, "maindata")
 		cfg.DataDirPathAbs()
 		return
 	}
@@ -160,21 +179,21 @@ func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) {
 			if err == nil {
 				return
 			}
-			log.Warn("cannot unmarshal the config file content", "error", err)
+			log.Warn("Cannot unmarshal the config file content", "error", err)
 		}
 	}
 
 	// second read default settings
-	log.Info(fmt.Sprintf("will use the default config %v", defaultNodeConfigFileName))
+	log.Info(fmt.Sprintf("Will use the default config %v", defaultNodeConfigFileName))
 
 	if jsonConf, err := ioutil.ReadFile(defaultNodeConfigFileName); err == nil {
 		err = json.Unmarshal(jsonConf, &cfg)
 		if err == nil {
 			return
 		}
-		log.Warn("cannot unmarshal the default config file content", "error", err)
+		log.Warn("Cannot unmarshal the default config file content", "error", err)
 	}
-	log.Warn("read the default config file content error, The program will skip here and continue processing")
+	log.Warn("Read the default config file content error, The program will skip here and continue processing")
 }
 
 func makeRunLogFile(cfg *node.Config) {

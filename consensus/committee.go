@@ -58,7 +58,7 @@ func (self *committee) initTeller(gid types.Gid) (*teller, error) {
 }
 
 func (self *committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool, error) {
-	gid, err := self.getGid(header)
+	gid, err := self.rw.getGid(header)
 	if err != nil {
 		return false, err
 	}
@@ -100,6 +100,32 @@ func (self *committee) verifyProducer(t time.Time, address types.Address, result
 		}
 	}
 	return true
+}
+
+func (self *committee) ReadByTime(gid types.Gid, t2 time.Time) ([]*Event, error) {
+	t, ok := self.tellers.Load(gid)
+	if !ok {
+		tmp, err := self.initTeller(gid)
+		if err != nil {
+			return nil, err
+		}
+		t = tmp
+	}
+	if t == nil {
+		return nil, errors.New("consensus group not exist")
+	}
+	tel := t.(*teller)
+	electionResult, err := tel.electionTime(t2)
+
+	if err != nil {
+		return nil, err
+	}
+	var result []*Event
+	for _, p := range electionResult.Plans {
+		e := newConsensusEvent(electionResult, p, gid)
+		result = append(result, &e)
+	}
+	return result, nil
 }
 
 func NewCommittee(genesisTime time.Time, ch chain.Chain) *committee {
@@ -217,7 +243,7 @@ func (self *committee) update(t *teller, m *sync.Map) {
 	}
 }
 func copyMap(m *sync.Map) map[string]*subscribeEvent {
-	var result map[string]*subscribeEvent
+	result := make(map[string]*subscribeEvent)
 	m.Range(func(k, v interface{}) bool {
 		result[k.(string)] = v.(*subscribeEvent)
 		return true
@@ -226,7 +252,7 @@ func copyMap(m *sync.Map) map[string]*subscribeEvent {
 }
 
 func (self *committee) event(e *subscribeEvent, result *electionResult) {
-	self.wg.Done()
+	self.wg.Add(1)
 	defer self.wg.Done()
 	if e.addr == nil {
 		// all
@@ -248,7 +274,7 @@ func (self *committee) eventAll(e *subscribeEvent, result *electionResult) {
 			time.Sleep(sub)
 		}
 
-		e.fn(newConsensusEvent(result, p, e))
+		e.fn(newConsensusEvent(result, p, e.gid))
 	}
 }
 func (self *committee) eventAddr(e *subscribeEvent, result *electionResult) {
@@ -262,18 +288,14 @@ func (self *committee) eventAddr(e *subscribeEvent, result *electionResult) {
 			if sub > time.Millisecond*10 {
 				time.Sleep(sub)
 			}
-			e.fn(newConsensusEvent(result, p, e))
+			e.fn(newConsensusEvent(result, p, e.gid))
 		}
 	}
 }
-func (self *committee) getGid(block *ledger.AccountBlock) (types.Gid, error) {
-	// todo @lyd
-	return types.DELEGATE_GID, nil
-}
 
-func newConsensusEvent(r *electionResult, p *memberPlan, e *subscribeEvent) Event {
+func newConsensusEvent(r *electionResult, p *memberPlan, gid types.Gid) Event {
 	return Event{
-		Gid:            e.gid,
+		Gid:            gid,
 		Address:        p.Member,
 		Stime:          p.STime,
 		Etime:          p.ETime,

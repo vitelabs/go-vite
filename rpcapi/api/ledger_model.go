@@ -55,11 +55,14 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.Token
 		Height: strconv.FormatUint(ledgerBlock.Height, 10),
 		Quota:  strconv.FormatUint(ledgerBlock.Quota, 10),
 
-		Amount: "0",
-		Fee:    "0",
-
+		Amount:         "0",
+		Fee:            "0",
 		TokenInfo:      RawTokenInfoToRpc(token),
 		ConfirmedTimes: strconv.FormatUint(confirmedTimes, 10),
+	}
+
+	if token != nil {
+		ab.TokenInfo = RawTokenInfoToRpc(token)
 	}
 	if ledgerBlock.Amount != nil {
 		ab.Amount = ledgerBlock.Amount.String()
@@ -74,6 +77,10 @@ type RpcAccountInfo struct {
 	AccountAddress      types.Address
 	TotalNumber         string // uint64
 	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:",omitempty"`
+}
+
+func create() {
+
 }
 
 type RpcTokenBalanceInfo struct {

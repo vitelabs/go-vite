@@ -75,6 +75,12 @@
 			"revisionTime": "2018-01-10T05:33:47Z"
 		},
 		{
+			"checksumSHA1": "uSJg4XXPZEtEjfqxVVHR/jQ75vw=",
+			"path": "github.com/gavv/monotime",
+			"revision": "6f8212e8d10df7383609d3c377ca08884d8f3ec0",
+			"revisionTime": "2017-10-21T19:38:02Z"
+		},
+		{
 			"checksumSHA1": "nQqAEaB3gBG9PSKYZTbQ5IiN3jo=",
 			"path": "github.com/ghodss/yaml",
 			"revision": "e9ed3c6dfb39bb1a32197cb10d527906fe4da4b6",
@@ -586,16 +592,16 @@
 			"revisionTime": "2018-05-10T04:57:31Z"
 		},
 		{
-			"checksumSHA1": "9gypWnVZJEaH3jMK9KqOp4xgQD4=",
-			"path": "gopkg.in/check.v1",
-			"revision": "788fd78401277ebd861206a03c884797c6ec5541",
-			"revisionTime": "2018-06-28T17:31:08Z"
-		},
-		{
 			"checksumSHA1": "VDkQqnGcvSWdNF/XEFFA1urB69M=",
 			"path": "gopkg.in/Shopify/sarama.v1",
 			"revision": "a6144ae922fd99dd0ea5046c8137acfb7fab0914",
 			"revisionTime": "2018-09-07T06:05:07Z"
+		},
+		{
+			"checksumSHA1": "9gypWnVZJEaH3jMK9KqOp4xgQD4=",
+			"path": "gopkg.in/check.v1",
+			"revision": "788fd78401277ebd861206a03c884797c6ec5541",
+			"revisionTime": "2018-06-28T17:31:08Z"
 		},
 		{
 			"checksumSHA1": "0xgs8lwcWLUffemlj+SsgKlxvDU=",

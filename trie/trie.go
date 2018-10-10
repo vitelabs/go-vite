@@ -49,7 +49,7 @@ func (trie *Trie) getNodeFromDb(key *types.Hash) *TrieNode {
 	trieNode := &TrieNode{}
 	dsErr := trieNode.DbDeserialize(value)
 	if dsErr != nil {
-		trie.log.Error("Deserialize trie node  failed, error is "+err.Error(), "method", "getNodeFromDb")
+		trie.log.Error("Deserialize trie node  failed, error is "+dsErr.Error(), "method", "getNodeFromDb")
 		return nil
 	}
 
@@ -143,9 +143,11 @@ func (trie *Trie) traverseLoad(hash *types.Hash) *TrieNode {
 
 	switch node.NodeType() {
 	case TRIE_FULL_NODE:
-		for key, child := range node.children {
-			node.children[key] = trie.traverseLoad(child.Hash())
-		}
+		node.AtomicComplete(func() {
+			for key, child := range node.children {
+				node.children[key] = trie.traverseLoad(child.Hash())
+			}
+		})
 	case TRIE_SHORT_NODE:
 		node.child = trie.traverseLoad(node.child.Hash())
 	}
