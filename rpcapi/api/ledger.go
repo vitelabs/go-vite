@@ -78,25 +78,6 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int,
 	}
 }
 
-func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int, count int) ([]AccountBlock, error) {
-	//log.Info("GetUnconfirmedBlocksByAccAddr")
-	//
-	//blocks, e := l.ledgerManager.Ac().GetUnconfirmedTxBlocks(index, 1, count, &addr)
-	//if e != nil {
-	//	return nil, e
-	//}
-	//if len(blocks) == 0 {
-	//	return nil, nil
-	//}
-	//
-	//result := make([]AccountBlock, len(blocks))
-	//for key, value := range blocks {
-	//	result[key] = *LedgerAccBlockToRpc(value, nil)
-	//}
-	//return result, nil
-	return nil, nil
-}
-
 func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
 	l.log.Info("GetAccountByAccAddr")
 
@@ -144,60 +125,6 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 	}
 
 	return rpcAccount, nil
-}
-
-func (l *LedgerApi) GetUnconfirmedInfo(addr types.Address) error {
-	//log.Info("GetUnconfirmedInfo")
-	//
-	//account, e := l.ledgerManager.Ac().GetUnconfirmedAccount(&addr)
-	//if e != nil {
-	//	log.Error(e.Error())
-	//	return GetUnconfirmedInfoResponse{}, e
-	//}
-	//
-	//response := GetUnconfirmedInfoResponse{}
-	//
-	//if account == nil {
-	//	log.Error("account == nil")
-	//	return response, nil
-	//}
-	//
-	//if account.Address != nil {
-	//	response.Addr = *account.Address
-	//}
-	//if account.TotalNumber != nil {
-	//	response.UnConfirmedBlocksLen = account.TotalNumber.String()
-	//}
-	//
-	//if len(account.TokenInfoList) != 0 {
-	//	blances := make([]BalanceInfo, len(account.TokenInfoList))
-	//	for k, v := range account.TokenInfoList {
-	//		blances[k] = BalanceInfo{
-	//			Mintage: rawMintageToRpc(v.Token),
-	//			Balance: v.TotalAmount.String(),
-	//		}
-	//	}
-	//	response.BalanceInfos = blances
-	//
-	//}
-
-	return nil
-
-}
-
-func (l *LedgerApi) GetInitSyncInfo() error {
-	log.Info("GetInitSyncInfo")
-	//i := l.ledgerManager.Sc().GetFirstSyncInfo()
-	//
-	//r := InitSyncResponse{
-	//	StartHeight:      i.BeginHeight.String(),
-	//	TargetHeight:     i.TargetHeight.String(),
-	//	CurrentHeight:    i.CurrentHeight.String(),
-	//	IsFirstSyncDone:  i.IsFirstSyncDone,
-	//	IsStartFirstSync: i.IsFirstSyncStart,
-	//}
-
-	return nil
 }
 
 func (l *LedgerApi) GetSnapshotChainHeight() string {

@@ -1,0 +1,22 @@
+{
+  "NetID":11,
+  "Identity":"nodeServer",
+  "PrivateKey":"e2c799ab882531324a09eb7783c441f9bcec44d3dba9545bf93c03a9d4492aeb8343b3f2bc4e8e521d460cadab3e9f1e61ba57529b3fb48c5c076845c92e75d2",
+  "MaxPeers":100,
+  "MaxPassivePeersRatio":0,
+  "MaxPendingPeers":20,
+  "BootNodes":[
+    "vnode://6d72c01e467e5280acf1b63f87afd5b6dcf8a596d849ddfc9ca70aab08f10191@192.168.31.146:8483",
+    "vnode://1ceabc6c2b751b352a6d719b4987f828bb1cf51baafa4efac38bc525ed61059d@192.168.31.190:8483",
+    "vnode://8343b3f2bc4e8e521d460cadab3e9f1e61ba57529b3fb48c5c076845c92e75d2@192.168.31.193:8483"
+  ],
+  "Port":8483,
+  "RPCEnabled":true,
+  "IPCEnabled":true,
+  "WSEnabled":true,
+  "HttpHost":"0.0.0.0",
+  "HttpPort":48132,
+  "HttpVirtualHosts":["",""],
+  "WSHost":"localhost",
+  "WSPort":41420
+}
