@@ -172,12 +172,13 @@ func (m *WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 		ToAddress:      &params.ToAddr,
 		FromBlockHash:  &preHash,
 		TokenId:        &params.TokenTypeId,
-		Amount:         *amount,
+		Amount:         amount,
+		Fee:            nil,
 		Nonce:          nonce[:],
 		Data:           params.Data,
 	}
 
-	g, e := generator.NewGenerator(m.chain, m.km, nil, &preHash, &params.SelfAddr)
+	g, e := generator.NewGenerator(m.chain, nil, &preHash, &params.SelfAddr)
 	if e != nil {
 		return e
 	}
