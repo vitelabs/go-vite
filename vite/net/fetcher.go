@@ -40,6 +40,12 @@ func newFetcher(filter Filter, peers *peerSet, receiver Receiver, pool RequestPo
 func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 	monitor.LogEvent("net/fetch", "s")
 
+	// been suppressed
+	if f.filter.hold(start) {
+		f.log.Warn(fmt.Sprintf("fetch suppressed: %s %d", start, count))
+		return
+	}
+
 	if atomic.LoadInt32(&f.ready) == 0 {
 		f.log.Warn("not ready")
 		return
@@ -70,6 +76,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 
 	// been suppressed
 	if f.filter.hold(start) {
+		f.log.Warn(fmt.Sprintf("fetch suppressed: %s %d", start, count))
 		return
 	}
 

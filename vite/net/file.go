@@ -195,7 +195,7 @@ func (fc *fileClient) loop() {
 
 	wait := make([]*fileRequest, 0, 10)
 
-	idleTimeout := 5 * time.Second
+	idleTimeout := 30 * time.Second
 	ticker := time.NewTicker(idleTimeout)
 	defer ticker.Stop()
 
