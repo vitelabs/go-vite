@@ -79,10 +79,6 @@ type RpcAccountInfo struct {
 	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo
 }
 
-func create() {
-
-}
-
 type RpcTokenBalanceInfo struct {
 	TokenInfo   *RpcTokenInfo
 	TotalAmount string // big int

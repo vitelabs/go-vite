@@ -202,10 +202,7 @@ func (c *chain) GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotB
 	height, ghErr := c.chainDb.Ac.GetConfirmHeight(accountBlockHash)
 	if ghErr != nil {
 		c.log.Error("GetConfirmHeight failed, error is "+ghErr.Error(), "method", "GetConfirmBlock")
-		return nil, &types.GetError{
-			Code: 1,
-			Err:  ghErr,
-		}
+		return nil, ghErr
 	}
 
 	if height <= 0 {
@@ -214,11 +211,8 @@ func (c *chain) GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotB
 
 	snapshotBlock, gsErr := c.chainDb.Sc.GetSnapshotBlock(height, true)
 	if gsErr != nil {
-		c.log.Error("GetSnapshotBlock failed, error is "+ghErr.Error(), "method", "GetConfirmBlock")
-		return nil, &types.GetError{
-			Code: 2,
-			Err:  gsErr,
-		}
+		c.log.Error("GetSnapshotBlock failed, error is "+gsErr.Error(), "method", "GetConfirmBlock")
+		return nil, gsErr
 	}
 
 	return snapshotBlock, nil
@@ -228,10 +222,7 @@ func (c *chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 	height, ghErr := c.chainDb.Ac.GetConfirmHeight(accountBlockHash)
 	if ghErr != nil {
 		c.log.Error("GetConfirmHeight failed, error is "+ghErr.Error(), "method", "GetConfirmTimes")
-		return 0, &types.GetError{
-			Code: 1,
-			Err:  ghErr,
-		}
+		return 0, ghErr
 	}
 
 	if height <= 0 {
@@ -301,10 +292,7 @@ func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Add
 	account, getAccountIdErr := c.chainDb.Account.GetAccountByAddress(address)
 	if getAccountIdErr != nil {
 		c.log.Error("GetAccountByAddress failed, error is "+getAccountIdErr.Error(), "method", "GetConfirmAccountBlock")
-		return nil, types.GetError{
-			Code: 1,
-			Err:  getAccountIdErr,
-		}
+		return nil, getAccountIdErr
 	}
 	if account == nil {
 		return nil, nil
@@ -313,10 +301,7 @@ func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Add
 	accountBlock, err := c.chainDb.Ac.GetConfirmAccountBlock(snapshotHeight, account.AccountId)
 	if err != nil {
 		c.log.Error("GetConfirmAccountBlock failed, error is "+err.Error(), "method", "GetConfirmAccountBlock")
-		return nil, types.GetError{
-			Code: 2,
-			Err:  err,
-		}
+		return nil, err
 	}
 
 	if accountBlock != nil {

@@ -255,10 +255,7 @@ func (c *chain) GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock
 	account, err := c.chainDb.Account.GetAccountByAddress(addr)
 	if err != nil {
 		c.log.Error("Query account meta failed. Error is "+err.Error(), "method", "GetLatestAccountBlock")
-		return nil, &types.GetError{
-			Code: 1,
-			Err:  err,
-		}
+		return nil, err
 	}
 
 	if account == nil {
@@ -269,10 +266,7 @@ func (c *chain) GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock
 	if gErr != nil {
 		c.log.Error("Query latest block failed. Error is "+gErr.Error(), "method", "GetLatestAccountBlock")
 
-		return nil, &types.GetError{
-			Code: 2,
-			Err:  err,
-		}
+		return nil, err
 	}
 	if block != nil {
 		block.AccountAddress = account.AccountAddress
@@ -357,10 +351,7 @@ func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*le
 	if err != nil {
 		c.log.Error("Query account failed. Error is "+err.Error(), "method", "GetAccountBlockByHeight")
 
-		return nil, &types.GetError{
-			Code: 1,
-			Err:  err,
-		}
+		return nil, err
 	}
 
 	block, err := c.chainDb.Ac.GetBlockByHeight(account.AccountId, height)
@@ -370,10 +361,7 @@ func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*le
 		}
 
 		c.log.Error("Query block failed. Error is "+err.Error(), "method", "GetAccountBlockByHeight")
-		return nil, &types.GetError{
-			Code: 2,
-			Err:  err,
-		}
+		return nil, err
 	}
 
 	block.AccountAddress = account.AccountAddress
@@ -393,10 +381,7 @@ func (c *chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlo
 		}
 
 		c.log.Error("Query block failed. Error is "+err.Error(), "method", "GetAccountBlockByHash")
-		return nil, &types.GetError{
-			Code: 1,
-			Err:  err,
-		}
+		return nil, err
 	}
 	if block == nil {
 		return nil, nil
@@ -405,20 +390,14 @@ func (c *chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlo
 	address, err := c.chainDb.Account.GetAddressById(block.Meta.AccountId)
 	if err != nil {
 		c.log.Error("Query account id failed. Error is "+err.Error(), "method", "GetAccountBlockByHash")
-		return nil, &types.GetError{
-			Code: 2,
-			Err:  err,
-		}
+		return nil, err
 	}
 
 	account, err := c.chainDb.Account.GetAccountByAddress(address)
 	if err != nil {
 		c.log.Error("Query account failed. Error is "+err.Error(), "method", "GetAccountBlockByHash")
 
-		return nil, &types.GetError{
-			Code: 3,
-			Err:  err,
-		}
+		return nil, err
 	}
 
 	block.AccountAddress = account.AccountAddress
@@ -434,30 +413,21 @@ func (c *chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 		err := errors.New("Num or count can not be 0")
 		c.log.Error(err.Error(), "method", "GetAccountBlocksByAddress")
 
-		return nil, &types.GetError{
-			Code: 1,
-			Err:  err,
-		}
+		return nil, err
 	}
 
 	account, err := c.chainDb.Account.GetAccountByAddress(addr)
 	if err != nil {
 		c.log.Error("Query account meta failed. Error is "+err.Error(), "method", "GetAccountBlocksByAddress")
 
-		return nil, &types.GetError{
-			Code: 2,
-			Err:  err,
-		}
+		return nil, err
 	}
 
 	latestBlock, glErr := c.chainDb.Ac.GetLatestBlock(account.AccountId)
 	if glErr != nil {
 
 		c.log.Error("Query latest block failed. Error is "+glErr.Error(), "method", "GetAccountBlocksByAddress")
-		return nil, &types.GetError{
-			Code: 3,
-			Err:  glErr,
-		}
+		return nil, glErr
 	}
 
 	startHeight, endHeight := uint64(1), uint64(0)
@@ -475,10 +445,7 @@ func (c *chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 
 	if err != nil {
 		c.log.Error("Query block list failed. Error is "+err.Error(), "method", "GetAccountBlocksByAddress")
-		return nil, &types.GetError{
-			Code: 4,
-			Err:  err,
-		}
+		return nil, err
 	}
 
 	helper.ReverseSlice(blockList)
@@ -494,10 +461,7 @@ func (c *chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 		if err != nil {
 			c.log.Error("Query block meta list failed. Error is "+err.Error(), "method", "GetAccountBlocksByAddress")
 
-			return nil, &types.GetError{
-				Code: 5,
-				Err:  err,
-			}
+			return nil, err
 		}
 		block.Meta = blockMeta
 	}
@@ -567,10 +531,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
 	if accountErr != nil {
 		c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "DeleteAccountBlocks")
-		return nil, &types.GetError{
-			Code: 1,
-			Err:  accountErr,
-		}
+		return nil, accountErr
 	}
 
 	if account == nil {
@@ -582,10 +543,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	deleteMap, reopenList, getErr := c.chainDb.Ac.GetDeleteMapAndReopenList(planToDelete, c.chainDb.Account.GetAccountByAddress, true, true)
 	if getErr != nil {
 		c.log.Error("GetDeleteMapAndReopenList failed, error is "+getErr.Error(), "method", "DeleteAccountBlocks")
-		return nil, &types.GetError{
-			Code: 2,
-			Err:  getErr,
-		}
+		return nil, getErr
 	}
 
 	batch := new(leveldb.Batch)
