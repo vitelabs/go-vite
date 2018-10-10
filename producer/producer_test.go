@@ -17,6 +17,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
@@ -52,6 +53,38 @@ func genConsensus(c chain.Chain, t *testing.T) consensus.Consensus {
 	cs.Start()
 	return cs
 }
+
+type testSubscriber struct {
+}
+
+func (*testSubscriber) SubscribeAccountBlock(fn net.AccountblockCallback) (subId int) {
+	panic("implement me")
+}
+
+func (*testSubscriber) UnsubscribeAccountBlock(subId int) {
+	panic("implement me")
+}
+
+func (*testSubscriber) SubscribeSnapshotBlock(fn net.SnapshotBlockCallback) (subId int) {
+	panic("implement me")
+}
+
+func (*testSubscriber) UnsubscribeSnapshotBlock(subId int) {
+	panic("implement me")
+}
+
+func (*testSubscriber) SubscribeSyncStatus(fn net.SyncStateCallback) (subId int) {
+	go func() {
+		time.Sleep(2 * time.Second)
+		fn(net.Syncdone)
+	}()
+	return 0
+}
+
+func (*testSubscriber) UnsubscribeSyncStatus(subId int) {
+
+}
+
 func TestSnapshot(t *testing.T) {
 	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
 	c.Init()
@@ -67,7 +100,7 @@ func TestSnapshot(t *testing.T) {
 	w := wallet.New(nil)
 	av := verifier.NewAccountVerifier(c, cs, w.KeystoreManager)
 	p1 := pool.NewPool(c)
-	p := NewProducer(c, nil, coinbase, cs, sv, w, p1)
+	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
 
 	w.KeystoreManager.ImportPriv(accountPrivKeyStr, "123456")
 	w.KeystoreManager.Lock(coinbase)
@@ -111,7 +144,7 @@ func TestProducer_Init(t *testing.T) {
 	w := wallet.New(nil)
 	av := verifier.NewAccountVerifier(c, cs, w.KeystoreManager)
 	p1 := pool.NewPool(c)
-	p := NewProducer(c, nil, coinbase, cs, sv, w, p1)
+	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
 
 	w.KeystoreManager.ImportPriv(accountPrivKeyStr, "123456")
 	w.KeystoreManager.Lock(coinbase)
