@@ -45,7 +45,7 @@ const (
 	maxRewardCount            uint64 = 150000000
 	voteGas                   uint64 = 62000
 	cancelVoteGas             uint64 = 62000
-	pledgeGas                 uint64 = 82400
+	pledgeGas                 uint64 = 21000
 	cancelPledgeGas           uint64 = 103400
 	createConsensusGroupGas   uint64 = 62200
 	cancelConsensusGroupGas   uint64 = 83200

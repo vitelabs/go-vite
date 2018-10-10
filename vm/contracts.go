@@ -539,11 +539,8 @@ func (p *pPledge) getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, er
 
 // pledge ViteToken for a beneficial to get quota
 func (p *pPledge) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	// pledge gas is low without data gas cost, so that a new account is easy to pledge
 	quotaLeft, err := quota.UseQuota(quotaLeft, pledgeGas)
-	if err != nil {
-		return quotaLeft, err
-	}
-	quotaLeft, err = quota.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
