@@ -346,6 +346,24 @@ func (s *syncer) receiveBlocks(sblocks []*ledger.SnapshotBlock, mblocks map[type
 	}
 }
 
+type SyncStatus struct {
+	From    uint64
+	To      uint64
+	Current uint64
+	State   SyncState
+}
+
+func (s *syncer) Status() *SyncStatus {
+	current := s.chain.GetLatestSnapshotBlock()
+
+	return &SyncStatus{
+		From:    s.from,
+		To:      s.to,
+		Current: current.Height,
+		State:   s.state,
+	}
+}
+
 // @section helper to rank
 type accountblocks []*ledger.AccountBlock
 

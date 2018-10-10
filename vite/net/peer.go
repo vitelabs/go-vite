@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"net"
 	"sort"
+	"strconv"
 	"sync"
 )
 
@@ -35,7 +36,7 @@ func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 	return &Peer{
 		Peer:        p,
 		mrw:         mrw,
-		ID:          p.ID().Brief(),
+		ID:          p.ID().String(),
 		CmdSet:      cmdSet,
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
@@ -197,15 +198,23 @@ func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
 }
 
 type PeerInfo struct {
-	Addr   string
-	Flag   int
-	Head   string
-	Height uint64
+	ID     string `json:"id"`
+	Addr   string `json:"addr"`
+	Head   string `json:"head"`
+	Height uint64 `json:"height"`
+}
+
+func (p *PeerInfo) String() string {
+	return p.ID + "@" + p.Addr + "/" + strconv.FormatUint(p.Height, 10)
 }
 
 func (p *Peer) Info() *PeerInfo {
-	// todo
-	return &PeerInfo{}
+	return &PeerInfo{
+		ID:     p.ID,
+		Addr:   p.RemoteAddr().String(),
+		Head:   p.head.String(),
+		Height: p.height,
+	}
 }
 
 // @section PeerSet
