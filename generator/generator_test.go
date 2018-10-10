@@ -10,7 +10,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
-	"github.com/vitelabs/go-vite/wallet"
 	"testing"
 )
 
@@ -24,17 +23,16 @@ func init() {
 	fmt.Println(genesisAccountPrivKeyStr)
 }
 
-func PrepareVite() (chain.Chain, *wallet.Manager) {
+func PrepareVite() chain.Chain {
 	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
 	c.Init()
 	c.Start()
 
-	w := wallet.New(nil)
-	return c, w
+	return c
 }
 
 func TestGenerator_GenerateWithOnroad(t *testing.T) {
-	c, w := PrepareVite()
+	c := PrepareVite()
 
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
@@ -45,14 +43,14 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 		return
 	}
 
-	gen, err := NewGenerator(c, w.KeystoreManager, nil, nil, &fromBlock.ToAddress)
+	gen, err := NewGenerator(c, nil, nil, &fromBlock.ToAddress)
 	if err != nil {
 		t.Error(err)
 	}
 	consensusMsg := &ConsensusMessage{
 		SnapshotHash: c.GetLatestSnapshotBlock().Hash,
 		Timestamp:    *c.GetLatestSnapshotBlock().Timestamp,
-		Producer:     ledger.GenesisAccountAddress,
+		Producer:     fromBlock.ToAddress,
 		gid:          types.Gid{},
 	}
 	genResult, err := gen.GenerateWithOnroad(*fromBlock, consensusMsg, nil)

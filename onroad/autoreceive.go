@@ -169,7 +169,7 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 
 	genResult, err := gen.GenerateWithOnroad(*sendBlock, nil,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			return gen.Sign(addr, nil, data)
+			return w.manager.keystoreManager.SignData(addr, data)
 		})
 	if err != nil {
 		w.log.Error("GenerateWithOnroad failed", "error", err)

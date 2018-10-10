@@ -16,8 +16,7 @@ import (
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
 type Generator struct {
-	chain  Chain
-	signer Signer
+	chain Chain
 
 	vm        vm.VM
 	vmContext vmctxt_interface.VmDatabase
@@ -31,12 +30,10 @@ type GenResult struct {
 	Err          error
 }
 
-func NewGenerator(chain Chain, signer Signer, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
+func NewGenerator(chain Chain, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
 	gen := &Generator{
-		chain:  chain,
-		signer: signer,
-
-		log: log15.New("module", "Generator"),
+		chain: chain,
+		log:   log15.New("module", "Generator"),
 	}
 	vmContext, err := vm_context.NewVmContext(chain, snapshotBlockHash, prevBlockHash, addr)
 	if err != nil {
@@ -57,7 +54,11 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
 		sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash)
 	}
-	return gen.generateBlock(block, sendBlock, signFunc), nil
+	genResult, err := gen.generateBlock(block, sendBlock, signFunc)
+	if err != nil {
+		return nil, err
+	}
+	return genResult, nil
 }
 
 func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensusMsg *ConsensusMessage, signFunc SignFunc) (*GenResult, error) {
@@ -65,7 +66,11 @@ func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensu
 	if err != nil {
 		return nil, err
 	}
-	return gen.generateBlock(block, &sendBlock, signFunc), nil
+	genResult, err := gen.generateBlock(block, &sendBlock, signFunc)
+	if err != nil {
+		return nil, err
+	}
+	return genResult, nil
 }
 
 func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc SignFunc) (*GenResult, error) {
@@ -73,10 +78,14 @@ func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc Sig
 	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
 		sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash)
 	}
-	return gen.generateBlock(block, sendBlock, signFunc), nil
+	genResult, err := gen.generateBlock(block, sendBlock, signFunc)
+	if err != nil {
+		return nil, err
+	}
+	return genResult, nil
 }
 
-func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, signFunc SignFunc) *GenResult {
+func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, signFunc SignFunc) (*GenResult, error) {
 	gen.log.Info("generateBlock", "BlockType", block.BlockType)
 
 	blockList, isRetry, err := gen.vm.Run(gen.vmContext, block, sendBlock)
@@ -88,9 +97,10 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 			if k == 0 {
 				accountBlock := blockList[0].AccountBlock
 				if signFunc != nil {
-					accountBlock.Signature, accountBlock.PublicKey, err = signFunc(accountBlock.AccountAddress, accountBlock.Hash.Bytes())
-					if err != nil {
-						gen.log.Error("generate.Sign()", "Error", err)
+					var sigErr error
+					accountBlock.Signature, accountBlock.PublicKey, sigErr = signFunc(accountBlock.AccountAddress, accountBlock.Hash.Bytes())
+					if sigErr != nil {
+						return nil, errors.New("generate.Sign() " + "error:" + sigErr.Error())
 					}
 				}
 			} else {
@@ -103,7 +113,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 		BlockGenList: blockList,
 		IsRetry:      isRetry,
 		Err:          err,
-	}
+	}, nil
 }
 
 func (gen *Generator) packBlockWithMessage(message *IncomingMessage) (blockPacked *ledger.AccountBlock, err error) {
@@ -135,8 +145,6 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 
 	if sendBlock.Amount == nil {
 		blockPacked.Amount = big.NewInt(0)
-	} else {
-		blockPacked.Amount = sendBlock.Amount
 	}
 
 	if sendBlock.Fee == nil {
@@ -167,12 +175,4 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 		blockPacked.SnapshotHash = snapshotBlock.Hash
 	}
 	return blockPacked, nil
-}
-
-func (gen *Generator) Sign(addr types.Address, passphrase *string, data []byte) (signedData, pubkey []byte, err error) {
-	if passphrase == nil {
-		return gen.signer.SignData(addr, data)
-	} else {
-		return gen.signer.SignDataWithPassphrase(addr, *passphrase, data)
-	}
 }
