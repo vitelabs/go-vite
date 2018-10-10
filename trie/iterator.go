@@ -52,6 +52,10 @@ func (iterator *Iterator) Next() (key, value []byte, ok bool) {
 		}
 
 		node := iterator.middleNodes[0]
+		if node.middleNode == nil {
+			return nil, nil, false
+		}
+
 		iterator.middleNodes = iterator.middleNodes[1:]
 
 		var keys [][]byte
