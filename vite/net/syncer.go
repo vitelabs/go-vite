@@ -175,6 +175,7 @@ wait:
 	p := s.peers.BestPeer()
 	if p == nil {
 		s.setState(Syncerr)
+		s.log.Error("sync error: no peers")
 		return
 	}
 
