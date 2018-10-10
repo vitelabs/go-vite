@@ -52,16 +52,11 @@ func (self *chainRw) CalVotes(gid types.Gid, info *membersInfo, t time.Time) ([]
 	// query vote info
 	votes := self.rw.GetVoteMap(head.Hash, gid)
 
-	voteMap := toMap(votes)
-
 	var registers []*Vote
 
 	// cal candidate
 	for _, v := range registerList {
-		_, ok := voteMap[v.Name]
-		if ok {
-			registers = append(registers, self.GenVote(head.Hash, v, votes, info.countingTokenId))
-		}
+		registers = append(registers, self.GenVote(head.Hash, v, votes, info.countingTokenId))
 	}
 	return registers, &ledger.HashHeight{Height: head.Height, Hash: head.Hash}, nil
 }

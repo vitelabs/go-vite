@@ -32,7 +32,7 @@ func TestCommittee_ReadByTime(t *testing.T) {
 		t.Error(err)
 	}
 	for k, v := range es {
-		t.Log(k, v, err)
+		t.Log(types.DELEGATE_GID, k, v, err)
 	}
 	es, err = cs.ReadByTime(types.SNAPSHOT_GID, now)
 
@@ -40,7 +40,7 @@ func TestCommittee_ReadByTime(t *testing.T) {
 		t.Error(err)
 	}
 	for k, v := range es {
-		t.Log(k, v, err)
+		t.Log(types.SNAPSHOT_GID, k, v, err)
 	}
 
 }
