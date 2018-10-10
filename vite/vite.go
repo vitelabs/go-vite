@@ -17,17 +17,18 @@ import (
 type Vite struct {
 	config *config.Config
 
-	walletManager *wallet.Manager
-	chain         chain.Chain
-	producer      producer.Producer
-	net           *net.Net
-	pool          pool.BlockPool
-	consensus     consensus.Consensus
-	onRoad        *onroad.Manager
+	walletManager    *wallet.Manager
+	snapshotVerifier *verifier.SnapshotVerifier
+	accountVerifier  *verifier.AccountVerifier
+	chain            chain.Chain
+	producer         producer.Producer
+	net              *net.Net
+	pool             pool.BlockPool
+	consensus        consensus.Consensus
+	onRoad           *onroad.Manager
 }
 
 func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
-	// todo other module created and init
 
 	// chain
 	chain := chain.NewChain(cfg)
@@ -40,7 +41,6 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	cs := consensus.NewConsensus(*genesis.Timestamp, chain)
 
 	// net
-	// TODO verifier.NewAccountVerifier
 	aVerifier := verifier.NewAccountVerifier(chain, cs)
 	net, err := net.New(&net.Config{
 		Port:     uint16(cfg.FilePort),
@@ -52,16 +52,23 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 		return nil, err
 	}
 
+	// sb verifier
+	sbVerifier := verifier.NewSnapshotVerifier(chain, cs)
+
 	// vite
 	vite = &Vite{
-		config:    cfg,
-		net:       net,
-		chain:     chain,
-		pool:      pl,
-		consensus: cs,
+		config:           cfg,
+		net:              net,
+		chain:            chain,
+		pool:             pl,
+		consensus:        cs,
+		snapshotVerifier: sbVerifier,
+		accountVerifier:  aVerifier,
 	}
+
 	// onroad
-	or := onroad.NewManager(vite.net, vite.chain, vite.pool, vite.producer, vite.walletManager)
+	or := onroad.NewManager(vite)
+
 	// set onroad
 	vite.onRoad = or
 
@@ -74,7 +81,6 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 			return nil, err
 		}
 
-		sbVerifier := verifier.NewSnapshotVerifier(chain, cs)
 		vite.producer = producer.NewProducer(chain, net, coinbase, cs, sbVerifier, walletManager, pl)
 	}
 	return
@@ -86,11 +92,19 @@ func (v *Vite) Init() (err error) {
 		log.Error("Init producer failed, error is "+err.Error(), "method", "vite.Init")
 		return err
 	}
+
+	v.pool.Init(v.net, v.walletManager, v.snapshotVerifier, v.accountVerifier)
+
+	v.onRoad.Init()
+
 	return nil
 }
 
 func (v *Vite) Start() (err error) {
 	v.chain.Start()
+
+	v.net.Start()
+	v.pool.Start()
 	if v.producer != nil {
 		err := v.producer.Start()
 		if err != nil {
@@ -102,6 +116,18 @@ func (v *Vite) Start() (err error) {
 }
 
 func (v *Vite) Stop() (err error) {
+	v.chain.Stop()
+
+	v.net.Stop()
+	v.pool.Stop()
+
+	if v.producer != nil {
+		err := v.producer.Stop()
+		if err != nil {
+			log.Error("producer.Stop failed, error is "+err.Error(), "method", "vite.Stop")
+			return err
+		}
+	}
 	return nil
 }
 
