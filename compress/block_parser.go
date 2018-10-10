@@ -17,8 +17,9 @@ type blockParserCache struct {
 	currentBlockType       byte
 	currentBlockBuffer     []byte
 
-	reader    io.Reader
-	processor blockProcessor
+	reader        io.Reader
+	hasReadBlocks uint64
+	processor     blockProcessor
 }
 
 func (blockParser *blockParserCache) RefreshCache() {
@@ -30,14 +31,16 @@ func (blockParser *blockParserCache) RefreshCache() {
 
 var blockParserLog = log15.New("module", "compress/block_parser")
 
-func BlockParser(reader io.Reader, processor blockProcessor) {
+var readNum = 1024 * 1024 * 10 // 10M
+
+// If blockNum is zero, finish when stream encounter io.EOF
+func BlockParser(reader io.Reader, blockNum uint64, processor blockProcessor) {
 	//r, w := io.Pipe()
 
-	readNum := 1024 * 1024 * 10 // 10M
-
 	blockParser := &blockParserCache{
-		reader:    reader,
-		processor: processor,
+		reader:        reader,
+		processor:     processor,
+		hasReadBlocks: 0,
 	}
 
 	blockParser.RefreshCache()
@@ -85,6 +88,7 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 
 					}
 					if block != nil {
+						blockParser.hasReadBlocks++
 						processor(block, block.Deserialize(blockParser.currentBlockBuffer))
 					} else {
 						processor(nil, errors.New("Unknown block type"))
@@ -95,7 +99,7 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 			}
 		}
 
-		if rErr == io.EOF {
+		if rErr == io.EOF || (blockNum > 0 && blockParser.hasReadBlocks >= blockNum) {
 			return
 		}
 	}

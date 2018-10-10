@@ -1,6 +1,11 @@
 package pool
 
-import "github.com/vitelabs/go-vite/vite/net"
+import (
+	"strconv"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vite/net"
+)
 
 type tools struct {
 	// if address == nil, snapshot tools
@@ -20,4 +25,19 @@ type syncer interface {
 	net.Broadcaster
 	net.Fetcher
 	net.Subscriber
+}
+
+type fetchRequest struct {
+	snapshot bool
+	chain    *types.Address
+	hash     types.Hash
+	prevCnt  uint64
+}
+
+func (self *fetchRequest) String() string {
+	if self.chain == nil {
+		return strconv.FormatBool(self.snapshot) + "," + self.hash.String() + "," + strconv.FormatUint(self.prevCnt, 10)
+	} else {
+		return strconv.FormatBool(self.snapshot) + "," + self.hash.String() + "," + strconv.FormatUint(self.prevCnt, 10) + self.chain.String() + ","
+	}
 }

@@ -127,11 +127,17 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 
 	// reset piece, alloc to best peer
 	if from < to {
-		cs = append(cs, &subLedgerPiece{
-			from: from,
-			to:   to,
-			peer: peers[len(peers)-1],
-		})
+		// if peer is not too much, has rest chunk, then collapse the rest chunk with last chunk
+		lastChunk := cs[len(cs)-1]
+		if lastChunk.peer == peers[len(peers)-1] {
+			lastChunk.to = to
+		} else {
+			cs = append(cs, &subLedgerPiece{
+				from: from,
+				to:   to,
+				peer: peers[len(peers)-1],
+			})
+		}
 	}
 
 	return
@@ -239,7 +245,7 @@ func (s *subLedgerRequest) ID() uint64 {
 }
 
 func (s *subLedgerRequest) Run(*context) {
-	err := s.peer.Send(SubLedgerCode, s.id, &message.GetSubLedger{
+	err := s.peer.Send(GetSubLedgerCode, s.id, &message.GetSubLedger{
 		From:    &ledger.HashHeight{Height: s.from},
 		Count:   s.to - s.from + 1,
 		Forward: true,

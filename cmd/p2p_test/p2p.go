@@ -59,8 +59,6 @@ func main() {
 			},
 		},
 		BootNodes: p2pCfg.BootNodes,
-
-		KafKa: p2pCfg.Kafka,
 	}
 
 	if p2pCfg.PrivateKey != "" {
@@ -70,9 +68,12 @@ func main() {
 		}
 	}
 
-	svr := p2p.New(cfg)
+	svr, err := p2p.New(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	err := svr.Start()
+	err = svr.Start()
 	if err != nil {
 		log.Fatal(err)
 	}
