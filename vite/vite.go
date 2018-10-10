@@ -67,7 +67,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	}
 
 	// onroad
-	or := onroad.NewManager(vite)
+	or := onroad.NewManager(vite.net, vite.chain, vite.pool, vite.producer, vite.walletManager)
 
 	// set onroad
 	vite.onRoad = or
@@ -112,6 +112,7 @@ func (v *Vite) Start() (err error) {
 			return err
 		}
 	}
+	v.onRoad.Start()
 	return nil
 }
 
@@ -128,6 +129,7 @@ func (v *Vite) Stop() (err error) {
 			return err
 		}
 	}
+	v.onRoad.Stop()
 	return nil
 }
 
