@@ -638,6 +638,12 @@ func (self *blockPool) contains(hash types.Hash, height uint64) bool {
 	_, compound := self.compoundBlocks[hash]
 	return free || compound
 }
+func (self *blockPool) containsHash(hash types.Hash) bool {
+	_, free := self.freeBlocks[hash]
+	_, compound := self.compoundBlocks[hash]
+	return free || compound
+}
+
 func (self *blockPool) putBlock(hash types.Hash, pool commonBlock) {
 	self.freeBlocks[hash] = pool
 }
@@ -673,6 +679,11 @@ func (self *BCPool) AddBlock(block commonBlock) {
 		// todo online del
 		self.log.Warn(fmt.Sprintf("block exists in BCPool. hash:[%s], height:[%d].", hash, height))
 	}
+}
+func (self *BCPool) existInPool(hashes types.Hash) bool {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	return self.blockpool.containsHash(hashes)
 }
 
 type ByHeight []commonBlock

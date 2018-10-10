@@ -5,14 +5,17 @@ import (
 
 	"time"
 
+	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
+
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/verifier"
 )
 
 type verifyTask interface {
-	done() bool
+	done(c ch.Chain) bool
 	requests() []fetchRequest
 }
 
@@ -33,6 +36,7 @@ func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock
 type accountVerifier struct {
 	v   verifier.AccountVerifier
 	log log15.Logger
+	g   *generator.Generator
 }
 
 /**
@@ -40,11 +44,13 @@ if b is contract send block, result must be FAIL.
 */
 func (self *accountVerifier) verifyAccount(b *accountPoolBlock) (result *poolAccountVerifyStat) {
 	// todo how to fix for stat
-	verifyResult, _ := self.v.VerifyReferred(b.block)
+	verifyResult, stat := self.v.VerifyReferred(b.block)
 	result.result = verifyResult
+	result.stat = stat
+
 	switch verifyResult {
 	case verifier.SUCCESS:
-		blocks, err := self.v.VerifyforVM(b.block)
+		blocks, err := self.v.VerifyforVM(b.block, self.g)
 		if err != nil {
 			result.result = verifier.FAIL
 			return
@@ -98,18 +104,28 @@ type poolSnapshotVerifyStat struct {
 }
 
 func (self *poolSnapshotVerifyStat) verifyResult() verifier.VerifyResult {
-	return verifier.SUCCESS
+	return self.result
 }
 func (self *poolSnapshotVerifyStat) errMsg() string {
 	return ""
 }
 func (self *poolAccountVerifyStat) task() verifyTask {
-	return nil
+	var result []fetchRequest
+	taskA, taskB := self.stat.GetPendingTasks()
+	for _, v := range taskA {
+		result = append(result, fetchRequest{snapshot: false, chain: v.Addr, hash: *v.Hash, prevCnt: 1})
+	}
+
+	if taskB != nil {
+		result = append(result, fetchRequest{snapshot: true, hash: *taskB.Hash, prevCnt: 1})
+	}
+	return &accountTask{result: result, t: time.Now()}
 }
 
 type poolAccountVerifyStat struct {
 	blocks []*accountPoolBlock
 	result verifier.VerifyResult
+	stat   *verifier.AccountBlockVerifyStat
 }
 
 func (self *poolAccountVerifyStat) verifyResult() verifier.VerifyResult {
@@ -125,7 +141,7 @@ var failT = &failTask{}
 type successTask struct {
 }
 
-func (self *successTask) done() bool {
+func (self *successTask) done(c ch.Chain) bool {
 	return true
 }
 
@@ -137,7 +153,7 @@ type failTask struct {
 	t time.Time
 }
 
-func (self *failTask) done() bool {
+func (self *failTask) done(c ch.Chain) bool {
 	if time.Now().After(self.t.Add(time.Second * 3)) {
 		return true
 	}
@@ -146,4 +162,33 @@ func (self *failTask) done() bool {
 
 func (*failTask) requests() []fetchRequest {
 	return nil
+}
+
+type accountTask struct {
+	result []fetchRequest
+	t      time.Time
+}
+
+func (self *accountTask) done(c ch.Chain) bool {
+	if time.Now().After(self.t.Add(time.Second * 5)) {
+		return true
+	}
+	for _, v := range self.result {
+		if v.snapshot {
+			block, _ := c.GetSnapshotBlockByHash(&v.hash)
+			if block == nil {
+				return false
+			}
+		} else {
+			block, _ := c.GetAccountBlockByHash(&v.hash)
+			if block == nil {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (self *accountTask) requests() []fetchRequest {
+	return self.result
 }
