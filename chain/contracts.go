@@ -70,7 +70,7 @@ func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) []*contr
 }
 
 func (c *chain) GetVoteMap(snapshotHash types.Hash, gid types.Gid) []*contracts.VoteInfo {
-	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressRegister)
+	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressVote)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetVoteList")
 		return nil
@@ -79,7 +79,7 @@ func (c *chain) GetVoteMap(snapshotHash types.Hash, gid types.Gid) []*contracts.
 }
 
 func (c *chain) GetPledgeAmount(snapshotHash types.Hash, beneficial types.Address) *big.Int {
-	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressRegister)
+	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressPledge)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeBeneficialAmount")
 		return nil
@@ -88,7 +88,7 @@ func (c *chain) GetPledgeAmount(snapshotHash types.Hash, beneficial types.Addres
 }
 
 func (c *chain) GetConsensusGroupList(snapshotHash types.Hash) []*contracts.ConsensusGroupInfo {
-	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressRegister)
+	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &contracts.AddressConsensusGroup)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetActiveConsensusGroupList")
 		return nil

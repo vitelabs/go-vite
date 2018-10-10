@@ -25,10 +25,6 @@ var stayInTable = 5 * time.Minute   // minimal duration node stay in table can b
 var findInterval = 5 * time.Minute
 
 var errUnsolicitedMsg = errors.New("unsolicited message")
-var errMsgExpired = errors.New("message has expired")
-var errUnkownMsg = errors.New("unknown message")
-var errExtractPing = errors.New("extract message error, should be ping")
-var errExtractFindNode = errors.New("extract message error, should be findnode")
 
 func Priv2NodeID(priv ed25519.PrivateKey) (NodeID, error) {
 	pub := priv.PubByte()
