@@ -4,8 +4,10 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
+	"time"
 )
 
 type quotaDb interface {
@@ -35,6 +37,7 @@ func CalcQuota(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quo
 	// contract account only gets quota via pledge
 	// user account genesis block(a receive block) must calculate a PoW to get quota
 	// TODO Following code is just a simple implementation for test net.
+	defer monitor.LogTime("vm", "CalcQuota", time.Now())
 	quotaLimitForAccount := quotaLimit
 	quotaInitBig := new(big.Int).Div(contracts.GetPledgeBeneficialAmount(db, addr), quotaByPledge)
 	quotaAddition = uint64(0)

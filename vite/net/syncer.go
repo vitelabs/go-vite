@@ -1,6 +1,7 @@
 package net
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -153,6 +154,8 @@ func (s *syncer) start() {
 	start := time.NewTimer(waitEnoughPeers)
 	defer start.Stop()
 
+	s.log.Info("start sync")
+
 wait:
 	for {
 		select {
@@ -178,6 +181,7 @@ wait:
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
 	if enoughtHeightDiff(current.Height, p.height) {
+		s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
 		s.setState(Syncdone)
 		return
 	}
@@ -186,6 +190,7 @@ wait:
 	s.to = p.height
 	s.total = s.to - s.from + 1
 
+	s.log.Info(fmt.Sprintf("syncing: current at %d, to %d", s.from, s.to))
 	s.setState(Syncing)
 
 	// begin sync with peer
@@ -213,15 +218,20 @@ wait:
 							s.setTarget(bestPeer.height)
 						} else {
 							// no need sync
+							s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", bestPeer, bestPeer.height, current.Height))
 							s.setState(Syncdone)
+							return
 						}
 					} else {
 						// have no peers
+						s.log.Error("sync error: no peers")
 						s.setState(Syncerr)
+						return
 					}
 				}
 			}
 		case <-s.downloaded:
+			s.log.Info("sync downloaded")
 			s.setState(SyncDownloaded)
 			// check chain height timeout
 			deadline.Reset(chainGrowTimeout)
@@ -229,15 +239,19 @@ wait:
 			ticker.Stop()
 			ticker = time.NewTicker(chainGrowInterval)
 		case <-deadline.C:
+			s.log.Error("sync error: timeout")
 			s.setState(Syncerr)
 			return
 		case <-ticker.C:
 			current := s.chain.GetLatestSnapshotBlock()
 			if current.Height >= s.to {
+				s.log.Info(fmt.Sprintf("sync done, current height: %d", current.Height))
 				s.setState(Syncdone)
 				return
 			}
+			s.log.Info(fmt.Sprintf("current height: %d", current.Height))
 		case <-s.term:
+			s.log.Warn("sync cancel")
 			s.setState(SyncCancel)
 			return
 		}
@@ -283,7 +297,7 @@ func (s *syncer) sync(from, to uint64) {
 			from:       piece.from,
 			to:         piece.to,
 			peer:       piece.peer,
-			expiration: time.Now().Add(10 * time.Second),
+			expiration: time.Now().Add(10 * time.Minute),
 			done:       s.reqCallback,
 		}
 

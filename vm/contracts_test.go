@@ -1142,7 +1142,6 @@ func TestContractsMintage(t *testing.T) {
 }
 
 func TestCheckCreateConsensusGroupData(t *testing.T) {
-	// TODO test check consensus group
 	tests := []struct {
 		data string
 		err  error
@@ -1244,7 +1243,10 @@ func TestGenesisBlockData(t *testing.T) {
 	decimals := uint8(18)
 	totalSupply := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9))
 	viteAddress, _, _ := types.CreateAddress()
-	mintageData, _ := contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, viteAddress, big.NewInt(0), uint64(0))
+	mintageData, err := contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, viteAddress, big.NewInt(0), uint64(0))
+	if err != nil {
+		t.Fatalf("pack mintage variable error, %v", err)
+	}
 	fmt.Println("-------------mintage genesis block-------------")
 	fmt.Printf("address: %v\n", hex.EncodeToString(contracts.AddressMintage.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v\n}\n",
@@ -1257,8 +1259,11 @@ func TestGenesisBlockData(t *testing.T) {
 		ledger.BlockTypeReceive, 1, totalSupply, big.NewInt(0), []byte{})
 	fmt.Printf("Storage:{\n\t$balance:ledger.ViteTokenId:%v\n}\n", totalSupply)
 
-	conditionRegisterData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(1e6), attovPerVite), ledger.ViteTokenId, int64(3600*24*90))
-	snapshotConsensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+	conditionRegisterData, err := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(1e6), attovPerVite), ledger.ViteTokenId, uint64(3600*24*90))
+	if err != nil {
+		t.Fatalf("pack register condition variable error, %v", err)
+	}
+	snapshotConsensusGroupData, err := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(1),
 		int64(3),
@@ -1272,7 +1277,10 @@ func TestGenesisBlockData(t *testing.T) {
 		viteAddress,
 		big.NewInt(0),
 		uint64(1))
-	commonConsensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+	if err != nil {
+		t.Fatalf("pack consensus group data variable error, %v", err)
+	}
+	commonConsensusGroupData, err := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
 		int64(1),
@@ -1286,6 +1294,9 @@ func TestGenesisBlockData(t *testing.T) {
 		viteAddress,
 		big.NewInt(0),
 		uint64(1))
+	if err != nil {
+		t.Fatalf("pack consensus group data variable error, %v", err)
+	}
 	fmt.Println("-------------snapshot consensus group and common consensus group genesis block-------------")
 	fmt.Printf("address:%v\n", hex.EncodeToString(contracts.AddressConsensusGroup.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
@@ -1299,7 +1310,10 @@ func TestGenesisBlockData(t *testing.T) {
 	fmt.Printf("Storage:{\n")
 	for i := 1; i <= 25; i++ {
 		addr, _, _ := types.CreateAddress()
-		registerData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, "node"+strconv.Itoa(i), addr, addr, addr, helper.Big0, uint64(1), uint64(1), uint64(0))
+		registerData, err := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, "node"+strconv.Itoa(i), addr, addr, addr, helper.Big0, uint64(1), uint64(1), uint64(0))
+		if err != nil {
+			t.Fatalf("pack registration variable error, %v", err)
+		}
 		snapshotKey := contracts.GetRegisterKey("snapshotNode1", types.SNAPSHOT_GID)
 		fmt.Printf("\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData))
 	}

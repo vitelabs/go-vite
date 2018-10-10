@@ -195,7 +195,7 @@ func TestBlockParser(t *testing.T) {
 			fmt.Printf("%+v\n", meta)
 			fileReader := chainInstance.Compressor().FileReader(meta.Filename)
 
-			compress.BlockParser(fileReader, func(block ledger.Block, err error) {
+			compress.BlockParser(fileReader, 0, func(block ledger.Block, err error) {
 				if err != nil {
 					t.Fatal(err.Error())
 				}

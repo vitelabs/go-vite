@@ -12,7 +12,7 @@ import (
 
 type Fetcher interface {
 	// from is required, because we need from + count to find appropriate peer
-	FetchSnapshotBlocks(start uint64, count uint64, hash *types.Hash)
+	FetchSnapshotBlocks(start types.Hash, count uint64)
 
 	// address is optional
 	FetchAccountBlocks(start types.Hash, count uint64, address *types.Address)
@@ -37,8 +37,14 @@ func newFetcher(filter Filter, peers *peerSet, receiver Receiver, pool RequestPo
 	}
 }
 
-func (f *fetcher) FetchSnapshotBlocks(start uint64, count uint64, hash *types.Hash) {
+func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 	monitor.LogEvent("net/fetch", "s")
+
+	// been suppressed
+	if f.filter.hold(start) {
+		f.log.Warn(fmt.Sprintf("fetch suppressed: %s %d", start, count))
+		return
+	}
 
 	if atomic.LoadInt32(&f.ready) == 0 {
 		f.log.Warn("not ready")
@@ -46,14 +52,13 @@ func (f *fetcher) FetchSnapshotBlocks(start uint64, count uint64, hash *types.Ha
 	}
 
 	m := &message.GetSnapshotBlocks{
-		From:    &ledger.HashHeight{start, *hash},
+		From:    &ledger.HashHeight{Hash: start},
 		Count:   count,
 		Forward: true,
 	}
 
-	peers := f.peers.Pick(start + count)
-	if len(peers) != 0 {
-		p := peers[0]
+	p := f.peers.BestPeer()
+	if p != nil {
 		id := f.pool.MsgID()
 		err := p.Send(GetAccountBlocksCode, id, m)
 		if err != nil {
@@ -68,6 +73,12 @@ func (f *fetcher) FetchSnapshotBlocks(start uint64, count uint64, hash *types.Ha
 
 func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) {
 	monitor.LogEvent("net/fetch", "a")
+
+	// been suppressed
+	if f.filter.hold(start) {
+		f.log.Warn(fmt.Sprintf("fetch suppressed: %s %d", start, count))
+		return
+	}
 
 	if atomic.LoadInt32(&f.ready) == 0 {
 		f.log.Warn("not ready")

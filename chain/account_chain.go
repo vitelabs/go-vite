@@ -398,6 +398,9 @@ func (c *chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlo
 			Err:  err,
 		}
 	}
+	if block == nil {
+		return nil, nil
+	}
 
 	address, err := c.chainDb.Account.GetAddressById(block.Meta.AccountId)
 	if err != nil {

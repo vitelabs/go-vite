@@ -74,30 +74,6 @@ func (c *chain) Init() {
 	compressor := compress.NewCompressor(c, c.dataDir)
 	c.compressor = compressor
 
-	// check
-	c.checkAndInitData()
-
-	// trieNodePool
-	c.trieNodePool = trie.NewTrieNodePool()
-
-	// latestSnapshotBlock
-	var getLatestBlockErr error
-	c.latestSnapshotBlock, getLatestBlockErr = c.chainDb.Sc.GetLatestBlock()
-	if getLatestBlockErr != nil {
-		c.log.Crit("GetLatestBlock failed, error is "+getLatestBlockErr.Error(), "method", "NewChain")
-	}
-
-	// needSnapshotCache
-	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
-	if getSubLedgerErr != nil {
-		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "NewChain")
-	}
-
-	for addr := range unconfirmedSubLedger {
-		helper.ReverseSlice(unconfirmedSubLedger[addr])
-	}
-	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
-
 	// kafka sender
 	if len(c.cfg.KafkaProducers) > 0 {
 		var newKafkaErr error
@@ -196,13 +172,40 @@ func (c *chain) ChainDb() *chain_db.ChainDb {
 func (c *chain) Start() {
 	// Start compress in the background
 	c.log.Info("Start chain module")
+	// check
+	c.checkAndInitData()
+
+	// trieNodePool
+	c.trieNodePool = trie.NewTrieNodePool()
+
+	// latestSnapshotBlock
+	var getLatestBlockErr error
+	c.latestSnapshotBlock, getLatestBlockErr = c.chainDb.Sc.GetLatestBlock()
+	if getLatestBlockErr != nil {
+		c.log.Crit("GetLatestBlock failed, error is "+getLatestBlockErr.Error(), "method", "NewChain")
+	}
+
+	// needSnapshotCache
+	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
+	if getSubLedgerErr != nil {
+		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "NewChain")
+	}
+
+	for addr := range unconfirmedSubLedger {
+		helper.ReverseSlice(unconfirmedSubLedger[addr])
+	}
+	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
+
 	// start compressor
 	c.compressor.Start()
 
 	// start kafka sender
 	if c.kafkaSender != nil {
 		for _, producer := range c.cfg.KafkaProducers {
-			c.kafkaSender.Start(producer.BrokerList, producer.Topic)
+			startErr := c.kafkaSender.Start(producer.BrokerList, producer.Topic)
+			if startErr != nil {
+				c.log.Crit("Start kafka sender failed, error is " + startErr.Error())
+			}
 		}
 	}
 
