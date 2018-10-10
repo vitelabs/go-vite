@@ -217,10 +217,10 @@ func (c *AsyncMsgConn) readLoop() {
 	}
 }
 
-func (c *AsyncMsgConn) _write(msg *Msg) {
+func (c *AsyncMsgConn) _write(msg *Msg) bool {
 	// there is an error
 	if atomic.LoadInt32(&c.errored) != 0 {
-		return
+		return false
 	}
 
 	//c.fd.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
@@ -230,8 +230,10 @@ func (c *AsyncMsgConn) _write(msg *Msg) {
 	if err != nil {
 		c.report(2, err)
 		c.log.Error(fmt.Sprintf("write message %s to %s error: %v", msg, c.fd.RemoteAddr(), err))
+		return false
 	} else {
 		c.log.Info(fmt.Sprintf("write message %s to %s done", msg, c.fd.RemoteAddr()))
+		return true
 	}
 }
 
@@ -245,7 +247,9 @@ loop:
 		case <-c.term:
 			break loop
 		case msg := <-c.wqueue:
-			c._write(msg)
+			if !c._write(msg) {
+				break loop
+			}
 		}
 	}
 
