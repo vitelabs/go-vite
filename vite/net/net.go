@@ -46,6 +46,8 @@ type Config struct {
 	Verifier Verifier
 }
 
+const DefaultPort uint16 = 8484
+
 type Net struct {
 	*Config
 	peers       *peerSet
@@ -64,7 +66,11 @@ type Net struct {
 
 // auto from
 func New(cfg *Config) (*Net, error) {
-	fs, err := newFileServer(cfg.Port, cfg.Chain)
+	port := cfg.Port
+	if port == 0 {
+		port = DefaultPort
+	}
+	fs, err := newFileServer(port, cfg.Chain)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
 	"strconv"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type AccountBlock struct {
@@ -67,6 +68,52 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.Token
 		ab.Fee = ledgerBlock.Fee.String()
 	}
 	return ab
+}
+
+type RpcAccountInfo struct {
+	AccountAddress      types.Address
+	TotalNumber         string // uint64
+	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo
+}
+
+type RpcTokenBalanceInfo struct {
+	TokenInfo   *RpcTokenInfo
+	TotalAmount string // big int
+	Number      string // uint64
+}
+
+type RpcTokenInfo struct {
+	TokenName      string
+	TokenSymbol    string
+	TotalSupply    *string // *big.Int
+	Decimals       uint8
+	Owner          types.Address
+	PledgeAmount   *string // *big.Int
+	WithdrawHeight string  // uint64
+}
+
+func RawTokenInfoToRpc(tinfo *contracts.TokenInfo) *RpcTokenInfo {
+	var rt *RpcTokenInfo = nil
+	if tinfo != nil {
+		rt = &RpcTokenInfo{
+			TokenName:      tinfo.TokenName,
+			TokenSymbol:    tinfo.TokenSymbol,
+			TotalSupply:    nil,
+			Decimals:       tinfo.Decimals,
+			Owner:          tinfo.Owner,
+			PledgeAmount:   nil,
+			WithdrawHeight: string(tinfo.WithdrawHeight),
+		}
+		if tinfo.TotalSupply != nil {
+			s := tinfo.TotalSupply.String()
+			rt.TotalSupply = &s
+		}
+		if tinfo.PledgeAmount != nil {
+			s := tinfo.PledgeAmount.String()
+			rt.PledgeAmount = &s
+		}
+	}
+	return rt
 }
 
 //// Send tx parms

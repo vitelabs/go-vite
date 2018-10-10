@@ -16,7 +16,7 @@ type OnroadMeta struct {
 	Hash    types.Hash
 }
 
-type CommonAccountInfo struct {
+type OnroadAccountInfo struct {
 	mutex               sync.RWMutex
 	AccountAddress      *types.Address
 	TotalNumber         uint64
@@ -37,12 +37,12 @@ type onroadBlocksCache struct {
 	referenceMutex sync.Mutex
 }
 
-func (c *onroadBlocksCache) toCommonAccountInfo() *CommonAccountInfo {
+func (c *onroadBlocksCache) toOnroadAccountInfo() *OnroadAccountInfo {
 
 	c.listMutex.RLock()
 	defer c.listMutex.RUnlock()
 	ele := c.blocks.Front()
-	var ca CommonAccountInfo
+	var ca OnroadAccountInfo
 	infoMap := make(map[types.TokenTypeId]*TokenBalanceInfo)
 	for ele != nil {
 
