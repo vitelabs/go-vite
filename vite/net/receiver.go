@@ -1,8 +1,10 @@
 package net
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
 	"sync/atomic"
@@ -30,6 +32,7 @@ type receiver struct {
 	verifier    Verifier
 	broadcaster broadNewSnapshotBlock
 	filter      Filter
+	log         log15.Logger
 }
 
 func newReceiver(verifier Verifier, broadcaster broadNewSnapshotBlock, filter Filter) *receiver {
@@ -42,6 +45,7 @@ func newReceiver(verifier Verifier, broadcaster broadNewSnapshotBlock, filter Fi
 		verifier:    verifier,
 		broadcaster: broadcaster,
 		filter:      filter,
+		log:         log15.New("module", "net/receiver"),
 	}
 }
 
@@ -141,6 +145,8 @@ func (s *receiver) ReceiveAccountBlocks(mblocks map[types.Address][]*ledger.Acco
 
 func (s *receiver) listen(st SyncState) {
 	if st == Syncdone || st == SyncDownloaded {
+		s.log.Info(fmt.Sprintf("sync status: %s", st))
+
 		// caution: s.blocks and s.mblocks is mutating concurrently
 		// so we keep waterMark, after ready, handle rest blocks
 		sblockMark := len(s.sblocks)
@@ -185,8 +191,31 @@ func (s *receiver) listen(st SyncState) {
 			s.sFeed.Notify(block)
 		}
 
+		s.log.Info(fmt.Sprintf("notify %d snapshotblocks, %d account blocks, %d newSnapshotBlocks", countSnapshotBlocks(s.sblocks), countAccountBlocks(s.mblocks), len(s.newBlocks)))
+
 		// clear job
 		s.sblocks = s.sblocks[:0]
 		s.mblocks = nil
 	}
+}
+
+// helper
+func countAccountBlocks(mblocks map[types.Address][]*ledger.AccountBlock) (count uint64) {
+	for _, blocks := range mblocks {
+		for range blocks {
+			count++
+		}
+	}
+
+	return
+}
+
+func countSnapshotBlocks(sblocks [][]*ledger.SnapshotBlock) (count uint64) {
+	for _, blocks := range sblocks {
+		for range blocks {
+			count++
+		}
+	}
+
+	return
 }

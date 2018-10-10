@@ -337,7 +337,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 		req.Done(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 	} else {
-		fc.log.Error(fmt.Sprintf("read blocks from %s done", ctx.addr))
+		fc.log.Info(fmt.Sprintf("read blocks from %s done", ctx.addr))
 		fc.idle <- ctx
 		req.rec(sblocks, ablocks)
 		req.Done(nil)
