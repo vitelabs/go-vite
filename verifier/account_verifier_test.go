@@ -24,8 +24,6 @@ var (
 	pledgeAmount = new(big.Int).Mul(big.NewInt(10), attovPerVite)
 
 	genesisAccountPrivKeyStr string
-	genesisAccountPrivKey, _ = ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
-	genesisAccountPubKey     = genesisAccountPrivKey.PubByte()
 
 	addr1, privKey1, _ = types.CreateAddress()
 	addr1PrivKey, _    = ed25519.HexToPrivateKey(privKey1.Hex())
@@ -210,6 +208,10 @@ func AddrGenesisReceiveMintage(c chain.Chain, v *AccountVerifier, sendBlock *led
 }
 
 func AddrGenesisSendPledge(c chain.Chain, v *AccountVerifier) (blocks []*vm_context.VmAccountBlock, err error) {
+
+	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
+	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
+
 	latestAccountBlock, _ := c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
 	latestSnapshotBlock := c.GetLatestSnapshotBlock()
 	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr1)
