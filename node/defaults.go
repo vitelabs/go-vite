@@ -16,12 +16,12 @@ var DefaultNodeConfig = Config{
 	HttpPort:             common.DefaultHTTPPort,
 	WSPort:               common.DefaultWSPort,
 	privateKey:           "",
-	MaxPeers:             100,
-	MaxPassivePeersRatio: 2,
-	MaxPendingPeers:      20,
+	MaxPeers:             0,
+	MaxPassivePeersRatio: 0,
+	MaxPendingPeers:      0,
 	bootNodes:            nil,
-	Port:                 8483,
-	NetID:                6,
+	Port:                 0,
+	NetID:                0,
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.

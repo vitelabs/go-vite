@@ -153,7 +153,7 @@ func (node *Node) startP2pAndVite() error {
 	}
 
 	var err error
-	node.p2pServer, err = p2p.New(*node.p2pConfig)
+	node.p2pServer, err = p2p.New(node.p2pConfig)
 	if err != nil {
 		log.Error(fmt.Sprintf("p2p new error: %v", err))
 		return err

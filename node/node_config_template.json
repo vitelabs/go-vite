@@ -2,7 +2,7 @@
   "DataDir":"",
   "KeyStoreDir":"",
   "KafkaProducers":["localhost:211,localhost:22323|my_topic","localhost:211,localhost:22323|my_topic"],
-  "NetID":6,
+  "NetID":3,
   "Identity":"nodeServer",
   "PrivateKey":"",
   "MaxPeers":100,
