@@ -15,8 +15,6 @@ import (
 var (
 	fullCacheExpireTime   = 2 * time.Minute
 	simpleCacheExpireTime = 20 * time.Minute
-
-	TokenCacheExpireTime = 24 * 60 * time.Minute
 )
 
 // obtaining the account info from cache or db and manage the cache lifecycle
@@ -26,10 +24,8 @@ type OnroadBlocksPool struct {
 	fullCache          *sync.Map // map[types.Address]*onroadBlocksCache
 	fullCacheDeadTimer *sync.Map // map[types.Address]*time.Timer
 
-	simpleCache          *sync.Map // map[types.Address]*CommonAccountInfo
+	simpleCache          *sync.Map // map[types.Address]*OnroadAccountInfo
 	simpleCacheDeadTimer *sync.Map //map[types.Address]*time.Timer
-
-	tokenInfoCache *sync.Map // map[types.TokenTypeId]*contract.TokenInfo
 
 	newCommonTxListener   map[types.Address]func()
 	commonTxListenerMutex sync.RWMutex
@@ -53,7 +49,7 @@ func NewOnroadBlocksPool(dbAccess *UAccess) *OnroadBlocksPool {
 	}
 }
 
-func (p *OnroadBlocksPool) addSimpleCache(addr types.Address, accountInfo *CommonAccountInfo) {
+func (p *OnroadBlocksPool) addSimpleCache(addr types.Address, accountInfo *OnroadAccountInfo) {
 	p.simpleCache.Store(addr, accountInfo)
 
 	timer, ok := p.simpleCacheDeadTimer.Load(addr)
@@ -68,19 +64,19 @@ func (p *OnroadBlocksPool) addSimpleCache(addr types.Address, accountInfo *Commo
 	}
 }
 
-func (p *OnroadBlocksPool) GetCommonAccountInfo(addr types.Address) (*CommonAccountInfo, error) {
+func (p *OnroadBlocksPool) GetCommonAccountInfo(addr types.Address) (*OnroadAccountInfo, error) {
 	p.log.Debug("first load in simple cache", "addr", addr)
 	if c, ok := p.simpleCache.Load(addr); ok {
 		v, ok := p.simpleCacheDeadTimer.Load(addr)
 		if ok {
 			v.(*time.Timer).Reset(simpleCacheExpireTime)
 		}
-		return c.(*CommonAccountInfo), nil
+		return c.(*OnroadAccountInfo), nil
 	}
 
 	p.log.Debug("second load from full cache", "addr", addr)
 	if fullcache, ok := p.fullCache.Load(addr); ok {
-		accountInfo := fullcache.(*onroadBlocksCache).toCommonAccountInfo()
+		accountInfo := fullcache.(*onroadBlocksCache).toOnroadAccountInfo()
 		if accountInfo != nil {
 			p.addSimpleCache(addr, accountInfo)
 			return accountInfo, nil
@@ -229,15 +225,6 @@ func (p *OnroadBlocksPool) DeleteDirect(sendBlock *ledger.AccountBlock) error {
 	return p.dbAccess.store.DeleteMeta(nil, &sendBlock.ToAddress, &sendBlock.Hash)
 }
 
-// fixme move it to rpc
-func (p *OnroadBlocksPool) GetTokenInfoById(tti types.TokenTypeId) (*contracts.TokenInfo, error) {
-	if t, ok := p.tokenInfoCache.Load(tti); ok {
-		return t.(*contracts.TokenInfo), nil
-	}
-	info := p.dbAccess.Chain.GetTokenInfoById(&tti)
-	p.tokenInfoCache.Store(tti, info)
-	return info, nil
-}
 
 func (p *OnroadBlocksPool) RevertOnroadSuccess(subLedger map[types.Address][]*ledger.AccountBlock) {
 	//async update the cache
@@ -334,7 +321,7 @@ func (p *OnroadBlocksPool) updateSimpleCache(writeType bool, block *ledger.Accou
 		return
 	}
 
-	simpleAccountInfo := value.(*CommonAccountInfo)
+	simpleAccountInfo := value.(*OnroadAccountInfo)
 	simpleAccountInfo.mutex.Lock()
 	defer simpleAccountInfo.mutex.Unlock()
 

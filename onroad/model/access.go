@@ -188,12 +188,12 @@ func (access *UAccess) GetOnroadBlocks(index, num, count uint64, addr *types.Add
 	return nil, nil
 }
 
-func (access *UAccess) GetCommonAccInfo(addr *types.Address) (info *CommonAccountInfo, err error) {
+func (access *UAccess) GetCommonAccInfo(addr *types.Address) (info *OnroadAccountInfo, err error) {
 	infoMap, number, err := access.GetCommonAccTokenInfoMap(addr)
 	if err != nil {
 		return nil, err
 	}
-	info = &CommonAccountInfo{
+	info = &OnroadAccountInfo{
 		AccountAddress:      addr,
 		TotalNumber:         number,
 		TokenBalanceInfoMap: infoMap,
