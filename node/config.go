@@ -34,6 +34,14 @@ type Config struct {
 	Port                 uint     `json:"Port"`
 	NetID                uint     `json:"NetID"`
 
+	//net
+	Topology []string `json:"Topology"`
+
+	//producer
+	CoinBase      string `json:"CoinBase"`
+	MinerEnabled  bool   `json:"Miner"`
+	MinerInterval int    `json:"MinerInterval"`
+
 	//rpc
 	RPCEnabled bool `json:"RPCEnabled"`
 	IPCEnabled bool `json:"IPCEnabled"`
@@ -53,9 +61,18 @@ func (c *Config) makeWalletConfig() *wallet.Config {
 
 func (c *Config) makeViteConfig() *config.Config {
 	return &config.Config{
-		Chain:   c.makeChainConfig(),
-		P2P:     c.makeConfigP2P(),
-		DataDir: c.DataDir,
+		Chain:    c.makeChainConfig(),
+		P2P:      c.makeConfigP2P(),
+		Producer: c.makeMinerConfig(),
+		DataDir:  c.DataDir,
+		Topo:     c.Topology,
+	}
+}
+
+func (c *Config) makeMinerConfig() *config.Producer {
+	return &config.Producer{
+		Producer: c.MinerEnabled,
+		Coinbase: c.CoinBase,
 	}
 }
 

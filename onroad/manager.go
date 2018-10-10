@@ -48,7 +48,6 @@ func NewManager(vite Vite) *Manager {
 		vite:               vite,
 		pool:               vite.Pool(),
 		keystoreManager:    vite.WalletManager().KeystoreManager,
-		uAccess:            model.NewUAccess(vite.Chain()),
 		autoReceiveWorkers: make(map[types.Address]*AutoReceiveWorker),
 		contractWorkers:    make(map[types.Gid]*ContractWorker),
 		log:                slog.New("w", "manager"),
@@ -58,6 +57,8 @@ func NewManager(vite Vite) *Manager {
 }
 
 func (manager *Manager) Init() {
+	manager.uAccess = model.NewUAccess(manager.Chain())
+
 	manager.netStateLid = manager.vite.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
 	manager.unlockLid = manager.keystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
 	manager.vite.Producer().SetAccountEventFunc(manager.producerStartEventFunc)

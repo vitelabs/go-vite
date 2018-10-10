@@ -58,6 +58,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	// vite
 	vite = &Vite{
 		config:           cfg,
+		walletManager:    walletManager,
 		net:              net,
 		chain:            chain,
 		pool:             pl,
@@ -73,27 +74,27 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	vite.onRoad = or
 
 	// producer
-	if cfg.Producer.Producer && cfg.Producer.Coinbase != "" {
-		coinbase, err := types.HexToAddress(cfg.Producer.Coinbase)
+	//if cfg.Producer.Producer && cfg.Producer.Coinbase != "" {
+	coinbase, err := types.HexToAddress(cfg.Producer.Coinbase)
 
-		if err != nil {
-			log.Error("Coinbase parse failed from config file. Error is "+err.Error(), "method", "new Vite()")
-			return nil, err
-		}
-
-		vite.producer = producer.NewProducer(chain, net, coinbase, cs, sbVerifier, walletManager, pl)
+	if err != nil {
+		log.Error("Coinbase parse failed from config file. Error is "+err.Error(), "method", "new Vite()")
+		return nil, err
 	}
+
+	vite.producer = producer.NewProducer(chain, net, coinbase, cs, sbVerifier, walletManager, pl)
+	//}
 	return
 }
 
 func (v *Vite) Init() (err error) {
 	v.chain.Init()
+	//if v.producer != nil {
 	if err := v.producer.Init(); err != nil {
 		log.Error("Init producer failed, error is "+err.Error(), "method", "vite.Init")
 		return err
 	}
-
-	v.pool.Init(v.net, v.walletManager, v.snapshotVerifier, v.accountVerifier)
+	//}
 
 	v.onRoad.Init()
 
@@ -102,16 +103,18 @@ func (v *Vite) Init() (err error) {
 
 func (v *Vite) Start() (err error) {
 	v.chain.Start()
+	// hack
+	v.pool.Init(v.net, v.walletManager, v.snapshotVerifier, v.accountVerifier)
 
 	v.net.Start()
 	v.pool.Start()
-	if v.producer != nil {
-		err := v.producer.Start()
-		if err != nil {
-			log.Error("producer.Start failed, error is "+err.Error(), "method", "vite.Start")
-			return err
-		}
+	//if v.producer != nil {
+
+	if err := v.producer.Start(); err != nil {
+		log.Error("producer.Start failed, error is "+err.Error(), "method", "vite.Start")
+		return err
 	}
+	//}
 	return nil
 }
 

@@ -169,23 +169,31 @@ func (node *Node) startP2pAndVite() error {
 	}
 
 	//Initialize the vite server
-	node.viteServer, err = vite.New(node.viteConfig)
+	node.viteServer, err = vite.New(node.viteConfig, node.walletManager)
 	if err != nil {
 		log.Error(fmt.Sprintf("Vite new error: %v", err))
 		return err
 	}
 
-	node.p2pServer.Protocols = append(node.p2pServer.Protocols, node.viteServer.Protocols()...)
+	//Protocols setting
+	node.p2pServer.Protocols = append(node.p2pServer.Protocols, node.viteServer.Net().Protocols...)
+
+	// Start vite
+	if e := node.viteServer.Init(); e != nil {
+		log.Error(fmt.Sprintf("ViteServer init error: %v", e))
+		return err
+	}
+
+	if e := node.viteServer.Start(); e != nil {
+		log.Error(fmt.Sprintf("ViteServer start error: %v", e))
+		return err
+	}
 
 	// Start p2p
 	if e := node.p2pServer.Start(); e != nil {
 		log.Error(fmt.Sprintf("P2PServer start error: %v", e))
 		return err
 	}
-
-	// Start vite
-	node.viteServer.Start(node.p2pServer)
-
 	return nil
 }
 
