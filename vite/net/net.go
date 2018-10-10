@@ -3,11 +3,11 @@ package net
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"io"
 	"sync"
 	"time"
 )
@@ -33,12 +33,7 @@ type Chain interface {
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
-	Compressor() Compressor
-}
-
-type Compressor interface {
-	FileReader(filename string) io.ReadCloser
-	BlockParser(reader io.Reader, blockNum uint64, processFunc func(block ledger.Block, err error))
+	Compressor() *compress.Compressor
 }
 
 type Verifier interface {

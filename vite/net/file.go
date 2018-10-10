@@ -100,9 +100,11 @@ func (f *fileServer) handleConn(conn net.Conn) {
 				err = req.Deserialize(msg.Payload)
 
 				if err != nil {
-					f.log.Error(fmt.Sprintf("parse message %s from %s error: %v", GetFilesCode, conn.RemoteAddr(), err))
+					f.log.Error(fmt.Sprintf("parse message %s from %s error: %v", code, conn.RemoteAddr(), err))
 					return
 				}
+
+				f.log.Info(fmt.Sprintf("receive message %s from %s", code, conn.RemoteAddr()))
 
 				// send files
 				for _, filename := range req.Names {
@@ -293,6 +295,8 @@ loop:
 func (fc *fileClient) exe(ctx *connContext) {
 	defer fc.wg.Done()
 
+	ctx.idle = false
+
 	req := ctx.req
 	filenames := make([]string, len(req.files))
 	for i, file := range req.files {
@@ -329,6 +333,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 	sblocks, ablocks, err := fc.readBlocks(ctx)
 	if err != nil {
 		fc.log.Error(fmt.Sprintf("read blocks from %s error: %v", ctx.addr, err))
+		req.rec(sblocks, ablocks)
 		req.Done(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 	} else {
@@ -365,7 +370,7 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 
 		// set read deadline
 		//ctx.SetReadDeadline(time.Now().Add(total * time.Millisecond))
-		fc.chain.Compressor().BlockParser(ctx, func(block ledger.Block, err error) {
+		fc.chain.Compressor().BlockParser(ctx, total, func(block ledger.Block, err error) {
 			if err != nil {
 				return
 			}
@@ -396,10 +401,10 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 
 		if count >= total && sCount >= sTotal {
 			fc.log.Info(fmt.Sprintf("got %d/%d blocks, %d/%d ablocks", count, total, sCount, sTotal))
-			return
+		} else {
+			err = fmt.Errorf("incomplete blocks: %d/%d, %d/%d", count, total, sCount, sTotal)
 		}
 
-		err = fmt.Errorf("incomplete blocks: %d/%d, %d/%d", count, total, sCount, sTotal)
 		return
 	}
 }
