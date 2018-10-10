@@ -47,9 +47,6 @@ var packetStrs = [...]string{
 }
 
 func (c packetCode) String() string {
-	if c > exceptionCode {
-		return "unknown"
-	}
 	return packetStrs[c]
 }
 
