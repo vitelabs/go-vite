@@ -11,9 +11,9 @@ import (
 )
 
 type Config struct {
-	*P2P   `json:"P2P"`
-	*Miner `json:"Miner"`
-	*Chain `json:"Chain"`
+	*P2P      `json:"P2P"`
+	*Producer `json:"Producer"`
+	*Chain    `json:"Chain"`
 
 	// global keys
 	DataDir string `json:"DataDir"`
@@ -55,10 +55,9 @@ func defaultConfig() {
 			Datadir:              common.DefaultDataDir(),
 			NetID:                6,
 		},
-		Miner: &Miner{
-			Miner:         false,
-			Coinbase:      "",
-			MinerInterval: 6,
+		Producer: &Producer{
+			Producer: false,
+			Coinbase: "",
 		},
 		Chain:    &Chain{},
 		DataDir:  common.DefaultDataDir(),

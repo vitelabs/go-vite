@@ -25,6 +25,9 @@ var mLog = log15.New("module", "producer")
 
 type Producer interface {
 	SetAccountEventFunc(func(producerevent.AccountEvent))
+	Init() error
+	Start() error
+	Stop() error
 }
 
 // Backend wraps all methods required for mining.

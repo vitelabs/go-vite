@@ -1,9 +1,8 @@
 package config
 
-type Miner struct {
-	Miner         bool   `json:"Miner"`
-	Coinbase      string `json:"Coinbase"`
-	MinerInterval int    `json:"MinerInterval"`
+type Producer struct {
+	Producer bool   `json:"Producer"`
+	Coinbase string `json:"Coinbase"`
 }
 
 //func MergeMinerConfig(cfg *Miner) *Miner {

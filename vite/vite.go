@@ -1,96 +1,116 @@
 package vite
 
 import (
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
-	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/onroad"
+	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/producer"
+	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
 type Vite struct {
-	config        *config.Config
+	config *config.Config
+
 	walletManager *wallet.Manager
 	chain         chain.Chain
-	verifier      consensus.Verifier
 	producer      producer.Producer
-	Net           *net.Net
-	p2p           *p2p.Server
+	net           *net.Net
+	pool          pool.BlockPool
+	consensus     consensus.Consensus
+	onRoad        *onroad.Manager
 }
 
-func New(cfg *config.Config) (vite *Vite, err error) {
+func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
 	// todo other module created and init
 
+	// chain
+	chain := chain.NewChain(cfg)
+
+	// pool
+	pl := pool.NewPool(chain)
+	genesis := chain.GetGenesisSnapshotBlock()
+
+	// consensus
+	cs := consensus.NewConsensus(*genesis.Timestamp, chain)
+
+	// net
+	// TODO verifier.NewAccountVerifier
+	aVerifier := verifier.NewAccountVerifier(chain, cs)
 	net, err := net.New(&net.Config{
-		Port:  uint16(cfg.FilePort),
-		Chain: nil,
+		Port:     uint16(cfg.FilePort),
+		Chain:    chain,
+		Verifier: aVerifier,
 	})
-
 	if err != nil {
-		return
+		log.Error("net.New failed. Error is "+err.Error(), "method", "new Vite()")
+		return nil, err
 	}
 
+	// vite
 	vite = &Vite{
-		config: cfg,
-		Net:    net,
+		config:    cfg,
+		net:       net,
+		chain:     chain,
+		pool:      pl,
+		consensus: cs,
 	}
+	// onroad
+	or := onroad.NewManager(vite)
+	// set onroad
+	vite.onRoad = or
 
-	//downloadLedger(cfg.IsDownload, cfg.DataDir)
-	//
-	//log := log15.New("module", "vite/backend")
-	//vite := &Vite{config: cfg}
-	//
-	//vite.ledger = ledgerHandler.NewManager(vite, cfg.DataDir)
-	//
-	//vite.walletManager = wallet.New(cfg.DataDir)
-	//vite.signer = signer.NewMaster(vite)
-	//vite.signer.InitAndStartLoop()
-	//
-	//vite.pm = net.New(vite)
-	//
-	//vite.p2p = p2p.New(cfg.P2P)
-	//
-	//genesisTime := time.Unix(int64(ledger.GetSnapshotGenesisBlock().Timestamp), 0)
-	//committee := consensus.NewCommittee(genesisTime, int32(cfg.MinerInterval), int32(len(consensus.DefaultMembers)))
-	//vite.verifier = committee
-	//
-	//if cfg.Miner.Miner && cfg.Miner.Coinbase != "" {
-	//	log.Info("Vite backend new: Start miner.")
-	//	coinbase, _ := types.HexToAddress(cfg.Miner.Coinbase)
-	//	vite.miner = miner.NewMiner(vite.ledger.Sc(), vite.ledger.RegisterFirstSyncDown, coinbase, committee)
-	//	pwd := "123"
-	//	vite.walletManager.KeystoreManager.Unlock(coinbase, pwd, 0)
-	//	committee.Init()
-	//	vite.miner.Init()
-	//	vite.miner.Start()
-	//	committee.Start()
-	//}
-	//vite.p2p.Start()
-	//
-	//fmt.Println("vite node start success you can find the runlog in", cfg.RunLogDir())
+	// producer
+	if cfg.Producer.Producer && cfg.Producer.Coinbase != "" {
+		coinbase, err := types.HexToAddress(cfg.Producer.Coinbase)
 
+		if err != nil {
+			log.Error("Coinbase parse failed from config file. Error is "+err.Error(), "method", "new Vite()")
+			return nil, err
+		}
+
+		sbVerifier := verifier.NewSnapshotVerifier(chain, cs)
+		vite.producer = producer.NewProducer(chain, net, coinbase, cs, sbVerifier, walletManager, pl)
+	}
 	return
 }
 
-func (v *Vite) Start(svr *p2p.Server) {
-	v.p2p = svr
+func (v *Vite) Init() (err error) {
+	v.chain.Init()
+	if err := v.producer.Init(); err != nil {
+		log.Error("Init producer failed, error is "+err.Error(), "method", "vite.Init")
+		return err
+	}
+	return nil
 }
 
-func (v *Vite) Protocols() []*p2p.Protocol {
-	return v.Net.Protocols
+func (v *Vite) Start() (err error) {
+	v.chain.Start()
+	if v.producer != nil {
+		err := v.producer.Start()
+		if err != nil {
+			log.Error("producer.Start failed, error is "+err.Error(), "method", "vite.Start")
+			return err
+		}
+	}
+	return nil
 }
 
-func (v *Vite) Stop() {
-
+func (v *Vite) Stop() (err error) {
+	return nil
 }
 
 func (v *Vite) Chain() chain.Chain {
 	return v.chain
 }
-func (v *Vite) P2p() *p2p.Server {
-	return v.p2p
+
+func (v *Vite) Net() *net.Net {
+	return v.net
 }
 
 func (v *Vite) WalletManager() *wallet.Manager {
@@ -100,6 +120,15 @@ func (v *Vite) WalletManager() *wallet.Manager {
 func (v *Vite) Producer() producer.Producer {
 	return v.producer
 }
-func (v *Vite) Verifier() consensus.Verifier {
-	return v.verifier
+
+func (v *Vite) Pool() pool.BlockPool {
+	return v.pool
+}
+
+func (v *Vite) Consensus() consensus.Consensus {
+	return v.consensus
+}
+
+func (v *Vite) OnRoad() *onroad.Manager {
+	return v.onRoad
 }
