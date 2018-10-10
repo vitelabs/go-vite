@@ -9,12 +9,15 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm/contracts"
+	"math/big"
 	"testing"
 )
 
 var (
 	genesisAccountPrivKeyStr string
+	addr1, _, _              = types.CreateAddress()
 )
 
 func init() {
@@ -47,16 +50,9 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	consensusMsg := &ConsensusMessage{
-		SnapshotHash: c.GetLatestSnapshotBlock().Hash,
-		Timestamp:    *c.GetLatestSnapshotBlock().Timestamp,
-		Producer:     fromBlock.ToAddress,
-		gid:          types.Gid{},
-	}
-	genResult, err := gen.GenerateWithOnroad(*fromBlock, consensusMsg,
+	genResult, err := gen.GenerateWithOnroad(*fromBlock, nil,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			sig := ed25519.Sign(genesisAccountPrivKey, data)
-			return sig, genesisAccountPubKey, nil
+			return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
 		})
 	if err != nil {
 		t.Error("GenerateWithOnroad", err)
@@ -72,23 +68,65 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 			Fee:            fromBlock.Fee,
 			Amount:         fromBlock.Amount,
 			TokenId:        fromBlock.TokenId,
-			SnapshotHash:   consensusMsg.SnapshotHash,
-			Timestamp:      &consensusMsg.Timestamp,
-			PublicKey:      genesisAccountPubKey,
-			LogHash:        genBlock.LogHash,
-			StateHash:      genBlock.StateHash,
+
+			PublicKey:    genBlock.PublicKey,
+			SnapshotHash: genBlock.SnapshotHash,
+			Timestamp:    genBlock.Timestamp,
+			LogHash:      genBlock.LogHash,
+			StateHash:    genBlock.StateHash,
+			Nonce:        genBlock.Nonce,
 		}
-		mockhHash := mockReceiveBlock.ComputeHash()
-		t.Log("hash", genBlock.Hash)
-		t.Log("mockhBlock", mockhHash)
-		if genBlock.Hash != mockhHash {
+		mockReceiveBlock.Hash = mockReceiveBlock.ComputeHash()
+		if genBlock.Hash != mockReceiveBlock.Hash {
 			t.Log("Verify Hash failed")
 			return
 		}
 		t.Log("Verify Hash success")
 	}
+	return
 }
 
 func TestGenerator_GenerateWithMessage(t *testing.T) {
+	c := PrepareVite()
 
+	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
+	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
+
+	preBlock, err := c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
+	if err != nil {
+		t.Error("GetLatestAccountBlock", err)
+		return
+	}
+	var preHash types.Hash
+	if preBlock != nil {
+		preHash = preBlock.Hash
+	}
+
+	nonce := pow.GetPowNonce(nil, types.DataListHash(ledger.GenesisAccountAddress.Bytes(), preHash.Bytes()))
+	message := &IncomingMessage{
+		BlockType:      ledger.BlockTypeSendCall,
+		AccountAddress: ledger.GenesisAccountAddress,
+		ToAddress:      &addr1,
+		FromBlockHash:  nil,
+		TokenId:        &ledger.ViteTokenId,
+		Amount:         big.NewInt(10),
+		Fee:            nil,
+		Nonce:          nonce[:],
+		Data:           nil,
+	}
+
+	gen, err := NewGenerator(c, nil, nil, &message.AccountAddress)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	genResult, err := gen.GenerateWithMessage(message, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+		return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
+	})
+	if err != nil {
+		t.Error("GenerateWithMessage err", err)
+		return
+	}
+	t.Error("genResult", genResult, genResult.Err)
 }
