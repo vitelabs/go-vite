@@ -5,25 +5,34 @@ import (
 
 	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/wallet"
 
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/consensus"
 )
 
 func TestNewPool(t *testing.T) {
-	innerChainInstance := ch.NewChain(&config.Config{
+	c := ch.NewChain(&config.Config{
 		DataDir: common.DefaultDataDir(),
-		//Chain: &config.Chain{
-		//	KafkaProducers: []*config.KafkaProducer{{
-		//		Topic:      "test",
-		//		BrokerList: []string{"abc", "def"},
-		//	}},
-		//},
 	})
-	innerChainInstance.Init()
-	innerChainInstance.Start()
-	newPool := NewPool(innerChainInstance)
-	newPool.Init(&MockSyncer{}, nil, nil, nil)
-	newPool.Start()
+	p := NewPool(c)
+	w := wallet.New(nil)
 
-	make(chan int) <- 1
+	av := verifier.NewAccountVerifier(c, nil)
+
+	cs := &consensus.MockConsensus{}
+	sv := verifier.NewSnapshotVerifier(c, cs)
+
+	c.Init()
+	c.Start()
+	p.Init(&MockSyncer{}, w, sv, av)
+
+	p.Start()
+
+	block := c.GetLatestSnapshotBlock()
+	t.Log(block.Height, block.Hash, block.PrevHash, block.Producer())
+	for k, v := range block.SnapshotContent {
+		t.Log(k.String(), v.Hash, v.Height)
+	}
 }

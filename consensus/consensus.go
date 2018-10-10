@@ -23,7 +23,12 @@ type Event struct {
 	SnapshotHeight uint64     // add to block
 }
 
-type Consensus interface {
+type Subscriber interface {
 	Subscribe(gid types.Gid, id string, addr *types.Address, fn func(Event))
 	UnSubscribe(gid types.Gid, id string)
+}
+
+type Consensus interface {
+	Verifier
+	Subscriber
 }

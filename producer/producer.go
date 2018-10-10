@@ -62,7 +62,7 @@ type producer struct {
 	mining               int32
 	coinbase             types.Address // address
 	worker               *worker
-	cs                   consensus.Consensus
+	cs                   consensus.Subscriber
 	downloaderRegister   DownloaderRegister
 	downloaderRegisterCh chan int
 	dwlFinished          bool
@@ -73,7 +73,7 @@ type producer struct {
 func NewProducer(rw chain.Chain,
 	downloaderRegister DownloaderRegister,
 	coinbase types.Address,
-	cs consensus.Consensus,
+	cs consensus.Subscriber,
 	verifier *verifier.SnapshotVerifier,
 	wt *wallet.Manager) *producer {
 	chain := newChainRw(rw, verifier, wt)

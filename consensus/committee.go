@@ -31,7 +31,6 @@ type committee struct {
 	contract *teller
 	tellers  sync.Map
 	signer   types.Address
-	signerFn SignerFn
 
 	// subscribes map[types.Gid]map[string]*subscribeEvent
 	subscribes sync.Map
@@ -40,15 +39,7 @@ type committee struct {
 }
 
 func (self *committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
-	gid := types.SNAPSHOT_GID
-	t, ok := self.tellers.Load(gid)
-	if !ok {
-		t = self.initTeller(gid)
-	}
-	if t == nil {
-		return false, errors.New("consensus group not exist")
-	}
-	tel := t.(*teller)
+	tel := self.snapshot
 	electionResult, err := tel.electionTime(*header.Timestamp)
 	if err != nil {
 		return false, err
@@ -56,14 +47,14 @@ func (self *committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (boo
 
 	return self.verifyProducer(*header.Timestamp, header.Producer(), electionResult), nil
 }
-func (self *committee) initTeller(gid types.Gid) *teller {
+func (self *committee) initTeller(gid types.Gid) (*teller, error) {
 	info := self.rw.GetMemberInfo(gid, self.genesis)
 	if info == nil {
-		return nil
+		return nil, errors.New("can't get member info.")
 	}
 	t := newTeller(info, gid, self.rw)
 	self.tellers.Store(gid, t)
-	return t
+	return t, nil
 }
 
 func (self *committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool, error) {
@@ -73,7 +64,11 @@ func (self *committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool,
 	}
 	t, ok := self.tellers.Load(gid)
 	if !ok {
-		t = self.initTeller(gid)
+		tmp, err := self.initTeller(gid)
+		if err != nil {
+			return false, err
+		}
+		t = tmp
 	}
 	if t == nil {
 		return false, errors.New("consensus group not exist")
@@ -122,8 +117,20 @@ func (self *committee) Init() error {
 		return errors.New("pre init fail.")
 	}
 	defer self.PostInit()
-	self.snapshot = self.initTeller(types.SNAPSHOT_GID)
-	self.contract = self.initTeller(types.DELEGATE_GID)
+	{
+		t, err := self.initTeller(types.SNAPSHOT_GID)
+		if err != nil {
+			return err
+		}
+		self.snapshot = t
+	}
+	{
+		t, err := self.initTeller(types.DELEGATE_GID)
+		if err != nil {
+			return err
+		}
+		self.contract = t
+	}
 	return nil
 }
 

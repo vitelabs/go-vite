@@ -39,7 +39,7 @@ const (
 	DefaultNetID                = Aquarius
 )
 
-const P2PDir = "p2p"
+const Dirname = "p2p"
 const privKeyFileName = "priv.key"
 
 func getServerKey(p2pDir string) (pub ed25519.PublicKey, priv ed25519.PrivateKey, err error) {
@@ -129,12 +129,12 @@ func EnsureConfig(cfg *Config) *Config {
 		cfg.Port = DefaultPort
 	}
 
-	if cfg.Database == "" {
-		cfg.Database = filepath.Join(common.DefaultDataDir(), P2PDir)
+	if cfg.DataDir == "" {
+		cfg.DataDir = filepath.Join(common.DefaultDataDir(), Dirname)
 	}
 
 	if cfg.PrivateKey == nil {
-		_, priv, err := getServerKey(cfg.Database)
+		_, priv, err := getServerKey(cfg.DataDir)
 		if err != nil {
 			p2pServerLog.Crit("generate privateKey error", "error", err)
 		} else {

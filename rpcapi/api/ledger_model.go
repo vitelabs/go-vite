@@ -55,9 +55,9 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.Token
 		Height: strconv.FormatUint(ledgerBlock.Height, 10),
 		Quota:  strconv.FormatUint(ledgerBlock.Quota, 10),
 
-		Amount: "0",
-		Fee:    "0",
-
+		Amount:         "0",
+		Fee:            "0",
+		TokenInfo:      RawTokenInfoToRpc(token),
 		ConfirmedTimes: strconv.FormatUint(confirmedTimes, 10),
 	}
 
@@ -109,7 +109,7 @@ func RawTokenInfoToRpc(tinfo *contracts.TokenInfo) *RpcTokenInfo {
 			Decimals:       tinfo.Decimals,
 			Owner:          tinfo.Owner,
 			PledgeAmount:   nil,
-			WithdrawHeight: string(tinfo.WithdrawHeight),
+			WithdrawHeight: strconv.FormatUint(tinfo.WithdrawHeight, 10),
 		}
 		if tinfo.TotalSupply != nil {
 			s := tinfo.TotalSupply.String()

@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"sync"
 	"time"
+	"github.com/vitelabs/go-vite/chain"
 )
 
 var (
@@ -246,4 +247,12 @@ func (manager Manager) ListWorkingAutoReceiveWorker() []types.Address {
 
 func (manager Manager) GetOnroadBlocksPool() *model.OnroadBlocksPool {
 	return manager.onroadBlocksPool
+}
+
+func (manager Manager) Chain() chain.Chain {
+	return manager.vite.Chain()
+}
+
+func (manager Manager) DbAccess() *model.UAccess {
+	return manager.uAccess
 }
