@@ -19,25 +19,36 @@ import (
 )
 
 var (
+	attovPerVite    = big.NewInt(1e18)
+	viteTotalSupply = new(big.Int).Mul(big.NewInt(1e9), attovPerVite)
+	pledgeAmount    = new(big.Int).Mul(big.NewInt(10), attovPerVite)
+
 	genesisAccountPrivKeyStr string
-	attovPerVite             = big.NewInt(1e18)
-	viteTotalSupply          = new(big.Int).Mul(big.NewInt(1e9), attovPerVite)
-	pledgeAmount             = new(big.Int).Mul(big.NewInt(10), attovPerVite)
+	genesisAccountPrivKey, _ = ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
+	genesisAccountPubKey     = genesisAccountPrivKey.PubByte()
 
 	addr1, privKey1, _ = types.CreateAddress()
 	addr1PrivKey, _    = ed25519.HexToPrivateKey(privKey1.Hex())
 	addr1PubKey        = addr1PrivKey.PubByte()
+
+	addr2, privKey2, _ = types.CreateAddress()
+	addr2PrivKey, _    = ed25519.HexToPrivateKey(privKey1.Hex())
+	addr2PubKey        = addr2PrivKey.PubByte()
 )
 
 func init() {
 	flag.StringVar(&genesisAccountPrivKeyStr, "k", "", "")
 	flag.Parse()
 	fmt.Println(genesisAccountPrivKeyStr)
-
 }
 
-func TestGenerator_GenerateWithMessage(t *testing.T) {
+func PrepareVite() (chain.Chain, *wallet.Manager) {
+	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
+	c.Init()
+	c.Start()
 
+	w := wallet.New(nil)
+	return c, w
 }
 
 func TestGenerator_PackBlockWithSendBlock(t *testing.T) {
@@ -51,40 +62,47 @@ func TestGenerator_PackBlockWithSendBlock(t *testing.T) {
 	gen.GenerateWithOnroad(*fromBlock, nil, nil)
 }
 
-func TestGenerator(t *testing.T) {
+func TestGeneratorFlow(t *testing.T) {
 	c, w := PrepareVite()
 
-	if err := GenesisBlockMintageReceive(c, w); err != nil {
-		t.Log("GenesisBlockMintageReceive", err)
-	}
-
-	// todo createNewSb
-	CreateNewSnapshotBlock(c, w)
-
-	blocks, err := GenesisBlockPledgeSend(c, w)
+	// AddressGenesis Receive MintageSend need pow
+	mintageSend, err := c.GetLatestAccountBlock(&contracts.AddressMintage)
 	if err != nil {
-		t.Log("GenesisBlockPledgeSend", err)
-	} else {
-		t.Log(blocks, err)
-		t.Log(blocks[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
+		t.Log("GetLatestAccountBlock", err)
+	}
+	if err := AddrGenesisReceiveMintage(&c, w, mintageSend); err != nil {
+		t.Log("AddrGenesisReceiveMintage", err)
 	}
 
-	if err := GenesisBlockPledgeReceive(c, w); err != nil {
-		t.Log("GenesisBlockPledgeSend", err)
+	CreateNewSnapshotBlock(&c, w)
+
+	// AddressGenesis sendCall PledgeAddress, need pow
+	verifyResult, err := AddrGenesisSendPledge(&c, w)
+	if err != nil {
+		t.Log("AddrGenesisSendPledge", err)
+		return
 	}
+	t.Log(verifyResult)
+	t.Log(verifyResult[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
+
+	// PledgeAddress receive call
+	pledgeSend := verifyResult[0].AccountBlock
+	genResult, err := AddrPledgeReceive(c, w, pledgeSend)
+	if err != nil {
+		t.Log("AddrGenesisSendPledge", err)
+	}
+
+	// test Add1SendAddr2
+	Add1SendAddr2(c, w)
+	t.Log(genResult)
 }
 
-func GenesisBlockMintageReceive(c chain.Chain, w *wallet.Manager) error {
+func AddrGenesisReceiveMintage(c chain.Chain, w *wallet.Manager, sendBlock *ledger.AccountBlock) error {
 	gen := NewGenerator(c, w.KeystoreManager)
-	fromBlock, err := c.GetLatestAccountBlock(&contracts.AddressMintage)
-	if err != nil {
-		return err
-	}
-	gen.PrepareVm(nil, nil, &ledger.GenesisAccountAddress)
-	gen.GenerateWithOnroad(*fromBlock, nil, nil)
 
-	//genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
-	//genesisAccountPubKey := genesisAccountPrivKey.PubByte()
+	gen.PrepareVm(nil, nil, &ledger.GenesisAccountAddress)
+	gen.GenerateWithOnroad(*sendBlock, nil, nil)
+
 	//fromBlock, err := c.GetLatestAccountBlock(&contracts.AddressMintage)
 	//if err != nil {
 	//	return err
@@ -116,19 +134,17 @@ func GenesisBlockMintageReceive(c chain.Chain, w *wallet.Manager) error {
 }
 
 func CreateNewSnapshotBlock(c chain.Chain, w *wallet.Manager) {
+	
 
 }
 
-func GenesisBlockPledgeSend(c chain.Chain, w *wallet.Manager) (blocks []*vm_context.VmAccountBlock, err error) {
+func AddrGenesisSendPledge(c chain.Chain, w *wallet.Manager) (blocks []*vm_context.VmAccountBlock, err error) {
 	v := verifier.NewAccountVerifier(c, nil)
 	g := NewGenerator(c, w.KeystoreManager)
 
-	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
-	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
-
 	latestAccountBlock, _ := c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
 	latestSnapshotBlock := c.GetLatestSnapshotBlock()
-	pledgeData, err := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr1)
+	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr1)
 	if err != nil {
 		return nil, err
 	}
@@ -155,40 +171,68 @@ func GenesisBlockPledgeSend(c chain.Chain, w *wallet.Manager) (blocks []*vm_cont
 	return v.VerifyforRPC(block, g)
 }
 
-func GenesisBlockPledgeReceive(c chain.Chain, w *wallet.Manager) error {
-	//latestAccountBlock, _ := c.GetLatestAccountBlock(&addr1)
-	//latestSnapshotBlock := c.GetLatestSnapshotBlock()
-	//
-	//recvPledgeBlock := &ledger.AccountBlock{
-	//	BlockType:      ledger.BlockTypeSendCall,
-	//	Height:         0,
-	//	PrevHash:       types.Hash{},
-	//	AccountAddress: ledger.GenesisAccountAddress,
-	//	PublicKey:      genesisAccountPubKey,
-	//	ToAddress:      addr1,
-	//	FromBlockHash:  types.Hash{},
-	//	Amount:         big.NewInt(0),
-	//	TokenId:        ledger.ViteTokenId,
-	//	Fee:            big.NewInt(0),
-	//	SnapshotHash:   latestSnapshotBlock.Hash,
-	//	Timestamp:      latestSnapshotBlock.Timestamp,
-	//}
-	//
-	//nonce := pow.GetPowNonce(nil, types.DataHash(append(recvPledgeBlock.AccountAddress.Bytes(), recvPledgeBlock.PrevHash.Bytes()...)))
-	//recvPledgeBlock.Nonce = nonce[:]
-	//recvPledgeBlock.Hash = recvPledgeBlock.ComputeHash()
-	//recvPledgeBlock.Signature = ed25519.Sign(genesisAccountPrivKey, recvPledgeBlock.Hash.Bytes())
-	//return nil
+func AddrPledgeReceive(c chain.Chain, w *wallet.Manager, sendBlock *ledger.AccountBlock) (*GenResult, error) {
+	g := NewGenerator(c, w.KeystoreManager)
+
+	var preHash types.Hash
+	latestAccountBlock, err := c.GetLatestAccountBlock(&contracts.AddressPledge)
+	if err != nil {
+		return nil, err
+	}
+
+	if latestAccountBlock != nil {
+		preHash = latestAccountBlock.Hash
+	}
+	latestSnapshotBlock := c.GetLatestSnapshotBlock()
+
+	consensusMessage := &ConsensusMessage{
+		SnapshotHash: latestSnapshotBlock.Hash,
+		Timestamp:    *latestSnapshotBlock.Timestamp,
+		Producer:     types.Address{},
+		gid:          types.Gid{},
+	}
+	g.PrepareVm(&consensusMessage.SnapshotHash, &preHash, &contracts.AddressPledge)
+
+	// no sign cause the address isn't unlock
+	return g.GenerateWithOnroad(*sendBlock, consensusMessage, nil)
 }
 
-func TestGenerator_GenerateWithOnroad(t *testing.T) {
+func Add1SendAddr2(c chain.Chain, w *wallet.Manager) (blocks []*vm_context.VmAccountBlock, err error) {
+	v := verifier.NewAccountVerifier(c, nil)
+	g := NewGenerator(c, w.KeystoreManager)
+
+	var preHash types.Hash
+	var height uint64 = 1
+	latestAccountBlock, err := c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
+	if err != nil {
+		return nil, err
+	}
+	if latestAccountBlock != nil {
+		preHash = latestAccountBlock.Hash
+		height = height + 1
+	}
+	latestSnapshotBlock := c.GetLatestSnapshotBlock()
+
+	block := &ledger.AccountBlock{
+		BlockType:      ledger.BlockTypeSendCall,
+		AccountAddress: addr1,
+		PublicKey:      addr1PubKey,
+		ToAddress:      addr2,
+		Amount:         pledgeAmount,
+		TokenId:        ledger.ViteTokenId,
+		Fee:            big.NewInt(0),
+		PrevHash:       preHash,
+		Height:         height,
+		SnapshotHash:   latestSnapshotBlock.Hash,
+		Timestamp:      latestSnapshotBlock.Timestamp,
+	}
+
+	block.Hash = block.ComputeHash()
+	block.Signature = ed25519.Sign(addr1PrivKey, block.Hash.Bytes())
+
+	return v.VerifyforRPC(block, g)
 }
 
-func PrepareVite() (chain.Chain, *wallet.Manager) {
-	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
-	c.Init()
-	c.Start()
+func TestGenerator_GenerateWithMessage(t *testing.T) {
 
-	w := wallet.New(nil)
-	return c, w
 }
