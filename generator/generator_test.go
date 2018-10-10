@@ -53,7 +53,11 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 		Producer:     fromBlock.ToAddress,
 		gid:          types.Gid{},
 	}
-	genResult, err := gen.GenerateWithOnroad(*fromBlock, consensusMsg, nil)
+	genResult, err := gen.GenerateWithOnroad(*fromBlock, consensusMsg,
+		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+			sig := ed25519.Sign(genesisAccountPrivKey, data)
+			return sig, genesisAccountPubKey, nil
+		})
 	if err != nil {
 		t.Error("GenerateWithOnroad", err)
 		return
@@ -72,11 +76,12 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 			Timestamp:      &consensusMsg.Timestamp,
 			PublicKey:      genesisAccountPubKey,
 			LogHash:        genBlock.LogHash,
+			StateHash:      genBlock.StateHash,
 		}
 		mockhHash := mockReceiveBlock.ComputeHash()
-		t.Log("hash")
+		t.Log("hash", genBlock.Hash)
 		t.Log("mockhBlock", mockhHash)
-		if genResult.BlockGenList[0].AccountBlock.Hash != mockhHash {
+		if genBlock.Hash != mockhHash {
 			t.Log("Verify Hash failed")
 			return
 		}

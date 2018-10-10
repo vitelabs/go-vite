@@ -109,6 +109,7 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 	if origBlock.LogHash != nil && genBlock.LogHash != nil && *origBlock.LogHash != *genBlock.LogHash {
 		return errors.New("verify LogHash failed")
 	}
+	// fixme: stateHash???
 
 	return nil
 }
