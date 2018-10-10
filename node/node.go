@@ -81,13 +81,24 @@ func (node *Node) Start() error {
 
 	//wallet start
 	log.Info(fmt.Sprintf("Begin Start Wallet... "))
-	node.startWallet()
+
+	if err := node.startWallet(); err != nil {
+		log.Error(fmt.Sprintf("Node startWallet error: %v", err))
+		return err
+	}
 	//p2p\vite start
 	log.Info(fmt.Sprintf("Begin Start P2P And Vite... "))
-	node.startP2pAndVite()
+
+	if err := node.startP2pAndVite(); err != nil {
+		log.Error(fmt.Sprintf("Node startP2pAndVite error: %v", err))
+		return err
+	}
 	//rpc start
 	log.Info(fmt.Sprintf("Begin Start RPC... "))
-	node.startRPC()
+	if err := node.startRPC(); err != nil {
+		log.Error(fmt.Sprintf("Node startRPC error: %v", err))
+		return err
+	}
 
 	return nil
 }
@@ -169,23 +180,31 @@ func (node *Node) startP2pAndVite() error {
 	}
 
 	//Initialize the vite server
-	node.viteServer, err = vite.New(node.viteConfig)
+	node.viteServer, err = vite.New(node.viteConfig, node.walletManager)
 	if err != nil {
 		log.Error(fmt.Sprintf("Vite new error: %v", err))
 		return err
 	}
 
-	node.p2pServer.Protocols = append(node.p2pServer.Protocols, node.viteServer.Protocols()...)
+	//Protocols setting
+	node.p2pServer.Protocols = append(node.p2pServer.Protocols, node.viteServer.Net().Protocols...)
+
+	// Start vite
+	if e := node.viteServer.Init(); e != nil {
+		log.Error(fmt.Sprintf("ViteServer init error: %v", e))
+		return err
+	}
+
+	if e := node.viteServer.Start(); e != nil {
+		log.Error(fmt.Sprintf("ViteServer start error: %v", e))
+		return err
+	}
 
 	// Start p2p
 	if e := node.p2pServer.Start(); e != nil {
 		log.Error(fmt.Sprintf("P2PServer start error: %v", e))
 		return err
 	}
-
-	// Start vite
-	node.viteServer.Start(node.p2pServer)
-
 	return nil
 }
 

@@ -19,7 +19,7 @@ func TestNewPool(t *testing.T) {
 	p := NewPool(c)
 	w := wallet.New(nil)
 
-	av := verifier.NewAccountVerifier(c, nil, w.KeystoreManager)
+	av := verifier.NewAccountVerifier(c, nil)
 
 	cs := &consensus.MockConsensus{}
 	sv := verifier.NewSnapshotVerifier(c, cs)

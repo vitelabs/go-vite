@@ -62,7 +62,6 @@ func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock) (block
 	if verifyResult, _ := verifier.VerifyReferred(block); verifyResult != SUCCESS {
 		return nil, errors.New("VerifyReferred failed")
 	}
-	// fixme: whether to do pool-insert, distinguish common and contract
 	return verifier.VerifyforVM(block)
 }
 
@@ -80,7 +79,7 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 
 	genResult, err := gen.GenerateWithBlock(block, nil)
 	if err != nil {
-		return nil, errors.New("GenerateWithBlock failed")
+		return nil, err
 	}
 	if len(genResult.BlockGenList) == 0 {
 		return nil, errors.New("genResult is empty")
@@ -311,10 +310,6 @@ func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock, task
 			return FAIL, errors.New("PreHash or Height is invalid")
 		}
 	}
-}
-
-func (verifier *AccountVerifier) VerifyChainInsertQualification(block *ledger.AccountBlock) bool {
-	return false
 }
 
 func (verifier *AccountVerifier) VerifyHash(block *ledger.AccountBlock) bool {

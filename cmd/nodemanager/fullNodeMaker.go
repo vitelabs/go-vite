@@ -123,6 +123,18 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.WSPort = ctx.GlobalInt(utils.WSPortFlag.Name)
 	}
 
+	//Producer Config
+	if coinBase := ctx.GlobalString(utils.CoinBaseFlag.Name); len(coinBase) > 0 {
+		cfg.CoinBase = coinBase
+	}
+
+	if ctx.GlobalIsSet(utils.MinerFlag.Name) {
+		cfg.MinerEnabled = ctx.GlobalBool(utils.MinerFlag.Name)
+	}
+
+	if ctx.GlobalIsSet(utils.MinerIntervalFlag.Name) {
+		cfg.MinerInterval = ctx.GlobalInt(utils.MinerIntervalFlag.Name)
+	}
 }
 
 func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {

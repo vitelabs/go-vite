@@ -58,6 +58,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	// vite
 	vite = &Vite{
 		config:           cfg,
+		walletManager:    walletManager,
 		net:              net,
 		chain:            chain,
 		pool:             pl,
@@ -88,12 +89,12 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 
 func (v *Vite) Init() (err error) {
 	v.chain.Init()
-	if err := v.producer.Init(); err != nil {
-		log.Error("Init producer failed, error is "+err.Error(), "method", "vite.Init")
-		return err
+	if v.producer != nil {
+		if err := v.producer.Init(); err != nil {
+			log.Error("Init producer failed, error is "+err.Error(), "method", "vite.Init")
+			return err
+		}
 	}
-
-	v.pool.Init(v.net, v.walletManager, v.snapshotVerifier, v.accountVerifier)
 
 	v.onRoad.Init()
 
@@ -101,34 +102,36 @@ func (v *Vite) Init() (err error) {
 }
 
 func (v *Vite) Start() (err error) {
+	v.onRoad.Start()
+
 	v.chain.Start()
+	// hack
+	v.pool.Init(v.net, v.walletManager, v.snapshotVerifier, v.accountVerifier)
 
 	v.net.Start()
 	v.pool.Start()
 	if v.producer != nil {
-		err := v.producer.Start()
-		if err != nil {
+
+		if err := v.producer.Start(); err != nil {
 			log.Error("producer.Start failed, error is "+err.Error(), "method", "vite.Start")
 			return err
 		}
 	}
-	v.onRoad.Start()
 	return nil
 }
 
 func (v *Vite) Stop() (err error) {
-	v.chain.Stop()
 
 	v.net.Stop()
 	v.pool.Stop()
 
 	if v.producer != nil {
-		err := v.producer.Stop()
-		if err != nil {
+		if err := v.producer.Stop(); err != nil {
 			log.Error("producer.Stop failed, error is "+err.Error(), "method", "vite.Stop")
 			return err
 		}
 	}
+	v.chain.Stop()
 	v.onRoad.Stop()
 	return nil
 }

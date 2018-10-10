@@ -98,7 +98,7 @@ func TestSnapshot(t *testing.T) {
 
 	sv := verifier.NewSnapshotVerifier(c, cs)
 	w := wallet.New(nil)
-	av := verifier.NewAccountVerifier(c, cs, w.KeystoreManager)
+	av := verifier.NewAccountVerifier(c, cs)
 	p1 := pool.NewPool(c)
 	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
 
@@ -142,7 +142,7 @@ func TestProducer_Init(t *testing.T) {
 	cs := &consensus.MockConsensus{}
 	sv := verifier.NewSnapshotVerifier(c, cs)
 	w := wallet.New(nil)
-	av := verifier.NewAccountVerifier(c, cs, w.KeystoreManager)
+	av := verifier.NewAccountVerifier(c, cs)
 	p1 := pool.NewPool(c)
 	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
 

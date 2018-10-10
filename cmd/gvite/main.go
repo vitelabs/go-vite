@@ -72,6 +72,13 @@ var (
 		utils.ExecFlag,
 		utils.PreloadJSFlag,
 	}
+
+	//Producer
+	producerFlags = []cli.Flag{
+		utils.MinerFlag,
+		utils.CoinBaseFlag,
+		utils.MinerIntervalFlag,
+	}
 )
 
 func init() {
@@ -100,7 +107,7 @@ func init() {
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	//Import: Please add the New Flags here
-	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags)
+	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags)
 
 	app.Before = beforeAction
 	app.Action = action

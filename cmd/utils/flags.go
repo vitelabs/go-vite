@@ -128,6 +128,22 @@ var (
 		Name:  "preload",
 		Usage: "Comma separated list of JavaScript files to preload into the console",
 	}
+
+	//Producer
+	MinerFlag = cli.BoolFlag{
+		Name:  "miner",
+		Usage: "Enable the Miner",
+	}
+
+	CoinBaseFlag = cli.StringFlag{
+		Name:  "coinbase",
+		Usage: "Coinbase is an address into which the rewards for the SuperNode produce snapshot-block",
+	}
+
+	MinerIntervalFlag = cli.IntFlag{
+		Name:  "minerinterval",
+		Usage: "Miner Interval(unit: second)",
+	}
 )
 
 // This allows the use of the existing configuration functionality.
