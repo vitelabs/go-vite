@@ -232,3 +232,18 @@ func (manager *Manager) StopAutoReceiveWorker(addr types.Address) error {
 	}
 	return nil
 }
+
+func (manager Manager) ListWorkingAutoReceiveWorker() []types.Address {
+	addr := make([]types.Address, 0)
+	for _, v := range manager.autoReceiveWorkers {
+		if v != nil && v.Status() == Start {
+			addr = append(addr, v.address)
+		}
+	}
+
+	return addr
+}
+
+func (manager Manager) GetOnroadBlocksPool() *model.OnroadBlocksPool {
+	return manager.onroadBlocksPool
+}
