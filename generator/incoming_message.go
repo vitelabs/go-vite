@@ -2,6 +2,7 @@ package generator
 
 import (
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
@@ -40,7 +41,12 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 		if im.Amount == nil {
 			block.Amount = big.NewInt(0)
 		} else {
-			block.Amount = im.Amount
+
+			if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
+				return nil, errors.New("block.Amount out of bounds")
+			} else {
+				block.Amount = im.Amount
+			}
 		}
 
 		if im.TokenId != nil {
@@ -52,6 +58,9 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 		if im.Fee == nil {
 			block.Fee = big.NewInt(0)
 		} else {
+			if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
+				return nil, errors.New("block.Fee out of bounds")
+			}
 			block.Fee = im.Fee
 		}
 
@@ -77,7 +86,7 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 		if im.TokenId != nil {
 			block.TokenId = *im.TokenId
 		} else {
-			block.TokenId = types.TokenTypeId{}
+			return nil, errors.New("BlockTypeSendCreate's TokenId can't be nil")
 		}
 
 		if im.Fee == nil {

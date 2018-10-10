@@ -2,10 +2,8 @@ package verifier
 
 import (
 	"bytes"
-	"math/big"
-	"time"
-
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/generator"
@@ -14,10 +12,11 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm_context"
+	"math/big"
+	"time"
 )
 
 const (
-	MaxBigIntLen  = 256
 	TimeOutHeight = uint64(24 * 30 * 3600)
 )
 
@@ -252,10 +251,10 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 	if block.Fee == nil {
 		block.Fee = big.NewInt(0)
 	}
-	if block.Amount.Sign() < 0 || block.Amount.BitLen() > MaxBigIntLen {
+	if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
 		return errors.New("block.Amount out of bounds")
 	}
-	if block.Fee.Sign() < 0 || block.Fee.BitLen() > MaxBigIntLen {
+	if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
 		return errors.New("block.Fee out of bounds")
 	}
 

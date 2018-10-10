@@ -145,10 +145,14 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 
 	if sendBlock.Amount == nil {
 		blockPacked.Amount = big.NewInt(0)
+	} else {
+		blockPacked.Amount = sendBlock.Amount
 	}
 
 	if sendBlock.Fee == nil {
 		blockPacked.Fee = big.NewInt(0)
+	} else {
+		blockPacked.Fee = sendBlock.Fee
 	}
 
 	preBlock := gen.vmContext.PrevAccountBlock()
