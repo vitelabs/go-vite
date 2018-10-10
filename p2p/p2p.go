@@ -350,7 +350,7 @@ func (svr *Server) checkConn(id discovery.NodeID, flag connFlag) error {
 	}
 
 	if flag.is(inbound) && uint(svr.peers.inbound) >= svr.maxInboundPeers() {
-		return DiscTooManyPassivePeers
+		return DiscTooManyInboundPeers
 	}
 
 	if svr.peers.Has(id) {

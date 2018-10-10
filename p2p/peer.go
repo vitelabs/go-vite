@@ -23,9 +23,9 @@ const handshakeCmd = 0
 const discCmd = 1
 
 const headerLength = 32
-const maxPayloadSize uint64 = ^uint64(0)>>32 - 1
+const maxPayloadSize = ^uint64(0)>>32 - 1
 
-const paralProtoFrame = 4
+const paralProtoFrame = 4 // max number of protoFrame write concurrently
 
 var errMsgTooLarge = errors.New("message payload is two large")
 var errPeerTermed = errors.New("peer has been terminated")
@@ -69,8 +69,8 @@ func (pf *protoFrame) ReadMsg() (msg *Msg, err error) {
 	select {
 	case <-pf.term:
 		return msg, io.EOF
-	case m := <-pf.input:
-		return m, nil
+	case msg = <-pf.input:
+		return
 	}
 }
 
@@ -93,19 +93,36 @@ func (pf *protoFrame) WriteMsg(msg *Msg) error {
 	}
 }
 
+// create multiple protoFrames above the rw
+func createProtoFrames(ourSet []*Protocol, theirSet []*CmdSet, conn *conn) protoFrameMap {
+	protoFrames := make(map[uint64]*protoFrame)
+	for _, our := range ourSet {
+		for _, their := range theirSet {
+			if our.ID == their.ID && our.Name == their.Name {
+				protoFrames[our.ID] = newProtoFrame(our, conn)
+			}
+		}
+	}
+
+	return protoFrames
+}
+
+// event
 type protoDone struct {
+	id   uint64
 	name string
 	err  error
 }
 
 // @section Peer
+type protoFrameMap = map[uint64]*protoFrame
 type Peer struct {
 	ts          *conn
-	protoFrames map[string]*protoFrame
+	protoFrames protoFrameMap
 	created     time.Time
 	wg          sync.WaitGroup
 	term        chan struct{}
-	disc        chan DiscReason // for disconnect signal particularly
+	disc        chan DiscReason // been told to disconnect by remote Peer
 	errch       chan error      // for common error
 	protoDone   chan *protoDone // for protocols
 	log         log15.Logger
@@ -125,8 +142,8 @@ func NewPeer(conn *conn, ourSet []*Protocol) (*Peer, error) {
 		term:        make(chan struct{}),
 		disc:        make(chan DiscReason, 1),
 		errch:       make(chan error, 1),
-		log:         log15.New("module", "p2p/peer"),
 		protoDone:   make(chan *protoDone, len(protoFrames)),
+		log:         log15.New("module", "p2p/peer"),
 	}
 
 	p.ts.handler = p.handleMsg
@@ -134,18 +151,111 @@ func NewPeer(conn *conn, ourSet []*Protocol) (*Peer, error) {
 	return p, nil
 }
 
-// create multiple protoFrames above the rw
-func createProtoFrames(ourSet []*Protocol, theirSet []*CmdSet, conn *conn) map[string]*protoFrame {
-	protoFrames := make(map[string]*protoFrame)
-	for _, our := range ourSet {
-		for _, their := range theirSet {
-			if our.ID == their.ID && our.Name == their.Name {
-				protoFrames[our.String()] = newProtoFrame(our, conn)
+func (p *Peer) Disconnect(reason DiscReason) {
+	p.log.Info("disconnected", "peer", p.String(), "reason", reason)
+
+	select {
+	case <-p.term:
+	case p.disc <- reason:
+	}
+}
+
+func (p *Peer) runProtocols() {
+	p.wg.Add(len(p.protoFrames))
+	canWrite := make(chan struct{}, paralProtoFrame)
+
+	for _, proto := range p.protoFrames {
+		go p.runProtocol(proto, canWrite)
+	}
+}
+
+func (p *Peer) runProtocol(proto *protoFrame, canWrite chan struct{}) {
+	defer p.wg.Done()
+	proto.term = p.term
+	proto.canWrite = canWrite
+
+	err := proto.Handle(p, proto)
+	p.protoDone <- &protoDone{proto.ID, proto.String(), err}
+}
+
+func (p *Peer) run() (err error) {
+	p.log.Info(fmt.Sprintf("peer %s run", p))
+
+	p.ts.Start()
+
+	p.runProtocols()
+
+loop:
+	for {
+		select {
+		case err = <-p.disc:
+			// we have been told will disconnect
+			p.log.Error(fmt.Sprintf("been disconnected by remote endPoint: %v", err))
+			break loop
+		case e := <-p.protoDone:
+			p.log.Error(fmt.Sprintf("protocol %s is done: %v", e.name, err))
+			delete(p.protoFrames, e.id)
+			if len(p.protoFrames) == 0 {
+				// all protocols have done
+				err = errProtoHandleDone
+				break loop
 			}
+		case err = <-p.ts.errch: // error occur from lower transport, like writeError or readError
+
+			p.log.Error(fmt.Sprintf("transport error: %v", err))
+			break loop
+		case err = <-p.errch:
+			p.log.Error(fmt.Sprintf("error: %v", err))
+			break loop
 		}
 	}
 
-	return protoFrames
+	close(p.term)
+	p.ts.Close(err)
+	p.wg.Wait()
+
+	p.log.Info(fmt.Sprintf("peer %s run done: %v", p, err))
+	return err
+}
+
+func (p *Peer) handleMsg(msg *Msg) {
+	p.log.Info("peer handle message", "CmdSet", msg.CmdSetID, "Cmd", msg.Cmd, "from", p.ID().String())
+
+	cmdset, cmd := msg.CmdSetID, msg.Cmd
+
+	if cmdset == baseProtocolCmdSet {
+		switch cmd {
+		case discCmd:
+			reason, err := DeserializeDiscReason(msg.Payload)
+			if err == nil {
+				p.disc <- reason
+			} else {
+				p.errch <- err
+			}
+		default:
+			msg.Discard()
+		}
+	} else {
+		pf := p.protoFrames[cmdset]
+		if pf == nil {
+			// may be error occur concurrently
+			select {
+			case p.errch <- fmt.Errorf("missing suitable protoFrame to handle message %d/%d", cmdset, cmd):
+			default:
+			}
+			msg.Discard()
+		} else {
+			select {
+			case <-p.term:
+				p.log.Error(fmt.Sprintf("peer has been terminated, cannot handle message %d/%d", cmdset, cmd))
+				msg.Discard()
+			case pf.input <- msg:
+			default:
+				p.log.Warn(fmt.Sprintf("protoFrame is busy, discard message %d/%d", cmdset, cmd))
+				msg.Discard()
+			}
+		}
+	}
 }
 
 func (p *Peer) ID() discovery.NodeID {
@@ -172,62 +282,6 @@ func (p *Peer) IP() net.IP {
 	return p.RemoteAddr().IP
 }
 
-type ConnProperty struct {
-	LocalID    string `json:"localID"`
-	LocalIP    net.IP `json:"localIP"`
-	LocalPort  uint16 `json:"localPort"`
-	RemoteID   string `json:"remoteID"`
-	RemoteIP   net.IP `json:"remoteIP"`
-	RemotePort uint16 `json:"remotePort"`
-}
-
-func (cp *ConnProperty) Serialize() ([]byte, error) {
-	return proto.Marshal(cp.Proto())
-}
-
-func (cp *ConnProperty) Deserialize(buf []byte) error {
-	pb := new(protos.ConnProperty)
-	err := proto.Unmarshal(buf, pb)
-	if err != nil {
-		return err
-	}
-
-	cp.Deproto(pb)
-	return nil
-}
-
-func (cp *ConnProperty) Proto() *protos.ConnProperty {
-	return &protos.ConnProperty{
-		LocalID:    cp.LocalID,
-		LocalIP:    cp.LocalIP,
-		LocalPort:  uint32(cp.LocalPort),
-		RemoteID:   cp.RemoteID,
-		RemoteIP:   cp.RemoteIP,
-		RemotePort: uint32(cp.RemotePort),
-	}
-}
-
-func (cp *ConnProperty) Deproto(pb *protos.ConnProperty) {
-	cp.LocalID = pb.LocalID
-	cp.LocalIP = pb.LocalIP
-	cp.LocalPort = uint16(pb.LocalPort)
-
-	cp.RemoteID = pb.RemoteID
-	cp.RemoteIP = pb.RemoteIP
-	cp.RemotePort = uint16(pb.RemotePort)
-}
-
-func (p *Peer) GetConnProperty() *ConnProperty {
-	return &ConnProperty{
-		LocalID:    p.ts.localID.String(),
-		LocalIP:    p.ts.localIP,
-		LocalPort:  p.ts.localPort,
-		RemoteID:   p.ts.remoteID.String(),
-		RemoteIP:   p.ts.remoteIP,
-		RemotePort: p.ts.remotePort,
-	}
-}
-
 func (p *Peer) Info() *PeerInfo {
 	cmdsets := p.CmdSets()
 	cmdSetsInfo := make([]string, len(cmdsets))
@@ -241,116 +295,6 @@ func (p *Peer) Info() *PeerInfo {
 		CmdSets: cmdSetsInfo,
 		Address: p.RemoteAddr().String(),
 		Inbound: p.ts.is(inbound),
-	}
-}
-
-func (p *Peer) Disconnect(reason DiscReason) {
-	p.log.Info("disconnected", "peer", p.String(), "reason", reason)
-
-	select {
-	case <-p.term:
-	case p.disc <- reason:
-	}
-}
-
-func (p *Peer) protoFrame(CmdSetID uint64) *protoFrame {
-	for _, pf := range p.protoFrames {
-		if pf.ID == CmdSetID {
-			return pf
-		}
-	}
-
-	return nil
-}
-
-func (p *Peer) runProtocols() {
-	p.wg.Add(len(p.protoFrames))
-	canWrite := make(chan struct{}, paralProtoFrame)
-
-	for _, proto := range p.protoFrames {
-		go p.runProtocol(proto, canWrite)
-	}
-}
-
-func (p *Peer) runProtocol(proto *protoFrame, canWrite chan struct{}) {
-	defer p.wg.Done()
-	proto.term = p.term
-	proto.canWrite = canWrite
-
-	err := proto.Handle(p, proto)
-	p.protoDone <- &protoDone{proto.String(), err}
-}
-
-func (p *Peer) run() (err error) {
-	p.log.Info(fmt.Sprintf("peer %s run", p))
-
-	p.ts.Start()
-
-	p.runProtocols()
-
-loop:
-	for {
-		select {
-		case err = <-p.disc:
-			// we have been told will disconnect
-			break loop
-		case e := <-p.protoDone:
-			p.log.Error(fmt.Sprintf("protocol %s is done: %v", e.name, err))
-			delete(p.protoFrames, e.name)
-			if len(p.protoFrames) == 0 {
-				// all protocols have done
-				err = errProtoHandleDone
-				break loop
-			}
-		case err = <-p.ts.errch: // error occur
-			break loop
-		case err = <-p.errch:
-			break loop
-		}
-	}
-
-	close(p.term)
-	p.ts.Close(err)
-	p.wg.Wait()
-
-	p.log.Info(fmt.Sprintf("peer %s run done: %v", p, err))
-	return err
-}
-
-func (p *Peer) handleMsg(msg *Msg) {
-	p.log.Info("peer handle message", "CmdSet", msg.CmdSetID, "Cmd", msg.Cmd, "from", p.ID().String())
-
-	cmdset, cmd := msg.CmdSetID, msg.Cmd
-
-	if cmdset == baseProtocolCmdSet {
-		switch cmd {
-		case discCmd:
-			reason, err := DeserializeDiscReason(msg.Payload)
-			if err == nil {
-				p.disc <- reason
-			}
-			p.errch <- err
-		default:
-			msg.Discard()
-		}
-	} else {
-		pf := p.protoFrame(cmdset)
-		if pf == nil {
-			// may be error occur concurrently
-			select {
-			case p.errch <- fmt.Errorf("missing suitable protoFrame to handle message %d/%d", cmdset, cmd):
-			default:
-			}
-		} else {
-			select {
-			case <-p.term:
-				p.log.Error(fmt.Sprintf("peer has been terminated, cannot handle message %d/%d", cmdset, cmd))
-			case pf.input <- msg:
-			default:
-				p.log.Warn(fmt.Sprintf("protoFrame is busy, discard message %d/%d", cmdset, cmd))
-				msg.Discard()
-			}
-		}
 	}
 }
 
@@ -448,9 +392,66 @@ func (s *PeerSet) Traverse(fn func(id discovery.NodeID, p *Peer)) {
 
 // @section PeerInfo
 type PeerInfo struct {
-	ID      string   `json:"remoteID"`
+	ID      string   `json:"id"`
 	Name    string   `json:"name"`
 	CmdSets []string `json:"caps"`
 	Address string   `json:"address"`
 	Inbound bool     `json:"inbound"`
+}
+
+// @section ConnProperty
+type ConnProperty struct {
+	LocalID    string `json:"localID"`
+	LocalIP    net.IP `json:"localIP"`
+	LocalPort  uint16 `json:"localPort"`
+	RemoteID   string `json:"remoteID"`
+	RemoteIP   net.IP `json:"remoteIP"`
+	RemotePort uint16 `json:"remotePort"`
+}
+
+func (cp *ConnProperty) Serialize() ([]byte, error) {
+	return proto.Marshal(cp.Proto())
+}
+
+func (cp *ConnProperty) Deserialize(buf []byte) error {
+	pb := new(protos.ConnProperty)
+	err := proto.Unmarshal(buf, pb)
+	if err != nil {
+		return err
+	}
+
+	cp.Deproto(pb)
+	return nil
+}
+
+func (cp *ConnProperty) Proto() *protos.ConnProperty {
+	return &protos.ConnProperty{
+		LocalID:    cp.LocalID,
+		LocalIP:    cp.LocalIP,
+		LocalPort:  uint32(cp.LocalPort),
+		RemoteID:   cp.RemoteID,
+		RemoteIP:   cp.RemoteIP,
+		RemotePort: uint32(cp.RemotePort),
+	}
+}
+
+func (cp *ConnProperty) Deproto(pb *protos.ConnProperty) {
+	cp.LocalID = pb.LocalID
+	cp.LocalIP = pb.LocalIP
+	cp.LocalPort = uint16(pb.LocalPort)
+
+	cp.RemoteID = pb.RemoteID
+	cp.RemoteIP = pb.RemoteIP
+	cp.RemotePort = uint16(pb.RemotePort)
+}
+
+func (p *Peer) GetConnProperty() *ConnProperty {
+	return &ConnProperty{
+		LocalID:    p.ts.localID.String(),
+		LocalIP:    p.ts.localIP,
+		LocalPort:  p.ts.localPort,
+		RemoteID:   p.ts.remoteID.String(),
+		RemoteIP:   p.ts.remoteIP,
+		RemotePort: p.ts.remotePort,
+	}
 }

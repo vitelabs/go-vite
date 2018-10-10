@@ -32,11 +32,11 @@ var firmNodes = []string{
 }
 
 const (
-	DefaultMaxPeers        uint      = 50
-	DefaultMaxPendingPeers uint      = 20
-	DefaultMaxInboundRatio uint      = 2
-	DefaultPort            uint      = 8483
-	DefaultNetID           NetworkID = Aquarius
+	DefaultMaxPeers        uint = 50
+	DefaultMaxPendingPeers uint = 20
+	DefaultMaxInboundRatio uint = 2
+	DefaultPort            uint = 8483
+	DefaultNetID                = Aquarius
 )
 
 const P2PDir = "p2p"
