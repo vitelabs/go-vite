@@ -200,8 +200,6 @@ func (n *Net) startPeer(p *Peer) error {
 		select {
 		case <-n.term:
 			return p2p.DiscQuitting
-		case err := <-p.errch:
-			return err
 		case <-ticker.C:
 			current := n.Chain.GetLatestSnapshotBlock()
 			p.Send(StatusCode, 0, &ledger.HashHeight{
@@ -214,9 +212,6 @@ func (n *Net) startPeer(p *Peer) error {
 			}
 		}
 	}
-
-	close(p.term)
-	return nil
 }
 
 func (n *Net) handleMsg(p *Peer) (err error) {

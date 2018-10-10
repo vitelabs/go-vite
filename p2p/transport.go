@@ -3,7 +3,6 @@ package p2p
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/golang/snappy"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
@@ -57,19 +56,19 @@ func ReadMsg(reader io.Reader, compressible bool) (msg *Msg, err error) {
 		return
 	}
 
-	if compressible {
-		var fullSize int
-		fullSize, err = snappy.DecodedLen(payload)
-		if err != nil {
-			return
-		}
-
-		payload, err = snappy.Decode(nil, payload)
-		if err != nil {
-			return
-		}
-		msg.Size = uint64(fullSize)
-	}
+	//if compressible {
+	//	var fullSize int
+	//	fullSize, err = snappy.DecodedLen(payload)
+	//	if err != nil {
+	//		return
+	//	}
+	//
+	//	payload, err = snappy.Decode(nil, payload)
+	//	if err != nil {
+	//		return
+	//	}
+	//	msg.Size = uint64(fullSize)
+	//}
 
 	msg.Payload = payload
 	msg.ReceivedAt = time.Now()
@@ -82,10 +81,10 @@ func WriteMsg(writer io.Writer, compressible bool, msg *Msg) (err error) {
 		return errMsgTooLarge
 	}
 
-	if compressible {
-		msg.Payload = snappy.Encode(nil, msg.Payload)
-		msg.Size = uint64(len(msg.Payload))
-	}
+	//if compressible {
+	//	msg.Payload = snappy.Encode(nil, msg.Payload)
+	//	msg.Size = uint64(len(msg.Payload))
+	//}
 
 	head := make([]byte, headerLength)
 	binary.BigEndian.PutUint64(head[:8], msg.CmdSetID)

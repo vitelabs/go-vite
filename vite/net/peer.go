@@ -29,8 +29,6 @@ type Peer struct {
 	CmdSet      uint64     // which cmdSet it belongs
 	KnownBlocks *cuckoofilter.CuckooFilter
 	log         log15.Logger
-	term        chan struct{}
-	errch       chan error
 }
 
 func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
@@ -41,8 +39,6 @@ func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 		CmdSet:      cmdSet,
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
-		term:        make(chan struct{}),
-		errch:       make(chan error, 1),
 	}
 }
 
