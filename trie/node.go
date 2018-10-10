@@ -22,7 +22,7 @@ type TrieNode struct {
 
 	// fullNode
 	children        map[byte]*TrieNode
-	childrenGetLock sync.Mutex
+	childrenSetLock sync.RWMutex
 
 	// shortNode
 	key   []byte
@@ -83,6 +83,9 @@ func (trieNode *TrieNode) ChildrenIsComplete() bool {
 }
 
 func (trieNode *TrieNode) Copy(copyHash bool) *TrieNode {
+	trieNode.childrenSetLock.RLock()
+	defer trieNode.childrenSetLock.RUnlock()
+
 	newNode := &TrieNode{
 		nodeType: trieNode.nodeType,
 

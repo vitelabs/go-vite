@@ -145,7 +145,7 @@ func (trie *Trie) traverseLoad(hash *types.Hash) *TrieNode {
 	case TRIE_FULL_NODE:
 
 		if !node.ChildrenIsComplete() {
-			node.childrenGetLock.Lock()
+			node.childrenSetLock.Lock()
 
 			if !node.ChildrenIsComplete() {
 				for key, child := range node.children {
@@ -153,7 +153,7 @@ func (trie *Trie) traverseLoad(hash *types.Hash) *TrieNode {
 				}
 			}
 
-			node.childrenGetLock.Unlock()
+			node.childrenSetLock.Unlock()
 		}
 	case TRIE_SHORT_NODE:
 		node.child = trie.traverseLoad(node.child.Hash())

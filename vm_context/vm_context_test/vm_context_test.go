@@ -71,8 +71,8 @@ func TestVmContext_AddBalance(t *testing.T) {
 	vmContext.SetStorage([]byte("123"), []byte("456123asdf"))
 	vmContext.SetStorage([]byte("a12cs3"), []byte("456123sssasdf"))
 	fmt.Println(vmContext.UnsavedCache().Storage())
-	fmt.Println(vmContext.GetStorage(nil, []byte("123")))
-	fmt.Println(vmContext.GetStorage(nil, []byte("a12cs3")))
+	fmt.Printf("%s\n", vmContext.GetStorage(nil, []byte("123")))
+	fmt.Printf("%s\n", vmContext.GetStorage(nil, []byte("a12cs3")))
 
 	vmContext.AddBalance(&mockTokenTypeId, big.NewInt(10))
 	fmt.Println(vmContext.GetBalance(nil, &mockTokenTypeId))

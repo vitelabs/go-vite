@@ -423,6 +423,7 @@ func TestTrieConcurrence(t *testing.T) {
 				defer sw.Done()
 				trie := NewTrie(db, &rootHash, pool)
 				trie.SetValue([]byte("tes"), []byte("asdfvale....asdfasdfasdfvalue.555val"+strconv.FormatInt(time.Now().UnixNano(), 10)))
+				trie.SetValue([]byte("tesab"), []byte("value.555val"+strconv.FormatInt(time.Now().UnixNano(), 10)))
 				fmt.Printf("%s\n", trie.GetValue([]byte("tes")))
 				fmt.Println(trie.Hash())
 			}()
@@ -432,6 +433,7 @@ func TestTrieConcurrence(t *testing.T) {
 
 	trie2 := NewTrie(db, &rootHash, pool)
 	fmt.Printf("%s\n", trie2.GetValue([]byte("tes")))
+	fmt.Printf("%s\n", trie2.GetValue([]byte("tesab")))
 	fmt.Println(trie2.Hash())
 
 }
