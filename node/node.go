@@ -293,6 +293,10 @@ func (node *Node) openDataDir() error {
 		return err
 	}
 
+	if err := os.MkdirAll(node.p2pConfig.DataDir, 0700); err != nil {
+		return err
+	}
+
 	//Lock the instance directory to prevent concurrent use by another instance as well as accidental use of the instance directory as a database.
 	//TODO miss file lock(flock)
 
