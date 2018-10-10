@@ -4,11 +4,8 @@ import (
 	"errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
+	"math/big"
 )
-
-// unpack byte silce to param variables
-// pack consensus group condition params by condition id
-// unpack consensus group condition param byte slice by condition id
 
 var (
 	precompiledContractsAbiMap = map[types.Address]abi.ABIContract{
@@ -35,14 +32,55 @@ func PackMethodParam(contractsAddr types.Address, methodName string, params ...i
 type ConditionCode uint8
 
 const (
-	RegisterConditionPrefix     ConditionCode = 10
-	VoteConditionPrefix         ConditionCode = 20
-	RegisterConditionOfSnapshot ConditionCode = 10
-	VoteConditionOfDefault      ConditionCode = 20
-	VoteConditionOfBalance      ConditionCode = 21
+	RegisterConditionPrefix   ConditionCode = 10
+	VoteConditionPrefix       ConditionCode = 20
+	RegisterConditionOfPledge ConditionCode = 11
+	VoteConditionOfDefault    ConditionCode = 21
+	VoteConditionOfBalance    ConditionCode = 22
 )
 
-func PackConsensusGroupConditionParam(conditionIdPrefix ConditionCode, conditionId ConditionCode) ([]byte, error) {
-	// TODO
-	return nil, nil
+var (
+	consensusGroupConditionIdNameMap = map[ConditionCode]string{
+		RegisterConditionOfPledge: VariableNameConditionRegisterOfPledge,
+		VoteConditionOfBalance:    VariableNameConditionVoteOfBalance,
+	}
+)
+
+// pack consensus group condition params by condition id
+func PackConsensusGroupConditionParam(conditionIdPrefix ConditionCode, conditionId uint8, params ...interface{}) ([]byte, error) {
+	if name, ok := consensusGroupConditionIdNameMap[conditionIdPrefix+ConditionCode(conditionId)]; ok {
+		if data, err := ABIConsensusGroup.PackVariable(name, params...); err == nil {
+			return data, nil
+		}
+	}
+	return nil, errInvalidParam
+}
+
+func NewGid(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.Gid {
+	return types.DataToGid(
+		accountAddress.Bytes(),
+		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
+		prevBlockHash.Bytes(),
+		snapshotHash.Bytes())
+}
+
+func NewTokenId(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.TokenTypeId {
+	return types.CreateTokenTypeId(
+		accountAddress.Bytes(),
+		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
+		prevBlockHash.Bytes(),
+		snapshotHash.Bytes())
+}
+
+func GetGidFromCreateContractData(data []byte) types.Gid {
+	gid, _ := types.BytesToGid(data[:types.GidSize])
+	return gid
+}
+
+func NewContractAddress(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.Address {
+	return types.CreateContractAddress(
+		accountAddress.Bytes(),
+		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
+		prevBlockHash.Bytes(),
+		snapshotHash.Bytes())
 }

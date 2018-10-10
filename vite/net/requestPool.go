@@ -1,77 +1,74 @@
 package net
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/p2p/list"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
-const reqCountCacheLimit = 3
-const maxBlocksOneTrip = 100
-const maxBlocksOneFile = 1000
-const expireCheckInterval = 30 * time.Second
+type RequestPool interface {
+	Add(r Request) bool // can add request or not
+	Retry(r uint64) bool
+	Del(r uint64) bool
+	MsgID() uint64
+}
 
+var errNoPeer = errors.New("no peer")
 var errHasNoSuitablePeer = errors.New("has no suitable peer")
 var errNoRequestedPeer = errors.New("request has no matched peer")
-
-type reqState byte
-
-const (
-	reqWaiting reqState = iota
-	reqPending
-	reqDone
-	reqError
-)
-
-var reqStatus = [...]string{
-	reqWaiting: "waiting",
-	reqPending: "pending",
-	reqDone:    "done",
-	reqError: "error",
-}
-
-func (s reqState) String() string {
-	return reqStatus[s]
-}
+var errRequestTimeout = errors.New("request timeout")
+var errPoolStopped = errors.New("pool stopped")
 
 // @section requestPool
-const MAX_ID = ^(uint64(0)) - 1
 const INIT_ID uint64 = 1
 
 type requestPool struct {
-	queue *list.List
-	pending       map[uint64]Request // has executed, wait for response
-	busyPeers     map[string]uint64 // key: string, value: pending request id
-	currentID     uint64              // unique id
-	peers         *peerSet
-	add chan Request
-	retryChan         chan uint64
-	doneChan      chan uint64
-	term          chan struct{}
-	log           log15.Logger
-	peerEvent chan *peerEvent
+	pending map[uint64]Request // has executed, wait for response
+	id      uint64             // atomic, unique request id, identically message id
+	add     chan Request
+	retry   chan uint64
+	del     chan uint64
+	term    chan struct{}
+	log     log15.Logger
+	wg      sync.WaitGroup
+	ctx     *context
 }
 
-func newRequestPool(peers *peerSet) *requestPool {
-	pool := &requestPool{
-		queue: list.New(),
-		pending:       make(map[uint64]Request, 20),
-		busyPeers: make(map[string]uint64),
-		currentID:     INIT_ID,
-		peers:         peers,
-		add: make(chan Request, 100),
-		retryChan:         make(chan uint64, 100),
-		doneChan:      make(chan uint64, 100),
-		term:          make(chan struct{}),
-		log:           log15.New("module", "net/reqpool"),
-		peerEvent: make(chan *peerEvent),
+// as message handler
+func (p *requestPool) ID() string {
+	return "request pool"
+}
+
+func (p *requestPool) Cmds() []cmd {
+	return []cmd{FileListCode, SubLedgerCode, SnapshotBlocksCode, AccountBlocksCode, ExceptionCode}
+}
+
+func (p *requestPool) Handle(msg *p2p.Msg, sender *Peer) error {
+	for id, r := range p.pending {
+		if id == msg.Id {
+			// todo goroutine
+			go r.Handle(p.ctx, msg, sender)
+		}
 	}
 
-	peers.Sub(pool.peerEvent)
+	return nil
+}
 
+func newRequestPool() *requestPool {
+	pool := &requestPool{
+		pending: make(map[uint64]Request, 20),
+		id:      INIT_ID,
+		add:     make(chan Request, 10),
+		retry:   make(chan uint64, 5),
+		del:     make(chan uint64, 10),
+		term:    make(chan struct{}),
+		log:     log15.New("module", "net/reqpool"),
+	}
+
+	pool.wg.Add(1)
 	go pool.loop()
 
 	return pool
@@ -82,108 +79,101 @@ func (p *requestPool) stop() {
 	case <-p.term:
 	default:
 		close(p.term)
-		p.peers.Unsub(p.peerEvent)
+		p.wg.Wait()
 	}
 }
 
 func (p *requestPool) loop() {
+	defer p.wg.Done()
+
+	expireCheckInterval := 10 * time.Second
 	ticker := time.NewTicker(expireCheckInterval)
 	defer ticker.Stop()
 
-	loop:
+loop:
 	for {
 		select {
 		case <-p.term:
 			break loop
-		case r := <- p.add:
-			if p.currentID == MAX_ID {
-				p.currentID = INIT_ID
-			} else {
-				p.currentID++
+
+		case r := <-p.add:
+			r.Run(p.ctx)
+			p.pending[r.ID()] = r
+
+		case id := <-p.retry:
+			if r, ok := p.pending[id]; ok {
+				r.Run(p.ctx)
 			}
 
-			r.setId(p.currentID)
-			p.queue.Append(r)
-		case e := <- p.peerEvent:
-			if e.code == delPeer {
-				peerId := e.peer.ID
-				if id, ok := p.busyPeers[peerId]; ok {
-					p.retryChan <- id
-				}
-			}
-		case id := <-p.doneChan:
-			r := p.pending[id]
-			if r != nil {
-				peerId := r.peer().ID
-				delete(p.busyPeers, peerId)
-				delete(p.pending, r.id())
-
-				if pid := r.pid(); pid != 0 {
-					parent := p.pending[pid]
-					parent.childDone(r)
-				}
-			}
-		case id := <-p.retryChan:
-			r := p.pending[id]
-			if r != nil {
-				peerId := r.peer().ID
-				delete(p.busyPeers, peerId)
-				delete(p.pending, r.id())
-
-				if !r.run(p.peers, true) {
-					p.Add(r)
-				}
-			}
 		case <-ticker.C:
 			for _, r := range p.pending {
-				if r.expired() {
-					select {
-					case <-p.term:
-					default:
-					}
+				state := r.State()
 
-					p.log.Error(fmt.Sprintf("request %d wait from %s timeout", r.id, r.peer().ID))
-					p.Retry(r)
+				if state == reqDone || state == reqError {
+					p.Del(r.ID())
+				} else if r.Expired() {
+					r.Done(errRequestTimeout)
 				}
 			}
-		default:
-			r := p.queue.Shift()
-			if r != nil {
-				req, _ := r.(Request)
-				p.do(req);
-			}
+
+		case id := <-p.del:
+			delete(p.pending, id)
 		}
 	}
-}
 
-func (p *requestPool) Add(r Request) {
-	if p.currentID == MAX_ID {
-		p.currentID = INIT_ID
-	} else {
-		p.currentID++
+	// clean job
+	for i := 0; i < len(p.add); i++ {
+		r := <-p.add
+		r.Done(errPoolStopped)
 	}
 
-	r.setId(p.currentID)
-	p.queue.Append(r)
-}
+	for i := 0; i < len(p.retry); i++ {
+		id := <-p.retry
+		if r, ok := p.pending[id]; ok {
+			r.Done(errPoolStopped)
+		}
+	}
 
-func (p *requestPool) Retry(r Request) {
-	p.retryChan <- r.id()
-}
+	for i := 0; i < len(p.retry); i++ {
+		id := <-p.del
+		delete(p.pending, id)
+	}
 
-func (p *requestPool) Done(r Request) {
-	p.doneChan <- r.id()
-}
-
-func (p *requestPool) receive(cmd cmd, id uint64, data p2p.Serializable, peer *Peer) {
-	if r, ok := p.pending[id]; ok {
-		r.handle(cmd, data, peer)
+	for _, r := range p.pending {
+		r.Done(errPoolStopped)
 	}
 }
 
-func (p *requestPool) do(r Request) {
-	if r.run(p.peers, false) {
-		p.busyPeers[r.peer().ID] = r.id()
-		p.pending[r.id()] = r
+func (p *requestPool) Add(r Request) bool {
+	select {
+	case p.add <- r:
+		return true
+	default:
+		p.log.Error("can`t add request")
+		return false
+	}
+}
+
+func (p *requestPool) Del(id uint64) bool {
+	select {
+	case p.del <- id:
+		return true
+	default:
+		p.log.Error("can`t del request")
+		return false
+	}
+}
+
+func (p *requestPool) MsgID() uint64 {
+	return atomic.AddUint64(&p.id, 1)
+}
+
+func (p *requestPool) Retry(id uint64) bool {
+	select {
+	case p.retry <- id:
+		return true
+	default:
+		p.log.Error("can`t Retry request")
+		return false
 	}
 }

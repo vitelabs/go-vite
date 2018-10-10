@@ -8,7 +8,6 @@ const (
 	Create = iota
 	Start
 	Stop
-	Closed
 )
 
 type Worker interface {
@@ -19,8 +18,8 @@ type Worker interface {
 }
 
 var (
-	POMAXPROCS          = runtime.NumCPU()
-	COMMON_FETCH_SIZE   = 4 * POMAXPROCS
-	CONTRACT_TASK_SIZE  = 2 * POMAXPROCS
-	CONTRACT_FETCH_SIZE = 2 * POMAXPROCS
+	POMAXPROCS                = runtime.NumCPU()
+	CommonFetchSize           = 4 * POMAXPROCS
+	ContractTaskProcessorSize = 2 * POMAXPROCS
+	ContractFetchSize         = 2 * POMAXPROCS
 )

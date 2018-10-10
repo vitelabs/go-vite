@@ -4,17 +4,17 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/verifier"
 	"sync"
 	"time"
+	"github.com/vitelabs/go-vite/producer/producerevent"
 )
 
 type ContractTaskProcessor struct {
 	taskId   int
 	worker   *ContractWorker
-	accEvent producer.AccountStartEvent
+	accEvent producerevent.AccountStartEvent
 
 	generator  *generator.Generator
 	verifier   *verifier.AccountVerifier
@@ -25,28 +25,22 @@ type ContractTaskProcessor struct {
 
 	isSleeping   bool
 	wakeup       chan struct{}
-	sync.Cond
 	breaker      chan struct{}
 	stopListener chan struct{}
 
-	getNewBlocksFunc func(index int) *model.FromItem
 
 	log log15.Logger
 }
 
-func NewContractTaskProcessor(worker *ContractWorker, index int, getNewBlocksFunc func(index int) *model.FromItem) *ContractTaskProcessor {
+func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskProcessor {
 	task := &ContractTaskProcessor{
-		taskId:           index,
-		worker:           worker,
-		accEvent:         worker.accEvent,
-		verifier:         worker.verifier,
-		blocksPool:       worker.uBlocksPool,
-		status:           Create,
-		stopListener:     make(chan struct{}),
-		breaker:          make(chan struct{}),
-		wakeup:           make(chan struct{}),
-		getNewBlocksFunc: getNewBlocksFunc,
-		log:              worker.log.New("taskid", index),
+		taskId:         index,
+		worker:         worker,
+		accEvent:       worker.accEvent,
+		verifier:       worker.verifier,
+		blocksPool:     worker.uBlocksPool,
+		status:         Create,
+		log:            worker.log.New("taskid", index),
 	}
 	task.generator = generator.NewGenerator(worker.manager.vite.Chain(),
 		worker.manager.vite.WalletManager().KeystoreManager)
@@ -54,152 +48,173 @@ func NewContractTaskProcessor(worker *ContractWorker, index int, getNewBlocksFun
 	return task
 }
 
-func (task *ContractTaskProcessor) Start() {
-	task.log.Info("Start()", "current status", task.status)
-	task.statusMutex.Lock()
-	defer task.statusMutex.Unlock()
-	if task.status != Start {
-		task.isSleeping = false
+func (tp *ContractTaskProcessor) Start() {
+	tp.log.Info("Start()", "current status", tp.status)
+	tp.statusMutex.Lock()
+	defer tp.statusMutex.Unlock()
+	if tp.status != Start {
+		tp.stopListener = make(chan struct{})
+		tp.breaker = make(chan struct{})
+		tp.wakeup = make(chan struct{})
 
-		go task.work()
+		tp.isSleeping = false
 
-		task.status = Start
+		go tp.work()
+
+		tp.status = Start
 	}
-	task.log.Info("end start")
+	tp.log.Info("end start")
 }
 
-func (task *ContractTaskProcessor) Stop() {
-	task.log.Info("Stop()", "current status", task.status)
-	task.statusMutex.Lock()
-	defer task.statusMutex.Unlock()
-	if task.status != Stop {
-		task.breaker <- struct{}{}
-		close(task.breaker)
+func (tp *ContractTaskProcessor) Stop() {
+	tp.log.Info("Stop()", "current status", tp.status)
+	tp.statusMutex.Lock()
+	defer tp.statusMutex.Unlock()
+	if tp.status == Start {
+		tp.breaker <- struct{}{}
+		close(tp.breaker)
 
-		<-task.stopListener
-		close(task.stopListener)
+		<-tp.stopListener
+		close(tp.stopListener)
 
-		close(task.wakeup)
+		close(tp.wakeup)
 
-		task.status = Stop
-	}
-	task.log.Info("stopped")
-}
-
-func (task *ContractTaskProcessor) WakeUp() {
-	if task.isSleeping {
-		task.wakeup <- struct{}{}
+		tp.status = Stop
+		tp.log.Info("stopped")
 	}
 }
 
-func (task *ContractTaskProcessor) work() {
-	task.log.Info("work()")
+func (tp *ContractTaskProcessor) WakeUp() {
+	if tp.isSleeping {
+		tp.wakeup <- struct{}{}
+	}
+}
+
+func (tp *ContractTaskProcessor) work() {
+	tp.log.Info("work()")
 LOOP:
 	for {
-		task.isSleeping = false
-		if task.status == Stop {
+		if tp.isTimeout() {
 			break
 		}
 
-		fItem := task.getNewBlocksFunc(task.taskId)
-		if fItem != nil {
-			if task.processOneQueue(fItem) {
-				task.worker.addIntoBlackList(fItem.Key, fItem.Value.Front().ToAddress)
-			} else {
-				continue
-			}
+		tp.isSleeping = false
+		if tp.status == Stop {
+			break
 		}
 
-		task.isSleeping = true
+		task := tp.worker.popContractTask()
+		if task != nil {
+			tp.processOneAddress(task)
+			continue
+		}
+
+		tp.isSleeping = true
 		select {
-		case <-task.wakeup:
-			task.log.Info("start awake")
-		case <-task.breaker:
-			task.log.Info("worker broken")
+		case <-tp.wakeup:
+			tp.log.Info("start awake")
+		case <-tp.breaker:
+			tp.log.Info("worker broken")
 			break LOOP
 		}
 	}
 
-	task.log.Info("work end called ")
-	task.stopListener <- struct{}{}
-	task.log.Info("work end")
+	tp.log.Info("work end called ")
+	tp.stopListener <- struct{}{}
+	tp.log.Info("work end")
 }
 
-func (task *ContractTaskProcessor) Close() error {
-	task.Stop()
+func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
+
+	blockList, e := tp.worker.manager.uAccess.GetOnroadBlocks(0, 0, 1, &task.Addr)
+	if e != nil {
+		tp.log.Error("GetOnroadBlocks ", "e", e)
+		return
+	}
+
+	if len(blockList) == 0 {
+		return
+	}
+
+	sBlock := blockList[0]
+
+	tp.log.Info("Process to make the receiveBlock, its'sendBlock detail:", tp.log.New("hash", sBlock.Hash))
+
+	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
+		// Don't deal with it for the time being
+		tp.worker.addIntoBlackList(task.Addr)
+		return
+	}
+
+	err := tp.generator.PrepareVm(&tp.accEvent.SnapshotHash, nil, &sBlock.ToAddress)
+	if err != nil {
+		tp.log.Error("NewGenerator Error", err)
+		tp.worker.addIntoBlackList(task.Addr)
+		return
+	}
+
+	consensusMessage := &generator.ConsensusMessage{
+		SnapshotHash: tp.accEvent.SnapshotHash,
+		Timestamp:    tp.accEvent.Timestamp,
+		Producer:     tp.accEvent.Address,
+	}
+
+	genResult, err := tp.generator.GenerateWithOnroad(*sBlock, consensusMessage,
+		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+			return tp.generator.Sign(addr, nil, data)
+		})
+
+	if err != nil {
+		tp.log.Error("GenerateTx error ignore, ", "error", err)
+	}
+
+	if len(genResult.BlockGenList) > 0 {
+		if err := tp.worker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
+			tp.worker.addIntoBlackList(task.Addr)
+			return
+		}
+
+		if genResult.IsRetry {
+			tp.worker.addIntoBlackList(task.Addr)
+			return
+		}
+
+		for _, v := range genResult.BlockGenList {
+			if v != nil && v.AccountBlock != nil {
+				task.Quota -= v.AccountBlock.Quota
+			}
+		}
+
+		if task.Quota > 0 {
+			tp.worker.pushContractTask(task)
+		}
+
+	} else {
+		if genResult.IsRetry {
+			// retry it in next turn
+			tp.worker.addIntoBlackList(task.Addr)
+			return
+		}
+
+		if err := tp.blocksPool.DeleteDirect(sBlock); err != nil {
+			tp.worker.addIntoBlackList(task.Addr)
+			return
+		}
+	}
+
+}
+
+func (tp *ContractTaskProcessor) isTimeout() bool {
+	return time.Now().After(tp.accEvent.Etime)
+}
+
+func (tp *ContractTaskProcessor) Close() error {
+	tp.Stop()
 	return nil
 }
 
-func (task *ContractTaskProcessor) Status() int {
-	task.statusMutex.Lock()
-	defer task.statusMutex.Unlock()
-	return task.status
-}
-
-func (task *ContractTaskProcessor) processOneQueue(fItem *model.FromItem) (intoBlackList bool) {
-	// get db.go block from wakeup
-	//task.log.Info("Process the fromQueue,", "fromAddress", fItem.Key, "index", fItem.Index, "priority", fItem.Priority)
-
-	bQueue := fItem.Value
-
-	// todo fix
-	/**
-	for bQueue.Dequeue()!=nil {
-
-	}
-	 */
-	for i := 0; i < bQueue.Size(); i++ {
-
-		sBlock := bQueue.Dequeue()
-		task.log.Info("Process to make the receiveBlock, its'sendBlock detail:", task.log.New("hash", sBlock.Hash))
-
-		if task.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
-			// Don't deal with it for the time being
-			return true
-		}
-
-		err := task.generator.PrepareVm(&task.accEvent.SnapshotHash, nil, &sBlock.ToAddress)
-		if err != nil {
-			task.log.Error("NewGenerator Error", err)
-			return true
-		}
-
-		consensusMessage := &generator.ConsensusMessage{
-			SnapshotHash: task.accEvent.SnapshotHash,
-			Timestamp:    task.accEvent.Timestamp,
-			Producer:     task.accEvent.Address,
-		}
-		genResult, err := task.generator.GenerateWithOnroad(*sBlock, consensusMessage, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			return task.generator.Sign(addr, nil, data)
-		})
-		if err != nil {
-			task.log.Error("GenerateTx error ignore, ", "error", err)
-		}
-
-		if genResult.BlockGenList == nil {
-			if genResult.IsRetry {
-				return true
-			}
-			// fix delete bug
-			//task.worker.manager.uAccess.Delete()managerWriteUnconfirmed(nil, sBlock)
-			//task.blocksPool.WriteOnroad(false, nil, sBlock)
-		} else {
-			if genResult.IsRetry {
-				// todo 写到pool里
-				return true
-			}
-
-			// todo
-			nowTime := time.Now().Unix()
-			if nowTime >= task.accEvent.Etime.Unix() {
-				task.breaker <- struct{}{}
-				return true
-			}
-
-			if err := task.worker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
-				return true
-			}
-		}
-	}
-	return false
+func (tp *ContractTaskProcessor) Status() int {
+	tp.statusMutex.Lock()
+	defer tp.statusMutex.Unlock()
+	return tp.status
 }

@@ -22,7 +22,7 @@ func NewOnroadSet(db *leveldb.DB) *OnroadSet {
 
 func (ucf *OnroadSet) GetCountByAddress(addr *types.Address) (count uint64, err error) {
 	count = 0
-	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), "KEY_MAX")
+	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes())
 
 	if err != nil {
 		return 0, err
@@ -38,7 +38,7 @@ func (ucf *OnroadSet) GetCountByAddress(addr *types.Address) (count uint64, err 
 }
 
 func (ucf *OnroadSet) GetHashsByCount(count uint64, addr *types.Address) (hashs []*types.Hash, err error) {
-	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), "KEY_MAX")
+	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (ucf *OnroadSet) GetHashsByCount(count uint64, addr *types.Address) (hashs 
 }
 
 func (ucf *OnroadSet) GetHashList(addr *types.Address) (hashs []*types.Hash, err error) {
-	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), "KEY_MAX")
+	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (ucf *OnroadSet) GetMeta(addr *types.Address, hash *types.Hash) ([]byte, er
 	return value, nil
 }
 
-func (ucf *OnroadSet) WriteGidAddrList(batch *leveldb.Batch, gid *types.Gid, addrList []*types.Address) error {
+func (ucf *OnroadSet) WriteGidAddrList(batch *leveldb.Batch, gid *types.Gid, addrList []types.Address) error {
 	key, err := database.EncodeKey(database.DBKP_GID_ADDR, gid.Bytes())
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func (ucf *OnroadSet) WriteGidAddrList(batch *leveldb.Batch, gid *types.Gid, add
 	return nil
 }
 
-func (ucf *OnroadSet) GetContractAddrList(gid *types.Gid) ([]*types.Address, error) {
+func (ucf *OnroadSet) GetContractAddrList(gid *types.Gid) ([]types.Address, error) {
 	key, err := database.EncodeKey(database.DBKP_GID_ADDR, gid.Bytes())
 	if err != nil {
 		return nil, err
@@ -203,8 +203,25 @@ func (ucf *OnroadSet) DecreaseReceiveErrCount(batch *leveldb.Batch, hash *types.
 		} else {
 			return ucf.db.Delete(key, nil)
 		}
-
 	}
+}
+func (ucf *OnroadSet) DeleteReceiveErrCount(batch *leveldb.Batch, hash *types.Hash, addr *types.Address) error {
+	key, err := database.EncodeKey(database.DBKP_ONROADRECEIVEERR, hash.Bytes(), addr.Bytes())
+	if err != nil {
+		return err
+	}
+	if _, err := ucf.db.Get(key, nil); err != nil {
+		if err != leveldb.ErrNotFound {
+			return err
+		}
+		return nil
+	}
+	if batch != nil {
+		batch.Delete(key)
+	} else {
+		return ucf.db.Delete(key, nil)
+	}
+	return nil
 }
 
 func (ucf *OnroadSet) GetReceiveErrCount(hash *types.Hash, addr *types.Address) (uint8, error) {

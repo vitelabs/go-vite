@@ -21,6 +21,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
 	db, addr1, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
+	blockTime := time.Now()
 	// register
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr6, privateKey, _ := types.CreateAddress()
@@ -43,6 +44,7 @@ func TestContractsRegisterRun(t *testing.T) {
 		Data:           block13Data,
 		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm := NewVM()
 	vm.Debug = true
@@ -64,16 +66,17 @@ func TestContractsRegisterRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash13,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
 	locHashRegister, _ := types.BytesToHash(contracts.GetRegisterKey(nodeName, types.SNAPSHOT_GID))
-	registrationData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr7, addr1, addr6, block13.Amount, snapshot2.Timestamp.Unix(), snapshot2.Height, uint64(0))
+	registrationData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr7, addr1, addr6, block13.Amount, snapshot2.Height, snapshot2.Height, uint64(0))
 	db.addr = addr2
 	receiveRegisterBlockList, isRetry, err := vm.Run(db, block21, sendRegisterBlockList[0].AccountBlock)
 	if len(receiveRegisterBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
-		!bytes.Equal(db.storageMap[addr2][locHashRegister], registrationData) ||
+		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationData) ||
 		receiveRegisterBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive register transaction error")
 	}
@@ -94,6 +97,7 @@ func TestContractsRegisterRun(t *testing.T) {
 		Fee:            big.NewInt(0),
 		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -115,15 +119,16 @@ func TestContractsRegisterRun(t *testing.T) {
 		FromBlockHash:  hash14,
 		PrevHash:       hash21,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
-	registrationData, _ = contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr6, addr1, addr7, block13.Amount, snapshot2.Timestamp.Unix(), snapshot2.Height, uint64(0))
+	registrationData, _ = contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr6, addr1, addr7, block13.Amount, snapshot2.Height, snapshot2.Height, uint64(0))
 	db.addr = addr2
 	receiveRegisterBlockList2, isRetry, err := vm.Run(db, block22, sendRegisterBlockList2[0].AccountBlock)
 	if len(receiveRegisterBlockList2) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
-		!bytes.Equal(db.storageMap[addr2][locHashRegister], registrationData) ||
+		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationData) ||
 		receiveRegisterBlockList2[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive update registration transaction error")
 	}
@@ -142,6 +147,9 @@ func TestContractsRegisterRun(t *testing.T) {
 	time4 := time.Unix(timestamp+2, 0)
 	snapshot4 := &ledger.SnapshotBlock{Height: 4, Timestamp: &time4, Hash: types.DataHash([]byte{10, 4}), PublicKey: publicKey}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot4)
+	time5 := time.Unix(timestamp+3, 0)
+	snapshot5 := &ledger.SnapshotBlock{Height: 3 + 3600*24*90, Timestamp: &time5, Hash: types.DataHash([]byte{10, 5})}
+	db.snapshotBlockList = append(db.snapshotBlockList, snapshot5)
 
 	hash15 := types.DataHash([]byte{1, 5})
 	block15Data, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameCancelRegister, types.SNAPSHOT_GID, nodeName)
@@ -155,7 +163,8 @@ func TestContractsRegisterRun(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash13,
 		Data:           block15Data,
-		SnapshotHash:   snapshot4.Hash,
+		SnapshotHash:   snapshot5.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -176,17 +185,18 @@ func TestContractsRegisterRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash21,
 		FromBlockHash:  hash15,
-		SnapshotHash:   snapshot4.Hash,
+		SnapshotHash:   snapshot5.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr2
 	receiveCancelRegisterBlockList, isRetry, err := vm.Run(db, block23, sendCancelRegisterBlockList[0].AccountBlock)
-	registrationData, _ = contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr6, addr1, addr7, helper.Big0, int64(0), snapshot2.Height, snapshot4.Height)
+	registrationData, _ = contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr6, addr1, addr7, helper.Big0, uint64(0), snapshot2.Height, snapshot5.Height)
 	if len(receiveCancelRegisterBlockList) != 2 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
-		!bytes.Equal(db.storageMap[addr2][locHashRegister], registrationData) ||
+		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationData) ||
 		receiveCancelRegisterBlockList[0].AccountBlock.Quota != 0 ||
 		receiveCancelRegisterBlockList[1].AccountBlock.Quota != 0 ||
 		receiveCancelRegisterBlockList[1].AccountBlock.Height != 4 ||
@@ -206,7 +216,8 @@ func TestContractsRegisterRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash16,
 		FromBlockHash:  hash23,
-		SnapshotHash:   snapshot4.Hash,
+		SnapshotHash:   snapshot5.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -222,14 +233,11 @@ func TestContractsRegisterRun(t *testing.T) {
 	db.accountBlockMap[addr1][hash16] = receiveCancelRegisterRefundBlockList[0].AccountBlock
 
 	// reward
-	for i := uint64(1); i <= rewardHeightLimit; i++ {
-		timei := time.Unix(timestamp+2+int64(i), 0)
-		snapshoti := &ledger.SnapshotBlock{Height: 4 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(4 + i)}), PublicKey: publicKey}
-		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
-	}
-	currentSnapshotBlock := db.snapshotBlockList[len(db.snapshotBlockList)-1]
-	db.storageMap[contracts.AddressPledge][types.DataHash(addr1.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
-	db.storageMap[contracts.AddressPledge][types.DataHash(addr7.Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, big.NewInt(1e18))
+	time6 := time.Unix(timestamp+4, 0)
+	snapshot6 := &ledger.SnapshotBlock{Height: snapshot5.Height + rewardHeightLimit, Timestamp: &time6, Hash: types.DataHash([]byte{10, byte(6)})}
+	db.snapshotBlockList = append(db.snapshotBlockList, snapshot6)
+	db.storageMap[contracts.AddressPledge][string(types.DataHash(addr1.Bytes()).Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
+	db.storageMap[contracts.AddressPledge][string(contracts.GetPledgeBeneficialKey(addr7))], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
 	block17Data, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, nodeName, uint64(0), uint64(0), helper.Big0)
 	hash17 := types.DataHash([]byte{1, 7})
 	block17 := &ledger.AccountBlock{
@@ -242,7 +250,8 @@ func TestContractsRegisterRun(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash16,
 		Data:           block17Data,
-		SnapshotHash:   currentSnapshotBlock.Hash,
+		SnapshotHash:   snapshot6.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -250,9 +259,9 @@ func TestContractsRegisterRun(t *testing.T) {
 	sendRewardBlockList, isRetry, err := vm.Run(db, block17, nil)
 	block17DataGas, _ := quota.DataGasCost(sendRewardBlockList[0].AccountBlock.Data)
 	reward := new(big.Int).Mul(big.NewInt(2), rewardPerBlock)
-	block17DataExpected, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, nodeName, snapshot4.Height, snapshot2.Height, reward)
+	block17DataExpected, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, nodeName, snapshot6.Height-rewardHeightLimit, snapshot2.Height, reward)
 	if len(sendRewardBlockList) != 1 || isRetry || err != nil ||
-		sendRewardBlockList[0].AccountBlock.Quota != block17DataGas+rewardGas+calcRewardGasPerPage ||
+		sendRewardBlockList[0].AccountBlock.Quota != block17DataGas+rewardGas+calcRewardGasPerPage*778 ||
 		!bytes.Equal(sendRewardBlockList[0].AccountBlock.Data, block17DataExpected) {
 		t.Fatalf("send reward transaction error")
 	}
@@ -265,16 +274,18 @@ func TestContractsRegisterRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash24,
 		FromBlockHash:  hash17,
-		SnapshotHash:   currentSnapshotBlock.Hash,
+		SnapshotHash:   snapshot6.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr2
 	receiveRewardBlockList, isRetry, err := vm.Run(db, block25, sendRewardBlockList[0].AccountBlock)
+	registrationData, _ = contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr6, addr1, addr7, helper.Big0, uint64(0), snapshot5.Height, snapshot5.Height)
 	if len(receiveRewardBlockList) != 2 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(viteTotalSupply) != 0 ||
-		len(db.storageMap[addr2][locHashRegister]) != 0 ||
+		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationData) ||
 		receiveRewardBlockList[0].AccountBlock.Quota != 0 ||
 		receiveRewardBlockList[1].AccountBlock.Quota != 0 ||
 		receiveRewardBlockList[1].AccountBlock.Height != 6 ||
@@ -293,7 +304,8 @@ func TestContractsRegisterRun(t *testing.T) {
 		AccountAddress: addr7,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash25,
-		SnapshotHash:   currentSnapshotBlock.Hash,
+		SnapshotHash:   snapshot6.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -312,6 +324,7 @@ func TestContractsVote(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
 	db, addr1, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
+	blockTime := time.Now()
 	// vote
 	addr3 := contracts.AddressVote
 	nodeName := "super1"
@@ -328,6 +341,7 @@ func TestContractsVote(t *testing.T) {
 		Fee:            big.NewInt(0),
 		Data:           block13Data,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm := NewVM()
 	vm.Debug = true
@@ -347,6 +361,7 @@ func TestContractsVote(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash13,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -355,7 +370,7 @@ func TestContractsVote(t *testing.T) {
 	locHashVote, _ := types.BytesToHash(contracts.GetVoteKey(addr1, types.SNAPSHOT_GID))
 	voteData, _ := contracts.ABIVote.PackVariable(contracts.VariableNameVoteStatus, nodeName)
 	if len(receiveVoteBlockList) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr3][locHashVote], voteData) ||
+		!bytes.Equal(db.storageMap[addr3][string(locHashVote.Bytes())], voteData) ||
 		receiveVoteBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive vote transaction error")
 	}
@@ -378,6 +393,7 @@ func TestContractsVote(t *testing.T) {
 		PrevHash:       hash13,
 		Data:           block14Data,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -398,6 +414,7 @@ func TestContractsVote(t *testing.T) {
 		PrevHash:       hash31,
 		FromBlockHash:  hash14,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -405,7 +422,7 @@ func TestContractsVote(t *testing.T) {
 	receiveVoteBlockList2, isRetry, err := vm.Run(db, block32, sendVoteBlockList2[0].AccountBlock)
 	voteData, _ = contracts.ABIVote.PackVariable(contracts.VariableNameVoteStatus, nodeName2)
 	if len(receiveVoteBlockList2) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr3][locHashVote], voteData) ||
+		!bytes.Equal(db.storageMap[addr3][string(locHashVote.Bytes())], voteData) ||
 		receiveVoteBlockList2[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive vote transaction 2 error")
 	}
@@ -431,6 +448,7 @@ func TestContractsVote(t *testing.T) {
 		PrevHash:       hash14,
 		Data:           block15Data,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -450,13 +468,14 @@ func TestContractsVote(t *testing.T) {
 		PrevHash:       hash32,
 		FromBlockHash:  hash15,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr3
 	receiveCancelVoteBlockList, isRetry, err := vm.Run(db, block33, sendCancelVoteBlockList[0].AccountBlock)
 	if len(receiveCancelVoteBlockList) != 1 || isRetry || err != nil ||
-		len(db.storageMap[addr3][locHashVote]) != 0 ||
+		len(db.storageMap[addr3][string(locHashVote.Bytes())]) != 0 ||
 		receiveCancelVoteBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive cancel vote transaction error")
 	}
@@ -467,14 +486,14 @@ func TestContractsPledge(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
 	db, addr1, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
+	blockTime := time.Now()
 	// pledge
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr4, _, _ := types.CreateAddress()
 	db.accountBlockMap[addr4] = make(map[types.Hash]*ledger.AccountBlock)
 	addr5 := contracts.AddressPledge
-	pledgeAmount := big.NewInt(2e18)
-	withdrawTime := timestamp + pledgeTime
-	block13Data, err := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr4, withdrawTime)
+	pledgeAmount := new(big.Int).Set(pledgeAmountMin)
+	block13Data, err := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr4)
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -487,6 +506,7 @@ func TestContractsPledge(t *testing.T) {
 		PrevHash:       hash12,
 		Data:           block13Data,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm := NewVM()
 	vm.Debug = true
@@ -508,16 +528,18 @@ func TestContractsPledge(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash13,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr5
 	receivePledgeBlockList, isRetry, err := vm.Run(db, block51, sendPledgeBlockList[0].AccountBlock)
-	locHashQuota := types.DataHash(addr4.Bytes())
-	locHashPledge := types.DataHash(append(addr1.Bytes(), locHashQuota.Bytes()...))
+	beneficialKey := contracts.GetPledgeBeneficialKey(addr4)
+	pledgeKey := contracts.GetPledgeKey(addr1, beneficialKey)
+	withdrawHeight := snapshot2.Height + minPledgeHeight
 	if len(receivePledgeBlockList) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr5][locHashPledge], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetInt64(withdrawTime).Bytes(), helper.WordSize))) ||
-		!bytes.Equal(db.storageMap[addr5][locHashQuota], helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize)) ||
+		!bytes.Equal(db.storageMap[addr5][string(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize))) ||
+		!bytes.Equal(db.storageMap[addr5][string(beneficialKey)], helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize)) ||
 		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
 		receivePledgeBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive pledge transaction error")
@@ -525,8 +547,7 @@ func TestContractsPledge(t *testing.T) {
 	db.accountBlockMap[addr5] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr5][hash51] = receivePledgeBlockList[0].AccountBlock
 
-	withdrawTime = timestamp + 100 + pledgeTime
-	block14Data, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr4, withdrawTime)
+	block14Data, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr4)
 	hash14 := types.DataHash([]byte{1, 4})
 	block14 := &ledger.AccountBlock{
 		Height:         4,
@@ -539,6 +560,7 @@ func TestContractsPledge(t *testing.T) {
 		PrevHash:       hash13,
 		Data:           block14Data,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -561,6 +583,7 @@ func TestContractsPledge(t *testing.T) {
 		PrevHash:       hash51,
 		FromBlockHash:  hash14,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -568,8 +591,8 @@ func TestContractsPledge(t *testing.T) {
 	receivePledgeBlockList2, isRetry, err := vm.Run(db, block52, sendPledgeBlockList2[0].AccountBlock)
 	newPledgeAmount := new(big.Int).Add(pledgeAmount, pledgeAmount)
 	if len(receivePledgeBlockList2) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr5][locHashPledge], helper.JoinBytes(helper.LeftPadBytes(newPledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetInt64(withdrawTime).Bytes(), helper.WordSize))) ||
-		!bytes.Equal(db.storageMap[addr5][locHashQuota], helper.LeftPadBytes(newPledgeAmount.Bytes(), helper.WordSize)) ||
+		!bytes.Equal(db.storageMap[addr5][string(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(newPledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize))) ||
+		!bytes.Equal(db.storageMap[addr5][string(beneficialKey)], helper.LeftPadBytes(newPledgeAmount.Bytes(), helper.WordSize)) ||
 		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(newPledgeAmount) != 0 ||
 		receivePledgeBlockList2[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive pledge transaction 2 error")
@@ -578,14 +601,21 @@ func TestContractsPledge(t *testing.T) {
 
 	// get contracts data
 	db.addr = contracts.AddressPledge
-	if pledgeAmount := contracts.GetPledgeAmount(db, addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
+	if pledgeAmount := contracts.GetPledgeBeneficialAmount(db, addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
+		t.Fatalf("get pledge beneficial amount failed")
+	}
+
+	if pledgeInfoList := contracts.GetPledgeAmount(db, addr1); len(pledgeInfoList) != 1 || pledgeInfoList[0].BeneficialAddr != addr4 {
 		t.Fatalf("get pledge amount failed")
 	}
 
 	// cancel pledge
-	time55 := time.Unix(timestamp+100+pledgeTime, 0)
-	snapshot55 := &ledger.SnapshotBlock{Height: 55, Timestamp: &time55, Hash: types.DataHash([]byte{10, 55})}
-	db.snapshotBlockList = append(db.snapshotBlockList, snapshot55)
+	for i := uint64(1); i <= uint64(minPledgeHeight); i++ {
+		timei := time.Unix(timestamp+100+int64(i), 0)
+		snapshoti := &ledger.SnapshotBlock{Height: 2 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(2 + i)})}
+		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
+	}
+	currentSnapshot := db.snapshotBlockList[len(db.snapshotBlockList)-1]
 
 	block15Data, _ := contracts.ABIPledge.PackMethod(contracts.MethodNameCancelPledge, addr4, pledgeAmount)
 	hash15 := types.DataHash([]byte{1, 5})
@@ -599,14 +629,16 @@ func TestContractsPledge(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash14,
 		Data:           block15Data,
-		SnapshotHash:   snapshot55.Hash,
+		SnapshotHash:   currentSnapshot.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
 	sendCancelPledgeBlockList, isRetry, err := vm.Run(db, block15, nil)
+	block15DataGasCost, _ := quota.DataGasCost(sendCancelPledgeBlockList[0].AccountBlock.Data)
 	if len(sendCancelPledgeBlockList) != 1 || isRetry || err != nil ||
-		sendCancelPledgeBlockList[0].AccountBlock.Quota != 105592 {
+		sendCancelPledgeBlockList[0].AccountBlock.Quota != block15DataGasCost+cancelPledgeGas {
 		t.Fatalf("send cancel pledge transaction error")
 	}
 	db.accountBlockMap[addr1][hash15] = sendCancelPledgeBlockList[0].AccountBlock
@@ -618,7 +650,8 @@ func TestContractsPledge(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash52,
 		FromBlockHash:  hash15,
-		SnapshotHash:   snapshot55.Hash,
+		SnapshotHash:   currentSnapshot.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -626,8 +659,8 @@ func TestContractsPledge(t *testing.T) {
 	receiveCancelPledgeBlockList, isRetry, err := vm.Run(db, block53, sendCancelPledgeBlockList[0].AccountBlock)
 	if len(receiveCancelPledgeBlockList) != 2 || isRetry || err != nil ||
 		receiveCancelPledgeBlockList[1].AccountBlock.Height != 4 ||
-		!bytes.Equal(db.storageMap[addr5][locHashPledge], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetInt64(withdrawTime).Bytes(), helper.WordSize))) ||
-		!bytes.Equal(db.storageMap[addr5][locHashQuota], helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize)) ||
+		!bytes.Equal(db.storageMap[addr5][string(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize))) ||
+		!bytes.Equal(db.storageMap[addr5][string(beneficialKey)], helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize)) ||
 		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
 		receiveCancelPledgeBlockList[0].AccountBlock.Quota != 0 ||
 		receiveCancelPledgeBlockList[1].AccountBlock.Quota != 0 {
@@ -644,7 +677,8 @@ func TestContractsPledge(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash15,
 		FromBlockHash:  hash54,
-		SnapshotHash:   snapshot55.Hash,
+		SnapshotHash:   currentSnapshot.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -670,14 +704,16 @@ func TestContractsPledge(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash16,
 		Data:           block17Data,
-		SnapshotHash:   snapshot55.Hash,
+		SnapshotHash:   currentSnapshot.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
 	db.addr = addr1
 	sendCancelPledgeBlockList2, isRetry, err := vm.Run(db, block17, nil)
+	block17DataGas, _ := quota.DataGasCost(sendCancelPledgeBlockList2[0].AccountBlock.Data)
 	if len(sendCancelPledgeBlockList2) != 1 || isRetry || err != nil ||
-		sendCancelPledgeBlockList2[0].AccountBlock.Quota != 105592 {
+		sendCancelPledgeBlockList2[0].AccountBlock.Quota != block17DataGas+cancelPledgeGas {
 		t.Fatalf("send cancel pledge transaction 2 error")
 	}
 	db.accountBlockMap[addr1][hash17] = sendCancelPledgeBlockList2[0].AccountBlock
@@ -689,7 +725,8 @@ func TestContractsPledge(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash54,
 		FromBlockHash:  hash17,
-		SnapshotHash:   snapshot55.Hash,
+		SnapshotHash:   currentSnapshot.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -697,8 +734,8 @@ func TestContractsPledge(t *testing.T) {
 	receiveCancelPledgeBlockList2, isRetry, err := vm.Run(db, block55, sendCancelPledgeBlockList2[0].AccountBlock)
 	if len(receiveCancelPledgeBlockList2) != 2 || isRetry || err != nil ||
 		receiveCancelPledgeBlockList2[1].AccountBlock.Height != 6 ||
-		len(db.storageMap[addr5][locHashPledge]) != 0 ||
-		len(db.storageMap[addr5][locHashQuota]) != 0 ||
+		len(db.storageMap[addr5][string(pledgeKey)]) != 0 ||
+		len(db.storageMap[addr5][string(beneficialKey)]) != 0 ||
 		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
 		receiveCancelPledgeBlockList2[0].AccountBlock.Quota != 0 ||
 		receiveCancelPledgeBlockList2[1].AccountBlock.Quota != 0 {
@@ -715,7 +752,8 @@ func TestContractsPledge(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash18,
 		FromBlockHash:  hash56,
-		SnapshotHash:   snapshot55.Hash,
+		SnapshotHash:   currentSnapshot.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -733,6 +771,7 @@ func TestContractsPledge(t *testing.T) {
 func TestContractsConsensusGroup(t *testing.T) {
 	viteTotalSupply := viteTotalSupply
 	db, addr1, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
+	blockTime := time.Now()
 
 	addr2 := contracts.AddressConsensusGroup
 	block13Data, _ := contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameCreateConsensusGroup,
@@ -743,9 +782,9 @@ func TestContractsConsensusGroup(t *testing.T) {
 		uint8(2),
 		uint8(50),
 		ledger.ViteTokenId,
-		uint8(0),
-		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
-		uint8(0),
+		uint8(1),
+		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(259200).Bytes(), helper.WordSize)),
+		uint8(1),
 		[]byte{})
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
@@ -759,16 +798,17 @@ func TestContractsConsensusGroup(t *testing.T) {
 		TokenId:        ledger.ViteTokenId,
 		Data:           block13Data,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm := NewVM()
 	vm.Debug = true
 	db.addr = addr1
 	sendCreateConsensusGroupBlockList, isRetry, err := vm.Run(db, block13, nil)
 	balance1 := new(big.Int).Sub(viteTotalSupply, createConsensusGroupPledgeAmount)
-	quota13, _ := quota.DataGasCost(block13.Data)
+	quota13, _ := quota.DataGasCost(sendCreateConsensusGroupBlockList[0].AccountBlock.Data)
 	if len(sendCreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
 		sendCreateConsensusGroupBlockList[0].AccountBlock.Quota != quota13+createConsensusGroupGas ||
-		!helper.AllZero(block13.Data[4:26]) || helper.AllZero(block13.Data[26:36]) ||
+		!helper.AllZero(sendCreateConsensusGroupBlockList[0].AccountBlock.Data[4:26]) || helper.AllZero(sendCreateConsensusGroupBlockList[0].AccountBlock.Data[26:36]) ||
 		block13.Fee.Cmp(helper.Big0) != 0 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
 		t.Fatalf("send create consensus group transaction error")
@@ -782,6 +822,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash13,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -795,16 +836,16 @@ func TestContractsConsensusGroup(t *testing.T) {
 		uint8(2),
 		uint8(50),
 		ledger.ViteTokenId,
-		uint8(0),
-		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
-		uint8(0),
+		uint8(1),
+		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(259200).Bytes(), helper.WordSize)),
+		uint8(1),
 		[]byte{},
 		addr1,
 		createConsensusGroupPledgeAmount,
-		snapshot2.Timestamp.Unix()+createConsensusGroupPledgeTime)
+		snapshot2.Height+createConsensusGroupPledgeHeight)
 	if len(receiveCreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(createConsensusGroupPledgeAmount) != 0 ||
-		!bytes.Equal(db.storageMap[addr2][locHash], groupInfo) ||
+		!bytes.Equal(db.storageMap[addr2][string(locHash.Bytes())], groupInfo) ||
 		receiveCreateConsensusGroupBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive create consensus group transaction error")
 	}
@@ -822,7 +863,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 	}
 
 	// cancel consensus group
-	for i := uint64(1); i <= uint64(createConsensusGroupPledgeTime); i++ {
+	for i := uint64(1); i <= uint64(createConsensusGroupPledgeHeight); i++ {
 		timei := time.Unix(timestamp+2+int64(i), 0)
 		snapshoti := &ledger.SnapshotBlock{Height: 2 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(2 + i)})}
 		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
@@ -842,6 +883,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 		TokenId:        ledger.ViteTokenId,
 		Data:           block14Data,
 		SnapshotHash:   newSnapshot.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -862,6 +904,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash14,
 		SnapshotHash:   newSnapshot.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -874,16 +917,16 @@ func TestContractsConsensusGroup(t *testing.T) {
 		uint8(2),
 		uint8(50),
 		ledger.ViteTokenId,
-		uint8(0),
-		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
-		uint8(0),
+		uint8(1),
+		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(259200).Bytes(), helper.WordSize)),
+		uint8(1),
 		[]byte{},
 		addr1,
 		helper.Big0,
-		int64(0))
+		uint64(0))
 	if len(receiveCancelConsensusGroupBlockList) != 2 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Sign() != 0 ||
-		!bytes.Equal(db.storageMap[addr2][locHash], groupInfo) ||
+		!bytes.Equal(db.storageMap[addr2][string(locHash.Bytes())], groupInfo) ||
 		receiveCancelConsensusGroupBlockList[0].AccountBlock.Quota != 0 ||
 		receiveCancelConsensusGroupBlockList[1].AccountBlock.Height != 3 ||
 		receiveCancelConsensusGroupBlockList[1].AccountBlock.Quota != 0 ||
@@ -902,6 +945,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash23,
 		SnapshotHash:   newSnapshot.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -937,6 +981,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 		TokenId:        ledger.ViteTokenId,
 		Data:           block16Data,
 		SnapshotHash:   newSnapshot.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -958,6 +1003,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash16,
 		SnapshotHash:   newSnapshot.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -970,16 +1016,16 @@ func TestContractsConsensusGroup(t *testing.T) {
 		uint8(2),
 		uint8(50),
 		ledger.ViteTokenId,
-		uint8(0),
-		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(84600).Bytes(), helper.WordSize)),
-		uint8(0),
+		uint8(1),
+		helper.JoinBytes(helper.LeftPadBytes(big.NewInt(1e18).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(259200).Bytes(), helper.WordSize)),
+		uint8(1),
 		[]byte{},
 		addr1,
 		createConsensusGroupPledgeAmount,
-		newSnapshot.Timestamp.Unix()+createConsensusGroupPledgeTime)
+		newSnapshot.Height+createConsensusGroupPledgeHeight)
 	if len(receiveRecreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(createConsensusGroupPledgeAmount) != 0 ||
-		!bytes.Equal(db.storageMap[addr2][locHash], groupInfo) ||
+		!bytes.Equal(db.storageMap[addr2][string(locHash.Bytes())], groupInfo) ||
 		receiveRecreateConsensusGroupBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive cancel consensus group transaction error")
 	}
@@ -999,6 +1045,7 @@ func TestContractsMintage(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
 	db, addr1, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
+	blockTime := time.Now()
 	// mintage
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr2 := contracts.AddressMintage
@@ -1019,6 +1066,7 @@ func TestContractsMintage(t *testing.T) {
 		PrevHash:       hash12,
 		Data:           block13Data,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm := NewVM()
 	vm.Debug = true
@@ -1042,6 +1090,7 @@ func TestContractsMintage(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash13,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -1049,9 +1098,9 @@ func TestContractsMintage(t *testing.T) {
 	receiveMintageBlockList, isRetry, err := vm.Run(db, block21, sendMintageBlockList[0].AccountBlock)
 	tokenId, _ := types.BytesToTokenTypeId(sendMintageBlockList[0].AccountBlock.Data[26:36])
 	key, _ := types.BytesToHash(sendMintageBlockList[0].AccountBlock.Data[4:36])
-	tokenInfoData, _ := contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, addr1, big.NewInt(0), int64(0))
+	tokenInfoData, _ := contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, addr1, big.NewInt(0), uint64(0))
 	if len(receiveMintageBlockList) != 2 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr2][key], tokenInfoData) ||
+		!bytes.Equal(db.storageMap[addr2][string(key.Bytes())], tokenInfoData) ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
 		receiveMintageBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive mintage transaction error")
@@ -1069,6 +1118,7 @@ func TestContractsMintage(t *testing.T) {
 		FromBlockHash:  hash22,
 		PrevHash:       hash13,
 		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -1091,8 +1141,43 @@ func TestContractsMintage(t *testing.T) {
 	}
 }
 
-func TestCheckConsensusGroup(t *testing.T) {
-	// TODO test check consensus group
+func TestCheckCreateConsensusGroupData(t *testing.T) {
+	tests := []struct {
+		data string
+		err  error
+	}{
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", nil},
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000aaaaaaaaaaaaaaaaaaaa", ErrInvalidData},
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f48000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005649544520544f4b454e", ErrInvalidData},
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4700000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a764000000000000000000000000000000000000000000000000aaaaaaaaaaaaaaaaaaaa000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+		{"51891ff200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000019000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000003200000000000000000000000000000000000000000000aaaaaaaaaaaaaaaaaaaa00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+		{"51891ff20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001900000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000001a0000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+		{"51891ff200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000019000000000000000000000000000000000000000000000000000000000000003d000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000025900000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000259000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000670000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
+	}
+	db, _, _, _, _ := prepareDb(big.NewInt(1))
+	for i, test := range tests {
+		inputdata, _ := hex.DecodeString(test.data)
+		param := new(contracts.ConsensusGroupInfo)
+		err := contracts.ABIConsensusGroup.UnpackMethod(param, contracts.MethodNameCreateConsensusGroup, inputdata)
+		if err != nil {
+			t.Fatalf("unpack create consensus group param error, data: [%v]", test.data)
+		}
+		err = checkCreateConsensusGroupData(db, param)
+		if test.err != nil && err == nil {
+			t.Logf("%v th check create consensus group data expected error", i)
+		} else if test.err == nil && err != nil {
+			t.Logf("%v th check create consensus group data unexpected error", i)
+		}
+	}
 }
 
 func TestCheckTokenInfo(t *testing.T) {
@@ -1158,12 +1243,15 @@ func TestGenesisBlockData(t *testing.T) {
 	decimals := uint8(18)
 	totalSupply := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9))
 	viteAddress, _, _ := types.CreateAddress()
-	mintageData, _ := contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, viteAddress, big.NewInt(0), int64(0))
+	mintageData, err := contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, viteAddress, big.NewInt(0), uint64(0))
+	if err != nil {
+		t.Fatalf("pack mintage variable error, %v", err)
+	}
 	fmt.Println("-------------mintage genesis block-------------")
 	fmt.Printf("address: %v\n", hex.EncodeToString(contracts.AddressMintage.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v\n}\n",
 		ledger.BlockTypeReceive, hex.EncodeToString(contracts.AddressMintage.Bytes()), 1, big.NewInt(0), big.NewInt(0))
-	fmt.Printf("Storage:{\n\t%v:%v\n}\n", hex.EncodeToString(helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), 32)), hex.EncodeToString(mintageData))
+	fmt.Printf("Storage:{\n\t%v:%v\n}\n", hex.EncodeToString(contracts.GetMintageKey(ledger.ViteTokenId)), hex.EncodeToString(mintageData))
 
 	fmt.Println("-------------vite owner genesis block-------------")
 	fmt.Println("address: viteAddress")
@@ -1171,8 +1259,11 @@ func TestGenesisBlockData(t *testing.T) {
 		ledger.BlockTypeReceive, 1, totalSupply, big.NewInt(0), []byte{})
 	fmt.Printf("Storage:{\n\t$balance:ledger.ViteTokenId:%v\n}\n", totalSupply)
 
-	conditionRegisterData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(1e6), attovPerVite), ledger.ViteTokenId, int64(3600*24*90))
-	snapshotConsensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+	conditionRegisterData, err := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(1e6), attovPerVite), ledger.ViteTokenId, uint64(3600*24*90))
+	if err != nil {
+		t.Fatalf("pack register condition variable error, %v", err)
+	}
+	snapshotConsensusGroupData, err := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(1),
 		int64(3),
@@ -1185,11 +1276,14 @@ func TestGenesisBlockData(t *testing.T) {
 		[]byte{},
 		viteAddress,
 		big.NewInt(0),
-		time.Now().Unix()+createConsensusGroupPledgeTime)
-	commonConsensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+		uint64(1))
+	if err != nil {
+		t.Fatalf("pack consensus group data variable error, %v", err)
+	}
+	commonConsensusGroupData, err := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
-		int64(1),
 		int64(3),
+		int64(1),
 		uint8(2),
 		uint8(50),
 		ledger.ViteTokenId,
@@ -1199,25 +1293,29 @@ func TestGenesisBlockData(t *testing.T) {
 		[]byte{},
 		viteAddress,
 		big.NewInt(0),
-		time.Now().Unix()+createConsensusGroupPledgeTime)
+		uint64(1))
+	if err != nil {
+		t.Fatalf("pack consensus group data variable error, %v", err)
+	}
 	fmt.Println("-------------snapshot consensus group and common consensus group genesis block-------------")
 	fmt.Printf("address:%v\n", hex.EncodeToString(contracts.AddressConsensusGroup.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
 		ledger.BlockTypeReceive, hex.EncodeToString(contracts.AddressConsensusGroup.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
-	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(types.DataHash(types.SNAPSHOT_GID.Bytes()).Bytes()), hex.EncodeToString(snapshotConsensusGroupData), hex.EncodeToString(types.DataHash(types.DELEGATE_GID.Bytes()).Bytes()), hex.EncodeToString(commonConsensusGroupData))
+	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(contracts.GetConsensusGroupKey(types.SNAPSHOT_GID)), hex.EncodeToString(snapshotConsensusGroupData), hex.EncodeToString(contracts.GetConsensusGroupKey(types.DELEGATE_GID)), hex.EncodeToString(commonConsensusGroupData))
 
 	fmt.Println("-------------snapshot consensus group and common consensus group register genesis block-------------")
 	fmt.Printf("address:%v\n", hex.EncodeToString(contracts.AddressRegister.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
 		ledger.BlockTypeReceive, hex.EncodeToString(contracts.AddressRegister.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
 	fmt.Printf("Storage:{\n")
-	timestamp := time.Now().Unix() + int64(3600*24*90)
 	for i := 1; i <= 25; i++ {
 		addr, _, _ := types.CreateAddress()
-		registerData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, "node"+strconv.Itoa(i), addr, addr, addr, helper.Big0, timestamp, uint64(1), uint64(0))
+		registerData, err := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, "node"+strconv.Itoa(i), addr, addr, addr, helper.Big0, uint64(1), uint64(1), uint64(0))
+		if err != nil {
+			t.Fatalf("pack registration variable error, %v", err)
+		}
 		snapshotKey := contracts.GetRegisterKey("snapshotNode1", types.SNAPSHOT_GID)
-		commonKey := contracts.GetRegisterKey("commonNode1", types.DELEGATE_GID)
-		fmt.Printf("\t%v: %v\n\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData), hex.EncodeToString(commonKey), hex.EncodeToString(registerData))
+		fmt.Printf("\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData))
 	}
 	fmt.Println("}")
 }

@@ -1,29 +1,13 @@
 package quota
 
 import (
-	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
-)
-
-var (
-	ErrOutOfQuota      = errors.New("out of quota")
-	errGasUintOverflow = errors.New("gas uint64 overflow")
-
-	quotaByPledge = big.NewInt(1e9)
-)
-
-const (
-	quotaForPoW              uint64 = 21000
-	quotaLimit               uint64 = 3000000 // Maximum quota of an account referring to one snapshot block
-	quotaLimitForTransaction uint64 = 800000  // Maximum quota of a transaction
-	TxGas                    uint64 = 21000   // Per transaction not creating a contract.
-	txContractCreationGas    uint64 = 53000   // Per transaction that creates a contract.
-	txDataZeroGas            uint64 = 4       // Per byte of data attached to a transaction that equals zero.
-	txDataNonZeroGas         uint64 = 68      // Per byte of data attached to a transaction that is not equal to zero.
+	"time"
 )
 
 type quotaDb interface {
@@ -36,22 +20,26 @@ type quotaDb interface {
 
 func GetPledgeQuota(db quotaDb, beneficial types.Address) uint64 {
 	// TODO cache
-	// TODO benchmark
 	quotaTotal, _ := CalcQuota(db, beneficial, false)
 	return quotaTotal
 }
 
+// TODO change pow bool to difficulty *big.Int
 func CalcQuota(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
-	// quotaInit = (pledge amount of account address at current snapshot status / quotaByPledge)
-	// 				* snapshot height gap between current block and prevBlock
-	// 				- quota used by prevBlock referring to the same snapshot
-	// quotaByPledge is within a range decided by net congestion
-	// user account gets extra quota to send or receive a transfer transaction without data if calc PoW
-	// contract account has a quota limit decided by consensus group
-	// TODO calc quotaLimit
-	// TODO calc quotaByPledge
+	// quotaInit = quotaLimitForAccount * (1 - 2/(1 + e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount)))
+	// 				- quota used by prevBlock referring to the same snapshot hash
+	// quotaAddition = quotaLimitForAccount * (1 - 2/(1 + e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount)))
+	//				- quotaLimitForAccount * (1 - 2/(1 + e**(fPledge * snapshotHeightGap * pledgeAmount)))
+	// snapshotHeightGap is limit to 1 day
+	// e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount) is discrete to reduce computation complexity
+	// quotaLimitForAccount is within a range decided by net congestion and net capacity
+	// user account gets extra quota to send or receive a transaction if calc PoW, extra quota is decided by difficulty
+	// contract account only gets quota via pledge
+	// user account genesis block(a receive block) must calculate a PoW to get quota
+	// TODO Following code is just a simple implementation for test net.
+	defer monitor.LogTime("vm", "CalcQuota", time.Now())
 	quotaLimitForAccount := quotaLimit
-	quotaInitBig := new(big.Int).Div(contracts.GetPledgeAmount(db, addr), quotaByPledge)
+	quotaInitBig := new(big.Int).Div(contracts.GetPledgeBeneficialAmount(db, addr), quotaByPledge)
 	quotaAddition = uint64(0)
 	if pow {
 		quotaAddition = quotaForPoW
@@ -70,9 +58,9 @@ func CalcQuota(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quo
 			prevBlock = db.GetAccountBlockByHash(&prevBlock.PrevHash)
 		} else {
 			if prevBlock == nil {
-				quotaInitBig.Mul(quotaInitBig, new(big.Int).SetUint64(db.CurrentSnapshotBlock().Height))
+				quotaInitBig.Mul(quotaInitBig, new(big.Int).SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height)))
 			} else {
-				quotaInitBig.Mul(quotaInitBig, new(big.Int).SetUint64(db.CurrentSnapshotBlock().Height-db.GetSnapshotBlockByHash(&prevBlock.SnapshotHash).Height))
+				quotaInitBig.Mul(quotaInitBig, new(big.Int).SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height-db.GetSnapshotBlockByHash(&prevBlock.SnapshotHash).Height)))
 			}
 			if quotaInitBig.BitLen() > 64 {
 				quotaTotal = quotaLimitForAccount
@@ -95,11 +83,8 @@ func CalcQuota(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quo
 }
 
 func CalcCreateQuota(fee *big.Int) uint64 {
-	quota := new(big.Int).Div(fee, quotaByPledge)
-	if quota.IsUint64() {
-		return helper.Min(quotaLimitForTransaction, quota.Uint64())
-	}
-	return quotaLimitForTransaction
+	// TODO calc create quota
+	return quotaForCreateContract
 }
 
 func IntrinsicGasCost(data []byte, isCreate bool) (uint64, error) {
@@ -139,7 +124,7 @@ func DataGasCost(data []byte) (uint64, error) {
 	return gas, nil
 }
 
-func QuotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {
+func CalcQuotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {
 	if err == ErrOutOfQuota {
 		return quotaTotal - quotaAddition
 	} else if err != nil {

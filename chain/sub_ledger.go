@@ -5,38 +5,50 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-// TODO
-func (c *chain) GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]string, [][2]uint64) {
-	beginHeight, endHeight := uint64(0), uint64(0)
+func (c *chain) GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64) {
+	beginHeight, endHeight := uint64(1), uint64(0)
+
 	if forward {
 		beginHeight = startHeight
 		endHeight = startHeight + count - 1
 	} else {
-		beginHeight = startHeight - count + 1
+		if startHeight > count {
+			beginHeight = startHeight - count + 1
+		}
 		endHeight = startHeight
+	}
+
+	if beginHeight > endHeight {
+		return nil, nil
 	}
 
 	fileList := c.compressor.Indexer().Get(beginHeight, endHeight)
 
-	var fileNameList []string
-
 	var rangeList [][2]uint64
+
 	for _, fileItem := range fileList {
-		fileNameList = append(fileNameList, fileItem.FileName())
-		if beginHeight < fileItem.StartHeight() {
-			rangeList = append(rangeList, [2]uint64{beginHeight, fileItem.StartHeight()})
+		if beginHeight < fileItem.StartHeight {
+			rangeList = append(rangeList, [2]uint64{beginHeight, fileItem.StartHeight})
 		}
-		beginHeight = fileItem.EndHeight() + 1
+		beginHeight = fileItem.EndHeight + 1
 	}
 
-	if len(fileList) > 0 && fileList[len(fileList)-1].EndHeight() < endHeight {
-		rangeList = append(rangeList, [2]uint64{fileList[len(fileList)-1].EndHeight() + 1, endHeight})
+	if len(fileList) > 0 {
+		if fileList[0].StartHeight > beginHeight {
+			rangeList = append(rangeList, [2]uint64{beginHeight, fileList[len(fileList)-1].StartHeight - 1})
+		}
+
+		if fileList[len(fileList)-1].EndHeight < endHeight {
+			rangeList = append(rangeList, [2]uint64{fileList[len(fileList)-1].EndHeight + 1, endHeight})
+		}
+	} else {
+		rangeList = append(rangeList, [2]uint64{beginHeight, endHeight})
 	}
 
-	return fileNameList, rangeList
+	return fileList, rangeList
 }
 
-func (c *chain) GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]string, [][2]uint64, error) {
+func (c *chain) GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64, error) {
 	startHeight, err := c.chainDb.Sc.GetSnapshotBlockHeight(startBlockHash)
 	if err != nil {
 		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSubLedgerByHash")
@@ -48,8 +60,8 @@ func (c *chain) GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, for
 		return nil, nil, err
 	}
 
-	fileNameList, rangeList := c.GetSubLedgerByHeight(startHeight, count, forward)
-	return fileNameList, rangeList, nil
+	fileList, rangeList := c.GetSubLedgerByHeight(startHeight, count, forward)
+	return fileList, rangeList, nil
 }
 
 func (c *chain) GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
@@ -80,7 +92,7 @@ func (c *chain) getChainSet(queryParams map[types.Address][2]*ledger.HashHeight)
 
 		var startHeight, endHeight = params[0].Height, params[1].Height
 
-		blockList, gbErr := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight)
+		blockList, gbErr := c.chainDb.Ac.GetBlockListByAccountId(account.AccountId, startHeight, endHeight, true)
 
 		if gbErr != nil {
 			c.log.Error("GetBlockListByAccountId failed. Error is "+gbErr.Error(), "method", "getChainSet")

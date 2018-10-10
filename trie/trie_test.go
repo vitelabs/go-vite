@@ -11,7 +11,7 @@ import (
 )
 
 func TestNewTrie(t *testing.T) {
-	db := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
+	db, _ := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
 	defer db.Close()
 
 	pool := NewTrieNodePool()
@@ -239,7 +239,7 @@ func TestNewTrie(t *testing.T) {
 }
 
 func TestTrieHash(t *testing.T) {
-	db := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
+	db, _ := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
 	defer db.Close()
 
 	pool := NewTrieNodePool()
@@ -278,7 +278,7 @@ func TestTrieHash(t *testing.T) {
 }
 
 func TestTrieSaveAndLoad(t *testing.T) {
-	db := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
+	db, _ := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
 	defer db.Close()
 
 	pool := NewTrieNodePool()

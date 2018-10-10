@@ -19,9 +19,9 @@ type AutoReceiveWorker struct {
 	log     log15.Logger
 	address types.Address
 
-	manager     *Manager
-	generator   *generator.Generator
-	uBlocksPool *model.OnroadBlocksPool
+	manager          *Manager
+	generator        *generator.Generator
+	onroadBlocksPool *model.OnroadBlocksPool
 
 	status           int
 	isSleeping       bool
@@ -36,14 +36,14 @@ type AutoReceiveWorker struct {
 
 func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
-		manager:     manager,
-		uBlocksPool: manager.onroadBlocksPool,
-		generator:   generator.NewGenerator(manager.vite.Chain(), manager.vite.WalletManager().KeystoreManager),
-		address:     address,
-		status:      Create,
-		isSleeping:  false,
-		filters:     filters,
-		log:         log15.New("worker", "a", "addr", address),
+		manager:          manager,
+		onroadBlocksPool: manager.onroadBlocksPool,
+		generator:        generator.NewGenerator(manager.vite.Chain(), manager.vite.WalletManager().KeystoreManager),
+		address:          address,
+		status:           Create,
+		isSleeping:       false,
+		filters:          filters,
+		log:              slog.New("worker", "a", "addr", address),
 	}
 }
 
@@ -58,11 +58,11 @@ func (w *AutoReceiveWorker) Start() {
 		w.newOnroadTxAlarm = make(chan struct{})
 		w.stopListener = make(chan struct{})
 
-		w.uBlocksPool.AddCommonTxLis(w.address, func() {
+		w.onroadBlocksPool.AddCommonTxLis(w.address, func() {
 			w.NewOnroadTxAlarm()
 		})
 
-		w.uBlocksPool.AcquireAccountInfoCache(w.address)
+		w.onroadBlocksPool.AcquireFullOnroadBlocksCache(w.address)
 
 		go w.startWork()
 
@@ -79,14 +79,14 @@ func (w *AutoReceiveWorker) Stop() {
 	w.log.Info("Stop()", "current status", w.status)
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
-	if w.status != Stop {
+	if w.status == Start {
 
-		w.uBlocksPool.ReleaseAccountInfoCache(w.address)
+		w.onroadBlocksPool.ReleaseFullOnroadBlocksCache(w.address)
 
 		w.breaker <- struct{}{}
 		close(w.breaker)
 
-		w.uBlocksPool.RemoveCommonTxLis(w.address)
+		w.onroadBlocksPool.RemoveCommonTxLis(w.address)
 		close(w.newOnroadTxAlarm)
 
 		// make sure we can stop the worker
@@ -102,7 +102,7 @@ func (w *AutoReceiveWorker) ResetAutoReceiveFilter(filters map[types.TokenTypeId
 	w.log.Info("ResetAutoReceiveFilter", "len", len(filters))
 	w.filters = filters
 	if w.Status() == Start {
-		w.uBlocksPool.ResetCacheCursor(w.address)
+		w.onroadBlocksPool.ResetCacheCursor(w.address)
 	}
 }
 
@@ -115,7 +115,7 @@ LOOP:
 			break
 		}
 
-		tx := w.uBlocksPool.GetNextTx(w.address)
+		tx := w.onroadBlocksPool.GetNextCommonTx(w.address)
 		if tx != nil {
 			minAmount, ok := w.filters[tx.TokenId]
 			if !ok || tx.Amount.Cmp(&minAmount) < 0 {

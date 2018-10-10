@@ -3,12 +3,13 @@ package compress
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
 )
 
-type blockProcessor func(block ledger.Block)
+type blockProcessor func(block ledger.Block, err error)
 
 type blockParserCache struct {
 	currentBlockSize       uint32
@@ -27,7 +28,7 @@ func (blockParser *blockParserCache) RefreshCache() {
 	blockParser.currentBlockBuffer = make([]byte, 0, blockParser.currentBlockSize)
 }
 
-var blockParserLog = log15.New("module", "compress", "block_parser")
+var blockParserLog = log15.New("module", "compress/block_parser")
 
 func BlockParser(reader io.Reader, processor blockProcessor) {
 	//r, w := io.Pipe()
@@ -43,14 +44,14 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 
 	for {
 		readBytes := make([]byte, readNum)
-		_, rErr := reader.Read(readBytes)
+		readN, rErr := reader.Read(readBytes)
 
 		if rErr != nil && rErr != io.EOF {
 			blockParserLog.Error("Read failed, error is " + rErr.Error())
 			return
 		}
 
-		buffer := bytes.NewBuffer(readBytes)
+		buffer := bytes.NewBuffer(readBytes[:readN])
 
 		for buffer.Len() > 0 {
 			if blockParser.currentBlockSize == 0 {
@@ -66,6 +67,7 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 			} else if blockParser.currentBlockSize != 0 && blockParser.currentBlockType == 0 {
 				readBytes := buffer.Next(1)
 				blockParser.currentBlockType = readBytes[0]
+
 			} else {
 				readNum := blockParser.currentBlockSize - uint32(len(blockParser.currentBlockBuffer))
 
@@ -80,12 +82,12 @@ func BlockParser(reader io.Reader, processor blockProcessor) {
 						block = &ledger.AccountBlock{}
 					case BlockTypeSnapshotBlock:
 						block = &ledger.SnapshotBlock{}
-					default:
-						blockParserLog.Error("Unknown block type", "method", "BlockParser")
+
 					}
 					if block != nil {
-						block.Deserialize(blockParser.currentBlockBuffer)
-						processor(block)
+						processor(block, block.Deserialize(blockParser.currentBlockBuffer))
+					} else {
+						processor(nil, errors.New("Unknown block type"))
 					}
 
 					blockParser.RefreshCache()

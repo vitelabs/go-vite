@@ -11,12 +11,6 @@ import (
 	"time"
 )
 
-const (
-	SourceTypeP2P = iota
-	SourceTypeUserInitiate
-	SourceTypeUnconfirmed
-)
-
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
 type Generator struct {
@@ -43,26 +37,8 @@ func NewGenerator(chain Chain, wSigner Signer) *Generator {
 	}
 }
 
-func (gen *Generator) PrepareVm(snapshotBlockHash, preBlockHash *types.Hash, addr *types.Address) error {
-	//fixme @gx 和炎达交流一下
-	var sbHash, pbHash *types.Hash
-	if snapshotBlockHash == nil {
-		snapshotBlock := gen.chain.GetLatestSnapshotBlock()
-		sbHash = &snapshotBlock.Hash
-	} else {
-		sbHash = snapshotBlockHash
-	}
-	if preBlockHash == nil {
-		preBlock, err := gen.chain.GetLatestAccountBlock(addr)
-		if err != nil || preBlock == nil {
-			return errors.New("PrepareVm.GetLatestAccountBlock, Error:" + err.Error())
-		}
-		pbHash = &preBlock.Hash
-	} else {
-		pbHash = preBlockHash
-	}
-
-	vmContext, err := vm_context.NewVmContext(gen.chain, sbHash, pbHash, addr)
+func (gen *Generator) PrepareVm(snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) error {
+	vmContext, err := vm_context.NewVmContext(gen.chain, snapshotBlockHash, prevBlockHash, addr)
 	if err != nil {
 		return err
 	}
@@ -80,8 +56,7 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
 		sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash)
 	}
-	return gen.generateBlock(SourceTypeUserInitiate, block, sendBlock, signFunc), nil
-
+	return gen.generateBlock(block, sendBlock, signFunc), nil
 }
 
 func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensusMsg *ConsensusMessage, signFunc SignFunc) (*GenResult, error) {
@@ -89,26 +64,31 @@ func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensu
 	if err != nil {
 		return nil, err
 	}
-	return gen.generateBlock(SourceTypeUnconfirmed, block, &sendBlock, signFunc), nil
+	return gen.generateBlock(block, &sendBlock, signFunc), nil
 }
 
-func (gen *Generator) GenerateWithP2PBlock(block *ledger.AccountBlock, signFunc SignFunc) *GenResult {
+func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc SignFunc) *GenResult {
+	//gen.log.Info("generateBlock", "SourceType")
+
 	var sendBlock *ledger.AccountBlock = nil
 	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
 		sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash)
 	}
-	return gen.generateBlock(SourceTypeP2P, block, sendBlock, signFunc)
+	return gen.generateBlock(block, sendBlock, signFunc)
 }
 
-func (gen *Generator) generateBlock(sourceType byte, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, signFunc SignFunc) *GenResult {
-	gen.log.Info("generateBlock", "SourceType", sourceType, "BlockType", block.BlockType)
+func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, signFunc SignFunc) *GenResult {
+	gen.log.Info("generateBlock", "BlockType", block.BlockType)
 
 	blockList, isRetry, err := gen.vm.Run(gen.vmContext, block, sendBlock)
+	for k, v := range blockList {
+		v.AccountBlock.Hash = v.AccountBlock.ComputeHash()
+		if k > 0 {
+			v.AccountBlock.PrevHash = blockList[k-1].AccountBlock.Hash
+		}
+	}
+
 	accountBlock := blockList[0].AccountBlock
-
-	// fixme all need to computeHash and rss'sendBlock's preHash
-	accountBlock.Hash = accountBlock.ComputeHash()
-
 	if signFunc != nil {
 		accountBlock.Signature, accountBlock.PublicKey, err = signFunc(accountBlock.AccountAddress, accountBlock.Hash.Bytes())
 		if err != nil {
@@ -145,22 +125,14 @@ func (gen *Generator) PackBlockWithMessage(message *IncomingMessage) (blockPacke
 func (gen *Generator) PackBlockWithSendBlock(sendBlock *ledger.AccountBlock, consensusMsg *ConsensusMessage) (blockPacked *ledger.AccountBlock, err error) {
 	gen.log.Info("PackReceiveBlock", "sendBlock.Hash", sendBlock.Hash, "sendBlock.To", sendBlock.ToAddress)
 	blockPacked = &ledger.AccountBlock{
-		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: sendBlock.ToAddress,
 		FromBlockHash:  sendBlock.Hash,
 
-		//Amount:  sendBlock.Amount,
-		//TokenId: sendBlock.TokenId,
-		//Quota:   sendBlock.Quota,
-		//Fee:     sendBlock.Fee,
-		//Nonce:   sendBlock.Nonce,
-		//Data:    sendBlock.Data,
-
-		//ToAddress: types.Address{},
-		//StateHash: types.Hash{},
-		//LogHash:   nil,
-		//PublicKey: nil, // contractAddress's receiveBlock's publicKey is from consensus node
-		//Signature: nil,
+		Amount:  sendBlock.Amount,
+		TokenId: sendBlock.TokenId,
+		Fee:     sendBlock.Fee,
+		Nonce:   sendBlock.Nonce,
+		Data:    sendBlock.Data,
 	}
 
 	preBlock := gen.vmContext.PrevAccountBlock()
@@ -170,8 +142,11 @@ func (gen *Generator) PackBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 	blockPacked.PrevHash = preBlock.Hash
 	blockPacked.Height = preBlock.Height + 1
 
-	// fixme
-	if gid := gen.vmContext.GetGid(); gid != nil {
+	code, err := gen.chain.AccountType(&blockPacked.AccountAddress)
+	if err != nil {
+		return nil, errors.New("AccountType failed")
+	}
+	if code == ledger.AccountTypeContract {
 		if consensusMsg == nil {
 			return nil, errors.New("contractAddress must enter ConsensusMessages")
 		}
@@ -183,7 +158,6 @@ func (gen *Generator) PackBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 		snapshotBlock := gen.vmContext.CurrentSnapshotBlock()
 		blockPacked.SnapshotHash = snapshotBlock.Hash
 	}
-
 	return blockPacked, nil
 }
 

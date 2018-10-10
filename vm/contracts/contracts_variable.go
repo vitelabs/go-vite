@@ -2,8 +2,10 @@ package contracts
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
+	"time"
 )
 
 var (
@@ -30,6 +32,7 @@ func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *TokenInfo {
 }
 
 func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*TokenInfo {
+	defer monitor.LogTime("vm", "GetTokenMap", time.Now())
 	iterator := db.NewStorageIterator(nil)
 	tokenInfoMap := make(map[types.TokenTypeId]*TokenInfo)
 	for {
@@ -46,6 +49,7 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*TokenInfo {
 }
 
 func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
+	defer monitor.LogTime("vm", "GetRegisterList", time.Now())
 	iterator := db.NewStorageIterator(gid.Bytes())
 	registerList := make([]*Registration, 0)
 	for {
@@ -63,6 +67,7 @@ func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 }
 
 func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
+	defer monitor.LogTime("vm", "GetVoteList", time.Now())
 	if gid == types.DELEGATE_GID {
 		gid = types.SNAPSHOT_GID
 	}
@@ -81,7 +86,7 @@ func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
 	return voteInfoList
 }
 
-func GetPledgeAmount(db StorageDatabase, beneficial types.Address) *big.Int {
+func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) *big.Int {
 	key := GetPledgeBeneficialKey(beneficial)
 	beneficialAmount := new(VariablePledgeBeneficial)
 	err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, key))
@@ -91,7 +96,26 @@ func GetPledgeAmount(db StorageDatabase, beneficial types.Address) *big.Int {
 	return big.NewInt(0)
 }
 
+func GetPledgeAmount(db StorageDatabase, addr types.Address) []*PledgeInfo {
+	iterator := db.NewStorageIterator(addr.Bytes())
+	pledgeInfoList := make([]*PledgeInfo, 0)
+	for {
+		key, value, ok := iterator.Next()
+		if !ok {
+			break
+		}
+		if IsPledgeKey(key) {
+			pledgeInfo := new(PledgeInfo)
+			ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value)
+			pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(key)
+			pledgeInfoList = append(pledgeInfoList, pledgeInfo)
+		}
+	}
+	return pledgeInfoList
+}
+
 func GetActiveConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
+	defer monitor.LogTime("vm", "GetActiveConsensusGroupList", time.Now())
 	iterator := db.NewStorageIterator(nil)
 	consensusGroupInfoList := make([]*ConsensusGroupInfo, 0)
 	for {
@@ -118,9 +142,4 @@ func GetConsensusGroup(db StorageDatabase, gid types.Gid) *ConsensusGroupInfo {
 		return consensusGroupInfo
 	}
 	return nil
-}
-
-func GetGidFromCreateContractData(data []byte) types.Gid {
-	gid, _ := types.BytesToGid(data[:types.GidSize])
-	return gid
 }

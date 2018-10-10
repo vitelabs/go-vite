@@ -13,5 +13,4 @@ func (c *chain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error) 
 	}
 
 	return vmLogList, nil
-
 }

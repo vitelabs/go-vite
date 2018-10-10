@@ -10,7 +10,7 @@ type TrieNodePool struct {
 	limit    int
 	clearNum int
 
-	lock sync.Mutex
+	lock sync.RWMutex
 }
 
 func NewTrieNodePool() *TrieNodePool {
@@ -22,6 +22,9 @@ func NewTrieNodePool() *TrieNodePool {
 }
 
 func (pool *TrieNodePool) Get(key *types.Hash) *TrieNode {
+	pool.lock.RLock()
+	defer pool.lock.RUnlock()
+
 	return pool.nodes[*key]
 }
 
