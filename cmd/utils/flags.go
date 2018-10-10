@@ -90,7 +90,6 @@ var (
 	RPCListenAddrFlag = cli.StringFlag{
 		Name:  "rpcaddr",
 		Usage: "HTTP-RPC server listening interface",
-		Value: common.DefaultHTTPHost,
 	}
 	RPCPortFlag = cli.IntFlag{
 		Name:  "rpcport",
@@ -106,7 +105,6 @@ var (
 	WSListenAddrFlag = cli.StringFlag{
 		Name:  "wsaddr",
 		Usage: "WS-RPC server listening interface",
-		Value: common.DefaultWSHost,
 	}
 	WSPortFlag = cli.IntFlag{
 		Name:  "wsport",
@@ -143,6 +141,12 @@ var (
 	MinerIntervalFlag = cli.IntFlag{
 		Name:  "minerinterval",
 		Usage: "Miner Interval(unit: second)",
+	}
+
+	//Log Lvl
+	LogLvlFlag = cli.StringFlag{
+		Name:  "loglevel",
+		Usage: "log level (info,eror,warn,dbug)",
 	}
 )
 

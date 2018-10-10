@@ -24,6 +24,7 @@ func (maker FullNodeMaker) MakeNode(ctx *cli.Context) *node.Node {
 	log.Info(fmt.Sprintf("NodeConfig info: %v", nodeConfig))
 	// 2: New Node
 	node, err := node.New(nodeConfig)
+	log.Info(fmt.Sprintf("Node info: %v", node))
 
 	if err != nil {
 		log.Error("Failed to create the node: %v", err)
@@ -135,6 +136,11 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(utils.MinerIntervalFlag.Name) {
 		cfg.MinerInterval = ctx.GlobalInt(utils.MinerIntervalFlag.Name)
 	}
+
+	//Log Level Config
+	if logLevel := ctx.GlobalString(utils.LogLvlFlag.Name); len(logLevel) > 0 {
+		cfg.LogLevel = logLevel
+	}
 }
 
 func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
@@ -182,6 +188,11 @@ func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
 		cfg.DataDirPathAbs()
 		return
 	}
+
+	if len(cfg.LogLevel) == 0 {
+		cfg.LogLevel = "info"
+	}
+
 }
 
 func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) {
@@ -213,8 +224,13 @@ func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) {
 
 func makeRunLogFile(cfg *node.Config) {
 	if fileName, e := cfg.RunLogFile(); e == nil {
+
+		logLevel, err := log15.LvlFromString(cfg.LogLevel)
+		if err != nil {
+			logLevel = log15.LvlInfo
+		}
 		log15.Root().SetHandler(
-			log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(fileName, log15.TerminalFormat())),
+			log15.LvlFilterHandler(logLevel, log15.Must.FileHandler(fileName, log15.TerminalFormat())),
 		)
 	}
 }

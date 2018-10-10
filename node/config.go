@@ -52,6 +52,9 @@ type Config struct {
 	HttpVirtualHosts []string `json:"HttpVirtualHosts"`
 	WSHost           string   `json:"WSHost"`
 	WSPort           int      `json:"WSPort"`
+
+	//Log level
+	LogLevel string `json:"LogLevel"`
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
