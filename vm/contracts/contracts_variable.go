@@ -50,7 +50,12 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*TokenInfo {
 
 func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 	defer monitor.LogTime("vm", "GetRegisterList", time.Now())
-	iterator := db.NewStorageIterator(gid.Bytes())
+	var iterator vmctxt_interface.StorageIterator
+	if gid == types.DELEGATE_GID {
+		iterator = db.NewStorageIterator(types.SNAPSHOT_GID.Bytes())
+	} else {
+		iterator = db.NewStorageIterator(gid.Bytes())
+	}
 	registerList := make([]*Registration, 0)
 	for {
 		_, value, ok := iterator.Next()
@@ -68,10 +73,12 @@ func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 
 func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
 	defer monitor.LogTime("vm", "GetVoteList", time.Now())
+	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
-		gid = types.SNAPSHOT_GID
+		iterator = db.NewStorageIterator(types.SNAPSHOT_GID.Bytes())
+	} else {
+		iterator = db.NewStorageIterator(gid.Bytes())
 	}
-	iterator := db.NewStorageIterator(gid.Bytes())
 	voteInfoList := make([]*VoteInfo, 0)
 	for {
 		key, value, ok := iterator.Next()
