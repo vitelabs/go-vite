@@ -28,11 +28,17 @@ func TestCommittee_ReadByTime(t *testing.T) {
 	now := time.Now()
 	es, err := cs.ReadByTime(types.DELEGATE_GID, now)
 
+	if err != nil {
+		t.Error(err)
+	}
 	for k, v := range es {
 		t.Log(k, v, err)
 	}
 	es, err = cs.ReadByTime(types.SNAPSHOT_GID, now)
 
+	if err != nil {
+		t.Error(err)
+	}
 	for k, v := range es {
 		t.Log(k, v, err)
 	}
