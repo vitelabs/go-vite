@@ -43,6 +43,7 @@ type PoolReader interface {
 type BlockPool interface {
 	PoolWriter
 	PoolReader
+	SnapshotProducerWriter
 	Start()
 	Stop()
 	Init(s syncer,
