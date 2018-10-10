@@ -206,7 +206,7 @@ func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) {
 func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 	cBlock := newSnapshotPoolBlock(block, self.version)
 	err := self.pendingSc.AddDirectBlock(cBlock)
-	if err != nil {
+	if err == nil {
 		self.pendingSc.f.broadcastBlock(block)
 	}
 	return err
@@ -230,7 +230,7 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 	ac := self.selfPendingAc(address)
 	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version)
 	err := ac.AddDirectBlocks(cBlock, nil)
-	if err != nil {
+	if err == nil {
 		ac.f.broadcastBlock(block.AccountBlock)
 	}
 	self.accountCond.L.Lock()

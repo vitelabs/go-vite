@@ -37,8 +37,17 @@ func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *Snap
 	return nil
 }
 
-func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, stat *SnapshotBlockVerifyStat) error {
+func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, prev *ledger.SnapshotBlock, stat *SnapshotBlockVerifyStat) error {
 	defer monitor.LogTime("verify", "snapshotAccounts", time.Now())
+
+	trie, err := self.reader.GenStateTrie(prev.StateHash, block.SnapshotContent)
+	if err != nil {
+		return err
+	}
+	if *trie.Hash() != block.StateHash {
+		return errors.New("state hash is not equals.")
+	}
+
 	for addr, b := range block.SnapshotContent {
 		hash, e := self.reader.GetAccountBlockHashByHeight(&addr, b.Height)
 		if e != nil {
@@ -113,15 +122,22 @@ func (self *SnapshotVerifier) VerifyTimeout(nowHeight uint64, referHeight uint64
 func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *SnapshotBlockVerifyStat {
 	defer monitor.LogTime("verify", "snapshotBlock", time.Now())
 	stat := self.newVerifyStat(block)
-
+	// todo add state check
 	err := self.verifySelf(block, stat)
 	if err != nil {
 		stat.errMsg = err.Error()
 		return stat
 	}
 
+	head := self.reader.GetLatestSnapshotBlock()
+	if !block.Timestamp.After(*head.Timestamp) {
+		stat.result = FAIL
+		stat.errMsg = "timestamp must be greater."
+		return stat
+	}
+
 	// verify accounts exist
-	err = self.verifyAccounts(block, stat)
+	err = self.verifyAccounts(block, head, stat)
 	if err != nil {
 		stat.errMsg = err.Error()
 		return stat
@@ -148,6 +164,7 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 	}
 	if !result {
 		stat.result = FAIL
+		stat.errMsg = "verify snapshot producer fail."
 		return stat
 	}
 	stat.result = SUCCESS
