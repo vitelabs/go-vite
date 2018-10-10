@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"math/big"
 	"time"
 )
 
@@ -127,13 +128,19 @@ func (gen *Generator) packBlockWithMessage(message *IncomingMessage) (blockPacke
 func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, consensusMsg *ConsensusMessage) (blockPacked *ledger.AccountBlock, err error) {
 	gen.log.Info("PackReceiveBlock", "sendBlock.Hash", sendBlock.Hash, "sendBlock.To", sendBlock.ToAddress)
 	blockPacked = &ledger.AccountBlock{
+		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: sendBlock.ToAddress,
 		FromBlockHash:  sendBlock.Hash,
+	}
 
-		Data:    sendBlock.Data,
-		Fee:     sendBlock.Fee,
-		Amount:  sendBlock.Amount,
-		TokenId: sendBlock.TokenId,
+	if sendBlock.Amount == nil {
+		blockPacked.Amount = big.NewInt(0)
+	} else {
+		blockPacked.Amount = sendBlock.Amount
+	}
+
+	if sendBlock.Fee == nil {
+		blockPacked.Fee = big.NewInt(0)
 	}
 
 	preBlock := gen.vmContext.PrevAccountBlock()
@@ -144,8 +151,6 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 		blockPacked.PrevHash = preBlock.Hash
 		blockPacked.Height = preBlock.Height + 1
 	}
-
-	// fixme whether to calc Nonce
 	nonce := pow.GetPowNonce(nil, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
 	blockPacked.Nonce = nonce[:]
 

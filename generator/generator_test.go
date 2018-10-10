@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
@@ -48,7 +49,13 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	genResult, err := gen.GenerateWithOnroad(*fromBlock, nil, nil)
+	consensusMsg := &ConsensusMessage{
+		SnapshotHash: c.GetLatestSnapshotBlock().Hash,
+		Timestamp:    *c.GetLatestSnapshotBlock().Timestamp,
+		Producer:     ledger.GenesisAccountAddress,
+		gid:          types.Gid{},
+	}
+	genResult, err := gen.GenerateWithOnroad(*fromBlock, consensusMsg, nil)
 	if err != nil {
 		t.Error("GenerateWithOnroad", err)
 		return
@@ -62,15 +69,18 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 			Fee:            fromBlock.Fee,
 			Amount:         fromBlock.Amount,
 			TokenId:        fromBlock.TokenId,
-			SnapshotHash:   c.GetLatestSnapshotBlock().Hash,
-			Timestamp:      c.GetLatestSnapshotBlock().Timestamp,
+			SnapshotHash:   consensusMsg.SnapshotHash,
+			Timestamp:      &consensusMsg.Timestamp,
 			PublicKey:      genesisAccountPubKey,
 		}
 		mockhHash := block.ComputeHash()
-		if genResult.BlockGenList[0].AccountBlock.Hash == mockhHash {
-			t.Log("Verify Hash success")
+		t.Log("hash", genResult.BlockGenList[0].AccountBlock.Hash)
+		t.Log("mockhBlock", mockhHash)
+		if genResult.BlockGenList[0].AccountBlock.Hash != mockhHash {
+			t.Log("Verify Hash failed")
 			return
 		}
+		t.Log("Verify Hash success")
 	}
 }
 
