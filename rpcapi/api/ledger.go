@@ -145,6 +145,10 @@ func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 		return nil, getError
 	}
 
+	if block == nil {
+		return nil, nil
+	}
+
 	token := l.chain.GetTokenInfoById(&block.TokenId)
 	rpcBlock := createAccountBlock(block, token, 0)
 	return rpcBlock, nil
