@@ -14,7 +14,7 @@ var (
 
 const (
 	quotaForPoW            uint64 = 21000
-	quotaLimit             uint64 = 3000000   // Maximum quota of an account referring to one snapshot block.
+	quotaLimit             uint64 = 1000000   // Maximum quota of an account referring to one snapshot block.
 	quotaForCreateContract uint64 = 800000    // Quota limit for create contract.
 	TxGas                  uint64 = 21000     // Per transaction not creating a contract.
 	txContractCreationGas  uint64 = 53000     // Per transaction that creates a contract.
