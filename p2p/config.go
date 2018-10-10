@@ -104,7 +104,11 @@ func getServerKey(p2pDir string) (pub ed25519.PublicKey, priv ed25519.PrivateKey
 	return
 }
 
-func EnsureConfig(cfg Config) *Config {
+func EnsureConfig(cfg *Config) *Config {
+	if cfg == nil {
+		cfg = new(Config)
+	}
+
 	if cfg.NetID == 0 {
 		cfg.NetID = DefaultNetID
 	}
@@ -138,7 +142,7 @@ func EnsureConfig(cfg Config) *Config {
 		}
 	}
 
-	return &cfg
+	return cfg
 }
 
 func addFirmNodes(bootnodes []string) (nodes []*discovery.Node) {

@@ -141,9 +141,10 @@ type AsyncMsgConn struct {
 	wg      sync.WaitGroup
 	wqueue  chan *Msg
 	rqueue  chan *Msg
+	reason  error      // close reason
+	errored int32      // atomic, indicate whehter there is an error, readErr(1), writeErr(2)
+	errch   chan error // report errch to upper layer
 	log     log15.Logger
-	errtpy  int32             // error type, atomic, indicate whehter there is an error, readErr(1), writeErr(2)
-	errch   chan *asynConnErr // report errch to upper layer
 }
 
 // create an AsyncMsgConn, fd is the basic connection
@@ -158,7 +159,7 @@ func NewAsyncMsgConn(fd net.Conn, handler func(msg *Msg)) *AsyncMsgConn {
 		term:    make(chan struct{}),
 		wqueue:  make(chan *Msg, writeBufferLen),
 		rqueue:  make(chan *Msg, readBufferLen),
-		errch:   make(chan *asynConnErr, 1),
+		errch:   make(chan error, 1),
 		log:     log15.New("module", "p2p/AsyncMsgConn", "end", fd.RemoteAddr().String()),
 	}
 }
@@ -179,20 +180,16 @@ func (c *AsyncMsgConn) Close(err error) {
 	case <-c.term:
 	default:
 		c.log.Error(fmt.Sprintf("close: %v", err))
+		c.reason = err
 		close(c.term)
 		c.wg.Wait()
 		c.log.Error(fmt.Sprintf("closed: %v", err))
 	}
 }
 
-type asynConnErr struct {
-	errtpy int32
-	err    error
-}
-
 func (c *AsyncMsgConn) report(t int32, err error) {
-	if atomic.CompareAndSwapInt32(&c.errtpy, 0, t) {
-		c.errch <- &asynConnErr{t, err}
+	if atomic.CompareAndSwapInt32(&c.errored, 0, t) {
+		c.errch <- err
 	}
 }
 
@@ -223,7 +220,7 @@ func (c *AsyncMsgConn) readLoop() {
 
 func (c *AsyncMsgConn) _write(msg *Msg) {
 	// there is an error
-	if atomic.LoadInt32(&c.errtpy) != 0 {
+	if atomic.LoadInt32(&c.errored) != 0 {
 		return
 	}
 
@@ -253,10 +250,14 @@ loop:
 		}
 	}
 
-	if atomic.LoadInt32(&c.errtpy) == 0 {
+	if atomic.LoadInt32(&c.errored) == 0 {
 		for i := 0; i < len(c.wqueue); i++ {
 			msg := <-c.wqueue
 			c._write(msg)
+		}
+
+		if reason, ok := c.reason.(DiscReason); ok && reason != DiscNetworkError {
+			c.Send(baseProtocolCmdSet, discCmd, 0, reason)
 		}
 	}
 }

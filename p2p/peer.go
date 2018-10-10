@@ -29,7 +29,6 @@ const paralProtoFrame = 4 // max number of protoFrame write concurrently
 
 var errMsgTooLarge = errors.New("message payload is two large")
 var errPeerTermed = errors.New("peer has been terminated")
-var errProtoHandleDone = errors.New("all protocols done")
 var errPeerTsBusy = errors.New("peer transport is busy, can`t write message")
 
 type conn struct {
@@ -122,7 +121,7 @@ type Peer struct {
 	created     time.Time
 	wg          sync.WaitGroup
 	term        chan struct{}
-	disc        chan DiscReason // been told to disconnect by remote Peer
+	disc        chan DiscReason // disconnect proactively
 	errch       chan error      // for common error
 	protoDone   chan *protoDone // for protocols
 	log         log15.Logger
@@ -189,19 +188,18 @@ loop:
 	for {
 		select {
 		case err = <-p.disc:
-			// we have been told will disconnect
-			p.log.Error(fmt.Sprintf("been disconnected by remote endPoint: %v", err))
+			p.log.Error(fmt.Sprintf("disconnected: %v", err))
 			break loop
 		case e := <-p.protoDone:
 			p.log.Error(fmt.Sprintf("protocol %s is done: %v", e.name, err))
+
 			delete(p.protoFrames, e.id)
+
 			if len(p.protoFrames) == 0 {
-				// all protocols have done
-				err = errProtoHandleDone
+				err = DiscAllProtocolDone
 				break loop
 			}
 		case err = <-p.ts.errch: // error occur from lower transport, like writeError or readError
-
 			p.log.Error(fmt.Sprintf("transport error: %v", err))
 			break loop
 		case err = <-p.errch:
@@ -228,7 +226,7 @@ func (p *Peer) handleMsg(msg *Msg) {
 		case discCmd:
 			reason, err := DeserializeDiscReason(msg.Payload)
 			if err == nil {
-				p.disc <- reason
+				p.errch <- reason
 			} else {
 				p.errch <- err
 			}
@@ -312,13 +310,9 @@ func NewPeerSet() *PeerSet {
 	}
 }
 
-func (s *PeerSet) Add(p *Peer) error {
+func (s *PeerSet) Add(p *Peer) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-
-	if _, ok := s.peers[p.ID()]; ok {
-		return DiscAlreadyConnected
-	}
 
 	s.peers[p.ID()] = p
 	if p.ts.is(inbound) {
@@ -326,8 +320,6 @@ func (s *PeerSet) Add(p *Peer) error {
 	} else {
 		s.outbound++
 	}
-
-	return nil
 }
 
 func (s *PeerSet) Del(p *Peer) {
@@ -348,15 +340,6 @@ func (s *PeerSet) Has(id discovery.NodeID) bool {
 
 	_, ok := s.peers[id]
 	return ok
-}
-
-func (s *PeerSet) Clear(p *Peer) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	s.peers = nil
-	s.inbound = 0
-	s.outbound = 0
 }
 
 func (s *PeerSet) Size() int {
