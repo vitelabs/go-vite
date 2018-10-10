@@ -32,14 +32,14 @@ func main() {
 
 	p2pCfg := parsedConfig.P2P
 
-	cfg := p2p.Config{
+	cfg := &p2p.Config{
 		Name:            p2pCfg.Name,
 		NetID:           p2p.NetworkID(p2pCfg.NetID),
 		MaxPeers:        p2pCfg.MaxPeers,
 		MaxPendingPeers: uint(p2pCfg.MaxPendingPeers),
 		MaxInboundRatio: p2pCfg.MaxPassivePeersRatio,
 		Port:            uint(p2pCfg.Port),
-		Database:        p2pCfg.Datadir,
+		DataDir:         p2pCfg.Datadir,
 		PrivateKey:      nil,
 		Protocols: []*p2p.Protocol{
 			{

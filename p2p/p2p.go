@@ -38,7 +38,7 @@ type Config struct {
 	MaxPendingPeers uint               // max peers waiting for connect
 	MaxInboundRatio uint               // max inbound peers: MaxPeers / MaxInboundRatio
 	Port            uint               // TCP and UDP listen port
-	Database        string             // the directory for storing node table
+	DataDir         string             // the directory for storing node table, default is "~/viteisbest/p2p"
 	PrivateKey      ed25519.PrivateKey // use for encrypt message, the corresponding public key use for NodeID
 	Protocols       []*Protocol        // protocols server supported
 	BootNodes       []string
@@ -124,7 +124,7 @@ func New(cfg *Config) (svr *Server, err error) {
 
 	svr.discv = discovery.New(&discovery.Config{
 		Priv:      svr.PrivateKey,
-		DBPath:    svr.Database,
+		DBPath:    svr.DataDir,
 		BootNodes: svr.BootNodes,
 		Conn:      udpConn,
 		Self:      svr.self,
