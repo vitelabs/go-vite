@@ -22,6 +22,7 @@ var DefaultNodeConfig = Config{
 	BootNodes:            nil,
 	Port:                 0,
 	NetID:                0,
+	LogLevel:             "info",
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.
