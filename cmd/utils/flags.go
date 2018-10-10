@@ -144,6 +144,12 @@ var (
 		Name:  "minerinterval",
 		Usage: "Miner Interval(unit: second)",
 	}
+
+	//Log Lvl
+	LogLvlFlag = cli.StringFlag{
+		Name:  "loglevel",
+		Usage: "log level (info,eror,warn,dbug)",
+	}
 )
 
 // This allows the use of the existing configuration functionality.
