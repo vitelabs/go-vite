@@ -130,8 +130,8 @@ var handshakeTimeout = 10 * time.Second
 var msgReadTimeout = 40 * time.Second
 var msgWriteTimeout = 20 * time.Second
 
-const readBufferLen = 100
-const writeBufferLen = 100
+const readBufferLen = 10
+const writeBufferLen = 10
 
 type AsyncMsgConn struct {
 	fd      net.Conn
@@ -287,6 +287,10 @@ loop:
 // send a message asynchronously, put message into a internal buffered channel before send it
 // if the internal channel is full, return false
 func (c *AsyncMsgConn) SendMsg(msg *Msg) bool {
+	if atomic.LoadInt32(&c.errored) != 0 {
+		return false
+	}
+
 	select {
 	case <-c.term:
 		return false
