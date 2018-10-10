@@ -50,7 +50,8 @@ func (p *requestPool) Handle(msg *p2p.Msg, sender *Peer) error {
 	for id, r := range p.pending {
 		if id == msg.Id {
 			// todo goroutine
-			go r.Handle(p.ctx, msg, sender)
+			//go r.Handle(p.ctx, msg, sender)
+			r.Handle(p.ctx, msg, sender)
 		}
 	}
 
@@ -86,7 +87,7 @@ func (p *requestPool) stop() {
 func (p *requestPool) loop() {
 	defer p.wg.Done()
 
-	expireCheckInterval := 10 * time.Second
+	expireCheckInterval := 30 * time.Second
 	ticker := time.NewTicker(expireCheckInterval)
 	defer ticker.Stop()
 

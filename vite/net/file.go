@@ -87,10 +87,10 @@ func (f *fileServer) handleConn(conn net.Conn) {
 		case <-f.term:
 			return
 		default:
-			conn.SetReadDeadline(time.Now().Add(fReadTimeout))
+			//conn.SetReadDeadline(time.Now().Add(fReadTimeout))
 			msg, err := p2p.ReadMsg(conn, true)
 			if err != nil {
-				f.log.Error(fmt.Sprintf("read message error: %v", err))
+				f.log.Error(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
 				return
 			}
 
@@ -100,14 +100,15 @@ func (f *fileServer) handleConn(conn net.Conn) {
 				err = req.Deserialize(msg.Payload)
 
 				if err != nil {
-					f.log.Error(fmt.Sprintf("parse message %s error: %v", GetFilesCode, err))
+					f.log.Error(fmt.Sprintf("parse message %s from %s error: %v", GetFilesCode, conn.RemoteAddr(), err))
 					return
 				}
 
 				// send files
 				for _, filename := range req.Names {
 					//conn.SetWriteDeadline(time.Now().Add(fWriteTimeout))
-					n, err := io.Copy(conn, f.chain.Compressor().FileReader(filename))
+					var n int64
+					n, err = io.Copy(conn, f.chain.Compressor().FileReader(filename))
 
 					if err != nil {
 						f.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", req.Names, conn.RemoteAddr(), err))
@@ -122,7 +123,7 @@ func (f *fileServer) handleConn(conn net.Conn) {
 					f.log.Error(fmt.Sprintf("deserialize exception message error: %v", err))
 					return
 				}
-				f.log.Info(exp.String())
+				f.log.Warn(fmt.Sprintf("got exception %v", exp))
 				return
 			} else {
 				f.log.Error(fmt.Sprintf("unexpected message code: %d", msg.Cmd))
@@ -309,25 +310,29 @@ func (fc *fileClient) exe(ctx *connContext) {
 		return
 	}
 
-	ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
-	err = p2p.WriteMsg(ctx, true, &p2p.Msg{
+	//ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
+	err = p2p.WriteMsg(ctx.Conn, true, &p2p.Msg{
 		CmdSetID: CmdSet,
 		Cmd:      uint64(GetFilesCode),
 		Size:     uint64(len(data)),
 		Payload:  data,
 	})
 	if err != nil {
-		fc.log.Error(fmt.Sprintf("requesFile to %s error: %v", ctx.addr, err))
+		fc.log.Error(fmt.Sprintf("requesFiles to %s error: %v", ctx.addr, err))
 		req.Done(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 		return
 	}
 
+	fc.log.Info(fmt.Sprintf("requestFiles to %s done", ctx.addr))
+
 	sblocks, ablocks, err := fc.readBlocks(ctx)
 	if err != nil {
+		fc.log.Error(fmt.Sprintf("read blocks from %s error: %v", ctx.addr, err))
 		req.Done(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 	} else {
+		fc.log.Error(fmt.Sprintf("read blocks from %s done", ctx.addr))
 		fc.idle <- ctx
 		req.rec(sblocks, ablocks)
 		req.Done(nil)
