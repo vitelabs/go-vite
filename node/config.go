@@ -56,7 +56,7 @@ type Config struct {
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
-	return &wallet.Config{DataDir: c.DataDir}
+	return &wallet.Config{DataDir: c.KeyStoreDir}
 }
 
 func (c *Config) makeViteConfig() *config.Config {
@@ -229,6 +229,14 @@ func (c *Config) DataDirPathAbs() error {
 			return err
 		}
 		c.DataDir = absDataDir
+	}
+
+	if c.KeyStoreDir != "" {
+		absKeyStoreDir, err := filepath.Abs(c.KeyStoreDir)
+		if err != nil {
+			return err
+		}
+		c.KeyStoreDir = absKeyStoreDir
 	}
 	return nil
 }

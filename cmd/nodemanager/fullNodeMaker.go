@@ -139,11 +139,11 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 
 func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
 
-	if len(cfg.DataDir) == 0 {
+	if len(cfg.DataDir) == 0 || cfg.DataDir == "" {
 		cfg.DataDir = common.DefaultDataDir()
 	}
 
-	if len(cfg.KeyStoreDir) == 0 {
+	if len(cfg.KeyStoreDir) == 0 || cfg.KeyStoreDir == "" {
 		cfg.KeyStoreDir = cfg.DataDir
 	}
 
@@ -155,6 +155,7 @@ func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
 		}
 		//dataDir override
 		cfg.DataDir = filepath.Join(cfg.DataDir, "devdata")
+		cfg.KeyStoreDir = filepath.Join(cfg.KeyStoreDir, "devdata", "keystore")
 		//abs dataDir
 		cfg.DataDirPathAbs()
 		return
@@ -166,6 +167,7 @@ func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
 			cfg.NetID = 2
 		}
 		cfg.DataDir = filepath.Join(cfg.DataDir, "testdata")
+		cfg.KeyStoreDir = filepath.Join(cfg.KeyStoreDir, "testdata", "keystore")
 		cfg.DataDirPathAbs()
 		return
 	}
@@ -176,6 +178,7 @@ func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
 			cfg.NetID = 1
 		}
 		cfg.DataDir = filepath.Join(cfg.DataDir, "maindata")
+		cfg.KeyStoreDir = filepath.Join(cfg.KeyStoreDir, "maindata", "keystore")
 		cfg.DataDirPathAbs()
 		return
 	}
