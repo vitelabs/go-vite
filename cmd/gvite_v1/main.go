@@ -92,8 +92,6 @@ func init() {
 
 	//Import: Please add the New command here
 	app.Commands = []cli.Command{
-		//misc
-		initCommand,
 		versionCommand,
 		//console
 		//consoleCommand,
