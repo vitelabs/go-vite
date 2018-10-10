@@ -155,7 +155,6 @@ func (p *OnroadBlocksPool) AcquireFullOnroadBlocksCache(addr types.Address) {
 	if e := p.loadFullCacheFromDb(addr); e != nil {
 		log.Error(e.Error())
 	}
-
 }
 
 func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) error {

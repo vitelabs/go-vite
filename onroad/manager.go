@@ -45,7 +45,7 @@ type Manager struct {
 func NewManager(vite Vite) *Manager {
 	m := &Manager{
 		vite:               vite,
-		pool:               vite,
+		pool:               vite.Pool(),
 		keystoreManager:    vite.WalletManager().KeystoreManager,
 		uAccess:            model.NewUAccess(vite.Chain()),
 		autoReceiveWorkers: make(map[types.Address]*AutoReceiveWorker),

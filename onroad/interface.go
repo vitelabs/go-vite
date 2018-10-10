@@ -3,7 +3,6 @@ package onroad
 import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
@@ -15,18 +14,13 @@ type Vite interface {
 	Chain() chain.Chain
 	WalletManager() *wallet.Manager
 	Producer() Producer
-	PoolReader
-	ConsensusReader
+	Pool() PoolReader
 }
 
 type PoolReader interface {
 	ExistInPool(address types.Address, fromBlockHash types.Hash) bool
 	AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_context.VmAccountBlock) error
 	AddDirectAccountBlocks(address types.Address, received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) error
-}
-
-type ConsensusReader interface {
-	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
 }
 
 type Producer interface {
@@ -39,5 +33,3 @@ type Net interface {
 	Status() *net.NetStatus
 }
 
-type Chain interface {
-}
