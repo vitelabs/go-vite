@@ -94,12 +94,10 @@ func (self *committee) verifyProducer(t time.Time, address types.Address, result
 		if plan.Member == address {
 			if plan.STime == t {
 				return true
-			} else {
-				return false
 			}
 		}
 	}
-	return true
+	return false
 }
 
 func (self *committee) ReadByTime(gid types.Gid, t2 time.Time) ([]*Event, error) {
@@ -185,7 +183,7 @@ func (self *committee) Subscribe(gid types.Gid, id string, addr *types.Address, 
 		value, _ = self.subscribes.LoadOrStore(gid, &sync.Map{})
 	}
 	v := value.(*sync.Map)
-	v.Store(id, &subscribeEvent{addr: addr, fn: fn})
+	v.Store(id, &subscribeEvent{addr: addr, fn: fn, gid: gid})
 }
 func (self *committee) UnSubscribe(gid types.Gid, id string) {
 	value, ok := self.subscribes.Load(gid)

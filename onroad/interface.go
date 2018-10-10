@@ -26,7 +26,7 @@ type PoolReader interface {
 }
 
 type ConsensusReader interface {
-	VerifyAccountProducer(block *ledger.AccountBlock) error
+	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
 }
 
 type Producer interface {

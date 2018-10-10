@@ -73,15 +73,20 @@ func (node *Node) Start() error {
 	node.lock.Lock()
 	defer node.lock.Unlock()
 
+	log.Info(fmt.Sprintf("Check dataDir is OK ? "))
 	if err := node.openDataDir(); err != nil {
 		return err
 	}
+	log.Info(fmt.Sprintf("DataDir is OK. "))
 
 	//wallet start
+	log.Info(fmt.Sprintf("Begin Start Wallet... "))
 	node.startWallet()
 	//p2p\vite start
+	log.Info(fmt.Sprintf("Begin Start P2P And Vite... "))
 	node.startP2pAndVite()
 	//rpc start
+	log.Info(fmt.Sprintf("Begin Start RPC... "))
 	node.startRPC()
 
 	return nil
@@ -94,15 +99,19 @@ func (node *Node) Stop() error {
 	defer close(node.stop)
 
 	//wallet
+	log.Info(fmt.Sprintf("Begin Stop Wallet... "))
 	node.stopWallet()
 
 	//p2p
+	log.Info(fmt.Sprintf("Begin Stop P2P... "))
 	node.stopP2P()
 
 	//vite
+	log.Info(fmt.Sprintf("Begin Stop Vite... "))
 	node.stopVite()
 
 	//rpc
+	log.Info(fmt.Sprintf("Begin Stop RPD... "))
 	node.stopRPC()
 
 	return nil
@@ -155,14 +164,14 @@ func (node *Node) startP2pAndVite() error {
 	var err error
 	node.p2pServer, err = p2p.New(node.p2pConfig)
 	if err != nil {
-		log.Error(fmt.Sprintf("p2p new error: %v", err))
+		log.Error(fmt.Sprintf("P2P new error: %v", err))
 		return err
 	}
 
 	//Initialize the vite server
 	node.viteServer, err = vite.New(node.viteConfig)
 	if err != nil {
-		log.Error(fmt.Sprintf("vite new error: %v", err))
+		log.Error(fmt.Sprintf("Vite new error: %v", err))
 		return err
 	}
 
@@ -170,7 +179,7 @@ func (node *Node) startP2pAndVite() error {
 
 	// Start p2p
 	if e := node.p2pServer.Start(); e != nil {
-		log.Error(fmt.Sprintf("p2pServer start error: %v", e))
+		log.Error(fmt.Sprintf("P2PServer start error: %v", e))
 		return err
 	}
 

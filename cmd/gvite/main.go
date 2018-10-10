@@ -1,58 +1,143 @@
 package main
 
 import (
-	"flag"
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/cmd/rpc_vite"
-	"github.com/vitelabs/go-vite/config"
+	//_ "net/http/pprof"
+	"fmt"
+	"github.com/vitelabs/go-vite/cmd/console"
+	"github.com/vitelabs/go-vite/cmd/nodemanager"
+	"github.com/vitelabs/go-vite/cmd/params"
+	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vite"
-	"net/http"
-	_ "net/http/pprof"
+	"gopkg.in/urfave/cli.v1"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"time"
 )
 
-func parseConfig() *config.Config {
-	var globalConfig = config.GlobalConfig
+// gvite is the official command-line client for Vite
 
-	flag.StringVar(&globalConfig.Name, "name", globalConfig.Name, "boot name")
-	flag.UintVar(&globalConfig.MaxPeers, "peers", globalConfig.MaxPeers, "max number of connections will be connected")
-	flag.StringVar(&globalConfig.Addr, "addr", globalConfig.Addr, "will be listen by vite")
-	flag.StringVar(&globalConfig.PrivateKey, "priv", globalConfig.PrivateKey, "hex encode of ed25519 privateKey, use for sign message")
-	flag.StringVar(&globalConfig.DataDir, "dir", globalConfig.DataDir, "use for store all files")
-	flag.UintVar(&globalConfig.NetID, "netid", globalConfig.NetID, "the network vite will connect")
+var (
+	log = log15.New("module", "gvite/main")
 
-	flag.Parse()
+	app = cli.NewApp()
 
-	globalConfig.P2P.Datadir = globalConfig.DataDir
+	//config
+	configFlags = []cli.Flag{
+		utils.ConfigFileFlag,
+	}
+	//general
+	generalFlags = []cli.Flag{
+		utils.DataDirFlag,
+		utils.KeyStoreDirFlag,
+	}
 
-	return globalConfig
+	//p2p
+	p2pFlags = []cli.Flag{
+		utils.DevNetFlag,
+		utils.TestNetFlag,
+		utils.MainNetFlag,
+		utils.IdentityFlag,
+		utils.NetworkIdFlag,
+		utils.MaxPeersFlag,
+		utils.MaxPendingPeersFlag,
+		utils.ListenPortFlag,
+		utils.NodeKeyHexFlag,
+	}
+
+	//IPC
+	ipcFlags = []cli.Flag{
+		utils.IPCEnabledFlag,
+		utils.IPCPathFlag,
+	}
+
+	//HTTP RPC
+	httpFlags = []cli.Flag{
+		utils.RPCEnabledFlag,
+		utils.RPCListenAddrFlag,
+		utils.RPCPortFlag,
+	}
+
+	//WS
+	wsFlags = []cli.Flag{
+		utils.WSEnabledFlag,
+		utils.WSListenAddrFlag,
+		utils.WSPortFlag,
+	}
+
+	//Console
+	consoleFlags = []cli.Flag{
+		utils.JSPathFlag,
+		utils.ExecFlag,
+		utils.PreloadJSFlag,
+	}
+)
+
+func init() {
+
+	//TODO: Whether the command name is fixed ？
+	app.Name = filepath.Base(os.Args[0])
+	app.HideVersion = false
+	app.Version = params.Version
+	app.Compiled = time.Now()
+	app.Authors = []cli.Author{
+		cli.Author{
+			Name:  "viteLabs",
+			Email: "XXX@vite.org",
+		},
+	}
+	app.Copyright = "Copyright 2018-2024 The go-vite Authors"
+	app.Usage = "the go-vite cli application"
+
+	//Import: Please add the New command here
+	app.Commands = []cli.Command{
+		versionCommand,
+		//console
+		//consoleCommand,
+		//attachCommand,
+	}
+	sort.Sort(cli.CommandsByName(app.Commands))
+
+	//Import: Please add the New Flags here
+	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags)
+
+	app.Before = beforeAction
+	app.Action = action
+	app.After = afterAction
 }
 
 func main() {
-	govite.PrintBuildVersion()
+	if err := app.Run(os.Args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
 
-	mainLog := log15.New("module", "gvite/main")
+func beforeAction(ctx *cli.Context) error {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	go func() {
-		err := http.ListenAndServe("localhost:6060", nil)
-		if err != nil {
-			mainLog.Error(err.Error())
-		}
-	}()
+	//TODO: we can add dashboard here
 
-	parsedConfig := parseConfig()
+	return nil
+}
 
-	if s, e := parsedConfig.RunLogDirFile(); e == nil {
-		log15.Root().SetHandler(
-			log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(s, log15.TerminalFormat())),
-		)
+func action(ctx *cli.Context) error {
+
+	//Make sure No subCommands were entered,Only the flags
+	if args := ctx.Args(); len(args) > 0 {
+		return fmt.Errorf("invalid command: %q", args[0])
 	}
 
-	vnode, err := vite.New(parsedConfig)
+	nodeManager := nodemanager.New(ctx, nodemanager.FullNodeMaker{})
 
-	if err != nil {
-		mainLog.Crit("Start vite failed.", "err", err)
-	}
+	return nodeManager.Start()
+}
 
-	rpc_vite.StartIpcRpcEndpoint(vnode, parsedConfig.DataDir)
+func afterAction(ctx *cli.Context) error {
+
+	// Resets terminal mode.
+	console.Stdin.Close()
+
+	return nil
 }

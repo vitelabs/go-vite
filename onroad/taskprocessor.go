@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"github.com/vitelabs/go-vite/verifier"
 	"sync"
 	"time"
 )
@@ -16,7 +15,6 @@ type ContractTaskProcessor struct {
 	worker   *ContractWorker
 	accEvent producerevent.AccountStartEvent
 
-	verifier   *verifier.AccountVerifier
 	blocksPool *model.OnroadBlocksPool
 
 	status      int
@@ -35,7 +33,6 @@ func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskPr
 		taskId:     index,
 		worker:     worker,
 		accEvent:   worker.accEvent,
-		verifier:   worker.verifier,
 		blocksPool: worker.uBlocksPool,
 		status:     Create,
 		log:        worker.log.New("taskid", index),

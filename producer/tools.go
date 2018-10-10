@@ -60,7 +60,7 @@ func (self *tools) generateSnapshot(e *consensus.Event) (*ledger.SnapshotBlock, 
 }
 func (self *tools) insertSnapshot(block *ledger.SnapshotBlock) error {
 	// todo insert pool ?? dead lock
-	return nil
+	return self.pool.AddDirectSnapshotBlock(block)
 }
 
 func newChainRw(ch chain.Chain, sVerifier *verifier.SnapshotVerifier, wt *wallet.Manager, p pool.SnapshotProducerWriter) *tools {

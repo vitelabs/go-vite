@@ -2,6 +2,8 @@ package quota
 
 import (
 	"errors"
+	"math"
+	"math/big"
 	"testing"
 )
 
@@ -49,5 +51,76 @@ func TestUseQuota(t *testing.T) {
 		if quotaLeft != test.quotaLeft || err != test.err {
 			t.Fatalf("use quota fail, input: %v, %v, expected [%v, %v], got [%v, %v]", test.quotaInit, test.cost, test.quotaLeft, test.err, quotaLeft, err)
 		}
+	}
+}
+
+// quota = Qm * (1 - 2 / (1 + e**(paramPledge * Hgap * pledgeAmount + paramPoW * difficulty)))
+// Qm is decided by total quota used during past 3600 snapshot blocks,
+// using 1 million for the sake of simplicity in test net.
+// Default difficulty is 0xffffffc000000000.
+func TestCalcLogisticQuotaParam(t *testing.T) {
+	quotaLimit := 1000000.0
+	quotaForPureTransaction := 21000.0
+
+	// Pledge minimum amount of Vite Token, calc no PoW, wait for longest block height, gets quota for a pure transfer transaction
+	maxHeightGap := 86400.0
+	minPledgeAmount := 1.0e19
+	paramA := math.Log(2.0/(1.0-quotaForPureTransaction/quotaLimit)-1.0) / maxHeightGap / minPledgeAmount
+	t.Logf("paramA : %v", paramA)
+	// Pledge no Vite Token, calc PoW for default difficulty, gets quota for a pure transfer transaction
+	defaultDifficulty := float64(0xffffffc000000000)
+	paramB := math.Log(2.0/(1.0-quotaForPureTransaction/quotaLimit)-1.0) / defaultDifficulty
+	t.Logf("paramB : %v", paramB)
+
+	t.Logf("x gap: ")
+	q := 0.0
+	index := 0
+	for {
+		index = index + 1
+		q = q + quotaForPureTransaction
+		if q >= quotaLimit {
+			break
+		}
+		gapLow := math.Log(2.0/(1.0-q/quotaLimit) - 1.0)
+		t.Logf("%v : %v", index, gapLow)
+	}
+}
+
+func TestCalcQuotaForPoW(t *testing.T) {
+	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
+	tmpFLoat := new(big.Float).SetPrec(precForFloat)
+	tmpFLoat.SetInt(defaultDifficulty)
+	tmpFLoat.Mul(tmpFLoat, paramB)
+	x.Add(x, tmpFLoat)
+	quotaTotal := uint64(getIndexInSection(x)) * quotaForSection
+	if quotaTotal != TxGas {
+		t.Fatalf("gain quota by calc PoW not enough to create a transaction, got %v", quotaTotal)
+	}
+}
+
+func TestCalcQuotaForMinPledge(t *testing.T) {
+	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
+	tmpFLoat := new(big.Float).SetPrec(precForFloat)
+	tmpFLoat.SetUint64(86400)
+	x.Mul(tmpFLoat, paramA)
+	tmpFLoat.SetUint64(1e19)
+	x.Mul(tmpFLoat, x)
+	quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
+	if quotaWithoutPoW != TxGas {
+		t.Fatalf("gain quota by calc PoW not enough to create a transaction, got %v", quotaWithoutPoW)
+	}
+}
+
+func TestCalcQuotaForMaxPledge(t *testing.T) {
+	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
+	tmpFLoat := new(big.Float).SetPrec(precForFloat)
+	tmpFLoat.SetUint64(86400)
+	x.Mul(tmpFLoat, paramA)
+	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
+	tmpFLoat.SetInt(viteTotalSupply)
+	x.Mul(tmpFLoat, x)
+	quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
+	if quotaWithoutPoW != TxGas*uint64(len(sectionList)-1) {
+		t.Fatalf("gain quota by calc PoW not enough to create a transaction, got %v", quotaWithoutPoW)
 	}
 }

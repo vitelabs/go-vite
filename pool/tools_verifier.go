@@ -22,11 +22,13 @@ type snapshotVerifier struct {
 	v *verifier.SnapshotVerifier
 }
 
-func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) (result *poolSnapshotVerifyStat) {
+func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) *poolSnapshotVerifyStat {
+	result := &poolSnapshotVerifyStat{}
 	stat := self.v.VerifyReferred(block.block)
 	result.results = stat.Results()
 	result.result = stat.VerifyResult()
-	return
+	result.msg = stat.ErrMsg()
+	return result
 }
 func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock, refer *ledger.SnapshotBlock) bool {
 	return self.v.VerifyTimeout(current.Height, refer.Height)
@@ -100,13 +102,14 @@ type poolSnapshotVerifyStat struct {
 	results map[types.Address]verifier.VerifyResult
 	result  verifier.VerifyResult
 	task    verifyTask
+	msg     string
 }
 
 func (self *poolSnapshotVerifyStat) verifyResult() verifier.VerifyResult {
 	return self.result
 }
 func (self *poolSnapshotVerifyStat) errMsg() string {
-	return ""
+	return self.msg
 }
 func (self *poolAccountVerifyStat) task() verifyTask {
 	var result []fetchRequest
