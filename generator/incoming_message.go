@@ -43,7 +43,7 @@ func (im *IncomingMessage) ToBlock() (*ledger.AccountBlock, error) {
 			block.Amount = big.NewInt(0)
 		} else {
 
-			if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
+			if im.Amount.Sign() < 0 || im.Amount.BitLen() > math.MaxBigIntLen {
 				return nil, errors.New("block.Amount out of bounds")
 			} else {
 				block.Amount = im.Amount
@@ -59,7 +59,7 @@ func (im *IncomingMessage) ToBlock() (*ledger.AccountBlock, error) {
 		if im.Fee == nil {
 			block.Fee = big.NewInt(0)
 		} else {
-			if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
+			if im.Fee.Sign() < 0 || im.Fee.BitLen() > math.MaxBigIntLen {
 				return nil, errors.New("block.Fee out of bounds")
 			}
 			block.Fee = im.Fee

@@ -124,8 +124,13 @@ func (gen *Generator) packBlockWithMessage(message *IncomingMessage) (blockPacke
 	}
 
 	latestBlock := gen.vmContext.PrevAccountBlock()
-	blockPacked.Height = latestBlock.Height + 1
-	blockPacked.PrevHash = latestBlock.Hash
+	if latestBlock == nil {
+		blockPacked.Height = 1
+		blockPacked.PrevHash = types.ZERO_HASH
+	} else {
+		blockPacked.Height = latestBlock.Height + 1
+		blockPacked.PrevHash = latestBlock.Hash
+	}
 
 	latestSnapshotBlock := gen.vmContext.CurrentSnapshotBlock()
 	blockPacked.SnapshotHash = latestSnapshotBlock.Hash
