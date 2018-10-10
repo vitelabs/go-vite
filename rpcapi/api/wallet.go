@@ -194,7 +194,7 @@ func (m *WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 		return newerr
 	}
 	if result.Err != nil {
-		newerr, _ := TryMakeConcernedError(e)
+		newerr, _ := TryMakeConcernedError(result.Err)
 		return newerr
 	}
 	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
