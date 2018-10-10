@@ -1,15 +1,16 @@
 package vm_context_test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
-	"path/filepath"
 	"testing"
 )
 
@@ -24,12 +25,30 @@ var mockTokenTypeId, _ = types.HexToTokenTypeId("tti_000000000000000000004cfd")
 var mockAddress, _ = types.HexToAddress("vite_73728b44bda289359fcb298b0d07a6489757a84fb5cfc74527")
 var mockGid = types.Gid{12, 32, 43, 54, 23, 12, 23, 12, 4, 5}
 
-func TestVmContext_AddBalance(t *testing.T) {
-	chainInstance := chain.NewChain(&config.Config{
-		DataDir: filepath.Join(common.GoViteTestDataDir(), "trie"),
-	})
+var innerChainInstance chain.Chain
 
-	vmContext, err := vm_context.NewVmContext(chainInstance, &mockSnapshotBlockHash, &mockAccountBlockHash, &mockAddress)
+func getChainInstance() chain.Chain {
+	if innerChainInstance == nil {
+		innerChainInstance = chain.NewChain(&config.Config{
+			DataDir: common.DefaultDataDir(),
+			//Chain: &config.Chain{
+			//	KafkaProducers: []*config.KafkaProducer{{
+			//		Topic:      "test",
+			//		BrokerList: []string{"abc", "def"},
+			//	}},
+			//},
+		})
+		innerChainInstance.Init()
+		innerChainInstance.Start()
+	}
+
+	return innerChainInstance
+}
+
+func TestVmContext_AddBalance(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	vmContext, err := vm_context.NewVmContext(chainInstance, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,4 +122,23 @@ func TestVmContext_AddBalance(t *testing.T) {
 	//
 	//log.Println(vmContext.ActionList()[2].Params[0].(*types.TokenTypeId).String())
 	//log.Println(vmContext.ActionList()[2].Params[1].(*big.Int).String())
+}
+
+func TestVmContextIterator(t *testing.T) {
+	chainInstance := getChainInstance()
+	vmContext, err := vm_context.NewVmContext(chainInstance, nil, nil, &contracts.AddressConsensusGroup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	//vmContext.SetStorage([]byte("123123123"), []byte("asdfsadfasdfasdf"))
+	//vmContext.SetStorage([]byte("1231231254"), []byte("asdfsadfasdfasdf"))
+	iterator := vmContext.NewStorageIterator(nil)
+	for {
+		key, value, ok := iterator.Next()
+		if !ok {
+			return
+		}
+		fmt.Printf("%v : %v\n", hex.EncodeToString(key), hex.EncodeToString(value))
+	}
+
 }

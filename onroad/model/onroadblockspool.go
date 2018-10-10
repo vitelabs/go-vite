@@ -64,7 +64,7 @@ func (p *OnroadBlocksPool) addSimpleCache(addr types.Address, accountInfo *Onroa
 	}
 }
 
-func (p *OnroadBlocksPool) GetCommonAccountInfo(addr types.Address) (*OnroadAccountInfo, error) {
+func (p *OnroadBlocksPool) GetOnroadAccountInfo(addr types.Address) (*OnroadAccountInfo, error) {
 	p.log.Debug("first load in simple cache", "addr", addr)
 	if c, ok := p.simpleCache.Load(addr); ok {
 		v, ok := p.simpleCacheDeadTimer.Load(addr)

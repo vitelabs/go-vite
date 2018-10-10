@@ -18,20 +18,20 @@ type Iterator struct {
 	prefix []byte
 	trie   *Trie
 
-	middleNodes []*middleKeyAndNode
-	leafNodes   []*leafKeyAndNode
+	middleNodes []middleKeyAndNode
+	leafNodes   []leafKeyAndNode
 }
 
 func NewIterator(trie *Trie, prefix []byte) *Iterator {
 	return &Iterator{
 		trie:   trie,
 		prefix: prefix,
-		middleNodes: []*middleKeyAndNode{{
+		middleNodes: []middleKeyAndNode{{
 			key:        []byte{},
 			middleNode: trie.Root,
 		}},
 
-		leafNodes: make([]*leafKeyAndNode, 0),
+		leafNodes: make([]leafKeyAndNode, 0),
 	}
 }
 
@@ -40,7 +40,11 @@ func (iterator *Iterator) Next() (key, value []byte, ok bool) {
 		if len(iterator.leafNodes) > 0 {
 			node := iterator.leafNodes[0]
 			iterator.leafNodes = iterator.leafNodes[1:]
-			return node.key, iterator.trie.LeafNodeValue(node.leafNode), true
+
+			returnKey := make([]byte, len(node.key))
+			copy(returnKey, node.key)
+
+			return returnKey, iterator.trie.LeafNodeValue(node.leafNode), true
 		}
 
 		if len(iterator.middleNodes) <= 0 {
@@ -70,10 +74,12 @@ func (iterator *Iterator) Next() (key, value []byte, ok bool) {
 
 		for index, key := range keys {
 			child := children[index]
-			newKey := node.key
+
+			newKey := make([]byte, len(node.key))
+			copy(newKey, node.key)
 
 			if !bytes.Equal(key, []byte{0}) {
-				newKey = append(node.key, key...)
+				newKey = append(newKey, key...)
 			}
 
 			if child.NodeType() == TRIE_FULL_NODE ||
@@ -83,7 +89,7 @@ func (iterator *Iterator) Next() (key, value []byte, ok bool) {
 					continue
 				}
 
-				iterator.middleNodes = append(iterator.middleNodes, &middleKeyAndNode{
+				iterator.middleNodes = append(iterator.middleNodes, middleKeyAndNode{
 					key:        newKey,
 					middleNode: child,
 				})
@@ -92,7 +98,7 @@ func (iterator *Iterator) Next() (key, value []byte, ok bool) {
 					continue
 				}
 
-				iterator.leafNodes = append(iterator.leafNodes, &leafKeyAndNode{
+				iterator.leafNodes = append(iterator.leafNodes, leafKeyAndNode{
 					key:      newKey,
 					leafNode: child,
 				})
