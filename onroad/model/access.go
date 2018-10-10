@@ -109,11 +109,11 @@ func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.Acco
 		// call from the WriteOnroad func to handle the onRoadTx's receiveBlock
 		addr := &block.AccountAddress
 		hash := &block.FromBlockHash
+
 		code, err := access.Chain.AccountType(&block.AccountAddress)
 		switch code {
 		case ledger.AccountTypeGeneral, ledger.AccountTypeNotExist:
 			return access.store.DeleteMeta(batch, addr, hash)
-
 		case ledger.AccountTypeContract:
 			value, err := access.store.GetMeta(addr, hash)
 			if len(value) == 0 {
@@ -141,7 +141,7 @@ func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.Acco
 			if err != nil {
 				access.log.Error("AccountType", "error", err)
 			}
-			return errors.New("AccountType error or not exist")
+			return errors.New("AccountType error ")
 		}
 	} else {
 		// call from the  RevertOnroad(revert) func to handle sendBlock
