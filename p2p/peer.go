@@ -137,8 +137,8 @@ func NewPeer(conn *conn, ourSet []*Protocol) (*Peer, error) {
 	p := &Peer{
 		ts:          conn,
 		protoFrames: protoFrames,
-		created:     time.Now(),
 		term:        make(chan struct{}),
+		created:     time.Now(),
 		disc:        make(chan DiscReason, 1),
 		errch:       make(chan error, 1),
 		protoDone:   make(chan *protoDone, len(protoFrames)),
@@ -163,8 +163,8 @@ func (p *Peer) runProtocols() {
 	p.wg.Add(len(p.protoFrames))
 	canWrite := make(chan struct{}, paralProtoFrame)
 
-	for _, proto := range p.protoFrames {
-		go p.runProtocol(proto, canWrite)
+	for _, pf := range p.protoFrames {
+		go p.runProtocol(pf, canWrite)
 	}
 }
 

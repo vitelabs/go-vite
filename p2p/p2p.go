@@ -20,15 +20,15 @@ import (
 
 var p2pServerLog = log15.New("module", "p2p/server")
 var errSvrStarted = errors.New("server has started")
-var errSvrStopped = errors.New("server has stopped")
 
 type Discovery interface {
 	Lookup(discovery.NodeID) []*discovery.Node
 	Resolve(discovery.NodeID) *discovery.Node
 	RandomNodes([]*discovery.Node) int
-	Start()
+	Start() error
 	Stop()
 	SubNodes(ch chan<- *discovery.Node)
+	UnSubNodes(ch chan<- *discovery.Node)
 }
 
 type Config struct {
@@ -46,6 +46,7 @@ type Config struct {
 
 type Server struct {
 	*Config
+	addr      *net.TCPAddr
 	running   int32          // atomic
 	wg        sync.WaitGroup // Wait for all jobs done
 	term      chan struct{}
@@ -78,41 +79,21 @@ func New(cfg *Config) (svr *Server, err error) {
 		return
 	}
 
-	log := log15.New("module", "p2p/server")
-
-	udpConn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		return
-	}
-	log.Info(fmt.Sprintf("udp listen at %s", udpAddr))
-
 	// tcp listener
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
-		// close the open udp connection
-		udpConn.Close()
 		return
 	}
-
-	listener, err := net.ListenTCP("tcp", tcpAddr)
-	if err != nil {
-		// close the open udp connection
-		udpConn.Close()
-		return
-	}
-	log.Info(fmt.Sprintf("tcp listen at %s", tcpAddr))
 
 	svr = &Server{
 		Config:    cfg,
-		log:       log,
+		addr:      tcpAddr,
 		peers:     NewPeerSet(),
-		term:      make(chan struct{}),
 		pending:   make(chan struct{}, cfg.MaxPendingPeers),
 		addPeer:   make(chan *conn, 1),
 		delPeer:   make(chan *Peer, 1),
 		BootNodes: addFirmNodes(cfg.BootNodes),
 		blockList: block.NewCuckooSet(100),
-		ln:        listener,
 		self: &discovery.Node{
 			ID:  ID,
 			IP:  udpAddr.IP,
@@ -120,63 +101,20 @@ func New(cfg *Config) (svr *Server, err error) {
 			TCP: uint16(tcpAddr.Port),
 		},
 		nodeChan: make(chan *discovery.Node, 10),
+		log:      log15.New("module", "p2p/server"),
 	}
 
 	svr.discv = discovery.New(&discovery.Config{
 		Priv:      svr.PrivateKey,
 		DBPath:    svr.DataDir,
 		BootNodes: svr.BootNodes,
-		Conn:      udpConn,
+		Addr:      udpAddr,
 		Self:      svr.self,
 	})
 
-	svr.discv.SubNodes(svr.nodeChan)
+	svr.setHandshake()
 
 	return
-}
-
-func (svr *Server) Peers() []*PeerInfo {
-	return svr.peers.Info()
-}
-
-func (svr *Server) PeersCount() (amount int) {
-	return svr.peers.Size()
-}
-
-func (svr *Server) NodeInfo() *NodeInfo {
-	protocols := make([]string, len(svr.Protocols))
-	for i, protocol := range svr.Protocols {
-		protocols[i] = protocol.String()
-	}
-
-	return &NodeInfo{
-		ID:    svr.self.ID.String(),
-		Name:  svr.Name,
-		Url:   svr.self.String(),
-		NetID: svr.NetID,
-		Address: &address{
-			IP:  svr.self.IP,
-			TCP: svr.self.TCP,
-			UDP: svr.self.UDP,
-		},
-		Protocols: protocols,
-	}
-}
-
-func (svr *Server) URL() string {
-	return svr.self.String()
-}
-
-func (svr *Server) Available() bool {
-	return svr.PeersCount() > 0
-}
-
-func (svr *Server) maxOutboundPeers() uint {
-	return svr.MaxPeers - svr.maxInboundPeers()
-}
-
-func (svr *Server) maxInboundPeers() uint {
-	return svr.MaxPeers / svr.MaxInboundRatio
 }
 
 func (svr *Server) Start() error {
@@ -184,18 +122,39 @@ func (svr *Server) Start() error {
 		return errSvrStarted
 	}
 
-	svr.log.Info("p2p server start")
-
-	err := svr.setHandshake()
+	listener, err := net.ListenTCP("tcp", svr.addr)
 	if err != nil {
 		return err
 	}
+	svr.log.Info(fmt.Sprintf("tcp listen at %s", svr.addr))
+	svr.ln = listener
 
-	// mapping udp and tcp
-	go nat.Map(svr.term, "udp", int(svr.self.UDP), int(svr.self.UDP), "vite p2p udp", 0, svr.updateNode)
-	go nat.Map(svr.term, "tcp", int(svr.self.TCP), int(svr.self.TCP), "vite p2p tcp", 0, svr.updateNode)
+	svr.term = make(chan struct{})
 
-	svr.discv.Start()
+	svr.log.Info("p2p server start")
+
+	// mapping udp
+	svr.wg.Add(1)
+	go func() {
+		nat.Map(svr.term, "udp", int(svr.self.UDP), int(svr.self.UDP), "vite p2p udp", 0, svr.updateNode)
+		svr.wg.Done()
+	}()
+
+	// mapping tcp
+	svr.wg.Add(1)
+	go func() {
+		nat.Map(svr.term, "tcp", int(svr.self.TCP), int(svr.self.TCP), "vite p2p tcp", 0, svr.updateNode)
+		svr.wg.Done()
+	}()
+
+	// subscribe nodes
+	svr.discv.SubNodes(svr.nodeChan)
+
+	err = svr.discv.Start()
+	if err != nil {
+		svr.ln.Close()
+		return err
+	}
 
 	svr.wg.Add(1)
 	go svr.dialLoop()
@@ -212,6 +171,21 @@ func (svr *Server) Start() error {
 	return nil
 }
 
+func (svr *Server) Stop() {
+	select {
+	case <-svr.term:
+	default:
+		svr.log.Warn("p2p server stop")
+
+		close(svr.term)
+		svr.discv.Stop()
+		svr.discv.UnSubNodes(svr.nodeChan)
+		svr.wg.Wait()
+
+		svr.log.Warn("p2p server stopped")
+	}
+}
+
 func (svr *Server) updateNode(addr *nat.Addr) {
 	if addr.Proto == "tcp" {
 		svr.self.TCP = uint16(addr.Port)
@@ -220,7 +194,7 @@ func (svr *Server) updateNode(addr *nat.Addr) {
 	}
 }
 
-func (svr *Server) setHandshake() error {
+func (svr *Server) setHandshake() {
 	cmdsets := make([]*CmdSet, len(svr.Protocols))
 	for i, p := range svr.Protocols {
 		cmdsets[i] = p.CmdSet()
@@ -233,8 +207,6 @@ func (svr *Server) setHandshake() error {
 		ID:      svr.self.ID,
 		CmdSets: cmdsets,
 	}
-
-	return nil
 }
 
 func (svr *Server) dialLoop() {
@@ -244,12 +216,12 @@ func (svr *Server) dialLoop() {
 		Timeout: 3 * time.Second,
 	}
 
+	var node *discovery.Node
 	for {
 		select {
 		case <-svr.term:
 			return
 		case svr.pending <- struct{}{}:
-			var node *discovery.Node
 			for node = range svr.nodeChan {
 				if err := svr.checkConn(node.ID, outbound); err == nil {
 					break
@@ -414,14 +386,48 @@ func (svr *Server) runPeer(p *Peer) {
 	svr.delPeer <- p
 }
 
-func (svr *Server) Stop() {
-	if !atomic.CompareAndSwapInt32(&svr.running, 1, 0) {
-		return
+func (svr *Server) Peers() []*PeerInfo {
+	return svr.peers.Info()
+}
+
+func (svr *Server) PeersCount() (amount int) {
+	return svr.peers.Size()
+}
+
+func (svr *Server) NodeInfo() *NodeInfo {
+	protocols := make([]string, len(svr.Protocols))
+	for i, protocol := range svr.Protocols {
+		protocols[i] = protocol.String()
 	}
 
-	close(svr.term)
-	svr.discv.Stop()
-	svr.wg.Wait()
+	return &NodeInfo{
+		ID:    svr.self.ID.String(),
+		Name:  svr.Name,
+		Url:   svr.self.String(),
+		NetID: svr.NetID,
+		Address: &address{
+			IP:  svr.self.IP,
+			TCP: svr.self.TCP,
+			UDP: svr.self.UDP,
+		},
+		Protocols: protocols,
+	}
+}
+
+func (svr *Server) URL() string {
+	return svr.self.String()
+}
+
+func (svr *Server) Available() bool {
+	return svr.PeersCount() > 0
+}
+
+func (svr *Server) maxOutboundPeers() uint {
+	return svr.MaxPeers - svr.maxInboundPeers()
+}
+
+func (svr *Server) maxInboundPeers() uint {
+	return svr.MaxPeers / svr.MaxInboundRatio
 }
 
 // @section NodeInfo
