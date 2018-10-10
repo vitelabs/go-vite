@@ -102,7 +102,7 @@ func addressFromKeyPathV0(keyfile string) (types.Address, error) {
 		return types.Address{}, fmt.Errorf("not valid key file name %v error %v", keyfile, err)
 	}
 	if len(b) != types.AddressSize {
-		return types.Address{}, fmt.Errorf("not valid key file name %v error %v", keyfile)
+		return types.Address{}, fmt.Errorf("not valid key file name %v error", keyfile)
 	}
 
 	a, err := types.BytesToAddress(b)

@@ -83,6 +83,7 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int,
 
 func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int, count int) ([]AccountBlock, error) {
 	log.Info("GetUnconfirmedBlocksByAccAddr")
+
 	blocks, e := l.ledgerManager.Ac().GetUnconfirmedTxBlocks(index, 1, count, &addr)
 	if e != nil {
 		return nil, e
@@ -90,6 +91,7 @@ func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int,
 	if len(blocks) == 0 {
 		return nil, nil
 	}
+
 	result := make([]AccountBlock, len(blocks))
 	for key, value := range blocks {
 		result[key] = *LedgerAccBlockToRpc(value, nil)
@@ -97,14 +99,16 @@ func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int,
 	return result, nil
 }
 
-func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (GetAccountResponse, error) {
-	log.Info("GetAccountByAccAddr")
+func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
+	l.log.Info("GetAccountByAccAddr")
 
-	account, err := l.ledgerManager.Ac().GetAccount(&addr)
+	account, err := l.chain.GetAccount(&addr)
 	if err != nil {
-		return GetAccountResponse{}, err
+		l.log.Error("GetAccount failed, error is "+err.Error(), "method", "GetAccountByAccAddr")
+		return nil, err
 	}
 
+	//l.chain.GetLatestAccountBlock()
 	response := GetAccountResponse{}
 	if account == nil {
 		log.Error("account == nil")
