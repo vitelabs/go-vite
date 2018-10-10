@@ -19,7 +19,7 @@ type AccountBlock struct {
 	Fee    string
 
 	ConfirmedTimes string
-	TokenInfo      *contracts.TokenInfo
+	TokenInfo      *RpcTokenInfo
 }
 
 func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
@@ -58,7 +58,7 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.Token
 		Amount: "0",
 		Fee:    "0",
 
-		TokenInfo:      token,
+		TokenInfo:      RawTokenInfoToRpc(token),
 		ConfirmedTimes: strconv.FormatUint(confirmedTimes, 10),
 	}
 	if ledgerBlock.Amount != nil {
@@ -102,7 +102,7 @@ func RawTokenInfoToRpc(tinfo *contracts.TokenInfo) *RpcTokenInfo {
 			Decimals:       tinfo.Decimals,
 			Owner:          tinfo.Owner,
 			PledgeAmount:   nil,
-			WithdrawHeight: string(tinfo.WithdrawHeight),
+			WithdrawHeight: strconv.FormatUint(tinfo.WithdrawHeight, 10),
 		}
 		if tinfo.TotalSupply != nil {
 			s := tinfo.TotalSupply.String()
