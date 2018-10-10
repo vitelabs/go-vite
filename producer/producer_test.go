@@ -5,11 +5,16 @@ import (
 
 	"time"
 
+	"flag"
+	"fmt"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/wallet"
 )
@@ -23,20 +28,42 @@ func (*testConsensus) Subscribe(gid types.Gid, id string, addr *types.Address, f
 func (*testConsensus) UnSubscribe(gid types.Gid, id string) {
 }
 
+var accountPrivKeyStr string
+
+func init() {
+	flag.StringVar(&accountPrivKeyStr, "k", "", "")
+	flag.Parse()
+	fmt.Println(accountPrivKeyStr)
+
+}
+
 func TestProducer_Init(t *testing.T) {
-	coinbase := common.MockAddress(1)
+
+	accountPrivKey, _ := ed25519.HexToPrivateKey(accountPrivKeyStr)
+	accountPubKey := accountPrivKey.PubByte()
+	coinbase := types.PubkeyToAddress(accountPubKey)
+
 	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
 
 	cs := &consensus.MockConsensus{}
-	v := verifier.NewSnapshotVerifier(c, cs)
+	sv := verifier.NewSnapshotVerifier(c, cs)
 	w := wallet.New(nil)
-	p := NewProducer(c, nil, coinbase, cs, v, w)
+	av := verifier.NewAccountVerifier(c, cs, w.KeystoreManager)
+	p1 := pool.NewPool(c)
+	p := NewProducer(c, nil, coinbase, cs, sv, w, p1)
+
+	w.KeystoreManager.ImportPriv(accountPrivKeyStr, "123456")
+	w.KeystoreManager.Lock(coinbase)
+	w.KeystoreManager.Unlock(coinbase, "123456", 0)
 
 	c.Init()
-
-	p.Init()
 	c.Start()
+
+	p1.Init(&pool.MockSyncer{}, w, sv, av)
+	p.Init()
+	p1.Start()
 	p.Start()
+
 	e := consensus.Event{
 		Gid:            types.SNAPSHOT_GID,
 		Address:        coinbase,
@@ -50,6 +77,7 @@ func TestProducer_Init(t *testing.T) {
 	t.Log(c.GetLatestSnapshotBlock().Height)
 
 	p.worker.produceSnapshot(e)
+	time.Sleep(2 * time.Second)
 	p.Stop()
 	t.Log(c.GetLatestSnapshotBlock())
 	t.Log(c.GetLatestSnapshotBlock().Height)

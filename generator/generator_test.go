@@ -19,9 +19,8 @@ import (
 )
 
 var (
-	attovPerVite    = big.NewInt(1e18)
-	viteTotalSupply = new(big.Int).Mul(big.NewInt(1e9), attovPerVite)
-	pledgeAmount    = new(big.Int).Mul(big.NewInt(10), attovPerVite)
+	attovPerVite = big.NewInt(1e18)
+	pledgeAmount = new(big.Int).Mul(big.NewInt(10), attovPerVite)
 
 	genesisAccountPrivKeyStr string
 	genesisAccountPrivKey, _ = ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
@@ -31,9 +30,9 @@ var (
 	addr1PrivKey, _    = ed25519.HexToPrivateKey(privKey1.Hex())
 	addr1PubKey        = addr1PrivKey.PubByte()
 
-	addr2, privKey2, _ = types.CreateAddress()
-	addr2PrivKey, _    = ed25519.HexToPrivateKey(privKey1.Hex())
-	addr2PubKey        = addr2PrivKey.PubByte()
+	addr2, _, _ = types.CreateAddress()
+	//addr2PrivKey, _ = ed25519.HexToPrivateKey(privKey1.Hex())
+	//addr2PubKey        = addr2PrivKey.PubByte()
 )
 
 func init() {
@@ -53,12 +52,15 @@ func PrepareVite() (chain.Chain, *wallet.Manager) {
 
 func TestGenerator_PackBlockWithSendBlock(t *testing.T) {
 	c, w := PrepareVite()
-	gen := NewGenerator(c, w.KeystoreManager)
+
 	fromBlock, err := c.GetLatestAccountBlock(&contracts.AddressMintage)
 	if err != nil {
 		t.Error(err)
 	}
-	gen.PrepareVm(nil, nil, &ledger.GenesisAccountAddress)
+	gen, err := NewGenerator(c, w.KeystoreManager, nil, nil, &fromBlock.ToAddress)
+	if err != nil {
+		t.Error(err)
+	}
 	gen.GenerateWithOnroad(*fromBlock, nil, nil)
 }
 
@@ -70,38 +72,55 @@ func TestGeneratorFlow(t *testing.T) {
 	if err != nil {
 		t.Log("GetLatestAccountBlock", err)
 	}
-	if err := AddrGenesisReceiveMintage(&c, w, mintageSend); err != nil {
+	genResult1, err := AddrGenesisReceiveMintage(c, w, mintageSend)
+	if err != nil {
 		t.Log("AddrGenesisReceiveMintage", err)
 	}
+	t.Log("AddrGenesisReceiveMintage result", genResult1)
 
-	CreateNewSnapshotBlock(&c, w)
+	CreateNewSnapshotBlock(c, w)
 
 	// AddressGenesis sendCall PledgeAddress, need pow
-	verifyResult, err := AddrGenesisSendPledge(&c, w)
+	verifyResult1, err := AddrGenesisSendPledge(c, w)
 	if err != nil {
 		t.Log("AddrGenesisSendPledge", err)
 		return
 	}
-	t.Log(verifyResult)
-	t.Log(verifyResult[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
+	t.Log("AddrGenesisSendPledge result", verifyResult1)
+	t.Log(verifyResult1[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
 
 	// PledgeAddress receive call
-	pledgeSend := verifyResult[0].AccountBlock
-	genResult, err := AddrPledgeReceive(c, w, pledgeSend)
+	pledgeSend := verifyResult1[0].AccountBlock
+	genResult2, err := AddrPledgeReceive(c, w, pledgeSend)
 	if err != nil {
 		t.Log("AddrGenesisSendPledge", err)
 	}
+	t.Log("AddrPledgeReceive result", genResult2)
 
 	// test Add1SendAddr2
-	Add1SendAddr2(c, w)
-	t.Log(genResult)
+	verifyResult2, err := Add1SendAddr2(c, w)
+	if err != nil {
+		t.Log("AddrGenesisSendPledge", err)
+		return
+	}
+	t.Log("Add1SendAddr2 result:", verifyResult2)
 }
 
-func AddrGenesisReceiveMintage(c chain.Chain, w *wallet.Manager, sendBlock *ledger.AccountBlock) error {
-	gen := NewGenerator(c, w.KeystoreManager)
-
-	gen.PrepareVm(nil, nil, &ledger.GenesisAccountAddress)
-	gen.GenerateWithOnroad(*sendBlock, nil, nil)
+func AddrGenesisReceiveMintage(c chain.Chain, w *wallet.Manager, sendBlock *ledger.AccountBlock) (*GenResult, error) {
+	preAccountBlock, err := c.GetLatestAccountBlock(&sendBlock.ToAddress)
+	if err != nil {
+		return nil, err
+	}
+	var preHash *types.Hash
+	if preAccountBlock != nil {
+		preHash = &preAccountBlock.Hash
+	}
+	referredSnapshotBlock := c.GetLatestSnapshotBlock()
+	gen, err := NewGenerator(c, w.KeystoreManager, &referredSnapshotBlock.Hash, preHash, &sendBlock.ToAddress)
+	if err != nil {
+		return nil, err
+	}
+	return gen.GenerateWithOnroad(*sendBlock, nil, nil)
 
 	//fromBlock, err := c.GetLatestAccountBlock(&contracts.AddressMintage)
 	//if err != nil {
@@ -130,17 +149,14 @@ func AddrGenesisReceiveMintage(c chain.Chain, w *wallet.Manager, sendBlock *ledg
 	//	return err
 	//}
 	//gen.generateBlock(block, sendBlock, nil)
-	return nil
 }
 
 func CreateNewSnapshotBlock(c chain.Chain, w *wallet.Manager) {
-	
 
 }
 
 func AddrGenesisSendPledge(c chain.Chain, w *wallet.Manager) (blocks []*vm_context.VmAccountBlock, err error) {
-	v := verifier.NewAccountVerifier(c, nil)
-	g := NewGenerator(c, w.KeystoreManager)
+	v := verifier.NewAccountVerifier(c, nil, w.KeystoreManager)
 
 	latestAccountBlock, _ := c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
 	latestSnapshotBlock := c.GetLatestSnapshotBlock()
@@ -168,38 +184,28 @@ func AddrGenesisSendPledge(c chain.Chain, w *wallet.Manager) (blocks []*vm_conte
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
-	return v.VerifyforRPC(block, g)
+	return v.VerifyforRPC(block)
 }
 
 func AddrPledgeReceive(c chain.Chain, w *wallet.Manager, sendBlock *ledger.AccountBlock) (*GenResult, error) {
-	g := NewGenerator(c, w.KeystoreManager)
-
-	var preHash types.Hash
-	latestAccountBlock, err := c.GetLatestAccountBlock(&contracts.AddressPledge)
-	if err != nil {
-		return nil, err
-	}
-
-	if latestAccountBlock != nil {
-		preHash = latestAccountBlock.Hash
-	}
 	latestSnapshotBlock := c.GetLatestSnapshotBlock()
-
 	consensusMessage := &ConsensusMessage{
 		SnapshotHash: latestSnapshotBlock.Hash,
 		Timestamp:    *latestSnapshotBlock.Timestamp,
 		Producer:     types.Address{},
-		gid:          types.Gid{},
 	}
-	g.PrepareVm(&consensusMessage.SnapshotHash, &preHash, &contracts.AddressPledge)
+
+	gen, err := NewGenerator(c, w.KeystoreManager, &consensusMessage.SnapshotHash, nil, &sendBlock.ToAddress)
+	if err != nil {
+		return nil, err
+	}
 
 	// no sign cause the address isn't unlock
-	return g.GenerateWithOnroad(*sendBlock, consensusMessage, nil)
+	return gen.GenerateWithOnroad(*sendBlock, consensusMessage, nil)
 }
 
 func Add1SendAddr2(c chain.Chain, w *wallet.Manager) (blocks []*vm_context.VmAccountBlock, err error) {
-	v := verifier.NewAccountVerifier(c, nil)
-	g := NewGenerator(c, w.KeystoreManager)
+	v := verifier.NewAccountVerifier(c, nil, w.KeystoreManager)
 
 	var preHash types.Hash
 	var height uint64 = 1
@@ -230,7 +236,7 @@ func Add1SendAddr2(c chain.Chain, w *wallet.Manager) (blocks []*vm_context.VmAcc
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(addr1PrivKey, block.Hash.Bytes())
 
-	return v.VerifyforRPC(block, g)
+	return v.VerifyforRPC(block)
 }
 
 func TestGenerator_GenerateWithMessage(t *testing.T) {

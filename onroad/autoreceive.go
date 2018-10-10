@@ -20,7 +20,6 @@ type AutoReceiveWorker struct {
 	address types.Address
 
 	manager          *Manager
-	generator        *generator.Generator
 	onroadBlocksPool *model.OnroadBlocksPool
 
 	status           int
@@ -38,7 +37,6 @@ func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[t
 	return &AutoReceiveWorker{
 		manager:          manager,
 		onroadBlocksPool: manager.onroadBlocksPool,
-		generator:        generator.NewGenerator(manager.vite.Chain(), manager.vite.WalletManager().KeystoreManager),
 		address:          address,
 		status:           Create,
 		isSleeping:       false,
@@ -162,16 +160,16 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 		w.log.Info("ProcessOneBlock.checkExistInPool failed")
 		return
 	}
-
-	err := w.generator.PrepareVm(nil, nil, &sendBlock.ToAddress)
+	gen, err := generator.NewGenerator(w.manager.vite.Chain(), w.manager.vite.WalletManager().KeystoreManager,
+		nil, nil, &sendBlock.ToAddress)
 	if err != nil {
 		w.log.Error("ProcessOneBlock.PrepareVm failed", "error", err)
 		return
 	}
 
-	genResult, genErr := w.generator.GenerateWithOnroad(*sendBlock, nil,
+	genResult, genErr := gen.GenerateWithOnroad(*sendBlock, nil,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			return w.generator.Sign(addr, nil, data)
+			return gen.Sign(addr, nil, data)
 		})
 	if genErr != nil {
 		w.log.Error("GenerateTx error ignore, ", "error", genErr)

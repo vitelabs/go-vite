@@ -12,7 +12,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/pow"
@@ -30,26 +29,25 @@ func init() {
 
 }
 
-func PrepareVite() (chain.Chain, *generator.Generator, *verifier.AccountVerifier, pool.BlockPool) {
+func PrepareVite() (chain.Chain, *verifier.AccountVerifier, pool.BlockPool) {
 	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
 	c.Init()
 	c.Start()
 
 	w := wallet.New(nil)
-	g := generator.NewGenerator(c, w.KeystoreManager)
 
-	v := verifier.NewAccountVerifier(c, nil)
+	v := verifier.NewAccountVerifier(c, nil, w.KeystoreManager)
 
 	p := pool.NewPool(c)
 
 	p.Init(&pool.MockSyncer{}, w, verifier.NewSnapshotVerifier(c, nil), v)
 	p.Start()
 
-	return c, g, v, p
+	return c, v, p
 }
 
 func TestSend(t *testing.T) {
-	c, g, v, p := PrepareVite()
+	c, v, p := PrepareVite()
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 	fromBlock, err := c.GetLatestAccountBlock(&contracts.AddressMintage)
@@ -75,7 +73,7 @@ func TestSend(t *testing.T) {
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
-	blocks, err := v.VerifyforRPC(block, g)
+	blocks, err := v.VerifyforRPC(block)
 	t.Log(blocks, err)
 
 	t.Log(blocks[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
