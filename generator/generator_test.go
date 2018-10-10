@@ -59,7 +59,8 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 		return
 	}
 	if len(genResult.BlockGenList) > 0 {
-		block := &ledger.AccountBlock{
+		genBlock := genResult.BlockGenList[0].AccountBlock
+		mockReceiveBlock := &ledger.AccountBlock{
 			Height:         1,
 			AccountAddress: ledger.GenesisAccountAddress,
 			FromBlockHash:  fromBlock.Hash,
@@ -70,9 +71,10 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 			SnapshotHash:   consensusMsg.SnapshotHash,
 			Timestamp:      &consensusMsg.Timestamp,
 			PublicKey:      genesisAccountPubKey,
+			LogHash:        genBlock.LogHash,
 		}
-		mockhHash := block.ComputeHash()
-		t.Log("hash", genResult.BlockGenList[0].AccountBlock.Hash)
+		mockhHash := mockReceiveBlock.ComputeHash()
+		t.Log("hash")
 		t.Log("mockhBlock", mockhHash)
 		if genResult.BlockGenList[0].AccountBlock.Hash != mockhHash {
 			t.Log("Verify Hash failed")
