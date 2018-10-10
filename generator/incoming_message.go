@@ -23,9 +23,10 @@ type IncomingMessage struct {
 	Data    []byte
 }
 
-func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
-	switch {
-	case im.BlockType == ledger.BlockTypeSendCall:
+func (im *IncomingMessage) ToBlock() (*ledger.AccountBlock, error) {
+	block := &ledger.AccountBlock{}
+	switch im.BlockType {
+	case ledger.BlockTypeSendCall:
 		block.BlockType = im.BlockType
 		block.FromBlockHash = types.Hash{}
 
@@ -64,7 +65,7 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 			block.Fee = im.Fee
 		}
 
-	case im.BlockType == ledger.BlockTypeSendCreate:
+	case ledger.BlockTypeSendCreate:
 		block.BlockType = im.BlockType
 		block.FromBlockHash = types.Hash{}
 
@@ -114,7 +115,7 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 			return nil, errors.New("BlockTypeReceive's FromBlockHash can't be nil")
 		}
 	}
-	return block, err
+	return block, nil
 }
 
 type ConsensusMessage struct {

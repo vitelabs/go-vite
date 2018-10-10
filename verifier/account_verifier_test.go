@@ -71,7 +71,7 @@ func TestAccountVerifier_VerifyforRPC(t *testing.T) {
 		PublicKey:      genesisAccountPubKey,
 	}
 
-	nonce := pow.GetPowNonce(nil, types.DataHash(append(block.AccountAddress.Bytes(), block.PrevHash.Bytes()...)))
+	nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
 	block.Nonce = nonce[:]
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
@@ -104,7 +104,7 @@ func TestAccountVerifier_VerifyforP2P(t *testing.T) {
 		PublicKey:      genesisAccountPubKey,
 	}
 
-	nonce := pow.GetPowNonce(nil, types.DataHash(append(block.AccountAddress.Bytes(), block.PrevHash.Bytes()...)))
+	nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
 	block.Nonce = nonce[:]
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
@@ -192,7 +192,7 @@ func AddrGenesisReceiveMintage(c chain.Chain, v *AccountVerifier, sendBlock *led
 	//	PublicKey:      genesisAccountPubKey,
 	//}
 	//
-	//nonce := pow.GetPowNonce(nil, types.DataHash(append(block.AccountAddress.Bytes(), block.PrevHash.Bytes()...)))
+	//nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
 	//block.Nonce = nonce[:]
 	//block.Hash = block.ComputeHash()
 	//block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
@@ -230,7 +230,7 @@ func AddrGenesisSendPledge(c chain.Chain, v *AccountVerifier) (blocks []*vm_cont
 		Timestamp:      latestSnapshotBlock.Timestamp,
 		PublicKey:      genesisAccountPubKey,
 	}
-	nonce := pow.GetPowNonce(nil, types.DataHash(append(block.AccountAddress.Bytes(), block.PrevHash.Bytes()...)))
+	nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
 	block.Nonce = nonce[:]
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
