@@ -81,13 +81,24 @@ func (node *Node) Start() error {
 
 	//wallet start
 	log.Info(fmt.Sprintf("Begin Start Wallet... "))
-	node.startWallet()
+
+	if err := node.startWallet(); err != nil {
+		log.Error(fmt.Sprintf("Node startWallet error: %v", err))
+		return err
+	}
 	//p2p\vite start
 	log.Info(fmt.Sprintf("Begin Start P2P And Vite... "))
-	node.startP2pAndVite()
+
+	if err := node.startP2pAndVite(); err != nil {
+		log.Error(fmt.Sprintf("Node startP2pAndVite error: %v", err))
+		return err
+	}
 	//rpc start
 	log.Info(fmt.Sprintf("Begin Start RPC... "))
-	node.startRPC()
+	if err := node.startRPC(); err != nil {
+		log.Error(fmt.Sprintf("Node startRPC error: %v", err))
+		return err
+	}
 
 	return nil
 }

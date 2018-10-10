@@ -70,7 +70,9 @@ func (manager *Manager) Init() {
 func (manager *Manager) Start() {
 	manager.netStateLid = manager.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
 	manager.unlockLid = manager.keystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
-	manager.producer.SetAccountEventFunc(manager.producerStartEventFunc)
+	if manager.producer != nil {
+		manager.producer.SetAccountEventFunc(manager.producerStartEventFunc)
+	}
 
 	manager.writeSuccLid = manager.Chain().RegisterInsertAccountBlocksSuccess(manager.onroadBlocksPool.WriteOnroadSuccess)
 	manager.writeOnRoadLid = manager.Chain().RegisterInsertAccountBlocks(manager.onroadBlocksPool.WriteOnroad)
@@ -83,7 +85,9 @@ func (manager *Manager) Stop() {
 	manager.log.Info("Stop")
 	manager.Net().UnsubscribeSyncStatus(manager.netStateLid)
 	manager.keystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
-	manager.Producer().SetAccountEventFunc(nil)
+	if manager.producer != nil {
+		manager.Producer().SetAccountEventFunc(nil)
+	}
 
 	manager.Chain().UnRegister(manager.writeOnRoadLid)
 	manager.Chain().UnRegister(manager.deleteOnRoadLid)
