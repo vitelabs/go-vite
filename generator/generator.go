@@ -1,7 +1,7 @@
 package generator
 
 import (
-	"github.com/pkg/errors"
+	"errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -137,25 +137,23 @@ func (gen *Generator) PackBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 
 	preBlock := gen.vmContext.PrevAccountBlock()
 	if preBlock == nil {
-		return nil, errors.New("PackBlockWithSendBlock.PrevAccountBlock failed")
+		blockPacked.Height = 1
+		blockPacked.PrevHash = types.Hash{}
+	} else {
+		blockPacked.PrevHash = preBlock.Hash
+		blockPacked.Height = preBlock.Height + 1
 	}
-	blockPacked.PrevHash = preBlock.Hash
-	blockPacked.Height = preBlock.Height + 1
 
-	code, err := gen.chain.AccountType(&blockPacked.AccountAddress)
-	if err != nil {
-		return nil, errors.New("AccountType failed")
-	}
-	if code == ledger.AccountTypeContract {
-		if consensusMsg == nil {
-			return nil, errors.New("contractAddress must enter ConsensusMessages")
-		}
+	if consensusMsg == nil {
 		blockPacked.Timestamp = &consensusMsg.Timestamp
 		blockPacked.SnapshotHash = consensusMsg.SnapshotHash
 	} else {
 		st := time.Now()
 		blockPacked.Timestamp = &st
 		snapshotBlock := gen.vmContext.CurrentSnapshotBlock()
+		if snapshotBlock == nil {
+			return nil, errors.New("CurrentSnapshotBlock can't be nil")
+		}
 		blockPacked.SnapshotHash = snapshotBlock.Hash
 	}
 	return blockPacked, nil
