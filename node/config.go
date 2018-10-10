@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/wallet"
 	"os"
 	"path/filepath"
@@ -26,11 +25,11 @@ type Config struct {
 	// p2p
 	NetSelect            string
 	Identity             string   `json:"Identity"`
-	privateKey           string   `json:"PrivateKey"`
+	PrivateKey           string   `json:"PrivateKey"`
 	MaxPeers             uint     `json:"MaxPeers"`
 	MaxPassivePeersRatio uint     `json:"MaxPassivePeersRatio"`
 	MaxPendingPeers      uint     `json:"MaxPendingPeers"`
-	bootNodes            []string `json:"BootNodes"`
+	BootNodes            []string `json:"BootNodes"`
 	Port                 uint     `json:"Port"`
 	NetID                uint     `json:"NetID"`
 
@@ -85,8 +84,8 @@ func (c *Config) makeConfigP2P() *config.P2P {
 		MaxPassivePeersRatio: c.MaxPassivePeersRatio,
 		Port:                 c.Port,
 		Datadir:              filepath.Join(c.DataDir, p2p.Dirname),
-		PrivateKey:           c.privateKey,
-		BootNodes:            c.bootNodes,
+		PrivateKey:           c.PrivateKey,
+		BootNodes:            c.BootNodes,
 	}
 }
 
@@ -99,9 +98,9 @@ func (c *Config) makeP2PConfig() *p2p.Config {
 		MaxInboundRatio: c.MaxPassivePeersRatio,
 		Port:            c.Port,
 		DataDir:         filepath.Join(c.DataDir, p2p.Dirname),
-		PrivateKey:      c.PrivateKey(),
+		PrivateKey:      c.GetPrivateKey(),
 		//Protocols:nil,
-		BootNodes: c.bootNodes,
+		BootNodes: c.BootNodes,
 		//KafKa:nil,
 	}
 }
@@ -156,32 +155,18 @@ func (c *Config) WSEndpoint() string {
 }
 
 func (c *Config) SetPrivateKey(privateKey string) {
-	c.privateKey = privateKey
+	c.PrivateKey = privateKey
 }
 
-func (c *Config) PrivateKey() ed25519.PrivateKey {
+func (c *Config) GetPrivateKey() ed25519.PrivateKey {
 
-	if c.privateKey != "" {
-		privateKey, err := hex.DecodeString(c.privateKey)
+	if c.PrivateKey != "" {
+		privateKey, err := hex.DecodeString(c.PrivateKey)
 		if err == nil {
 			return ed25519.PrivateKey(privateKey)
 		}
 	}
 
-	return nil
-}
-
-func (c *Config) BootNodes() []*discovery.Node {
-
-	if len(c.bootNodes) > 0 {
-		var nodes []*discovery.Node
-		for _, str := range c.bootNodes {
-			n, err := discovery.ParseNode(str)
-			if err == nil {
-				return append(nodes, n)
-			}
-		}
-	}
 	return nil
 }
 

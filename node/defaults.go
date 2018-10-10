@@ -15,11 +15,11 @@ var DefaultNodeConfig = Config{
 	KeyStoreDir:          DefaultDataDir(),
 	HttpPort:             common.DefaultHTTPPort,
 	WSPort:               common.DefaultWSPort,
-	privateKey:           "",
+	PrivateKey:           "",
 	MaxPeers:             0,
 	MaxPassivePeersRatio: 0,
 	MaxPendingPeers:      0,
-	bootNodes:            nil,
+	BootNodes:            nil,
 	Port:                 0,
 	NetID:                0,
 }
