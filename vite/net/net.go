@@ -214,13 +214,13 @@ func (n *Net) startPeer(p *Peer) error {
 func (n *Net) handleMsg(p *Peer) (err error) {
 	msg, err := p.mrw.ReadMsg()
 	if err != nil {
-		n.log.Error(fmt.Sprintf("readMsg from %s error: %v", p, err))
+		n.log.Error(fmt.Sprintf("read message from %s error: %v", p, err))
 		return
 	}
 	defer msg.Discard()
 
 	code := cmd(msg.Cmd)
-	n.log.Info(fmt.Sprintf("readMsg %s from %s", code, p))
+	n.log.Info(fmt.Sprintf("receive %s from %s", code, p))
 
 	if code == HandshakeCode {
 		n.log.Error(fmt.Sprintf("handshake twice with %s", p))
@@ -273,8 +273,8 @@ func (n *Net) BroadcastAccountBlocks(addr types.Address, blocks []*ledger.Accoun
 	n.broadcaster.BroadcastAccountBlocks(addr, blocks)
 }
 
-func (n *Net) FetchSnapshotBlocks(start uint64, count uint64, hash *types.Hash) {
-	n.fetcher.FetchSnapshotBlocks(start, count, hash)
+func (n *Net) FetchSnapshotBlocks(start types.Hash, count uint64) {
+	n.fetcher.FetchSnapshotBlocks(start, count)
 }
 
 func (n *Net) FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) {
