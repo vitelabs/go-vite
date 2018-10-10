@@ -243,7 +243,7 @@ func (self *committee) update(t *teller, m *sync.Map) {
 	}
 }
 func copyMap(m *sync.Map) map[string]*subscribeEvent {
-	var result map[string]*subscribeEvent
+	result := make(map[string]*subscribeEvent)
 	m.Range(func(k, v interface{}) bool {
 		result[k.(string)] = v.(*subscribeEvent)
 		return true
