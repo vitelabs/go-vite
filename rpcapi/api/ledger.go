@@ -37,6 +37,18 @@ func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*Acc
 			return nil, err
 		}
 
+		if item.IsReceiveBlock() {
+			sendBlock, err := l.chain.GetAccountBlockByHash(&item.FromBlockHash)
+			if err != nil {
+				return nil, err
+			}
+
+			if sendBlock != nil {
+				item.TokenId = sendBlock.TokenId
+				item.Amount = sendBlock.Amount
+			}
+		}
+
 		token := l.chain.GetTokenInfoById(&item.TokenId)
 		blocks = append(blocks, createAccountBlock(item, token, confirmTimes))
 	}
