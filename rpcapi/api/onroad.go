@@ -9,25 +9,47 @@ import (
 	"strconv"
 )
 
-type OnroadApi struct {
+type PublicOnroadApi struct {
+	api *PrivateOnroadApi
+}
+
+func (o PublicOnroadApi) String() string {
+	return "PublicOnroadApi"
+}
+
+func NewPublicOnroadApi(manager *onroad.Manager) *PublicOnroadApi {
+	return &PublicOnroadApi{
+		api: NewPrivateOnroadApi(manager),
+	}
+}
+func (o PublicOnroadApi) GetOnroadBlocksByAddress(address types.Address, index int, count int) ([]*AccountBlock, error) {
+	return o.api.GetOnroadBlocksByAddress(address, index, count)
+}
+
+func (o PublicOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
+	return o.api.GetAccountOnroadInfo(address)
+
+}
+
+type PrivateOnroadApi struct {
 	manager *onroad.Manager
 }
 
-func NewOnroadApi(manager *onroad.Manager) *OnroadApi {
-	return &OnroadApi{
+func NewPrivateOnroadApi(manager *onroad.Manager) *PrivateOnroadApi {
+	return &PrivateOnroadApi{
 		manager: manager,
 	}
 }
 
-func (o OnroadApi) String() string {
-	return "OnroadApi"
+func (o PrivateOnroadApi) String() string {
+	return "PrivateOnroadApi"
 }
 
-func (o OnroadApi) ListWorkingAutoReceiveWorker() []types.Address {
+func (o PrivateOnroadApi) ListWorkingAutoReceiveWorker() []types.Address {
 	return o.manager.ListWorkingAutoReceiveWorker()
 }
 
-func (o OnroadApi) StartAutoReceive(addr types.Address, filter map[types.TokenTypeId]string) error {
+func (o PrivateOnroadApi) StartAutoReceive(addr types.Address, filter map[types.TokenTypeId]string) error {
 	rawfilter := make(map[types.TokenTypeId]big.Int)
 	if filter != nil {
 		for k, v := range filter {
@@ -42,11 +64,11 @@ func (o OnroadApi) StartAutoReceive(addr types.Address, filter map[types.TokenTy
 	return o.manager.StartAutoReceiveWorker(addr, rawfilter)
 }
 
-func (o OnroadApi) StopAutoReceive(addr types.Address) error {
+func (o PrivateOnroadApi) StopAutoReceive(addr types.Address) error {
 	return o.manager.StopAutoReceiveWorker(addr)
 }
 
-func (o OnroadApi) GetOnroadBlocksByAddress(address types.Address, index int, count int) ([]*AccountBlock, error) {
+func (o PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index int, count int) ([]*AccountBlock, error) {
 	blockList, err := o.manager.DbAccess().GetOnroadBlocks(uint64(index), 1, uint64(count), &address)
 	if err != nil {
 		return nil, err
@@ -67,7 +89,7 @@ func (o OnroadApi) GetOnroadBlocksByAddress(address types.Address, index int, co
 	return a, nil
 }
 
-func (o OnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
+func (o PrivateOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
 	info, e := o.manager.GetOnroadBlocksPool().GetOnroadAccountInfo(address)
 	if e != nil || info == nil {
 		return nil, e
