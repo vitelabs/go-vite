@@ -73,13 +73,18 @@ func NewValueNode(value []byte) *TrieNode {
 	return node
 }
 
-func (trieNode *TrieNode) ChildrenIsComplete() bool {
+func (trieNode *TrieNode) AtomicComplete(completeFunc func()) {
+	trieNode.childrenSetLock.Lock()
+	defer trieNode.childrenSetLock.Unlock()
+
 	if trieNode.nodeType == TRIE_FULL_NODE {
 		for _, child := range trieNode.children {
-			return child.nodeType != TRIE_UNKNOW_NODE
+			if child.nodeType == TRIE_UNKNOW_NODE {
+				completeFunc()
+			}
+			return
 		}
 	}
-	return false
 }
 
 func (trieNode *TrieNode) Copy(copyHash bool) *TrieNode {

@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
+	"sync"
 	"testing"
 )
 
@@ -140,5 +141,42 @@ func TestVmContextIterator(t *testing.T) {
 		}
 		fmt.Printf("%v : %v\n", hex.EncodeToString(key), hex.EncodeToString(value))
 	}
+
+}
+
+func TestVmContextIterator2(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	var sw sync.WaitGroup
+	for j := 0; j < 1000; j++ {
+		sw.Add(1)
+		go func() {
+			defer sw.Done()
+			vmContext, err := vm_context.NewVmContext(chainInstance, nil, nil, &contracts.AddressRegister)
+			if err != nil {
+				t.Fatal(err)
+			}
+			//vmContext.SetStorage([]byte("123123123"), []byte("asdfsadfasdfasdf"))
+			//vmContext.SetStorage([]byte("1231231254"), []byte("asdfsadfasdfasdf"))
+			iterator := vmContext.NewStorageIterator(types.SNAPSHOT_GID.Bytes())
+
+			for {
+				_, value, ok := iterator.Next()
+				if !ok {
+					break
+				}
+				registration := new(contracts.Registration)
+				contracts.ABIRegister.UnpackVariable(registration, contracts.VariableNameRegistration, value)
+				if registration.IsActive() {
+					fmt.Println(registration.NodeAddr)
+					if registration.NodeAddr.String() == "vite_0000000000000000000000000000000000000000a4f3a0cb58" {
+						t.Fatal("error!!!")
+					}
+				}
+			}
+		}()
+	}
+
+	sw.Wait()
 
 }
