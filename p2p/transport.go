@@ -204,7 +204,7 @@ func (c *AsyncMsgConn) readLoop() {
 		default:
 		}
 
-		c.fd.SetWriteDeadline(time.Now().Add(msgReadTimeout))
+		//c.fd.SetReadDeadline(time.Now().Add(msgReadTimeout))
 		msg, err := c.rw.ReadMsg()
 
 		if err == nil {
@@ -224,7 +224,7 @@ func (c *AsyncMsgConn) _write(msg *Msg) {
 		return
 	}
 
-	c.fd.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
+	//c.fd.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
 	err := c.rw.WriteMsg(msg)
 	monitor.LogEvent("async-conn-write", c.fd.RemoteAddr().String())
 

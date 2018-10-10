@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
+	"time"
 )
 
 type testNet struct {
@@ -30,14 +31,30 @@ func (testNet) Status() *net.NetStatus {
 }
 
 type testProducer struct {
+	Addr types.Address
+	f    func(event producerevent.AccountEvent)
 }
 
-func (testProducer) SetAccountEventFunc(func(event producerevent.AccountEvent)) {
+func (t testProducer) produceEvent(duration time.Duration) {
+	t.f(producerevent.AccountStartEvent{
+		Gid:            types.SNAPSHOT_GID,
+		Address:        t.Addr,
+		Stime:          time.Now(),
+		Etime:          time.Now().Add(duration),
+		Timestamp:      time.Now(),
+		SnapshotHash:   types.Hash{},
+		SnapshotHeight: 0,
+	})
+}
+
+func (t *testProducer) SetAccountEventFunc(f func(event producerevent.AccountEvent)) {
+	t.f = f
 }
 
 type testVite struct {
-	chain  chain.Chain
-	wallet *wallet.Manager
+	chain    chain.Chain
+	wallet   *wallet.Manager
+	producer onroad.Producer
 }
 
 func (testVite) Net() onroad.Net {
@@ -52,8 +69,8 @@ func (t testVite) WalletManager() *wallet.Manager {
 	return t.wallet
 }
 
-func (testVite) Producer() onroad.Producer {
-	return new(testProducer)
+func (t testVite) Producer() onroad.Producer {
+	return t.producer
 }
 
 func (testVite) ExistInPool(address types.Address, fromBlockHash types.Hash) bool {

@@ -6,14 +6,20 @@ import (
 )
 
 func (c *chain) GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64) {
-	beginHeight, endHeight := uint64(0), uint64(0)
+	beginHeight, endHeight := uint64(1), uint64(0)
 
 	if forward {
 		beginHeight = startHeight
 		endHeight = startHeight + count - 1
 	} else {
-		beginHeight = startHeight - count + 1
+		if startHeight > count {
+			beginHeight = startHeight - count + 1
+		}
 		endHeight = startHeight
+	}
+
+	if beginHeight > endHeight {
+		return nil, nil
 	}
 
 	fileList := c.compressor.Indexer().Get(beginHeight, endHeight)
@@ -27,8 +33,16 @@ func (c *chain) GetSubLedgerByHeight(startHeight uint64, count uint64, forward b
 		beginHeight = fileItem.EndHeight + 1
 	}
 
-	if len(fileList) > 0 && fileList[len(fileList)-1].EndHeight < endHeight {
-		rangeList = append(rangeList, [2]uint64{fileList[len(fileList)-1].EndHeight + 1, endHeight})
+	if len(fileList) > 0 {
+		if fileList[0].StartHeight > beginHeight {
+			rangeList = append(rangeList, [2]uint64{beginHeight, fileList[len(fileList)-1].StartHeight - 1})
+		}
+
+		if fileList[len(fileList)-1].EndHeight < endHeight {
+			rangeList = append(rangeList, [2]uint64{fileList[len(fileList)-1].EndHeight + 1, endHeight})
+		}
+	} else {
+		rangeList = append(rangeList, [2]uint64{beginHeight, endHeight})
 	}
 
 	return fileList, rangeList

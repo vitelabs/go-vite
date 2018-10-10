@@ -43,9 +43,13 @@ var packetStrs = [...]string{
 	"pong",
 	"findnode",
 	"neighbors",
+	"exception",
 }
 
 func (c packetCode) String() string {
+	if c > exceptionCode {
+		return "unknown"
+	}
 	return packetStrs[c]
 }
 

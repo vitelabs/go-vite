@@ -2,7 +2,7 @@ package chain
 
 import "github.com/vitelabs/go-vite/common/types"
 
-func (c *chain) GetLatestBlockEventId() uint64 {
+func (c *chain) GetLatestBlockEventId() (uint64, error) {
 	return c.ChainDb().Be.LatestEventId()
 }
 

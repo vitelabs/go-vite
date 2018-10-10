@@ -12,6 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/protos"
 	"gopkg.in/Shopify/sarama.v1"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -191,7 +192,7 @@ func (t *TopoHandler) Topology() *Topo {
 	topo := &Topo{
 		Pivot: t.p2p.URL(),
 		Peers: make([]*p2p.ConnProperty, 0, 10),
-		Time:  time.Now(),
+		Time:  UnixTime(time.Now()),
 	}
 
 	t.peers.Range(func(key, value interface{}) bool {
@@ -265,10 +266,31 @@ func (t *TopoHandler) Protocol() *p2p.Protocol {
 }
 
 // @section topo
+type UnixTime time.Time
+
+func (t UnixTime) MarshalJSON() ([]byte, error) {
+	stamp := fmt.Sprintf("%d", t.Unix())
+	return []byte(stamp), nil
+}
+
+func (t *UnixTime) UnmarshalJSON(data []byte) (err error) {
+	i64, err := strconv.ParseInt(string(data), 10, 64)
+	if err != nil {
+		return
+	}
+
+	*t = UnixTime(time.Unix(i64, 0))
+	return nil
+}
+
+func (t UnixTime) Unix() int64 {
+	return time.Time(t).Unix()
+}
+
 type Topo struct {
-	Pivot string              `json:"pivot"`
-	Peers []*p2p.ConnProperty `json:"peers"`
-	Time  time.Time           `json:"time"`
+	Pivot string              `json:"pivot,omitempty"`
+	Peers []*p2p.ConnProperty `json:"peers,omitempty"`
+	Time  UnixTime            `json:"time,omitempty"`
 }
 
 // add Hash(32bit) to Front, use for determine if it has been received
@@ -308,7 +330,7 @@ func (t *Topo) Deserialize(buf []byte) error {
 	}
 
 	t.Pivot = pb.Pivot
-	t.Time = time.Unix(pb.Time, 0)
+	t.Time = UnixTime(time.Unix(pb.Time, 0))
 
 	return nil
 }

@@ -60,8 +60,9 @@ func newAccountPool(name string, rw *accountCh, v *ForkVersion, log log15.Logger
 }
 
 func (self *accountPool) Init(
-	tools *tools, pool *pool) {
+	tools *tools, pool *pool, v *accountVerifier) {
 	self.pool = pool
+	self.v = v
 	self.BCPool.init(self.rw, tools)
 }
 
@@ -114,7 +115,7 @@ func (self *accountPool) TryInsert() verifyTask {
 	}
 
 	// if last verify task has not done
-	if self.verifyTask != nil && !self.verifyTask.done() {
+	if self.verifyTask != nil && !self.verifyTask.done(self.rw.rw) {
 		return nil
 	}
 	// lock other chain insert
@@ -285,7 +286,7 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks 
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
 
-	stat := self.v.verifyContractAccount(received, sendBlocks)
+	stat := self.v.verifyDirectAccount(received, sendBlocks)
 	result := stat.verifyResult()
 	switch result {
 	case verifier.PENDING:

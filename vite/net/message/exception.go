@@ -42,7 +42,7 @@ func (exp Exception) Error() string {
 }
 
 func (exp Exception) Serialize() ([]byte, error) {
-	buf := make([]byte, 10)
+	buf := make([]byte, binary.MaxVarintLen64)
 	n := binary.PutUvarint(buf, uint64(exp))
 	return buf[:n], nil
 }

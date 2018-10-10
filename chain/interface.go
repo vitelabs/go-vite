@@ -68,6 +68,7 @@ type Chain interface {
 
 	GetConsensusGroupList(snapshotHash types.Hash) []*contracts.ConsensusGroupInfo
 	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) map[types.Address]*big.Int
+
 	GetTokenInfoById(tokenId *types.TokenTypeId) *contracts.TokenInfo
 	AccountType(address *types.Address) (uint64, error)
 	GetAccount(address *types.Address) (*ledger.Account, error)
@@ -84,6 +85,6 @@ type Chain interface {
 	NewStateTrie() *trie.Trie
 
 	// Be
-	GetLatestBlockEventId() uint64
+	GetLatestBlockEventId() (uint64, error)
 	GetEvent(eventId uint64) (byte, []types.Hash, error)
 }
