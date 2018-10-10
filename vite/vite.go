@@ -4,8 +4,8 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
-	"github.com/vitelabs/go-vite/miner"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/wallet"
 )
@@ -15,7 +15,7 @@ type Vite struct {
 	walletManager *wallet.Manager
 	chain         chain.Chain
 	verifier      consensus.Verifier
-	miner         *miner.Miner
+	producer      producer.Producer
 	Net           *net.Net
 	p2p           *p2p.Server
 }
@@ -97,8 +97,8 @@ func (v *Vite) WalletManager() *wallet.Manager {
 	return v.walletManager
 }
 
-func (v *Vite) Miner() *miner.Miner {
-	return v.miner
+func (v *Vite) Producer() producer.Producer {
+	return v.producer
 }
 func (v *Vite) Verifier() consensus.Verifier {
 	return v.verifier

@@ -16,7 +16,7 @@ import (
 
 type tools struct {
 	log       log15.Logger
-	wt        wallet.Manager
+	wt        *wallet.Manager
 	pool      pool.SnapshotProducerWriter
 	chain     chain.Chain
 	sVerifier *verifier.SnapshotVerifier
@@ -32,15 +32,19 @@ func (self *tools) ledgerUnLock() {
 func (self *tools) generateSnapshot(e *consensus.Event) (*ledger.SnapshotBlock, error) {
 	head := self.chain.GetLatestSnapshotBlock()
 	accounts, err := self.generateAccounts(head)
-
+	if err != nil {
+		return nil, err
+	}
+	trie, err := self.chain.GenStateTrie(head.StateHash, accounts)
 	if err != nil {
 		return nil, err
 	}
 	block := &ledger.SnapshotBlock{
-		PrevHash:  head.Hash,
-		Height:    head.Height + 1,
-		Timestamp: &e.Timestamp,
-		//SnapshotHash:    &accounts.Hash(), todo add hash support
+		PrevHash:        head.Hash,
+		Height:          head.Height + 1,
+		Timestamp:       &e.Timestamp,
+		StateTrie:       trie,
+		StateHash:       *trie.Hash(),
 		SnapshotContent: accounts,
 	}
 
@@ -59,9 +63,9 @@ func (self *tools) insertSnapshot(block *ledger.SnapshotBlock) error {
 	return nil
 }
 
-func newChainRw(ch chain.Chain) *tools {
+func newChainRw(ch chain.Chain, sVerifier *verifier.SnapshotVerifier, wt *wallet.Manager) *tools {
 	log := log15.New("module", "tools")
-	return &tools{chain: ch, log: log}
+	return &tools{chain: ch, log: log, sVerifier: sVerifier, wt: wt}
 }
 
 func (self *tools) checkAddressLock(address types.Address) bool {
@@ -69,31 +73,32 @@ func (self *tools) checkAddressLock(address types.Address) bool {
 	return unLocked
 }
 func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.SnapshotContent, error) {
-	var needSnapshotAccounts []*ledger.AccountBlock
+
+	needSnapshotAccounts := self.chain.GetNeedSnapshotContent()
 
 	// todo get block
-	for _, b := range needSnapshotAccounts {
-		err := self.sVerifier.VerifyAccountTimeout(b.AccountAddress, head.Height+1)
+	for k, b := range needSnapshotAccounts {
+		err := self.sVerifier.VerifyAccountTimeout(k, head.Height+1)
 		if err != nil {
-			self.pool.RollbackAccountTo(b.AccountAddress, b.Hash, b.Height)
+			self.pool.RollbackAccountTo(k, b.Hash, b.Height)
 		}
 	}
 
 	// todo get block
-	needSnapshotAccounts = nil
+	needSnapshotAccounts = self.chain.GetNeedSnapshotContent()
 
 	var finalAccounts ledger.SnapshotContent
 
-	for _, b := range needSnapshotAccounts {
-		err := self.sVerifier.VerifyAccountTimeout(b.AccountAddress, head.Height+1)
+	for k, b := range needSnapshotAccounts {
+		err := self.sVerifier.VerifyAccountTimeout(k, head.Height+1)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf(
 				"error account block, account:%s, blockHash:%s, blockHeight:%d",
-				b.AccountAddress.String(),
+				k.String(),
 				b.Hash.String(),
 				b.Height))
 		}
-		finalAccounts[b.AccountAddress] = &ledger.HashHeight{Hash: b.Hash, Height: b.Height}
+		finalAccounts[k] = &ledger.HashHeight{Hash: b.Hash, Height: b.Height}
 	}
 	return finalAccounts, nil
 }

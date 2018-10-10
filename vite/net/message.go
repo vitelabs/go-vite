@@ -16,9 +16,6 @@ var subledgerTimeout = 10 * time.Second
 var accountBlocksTimeout = 30 * time.Second
 var snapshotBlocksTimeout = time.Minute
 
-const maxStepHashCount = 1000
-const hashStep = 20
-
 // @section Cmd
 const CmdSetName = "vite"
 

@@ -5,9 +5,13 @@ import (
 
 	"time"
 
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/wallet"
 )
 
 type testConsensus struct {
@@ -19,10 +23,19 @@ func (*testConsensus) Subscribe(gid types.Gid, id string, addr *types.Address, f
 func (*testConsensus) UnSubscribe(gid types.Gid, id string) {
 }
 
-func TestProducer(t *testing.T) {
+func TestProducer_Init(t *testing.T) {
 	coinbase := common.MockAddress(1)
-	p := NewProducer(nil, nil, coinbase, &testConsensus{})
+	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
+
+	cs := &consensus.MockConsensus{}
+	v := verifier.NewSnapshotVerifier(c, cs)
+	w := wallet.New(nil)
+	p := NewProducer(c, nil, coinbase, cs, v, w)
+
+	c.Init()
+
 	p.Init()
+	c.Start()
 	p.Start()
 	e := consensus.Event{
 		Gid:            types.SNAPSHOT_GID,
@@ -33,6 +46,11 @@ func TestProducer(t *testing.T) {
 		SnapshotHeight: 1,
 		SnapshotHash:   types.Hash{},
 	}
+
+	t.Log(c.GetLatestSnapshotBlock().Height)
+
 	p.worker.produceSnapshot(e)
 	p.Stop()
+	t.Log(c.GetLatestSnapshotBlock())
+	t.Log(c.GetLatestSnapshotBlock().Height)
 }

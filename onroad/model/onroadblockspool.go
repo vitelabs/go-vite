@@ -12,10 +12,11 @@ import (
 	"time"
 )
 
-const (
+var (
 	fullCacheExpireTime   = 2 * time.Minute
 	simpleCacheExpireTime = 20 * time.Minute
-	TokenCacheExpireTime  = 24 * 60 * time.Minute
+
+	TokenCacheExpireTime = 24 * 60 * time.Minute
 )
 
 // obtaining the account info from cache or db and manage the cache lifecycle
@@ -261,6 +262,7 @@ func (p *OnroadBlocksPool) RevertOnroadSuccess(subLedger map[types.Address][]*le
 
 	}()
 }
+
 // RevertOnroad means to revert according to bifurcation
 func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
 

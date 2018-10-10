@@ -245,10 +245,11 @@ wait:
 		case <-ticker.C:
 			current := s.chain.GetLatestSnapshotBlock()
 			if current.Height >= s.to {
-				s.log.Info("sync done")
+				s.log.Info(fmt.Sprintf("sync done, current height: %d", current.Height))
 				s.setState(Syncdone)
 				return
 			}
+			s.log.Info(fmt.Sprintf("current height: %d", current.Height))
 		case <-s.term:
 			s.log.Warn("sync cancel")
 			s.setState(SyncCancel)

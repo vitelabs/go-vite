@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/log15"
+	"strings"
 )
 
 func init() {
@@ -164,7 +165,9 @@ func loop() {
 				c := tmpM.Cnt
 				s := tmpM.Sum
 				key := k.(string)
-				logger.Info("", "group", "monitor", "interval", 1, "name", key,
+				// groupName  and metricName
+				groupAndName := strings.Split(key, "-")
+				logger.Info("", "group", groupAndName[0], "interval", 1, "name", groupAndName[1],
 					"metric-cnt", c,
 					"metric-sum", s,
 				)

@@ -265,7 +265,9 @@ func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
 		if value := context.unsavedCache.GetStorage(key); value != nil {
 			return value
 		}
-
+		if value := context.unsavedCache.trie.GetValue(key); value != nil {
+			return value
+		}
 		return context.trie.GetValue(key)
 	} else if context.chain != nil {
 		latestAccountBlock, _ := context.chain.GetConfirmAccountBlock(context.currentSnapshotBlock.Height, addr)
