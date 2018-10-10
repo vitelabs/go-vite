@@ -310,6 +310,12 @@
 			"revisionTime": "2018-01-22T19:00:07Z"
 		},
 		{
+			"checksumSHA1": "04uWf81//Pki+mIbR7fxZqvNxfU=",
+			"path": "github.com/peterh/liner",
+			"revision": "5a0dfa99e2aa1d433a9642e863da51402e609376",
+			"revisionTime": "2018-08-26T13:27:22Z"
+		},
+		{
 			"checksumSHA1": "85AmRAEmy9EqHBUhwkBBVhLkCVU=",
 			"path": "github.com/pierrec/lz4",
 			"revision": "1f6e18d34f6790fc0afea6f13a5fe3d9ab1770af",
@@ -344,6 +350,12 @@
 			"path": "github.com/rjeczalik/notify",
 			"revision": "52ae50d8490436622a8941bd70c3dbe0acdd4bbf",
 			"revisionTime": "2018-06-26T05:11:56Z"
+		},
+		{
+			"checksumSHA1": "WdorbyEJiNbjIOiQzM4TLb/XA7Q=",
+			"path": "github.com/robertkrimen/otto",
+			"revision": "15f95af6e78dcd2030d8195a138bd88d4f403546",
+			"revisionTime": "2018-06-17T13:11:54Z"
 		},
 		{
 			"checksumSHA1": "ZLkqsBqmc4RVc/Ng1ldrGZuTE8o=",
