@@ -7,7 +7,10 @@ import (
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"path/filepath"
+	"strconv"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestNewTrie(t *testing.T) {
@@ -305,7 +308,7 @@ func TestTrieSaveAndLoad(t *testing.T) {
 
 	trie = nil
 
-	rootHash, _ := types.HexToHash("9df5e11da5cdaea43fa69991fb7cf575ec00c73e90d98cf67dbf2e9bdca9a998")
+	rootHash, _ := types.HexToHash("ece19924b34f6bf264e6fcc7feaabe8481939a5eb1a1a7a9825468128f526797")
 	newTrie := NewTrie(db, &rootHash, pool)
 
 	fmt.Printf("%s\n", newTrie.GetValue([]byte("IamG")))
@@ -383,6 +386,52 @@ func TestTrieSaveAndLoad(t *testing.T) {
 	fmt.Println()
 }
 
-func TestTrieCopy(t *testing.T) {
+func TestTrieConcurrence(t *testing.T) {
+	db, _ := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
+	defer db.Close()
+
+	pool := NewTrieNodePool()
+
+	trie := NewTrie(db, nil, pool)
+	trie.SetValue(nil, []byte("NilNilNilNilNil"))
+	trie.SetValue([]byte("IamG"), []byte("ki10$%^%&@#!@#"))
+	trie.SetValue([]byte("IamGood"), []byte("a1230xm90zm19ma"))
+	trie.SetValue([]byte("tesab"), []byte("value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555"))
+
+	trie.SetValue([]byte("tesab"), []byte("value.555val"))
+	trie.SetValue([]byte("tesa"), []byte("vale....asdfasdfasdfvalue.555val"))
+	trie.SetValue([]byte("tesa"), []byte("vale....asdfasdfasdfvalue.555val"))
+	trie.SetValue([]byte("tes"), []byte("asdfvale....asdfasdfasdfvalue.555val"))
+	trie.SetValue([]byte("tesabcd"), []byte("asdfvale....asdfasdfasdfvalue.555val"))
+	trie.SetValue([]byte("t"), []byte("asdfvale....asdfasdfasdfvalue.555valasd"))
+	fmt.Println(trie.Hash())
+	fmt.Println()
+
+	batch := new(leveldb.Batch)
+	callback, _ := trie.Save(batch)
+	db.Write(batch, nil)
+	callback()
+
+	trie = nil
+
+	rootHash, _ := types.HexToHash("ece19924b34f6bf264e6fcc7feaabe8481939a5eb1a1a7a9825468128f526797")
+	for i := 0; i < 1000; i++ {
+		var sw sync.WaitGroup
+		for i := 0; i < 10; i++ {
+			sw.Add(1)
+			go func() {
+				defer sw.Done()
+				trie := NewTrie(db, &rootHash, pool)
+				trie.SetValue([]byte("tes"), []byte("asdfvale....asdfasdfasdfvalue.555val"+strconv.FormatInt(time.Now().UnixNano(), 10)))
+				fmt.Printf("%s\n", trie.GetValue([]byte("tes")))
+				fmt.Println(trie.Hash())
+			}()
+		}
+		sw.Wait()
+	}
+
+	trie2 := NewTrie(db, &rootHash, pool)
+	fmt.Printf("%s\n", trie2.GetValue([]byte("tes")))
+	fmt.Println(trie2.Hash())
 
 }

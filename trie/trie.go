@@ -49,7 +49,7 @@ func (trie *Trie) getNodeFromDb(key *types.Hash) *TrieNode {
 	trieNode := &TrieNode{}
 	dsErr := trieNode.DbDeserialize(value)
 	if dsErr != nil {
-		trie.log.Error("Deserialize trie node  failed, error is "+err.Error(), "method", "getNodeFromDb")
+		trie.log.Error("Deserialize trie node  failed, error is "+dsErr.Error(), "method", "getNodeFromDb")
 		return nil
 	}
 
@@ -143,8 +143,17 @@ func (trie *Trie) traverseLoad(hash *types.Hash) *TrieNode {
 
 	switch node.NodeType() {
 	case TRIE_FULL_NODE:
-		for key, child := range node.children {
-			node.children[key] = trie.traverseLoad(child.Hash())
+
+		if !node.ChildrenIsComplete() {
+			node.childrenGetLock.Lock()
+
+			if !node.ChildrenIsComplete() {
+				for key, child := range node.children {
+					node.children[key] = trie.traverseLoad(child.Hash())
+				}
+			}
+
+			node.childrenGetLock.Unlock()
 		}
 	case TRIE_SHORT_NODE:
 		node.child = trie.traverseLoad(node.child.Hash())
@@ -367,10 +376,7 @@ func (trie *Trie) getLeafNode(node *TrieNode, key []byte) *TrieNode {
 		case TRIE_VALUE_NODE:
 			return node
 		case TRIE_FULL_NODE:
-			node.childrenReadLock.Lock()
-			value := node.children[byte(0)]
-			node.childrenReadLock.Unlock()
-			return value
+			return node.children[byte(0)]
 		default:
 			return nil
 		}
@@ -378,11 +384,7 @@ func (trie *Trie) getLeafNode(node *TrieNode, key []byte) *TrieNode {
 
 	switch node.NodeType() {
 	case TRIE_FULL_NODE:
-		node.childrenReadLock.Lock()
-		value := node.children[key[0]]
-		node.childrenReadLock.Unlock()
-
-		return trie.getLeafNode(value, key[1:])
+		return trie.getLeafNode(node.children[key[0]], key[1:])
 	case TRIE_SHORT_NODE:
 		if !bytes.HasPrefix(key, node.key) {
 			return nil

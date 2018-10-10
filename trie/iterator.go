@@ -62,13 +62,10 @@ func (iterator *Iterator) Next() (key, value []byte, ok bool) {
 		var children []*TrieNode
 		switch node.middleNode.NodeType() {
 		case TRIE_FULL_NODE:
-			node.middleNode.childrenReadLock.Lock()
 			for key, childNode := range node.middleNode.children {
-
 				keys = append(keys, []byte{key})
 				children = append(children, childNode)
 			}
-			node.middleNode.childrenReadLock.Unlock()
 
 		case TRIE_SHORT_NODE:
 			keys = append(keys, node.middleNode.key)
