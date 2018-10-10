@@ -7,7 +7,6 @@ import (
 
 	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -36,7 +35,6 @@ func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock
 type accountVerifier struct {
 	v   *verifier.AccountVerifier
 	log log15.Logger
-	g   *generator.Generator
 }
 
 /**
@@ -51,7 +49,7 @@ func (self *accountVerifier) verifyAccount(b *accountPoolBlock) *poolAccountVeri
 
 	switch verifyResult {
 	case verifier.SUCCESS:
-		blocks, err := self.v.VerifyforVM(b.block, self.g)
+		blocks, err := self.v.VerifyforVM(b.block)
 		if err != nil {
 			result.result = verifier.FAIL
 			return result
