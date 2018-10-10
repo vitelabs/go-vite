@@ -171,7 +171,7 @@ func (m *WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 	nonce := pow.GetPowNonce(nil, types.DataListHash(params.SelfAddr[:], preHash[:]))
 
 	msg := &generator.IncomingMessage{
-		BlockType:      ledger.BlockTypeSendCreate,
+		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: params.SelfAddr,
 		ToAddress:      &params.ToAddr,
 		FromBlockHash:  &preHash,
