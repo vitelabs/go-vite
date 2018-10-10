@@ -7,7 +7,7 @@ import (
 )
 
 type Consensus interface {
-	VerifyAccountProducer(block *ledger.AccountBlock) error
+	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
 }
 
 type Signer interface {

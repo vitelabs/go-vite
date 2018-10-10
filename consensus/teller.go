@@ -32,7 +32,7 @@ func newTeller(info *membersInfo, gid types.Gid, rw *chainRw) *teller {
 
 func (self *teller) voteResults(t time.Time) ([]types.Address, *ledger.HashHeight, error) {
 	// record vote
-	votes, hashH, err := self.rw.CalVotes(self.gid, t)
+	votes, hashH, err := self.rw.CalVotes(self.gid, self.info, t)
 	if err != nil {
 		return nil, nil, err
 	}

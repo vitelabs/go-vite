@@ -2,6 +2,9 @@ package verifier
 
 import (
 	"bytes"
+	"math/big"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -11,8 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
-	"time"
 )
 
 const (
@@ -177,7 +178,7 @@ func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlo
 	}
 	if code == ledger.AccountTypeContract {
 		if block.IsReceiveBlock() {
-			if conErr := verifier.consensus.VerifyAccountProducer(block); conErr != nil {
+			if result, conErr := verifier.consensus.VerifyAccountProducer(block); conErr != nil && result {
 				errMsg = errors.New("the block producer is illegal")
 				verifier.log.Error(errMsg.Error(), "error", conErr)
 				return FAIL, errMsg

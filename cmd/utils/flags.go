@@ -17,7 +17,6 @@ var (
 	DataDirFlag = DirectoryFlag{
 		Name:  "datadir",
 		Usage: "use for store all files",
-		Value: DirectoryString{common.DefaultDataDir()}, // TODO Distinguish different environmental addresses
 	}
 
 	KeyStoreDirFlag = DirectoryFlag{
