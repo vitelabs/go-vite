@@ -24,6 +24,7 @@ func (maker FullNodeMaker) MakeNode(ctx *cli.Context) *node.Node {
 	log.Info(fmt.Sprintf("NodeConfig info: %v", nodeConfig))
 	// 2: New Node
 	node, err := node.New(nodeConfig)
+	log.Info(fmt.Sprintf("Node info: %v", node))
 
 	if err != nil {
 		log.Error("Failed to create the node: %v", err)
