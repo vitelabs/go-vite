@@ -28,7 +28,12 @@ type Subscriber interface {
 	UnSubscribe(gid types.Gid, id string)
 }
 
+type Reader interface {
+	ReadByTime(gid types.Gid, t time.Time) ([]*Event, error)
+}
+
 type Consensus interface {
 	Verifier
 	Subscriber
+	Reader
 }

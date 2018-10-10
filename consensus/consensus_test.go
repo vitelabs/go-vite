@@ -3,6 +3,8 @@ package consensus
 import (
 	"testing"
 
+	"time"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -10,6 +12,34 @@ import (
 )
 
 func TestConsensus(t *testing.T) {
+	cs := genConsensus(t)
+	cs.Subscribe(types.SNAPSHOT_GID, "snapshot_mock", nil, func(e Event) {
+		t.Log("snapshot", e.Address, e)
+	})
+
+	cs.Subscribe(types.DELEGATE_GID, "contract_mock", nil, func(e Event) {
+		t.Log("account", e.Address, e)
+	})
+
+}
+
+func TestCommittee_ReadByTime(t *testing.T) {
+	cs := genConsensus(t)
+	now := time.Now()
+	es, err := cs.ReadByTime(types.DELEGATE_GID, now)
+
+	for k, v := range es {
+		t.Log(k, v, err)
+	}
+	es, err = cs.ReadByTime(types.SNAPSHOT_GID, now)
+
+	for k, v := range es {
+		t.Log(k, v, err)
+	}
+
+}
+
+func genConsensus(t *testing.T) Consensus {
 	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
 	c.Init()
 	c.Start()
@@ -19,16 +49,8 @@ func TestConsensus(t *testing.T) {
 	err := cs.Init()
 	if err != nil {
 		t.Error(err)
-		return
+		panic(err)
 	}
 	cs.Start()
-	cs.Subscribe(types.SNAPSHOT_GID, "snapshot_mock", nil, func(e Event) {
-		t.Log("snapshot", e.Address, e)
-	})
-
-	cs.Subscribe(types.DELEGATE_GID, "contract_mock", nil, func(e Event) {
-		t.Log("account", e.Address, e)
-	})
-
-	make(chan int) <- 1
+	return cs
 }
