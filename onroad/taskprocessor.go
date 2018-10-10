@@ -139,7 +139,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		return
 	}
 
-	gen, err := generator.NewGenerator(tp.worker.manager.vite.Chain(),
+	gen, err := generator.NewGenerator(tp.worker.manager.Chain(),
 		&tp.accEvent.SnapshotHash, nil, &sBlock.ToAddress)
 	if err != nil {
 		tp.log.Error("NewGenerator failed", "error", err)

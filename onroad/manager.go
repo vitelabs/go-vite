@@ -6,10 +6,10 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
-	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"math/big"
@@ -23,10 +23,14 @@ var (
 )
 
 type Manager struct {
-	vite            Vite
 	keystoreManager *keystore.Manager
 
-	pool             pool.BlockPool
+	pool     Pool
+	net      Net
+	chain    chain.Chain
+	producer Producer
+	wallet   *wallet.Manager
+
 	uAccess          *model.UAccess
 	onroadBlocksPool *model.OnroadBlocksPool
 
@@ -43,31 +47,110 @@ type Manager struct {
 	log log15.Logger
 }
 
-func NewManager(vite Vite) *Manager {
+func NewManager(net Net, chain chain.Chain, pool Pool, producer Producer, wallet *wallet.Manager) *Manager {
 	m := &Manager{
-		vite:               vite,
-		pool:               vite.Pool(),
-		keystoreManager:    vite.WalletManager().KeystoreManager,
+		pool:               pool,
+		net:                net,
+		chain:              chain,
+		producer:           producer,
+		wallet:             wallet,
+		keystoreManager:    wallet.KeystoreManager,
 		autoReceiveWorkers: make(map[types.Address]*AutoReceiveWorker),
 		contractWorkers:    make(map[types.Gid]*ContractWorker),
 		log:                slog.New("w", "manager"),
 	}
-	m.onroadBlocksPool = model.NewOnroadBlocksPool(m.uAccess)
 	return m
 }
 
 func (manager *Manager) Init() {
-	manager.uAccess = model.NewUAccess(manager.Chain())
+	manager.uAccess = model.NewUAccess(manager.chain)
+	manager.onroadBlocksPool = model.NewOnroadBlocksPool(manager.uAccess)
+}
 
-	manager.netStateLid = manager.vite.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
+func (manager *Manager) Start() {
+	manager.netStateLid = manager.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
 	manager.unlockLid = manager.keystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
-	manager.vite.Producer().SetAccountEventFunc(manager.producerStartEventFunc)
+	manager.producer.SetAccountEventFunc(manager.producerStartEventFunc)
 
-	manager.writeSuccLid = manager.vite.Chain().RegisterInsertAccountBlocksSuccess(manager.onroadBlocksPool.WriteOnroadSuccess)
-	manager.writeOnRoadLid = manager.vite.Chain().RegisterInsertAccountBlocks(manager.onroadBlocksPool.WriteOnroad)
+	manager.writeSuccLid = manager.Chain().RegisterInsertAccountBlocksSuccess(manager.onroadBlocksPool.WriteOnroadSuccess)
+	manager.writeOnRoadLid = manager.Chain().RegisterInsertAccountBlocks(manager.onroadBlocksPool.WriteOnroad)
 
-	manager.deleteSuccLid = manager.vite.Chain().RegisterDeleteAccountBlocksSuccess(manager.onroadBlocksPool.RevertOnroadSuccess)
-	manager.deleteOnRoadLid = manager.vite.Chain().RegisterDeleteAccountBlocks(manager.onroadBlocksPool.RevertOnroad)
+	manager.deleteSuccLid = manager.Chain().RegisterDeleteAccountBlocksSuccess(manager.onroadBlocksPool.RevertOnroadSuccess)
+	manager.deleteOnRoadLid = manager.Chain().RegisterDeleteAccountBlocks(manager.onroadBlocksPool.RevertOnroad)
+}
+
+func (manager *Manager) Stop() {
+	manager.log.Info("Stop")
+	manager.Net().UnsubscribeSyncStatus(manager.netStateLid)
+	manager.keystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
+	manager.Producer().SetAccountEventFunc(nil)
+
+	manager.Chain().UnRegister(manager.writeOnRoadLid)
+	manager.Chain().UnRegister(manager.deleteOnRoadLid)
+	manager.Chain().UnRegister(manager.writeSuccLid)
+	manager.Chain().UnRegister(manager.deleteSuccLid)
+
+	manager.stopAllWorks()
+	manager.log.Info("Stop end")
+}
+
+func (manager *Manager) Close() error {
+	manager.Start()
+	return nil
+}
+
+func (manager *Manager) netStateChangedFunc(state net.SyncState) {
+	manager.log.Info("receive a net event", "state", state)
+	if state == net.Syncdone {
+		manager.startAllWorks()
+	} else {
+		manager.stopAllWorks()
+	}
+}
+
+func (manager *Manager) addressLockStateChangeFunc(event keystore.UnlockEvent) {
+	manager.log.Info("addressLockStateChangeFunc ", "event", event)
+
+	w, found := manager.autoReceiveWorkers[event.Address]
+	if found && !event.Unlocked() {
+		manager.log.Info("found in autoReceiveWorkers stop it")
+		go w.Stop()
+	}
+}
+
+func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEvent) {
+	netstate := manager.Net().Status().SyncState
+	manager.log.Info("producerStartEventFunc receive event", "netstate", netstate)
+	if netstate != net.Syncdone {
+		return
+	}
+
+	event, ok := accevent.(producerevent.AccountStartEvent)
+	if !ok {
+		manager.log.Info("producerStartEventFunc not support this event")
+		return
+	}
+
+	if !manager.keystoreManager.IsUnLocked(event.Address) {
+		manager.log.Error("receive a right event but address locked", "event", event)
+		return
+	}
+
+	w, found := manager.contractWorkers[event.Gid]
+	if !found {
+		w = NewContractWorker(manager, event)
+		manager.contractWorkers[event.Gid] = w
+	}
+
+	nowTime := time.Now()
+	if nowTime.After(event.Stime) && nowTime.Before(event.Etime) {
+		w.Start()
+		time.AfterFunc(event.Etime.Sub(nowTime), func() {
+			w.Stop()
+		})
+	} else {
+		w.Stop()
+	}
 }
 
 func (manager *Manager) stopAllWorks() {
@@ -108,76 +191,6 @@ func (manager *Manager) startAllWorks() {
 	wg.Wait()
 }
 
-func (manager *Manager) Close() error {
-	manager.log.Info("close")
-	manager.vite.Net().UnsubscribeSyncStatus(manager.netStateLid)
-	manager.keystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
-	manager.vite.Producer().SetAccountEventFunc(nil)
-
-	manager.vite.Chain().UnRegister(manager.writeOnRoadLid)
-	manager.vite.Chain().UnRegister(manager.deleteOnRoadLid)
-	manager.vite.Chain().UnRegister(manager.writeSuccLid)
-	manager.vite.Chain().UnRegister(manager.deleteSuccLid)
-
-	manager.stopAllWorks()
-	manager.log.Info("close end")
-	return nil
-}
-
-func (manager *Manager) netStateChangedFunc(state net.SyncState) {
-	manager.log.Info("receive a net event", "state", state)
-	if state == net.Syncdone {
-		manager.startAllWorks()
-	} else {
-		manager.stopAllWorks()
-	}
-}
-
-func (manager *Manager) addressLockStateChangeFunc(event keystore.UnlockEvent) {
-	manager.log.Info("addressLockStateChangeFunc ", "event", event)
-
-	w, found := manager.autoReceiveWorkers[event.Address]
-	if found && !event.Unlocked() {
-		manager.log.Info("found in autoReceiveWorkers stop it")
-		go w.Stop()
-	}
-}
-
-func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEvent) {
-	netstate := manager.vite.Net().Status().SyncState
-	manager.log.Info("producerStartEventFunc receive event", "netstate", netstate)
-	if netstate != net.Syncdone {
-		return
-	}
-
-	event, ok := accevent.(producerevent.AccountStartEvent)
-	if !ok {
-		manager.log.Info("producerStartEventFunc not support this event")
-		return
-	}
-
-	if !manager.keystoreManager.IsUnLocked(event.Address) {
-		manager.log.Error("receive a right event but address locked", "event", event)
-		return
-	}
-
-	w, found := manager.contractWorkers[event.Gid]
-	if !found {
-		w = NewContractWorker(manager, event)
-		manager.contractWorkers[event.Gid] = w
-	}
-
-	nowTime := time.Now()
-	if nowTime.After(event.Stime) && nowTime.Before(event.Etime) {
-		w.Start()
-		time.AfterFunc(event.Etime.Sub(nowTime), func() {
-			w.Stop()
-		})
-	} else {
-		w.Stop()
-	}
-}
-
 func (manager *Manager) insertCommonBlockToPool(blockList []*vm_context.VmAccountBlock) error {
 	return manager.pool.AddDirectAccountBlock(blockList[0].AccountBlock.AccountAddress, blockList[0])
 }
@@ -201,7 +214,7 @@ func (manager *Manager) ResetAutoReceiveFilter(addr types.Address, filter map[ty
 }
 
 func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[types.TokenTypeId]big.Int) error {
-	netstate := manager.vite.Net().Status().SyncState
+	netstate := manager.Net().Status().SyncState
 	manager.log.Info("StartAutoReceiveWorker ", "addr", addr, "netstate", netstate)
 
 	if netstate != net.Syncdone {
@@ -252,7 +265,15 @@ func (manager Manager) GetOnroadBlocksPool() *model.OnroadBlocksPool {
 }
 
 func (manager Manager) Chain() chain.Chain {
-	return manager.vite.Chain()
+	return manager.chain
+}
+
+func (manager Manager) Net() Net {
+	return manager.net
+}
+
+func (manager Manager) Producer() Producer {
+	return manager.producer
 }
 
 func (manager Manager) DbAccess() *model.UAccess {
