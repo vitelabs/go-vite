@@ -87,7 +87,7 @@ func (f *filter) done(hash types.Hash) {
 		r.done()
 	} else {
 		f.records[hash] = &record{addAt: time.Now()}
-		r.done()
+		f.records[hash].done()
 	}
 }
 
