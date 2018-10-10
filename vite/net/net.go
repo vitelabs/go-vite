@@ -98,7 +98,6 @@ func New(cfg *Config) (*Net, error) {
 		broadcaster: broadcaster,
 		fs:          fs,
 		fc:          fc,
-		term:        make(chan struct{}),
 		handlers:    make(map[cmd]MsgHandler),
 		log:         log15.New("module", "vite/net"),
 	}
@@ -128,10 +127,6 @@ func New(cfg *Config) (*Net, error) {
 		},
 	})
 
-	go n.fs.start()
-
-	go n.fc.start()
-
 	return n, nil
 }
 
@@ -142,7 +137,13 @@ func (n *Net) AddHandler(handler MsgHandler) {
 	}
 }
 
-func (n *Net) Start() {}
+func (n *Net) Start() {
+	n.term = make(chan struct{})
+
+	go n.fs.start()
+
+	go n.fc.start()
+}
 
 func (n *Net) Stop() {
 	select {
@@ -152,6 +153,7 @@ func (n *Net) Stop() {
 		n.syncer.stop()
 		n.fs.stop()
 		n.fc.stop()
+		n.wg.Wait()
 	}
 }
 
