@@ -13,7 +13,7 @@ type Vite struct {
 	config        *config.Config
 	walletManager *wallet.Manager
 	verifier      consensus.Verifier
-	producer      *producer.Producer
+	producer      producer.Producer
 	Net           *net.Net
 	p2p           *p2p.Server
 }
