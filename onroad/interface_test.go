@@ -58,7 +58,7 @@ type testVite struct {
 	chain    chain.Chain
 	wallet   *wallet.Manager
 	producer onroad.Producer
-	pool     onroad.PoolReader
+	pool     onroad.Pool
 }
 
 func (testVite) Net() onroad.Net {
@@ -76,7 +76,7 @@ func (t testVite) WalletManager() *wallet.Manager {
 func (t testVite) Producer() onroad.Producer {
 	return t.producer
 }
-func (t testVite) Pool() onroad.PoolReader {
+func (t testVite) Pool() onroad.Pool {
 	return t.pool
 }
 

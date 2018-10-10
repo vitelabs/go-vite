@@ -160,7 +160,7 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 		w.log.Info("ProcessOneBlock.checkExistInPool failed")
 		return
 	}
-	gen, err := generator.NewGenerator(w.manager.vite.Chain(), nil, nil, &sendBlock.ToAddress)
+	gen, err := generator.NewGenerator(w.manager.Chain(), nil, nil, &sendBlock.ToAddress)
 	if err != nil {
 		w.log.Error("NewGenerator failed", "error", err)
 		return

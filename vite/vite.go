@@ -61,7 +61,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 		consensus: cs,
 	}
 	// onroad
-	or := onroad.NewManager(vite)
+	or := onroad.NewManager(vite.net, vite.chain, vite.pool, vite.producer, vite.walletManager)
 	// set onroad
 	vite.onRoad = or
 
