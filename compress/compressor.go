@@ -97,8 +97,8 @@ func (c *Compressor) FileReader(filename string) io.ReadCloser {
 	return NewFileReader(path.Join(c.dir, filename))
 }
 
-func (c *Compressor) BlockParser(reader io.Reader, processFunc func(block ledger.Block, err error)) {
-	BlockParser(reader, 0, processFunc)
+func (c *Compressor) BlockParser(reader io.Reader, blockNum uint64, processFunc func(block ledger.Block, err error)) {
+	BlockParser(reader, blockNum, processFunc)
 }
 
 func (c *Compressor) Start() bool {
