@@ -112,8 +112,6 @@ func New(cfg *Config) (svr *Server, err error) {
 		Self:      svr.self,
 	})
 
-	svr.setHandshake()
-
 	return
 }
 
@@ -121,6 +119,9 @@ func (svr *Server) Start() error {
 	if !atomic.CompareAndSwapInt32(&svr.running, 0, 1) {
 		return errSvrStarted
 	}
+
+	// setHandshake in method Start, because svr.Protocols may be modified
+	svr.setHandshake()
 
 	listener, err := net.ListenTCP("tcp", svr.addr)
 	if err != nil {
@@ -359,7 +360,7 @@ loop:
 				}
 			} else {
 				c.Close(err)
-				svr.log.Error(fmt.Sprintf("cannot create new peer: %v", err))
+				svr.log.Error(fmt.Sprintf("can`t create new peer: %v", err))
 			}
 
 		case p := <-svr.delPeer:
