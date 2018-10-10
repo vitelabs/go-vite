@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/vitepb"
+	"sync"
 )
 
 const (
@@ -19,7 +20,8 @@ type TrieNode struct {
 	nodeType byte
 
 	// fullNode
-	children map[byte]*TrieNode
+	children         map[byte]*TrieNode
+	childrenReadLock sync.Mutex
 
 	// shortNode
 	key   []byte

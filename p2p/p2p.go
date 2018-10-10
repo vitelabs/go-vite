@@ -38,7 +38,7 @@ type Config struct {
 	MaxPendingPeers uint               // max peers waiting for connect
 	MaxInboundRatio uint               // max inbound peers: MaxPeers / MaxInboundRatio
 	Port            uint               // TCP and UDP listen port
-	Database        string             // the directory for storing node table
+	DataDir         string             // the directory for storing node table, default is "~/viteisbest/p2p"
 	PrivateKey      ed25519.PrivateKey // use for encrypt message, the corresponding public key use for NodeID
 	Protocols       []*Protocol        // protocols server supported
 	BootNodes       []string
@@ -58,14 +58,13 @@ type Server struct {
 	peers     *PeerSet
 	blockList *block.CuckooSet
 	self      *discovery.Node
-	//agent          *agent
-	log      log15.Logger
-	ln       net.Listener
-	nodeChan chan *discovery.Node
+	ln        net.Listener
+	nodeChan  chan *discovery.Node
+	log       log15.Logger
 }
 
-func New(cfg Config) (svr *Server, err error) {
-	safeCfg := EnsureConfig(cfg)
+func New(cfg *Config) (svr *Server, err error) {
+	cfg = EnsureConfig(cfg)
 
 	ID, err := discovery.Priv2NodeID(cfg.PrivateKey)
 	if err != nil {
@@ -104,7 +103,7 @@ func New(cfg Config) (svr *Server, err error) {
 	log.Info(fmt.Sprintf("tcp listen at %s", tcpAddr))
 
 	svr = &Server{
-		Config:    safeCfg,
+		Config:    cfg,
 		log:       log,
 		peers:     NewPeerSet(),
 		term:      make(chan struct{}),
@@ -125,15 +124,13 @@ func New(cfg Config) (svr *Server, err error) {
 
 	svr.discv = discovery.New(&discovery.Config{
 		Priv:      svr.PrivateKey,
-		DBPath:    svr.Database,
+		DBPath:    svr.DataDir,
 		BootNodes: svr.BootNodes,
 		Conn:      udpConn,
 		Self:      svr.self,
 	})
 
 	svr.discv.SubNodes(svr.nodeChan)
-
-	//svr.agent = newAgent(svr)
 
 	return
 }
@@ -350,7 +347,7 @@ func (svr *Server) checkConn(id discovery.NodeID, flag connFlag) error {
 	}
 
 	if flag.is(inbound) && uint(svr.peers.inbound) >= svr.maxInboundPeers() {
-		return DiscTooManyPassivePeers
+		return DiscTooManyInboundPeers
 	}
 
 	if svr.peers.Has(id) {
@@ -367,17 +364,11 @@ func (svr *Server) checkConn(id discovery.NodeID, flag connFlag) error {
 func (svr *Server) loop() {
 	defer svr.wg.Done()
 
-	//shouldSchedule := make(chan struct{})
-
-	//go svr.agent.scheduleTasks(svr.term, shouldSchedule)
-
 loop:
 	for {
 		select {
 		case <-svr.term:
 			break loop
-		//case <-shouldSchedule:
-		//	svr.agent.createTasks()
 		case c := <-svr.addPeer:
 			err := svr.checkConn(c.remoteID, c.flags)
 
@@ -389,13 +380,14 @@ loop:
 					svr.log.Info(fmt.Sprintf("create new peer %s, total: %d", p, peersCount))
 					monitor.LogDuration("p2p/peer", "add", int64(peersCount))
 
+					svr.wg.Add(1)
 					go svr.runPeer(p)
 				} else {
 					svr.log.Error(fmt.Sprintf("create new peer error: %v", err))
 				}
 			} else {
 				c.Close(err)
-				svr.log.Error("cannot create new peer", "error", err)
+				svr.log.Error(fmt.Sprintf("cannot create new peer: %v", err))
 			}
 
 		case p := <-svr.delPeer:
@@ -413,6 +405,8 @@ loop:
 }
 
 func (svr *Server) runPeer(p *Peer) {
+	defer svr.wg.Done()
+
 	err := p.run()
 	if err != nil {
 		svr.log.Error("run peer error", "error", err)

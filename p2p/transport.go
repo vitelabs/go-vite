@@ -139,12 +139,12 @@ type AsyncMsgConn struct {
 	handler func(msg *Msg)
 	term    chan struct{}
 	wg      sync.WaitGroup
-	_wqueue chan *Msg
-	_rqueue chan *Msg
-	_reason error // close reason
-	log     log15.Logger
+	wqueue  chan *Msg
+	rqueue  chan *Msg
+	reason  error      // close reason
 	errored int32      // atomic, indicate whehter there is an error, readErr(1), writeErr(2)
 	errch   chan error // report errch to upper layer
+	log     log15.Logger
 }
 
 // create an AsyncMsgConn, fd is the basic connection
@@ -157,8 +157,8 @@ func NewAsyncMsgConn(fd net.Conn, handler func(msg *Msg)) *AsyncMsgConn {
 		},
 		handler: handler,
 		term:    make(chan struct{}),
-		_wqueue: make(chan *Msg, writeBufferLen),
-		_rqueue: make(chan *Msg, readBufferLen),
+		wqueue:  make(chan *Msg, writeBufferLen),
+		rqueue:  make(chan *Msg, readBufferLen),
 		errch:   make(chan error, 1),
 		log:     log15.New("module", "p2p/AsyncMsgConn", "end", fd.RemoteAddr().String()),
 	}
@@ -180,7 +180,7 @@ func (c *AsyncMsgConn) Close(err error) {
 	case <-c.term:
 	default:
 		c.log.Error(fmt.Sprintf("close: %v", err))
-		c._reason = err
+		c.reason = err
 		close(c.term)
 		c.wg.Wait()
 		c.log.Error(fmt.Sprintf("closed: %v", err))
@@ -195,7 +195,7 @@ func (c *AsyncMsgConn) report(t int32, err error) {
 
 func (c *AsyncMsgConn) readLoop() {
 	defer c.wg.Done()
-	defer close(c._rqueue)
+	defer close(c.rqueue)
 
 	for {
 		select {
@@ -208,7 +208,7 @@ func (c *AsyncMsgConn) readLoop() {
 		msg, err := c.rw.ReadMsg()
 
 		if err == nil {
-			c._rqueue <- msg
+			c.rqueue <- msg
 			monitor.LogEvent("async-conn-read", c.fd.RemoteAddr().String())
 		} else {
 			c.log.Error(fmt.Sprintf("read message error: %v", err))
@@ -245,18 +245,18 @@ loop:
 		select {
 		case <-c.term:
 			break loop
-		case msg := <-c._wqueue:
+		case msg := <-c.wqueue:
 			c._write(msg)
 		}
 	}
 
 	if atomic.LoadInt32(&c.errored) == 0 {
-		for i := 0; i < len(c._wqueue); i++ {
-			msg := <-c._wqueue
+		for i := 0; i < len(c.wqueue); i++ {
+			msg := <-c.wqueue
 			c._write(msg)
 		}
 
-		if reason, ok := c._reason.(DiscReason); ok && reason != DiscNetworkError {
+		if reason, ok := c.reason.(DiscReason); ok && reason != DiscNetworkError {
 			c.Send(baseProtocolCmdSet, discCmd, 0, reason)
 		}
 	}
@@ -270,7 +270,7 @@ loop:
 		select {
 		case <-c.term:
 			break loop
-		case msg := <-c._rqueue:
+		case msg := <-c.rqueue:
 			if msg != nil {
 				c.handler(msg)
 			} else {
@@ -279,7 +279,7 @@ loop:
 		}
 	}
 
-	for msg := range c._rqueue {
+	for msg := range c.rqueue {
 		c.handler(msg)
 	}
 }
@@ -290,7 +290,7 @@ func (c *AsyncMsgConn) SendMsg(msg *Msg) bool {
 	select {
 	case <-c.term:
 		return false
-	case c._wqueue <- msg:
+	case c.wqueue <- msg:
 		return true
 	default:
 		return false

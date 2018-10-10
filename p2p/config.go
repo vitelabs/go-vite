@@ -32,14 +32,14 @@ var firmNodes = []string{
 }
 
 const (
-	DefaultMaxPeers        uint      = 50
-	DefaultMaxPendingPeers uint      = 20
-	DefaultMaxInboundRatio uint      = 2
-	DefaultPort            uint      = 8483
-	DefaultNetID           NetworkID = Aquarius
+	DefaultMaxPeers        uint = 50
+	DefaultMaxPendingPeers uint = 20
+	DefaultMaxInboundRatio uint = 2
+	DefaultPort            uint = 8483
+	DefaultNetID                = Aquarius
 )
 
-const P2PDir = "p2p"
+const Dirname = "p2p"
 const privKeyFileName = "priv.key"
 
 func getServerKey(p2pDir string) (pub ed25519.PublicKey, priv ed25519.PrivateKey, err error) {
@@ -104,7 +104,11 @@ func getServerKey(p2pDir string) (pub ed25519.PublicKey, priv ed25519.PrivateKey
 	return
 }
 
-func EnsureConfig(cfg Config) *Config {
+func EnsureConfig(cfg *Config) *Config {
+	if cfg == nil {
+		cfg = new(Config)
+	}
+
 	if cfg.NetID == 0 {
 		cfg.NetID = DefaultNetID
 	}
@@ -125,12 +129,12 @@ func EnsureConfig(cfg Config) *Config {
 		cfg.Port = DefaultPort
 	}
 
-	if cfg.Database == "" {
-		cfg.Database = filepath.Join(common.DefaultDataDir(), P2PDir)
+	if cfg.DataDir == "" {
+		cfg.DataDir = filepath.Join(common.DefaultDataDir(), Dirname)
 	}
 
 	if cfg.PrivateKey == nil {
-		_, priv, err := getServerKey(cfg.Database)
+		_, priv, err := getServerKey(cfg.DataDir)
 		if err != nil {
 			p2pServerLog.Crit("generate privateKey error", "error", err)
 		} else {
@@ -138,7 +142,7 @@ func EnsureConfig(cfg Config) *Config {
 		}
 	}
 
-	return &cfg
+	return cfg
 }
 
 func addFirmNodes(bootnodes []string) (nodes []*discovery.Node) {

@@ -6,6 +6,7 @@ import (
 )
 
 func GetPublicApis(vite *vite.Vite) []rpc.API {
+
 	return []rpc.API{}
 	//
 	//ledgerApis := rpc.API{
@@ -14,6 +15,7 @@ func GetPublicApis(vite *vite.Vite) []rpc.API {
 	//	Service:   api.NewLedgerApi(vite),
 	//	Public:    true,
 	//}
+	//return []rpc.API{ledgerApis}
 	//
 	//p2pApis := rpc.API{
 	//	Namespace: "p2p",

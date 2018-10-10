@@ -367,7 +367,10 @@ func (trie *Trie) getLeafNode(node *TrieNode, key []byte) *TrieNode {
 		case TRIE_VALUE_NODE:
 			return node
 		case TRIE_FULL_NODE:
-			return node.children[byte(0)]
+			node.childrenReadLock.Lock()
+			value := node.children[byte(0)]
+			node.childrenReadLock.Unlock()
+			return value
 		default:
 			return nil
 		}
@@ -375,7 +378,11 @@ func (trie *Trie) getLeafNode(node *TrieNode, key []byte) *TrieNode {
 
 	switch node.NodeType() {
 	case TRIE_FULL_NODE:
-		return trie.getLeafNode(node.children[key[0]], key[1:])
+		node.childrenReadLock.Lock()
+		value := node.children[key[0]]
+		node.childrenReadLock.Unlock()
+
+		return trie.getLeafNode(value, key[1:])
 	case TRIE_SHORT_NODE:
 		if !bytes.HasPrefix(key, node.key) {
 			return nil

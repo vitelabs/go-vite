@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"sync"
 	"time"
+	"github.com/vitelabs/go-vite/chain"
 )
 
 var (
@@ -231,4 +232,27 @@ func (manager *Manager) StopAutoReceiveWorker(addr types.Address) error {
 		w.Stop()
 	}
 	return nil
+}
+
+func (manager Manager) ListWorkingAutoReceiveWorker() []types.Address {
+	addr := make([]types.Address, 0)
+	for _, v := range manager.autoReceiveWorkers {
+		if v != nil && v.Status() == Start {
+			addr = append(addr, v.address)
+		}
+	}
+
+	return addr
+}
+
+func (manager Manager) GetOnroadBlocksPool() *model.OnroadBlocksPool {
+	return manager.onroadBlocksPool
+}
+
+func (manager Manager) Chain() chain.Chain {
+	return manager.vite.Chain()
+}
+
+func (manager Manager) DbAccess() *model.UAccess {
+	return manager.uAccess
 }

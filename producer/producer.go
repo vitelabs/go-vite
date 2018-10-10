@@ -13,6 +13,8 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer/producerevent"
+	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/wallet"
 )
 
 // Package producer implements vite block creation
@@ -60,7 +62,7 @@ type producer struct {
 	mining               int32
 	coinbase             types.Address // address
 	worker               *worker
-	cs                   consensus.Consensus
+	cs                   consensus.Subscriber
 	downloaderRegister   DownloaderRegister
 	downloaderRegisterCh chan int
 	dwlFinished          bool
@@ -68,8 +70,13 @@ type producer struct {
 }
 
 // todo syncDone
-func NewProducer(rw chain.Chain, downloaderRegister DownloaderRegister, coinbase types.Address, cs consensus.Consensus) *producer {
-	chain := newChainRw(rw)
+func NewProducer(rw chain.Chain,
+	downloaderRegister DownloaderRegister,
+	coinbase types.Address,
+	cs consensus.Subscriber,
+	verifier *verifier.SnapshotVerifier,
+	wt *wallet.Manager) *producer {
+	chain := newChainRw(rw, verifier, wt)
 	miner := &producer{tools: chain, coinbase: coinbase}
 
 	miner.cs = cs

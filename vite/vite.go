@@ -1,6 +1,7 @@
 package vite
 
 import (
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/p2p"
@@ -12,6 +13,7 @@ import (
 type Vite struct {
 	config        *config.Config
 	walletManager *wallet.Manager
+	chain         chain.Chain
 	verifier      consensus.Verifier
 	producer      producer.Producer
 	Net           *net.Net
@@ -84,6 +86,9 @@ func (v *Vite) Stop() {
 
 }
 
+func (v *Vite) Chain() chain.Chain {
+	return v.chain
+}
 func (v *Vite) P2p() *p2p.Server {
 	return v.p2p
 }

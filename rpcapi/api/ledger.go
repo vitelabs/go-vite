@@ -1,134 +1,89 @@
 package api
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/ledger/handler_interface"
-	"github.com/vitelabs/go-vite/signer"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"math/big"
+	"github.com/vitelabs/go-vite/vm/contracts"
 )
 
 // !!! Block = Transaction = TX
 
 func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 	return &LedgerApi{
-		ledgerManager: vite.Ledger(),
-		signer:        vite.Signer(),
-		MintageCache:  make(map[types.TokenTypeId]*Mintage),
+		chain: vite.Chain(),
+		//signer:        vite.Signer(),
+		log: log15.New("module", "rpc_api/ledger_api"),
 	}
 }
 
 type LedgerApi struct {
-	ledgerManager handler_interface.Manager
-	signer        *signer.Master
-	MintageCache  map[types.TokenTypeId]*Mintage
+	chain chain.Chain
+	//signer        *signer.Master
+	//MintageCache map[types.TokenTypeId]*Mintage
+	log log15.Logger
 }
 
 func (l LedgerApi) String() string {
 	return "LedgerApi"
 }
 
-func (l *LedgerApi) CreateTxWithPassphrase(params *SendTxParms) error {
-	log.Info("CreateTxWithPassphrase")
-	if params == nil {
-		return fmt.Errorf("sendTxParms nil")
-	}
-	if params.Passphrase == "" {
-		return fmt.Errorf("sendTxParms Passphrase empty")
-	}
+func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*AccountBlock, error) {
+	var blocks []*AccountBlock
+	for _, item := range list {
+		confirmTimes, err := l.chain.GetConfirmTimes(&item.Hash)
 
-	n := new(big.Int)
-	amount, ok := n.SetString(params.Amount, 10)
-	if !ok {
-		return fmt.Errorf("error format of amount")
-	}
-	b := ledger.AccountBlock{AccountAddress: &params.SelfAddr, To: &params.ToAddr, TokenId: &params.TokenTypeId, Amount: amount}
-
-	// call signer.creattx in order to as soon as possible to send tx
-	err := l.signer.CreateTxWithPassphrase(&b, params.Passphrase)
-
-	if err != nil {
-		newerr, concerned := TryMakeConcernedError(err)
-		if concerned {
-			return newerr
+		if err != nil {
+			return nil, err
 		}
-		return err
+
+		token := l.chain.GetTokenInfoById(&item.TokenId)
+		blocks = append(blocks, createAccountBlock(item, token, confirmTimes))
 	}
-
-	return nil
-}
-
-func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error) {
-	log.Info("GetBlocksByHash")
-	lists, getError := l.ledgerManager.Ac().GetBlocks(&addr, originBlockHash, count)
-	if getError != nil {
-		return nil, getError.Err
-	}
-	return LedgerAccBlocksToRpcAccBlocks(lists, l), nil
-}
-
-func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int, needTokenInfo *bool) ([]*AccountBlock, error) {
-	log.Info("GetBlocksByAccAddr")
-
-	list, getErr := l.ledgerManager.Ac().GetBlocksByAccAddr(&addr, index, 1, count)
-
-	if getErr != nil {
-		log.Info("GetBlocksByAccAddr", "err", getErr)
-		if getErr.Code == 1 {
-			// todo ask lyd it means no data
-			return nil, nil
-		}
-		return nil, getErr.Err
-	}
-	blocks := LedgerAccBlocksToRpcAccBlocks(list, l)
-	if needTokenInfo != nil && *needTokenInfo {
-		for _, value := range blocks {
-			if m, ok := l.MintageCache[*value.TokenId]; ok {
-				value.Mintage = m
-			}
-			token, e := l.ledgerManager.Ac().GetToken(*value.TokenId)
-			if e == nil {
-				value.Mintage = rawMintageToRpc(token.Mintage)
-				l.MintageCache[*value.TokenId] = value.Mintage
-			}
-		}
-	}
-
 	return blocks, nil
 }
 
-func (l *LedgerApi) getBlockConfirmedTimes(block *ledger.AccountBlock) *string {
-	log.Info("getBlockConfirmedTimes")
-	sc := l.ledgerManager.Sc()
-	sb, e := sc.GetConfirmBlock(block)
-	if e != nil {
-		log.Error("GetConfirmBlock ", "err", e)
-		return nil
-	}
-	if sb == nil {
-		log.Info("GetConfirmBlock nil")
-		return nil
+func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error) {
+	l.log.Info("GetBlocksByHash")
+
+	list, getError := l.chain.GetAccountBlocksByHash(addr, originBlockHash, count, false)
+	if getError != nil {
+		return nil, getError
 	}
 
-	times, e := sc.GetConfirmTimes(sb)
-	if e != nil {
-		log.Error("GetConfirmTimes", "err", e)
-		return nil
+	if blocks, err := l.ledgerBlocksToRpcBlocks(list); err != nil {
+		l.log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetBlocksByHash")
+		return nil, err
+	} else {
+		return blocks, nil
 	}
 
-	if times == nil {
-		log.Info("GetConfirmTimes nil")
-		return nil
+}
+
+func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int, needTokenInfo *bool) ([]*AccountBlock, error) {
+	l.log.Info("GetBlocksByAccAddr")
+
+	list, getErr := l.chain.GetAccountBlocksByAddress(&addr, index, 1, count)
+
+	if getErr != nil {
+		l.log.Info("GetBlocksByAccAddr", "err", getErr)
+		return nil, getErr
 	}
-	s := times.String()
-	return &s
+
+	if blocks, err := l.ledgerBlocksToRpcBlocks(list); err != nil {
+		l.log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetBlocksByAccAddr")
+		return nil, err
+	} else {
+		return blocks, nil
+	}
 }
 
 func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int, count int) ([]AccountBlock, error) {
 	log.Info("GetUnconfirmedBlocksByAccAddr")
+
 	blocks, e := l.ledgerManager.Ac().GetUnconfirmedTxBlocks(index, 1, count, &addr)
 	if e != nil {
 		return nil, e
@@ -136,6 +91,7 @@ func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int,
 	if len(blocks) == 0 {
 		return nil, nil
 	}
+
 	result := make([]AccountBlock, len(blocks))
 	for key, value := range blocks {
 		result[key] = *LedgerAccBlockToRpc(value, nil)
@@ -143,14 +99,16 @@ func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int,
 	return result, nil
 }
 
-func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (GetAccountResponse, error) {
-	log.Info("GetAccountByAccAddr")
+func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
+	l.log.Info("GetAccountByAccAddr")
 
-	account, err := l.ledgerManager.Ac().GetAccount(&addr)
+	account, err := l.chain.GetAccount(&addr)
 	if err != nil {
-		return GetAccountResponse{}, err
+		l.log.Error("GetAccount failed, error is "+err.Error(), "method", "GetAccountByAccAddr")
+		return nil, err
 	}
 
+	//l.chain.GetLatestAccountBlock()
 	response := GetAccountResponse{}
 	if account == nil {
 		log.Error("account == nil")
