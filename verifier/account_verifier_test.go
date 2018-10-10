@@ -13,7 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
-	"github.com/vitelabs/go-vite/wallet"
 	"math/big"
 	"testing"
 	"time"
@@ -24,8 +23,6 @@ var (
 	pledgeAmount = new(big.Int).Mul(big.NewInt(10), attovPerVite)
 
 	genesisAccountPrivKeyStr string
-	genesisAccountPrivKey, _ = ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
-	genesisAccountPubKey     = genesisAccountPrivKey.PubByte()
 
 	addr1, privKey1, _ = types.CreateAddress()
 	addr1PrivKey, _    = ed25519.HexToPrivateKey(privKey1.Hex())
@@ -47,9 +44,7 @@ func PrepareVite() (chain.Chain, *AccountVerifier) {
 	c.Init()
 	c.Start()
 
-	w := wallet.New(nil)
-	v := NewAccountVerifier(c, nil, w.KeystoreManager)
-
+	v := NewAccountVerifier(c, nil)
 	return c, v
 }
 
@@ -174,7 +169,7 @@ func AddrGenesisReceiveMintage(c chain.Chain, v *AccountVerifier, sendBlock *led
 		preHash = &preAccountBlock.Hash
 	}
 	referredSnapshotBlock := c.GetLatestSnapshotBlock()
-	gen, err := generator.NewGenerator(v.chain, v.signer, &referredSnapshotBlock.Hash, preHash, &sendBlock.ToAddress)
+	gen, err := generator.NewGenerator(v.chain, &referredSnapshotBlock.Hash, preHash, &sendBlock.ToAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -210,6 +205,10 @@ func AddrGenesisReceiveMintage(c chain.Chain, v *AccountVerifier, sendBlock *led
 }
 
 func AddrGenesisSendPledge(c chain.Chain, v *AccountVerifier) (blocks []*vm_context.VmAccountBlock, err error) {
+
+	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
+	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
+
 	latestAccountBlock, _ := c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
 	latestSnapshotBlock := c.GetLatestSnapshotBlock()
 	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr1)
@@ -247,7 +246,7 @@ func AddrPledgeReceive(c chain.Chain, v *AccountVerifier, sendBlock *ledger.Acco
 		Producer:     types.Address{},
 	}
 
-	gen, err := generator.NewGenerator(v.chain, v.signer, &consensusMessage.SnapshotHash, nil, &sendBlock.ToAddress)
+	gen, err := generator.NewGenerator(v.chain, &consensusMessage.SnapshotHash, nil, &sendBlock.ToAddress)
 	if err != nil {
 		return nil, err
 	}

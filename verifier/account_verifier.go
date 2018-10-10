@@ -23,16 +23,14 @@ const (
 
 type AccountVerifier struct {
 	chain     Chain
-	signer    Signer
 	consensus Consensus
 
 	log log15.Logger
 }
 
-func NewAccountVerifier(chain Chain, consensus Consensus, signer Signer) *AccountVerifier {
+func NewAccountVerifier(chain Chain, consensus Consensus) *AccountVerifier {
 	return &AccountVerifier{
 		chain:     chain,
-		signer:    signer,
 		consensus: consensus,
 
 		log: log15.New("class", "AccountVerifier"),
@@ -76,7 +74,7 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 	if block.Height > 1 {
 		preHash = &block.PrevHash
 	}
-	gen, err := generator.NewGenerator(verifier.chain, verifier.signer, &block.SnapshotHash, preHash, &block.AccountAddress)
+	gen, err := generator.NewGenerator(verifier.chain, &block.SnapshotHash, preHash, &block.AccountAddress)
 	if err != nil {
 		return nil, err
 	}

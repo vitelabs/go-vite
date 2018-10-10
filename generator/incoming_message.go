@@ -16,7 +16,8 @@ type IncomingMessage struct {
 	FromBlockHash  *types.Hash
 
 	TokenId *types.TokenTypeId
-	Amount  big.Int
+	Amount  *big.Int
+	Fee     *big.Int
 	Nonce   []byte
 	Data    []byte
 }
@@ -25,17 +26,22 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 	switch {
 	case im.BlockType == ledger.BlockTypeSendCall:
 		block.BlockType = im.BlockType
+		block.FromBlockHash = types.Hash{}
+
+		block.Nonce = im.Nonce
+		block.Data = im.Data
 
 		if im.ToAddress != nil {
 			block.ToAddress = *im.ToAddress
 		} else {
 			return nil, errors.New("BlockTypeSendCall's ToAddress can't be nil")
 		}
-		block.FromBlockHash = types.Hash{}
 
-		block.Amount = &im.Amount
-		block.Nonce = im.Nonce
-		block.Data = im.Data
+		if im.Amount == nil {
+			block.Amount = big.NewInt(0)
+		} else {
+			block.Amount = im.Amount
+		}
 
 		if im.TokenId != nil {
 			block.TokenId = *im.TokenId
@@ -43,18 +49,42 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 			return nil, errors.New("BlockTypeSendCall's TokenId can't be nil")
 		}
 
+		if im.Fee == nil {
+			block.Fee = big.NewInt(0)
+		} else {
+			block.Fee = im.Fee
+		}
+
 	case im.BlockType == ledger.BlockTypeSendCreate:
 		block.BlockType = im.BlockType
+		block.FromBlockHash = types.Hash{}
+
+		block.Nonce = im.Nonce
 
 		if im.ToAddress != nil {
 			block.ToAddress = *im.ToAddress
 		} else {
 			return nil, errors.New("BlockTypeSendCall's ToAddress can't be nil")
 		}
-		block.FromBlockHash = types.Hash{}
 
-		block.Amount = &im.Amount
-		block.Nonce = im.Nonce
+		if im.Amount == nil {
+			block.Amount = big.NewInt(0)
+		} else {
+			block.Amount = im.Amount
+		}
+
+		// fixme
+		if im.TokenId != nil {
+			block.TokenId = *im.TokenId
+		} else {
+			block.TokenId = types.TokenTypeId{}
+		}
+
+		if im.Fee == nil {
+			block.Fee = big.NewInt(0)
+		} else {
+			block.Fee = im.Fee
+		}
 
 		if len(im.Data) > 0 {
 			block.Data = im.Data
@@ -62,29 +92,17 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 			return nil, errors.New("BlockTypeSendCreate's Data can't be nil")
 		}
 
-		if im.TokenId != nil {
-			block.TokenId = *im.TokenId
-		} else {
-			block.TokenId = types.TokenTypeId{}
-		}
-
 	default:
 		block.BlockType = ledger.BlockTypeReceive
-
 		block.ToAddress = types.Address{}
+
+		block.Nonce = im.Nonce
+		block.Data = im.Data
+
 		if im.FromBlockHash != nil {
 			block.FromBlockHash = *im.FromBlockHash
 		} else {
 			return nil, errors.New("BlockTypeReceive's FromBlockHash can't be nil")
-		}
-		block.Amount = &im.Amount
-		block.Nonce = im.Nonce
-		block.Data = im.Data
-
-		if im.TokenId != nil && len(*im.TokenId) > 0 {
-			block.TokenId = *im.TokenId
-		} else {
-			return nil, errors.New("BlockTypeReceive's TokenId can't be nil")
 		}
 	}
 	return block, err

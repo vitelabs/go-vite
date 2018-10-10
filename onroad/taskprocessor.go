@@ -139,10 +139,10 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		return
 	}
 
-	gen, err := generator.NewGenerator(tp.worker.manager.vite.Chain(), tp.worker.manager.vite.WalletManager().KeystoreManager,
+	gen, err := generator.NewGenerator(tp.worker.manager.vite.Chain(),
 		&tp.accEvent.SnapshotHash, nil, &sBlock.ToAddress)
 	if err != nil {
-		tp.log.Error("NewGenerator Error", err)
+		tp.log.Error("NewGenerator failed", "error", err)
 		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
@@ -155,11 +155,15 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
 	genResult, err := gen.GenerateWithOnroad(*sBlock, consensusMessage,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			return gen.Sign(addr, nil, data)
+			return tp.worker.manager.keystoreManager.SignData(addr, data)
 		})
-
 	if err != nil {
-		tp.log.Error("GenerateTx error ignore, ", "error", err)
+		tp.log.Error("GenerateWithOnroad failed", "error", err)
+		return
+	}
+
+	if genResult.Err != nil {
+		tp.log.Error("vm.Run error, ignore", genResult.Err)
 	}
 
 	if len(genResult.BlockGenList) > 0 {

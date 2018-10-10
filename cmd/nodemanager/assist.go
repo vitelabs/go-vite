@@ -1,6 +1,7 @@
 package nodemanager
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/node"
 	"os"
 	"os/signal"
@@ -11,6 +12,7 @@ import (
 func StartNode(node *node.Node) {
 
 	// Start the node
+	log.Info(fmt.Sprintf("Begin StartNode... "))
 	if err := node.Start(); err != nil {
 		log.Error("Error staring protocol node: %v", err)
 	}
@@ -21,8 +23,10 @@ func StartNode(node *node.Node) {
 		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 		defer signal.Stop(c)
 		<-c
-		log.Info("Got interrupt, shutting down...")
-		go node.Stop()
+		go func() {
+			log.Info(fmt.Sprintf("Begin StopNode..."))
+			node.Stop()
+		}()
 		for i := 10; i > 0; i-- {
 			<-c
 			if i > 1 {

@@ -2,20 +2,27 @@ package rpcapi
 
 import (
 	"github.com/vitelabs/go-vite/rpc"
+	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/vite"
 )
 
+func getApi(vite *vite.Vite, apiModule string) rpc.API {
+	switch apiModule {
+	case "ledger":
+		return rpc.API{
+			Namespace: "ledger",
+			Version:   "1.0",
+			Service:   api.NewLedgerApi(vite),
+			Public:    true,
+		}
+	default:
+		return rpc.API{}
+	}
+}
+
 func GetPublicApis(vite *vite.Vite) []rpc.API {
 
-	return []rpc.API{}
-	//
-	//ledgerApis := rpc.API{
-	//	Namespace: "ledger",
-	//	Version:   "1.0",
-	//	Service:   api.NewLedgerApi(vite),
-	//	Public:    true,
-	//}
-	//return []rpc.API{ledgerApis}
+	return []rpc.API{getApi(vite, "ledger")}
 	//
 	//p2pApis := rpc.API{
 	//	Namespace: "p2p",
@@ -47,15 +54,7 @@ func GetPublicApis(vite *vite.Vite) []rpc.API {
 }
 
 func GetAllApis(vite *vite.Vite) []rpc.API {
-	return []rpc.API{}
-
-	//ledgerApis := rpc.API{
-	//	Namespace: "ledger",
-	//	Version:   "1.0",
-	//	Service:   api.NewLedgerApi(vite),
-	//	Public:    true,
-	//}
-	//
+	return []rpc.API{getApi(vite, "ledger")}
 	//walletApis := rpc.API{
 	//	Namespace: "wallet",
 	//	Version:   "1.0",

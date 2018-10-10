@@ -14,8 +14,10 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
@@ -28,6 +30,8 @@ func (*testConsensus) Subscribe(gid types.Gid, id string, addr *types.Address, f
 func (*testConsensus) UnSubscribe(gid types.Gid, id string) {
 }
 
+var log = log15.New("module", "producerTest")
+
 var accountPrivKeyStr string
 
 func init() {
@@ -37,8 +41,98 @@ func init() {
 
 }
 
-func TestProducer_Init(t *testing.T) {
+func genConsensus(c chain.Chain, t *testing.T) consensus.Consensus {
 
+	genesis := chain.GenesisSnapshotBlock
+	cs := consensus.NewConsensus(*genesis.Timestamp, c)
+	err := cs.Init()
+	if err != nil {
+		t.Error(err)
+		panic(err)
+	}
+	cs.Start()
+	return cs
+}
+
+type testSubscriber struct {
+}
+
+func (*testSubscriber) SubscribeAccountBlock(fn net.AccountblockCallback) (subId int) {
+	panic("implement me")
+}
+
+func (*testSubscriber) UnsubscribeAccountBlock(subId int) {
+	panic("implement me")
+}
+
+func (*testSubscriber) SubscribeSnapshotBlock(fn net.SnapshotBlockCallback) (subId int) {
+	panic("implement me")
+}
+
+func (*testSubscriber) UnsubscribeSnapshotBlock(subId int) {
+	panic("implement me")
+}
+
+func (*testSubscriber) SubscribeSyncStatus(fn net.SyncStateCallback) (subId int) {
+	go func() {
+		time.Sleep(2 * time.Second)
+		fn(net.Syncdone)
+	}()
+	return 0
+}
+
+func (*testSubscriber) UnsubscribeSyncStatus(subId int) {
+
+}
+
+func TestSnapshot(t *testing.T) {
+	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
+	c.Init()
+	c.Start()
+
+	cs := genConsensus(c, t)
+
+	accountPrivKey, _ := ed25519.HexToPrivateKey(accountPrivKeyStr)
+	accountPubKey := accountPrivKey.PubByte()
+	coinbase := types.PubkeyToAddress(accountPubKey)
+
+	sv := verifier.NewSnapshotVerifier(c, cs)
+	w := wallet.New(nil)
+	av := verifier.NewAccountVerifier(c, cs, w.KeystoreManager)
+	p1 := pool.NewPool(c)
+	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
+
+	w.KeystoreManager.ImportPriv(accountPrivKeyStr, "123456")
+	w.KeystoreManager.Lock(coinbase)
+	w.KeystoreManager.Unlock(coinbase, "123456", 0)
+	log.Info("unlock address", "address", coinbase.String())
+	locked := w.KeystoreManager.IsUnLocked(coinbase)
+	if !locked {
+		t.Error("unlock failed.")
+		return
+	}
+
+	p1.Init(&pool.MockSyncer{}, w, sv, av)
+	p.Init()
+
+	cs.Subscribe(types.SNAPSHOT_GID, "snapshot_mock", &coinbase, func(e consensus.Event) {
+		log.Info("snapshot", "e", e)
+	})
+	p1.Start()
+	p.Start()
+
+	go func() {
+		for {
+			head := c.GetLatestSnapshotBlock()
+			log.Info("head info", "hash", head.Hash.String(), "height", head.Height)
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
+	make(chan int) <- 1
+}
+
+func TestProducer_Init(t *testing.T) {
 	accountPrivKey, _ := ed25519.HexToPrivateKey(accountPrivKeyStr)
 	accountPubKey := accountPrivKey.PubByte()
 	coinbase := types.PubkeyToAddress(accountPubKey)
@@ -50,7 +144,7 @@ func TestProducer_Init(t *testing.T) {
 	w := wallet.New(nil)
 	av := verifier.NewAccountVerifier(c, cs, w.KeystoreManager)
 	p1 := pool.NewPool(c)
-	p := NewProducer(c, nil, coinbase, cs, sv, w, p1)
+	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
 
 	w.KeystoreManager.ImportPriv(accountPrivKeyStr, "123456")
 	w.KeystoreManager.Lock(coinbase)

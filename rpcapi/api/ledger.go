@@ -1,13 +1,12 @@
 package api
 
 import (
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"strconv"
 )
 
 // !!! Block = Transaction = TX
@@ -22,9 +21,7 @@ func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 
 type LedgerApi struct {
 	chain chain.Chain
-	//signer        *signer.Master
-	//MintageCache map[types.TokenTypeId]*Mintage
-	log log15.Logger
+	log   log15.Logger
 }
 
 func (l LedgerApi) String() string {
@@ -82,21 +79,22 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int,
 }
 
 func (l *LedgerApi) GetUnconfirmedBlocksByAccAddr(addr types.Address, index int, count int) ([]AccountBlock, error) {
-	log.Info("GetUnconfirmedBlocksByAccAddr")
-
-	blocks, e := l.ledgerManager.Ac().GetUnconfirmedTxBlocks(index, 1, count, &addr)
-	if e != nil {
-		return nil, e
-	}
-	if len(blocks) == 0 {
-		return nil, nil
-	}
-
-	result := make([]AccountBlock, len(blocks))
-	for key, value := range blocks {
-		result[key] = *LedgerAccBlockToRpc(value, nil)
-	}
-	return result, nil
+	//log.Info("GetUnconfirmedBlocksByAccAddr")
+	//
+	//blocks, e := l.ledgerManager.Ac().GetUnconfirmedTxBlocks(index, 1, count, &addr)
+	//if e != nil {
+	//	return nil, e
+	//}
+	//if len(blocks) == 0 {
+	//	return nil, nil
+	//}
+	//
+	//result := make([]AccountBlock, len(blocks))
+	//for key, value := range blocks {
+	//	result[key] = *LedgerAccBlockToRpc(value, nil)
+	//}
+	//return result, nil
+	return nil, nil
 }
 
 func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
@@ -108,161 +106,125 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 		return nil, err
 	}
 
-	//l.chain.GetLatestAccountBlock()
-	response := GetAccountResponse{}
 	if account == nil {
-		log.Error("account == nil")
-		return response, nil
+		return nil, nil
 	}
 
-	if account.Address != nil {
-		response.Addr = *account.Address
-	}
-	if account.BlockHeight != nil {
-		response.BlockHeight = account.BlockHeight.String()
+	latestAccountBlock, err := l.chain.GetLatestAccountBlock(&addr)
+	if err != nil {
+		l.log.Error("GetLatestAccountBlock failed, error is "+err.Error(), "method", "GetAccountByAccAddr")
+		return nil, err
 	}
 
-	if len(account.TokenInfoList) != 0 {
-		var bs []BalanceInfo
-		bs = make([]BalanceInfo, len(account.TokenInfoList))
-		for i, v := range account.TokenInfoList {
-			amount := "0"
-			if v.TotalAmount != nil {
-				amount = v.TotalAmount.String()
-			}
-			bs[i] = BalanceInfo{
-				Mintage: rawMintageToRpc(v.Token),
-				Balance: amount,
-			}
+	totalNum := uint64(0)
+	if latestAccountBlock != nil {
+		totalNum = latestAccountBlock.Height
+	}
+
+	balanceMap, err := l.chain.GetAccountBalance(&addr)
+	if err != nil {
+		l.log.Error("GetAccountBalance failed, error is "+err.Error(), "method", "GetAccountByAccAddr")
+		return nil, err
+	}
+
+	tokenBalanceInfoMap := make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
+	for tokenId, amount := range balanceMap {
+		token := l.chain.GetTokenInfoById(&tokenId)
+		tokenBalanceInfoMap[tokenId] = &RpcTokenBalanceInfo{
+			TokenInfo:   RawTokenInfoToRpc(token),
+			TotalAmount: amount.String(),
+			Number:      nil,
 		}
-
-		response.BalanceInfos = bs
 	}
-	return response, nil
+
+	rpcAccount := &RpcAccountInfo{
+		AccountAddress:      account.AccountAddress,
+		TotalNumber:         strconv.FormatUint(totalNum, 10),
+		TokenBalanceInfoMap: tokenBalanceInfoMap,
+	}
+
+	return rpcAccount, nil
 }
 
-func (l *LedgerApi) GetUnconfirmedInfo(addr types.Address) (GetUnconfirmedInfoResponse, error) {
-	log.Info("GetUnconfirmedInfo")
+func (l *LedgerApi) GetUnconfirmedInfo(addr types.Address) error {
+	//log.Info("GetUnconfirmedInfo")
+	//
+	//account, e := l.ledgerManager.Ac().GetUnconfirmedAccount(&addr)
+	//if e != nil {
+	//	log.Error(e.Error())
+	//	return GetUnconfirmedInfoResponse{}, e
+	//}
+	//
+	//response := GetUnconfirmedInfoResponse{}
+	//
+	//if account == nil {
+	//	log.Error("account == nil")
+	//	return response, nil
+	//}
+	//
+	//if account.Address != nil {
+	//	response.Addr = *account.Address
+	//}
+	//if account.TotalNumber != nil {
+	//	response.UnConfirmedBlocksLen = account.TotalNumber.String()
+	//}
+	//
+	//if len(account.TokenInfoList) != 0 {
+	//	blances := make([]BalanceInfo, len(account.TokenInfoList))
+	//	for k, v := range account.TokenInfoList {
+	//		blances[k] = BalanceInfo{
+	//			Mintage: rawMintageToRpc(v.Token),
+	//			Balance: v.TotalAmount.String(),
+	//		}
+	//	}
+	//	response.BalanceInfos = blances
+	//
+	//}
 
-	account, e := l.ledgerManager.Ac().GetUnconfirmedAccount(&addr)
-	if e != nil {
-		log.Error(e.Error())
-		return GetUnconfirmedInfoResponse{}, e
-	}
-
-	response := GetUnconfirmedInfoResponse{}
-
-	if account == nil {
-		log.Error("account == nil")
-		return response, nil
-	}
-
-	if account.Address != nil {
-		response.Addr = *account.Address
-	}
-	if account.TotalNumber != nil {
-		response.UnConfirmedBlocksLen = account.TotalNumber.String()
-	}
-
-	if len(account.TokenInfoList) != 0 {
-		blances := make([]BalanceInfo, len(account.TokenInfoList))
-		for k, v := range account.TokenInfoList {
-			blances[k] = BalanceInfo{
-				Mintage: rawMintageToRpc(v.Token),
-				Balance: v.TotalAmount.String(),
-			}
-		}
-		response.BalanceInfos = blances
-
-	}
-
-	return response, nil
+	return nil
 
 }
 
-func (l *LedgerApi) GetInitSyncInfo() (InitSyncResponse, error) {
+func (l *LedgerApi) GetInitSyncInfo() error {
 	log.Info("GetInitSyncInfo")
-	i := l.ledgerManager.Sc().GetFirstSyncInfo()
+	//i := l.ledgerManager.Sc().GetFirstSyncInfo()
+	//
+	//r := InitSyncResponse{
+	//	StartHeight:      i.BeginHeight.String(),
+	//	TargetHeight:     i.TargetHeight.String(),
+	//	CurrentHeight:    i.CurrentHeight.String(),
+	//	IsFirstSyncDone:  i.IsFirstSyncDone,
+	//	IsStartFirstSync: i.IsFirstSyncStart,
+	//}
 
-	r := InitSyncResponse{
-		StartHeight:      i.BeginHeight.String(),
-		TargetHeight:     i.TargetHeight.String(),
-		CurrentHeight:    i.CurrentHeight.String(),
-		IsFirstSyncDone:  i.IsFirstSyncDone,
-		IsStartFirstSync: i.IsFirstSyncStart,
-	}
-
-	return r, nil
+	return nil
 }
 
-func (l *LedgerApi) GetSnapshotChainHeight() (string, error) {
-	log.Info("GetSnapshotChainHeight")
-	block, e := l.ledgerManager.Sc().GetLatestBlock()
-	if e != nil {
-		log.Error(e.Error())
-		return "", e
-	}
-	if block != nil && block.Height != nil {
-		return block.Height.String(), nil
-	}
-	return "", nil
+func (l *LedgerApi) GetSnapshotChainHeight() string {
+	l.log.Info("GetLatestSnapshotChainHeight")
+	return strconv.FormatUint(l.chain.GetLatestSnapshotBlock().Height, 10)
 }
 
-func (l *LedgerApi) GetLatestSnapshotChainHash() (*types.Hash, error) {
-	log.Info("GetLatestSnapshotChainHash")
-	block, e := l.ledgerManager.Sc().GetLatestBlock()
-	if e != nil {
-		log.Error(e.Error())
-		return nil, e
-	}
-	if block != nil && block.Hash != nil {
-		return block.Hash, nil
-	}
-	return nil, nil
+func (l *LedgerApi) GetLatestSnapshotChainHash() *types.Hash {
+	l.log.Info("GetLatestSnapshotChainHash")
+	return &l.chain.GetLatestSnapshotBlock().Hash
 }
 
-func (l *LedgerApi) GetLatestBlock(addr types.Address, needToken *bool) (*AccountBlock, error) {
-	log.Info("GetLatestBlock")
-	b, getError := l.ledgerManager.Ac().GetLatestBlock(&addr)
+func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
+	l.log.Info("GetLatestBlock")
+	block, getError := l.chain.GetLatestAccountBlock(&addr)
 	if getError != nil {
-		return nil, getError.Err
+		l.log.Error("GetLatestAccountBlock failed, error is "+getError.Error(), "method", "GetLatestBlock")
+		return nil, getError
 	}
-	return LedgerAccBlockToRpc(b, nil), nil
+
+	token := l.chain.GetTokenInfoById(&block.TokenId)
+	rpcBlock := createAccountBlock(block, token, 0)
+	return rpcBlock, nil
 }
 
-func (l *LedgerApi) SendTx(block *AccountBlock) error {
-	log.Info("SendTx")
-	if block == nil {
-		return errors.New("block nil")
-	}
-	accountBlock, e := block.ToLedgerAccBlock()
-	if e != nil {
-		return e
-	}
-	return l.ledgerManager.Ac().CreateTx(accountBlock)
-}
+func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*RpcTokenInfo, error) {
+	l.log.Info("GetTokenMintage")
+	return RawTokenInfoToRpc(l.chain.GetTokenInfoById(&tti)), nil
 
-func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*Mintage, error) {
-	log.Info("GetTokenMintage")
-	token, e := l.ledgerManager.Ac().GetToken(tti)
-	if e != nil {
-		return nil, e
-	}
-	if token.Mintage == nil {
-		return nil, errors.New("token.Mintage nil")
-	}
-	return rawMintageToRpc(token.Mintage), nil
-
-}
-
-//func (l *LedgerApi) StartAutoConfirmTx(addr []string, reply *string) error {
-//	return nil
-//}
-//
-//func (l *LedgerApi) StopAutoConfirmTx(addr []string, reply *string) error {
-//	return nil
-//}
-
-type PublicTxApi struct {
-	txApi *LedgerApi
 }
