@@ -7,7 +7,6 @@ import (
 
 	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -23,11 +22,13 @@ type snapshotVerifier struct {
 	v *verifier.SnapshotVerifier
 }
 
-func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) (result *poolSnapshotVerifyStat) {
+func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) *poolSnapshotVerifyStat {
+	result := &poolSnapshotVerifyStat{}
 	stat := self.v.VerifyReferred(block.block)
 	result.results = stat.Results()
 	result.result = stat.VerifyResult()
-	return
+	result.msg = stat.ErrMsg()
+	return result
 }
 func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock, refer *ledger.SnapshotBlock) bool {
 	return self.v.VerifyTimeout(current.Height, refer.Height)
@@ -36,7 +37,6 @@ func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock
 type accountVerifier struct {
 	v   *verifier.AccountVerifier
 	log log15.Logger
-	g   *generator.Generator
 }
 
 /**
@@ -51,7 +51,7 @@ func (self *accountVerifier) verifyAccount(b *accountPoolBlock) *poolAccountVeri
 
 	switch verifyResult {
 	case verifier.SUCCESS:
-		blocks, err := self.v.VerifyforVM(b.block, self.g)
+		blocks, err := self.v.VerifyforVM(b.block)
 		if err != nil {
 			result.result = verifier.FAIL
 			return result
@@ -102,13 +102,14 @@ type poolSnapshotVerifyStat struct {
 	results map[types.Address]verifier.VerifyResult
 	result  verifier.VerifyResult
 	task    verifyTask
+	msg     string
 }
 
 func (self *poolSnapshotVerifyStat) verifyResult() verifier.VerifyResult {
 	return self.result
 }
 func (self *poolSnapshotVerifyStat) errMsg() string {
-	return ""
+	return self.msg
 }
 func (self *poolAccountVerifyStat) task() verifyTask {
 	var result []fetchRequest

@@ -60,12 +60,12 @@ func (self *tools) generateSnapshot(e *consensus.Event) (*ledger.SnapshotBlock, 
 }
 func (self *tools) insertSnapshot(block *ledger.SnapshotBlock) error {
 	// todo insert pool ?? dead lock
-	return nil
+	return self.pool.AddDirectSnapshotBlock(block)
 }
 
-func newChainRw(ch chain.Chain, sVerifier *verifier.SnapshotVerifier, wt *wallet.Manager) *tools {
+func newChainRw(ch chain.Chain, sVerifier *verifier.SnapshotVerifier, wt *wallet.Manager, p pool.SnapshotProducerWriter) *tools {
 	log := log15.New("module", "tools")
-	return &tools{chain: ch, log: log, sVerifier: sVerifier, wt: wt}
+	return &tools{chain: ch, log: log, sVerifier: sVerifier, wt: wt, pool: p}
 }
 
 func (self *tools) checkAddressLock(address types.Address) bool {
@@ -87,7 +87,7 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 	// todo get block
 	needSnapshotAccounts = self.chain.GetNeedSnapshotContent()
 
-	var finalAccounts ledger.SnapshotContent
+	var finalAccounts = make(map[types.Address]*ledger.HashHeight)
 
 	for k, b := range needSnapshotAccounts {
 		err := self.sVerifier.VerifyAccountTimeout(k, head.Height+1)

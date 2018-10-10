@@ -225,7 +225,7 @@ func (c *chain) Stop() {
 	c.log.Info("Chain module stopped")
 }
 
-func (c *chain) destroy() {
+func (c *chain) Destroy() {
 	c.log.Info("Destroy chain module")
 	// stateTriePool
 	c.stateTriePool = nil

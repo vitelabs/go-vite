@@ -2,6 +2,9 @@ package verifier
 
 import (
 	"bytes"
+	"math/big"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -11,8 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
-	"time"
 )
 
 const (
@@ -21,19 +22,21 @@ const (
 )
 
 type AccountVerifier struct {
-	chain           Chain
-	consensusReader Consensus
+	chain     Chain
+	signer    Signer
+	consensus Consensus
 
 	log log15.Logger
 }
 
-func NewAccountVerifier(chain Chain, consensus Consensus) *AccountVerifier {
-	verifier := &AccountVerifier{
-		chain:           chain,
-		consensusReader: consensus,
-		log:             log15.New("class", "AccountVerifier"),
+func NewAccountVerifier(chain Chain, consensus Consensus, signer Signer) *AccountVerifier {
+	return &AccountVerifier{
+		chain:     chain,
+		signer:    signer,
+		consensus: consensus,
+
+		log: log15.New("class", "AccountVerifier"),
 	}
-	return verifier
 }
 
 func (verifier *AccountVerifier) newVerifyStat() *AccountBlockVerifyStat {
@@ -50,7 +53,7 @@ func (verifier *AccountVerifier) VerifyforP2P(block *ledger.AccountBlock) bool {
 	return true
 }
 
-func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock, gen *generator.Generator) (blocks []*vm_context.VmAccountBlock, err error) {
+func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock) (blocks []*vm_context.VmAccountBlock, err error) {
 	defer monitor.LogTime("verify", "VerifyforRPC", time.Now())
 	if verifier.VerifyTimeNotYet(block) {
 		return nil, errors.New("VerifyTimeNotYet failed")
@@ -63,24 +66,27 @@ func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock, gen *g
 		return nil, errors.New("VerifyReferred failed")
 	}
 	// fixme: whether to do pool-insert, distinguish common and contract
-	return verifier.VerifyforVM(block, gen)
+	return verifier.VerifyforVM(block)
 }
 
-func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock, gen *generator.Generator) (blocks []*vm_context.VmAccountBlock, err error) {
+func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks []*vm_context.VmAccountBlock, err error) {
 	defer monitor.LogTime("verify", "VerifyforVM", time.Now())
 
 	var preHash *types.Hash
-	if block.Height == 1 {
-		preHash = nil
-	} else {
+	if block.Height > 1 {
 		preHash = &block.PrevHash
 	}
-	if err = gen.PrepareVm(&block.SnapshotHash, preHash, &block.AccountAddress); err != nil {
+	gen, err := generator.NewGenerator(verifier.chain, verifier.signer, &block.SnapshotHash, preHash, &block.AccountAddress)
+	if err != nil {
 		return nil, err
 	}
-	genResult := gen.GenerateWithBlock(block, nil)
+
+	genResult, err := gen.GenerateWithBlock(block, nil)
+	if err != nil {
+		return nil, errors.New("GenerateWithBlock failed")
+	}
 	if len(genResult.BlockGenList) == 0 {
-		return nil, errors.New("VerifyforVM failed")
+		return nil, errors.New("genResult is empty")
 	}
 	if err := verifier.verifyVMResult(block, genResult.BlockGenList[0].AccountBlock); err != nil {
 		return nil, err
@@ -172,7 +178,7 @@ func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlo
 	}
 	if code == ledger.AccountTypeContract {
 		if block.IsReceiveBlock() {
-			if conErr := verifier.consensusReader.VerifyAccountProducer(block); conErr != nil {
+			if result, conErr := verifier.consensus.VerifyAccountProducer(block); conErr != nil && result {
 				errMsg = errors.New("the block producer is illegal")
 				verifier.log.Error(errMsg.Error(), "error", conErr)
 				return FAIL, errMsg

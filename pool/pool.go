@@ -8,7 +8,6 @@ import (
 
 	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
@@ -44,6 +43,7 @@ type PoolReader interface {
 type BlockPool interface {
 	PoolWriter
 	PoolReader
+	SnapshotProducerWriter
 	Start()
 	Stop()
 	Init(s syncer,
@@ -206,7 +206,7 @@ func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) {
 func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 	cBlock := newSnapshotPoolBlock(block, self.version)
 	err := self.pendingSc.AddDirectBlock(cBlock)
-	if err != nil {
+	if err == nil {
 		self.pendingSc.f.broadcastBlock(block)
 	}
 	return err
@@ -230,7 +230,7 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 	ac := self.selfPendingAc(address)
 	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version)
 	err := ac.AddDirectBlocks(cBlock, nil)
-	if err != nil {
+	if err == nil {
 		ac.f.broadcastBlock(block.AccountBlock)
 	}
 	self.accountCond.L.Lock()
@@ -355,7 +355,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	// lazy load
 	rw := &accountCh{address: addr, rw: self.bc, version: self.version}
 	f := &accountSyncer{address: addr, fetcher: self.sync}
-	v := &accountVerifier{v: self.accountVerifier, log: self.log.New(), g: generator.NewGenerator(self.bc, self.wt.KeystoreManager)}
+	v := &accountVerifier{v: self.accountVerifier, log: self.log.New()}
 	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.log)
 
 	p.Init(newTools(f, rw), self, v)

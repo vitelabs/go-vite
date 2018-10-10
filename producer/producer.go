@@ -12,8 +12,10 @@ import (
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
@@ -63,25 +65,28 @@ type producer struct {
 	coinbase             types.Address // address
 	worker               *worker
 	cs                   consensus.Subscriber
-	downloaderRegister   DownloaderRegister
+	subscriber           net.Subscriber
 	downloaderRegisterCh chan int
 	dwlFinished          bool
 	accountFn            func(producerevent.AccountEvent)
+	syncState            net.SyncState
+	netSyncId            int
 }
 
 // todo syncDone
 func NewProducer(rw chain.Chain,
-	downloaderRegister DownloaderRegister,
+	subscriber net.Subscriber,
 	coinbase types.Address,
 	cs consensus.Subscriber,
 	verifier *verifier.SnapshotVerifier,
-	wt *wallet.Manager) *producer {
-	chain := newChainRw(rw, verifier, wt)
+	wt *wallet.Manager,
+	p pool.SnapshotProducerWriter) *producer {
+	chain := newChainRw(rw, verifier, wt, p)
 	miner := &producer{tools: chain, coinbase: coinbase}
 
 	miner.cs = cs
 	miner.worker = newWorker(chain, coinbase)
-	miner.downloaderRegister = downloaderRegister
+	miner.subscriber = subscriber
 	miner.downloaderRegisterCh = make(chan int)
 	miner.dwlFinished = false
 	return miner
@@ -117,9 +122,21 @@ func (self *producer) Start() error {
 	snapshotId := self.coinbase.String() + "_snapshot"
 	contractId := self.coinbase.String() + "_contract"
 
-	self.cs.Subscribe(types.SNAPSHOT_GID, snapshotId, &self.coinbase, self.worker.produceSnapshot)
-	self.cs.Subscribe(types.DELEGATE_GID, contractId, &self.coinbase, self.producerContract)
+	self.cs.Subscribe(types.SNAPSHOT_GID, snapshotId, &self.coinbase, func(e consensus.Event) {
+		if self.syncState == net.Syncdone {
+			self.worker.produceSnapshot(e)
+		}
+	})
+	self.cs.Subscribe(types.DELEGATE_GID, contractId, &self.coinbase, func(e consensus.Event) {
+		if self.syncState == net.Syncdone {
+			self.producerContract(e)
+		}
+	})
 
+	id := self.subscriber.SubscribeSyncStatus(func(state net.SyncState) {
+		self.syncState = state
+	})
+	self.netSyncId = id
 	return nil
 }
 
@@ -134,6 +151,9 @@ func (self *producer) Stop() error {
 
 	self.cs.UnSubscribe(types.SNAPSHOT_GID, snapshotId)
 	self.cs.UnSubscribe(types.DELEGATE_GID, contractId)
+
+	self.subscriber.UnsubscribeSyncStatus(self.netSyncId)
+	self.netSyncId = 0
 
 	err := self.worker.Stop()
 	if err != nil {

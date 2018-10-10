@@ -86,6 +86,6 @@ func (testVite) AddDirectAccountBlocks(address types.Address, received *vm_conte
 	return nil
 }
 
-func (testVite) VerifyAccountProducer(block *ledger.AccountBlock) error {
-	return nil
+func (testVite) VerifyAccountProducer(block *ledger.AccountBlock) (bool, error) {
+	return false, nil
 }

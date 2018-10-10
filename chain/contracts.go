@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"bytes"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
@@ -9,17 +10,28 @@ import (
 	"math/big"
 )
 
-// TODO
 func (c *chain) GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error) {
 	if block == nil {
 		return nil, nil
 	}
 
-	return nil, nil
+	return c.GetContractGid(&block.AccountAddress)
 }
 
-// TODO cache + inner contract
+// TODO cache
 func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
+	if addr == nil {
+		return nil, nil
+	}
+
+	if bytes.Equal(addr.Bytes(), contracts.AddressRegister.Bytes()) ||
+		bytes.Equal(addr.Bytes(), contracts.AddressVote.Bytes()) ||
+		bytes.Equal(addr.Bytes(), contracts.AddressPledge.Bytes()) ||
+		bytes.Equal(addr.Bytes(), contracts.AddressConsensusGroup.Bytes()) ||
+		bytes.Equal(addr.Bytes(), contracts.AddressMintage.Bytes()) {
+		return &types.DELEGATE_GID, nil
+	}
+
 	account, getAccountErr := c.chainDb.Account.GetAccountByAddress(addr)
 	if getAccountErr != nil {
 

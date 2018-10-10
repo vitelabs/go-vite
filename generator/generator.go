@@ -14,11 +14,11 @@ import (
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
 type Generator struct {
-	vm        vm.VM
-	vmContext vmctxt_interface.VmDatabase
-
 	chain  Chain
 	signer Signer
+
+	vm        vm.VM
+	vmContext vmctxt_interface.VmDatabase
 
 	log log15.Logger
 }
@@ -29,22 +29,21 @@ type GenResult struct {
 	Err          error
 }
 
-func NewGenerator(chain Chain, wSigner Signer) *Generator {
-	return &Generator{
+func NewGenerator(chain Chain, signer Signer, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
+	gen := &Generator{
 		chain:  chain,
-		signer: wSigner,
-		log:    log15.New("module", "Generator"),
-	}
-}
+		signer: signer,
 
-func (gen *Generator) PrepareVm(snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) error {
-	vmContext, err := vm_context.NewVmContext(gen.chain, snapshotBlockHash, prevBlockHash, addr)
-	if err != nil {
-		return err
+		log: log15.New("module", "Generator"),
 	}
+	vmContext, err := vm_context.NewVmContext(chain, snapshotBlockHash, prevBlockHash, addr)
+	if err != nil {
+		return nil, err
+	}
+
 	gen.vmContext = vmContext
 	gen.vm = *vm.NewVM()
-	return nil
+	return gen, nil
 }
 
 func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc SignFunc) (*GenResult, error) {
@@ -67,14 +66,12 @@ func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensu
 	return gen.generateBlock(block, &sendBlock, signFunc), nil
 }
 
-func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc SignFunc) *GenResult {
-	//gen.log.Info("generateBlock", "SourceType")
-
+func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc SignFunc) (*GenResult, error) {
 	var sendBlock *ledger.AccountBlock = nil
 	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
 		sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash)
 	}
-	return gen.generateBlock(block, sendBlock, signFunc)
+	return gen.generateBlock(block, sendBlock, signFunc), nil
 }
 
 func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, signFunc SignFunc) *GenResult {

@@ -105,13 +105,15 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccoun
 	r.AccountAddress = *onroadInfo.AccountAddress
 	r.TotalNumber = string(onroadInfo.TotalNumber)
 	r.TokenBalanceInfoMap = make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
+
 	for tti, v := range onroadInfo.TokenBalanceInfoMap {
 		if v != nil {
+			number := strconv.FormatUint(v.Number, 10)
 			tinfo := chain.GetTokenInfoById(&tti)
 			b := &RpcTokenBalanceInfo{
 				TokenInfo:   RawTokenInfoToRpc(tinfo),
 				TotalAmount: v.TotalAmount.String(),
-				Number:      strconv.FormatUint(v.Number, 10),
+				Number:      &number,
 			}
 			r.TokenBalanceInfoMap[tti] = b
 		}

@@ -20,6 +20,7 @@ type ch interface {
 	GetVoteMap(snapshotHash types.Hash, gid types.Gid) []*contracts.VoteInfo                                                       // 获取候选人的投票
 	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) map[types.Address]*big.Int // 获取所有用户的余额
 	GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
+	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
 }
 type chainRw struct {
 	rw ch
@@ -31,7 +32,7 @@ type Vote struct {
 	balance *big.Int
 }
 
-func (self *chainRw) CalVotes(gid types.Gid, t time.Time) ([]*Vote, *ledger.HashHeight, error) {
+func (self *chainRw) CalVotes(gid types.Gid, info *membersInfo, t time.Time) ([]*Vote, *ledger.HashHeight, error) {
 	block, e := self.rw.GetSnapshotBlockBeforeTime(&t)
 
 	if e != nil {
@@ -51,28 +52,22 @@ func (self *chainRw) CalVotes(gid types.Gid, t time.Time) ([]*Vote, *ledger.Hash
 	// query vote info
 	votes := self.rw.GetVoteMap(head.Hash, gid)
 
-	voteMap := toMap(votes)
-
 	var registers []*Vote
 
 	// cal candidate
 	for _, v := range registerList {
-		_, ok := voteMap[v.Name]
-		if ok {
-			registers = append(registers, self.GenVote(head.Hash, v, votes))
-		}
+		registers = append(registers, self.GenVote(head.Hash, v, votes, info.countingTokenId))
 	}
 	return registers, &ledger.HashHeight{Height: head.Height, Hash: head.Hash}, nil
 }
-func (self *chainRw) GenVote(snapshotHash types.Hash, registration *contracts.Registration, infos []*contracts.VoteInfo) *Vote {
+func (self *chainRw) GenVote(snapshotHash types.Hash, registration *contracts.Registration, infos []*contracts.VoteInfo, id types.TokenTypeId) *Vote {
 	var addrs []types.Address
 	for _, v := range infos {
 		if v.NodeName == registration.Name {
 			addrs = append(addrs, v.VoterAddr)
 		}
 	}
-	// todo vitetokenId -->>>
-	balanceMap := self.rw.GetBalanceList(snapshotHash, ledger.ViteTokenId, addrs)
+	balanceMap := self.rw.GetBalanceList(snapshotHash, id, addrs)
 
 	result := &Vote{balance: big.NewInt(0), name: registration.Name, addr: registration.NodeAddr}
 	for _, v := range balanceMap {
@@ -88,15 +83,22 @@ func (self *chainRw) GetMemberInfo(gid types.Gid, genesis time.Time) *membersInf
 	for _, v := range consensusGroupList {
 		if v.Gid == gid {
 			result = &membersInfo{
-				genesisTime: genesis,
-				interval:    int32(v.Interval),
-				memberCnt:   int32(v.NodeCount),
-				seed:        new(big.Int).SetBytes(v.Gid.Bytes()),
-				perCnt:      int32(v.PerCount),
-				randCnt:     int32(v.RandCount),
-				randRange:   int32(v.RandRank),
+				genesisTime:     genesis,
+				interval:        int32(v.Interval),
+				memberCnt:       int32(v.NodeCount),
+				seed:            new(big.Int).SetBytes(v.Gid.Bytes()),
+				perCnt:          int32(v.PerCount),
+				randCnt:         int32(v.RandCount),
+				randRange:       int32(v.RandRank),
+				countingTokenId: v.CountingTokenId,
 			}
 		}
 	}
+
 	return result
+}
+
+func (self *chainRw) getGid(block *ledger.AccountBlock) (types.Gid, error) {
+	gid, e := self.rw.GetContractGidByAccountBlock(block)
+	return *gid, e
 }

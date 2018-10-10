@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	TRIE_FULL_NODE = byte(iota)
+	TRIE_UNKNOW_NODE = byte(iota)
+	TRIE_FULL_NODE
 	TRIE_SHORT_NODE
 	TRIE_VALUE_NODE
 	TRIE_HASH_NODE
@@ -20,8 +21,8 @@ type TrieNode struct {
 	nodeType byte
 
 	// fullNode
-	children         map[byte]*TrieNode
-	childrenReadLock sync.Mutex
+	children        map[byte]*TrieNode
+	childrenSetLock sync.RWMutex
 
 	// shortNode
 	key   []byte
@@ -72,12 +73,35 @@ func NewValueNode(value []byte) *TrieNode {
 	return node
 }
 
+func (trieNode *TrieNode) AtomicComplete(completeFunc func()) {
+	trieNode.childrenSetLock.Lock()
+	defer trieNode.childrenSetLock.Unlock()
+
+	if trieNode.nodeType == TRIE_FULL_NODE {
+		for _, child := range trieNode.children {
+			if child.nodeType == TRIE_UNKNOW_NODE {
+				completeFunc()
+			}
+			return
+		}
+	}
+}
+
 func (trieNode *TrieNode) Copy(copyHash bool) *TrieNode {
+	trieNode.childrenSetLock.RLock()
+	defer trieNode.childrenSetLock.RUnlock()
+
 	newNode := &TrieNode{
 		nodeType: trieNode.nodeType,
-		children: trieNode.children,
 
 		child: trieNode.child,
+	}
+
+	if trieNode.children != nil {
+		newNode.children = make(map[byte]*TrieNode)
+		for key, child := range trieNode.children {
+			newNode.children[key] = child
+		}
 	}
 
 	newNode.key = make([]byte, len(trieNode.key))
