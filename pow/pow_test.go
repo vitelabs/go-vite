@@ -11,37 +11,23 @@ import (
 	"math"
 	"testing"
 	"time"
-	"sync"
 )
 
 func TestGetPowNonce(t *testing.T) {
-	N := 10
-	breaker := make(chan struct{})
+	N := 30
 	data := crypto.Hash256([]byte{1})
-	mutex := sync.Mutex{}
 	timeList := make([]int64, N)
 	for i := 0; i < N; i++ {
-		go func(i int) {
-			select {
-			case <-breaker:
-			default:
-				startTime := time.Now()
-				nonce := pow.GetPowNonce(nil, types.DataHash([]byte{1}))
-				assert.True(t, pow.CheckPowNonce(nil, nonce, data))
-				d := time.Now().Sub(startTime).Nanoseconds()
-				fmt.Println("#", i, ":", d/1e6, "ms", "nonce", nonce)
-				mutex.Lock()
-				timeList[i] = d
-				mutex.Unlock()
-				close(breaker)
-			}
-		}(i)
-
+		startTime := time.Now()
+		nonce := pow.GetPowNonce(nil, types.DataHash([]byte{1}))
+		assert.True(t, pow.CheckPowNonce(nil, nonce, data))
+		d := time.Now().Sub(startTime).Nanoseconds()
+		fmt.Println("#", i, ":", d/1e6, "ms", "nonce", nonce)
+		timeList[i] = d
 	}
-	<-breaker
 
 	max, min, timeSum, average, std := statistics(timeList)
-	fmt.Println("average", average, "max", max, "min", min, "sum", timeSum, "standard deviation", std)
+	fmt.Println("average", average/1e6, "ms max", max/1e6, "ms min", min/1e6, "sum", timeSum/1e6, "standard deviation", std)
 }
 
 func statistics(data []int64) (timeMax, timeMin, timeSum int64, average, std float64) {
