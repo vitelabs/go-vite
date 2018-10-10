@@ -36,7 +36,7 @@ func PrepareVite() (chain.Chain, *verifier.AccountVerifier, pool.BlockPool) {
 
 	w := wallet.New(nil)
 
-	v := verifier.NewAccountVerifier(c, nil, w.KeystoreManager)
+	v := verifier.NewAccountVerifier(c, nil)
 
 	p := pool.NewPool(c)
 
