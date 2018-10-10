@@ -252,7 +252,7 @@ func copyMap(m *sync.Map) map[string]*subscribeEvent {
 }
 
 func (self *committee) event(e *subscribeEvent, result *electionResult) {
-	self.wg.Done()
+	self.wg.Add(1)
 	defer self.wg.Done()
 	if e.addr == nil {
 		// all

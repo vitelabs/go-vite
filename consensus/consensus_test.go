@@ -55,6 +55,7 @@ func TestCommittee_ReadByTime(t *testing.T) {
 	}
 	for k, v := range snapshotR {
 		t.Log(types.SNAPSHOT_GID, k, v, err)
+		t.Log(v.SnapshotHash.String())
 	}
 
 	if len(contractR)*3 != len(snapshotR) {
