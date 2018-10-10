@@ -25,3 +25,5 @@ vite.p2p.db
 
 build/
 
+
+node_config.json
