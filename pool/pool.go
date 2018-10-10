@@ -15,7 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/keystore"
-	"github.com/viteshan/naive-vite/common/face"
 )
 
 type PoolWriter interface {
@@ -46,7 +45,6 @@ type BlockPool interface {
 	PoolReader
 	Start()
 	Stop()
-	// todo need use subscribe net
 	Init(s syncer)
 	Info(addr *types.Address) string
 }
@@ -351,7 +349,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	v := &accountVerifier{}
 	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.log)
 
-	p.Init(newTools(f, v, rw), self)
+	p.Init(newTools(f, rw), self, v)
 
 	chain, _ = self.pendingAc.LoadOrStore(addr, p)
 	return chain.(*accountPool)
@@ -499,29 +497,31 @@ func (self *pool) accountsCompact() int {
 	}
 	return sum
 }
-func (self *pool) fetchForTask(task verifyTask) []*face.FetchRequest {
+func (self *pool) fetchForTask(task verifyTask) {
 	reqs := task.requests()
 	if len(reqs) <= 0 {
-		return nil
+		return
 	}
 	// if something in pool, deal with it.
-	var existReqs []*face.FetchRequest
 	for _, r := range reqs {
 		exist := false
-		//if r.Chain == "" {
-		//	exist = self.pendingSc.ExistInCurrent(r)
-		//} else {
-		//	exist = self.selfPendingAc(r.Chain).ExistInCurrent(r)
-		//}
-
-		if !exist {
-			self.sync.Fetch(r)
+		if r.snapshot {
+			exist = self.pendingSc.existInPool(r.hash)
 		} else {
+			exist = self.selfPendingAc(*r.chain).existInPool(r.hash)
+		}
+		if exist {
 			self.log.Info(fmt.Sprintf("block[%s] exist, should not fetch.", r.String()))
-			existReqs = append(existReqs, &r)
+			continue
+		}
+
+		if r.snapshot {
+			self.pendingSc.f.fetchByHash(r.hash, 5)
+		} else {
+			self.selfPendingAc(*r.chain).f.fetchByHash(r.hash, 5)
 		}
 	}
-	return existReqs
+	return
 }
 func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 	headSnapshot := self.pendingSc.rw.headSnapshot()
