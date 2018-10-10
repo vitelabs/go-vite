@@ -98,7 +98,7 @@ func (c *Config) makeP2PConfig() *p2p.Config {
 		MaxPendingPeers: c.MaxPendingPeers,
 		MaxInboundRatio: c.MaxPassivePeersRatio,
 		Port:            c.Port,
-		DataDir:         c.DataDir,
+		DataDir:         filepath.Join(c.DataDir, p2p.Dirname),
 		PrivateKey:      c.PrivateKey(),
 		//Protocols:nil,
 		BootNodes: c.bootNodes,
