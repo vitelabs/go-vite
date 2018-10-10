@@ -70,7 +70,7 @@ func (w *AutoReceiveWorker) Start() {
 		// awake it in order to run at least once
 		w.NewOnroadTxAlarm()
 	}
-	w.log.Info("end start")
+	w.log.Info("end start()")
 }
 
 func (w *AutoReceiveWorker) Stop() {
@@ -115,6 +115,10 @@ LOOP:
 
 		tx := w.onroadBlocksPool.GetNextCommonTx(w.address)
 		if tx != nil {
+			if len(w.filters) == 0 {
+				w.ProcessOneBlock(tx)
+				continue
+			}
 			minAmount, ok := w.filters[tx.TokenId]
 			if !ok || tx.Amount.Cmp(&minAmount) < 0 {
 				continue
@@ -124,6 +128,7 @@ LOOP:
 		}
 
 		w.isSleeping = true
+		w.log.Debug("start sleep")
 		select {
 		case <-w.newOnroadTxAlarm:
 			w.log.Info("start awake")
