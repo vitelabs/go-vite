@@ -38,6 +38,7 @@ type Chain interface {
 	Compressor() *compress.Compressor
 	ChainDb() *chain_db.ChainDb
 	Start()
+	Destroy()
 	Stop()
 	GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
 	GetNeedSnapshotContent() ledger.SnapshotContent

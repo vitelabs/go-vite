@@ -25,8 +25,5 @@ func newOnroadBlocksPool() *OnroadBlocksPool {
 }
 
 func TestOnroadBlocksPool_AcquireFullOnroadBlocksCache(t *testing.T) {
-	pool := newOnroadBlocksPool()
-
-	pool.AcquireFullOnroadBlocksCache()
 
 }
