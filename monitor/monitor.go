@@ -165,6 +165,7 @@ func loop() {
 				c := tmpM.Cnt
 				s := tmpM.Sum
 				key := k.(string)
+				// groupName  and metricName
 				groupAndName := strings.Split(key, "-")
 				logger.Info("", "group", groupAndName[0], "interval", 1, "name", groupAndName[1],
 					"metric-cnt", c,
