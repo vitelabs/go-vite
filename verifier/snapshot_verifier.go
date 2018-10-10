@@ -174,13 +174,6 @@ type SnapshotBlockVerifyStat struct {
 	snapshotTask *SnapshotPendingTask
 }
 
-func (self *SnapshotBlockVerifyStat) AccountTasks() []*AccountPendingTask {
-	return nil
-}
-func (self *SnapshotBlockVerifyStat) SnapshotTask() []*SnapshotPendingTask {
-	return nil
-}
-
 func (self *SnapshotBlockVerifyStat) ErrMsg() string {
 	return self.errMsg
 }
