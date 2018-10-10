@@ -16,7 +16,7 @@ import (
 
 type tools struct {
 	log       log15.Logger
-	wt        wallet.Manager
+	wt        *wallet.Manager
 	pool      pool.SnapshotProducerWriter
 	chain     chain.Chain
 	sVerifier *verifier.SnapshotVerifier
@@ -63,9 +63,9 @@ func (self *tools) insertSnapshot(block *ledger.SnapshotBlock) error {
 	return nil
 }
 
-func newChainRw(ch chain.Chain) *tools {
+func newChainRw(ch chain.Chain, sVerifier *verifier.SnapshotVerifier, wt *wallet.Manager) *tools {
 	log := log15.New("module", "tools")
-	return &tools{chain: ch, log: log}
+	return &tools{chain: ch, log: log, sVerifier: sVerifier, wt: wt}
 }
 
 func (self *tools) checkAddressLock(address types.Address) bool {

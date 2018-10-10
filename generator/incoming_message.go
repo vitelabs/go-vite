@@ -81,7 +81,6 @@ func (im *IncomingMessage) ToBlock() (block *ledger.AccountBlock, err error) {
 		block.Nonce = im.Nonce
 		block.Data = im.Data
 
-		// fixme
 		if im.TokenId != nil && len(*im.TokenId) > 0 {
 			block.TokenId = *im.TokenId
 		} else {

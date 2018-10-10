@@ -20,7 +20,7 @@ type verifyTask interface {
 }
 
 type snapshotVerifier struct {
-	v verifier.SnapshotVerifier
+	v *verifier.SnapshotVerifier
 }
 
 func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) (result *poolSnapshotVerifyStat) {
@@ -34,7 +34,7 @@ func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock
 }
 
 type accountVerifier struct {
-	v   verifier.AccountVerifier
+	v   *verifier.AccountVerifier
 	log log15.Logger
 	g   *generator.Generator
 }
@@ -42,7 +42,8 @@ type accountVerifier struct {
 /**
 if b is contract send block, result must be FAIL.
 */
-func (self *accountVerifier) verifyAccount(b *accountPoolBlock) (result *poolAccountVerifyStat) {
+func (self *accountVerifier) verifyAccount(b *accountPoolBlock) *poolAccountVerifyStat {
+	result := &poolAccountVerifyStat{}
 	// todo how to fix for stat
 	verifyResult, stat := self.v.VerifyReferred(b.block)
 	result.result = verifyResult
@@ -53,22 +54,22 @@ func (self *accountVerifier) verifyAccount(b *accountPoolBlock) (result *poolAcc
 		blocks, err := self.v.VerifyforVM(b.block, self.g)
 		if err != nil {
 			result.result = verifier.FAIL
-			return
+			return result
 		}
 		var bs []*accountPoolBlock
 		for _, v := range blocks {
 			bs = append(bs, newAccountPoolBlock(v.AccountBlock, v.VmContext, b.v))
 		}
 		result.blocks = bs
-		return
+		return result
 	case verifier.PENDING:
 		// todo
-		return
+		return result
 	case verifier.FAIL:
-		return
+		return result
 	}
 
-	return
+	return result
 }
 func (self *accountVerifier) newSuccessTask() verifyTask {
 	return successT

@@ -78,9 +78,7 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock, gen *ge
 	if err = gen.PrepareVm(&block.SnapshotHash, preHash, &block.AccountAddress); err != nil {
 		return nil, err
 	}
-	genResult := gen.GenerateWithBlock(block, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-		return gen.Sign(addr, nil, data)
-	})
+	genResult := gen.GenerateWithBlock(block, nil)
 	if len(genResult.BlockGenList) == 0 {
 		return nil, errors.New("VerifyforVM failed")
 	}
@@ -103,9 +101,13 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 	if !bytes.Equal(origBlock.Data, genBlock.Data) {
 		return errors.New("verify Data failed")
 	}
-	if *origBlock.LogHash != *genBlock.LogHash {
+	if (origBlock.LogHash == nil && genBlock.LogHash != nil) || (origBlock.LogHash != nil && genBlock.LogHash == nil) {
 		return errors.New("verify LogHash failed")
 	}
+	if origBlock.LogHash != nil && genBlock.LogHash != nil && *origBlock.LogHash != *genBlock.LogHash {
+		return errors.New("verify LogHash failed")
+	}
+
 	return nil
 }
 

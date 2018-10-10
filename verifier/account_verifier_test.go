@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/wallet"
 	"math/big"
@@ -36,6 +37,8 @@ func PrepareVite() (chain.Chain, *generator.Generator, *AccountVerifier) {
 
 	v := NewAccountVerifier(c, nil)
 
+	//p := pool.NewPool(c)
+
 	return c, g, v
 }
 
@@ -60,14 +63,16 @@ func TestAccountVerifier_VerifyforRPC(t *testing.T) {
 		Timestamp:      c.GetLatestSnapshotBlock().Timestamp,
 		PublicKey:      genesisAccountPubKey,
 	}
+
+	nonce := pow.GetPowNonce(nil, types.DataHash(append(block.AccountAddress.Bytes(), block.PrevHash.Bytes()...)))
+	block.Nonce = nonce[:]
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
 	blocks, err := v.VerifyforRPC(block, g)
 	t.Log(blocks, err)
 
-	balanceMap, err := c.GetAccountBalance(&ledger.GenesisAccountAddress)
-	t.Log(balanceMap, err)
+	t.Log(blocks[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
 }
 
 func TestAccountVerifier_VerifyforP2P(t *testing.T) {
@@ -91,8 +96,14 @@ func TestAccountVerifier_VerifyforP2P(t *testing.T) {
 		Timestamp:      c.GetLatestSnapshotBlock().Timestamp,
 		PublicKey:      genesisAccountPubKey,
 	}
+
+	nonce := pow.GetPowNonce(nil, types.DataHash(append(block.AccountAddress.Bytes(), block.PrevHash.Bytes()...)))
+	block.Nonce = nonce[:]
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
+	block.Hash = block.ComputeHash()
+	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
+
 	isTrue := v.VerifyforP2P(block)
 	t.Log("VerifyforP2P:", isTrue)
 }
