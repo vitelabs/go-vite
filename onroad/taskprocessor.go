@@ -5,10 +5,10 @@ import (
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
+	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/verifier"
 	"sync"
 	"time"
-	"github.com/vitelabs/go-vite/producer/producerevent"
 )
 
 type ContractTaskProcessor struct {
@@ -16,7 +16,6 @@ type ContractTaskProcessor struct {
 	worker   *ContractWorker
 	accEvent producerevent.AccountStartEvent
 
-	generator  *generator.Generator
 	verifier   *verifier.AccountVerifier
 	blocksPool *model.OnroadBlocksPool
 
@@ -28,22 +27,19 @@ type ContractTaskProcessor struct {
 	breaker      chan struct{}
 	stopListener chan struct{}
 
-
 	log log15.Logger
 }
 
 func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskProcessor {
 	task := &ContractTaskProcessor{
-		taskId:         index,
-		worker:         worker,
-		accEvent:       worker.accEvent,
-		verifier:       worker.verifier,
-		blocksPool:     worker.uBlocksPool,
-		status:         Create,
-		log:            worker.log.New("taskid", index),
+		taskId:     index,
+		worker:     worker,
+		accEvent:   worker.accEvent,
+		verifier:   worker.verifier,
+		blocksPool: worker.uBlocksPool,
+		status:     Create,
+		log:        worker.log.New("taskid", index),
 	}
-	task.generator = generator.NewGenerator(worker.manager.vite.Chain(),
-		worker.manager.vite.WalletManager().KeystoreManager)
 
 	return task
 }
@@ -146,7 +142,8 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		return
 	}
 
-	err := tp.generator.PrepareVm(&tp.accEvent.SnapshotHash, nil, &sBlock.ToAddress)
+	gen, err := generator.NewGenerator(tp.worker.manager.vite.Chain(), tp.worker.manager.vite.WalletManager().KeystoreManager,
+		&tp.accEvent.SnapshotHash, nil, &sBlock.ToAddress)
 	if err != nil {
 		tp.log.Error("NewGenerator Error", err)
 		tp.worker.addIntoBlackList(task.Addr)
@@ -159,9 +156,9 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		Producer:     tp.accEvent.Address,
 	}
 
-	genResult, err := tp.generator.GenerateWithOnroad(*sBlock, consensusMessage,
+	genResult, err := gen.GenerateWithOnroad(*sBlock, consensusMessage,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			return tp.generator.Sign(addr, nil, data)
+			return gen.Sign(addr, nil, data)
 		})
 
 	if err != nil {
