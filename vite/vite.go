@@ -1,6 +1,7 @@
 package vite
 
 import (
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/miner"
@@ -12,10 +13,11 @@ import (
 type Vite struct {
 	config        *config.Config
 	walletManager *wallet.Manager
+	chain         chain.Chain
 	verifier      consensus.Verifier
 	miner         *miner.Miner
-	Net *net.Net
-	p2p *p2p.Server
+	Net           *net.Net
+	p2p           *p2p.Server
 }
 
 func New(cfg *config.Config) (vite *Vite, err error) {
@@ -32,7 +34,7 @@ func New(cfg *config.Config) (vite *Vite, err error) {
 
 	vite = &Vite{
 		config: cfg,
-		Net: net,
+		Net:    net,
 	}
 
 	//downloadLedger(cfg.IsDownload, cfg.DataDir)
@@ -84,6 +86,9 @@ func (v *Vite) Stop() {
 
 }
 
+func (v *Vite) Chain() chain.Chain {
+	return v.chain
+}
 func (v *Vite) P2p() *p2p.Server {
 	return v.p2p
 }

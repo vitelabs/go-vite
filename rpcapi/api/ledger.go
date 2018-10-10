@@ -1,79 +1,63 @@
 package api
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/ledger/handler_interface"
-	"github.com/vitelabs/go-vite/signer"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"math/big"
+	"github.com/vitelabs/go-vite/vm/contracts"
 )
 
 // !!! Block = Transaction = TX
 
 func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 	return &LedgerApi{
-		ledgerManager: vite.Ledger(),
-		signer:        vite.Signer(),
-		MintageCache:  make(map[types.TokenTypeId]*Mintage),
+		chain: vite.Chain(),
+		//signer:        vite.Signer(),
+		log: log15.New("module", "rpc_api/ledger_api"),
 	}
 }
 
 type LedgerApi struct {
-	ledgerManager handler_interface.Manager
-	signer        *signer.Master
-	MintageCache  map[types.TokenTypeId]*Mintage
+	chain chain.Chain
+	//signer        *signer.Master
+	//MintageCache map[types.TokenTypeId]*Mintage
+	log log15.Logger
 }
 
 func (l LedgerApi) String() string {
 	return "LedgerApi"
 }
 
-func (l *LedgerApi) CreateTxWithPassphrase(params *SendTxParms) error {
-	log.Info("CreateTxWithPassphrase")
-	if params == nil {
-		return fmt.Errorf("sendTxParms nil")
-	}
-	if params.Passphrase == "" {
-		return fmt.Errorf("sendTxParms Passphrase empty")
-	}
-
-	n := new(big.Int)
-	amount, ok := n.SetString(params.Amount, 10)
-	if !ok {
-		return fmt.Errorf("error format of amount")
-	}
-	b := ledger.AccountBlock{AccountAddress: &params.SelfAddr, To: &params.ToAddr, TokenId: &params.TokenTypeId, Amount: amount}
-
-	// call signer.creattx in order to as soon as possible to send tx
-	err := l.signer.CreateTxWithPassphrase(&b, params.Passphrase)
-
-	if err != nil {
-		newerr, concerned := TryMakeConcernedError(err)
-		if concerned {
-			return newerr
-		}
-		return err
-	}
-
-	return nil
-}
-
 func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error) {
-	log.Info("GetBlocksByHash")
-	lists, getError := l.ledgerManager.Ac().GetBlocks(&addr, originBlockHash, count)
+	l.log.Info("GetBlocksByHash")
+
+	lists, getError := l.chain.GetAccountBlocksByHash(addr, originBlockHash, count, false)
 	if getError != nil {
-		return nil, getError.Err
+		return nil, getError
 	}
-	return LedgerAccBlocksToRpcAccBlocks(lists, l), nil
+
+	var blocks []*AccountBlock
+	for _, item := range lists {
+		confirmTimes, err := l.chain.GetConfirmTimes(&item.Hash)
+
+		if err != nil {
+			l.log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetBlocksByHash")
+			return nil, err
+		}
+
+		token := l.chain.GetTokenInfoById(&item.TokenId)
+		blocks = append(blocks, createAccountBlock(item, token, confirmTimes))
+	}
+	return blocks, nil
 }
 
 func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int, needTokenInfo *bool) ([]*AccountBlock, error) {
-	log.Info("GetBlocksByAccAddr")
+	l.log.Info("GetBlocksByAccAddr")
 
-	list, getErr := l.ledgerManager.Ac().GetBlocksByAccAddr(&addr, index, 1, count)
+	list, getErr := l.chain.GetAccountBlocksByAddress(&addr, index, 1, count)
 
 	if getErr != nil {
 		log.Info("GetBlocksByAccAddr", "err", getErr)

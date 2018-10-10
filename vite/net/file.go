@@ -365,7 +365,7 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 
 		// set read deadline
 		//ctx.SetReadDeadline(time.Now().Add(total * time.Millisecond))
-		fc.chain.Compressor().BlockParser(ctx, func(block ledger.Block, err error) {
+		fc.chain.Compressor().BlockParser(ctx, 0, func(block ledger.Block, err error) {
 			if err != nil {
 				return
 			}
