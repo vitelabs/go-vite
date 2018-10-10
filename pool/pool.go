@@ -8,6 +8,7 @@ import (
 
 	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
@@ -45,7 +46,10 @@ type BlockPool interface {
 	PoolReader
 	Start()
 	Stop()
-	Init(s syncer)
+	Init(s syncer,
+		wt *wallet.Manager,
+		snapshotV *verifier.SnapshotVerifier,
+		accountV *verifier.AccountVerifier)
 	Info(addr *types.Address) string
 }
 
@@ -84,7 +88,7 @@ type pool struct {
 
 	sync syncer
 	bc   ch.Chain
-	wt   wallet.Manager
+	wt   *wallet.Manager
 
 	snapshotVerifier *verifier.SnapshotVerifier
 	accountVerifier  *verifier.AccountVerifier
@@ -124,11 +128,16 @@ func NewPool(bc ch.Chain) BlockPool {
 	return self
 }
 
-func (self *pool) Init(s syncer) {
+func (self *pool) Init(s syncer,
+	wt *wallet.Manager,
+	snapshotV *verifier.SnapshotVerifier,
+	accountV *verifier.AccountVerifier) {
 	self.sync = s
+	self.wt = wt
 	rw := &snapshotCh{version: self.version, bc: self.bc}
 	fe := &snapshotSyncer{fetcher: s}
-	v := &snapshotVerifier{}
+	v := &snapshotVerifier{v: snapshotV}
+	self.accountVerifier = accountV
 	snapshotPool := newSnapshotPool("snapshotPool", self.version, v, fe, rw, self.log)
 	snapshotPool.init(
 		newTools(fe, rw),
@@ -346,7 +355,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	// lazy load
 	rw := &accountCh{address: addr, rw: self.bc, version: self.version}
 	f := &accountSyncer{address: addr, fetcher: self.sync}
-	v := &accountVerifier{}
+	v := &accountVerifier{v: self.accountVerifier, log: self.log.New(), g: generator.NewGenerator(self.bc, self.wt.KeystoreManager)}
 	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.log)
 
 	p.Init(newTools(f, rw), self, v)

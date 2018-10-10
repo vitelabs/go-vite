@@ -49,8 +49,16 @@ func (self *accountCh) head() commonBlock {
 }
 
 func (self *accountCh) getBlock(height uint64) commonBlock {
+	if height == types.EmptyHeight {
+		return newAccountPoolBlock(&ledger.AccountBlock{Height: types.EmptyHeight}, nil, self.version)
+	}
 	// todo
-	return nil
+	block, e := self.rw.GetAccountBlockByHeight(&self.address, height)
+	if e != nil {
+		return nil
+	}
+
+	return newAccountPoolBlock(block, nil, self.version)
 }
 
 func (self *accountCh) insertBlocks(bs []commonBlock) error {

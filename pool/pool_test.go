@@ -22,7 +22,7 @@ func TestNewPool(t *testing.T) {
 	innerChainInstance.Init()
 	innerChainInstance.Start()
 	newPool := NewPool(innerChainInstance)
-	newPool.Init(&MockSyncer{})
+	newPool.Init(&MockSyncer{}, nil, nil, nil)
 	newPool.Start()
 
 	make(chan int) <- 1
