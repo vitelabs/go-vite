@@ -2,11 +2,11 @@ package api
 
 import (
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
 	"strconv"
-	"github.com/vitelabs/go-vite/common/types"
 )
 
 type AccountBlock struct {
@@ -73,23 +73,23 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.Token
 type RpcAccountInfo struct {
 	AccountAddress      types.Address
 	TotalNumber         string // uint64
-	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo
+	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:",omitempty"`
 }
 
 type RpcTokenBalanceInfo struct {
-	TokenInfo   *RpcTokenInfo
-	TotalAmount string // big int
-	Number      string // uint64
+	TokenInfo   *RpcTokenInfo `json:",omitempty"`
+	TotalAmount string  // big int
+	Number      *string // uint64
 }
 
 type RpcTokenInfo struct {
 	TokenName      string
 	TokenSymbol    string
-	TotalSupply    *string // *big.Int
+	TotalSupply    *string `json:",omitempty"` // *big.Int
 	Decimals       uint8
 	Owner          types.Address
-	PledgeAmount   *string // *big.Int
-	WithdrawHeight string  // uint64
+	PledgeAmount   *string `json:",omitempty"` // *big.Int
+	WithdrawHeight string                      // uint64
 }
 
 func RawTokenInfoToRpc(tinfo *contracts.TokenInfo) *RpcTokenInfo {

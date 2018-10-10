@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 	"testing"
@@ -15,43 +16,32 @@ type DummyBlock struct {
 
 func TestJson(t *testing.T) {
 
+	m := make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
+	id := types.CreateTokenTypeId([]byte{1, 3, 4})
+	totalSupply := "10000"
+	pledgeAmount := "10000"
+	number := "10000"
 	addresses, _, _ := types.CreateAddress()
-	s := "12"
-	d0 := DummyBlock{
-		AccountAddress: nil,
-		ConfirmedTimes: &s,
-		T:              big.NewInt(1),
-	}
-	d1 := DummyBlock{
-		AccountAddress: &addresses,
-		ConfirmedTimes: nil,
-	}
-	bytes, e := json.Marshal(d0)
-	if e != nil {
-		t.Fatal(e)
-	}
-	println(string(bytes))
 
-	println("d1")
-	bytes, e = json.Marshal(d1)
-	if e != nil {
-		t.Fatal(e)
+	m[id] = &RpcTokenBalanceInfo{
+		TokenInfo: &RpcTokenInfo{
+			TokenName:      "as",
+			TokenSymbol:    "aa",
+			TotalSupply:    &totalSupply,
+			Decimals:       19,
+			Owner:          addresses,
+			PledgeAmount:   &pledgeAmount,
+			WithdrawHeight: "12",
+		},
+		TotalAmount: "132",
+		Number:      &number,
 	}
-	println(string(bytes))
-
-	j := `{"ConfirmedTimes":"12","T":1}`
-	var jd DummyBlock
-	err := json.Unmarshal([]byte(j), &jd)
-	if err != nil {
-		t.Fatal(err)
+	r := RpcAccountInfo{
+		AccountAddress:      addresses,
+		TotalNumber:         "433",
+		TokenBalanceInfoMap: m,
 	}
-	if *jd.ConfirmedTimes != "12" {
-		t.Fatal("ConfirmedTimes err")
-	}
-
-	if jd.AccountAddress != nil {
-		t.Fatal("AccountAddress err")
-	}
-	println(jd.AccountAddress)
+	bytes, _ := json.Marshal(r)
+	fmt.Println(string(bytes))
 
 }
