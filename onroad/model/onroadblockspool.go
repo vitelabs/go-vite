@@ -76,7 +76,7 @@ func (p *OnroadBlocksPool) GetOnroadAccountInfo(addr types.Address) (*OnroadAcco
 
 	p.log.Debug("second load from full cache", "addr", addr)
 	if fullcache, ok := p.fullCache.Load(addr); ok {
-		accountInfo := fullcache.(*onroadBlocksCache).toOnroadAccountInfo()
+		accountInfo := fullcache.(*onroadBlocksCache).toOnroadAccountInfo(addr)
 		if accountInfo != nil {
 			p.addSimpleCache(addr, accountInfo)
 			return accountInfo, nil

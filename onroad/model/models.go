@@ -37,12 +37,13 @@ type onroadBlocksCache struct {
 	referenceMutex sync.Mutex
 }
 
-func (c *onroadBlocksCache) toOnroadAccountInfo() *OnroadAccountInfo {
+func (c *onroadBlocksCache) toOnroadAccountInfo(addr types.Address) *OnroadAccountInfo {
 
 	c.listMutex.RLock()
 	defer c.listMutex.RUnlock()
 	ele := c.blocks.Front()
 	var ca OnroadAccountInfo
+	ca.AccountAddress = &addr
 	infoMap := make(map[types.TokenTypeId]*TokenBalanceInfo)
 	for ele != nil {
 

@@ -245,5 +245,5 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 		infoMap[block.TokenId].Number += 1
 
 	}
-	return infoMap, uint64(len(hashList)), err
+	return infoMap, uint64(len(hashList)), nil
 }
