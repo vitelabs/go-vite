@@ -200,7 +200,7 @@ func (n *net) startPeer(p *Peer) error {
 	n.peers.Add(p)
 	defer n.peers.Del(p)
 
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	n.log.Info(fmt.Sprintf("startPeer %s", p))
