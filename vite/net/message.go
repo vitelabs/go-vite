@@ -226,9 +226,9 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 	}
 
 	if err != nil {
-		return sender.SendAccountBlocks(blocks, msg.Id)
-	} else {
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
+	} else {
+		return sender.SendAccountBlocks(blocks, msg.Id)
 	}
 }
 

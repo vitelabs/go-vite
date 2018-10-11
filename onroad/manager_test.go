@@ -21,12 +21,12 @@ func generateAddress() types.Address {
 	return key.Address
 }
 
-func TestManager_StartAutoReceiveWorker(t *testing.T) {
+func startManager() (*onroad.Manager, types.Address) {
 	addr := generateAddress()
 
 	c := chain.NewChain(&config.Config{
-		P2P:      nil,
-		DataDir:  common.GoViteTestDataDir(),
+		P2P:     nil,
+		DataDir: common.GoViteTestDataDir(),
 	})
 	c.Init()
 
@@ -43,6 +43,12 @@ func TestManager_StartAutoReceiveWorker(t *testing.T) {
 	manager.Start()
 	c.Start()
 
+	return manager, addr
+}
+
+func TestManager_StartAutoReceiveWorker(t *testing.T) {
+
+	manager, addr := startManager()
 	fmt.Println("test a stop ")
 	manager.StartAutoReceiveWorker(addr, nil)
 

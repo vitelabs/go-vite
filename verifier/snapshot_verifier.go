@@ -47,6 +47,7 @@ func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, prev *
 	if *trie.Hash() != block.StateHash {
 		return errors.New("state hash is not equals.")
 	}
+	block.StateTrie = trie
 
 	for addr, b := range block.SnapshotContent {
 		hash, e := self.reader.GetAccountBlockHashByHeight(&addr, b.Height)

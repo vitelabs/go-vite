@@ -9,7 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"net"
+	net2 "net"
 	"sort"
 	"strconv"
 	"sync"
@@ -43,8 +43,8 @@ func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 	}
 }
 
-func (p *Peer) FileAddress() *net.TCPAddr {
-	return &net.TCPAddr{
+func (p *Peer) FileAddress() *net2.TCPAddr {
+	return &net2.TCPAddr{
 		IP:   p.IP(),
 		Port: int(p.filePort),
 	}
@@ -108,26 +108,7 @@ func (p *Peer) SeeBlock(hash types.Hash) {
 	p.KnownBlocks.InsertUnique(hash[:])
 }
 
-// response
-//func (p *Peer) SendSubLedger(s *message.SubLedger, msgId uint64) (err error) {
-//	err = p.Send(SubLedgerCode, msgId, s)
-//
-//	if err != nil {
-//		return
-//	}
-//
-//	for _, blocks := range s.ABlocks {
-//		for _, block := range blocks {
-//			p.SeeBlock(block.Hash)
-//		}
-//	}
-//
-//	for _, b := range s.SBlocks {
-//		p.SeeBlock(b.Hash)
-//	}
-//
-//	return
-//}
+// send
 
 func (p *Peer) SendSubLedger(bs []*ledger.SnapshotBlock, abs []*ledger.AccountBlock, msgId uint64) (err error) {
 	err = p.Send(SubLedgerCode, msgId, &message.SubLedger{
@@ -271,7 +252,7 @@ type peerSet struct {
 	subs  []chan<- *peerEvent
 }
 
-func NewPeerSet() *peerSet {
+func newPeerSet() *peerSet {
 	return &peerSet{
 		peers: make(map[string]*Peer),
 	}

@@ -6,15 +6,6 @@ import (
 	"time"
 )
 
-type Broadcaster interface {
-	BroadcastSnapshotBlock(block *ledger.SnapshotBlock)
-	BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock)
-
-	BroadcastAccountBlock(block *ledger.AccountBlock)
-	BroadcastAccountBlocks(blocks []*ledger.AccountBlock)
-	//BroadcastAccountBlocks(mblocks map[types.Address][]*ledger.AccountBlock)
-}
-
 type broadcaster struct {
 	peers *peerSet
 }
@@ -58,18 +49,3 @@ func (b *broadcaster) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {
 		b.BroadcastAccountBlock(block)
 	}
 }
-
-//func (b *broadcaster) BroadcastAccountBlocks(mblocks map[types.Address][]*ledger.AccountBlock) {
-//	t := time.Now()
-//
-//	for addr, blocks := range mblocks {
-//		for _, peer := range b.peers.peers {
-//			peer.SendAccountBlocks(&message.AccountBlocks{
-//				Address: addr,
-//				Blocks:  blocks,
-//			}, 0)
-//		}
-//	}
-//
-//	monitor.LogDuration("net/broadcast", "as", time.Now().Sub(t).Nanoseconds())
-//}

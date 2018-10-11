@@ -8,7 +8,7 @@ import (
 )
 
 type NetApi struct {
-	net *net.Net
+	net net.Net
 	log log15.Logger
 }
 
@@ -28,7 +28,7 @@ type SyncInfo struct {
 }
 
 func (n *NetApi) SyncInfo() *SyncInfo {
-	s := n.net.SyncStatus()
+	s := n.net.Status()
 
 	return &SyncInfo{
 		StartHeight:      strconv.FormatUint(s.From, 10),

@@ -1,6 +1,9 @@
 package node
 
-import "errors"
+import (
+	"errors"
+	"syscall"
+)
 
 var (
 	ErrDataDirUsed     = errors.New("dataDir already used by another process")
@@ -10,4 +13,12 @@ var (
 	ErrWalletConfigNil = errors.New("wallet config is nil")
 	ErrViteConfigNil   = errors.New("vite config is nil")
 	ErrP2PConfigNil    = errors.New("p2p config is nil")
+	datadirInUseErrnos = map[uint]bool{11: true, 32: true, 35: true}
 )
+
+func convertFileLockError(err error) error {
+	if errno, ok := err.(syscall.Errno); ok && datadirInUseErrnos[uint(errno)] {
+		return ErrDataDirUsed
+	}
+	return err
+}
