@@ -63,10 +63,7 @@ func (ucf *OnroadSet) GetHashsByCount(count uint64, addr *types.Address) (hashs 
 		}
 		hashs = append(hashs, &hash)
 	}
-	if err := iter.Error(); err != nil {
-		if leveldb.ErrNotFound == err {
-			return nil, nil
-		}
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 		return nil, err
 	}
 	return hashs, nil
@@ -89,10 +86,7 @@ func (ucf *OnroadSet) GetHashList(addr *types.Address) (hashs []*types.Hash, err
 		}
 		hashs = append(hashs, &hash)
 	}
-	if err := iter.Error(); err != nil {
-		if leveldb.ErrNotFound == err {
-			return nil, nil
-		}
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 		return nil, err
 	}
 	return hashs, nil
