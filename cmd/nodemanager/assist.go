@@ -14,7 +14,10 @@ func StartNode(node *node.Node) {
 	// Start the node
 	log.Info(fmt.Sprintf("Begin StartNode... "))
 	if err := node.Start(); err != nil {
-		log.Error("Error staring protocol node: %v", err)
+		log.Error(fmt.Sprintf("Failed to start node， %v", err))
+		fmt.Println(fmt.Sprintf("Failed to start node， %v", err))
+	} else {
+		fmt.Println("Start the Node success!!!")
 	}
 
 	// Listening event closes the node
@@ -24,8 +27,7 @@ func StartNode(node *node.Node) {
 		defer signal.Stop(c)
 		<-c
 		go func() {
-			log.Info(fmt.Sprintf("Begin StopNode..."))
-			node.Stop()
+			StopNode(node)
 		}()
 		for i := 10; i > 0; i-- {
 			<-c
@@ -46,6 +48,8 @@ func WaitNode(node *node.Node) {
 
 // stop the node
 func StopNode(node *node.Node) {
-
-	node.Stop()
+	log.Warn(fmt.Sprintf("Begin StopNode..."))
+	if err := node.Stop(); err != nil {
+		log.Error(fmt.Sprintf("Node stop error: %v", err))
+	}
 }
