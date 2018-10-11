@@ -7,13 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
-//type Vite interface {
-//	Net() Net
-//	Chain() chain.Chain
-//	WalletManager() *wallet.Manager
-//	Producer() Producer
-//	Pool() Pool
-//}
 
 type Pool interface {
 	ExistInPool(address types.Address, fromBlockHash types.Hash) bool
@@ -28,5 +21,5 @@ type Producer interface {
 type Net interface {
 	SubscribeSyncStatus(fn func(net.SyncState)) (subId int)
 	UnsubscribeSyncStatus(subId int)
-	Status() *net.Status
+	SyncState() net.SyncState
 }

@@ -13,8 +13,6 @@ func newOnroadBlocksPool() *OnroadBlocksPool {
 	chain := chain.NewChain(&config.Config{
 		P2P:      nil,
 		DataDir:  common.GoViteTestDataDir(),
-		FilePort: 0,
-		Topo:     nil,
 	})
 	chain.Init()
 	chain.Start()

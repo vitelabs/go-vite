@@ -124,7 +124,7 @@ func (manager *Manager) addressLockStateChangeFunc(event keystore.UnlockEvent) {
 }
 
 func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEvent) {
-	netstate := manager.Net().Status().SyncState
+	netstate := manager.Net().SyncState()
 	manager.log.Info("producerStartEventFunc receive event", "netstate", netstate)
 	if netstate != net.Syncdone {
 		return
@@ -219,7 +219,7 @@ func (manager *Manager) ResetAutoReceiveFilter(addr types.Address, filter map[ty
 }
 
 func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[types.TokenTypeId]big.Int) error {
-	netstate := manager.Net().Status().SyncState
+	netstate := manager.Net().SyncState()
 	manager.log.Info("StartAutoReceiveWorker ", "addr", addr, "netstate", netstate)
 
 	if netstate != net.Syncdone {
