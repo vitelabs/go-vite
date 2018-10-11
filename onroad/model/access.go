@@ -217,6 +217,7 @@ func (access *UAccess) GetAllOnroadBlocks(addr types.Address) (blockList []*ledg
 	}
 	result := make([]*ledger.AccountBlock, len(hashList))
 
+	count := 0
 	for i, v := range hashList {
 		block, err := access.Chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
@@ -224,9 +225,10 @@ func (access *UAccess) GetAllOnroadBlocks(addr types.Address) (blockList []*ledg
 			continue
 		}
 		result[i] = block
+		count++
 	}
 
-	return result, nil
+	return result[0:count], nil
 }
 
 func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.TokenTypeId]*TokenBalanceInfo, uint64, error) {
