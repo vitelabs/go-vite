@@ -2,16 +2,14 @@ package net
 
 import (
 	"fmt"
-	"strings"
-	"sync"
-	"time"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
+	"sync"
+	"time"
 )
 
 // all query include from block
@@ -350,21 +348,21 @@ type Status struct {
 	SyncTo    uint64      `json:"syncTo"`
 }
 
-type peerInfos []*PeerInfo
-
-func (p peerInfos) MarshalJSON() ([]byte, error) {
-	b := new(strings.Builder)
-
-	b.WriteString("[")
-	for _, pi := range p {
-		b.WriteString(pi.String())
-	}
-	b.WriteString("]")
-
-	return []byte(b.String()), nil
-}
-
-func (p *peerInfos) UnmarshalJSON(data []byte) (err error) {
-
-	return nil
-}
+//type peerInfos []*PeerInfo
+//
+//func (p peerInfos) MarshalJSON() ([]byte, error) {
+//	b := new(strings.Builder)
+//
+//	b.WriteString("[")
+//	for _, pi := range p {
+//		b.WriteString(pi.String())
+//	}
+//	b.WriteString("]")
+//
+//	return []byte(b.String()), nil
+//}
+//
+//func (p *peerInfos) UnmarshalJSON(data []byte) (err error) {
+//
+//	return nil
+//}

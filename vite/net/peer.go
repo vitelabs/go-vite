@@ -131,8 +131,8 @@ func (p *Peer) SeeBlock(hash types.Hash) {
 
 func (p *Peer) SendSubLedger(bs []*ledger.SnapshotBlock, abs []*ledger.AccountBlock, msgId uint64) (err error) {
 	err = p.Send(SubLedgerCode, msgId, &message.SubLedger{
-		SBlocks: nil,
-		ABlocks: nil,
+		SBlocks: bs,
+		ABlocks: abs,
 	})
 
 	if err != nil {
