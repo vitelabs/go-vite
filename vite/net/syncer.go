@@ -116,7 +116,7 @@ type syncer struct {
 
 func newSyncer(chain Chain, peers *peerSet, pool *requestPool, receiver Receiver, fc *fileClient) *syncer {
 	s := &syncer{
-		state:      Syncdone,
+		state:      SyncNotStart,
 		term:       make(chan struct{}),
 		downloaded: make(chan struct{}, 1),
 		feed:       newSyncStateFeed(),
