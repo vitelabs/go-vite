@@ -103,7 +103,7 @@ func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) *bi
 	return big.NewInt(0)
 }
 
-func GetPledgeAmount(db StorageDatabase, addr types.Address) []*PledgeInfo {
+func GetPledgeInfoList(db StorageDatabase, addr types.Address) []*PledgeInfo {
 	iterator := db.NewStorageIterator(addr.Bytes())
 	pledgeInfoList := make([]*PledgeInfo, 0)
 	for {
