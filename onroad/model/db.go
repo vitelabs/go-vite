@@ -11,6 +11,8 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
+var keySize = 1 + types.AddressSize + types.HashSize
+
 type OnroadSet struct {
 	chain chain.Chain
 }
@@ -65,21 +67,24 @@ func (ucf *OnroadSet) GetHashsByCount(count uint64, addr *types.Address) (hashs 
 }
 
 func (ucf *OnroadSet) GetHashList(addr *types.Address) (hashs []*types.Hash, err error) {
-	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes())
+	createKey, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes())
 	if err != nil {
 		return nil, err
 	}
 
-	iter := ucf.db().NewIterator(util.BytesPrefix(key), nil)
+	iter := ucf.db().NewIterator(util.BytesPrefix(createKey), nil)
 	defer iter.Release()
 
-	for iter.Next() {
+	for {
 		key := iter.Key()
 		hash, err := types.BytesToHash(key[len(key)-types.HashSize:])
 		if err != nil {
 			continue
 		}
 		hashs = append(hashs, &hash)
+		if !iter.Next() {
+			break
+		}
 	}
 	if err := iter.Error(); err != nil {
 		return nil, err
