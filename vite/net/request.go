@@ -247,7 +247,7 @@ func (s *subLedgerRequest) ID() uint64 {
 
 func (s *subLedgerRequest) Run(*context) {
 	err := s.peer.Send(GetSubLedgerCode, s.id, &message.GetSubLedger{
-		From:    &ledger.HashHeight{Height: s.from},
+		From:    ledger.HashHeight{Height: s.from},
 		Count:   s.to - s.from + 1,
 		Forward: true,
 	})
