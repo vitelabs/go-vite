@@ -434,7 +434,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		}
 	}
 
-	if triggerErr := c.em.trigger(DeleteAccountBlocksEvent, accountBlocksMap); triggerErr != nil {
+	if triggerErr := c.em.trigger(DeleteAccountBlocksEvent, batch, accountBlocksMap); triggerErr != nil {
 		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 		return nil, nil, triggerErr
 	}
