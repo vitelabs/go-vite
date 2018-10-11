@@ -201,6 +201,13 @@ func (p *OnroadBlocksPool) WriteOnroadSuccess(blocks []*vm_context.VmAccountBloc
 }
 
 func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_context.VmAccountBlock) error {
+	p.log.Debug("WriteOnroad called", "blockList len", len(blockList))
+	if len(blockList) != 0 && blockList[0].AccountBlock != nil {
+		p.log.Debug("WriteOnroad called",
+			"blockList[0] account address", blockList[0].AccountBlock.AccountAddress,
+			"type", blockList[0].AccountBlock.BlockType,
+		)
+	}
 	for _, v := range blockList {
 		if v.AccountBlock.IsSendBlock() {
 			// basic writeMeta func
@@ -213,6 +220,7 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 				unsavedCache := v.VmContext.UnsavedCache()
 				gidList := unsavedCache.ContractGidList()
 				for _, v := range gidList {
+					p.log.Debug("WriteOnroad", "gid", v.Gid(), "addr", v.Addr())
 					if err := p.dbAccess.WriteContractAddrToGid(batch, *v.Gid(), *v.Addr()); err != nil {
 						p.log.Error("WriteContractAddrToGid", "error", err)
 						return err
