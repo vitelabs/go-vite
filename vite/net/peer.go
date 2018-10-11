@@ -109,30 +109,49 @@ func (p *Peer) SeeBlock(hash types.Hash) {
 }
 
 // response
-func (p *Peer) SendSubLedger(s *message.SubLedger, msgId uint64) (err error) {
-	err = p.Send(SubLedgerCode, msgId, s)
+//func (p *Peer) SendSubLedger(s *message.SubLedger, msgId uint64) (err error) {
+//	err = p.Send(SubLedgerCode, msgId, s)
+//
+//	if err != nil {
+//		return
+//	}
+//
+//	for _, blocks := range s.ABlocks {
+//		for _, block := range blocks {
+//			p.SeeBlock(block.Hash)
+//		}
+//	}
+//
+//	for _, b := range s.SBlocks {
+//		p.SeeBlock(b.Hash)
+//	}
+//
+//	return
+//}
+
+func (p *Peer) SendSubLedger(bs []*ledger.SnapshotBlock, abs []*ledger.AccountBlock, msgId uint64) (err error) {
+	err = p.Send(SubLedgerCode, msgId, &message.SubLedger{
+		SBlocks: nil,
+		ABlocks: nil,
+	})
 
 	if err != nil {
 		return
 	}
 
-	for _, blocks := range s.ABlocks {
-		for _, block := range blocks {
-			p.SeeBlock(block.Hash)
-		}
+	for _, block := range bs {
+		p.SeeBlock(block.Hash)
 	}
 
-	for _, b := range s.SBlocks {
-		p.SeeBlock(b.Hash)
+	for _, block := range abs {
+		p.SeeBlock(block.Hash)
 	}
 
 	return
 }
 
 func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error) {
-	err = p.Send(SnapshotBlocksCode, msgId, &message.SnapshotBlocks{
-		Blocks: bs,
-	})
+	err = p.Send(SnapshotBlocksCode, msgId, &message.SnapshotBlocks{bs})
 
 	if err != nil {
 		return
@@ -145,14 +164,14 @@ func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err
 	return
 }
 
-func (p *Peer) SendAccountBlocks(s *message.AccountBlocks, msgId uint64) (err error) {
-	err = p.Send(AccountBlocksCode, msgId, s)
+func (p *Peer) SendAccountBlocks(bs []*ledger.AccountBlock, msgId uint64) (err error) {
+	err = p.Send(AccountBlocksCode, msgId, &message.AccountBlocks{bs})
 
 	if err != nil {
 		return
 	}
 
-	for _, b := range s.Blocks {
+	for _, b := range bs {
 		p.SeeBlock(b.Hash)
 	}
 
@@ -161,6 +180,18 @@ func (p *Peer) SendAccountBlocks(s *message.AccountBlocks, msgId uint64) (err er
 
 func (p *Peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
 	err = p.Send(NewSnapshotBlockCode, 0, b)
+
+	if err != nil {
+		return
+	}
+
+	p.SeeBlock(b.Hash)
+
+	return
+}
+
+func (p *Peer) SendNewAccountBlock(b *ledger.AccountBlock) (err error) {
+	err = p.Send(NewAccountBlockCode, 0, b)
 
 	if err != nil {
 		return
@@ -341,7 +372,7 @@ func (m *peerSet) Pick(height uint64) (peers []*Peer) {
 	defer m.rw.RUnlock()
 
 	for _, p := range m.peers {
-		if p.height > height {
+		if p.height >= height {
 			peers = append(peers, p)
 		}
 	}

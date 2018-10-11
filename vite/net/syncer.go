@@ -2,7 +2,6 @@ package net
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"sort"
@@ -335,8 +334,8 @@ func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
 //	}
 //}
 
-func (s *syncer) receiveBlocks(sblocks []*ledger.SnapshotBlock, mblocks map[types.Address][]*ledger.AccountBlock) {
-	s.receiver.ReceiveAccountBlocks(mblocks)
+func (s *syncer) receiveBlocks(sblocks []*ledger.SnapshotBlock, ablocks []*ledger.AccountBlock) {
+	s.receiver.ReceiveAccountBlocks(ablocks)
 	s.receiver.ReceiveSnapshotBlocks(sblocks)
 
 	atomic.AddUint64(&s.count, uint64(len(sblocks)))

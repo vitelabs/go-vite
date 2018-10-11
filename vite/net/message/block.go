@@ -87,23 +87,20 @@ func (b *SnapshotBlocks) Deserialize(buf []byte) error {
 
 type SubLedger struct {
 	SBlocks []*ledger.SnapshotBlock
-	ABlocks map[types.Address][]*ledger.AccountBlock
+	ABlocks []*ledger.AccountBlock
 }
 
 func (s *SubLedger) Serialize() ([]byte, error) {
 	pb := new(vitepb.SubLedger)
-	pb.SBlocks = make([]*vitepb.SnapshotBlock, len(s.SBlocks))
 
+	pb.SBlocks = make([]*vitepb.SnapshotBlock, len(s.SBlocks))
 	for i, b := range s.SBlocks {
 		pb.SBlocks[i] = b.Proto()
 	}
-	for _, bs := range s.ABlocks {
-		bps := make([]*vitepb.AccountBlock, len(bs))
-		for i, b := range bs {
-			bps[i] = b.Proto()
-		}
 
-		pb.ABlocks = append(pb.ABlocks, bps...)
+	pb.ABlocks = make([]*vitepb.AccountBlock, len(s.ABlocks))
+	for i, b := range s.ABlocks {
+		pb.ABlocks[i] = b.Proto()
 	}
 
 	return proto.Marshal(pb)
@@ -123,11 +120,11 @@ func (s *SubLedger) Deserialize(buf []byte) error {
 		s.SBlocks[i] = block
 	}
 
-	s.ABlocks = make(map[types.Address][]*ledger.AccountBlock)
-	for _, abp := range pb.ABlocks {
-		ab := new(ledger.AccountBlock)
-		ab.DeProto(abp)
-		s.ABlocks[ab.AccountAddress] = append(s.ABlocks[ab.AccountAddress], ab)
+	s.ABlocks = make([]*ledger.AccountBlock, len(pb.ABlocks))
+	for i, abp := range pb.ABlocks {
+		block := new(ledger.AccountBlock)
+		block.DeProto(abp)
+		s.ABlocks[i] = block
 	}
 
 	return nil
@@ -179,14 +176,12 @@ func (b *GetAccountBlocks) Deserialize(buf []byte) error {
 // @section AccountBlocks
 
 type AccountBlocks struct {
-	Address types.Address
-	Blocks  []*ledger.AccountBlock
+	Blocks []*ledger.AccountBlock
 }
 
 func (a *AccountBlocks) Serialize() ([]byte, error) {
 	pb := new(vitepb.AccountBlocks)
 
-	pb.Address = a.Address[:]
 	pb.Blocks = make([]*vitepb.AccountBlock, len(a.Blocks))
 
 	for i, block := range a.Blocks {
@@ -210,8 +205,6 @@ func (a *AccountBlocks) Deserialize(buf []byte) error {
 		block.DeProto(bp)
 		a.Blocks[i] = block
 	}
-
-	copy(a.Address[:], pb.Address)
 
 	return nil
 }

@@ -24,9 +24,10 @@ type Chain interface {
 	GetSnapshotBlocksByHash(origin *types.Hash, count uint64, forward, content bool) ([]*ledger.SnapshotBlock, error)
 	GetSnapshotBlocksByHeight(height, count uint64, forward, content bool) ([]*ledger.SnapshotBlock, error)
 
+	// batcher
 	GetAccountBlocksByHash(addr types.Address, origin *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error)
 	GetAccountBlocksByHeight(addr types.Address, start, count uint64, forward bool) ([]*ledger.AccountBlock, error)
-
+	// single
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
 
@@ -270,12 +271,8 @@ func (n *Net) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	n.broadcaster.BroadcastSnapshotBlock(block)
 }
 
-func (n *Net) BroadcastAccountBlock(addr types.Address, block *ledger.AccountBlock) {
-	n.broadcaster.BroadcastAccountBlock(addr, block)
-}
-
-func (n *Net) BroadcastAccountBlocks(addr types.Address, blocks []*ledger.AccountBlock) {
-	n.broadcaster.BroadcastAccountBlocks(addr, blocks)
+func (n *Net) BroadcastAccountBlock(block *ledger.AccountBlock) {
+	n.broadcaster.BroadcastAccountBlock(block)
 }
 
 func (n *Net) FetchSnapshotBlocks(start types.Hash, count uint64) {
