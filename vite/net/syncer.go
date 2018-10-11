@@ -2,12 +2,13 @@ package net
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type SyncState int32
@@ -115,7 +116,7 @@ type syncer struct {
 
 func newSyncer(chain Chain, peers *peerSet, pool *requestPool, receiver Receiver, fc *fileClient) *syncer {
 	s := &syncer{
-		state:      SyncNotStart,
+		state:      Syncdone,
 		term:       make(chan struct{}),
 		downloaded: make(chan struct{}, 1),
 		feed:       newSyncStateFeed(),
