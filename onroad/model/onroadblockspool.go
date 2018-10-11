@@ -208,7 +208,8 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 			"type", blockList[0].AccountBlock.BlockType,
 		)
 	}
-	sync.Once{}.Do(func() {
+	syncOnce := &sync.Once{}
+	syncOnce.Do(func() {
 		var onceErr error
 		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressMintage); onceErr != nil {
 			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressMintage)
