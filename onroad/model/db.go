@@ -6,17 +6,21 @@ package model
 import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
 )
 
 type OnroadSet struct {
-	db *leveldb.DB
+	chain chain.Chain
 }
 
-func NewOnroadSet(db *leveldb.DB) *OnroadSet {
+func (o OnroadSet) db() *leveldb.DB {
+	return o.chain.ChainDb().Db()
+}
+func NewOnroadSet(chain chain.Chain) *OnroadSet {
 	return &OnroadSet{
-		db: db,
+		chain: chain,
 	}
 }
 
@@ -28,7 +32,7 @@ func (ucf *OnroadSet) GetCountByAddress(addr *types.Address) (count uint64, err 
 		return 0, err
 	}
 
-	iter := ucf.db.NewIterator(util.BytesPrefix(key), nil)
+	iter := ucf.db().NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
 
 	for iter.Next() {
@@ -43,7 +47,7 @@ func (ucf *OnroadSet) GetHashsByCount(count uint64, addr *types.Address) (hashs 
 		return nil, err
 	}
 
-	iter := ucf.db.NewIterator(util.BytesPrefix(key), nil)
+	iter := ucf.db().NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
 
 	for i := uint64(0); i < count; iter.Next() {
@@ -66,7 +70,7 @@ func (ucf *OnroadSet) GetHashList(addr *types.Address) (hashs []*types.Hash, err
 		return nil, err
 	}
 
-	iter := ucf.db.NewIterator(util.BytesPrefix(key), nil)
+	iter := ucf.db().NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
 
 	for iter.Next() {
@@ -89,7 +93,7 @@ func (ucf *OnroadSet) WriteMeta(batch *leveldb.Batch, addr *types.Address, hash 
 		return err
 	}
 	if batch == nil {
-		if err := ucf.db.Put(key, []byte{count}, nil); err != nil {
+		if err := ucf.db().Put(key, []byte{count}, nil); err != nil {
 			return err
 		}
 	} else {
@@ -104,7 +108,7 @@ func (ucf *OnroadSet) DeleteMeta(batch *leveldb.Batch, addr *types.Address, hash
 		return err
 	}
 	if batch == nil {
-		if err := ucf.db.Delete(key, nil); err != nil {
+		if err := ucf.db().Delete(key, nil); err != nil {
 			return err
 		}
 	} else {
@@ -121,7 +125,7 @@ func (ucf *OnroadSet) GetMeta(addr *types.Address, hash *types.Hash) ([]byte, er
 		}
 		return nil, nil
 	}
-	value, err := ucf.db.Get(key, nil)
+	value, err := ucf.db().Get(key, nil)
 	return value, nil
 }
 
@@ -136,7 +140,7 @@ func (ucf *OnroadSet) WriteGidAddrList(batch *leveldb.Batch, gid *types.Gid, add
 	}
 
 	if batch == nil {
-		if err := ucf.db.Put(key, data, nil); err != nil {
+		if err := ucf.db().Put(key, data, nil); err != nil {
 			return err
 		}
 	} else {
@@ -152,7 +156,7 @@ func (ucf *OnroadSet) GetContractAddrList(gid *types.Gid) ([]types.Address, erro
 		return nil, err
 	}
 
-	data, err := ucf.db.Get(key, nil)
+	data, err := ucf.db().Get(key, nil)
 	if err != nil {
 		if err != leveldb.ErrNotFound {
 			return nil, err
@@ -176,7 +180,7 @@ func (ucf *OnroadSet) IncreaseReceiveErrCount(batch *leveldb.Batch, hash *types.
 		batch.Put(key, []byte{count})
 		return nil
 	} else {
-		return ucf.db.Put(key, []byte{count}, nil)
+		return ucf.db().Put(key, []byte{count}, nil)
 	}
 }
 
@@ -199,9 +203,9 @@ func (ucf *OnroadSet) DecreaseReceiveErrCount(batch *leveldb.Batch, hash *types.
 		return nil
 	} else {
 		if count > 0 {
-			return ucf.db.Put(key, []byte{count}, nil)
+			return ucf.db().Put(key, []byte{count}, nil)
 		} else {
-			return ucf.db.Delete(key, nil)
+			return ucf.db().Delete(key, nil)
 		}
 	}
 }
@@ -210,7 +214,7 @@ func (ucf *OnroadSet) DeleteReceiveErrCount(batch *leveldb.Batch, hash *types.Ha
 	if err != nil {
 		return err
 	}
-	if _, err := ucf.db.Get(key, nil); err != nil {
+	if _, err := ucf.db().Get(key, nil); err != nil {
 		if err != leveldb.ErrNotFound {
 			return err
 		}
@@ -219,7 +223,7 @@ func (ucf *OnroadSet) DeleteReceiveErrCount(batch *leveldb.Batch, hash *types.Ha
 	if batch != nil {
 		batch.Delete(key)
 	} else {
-		return ucf.db.Delete(key, nil)
+		return ucf.db().Delete(key, nil)
 	}
 	return nil
 }
@@ -230,7 +234,7 @@ func (ucf *OnroadSet) GetReceiveErrCount(hash *types.Hash, addr *types.Address) 
 		return 0, err
 	}
 
-	data, err := ucf.db.Get(key, nil)
+	data, err := ucf.db().Get(key, nil)
 	if err != nil {
 		if err != leveldb.ErrNotFound {
 			return 0, err

@@ -29,7 +29,7 @@ func NewUAccess() *UAccess {
 
 func (access *UAccess) Init(chain chain.Chain) {
 	access.Chain = chain
-	access.store = NewOnroadSet(access.Chain.ChainDb().Db())
+	access.store = NewOnroadSet(chain)
 }
 
 func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) (addrList []types.Address, err error) {
