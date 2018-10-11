@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -243,7 +242,10 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, blockCr
 			return nil, nil
 		}
 
-		middle := start.Height + (end.Height-start.Height)/2
+
+		gap:= uint64(end.Timestamp.Sub(*blockCreatedTime).Seconds())
+		// suppose one snapshot block per second
+		middle  := end.Height  - gap
 
 		block, err := c.chainDb.Sc.GetSnapshotBlock(middle, false)
 		if err != nil {
@@ -302,57 +304,9 @@ func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger
 	}
 
 	// normal logic
-	blockCreatedUnixTime := blockCreatedTime.Unix()
-
 	start := thirdSnapshotBlock
 	end := latestBlock
 	return c.binarySearchBeforeTime(start, end, blockCreatedTime)
-
-	for {
-		if end.Height-start.Height <= 1 {
-			var err error
-			start.SnapshotContent, err = c.chainDb.Sc.GetSnapshotContent(start.Height)
-			if err != nil {
-				c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
-				return nil, err
-			}
-
-			return start, nil
-		}
-		if end.Timestamp.Before(*start.Timestamp) {
-			err := errors.New("end.Timestamp.Before(start.Timestamp)")
-			return nil, err
-		}
-
-		nextEdgeHeight := start.Height + 1
-
-		step := uint64(end.Timestamp.Unix()-start.Timestamp.Unix()) / (end.Height - start.Height)
-
-		if step != 0 {
-			startHeightGap := uint64(blockCreatedUnixTime-start.Timestamp.Unix()) / step
-			endHeightGap := uint64(end.Timestamp.Unix()-blockCreatedUnixTime) / step
-
-			// The set of snapshot block created time is not average in the time interval
-			if endHeightGap == 0 || startHeightGap == 0 {
-				return c.binarySearchBeforeTime(start, end, blockCreatedTime)
-			}
-			nextEdgeHeight = start.Height + startHeightGap
-
-		}
-
-		nextEdge, err := c.chainDb.Sc.GetSnapshotBlock(nextEdgeHeight, false)
-
-		if err != nil {
-			c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
-			return nil, err
-		}
-
-		if nextEdge.Timestamp.After(*blockCreatedTime) || nextEdge.Timestamp.Equal(*blockCreatedTime) {
-			end = nextEdge
-		} else {
-			start = nextEdge
-		}
-	}
 }
 
 func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {

@@ -158,12 +158,37 @@ func TestGetSnapshotBlockBeforeTime(t *testing.T) {
 	//}
 	//fmt.Printf("%+v\n", block)
 
-	time2 := time.Unix(1539268026, 0)
-	block2, err2 := chainInstance.GetSnapshotBlockBeforeTime(&time2)
-	if err2 != nil {
-		t.Fatal(err2)
+	now := time.Now()
+	count := 100
+	for i := 1; i <= count; i++ {
+		// not insert snapshotblock
+		if i%20 == 0 {
+			continue
+		}
+		newSb, _ := newSnapshotBlock()
+		ts := now.Add(time.Duration(i) * time.Second)
+		newSb.Timestamp = &ts
+		chainInstance.InsertSnapshotBlock(newSb)
 	}
-	fmt.Printf("%+v\n", block2)
+
+	latestBlock := chainInstance.GetLatestSnapshotBlock()
+	offset := uint64(count / 20)
+	for i := count; i > 0; i-- {
+		if i%20 == 0 {
+			offset--
+		}
+		ts := now.Add(time.Duration(i) * time.Second)
+		block, err2 := chainInstance.GetSnapshotBlockBeforeTime(&ts)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		if block.Height+1+offset != latestBlock.Height-uint64(count-i) {
+			t.Error("error!!")
+		} else {
+			t.Log(block.Height)
+		}
+
+	}
 
 	//time3 := GenesisSnapshotBlock.Timestamp.Add(time.Second * 100)
 	//block3, err3 := chainInstance.GetSnapshotBlockBeforeTime(&time3)
