@@ -48,7 +48,7 @@ type filter struct {
 
 func newFilter() *filter {
 	return &filter{
-		records: make(map[types.Hash]*record),
+		records: make(map[types.Hash]*record, 10000),
 	}
 }
 

@@ -141,45 +141,59 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 	t := time.Now()
 
-	if atomic.LoadInt32(&s.ready) == 0 {
-		s.sblocks = append(s.sblocks, blocks)
-		s.log.Warn(fmt.Sprintf("not ready, store %d snapshotblocks", len(s.sblocks)))
-
-		for _, block := range blocks {
-			s.mark(block.Hash)
-		}
-	} else {
-		for _, block := range blocks {
-			s.mark(block.Hash)
-			s.sFeed.Notify(block)
-		}
-	}
+	s.handleSnapshotBlocks(blocks, atomic.LoadInt32(&s.ready) != 0)
 
 	monitor.LogDuration("net/receiver", "bs", time.Now().Sub(t).Nanoseconds())
 }
 
-func (s *receiver) ReceiveAccountBlocks(ablocks []*ledger.AccountBlock) {
-	t := time.Now()
-
-	if atomic.LoadInt32(&s.ready) == 0 {
-		s.ablocks = append(s.ablocks, ablocks)
-
-		for _, block := range ablocks {
-			s.mark(block.Hash)
+func (s *receiver) handleSnapshotBlocks(blocks []*ledger.SnapshotBlock, ready bool) {
+	var i, j int
+	for i, j = 0, 0; i < len(blocks); i++ {
+		block := blocks[i]
+		if s.filter.has(block.Hash) {
+			continue
 		}
+		j++
+		blocks[j] = blocks[i]
 
-		s.log.Warn(fmt.Sprintf("not ready, store %d accountblocks", len(ablocks)))
-	} else {
-		for _, block := range ablocks {
-			// verify
-			if s.verifier.VerifyforP2P(block) {
-				s.aFeed.Notify(block)
-				s.mark(block.Hash)
-			}
+		s.mark(block.Hash)
+		if ready {
+			s.sFeed.Notify(block)
 		}
 	}
 
+	if !ready {
+		s.sblocks = append(s.sblocks, blocks[:j])
+	}
+}
+
+func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) {
+	t := time.Now()
+
+	s.handleAccountBlocks(blocks, atomic.LoadInt32(&s.ready) != 0)
+
 	monitor.LogDuration("net/receiver", "abs", time.Now().Sub(t).Nanoseconds())
+}
+
+func (s *receiver) handleAccountBlocks(blocks []*ledger.AccountBlock, ready bool) {
+	var i, j int
+	for i, j = 0, 0; i < len(blocks); i++ {
+		block := blocks[i]
+		if s.filter.has(block.Hash) {
+			continue
+		}
+		j++
+		blocks[j] = blocks[i]
+
+		s.mark(block.Hash)
+		if ready {
+			s.aFeed.Notify(block)
+		}
+	}
+
+	if !ready {
+		s.ablocks = append(s.ablocks, blocks[:j])
+	}
 }
 
 func (s *receiver) listen(st SyncState) {

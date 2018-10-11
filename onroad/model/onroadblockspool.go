@@ -202,6 +202,29 @@ func (p *OnroadBlocksPool) WriteOnroadSuccess(blocks []*vm_context.VmAccountBloc
 
 func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_context.VmAccountBlock) error {
 	p.log.Debug("WriteOnroad called", "blockList len", len(blockList))
+	if len(blockList) != 0 && blockList[0].AccountBlock != nil {
+		p.log.Debug("WriteOnroad called",
+			"blockList[0] account address", blockList[0].AccountBlock.AccountAddress,
+			"type", blockList[0].AccountBlock.BlockType,
+		)
+	}
+	syncOnce := &sync.Once{}
+	syncOnce.Do(func() {
+		var onceErr error
+		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressMintage); onceErr != nil {
+			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressMintage)
+		}
+		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressPledge); onceErr != nil {
+			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressPledge)
+		}
+		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressRegister); onceErr != nil {
+			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressRegister)
+		}
+		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressVote); onceErr != nil {
+			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressVote)
+		}
+	})
+
 	for _, v := range blockList {
 		if v.AccountBlock.IsSendBlock() {
 			// basic writeMeta func
@@ -209,9 +232,7 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 				p.log.Error("writeOnroadMeta", "error", err)
 				return err
 			}
-			code, _ := p.dbAccess.Chain.AccountType(&v.AccountBlock.ToAddress)
-			if v.AccountBlock.BlockType == ledger.BlockTypeSendCreate ||
-				(v.AccountBlock.BlockType == ledger.BlockTypeSendCall && code == ledger.AccountTypeContract) {
+			if v.AccountBlock.BlockType == ledger.BlockTypeSendCreate {
 				unsavedCache := v.VmContext.UnsavedCache()
 				gidList := unsavedCache.ContractGidList()
 				for _, v := range gidList {
