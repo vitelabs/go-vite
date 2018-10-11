@@ -577,7 +577,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		return nil, toSubLedgerErr
 	}
 
-	if triggerErr := c.em.trigger(DeleteAccountBlocksEvent, subLedger); triggerErr != nil {
+	if triggerErr := c.em.trigger(DeleteAccountBlocksEvent, batch, subLedger); triggerErr != nil {
 		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "DeleteAccountBlocks")
 		return nil, triggerErr
 	}

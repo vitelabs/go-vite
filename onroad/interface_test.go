@@ -22,12 +22,8 @@ func (testNet) SubscribeSyncStatus(fn func(net.SyncState)) (subId int) {
 func (testNet) UnsubscribeSyncStatus(subId int) {
 }
 
-func (testNet) Status() *net.Status {
-	return &net.Status{
-		Peers:     nil,
-		SyncState: net.Syncdone,
-		Running:   false,
-	}
+func (testNet) SyncState() net.SyncState {
+	return net.Syncdone
 }
 
 type testProducer struct {

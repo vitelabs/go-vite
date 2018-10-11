@@ -27,8 +27,6 @@ func TestManager_StartAutoReceiveWorker(t *testing.T) {
 	c := chain.NewChain(&config.Config{
 		P2P:      nil,
 		DataDir:  common.GoViteTestDataDir(),
-		FilePort: 0,
-		Topo:     nil,
 	})
 	c.Init()
 
