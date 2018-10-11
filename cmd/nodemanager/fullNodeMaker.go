@@ -149,6 +149,14 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.VMTestEnabled = ctx.GlobalBool(utils.VMTestFlag.Name)
 	}
 
+	//Net
+	if ctx.GlobalIsSet(utils.SingleFlag.Name) {
+		cfg.Single = ctx.GlobalBool(utils.SingleFlag.Name)
+	}
+
+	if ctx.GlobalIsSet(utils.FilePortFlag.Name) {
+		cfg.FilePort = ctx.GlobalInt(utils.FilePortFlag.Name)
+	}
 }
 
 func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {

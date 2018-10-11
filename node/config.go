@@ -58,7 +58,7 @@ type Config struct {
 
 	//Net TODO: cmd after ？
 	Single                 bool     `json:"Single"`
-	FilePort               uint16   `json:"FilePort"`
+	FilePort               int      `json:"FilePort"`
 	Topology               []string `json:"Topology"`
 	TopologyTopic          string   `json:"TopologyTopic"`
 	TopologyReportInterval int      `json:"TopologyReportInterval"`
@@ -82,7 +82,7 @@ func (c *Config) makeViteConfig() *config.Config {
 func (c *Config) makeNetConfig() *config.Net {
 	return &config.Net{
 		Single:   c.Single,
-		FilePort: c.FilePort,
+		FilePort: uint16(c.FilePort),
 		Topology: c.Topology,
 		Topic:    c.TopologyTopic,
 		Interval: int64(c.TopologyReportInterval),
