@@ -305,7 +305,7 @@ func excludeSubordinate(subLedger map[types.Address][]*ledger.AccountBlock) map[
 }
 
 func (p *OnroadBlocksPool) updateFullCache(writeType bool, block *ledger.AccountBlock) {
-	if v, ok := p.fullCache.Load(block.ToAddress); ok {
+	if v, ok := p.fullCache.Load(block.AccountAddress); ok {
 		fullCache := v.(*onroadBlocksCache)
 		if writeType {
 			fullCache.addTx(block)
@@ -317,7 +317,7 @@ func (p *OnroadBlocksPool) updateFullCache(writeType bool, block *ledger.Account
 
 func (p *OnroadBlocksPool) updateSimpleCache(writeType bool, block *ledger.AccountBlock) {
 
-	value, ok := p.simpleCache.Load(block.ToAddress)
+	value, ok := p.simpleCache.Load(block.AccountAddress)
 	if !ok {
 		return
 	}
@@ -340,7 +340,7 @@ func (p *OnroadBlocksPool) updateSimpleCache(writeType bool, block *ledger.Accou
 		if ok {
 			if tokenBalanceInfo.TotalAmount.Cmp(block.Amount) == -1 {
 				p.log.Error("conflict with the memory info, so can't update when writeType is false")
-				p.deleteSimpleCache(block.ToAddress)
+				p.deleteSimpleCache(block.AccountAddress)
 			}
 			if tokenBalanceInfo.TotalAmount.Cmp(block.Amount) == 0 {
 				delete(simpleAccountInfo.TokenBalanceInfoMap, block.TokenId)
@@ -387,7 +387,7 @@ func (p *OnroadBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
 	} else {
 		p.commonTxListenerMutex.RLock()
 		defer p.commonTxListenerMutex.RUnlock()
-		if f, ok := p.newCommonTxListener[block.ToAddress]; ok {
+		if f, ok := p.newCommonTxListener[block.AccountAddress]; ok {
 			f()
 		}
 	}
