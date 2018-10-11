@@ -2,12 +2,13 @@ package net
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type SyncState int32
@@ -338,7 +339,9 @@ func (s *syncer) receiveBlocks(sblocks []*ledger.SnapshotBlock, ablocks []*ledge
 	s.receiver.ReceiveAccountBlocks(ablocks)
 	s.receiver.ReceiveSnapshotBlocks(sblocks)
 
-	atomic.AddUint64(&s.count, uint64(len(sblocks)))
+	count := atomic.AddUint64(&s.count, uint64(len(sblocks)))
+
+	s.log.Info(fmt.Sprintf("receive %d snapshotblocks, %d accountblocks, process %d/%d", len(sblocks), len(ablocks), count, s.total))
 
 	if atomic.LoadUint64(&s.count) >= s.total {
 		// all blocks have downloaded

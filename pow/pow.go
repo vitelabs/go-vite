@@ -2,9 +2,10 @@ package pow
 
 import (
 	"encoding/binary"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
-	"math/big"
 )
 
 // IN MY 2017 MACBOOK PRO which cpu is---- Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz----

@@ -148,6 +148,12 @@ var (
 		Name:  "loglevel",
 		Usage: "log level (info,eror,warn,dbug)",
 	}
+
+	//VM
+	VMTestFlag = cli.BoolFlag{
+		Name:  "vmtest",
+		Usage: "Enable the Vm Test ",
+	}
 )
 
 // This allows the use of the existing configuration functionality.
