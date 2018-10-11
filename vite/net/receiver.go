@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/vite/net/message"
 	"sync/atomic"
 	"time"
 )
@@ -47,7 +48,7 @@ func (s *receiver) ID() string {
 }
 
 func (s *receiver) Cmds() []cmd {
-	return []cmd{NewSnapshotBlockCode, NewAccountBlockCode}
+	return []cmd{NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode}
 }
 
 func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
@@ -72,6 +73,23 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 		sender.SeeBlock(block.Hash)
 
 		s.ReceiveNewAccountBlock(block)
+
+	case SnapshotBlocksCode:
+		bs := new(message.SnapshotBlocks)
+		err := bs.Deserialize(msg.Payload)
+		if err != nil {
+			return err
+		}
+
+		s.ReceiveSnapshotBlocks(bs.Blocks)
+	case AccountBlocksCode:
+		bs := new(message.AccountBlocks)
+		err := bs.Deserialize(msg.Payload)
+		if err != nil {
+			return err
+		}
+
+		s.ReceiveAccountBlocks(bs.Blocks)
 	}
 
 	return nil
@@ -133,12 +151,8 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 	t := time.Now()
 
-	s.handleSnapshotBlocks(blocks, atomic.LoadInt32(&s.ready) != 0)
+	ready := atomic.LoadInt32(&s.ready) != 0
 
-	monitor.LogDuration("net/receiver", "bs", time.Now().Sub(t).Nanoseconds())
-}
-
-func (s *receiver) handleSnapshotBlocks(blocks []*ledger.SnapshotBlock, ready bool) {
 	var i, j int
 	for i, j = 0, 0; i < len(blocks); i++ {
 		block := blocks[i]
@@ -157,17 +171,15 @@ func (s *receiver) handleSnapshotBlocks(blocks []*ledger.SnapshotBlock, ready bo
 	if !ready {
 		s.sblocks = append(s.sblocks, blocks[:j])
 	}
+
+	monitor.LogDuration("net/receiver", "bs", time.Now().Sub(t).Nanoseconds())
 }
 
 func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) {
 	t := time.Now()
 
-	s.handleAccountBlocks(blocks, atomic.LoadInt32(&s.ready) != 0)
+	ready := atomic.LoadInt32(&s.ready) != 0
 
-	monitor.LogDuration("net/receiver", "abs", time.Now().Sub(t).Nanoseconds())
-}
-
-func (s *receiver) handleAccountBlocks(blocks []*ledger.AccountBlock, ready bool) {
 	var i, j int
 	for i, j = 0, 0; i < len(blocks); i++ {
 		block := blocks[i]
@@ -186,6 +198,8 @@ func (s *receiver) handleAccountBlocks(blocks []*ledger.AccountBlock, ready bool
 	if !ready {
 		s.ablocks = append(s.ablocks, blocks[:j])
 	}
+
+	monitor.LogDuration("net/receiver", "abs", time.Now().Sub(t).Nanoseconds())
 }
 
 func (s *receiver) listen(st SyncState) {

@@ -64,7 +64,7 @@ func New(cfg *Config) Net {
 	filter := newFilter()
 	receiver := newReceiver(cfg.Verifier, broadcaster, filter)
 	syncer := newSyncer(cfg.Chain, peers, pool, receiver, fc)
-	fetcher := newFetcher(filter, peers, receiver, pool)
+	fetcher := newFetcher(filter, peers, pool)
 
 	syncer.feed.Sub(receiver.listen) // subscribe sync status
 	syncer.feed.Sub(fetcher.listen)  // subscribe sync status
@@ -94,9 +94,8 @@ func New(cfg *Config) Net {
 	n.addHandler(&getSnapshotBlocksHandler{cfg.Chain})
 	n.addHandler(&getAccountBlocksHandler{cfg.Chain})
 	n.addHandler(&getChunkHandler{cfg.Chain})
-	n.addHandler(pool)     // receive all response except NewSnapshotBlockCode
-	n.addHandler(receiver) // receive newBlocks
-	n.addHandler(fetcher)
+	n.addHandler(pool)     // FileListCode, SubLedgerCode, ExceptionCode
+	n.addHandler(receiver) // NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode
 
 	n.protocols = append(n.protocols, &p2p.Protocol{
 		Name: CmdSetName,
