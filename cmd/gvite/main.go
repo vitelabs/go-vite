@@ -89,6 +89,12 @@ var (
 	vmFlags = []cli.Flag{
 		utils.VMTestFlag,
 	}
+
+	//Net
+	netFlags = []cli.Flag{
+		utils.SingleFlag,
+		utils.FilePortFlag,
+	}
 )
 
 func init() {
@@ -117,7 +123,7 @@ func init() {
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	//Import: Please add the New Flags here
-	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags)
+	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags)
 
 	app.Before = beforeAction
 	app.Action = action
