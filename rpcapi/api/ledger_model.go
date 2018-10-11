@@ -74,25 +74,25 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.Token
 }
 
 type RpcAccountInfo struct {
-	AccountAddress      types.Address
-	TotalNumber         string // uint64
-	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:",omitempty"`
+	AccountAddress      types.Address                              `json:"accountAddress"`
+	TotalNumber         string                                     `json:"totalNumber"` // uint64
+	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:"tokenBalanceInfoMap,omitempty"`
 }
 
 type RpcTokenBalanceInfo struct {
-	TokenInfo   *RpcTokenInfo `json:",omitempty"`
-	TotalAmount string  // big int
-	Number      *string // uint64
+	TokenInfo   *RpcTokenInfo `json:"tokenInfo,omitempty"`
+	TotalAmount string        `json:"totalAmount"`      // big int
+	Number      *string       `json:"number,omitempty"` // uint64
 }
 
 type RpcTokenInfo struct {
-	TokenName      string
-	TokenSymbol    string
-	TotalSupply    *string `json:",omitempty"` // *big.Int
-	Decimals       uint8
-	Owner          types.Address
-	PledgeAmount   *string `json:",omitempty"` // *big.Int
-	WithdrawHeight string                      // uint64
+	TokenName      string        `json:"tokenName"`
+	TokenSymbol    string        `json:"tokenSymbol"`
+	TotalSupply    *string       `json:"totalSupply,omitempty"` // *big.Int
+	Decimals       uint8         `json:"decimals"`
+	Owner          types.Address `json:"owner"`
+	PledgeAmount   *string       `json:"pledgeAmount,omitempty"` // *big.Int
+	WithdrawHeight string        `json:"withdrawHeight"`         // uint64
 }
 
 func RawTokenInfoToRpc(tinfo *contracts.TokenInfo) *RpcTokenInfo {
