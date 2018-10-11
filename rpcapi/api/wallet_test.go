@@ -39,44 +39,22 @@ func TestWallet(t *testing.T) {
 	addr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
 
 	password := "123456"
+
 	unlockAddr(w, password, genesisAccountPrivKeyStr)
-	coinbase := unlockAddr(w, password, accountPrivKeyStr)
 
-	config := &config.Config{
-		DataDir: common.DefaultDataDir(),
-		Producer: &config.Producer{
-			Producer: true,
-			Coinbase: coinbase.String(),
-		},
-	}
+	vite, err := startVite(w, password, t)
 
-	vite, err := vite.New(config, w)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	err = vite.Init()
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	err = vite.Start()
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	time.Sleep(2 * time.Second)
-	wa := NewWalletApi(vite)
+	waApi := NewWalletApi(vite)
 	onRoadApi := NewPrivateOnroadApi(vite.OnRoad())
 
 	//l := NewLedgerApi(vite)
-	t.Log(wa.Status())
+	t.Log(waApi.Status())
 
 	vite.OnRoad().StartAutoReceiveWorker(addr, nil)
 	for _, v := range vite.OnRoad().ListWorkingAutoReceiveWorker() {
 		wLog.Info(v.String())
 	}
+
 	waitOnroad(onRoadApi, addr, t)
 	printBalance(vite, addr)
 
@@ -99,7 +77,7 @@ func TestWallet(t *testing.T) {
 	contractPrevHeight := printHeight(vite, contracts.AddressPledge)
 
 	if balance.Sign() == 0 {
-		err = wa.CreateTxWithPassphrase(parms)
+		err = waApi.CreateTxWithPassphrase(parms)
 		if err != nil {
 			t.Error(err)
 			return
@@ -124,12 +102,41 @@ func TestWallet(t *testing.T) {
 	}
 	printQuota(vite, addr)
 }
+func startVite(w *wallet.Manager, password string, t *testing.T) (*vite.Vite, error) {
+	coinbase := unlockAddr(w, password, accountPrivKeyStr)
+
+	config := &config.Config{
+		DataDir: common.DefaultDataDir(),
+		Producer: &config.Producer{
+			Producer: true,
+			Coinbase: coinbase.String(),
+		},
+	}
+
+	vite, err := vite.New(config, w)
+	if err != nil {
+		t.Error(err)
+		return nil, err
+	}
+	err = vite.Init()
+	if err != nil {
+		t.Error(err)
+		return nil, err
+	}
+	err = vite.Start()
+	if err != nil {
+		t.Error(err)
+		return nil, err
+	}
+	return vite, nil
+}
 func printHeight(vite *vite.Vite, addr types.Address) uint64 {
 	height, e := vite.Chain().GetLatestAccountBlock(&addr)
-	if height != nil {
-		wLog.Info("print height", "height", strconv.FormatUint(height.Height, 10), "addr", addr.String(), "err", e)
-	} else {
+	if height == nil {
 		wLog.Info("print height", "height", "0", "addr", addr.String(), "err", e)
+		return 0
+	} else {
+		wLog.Info("print height", "height", strconv.FormatUint(height.Height, 10), "addr", addr.String(), "err", e)
 	}
 	return height.Height
 
@@ -166,7 +173,7 @@ func unlockAddr(w *wallet.Manager, passwd string, priKey string) types.Address {
 func waitOnroad(api *PrivateOnroadApi, addr types.Address, t *testing.T) {
 	info, e := api.GetAccountOnroadInfo(addr)
 	if e != nil {
-		t.Error(e)
+		panic(e)
 		return
 	}
 
