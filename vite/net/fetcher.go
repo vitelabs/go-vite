@@ -108,7 +108,9 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 func (f *fetcher) listen(st SyncState) {
 	if st == Syncdone || st == SyncDownloaded {
 		f.log.Info(fmt.Sprintf("ready: %s", st))
-
 		atomic.StoreInt32(&f.ready, 1)
+	} else if st == Syncing {
+		f.log.Warn(fmt.Sprintf("silence: %s", st))
+		atomic.StoreInt32(&f.ready, 0)
 	}
 }
