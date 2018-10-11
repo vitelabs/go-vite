@@ -2,15 +2,16 @@ package net
 
 import (
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"strings"
-	"sync"
-	"time"
 )
 
 // all query include from block

@@ -105,9 +105,14 @@ func (v *Vite) Start() (err error) {
 	v.onRoad.Start()
 
 	v.chain.Start()
+	err = v.consensus.Init()
+	if err != nil {
+		return err
+	}
 	// hack
 	v.pool.Init(v.net, v.walletManager, v.snapshotVerifier, v.accountVerifier)
 
+	v.consensus.Start()
 	v.net.Start()
 	v.pool.Start()
 	if v.producer != nil {
@@ -131,6 +136,7 @@ func (v *Vite) Stop() (err error) {
 			return err
 		}
 	}
+	v.consensus.Stop()
 	v.chain.Stop()
 	v.onRoad.Stop()
 	return nil
