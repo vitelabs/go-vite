@@ -407,10 +407,17 @@ func TestTrieConcurrence(t *testing.T) {
 	fmt.Println(trie.Hash())
 	fmt.Println()
 
-	batch := new(leveldb.Batch)
-	callback, _ := trie.Save(batch)
-	db.Write(batch, nil)
-	callback()
+	var sw sync.WaitGroup
+	for i := 0; i < 1000; i++ {
+		sw.Add(1)
+		go func() {
+			defer sw.Done()
+			batch := new(leveldb.Batch)
+			trie.Save(batch)
+			db.Write(batch, nil)
+		}()
+	}
+	sw.Wait()
 
 	trie = nil
 
@@ -435,5 +442,4 @@ func TestTrieConcurrence(t *testing.T) {
 	fmt.Printf("%s\n", trie2.GetValue([]byte("tes")))
 	fmt.Printf("%s\n", trie2.GetValue([]byte("tesab")))
 	fmt.Println(trie2.Hash())
-
 }

@@ -182,9 +182,9 @@ LOOP:
 }
 
 func (w *ContractWorker) getAndSortAllAddrQuota() error {
-	w.contractTaskPQueue = make([]*contractTask, len(w.contractAddressList))
-
 	quotas := w.manager.Chain().GetPledgeQuotas(w.accEvent.SnapshotHash, w.contractAddressList)
+
+	w.contractTaskPQueue = make([]*contractTask, len(quotas))
 	i := 0
 	for key, value := range quotas {
 		w.contractTaskPQueue[i] = &contractTask{
@@ -194,6 +194,7 @@ func (w *ContractWorker) getAndSortAllAddrQuota() error {
 		}
 		i++
 	}
+
 	heap.Init(&w.contractTaskPQueue)
 	return nil
 }
