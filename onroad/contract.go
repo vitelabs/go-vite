@@ -39,7 +39,7 @@ type ContractWorker struct {
 }
 
 func NewContractWorker(manager *Manager, accEvent producerevent.AccountStartEvent) *ContractWorker {
-	return &ContractWorker{
+	worker := &ContractWorker{
 		manager:     manager,
 		uBlocksPool: manager.onroadBlocksPool,
 
@@ -50,10 +50,15 @@ func NewContractWorker(manager *Manager, accEvent producerevent.AccountStartEven
 		status:  Create,
 		isSleep: false,
 
-		contractTaskProcessors: make([]*ContractTaskProcessor, ContractTaskProcessorSize),
-		blackList:              make(map[types.Address]bool),
-		log:                    slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid),
+		blackList: make(map[types.Address]bool),
+		log:       slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid),
 	}
+	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
+	for i, _ := range processors {
+		processors[i] = NewContractTaskProcessor(worker, i)
+	}
+	worker.contractTaskProcessors = processors
+	return worker
 }
 
 func (w *ContractWorker) Start() {
@@ -102,8 +107,7 @@ func (w *ContractWorker) Start() {
 			w.NewOnroadTxAlarm()
 		})
 
-		for i, v := range w.contractTaskProcessors {
-			v = NewContractTaskProcessor(w, i)
+		for _, v := range w.contractTaskProcessors {
 			v.Start()
 		}
 

@@ -28,7 +28,7 @@ const DefaultPort uint16 = 8484
 
 type net struct {
 	*Config
-	peers *peerSet
+	peers     *peerSet
 	*syncer
 	*fetcher
 	*broadcaster
