@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/cmd/utils/flock"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
@@ -11,6 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -52,8 +54,9 @@ type Node struct {
 	wsHandler  *rpc.Server
 
 	// Channel to wait for termination notifications
-	stop chan struct{}
-	lock sync.RWMutex
+	stop            chan struct{}
+	lock            sync.RWMutex
+	instanceDirLock flock.Releaser // prevents concurrent use of instance directory
 }
 
 func New(conf *Config) (*Node, error) {
@@ -111,19 +114,38 @@ func (node *Node) Stop() error {
 
 	//wallet
 	log.Info(fmt.Sprintf("Begin Stop Wallet... "))
-	node.stopWallet()
+	if err := node.stopWallet(); err != nil {
+		log.Error(fmt.Sprintf("Node stopWallet error: %v", err))
+	}
 
 	//p2p
 	log.Info(fmt.Sprintf("Begin Stop P2P... "))
-	node.stopP2P()
+	if err := node.stopP2P(); err != nil {
+		log.Error(fmt.Sprintf("Node stopP2P error: %v", err))
+	}
 
 	//vite
 	log.Info(fmt.Sprintf("Begin Stop Vite... "))
-	node.stopVite()
+	if err := node.stopVite(); err != nil {
+		log.Error(fmt.Sprintf("Node stopVite error: %v", err))
+	}
 
 	//rpc
 	log.Info(fmt.Sprintf("Begin Stop RPD... "))
-	node.stopRPC()
+	if err := node.stopRPC(); err != nil {
+		log.Error(fmt.Sprintf("Node stopRPC error: %v", err))
+	}
+
+	// Release instance directory lock.
+	log.Info(fmt.Sprintf("Begin relaeck dataDir lock... "))
+	if node.instanceDirLock != nil {
+		if err := node.instanceDirLock.Release(); err != nil {
+			log.Error("Can't release dataDir lock...", "err", err)
+		} else {
+			log.Info("The file lock has been released...")
+		}
+		node.instanceDirLock = nil
+	}
 
 	return nil
 }
@@ -296,20 +318,28 @@ func (node *Node) openDataDir() error {
 	}
 	log.Info(fmt.Sprintf("Open NodeServer.DataDir:%v", node.config.DataDir))
 
+	//Lock the instance directory to prevent concurrent use by another instance as well as accidental use of the instance directory as a database.
+	lockDir := filepath.Join(node.config.DataDir, "LOCK")
+	log.Info(fmt.Sprintf("Try to Lock NodeServer.DataDir,lockDir:%v", lockDir))
+	release, _, err := flock.New(lockDir)
+	if err != nil {
+		log.Error(fmt.Sprintf("Directory locked failed,lockDir:%v", lockDir))
+		return convertFileLockError(err)
+	}
+	log.Info(fmt.Sprintf("Directory locked successfully,lockDir:%v", lockDir))
+	node.instanceDirLock = release
+
 	// open p2p data dir
 	if err := os.MkdirAll(node.p2pConfig.DataDir, 0700); err != nil {
 		return err
 	}
-	log.Info(fmt.Sprintf("Open NodeServer.DataDir:%v", node.p2pConfig.DataDir))
+	log.Info(fmt.Sprintf("Open NodeServer.p2pConfig.DataDir:%v", node.p2pConfig.DataDir))
 
 	//open wallet data dir
 	if err := os.MkdirAll(node.walletConfig.DataDir, 0700); err != nil {
 		return err
 	}
-	log.Info(fmt.Sprintf("Open NodeServer.DataDir:%v", node.walletConfig.DataDir))
-
-	//Lock the instance directory to prevent concurrent use by another instance as well as accidental use of the instance directory as a database.
-	//TODO miss file lock(flock)
+	log.Info(fmt.Sprintf("Open NodeServer.walletConfig.DataDir:%v", node.walletConfig.DataDir))
 
 	return nil
 }

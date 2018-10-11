@@ -35,7 +35,7 @@ func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskPr
 		accEvent:   worker.accEvent,
 		blocksPool: worker.uBlocksPool,
 		status:     Create,
-		log:        worker.log.New("taskid", index),
+		log:        worker.log.New("class", "tp", "taskid", index),
 	}
 
 	return task
@@ -98,6 +98,7 @@ LOOP:
 
 		task := tp.worker.popContractTask()
 		if task != nil {
+			tp.log.Debug("task in work " + task.Addr.String())
 			tp.processOneAddress(task)
 			continue
 		}
@@ -131,7 +132,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
 	sBlock := blockList[0]
 
-	tp.log.Info("Process to make the receiveBlock, its'sendBlock detail:", tp.log.New("hash", sBlock.Hash))
+	tp.log.Info("Process to make the receiveBlock, its'sendBlock detail:", "hash", sBlock.Hash)
 
 	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
 		// Don't deal with it for the time being
@@ -163,7 +164,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	}
 
 	if genResult.Err != nil {
-		tp.log.Error("vm.Run error, ignore", genResult.Err)
+		tp.log.Error("vm.Run error, ignore", "err", genResult.Err)
 	}
 
 	if len(genResult.BlockGenList) > 0 {

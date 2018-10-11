@@ -9,6 +9,8 @@ import (
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/log15"
 	"gopkg.in/urfave/cli.v1"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -95,6 +97,11 @@ var (
 		utils.SingleFlag,
 		utils.FilePortFlag,
 	}
+
+	//Stat
+	statFlags = []cli.Flag{
+		utils.PProfEnabledFlag,
+	}
 )
 
 func init() {
@@ -123,7 +130,7 @@ func init() {
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	//Import: Please add the New Flags here
-	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags)
+	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags, statFlags)
 
 	app.Before = beforeAction
 	app.Action = action
@@ -141,6 +148,12 @@ func beforeAction(ctx *cli.Context) error {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	//TODO: we can add dashboard here
+	if ctx.GlobalIsSet(utils.PProfEnabledFlag.Name) {
+		go func() {
+			log.Info("Enable a performance analysis tool, you can visit the address of `http://localhost:8080/debug/pprof`")
+			http.ListenAndServe("0.0.0.0:8080", nil)
+		}()
+	}
 
 	return nil
 }
