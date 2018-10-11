@@ -185,10 +185,9 @@ func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) erro
 func (p *OnroadBlocksPool) WriteOnroadSuccess(blocks []*vm_context.VmAccountBlock) {
 	for _, v := range blocks {
 		if v.AccountBlock.IsSendBlock() {
-			//todo
 			code, _ := p.dbAccess.Chain.AccountType(&v.AccountBlock.ToAddress)
-			if code == ledger.AccountTypeNotExist && v.AccountBlock.BlockType == ledger.BlockTypeSendCreate ||
-				code == ledger.AccountTypeContract {
+			if (code == ledger.AccountTypeNotExist && v.AccountBlock.BlockType == ledger.BlockTypeSendCreate) ||
+				code == ledger.AccountTypeContract || code == ledger.AccountTypeError {
 				return
 			}
 			p.updateCache(true, v.AccountBlock)
