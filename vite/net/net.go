@@ -250,31 +250,3 @@ func (n *net) handleMsg(p *Peer) (err error) {
 
 	return fmt.Errorf("unknown message cmd %d", msg.Cmd)
 }
-
-// get current netInfo (peers, syncStatus, ...)
-func (n *net) Status() *Status {
-	running := true
-	select {
-	case <-n.term:
-		running = false
-	default:
-	}
-
-	s := n.syncer.Status()
-
-	return &Status{
-		Peers:     n.peers.Info(),
-		Running:   running,
-		SyncState: s.State,
-		SyncFrom:  s.From,
-		SyncTo:    s.To,
-	}
-}
-
-type Status struct {
-	Running   bool        `json:"running"`
-	Peers     []*PeerInfo `json:"peers"`
-	SyncState SyncState   `json:"syncState"`
-	SyncFrom  uint64      `json:"syncFrom"`
-	SyncTo    uint64      `json:"syncTo"`
-}

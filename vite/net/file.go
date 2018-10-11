@@ -9,7 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"io"
-	"net"
+	net2 "net"
 	"strconv"
 	"sync"
 	"time"
@@ -20,7 +20,7 @@ var fWriteTimeout = 20 * time.Second
 
 type fileServer struct {
 	port   uint16
-	ln     net.Listener
+	ln     net2.Listener
 	record map[uint64]struct{} // use to record nonce
 	term   chan struct{}
 	log    log15.Logger
@@ -39,7 +39,7 @@ func newFileServer(port uint16, chain Chain) *fileServer {
 }
 
 func (s *fileServer) start() error {
-	ln, err := net.Listen("tcp", "0.0.0.0:"+strconv.FormatUint(uint64(s.port), 10))
+	ln, err := net2.Listen("tcp", "0.0.0.0:"+strconv.FormatUint(uint64(s.port), 10))
 
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func (s *fileServer) readLoop() {
 	}
 }
 
-func (f *fileServer) handleConn(conn net.Conn) {
+func (f *fileServer) handleConn(conn net2.Conn) {
 	defer conn.Close()
 	defer f.wg.Done()
 
@@ -142,7 +142,7 @@ func (f *fileServer) handleConn(conn net.Conn) {
 // @section fileClient
 
 type connContext struct {
-	net.Conn
+	net2.Conn
 	req   *fileRequest
 	addr  string
 	idle  bool
@@ -238,7 +238,7 @@ loop:
 			var ctx *connContext
 			var ok bool
 			if ctx, ok = fc.conns[addr]; !ok {
-				conn, err := net.Dial("tcp", addr)
+				conn, err := net2.Dial("tcp", addr)
 				if err != nil {
 					req.Done(err)
 					break

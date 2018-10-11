@@ -69,6 +69,12 @@
 			"revisionTime": "2018-09-17T12:18:17Z"
 		},
 		{
+			"checksumSHA1": "BxH9xJUqczhpL57gfKZe2/VlBHY=",
+			"path": "github.com/fatih/color",
+			"revision": "3f9d52f7176a6927daacff70a3e8d1dc2025c53e",
+			"revisionTime": "2018-10-10T23:13:11Z"
+		},
+		{
 			"checksumSHA1": "7NP1qUMF8Kx1y0zANxx0e+oq9Oo=",
 			"path": "github.com/fsnotify/fsnotify",
 			"revision": "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9",
@@ -244,6 +250,12 @@
 			"revisionTime": "2017-11-07T05:05:31Z"
 		},
 		{
+			"checksumSHA1": "KGCifxxR5cm2gz94i2iha+RIZlk=",
+			"path": "github.com/mattn/go-runewidth",
+			"revision": "ce7b0b5c7b45a81508558cd1dba6bb1e4ddb51bb",
+			"revisionTime": "2018-04-08T05:53:51Z"
+		},
+		{
 			"checksumSHA1": "m2/Bwo4dXYB/Iw2AdotdxuOW7SA=",
 			"path": "github.com/micro/go-config",
 			"revision": "3904282c3ef78454df3c3c0b880fb780778ad16a",
@@ -334,6 +346,12 @@
 			"revisionTime": "2018-03-11T21:45:15Z"
 		},
 		{
+			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
+			"path": "github.com/pmezard/go-difflib/difflib",
+			"revision": "792786c7400a136282c1664665ae0a8db921c6c2",
+			"revisionTime": "2016-01-10T10:55:54Z"
+		},
+		{
 			"checksumSHA1": "PGv3Cdw5XiBgovHTqrBTEeM34yg=",
 			"path": "github.com/powerman/rpc-codec/jsonrpc2",
 			"revision": "3e1ab3b635b7b0d5f771028cd45aa9a827fd9f31",
@@ -358,6 +376,42 @@
 			"revisionTime": "2018-06-17T13:11:54Z"
 		},
 		{
+			"checksumSHA1": "q1HKpLIWi3tTT5W5LqMlwPcGmyQ=",
+			"path": "github.com/robertkrimen/otto/ast",
+			"revision": "15f95af6e78dcd2030d8195a138bd88d4f403546",
+			"revisionTime": "2018-06-17T13:11:54Z"
+		},
+		{
+			"checksumSHA1": "L0KsB2EzTlPgv0iae3q3SukNW7U=",
+			"path": "github.com/robertkrimen/otto/dbg",
+			"revision": "15f95af6e78dcd2030d8195a138bd88d4f403546",
+			"revisionTime": "2018-06-17T13:11:54Z"
+		},
+		{
+			"checksumSHA1": "euDLJKhw4doeTSxjEoezjxYXLzs=",
+			"path": "github.com/robertkrimen/otto/file",
+			"revision": "15f95af6e78dcd2030d8195a138bd88d4f403546",
+			"revisionTime": "2018-06-17T13:11:54Z"
+		},
+		{
+			"checksumSHA1": "w5wu2avr5PWCJy5dlEhlY3rwb+w=",
+			"path": "github.com/robertkrimen/otto/parser",
+			"revision": "15f95af6e78dcd2030d8195a138bd88d4f403546",
+			"revisionTime": "2018-06-17T13:11:54Z"
+		},
+		{
+			"checksumSHA1": "7J/7NaYRqKhBvZ+dTIutsEoEgFw=",
+			"path": "github.com/robertkrimen/otto/registry",
+			"revision": "15f95af6e78dcd2030d8195a138bd88d4f403546",
+			"revisionTime": "2018-06-17T13:11:54Z"
+		},
+		{
+			"checksumSHA1": "/jMXYuXycBpTqWhRyJ2xsqvHvQI=",
+			"path": "github.com/robertkrimen/otto/token",
+			"revision": "15f95af6e78dcd2030d8195a138bd88d4f403546",
+			"revisionTime": "2018-06-17T13:11:54Z"
+		},
+		{
 			"checksumSHA1": "ZLkqsBqmc4RVc/Ng1ldrGZuTE8o=",
 			"path": "github.com/rs/cors",
 			"revision": "dc7332ab32be5dfec05dae2a6ab79cbfa53b6407",
@@ -368,6 +422,18 @@
 			"path": "github.com/seiflotfy/cuckoofilter",
 			"revision": "09e42b44620a3ea116a06f755fbf05fb62a1f550",
 			"revisionTime": "2018-08-01T14:34:48Z"
+		},
+		{
+			"checksumSHA1": "yEqObY2i8tbWEB4e/oVJDURhMf4=",
+			"path": "github.com/stretchr/testify/assert",
+			"revision": "2db35c88b92a1631e987089b5485a95e68bc5d3a",
+			"revisionTime": "2018-10-02T11:39:27Z"
+		},
+		{
+			"checksumSHA1": "wnEANt4k5X/KGwoFyfSSnpxULm4=",
+			"path": "github.com/stretchr/testify/require",
+			"revision": "2db35c88b92a1631e987089b5485a95e68bc5d3a",
+			"revisionTime": "2018-10-02T11:39:27Z"
 		},
 		{
 			"checksumSHA1": "8Gv3dB+Ym7NRbOIR9BZs54sWZow=",
@@ -446,6 +512,18 @@
 			"path": "github.com/syndtr/goleveldb/leveldb/util",
 			"revision": "0d5a0ceb10cf9ab89fdd744cc8c50a83134f6697",
 			"revisionTime": "2018-06-21T01:01:48Z"
+		},
+		{
+			"checksumSHA1": "TwXeqVAeWRsw5vd2iKCRno105tI=",
+			"path": "github.com/tyler-smith/go-bip39",
+			"revision": "95c66720ed7ac2f4b78ddb31d940d59193894f49",
+			"revisionTime": "2018-07-16T17:03:10Z"
+		},
+		{
+			"checksumSHA1": "+347vHML6CFl9flxJzDPoHmQA7Y=",
+			"path": "github.com/tyler-smith/go-bip39/wordlists",
+			"revision": "95c66720ed7ac2f4b78ddb31d940d59193894f49",
+			"revisionTime": "2018-07-16T17:03:10Z"
 		},
 		{
 			"checksumSHA1": "ejjxT0+wDWWncfh0Rt3lSH4IbXQ=",
@@ -620,6 +698,18 @@
 			"path": "gopkg.in/natefinch/npipe.v2",
 			"revision": "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6",
 			"revisionTime": "2016-06-21T03:49:01Z"
+		},
+		{
+			"checksumSHA1": "4BwmmgQUhWtizsR2soXND0nqZ1I=",
+			"path": "gopkg.in/sourcemap.v1",
+			"revision": "6e83acea0053641eff084973fee085f0c193c61a",
+			"revisionTime": "2017-02-13T14:20:43Z"
+		},
+		{
+			"checksumSHA1": "GDXPA04g0Dfwu2w++JiOKkYuZEc=",
+			"path": "gopkg.in/sourcemap.v1/base64vlq",
+			"revision": "6e83acea0053641eff084973fee085f0c193c61a",
+			"revisionTime": "2017-02-13T14:20:43Z"
 		},
 		{
 			"checksumSHA1": "Yx1MU40fyGe7hhqW9+dkv8kXa60=",

@@ -9,7 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"net"
+	net2 "net"
 	"sort"
 	"strconv"
 	"sync"
@@ -43,8 +43,8 @@ func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 	}
 }
 
-func (p *Peer) FileAddress() *net.TCPAddr {
-	return &net.TCPAddr{
+func (p *Peer) FileAddress() *net2.TCPAddr {
+	return &net2.TCPAddr{
 		IP:   p.IP(),
 		Port: int(p.filePort),
 	}
