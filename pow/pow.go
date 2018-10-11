@@ -11,7 +11,8 @@ import (
 // IN MY 2017 MACBOOK PRO which cpu is---- Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz----
 // average 2.17099039203e+10 max 73782690184 min 641170149 sum 217099039203 standard deviation 2.0826136795592163e+10
 const (
-	FullThreshold = 0xffffffc000000000
+	// TODO hack!!!!!!
+	FullThreshold = 0xffffffffffffffff
 )
 
 // data = Hash(address + prehash); data + nonce < target.
