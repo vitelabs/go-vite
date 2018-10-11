@@ -123,8 +123,9 @@ func New(cfg *Config) (*Net, error) {
 	n.AddHandler(&getSnapshotBlocksHandler{cfg.Chain})
 	n.AddHandler(&getAccountBlocksHandler{cfg.Chain})
 	n.AddHandler(&getChunkHandler{cfg.Chain})
-	n.AddHandler(pool)     // receive all response except NewSnapshotBlockCode
-	n.AddHandler(receiver) // receive newBlocks
+	n.AddHandler(pool)     // receive SubLedger
+	n.AddHandler(receiver) // receive NewAccountBlock NewSnapshotBlock
+	n.AddHandler(fetcher)  // receive AccountBlocks SnapshotBlocks
 
 	n.Protocols = append(n.Protocols, &p2p.Protocol{
 		Name: CmdSetName,

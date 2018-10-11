@@ -43,14 +43,14 @@ func (p *requestPool) ID() string {
 }
 
 func (p *requestPool) Cmds() []cmd {
-	return []cmd{FileListCode, SubLedgerCode, SnapshotBlocksCode, AccountBlocksCode, ExceptionCode}
+	return []cmd{FileListCode, SubLedgerCode, ExceptionCode}
 }
 
 func (p *requestPool) Handle(msg *p2p.Msg, sender *Peer) error {
 	for id, r := range p.pending {
 		if id == msg.Id {
 			go r.Handle(p.ctx, msg, sender)
-			//r.Handle(p.ctx, msg, sender)
+			return nil
 		}
 	}
 

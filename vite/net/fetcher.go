@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"sync/atomic"
 )
@@ -35,6 +36,37 @@ func newFetcher(filter Filter, peers *peerSet, receiver Receiver, pool RequestPo
 		pool:     pool,
 		log:      log15.New("module", "net/fetcher"),
 	}
+}
+
+func (f *fetcher) ID() string {
+	return "fetcher"
+}
+
+func (f *fetcher) Cmds() []cmd {
+	return []cmd{SnapshotBlocksCode, AccountBlocksCode}
+}
+
+func (f *fetcher) Handle(msg *p2p.Msg, sender *Peer) error {
+	switch cmd(msg.Cmd) {
+	case SnapshotBlocksCode:
+		bs := new(message.SnapshotBlocks)
+		err := bs.Deserialize(msg.Payload)
+		if err != nil {
+			return err
+		}
+
+		f.receiver.ReceiveSnapshotBlocks(bs.Blocks)
+	case AccountBlocksCode:
+		bs := new(message.AccountBlocks)
+		err := bs.Deserialize(msg.Payload)
+		if err != nil {
+			return err
+		}
+
+		f.receiver.ReceiveAccountBlocks(bs.Blocks)
+	}
+
+	return nil
 }
 
 func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
