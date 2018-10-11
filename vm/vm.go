@@ -5,7 +5,6 @@ package vm
 
 import (
 	"errors"
-	"flag"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -31,12 +30,12 @@ type NodeConfig struct {
 	calcQuota   func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64)
 }
 
-func init() {
+/*func init() {
 	var isTest bool
 	flag.BoolVar(&isTest, "vm.test", false, "test net gets unlimited balance and quota")
 	flag.Parse()
 	InitVmConfig(isTest)
-}
+}*/
 
 var nodeConfig NodeConfig
 
