@@ -238,14 +238,14 @@ func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger
 	for {
 		if start.Height == end.Height {
 			return end, nil
-		} else if end.Height - start.Height == 1 {
+		} else if end.Height-start.Height == 1 {
 			if start.Timestamp.Before(*blockCreatedTime) {
 				return start, nil
 			}
 			return nil, nil
 		}
 
-		middle := start.Height / 2 + end.Height / 2
+		middle := start.Height + (end.Height-start.Height)/2
 
 		block, err := c.chainDb.Sc.GetSnapshotBlock(middle, false)
 		if err != nil {
@@ -260,15 +260,14 @@ func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger
 			return nil, nil
 		}
 
-		prevBlock, err := c.chainDb.Sc.GetSnapshotBlock(middle - 1, false)
+		prevBlock, err := c.chainDb.Sc.GetSnapshotBlock(middle-1, false)
 
 		if err != nil {
 			c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
 			return nil, err
 		}
 
-
-		if block.Timestamp.Before(*blockCreatedTime)  {
+		if block.Timestamp.Before(*blockCreatedTime) {
 			start = block
 		} else if prevBlock.Timestamp.After(*blockCreatedTime) || prevBlock.Timestamp.Equal(*blockCreatedTime) {
 			end = prevBlock
@@ -276,7 +275,6 @@ func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger
 			return prevBlock, nil
 		}
 	}
-
 
 	// optimize
 	//if latestBlock.Timestamp.Before(*blockCreatedTime) {
