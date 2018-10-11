@@ -12,14 +12,14 @@ import (
 type AccountBlock struct {
 	*ledger.AccountBlock
 
-	Height string
-	Quota  string
+	Height string `json:"height"`
+	Quota  string `json:"quota"`
 
-	Amount string
-	Fee    string
+	Amount string `json:"amount"`
+	Fee    string `json:"fee"`
 
-	ConfirmedTimes string
-	TokenInfo      *RpcTokenInfo
+	ConfirmedTimes string        `json:"confirmedTimes"`
+	TokenInfo      *RpcTokenInfo `json:"tokenInfo"`
 }
 
 func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
@@ -75,14 +75,14 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.Token
 
 type RpcAccountInfo struct {
 	AccountAddress      types.Address
-	TotalNumber         string // uint64
+	TotalNumber         string                                     // uint64
 	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:",omitempty"`
 }
 
 type RpcTokenBalanceInfo struct {
 	TokenInfo   *RpcTokenInfo `json:",omitempty"`
-	TotalAmount string  // big int
-	Number      *string // uint64
+	TotalAmount string        // big int
+	Number      *string       // uint64
 }
 
 type RpcTokenInfo struct {
@@ -92,7 +92,7 @@ type RpcTokenInfo struct {
 	Decimals       uint8
 	Owner          types.Address
 	PledgeAmount   *string `json:",omitempty"` // *big.Int
-	WithdrawHeight string                      // uint64
+	WithdrawHeight string  // uint64
 }
 
 func RawTokenInfoToRpc(tinfo *contracts.TokenInfo) *RpcTokenInfo {
