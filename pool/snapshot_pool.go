@@ -109,7 +109,7 @@ func (self *snapshotPool) snapshotFork(longest Chain, current Chain) error {
 	keyPoint := k.(*snapshotPoolBlock)
 	self.log.Info("fork point", "height", keyPoint.Height(), "hash", keyPoint.Hash())
 
-	snapshots, accounts, e := self.rw.delToHeight(keyPoint.block.Height - 1)
+	snapshots, accounts, e := self.rw.delToHeight(keyPoint.block.Height)
 	if e != nil {
 		return e
 	}
