@@ -63,11 +63,12 @@ func NewManager(net Net, chain chain.Chain, pool Pool, producer Producer, wallet
 }
 
 func (manager *Manager) Init() {
-	manager.uAccess = model.NewUAccess(manager.chain)
-	manager.onroadBlocksPool = model.NewOnroadBlocksPool(manager.uAccess)
 }
 
 func (manager *Manager) Start() {
+	manager.uAccess = model.NewUAccess(manager.chain)
+	manager.onroadBlocksPool = model.NewOnroadBlocksPool(manager.uAccess)
+
 	manager.netStateLid = manager.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
 	manager.unlockLid = manager.keystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
 	if manager.producer != nil {

@@ -136,6 +136,7 @@ func (self *producer) Start() error {
 		}
 	})
 
+	self.syncState = self.subscriber.SyncState()
 	id := self.subscriber.SubscribeSyncStatus(func(state net.SyncState) {
 		self.syncState = state
 	})

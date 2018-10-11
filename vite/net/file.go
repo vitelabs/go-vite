@@ -321,13 +321,13 @@ func (fc *fileClient) exe(ctx *connContext) {
 		Payload:  data,
 	})
 	if err != nil {
-		fc.log.Error(fmt.Sprintf("requesFiles to %s error: %v", ctx.addr, err))
+		fc.log.Error(fmt.Sprintf("send fileRequest %s to %s error: %v", ctx.req, ctx.addr, err))
 		req.Done(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 		return
 	}
 
-	fc.log.Info(fmt.Sprintf("requestFiles to %s done", ctx.addr))
+	fc.log.Info(fmt.Sprintf("send fileRequest %s to %s done", ctx.req, ctx.addr))
 
 	sblocks, ablocks, err := fc.readBlocks(ctx)
 	if err != nil {

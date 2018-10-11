@@ -503,3 +503,29 @@ func BenchmarkVMTransfer(b *testing.B) {
 		prevHash = hashi
 	}
 }
+
+func TestVmForTest(t *testing.T) {
+	InitVmConfig(true)
+	db, _, _, snapshot2, _ := prepareDb(big.NewInt(0))
+	blockTime := time.Now()
+
+	addr1, _, _ := types.CreateAddress()
+	//hash11 := types.DataHash([]byte{1, 1})
+	block11 := &ledger.AccountBlock{
+		Height:         1,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeSendCall,
+		Amount:         big.NewInt(1e18),
+		Fee:            big.NewInt(0),
+		TokenId:        ledger.ViteTokenId,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+	}
+	vm := NewVM()
+	vm.Debug = true
+	db.addr = addr1
+	sendCallBlockList, isRetry, err := vm.Run(db, block11, nil)
+	if len(sendCallBlockList) != 1 || isRetry || err != nil {
+		t.Fatalf("init test vm config failed")
+	}
+}

@@ -12,6 +12,8 @@ import (
 type AccountBlock struct {
 	*ledger.AccountBlock
 
+	FromAddress types.Address `json:"fromAddress"`
+
 	Height string `json:"height"`
 	Quota  string `json:"quota"`
 
@@ -74,25 +76,25 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.Token
 }
 
 type RpcAccountInfo struct {
-	AccountAddress      types.Address
-	TotalNumber         string                                     // uint64
-	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:",omitempty"`
+	AccountAddress      types.Address                              `json:"accountAddress"`
+	TotalNumber         string                                     `json:"totalNumber"` // uint64
+	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:"tokenBalanceInfoMap,omitempty"`
 }
 
 type RpcTokenBalanceInfo struct {
-	TokenInfo   *RpcTokenInfo `json:",omitempty"`
-	TotalAmount string        // big int
-	Number      *string       // uint64
+	TokenInfo   *RpcTokenInfo `json:"tokenInfo,omitempty"`
+	TotalAmount string        `json:"totalAmount"`      // big int
+	Number      *string       `json:"number,omitempty"` // uint64
 }
 
 type RpcTokenInfo struct {
-	TokenName      string
-	TokenSymbol    string
-	TotalSupply    *string `json:",omitempty"` // *big.Int
-	Decimals       uint8
-	Owner          types.Address
-	PledgeAmount   *string `json:",omitempty"` // *big.Int
-	WithdrawHeight string  // uint64
+	TokenName      string        `json:"tokenName"`
+	TokenSymbol    string        `json:"tokenSymbol"`
+	TotalSupply    *string       `json:"totalSupply,omitempty"` // *big.Int
+	Decimals       uint8         `json:"decimals"`
+	Owner          types.Address `json:"owner"`
+	PledgeAmount   *string       `json:"pledgeAmount,omitempty"` // *big.Int
+	WithdrawHeight string        `json:"withdrawHeight"`         // uint64
 }
 
 func RawTokenInfoToRpc(tinfo *contracts.TokenInfo) *RpcTokenInfo {
@@ -118,61 +120,3 @@ func RawTokenInfoToRpc(tinfo *contracts.TokenInfo) *RpcTokenInfo {
 	}
 	return rt
 }
-
-//// Send tx parms
-//type SendTxParms struct {
-//	SelfAddr    types.Address     `json:"selfAddr"`    // who sends the tx
-//	ToAddr      types.Address     `json:"toAddr"`      // who receives the tx
-//	TokenTypeId types.TokenTypeId `json:"tokenTypeId"` // which token will be sent
-//	Passphrase  string            `json:"passphrase"`  // sender`s passphrase
-//	Amount      string            `json:"amount"`      // the amount of specific token will be sent. bigInt
-//}
-//
-//type BalanceInfo struct {
-//	Mintage *Mintage `json:"mintage"`
-//
-//	Balance string `json:"balance"`
-//}
-//
-//type GetAccountResponse struct {
-//	Addr         types.Address `json:"addr"`         // Account address
-//	BalanceInfos []BalanceInfo `json:"balanceInfos"` // Account Balance Infos
-//	BlockHeight  string        `json:"blockHeight"`  // Account BlockHeight also represents all blocks belong to the account. bigInt.
-//}
-//
-//type GetUnconfirmedInfoResponse struct {
-//	Addr                 types.Address `json:"addr"`                 // Account address
-//	BalanceInfos         []BalanceInfo `json:"balanceInfos"`         // Account unconfirmed BalanceInfos (In-transit money)
-//	UnConfirmedBlocksLen string        `json:"unConfirmedBlocksLen"` // the length of unconfirmed blocks. bigInt
-//}
-//
-//type InitSyncResponse struct {
-//	StartHeight      string `json:"startHeight"`      // bigInt. where we start sync
-//	TargetHeight     string `json:"targetHeight"`     // bigInt. when CurrentHeight == TargetHeight means that sync complete
-//	CurrentHeight    string `json:"currentHeight"`    // bigInt.
-//	IsFirstSyncDone  bool   `json:"isFirstSyncDone"`  // true means sync complete
-//	IsStartFirstSync bool   `json:"isStartFirstSync"` // true means sync start
-//}
-//
-//type Mintage struct {
-//	Name        string             `json:"name"`
-//	Id          *types.TokenTypeId `json:"id"`
-//	Symbol      string             `json:"symbol"`
-//	Owner       *types.Address     `json:"owner"`
-//	Decimals    int                `json:"decimals"`
-//	TotalSupply *string            `json:"totalSupply"`
-//}
-//
-//func rawMintageToRpc(l *ledger.Mintage) *Mintage {
-//	if l == nil {
-//		return nil
-//	}
-//	return &Mintage{
-//		Name:        l.Name,
-//		Id:          l.Id,
-//		Symbol:      l.Symbol,
-//		Owner:       l.Owner,
-//		Decimals:    l.Decimals,
-//		TotalSupply: bigIntToString(l.TotalSupply),
-//	}
-//}

@@ -7,6 +7,8 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -251,9 +253,11 @@ func (s *subLedgerRequest) Run(*context) {
 	})
 
 	if err != nil {
+		s.peer.log.Error(fmt.Sprintf("send GetSubLedgerMsg<%d-%d> to %s error: %v", s.from, s.to, s.peer, err))
 		s.Done(err)
 	} else {
 		s.state = reqPending
+		s.peer.log.Info(fmt.Sprintf("send GetSubLedgerMsg<%d-%d> to %s done", s.from, s.to, s.peer))
 	}
 }
 
@@ -285,6 +289,19 @@ type fileRequest struct {
 	rec     receiveBlocks
 	current uint64 // the tallest snapshotBlock have received, as the breakpoint resume
 	done    func(id uint64, err error)
+}
+
+// file1/0-3600 file2/3601-7200
+func (r *fileRequest) String() string {
+	files := make([]string, len(r.files))
+	for i, file := range r.files {
+		files[i] = file.Filename + "/" +
+			strconv.FormatUint(file.StartHeight, 10) +
+			"-" +
+			strconv.FormatUint(file.EndHeight, 10)
+	}
+
+	return strings.Join(files, " ")
 }
 
 func (r *fileRequest) Done(err error) {
@@ -383,8 +400,10 @@ func (c *chunkRequest) Run(*context) {
 
 	if err != nil {
 		c.state = reqError
+		c.peer.log.Error(fmt.Sprintf("send GetChunkMsg<%d/%d> to %s error: %v", c.from, c.to, c.peer, err))
 	} else {
 		c.state = reqPending
+		c.peer.log.Info(fmt.Sprintf("send GetChunkMsg<%d/%d> to %s done", c.from, c.to, c.peer))
 	}
 }
 

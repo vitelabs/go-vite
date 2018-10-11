@@ -55,6 +55,9 @@ type Config struct {
 
 	//Log level
 	LogLevel string `json:"LogLevel"`
+
+	//VM
+	VMTestEnabled bool `json:"VMTestEnabled"`
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
@@ -68,6 +71,13 @@ func (c *Config) makeViteConfig() *config.Config {
 		Producer: c.makeMinerConfig(),
 		DataDir:  c.DataDir,
 		Topo:     c.Topology,
+		Vm:       c.makeVmConfig(),
+	}
+}
+
+func (c *Config) makeVmConfig() *config.Vm {
+	return &config.Vm{
+		IsVmTest: c.VMTestEnabled,
 	}
 }
 

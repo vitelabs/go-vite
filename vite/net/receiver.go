@@ -188,7 +188,7 @@ func (s *receiver) listen(st SyncState) {
 	}
 
 	if st == Syncdone || st == SyncDownloaded {
-		s.log.Info(fmt.Sprintf("sync status: %s", st))
+		s.log.Info(fmt.Sprintf("ready: %s", st))
 
 		// caution: s.blocks and s.mblocks is mutating concurrently
 		// so we keep waterMark, after ready, handle rest blocks
