@@ -2,6 +2,9 @@ package net
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/ledger"
@@ -9,8 +12,6 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"github.com/vitelabs/go-vite/vite/net/topo"
-	"sync"
-	"time"
 )
 
 // all query include from block
@@ -135,12 +136,14 @@ func New(cfg *Config) (*Net, error) {
 		},
 	})
 
-	// topo
-	n.topo, err = topo.New(&topo.Config{
-		Addrs: cfg.Topology,
-	})
-	if n.topo != nil {
-		n.Protocols = append(n.Protocols, n.topo.Protocol())
+	if !n.Single {
+		// topo
+		n.topo, err = topo.New(&topo.Config{
+			Addrs: cfg.Topology,
+		})
+		if n.topo != nil {
+			n.Protocols = append(n.Protocols, n.topo.Protocol())
+		}
 	}
 
 	// single mode

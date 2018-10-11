@@ -109,6 +109,7 @@ func (v *Vite) Start(p2p *p2p.Server) (err error) {
 	v.onRoad.Start()
 
 	v.chain.Start()
+
 	err = v.consensus.Init()
 	if err != nil {
 		return err
