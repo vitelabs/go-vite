@@ -16,10 +16,10 @@ type accountSyncer struct {
 }
 
 func (self *accountSyncer) broadcastBlock(block *ledger.AccountBlock) {
-	self.fetcher.BroadcastAccountBlock(self.address, block)
+	self.fetcher.BroadcastAccountBlock(block)
 }
 func (self *accountSyncer) broadcastBlocks(blocks []*ledger.AccountBlock) {
-	self.fetcher.BroadcastAccountBlocks(self.address, blocks)
+	self.fetcher.BroadcastAccountBlocks(blocks)
 }
 
 func (self *accountSyncer) broadcastReceivedBlocks(received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) {

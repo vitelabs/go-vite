@@ -3,7 +3,6 @@ package p2p
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/golang/snappy"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
@@ -57,19 +56,19 @@ func ReadMsg(reader io.Reader, compressible bool) (msg *Msg, err error) {
 		return
 	}
 
-	if compressible {
-		var fullSize int
-		fullSize, err = snappy.DecodedLen(payload)
-		if err != nil {
-			return
-		}
-
-		payload, err = snappy.Decode(nil, payload)
-		if err != nil {
-			return
-		}
-		msg.Size = uint64(fullSize)
-	}
+	//if compressible {
+	//	var fullSize int
+	//	fullSize, err = snappy.DecodedLen(payload)
+	//	if err != nil {
+	//		return
+	//	}
+	//
+	//	payload, err = snappy.Decode(nil, payload)
+	//	if err != nil {
+	//		return
+	//	}
+	//	msg.Size = uint64(fullSize)
+	//}
 
 	msg.Payload = payload
 	msg.ReceivedAt = time.Now()
@@ -82,10 +81,10 @@ func WriteMsg(writer io.Writer, compressible bool, msg *Msg) (err error) {
 		return errMsgTooLarge
 	}
 
-	if compressible {
-		msg.Payload = snappy.Encode(nil, msg.Payload)
-		msg.Size = uint64(len(msg.Payload))
-	}
+	//if compressible {
+	//	msg.Payload = snappy.Encode(nil, msg.Payload)
+	//	msg.Size = uint64(len(msg.Payload))
+	//}
 
 	head := make([]byte, headerLength)
 	binary.BigEndian.PutUint64(head[:8], msg.CmdSetID)
@@ -130,8 +129,8 @@ var handshakeTimeout = 10 * time.Second
 var msgReadTimeout = 40 * time.Second
 var msgWriteTimeout = 20 * time.Second
 
-const readBufferLen = 100
-const writeBufferLen = 100
+const readBufferLen = 10
+const writeBufferLen = 10
 
 type AsyncMsgConn struct {
 	fd      net.Conn
@@ -218,10 +217,10 @@ func (c *AsyncMsgConn) readLoop() {
 	}
 }
 
-func (c *AsyncMsgConn) _write(msg *Msg) {
+func (c *AsyncMsgConn) _write(msg *Msg) bool {
 	// there is an error
 	if atomic.LoadInt32(&c.errored) != 0 {
-		return
+		return false
 	}
 
 	//c.fd.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
@@ -231,8 +230,10 @@ func (c *AsyncMsgConn) _write(msg *Msg) {
 	if err != nil {
 		c.report(2, err)
 		c.log.Error(fmt.Sprintf("write message %s to %s error: %v", msg, c.fd.RemoteAddr(), err))
+		return false
 	} else {
 		c.log.Info(fmt.Sprintf("write message %s to %s done", msg, c.fd.RemoteAddr()))
+		return true
 	}
 }
 
@@ -246,7 +247,9 @@ loop:
 		case <-c.term:
 			break loop
 		case msg := <-c.wqueue:
-			c._write(msg)
+			if !c._write(msg) {
+				break loop
+			}
 		}
 	}
 
@@ -287,6 +290,10 @@ loop:
 // send a message asynchronously, put message into a internal buffered channel before send it
 // if the internal channel is full, return false
 func (c *AsyncMsgConn) SendMsg(msg *Msg) bool {
+	if atomic.LoadInt32(&c.errored) != 0 {
+		return false
+	}
+
 	select {
 	case <-c.term:
 		return false

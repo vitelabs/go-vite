@@ -28,5 +28,5 @@ type Producer interface {
 type Net interface {
 	SubscribeSyncStatus(fn func(net.SyncState)) (subId int)
 	UnsubscribeSyncStatus(subId int)
-	Status() *net.NetStatus
+	Status() *net.Status
 }

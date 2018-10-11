@@ -84,7 +84,7 @@ const (
 )
 
 type AccountBlock struct {
-	Meta *AccountBlockMeta
+	Meta *AccountBlockMeta `json:"-"`
 
 	producer *types.Address
 

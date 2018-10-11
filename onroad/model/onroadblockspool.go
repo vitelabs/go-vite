@@ -123,7 +123,9 @@ func (p *OnroadBlocksPool) loadFullCacheFromDb(addr types.Address) error {
 
 	list := list.New()
 	for _, value := range blocks {
-		list.PushBack(value)
+		if value != nil {
+			list.PushBack(value)
+		}
 	}
 
 	cache := &onroadBlocksCache{

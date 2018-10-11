@@ -2,7 +2,6 @@ package net
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"sort"
@@ -175,6 +174,7 @@ wait:
 	p := s.peers.BestPeer()
 	if p == nil {
 		s.setState(Syncerr)
+		s.log.Error("sync error: no peers")
 		return
 	}
 
@@ -334,8 +334,8 @@ func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
 //	}
 //}
 
-func (s *syncer) receiveBlocks(sblocks []*ledger.SnapshotBlock, mblocks map[types.Address][]*ledger.AccountBlock) {
-	s.receiver.ReceiveAccountBlocks(mblocks)
+func (s *syncer) receiveBlocks(sblocks []*ledger.SnapshotBlock, ablocks []*ledger.AccountBlock) {
+	s.receiver.ReceiveAccountBlocks(ablocks)
 	s.receiver.ReceiveSnapshotBlocks(sblocks)
 
 	atomic.AddUint64(&s.count, uint64(len(sblocks)))
@@ -343,6 +343,24 @@ func (s *syncer) receiveBlocks(sblocks []*ledger.SnapshotBlock, mblocks map[type
 	if atomic.LoadUint64(&s.count) >= s.total {
 		// all blocks have downloaded
 		s.downloaded <- struct{}{}
+	}
+}
+
+type SyncStatus struct {
+	From    uint64
+	To      uint64
+	Current uint64
+	State   SyncState
+}
+
+func (s *syncer) Status() *SyncStatus {
+	current := s.chain.GetLatestSnapshotBlock()
+
+	return &SyncStatus{
+		From:    s.from,
+		To:      s.to,
+		Current: current.Height,
+		State:   s.state,
 	}
 }
 
