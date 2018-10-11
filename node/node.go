@@ -187,7 +187,7 @@ func (node *Node) startP2pAndVite() error {
 		return err
 	}
 
-	//Protocols setting
+	//Protocols setting, maybe should move into module.Start()
 	node.p2pServer.Protocols = append(node.p2pServer.Protocols, node.viteServer.Net().Protocols...)
 
 	// Start vite
@@ -196,7 +196,7 @@ func (node *Node) startP2pAndVite() error {
 		return err
 	}
 
-	if e := node.viteServer.Start(); e != nil {
+	if e := node.viteServer.Start(node.p2pServer); e != nil {
 		log.Error(fmt.Sprintf("ViteServer start error: %v", e))
 		return err
 	}
