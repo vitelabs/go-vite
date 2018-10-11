@@ -49,13 +49,14 @@ func (c *onroadBlocksCache) toOnroadAccountInfo() *OnroadAccountInfo {
 		block := ele.Value.(*ledger.AccountBlock)
 		ti, ok := infoMap[block.TokenId]
 		if !ok {
-			infoMap[block.TokenId].TotalAmount = *block.Amount
-			infoMap[block.TokenId].Number = 1
+			var tinfo TokenBalanceInfo
+			tinfo.TotalAmount = *block.Amount
+			infoMap[block.TokenId] = &tinfo
 		} else {
 			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
 		}
 
-		ti.Number += 1
+		infoMap[block.TokenId].Number += 1
 
 		ele = ele.Next()
 	}

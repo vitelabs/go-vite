@@ -235,17 +235,15 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 			continue
 		}
 		ti, ok := infoMap[block.TokenId]
-		if ok {
-			ti.Number += 1
-			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
-		} else {
+		if !ok {
 			var tinfo TokenBalanceInfo
-			tinfo.Number = 1
 			tinfo.TotalAmount = *block.Amount
 			infoMap[block.TokenId] = &tinfo
+		} else {
+			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
 		}
+		infoMap[block.TokenId].Number += 1
 
 	}
 	return infoMap, uint64(len(hashList)), err
 }
-
