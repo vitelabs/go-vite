@@ -63,11 +63,6 @@ func NewManager(net Net, chain chain.Chain, pool Pool, producer Producer, wallet
 }
 
 func (manager *Manager) Init() {
-	manager.uAccess = model.NewUAccess(manager.chain)
-	manager.onroadBlocksPool = model.NewOnroadBlocksPool(manager.uAccess)
-}
-
-func (manager *Manager) Start() {
 	manager.netStateLid = manager.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
 	manager.unlockLid = manager.keystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
 	if manager.producer != nil {
@@ -81,8 +76,16 @@ func (manager *Manager) Start() {
 	manager.deleteOnRoadLid = manager.Chain().RegisterDeleteAccountBlocks(manager.onroadBlocksPool.RevertOnroad)
 }
 
+func (manager *Manager) Start() {
+	manager.uAccess = model.NewUAccess(manager.chain)
+	manager.onroadBlocksPool = model.NewOnroadBlocksPool(manager.uAccess)
+}
+
 func (manager *Manager) Stop() {
-	manager.log.Info("Stop")
+}
+
+func (manager *Manager) Close() error {
+	manager.log.Info("Close")
 	manager.Net().UnsubscribeSyncStatus(manager.netStateLid)
 	manager.keystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
 	if manager.producer != nil {
@@ -95,11 +98,7 @@ func (manager *Manager) Stop() {
 	manager.Chain().UnRegister(manager.deleteSuccLid)
 
 	manager.stopAllWorks()
-	manager.log.Info("Stop end")
-}
-
-func (manager *Manager) Close() error {
-	manager.Start()
+	manager.log.Info("Close end")
 	return nil
 }
 

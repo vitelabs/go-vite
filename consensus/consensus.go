@@ -31,9 +31,15 @@ type Subscriber interface {
 type Reader interface {
 	ReadByTime(gid types.Gid, t time.Time) ([]*Event, error)
 }
+type Life interface {
+	Start()
+	Init() error
+	Stop()
+}
 
 type Consensus interface {
 	Verifier
 	Subscriber
 	Reader
+	Life
 }

@@ -143,6 +143,12 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if logLevel := ctx.GlobalString(utils.LogLvlFlag.Name); len(logLevel) > 0 {
 		cfg.LogLevel = logLevel
 	}
+
+	//VM
+	if ctx.GlobalIsSet(utils.VMTestFlag.Name) {
+		cfg.VMTestEnabled = ctx.GlobalBool(utils.VMTestFlag.Name)
+	}
+
 }
 
 func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {

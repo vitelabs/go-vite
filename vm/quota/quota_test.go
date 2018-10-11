@@ -65,6 +65,7 @@ func TestCalcLogisticQuotaParam(t *testing.T) {
 
 	// Pledge minimum amount of Vite Token, calc no PoW, wait for longest block height, gets quota for a pure transfer transaction
 	// maxHeightGap := 86400.0
+	// Pledge minimum amount of Vite Token, calc no PoW, wait for one snapshot block, gets quota for a pure transfer transaction
 	maxHeightGap := 1.0
 	minPledgeAmount := 1.0e19
 	paramA := math.Log(2.0/(1.0-quotaForPureTransaction/quotaLimit)-1.0) / maxHeightGap / minPledgeAmount

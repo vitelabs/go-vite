@@ -84,6 +84,11 @@ var (
 	logFlags = []cli.Flag{
 		utils.LogLvlFlag,
 	}
+
+	//VM
+	vmFlags = []cli.Flag{
+		utils.VMTestFlag,
+	}
 )
 
 func init() {
@@ -112,7 +117,7 @@ func init() {
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	//Import: Please add the New Flags here
-	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags)
+	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags)
 
 	app.Before = beforeAction
 	app.Action = action

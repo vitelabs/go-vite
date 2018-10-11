@@ -176,6 +176,9 @@ func (c *chain) GetAccountBlocksByHash(addr types.Address, origin *types.Hash, c
 			c.log.Error("Query block meta failed. Error is "+gbmErr.Error(), "method", "GetAccountBlocksByHash")
 			return nil, gbmErr
 		}
+		if blockMeta == nil {
+			return nil, nil
+		}
 		startHeight = blockMeta.Height
 	} else if !forward {
 		account, gaErr := c.chainDb.Account.GetAccountByAddress(&addr)
@@ -428,6 +431,10 @@ func (c *chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 		c.log.Error("Query account meta failed. Error is "+err.Error(), "method", "GetAccountBlocksByAddress")
 
 		return nil, err
+	}
+
+	if account == nil {
+		return nil, nil
 	}
 
 	latestBlock, glErr := c.chainDb.Ac.GetLatestBlock(account.AccountId)

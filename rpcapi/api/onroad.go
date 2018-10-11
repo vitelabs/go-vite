@@ -103,7 +103,7 @@ func (o PrivateOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccou
 func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccountInfo) *RpcAccountInfo {
 	var r RpcAccountInfo
 	r.AccountAddress = *onroadInfo.AccountAddress
-	r.TotalNumber = string(onroadInfo.TotalNumber)
+	r.TotalNumber = strconv.FormatUint(onroadInfo.TotalNumber, 10)
 	r.TokenBalanceInfoMap = make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
 
 	for tti, v := range onroadInfo.TokenBalanceInfoMap {

@@ -12,15 +12,23 @@ var logger = log15.New()
 type MockSyncer struct {
 }
 
+func (*MockSyncer) SyncState() net.SyncState {
+	panic("implement me")
+}
+
+func (*MockSyncer) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
+	logger.Info("BroadcastSnapshotBlocks")
+}
+
 func (*MockSyncer) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	logger.Info("BroadcastSnapshotBlock")
 }
 
-func (*MockSyncer) BroadcastAccountBlock(addr types.Address, block *ledger.AccountBlock) {
+func (*MockSyncer) BroadcastAccountBlock(block *ledger.AccountBlock) {
 	logger.Info("BroadcastAccountBlock")
 }
 
-func (*MockSyncer) BroadcastAccountBlocks(addr types.Address, blocks []*ledger.AccountBlock) {
+func (*MockSyncer) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {
 	logger.Info("BroadcastAccountBlocks")
 }
 

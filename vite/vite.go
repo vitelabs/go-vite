@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite/net"
+	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
@@ -88,6 +89,8 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 }
 
 func (v *Vite) Init() (err error) {
+	vm.InitVmConfig(v.config.IsVmTest)
+
 	v.chain.Init()
 	if v.producer != nil {
 		if err := v.producer.Init(); err != nil {
@@ -105,9 +108,14 @@ func (v *Vite) Start() (err error) {
 	v.onRoad.Start()
 
 	v.chain.Start()
+	err = v.consensus.Init()
+	if err != nil {
+		return err
+	}
 	// hack
 	v.pool.Init(v.net, v.walletManager, v.snapshotVerifier, v.accountVerifier)
 
+	v.consensus.Start()
 	v.net.Start()
 	v.pool.Start()
 	if v.producer != nil {
@@ -131,6 +139,7 @@ func (v *Vite) Stop() (err error) {
 			return err
 		}
 	}
+	v.consensus.Stop()
 	v.chain.Stop()
 	v.onRoad.Stop()
 	return nil

@@ -35,20 +35,29 @@ func (l *LedgerApi) ledgerBlockToRpcBlock(block *ledger.AccountBlock) (*AccountB
 		return nil, err
 	}
 
+	var fromAddress, toAddress types.Address
 	if block.IsReceiveBlock() {
+		toAddress = block.AccountAddress
 		sendBlock, err := l.chain.GetAccountBlockByHash(&block.FromBlockHash)
 		if err != nil {
 			return nil, err
 		}
 
 		if sendBlock != nil {
+			fromAddress = sendBlock.AccountAddress
 			block.TokenId = sendBlock.TokenId
 			block.Amount = sendBlock.Amount
 		}
+	} else {
+		fromAddress = block.AccountAddress
+		toAddress = block.ToAddress
 	}
 
 	token := l.chain.GetTokenInfoById(&block.TokenId)
-	return createAccountBlock(block, token, confirmTimes), nil
+	rpcAccountBlock := createAccountBlock(block, token, confirmTimes)
+	rpcAccountBlock.FromAddress = fromAddress
+	rpcAccountBlock.ToAddress = toAddress
+	return rpcAccountBlock, nil
 }
 func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*AccountBlock, error) {
 	var blocks []*AccountBlock
