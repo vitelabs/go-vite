@@ -27,6 +27,7 @@ func (im *IncomingMessage) ToBlock() (*ledger.AccountBlock, error) {
 	block := &ledger.AccountBlock{}
 	switch im.BlockType {
 	case ledger.BlockTypeSendCall:
+		block.AccountAddress = im.AccountAddress
 		block.BlockType = im.BlockType
 		block.FromBlockHash = types.Hash{}
 
@@ -66,6 +67,7 @@ func (im *IncomingMessage) ToBlock() (*ledger.AccountBlock, error) {
 		}
 
 	case ledger.BlockTypeSendCreate:
+		block.AccountAddress = im.AccountAddress
 		block.BlockType = im.BlockType
 		block.FromBlockHash = types.Hash{}
 
@@ -103,17 +105,7 @@ func (im *IncomingMessage) ToBlock() (*ledger.AccountBlock, error) {
 		}
 
 	default:
-		block.BlockType = ledger.BlockTypeReceive
-		block.ToAddress = types.Address{}
-
-		block.Nonce = im.Nonce
-		block.Data = im.Data
-
-		if im.FromBlockHash != nil {
-			block.FromBlockHash = *im.FromBlockHash
-		} else {
-			return nil, errors.New("BlockTypeReceive's FromBlockHash can't be nil")
-		}
+		return nil, errors.New("BlockTypeReceive can't use IncomingMessage ToBlock func")
 	}
 	return block, nil
 }
