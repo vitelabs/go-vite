@@ -46,6 +46,7 @@ const (
 	FullSnapshotBlocksCode
 	AccountBlocksCode
 	NewSnapshotBlockCode
+	NewAccountBlockCode
 
 	ExceptionCode = 127
 )
@@ -73,6 +74,7 @@ var msgNames = [...]string{
 	FullSnapshotBlocksCode:             "FullSnapshotBlocksMsg",
 	AccountBlocksCode:                  "AccountBlocksMsg",
 	NewSnapshotBlockCode:               "NewSnapshotBlockMsg",
+	NewAccountBlockCode:                "NewAccountBlockMsg",
 }
 
 func (t cmd) String() string {
@@ -224,10 +226,7 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 	}
 
 	if err != nil {
-		return sender.SendAccountBlocks(&message.AccountBlocks{
-			Address: as.Address,
-			Blocks:  blocks,
-		}, msg.Id)
+		return sender.SendAccountBlocks(blocks, msg.Id)
 	} else {
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
@@ -254,14 +253,27 @@ func (c *getChunkHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 	}
 
 	sblocks, mblocks, err := c.chain.GetConfirmSubLedger(req.Start, req.End)
+
 	if err == nil {
-		return sender.SendSubLedger(&message.SubLedger{
-			SBlocks: sblocks,
-			ABlocks: mblocks,
-		}, msg.Id)
-	} else {
-		return sender.Send(ExceptionCode, msg.Id, message.Missing)
+		ablockCount := countAccountBlocks(mblocks)
+		ablocks := make([]*ledger.AccountBlock, 0, ablockCount)
+		for _, blocks := range mblocks {
+			ablocks = append(ablocks, blocks...)
+		}
+
+		return sender.SendSubLedger(sblocks, ablocks, msg.Id)
 	}
 
-	return nil
+	return sender.Send(ExceptionCode, msg.Id, message.Missing)
+}
+
+// helper
+func countAccountBlocks(mblocks map[types.Address][]*ledger.AccountBlock) (count uint64) {
+	for _, blocks := range mblocks {
+		for range blocks {
+			count++
+		}
+	}
+
+	return
 }

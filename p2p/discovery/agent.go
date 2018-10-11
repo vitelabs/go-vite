@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/list"
 	"net"
@@ -33,6 +34,8 @@ type wtPool struct {
 	list *list.List
 	add  chan *wait
 	rec  chan *packet
+	term chan struct{}
+	wg   sync.WaitGroup
 }
 
 func newWtPool() *wtPool {
@@ -43,13 +46,31 @@ func newWtPool() *wtPool {
 	}
 }
 
-func (p *wtPool) loop(stop <-chan struct{}) {
+func (p *wtPool) start() {
+	p.term = make(chan struct{})
+
+	p.wg.Add(1)
+	go p.loop()
+}
+
+func (p *wtPool) stop() {
+	select {
+	case <-p.term:
+	default:
+		close(p.term)
+		p.wg.Wait()
+	}
+}
+
+func (p *wtPool) loop() {
+	defer p.wg.Done()
+
 	checkTicker := time.NewTicker(expiration)
 	defer checkTicker.Stop()
 
 	for {
 		select {
-		case <-stop:
+		case <-p.term:
 			p.list.Traverse(func(_, e *list.Element) {
 				wt, _ := e.Value.(*wait)
 				wt.handle(nil, errStopped, wt)
@@ -98,8 +119,16 @@ type sendPkt struct {
 }
 
 // @section agent
+type agentConfig struct {
+	Self    *Node
+	Addr    *net.UDPAddr
+	Priv    ed25519.PrivateKey
+	Handler func(*packet)
+}
+
 type agent struct {
 	self       *Node
+	addr       *net.UDPAddr
 	conn       *net.UDPConn
 	priv       ed25519.PrivateKey
 	term       chan struct{}
@@ -108,50 +137,75 @@ type agent struct {
 	wg         sync.WaitGroup
 	write      chan *sendPkt
 	read       chan *packet
+	log        log15.Logger
+}
+
+func newAgent(cfg *agentConfig) *agent {
+	return &agent{
+		addr:       cfg.Addr,
+		self:       cfg.Self,
+		priv:       cfg.Priv,
+		pktHandler: cfg.Handler,
+		pool:       newWtPool(),
+		write:      make(chan *sendPkt, 10),
+		read:       make(chan *packet, 10),
+		log:        log15.New("module", "p2p/agent"),
+	}
 }
 
 // should run as goroutine
-func (d *agent) start() {
-	discvLog.Info("discovery agent start")
+func (a *agent) start() error {
+	a.log.Info("discovery agent start")
 
-	d.wg.Add(1)
-	go func() {
-		d.pool.loop(d.term)
-		d.wg.Done()
-	}()
+	udpConn, err := net.ListenUDP("udp", a.addr)
+	if err != nil {
+		return err
+	}
+	a.log.Info(fmt.Sprintf("udp listen at %s", a.addr))
+	a.conn = udpConn
+
+	a.term = make(chan struct{})
+	a.pool.start()
 
 	// should not run as goroutine
-	d.wg.Add(1)
-	go d.readLoop()
+	a.wg.Add(1)
+	go a.readLoop()
 
-	d.wg.Add(1)
-	go d.writeLoop()
+	a.wg.Add(1)
+	go a.writeLoop()
 
-	d.wg.Add(1)
-	go d.handleLoop()
+	a.wg.Add(1)
+	go a.handleLoop()
+
+	return nil
 }
 
-func (d *agent) stop() {
+func (a *agent) stop() {
 	discvLog.Info("discovery agent term")
 
-	close(d.term)
-	d.wg.Wait()
+	select {
+	case <-a.term:
+	default:
+		close(a.term)
+		a.pool.stop()
+		a.wg.Wait()
+	}
 }
 
 // implements discvAgent interface
-func (d *agent) ping(node *Node, callback func(*Node, error)) {
-	if node.ID == d.self.ID {
+func (a *agent) ping(node *Node, callback func(*Node, error)) {
+	if node.ID == a.self.ID {
 		return
 	}
 
-	d.send(&sendPkt{
+	a.send(&sendPkt{
 		addr: node.UDPAddr(),
 		code: pingCode,
 		msg: &Ping{
-			ID:         d.self.ID,
-			IP:         d.self.IP,
-			UDP:        d.self.UDP,
-			TCP:        d.self.TCP,
+			ID:         a.self.ID,
+			IP:         a.self.IP,
+			UDP:        a.self.UDP,
+			TCP:        a.self.TCP,
 			Expiration: getExpiration(),
 		},
 		wait: &wait{
@@ -250,6 +304,7 @@ func (d *agent) sendNeighbors(n *Node, nodes []*Node) {
 				code: neighborsCode,
 				msg:  neighbors,
 			})
+			sent = true
 			carriage = carriage[:0]
 		}
 	}

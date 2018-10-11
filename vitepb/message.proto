@@ -65,6 +65,5 @@ message GetAccountBlocks {
 }
 
 message AccountBlocks {
-    bytes Address = 1;
-    repeated vitepb.AccountBlock Blocks = 3;
+    repeated vitepb.AccountBlock Blocks = 1;
 }

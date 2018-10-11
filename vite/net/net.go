@@ -24,9 +24,10 @@ type Chain interface {
 	GetSnapshotBlocksByHash(origin *types.Hash, count uint64, forward, content bool) ([]*ledger.SnapshotBlock, error)
 	GetSnapshotBlocksByHeight(height, count uint64, forward, content bool) ([]*ledger.SnapshotBlock, error)
 
+	// batcher
 	GetAccountBlocksByHash(addr types.Address, origin *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error)
 	GetAccountBlocksByHeight(addr types.Address, start, count uint64, forward bool) ([]*ledger.AccountBlock, error)
-
+	// single
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
 
@@ -98,7 +99,6 @@ func New(cfg *Config) (*Net, error) {
 		broadcaster: broadcaster,
 		fs:          fs,
 		fc:          fc,
-		term:        make(chan struct{}),
 		handlers:    make(map[cmd]MsgHandler),
 		log:         log15.New("module", "vite/net"),
 	}
@@ -128,10 +128,6 @@ func New(cfg *Config) (*Net, error) {
 		},
 	})
 
-	go n.fs.start()
-
-	go n.fc.start()
-
 	return n, nil
 }
 
@@ -142,7 +138,13 @@ func (n *Net) AddHandler(handler MsgHandler) {
 	}
 }
 
-func (n *Net) Start() {}
+func (n *Net) Start() {
+	n.term = make(chan struct{})
+
+	go n.fs.start()
+
+	go n.fc.start()
+}
 
 func (n *Net) Stop() {
 	select {
@@ -152,6 +154,7 @@ func (n *Net) Stop() {
 		n.syncer.stop()
 		n.fs.stop()
 		n.fc.stop()
+		n.wg.Wait()
 	}
 }
 
@@ -200,8 +203,6 @@ func (n *Net) startPeer(p *Peer) error {
 		select {
 		case <-n.term:
 			return p2p.DiscQuitting
-		case err := <-p.errch:
-			return err
 		case <-ticker.C:
 			current := n.Chain.GetLatestSnapshotBlock()
 			p.Send(StatusCode, 0, &ledger.HashHeight{
@@ -214,9 +215,6 @@ func (n *Net) startPeer(p *Peer) error {
 			}
 		}
 	}
-
-	close(p.term)
-	return nil
 }
 
 func (n *Net) handleMsg(p *Peer) (err error) {
@@ -273,12 +271,16 @@ func (n *Net) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	n.broadcaster.BroadcastSnapshotBlock(block)
 }
 
-func (n *Net) BroadcastAccountBlock(addr types.Address, block *ledger.AccountBlock) {
-	n.broadcaster.BroadcastAccountBlock(addr, block)
+func (n *Net) BroadcastAccountBlock(block *ledger.AccountBlock) {
+	n.broadcaster.BroadcastAccountBlock(block)
 }
 
-func (n *Net) BroadcastAccountBlocks(addr types.Address, blocks []*ledger.AccountBlock) {
-	n.broadcaster.BroadcastAccountBlocks(addr, blocks)
+func (n *Net) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
+	n.broadcaster.BroadcastSnapshotBlocks(blocks)
+}
+
+func (n *Net) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {
+	n.broadcaster.BroadcastAccountBlocks(blocks)
 }
 
 func (n *Net) FetchSnapshotBlocks(start types.Hash, count uint64) {
@@ -313,24 +315,51 @@ func (n *Net) UnsubscribeSyncStatus(subId int) {
 	n.syncer.feed.Unsub(subId)
 }
 
+func (n *Net) SyncStatus() *SyncStatus {
+	return n.syncer.Status()
+}
+
 // get current netInfo (peers, syncStatus, ...)
-func (n *Net) Status() *NetStatus {
-	running := true
-	select {
-	case <-n.term:
-		running = false
-	default:
-	}
-
-	return &NetStatus{
-		Peers:     n.peers.Info(),
-		Running:   running,
-		SyncState: n.syncer.state,
-	}
-}
-
-type NetStatus struct {
-	Peers     []*PeerInfo
-	SyncState SyncState
-	Running   bool
-}
+//func (n *Net) Status() *Status {
+//	running := true
+//	select {
+//	case <-n.term:
+//		running = false
+//	default:
+//	}
+//
+//	return &Status{
+//		Peers:     n.peers.Info(),
+//		Running:   running,
+//		SyncState: n.syncer.state,
+//		SyncFrom:  n.syncer.from,
+//		SyncTo:    n.syncer.to,
+//	}
+//}
+//
+//type Status struct {
+//	Running   bool        `json:"running"`
+//	Peers     []*PeerInfo `json:"peers"`
+//	SyncState SyncState   `json:"syncState"`
+//	SyncFrom  uint64      `json:"syncFrom"`
+//	SyncTo    uint64      `json:"syncTo"`
+//}
+//
+//type peerInfos []*PeerInfo
+//
+//func (p peerInfos) MarshalJSON() ([]byte, error) {
+//	b := new(strings.Builder)
+//
+//	b.WriteString("[")
+//	for _, pi := range p {
+//		b.WriteString(pi.String())
+//	}
+//	b.WriteString("]")
+//
+//	return []byte(b.String()), nil
+//}
+//
+//func (p *peerInfos) UnmarshalJSON(data []byte) (err error) {
+//
+//	return nil
+//}

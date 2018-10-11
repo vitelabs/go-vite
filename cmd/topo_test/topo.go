@@ -60,10 +60,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	svr.Protocols = append(svr.Protocols, th.Protocol())
+
 	th.Start(svr)
 	defer th.Stop()
-
-	svr.Protocols = append(svr.Protocols, th.Protocol())
 
 	err = svr.Start()
 	if err != nil {
