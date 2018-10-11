@@ -132,6 +132,7 @@ func (node *Node) Wait() {
 	node.lock.RLock()
 	if node.p2pServer == nil {
 		node.lock.RUnlock()
+		return
 	}
 
 	stop := node.stop
