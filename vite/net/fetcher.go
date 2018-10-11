@@ -47,7 +47,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 	m := &message.GetSnapshotBlocks{
 		From:    ledger.HashHeight{Hash: start},
 		Count:   count,
-		Forward: true,
+		Forward: false,
 	}
 
 	p := f.peers.BestPeer()
@@ -88,7 +88,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 			Hash: start,
 		},
 		Count:   count,
-		Forward: true,
+		Forward: false,
 	}
 
 	p := f.peers.BestPeer()
