@@ -210,6 +210,13 @@ func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) {
 }
 
 func (s *receiver) listen(st SyncState) {
+
+	if st == Syncing {
+		s.log.Warn(fmt.Sprintf("silence: %s", st))
+		atomic.StoreInt32(&s.ready, 0)
+		return
+	}
+
 	if atomic.LoadInt32(&s.ready) == 1 {
 		return
 	}

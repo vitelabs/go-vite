@@ -88,8 +88,8 @@ var chainGrowTimeout = 5 * time.Minute
 var downloadTimeout = 5 * time.Minute
 var chainGrowInterval = time.Minute
 
-func enoughtHeightDiff(our, their uint64) bool {
-	return our > their || their-our < minHeightDifference
+func shouldSync(our, their uint64) bool {
+	return their > our+minHeightDifference
 }
 
 type syncer struct {
@@ -108,6 +108,7 @@ type syncer struct {
 	pool       RequestPool // add new request
 	log        log15.Logger
 	running    int32
+	first      int32 // first start sync
 	receiver   Receiver
 	fc         *fileClient
 	reqs       []*subLedgerRequest
@@ -126,6 +127,7 @@ func newSyncer(chain Chain, peers *peerSet, pool *requestPool, receiver Receiver
 		log:        log15.New("module", "net/syncer"),
 		receiver:   receiver,
 		fc:         fc,
+		first:      1,
 	}
 
 	// subscribe peer add/del event
@@ -180,7 +182,8 @@ wait:
 
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
-	if enoughtHeightDiff(current.Height, p.height) {
+	// p is tall enough, or first sync
+	if !(shouldSync(current.Height, p.height) || atomic.LoadInt32(&s.first) == 1) {
 		s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
 		s.setState(Syncdone)
 		return
@@ -214,7 +217,7 @@ wait:
 				if e.peer.height >= targetHeight {
 					bestPeer := s.peers.BestPeer()
 					if bestPeer != nil {
-						if enoughtHeightDiff(current.Height, bestPeer.height) {
+						if shouldSync(current.Height, bestPeer.height) {
 							s.setTarget(bestPeer.height)
 						} else {
 							// no need sync
@@ -316,6 +319,10 @@ func (s *syncer) reqCallback(id uint64, err error) {
 func (s *syncer) setState(t SyncState) {
 	s.state = t
 	s.feed.Notify(t)
+
+	if t == Syncdone {
+		atomic.StoreInt32(&s.first, 0)
+	}
 }
 
 func (s *syncer) SubscribeSyncStatus(fn SyncStateCallback) (subId int) {
