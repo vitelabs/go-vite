@@ -149,7 +149,7 @@ func (p *OnroadBlocksPool) AcquireFullOnroadBlocksCache(addr types.Address) {
 	// first load in cache
 	if c, ok := p.fullCache.Load(addr); ok {
 		c.(*onroadBlocksCache).addReferenceCount()
-		log.Debug("found in cache", "ref", c.(*onroadBlocksCache).referenceCount)
+		log.Debug("found in cache", "ref", c.(*onroadBlocksCache).getReferenceCount())
 		return
 	}
 
@@ -177,7 +177,7 @@ func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) erro
 		}))
 		return nil
 	}
-	log.Debug("after release", "ref", c.referenceCount)
+	log.Debug("after release", "ref", c.getReferenceCount())
 
 	return nil
 }
@@ -241,7 +241,7 @@ func (p *OnroadBlocksPool) RevertOnroadSuccess(subLedger map[types.Address][]*le
 			// if the full cache is in hold by a worker we will rebuild it else we delete it
 			if cache, ok := p.fullCache.Load(addr); ok {
 				c := cache.(*onroadBlocksCache)
-				if c.referenceCount > 0 {
+				if c.getReferenceCount() > 0 {
 					p.loadFullCacheFromDb(addr)
 				} else {
 					if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
@@ -251,7 +251,6 @@ func (p *OnroadBlocksPool) RevertOnroadSuccess(subLedger map[types.Address][]*le
 					p.fullCache.Delete(addr)
 				}
 			}
-
 			p.deleteSimpleCache(addr)
 		}
 
@@ -312,51 +311,65 @@ func excludeSubordinate(subLedger map[types.Address][]*ledger.AccountBlock) map[
 }
 
 func (p *OnroadBlocksPool) updateFullCache(writeType bool, block *ledger.AccountBlock) {
-	if v, ok := p.fullCache.Load(block.AccountAddress); ok {
-		fullCache := v.(*onroadBlocksCache)
-		if writeType {
+	if writeType {
+		if v, ok := p.fullCache.Load(block.ToAddress); ok {
+			fullCache := v.(*onroadBlocksCache)
 			fullCache.addTx(block)
-		} else {
+		}
+	} else {
+		if v, ok := p.fullCache.Load(block.AccountAddress); ok {
+			fullCache := v.(*onroadBlocksCache)
 			fullCache.rmTx(block)
 		}
 	}
 }
 
-func (p *OnroadBlocksPool) updateSimpleCache(writeType bool, block *ledger.AccountBlock) {
+func (p *OnroadBlocksPool) updateSimpleCache(isAdd bool, block *ledger.AccountBlock) {
 
-	value, ok := p.simpleCache.Load(block.AccountAddress)
-	if !ok {
-		return
-	}
+	if isAdd {
+		value, ok := p.simpleCache.Load(block.ToAddress)
+		if !ok {
+			return
+		}
+		simpleAccountInfo := value.(*OnroadAccountInfo)
+		simpleAccountInfo.mutex.Lock()
+		defer simpleAccountInfo.mutex.Unlock()
 
-	simpleAccountInfo := value.(*OnroadAccountInfo)
-	simpleAccountInfo.mutex.Lock()
-	defer simpleAccountInfo.mutex.Unlock()
-
-	tokenBalanceInfo, ok := simpleAccountInfo.TokenBalanceInfoMap[block.TokenId]
-	if writeType {
+		tokenBalanceInfo, ok := simpleAccountInfo.TokenBalanceInfoMap[block.TokenId]
 		if ok {
 			tokenBalanceInfo.TotalAmount.Add(&tokenBalanceInfo.TotalAmount, block.Amount)
 			tokenBalanceInfo.Number += 1
 		} else {
-			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].TotalAmount = *block.Amount
-			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId].Number = 1
+			var tinfo TokenBalanceInfo
+			tinfo.TotalAmount = *block.Amount
+			tinfo.Number = 1
+			simpleAccountInfo.TokenBalanceInfoMap[block.TokenId] = &tinfo
 		}
 		simpleAccountInfo.TotalNumber += 1
 	} else {
+		value, ok := p.simpleCache.Load(block.AccountAddress)
+		if !ok {
+			return
+		}
+		simpleAccountInfo := value.(*OnroadAccountInfo)
+		simpleAccountInfo.mutex.Lock()
+		defer simpleAccountInfo.mutex.Unlock()
+
+		tokenBalanceInfo, ok := simpleAccountInfo.TokenBalanceInfoMap[block.TokenId]
 		if ok {
 			if tokenBalanceInfo.TotalAmount.Cmp(block.Amount) == -1 {
-				p.log.Error("conflict with the memory info, so can't update when writeType is false")
+				p.log.Error("conflict with the memory info, so can't update when isAdd is false")
 				p.deleteSimpleCache(block.AccountAddress)
+				return
 			}
 			if tokenBalanceInfo.TotalAmount.Cmp(block.Amount) == 0 {
 				delete(simpleAccountInfo.TokenBalanceInfoMap, block.TokenId)
 			} else {
 				tokenBalanceInfo.TotalAmount.Sub(&tokenBalanceInfo.TotalAmount, block.Amount)
 			}
+			tokenBalanceInfo.Number -= 1
+			simpleAccountInfo.TotalNumber -= 1
 		}
-		simpleAccountInfo.TotalNumber -= 1
-		tokenBalanceInfo.Number -= 1
 	}
 }
 
