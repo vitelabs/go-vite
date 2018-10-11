@@ -266,6 +266,9 @@ type Subscriber interface {
 	SubscribeSyncStatus(fn SyncStateCallback) (subId int)
 	// if subId is 0, then ignore
 	UnsubscribeSyncStatus(subId int)
+
+	// for producer
+	SyncState() SyncState
 }
 
 func (n *Net) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
