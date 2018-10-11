@@ -238,6 +238,11 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 		if ok {
 			ti.Number += 1
 			ti.TotalAmount.Add(&ti.TotalAmount, block.Amount)
+		} else {
+			var tinfo TokenBalanceInfo
+			tinfo.Number = 1
+			tinfo.TotalAmount = *block.Amount
+			infoMap[block.TokenId] = &tinfo
 		}
 
 	}
