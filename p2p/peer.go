@@ -217,8 +217,6 @@ loop:
 }
 
 func (p *Peer) handleMsg(msg *Msg) {
-	p.log.Info("peer handle message", "CmdSet", msg.CmdSetID, "Cmd", msg.Cmd, "from", p.ID().String())
-
 	cmdset, cmd := msg.CmdSetID, msg.Cmd
 
 	if cmdset == baseProtocolCmdSet {

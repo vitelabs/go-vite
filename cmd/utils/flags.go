@@ -49,7 +49,6 @@ var (
 			" 1=MainNet," +
 			" 2=TestNet," +
 			" 3~12=DevNet,)",
-		Value: config.GlobalConfig.NetID,
 	}
 	MaxPeersFlag = cli.UintFlag{
 		Name:  "maxpeers", //mapping:p2p.MaxPeers
@@ -160,6 +159,12 @@ var (
 	FilePortFlag = cli.IntFlag{
 		Name:  "fileport",
 		Usage: "File transfer listening port",
+	}
+
+	//Stat
+	PProfEnabledFlag = cli.BoolFlag{
+		Name:  "pprof",
+		Usage: "Enable a performance analysis tool, you can visit the address[http://localhost:8080/debug/pprof]",
 	}
 )
 

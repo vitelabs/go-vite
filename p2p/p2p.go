@@ -369,7 +369,7 @@ loop:
 			svr.peers.Del(p)
 
 			peersCount := svr.peers.Size()
-			svr.log.Info("delete peer", "ID", p.ID().String(), "total", peersCount)
+			svr.log.Info(fmt.Sprintf("delete peer %s, total: %d", p, peersCount))
 			monitor.LogDuration("p2p/peer", "del", int64(peersCount))
 		}
 	}

@@ -18,12 +18,13 @@ import (
 const seedCount = 20
 const seedMaxAge = 7 * 24 * time.Hour
 
-var tExpire = 24 * time.Hour        // nodes have been ping-pong checked during this time period are considered valid
-var tRefresh = 1 * time.Hour        // refresh the node table at tRefresh intervals
-var storeInterval = 5 * time.Minute // store nodes in table to db at storeDuration intervals
-var checkInterval = 3 * time.Minute // check the oldest node in table at checkInterval intervals
-var stayInTable = 5 * time.Minute   // minimal duration node stay in table can be store in db
-var findInterval = 5 * time.Minute
+var tExpire = 24 * time.Hour         // nodes have been ping-pong checked during this time period are considered valid
+var tRefresh = 1 * time.Hour         // refresh the node table at tRefresh intervals
+var storeInterval = 5 * time.Minute  // store nodes in table to db at storeDuration intervals
+var checkInterval = 10 * time.Second // check the oldest node in table at checkInterval intervals
+var stayInTable = 5 * time.Minute    // minimal duration node stay in table can be store in db
+var findInterval = 3 * time.Minute
+var dbCleanInterval = time.Hour
 
 var errUnsolicitedMsg = errors.New("unsolicited message")
 
@@ -131,11 +132,13 @@ func (d *Discovery) tableLoop() {
 	refreshTicker := time.NewTimer(tRefresh)
 	storeTicker := time.NewTicker(storeInterval)
 	findTicker := time.NewTicker(findInterval)
+	dbTicker := time.NewTicker(dbCleanInterval)
 
 	defer checkTicker.Stop()
 	defer refreshTicker.Stop()
 	defer storeTicker.Stop()
 	defer findTicker.Stop()
+	defer dbTicker.Stop()
 
 	d.RefreshTable()
 
@@ -167,6 +170,9 @@ func (d *Discovery) tableLoop() {
 					d.db.storeNode(n)
 				}
 			})
+
+		case <-dbTicker.C:
+			d.db.cleanStaleNodes()
 
 		case <-d.term:
 			return
