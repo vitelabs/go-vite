@@ -61,7 +61,7 @@ type Config struct {
 	FilePort               uint16   `json:"FilePort"`
 	Topology               []string `json:"Topology"`
 	TopologyTopic          string   `json:"TopologyTopic"`
-	TopologyReportInterval int64    `json:"TopologyReportInterval"`
+	TopologyReportInterval int      `json:"TopologyReportInterval"`
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
@@ -85,7 +85,7 @@ func (c *Config) makeNetConfig() *config.Net {
 		FilePort: c.FilePort,
 		Topology: c.Topology,
 		Topic:    c.TopologyTopic,
-		Interval: c.TopologyReportInterval,
+		Interval: int64(c.TopologyReportInterval),
 	}
 }
 
