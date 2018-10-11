@@ -2,12 +2,13 @@ package model
 
 import (
 	"container/list"
+	"math/big"
+	"sync"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vitepb"
-	"math/big"
-	"sync"
 )
 
 type OnroadMeta struct {

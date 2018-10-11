@@ -36,11 +36,9 @@ func init() {
 
 func TestWallet(t *testing.T) {
 	w := wallet.New(nil)
-	addr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
-
 	password := "123456"
 
-	unlockAddr(w, password, genesisAccountPrivKeyStr)
+	genesisAddr := unlockAddr(w, password, genesisAccountPrivKeyStr)
 
 	vite, err := startVite(w, password, t)
 
@@ -50,29 +48,30 @@ func TestWallet(t *testing.T) {
 	//l := NewLedgerApi(vite)
 	t.Log(waApi.Status())
 
-	vite.OnRoad().StartAutoReceiveWorker(addr, nil)
+	time.Sleep(2 * time.Second)
+	vite.OnRoad().StartAutoReceiveWorker(genesisAddr, nil)
 	for _, v := range vite.OnRoad().ListWorkingAutoReceiveWorker() {
 		wLog.Info(v.String())
 	}
 
-	waitOnroad(onRoadApi, addr, t)
-	printBalance(vite, addr)
+	waitOnroad(onRoadApi, genesisAddr, t)
+	printBalance(vite, genesisAddr)
 
-	printQuota(vite, addr)
+	printQuota(vite, genesisAddr)
 
 	waitOnroad(onRoadApi, contracts.AddressPledge, t)
 
-	byt, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr)
+	byt, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, genesisAddr)
 
 	parms := CreateTransferTxParms{
-		SelfAddr:    addr,
+		SelfAddr:    genesisAddr,
 		ToAddr:      contracts.AddressPledge,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)).String(),
 		Data:        byt,
 	}
-	balance := printBalance(vite, addr)
+	balance := printBalance(vite, genesisAddr)
 
 	contractPrevHeight := printHeight(vite, contracts.AddressPledge)
 
@@ -100,7 +99,7 @@ func TestWallet(t *testing.T) {
 		}
 		time.Sleep(time.Second)
 	}
-	printQuota(vite, addr)
+	printQuota(vite, genesisAddr)
 }
 func startVite(w *wallet.Manager, password string, t *testing.T) (*vite.Vite, error) {
 	coinbase := unlockAddr(w, password, accountPrivKeyStr)
@@ -111,6 +110,7 @@ func startVite(w *wallet.Manager, password string, t *testing.T) (*vite.Vite, er
 			Producer: true,
 			Coinbase: coinbase.String(),
 		},
+		Vm: &config.Vm{IsVmTest: false},
 	}
 
 	vite, err := vite.New(config, w)
@@ -123,7 +123,7 @@ func startVite(w *wallet.Manager, password string, t *testing.T) (*vite.Vite, er
 		t.Error(err)
 		return nil, err
 	}
-	err = vite.Start()
+	err = vite.Start(nil)
 	if err != nil {
 		t.Error(err)
 		return nil, err
@@ -171,15 +171,22 @@ func unlockAddr(w *wallet.Manager, passwd string, priKey string) types.Address {
 }
 
 func waitOnroad(api *PrivateOnroadApi, addr types.Address, t *testing.T) {
-	info, e := api.GetAccountOnroadInfo(addr)
-	if e != nil {
-		panic(e)
-		return
-	}
+	for {
+		info, e := api.GetAccountOnroadInfo(addr)
+		if e != nil {
+			panic(e)
+			return
+		}
 
-	total := big.NewInt(0)
-	total.SetString(info.TotalNumber, 10)
-	for total.Sign() > 0 {
+		if info == nil {
+			wLog.Info("print onroad size", "size", 0, "addr", addr.String())
+			return
+		}
+		total := big.NewInt(0)
+		total.SetString(info.TotalNumber, 10)
+		for total.Sign() == 0 {
+			return
+		}
 		wLog.Info("print onroad size", "size", total.String(), "addr", addr.String())
 		time.Sleep(time.Second)
 	}
