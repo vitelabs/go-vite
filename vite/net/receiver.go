@@ -44,7 +44,7 @@ func newReceiver(verifier Verifier, broadcaster Broadcaster, filter Filter) *rec
 
 // implementation MsgHandler
 func (s *receiver) ID() string {
-	return "default new snapshotblocks Handler"
+	return "receiver"
 }
 
 func (s *receiver) Cmds() []cmd {
@@ -63,6 +63,8 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 		sender.SeeBlock(block.Hash)
 
 		s.ReceiveNewSnapshotBlock(block)
+
+		s.log.Info(fmt.Sprintf("receive net snapshotblock %s", block.Hash))
 	case NewAccountBlockCode:
 		block := new(ledger.AccountBlock)
 		err := block.Deserialize(msg.Payload)
@@ -74,6 +76,7 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 
 		s.ReceiveNewAccountBlock(block)
 
+		s.log.Info(fmt.Sprintf("receive net accountblock %s", block.Hash))
 	case SnapshotBlocksCode:
 		bs := new(message.SnapshotBlocks)
 		err := bs.Deserialize(msg.Payload)
@@ -82,6 +85,8 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 		}
 
 		s.ReceiveSnapshotBlocks(bs.Blocks)
+
+		s.log.Info(fmt.Sprintf("receive %d snapshotblocks", len(bs.Blocks)))
 	case AccountBlocksCode:
 		bs := new(message.AccountBlocks)
 		err := bs.Deserialize(msg.Payload)
@@ -90,6 +95,8 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 		}
 
 		s.ReceiveAccountBlocks(bs.Blocks)
+
+		s.log.Info(fmt.Sprintf("receive %d accountblocks", len(bs.Blocks)))
 	}
 
 	return nil
