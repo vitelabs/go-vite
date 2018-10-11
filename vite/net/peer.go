@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"net"
 	"sort"
+	"strconv"
 	"sync"
 )
 
@@ -29,20 +30,16 @@ type Peer struct {
 	CmdSet      uint64     // which cmdSet it belongs
 	KnownBlocks *cuckoofilter.CuckooFilter
 	log         log15.Logger
-	term        chan struct{}
-	errch       chan error
 }
 
 func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 	return &Peer{
 		Peer:        p,
 		mrw:         mrw,
-		ID:          p.ID().Brief(),
+		ID:          p.ID().String(),
 		CmdSet:      cmdSet,
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
-		term:        make(chan struct{}),
-		errch:       make(chan error, 1),
 	}
 }
 
@@ -112,30 +109,49 @@ func (p *Peer) SeeBlock(hash types.Hash) {
 }
 
 // response
-func (p *Peer) SendSubLedger(s *message.SubLedger, msgId uint64) (err error) {
-	err = p.Send(SubLedgerCode, msgId, s)
+//func (p *Peer) SendSubLedger(s *message.SubLedger, msgId uint64) (err error) {
+//	err = p.Send(SubLedgerCode, msgId, s)
+//
+//	if err != nil {
+//		return
+//	}
+//
+//	for _, blocks := range s.ABlocks {
+//		for _, block := range blocks {
+//			p.SeeBlock(block.Hash)
+//		}
+//	}
+//
+//	for _, b := range s.SBlocks {
+//		p.SeeBlock(b.Hash)
+//	}
+//
+//	return
+//}
+
+func (p *Peer) SendSubLedger(bs []*ledger.SnapshotBlock, abs []*ledger.AccountBlock, msgId uint64) (err error) {
+	err = p.Send(SubLedgerCode, msgId, &message.SubLedger{
+		SBlocks: nil,
+		ABlocks: nil,
+	})
 
 	if err != nil {
 		return
 	}
 
-	for _, blocks := range s.ABlocks {
-		for _, block := range blocks {
-			p.SeeBlock(block.Hash)
-		}
+	for _, block := range bs {
+		p.SeeBlock(block.Hash)
 	}
 
-	for _, b := range s.SBlocks {
-		p.SeeBlock(b.Hash)
+	for _, block := range abs {
+		p.SeeBlock(block.Hash)
 	}
 
 	return
 }
 
 func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error) {
-	err = p.Send(SnapshotBlocksCode, msgId, &message.SnapshotBlocks{
-		Blocks: bs,
-	})
+	err = p.Send(SnapshotBlocksCode, msgId, &message.SnapshotBlocks{bs})
 
 	if err != nil {
 		return
@@ -148,14 +164,14 @@ func (p *Peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err
 	return
 }
 
-func (p *Peer) SendAccountBlocks(s *message.AccountBlocks, msgId uint64) (err error) {
-	err = p.Send(AccountBlocksCode, msgId, s)
+func (p *Peer) SendAccountBlocks(bs []*ledger.AccountBlock, msgId uint64) (err error) {
+	err = p.Send(AccountBlocksCode, msgId, &message.AccountBlocks{bs})
 
 	if err != nil {
 		return
 	}
 
-	for _, b := range s.Blocks {
+	for _, b := range bs {
 		p.SeeBlock(b.Hash)
 	}
 
@@ -164,6 +180,18 @@ func (p *Peer) SendAccountBlocks(s *message.AccountBlocks, msgId uint64) (err er
 
 func (p *Peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
 	err = p.Send(NewSnapshotBlockCode, 0, b)
+
+	if err != nil {
+		return
+	}
+
+	p.SeeBlock(b.Hash)
+
+	return
+}
+
+func (p *Peer) SendNewAccountBlock(b *ledger.AccountBlock) (err error) {
+	err = p.Send(NewAccountBlockCode, 0, b)
 
 	if err != nil {
 		return
@@ -201,15 +229,23 @@ func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
 }
 
 type PeerInfo struct {
-	Addr   string
-	Flag   int
-	Head   string
-	Height uint64
+	ID     string `json:"id"`
+	Addr   string `json:"addr"`
+	Head   string `json:"head"`
+	Height uint64 `json:"height"`
+}
+
+func (p *PeerInfo) String() string {
+	return p.ID + "@" + p.Addr + "/" + strconv.FormatUint(p.Height, 10)
 }
 
 func (p *Peer) Info() *PeerInfo {
-	// todo
-	return &PeerInfo{}
+	return &PeerInfo{
+		ID:     p.ID,
+		Addr:   p.RemoteAddr().String(),
+		Head:   p.head.String(),
+		Height: p.height,
+	}
 }
 
 // @section PeerSet
@@ -336,7 +372,7 @@ func (m *peerSet) Pick(height uint64) (peers []*Peer) {
 	defer m.rw.RUnlock()
 
 	for _, p := range m.peers {
-		if p.height > height {
+		if p.height >= height {
 			peers = append(peers, p)
 		}
 	}

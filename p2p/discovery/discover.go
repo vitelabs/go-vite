@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/block"
 	"net"
@@ -36,11 +37,12 @@ type Config struct {
 	Priv      ed25519.PrivateKey
 	DBPath    string
 	BootNodes []*Node
-	Conn      *net.UDPConn
+	Addr      *net.UDPAddr
 	Self      *Node
 }
 
 type Discovery struct {
+	cfg         *Config
 	bootNodes   []*Node
 	self        *Node
 	agent       *agent
@@ -52,29 +54,64 @@ type Discovery struct {
 	wg          sync.WaitGroup
 	blockList   *block.CuckooSet
 	subs        []chan<- *Node
+	log         log15.Logger
 }
 
-func (d *Discovery) Start() {
+func New(cfg *Config) (d *Discovery) {
+	d = &Discovery{
+		cfg:         cfg,
+		bootNodes:   cfg.BootNodes,
+		self:        cfg.Self,
+		tab:         newTable(cfg.Self.ID, N),
+		refreshDone: make(chan struct{}),
+		blockList:   block.NewCuckooSet(1000),
+		log:         log15.New("module", "p2p/discv"),
+	}
+
+	d.agent = newAgent(&agentConfig{
+		Self:    cfg.Self,
+		Addr:    cfg.Addr,
+		Priv:    cfg.Priv,
+		Handler: d.HandleMsg,
+	})
+
+	return
+}
+
+func (d *Discovery) Start() (err error) {
+	d.log.Info(fmt.Sprintf("discovery %s start", d.self))
+
+	db, err := newDB(d.cfg.DBPath, 2, d.self.ID)
+	if err != nil {
+		d.log.Error(fmt.Sprintf("create p2p db error: %v", err))
+	}
+	d.db = db
+
+	err = d.agent.start()
+	if err != nil {
+		return err
+	}
+
+	d.term = make(chan struct{})
+
 	d.wg.Add(1)
 	go d.tableLoop()
 
-	d.wg.Add(1)
-	go d.agent.start()
-
-	discvLog.Info(fmt.Sprintf("discovery server %s start", d.self))
+	return
 }
 
 func (d *Discovery) Stop() {
 	select {
 	case <-d.term:
 	default:
-		discvLog.Info(fmt.Sprintf("discovery server %s term", d.self))
+		d.log.Warn(fmt.Sprintf("stop discovery %s", d.self))
 
 		close(d.term)
+		d.db.close()
 		d.agent.stop()
 		d.wg.Wait()
 
-		discvLog.Info(fmt.Sprintf("discovery server %s stopped", d.self))
+		d.log.Warn(fmt.Sprintf("discovery %s stopped", d.self))
 	}
 }
 
@@ -358,6 +395,15 @@ func (d *Discovery) SubNodes(ch chan<- *Node) {
 	d.subs = append(d.subs, ch)
 }
 
+func (d *Discovery) UnSubNodes(ch chan<- *Node) {
+	for i, c := range d.subs {
+		if c == ch {
+			copy(d.subs[i:], d.subs[i+1:])
+			d.subs = d.subs[:len(d.subs)-1]
+		}
+	}
+}
+
 func (d *Discovery) notify(node *Node) {
 	for _, ch := range d.subs {
 		select {
@@ -371,35 +417,4 @@ func (d *Discovery) batchNotify(nodes []*Node) {
 	for _, node := range nodes {
 		d.notify(node)
 	}
-}
-
-func New(cfg *Config) *Discovery {
-	db, err := newDB(cfg.DBPath, 2, cfg.Self.ID)
-	if err != nil {
-		discvLog.Crit("create p2p db", "error", err)
-	}
-
-	d := &Discovery{
-		bootNodes:   cfg.BootNodes,
-		self:        cfg.Self,
-		tab:         newTable(cfg.Self.ID, N),
-		db:          db,
-		term:        make(chan struct{}),
-		refreshing:  0,
-		refreshDone: make(chan struct{}),
-		blockList:   block.NewCuckooSet(1000),
-	}
-
-	d.agent = &agent{
-		self:       cfg.Self,
-		conn:       cfg.Conn,
-		priv:       cfg.Priv,
-		term:       make(chan struct{}),
-		pktHandler: d.HandleMsg,
-		pool:       newWtPool(),
-		write:      make(chan *sendPkt, 100),
-		read:       make(chan *packet, 100),
-	}
-
-	return d
 }

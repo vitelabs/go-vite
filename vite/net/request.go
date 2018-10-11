@@ -3,7 +3,6 @@ package net
 import (
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
@@ -51,7 +50,7 @@ type Request interface {
 	State() reqState
 }
 
-type receiveBlocks func(sblocks []*ledger.SnapshotBlock, mblocks map[types.Address][]*ledger.AccountBlock)
+type receiveBlocks func(sblocks []*ledger.SnapshotBlock, ablocks []*ledger.AccountBlock)
 type doneCallback func(id uint64, err error)
 
 var errMissingPeer = errors.New("request missing peer")

@@ -13,33 +13,33 @@ import (
 
 type Receiver interface {
 	ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock)
-	ReceiveAccountBlocks(mblocks map[types.Address][]*ledger.AccountBlock)
-	ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock)
-}
+	ReceiveAccountBlocks(blocks []*ledger.AccountBlock)
 
-type broadNewSnapshotBlock interface {
-	BroadcastSnapshotBlock(block *ledger.SnapshotBlock)
+	ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock)
+	ReceiveNewAccountBlock(block *ledger.AccountBlock)
 }
 
 // receive blocks and record them, construct skeleton to filter subsequent fetch
 type receiver struct {
 	ready       int32 // atomic, can report newBlock to pool
-	newBlocks   []*ledger.SnapshotBlock
+	newSBlocks  []*ledger.SnapshotBlock
+	newABlocks  []*ledger.AccountBlock
 	sblocks     [][]*ledger.SnapshotBlock
-	mblocks     map[types.Address][]*ledger.AccountBlock
+	ablocks     [][]*ledger.AccountBlock
 	sFeed       *snapshotBlockFeed
 	aFeed       *accountBlockFeed
 	verifier    Verifier
-	broadcaster broadNewSnapshotBlock
+	broadcaster Broadcaster
 	filter      Filter
 	log         log15.Logger
 }
 
-func newReceiver(verifier Verifier, broadcaster broadNewSnapshotBlock, filter Filter) *receiver {
+func newReceiver(verifier Verifier, broadcaster Broadcaster, filter Filter) *receiver {
 	return &receiver{
-		newBlocks:   make([]*ledger.SnapshotBlock, 0, 100),
+		newSBlocks:  make([]*ledger.SnapshotBlock, 0, 100),
+		newABlocks:  make([]*ledger.AccountBlock, 0, 100),
 		sblocks:     make([][]*ledger.SnapshotBlock, 0, 10),
-		mblocks:     make(map[types.Address][]*ledger.AccountBlock, 100),
+		ablocks:     make([][]*ledger.AccountBlock, 0, 10),
 		sFeed:       newSnapshotBlockFeed(),
 		aFeed:       newAccountBlockFeed(),
 		verifier:    verifier,
@@ -55,19 +55,32 @@ func (s *receiver) ID() string {
 }
 
 func (s *receiver) Cmds() []cmd {
-	return []cmd{NewSnapshotBlockCode}
+	return []cmd{NewSnapshotBlockCode, NewAccountBlockCode}
 }
 
 func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
-	block := new(ledger.SnapshotBlock)
-	err := block.Deserialize(msg.Payload)
-	if err != nil {
-		return err
+	switch cmd(msg.Cmd) {
+	case NewSnapshotBlockCode:
+		block := new(ledger.SnapshotBlock)
+		err := block.Deserialize(msg.Payload)
+		if err != nil {
+			return err
+		}
+
+		sender.SeeBlock(block.Hash)
+
+		s.ReceiveNewSnapshotBlock(block)
+	case NewAccountBlockCode:
+		block := new(ledger.AccountBlock)
+		err := block.Deserialize(msg.Payload)
+		if err != nil {
+			return err
+		}
+
+		sender.SeeBlock(block.Hash)
+
+		s.ReceiveNewAccountBlock(block)
 	}
-
-	sender.SeeBlock(block.Hash)
-
-	s.ReceiveNewSnapshotBlock(block)
 
 	return nil
 }
@@ -82,6 +95,7 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 
 	if s.filter.has(block.Hash) {
 		monitor.LogDuration("net/receiver", "nb2", time.Now().Sub(t).Nanoseconds())
+		s.log.Warn(fmt.Sprintf("has receive the same new block %s", block.Hash))
 		return
 	}
 
@@ -89,11 +103,37 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 	s.mark(block.Hash)
 
 	if atomic.LoadInt32(&s.ready) == 0 {
-		s.newBlocks = append(s.newBlocks, block)
+		s.newSBlocks = append(s.newSBlocks, block)
+		s.log.Warn(fmt.Sprintf("not ready, store new snapshotblock %s, total %d", block.Hash, len(s.newSBlocks)))
 	} else {
 		s.sFeed.Notify(block)
-		s.broadcaster.BroadcastSnapshotBlock(block)
 	}
+
+	s.broadcaster.BroadcastSnapshotBlock(block)
+
+	monitor.LogDuration("net/receiver", "nb", time.Now().Sub(t).Nanoseconds())
+}
+
+func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
+	t := time.Now()
+
+	if s.filter.has(block.Hash) {
+		monitor.LogDuration("net/receiver", "nb2", time.Now().Sub(t).Nanoseconds())
+		s.log.Warn(fmt.Sprintf("has receive the same new block %s", block.Hash))
+		return
+	}
+
+	// record
+	s.mark(block.Hash)
+
+	if atomic.LoadInt32(&s.ready) == 0 {
+		s.newABlocks = append(s.newABlocks, block)
+		s.log.Warn(fmt.Sprintf("not ready, store new accountblock %s, total %d", block.Hash, len(s.newABlocks)))
+	} else {
+		s.aFeed.Notify(block)
+	}
+
+	s.broadcaster.BroadcastAccountBlock(block)
 
 	monitor.LogDuration("net/receiver", "nb", time.Now().Sub(t).Nanoseconds())
 }
@@ -103,6 +143,7 @@ func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 
 	if atomic.LoadInt32(&s.ready) == 0 {
 		s.sblocks = append(s.sblocks, blocks)
+		s.log.Warn(fmt.Sprintf("not ready, store %d snapshotblocks", len(s.sblocks)))
 
 		for _, block := range blocks {
 			s.mark(block.Hash)
@@ -117,25 +158,23 @@ func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 	monitor.LogDuration("net/receiver", "bs", time.Now().Sub(t).Nanoseconds())
 }
 
-func (s *receiver) ReceiveAccountBlocks(mblocks map[types.Address][]*ledger.AccountBlock) {
+func (s *receiver) ReceiveAccountBlocks(ablocks []*ledger.AccountBlock) {
 	t := time.Now()
 
 	if atomic.LoadInt32(&s.ready) == 0 {
-		for addr, blocks := range mblocks {
-			s.mblocks[addr] = append(s.mblocks[addr], blocks...)
+		s.ablocks = append(s.ablocks, ablocks)
 
-			for _, block := range blocks {
-				s.mark(block.Hash)
-			}
+		for _, block := range ablocks {
+			s.mark(block.Hash)
 		}
+
+		s.log.Warn(fmt.Sprintf("not ready, store %d accountblocks", len(ablocks)))
 	} else {
-		for _, blocks := range mblocks {
-			for _, block := range blocks {
-				// verify
-				if s.verifier.VerifyforP2P(block) {
-					s.aFeed.Notify(block)
-					s.mark(block.Hash)
-				}
+		for _, block := range ablocks {
+			// verify
+			if s.verifier.VerifyforP2P(block) {
+				s.aFeed.Notify(block)
+				s.mark(block.Hash)
 			}
 		}
 	}
@@ -144,28 +183,36 @@ func (s *receiver) ReceiveAccountBlocks(mblocks map[types.Address][]*ledger.Acco
 }
 
 func (s *receiver) listen(st SyncState) {
+	if atomic.LoadInt32(&s.ready) == 1 {
+		return
+	}
+
 	if st == Syncdone || st == SyncDownloaded {
 		s.log.Info(fmt.Sprintf("sync status: %s", st))
 
 		// caution: s.blocks and s.mblocks is mutating concurrently
 		// so we keep waterMark, after ready, handle rest blocks
 		sblockMark := len(s.sblocks)
-		mblockMark := make(map[types.Address]int)
-		for addr, ablocks := range s.mblocks {
-			mblockMark[addr] = len(ablocks)
-		}
+		ablockMark := len(s.ablocks)
+
+		// use for log
+		var sblockCount, ablockCount uint64
 
 		for i := 0; i < sblockMark; i++ {
 			sblocks := s.sblocks[i]
 			for _, block := range sblocks {
 				s.sFeed.Notify(block)
+
+				sblockCount++
 			}
 		}
 
-		for addr, length := range mblockMark {
-			for i := 0; i < length; i++ {
-				block := s.mblocks[addr][i]
+		for i := 0; i < ablockMark; i++ {
+			ablocks := s.ablocks[i]
+			for _, block := range ablocks {
 				s.aFeed.Notify(block)
+
+				ablockCount++
 			}
 		}
 
@@ -173,49 +220,36 @@ func (s *receiver) listen(st SyncState) {
 
 		// rest blocks
 		for i := sblockMark; i < len(s.sblocks); i++ {
-			sblocks := s.sblocks[i]
-			for _, block := range sblocks {
+			for _, block := range s.sblocks[i] {
 				s.sFeed.Notify(block)
+
+				sblockCount++
 			}
 		}
 
-		for addr, length := range mblockMark {
-			for i := length; i < len(s.mblocks[addr]); i++ {
-				block := s.mblocks[addr][i]
+		for i := ablockMark; i < len(s.ablocks); i++ {
+			for _, block := range s.ablocks[i] {
 				s.aFeed.Notify(block)
+
+				ablockCount++
 			}
 		}
 
 		// new blocks
-		for _, block := range s.newBlocks {
+		for _, block := range s.newSBlocks {
 			s.sFeed.Notify(block)
 		}
 
-		s.log.Info(fmt.Sprintf("notify %d snapshotblocks, %d account blocks, %d newSnapshotBlocks", countSnapshotBlocks(s.sblocks), countAccountBlocks(s.mblocks), len(s.newBlocks)))
+		for _, block := range s.newABlocks {
+			s.aFeed.Notify(block)
+		}
+
+		s.log.Info(fmt.Sprintf("notify %d sblocks, %d ablocks, %d newSBlocks, %d newABlocks", sblockCount, ablockCount, len(s.newSBlocks), len(s.newABlocks)))
 
 		// clear job
 		s.sblocks = s.sblocks[:0]
-		s.mblocks = nil
+		s.ablocks = s.ablocks[:0]
+		s.newSBlocks = s.newSBlocks[:0]
+		s.newABlocks = s.newABlocks[:0]
 	}
-}
-
-// helper
-func countAccountBlocks(mblocks map[types.Address][]*ledger.AccountBlock) (count uint64) {
-	for _, blocks := range mblocks {
-		for range blocks {
-			count++
-		}
-	}
-
-	return
-}
-
-func countSnapshotBlocks(sblocks [][]*ledger.SnapshotBlock) (count uint64) {
-	for _, blocks := range sblocks {
-		for range blocks {
-			count++
-		}
-	}
-
-	return
 }

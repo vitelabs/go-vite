@@ -22,8 +22,8 @@ func (testNet) SubscribeSyncStatus(fn func(net.SyncState)) (subId int) {
 func (testNet) UnsubscribeSyncStatus(subId int) {
 }
 
-func (testNet) Status() *net.NetStatus {
-	return &net.NetStatus{
+func (testNet) Status() *net.Status {
+	return &net.Status{
 		Peers:     nil,
 		SyncState: net.Syncdone,
 		Running:   false,

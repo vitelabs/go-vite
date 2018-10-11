@@ -430,6 +430,10 @@ func (c *chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 		return nil, err
 	}
 
+	if account == nil {
+		return nil, nil
+	}
+
 	latestBlock, glErr := c.chainDb.Ac.GetLatestBlock(account.AccountId)
 	if glErr != nil {
 
