@@ -29,7 +29,7 @@ func TestGetSnapshotBlocksByHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, block := range blocks {
-		fmt.Printf("%d | %s | %s  | %d\n", block.Height, block.Timestamp, block.Producer(),block.Timestamp.UnixNano())
+		fmt.Printf("%d | %s | %s  | %d\n", block.Height, block.Timestamp, block.Producer(), block.Timestamp.UnixNano())
 	}
 	fmt.Println()
 
@@ -52,7 +52,7 @@ func TestGetSnapshotBlocksByHash(t *testing.T) {
 
 func TestGetSnapshotBlocksByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
-	blocks, err := chainInstance.GetSnapshotBlocksByHeight(2, 10, false, false)
+	blocks, err := chainInstance.GetSnapshotBlocksByHeight(2, 10, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestGetSnapshotBlockBeforeTime(t *testing.T) {
 	//}
 	//fmt.Printf("%+v\n", block)
 
-	time2 := time.Unix(1539253079, 0)
+	time2 := time.Unix(1539268026, 0)
 	block2, err2 := chainInstance.GetSnapshotBlockBeforeTime(&time2)
 	if err2 != nil {
 		t.Fatal(err2)
