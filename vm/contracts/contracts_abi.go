@@ -29,7 +29,7 @@ const (
 	MethodNameReCreateConsensusGroup      = "ReCreateConsensusGroup"
 	VariableNameConsensusGroupInfo        = "consensusGroupInfo"
 	VariableNameConditionRegisterOfPledge = "registerOfPledge"
-	VariableNameConditionVoteOfBalance    = "voteOfKeepToken"
+	VariableNameConditionVoteOfKeepToken  = "voteOfKeepToken"
 
 	MethodNameMintage             = "Mintage"
 	MethodNameMintageCancelPledge = "CancelPledge"

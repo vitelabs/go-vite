@@ -1014,7 +1014,7 @@ type voteConditionOfKeepToken struct{}
 
 func (c voteConditionOfKeepToken) checkParam(param []byte, db vmctxt_interface.VmDatabase) bool {
 	v := new(contracts.VariableConditionVoteOfKeepToken)
-	err := contracts.ABIConsensusGroup.UnpackVariable(v, contracts.VariableNameConditionVoteOfBalance, param)
+	err := contracts.ABIConsensusGroup.UnpackVariable(v, contracts.VariableNameConditionVoteOfKeepToken, param)
 	if err != nil || contracts.GetTokenById(db, v.KeepToken) == nil || v.KeepAmount.Sign() == 0 {
 		return false
 	}
@@ -1026,7 +1026,7 @@ func (c voteConditionOfKeepToken) checkData(paramData []byte, block *vm_context.
 		return false
 	}
 	param := new(contracts.VariableConditionVoteOfKeepToken)
-	contracts.ABIConsensusGroup.UnpackVariable(param, contracts.VariableNameConditionVoteOfBalance, paramData)
+	contracts.ABIConsensusGroup.UnpackVariable(param, contracts.VariableNameConditionVoteOfKeepToken, paramData)
 	if block.VmContext.GetBalance(&block.AccountBlock.AccountAddress, &param.KeepToken).Cmp(param.KeepAmount) < 0 {
 		return false
 	}
