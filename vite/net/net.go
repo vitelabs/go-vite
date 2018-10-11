@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
+	"strings"
 	"sync"
 	"time"
 )
@@ -320,46 +321,46 @@ func (n *Net) SyncStatus() *SyncStatus {
 }
 
 // get current netInfo (peers, syncStatus, ...)
-//func (n *Net) Status() *Status {
-//	running := true
-//	select {
-//	case <-n.term:
-//		running = false
-//	default:
-//	}
-//
-//	return &Status{
-//		Peers:     n.peers.Info(),
-//		Running:   running,
-//		SyncState: n.syncer.state,
-//		SyncFrom:  n.syncer.from,
-//		SyncTo:    n.syncer.to,
-//	}
-//}
-//
-//type Status struct {
-//	Running   bool        `json:"running"`
-//	Peers     []*PeerInfo `json:"peers"`
-//	SyncState SyncState   `json:"syncState"`
-//	SyncFrom  uint64      `json:"syncFrom"`
-//	SyncTo    uint64      `json:"syncTo"`
-//}
-//
-//type peerInfos []*PeerInfo
-//
-//func (p peerInfos) MarshalJSON() ([]byte, error) {
-//	b := new(strings.Builder)
-//
-//	b.WriteString("[")
-//	for _, pi := range p {
-//		b.WriteString(pi.String())
-//	}
-//	b.WriteString("]")
-//
-//	return []byte(b.String()), nil
-//}
-//
-//func (p *peerInfos) UnmarshalJSON(data []byte) (err error) {
-//
-//	return nil
-//}
+func (n *Net) Status() *Status {
+	running := true
+	select {
+	case <-n.term:
+		running = false
+	default:
+	}
+
+	return &Status{
+		Peers:     n.peers.Info(),
+		Running:   running,
+		SyncState: n.syncer.state,
+		SyncFrom:  n.syncer.from,
+		SyncTo:    n.syncer.to,
+	}
+}
+
+type Status struct {
+	Running   bool        `json:"running"`
+	Peers     []*PeerInfo `json:"peers"`
+	SyncState SyncState   `json:"syncState"`
+	SyncFrom  uint64      `json:"syncFrom"`
+	SyncTo    uint64      `json:"syncTo"`
+}
+
+type peerInfos []*PeerInfo
+
+func (p peerInfos) MarshalJSON() ([]byte, error) {
+	b := new(strings.Builder)
+
+	b.WriteString("[")
+	for _, pi := range p {
+		b.WriteString(pi.String())
+	}
+	b.WriteString("]")
+
+	return []byte(b.String()), nil
+}
+
+func (p *peerInfos) UnmarshalJSON(data []byte) (err error) {
+
+	return nil
+}
