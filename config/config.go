@@ -19,10 +19,6 @@ type Config struct {
 
 	// global keys
 	DataDir string `json:"DataDir"`
-	// for file transfer
-	FilePort uint `json:"Port"`
-	// report topoMsg
-	Topo []string `json:"Topo"`
 }
 
 func (c Config) RunLogDir() string {
@@ -61,9 +57,8 @@ func defaultConfig() {
 			Producer: false,
 			Coinbase: "",
 		},
-		Chain:    &Chain{},
-		DataDir:  common.DefaultDataDir(),
-		FilePort: 8484,
+		Chain:   &Chain{},
+		DataDir: common.DefaultDataDir(),
 	}
 }
 

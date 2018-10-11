@@ -3,8 +3,6 @@ package producer
 import (
 	"sync/atomic"
 
-	"fmt"
-
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
@@ -100,14 +98,10 @@ func (self *producer) Init() error {
 	}
 	defer self.PostInit()
 
-	if !self.tools.checkAddressLock(self.coinbase) {
-		return errors.New(fmt.Sprintf("coinbase[%s] must be unlock.", self.coinbase.String()))
-	}
-
 	if err := self.worker.Init(); err != nil {
 		return err
 	}
-
+	wLog.Info("init.")
 	return nil
 }
 
@@ -116,6 +110,11 @@ func (self *producer) Start() error {
 		return errors.New("pre start fail.")
 	}
 	defer self.PostStart()
+
+	// todo add
+	//if !self.tools.checkAddressLock(self.coinbase) {
+	//	return errors.New(fmt.Sprintf("coinbase[%s] must be unlock.", self.coinbase.String()))
+	//}
 
 	err := self.worker.Start()
 	if err != nil {
@@ -126,11 +125,13 @@ func (self *producer) Start() error {
 	contractId := self.coinbase.String() + "_contract"
 
 	self.cs.Subscribe(types.SNAPSHOT_GID, snapshotId, &self.coinbase, func(e consensus.Event) {
+		mLog.Info("snapshot producer trigger.", "addr", self.coinbase.String(), "syncState", self.syncState, "e", e)
 		if self.syncState == net.Syncdone {
 			self.worker.produceSnapshot(e)
 		}
 	})
 	self.cs.Subscribe(types.DELEGATE_GID, contractId, &self.coinbase, func(e consensus.Event) {
+		mLog.Info("contract producer trigger.", "addr", self.coinbase.String(), "syncState", self.syncState, "e", e)
 		if self.syncState == net.Syncdone {
 			self.producerContract(e)
 		}
@@ -141,6 +142,7 @@ func (self *producer) Start() error {
 		self.syncState = state
 	})
 	self.netSyncId = id
+	wLog.Info("started.")
 	return nil
 }
 
