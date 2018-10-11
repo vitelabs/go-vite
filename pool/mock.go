@@ -12,6 +12,10 @@ var logger = log15.New()
 type MockSyncer struct {
 }
 
+func (*MockSyncer) SyncState() net.SyncState {
+	panic("implement me")
+}
+
 func (*MockSyncer) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 	logger.Info("BroadcastSnapshotBlocks")
 }
