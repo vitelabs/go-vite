@@ -16,9 +16,6 @@ type RequestPool interface {
 	MsgID() uint64
 }
 
-var errNoPeer = errors.New("no peer")
-var errHasNoSuitablePeer = errors.New("has no suitable peer")
-var errNoRequestedPeer = errors.New("request has no matched peer")
 var errRequestTimeout = errors.New("request timeout")
 var errPoolStopped = errors.New("pool stopped")
 

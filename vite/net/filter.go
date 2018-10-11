@@ -2,6 +2,7 @@ package net
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 	"sync"
 	"time"
 )
@@ -44,11 +45,13 @@ type filter struct {
 	chain   *skeleton
 	records map[types.Hash]*record
 	lock    sync.RWMutex
+	log     log15.Logger
 }
 
 func newFilter() *filter {
 	return &filter{
 		records: make(map[types.Hash]*record, 10000),
+		log:     log15.New("module", "net/filter"),
 	}
 }
 
