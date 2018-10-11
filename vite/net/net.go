@@ -26,16 +26,16 @@ type Config struct {
 
 const DefaultPort uint16 = 8484
 
-type Net struct {
+type net struct {
 	*Config
 	peers *peerSet
-	Syncer
-	Fetcher
-	Broadcaster
-	Receiver
+	*syncer
+	*fetcher
+	*broadcaster
+	*receiver
 	term      chan struct{}
 	log       log15.Logger
-	Protocols []*p2p.Protocol // mount to p2p.Server
+	protocols []*p2p.Protocol // mount to p2p.Server
 	wg        sync.WaitGroup
 	fs        *fileServer
 	fc        *fileClient
@@ -44,7 +44,7 @@ type Net struct {
 }
 
 // auto from
-func New(cfg *Config) *Net {
+func New(cfg *Config) Net {
 	// todo for test
 	if cfg.Single {
 		return mockNet()
@@ -69,13 +69,13 @@ func New(cfg *Config) *Net {
 	syncer.feed.Sub(receiver.listen) // subscribe sync status
 	syncer.feed.Sub(fetcher.listen)  // subscribe sync status
 
-	n := &Net{
+	n := &net{
 		Config:      cfg,
 		peers:       peers,
-		Syncer:      syncer,
-		Fetcher:     fetcher,
-		Broadcaster: broadcaster,
-		Receiver:    receiver,
+		syncer:      syncer,
+		fetcher:     fetcher,
+		broadcaster: broadcaster,
+		receiver:    receiver,
 		fs:          newFileServer(port, cfg.Chain),
 		fc:          fc,
 		handlers:    make(map[cmd]MsgHandler),
@@ -89,22 +89,22 @@ func New(cfg *Config) *Net {
 		fc:     fc,
 	}
 
-	n.AddHandler(_statusHandler(statusHandler))
-	n.AddHandler(&getSubLedgerHandler{cfg.Chain})
-	n.AddHandler(&getSnapshotBlocksHandler{cfg.Chain})
-	n.AddHandler(&getAccountBlocksHandler{cfg.Chain})
-	n.AddHandler(&getChunkHandler{cfg.Chain})
-	n.AddHandler(pool)     // receive SubLedger
-	n.AddHandler(receiver) // receive NewAccountBlock NewSnapshotBlock
-	n.AddHandler(fetcher)  // receive AccountBlocks SnapshotBlocks
+	n.addHandler(_statusHandler(statusHandler))
+	n.addHandler(&getSubLedgerHandler{cfg.Chain})
+	n.addHandler(&getSnapshotBlocksHandler{cfg.Chain})
+	n.addHandler(&getAccountBlocksHandler{cfg.Chain})
+	n.addHandler(&getChunkHandler{cfg.Chain})
+	n.addHandler(pool)     // receive all response except NewSnapshotBlockCode
+	n.addHandler(receiver) // receive newBlocks
+	n.addHandler(fetcher)
 
-	n.Protocols = append(n.Protocols, &p2p.Protocol{
+	n.protocols = append(n.protocols, &p2p.Protocol{
 		Name: CmdSetName,
 		ID:   CmdSet,
 		Handle: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 			// will be called by p2p.Peer.runProtocols use goroutine
 			peer := newPeer(p, rw, CmdSet)
-			return n.HandlePeer(peer)
+			return n.handlePeer(peer)
 		},
 	})
 
@@ -112,19 +112,23 @@ func New(cfg *Config) *Net {
 	n.topo = topo.New(&topo.Config{
 		Addrs: cfg.Topology,
 	})
-	n.Protocols = append(n.Protocols, n.topo.Protocol())
+	n.protocols = append(n.protocols, n.topo.Protocol())
 
 	return n
 }
 
-func (n *Net) AddHandler(handler MsgHandler) {
+func (n *net) Protocols() []*p2p.Protocol {
+	return n.protocols
+}
+
+func (n *net) addHandler(handler MsgHandler) {
 	cmds := handler.Cmds()
 	for _, cmd := range cmds {
 		n.handlers[cmd] = handler
 	}
 }
 
-func (n *Net) Start(svr *p2p.Server) (err error) {
+func (n *net) Start(svr *p2p.Server) (err error) {
 	// todo more safe
 	if n.Single {
 		return nil
@@ -144,7 +148,7 @@ func (n *Net) Start(svr *p2p.Server) (err error) {
 	return
 }
 
-func (n *Net) Stop() {
+func (n *net) Stop() {
 	// todo more safe
 	if n.Single {
 		return
@@ -155,7 +159,7 @@ func (n *Net) Stop() {
 	default:
 		close(n.term)
 
-		n.Syncer.Stop()
+		n.syncer.Stop()
 
 		n.fs.stop()
 
@@ -170,7 +174,7 @@ func (n *Net) Stop() {
 }
 
 // will be called by p2p.Server, run as goroutine
-func (n *Net) HandlePeer(p *Peer) error {
+func (n *net) handlePeer(p *Peer) error {
 	current := n.Chain.GetLatestSnapshotBlock()
 	genesis := n.Chain.GetGenesisSnapshotBlock()
 
@@ -192,7 +196,7 @@ func (n *Net) HandlePeer(p *Peer) error {
 	return n.startPeer(p)
 }
 
-func (n *Net) startPeer(p *Peer) error {
+func (n *net) startPeer(p *Peer) error {
 	n.peers.Add(p)
 	defer n.peers.Del(p)
 
@@ -201,10 +205,7 @@ func (n *Net) startPeer(p *Peer) error {
 
 	n.log.Info(fmt.Sprintf("startPeer %s", p))
 
-	// single mode, for test
-	if !n.Single {
-		go n.Syncer.Start()
-	}
+	go n.syncer.Start()
 
 	for {
 		select {
@@ -224,7 +225,7 @@ func (n *Net) startPeer(p *Peer) error {
 	}
 }
 
-func (n *Net) handleMsg(p *Peer) (err error) {
+func (n *net) handleMsg(p *Peer) (err error) {
 	msg, err := p.mrw.ReadMsg()
 	if err != nil {
 		n.log.Error(fmt.Sprintf("read message from %s error: %v", p, err))
@@ -250,12 +251,8 @@ func (n *Net) handleMsg(p *Peer) (err error) {
 	return fmt.Errorf("unknown message cmd %d", msg.Cmd)
 }
 
-func (n *Net) Syncing() bool {
-	return n.Syncer.SyncState() == Syncing
-}
-
 // get current netInfo (peers, syncStatus, ...)
-func (n *Net) Status() *Status {
+func (n *net) Status() *Status {
 	running := true
 	select {
 	case <-n.term:
@@ -263,7 +260,7 @@ func (n *Net) Status() *Status {
 	default:
 	}
 
-	s := n.Syncer.Status()
+	s := n.syncer.Status()
 
 	return &Status{
 		Peers:     n.peers.Info(),

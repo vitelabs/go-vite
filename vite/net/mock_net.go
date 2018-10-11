@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-func mockNet() *Net {
+func mockNet() Net {
 	peers := newPeerSet()
 	pool := newRequestPool()
 	broadcaster := &broadcaster{
@@ -22,23 +22,23 @@ func mockNet() *Net {
 		filter:      filter,
 	}
 
-	return &Net{
-		Syncer: &syncer{
+	return &net{
+		syncer: &syncer{
 			state:   Syncdone,
 			feed:    newSyncStateFeed(),
 			peers:   peers,
 			pool:    pool,
 			running: 1,
 		},
-		Fetcher: &fetcher{
+		fetcher: &fetcher{
 			filter:   filter,
 			peers:    peers,
 			receiver: receiver,
 			pool:     pool,
 			ready:    1,
 		},
-		Broadcaster: broadcaster,
-		Receiver:    receiver,
+		broadcaster: broadcaster,
+		receiver:    receiver,
 		log:         log15.New("module", "net/mock_net"),
 	}
 }

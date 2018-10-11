@@ -24,7 +24,7 @@ type Vite struct {
 	accountVerifier  *verifier.AccountVerifier
 	chain            chain.Chain
 	producer         producer.Producer
-	net              *net.Net
+	net              net.Net
 	pool             pool.BlockPool
 	consensus        consensus.Consensus
 	onRoad           *onroad.Manager
@@ -157,7 +157,7 @@ func (v *Vite) Chain() chain.Chain {
 	return v.chain
 }
 
-func (v *Vite) Net() *net.Net {
+func (v *Vite) Net() net.Net {
 	return v.net
 }
 

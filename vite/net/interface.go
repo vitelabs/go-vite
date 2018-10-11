@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/p2p"
 )
 
 // all query include from block
@@ -99,10 +100,19 @@ type Receiver interface {
 
 // @section Syncer
 type Syncer interface {
-	Start()
-	Stop()
 	Status() *SyncStatus
 	SubscribeSyncStatus(fn SyncStateCallback) (subId int)
 	UnsubscribeSyncStatus(subId int)
 	SyncState() SyncState
+}
+
+// @section Net
+type Net interface {
+	Syncer
+	Fetcher
+	Broadcaster
+	Receiver
+	Protocols() []*p2p.Protocol
+	Start(svr *p2p.Server) error
+	Stop()
 }
