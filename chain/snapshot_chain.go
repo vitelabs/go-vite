@@ -233,19 +233,25 @@ func (c *chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 
 func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error) {
 	for {
-		if start.Height == end.Height {
-			return end, nil
-		} else if end.Height-start.Height == 1 {
-			if start.Timestamp.Before(*blockCreatedTime) {
-				return start, nil
+		if end.Height-start.Height <= 1 {
+			var err error
+			start.SnapshotContent, err = c.chainDb.Sc.GetSnapshotContent(start.Height)
+			if err != nil {
+				c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
+				return nil, err
 			}
-			return nil, nil
+			return start, nil
 		}
 
-
 		gap:= uint64(end.Timestamp.Sub(*blockCreatedTime).Seconds())
+		middle := uint64(0)
 		// suppose one snapshot block per second
-		middle  := end.Height  - gap
+		if end.Height > gap {
+			middle  = end.Height  - gap
+		}
+		if middle < start.Height {
+			middle = start.Height  + (end.Height - start.Height)/2
+		}
 
 		block, err := c.chainDb.Sc.GetSnapshotBlock(middle, false)
 		if err != nil {
@@ -253,15 +259,7 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, blockCr
 			return nil, err
 		}
 
-		if middle <= 1 {
-			if block.Timestamp.Before(*blockCreatedTime) {
-				return block, nil
-			}
-			return nil, nil
-		}
-
 		prevBlock, err := c.chainDb.Sc.GetSnapshotBlock(middle-1, false)
-
 		if err != nil {
 			c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
 			return nil, err
@@ -271,41 +269,21 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, blockCr
 			start = block
 		} else if prevBlock.Timestamp.After(*blockCreatedTime) || prevBlock.Timestamp.Equal(*blockCreatedTime) {
 			end = prevBlock
-		} else {
-			return prevBlock, nil
 		}
 	}
 }
 
 func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error) {
-
-	//optimize
-	latestBlock := c.GetLatestSnapshotBlock()
-	if latestBlock.Timestamp.Before(*blockCreatedTime) {
-		return latestBlock, nil
+	// normal logic
+	start := c.GetGenesisSnapshotBlock()
+	end := c.GetLatestSnapshotBlock()
+	if end.Timestamp.Before(*blockCreatedTime) {
+		return end, nil
 	}
-
-	if GenesisSnapshotBlock.Timestamp.After(*blockCreatedTime) {
+	if start.Timestamp.After(*blockCreatedTime) {
 		return nil, nil
 	}
 
-	if SecondSnapshotBlock.Timestamp.After(*blockCreatedTime) {
-		return &GenesisSnapshotBlock, nil
-	}
-
-	thirdSnapshotBlock, err := c.GetSnapshotBlockByHeight(3)
-	if err != nil {
-		c.log.Error("GetSnapshotBlockByHeight failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
-		return nil, err
-	}
-
-	if thirdSnapshotBlock.Timestamp.After(*blockCreatedTime) {
-		return &SecondSnapshotBlock, nil
-	}
-
-	// normal logic
-	start := thirdSnapshotBlock
-	end := latestBlock
 	return c.binarySearchBeforeTime(start, end, blockCreatedTime)
 }
 
