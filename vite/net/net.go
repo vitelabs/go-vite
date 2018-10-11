@@ -43,6 +43,7 @@ type Verifier interface {
 }
 
 type Config struct {
+	Single   bool
 	Port     uint16
 	Chain    Chain
 	Verifier Verifier
@@ -142,6 +143,11 @@ func New(cfg *Config) (*Net, error) {
 		n.Protocols = append(n.Protocols, n.topo.Protocol())
 	}
 
+	// single mode
+	if n.Single {
+		n.syncer.setState(Syncdone)
+	}
+
 	return n, nil
 }
 
@@ -223,7 +229,11 @@ func (n *Net) startPeer(p *Peer) error {
 	defer ticker.Stop()
 
 	n.log.Info(fmt.Sprintf("startPeer %s", p))
-	go n.syncer.start()
+
+	// single mode, for test
+	if !n.Single {
+		go n.syncer.start()
+	}
 
 	for {
 		select {
