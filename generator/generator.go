@@ -46,17 +46,22 @@ func NewGenerator(chain Chain, snapshotBlockHash, prevBlockHash *types.Hash, add
 }
 
 func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc SignFunc) (*GenResult, error) {
-	block, err := gen.packBlockWithMessage(message)
-	if err != nil {
-		return nil, err
+	var genResult *GenResult
+	var errGenMsg error
+
+	if message.BlockType != ledger.BlockTypeSendCall && message.BlockType != ledger.BlockTypeSendCreate {
+		sendBlock := gen.vmContext.GetAccountBlockByHash(message.FromBlockHash)
+		genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc)
+	} else {
+		block, err := gen.packBlockWithMessage(message)
+		if err != nil {
+			return nil, err
+		}
+		genResult, errGenMsg = gen.generateBlock(block, nil, signFunc)
 	}
-	var sendBlock *ledger.AccountBlock = nil
-	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
-		sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash)
-	}
-	genResult, err := gen.generateBlock(block, sendBlock, signFunc)
-	if err != nil {
-		return nil, err
+
+	if errGenMsg != nil {
+		return nil, errGenMsg
 	}
 	return genResult, nil
 }
@@ -154,6 +159,7 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 	} else {
 		blockPacked.Amount = sendBlock.Amount
 	}
+	blockPacked.TokenId = sendBlock.TokenId
 
 	if sendBlock.Fee == nil {
 		blockPacked.Fee = big.NewInt(0)
