@@ -175,8 +175,6 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 		blockPacked.PrevHash = preBlock.Hash
 		blockPacked.Height = preBlock.Height + 1
 	}
-	nonce := pow.GetPowNonce(nil, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
-	blockPacked.Nonce = nonce[:]
 
 	if consensusMsg != nil {
 		blockPacked.Timestamp = &consensusMsg.Timestamp
@@ -189,6 +187,8 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 			return nil, errors.New("CurrentSnapshotBlock can't be nil")
 		}
 		blockPacked.SnapshotHash = snapshotBlock.Hash
+		nonce := pow.GetPowNonce(nil, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
+		blockPacked.Nonce = nonce[:]
 	}
 	return blockPacked, nil
 }
