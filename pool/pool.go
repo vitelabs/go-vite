@@ -358,7 +358,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	v := &accountVerifier{v: self.accountVerifier, log: self.log.New()}
 	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.log)
 
-	p.Init(newTools(f, rw), self, v)
+	p.Init(newTools(f, rw), self, v, f)
 
 	chain, _ = self.pendingAc.LoadOrStore(addr, p)
 	return chain.(*accountPool)
