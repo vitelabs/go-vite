@@ -18,17 +18,24 @@ import (
 )
 
 const Name = "Topo"
-const CmdSet = 7
+const CmdSet = 3
 const topoCmd = 1
 
-type TopoHandler struct {
+type Config struct {
+	Addrs    []string
+	Interval int64 // second
+	Topic    string
+}
+
+type Topology struct {
+	*Config
+	p2p    *p2p.Server
 	peers  *sync.Map
 	prod   sarama.AsyncProducer
 	log    log15.Logger
 	term   chan struct{}
 	rec    chan *TopoEvent
 	record *cuckoofilter.CuckooFilter
-	p2p    *p2p.Server
 	wg     sync.WaitGroup
 }
 
@@ -37,52 +44,51 @@ type TopoEvent struct {
 	sender *Peer
 }
 
-func New(addrs []string) (t *TopoHandler, err error) {
-	t = &TopoHandler{
+func New(cfg *Config) (t *Topology, err error) {
+	if cfg.Topic == "" {
+		cfg.Topic = "p2p_status_event"
+	}
+	if cfg.Interval == 0 {
+		cfg.Interval = 5
+	}
+
+	t = &Topology{
+		Config: cfg,
 		peers:  new(sync.Map),
 		log:    log15.New("module", "Topo"),
-		term:   make(chan struct{}),
 		rec:    make(chan *TopoEvent, 10),
 		record: cuckoofilter.NewCuckooFilter(1000),
 	}
 
-	if len(addrs) != 0 {
-		var i, j int
-		for i = 0; i < len(addrs); i++ {
-			if addrs[i] != "" {
-				addrs[j] = addrs[i]
-				j++
-			}
-		}
-		addrs = addrs[:j]
-		if len(addrs) != 0 {
-			config := sarama.NewConfig()
-			prod, err := sarama.NewAsyncProducer(addrs, config)
+	if len(cfg.Addrs) > 0 {
+		config := sarama.NewConfig()
+		prod, err := sarama.NewAsyncProducer(cfg.Addrs, config)
 
-			if err != nil {
-				t.log.Error(fmt.Sprintf("create topo producer error: %v", err))
-				return nil, err
-			}
-
-			t.log.Info("topo producer created")
-			t.prod = prod
+		if err != nil {
+			t.log.Error(fmt.Sprintf("create topo producer error: %v", err))
+			return nil, err
 		}
+
+		t.log.Info("topo producer created")
+		t.prod = prod
 	}
 
 	return t, nil
 }
 
-func (t *TopoHandler) Start(svr *p2p.Server) {
-	t.p2p = svr
+func (t *Topology) Start(p2p *p2p.Server) {
+	t.term = make(chan struct{})
 
 	t.wg.Add(1)
 	go t.sendLoop()
 
 	t.wg.Add(1)
 	go t.handleLoop()
+
+	t.p2p = p2p
 }
 
-func (t *TopoHandler) Stop() {
+func (t *Topology) Stop() {
 	select {
 	case <-t.term:
 	default:
@@ -101,7 +107,7 @@ type Peer struct {
 	errch chan error // async handle msg, error report to this channel
 }
 
-func (t *TopoHandler) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
+func (t *Topology) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 	peer := &Peer{p, rw, make(chan error, 1)}
 	t.peers.Store(p.String(), peer)
 	defer t.peers.Delete(p.String())
@@ -138,7 +144,7 @@ func (t *TopoHandler) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 	}
 }
 
-func (t *TopoHandler) handleLoop() {
+func (t *Topology) handleLoop() {
 	defer t.wg.Done()
 
 	for {
@@ -151,10 +157,10 @@ func (t *TopoHandler) handleLoop() {
 	}
 }
 
-func (t *TopoHandler) sendLoop() {
+func (t *Topology) sendLoop() {
 	defer t.wg.Done()
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(time.Duration(t.Config.Interval * int64(time.Second)))
 	defer ticker.Stop()
 
 	for {
@@ -181,14 +187,14 @@ func (t *TopoHandler) sendLoop() {
 					return true
 				})
 
-				t.write("p2p_status_event", topo.Json())
+				t.write(t.Topic, topo.Json())
 			}
 		}
 	}
 }
 
 // the first item is self url
-func (t *TopoHandler) Topology() *Topo {
+func (t *Topology) Topology() *Topo {
 	topo := &Topo{
 		Pivot: t.p2p.URL(),
 		Peers: make([]*p2p.ConnProperty, 0, 10),
@@ -204,7 +210,7 @@ func (t *TopoHandler) Topology() *Topo {
 	return topo
 }
 
-func (t *TopoHandler) Receive(msg *p2p.Msg, sender *Peer) {
+func (t *Topology) Receive(msg *p2p.Msg, sender *Peer) {
 	defer msg.Discard()
 
 	hash := msg.Payload[:32]
@@ -242,7 +248,7 @@ func (t *TopoHandler) Receive(msg *p2p.Msg, sender *Peer) {
 	t.write("p2p_status_event", topo.Json())
 }
 
-func (t *TopoHandler) write(topic string, data []byte) {
+func (t *Topology) write(topic string, data []byte) {
 	if t.prod == nil {
 		return
 	}
@@ -257,7 +263,7 @@ func (t *TopoHandler) write(topic string, data []byte) {
 	t.log.Info("report topoMsg to kafka")
 }
 
-func (t *TopoHandler) Protocol() *p2p.Protocol {
+func (t *Topology) Protocol() *p2p.Protocol {
 	return &p2p.Protocol{
 		Name:   Name,
 		ID:     CmdSet,

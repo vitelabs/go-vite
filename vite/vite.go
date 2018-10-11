@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/onroad"
+	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/verifier"
@@ -104,7 +105,7 @@ func (v *Vite) Init() (err error) {
 	return nil
 }
 
-func (v *Vite) Start() (err error) {
+func (v *Vite) Start(p2p *p2p.Server) (err error) {
 	v.onRoad.Start()
 
 	v.chain.Start()
@@ -116,7 +117,7 @@ func (v *Vite) Start() (err error) {
 	v.pool.Init(v.net, v.walletManager, v.snapshotVerifier, v.accountVerifier)
 
 	v.consensus.Start()
-	v.net.Start()
+	v.net.Start(p2p)
 	v.pool.Start()
 	if v.producer != nil {
 
