@@ -57,7 +57,7 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 		if err != nil {
 			return nil, err
 		}
-		genResult, errGenMsg = gen.generateBlock(block, nil, signFunc)
+		genResult, errGenMsg = gen.generateBlock(block, nil, block.AccountAddress, signFunc)
 	}
 
 	if errGenMsg != nil {
@@ -71,7 +71,13 @@ func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensu
 	if err != nil {
 		return nil, err
 	}
-	genResult, err := gen.generateBlock(block, &sendBlock, signFunc)
+	var producer types.Address
+	if consensusMsg == nil {
+		producer = block.AccountAddress
+	} else {
+		producer = consensusMsg.Producer
+	}
+	genResult, err := gen.generateBlock(block, &sendBlock, producer, signFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -83,14 +89,14 @@ func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc Sig
 	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
 		sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash)
 	}
-	genResult, err := gen.generateBlock(block, sendBlock, signFunc)
+	genResult, err := gen.generateBlock(block, sendBlock, block.AccountAddress, signFunc)
 	if err != nil {
 		return nil, err
 	}
 	return genResult, nil
 }
 
-func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, signFunc SignFunc) (*GenResult, error) {
+func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, producer types.Address, signFunc SignFunc) (*GenResult, error) {
 	gen.log.Info("generateBlock", "BlockType", block.BlockType)
 
 	blockList, isRetry, err := gen.vm.Run(gen.vmContext, block, sendBlock)
@@ -102,7 +108,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 			if k == 0 {
 				accountBlock := blockList[0].AccountBlock
 				if signFunc != nil {
-					signature, publicKey, e := signFunc(accountBlock.AccountAddress, accountBlock.Hash.Bytes())
+					signature, publicKey, e := signFunc(producer, accountBlock.Hash.Bytes())
 					if e != nil {
 						return nil, e
 					}

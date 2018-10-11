@@ -119,7 +119,7 @@ LOOP:
 
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
-	blockList, e := tp.worker.manager.uAccess.GetOnroadBlocks(0, 0, 1, &task.Addr)
+	blockList, e := tp.worker.manager.uAccess.GetOnroadBlocks(0, 1, 1, &task.Addr)
 	if e != nil {
 		tp.log.Error("GetOnroadBlocks ", "e", e)
 		return
