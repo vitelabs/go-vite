@@ -2,14 +2,15 @@ package model
 
 import (
 	"container/list"
+	"sync"
+	"time"
+
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
-	"sync"
-	"time"
 )
 
 var (

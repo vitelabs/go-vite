@@ -2,13 +2,14 @@ package net
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"github.com/vitelabs/go-vite/vite/net/topo"
-	"sync"
-	"time"
 )
 
 type Config struct {

@@ -17,6 +17,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/wallet"
@@ -55,11 +56,11 @@ func TestWallet(t *testing.T) {
 	}
 
 	waitOnroad(onRoadApi, genesisAddr, t)
+	//time.Sleep(time.Minute)
+
 	printBalance(vite, genesisAddr)
 
 	printQuota(vite, genesisAddr)
-
-	waitOnroad(onRoadApi, contracts.AddressPledge, t)
 
 	byt, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, genesisAddr)
 
@@ -70,12 +71,21 @@ func TestWallet(t *testing.T) {
 		Passphrase:  password,
 		Amount:      new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)).String(),
 		Data:        byt,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
 	}
-	balance := printBalance(vite, genesisAddr)
+	printBalance(vite, genesisAddr)
 
-	contractPrevHeight := printHeight(vite, contracts.AddressPledge)
+	printHeight(vite, contracts.AddressPledge)
 
-	if balance.Sign() == 0 {
+	if contractOnroadNum(onRoadApi, contracts.AddressPledge, t) == 0 {
+		// wait snapshot ++
+		prevHeight := printSnapshot(vite)
+		for {
+			if printSnapshot(vite) > prevHeight {
+				break
+			}
+			time.Sleep(time.Second)
+		}
 		err = waApi.CreateTxWithPassphrase(parms)
 		if err != nil {
 			t.Error(err)
@@ -83,13 +93,7 @@ func TestWallet(t *testing.T) {
 		}
 	}
 
-	// wait address height ++
-	for {
-		if printHeight(vite, contracts.AddressPledge) > contractPrevHeight {
-			break
-		}
-		time.Sleep(time.Second)
-	}
+	waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
 
 	// wait snapshot ++
 	prevHeight := printSnapshot(vite)
@@ -98,6 +102,14 @@ func TestWallet(t *testing.T) {
 			break
 		}
 		time.Sleep(time.Second)
+	}
+	for {
+		quota := printQuota(vite, genesisAddr)
+		if quota.Sign() > 0 {
+			break
+		}
+		printSnapshot(vite)
+		printHeight(vite, contracts.AddressPledge)
 	}
 	printQuota(vite, genesisAddr)
 }
@@ -111,8 +123,10 @@ func startVite(w *wallet.Manager, password string, t *testing.T) (*vite.Vite, er
 			Coinbase: coinbase.String(),
 		},
 		Vm: &config.Vm{IsVmTest: false},
+		Net: &config.Net{
+			Single: true,
+		},
 	}
-
 	vite, err := vite.New(config, w)
 	if err != nil {
 		t.Error(err)
@@ -141,10 +155,11 @@ func printHeight(vite *vite.Vite, addr types.Address) uint64 {
 	return height.Height
 
 }
-func printQuota(vite *vite.Vite, addr types.Address) {
+func printQuota(vite *vite.Vite, addr types.Address) *big.Int {
 	head := vite.Chain().GetLatestSnapshotBlock()
 	amount := vite.Chain().GetPledgeAmount(head.Hash, addr)
 	wLog.Info("print quota", "quota", amount.String(), "snapshotHash", head.Hash, "snapshotHeight", head.Height)
+	return amount
 }
 func printSnapshot(vite *vite.Vite) uint64 {
 	block := vite.Chain().GetLatestSnapshotBlock()
@@ -185,9 +200,59 @@ func waitOnroad(api *PrivateOnroadApi, addr types.Address, t *testing.T) {
 		total := big.NewInt(0)
 		total.SetString(info.TotalNumber, 10)
 		for total.Sign() == 0 {
+			wLog.Info("print onroad size", "size", 0, "addr", addr.String())
 			return
 		}
 		wLog.Info("print onroad size", "size", total.String(), "addr", addr.String())
 		time.Sleep(time.Second)
 	}
+}
+
+func waitContractOnroad(api *PrivateOnroadApi, addr types.Address, t *testing.T) {
+	for {
+		info, e := api.GetOnroadBlocksByAddress(addr, 0, 1000)
+		if e != nil {
+			panic(e)
+			return
+		}
+
+		if len(info) == 0 {
+			wLog.Info("print onroad size", "size", 0, "addr", addr.String())
+			return
+		}
+		wLog.Info("print onroad size", "size", len(info), "addr", addr.String())
+		time.Sleep(time.Second)
+	}
+}
+
+func onroadNum(api *PrivateOnroadApi, addr types.Address, t *testing.T) int {
+	info, e := api.GetAccountOnroadInfo(addr)
+	if e != nil {
+		panic(e)
+		return 0
+	}
+
+	if info == nil {
+		wLog.Info("print onroadNum size", "size", 0, "addr", addr.String())
+		return 0
+	}
+	total := big.NewInt(0)
+	total.SetString(info.TotalNumber, 10)
+
+	wLog.Info("print onroadNum size", "size", total.String(), "addr", addr.String())
+	return int(total.Int64())
+}
+
+func contractOnroadNum(api *PrivateOnroadApi, addr types.Address, t *testing.T) int {
+	info, e := api.GetOnroadBlocksByAddress(addr, 0, 1000)
+	if e != nil {
+		panic(e)
+		return 0
+	}
+	if len(info) == 0 {
+		wLog.Info("print contractOnroadNum size", "size", 0, "addr", addr.String())
+		return 0
+	}
+	wLog.Info("print contractOnroadNum size", "size", len(info), "addr", addr.String())
+	return len(info)
 }

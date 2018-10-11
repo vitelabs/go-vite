@@ -1,13 +1,14 @@
 package onroad
 
 import (
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"sync"
-	"time"
 )
 
 type ContractTaskProcessor struct {
@@ -135,6 +136,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	tp.log.Info("Process to make the receiveBlock, its'sendBlock detail:", "hash", sBlock.Hash)
 
 	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
+		tp.log.Info("addIntoBlackList")
 		// Don't deal with it for the time being
 		tp.worker.addIntoBlackList(task.Addr)
 		return

@@ -2,11 +2,12 @@ package onroad
 
 import (
 	"container/heap"
+	"sync"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"sync"
 )
 
 type ContractWorker struct {
@@ -136,11 +137,15 @@ func (w *ContractWorker) Stop() {
 		w.log.Info("stop all task")
 		wg := new(sync.WaitGroup)
 		for _, v := range w.contractTaskProcessors {
+			if v == nil {
+				w.log.Error("v is nil. stop")
+				continue
+			}
 			wg.Add(1)
-			go func() {
-				v.Stop()
+			go func(v2 *ContractTaskProcessor) {
+				v2.Stop()
 				wg.Done()
-			}()
+			}(v)
 		}
 		wg.Wait()
 		w.log.Info("all task stopped")
@@ -162,6 +167,10 @@ LOOP:
 		if w.contractTaskPQueue.Len() != 0 {
 			w.ctpMutex.RUnlock()
 			for _, v := range w.contractTaskProcessors {
+				if v == nil {
+					w.log.Error("v is nil. wakeup")
+					continue
+				}
 				v.WakeUp()
 			}
 		}
