@@ -22,6 +22,7 @@ type chainDb interface {
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error
 	DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
+	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 }
 
 type chainRw interface {

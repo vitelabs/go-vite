@@ -5,7 +5,6 @@ import (
 
 	"time"
 
-	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 
@@ -14,7 +13,7 @@ import (
 )
 
 type verifyTask interface {
-	done(c ch.Chain) bool
+	done(c chainDb) bool
 	requests() []fetchRequest
 }
 
@@ -143,7 +142,7 @@ var failT = &failTask{}
 type successTask struct {
 }
 
-func (self *successTask) done(c ch.Chain) bool {
+func (self *successTask) done(c chainDb) bool {
 	return true
 }
 
@@ -155,7 +154,7 @@ type failTask struct {
 	t time.Time
 }
 
-func (self *failTask) done(c ch.Chain) bool {
+func (self *failTask) done(c chainDb) bool {
 	if time.Now().After(self.t.Add(time.Second * 3)) {
 		return true
 	}
@@ -171,7 +170,7 @@ type accountTask struct {
 	t      time.Time
 }
 
-func (self *accountTask) done(c ch.Chain) bool {
+func (self *accountTask) done(c chainDb) bool {
 	if time.Now().After(self.t.Add(time.Second * 5)) {
 		return true
 	}
