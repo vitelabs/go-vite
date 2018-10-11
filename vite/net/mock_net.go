@@ -23,6 +23,9 @@ func mockNet() Net {
 	}
 
 	return &net{
+		Config: &Config{
+			Single: true,
+		},
 		syncer: &syncer{
 			state:   Syncdone,
 			feed:    newSyncStateFeed(),
