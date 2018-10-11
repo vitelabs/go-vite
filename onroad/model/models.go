@@ -38,6 +38,12 @@ type onroadBlocksCache struct {
 	referenceMutex sync.Mutex
 }
 
+func (o onroadBlocksCache) getReferenceCount() int {
+	o.referenceMutex.Lock()
+	defer o.referenceMutex.Unlock()
+	return o.referenceCount
+}
+
 func (c *onroadBlocksCache) toOnroadAccountInfo(addr types.Address) *OnroadAccountInfo {
 
 	c.listMutex.RLock()

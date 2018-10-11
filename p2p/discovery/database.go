@@ -60,8 +60,9 @@ func newMemDB(id NodeID) (*nodeDB, error) {
 		return nil, err
 	}
 	return &nodeDB{
-		db: db,
-		id: id,
+		db:   db,
+		id:   id,
+		term: make(chan struct{}),
 	}, nil
 }
 

@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/config"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -65,7 +64,6 @@ var (
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port", //mapping:p2p.Addr
 		Usage: "Network listening port",
-		Value: common.DefaultP2PPort,
 	}
 	NodeKeyHexFlag = cli.StringFlag{
 		Name:  "nodekeyhex", //mapping:p2p.PrivateKey
@@ -94,7 +92,6 @@ var (
 	RPCPortFlag = cli.IntFlag{
 		Name:  "rpcport",
 		Usage: "HTTP-RPC server listening port",
-		Value: common.DefaultHTTPPort,
 	}
 
 	//WS Settings
@@ -109,7 +106,6 @@ var (
 	WSPortFlag = cli.IntFlag{
 		Name:  "wsport",
 		Usage: "WS-RPC server listening port",
-		Value: common.DefaultWSPort,
 	}
 
 	//Console Settings
@@ -153,6 +149,17 @@ var (
 	VMTestFlag = cli.BoolFlag{
 		Name:  "vmtest",
 		Usage: "Enable the Vm Test ",
+	}
+
+	//Net
+	SingleFlag = cli.BoolFlag{
+		Name:  "single",
+		Usage: "Enable the NodeServer single ",
+	}
+
+	FilePortFlag = cli.IntFlag{
+		Name:  "fileport",
+		Usage: "File transfer listening port",
 	}
 )
 

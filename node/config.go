@@ -33,9 +33,6 @@ type Config struct {
 	Port                 uint     `json:"Port"`
 	NetID                uint     `json:"NetID"`
 
-	//net
-	Topology []string `json:"Topology"`
-
 	//producer
 	CoinBase      string `json:"CoinBase"`
 	MinerEnabled  bool   `json:"Miner"`
@@ -58,6 +55,13 @@ type Config struct {
 
 	//VM
 	VMTestEnabled bool `json:"VMTestEnabled"`
+
+	//Net TODO: cmd after ？
+	Single                 bool     `json:"Single"`
+	FilePort               int      `json:"FilePort"`
+	Topology               []string `json:"Topology"`
+	TopologyTopic          string   `json:"TopologyTopic"`
+	TopologyReportInterval int      `json:"TopologyReportInterval"`
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
@@ -70,8 +74,18 @@ func (c *Config) makeViteConfig() *config.Config {
 		P2P:      c.makeConfigP2P(),
 		Producer: c.makeMinerConfig(),
 		DataDir:  c.DataDir,
-		Topo:     c.Topology,
+		Net:      c.makeNetConfig(),
 		Vm:       c.makeVmConfig(),
+	}
+}
+
+func (c *Config) makeNetConfig() *config.Net {
+	return &config.Net{
+		Single:   c.Single,
+		FilePort: uint16(c.FilePort),
+		Topology: c.Topology,
+		Topic:    c.TopologyTopic,
+		Interval: int64(c.TopologyReportInterval),
 	}
 }
 

@@ -52,7 +52,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 	}
 
 	m := &message.GetSnapshotBlocks{
-		From:    &ledger.HashHeight{Hash: start},
+		From:    ledger.HashHeight{Hash: start},
 		Count:   count,
 		Forward: true,
 	}
@@ -91,7 +91,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 	}
 	m := &message.GetAccountBlocks{
 		Address: addr,
-		From: &ledger.HashHeight{
+		From: ledger.HashHeight{
 			Hash: start,
 		},
 		Count:   count,

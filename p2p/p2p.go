@@ -120,6 +120,8 @@ func (svr *Server) Start() error {
 		return errSvrStarted
 	}
 
+	svr.term = make(chan struct{})
+
 	// setHandshake in method Start, because svr.Protocols may be modified
 	svr.setHandshake()
 

@@ -42,7 +42,7 @@ const (
 var (
 	consensusGroupConditionIdNameMap = map[ConditionCode]string{
 		RegisterConditionOfPledge: VariableNameConditionRegisterOfPledge,
-		VoteConditionOfBalance:    VariableNameConditionVoteOfBalance,
+		VoteConditionOfBalance:    VariableNameConditionVoteOfKeepToken,
 	}
 )
 

@@ -10,7 +10,7 @@ import (
 // @section GetSnapshotBlocks
 
 type GetSnapshotBlocks struct {
-	From    *ledger.HashHeight
+	From    ledger.HashHeight
 	Count   uint64
 	Forward bool
 }
@@ -29,14 +29,13 @@ func (b *GetSnapshotBlocks) Serialize() ([]byte, error) {
 
 func (b *GetSnapshotBlocks) Deserialize(buf []byte) error {
 	pb := new(vitepb.GetSnapshotBlocks)
-	pb.From = new(vitepb.BlockID)
 
 	err := proto.Unmarshal(buf, pb)
 	if err != nil {
 		return err
 	}
 
-	b.From = &ledger.HashHeight{
+	b.From = ledger.HashHeight{
 		Height: pb.From.Height,
 	}
 	copy(b.From.Hash[:], pb.From.Hash)
@@ -134,7 +133,7 @@ func (s *SubLedger) Deserialize(buf []byte) error {
 
 type GetAccountBlocks struct {
 	Address types.Address // maybe nil
-	From    *ledger.HashHeight
+	From    ledger.HashHeight
 	Count   uint64
 	Forward bool
 }
@@ -154,14 +153,13 @@ func (b *GetAccountBlocks) Serialize() ([]byte, error) {
 
 func (b *GetAccountBlocks) Deserialize(buf []byte) error {
 	pb := new(vitepb.GetAccountBlocks)
-	pb.From = new(vitepb.BlockID)
 
 	err := proto.Unmarshal(buf, pb)
 	if err != nil {
 		return err
 	}
 
-	b.From = &ledger.HashHeight{
+	b.From = ledger.HashHeight{
 		Height: pb.From.Height,
 	}
 	copy(b.From.Hash[:], pb.From.Hash)
