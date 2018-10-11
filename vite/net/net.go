@@ -45,9 +45,9 @@ type net struct {
 
 // auto from
 func New(cfg *Config) Net {
-	// todo for test
+	// for test
 	if cfg.Single {
-		return mockNet()
+		return mock()
 	}
 
 	port := cfg.Port
@@ -128,11 +128,6 @@ func (n *net) addHandler(handler MsgHandler) {
 }
 
 func (n *net) Start(svr *p2p.Server) (err error) {
-	// todo more safe
-	if n.Single {
-		return nil
-	}
-
 	n.term = make(chan struct{})
 
 	err = n.fs.start()
@@ -148,11 +143,6 @@ func (n *net) Start(svr *p2p.Server) (err error) {
 }
 
 func (n *net) Stop() {
-	// todo more safe
-	if n.Single {
-		return
-	}
-
 	select {
 	case <-n.term:
 	default:
