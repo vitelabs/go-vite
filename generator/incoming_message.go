@@ -1,12 +1,13 @@
 package generator
 
 import (
+	"math/big"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"time"
 )
 
 type IncomingMessage struct {
@@ -25,6 +26,7 @@ type IncomingMessage struct {
 
 func (im *IncomingMessage) ToBlock() (*ledger.AccountBlock, error) {
 	block := &ledger.AccountBlock{}
+	block.AccountAddress = im.AccountAddress
 	switch im.BlockType {
 	case ledger.BlockTypeSendCall:
 		block.AccountAddress = im.AccountAddress

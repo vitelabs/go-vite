@@ -57,6 +57,10 @@ func genConsensus(c chain.Chain, t *testing.T) consensus.Consensus {
 type testSubscriber struct {
 }
 
+func (*testSubscriber) SyncState() net.SyncState {
+	return net.Syncdone
+}
+
 func (*testSubscriber) SubscribeAccountBlock(fn net.AccountblockCallback) (subId int) {
 	panic("implement me")
 }

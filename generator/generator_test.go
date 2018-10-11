@@ -78,7 +78,7 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 		}
 		mockReceiveBlock.Hash = mockReceiveBlock.ComputeHash()
 		if genBlock.Hash != mockReceiveBlock.Hash {
-			t.Log("Verify Hash failed")
+			t.Error("Verify Hash failed")
 			return
 		}
 		t.Log("Verify Hash success")
@@ -92,17 +92,6 @@ func TestGenerator_GenerateWithMessage(t *testing.T) {
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-	preBlock, err := c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
-	if err != nil {
-		t.Error("GetLatestAccountBlock", err)
-		return
-	}
-	var preHash types.Hash
-	if preBlock != nil {
-		preHash = preBlock.Hash
-	}
-
-	nonce := pow.GetPowNonce(nil, types.DataListHash(ledger.GenesisAccountAddress.Bytes(), preHash.Bytes()))
 	message := &IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: ledger.GenesisAccountAddress,
@@ -111,11 +100,25 @@ func TestGenerator_GenerateWithMessage(t *testing.T) {
 		TokenId:        &ledger.ViteTokenId,
 		Amount:         big.NewInt(10),
 		Fee:            nil,
-		Nonce:          nonce[:],
 		Data:           nil,
 	}
 
-	gen, err := NewGenerator(c, nil, nil, &message.AccountAddress)
+	preBlock, err := c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
+	if err != nil {
+		t.Error("GetLatestAccountBlock", err)
+		return
+	}
+	var preHash *types.Hash
+	if preBlock != nil {
+		preHash = &preBlock.Hash
+		nonce := pow.GetPowNonce(nil, types.DataListHash(ledger.GenesisAccountAddress.Bytes(), preHash.Bytes()))
+		message.Nonce = nonce[:]
+	} else {
+		nonce := pow.GetPowNonce(nil, types.DataListHash(ledger.GenesisAccountAddress.Bytes(), types.ZERO_HASH.Bytes()))
+		message.Nonce = nonce[:]
+	}
+
+	gen, err := NewGenerator(c, nil, preHash, &message.AccountAddress)
 	if err != nil {
 		t.Error(err)
 		return
@@ -128,5 +131,9 @@ func TestGenerator_GenerateWithMessage(t *testing.T) {
 		t.Error("GenerateWithMessage err", err)
 		return
 	}
-	t.Error("genResult", genResult, genResult.Err)
+	t.Log("genResult", genResult)
+}
+
+func TestGenerator_GenerateWithBlock(t *testing.T) {
+
 }
