@@ -275,6 +275,14 @@ func (n *Net) BroadcastAccountBlock(block *ledger.AccountBlock) {
 	n.broadcaster.BroadcastAccountBlock(block)
 }
 
+func (n *Net) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
+	n.broadcaster.BroadcastSnapshotBlocks(blocks)
+}
+
+func (n *Net) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {
+	n.broadcaster.BroadcastAccountBlocks(blocks)
+}
+
 func (n *Net) FetchSnapshotBlocks(start types.Hash, count uint64) {
 	n.fetcher.FetchSnapshotBlocks(start, count)
 }
