@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
+	"github.com/vitelabs/go-vite/vite/net/topo"
 	"sync"
 	"time"
 )
@@ -45,6 +46,10 @@ type Config struct {
 	Port     uint16
 	Chain    Chain
 	Verifier Verifier
+	// for topo
+	Topology []string
+	Topic    string
+	Interval int64 // second
 }
 
 const DefaultPort uint16 = 8484
@@ -63,6 +68,7 @@ type Net struct {
 	fs          *fileServer
 	fc          *fileClient
 	handlers    map[cmd]MsgHandler
+	topo        *topo.Topology
 }
 
 // auto from
@@ -128,6 +134,14 @@ func New(cfg *Config) (*Net, error) {
 		},
 	})
 
+	// topo
+	n.topo, err = topo.New(&topo.Config{
+		Addrs: cfg.Topology,
+	})
+	if n.topo != nil {
+		n.Protocols = append(n.Protocols, n.topo.Protocol())
+	}
+
 	return n, nil
 }
 
@@ -138,12 +152,16 @@ func (n *Net) AddHandler(handler MsgHandler) {
 	}
 }
 
-func (n *Net) Start() {
+func (n *Net) Start(svr *p2p.Server) {
 	n.term = make(chan struct{})
 
 	go n.fs.start()
 
 	go n.fc.start()
+
+	if n.topo != nil {
+		n.topo.Start(svr)
+	}
 }
 
 func (n *Net) Stop() {
@@ -151,9 +169,17 @@ func (n *Net) Stop() {
 	case <-n.term:
 	default:
 		close(n.term)
+
 		n.syncer.stop()
+
 		n.fs.stop()
+
 		n.fc.stop()
+
+		if n.topo != nil {
+			n.topo.Stop()
+		}
+
 		n.wg.Wait()
 	}
 }
