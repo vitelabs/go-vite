@@ -132,7 +132,7 @@ func (s *SubLedger) Deserialize(buf []byte) error {
 // @section GetAccountBlocks
 
 type GetAccountBlocks struct {
-	Address types.Address // maybe nil
+	Address types.Address
 	From    ledger.HashHeight
 	Count   uint64
 	Forward bool

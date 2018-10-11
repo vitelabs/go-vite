@@ -60,11 +60,11 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 	p := f.peers.BestPeer()
 	if p != nil {
 		id := f.pool.MsgID()
-		err := p.Send(GetAccountBlocksCode, id, m)
+		err := p.Send(GetSnapshotBlocksCode, id, m)
 		if err != nil {
-			f.log.Error(fmt.Sprintf("send %s to %s error: %v", GetAccountBlocksCode, p, err))
+			f.log.Error(fmt.Sprintf("send %s to %s error: %v", GetSnapshotBlocksCode, p, err))
 		} else {
-			f.log.Info(fmt.Sprintf("send %s to %s done", GetAccountBlocksCode, p))
+			f.log.Info(fmt.Sprintf("send %s to %s done", GetSnapshotBlocksCode, p))
 		}
 	} else {
 		f.log.Error(errNoPeer.Error())
