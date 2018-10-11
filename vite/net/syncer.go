@@ -88,10 +88,6 @@ var chainGrowTimeout = 5 * time.Minute
 var downloadTimeout = 5 * time.Minute
 var chainGrowInterval = time.Minute
 
-func shouldSync(our, their uint64) bool {
-	return their > our+minHeightDifference
-}
-
 type syncer struct {
 	from, to   uint64 // include
 	count      uint64 // current amount of snapshotblocks have received
@@ -183,7 +179,7 @@ wait:
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
 	// p is tall enough, or first sync
-	if !(shouldSync(current.Height, p.height) || atomic.LoadInt32(&s.first) == 1) {
+	if !s.shouldSync(current.Height, p.height) {
 		s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
 		s.setState(Syncdone)
 		return
@@ -217,7 +213,7 @@ wait:
 				if e.peer.height >= targetHeight {
 					bestPeer := s.peers.BestPeer()
 					if bestPeer != nil {
-						if shouldSync(current.Height, bestPeer.height) {
+						if s.shouldSync(current.Height, bestPeer.height) {
 							s.setTarget(bestPeer.height)
 						} else {
 							// no need sync
@@ -259,6 +255,19 @@ wait:
 			return
 		}
 	}
+}
+
+func (s *syncer) shouldSync(from, to uint64) bool {
+	if to > from {
+		if to >= from+minHeightDifference {
+			return true
+		}
+		if atomic.LoadInt32(&s.first) == 1 {
+			return true
+		}
+	}
+
+	return false
 }
 
 // this method will be called when our target Height changed, (eg. the best peer disconnected)
