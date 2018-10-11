@@ -44,7 +44,8 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 
 	// net
 	aVerifier := verifier.NewAccountVerifier(chain, cs)
-	net, err := net.New(&net.Config{
+
+	net := net.New(&net.Config{
 		Single:   cfg.Single,
 		Port:     uint16(cfg.FilePort),
 		Chain:    chain,
@@ -53,10 +54,6 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 		Topic:    cfg.Topic,
 		Interval: cfg.Interval,
 	})
-	if err != nil {
-		log.Error("net.New failed. Error is "+err.Error(), "method", "new Vite()")
-		return nil, err
-	}
 
 	// sb verifier
 	sbVerifier := verifier.NewSnapshotVerifier(chain, cs)
@@ -122,7 +119,12 @@ func (v *Vite) Start(p2p *p2p.Server) (err error) {
 	v.pool.Init(v.net, v.walletManager, v.snapshotVerifier, v.accountVerifier)
 
 	v.consensus.Start()
-	v.net.Start(p2p)
+
+	err = v.net.Start(p2p)
+	if err != nil {
+		return
+	}
+
 	v.pool.Start()
 	if v.producer != nil {
 
