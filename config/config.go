@@ -15,6 +15,7 @@ type Config struct {
 	*Producer `json:"Producer"`
 	*Chain    `json:"Chain"`
 	*Vm       `json:"Vm"`
+	*Net      `json:"Net"`
 
 	// global keys
 	DataDir string `json:"DataDir"`

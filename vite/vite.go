@@ -45,9 +45,13 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	// net
 	aVerifier := verifier.NewAccountVerifier(chain, cs)
 	net, err := net.New(&net.Config{
+		Single:   cfg.Single,
 		Port:     uint16(cfg.FilePort),
 		Chain:    chain,
 		Verifier: aVerifier,
+		Topology: cfg.Topology,
+		Topic:    cfg.Topic,
+		Interval: cfg.Interval,
 	})
 	if err != nil {
 		log.Error("net.New failed. Error is "+err.Error(), "method", "new Vite()")

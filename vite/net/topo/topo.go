@@ -195,8 +195,13 @@ func (t *Topology) sendLoop() {
 
 // the first item is self url
 func (t *Topology) Topology() *Topo {
+	pivot := ""
+	if t.p2p != nil {
+		pivot = t.p2p.URL()
+	}
+
 	topo := &Topo{
-		Pivot: t.p2p.URL(),
+		Pivot: pivot,
 		Peers: make([]*p2p.ConnProperty, 0, 10),
 		Time:  UnixTime(time.Now()),
 	}
