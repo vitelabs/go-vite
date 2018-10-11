@@ -306,6 +306,7 @@ func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger
 
 	start := thirdSnapshotBlock
 	end := latestBlock
+	return c.binarySearchBeforeTime(start, end, blockCreatedTime)
 
 	for {
 		if end.Height-start.Height <= 1 {
