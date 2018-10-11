@@ -185,9 +185,18 @@ func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) erro
 func (p *OnroadBlocksPool) WriteOnroadSuccess(blocks []*vm_context.VmAccountBlock) {
 	for _, v := range blocks {
 		if v.AccountBlock.IsSendBlock() {
+			//todo
+			code, _ := p.dbAccess.Chain.AccountType(&v.AccountBlock.ToAddress)
+			if code == ledger.AccountTypeNotExist && v.AccountBlock.BlockType == ledger.BlockTypeSendCreate ||
+				code == ledger.AccountTypeContract {
+				return
+			}
 			p.updateCache(true, v.AccountBlock)
 		} else {
-			p.updateCache(false, v.AccountBlock)
+			code, _ := p.dbAccess.Chain.AccountType(&v.AccountBlock.AccountAddress)
+			if code == ledger.AccountTypeGeneral {
+				p.updateCache(false, v.AccountBlock)
+			}
 		}
 	}
 }
@@ -225,7 +234,6 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 func (p *OnroadBlocksPool) DeleteDirect(sendBlock *ledger.AccountBlock) error {
 	return p.dbAccess.store.DeleteMeta(nil, &sendBlock.ToAddress, &sendBlock.Hash)
 }
-
 
 func (p *OnroadBlocksPool) RevertOnroadSuccess(subLedger map[types.Address][]*ledger.AccountBlock) {
 	//async update the cache
