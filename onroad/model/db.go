@@ -51,16 +51,22 @@ func (ucf *OnroadSet) GetHashsByCount(count uint64, addr *types.Address) (hashs 
 
 	iter := ucf.db().NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
-
-	for i := uint64(0); i < count; iter.Next() {
+	i := uint64(1)
+	for iter.Next() {
+		if i > count {
+			break
+		}
 		key := iter.Key()
-		hash, err := types.BytesToHash(key[len(key)-types.HashSize:])
+		hash, err := types.BytesToHash(key[1+types.AddressSize:])
 		if err != nil {
 			continue
 		}
 		hashs = append(hashs, &hash)
 	}
 	if err := iter.Error(); err != nil {
+		if leveldb.ErrNotFound == err {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return hashs, nil
@@ -75,18 +81,18 @@ func (ucf *OnroadSet) GetHashList(addr *types.Address) (hashs []*types.Hash, err
 	iter := ucf.db().NewIterator(util.BytesPrefix(createKey), nil)
 	defer iter.Release()
 
-	for {
+	for iter.Next() {
 		key := iter.Key()
-		hash, err := types.BytesToHash(key[len(key)-types.HashSize:])
+		hash, err := types.BytesToHash(key[1+types.AddressSize:])
 		if err != nil {
 			continue
 		}
 		hashs = append(hashs, &hash)
-		if !iter.Next() {
-			break
-		}
 	}
 	if err := iter.Error(); err != nil {
+		if leveldb.ErrNotFound == err {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return hashs, nil
