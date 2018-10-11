@@ -14,7 +14,7 @@ type Config struct {
 	*P2P      `json:"P2P"`
 	*Producer `json:"Producer"`
 	*Chain    `json:"Chain"`
-	*Vm       `json:Vm`
+	*Vm       `json:"Vm"`
 
 	// global keys
 	DataDir string `json:"DataDir"`
