@@ -3,7 +3,6 @@ package chain
 import (
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
@@ -461,8 +460,6 @@ func (c *chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 		c.log.Error("Query block list failed. Error is "+err.Error(), "method", "GetAccountBlocksByAddress")
 		return nil, err
 	}
-
-	helper.ReverseSlice(blockList)
 
 	// Query block meta list
 	for _, block := range blockList {
