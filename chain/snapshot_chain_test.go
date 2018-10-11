@@ -33,13 +33,13 @@ func TestGetSnapshotBlocksByHash(t *testing.T) {
 	}
 	fmt.Println()
 
-	//blocks2, err2 := chainInstance.GetSnapshotBlocksByHash(nil, 100, true, true)
-	//if err2 != nil {
-	//	t.Fatal(err2)
-	//}
-	//for index, block := range blocks2 {
-	//	fmt.Printf("%d: %+v\n", index, block)
-	//}
+	blocks2, err2 := chainInstance.GetSnapshotBlocksByHash(nil, 100, true, true)
+	if err2 != nil {
+		t.Fatal(err2)
+	}
+	for index, block := range blocks2 {
+		fmt.Printf("%d: %+v\n", index, block)
+	}
 	//
 	//blocks3, err3 := chainInstance.GetSnapshotBlocksByHash(nil, 100, false, true)
 	//if err3 != nil {
