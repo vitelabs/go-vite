@@ -47,11 +47,10 @@ type Manager struct {
 	log log15.Logger
 }
 
-func NewManager(net Net, chain chain.Chain, pool Pool, producer Producer, wallet *wallet.Manager) *Manager {
+func NewManager(net Net, pool Pool, producer Producer, wallet *wallet.Manager) *Manager {
 	m := &Manager{
 		pool:               pool,
 		net:                net,
-		chain:              chain,
 		producer:           producer,
 		wallet:             wallet,
 		keystoreManager:    wallet.KeystoreManager,
@@ -59,10 +58,17 @@ func NewManager(net Net, chain chain.Chain, pool Pool, producer Producer, wallet
 		contractWorkers:    make(map[types.Gid]*ContractWorker),
 		log:                slog.New("w", "manager"),
 	}
+	m.uAccess = model.NewUAccess()
+	m.onroadBlocksPool = model.NewOnroadBlocksPool(m.uAccess)
 	return m
 }
 
-func (manager *Manager) Init() {
+func (manager *Manager) Init(chain chain.Chain) {
+	manager.uAccess.Init(chain)
+	manager.chain = chain
+}
+
+func (manager *Manager) Start() {
 	manager.netStateLid = manager.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
 	manager.unlockLid = manager.keystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
 	if manager.producer != nil {
@@ -76,15 +82,7 @@ func (manager *Manager) Init() {
 	manager.deleteOnRoadLid = manager.Chain().RegisterDeleteAccountBlocks(manager.onroadBlocksPool.RevertOnroad)
 }
 
-func (manager *Manager) Start() {
-	manager.uAccess = model.NewUAccess(manager.chain)
-	manager.onroadBlocksPool = model.NewOnroadBlocksPool(manager.uAccess)
-}
-
 func (manager *Manager) Stop() {
-}
-
-func (manager *Manager) Close() error {
 	manager.log.Info("Close")
 	manager.Net().UnsubscribeSyncStatus(manager.netStateLid)
 	manager.keystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
@@ -99,6 +97,10 @@ func (manager *Manager) Close() error {
 
 	manager.stopAllWorks()
 	manager.log.Info("Close end")
+}
+
+func (manager *Manager) Close() error {
+
 	return nil
 }
 

@@ -31,7 +31,6 @@ func TestManager_StartAutoReceiveWorker(t *testing.T) {
 		Topo:     nil,
 	})
 	c.Init()
-	c.Start()
 
 	prod := new(testProducer)
 	prod.Addr = addr
@@ -40,9 +39,11 @@ func TestManager_StartAutoReceiveWorker(t *testing.T) {
 
 	tpool := new(testPool)
 
-	manager := onroad.NewManager(tnet, c, tpool, prod, twallet)
-	manager.Init()
+	manager := onroad.NewManager(tnet, tpool, prod, twallet)
+	manager.Init(c)
+
 	manager.Start()
+	c.Start()
 
 	fmt.Println("test a stop ")
 	manager.StartAutoReceiveWorker(addr, nil)

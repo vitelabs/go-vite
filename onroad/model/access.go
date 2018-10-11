@@ -20,13 +20,16 @@ type UAccess struct {
 	log   log15.Logger
 }
 
-func NewUAccess(chain chain.Chain) *UAccess {
+func NewUAccess() *UAccess {
 	uAccess := &UAccess{
-		Chain: chain,
-		log:   log15.New("w", "uAccess"),
+		log: log15.New("w", "uAccess"),
 	}
-	uAccess.store = NewOnroadSet(chain.ChainDb().Db())
 	return uAccess
+}
+
+func (access *UAccess) Init(chain chain.Chain) {
+	access.Chain = chain
+	access.store = NewOnroadSet(access.Chain.ChainDb().Db())
 }
 
 func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) (addrList []types.Address, err error) {
