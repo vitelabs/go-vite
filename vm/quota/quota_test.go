@@ -2,6 +2,7 @@ package quota
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -63,16 +64,17 @@ func TestCalcLogisticQuotaParam(t *testing.T) {
 	quotaForPureTransaction := 21000.0
 
 	// Pledge minimum amount of Vite Token, calc no PoW, wait for longest block height, gets quota for a pure transfer transaction
-	maxHeightGap := 86400.0
+	// maxHeightGap := 86400.0
+	maxHeightGap := 1.0
 	minPledgeAmount := 1.0e19
 	paramA := math.Log(2.0/(1.0-quotaForPureTransaction/quotaLimit)-1.0) / maxHeightGap / minPledgeAmount
-	t.Logf("paramA : %v", paramA)
+	fmt.Printf("paramA      = new(big.Float).SetPrec(precForFloat).SetFloat64(%v)\n", paramA)
 	// Pledge no Vite Token, calc PoW for default difficulty, gets quota for a pure transfer transaction
 	defaultDifficulty := float64(0xffffffc000000000)
 	paramB := math.Log(2.0/(1.0-quotaForPureTransaction/quotaLimit)-1.0) / defaultDifficulty
-	t.Logf("paramB : %v", paramB)
+	fmt.Printf("paramB      = new(big.Float).SetPrec(precForFloat).SetFloat64(%v)\n", paramB)
 
-	t.Logf("x gap: ")
+	fmt.Printf("sectionList = []*big.Float{ // Section list of x value in e**x\nnew(big.Float).SetPrec(precForFloat).SetFloat64(0.0),\n")
 	q := 0.0
 	index := 0
 	for {
@@ -82,8 +84,9 @@ func TestCalcLogisticQuotaParam(t *testing.T) {
 			break
 		}
 		gapLow := math.Log(2.0/(1.0-q/quotaLimit) - 1.0)
-		t.Logf("%v : %v", index, gapLow)
+		fmt.Printf("new(big.Float).SetPrec(precForFloat).SetFloat64(%v),\n", gapLow)
 	}
+	fmt.Printf("}\n")
 }
 
 func TestCalcQuotaForPoW(t *testing.T) {
@@ -106,8 +109,8 @@ func TestCalcQuotaForMinPledge(t *testing.T) {
 	tmpFLoat.SetUint64(1e19)
 	x.Mul(tmpFLoat, x)
 	quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
-	if quotaWithoutPoW != TxGas {
-		t.Fatalf("gain quota by calc PoW not enough to create a transaction, got %v", quotaWithoutPoW)
+	if quotaWithoutPoW < TxGas {
+		t.Fatalf("gain quota pledge minimum Vite Token not enough to create a transaction, got %v", quotaWithoutPoW)
 	}
 }
 

@@ -28,29 +28,36 @@ func (l LedgerApi) String() string {
 	return "LedgerApi"
 }
 
-func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*AccountBlock, error) {
-	var blocks []*AccountBlock
-	for _, item := range list {
-		confirmTimes, err := l.chain.GetConfirmTimes(&item.Hash)
+func (l *LedgerApi) ledgerBlockToRpcBlock(block *ledger.AccountBlock) (*AccountBlock, error) {
+	confirmTimes, err := l.chain.GetConfirmTimes(&block.Hash)
 
+	if err != nil {
+		return nil, err
+	}
+
+	if block.IsReceiveBlock() {
+		sendBlock, err := l.chain.GetAccountBlockByHash(&block.FromBlockHash)
 		if err != nil {
 			return nil, err
 		}
 
-		if item.IsReceiveBlock() {
-			sendBlock, err := l.chain.GetAccountBlockByHash(&item.FromBlockHash)
-			if err != nil {
-				return nil, err
-			}
-
-			if sendBlock != nil {
-				item.TokenId = sendBlock.TokenId
-				item.Amount = sendBlock.Amount
-			}
+		if sendBlock != nil {
+			block.TokenId = sendBlock.TokenId
+			block.Amount = sendBlock.Amount
 		}
+	}
 
-		token := l.chain.GetTokenInfoById(&item.TokenId)
-		blocks = append(blocks, createAccountBlock(item, token, confirmTimes))
+	token := l.chain.GetTokenInfoById(&block.TokenId)
+	return createAccountBlock(block, token, confirmTimes), nil
+}
+func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*AccountBlock, error) {
+	var blocks []*AccountBlock
+	for _, item := range list {
+		rpcBlock, err := l.ledgerBlockToRpcBlock(item)
+		if err != nil {
+			return nil, err
+		}
+		blocks = append(blocks, rpcBlock)
 	}
 	return blocks, nil
 }
@@ -161,9 +168,7 @@ func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 		return nil, nil
 	}
 
-	token := l.chain.GetTokenInfoById(&block.TokenId)
-	rpcBlock := createAccountBlock(block, token, 0)
-	return rpcBlock, nil
+	return l.ledgerBlockToRpcBlock(block)
 }
 
 func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*RpcTokenInfo, error) {

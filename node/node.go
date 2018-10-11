@@ -289,13 +289,23 @@ func (node *Node) openDataDir() error {
 		return nil
 	}
 
+	// open data dir
 	if err := os.MkdirAll(node.config.DataDir, 0700); err != nil {
 		return err
 	}
+	log.Info(fmt.Sprintf("Open NodeServer.DataDir:%v", node.config.DataDir))
 
+	// open p2p data dir
 	if err := os.MkdirAll(node.p2pConfig.DataDir, 0700); err != nil {
 		return err
 	}
+	log.Info(fmt.Sprintf("Open NodeServer.DataDir:%v", node.p2pConfig.DataDir))
+
+	//open wallet data dir
+	if err := os.MkdirAll(node.walletConfig.DataDir, 0700); err != nil {
+		return err
+	}
+	log.Info(fmt.Sprintf("Open NodeServer.DataDir:%v", node.walletConfig.DataDir))
 
 	//Lock the instance directory to prevent concurrent use by another instance as well as accidental use of the instance directory as a database.
 	//TODO miss file lock(flock)

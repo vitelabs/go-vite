@@ -60,9 +60,10 @@ func newAccountPool(name string, rw *accountCh, v *ForkVersion, log log15.Logger
 }
 
 func (self *accountPool) Init(
-	tools *tools, pool *pool, v *accountVerifier) {
+	tools *tools, pool *pool, v *accountVerifier, f *accountSyncer) {
 	self.pool = pool
 	self.v = v
+	self.f = f
 	self.BCPool.init(self.rw, tools)
 }
 

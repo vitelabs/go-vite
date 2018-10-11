@@ -4,13 +4,26 @@ import (
 	"strconv"
 
 	"github.com/pkg/errors"
-	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	//"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm_context"
 )
+
+type chainDb interface {
+	InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error
+	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
+	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
+	DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
+	GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.AccountBlock
+	GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error)
+	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error
+	DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
+	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
+}
 
 type chainRw interface {
 	insertBlock(block commonBlock) error
@@ -22,7 +35,7 @@ type chainRw interface {
 
 type accountCh struct {
 	address types.Address
-	rw      ch.Chain
+	rw      chainDb
 	version *ForkVersion
 }
 
@@ -103,7 +116,7 @@ func (self *accountCh) getFirstUnconfirmedBlock(head *ledger.SnapshotBlock) *led
 }
 
 type snapshotCh struct {
-	bc      ch.Chain
+	bc      chainDb
 	version *ForkVersion
 }
 
