@@ -45,6 +45,11 @@ func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid types.Gi
 		access.log.Error("GetMeta", "error", err)
 		return err
 	} else {
+		for _, v := range addrList {
+			if v == address {
+				return nil
+			}
+		}
 		addrList = append(addrList, address)
 		return access.store.WriteGidAddrList(batch, &gid, addrList)
 	}

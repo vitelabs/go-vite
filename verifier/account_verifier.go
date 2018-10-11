@@ -90,6 +90,7 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 	return genResult.BlockGenList, nil
 }
 
+// block from Net or Rpc doesn't have stateHash、Quota, so don't need to verify
 func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, genBlock *ledger.AccountBlock) error {
 	if origBlock.BlockType != genBlock.BlockType {
 		return errors.New("verify BlockType failed")
@@ -109,7 +110,6 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 	if origBlock.LogHash != nil && genBlock.LogHash != nil && *origBlock.LogHash != *genBlock.LogHash {
 		return errors.New("verify LogHash failed")
 	}
-	// fixme: stateHash???
 
 	return nil
 }

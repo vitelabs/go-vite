@@ -11,12 +11,12 @@ import (
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pow"
+	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"testing"
 	"time"
-	"github.com/vitelabs/go-vite/vm"
 )
 
 var (
@@ -38,7 +38,6 @@ var (
 
 func init() {
 	flag.StringVar(&genesisAccountPrivKeyStr, "k", "", "")
-	flag.Parse()
 	fmt.Println(genesisAccountPrivKeyStr)
 
 	var isTest bool
