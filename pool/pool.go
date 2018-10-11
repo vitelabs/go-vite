@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -87,7 +86,7 @@ type pool struct {
 	pendingAc sync.Map // key:address v:*accountPool
 
 	sync syncer
-	bc   ch.Chain
+	bc   chainDb
 	wt   *wallet.Manager
 
 	snapshotVerifier *verifier.SnapshotVerifier
@@ -122,7 +121,7 @@ func (self *pool) RUnLock() {
 	self.rwMutex.RUnlock()
 }
 
-func NewPool(bc ch.Chain) BlockPool {
+func NewPool(bc chainDb) *pool {
 	self := &pool{bc: bc, rwMutex: sync.RWMutex{}, version: &ForkVersion{}, accountCond: sync.NewCond(&sync.Mutex{})}
 	self.log = log15.New("module", "pool")
 	return self

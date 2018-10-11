@@ -3,9 +3,8 @@ package vite
 import (
 	"flag"
 	"fmt"
-	"testing"
-
 	"math/big"
+	"testing"
 
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
@@ -85,4 +84,30 @@ func TestSend(t *testing.T) {
 	accountBlock, e := c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
 
 	t.Log(accountBlock.Hash, e)
+}
+
+func TestNew(t *testing.T) {
+	config := &config.Config{
+		DataDir: common.DefaultDataDir(),
+		Producer: &config.Producer{
+			Producer: false,
+		},
+	}
+
+	w := wallet.New(nil)
+	vite, err := New(config, w)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = vite.Init()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = vite.Start()
+	if err != nil {
+		t.Error(err)
+		return
+	}
 }
