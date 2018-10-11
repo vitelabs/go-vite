@@ -19,6 +19,7 @@ var fReadTimeout = 20 * time.Second
 var fWriteTimeout = 20 * time.Second
 
 type fileServer struct {
+	port   uint16
 	ln     net.Listener
 	record map[uint64]struct{} // use to record nonce
 	term   chan struct{}
@@ -27,25 +28,30 @@ type fileServer struct {
 	chain  Chain
 }
 
-func newFileServer(port uint16, chain Chain) (*fileServer, error) {
-	ln, err := net.Listen("tcp", "0.0.0.0:"+strconv.FormatUint(uint64(port), 10))
-
-	if err != nil {
-		return nil, err
-	}
+func newFileServer(port uint16, chain Chain) *fileServer {
 
 	return &fileServer{
-		ln:     ln,
+		port:   port,
 		record: make(map[uint64]struct{}),
-		term:   make(chan struct{}),
 		log:    log15.New("module", "net/fileServer"),
 		chain:  chain,
-	}, nil
+	}
 }
 
-func (s *fileServer) start() {
+func (s *fileServer) start() error {
+	ln, err := net.Listen("tcp", "0.0.0.0:"+strconv.FormatUint(uint64(s.port), 10))
+
+	if err != nil {
+		return err
+	}
+
+	s.ln = ln
+	s.term = make(chan struct{})
+
 	s.wg.Add(1)
 	go s.readLoop()
+
+	return nil
 }
 
 func (s *fileServer) stop() {
@@ -166,12 +172,13 @@ func newFileClient(chain Chain) *fileClient {
 		idle:     make(chan *connContext, 1),
 		delConn:  make(chan *delCtxEvent, 1),
 		chain:    chain,
-		term:     make(chan struct{}),
 		log:      log15.New("module", "net/fileClient"),
 	}
 }
 
 func (fc *fileClient) start() {
+	fc.term = make(chan struct{})
+
 	fc.wg.Add(1)
 	go fc.loop()
 }
@@ -186,7 +193,10 @@ func (fc *fileClient) stop() {
 }
 
 func (fc *fileClient) request(r *fileRequest) {
-	fc._request <- r
+	select {
+	case <-fc.term:
+	case fc._request <- r:
+	}
 }
 
 func (fc *fileClient) loop() {

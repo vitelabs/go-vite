@@ -2,52 +2,22 @@ package net
 
 import (
 	"fmt"
-	"sync"
-	"time"
-
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"github.com/vitelabs/go-vite/vite/net/topo"
+	"sync"
+	"time"
 )
 
-// all query include from block
-type Chain interface {
-	// the second return value mean chunk befor/after file
-	GetSubLedgerByHeight(start, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64)
-	GetSubLedgerByHash(origin *types.Hash, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64, error)
-
-	// query chunk
-	GetConfirmSubLedger(start, end uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
-
-	GetSnapshotBlocksByHash(origin *types.Hash, count uint64, forward, content bool) ([]*ledger.SnapshotBlock, error)
-	GetSnapshotBlocksByHeight(height, count uint64, forward, content bool) ([]*ledger.SnapshotBlock, error)
-
-	// batcher
-	GetAccountBlocksByHash(addr types.Address, origin *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error)
-	GetAccountBlocksByHeight(addr types.Address, start, count uint64, forward bool) ([]*ledger.AccountBlock, error)
-	// single
-	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
-	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
-
-	GetLatestSnapshotBlock() *ledger.SnapshotBlock
-	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
-
-	Compressor() *compress.Compressor
-}
-
-type Verifier interface {
-	VerifyforP2P(block *ledger.AccountBlock) bool
-}
-
 type Config struct {
-	Single   bool
+	Single bool // for test
+
 	Port     uint16
 	Chain    Chain
 	Verifier Verifier
+
 	// for topo
 	Topology []string
 	Topic    string
@@ -58,35 +28,36 @@ const DefaultPort uint16 = 8484
 
 type Net struct {
 	*Config
-	peers       *peerSet
-	syncer      *syncer
-	fetcher     *fetcher
-	receiver    *receiver
-	broadcaster *broadcaster
-	term        chan struct{}
-	log         log15.Logger
-	Protocols   []*p2p.Protocol // mount to p2p.Server
-	wg          sync.WaitGroup
-	fs          *fileServer
-	fc          *fileClient
-	handlers    map[cmd]MsgHandler
-	topo        *topo.Topology
+	peers *peerSet
+	Syncer
+	Fetcher
+	Broadcaster
+	Receiver
+	term      chan struct{}
+	log       log15.Logger
+	Protocols []*p2p.Protocol // mount to p2p.Server
+	wg        sync.WaitGroup
+	fs        *fileServer
+	fc        *fileClient
+	handlers  map[cmd]MsgHandler
+	topo      *topo.Topology
 }
 
 // auto from
-func New(cfg *Config) (*Net, error) {
+func New(cfg *Config) *Net {
+	// todo for test
+	if cfg.Single {
+		return mockNet()
+	}
+
 	port := cfg.Port
 	if port == 0 {
 		port = DefaultPort
 	}
-	fs, err := newFileServer(port, cfg.Chain)
-	if err != nil {
-		return nil, err
-	}
 
 	fc := newFileClient(cfg.Chain)
 
-	peers := NewPeerSet()
+	peers := newPeerSet()
 	pool := newRequestPool()
 
 	broadcaster := newBroadcaster(peers)
@@ -101,11 +72,11 @@ func New(cfg *Config) (*Net, error) {
 	n := &Net{
 		Config:      cfg,
 		peers:       peers,
-		syncer:      syncer,
-		fetcher:     fetcher,
-		receiver:    receiver,
-		broadcaster: broadcaster,
-		fs:          fs,
+		Syncer:      syncer,
+		Fetcher:     fetcher,
+		Broadcaster: broadcaster,
+		Receiver:    receiver,
+		fs:          newFileServer(port, cfg.Chain),
 		fc:          fc,
 		handlers:    make(map[cmd]MsgHandler),
 		log:         log15.New("module", "vite/net"),
@@ -137,22 +108,13 @@ func New(cfg *Config) (*Net, error) {
 		},
 	})
 
-	if !n.Single {
-		// topo
-		n.topo, err = topo.New(&topo.Config{
-			Addrs: cfg.Topology,
-		})
-		if n.topo != nil {
-			n.Protocols = append(n.Protocols, n.topo.Protocol())
-		}
-	}
+	// topo
+	n.topo = topo.New(&topo.Config{
+		Addrs: cfg.Topology,
+	})
+	n.Protocols = append(n.Protocols, n.topo.Protocol())
 
-	// single mode
-	if n.Single {
-		n.syncer.setState(Syncdone)
-	}
-
-	return n, nil
+	return n
 }
 
 func (n *Net) AddHandler(handler MsgHandler) {
@@ -162,25 +124,38 @@ func (n *Net) AddHandler(handler MsgHandler) {
 	}
 }
 
-func (n *Net) Start(svr *p2p.Server) {
+func (n *Net) Start(svr *p2p.Server) (err error) {
+	// todo more safe
+	if n.Single {
+		return nil
+	}
+
 	n.term = make(chan struct{})
 
-	go n.fs.start()
-
-	go n.fc.start()
-
-	if n.topo != nil {
-		n.topo.Start(svr)
+	err = n.fs.start()
+	if err != nil {
+		return
 	}
+
+	n.fc.start()
+
+	err = n.topo.Start(svr)
+
+	return
 }
 
 func (n *Net) Stop() {
+	// todo more safe
+	if n.Single {
+		return
+	}
+
 	select {
 	case <-n.term:
 	default:
 		close(n.term)
 
-		n.syncer.stop()
+		n.Syncer.Stop()
 
 		n.fs.stop()
 
@@ -192,14 +167,6 @@ func (n *Net) Stop() {
 
 		n.wg.Wait()
 	}
-}
-
-func (n *Net) Syncing() bool {
-	return n.syncer.state == Syncing
-}
-
-func (n *Net) SyncState() SyncState {
-	return n.syncer.state
 }
 
 // will be called by p2p.Server, run as goroutine
@@ -236,7 +203,7 @@ func (n *Net) startPeer(p *Peer) error {
 
 	// single mode, for test
 	if !n.Single {
-		go n.syncer.start()
+		go n.Syncer.Start()
 	}
 
 	for {
@@ -283,83 +250,8 @@ func (n *Net) handleMsg(p *Peer) (err error) {
 	return fmt.Errorf("unknown message cmd %d", msg.Cmd)
 }
 
-type SnapshotBlockCallback = func(block *ledger.SnapshotBlock)
-type AccountblockCallback = func(addr types.Address, block *ledger.AccountBlock)
-type SyncStateCallback = func(SyncState)
-
-type Subscriber interface {
-	// return the subId, use to unsubscibe
-	// subId is always larger than 0
-	SubscribeAccountBlock(fn AccountblockCallback) (subId int)
-	// if subId is 0, then ignore
-	UnsubscribeAccountBlock(subId int)
-
-	// return the subId, use to unsubscibe
-	// subId is always larger than 0
-	SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int)
-	// if subId is 0, then ignore
-	UnsubscribeSnapshotBlock(subId int)
-
-	// return the subId, use to unsubscibe
-	// subId is always larger than 0
-	SubscribeSyncStatus(fn SyncStateCallback) (subId int)
-	// if subId is 0, then ignore
-	UnsubscribeSyncStatus(subId int)
-
-	// for producer
-	SyncState() SyncState
-}
-
-func (n *Net) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
-	n.broadcaster.BroadcastSnapshotBlock(block)
-}
-
-func (n *Net) BroadcastAccountBlock(block *ledger.AccountBlock) {
-	n.broadcaster.BroadcastAccountBlock(block)
-}
-
-func (n *Net) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
-	n.broadcaster.BroadcastSnapshotBlocks(blocks)
-}
-
-func (n *Net) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {
-	n.broadcaster.BroadcastAccountBlocks(blocks)
-}
-
-func (n *Net) FetchSnapshotBlocks(start types.Hash, count uint64) {
-	n.fetcher.FetchSnapshotBlocks(start, count)
-}
-
-func (n *Net) FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) {
-	n.fetcher.FetchAccountBlocks(start, count, address)
-}
-
-func (n *Net) SubscribeAccountBlock(fn AccountblockCallback) (subId int) {
-	return n.receiver.aFeed.Sub(fn)
-}
-
-func (n *Net) UnsubscribeAccountBlock(subId int) {
-	n.receiver.aFeed.Unsub(subId)
-}
-
-func (n *Net) SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int) {
-	return n.receiver.sFeed.Sub(fn)
-}
-
-func (n *Net) UnsubscribeSnapshotBlock(subId int) {
-	n.receiver.sFeed.Unsub(subId)
-}
-
-func (n *Net) SubscribeSyncStatus(fn SyncStateCallback) (subId int) {
-	return n.syncer.feed.Sub(fn)
-}
-
-func (n *Net) UnsubscribeSyncStatus(subId int) {
-	n.syncer.feed.Unsub(subId)
-}
-
-func (n *Net) SyncStatus() *SyncStatus {
-	return n.syncer.Status()
+func (n *Net) Syncing() bool {
+	return n.Syncer.SyncState() == Syncing
 }
 
 // get current netInfo (peers, syncStatus, ...)
@@ -371,12 +263,14 @@ func (n *Net) Status() *Status {
 	default:
 	}
 
+	s := n.Syncer.Status()
+
 	return &Status{
 		Peers:     n.peers.Info(),
 		Running:   running,
-		SyncState: n.syncer.state,
-		SyncFrom:  n.syncer.from,
-		SyncTo:    n.syncer.to,
+		SyncState: s.State,
+		SyncFrom:  s.From,
+		SyncTo:    s.To,
 	}
 }
 
@@ -387,22 +281,3 @@ type Status struct {
 	SyncFrom  uint64      `json:"syncFrom"`
 	SyncTo    uint64      `json:"syncTo"`
 }
-
-//type peerInfos []*PeerInfo
-//
-//func (p peerInfos) MarshalJSON() ([]byte, error) {
-//	b := new(strings.Builder)
-//
-//	b.WriteString("[")
-//	for _, pi := range p {
-//		b.WriteString(pi.String())
-//	}
-//	b.WriteString("]")
-//
-//	return []byte(b.String()), nil
-//}
-//
-//func (p *peerInfos) UnmarshalJSON(data []byte) (err error) {
-//
-//	return nil
-//}

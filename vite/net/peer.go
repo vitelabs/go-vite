@@ -108,26 +108,7 @@ func (p *Peer) SeeBlock(hash types.Hash) {
 	p.KnownBlocks.InsertUnique(hash[:])
 }
 
-// response
-//func (p *Peer) SendSubLedger(s *message.SubLedger, msgId uint64) (err error) {
-//	err = p.Send(SubLedgerCode, msgId, s)
-//
-//	if err != nil {
-//		return
-//	}
-//
-//	for _, blocks := range s.ABlocks {
-//		for _, block := range blocks {
-//			p.SeeBlock(block.Hash)
-//		}
-//	}
-//
-//	for _, b := range s.SBlocks {
-//		p.SeeBlock(b.Hash)
-//	}
-//
-//	return
-//}
+// send
 
 func (p *Peer) SendSubLedger(bs []*ledger.SnapshotBlock, abs []*ledger.AccountBlock, msgId uint64) (err error) {
 	err = p.Send(SubLedgerCode, msgId, &message.SubLedger{
@@ -271,7 +252,7 @@ type peerSet struct {
 	subs  []chan<- *peerEvent
 }
 
-func NewPeerSet() *peerSet {
+func newPeerSet() *peerSet {
 	return &peerSet{
 		peers: make(map[string]*Peer),
 	}

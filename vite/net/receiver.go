@@ -11,14 +11,6 @@ import (
 	"time"
 )
 
-type Receiver interface {
-	ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock)
-	ReceiveAccountBlocks(blocks []*ledger.AccountBlock)
-
-	ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock)
-	ReceiveNewAccountBlock(block *ledger.AccountBlock)
-}
-
 // receive blocks and record them, construct skeleton to filter subsequent fetch
 type receiver struct {
 	ready       int32 // atomic, can report newBlock to pool
@@ -266,4 +258,20 @@ func (s *receiver) listen(st SyncState) {
 		s.newSBlocks = s.newSBlocks[:0]
 		s.newABlocks = s.newABlocks[:0]
 	}
+}
+
+func (r *receiver) SubscribeAccountBlock(fn AccountblockCallback) (subId int) {
+	return r.aFeed.Sub(fn)
+}
+
+func (r *receiver) UnsubscribeAccountBlock(subId int) {
+	r.aFeed.Unsub(subId)
+}
+
+func (r *receiver) SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int) {
+	return r.sFeed.Sub(fn)
+}
+
+func (r *receiver) UnsubscribeSnapshotBlock(subId int) {
+	r.sFeed.Unsub(subId)
 }

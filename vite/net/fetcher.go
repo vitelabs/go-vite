@@ -11,14 +11,6 @@ import (
 	"sync/atomic"
 )
 
-type Fetcher interface {
-	// from is required, because we need from + count to find appropriate peer
-	FetchSnapshotBlocks(start types.Hash, count uint64)
-
-	// address is optional
-	FetchAccountBlocks(start types.Hash, count uint64, address *types.Address)
-}
-
 type fetcher struct {
 	filter   Filter
 	peers    *peerSet
