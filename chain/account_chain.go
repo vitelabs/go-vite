@@ -184,6 +184,10 @@ func (c *chain) GetAccountBlocksByHash(addr types.Address, origin *types.Hash, c
 			return nil, gaErr
 		}
 
+		if account == nil {
+			return nil, nil
+		}
+
 		block, gbErr := c.chainDb.Ac.GetLatestBlock(account.AccountId)
 		if gbErr != nil {
 			c.log.Error("Query block failed. Error is "+gbErr.Error(), "method", "GetAccountBlocksByHash")
@@ -205,6 +209,9 @@ func (c *chain) GetAccountBlocksByHeight(addr types.Address, start, count uint64
 	if gaErr != nil {
 		c.log.Error("Query account failed. Error is "+gaErr.Error(), "method", "GetAccountBlocksByHeight")
 		return nil, gaErr
+	}
+	if account == nil {
+		return nil, nil
 	}
 	var startHeight, endHeight = uint64(1), uint64(1)
 
