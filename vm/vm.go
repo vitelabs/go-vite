@@ -25,8 +25,6 @@ type VMConfig struct {
 type NodeConfig struct {
 	IsTest      bool
 	canTransfer func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
-	addBalance  func(db vmctxt_interface.VmDatabase, tokenTypeId *types.TokenTypeId, amount *big.Int)
-	subBalance  func(db vmctxt_interface.VmDatabase, tokenTypeId *types.TokenTypeId, amount *big.Int)
 	calcQuota   func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64)
 }
 
@@ -39,8 +37,6 @@ func InitVmConfig(isTest bool) {
 			func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				return true
 			},
-			func(db vmctxt_interface.VmDatabase, tokenTypeId *types.TokenTypeId, amount *big.Int) {},
-			func(db vmctxt_interface.VmDatabase, tokenTypeId *types.TokenTypeId, amount *big.Int) {},
 			func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
 				return 1000000, 0
 			},
@@ -50,12 +46,6 @@ func InitVmConfig(isTest bool) {
 			isTest,
 			func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				return CanTransfer(db, addr, tokenTypeId, tokenAmount, feeAmount)
-			},
-			func(db vmctxt_interface.VmDatabase, tokenTypeId *types.TokenTypeId, amount *big.Int) {
-				db.AddBalance(tokenTypeId, amount)
-			},
-			func(db vmctxt_interface.VmDatabase, tokenTypeId *types.TokenTypeId, amount *big.Int) {
-				db.SubBalance(tokenTypeId, amount)
 			},
 			func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
 				return quota.CalcQuota(db, addr, pow)
@@ -153,9 +143,9 @@ func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 	block.AccountBlock.Fee = contractFee
 	block.AccountBlock.ToAddress = contractAddr
 	// sub balance and service fee
-	nodeConfig.subBalance(block.VmContext, &block.AccountBlock.TokenId, block.AccountBlock.Amount)
+	block.VmContext.SubBalance(&block.AccountBlock.TokenId, block.AccountBlock.Amount)
 	if block.AccountBlock.Fee != nil {
-		nodeConfig.subBalance(block.VmContext, &ledger.ViteTokenId, block.AccountBlock.Fee)
+		block.VmContext.SubBalance(&ledger.ViteTokenId, block.AccountBlock.Fee)
 	}
 	vm.updateBlock(block, nil, quota.CalcQuotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil))
 	block.VmContext.SetContractGid(&gid, &contractAddr)
@@ -182,7 +172,7 @@ func (vm *VM) receiveCreate(block *vm_context.VmAccountBlock, sendBlock *ledger.
 	vm.blockList = []*vm_context.VmAccountBlock{block}
 
 	// create contract account and add balance
-	nodeConfig.addBalance(block.VmContext, &sendBlock.TokenId, sendBlock.Amount)
+	block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 
 	sendBlock.Data = sendBlock.Data[types.GidSize:]
 
@@ -224,8 +214,8 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 		if err != nil {
 			return nil, err
 		}
-		nodeConfig.subBalance(block.VmContext, &block.AccountBlock.TokenId, block.AccountBlock.Amount)
-		nodeConfig.subBalance(block.VmContext, &ledger.ViteTokenId, block.AccountBlock.Fee)
+		block.VmContext.SubBalance(&block.AccountBlock.TokenId, block.AccountBlock.Amount)
+		block.VmContext.SubBalance(&ledger.ViteTokenId, block.AccountBlock.Fee)
 	} else {
 		block.AccountBlock.Fee = helper.Big0
 		cost, err := quota.IntrinsicGasCost(block.AccountBlock.Data, false)
@@ -239,7 +229,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 		if !nodeConfig.canTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
 			return nil, ErrInsufficientBalance
 		}
-		nodeConfig.subBalance(block.VmContext, &block.AccountBlock.TokenId, block.AccountBlock.Amount)
+		block.VmContext.SubBalance(&block.AccountBlock.TokenId, block.AccountBlock.Amount)
 	}
 	var quotaUsed uint64
 	if isPrecompiledContractAddress(block.AccountBlock.AccountAddress) {
@@ -256,7 +246,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 	defer monitor.LogTime("vm", "ReceiveCall", time.Now())
 	if p, ok := getPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
 		vm.blockList = []*vm_context.VmAccountBlock{block}
-		nodeConfig.addBalance(block.VmContext, &sendBlock.TokenId, sendBlock.Amount)
+		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 		err := p.doReceive(vm, block, sendBlock)
 		if err == nil {
 			block.AccountBlock.Data = block.VmContext.GetStorageHash().Bytes()
@@ -284,7 +274,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		}
 		vm.blockList = []*vm_context.VmAccountBlock{block}
 		// add balance, create account if not exist
-		nodeConfig.addBalance(block.VmContext, &sendBlock.TokenId, sendBlock.Amount)
+		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 		// do transfer transaction if account code size is zero
 		code := block.VmContext.GetContractCode(&block.AccountBlock.AccountAddress)
 		if len(code) == 0 {
