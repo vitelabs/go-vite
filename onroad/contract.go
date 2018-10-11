@@ -158,19 +158,30 @@ func (w *ContractWorker) waitingNewBlock() {
 LOOP:
 	for {
 		w.isSleep = false
-		if w.Status() == Stop {
+		if w.status == Stop {
 			break
 		}
-
+		w.log.Info("before RLock")
 		w.ctpMutex.RLock()
 		if w.contractTaskPQueue.Len() != 0 {
 			w.ctpMutex.RUnlock()
+			w.log.Info("after  RLock v0")
 			for _, v := range w.contractTaskProcessors {
+				if v == nil {
+					w.log.Error("v is nil. wakeup")
+					continue
+				}
+				w.log.Info("before WakeUp")
 				v.WakeUp()
+				w.log.Info("after WakeUp")
 			}
+		} else {
+			w.ctpMutex.RUnlock()
 		}
+		w.log.Info("after  RLock before sleep")
 
 		w.isSleep = true
+		w.log.Info("start sleep c")
 		select {
 		case <-w.newOnroadTxAlarm:
 			w.log.Info("newOnroadTxAlarm start awake")
@@ -204,6 +215,7 @@ func (w *ContractWorker) getAndSortAllAddrQuota() error {
 }
 
 func (w *ContractWorker) NewOnroadTxAlarm() {
+	w.log.Info("NewOnroadTxAlarm", "isSleep", w.isSleep)
 	if w.isSleep {
 		w.newOnroadTxAlarm <- struct{}{}
 	}
