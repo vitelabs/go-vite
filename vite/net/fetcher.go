@@ -1,6 +1,7 @@
 package net
 
 import (
+	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -9,6 +10,8 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"sync/atomic"
 )
+
+var errNoSuitablePeer = errors.New("no suitable peer")
 
 type fetcher struct {
 	filter Filter
@@ -57,7 +60,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 			f.log.Info(fmt.Sprintf("send %s to %s done", GetSnapshotBlocksCode, p))
 		}
 	} else {
-		f.log.Error(errNoPeer.Error())
+		f.log.Error(errNoSuitablePeer.Error())
 	}
 }
 
@@ -98,7 +101,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 			f.log.Info(fmt.Sprintf("send %s to %s done", GetAccountBlocksCode, p))
 		}
 	} else {
-		f.log.Error(errNoPeer.Error())
+		f.log.Error(errNoSuitablePeer.Error())
 	}
 }
 

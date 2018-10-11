@@ -64,7 +64,7 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 
 		s.ReceiveNewSnapshotBlock(block)
 
-		s.log.Info(fmt.Sprintf("receive net snapshotblock %s", block.Hash))
+		s.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d", block.Hash, block.Height))
 	case NewAccountBlockCode:
 		block := new(ledger.AccountBlock)
 		err := block.Deserialize(msg.Payload)
@@ -76,7 +76,7 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 
 		s.ReceiveNewAccountBlock(block)
 
-		s.log.Info(fmt.Sprintf("receive net accountblock %s", block.Hash))
+		s.log.Info(fmt.Sprintf("receive new accountblock %s/%d", block.Hash, block.Height))
 	case SnapshotBlocksCode:
 		bs := new(message.SnapshotBlocks)
 		err := bs.Deserialize(msg.Payload)
@@ -112,7 +112,7 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 
 	if s.filter.has(block.Hash) {
 		monitor.LogDuration("net/receiver", "nb2", time.Now().Sub(t).Nanoseconds())
-		s.log.Warn(fmt.Sprintf("has receive the same new block %s", block.Hash))
+		s.log.Warn(fmt.Sprintf("has receive the same new snapshotblock %s", block.Hash))
 		return
 	}
 
@@ -136,7 +136,7 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 
 	if s.filter.has(block.Hash) {
 		monitor.LogDuration("net/receiver", "nb2", time.Now().Sub(t).Nanoseconds())
-		s.log.Warn(fmt.Sprintf("has receive the same new block %s", block.Hash))
+		s.log.Warn(fmt.Sprintf("has receive the same new accountblock %s", block.Hash))
 		return
 	}
 
