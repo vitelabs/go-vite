@@ -32,33 +32,33 @@ type Vote struct {
 	balance *big.Int
 }
 
-func (self *chainRw) CalVotes(gid types.Gid, info *membersInfo, t time.Time) ([]*Vote, *ledger.HashHeight, error) {
+func (self *chainRw) CalVotes(gid types.Gid, info *membersInfo, t time.Time) ([]*Vote, *ledger.HashHeight, *ledger.HashHeight, error) {
 	block, e := self.rw.GetSnapshotBlockBeforeTime(&t)
 
 	if e != nil {
-		return nil, nil, e
+		return nil, nil, nil, e
 	}
 
 	if block == nil {
-		return nil, nil, errors.New("before time[" + t.String() + "] block not exist")
+		return nil, nil, nil, errors.New("before time[" + t.String() + "] block not exist")
 	}
 	head := self.rw.GetLatestSnapshotBlock()
 
 	if block.Height > head.Height {
-		return nil, nil, errors.New("rollback happened, block height[" + strconv.FormatUint(block.Height, 10) + "], head height[" + strconv.FormatUint(head.Height, 10) + "]")
+		return nil, nil, nil, errors.New("rollback happened, block height[" + strconv.FormatUint(block.Height, 10) + "], head height[" + strconv.FormatUint(head.Height, 10) + "]")
 	}
 	// query register info
-	registerList := self.rw.GetRegisterList(head.Hash, gid)
+	registerList := self.rw.GetRegisterList(block.Hash, gid)
 	// query vote info
-	votes := self.rw.GetVoteMap(head.Hash, gid)
+	votes := self.rw.GetVoteMap(block.Hash, gid)
 
 	var registers []*Vote
 
 	// cal candidate
 	for _, v := range registerList {
-		registers = append(registers, self.GenVote(head.Hash, v, votes, info.countingTokenId))
+		registers = append(registers, self.GenVote(block.Hash, v, votes, info.countingTokenId))
 	}
-	return registers, &ledger.HashHeight{Height: head.Height, Hash: head.Hash}, nil
+	return registers, &ledger.HashHeight{Height: block.Height, Hash: block.Hash}, &ledger.HashHeight{Height: head.Height, Hash: head.Hash}, nil
 }
 func (self *chainRw) GenVote(snapshotHash types.Hash, registration *contracts.Registration, infos []*contracts.VoteInfo, id types.TokenTypeId) *Vote {
 	var addrs []types.Address

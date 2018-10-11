@@ -32,15 +32,15 @@ func newTeller(info *membersInfo, gid types.Gid, rw *chainRw) *teller {
 
 func (self *teller) voteResults(t time.Time) ([]types.Address, *ledger.HashHeight, error) {
 	// record vote
-	votes, hashH, err := self.rw.CalVotes(self.gid, self.info, t)
+	votes, randH, referH, err := self.rw.CalVotes(self.gid, self.info, t)
 	if err != nil {
 		return nil, nil, err
 	}
 	// filter size of members
-	finalVotes := self.algo.filterVotes(votes, hashH)
+	finalVotes := self.algo.filterVotes(votes, randH)
 	// shuffle the members
-	finalVotes = self.algo.shuffleVotes(finalVotes, hashH)
-	return self.convertToAddress(finalVotes), hashH, nil
+	finalVotes = self.algo.shuffleVotes(finalVotes, randH)
+	return self.convertToAddress(finalVotes), referH, nil
 }
 
 func toMap(infos []*contracts.VoteInfo) map[string]bool {

@@ -125,7 +125,7 @@ func TestChannel(t *testing.T) {
 
 	// Start the node
 	if err := node.Start(); err != nil {
-		log.Error("Error staring protocol node: %v", err)
+		log.Error(fmt.Sprintf("Error staring protocol node: %v", err))
 	}
 
 	// Listening event closes the node

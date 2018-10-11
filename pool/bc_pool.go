@@ -337,7 +337,9 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 		fromChain := chain.referChain.(*forkedChain)
 		self.modifyRefer(fromChain, chain)
 	}
-	self.log.Warn("current modify.", "from", self.current.id(), "to", chain.id(), "fromHeight", self.current.tailHeight, "toHeight", chain.tailHeight)
+	self.log.Warn("current modify.", "from", self.current.id(), "to", chain.id(),
+		"fromTailHeight", self.current.tailHeight, "fromHeadHeight", self.current.headHeight,
+		"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
 	self.current = chain
 	return nil
 }

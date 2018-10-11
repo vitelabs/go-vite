@@ -2,10 +2,13 @@ package message
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vitepb"
 )
+
+var errDeserialize = errors.New("deserialize error")
 
 // @section GetSnapshotBlocks
 
@@ -33,6 +36,10 @@ func (b *GetSnapshotBlocks) Deserialize(buf []byte) error {
 	err := proto.Unmarshal(buf, pb)
 	if err != nil {
 		return err
+	}
+
+	if pb.From == nil {
+		return errDeserialize
 	}
 
 	b.From = ledger.HashHeight{
@@ -157,6 +164,10 @@ func (b *GetAccountBlocks) Deserialize(buf []byte) error {
 	err := proto.Unmarshal(buf, pb)
 	if err != nil {
 		return err
+	}
+
+	if pb.From == nil {
+		return errDeserialize
 	}
 
 	b.From = ledger.HashHeight{

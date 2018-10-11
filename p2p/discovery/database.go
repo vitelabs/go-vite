@@ -14,9 +14,8 @@ import (
 )
 
 type nodeDB struct {
-	db   *leveldb.DB
-	id   NodeID
-	term chan struct{}
+	db *leveldb.DB
+	id NodeID
 }
 
 const (
@@ -35,9 +34,6 @@ var (
 	dbDiscvFindFailBytes = []byte(dbDiscvFindFail) // store the fail times node respond our findnode message
 )
 
-var dbCleanInterval = time.Hour
-var dbStoreInterval = 5 * time.Minute
-
 func newDB(path string, version int, id NodeID) (db *nodeDB, err error) {
 	if path == "" {
 		db, err = newMemDB(id)
@@ -49,8 +45,6 @@ func newDB(path string, version int, id NodeID) (db *nodeDB, err error) {
 		return
 	}
 
-	go db.cleanLoop()
-
 	return
 }
 
@@ -60,9 +54,8 @@ func newMemDB(id NodeID) (*nodeDB, error) {
 		return nil, err
 	}
 	return &nodeDB{
-		db:   db,
-		id:   id,
-		term: make(chan struct{}),
+		db: db,
+		id: id,
 	}, nil
 }
 
@@ -273,21 +266,6 @@ func (db *nodeDB) setFindNodeFails(id NodeID, fails int) error {
 	return db.storeInt64(genKey(id, dbDiscvFindFailBytes), int64(fails))
 }
 
-func (db *nodeDB) cleanLoop() {
-	cleanTicker := time.NewTicker(dbCleanInterval)
-	defer cleanTicker.Stop()
-
-loop:
-	for {
-		select {
-		case <-db.term:
-			break loop
-		case <-cleanTicker.C:
-			db.cleanStaleNodes()
-		}
-	}
-}
-
 func (db *nodeDB) cleanStaleNodes() {
 	now := time.Now()
 
@@ -306,12 +284,7 @@ func (db *nodeDB) cleanStaleNodes() {
 }
 
 func (db *nodeDB) close() {
-	select {
-	case <-db.term:
-	default:
-		db.db.Close()
-		close(db.term)
-	}
+	db.db.Close()
 }
 
 // helper functions

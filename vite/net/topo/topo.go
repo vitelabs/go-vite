@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"github.com/seiflotfy/cuckoofilter"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/log15"
@@ -34,17 +35,17 @@ type Topology struct {
 	prod   sarama.AsyncProducer
 	log    log15.Logger
 	term   chan struct{}
-	rec    chan *TopoEvent
+	rec    chan *Event
 	record *cuckoofilter.CuckooFilter
 	wg     sync.WaitGroup
 }
 
-type TopoEvent struct {
+type Event struct {
 	msg    *p2p.Msg
 	sender *Peer
 }
 
-func New(cfg *Config) (t *Topology, err error) {
+func New(cfg *Config) *Topology {
 	if cfg.Topic == "" {
 		cfg.Topic = "p2p_status_event"
 	}
@@ -52,32 +53,37 @@ func New(cfg *Config) (t *Topology, err error) {
 		cfg.Interval = 5
 	}
 
-	t = &Topology{
+	return &Topology{
 		Config: cfg,
 		peers:  new(sync.Map),
 		log:    log15.New("module", "Topo"),
-		rec:    make(chan *TopoEvent, 10),
+		rec:    make(chan *Event, 10),
 		record: cuckoofilter.NewCuckooFilter(1000),
 	}
+}
 
-	if len(cfg.Addrs) > 0 {
+var errMissingP2P = errors.New("missing p2p server")
+
+func (t *Topology) Start(p2p *p2p.Server) error {
+	t.term = make(chan struct{})
+
+	if p2p == nil {
+		return errMissingP2P
+	}
+	t.p2p = p2p
+
+	if len(t.Config.Addrs) > 0 {
 		config := sarama.NewConfig()
-		prod, err := sarama.NewAsyncProducer(cfg.Addrs, config)
+		prod, err := sarama.NewAsyncProducer(t.Config.Addrs, config)
 
 		if err != nil {
 			t.log.Error(fmt.Sprintf("create topo producer error: %v", err))
-			return nil, err
+			return err
 		}
 
 		t.log.Info("topo producer created")
 		t.prod = prod
 	}
-
-	return t, nil
-}
-
-func (t *Topology) Start(p2p *p2p.Server) {
-	t.term = make(chan struct{})
 
 	t.wg.Add(1)
 	go t.sendLoop()
@@ -85,7 +91,7 @@ func (t *Topology) Start(p2p *p2p.Server) {
 	t.wg.Add(1)
 	go t.handleLoop()
 
-	t.p2p = p2p
+	return nil
 }
 
 func (t *Topology) Stop() {
@@ -95,6 +101,11 @@ func (t *Topology) Stop() {
 		t.log.Info("topo stop")
 
 		close(t.term)
+
+		if t.prod != nil {
+			t.prod.Close()
+		}
+
 		t.wg.Wait()
 
 		t.log.Info("topo stopped")
@@ -136,7 +147,7 @@ func (t *Topology) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 				return fmt.Errorf("receive invalid topoMsg from %s", p)
 			}
 
-			t.rec <- &TopoEvent{
+			t.rec <- &Event{
 				msg:    msg,
 				sender: peer,
 			}
@@ -195,13 +206,8 @@ func (t *Topology) sendLoop() {
 
 // the first item is self url
 func (t *Topology) Topology() *Topo {
-	pivot := ""
-	if t.p2p != nil {
-		pivot = t.p2p.URL()
-	}
-
 	topo := &Topo{
-		Pivot: pivot,
+		Pivot: t.p2p.URL(),
 		Peers: make([]*p2p.ConnProperty, 0, 10),
 		Time:  UnixTime(time.Now()),
 	}

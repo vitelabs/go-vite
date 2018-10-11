@@ -9,7 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"io"
-	"net"
+	net2 "net"
 	"strconv"
 	"sync"
 	"time"
@@ -19,7 +19,8 @@ var fReadTimeout = 20 * time.Second
 var fWriteTimeout = 20 * time.Second
 
 type fileServer struct {
-	ln     net.Listener
+	port   uint16
+	ln     net2.Listener
 	record map[uint64]struct{} // use to record nonce
 	term   chan struct{}
 	log    log15.Logger
@@ -27,25 +28,30 @@ type fileServer struct {
 	chain  Chain
 }
 
-func newFileServer(port uint16, chain Chain) (*fileServer, error) {
-	ln, err := net.Listen("tcp", "0.0.0.0:"+strconv.FormatUint(uint64(port), 10))
-
-	if err != nil {
-		return nil, err
-	}
+func newFileServer(port uint16, chain Chain) *fileServer {
 
 	return &fileServer{
-		ln:     ln,
+		port:   port,
 		record: make(map[uint64]struct{}),
-		term:   make(chan struct{}),
 		log:    log15.New("module", "net/fileServer"),
 		chain:  chain,
-	}, nil
+	}
 }
 
-func (s *fileServer) start() {
+func (s *fileServer) start() error {
+	ln, err := net2.Listen("tcp", "0.0.0.0:"+strconv.FormatUint(uint64(s.port), 10))
+
+	if err != nil {
+		return err
+	}
+
+	s.ln = ln
+	s.term = make(chan struct{})
+
 	s.wg.Add(1)
 	go s.readLoop()
+
+	return nil
 }
 
 func (s *fileServer) stop() {
@@ -77,7 +83,7 @@ func (s *fileServer) readLoop() {
 	}
 }
 
-func (f *fileServer) handleConn(conn net.Conn) {
+func (f *fileServer) handleConn(conn net2.Conn) {
 	defer conn.Close()
 	defer f.wg.Done()
 
@@ -136,7 +142,7 @@ func (f *fileServer) handleConn(conn net.Conn) {
 // @section fileClient
 
 type connContext struct {
-	net.Conn
+	net2.Conn
 	req   *fileRequest
 	addr  string
 	idle  bool
@@ -166,12 +172,13 @@ func newFileClient(chain Chain) *fileClient {
 		idle:     make(chan *connContext, 1),
 		delConn:  make(chan *delCtxEvent, 1),
 		chain:    chain,
-		term:     make(chan struct{}),
 		log:      log15.New("module", "net/fileClient"),
 	}
 }
 
 func (fc *fileClient) start() {
+	fc.term = make(chan struct{})
+
 	fc.wg.Add(1)
 	go fc.loop()
 }
@@ -186,7 +193,10 @@ func (fc *fileClient) stop() {
 }
 
 func (fc *fileClient) request(r *fileRequest) {
-	fc._request <- r
+	select {
+	case <-fc.term:
+	case fc._request <- r:
+	}
 }
 
 func (fc *fileClient) loop() {
@@ -228,7 +238,7 @@ loop:
 			var ctx *connContext
 			var ok bool
 			if ctx, ok = fc.conns[addr]; !ok {
-				conn, err := net.Dial("tcp", addr)
+				conn, err := net2.Dial("tcp", addr)
 				if err != nil {
 					req.Done(err)
 					break

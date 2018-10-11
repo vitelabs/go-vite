@@ -2,7 +2,6 @@ package net
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -135,7 +134,7 @@ func newSyncer(chain Chain, peers *peerSet, pool *requestPool, receiver Receiver
 	return s
 }
 
-func (s *syncer) stop() {
+func (s *syncer) Stop() {
 	select {
 	case <-s.term:
 	default:
@@ -144,7 +143,7 @@ func (s *syncer) stop() {
 	}
 }
 
-func (s *syncer) start() {
+func (s *syncer) Start() {
 	if !atomic.CompareAndSwapInt32(&s.running, 0, 1) {
 		return
 	}
@@ -319,6 +318,14 @@ func (s *syncer) setState(t SyncState) {
 	s.feed.Notify(t)
 }
 
+func (s *syncer) SubscribeSyncStatus(fn SyncStateCallback) (subId int) {
+	return s.feed.Sub(fn)
+}
+
+func (s *syncer) UnsubscribeSyncStatus(subId int) {
+	s.feed.Unsub(subId)
+}
+
 func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
 	return block.Height - s.from
 }
@@ -367,39 +374,6 @@ func (s *syncer) Status() *SyncStatus {
 	}
 }
 
-// @section helper to rank
-type accountblocks []*ledger.AccountBlock
-
-func (a accountblocks) Len() int {
-	return len(a)
-}
-
-func (a accountblocks) Less(i, j int) bool {
-	return a[i].Height < a[j].Height
-}
-
-func (a accountblocks) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
-func (a accountblocks) Sort() {
-	sort.Sort(a)
-}
-
-type snapshotblocks []*ledger.SnapshotBlock
-
-func (a snapshotblocks) Len() int {
-	return len(a)
-}
-
-func (a snapshotblocks) Less(i, j int) bool {
-	return a[i].Height < a[j].Height
-}
-
-func (a snapshotblocks) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
-func (a snapshotblocks) Sort() {
-	sort.Sort(a)
+func (s *syncer) SyncState() SyncState {
+	return s.state
 }
