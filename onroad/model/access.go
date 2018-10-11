@@ -185,7 +185,7 @@ func (access *UAccess) GetOnroadBlocks(index, num, count uint64, addr *types.Add
 		}
 		blockList = append(blockList, block)
 	}
-	return nil, nil
+	return blockList, nil
 }
 
 func (access *UAccess) GetCommonAccInfo(addr *types.Address) (info *OnroadAccountInfo, err error) {
@@ -249,16 +249,3 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 	return infoMap, uint64(len(hashList)), err
 }
 
-func (access *UAccess) GetAccountQuota(addr types.Address, hashes types.Hash) uint64 {
-	return 0
-}
-
-func (access *UAccess) GetReceiveTimes(addr *types.Address, hash *types.Hash) (uint8, error) {
-	value, err := access.store.GetMeta(addr, hash)
-	if err != nil {
-		// include find nil and db errs
-		access.log.Error("GetMeta", "error", err)
-		return 0, err
-	}
-	return uint8(value[0]), nil
-}

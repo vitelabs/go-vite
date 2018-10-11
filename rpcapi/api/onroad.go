@@ -118,5 +118,5 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccoun
 			r.TokenBalanceInfoMap[tti] = b
 		}
 	}
-	return nil
+	return &r
 }
