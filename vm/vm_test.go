@@ -15,6 +15,10 @@ import (
 	"time"
 )
 
+func init() {
+	InitVmConfig(false)
+}
+
 func TestVmRun(t *testing.T) {
 	// prepare db
 	viteTotalSupply := viteTotalSupply

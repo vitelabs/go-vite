@@ -88,33 +88,33 @@ type AccountBlock struct {
 
 	producer *types.Address
 
-	BlockType byte
-	Hash      types.Hash
-	Height    uint64
-	PrevHash  types.Hash
+	BlockType byte       `json:"blockType"`
+	Hash      types.Hash `json:"hash"`
+	Height    uint64     `json:"height"`
+	PrevHash  types.Hash `json:"prevHash"`
 
-	AccountAddress types.Address
+	AccountAddress types.Address `json:"accountAddress"`
 
-	PublicKey     ed25519.PublicKey
-	ToAddress     types.Address
-	FromBlockHash types.Hash
+	PublicKey     ed25519.PublicKey `json:"publicKey"`
+	ToAddress     types.Address     `json:"toAddress"`
+	FromBlockHash types.Hash        `json:"fromBlockHash"`
 
-	Amount  *big.Int
-	TokenId types.TokenTypeId
+	Amount  *big.Int          `json:"amount"`
+	TokenId types.TokenTypeId `json:"tokenId"`
 
-	Quota uint64
-	Fee   *big.Int
+	Quota uint64   `json:"quota"`
+	Fee   *big.Int `json:"fee"`
 
-	SnapshotHash types.Hash
-	Data         []byte
+	SnapshotHash types.Hash `json:"snapshotHash"`
+	Data         []byte     `json:"data"`
 
-	Timestamp *time.Time
-	StateHash types.Hash
+	Timestamp *time.Time `json:"timestamp"`
+	StateHash types.Hash `json:"-"`
 
-	LogHash *types.Hash
+	LogHash *types.Hash `json:"logHash"`
 
-	Nonce     []byte
-	Signature []byte
+	Nonce     []byte `json:"nonce"`
+	Signature []byte `json:"signature"`
 }
 
 func (ab *AccountBlock) Copy() *AccountBlock {

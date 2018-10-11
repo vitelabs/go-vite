@@ -1,12 +1,12 @@
 package keystore
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"testing"
-	"golang.org/x/crypto/scrypt"
-	"github.com/vitelabs/go-vite/crypto"
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"golang.org/x/crypto/scrypt"
+	"testing"
 )
 
 const (
