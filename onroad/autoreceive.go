@@ -22,8 +22,10 @@ type AutoReceiveWorker struct {
 	manager          *Manager
 	onroadBlocksPool *model.OnroadBlocksPool
 
-	status           int
-	isSleeping       bool
+	status     int
+	isSleeping bool
+	isCancel   bool
+
 	breaker          chan struct{}
 	stopListener     chan struct{}
 	newOnroadTxAlarm chan struct{}
@@ -40,6 +42,7 @@ func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[t
 		address:          address,
 		status:           Create,
 		isSleeping:       false,
+		isCancel:         false,
 		filters:          filters,
 		log:              slog.New("worker", "a", "addr", address),
 	}
@@ -51,6 +54,8 @@ func (w *AutoReceiveWorker) Start() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Start {
+
+		w.isCancel = false
 
 		w.breaker = make(chan struct{})
 		w.newOnroadTxAlarm = make(chan struct{})
@@ -78,6 +83,8 @@ func (w *AutoReceiveWorker) Stop() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status == Start {
+
+		w.isCancel = true
 
 		w.onroadBlocksPool.ReleaseFullOnroadBlocksCache(w.address)
 
@@ -109,7 +116,7 @@ func (w *AutoReceiveWorker) startWork() {
 LOOP:
 	for {
 		w.isSleeping = false
-		if w.status == Stop {
+		if w.isCancel {
 			break
 		}
 

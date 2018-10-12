@@ -1,13 +1,14 @@
 package onroad
 
 import (
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"sync"
-	"time"
 )
 
 type ContractTaskProcessor struct {
@@ -21,6 +22,7 @@ type ContractTaskProcessor struct {
 	statusMutex sync.Mutex
 
 	isSleeping   bool
+	isCancel     bool
 	wakeup       chan struct{}
 	breaker      chan struct{}
 	stopListener chan struct{}
@@ -35,6 +37,8 @@ func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskPr
 		accEvent:   worker.accEvent,
 		blocksPool: worker.uBlocksPool,
 		status:     Create,
+		isCancel:   false,
+		isSleeping: false,
 		log:        worker.log.New("class", "tp", "taskid", index),
 	}
 
@@ -46,6 +50,7 @@ func (tp *ContractTaskProcessor) Start() {
 	tp.statusMutex.Lock()
 	defer tp.statusMutex.Unlock()
 	if tp.status != Start {
+		tp.isCancel = false
 		tp.stopListener = make(chan struct{})
 		tp.breaker = make(chan struct{})
 		tp.wakeup = make(chan struct{})
@@ -64,6 +69,7 @@ func (tp *ContractTaskProcessor) Stop() {
 	tp.statusMutex.Lock()
 	defer tp.statusMutex.Unlock()
 	if tp.status == Start {
+		tp.isCancel = true
 		tp.breaker <- struct{}{}
 		close(tp.breaker)
 
@@ -88,7 +94,7 @@ func (tp *ContractTaskProcessor) work() {
 LOOP:
 	for {
 		tp.isSleeping = false
-		if tp.status == Stop {
+		if tp.isCancel {
 			break
 		}
 		tp.log.Debug("pre popContractTask")
@@ -134,6 +140,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	tp.log.Info("Process to make the receiveBlock, its'sendBlock detail:", "hash", sBlock.Hash)
 
 	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
+		tp.log.Info("addIntoBlackList")
 		// Don't deal with it for the time being
 		tp.worker.addIntoBlackList(task.Addr)
 		return
