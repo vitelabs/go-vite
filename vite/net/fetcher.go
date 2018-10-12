@@ -35,7 +35,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 
 	// been suppressed
 	if f.filter.hold(start) {
-		f.log.Warn(fmt.Sprintf("fetch suppressed: %s %d", start, count))
+		f.log.Warn(fmt.Sprintf("fetch suppressed getSnapshotBlocks: %s %d", start, count))
 		return
 	}
 
@@ -69,7 +69,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 
 	// been suppressed
 	if f.filter.hold(start) {
-		f.log.Warn(fmt.Sprintf("fetch suppressed: %s %d", start, count))
+		f.log.Warn(fmt.Sprintf("fetch suppressed getAccountBlocks: %s %d", start, count))
 		return
 	}
 
