@@ -3,14 +3,11 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"math/big"
-	"strconv"
-
-	"path"
-
 	"flag"
-
+	"math/big"
 	"os/user"
+	"path"
+	"strconv"
 
 	"github.com/abiosoft/ishell"
 	"github.com/google/gops/agent"
@@ -35,13 +32,13 @@ func main() {
 		log.Error("http fail.", "err", err)
 	}
 
-	var coinBaseKeyStr string
+	var coinBaseAddr string
 
 	//configPath := flag.String("config", path.Join(config.HomeDir, "/naive_vite/etc/default.yaml"), "config path")
-	flag.Parse()
 	//log.Info(*configPath)
 	cfg := new(config.Config)
-	flag.StringVar(&coinBaseKeyStr, "p", "", "")
+	flag.StringVar(&coinBaseAddr, "p", "", "")
+	flag.Parse()
 	//e := cfg.Parse(*configPath)
 	//if e != nil {
 	//	panic(e)
@@ -61,8 +58,8 @@ func main() {
 
 	w := wallet.New(nil)
 	var coinbase *types.Address = nil
-	if coinBaseKeyStr != "" {
-		tmpAddr := unlockAddr(w, password, coinBaseKeyStr)
+	if coinBaseAddr != "" {
+		tmpAddr := unlock(w, coinBaseAddr)
 		coinbase = &tmpAddr
 	}
 
@@ -784,6 +781,15 @@ func unlockAddr(w *wallet.Manager, passwd string, priKey string) types.Address {
 	w.KeystoreManager.Unlock(addr, passwd, 0)
 	//wLog.Info("unlock address", "address", addr.String(), "r", err)
 	return addr
+}
+
+func unlock(w *wallet.Manager, addr string) types.Address {
+	addresses, _ := types.HexToAddress(addr)
+	err := w.KeystoreManager.Unlock(addresses, password, 0)
+	if err != nil {
+		log.Error("unlock fail.", "err", err, "address", addresses)
+	}
+	return addresses
 }
 
 func unlockAll(w *wallet.Manager) []types.Address {
