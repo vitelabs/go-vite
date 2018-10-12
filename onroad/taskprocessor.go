@@ -43,7 +43,7 @@ func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskPr
 }
 
 func (tp *ContractTaskProcessor) Start() {
-	tp.log.Info("Start()", "current status", tp.status)
+	tp.log.Info("Start() t", "current status", tp.status)
 	tp.statusMutex.Lock()
 	defer tp.statusMutex.Unlock()
 	if tp.status != Start {
@@ -57,11 +57,11 @@ func (tp *ContractTaskProcessor) Start() {
 
 		tp.status = Start
 	}
-	tp.log.Info("end start")
+	tp.log.Info("end start t")
 }
 
 func (tp *ContractTaskProcessor) Stop() {
-	tp.log.Info("Stop()", "current status", tp.status)
+	tp.log.Info("Stop() t", "current status", tp.status)
 	tp.statusMutex.Lock()
 	defer tp.statusMutex.Unlock()
 	if tp.status == Start {
@@ -74,7 +74,7 @@ func (tp *ContractTaskProcessor) Stop() {
 		close(tp.wakeup)
 
 		tp.status = Stop
-		tp.log.Info("stopped")
+		tp.log.Info("stopped t")
 	}
 }
 
@@ -85,43 +85,42 @@ func (tp *ContractTaskProcessor) WakeUp() {
 }
 
 func (tp *ContractTaskProcessor) work() {
-	tp.log.Info("work()")
+	tp.log.Info("work() t")
 LOOP:
 	for {
-		if tp.isTimeout() {
-			break
-		}
-
 		tp.isSleeping = false
 		if tp.status == Stop {
 			break
 		}
-
+		tp.log.Debug("pre popContractTask")
 		task := tp.worker.popContractTask()
+		tp.log.Debug("after popContractTask")
 		if task != nil {
-			tp.log.Debug("task in work " + task.Addr.String())
+			tp.log.Debug("pre processOneAddress " + task.Addr.String())
 			tp.processOneAddress(task)
+			tp.log.Debug("after processOneAddress " + task.Addr.String())
 			continue
 		}
 
 		tp.isSleeping = true
+		tp.log.Info("start sleep t")
 		select {
 		case <-tp.wakeup:
-			tp.log.Info("start awake")
+			tp.log.Info("start awake t")
 		case <-tp.breaker:
-			tp.log.Info("worker broken")
+			tp.log.Info("worker broken t")
 			break LOOP
 		}
 	}
 
-	tp.log.Info("work end called ")
+	tp.log.Info("work end called t ")
 	tp.stopListener <- struct{}{}
-	tp.log.Info("work end")
+	tp.log.Info("work end t")
 }
 
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
-	blockList, e := tp.worker.manager.uAccess.GetOnroadBlocks(0, 0, 1, &task.Addr)
+	blockList, e := tp.worker.manager.uAccess.GetOnroadBlocks(0, 1, 1, &task.Addr)
 	if e != nil {
 		tp.log.Error("GetOnroadBlocks ", "e", e)
 		return

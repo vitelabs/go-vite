@@ -109,7 +109,7 @@ func (w *AutoReceiveWorker) startWork() {
 LOOP:
 	for {
 		w.isSleeping = false
-		if w.Status() == Stop {
+		if w.status == Stop {
 			break
 		}
 

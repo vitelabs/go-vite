@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
+	"sync"
 )
 
 type ContractWorker struct {
@@ -40,7 +41,7 @@ type ContractWorker struct {
 }
 
 func NewContractWorker(manager *Manager, accEvent producerevent.AccountStartEvent) *ContractWorker {
-	return &ContractWorker{
+	worker := &ContractWorker{
 		manager:     manager,
 		uBlocksPool: manager.onroadBlocksPool,
 
@@ -51,10 +52,15 @@ func NewContractWorker(manager *Manager, accEvent producerevent.AccountStartEven
 		status:  Create,
 		isSleep: false,
 
-		contractTaskProcessors: make([]*ContractTaskProcessor, ContractTaskProcessorSize),
-		blackList:              make(map[types.Address]bool),
-		log:                    slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid),
+		blackList: make(map[types.Address]bool),
+		log:       slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid),
 	}
+	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
+	for i, _ := range processors {
+		processors[i] = NewContractTaskProcessor(worker, i)
+	}
+	worker.contractTaskProcessors = processors
+	return worker
 }
 
 func (w *ContractWorker) Start() {
@@ -103,8 +109,7 @@ func (w *ContractWorker) Start() {
 			w.NewOnroadTxAlarm()
 		})
 
-		for i, v := range w.contractTaskProcessors {
-			v = NewContractTaskProcessor(w, i)
+		for _, v := range w.contractTaskProcessors {
 			v.Start()
 		}
 
@@ -137,15 +142,11 @@ func (w *ContractWorker) Stop() {
 		w.log.Info("stop all task")
 		wg := new(sync.WaitGroup)
 		for _, v := range w.contractTaskProcessors {
-			if v == nil {
-				w.log.Error("v is nil. stop")
-				continue
-			}
 			wg.Add(1)
-			go func(v2 *ContractTaskProcessor) {
-				v2.Stop()
+			go func() {
+				v.Stop()
 				wg.Done()
-			}(v)
+			}()
 		}
 		wg.Wait()
 		w.log.Info("all task stopped")
@@ -159,23 +160,30 @@ func (w *ContractWorker) waitingNewBlock() {
 LOOP:
 	for {
 		w.isSleep = false
-		if w.Status() == Stop {
+		if w.status == Stop {
 			break
 		}
-
+		w.log.Info("before RLock")
 		w.ctpMutex.RLock()
 		if w.contractTaskPQueue.Len() != 0 {
 			w.ctpMutex.RUnlock()
+			w.log.Info("after  RLock v0")
 			for _, v := range w.contractTaskProcessors {
 				if v == nil {
 					w.log.Error("v is nil. wakeup")
 					continue
 				}
+				w.log.Info("before WakeUp")
 				v.WakeUp()
+				w.log.Info("after WakeUp")
 			}
+		} else {
+			w.ctpMutex.RUnlock()
 		}
+		w.log.Info("after  RLock before sleep")
 
 		w.isSleep = true
+		w.log.Info("start sleep c")
 		select {
 		case <-w.newOnroadTxAlarm:
 			w.log.Info("newOnroadTxAlarm start awake")
@@ -209,6 +217,7 @@ func (w *ContractWorker) getAndSortAllAddrQuota() error {
 }
 
 func (w *ContractWorker) NewOnroadTxAlarm() {
+	w.log.Info("NewOnroadTxAlarm", "isSleep", w.isSleep)
 	if w.isSleep {
 		w.newOnroadTxAlarm <- struct{}{}
 	}

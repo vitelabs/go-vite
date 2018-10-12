@@ -24,7 +24,7 @@ func (b *HashHeight) Proto() *vitepb.BlockID {
 
 func (b *HashHeight) DeProto(pb *vitepb.BlockID) {
 	copy(b.Hash[:], pb.Hash)
-	b.Height = b.Height
+	b.Height = pb.Height
 }
 
 func (b *HashHeight) Serialize() ([]byte, error) {

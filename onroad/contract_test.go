@@ -24,12 +24,16 @@ func TestContractWorker_Start(t *testing.T) {
 	worker.Start()
 
 	time.AfterFunc(10*time.Second, func() {
-		fmt.Println("NewOnroadTxAlarm 1")
-		worker.NewOnroadTxAlarm()
-		time.AfterFunc(10*time.Second, func() {
-			fmt.Println("NewOnroadTxAlarm 2")
-			worker.NewOnroadTxAlarm()
-		})
+		fmt.Println("test stop")
+		worker.Stop()
+		fmt.Println("test stop end")
+
+		//fmt.Println("NewOnroadTxAlarm 1")
+		//worker.NewOnroadTxAlarm()
+		//time.AfterFunc(10*time.Second, func() {
+		//	fmt.Println("NewOnroadTxAlarm 2")
+		//	worker.NewOnroadTxAlarm()
+		//})
 	})
 
 	time.Sleep(5 * time.Minute)

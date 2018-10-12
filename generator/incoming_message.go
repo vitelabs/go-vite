@@ -116,5 +116,4 @@ type ConsensusMessage struct {
 	SnapshotHash types.Hash
 	Timestamp    time.Time
 	Producer     types.Address
-	gid          types.Gid
 }

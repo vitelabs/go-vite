@@ -1,18 +1,22 @@
 package net
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"time"
 )
 
 type broadcaster struct {
 	peers *peerSet
+	log   log15.Logger
 }
 
 func newBroadcaster(peers *peerSet) *broadcaster {
 	return &broadcaster{
 		peers: peers,
+		log:   log15.New("module", "net/broadcaster"),
 	}
 }
 
@@ -23,6 +27,8 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	for _, peer := range peers {
 		peer.SendNewSnapshotBlock(block)
 	}
+
+	b.log.Info(fmt.Sprintf("broadcast NewSnapshotBlock %s to %d peers", block.Hash, len(peers)))
 
 	monitor.LogDuration("net/broadcast", "s", time.Now().Sub(t).Nanoseconds())
 }
@@ -40,6 +46,8 @@ func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 	for _, peer := range peers {
 		peer.SendNewAccountBlock(block)
 	}
+
+	b.log.Info(fmt.Sprintf("broadcast NewAccountBlock %s to %d peers", block.Hash, len(peers)))
 
 	monitor.LogDuration("net/broadcast", "a", time.Now().Sub(t).Nanoseconds())
 }

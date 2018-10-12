@@ -167,7 +167,7 @@ func (self *snapshotPool) snapshotTryInsert() (*poolSnapshotVerifyStat, commonBl
 	self.pool.RLock()
 	defer self.pool.RUnLock()
 	self.rMu.Lock()
-	defer self.rMu.Lock()
+	defer self.rMu.Unlock()
 
 	pool := self.chainpool
 	current := pool.current
