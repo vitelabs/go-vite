@@ -60,6 +60,7 @@ func (self *tools) generateSnapshot(e *consensus.Event) (*ledger.SnapshotBlock, 
 }
 func (self *tools) insertSnapshot(block *ledger.SnapshotBlock) error {
 	// todo insert pool ?? dead lock
+	self.log.Info("insert snapshot block.", "block", block)
 	return self.pool.AddDirectSnapshotBlock(block)
 }
 

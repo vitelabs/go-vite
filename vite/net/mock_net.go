@@ -2,6 +2,7 @@ package net
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 )
 
@@ -26,6 +27,7 @@ func mock() Net {
 	pool := newRequestPool()
 	broadcaster := &broadcaster{
 		peers: peers,
+		log:   log15.New("module", "mocknet/broadcaster"),
 	}
 	filter := &filter{
 		records: make(map[types.Hash]*record),

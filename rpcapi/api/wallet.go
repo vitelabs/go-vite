@@ -3,6 +3,9 @@ package api
 import (
 	"encoding/hex"
 	"errors"
+	"math/big"
+	"time"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
@@ -12,8 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet/keystore"
-	"math/big"
-	"time"
 )
 
 type HexSignedTuple struct {
@@ -29,6 +30,7 @@ type CreateTransferTxParms struct {
 	Passphrase  string
 	Amount      string
 	Data        []byte
+	Difficulty  *big.Int
 }
 
 type IsMayValidKeystoreFileResponse struct {
@@ -168,7 +170,7 @@ func (m *WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 		preHash = block.Hash
 	}
 
-	nonce := pow.GetPowNonce(nil, types.DataListHash(params.SelfAddr[:], preHash[:]))
+	nonce := pow.GetPowNonce(params.Difficulty, types.DataListHash(params.SelfAddr[:], preHash[:]))
 
 	msg := &generator.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,

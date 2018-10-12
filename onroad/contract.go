@@ -2,11 +2,12 @@ package onroad
 
 import (
 	"container/heap"
+	"sync"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"sync"
 )
 
 type ContractWorker struct {

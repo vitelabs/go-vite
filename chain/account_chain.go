@@ -2,12 +2,13 @@ package chain
 
 import (
 	"errors"
+	"math/big"
+
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
 )
 
 type BlockMapQueryParam struct {
@@ -441,6 +442,9 @@ func (c *chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 
 		c.log.Error("Query latest block failed. Error is "+glErr.Error(), "method", "GetAccountBlocksByAddress")
 		return nil, glErr
+	}
+	if latestBlock == nil {
+		return nil, nil
 	}
 
 	if latestBlock == nil {

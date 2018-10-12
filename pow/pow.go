@@ -12,7 +12,7 @@ import (
 // average 2.17099039203e+10 max 73782690184 min 641170149 sum 217099039203 standard deviation 2.0826136795592163e+10
 const (
 	// TODO hack!!!!!! 0xffffffffffffffff
-	FullThreshold = 0x0000000000000000
+	FullThreshold = 0xffffffc000000000
 )
 
 // data = Hash(address + prehash); data + nonce < target.
@@ -48,7 +48,11 @@ func prepareData(difficulty *big.Int, data []byte, nonce []byte) ([]byte, [8]byt
 }
 
 func getThresholdByDifficulty(difficulty *big.Int) uint64 {
-	return FullThreshold
+	if difficulty != nil {
+		return difficulty.Uint64()
+	} else {
+		return FullThreshold
+	}
 }
 
 func QuickInc(x []byte) []byte {
