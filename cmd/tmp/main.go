@@ -18,8 +18,10 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
@@ -439,6 +441,36 @@ func main() {
 				}
 			},
 		})
+
+		autoCmd.AddCmd(&ishell.Cmd{
+			Name: "getQuota",
+			Help: "get quota",
+			Func: func(c *ishell.Context) {
+				if node == nil {
+					c.Println("node should be stopped.")
+					return
+				}
+				if coinbase == nil {
+					c.Println("please set coinBase.")
+					return
+				}
+				c.ShowPrompt(false)
+				defer c.ShowPrompt(true)
+				c.Print("to Address: ")
+				to := contracts.AddressPledge
+
+				c.Print("to Amount: ")
+				amount, _ := strconv.Atoi(c.ReadLine())
+
+				err := transferPledge(node, *coinbase, to)
+				if err != nil {
+					c.Println("send quota pledge fail.", err, coinbase.String(), to.String())
+				} else {
+					c.Println("send quota pledge success.", coinbase.String(), to.String(), amount)
+				}
+			},
+		})
+
 		autoCmd.AddCmd(&ishell.Cmd{
 			Name: "autoReceive",
 			Help: "auto receive tx.",
@@ -566,7 +598,7 @@ func main() {
 				c.Printf("-----snapshot blocks-----\n")
 				c.Println("Height\tHash\tPrevHash\tAccountLen\tTime")
 				head := node.Chain().GetLatestSnapshotBlock()
-				blocks, _ := node.Chain().GetSnapshotBlocksByHeight(1, head.Height, true, false)
+				blocks, _ := node.Chain().GetSnapshotBlocksByHeight(1, head.Height, true, true)
 				for _, b := range blocks {
 					c.Printf("%d\t%s\t%s\t%d\t%s\t%s\n", b.Height, b.Hash, b.PrevHash, len(b.SnapshotContent), b.Timestamp.Format("2018-01-01 15:04:05"), b.Producer())
 				}
@@ -791,6 +823,27 @@ func transfer(vite *vite.Vite, from types.Address, to types.Address, amount *big
 		Amount:      amount.String(),
 		Data:        nil,
 		Difficulty:  new(big.Int).SetUint64(0x000000000),
+	}
+	err := api.NewWalletApi(vite).CreateTxWithPassphrase(parms)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func transferPledge(vite *vite.Vite, from types.Address, to types.Address) error {
+	difficulty := new(big.Int).SetUint64(pow.FullThreshold)
+	if printQuota(vite, from).Sign() > 0 {
+		difficulty = new(big.Int).SetUint64(0x00)
+	}
+	byt, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, from)
+	parms := api.CreateTransferTxParms{
+		SelfAddr:    from,
+		ToAddr:      to,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)).String(),
+		Data:        byt,
+		Difficulty:  difficulty,
 	}
 	err := api.NewWalletApi(vite).CreateTxWithPassphrase(parms)
 	if err != nil {

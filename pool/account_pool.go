@@ -23,7 +23,6 @@ type accountPool struct {
 	v             *accountVerifier
 	f             *accountSyncer
 	receivedIndex sync.Map
-	log           log15.Logger
 	pool          *pool
 }
 
@@ -55,7 +54,7 @@ func newAccountPool(name string, rw *accountCh, v *ForkVersion, log log15.Logger
 	pool.rw = rw
 	pool.version = v
 	pool.loopTime = time.Now()
-	pool.log = log.New("name", name)
+	pool.log = log.New("account", name)
 	return pool
 }
 

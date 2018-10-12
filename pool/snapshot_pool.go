@@ -58,7 +58,7 @@ func newSnapshotPool(
 	pool.rw = rw
 	pool.v = v
 	pool.f = f
-	pool.log = log.New("name", name)
+	pool.log = log.New("snapshotPool", name)
 	return pool
 }
 
