@@ -72,7 +72,7 @@ func TestSignAndVerify(t *testing.T) {
 func TestManager_ImportPriv2(t *testing.T) {
 	kp := NewManager(filepath.Join(common.DefaultDataDir(), "wallet"))
 	kp.Init()
-	hexPri := "ab565d7d8819a3548dbdae8561796ccb090692086ff7d5a47eb7b034497cabe73af9a47a11140c681c2b2a85a4ce987fab0692589b2ce233bf7e174bd430177a"
+	hexPri := "prikey"
 	key, e := kp.ImportPriv(hexPri, "123456")
 	if e != nil {
 		println(e.Error())
@@ -82,7 +82,7 @@ func TestManager_ImportPriv2(t *testing.T) {
 }
 
 func TestManager_ImportPrivIntoTestWallet(t *testing.T) {
-	hexPri := "ab565d7d8819a3548dbdae8561796ccb090692086ff7d5a47eb7b034497cabe73af9a47a11140c681c2b2a85a4ce987fab0692589b2ce233bf7e174bd430177a"
+	hexPri := "prikey"
 
 	path := filepath.Join(common.DefaultDataDir(), "testwallet")
 	kp := NewManager(path)

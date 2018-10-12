@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
 	"strconv"
+	"time"
 )
 
 type AccountBlock struct {
@@ -19,6 +20,8 @@ type AccountBlock struct {
 
 	Amount string `json:"amount"`
 	Fee    string `json:"fee"`
+
+	Timestamp int64 `json:"timestamp"`
 
 	ConfirmedTimes string        `json:"confirmedTimes"`
 	TokenInfo      *RpcTokenInfo `json:"tokenInfo"`
@@ -44,6 +47,9 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 	}
 	lAb.Fee, parseSuccess = new(big.Int).SetString(ab.Fee, 10)
 
+	t := time.Unix(ab.Timestamp, 0)
+	lAb.Timestamp = &t
+
 	if !parseSuccess {
 		return nil, errors.New("parse fee failed")
 	}
@@ -61,6 +67,10 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.Token
 		Fee:            "0",
 		TokenInfo:      RawTokenInfoToRpc(token, ledgerBlock.TokenId),
 		ConfirmedTimes: strconv.FormatUint(confirmedTimes, 10),
+	}
+
+	if ledgerBlock.Timestamp != nil {
+		ab.Timestamp = ledgerBlock.Timestamp.Unix()
 	}
 
 	if token != nil {

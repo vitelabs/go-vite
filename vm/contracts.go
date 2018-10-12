@@ -68,15 +68,17 @@ func isPrecompiledContractAddress(addr types.Address) bool {
 	_, ok := simpleContracts[addr]
 	return ok
 }
-func getPrecompiledContract(addr types.Address, methodSelector []byte) (precompiledContractMethod, bool) {
+func getPrecompiledContract(addr types.Address, methodSelector []byte) (precompiledContractMethod, bool, error) {
 	p, ok := simpleContracts[addr]
 	if ok {
 		if method, err := p.abi.MethodById(methodSelector); err == nil {
 			c, ok := p.m[method.Name]
-			return c, ok
+			return c, ok, nil
+		} else {
+			return nil, ok, err
 		}
 	}
-	return nil, false
+	return nil, false, nil
 }
 
 type pRegister struct {
