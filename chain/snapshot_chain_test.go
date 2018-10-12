@@ -95,6 +95,20 @@ func TestGetSnapshotBlockByHash(t *testing.T) {
 func TestGetLatestSnapshotBlock(t *testing.T) {
 	chainInstance := getChainInstance()
 	block := chainInstance.GetLatestSnapshotBlock()
+	newSb, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(newSb)
+	fmt.Printf("%+v\n", block)
+	newSb2, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(newSb2)
+	fmt.Printf("%+v\n", block)
+	newSb3, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(newSb3)
+	fmt.Printf("%+v\n", block)
+	newSb4, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(newSb4)
+	fmt.Printf("%+v\n", block)
+	newSb5, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(newSb5)
 	fmt.Printf("%+v\n", block)
 }
 
@@ -179,7 +193,18 @@ func TestGetSnapshotBlockBeforeTime(t *testing.T) {
 	nocreate := 0
 	latestBlock = chainInstance.GetLatestSnapshotBlock()
 	t.Logf("latestBlockHeight is %d", latestBlock.Height)
+	go func() {
+		for i := 0; i < 1000; i++ {
+			newSb, _ := newSnapshotBlock()
+			ts := now.Add(time.Duration(i+100) * time.Second)
+			newSb.Timestamp = &ts
+
+			chainInstance.InsertSnapshotBlock(newSb)
+		}
+
+	}()
 	for i := 1; i <= count; i++ {
+
 		offset = createdBlockLen - (i - 1 - nocreate)
 		ts := now.Add(time.Duration(i) * time.Second)
 		block, err2 := chainInstance.GetSnapshotBlockBeforeTime(&ts)
@@ -199,6 +224,7 @@ func TestGetSnapshotBlockBeforeTime(t *testing.T) {
 		if i%20 == 0 {
 			nocreate++
 		}
+		time.Sleep(time.Millisecond)
 	}
 
 	//time3 := GenesisSnapshotBlock.Timestamp.Add(time.Second * 100)

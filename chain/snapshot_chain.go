@@ -234,11 +234,13 @@ func (c *chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error) {
 	for {
 		if end.Height-start.Height <= 1 {
-			var err error
-			start.SnapshotContent, err = c.chainDb.Sc.GetSnapshotContent(start.Height)
-			if err != nil {
-				c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
-				return nil, err
+			if start.SnapshotContent == nil {
+				var err error
+				start.SnapshotContent, err = c.chainDb.Sc.GetSnapshotContent(start.Height)
+				if err != nil {
+					c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
+					return nil, err
+				}
 			}
 			return start, nil
 		}
