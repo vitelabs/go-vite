@@ -31,8 +31,7 @@ const HistoryFile = "history"
 // DefaultPrompt is the default prompt line prefix to use for user input querying.
 const DefaultPrompt = "-> "
 
-// Config is the collection of configurations to fine tune the behavior of the
-// JavaScript console.
+// Config is the collection of configurations to fine tune the behavior of the JavaScript console.
 type Config struct {
 	DataDir  string       // Data directory to store the console history at
 	Client   *rpc.Client  // RPC client to execute Vite requests through
@@ -43,9 +42,7 @@ type Config struct {
 	Prompter UserPrompter // Input prompter to allow interactive user feedback (defaults to TerminalPrompter)
 }
 
-// Console is a JavaScript interpreted runtime environment. It is a fully fledged
-// JavaScript console attached to a running node via an external or in-process RPC
-// client.
+// Console is a JavaScript interpreted runtime environment. It is a fully fledged JavaScript console attached to a running node via an external or in-process RPC client.
 type Console struct {
 	client   *rpc.Client  // RPC client to execute Vite requests through
 	jsre     *jsre.JSRE   // JavaScript runtime environment running the interpreter
@@ -242,8 +239,7 @@ func (c *Console) Welcome() {
 	fmt.Fprintln(c.printer)
 }
 
-// Evaluate executes code and pretty prints the result to the specified output
-// stream.
+// Evaluate executes code and pretty prints the result to the specified output stream.
 func (c *Console) Evaluate(statement string) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -408,8 +404,7 @@ func (c *Console) clearHistory() {
 	}
 }
 
-// AutoCompleteInput is a pre-assembled word completer to be used by the user
-// input prompter to provide hints to the user about the methods available.
+// AutoCompleteInput is a pre-assembled word completer to be used by the user input prompter to provide hints to the user about the methods available.
 func (c *Console) AutoCompleteInput(line string, pos int) (string, []string, string) {
 	// No completions can be provided for empty inputs
 	if len(line) == 0 || pos == 0 {

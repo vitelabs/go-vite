@@ -1,19 +1,3 @@
-// Copyright 2016 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
 package console
 
 import (
@@ -30,12 +14,11 @@ import (
 )
 
 var (
-	log                = log15.New("module", "vite")
+	log                = log15.New("module", "js-bridge")
 	ErrTrezorPINNeeded = errors.New("trezor: pin needed")
 )
 
-// bridge is a collection of JavaScript utility methods to bride the .js runtime
-// environment and the Go RPC connection backing the remote method calls.
+// bridge is a collection of JavaScript utility methods to bride the .js runtime environment and the Go RPC connection backing the remote method calls.
 type bridge struct {
 	client   *rpc.Client  // RPC client to execute Ethereum requests through
 	prompter UserPrompter // Input prompter to allow interactive user feedback
@@ -82,15 +65,14 @@ func (b *bridge) NewAccount(call otto.FunctionCall) (response otto.Value) {
 		throwJSException("expected 0 or 1 string argument")
 	}
 	// Password acquired, execute the call and return
-	ret, err := call.Otto.Call("jeth.newAccount", nil, password)
+	ret, err := call.Otto.Call("j_vite.newAccount", nil, password)
 	if err != nil {
 		throwJSException(err.Error())
 	}
 	return ret
 }
 
-// OpenWallet is a wrapper around personal.openWallet which can interpret and
-// react to certain error messages, such as the Trezor PIN matrix request.
+// OpenWallet is a wrapper around personal.openWallet which can interpret and react to certain error messages, such as the Trezor PIN matrix request.
 func (b *bridge) OpenWallet(call otto.FunctionCall) (response otto.Value) {
 	// Make sure we have a wallet specified to open
 	if !call.Argument(0).IsString() {
@@ -105,7 +87,7 @@ func (b *bridge) OpenWallet(call otto.FunctionCall) (response otto.Value) {
 		passwd = call.Argument(1)
 	}
 	// Open the wallet and return if successful in itself
-	val, err := call.Otto.Call("jeth.openWallet", nil, wallet, passwd)
+	val, err := call.Otto.Call("j_vite.openWallet", nil, wallet, passwd)
 	if err == nil {
 		return val
 	}
@@ -126,7 +108,7 @@ func (b *bridge) OpenWallet(call otto.FunctionCall) (response otto.Value) {
 	} else {
 		passwd, _ = otto.ToValue(input)
 	}
-	if val, err = call.Otto.Call("jeth.openWallet", nil, wallet, passwd); err != nil {
+	if val, err = call.Otto.Call("j_vite.openWallet", nil, wallet, passwd); err != nil {
 		throwJSException(err.Error())
 	}
 	return val
@@ -168,7 +150,7 @@ func (b *bridge) UnlockAccount(call otto.FunctionCall) (response otto.Value) {
 		duration = call.Argument(2)
 	}
 	// Send the request to the backend and return
-	val, err := call.Otto.Call("jeth.unlockAccount", nil, account, passwd, duration)
+	val, err := call.Otto.Call("j_vite.unlockAccount", nil, account, passwd, duration)
 	if err != nil {
 		throwJSException(err.Error())
 	}
@@ -206,7 +188,7 @@ func (b *bridge) Sign(call otto.FunctionCall) (response otto.Value) {
 	}
 
 	// Send the request to the backend and return
-	val, err := call.Otto.Call("jeth.sign", nil, message, account, passwd)
+	val, err := call.Otto.Call("j_vite.sign", nil, message, account, passwd)
 	if err != nil {
 		throwJSException(err.Error())
 	}
@@ -252,7 +234,7 @@ func (b *bridge) SleepBlocks(call otto.FunctionCall) (response otto.Value) {
 	// go through the console, this will allow web3 to call the appropriate
 	// callbacks if a delayed response or notification is received.
 	blockNumber := func() int64 {
-		result, err := call.Otto.Run("eth.blockNumber")
+		result, err := call.Otto.Run("vite.blockNumber")
 		if err != nil {
 			throwJSException(err.Error())
 		}
