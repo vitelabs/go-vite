@@ -22,6 +22,7 @@ type ContractWorker struct {
 	statusMutex sync.Mutex
 
 	isSleep                bool
+	isCancel               bool
 	newOnroadTxAlarm       chan struct{}
 	breaker                chan struct{}
 	stopDispatcherListener chan struct{}
@@ -47,8 +48,9 @@ func NewContractWorker(manager *Manager, accEvent producerevent.AccountStartEven
 		address:  accEvent.Address,
 		accEvent: accEvent,
 
-		status:  Create,
-		isSleep: false,
+		status:   Create,
+		isSleep:  false,
+		isCancel: false,
 
 		blackList: make(map[types.Address]bool),
 		log:       slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid),
@@ -66,6 +68,7 @@ func (w *ContractWorker) Start() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Start {
+		w.isCancel = false
 
 		// 1. get gid`s all contract address if error happened return immediately
 		addressList, err := w.manager.uAccess.GetContractAddrListByGid(&w.gid)
@@ -126,6 +129,7 @@ func (w *ContractWorker) Stop() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status == Start {
+		w.isCancel = true
 
 		w.breaker <- struct{}{}
 		close(w.breaker)

@@ -21,6 +21,7 @@ type ContractTaskProcessor struct {
 	statusMutex sync.Mutex
 
 	isSleeping   bool
+	isCancel     bool
 	wakeup       chan struct{}
 	breaker      chan struct{}
 	stopListener chan struct{}
@@ -35,6 +36,8 @@ func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskPr
 		accEvent:   worker.accEvent,
 		blocksPool: worker.uBlocksPool,
 		status:     Create,
+		isCancel:   false,
+		isSleeping: false,
 		log:        worker.log.New("class", "tp", "taskid", index),
 	}
 
@@ -46,6 +49,7 @@ func (tp *ContractTaskProcessor) Start() {
 	tp.statusMutex.Lock()
 	defer tp.statusMutex.Unlock()
 	if tp.status != Start {
+		tp.isCancel = false
 		tp.stopListener = make(chan struct{})
 		tp.breaker = make(chan struct{})
 		tp.wakeup = make(chan struct{})
@@ -64,6 +68,7 @@ func (tp *ContractTaskProcessor) Stop() {
 	tp.statusMutex.Lock()
 	defer tp.statusMutex.Unlock()
 	if tp.status == Start {
+		tp.isCancel = true
 		tp.breaker <- struct{}{}
 		close(tp.breaker)
 
@@ -88,7 +93,7 @@ func (tp *ContractTaskProcessor) work() {
 LOOP:
 	for {
 		tp.isSleeping = false
-		if tp.status == Stop {
+		if tp.isCancel {
 			break
 		}
 		tp.log.Debug("pre popContractTask")
