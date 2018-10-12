@@ -156,6 +156,9 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 // MethodById looks up a method by the 4-byte id
 // returns nil if none found
 func (abi *ABIContract) MethodById(sigdata []byte) (*Method, error) {
+	if len(sigdata) < 4 {
+		return nil, fmt.Errorf("method id is not specified")
+	}
 	for _, method := range abi.Methods {
 		if bytes.Equal(method.Id(), sigdata[:4]) {
 			return &method, nil

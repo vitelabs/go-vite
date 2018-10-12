@@ -23,9 +23,8 @@ type VMConfig struct {
 }
 
 type NodeConfig struct {
-	IsTest      bool
-	canTransfer func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
-	calcQuota   func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64)
+	IsTest    bool
+	calcQuota func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64)
 }
 
 var nodeConfig NodeConfig
@@ -34,9 +33,6 @@ func InitVmConfig(isTest bool) {
 	if isTest {
 		nodeConfig = NodeConfig{
 			isTest,
-			func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
-				return true
-			},
 			func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
 				return 1000000, 0
 			},
@@ -44,9 +40,6 @@ func InitVmConfig(isTest bool) {
 	} else {
 		nodeConfig = NodeConfig{
 			isTest,
-			func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
-				return CanTransfer(db, addr, tokenTypeId, tokenAmount, feeAmount)
-			},
 			func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
 				return quota.CalcQuota(db, addr, pow)
 			},
@@ -127,7 +120,7 @@ func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 		return nil, ErrInvalidData
 	}
 
-	if !nodeConfig.canTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
+	if !CanTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
 		return nil, ErrInsufficientBalance
 	}
 
@@ -201,13 +194,15 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 	defer monitor.LogTime("vm", "SendCall", time.Now())
 	// check can make transaction
 	quotaLeft := quotaTotal
-	if p, ok := getPrecompiledContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
-		var err error
+	if p, ok, err := getPrecompiledContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
+		if err != nil {
+			return nil, err
+		}
 		block.AccountBlock.Fee, err = p.getFee(vm, block)
 		if err != nil {
 			return nil, err
 		}
-		if !nodeConfig.canTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
+		if !CanTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
 			return nil, ErrInsufficientBalance
 		}
 		quotaLeft, err = p.doSend(vm, block, quotaLeft)
@@ -226,7 +221,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 		if err != nil {
 			return nil, err
 		}
-		if !nodeConfig.canTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
+		if !CanTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
 			return nil, ErrInsufficientBalance
 		}
 		block.VmContext.SubBalance(&block.AccountBlock.TokenId, block.AccountBlock.Amount)
@@ -244,7 +239,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 
 func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTime("vm", "ReceiveCall", time.Now())
-	if p, ok := getPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
+	if p, ok, _ := getPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
 		vm.blockList = []*vm_context.VmAccountBlock{block}
 		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 		err := p.doReceive(vm, block, sendBlock)
