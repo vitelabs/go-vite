@@ -718,7 +718,7 @@ func TestVmForTest(t *testing.T) {
 		Height:         1,
 		AccountAddress: addr1,
 		BlockType:      ledger.BlockTypeSendCall,
-		Amount:         big.NewInt(1e18),
+		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot2.Hash,
