@@ -144,21 +144,21 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 	return
 }
 
-type peerRetry struct {
-	peers *peerSet
-}
+func splitChunk(from, to uint64) (chunks [][2]uint64) {
+	var cTo uint64
 
-func (p *peerRetry) choose(old *Peer, retryTimes int) (peer *Peer) {
-	switch retryTimes {
-	case 1:
-		return old
-	default:
-		ps := p.peers.Pick(old.height)
-		if len(ps) > 0 {
-			peer = ps[len(ps)-1]
+	for from < to {
+		if to > from+minBlocks {
+			cTo = from + minBlocks - 1
+		} else {
+			cTo = to
 		}
-		return
+
+		chunks = append(chunks, [2]uint64{from, cTo})
+		from = cTo + 1
 	}
+
+	return chunks
 }
 
 // @request for subLedger, will get FileList and Chunk
@@ -220,20 +220,24 @@ func (s *subLedgerRequest) Handle(ctx *context, pkt *p2p.Msg, peer *Peer) {
 
 		// request chunks
 		for _, chunk := range msg.Chunks {
-			if chunk[1]-chunk[0] > 0 {
-				msgId := ctx.pool.MsgID()
+			if chunk[1] > chunk[0] {
+				// maybe chunk is too large
+				cs := splitChunk(chunk[0], chunk[1])
+				for _, c := range cs {
+					msgId := ctx.pool.MsgID()
 
-				c := &chunkRequest{
-					id:         msgId,
-					from:       chunk[0],
-					to:         chunk[1],
-					peer:       peer,
-					expiration: time.Now().Add(30 * time.Second),
-					done:       s.childDone,
+					c := &chunkRequest{
+						id:         msgId,
+						from:       c[0],
+						to:         c[1],
+						peer:       peer,
+						expiration: time.Now().Add(30 * time.Second),
+						done:       s.childDone,
+					}
+					s.chunks = append(s.chunks, c)
+
+					ctx.pool.Add(c)
 				}
-				s.chunks = append(s.chunks, c)
-
-				ctx.pool.Add(c)
 			}
 		}
 	} else {

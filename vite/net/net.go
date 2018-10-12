@@ -29,7 +29,7 @@ const DefaultPort uint16 = 8484
 
 type net struct {
 	*Config
-	peers     *peerSet
+	peers *peerSet
 	*syncer
 	*fetcher
 	*broadcaster
@@ -92,8 +92,8 @@ func New(cfg *Config) Net {
 
 	n.addHandler(_statusHandler(statusHandler))
 	n.addHandler(&getSubLedgerHandler{cfg.Chain})
-	n.addHandler(&getSnapshotBlocksHandler{cfg.Chain})
-	n.addHandler(&getAccountBlocksHandler{cfg.Chain})
+	n.addHandler(&getSnapshotBlocksHandler{cfg.Chain, log15.New("module", "net/getSblocks")})
+	n.addHandler(&getAccountBlocksHandler{cfg.Chain, log15.New("module", "net/getAblocks")})
 	n.addHandler(&getChunkHandler{cfg.Chain})
 	n.addHandler(pool)     // FileListCode, SubLedgerCode, ExceptionCode
 	n.addHandler(receiver) // NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode
