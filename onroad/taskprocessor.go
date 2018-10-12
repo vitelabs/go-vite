@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
@@ -39,7 +40,7 @@ func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskPr
 		status:     Create,
 		isCancel:   false,
 		isSleeping: false,
-		log:        worker.log.New("class", "tp", "taskid", index),
+		log:        slog.New("tp", index, "worker", worker.address),
 	}
 
 	return task
@@ -79,8 +80,8 @@ func (tp *ContractTaskProcessor) Stop() {
 		close(tp.wakeup)
 
 		tp.status = Stop
-		tp.log.Info("stopped t")
 	}
+	tp.log.Info("stopped t")
 }
 
 func (tp *ContractTaskProcessor) WakeUp() {
@@ -95,6 +96,7 @@ LOOP:
 	for {
 		tp.isSleeping = false
 		if tp.isCancel {
+			tp.log.Info("found cancel true")
 			break
 		}
 		tp.log.Debug("pre popContractTask")
@@ -108,7 +110,7 @@ LOOP:
 		}
 
 		tp.isSleeping = true
-		tp.log.Info("start sleep t")
+		tp.log.Debug("start sleep t")
 		select {
 		case <-tp.wakeup:
 			tp.log.Info("start awake t")
@@ -124,10 +126,12 @@ LOOP:
 }
 
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
+	plog := tp.log.New("method", "processOneAddress")
 
+	plog.Debug("task addr" + task.Addr.String())
 	blockList, e := tp.worker.manager.uAccess.GetOnroadBlocks(0, 1, 1, &task.Addr)
 	if e != nil {
-		tp.log.Error("GetOnroadBlocks ", "e", e)
+		plog.Error("GetOnroadBlocks ", "e", e)
 		return
 	}
 
@@ -137,19 +141,18 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
 	sBlock := blockList[0]
 
-	tp.log.Info("Process to make the receiveBlock, its'sendBlock detail:", "hash", sBlock.Hash)
+	plog.Info(fmt.Sprintf("get %v blocks, the first Hash is %v", len(blockList), sBlock.Hash), "addr", sBlock.ToAddress)
 
 	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
-		tp.log.Info("addIntoBlackList")
+		plog.Info("checkExistInPool true")
 		// Don't deal with it for the time being
 		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
 
-	gen, err := generator.NewGenerator(tp.worker.manager.Chain(),
-		&tp.accEvent.SnapshotHash, nil, &sBlock.ToAddress)
+	gen, err := generator.NewGenerator(tp.worker.manager.Chain(), &tp.accEvent.SnapshotHash, nil, &sBlock.ToAddress)
 	if err != nil {
-		tp.log.Error("NewGenerator failed", "error", err)
+		plog.Error("NewGenerator failed", "error", err)
 		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
@@ -165,21 +168,24 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 			return tp.worker.manager.keystoreManager.SignData(addr, data)
 		})
 	if err != nil {
-		tp.log.Error("GenerateWithOnroad failed", "error", err)
+		plog.Error("GenerateWithOnroad failed", "error", err)
 		return
 	}
 
 	if genResult.Err != nil {
-		tp.log.Error("vm.Run error, ignore", "err", genResult.Err)
+		plog.Error("vm.Run error, ignore", "err", genResult.Err)
 	}
 
+	plog.Info(fmt.Sprintf("len(genResult.BlockGenList) = %v", len(blockList)))
 	if len(genResult.BlockGenList) > 0 {
 		if err := tp.worker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
+			plog.Error("insertContractBlocksToPool", "err", err)
 			tp.worker.addIntoBlackList(task.Addr)
 			return
 		}
 
 		if genResult.IsRetry {
+			plog.Error("genResult.IsRetry true")
 			tp.worker.addIntoBlackList(task.Addr)
 			return
 		}
@@ -191,17 +197,20 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		}
 
 		if task.Quota > 0 {
+			plog.Info(fmt.Sprintf("task.Quota remain %v", task.Quota))
 			tp.worker.pushContractTask(task)
 		}
 
 	} else {
 		if genResult.IsRetry {
 			// retry it in next turn
+			plog.Error("genResult.IsRetry true")
 			tp.worker.addIntoBlackList(task.Addr)
 			return
 		}
 
 		if err := tp.blocksPool.DeleteDirect(sBlock); err != nil {
+			plog.Error("blocksPool.DeleteDirect", "err", err)
 			tp.worker.addIntoBlackList(task.Addr)
 			return
 		}

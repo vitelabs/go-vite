@@ -117,6 +117,7 @@ LOOP:
 	for {
 		w.isSleeping = false
 		if w.isCancel {
+			w.log.Info("found cancel true")
 			break
 		}
 

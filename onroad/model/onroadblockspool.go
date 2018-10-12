@@ -16,6 +16,13 @@ import (
 var (
 	fullCacheExpireTime   = 2 * time.Minute
 	simpleCacheExpireTime = 20 * time.Minute
+
+	initRegisterContracts = []types.Address{
+		contracts.AddressMintage,
+		contracts.AddressPledge,
+		contracts.AddressRegister,
+		contracts.AddressVote,
+		contracts.AddressConsensusGroup}
 )
 
 // obtaining the account info from cache or db and manage the cache lifecycle
@@ -206,17 +213,10 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 	syncOnce := &sync.Once{}
 	syncOnce.Do(func() {
 		var onceErr error
-		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressMintage); onceErr != nil {
-			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressMintage)
-		}
-		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressPledge); onceErr != nil {
-			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressPledge)
-		}
-		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressRegister); onceErr != nil {
-			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressRegister)
-		}
-		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressVote); onceErr != nil {
-			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressVote)
+		for _, v := range initRegisterContracts {
+			if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, v); onceErr != nil {
+				p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", v)
+			}
 		}
 	})
 
