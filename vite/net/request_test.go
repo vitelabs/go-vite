@@ -29,3 +29,20 @@ func TestSplitSubLedgerSmall(t *testing.T) {
 		fmt.Println(c.from, c.to, c.peer.height)
 	}
 }
+
+func TestSplitChunk(t *testing.T) {
+	cs := splitChunk(0, 30000)
+
+	total := 30000/minBlocks + 1
+
+	if uint64(len(cs)) != total {
+		t.Fail()
+	}
+
+	for _, c := range cs {
+		fmt.Println(c[0], c[1])
+		if c[1] > c[0]+minBlocks {
+			t.Fail()
+		}
+	}
+}

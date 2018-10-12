@@ -43,6 +43,8 @@ func TestWallet(t *testing.T) {
 
 	vite, err := startVite(w, password, t)
 
+	vite.Net().Status()
+
 	waApi := NewWalletApi(vite)
 	onRoadApi := NewPrivateOnroadApi(vite.OnRoad())
 

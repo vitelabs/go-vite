@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -234,81 +233,6 @@ func (c *chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 
 func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error) {
 	for {
-		if start.Height == end.Height {
-			return end, nil
-		} else if end.Height-start.Height == 1 {
-			if start.Timestamp.Before(*blockCreatedTime) {
-				return start, nil
-			}
-			return nil, nil
-		}
-
-		middle := start.Height + (end.Height-start.Height)/2
-
-		block, err := c.chainDb.Sc.GetSnapshotBlock(middle, false)
-		if err != nil {
-			c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
-			return nil, err
-		}
-
-		if middle <= 1 {
-			if block.Timestamp.Before(*blockCreatedTime) {
-				return block, nil
-			}
-			return nil, nil
-		}
-
-		prevBlock, err := c.chainDb.Sc.GetSnapshotBlock(middle-1, false)
-
-		if err != nil {
-			c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
-			return nil, err
-		}
-
-		if block.Timestamp.Before(*blockCreatedTime) {
-			start = block
-		} else if prevBlock.Timestamp.After(*blockCreatedTime) || prevBlock.Timestamp.Equal(*blockCreatedTime) {
-			end = prevBlock
-		} else {
-			return prevBlock, nil
-		}
-	}
-}
-
-func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error) {
-
-	//optimize
-	latestBlock := c.GetLatestSnapshotBlock()
-	if latestBlock.Timestamp.Before(*blockCreatedTime) {
-		return latestBlock, nil
-	}
-
-	if GenesisSnapshotBlock.Timestamp.After(*blockCreatedTime) {
-		return nil, nil
-	}
-
-	if SecondSnapshotBlock.Timestamp.After(*blockCreatedTime) {
-		return &GenesisSnapshotBlock, nil
-	}
-
-	thirdSnapshotBlock, err := c.GetSnapshotBlockByHeight(3)
-	if err != nil {
-		c.log.Error("GetSnapshotBlockByHeight failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
-		return nil, err
-	}
-
-	if thirdSnapshotBlock.Timestamp.After(*blockCreatedTime) {
-		return &SecondSnapshotBlock, nil
-	}
-
-	// normal logic
-	blockCreatedUnixTime := blockCreatedTime.Unix()
-
-	start := thirdSnapshotBlock
-	end := latestBlock
-	return c.binarySearchBeforeTime(start, end, blockCreatedTime)
-
-	for {
 		if end.Height-start.Height <= 1 {
 			var err error
 			start.SnapshotContent, err = c.chainDb.Sc.GetSnapshotContent(start.Height)
@@ -316,43 +240,54 @@ func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger
 				c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
 				return nil, err
 			}
-
 			return start, nil
 		}
-		if end.Timestamp.Before(*start.Timestamp) {
-			err := errors.New("end.Timestamp.Before(start.Timestamp)")
-			return nil, err
+
+		gap := uint64(end.Timestamp.Sub(*blockCreatedTime).Seconds())
+		middle := uint64(0)
+		// suppose one snapshot block per second
+		if end.Height > gap {
+			middle = end.Height - gap
+		}
+		if middle <= start.Height {
+			middle = start.Height + (end.Height-start.Height)/2
 		}
 
-		nextEdgeHeight := start.Height + 1
-
-		step := uint64(end.Timestamp.Unix()-start.Timestamp.Unix()) / (end.Height - start.Height)
-
-		if step != 0 {
-			startHeightGap := uint64(blockCreatedUnixTime-start.Timestamp.Unix()) / step
-			endHeightGap := uint64(end.Timestamp.Unix()-blockCreatedUnixTime) / step
-
-			// The set of snapshot block created time is not average in the time interval
-			if endHeightGap == 0 || startHeightGap == 0 {
-				return c.binarySearchBeforeTime(start, end, blockCreatedTime)
-			}
-			nextEdgeHeight = start.Height + startHeightGap
-
-		}
-
-		nextEdge, err := c.chainDb.Sc.GetSnapshotBlock(nextEdgeHeight, false)
-
+		block, err := c.chainDb.Sc.GetSnapshotBlock(middle, false)
 		if err != nil {
 			c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
 			return nil, err
 		}
 
-		if nextEdge.Timestamp.After(*blockCreatedTime) || nextEdge.Timestamp.Equal(*blockCreatedTime) {
-			end = nextEdge
+		prevBlock, err := c.chainDb.Sc.GetSnapshotBlock(middle-1, false)
+		if err != nil {
+			c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
+			return nil, err
+		}
+
+		if block.Timestamp.Before(*blockCreatedTime) {
+			start = block
+		} else if prevBlock.Timestamp.Before(*blockCreatedTime) {
+			start = prevBlock
+			end = block
 		} else {
-			start = nextEdge
+			end = prevBlock
 		}
 	}
+}
+
+func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error) {
+	// normal logic
+	start := c.GetGenesisSnapshotBlock()
+	end := c.GetLatestSnapshotBlock()
+	if end.Timestamp.Before(*blockCreatedTime) {
+		return end, nil
+	}
+	if start.Timestamp.After(*blockCreatedTime) {
+		return nil, nil
+	}
+
+	return c.binarySearchBeforeTime(start, end, blockCreatedTime)
 }
 
 func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {
