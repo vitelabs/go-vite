@@ -18,15 +18,20 @@ package console
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/rpc"
 	"io"
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/usbwallet"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/robertkrimen/otto"
+	"github.com/vitelabs/go-vite/log15"
+)
+
+var (
+	log                = log15.New("module", "console/bridge")
+	ErrTrezorPINNeeded = errors.New("trezor: pin needed")
 )
 
 // bridge is a collection of JavaScript utility methods to bride the .js runtime
@@ -105,7 +110,7 @@ func (b *bridge) OpenWallet(call otto.FunctionCall) (response otto.Value) {
 		return val
 	}
 	// Wallet open failed, report error unless it's a PIN entry
-	if !strings.HasSuffix(err.Error(), usbwallet.ErrTrezorPINNeeded.Error()) {
+	if !strings.HasSuffix(err.Error(), ErrTrezorPINNeeded.Error()) {
 		throwJSException(err.Error())
 	}
 	// Trezor PIN matrix input requested, display the matrix to the user and fetch the data
