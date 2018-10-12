@@ -348,6 +348,10 @@ func (c *chain) GetAccountBlockHashByHeight(addr *types.Address, height uint64) 
 		return nil, accountErr
 	}
 
+	if account == nil {
+		return nil, nil
+	}
+
 	hash, getHashErr := c.chainDb.Ac.GetHashByHeight(account.AccountId, height)
 	if getHashErr != nil {
 		c.log.Error("GetHashByHeight failed, error is "+getHashErr.Error(), "method", "GetAccountBlockHashByHeight")
@@ -362,6 +366,9 @@ func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*le
 		c.log.Error("Query account failed. Error is "+err.Error(), "method", "GetAccountBlockByHeight")
 
 		return nil, err
+	}
+	if account == nil {
+		return nil, nil
 	}
 
 	block, err := c.chainDb.Ac.GetBlockByHeight(account.AccountId, height)
