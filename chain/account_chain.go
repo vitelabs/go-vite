@@ -443,6 +443,10 @@ func (c *chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 		return nil, glErr
 	}
 
+	if latestBlock == nil {
+		return nil, nil
+	}
+
 	startHeight, endHeight := uint64(1), uint64(0)
 	if latestBlock.Height > uint64(index*count) {
 		endHeight = latestBlock.Height - uint64(index*count)
