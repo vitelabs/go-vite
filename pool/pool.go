@@ -407,9 +407,10 @@ func (self *pool) loopTryInsert() {
 			return
 		case <-t.C:
 			if sum == 0 {
-				self.accountCond.L.Lock()
-				self.accountCond.Wait()
-				self.accountCond.L.Unlock()
+				//self.accountCond.L.Lock()
+				//self.accountCond.Wait()
+				//self.accountCond.L.Unlock()
+				time.Sleep(200 * time.Millisecond)
 				monitor.LogEvent("pool", "tryInsertSleep")
 			}
 			sum = 0
@@ -454,9 +455,10 @@ func (self *pool) loopCompact() {
 			return
 		case <-t.C:
 			if sum == 0 {
-				self.accountCond.L.Lock()
-				self.accountCond.Wait()
-				self.accountCond.L.Unlock()
+				//self.accountCond.L.Lock()
+				//self.accountCond.Wait()
+				//self.accountCond.L.Unlock()
+				time.Sleep(200 * time.Millisecond)
 			}
 			sum = 0
 
@@ -548,7 +550,9 @@ func (self *pool) fetchForTask(task verifyTask) {
 		if r.snapshot {
 			exist = self.pendingSc.existInPool(r.hash)
 		} else {
-			exist = self.selfPendingAc(*r.chain).existInPool(r.hash)
+			if r.chain != nil {
+				exist = self.selfPendingAc(*r.chain).existInPool(r.hash)
+			}
 		}
 		if exist {
 			self.log.Info(fmt.Sprintf("block[%s] exist, should not fetch.", r.String()))
@@ -558,7 +562,9 @@ func (self *pool) fetchForTask(task verifyTask) {
 		if r.snapshot {
 			self.pendingSc.f.fetchByHash(r.hash, 5)
 		} else {
-			self.selfPendingAc(*r.chain).f.fetchByHash(r.hash, 5)
+			// todo
+			self.sync.FetchAccountBlocks(r.hash, 5, r.chain)
+			//self.selfPendingAc(*r.chain).f.fetchByHash(r.hash, 5)
 		}
 	}
 	return

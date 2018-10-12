@@ -178,7 +178,7 @@ func (self *accountPool) tryInsert() verifyTask {
 			return stat.task()
 		case verifier.FAIL:
 			self.log.Error("account block verify fail. ",
-				"hash", block.Hash(), "height", block.Height())
+				"hash", block.Hash(), "height", block.Height(), "err", stat.errMsg())
 			return self.v.newFailTask()
 		case verifier.SUCCESS:
 			if block.Height() == current.tailHeight+1 {

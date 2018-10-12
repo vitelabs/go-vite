@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"flag"
 	"math/big"
+	"net/http"
 	"os/user"
 	"path"
 	"strconv"
 
 	"github.com/abiosoft/ishell"
-	"github.com/google/gops/agent"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
@@ -23,14 +23,16 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 )
 
+import _ "net/http/pprof"
+
 var log = log15.New("module", "cmd")
 
 func main() {
 	logFile()
 
-	if err := agent.Listen(agent.Options{}); err != nil {
-		log.Error("http fail.", "err", err)
-	}
+	go func() {
+		http.ListenAndServe("0.0.0.0:6060", nil)
+	}()
 
 	var coinBaseAddr string
 
@@ -704,11 +706,12 @@ func startNode(w *wallet.Manager, tmp *types.Address) (*vite.Vite, *p2p.Server, 
 			"vnode://6d72c01e467e5280acf1b63f87afd5b6dcf8a596d849ddfc9ca70aab08f10191@192.168.31.146:8483",
 			"vnode://1ceabc6c2b751b352a6d719b4987f828bb1cf51baafa4efac38bc525ed61059d@192.168.31.190:8483",
 			"vnode://8343b3f2bc4e8e521d460cadab3e9f1e61ba57529b3fb48c5c076845c92e75d2@192.168.31.193:8483",
+			"vnode://48d589104db59e822f16f029c5f430efa70094311ba7ddd3c9d292678fee1732@192.168.31.45:8483",
 		},
 		DataDir: path.Join(common.DefaultDataDir(), "/p2p"),
 	})
 
-	coinbase := "vite_39f1ede9ab4979b8a77167bfade02a3b4df0c413ad048cb999"
+	coinbase := "vite_a60e507124c2059ccb61039870dac3b5219aca014abc3807d0"
 	if tmp != nil {
 		coinbase = tmp.String()
 	}
