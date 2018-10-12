@@ -30,7 +30,7 @@ type TokenBalanceInfo struct {
 }
 
 type onroadBlocksCache struct {
-	blocks     list.List
+	blocks     *list.List
 	currentEle *list.Element
 	listMutex  sync.RWMutex
 

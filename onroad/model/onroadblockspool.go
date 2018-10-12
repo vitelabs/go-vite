@@ -137,7 +137,7 @@ func (p *OnroadBlocksPool) loadFullCacheFromDb(addr types.Address) error {
 	}
 
 	cache := &onroadBlocksCache{
-		blocks:         *list,
+		blocks:         list,
 		currentEle:     list.Front(),
 		referenceCount: 1,
 	}
