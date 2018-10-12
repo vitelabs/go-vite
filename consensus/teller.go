@@ -40,7 +40,9 @@ func (self *teller) voteResults(t time.Time) ([]types.Address, *ledger.HashHeigh
 	finalVotes := self.algo.filterVotes(votes, randH)
 	// shuffle the members
 	finalVotes = self.algo.shuffleVotes(finalVotes, randH)
-	return self.convertToAddress(finalVotes), referH, nil
+
+	address := self.convertToAddress(finalVotes)
+	return address, referH, nil
 }
 
 func toMap(infos []*contracts.VoteInfo) map[string]bool {
@@ -65,7 +67,7 @@ func (self *teller) electionIndex(index int32) (*electionResult, error) {
 	plans := self.info.genPlan(index, voteResults)
 	plans.Hash = hashH.Hash
 	plans.Height = hashH.Height
-	self.electionHis.Store(index, plans)
+	//self.electionHis.Store(index, plans)
 	return plans, nil
 }
 

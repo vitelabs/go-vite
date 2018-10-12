@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"sync"
@@ -50,6 +51,7 @@ type BlockPool interface {
 		snapshotV *verifier.SnapshotVerifier,
 		accountV *verifier.AccountVerifier)
 	Info(addr *types.Address) string
+	Details(addr *types.Address, hash types.Hash) string
 }
 
 type commonBlock interface {
@@ -171,6 +173,30 @@ func (self *pool) Info(addr *types.Address) string {
 		chainSize := len(cp.chains)
 		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, currentLen:%d, chainSize:%d",
 			freeSize, compoundSize, snippetSize, currentLen, chainSize)
+	}
+}
+func (self *pool) Details(addr *types.Address, hash types.Hash) string {
+	if addr == nil {
+		bp := self.pendingSc.blockpool
+
+		b := bp.get(hash)
+		if b == nil {
+			return "not exist"
+		}
+		bytes, _ := json.Marshal(b.(*snapshotPoolBlock).block)
+		return string(bytes)
+	} else {
+		ac := self.selfPendingAc(*addr)
+		if ac == nil {
+			return "pool not exist."
+		}
+		bp := ac.blockpool
+		b := bp.get(hash)
+		if b == nil {
+			return "not exist"
+		}
+		bytes, _ := json.Marshal(b.(*snapshotPoolBlock).block)
+		return string(bytes)
 	}
 }
 func (self *pool) Start() {

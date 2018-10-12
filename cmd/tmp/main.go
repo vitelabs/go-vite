@@ -606,6 +606,31 @@ func main() {
 		shell.AddCmd(autoCmd)
 	}
 
+	//{
+	//	autoCmd := &ishell.Cmd{
+	//		Name: "consensus",
+	//		Help: "get consensus info.",
+	//	}
+	//	autoCmd.AddCmd(&ishell.Cmd{
+	//		Name: "list",
+	//		Help: "list snapshot blocks.",
+	//		Func: func(c *ishell.Context) {
+	//
+	//			events, e := node.Consensus().ReadByTime()
+	//			c.Printf("-----snapshot blocks-----\n")
+	//			c.Println("Height\tHash\tPrevHash\tAccountLen\tTime")
+	//
+	//			head := node.Chain().GetLatestSnapshotBlock()
+	//			blocks, _ := node.Chain().GetSnapshotBlocksByHeight(1, head.Height, true, false)
+	//			for _, b := range blocks {
+	//				c.Printf("%d\t%s\t%s\t%d\t%s\t%s\n", b.Height, b.Hash, b.PrevHash, len(b.SnapshotContent), b.Timestamp.Format("2018-01-01 15:04:05"), b.Producer())
+	//			}
+	//		},
+	//	})
+	//
+	//	shell.AddCmd(autoCmd)
+	//}
+
 	{
 		autoCmd := &ishell.Cmd{
 			Name: "pool",

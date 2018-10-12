@@ -65,7 +65,8 @@ func CalcQuotaV1(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, q
 			prevBlock = db.GetAccountBlockByHash(&prevBlock.PrevHash)
 		} else {
 			if prevBlock == nil {
-				quotaInitBig.Mul(quotaInitBig, new(big.Int).SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height)))
+				// first account block or first few account blocks referring to the same snapshot block
+				quotaInitBig.Mul(quotaInitBig, helper.Big1)
 			} else {
 				quotaInitBig.Mul(quotaInitBig, new(big.Int).SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height-db.GetSnapshotBlockByHash(&prevBlock.SnapshotHash).Height)))
 			}
@@ -185,7 +186,7 @@ func calcQuotaInSections(pledgeAmount *big.Int, difficulty *big.Int) uint64 {
 
 var defaultDifficulty = new(big.Int).SetUint64(0xffffffc000000000)
 
-func CalcQuotaV2(db quotaDb, addr types.Address, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64) {
+func CalcQuotaV2(db quotaDb, addr types.Address, difficulty *big.Int) (uint64, uint64) {
 	pledgeAmount := contracts.GetPledgeBeneficialAmount(db, addr)
 	isPoW := difficulty.Sign() > 0
 	currentSnapshotHash := db.CurrentSnapshotBlock().Hash
@@ -213,23 +214,28 @@ func CalcQuotaV2(db quotaDb, addr types.Address, difficulty *big.Int) (quotaTota
 		} else {
 			x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
 			tmpFLoat := new(big.Float).SetPrec(precForFloat)
-			if prevBlock == nil {
-				tmpFLoat.SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height))
+			var quotaWithoutPoW uint64
+			if prevBlock == nil || pledgeAmount.Sign() == 0 {
+				// first account block or first few account blocks referring to the same snapshot block
+				quotaWithoutPoW = 0
 			} else {
 				tmpFLoat.SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height-db.GetSnapshotBlockByHash(&prevBlock.SnapshotHash).Height))
+				x.Mul(tmpFLoat, paramA)
+				tmpFLoat.SetInt(pledgeAmount)
+				x.Mul(tmpFLoat, x)
+				quotaWithoutPoW = uint64(getIndexInSection(x)) * quotaForSection
 			}
-			x.Mul(tmpFLoat, paramA)
-			tmpFLoat.SetInt(pledgeAmount)
-			x.Mul(tmpFLoat, x)
-			quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
+			quotaTotal := quotaWithoutPoW
 			if flag || isPoW {
 				tmpFLoat.SetInt(difficultyForCalc)
 				tmpFLoat.Mul(tmpFLoat, paramB)
 				x.Add(x, tmpFLoat)
-				quotaTotal := uint64(getIndexInSection(x)) * quotaForSection
-				return quotaTotal, quotaTotal - quotaWithoutPoW
+				quotaTotal = uint64(getIndexInSection(x)) * quotaForSection
 			}
-			return quotaWithoutPoW, 0
+			if quotaTotal < quotaUsed {
+				return 0, 0
+			}
+			return quotaTotal - quotaUsed, quotaTotal - quotaWithoutPoW
 		}
 	}
 }

@@ -640,6 +640,18 @@ func (self *blockPool) contains(hash types.Hash, height uint64) bool {
 	_, compound := self.compoundBlocks[hash]
 	return free || compound
 }
+
+func (self *blockPool) get(hash types.Hash) commonBlock {
+	b1, free := self.freeBlocks[hash]
+	if free {
+		return b1
+	}
+	b2, compound := self.compoundBlocks[hash]
+	if compound {
+		return b2
+	}
+	return nil
+}
 func (self *blockPool) containsHash(hash types.Hash) bool {
 	_, free := self.freeBlocks[hash]
 	_, compound := self.compoundBlocks[hash]

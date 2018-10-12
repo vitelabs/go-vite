@@ -35,6 +35,9 @@ func init() {
 	fmt.Println(genesisAccountPrivKeyStr)
 }
 
+func TestParse(t *testing.T) {
+}
+
 func TestWallet(t *testing.T) {
 	w := wallet.New(nil)
 	password := "123456"
@@ -43,7 +46,9 @@ func TestWallet(t *testing.T) {
 
 	vite, err := startVite(w, password, t)
 
-	vite.Net().Status()
+	t1, _ := time.Parse(time.RFC3339, "2018-10-12T16:19:28+08:00")
+
+	vite.Consensus().ReadByTime(types.SNAPSHOT_GID, t1)
 
 	waApi := NewWalletApi(vite)
 	onRoadApi := NewPrivateOnroadApi(vite.OnRoad())

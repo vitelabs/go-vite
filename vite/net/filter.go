@@ -1,10 +1,11 @@
 package net
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/log15"
 	"sync"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 const maxMark = 5
@@ -98,6 +99,6 @@ func (f *filter) has(hash types.Hash) bool {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
-	_, ok := f.records[hash]
-	return ok
+	r, ok := f.records[hash]
+	return ok && r._done
 }

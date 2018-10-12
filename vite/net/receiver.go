@@ -2,14 +2,15 @@ package net
 
 import (
 	"fmt"
+	"sync/atomic"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"sync/atomic"
-	"time"
 )
 
 // receive blocks and record them, construct skeleton to filter subsequent fetch
@@ -84,9 +85,12 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 			return err
 		}
 
+		for _, v := range bs.Blocks {
+			s.log.Debug(fmt.Sprintf("receive %s - %d snapshotblocks", v.Hash, v.Height))
+		}
+
 		s.ReceiveSnapshotBlocks(bs.Blocks)
 
-		s.log.Info(fmt.Sprintf("receive %d snapshotblocks", len(bs.Blocks)))
 	case AccountBlocksCode:
 		bs := new(message.AccountBlocks)
 		err := bs.Deserialize(msg.Payload)
@@ -167,8 +171,9 @@ func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 			s.log.Warn(fmt.Sprintf("has receive same snapshotblock %s, will not notify", block.Hash))
 			continue
 		}
-		j++
+
 		blocks[j] = blocks[i]
+		j++
 
 		s.mark(block.Hash)
 		if ready {
@@ -196,8 +201,9 @@ func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) {
 		if s.filter.has(block.Hash) {
 			continue
 		}
-		j++
+
 		blocks[j] = blocks[i]
+		j++
 
 		s.mark(block.Hash)
 		if ready {
