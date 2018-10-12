@@ -293,11 +293,6 @@ func (ab *AccountBlock) ComputeHash() types.Hash {
 		source = append(source, ab.FromBlockHash.Bytes()...)
 	}
 
-	// Quota
-	quotaBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(quotaBytes, ab.Quota)
-	source = append(source, quotaBytes...)
-
 	// Fee
 	fee := ab.Fee
 	if fee == nil {

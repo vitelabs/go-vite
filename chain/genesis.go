@@ -43,7 +43,7 @@ func init() {
 }
 
 var genesisTrieNodePool = trie.NewTrieNodePool()
-var genesisTimestamp = time.Unix(1537361101, 0)
+var genesisTimestamp = time.Unix(1539325747, 0)
 
 func genesisSnapshotBlock() ledger.SnapshotBlock {
 	genesisSnapshotBlock := ledger.SnapshotBlock{
