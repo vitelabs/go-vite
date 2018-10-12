@@ -201,8 +201,9 @@ func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) {
 		if s.filter.has(block.Hash) {
 			continue
 		}
-		j++
+
 		blocks[j] = blocks[i]
+		j++
 
 		s.mark(block.Hash)
 		if ready {
