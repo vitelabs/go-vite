@@ -6,7 +6,7 @@ import (
 	"github.com/peterh/liner"
 	"github.com/robertkrimen/otto"
 	"github.com/vitelabs/go-vite/cmd/internal/jsre"
-	"github.com/vitelabs/go-vite/cmd/internal/web3ext"
+	"github.com/vitelabs/go-vite/cmd/internal/vitejsext"
 	"github.com/vitelabs/go-vite/rpc"
 	"io"
 	"io/ioutil"
@@ -132,7 +132,7 @@ func (c *Console) init(preload []string) error {
 		if api == "web3" {
 			continue // manually mapped or ignore
 		}
-		if file, ok := web3ext.Modules[api]; ok {
+		if file, ok := vitejsext.Modules[api]; ok {
 			// Load our extension for the module.
 			if err = c.jsre.Compile(fmt.Sprintf("%s.js", api), file); err != nil {
 				return fmt.Errorf("%s.js: %v", api, err)
