@@ -158,8 +158,11 @@ func TestGetSnapshotBlockBeforeTime(t *testing.T) {
 	//}
 	//fmt.Printf("%+v\n", block)
 
-	now := time.Now()
+	latestBlock := chainInstance.GetLatestSnapshotBlock()
+
+	now := latestBlock.Timestamp.Add(time.Duration(10) * time.Second)
 	count := 100
+	createdBlockLen := 0
 	for i := 1; i <= count; i++ {
 		// not insert snapshotblock
 		if i%20 == 0 {
@@ -169,25 +172,33 @@ func TestGetSnapshotBlockBeforeTime(t *testing.T) {
 		ts := now.Add(time.Duration(i) * time.Second)
 		newSb.Timestamp = &ts
 		chainInstance.InsertSnapshotBlock(newSb)
+		createdBlockLen++
 	}
 
-	latestBlock := chainInstance.GetLatestSnapshotBlock()
-	offset := uint64(count / 20)
-	for i := count; i > 0; i-- {
-		if i%20 == 0 {
-			offset--
-		}
+	offset := 0
+	nocreate := 0
+	latestBlock = chainInstance.GetLatestSnapshotBlock()
+	t.Logf("latestBlockHeight is %d", latestBlock.Height)
+	for i := 1; i <= count; i++ {
+		offset = createdBlockLen - (i - 1 - nocreate)
 		ts := now.Add(time.Duration(i) * time.Second)
 		block, err2 := chainInstance.GetSnapshotBlockBeforeTime(&ts)
 		if err2 != nil {
 			t.Fatal(err2)
 		}
-		if block.Height+1+offset != latestBlock.Height-uint64(count-i) {
-			t.Error("error!!")
+		leftValue := block.Height
+		rightValue := latestBlock.Height - uint64(offset)
+		if leftValue != rightValue {
+			t.Errorf("%d error!! %d %d %d", i, leftValue, rightValue, offset)
+
+			t.Logf("%s %+v\n", ts, block)
 		} else {
-			t.Log(block.Height)
+			t.Logf("right: %d", block.Height)
 		}
 
+		if i%20 == 0 {
+			nocreate++
+		}
 	}
 
 	//time3 := GenesisSnapshotBlock.Timestamp.Add(time.Second * 100)

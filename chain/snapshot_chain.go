@@ -243,14 +243,14 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, blockCr
 			return start, nil
 		}
 
-		gap:= uint64(end.Timestamp.Sub(*blockCreatedTime).Seconds())
+		gap := uint64(end.Timestamp.Sub(*blockCreatedTime).Seconds())
 		middle := uint64(0)
 		// suppose one snapshot block per second
 		if end.Height > gap {
-			middle  = end.Height  - gap
+			middle = end.Height - gap
 		}
-		if middle < start.Height {
-			middle = start.Height  + (end.Height - start.Height)/2
+		if middle <= start.Height {
+			middle = start.Height + (end.Height-start.Height)/2
 		}
 
 		block, err := c.chainDb.Sc.GetSnapshotBlock(middle, false)
@@ -267,7 +267,10 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, blockCr
 
 		if block.Timestamp.Before(*blockCreatedTime) {
 			start = block
-		} else if prevBlock.Timestamp.After(*blockCreatedTime) || prevBlock.Timestamp.Equal(*blockCreatedTime) {
+		} else if prevBlock.Timestamp.Before(*blockCreatedTime) {
+			start = prevBlock
+			end = block
+		} else {
 			end = prevBlock
 		}
 	}
