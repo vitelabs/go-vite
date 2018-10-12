@@ -258,7 +258,7 @@ func (node *Node) startRPC() error {
 	}
 
 	if node.config.WSEnabled {
-		if err := node.startWS(node.wsEndpoint, node.rpcAPIs, nil, nil, true); err != nil {
+		if err := node.startWS(node.wsEndpoint, node.rpcAPIs, nil, []string{"*"}, true); err != nil {
 			node.stopInProcess()
 			node.stopIPC()
 			node.stopHTTP()
