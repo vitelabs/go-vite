@@ -59,12 +59,12 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.Token
 
 		Amount:         "0",
 		Fee:            "0",
-		TokenInfo:      RawTokenInfoToRpc(token),
+		TokenInfo:      RawTokenInfoToRpc(token, ledgerBlock.TokenId),
 		ConfirmedTimes: strconv.FormatUint(confirmedTimes, 10),
 	}
 
 	if token != nil {
-		ab.TokenInfo = RawTokenInfoToRpc(token)
+		ab.TokenInfo = RawTokenInfoToRpc(token, ledgerBlock.TokenId)
 	}
 	if ledgerBlock.Amount != nil {
 		ab.Amount = ledgerBlock.Amount.String()
@@ -88,16 +88,17 @@ type RpcTokenBalanceInfo struct {
 }
 
 type RpcTokenInfo struct {
-	TokenName      string        `json:"tokenName"`
-	TokenSymbol    string        `json:"tokenSymbol"`
-	TotalSupply    *string       `json:"totalSupply,omitempty"` // *big.Int
-	Decimals       uint8         `json:"decimals"`
-	Owner          types.Address `json:"owner"`
-	PledgeAmount   *string       `json:"pledgeAmount,omitempty"` // *big.Int
-	WithdrawHeight string        `json:"withdrawHeight"`         // uint64
+	TokenName      string            `json:"tokenName"`
+	TokenSymbol    string            `json:"tokenSymbol"`
+	TotalSupply    *string           `json:"totalSupply,omitempty"` // *big.Int
+	Decimals       uint8             `json:"decimals"`
+	Owner          types.Address     `json:"owner"`
+	PledgeAmount   *string           `json:"pledgeAmount,omitempty"` // *big.Int
+	WithdrawHeight string            `json:"withdrawHeight"`         // uint64
+	TokenId        types.TokenTypeId `json:"tokenId"`
 }
 
-func RawTokenInfoToRpc(tinfo *contracts.TokenInfo) *RpcTokenInfo {
+func RawTokenInfoToRpc(tinfo *contracts.TokenInfo, tti types.TokenTypeId) *RpcTokenInfo {
 	var rt *RpcTokenInfo = nil
 	if tinfo != nil {
 		rt = &RpcTokenInfo{
@@ -108,6 +109,7 @@ func RawTokenInfoToRpc(tinfo *contracts.TokenInfo) *RpcTokenInfo {
 			Owner:          tinfo.Owner,
 			PledgeAmount:   nil,
 			WithdrawHeight: strconv.FormatUint(tinfo.WithdrawHeight, 10),
+			TokenId:        tti,
 		}
 		if tinfo.TotalSupply != nil {
 			s := tinfo.TotalSupply.String()

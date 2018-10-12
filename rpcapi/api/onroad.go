@@ -112,7 +112,7 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccoun
 			number := strconv.FormatUint(v.Number, 10)
 			tinfo := chain.GetTokenInfoById(&tti)
 			b := &RpcTokenBalanceInfo{
-				TokenInfo:   RawTokenInfoToRpc(tinfo),
+				TokenInfo:   RawTokenInfoToRpc(tinfo, tti),
 				TotalAmount: v.TotalAmount.String(),
 				Number:      &number,
 			}

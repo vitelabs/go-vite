@@ -140,7 +140,7 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 	for tokenId, amount := range balanceMap {
 		token := l.chain.GetTokenInfoById(&tokenId)
 		tokenBalanceInfoMap[tokenId] = &RpcTokenBalanceInfo{
-			TokenInfo:   RawTokenInfoToRpc(token),
+			TokenInfo:   RawTokenInfoToRpc(token, tokenId),
 			TotalAmount: amount.String(),
 			Number:      nil,
 		}
@@ -182,6 +182,6 @@ func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 
 func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*RpcTokenInfo, error) {
 	l.log.Info("GetTokenMintage")
-	return RawTokenInfoToRpc(l.chain.GetTokenInfoById(&tti)), nil
+	return RawTokenInfoToRpc(l.chain.GetTokenInfoById(&tti), tti), nil
 
 }
