@@ -163,6 +163,10 @@ func (node *Node) Wait() {
 	<-stop
 }
 
+func (node *Node) Config() *Config {
+	return node.config
+}
+
 //wallet start
 func (node *Node) startWallet() error {
 

@@ -1,15 +1,21 @@
 package jsre
 
 import (
-	"io"
-	"time"
-	"math/rand"
 	crand "crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
-	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/robertkrimen/otto"
+	"github.com/vitelabs/go-vite/cmd/internal/jsre/deps"
+	"github.com/vitelabs/go-vite/cmd/utils"
+	"io"
+	"io/ioutil"
+	"math/rand"
+	"time"
+)
+
+var (
+	BigNumber_JS = deps.MustAsset("bignumber.js")
+	Web3_JS      = deps.MustAsset("web3.js")
 )
 
 /*
@@ -303,4 +309,3 @@ func compileAndRun(vm *otto.Otto, filename string, src interface{}) (otto.Value,
 	}
 	return vm.Run(script)
 }
-

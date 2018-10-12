@@ -1,19 +1,22 @@
 package console
 
 import (
-	"regexp"
-	"net/rpc"
-	"io"
-	"path/filepath"
-	"os"
-	"io/ioutil"
-	"strings"
 	"fmt"
-	"os/signal"
-	"syscall"
-	"github.com/peterh/liner"
 	"github.com/mattn/go-colorable"
+	"github.com/peterh/liner"
+	"github.com/robertkrimen/otto"
 	"github.com/vitelabs/go-vite/cmd/internal/jsre"
+	"github.com/vitelabs/go-vite/cmd/internal/web3ext"
+	"github.com/vitelabs/go-vite/rpc"
+	"io"
+	"io/ioutil"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+	"syscall"
 )
 
 var (
@@ -53,9 +56,9 @@ type Console struct {
 	history  []string     // Scroll history maintained by the console
 }
 
-// New initializes a JavaScript interpreted runtime environment and sets defaults
-// with the config struct.
+// New initializes a JavaScript interpreted runtime environment and sets defaults with the config struct.
 func New(config Config) (*Console, error) {
+
 	// Handle unset config values gracefully
 	if config.Prompter == nil {
 		config.Prompter = Stdin
@@ -66,6 +69,7 @@ func New(config Config) (*Console, error) {
 	if config.Printer == nil {
 		config.Printer = colorable.NewColorableStdout()
 	}
+
 	// Initialize the console and return
 	console := &Console{
 		client:   config.Client,
@@ -75,33 +79,162 @@ func New(config Config) (*Console, error) {
 		printer:  config.Printer,
 		histPath: filepath.Join(config.DataDir, HistoryFile),
 	}
+
 	if err := os.MkdirAll(config.DataDir, 0700); err != nil {
 		return nil, err
 	}
-	//if err := console.init(config.Preload); err != nil {
-	//	return nil, err
-	//}
+
+	if err := console.init(config.Preload); err != nil {
+		return nil, err
+	}
+
 	return console, nil
 }
 
+// init retrieves the available APIs from the remote RPC provider and initializes the console's JavaScript namespaces based on the exposed modules.
+func (c *Console) init(preload []string) error {
+
+	// Initialize the JavaScript <-> Go RPC bridge
+	bridge := newBridge(c.client, c.prompter, c.printer)
+
+	c.jsre.Set("j_vite", struct{}{})
+
+	jViteObj, _ := c.jsre.Get("j_vite")
+	jViteObj.Object().Set("send", bridge.Send)
+	jViteObj.Object().Set("sendAsync", bridge.Send)
+
+	consoleObj, _ := c.jsre.Get("console")
+	consoleObj.Object().Set("log", c.consoleOutput)
+	consoleObj.Object().Set("error", c.consoleOutput)
+
+	// Load all the internal utility JavaScript libraries
+	if err := c.jsre.Compile("bignumber.js", jsre.BigNumber_JS); err != nil {
+		return fmt.Errorf("bignumber.js: %v", err)
+	}
+	if err := c.jsre.Compile("web3.js", jsre.Web3_JS); err != nil {
+		return fmt.Errorf("web3.js: %v", err)
+	}
+	if _, err := c.jsre.Run("var Web3 = require('web3');"); err != nil {
+		return fmt.Errorf("web3 require: %v", err)
+	}
+	if _, err := c.jsre.Run("var web3 = new Web3(j_vite);"); err != nil {
+		return fmt.Errorf("web3 provider: %v", err)
+	}
+
+	// Load the supported APIs into the JavaScript runtime environment
+	apis, err := c.client.SupportedModules()
+	if err != nil {
+		return fmt.Errorf("api modules: %v", err)
+	}
+	flatten := "var vite = web3.vite; var personal = web3.personal; "
+	for api := range apis {
+		if api == "web3" {
+			continue // manually mapped or ignore
+		}
+		if file, ok := web3ext.Modules[api]; ok {
+			// Load our extension for the module.
+			if err = c.jsre.Compile(fmt.Sprintf("%s.js", api), file); err != nil {
+				return fmt.Errorf("%s.js: %v", api, err)
+			}
+			flatten += fmt.Sprintf("var %s = web3.%s; ", api, api)
+		} else if obj, err := c.jsre.Run("web3." + api); err == nil && obj.IsObject() {
+			// Enable web3.js built-in extension if available.
+			flatten += fmt.Sprintf("var %s = web3.%s; ", api, api)
+		}
+	}
+	if _, err = c.jsre.Run(flatten); err != nil {
+		return fmt.Errorf("namespace flattening: %v", err)
+	}
+
+	// Initialize the global name register (disabled for now)
+	//c.jsre.Run(`var GlobalRegistrar = eth.contract(` + registrar.GlobalRegistrarAbi + `);   registrar = GlobalRegistrar.at("` + registrar.GlobalRegistrarAddr + `");`)
+	// If the console is in interactive mode, instrument password related methods to query the user
+	if c.prompter != nil {
+		// Retrieve the account management object to instrument
+		personal, err := c.jsre.Get("personal")
+		if err != nil {
+			return err
+		}
+		//Override the openWallet, unlockAccount, newAccount and sign methods since these require user interaction.
+		//Assign these method in the Console the original web3 callbacks.
+		//These will be called by the jeth.* methods after they got the password from the user and send the original web3 request to the backend.
+		if obj := personal.Object(); obj != nil { // make sure the personal api is enabled over the interface
+			if _, err = c.jsre.Run(`j_vite.openWallet = personal.openWallet;`); err != nil {
+				return fmt.Errorf("personal.openWallet: %v", err)
+			}
+			if _, err = c.jsre.Run(`j_vite.unlockAccount = personal.unlockAccount;`); err != nil {
+				return fmt.Errorf("personal.unlockAccount: %v", err)
+			}
+			if _, err = c.jsre.Run(`j_vite.newAccount = personal.newAccount;`); err != nil {
+				return fmt.Errorf("personal.newAccount: %v", err)
+			}
+			if _, err = c.jsre.Run(`j_vite.sign = personal.sign;`); err != nil {
+				return fmt.Errorf("personal.sign: %v", err)
+			}
+			obj.Set("openWallet", bridge.OpenWallet)
+			obj.Set("unlockAccount", bridge.UnlockAccount)
+			obj.Set("newAccount", bridge.NewAccount)
+			obj.Set("sign", bridge.Sign)
+		}
+	}
+
+	// The admin.sleep and admin.sleepBlocks are offered by the console and not by the RPC layer.
+	admin, err := c.jsre.Get("admin")
+	if err != nil {
+		return err
+	}
+	if obj := admin.Object(); obj != nil { // make sure the admin api is enabled over the interface
+		obj.Set("sleepBlocks", bridge.SleepBlocks)
+		obj.Set("sleep", bridge.Sleep)
+		obj.Set("clearHistory", c.clearHistory)
+	}
+
+	// Preload any JavaScript files before starting the console
+	for _, path := range preload {
+		if err := c.jsre.Exec(path); err != nil {
+			failure := err.Error()
+			if ottoErr, ok := err.(*otto.Error); ok {
+				failure = ottoErr.String()
+			}
+			return fmt.Errorf("%s: %v", path, failure)
+		}
+	}
+
+	// Configure the console's input prompter for scrollback and tab completion
+	if c.prompter != nil {
+		if content, err := ioutil.ReadFile(c.histPath); err != nil {
+			c.prompter.SetHistory(nil)
+		} else {
+			c.history = strings.Split(string(content), "\n")
+			c.prompter.SetHistory(c.history)
+		}
+		c.prompter.SetWordCompleter(c.AutoCompleteInput)
+	}
+	return nil
+}
 
 // Welcome show summary of current Gvite instance and some metadata about the
 // console's available modules.
 func (c *Console) Welcome() {
+
 	// Print some generic Gvite metadata
 	fmt.Fprintf(c.printer, "Welcome to the Gvite JavaScript console!\n")
 	c.jsre.Run(`
-		console.log("Welcome to javascript.");
+		console.log("instance: " + web3.version.node);
+		console.log("coinbase: " + eth.coinbase);
+		console.log("at block: " + eth.blockNumber + " (" + new Date(1000 * eth.getBlock(eth.blockNumber).timestamp) + ")");
+		console.log(" datadir: " + admin.datadir);
 	`)
-	// List all the supported modules for the user to call
-	//if apis, err := c.client.SupportedModules(); err == nil {
-	//	modules := make([]string, 0, len(apis))
-	//	for api, version := range apis {
-	//		modules = append(modules, fmt.Sprintf("%s:%s", api, version))
-	//	}
-	//	sort.Strings(modules)
-	//	fmt.Fprintln(c.printer, " modules:", strings.Join(modules, " "))
-	//}
+
+	//List all the supported modules for the user to call
+	if apis, err := c.client.SupportedModules(); err == nil {
+		modules := make([]string, 0, len(apis))
+		for api, version := range apis {
+			modules = append(modules, fmt.Sprintf("%s:%s", api, version))
+		}
+		sort.Strings(modules)
+		fmt.Fprintln(c.printer, " modules:", strings.Join(modules, " "))
+	}
 	fmt.Fprintln(c.printer)
 }
 
@@ -116,8 +249,7 @@ func (c *Console) Evaluate(statement string) error {
 	return c.jsre.Evaluate(statement, c.printer)
 }
 
-// Interactive starts an interactive user session, where input is propted from
-// the configured user prompter.
+// Interactive starts an interactive user session, where input is propted from the configured user prompter.
 func (c *Console) Interactive() {
 	var (
 		prompt    = c.prompt          // Current prompt line (used for multi-line inputs)
@@ -250,4 +382,51 @@ func (c *Console) Stop(graceful bool) error {
 	}
 	c.jsre.Stop(graceful)
 	return nil
+}
+
+// consoleOutput is an override for the console.log and console.error methods to stream the output into the configured output stream instead of stdout.
+func (c *Console) consoleOutput(call otto.FunctionCall) otto.Value {
+	output := []string{}
+	for _, argument := range call.ArgumentList {
+		output = append(output, fmt.Sprintf("%v", argument))
+	}
+	fmt.Fprintln(c.printer, strings.Join(output, " "))
+	return otto.Value{}
+}
+
+func (c *Console) clearHistory() {
+	c.history = nil
+	c.prompter.ClearHistory()
+	if err := os.Remove(c.histPath); err != nil {
+		fmt.Fprintln(c.printer, "can't delete history file:", err)
+	} else {
+		fmt.Fprintln(c.printer, "history file deleted")
+	}
+}
+
+// AutoCompleteInput is a pre-assembled word completer to be used by the user
+// input prompter to provide hints to the user about the methods available.
+func (c *Console) AutoCompleteInput(line string, pos int) (string, []string, string) {
+	// No completions can be provided for empty inputs
+	if len(line) == 0 || pos == 0 {
+		return "", nil, ""
+	}
+	// Chunck data to relevant part for autocompletion
+	// E.g. in case of nested lines eth.getBalance(eth.coinb<tab><tab>
+	start := pos - 1
+	for ; start > 0; start-- {
+		// Skip all methods and namespaces (i.e. including the dot)
+		if line[start] == '.' || (line[start] >= 'a' && line[start] <= 'z') || (line[start] >= 'A' && line[start] <= 'Z') {
+			continue
+		}
+		// Handle web3 in a special way (i.e. other numbers aren't auto completed)
+		if start >= 3 && line[start-3:start] == "web3" {
+			start -= 3
+			continue
+		}
+		// We've hit an unexpected character, autocomplete form here
+		start++
+		break
+	}
+	return line[:start], c.jsre.CompleteKeywords(line[start:pos]), line[pos:]
 }

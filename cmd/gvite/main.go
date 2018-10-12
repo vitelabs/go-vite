@@ -123,9 +123,8 @@ func init() {
 	//Import: Please add the New command here
 	app.Commands = []cli.Command{
 		versionCommand,
-		//console
-		//consoleCommand,
-		//attachCommand,
+		consoleCommand,
+		attachCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 

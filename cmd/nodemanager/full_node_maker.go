@@ -169,16 +169,17 @@ func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
 		cfg.KeyStoreDir = cfg.DataDir
 	}
 
-	if ctx.GlobalBool(utils.DevNetFlag.Name) || cfg.NetID > 2 {
-		cfg.NetSelect = "dev"
-		//network override
-		if cfg.NetID < 3 {
-			cfg.NetID = 3
+	if len(cfg.LogLevel) == 0 {
+		cfg.LogLevel = "info"
+	}
+
+	if ctx.GlobalBool(utils.MainNetFlag.Name) || cfg.NetID == 1 {
+		cfg.NetSelect = "main"
+		if cfg.NetID != 1 {
+			cfg.NetID = 1
 		}
-		//dataDir override
-		cfg.DataDir = filepath.Join(cfg.DataDir, "devdata")
-		cfg.KeyStoreDir = filepath.Join(cfg.KeyStoreDir, "devdata", "wallet")
-		//abs dataDir
+		cfg.DataDir = filepath.Join(cfg.DataDir, "maindata")
+		cfg.KeyStoreDir = filepath.Join(cfg.KeyStoreDir, "maindata", "wallet")
 		cfg.DataDirPathAbs()
 		return
 	}
@@ -194,21 +195,19 @@ func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
 		return
 	}
 
-	if ctx.GlobalBool(utils.MainNetFlag.Name) || cfg.NetID == 1 {
-		cfg.NetSelect = "main"
-		if cfg.NetID != 1 {
-			cfg.NetID = 1
+	if ctx.GlobalBool(utils.DevNetFlag.Name) || cfg.NetID > 2 || cfg.NetID < 1 {
+		cfg.NetSelect = "dev"
+		//network override
+		if cfg.NetID < 3 {
+			cfg.NetID = 3
 		}
-		cfg.DataDir = filepath.Join(cfg.DataDir, "maindata")
-		cfg.KeyStoreDir = filepath.Join(cfg.KeyStoreDir, "maindata", "wallet")
+		//dataDir override
+		cfg.DataDir = filepath.Join(cfg.DataDir, "devdata")
+		cfg.KeyStoreDir = filepath.Join(cfg.KeyStoreDir, "devdata", "wallet")
+		//abs dataDir
 		cfg.DataDirPathAbs()
 		return
 	}
-
-	if len(cfg.LogLevel) == 0 {
-		cfg.LogLevel = "info"
-	}
-
 }
 
 func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) {
