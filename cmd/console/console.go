@@ -98,10 +98,14 @@ func (c *Console) init(preload []string) error {
 	bridge := newBridge(c.client, c.prompter, c.printer)
 
 	c.jsre.Set("j_vite", struct{}{})
+	c.jsre.Set("j_assist", struct{}{})
 
 	jViteObj, _ := c.jsre.Get("j_vite")
 	jViteObj.Object().Set("send", bridge.Send)
 	jViteObj.Object().Set("sendAsync", bridge.Send)
+
+	jAssistObj, _ := c.jsre.Get("j_assist")
+	jAssistObj.Object().Set("hash256", bridge.Hash256)
 
 	consoleObj, _ := c.jsre.Get("console")
 	consoleObj.Object().Set("log", c.consoleOutput)
@@ -278,7 +282,7 @@ func (c *Console) Interactive() {
 	}()
 	// Monitor Ctrl-C too in case the input is empty and we need to bail
 	abort := make(chan os.Signal, 1)
-	signal.Notify(abort, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(abort, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 
 	// Start sending prompts to the user and reading back inputs
 	for {

@@ -123,6 +123,7 @@ func init() {
 	//Import: Please add the New command here
 	app.Commands = []cli.Command{
 		versionCommand,
+		licenseCommand,
 		consoleCommand,
 		attachCommand,
 	}

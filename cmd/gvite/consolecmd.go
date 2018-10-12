@@ -65,12 +65,12 @@ func localConsoleAction(ctx *cli.Context) error {
 
 	// Create and start the node based on the CLI flags
 	nodeManager := nodemanager.New(ctx, nodemanager.FullNodeMaker{})
-	nodeManager.Start()
-	defer nodeManager.Stop()
+	nodemanager.StartNode(nodeManager.Node())
+	defer nodemanager.StopNode(nodeManager.Node())
 
 	// Attach to the newly started node and start the JavaScript console
 	client, err := nodeManager.Node().Attach()
-	if err != nil {
+	if client == nil || err != nil {
 		log.Error(fmt.Sprintf("Failed to attach to the inproc geth: %v", err))
 	}
 

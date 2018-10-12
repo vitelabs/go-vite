@@ -101,7 +101,7 @@ func (node *Node) stopWS() {
 }
 
 func (node *Node) Attach() (*rpc.Client, error) {
-	node.lock.RUnlock()
+	node.lock.RLock()
 	defer node.lock.RUnlock()
 
 	if node.p2pServer == nil {
