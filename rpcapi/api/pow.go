@@ -8,6 +8,7 @@ import (
 type Pow struct {
 }
 
-func GetPowNonce(difficulty string, data types.Hash) []byte {
-	return pow.GetPowNonce(nil, data)[:]
+func (p Pow) GetPowNonce(difficulty string, data types.Hash) []byte {
+	b := pow.GetPowNonce(nil, data)
+	return b[:]
 }
