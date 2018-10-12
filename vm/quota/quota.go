@@ -226,7 +226,7 @@ func CalcQuotaV2(db quotaDb, addr types.Address, difficulty *big.Int) (uint64, u
 				quotaWithoutPoW = uint64(getIndexInSection(x)) * quotaForSection
 			}
 			quotaTotal := quotaWithoutPoW
-			if flag || isPoW {
+			if isPoW {
 				tmpFLoat.SetInt(difficultyForCalc)
 				tmpFLoat.Mul(tmpFLoat, paramB)
 				x.Add(x, tmpFLoat)

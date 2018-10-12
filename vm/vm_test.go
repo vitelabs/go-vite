@@ -664,6 +664,7 @@ func TestCalcQuotaV2(t *testing.T) {
 	if quotaTotal != uint64(0) || quotaAddition != uint64(0) {
 		t.Fatalf("calc quota error, second account block referring to same snapshotBlock with PoW, pledge amount reaches no quota limit, pledge amount + PoW reaches quota limit, snapshot height gap=2")
 	}
+	// TODO test case: second account block referring to same snapshotBlock, already calculated PoW
 }
 
 func BenchmarkVMTransfer(b *testing.B) {
