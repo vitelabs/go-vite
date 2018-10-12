@@ -164,6 +164,7 @@ func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 	for i, j = 0, 0; i < len(blocks); i++ {
 		block := blocks[i]
 		if s.filter.has(block.Hash) {
+			s.log.Warn(fmt.Sprintf("has receive same snapshotblock %s, will not notify", block.Hash))
 			continue
 		}
 		j++
@@ -171,12 +172,14 @@ func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 
 		s.mark(block.Hash)
 		if ready {
+			s.log.Info(fmt.Sprintf("notify snapshotblock %s", block.Hash))
 			s.sFeed.Notify(block)
 		}
 	}
 
 	if !ready {
 		s.sblocks = append(s.sblocks, blocks[:j])
+		s.log.Warn(fmt.Sprintf("not ready, store %d snapshotblocks", len(blocks)))
 	}
 
 	monitor.LogDuration("net/receiver", "bs", time.Now().Sub(t).Nanoseconds())
