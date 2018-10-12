@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	log                = log15.New("module", "console/bridge")
+	log                = log15.New("module", "vite")
 	ErrTrezorPINNeeded = errors.New("trezor: pin needed")
 )
 

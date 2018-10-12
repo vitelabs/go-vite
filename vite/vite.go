@@ -1,11 +1,11 @@
 package vite
 
 import (
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/pool"
@@ -14,6 +14,10 @@ import (
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/wallet"
+)
+
+var (
+	log = log15.New("module", "console/bridge")
 )
 
 type Vite struct {
