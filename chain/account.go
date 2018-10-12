@@ -1,14 +1,24 @@
 package chain
 
 import (
+	"bytes"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts"
 )
 
 // 0 means error, 1 means not exist, 2 means general account, 3 means contract account.
 func (c *chain) AccountType(address *types.Address) (uint64, error) {
+	if bytes.Equal(address.Bytes(), contracts.AddressRegister.Bytes()) ||
+		bytes.Equal(address.Bytes(), contracts.AddressVote.Bytes()) ||
+		bytes.Equal(address.Bytes(), contracts.AddressPledge.Bytes()) ||
+		bytes.Equal(address.Bytes(), contracts.AddressConsensusGroup.Bytes()) ||
+		bytes.Equal(address.Bytes(), contracts.AddressMintage.Bytes()) {
+		return ledger.AccountTypeContract, nil
+	}
+
 	account, err := c.GetAccount(address)
 	if err != nil {
 		return ledger.AccountTypeError, err
