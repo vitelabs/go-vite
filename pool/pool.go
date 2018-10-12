@@ -205,10 +205,11 @@ func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) {
 func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 	cBlock := newSnapshotPoolBlock(block, self.version)
 	err := self.pendingSc.AddDirectBlock(cBlock)
-	if err == nil {
-		self.pendingSc.f.broadcastBlock(block)
+	if err != nil {
+		return err
 	}
-	return err
+	self.pendingSc.f.broadcastBlock(block)
+	return nil
 }
 
 func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock) {
@@ -229,13 +230,14 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 	ac := self.selfPendingAc(address)
 	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version)
 	err := ac.AddDirectBlocks(cBlock, nil)
-	if err == nil {
-		ac.f.broadcastBlock(block.AccountBlock)
+	if err != nil {
+		return err
 	}
+	ac.f.broadcastBlock(block.AccountBlock)
 	self.accountCond.L.Lock()
 	defer self.accountCond.L.Unlock()
 	self.accountCond.Broadcast()
-	return err
+	return nil
 
 }
 func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.AccountBlock) error {
@@ -263,13 +265,14 @@ func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_con
 	}
 	err := ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmContext, self.version), accountPoolBlocks)
 	if err != nil {
-		ac.f.broadcastReceivedBlocks(received, sendBlocks)
+		return err
 	}
+	ac.f.broadcastReceivedBlocks(received, sendBlocks)
 
 	self.accountCond.L.Lock()
 	defer self.accountCond.L.Unlock()
 	self.accountCond.Broadcast()
-	return err
+	return nil
 }
 
 func (self *pool) ExistInPool(address types.Address, requestHash types.Hash) bool {
@@ -317,7 +320,10 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 		err = this.CurrentModifyToChain(targetChain)
 	}
 	self.version.Inc()
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (self *pool) RollbackAccountTo(addr types.Address, hash types.Hash, height uint64) error {
