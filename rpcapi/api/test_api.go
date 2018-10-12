@@ -34,7 +34,5 @@ func (t TestApi) GetTestToken(toAddress types.Address) (string, error) {
 		Passphrase:  "123456",
 		Amount:      amount,
 	})
-
 	return amount, e
-
 }
