@@ -84,9 +84,11 @@ const minHeightDifference = 3600
 
 var waitEnoughPeers = 10 * time.Second
 var enoughPeers = 3
+
+// todo should be set according to block number
 var chainGrowTimeout = 5 * time.Minute
 var downloadTimeout = 5 * time.Minute
-var chainGrowInterval = time.Minute
+var chainGrowInterval = 10 * time.Second
 
 type syncer struct {
 	from, to   uint64 // include
@@ -189,7 +191,7 @@ wait:
 	s.to = p.height
 	s.total = s.to - s.from + 1
 
-	s.log.Info(fmt.Sprintf("syncing: current at %d, to %d", s.from, s.to))
+	s.log.Info(fmt.Sprintf("syncing: current at %d, to %d", current.Height, s.to))
 	s.setState(Syncing)
 
 	// begin sync with peer
