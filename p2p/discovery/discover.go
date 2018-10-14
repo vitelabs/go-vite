@@ -53,7 +53,7 @@ type Discovery struct {
 	refreshing  int32 // atomic, whether indicate node table is refreshing
 	refreshDone chan struct{}
 	wg          sync.WaitGroup
-	blockList   *block.CuckooSet
+	blockList   *block.Set
 	subs        []chan<- *Node
 	log         log15.Logger
 }

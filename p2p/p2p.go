@@ -58,7 +58,7 @@ type Server struct {
 	discv     Discovery
 	handshake *Handshake
 	peers     *PeerSet
-	blockList *block.CuckooSet
+	blockList *block.Set
 	self      *discovery.Node
 	ln        net.Listener
 	nodeChan  chan *discovery.Node // sub discovery nodes
@@ -103,7 +103,7 @@ func New(cfg *Config) (svr *Server, err error) {
 		pending:     make(chan struct{}, cfg.MaxPendingPeers),
 		addPeer:     make(chan *conn, 1),
 		delPeer:     make(chan *Peer, 1),
-		blockList:   block.NewCuckooSet(100),
+		blockList:   block.New(100),
 		self:        node,
 		nodeChan:    make(chan *discovery.Node, 10),
 		log:         log15.New("module", "p2p/server"),
@@ -237,17 +237,22 @@ func (svr *Server) dialLoop() {
 }
 
 func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
-	svr.pending <- struct{}{}
-	if err := svr.checkConn(id, flag); err != nil {
-		<-svr.pending
+	// has been blocked
+	if svr.blockList.Has(id[:]) {
 		return
 	}
 
+	if err := svr.checkConn(id, flag); err != nil {
+		return
+	}
+
+	svr.pending <- struct{}{}
 	if conn, err := svr.dialer.Dial("tcp", addr.String()); err == nil {
 		go svr.setupConn(conn, flag)
 	} else {
 		<-svr.pending
 		svr.log.Error(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
+		svr.blockList.Add(id[:])
 	}
 }
 

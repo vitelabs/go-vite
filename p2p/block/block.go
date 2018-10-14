@@ -2,44 +2,30 @@ package block
 
 import (
 	"github.com/seiflotfy/cuckoofilter"
-	"sync"
 )
 
 // use to block specified net.IP or NodeID
-type CuckooSet struct {
-	lock   sync.RWMutex
+type Set struct {
 	filter *cuckoofilter.CuckooFilter
 }
 
-func (s *CuckooSet) Has(v []byte) bool {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
+func (s *Set) Has(v []byte) bool {
 	return s.filter.Lookup(v)
 }
 
-func (s *CuckooSet) Add(v []byte) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
+func (s *Set) Add(v []byte) {
 	s.filter.InsertUnique(v)
 }
-func (s *CuckooSet) Del(v []byte) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
+func (s *Set) Del(v []byte) {
 	s.filter.Delete(v)
 }
 
-func (s *CuckooSet) Count() uint {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
+func (s *Set) Count() uint {
 	return s.filter.Count()
 }
 
-func NewCuckooSet(cap uint) *CuckooSet {
-	return &CuckooSet{
+func New(cap uint) *Set {
+	return &Set{
 		filter: cuckoofilter.NewCuckooFilter(cap),
 	}
 }
