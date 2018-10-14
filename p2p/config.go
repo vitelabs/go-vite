@@ -42,55 +42,34 @@ const (
 const Dirname = "p2p"
 const privKeyFileName = "priv.key"
 
-func getServerKey(p2pDir string) (pub ed25519.PublicKey, priv ed25519.PrivateKey, err error) {
-	pub = make([]byte, 32)
-	priv = make([]byte, 64)
-
+func getServerKey(p2pDir string) (priv ed25519.PrivateKey, err error) {
 	privKeyFile := filepath.Join(p2pDir, privKeyFileName)
 
-	fd, err := os.Open(privKeyFile)
-	getKeyOK := true
+	var fd *os.File
+	fd, err = os.Open(privKeyFile)
 
+	// open file error
 	if err != nil {
-		getKeyOK = false
-		p2pServerLog.Info("cannot read p2p priv.key, use random key", "error", err)
-		pub, priv, err = ed25519.GenerateKey(nil)
-		if err != nil {
-			return nil, nil, err
+		if _, priv, err = ed25519.GenerateKey(nil); err != nil {
+			return
 		}
 
-		fd, err = os.Create(privKeyFile)
-		if err != nil {
-			p2pServerLog.Info("create p2p priv.key fail", "error", err)
-		} else {
+		if fd, err = os.Create(privKeyFile); err == nil {
 			defer fd.Close()
 		}
 	} else {
 		defer fd.Close()
 
-		n, err := fd.Read([]byte(priv))
-
-		if err != nil {
-			getKeyOK = false
-			p2pServerLog.Info("cannot read p2p priv.key, use random key", "error", err)
-		}
-
-		if n != len(priv) {
-			p2pServerLog.Info("read incompelete p2p priv.key, use random key")
-			getKeyOK = false
-		}
-
-		if !getKeyOK {
-			pub, priv, err = ed25519.GenerateKey(nil)
-			if err != nil {
-				return nil, nil, err
+		priv = make([]byte, 64)
+		if n, err := fd.Read(priv); err != nil || n != len(priv) {
+			// read file error
+			if _, priv, err = ed25519.GenerateKey(nil); err != nil {
+				return
 			}
-		} else {
-			pub = priv.PubByte()
 		}
 	}
 
-	if !getKeyOK {
+	if fd != nil {
 		n, err := fd.Write([]byte(priv))
 		if err != nil {
 			p2pServerLog.Info("write privateKey to p2p priv.key fail", "error", err)

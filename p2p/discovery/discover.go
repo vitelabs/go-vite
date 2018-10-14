@@ -65,7 +65,7 @@ func New(cfg *Config) (d *Discovery) {
 		self:        cfg.Self,
 		tab:         newTable(cfg.Self.ID, N),
 		refreshDone: make(chan struct{}),
-		blockList:   block.NewCuckooSet(1000),
+		blockList:   block.New(1000),
 		log:         log15.New("module", "p2p/discv"),
 	}
 
