@@ -61,6 +61,7 @@ type connFlag int
 const (
 	outbound connFlag = 1 << iota
 	inbound
+	static
 )
 
 func (f connFlag) is(f2 connFlag) bool {

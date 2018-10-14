@@ -125,6 +125,10 @@ func (d *Discovery) Block(ID NodeID, IP net.IP) {
 	}
 }
 
+func (d *Discovery) Mark(id NodeID, lifetime int64) {
+	// todo mark node as tcp available
+}
+
 func (d *Discovery) tableLoop() {
 	defer d.wg.Done()
 
