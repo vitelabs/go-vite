@@ -25,7 +25,7 @@ func NewSnapshotVerifier(ch chain.Chain, cs consensus.Verifier) *SnapshotVerifie
 	return verifier
 }
 
-func (self *SnapshotVerifier) VerifyforP2P(block *ledger.SnapshotBlock) bool {
+func (self *SnapshotVerifier) VerifyNetSb(block *ledger.SnapshotBlock) bool {
 	if !self.verifyDataValidity(block) || !self.verifyTimestamp(block) {
 		return false
 	}

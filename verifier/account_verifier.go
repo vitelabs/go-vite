@@ -44,7 +44,7 @@ func (verifier *AccountVerifier) newVerifyStat() *AccountBlockVerifyStat {
 	}
 }
 
-func (verifier *AccountVerifier) VerifyforP2P(block *ledger.AccountBlock) bool {
+func (verifier *AccountVerifier) VerifyNetAb(block *ledger.AccountBlock) bool {
 	if verifier.VerifyTimeNotYet(block) {
 		return false
 	}
