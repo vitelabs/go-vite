@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
