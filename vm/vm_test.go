@@ -22,7 +22,7 @@ func init() {
 func TestVmRun(t *testing.T) {
 	// prepare db
 	viteTotalSupply := viteTotalSupply
-	db, addr1, hash12, snapshot, _ := prepareDb(viteTotalSupply)
+	db, addr1, _, hash12, snapshot, _ := prepareDb(viteTotalSupply)
 	blockTime := time.Now()
 
 	/*
@@ -501,7 +501,7 @@ func TestCalcQuotaV2(t *testing.T) {
 
 func BenchmarkVMTransfer(b *testing.B) {
 	viteTotalSupply := viteTotalSupply
-	db, addr1, hash12, _, timestamp := prepareDb(viteTotalSupply)
+	db, addr1, _, hash12, _, timestamp := prepareDb(viteTotalSupply)
 	for i := 3; i < b.N+3; i++ {
 		timestamp = timestamp + 1
 		ti := time.Unix(timestamp, 0)
@@ -542,7 +542,7 @@ func BenchmarkVMTransfer(b *testing.B) {
 
 func TestVmForTest(t *testing.T) {
 	InitVmConfig(true)
-	db, _, _, snapshot2, _ := prepareDb(big.NewInt(0))
+	db, _, _, _, snapshot2, _ := prepareDb(big.NewInt(0))
 	blockTime := time.Now()
 
 	addr1, _, _ := types.CreateAddress()

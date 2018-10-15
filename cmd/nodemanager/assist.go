@@ -23,19 +23,21 @@ func StartNode(node *node.Node) {
 	// Listening event closes the node
 	go func() {
 		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 		defer signal.Stop(c)
 		<-c
+		fmt.Println("Prepare Stop the Node...")
+
 		go func() {
 			StopNode(node)
 		}()
+
 		for i := 10; i > 0; i-- {
 			<-c
 			if i > 1 {
 				log.Warn("Already shutting down, interrupt more to panic.", "times", i-1)
 			}
 		}
-
 	}()
 
 }
@@ -48,7 +50,8 @@ func WaitNode(node *node.Node) {
 
 // stop the node
 func StopNode(node *node.Node) {
-	log.Warn(fmt.Sprintf("Begin StopNode..."))
+	fmt.Sprintf("Stop the Node...")
+	log.Warn("Stop the Node...")
 	if err := node.Stop(); err != nil {
 		log.Error(fmt.Sprintf("Node stop error: %v", err))
 	}

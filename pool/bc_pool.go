@@ -375,7 +375,7 @@ func (self *chainPool) forky(snippet *snippetChain, chains []*forkedChain) (bool
 			continue
 		}
 		// forky
-		targetTailBlock := c.getBlock(tailHeight, false)
+		targetTailBlock := c.getBlock(tailHeight, true)
 		if targetTailBlock != nil && targetTailBlock.Hash() == tailHash {
 			// same chain
 			if sameChain(snippet, c) {
@@ -461,8 +461,7 @@ func findForkPoint(snippet *snippetChain, chain heightChainReader, refer bool) c
 	for i := start + 1; i <= headHeight; i++ {
 		uncle := chain.getBlock(i, refer)
 		if uncle == nil {
-			log15.Error(fmt.Sprintf("chain error. chain:%s", chain))
-			return nil
+			break
 		}
 		point := snippet.heightBlocks[i]
 		if point.Hash() != uncle.Hash() {

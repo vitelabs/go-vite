@@ -20,18 +20,20 @@ import (
 func TestContractsRegisterRun(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
-	db, addr1, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
+	db, addr1, _, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
 	blockTime := time.Now()
 	// register
 	balance1 := new(big.Int).Set(viteTotalSupply)
-	addr6, privateKey, _ := types.CreateAddress()
-	addr7, _, _ := types.CreateAddress()
-	publicKey := ed25519.PublicKey(privateKey.PubByte())
+	addr6, privateKey6, _ := types.CreateAddress()
+	addr7, privateKey7, _ := types.CreateAddress()
+	publicKey6 := ed25519.PublicKey(privateKey6.PubByte())
+	publicKey7 := ed25519.PublicKey(privateKey7.PubByte())
 	db.accountBlockMap[addr6] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr7] = make(map[types.Hash]*ledger.AccountBlock)
 	addr2 := contracts.AddressRegister
 	nodeName := "super1"
-	block13Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr7, addr6)
+	sign := ed25519.Sign(privateKey7, contracts.GetRegisterMessageForSignature(addr1, 3, hash12, snapshot2.Hash))
+	block13Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr7, addr6, []byte(publicKey7), sign)
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -84,7 +86,8 @@ func TestContractsRegisterRun(t *testing.T) {
 	db.accountBlockMap[addr2][hash21] = receiveRegisterBlockList[0].AccountBlock
 
 	// update registration
-	block14Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration, types.SNAPSHOT_GID, nodeName, addr6, addr7)
+	sign = ed25519.Sign(privateKey6, contracts.GetRegisterMessageForSignature(addr1, 4, hash13, snapshot2.Hash))
+	block14Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration, types.SNAPSHOT_GID, nodeName, addr6, addr7, []byte(publicKey6), sign)
 	hash14 := types.DataHash([]byte{1, 4})
 	block14 := &ledger.AccountBlock{
 		Height:         4,
@@ -142,10 +145,10 @@ func TestContractsRegisterRun(t *testing.T) {
 
 	// cancel register
 	time3 := time.Unix(timestamp+1, 0)
-	snapshot3 := &ledger.SnapshotBlock{Height: 3, Timestamp: &time3, Hash: types.DataHash([]byte{10, 3}), PublicKey: publicKey}
+	snapshot3 := &ledger.SnapshotBlock{Height: 3, Timestamp: &time3, Hash: types.DataHash([]byte{10, 3}), PublicKey: publicKey6}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot3)
 	time4 := time.Unix(timestamp+2, 0)
-	snapshot4 := &ledger.SnapshotBlock{Height: 4, Timestamp: &time4, Hash: types.DataHash([]byte{10, 4}), PublicKey: publicKey}
+	snapshot4 := &ledger.SnapshotBlock{Height: 4, Timestamp: &time4, Hash: types.DataHash([]byte{10, 4}), PublicKey: publicKey6}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot4)
 	time5 := time.Unix(timestamp+3, 0)
 	snapshot5 := &ledger.SnapshotBlock{Height: 3 + 3600*24*90, Timestamp: &time5, Hash: types.DataHash([]byte{10, 5})}
@@ -324,7 +327,7 @@ func TestContractsRegisterRun(t *testing.T) {
 func TestContractsVote(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
-	db, addr1, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
+	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
 	blockTime := time.Now()
 	// vote
 	addr3 := contracts.AddressVote
@@ -486,7 +489,7 @@ func TestContractsVote(t *testing.T) {
 func TestContractsPledge(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
-	db, addr1, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
+	db, addr1, _, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
 	blockTime := time.Now()
 	// pledge
 	balance1 := new(big.Int).Set(viteTotalSupply)
@@ -769,7 +772,7 @@ func TestContractsPledge(t *testing.T) {
 
 func TestContractsConsensusGroup(t *testing.T) {
 	viteTotalSupply := viteTotalSupply
-	db, addr1, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
+	db, addr1, _, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
 	blockTime := time.Now()
 
 	addr2 := contracts.AddressConsensusGroup
@@ -1043,7 +1046,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 func TestContractsMintage(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
-	db, addr1, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
+	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
 	blockTime := time.Now()
 	// mintage
 	balance1 := new(big.Int).Set(viteTotalSupply)
@@ -1162,7 +1165,7 @@ func TestCheckCreateConsensusGroupData(t *testing.T) {
 		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000670000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
 		{"51891ff2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000005649544520544f4b454e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000005649544520544f4b454e000000000000000000000000000000000000000000000000000000000003f4800000000000000000000000000000000000000000000000000000000000000000", ErrInvalidData},
 	}
-	db, _, _, _, _ := prepareDb(big.NewInt(1))
+	db, _, _, _, _, _ := prepareDb(big.NewInt(1))
 	for i, test := range tests {
 		inputdata, _ := hex.DecodeString(test.data)
 		param := new(contracts.ConsensusGroupInfo)
