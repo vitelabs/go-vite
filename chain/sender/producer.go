@@ -111,6 +111,14 @@ func (producer *Producer) Topic() string {
 	return producer.topic
 }
 
+func (producer *Producer) HasSend() uint64 {
+	return producer.hasSend
+}
+
+func (producer *Producer) Status() int {
+	return producer.status
+}
+
 func (producer *Producer) IsSame(brokerList []string, topic string) bool {
 	if producer.topic != topic ||
 		len(brokerList) != len(producer.brokerList) {

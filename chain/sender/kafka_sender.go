@@ -101,6 +101,14 @@ func (sender *KafkaSender) StopAll() {
 	}
 }
 
+func (sender *KafkaSender) Producers() []*Producer {
+	return sender.producers
+}
+
+func (sender *KafkaSender) RunProducers() []*Producer {
+	return sender.producers
+}
+
 func (sender *KafkaSender) getProducer(brokerList []string, topic string) (*Producer, error) {
 	for _, producer := range sender.producers {
 		if producer.IsSame(brokerList, topic) {
