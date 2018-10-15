@@ -278,7 +278,7 @@ func (verifier *AccountVerifier) VerifySnapshotOfReferredBlock(thisBlock *ledger
 		}
 		return PENDING, nil
 	}
-	return PENDING, nil
+	return FAIL, errors.New("VerifySnapshotOfReferredBlock failed")
 }
 
 func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock, task []*AccountPendingTask) (VerifyResult, error) {
