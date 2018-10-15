@@ -199,6 +199,7 @@ func (p *OnroadBlocksPool) WriteOnroadSuccess(blocks []*vm_context.VmAccountBloc
 				return
 			}
 			p.updateCache(true, v.AccountBlock)
+			p.NewSignalToWorker(v.AccountBlock)
 		} else {
 			code, _ := p.dbAccess.Chain.AccountType(&v.AccountBlock.AccountAddress)
 			if code == ledger.AccountTypeGeneral {
@@ -426,7 +427,7 @@ func (p *OnroadBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
 	} else {
 		p.commonTxListenerMutex.RLock()
 		defer p.commonTxListenerMutex.RUnlock()
-		if f, ok := p.newCommonTxListener[block.AccountAddress]; ok {
+		if f, ok := p.newCommonTxListener[block.ToAddress]; ok {
 			f()
 		}
 	}
