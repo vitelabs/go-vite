@@ -27,9 +27,16 @@ type message struct {
 	EventId uint64 `json:"eventId"`
 }
 
+type MqSnapshotBlock struct {
+	ledger.SnapshotBlock
+	Producer types.Address `json:"producer"`
+}
+
 type MqAccountBlock struct {
 	ledger.AccountBlock
-	Balance *big.Int
+
+	Balance     *big.Int      `json:"balance"`
+	FromAddress types.Address `json:"fromAddress"`
 }
 
 type Producer struct {
@@ -280,9 +287,12 @@ func (producer *Producer) send() {
 							tokenTypeId = &sendBlock.TokenId
 							// set token id
 							mqAccountBlock.TokenId = sendBlock.TokenId
+							mqAccountBlock.FromAddress = sendBlock.AccountAddress
+							mqAccountBlock.ToAddress = mqAccountBlock.AccountAddress
 						}
 					} else {
 						tokenTypeId = &block.TokenId
+						mqAccountBlock.FromAddress = mqAccountBlock.AccountAddress
 					}
 
 					balance := big.NewInt(0)
@@ -327,7 +337,7 @@ func (producer *Producer) send() {
 		// AddSnapshotBlocksEvent    = byte(3)
 		case byte(3):
 			m.MsgType = "InsertSnapshotBlocks"
-			var blocks []*ledger.SnapshotBlock
+			var blocks []*MqSnapshotBlock
 			for _, blockHash := range blockHashList {
 				block, err := producer.chain.GetSnapshotBlockByHash(&blockHash)
 				if err != nil {
@@ -335,7 +345,9 @@ func (producer *Producer) send() {
 					return
 				}
 				if block != nil {
-					blocks = append(blocks, block)
+					mqSnapshotBlock := &MqSnapshotBlock{}
+					mqSnapshotBlock.Producer = mqSnapshotBlock.SnapshotBlock.Producer()
+					blocks = append(blocks, mqSnapshotBlock)
 				}
 			}
 

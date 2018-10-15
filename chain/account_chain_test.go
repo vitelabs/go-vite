@@ -235,19 +235,19 @@ func TestGetAccountBlockByHeight(t *testing.T) {
 
 func TestGetAccountBlockByHash(t *testing.T) {
 	chainInstance := getChainInstance()
-	hash, _ := types.HexToHash("f9380deea688b3afe206f52cc3cf2c2677bca1a0fbb4abdfa9d671bc26b22932")
+	hash, _ := types.HexToHash("8df6b1e1f3a9574016a7853dd90fb39c21d8d4aacedbb600b405b3d984b2f5c4")
 	block, err := chainInstance.GetAccountBlockByHash(&hash)
 	if err != nil {
 		t.Error(err)
 	}
 	fmt.Printf("%+v\n", block)
 
-	fromBlock, err2 := chainInstance.GetAccountBlockByHash(&GenesisMintageSendBlock.Hash)
-	if err2 != nil {
-		t.Error(err2)
-	}
-	fmt.Printf("%+v\n", fromBlock)
-	fmt.Printf("%+v\n", fromBlock.Meta)
+	//fromBlock, err2 := chainInstance.GetAccountBlockByHash(&GenesisMintageSendBlock.Hash)
+	//if err2 != nil {
+	//	t.Error(err2)
+	//}
+	//fmt.Printf("%+v\n", fromBlock)
+	//fmt.Printf("%+v\n", fromBlock.Meta)
 }
 
 func TestGetAccountBlocksByAddress(t *testing.T) {
