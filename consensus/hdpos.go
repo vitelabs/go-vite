@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"time"
 
+	"fmt"
+
 	"github.com/vitelabs/go-vite/common/types"
 )
 
@@ -14,7 +16,6 @@ type membersInfo struct {
 	perCnt          int32 // Number of blocks generated per node
 	randCnt         int32
 	randRange       int32
-	LowestLimit     *big.Int
 	seed            *big.Int
 	countingTokenId types.TokenTypeId
 }
@@ -66,4 +67,10 @@ func (self *membersInfo) genSTime(index int32) time.Time {
 func (self *membersInfo) genETime(index int32) time.Time {
 	planInterval := self.interval * self.memberCnt * self.perCnt
 	return self.genesisTime.Add(time.Duration(planInterval*index+1) * time.Second)
+}
+
+func (self *membersInfo) String() string {
+	return fmt.Sprintf("genesisTime:%s, memberCnt:%d, interval:%d, perCnt:%d, randCnt:%d, randRange:%d, seed:%s, countingTokenId:%s",
+		self.genesisTime.String(), self.memberCnt, self.interval, self.perCnt, self.randCnt, self.randRange, self.seed, self.countingTokenId.String())
+
 }

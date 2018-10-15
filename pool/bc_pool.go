@@ -436,15 +436,16 @@ func findForkPoint(snippet *snippetChain, chain heightChainReader, refer bool) c
 	tailHeight := snippet.tailHeight
 	headHeight := snippet.headHeight
 
-	forkpoint := chain.getBlock(tailHeight, refer)
+	start := tailHeight + 1
+	forkpoint := chain.getBlock(start, refer)
 	if forkpoint == nil {
 		return nil
 	}
-	if forkpoint.Hash() != snippet.tailHash {
+	if forkpoint.PrevHash() != snippet.tailHash {
 		return nil
 	}
 
-	for i := tailHeight + 1; i <= headHeight; i++ {
+	for i := start + 1; i <= headHeight; i++ {
 		uncle := chain.getBlock(i, refer)
 		if uncle == nil {
 			log15.Error(fmt.Sprintf("chain error. chain:%s", chain))

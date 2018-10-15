@@ -14,7 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-var log = log15.New("consensusTest")
+var log = log15.New("module", "consensusTest")
 
 func TestConsensus(t *testing.T) {
 
@@ -73,7 +73,7 @@ func TestCommittee_ReadByTime(t *testing.T) {
 	}
 }
 
-func genConsensus(t *testing.T) Consensus {
+func genConsensus(t *testing.T) *committee {
 	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
 	c.Init()
 	c.Start()
@@ -87,4 +87,24 @@ func genConsensus(t *testing.T) Consensus {
 	}
 	cs.Start()
 	return cs
+}
+
+func TestChainBlock(t *testing.T) {
+	c := genConsensus(t)
+
+	chn := c.rw.rw.(chain.Chain)
+
+	headHeight := chn.GetLatestSnapshotBlock().Height
+	log.Info("snapshot head height", "height", headHeight)
+
+	for i := uint64(1); i <= headHeight; i++ {
+		block, err := chn.GetSnapshotBlockByHeight(i)
+		if err != nil {
+			t.Error(err)
+		}
+		b, err := c.VerifySnapshotProducer(block)
+		if !b {
+			t.Error("snapshot block verify fail.", "block", block, "err", err)
+		}
+	}
 }

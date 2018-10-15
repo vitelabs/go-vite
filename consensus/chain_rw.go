@@ -5,8 +5,6 @@ import (
 
 	"time"
 
-	"strconv"
-
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -32,21 +30,21 @@ type Vote struct {
 	balance *big.Int
 }
 
-func (self *chainRw) CalVotes(gid types.Gid, info *membersInfo, t time.Time) ([]*Vote, *ledger.HashHeight, *ledger.HashHeight, error) {
+func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, error) {
 	block, e := self.rw.GetSnapshotBlockBeforeTime(&t)
 
 	if e != nil {
-		return nil, nil, nil, e
+		return nil, e
 	}
 
 	if block == nil {
-		return nil, nil, nil, errors.New("before time[" + t.String() + "] block not exist")
+		return nil, errors.New("before time[" + t.String() + "] block not exist")
 	}
-	head := self.rw.GetLatestSnapshotBlock()
+	return block, nil
+}
 
-	if block.Height > head.Height {
-		return nil, nil, nil, errors.New("rollback happened, block height[" + strconv.FormatUint(block.Height, 10) + "], head height[" + strconv.FormatUint(head.Height, 10) + "]")
-	}
+func (self *chainRw) CalVotes(gid types.Gid, info *membersInfo, block ledger.HashHeight) ([]*Vote, error) {
+
 	// query register info
 	registerList := self.rw.GetRegisterList(block.Hash, gid)
 	// query vote info
@@ -58,7 +56,7 @@ func (self *chainRw) CalVotes(gid types.Gid, info *membersInfo, t time.Time) ([]
 	for _, v := range registerList {
 		registers = append(registers, self.GenVote(block.Hash, v, votes, info.countingTokenId))
 	}
-	return registers, &ledger.HashHeight{Height: block.Height, Hash: block.Hash}, &ledger.HashHeight{Height: head.Height, Hash: head.Hash}, nil
+	return registers, nil
 }
 func (self *chainRw) GenVote(snapshotHash types.Hash, registration *contracts.Registration, infos []*contracts.VoteInfo, id types.TokenTypeId) *Vote {
 	var addrs []types.Address
@@ -101,4 +99,7 @@ func (self *chainRw) GetMemberInfo(gid types.Gid, genesis time.Time) *membersInf
 func (self *chainRw) getGid(block *ledger.AccountBlock) (types.Gid, error) {
 	gid, e := self.rw.GetContractGidByAccountBlock(block)
 	return *gid, e
+}
+func (self *chainRw) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
+	return self.rw.GetLatestSnapshotBlock()
 }

@@ -12,14 +12,14 @@ import (
 
 	"sort"
 
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 func TestFilterVotes(t *testing.T) {
-	info := &membersInfo{genesisTime: time.Now(), memberCnt: 25, interval: 1, perCnt: 3, randCnt: 10, LowestLimit: helper.Big0}
+	info := &membersInfo{genesisTime: time.Now(), memberCnt: 25, interval: 1, perCnt: 3, randCnt: 10}
 
-	teller := newTeller(info, types.DELEGATE_GID, &chainRw{})
+	teller := newTeller(info, types.DELEGATE_GID, &chainRw{}, log15.New("module", "unitTest"))
 	votes := genVotes(10)
 	testFilterVotes(t, teller, votes)
 	testFilterVotes(t, teller, genVotes(21))
@@ -46,9 +46,9 @@ func testFilterVotes(t *testing.T, teller *teller, votes []*Vote) {
 
 func TestShuffleVotes(t *testing.T) {
 
-	info := &membersInfo{genesisTime: time.Now(), memberCnt: 25, interval: 1, perCnt: 3, randCnt: 10, LowestLimit: helper.Big0}
+	info := &membersInfo{genesisTime: time.Now(), memberCnt: 25, interval: 1, perCnt: 3, randCnt: 10}
 
-	teller := newTeller(info, types.DELEGATE_GID, &chainRw{})
+	teller := newTeller(info, types.DELEGATE_GID, &chainRw{}, log15.New("module", "unitTest"))
 
 	votes := genVotes(11)
 	shuffleVotes1 := teller.algo.shuffleVotes(votes, nil)
@@ -65,9 +65,9 @@ func TestShuffleVotes(t *testing.T) {
 }
 
 func TestGenPlans(t *testing.T) {
-	info := &membersInfo{genesisTime: time.Now(), memberCnt: 25, interval: 1, perCnt: 3, randCnt: 10, LowestLimit: helper.Big0}
+	info := &membersInfo{genesisTime: time.Now(), memberCnt: 25, interval: 1, perCnt: 3, randCnt: 10}
 
-	teller := newTeller(info, types.DELEGATE_GID, &chainRw{})
+	teller := newTeller(info, types.DELEGATE_GID, &chainRw{}, log15.New("module", "unitTest"))
 
 	votes := genVotes(20)
 	testGenPlan(t, teller, votes, 60)

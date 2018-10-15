@@ -8,8 +8,8 @@ import (
 
 	"github.com/gavv/monotime"
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 )
 
@@ -106,9 +106,9 @@ func TestGen(t *testing.T) {
 }
 
 func TestRemovePrevious(t *testing.T) {
-	info := &membersInfo{genesisTime: time.Now(), memberCnt: 4, interval: 1, perCnt: 1, randCnt: 10, LowestLimit: helper.Big0}
+	info := &membersInfo{genesisTime: time.Now(), memberCnt: 4, interval: 1, perCnt: 1, randCnt: 10}
 
-	teller := newTeller(info, types.DELEGATE_GID, &chainRw{})
+	teller := newTeller(info, types.DELEGATE_GID, &chainRw{}, log15.New("module", "unitTest"))
 	for i := 0; i < 10; i++ {
 		teller.electionIndex(int32(i))
 	}
