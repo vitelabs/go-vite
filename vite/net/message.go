@@ -181,9 +181,9 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error
 
 	var blocks []*ledger.SnapshotBlock
 	if req.From.Height != 0 {
-		blocks, err = s.chain.GetSnapshotBlocksByHeight(req.From.Height, req.Count, req.Forward, false)
+		blocks, err = s.chain.GetSnapshotBlocksByHeight(req.From.Height, req.Count, req.Forward, true)
 	} else {
-		blocks, err = s.chain.GetSnapshotBlocksByHash(&req.From.Hash, req.Count, req.Forward, false)
+		blocks, err = s.chain.GetSnapshotBlocksByHash(&req.From.Hash, req.Count, req.Forward, true)
 	}
 
 	if err != nil {
