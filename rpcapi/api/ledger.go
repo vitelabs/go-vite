@@ -185,21 +185,28 @@ func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*RpcTokenInfo, error
 	return RawTokenInfoToRpc(l.chain.GetTokenInfoById(&tti), tti), nil
 }
 
-func (l *LedgerApi) GetKafkaSenderInfo() *KafkaSendInfo {
-	l.log.Info("GetTokenMintage")
+func (l *LedgerApi) GetKafkaSenderInfo() (*KafkaSendInfo, error) {
+	l.log.Info("GetKafkaSenderInfo")
 	if l.chain.KafkaSender() == nil {
-		return nil
+		return nil, nil
 	}
-
 	senderInfo := &KafkaSendInfo{}
+
+	var totalErr error
+	senderInfo.TotalEvent, totalErr = l.chain.GetLatestBlockEventId()
+	if totalErr != nil {
+		l.log.Error("GetLatestBlockEventId failed, error is "+totalErr.Error(), "method", "GetKafkaSenderInfo")
+
+		return nil, totalErr
+	}
 	for _, producer := range l.chain.KafkaSender().Producers() {
 		senderInfo.Producers = append(senderInfo.Producers, createKafkaProducerInfo(producer))
 	}
 
 	for _, producer := range l.chain.KafkaSender().RunProducers() {
-		senderInfo.RunProducers = append(senderInfo.Producers, createKafkaProducerInfo(producer))
+		senderInfo.RunProducers = append(senderInfo.RunProducers, createKafkaProducerInfo(producer))
 	}
 
-	return senderInfo
+	return senderInfo, nil
 
 }

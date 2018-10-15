@@ -28,8 +28,9 @@ type message struct {
 }
 
 type MqSnapshotBlock struct {
-	ledger.SnapshotBlock
-	Producer types.Address `json:"producer"`
+	*ledger.SnapshotBlock
+	Producer  types.Address `json:"producer"`
+	Timestamp int64         `json:"timestamp"`
 }
 
 type MqAccountBlock struct {
@@ -37,6 +38,7 @@ type MqAccountBlock struct {
 
 	Balance     *big.Int      `json:"balance"`
 	FromAddress types.Address `json:"fromAddress"`
+	Timestamp   int64         `json:"timestamp"`
 }
 
 type Producer struct {
@@ -315,6 +317,7 @@ func (producer *Producer) send() {
 					}
 
 					mqAccountBlock.Balance = balance
+					mqAccountBlock.Timestamp = block.Timestamp.Unix()
 					blocks = append(blocks, mqAccountBlock)
 				}
 			}
@@ -354,7 +357,9 @@ func (producer *Producer) send() {
 				}
 				if block != nil {
 					mqSnapshotBlock := &MqSnapshotBlock{}
+					mqSnapshotBlock.SnapshotBlock = block
 					mqSnapshotBlock.Producer = mqSnapshotBlock.SnapshotBlock.Producer()
+					mqSnapshotBlock.Timestamp = block.Timestamp.Unix()
 					blocks = append(blocks, mqSnapshotBlock)
 				}
 			}
