@@ -23,9 +23,10 @@ func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.Sn
 				c.log.Error("GetBlock failed, error is "+err.Error(), "method", "GenStateTrie")
 				return nil, err
 			}
-			if block != nil {
-				currentTrie.SetValue(addr.Bytes(), block.StateHash.Bytes())
-			}
+		}
+
+		if block != nil {
+			currentTrie.SetValue(addr.Bytes(), block.StateHash.Bytes())
 		}
 	}
 

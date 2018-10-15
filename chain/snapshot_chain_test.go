@@ -19,21 +19,24 @@ func TestGetNeedSnapshotContent(t *testing.T) {
 }
 
 func TestInsertSnapshotBlock(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	makeBlocks(chainInstance, 10)
 
 }
 
 func TestGetSnapshotBlocksByHash(t *testing.T) {
 	chainInstance := getChainInstance()
-	blocks, err := chainInstance.GetSnapshotBlocksByHash(nil, 400, false, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, block := range blocks {
-		fmt.Printf("%d | %s | %s  | %d\n", block.Height, block.Timestamp, block.Producer(), block.Timestamp.UnixNano())
-	}
-	fmt.Println()
+	//blocks, err := chainInstance.GetSnapshotBlocksByHash(nil, 400, false, false)
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
+	//for _, block := range blocks {
+	//	fmt.Printf("%d | %s | %s  | %d\n", block.Height, block.Timestamp, block.Producer(), block.Timestamp.UnixNano())
+	//}
+	//fmt.Println()
 
-	blocks2, err2 := chainInstance.GetSnapshotBlocksByHash(nil, 100, true, true)
+	blocks2, err2 := chainInstance.GetSnapshotBlocksByHash(nil, 200, true, true)
 	if err2 != nil {
 		t.Fatal(err2)
 	}

@@ -50,7 +50,7 @@ func (cache *NeedSnapshotCache) GetBlockByHashHeight(addr *types.Address, hashHe
 	if blocks == nil {
 		return nil
 	}
-	if blocks[0].Height > hashHeight.Height || blocks[len(blocks)-1].Height > hashHeight.Height {
+	if blocks[0].Height > hashHeight.Height || blocks[len(blocks)-1].Height < hashHeight.Height {
 		return nil
 	}
 
