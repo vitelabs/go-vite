@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"testing"
 	"time"
+	"encoding/base64"
 )
 
 type Bclass struct {
@@ -17,6 +18,27 @@ type Bclass struct {
 type Aclass struct {
 	b  Bclass
 	Ts []uint64
+}
+
+func TestComputeHash(t *testing.T) {
+	addr, _:= types.HexToAddress("vite_847e1672c9a775ca0f3c3a2d3bf389ca466e5501cbecdb7107")
+	nonce, _ := base64.StdEncoding.DecodeString("PRdIJ3eSXDQ=")
+	fromBlockHash, _ := types.HexToHash("48290760a0249c28e92bfbcac31e1c0b61e74f666bddc1a2574b96a7bb533852")
+	snapshotBlockHash, _ := types.HexToHash("3e3393b720679ff09dbc57f6e23570dbca3dc947cf28cdcbad3abc1cb6da2bee")
+	ts := time.Unix(1539604021,0)
+	block := &AccountBlock{
+		BlockType: 4,
+
+		Height: 1,
+		PrevHash: types.Hash{},
+		AccountAddress: addr,
+		Fee: big.NewInt(0),
+		Nonce: nonce,
+		Timestamp: &ts,
+		FromBlockHash: fromBlockHash,
+		SnapshotHash: snapshotBlockHash,
+	}
+	fmt.Println(block.ComputeHash())
 }
 
 func TestAccountBlock_Copy(t *testing.T) {
