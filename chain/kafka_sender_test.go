@@ -31,6 +31,7 @@ func makeBlocks(chainInstance Chain, toBlockHeight uint64) {
 		if (i+1)%100 == 0 {
 			fmt.Printf("Make %d snapshot blocks.\n", i+1)
 		}
+
 	}
 }
 

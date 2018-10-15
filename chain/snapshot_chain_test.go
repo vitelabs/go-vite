@@ -21,7 +21,7 @@ func TestGetNeedSnapshotContent(t *testing.T) {
 func TestInsertSnapshotBlock(t *testing.T) {
 	chainInstance := getChainInstance()
 
-	makeBlocks(chainInstance, 10)
+	makeBlocks(chainInstance, 10000)
 
 }
 
@@ -36,7 +36,7 @@ func TestGetSnapshotBlocksByHash(t *testing.T) {
 	//}
 	//fmt.Println()
 
-	blocks2, err2 := chainInstance.GetSnapshotBlocksByHash(nil, 200, true, true)
+	blocks2, err2 := chainInstance.GetSnapshotBlocksByHash(nil, 300, true, true)
 	if err2 != nil {
 		t.Fatal(err2)
 	}
@@ -81,7 +81,8 @@ func TestGetSnapshotBlockByHeight(t *testing.T) {
 
 func TestGetSnapshotBlockByHash(t *testing.T) {
 	chainInstance := getChainInstance()
-	block, err := chainInstance.GetSnapshotBlockByHash(&GenesisMintageSendBlock.Hash)
+	hash, _ := types.HexToHash("8895491b5501ef34d0064e57764dd74b6ec8a058054356c672ef12a9c7776ddf")
+	block, err := chainInstance.GetSnapshotBlockByHash(&hash)
 	if err != nil {
 		t.Fatal(err)
 	}
