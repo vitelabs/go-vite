@@ -295,23 +295,6 @@ func (p *Peer) Info() *PeerInfo {
 }
 
 // @section PeerSet
-type PeerEventCode int
-
-const (
-	PeerAdd PeerEventCode = iota + 1
-	PeerDel
-)
-
-var peerEventDesc = [...]string{}
-
-func (c PeerEventCode) String() string {
-
-}
-
-type PeerEvent struct {
-	code int
-}
-
 type PeerSet struct {
 	peers    map[discovery.NodeID]*Peer
 	inbound  int

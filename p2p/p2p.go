@@ -18,7 +18,6 @@ import (
 	"time"
 )
 
-var p2pServerLog = log15.New("module", "p2p/server")
 var errSvrStarted = errors.New("server has started")
 
 type Discovery interface {
@@ -98,7 +97,7 @@ func New(cfg *Config) (svr *Server, err error) {
 	svr = &Server{
 		Config:      cfg,
 		addr:        tcpAddr,
-		StaticNodes: addFirmNodes(cfg.StaticNodes),
+		StaticNodes: parseNodes(cfg.StaticNodes),
 		peers:       NewPeerSet(),
 		pending:     make(chan struct{}, cfg.MaxPendingPeers),
 		addPeer:     make(chan *conn, 1),
@@ -113,7 +112,7 @@ func New(cfg *Config) (svr *Server, err error) {
 	svr.discv = discovery.New(&discovery.Config{
 		Priv:      cfg.PrivateKey,
 		DBPath:    cfg.DataDir,
-		BootNodes: addFirmNodes(cfg.BootNodes),
+		BootNodes: parseNodes(cfg.BootNodes),
 		Addr:      udpAddr,
 		Self:      node,
 	})
@@ -236,6 +235,9 @@ func (svr *Server) dialLoop() {
 	}
 }
 
+// when peer is disconnected, maybe we want to reconnect it.
+// we can get ID and addr only from peer, but not Node
+// so dial(id, addr, flag) not dial(Node, flag)
 func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
 	// has been blocked
 	if svr.blockList.Has(id[:]) {
