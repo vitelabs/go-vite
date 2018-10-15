@@ -7,8 +7,8 @@ import (
 )
 
 type HashHeight struct {
-	Height uint64
-	Hash   types.Hash
+	Height uint64     `json:"height"`
+	Hash   types.Hash `json:"hash"`
 }
 
 func (b *HashHeight) Equal(hash types.Hash, height uint64) bool {

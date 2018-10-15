@@ -21,6 +21,16 @@ func RandStringRunes(n int) string {
 	return string(b)
 }
 
+// to is larger or equal than from
+func mockFromTo() (from, to uint64) {
+	from, to = rand.Uint64(), rand.Uint64()
+	if from > to {
+		from, to = to, from
+	}
+
+	return
+}
+
 func mockPeers() (peers []*Peer) {
 	var num int
 	for {
@@ -36,16 +46,6 @@ func mockPeers() (peers []*Peer) {
 	}
 
 	return peers
-}
-
-// to is larger or equal than from
-func mockFromTo() (from, to uint64) {
-	from, to = rand.Uint64(), rand.Uint64()
-	if from > to {
-		from, to = to, from
-	}
-
-	return
 }
 
 func TestSplitSubLedger(t *testing.T) {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"io"
 	"net"
@@ -143,7 +142,6 @@ type AsyncMsgConn struct {
 	reason  error      // close reason
 	errored int32      // atomic, indicate whehter there is an error, readErr(1), writeErr(2)
 	errch   chan error // report errch to upper layer
-	log     log15.Logger
 }
 
 // create an AsyncMsgConn, fd is the basic connection
@@ -159,7 +157,6 @@ func NewAsyncMsgConn(fd net.Conn, handler func(msg *Msg)) *AsyncMsgConn {
 		wqueue:  make(chan *Msg, writeBufferLen),
 		rqueue:  make(chan *Msg, readBufferLen),
 		errch:   make(chan error, 1),
-		log:     log15.New("module", "p2p/AsyncMsgConn", "end", fd.RemoteAddr().String()),
 	}
 }
 
@@ -178,11 +175,9 @@ func (c *AsyncMsgConn) Close(err error) {
 	select {
 	case <-c.term:
 	default:
-		c.log.Error(fmt.Sprintf("close: %v", err))
 		c.reason = err
 		close(c.term)
 		c.wg.Wait()
-		c.log.Error(fmt.Sprintf("closed: %v", err))
 	}
 }
 
@@ -210,7 +205,6 @@ func (c *AsyncMsgConn) readLoop() {
 			c.rqueue <- msg
 			monitor.LogEvent("async-conn-read", c.fd.RemoteAddr().String())
 		} else {
-			c.log.Error(fmt.Sprintf("read message error: %v", err))
 			c.report(1, err)
 			return
 		}
@@ -229,10 +223,8 @@ func (c *AsyncMsgConn) _write(msg *Msg) bool {
 
 	if err != nil {
 		c.report(2, err)
-		c.log.Error(fmt.Sprintf("write message %s to %s error: %v", msg, c.fd.RemoteAddr(), err))
 		return false
 	} else {
-		c.log.Info(fmt.Sprintf("write message %s to %s done", msg, c.fd.RemoteAddr()))
 		return true
 	}
 }

@@ -82,6 +82,9 @@ type Node struct {
 	TCP      uint16
 	addAt    time.Time
 	lastPing time.Time
+	activeAt time.Time
+	weight   int64 // tcp connection lifetime, longer is better
+	findfail int
 }
 
 func (n *Node) proto() *protos.Node {

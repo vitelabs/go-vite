@@ -297,7 +297,6 @@ func (p *Peer) Info() *PeerInfo {
 // @section PeerSet
 type PeerSet struct {
 	peers    map[discovery.NodeID]*Peer
-	lock     sync.RWMutex
 	inbound  int
 	outbound int
 }
@@ -309,9 +308,6 @@ func NewPeerSet() *PeerSet {
 }
 
 func (s *PeerSet) Add(p *Peer) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	s.peers[p.ID()] = p
 	if p.ts.is(inbound) {
 		s.inbound++
@@ -321,10 +317,8 @@ func (s *PeerSet) Add(p *Peer) {
 }
 
 func (s *PeerSet) Del(p *Peer) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	delete(s.peers, p.ID())
+
 	if p.ts.is(inbound) {
 		s.inbound--
 	} else {
@@ -333,24 +327,15 @@ func (s *PeerSet) Del(p *Peer) {
 }
 
 func (s *PeerSet) Has(id discovery.NodeID) bool {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
 	_, ok := s.peers[id]
 	return ok
 }
 
 func (s *PeerSet) Size() int {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
 	return len(s.peers)
 }
 
 func (s *PeerSet) Info() []*PeerInfo {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
 	info := make([]*PeerInfo, s.Size())
 	i := 0
 	for _, p := range s.peers {
@@ -362,9 +347,6 @@ func (s *PeerSet) Info() []*PeerInfo {
 }
 
 func (s *PeerSet) Traverse(fn func(id discovery.NodeID, p *Peer)) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
 	for id, p := range s.peers {
 		id, p := id, p
 		fn(id, p)
