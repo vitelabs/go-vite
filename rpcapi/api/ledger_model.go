@@ -135,8 +135,9 @@ func RawTokenInfoToRpc(tinfo *contracts.TokenInfo, tti types.TokenTypeId) *RpcTo
 }
 
 type KafkaSendInfo struct {
-	Producers    []*KafkaProducerInfo `json:"producers`
-	RunProducers []*KafkaProducerInfo `json:"runProducers`
+	Producers    []*KafkaProducerInfo `json:"producers"`
+	RunProducers []*KafkaProducerInfo `json:"runProducers"`
+	TotalEvent   uint64               `json:"totalEvent"`
 }
 
 type KafkaProducerInfo struct {
