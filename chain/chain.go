@@ -85,6 +85,10 @@ func (c *chain) Init() {
 	// Finish initialize
 	c.log.Info("Chain module initialized")
 }
+
+func (c *chain) KafkaSender() *sender.KafkaSender {
+	return c.kafkaSender
+}
 func (c *chain) checkAndInitData() {
 	sb := c.genesisSnapshotBlock
 	dbSb, err := c.GetSnapshotBlockByHeight(1)

@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
@@ -131,4 +132,35 @@ func RawTokenInfoToRpc(tinfo *contracts.TokenInfo, tti types.TokenTypeId) *RpcTo
 		}
 	}
 	return rt
+}
+
+type KafkaSendInfo struct {
+	Producers    []*KafkaProducerInfo `json:"producers`
+	RunProducers []*KafkaProducerInfo `json:"runProducers`
+}
+
+type KafkaProducerInfo struct {
+	BrokerList []string `json:"brokerList"`
+	Topic      string   `json:"topic"`
+	HasSend    uint64   `json:"hasSend"`
+	Status     string   `json:"status"`
+}
+
+func createKafkaProducerInfo(producer *sender.Producer) *KafkaProducerInfo {
+	status := "unknown"
+	switch producer.Status() {
+	case sender.STOPPED:
+		status = "stopped"
+	case sender.RUNNING:
+		status = "running"
+	}
+
+	producerInfo := &KafkaProducerInfo{
+		BrokerList: producer.BrokerList(),
+		Topic:      producer.Topic(),
+		HasSend:    producer.HasSend(),
+		Status:     status,
+	}
+
+	return producerInfo
 }
