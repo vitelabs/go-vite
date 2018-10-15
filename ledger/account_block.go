@@ -300,6 +300,7 @@ func (ab *AccountBlock) ComputeHash() types.Hash {
 	}
 	source = append(source, fee.Bytes()...)
 
+
 	// SnapshotHash
 	source = append(source, ab.SnapshotHash.Bytes()...)
 
