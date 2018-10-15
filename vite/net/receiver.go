@@ -168,7 +168,7 @@ func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 	for i, j = 0, 0; i < len(blocks); i++ {
 		block := blocks[i]
 		if s.filter.has(block.Hash) {
-			s.log.Warn(fmt.Sprintf("has receive same snapshotblock %s, will not notify", block.Hash))
+			s.log.Warn(fmt.Sprintf("has receive same snapshotblock %s-%d, will not notify", block.Hash, block.Height))
 			continue
 		}
 

@@ -156,6 +156,9 @@ func main() {
 
 	var node *vite.Vite
 	var p2p *p2p.Server
+	var err error
+
+	node, p2p, err = startNode(w, coinbase, common.DefaultDataDir())
 	{
 		autoCmd := &ishell.Cmd{
 			Name: "node",
@@ -169,9 +172,7 @@ func main() {
 					c.Println("node has started.")
 					return
 				}
-
-				var err error
-				node, p2p, err = startNode(w, coinbase)
+				node, p2p, err = startNode(w, coinbase, common.DefaultDataDir())
 				if err != nil {
 					c.Err(err)
 					return
@@ -732,15 +733,15 @@ func main() {
 	// run shell
 	shell.Run()
 }
-func startNode(w *wallet.Manager, tmp *types.Address) (*vite.Vite, *p2p.Server, error) {
+func startNode(w *wallet.Manager, tmp *types.Address, baseDir string) (*vite.Vite, *p2p.Server, error) {
 	p2pServer, err := p2p.New(&p2p.Config{
-		BootNodes: []string{
+		StaticNodes: []string{
 			"vnode://6d72c01e467e5280acf1b63f87afd5b6dcf8a596d849ddfc9ca70aab08f10191@192.168.31.146:8483",
 			"vnode://1ceabc6c2b751b352a6d719b4987f828bb1cf51baafa4efac38bc525ed61059d@192.168.31.190:8483",
-			"vnode://8343b3f2bc4e8e521d460cadab3e9f1e61ba57529b3fb48c5c076845c92e75d2@192.168.31.193:8483",
-			"vnode://48d589104db59e822f16f029c5f430efa70094311ba7ddd3c9d292678fee1732@192.168.31.45:8483",
-		},
-		DataDir: path.Join(common.DefaultDataDir(), "/p2p"),
+			"vnode://8343b3f2bc4e8e521d460cadab3e9f1e61ba57529b3fb48c5c076845c92e75d2@192.168.31.193:8483"},
+		BootNodes: []string{},
+		DataDir:   path.Join(baseDir, "/p2p"),
+		NetID:     11,
 	})
 
 	coinbase := "vite_a60e507124c2059ccb61039870dac3b5219aca014abc3807d0"
@@ -748,12 +749,12 @@ func startNode(w *wallet.Manager, tmp *types.Address) (*vite.Vite, *p2p.Server, 
 		coinbase = tmp.String()
 	}
 	config := &config.Config{
-		DataDir: common.DefaultDataDir(),
+		DataDir: baseDir,
 		Producer: &config.Producer{
 			Producer: true,
 			Coinbase: coinbase,
 		},
-		Vm: &config.Vm{IsVmTest: false},
+		Vm: &config.Vm{IsVmTest: true},
 		Net: &config.Net{
 			Single: false,
 		},
