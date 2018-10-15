@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
 )
@@ -24,16 +25,41 @@ func NewSnapshotVerifier(ch chain.Chain, cs consensus.Verifier) *SnapshotVerifie
 	return verifier
 }
 
-func (self *SnapshotVerifier) VerifyforP2P_SnapshotBlock(block *ledger.SnapshotBlock) bool {
-	return false
+func (self *SnapshotVerifier) VerifyforP2P(block *ledger.SnapshotBlock) bool {
+	if !self.verifyDataValidity(block) || !self.verifyTimestamp(block) {
+		return false
+	}
+	return true
 }
 
-func (self *SnapshotVerifier) VerifyTimeNotYet(block *ledger.SnapshotBlock) bool {
-	return false
+func (self *SnapshotVerifier) verifyTimestamp(block *ledger.SnapshotBlock) bool {
+	if block.Timestamp == nil {
+		return false
+	}
+	currentSb := self.reader.GetLatestSnapshotBlock()
+	if currentSb == nil {
+		return false
+	}
+	if block.Timestamp.After(*currentSb.Timestamp) {
+		return false
+	}
+	return true
 }
 
-func (self *SnapshotVerifier) VerifyDataValidity(block *ledger.SnapshotBlock) bool {
-	return false
+func (self *SnapshotVerifier) verifyDataValidity(block *ledger.SnapshotBlock) bool {
+	computedHash := block.ComputeHash()
+	if block.Hash.IsZero() || computedHash != block.Hash {
+		return false
+	}
+
+	if len(block.Signature) == 0 || len(block.PublicKey) == 0 {
+		return false
+	}
+	isVerified, _ := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
+	if !isVerified {
+		return false
+	}
+	return true
 }
 
 func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *SnapshotBlockVerifyStat) error {
