@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	BigNumber_JS = deps.MustAsset("bignumber.js")
-	Web3_JS      = deps.MustAsset("web3.js")
+	BigNumber_JS  = deps.MustAsset("bignumber.js")
+	Vite_JS       = deps.MustAsset("vite.js")
+	Typedarray_JS = deps.MustAsset("typedarray.js")
 )
 
 /*
