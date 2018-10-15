@@ -179,13 +179,13 @@ func (manager *Manager) stopAllWorks() {
 
 func (manager *Manager) startAllWorks() {
 	var wg = sync.WaitGroup{}
-	for _, v := range manager.autoReceiveWorkers {
-		wg.Add(1)
-		go func() {
-			v.Start()
-			wg.Done()
-		}()
-	}
+	//for _, v := range manager.autoReceiveWorkers {
+	//	wg.Add(1)
+	//	go func() {
+	//		v.Start()
+	//		wg.Done()
+	//	}()
+	//}
 	for _, v := range manager.contractWorkers {
 		wg.Add(1)
 		go func() {
@@ -241,6 +241,7 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 		manager.log.Info("Manager get event new Worker")
 		manager.autoReceiveWorkers[addr] = w
 	}
+	w.ResetAutoReceiveFilter(filter)
 	w.Start()
 	return nil
 }

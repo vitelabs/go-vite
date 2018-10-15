@@ -106,9 +106,7 @@ func (w *AutoReceiveWorker) Stop() {
 func (w *AutoReceiveWorker) ResetAutoReceiveFilter(filters map[types.TokenTypeId]big.Int) {
 	w.log.Info("ResetAutoReceiveFilter", "len", len(filters))
 	w.filters = filters
-	if w.Status() == Start {
-		w.onroadBlocksPool.ResetCacheCursor(w.address)
-	}
+	w.onroadBlocksPool.ResetCacheCursor(w.address)
 }
 
 func (w *AutoReceiveWorker) startWork() {
