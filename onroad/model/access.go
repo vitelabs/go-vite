@@ -83,7 +83,7 @@ func (access *UAccess) writeOnroadMeta(batch *leveldb.Batch, block *ledger.Accou
 		addr := &block.AccountAddress
 		hash := &block.FromBlockHash
 
-		value, err := access.store.GetMeta(addr, hash)
+		value, err := access.Chain.ChainDb().OnRoad.GetMeta(addr, hash)
 		if len(value) == 0 {
 			if err == nil {
 				if count, err := access.store.GetReceiveErrCount(hash, addr); err == nil {
@@ -123,7 +123,7 @@ func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.Acco
 		case ledger.AccountTypeGeneral, ledger.AccountTypeNotExist:
 			return access.store.DeleteMeta(batch, addr, hash)
 		case ledger.AccountTypeContract:
-			value, err := access.store.GetMeta(addr, hash)
+			value, err := access.Chain.ChainDb().OnRoad.GetMeta(addr, hash)
 			if len(value) == 0 {
 				if err == nil {
 					access.log.Info("the corresponding sendBlock has already been delete")
@@ -256,4 +256,11 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 
 	}
 	return infoMap, uint64(len(hashList)), nil
+}
+
+func (access *UAccess) IsSuccessReceived(addr *types.Address, hash *types.Hash) bool {
+	if meta, _ := access.Chain.ChainDb().OnRoad.GetMeta(addr, hash); meta != nil {
+		return false
+	}
+	return true
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
-
 type Pool interface {
 	ExistInPool(address types.Address, fromBlockHash types.Hash) bool
 	AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_context.VmAccountBlock) error

@@ -65,6 +65,19 @@ func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock) (block
 	return verifier.VerifyforVM(block)
 }
 
+// contractAddr's sendBlock don't call VerifyReferredforPool
+func (verifier *AccountVerifier) VerifyReferred(block *ledger.AccountBlock) (VerifyResult, *AccountBlockVerifyStat) {
+	defer monitor.LogTime("verify", "accountReferredforPool", time.Now())
+
+	stat := verifier.newVerifyStat()
+
+	verifier.verifySelf(block, stat)
+	verifier.verifyFrom(block, stat)
+	verifier.verifySnapshot(block, stat)
+
+	return stat.VerifyResult(), stat
+}
+
 func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks []*vm_context.VmAccountBlock, err error) {
 	defer monitor.LogTime("verify", "VerifyforVM", time.Now())
 
@@ -114,19 +127,6 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 	return nil
 }
 
-// contractAddr's sendBlock don't call VerifyReferredforPool
-func (verifier *AccountVerifier) VerifyReferred(block *ledger.AccountBlock) (VerifyResult, *AccountBlockVerifyStat) {
-	defer monitor.LogTime("verify", "accountReferredforPool", time.Now())
-
-	stat := verifier.newVerifyStat()
-
-	verifier.verifySelf(block, stat)
-	verifier.verifyFrom(block, stat)
-	verifier.verifySnapshot(block, stat)
-
-	return stat.VerifyResult(), stat
-}
-
 func (verifier *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) {
 	defer monitor.LogTime("verify", "accountSelf", time.Now())
 
@@ -141,11 +141,12 @@ func (verifier *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifySt
 		return false
 	}
 
-	//if isTrue, err := verifier.VerifyDataValidity(block); !isTrue {
-	//	verifyStatResult.referredSelfResult = FAIL
-	//	verifyStatResult.errMsg += err.Error()
-	//	return
-	//}
+	if block.BlockType == ledger.BlockTypeReceive || block.BlockType == ledger.BlockTypeReceiveError {
+		if verifier.chain.IsSuccessReceived(&block.AccountAddress, &block.FromBlockHash) {
+			verifyStatResult.referredSelfResult = FAIL
+			return
+		}
+	}
 
 	step1, err1 := verifier.verifyProducerLegality(block, verifyStatResult.accountTask)
 	if isFail(step1, err1, verifyStatResult) {
@@ -245,6 +246,14 @@ func (verifier *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, veri
 func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) error {
 	defer monitor.LogTime("verify", "accountSelfDataValidity", time.Now())
 
+	code, err := verifier.chain.AccountType(&block.AccountAddress)
+	if err != nil {
+		return errors.New("VerifyAccountAddress," + err.Error())
+	}
+	if block.IsSendBlock() && code == ledger.AccountTypeNotExist {
+		return errors.New("VerifyAccountAddress, inexistent AccountAddress can't sendTx")
+	}
+
 	if block.Amount == nil {
 		block.Amount = big.NewInt(0)
 	}
@@ -270,6 +279,10 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 		return errors.New("VerifyNonce failed")
 	}
 
+	if block.IsSendBlock() && code == ledger.AccountTypeContract {
+		// contractAddr's sendBlock ignore the sigature and pubKey
+		return nil
+	}
 	if !verifier.VerifySigature(block) {
 		return errors.New("VerifySigature failed")
 	}
@@ -323,19 +336,6 @@ func (verifier *AccountVerifier) VerifyHash(block *ledger.AccountBlock) bool {
 }
 
 func (verifier *AccountVerifier) VerifySigature(block *ledger.AccountBlock) bool {
-	code, err := verifier.chain.AccountType(&block.AccountAddress)
-	if err != nil {
-		verifier.log.Error("AccountType", "error", err)
-		return false
-	}
-
-	if block.IsSendBlock() && (code == ledger.AccountTypeNotExist || code == ledger.AccountTypeContract) {
-		if len(block.Signature) == 0 || len(block.PublicKey) == 0 {
-			return true
-		}
-		return false
-	}
-
 	if len(block.Signature) == 0 || len(block.PublicKey) == 0 {
 		return false
 	}

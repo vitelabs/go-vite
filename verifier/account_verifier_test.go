@@ -37,11 +37,10 @@ var (
 )
 
 func init() {
-	flag.StringVar(&genesisAccountPrivKeyStr, "k", "", "")
-	fmt.Println(genesisAccountPrivKeyStr)
-
 	var isTest bool
 	flag.BoolVar(&isTest, "vm.test", false, "test net gets unlimited balance and quota")
+	flag.StringVar(&genesisAccountPrivKeyStr, "k", "", "")
+
 	flag.Parse()
 	vm.InitVmConfig(isTest)
 }
