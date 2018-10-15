@@ -145,17 +145,27 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 }
 
 func splitChunk(from, to uint64) (chunks [][2]uint64) {
-	var cTo uint64
+	// chunks may be only one block, then from == to
+	if from > to || to == 0 {
+		return
+	}
 
-	for from < to {
+	total := (to-from)/minBlocks + 1
+	chunks = make([][2]uint64, total)
+
+	var cTo uint64
+	var i int
+	for from <= to {
 		if to > from+minBlocks {
 			cTo = from + minBlocks - 1
 		} else {
 			cTo = to
 		}
 
-		chunks = append(chunks, [2]uint64{from, cTo})
+		chunks[i] = [2]uint64{from, cTo}
+
 		from = cTo + 1
+		i++
 	}
 
 	return chunks
@@ -220,24 +230,22 @@ func (s *subLedgerRequest) Handle(ctx *context, pkt *p2p.Msg, peer *Peer) {
 
 		// request chunks
 		for _, chunk := range msg.Chunks {
-			if chunk[1] > chunk[0] {
-				// maybe chunk is too large
-				cs := splitChunk(chunk[0], chunk[1])
-				for _, c := range cs {
-					msgId := ctx.pool.MsgID()
+			// maybe chunk is too large
+			cs := splitChunk(chunk[0], chunk[1])
+			for _, c := range cs {
+				msgId := ctx.pool.MsgID()
 
-					c := &chunkRequest{
-						id:         msgId,
-						from:       c[0],
-						to:         c[1],
-						peer:       peer,
-						expiration: time.Now().Add(30 * time.Second),
-						done:       s.childDone,
-					}
-					s.chunks = append(s.chunks, c)
-
-					ctx.pool.Add(c)
+				c := &chunkRequest{
+					id:         msgId,
+					from:       c[0],
+					to:         c[1],
+					peer:       peer,
+					expiration: time.Now().Add(30 * time.Second),
+					done:       s.childDone,
 				}
+				s.chunks = append(s.chunks, c)
+
+				ctx.pool.Add(c)
 			}
 		}
 	} else {

@@ -84,9 +84,11 @@ const minHeightDifference = 3600
 
 var waitEnoughPeers = 10 * time.Second
 var enoughPeers = 3
+
+// todo should be set according to block number
 var chainGrowTimeout = 5 * time.Minute
 var downloadTimeout = 5 * time.Minute
-var chainGrowInterval = time.Minute
+var chainGrowInterval = 10 * time.Second
 
 type syncer struct {
 	from, to   uint64 // include
@@ -104,7 +106,6 @@ type syncer struct {
 	pool       RequestPool // add new request
 	log        log15.Logger
 	running    int32
-	first      int32 // first start sync
 	receiver   Receiver
 	fc         *fileClient
 	reqs       []*subLedgerRequest
@@ -123,7 +124,6 @@ func newSyncer(chain Chain, peers *peerSet, pool *requestPool, receiver Receiver
 		log:        log15.New("module", "net/syncer"),
 		receiver:   receiver,
 		fc:         fc,
-		first:      1,
 	}
 
 	// subscribe peer add/del event
@@ -178,8 +178,11 @@ wait:
 
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
-	// p is tall enough, or first sync
-	if !s.shouldSync(current.Height, p.height) {
+	// p is lower than me, or p is not all enough
+	if current.Height >= p.height || current.Height+minBlocks > p.height {
+		if current.Height > p.height {
+			p.SendNewSnapshotBlock(current)
+		}
 		s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
 		s.setState(Syncdone)
 		return
@@ -189,7 +192,7 @@ wait:
 	s.to = p.height
 	s.total = s.to - s.from + 1
 
-	s.log.Info(fmt.Sprintf("syncing: current at %d, to %d", s.from, s.to))
+	s.log.Info(fmt.Sprintf("syncing: current at %d, to %d", current.Height, s.to))
 	s.setState(Syncing)
 
 	// begin sync with peer
@@ -262,9 +265,6 @@ func (s *syncer) shouldSync(from, to uint64) bool {
 		if to >= from+minHeightDifference {
 			return true
 		}
-		if atomic.LoadInt32(&s.first) == 1 {
-			return true
-		}
 	}
 
 	return false
@@ -328,10 +328,6 @@ func (s *syncer) reqCallback(id uint64, err error) {
 func (s *syncer) setState(t SyncState) {
 	s.state = t
 	s.feed.Notify(t)
-
-	if t == Syncdone {
-		atomic.StoreInt32(&s.first, 0)
-	}
 }
 
 func (s *syncer) SubscribeSyncStatus(fn SyncStateCallback) (subId int) {

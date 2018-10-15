@@ -1,14 +1,11 @@
 package quota
 
 import (
-	"math/big"
-	"time"
-
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm/contracts"
+	"math/big"
 )
 
 type quotaDb interface {
@@ -24,25 +21,26 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address) uint64 {
 	quotaTotal, _ := CalcQuota(db, beneficial, false)
 	return quotaTotal
 }
+
+// quotaInit = quotaLimitForAccount * (1 - 2/(1 + e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount)))
+// 				- quota used by prevBlock referring to the same snapshot hash
+// quotaAddition = quotaLimitForAccount * (1 - 2/(1 + e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount)))
+//				- quotaLimitForAccount * (1 - 2/(1 + e**(fPledge * snapshotHeightGap * pledgeAmount)))
+// snapshotHeightGap is limit to 1 day
+// e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount) is discrete to reduce computation complexity
+// quotaLimitForAccount is within a range decided by net congestion and net capacity
+// user account gets extra quota to send or receive a transaction if calc PoW, extra quota is decided by difficulty
+// contract account only gets quota via pledge
+// user account genesis block(a receive block) must calculate a PoW to get quota
 func CalcQuota(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
 	if pow {
-		return CalcQuotaV2(db, addr, defaultDifficulty)
+		return CalcQuotaV2(db, addr, DefaultDifficulty)
 	} else {
 		return CalcQuotaV2(db, addr, helper.Big0)
 	}
 }
 
-func CalcQuotaV1(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
-	// quotaInit = quotaLimitForAccount * (1 - 2/(1 + e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount)))
-	// 				- quota used by prevBlock referring to the same snapshot hash
-	// quotaAddition = quotaLimitForAccount * (1 - 2/(1 + e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount)))
-	//				- quotaLimitForAccount * (1 - 2/(1 + e**(fPledge * snapshotHeightGap * pledgeAmount)))
-	// snapshotHeightGap is limit to 1 day
-	// e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount) is discrete to reduce computation complexity
-	// quotaLimitForAccount is within a range decided by net congestion and net capacity
-	// user account gets extra quota to send or receive a transaction if calc PoW, extra quota is decided by difficulty
-	// contract account only gets quota via pledge
-	// user account genesis block(a receive block) must calculate a PoW to get quota
+/*func CalcQuotaV1(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
 	// Following code is just a simple implementation for test net.
 	defer monitor.LogTime("vm", "CalcQuota", time.Now())
 	quotaLimitForAccount := quotaLimit
@@ -88,7 +86,7 @@ func CalcQuotaV1(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, q
 			return quotaTotal, quotaAddition
 		}
 	}
-}
+}*/
 
 func CalcCreateQuota(fee *big.Int) uint64 {
 	// TODO calc create quota
@@ -184,7 +182,7 @@ func calcQuotaInSections(pledgeAmount *big.Int, difficulty *big.Int) uint64 {
 	return 0
 }
 
-var defaultDifficulty = new(big.Int).SetUint64(0xffffffc000000000)
+var DefaultDifficulty = new(big.Int).SetUint64(0xffffffc000000000)
 
 func CalcQuotaV2(db quotaDb, addr types.Address, difficulty *big.Int) (uint64, uint64) {
 	pledgeAmount := contracts.GetPledgeBeneficialAmount(db, addr)
@@ -192,22 +190,15 @@ func CalcQuotaV2(db quotaDb, addr types.Address, difficulty *big.Int) (uint64, u
 	currentSnapshotHash := db.CurrentSnapshotBlock().Hash
 	prevBlock := db.PrevAccountBlock()
 	quotaUsed := uint64(0)
-	flag := false
-	difficultyForCalc := difficulty
 	for {
 		if prevBlock != nil && currentSnapshotHash == prevBlock.SnapshotHash {
-			flag = IsPoW(prevBlock.Nonce)
 			// quick fail on a receive error block referencing to the same snapshot block
 			if prevBlock.BlockType == ledger.BlockTypeReceiveError {
 				return 0, 0
 			}
-			if IsPoW(prevBlock.Nonce) {
-				if flag {
-					// only one block gets extra quota when referencing to the same snapshot block
-					return 0, 0
-				}
-				flag = true
-				difficultyForCalc = defaultDifficulty
+			if isPoW && IsPoW(prevBlock.Nonce) {
+				// only one block gets extra quota when referencing to the same snapshot block
+				return 0, 0
 			}
 			quotaUsed = quotaUsed + prevBlock.Quota
 			prevBlock = db.GetAccountBlockByHash(&prevBlock.PrevHash)
@@ -225,15 +216,15 @@ func CalcQuotaV2(db quotaDb, addr types.Address, difficulty *big.Int) (uint64, u
 				x.Mul(tmpFLoat, x)
 				quotaWithoutPoW = uint64(getIndexInSection(x)) * quotaForSection
 			}
+			if quotaWithoutPoW < quotaUsed {
+				return 0, 0
+			}
 			quotaTotal := quotaWithoutPoW
 			if isPoW {
-				tmpFLoat.SetInt(difficultyForCalc)
+				tmpFLoat.SetInt(difficulty)
 				tmpFLoat.Mul(tmpFLoat, paramB)
 				x.Add(x, tmpFLoat)
 				quotaTotal = uint64(getIndexInSection(x)) * quotaForSection
-			}
-			if quotaTotal < quotaUsed {
-				return 0, 0
 			}
 			return quotaTotal - quotaUsed, quotaTotal - quotaWithoutPoW
 		}
