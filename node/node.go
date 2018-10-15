@@ -252,7 +252,7 @@ func (node *Node) startRPC() error {
 	}
 
 	if node.config.RPCEnabled {
-		if err := node.startHTTP(node.httpEndpoint, node.rpcAPIs, nil, nil, nil, rpc.HTTPTimeouts{}); err != nil {
+		if err := node.startHTTP(node.httpEndpoint, node.rpcAPIs, nil, node.config.HTTPCors, node.config.HttpVirtualHosts, rpc.HTTPTimeouts{}); err != nil {
 			node.stopInProcess()
 			node.stopIPC()
 			return err
@@ -260,7 +260,7 @@ func (node *Node) startRPC() error {
 	}
 
 	if node.config.WSEnabled {
-		if err := node.startWS(node.wsEndpoint, node.rpcAPIs, nil, nil, true); err != nil {
+		if err := node.startWS(node.wsEndpoint, node.rpcAPIs, nil, node.config.WSOrigins, true); err != nil {
 			node.stopInProcess()
 			node.stopIPC()
 			node.stopHTTP()
