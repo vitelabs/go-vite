@@ -106,7 +106,6 @@ type syncer struct {
 	pool       RequestPool // add new request
 	log        log15.Logger
 	running    int32
-	first      int32 // first start sync
 	receiver   Receiver
 	fc         *fileClient
 	reqs       []*subLedgerRequest
@@ -125,7 +124,6 @@ func newSyncer(chain Chain, peers *peerSet, pool *requestPool, receiver Receiver
 		log:        log15.New("module", "net/syncer"),
 		receiver:   receiver,
 		fc:         fc,
-		first:      1,
 	}
 
 	// subscribe peer add/del event
@@ -180,8 +178,7 @@ wait:
 
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
-	// p is tall enough, or first sync
-	if !s.shouldSync(current.Height, p.height) {
+	if current.Height >= p.height {
 		s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
 		s.setState(Syncdone)
 		return
@@ -264,9 +261,6 @@ func (s *syncer) shouldSync(from, to uint64) bool {
 		if to >= from+minHeightDifference {
 			return true
 		}
-		if atomic.LoadInt32(&s.first) == 1 {
-			return true
-		}
 	}
 
 	return false
@@ -301,6 +295,22 @@ func (s *syncer) setTarget(to uint64) {
 }
 
 func (s *syncer) sync(from, to uint64) {
+	if to < from+minBlocks {
+		msgId := s.pool.MsgID()
+		req := &chunkRequest{
+			id:         msgId,
+			from:       from,
+			to:         to,
+			peer:       s.peers.BestPeer(),
+			expiration: time.Now().Add(10 * time.Second),
+			done:       s.reqCallback,
+		}
+
+		s.pool.Add(req)
+
+		return
+	}
+
 	pieces := splitSubLedger(s.from, s.to, s.peers.Pick(s.from))
 
 	for _, piece := range pieces {
@@ -330,10 +340,6 @@ func (s *syncer) reqCallback(id uint64, err error) {
 func (s *syncer) setState(t SyncState) {
 	s.state = t
 	s.feed.Notify(t)
-
-	if t == Syncdone {
-		atomic.StoreInt32(&s.first, 0)
-	}
 }
 
 func (s *syncer) SubscribeSyncStatus(fn SyncStateCallback) (subId int) {
