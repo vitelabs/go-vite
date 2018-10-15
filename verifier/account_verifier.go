@@ -169,7 +169,6 @@ func (verifier *AccountVerifier) verifyFrom(block *ledger.AccountBlock, verifySt
 		if fromBlock == nil {
 			if err != nil {
 				msgErr = errors.New("GetAccountBlockByHash failed.")
-				verifier.log.Error(msgErr.Error(), "error", err)
 				verifyStatResult.referredFromResult = FAIL
 				verifyStatResult.errMsg += msgErr.Error()
 				return false
@@ -180,7 +179,6 @@ func (verifier *AccountVerifier) verifyFrom(block *ledger.AccountBlock, verifySt
 		} else {
 			if verifier.VerifyIsReceivedSucceed(block) {
 				msgErr = errors.New("block is already received successfully.")
-				verifier.log.Error(msgErr.Error())
 				verifyStatResult.referredFromResult = FAIL
 				verifyStatResult.errMsg += msgErr.Error()
 				return false
@@ -209,9 +207,7 @@ func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock, task
 	latestBlock, err := verifier.chain.GetLatestAccountBlock(&block.AccountAddress)
 	if latestBlock == nil {
 		if err != nil {
-			errMsg := errors.New("GetLatestAccountBlock failed")
-			verifier.log.Error(errMsg.Error(), "error", err)
-			return FAIL, errMsg
+			return FAIL, err
 		} else {
 			if block.Height == 1 {
 				prevZero := &types.Hash{}
@@ -249,6 +245,7 @@ func (verifier *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, veri
 		if err != nil {
 			verifier.log.Error("GetAccountBlockByHash", "error", err)
 		}
+		// fixme
 		verifyStatResult.snapshotTask = &SnapshotPendingTask{Hash: &block.SnapshotHash}
 		verifyStatResult.referredSnapshotResult = PENDING
 		return true
@@ -284,28 +281,25 @@ func (verifier *AccountVerifier) VerifySnapshotOfReferredBlock(thisBlock *ledger
 func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock, task []*AccountPendingTask) (VerifyResult, error) {
 	defer monitor.LogTime("verify", "accountSelf", time.Now())
 
-	var errMsg error
 	code, err := verifier.chain.AccountType(&block.AccountAddress)
 	if err != nil {
-		verifier.log.Error("AccountType", "error", err)
+		return FAIL, err
 	}
 	if code == ledger.AccountTypeContract {
 		if block.IsReceiveBlock() {
-			if result, conErr := verifier.consensus.VerifyAccountProducer(block); conErr != nil && result {
-				errMsg = errors.New("the block producer is illegal")
-				verifier.log.Error(errMsg.Error(), "error", conErr)
-				return FAIL, errMsg
+			if result, err := verifier.consensus.VerifyAccountProducer(block); !result {
+				if err != nil {
+					verifier.log.Error(err.Error())
+				}
+				return FAIL, errors.New("the block producer is illegal")
 			}
 		}
 	}
 	if code == ledger.AccountTypeGeneral {
 		if types.PubkeyToAddress(block.PublicKey) != block.AccountAddress {
-			errMsg = errors.New("PublicKey match AccountAddress failed")
-			verifier.log.Error(errMsg.Error())
-			return FAIL, errMsg
+			return FAIL, errors.New("PublicKey match AccountAddress failed")
 		}
 	}
-	// include VerifyAccountProducer success、the contractAddress's sendBlock and unknow's sendBlock
 	return SUCCESS, nil
 }
 
@@ -363,7 +357,7 @@ func (verifier *AccountVerifier) VerifyIsReceivedSucceed(block *ledger.AccountBl
 func (verifier *AccountVerifier) VerifyHash(block *ledger.AccountBlock) bool {
 	computedHash := block.ComputeHash()
 	if block.Hash.IsZero() || computedHash != block.Hash {
-		verifier.log.Error("checkHash failed", "originHash", block.Hash, "computedHash", computedHash)
+		//verifier.log.Error("checkHash failed", "originHash", block.Hash, "computedHash", computedHash)
 		return false
 	}
 	return true
@@ -398,8 +392,7 @@ func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock) bool {
 func (verifier *AccountVerifier) VerifyTimeOut(blockReferSb *ledger.SnapshotBlock) bool {
 	currentSb := verifier.chain.GetLatestSnapshotBlock()
 	if currentSb.Height > blockReferSb.Height+TimeOutHeight {
-		errMsg := errors.New("snapshot time out of limit")
-		verifier.log.Error(errMsg.Error())
+		verifier.log.Error("snapshot time out of limit")
 		return false
 	}
 	return true
