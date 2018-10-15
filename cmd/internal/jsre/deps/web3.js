@@ -1,4 +1,6 @@
-require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})(
+    {
+        1:[function(require,module,exports){
 module.exports=[
   {
     "constant": true,
@@ -254,7 +256,8 @@ module.exports=[
   }
 ]
 
-},{}],2:[function(require,module,exports){
+},{}],
+2:[function(require,module,exports){
 module.exports=[
   {
     "constant": true,
@@ -513,7 +516,8 @@ module.exports=[
   }
 ]
 
-},{}],4:[function(require,module,exports){
+},{}],
+4:[function(require,module,exports){
 var f = require('./formatters');
 var SolidityType = require('./type');
 
@@ -600,7 +604,8 @@ SolidityTypeBytes.prototype.isType = function (name) {
 
 module.exports = SolidityTypeBytes;
 
-},{"./formatters":9,"./type":14}],7:[function(require,module,exports){
+},{"./formatters":9,"./type":14}],
+7:[function(require,module,exports){
 /*
     This file is part of web3.js.
 
@@ -13608,13 +13613,15 @@ module.exports = transfer;
 },{}],86:[function(require,module,exports){
 module.exports = XMLHttpRequest;
 
-},{}],"bignumber.js":[function(require,module,exports){
+},{}],
+"bignumber.js":[function(require,module,exports){
 'use strict';
 
 module.exports = BigNumber; // jshint ignore:line
 
 
-},{}],"web3":[function(require,module,exports){
+},{}],
+"web3":[function(require,module,exports){
 var Web3 = require('./lib/web3');
 
 // dont override global variable
