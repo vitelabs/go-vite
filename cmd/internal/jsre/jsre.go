@@ -1,15 +1,22 @@
 package jsre
 
 import (
-	"io"
-	"time"
-	"math/rand"
 	crand "crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
-	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/robertkrimen/otto"
+	"github.com/vitelabs/go-vite/cmd/internal/jsre/deps"
+	"github.com/vitelabs/go-vite/cmd/utils"
+	"io"
+	"io/ioutil"
+	"math/rand"
+	"time"
+)
+
+var (
+	BigNumber_JS  = deps.MustAsset("bignumber.js")
+	Vite_JS       = deps.MustAsset("vite.js")
+	Typedarray_JS = deps.MustAsset("typedarray.js")
 )
 
 /*
@@ -69,15 +76,11 @@ func randomSource() *rand.Rand {
 	return rand.New(src)
 }
 
-// This function runs the main event loop from a goroutine that is started
-// when JSRE is created. Use Stop() before exiting to properly stop it.
-// The event loop processes vm access requests from the evalQueue in a
-// serialized way and calls timer callback functions at the appropriate time.
+// This function runs the main event loop from a goroutine that is started when JSRE is created. Use Stop() before exiting to properly stop it.
+// The event loop processes vm access requests from the evalQueue in a serialized way and calls timer callback functions at the appropriate time.
 
-// Exported functions always access the vm through the event queue. You can
-// call the functions of the otto vm directly to circumvent the queue. These
-// functions should be used if and only if running a routine that was already
-// called from JS through an RPC call.
+// Exported functions always access the vm through the event queue. You can call the functions of the otto vm directly to circumvent the queue.
+// These functions should be used if and only if running a routine that was already called from JS through an RPC call.
 func (re *JSRE) runEventLoop() {
 	defer close(re.closed)
 
@@ -215,8 +218,7 @@ func (re *JSRE) Stop(waitForCallbacks bool) {
 	}
 }
 
-// Exec(file) loads and runs the contents of a file
-// if a relative path is given, the jsre's assetPath is used
+// Exec(file) loads and runs the contents of a file if a relative path is given, the jsre's assetPath is used
 func (re *JSRE) Exec(file string) error {
 	code, err := ioutil.ReadFile(utils.AbsolutePath(re.assetPath, file))
 	if err != nil {
@@ -255,8 +257,7 @@ func (re *JSRE) loadScript(call otto.FunctionCall) otto.Value {
 	return otto.TrueValue()
 }
 
-// Evaluate executes code and pretty prints the result to the specified output
-// stream.
+// Evaluate executes code and pretty prints the result to the specified output stream.
 func (re *JSRE) Evaluate(code string, w io.Writer) error {
 	var fail error
 
@@ -303,4 +304,3 @@ func compileAndRun(vm *otto.Otto, filename string, src interface{}) (otto.Value,
 	}
 	return vm.Run(script)
 }
-

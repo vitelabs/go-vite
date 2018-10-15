@@ -7,7 +7,6 @@
 .idea
 .DS_Store
 testdata/trie
-gvite
 
 # Test binary, build with `go test -c`
 *.test
