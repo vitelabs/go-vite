@@ -24,6 +24,18 @@ func NewSnapshotVerifier(ch chain.Chain, cs consensus.Verifier) *SnapshotVerifie
 	return verifier
 }
 
+func (self *SnapshotVerifier) VerifyforP2P_SnapshotBlock(block *ledger.SnapshotBlock) bool {
+	return false
+}
+
+func (self *SnapshotVerifier) VerifyTimeNotYet(block *ledger.SnapshotBlock) bool {
+	return false
+}
+
+func (self *SnapshotVerifier) VerifyDataValidity(block *ledger.SnapshotBlock) bool {
+	return false
+}
+
 func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *SnapshotBlockVerifyStat) error {
 	defer monitor.LogTime("verify", "snapshotSelf", time.Now())
 
