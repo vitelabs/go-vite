@@ -24,6 +24,18 @@ func NewSnapshotVerifier(ch chain.Chain, cs consensus.Verifier) *SnapshotVerifie
 	return verifier
 }
 
+func (self *SnapshotVerifier) VerifyforP2P_SnapshotBlock(block *ledger.SnapshotBlock) bool {
+	return false
+}
+
+func (self *SnapshotVerifier) VerifyTimeNotYet(block *ledger.SnapshotBlock) bool {
+	return false
+}
+
+func (self *SnapshotVerifier) VerifyDataValidity(block *ledger.SnapshotBlock) bool {
+	return false
+}
+
 func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *SnapshotBlockVerifyStat) error {
 	defer monitor.LogTime("verify", "snapshotSelf", time.Now())
 
@@ -156,17 +168,19 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 		return stat
 	}
 
-	// verify producer
-	result, e := self.cs.VerifySnapshotProducer(block)
-	if e != nil {
-		stat.result = FAIL
-		stat.errMsg = e.Error()
-		return stat
-	}
-	if !result {
-		stat.result = FAIL
-		stat.errMsg = "verify snapshot producer fail."
-		return stat
+	if block.Height != types.GenesisHeight {
+		// verify producer
+		result, e := self.cs.VerifySnapshotProducer(block)
+		if e != nil {
+			stat.result = FAIL
+			stat.errMsg = e.Error()
+			return stat
+		}
+		if !result {
+			stat.result = FAIL
+			stat.errMsg = "verify snapshot producer fail."
+			return stat
+		}
 	}
 	stat.result = SUCCESS
 	return stat

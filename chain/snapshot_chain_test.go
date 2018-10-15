@@ -19,40 +19,43 @@ func TestGetNeedSnapshotContent(t *testing.T) {
 }
 
 func TestInsertSnapshotBlock(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	makeBlocks(chainInstance, 10000)
 
 }
 
 func TestGetSnapshotBlocksByHash(t *testing.T) {
 	chainInstance := getChainInstance()
-	blocks, err := chainInstance.GetSnapshotBlocksByHash(nil, 100, true, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for index, block := range blocks {
-		fmt.Printf("%d: %+v\n", index, block)
-	}
-	fmt.Println()
+	//blocks, err := chainInstance.GetSnapshotBlocksByHash(nil, 400, false, false)
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
+	//for _, block := range blocks {
+	//	fmt.Printf("%d | %s | %s  | %d\n", block.Height, block.Timestamp, block.Producer(), block.Timestamp.UnixNano())
+	//}
+	//fmt.Println()
 
-	blocks2, err2 := chainInstance.GetSnapshotBlocksByHash(nil, 100, true, true)
+	blocks2, err2 := chainInstance.GetSnapshotBlocksByHash(nil, 300, true, true)
 	if err2 != nil {
 		t.Fatal(err2)
 	}
 	for index, block := range blocks2 {
 		fmt.Printf("%d: %+v\n", index, block)
 	}
-
-	blocks3, err3 := chainInstance.GetSnapshotBlocksByHash(nil, 100, false, true)
-	if err3 != nil {
-		t.Fatal(err3)
-	}
-	for index, block := range blocks3 {
-		fmt.Printf("%d: %+v\n", index, block)
-	}
+	//
+	//blocks3, err3 := chainInstance.GetSnapshotBlocksByHash(nil, 100, false, true)
+	//if err3 != nil {
+	//	t.Fatal(err3)
+	//}
+	//for index, block := range blocks3 {
+	//	fmt.Printf("%d: %+v\n", index, block)
+	//}
 }
 
 func TestGetSnapshotBlocksByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
-	blocks, err := chainInstance.GetSnapshotBlocksByHeight(2, 10, false, false)
+	blocks, err := chainInstance.GetSnapshotBlocksByHeight(2, 10, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +81,8 @@ func TestGetSnapshotBlockByHeight(t *testing.T) {
 
 func TestGetSnapshotBlockByHash(t *testing.T) {
 	chainInstance := getChainInstance()
-	block, err := chainInstance.GetSnapshotBlockByHash(&GenesisMintageSendBlock.Hash)
+	hash, _ := types.HexToHash("8895491b5501ef34d0064e57764dd74b6ec8a058054356c672ef12a9c7776ddf")
+	block, err := chainInstance.GetSnapshotBlockByHash(&hash)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,6 +99,20 @@ func TestGetSnapshotBlockByHash(t *testing.T) {
 func TestGetLatestSnapshotBlock(t *testing.T) {
 	chainInstance := getChainInstance()
 	block := chainInstance.GetLatestSnapshotBlock()
+	newSb, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(newSb)
+	fmt.Printf("%+v\n", block)
+	newSb2, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(newSb2)
+	fmt.Printf("%+v\n", block)
+	newSb3, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(newSb3)
+	fmt.Printf("%+v\n", block)
+	newSb4, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(newSb4)
+	fmt.Printf("%+v\n", block)
+	newSb5, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(newSb5)
 	fmt.Printf("%+v\n", block)
 }
 
@@ -151,26 +169,74 @@ func TestGetConfirmTimes(t *testing.T) {
 // TODO
 func TestGetSnapshotBlockBeforeTime(t *testing.T) {
 	chainInstance := getChainInstance()
-	time1 := time.Now()
-	block, err := chainInstance.GetSnapshotBlockBeforeTime(&time1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Printf("%+v\n", block)
+	//time1 := time.Now()
+	//block, err := chainInstance.GetSnapshotBlockBeforeTime(&time1)
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
+	//fmt.Printf("%+v\n", block)
 
-	time2 := time.Unix(1535209021, 0)
-	block2, err2 := chainInstance.GetSnapshotBlockBeforeTime(&time2)
-	if err2 != nil {
-		t.Fatal(err2)
-	}
-	fmt.Printf("%+v\n", block2)
+	latestBlock := chainInstance.GetLatestSnapshotBlock()
 
-	time3 := GenesisSnapshotBlock.Timestamp.Add(time.Second * 100)
-	block3, err3 := chainInstance.GetSnapshotBlockBeforeTime(&time3)
-	if err3 != nil {
-		t.Fatal(err3)
+	now := latestBlock.Timestamp.Add(time.Duration(10) * time.Second)
+	count := 100
+	createdBlockLen := 0
+	for i := 1; i <= count; i++ {
+		// not insert snapshotblock
+		if i%20 == 0 {
+			continue
+		}
+		newSb, _ := newSnapshotBlock()
+		ts := now.Add(time.Duration(i) * time.Second)
+		newSb.Timestamp = &ts
+		chainInstance.InsertSnapshotBlock(newSb)
+		createdBlockLen++
 	}
-	fmt.Printf("%+v\n", block3)
+
+	offset := 0
+	nocreate := 0
+	latestBlock = chainInstance.GetLatestSnapshotBlock()
+	t.Logf("latestBlockHeight is %d", latestBlock.Height)
+	go func() {
+		for i := 0; i < 1000; i++ {
+			newSb, _ := newSnapshotBlock()
+			ts := now.Add(time.Duration(i+100) * time.Second)
+			newSb.Timestamp = &ts
+
+			chainInstance.InsertSnapshotBlock(newSb)
+		}
+
+	}()
+	for i := 1; i <= count; i++ {
+
+		offset = createdBlockLen - (i - 1 - nocreate)
+		ts := now.Add(time.Duration(i) * time.Second)
+		block, err2 := chainInstance.GetSnapshotBlockBeforeTime(&ts)
+		if err2 != nil {
+			t.Fatal(err2)
+		}
+		leftValue := block.Height
+		rightValue := latestBlock.Height - uint64(offset)
+		if leftValue != rightValue {
+			t.Errorf("%d error!! %d %d %d", i, leftValue, rightValue, offset)
+
+			t.Logf("%s %+v\n", ts, block)
+		} else {
+			t.Logf("right: %d", block.Height)
+		}
+
+		if i%20 == 0 {
+			nocreate++
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	//time3 := GenesisSnapshotBlock.Timestamp.Add(time.Second * 100)
+	//block3, err3 := chainInstance.GetSnapshotBlockBeforeTime(&time3)
+	//if err3 != nil {
+	//	t.Fatal(err3)
+	//}
+	//fmt.Printf("%+v\n", block3)
 }
 
 func TestGetConfirmAccountBlock(t *testing.T) {

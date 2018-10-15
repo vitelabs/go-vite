@@ -47,7 +47,9 @@ func (self *snapshotSyncer) broadcastBlock(block *ledger.SnapshotBlock) {
 }
 
 func (self *snapshotSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
-	self.fetcher.FetchSnapshotBlocks(hashHeight.Hash, prevCnt)
+	if hashHeight.Height > 0 {
+		self.fetcher.FetchSnapshotBlocks(hashHeight.Hash, prevCnt)
+	}
 }
 
 func (self *snapshotSyncer) fetchByHash(hash types.Hash, prevCnt uint64) {

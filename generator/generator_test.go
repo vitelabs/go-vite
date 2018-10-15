@@ -2,7 +2,6 @@ package generator
 
 import (
 	"flag"
-	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -10,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pow"
+	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
 	"testing"
@@ -18,12 +18,18 @@ import (
 var (
 	genesisAccountPrivKeyStr string
 	addr1, _, _              = types.CreateAddress()
+
+	attovPerVite = big.NewInt(1e18)
+	pledgeAmount = new(big.Int).Mul(big.NewInt(10), attovPerVite)
 )
 
 func init() {
+	var isTest bool
+	flag.BoolVar(&isTest, "vm.test", false, "test net gets unlimited balance and quota")
 	flag.StringVar(&genesisAccountPrivKeyStr, "k", "", "")
+
 	flag.Parse()
-	fmt.Println(genesisAccountPrivKeyStr)
+	vm.InitVmConfig(isTest)
 }
 
 func PrepareVite() chain.Chain {
@@ -83,10 +89,9 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 		}
 		t.Log("Verify Hash success")
 	}
-	return
 }
 
-func TestGenerator_GenerateWithMessage(t *testing.T) {
+func TestGenerator_GenerateWithMessage_CallTransfer(t *testing.T) {
 	c := PrepareVite()
 
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
@@ -125,6 +130,40 @@ func TestGenerator_GenerateWithMessage(t *testing.T) {
 	}
 
 	genResult, err := gen.GenerateWithMessage(message, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+		return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
+	})
+	if err != nil {
+		t.Error("GenerateWithMessage err", err)
+		return
+	}
+	t.Log("genResult", genResult)
+}
+
+func TestGenerator_GenerateWithMessage_CallCompiledContract(t *testing.T) {
+	c := PrepareVite()
+	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
+	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
+	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr1)
+
+	im := &IncomingMessage{
+		BlockType:      ledger.BlockTypeSendCall,
+		AccountAddress: ledger.GenesisAccountAddress,
+		ToAddress:      &contracts.AddressPledge,
+		FromBlockHash:  nil,
+		TokenId:        &ledger.ViteTokenId,
+		Amount:         pledgeAmount,
+		Fee:            nil,
+		Nonce:          nil,
+		Data:           pledgeData,
+	}
+
+	gen, err := NewGenerator(c, nil, nil, &im.AccountAddress)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	genResult, err := gen.GenerateWithMessage(im, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
 	})
 	if err != nil {

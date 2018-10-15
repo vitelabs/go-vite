@@ -255,7 +255,7 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) {
 	timestamp := time.Unix(0, pb.Timestamp)
 	ab.Timestamp = &timestamp
 	ab.StateHash, _ = types.BytesToHash(pb.StateHash)
-	if len(pb.LogHash) >= 0 {
+	if len(pb.LogHash) > 0 {
 		logHash, _ := types.BytesToHash(pb.LogHash)
 		ab.LogHash = &logHash
 	}
@@ -292,11 +292,6 @@ func (ab *AccountBlock) ComputeHash() types.Hash {
 		// FromBlockHash
 		source = append(source, ab.FromBlockHash.Bytes()...)
 	}
-
-	// Quota
-	quotaBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(quotaBytes, ab.Quota)
-	source = append(source, quotaBytes...)
 
 	// Fee
 	fee := ab.Fee

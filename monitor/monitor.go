@@ -11,8 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/log15"
 	"strings"
+
+	"github.com/vitelabs/go-vite/log15"
 )
 
 func init() {
@@ -167,10 +168,18 @@ func loop() {
 				key := k.(string)
 				// groupName  and metricName
 				groupAndName := strings.Split(key, "-")
-				logger.Info("", "group", groupAndName[0], "interval", 1, "name", groupAndName[1],
-					"metric-cnt", c,
-					"metric-sum", s,
-				)
+				if len(groupAndName) == 2 {
+					logger.Info("", "group", groupAndName[0], "interval", 1, "name", groupAndName[1],
+						"metric-cnt", c,
+						"metric-sum", s,
+					)
+				} else {
+					logger.Info("", "group", key, "interval", 1, "name", key,
+						"metric-cnt", c,
+						"metric-sum", s,
+					)
+				}
+
 				sm := tmpM.snapshot()
 				snapshot[key] = &sm
 				tmpM.reset()

@@ -2,62 +2,70 @@ package consensus
 
 import (
 	"math/big"
-	"sync"
+	"strconv"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 // Ensure that all nodes get same result
 type teller struct {
 	info *membersInfo
-	//electionHis map[int32]*electionResult
-	electionHis sync.Map
-	rw          *chainRw
-	algo        *algo
-	gid         types.Gid
+	//voteCache map[int32]*electionResult
+	voteCache *lru.Cache
+	rw        *chainRw
+	algo      *algo
+	gid       types.Gid
+
+	mLog log15.Logger
 }
 
-func newTeller(info *membersInfo, gid types.Gid, rw *chainRw) *teller {
+func newTeller(info *membersInfo, gid types.Gid, rw *chainRw, log log15.Logger) *teller {
+
 	t := &teller{rw: rw}
 	//t.info = &membersInfo{genesisTime: genesisTime, memberCnt: memberCnt, interval: interval, perCnt: perCnt, randCnt: 2, LowestLimit: big.NewInt(1000)}
 	t.info = info
 	t.gid = gid
 	t.algo = &algo{info: t.info}
-	//t.electionHis = make(map[int32]*electionResult)
+	t.mLog = log.New("gid", gid.String())
+	t.mLog.Info("new teller.", "membersInfo", info.String())
+	cache, err := lru.New(1024 * 10)
+	if err != nil {
+		panic(err)
+	}
+	t.voteCache = cache
 	return t
 }
 
-func (self *teller) voteResults(t time.Time) ([]types.Address, *ledger.HashHeight, error) {
-	// record vote
-	votes, randH, referH, err := self.rw.CalVotes(self.gid, self.info, t)
-	if err != nil {
-		return nil, nil, err
-	}
-	// filter size of members
-	finalVotes := self.algo.filterVotes(votes, randH)
-	// shuffle the members
-	finalVotes = self.algo.shuffleVotes(finalVotes, randH)
-	return self.convertToAddress(finalVotes), referH, nil
-}
+func (self *teller) voteResults(b *ledger.SnapshotBlock) ([]types.Address, *ledger.HashHeight, error) {
+	head := self.rw.GetLatestSnapshotBlock()
 
-func toMap(infos []*contracts.VoteInfo) map[string]bool {
-	m := make(map[string]bool)
-	for _, v := range infos {
-		m[v.NodeName] = true
+	if b.Height > head.Height {
+		return nil, nil, errors.New("rollback happened, block height[" + strconv.FormatUint(b.Height, 10) + "], head height[" + strconv.FormatUint(head.Height, 10) + "]")
 	}
-	return m
+
+	headH := ledger.HashHeight{Height: b.Height, Hash: b.Hash}
+	addressList, e := self.calVotes(headH)
+	if e != nil {
+		return nil, nil, e
+	}
+	return addressList, &headH, nil
 }
 
 func (self *teller) electionIndex(index int32) (*electionResult, error) {
-	r, ok := self.electionHis.Load(index)
-	if ok {
-		return r.(*electionResult), nil
-	}
 	sTime := self.info.genSTime(index - 1)
-	voteResults, hashH, err := self.voteResults(sTime)
+
+	block, e := self.rw.GetSnapshotBeforeTime(sTime)
+	if e != nil {
+		self.mLog.Error("geSnapshotBeferTime fail.", "err", e)
+		return nil, e
+	}
+
+	voteResults, hashH, err := self.voteResults(block)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +73,6 @@ func (self *teller) electionIndex(index int32) (*electionResult, error) {
 	plans := self.info.genPlan(index, voteResults)
 	plans.Hash = hashH.Hash
 	plans.Height = hashH.Height
-	self.electionHis.Store(index, plans)
 	return plans, nil
 }
 
@@ -76,18 +83,6 @@ func (self *teller) electionTime(t time.Time) (*electionResult, error) {
 func (self *teller) time2Index(t time.Time) int32 {
 	index := self.info.time2Index(t)
 	return index
-}
-
-func (self *teller) removePrevious(rtime time.Time) int32 {
-	var i int32 = 0
-	self.electionHis.Range(func(k, v interface{}) bool {
-		if v.(*electionResult).ETime.Before(rtime) {
-			self.electionHis.Delete(k)
-			i = i + 1
-		}
-		return true
-	})
-	return i
 }
 
 func (self *teller) findSeed(votes []*Vote) int64 {
@@ -103,6 +98,28 @@ func (self *teller) convertToAddress(votes []*Vote) []types.Address {
 		result = append(result, v.addr)
 	}
 	return result
+}
+func (self *teller) calVotes(hashH ledger.HashHeight) ([]types.Address, error) {
+	// load from cache
+	r, ok := self.voteCache.Get(hashH.Hash)
+	if ok {
+		return r.([]types.Address), nil
+	}
+	// record vote
+	votes, err := self.rw.CalVotes(self.gid, self.info, hashH)
+	if err != nil {
+		return nil, err
+	}
+	// filter size of members
+	finalVotes := self.algo.filterVotes(votes, &hashH)
+	// shuffle the members
+	finalVotes = self.algo.shuffleVotes(finalVotes, &hashH)
+
+	address := self.convertToAddress(finalVotes)
+
+	// update cache
+	self.voteCache.Add(hashH.Hash, address)
+	return address, nil
 }
 
 type byBalance []*Vote

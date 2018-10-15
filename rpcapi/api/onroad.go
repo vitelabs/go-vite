@@ -50,7 +50,7 @@ func (o PrivateOnroadApi) ListWorkingAutoReceiveWorker() []types.Address {
 	return o.manager.ListWorkingAutoReceiveWorker()
 }
 
-func (o PrivateOnroadApi) StartAutoReceive(addr types.Address, filter map[types.TokenTypeId]string) error {
+func (o PrivateOnroadApi) StartAutoReceive(addr types.Address, filter map[string]string) error {
 	rawfilter := make(map[types.TokenTypeId]big.Int)
 	if filter != nil {
 		for k, v := range filter {
@@ -58,7 +58,11 @@ func (o PrivateOnroadApi) StartAutoReceive(addr types.Address, filter map[types.
 			if !ok {
 				return ErrStrToBigInt
 			}
-			rawfilter[k] = *b
+			ids, e := types.HexToTokenTypeId(k)
+			if e != nil {
+				return e
+			}
+			rawfilter[ids] = *b
 		}
 	}
 
@@ -112,7 +116,7 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccoun
 			number := strconv.FormatUint(v.Number, 10)
 			tinfo := chain.GetTokenInfoById(&tti)
 			b := &RpcTokenBalanceInfo{
-				TokenInfo:   RawTokenInfoToRpc(tinfo),
+				TokenInfo:   RawTokenInfoToRpc(tinfo, tti),
 				TotalAmount: v.TotalAmount.String(),
 				Number:      &number,
 			}

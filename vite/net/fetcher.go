@@ -1,6 +1,7 @@
 package net
 
 import (
+	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -9,6 +10,8 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"sync/atomic"
 )
+
+var errNoSuitablePeer = errors.New("no suitable peer")
 
 type fetcher struct {
 	filter Filter
@@ -32,7 +35,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 
 	// been suppressed
 	if f.filter.hold(start) {
-		f.log.Warn(fmt.Sprintf("fetch suppressed: %s %d", start, count))
+		f.log.Warn(fmt.Sprintf("fetch suppressed getSnapshotBlocks: %s %d", start, count))
 		return
 	}
 
@@ -44,7 +47,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 	m := &message.GetSnapshotBlocks{
 		From:    ledger.HashHeight{Hash: start},
 		Count:   count,
-		Forward: true,
+		Forward: false,
 	}
 
 	p := f.peers.BestPeer()
@@ -57,7 +60,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 			f.log.Info(fmt.Sprintf("send %s to %s done", GetSnapshotBlocksCode, p))
 		}
 	} else {
-		f.log.Error(errNoPeer.Error())
+		f.log.Error(errNoSuitablePeer.Error())
 	}
 }
 
@@ -66,7 +69,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 
 	// been suppressed
 	if f.filter.hold(start) {
-		f.log.Warn(fmt.Sprintf("fetch suppressed: %s %d", start, count))
+		f.log.Warn(fmt.Sprintf("fetch suppressed getAccountBlocks: %s %d", start, count))
 		return
 	}
 
@@ -85,7 +88,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 			Hash: start,
 		},
 		Count:   count,
-		Forward: true,
+		Forward: false,
 	}
 
 	p := f.peers.BestPeer()
@@ -98,14 +101,16 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 			f.log.Info(fmt.Sprintf("send %s to %s done", GetAccountBlocksCode, p))
 		}
 	} else {
-		f.log.Error(errNoPeer.Error())
+		f.log.Error(errNoSuitablePeer.Error())
 	}
 }
 
 func (f *fetcher) listen(st SyncState) {
 	if st == Syncdone || st == SyncDownloaded {
 		f.log.Info(fmt.Sprintf("ready: %s", st))
-
 		atomic.StoreInt32(&f.ready, 1)
+	} else if st == Syncing {
+		f.log.Warn(fmt.Sprintf("silence: %s", st))
+		atomic.StoreInt32(&f.ready, 0)
 	}
 }

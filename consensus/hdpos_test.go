@@ -8,7 +8,6 @@ import (
 
 	"github.com/gavv/monotime"
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 )
@@ -103,18 +102,6 @@ func TestGen(t *testing.T) {
 	for _, v := range address {
 		println(v.String())
 	}
-}
-
-func TestRemovePrevious(t *testing.T) {
-	info := &membersInfo{genesisTime: time.Now(), memberCnt: 4, interval: 1, perCnt: 1, randCnt: 10, LowestLimit: helper.Big0}
-
-	teller := newTeller(info, types.DELEGATE_GID, &chainRw{})
-	for i := 0; i < 10; i++ {
-		teller.electionIndex(int32(i))
-	}
-	time.Sleep(10 * time.Second)
-	cnt := teller.removePrevious(time.Now())
-	println("个数:\t" + strconv.Itoa(int(cnt)))
 }
 
 func TestMonotime(t *testing.T) {

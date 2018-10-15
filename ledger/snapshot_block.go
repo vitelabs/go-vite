@@ -62,21 +62,21 @@ func (sc *SnapshotContent) Deserialize(buf []byte) error {
 }
 
 type SnapshotBlock struct {
-	Hash types.Hash
+	Hash types.Hash `json:"hash"`
 
-	PrevHash types.Hash
-	Height   uint64
+	PrevHash types.Hash `json:"prevHash"`
+	Height   uint64     `json:"height"`
 	producer *types.Address
 
-	PublicKey ed25519.PublicKey
-	Signature []byte
+	PublicKey ed25519.PublicKey `json:"publicKey"`
+	Signature []byte            `json:"signature"`
 
-	Timestamp *time.Time
+	Timestamp *time.Time `json:"timestamp"`
 
-	StateHash types.Hash
-	StateTrie *trie.Trie
+	StateHash types.Hash `json:"stateHash"`
+	StateTrie *trie.Trie `json:"-"`
 
-	SnapshotContent SnapshotContent
+	SnapshotContent SnapshotContent `json:"snapshotContent"`
 }
 
 func (sb *SnapshotBlock) ComputeHash() types.Hash {

@@ -2,13 +2,14 @@ package net
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"github.com/vitelabs/go-vite/vite/net/topo"
-	"sync"
-	"time"
 )
 
 type Config struct {
@@ -45,9 +46,9 @@ type net struct {
 
 // auto from
 func New(cfg *Config) Net {
-	// todo for test
+	// for test
 	if cfg.Single {
-		return mockNet()
+		return mock()
 	}
 
 	port := cfg.Port
@@ -91,8 +92,8 @@ func New(cfg *Config) Net {
 
 	n.addHandler(_statusHandler(statusHandler))
 	n.addHandler(&getSubLedgerHandler{cfg.Chain})
-	n.addHandler(&getSnapshotBlocksHandler{cfg.Chain})
-	n.addHandler(&getAccountBlocksHandler{cfg.Chain})
+	n.addHandler(&getSnapshotBlocksHandler{cfg.Chain, log15.New("module", "net/getSblocks")})
+	n.addHandler(&getAccountBlocksHandler{cfg.Chain, log15.New("module", "net/getAblocks")})
 	n.addHandler(&getChunkHandler{cfg.Chain})
 	n.addHandler(pool)     // FileListCode, SubLedgerCode, ExceptionCode
 	n.addHandler(receiver) // NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode
@@ -128,11 +129,6 @@ func (n *net) addHandler(handler MsgHandler) {
 }
 
 func (n *net) Start(svr *p2p.Server) (err error) {
-	// todo more safe
-	if n.Single {
-		return nil
-	}
-
 	n.term = make(chan struct{})
 
 	err = n.fs.start()
@@ -148,11 +144,6 @@ func (n *net) Start(svr *p2p.Server) (err error) {
 }
 
 func (n *net) Stop() {
-	// todo more safe
-	if n.Single {
-		return
-	}
-
 	select {
 	case <-n.term:
 	default:

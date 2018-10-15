@@ -93,7 +93,7 @@ func TestCalcLogisticQuotaParam(t *testing.T) {
 func TestCalcQuotaForPoW(t *testing.T) {
 	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
 	tmpFLoat := new(big.Float).SetPrec(precForFloat)
-	tmpFLoat.SetInt(defaultDifficulty)
+	tmpFLoat.SetInt(DefaultDifficulty)
 	tmpFLoat.Mul(tmpFLoat, paramB)
 	x.Add(x, tmpFLoat)
 	quotaTotal := uint64(getIndexInSection(x)) * quotaForSection

@@ -323,7 +323,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 		return
 	}
 
-	//ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
+	ctx.SetWriteDeadline(time.Now().Add(3 * time.Second))
 	err = p2p.WriteMsg(ctx.Conn, true, &p2p.Msg{
 		CmdSetID: CmdSet,
 		Cmd:      uint64(GetFilesCode),
@@ -378,7 +378,7 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 		ablocks = make([]*ledger.AccountBlock, 0, total-sTotal)
 
 		// set read deadline
-		//ctx.SetReadDeadline(time.Now().Add(total * time.Millisecond))
+		//ctx.SetReadDeadline(time.Now().Add(total * int64(time.Millisecond)))
 		fc.chain.Compressor().BlockParser(ctx, total, func(block ledger.Block, err error) {
 			if err != nil {
 				return

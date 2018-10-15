@@ -1,9 +1,11 @@
 package net
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"time"
@@ -157,6 +159,7 @@ func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 
 type getSnapshotBlocksHandler struct {
 	chain Chain
+	log   log15.Logger
 }
 
 func (s *getSnapshotBlocksHandler) ID() string {
@@ -167,29 +170,39 @@ func (s *getSnapshotBlocksHandler) Cmds() []cmd {
 	return []cmd{GetSnapshotBlocksCode}
 }
 
-func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) error {
+func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
 	req := new(message.GetSnapshotBlocks)
-	err := req.Deserialize(msg.Payload)
+	err = req.Deserialize(msg.Payload)
 	if err != nil {
-		return err
+		return
 	}
+
+	s.log.Info(fmt.Sprintf("receive GetSnapshotBlocksMsg: %s/%d %d from %s", req.From.Hash, req.From.Height, req.Count, sender))
 
 	var blocks []*ledger.SnapshotBlock
 	if req.From.Height != 0 {
-		blocks, err = s.chain.GetSnapshotBlocksByHeight(req.From.Height, req.Count, req.Forward, false)
+		blocks, err = s.chain.GetSnapshotBlocksByHeight(req.From.Height, req.Count, req.Forward, true)
 	} else {
-		blocks, err = s.chain.GetSnapshotBlocksByHash(&req.From.Hash, req.Count, req.Forward, false)
+		blocks, err = s.chain.GetSnapshotBlocksByHash(&req.From.Hash, req.Count, req.Forward, true)
 	}
 
 	if err != nil {
+		s.log.Error(fmt.Sprintf("GetSnapshotBlocks[%s/%d-%d] error: %v", req.From.Hash, req.From.Height, req.Count, err))
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
+	} else if err = sender.SendSnapshotBlocks(blocks, msg.Id); err != nil {
+		s.log.Error(fmt.Sprintf("send SnapshotBlocks to %s error: %v", sender, err))
 	} else {
-		return sender.SendSnapshotBlocks(blocks, msg.Id)
+		for _, block := range blocks {
+			s.log.Info(fmt.Sprintf("send SnapshotBlock %s/%d to %s done", block.Hash, block.Height, sender))
+		}
 	}
+
+	return
 }
 
 type getAccountBlocksHandler struct {
 	chain Chain
+	log   log15.Logger
 }
 
 func (a *getAccountBlocksHandler) ID() string {
@@ -202,17 +215,20 @@ func (a *getAccountBlocksHandler) Cmds() []cmd {
 
 var NULL_ADDRESS = types.Address{}
 
-func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) error {
+func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
 	as := new(message.GetAccountBlocks)
-	err := as.Deserialize(msg.Payload)
+	err = as.Deserialize(msg.Payload)
 	if err != nil {
-		return err
+		return
 	}
+
+	a.log.Info(fmt.Sprintf("receive GetAccountBlocksMsg: %s/%d %d from %s", as.From.Hash, as.From.Height, as.Count, sender))
 
 	// get correct address
 	if as.Address == NULL_ADDRESS {
 		block, err := a.chain.GetAccountBlockByHash(&as.From.Hash)
 		if err != nil {
+			a.log.Error(fmt.Sprintf("GetAccountBlockByHash %s error: %v", as.From.Hash, err))
 			return sender.Send(ExceptionCode, msg.Id, message.Missing)
 		}
 		as.Address = block.AccountAddress
@@ -226,10 +242,17 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 	}
 
 	if err != nil {
+		a.log.Error(fmt.Sprintf("GetAccountBlocks[%s/%d-%d] error: %v", as.From.Hash, as.From.Height, as.Count, err))
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
+	} else if err = sender.SendAccountBlocks(blocks, msg.Id); err != nil {
+		a.log.Error(fmt.Sprintf("send AccountBlocks to %s error: %v", sender, err))
 	} else {
-		return sender.SendAccountBlocks(blocks, msg.Id)
+		for _, block := range blocks {
+			a.log.Info(fmt.Sprintf("send AccountBlock %s/%d to %s done", block.Hash, block.Height, sender))
+		}
 	}
+
+	return
 }
 
 // @section getChunkHandler

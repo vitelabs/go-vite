@@ -18,6 +18,7 @@ type ChainDb struct {
 	Sc      *access.SnapshotChain
 	Account *access.Account
 	Be      *access.BlockEvent
+	OnRoad  *access.OnRoad
 
 	log log15.Logger
 }
@@ -60,6 +61,7 @@ func (chainDb *ChainDb) initDb() error {
 	chainDb.Sc = access.NewSnapshotChain(db)
 	chainDb.Account = access.NewAccount(db)
 	chainDb.Be = access.NewBlockEvent(db)
+	chainDb.OnRoad = access.NewOnRoad(db)
 
 	return nil
 }

@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -24,6 +23,8 @@ type subscribeEvent struct {
 // update committee result
 type committee struct {
 	common.LifecycleStatus
+
+	mLog log15.Logger
 
 	genesis  time.Time
 	rw       *chainRw
@@ -52,7 +53,7 @@ func (self *committee) initTeller(gid types.Gid) (*teller, error) {
 	if info == nil {
 		return nil, errors.New("can't get member info.")
 	}
-	t := newTeller(info, gid, self.rw)
+	t := newTeller(info, gid, self.rw, self.mLog)
 	self.tellers.Store(gid, t)
 	return t, nil
 }
@@ -126,13 +127,9 @@ func (self *committee) ReadByTime(gid types.Gid, t2 time.Time) ([]*Event, error)
 	return result, nil
 }
 
-func NewCommittee(genesisTime time.Time, ch chain.Chain) *committee {
-
-	committee := &committee{rw: &chainRw{rw: ch}, genesis: genesisTime}
-	return committee
-}
 func NewConsensus(genesisTime time.Time, ch ch) *committee {
 	committee := &committee{rw: &chainRw{rw: ch}, genesis: genesisTime}
+	committee.mLog = log15.New("module", "consensus/committee")
 	return committee
 }
 
@@ -196,23 +193,21 @@ func (self *committee) UnSubscribe(gid types.Gid, id string) {
 
 func (self *committee) update(t *teller, m *sync.Map) {
 	defer self.wg.Done()
-	log := log15.New("module", "committee")
 
 	index := t.time2Index(time.Now())
-	var lastRemoveTime = time.Now()
 	for !self.Stopped() {
 		//var current *memberPlan = nil
 		electionResult, err := t.electionIndex(index)
 
 		if err != nil {
-			log.Error("can't get election result. time is "+time.Now().Format(time.RFC3339Nano)+"\".", "err", err)
+			self.mLog.Error("can't get election result. time is "+time.Now().Format(time.RFC3339Nano)+"\".", "err", err)
 			time.Sleep(time.Duration(t.info.interval) * time.Second)
 			// error handle
 			continue
 		}
 
 		if electionResult.Index != index {
-			log.Error("can't get Index election result. Index is " + strconv.FormatInt(int64(index), 10))
+			self.mLog.Error("can't get Index election result. Index is " + strconv.FormatInt(int64(index), 10))
 			index = index + 1
 			continue
 		}
@@ -230,14 +225,6 @@ func (self *committee) update(t *teller, m *sync.Map) {
 
 		time.Sleep(electionResult.ETime.Sub(time.Now()) - time.Second)
 		index = electionResult.Index + 1
-
-		// clear ever hour
-		removeTime := time.Now().Add(-time.Hour)
-		if lastRemoveTime.Before(removeTime) {
-			t.removePrevious(removeTime)
-			lastRemoveTime = removeTime
-		}
-
 	}
 }
 func copyMap(m *sync.Map) map[string]*subscribeEvent {

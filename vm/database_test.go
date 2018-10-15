@@ -201,13 +201,13 @@ func (db *testDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
 	return db.snapshotBlockList[len(db.snapshotBlockList)-1]
 }
 func (db *testDatabase) PrevAccountBlock() *ledger.AccountBlock {
-	height := uint64(len(db.accountBlockMap[db.addr]))
+	var prevBlock *ledger.AccountBlock
 	for _, block := range db.accountBlockMap[db.addr] {
-		if block.Height == height {
-			return block
+		if prevBlock == nil || prevBlock.Height < block.Height {
+			prevBlock = block
 		}
 	}
-	return nil
+	return prevBlock
 }
 func (db *testDatabase) UnsavedCache() vmctxt_interface.UnsavedCache {
 	return nil

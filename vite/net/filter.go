@@ -1,9 +1,11 @@
 package net
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
 	"sync"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 const maxMark = 5
@@ -44,11 +46,13 @@ type filter struct {
 	chain   *skeleton
 	records map[types.Hash]*record
 	lock    sync.RWMutex
+	log     log15.Logger
 }
 
 func newFilter() *filter {
 	return &filter{
 		records: make(map[types.Hash]*record, 10000),
+		log:     log15.New("module", "net/filter"),
 	}
 }
 
@@ -95,6 +99,6 @@ func (f *filter) has(hash types.Hash) bool {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
-	_, ok := f.records[hash]
-	return ok
+	r, ok := f.records[hash]
+	return ok && r._done
 }

@@ -37,7 +37,11 @@ func NewAccountVerifier(chain Chain, consensus Consensus) *AccountVerifier {
 }
 
 func (verifier *AccountVerifier) newVerifyStat() *AccountBlockVerifyStat {
-	return &AccountBlockVerifyStat{}
+	return &AccountBlockVerifyStat{
+		referredSnapshotResult: PENDING,
+		referredSelfResult:     PENDING,
+		referredFromResult:     PENDING,
+	}
 }
 
 func (verifier *AccountVerifier) VerifyforP2P(block *ledger.AccountBlock) bool {
@@ -65,6 +69,27 @@ func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock) (block
 	return verifier.VerifyforVM(block)
 }
 
+// contractAddr's sendBlock don't call VerifyReferredforPool
+func (verifier *AccountVerifier) VerifyReferred(block *ledger.AccountBlock) (VerifyResult, *AccountBlockVerifyStat) {
+	defer monitor.LogTime("verify", "accountReferredforPool", time.Now())
+
+	stat := verifier.newVerifyStat()
+
+	if !verifier.verifySnapshot(block, stat) {
+		return FAIL, stat
+	}
+
+	if !verifier.verifySelf(block, stat) {
+		return FAIL, stat
+	}
+
+	if !verifier.verifyFrom(block, stat) {
+		return FAIL, stat
+	}
+
+	return stat.VerifyResult(), stat
+}
+
 func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks []*vm_context.VmAccountBlock, err error) {
 	defer monitor.LogTime("verify", "VerifyforVM", time.Now())
 
@@ -90,6 +115,7 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 	return genResult.BlockGenList, nil
 }
 
+// block from Net or Rpc doesn't have stateHash、Quota, so don't need to verify
 func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, genBlock *ledger.AccountBlock) error {
 	if origBlock.BlockType != genBlock.BlockType {
 		return errors.New("verify BlockType failed")
@@ -109,51 +135,19 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 	if origBlock.LogHash != nil && genBlock.LogHash != nil && *origBlock.LogHash != *genBlock.LogHash {
 		return errors.New("verify LogHash failed")
 	}
-	// fixme: stateHash???
-
 	return nil
 }
 
-// contractAddr's sendBlock don't call VerifyReferredforPool
-func (verifier *AccountVerifier) VerifyReferred(block *ledger.AccountBlock) (VerifyResult, *AccountBlockVerifyStat) {
-	defer monitor.LogTime("verify", "accountReferredforPool", time.Now())
-
-	stat := verifier.newVerifyStat()
-
-	verifier.verifySelf(block, stat)
-	verifier.verifyFrom(block, stat)
-	verifier.verifySnapshot(block, stat)
-
-	return stat.VerifyResult(), stat
-}
-
-func (verifier *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) {
+func (verifier *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) bool {
 	defer monitor.LogTime("verify", "accountSelf", time.Now())
-
-	isFail := func(result VerifyResult, err error, stat *AccountBlockVerifyStat) bool {
-		if result == FAIL {
-			stat.referredSelfResult = FAIL
-			if err != nil {
-				stat.errMsg += err.Error()
-			}
-			return true
-		}
-		return false
-	}
-
-	//if isTrue, err := verifier.VerifyDataValidity(block); !isTrue {
-	//	verifyStatResult.referredSelfResult = FAIL
-	//	verifyStatResult.errMsg += err.Error()
-	//	return
-	//}
 
 	step1, err1 := verifier.verifyProducerLegality(block, verifyStatResult.accountTask)
 	if isFail(step1, err1, verifyStatResult) {
-		return
+		return false
 	}
 	step2, err2 := verifier.verifySelfPrev(block, verifyStatResult.accountTask)
 	if isFail(step2, err2, verifyStatResult) {
-		return
+		return false
 	}
 
 	if step1 == SUCCESS && step2 == SUCCESS {
@@ -163,66 +157,87 @@ func (verifier *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifySt
 			&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.Hash})
 		verifyStatResult.referredSelfResult = PENDING
 	}
+	return true
 }
 
-func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock, task []*AccountPendingTask) (VerifyResult, error) {
-	defer monitor.LogTime("verify", "accountSelf", time.Now())
-
-	var errMsg error
-	code, err := verifier.chain.AccountType(&block.AccountAddress)
-	if err != nil {
-		verifier.log.Error("AccountType", "error", err)
-	}
-	if code == ledger.AccountTypeContract {
-		if block.IsReceiveBlock() {
-			if result, conErr := verifier.consensus.VerifyAccountProducer(block); conErr != nil && result {
-				errMsg = errors.New("the block producer is illegal")
-				verifier.log.Error(errMsg.Error(), "error", conErr)
-				return FAIL, errMsg
-			}
-		}
-	}
-	if code == ledger.AccountTypeGeneral {
-		if types.PubkeyToAddress(block.PublicKey) != block.AccountAddress {
-			errMsg = errors.New("PublicKey match AccountAddress failed")
-			verifier.log.Error(errMsg.Error())
-			return FAIL, errMsg
-		}
-	}
-	// include VerifyAccountProducer success、the contractAddress's sendBlock and unknow's sendBlock
-	return SUCCESS, nil
-}
-
-func (verifier *AccountVerifier) verifyFrom(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) {
+func (verifier *AccountVerifier) verifyFrom(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) bool {
 	defer monitor.LogTime("verify", "accountFrom", time.Now())
 
+	var msgErr error
 	if block.IsReceiveBlock() {
 		fromBlock, err := verifier.chain.GetAccountBlockByHash(&block.FromBlockHash)
 		if fromBlock == nil {
 			if err != nil {
-				msgErr := errors.New("GetAccountBlockByHash failed.")
-				verifier.log.Error(msgErr.Error(), "error", err)
+				msgErr = errors.New("GetAccountBlockByHash failed.")
 				verifyStatResult.referredFromResult = FAIL
 				verifyStatResult.errMsg += msgErr.Error()
+				return false
 			}
 			verifyStatResult.accountTask = append(verifyStatResult.accountTask,
 				&AccountPendingTask{Addr: nil, Hash: &block.FromBlockHash})
 			verifyStatResult.referredFromResult = PENDING
 		} else {
-			if verifier.VerifySnapshotOfReferredBlock(block, fromBlock) {
-				verifyStatResult.referredFromResult = SUCCESS
-			} else {
-				verifier.log.Error("GetAccountBlockByHash", "error", err)
+			if verifier.VerifyIsReceivedSucceed(block) {
+				msgErr = errors.New("block is already received successfully.")
 				verifyStatResult.referredFromResult = FAIL
+				verifyStatResult.errMsg += msgErr.Error()
+				return false
 			}
+
+			result, err := verifier.VerifySnapshotOfReferredBlock(block, fromBlock)
+			if isFail(result, err, verifyStatResult) {
+				return false
+			}
+			if result == PENDING {
+				verifyStatResult.accountTask = append(verifyStatResult.accountTask,
+					&AccountPendingTask{Addr: nil, Hash: &block.FromBlockHash})
+			}
+			verifyStatResult.referredFromResult = result
 		}
 	} else {
 		verifier.log.Info("sendBlock doesn't need to verifyFrom")
 		verifyStatResult.referredFromResult = SUCCESS
 	}
+	return true
 }
 
-func (verifier *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) {
+func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock, task []*AccountPendingTask) (VerifyResult, error) {
+	defer monitor.LogTime("verify", "accountSelfDependence", time.Now())
+
+	latestBlock, err := verifier.chain.GetLatestAccountBlock(&block.AccountAddress)
+	if latestBlock == nil {
+		if err != nil {
+			return FAIL, err
+		} else {
+			if block.Height == 1 {
+				prevZero := &types.Hash{}
+				if !bytes.Equal(block.PrevHash.Bytes(), prevZero.Bytes()) {
+					return FAIL, errors.New("check Account's first Block's PrevHash failed")
+				}
+				return SUCCESS, nil
+			}
+			task = append(task, &AccountPendingTask{nil, &block.PrevHash})
+			return PENDING, nil
+		}
+	} else {
+
+		result, err := verifier.VerifySnapshotOfReferredBlock(block, latestBlock)
+		if result == FAIL {
+			return FAIL, err
+		}
+		switch {
+		case block.PrevHash == latestBlock.Hash && block.Height == latestBlock.Height+1:
+			return SUCCESS, nil
+		case block.PrevHash != latestBlock.Hash && block.Height > latestBlock.Height+1:
+			task = append(task, &AccountPendingTask{nil, &block.PrevHash})
+			return PENDING, nil
+		default:
+			return FAIL, errors.New("PreHash or Height is invalid")
+		}
+	}
+}
+
+func (verifier *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) bool {
 	defer monitor.LogTime("verify", "accountSnapshot", time.Now())
 
 	snapshotBlock, err := verifier.chain.GetSnapshotBlockByHash(&block.SnapshotHash)
@@ -230,20 +245,74 @@ func (verifier *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, veri
 		if err != nil {
 			verifier.log.Error("GetAccountBlockByHash", "error", err)
 		}
+		// fixme
 		verifyStatResult.snapshotTask = &SnapshotPendingTask{Hash: &block.SnapshotHash}
 		verifyStatResult.referredSnapshotResult = PENDING
+		return true
 	} else {
 		if isSucc := verifier.VerifyTimeOut(snapshotBlock); !isSucc {
-			verifyStatResult.errMsg += errors.New("VerifyTimeOut").Error()
 			verifyStatResult.referredSnapshotResult = FAIL
+			verifyStatResult.errMsg += errors.New("VerifyTimeOut").Error()
+			return false
 		} else {
 			verifyStatResult.referredSnapshotResult = SUCCESS
+			return true
 		}
 	}
 }
 
+func (verifier *AccountVerifier) VerifySnapshotOfReferredBlock(thisBlock *ledger.AccountBlock, referredBlock *ledger.AccountBlock) (VerifyResult, error) {
+	// referredBlock' snapshotBlock's height can't lower than thisBlock
+	thisSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&thisBlock.SnapshotHash)
+	referredSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&referredBlock.SnapshotHash)
+	if referredSnapshotBlock != nil {
+		if thisSnapshotBlock != nil {
+			if referredSnapshotBlock.Height > thisSnapshotBlock.Height {
+				return FAIL, errors.New("VerifySnapshotOfReferredBlock failed")
+			} else {
+				return SUCCESS, nil
+			}
+		}
+		return PENDING, nil
+	}
+	return FAIL, errors.New("VerifySnapshotOfReferredBlock failed")
+}
+
+func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock, task []*AccountPendingTask) (VerifyResult, error) {
+	defer monitor.LogTime("verify", "accountSelf", time.Now())
+
+	code, err := verifier.chain.AccountType(&block.AccountAddress)
+	if err != nil {
+		return FAIL, err
+	}
+	if code == ledger.AccountTypeContract {
+		if block.IsReceiveBlock() {
+			if result, err := verifier.consensus.VerifyAccountProducer(block); !result {
+				if err != nil {
+					verifier.log.Error(err.Error())
+				}
+				return FAIL, errors.New("the block producer is illegal")
+			}
+		}
+	}
+	if code == ledger.AccountTypeGeneral {
+		if types.PubkeyToAddress(block.PublicKey) != block.AccountAddress {
+			return FAIL, errors.New("PublicKey match AccountAddress failed")
+		}
+	}
+	return SUCCESS, nil
+}
+
 func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) error {
 	defer monitor.LogTime("verify", "accountSelfDataValidity", time.Now())
+
+	code, err := verifier.chain.AccountType(&block.AccountAddress)
+	if err != nil {
+		return errors.New("VerifyAccountAddress," + err.Error())
+	}
+	if block.IsSendBlock() && code == ledger.AccountTypeNotExist {
+		return errors.New("VerifyAccountAddress, inexistent AccountAddress can't sendTx")
+	}
 
 	if block.Amount == nil {
 		block.Amount = big.NewInt(0)
@@ -270,6 +339,10 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 		return errors.New("VerifyNonce failed")
 	}
 
+	if block.IsSendBlock() && code == ledger.AccountTypeContract {
+		// contractAddr's sendBlock ignore the sigature and pubKey
+		return nil
+	}
 	if !verifier.VerifySigature(block) {
 		return errors.New("VerifySigature failed")
 	}
@@ -277,65 +350,20 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 	return nil
 }
 
-func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock, task []*AccountPendingTask) (VerifyResult, error) {
-	defer monitor.LogTime("verify", "accountSelfDependence", time.Now())
-
-	latestBlock, err := verifier.chain.GetLatestAccountBlock(&block.AccountAddress)
-	if latestBlock == nil {
-		if err != nil {
-			errMsg := errors.New("GetLatestAccountBlock failed")
-			verifier.log.Error(errMsg.Error(), "error", err)
-			return FAIL, errMsg
-		} else {
-			if block.Height == 1 {
-				prevZero := &types.Hash{}
-				if !bytes.Equal(block.PrevHash.Bytes(), prevZero.Bytes()) {
-					return FAIL, errors.New("check Account's first Block's PrevHash failed")
-				}
-				return SUCCESS, nil
-			}
-			task = append(task, &AccountPendingTask{nil, &block.PrevHash})
-			return PENDING, nil
-		}
-	} else {
-		if !verifier.VerifySnapshotOfReferredBlock(block, latestBlock) {
-			return FAIL, errors.New("check referredBlock's snapshotBlock failed")
-		}
-		switch {
-		case block.PrevHash == latestBlock.Hash && block.Height == latestBlock.Height+1:
-			return SUCCESS, nil
-		case block.PrevHash != latestBlock.Hash && block.Height > latestBlock.Height+1:
-			task = append(task, &AccountPendingTask{nil, &block.PrevHash})
-			return PENDING, nil
-		default:
-			return FAIL, errors.New("PreHash or Height is invalid")
-		}
-	}
+func (verifier *AccountVerifier) VerifyIsReceivedSucceed(block *ledger.AccountBlock) bool {
+	return verifier.chain.IsSuccessReceived(&block.AccountAddress, &block.FromBlockHash)
 }
 
 func (verifier *AccountVerifier) VerifyHash(block *ledger.AccountBlock) bool {
 	computedHash := block.ComputeHash()
 	if block.Hash.IsZero() || computedHash != block.Hash {
-		verifier.log.Error("checkHash failed", "originHash", block.Hash, "computedHash", computedHash)
+		//verifier.log.Error("checkHash failed", "originHash", block.Hash, "computedHash", computedHash)
 		return false
 	}
 	return true
 }
 
 func (verifier *AccountVerifier) VerifySigature(block *ledger.AccountBlock) bool {
-	code, err := verifier.chain.AccountType(&block.AccountAddress)
-	if err != nil {
-		verifier.log.Error("AccountType", "error", err)
-		return false
-	}
-
-	if block.IsSendBlock() && (code == ledger.AccountTypeNotExist || code == ledger.AccountTypeContract) {
-		if len(block.Signature) == 0 || len(block.PublicKey) == 0 {
-			return true
-		}
-		return false
-	}
-
 	if len(block.Signature) == 0 || len(block.PublicKey) == 0 {
 		return false
 	}
@@ -364,8 +392,7 @@ func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock) bool {
 func (verifier *AccountVerifier) VerifyTimeOut(blockReferSb *ledger.SnapshotBlock) bool {
 	currentSb := verifier.chain.GetLatestSnapshotBlock()
 	if currentSb.Height > blockReferSb.Height+TimeOutHeight {
-		errMsg := errors.New("snapshot time out of limit")
-		verifier.log.Error(errMsg.Error())
+		verifier.log.Error("snapshot time out of limit")
 		return false
 	}
 	return true
@@ -380,14 +407,13 @@ func (verifier *AccountVerifier) VerifyTimeNotYet(block *ledger.AccountBlock) bo
 	return true
 }
 
-func (verifier *AccountVerifier) VerifySnapshotOfReferredBlock(thisBlock *ledger.AccountBlock, referredBlock *ledger.AccountBlock) bool {
-	// referredBlock' snapshotBlock's height can't lower than thisBlock
-	thisSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&thisBlock.SnapshotHash)
-	referredSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&referredBlock.SnapshotHash)
-	if thisSnapshotBlock != nil && referredSnapshotBlock != nil {
-		if referredSnapshotBlock.Height <= thisSnapshotBlock.Height {
-			return true
+func isFail(result VerifyResult, err error, stat *AccountBlockVerifyStat) bool {
+	if result == FAIL {
+		stat.referredSelfResult = FAIL
+		if err != nil {
+			stat.errMsg += err.Error()
 		}
+		return true
 	}
 	return false
 }

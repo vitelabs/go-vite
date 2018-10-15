@@ -3,13 +3,31 @@ package net
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p"
 )
 
-func mockNet() Net {
+type mockNet struct {
+	*Config
+	*syncer
+	*fetcher
+	*broadcaster
+	*receiver
+}
+
+func (n *mockNet) Protocols() []*p2p.Protocol {
+	return nil
+}
+
+func (n *mockNet) Start(svr *p2p.Server) error {
+	return nil
+}
+
+func mock() Net {
 	peers := newPeerSet()
 	pool := newRequestPool()
 	broadcaster := &broadcaster{
 		peers: peers,
+		log:   log15.New("module", "mocknet/broadcaster"),
 	}
 	filter := &filter{
 		records: make(map[types.Hash]*record),
@@ -22,7 +40,10 @@ func mockNet() Net {
 		filter:      filter,
 	}
 
-	return &net{
+	return &mockNet{
+		Config: &Config{
+			Single: true,
+		},
 		syncer: &syncer{
 			state:   Syncdone,
 			feed:    newSyncStateFeed(),
@@ -38,6 +59,5 @@ func mockNet() Net {
 		},
 		broadcaster: broadcaster,
 		receiver:    receiver,
-		log:         log15.New("module", "net/mock_net"),
 	}
 }

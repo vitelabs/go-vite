@@ -7,8 +7,8 @@ import (
 )
 
 type HashHeight struct {
-	Height uint64
-	Hash   types.Hash
+	Height uint64     `json:"height"`
+	Hash   types.Hash `json:"hash"`
 }
 
 func (b *HashHeight) Equal(hash types.Hash, height uint64) bool {
@@ -24,7 +24,7 @@ func (b *HashHeight) Proto() *vitepb.BlockID {
 
 func (b *HashHeight) DeProto(pb *vitepb.BlockID) {
 	copy(b.Hash[:], pb.Hash)
-	b.Height = b.Height
+	b.Height = pb.Height
 }
 
 func (b *HashHeight) Serialize() ([]byte, error) {

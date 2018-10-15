@@ -30,7 +30,7 @@ type TokenBalanceInfo struct {
 }
 
 type onroadBlocksCache struct {
-	blocks     list.List
+	blocks     *list.List
 	currentEle *list.Element
 	listMutex  sync.RWMutex
 
@@ -109,7 +109,7 @@ func (c *onroadBlocksCache) rmTx(b *ledger.AccountBlock) {
 	ele := c.blocks.Front()
 	for ele != nil {
 		next := ele.Next()
-		if ele.Value.(*ledger.AccountBlock).Hash == b.Hash {
+		if ele.Value.(*ledger.AccountBlock).Hash == b.FromBlockHash {
 			c.blocks.Remove(ele)
 			if ele == c.currentEle {
 				c.currentEle = next

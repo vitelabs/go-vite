@@ -84,13 +84,11 @@ const minHeightDifference = 3600
 
 var waitEnoughPeers = 10 * time.Second
 var enoughPeers = 3
+
+// todo should be set according to block number
 var chainGrowTimeout = 5 * time.Minute
 var downloadTimeout = 5 * time.Minute
-var chainGrowInterval = time.Minute
-
-func enoughtHeightDiff(our, their uint64) bool {
-	return our > their || their-our < minHeightDifference
-}
+var chainGrowInterval = 10 * time.Second
 
 type syncer struct {
 	from, to   uint64 // include
@@ -180,7 +178,11 @@ wait:
 
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
-	if enoughtHeightDiff(current.Height, p.height) {
+	// p is lower than me, or p is not all enough
+	if current.Height >= p.height || current.Height+minBlocks > p.height {
+		if current.Height > p.height {
+			p.SendNewSnapshotBlock(current)
+		}
 		s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
 		s.setState(Syncdone)
 		return
@@ -190,7 +192,7 @@ wait:
 	s.to = p.height
 	s.total = s.to - s.from + 1
 
-	s.log.Info(fmt.Sprintf("syncing: current at %d, to %d", s.from, s.to))
+	s.log.Info(fmt.Sprintf("syncing: current at %d, to %d", current.Height, s.to))
 	s.setState(Syncing)
 
 	// begin sync with peer
@@ -214,7 +216,7 @@ wait:
 				if e.peer.height >= targetHeight {
 					bestPeer := s.peers.BestPeer()
 					if bestPeer != nil {
-						if enoughtHeightDiff(current.Height, bestPeer.height) {
+						if s.shouldSync(current.Height, bestPeer.height) {
 							s.setTarget(bestPeer.height)
 						} else {
 							// no need sync
@@ -256,6 +258,16 @@ wait:
 			return
 		}
 	}
+}
+
+func (s *syncer) shouldSync(from, to uint64) bool {
+	if to > from {
+		if to >= from+minHeightDifference {
+			return true
+		}
+	}
+
+	return false
 }
 
 // this method will be called when our target Height changed, (eg. the best peer disconnected)

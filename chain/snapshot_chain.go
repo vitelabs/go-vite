@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -24,9 +23,10 @@ func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.Sn
 				c.log.Error("GetBlock failed, error is "+err.Error(), "method", "GenStateTrie")
 				return nil, err
 			}
-			if block != nil {
-				currentTrie.SetValue(addr.Bytes(), block.StateHash.Bytes())
-			}
+		}
+
+		if block != nil {
+			currentTrie.SetValue(addr.Bytes(), block.StateHash.Bytes())
 		}
 	}
 
@@ -232,60 +232,65 @@ func (c *chain) GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error) {
 	return c.GetLatestSnapshotBlock().Height - height + 1, nil
 }
 
-func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error) {
-	latestBlock := c.GetLatestSnapshotBlock()
-	genesisBlock := c.GetGenesisSnapshotBlock()
-	if latestBlock.Timestamp.Before(*blockCreatedTime) {
-		return latestBlock, nil
-	}
-
-	if genesisBlock.Timestamp.After(*blockCreatedTime) {
-		return nil, nil
-	}
-
-	blockCreatedUnixTime := blockCreatedTime.Unix()
-
-	start := genesisBlock
-	end := latestBlock
-
+func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error) {
 	for {
 		if end.Height-start.Height <= 1 {
-			var err error
-			start.SnapshotContent, err = c.chainDb.Sc.GetSnapshotContent(start.Height)
-			if err != nil {
-				c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
-				return nil, err
+			if start.SnapshotContent == nil {
+				var err error
+				start.SnapshotContent, err = c.chainDb.Sc.GetSnapshotContent(start.Height)
+				if err != nil {
+					c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
+					return nil, err
+				}
 			}
-
 			return start, nil
 		}
-		if end.Timestamp.Before(*start.Timestamp) {
-			err := errors.New("end.Timestamp.Before(start.Timestamp)")
-			return nil, err
+
+		gap := uint64(end.Timestamp.Sub(*blockCreatedTime).Seconds())
+		middle := uint64(0)
+		// suppose one snapshot block per second
+		if end.Height > gap {
+			middle = end.Height - gap
+		}
+		if middle <= start.Height {
+			middle = start.Height + (end.Height-start.Height)/2
 		}
 
-		nextEdgeHeight := start.Height + 1
-		step := uint64(end.Timestamp.Unix()-start.Timestamp.Unix()) / (end.Height - start.Height)
-		if step != 0 {
-			startHeightGap := uint64(blockCreatedUnixTime-start.Timestamp.Unix()) / step
-			if startHeightGap != 0 {
-				nextEdgeHeight = start.Height + startHeightGap
-			}
-		}
-
-		nextEdge, err := c.chainDb.Sc.GetSnapshotBlock(nextEdgeHeight, false)
-
+		block, err := c.chainDb.Sc.GetSnapshotBlock(middle, false)
 		if err != nil {
 			c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
 			return nil, err
 		}
 
-		if nextEdge.Timestamp.After(*blockCreatedTime) || nextEdge.Timestamp.Equal(*blockCreatedTime) {
-			end = nextEdge
+		prevBlock, err := c.chainDb.Sc.GetSnapshotBlock(middle-1, false)
+		if err != nil {
+			c.log.Error("Get try block failed, error is "+err.Error(), "method", "GetSnapshotBlockBeforeTime")
+			return nil, err
+		}
+
+		if block.Timestamp.Before(*blockCreatedTime) {
+			start = block
+		} else if prevBlock.Timestamp.Before(*blockCreatedTime) {
+			start = prevBlock
+			end = block
 		} else {
-			start = nextEdge
+			end = prevBlock
 		}
 	}
+}
+
+func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error) {
+	// normal logic
+	start := c.GetGenesisSnapshotBlock()
+	end := c.GetLatestSnapshotBlock()
+	if end.Timestamp.Before(*blockCreatedTime) {
+		return end, nil
+	}
+	if start.Timestamp.After(*blockCreatedTime) {
+		return nil, nil
+	}
+
+	return c.binarySearchBeforeTime(start, end, blockCreatedTime)
 }
 
 func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {

@@ -122,18 +122,6 @@ func (ucf *OnroadSet) DeleteMeta(batch *leveldb.Batch, addr *types.Address, hash
 	return nil
 }
 
-func (ucf *OnroadSet) GetMeta(addr *types.Address, hash *types.Hash) ([]byte, error) {
-	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), hash.Bytes())
-	if err != nil {
-		if err != leveldb.ErrNotFound {
-			return nil, err
-		}
-		return nil, nil
-	}
-	value, err := ucf.db().Get(key, nil)
-	return value, nil
-}
-
 func (ucf *OnroadSet) WriteGidAddrList(batch *leveldb.Batch, gid *types.Gid, addrList []types.Address) error {
 	key, err := database.EncodeKey(database.DBKP_GID_ADDR, gid.Bytes())
 	if err != nil {

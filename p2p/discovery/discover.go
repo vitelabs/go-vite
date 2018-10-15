@@ -53,7 +53,7 @@ type Discovery struct {
 	refreshing  int32 // atomic, whether indicate node table is refreshing
 	refreshDone chan struct{}
 	wg          sync.WaitGroup
-	blockList   *block.CuckooSet
+	blockList   *block.Set
 	subs        []chan<- *Node
 	log         log15.Logger
 }
@@ -65,7 +65,7 @@ func New(cfg *Config) (d *Discovery) {
 		self:        cfg.Self,
 		tab:         newTable(cfg.Self.ID, N),
 		refreshDone: make(chan struct{}),
-		blockList:   block.NewCuckooSet(1000),
+		blockList:   block.New(1000),
 		log:         log15.New("module", "p2p/discv"),
 	}
 
@@ -123,6 +123,10 @@ func (d *Discovery) Block(ID NodeID, IP net.IP) {
 	if IP != nil {
 		d.blockList.Add(IP)
 	}
+}
+
+func (d *Discovery) Mark(id NodeID, lifetime int64) {
+	// todo mark node as tcp available
 }
 
 func (d *Discovery) tableLoop() {

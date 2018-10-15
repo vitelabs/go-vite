@@ -374,27 +374,31 @@ func (self *chainPool) forky(snippet *snippetChain, chains []*forkedChain) (bool
 		if tailHeight > c.headHeight {
 			continue
 		}
-		if snippet.headHeight <= c.headHeight {
-			continue
-		}
-		if sameChain(snippet, c) {
-			cutSnippet(snippet, c.headHeight)
-			if snippet.headHeight == snippet.tailHeight {
-				delete(self.snippetChains, snippet.id())
-				return false, false, nil
-			} else {
-				return false, true, c
+		// forky
+		targetTailBlock := c.getBlock(tailHeight, false)
+		if targetTailBlock != nil && targetTailBlock.Hash() == tailHash {
+			// same chain
+			if sameChain(snippet, c) {
+				cutSnippet(snippet, c.headHeight)
+				if snippet.headHeight == snippet.tailHeight {
+					delete(self.snippetChains, snippet.id())
+					return false, false, nil
+				} else {
+					return false, true, c
+				}
 			}
-		}
-		point := findForkPoint(snippet, c, false)
-		if point != nil {
-			return true, false, c
+			// fork point
+			point := findForkPoint(snippet, c, false)
+			if point != nil {
+				return true, false, c
+			}
 		}
 		if snippet.headHeight == snippet.tailHeight {
 			delete(self.snippetChains, snippet.id())
 			return false, false, nil
 		}
 	}
+
 	if snippet.tailHeight <= self.diskChain.Head().Height() {
 		point := findForkPoint(snippet, self.current, true)
 		if point != nil {
@@ -423,11 +427,20 @@ func cutSnippet(snippet *snippetChain, height uint64) {
 // snippet.headHeight >=chain.headHeight
 func sameChain(snippet *snippetChain, chain heightChainReader) bool {
 	head := chain.Head()
-	b := snippet.heightBlocks[head.Height()]
-	if b != nil && b.Hash() == head.Hash() {
-		return true
+	if snippet.headHeight >= head.Height() {
+		b := snippet.heightBlocks[head.Height()]
+		if b != nil && b.Hash() == head.Hash() {
+			return true
+		} else {
+			return false
+		}
 	} else {
-		return false
+		b := chain.getBlock(snippet.headHeight, true)
+		if b != nil && b.Hash() == snippet.headHash {
+			return true
+		} else {
+			return false
+		}
 	}
 }
 
@@ -436,15 +449,16 @@ func findForkPoint(snippet *snippetChain, chain heightChainReader, refer bool) c
 	tailHeight := snippet.tailHeight
 	headHeight := snippet.headHeight
 
-	forkpoint := chain.getBlock(tailHeight, refer)
+	start := tailHeight + 1
+	forkpoint := chain.getBlock(start, refer)
 	if forkpoint == nil {
 		return nil
 	}
-	if forkpoint.Hash() != snippet.tailHash {
+	if forkpoint.PrevHash() != snippet.tailHash {
 		return nil
 	}
 
-	for i := tailHeight + 1; i <= headHeight; i++ {
+	for i := start + 1; i <= headHeight; i++ {
 		uncle := chain.getBlock(i, refer)
 		if uncle == nil {
 			log15.Error(fmt.Sprintf("chain error. chain:%s", chain))
@@ -459,7 +473,7 @@ func findForkPoint(snippet *snippetChain, chain heightChainReader, refer bool) c
 			continue
 		}
 	}
-	return nil
+	return forkpoint
 }
 
 func (self *chainPool) insertSnippet(c *forkedChain, snippet *snippetChain) error {
@@ -639,6 +653,18 @@ func (self *blockPool) contains(hash types.Hash, height uint64) bool {
 	_, free := self.freeBlocks[hash]
 	_, compound := self.compoundBlocks[hash]
 	return free || compound
+}
+
+func (self *blockPool) get(hash types.Hash) commonBlock {
+	b1, free := self.freeBlocks[hash]
+	if free {
+		return b1
+	}
+	b2, compound := self.compoundBlocks[hash]
+	if compound {
+		return b2
+	}
+	return nil
 }
 func (self *blockPool) containsHash(hash types.Hash) bool {
 	_, free := self.freeBlocks[hash]

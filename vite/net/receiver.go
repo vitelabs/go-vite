@@ -2,14 +2,15 @@ package net
 
 import (
 	"fmt"
+	"sync/atomic"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"sync/atomic"
-	"time"
 )
 
 // receive blocks and record them, construct skeleton to filter subsequent fetch
@@ -64,7 +65,7 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 
 		s.ReceiveNewSnapshotBlock(block)
 
-		s.log.Info(fmt.Sprintf("receive net snapshotblock %s", block.Hash))
+		s.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d", block.Hash, block.Height))
 	case NewAccountBlockCode:
 		block := new(ledger.AccountBlock)
 		err := block.Deserialize(msg.Payload)
@@ -76,7 +77,7 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 
 		s.ReceiveNewAccountBlock(block)
 
-		s.log.Info(fmt.Sprintf("receive net accountblock %s", block.Hash))
+		s.log.Info(fmt.Sprintf("receive new accountblock %s/%d", block.Hash, block.Height))
 	case SnapshotBlocksCode:
 		bs := new(message.SnapshotBlocks)
 		err := bs.Deserialize(msg.Payload)
@@ -84,9 +85,12 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 			return err
 		}
 
+		for _, v := range bs.Blocks {
+			s.log.Debug(fmt.Sprintf("receive %s - %d snapshotblocks", v.Hash, v.Height))
+		}
+
 		s.ReceiveSnapshotBlocks(bs.Blocks)
 
-		s.log.Info(fmt.Sprintf("receive %d snapshotblocks", len(bs.Blocks)))
 	case AccountBlocksCode:
 		bs := new(message.AccountBlocks)
 		err := bs.Deserialize(msg.Payload)
@@ -112,7 +116,7 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 
 	if s.filter.has(block.Hash) {
 		monitor.LogDuration("net/receiver", "nb2", time.Now().Sub(t).Nanoseconds())
-		s.log.Warn(fmt.Sprintf("has receive the same new block %s", block.Hash))
+		s.log.Warn(fmt.Sprintf("has receive the same new snapshotblock %s", block.Hash))
 		return
 	}
 
@@ -136,7 +140,7 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 
 	if s.filter.has(block.Hash) {
 		monitor.LogDuration("net/receiver", "nb2", time.Now().Sub(t).Nanoseconds())
-		s.log.Warn(fmt.Sprintf("has receive the same new block %s", block.Hash))
+		s.log.Warn(fmt.Sprintf("has receive the same new accountblock %s", block.Hash))
 		return
 	}
 
@@ -164,19 +168,23 @@ func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 	for i, j = 0, 0; i < len(blocks); i++ {
 		block := blocks[i]
 		if s.filter.has(block.Hash) {
+			s.log.Warn(fmt.Sprintf("has receive same snapshotblock %s-%d, will not notify", block.Hash, block.Height))
 			continue
 		}
-		j++
+
 		blocks[j] = blocks[i]
+		j++
 
 		s.mark(block.Hash)
 		if ready {
+			s.log.Info(fmt.Sprintf("notify snapshotblock %s", block.Hash))
 			s.sFeed.Notify(block)
 		}
 	}
 
 	if !ready {
 		s.sblocks = append(s.sblocks, blocks[:j])
+		s.log.Warn(fmt.Sprintf("not ready, store %d snapshotblocks", len(blocks)))
 	}
 
 	monitor.LogDuration("net/receiver", "bs", time.Now().Sub(t).Nanoseconds())
@@ -193,8 +201,9 @@ func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) {
 		if s.filter.has(block.Hash) {
 			continue
 		}
-		j++
+
 		blocks[j] = blocks[i]
+		j++
 
 		s.mark(block.Hash)
 		if ready {
@@ -210,6 +219,13 @@ func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) {
 }
 
 func (s *receiver) listen(st SyncState) {
+
+	if st == Syncing {
+		s.log.Warn(fmt.Sprintf("silence: %s", st))
+		atomic.StoreInt32(&s.ready, 0)
+		return
+	}
+
 	if atomic.LoadInt32(&s.ready) == 1 {
 		return
 	}

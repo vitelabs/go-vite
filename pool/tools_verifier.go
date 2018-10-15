@@ -2,7 +2,6 @@ package pool
 
 import (
 	"fmt"
-
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -50,9 +49,11 @@ func (self *accountVerifier) verifyAccount(b *accountPoolBlock) *poolAccountVeri
 
 	switch verifyResult {
 	case verifier.SUCCESS:
+
 		blocks, err := self.v.VerifyforVM(b.block)
 		if err != nil {
 			result.result = verifier.FAIL
+			result.err = err
 			return result
 		}
 		var bs []*accountPoolBlock
@@ -127,13 +128,19 @@ type poolAccountVerifyStat struct {
 	blocks []*accountPoolBlock
 	result verifier.VerifyResult
 	stat   *verifier.AccountBlockVerifyStat
+	err    error
 }
 
 func (self *poolAccountVerifyStat) verifyResult() verifier.VerifyResult {
 	return self.result
 }
 func (self *poolAccountVerifyStat) errMsg() string {
-	return ""
+	if self.err != nil {
+		return self.err.Error()
+	} else {
+		return "has no err msg."
+	}
+
 }
 
 var successT = &successTask{}

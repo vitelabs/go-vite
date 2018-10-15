@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"sync"
@@ -50,6 +51,7 @@ type BlockPool interface {
 		snapshotV *verifier.SnapshotVerifier,
 		accountV *verifier.AccountVerifier)
 	Info(addr *types.Address) string
+	Details(addr *types.Address, hash types.Hash) string
 }
 
 type commonBlock interface {
@@ -173,6 +175,30 @@ func (self *pool) Info(addr *types.Address) string {
 			freeSize, compoundSize, snippetSize, currentLen, chainSize)
 	}
 }
+func (self *pool) Details(addr *types.Address, hash types.Hash) string {
+	if addr == nil {
+		bp := self.pendingSc.blockpool
+
+		b := bp.get(hash)
+		if b == nil {
+			return "not exist"
+		}
+		bytes, _ := json.Marshal(b.(*snapshotPoolBlock).block)
+		return string(bytes)
+	} else {
+		ac := self.selfPendingAc(*addr)
+		if ac == nil {
+			return "pool not exist."
+		}
+		bp := ac.blockpool
+		b := bp.get(hash)
+		if b == nil {
+			return "not exist"
+		}
+		bytes, _ := json.Marshal(b.(*snapshotPoolBlock).block)
+		return string(bytes)
+	}
+}
 func (self *pool) Start() {
 	self.closed = make(chan struct{})
 
@@ -205,10 +231,11 @@ func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) {
 func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 	cBlock := newSnapshotPoolBlock(block, self.version)
 	err := self.pendingSc.AddDirectBlock(cBlock)
-	if err == nil {
-		self.pendingSc.f.broadcastBlock(block)
+	if err != nil {
+		return err
 	}
-	return err
+	self.pendingSc.f.broadcastBlock(block)
+	return nil
 }
 
 func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock) {
@@ -229,13 +256,14 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 	ac := self.selfPendingAc(address)
 	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version)
 	err := ac.AddDirectBlocks(cBlock, nil)
-	if err == nil {
-		ac.f.broadcastBlock(block.AccountBlock)
+	if err != nil {
+		return err
 	}
+	ac.f.broadcastBlock(block.AccountBlock)
 	self.accountCond.L.Lock()
 	defer self.accountCond.L.Unlock()
 	self.accountCond.Broadcast()
-	return err
+	return nil
 
 }
 func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.AccountBlock) error {
@@ -263,13 +291,14 @@ func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_con
 	}
 	err := ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmContext, self.version), accountPoolBlocks)
 	if err != nil {
-		ac.f.broadcastReceivedBlocks(received, sendBlocks)
+		return err
 	}
+	ac.f.broadcastReceivedBlocks(received, sendBlocks)
 
 	self.accountCond.L.Lock()
 	defer self.accountCond.L.Unlock()
 	self.accountCond.Broadcast()
-	return err
+	return nil
 }
 
 func (self *pool) ExistInPool(address types.Address, requestHash types.Hash) bool {
@@ -317,7 +346,10 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 		err = this.CurrentModifyToChain(targetChain)
 	}
 	self.version.Inc()
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (self *pool) RollbackAccountTo(addr types.Address, hash types.Hash, height uint64) error {
@@ -375,9 +407,10 @@ func (self *pool) loopTryInsert() {
 			return
 		case <-t.C:
 			if sum == 0 {
-				self.accountCond.L.Lock()
-				self.accountCond.Wait()
-				self.accountCond.L.Unlock()
+				//self.accountCond.L.Lock()
+				//self.accountCond.Wait()
+				//self.accountCond.L.Unlock()
+				time.Sleep(200 * time.Millisecond)
 				monitor.LogEvent("pool", "tryInsertSleep")
 			}
 			sum = 0
@@ -422,9 +455,10 @@ func (self *pool) loopCompact() {
 			return
 		case <-t.C:
 			if sum == 0 {
-				self.accountCond.L.Lock()
-				self.accountCond.Wait()
-				self.accountCond.L.Unlock()
+				//self.accountCond.L.Lock()
+				//self.accountCond.Wait()
+				//self.accountCond.L.Unlock()
+				time.Sleep(200 * time.Millisecond)
 			}
 			sum = 0
 
@@ -516,7 +550,9 @@ func (self *pool) fetchForTask(task verifyTask) {
 		if r.snapshot {
 			exist = self.pendingSc.existInPool(r.hash)
 		} else {
-			exist = self.selfPendingAc(*r.chain).existInPool(r.hash)
+			if r.chain != nil {
+				exist = self.selfPendingAc(*r.chain).existInPool(r.hash)
+			}
 		}
 		if exist {
 			self.log.Info(fmt.Sprintf("block[%s] exist, should not fetch.", r.String()))
@@ -526,7 +562,9 @@ func (self *pool) fetchForTask(task verifyTask) {
 		if r.snapshot {
 			self.pendingSc.f.fetchByHash(r.hash, 5)
 		} else {
-			self.selfPendingAc(*r.chain).f.fetchByHash(r.hash, 5)
+			// todo
+			self.sync.FetchAccountBlocks(r.hash, 5, r.chain)
+			//self.selfPendingAc(*r.chain).f.fetchByHash(r.hash, 5)
 		}
 	}
 	return

@@ -24,7 +24,7 @@ type IncomingMessage struct {
 	Data    []byte
 }
 
-func (im *IncomingMessage) ToBlock() (*ledger.AccountBlock, error) {
+func (im *IncomingMessage) ToSendBlock() (*ledger.AccountBlock, error) {
 	block := &ledger.AccountBlock{}
 	block.AccountAddress = im.AccountAddress
 	switch im.BlockType {
@@ -107,7 +107,7 @@ func (im *IncomingMessage) ToBlock() (*ledger.AccountBlock, error) {
 		}
 
 	default:
-		return nil, errors.New("BlockTypeReceive can't use IncomingMessage ToBlock func")
+		return nil, errors.New("BlockTypeReceive can't use IncomingMessage ToSendBlock func")
 	}
 	return block, nil
 }
@@ -116,5 +116,4 @@ type ConsensusMessage struct {
 	SnapshotHash types.Hash
 	Timestamp    time.Time
 	Producer     types.Address
-	gid          types.Gid
 }

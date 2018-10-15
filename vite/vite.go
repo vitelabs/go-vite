@@ -74,12 +74,6 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 		accountVerifier:  aVerifier,
 	}
 
-	// onroad
-	or := onroad.NewManager(vite.net, vite.pool, vite.producer, vite.walletManager)
-
-	// set onroad
-	vite.onRoad = or
-
 	// producer
 	if cfg.Producer.Producer && cfg.Producer.Coinbase != "" {
 		coinbase, err := types.HexToAddress(cfg.Producer.Coinbase)
@@ -91,6 +85,12 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 
 		vite.producer = producer.NewProducer(chain, net, coinbase, cs, sbVerifier, walletManager, pl)
 	}
+
+	// onroad
+	or := onroad.NewManager(net, pl, vite.producer, walletManager)
+
+	// set onroad
+	vite.onRoad = or
 	return
 }
 

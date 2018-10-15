@@ -2,12 +2,13 @@ package chain
 
 import (
 	"errors"
+	"math/big"
+
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
 )
 
 type BlockMapQueryParam struct {
@@ -347,6 +348,10 @@ func (c *chain) GetAccountBlockHashByHeight(addr *types.Address, height uint64) 
 		return nil, accountErr
 	}
 
+	if account == nil {
+		return nil, nil
+	}
+
 	hash, getHashErr := c.chainDb.Ac.GetHashByHeight(account.AccountId, height)
 	if getHashErr != nil {
 		c.log.Error("GetHashByHeight failed, error is "+getHashErr.Error(), "method", "GetAccountBlockHashByHeight")
@@ -361,6 +366,9 @@ func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*le
 		c.log.Error("Query account failed. Error is "+err.Error(), "method", "GetAccountBlockByHeight")
 
 		return nil, err
+	}
+	if account == nil {
+		return nil, nil
 	}
 
 	block, err := c.chainDb.Ac.GetBlockByHeight(account.AccountId, height)
@@ -441,6 +449,13 @@ func (c *chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 
 		c.log.Error("Query latest block failed. Error is "+glErr.Error(), "method", "GetAccountBlocksByAddress")
 		return nil, glErr
+	}
+	if latestBlock == nil {
+		return nil, nil
+	}
+
+	if latestBlock == nil {
+		return nil, nil
 	}
 
 	startHeight, endHeight := uint64(1), uint64(0)

@@ -2,19 +2,27 @@ package model
 
 import (
 	"container/list"
+	"sync"
+	"time"
+
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
-	"sync"
-	"time"
 )
 
 var (
 	fullCacheExpireTime   = 2 * time.Minute
 	simpleCacheExpireTime = 20 * time.Minute
+
+	initRegisterContracts = []types.Address{
+		contracts.AddressMintage,
+		contracts.AddressPledge,
+		contracts.AddressRegister,
+		contracts.AddressVote,
+		contracts.AddressConsensusGroup}
 )
 
 // obtaining the account info from cache or db and manage the cache lifecycle
@@ -129,7 +137,7 @@ func (p *OnroadBlocksPool) loadFullCacheFromDb(addr types.Address) error {
 	}
 
 	cache := &onroadBlocksCache{
-		blocks:         *list,
+		blocks:         list,
 		currentEle:     list.Front(),
 		referenceCount: 1,
 	}
@@ -191,6 +199,7 @@ func (p *OnroadBlocksPool) WriteOnroadSuccess(blocks []*vm_context.VmAccountBloc
 				return
 			}
 			p.updateCache(true, v.AccountBlock)
+			p.NewSignalToWorker(v.AccountBlock)
 		} else {
 			code, _ := p.dbAccess.Chain.AccountType(&v.AccountBlock.AccountAddress)
 			if code == ledger.AccountTypeGeneral {
@@ -205,17 +214,10 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 	syncOnce := &sync.Once{}
 	syncOnce.Do(func() {
 		var onceErr error
-		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressMintage); onceErr != nil {
-			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressMintage)
-		}
-		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressPledge); onceErr != nil {
-			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressPledge)
-		}
-		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressRegister); onceErr != nil {
-			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressRegister)
-		}
-		if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, contracts.AddressVote); onceErr != nil {
-			p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", contracts.AddressVote)
+		for _, v := range initRegisterContracts {
+			if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, v); onceErr != nil {
+				p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", v)
+			}
 		}
 	})
 
@@ -425,7 +427,7 @@ func (p *OnroadBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
 	} else {
 		p.commonTxListenerMutex.RLock()
 		defer p.commonTxListenerMutex.RUnlock()
-		if f, ok := p.newCommonTxListener[block.AccountAddress]; ok {
+		if f, ok := p.newCommonTxListener[block.ToAddress]; ok {
 			f()
 		}
 	}

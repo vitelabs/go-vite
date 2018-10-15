@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 )
 
+/*
 var firmNodes = []string{
 	"vnode://33e43481729850fc66cef7f42abebd8cb2f1c74f0b09a5bf03da34780a0a5606@150.109.40.224:8483",
 	"vnode://7194af5b7032cb470c41b313e2675e2c3ba3377e66617247012b8d638552fb17@150.109.62.152:8483",
@@ -30,6 +31,7 @@ var firmNodes = []string{
 	//"vnode://de1f3a591b551591fb7d20e478da0371def3d62726b90ffca6932e38a25ebe84@150.109.38.29:8483",
 	//"vnode://9df2e11399398176fa58638592cf1b2e0e804ae92ac55f09905618fdb239c03c@150.109.40.169:8483",
 }
+*/
 
 const (
 	DefaultMaxPeers        uint = 50
@@ -42,63 +44,36 @@ const (
 const Dirname = "p2p"
 const privKeyFileName = "priv.key"
 
-func getServerKey(p2pDir string) (pub ed25519.PublicKey, priv ed25519.PrivateKey, err error) {
-	pub = make([]byte, 32)
-	priv = make([]byte, 64)
-
+func getServerKey(p2pDir string) (priv ed25519.PrivateKey, err error) {
 	privKeyFile := filepath.Join(p2pDir, privKeyFileName)
 
-	fd, err := os.Open(privKeyFile)
-	getKeyOK := true
+	var fd *os.File
+	fd, err = os.Open(privKeyFile)
 
+	// open file error
 	if err != nil {
-		getKeyOK = false
-		p2pServerLog.Info("cannot read p2p priv.key, use random key", "error", err)
-		pub, priv, err = ed25519.GenerateKey(nil)
-		if err != nil {
-			return nil, nil, err
+		if _, priv, err = ed25519.GenerateKey(nil); err != nil {
+			return
 		}
 
-		fd, err = os.Create(privKeyFile)
-		if err != nil {
-			p2pServerLog.Info("create p2p priv.key fail", "error", err)
-		} else {
+		if fd, err = os.Create(privKeyFile); err == nil {
 			defer fd.Close()
 		}
 	} else {
 		defer fd.Close()
 
-		n, err := fd.Read([]byte(priv))
-
-		if err != nil {
-			getKeyOK = false
-			p2pServerLog.Info("cannot read p2p priv.key, use random key", "error", err)
-		}
-
-		if n != len(priv) {
-			p2pServerLog.Info("read incompelete p2p priv.key, use random key")
-			getKeyOK = false
-		}
-
-		if !getKeyOK {
-			pub, priv, err = ed25519.GenerateKey(nil)
-			if err != nil {
-				return nil, nil, err
+		priv = make([]byte, 64)
+		var n int
+		if n, err = fd.Read(priv); err != nil || n != len(priv) {
+			// read file error
+			if _, priv, err = ed25519.GenerateKey(nil); err != nil {
+				return
 			}
-		} else {
-			pub = priv.PubByte()
 		}
 	}
 
-	if !getKeyOK {
-		n, err := fd.Write([]byte(priv))
-		if err != nil {
-			p2pServerLog.Info("write privateKey to p2p priv.key fail", "error", err)
-		} else if n != len(priv) {
-			p2pServerLog.Info("write incompelete privateKey to p2p priv.key")
-		} else {
-			p2pServerLog.Info("write privateKey to p2p priv.key")
-		}
+	if fd != nil {
+		fd.Write(priv)
 	}
 
 	return
@@ -134,9 +109,10 @@ func EnsureConfig(cfg *Config) *Config {
 	}
 
 	if cfg.PrivateKey == nil {
-		_, priv, err := getServerKey(cfg.DataDir)
+		priv, err := getServerKey(cfg.DataDir)
+
 		if err != nil {
-			p2pServerLog.Crit("generate privateKey error", "error", err)
+			panic(err)
 		} else {
 			cfg.PrivateKey = priv
 		}
@@ -145,34 +121,16 @@ func EnsureConfig(cfg *Config) *Config {
 	return cfg
 }
 
-func addFirmNodes(bootnodes []string) (nodes []*discovery.Node) {
-	nodes = make([]*discovery.Node, 0, len(bootnodes)+len(firmNodes))
+func parseNodes(urls []string) (nodes []*discovery.Node) {
+	nodes = make([]*discovery.Node, len(urls))
 
-	//for _, list := range [][]string{firmNodes, bootnodes} {
-	//	for _, nodeURL := range list {
-	//		node, err := discovery.ParseNode(nodeURL)
-	//		if err == nil {
-	//			nodes = append(nodes, node)
-	//		}
-	//	}
-	//}
-
-	for _, nodeURL := range bootnodes {
-		node, err := discovery.ParseNode(nodeURL)
-		if err == nil {
-			nodes = append(nodes, node)
+	i := 0
+	for _, nodeURL := range urls {
+		if node, err := discovery.ParseNode(nodeURL); err == nil {
+			nodes[i] = node
+			i++
 		}
 	}
 
-	return
-}
-
-func copyNodes(nodes []*discovery.Node) []*discovery.Node {
-	cps := make([]*discovery.Node, len(nodes))
-
-	for i, n := range nodes {
-		cps[i] = &(*n)
-	}
-
-	return cps
+	return nodes[:i]
 }
