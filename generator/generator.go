@@ -16,8 +16,6 @@ import (
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
 type Generator struct {
-	chain Chain
-
 	vm        vm.VM
 	vmContext vmctxt_interface.VmDatabase
 
@@ -30,10 +28,9 @@ type GenResult struct {
 	Err          error
 }
 
-func NewGenerator(chain Chain, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
+func NewGenerator(chain vm_context.Chain, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
 	gen := &Generator{
-		chain: chain,
-		log:   log15.New("module", "Generator"),
+		log: log15.New("module", "Generator"),
 	}
 	vmContext, err := vm_context.NewVmContext(chain, snapshotBlockHash, prevBlockHash, addr)
 	if err != nil {
@@ -50,10 +47,13 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 	var errGenMsg error
 
 	if message.BlockType != ledger.BlockTypeSendCall && message.BlockType != ledger.BlockTypeSendCreate {
+		if message.FromBlockHash == nil {
+			return nil, errors.New("FromBlockHash can't be nil when create ReceiveBlock")
+		}
 		sendBlock := gen.vmContext.GetAccountBlockByHash(message.FromBlockHash)
 		genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc)
 	} else {
-		block, err := gen.packBlockWithMessage(message)
+		block, err := gen.packSendBlockWithMessage(message)
 		if err != nil {
 			return nil, err
 		}
@@ -128,13 +128,17 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 	}, nil
 }
 
-func (gen *Generator) packBlockWithMessage(message *IncomingMessage) (blockPacked *ledger.AccountBlock, err error) {
-	blockPacked, err = message.ToBlock()
+func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockPacked *ledger.AccountBlock, err error) {
+	latestBlock := gen.vmContext.PrevAccountBlock()
+	if latestBlock == nil {
+		return nil, errors.New("SendTx's AccountAddress doesn't exist")
+	}
+
+	blockPacked, err = message.ToSendBlock()
 	if err != nil {
 		return nil, err
 	}
 
-	latestBlock := gen.vmContext.PrevAccountBlock()
 	if latestBlock == nil {
 		blockPacked.Height = 1
 		blockPacked.PrevHash = types.ZERO_HASH
@@ -142,10 +146,8 @@ func (gen *Generator) packBlockWithMessage(message *IncomingMessage) (blockPacke
 		blockPacked.Height = latestBlock.Height + 1
 		blockPacked.PrevHash = latestBlock.Hash
 	}
-
 	latestSnapshotBlock := gen.vmContext.CurrentSnapshotBlock()
 	blockPacked.SnapshotHash = latestSnapshotBlock.Hash
-
 	st := time.Now()
 	blockPacked.Timestamp = &st
 
@@ -154,6 +156,7 @@ func (gen *Generator) packBlockWithMessage(message *IncomingMessage) (blockPacke
 
 func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, consensusMsg *ConsensusMessage) (blockPacked *ledger.AccountBlock, err error) {
 	gen.log.Info("PackReceiveBlock", "sendBlock.Hash", sendBlock.Hash, "sendBlock.To", sendBlock.ToAddress)
+
 	blockPacked = &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: sendBlock.ToAddress,
@@ -176,16 +179,13 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 	preBlock := gen.vmContext.PrevAccountBlock()
 	if preBlock == nil {
 		blockPacked.Height = 1
-		blockPacked.PrevHash = types.Hash{}
+		blockPacked.PrevHash = types.ZERO_HASH
 	} else {
 		blockPacked.PrevHash = preBlock.Hash
 		blockPacked.Height = preBlock.Height + 1
 	}
 
-	if consensusMsg != nil {
-		blockPacked.Timestamp = &consensusMsg.Timestamp
-		blockPacked.SnapshotHash = consensusMsg.SnapshotHash
-	} else {
+	if consensusMsg == nil {
 		st := time.Now()
 		blockPacked.Timestamp = &st
 		snapshotBlock := gen.vmContext.CurrentSnapshotBlock()
@@ -195,6 +195,9 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 		blockPacked.SnapshotHash = snapshotBlock.Hash
 		nonce := pow.GetPowNonce(nil, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
 		blockPacked.Nonce = nonce[:]
+	} else {
+		blockPacked.Timestamp = &consensusMsg.Timestamp
+		blockPacked.SnapshotHash = consensusMsg.SnapshotHash
 	}
 	return blockPacked, nil
 }

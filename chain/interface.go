@@ -88,4 +88,7 @@ type Chain interface {
 	// Be
 	GetLatestBlockEventId() (uint64, error)
 	GetEvent(eventId uint64) (byte, []types.Hash, error)
+
+	// onroad
+	IsSuccessReceived(addr *types.Address, hash *types.Hash) bool
 }

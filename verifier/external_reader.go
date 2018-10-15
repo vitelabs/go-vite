@@ -10,14 +10,10 @@ type Consensus interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
 }
 
-type Signer interface {
-	SignData(a types.Address, data []byte) (signedData, pubkey []byte, err error)
-	SignDataWithPassphrase(a types.Address, passphrase string, data []byte) (signedData, pubkey []byte, err error)
-}
-
 type Chain interface {
 	AccountReader
 	SnapshotReader
+	OnRoad
 }
 
 type SnapshotReader interface {
@@ -38,4 +34,8 @@ type AccountReader interface {
 	GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error)
 	GetStateTrie(hash *types.Hash) *trie.Trie
 	NewStateTrie() *trie.Trie
+}
+
+type OnRoad interface {
+	IsSuccessReceived(addr *types.Address, hash *types.Hash) bool
 }
