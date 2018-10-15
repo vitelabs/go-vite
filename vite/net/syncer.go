@@ -178,7 +178,11 @@ wait:
 
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
-	if current.Height >= p.height {
+	// p is lower than me, or p is not all enough
+	if current.Height >= p.height || current.Height+minBlocks > p.height {
+		if current.Height > p.height {
+			p.SendNewSnapshotBlock(current)
+		}
 		s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
 		s.setState(Syncdone)
 		return
@@ -295,22 +299,6 @@ func (s *syncer) setTarget(to uint64) {
 }
 
 func (s *syncer) sync(from, to uint64) {
-	if to < from+minBlocks {
-		msgId := s.pool.MsgID()
-		req := &chunkRequest{
-			id:         msgId,
-			from:       from,
-			to:         to,
-			peer:       s.peers.BestPeer(),
-			expiration: time.Now().Add(10 * time.Second),
-			done:       s.reqCallback,
-		}
-
-		s.pool.Add(req)
-
-		return
-	}
-
 	pieces := splitSubLedger(s.from, s.to, s.peers.Pick(s.from))
 
 	for _, piece := range pieces {
