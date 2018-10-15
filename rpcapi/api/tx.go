@@ -2,7 +2,7 @@ package api
 
 import (
 	"errors"
-	"github.com/vitelabs/go-vite/generator"
+	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
 )
 
@@ -22,22 +22,16 @@ func (t Tx) SendRawTx(block AccountBlock) error {
 		return err
 	}
 
-	g, err := generator.NewGenerator(t.vite.Chain(), &lb.SnapshotHash, &lb.PrevHash, &lb.AccountAddress)
-	if err != nil {
-		return err
-	}
+	v := verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus())
 
-	result, err := g.GenerateWithBlock(lb, nil)
+	blocks, err := v.VerifyforRPC(lb)
 	if err != nil {
 		newerr, _ := TryMakeConcernedError(err)
 		return newerr
 	}
-	if result.Err != nil {
-		newerr, _ := TryMakeConcernedError(result.Err)
-		return newerr
-	}
-	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
-		return t.vite.Pool().AddDirectAccountBlock(block.AccountAddress, result.BlockGenList[0])
+
+	if len(blocks) > 0 && blocks[0] != nil {
+		return t.vite.Pool().AddDirectAccountBlock(block.AccountAddress, blocks[0])
 	} else {
 		return errors.New("generator gen an empty block")
 	}
