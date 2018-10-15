@@ -2,11 +2,10 @@ package consensus
 
 import (
 	"math/big"
-	"sync"
+	"strconv"
 	"time"
 
-	"strconv"
-
+	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -17,7 +16,7 @@ import (
 type teller struct {
 	info *membersInfo
 	//voteCache map[int32]*electionResult
-	voteCache sync.Map
+	voteCache *lru.Cache
 	rw        *chainRw
 	algo      *algo
 	gid       types.Gid
@@ -26,6 +25,7 @@ type teller struct {
 }
 
 func newTeller(info *membersInfo, gid types.Gid, rw *chainRw, log log15.Logger) *teller {
+
 	t := &teller{rw: rw}
 	//t.info = &membersInfo{genesisTime: genesisTime, memberCnt: memberCnt, interval: interval, perCnt: perCnt, randCnt: 2, LowestLimit: big.NewInt(1000)}
 	t.info = info
@@ -33,6 +33,11 @@ func newTeller(info *membersInfo, gid types.Gid, rw *chainRw, log log15.Logger) 
 	t.algo = &algo{info: t.info}
 	t.mLog = log.New("gid", gid.String())
 	t.mLog.Info("new teller.", "membersInfo", info.String())
+	cache, err := lru.New(1024 * 10)
+	if err != nil {
+		panic(err)
+	}
+	t.voteCache = cache
 	return t
 }
 
@@ -80,18 +85,6 @@ func (self *teller) time2Index(t time.Time) int32 {
 	return index
 }
 
-func (self *teller) removePrevious(rtime time.Time) int32 {
-	var i int32 = 0
-	self.voteCache.Range(func(k, v interface{}) bool {
-		if v.(*electionResult).ETime.Before(rtime) {
-			self.voteCache.Delete(k)
-			i = i + 1
-		}
-		return true
-	})
-	return i
-}
-
 func (self *teller) findSeed(votes []*Vote) int64 {
 	result := big.NewInt(0)
 	for _, v := range votes {
@@ -108,7 +101,7 @@ func (self *teller) convertToAddress(votes []*Vote) []types.Address {
 }
 func (self *teller) calVotes(hashH ledger.HashHeight) ([]types.Address, error) {
 	// load from cache
-	r, ok := self.voteCache.Load(hashH.Hash)
+	r, ok := self.voteCache.Get(hashH.Hash)
 	if ok {
 		return r.([]types.Address), nil
 	}
@@ -125,7 +118,7 @@ func (self *teller) calVotes(hashH ledger.HashHeight) ([]types.Address, error) {
 	address := self.convertToAddress(finalVotes)
 
 	// update cache
-	self.voteCache.Store(hashH.Hash, address)
+	self.voteCache.Add(hashH.Hash, address)
 	return address, nil
 }
 

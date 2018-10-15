@@ -195,7 +195,6 @@ func (self *committee) update(t *teller, m *sync.Map) {
 	defer self.wg.Done()
 
 	index := t.time2Index(time.Now())
-	var lastRemoveTime = time.Now()
 	for !self.Stopped() {
 		//var current *memberPlan = nil
 		electionResult, err := t.electionIndex(index)
@@ -226,14 +225,6 @@ func (self *committee) update(t *teller, m *sync.Map) {
 
 		time.Sleep(electionResult.ETime.Sub(time.Now()) - time.Second)
 		index = electionResult.Index + 1
-
-		// clear ever hour
-		removeTime := time.Now().Add(-time.Hour)
-		if lastRemoveTime.Before(removeTime) {
-			t.removePrevious(removeTime)
-			lastRemoveTime = removeTime
-		}
-
 	}
 }
 func copyMap(m *sync.Map) map[string]*subscribeEvent {
