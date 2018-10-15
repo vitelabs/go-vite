@@ -183,5 +183,4 @@ func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*RpcTokenInfo, error) {
 	l.log.Info("GetTokenMintage")
 	return RawTokenInfoToRpc(l.chain.GetTokenInfoById(&tti), tti), nil
-
 }
