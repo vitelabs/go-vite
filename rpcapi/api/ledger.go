@@ -184,3 +184,22 @@ func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*RpcTokenInfo, error
 	l.log.Info("GetTokenMintage")
 	return RawTokenInfoToRpc(l.chain.GetTokenInfoById(&tti), tti), nil
 }
+
+func (l *LedgerApi) GetKafkaSenderInfo() *KafkaSendInfo {
+	l.log.Info("GetTokenMintage")
+	if l.chain.KafkaSender() == nil {
+		return nil
+	}
+
+	senderInfo := &KafkaSendInfo{}
+	for _, producer := range l.chain.KafkaSender().Producers() {
+		senderInfo.Producers = append(senderInfo.Producers, createKafkaProducerInfo(producer))
+	}
+
+	for _, producer := range l.chain.KafkaSender().RunProducers() {
+		senderInfo.RunProducers = append(senderInfo.Producers, createKafkaProducerInfo(producer))
+	}
+
+	return senderInfo
+
+}

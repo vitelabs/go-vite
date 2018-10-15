@@ -141,13 +141,6 @@ func (verifier *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifySt
 		return false
 	}
 
-	if block.BlockType == ledger.BlockTypeReceive || block.BlockType == ledger.BlockTypeReceiveError {
-		if verifier.chain.IsSuccessReceived(&block.AccountAddress, &block.FromBlockHash) {
-			verifyStatResult.referredSelfResult = FAIL
-			return
-		}
-	}
-
 	step1, err1 := verifier.verifyProducerLegality(block, verifyStatResult.accountTask)
 	if isFail(step1, err1, verifyStatResult) {
 		return
@@ -197,24 +190,37 @@ func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlo
 func (verifier *AccountVerifier) verifyFrom(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) {
 	defer monitor.LogTime("verify", "accountFrom", time.Now())
 
+	var msgErr error
 	if block.IsReceiveBlock() {
 		fromBlock, err := verifier.chain.GetAccountBlockByHash(&block.FromBlockHash)
 		if fromBlock == nil {
 			if err != nil {
-				msgErr := errors.New("GetAccountBlockByHash failed.")
+				msgErr = errors.New("GetAccountBlockByHash failed.")
 				verifier.log.Error(msgErr.Error(), "error", err)
 				verifyStatResult.referredFromResult = FAIL
 				verifyStatResult.errMsg += msgErr.Error()
+				return
 			}
 			verifyStatResult.accountTask = append(verifyStatResult.accountTask,
 				&AccountPendingTask{Addr: nil, Hash: &block.FromBlockHash})
 			verifyStatResult.referredFromResult = PENDING
 		} else {
+			if verifier.VerifyIsReceivedSucceed(block) {
+				msgErr = errors.New("block is already received successfully.")
+				verifier.log.Error(msgErr.Error())
+				verifyStatResult.referredFromResult = FAIL
+				verifyStatResult.errMsg += msgErr.Error()
+				return
+			}
+
 			if verifier.VerifySnapshotOfReferredBlock(block, fromBlock) {
 				verifyStatResult.referredFromResult = SUCCESS
 			} else {
-				verifier.log.Error("GetAccountBlockByHash", "error", err)
+				msgErr := errors.New("VerifySnapshotOfReferredBlock failed")
+				verifier.log.Error(msgErr.Error())
 				verifyStatResult.referredFromResult = FAIL
+				verifyStatResult.errMsg += msgErr.Error()
+				return
 			}
 		}
 	} else {
@@ -235,8 +241,8 @@ func (verifier *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, veri
 		verifyStatResult.referredSnapshotResult = PENDING
 	} else {
 		if isSucc := verifier.VerifyTimeOut(snapshotBlock); !isSucc {
-			verifyStatResult.errMsg += errors.New("VerifyTimeOut").Error()
 			verifyStatResult.referredSnapshotResult = FAIL
+			verifyStatResult.errMsg += errors.New("VerifyTimeOut").Error()
 		} else {
 			verifyStatResult.referredSnapshotResult = SUCCESS
 		}
@@ -324,6 +330,10 @@ func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock, task
 			return FAIL, errors.New("PreHash or Height is invalid")
 		}
 	}
+}
+
+func (verifier *AccountVerifier) VerifyIsReceivedSucceed(block *ledger.AccountBlock) bool {
+	return verifier.chain.IsSuccessReceived(&block.AccountAddress, &block.FromBlockHash)
 }
 
 func (verifier *AccountVerifier) VerifyHash(block *ledger.AccountBlock) bool {

@@ -2,6 +2,7 @@ package chain
 
 import (
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain_db"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/compress"
@@ -59,6 +60,7 @@ type Chain interface {
 	GetContractGid(addr *types.Address) (*types.Gid, error)
 	GetRegisterList(snapshotHash types.Hash, gid types.Gid) []*contracts.Registration
 	GetVoteMap(snapshotHash types.Hash, gid types.Gid) []*contracts.VoteInfo
+	KafkaSender() *sender.KafkaSender
 
 	// Pledge amount
 	GetPledgeAmount(snapshotHash types.Hash, beneficial types.Address) *big.Int
