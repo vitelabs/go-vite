@@ -127,6 +127,7 @@ func init() {
 		licenseCommand,
 		consoleCommand,
 		attachCommand,
+		demoCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 

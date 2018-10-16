@@ -33,19 +33,6 @@ See https://github.com/vitelabs/go-vite/wiki/JavaScript-Console.`,
 	}
 
 	//local
-	benchmarkCommand = cli.Command{
-		Action:   utils.MigrateFlags(localBenchmarkAction),
-		Name:     "benchmark",
-		Usage:    "Start an interactive JavaScript environment",
-		Flags:    jsFlags,
-		Category: "CONSOLE COMMANDS",
-		Description: `
-The GVite console is an interactive shell for the JavaScript runtime environment
-which exposes a node admin interface as well as the Ðapp JavaScript API.
-See https://github.com/vitelabs/go-vite/wiki/JavaScript-Console.`,
-	}
-
-	//local
 	javascriptCommand = cli.Command{
 		Action:    utils.MigrateFlags(ephemeralConsoleAction),
 		Name:      "js",
@@ -111,22 +98,6 @@ func localConsoleAction(ctx *cli.Context) error {
 	console.Welcome()
 	console.Interactive()
 
-	return nil
-}
-
-// localConsole starts a new gvite node, attaching a JavaScript console to it at the same time.
-func localBenchmarkAction(ctx *cli.Context) error {
-
-	// Create and start the node based on the CLI flags
-	nodeManager := nodemanager.New(ctx, nodemanager.FullNodeMaker{})
-	nodemanager.StartNode(nodeManager.Node())
-	defer nodemanager.StopNode(nodeManager.Node())
-
-	node := nodeManager.Node()
-
-	vite := node.Vite()
-
-	benchmarkProduce(vite)
 	return nil
 }
 
