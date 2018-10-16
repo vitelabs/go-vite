@@ -406,9 +406,9 @@ func (verifier *AccountVerifier) VerifyTimeOut(blockReferSb *ledger.SnapshotBloc
 }
 
 func (verifier *AccountVerifier) VerifyTimeNotYet(block *ledger.AccountBlock) error {
-	//  don't accept which timestamp doesn't satisfy within the (latestSnapshotBlock's + 1h) limit
-	currentSb := verifier.chain.GetLatestSnapshotBlock()
-	if block.Timestamp.Before(currentSb.Timestamp.Add(time.Hour)) {
+	//  don't accept which timestamp doesn't satisfy within the (now + 1h) limit
+	currentSb := time.Now()
+	if block.Timestamp.After(currentSb.Add(time.Hour)) {
 		return errors.New("Timestamp not arrive yet")
 	}
 	return nil
