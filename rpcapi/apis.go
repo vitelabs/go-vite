@@ -6,16 +6,13 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 )
 
-func getApi(vite *vite.Vite, apiModule string) rpc.API {
-	switch apiModule {
-	case "ledger":
-		return rpc.API{
-			Namespace: "ledger",
-			Version:   "1.0",
-			Service:   api.NewLedgerApi(vite),
-			Public:    true,
-		}
+func InitLog(dir, lvl string) {
 
+}
+
+func GetApi(vite *vite.Vite, apiModule string) rpc.API {
+	switch apiModule {
+	// private IPC
 	case "wallet":
 		return rpc.API{
 			Namespace: "wallet",
@@ -23,15 +20,36 @@ func getApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewWalletApi(vite),
 			Public:    true,
 		}
-
-	case "onroad":
+	case "private_onroad":
 		return rpc.API{
 			Namespace: "onroad",
 			Version:   "1.0",
-			Service:   api.NewPrivateOnroadApi(vite.OnRoad()),
+			Service:   api.NewPrivateOnroadApi(vite),
+			Public:    true,
+		}
+		// public  WS HTTP IPC
+	case "pow":
+		return rpc.API{
+			Namespace: "pow",
+			Version:   "1.0",
+			Service:   api.Pow{},
 			Public:    true,
 		}
 
+	case "ledger":
+		return rpc.API{
+			Namespace: "ledger",
+			Version:   "1.0",
+			Service:   api.NewLedgerApi(vite),
+			Public:    true,
+		}
+	case "public_onroad":
+		return rpc.API{
+			Namespace: "onroad",
+			Version:   "1.0",
+			Service:   api.NewPublicOnroadApi(vite),
+			Public:    true,
+		}
 	case "net":
 		return rpc.API{
 			Namespace: "net",
@@ -39,26 +57,11 @@ func getApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewNetApi(vite),
 			Public:    true,
 		}
-
 	case "contracts":
 		return rpc.API{
 			Namespace: "contracts",
 			Version:   "1.0",
 			Service:   api.NewContractsApi(vite),
-			Public:    true,
-		}
-	case "testapi":
-		return rpc.API{
-			Namespace: "testapi",
-			Version:   "1.0",
-			Service:   api.NewTestApi(api.NewWalletApi(vite)),
-			Public:    true,
-		}
-	case "pow":
-		return rpc.API{
-			Namespace: "pow",
-			Version:   "1.0",
-			Service:   api.Pow{},
 			Public:    true,
 		}
 	case "tx":
@@ -68,6 +71,15 @@ func getApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewTxApi(vite),
 			Public:    true,
 		}
+		// test
+	case "testapi":
+		return rpc.API{
+			Namespace: "testapi",
+			Version:   "1.0",
+			Service:   api.NewTestApi(api.NewWalletApi(vite)),
+			Public:    true,
+		}
+
 	default:
 		return rpc.API{}
 	}
@@ -76,15 +88,15 @@ func getApi(vite *vite.Vite, apiModule string) rpc.API {
 func getApis(vite *vite.Vite, apiModule ...string) []rpc.API {
 	var apis []rpc.API
 	for _, m := range apiModule {
-		apis = append(apis, getApi(vite, m))
+		apis = append(apis, GetApi(vite, m))
 	}
 	return apis
 }
 
 func GetPublicApis(vite *vite.Vite) []rpc.API {
-	return getApis(vite, "ledger", "wallet", "onroad", "net", "contracts", "testapi", "pow", "tx")
+	return getApis(vite, "ledger", "wallet", "private_onroad", "net", "contracts", "testapi", "pow", "tx")
 }
 
 func GetAllApis(vite *vite.Vite) []rpc.API {
-	return getApis(vite, "ledger", "wallet", "onroad", "net", "contracts", "testapi", "pow", "tx")
+	return getApis(vite, "ledger", "wallet", "private_onroad", "net", "contracts", "testapi", "pow", "tx")
 }

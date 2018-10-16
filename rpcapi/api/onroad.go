@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/onroad/model"
+	"github.com/vitelabs/go-vite/vite"
 )
 
 type PublicOnroadApi struct {
@@ -18,9 +19,9 @@ func (o PublicOnroadApi) String() string {
 	return "PublicOnroadApi"
 }
 
-func NewPublicOnroadApi(manager *onroad.Manager) *PublicOnroadApi {
+func NewPublicOnroadApi(vite *vite.Vite) *PublicOnroadApi {
 	return &PublicOnroadApi{
-		api: NewPrivateOnroadApi(manager),
+		api: NewPrivateOnroadApi(vite),
 	}
 }
 func (o PublicOnroadApi) GetOnroadBlocksByAddress(address types.Address, index int, count int) ([]*AccountBlock, error) {
@@ -36,9 +37,9 @@ type PrivateOnroadApi struct {
 	manager *onroad.Manager
 }
 
-func NewPrivateOnroadApi(manager *onroad.Manager) *PrivateOnroadApi {
+func NewPrivateOnroadApi(vite *vite.Vite) *PrivateOnroadApi {
 	return &PrivateOnroadApi{
-		manager: manager,
+		manager: vite.OnRoad(),
 	}
 }
 
