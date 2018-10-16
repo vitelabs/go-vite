@@ -17,7 +17,6 @@ const maxNeighborsOneTrip = 10
 
 var errStopped = errors.New("discovery server has stopped")
 var errWaitOvertime = errors.New("wait for response timeout")
-var errSendToSelf = errors.New("send discovery message to self")
 
 // after send query. wating for reply.
 type waitIsDone func(Message, error, *wait) bool

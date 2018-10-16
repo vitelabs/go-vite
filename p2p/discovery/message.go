@@ -17,7 +17,7 @@ import (
 
 const version byte = 2
 
-var expiration = 10 * time.Second
+var expiration = 5 * time.Second
 
 func getExpiration() time.Time {
 	return time.Now().Add(expiration)
@@ -359,8 +359,8 @@ type Exception struct {
 
 func (e *Exception) serialize() ([]byte, error) {
 	buf := make([]byte, binary.MaxVarintLen64)
-	int := binary.PutUvarint(buf, uint64(e.Code))
-	return buf[:int], nil
+	n := binary.PutUvarint(buf, uint64(e.Code))
+	return buf[:n], nil
 }
 
 func (e *Exception) deserialize(buf []byte) error {
@@ -378,7 +378,7 @@ func (e *Exception) pack(priv ed25519.PrivateKey) (pkt []byte, hash types.Hash, 
 		return
 	}
 
-	pkt, hash = composePacket(priv, neighborsCode, payload)
+	pkt, hash = composePacket(priv, exceptionCode, payload)
 	return
 }
 
