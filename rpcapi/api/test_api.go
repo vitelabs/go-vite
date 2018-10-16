@@ -1,11 +1,26 @@
 package api
 
 import (
+	"errors"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/generator"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pow"
 	"math/big"
 	"math/rand"
 )
+
+type CreateTxWithPrivKeyParmsTest struct {
+	SelfAddr    types.Address
+	ToAddr      types.Address
+	TokenTypeId types.TokenTypeId
+	PrivateKey  string
+	Amount      string
+	Data        []byte
+	Difficulty  *big.Int
+}
 
 type TestApi struct {
 	walletApi *WalletApi
@@ -35,4 +50,63 @@ func (t TestApi) GetTestToken(toAddress types.Address) (string, error) {
 		Amount:      amount,
 	})
 	return amount, e
+}
+
+func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error {
+	amount, ok := new(big.Int).SetString(params.Amount, 10)
+	if !ok {
+		return ErrStrToBigInt
+	}
+
+	block, e := t.walletApi.chain.GetLatestAccountBlock(&params.SelfAddr)
+	if e != nil {
+		return e
+	}
+	preHash := types.Hash{}
+	if block != nil {
+		preHash = block.Hash
+	}
+
+	nonce := pow.GetPowNonce(params.Difficulty, types.DataListHash(params.SelfAddr[:], preHash[:]))
+
+	msg := &generator.IncomingMessage{
+		BlockType:      ledger.BlockTypeSendCall,
+		AccountAddress: params.SelfAddr,
+		ToAddress:      &params.ToAddr,
+		FromBlockHash:  &preHash,
+		TokenId:        &params.TokenTypeId,
+		Amount:         amount,
+		Fee:            nil,
+		Nonce:          nonce[:],
+		Data:           params.Data,
+	}
+
+	g, e := generator.NewGenerator(t.walletApi.chain, nil, &preHash, &params.SelfAddr)
+	if e != nil {
+		return e
+	}
+	result, e := g.GenerateWithMessage(msg, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+		var privkey ed25519.PrivateKey
+		privkey, e := ed25519.HexToPrivateKey(params.PrivateKey)
+		if e != nil {
+			return nil, nil, e
+		}
+		signData := ed25519.Sign(privkey, data)
+		pubkey = privkey.PubByte()
+		return signData, pubkey, nil
+	})
+	if e != nil {
+		newerr, _ := TryMakeConcernedError(e)
+		return newerr
+	}
+	if result.Err != nil {
+		newerr, _ := TryMakeConcernedError(result.Err)
+		return newerr
+	}
+	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
+		return t.walletApi.pool.AddDirectAccountBlock(params.SelfAddr, result.BlockGenList[0])
+	} else {
+		return errors.New("generator gen an empty block")
+	}
+
 }
