@@ -283,7 +283,7 @@ func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[type
 	cutMap := excludeSubordinate(subLedger)
 	for _, blocks := range cutMap {
 		// the blockList is sorted by height with ascending order
-		for i := len(blocks); i > 0; i-- {
+		for i := len(blocks) - 1; i >= 0; i-- {
 			v := blocks[i]
 
 			if v.IsReceiveBlock() {
@@ -301,9 +301,11 @@ func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[type
 					p.log.Error("revert the sendBlock's and the referred failed", "error", err)
 					return err
 				}
+				if v.BlockType == ledger.BlockTypeSendCreate {
+					gid := contracts.GetGidFromCreateContractData(v.Data)
+					p.dbAccess.DeleteContractAddrFromGid(batch, gid, v.ToAddress)
+				}
 
-				gid := contracts.GetGidFromCreateContractData(v.Data)
-				p.dbAccess.DeleteContractAddrFromGid(batch, gid, v.ToAddress)
 			}
 		}
 	}
@@ -311,7 +313,7 @@ func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[type
 }
 
 func excludeSubordinate(subLedger map[types.Address][]*ledger.AccountBlock) map[types.Hash][]*ledger.AccountBlock {
-	var cutMap map[types.Hash][]*ledger.AccountBlock
+	cutMap := make(map[types.Hash][]*ledger.AccountBlock)
 	for _, blockList := range subLedger {
 		for _, v := range blockList {
 			if v.IsSendBlock() {
