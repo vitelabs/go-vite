@@ -416,6 +416,16 @@ func (tab *table) pickOldest() (n *Node) {
 	return
 }
 
+func (tab *table) Mark(id NodeID, lifetime int64) {
+	tab.lock.Lock()
+	defer tab.lock.Unlock()
+
+	bucket := tab.getBucket(id)
+	if n := bucket.node(id); n != nil {
+		n.weight = lifetime
+	}
+}
+
 // @section neighbors
 // neighbors around the pivot
 type neighbors struct {

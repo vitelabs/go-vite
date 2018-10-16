@@ -26,12 +26,10 @@ func (c ContractsApi) String() string {
 }
 
 func (c *ContractsApi) GetPledgeData(beneficialAddr types.Address) ([]byte, error) {
-	c.log.Info("GetPledgeData")
 	return contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, beneficialAddr)
 }
 
 func (c *ContractsApi) GetCancelPledgeData(beneficialAddr types.Address, amount *big.Int) ([]byte, error) {
-	c.log.Info("GetCancelPledgeData")
 	return contracts.ABIPledge.PackMethod(contracts.MethodNameCancelPledge, beneficialAddr, amount)
 }
 
@@ -47,43 +45,34 @@ type MintageParams struct {
 }
 
 func (c *ContractsApi) GetMintageData(param MintageParams) ([]byte, error) {
-	c.log.Info("GetMintageData")
 	tokenId := contracts.NewTokenId(param.SelfAddr, param.Height, param.PrevHash, param.SnapshotHash)
 	return contracts.ABIMintage.PackMethod(contracts.MethodNameMintage, tokenId, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals)
 }
 func (c *ContractsApi) GetMintageCancelPledgeData(tokenId types.TokenTypeId) ([]byte, error) {
-	c.log.Info("GetMintageCancelPledgeData")
 	return contracts.ABIMintage.PackMethod(contracts.MethodNameMintageCancelPledge, tokenId)
 }
 
 func (c *ContractsApi) GetCreateContractToAddress(selfAddr types.Address, height uint64, prevHash types.Hash, snapshotHash types.Hash) types.Address {
-	c.log.Info("GetCreateContractToAddress")
 	return contracts.NewContractAddress(selfAddr, height, prevHash, snapshotHash)
 }
 
-func (c *ContractsApi) GetRegisterData(gid types.Gid, name string, nodeAddr types.Address, beneficialAddr types.Address) ([]byte, error) {
-	c.log.Info("GetRegisterData")
-	return contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, gid, name, nodeAddr, beneficialAddr)
+func (c *ContractsApi) GetRegisterData(gid types.Gid, name string, nodeAddr types.Address, beneficialAddr types.Address, publicKey []byte, signature []byte) ([]byte, error) {
+	return contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, gid, name, nodeAddr, beneficialAddr, publicKey, signature)
 }
 func (c *ContractsApi) GetCancelRegisterData(gid types.Gid, name string) ([]byte, error) {
-	c.log.Info("GetCancelRegisterData")
 	return contracts.ABIRegister.PackMethod(contracts.MethodNameCancelRegister, gid, name)
 }
 func (c *ContractsApi) GetRewardData(gid types.Gid, name string, endHeight uint64, startHeight uint64, rewardAmount *big.Int) ([]byte, error) {
-	c.log.Info("GetRewardData")
 	return contracts.ABIRegister.PackMethod(contracts.MethodNameReward, gid, name, endHeight, startHeight, rewardAmount)
 }
-func (c *ContractsApi) GetUpdateRegistrationData(gid types.Gid, name string, nodeAddr types.Address, beneficialAddr types.Address) ([]byte, error) {
-	c.log.Info("GetUpdateRegistrationData")
-	return contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration, gid, name, nodeAddr, beneficialAddr)
+func (c *ContractsApi) GetUpdateRegistrationData(gid types.Gid, name string, nodeAddr types.Address, beneficialAddr types.Address, publicKey []byte, signature []byte) ([]byte, error) {
+	return contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration, gid, name, nodeAddr, beneficialAddr, publicKey, signature)
 }
 
 func (c *ContractsApi) GetVoteData(gid types.Gid, name string) ([]byte, error) {
-	c.log.Info("GetVoteData")
 	return contracts.ABIVote.PackMethod(contracts.MethodNameVote, gid, name)
 }
 func (c *ContractsApi) GetCancelVoteData(gid types.Gid) ([]byte, error) {
-	c.log.Info("GetCancelVoteData")
 	return contracts.ABIVote.PackMethod(contracts.MethodNameCancelVote, gid)
 }
 
@@ -105,20 +94,16 @@ type CreateConsensusGroupParam struct {
 }
 
 func (c *ContractsApi) GetConditionRegisterOfPledge(amount *big.Int, tokenId types.TokenTypeId, height uint64) ([]byte, error) {
-	c.log.Info("GetConditionRegisterOfPledge")
 	return contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, amount, tokenId, height)
 }
 func (c *ContractsApi) GetConditionVoteOfDefault() ([]byte, error) {
-	c.log.Info("GetConditionVoteOfDefault")
 	return []byte{}, nil
 }
 func (c *ContractsApi) GetConditionVoteOfKeepToken(amount *big.Int, tokenId types.TokenTypeId) ([]byte, error) {
-	c.log.Info("GetConditionVoteOfKeepToken")
 	return contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionVoteOfKeepToken, amount, tokenId)
 
 }
 func (c *ContractsApi) GetCreateConsensusGroupData(param CreateConsensusGroupParam) ([]byte, error) {
-	c.log.Info("GetCreateConsensusGroupData")
 	gid := contracts.NewGid(param.SelfAddr, param.Height, param.PrevHash, param.SnapshotHash)
 	return contracts.ABIConsensusGroup.PackMethod(
 		contracts.MethodNameCreateConsensusGroup,
@@ -136,11 +121,9 @@ func (c *ContractsApi) GetCreateConsensusGroupData(param CreateConsensusGroupPar
 
 }
 func (c *ContractsApi) GetCancelConsensusGroupData(gid types.Gid) ([]byte, error) {
-	c.log.Info("GetCancelConsensusGroupData")
 	return contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameCancelConsensusGroup, gid)
 
 }
 func (c *ContractsApi) GetReCreateConsensusGroupData(gid types.Gid) ([]byte, error) {
-	c.log.Info("GetCancelConsensusGroupData")
 	return contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameReCreateConsensusGroup, gid)
 }

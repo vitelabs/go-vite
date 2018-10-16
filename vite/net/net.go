@@ -51,9 +51,8 @@ func New(cfg *Config) Net {
 		return mock()
 	}
 
-	port := cfg.Port
-	if port == 0 {
-		port = DefaultPort
+	if cfg.Port == 0 {
+		cfg.Port = DefaultPort
 	}
 
 	fc := newFileClient(cfg.Chain)
@@ -77,7 +76,7 @@ func New(cfg *Config) Net {
 		fetcher:     fetcher,
 		broadcaster: broadcaster,
 		receiver:    receiver,
-		fs:          newFileServer(port, cfg.Chain),
+		fs:          newFileServer(cfg.Port, cfg.Chain),
 		fc:          fc,
 		handlers:    make(map[cmd]MsgHandler),
 		log:         log15.New("module", "vite/net"),
@@ -88,6 +87,10 @@ func New(cfg *Config) Net {
 		peers:  peers,
 		pool:   pool,
 		fc:     fc,
+		retry: &retryPolicy{
+			peers:  peers,
+			record: make(map[uint64]int),
+		},
 	}
 
 	n.addHandler(_statusHandler(statusHandler))
@@ -201,6 +204,11 @@ func (n *net) startPeer(p *Peer) error {
 		select {
 		case <-n.term:
 			return p2p.DiscQuitting
+
+		case err := <-p.errch:
+			n.log.Error(fmt.Sprintf("peer error: %v", err))
+			return p2p.DiscProtocolError
+
 		case <-ticker.C:
 			current := n.Chain.GetLatestSnapshotBlock()
 			p.Send(StatusCode, 0, &ledger.HashHeight{

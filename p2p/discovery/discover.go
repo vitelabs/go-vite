@@ -23,7 +23,7 @@ var tRefresh = 1 * time.Hour         // refresh the node table at tRefresh inter
 var storeInterval = 5 * time.Minute  // store nodes in table to db at storeDuration intervals
 var checkInterval = 10 * time.Second // check the oldest node in table at checkInterval intervals
 var stayInTable = 5 * time.Minute    // minimal duration node stay in table can be store in db
-var findInterval = 3 * time.Minute
+var findInterval = time.Minute
 var dbCleanInterval = time.Hour
 
 var errUnsolicitedMsg = errors.New("unsolicited message")
@@ -126,7 +126,13 @@ func (d *Discovery) Block(ID NodeID, IP net.IP) {
 }
 
 func (d *Discovery) Mark(id NodeID, lifetime int64) {
-	// todo mark node as tcp available
+	// todo
+}
+
+func (d *Discovery) Need(n uint) {
+	nodes := make([]*Node, n)
+	i := d.RandomNodes(nodes)
+	d.batchNotify(nodes[:i])
 }
 
 func (d *Discovery) tableLoop() {

@@ -92,7 +92,7 @@ func (f *fileServer) handleConn(conn net2.Conn) {
 		case <-f.term:
 			return
 		default:
-			//conn.SetReadDeadline(time.Now().Add(fReadTimeout))
+			//conn.SetReadDeadline(time.Now().Add(time.Minute))
 			msg, err := p2p.ReadMsg(conn, true)
 			if err != nil {
 				f.log.Error(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
@@ -353,7 +353,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 	}
 }
 
-var errResTimeout = errors.New("wait for file response timeout")
+//var errResTimeout = errors.New("wait for file response timeout")
 var errFlieClientStopped = errors.New("fileClient stopped")
 
 func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBlock, ablocks []*ledger.AccountBlock, err error) {

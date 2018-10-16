@@ -101,7 +101,7 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		}
 
 		// If block is receive block, change status of the send block
-		if accountBlock.BlockType == ledger.BlockTypeReceive {
+		if accountBlock.IsReceiveBlock() {
 			sendBlockMeta, getBlockMetaErr := c.chainDb.Ac.GetBlockMeta(&accountBlock.FromBlockHash)
 			if getBlockMetaErr != nil {
 				c.log.Error("GetBlockMeta failed, error is "+getBlockMetaErr.Error(), "method", "InsertAccountBlocks")
