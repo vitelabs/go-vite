@@ -45,7 +45,7 @@ type accountVerifier struct {
 	log log15.Logger
 }
 
-func (self *accountVerifier) verfyAccountData(b *ledger.AccountBlock) error {
+func (self *accountVerifier) verifyAccountData(b *ledger.AccountBlock) error {
 	if err := self.v.VerifyNetAb(b); err != nil {
 		return err
 	}
