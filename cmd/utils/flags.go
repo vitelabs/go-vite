@@ -166,6 +166,11 @@ var (
 		Name:  "pprof",
 		Usage: "Enable a performance analysis tool, you can visit the address[http://localhost:8080/debug/pprof]",
 	}
+
+	PProfPortFlag = cli.UintFlag{
+		Name:  "pprofport",
+		Usage: "pporof visit `port`, you can visit the address[http://localhost:`port`/debug/pprof]",
+	}
 )
 
 // This allows the use of the existing configuration functionality.
