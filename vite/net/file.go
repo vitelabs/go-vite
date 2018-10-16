@@ -98,39 +98,30 @@ func (f *fileServer) handleConn(conn net2.Conn) {
 			}
 
 			code := cmd(msg.Cmd)
-			if code == GetFilesCode {
-				req := new(message.GetFiles)
-				err = req.Deserialize(msg.Payload)
-
-				if err != nil {
-					f.log.Error(fmt.Sprintf("parse message %s from %s error: %v", code, conn.RemoteAddr(), err))
-					return
-				}
-
-				f.log.Info(fmt.Sprintf("receive message %s from %s", code, conn.RemoteAddr()))
-
-				// send files
-				for _, filename := range req.Names {
-					var n int64
-					n, err = io.Copy(conn, f.chain.Compressor().FileReader(filename))
-
-					if err != nil {
-						f.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", filename, conn.RemoteAddr(), err))
-						return
-					} else {
-						f.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", filename, n, conn.RemoteAddr()))
-					}
-				}
-			} else if code == ExceptionCode {
-				exp, err := message.DeserializeException(msg.Payload)
-				if err != nil {
-					f.log.Error(fmt.Sprintf("deserialize exception message error: %v", err))
-					return
-				}
-				f.log.Warn(fmt.Sprintf("got exception %v", exp))
+			if code != GetFilesCode {
+				f.log.Error(fmt.Sprintf("got %d, need %d", code, GetFilesCode))
 				return
-			} else {
-				f.log.Error(fmt.Sprintf("unexpected message code: %d", msg.Cmd))
+			}
+
+			req := new(message.GetFiles)
+			if err = req.Deserialize(msg.Payload); err != nil {
+				f.log.Error(fmt.Sprintf("parse message %s from %s error: %v", code, conn.RemoteAddr(), err))
+				return
+			}
+
+			f.log.Info(fmt.Sprintf("receive message %s from %s", code, conn.RemoteAddr()))
+
+			// send files
+			for _, filename := range req.Names {
+				var n int64
+				n, err = io.Copy(conn, f.chain.Compressor().FileReader(filename))
+
+				if err != nil {
+					f.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", filename, conn.RemoteAddr(), err))
+					return
+				} else {
+					f.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", filename, n, conn.RemoteAddr()))
+				}
 			}
 		}
 	}
