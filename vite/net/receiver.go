@@ -120,6 +120,11 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 		return
 	}
 
+	if s.verifier != nil && !s.verifier.VerifyNetSb(block) {
+		s.log.Error(fmt.Sprintf("verify new snapshotblock %s/%d fail", block.Hash, block.Height))
+		return
+	}
+
 	// record
 	s.mark(block.Hash)
 
@@ -141,6 +146,11 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 	if s.filter.has(block.Hash) {
 		monitor.LogDuration("net/receiver", "nb2", time.Now().Sub(t).Nanoseconds())
 		s.log.Warn(fmt.Sprintf("has receive the same new accountblock %s", block.Hash))
+		return
+	}
+
+	if s.verifier != nil && !s.verifier.VerifyNetAb(block) {
+		s.log.Error(fmt.Sprintf("verify new accountblock %s/%d fail", block.Hash, block.Height))
 		return
 	}
 
@@ -172,6 +182,11 @@ func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 			continue
 		}
 
+		if s.verifier != nil && !s.verifier.VerifyNetSb(block) {
+			s.log.Error(fmt.Sprintf("verify snapshotblock %s/%d fail", block.Hash, block.Height))
+			continue
+		}
+
 		blocks[j] = blocks[i]
 		j++
 
@@ -200,6 +215,11 @@ func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) {
 		block := blocks[i]
 		if s.filter.has(block.Hash) {
 			continue
+		}
+
+		if s.verifier != nil && !s.verifier.VerifyNetAb(block) {
+			s.log.Error(fmt.Sprintf("verify accountblock %s/%d fail", block.Hash, block.Height))
+			return
 		}
 
 		blocks[j] = blocks[i]

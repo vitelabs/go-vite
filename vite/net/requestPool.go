@@ -199,13 +199,9 @@ func (p *requestPool) MsgID() uint64 {
 	return atomic.AddUint64(&p.id, 1)
 }
 
-func (p *requestPool) Retry(r Request, err error) {
-	if r.ID() == 0 {
-		r.SetID(p.MsgID())
-	}
-
-	p.log.Error(fmt.Sprintf("retry request %d, error: %v", r.ID(), err))
-	p.retry <- &reqEvent{r.ID(), err}
+func (p *requestPool) Retry(id uint64, err error) {
+	p.log.Error(fmt.Sprintf("retry request %d, error: %v", id, err))
+	p.retry <- &reqEvent{id, err}
 }
 
 func (p *requestPool) FC() *fileClient {

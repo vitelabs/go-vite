@@ -38,7 +38,7 @@ func (s reqState) String() string {
 
 type context interface {
 	Add(r Request) bool
-	Retry(r Request, err error)
+	Retry(id uint64, err error)
 	FC() *fileClient
 }
 
@@ -225,7 +225,7 @@ func (s *subLedgerRequest) fileRequetErr(r *fileRequest, err error) {
 		rec:        r.rec,
 	}
 
-	s.ctx.Retry(req, err)
+	s.ctx.Add(req)
 }
 
 func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
@@ -237,7 +237,7 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 		msg := new(message.FileList)
 		err := msg.Deserialize(pkt.Payload)
 		if err != nil {
-			ctx.Retry(s, err)
+			ctx.Retry(s.id, err)
 			return
 		}
 
@@ -277,22 +277,20 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 			// maybe chunk is too large
 			cs := splitChunk(chunk[0], chunk[1])
 			for _, c := range cs {
-				c := &chunkRequest{
+				ctx.Add(&chunkRequest{
 					from:       c[0],
 					to:         c[1],
 					peer:       peer,
 					expiration: time.Now().Add(u64ToDuration(c[1] - c[0])),
 					done:       s.done,
 					rec:        s.rec,
-				}
-
-				ctx.Add(c)
+				})
 			}
 		}
 
 		s.Done(nil)
 	} else {
-		ctx.Retry(s, errUnExpectedRes)
+		ctx.Retry(s.id, errUnExpectedRes)
 	}
 }
 
@@ -311,7 +309,7 @@ func (s *subLedgerRequest) Run(ctx context) {
 
 	if err != nil {
 		s.peer.log.Error(fmt.Sprintf("send GetSubLedgerMsg<%d-%d> to %s error: %v", s.from, s.to, s.peer, err))
-		ctx.Retry(s, err)
+		ctx.Retry(s.id, err)
 	} else {
 		s.state = reqPending
 		s.peer.log.Info(fmt.Sprintf("send GetSubLedgerMsg<%d-%d> to %s done", s.from, s.to, s.peer))
@@ -418,14 +416,14 @@ func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 		err := msg.Deserialize(pkt.Payload)
 		if err != nil {
 			fmt.Println("chunkRequest handle error: ", err)
-			ctx.Retry(c, err)
+			ctx.Retry(c.id, err)
 			return
 		}
 
 		c.rec(msg.SBlocks, msg.ABlocks)
 		c.Done(nil)
 	} else {
-		ctx.Retry(c, errUnExpectedRes)
+		ctx.Retry(c.id, errUnExpectedRes)
 	}
 }
 
@@ -443,7 +441,7 @@ func (c *chunkRequest) Run(ctx context) {
 
 	if err != nil {
 		c.peer.log.Error(fmt.Sprintf("send GetChunkMsg<%d/%d> to %s error: %v", c.from, c.to, c.peer, err))
-		ctx.Retry(c, err)
+		ctx.Retry(c.id, err)
 	} else {
 		c.state = reqPending
 		c.peer.log.Info(fmt.Sprintf("send GetChunkMsg<%d/%d> to %s done", c.from, c.to, c.peer))

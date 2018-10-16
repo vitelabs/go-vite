@@ -115,10 +115,10 @@ func (f *fileServer) handleConn(conn net2.Conn) {
 					n, err = io.Copy(conn, f.chain.Compressor().FileReader(filename))
 
 					if err != nil {
-						f.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", req.Names, conn.RemoteAddr(), err))
+						f.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", filename, conn.RemoteAddr(), err))
 						return
 					} else {
-						f.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", req.Names, n, conn.RemoteAddr()))
+						f.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", filename, n, conn.RemoteAddr()))
 					}
 				}
 			} else if code == ExceptionCode {
@@ -398,7 +398,7 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 
 				index := block.Height - start
 				if sblocks[index] == nil {
-					sblocks[block.Height-start] = block
+					sblocks[index] = block
 					sCount++
 					ctx.req.current = block.Height
 				}
@@ -417,9 +417,9 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 		})
 
 		if sCount == sTotal {
-			fc.log.Info(fmt.Sprintf("got %d snapshotblocks, %d accountblocks", sCount, aCount))
+			fc.log.Info(fmt.Sprintf("read %d snapshotblocks, %d accountblocks", sCount, aCount))
 		} else {
-			err = fmt.Errorf("got %d/%d snapshotblocks, %d accountblocks", sCount, sTotal, aCount)
+			err = fmt.Errorf("read %d/%d snapshotblocks, %d accountblocks", sCount, sTotal, aCount)
 		}
 
 		return sblocks[:sCount], ablocks[:aCount], nil
