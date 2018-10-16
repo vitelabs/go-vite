@@ -22,19 +22,6 @@ var (
 	passwordRegexp = regexp.MustCompile(`personal.[nus]`)
 	onlyWhitespace = regexp.MustCompile(`^\s*$`)
 	exit           = regexp.MustCompile(`^\s*exit\s*;*\s*$`)
-
-	load_typedarray_define_js = "var TA=typedarray;" +
-		"var ArrayBuffer= TA.ArrayBuffer;" +
-		"var DataView=TA.DataView;" +
-		"var Float32Array=TA.Float32Array;" +
-		"var Float64Array=TA.Float64Array;" +
-		"var Int8Array=TA.Int8Array;" +
-		"var Int16Array=TA.Int16Array;" +
-		"var Int32Array=TA.Int32Array;" +
-		"var Uint8Array=TA.Uint8Array;" +
-		"var Uint8ClampedArray=TA.Uint8ClampedArray;" +
-		"var Uint16Array=TA.Uint16Array;" +
-		"var Uint32Array=TA.Uint32Array; "
 )
 
 // HistoryFile is the file within the data directory to store input scrollback.
