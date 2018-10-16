@@ -24,7 +24,7 @@ func (n *mockNet) Start(svr *p2p.Server) error {
 
 func mock() Net {
 	peers := newPeerSet()
-	pool := newRequestPool()
+	pool := newRequestPool(peers, nil)
 	broadcaster := &broadcaster{
 		peers: peers,
 		log:   log15.New("module", "mocknet/broadcaster"),

@@ -13,15 +13,19 @@ import (
 
 var errNoSuitablePeer = errors.New("no suitable peer")
 
+type MsgIder interface {
+	MsgID() uint64
+}
+
 type fetcher struct {
 	filter Filter
 	peers  *peerSet
-	pool   RequestPool
+	pool   MsgIder
 	ready  int32 // atomic
 	log    log15.Logger
 }
 
-func newFetcher(filter Filter, peers *peerSet, pool RequestPool) *fetcher {
+func newFetcher(filter Filter, peers *peerSet, pool MsgIder) *fetcher {
 	return &fetcher{
 		filter: filter,
 		peers:  peers,

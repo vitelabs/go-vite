@@ -58,12 +58,12 @@ func New(cfg *Config) Net {
 	fc := newFileClient(cfg.Chain)
 
 	peers := newPeerSet()
-	pool := newRequestPool()
+	pool := newRequestPool(peers, fc)
 
 	broadcaster := newBroadcaster(peers)
 	filter := newFilter()
 	receiver := newReceiver(cfg.Verifier, broadcaster, filter)
-	syncer := newSyncer(cfg.Chain, peers, pool, receiver, fc)
+	syncer := newSyncer(cfg.Chain, peers, pool, receiver)
 	fetcher := newFetcher(filter, peers, pool)
 
 	syncer.feed.Sub(receiver.listen) // subscribe sync status
@@ -80,17 +80,6 @@ func New(cfg *Config) Net {
 		fc:          fc,
 		handlers:    make(map[cmd]MsgHandler),
 		log:         log15.New("module", "vite/net"),
-	}
-
-	pool.ctx = &context{
-		syncer: syncer,
-		peers:  peers,
-		pool:   pool,
-		fc:     fc,
-		retry: &retryPolicy{
-			peers:  peers,
-			record: make(map[uint64]int),
-		},
 	}
 
 	n.addHandler(_statusHandler(statusHandler))
