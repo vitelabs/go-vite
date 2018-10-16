@@ -2,10 +2,15 @@ package nodemanager
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"os"
 	"os/signal"
 	"syscall"
+)
+
+var (
+	log = log15.New("module", "gvite/node_manager")
 )
 
 // start node

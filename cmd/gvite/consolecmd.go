@@ -64,9 +64,9 @@ This command allows to open a console on a running gvite node.`,
 func localConsoleAction(ctx *cli.Context) error {
 
 	// Create and start the node based on the CLI flags
-	nodeManager := nodemanager.New(ctx, nodemanager.FullNodeMaker{})
-	nodemanager.StartNode(nodeManager.Node())
-	defer nodemanager.StopNode(nodeManager.Node())
+	nodeManager := nodemanager.NewConsoleNodeManager(ctx, nodemanager.FullNodeMaker{})
+	nodeManager.Start()
+	defer nodeManager.Stop()
 
 	// Attach to the newly started node and start the JavaScript console
 	client, err := nodeManager.Node().Attach()
@@ -106,7 +106,7 @@ func localConsoleAction(ctx *cli.Context) error {
 func ephemeralConsoleAction(ctx *cli.Context) error {
 
 	// Create and start the node based on the CLI flags
-	nodeManager := nodemanager.New(ctx, nodemanager.FullNodeMaker{})
+	nodeManager := nodemanager.NewConsoleNodeManager(ctx, nodemanager.FullNodeMaker{})
 	nodeManager.Start()
 	defer nodeManager.Stop()
 
