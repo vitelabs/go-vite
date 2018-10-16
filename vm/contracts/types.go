@@ -6,13 +6,13 @@ import (
 )
 
 type TokenInfo struct {
-	TokenName      string
-	TokenSymbol    string
-	TotalSupply    *big.Int
-	Decimals       uint8
-	Owner          types.Address
-	PledgeAmount   *big.Int
-	WithdrawHeight uint64
+	TokenName      string        `json:"tokenName"`
+	TokenSymbol    string        `json:"tokenSymbol"`
+	TotalSupply    *big.Int      `json:"totalSupply"`
+	Decimals       uint8         `json:"decimals"`
+	Owner          types.Address `json:"owner"`
+	PledgeAmount   *big.Int      `json:"pledgeAmount"`
+	WithdrawHeight uint64        `json:"withdrawHeight"`
 }
 
 type Registration struct {

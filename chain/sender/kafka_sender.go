@@ -101,6 +101,15 @@ func (sender *KafkaSender) StopAll() {
 	}
 }
 
+func (sender *KafkaSender) SetHasSend(producerId uint8, hasSend uint64) {
+	for _, producer := range sender.producers {
+		if producer.producerId == producerId {
+			producer.SetHasSend(hasSend)
+			return
+		}
+	}
+}
+
 func (sender *KafkaSender) Producers() []*Producer {
 	return sender.producers
 }

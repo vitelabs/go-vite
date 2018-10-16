@@ -185,8 +185,8 @@ func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*RpcTokenInfo, error
 	return RawTokenInfoToRpc(l.chain.GetTokenInfoById(&tti), tti), nil
 }
 
-func (l *LedgerApi) GetKafkaSenderInfo() (*KafkaSendInfo, error) {
-	l.log.Info("GetKafkaSenderInfo")
+func (l *LedgerApi) GetSenderInfo() (*KafkaSendInfo, error) {
+	l.log.Info("GetSenderInfo")
 	if l.chain.KafkaSender() == nil {
 		return nil, nil
 	}
@@ -209,4 +209,13 @@ func (l *LedgerApi) GetKafkaSenderInfo() (*KafkaSendInfo, error) {
 
 	return senderInfo, nil
 
+}
+
+func (l *LedgerApi) SetSenderHasSend(producerId uint8, hasSend uint64) {
+	l.log.Info("SetSenderInfo")
+
+	if l.chain.KafkaSender() == nil {
+		return
+	}
+	l.chain.KafkaSender().SetHasSend(producerId, hasSend)
 }
