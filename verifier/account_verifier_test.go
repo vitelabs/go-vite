@@ -4,6 +4,10 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"math/big"
+	"testing"
+	"time"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -16,9 +20,6 @@ import (
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
-	"testing"
-	"time"
 )
 
 var (

@@ -1,9 +1,10 @@
 package chain
 
 import (
+	"path/filepath"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/config"
-	"path/filepath"
 )
 
 var innerChainInstance Chain

@@ -2,15 +2,16 @@ package p2p
 
 import (
 	"fmt"
+	"io"
+	"net"
+	"sync"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/protos"
-	"io"
-	"net"
-	"sync"
-	"time"
 )
 
 const Version uint64 = 2
@@ -60,7 +61,7 @@ func newProtoFrame(protocol *Protocol, conn *conn) *protoFrame {
 	return &protoFrame{
 		Protocol: protocol,
 		conn:     conn,
-		input:    make(chan *Msg, 1),
+		input:    make(chan *Msg, 10),
 	}
 }
 

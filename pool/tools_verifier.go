@@ -20,6 +20,14 @@ type snapshotVerifier struct {
 	v *verifier.SnapshotVerifier
 }
 
+func (self *snapshotVerifier) verifySnapshotData(block *ledger.SnapshotBlock) error {
+	if err := self.v.VerifyNetSb(block); err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
 func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) *poolSnapshotVerifyStat {
 	result := &poolSnapshotVerifyStat{}
 	stat := self.v.VerifyReferred(block.block)
@@ -35,6 +43,13 @@ func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock
 type accountVerifier struct {
 	v   *verifier.AccountVerifier
 	log log15.Logger
+}
+
+func (self *accountVerifier) verfyAccountData(b *ledger.AccountBlock) error {
+	if err := self.v.VerifyNetAb(b); err != nil {
+		return err
+	}
+	return nil
 }
 
 /**

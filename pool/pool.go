@@ -225,12 +225,21 @@ func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) {
 
 	self.log.Info("receive snapshot block from network. height:" + strconv.FormatUint(block.Height, 10) + ", hash:" + block.Hash.String() + ".")
 
+	err := self.pendingSc.v.verifySnapshotData(block)
+	if err != nil {
+		self.log.Error("snapshot error", "err", err, "height", block.Height, "hash", block.Hash)
+		return
+	}
 	self.pendingSc.AddBlock(newSnapshotPoolBlock(block, self.version))
 }
 
 func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
+	err := self.pendingSc.v.verifySnapshotData(block)
+	if err != nil {
+		return err
+	}
 	cBlock := newSnapshotPoolBlock(block, self.version)
-	err := self.pendingSc.AddDirectBlock(cBlock)
+	err = self.pendingSc.AddDirectBlock(cBlock)
 	if err != nil {
 		return err
 	}
@@ -240,8 +249,15 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 
 func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock) {
 	self.log.Info(fmt.Sprintf("receive account block from network. addr:%s, height:%d, hash:%s.", address, block.Height, block.Hash))
-	self.selfPendingAc(address).AddBlock(newAccountPoolBlock(block, nil, self.version))
-	self.selfPendingAc(address).AddReceivedBlock(block)
+
+	ac := self.selfPendingAc(address)
+	err := ac.v.verifyAccountData(block)
+	if err != nil {
+		self.log.Error("account err", "err", err, "height", block.Height, "hash", block.Hash, "addr", address)
+		return
+	}
+	ac.AddBlock(newAccountPoolBlock(block, nil, self.version))
+	ac.AddReceivedBlock(block)
 
 	self.accountCond.L.Lock()
 	defer self.accountCond.L.Unlock()
@@ -249,13 +265,21 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 }
 
 func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context.VmAccountBlock) error {
+	self.log.Info(fmt.Sprintf("receive account block from direct. addr:%s, height:%d, hash:%s.", address, block.AccountBlock.Height, block.AccountBlock.Hash))
 	defer monitor.LogTime("pool", "addDirectAccount", time.Now())
 	self.RLock()
 	defer self.RUnLock()
 
 	ac := self.selfPendingAc(address)
+
+	err := ac.v.verifyAccountData(block.AccountBlock)
+	if err != nil {
+		self.log.Error("account err", "err", err, "height", block.AccountBlock.Height, "hash", block.AccountBlock.Hash, "addr", address)
+		return err
+	}
+
 	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version)
-	err := ac.AddDirectBlocks(cBlock, nil)
+	err = ac.AddDirectBlocks(cBlock, nil)
 	if err != nil {
 		return err
 	}
