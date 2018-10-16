@@ -45,6 +45,7 @@ func TestOnroadBlocksPool_WriteOnroad(t *testing.T) {
 	c := PrepareVite()
 
 	addr, _ := types.HexToAddress(addrString)
+
 	gen := generator.NewGenerator(c, nil, nil, addr)
 	p.WriteOnroad()
 }

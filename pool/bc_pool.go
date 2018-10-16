@@ -519,6 +519,11 @@ func (self *chainPool) insert(c *forkedChain, wrapper commonBlock) error {
 }
 
 func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
+	// FIXME
+	if len(blocks) <= 0 {
+		return nil
+	}
+
 	// from small to big
 	sort.Sort(ByHeight(blocks))
 	err := self.checkChain(blocks)

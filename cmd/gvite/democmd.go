@@ -24,7 +24,7 @@ var (
 		Action:      utils.MigrateFlags(demoAction),
 		Name:        "demo",
 		Usage:       "demo",
-		Flags:       jsFlags,
+		Flags:       demoFlags,
 		Category:    "DEMO COMMANDS",
 		Description: `demo`,
 	}

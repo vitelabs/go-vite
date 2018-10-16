@@ -93,7 +93,8 @@ func (self *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Addr
 		return nil, nil, e
 	}
 
-	var results map[types.Address][]commonBlock
+	// FIXME
+	results := make(map[types.Address][]commonBlock)
 	for addr, bs := range bm {
 		var r []commonBlock
 		for _, b := range bs {

@@ -138,10 +138,18 @@ func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.Acco
 						if err := access.store.IncreaseReceiveErrCount(batch, hash, addr); err != nil {
 							return err
 						}
-						return access.store.WriteMeta(batch, addr, hash, count+1)
+						newErrCount := count + 1
+						access.store.WriteMeta(batch, addr, hash, newErrCount)
+
+						if newErrCount >= MaxReceiveErrCount {
+							if err := access.store.DeleteMeta(batch, addr, hash); err != nil {
+								access.log.Error("DeleteMeta", "error", err.Error())
+								return err
+							}
+						}
 					}
 				}
-				return access.store.DeleteMeta(batch, addr, hash)
+				return nil
 			} else {
 				return err
 			}

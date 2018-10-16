@@ -303,6 +303,10 @@ func (ac *AccountChain) WriteVmLogList(batch *leveldb.Batch, logList ledger.VmLo
 }
 
 func (ac *AccountChain) DeleteVmLogList(batch *leveldb.Batch, logListHash *types.Hash) {
+	if logListHash == nil {
+		return
+	}
+
 	key, _ := database.EncodeKey(database.DBKP_LOG_LIST, logListHash.Bytes())
 	batch.Delete(key)
 }

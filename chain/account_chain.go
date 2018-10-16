@@ -575,8 +575,12 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		return nil, getErr
 	}
 
+
 	batch := new(leveldb.Batch)
 	deleteAccountBlocks, deleteAccountBlocksErr := c.chainDb.Ac.Delete(batch, deleteMap)
+	if len(deleteAccountBlocks) <= 0 {
+		return nil, nil
+	}
 	if deleteAccountBlocksErr != nil {
 		c.log.Error("Delete failed, error is "+deleteAccountBlocksErr.Error(), "method", "DeleteAccountBlocks")
 		return nil, deleteAccountBlocksErr
