@@ -322,7 +322,7 @@ func excludeSubordinate(subLedger map[types.Address][]*ledger.AccountBlock) map[
 				}
 				cutMap[v.Hash] = append(cutMap[v.Hash], v)
 			} else {
-				if bl, ok := cutMap[v.FromBlockHash]; ok && bl[len(bl)].IsSendBlock() {
+				if bl, _ := cutMap[v.FromBlockHash]; len(bl) > 0 && bl[len(bl)-1].IsSendBlock() {
 					continue
 				}
 				cutMap[v.FromBlockHash] = append(cutMap[v.FromBlockHash], v)
