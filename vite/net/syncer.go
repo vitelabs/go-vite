@@ -303,6 +303,7 @@ func (s *syncer) sync(from, to uint64) {
 			peer:       piece.peer,
 			expiration: time.Now().Add(subledgerTimeout),
 			done:       s.reqCallback,
+			rec:        s.receiveBlocks,
 		}
 
 		s.pool.Add(req)

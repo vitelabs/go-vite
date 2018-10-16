@@ -91,7 +91,6 @@ func (f *fileServer) handleConn(conn net2.Conn) {
 		case <-f.term:
 			return
 		default:
-			//conn.SetReadDeadline(time.Now().Add(time.Minute))
 			msg, err := p2p.ReadMsg(conn, true)
 			if err != nil {
 				f.log.Error(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
@@ -112,7 +111,6 @@ func (f *fileServer) handleConn(conn net2.Conn) {
 
 				// send files
 				for _, filename := range req.Names {
-					//conn.SetWriteDeadline(time.Now().Add(fWriteTimeout))
 					var n int64
 					n, err = io.Copy(conn, f.chain.Compressor().FileReader(filename))
 
@@ -322,7 +320,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 		return
 	}
 
-	ctx.SetWriteDeadline(time.Now().Add(3 * time.Second))
+	//ctx.SetWriteDeadline(time.Now().Add(3 * time.Second))
 	err = p2p.WriteMsg(ctx.Conn, true, &p2p.Msg{
 		CmdSetID: CmdSet,
 		Cmd:      uint64(GetFilesCode),
@@ -419,9 +417,9 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 		})
 
 		if sCount == sTotal {
-			fc.log.Info(fmt.Sprintf("got %d snapshotblocks, %d accountblocks", sCount, sCount))
+			fc.log.Info(fmt.Sprintf("got %d snapshotblocks, %d accountblocks", sCount, aCount))
 		} else {
-			err = fmt.Errorf("got %d/%d snapshotblocks, %d accountblocks", sCount, sTotal, sCount)
+			err = fmt.Errorf("got %d/%d snapshotblocks, %d accountblocks", sCount, sTotal, aCount)
 		}
 
 		return sblocks[:sCount], ablocks[:aCount], nil

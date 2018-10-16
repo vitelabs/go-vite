@@ -27,6 +27,7 @@ type Discovery interface {
 	UnSubNodes(ch chan<- *discovery.Node)
 	Mark(id discovery.NodeID, lifetime int64)
 	Block(id discovery.NodeID, ip net.IP)
+	Need(n uint)
 }
 
 type Config struct {
@@ -356,6 +357,7 @@ func (svr *Server) checkConn(id discovery.NodeID, flag connFlag) error {
 func (svr *Server) loop() {
 	defer svr.wg.Done()
 
+	var peersCount uint
 loop:
 	for {
 		select {
@@ -367,8 +369,7 @@ loop:
 			if err == nil {
 				if p, err := NewPeer(c, svr.Protocols); err == nil {
 					svr.peers.Add(p)
-
-					peersCount := svr.peers.Size()
+					peersCount = svr.peers.Size()
 					svr.log.Info(fmt.Sprintf("create new peer %s, total: %d", p, peersCount))
 					monitor.LogDuration("p2p/peer", "add", int64(peersCount))
 
@@ -382,14 +383,22 @@ loop:
 				svr.log.Error(fmt.Sprintf("can`t create new peer: %v", err))
 			}
 
+			if peersCount < svr.MaxPeers {
+				svr.discv.Need(svr.MaxPeers - peersCount)
+			}
+
 		case p := <-svr.delPeer:
 			svr.peers.Del(p)
-			peersCount := svr.peers.Size()
+			peersCount = svr.peers.Size()
 			svr.log.Info(fmt.Sprintf("delete peer %s, total: %d", p, peersCount))
 			monitor.LogDuration("p2p/peer", "del", int64(peersCount))
 
 			if p.ts.is(static) {
 				svr.dial(p.ID(), p.RemoteAddr(), static)
+			}
+
+			if peersCount < svr.MaxPeers {
+				svr.discv.Need(svr.MaxPeers - peersCount)
 			}
 		}
 	}
@@ -413,7 +422,7 @@ func (svr *Server) Peers() []*PeerInfo {
 	return svr.peers.Info()
 }
 
-func (svr *Server) PeersCount() (amount int) {
+func (svr *Server) PeersCount() uint {
 	return svr.peers.Size()
 }
 

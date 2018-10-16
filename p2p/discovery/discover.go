@@ -164,7 +164,6 @@ func (d *Discovery) tableLoop() {
 					if err == nil {
 						d.tab.bubble(n)
 					} else {
-						discvLog.Error(fmt.Sprintf("check oldest node error: %v", err))
 						d.tab.removeNode(n)
 					}
 				})
