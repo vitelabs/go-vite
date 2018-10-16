@@ -212,6 +212,10 @@ func (s *subLedgerRequest) State() reqState {
 }
 
 func (s *subLedgerRequest) fileRequetErr(r *fileRequest, err error) {
+	if err != nil {
+		return
+	}
+
 	req := &subLedgerRequest{
 		from:       r.from,
 		to:         r.to,
