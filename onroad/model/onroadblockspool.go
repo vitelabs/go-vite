@@ -375,17 +375,32 @@ func (p *OnroadBlocksPool) updateSimpleCache(isAdd bool, block *ledger.AccountBl
 		simpleAccountInfo.mutex.Lock()
 		defer simpleAccountInfo.mutex.Unlock()
 
-		tokenBalanceInfo, ok := simpleAccountInfo.TokenBalanceInfoMap[block.TokenId]
+		accountBlock, e := p.dbAccess.Chain.GetAccountBlockByHash(&block.FromBlockHash)
+		if e != nil {
+			p.log.Error("updateSimpleCache GetAccountBlockByHash ", "err", e)
+			p.deleteSimpleCache(block.AccountAddress)
+			return
+		}
+
+		if accountBlock == nil {
+			p.log.Error("updateSimpleCache GetAccountBlockByHash get an empty block")
+			p.deleteSimpleCache(block.AccountAddress)
+			return
+		}
+		amount := accountBlock.Amount
+		tti := accountBlock.TokenId
+
+		tokenBalanceInfo, ok := simpleAccountInfo.TokenBalanceInfoMap[tti]
 		if ok {
-			if tokenBalanceInfo.TotalAmount.Cmp(block.Amount) == -1 {
+			if tokenBalanceInfo.TotalAmount.Cmp(amount) == -1 {
 				p.log.Error("conflict with the memory info, so can't update when isAdd is false")
 				p.deleteSimpleCache(block.AccountAddress)
 				return
 			}
-			if tokenBalanceInfo.TotalAmount.Cmp(block.Amount) == 0 {
-				delete(simpleAccountInfo.TokenBalanceInfoMap, block.TokenId)
+			if tokenBalanceInfo.TotalAmount.Cmp(amount) == 0 {
+				delete(simpleAccountInfo.TokenBalanceInfoMap, tti)
 			} else {
-				tokenBalanceInfo.TotalAmount.Sub(&tokenBalanceInfo.TotalAmount, block.Amount)
+				tokenBalanceInfo.TotalAmount.Sub(&tokenBalanceInfo.TotalAmount, amount)
 			}
 			tokenBalanceInfo.Number -= 1
 			simpleAccountInfo.TotalNumber -= 1
