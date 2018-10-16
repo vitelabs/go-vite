@@ -2,12 +2,13 @@ package chain
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm_context"
 )
 
 func TestGetNeedSnapshotContent(t *testing.T) {

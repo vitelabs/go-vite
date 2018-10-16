@@ -108,7 +108,7 @@ loop:
 
 				if state == reqDone || state == reqError {
 					p.Del(r.ID())
-				} else if r.Expired() {
+				} else if r.Expired() && r.State() == reqPending {
 					r.Done(errRequestTimeout)
 				}
 			}
