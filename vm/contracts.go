@@ -3,6 +3,7 @@ package vm
 import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/contracts"
@@ -104,15 +105,8 @@ func (p *pRegister) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft u
 	if err != nil || param.Gid == types.DELEGATE_GID {
 		return quotaLeft, ErrInvalidData
 	}
-
-	consensusGroupInfo := contracts.GetConsensusGroup(block.VmContext, param.Gid)
-	if consensusGroupInfo == nil {
-		return quotaLeft, ErrInvalidData
-	}
-	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.RegisterConditionId, contracts.RegisterConditionPrefix); !ok {
-		return quotaLeft, ErrInvalidData
-	} else if !condition.checkData(consensusGroupInfo.RegisterConditionParam, block, param, contracts.MethodNameRegister) {
-		return quotaLeft, ErrInvalidData
+	if err = checkRegisterData(contracts.MethodNameRegister, block, param); err != nil {
+		return quotaLeft, err
 	}
 
 	oldData := block.VmContext.GetStorage(&contracts.AddressRegister, contracts.GetRegisterKey(param.Name, param.Gid))
@@ -125,6 +119,30 @@ func (p *pRegister) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft u
 		}
 	}
 	return quotaLeft, nil
+}
+
+func checkRegisterData(methodName string, block *vm_context.VmAccountBlock, param *contracts.ParamRegister) error {
+	consensusGroupInfo := contracts.GetConsensusGroup(block.VmContext, param.Gid)
+	if consensusGroupInfo == nil {
+		return ErrInvalidData
+	}
+	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.RegisterConditionId, contracts.RegisterConditionPrefix); !ok {
+		return ErrInvalidData
+	} else if !condition.checkData(consensusGroupInfo.RegisterConditionParam, block, param, methodName) {
+		return ErrInvalidData
+	}
+
+	if types.PubkeyToAddress(param.PublicKey) != param.NodeAddr {
+		return ErrInvalidData
+	}
+
+	if verified, err := crypto.VerifySig(
+		param.PublicKey,
+		contracts.GetRegisterMessageForSignature(block.AccountBlock.AccountAddress, block.AccountBlock.Height, block.AccountBlock.PrevHash, block.AccountBlock.SnapshotHash),
+		param.Signature); !verified {
+		return err
+	}
+	return nil
 }
 
 func (p *pRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
@@ -415,16 +433,9 @@ func (p *pUpdateRegistration) doSend(vm *VM, block *vm_context.VmAccountBlock, q
 		return quotaLeft, ErrInvalidData
 	}
 
-	consensusGroupInfo := contracts.GetConsensusGroup(block.VmContext, param.Gid)
-	if consensusGroupInfo == nil {
-		return quotaLeft, ErrInvalidData
+	if err = checkRegisterData(contracts.MethodNameUpdateRegistration, block, param); err != nil {
+		return quotaLeft, err
 	}
-	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.RegisterConditionId, contracts.RegisterConditionPrefix); !ok {
-		return quotaLeft, ErrInvalidData
-	} else if !condition.checkData(consensusGroupInfo.RegisterConditionParam, block, param, contracts.MethodNameUpdateRegistration) {
-		return quotaLeft, ErrInvalidData
-	}
-
 	return quotaLeft, nil
 }
 func (p *pUpdateRegistration) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {

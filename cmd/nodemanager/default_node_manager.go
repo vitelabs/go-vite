@@ -1,28 +1,23 @@
 package nodemanager
 
 import (
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
 )
 
-var (
-	log = log15.New("module", "gvite/nodemanager")
-)
-
-type NodeManager struct {
+type DefaultNodeManager struct {
 	ctx  *cli.Context
 	node *node.Node
 }
 
-func New(ctx *cli.Context, maker NodeMaker) NodeManager {
-	return NodeManager{
+func NewDefaultNodeManager(ctx *cli.Context, maker NodeMaker) DefaultNodeManager {
+	return DefaultNodeManager{
 		ctx:  ctx,
 		node: maker.MakeNode(ctx),
 	}
 }
 
-func (nodeManager *NodeManager) Start() error {
+func (nodeManager *DefaultNodeManager) Start() error {
 
 	// 1: Start up the node
 	StartNode(nodeManager.node)
@@ -33,14 +28,14 @@ func (nodeManager *NodeManager) Start() error {
 	return nil
 }
 
-func (nodeManager *NodeManager) Stop() error {
+func (nodeManager *DefaultNodeManager) Stop() error {
 
 	StopNode(nodeManager.node)
 
 	return nil
 }
 
-func (nodeManager *NodeManager) Node() *node.Node {
+func (nodeManager *DefaultNodeManager) Node() *node.Node {
 
 	return nodeManager.node
 }

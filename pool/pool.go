@@ -389,6 +389,9 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	v := &accountVerifier{v: self.accountVerifier, log: self.log.New()}
 	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.log)
 
+	if addr.Hex() == "vite_39f1ede9ab4979b8a77167bfade02a3b4df0c413ad048cb999" {
+		fmt.Println("-------")
+	}
 	p.Init(newTools(f, rw), self, v, f)
 
 	chain, _ = self.pendingAc.LoadOrStore(addr, p)

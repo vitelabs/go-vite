@@ -135,10 +135,13 @@ func (self *poolAccountVerifyStat) verifyResult() verifier.VerifyResult {
 	return self.result
 }
 func (self *poolAccountVerifyStat) errMsg() string {
+
 	if self.err != nil {
 		return self.err.Error()
-	} else {
+	} else if self.stat.ErrMsg() == "" {
 		return "has no err msg."
+	} else {
+		return self.stat.ErrMsg()
 	}
 
 }

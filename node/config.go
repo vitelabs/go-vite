@@ -79,6 +79,7 @@ func (c *Config) makeViteConfig() *config.Config {
 		DataDir:  c.DataDir,
 		Net:      c.makeNetConfig(),
 		Vm:       c.makeVmConfig(),
+		LogLevel: c.LogLevel,
 	}
 }
 

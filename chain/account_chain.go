@@ -380,6 +380,9 @@ func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*le
 		c.log.Error("Query block failed. Error is "+err.Error(), "method", "GetAccountBlockByHeight")
 		return nil, err
 	}
+	if block == nil {
+		return nil, nil
+	}
 
 	block.AccountAddress = account.AccountAddress
 	// Not contract account block

@@ -3,8 +3,37 @@ package node
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/rpc"
+	"github.com/vitelabs/go-vite/rpcapi"
 	"strings"
 )
+
+//In-proc apis
+func (node *Node) GetInProcessApis() []rpc.API {
+	return rpcapi.GetApis(node.viteServer, "ledger", "wallet", "private_onroad", "net", "contracts", "testapi", "pow", "tx")
+}
+
+//Ipc apis
+func (node *Node) GetIpcApis() []rpc.API {
+	return rpcapi.GetApis(node.viteServer, "ledger", "wallet", "private_onroad", "net", "contracts", "testapi", "pow", "tx")
+}
+
+//Http apis
+func (node *Node) GetHttpApis() []rpc.API {
+	apiModules := []string{"ledger", "public_onroad", "net", "contracts", "testapi", "pow", "tx"}
+	if node.Config().NetID > 1 {
+		apiModules = append(apiModules, "testapi")
+	}
+	return rpcapi.GetApis(node.viteServer, apiModules...)
+}
+
+//WS apis
+func (node *Node) GetWSApis() []rpc.API {
+	apiModules := []string{"ledger", "public_onroad", "net", "contracts", "testapi", "pow", "tx"}
+	if node.Config().NetID > 1 {
+		apiModules = append(apiModules, "testapi")
+	}
+	return rpcapi.GetApis(node.viteServer, apiModules...)
+}
 
 // startIPC initializes and starts the IPC RPC endpoint.
 func (node *Node) startIPC(apis []rpc.API) error {
