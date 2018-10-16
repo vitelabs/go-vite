@@ -120,9 +120,11 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 		return
 	}
 
-	if s.verifier != nil && !s.verifier.VerifyNetSb(block) {
-		s.log.Error(fmt.Sprintf("verify new snapshotblock %s/%d fail", block.Hash, block.Height))
-		return
+	if s.verifier != nil {
+		if err := s.verifier.VerifyNetSb(block); err != nil {
+			s.log.Error(fmt.Sprintf("verify new snapshotblock %s/%d fail: %v", block.Hash, block.Height, err))
+			return
+		}
 	}
 
 	// record
@@ -149,9 +151,11 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 		return
 	}
 
-	if s.verifier != nil && !s.verifier.VerifyNetAb(block) {
-		s.log.Error(fmt.Sprintf("verify new accountblock %s/%d fail", block.Hash, block.Height))
-		return
+	if s.verifier != nil {
+		if err := s.verifier.VerifyNetAb(block); err != nil {
+			s.log.Error(fmt.Sprintf("verify new accountblock %s/%d fail: %v", block.Hash, block.Height, err))
+			return
+		}
 	}
 
 	// record
@@ -182,9 +186,11 @@ func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 			continue
 		}
 
-		if s.verifier != nil && !s.verifier.VerifyNetSb(block) {
-			s.log.Error(fmt.Sprintf("verify snapshotblock %s/%d fail", block.Hash, block.Height))
-			continue
+		if s.verifier != nil {
+			if err := s.verifier.VerifyNetSb(block); err != nil {
+				s.log.Error(fmt.Sprintf("verify snapshotblock %s/%d fail: %v", block.Hash, block.Height, err))
+				continue
+			}
 		}
 
 		blocks[j] = blocks[i]
@@ -217,9 +223,11 @@ func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) {
 			continue
 		}
 
-		if s.verifier != nil && !s.verifier.VerifyNetAb(block) {
-			s.log.Error(fmt.Sprintf("verify accountblock %s/%d fail", block.Hash, block.Height))
-			return
+		if s.verifier != nil {
+			if err := s.verifier.VerifyNetAb(block); err != nil {
+				s.log.Error(fmt.Sprintf("verify accountblock %s/%d fail: %v", block.Hash, block.Height, err))
+				return
+			}
 		}
 
 		blocks[j] = blocks[i]
