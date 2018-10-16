@@ -5,15 +5,16 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite/net"
+	"github.com/vitelabs/go-vite/vm_context"
 )
 
-var logger = log15.New()
+var logger = log15.New("module", "pool/mock")
 
 type MockSyncer struct {
 }
 
 func (*MockSyncer) SyncState() net.SyncState {
-	panic("implement me")
+	return net.Syncdone
 }
 
 func (*MockSyncer) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
@@ -65,4 +66,67 @@ func (*MockSyncer) SubscribeSyncStatus(fn net.SyncStateCallback) (subId int) {
 
 func (*MockSyncer) UnsubscribeSyncStatus(subId int) {
 	logger.Info("UnsubscribeSyncStatus")
+}
+
+type MockChain struct {
+}
+
+func (*MockChain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
+	logger.Info("InsertAccountBlocks")
+	return nil
+}
+
+func (*MockChain) GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error) {
+	logger.Info("GetLatestAccountBlock")
+	return nil, nil
+}
+
+func (*MockChain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error) {
+	logger.Info("GetAccountBlockByHeight")
+	return nil, nil
+}
+
+func (*MockChain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error) {
+	logger.Info("DeleteAccountBlocks")
+	return nil, nil
+}
+
+func (*MockChain) GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.AccountBlock {
+	logger.Info("GetUnConfirmAccountBlocks")
+	return nil
+}
+
+func (*MockChain) GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error) {
+	logger.Info("GetFirstConfirmedAccountBlockBySbHeight")
+	return nil, nil
+}
+
+func (*MockChain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	logger.Info("GetSnapshotBlockByHeight")
+	return nil, nil
+}
+
+func (*MockChain) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
+	logger.Info("GetLatestSnapshotBlock")
+	return nil
+}
+
+func (*MockChain) GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error) {
+	logger.Info("GetSnapshotBlockByHash")
+	return nil, nil
+}
+
+func (*MockChain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
+	logger.Info("InsertSnapshotBlock")
+	return nil
+}
+
+func (*MockChain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+	logger.Info("DeleteSnapshotBlocksToHeight")
+	return nil, nil, nil
+}
+
+func (*MockChain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
+	logger.Info("GetAccountBlockByHash")
+	return nil, nil
 }

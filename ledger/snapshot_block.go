@@ -89,15 +89,12 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 	binary.BigEndian.PutUint64(heightBytes, sb.Height)
 	source = append(source, heightBytes...)
 
-	// PublicKey
-	source = append(source, sb.PublicKey...)
-
 	// Timestamp
 	unixTimeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(unixTimeBytes, uint64(sb.Timestamp.Unix()))
 	source = append(source, unixTimeBytes...)
 
-	// SnapshotHash
+	// StateHash
 	source = append(source, sb.StateHash.Bytes()...)
 
 	hash, _ := types.BytesToHash(crypto.Hash256(source))

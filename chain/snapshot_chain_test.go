@@ -67,9 +67,13 @@ func TestGetSnapshotBlocksByHeight(t *testing.T) {
 
 func TestGetSnapshotBlockByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
-	block, err := chainInstance.GetSnapshotBlockByHeight(1)
+	block, err := chainInstance.GetSnapshotBlockByHeight(10773)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	for i := 0; i < 10000; i++ {
+		fmt.Println(block.ComputeHash())
 	}
 	fmt.Printf("%+v\n", block)
 

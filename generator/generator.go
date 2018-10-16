@@ -46,20 +46,22 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 	var genResult *GenResult
 	var errGenMsg error
 
-	if message.BlockType != ledger.BlockTypeSendCall && message.BlockType != ledger.BlockTypeSendCreate {
+	switch message.BlockType {
+	case ledger.BlockTypeReceiveError:
+		return nil, errors.New("block type can't be BlockTypeReceiveError")
+	case ledger.BlockTypeReceive:
 		if message.FromBlockHash == nil {
 			return nil, errors.New("FromBlockHash can't be nil when create ReceiveBlock")
 		}
 		sendBlock := gen.vmContext.GetAccountBlockByHash(message.FromBlockHash)
 		genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc)
-	} else {
+	default:
 		block, err := gen.packSendBlockWithMessage(message)
 		if err != nil {
 			return nil, err
 		}
 		genResult, errGenMsg = gen.generateBlock(block, nil, block.AccountAddress, signFunc)
 	}
-
 	if errGenMsg != nil {
 		return nil, errGenMsg
 	}

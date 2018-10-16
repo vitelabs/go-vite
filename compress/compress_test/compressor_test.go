@@ -133,7 +133,6 @@ func TestRunTask(t *testing.T) {
 	compressor.RunTask()
 
 	compressor.Start()
-	//latestBlock := chainInstance.GetLatestSnapshotBlock()
 	blockNum := uint64(200000)
 	fmt.Println(time.Now())
 	block, err := randomViteBlock()
@@ -150,24 +149,25 @@ func TestRunTask(t *testing.T) {
 	}
 	fmt.Println(time.Now())
 
-	//if latestBlock.Height < blockNum {
-	//	for i := uint64(0); i < blockNum-latestBlock.Height; i++ {
-	//		block, err := randomViteBlock()
-	//		if err != nil {
-	//			t.Fatal(err)
-	//		}
-	//		chainInstance.InsertAccountBlocks([]*vm_context.VmAccountBlock{block})
-	//
-	//		sBlock, err1 := getNewSnapshotBlock()
-	//		if err1 != nil {
-	//			t.Fatal(err1)
-	//		}
-	//		chainInstance.InsertSnapshotBlock(sBlock)
-	//		if i%10000 == 0 {
-	//			fmt.Printf("insert %d snapshotBlock\n", i)
-	//		}
-	//	}
-	//}
+	latestBlock := chainInstance.GetLatestSnapshotBlock()
+	if latestBlock.Height < blockNum {
+		for i := uint64(0); i < blockNum-latestBlock.Height; i++ {
+			block, err := randomViteBlock()
+			if err != nil {
+				t.Fatal(err)
+			}
+			chainInstance.InsertAccountBlocks([]*vm_context.VmAccountBlock{block})
+
+			sBlock, err1 := getNewSnapshotBlock()
+			if err1 != nil {
+				t.Fatal(err1)
+			}
+			chainInstance.InsertSnapshotBlock(sBlock)
+			if i%10000 == 0 {
+				fmt.Printf("insert %d snapshotBlock\n", i)
+			}
+		}
+	}
 
 	for i := 0; i < 100; i++ {
 		compressor.RunTask()

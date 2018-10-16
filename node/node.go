@@ -2,6 +2,11 @@ package node
 
 import (
 	"fmt"
+	"net"
+	"os"
+	"path/filepath"
+	"sync"
+
 	"github.com/vitelabs/go-vite/cmd/utils/flock"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
@@ -10,10 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/rpcapi"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet"
-	"net"
-	"os"
-	"path/filepath"
-	"sync"
 )
 
 var (
@@ -159,6 +160,10 @@ func (node *Node) Wait() {
 	}
 	node.lock.RUnlock()
 	<-node.stop
+}
+
+func (node *Node) Vite() *vite.Vite {
+	return node.viteServer
 }
 
 func (node *Node) Config() *Config {

@@ -15,7 +15,7 @@ type AccountBlock struct {
 
 	FromAddress types.Address `json:"fromAddress"`
 
-	Height string `json:"height"`
+	Height string  `json:"height"`
 	Quota  *string `json:"quota"`
 
 	Amount *string `json:"amount"`
@@ -23,7 +23,7 @@ type AccountBlock struct {
 
 	Timestamp int64 `json:"timestamp"`
 
-	ConfirmedTimes *string        `json:"confirmedTimes"`
+	ConfirmedTimes *string       `json:"confirmedTimes"`
 	TokenInfo      *RpcTokenInfo `json:"tokenInfo"`
 }
 
@@ -41,7 +41,6 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 			return nil, err
 		}
 	}
-
 
 	lAb.Amount = big.NewInt(0)
 	if ab.Amount != nil {
@@ -148,6 +147,7 @@ type KafkaSendInfo struct {
 }
 
 type KafkaProducerInfo struct {
+	ProducerId uint8    `json:"producerId"`
 	BrokerList []string `json:"brokerList"`
 	Topic      string   `json:"topic"`
 	HasSend    uint64   `json:"hasSend"`
@@ -164,6 +164,7 @@ func createKafkaProducerInfo(producer *sender.Producer) *KafkaProducerInfo {
 	}
 
 	producerInfo := &KafkaProducerInfo{
+		ProducerId: producer.ProducerId(),
 		BrokerList: producer.BrokerList(),
 		Topic:      producer.Topic(),
 		HasSend:    producer.HasSend(),
@@ -172,4 +173,3 @@ func createKafkaProducerInfo(producer *sender.Producer) *KafkaProducerInfo {
 
 	return producerInfo
 }
-

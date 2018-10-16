@@ -2,6 +2,9 @@ package verifier
 
 import (
 	"bytes"
+	"math/big"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
@@ -12,8 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
-	"time"
 )
 
 const (
@@ -44,26 +45,28 @@ func (verifier *AccountVerifier) newVerifyStat() *AccountBlockVerifyStat {
 	}
 }
 
-func (verifier *AccountVerifier) VerifyNetAb(block *ledger.AccountBlock) bool {
-	if verifier.VerifyTimeNotYet(block) {
-		return false
+func (verifier *AccountVerifier) VerifyNetAb(block *ledger.AccountBlock) error {
+	if err := verifier.VerifyTimeNotYet(block); err != nil {
+		return err
 	}
 	if err := verifier.VerifyDataValidity(block); err != nil {
-		return false
+		return err
 	}
-	return true
+	return nil
 }
 
 func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock) (blocks []*vm_context.VmAccountBlock, err error) {
 	defer monitor.LogTime("verify", "VerifyforRPC", time.Now())
-	if verifier.VerifyTimeNotYet(block) {
-		return nil, errors.New("VerifyTimeNotYet failed")
-	}
-	if err := verifier.VerifyDataValidity(block); err != nil {
-		//return nil, errors.New("VerifyDataValidity failed")
+	if err := verifier.VerifyTimeNotYet(block); err != nil {
 		return nil, err
 	}
-	if verifyResult, _ := verifier.VerifyReferred(block); verifyResult != SUCCESS {
+	if err := verifier.VerifyDataValidity(block); err != nil {
+		return nil, err
+	}
+	if verifyResult, stat := verifier.VerifyReferred(block); verifyResult != SUCCESS {
+		if stat.errMsg != "" {
+			return nil, errors.New(stat.errMsg)
+		}
 		return nil, errors.New("VerifyReferred failed")
 	}
 	return verifier.VerifyforVM(block)
@@ -141,6 +144,12 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 func (verifier *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) bool {
 	defer monitor.LogTime("verify", "accountSelf", time.Now())
 
+	if err := verifier.VerifyDataValidity(block); err != nil {
+		verifyStatResult.referredSelfResult = FAIL
+		verifyStatResult.errMsg += err.Error()
+		return false
+	}
+
 	step1, err1 := verifier.verifyProducerLegality(block, verifyStatResult.accountTask)
 	if isFail(step1, err1, verifyStatResult) {
 		return false
@@ -176,6 +185,8 @@ func (verifier *AccountVerifier) verifyFrom(block *ledger.AccountBlock, verifySt
 			verifyStatResult.referredFromResult = PENDING
 		} else {
 			if verifier.VerifyIsReceivedSucceed(block) {
+				verifier.log.Debug("hash", fromBlock.Hash, "addr", fromBlock.AccountAddress,
+					"toAddr", fromBlock.ToAddress, "blockType", fromBlock.BlockType)
 				verifyStatResult.referredFromResult = FAIL
 				verifyStatResult.errMsg += errors.New("block is already received successfully,").Error()
 				return false
@@ -310,7 +321,6 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 	if block.IsSendBlock() && code == ledger.AccountTypeNotExist {
 		return errors.New("VerifyAccountAddress, inexistent AccountAddress can't sendTx")
 	}
-
 	if block.Amount == nil {
 		block.Amount = big.NewInt(0)
 	}
@@ -395,13 +405,13 @@ func (verifier *AccountVerifier) VerifyTimeOut(blockReferSb *ledger.SnapshotBloc
 	return true
 }
 
-func (verifier *AccountVerifier) VerifyTimeNotYet(block *ledger.AccountBlock) bool {
-	//  don't accept which timestamp doesn't satisfy within the (latestSnapshotBlock's + 1h) limit
-	currentSb := verifier.chain.GetLatestSnapshotBlock()
-	if block.Timestamp.Before(currentSb.Timestamp.Add(time.Hour)) {
-		return false
+func (verifier *AccountVerifier) VerifyTimeNotYet(block *ledger.AccountBlock) error {
+	//  don't accept which timestamp doesn't satisfy within the (now + 1h) limit
+	currentSb := time.Now()
+	if block.Timestamp.After(currentSb.Add(time.Hour)) {
+		return errors.New("Timestamp not arrive yet")
 	}
-	return true
+	return nil
 }
 
 func isFail(result VerifyResult, err error, stat *AccountBlockVerifyStat) bool {

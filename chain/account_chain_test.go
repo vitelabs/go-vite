@@ -11,6 +11,14 @@ import (
 	"time"
 )
 
+func TestContractsAddr(t *testing.T) {
+	fmt.Println(contracts.AddressRegister.String())
+	fmt.Println(contracts.AddressRegister.String())
+	fmt.Println(contracts.AddressRegister.String())
+	fmt.Println(contracts.AddressRegister.String())
+	fmt.Println(contracts.AddressRegister.String())
+}
+
 func TestGetAccountBlocksByHash(t *testing.T) {
 	chainInstance := getChainInstance()
 	blocks, err1 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, nil, 10, true)
@@ -235,7 +243,8 @@ func TestGetAccountBlockByHeight(t *testing.T) {
 
 func TestGetAccountBlockByHash(t *testing.T) {
 	chainInstance := getChainInstance()
-	hash, _ := types.HexToHash("8df6b1e1f3a9574016a7853dd90fb39c21d8d4aacedbb600b405b3d984b2f5c4")
+	//hash, _ := types.HexToHash("8df6b1e1f3a9574016a7853dd90fb39c21d8d4aacedbb600b405b3d984b2f5c4")
+	hash := types.Hash{}
 	block, err := chainInstance.GetAccountBlockByHash(&hash)
 	if err != nil {
 		t.Error(err)

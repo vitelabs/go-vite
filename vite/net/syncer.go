@@ -103,15 +103,13 @@ type syncer struct {
 	chain      Chain // query latest block and genesis block
 	peers      *peerSet
 	pEvent     chan *peerEvent
-	pool       RequestPool // add new request
+	pool       context // add new request
 	log        log15.Logger
 	running    int32
 	receiver   Receiver
-	fc         *fileClient
-	reqs       []*subLedgerRequest
 }
 
-func newSyncer(chain Chain, peers *peerSet, pool *requestPool, receiver Receiver, fc *fileClient) *syncer {
+func newSyncer(chain Chain, peers *peerSet, pool context, receiver Receiver) *syncer {
 	s := &syncer{
 		state:      SyncNotStart,
 		term:       make(chan struct{}),
@@ -123,7 +121,6 @@ func newSyncer(chain Chain, peers *peerSet, pool *requestPool, receiver Receiver
 		pool:       pool,
 		log:        log15.New("module", "net/syncer"),
 		receiver:   receiver,
-		fc:         fc,
 	}
 
 	// subscribe peer add/del event
@@ -300,18 +297,14 @@ func (s *syncer) sync(from, to uint64) {
 	pieces := splitSubLedger(s.from, s.to, s.peers.Pick(s.from))
 
 	for _, piece := range pieces {
-		msgId := s.pool.MsgID()
-
 		req := &subLedgerRequest{
-			id:         msgId,
 			from:       piece.from,
 			to:         piece.to,
 			peer:       piece.peer,
-			expiration: time.Now().Add(10 * time.Second),
+			expiration: time.Now().Add(subledgerTimeout),
 			done:       s.reqCallback,
+			rec:        s.receiveBlocks,
 		}
-
-		s.reqs = append(s.reqs, req)
 
 		s.pool.Add(req)
 	}
@@ -319,10 +312,14 @@ func (s *syncer) sync(from, to uint64) {
 
 func (s *syncer) reqCallback(r Request, err error) {
 	if err != nil {
-		s.log.Error("req error", "err", err)
-		if r.To() > s.to {
+		s.log.Error(fmt.Sprintf("request error: %v", err))
+
+		from, to := r.Band()
+		s.log.Error(fmt.Sprintf("GetSubLedger<%d-%d> error: %v", from, to, err))
+
+		if to > s.to {
 			req := r.Req()
-			req.SetTo(s.to)
+			req.SetBand(from, s.to)
 			s.pool.Add(req)
 		} else {
 			s.setState(Syncerr)
@@ -367,7 +364,7 @@ func (s *syncer) receiveBlocks(sblocks []*ledger.SnapshotBlock, ablocks []*ledge
 
 	s.log.Info(fmt.Sprintf("receive %d snapshotblocks, %d accountblocks, process %d/%d", len(sblocks), len(ablocks), count, s.total))
 
-	if atomic.LoadUint64(&s.count) >= s.total {
+	if count >= s.total {
 		// all blocks have downloaded
 		s.downloaded <- struct{}{}
 	}

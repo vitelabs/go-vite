@@ -1,7 +1,6 @@
 package net
 
 import (
-	"encoding/hex"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/ledger"
@@ -92,7 +91,6 @@ func (f *fileServer) handleConn(conn net2.Conn) {
 		case <-f.term:
 			return
 		default:
-			//conn.SetReadDeadline(time.Now().Add(time.Minute))
 			msg, err := p2p.ReadMsg(conn, true)
 			if err != nil {
 				f.log.Error(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
@@ -113,15 +111,14 @@ func (f *fileServer) handleConn(conn net2.Conn) {
 
 				// send files
 				for _, filename := range req.Names {
-					//conn.SetWriteDeadline(time.Now().Add(fWriteTimeout))
 					var n int64
 					n, err = io.Copy(conn, f.chain.Compressor().FileReader(filename))
 
 					if err != nil {
-						f.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", req.Names, conn.RemoteAddr(), err))
+						f.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", filename, conn.RemoteAddr(), err))
 						return
 					} else {
-						f.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", req.Names, n, conn.RemoteAddr()))
+						f.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", filename, n, conn.RemoteAddr()))
 					}
 				}
 			} else if code == ExceptionCode {
@@ -323,7 +320,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 		return
 	}
 
-	ctx.SetWriteDeadline(time.Now().Add(3 * time.Second))
+	//ctx.SetWriteDeadline(time.Now().Add(3 * time.Second))
 	err = p2p.WriteMsg(ctx.Conn, true, &p2p.Msg{
 		CmdSetID: CmdSet,
 		Cmd:      uint64(GetFilesCode),
@@ -363,22 +360,23 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 		return
 	default:
 		// total blocks: snapshotblocks & accountblocks
-		var total, count uint64
-		var sTotal, sCount uint64
+		var total, sTotal, sCount, aTotal, aCount uint64
 
-		start := ctx.req.files[0].StartHeight
+		start, end := ctx.req.from, ctx.req.to
+		sTotal = end - start + 1
 
 		for _, file := range ctx.req.files {
 			total += file.BlockNumbers
-			sTotal += file.EndHeight - file.StartHeight + 1
+			aTotal += file.BlockNumbers - (file.EndHeight - file.StartHeight + 1)
 		}
 
 		// snapshot block is sorted
 		sblocks = make([]*ledger.SnapshotBlock, sTotal)
-		ablocks = make([]*ledger.AccountBlock, 0, total-sTotal)
+		ablocks = make([]*ledger.AccountBlock, aTotal)
 
 		// set read deadline
 		//ctx.SetReadDeadline(time.Now().Add(total * int64(time.Millisecond)))
+		usableAccountBlock := false
 		fc.chain.Compressor().BlockParser(ctx, total, func(block ledger.Block, err error) {
 			if err != nil {
 				return
@@ -386,34 +384,44 @@ func (fc *fileClient) readBlocks(ctx *connContext) (sblocks []*ledger.SnapshotBl
 
 			switch block.(type) {
 			case *ledger.SnapshotBlock:
-				count++
-
 				block := block.(*ledger.SnapshotBlock)
-				index := block.Height - start
+				if block == nil {
+					return
+				}
 
+				if block.Height < start || block.Height > end {
+					return
+				}
+
+				// snapshotblock is in band, so follow account blocks will be available
+				usableAccountBlock = true
+
+				index := block.Height - start
 				if sblocks[index] == nil {
-					sblocks[block.Height-start] = block
+					sblocks[index] = block
 					sCount++
 					ctx.req.current = block.Height
-				} else {
-					fc.log.Warn("got repeated snapshotblock: %s/%d", hex.EncodeToString(block.Hash[:]), block.Height)
 				}
-			case *ledger.AccountBlock:
-				count++
 
+			case *ledger.AccountBlock:
 				block := block.(*ledger.AccountBlock)
-				ablocks = append(ablocks, block)
-			default:
-				fc.log.Error("got other block type")
+				if block == nil {
+					return
+				}
+
+				if usableAccountBlock {
+					ablocks[aCount] = block
+					aCount++
+				}
 			}
 		})
 
-		if count >= total && sCount >= sTotal {
-			fc.log.Info(fmt.Sprintf("got %d/%d blocks, %d/%d ablocks", count, total, sCount, sTotal))
+		if sCount == sTotal {
+			fc.log.Info(fmt.Sprintf("read %d snapshotblocks, %d accountblocks", sCount, aCount))
 		} else {
-			err = fmt.Errorf("incomplete blocks: %d/%d, %d/%d", count, total, sCount, sTotal)
+			err = fmt.Errorf("read %d/%d snapshotblocks, %d accountblocks", sCount, sTotal, aCount)
 		}
 
-		return
+		return sblocks[:sCount], ablocks[:aCount], nil
 	}
 }

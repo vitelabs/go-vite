@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"sync"
@@ -39,6 +40,8 @@ type MqAccountBlock struct {
 	Balance     *big.Int      `json:"balance"`
 	FromAddress types.Address `json:"fromAddress"`
 	Timestamp   int64         `json:"timestamp"`
+
+	ParsedData string `json:"parsedData"`
 }
 
 type Producer struct {
@@ -48,6 +51,7 @@ type Producer struct {
 	brokerList []string
 	topic      string
 
+	hasSendLock      sync.RWMutex
 	hasSend          uint64
 	dbHasSend        uint64
 	dbRecordInterval uint64
@@ -100,11 +104,28 @@ func (producer *Producer) init(producerId uint8, chain Chain, db *leveldb.DB) er
 		return err
 	}
 
+	producer.hasSendLock.Lock()
+
 	producer.hasSend = hasSend
 	producer.dbHasSend = hasSend
 
+	producer.hasSendLock.Unlock()
+
 	return nil
 }
+
+func (producer *Producer) SetHasSend(hasSend uint64) {
+	producer.hasSendLock.Lock()
+	defer producer.hasSendLock.Unlock()
+
+	producer.hasSend = hasSend
+	producer.saveHasSend()
+}
+
+func (producer *Producer) ProducerId() uint8 {
+	return producer.producerId
+}
+
 func (producer *Producer) BrokerList() []string {
 	return producer.brokerList
 }
@@ -114,6 +135,9 @@ func (producer *Producer) Topic() string {
 }
 
 func (producer *Producer) HasSend() uint64 {
+	producer.hasSendLock.RLock()
+	defer producer.hasSendLock.RUnlock()
+
 	return producer.hasSend
 }
 
@@ -230,7 +254,26 @@ func (producer *Producer) Stop() {
 	producer.status = STOPPED
 }
 
+func (producer *Producer) getParsedData(block *ledger.AccountBlock) (string, error) {
+	if len(block.Data) <= 0 {
+		return "", nil
+	}
+
+	switch block.ToAddress.String() {
+	case contracts.AddressMintage.String():
+		tokenInfo := new(contracts.TokenInfo)
+		token := contracts.ABIMintage.UnpackVariable(tokenInfo, contracts.VariableNameMintage, block.Data)
+		tokenBytes, err := json.Marshal(token)
+		return string(tokenBytes), err
+	}
+
+	return "", nil
+}
+
 func (producer *Producer) send() {
+	producer.hasSendLock.Lock()
+	defer producer.hasSendLock.Unlock()
+
 	start := producer.hasSend
 	end, err := producer.chain.GetLatestBlockEventId()
 	if err != nil {
@@ -303,6 +346,14 @@ func (producer *Producer) send() {
 					} else {
 						tokenTypeId = &block.TokenId
 						mqAccountBlock.FromAddress = mqAccountBlock.AccountAddress
+
+						var err error
+						mqAccountBlock.ParsedData, err = producer.getParsedData(block)
+						if err != nil {
+							producer.log.Error("GetParsedData failed, error is "+err.Error(), "method", "send")
+							return
+						}
+
 					}
 
 					balance := big.NewInt(0)
@@ -403,6 +454,7 @@ func (producer *Producer) send() {
 }
 
 func (producer *Producer) saveHasSend() error {
+
 	key := append([]byte{DBKP_PRODUCER_HAS_SEND}, producer.producerId)
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, producer.hasSend)

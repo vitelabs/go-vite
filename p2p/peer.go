@@ -2,15 +2,16 @@ package p2p
 
 import (
 	"fmt"
+	"io"
+	"net"
+	"sync"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/protos"
-	"io"
-	"net"
-	"sync"
-	"time"
 )
 
 const Version uint64 = 2
@@ -60,7 +61,7 @@ func newProtoFrame(protocol *Protocol, conn *conn) *protoFrame {
 	return &protoFrame{
 		Protocol: protocol,
 		conn:     conn,
-		input:    make(chan *Msg, 1),
+		input:    make(chan *Msg, 10),
 	}
 }
 
@@ -299,6 +300,7 @@ type PeerSet struct {
 	peers    map[discovery.NodeID]*Peer
 	inbound  int
 	outbound int
+	size     uint
 }
 
 func NewPeerSet() *PeerSet {
@@ -314,6 +316,8 @@ func (s *PeerSet) Add(p *Peer) {
 	} else {
 		s.outbound++
 	}
+
+	s.size++
 }
 
 func (s *PeerSet) Del(p *Peer) {
@@ -324,6 +328,8 @@ func (s *PeerSet) Del(p *Peer) {
 	} else {
 		s.outbound--
 	}
+
+	s.size--
 }
 
 func (s *PeerSet) Has(id discovery.NodeID) bool {
@@ -331,8 +337,8 @@ func (s *PeerSet) Has(id discovery.NodeID) bool {
 	return ok
 }
 
-func (s *PeerSet) Size() int {
-	return len(s.peers)
+func (s *PeerSet) Size() uint {
+	return s.size
 }
 
 func (s *PeerSet) Info() []*PeerInfo {

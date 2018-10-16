@@ -74,6 +74,7 @@ func (self *chainPool) forkChain(forked *forkedChain, snippet *snippetChain) (*f
 
 	new.heightBlocks = snippet.heightBlocks
 	new.tailHeight = snippet.tailHeight
+	new.tailHash = snippet.tailHash
 	new.headHeight = snippet.headHeight
 	new.headHash = snippet.headHash
 	new.referChain = forked
@@ -364,6 +365,9 @@ func (self *chainPool) currentModify(initBlock commonBlock) {
 }
 
 func (self *chainPool) forky(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain) {
+	if snippet.tailHash.String() == "6dee73aa8cdcd54bc9618aabb8992d2dfeeb2227137df8ef4fdf3aaaae138ba6" {
+		fmt.Sprintln("-[------")
+	}
 	for _, c := range chains {
 		tailHeight := snippet.tailHeight
 		tailHash := snippet.tailHash
