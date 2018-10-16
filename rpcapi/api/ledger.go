@@ -4,7 +4,6 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"strconv"
 )
@@ -14,14 +13,11 @@ import (
 func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 	return &LedgerApi{
 		chain: vite.Chain(),
-		//signer:        vite.Signer(),
-		log: log15.New("module", "rpc_api/ledger_api"),
 	}
 }
 
 type LedgerApi struct {
 	chain chain.Chain
-	log   log15.Logger
 }
 
 func (l LedgerApi) String() string {
@@ -72,7 +68,7 @@ func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*Acc
 }
 
 func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error) {
-	l.log.Info("GetBlocksByHash")
+	log.Info("GetBlocksByHash")
 
 	list, getError := l.chain.GetAccountBlocksByHash(addr, originBlockHash, count, false)
 	if getError != nil {
@@ -80,7 +76,7 @@ func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.H
 	}
 
 	if blocks, err := l.ledgerBlocksToRpcBlocks(list); err != nil {
-		l.log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetBlocksByHash")
+		log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetBlocksByHash")
 		return nil, err
 	} else {
 		return blocks, nil
@@ -89,17 +85,17 @@ func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.H
 }
 
 func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int, needTokenInfo *bool) ([]*AccountBlock, error) {
-	l.log.Info("GetBlocksByAccAddr")
+	log.Info("GetBlocksByAccAddr")
 
 	list, getErr := l.chain.GetAccountBlocksByAddress(&addr, index, 1, count)
 
 	if getErr != nil {
-		l.log.Info("GetBlocksByAccAddr", "err", getErr)
+		log.Info("GetBlocksByAccAddr", "err", getErr)
 		return nil, getErr
 	}
 
 	if blocks, err := l.ledgerBlocksToRpcBlocks(list); err != nil {
-		l.log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetBlocksByAccAddr")
+		log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetBlocksByAccAddr")
 		return nil, err
 	} else {
 		return blocks, nil
@@ -107,11 +103,11 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int,
 }
 
 func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
-	l.log.Info("GetAccountByAccAddr")
+	log.Info("GetAccountByAccAddr")
 
 	account, err := l.chain.GetAccount(&addr)
 	if err != nil {
-		l.log.Error("GetAccount failed, error is "+err.Error(), "method", "GetAccountByAccAddr")
+		log.Error("GetAccount failed, error is "+err.Error(), "method", "GetAccountByAccAddr")
 		return nil, err
 	}
 
@@ -121,7 +117,7 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 
 	latestAccountBlock, err := l.chain.GetLatestAccountBlock(&addr)
 	if err != nil {
-		l.log.Error("GetLatestAccountBlock failed, error is "+err.Error(), "method", "GetAccountByAccAddr")
+		log.Error("GetLatestAccountBlock failed, error is "+err.Error(), "method", "GetAccountByAccAddr")
 		return nil, err
 	}
 
@@ -132,7 +128,7 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 
 	balanceMap, err := l.chain.GetAccountBalance(&addr)
 	if err != nil {
-		l.log.Error("GetAccountBalance failed, error is "+err.Error(), "method", "GetAccountByAccAddr")
+		log.Error("GetAccountBalance failed, error is "+err.Error(), "method", "GetAccountByAccAddr")
 		return nil, err
 	}
 
@@ -156,20 +152,20 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 }
 
 func (l *LedgerApi) GetSnapshotChainHeight() string {
-	l.log.Info("GetLatestSnapshotChainHeight")
+	log.Info("GetLatestSnapshotChainHeight")
 	return strconv.FormatUint(l.chain.GetLatestSnapshotBlock().Height, 10)
 }
 
 func (l *LedgerApi) GetLatestSnapshotChainHash() *types.Hash {
-	l.log.Info("GetLatestSnapshotChainHash")
+	log.Info("GetLatestSnapshotChainHash")
 	return &l.chain.GetLatestSnapshotBlock().Hash
 }
 
 func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
-	l.log.Info("GetLatestBlock")
+	log.Info("GetLatestBlock")
 	block, getError := l.chain.GetLatestAccountBlock(&addr)
 	if getError != nil {
-		l.log.Error("GetLatestAccountBlock failed, error is "+getError.Error(), "method", "GetLatestBlock")
+		log.Error("GetLatestAccountBlock failed, error is "+getError.Error(), "method", "GetLatestBlock")
 		return nil, getError
 	}
 
@@ -181,12 +177,12 @@ func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 }
 
 func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*RpcTokenInfo, error) {
-	l.log.Info("GetTokenMintage")
+	log.Info("GetTokenMintage")
 	return RawTokenInfoToRpc(l.chain.GetTokenInfoById(&tti), tti), nil
 }
 
 func (l *LedgerApi) GetKafkaSenderInfo() (*KafkaSendInfo, error) {
-	l.log.Info("GetKafkaSenderInfo")
+	log.Info("GetKafkaSenderInfo")
 	if l.chain.KafkaSender() == nil {
 		return nil, nil
 	}
@@ -195,7 +191,7 @@ func (l *LedgerApi) GetKafkaSenderInfo() (*KafkaSendInfo, error) {
 	var totalErr error
 	senderInfo.TotalEvent, totalErr = l.chain.GetLatestBlockEventId()
 	if totalErr != nil {
-		l.log.Error("GetLatestBlockEventId failed, error is "+totalErr.Error(), "method", "GetKafkaSenderInfo")
+		log.Error("GetLatestBlockEventId failed, error is "+totalErr.Error(), "method", "GetKafkaSenderInfo")
 
 		return nil, totalErr
 	}

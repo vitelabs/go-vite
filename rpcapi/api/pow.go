@@ -9,6 +9,8 @@ type Pow struct {
 }
 
 func (p Pow) GetPowNonce(difficulty string, data types.Hash) []byte {
+	log.Info("GetPowNonce")
 	b := pow.GetPowNonce(nil, data)
+	log.Info("GetPowNonce End")
 	return b[:]
 }

@@ -184,3 +184,7 @@ func (v *Vite) Consensus() consensus.Consensus {
 func (v *Vite) OnRoad() *onroad.Manager {
 	return v.onRoad
 }
+
+func (v *Vite) Config() *config.Config {
+	return v.config
+}
