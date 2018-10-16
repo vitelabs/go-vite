@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -224,8 +225,8 @@ L:
 }
 func (self *snapshotPool) Start() {
 	self.closed = make(chan struct{})
-	go self.loop()
-	go self.loopCheckFork()
+	common.Go(self.loop)
+	common.Go(self.loopCheckFork)
 	self.log.Info("snapshot_pool started.")
 }
 func (self *snapshotPool) Stop() {

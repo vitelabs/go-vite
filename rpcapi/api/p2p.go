@@ -19,12 +19,12 @@ func (p P2PApi) String() string {
 }
 
 func (p P2PApi) NetworkAvailable() bool {
-	log.Info("called NetworkAvailable ")
+	log.Info("NetworkAvailable ")
 	return p.p2p.Available()
 
 }
 
 func (p P2PApi) PeersCount() int {
-	log.Info("called PeersCount ")
+	log.Info("PeersCount ")
 	return p.p2p.PeersCount()
 }

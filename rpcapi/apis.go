@@ -7,7 +7,7 @@ import (
 )
 
 func InitLog(dir, lvl string) {
-
+	api.InitLog(dir, lvl)
 }
 
 func GetApi(vite *vite.Vite, apiModule string) rpc.API {
