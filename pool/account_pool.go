@@ -98,6 +98,18 @@ func (self *accountPool) Compact() int {
 	return 0
 }
 
+func (self *accountPool) LockForInsert() {
+	// if an compact operation is in progress, do nothing.
+	self.compactLock.Lock()
+	// lock other chain insert
+	self.pool.RLock()
+}
+
+func (self *accountPool) UnLockForInsert() {
+	self.compactLock.UnLock()
+	self.pool.RUnLock()
+}
+
 /**
 try insert block to real chain.
 */
@@ -269,6 +281,10 @@ func (self *accountPool) findInPool(hash types.Hash, height uint64) bool {
 }
 
 func (self *accountPool) findInTree(hash types.Hash, height uint64) *forkedChain {
+	block := self.chainpool.current.getBlock(height, false)
+	if block != nil && block.Hash() == hash {
+		return self.chainpool.current
+	}
 	for _, c := range self.chainpool.chains {
 		b := c.getBlock(height, false)
 
