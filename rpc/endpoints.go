@@ -27,7 +27,7 @@ import (
 
 
 // StartHTTPEndpoint starts the HTTP RPC endpoint, configured with cors/vhosts/modules
-func StartHTTPEndpoint(endpoint string, apis []API, modules []string, cors []string, vhosts []string, timeouts HTTPTimeouts) (net.Listener, *Server, error) {
+func StartHTTPEndpoint(endpoint string, apis []API, modules []string, cors []string, vhosts []string, timeouts HTTPTimeouts, exposeAll bool) (net.Listener, *Server, error) {
 	// Generate the whitelist based on the allowed modules
 	whitelist := make(map[string]bool)
 	for _, module := range modules {
@@ -36,7 +36,7 @@ func StartHTTPEndpoint(endpoint string, apis []API, modules []string, cors []str
 	// Register all the APIs exposed by the services
 	handler := NewServer()
 	for _, api := range apis {
-		if whitelist[api.Namespace] || (len(whitelist) == 0 && api.Public) {
+		if exposeAll || whitelist[api.Namespace] || (len(whitelist) == 0 && api.Public) {
 			if err := handler.RegisterName(api.Namespace, api.Service); err != nil {
 				return nil, nil, err
 			}

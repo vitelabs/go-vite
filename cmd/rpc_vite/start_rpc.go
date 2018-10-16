@@ -14,7 +14,7 @@ func StartAllRpcEndpoint(vite *vite.Vite, dataDir string) {
 	fmt.Println(ipcapiURL)
 	go rpc.StartIPCEndpoint(ipcapiURL, rpcapi.GetAllApis(vite))
 	go rpc.StartWSEndpoint(common.DefaultWSEndpoint(), rpcapi.GetPublicApis(vite), nil, []string{"*"}, true)
-	go rpc.StartHTTPEndpoint(common.DefaultHttpEndpoint(), rpcapi.GetPublicApis(vite), nil, []string{"*"}, nil, rpc.DefaultHTTPTimeouts)
+	go rpc.StartHTTPEndpoint(common.DefaultHttpEndpoint(), rpcapi.GetPublicApis(vite), nil, []string{"*"}, nil, rpc.DefaultHTTPTimeouts, true)
 	c := make(chan int)
 	<-c
 }
