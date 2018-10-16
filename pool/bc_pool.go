@@ -849,9 +849,21 @@ func (self *BCPool) loopFetchForSnippets() int {
 	return i
 }
 
-func (self *BCPool) CurrentModifyToChain(target Chain) error {
-	chain := target.(*forkedChain)
-	return self.chainpool.currentModifyToChain(chain)
+func (self *BCPool) CurrentModifyToChain(target *forkedChain, hashH *ledger.HashHeight) error {
+	clearChainBase(target)
+	return self.chainpool.currentModifyToChain(target)
+}
+func clearChainBase(target *forkedChain) {
+	tailH := target.tailHeight
+	base := target.referChain
+
+	for i := tailH + 1; i <= target.headHeight; i++ {
+		b := target.getBlock(i, false)
+		baseB := base.getBlock(i, true)
+		if baseB != nil && baseB.Hash() == b.Hash() {
+			target.removeTail(b)
+		}
+	}
 }
 func (self *BCPool) CurrentModifyToEmpty() error {
 	if self.chainpool.current.size() == 0 {
@@ -862,7 +874,7 @@ func (self *BCPool) CurrentModifyToEmpty() error {
 	return nil
 }
 
-func (self *BCPool) LongestChain() Chain {
+func (self *BCPool) LongestChain() *forkedChain {
 	readers := self.chainpool.chains
 	current := self.chainpool.current
 	longest := current
@@ -878,7 +890,7 @@ func (self *BCPool) LongestChain() Chain {
 		return current
 	}
 }
-func (self *BCPool) CurrentChain() Chain {
+func (self *BCPool) CurrentChain() *forkedChain {
 	return self.chainpool.current
 }
 
