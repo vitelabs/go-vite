@@ -7,6 +7,15 @@ import (
 
 var log = log15.New("module", "rpc/api")
 
+func InitLog(dir, lvl string) {
+	logLevel, err := log15.LvlFromString(lvl)
+	if err != nil {
+		logLevel = log15.LvlInfo
+	}
+	log15.Root().SetHandler(
+		log15.LvlFilterHandler(logLevel, log15.Must.FileHandler(dir, log15.TerminalFormat())),
+	)
+}
 
 func stringToBigInt(str *string) *big.Int {
 	if str == nil {
