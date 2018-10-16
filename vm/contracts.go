@@ -142,6 +142,13 @@ func checkRegisterData(methodName string, block *vm_context.VmAccountBlock, para
 		param.Signature); !verified {
 		return err
 	}
+	// two registration in one consensus group do not share node address
+	registrationList := contracts.GetRegisterList(block.VmContext, param.Gid)
+	for _, registration := range registrationList {
+		if registration.NodeAddr == param.NodeAddr {
+			return ErrInvalidData
+		}
+	}
 	return nil
 }
 
