@@ -10,17 +10,23 @@ import (
 var (
 	demoFlags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags, statFlags)
 
-	//demo
+	//demo,please add this `demoCommand` to main.go
+	/**
+	app.Commands = []cli.Command{
+		versionCommand,
+		licenseCommand,
+		consoleCommand,
+		attachCommand,
+		demoCommand,
+	}
+	*/
 	demoCommand = cli.Command{
-		Action:   utils.MigrateFlags(demoAction),
-		Name:     "demo",
-		Usage:    "demo",
-		Flags:    jsFlags,
-		Category: "DEMO COMMANDS",
-		Description: `
-The GVite console is an interactive shell for the JavaScript runtime environment
-which exposes a node admin interface as well as the Ðapp JavaScript API.
-See https://github.com/vitelabs/go-vite/wiki/JavaScript-Console.`,
+		Action:      utils.MigrateFlags(demoAction),
+		Name:        "demo",
+		Usage:       "demo",
+		Flags:       jsFlags,
+		Category:    "DEMO COMMANDS",
+		Description: `demo`,
 	}
 )
 
