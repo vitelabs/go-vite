@@ -25,41 +25,44 @@ func NewSnapshotVerifier(ch chain.Chain, cs consensus.Verifier) *SnapshotVerifie
 	return verifier
 }
 
-func (self *SnapshotVerifier) VerifyNetSb(block *ledger.SnapshotBlock) bool {
-	if !self.verifyDataValidity(block) || !self.verifyTimestamp(block) {
-		return false
+func (self *SnapshotVerifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
+	if err := self.verifyDataValidity(block); err != nil {
+		return err
 	}
-	return true
+	if err := self.verifyTimestamp(block); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (self *SnapshotVerifier) verifyTimestamp(block *ledger.SnapshotBlock) bool {
+func (self *SnapshotVerifier) verifyTimestamp(block *ledger.SnapshotBlock) error {
 	if block.Timestamp == nil {
-		return false
+		return errors.New("Timestamp is nil")
 	}
 	currentSb := self.reader.GetLatestSnapshotBlock()
 	if currentSb == nil {
-		return false
+		return errors.New("latest SnapshotBlock is nil")
 	}
 	if block.Timestamp.After(*currentSb.Timestamp) {
-		return false
+		return errors.New("Timestamp not arrive yet")
 	}
-	return true
+	return nil
 }
 
-func (self *SnapshotVerifier) verifyDataValidity(block *ledger.SnapshotBlock) bool {
+func (self *SnapshotVerifier) verifyDataValidity(block *ledger.SnapshotBlock) error {
 	computedHash := block.ComputeHash()
 	if block.Hash.IsZero() || computedHash != block.Hash {
-		return false
+		return errors.New("verify hash failed")
 	}
 
 	if len(block.Signature) == 0 || len(block.PublicKey) == 0 {
-		return false
+		return errors.New("Signature or PublicKey is nil")
 	}
 	isVerified, _ := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
 	if !isVerified {
-		return false
+		return errors.New("VerifySig failed")
 	}
-	return true
+	return nil
 }
 
 func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *SnapshotBlockVerifyStat) error {

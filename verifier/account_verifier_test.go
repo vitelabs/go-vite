@@ -1,12 +1,14 @@
 package verifier
 
 import (
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
@@ -166,7 +168,7 @@ func TestAccountVerifier_VerifyforP2P(t *testing.T) {
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
-	isTrue := v.VerifyforP2P(block)
+	isTrue := v.VerifyNetAb(block)
 	t.Log("VerifyforP2P:", isTrue)
 }
 
@@ -356,6 +358,25 @@ func TestAccountVerifier_VerifyDataValidity(t *testing.T) {
 	return
 }
 
-func TestAccountVerifier_VerifySnapshotBlockOfReferredBlock(t *testing.T) {
+func TestAccountVerifier_VerifySigature(t *testing.T) {
+	var hashString = "b94ba5fadca89002c48db47b234d15dd0c3f8e39ad68ba74dfb3f63d45b938b6"
+	var pubKeyString = "ZTkxYzg2MGM2M2QwMWY2ZDRhOTI5MDE5NzE5MDdhNzIxMDNlOGJhYTg3Zjg4Nzg2NjVmNWE0ZGVmOWVjN2EzNg=="
+	var sigString = "MWIyYTUzMTNjYTVjMDAyYTRjODkyYzkwYzIzNDA5NjkyNzM4NjRhMGU1MzhjNDI0MDExODM1NzQ1ZmNiNWY0NjY4ZTc2ZmZiODk5ZjU2Y2Q4ZmU0Y2Q2MjAxODkxMTZkYTgyMmFjMzk5ODU2NDVjNmM0ZTUxMzVhMmNkMTk2MDk="
 
+	pubKey, _ := ed25519.HexToPublicKey(pubKeyString)
+	hash, _ := types.HexToHash(hashString)
+	sig, _ := hex.DecodeString(sigString)
+
+	if len(sig) == 0 || len(pubKey) == 0 {
+		t.Error("sig or pubKey is nil")
+		return
+	}
+	isVerified, verifyErr := crypto.VerifySig(pubKey, hash.Bytes(), sig)
+	if !isVerified {
+		if verifyErr != nil {
+			t.Error("VerifySig failed", "error", verifyErr)
+		}
+		return
+	}
+	t.Log("success")
 }

@@ -28,8 +28,8 @@ type verifier struct {
 }
 
 type NetVerifier interface {
-	VerifyNetSb(block *ledger.SnapshotBlock) bool
-	VerifyNetAb(block *ledger.AccountBlock) bool
+	VerifyNetSb(block *ledger.SnapshotBlock) error
+	VerifyNetAb(block *ledger.AccountBlock) error
 }
 
 func NewNetVerifier(sv *SnapshotVerifier, av *AccountVerifier) NetVerifier {
@@ -39,10 +39,10 @@ func NewNetVerifier(sv *SnapshotVerifier, av *AccountVerifier) NetVerifier {
 	}
 }
 
-func (v *verifier) VerifyNetSb(block *ledger.SnapshotBlock) bool {
+func (v *verifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
 	return v.Sv.VerifyNetSb(block)
 }
 
-func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) bool {
+func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) error {
 	return v.Av.VerifyNetAb(block)
 }
