@@ -10,7 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-type SyncState int32
+type SyncState uint
 
 const (
 	SyncNotStart SyncState = iota
@@ -381,20 +381,22 @@ func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) {
 }
 
 type SyncStatus struct {
-	From    uint64
-	To      uint64
-	Current uint64
-	State   SyncState
+	From     uint64
+	To       uint64
+	Current  uint64
+	Received uint64
+	State    SyncState
 }
 
 func (s *syncer) Status() *SyncStatus {
 	current := s.chain.GetLatestSnapshotBlock()
 
 	return &SyncStatus{
-		From:    s.from,
-		To:      s.to,
-		Current: current.Height,
-		State:   s.state,
+		From:     s.from,
+		To:       s.to,
+		Current:  current.Height,
+		Received: s.count,
+		State:    s.state,
 	}
 }
 

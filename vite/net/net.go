@@ -237,3 +237,13 @@ func (n *net) handleMsg(p *Peer) (err error) {
 
 	return fmt.Errorf("unknown message cmd %d", msg.Cmd)
 }
+
+func (n *net) Info() *NodeInfo {
+	return &NodeInfo{
+		Peers: n.peers.Info(),
+	}
+}
+
+type NodeInfo struct {
+	Peers []*PeerInfo `json:"peers"`
+}
