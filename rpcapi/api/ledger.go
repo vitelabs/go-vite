@@ -199,6 +199,7 @@ func (l *LedgerApi) GetSenderInfo() (*KafkaSendInfo, error) {
 
 		return nil, totalErr
 	}
+
 	for _, producer := range l.chain.KafkaSender().Producers() {
 		senderInfo.Producers = append(senderInfo.Producers, createKafkaProducerInfo(producer))
 	}
@@ -212,10 +213,19 @@ func (l *LedgerApi) GetSenderInfo() (*KafkaSendInfo, error) {
 }
 
 func (l *LedgerApi) SetSenderHasSend(producerId uint8, hasSend uint64) {
-	l.log.Info("SetSenderInfo")
+	l.log.Info("SetSenderHasSend")
 
 	if l.chain.KafkaSender() == nil {
 		return
 	}
 	l.chain.KafkaSender().SetHasSend(producerId, hasSend)
+}
+
+func (l *LedgerApi) StopSender(producerId uint8) {
+	l.log.Info("StopSender")
+
+	if l.chain.KafkaSender() == nil {
+		return
+	}
+	l.chain.KafkaSender().StopById(producerId)
 }

@@ -44,7 +44,8 @@ func TestWallet(t *testing.T) {
 
 	genesisAddr := unlockAddr(w, password, genesisAccountPrivKeyStr)
 
-	vite, err := startVite(w, password, t)
+	addr, _ := types.HexToAddress("vite_e9b7307aaf51818993bb2675fd26a600bc7ab6d0f52bc5c2c1")
+	vite, err := startVite(w, &addr, t)
 
 	t1, _ := time.Parse(time.RFC3339, "2018-10-12T16:19:28+08:00")
 
@@ -56,60 +57,48 @@ func TestWallet(t *testing.T) {
 	//l := NewLedgerApi(vite)
 	t.Log(waApi.Status())
 
-	time.Sleep(2 * time.Second)
 	vite.OnRoad().StartAutoReceiveWorker(genesisAddr, nil)
 	for _, v := range vite.OnRoad().ListWorkingAutoReceiveWorker() {
 		wLog.Info(v.String())
 	}
-
-	waitOnroad(onRoadApi, genesisAddr, t)
-	//time.Sleep(time.Minute)
-
-	printBalance(vite, genesisAddr)
-
-	printQuota(vite, genesisAddr)
-
-	byt, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, genesisAddr)
-
-	parms := CreateTransferTxParms{
-		SelfAddr:    genesisAddr,
-		ToAddr:      contracts.AddressPledge,
-		TokenTypeId: ledger.ViteTokenId,
-		Passphrase:  password,
-		Amount:      new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)).String(),
-		Data:        byt,
-		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	// if has no balance
+	if printBalance(vite, genesisAddr).Sign() == 0 {
+		waitOnroad(onRoadApi, genesisAddr, t)
+		//time.Sleep(time.Minute)
 	}
-	printBalance(vite, genesisAddr)
 
-	printHeight(vite, contracts.AddressPledge)
+	// if has no quota
+	if printQuota(vite, genesisAddr).Sign() == 0 {
+		if printPledge(vite, genesisAddr, t).Sign() == 0 {
+			waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
 
-	if contractOnroadNum(onRoadApi, contracts.AddressPledge, t) == 0 {
-		// wait snapshot ++
-		prevHeight := printSnapshot(vite)
-		for {
-			if printSnapshot(vite) > prevHeight {
-				break
+			if printPledge(vite, genesisAddr, t).Sign() == 0 {
+				// wait snapshot ++
+				waitSnapshotInc(vite, t)
+
+				byt, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, genesisAddr)
+				parms := CreateTransferTxParms{
+					SelfAddr:    genesisAddr,
+					ToAddr:      contracts.AddressPledge,
+					TokenTypeId: ledger.ViteTokenId,
+					Passphrase:  password,
+					Amount:      new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)).String(),
+					Data:        byt,
+					Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+				}
+				err = waApi.CreateTxWithPassphrase(parms)
+				if err != nil {
+					t.Error(err)
+					return
+				}
 			}
-			time.Sleep(time.Second)
+			waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
 		}
-		err = waApi.CreateTxWithPassphrase(parms)
-		if err != nil {
-			t.Error(err)
-			return
-		}
+		waitQuota(vite, genesisAddr)
 	}
+}
 
-	waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
-
-	// wait snapshot ++
-	prevHeight := printSnapshot(vite)
-	for {
-		if printSnapshot(vite) > prevHeight {
-			break
-		}
-		time.Sleep(time.Second)
-	}
+func waitQuota(vite *vite.Vite, genesisAddr types.Address) {
 	for {
 		quota := printQuota(vite, genesisAddr)
 		if quota.Sign() > 0 {
@@ -118,11 +107,24 @@ func TestWallet(t *testing.T) {
 		printSnapshot(vite)
 		printHeight(vite, contracts.AddressPledge)
 	}
-	printQuota(vite, genesisAddr)
 }
-func startVite(w *wallet.Manager, password string, t *testing.T) (*vite.Vite, error) {
-	coinbase := unlockAddr(w, password, accountPrivKeyStr)
+func printPledge(vite *vite.Vite, addr types.Address, t *testing.T) *big.Int {
+	head := vite.Chain().GetLatestSnapshotBlock()
+	amount := vite.Chain().GetPledgeAmount(head.Hash, addr)
+	wLog.Info("print pledge", "height", strconv.FormatUint(head.Height, 10), "pledge", amount.String(), "addr", addr.String())
+	return amount
+}
+func startVite(w *wallet.Manager, coinbase *types.Address, t *testing.T) (*vite.Vite, error) {
+	//p2pServer, err := p2p.New(&p2p.Config{
+	//	BootNodes: []string{
+	//		"vnode://6d72c01e467e5280acf1b63f87afd5b6dcf8a596d849ddfc9ca70aab08f10191@192.168.31.146:8483",
+	//		"vnode://1ceabc6c2b751b352a6d719b4987f828bb1cf51baafa4efac38bc525ed61059d@192.168.31.190:8483",
+	//		"vnode://8343b3f2bc4e8e521d460cadab3e9f1e61ba57529b3fb48c5c076845c92e75d2@192.168.31.193:8483",
+	//	},
+	//	DataDir: path.Join(common.DefaultDataDir(), "/p2p"),
+	//})
 
+	wLog.Info(coinbase.String(), "coinbase")
 	config := &config.Config{
 		DataDir: common.DefaultDataDir(),
 		Producer: &config.Producer{
@@ -139,12 +141,22 @@ func startVite(w *wallet.Manager, password string, t *testing.T) (*vite.Vite, er
 		t.Error(err)
 		return nil, err
 	}
+
+	//p2pServer.Protocols = append(p2pServer.Protocols, vite.Net().Protocols()...)
+
 	err = vite.Init()
 	if err != nil {
 		t.Error(err)
 		return nil, err
 	}
+
+	//err = vite.Start(p2pServer)
 	err = vite.Start(nil)
+	if err != nil {
+		t.Error(err)
+		return nil, err
+	}
+	//err = p2pServer.Start()
 	if err != nil {
 		t.Error(err)
 		return nil, err
@@ -232,6 +244,17 @@ func waitContractOnroad(api *PrivateOnroadApi, addr types.Address, t *testing.T)
 	}
 }
 
+func waitSnapshotInc(vite *vite.Vite, t *testing.T) {
+	// wait snapshot ++
+	prevHeight := printSnapshot(vite)
+	for {
+		if printSnapshot(vite) > prevHeight {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+}
+
 func onroadNum(api *PrivateOnroadApi, addr types.Address, t *testing.T) int {
 	info, e := api.GetAccountOnroadInfo(addr)
 	if e != nil {
@@ -262,4 +285,35 @@ func contractOnroadNum(api *PrivateOnroadApi, addr types.Address, t *testing.T) 
 	}
 	wLog.Info("print contractOnroadNum size", "size", len(info), "addr", addr.String())
 	return len(info)
+}
+
+func TestWalletBalance(t *testing.T) {
+	w := wallet.New(nil)
+
+	unlockAll(w)
+
+	addr, _ := types.HexToAddress("vite_e9b7307aaf51818993bb2675fd26a600bc7ab6d0f52bc5c2c1")
+
+	vite, err := startVite(w, &addr, t)
+	if err != nil {
+		panic(err)
+	}
+
+	printBalance(vite, addr)
+
+	waitSnapshotInc(vite, t)
+}
+
+var password = "123456"
+
+func unlockAll(w *wallet.Manager) []types.Address {
+	results := w.KeystoreManager.Addresses()
+
+	for _, r := range results {
+		err := w.KeystoreManager.Unlock(r, password, 0)
+		if err != nil {
+			log.Error("unlock fail.", "err", err, "address", r.String())
+		}
+	}
+	return results
 }

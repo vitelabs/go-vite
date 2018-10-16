@@ -619,7 +619,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		c.needSnapshotCache.Remove(&addr, accountBlocks[0].Height)
 	}
 
-	c.em.trigger(DeleteAccountBlocksSuccessEvent, deleteAccountBlocks)
+	c.em.trigger(DeleteAccountBlocksSuccessEvent, subLedger)
 
 	return subLedger, nil
 }

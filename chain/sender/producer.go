@@ -135,9 +135,6 @@ func (producer *Producer) Topic() string {
 }
 
 func (producer *Producer) HasSend() uint64 {
-	producer.hasSendLock.RLock()
-	defer producer.hasSendLock.RUnlock()
-
 	return producer.hasSend
 }
 
@@ -234,7 +231,7 @@ func (producer *Producer) Start() error {
 				return
 			default:
 				producer.send()
-				time.Sleep(time.Second * 3)
+				time.Sleep(time.Millisecond * 500)
 			}
 		}
 	}()
@@ -339,6 +336,7 @@ func (producer *Producer) send() {
 						if sendBlock != nil {
 							tokenTypeId = &sendBlock.TokenId
 							// set token id
+							mqAccountBlock.Amount = sendBlock.Amount
 							mqAccountBlock.TokenId = sendBlock.TokenId
 							mqAccountBlock.FromAddress = sendBlock.AccountAddress
 							mqAccountBlock.ToAddress = mqAccountBlock.AccountAddress
