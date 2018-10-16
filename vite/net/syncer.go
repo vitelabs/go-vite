@@ -298,24 +298,31 @@ func (s *syncer) sync(from, to uint64) {
 
 	for _, piece := range pieces {
 		req := &subLedgerRequest{
-			from:       piece.from,
-			to:         piece.to,
-			peer:       piece.peer,
-			expiration: time.Now().Add(subledgerTimeout),
-			done:       s.reqCallback,
-			rec:        s.receiveBlocks,
+			from:  piece.from,
+			to:    piece.to,
+			peer:  piece.peer,
+			catch: s.reqError,
+			rec:   s,
 		}
 
 		s.pool.Add(req)
 	}
 }
 
-func (s *syncer) reqCallback(r Request, err error) {
-	if err != nil {
-		s.log.Error(fmt.Sprintf("request error: %v", err))
+func (s *syncer) reqError(id uint64, err error) {
+	select {
+	case <-s.term:
+		return
+	default:
+	}
 
+	if r, ok := s.pool.Get(id); ok {
 		from, to := r.Band()
 		s.log.Error(fmt.Sprintf("GetSubLedger<%d-%d> error: %v", from, to, err))
+
+		if from > s.to {
+			return
+		}
 
 		if to > s.to {
 			req := r.Req()
@@ -340,9 +347,9 @@ func (s *syncer) UnsubscribeSyncStatus(subId int) {
 	s.feed.Unsub(subId)
 }
 
-func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
-	return block.Height - s.from
-}
+//func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
+//	return block.Height - s.from
+//}
 
 //func (s *syncer) insert(block *ledger.SnapshotBlock) {
 //	offset := s.offset(block)
@@ -356,18 +363,21 @@ func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
 //	}
 //}
 
-func (s *syncer) receiveBlocks(sblocks []*ledger.SnapshotBlock, ablocks []*ledger.AccountBlock) {
-	s.receiver.ReceiveAccountBlocks(ablocks)
-	s.receiver.ReceiveSnapshotBlocks(sblocks)
+func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) {
+	s.receiver.ReceiveSnapshotBlock(block)
 
-	count := atomic.AddUint64(&s.count, uint64(len(sblocks)))
+	count := atomic.AddUint64(&s.count, 1)
 
-	s.log.Info(fmt.Sprintf("receive %d snapshotblocks, %d accountblocks, process %d/%d", len(sblocks), len(ablocks), count, s.total))
+	s.log.Info(fmt.Sprintf("syncing %d/%d", count, s.total))
 
 	if count >= s.total {
 		// all blocks have downloaded
 		s.downloaded <- struct{}{}
 	}
+}
+
+func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) {
+	s.receiver.ReceiveAccountBlock(block)
 }
 
 type SyncStatus struct {

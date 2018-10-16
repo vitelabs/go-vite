@@ -83,6 +83,9 @@ type Fetcher interface {
 
 // @section Receiver
 type Receiver interface {
+	ReceiveSnapshotBlock(block *ledger.SnapshotBlock)
+	ReceiveAccountBlock(block *ledger.AccountBlock)
+
 	ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock)
 	ReceiveAccountBlocks(blocks []*ledger.AccountBlock)
 

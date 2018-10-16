@@ -40,6 +40,7 @@ type context interface {
 	Add(r Request)
 	Retry(id uint64, err error)
 	FC() *fileClient
+	Get(id uint64) (Request, bool)
 }
 
 type Request interface {
@@ -47,7 +48,8 @@ type Request interface {
 	ID() uint64
 	SetID(id uint64)
 	Run(ctx context)
-	Done(err error)
+	Done()
+	Catch(err error)
 	Expired() bool
 	State() reqState
 	Req() Request
@@ -57,8 +59,11 @@ type Request interface {
 	Peer() *Peer
 }
 
-type receiveBlocks func(sblocks []*ledger.SnapshotBlock, ablocks []*ledger.AccountBlock)
-type doneCallback func(r Request, err error)
+type reqRec interface {
+	receiveSnapshotBlock(block *ledger.SnapshotBlock)
+	receiveAccountBlock(block *ledger.AccountBlock)
+}
+type errCallback = func(id uint64, err error)
 
 var errMissingPeer = errors.New("request missing peer")
 var errUnExpectedRes = errors.New("unexpected response")
@@ -181,9 +186,8 @@ type subLedgerRequest struct {
 	peer       *Peer
 	state      reqState
 	expiration time.Time
-	done       doneCallback
-	rec        receiveBlocks
-	ctx        context
+	catch      errCallback
+	rec        reqRec
 }
 
 func (s *subLedgerRequest) SetID(id uint64) {
@@ -209,23 +213,6 @@ func (s *subLedgerRequest) Peer() *Peer {
 
 func (s *subLedgerRequest) State() reqState {
 	return s.state
-}
-
-func (s *subLedgerRequest) fileRequetErr(r *fileRequest, err error) {
-	if err == nil {
-		return
-	}
-
-	req := &subLedgerRequest{
-		from:       r.from,
-		to:         r.to,
-		peer:       r.peer,
-		expiration: time.Now().Add(subledgerTimeout),
-		done:       s.done,
-		rec:        r.rec,
-	}
-
-	s.ctx.Add(req)
 }
 
 func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
@@ -266,9 +253,10 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 				files:   msg.Files,
 				nonce:   msg.Nonce,
 				peer:    peer,
-				rec:     s.rec,
 				current: from,
-				done:    s.fileRequetErr,
+				rec:     s.rec,
+				ctx:     ctx,
+				catch:   s.catch,
 			})
 		}
 
@@ -278,17 +266,15 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 			cs := splitChunk(chunk[0], chunk[1])
 			for _, c := range cs {
 				ctx.Add(&chunkRequest{
-					from:       c[0],
-					to:         c[1],
-					peer:       peer,
-					expiration: time.Now().Add(u64ToDuration(c[1] - c[0])),
-					done:       s.done,
-					rec:        s.rec,
+					from: c[0],
+					to:   c[1],
+					peer: peer,
+					rec:  s.rec,
 				})
 			}
 		}
 
-		s.Done(nil)
+		s.Done()
 	} else {
 		ctx.Retry(s.id, errUnExpectedRes)
 	}
@@ -299,7 +285,7 @@ func (s *subLedgerRequest) ID() uint64 {
 }
 
 func (s *subLedgerRequest) Run(ctx context) {
-	s.ctx = ctx
+	s.expiration = time.Now().Add(subledgerTimeout)
 
 	err := s.peer.Send(GetSubLedgerCode, s.id, &message.GetSubLedger{
 		From:    ledger.HashHeight{Height: s.from},
@@ -316,14 +302,13 @@ func (s *subLedgerRequest) Run(ctx context) {
 	}
 }
 
-func (s *subLedgerRequest) Done(err error) {
-	if err != nil {
-		s.state = reqError
-	} else {
-		s.state = reqDone
-	}
+func (s *subLedgerRequest) Done() {
+	s.state = reqDone
+}
 
-	s.done(s, err)
+func (s *subLedgerRequest) Catch(err error) {
+	s.state = reqError
+	s.catch(s.id, err)
 }
 
 func (s *subLedgerRequest) Expired() bool {
@@ -340,9 +325,10 @@ type fileRequest struct {
 	files    []*ledger.CompressedFileMeta
 	nonce    uint64
 	peer     *Peer
-	rec      receiveBlocks
 	current  uint64 // the tallest snapshotBlock have received, as the breakpoint resume
-	done     func(r *fileRequest, err error)
+	rec      reqRec
+	ctx      context     // for create new GetSubLedgerMsg, retry
+	catch    errCallback // for retry GetSubLedger, catch error
 }
 
 // file1/0-3600 file2/3601-7200
@@ -358,8 +344,20 @@ func (r *fileRequest) String() string {
 	return strings.Join(files, " ")
 }
 
-func (r *fileRequest) Done(err error) {
-	r.done(r, err)
+func (r *fileRequest) Catch(err error) {
+	from := r.current
+	if from == 0 {
+		from = r.from
+	}
+
+	req := &subLedgerRequest{
+		from:  from,
+		to:    r.to,
+		catch: r.catch,
+		rec:   r.rec,
+	}
+
+	r.ctx.Add(req)
 }
 
 func (r *fileRequest) Addr() string {
@@ -373,8 +371,8 @@ type chunkRequest struct {
 	peer       *Peer
 	state      reqState
 	expiration time.Time
-	done       doneCallback
-	rec        receiveBlocks
+	catch      errCallback
+	rec        reqRec
 }
 
 func (c *chunkRequest) SetID(id uint64) {
@@ -420,8 +418,14 @@ func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 			return
 		}
 
-		c.rec(msg.SBlocks, msg.ABlocks)
-		c.Done(nil)
+		for _, block := range msg.SBlocks {
+			c.rec.receiveSnapshotBlock(block)
+		}
+		for _, block := range msg.ABlocks {
+			c.rec.receiveAccountBlock(block)
+		}
+
+		c.Done()
 	} else {
 		ctx.Retry(c.id, errUnExpectedRes)
 	}
@@ -448,14 +452,13 @@ func (c *chunkRequest) Run(ctx context) {
 	}
 }
 
-func (c *chunkRequest) Done(err error) {
-	if err != nil {
-		c.state = reqError
-	} else {
-		c.state = reqDone
-	}
+func (c *chunkRequest) Done() {
+	c.state = reqDone
+}
 
-	c.done(c, err)
+func (c *chunkRequest) Catch(err error) {
+	c.state = reqError
+	c.catch(c.id, err)
 }
 
 func (c *chunkRequest) Expired() bool {

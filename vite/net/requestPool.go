@@ -126,7 +126,7 @@ loop:
 			}
 
 			if r.Peer() == nil {
-				r.Done(errMissingPeer)
+				r.Catch(errMissingPeer)
 			} else {
 				r.Run(p)
 				p.pending[r.ID()] = r
@@ -144,7 +144,7 @@ loop:
 					r.SetPeer(peer)
 					r.Run(p)
 				} else {
-					r.Done(errMissingPeer)
+					r.Catch(errMissingPeer)
 				}
 			}
 
@@ -155,7 +155,7 @@ loop:
 				if state == reqDone || state == reqError {
 					delete(p.pending, r.ID())
 				} else if r.Expired() && state == reqPending {
-					r.Done(errRequestTimeout)
+					r.Catch(errRequestTimeout)
 				}
 			}
 		}
@@ -164,13 +164,13 @@ loop:
 	// clean job
 	for i := 0; i < len(p.add); i++ {
 		r := <-p.add
-		r.Done(errPoolStopped)
+		r.Catch(errPoolStopped)
 	}
 
 	for i := 0; i < len(p.retry); i++ {
 		e := <-p.retry
 		if r, ok := p.pending[e.id]; ok {
-			r.Done(errPoolStopped)
+			r.Catch(errPoolStopped)
 		}
 	}
 
@@ -180,7 +180,7 @@ loop:
 	}
 
 	for _, r := range p.pending {
-		r.Done(errPoolStopped)
+		r.Catch(errPoolStopped)
 	}
 }
 
@@ -203,4 +203,9 @@ func (p *requestPool) Retry(id uint64, err error) {
 
 func (p *requestPool) FC() *fileClient {
 	return p.fc
+}
+
+func (p *requestPool) Get(id uint64) (r Request, ok bool) {
+	r, ok = p.pending[id]
+	return
 }
