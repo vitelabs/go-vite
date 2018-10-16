@@ -2,13 +2,14 @@ package net
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"time"
 )
 
 var errHandshakeTwice = errors.New("handshake should send only once")
@@ -229,6 +230,10 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error)
 		block, err := a.chain.GetAccountBlockByHash(&as.From.Hash)
 		if err != nil {
 			a.log.Error(fmt.Sprintf("GetAccountBlockByHash %s error: %v", as.From.Hash, err))
+			return sender.Send(ExceptionCode, msg.Id, message.Missing)
+		}
+		if block == nil {
+			a.log.Error(fmt.Sprintf("GetAccountBlockByHash %s nil", as.From.Hash))
 			return sender.Send(ExceptionCode, msg.Id, message.Missing)
 		}
 		as.Address = block.AccountAddress
