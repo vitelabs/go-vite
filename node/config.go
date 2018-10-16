@@ -30,6 +30,7 @@ type Config struct {
 	MaxPassivePeersRatio uint     `json:"MaxPassivePeersRatio"`
 	MaxPendingPeers      uint     `json:"MaxPendingPeers"`
 	BootNodes            []string `json:"BootNodes"`
+	StaticNodes          []string `json:"StaticNodes"`
 	Port                 uint     `json:"Port"`
 	NetID                uint     `json:"NetID"`
 
@@ -131,7 +132,8 @@ func (c *Config) makeP2PConfig() *p2p.Config {
 		DataDir:         filepath.Join(c.DataDir, p2p.Dirname),
 		PrivateKey:      c.GetPrivateKey(),
 		//Protocols:nil,
-		BootNodes: c.BootNodes,
+		BootNodes:   c.BootNodes,
+		StaticNodes: c.StaticNodes,
 		//KafKa:nil,
 	}
 }

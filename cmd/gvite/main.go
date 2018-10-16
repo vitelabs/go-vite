@@ -101,6 +101,7 @@ var (
 	//Stat
 	statFlags = []cli.Flag{
 		utils.PProfEnabledFlag,
+		utils.PProfPortFlag,
 	}
 )
 
@@ -149,9 +150,17 @@ func beforeAction(ctx *cli.Context) error {
 
 	//TODO: we can add dashboard here
 	if ctx.GlobalIsSet(utils.PProfEnabledFlag.Name) {
+		pprofPort := ctx.GlobalUint(utils.PProfPortFlag.Name)
+		var listenAddress string
+		if pprofPort == 0 {
+			pprofPort = 8080
+		}
+		listenAddress = fmt.Sprintf("%s:%d", "0.0.0.0", pprofPort)
+		var visitAddress = fmt.Sprintf("http://localhost:%d/debug/pprof", pprofPort)
+
 		go func() {
-			log.Info("Enable a performance analysis tool, you can visit the address of `http://localhost:8080/debug/pprof`")
-			http.ListenAndServe("0.0.0.0:8080", nil)
+			log.Info("Enable a performance analysis tool, you can visit the address of `" + visitAddress + "`")
+			http.ListenAndServe(listenAddress, nil)
 		}()
 	}
 

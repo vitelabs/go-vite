@@ -290,8 +290,6 @@ func (s *syncer) setTarget(to uint64) {
 		}
 
 		s.blocks = s.blocks[:total2]
-
-		// todo cancel some taller task
 	}
 
 	s.total = total2
@@ -309,7 +307,7 @@ func (s *syncer) sync(from, to uint64) {
 			from:       piece.from,
 			to:         piece.to,
 			peer:       piece.peer,
-			expiration: time.Now().Add(10 * time.Minute),
+			expiration: time.Now().Add(10 * time.Second),
 			done:       s.reqCallback,
 		}
 
@@ -319,9 +317,16 @@ func (s *syncer) sync(from, to uint64) {
 	}
 }
 
-func (s *syncer) reqCallback(id uint64, err error) {
+func (s *syncer) reqCallback(r Request, err error) {
 	if err != nil {
-		s.setState(Syncerr)
+		s.log.Error("req error", "err", err)
+		if r.To() > s.to {
+			req := r.Req()
+			req.SetTo(s.to)
+			s.pool.Add(req)
+		} else {
+			s.setState(Syncerr)
+		}
 	}
 }
 

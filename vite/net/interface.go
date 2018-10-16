@@ -33,7 +33,9 @@ type Chain interface {
 }
 
 type Verifier interface {
-	VerifyforP2P(block *ledger.AccountBlock) bool
+	//VerifyforP2P(block *ledger.AccountBlock) bool
+	VerifyNetSb(block *ledger.SnapshotBlock) bool
+	VerifyNetAb(block *ledger.AccountBlock) bool
 }
 
 // @section Subscriber

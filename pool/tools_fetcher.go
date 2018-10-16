@@ -32,7 +32,9 @@ func (self *accountSyncer) broadcastReceivedBlocks(received *vm_context.VmAccoun
 }
 
 func (self *accountSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
-	self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &self.address)
+	if hashHeight.Height > 0 {
+		self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &self.address)
+	}
 }
 func (self *accountSyncer) fetchByHash(hash types.Hash, prevCnt uint64) {
 	self.fetcher.FetchAccountBlocks(hash, prevCnt, &self.address)

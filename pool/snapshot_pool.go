@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -91,6 +92,8 @@ func (self *snapshotPool) checkFork() {
 	if longest.ChainId() == current.ChainId() {
 		return
 	}
+	l := longest.(*forkedChain)
+	fmt.Printf("%d-%s", l.tailHeight, l.tailHash)
 	self.snapshotFork(longest, current)
 
 }
@@ -114,13 +117,18 @@ func (self *snapshotPool) snapshotFork(longest Chain, current Chain) error {
 		return e
 	}
 
-	err = self.rollbackCurrent(snapshots)
-	if err != nil {
-		return err
+	if len(snapshots) > 0 {
+		err = self.rollbackCurrent(snapshots)
+		if err != nil {
+			return err
+		}
 	}
-	err = self.pool.ForkAccounts(accounts)
-	if err != nil {
-		return err
+
+	if len(accounts) > 0 {
+		err = self.pool.ForkAccounts(accounts)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = self.CurrentModifyToChain(longest)

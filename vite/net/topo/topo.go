@@ -1,7 +1,6 @@
 package topo
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -226,7 +225,6 @@ func (t *Topology) Receive(msg *p2p.Msg, sender *Peer) {
 
 	hash := msg.Payload[:32]
 	if t.record.Lookup(hash) {
-		t.log.Warn(fmt.Sprintf("has received the same topoMsg: %s", hex.EncodeToString(hash)))
 		return
 	}
 
@@ -271,7 +269,6 @@ func (t *Topology) write(topic string, data []byte) {
 	}
 
 	monitor.LogEvent("topo", "report")
-	t.log.Info("report topoMsg to kafka")
 }
 
 func (t *Topology) Protocol() *p2p.Protocol {
