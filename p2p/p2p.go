@@ -383,9 +383,9 @@ loop:
 				svr.log.Error(fmt.Sprintf("can`t create new peer: %v", err))
 			}
 
-			if peersCount < svr.MaxPeers {
-				svr.discv.Need(svr.MaxPeers - peersCount)
-			}
+			//if peersCount < svr.MaxPeers {
+			//	svr.discv.Need(svr.MaxPeers - peersCount)
+			//}
 
 		case p := <-svr.delPeer:
 			svr.peers.Del(p)
@@ -397,9 +397,9 @@ loop:
 				svr.dial(p.ID(), p.RemoteAddr(), static)
 			}
 
-			if peersCount < svr.MaxPeers {
-				svr.discv.Need(svr.MaxPeers - peersCount)
-			}
+			//if peersCount < svr.MaxPeers {
+			//	svr.discv.Need(svr.MaxPeers - peersCount)
+			//}
 		}
 	}
 

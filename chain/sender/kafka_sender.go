@@ -79,6 +79,19 @@ func (sender *KafkaSender) Start(brokerList []string, topic string) error {
 	return nil
 }
 
+func (sender *KafkaSender) StopById(producerId uint8) {
+	sender.lock.Lock()
+	defer sender.lock.Unlock()
+
+	for index, runProducer := range sender.runProducers {
+		if runProducer.ProducerId() == producerId {
+			// has run
+			runProducer.Stop()
+			sender.runProducers = append(sender.runProducers[:index], sender.runProducers[index+1:]...)
+		}
+	}
+}
+
 func (sender *KafkaSender) Stop(brokerList []string, topic string) {
 	sender.lock.Lock()
 	defer sender.lock.Unlock()
@@ -115,7 +128,7 @@ func (sender *KafkaSender) Producers() []*Producer {
 }
 
 func (sender *KafkaSender) RunProducers() []*Producer {
-	return sender.producers
+	return sender.runProducers
 }
 
 func (sender *KafkaSender) getProducer(brokerList []string, topic string) (*Producer, error) {

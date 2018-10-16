@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -337,19 +338,34 @@ func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 	return nil
 }
 
-func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) error {
+func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*ledger.HashHeight, error) {
 	this := self.selfPendingAc(addr)
 
 	targetChain := this.findInTree(h.Hash, h.Height)
 	if targetChain != nil {
-		this.CurrentModifyToChain(targetChain)
-		return nil
+		if targetChain.ChainId() == this.chainpool.current.ChainId() {
+			return nil, nil
+		}
+
+		_, forkPoint, err := this.getForkPointByChains(targetChain, this.CurrentChain())
+		if err != nil {
+			return nil, err
+		}
+		// fork point in disk chain
+		if forkPoint.Height() <= this.CurrentChain().tailHeight {
+			return h, nil
+		}
+
+		this.LockForInsert()
+		defer this.UnLockForInsert()
+		this.CurrentModifyToChain(targetChain, h)
+		return nil, nil
 	}
 	inPool := this.findInPool(h.Hash, h.Height)
 	if !inPool {
 		this.f.fetch(ledger.HashHeight{Hash: h.Hash, Height: h.Height}, 5)
 	}
-	return nil
+	return nil, nil
 }
 
 func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
@@ -366,10 +382,25 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 		cnt := h.Height - this.chainpool.diskChain.Head().Height()
 		this.f.fetch(ledger.HashHeight{Height: h.Height, Hash: h.Hash}, cnt)
 		err = this.CurrentModifyToEmpty()
-	} else {
-		err = this.CurrentModifyToChain(targetChain)
+		return err
 	}
-	self.version.Inc()
+
+	keyPoint, forkPoint, err := this.getForkPointByChains(targetChain, this.CurrentChain())
+	if err != nil {
+		return err
+	}
+	if keyPoint == nil {
+		return errors.New("forkAccountTo key point is nil.")
+	}
+	// fork point in disk chain
+	if forkPoint.Height() <= this.CurrentChain().tailHeight {
+		err := self.RollbackAccountTo(addr, keyPoint.Hash(), keyPoint.Height())
+		if err != nil {
+			return err
+		}
+	}
+
+	err = this.CurrentModifyToChain(targetChain, h)
 	if err != nil {
 		return err
 	}
