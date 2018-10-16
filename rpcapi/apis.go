@@ -85,7 +85,7 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 	}
 }
 
-func getApis(vite *vite.Vite, apiModule ...string) []rpc.API {
+func GetApis(vite *vite.Vite, apiModule ...string) []rpc.API {
 	var apis []rpc.API
 	for _, m := range apiModule {
 		apis = append(apis, GetApi(vite, m))
@@ -94,9 +94,9 @@ func getApis(vite *vite.Vite, apiModule ...string) []rpc.API {
 }
 
 func GetPublicApis(vite *vite.Vite) []rpc.API {
-	return getApis(vite, "ledger", "wallet", "private_onroad", "net", "contracts", "testapi", "pow", "tx")
+	return GetApis(vite, "ledger", "wallet", "private_onroad", "net", "contracts", "testapi", "pow", "tx")
 }
 
 func GetAllApis(vite *vite.Vite) []rpc.API {
-	return getApis(vite, "ledger", "wallet", "private_onroad", "net", "contracts", "testapi", "pow", "tx")
+	return GetApis(vite, "ledger", "wallet", "private_onroad", "net", "contracts", "testapi", "pow", "tx")
 }
