@@ -165,6 +165,14 @@ func (node *Node) Config() *Config {
 	return node.config
 }
 
+func (node *Node) ViteServer() *vite.Vite {
+	return node.viteServer
+}
+
+func (node *Node) WalletManager() *wallet.Manager {
+	return node.walletManager
+}
+
 //wallet start
 func (node *Node) startWallet() error {
 
