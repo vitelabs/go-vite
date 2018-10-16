@@ -51,9 +51,8 @@ func New(cfg *Config) Net {
 		return mock()
 	}
 
-	port := cfg.Port
-	if port == 0 {
-		port = DefaultPort
+	if cfg.Port == 0 {
+		cfg.Port = DefaultPort
 	}
 
 	fc := newFileClient(cfg.Chain)
@@ -77,7 +76,7 @@ func New(cfg *Config) Net {
 		fetcher:     fetcher,
 		broadcaster: broadcaster,
 		receiver:    receiver,
-		fs:          newFileServer(port, cfg.Chain),
+		fs:          newFileServer(cfg.Port, cfg.Chain),
 		fc:          fc,
 		handlers:    make(map[cmd]MsgHandler),
 		log:         log15.New("module", "vite/net"),
