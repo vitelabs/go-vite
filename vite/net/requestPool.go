@@ -61,7 +61,7 @@ func newRequestPool(peers *peerSet, fc *fileClient) *requestPool {
 	pool := &requestPool{
 		pending: make(map[uint64]Request, 20),
 		id:      INIT_ID,
-		add:     make(chan Request, 1),
+		add:     make(chan Request, 10),
 		retry:   make(chan *reqEvent, 1),
 		del:     make(chan uint64, 1),
 		term:    make(chan struct{}),
@@ -184,14 +184,11 @@ loop:
 	}
 }
 
-func (p *requestPool) Add(r Request) bool {
+func (p *requestPool) Add(r Request) {
 	select {
 	case <-p.term:
-		return false
+		return
 	case p.add <- r:
-		return true
-	default:
-		return false
 	}
 }
 

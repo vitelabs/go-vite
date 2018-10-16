@@ -37,7 +37,7 @@ func (s reqState) String() string {
 }
 
 type context interface {
-	Add(r Request) bool
+	Add(r Request)
 	Retry(id uint64, err error)
 	FC() *fileClient
 }

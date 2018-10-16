@@ -364,7 +364,7 @@ func (s *syncer) receiveBlocks(sblocks []*ledger.SnapshotBlock, ablocks []*ledge
 
 	s.log.Info(fmt.Sprintf("receive %d snapshotblocks, %d accountblocks, process %d/%d", len(sblocks), len(ablocks), count, s.total))
 
-	if atomic.LoadUint64(&s.count) >= s.total {
+	if count >= s.total {
 		// all blocks have downloaded
 		s.downloaded <- struct{}{}
 	}
