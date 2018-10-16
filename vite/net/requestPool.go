@@ -1,9 +1,11 @@
 package net
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -26,12 +28,13 @@ type requestPool struct {
 	pending map[uint64]Request // has executed, wait for response
 	id      uint64             // atomic, unique request id, identically message id
 	add     chan Request
-	retry   chan uint64
+	retry   chan *reqEvent
 	del     chan uint64
 	term    chan struct{}
 	log     log15.Logger
 	wg      sync.WaitGroup
-	ctx     *context
+	peers   *peerSet
+	fc      *fileClient
 }
 
 // as message handler
@@ -46,7 +49,7 @@ func (p *requestPool) Cmds() []cmd {
 func (p *requestPool) Handle(msg *p2p.Msg, sender *Peer) error {
 	for id, r := range p.pending {
 		if id == msg.Id {
-			go r.Handle(p.ctx, msg, sender)
+			go r.Handle(p, msg, sender)
 			return nil
 		}
 	}
@@ -54,15 +57,17 @@ func (p *requestPool) Handle(msg *p2p.Msg, sender *Peer) error {
 	return nil
 }
 
-func newRequestPool() *requestPool {
+func newRequestPool(peers *peerSet, fc *fileClient) *requestPool {
 	pool := &requestPool{
 		pending: make(map[uint64]Request, 20),
 		id:      INIT_ID,
-		add:     make(chan Request, 10),
-		retry:   make(chan uint64, 5),
-		del:     make(chan uint64, 10),
+		add:     make(chan Request, 1),
+		retry:   make(chan *reqEvent, 1),
+		del:     make(chan uint64, 1),
 		term:    make(chan struct{}),
 		log:     log15.New("module", "net/reqpool"),
+		peers:   peers,
+		fc:      fc,
 	}
 
 	pool.wg.Add(1)
@@ -80,6 +85,21 @@ func (p *requestPool) stop() {
 	}
 }
 
+type reqEvent struct {
+	id  uint64
+	err error
+}
+
+func (p *requestPool) pickPeer(height uint64) (peer *Peer) {
+	peers := p.peers.Pick(height)
+	n := len(peers)
+	if n > 0 {
+		peer = peers[rand.Intn(n)]
+	}
+
+	return peer
+}
+
 func (p *requestPool) loop() {
 	defer p.wg.Done()
 
@@ -94,12 +114,38 @@ loop:
 			break loop
 
 		case r := <-p.add:
-			r.Run(p.ctx)
-			p.pending[r.ID()] = r
+			if r.ID() == 0 {
+				r.SetID(p.MsgID())
+			}
 
-		case id := <-p.retry:
-			if r, ok := p.pending[id]; ok {
-				r.Run(p.ctx)
+			if r.Peer() == nil {
+				_, to := r.Band()
+				if peer := p.pickPeer(to); peer != nil {
+					r.SetPeer(peer)
+				}
+			}
+
+			if r.Peer() == nil {
+				r.Done(errMissingPeer)
+			} else {
+				r.Run(p)
+				p.pending[r.ID()] = r
+			}
+
+		case e := <-p.retry:
+			if r, ok := p.pending[e.id]; ok {
+				select {
+				case r.Peer().errch <- e.err:
+				default:
+				}
+
+				_, to := r.Band()
+				if peer := p.pickPeer(to); peer != nil {
+					r.SetPeer(peer)
+					r.Run(p)
+				} else {
+					r.Done(errMissingPeer)
+				}
 			}
 
 		case <-ticker.C:
@@ -107,14 +153,11 @@ loop:
 				state := r.State()
 
 				if state == reqDone || state == reqError {
-					p.Del(r.ID())
-				} else if r.Expired() && r.State() == reqPending {
+					delete(p.pending, r.ID())
+				} else if r.Expired() && state == reqPending {
 					r.Done(errRequestTimeout)
 				}
 			}
-
-		case id := <-p.del:
-			delete(p.pending, id)
 		}
 	}
 
@@ -125,8 +168,8 @@ loop:
 	}
 
 	for i := 0; i < len(p.retry); i++ {
-		id := <-p.retry
-		if r, ok := p.pending[id]; ok {
+		e := <-p.retry
+		if r, ok := p.pending[e.id]; ok {
 			r.Done(errPoolStopped)
 		}
 	}
@@ -143,20 +186,11 @@ loop:
 
 func (p *requestPool) Add(r Request) bool {
 	select {
+	case <-p.term:
+		return false
 	case p.add <- r:
 		return true
 	default:
-		p.log.Error("can`t add request")
-		return false
-	}
-}
-
-func (p *requestPool) Del(id uint64) bool {
-	select {
-	case p.del <- id:
-		return true
-	default:
-		p.log.Error("can`t del request")
 		return false
 	}
 }
@@ -165,12 +199,15 @@ func (p *requestPool) MsgID() uint64 {
 	return atomic.AddUint64(&p.id, 1)
 }
 
-func (p *requestPool) Retry(id uint64) bool {
-	select {
-	case p.retry <- id:
-		return true
-	default:
-		p.log.Error("can`t Retry request")
-		return false
+func (p *requestPool) Retry(r Request, err error) {
+	if r.ID() == 0 {
+		r.SetID(p.MsgID())
 	}
+
+	p.log.Error(fmt.Sprintf("retry request %d, error: %v", r.ID(), err))
+	p.retry <- &reqEvent{r.ID(), err}
+}
+
+func (p *requestPool) FC() *fileClient {
+	return p.fc
 }
