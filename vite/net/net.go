@@ -87,6 +87,10 @@ func New(cfg *Config) Net {
 		peers:  peers,
 		pool:   pool,
 		fc:     fc,
+		retry: &retryPolicy{
+			peers:  peers,
+			record: make(map[uint64]int),
+		},
 	}
 
 	n.addHandler(_statusHandler(statusHandler))
@@ -200,6 +204,11 @@ func (n *net) startPeer(p *Peer) error {
 		select {
 		case <-n.term:
 			return p2p.DiscQuitting
+
+		case err := <-p.errch:
+			n.log.Error(fmt.Sprintf("peer error: %v", err))
+			return p2p.DiscProtocolError
+
 		case <-ticker.C:
 			current := n.Chain.GetLatestSnapshotBlock()
 			p.Send(StatusCode, 0, &ledger.HashHeight{

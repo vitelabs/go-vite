@@ -18,7 +18,7 @@ import (
 const filterCap = 100000
 
 // @section Peer for protocol handle, not p2p Peer.
-var errPeerTermed = errors.New("peer has been terminated")
+//var errPeerTermed = errors.New("peer has been terminated")
 
 type Peer struct {
 	*p2p.Peer
@@ -30,6 +30,7 @@ type Peer struct {
 	CmdSet      uint64     // which cmdSet it belongs
 	KnownBlocks *cuckoofilter.CuckooFilter
 	log         log15.Logger
+	errch       chan error
 }
 
 func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
@@ -40,6 +41,7 @@ func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 		CmdSet:      cmdSet,
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
+		errch:       make(chan error, 1),
 	}
 }
 
@@ -75,6 +77,9 @@ func (p *Peer) Handshake(our *message.HandShake) error {
 
 	p.SetHead(their.Current, their.Height)
 	p.filePort = their.Port
+	if p.filePort == 0 {
+		p.filePort = DefaultPort
+	}
 
 	return nil
 }
