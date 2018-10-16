@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/onroad/model"
+	"github.com/vitelabs/go-vite/vite"
 )
 
 type PublicOnroadApi struct {
@@ -18,9 +19,9 @@ func (o PublicOnroadApi) String() string {
 	return "PublicOnroadApi"
 }
 
-func NewPublicOnroadApi(manager *onroad.Manager) *PublicOnroadApi {
+func NewPublicOnroadApi(vite *vite.Vite) *PublicOnroadApi {
 	return &PublicOnroadApi{
-		api: NewPrivateOnroadApi(manager),
+		api: NewPrivateOnroadApi(vite),
 	}
 }
 func (o PublicOnroadApi) GetOnroadBlocksByAddress(address types.Address, index int, count int) ([]*AccountBlock, error) {
@@ -36,9 +37,9 @@ type PrivateOnroadApi struct {
 	manager *onroad.Manager
 }
 
-func NewPrivateOnroadApi(manager *onroad.Manager) *PrivateOnroadApi {
+func NewPrivateOnroadApi(vite *vite.Vite) *PrivateOnroadApi {
 	return &PrivateOnroadApi{
-		manager: manager,
+		manager: vite.OnRoad(),
 	}
 }
 
@@ -47,10 +48,12 @@ func (o PrivateOnroadApi) String() string {
 }
 
 func (o PrivateOnroadApi) ListWorkingAutoReceiveWorker() []types.Address {
+	log.Info("ListWorkingAutoReceiveWorker")
 	return o.manager.ListWorkingAutoReceiveWorker()
 }
 
 func (o PrivateOnroadApi) StartAutoReceive(addr types.Address, filter map[string]string) error {
+	log.Info("StartAutoReceive", "addr", addr)
 	rawfilter := make(map[types.TokenTypeId]big.Int)
 	if filter != nil {
 		for k, v := range filter {
@@ -70,16 +73,19 @@ func (o PrivateOnroadApi) StartAutoReceive(addr types.Address, filter map[string
 }
 
 func (o PrivateOnroadApi) StopAutoReceive(addr types.Address) error {
+	log.Info("StopAutoReceive", "addr", addr)
 	return o.manager.StopAutoReceiveWorker(addr)
 }
 
 func (o PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index int, count int) ([]*AccountBlock, error) {
+	log.Info("GetOnroadBlocksByAddress", "addr", address, "index", index, "count", count)
 	blockList, err := o.manager.DbAccess().GetOnroadBlocks(uint64(index), 1, uint64(count), &address)
 	if err != nil {
 		return nil, err
 	}
 
 	a := make([]*AccountBlock, len(blockList))
+	sum := 0
 	for k, v := range blockList {
 		if v != nil {
 			confirmedTimes, e := o.manager.Chain().GetConfirmTimes(&v.Hash)
@@ -89,12 +95,14 @@ func (o PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index 
 			}
 			block := createAccountBlock(v, o.manager.DbAccess().Chain.GetTokenInfoById(&v.TokenId), confirmedTimes)
 			a[k] = block
+			sum++
 		}
 	}
-	return a, nil
+	return a[:sum], nil
 }
 
 func (o PrivateOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
+	log.Info("GetAccountOnroadInfo", "addr", address)
 	info, e := o.manager.GetOnroadBlocksPool().GetOnroadAccountInfo(address)
 	if e != nil || info == nil {
 		return nil, e

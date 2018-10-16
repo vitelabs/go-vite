@@ -3,8 +3,37 @@ package node
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/rpc"
+	"github.com/vitelabs/go-vite/rpcapi"
 	"strings"
 )
+
+//In-proc apis
+func (node *Node) GetInProcessApis() []rpc.API {
+	return rpcapi.GetApis(node.viteServer, "ledger", "wallet", "private_onroad", "net", "contracts", "testapi", "pow", "tx")
+}
+
+//Ipc apis
+func (node *Node) GetIpcApis() []rpc.API {
+	return rpcapi.GetApis(node.viteServer, "ledger", "wallet", "private_onroad", "net", "contracts", "testapi", "pow", "tx")
+}
+
+//Http apis
+func (node *Node) GetHttpApis() []rpc.API {
+	apiModules := []string{"ledger", "public_onroad", "net", "contracts", "pow", "tx"}
+	if node.Config().NetID > 1 {
+		apiModules = append(apiModules, "testapi")
+	}
+	return rpcapi.GetApis(node.viteServer, apiModules...)
+}
+
+//WS apis
+func (node *Node) GetWSApis() []rpc.API {
+	apiModules := []string{"ledger", "public_onroad", "net", "contracts", "pow", "tx"}
+	if node.Config().NetID > 1 {
+		apiModules = append(apiModules, "testapi")
+	}
+	return rpcapi.GetApis(node.viteServer, apiModules...)
+}
 
 // startIPC initializes and starts the IPC RPC endpoint.
 func (node *Node) startIPC(apis []rpc.API) error {
@@ -36,12 +65,12 @@ func (node *Node) stopIPC() {
 }
 
 // startHTTP initializes and starts the HTTP RPC endpoint.
-func (node *Node) startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string, timeouts rpc.HTTPTimeouts) error {
+func (node *Node) startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string, timeouts rpc.HTTPTimeouts, exposeAll bool) error {
 	// Short circuit if the HTTP endpoint isn't being exposed
 	if endpoint == "" {
 		return nil
 	}
-	listener, handler, err := rpc.StartHTTPEndpoint(endpoint, apis, modules, cors, vhosts, timeouts)
+	listener, handler, err := rpc.StartHTTPEndpoint(endpoint, apis, modules, cors, vhosts, timeouts, exposeAll)
 	if err != nil {
 		return err
 	}

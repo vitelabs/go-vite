@@ -22,19 +22,6 @@ var (
 	passwordRegexp = regexp.MustCompile(`personal.[nus]`)
 	onlyWhitespace = regexp.MustCompile(`^\s*$`)
 	exit           = regexp.MustCompile(`^\s*exit\s*;*\s*$`)
-
-	load_typedarray_define_js = "var TA=typedarray;" +
-		"var ArrayBuffer= TA.ArrayBuffer;" +
-		"var DataView=TA.DataView;" +
-		"var Float32Array=TA.Float32Array;" +
-		"var Float64Array=TA.Float64Array;" +
-		"var Int8Array=TA.Int8Array;" +
-		"var Int16Array=TA.Int16Array;" +
-		"var Int32Array=TA.Int32Array;" +
-		"var Uint8Array=TA.Uint8Array;" +
-		"var Uint8ClampedArray=TA.Uint8ClampedArray;" +
-		"var Uint16Array=TA.Uint16Array;" +
-		"var Uint32Array=TA.Uint32Array; "
 )
 
 // HistoryFile is the file within the data directory to store input scrollback.
@@ -117,28 +104,19 @@ func (c *Console) init(preload []string) error {
 	consoleObj.Object().Set("log", c.consoleOutput)
 	consoleObj.Object().Set("error", c.consoleOutput)
 
+	if err := c.jsre.Compile("polyfill.js", jsre.Polyfill); err != nil {
+		return fmt.Errorf("polyfill.js: %v", err)
+	}
+	if _, err := c.jsre.Run("require('polyfill');"); err != nil {
+		return fmt.Errorf("web3 require: %v", err)
+	}
 	// Load all the internal utility JavaScript libraries
-	if err := c.jsre.Compile("bignumber.js", jsre.BigNumber_JS); err != nil {
-		return fmt.Errorf("bignumber.js: %v", err)
-	}
-
-	if err := c.jsre.Compile("typedarray.js", jsre.Typedarray_JS); err != nil {
-		return fmt.Errorf("typedarray.js: %v", err)
-	}
-
-	if _, err := c.jsre.Run(load_typedarray_define_js); err != nil {
-		return fmt.Errorf("typedarray require: %v", err)
-	}
-
 	if err := c.jsre.Compile("vite.js", jsre.Vite_JS); err != nil {
 		return fmt.Errorf("vite.js: %v", err)
 	}
 
-	if _, err := c.jsre.Run("var Vite = require('ViteJS');"); err != nil {
-		return fmt.Errorf("web3 require: %v", err)
-	}
-	if _, err := c.jsre.Run("var vite = new Vite(b_vite);"); err != nil {
-		return fmt.Errorf("vite provider: %v", err)
+	if _, err := c.jsre.Run("var vite = require('ViteJS');"); err != nil {
+		return fmt.Errorf("ViteJS require: %v", err)
 	}
 
 	//The admin.sleep and admin.sleepBlocks are offered by the console and not by the RPC layer.

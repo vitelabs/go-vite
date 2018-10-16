@@ -170,6 +170,14 @@ func (node *Node) Config() *Config {
 	return node.config
 }
 
+func (node *Node) ViteServer() *vite.Vite {
+	return node.viteServer
+}
+
+func (node *Node) WalletManager() *wallet.Manager {
+	return node.walletManager
+}
+
 //wallet start
 func (node *Node) startWallet() error {
 
@@ -240,24 +248,28 @@ func (node *Node) startP2pAndVite() error {
 
 func (node *Node) startRPC() error {
 
-	// Get all the possible APIs
-	node.rpcAPIs = rpcapi.GetAllApis(node.viteServer)
+	// Init rpc log
+	rpcapi.InitLog(node.Config().DataDir, node.Config().LogLevel)
 
 	// Start the various API endpoints, terminating all in case of errors
-	if err := node.startInProcess(node.rpcAPIs); err != nil {
+	if err := node.startInProcess(node.GetInProcessApis()); err != nil {
 		return err
 	}
 
 	// Start rpc
 	if node.config.IPCEnabled {
-		if err := node.startIPC(node.rpcAPIs); err != nil {
+		if err := node.startIPC(node.GetIpcApis()); err != nil {
 			node.stopInProcess()
 			return err
 		}
 	}
 
 	if node.config.RPCEnabled {
-		if err := node.startHTTP(node.httpEndpoint, node.rpcAPIs, nil, node.config.HTTPCors, node.config.HttpVirtualHosts, rpc.HTTPTimeouts{}); err != nil {
+		apis := rpcapi.GetPublicApis(node.viteServer)
+		if len(node.config.PublicModules) != 0 {
+			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
+		}
+		if err := node.startHTTP(node.httpEndpoint, apis, nil, node.config.HTTPCors, node.config.HttpVirtualHosts, rpc.HTTPTimeouts{}, node.config.HttpExposeAll); err != nil {
 			node.stopInProcess()
 			node.stopIPC()
 			return err
@@ -265,7 +277,11 @@ func (node *Node) startRPC() error {
 	}
 
 	if node.config.WSEnabled {
-		if err := node.startWS(node.wsEndpoint, node.rpcAPIs, nil, node.config.WSOrigins, true); err != nil {
+		apis := rpcapi.GetPublicApis(node.viteServer)
+		if len(node.config.PublicModules) != 0 {
+			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
+		}
+		if err := node.startWS(node.wsEndpoint, apis, nil, node.config.WSOrigins, node.config.WSExposeAll); err != nil {
 			node.stopInProcess()
 			node.stopIPC()
 			node.stopHTTP()

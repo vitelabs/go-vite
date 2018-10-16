@@ -19,6 +19,8 @@ type Config struct {
 
 	// global keys
 	DataDir string `json:"DataDir"`
+	//Log level
+	LogLevel string `json:"LogLevel"`
 }
 
 func (c Config) RunLogDir() string {

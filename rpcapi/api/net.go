@@ -28,6 +28,7 @@ type SyncInfo struct {
 }
 
 func (n *NetApi) SyncInfo() *SyncInfo {
+	log.Info("SyncInfo")
 	s := n.net.Status()
 
 	return &SyncInfo{

@@ -4,19 +4,19 @@ import (
 	crand "crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"github.com/robertkrimen/otto"
-	"github.com/vitelabs/go-vite/cmd/internal/jsre/deps"
-	"github.com/vitelabs/go-vite/cmd/utils"
 	"io"
 	"io/ioutil"
 	"math/rand"
 	"time"
+
+	"github.com/robertkrimen/otto"
+	"github.com/vitelabs/go-vite/cmd/internal/jsre/deps"
+	"github.com/vitelabs/go-vite/cmd/utils"
 )
 
 var (
-	BigNumber_JS  = deps.MustAsset("bignumber.js")
-	Vite_JS       = deps.MustAsset("vite.js")
-	Typedarray_JS = deps.MustAsset("typedarray.js")
+	Vite_JS  = deps.MustAsset("vite.js")
+	Polyfill = deps.MustAsset("polyfill.js")
 )
 
 /*

@@ -174,7 +174,7 @@ func action(ctx *cli.Context) error {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 
-	nodeManager := nodemanager.New(ctx, nodemanager.FullNodeMaker{})
+	nodeManager := nodemanager.NewDefaultNodeManager(ctx, nodemanager.FullNodeMaker{})
 
 	return nodeManager.Start()
 }

@@ -51,8 +51,11 @@ type Config struct {
 	WSHost           string   `json:"WSHost"`
 	WSPort           int      `json:"WSPort"`
 
-	HTTPCors  []string `json:"HTTPCors"`
-	WSOrigins []string `json:"WSOrigins"`
+	HTTPCors      []string `json:"HTTPCors"`
+	WSOrigins     []string `json:"WSOrigins"`
+	PublicModules []string `json:"PublicModules"`
+	WSExposeAll   bool     `json:"WSExposeAll"`
+	HttpExposeAll bool     `json:"HttpExposeAll"`
 
 	//Log level
 	LogLevel string `json:"LogLevel"`
@@ -80,6 +83,7 @@ func (c *Config) makeViteConfig() *config.Config {
 		DataDir:  c.DataDir,
 		Net:      c.makeNetConfig(),
 		Vm:       c.makeVmConfig(),
+		LogLevel: c.LogLevel,
 	}
 }
 

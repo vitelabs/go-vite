@@ -33,19 +33,6 @@ See https://github.com/vitelabs/go-vite/wiki/JavaScript-Console.`,
 	}
 
 	//local
-	benchmarkCommand = cli.Command{
-		Action:   utils.MigrateFlags(localBenchmarkAction),
-		Name:     "benchmark",
-		Usage:    "Start an interactive JavaScript environment",
-		Flags:    jsFlags,
-		Category: "CONSOLE COMMANDS",
-		Description: `
-The GVite console is an interactive shell for the JavaScript runtime environment
-which exposes a node admin interface as well as the Ðapp JavaScript API.
-See https://github.com/vitelabs/go-vite/wiki/JavaScript-Console.`,
-	}
-
-	//local
 	javascriptCommand = cli.Command{
 		Action:    utils.MigrateFlags(ephemeralConsoleAction),
 		Name:      "js",
@@ -78,9 +65,9 @@ This command allows to open a console on a running gvite node.`,
 func localConsoleAction(ctx *cli.Context) error {
 
 	// Create and start the node based on the CLI flags
-	nodeManager := nodemanager.New(ctx, nodemanager.FullNodeMaker{})
-	nodemanager.StartNode(nodeManager.Node())
-	defer nodemanager.StopNode(nodeManager.Node())
+	nodeManager := nodemanager.NewConsoleNodeManager(ctx, nodemanager.FullNodeMaker{})
+	nodeManager.Start()
+	defer nodeManager.Stop()
 
 	// Attach to the newly started node and start the JavaScript console
 	client, err := nodeManager.Node().Attach()
@@ -114,29 +101,13 @@ func localConsoleAction(ctx *cli.Context) error {
 	return nil
 }
 
-// localConsole starts a new gvite node, attaching a JavaScript console to it at the same time.
-func localBenchmarkAction(ctx *cli.Context) error {
-
-	// Create and start the node based on the CLI flags
-	nodeManager := nodemanager.New(ctx, nodemanager.FullNodeMaker{})
-	nodemanager.StartNode(nodeManager.Node())
-	defer nodemanager.StopNode(nodeManager.Node())
-
-	node := nodeManager.Node()
-
-	vite := node.Vite()
-
-	benchmarkProduce(vite)
-	return nil
-}
-
 // ephemeralConsole starts a new geth node, attaches an ephemeral JavaScript
 // console to it, executes each of the files specified as arguments and tears
 // everything down.
 func ephemeralConsoleAction(ctx *cli.Context) error {
 
 	// Create and start the node based on the CLI flags
-	nodeManager := nodemanager.New(ctx, nodemanager.FullNodeMaker{})
+	nodeManager := nodemanager.NewConsoleNodeManager(ctx, nodemanager.FullNodeMaker{})
 	nodeManager.Start()
 	defer nodeManager.Stop()
 
