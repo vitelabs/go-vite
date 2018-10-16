@@ -107,11 +107,9 @@ type syncer struct {
 	log        log15.Logger
 	running    int32
 	receiver   Receiver
-	fc         *fileClient
-	reqs       []*subLedgerRequest
 }
 
-func newSyncer(chain Chain, peers *peerSet, pool context, receiver Receiver, fc *fileClient) *syncer {
+func newSyncer(chain Chain, peers *peerSet, pool context, receiver Receiver) *syncer {
 	s := &syncer{
 		state:      SyncNotStart,
 		term:       make(chan struct{}),
@@ -123,7 +121,6 @@ func newSyncer(chain Chain, peers *peerSet, pool context, receiver Receiver, fc 
 		pool:       pool,
 		log:        log15.New("module", "net/syncer"),
 		receiver:   receiver,
-		fc:         fc,
 	}
 
 	// subscribe peer add/del event
@@ -308,8 +305,6 @@ func (s *syncer) sync(from, to uint64) {
 			done:       s.reqCallback,
 		}
 
-		s.reqs = append(s.reqs, req)
-
 		s.pool.Add(req)
 	}
 }
@@ -319,6 +314,8 @@ func (s *syncer) reqCallback(r Request, err error) {
 		s.log.Error(fmt.Sprintf("request error: %v", err))
 
 		from, to := r.Band()
+		s.log.Error(fmt.Sprintf("GetSubLedger<%d-%d> error: %v", from, to, err))
+
 		if to > s.to {
 			req := r.Req()
 			req.SetBand(from, s.to)
