@@ -19,7 +19,7 @@ func (node *Node) GetIpcApis() []rpc.API {
 
 //Http apis
 func (node *Node) GetHttpApis() []rpc.API {
-	apiModules := []string{"ledger", "public_onroad", "net", "contracts", "testapi", "pow", "tx"}
+	apiModules := []string{"ledger", "public_onroad", "net", "contracts", "pow", "tx"}
 	if node.Config().NetID > 1 {
 		apiModules = append(apiModules, "testapi")
 	}
@@ -28,7 +28,7 @@ func (node *Node) GetHttpApis() []rpc.API {
 
 //WS apis
 func (node *Node) GetWSApis() []rpc.API {
-	apiModules := []string{"ledger", "public_onroad", "net", "contracts", "testapi", "pow", "tx"}
+	apiModules := []string{"ledger", "public_onroad", "net", "contracts", "pow", "tx"}
 	if node.Config().NetID > 1 {
 		apiModules = append(apiModules, "testapi")
 	}

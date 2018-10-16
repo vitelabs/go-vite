@@ -51,8 +51,9 @@ type Config struct {
 	WSHost           string   `json:"WSHost"`
 	WSPort           int      `json:"WSPort"`
 
-	HTTPCors  []string `json:"HTTPCors"`
-	WSOrigins []string `json:"WSOrigins"`
+	HTTPCors      []string `json:"HTTPCors"`
+	WSOrigins     []string `json:"WSOrigins"`
+	PublicModules []string `json:"PublicModules"`
 
 	//Log level
 	LogLevel string `json:"LogLevel"`
