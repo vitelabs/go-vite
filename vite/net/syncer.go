@@ -301,7 +301,7 @@ func (s *syncer) sync(from, to uint64) {
 			from:       piece.from,
 			to:         piece.to,
 			peer:       piece.peer,
-			expiration: time.Now().Add(10 * time.Second),
+			expiration: time.Now().Add(subledgerTimeout),
 			done:       s.reqCallback,
 		}
 

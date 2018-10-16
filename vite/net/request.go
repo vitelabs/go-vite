@@ -220,7 +220,7 @@ func (s *subLedgerRequest) fileRequetErr(r *fileRequest, err error) {
 		from:       r.from,
 		to:         r.to,
 		peer:       r.peer,
-		expiration: time.Now().Add(10 * time.Second),
+		expiration: time.Now().Add(subledgerTimeout),
 		done:       s.done,
 		rec:        r.rec,
 	}
@@ -229,6 +229,8 @@ func (s *subLedgerRequest) fileRequetErr(r *fileRequest, err error) {
 }
 
 func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
+	defer staticDuration("handle-filelist", time.Now())
+
 	if cmd(pkt.Cmd) == FileListCode {
 		s.state = reqRespond
 
@@ -259,15 +261,14 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 
 			// request files
 			ctx.FC().request(&fileRequest{
-				from:       from,
-				to:         to,
-				files:      msg.Files,
-				nonce:      msg.Nonce,
-				peer:       peer,
-				rec:        s.rec,
-				expiration: time.Now().Add(u64ToDuration(blockNumber)),
-				current:    from,
-				done:       s.fileRequetErr,
+				from:    from,
+				to:      to,
+				files:   msg.Files,
+				nonce:   msg.Nonce,
+				peer:    peer,
+				rec:     s.rec,
+				current: from,
+				done:    s.fileRequetErr,
 			})
 		}
 
@@ -337,14 +338,13 @@ func (s *subLedgerRequest) Req() Request {
 
 // @request file
 type fileRequest struct {
-	from, to   uint64
-	files      []*ledger.CompressedFileMeta
-	nonce      uint64
-	peer       *Peer
-	rec        receiveBlocks
-	expiration time.Time
-	current    uint64 // the tallest snapshotBlock have received, as the breakpoint resume
-	done       func(r *fileRequest, err error)
+	from, to uint64
+	files    []*ledger.CompressedFileMeta
+	nonce    uint64
+	peer     *Peer
+	rec      receiveBlocks
+	current  uint64 // the tallest snapshotBlock have received, as the breakpoint resume
+	done     func(r *fileRequest, err error)
 }
 
 // file1/0-3600 file2/3601-7200
@@ -409,6 +409,8 @@ func (c *chunkRequest) State() reqState {
 }
 
 func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
+	defer staticDuration("handle-chunk", time.Now())
+
 	if cmd(pkt.Cmd) == SubLedgerCode {
 		c.state = reqRespond
 

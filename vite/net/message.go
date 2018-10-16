@@ -2,6 +2,7 @@ package net
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/monitor"
 	"time"
 
 	"github.com/pkg/errors"
@@ -13,11 +14,11 @@ import (
 )
 
 var errHandshakeTwice = errors.New("handshake should send only once")
-var errMsgTimeout = errors.New("message response timeout")
 
 var subledgerTimeout = 10 * time.Second
-var accountBlocksTimeout = 30 * time.Second
-var snapshotBlocksTimeout = time.Minute
+
+//var accountBlocksTimeout = 30 * time.Second
+//var snapshotBlocksTimeout = time.Minute
 
 // @section Cmd
 const CmdSetName = "vite"
@@ -87,6 +88,10 @@ func (t cmd) String() string {
 	return msgNames[t]
 }
 
+func staticDuration(name string, start time.Time) {
+	monitor.LogDuration("net", name, time.Now().Sub(start).Nanoseconds())
+}
+
 type MsgHandler interface {
 	ID() string
 	Cmds() []cmd
@@ -133,6 +138,8 @@ func (s *getSubLedgerHandler) Cmds() []cmd {
 }
 
 func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender *Peer) error {
+	defer staticDuration("handle-getsubledger", time.Now())
+
 	req := new(message.GetSnapshotBlocks)
 	err := req.Deserialize(msg.Payload)
 	if err != nil {
@@ -172,6 +179,8 @@ func (s *getSnapshotBlocksHandler) Cmds() []cmd {
 }
 
 func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
+	defer staticDuration("handle-getsnapshotblocks", time.Now())
+
 	req := new(message.GetSnapshotBlocks)
 	err = req.Deserialize(msg.Payload)
 	if err != nil {
@@ -217,6 +226,8 @@ func (a *getAccountBlocksHandler) Cmds() []cmd {
 var NULL_ADDRESS = types.Address{}
 
 func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
+	defer staticDuration("handle-getaccountblocks", time.Now())
+
 	as := new(message.GetAccountBlocks)
 	err = as.Deserialize(msg.Payload)
 	if err != nil {
@@ -274,6 +285,8 @@ func (c *getChunkHandler) Cmds() []cmd {
 }
 
 func (c *getChunkHandler) Handle(msg *p2p.Msg, sender *Peer) error {
+	defer staticDuration("handle-getchunk", time.Now())
+
 	req := new(message.GetChunk)
 	err := req.Deserialize(msg.Payload)
 	if err != nil {
