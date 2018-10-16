@@ -25,5 +25,11 @@ func (or *OnRoad) GetMeta(addr *types.Address, hash *types.Hash) ([]byte, error)
 		return nil, nil
 	}
 	value, err := or.db.Get(key, nil)
+	if err != nil {
+		if err != leveldb.ErrNotFound {
+			return nil, err
+		}
+		return nil, nil
+	}
 	return value, nil
 }

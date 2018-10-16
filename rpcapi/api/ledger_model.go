@@ -1,7 +1,6 @@
 package api
 
 import (
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -17,14 +16,14 @@ type AccountBlock struct {
 	FromAddress types.Address `json:"fromAddress"`
 
 	Height string `json:"height"`
-	Quota  string `json:"quota"`
+	Quota  *string `json:"quota"`
 
-	Amount string `json:"amount"`
-	Fee    string `json:"fee"`
+	Amount *string `json:"amount"`
+	Fee    *string `json:"fee"`
 
 	Timestamp int64 `json:"timestamp"`
 
-	ConfirmedTimes string        `json:"confirmedTimes"`
+	ConfirmedTimes *string        `json:"confirmedTimes"`
 	TokenInfo      *RpcTokenInfo `json:"tokenInfo"`
 }
 
@@ -36,38 +35,44 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 	if err != nil {
 		return nil, err
 	}
-	lAb.Quota, err = strconv.ParseUint(ab.Quota, 10, 8)
-	if err != nil {
-		return nil, err
+	if ab.Quota != nil {
+		lAb.Quota, err = strconv.ParseUint(*ab.Quota, 10, 8)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	var parseSuccess bool
-	lAb.Amount, parseSuccess = new(big.Int).SetString(ab.Amount, 10)
-	if !parseSuccess {
-		return nil, errors.New("parse amount failed")
+
+	lAb.Amount = big.NewInt(0)
+	if ab.Amount != nil {
+		lAb.Amount.SetString(*ab.Amount, 10)
 	}
-	lAb.Fee, parseSuccess = new(big.Int).SetString(ab.Fee, 10)
+
+	lAb.Fee = big.NewInt(0)
+	if ab.Fee != nil {
+		lAb.Fee.SetString(*ab.Fee, 10)
+	}
 
 	t := time.Unix(ab.Timestamp, 0)
 	lAb.Timestamp = &t
 
-	if !parseSuccess {
-		return nil, errors.New("parse fee failed")
-	}
 	return lAb, nil
 }
 
 func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.TokenInfo, confirmedTimes uint64) *AccountBlock {
+	zero := "0"
+	quota := strconv.FormatUint(ledgerBlock.Quota, 10)
+	confirmedTimeStr := strconv.FormatUint(confirmedTimes, 10)
 	ab := &AccountBlock{
 		AccountBlock: ledgerBlock,
 
 		Height: strconv.FormatUint(ledgerBlock.Height, 10),
-		Quota:  strconv.FormatUint(ledgerBlock.Quota, 10),
+		Quota:  &quota,
 
-		Amount:         "0",
-		Fee:            "0",
+		Amount:         &zero,
+		Fee:            &zero,
 		TokenInfo:      RawTokenInfoToRpc(token, ledgerBlock.TokenId),
-		ConfirmedTimes: strconv.FormatUint(confirmedTimes, 10),
+		ConfirmedTimes: &confirmedTimeStr,
 	}
 
 	if ledgerBlock.Timestamp != nil {
@@ -78,10 +83,12 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.Token
 		ab.TokenInfo = RawTokenInfoToRpc(token, ledgerBlock.TokenId)
 	}
 	if ledgerBlock.Amount != nil {
-		ab.Amount = ledgerBlock.Amount.String()
+		a := ledgerBlock.Amount.String()
+		ab.Amount = &a
 	}
 	if ledgerBlock.Fee != nil {
-		ab.Fee = ledgerBlock.Fee.String()
+		s := ledgerBlock.Fee.String()
+		ab.Fee = &s
 	}
 	return ab
 }
@@ -165,3 +172,4 @@ func createKafkaProducerInfo(producer *sender.Producer) *KafkaProducerInfo {
 
 	return producerInfo
 }
+

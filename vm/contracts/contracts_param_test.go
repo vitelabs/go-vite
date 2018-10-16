@@ -8,10 +8,9 @@ import (
 )
 
 func TestPackMethodParam(t *testing.T) {
-	addr, _, _ := types.CreateAddress()
-	_, err := PackMethodParam(AddressRegister, MethodNameRegister, types.DELEGATE_GID, "node", addr, addr)
+	_, err := PackMethodParam(AddressVote, MethodNameVote, types.DELEGATE_GID, "node")
 	if err != nil {
-		t.Fatalf("pack method param failed")
+		t.Fatalf("pack method param failed, %v", err)
 	}
 }
 

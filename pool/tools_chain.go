@@ -70,6 +70,9 @@ func (self *accountCh) getBlock(height uint64) commonBlock {
 	if e != nil {
 		return nil
 	}
+	if block == nil {
+		return nil
+	}
 
 	return newAccountPoolBlock(block, nil, self.version)
 }

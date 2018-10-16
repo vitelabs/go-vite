@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
@@ -27,6 +28,11 @@ func PackMethodParam(contractsAddr types.Address, methodName string, params ...i
 		}
 	}
 	return nil, errInvalidParam
+}
+
+// Sign certain tx data using private key of node address to prove ownership of node address
+func GetRegisterMessageForSignature(accountAddress types.Address, blockHeight uint64, prevHash types.Hash, snapshotHash types.Hash) []byte {
+	return helper.JoinBytes(accountAddress.Bytes(), new(big.Int).SetUint64(blockHeight).Bytes(), prevHash.Bytes(), snapshotHash.Bytes())
 }
 
 type ConditionCode uint8
