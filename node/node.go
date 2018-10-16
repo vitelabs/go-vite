@@ -269,7 +269,7 @@ func (node *Node) startRPC() error {
 		if len(node.config.PublicModules) != 0 {
 			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
 		}
-		if err := node.startHTTP(node.httpEndpoint, apis, nil, node.config.HTTPCors, node.config.HttpVirtualHosts, rpc.HTTPTimeouts{}, true); err != nil {
+		if err := node.startHTTP(node.httpEndpoint, apis, nil, node.config.HTTPCors, node.config.HttpVirtualHosts, rpc.HTTPTimeouts{}, node.config.HttpExposeAll); err != nil {
 			node.stopInProcess()
 			node.stopIPC()
 			return err
@@ -281,7 +281,7 @@ func (node *Node) startRPC() error {
 		if len(node.config.PublicModules) != 0 {
 			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
 		}
-		if err := node.startWS(node.wsEndpoint, apis, nil, node.config.WSOrigins, true); err != nil {
+		if err := node.startWS(node.wsEndpoint, apis, nil, node.config.WSOrigins, node.config.WSExposeAll); err != nil {
 			node.stopInProcess()
 			node.stopIPC()
 			node.stopHTTP()

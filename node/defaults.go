@@ -24,6 +24,8 @@ var DefaultNodeConfig = Config{
 	NetID:                0,
 	LogLevel:             "info",
 	WSOrigins:            []string{"*"},
+	WSExposeAll:          true,
+	HttpExposeAll:        true,
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.

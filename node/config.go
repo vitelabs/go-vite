@@ -54,6 +54,8 @@ type Config struct {
 	HTTPCors      []string `json:"HTTPCors"`
 	WSOrigins     []string `json:"WSOrigins"`
 	PublicModules []string `json:"PublicModules"`
+	WSExposeAll   bool     `json:"WSExposeAll"`
+	HttpExposeAll bool     `json:"HttpExposeAll"`
 
 	//Log level
 	LogLevel string `json:"LogLevel"`
