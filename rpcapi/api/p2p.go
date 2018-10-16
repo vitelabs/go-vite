@@ -24,7 +24,7 @@ func (p P2PApi) NetworkAvailable() bool {
 
 }
 
-func (p P2PApi) PeersCount() int {
+func (p P2PApi) PeersCount() uint {
 	log.Info("called PeersCount ")
 	return p.p2p.PeersCount()
 }
