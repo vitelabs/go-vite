@@ -47,7 +47,7 @@ func (verifier *AccountVerifier) newVerifyStat() *AccountBlockVerifyStat {
 
 func (verifier *AccountVerifier) VerifyNetAb(block *ledger.AccountBlock) error {
 	if err := verifier.VerifyTimeNotYet(block); err != nil {
-		return errors.New("Timestamp not arrive yet")
+		return err
 	}
 	if err := verifier.VerifyDataValidity(block); err != nil {
 		return err
@@ -58,13 +58,15 @@ func (verifier *AccountVerifier) VerifyNetAb(block *ledger.AccountBlock) error {
 func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock) (blocks []*vm_context.VmAccountBlock, err error) {
 	defer monitor.LogTime("verify", "VerifyforRPC", time.Now())
 	if err := verifier.VerifyTimeNotYet(block); err != nil {
-		return nil, errors.New("Timestamp not arrive yet")
-	}
-	if err := verifier.VerifyDataValidity(block); err != nil {
-		//return nil, errors.New("VerifyDataValidity failed")
 		return nil, err
 	}
-	if verifyResult, _ := verifier.VerifyReferred(block); verifyResult != SUCCESS {
+	if err := verifier.VerifyDataValidity(block); err != nil {
+		return nil, err
+	}
+	if verifyResult, stat := verifier.VerifyReferred(block); verifyResult != SUCCESS {
+		if stat.errMsg != "" {
+			return nil, errors.New(stat.errMsg)
+		}
 		return nil, errors.New("VerifyReferred failed")
 	}
 	return verifier.VerifyforVM(block)
