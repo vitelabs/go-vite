@@ -36,3 +36,28 @@ func TestNewPool(t *testing.T) {
 		t.Log(k.String(), v.Hash, v.Height)
 	}
 }
+
+func TesPool(t *testing.T) {
+	c := ch.NewChain(&config.Config{
+		DataDir: common.DefaultDataDir(),
+	})
+	p := NewPool(c)
+	w := wallet.New(nil)
+
+	av := verifier.NewAccountVerifier(c, nil)
+
+	cs := &consensus.MockConsensus{}
+	sv := verifier.NewSnapshotVerifier(c, cs)
+
+	c.Init()
+	c.Start()
+	p.Init(&MockSyncer{}, w, sv, av)
+
+	p.Start()
+
+	block := c.GetLatestSnapshotBlock()
+	t.Log(block.Height, block.Hash, block.PrevHash, block.Producer())
+	for k, v := range block.SnapshotContent {
+		t.Log(k.String(), v.Hash, v.Height)
+	}
+}
