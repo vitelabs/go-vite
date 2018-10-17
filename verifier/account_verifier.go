@@ -49,7 +49,7 @@ func (verifier *AccountVerifier) VerifyNetAb(block *ledger.AccountBlock) error {
 	if err := verifier.VerifyTimeNotYet(block); err != nil {
 		return err
 	}
-	if err := verifier.VerifyDataValidity(block); err != nil {
+	if err := verifier.VerifyP2PDataValidity(block); err != nil {
 		return err
 	}
 	return nil
@@ -147,7 +147,7 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 func (verifier *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) bool {
 	defer monitor.LogTime("verify", "accountSelf", time.Now())
 
-	if err := verifier.VerifyDataValidity2(block); err != nil {
+	if err := verifier.VerifyDataValidity(block); err != nil {
 		verifyStatResult.referredSelfResult = FAIL
 		verifyStatResult.errMsg += err.Error()
 		return false
@@ -314,7 +314,7 @@ func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlo
 	return SUCCESS, nil
 }
 
-func (verifier *AccountVerifier) VerifyDataValidity2(block *ledger.AccountBlock) error {
+func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) error {
 	defer monitor.LogTime("verify", "accountSelfDataValidity", time.Now())
 
 	code, err := verifier.chain.AccountType(&block.AccountAddress)
@@ -361,7 +361,7 @@ func (verifier *AccountVerifier) VerifyDataValidity2(block *ledger.AccountBlock)
 	return nil
 }
 
-func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) error {
+func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBlock) error {
 	defer monitor.LogTime("verify", "accountSelfDataValidity", time.Now())
 
 	if block.Amount == nil {
@@ -389,12 +389,10 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 		return errors.New("VerifyNonce failed")
 	}
 
-	if block.IsSendBlock() && block.Signature == nil {
-		return nil
-	}
-
-	if !verifier.VerifySigature(block) {
-		return errors.New("VerifySigature failed")
+	if block.IsReceiveBlock() ||( block.IsSendBlock() && (len(block.Signature) >0 || len(block.PublicKey) > 0 )) {
+		if !verifier.VerifySigature(block) {
+			return errors.New("VerifySigature failed")
+		}
 	}
 
 	return nil
