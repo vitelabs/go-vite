@@ -5,15 +5,13 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-var errHandshakeTwice = errors.New("handshake should send only once")
+//var errHandshakeTwice = errors.New("handshake should send only once")
 
 var subledgerTimeout = 10 * time.Second
 
@@ -102,6 +100,8 @@ type MsgHandler interface {
 type _statusHandler func(msg *p2p.Msg, sender *Peer) error
 
 func statusHandler(msg *p2p.Msg, sender *Peer) error {
+	defer staticDuration("handle_StatusMsg", time.Now())
+
 	status := new(ledger.HashHeight)
 	err := status.Deserialize(msg.Payload)
 	if err != nil {
@@ -113,7 +113,7 @@ func statusHandler(msg *p2p.Msg, sender *Peer) error {
 }
 
 func (s _statusHandler) ID() string {
-	return "default status handler"
+	return "status handler"
 }
 
 func (s _statusHandler) Cmds() []cmd {
@@ -130,21 +130,23 @@ type getSubLedgerHandler struct {
 }
 
 func (s *getSubLedgerHandler) ID() string {
-	return "default GetSubLedger Handler"
+	return "GetSubLedger Handler"
 }
 
 func (s *getSubLedgerHandler) Cmds() []cmd {
 	return []cmd{GetSubLedgerCode}
 }
 
-func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender *Peer) error {
-	defer staticDuration("handle-getsubledger", time.Now())
+func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
+	defer staticDuration("handle_GetSubledger", time.Now())
 
 	req := new(message.GetSnapshotBlocks)
-	err := req.Deserialize(msg.Payload)
+	err = req.Deserialize(msg.Payload)
 	if err != nil {
-		return err
+		return
 	}
+
+	netLog.Info(fmt.Sprintf("receive %s from %s", req.String(), sender.RemoteAddr()))
 
 	var files []*ledger.CompressedFileMeta
 	var chunks [][2]uint64
@@ -155,23 +157,32 @@ func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender *Peer) error {
 	}
 
 	if err != nil {
+		netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req.String(), sender.RemoteAddr(), err))
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
-	} else {
-		return sender.Send(FileListCode, msg.Id, &message.FileList{
-			Files:  files,
-			Chunks: chunks,
-			Nonce:  0,
-		})
 	}
+
+	fileList := &message.FileList{
+		Files:  files,
+		Chunks: chunks,
+		Nonce:  0,
+	}
+	err = sender.Send(FileListCode, msg.Id, fileList)
+
+	if err != nil {
+		netLog.Error(fmt.Sprintf("send %s to %s error: %v", fileList, sender.RemoteAddr(), err))
+	} else {
+		netLog.Info(fmt.Sprintf("send %s to %s done", fileList, sender.RemoteAddr()))
+	}
+
+	return
 }
 
 type getSnapshotBlocksHandler struct {
 	chain Chain
-	log   log15.Logger
 }
 
 func (s *getSnapshotBlocksHandler) ID() string {
-	return "default GetSnapshotBlocks Handler"
+	return "GetSnapshotBlocks"
 }
 
 func (s *getSnapshotBlocksHandler) Cmds() []cmd {
@@ -179,7 +190,7 @@ func (s *getSnapshotBlocksHandler) Cmds() []cmd {
 }
 
 func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
-	defer staticDuration("handle-getsnapshotblocks", time.Now())
+	defer staticDuration("handle_GetSnapshotBlocks", time.Now())
 
 	req := new(message.GetSnapshotBlocks)
 	err = req.Deserialize(msg.Payload)
@@ -187,7 +198,7 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error
 		return
 	}
 
-	s.log.Info(fmt.Sprintf("receive GetSnapshotBlocksMsg: %s/%d %d from %s", req.From.Hash, req.From.Height, req.Count, sender))
+	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender.RemoteAddr()))
 
 	var blocks []*ledger.SnapshotBlock
 	if req.From.Height != 0 {
@@ -196,15 +207,16 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error
 		blocks, err = s.chain.GetSnapshotBlocksByHash(&req.From.Hash, req.Count, req.Forward, true)
 	}
 
-	if err != nil {
-		s.log.Error(fmt.Sprintf("GetSnapshotBlocks[%s/%d-%d] error: %v", req.From.Hash, req.From.Height, req.Count, err))
+	if err != nil || len(blocks) == 0 {
+		netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
-	} else if err = sender.SendSnapshotBlocks(blocks, msg.Id); err != nil {
-		s.log.Error(fmt.Sprintf("send SnapshotBlocks to %s error: %v", sender, err))
+	}
+
+	err = sender.SendSnapshotBlocks(blocks, msg.Id)
+	if err != nil {
+		netLog.Error(fmt.Sprintf("send %d SnapshotBlocks to %s error: %v", len(blocks), sender.RemoteAddr(), err))
 	} else {
-		for _, block := range blocks {
-			s.log.Info(fmt.Sprintf("send SnapshotBlock %s/%d to %s done", block.Hash, block.Height, sender))
-		}
+		netLog.Info(fmt.Sprintf("send %d SnapshotBlocks to %s done", len(blocks), sender.RemoteAddr()))
 	}
 
 	return
@@ -212,11 +224,10 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error
 
 type getAccountBlocksHandler struct {
 	chain Chain
-	log   log15.Logger
 }
 
 func (a *getAccountBlocksHandler) ID() string {
-	return "default GetAccountBlocks Handler"
+	return "GetAccountBlocks Handler"
 }
 
 func (a *getAccountBlocksHandler) Cmds() []cmd {
@@ -226,7 +237,7 @@ func (a *getAccountBlocksHandler) Cmds() []cmd {
 var NULL_ADDRESS = types.Address{}
 
 func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
-	defer staticDuration("handle-getaccountblocks", time.Now())
+	defer staticDuration("handle_GetAccountBlocks", time.Now())
 
 	as := new(message.GetAccountBlocks)
 	err = as.Deserialize(msg.Payload)
@@ -234,17 +245,13 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error)
 		return
 	}
 
-	a.log.Info(fmt.Sprintf("receive GetAccountBlocksMsg: %s/%d %d from %s", as.From.Hash, as.From.Height, as.Count, sender))
+	netLog.Info(fmt.Sprintf("receive %s from %s", as, sender.RemoteAddr()))
 
 	// get correct address
 	if as.Address == NULL_ADDRESS {
 		block, err := a.chain.GetAccountBlockByHash(&as.From.Hash)
-		if err != nil {
-			a.log.Error(fmt.Sprintf("GetAccountBlockByHash %s error: %v", as.From.Hash, err))
-			return sender.Send(ExceptionCode, msg.Id, message.Missing)
-		}
-		if block == nil {
-			a.log.Error(fmt.Sprintf("GetAccountBlockByHash %s nil", as.From.Hash))
+		if err != nil || block == nil {
+			netLog.Error(fmt.Sprintf("handle %s from %s error: %v", as, sender.RemoteAddr(), err))
 			return sender.Send(ExceptionCode, msg.Id, message.Missing)
 		}
 		as.Address = block.AccountAddress
@@ -258,14 +265,15 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error)
 	}
 
 	if err != nil {
-		a.log.Error(fmt.Sprintf("GetAccountBlocks[%s/%d-%d] error: %v", as.From.Hash, as.From.Height, as.Count, err))
+		netLog.Error(fmt.Sprintf("handle %s from %s error: %v", as, sender.RemoteAddr(), err))
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
-	} else if err = sender.SendAccountBlocks(blocks, msg.Id); err != nil {
-		a.log.Error(fmt.Sprintf("send AccountBlocks to %s error: %v", sender, err))
+	}
+
+	err = sender.SendAccountBlocks(blocks, msg.Id)
+	if err != nil {
+		netLog.Error(fmt.Sprintf("send %d AccountBlocks to %s error: %v", len(blocks), sender, err))
 	} else {
-		for _, block := range blocks {
-			a.log.Info(fmt.Sprintf("send AccountBlock %s/%d to %s done", block.Hash, block.Height, sender))
-		}
+		netLog.Info(fmt.Sprintf("send %d AccountBlocks to %s done", len(blocks), sender))
 	}
 
 	return
@@ -277,39 +285,51 @@ type getChunkHandler struct {
 }
 
 func (c *getChunkHandler) ID() string {
-	return "default GetChunk Handler"
+	return "GetChunk Handler"
 }
 
 func (c *getChunkHandler) Cmds() []cmd {
 	return []cmd{GetChunkCode}
 }
 
-func (c *getChunkHandler) Handle(msg *p2p.Msg, sender *Peer) error {
-	defer staticDuration("handle-getchunk", time.Now())
+func (c *getChunkHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
+	defer staticDuration("handle_GetChunk", time.Now())
 
 	req := new(message.GetChunk)
-	err := req.Deserialize(msg.Payload)
+	err = req.Deserialize(msg.Payload)
 	if err != nil {
 		return err
 	}
 
+	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender.RemoteAddr()))
+
 	sblocks, mblocks, err := c.chain.GetConfirmSubLedger(req.Start, req.End)
 
-	if err == nil {
-		ablockCount := countAccountBlocks(mblocks)
-		ablocks := make([]*ledger.AccountBlock, 0, ablockCount)
-		for _, blocks := range mblocks {
-			ablocks = append(ablocks, blocks...)
-		}
-
-		return sender.SendSubLedger(sblocks, ablocks, msg.Id)
+	if err != nil {
+		netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
+		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
 
-	return sender.Send(ExceptionCode, msg.Id, message.Missing)
+	ablockCount := countAccountBlocks(mblocks)
+	ablocks := make([]*ledger.AccountBlock, 0, ablockCount)
+	for _, blocks := range mblocks {
+		ablocks = append(ablocks, blocks...)
+	}
+
+	err = sender.SendSubLedger(sblocks, ablocks, msg.Id)
+	if err != nil {
+		netLog.Error(fmt.Sprintf("send %d SnapshotBlocks %d AccountBlocks for %s to %s error: %v", len(sblocks), ablockCount, req, sender, err))
+	} else {
+		netLog.Info(fmt.Sprintf("send %d SnapshotBlocks %d AccountBlocks for %s to %s done", len(sblocks), ablockCount, req, sender))
+	}
+
+	return
 }
 
 // helper
-func countAccountBlocks(mblocks map[types.Address][]*ledger.AccountBlock) (count uint64) {
+type accountBlockMap = map[types.Address][]*ledger.AccountBlock
+
+func countAccountBlocks(mblocks accountBlockMap) (count uint64) {
 	for _, blocks := range mblocks {
 		for range blocks {
 			count++

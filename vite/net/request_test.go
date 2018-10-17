@@ -149,3 +149,8 @@ func TestSplitChunkOne(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestU64ToDuration(t *testing.T) {
+	u := rand.Uint64()
+	u64ToDuration(u)
+}

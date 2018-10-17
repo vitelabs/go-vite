@@ -83,6 +83,9 @@ type Fetcher interface {
 
 // @section Receiver
 type Receiver interface {
+	ReceiveSnapshotBlock(block *ledger.SnapshotBlock)
+	ReceiveAccountBlock(block *ledger.AccountBlock)
+
 	ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock)
 	ReceiveAccountBlocks(blocks []*ledger.AccountBlock)
 
@@ -117,4 +120,5 @@ type Net interface {
 	Protocols() []*p2p.Protocol
 	Start(svr *p2p.Server) error
 	Stop()
+	Info() *NodeInfo
 }

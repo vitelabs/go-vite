@@ -40,6 +40,7 @@ type context interface {
 	Add(r Request)
 	Retry(id uint64, err error)
 	FC() *fileClient
+	Get(id uint64) (Request, bool)
 }
 
 type Request interface {
@@ -47,7 +48,8 @@ type Request interface {
 	ID() uint64
 	SetID(id uint64)
 	Run(ctx context)
-	Done(err error)
+	Done()
+	Catch(err error)
 	Expired() bool
 	State() reqState
 	Req() Request
@@ -57,8 +59,11 @@ type Request interface {
 	Peer() *Peer
 }
 
-type receiveBlocks func(sblocks []*ledger.SnapshotBlock, ablocks []*ledger.AccountBlock)
-type doneCallback func(r Request, err error)
+type reqRec interface {
+	receiveSnapshotBlock(block *ledger.SnapshotBlock)
+	receiveAccountBlock(block *ledger.AccountBlock)
+}
+type errCallback = func(id uint64, err error)
 
 var errMissingPeer = errors.New("request missing peer")
 var errUnExpectedRes = errors.New("unexpected response")
@@ -74,8 +79,9 @@ type subLedgerPiece struct {
 
 // split large subledger request to many small pieces
 func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
-	// sort peers from low to high
-	sort.Sort(peers)
+	if len(peers) == 0 {
+		return
+	}
 
 	total := to - from + 1
 	if total < minBlocks {
@@ -93,7 +99,6 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 			pTo = peer.height - minBlocks
 			pCount = pTo - from + 1
 
-			// peer not high enough
 			if pCount < minBlocks {
 				continue
 			}
@@ -110,10 +115,10 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 			if pTo > to {
 				pTo = to
 				pCount = to - from + 1
-			}
-			// reset piece is too small, then collapse to one piece
-			if to < pTo+minBlocks {
+			} else if to < pTo+minBlocks {
+				// reset piece is too small, then collapse to one piece
 				pCount += to - pTo
+				pTo = to
 			}
 
 			cs = append(cs, &subLedgerPiece{
@@ -131,10 +136,11 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 
 	// reset piece, alloc to best peer
 	if from < to {
-		// if peer is not too much, has rest chunk, then collapse the rest chunk with last chunk
-		lastChunk := cs[len(cs)-1]
-		if lastChunk.peer == peers[len(peers)-1] {
-			lastChunk.to = to
+		if len(cs) > 0 {
+			// if peer is not too much, has rest chunk, then collapse the rest chunk with last chunk
+			if lastChunk := cs[len(cs)-1]; lastChunk.peer == peers[len(peers)-1] {
+				lastChunk.to = to
+			}
 		} else {
 			cs = append(cs, &subLedgerPiece{
 				from: from,
@@ -181,9 +187,8 @@ type subLedgerRequest struct {
 	peer       *Peer
 	state      reqState
 	expiration time.Time
-	done       doneCallback
-	rec        receiveBlocks
-	ctx        context
+	catch      errCallback
+	rec        reqRec
 }
 
 func (s *subLedgerRequest) SetID(id uint64) {
@@ -211,25 +216,8 @@ func (s *subLedgerRequest) State() reqState {
 	return s.state
 }
 
-func (s *subLedgerRequest) fileRequetErr(r *fileRequest, err error) {
-	if err == nil {
-		return
-	}
-
-	req := &subLedgerRequest{
-		from:       r.from,
-		to:         r.to,
-		peer:       r.peer,
-		expiration: time.Now().Add(subledgerTimeout),
-		done:       s.done,
-		rec:        r.rec,
-	}
-
-	s.ctx.Add(req)
-}
-
 func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
-	defer staticDuration("handle-filelist", time.Now())
+	defer staticDuration("handle_filelist", time.Now())
 
 	if cmd(pkt.Cmd) == FileListCode {
 		s.state = reqRespond
@@ -237,6 +225,7 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 		msg := new(message.FileList)
 		err := msg.Deserialize(pkt.Payload)
 		if err != nil {
+			netLog.Error(fmt.Sprintf("descerialize %s from %s error: %v", msg, peer.RemoteAddr(), err))
 			ctx.Retry(s.id, err)
 			return
 		}
@@ -266,9 +255,10 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 				files:   msg.Files,
 				nonce:   msg.Nonce,
 				peer:    peer,
-				rec:     s.rec,
 				current: from,
-				done:    s.fileRequetErr,
+				rec:     s.rec,
+				ctx:     ctx,
+				catch:   s.catch,
 			})
 		}
 
@@ -278,19 +268,19 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 			cs := splitChunk(chunk[0], chunk[1])
 			for _, c := range cs {
 				ctx.Add(&chunkRequest{
-					from:       c[0],
-					to:         c[1],
-					peer:       peer,
-					expiration: time.Now().Add(u64ToDuration(c[1] - c[0])),
-					done:       s.done,
-					rec:        s.rec,
+					from: c[0],
+					to:   c[1],
+					peer: peer,
+					rec:  s.rec,
 				})
 			}
 		}
 
-		s.Done(nil)
+		s.Done()
+		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
 	} else {
 		ctx.Retry(s.id, errUnExpectedRes)
+		netLog.Error(fmt.Sprintf("getSubLedgerHandler got %d need %d", pkt.Cmd, SubLedgerCode))
 	}
 }
 
@@ -299,31 +289,32 @@ func (s *subLedgerRequest) ID() uint64 {
 }
 
 func (s *subLedgerRequest) Run(ctx context) {
-	s.ctx = ctx
+	s.expiration = time.Now().Add(subledgerTimeout)
 
-	err := s.peer.Send(GetSubLedgerCode, s.id, &message.GetSubLedger{
+	msg := &message.GetSubLedger{
 		From:    ledger.HashHeight{Height: s.from},
 		Count:   s.to - s.from + 1,
 		Forward: true,
-	})
+	}
+	err := s.peer.Send(GetSubLedgerCode, s.id, msg)
 
 	if err != nil {
-		s.peer.log.Error(fmt.Sprintf("send GetSubLedgerMsg<%d-%d> to %s error: %v", s.from, s.to, s.peer, err))
+		netLog.Error(fmt.Sprintf("send %s to %s error: %v", msg, s.peer.RemoteAddr(), err))
+
 		ctx.Retry(s.id, err)
 	} else {
 		s.state = reqPending
-		s.peer.log.Info(fmt.Sprintf("send GetSubLedgerMsg<%d-%d> to %s done", s.from, s.to, s.peer))
+		netLog.Info(fmt.Sprintf("send %s to %s done", msg, s.peer.RemoteAddr()))
 	}
 }
 
-func (s *subLedgerRequest) Done(err error) {
-	if err != nil {
-		s.state = reqError
-	} else {
-		s.state = reqDone
-	}
+func (s *subLedgerRequest) Done() {
+	s.state = reqDone
+}
 
-	s.done(s, err)
+func (s *subLedgerRequest) Catch(err error) {
+	s.state = reqError
+	s.catch(s.id, err)
 }
 
 func (s *subLedgerRequest) Expired() bool {
@@ -340,9 +331,10 @@ type fileRequest struct {
 	files    []*ledger.CompressedFileMeta
 	nonce    uint64
 	peer     *Peer
-	rec      receiveBlocks
 	current  uint64 // the tallest snapshotBlock have received, as the breakpoint resume
-	done     func(r *fileRequest, err error)
+	rec      reqRec
+	ctx      context     // for create new GetSubLedgerMsg, retry
+	catch    errCallback // for retry GetSubLedger, catch error
 }
 
 // file1/0-3600 file2/3601-7200
@@ -358,8 +350,20 @@ func (r *fileRequest) String() string {
 	return strings.Join(files, " ")
 }
 
-func (r *fileRequest) Done(err error) {
-	r.done(r, err)
+func (r *fileRequest) Catch(err error) {
+	from := r.current
+	if from == 0 {
+		from = r.from
+	}
+
+	req := &subLedgerRequest{
+		from:  from,
+		to:    r.to,
+		catch: r.catch,
+		rec:   r.rec,
+	}
+
+	r.ctx.Add(req)
 }
 
 func (r *fileRequest) Addr() string {
@@ -373,8 +377,8 @@ type chunkRequest struct {
 	peer       *Peer
 	state      reqState
 	expiration time.Time
-	done       doneCallback
-	rec        receiveBlocks
+	catch      errCallback
+	rec        reqRec
 }
 
 func (c *chunkRequest) SetID(id uint64) {
@@ -407,7 +411,7 @@ func (c *chunkRequest) State() reqState {
 }
 
 func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
-	defer staticDuration("handle-chunk", time.Now())
+	defer staticDuration("handle_chunk", time.Now())
 
 	if cmd(pkt.Cmd) == SubLedgerCode {
 		c.state = reqRespond
@@ -415,15 +419,24 @@ func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 		msg := new(message.SubLedger)
 		err := msg.Deserialize(pkt.Payload)
 		if err != nil {
-			fmt.Println("chunkRequest handle error: ", err)
+			netLog.Error(fmt.Sprintf("descerialize %s from %s error: %v", msg, peer.RemoteAddr(), err))
 			ctx.Retry(c.id, err)
 			return
 		}
 
-		c.rec(msg.SBlocks, msg.ABlocks)
-		c.Done(nil)
+		for _, block := range msg.SBlocks {
+			c.rec.receiveSnapshotBlock(block)
+		}
+		for _, block := range msg.ABlocks {
+			c.rec.receiveAccountBlock(block)
+		}
+
+		c.Done()
+
+		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
 	} else {
 		ctx.Retry(c.id, errUnExpectedRes)
+		netLog.Error(fmt.Sprintf("chunkHandler got %d need %d", pkt.Cmd, SubLedgerCode))
 	}
 }
 
@@ -433,29 +446,30 @@ func (c *chunkRequest) ID() uint64 {
 
 func (c *chunkRequest) Run(ctx context) {
 	c.state = reqWaiting
+	c.expiration = time.Now().Add(u64ToDuration(c.to - c.from + 1))
 
-	err := c.peer.Send(GetChunkCode, c.id, &message.GetChunk{
+	chunk := &message.GetChunk{
 		Start: c.from,
 		End:   c.to,
-	})
+	}
+	err := c.peer.Send(GetChunkCode, c.id, chunk)
 
 	if err != nil {
-		c.peer.log.Error(fmt.Sprintf("send GetChunkMsg<%d/%d> to %s error: %v", c.from, c.to, c.peer, err))
+		netLog.Error(fmt.Sprintf("send %s to %s error: %v", chunk, c.peer.RemoteAddr(), err))
 		ctx.Retry(c.id, err)
 	} else {
 		c.state = reqPending
-		c.peer.log.Info(fmt.Sprintf("send GetChunkMsg<%d/%d> to %s done", c.from, c.to, c.peer))
+		netLog.Info(fmt.Sprintf("send %s to %s done", chunk, c.peer.RemoteAddr()))
 	}
 }
 
-func (c *chunkRequest) Done(err error) {
-	if err != nil {
-		c.state = reqError
-	} else {
-		c.state = reqDone
-	}
+func (c *chunkRequest) Done() {
+	c.state = reqDone
+}
 
-	c.done(c, err)
+func (c *chunkRequest) Catch(err error) {
+	c.state = reqError
+	c.catch(c.id, err)
 }
 
 func (c *chunkRequest) Expired() bool {

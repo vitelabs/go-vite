@@ -88,7 +88,7 @@ func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.H
 
 }
 
-func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int, needTokenInfo *bool) ([]*AccountBlock, error) {
+func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
 	l.log.Info("GetBlocksByAccAddr")
 
 	list, getErr := l.chain.GetAccountBlocksByAddress(&addr, index, 1, count)

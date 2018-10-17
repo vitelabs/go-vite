@@ -14,6 +14,10 @@ type mockNet struct {
 	*receiver
 }
 
+func (n *mockNet) Info() *NodeInfo {
+	return &NodeInfo{}
+}
+
 func (n *mockNet) Protocols() []*p2p.Protocol {
 	return nil
 }

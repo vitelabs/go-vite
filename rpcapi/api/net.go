@@ -20,11 +20,12 @@ func NewNetApi(vite *vite.Vite) *NetApi {
 }
 
 type SyncInfo struct {
-	StartHeight      string `json:"startHeight"`
-	TargetHeight     string `json:"targetHeight"`
-	CurrentHeight    string `json:"currentHeight"`
-	IsFirstSyncDone  bool   `json:"isFirstSyncDone"`
-	IsStartFirstSync bool   `json:"isStartFirstSync"`
+	From     string `json:"from"`
+	To       string `json:"to"`
+	Received string `json:"received"`
+	Current  string `json:"current"`
+	State    uint   `json:"state"`
+	Status   string `json:"status"`
 }
 
 func (n *NetApi) SyncInfo() *SyncInfo {
@@ -32,10 +33,16 @@ func (n *NetApi) SyncInfo() *SyncInfo {
 	s := n.net.Status()
 
 	return &SyncInfo{
-		StartHeight:      strconv.FormatUint(s.From, 10),
-		TargetHeight:     strconv.FormatUint(s.To, 10),
-		CurrentHeight:    strconv.FormatUint(s.Current, 10),
-		IsFirstSyncDone:  s.State == net.Syncdone,
-		IsStartFirstSync: true,
+		From:     strconv.FormatUint(s.From, 10),
+		To:       strconv.FormatUint(s.To, 10),
+		Received: strconv.FormatUint(s.Received, 10),
+		Current:  strconv.FormatUint(s.Current, 10),
+		State:    uint(s.State),
+		Status:   s.State.String(),
 	}
+}
+
+func (n *NetApi) Peers() uint {
+	info := n.net.Info()
+	return uint(len(info.Peers))
 }

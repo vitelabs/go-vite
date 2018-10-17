@@ -133,7 +133,7 @@ func TestVmContextIterator(t *testing.T) {
 	}
 	//vmContext.SetStorage([]byte("123123123"), []byte("asdfsadfasdfasdf"))
 	//vmContext.SetStorage([]byte("1231231254"), []byte("asdfsadfasdfasdf"))
-	iterator := vmContext.NewStorageIterator(nil)
+	iterator := vmContext.NewStorageIterator(&contracts.AddressConsensusGroup, nil)
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
@@ -158,7 +158,7 @@ func TestVmContextIterator2(t *testing.T) {
 			}
 			//vmContext.SetStorage([]byte("123123123"), []byte("asdfsadfasdfasdf"))
 			//vmContext.SetStorage([]byte("1231231254"), []byte("asdfsadfasdfasdf"))
-			iterator := vmContext.NewStorageIterator(types.SNAPSHOT_GID.Bytes())
+			iterator := vmContext.NewStorageIterator(&contracts.AddressRegister, types.SNAPSHOT_GID.Bytes())
 
 			for {
 				_, value, ok := iterator.Next()

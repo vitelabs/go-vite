@@ -2,6 +2,7 @@ package net
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"sync"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"github.com/vitelabs/go-vite/vite/net/topo"
 )
+
+var netLog = log15.New("module", "vite/net")
 
 type Config struct {
 	Single bool // for test
@@ -34,6 +37,7 @@ type net struct {
 	*fetcher
 	*broadcaster
 	*receiver
+	pool      *requestPool
 	term      chan struct{}
 	log       log15.Logger
 	protocols []*p2p.Protocol // mount to p2p.Server
@@ -79,13 +83,14 @@ func New(cfg *Config) Net {
 		fs:          newFileServer(cfg.Port, cfg.Chain),
 		fc:          fc,
 		handlers:    make(map[cmd]MsgHandler),
-		log:         log15.New("module", "vite/net"),
+		log:         netLog,
+		pool:        pool,
 	}
 
 	n.addHandler(_statusHandler(statusHandler))
 	n.addHandler(&getSubLedgerHandler{cfg.Chain})
-	n.addHandler(&getSnapshotBlocksHandler{cfg.Chain, log15.New("module", "net/getSblocks")})
-	n.addHandler(&getAccountBlocksHandler{cfg.Chain, log15.New("module", "net/getAblocks")})
+	n.addHandler(&getSnapshotBlocksHandler{cfg.Chain})
+	n.addHandler(&getAccountBlocksHandler{cfg.Chain})
 	n.addHandler(&getChunkHandler{cfg.Chain})
 	n.addHandler(pool)     // FileListCode, SubLedgerCode, ExceptionCode
 	n.addHandler(receiver) // NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode
@@ -114,8 +119,7 @@ func (n *net) Protocols() []*p2p.Protocol {
 }
 
 func (n *net) addHandler(handler MsgHandler) {
-	cmds := handler.Cmds()
-	for _, cmd := range cmds {
+	for _, cmd := range handler.Cmds() {
 		n.handlers[cmd] = handler
 	}
 }
@@ -123,19 +127,26 @@ func (n *net) addHandler(handler MsgHandler) {
 func (n *net) Start(svr *p2p.Server) (err error) {
 	n.term = make(chan struct{})
 
-	err = n.fs.start()
-	if err != nil {
+	if err = n.fs.start(); err != nil {
 		return
 	}
 
 	n.fc.start()
 
-	err = n.topo.Start(svr)
+	if err = n.topo.Start(svr); err != nil {
+		return
+	}
+
+	n.pool.start()
 
 	return
 }
 
 func (n *net) Stop() {
+	if n.term == nil {
+		return
+	}
+
 	select {
 	case <-n.term:
 	default:
@@ -143,13 +154,13 @@ func (n *net) Stop() {
 
 		n.syncer.Stop()
 
+		n.pool.start()
+
 		n.fs.stop()
 
 		n.fc.stop()
 
-		if n.topo != nil {
-			n.topo.Stop()
-		}
+		n.topo.Stop()
 
 		n.wg.Wait()
 	}
@@ -212,6 +223,8 @@ func (n *net) startPeer(p *Peer) error {
 	}
 }
 
+var errMissHandler = errors.New("missing message handler")
+
 func (n *net) handleMsg(p *Peer) (err error) {
 	msg, err := p.mrw.ReadMsg()
 	if err != nil {
@@ -221,19 +234,26 @@ func (n *net) handleMsg(p *Peer) (err error) {
 	defer msg.Discard()
 
 	code := cmd(msg.Cmd)
-	n.log.Info(fmt.Sprintf("receive %s from %s", code, p))
+	//if code == HandshakeCode {
+	//	n.log.Error(fmt.Sprintf("handshake twice with %s", p))
+	//	return errHandshakeTwice
+	//}
 
-	if code == HandshakeCode {
-		n.log.Error(fmt.Sprintf("handshake twice with %s", p))
-		return errHandshakeTwice
-	}
-
-	handler := n.handlers[code]
-	if handler != nil {
+	if handler, ok := n.handlers[code]; ok && handler != nil {
 		return handler.Handle(msg, p)
 	}
 
-	n.log.Error(fmt.Sprintf("missing handler for message %s", code))
+	n.log.Error(fmt.Sprintf("missing handler for message %d", msg.Cmd))
 
-	return fmt.Errorf("unknown message cmd %d", msg.Cmd)
+	return errMissHandler
+}
+
+func (n *net) Info() *NodeInfo {
+	return &NodeInfo{
+		Peers: n.peers.Info(),
+	}
+}
+
+type NodeInfo struct {
+	Peers []*PeerInfo `json:"peers"`
 }

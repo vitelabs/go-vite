@@ -29,7 +29,6 @@ type requestPool struct {
 	id      uint64             // atomic, unique request id, identically message id
 	add     chan Request
 	retry   chan *reqEvent
-	del     chan uint64
 	term    chan struct{}
 	log     log15.Logger
 	wg      sync.WaitGroup
@@ -62,21 +61,27 @@ func newRequestPool(peers *peerSet, fc *fileClient) *requestPool {
 		pending: make(map[uint64]Request, 20),
 		id:      INIT_ID,
 		add:     make(chan Request, 10),
-		retry:   make(chan *reqEvent, 1),
-		del:     make(chan uint64, 1),
-		term:    make(chan struct{}),
+		retry:   make(chan *reqEvent, 10),
 		log:     log15.New("module", "net/reqpool"),
 		peers:   peers,
 		fc:      fc,
 	}
 
-	pool.wg.Add(1)
-	go pool.loop()
-
 	return pool
 }
 
+func (p *requestPool) start() {
+	p.term = make(chan struct{})
+
+	p.wg.Add(1)
+	go p.loop()
+}
+
 func (p *requestPool) stop() {
+	if p.term == nil {
+		return
+	}
+
 	select {
 	case <-p.term:
 	default:
@@ -103,8 +108,7 @@ func (p *requestPool) pickPeer(height uint64) (peer *Peer) {
 func (p *requestPool) loop() {
 	defer p.wg.Done()
 
-	expireCheckInterval := 30 * time.Second
-	ticker := time.NewTicker(expireCheckInterval)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 loop:
@@ -126,7 +130,7 @@ loop:
 			}
 
 			if r.Peer() == nil {
-				r.Done(errMissingPeer)
+				r.Catch(errMissingPeer)
 			} else {
 				r.Run(p)
 				p.pending[r.ID()] = r
@@ -144,7 +148,7 @@ loop:
 					r.SetPeer(peer)
 					r.Run(p)
 				} else {
-					r.Done(errMissingPeer)
+					r.Catch(errMissingPeer)
 				}
 			}
 
@@ -155,7 +159,7 @@ loop:
 				if state == reqDone || state == reqError {
 					delete(p.pending, r.ID())
 				} else if r.Expired() && state == reqPending {
-					r.Done(errRequestTimeout)
+					r.Catch(errRequestTimeout)
 				}
 			}
 		}
@@ -164,29 +168,27 @@ loop:
 	// clean job
 	for i := 0; i < len(p.add); i++ {
 		r := <-p.add
-		r.Done(errPoolStopped)
+		r.Catch(errPoolStopped)
 	}
 
 	for i := 0; i < len(p.retry); i++ {
 		e := <-p.retry
 		if r, ok := p.pending[e.id]; ok {
-			r.Done(errPoolStopped)
+			r.Catch(errPoolStopped)
+			delete(p.pending, e.id)
 		}
 	}
 
-	for i := 0; i < len(p.retry); i++ {
-		id := <-p.del
+	for id, r := range p.pending {
+		r.Catch(errPoolStopped)
 		delete(p.pending, id)
-	}
-
-	for _, r := range p.pending {
-		r.Done(errPoolStopped)
 	}
 }
 
 func (p *requestPool) Add(r Request) {
 	select {
 	case <-p.term:
+		r.Catch(errPoolStopped)
 		return
 	case p.add <- r:
 	}
@@ -203,4 +205,9 @@ func (p *requestPool) Retry(id uint64, err error) {
 
 func (p *requestPool) FC() *fileClient {
 	return p.fc
+}
+
+func (p *requestPool) Get(id uint64) (r Request, ok bool) {
+	r, ok = p.pending[id]
+	return
 }

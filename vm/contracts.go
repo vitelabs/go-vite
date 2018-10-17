@@ -108,16 +108,6 @@ func (p *pRegister) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft u
 	if err = checkRegisterData(contracts.MethodNameRegister, block, param); err != nil {
 		return quotaLeft, err
 	}
-
-	oldData := block.VmContext.GetStorage(&contracts.AddressRegister, contracts.GetRegisterKey(param.Name, param.Gid))
-	if len(oldData) > 0 {
-		old := new(contracts.Registration)
-		contracts.ABIRegister.UnpackVariable(old, contracts.VariableNameRegistration, oldData)
-		if old.IsActive() {
-			// duplicate register
-			return quotaLeft, ErrInvalidData
-		}
-	}
 	return quotaLeft, nil
 }
 
@@ -141,13 +131,6 @@ func checkRegisterData(methodName string, block *vm_context.VmAccountBlock, para
 		contracts.GetRegisterMessageForSignature(block.AccountBlock.AccountAddress, param.Gid),
 		param.Signature); !verified {
 		return err
-	}
-	// two registration in one consensus group do not share node address
-	registrationList := contracts.GetRegisterList(block.VmContext, param.Gid)
-	for _, registration := range registrationList {
-		if registration.NodeAddr == param.NodeAddr {
-			return ErrInvalidData
-		}
 	}
 	return nil
 }
@@ -1214,7 +1197,7 @@ func (p *pMintageCancelPledge) doReceive(vm *VM, block *vm_context.VmAccountBloc
 		tokenInfo.Decimals,
 		tokenInfo.Owner,
 		big.NewInt(0),
-		int64(0))
+		uint64(0))
 	block.VmContext.SetStorage(storageKey, newTokenInfo)
 	if tokenInfo.PledgeAmount.Sign() > 0 {
 		vm.blockList = append(vm.blockList,

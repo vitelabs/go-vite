@@ -51,10 +51,12 @@ func (exp Exception) Deserialize(buf []byte) error {
 	panic("use deserializeException instead")
 }
 
+var errDesExpIncpData = errors.New("parse incomplete data")
+
 func DeserializeException(buf []byte) (e Exception, err error) {
 	u64, n := binary.Varint(buf)
 	if n != len(buf) {
-		err = errors.New("use incomplete data")
+		err = errDesExpIncpData
 		return
 	}
 

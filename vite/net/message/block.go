@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vitepb"
+	"strconv"
 )
 
 var errDeserialize = errors.New("deserialize error")
@@ -16,6 +17,17 @@ type GetSnapshotBlocks struct {
 	From    ledger.HashHeight
 	Count   uint64
 	Forward bool
+}
+
+func (b *GetSnapshotBlocks) String() string {
+	var from string
+	if b.From.Hash == types.ZERO_HASH {
+		from = strconv.FormatUint(b.From.Height, 10)
+	} else {
+		from = b.From.Hash.String()
+	}
+
+	return "GetSnapshotBlocks<" + from + "/" + strconv.FormatUint(b.Count, 10) + "/" + strconv.FormatBool(b.Forward) + ">"
 }
 
 func (b *GetSnapshotBlocks) Serialize() ([]byte, error) {
@@ -59,6 +71,10 @@ type SnapshotBlocks struct {
 	Blocks []*ledger.SnapshotBlock
 }
 
+func (b *SnapshotBlocks) String() string {
+	return "SnapshotBlocks<" + strconv.FormatInt(int64(len(b.Blocks)), 10) + ">"
+}
+
 func (b *SnapshotBlocks) Serialize() ([]byte, error) {
 	pb := new(vitepb.SnapshotBlocks)
 
@@ -94,6 +110,10 @@ func (b *SnapshotBlocks) Deserialize(buf []byte) error {
 type SubLedger struct {
 	SBlocks []*ledger.SnapshotBlock
 	ABlocks []*ledger.AccountBlock
+}
+
+func (s *SubLedger) String() string {
+	return "SubLedger<" + strconv.FormatInt(int64(len(s.SBlocks)), 10) + "/" + strconv.FormatInt(int64(len(s.ABlocks)), 10) + ">"
 }
 
 func (s *SubLedger) Serialize() ([]byte, error) {
@@ -145,6 +165,17 @@ type GetAccountBlocks struct {
 	Forward bool
 }
 
+func (b *GetAccountBlocks) String() string {
+	var from string
+	if b.From.Hash == types.ZERO_HASH {
+		from = strconv.FormatUint(b.From.Height, 10)
+	} else {
+		from = b.From.Hash.String()
+	}
+
+	return "GetAccountBlocks<" + from + "/" + strconv.FormatUint(b.Count, 10) + "/" + strconv.FormatBool(b.Forward) + ">"
+}
+
 func (b *GetAccountBlocks) Serialize() ([]byte, error) {
 	pb := new(vitepb.GetAccountBlocks)
 	pb.Address = b.Address[:]
@@ -186,6 +217,10 @@ func (b *GetAccountBlocks) Deserialize(buf []byte) error {
 
 type AccountBlocks struct {
 	Blocks []*ledger.AccountBlock
+}
+
+func (a *AccountBlocks) String() string {
+	return "AccountBlocks<" + strconv.FormatInt(int64(len(a.Blocks)), 10) + ">"
 }
 
 func (a *AccountBlocks) Serialize() ([]byte, error) {

@@ -189,8 +189,6 @@ func (p *Peer) SendNewAccountBlock(b *ledger.AccountBlock) (err error) {
 }
 
 func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
-	p.log.Info(fmt.Sprintf("send message %s to %s", code, p))
-
 	data, err := payload.Serialize()
 	if err != nil {
 		p.log.Error(fmt.Sprintf("send message %s to %s error: %v", code, p, err))
@@ -207,8 +205,6 @@ func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
 
 	if err != nil {
 		p.log.Error(fmt.Sprintf("send message %s to %s error: %v", code, p, err))
-	} else {
-		p.log.Info(fmt.Sprintf("send message %s to %s done", code, p))
 	}
 
 	return err

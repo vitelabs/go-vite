@@ -81,7 +81,7 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		Data:           params.Data,
 	}
 
-	g, e := generator.NewGenerator(t.walletApi.chain, nil, &preHash, &params.SelfAddr)
+	g, e := generator.NewGenerator(t.walletApi.chain, nil, nil, &params.SelfAddr)
 	if e != nil {
 		return e
 	}
