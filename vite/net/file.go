@@ -54,6 +54,10 @@ func (s *fileServer) start() error {
 }
 
 func (s *fileServer) stop() {
+	if s.term == nil {
+		return
+	}
+
 	select {
 	case <-s.term:
 	default:
@@ -172,6 +176,10 @@ func (fc *fileClient) start() {
 }
 
 func (fc *fileClient) stop() {
+	if fc.term == nil {
+		return
+	}
+
 	select {
 	case <-fc.term:
 	default:

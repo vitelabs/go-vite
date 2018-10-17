@@ -181,6 +181,10 @@ func (svr *Server) Start() error {
 }
 
 func (svr *Server) Stop() {
+	if svr.term == nil {
+		return
+	}
+
 	select {
 	case <-svr.term:
 	default:

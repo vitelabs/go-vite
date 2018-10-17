@@ -102,6 +102,10 @@ func (d *Discovery) Start() (err error) {
 }
 
 func (d *Discovery) Stop() {
+	if d.term == nil {
+		return
+	}
+
 	select {
 	case <-d.term:
 	default:
