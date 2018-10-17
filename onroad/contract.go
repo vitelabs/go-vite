@@ -41,21 +41,16 @@ type ContractWorker struct {
 	log log15.Logger
 }
 
-func NewContractWorker(manager *Manager, accEvent producerevent.AccountStartEvent) *ContractWorker {
+func NewContractWorker(manager *Manager) *ContractWorker {
 	worker := &ContractWorker{
 		manager:     manager,
 		uBlocksPool: manager.onroadBlocksPool,
-
-		gid:      accEvent.Gid,
-		address:  accEvent.Address,
-		accEvent: accEvent,
 
 		status:   Create,
 		isSleep:  false,
 		isCancel: false,
 
 		blackList: make(map[types.Address]bool),
-		log:       slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid),
 	}
 
 	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
@@ -67,7 +62,16 @@ func NewContractWorker(manager *Manager, accEvent producerevent.AccountStartEven
 	return worker
 }
 
-func (w *ContractWorker) Start() {
+func (w ContractWorker) getAccEvent() *producerevent.AccountStartEvent {
+	return &w.accEvent
+}
+
+func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
+	w.gid = accEvent.Gid
+	w.address = accEvent.Address
+	w.accEvent = accEvent
+	w.log = slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid)
+
 	log := w.log.New("method", "start")
 	log.Info("Start() current status" + strconv.Itoa(w.status))
 	w.statusMutex.Lock()

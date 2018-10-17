@@ -129,7 +129,7 @@ func (context *VmContext) UnsavedCache() vmctxt_interface.UnsavedCache {
 }
 
 func (context *VmContext) isSelf(addr *types.Address) bool {
-	return addr == nil || bytes.Equal(addr.Bytes(), context.Address().Bytes())
+	return context.Address() != nil && (addr == nil || bytes.Equal(addr.Bytes(), context.Address().Bytes()))
 }
 
 func (context *VmContext) codeKey() []byte {

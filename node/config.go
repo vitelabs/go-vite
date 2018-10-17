@@ -78,7 +78,6 @@ func (c *Config) makeWalletConfig() *wallet.Config {
 func (c *Config) makeViteConfig() *config.Config {
 	return &config.Config{
 		Chain:    c.makeChainConfig(),
-		P2P:      c.makeConfigP2P(),
 		Producer: c.makeMinerConfig(),
 		DataDir:  c.DataDir,
 		Net:      c.makeNetConfig(),
@@ -107,20 +106,6 @@ func (c *Config) makeMinerConfig() *config.Producer {
 	return &config.Producer{
 		Producer: c.MinerEnabled,
 		Coinbase: c.CoinBase,
-	}
-}
-
-func (c *Config) makeConfigP2P() *config.P2P {
-	return &config.P2P{
-		Name:                 c.Identity,
-		NetID:                c.NetID,
-		MaxPeers:             c.MaxPeers,
-		MaxPendingPeers:      c.MaxPendingPeers,
-		MaxPassivePeersRatio: c.MaxPassivePeersRatio,
-		Port:                 c.Port,
-		Datadir:              filepath.Join(c.DataDir, p2p.Dirname),
-		PrivateKey:           c.PrivateKey,
-		BootNodes:            c.BootNodes,
 	}
 }
 

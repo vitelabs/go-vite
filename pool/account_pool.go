@@ -221,11 +221,14 @@ func (self *accountPool) verifySuccess(bs []*accountPoolBlock) (error, uint64) {
 		return err, 0
 	}
 
+	err = cp.currentModifyToChain(forked)
+	if err != nil {
+		return err, 0
+	}
 	err = cp.writeBlocksToChain(forked, blocks)
 	if err != nil {
 		return err, 0
 	}
-	cp.currentModifyToChain(forked)
 	for _, b := range blocks {
 		self.blockpool.afterInsert(b)
 		self.afterInsertBlock(b)
@@ -314,11 +317,11 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks 
 		if err != nil {
 			return err
 		}
-		err = self.chainpool.writeBlocksToChain(fchain, blocks)
+		err = self.chainpool.currentModifyToChain(fchain)
 		if err != nil {
 			return err
 		}
-		err = self.chainpool.currentModifyToChain(fchain)
+		err = self.chainpool.writeBlocksToChain(fchain, blocks)
 		if err != nil {
 			return err
 		}
