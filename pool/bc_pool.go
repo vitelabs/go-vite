@@ -332,6 +332,9 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 		w.Hash() != head.Hash() {
 		return errors.New("error")
 	}
+	if chain.tailHeight < head.Height() {
+		return errors.New(fmt.Sprintf("chain tail height error. tailHeight:%d, headHeight:%d", chain.tailHeight, head.Height()))
+	}
 
 	// todo other chain refer to current ???
 	for chain.referChain.id() != self.diskChain.id() {
@@ -346,6 +349,7 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 }
 
 func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) {
+	// from.tailHeight < to.tailHeight  && from.headHeight > to.tail.Height
 	for i := to.tailHeight; i > from.tailHeight; i-- {
 		w := from.getBlock(i, false)
 		from.removeTail(w)
@@ -519,7 +523,6 @@ func (self *chainPool) insert(c *forkedChain, wrapper commonBlock) error {
 }
 
 func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
-	// FIXME
 	if len(blocks) <= 0 {
 		return nil
 	}
@@ -600,6 +603,55 @@ func (self *chainPool) writeBlocksToChain(chain *forkedChain, blocks []commonBlo
 	}
 	for _, b := range blocks {
 		chain.removeTail(b)
+	}
+	return nil
+}
+func (self *chainPool) check() {
+	diskId := self.diskChain.id()
+	currentId := self.current.id()
+	for _, c := range self.chains {
+		// refer to disk
+		if c.referChain.id() == diskId {
+			if c.id() != currentId {
+				self.log.Error(fmt.Sprintf("chain:%s, refer disk.", c.id()))
+			} else {
+				err := checkHeadTailLink(c, c.referChain)
+				if err != nil {
+					self.log.Error(err.Error())
+				}
+			}
+		} else if c.referChain.id() == currentId {
+			// refer to current
+			err := checkLink(c, c.referChain, true)
+			if err != nil {
+				self.log.Error(err.Error())
+			}
+		} else {
+			err := checkLink(c, c.referChain, false)
+			if err != nil {
+				self.log.Error(err.Error())
+			}
+		}
+	}
+}
+
+func checkHeadTailLink(c1 *forkedChain, c2 heightChainReader) error {
+	head := c2.Head()
+	if head == nil {
+		return errors.New(fmt.Sprintf("checkHeadTailLink fail. c1:%s, c2:%s, head is nil", c1.id(), c2.id()))
+	}
+	if head.Height() != c1.tailHeight || head.Hash() != c1.tailHash {
+		return errors.New(fmt.Sprintf("checkHeadTailLink fail. c1:%s, c2:%s, tailHeight:%d, headHeight:%d, tailHash:%s, headHash:%s", c1.id(), c2.id(), c1.tailHeight, head.Height(), c1.tailHash, head.Hash()))
+	}
+	return nil
+}
+func checkLink(c1 *forkedChain, c2 heightChainReader, refer bool) error {
+	tailHeight := c1.tailHeight
+	block := c2.getBlock(tailHeight, refer)
+	if block == nil {
+		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, tailHeight:%d", c1.id(), c2.id(), refer, tailHeight))
+	} else if block.Hash() != c1.tailHash {
+		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, tailHeight:%d, tailHash:%s, blockHash:%s", c1.id(), c2.id(), refer, tailHeight, c1.tailHash.String(), block.Hash().String()))
 	}
 	return nil
 }
@@ -781,6 +833,7 @@ func (self *BCPool) loopGenSnippetChains() int {
 }
 
 func (self *BCPool) loopAppendChains() int {
+	self.chainpool.check()
 	if len(self.chainpool.snippetChains) == 0 {
 		return 0
 	}

@@ -4,10 +4,12 @@ import (
 	"container/heap"
 	"sync"
 
+	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"strconv"
 )
 
@@ -41,21 +43,16 @@ type ContractWorker struct {
 	log log15.Logger
 }
 
-func NewContractWorker(manager *Manager, accEvent producerevent.AccountStartEvent) *ContractWorker {
+func NewContractWorker(manager *Manager) *ContractWorker {
 	worker := &ContractWorker{
 		manager:     manager,
 		uBlocksPool: manager.onroadBlocksPool,
-
-		gid:      accEvent.Gid,
-		address:  accEvent.Address,
-		accEvent: accEvent,
 
 		status:   Create,
 		isSleep:  false,
 		isCancel: false,
 
 		blackList: make(map[types.Address]bool),
-		log:       slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid),
 	}
 
 	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
@@ -67,7 +64,16 @@ func NewContractWorker(manager *Manager, accEvent producerevent.AccountStartEven
 	return worker
 }
 
-func (w *ContractWorker) Start() {
+func (w ContractWorker) getAccEvent() *producerevent.AccountStartEvent {
+	return &w.accEvent
+}
+
+func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
+	w.gid = accEvent.Gid
+	w.address = accEvent.Address
+	w.accEvent = accEvent
+	w.log = slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid)
+
 	log := w.log.New("method", "start")
 	log.Info("Start() current status" + strconv.Itoa(w.status))
 	w.statusMutex.Lock()
@@ -210,12 +216,16 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 
 	w.contractTaskPQueue = make([]*contractTask, len(quotas))
 	i := 0
-	for key, value := range quotas {
-		w.contractTaskPQueue[i] = &contractTask{
-			Addr:  key,
+	for addr, quota := range quotas {
+		task := &contractTask{
+			Addr:  addr,
 			Index: i,
-			Quota: value,
+			Quota: quota,
 		}
+		if addr == contracts.AddressPledge {
+			task.Quota = math.MaxUint64
+		}
+		w.contractTaskPQueue[i] = task
 		i++
 	}
 

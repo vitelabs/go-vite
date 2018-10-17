@@ -129,7 +129,7 @@ func (context *VmContext) UnsavedCache() vmctxt_interface.UnsavedCache {
 }
 
 func (context *VmContext) isSelf(addr *types.Address) bool {
-	return addr == nil || bytes.Equal(addr.Bytes(), context.Address().Bytes())
+	return context.Address() != nil && (addr == nil || bytes.Equal(addr.Bytes(), context.Address().Bytes()))
 }
 
 func (context *VmContext) codeKey() []byte {
@@ -326,6 +326,15 @@ func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.Accoun
 	return accountBlock
 }
 
-func (context *VmContext) NewStorageIterator(prefix []byte) vmctxt_interface.StorageIterator {
-	return NewStorageIterator(context.unsavedCache.Trie(), prefix)
+func (context *VmContext) NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator {
+	if context.isSelf(addr) {
+		return NewStorageIterator(context.unsavedCache.Trie(), prefix)
+	} else {
+		latestAccountBlock, _ := context.chain.GetConfirmAccountBlock(context.currentSnapshotBlock.Height, addr)
+		if latestAccountBlock != nil {
+			trie := context.chain.GetStateTrie(&latestAccountBlock.StateHash)
+			return NewStorageIterator(trie, prefix)
+		}
+	}
+	return nil
 }

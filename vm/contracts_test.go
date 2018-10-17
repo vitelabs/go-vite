@@ -32,7 +32,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	db.accountBlockMap[addr7] = make(map[types.Hash]*ledger.AccountBlock)
 	addr2 := contracts.AddressRegister
 	nodeName := "super1"
-	sign := ed25519.Sign(privateKey7, contracts.GetRegisterMessageForSignature(addr1, 3, hash12, snapshot2.Hash))
+	sign := ed25519.Sign(privateKey7, contracts.GetRegisterMessageForSignature(addr1, types.SNAPSHOT_GID))
 	block13Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr7, addr6, []byte(publicKey7), sign)
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
@@ -86,7 +86,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	db.accountBlockMap[addr2][hash21] = receiveRegisterBlockList[0].AccountBlock
 
 	// update registration
-	sign = ed25519.Sign(privateKey6, contracts.GetRegisterMessageForSignature(addr1, 4, hash13, snapshot2.Hash))
+	sign = ed25519.Sign(privateKey6, contracts.GetRegisterMessageForSignature(addr1, types.SNAPSHOT_GID))
 	block14Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration, types.SNAPSHOT_GID, nodeName, addr6, addr7, []byte(publicKey6), sign)
 	hash14 := types.DataHash([]byte{1, 4})
 	block14 := &ledger.AccountBlock{

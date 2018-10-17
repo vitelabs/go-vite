@@ -18,7 +18,7 @@ var (
 
 type StorageDatabase interface {
 	GetStorage(addr *types.Address, key []byte) []byte
-	NewStorageIterator(prefix []byte) vmctxt_interface.StorageIterator
+	NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator
 }
 
 func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *TokenInfo {
@@ -33,8 +33,11 @@ func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *TokenInfo {
 
 func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*TokenInfo {
 	defer monitor.LogTime("vm", "GetTokenMap", time.Now())
-	iterator := db.NewStorageIterator(nil)
+	iterator := db.NewStorageIterator(&AddressMintage, nil)
 	tokenInfoMap := make(map[types.TokenTypeId]*TokenInfo)
+	if iterator == nil {
+		return tokenInfoMap
+	}
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
@@ -52,11 +55,14 @@ func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 	defer monitor.LogTime("vm", "GetRegisterList", time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
-		iterator = db.NewStorageIterator(types.SNAPSHOT_GID.Bytes())
+		iterator = db.NewStorageIterator(&AddressRegister, types.SNAPSHOT_GID.Bytes())
 	} else {
-		iterator = db.NewStorageIterator(gid.Bytes())
+		iterator = db.NewStorageIterator(&AddressRegister, gid.Bytes())
 	}
 	registerList := make([]*Registration, 0)
+	if iterator == nil {
+		return registerList
+	}
 	for {
 		_, value, ok := iterator.Next()
 		if !ok {
@@ -75,11 +81,14 @@ func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
 	defer monitor.LogTime("vm", "GetVoteList", time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
-		iterator = db.NewStorageIterator(types.SNAPSHOT_GID.Bytes())
+		iterator = db.NewStorageIterator(&AddressVote, types.SNAPSHOT_GID.Bytes())
 	} else {
-		iterator = db.NewStorageIterator(gid.Bytes())
+		iterator = db.NewStorageIterator(&AddressVote, gid.Bytes())
 	}
 	voteInfoList := make([]*VoteInfo, 0)
+	if iterator == nil {
+		return voteInfoList
+	}
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
@@ -104,8 +113,11 @@ func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) *bi
 }
 
 func GetPledgeInfoList(db StorageDatabase, addr types.Address) []*PledgeInfo {
-	iterator := db.NewStorageIterator(addr.Bytes())
+	iterator := db.NewStorageIterator(&AddressPledge, addr.Bytes())
 	pledgeInfoList := make([]*PledgeInfo, 0)
+	if iterator == nil {
+		return pledgeInfoList
+	}
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
@@ -123,8 +135,11 @@ func GetPledgeInfoList(db StorageDatabase, addr types.Address) []*PledgeInfo {
 
 func GetActiveConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 	defer monitor.LogTime("vm", "GetActiveConsensusGroupList", time.Now())
-	iterator := db.NewStorageIterator(nil)
+	iterator := db.NewStorageIterator(&AddressConsensusGroup, nil)
 	consensusGroupInfoList := make([]*ConsensusGroupInfo, 0)
+	if iterator == nil {
+		return consensusGroupInfoList
+	}
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
