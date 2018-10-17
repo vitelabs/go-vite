@@ -73,7 +73,7 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 
 		s.ReceiveNewAccountBlock(block)
 
-		s.log.Info(fmt.Sprintf("receive new accountblock %s/%d", block.Hash, block.Height))
+		s.log.Info(fmt.Sprintf("receive new accountblock %s/%d/%s", block.Hash, block.Height, block.AccountAddress))
 	case SnapshotBlocksCode:
 		bs := new(message.SnapshotBlocks)
 		err := bs.Deserialize(msg.Payload)

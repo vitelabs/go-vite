@@ -137,7 +137,7 @@ func (self *pool) Init(s syncer,
 	self.sync = s
 	self.wt = wt
 	rw := &snapshotCh{version: self.version, bc: self.bc}
-	fe := &snapshotSyncer{fetcher: s}
+	fe := &snapshotSyncer{fetcher: s, log: self.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: snapshotV}
 	self.accountVerifier = accountV
 	snapshotPool := newSnapshotPool("snapshotPool", self.version, v, fe, rw, self.log)
@@ -440,7 +440,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 
 	// lazy load
 	rw := &accountCh{address: addr, rw: self.bc, version: self.version}
-	f := &accountSyncer{address: addr, fetcher: self.sync}
+	f := &accountSyncer{address: addr, fetcher: self.sync, log: self.log.New()}
 	v := &accountVerifier{v: self.accountVerifier, log: self.log.New()}
 	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.log)
 
