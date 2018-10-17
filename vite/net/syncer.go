@@ -2,6 +2,7 @@ package net
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/common"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -72,7 +73,10 @@ func (s *SyncStateFeed) Notify(st SyncState) {
 
 	for _, fn := range s.subs {
 		if fn != nil {
-			go fn(st)
+			fn := fn // closure
+			common.Go(func() {
+				fn(st)
+			})
 		}
 	}
 }

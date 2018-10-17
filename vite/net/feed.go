@@ -1,6 +1,7 @@
 package net
 
 import (
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
 	"sync"
 )
@@ -43,7 +44,11 @@ func (s *snapshotBlockFeed) Notify(block *ledger.SnapshotBlock) {
 	defer s.lock.RUnlock()
 	for _, fn := range s.subs {
 		if fn != nil {
-			go fn(block)
+			// closure
+			fn := fn
+			common.Go(func() {
+				fn(block)
+			})
 		}
 	}
 }
@@ -86,7 +91,10 @@ func (s *accountBlockFeed) Notify(block *ledger.AccountBlock) {
 	defer s.lock.RUnlock()
 	for _, fn := range s.subs {
 		if fn != nil {
-			go fn(block.AccountAddress, block)
+			fn := fn // closure
+			common.Go(func() {
+				fn(block.AccountAddress, block)
+			})
 		}
 	}
 }

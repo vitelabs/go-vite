@@ -6,6 +6,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/seiflotfy/cuckoofilter"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
@@ -85,10 +86,10 @@ func (t *Topology) Start(p2p *p2p.Server) error {
 	}
 
 	t.wg.Add(1)
-	go t.sendLoop()
+	common.Go(t.sendLoop)
 
 	t.wg.Add(1)
-	go t.handleLoop()
+	common.Go(t.handleLoop)
 
 	return nil
 }

@@ -3,6 +3,7 @@ package net
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
@@ -48,7 +49,7 @@ func (s *fileServer) start() error {
 	s.term = make(chan struct{})
 
 	s.wg.Add(1)
-	go s.readLoop()
+	common.Go(s.readLoop)
 
 	return nil
 }
@@ -81,7 +82,9 @@ func (s *fileServer) readLoop() {
 			}
 
 			s.wg.Add(1)
-			go s.handleConn(conn)
+			common.Go(func() {
+				s.handleConn(conn)
+			})
 		}
 	}
 }
@@ -172,7 +175,7 @@ func (fc *fileClient) start() {
 	fc.term = make(chan struct{})
 
 	fc.wg.Add(1)
-	go fc.loop()
+	common.Go(fc.loop)
 }
 
 func (fc *fileClient) stop() {
@@ -250,7 +253,9 @@ loop:
 			if ctx.idle {
 				ctx.req = req
 				fc.wg.Add(1)
-				go fc.exe(ctx)
+				common.Go(func() {
+					fc.exe(ctx)
+				})
 			} else {
 				wait = append(wait, req)
 			}

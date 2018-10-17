@@ -3,6 +3,7 @@ package net
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"sync"
 	"time"
 
@@ -198,7 +199,7 @@ func (n *net) startPeer(p *Peer) error {
 
 	n.log.Info(fmt.Sprintf("startPeer %s", p))
 
-	go n.syncer.Start()
+	common.Go(n.syncer.Start)
 
 	for {
 		select {

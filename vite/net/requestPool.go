@@ -3,6 +3,7 @@ package net
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"math/rand"
@@ -48,7 +49,10 @@ func (p *requestPool) Cmds() []cmd {
 func (p *requestPool) Handle(msg *p2p.Msg, sender *Peer) error {
 	for id, r := range p.pending {
 		if id == msg.Id {
-			go r.Handle(p, msg, sender)
+			request := r // closure
+			common.Go(func() {
+				request.Handle(p, msg, sender)
+			})
 			return nil
 		}
 	}
@@ -74,7 +78,7 @@ func (p *requestPool) start() {
 	p.term = make(chan struct{})
 
 	p.wg.Add(1)
-	go p.loop()
+	common.Go(p.loop)
 }
 
 func (p *requestPool) stop() {

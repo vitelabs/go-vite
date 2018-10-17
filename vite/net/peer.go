@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/seiflotfy/cuckoofilter"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -54,9 +55,9 @@ func (p *Peer) FileAddress() *net2.TCPAddr {
 
 func (p *Peer) Handshake(our *message.HandShake) error {
 	errch := make(chan error, 1)
-	go func() {
+	common.Go(func() {
 		errch <- p.Send(HandshakeCode, 0, our)
-	}()
+	})
 
 	their, err := p.ReadHandshake()
 	if err != nil {

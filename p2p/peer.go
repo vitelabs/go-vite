@@ -166,8 +166,10 @@ func (p *Peer) runProtocols() {
 	canWrite := make(chan struct{}, paralProtoFrame)
 
 	for _, pf := range p.protoFrames {
+		// closure
+		protoFrame := pf
 		common.Go(func() {
-			p.runProtocol(pf, canWrite)
+			p.runProtocol(protoFrame, canWrite)
 		})
 	}
 }
