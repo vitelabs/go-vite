@@ -2,11 +2,6 @@ syntax="proto3";
 
 package protos;
 
-// tcp message
-message Disc {
-    uint64 reason = 1;
-}
-
 message Handshake {
     uint64 NetID = 1;
     string Name = 2;

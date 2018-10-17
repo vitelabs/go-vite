@@ -16,22 +16,19 @@ import (
 )
 
 const Version uint64 = 2
-const compressibleVersion = 2
-
 const baseProtocolCmdSet = 0
-const maxBaseProtocolPayloadSize = 10 * 1024
-
 const handshakeCmd = 0
 const discCmd = 1
 
-const headerLength = 32
-const maxPayloadSize = ^uint64(0)>>32 - 1
+const headerLength = 40
+const maxPayloadSize = ^uint32(0)>>8 - 1
 
-const paralProtoFrame = 4 // max number of protoFrame write concurrently
+const paralProtoFrame = 3 // max number of protoFrame write concurrently
 
 var errMsgTooLarge = errors.New("message payload is two large")
 var errPeerTermed = errors.New("peer has been terminated")
-var errPeerTsBusy = errors.New("peer transport is busy, can`t write message")
+
+//var errPeerTsBusy = errors.New("peer transport is busy, can`t write message")
 
 type conn struct {
 	*AsyncMsgConn
@@ -75,22 +72,14 @@ func (pf *protoFrame) ReadMsg() (msg *Msg, err error) {
 	}
 }
 
-func (pf *protoFrame) WriteMsg(msg *Msg) error {
-	if msg.CmdSetID != pf.ID {
-		return fmt.Errorf("protoFrame %x cannot write message of CmdSet %x", pf.ID, msg.CmdSetID)
-	}
-
+func (pf *protoFrame) WriteMsg(msg *Msg) (err error) {
 	select {
 	case <-pf.term:
 		return errPeerTermed
 	case pf.canWrite <- struct{}{}:
-		if pf.conn.SendMsg(msg) {
-			<-pf.canWrite
-			return nil
-		}
-
+		err = pf.conn.SendMsg(msg)
 		<-pf.canWrite
-		return errPeerTsBusy
+		return err
 	}
 }
 
@@ -226,7 +215,7 @@ loop:
 }
 
 func (p *Peer) handleMsg(msg *Msg) {
-	cmdset, cmd := msg.CmdSetID, msg.Cmd
+	cmdset, cmd := msg.CmdSet, msg.Cmd
 
 	if cmdset == baseProtocolCmdSet {
 		switch cmd {
@@ -238,7 +227,7 @@ func (p *Peer) handleMsg(msg *Msg) {
 				p.errch <- err
 			}
 		default:
-			msg.Discard()
+			msg.Recycle()
 		}
 	} else {
 		pf := p.protoFrames[cmdset]
@@ -248,16 +237,16 @@ func (p *Peer) handleMsg(msg *Msg) {
 			case p.errch <- fmt.Errorf("missing suitable protoFrame to handle message %d/%d", cmdset, cmd):
 			default:
 			}
-			msg.Discard()
+			msg.Recycle()
 		} else {
 			select {
 			case <-p.term:
 				p.log.Error(fmt.Sprintf("peer has been terminated, cannot handle message %d/%d", cmdset, cmd))
-				msg.Discard()
+				msg.Recycle()
 			case pf.input <- msg:
 			default:
 				p.log.Warn(fmt.Sprintf("protoFrame is busy, discard message %d/%d", cmdset, cmd))
-				msg.Discard()
+				msg.Recycle()
 			}
 		}
 	}

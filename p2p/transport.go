@@ -14,32 +14,48 @@ import (
 	"time"
 )
 
-func PackMsg(cmdSetId, cmd, id uint64, s Serializable) (*Msg, error) {
+var msgPool = &sync.Pool{
+	New: func() interface{} {
+		return &Msg{}
+	},
+}
+
+func NewMsg() *Msg {
+	return msgPool.Get().(*Msg)
+}
+
+func PackMsg(cmdSetId uint64, cmd uint32, id uint64, s Serializable) (*Msg, error) {
 	data, err := s.Serialize()
 	if err != nil {
 		return nil, err
 	}
 
-	return &Msg{
-		CmdSetID: cmdSetId,
-		Cmd:      cmd,
-		Id:       id,
-		Size:     uint64(len(data)),
-		Payload:  data,
-	}, nil
+	size := uint32(len(data))
+	if size > maxPayloadSize {
+		return nil, errMsgTooLarge
+	}
+
+	msg := NewMsg()
+	msg.CmdSet = cmdSetId
+	msg.Cmd = cmd
+	msg.Size = uint32(len(data))
+	msg.Payload = data
+	msg.Id = id
+
+	return msg, nil
 }
 
-func ReadMsg(reader io.Reader, compressible bool) (msg *Msg, err error) {
+func ReadMsg(reader io.Reader) (msg *Msg, err error) {
 	head := make([]byte, headerLength)
 	if _, err = io.ReadFull(reader, head); err != nil {
 		return
 	}
 
 	msg = new(Msg)
-	msg.CmdSetID = binary.BigEndian.Uint64(head[:8])
-	msg.Cmd = binary.BigEndian.Uint64(head[8:16])
-	msg.Id = binary.BigEndian.Uint64(head[16:24])
-	msg.Size = binary.BigEndian.Uint64(head[24:32])
+	msg.CmdSet = binary.BigEndian.Uint64(head[:8])
+	msg.Cmd = binary.BigEndian.Uint32(head[8:12])
+	msg.Id = binary.BigEndian.Uint64(head[12:20])
+	msg.Size = binary.BigEndian.Uint32(head[20:24])
 
 	if msg.Size > maxPayloadSize {
 		err = errMsgTooLarge
@@ -51,24 +67,10 @@ func ReadMsg(reader io.Reader, compressible bool) (msg *Msg, err error) {
 	if err != nil {
 		return
 	}
-	if uint64(n) != msg.Size {
+	if uint32(n) != msg.Size {
 		err = fmt.Errorf("read incomplete message %d/%d", n, msg.Size)
 		return
 	}
-
-	//if compressible {
-	//	var fullSize int
-	//	fullSize, err = snappy.DecodedLen(payload)
-	//	if err != nil {
-	//		return
-	//	}
-	//
-	//	payload, err = snappy.Decode(nil, payload)
-	//	if err != nil {
-	//		return
-	//	}
-	//	msg.Size = uint64(fullSize)
-	//}
 
 	msg.Payload = payload
 	msg.ReceivedAt = time.Now()
@@ -76,21 +78,18 @@ func ReadMsg(reader io.Reader, compressible bool) (msg *Msg, err error) {
 	return
 }
 
-func WriteMsg(writer io.Writer, compressible bool, msg *Msg) (err error) {
+func WriteMsg(writer io.Writer, msg *Msg) (err error) {
+	defer msg.Recycle()
+
 	if msg.Size > maxPayloadSize {
 		return errMsgTooLarge
 	}
 
-	//if compressible {
-	//	msg.Payload = snappy.Encode(nil, msg.Payload)
-	//	msg.Size = uint64(len(msg.Payload))
-	//}
-
 	head := make([]byte, headerLength)
-	binary.BigEndian.PutUint64(head[:8], msg.CmdSetID)
-	binary.BigEndian.PutUint64(head[8:16], msg.Cmd)
-	binary.BigEndian.PutUint64(head[16:24], msg.Id)
-	binary.BigEndian.PutUint64(head[24:32], msg.Size)
+	binary.BigEndian.PutUint64(head[:8], msg.CmdSet)
+	binary.BigEndian.PutUint32(head[8:12], msg.Cmd)
+	binary.BigEndian.PutUint64(head[12:20], msg.Id)
+	binary.BigEndian.PutUint32(head[20:24], msg.Size)
 
 	// write header
 	var n int
@@ -103,7 +102,7 @@ func WriteMsg(writer io.Writer, compressible bool, msg *Msg) (err error) {
 	// write payload
 	if n, err = writer.Write(msg.Payload); err != nil {
 		return
-	} else if uint64(n) != msg.Size {
+	} else if uint32(n) != msg.Size {
 		return fmt.Errorf("write incomplement message %d/%d bytes", n, msg.Size)
 	}
 
@@ -117,29 +116,27 @@ type MsgRw struct {
 }
 
 func (rw *MsgRw) ReadMsg() (msg *Msg, err error) {
-	return ReadMsg(rw.fd, rw.compressible)
+	return ReadMsg(rw.fd)
 }
 
 func (rw *MsgRw) WriteMsg(msg *Msg) (err error) {
-	return WriteMsg(rw.fd, rw.compressible, msg)
+	return WriteMsg(rw.fd, msg)
 }
 
 // AsyncMsgConn
 //var handshakeTimeout = 10 * time.Second
-//var msgReadTimeout = 40 * time.Second
-//var msgWriteTimeout = 20 * time.Second
+var msgReadTimeout = 40 * time.Second
+var msgWriteTimeout = 20 * time.Second
 
-const readBufferLen = 100
+//const readBufferLen = 100
 const writeBufferLen = 100
 
 type AsyncMsgConn struct {
 	fd      net.Conn
-	rw      *MsgRw
 	handler func(msg *Msg)
 	term    chan struct{}
 	wg      sync.WaitGroup
 	wqueue  chan *Msg
-	rqueue  chan *Msg
 	reason  error      // close reason
 	errored int32      // atomic, indicate whehter there is an error, readErr(1), writeErr(2)
 	errch   chan error // report errch to upper layer
@@ -148,15 +145,10 @@ type AsyncMsgConn struct {
 // create an AsyncMsgConn, fd is the basic connection
 func NewAsyncMsgConn(fd net.Conn, handler func(msg *Msg)) *AsyncMsgConn {
 	return &AsyncMsgConn{
-		fd: fd,
-		rw: &MsgRw{
-			fd:           fd,
-			compressible: true,
-		},
+		fd:      fd,
 		handler: handler,
 		term:    make(chan struct{}),
 		wqueue:  make(chan *Msg, writeBufferLen),
-		rqueue:  make(chan *Msg, readBufferLen),
 		errch:   make(chan error, 1),
 	}
 }
@@ -167,9 +159,6 @@ func (c *AsyncMsgConn) Start() {
 
 	c.wg.Add(1)
 	common.Go(c.writeLoop)
-
-	c.wg.Add(1)
-	common.Go(c.handleLoop)
 }
 
 func (c *AsyncMsgConn) Close(reason error) {
@@ -190,7 +179,6 @@ func (c *AsyncMsgConn) report(t int32, err error) {
 
 func (c *AsyncMsgConn) readLoop() {
 	defer c.wg.Done()
-	defer close(c.rqueue)
 
 	for {
 		select {
@@ -200,20 +188,14 @@ func (c *AsyncMsgConn) readLoop() {
 			monitor.LogEvent("p2p_ts", "read")
 
 			//c.fd.SetReadDeadline(time.Now().Add(msgReadTimeout))
-			if msg, err := c.rw.ReadMsg(); err == nil {
-				c.rqueue <- msg
+			if msg, err := ReadMsg(c.fd); err == nil {
+				c.handler(msg)
 			} else {
 				c.report(1, err)
 				return
 			}
 		}
 	}
-}
-
-func (c *AsyncMsgConn) _write(msg *Msg) (err error) {
-	monitor.LogEvent("p2p_ts", "write")
-	//c.fd.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
-	return c.rw.WriteMsg(msg)
 }
 
 func (c *AsyncMsgConn) writeLoop() {
@@ -226,7 +208,10 @@ loop:
 		case <-c.term:
 			break loop
 		case msg := <-c.wqueue:
-			if err := c._write(msg); err != nil {
+			monitor.LogEvent("p2p_ts", "write")
+			//c.fd.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
+
+			if err := WriteMsg(c.fd, msg); err != nil {
 				c.report(2, err)
 				return
 			}
@@ -236,83 +221,51 @@ loop:
 	// no error, disconnected initiative
 	if atomic.LoadInt32(&c.errored) == 0 {
 		for i := 0; i < len(c.wqueue); i++ {
-			msg := <-c.wqueue
-			c._write(msg)
-		}
-
-		if reason, ok := c.reason.(DiscReason); ok && reason != DiscNetworkError {
-			c.Send(baseProtocolCmdSet, discCmd, 0, reason)
-		}
-	}
-}
-
-func (c *AsyncMsgConn) handleLoop() {
-	defer c.wg.Done()
-
-loop:
-	for {
-		select {
-		case <-c.term:
-			break loop
-		case msg := <-c.rqueue:
-			if msg != nil {
-				c.handler(msg)
-			} else {
+			if err := WriteMsg(c.fd, <-c.wqueue); err != nil {
 				return
 			}
 		}
-	}
 
-	for msg := range c.rqueue {
-		c.handler(msg)
+		if reason, ok := c.reason.(DiscReason); ok && reason != DiscNetworkError {
+			if msg, err := PackMsg(baseProtocolCmdSet, discCmd, 0, reason); err == nil {
+				WriteMsg(c.fd, msg)
+			}
+		}
 	}
 }
 
+var errTSerrored = errors.New("transport has an error")
+var errTSclosed = errors.New("transport has closed")
+
 // send a message asynchronously, put message into a internal buffered channel before send it
 // if the internal channel is full, return false
-func (c *AsyncMsgConn) SendMsg(msg *Msg) bool {
+func (c *AsyncMsgConn) SendMsg(msg *Msg) error {
 	if atomic.LoadInt32(&c.errored) != 0 {
-		return false
+		return errTSerrored
 	}
 
 	select {
 	case <-c.term:
-		return false
+		return errTSclosed
 	case c.wqueue <- msg:
-		return true
-	default:
-		return false
+		return nil
 	}
-}
-
-func (c *AsyncMsgConn) Send(cmdset, cmd, id uint64, s Serializable) bool {
-	msg, err := PackMsg(cmdset, cmd, id, s)
-
-	if err != nil {
-		return false
-	}
-
-	return c.SendMsg(msg)
-}
-
-func (c *AsyncMsgConn) encHandshake() {
-	// todo
 }
 
 // send Handshake data, after signature with ed25519 algorithm
 func (c *AsyncMsgConn) Handshake(data []byte) (their *Handshake, err error) {
 	send := make(chan error, 1)
 	common.Go(func() {
-		sendHandMsg(c.rw, &Msg{
-			CmdSetID: baseProtocolCmdSet,
-			Cmd:      handshakeCmd,
-			Id:       0,
-			Size:     uint64(len(data)),
-			Payload:  data,
-		}, send)
+		msg := NewMsg()
+		msg.CmdSet = baseProtocolCmdSet
+		msg.Cmd = handshakeCmd
+		msg.Size = uint32(len(data))
+		msg.Payload = data
+
+		send <- WriteMsg(c.fd, msg)
 	})
 
-	if their, err = readHandshake(c.rw); err != nil {
+	if their, err = readHandshake(c.fd); err != nil {
 		return
 	}
 
@@ -323,19 +276,15 @@ func (c *AsyncMsgConn) Handshake(data []byte) (their *Handshake, err error) {
 	return
 }
 
-func sendHandMsg(w MsgWriter, hand *Msg, sendErr chan<- error) {
-	sendErr <- w.WriteMsg(hand)
-}
-
 var errorHandshakeVerify = errors.New("signature of handshake Msg verify failed")
 
-func readHandshake(r MsgReader) (h *Handshake, err error) {
-	msg, err := r.ReadMsg()
+func readHandshake(r io.Reader) (h *Handshake, err error) {
+	msg, err := ReadMsg(r)
 	if err != nil {
 		return nil, err
 	}
-	if msg.CmdSetID != baseProtocolCmdSet {
-		return nil, fmt.Errorf("should be baseProtocolCmdSet, got %x", msg.CmdSetID)
+	if msg.CmdSet != baseProtocolCmdSet {
+		return nil, fmt.Errorf("should be baseProtocolCmdSet, got %x", msg.CmdSet)
 	}
 
 	if msg.Cmd == discCmd {

@@ -4,7 +4,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/protos"
-	"io/ioutil"
 	"net"
 	"strconv"
 	"time"
@@ -103,24 +102,22 @@ func (s *CmdSet) Proto() *protos.CmdSet {
 
 // @section Msg
 type Msg struct {
-	CmdSetID   uint64
-	Cmd        uint64
+	CmdSet     uint64
+	Cmd        uint32
 	Id         uint64 // as message context
-	Size       uint64 // how many bytes in payload, used to quickly determine whether payload is valid
+	Size       uint32 // how many bytes in payload, used to quickly determine whether payload is valid
 	Payload    []byte
 	ReceivedAt time.Time
 }
 
-func (msg *Msg) Discard() (err error) {
-	if len(msg.Payload) != 0 {
-		_, err = ioutil.Discard.Write(msg.Payload)
-	}
+func (msg *Msg) Recycle() {
+	msg.CmdSet = 0
+	msg.Cmd = 0
+	msg.Size = 0
+	msg.Payload = nil
+	msg.Id = 0
 
-	return
-}
-
-func (msg *Msg) String() string {
-	return strconv.FormatUint(msg.CmdSetID, 10) + "/" + strconv.FormatUint(msg.Cmd, 10) + "/" + strconv.FormatUint(msg.Id, 10)
+	msgPool.Put(msg)
 }
 
 type MsgReader interface {
@@ -176,7 +173,7 @@ type Handshake struct {
 	// peer`s IP
 	RemoteIP net.IP
 	// peer`s Port
-	RemotePort uint16
+	RemotePort uint32
 }
 
 func (hs *Handshake) Serialize() ([]byte, error) {
@@ -192,7 +189,7 @@ func (hs *Handshake) Serialize() ([]byte, error) {
 		ID:         hs.ID[:],
 		CmdSets:    cmdsets,
 		RemoteIP:   hs.RemoteIP,
-		RemotePort: uint32(hs.RemotePort),
+		RemotePort: hs.RemotePort,
 	}
 
 	return proto.Marshal(hspb)
@@ -215,7 +212,7 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 	hs.NetID = NetworkID(pb.NetID)
 	hs.Name = pb.Name
 	hs.RemoteIP = pb.RemoteIP
-	hs.RemotePort = uint16(pb.RemotePort)
+	hs.RemotePort = pb.RemotePort
 
 	cmdsets := make([]*CmdSet, len(pb.CmdSets))
 	for i, cmdset := range pb.CmdSets {
