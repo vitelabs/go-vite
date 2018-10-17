@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 	"github.com/stretchr/testify/assert"
+	"encoding/hex"
 )
 
 func TestCreateContractAddress(t *testing.T) {
@@ -17,16 +18,9 @@ func TestCreateContractAddress(t *testing.T) {
 }
 
 func TestCreateRandomAddress(t *testing.T) {
-	addr, priv, _ := CreateAddress()
-	println(addr.String())
-
-	pubkey := priv.PubByte()
-
-	addr2 := PubkeyToAddress(pubkey[:])
-	println(addr2.String())
-
-	if !bytes.Equal(addr[:], addr2[:]) {
-		t.Fail()
+	for i := 0; i < 20; i++ {
+		addr, priv, _ := CreateAddress()
+		fmt.Println(addr, hex.EncodeToString(priv))
 	}
 }
 
