@@ -17,6 +17,28 @@ const (
 	DummyPwd      = "123456"
 )
 
+func TestCreateKeystore(t *testing.T) {
+
+	m := make(map[types.Address]string)
+	for i := 0; i < 20; i++ {
+		// abs path
+		dir := filepath.Join("/Users/xxx/Desktop", "keystore")
+		kp := NewManager(dir)
+		kp.Init()
+		key1, err := kp.StoreNewKey(DummyPwd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m[key1.Address] = key1.PrivateKey.Hex()
+	}
+	fmt.Println()
+	fmt.Println()
+	for k, v := range m {
+		fmt.Println(k, v)
+	}
+
+}
+
 func TestStoreAndExtractNewKey(t *testing.T) {
 
 	dir := filepath.Join(common.GoViteTestDataDir(), "super")
