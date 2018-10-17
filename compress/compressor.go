@@ -2,6 +2,7 @@ package compress
 
 import (
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
@@ -116,7 +117,7 @@ func (c *Compressor) Start() bool {
 
 	c.wg.Add(1)
 
-	go func() {
+	common.Go(func() {
 		defer c.wg.Done()
 
 		for {
@@ -128,7 +129,7 @@ func (c *Compressor) Start() bool {
 				c.RunTask()
 			}
 		}
-	}()
+	})
 
 	return true
 }
