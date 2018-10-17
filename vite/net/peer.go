@@ -189,11 +189,13 @@ func (p *Peer) SendNewAccountBlock(b *ledger.AccountBlock) (err error) {
 	return
 }
 
-func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
-	if msg, err := p2p.PackMsg(p.CmdSet, uint32(code), msgId, payload); err != nil {
+func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) (err error) {
+	var msg *p2p.Msg
+
+	if msg, err = p2p.PackMsg(p.CmdSet, uint32(code), msgId, payload); err != nil {
 		p.log.Error(fmt.Sprintf("pack message %s to %s error: %v", code, p, err))
 		return err
-	} else if err := p.mrw.WriteMsg(msg); err != nil {
+	} else if err = p.mrw.WriteMsg(msg); err != nil {
 		p.log.Error(fmt.Sprintf("send message %s to %s error: %v", code, p, err))
 		return err
 	}

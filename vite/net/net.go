@@ -232,7 +232,6 @@ func (n *net) handleMsg(p *Peer) (err error) {
 		n.log.Error(fmt.Sprintf("read message from %s error: %v", p, err))
 		return
 	}
-	defer msg.Recycle()
 
 	code := cmd(msg.Cmd)
 

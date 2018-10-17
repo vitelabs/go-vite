@@ -59,7 +59,7 @@ func newProtoFrame(protocol *Protocol, conn *conn) *protoFrame {
 	return &protoFrame{
 		Protocol: protocol,
 		conn:     conn,
-		input:    make(chan *Msg, 10),
+		input:    make(chan *Msg, 100),
 	}
 }
 

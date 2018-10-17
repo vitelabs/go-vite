@@ -68,9 +68,10 @@ type errCallback = func(id uint64, err error)
 var errMissingPeer = errors.New("request missing peer")
 var errUnExpectedRes = errors.New("unexpected response")
 
-const minSubLedger uint64 = 3600 // minimal snapshot blocks per subLedger request
-const maxSubLedger uint64 = 7200 // maximal snapshot blocks per subLedger request
-const chunk uint64 = 3600        // chunk blocks count
+const minSubLedger = 3600 // minimal snapshot blocks per subLedger request
+const maxSubLedger = 7200 // maximal snapshot blocks per subLedger request
+const chunk = 300         // chunk blocks count
+const maxBlocks = 300     // max blocks in one message(snapshotblocks + accountblocks)
 
 type subLedgerPiece struct {
 	from, to uint64
