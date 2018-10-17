@@ -332,11 +332,19 @@ func ReceiveOnroadTx(vite *vite.Vite, params CreateReceiveTxParms) error {
 	chain := vite.Chain()
 	pool := vite.Pool()
 
+	code, err := chain.AccountType(&params.SelfAddr)
+	if err != nil {
+		return err
+	}
 	msg := &generator.IncomingMessage{
 		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: params.SelfAddr,
 		FromBlockHash:  &params.FromHash,
 	}
+	if code == ledger.AccountTypeContract && msg.BlockType == ledger.BlockTypeReceive {
+		return errors.New("AccountTypeContract can't receiveTx without consensus's control")
+	}
+
 	privKey, _ := ed25519.HexToPrivateKey(params.PrivKeyStr)
 	pubKey := privKey.PubByte()
 
