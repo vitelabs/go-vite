@@ -257,7 +257,7 @@ loop:
 			if msg != nil {
 				c.handler(msg)
 			} else {
-				break loop
+				return
 			}
 		}
 	}
