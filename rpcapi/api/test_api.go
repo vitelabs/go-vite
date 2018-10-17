@@ -73,7 +73,6 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: params.SelfAddr,
 		ToAddress:      &params.ToAddr,
-		FromBlockHash:  &preHash,
 		TokenId:        &params.TokenTypeId,
 		Amount:         amount,
 		Fee:            nil,
