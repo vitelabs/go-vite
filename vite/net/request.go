@@ -79,8 +79,9 @@ type subLedgerPiece struct {
 
 // split large subledger request to many small pieces
 func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
-	// sort peers from low to high
-	sort.Sort(peers)
+	if len(peers) == 0 {
+		return
+	}
 
 	total := to - from + 1
 	if total < minBlocks {
@@ -98,7 +99,6 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 			pTo = peer.height - minBlocks
 			pCount = pTo - from + 1
 
-			// peer not high enough
 			if pCount < minBlocks {
 				continue
 			}
@@ -115,10 +115,10 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 			if pTo > to {
 				pTo = to
 				pCount = to - from + 1
-			}
-			// reset piece is too small, then collapse to one piece
-			if to < pTo+minBlocks {
+			} else if to < pTo+minBlocks {
+				// reset piece is too small, then collapse to one piece
 				pCount += to - pTo
+				pTo = to
 			}
 
 			cs = append(cs, &subLedgerPiece{
@@ -136,10 +136,11 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 
 	// reset piece, alloc to best peer
 	if from < to {
-		// if peer is not too much, has rest chunk, then collapse the rest chunk with last chunk
-		lastChunk := cs[len(cs)-1]
-		if lastChunk.peer == peers[len(peers)-1] {
-			lastChunk.to = to
+		if len(cs) > 0 {
+			// if peer is not too much, has rest chunk, then collapse the rest chunk with last chunk
+			if lastChunk := cs[len(cs)-1]; lastChunk.peer == peers[len(peers)-1] {
+				lastChunk.to = to
+			}
 		} else {
 			cs = append(cs, &subLedgerPiece{
 				from: from,

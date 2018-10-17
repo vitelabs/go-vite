@@ -324,7 +324,7 @@ func (s *syncer) counter(add bool, num uint64) {
 }
 
 func (s *syncer) sync(from, to uint64) {
-	pieces := splitSubLedger(from, to, s.peers.Pick(from))
+	pieces := splitSubLedger(from, to, s.peers.Pick(from+minBlocks))
 
 	for _, piece := range pieces {
 		req := &subLedgerRequest{
