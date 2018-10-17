@@ -2,12 +2,13 @@ package chain
 
 import (
 	"bytes"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
 )
 
 func (c *chain) GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error) {
@@ -39,6 +40,9 @@ func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 
 		return nil, getAccountErr
 	}
+	if account == nil {
+		return nil, nil
+	}
 
 	gid, err := c.chainDb.Ac.GetContractGid(account.AccountId)
 
@@ -51,20 +55,19 @@ func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 }
 
 func (c *chain) GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.Address) map[types.Address]uint64 {
-	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
-	if err != nil {
-		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuotaList")
-		return nil
-	}
-
 	quotas := make(map[types.Address]uint64)
 	for _, addr := range beneficialList {
+		vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &addr)
+		if err != nil {
+			c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuotaList")
+			return nil
+		}
 		quotas[addr] = quota.GetPledgeQuota(vmContext, addr)
 	}
 	return quotas
 }
 func (c *chain) GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) uint64 {
-	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
+	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &beneficial)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuota")
 		return 0

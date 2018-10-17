@@ -68,8 +68,9 @@ type errCallback = func(id uint64, err error)
 var errMissingPeer = errors.New("request missing peer")
 var errUnExpectedRes = errors.New("unexpected response")
 
-const minBlocks uint64 = 3600 // minimal snapshot blocks per subLedger request
-const maxBlocks uint64 = 7200 // maximal snapshot blocks per subLedger request
+const minSubLedger uint64 = 3600 // minimal snapshot blocks per subLedger request
+const maxSubLedger uint64 = 7200 // maximal snapshot blocks per subLedger request
+const chunk uint64 = 3600        // chunk blocks count
 
 type subLedgerPiece struct {
 	from, to uint64
@@ -85,7 +86,7 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 	}
 
 	total := to - from + 1
-	if total < minBlocks || peerCount == 1 {
+	if total < minSubLedger || peerCount == 1 {
 		cs = append(cs, &subLedgerPiece{
 			from: from,
 			to:   to,
@@ -110,13 +111,13 @@ loop:
 
 				pCount = pTo - from + 1
 				// if piece is too small and is not the last peer, then reallocate
-				if pCount < minBlocks && (i != peerCount-1) {
+				if pCount < minSubLedger && (i != peerCount-1) {
 					continue
-				} else if pCount > maxBlocks {
-					pTo = from + maxBlocks - 1
+				} else if pCount > maxSubLedger {
+					pTo = from + maxSubLedger - 1
 				}
 
-				if pTo > to || (to < pTo+minBlocks && peer.height >= to) {
+				if pTo > to || (to < pTo+minSubLedger && peer.height >= to) {
 					pTo = to
 				}
 
@@ -143,13 +144,13 @@ func splitChunk(from, to uint64) (chunks [][2]uint64) {
 		return
 	}
 
-	total := (to-from)/minBlocks + 1
+	total := (to-from)/chunk + 1
 	chunks = make([][2]uint64, total)
 
 	var cTo uint64
 	var i int
 	for from <= to {
-		if cTo = from + minBlocks - 1; cTo > to {
+		if cTo = from + chunk - 1; cTo > to {
 			cTo = to
 		}
 
@@ -250,10 +251,11 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 			cs := splitChunk(chunk[0], chunk[1])
 			for _, c := range cs {
 				ctx.Add(&chunkRequest{
-					from: c[0],
-					to:   c[1],
-					peer: peer,
-					rec:  s.rec,
+					from:  c[0],
+					to:    c[1],
+					peer:  peer,
+					catch: s.catch,
+					rec:   s.rec,
 				})
 			}
 		}
