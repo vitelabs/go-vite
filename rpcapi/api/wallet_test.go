@@ -179,7 +179,8 @@ func printHeight(vite *vite.Vite, addr types.Address) uint64 {
 func printQuota(vite *vite.Vite, addr types.Address) *big.Int {
 	head := vite.Chain().GetLatestSnapshotBlock()
 	amount := vite.Chain().GetPledgeAmount(head.Hash, addr)
-	wLog.Info("print quota", "quota", amount.String(), "snapshotHash", head.Hash, "snapshotHeight", head.Height)
+	quota := vite.Chain().GetPledgeQuota(head.Hash, addr)
+	wLog.Info("print quota", "amount", amount.String(), "quota", quota, "snapshotHash", head.Hash, "snapshotHeight", head.Height)
 	return amount
 }
 func printSnapshot(vite *vite.Vite) uint64 {

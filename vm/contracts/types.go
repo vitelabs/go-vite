@@ -16,14 +16,13 @@ type TokenInfo struct {
 }
 
 type Registration struct {
-	Name           string
-	NodeAddr       types.Address
-	PledgeAddr     types.Address
-	BeneficialAddr types.Address
-	Amount         *big.Int
-	PledgeHeight   uint64
-	RewardHeight   uint64
-	CancelHeight   uint64
+	Name         string
+	NodeAddr     types.Address
+	PledgeAddr   types.Address
+	Amount       *big.Int
+	PledgeHeight uint64
+	RewardHeight uint64
+	CancelHeight uint64
 }
 
 func (r *Registration) IsActive() bool {
