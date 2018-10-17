@@ -84,10 +84,7 @@ const minHeightDifference = 3600
 
 var waitEnoughPeers = 10 * time.Second
 var enoughPeers = 3
-
-// todo should be set according to block number
-var chainGrowTimeout = 5 * time.Minute
-var downloadTimeout = 5 * time.Minute
+var chainGrowTimeout = 10 * time.Minute
 var chainGrowInterval = 10 * time.Second
 
 func shouldSync(from, to uint64) bool {
@@ -99,11 +96,11 @@ func shouldSync(from, to uint64) bool {
 }
 
 type syncer struct {
-	from, to   uint64     // include
-	count      uint64     // atomic, current amount of snapshotblocks have received
-	total      uint64     // atomic, total amount of snapshotblocks need download, equal: to - from + 1
-	blocks     []uint64   // mark whether or not get the indexed block
-	sLock      sync.Mutex // protect blocks
+	from, to uint64 // include
+	count    uint64 // atomic, current amount of snapshotblocks have received
+	total    uint64 // atomic, total amount of snapshotblocks need download, equal: to - from + 1
+	//blocks     []uint64   // mark whether or not get the indexed block
+	//sLock      sync.Mutex // protect blocks
 	state      SyncState
 	term       chan struct{}
 	downloaded chan struct{}
@@ -156,7 +153,7 @@ func (s *syncer) Start() {
 	start := time.NewTimer(waitEnoughPeers)
 	defer start.Stop()
 
-	s.log.Info("start sync")
+	s.log.Info("prepare sync")
 
 wait:
 	for {
@@ -196,20 +193,19 @@ wait:
 	s.from = current.Height + 1
 	s.to = p.height
 	s.total = s.to - s.from + 1
-
-	s.log.Info(fmt.Sprintf("syncing: current at %d, to %d", current.Height, s.to))
+	s.count = 0
 	s.setState(Syncing)
-
-	// begin sync with peer
-	s.blocks = make([]uint64, s.to-s.from+1)
 	s.sync(s.from, s.to)
+	s.log.Info(fmt.Sprintf("syncing: from %d, to %d", s.from, s.to))
 
-	// for now syncState is syncing
-	deadline := time.NewTimer(downloadTimeout)
-	defer deadline.Stop()
-	// will setState follow
-	ticker := time.NewTicker(time.Hour)
-	defer ticker.Stop()
+	// check download timeout
+	// check chain grow timeout
+	checkTimer := time.NewTimer(u64ToDuration(s.total))
+	defer checkTimer.Stop()
+
+	// will be reset when downloaded
+	checkChainTicker := time.NewTicker(24 * 365 * time.Hour)
+	defer checkChainTicker.Stop()
 
 	for {
 		select {
@@ -239,15 +235,15 @@ wait:
 			s.log.Info("sync downloaded")
 			s.setState(SyncDownloaded)
 			// check chain height timeout
-			deadline.Reset(chainGrowTimeout)
+			checkTimer.Reset(chainGrowTimeout)
 			// check chain height loop
-			ticker.Stop()
-			ticker = time.NewTicker(chainGrowInterval)
-		case <-deadline.C:
+			checkChainTicker.Stop()
+			checkChainTicker = time.NewTicker(chainGrowInterval)
+		case <-checkTimer.C:
 			s.log.Error("sync error: timeout")
 			s.setState(Syncerr)
 			return
-		case <-ticker.C:
+		case <-checkChainTicker.C:
 			current := s.chain.GetLatestSnapshotBlock()
 			if current.Height >= s.to {
 				s.log.Info(fmt.Sprintf("sync done, current height: %d", current.Height))
@@ -269,32 +265,32 @@ func (s *syncer) setTarget(to uint64) {
 		return
 	}
 
-	s.sLock.Lock()
-	defer s.sLock.Unlock()
+	//s.sLock.Lock()
+	//defer s.sLock.Unlock()
 
 	total2 := to - s.from + 1
 	atomic.StoreUint64(&s.total, total2)
 
 	if to > s.to {
-		record := make([]uint64, total2)
-		copy(record, s.blocks)
-		s.blocks = record
+		//record := make([]uint64, total2)
+		//copy(record, s.blocks)
+		//s.blocks = record
 
 		// send taller task
 		s.sync(s.to+1, to)
 	} else {
 		// update valid count
-		var useless uint64
-		for _, r := range s.blocks[total2:] {
-			if r > 0 {
-				useless++
-			}
-		}
-
-		s.blocks = s.blocks[:total2]
+		//var useless uint64
+		//for _, r := range s.blocks[total2:] {
+		//	if r > 0 {
+		//		useless++
+		//	}
+		//}
+		//
+		//s.blocks = s.blocks[:total2]
 
 		// remove taller record, reduce s.count
-		s.counter(false, useless)
+		//s.counter(false, useless)
 	}
 
 	s.to = to
@@ -314,6 +310,10 @@ func (s *syncer) counter(add bool, num uint64) {
 
 	// total maybe modified
 	total := atomic.LoadUint64(&s.total)
+
+	if s.state == SyncDownloaded {
+		return
+	}
 
 	if count >= total {
 		// all blocks have downloaded
@@ -338,10 +338,8 @@ func (s *syncer) sync(from, to uint64) {
 }
 
 func (s *syncer) reqError(id uint64, err error) {
-	select {
-	case <-s.term:
+	if s.state != Syncing || atomic.LoadInt32(&s.running) != 1 {
 		return
-	default:
 	}
 
 	if r, ok := s.pool.Get(id); ok {
@@ -375,35 +373,13 @@ func (s *syncer) UnsubscribeSyncStatus(subId int) {
 	s.feed.Unsub(subId)
 }
 
-//func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
-//	return block.Height - s.from
-//}
-
-//func (s *syncer) insert(block *ledger.SnapshotBlock) {
-//	offset := s.offset(block)
-//
-//	s.stLoc.Lock()
-//	defer s.stLoc.Unlock()
-//
-//	if s.blocks[offset] == nil {
-//		s.blocks[offset] = block
-//		s.count++
-//	}
-//}
+func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
+	return block.Height - s.from
+}
 
 func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) {
 	s.receiver.ReceiveSnapshotBlock(block)
-
 	s.counter(true, 1)
-
-	//count := atomic.AddUint64(&s.count, 1)
-	//
-	//s.log.Info(fmt.Sprintf("syncing %d/%d", count, s.total))
-	//
-	//if count >= s.total {
-	//	// all blocks have downloaded
-	//	s.downloaded <- struct{}{}
-	//}
 }
 
 func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) {
