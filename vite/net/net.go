@@ -2,6 +2,7 @@ package net
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"sync"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"github.com/vitelabs/go-vite/vite/net/topo"
 )
+
+var netLog = log15.New("module", "vite/net")
 
 type Config struct {
 	Single bool // for test
@@ -79,13 +82,13 @@ func New(cfg *Config) Net {
 		fs:          newFileServer(cfg.Port, cfg.Chain),
 		fc:          fc,
 		handlers:    make(map[cmd]MsgHandler),
-		log:         log15.New("module", "vite/net"),
+		log:         netLog,
 	}
 
 	n.addHandler(_statusHandler(statusHandler))
 	n.addHandler(&getSubLedgerHandler{cfg.Chain})
-	n.addHandler(&getSnapshotBlocksHandler{cfg.Chain, log15.New("module", "net/getSblocks")})
-	n.addHandler(&getAccountBlocksHandler{cfg.Chain, log15.New("module", "net/getAblocks")})
+	n.addHandler(&getSnapshotBlocksHandler{cfg.Chain})
+	n.addHandler(&getAccountBlocksHandler{cfg.Chain})
 	n.addHandler(&getChunkHandler{cfg.Chain})
 	n.addHandler(pool)     // FileListCode, SubLedgerCode, ExceptionCode
 	n.addHandler(receiver) // NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode
@@ -212,6 +215,8 @@ func (n *net) startPeer(p *Peer) error {
 	}
 }
 
+var errMissHandler = errors.New("missing message handler")
+
 func (n *net) handleMsg(p *Peer) (err error) {
 	msg, err := p.mrw.ReadMsg()
 	if err != nil {
@@ -221,21 +226,18 @@ func (n *net) handleMsg(p *Peer) (err error) {
 	defer msg.Discard()
 
 	code := cmd(msg.Cmd)
-	n.log.Info(fmt.Sprintf("receive %s from %s", code, p))
+	//if code == HandshakeCode {
+	//	n.log.Error(fmt.Sprintf("handshake twice with %s", p))
+	//	return errHandshakeTwice
+	//}
 
-	if code == HandshakeCode {
-		n.log.Error(fmt.Sprintf("handshake twice with %s", p))
-		return errHandshakeTwice
-	}
-
-	handler := n.handlers[code]
-	if handler != nil {
+	if handler, ok := n.handlers[code]; ok && handler != nil {
 		return handler.Handle(msg, p)
 	}
 
-	n.log.Error(fmt.Sprintf("missing handler for message %s", code))
+	n.log.Error(fmt.Sprintf("missing handler for message %d", msg.Cmd))
 
-	return fmt.Errorf("unknown message cmd %d", msg.Cmd)
+	return errMissHandler
 }
 
 func (n *net) Info() *NodeInfo {

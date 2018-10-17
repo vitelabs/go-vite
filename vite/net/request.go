@@ -216,7 +216,7 @@ func (s *subLedgerRequest) State() reqState {
 }
 
 func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
-	defer staticDuration("handle-filelist", time.Now())
+	defer staticDuration("handle_filelist", time.Now())
 
 	if cmd(pkt.Cmd) == FileListCode {
 		s.state = reqRespond
@@ -224,6 +224,7 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 		msg := new(message.FileList)
 		err := msg.Deserialize(pkt.Payload)
 		if err != nil {
+			netLog.Error(fmt.Sprintf("descerialize %s from %s error: %v", msg, peer.RemoteAddr(), err))
 			ctx.Retry(s.id, err)
 			return
 		}
@@ -275,8 +276,10 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 		}
 
 		s.Done()
+		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
 	} else {
 		ctx.Retry(s.id, errUnExpectedRes)
+		netLog.Error(fmt.Sprintf("getSubLedgerHandler got %d need %d", pkt.Cmd, SubLedgerCode))
 	}
 }
 
@@ -287,18 +290,20 @@ func (s *subLedgerRequest) ID() uint64 {
 func (s *subLedgerRequest) Run(ctx context) {
 	s.expiration = time.Now().Add(subledgerTimeout)
 
-	err := s.peer.Send(GetSubLedgerCode, s.id, &message.GetSubLedger{
+	msg := &message.GetSubLedger{
 		From:    ledger.HashHeight{Height: s.from},
 		Count:   s.to - s.from + 1,
 		Forward: true,
-	})
+	}
+	err := s.peer.Send(GetSubLedgerCode, s.id, msg)
 
 	if err != nil {
-		s.peer.log.Error(fmt.Sprintf("send GetSubLedgerMsg<%d-%d> to %s error: %v", s.from, s.to, s.peer, err))
+		netLog.Error(fmt.Sprintf("send %s to %s error: %v", msg, s.peer.RemoteAddr(), err))
+
 		ctx.Retry(s.id, err)
 	} else {
 		s.state = reqPending
-		s.peer.log.Info(fmt.Sprintf("send GetSubLedgerMsg<%d-%d> to %s done", s.from, s.to, s.peer))
+		netLog.Info(fmt.Sprintf("send %s to %s done", msg, s.peer.RemoteAddr()))
 	}
 }
 
@@ -405,7 +410,7 @@ func (c *chunkRequest) State() reqState {
 }
 
 func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
-	defer staticDuration("handle-chunk", time.Now())
+	defer staticDuration("handle_chunk", time.Now())
 
 	if cmd(pkt.Cmd) == SubLedgerCode {
 		c.state = reqRespond
@@ -413,7 +418,7 @@ func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 		msg := new(message.SubLedger)
 		err := msg.Deserialize(pkt.Payload)
 		if err != nil {
-			fmt.Println("chunkRequest handle error: ", err)
+			netLog.Error(fmt.Sprintf("descerialize %s from %s error: %v", msg, peer.RemoteAddr(), err))
 			ctx.Retry(c.id, err)
 			return
 		}
@@ -426,8 +431,11 @@ func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 		}
 
 		c.Done()
+
+		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
 	} else {
 		ctx.Retry(c.id, errUnExpectedRes)
+		netLog.Error(fmt.Sprintf("chunkHandler got %d need %d", pkt.Cmd, SubLedgerCode))
 	}
 }
 
@@ -437,18 +445,20 @@ func (c *chunkRequest) ID() uint64 {
 
 func (c *chunkRequest) Run(ctx context) {
 	c.state = reqWaiting
+	c.expiration = time.Now().Add(u64ToDuration(c.to - c.from + 1))
 
-	err := c.peer.Send(GetChunkCode, c.id, &message.GetChunk{
+	chunk := &message.GetChunk{
 		Start: c.from,
 		End:   c.to,
-	})
+	}
+	err := c.peer.Send(GetChunkCode, c.id, chunk)
 
 	if err != nil {
-		c.peer.log.Error(fmt.Sprintf("send GetChunkMsg<%d/%d> to %s error: %v", c.from, c.to, c.peer, err))
+		netLog.Error(fmt.Sprintf("send %s to %s error: %v", chunk, c.peer.RemoteAddr(), err))
 		ctx.Retry(c.id, err)
 	} else {
 		c.state = reqPending
-		c.peer.log.Info(fmt.Sprintf("send GetChunkMsg<%d/%d> to %s done", c.from, c.to, c.peer))
+		netLog.Info(fmt.Sprintf("send %s to %s done", chunk, c.peer.RemoteAddr()))
 	}
 }
 

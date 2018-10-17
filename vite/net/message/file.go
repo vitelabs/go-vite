@@ -4,6 +4,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vitepb"
+	"strconv"
+	"strings"
 )
 
 // @section GetSubLedger
@@ -15,6 +17,32 @@ type FileList struct {
 	Files  []*ledger.CompressedFileMeta
 	Chunks [][2]uint64 // because files don`t contain the latest snapshotblocks
 	Nonce  uint64      // use only once
+}
+
+func (f *FileList) String() string {
+	var builder strings.Builder
+	builder.WriteString("FileList<")
+
+	if len(f.Files) > 0 {
+		builder.WriteString("file:")
+		builder.WriteString(strconv.FormatUint(f.Files[0].StartHeight, 10))
+		builder.WriteString("-")
+		builder.WriteString(strconv.FormatUint(f.Files[len(f.Files)-1].EndHeight, 10))
+		builder.WriteString("/")
+	}
+
+	if len(f.Chunks) > 0 {
+		builder.WriteString("chunk:")
+		for _, chunk := range f.Chunks {
+			builder.WriteString(strconv.FormatUint(chunk[0], 10))
+			builder.WriteString("-")
+			builder.WriteString(strconv.FormatUint(chunk[1], 10))
+		}
+	}
+
+	builder.WriteString(">")
+
+	return builder.String()
 }
 
 func (f *FileList) Serialize() ([]byte, error) {
@@ -66,6 +94,19 @@ type GetFiles struct {
 	Nonce uint64
 }
 
+func (f *GetFiles) String() string {
+	var builder strings.Builder
+	builder.WriteString("GetFiles<")
+
+	for _, file := range f.Names {
+		builder.WriteString(file)
+	}
+
+	builder.WriteString(">")
+
+	return builder.String()
+}
+
 func (f *GetFiles) Serialize() ([]byte, error) {
 	pb := new(vitepb.GetFiles)
 	pb.Nonce = f.Nonce
@@ -90,6 +131,10 @@ func (f *GetFiles) Deserialize(buf []byte) error {
 
 type GetChunk struct {
 	Start, End uint64
+}
+
+func (c *GetChunk) String() string {
+	return "GetChunk<" + strconv.FormatUint(c.Start, 10) + "-" + strconv.FormatUint(c.End, 10) + ">"
 }
 
 func (c *GetChunk) Serialize() ([]byte, error) {
