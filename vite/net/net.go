@@ -37,6 +37,7 @@ type net struct {
 	*fetcher
 	*broadcaster
 	*receiver
+	pool      *requestPool
 	term      chan struct{}
 	log       log15.Logger
 	protocols []*p2p.Protocol // mount to p2p.Server
@@ -83,6 +84,7 @@ func New(cfg *Config) Net {
 		fc:          fc,
 		handlers:    make(map[cmd]MsgHandler),
 		log:         netLog,
+		pool:        pool,
 	}
 
 	n.addHandler(_statusHandler(statusHandler))
@@ -117,8 +119,7 @@ func (n *net) Protocols() []*p2p.Protocol {
 }
 
 func (n *net) addHandler(handler MsgHandler) {
-	cmds := handler.Cmds()
-	for _, cmd := range cmds {
+	for _, cmd := range handler.Cmds() {
 		n.handlers[cmd] = handler
 	}
 }
@@ -126,19 +127,26 @@ func (n *net) addHandler(handler MsgHandler) {
 func (n *net) Start(svr *p2p.Server) (err error) {
 	n.term = make(chan struct{})
 
-	err = n.fs.start()
-	if err != nil {
+	if err = n.fs.start(); err != nil {
 		return
 	}
 
 	n.fc.start()
 
-	err = n.topo.Start(svr)
+	if err = n.topo.Start(svr); err != nil {
+		return
+	}
+
+	n.pool.start()
 
 	return
 }
 
 func (n *net) Stop() {
+	if n.term == nil {
+		return
+	}
+
 	select {
 	case <-n.term:
 	default:
@@ -146,13 +154,13 @@ func (n *net) Stop() {
 
 		n.syncer.Stop()
 
+		n.pool.start()
+
 		n.fs.stop()
 
 		n.fc.stop()
 
-		if n.topo != nil {
-			n.topo.Stop()
-		}
+		n.topo.Stop()
 
 		n.wg.Wait()
 	}

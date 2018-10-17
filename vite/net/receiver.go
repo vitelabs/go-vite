@@ -106,10 +106,10 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 		return
 	}
 
-	t := time.Now()
+	staticDuration("receive_newSblock", time.Now())
+	monitor.LogEvent("net", "receive_newSblock")
 
 	if s.filter.has(block.Hash) {
-		monitor.LogDuration("net/receiver", "nb2", time.Now().Sub(t).Nanoseconds())
 		return
 	}
 
@@ -131,8 +131,6 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 	}
 
 	s.broadcaster.BroadcastSnapshotBlock(block)
-
-	monitor.LogDuration("net/receiver", "nb", time.Now().Sub(t).Nanoseconds())
 }
 
 func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
@@ -140,10 +138,10 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 		return
 	}
 
-	t := time.Now()
+	staticDuration("receive_newAblock", time.Now())
+	monitor.LogEvent("net", "receive_newAblock")
 
 	if s.filter.has(block.Hash) {
-		monitor.LogDuration("net/receiver", "nb2", time.Now().Sub(t).Nanoseconds())
 		return
 	}
 
@@ -165,16 +163,15 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 	}
 
 	s.broadcaster.BroadcastAccountBlock(block)
-
-	monitor.LogDuration("net/receiver", "nb", time.Now().Sub(t).Nanoseconds())
 }
 
 func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) {
-	t := time.Now()
-
 	if block == nil {
 		return
 	}
+
+	staticDuration("receive_Sblock", time.Now())
+	monitor.LogEvent("net", "receive_Sblock")
 
 	if s.filter.has(block.Hash) {
 		return
@@ -189,16 +186,16 @@ func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) {
 
 	s.mark(block.Hash)
 	s.sFeed.Notify(block)
-
-	monitor.LogDuration("net/receiver", "bs", time.Now().Sub(t).Nanoseconds())
 }
 
 func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) {
-	t := time.Now()
-
 	if block == nil {
 		return
 	}
+
+	staticDuration("receive_Ablock", time.Now())
+	monitor.LogEvent("net", "receive_Ablock")
+
 	if s.filter.has(block.Hash) {
 		return
 	}
@@ -212,71 +209,18 @@ func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) {
 
 	s.mark(block.Hash)
 	s.aFeed.Notify(block)
-
-	monitor.LogDuration("net/receiver", "abs", time.Now().Sub(t).Nanoseconds())
 }
 
 func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
-	t := time.Now()
-
-	var i, j int
-	for i, j = 0, 0; i < len(blocks); i++ {
-		block := blocks[i]
-		if block == nil {
-			continue
-		}
-
-		if s.filter.has(block.Hash) {
-			continue
-		}
-
-		if s.verifier != nil {
-			if err := s.verifier.VerifyNetSb(block); err != nil {
-				s.log.Error(fmt.Sprintf("verify snapshotblock %s/%d fail: %v", block.Hash, block.Height, err))
-				continue
-			}
-		}
-
-		blocks[j] = blocks[i]
-		j++
-
-		s.mark(block.Hash)
-		s.sFeed.Notify(block)
+	for _, block := range blocks {
+		s.ReceiveSnapshotBlock(block)
 	}
-
-	monitor.LogDuration("net/receiver", "bs", time.Now().Sub(t).Nanoseconds())
 }
 
 func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) {
-	t := time.Now()
-
-	var i, j int
-	for i, j = 0, 0; i < len(blocks); i++ {
-		block := blocks[i]
-
-		if block == nil {
-			continue
-		}
-
-		if s.filter.has(block.Hash) {
-			continue
-		}
-
-		if s.verifier != nil {
-			if err := s.verifier.VerifyNetAb(block); err != nil {
-				s.log.Error(fmt.Sprintf("verify accountblock %s/%d fail: %v", block.Hash, block.Height, err))
-				return
-			}
-		}
-
-		blocks[j] = blocks[i]
-		j++
-
-		s.mark(block.Hash)
-		s.aFeed.Notify(block)
+	for _, block := range blocks {
+		s.ReceiveAccountBlock(block)
 	}
-
-	monitor.LogDuration("net/receiver", "abs", time.Now().Sub(t).Nanoseconds())
 }
 
 func (s *receiver) listen(st SyncState) {
@@ -307,18 +251,18 @@ func (s *receiver) listen(st SyncState) {
 	}
 }
 
-func (r *receiver) SubscribeAccountBlock(fn AccountblockCallback) (subId int) {
-	return r.aFeed.Sub(fn)
+func (s *receiver) SubscribeAccountBlock(fn AccountblockCallback) (subId int) {
+	return s.aFeed.Sub(fn)
 }
 
-func (r *receiver) UnsubscribeAccountBlock(subId int) {
-	r.aFeed.Unsub(subId)
+func (s *receiver) UnsubscribeAccountBlock(subId int) {
+	s.aFeed.Unsub(subId)
 }
 
-func (r *receiver) SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int) {
-	return r.sFeed.Sub(fn)
+func (s *receiver) SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int) {
+	return s.sFeed.Sub(fn)
 }
 
-func (r *receiver) UnsubscribeSnapshotBlock(subId int) {
-	r.sFeed.Unsub(subId)
+func (s *receiver) UnsubscribeSnapshotBlock(subId int) {
+	s.sFeed.Unsub(subId)
 }

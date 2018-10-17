@@ -29,7 +29,6 @@ type requestPool struct {
 	id      uint64             // atomic, unique request id, identically message id
 	add     chan Request
 	retry   chan *reqEvent
-	del     chan uint64
 	term    chan struct{}
 	log     log15.Logger
 	wg      sync.WaitGroup
@@ -62,21 +61,27 @@ func newRequestPool(peers *peerSet, fc *fileClient) *requestPool {
 		pending: make(map[uint64]Request, 20),
 		id:      INIT_ID,
 		add:     make(chan Request, 10),
-		retry:   make(chan *reqEvent, 1),
-		del:     make(chan uint64, 1),
-		term:    make(chan struct{}),
+		retry:   make(chan *reqEvent, 10),
 		log:     log15.New("module", "net/reqpool"),
 		peers:   peers,
 		fc:      fc,
 	}
 
-	pool.wg.Add(1)
-	go pool.loop()
-
 	return pool
 }
 
+func (p *requestPool) start() {
+	p.term = make(chan struct{})
+
+	p.wg.Add(1)
+	go p.loop()
+}
+
 func (p *requestPool) stop() {
+	if p.term == nil {
+		return
+	}
+
 	select {
 	case <-p.term:
 	default:
@@ -103,8 +108,7 @@ func (p *requestPool) pickPeer(height uint64) (peer *Peer) {
 func (p *requestPool) loop() {
 	defer p.wg.Done()
 
-	expireCheckInterval := 30 * time.Second
-	ticker := time.NewTicker(expireCheckInterval)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 loop:
@@ -171,22 +175,20 @@ loop:
 		e := <-p.retry
 		if r, ok := p.pending[e.id]; ok {
 			r.Catch(errPoolStopped)
+			delete(p.pending, e.id)
 		}
 	}
 
-	for i := 0; i < len(p.retry); i++ {
-		id := <-p.del
-		delete(p.pending, id)
-	}
-
-	for _, r := range p.pending {
+	for id, r := range p.pending {
 		r.Catch(errPoolStopped)
+		delete(p.pending, id)
 	}
 }
 
 func (p *requestPool) Add(r Request) {
 	select {
 	case <-p.term:
+		r.Catch(errPoolStopped)
 		return
 	case p.add <- r:
 	}

@@ -90,12 +90,20 @@ var chainGrowTimeout = 5 * time.Minute
 var downloadTimeout = 5 * time.Minute
 var chainGrowInterval = 10 * time.Second
 
+func shouldSync(from, to uint64) bool {
+	if to >= from+minHeightDifference {
+		return true
+	}
+
+	return false
+}
+
 type syncer struct {
-	from, to   uint64 // include
-	count      uint64 // current amount of snapshotblocks have received
-	total      uint64 // totol amount of snapshotblocks need download, equal: to - from + 1
-	blocks     []*ledger.SnapshotBlock
-	stLoc      sync.Mutex // protect: count blocks total
+	from, to   uint64     // include
+	count      uint64     // atomic, current amount of snapshotblocks have received
+	total      uint64     // atomic, total amount of snapshotblocks need download, equal: to - from + 1
+	blocks     []uint64   // mark whether or not get the indexed block
+	sLock      sync.Mutex // protect blocks
 	state      SyncState
 	term       chan struct{}
 	downloaded chan struct{}
@@ -193,7 +201,7 @@ wait:
 	s.setState(Syncing)
 
 	// begin sync with peer
-	s.blocks = make([]*ledger.SnapshotBlock, s.to-s.from+1)
+	s.blocks = make([]uint64, s.to-s.from+1)
 	s.sync(s.from, s.to)
 
 	// for now syncState is syncing
@@ -207,13 +215,11 @@ wait:
 		select {
 		case e := <-s.pEvent:
 			if e.code == delPeer {
-				// a taller peer is disconnected, maybe is the peer we need syncing with
+				// a taller peer is disconnected, maybe is the peer we syncing to
 				// because peer`s height is growing
-				targetHeight := s.to
-				if e.peer.height >= targetHeight {
-					bestPeer := s.peers.BestPeer()
-					if bestPeer != nil {
-						if s.shouldSync(current.Height, bestPeer.height) {
+				if e.peer.height >= s.to {
+					if bestPeer := s.peers.BestPeer(); bestPeer != nil {
+						if shouldSync(current.Height, bestPeer.height) {
 							s.setTarget(bestPeer.height)
 						} else {
 							// no need sync
@@ -257,22 +263,20 @@ wait:
 	}
 }
 
-func (s *syncer) shouldSync(from, to uint64) bool {
-	if to > from {
-		if to >= from+minHeightDifference {
-			return true
-		}
-	}
-
-	return false
-}
-
 // this method will be called when our target Height changed, (eg. the best peer disconnected)
 func (s *syncer) setTarget(to uint64) {
+	if to == s.to {
+		return
+	}
+
+	s.sLock.Lock()
+	defer s.sLock.Unlock()
+
 	total2 := to - s.from + 1
+	atomic.StoreUint64(&s.total, total2)
 
 	if to > s.to {
-		record := make([]*ledger.SnapshotBlock, total2)
+		record := make([]uint64, total2)
 		copy(record, s.blocks)
 		s.blocks = record
 
@@ -280,21 +284,45 @@ func (s *syncer) setTarget(to uint64) {
 		s.sync(s.to+1, to)
 	} else {
 		// update valid count
+		var useless uint64
 		for _, r := range s.blocks[total2:] {
-			if r != nil {
-				s.count--
+			if r > 0 {
+				useless++
 			}
 		}
 
 		s.blocks = s.blocks[:total2]
+
+		// remove taller record, reduce s.count
+		s.counter(false, useless)
 	}
 
-	s.total = total2
 	s.to = to
 }
 
+func (s *syncer) counter(add bool, num uint64) {
+	if num == 0 {
+		return
+	}
+
+	var count uint64
+	if add {
+		count = atomic.AddUint64(&s.count, num)
+	} else {
+		count = atomic.AddUint64(&s.count, ^uint64(num-1))
+	}
+
+	// total maybe modified
+	total := atomic.LoadUint64(&s.total)
+
+	if count >= total {
+		// all blocks have downloaded
+		s.downloaded <- struct{}{}
+	}
+}
+
 func (s *syncer) sync(from, to uint64) {
-	pieces := splitSubLedger(s.from, s.to, s.peers.Pick(s.from))
+	pieces := splitSubLedger(from, to, s.peers.Pick(from))
 
 	for _, piece := range pieces {
 		req := &subLedgerRequest{
@@ -366,14 +394,16 @@ func (s *syncer) UnsubscribeSyncStatus(subId int) {
 func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) {
 	s.receiver.ReceiveSnapshotBlock(block)
 
-	count := atomic.AddUint64(&s.count, 1)
+	s.counter(true, 1)
 
-	s.log.Info(fmt.Sprintf("syncing %d/%d", count, s.total))
-
-	if count >= s.total {
-		// all blocks have downloaded
-		s.downloaded <- struct{}{}
-	}
+	//count := atomic.AddUint64(&s.count, 1)
+	//
+	//s.log.Info(fmt.Sprintf("syncing %d/%d", count, s.total))
+	//
+	//if count >= s.total {
+	//	// all blocks have downloaded
+	//	s.downloaded <- struct{}{}
+	//}
 }
 
 func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) {
