@@ -2,20 +2,13 @@ package trie
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/chain_db/database"
-	"github.com/vitelabs/go-vite/common"
-	"path/filepath"
-	"sync"
 	"testing"
 )
 
 func TestNewIterator(t *testing.T) {
-	db, _ := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
-	defer db.Close()
+	trie, _, close := getTrieOfNewContext()
+	defer close()
 
-	pool := NewTrieNodePool()
-
-	trie := NewTrie(db, nil, pool)
 	trie.SetValue(nil, []byte("NilNilNilNilNil"))
 	trie.SetValue([]byte("IamG"), []byte("ki10$%^%&@#!@#"))
 	trie.SetValue([]byte("IamGood"), []byte("a1230xm90zm19ma"))
@@ -72,54 +65,4 @@ func TestNewIterator(t *testing.T) {
 		fmt.Printf("%s: %s\n", key, value)
 	}
 	fmt.Println()
-}
-
-type Cmap struct {
-	m2 map[int]int
-}
-
-func TestConcurrence(t *testing.T) {
-	m1 := map[int][]byte{
-		3: {5},
-		4: {6},
-	}
-	cm1 := Cmap{
-		m2: map[int]int{
-			3: 5,
-			4: 6,
-		},
-	}
-
-	for z := 0; z < 5; z++ {
-		var sw sync.WaitGroup
-		for i := 0; i < 10; i++ {
-			sw.Add(1)
-			go func() {
-				defer sw.Done()
-
-				for j := 0; j < 1000000; j++ {
-					fmt.Sprint(m1[3])
-					fmt.Sprint(m1[4])
-				}
-			}()
-		}
-		sw.Wait()
-	}
-
-	for z := 0; z < 5; z++ {
-		var sw sync.WaitGroup
-		for i := 0; i < 10; i++ {
-			sw.Add(1)
-			go func() {
-				defer sw.Done()
-
-				for j := 0; j < 1000000; j++ {
-					cm2 := cm1
-					fmt.Sprint(cm2.m2[3])
-				}
-			}()
-		}
-		sw.Wait()
-	}
-
 }

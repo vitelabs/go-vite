@@ -78,12 +78,20 @@ func (trieNode *TrieNode) AtomicComplete(completeFunc func()) {
 	defer trieNode.childrenSetLock.Unlock()
 
 	if trieNode.nodeType == TRIE_FULL_NODE {
+		if trieNode.child != nil {
+			if trieNode.child.nodeType == TRIE_UNKNOW_NODE {
+				completeFunc()
+			}
+			return
+		}
+
 		for _, child := range trieNode.children {
 			if child.nodeType == TRIE_UNKNOW_NODE {
 				completeFunc()
 			}
 			return
 		}
+
 	}
 }
 
@@ -123,6 +131,9 @@ func (trieNode *TrieNode) Hash() *types.Hash {
 		switch trieNode.NodeType() {
 		case TRIE_FULL_NODE:
 			source = []byte{TRIE_FULL_NODE}
+			if trieNode.child != nil {
+				source = append(source, trieNode.child.Hash().Bytes()...)
+			}
 
 			sc := newSortedChildren(trieNode.children)
 			for _, c := range sc {
@@ -148,9 +159,7 @@ func (trieNode *TrieNode) Hash() *types.Hash {
 }
 
 func (trieNode *TrieNode) SetChild(child *TrieNode) {
-	if trieNode.NodeType() == TRIE_SHORT_NODE {
-		trieNode.child = child
-	}
+	trieNode.child = child
 }
 
 func (trieNode *TrieNode) NodeType() byte {
@@ -176,6 +185,9 @@ func (trieNode *TrieNode) DbSerialize() ([]byte, error) {
 	switch trieNode.NodeType() {
 	case TRIE_FULL_NODE:
 		trieNodePB.Children = trieNode.parseChildrenToPb(trieNode.children)
+		if trieNode.child != nil {
+			trieNodePB.Child = trieNode.child.Hash().Bytes()
+		}
 	case TRIE_SHORT_NODE:
 		trieNodePB.Key = trieNode.key
 		trieNodePB.Child = trieNode.child.Hash().Bytes()
@@ -219,6 +231,16 @@ func (trieNode *TrieNode) DbDeserialize(buf []byte) error {
 		trieNode.children, err = trieNode.parsePbToChildren(trieNodePB.Children)
 		if err != nil {
 			return err
+		}
+
+		if len(trieNodePB.Child) > 0 {
+			childHash, err := types.BytesToHash(trieNodePB.Child)
+			if err != nil {
+				return err
+			}
+			trieNode.child = &TrieNode{
+				hash: &childHash,
+			}
 		}
 
 	case TRIE_SHORT_NODE:

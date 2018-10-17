@@ -1,17 +1,86 @@
 package trie
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 )
+
+func getTrieOfNewContext() (*Trie, *leveldb.DB, func()) {
+	trieDbFile := filepath.Join(common.GoViteTestDataDir(), "trie")
+	os.RemoveAll(trieDbFile)
+
+	db, _ := database.NewLevelDb(trieDbFile)
+
+	pool := NewTrieNodePool()
+
+	return NewTrie(db, nil, pool), db, func() { db.Close() }
+}
+
+func TestSetGetCase1(t *testing.T) {
+	trie, _, close := getTrieOfNewContext()
+	defer close()
+
+	key := []byte("tesabcd")
+	value := []byte("value.hash4value.hash4value.hash4value.hash4value.hash4value.hash4value.hash4value.hash4value.hash4value.hash4value.hash4value.hash4")
+
+	key2 := []byte("tesab")
+	value2 := []byte("value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555")
+
+	trie.SetValue(key, value)
+	trie.SetValue(key2, value2)
+
+	getValue := trie.GetValue(key)
+	getValue2 := trie.GetValue(key2)
+
+	if !bytes.Equal(value, getValue) {
+		t.Error("error!")
+	}
+
+	if !bytes.Equal(value2, getValue2) {
+		t.Error("error!")
+	}
+}
+
+func TestSetGetCase2(t *testing.T) {
+	trie, _, close := getTrieOfNewContext()
+	defer close()
+
+	var key1 []byte
+	value1 := []byte("NilNilNilNilNil")
+
+	key2 := []byte("IamG")
+	value2 := []byte("ki10$%^%&@#!@#")
+
+	key3 := []byte("IamGood")
+	value3 := []byte("a1230xm90zm19ma")
+
+	trie.SetValue(key1, value1)
+	trie.SetValue(key2, value2)
+	trie.SetValue(key3, value3)
+
+	getValue1 := trie.GetValue(key1)
+	getValue2 := trie.GetValue(key2)
+	getValue3 := trie.GetValue(key3)
+	if !bytes.Equal(value1, getValue1) {
+		t.Error("error!")
+	}
+	if !bytes.Equal(value2, getValue2) {
+		t.Error("error!")
+	}
+	if !bytes.Equal(value3, getValue3) {
+		t.Error("error!")
+	}
+}
 
 func TestNewTrie(t *testing.T) {
 	db, _ := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
@@ -21,41 +90,92 @@ func TestNewTrie(t *testing.T) {
 
 	trie := NewTrie(db, nil, pool)
 
-	fmt.Println(1)
-	trie.SetValue(nil, []byte("NilNilNilNilNil"))
-	fmt.Printf("%s\n", trie.GetValue(nil))
-	fmt.Printf("%d\n", len(trie.unSavedRefValueMap))
-	fmt.Println()
+	// case1
+	value1 := []byte("NilNilNilNilNil")
+	trie.SetValue(nil, value1)
+	getValue1 := trie.GetValue(nil)
+	if !bytes.Equal(value1, getValue1) {
+		t.Error("error!")
+	}
+	if len(trie.unSavedRefValueMap) != 0 {
+		t.Error("error!")
+	}
+	// case2
+	value2 := []byte("NilNilNilNilNil234")
+	trie.SetValue(nil, value2)
+	getValue2 := trie.GetValue(nil)
+	if !bytes.Equal(value2, getValue2) {
+		t.Error("error!")
+	}
+	if len(trie.unSavedRefValueMap) != 0 {
+		t.Error("error!")
+	}
 
-	fmt.Println(2)
-	trie.SetValue(nil, []byte("NilNilNilNilNil234"))
-	fmt.Printf("%s\n", trie.GetValue(nil))
-	fmt.Printf("%d\n", len(trie.unSavedRefValueMap))
-	fmt.Println()
+	// case3
+	key3 := []byte("test")
+	value3 := []byte("value.hash")
+	trie.SetValue(key3, value3)
 
-	fmt.Println(3)
-	trie.SetValue([]byte("test"), []byte("value.hash"))
-	fmt.Printf("%s\n", trie.GetValue([]byte("test")))
-	fmt.Printf("%d\n", len(trie.unSavedRefValueMap))
-	fmt.Println()
+	getValue3 := trie.GetValue(key3)
+	if !bytes.Equal(value3, getValue3) {
+		t.Error("error!")
+	}
+	if len(trie.unSavedRefValueMap) != 0 {
+		t.Error("error!")
+	}
 
-	fmt.Println(4)
-	trie.SetValue([]byte("tesa"), []byte("value.hash2"))
-	fmt.Printf("%s\n", trie.GetValue(nil))
-	fmt.Printf("%s\n", trie.GetValue([]byte("test")))
-	fmt.Printf("%s\n", trie.GetValue([]byte("tesa")))
-	fmt.Printf("%d\n", len(trie.unSavedRefValueMap))
-	fmt.Println()
+	// case4
+	key4 := []byte("tesa")
+	value4 := []byte("value.hash2")
+	trie.SetValue(key4, value4)
 
-	fmt.Println(5)
-	trie.SetValue([]byte("aofjas"), []byte("value.content1"))
-	fmt.Printf("%s\n", trie.GetValue(nil))
-	fmt.Printf("%s\n", trie.GetValue([]byte("test")))
-	fmt.Printf("%s\n", trie.GetValue([]byte("tesa")))
-	fmt.Printf("%s\n", trie.GetValue([]byte("aofjas")))
-	fmt.Printf("%d\n", len(trie.unSavedRefValueMap))
-	fmt.Println()
+	getValue4 := trie.GetValue(nil)
+	if !bytes.Equal(value2, getValue4) {
+		t.Error("error!")
+	}
+	getValue4_2 := trie.GetValue(key3)
+	if !bytes.Equal(value3, getValue4_2) {
+		t.Error("error!")
+	}
 
+	getValue4_3 := trie.GetValue(key4)
+	if !bytes.Equal(value4, getValue4_3) {
+		t.Error("error!")
+	}
+	if len(trie.unSavedRefValueMap) != 0 {
+		t.Error("error!")
+	}
+
+	// case 5
+	key5 := []byte("aofjas")
+	value5 := []byte("value.content1")
+	trie.SetValue(key5, value5)
+
+	getValue5 := trie.GetValue(nil)
+	if !bytes.Equal(value2, getValue5) {
+		t.Error("error!")
+	}
+
+	getValue5_1 := trie.GetValue(key3)
+	if !bytes.Equal(value3, getValue5_1) {
+		t.Error("error!")
+	}
+
+	getValue5_2 := trie.GetValue(key4)
+	if !bytes.Equal(value4, getValue5_2) {
+		t.Error("error!")
+	}
+
+	getValue5_3 := trie.GetValue(key5)
+	if !bytes.Equal(value5, getValue5_3) {
+		t.Error("error!")
+	}
+
+	if len(trie.unSavedRefValueMap) != 0 {
+		t.Error("error!")
+	}
+
+	// case6
 	fmt.Println(6)
 	trie.SetValue([]byte("aofjas"), []byte("value.content2value.content2value.content2value.content2value.content2value.content2value.content2value.content2"))
 	fmt.Printf("%s\n", trie.GetValue(nil))
@@ -65,8 +185,10 @@ func TestNewTrie(t *testing.T) {
 	fmt.Printf("%d\n", len(trie.unSavedRefValueMap))
 	fmt.Println()
 
+	// case7
 	fmt.Println(7)
-	trie.SetValue([]byte("tesa"), []byte("value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3"))
+	value7 := []byte("value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3")
+	trie.SetValue(key4, value7)
 	fmt.Printf("%s\n", trie.GetValue(nil))
 	fmt.Printf("%s\n", trie.GetValue([]byte("test")))
 	fmt.Printf("%s\n", trie.GetValue([]byte("tesa")))
@@ -75,7 +197,8 @@ func TestNewTrie(t *testing.T) {
 	fmt.Println()
 
 	fmt.Println(8)
-	trie.SetValue([]byte("tesa"), []byte("value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value09909"))
+	value8 := []byte("value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value.hash3value09909")
+	trie.SetValue(key4, value8)
 	fmt.Printf("%s\n", trie.GetValue(nil))
 	fmt.Printf("%s\n", trie.GetValue([]byte("test")))
 	fmt.Printf("%s\n", trie.GetValue([]byte("tesa")))
@@ -94,11 +217,29 @@ func TestNewTrie(t *testing.T) {
 	fmt.Println()
 
 	fmt.Println(10)
-	trie.SetValue([]byte("tesab"), []byte("value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555"))
-	fmt.Printf("%s\n", trie.GetValue(nil))
-	fmt.Printf("%s\n", trie.GetValue([]byte("test")))
-	fmt.Printf("%s\n", trie.GetValue([]byte("tesa")))
-	fmt.Printf("%s\n", trie.GetValue([]byte("tesab")))
+	// case10
+	key10 := []byte("tesab")
+	value10 := []byte("value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555value.555")
+
+	trie.SetValue(key10, value10)
+	getValue10 := trie.GetValue(nil)
+	if !bytes.Equal(value2, getValue10) {
+		t.Error("error!")
+	}
+	getValue10_1 := trie.GetValue(key3)
+	if !bytes.Equal(value3, getValue10_1) {
+		t.Error("error!")
+	}
+
+	getValue10_2 := trie.GetValue(key4)
+	if !bytes.Equal(value8, getValue10_2) {
+		t.Error("error!")
+	}
+
+	getValue10_3 := trie.GetValue(key10)
+	if !bytes.Equal(value10, getValue10_3) {
+		t.Error("error!")
+	}
 	fmt.Printf("%s\n", trie.GetValue([]byte("aofjas")))
 	fmt.Printf("%s\n", trie.GetValue([]byte("tesabcd")))
 	fmt.Printf("%d\n", len(trie.unSavedRefValueMap))
@@ -246,14 +387,40 @@ func TestTrieHash(t *testing.T) {
 	defer db.Close()
 
 	pool := NewTrieNodePool()
-
 	trie := NewTrie(db, nil, pool)
+
+	// case1
 	trie.SetValue(nil, []byte("NilNilNilNilNil"))
-	fmt.Println(trie.Hash())
-	fmt.Println(trie.Hash())
-	fmt.Println(trie.Hash())
+	hash1 := trie.Hash()
+	if hash1.String() != "c6cafbbd9f060a8cde7e159d378c76e12ecbc36fcd6125ee51b81d316f019ef1" {
+		t.Error("errro!")
+	}
+	hash1_2 := trie.Hash()
+	if hash1_2.String() != "c6cafbbd9f060a8cde7e159d378c76e12ecbc36fcd6125ee51b81d316f019ef1" {
+		t.Error("errro!")
+	}
+
+	hash1_3 := trie.Hash()
+	if hash1_3.String() != "c6cafbbd9f060a8cde7e159d378c76e12ecbc36fcd6125ee51b81d316f019ef1" {
+		t.Error("errro!")
+	}
+
+	// case2
 	trie.SetValue(nil, []byte("isNil"))
-	fmt.Println(trie.Hash())
+	hash2 := trie.Hash()
+	if hash2.String() != "402d3ba71597bb87129ada70588db179817a886a97a5b22e6d8b930cdd673d04" {
+		t.Error("errro!")
+	}
+	hash2_2 := trie.Hash()
+	if hash2_2.String() != "402d3ba71597bb87129ada70588db179817a886a97a5b22e6d8b930cdd673d04" {
+		t.Error("errro!")
+	}
+
+	hash2_3 := trie.Hash()
+	if hash2_3.String() != "402d3ba71597bb87129ada70588db179817a886a97a5b22e6d8b930cdd673d04" {
+		t.Error("errro!")
+	}
+
 	trie.SetValue([]byte("IamG"), []byte("ki10$%^%&@#!@#"))
 	fmt.Println(trie.Hash())
 	trie.SetValue([]byte("IamGood"), []byte("a1230xm90zm19ma"))
@@ -280,7 +447,72 @@ func TestTrieHash(t *testing.T) {
 	fmt.Println(trie.Hash())
 }
 
+func TestTrieSaveAndLoadCase1(t *testing.T) {
+	trieDbFile := filepath.Join(common.GoViteTestDataDir(), "trie")
+	os.RemoveAll(trieDbFile)
+
+	db, _ := database.NewLevelDb(trieDbFile)
+	defer db.Close()
+
+	pool := NewTrieNodePool()
+
+	trie := NewTrie(db, nil, pool)
+
+	var key1 []byte
+	value1 := []byte("NilNilNilNilNil")
+
+	key2 := []byte("IamG")
+	value2 := []byte("ki10$%^%&@#!@#")
+
+	key3 := []byte("IamGood")
+	value3 := []byte("a1230xm90zm19ma")
+
+	trie.SetValue(key1, value1)
+	trie.SetValue(key2, value2)
+	trie.SetValue(key3, value3)
+
+	getValue1 := trie.GetValue(key1)
+	getValue2 := trie.GetValue(key2)
+	getValue3 := trie.GetValue(key3)
+	if !bytes.Equal(value1, getValue1) {
+		t.Error("error!")
+	}
+	if !bytes.Equal(value2, getValue2) {
+		t.Error("error!")
+	}
+	if !bytes.Equal(value3, getValue3) {
+		t.Error("error!")
+	}
+
+	// save db
+	batch := new(leveldb.Batch)
+	callback, _ := trie.Save(batch)
+	db.Write(batch, nil)
+	callback()
+
+	rootHash := trie.Hash()
+	trie = nil
+
+	newTrie := NewTrie(db, rootHash, pool)
+	newGetValue1 := newTrie.GetValue(key1)
+	newGetValue2 := newTrie.GetValue(key2)
+	newGetValue3 := newTrie.GetValue(key3)
+
+	if !bytes.Equal(value1, newGetValue1) {
+		t.Error("error!")
+	}
+	if !bytes.Equal(value2, newGetValue2) {
+		t.Error("error!")
+	}
+	if !bytes.Equal(value3, newGetValue3) {
+		t.Error("error!")
+	}
+}
+
 func TestTrieSaveAndLoad(t *testing.T) {
+	trieDbFile := filepath.Join(common.GoViteTestDataDir(), "trie")
+	os.RemoveAll(trieDbFile)
+
 	db, _ := database.NewLevelDb(filepath.Join(common.GoViteTestDataDir(), "trie"))
 	defer db.Close()
 
@@ -306,10 +538,10 @@ func TestTrieSaveAndLoad(t *testing.T) {
 	db.Write(batch, nil)
 	callback()
 
+	rootHash := trie.Hash()
 	trie = nil
 
-	rootHash, _ := types.HexToHash("ece19924b34f6bf264e6fcc7feaabe8481939a5eb1a1a7a9825468128f526797")
-	newTrie := NewTrie(db, &rootHash, pool)
+	newTrie := NewTrie(db, rootHash, pool)
 
 	fmt.Printf("%s\n", newTrie.GetValue([]byte("IamG")))
 	fmt.Printf("%s\n", newTrie.GetValue([]byte("IamGood")))
@@ -322,7 +554,7 @@ func TestTrieSaveAndLoad(t *testing.T) {
 	fmt.Println()
 	newTrie = nil
 
-	newTri2 := NewTrie(db, &rootHash, pool)
+	newTri2 := NewTrie(db, rootHash, pool)
 
 	fmt.Printf("%s\n", newTri2.GetValue([]byte("IamG")))
 	fmt.Printf("%s\n", newTri2.GetValue([]byte("IamGood")))
