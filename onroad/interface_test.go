@@ -13,9 +13,11 @@ import (
 )
 
 type testNet struct {
+	fn func(net.SyncState)
 }
 
-func (testNet) SubscribeSyncStatus(fn func(net.SyncState)) (subId int) {
+func (t *testNet) SubscribeSyncStatus(fn func(net.SyncState)) (subId int) {
+	t.fn = fn
 	return 0
 }
 

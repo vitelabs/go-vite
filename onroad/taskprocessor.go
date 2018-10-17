@@ -2,8 +2,6 @@ package onroad
 
 import (
 	"sync"
-	"time"
-
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
@@ -15,7 +13,6 @@ import (
 type ContractTaskProcessor struct {
 	taskId   int
 	worker   *ContractWorker
-	accEvent producerevent.AccountStartEvent
 
 	blocksPool *model.OnroadBlocksPool
 
@@ -35,7 +32,6 @@ func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskPr
 	task := &ContractTaskProcessor{
 		taskId:     index,
 		worker:     worker,
-		accEvent:   worker.accEvent,
 		blocksPool: worker.uBlocksPool,
 		status:     Create,
 		isCancel:   false,
@@ -125,6 +121,10 @@ LOOP:
 	tp.log.Info("work end t")
 }
 
+func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
+	return tp.worker.getAccEvent()
+}
+
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	plog := tp.log.New("method", "processOneAddress")
 
@@ -150,7 +150,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		return
 	}
 
-	gen, err := generator.NewGenerator(tp.worker.manager.Chain(), &tp.accEvent.SnapshotHash, nil, &sBlock.ToAddress)
+	gen, err := generator.NewGenerator(tp.worker.manager.Chain(), &tp.accEvent().SnapshotHash, nil, &sBlock.ToAddress)
 	if err != nil {
 		plog.Error("NewGenerator failed", "error", err)
 		tp.worker.addIntoBlackList(task.Addr)
@@ -158,9 +158,9 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	}
 
 	consensusMessage := &generator.ConsensusMessage{
-		SnapshotHash: tp.accEvent.SnapshotHash,
-		Timestamp:    tp.accEvent.Timestamp,
-		Producer:     tp.accEvent.Address,
+		SnapshotHash: tp.accEvent().SnapshotHash,
+		Timestamp:    tp.accEvent().Timestamp,
+		Producer:     tp.accEvent().Address,
 	}
 
 	genResult, err := gen.GenerateWithOnroad(*sBlock, consensusMessage,
@@ -216,10 +216,6 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		}
 	}
 
-}
-
-func (tp *ContractTaskProcessor) isTimeout() bool {
-	return time.Now().After(tp.accEvent.Etime)
 }
 
 func (tp *ContractTaskProcessor) Close() error {
