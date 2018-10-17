@@ -417,7 +417,7 @@ func (svr *Server) runPeer(p *Peer) {
 
 	err := p.run()
 	if err != nil {
-		svr.log.Error("run peer error", "error", err)
+		svr.log.Error(fmt.Sprintf("run peer error: %v", err))
 	}
 	svr.delPeer <- p
 }
