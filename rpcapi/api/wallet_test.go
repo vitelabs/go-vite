@@ -42,7 +42,8 @@ func TestWallet(t *testing.T) {
 	w := wallet.New(nil)
 	password := "123456"
 
-	genesisAddr := unlockAddr(w, password, genesisAccountPrivKeyStr)
+	unlockAll(w)
+	genesisAddr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
 
 	addr, _ := types.HexToAddress("vite_e9b7307aaf51818993bb2675fd26a600bc7ab6d0f52bc5c2c1")
 	vite, err := startVite(w, &addr, t)
@@ -52,7 +53,7 @@ func TestWallet(t *testing.T) {
 	vite.Consensus().ReadByTime(types.SNAPSHOT_GID, t1)
 
 	waApi := NewWalletApi(vite)
-	onRoadApi := NewPrivateOnroadApi(vite.OnRoad())
+	onRoadApi := NewPrivateOnroadApi(vite)
 
 	//l := NewLedgerApi(vite)
 	t.Log(waApi.Status())
