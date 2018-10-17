@@ -180,11 +180,13 @@ wait:
 
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
-	// p is lower than me, or p is not all enough
+	// p is lower than me, or p is not all enough, no need to sync
 	if current.Height >= p.height || current.Height+minBlocks > p.height {
-		if current.Height > p.height {
+		// I`am not tall enough, then send my current block to p
+		if current.Height > p.height && current.Height <= p.height+minBlocks {
 			p.SendNewSnapshotBlock(current)
 		}
+
 		s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
 		s.setState(Syncdone)
 		return

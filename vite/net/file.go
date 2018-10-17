@@ -196,20 +196,20 @@ func (fc *fileClient) loop() {
 	ticker := time.NewTicker(idleTimeout)
 	defer ticker.Stop()
 
-	exp := message.FileTransDone
-	data, _ := exp.Serialize()
-	noNeed := &p2p.Msg{
-		CmdSetID: CmdSet,
-		Cmd:      uint64(ExceptionCode),
-		Size:     uint64(len(data)),
-		Payload:  data,
-	}
+	//exp := message.FileTransDone
+	//data, _ := exp.Serialize()
+	//noNeed := &p2p.Msg{
+	//	CmdSetID: CmdSet,
+	//	Cmd:      uint64(ExceptionCode),
+	//	Size:     uint64(len(data)),
+	//	Payload:  data,
+	//}
 
 	delCtx := func(ctx *connContext, hasErr bool) {
-		if !hasErr {
-			ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
-			p2p.WriteMsg(ctx, true, noNeed)
-		}
+		//if !hasErr {
+		//	ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
+		//	p2p.WriteMsg(ctx, true, noNeed)
+		//}
 
 		delete(fc.conns, ctx.addr)
 		ctx.Close()

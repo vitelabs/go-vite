@@ -301,6 +301,8 @@ func (c *getChunkHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
 		return err
 	}
 
+	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender.RemoteAddr()))
+
 	sblocks, mblocks, err := c.chain.GetConfirmSubLedger(req.Start, req.End)
 
 	if err != nil {
@@ -316,9 +318,9 @@ func (c *getChunkHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
 
 	err = sender.SendSubLedger(sblocks, ablocks, msg.Id)
 	if err != nil {
-		netLog.Error(fmt.Sprintf("send %d SnapshotBlocks %d AccountBlocks to %s error: %v", len(sblocks), ablockCount, sender, err))
+		netLog.Error(fmt.Sprintf("send %d SnapshotBlocks %d AccountBlocks for %s to %s error: %v", len(sblocks), ablockCount, req, sender, err))
 	} else {
-		netLog.Info(fmt.Sprintf("send %d SnapshotBlocks %d AccountBlocks to %s done", len(sblocks), ablockCount, sender))
+		netLog.Info(fmt.Sprintf("send %d SnapshotBlocks %d AccountBlocks for %s to %s done", len(sblocks), ablockCount, req, sender))
 	}
 
 	return
