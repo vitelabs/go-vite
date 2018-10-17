@@ -44,6 +44,8 @@ type Manager struct {
 	writeSuccLid    uint64
 	deleteSuccLid   uint64
 
+	lastProducerAccEvent *producerevent.AccountStartEvent
+
 	log log15.Logger
 }
 
@@ -107,7 +109,7 @@ func (manager *Manager) Close() error {
 func (manager *Manager) netStateChangedFunc(state net.SyncState) {
 	manager.log.Info("receive a net event", "state", state)
 	if state == net.Syncdone {
-		manager.startAllWorks()
+		manager.resumeContractWorks()
 	} else {
 		manager.stopAllWorks()
 	}
@@ -141,15 +143,17 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 		return
 	}
 
+	manager.lastProducerAccEvent = &event
+
 	w, found := manager.contractWorkers[event.Gid]
 	if !found {
-		w = NewContractWorker(manager, event)
+		w = NewContractWorker(manager)
 		manager.contractWorkers[event.Gid] = w
 	}
 
 	nowTime := time.Now()
 	if nowTime.After(event.Stime) && nowTime.Before(event.Etime) {
-		w.Start()
+		w.Start(event)
 		time.AfterFunc(event.Etime.Sub(nowTime), func() {
 			w.Stop()
 		})
@@ -159,6 +163,7 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 }
 
 func (manager *Manager) stopAllWorks() {
+	manager.log.Info("stopAllWorks called")
 	var wg = sync.WaitGroup{}
 	for _, v := range manager.autoReceiveWorkers {
 		wg.Add(1)
@@ -175,25 +180,25 @@ func (manager *Manager) stopAllWorks() {
 		}()
 	}
 	wg.Wait()
+	manager.log.Info("stopAllWorks end")
 }
 
-func (manager *Manager) startAllWorks() {
-	var wg = sync.WaitGroup{}
-	//for _, v := range manager.autoReceiveWorkers {
-	//	wg.Add(1)
-	//	go func() {
-	//		v.Start()
-	//		wg.Done()
-	//	}()
-	//}
-	for _, v := range manager.contractWorkers {
-		wg.Add(1)
-		go func() {
-			v.Start()
-			wg.Done()
-		}()
+func (manager *Manager) resumeContractWorks() {
+	manager.log.Info("resumeContractWorks")
+	if manager.lastProducerAccEvent != nil {
+		nowTime := time.Now()
+		if nowTime.After(manager.lastProducerAccEvent.Stime) && nowTime.Before(manager.lastProducerAccEvent.Etime) {
+			cw, ok := manager.contractWorkers[manager.lastProducerAccEvent.Gid]
+			if ok {
+				manager.log.Info("resumeContractWorks found an cw need to resume", "gid", manager.lastProducerAccEvent.Gid)
+				cw.Start(*manager.lastProducerAccEvent)
+				time.AfterFunc(manager.lastProducerAccEvent.Etime.Sub(nowTime), func() {
+					cw.Stop()
+				})
+			}
+		}
 	}
-	wg.Wait()
+	manager.log.Info("end resumeContractWorks")
 }
 
 func (manager *Manager) insertCommonBlockToPool(blockList []*vm_context.VmAccountBlock) error {

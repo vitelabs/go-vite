@@ -138,7 +138,7 @@ func checkRegisterData(methodName string, block *vm_context.VmAccountBlock, para
 
 	if verified, err := crypto.VerifySig(
 		param.PublicKey,
-		contracts.GetRegisterMessageForSignature(block.AccountBlock.AccountAddress, block.AccountBlock.Height, block.AccountBlock.PrevHash, block.AccountBlock.SnapshotHash),
+		contracts.GetRegisterMessageForSignature(block.AccountBlock.AccountAddress, param.Gid),
 		param.Signature); !verified {
 		return err
 	}
@@ -155,6 +155,13 @@ func checkRegisterData(methodName string, block *vm_context.VmAccountBlock, para
 func (p *pRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(contracts.ParamRegister)
 	contracts.ABIRegister.UnpackMethod(param, contracts.MethodNameRegister, sendBlock.Data)
+	// two registration in one consensus group do not share node address
+	registrationList := contracts.GetRegisterList(block.VmContext, param.Gid)
+	for _, registration := range registrationList {
+		if registration.NodeAddr == param.NodeAddr {
+			return ErrInvalidData
+		}
+	}
 	snapshotBlock := block.VmContext.CurrentSnapshotBlock()
 	rewardHeight := snapshotBlock.Height
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
@@ -448,6 +455,13 @@ func (p *pUpdateRegistration) doSend(vm *VM, block *vm_context.VmAccountBlock, q
 func (p *pUpdateRegistration) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(contracts.ParamRegister)
 	contracts.ABIRegister.UnpackMethod(param, contracts.MethodNameUpdateRegistration, sendBlock.Data)
+	// two registration in one consensus group do not share node address
+	registrationList := contracts.GetRegisterList(block.VmContext, param.Gid)
+	for _, registration := range registrationList {
+		if registration.NodeAddr == param.NodeAddr {
+			return ErrInvalidData
+		}
+	}
 	key := contracts.GetRegisterKey(param.Name, param.Gid)
 	old := new(contracts.Registration)
 	err := contracts.ABIRegister.UnpackVariable(old, contracts.VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))

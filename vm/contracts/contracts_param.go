@@ -31,8 +31,8 @@ func PackMethodParam(contractsAddr types.Address, methodName string, params ...i
 }
 
 // Sign certain tx data using private key of node address to prove ownership of node address
-func GetRegisterMessageForSignature(accountAddress types.Address, blockHeight uint64, prevHash types.Hash, snapshotHash types.Hash) []byte {
-	return helper.JoinBytes(accountAddress.Bytes(), new(big.Int).SetUint64(blockHeight).Bytes(), prevHash.Bytes(), snapshotHash.Bytes())
+func GetRegisterMessageForSignature(accountAddress types.Address, gid types.Gid) []byte {
+	return helper.JoinBytes(accountAddress.Bytes(), gid.Bytes())
 }
 
 type ConditionCode uint8
