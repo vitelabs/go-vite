@@ -147,19 +147,7 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 func (verifier *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) bool {
 	defer monitor.LogTime("verify", "accountSelf", time.Now())
 
-	code, err := verifier.chain.AccountType(&block.AccountAddress)
-	if err != nil {
-		verifyStatResult.referredSelfResult = FAIL
-		verifyStatResult.errMsg += "VerifyAccountAddress," + err.Error()
-		return false
-	}
-	if block.IsSendBlock() && code == ledger.AccountTypeNotExist {
-		verifyStatResult.referredSelfResult = FAIL
-		verifyStatResult.errMsg += "VerifyAccountAddress, inexistent AccountAddress can't sendTx"
-		return false
-	}
-
-	if err := verifier.VerifyDataValidity(block); err != nil {
+	if err := verifier.VerifyDataValidity2(block); err != nil {
 		verifyStatResult.referredSelfResult = FAIL
 		verifyStatResult.errMsg += err.Error()
 		return false
@@ -326,6 +314,53 @@ func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlo
 	return SUCCESS, nil
 }
 
+func (verifier *AccountVerifier) VerifyDataValidity2(block *ledger.AccountBlock) error {
+	defer monitor.LogTime("verify", "accountSelfDataValidity", time.Now())
+
+	code, err := verifier.chain.AccountType(&block.AccountAddress)
+	if err != nil {
+		return err
+	}
+	if block.IsSendBlock() && code == ledger.AccountTypeNotExist {
+		return errors.New("SendBlock AccountAddress AccountTypeNotExist")
+	}
+
+	if block.Amount == nil {
+		block.Amount = big.NewInt(0)
+	}
+	if block.Fee == nil {
+		block.Fee = big.NewInt(0)
+	}
+	if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
+		return errors.New("block.Amount out of bounds")
+	}
+	if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
+		return errors.New("block.Fee out of bounds")
+	}
+
+	if block.Timestamp == nil {
+		return errors.New("Timestamp can't be nil")
+	}
+
+	if !verifier.VerifyHash(block) {
+		return errors.New("VerifyHash failed")
+	}
+
+	if !verifier.VerifyNonce(block) {
+		return errors.New("VerifyNonce failed")
+	}
+
+	if block.IsSendBlock() && code == ledger.AccountTypeContract {
+		return nil
+	}
+
+	if !verifier.VerifySigature(block) {
+		return errors.New("VerifySigature failed")
+	}
+
+	return nil
+}
+
 func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) error {
 	defer monitor.LogTime("verify", "accountSelfDataValidity", time.Now())
 
@@ -354,10 +389,10 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 		return errors.New("VerifyNonce failed")
 	}
 
-	if block.IsSendBlock() && code == ledger.AccountTypeContract {
-		// contractAddr's sendBlock ignore the sigature and pubKey
+	if block.IsSendBlock() && block.Signature == nil {
 		return nil
 	}
+
 	if !verifier.VerifySigature(block) {
 		return errors.New("VerifySigature failed")
 	}
