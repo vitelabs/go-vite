@@ -186,7 +186,7 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 		return
 	}
 	if genResult.Err != nil {
-		w.log.Error("vm.Run error, ignore", genResult.Err)
+		w.log.Error("vm.Run error, ignore", "error", genResult.Err)
 	}
 	if len(genResult.BlockGenList) == 0 {
 		w.log.Error("GenerateWithOnroad failed, BlockGenList is nil")

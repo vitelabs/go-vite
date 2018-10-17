@@ -430,7 +430,7 @@ func (p *OnroadBlocksPool) updateCache(writeType bool, block *ledger.AccountBloc
 }
 
 func (p *OnroadBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
-	gid, err := p.dbAccess.Chain.GetContractGid(&block.AccountAddress)
+	gid, err := p.dbAccess.Chain.GetContractGid(&block.ToAddress)
 	if err != nil {
 		p.log.Error("NewSignalToWorker", "err", err)
 		return
