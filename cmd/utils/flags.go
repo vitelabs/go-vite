@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"github.com/vitelabs/go-vite/config"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -53,12 +52,10 @@ var (
 	MaxPeersFlag = cli.UintFlag{
 		Name:  "maxpeers", //mapping:p2p.MaxPeers
 		Usage: "Maximum number of network peers (network disabled if set to 0)",
-		Value: config.GlobalConfig.MaxPeers,
 	}
 	MaxPendingPeersFlag = cli.UintFlag{
 		Name:  "maxpendpeers", //mapping:p2p.MaxPendingPeers
 		Usage: "Maximum number of pending connection attempts (defaults used if set to 0)",
-		Value: config.GlobalConfig.MaxPeers,
 	}
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port", //mapping:p2p.Addr

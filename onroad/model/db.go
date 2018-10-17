@@ -92,17 +92,18 @@ func (ucf *OnroadSet) GetHashList(addr *types.Address) (hashs []*types.Hash, err
 	return hashs, nil
 }
 
-func (ucf *OnroadSet) WriteMeta(batch *leveldb.Batch, addr *types.Address, hash *types.Hash, count uint8) error {
+func (ucf *OnroadSet) WriteMeta(batch *leveldb.Batch, addr *types.Address, hash *types.Hash) error {
+	value := []byte{uint8(0)}
 	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), hash.Bytes())
 	if err != nil {
 		return err
 	}
 	if batch == nil {
-		if err := ucf.db().Put(key, []byte{count}, nil); err != nil {
+		if err := ucf.db().Put(key, value, nil); err != nil {
 			return err
 		}
 	} else {
-		batch.Put(key, []byte{count})
+		batch.Put(key, value)
 	}
 	return nil
 }

@@ -74,88 +74,87 @@ func (access *UAccess) DeleteContractAddrFromGid(batch *leveldb.Batch, gid types
 	}
 }
 
-func (access *UAccess) writeOnroadMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
+func (access *UAccess) writeOnroadMeta(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	if block.IsSendBlock() {
-		// call from the common WriteOnroad func to add new onRoadTx
-		return access.store.WriteMeta(batch, &block.ToAddress, &block.Hash, 0)
+		// call from the common WriteOnroad func to add new onRoadTx, sendBlock
+		return access.store.WriteMeta(batch, &block.ToAddress, &block.Hash)
 	} else {
-		// call from the RevertOnroad(revert) func
+		// call from the RevertOnroad(revert) func, receiveBlock
 		addr := &block.AccountAddress
 		hash := &block.FromBlockHash
 
-		value, err := access.Chain.ChainDb().OnRoad.GetMeta(addr, hash)
+		count, err1 := access.store.GetReceiveErrCount(hash, addr)
+		if err1 != nil {
+			return errors.New("GetReceiveErrCount error" + err1.Error())
+		}
+		if count <= 0 && block.BlockType == ledger.BlockTypeReceiveError {
+			return errors.New("conflict, revert receiveError but recvErrCount is 0")
+		}
+
+		value, err2 := access.Chain.ChainDb().OnRoad.GetMeta(addr, hash)
 		if len(value) == 0 {
-			if err == nil {
-				if count, err := access.store.GetReceiveErrCount(hash, addr); err == nil {
-					if block.BlockType == ledger.BlockTypeReceiveError {
-						if err := access.store.DecreaseReceiveErrCount(batch, hash, addr); err != nil {
-							return err
-						}
-						return access.store.WriteMeta(batch, addr, hash, count-1)
-					} else {
-						return access.store.WriteMeta(batch, addr, hash, count)
-					}
-				}
-				return err
+			if err2 != nil {
+				return errors.New("GetMeta error:" + err2.Error())
 			}
-			return errors.New("GetMeta error:" + err.Error())
-		} else {
-			// count := uint8(value[0])
-			if count, err := access.store.GetReceiveErrCount(hash, addr); err == nil {
+			if block.BlockType == ledger.BlockTypeReceiveError {
+				if count != MaxReceiveErrCount {
+					return errors.New("conflict, revert receiveError failed:")
+				}
 				if err := access.store.DecreaseReceiveErrCount(batch, hash, addr); err != nil {
-					return err
+					return errors.New("DecreaseReceiveErrCount error:" + err.Error())
 				}
-				return access.store.WriteMeta(batch, addr, hash, count-1)
 			}
-			return err
+			return access.store.WriteMeta(batch, addr, hash)
+		} else {
+			if block.BlockType == ledger.BlockTypeReceive {
+				return errors.New("conflict, revert receiveSuccess but referred send still in onroad")
+			}
+			if err := access.store.DecreaseReceiveErrCount(batch, hash, addr); err != nil {
+				return errors.New("DecreaseReceiveErrCount error:" + err.Error())
+			}
+			return nil
 		}
 	}
 }
 
-func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.AccountBlock) (err error) {
+func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	if block.IsReceiveBlock() {
 		// call from the WriteOnroad func to handle the onRoadTx's receiveBlock
 		addr := &block.AccountAddress
 		hash := &block.FromBlockHash
 
-		code, err := access.Chain.AccountType(&block.AccountAddress)
+		code, atErr := access.Chain.AccountType(&block.AccountAddress)
 		switch code {
 		case ledger.AccountTypeGeneral, ledger.AccountTypeNotExist:
 			return access.store.DeleteMeta(batch, addr, hash)
 		case ledger.AccountTypeContract:
-			value, err := access.Chain.ChainDb().OnRoad.GetMeta(addr, hash)
+			value, err1 := access.Chain.ChainDb().OnRoad.GetMeta(addr, hash)
 			if len(value) == 0 {
-				if err == nil {
-					access.log.Info("the corresponding sendBlock has already been delete")
-					return nil
+				if err1 != nil {
+					return errors.New("GetMeta error:" + err1.Error())
 				}
-				return errors.New("GetMeta error:" + err.Error())
+				access.log.Info("the corresponding sendBlock has already been delete")
+				return nil
 			}
-			//count := uint8(value[0])
-			if count, err := access.store.GetReceiveErrCount(hash, addr); err == nil {
-				if block.BlockType == ledger.BlockTypeReceiveError {
-					if count < MaxReceiveErrCount {
-						if err := access.store.IncreaseReceiveErrCount(batch, hash, addr); err != nil {
-							return err
-						}
-						newErrCount := count + 1
-						access.store.WriteMeta(batch, addr, hash, newErrCount)
 
-						if newErrCount >= MaxReceiveErrCount {
-							if err := access.store.DeleteMeta(batch, addr, hash); err != nil {
-								access.log.Error("DeleteMeta", "error", err.Error())
-								return err
-							}
-						}
+			count, err2 := access.store.GetReceiveErrCount(hash, addr)
+			if err2 != nil {
+				return errors.New("GetReceiveErrCount error:" + err2.Error())
+			}
+			if block.BlockType == ledger.BlockTypeReceiveError {
+				if count < MaxReceiveErrCount {
+					if err3 := access.store.IncreaseReceiveErrCount(batch, hash, addr); err3 != nil {
+						return errors.New("IncreaseReceiveErrCount error:" + err3.Error())
+					}
+					if count+1 == MaxReceiveErrCount {
+						return access.store.DeleteMeta(batch, addr, hash)
 					}
 				}
-				return nil
-			} else {
-				return err
 			}
+			return access.store.DeleteMeta(batch, addr, hash)
 		default:
-			if err != nil {
-				access.log.Error("AccountType", "error", err)
+			if atErr != nil {
+				access.log.Error("AccountType", "error", atErr)
 			}
 			return errors.New("AccountType error ")
 		}

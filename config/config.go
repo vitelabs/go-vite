@@ -11,7 +11,6 @@ import (
 )
 
 type Config struct {
-	*P2P      `json:"P2P"`
 	*Producer `json:"Producer"`
 	*Chain    `json:"Chain"`
 	*Vm       `json:"Vm"`
@@ -44,17 +43,6 @@ var GlobalConfig *Config
 
 func defaultConfig() {
 	GlobalConfig = &Config{
-		P2P: &P2P{
-			Name:                 "vite-server",
-			PrivateKey:           "",
-			MaxPeers:             100,
-			MaxPassivePeersRatio: 2,
-			MaxPendingPeers:      20,
-			BootNodes:            nil,
-			Port:                 8483,
-			Datadir:              common.DefaultDataDir(),
-			NetID:                6,
-		},
 		Producer: &Producer{
 			Producer: false,
 			Coinbase: "",
