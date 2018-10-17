@@ -11,10 +11,12 @@ import (
 
 	"strconv"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
@@ -317,4 +319,42 @@ func unlockAll(w *wallet.Manager) []types.Address {
 		}
 	}
 	return results
+}
+
+type CreateReceiveTxParms struct {
+	SelfAddr   types.Address
+	FromHash   types.Hash
+	PrivKeyStr string
+}
+
+func (m *WalletApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
+	msg := &generator.IncomingMessage{
+		BlockType:      ledger.BlockTypeReceive,
+		AccountAddress: params.SelfAddr,
+		FromBlockHash:  &params.FromHash,
+	}
+	privKey, _ := ed25519.HexToPrivateKey(params.PrivKeyStr)
+	pubKey := privKey.PubByte()
+
+	g, e := generator.NewGenerator(m.chain, nil, nil, &params.SelfAddr)
+	if e != nil {
+		return e
+	}
+	result, e := g.GenerateWithMessage(msg, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+		return ed25519.Sign(privKey, data), pubKey, nil
+	})
+	if e != nil {
+		newerr, _ := TryMakeConcernedError(e)
+		return newerr
+	}
+	if result.Err != nil {
+		newerr, _ := TryMakeConcernedError(result.Err)
+		return newerr
+	}
+	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
+		return m.pool.AddDirectAccountBlock(params.SelfAddr, result.BlockGenList[0])
+	} else {
+		return errors.New("generator gen an empty block")
+	}
+	return nil
 }
