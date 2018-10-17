@@ -245,6 +245,7 @@ loop:
 		}
 	}
 
+	// no error, disconnected initiative
 	if atomic.LoadInt32(&c.errored) == 0 {
 		for i := 0; i < len(c.wqueue); i++ {
 			msg := <-c.wqueue
