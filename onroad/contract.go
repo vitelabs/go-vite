@@ -4,10 +4,12 @@ import (
 	"container/heap"
 	"sync"
 
+	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"strconv"
 )
 
@@ -214,12 +216,16 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 
 	w.contractTaskPQueue = make([]*contractTask, len(quotas))
 	i := 0
-	for key, value := range quotas {
-		w.contractTaskPQueue[i] = &contractTask{
-			Addr:  key,
+	for addr, quota := range quotas {
+		task := &contractTask{
+			Addr:  addr,
 			Index: i,
-			Quota: value,
+			Quota: quota,
 		}
+		if addr == contracts.AddressPledge {
+			task.Quota = math.MaxUint64
+		}
+		w.contractTaskPQueue[i] = task
 		i++
 	}
 
