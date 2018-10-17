@@ -380,11 +380,13 @@ func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
 }
 
 func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) {
+	s.log.Info(fmt.Sprintf("syncer: receive SnapshotBlock %s/%d", block.Hash, block.Height))
 	s.receiver.ReceiveSnapshotBlock(block)
 	s.counter(true, 1)
 }
 
 func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) {
+	s.log.Info(fmt.Sprintf("syncer: receive AccountBlock %s/%d", block.Hash, block.Height))
 	s.receiver.ReceiveAccountBlock(block)
 }
 

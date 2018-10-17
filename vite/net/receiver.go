@@ -236,6 +236,7 @@ func (s *receiver) listen(st SyncState) {
 
 	if st == Syncdone || st == SyncDownloaded {
 		s.log.Info(fmt.Sprintf("ready: %s", st))
+		atomic.StoreInt32(&s.ready, 1)
 
 		// new blocks
 		for _, block := range s.newSBlocks {
