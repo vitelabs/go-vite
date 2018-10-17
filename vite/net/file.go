@@ -98,7 +98,7 @@ func (f *fileServer) handleConn(conn net2.Conn) {
 		case <-f.term:
 			return
 		default:
-			msg, err := p2p.ReadMsg(conn, true)
+			msg, err := p2p.ReadMsg(conn)
 			if err != nil {
 				f.log.Error(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
 				return
@@ -312,33 +312,26 @@ func (fc *fileClient) exe(ctx *connContext) {
 	for i, file := range req.files {
 		filenames[i] = file.Filename
 	}
-	msg := &message.GetFiles{
-		Names: filenames,
-		Nonce: req.nonce,
-	}
 
-	data, err := msg.Serialize()
+	getFiles := &message.GetFiles{filenames, req.nonce}
+	msg, err := p2p.PackMsg(CmdSet, uint32(GetFilesCode), 0, getFiles)
+
 	if err != nil {
+		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", getFiles, ctx.addr, err))
 		req.Catch(err)
 		fc.idle <- ctx
 		return
 	}
 
 	//ctx.SetWriteDeadline(time.Now().Add(3 * time.Second))
-	err = p2p.WriteMsg(ctx.Conn, true, &p2p.Msg{
-		CmdSetID: CmdSet,
-		Cmd:      uint64(GetFilesCode),
-		Size:     uint64(len(data)),
-		Payload:  data,
-	})
-	if err != nil {
-		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", msg, ctx.addr, err))
+	if err = p2p.WriteMsg(ctx.Conn, msg); err != nil {
+		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", getFiles, ctx.addr, err))
 		req.Catch(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 		return
 	}
 
-	fc.log.Info(fmt.Sprintf("send %s to %s done", msg, ctx.addr))
+	fc.log.Info(fmt.Sprintf("send %s to %s done", getFiles, ctx.addr))
 
 	sCount, aCount, err := fc.readBlocks(ctx)
 	if err != nil {

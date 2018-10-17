@@ -173,7 +173,7 @@ type Handshake struct {
 	// peer`s IP
 	RemoteIP net.IP
 	// peer`s Port
-	RemotePort uint32
+	RemotePort uint16
 }
 
 func (hs *Handshake) Serialize() ([]byte, error) {
@@ -183,16 +183,14 @@ func (hs *Handshake) Serialize() ([]byte, error) {
 		cmdsets[i] = cmdset.Proto()
 	}
 
-	hspb := &protos.Handshake{
+	return proto.Marshal(&protos.Handshake{
 		NetID:      uint64(hs.NetID),
 		Name:       hs.Name,
 		ID:         hs.ID[:],
 		CmdSets:    cmdsets,
 		RemoteIP:   hs.RemoteIP,
-		RemotePort: hs.RemotePort,
-	}
-
-	return proto.Marshal(hspb)
+		RemotePort: uint32(hs.RemotePort),
+	})
 }
 
 func (hs *Handshake) Deserialize(buf []byte) error {
@@ -212,7 +210,7 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 	hs.NetID = NetworkID(pb.NetID)
 	hs.Name = pb.Name
 	hs.RemoteIP = pb.RemoteIP
-	hs.RemotePort = pb.RemotePort
+	hs.RemotePort = uint16(pb.RemotePort)
 
 	cmdsets := make([]*CmdSet, len(pb.CmdSets))
 	for i, cmdset := range pb.CmdSets {

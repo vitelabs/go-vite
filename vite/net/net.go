@@ -232,13 +232,9 @@ func (n *net) handleMsg(p *Peer) (err error) {
 		n.log.Error(fmt.Sprintf("read message from %s error: %v", p, err))
 		return
 	}
-	defer msg.Discard()
+	defer msg.Recycle()
 
 	code := cmd(msg.Cmd)
-	//if code == HandshakeCode {
-	//	n.log.Error(fmt.Sprintf("handshake twice with %s", p))
-	//	return errHandshakeTwice
-	//}
 
 	if handler, ok := n.handlers[code]; ok && handler != nil {
 		return handler.Handle(msg, p)

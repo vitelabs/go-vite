@@ -92,7 +92,7 @@ func (p *Peer) ReadHandshake() (their *message.HandShake, err error) {
 		return
 	}
 
-	if msg.Cmd != uint64(HandshakeCode) {
+	if msg.Cmd != uint32(HandshakeCode) {
 		err = fmt.Errorf("should be HandshakeCode %d, got %d\n", HandshakeCode, msg.Cmd)
 		return
 	}
@@ -190,25 +190,15 @@ func (p *Peer) SendNewAccountBlock(b *ledger.AccountBlock) (err error) {
 }
 
 func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) error {
-	data, err := payload.Serialize()
-	if err != nil {
+	if msg, err := p2p.PackMsg(p.CmdSet, uint32(code), msgId, payload); err != nil {
+		p.log.Error(fmt.Sprintf("pack message %s to %s error: %v", code, p, err))
+		return err
+	} else if err := p.mrw.WriteMsg(msg); err != nil {
 		p.log.Error(fmt.Sprintf("send message %s to %s error: %v", code, p, err))
 		return err
 	}
 
-	err = p.mrw.WriteMsg(&p2p.Msg{
-		CmdSetID: p.CmdSet,
-		Cmd:      uint64(code),
-		Id:       msgId,
-		Size:     uint64(len(data)),
-		Payload:  data,
-	})
-
-	if err != nil {
-		p.log.Error(fmt.Sprintf("send message %s to %s error: %v", code, p, err))
-	}
-
-	return err
+	return nil
 }
 
 type PeerInfo struct {

@@ -24,7 +24,7 @@ const CmdSetName = "vite"
 
 const CmdSet = 2
 
-type cmd uint64
+type cmd uint32
 
 const (
 	HandshakeCode cmd = iota

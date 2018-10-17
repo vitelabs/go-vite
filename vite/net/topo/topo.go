@@ -194,10 +194,10 @@ func (t *Topology) sendLoop() {
 				t.peers.Range(func(key, value interface{}) bool {
 					peer := value.(*Peer)
 					peer.rw.WriteMsg(&p2p.Msg{
-						CmdSetID: CmdSet,
-						Cmd:      topoCmd,
-						Size:     uint64(len(data)),
-						Payload:  data,
+						CmdSet:  CmdSet,
+						Cmd:     topoCmd,
+						Size:    uint32(len(data)),
+						Payload: data,
 					})
 					return true
 				})
@@ -226,7 +226,7 @@ func (t *Topology) Topology() *Topo {
 }
 
 func (t *Topology) Receive(msg *p2p.Msg, sender *Peer) {
-	defer msg.Discard()
+	defer msg.Recycle()
 
 	hash := msg.Payload[:32]
 	if t.record.Lookup(hash) {
