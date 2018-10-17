@@ -87,6 +87,9 @@ func key(t string, name string) string {
 func LogEvent(t string, name string) {
 	log(t, name, 1)
 }
+func LogEventNum(t string, name string, num int) {
+	log(t, name, int64(num))
+}
 
 func LogTime(t string, name string, tm time.Time) {
 	log(t, name, time.Now().Sub(tm).Nanoseconds())

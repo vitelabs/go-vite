@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
-	"github.com/stretchr/testify/assert"
+
 	"encoding/hex"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateContractAddress(t *testing.T) {
@@ -18,9 +20,9 @@ func TestCreateContractAddress(t *testing.T) {
 }
 
 func TestCreateRandomAddress(t *testing.T) {
-	for i := 0; i < 20; i++ {
-		addr, priv, _ := CreateAddress()
-		fmt.Println(addr, hex.EncodeToString(priv))
+	for i := 0; i < 10; i++ {
+		_, priv, _ := CreateAddress()
+		fmt.Println("\"" + hex.EncodeToString(priv) + "\",")
 	}
 }
 

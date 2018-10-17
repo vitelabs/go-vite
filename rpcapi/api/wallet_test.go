@@ -3,8 +3,9 @@ package api
 import (
 	"flag"
 	"fmt"
-	"github.com/vitelabs/go-vite/vm_context"
 	"testing"
+
+	"github.com/vitelabs/go-vite/vm_context"
 
 	"time"
 
@@ -12,12 +13,10 @@ import (
 
 	"strconv"
 
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
@@ -122,10 +121,9 @@ func startVite(w *wallet.Manager, coinbase *types.Address, t *testing.T) (*vite.
 	//p2pServer, err := p2p.New(&p2p.Config{
 	//	BootNodes: []string{
 	//		"vnode://6d72c01e467e5280acf1b63f87afd5b6dcf8a596d849ddfc9ca70aab08f10191@192.168.31.146:8483",
-	//		"vnode://1ceabc6c2b751b352a6d719b4987f828bb1cf51baafa4efac38bc525ed61059d@192.168.31.190:8483",
-	//		"vnode://8343b3f2bc4e8e521d460cadab3e9f1e61ba57529b3fb48c5c076845c92e75d2@192.168.31.193:8483",
 	//	},
 	//	DataDir: path.Join(common.DefaultDataDir(), "/p2p"),
+	//	NetID:   10,
 	//})
 
 	wLog.Info(coinbase.String(), "coinbase")
@@ -320,47 +318,6 @@ func unlockAll(w *wallet.Manager) []types.Address {
 		}
 	}
 	return results
-}
-
-type CreateReceiveTxParms struct {
-	SelfAddr   types.Address
-	FromHash   types.Hash
-	PrivKeyStr string
-}
-
-func ReceiveOnroadTx(vite *vite.Vite, params CreateReceiveTxParms) error {
-	chain := vite.Chain()
-	pool := vite.Pool()
-
-	msg := &generator.IncomingMessage{
-		BlockType:      ledger.BlockTypeReceive,
-		AccountAddress: params.SelfAddr,
-		FromBlockHash:  &params.FromHash,
-	}
-	privKey, _ := ed25519.HexToPrivateKey(params.PrivKeyStr)
-	pubKey := privKey.PubByte()
-
-	g, e := generator.NewGenerator(chain, nil, nil, &params.SelfAddr)
-	if e != nil {
-		return e
-	}
-	result, e := g.GenerateWithMessage(msg, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-		return ed25519.Sign(privKey, data), pubKey, nil
-	})
-	if e != nil {
-		newerr, _ := TryMakeConcernedError(e)
-		return newerr
-	}
-	if result.Err != nil {
-		newerr, _ := TryMakeConcernedError(result.Err)
-		return newerr
-	}
-	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
-		return pool.AddDirectAccountBlock(params.SelfAddr, result.BlockGenList[0])
-	} else {
-		return errors.New("generator gen an empty block")
-	}
-	return nil
 }
 
 func TestQuota(t *testing.T) {

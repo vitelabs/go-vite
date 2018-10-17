@@ -88,7 +88,7 @@ func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensu
 
 func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc SignFunc) (*GenResult, error) {
 	var sendBlock *ledger.AccountBlock = nil
-	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
+	if block.IsReceiveBlock() {
 		sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash)
 	}
 	genResult, err := gen.generateBlock(block, sendBlock, block.AccountAddress, signFunc)
@@ -194,6 +194,7 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 	if consensusMsg == nil {
 		st := time.Now()
 		blockPacked.Timestamp = &st
+
 		snapshotBlock := gen.vmContext.CurrentSnapshotBlock()
 		if snapshotBlock == nil {
 			return nil, errors.New("CurrentSnapshotBlock can't be nil")
@@ -202,6 +203,7 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 			nonce := pow.GetPowNonce(nil, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
 			blockPacked.Nonce = nonce[:]
 		}
+		blockPacked.SnapshotHash = snapshotBlock.Hash
 	} else {
 		blockPacked.Timestamp = &consensusMsg.Timestamp
 		blockPacked.SnapshotHash = consensusMsg.SnapshotHash

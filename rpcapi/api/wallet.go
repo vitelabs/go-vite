@@ -156,7 +156,6 @@ func (m *WalletApi) SignData(addr types.Address, hexMsg string) (HexSignedTuple,
 }
 
 func (m *WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
-
 	amount, ok := new(big.Int).SetString(params.Amount, 10)
 	if !ok {
 		return ErrStrToBigInt
@@ -176,7 +175,6 @@ func (m *WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: params.SelfAddr,
 		ToAddress:      &params.ToAddr,
-		FromBlockHash:  &preHash,
 		TokenId:        &params.TokenTypeId,
 		Amount:         amount,
 		Fee:            nil,
@@ -184,7 +182,7 @@ func (m *WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 		Data:           params.Data,
 	}
 
-	g, e := generator.NewGenerator(m.chain, nil, &preHash, &params.SelfAddr)
+	g, e := generator.NewGenerator(m.chain, nil, nil, &params.SelfAddr)
 	if e != nil {
 		return e
 	}
