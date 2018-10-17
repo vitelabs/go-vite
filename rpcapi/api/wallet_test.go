@@ -290,7 +290,7 @@ func contractOnroadNum(api *PrivateOnroadApi, addr types.Address, t *testing.T) 
 	return len(info)
 }
 
-func TestWalletBalance(t *testing.T) {
+func TestGenData(t *testing.T) {
 	w := wallet.New(nil)
 
 	unlockAll(w)
@@ -301,8 +301,37 @@ func TestWalletBalance(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	waApi := NewWalletApi(vite)
+	onRoadApi := NewPrivateOnroadApi(vite)
 
 	printBalance(vite, addr)
+
+	genesisAddr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
+	vite.OnRoad().StartAutoReceiveWorker(genesisAddr, nil)
+
+	// if has no balance
+	if printBalance(vite, genesisAddr).Sign() == 0 {
+		waitOnroad(onRoadApi, genesisAddr, t)
+	}
+
+	parms := CreateTransferTxParms{
+		SelfAddr:    genesisAddr,
+		ToAddr:      addr,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      new(big.Int).Mul(big.NewInt(3300000), big.NewInt(1e18)).String(),
+		Data:        nil,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	}
+	err = waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		panic(err)
+	}
+
+	// if has no balance
+	if printBalance(vite, addr).Sign() == 0 {
+		waitOnroad(onRoadApi, addr, t)
+	}
 
 	waitSnapshotInc(vite, t)
 }
