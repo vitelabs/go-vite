@@ -1,18 +1,20 @@
 package onroad
 
 import (
-	"sync"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
+	"sync"
 )
 
 type ContractTaskProcessor struct {
-	taskId   int
-	worker   *ContractWorker
+	taskId int
+	worker *ContractWorker
 
 	blocksPool *model.OnroadBlocksPool
 
@@ -157,10 +159,9 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		return
 	}
 
-	consensusMessage := &generator.ConsensusMessage{
-		SnapshotHash: tp.accEvent().SnapshotHash,
-		Timestamp:    tp.accEvent().Timestamp,
-		Producer:     tp.accEvent().Address,
+	consensusMessage, err := tp.packConsensusMessage(sBlock)
+	if err != nil {
+		return
 	}
 
 	genResult, err := gen.GenerateWithOnroad(*sBlock, consensusMessage,
@@ -173,13 +174,13 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	}
 
 	if genResult.Err != nil {
-		plog.Error("vm.Run error, ignore", "err", genResult.Err)
+		plog.Error("vm.Run error, ignore", "error", genResult.Err)
 	}
 
 	plog.Info(fmt.Sprintf("len(genResult.BlockGenList) = %v", len(blockList)))
 	if len(genResult.BlockGenList) > 0 {
 		if err := tp.worker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
-			plog.Error("insertContractBlocksToPool", "err", err)
+			plog.Error("insertContractBlocksToPool", "error", err)
 			tp.worker.addIntoBlackList(task.Addr)
 			return
 		}
@@ -210,7 +211,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		}
 
 		if err := tp.blocksPool.DeleteDirect(sBlock); err != nil {
-			plog.Error("blocksPool.DeleteDirect", "err", err)
+			plog.Error("blocksPool.DeleteDirect", "error", err)
 			tp.worker.addIntoBlackList(task.Addr)
 			return
 		}
@@ -227,4 +228,25 @@ func (tp *ContractTaskProcessor) Status() int {
 	tp.statusMutex.Lock()
 	defer tp.statusMutex.Unlock()
 	return tp.status
+}
+
+func (tp *ContractTaskProcessor) packConsensusMessage(sendBlock *ledger.AccountBlock) (*generator.ConsensusMessage, error) {
+	consensusMessage := &generator.ConsensusMessage{
+		SnapshotHash: tp.accEvent().SnapshotHash,
+		Timestamp:    tp.accEvent().Timestamp,
+		Producer:     tp.accEvent().Address,
+	}
+	genSnapshotBlock, err := tp.worker.manager.chain.GetSnapshotBlockByHash(&consensusMessage.SnapshotHash)
+	if err != nil {
+		return nil, err
+	}
+	sendSnapshotBlock, err := tp.worker.manager.chain.GetSnapshotBlockByHash(&sendBlock.SnapshotHash)
+	if err != nil {
+		return nil, err
+	}
+
+	if genSnapshotBlock.Height < sendSnapshotBlock.Height {
+		return nil, errors.New("genSnapshotBlock's Height can't lower than sendSnapshotBlock's")
+	}
+	return consensusMessage, nil
 }

@@ -69,15 +69,15 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 }
 
 func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensusMsg *ConsensusMessage, signFunc SignFunc) (*GenResult, error) {
+	var producer types.Address
+	if consensusMsg == nil {
+		producer = sendBlock.ToAddress
+	} else {
+		producer = consensusMsg.Producer
+	}
 	block, err := gen.packBlockWithSendBlock(&sendBlock, consensusMsg)
 	if err != nil {
 		return nil, err
-	}
-	var producer types.Address
-	if consensusMsg == nil {
-		producer = block.AccountAddress
-	} else {
-		producer = consensusMsg.Producer
 	}
 	genResult, err := gen.generateBlock(block, &sendBlock, producer, signFunc)
 	if err != nil {
@@ -178,6 +178,7 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 		blockPacked.Fee = sendBlock.Fee
 	}
 
+	preBlockReferredSbHeight := uint64(0)
 	preBlock := gen.vmContext.PrevAccountBlock()
 	if preBlock == nil {
 		blockPacked.Height = 1
@@ -185,6 +186,9 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 	} else {
 		blockPacked.PrevHash = preBlock.Hash
 		blockPacked.Height = preBlock.Height + 1
+		if sb := gen.vmContext.GetSnapshotBlockByHash(&preBlock.SnapshotHash); sb != nil {
+			preBlockReferredSbHeight = sb.Height
+		}
 	}
 
 	if consensusMsg == nil {
@@ -194,9 +198,10 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 		if snapshotBlock == nil {
 			return nil, errors.New("CurrentSnapshotBlock can't be nil")
 		}
-		blockPacked.SnapshotHash = snapshotBlock.Hash
-		nonce := pow.GetPowNonce(nil, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
-		blockPacked.Nonce = nonce[:]
+		if snapshotBlock.Height > preBlockReferredSbHeight {
+			nonce := pow.GetPowNonce(nil, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
+			blockPacked.Nonce = nonce[:]
+		}
 	} else {
 		blockPacked.Timestamp = &consensusMsg.Timestamp
 		blockPacked.SnapshotHash = consensusMsg.SnapshotHash
