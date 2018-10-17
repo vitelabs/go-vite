@@ -345,7 +345,7 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 		return errors.New("VerifyHash failed")
 	}
 
-	if !verifier.VerifyNonce(block) {
+	if !verifier.VerifyNonce(block, code) {
 		return errors.New("VerifyNonce failed")
 	}
 
@@ -379,10 +379,6 @@ func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBloc
 
 	if !verifier.VerifyHash(block) {
 		return errors.New("VerifyHash failed")
-	}
-
-	if !verifier.VerifyNonce(block) {
-		return errors.New("VerifyNonce failed")
 	}
 
 	if block.IsReceiveBlock() || (block.IsSendBlock() && (len(block.Signature) > 0 || len(block.PublicKey) > 0)) {
@@ -421,8 +417,11 @@ func (verifier *AccountVerifier) VerifySigature(block *ledger.AccountBlock) bool
 	return true
 }
 
-func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock) bool {
+func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock, accountType uint64) bool {
 	if len(block.Nonce) != 0 {
+		if accountType == ledger.AccountTypeContract {
+			return false
+		}
 		var nonce [8]byte
 		copy(nonce[:], block.Nonce[:8])
 		hash256Data := crypto.Hash256(block.AccountAddress.Bytes(), block.PrevHash.Bytes())
