@@ -110,7 +110,10 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 		return nil, err
 	}
 	if len(genResult.BlockGenList) == 0 {
-		return nil, errors.New("genResult is empty")
+		if genResult.Err != nil {
+			verifier.log.Error(genResult.Err.Error())
+		}
+		return nil, errors.New("genResult.BlockGenList is empty")
 	}
 	if err := verifier.verifyVMResult(block, genResult.BlockGenList[0].AccountBlock); err != nil {
 		return nil, err
