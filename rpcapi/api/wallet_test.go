@@ -327,7 +327,10 @@ type CreateReceiveTxParms struct {
 	PrivKeyStr string
 }
 
-func (m *WalletApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
+func ReceiveOnroadTx(vite *vite.Vite, params CreateReceiveTxParms) error {
+	chain := vite.Chain()
+	pool := vite.Pool()
+
 	msg := &generator.IncomingMessage{
 		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: params.SelfAddr,
@@ -336,7 +339,7 @@ func (m *WalletApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	privKey, _ := ed25519.HexToPrivateKey(params.PrivKeyStr)
 	pubKey := privKey.PubByte()
 
-	g, e := generator.NewGenerator(m.chain, nil, nil, &params.SelfAddr)
+	g, e := generator.NewGenerator(chain, nil, nil, &params.SelfAddr)
 	if e != nil {
 		return e
 	}
@@ -352,7 +355,7 @@ func (m *WalletApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 		return newerr
 	}
 	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
-		return m.pool.AddDirectAccountBlock(params.SelfAddr, result.BlockGenList[0])
+		return pool.AddDirectAccountBlock(params.SelfAddr, result.BlockGenList[0])
 	} else {
 		return errors.New("generator gen an empty block")
 	}
