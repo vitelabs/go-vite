@@ -88,7 +88,7 @@ func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensu
 
 func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc SignFunc) (*GenResult, error) {
 	var sendBlock *ledger.AccountBlock = nil
-	if block.BlockType != ledger.BlockTypeSendCall && block.BlockType != ledger.BlockTypeSendCreate {
+	if block.IsReceiveBlock() {
 		sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash)
 	}
 	genResult, err := gen.generateBlock(block, sendBlock, block.AccountAddress, signFunc)
