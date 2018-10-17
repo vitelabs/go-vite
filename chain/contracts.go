@@ -2,12 +2,13 @@ package chain
 
 import (
 	"bytes"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
 )
 
 func (c *chain) GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error) {
@@ -38,6 +39,9 @@ func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 		c.log.Error("Query account failed. Error is "+getAccountErr.Error(), "method", "GetContractGid")
 
 		return nil, getAccountErr
+	}
+	if account == nil {
+		return nil, nil
 	}
 
 	gid, err := c.chainDb.Ac.GetContractGid(account.AccountId)
