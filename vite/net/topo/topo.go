@@ -94,6 +94,10 @@ func (t *Topology) Start(p2p *p2p.Server) error {
 }
 
 func (t *Topology) Stop() {
+	if t.term == nil {
+		return
+	}
+
 	select {
 	case <-t.term:
 	default:

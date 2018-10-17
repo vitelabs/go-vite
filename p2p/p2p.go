@@ -181,6 +181,10 @@ func (svr *Server) Start() error {
 }
 
 func (svr *Server) Stop() {
+	if svr.term == nil {
+		return
+	}
+
 	select {
 	case <-svr.term:
 	default:
@@ -371,7 +375,9 @@ loop:
 					svr.peers.Add(p)
 					peersCount = svr.peers.Size()
 					svr.log.Info(fmt.Sprintf("create new peer %s, total: %d", p, peersCount))
-					monitor.LogDuration("p2p/peer", "add", int64(peersCount))
+
+					monitor.LogDuration("p2p/peer", "count", int64(peersCount))
+					monitor.LogEvent("p2p/peer", "create")
 
 					svr.wg.Add(1)
 					go svr.runPeer(p)
@@ -391,7 +397,9 @@ loop:
 			svr.peers.Del(p)
 			peersCount = svr.peers.Size()
 			svr.log.Info(fmt.Sprintf("delete peer %s, total: %d", p, peersCount))
-			monitor.LogDuration("p2p/peer", "del", int64(peersCount))
+
+			monitor.LogDuration("p2p/peer", "count", int64(peersCount))
+			monitor.LogEvent("p2p/peer", "delete")
 
 			if p.ts.is(static) {
 				svr.dial(p.ID(), p.RemoteAddr(), static)

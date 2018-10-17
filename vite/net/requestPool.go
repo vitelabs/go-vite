@@ -159,7 +159,7 @@ loop:
 				if state == reqDone || state == reqError {
 					delete(p.pending, r.ID())
 				} else if r.Expired() && state == reqPending {
-					r.Catch(errRequestTimeout)
+					p.Retry(r.ID(), errRequestTimeout)
 				}
 			}
 		}

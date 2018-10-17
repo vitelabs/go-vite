@@ -203,7 +203,7 @@ func (c *AsyncMsgConn) readLoop() {
 
 		if err == nil {
 			c.rqueue <- msg
-			monitor.LogEvent("async-conn-read", c.fd.RemoteAddr().String())
+			monitor.LogEvent("p2p_ts", "read")
 		} else {
 			c.report(1, err)
 			return
@@ -219,7 +219,7 @@ func (c *AsyncMsgConn) _write(msg *Msg) bool {
 
 	//c.fd.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
 	err := c.rw.WriteMsg(msg)
-	monitor.LogEvent("async-conn-write", c.fd.RemoteAddr().String())
+	monitor.LogEvent("p2p_ts", "write")
 
 	if err != nil {
 		c.report(2, err)

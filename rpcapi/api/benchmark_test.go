@@ -17,6 +17,8 @@ import (
 
 	"time"
 
+	"path"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -24,15 +26,16 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
-//func init() {
-//	log15.Root().SetHandler(
-//		log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),
-//	)
-//}
+func init() {
+	log15.Root().SetHandler(
+		log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),
+	)
+}
 
 type benchmark struct {
 	passwd        string
@@ -62,15 +65,15 @@ func TestBenchmark(t *testing.T) {
 }
 
 func (self *benchmark) startVite() (*vite.Vite, error) {
-	//p2pServer, err := p2p.New(&p2p.Config{
-	//	BootNodes: []string{
-	//		"vnode://6d72c01e467e5280acf1b63f87afd5b6dcf8a596d849ddfc9ca70aab08f10191@192.168.31.146:8483",
-	//		"vnode://1ceabc6c2b751b352a6d719b4987f828bb1cf51baafa4efac38bc525ed61059d@192.168.31.190:8483",
-	//		"vnode://8343b3f2bc4e8e521d460cadab3e9f1e61ba57529b3fb48c5c076845c92e75d2@192.168.31.193:8483",
-	//	},
-	//	DataDir: path.Join(common.DefaultDataDir(), "/p2p"),
-	//	NetID:   10,
-	//})
+	p2pServer, err := p2p.New(&p2p.Config{
+		BootNodes: []string{
+			"vnode://6d72c01e467e5280acf1b63f87afd5b6dcf8a596d849ddfc9ca70aab08f10191@192.168.31.146:8483",
+			//"vnode://1ceabc6c2b751b352a6d719b4987f828bb1cf51baafa4efac38bc525ed61059d@192.168.31.190:8483",
+			//"vnode://8343b3f2bc4e8e521d460cadab3e9f1e61ba57529b3fb48c5c076845c92e75d2@192.168.31.193:8483",
+		},
+		DataDir: path.Join(common.DefaultDataDir(), "/p2p"),
+		NetID:   10,
+	})
 
 	ledgerDir := "ledger_" + strconv.Itoa(os.Getpid())
 	fmt.Println("vite start", self.coinbase.String(), ledgerDir)
@@ -84,7 +87,7 @@ func (self *benchmark) startVite() (*vite.Vite, error) {
 		},
 		Vm: &config.Vm{IsVmTest: true},
 		Net: &config.Net{
-			Single: true,
+			Single: false,
 		},
 	}
 	vite, err := vite.New(config, self.w)
@@ -93,7 +96,7 @@ func (self *benchmark) startVite() (*vite.Vite, error) {
 		return nil, err
 	}
 
-	//p2pServer.Protocols = append(p2pServer.Protocols, vite.Net().Protocols()...)
+	p2pServer.Protocols = append(p2pServer.Protocols, vite.Net().Protocols()...)
 
 	err = vite.Init()
 	if err != nil {
@@ -101,13 +104,13 @@ func (self *benchmark) startVite() (*vite.Vite, error) {
 		return nil, err
 	}
 
-	//err = vite.Start(p2pServer)
-	err = vite.Start(nil)
+	err = vite.Start(p2pServer)
+	//err = vite.Start(nil)
 	if err != nil {
 		panic(err)
 		return nil, err
 	}
-	//err = p2pServer.Start()
+	err = p2pServer.Start()
 	if err != nil {
 		panic(err)
 		return nil, err
