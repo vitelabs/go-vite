@@ -3,6 +3,7 @@ package api
 import (
 	"flag"
 	"fmt"
+	"github.com/vitelabs/go-vite/vm_context"
 	"testing"
 
 	"time"
@@ -360,4 +361,83 @@ func ReceiveOnroadTx(vite *vite.Vite, params CreateReceiveTxParms) error {
 		return errors.New("generator gen an empty block")
 	}
 	return nil
+}
+
+func TestQuota(t *testing.T) {
+	w := wallet.New(nil)
+	unlockAll(w)
+	addr, _ := types.HexToAddress("vite_e9b7307aaf51818993bb2675fd26a600bc7ab6d0f52bc5c2c1")
+	vite, _ := startVite(w, &addr, t)
+
+	//waitQuota(vite, addr)
+
+	snapshotBlock := vite.Chain().GetLatestSnapshotBlock()
+	amount := vite.Chain().GetPledgeAmount(snapshotBlock.Hash, addr)
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	db, _ := vm_context.NewVmContext(vite.Chain(), &snapshotBlock.Hash, &prevBlock.Hash, &addr)
+	pledgeAmount := contracts.GetPledgeBeneficialAmount(db, addr)
+
+	wLog.Debug("print pledge amount", "chain", amount, "vm", pledgeAmount)
+}
+
+func TestContractsMintage(t *testing.T) {
+	w := wallet.New(nil)
+
+	unlockAll(w)
+
+	addr, _ := types.HexToAddress("vite_e9b7307aaf51818993bb2675fd26a600bc7ab6d0f52bc5c2c1")
+
+	vite, err := startVite(w, &addr, t)
+	if err != nil {
+		panic(err)
+	}
+
+	waApi := NewWalletApi(vite)
+	onRoadApi := NewPrivateOnroadApi(vite)
+
+	balance := printBalance(vite, addr)
+	if printQuota(vite, addr).Sign() == 0 {
+		t.Fatalf("no pledge")
+	}
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	if prevBlock == nil {
+		t.Fatalf("prev block not exist")
+	}
+	tokenId := contracts.NewTokenId(addr, prevBlock.Height+1, prevBlock.Hash, vite.Chain().GetLatestSnapshotBlock().Hash)
+	mintageData, err := contracts.ABIMintage.PackMethod(contracts.MethodNameMintage,
+		tokenId,
+		"MyToken",
+		"mt",
+		big.NewInt(1e18),
+		uint8(0))
+	parms := CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressMintage,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      big.NewInt(0).String(),
+		Data:        mintageData,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	}
+	err = waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressMintage, t)
+
+	waitSnapshotInc(vite, t)
+	balance.Sub(balance, new(big.Int).Mul(big.NewInt(1e3), big.NewInt(1e18)))
+	if balance.Cmp(printBalance(vite, addr)) != 0 {
+		t.Fatal("mintage fee error")
+	}
+	printQuota(vite, addr)
+	tokenInfo := vite.Chain().GetTokenInfoById(&tokenId)
+	if tokenInfo == nil {
+		t.Fatal("token info not exist")
+	}
+	wLog.Debug("token info", tokenId.String(), tokenInfo)
 }

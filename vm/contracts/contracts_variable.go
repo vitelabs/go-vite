@@ -35,6 +35,9 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*TokenInfo {
 	defer monitor.LogTime("vm", "GetTokenMap", time.Now())
 	iterator := db.NewStorageIterator(&AddressMintage, nil)
 	tokenInfoMap := make(map[types.TokenTypeId]*TokenInfo)
+	if iterator == nil {
+		return tokenInfoMap
+	}
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
@@ -57,6 +60,9 @@ func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 		iterator = db.NewStorageIterator(&AddressRegister, gid.Bytes())
 	}
 	registerList := make([]*Registration, 0)
+	if iterator == nil {
+		return registerList
+	}
 	for {
 		_, value, ok := iterator.Next()
 		if !ok {
@@ -80,6 +86,9 @@ func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
 		iterator = db.NewStorageIterator(&AddressVote, gid.Bytes())
 	}
 	voteInfoList := make([]*VoteInfo, 0)
+	if iterator == nil {
+		return voteInfoList
+	}
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
@@ -106,6 +115,9 @@ func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) *bi
 func GetPledgeInfoList(db StorageDatabase, addr types.Address) []*PledgeInfo {
 	iterator := db.NewStorageIterator(&AddressPledge, addr.Bytes())
 	pledgeInfoList := make([]*PledgeInfo, 0)
+	if iterator == nil {
+		return pledgeInfoList
+	}
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
@@ -125,6 +137,9 @@ func GetActiveConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 	defer monitor.LogTime("vm", "GetActiveConsensusGroupList", time.Now())
 	iterator := db.NewStorageIterator(&AddressConsensusGroup, nil)
 	consensusGroupInfoList := make([]*ConsensusGroupInfo, 0)
+	if iterator == nil {
+		return consensusGroupInfoList
+	}
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
