@@ -109,7 +109,7 @@ func (f *fileServer) handleConn(conn net2.Conn) {
 				return
 			}
 
-			f.log.Info(fmt.Sprintf("receive message %s from %s", code, conn.RemoteAddr()))
+			f.log.Info(fmt.Sprintf("receive %s from %s", req, conn.RemoteAddr()))
 
 			// send files
 			for _, filename := range req.Names {
@@ -319,20 +319,21 @@ func (fc *fileClient) exe(ctx *connContext) {
 		Payload:  data,
 	})
 	if err != nil {
-		fc.log.Error(fmt.Sprintf("send fileRequest %s to %s error: %v", ctx.req, ctx.addr, err))
+		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", msg, ctx.addr, err))
 		req.Catch(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
 		return
 	}
 
-	fc.log.Info(fmt.Sprintf("send fileRequest %s to %s done", ctx.req, ctx.addr))
+	fc.log.Info(fmt.Sprintf("send %s to %s done", msg, ctx.addr))
 
 	sCount, aCount, err := fc.readBlocks(ctx)
 	if err != nil {
 		fc.log.Error(fmt.Sprintf("read blocks from %s error: %v", ctx.addr, err))
 		fc.delConn <- &delCtxEvent{ctx, err}
+		ctx.req.Catch(err)
 	} else {
-		fc.log.Info(fmt.Sprintf("read %d snapshotblocks %d accountblocks from %s done", sCount, aCount, ctx.addr))
+		fc.log.Info(fmt.Sprintf("read %d SnapshotBlocks %d AccountBlocks from %s", sCount, aCount, ctx.addr))
 		fc.idle <- ctx
 	}
 }
