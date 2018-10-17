@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
@@ -18,6 +19,7 @@ type BlockMapQueryParam struct {
 }
 
 func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
+	monitor.LogEventNum("chain", "insert", len(vmAccountBlocks))
 	batch := new(leveldb.Batch)
 	trieSaveCallback := make([]func(), 0)
 	var account *ledger.Account
@@ -574,7 +576,6 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		c.log.Error("GetDeleteMapAndReopenList failed, error is "+getErr.Error(), "method", "DeleteAccountBlocks")
 		return nil, getErr
 	}
-
 
 	batch := new(leveldb.Batch)
 	deleteAccountBlocks, deleteAccountBlocksErr := c.chainDb.Ac.Delete(batch, deleteMap)
