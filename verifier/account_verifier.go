@@ -147,6 +147,18 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 func (verifier *AccountVerifier) verifySelf(block *ledger.AccountBlock, verifyStatResult *AccountBlockVerifyStat) bool {
 	defer monitor.LogTime("verify", "accountSelf", time.Now())
 
+	code, err := verifier.chain.AccountType(&block.AccountAddress)
+	if err != nil {
+		verifyStatResult.referredSelfResult = FAIL
+		verifyStatResult.errMsg += "VerifyAccountAddress," + err.Error()
+		return false
+	}
+	if block.IsSendBlock() && code == ledger.AccountTypeNotExist {
+		verifyStatResult.referredSelfResult = FAIL
+		verifyStatResult.errMsg += "VerifyAccountAddress, inexistent AccountAddress can't sendTx"
+		return false
+	}
+
 	if err := verifier.VerifyDataValidity(block); err != nil {
 		verifyStatResult.referredSelfResult = FAIL
 		verifyStatResult.errMsg += err.Error()
@@ -317,13 +329,6 @@ func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlo
 func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) error {
 	defer monitor.LogTime("verify", "accountSelfDataValidity", time.Now())
 
-	code, err := verifier.chain.AccountType(&block.AccountAddress)
-	if err != nil {
-		return errors.New("VerifyAccountAddress," + err.Error())
-	}
-	if block.IsSendBlock() && code == ledger.AccountTypeNotExist {
-		return errors.New("VerifyAccountAddress, inexistent AccountAddress can't sendTx")
-	}
 	if block.Amount == nil {
 		block.Amount = big.NewInt(0)
 	}
