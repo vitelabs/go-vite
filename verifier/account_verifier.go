@@ -318,11 +318,11 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 	defer monitor.LogTime("verify", "accountSelfDataValidity", time.Now())
 
 	code, err := verifier.chain.AccountType(&block.AccountAddress)
-	if err != nil {
-		return err
+	if err != nil || code == ledger.AccountTypeError {
+		return errors.New("get AccountType err")
 	}
 	if block.IsSendBlock() && code == ledger.AccountTypeNotExist {
-		return errors.New("SendBlock AccountAddress AccountTypeNotExist")
+		return errors.New("sendBlock AccountAddress is AccountTypeNotExist")
 	}
 
 	if block.Amount == nil {
@@ -337,7 +337,6 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 	if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
 		return errors.New("block.Fee out of bounds")
 	}
-
 	if block.Timestamp == nil {
 		return errors.New("Timestamp can't be nil")
 	}
@@ -350,19 +349,17 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 		return errors.New("VerifyNonce failed")
 	}
 
-	if block.IsSendBlock() && code == ledger.AccountTypeContract {
-		return nil
-	}
-
-	if !verifier.VerifySigature(block) {
-		return errors.New("VerifySigature failed")
+	if block.IsReceiveBlock() || (block.IsSendBlock() && code != ledger.AccountTypeContract) {
+		if !verifier.VerifySigature(block) {
+			return errors.New("VerifySigature failed")
+		}
 	}
 
 	return nil
 }
 
 func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBlock) error {
-	defer monitor.LogTime("verify", "accountSelfDataValidity", time.Now())
+	defer monitor.LogTime("verify", "accountSelfP2PDataValidity", time.Now())
 
 	if block.Amount == nil {
 		block.Amount = big.NewInt(0)
@@ -376,7 +373,6 @@ func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBloc
 	if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
 		return errors.New("block.Fee out of bounds")
 	}
-
 	if block.Timestamp == nil {
 		return errors.New("Timestamp can't be nil")
 	}
@@ -389,7 +385,7 @@ func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBloc
 		return errors.New("VerifyNonce failed")
 	}
 
-	if block.IsReceiveBlock() ||( block.IsSendBlock() && (len(block.Signature) >0 || len(block.PublicKey) > 0 )) {
+	if block.IsReceiveBlock() || (block.IsSendBlock() && (len(block.Signature) > 0 || len(block.PublicKey) > 0)) {
 		if !verifier.VerifySigature(block) {
 			return errors.New("VerifySigature failed")
 		}
