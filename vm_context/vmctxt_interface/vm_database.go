@@ -34,7 +34,7 @@ type VmDatabase interface {
 	AddLog(log *ledger.VmLog)
 	GetLogListHash() *types.Hash
 
-	NewStorageIterator(prefix []byte) StorageIterator
+	NewStorageIterator(addr *types.Address, prefix []byte) StorageIterator
 
 	CopyAndFreeze() VmDatabase
 

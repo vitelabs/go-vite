@@ -173,8 +173,8 @@ func (i *testIterator) Next() (key, value []byte, ok bool) {
 	return []byte{}, []byte{}, false
 }
 
-func (db *testDatabase) NewStorageIterator(prefix []byte) vmctxt_interface.StorageIterator {
-	storageMap := db.storageMap[db.addr]
+func (db *testDatabase) NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator {
+	storageMap := db.storageMap[*addr]
 	items := make([]testIteratorItem, 0)
 	for key, value := range storageMap {
 		if len(prefix) > 0 {
