@@ -73,7 +73,6 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: params.SelfAddr,
 		ToAddress:      &params.ToAddr,
-		FromBlockHash:  &preHash,
 		TokenId:        &params.TokenTypeId,
 		Amount:         amount,
 		Fee:            nil,
@@ -81,7 +80,7 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		Data:           params.Data,
 	}
 
-	g, e := generator.NewGenerator(t.walletApi.chain, nil, &preHash, &params.SelfAddr)
+	g, e := generator.NewGenerator(t.walletApi.chain, nil, nil, &params.SelfAddr)
 	if e != nil {
 		return e
 	}
