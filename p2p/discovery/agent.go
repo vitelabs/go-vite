@@ -3,6 +3,7 @@ package discovery
 import (
 	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
@@ -49,7 +50,7 @@ func (p *wtPool) start() {
 	p.term = make(chan struct{})
 
 	p.wg.Add(1)
-	go p.loop()
+	common.Go(p.loop)
 }
 
 func (p *wtPool) stop() {
@@ -170,15 +171,14 @@ func (a *agent) start() error {
 	a.term = make(chan struct{})
 	a.pool.start()
 
-	// should not run as goroutine
 	a.wg.Add(1)
-	go a.readLoop()
+	common.Go(a.readLoop)
 
 	a.wg.Add(1)
-	go a.writeLoop()
+	common.Go(a.writeLoop)
 
 	a.wg.Add(1)
-	go a.handleLoop()
+	common.Go(a.handleLoop)
 
 	return nil
 }

@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/common"
 	"io"
 	"net"
 	"sync"
@@ -165,7 +166,9 @@ func (p *Peer) runProtocols() {
 	canWrite := make(chan struct{}, paralProtoFrame)
 
 	for _, pf := range p.protoFrames {
-		go p.runProtocol(pf, canWrite)
+		common.Go(func() {
+			p.runProtocol(pf, canWrite)
+		})
 	}
 }
 

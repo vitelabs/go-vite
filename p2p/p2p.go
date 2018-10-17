@@ -5,6 +5,7 @@ package p2p
 import (
 	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
@@ -144,17 +145,17 @@ func (svr *Server) Start() error {
 
 	// mapping udp
 	svr.wg.Add(1)
-	go func() {
+	common.Go(func() {
 		nat.Map(svr.term, "udp", int(svr.self.UDP), int(svr.self.UDP), "vite p2p udp", 0, svr.updateNode)
 		svr.wg.Done()
-	}()
+	})
 
 	// mapping tcp
 	svr.wg.Add(1)
-	go func() {
+	common.Go(func() {
 		nat.Map(svr.term, "tcp", int(svr.self.TCP), int(svr.self.TCP), "vite p2p tcp", 0, svr.updateNode)
 		svr.wg.Done()
-	}()
+	})
 
 	// subscribe nodes
 	svr.discv.SubNodes(svr.nodeChan)
@@ -166,15 +167,15 @@ func (svr *Server) Start() error {
 	}
 
 	svr.wg.Add(1)
-	go svr.dialLoop()
+	common.Go(svr.dialLoop)
 
 	// tcp listener
 	svr.wg.Add(1)
-	go svr.listenLoop()
+	common.Go(svr.listenLoop)
 
 	// peer manager
 	svr.wg.Add(1)
-	go svr.loop()
+	common.Go(svr.loop)
 
 	svr.log.Info("p2p server started")
 	return nil
@@ -255,7 +256,9 @@ func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
 
 	svr.pending <- struct{}{}
 	if conn, err := svr.dialer.Dial("tcp", addr.String()); err == nil {
-		go svr.setupConn(conn, flag)
+		common.Go(func() {
+			svr.setupConn(conn, flag)
+		})
 	} else {
 		<-svr.pending
 		svr.log.Error(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
@@ -279,7 +282,9 @@ func (svr *Server) listenLoop() {
 				}
 			}
 
-			go svr.setupConn(conn, inbound)
+			common.Go(func() {
+				svr.setupConn(conn, inbound)
+			})
 		case <-svr.term:
 			return
 		}
@@ -380,7 +385,9 @@ loop:
 					monitor.LogEvent("p2p/peer", "create")
 
 					svr.wg.Add(1)
-					go svr.runPeer(p)
+					common.Go(func() {
+						svr.runPeer(p)
+					})
 				} else {
 					svr.log.Error(fmt.Sprintf("create new peer error: %v", err))
 				}

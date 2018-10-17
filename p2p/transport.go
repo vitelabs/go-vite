@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/monitor"
 	"io"
@@ -162,13 +163,13 @@ func NewAsyncMsgConn(fd net.Conn, handler func(msg *Msg)) *AsyncMsgConn {
 
 func (c *AsyncMsgConn) Start() {
 	c.wg.Add(1)
-	go c.readLoop()
+	common.Go(c.readLoop)
 
 	c.wg.Add(1)
-	go c.writeLoop()
+	common.Go(c.writeLoop)
 
 	c.wg.Add(1)
-	go c.handleLoop()
+	common.Go(c.handleLoop)
 }
 
 func (c *AsyncMsgConn) Close(reason error) {
@@ -301,13 +302,15 @@ func (c *AsyncMsgConn) encHandshake() {
 // send Handshake data, after signature with ed25519 algorithm
 func (c *AsyncMsgConn) Handshake(data []byte) (their *Handshake, err error) {
 	send := make(chan error, 1)
-	go sendHandMsg(c.rw, &Msg{
-		CmdSetID: baseProtocolCmdSet,
-		Cmd:      handshakeCmd,
-		Id:       0,
-		Size:     uint64(len(data)),
-		Payload:  data,
-	}, send)
+	common.Go(func() {
+		sendHandMsg(c.rw, &Msg{
+			CmdSetID: baseProtocolCmdSet,
+			Cmd:      handshakeCmd,
+			Id:       0,
+			Size:     uint64(len(data)),
+			Payload:  data,
+		}, send)
+	})
 
 	if their, err = readHandshake(c.rw); err != nil {
 		return

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
@@ -96,7 +97,7 @@ func (d *Discovery) Start() (err error) {
 	d.term = make(chan struct{})
 
 	d.wg.Add(1)
-	go d.tableLoop()
+	common.Go(d.tableLoop)
 
 	return
 }
