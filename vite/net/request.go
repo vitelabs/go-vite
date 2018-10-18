@@ -74,7 +74,7 @@ var errUnExpectedRes = errors.New("unexpected response")
 
 const minSubLedger = 3600 // minimal snapshot blocks per subLedger request
 const maxSubLedger = 7200 // maximal snapshot blocks per subLedger request
-const chunk = 300         // chunk blocks count
+const chunk = 10          // chunk blocks count
 const maxBlocks = 300     // max blocks in one message(snapshotblocks + accountblocks)
 
 type subLedgerPiece struct {
