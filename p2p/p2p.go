@@ -408,9 +408,9 @@ loop:
 				svr.dial(p.ID(), p.RemoteAddr(), static)
 			}
 
-			//if peersCount < svr.MaxPeers {
-			//	svr.discv.Need(svr.MaxPeers - peersCount)
-			//}
+			if peersCount == 0 {
+				svr.discv.Need(svr.MaxPeers)
+			}
 		}
 	}
 
