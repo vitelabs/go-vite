@@ -311,5 +311,12 @@ func TestGo(t *testing.T) {
 			fmt.Println(vvv, v)
 		}()
 	}
+
+	for _, v := range ss {
+		vvv := v
+		common.Go(func() {
+			fmt.Println(vvv, v)
+		})
+	}
 	time.Sleep(time.Second * 10)
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -18,7 +19,7 @@ import (
 	"github.com/vitelabs/go-vite/wallet/keystore"
 )
 
-type PoolWriter interface {
+type Writer interface {
 	// for normal account
 	AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_context.VmAccountBlock) error
 
@@ -36,22 +37,30 @@ type SnapshotProducerWriter interface {
 	RollbackAccountTo(addr types.Address, hash types.Hash, height uint64) error
 }
 
-type PoolReader interface {
+type Reader interface {
 	// received block in current? (key is requestHash)
 	ExistInPool(address types.Address, requestHash types.Hash) bool
 }
+type Debug interface {
+	Info(addr *types.Address) string
+	Snapshot() map[string]interface{}
+	Account(addr types.Address) map[string]interface{}
+	SnapshotChainDetail(chainId string) map[string]interface{}
+	AccountChainDetail(addr types.Address, chainId string) map[string]interface{}
+}
 
 type BlockPool interface {
-	PoolWriter
-	PoolReader
+	Writer
+	Reader
 	SnapshotProducerWriter
+	Debug
+
 	Start()
 	Stop()
 	Init(s syncer,
 		wt *wallet.Manager,
 		snapshotV *verifier.SnapshotVerifier,
 		accountV *verifier.AccountVerifier)
-	Info(addr *types.Address) string
 	Details(addr *types.Address, hash types.Hash) string
 }
 
@@ -108,6 +117,22 @@ type pool struct {
 	log log15.Logger
 }
 
+func (self *pool) Snapshot() map[string]interface{} {
+	return self.pendingSc.info()
+}
+
+func (self *pool) Account(addr types.Address) map[string]interface{} {
+	return self.selfPendingAc(addr).info()
+}
+
+func (self *pool) SnapshotChainDetail(chainId string) map[string]interface{} {
+	return self.pendingSc.detailChain(chainId)
+}
+
+func (self *pool) AccountChainDetail(addr types.Address, chainId string) map[string]interface{} {
+	return self.selfPendingAc(addr).detailChain(chainId)
+}
+
 func (self *pool) Lock() {
 	self.rwMutex.Lock()
 }
@@ -156,7 +181,7 @@ func (self *pool) Info(addr *types.Address) string {
 		compoundSize := len(bp.compoundBlocks)
 		snippetSize := len(cp.snippetChains)
 		currentLen := cp.current.size()
-		chainSize := len(cp.chains)
+		chainSize := cp.size()
 		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, currentLen:%d, chainSize:%d",
 			freeSize, compoundSize, snippetSize, currentLen, chainSize)
 	} else {
@@ -171,7 +196,7 @@ func (self *pool) Info(addr *types.Address) string {
 		compoundSize := len(bp.compoundBlocks)
 		snippetSize := len(cp.snippetChains)
 		currentLen := cp.current.size()
-		chainSize := len(cp.chains)
+		chainSize := cp.size()
 		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, currentLen:%d, chainSize:%d",
 			freeSize, compoundSize, snippetSize, currentLen, chainSize)
 	}
@@ -207,9 +232,9 @@ func (self *pool) Start() {
 	self.snapshotSubId = self.sync.SubscribeSnapshotBlock(self.AddSnapshotBlock)
 
 	self.pendingSc.Start()
-	go self.loopTryInsert()
-	go self.loopCompact()
-	go self.loopBroadcastAndDel()
+	common.Go(self.loopTryInsert)
+	common.Go(self.loopCompact)
+	common.Go(self.loopBroadcastAndDel)
 }
 func (self *pool) Stop() {
 	self.sync.UnsubscribeAccountBlock(self.accountSubId)

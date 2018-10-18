@@ -270,7 +270,7 @@ func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, *forkedCha
 }
 
 func (self *accountPool) findInPool(hash types.Hash, height uint64) bool {
-	for _, c := range self.chainpool.chains {
+	for _, c := range self.chainpool.allChain() {
 		b := c.getBlock(height, false)
 		if b == nil {
 			continue
@@ -288,7 +288,7 @@ func (self *accountPool) findInTree(hash types.Hash, height uint64) *forkedChain
 	if block != nil && block.Hash() == hash {
 		return self.chainpool.current
 	}
-	for _, c := range self.chainpool.chains {
+	for _, c := range self.chainpool.allChain() {
 		b := c.getBlock(height, false)
 
 		if b == nil {

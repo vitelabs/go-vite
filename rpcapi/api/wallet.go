@@ -49,7 +49,7 @@ func NewWalletApi(vite *vite.Vite) *WalletApi {
 type WalletApi struct {
 	km    *keystore.Manager
 	chain chain.Chain
-	pool  pool.PoolWriter
+	pool  pool.Writer
 }
 
 func (m WalletApi) String() string {

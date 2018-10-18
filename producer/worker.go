@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/log15"
@@ -55,7 +56,10 @@ func (self *worker) produceSnapshot(e consensus.Event) {
 		mLog.Error("coinbase must be unlock.", "addr", e.Address.String())
 		return
 	}
-	go self.genAndInsert(&e)
+	tmpE := &e
+	common.Go(func() {
+		self.genAndInsert(tmpE)
+	})
 }
 
 func (self *worker) genAndInsert(e *consensus.Event) {

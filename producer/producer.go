@@ -176,7 +176,8 @@ func (self *producer) producerContract(e consensus.Event) {
 			mLog.Error("coinbase must be unlock.", "addr", e.Address.String())
 			return
 		}
-		go fn(producerevent.AccountStartEvent{
+
+		tmpEvent := producerevent.AccountStartEvent{
 			Gid:            e.Gid,
 			Address:        e.Address,
 			Stime:          e.Stime,
@@ -184,6 +185,9 @@ func (self *producer) producerContract(e consensus.Event) {
 			Timestamp:      e.Timestamp,
 			SnapshotHeight: e.SnapshotHeight,
 			SnapshotHash:   e.SnapshotHash,
+		}
+		common.Go(func() {
+			fn(tmpEvent)
 		})
 	}
 }

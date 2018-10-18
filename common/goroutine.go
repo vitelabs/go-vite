@@ -1,6 +1,11 @@
 package common
 
-import "github.com/vitelabs/go-vite/log15"
+import (
+	"fmt"
+
+	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/log15"
+)
 
 var glog = log15.New("module", "error")
 
@@ -16,6 +21,7 @@ func wrap(fn func()) {
 func catch() {
 	if err := recover(); err != nil {
 		glog.Error("panic", "err", err)
+		fmt.Printf("%+v", errors.WithStack(err.(error)))
 		panic(err)
 	}
 }

@@ -12,12 +12,15 @@ import (
 
 var innerChainInstance chain.Chain
 
-func getChainInstance() chain.Chain {
+func getChainInstance(path string) chain.Chain {
+	if path == "" {
+		path = "Documents/vite/src/github.com/vitelabs/aaaaaaaa/devdata"
+	}
 	if innerChainInstance == nil {
 		home := common.HomeDir()
 
 		innerChainInstance = chain.NewChain(&config.Config{
-			DataDir: filepath.Join(home, "Documents/vite/src/github.com/vitelabs/aaaaaaaa/devdata"),
+			DataDir: filepath.Join(home, path),
 			//Chain: &config.Chain{
 			//	KafkaProducers: []*config.KafkaProducer{{
 			//		Topic:      "test",
@@ -33,7 +36,7 @@ func getChainInstance() chain.Chain {
 }
 
 func TestSnapshotBlockVerify(t *testing.T) {
-	chainInstance := getChainInstance()
+	chainInstance := getChainInstance("")
 
 	v := NewSnapshotVerifier(chainInstance, nil)
 	head := chainInstance.GetLatestSnapshotBlock()
@@ -46,4 +49,14 @@ func TestSnapshotBlockVerify(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestVerifyGenesis(t *testing.T) {
+	c := getChainInstance("")
+	block := c.GetGenesisSnapshotBlock()
+	snapshotBlock, _ := c.GetSnapshotBlockByHeight(1)
+	if block.Hash != snapshotBlock.Hash {
+		t.Error("snapshot block error.", snapshotBlock, block)
+	}
+	t.Log(c.GetLatestSnapshotBlock())
 }

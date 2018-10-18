@@ -426,6 +426,7 @@ func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock, account
 		var nonce [8]byte
 		copy(nonce[:], block.Nonce[:8])
 		hash256Data := crypto.Hash256(block.AccountAddress.Bytes(), block.PrevHash.Bytes())
+
 		if !pow.CheckPowNonce(nil, nonce, hash256Data) {
 			return errors.New("CheckPowNonce failed")
 		}

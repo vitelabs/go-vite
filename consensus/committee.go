@@ -161,11 +161,19 @@ func (self *committee) Start() {
 
 	self.wg.Add(1)
 	snapshotSubs, _ := self.subscribes.LoadOrStore(types.SNAPSHOT_GID, &sync.Map{})
-	go self.update(self.snapshot, snapshotSubs.(*sync.Map))
+
+	tmpSnapshot := self.snapshot
+	common.Go(func() {
+		self.update(tmpSnapshot, snapshotSubs.(*sync.Map))
+	})
 
 	self.wg.Add(1)
 	contractSubs, _ := self.subscribes.LoadOrStore(types.DELEGATE_GID, &sync.Map{})
-	go self.update(self.contract, contractSubs.(*sync.Map))
+
+	tmpContract := self.contract
+	common.Go(func() {
+		self.update(tmpContract, contractSubs.(*sync.Map))
+	})
 }
 
 func (self *committee) Stop() {
@@ -220,7 +228,12 @@ func (self *committee) update(t *teller, m *sync.Map) {
 
 		for _, v := range subs {
 			self.wg.Add(1)
-			go self.event(v, electionResult)
+
+			tmpV := v
+			tmpResult := electionResult
+			common.Go(func() {
+				self.event(tmpV, tmpResult)
+			})
 		}
 
 		time.Sleep(electionResult.ETime.Sub(time.Now()) - time.Second)
