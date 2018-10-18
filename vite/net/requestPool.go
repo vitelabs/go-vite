@@ -142,10 +142,10 @@ loop:
 
 		case e := <-p.retry:
 			if r, ok := p.pending[e.id]; ok {
-				select {
-				case r.Peer().errch <- e.err:
-				default:
-				}
+				//select {
+				//case r.Peer().errch <- e.err:
+				//default:
+				//}
 
 				_, to := r.Band()
 				if peer := p.pickPeer(to); peer != nil {

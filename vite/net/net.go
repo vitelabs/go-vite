@@ -206,9 +206,9 @@ func (n *net) startPeer(p *Peer) error {
 		case <-n.term:
 			return p2p.DiscQuitting
 
-		case err := <-p.errch:
-			n.log.Error(fmt.Sprintf("peer error: %v", err))
-			return p2p.DiscProtocolError
+		//case err := <-p.errch:
+		//	n.log.Error(fmt.Sprintf("peer error: %v", err))
+		//	return p2p.DiscProtocolError
 
 		case <-ticker.C:
 			current := n.Chain.GetLatestSnapshotBlock()
