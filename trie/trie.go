@@ -147,6 +147,9 @@ func (trie *Trie) traverseLoad(hash *types.Hash) *TrieNode {
 			for key, child := range node.children {
 				node.children[key] = trie.traverseLoad(child.Hash())
 			}
+			if node.child != nil {
+				node.child = trie.traverseLoad(node.child.Hash())
+			}
 		})
 	case TRIE_SHORT_NODE:
 		node.child = trie.traverseLoad(node.child.Hash())
@@ -206,9 +209,14 @@ func (trie *Trie) traverseSave(batch *leveldb.Batch, node *TrieNode) error {
 
 	switch node.NodeType() {
 	case TRIE_FULL_NODE:
+		if node.child != nil {
+			trie.traverseSave(batch, node.child)
+		}
+
 		for _, child := range node.children {
 			trie.traverseSave(batch, child)
 		}
+
 	case TRIE_SHORT_NODE:
 		trie.traverseSave(batch, node.child)
 	}
@@ -255,21 +263,20 @@ func (trie *Trie) setValue(node *TrieNode, key []byte, leafNode *TrieNode) *Trie
 			firstChar := key[0]
 			newNode.children[firstChar] = trie.setValue(newNode.children[firstChar], key[1:], leafNode)
 		} else {
-			trie.deleteUnSavedRefValueMap(newNode.children[byte(0)])
-			newNode.children[byte(0)] = leafNode
+			trie.deleteUnSavedRefValueMap(newNode.child)
+			newNode.child = leafNode
 		}
 		return newNode
 	case TRIE_SHORT_NODE:
-
-		var keyChar byte
+		// sometimes is nil
+		var keyChar *byte
 		var restKey []byte
-		var index = 0
 
+		var index = 0
 		for ; index < len(key); index++ {
 			char := key[index]
-			if index >= len(node.key) ||
-				node.key[index] != char {
-				keyChar = char
+			if index >= len(node.key) || node.key[index] != char {
+				keyChar = &char
 				restKey = key[index+1:]
 				break
 			}
@@ -279,10 +286,7 @@ func (trie *Trie) setValue(node *TrieNode, key []byte, leafNode *TrieNode) *Trie
 		var fullNode *TrieNode
 
 		if index >= len(node.key) {
-			if len(key) == index &&
-				node.child.NodeType() == TRIE_VALUE_NODE ||
-				node.child.NodeType() == TRIE_HASH_NODE {
-
+			if len(key) == index && (node.child.NodeType() == TRIE_VALUE_NODE || node.child.NodeType() == TRIE_HASH_NODE) {
 				trie.deleteUnSavedRefValueMap(node.child)
 
 				newNode := node.Copy(false)
@@ -296,17 +300,26 @@ func (trie *Trie) setValue(node *TrieNode, key []byte, leafNode *TrieNode) *Trie
 
 		if fullNode == nil {
 			fullNode = NewFullNode(nil)
-			var nodeChar byte
+			// sometimes is nil
+			var nodeChar *byte
 			var nodeRestKey []byte
 			if index < len(node.key) {
-				nodeChar = node.key[index]
+				nodeChar = &node.key[index]
 				nodeRestKey = node.key[index+1:]
 			}
 
-			fullNode.children[nodeChar] = trie.setValue(fullNode.children[nodeChar], nodeRestKey, node.child)
+			if nodeChar != nil {
+				fullNode.children[*nodeChar] = trie.setValue(fullNode.children[*nodeChar], nodeRestKey, node.child)
+			} else {
+				fullNode.child = node.child
+			}
 		}
 
-		fullNode.children[keyChar] = trie.setValue(fullNode.children[keyChar], restKey, leafNode)
+		if keyChar != nil {
+			fullNode.children[*keyChar] = trie.setValue(fullNode.children[*keyChar], restKey, leafNode)
+		} else {
+			fullNode.child = leafNode
+		}
 		if index > 0 {
 			shortNode := NewShortNode(key[0:index], nil)
 			shortNode.SetChild(fullNode)
@@ -317,7 +330,7 @@ func (trie *Trie) setValue(node *TrieNode, key []byte, leafNode *TrieNode) *Trie
 	default:
 		if len(key) > 0 {
 			fullNode := NewFullNode(nil)
-			fullNode.children[byte(0)] = node
+			fullNode.child = node
 			fullNode.children[key[0]] = trie.setValue(nil, key[1:], leafNode)
 			return fullNode
 		} else {
@@ -369,7 +382,7 @@ func (trie *Trie) getLeafNode(node *TrieNode, key []byte) *TrieNode {
 		case TRIE_VALUE_NODE:
 			return node
 		case TRIE_FULL_NODE:
-			return node.children[byte(0)]
+			return node.child
 		default:
 			return nil
 		}

@@ -181,6 +181,10 @@ func (svr *Server) Start() error {
 }
 
 func (svr *Server) Stop() {
+	if svr.term == nil {
+		return
+	}
+
 	select {
 	case <-svr.term:
 	default:
@@ -371,7 +375,9 @@ loop:
 					svr.peers.Add(p)
 					peersCount = svr.peers.Size()
 					svr.log.Info(fmt.Sprintf("create new peer %s, total: %d", p, peersCount))
-					monitor.LogDuration("p2p/peer", "add", int64(peersCount))
+
+					monitor.LogDuration("p2p/peer", "count", int64(peersCount))
+					monitor.LogEvent("p2p/peer", "create")
 
 					svr.wg.Add(1)
 					go svr.runPeer(p)
@@ -383,15 +389,13 @@ loop:
 				svr.log.Error(fmt.Sprintf("can`t create new peer: %v", err))
 			}
 
-			//if peersCount < svr.MaxPeers {
-			//	svr.discv.Need(svr.MaxPeers - peersCount)
-			//}
-
 		case p := <-svr.delPeer:
 			svr.peers.Del(p)
 			peersCount = svr.peers.Size()
 			svr.log.Info(fmt.Sprintf("delete peer %s, total: %d", p, peersCount))
-			monitor.LogDuration("p2p/peer", "del", int64(peersCount))
+
+			monitor.LogDuration("p2p/peer", "count", int64(peersCount))
+			monitor.LogEvent("p2p/peer", "delete")
 
 			if p.ts.is(static) {
 				svr.dial(p.ID(), p.RemoteAddr(), static)
@@ -413,7 +417,7 @@ func (svr *Server) runPeer(p *Peer) {
 
 	err := p.run()
 	if err != nil {
-		svr.log.Error("run peer error", "error", err)
+		svr.log.Error(fmt.Sprintf("run peer error: %v", err))
 	}
 	svr.delPeer <- p
 }

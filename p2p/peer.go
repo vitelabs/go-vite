@@ -192,12 +192,15 @@ loop:
 			p.log.Error(fmt.Sprintf("disconnected: %v", err))
 			break loop
 		case e := <-p.protoDone:
-			p.log.Error(fmt.Sprintf("protocol %s is done: %v", e.name, err))
+			err = e.err
+			p.log.Error(fmt.Sprintf("protocol %s is done: %v", e.name, e.err))
 
 			delete(p.protoFrames, e.id)
 
 			if len(p.protoFrames) == 0 {
-				err = DiscAllProtocolDone
+				if err == nil {
+					err = DiscAllProtocolDone
+				}
 				break loop
 			}
 		case err = <-p.ts.errch: // error occur from lower transport, like writeError or readError

@@ -44,14 +44,14 @@ func TestGetSnapshotBlocksByHash(t *testing.T) {
 	for index, block := range blocks2 {
 		fmt.Printf("%d: %+v\n", index, block)
 	}
-	//
-	//blocks3, err3 := chainInstance.GetSnapshotBlocksByHash(nil, 100, false, true)
-	//if err3 != nil {
-	//	t.Fatal(err3)
-	//}
-	//for index, block := range blocks3 {
-	//	fmt.Printf("%d: %+v\n", index, block)
-	//}
+
+	blocks3, err3 := chainInstance.GetSnapshotBlocksByHash(nil, 100, false, true)
+	if err3 != nil {
+		t.Fatal(err3)
+	}
+	for index, block := range blocks3 {
+		fmt.Printf("%d: %+v\n", index, block)
+	}
 }
 
 func TestGetSnapshotBlocksByHeight(t *testing.T) {
@@ -301,17 +301,17 @@ func randomSendViteBlock(snapshotBlockHash types.Hash, addr1 *types.Address, add
 	var sendBlock = &ledger.AccountBlock{
 		PrevHash:       prevHash,
 		BlockType:      ledger.BlockTypeSendCall,
-		AccountAddress: *addr1,
+		AccountAddress: *addr2,
 		ToAddress:      *addr2,
 		Amount:         sendAmount,
 		TokenId:        ledger.ViteTokenId,
 		Height:         nextHeight,
 		Fee:            big.NewInt(0),
-		//PublicKey:      publicKey,
-		SnapshotHash: snapshotBlockHash,
-		Timestamp:    &now,
-		Nonce:        []byte("test nonce test nonce"),
-		Signature:    []byte("test signature test signature test signature"),
+		PublicKey:      []byte("public key"),
+		SnapshotHash:   snapshotBlockHash,
+		Timestamp:      &now,
+		Nonce:          []byte("test nonce test nonce"),
+		Signature:      []byte("test signature test signature test signature"),
 	}
 
 	vmContext.AddBalance(&ledger.ViteTokenId, sendAmount)

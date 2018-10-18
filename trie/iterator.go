@@ -60,20 +60,26 @@ func (iterator *Iterator) Next() (key, value []byte, ok bool) {
 
 		var keys [][]byte
 		var children []*TrieNode
-		switch node.middleNode.NodeType() {
+
+		currentMiddleNode := node.middleNode
+		switch currentMiddleNode.NodeType() {
 		case TRIE_FULL_NODE:
-			for key, childNode := range node.middleNode.children {
+			if currentMiddleNode.child != nil {
+				keys = append(keys, nil)
+				children = append(children, currentMiddleNode.child)
+			}
+
+			for key, childNode := range currentMiddleNode.children {
 				keys = append(keys, []byte{key})
 				children = append(children, childNode)
 			}
-
 		case TRIE_SHORT_NODE:
-			keys = append(keys, node.middleNode.key)
-			children = append(children, node.middleNode.child)
+			keys = append(keys, currentMiddleNode.key)
+			children = append(children, currentMiddleNode.child)
 		default:
 			// If root is leafNode
-			keys = append(keys, node.middleNode.key)
-			children = append(children, node.middleNode)
+			keys = append(keys, currentMiddleNode.key)
+			children = append(children, currentMiddleNode)
 		}
 
 		for index, key := range keys {
@@ -82,7 +88,7 @@ func (iterator *Iterator) Next() (key, value []byte, ok bool) {
 			newKey := make([]byte, len(node.key))
 			copy(newKey, node.key)
 
-			if !bytes.Equal(key, []byte{0}) {
+			if len(key) > 0 {
 				newKey = append(newKey, key...)
 			}
 

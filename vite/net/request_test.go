@@ -23,7 +23,7 @@ func RandStringRunes(n int) string {
 
 // to is larger or equal than from
 func mockFromTo() (from, to uint64) {
-	from, to = rand.Uint64(), rand.Uint64()
+	from, to = mockU64(), mockU64()
 	if from > to {
 		from, to = to, from
 	}
@@ -31,10 +31,15 @@ func mockFromTo() (from, to uint64) {
 	return
 }
 
-func mockPeers() (peers []*Peer) {
+func mockU64() uint64 {
+	u := rand.Uint64()
+	return u >> 40
+}
+
+func mockPeers(n int) (peers []*Peer) {
 	var num int
 	for {
-		num = rand.Intn(65535)
+		num = rand.Intn(n)
 		if num > 0 {
 			break
 		}
@@ -42,14 +47,14 @@ func mockPeers() (peers []*Peer) {
 	fmt.Printf("mock %d peers\n", num)
 
 	for i := 0; i < num; i++ {
-		peers = append(peers, &Peer{ID: RandStringRunes(8), height: rand.Uint64()})
+		peers = append(peers, &Peer{ID: RandStringRunes(8), height: mockU64()})
 	}
 
 	return peers
 }
 
 func TestSplitSubLedger(t *testing.T) {
-	peers := mockPeers()
+	peers := mockPeers(200)
 
 	var to uint64
 	for _, peer := range peers {
@@ -57,87 +62,72 @@ func TestSplitSubLedger(t *testing.T) {
 			to = peer.height
 		}
 	}
-	fmt.Println("to", to)
 
-	var from uint64
-	for {
-		from = rand.Uint64()
-		if from < to {
-			break
-		}
-	}
-	fmt.Println("from", from)
+	var from uint64 = 0
 
 	cs := splitSubLedger(from, to, peers)
-	fmt.Printf("split %d ledger pieces\n", len(cs))
+	fmt.Printf("from %d to %d split %d ledger pieces\n", from, to, len(cs))
 
 	low := from
-	for i, c := range cs {
-		fmt.Printf("ledger piece %d: %d - %d %d blocks @%d\n", i, c.from, c.to, c.to-c.from+1, c.peer.height)
-
+	for _, c := range cs {
 		if low != c.from {
-			t.Fail()
+			t.Fatalf("ledger piece is not coherent: %d, %d - %d @%d", low, c.from, c.to, c.peer.height)
 		}
 
 		if c.to < c.from {
-			t.Fail()
+			t.Fatalf("ledger piece from is larger than to: %d - %d @%d", c.from, c.to, c.peer.height)
 		}
 
 		if c.to > c.peer.height {
-			t.Fail()
+			t.Fatalf("ledger piece from out of peer: %d - %d @%d", c.from, c.to, c.peer.height)
 		}
 
 		low = c.to + 1
 	}
 
 	if low != to+1 {
-		t.Fail()
+		t.Fatalf("ledger pieces is not compelete, %d %d", low, to)
 	}
 }
 
 func TestSplitChunk(t *testing.T) {
-	to := rand.Uint64()
-	from := to - uint64(rand.Intn(1000000000))
+	from, to := mockFromTo()
 
-	count := (to-from)/minBlocks + 1
+	count := (to-from)/minSubLedger + 1
 
-	fmt.Printf("from %d to %d, %d blocks, need %d chunks\n", from, to, from-to+1, count)
+	fmt.Printf("from %d to %d, %d blocks, need %d chunks\n", from, to, to-from+1, count)
 
 	cs := splitChunk(from, to)
-	fmt.Printf("split %d chunks\n", len(cs))
 
 	if uint64(len(cs)) != count {
 		t.Fail()
 	}
 
 	low := from
-	for i, c := range cs {
-		fmt.Printf("chunk %d: %d - %d %d blocks\n", i, c[0], c[1], c[1]-c[0]+1)
-
+	for _, c := range cs {
 		if c[0] != low {
-			t.Fail()
+			t.Fatalf("chunk is not coherent: %d, %d - %d", low, c[0], c[1])
 		}
 
 		if c[1] < c[0] {
-			t.Fail()
+			t.Fatalf("chunk from is larger than to: %d - %d", c[0], c[1])
 		}
 
-		if c[1] >= c[0]+minBlocks {
-			t.Fail()
+		if c[1] >= c[0]+minSubLedger {
+			t.Fatalf("chunk is too large: %d - %d", c[0], c[1])
 		}
 
 		low = c[1] + 1
 	}
 
 	if low != to+1 {
-		t.Fail()
+		t.Fatalf("chunks is not compelete, %d %d", low, to)
 	}
 }
 
 func TestSplitChunkOne(t *testing.T) {
 	to := rand.Uint64()
 	from := to
-	fmt.Printf("from %d to %d, %d blocks, need %d chunks\n", from, to, from-to+1, 1)
 
 	cs := splitChunk(from, to)
 
@@ -150,7 +140,7 @@ func TestSplitChunkOne(t *testing.T) {
 	}
 }
 
-func TestU64ToDuration(t *testing.T) {
-	u := rand.Uint64()
-	u64ToDuration(u)
-}
+//func TestU64ToDuration(t *testing.T) {
+//	u := rand.Uint64()
+//	u64ToDuration(u)
+//}

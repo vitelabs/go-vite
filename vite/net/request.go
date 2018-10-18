@@ -68,9 +68,9 @@ type errCallback = func(id uint64, err error)
 var errMissingPeer = errors.New("request missing peer")
 var errUnExpectedRes = errors.New("unexpected response")
 
-const minBlocks uint64 = 3600  // minimal snapshot blocks per subLedger request
-const maxBlocks uint64 = 10800 // maximal snapshot blocks per subLedger request
-const maxRetry = 3
+const minSubLedger uint64 = 3600 // minimal snapshot blocks per subLedger request
+const maxSubLedger uint64 = 7200 // maximal snapshot blocks per subLedger request
+const chunk uint64 = 3600        // chunk blocks count
 
 type subLedgerPiece struct {
 	from, to uint64
@@ -79,74 +79,59 @@ type subLedgerPiece struct {
 
 // split large subledger request to many small pieces
 func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
-	if len(peers) == 0 {
+	peerCount := len(peers)
+
+	if peerCount == 0 {
 		return
 	}
 
 	total := to - from + 1
-	if total < minBlocks {
+	if total < minSubLedger || peerCount == 1 {
 		cs = append(cs, &subLedgerPiece{
 			from: from,
 			to:   to,
-			peer: peers[len(peers)-1], // choose the tallest peer
+			peer: peers[peerCount-1], // choose the tallest peer
 		})
 		return
 	}
 
 	var pCount, pTo uint64 // piece length
-	for _, peer := range peers {
-		if peer.height > from+minBlocks {
-			pTo = peer.height - minBlocks
-			pCount = pTo - from + 1
 
-			if pCount < minBlocks {
-				continue
-			}
+loop:
+	for from < to {
+		peerCount = len(peers)
 
-			// piece too large
-			if pCount > maxBlocks {
-				pCount = maxBlocks
-			}
-
-			// piece to
-			pTo = from + pCount - 1
-
-			// piece to exceed target height
-			if pTo > to {
-				pTo = to
-				pCount = to - from + 1
-			} else if to < pTo+minBlocks {
-				// reset piece is too small, then collapse to one piece
-				pCount += to - pTo
-				pTo = to
-			}
-
-			cs = append(cs, &subLedgerPiece{
-				from: from,
-				to:   pTo,
-				peer: peer,
-			})
-
-			from = pTo + 1
-			if from > to {
-				break
-			}
+		if peerCount == 0 {
+			break loop
 		}
-	}
 
-	// reset piece, alloc to best peer
-	if from < to {
-		if len(cs) > 0 {
-			// if peer is not too much, has rest chunk, then collapse the rest chunk with last chunk
-			if lastChunk := cs[len(cs)-1]; lastChunk.peer == peers[len(peers)-1] {
-				lastChunk.to = to
+		for i, peer := range peers {
+			if peer.height > from {
+				pTo = peer.height
+
+				pCount = pTo - from + 1
+				// if piece is too small and is not the last peer, then reallocate
+				if pCount < minSubLedger && (i != peerCount-1) {
+					continue
+				} else if pCount > maxSubLedger {
+					pTo = from + maxSubLedger - 1
+				}
+
+				if pTo > to || (to < pTo+minSubLedger && peer.height >= to) {
+					pTo = to
+				}
+
+				cs = append(cs, &subLedgerPiece{
+					from: from,
+					to:   pTo,
+					peer: peer,
+				})
+
+				from = pTo + 1
+				if from > to {
+					break loop
+				}
 			}
-		} else {
-			cs = append(cs, &subLedgerPiece{
-				from: from,
-				to:   to,
-				peer: peers[len(peers)-1],
-			})
 		}
 	}
 
@@ -159,15 +144,13 @@ func splitChunk(from, to uint64) (chunks [][2]uint64) {
 		return
 	}
 
-	total := (to-from)/minBlocks + 1
+	total := (to-from)/chunk + 1
 	chunks = make([][2]uint64, total)
 
 	var cTo uint64
 	var i int
 	for from <= to {
-		if to > from+minBlocks {
-			cTo = from + minBlocks - 1
-		} else {
+		if cTo = from + chunk - 1; cTo > to {
 			cTo = to
 		}
 
@@ -177,7 +160,7 @@ func splitChunk(from, to uint64) (chunks [][2]uint64) {
 		i++
 	}
 
-	return chunks
+	return chunks[:i]
 }
 
 // @request for subLedger, will get FileList and Chunk
@@ -268,10 +251,11 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 			cs := splitChunk(chunk[0], chunk[1])
 			for _, c := range cs {
 				ctx.Add(&chunkRequest{
-					from: c[0],
-					to:   c[1],
-					peer: peer,
-					rec:  s.rec,
+					from:  c[0],
+					to:    c[1],
+					peer:  peer,
+					catch: s.catch,
+					rec:   s.rec,
 				})
 			}
 		}
@@ -424,11 +408,13 @@ func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 			return
 		}
 
-		for _, block := range msg.SBlocks {
-			c.rec.receiveSnapshotBlock(block)
-		}
+		// receive account blocks first
 		for _, block := range msg.ABlocks {
 			c.rec.receiveAccountBlock(block)
+		}
+
+		for _, block := range msg.SBlocks {
+			c.rec.receiveSnapshotBlock(block)
 		}
 
 		c.Done()

@@ -31,12 +31,6 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 )
 
-func init() {
-	log15.Root().SetHandler(
-		log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),
-	)
-}
-
 type benchmark struct {
 	passwd        string
 	genesisAddr   types.Address
@@ -52,6 +46,10 @@ type benchmark struct {
 }
 
 func TestBenchmark(t *testing.T) {
+	log15.Root().SetHandler(
+		log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),
+	)
+
 	genesisAddr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
 	addr, _ := types.HexToAddress("vite_e9b7307aaf51818993bb2675fd26a600bc7ab6d0f52bc5c2c1")
 	b := &benchmark{passwd: "123456", w: wallet.New(nil), genesisAddr: genesisAddr, coinbase: &addr}
@@ -219,7 +217,7 @@ func (b *benchmark) benchmark() {
 				addrKey := tmpKey
 				l := b.mlog.New("address", addr.String())
 				for {
-					err := b.transferTo(addr, addrKey, b.testAddrList, 10)
+					err := b.transferTo(addr, addrKey, b.testAddrList, 80)
 					if err == b.normalErr {
 						break
 					}
@@ -228,6 +226,7 @@ func (b *benchmark) benchmark() {
 						break
 					}
 				}
+				time.Sleep(time.Millisecond * 500)
 				for {
 					err := b.receive(addr, addrKey)
 					if err == b.normalErr {
@@ -238,7 +237,7 @@ func (b *benchmark) benchmark() {
 						break
 					}
 				}
-				time.Sleep(time.Millisecond * 20)
+				time.Sleep(time.Millisecond * 500)
 			}
 		})
 	}

@@ -181,9 +181,9 @@ wait:
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
 	// p is lower than me, or p is not all enough, no need to sync
-	if current.Height >= p.height || current.Height+minBlocks > p.height {
+	if current.Height >= p.height || current.Height+minSubLedger > p.height {
 		// I`am not tall enough, then send my current block to p
-		if current.Height > p.height && current.Height <= p.height+minBlocks {
+		if current.Height > p.height && current.Height <= p.height+minSubLedger {
 			p.SendNewSnapshotBlock(current)
 		}
 
@@ -324,7 +324,7 @@ func (s *syncer) counter(add bool, num uint64) {
 }
 
 func (s *syncer) sync(from, to uint64) {
-	pieces := splitSubLedger(from, to, s.peers.Pick(from+minBlocks))
+	pieces := splitSubLedger(from, to, s.peers.Pick(from+minSubLedger))
 
 	for _, piece := range pieces {
 		req := &subLedgerRequest{

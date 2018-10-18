@@ -6,6 +6,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/golang/protobuf/proto"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -207,7 +208,7 @@ func (producer *Producer) Start() error {
 	producer.status = RUNNING
 	producer.termination = make(chan int)
 
-	go func() {
+	common.Go(func() {
 		defer producer.wg.Done()
 		for {
 			select {
@@ -234,7 +235,7 @@ func (producer *Producer) Start() error {
 				time.Sleep(time.Millisecond * 500)
 			}
 		}
-	}()
+	})
 	return nil
 }
 

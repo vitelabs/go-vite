@@ -45,8 +45,9 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*TokenInfo {
 		}
 		tokenId := GetTokenIdFromMintageKey(key)
 		tokenInfo := new(TokenInfo)
-		ABIMintage.UnpackVariable(tokenInfo, VariableNameMintage, value)
-		tokenInfoMap[tokenId] = tokenInfo
+		if err := ABIMintage.UnpackVariable(tokenInfo, VariableNameMintage, value); err == nil {
+			tokenInfoMap[tokenId] = tokenInfo
+		}
 	}
 	return tokenInfoMap
 }
@@ -69,9 +70,10 @@ func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 			break
 		}
 		registration := new(Registration)
-		ABIRegister.UnpackVariable(registration, VariableNameRegistration, value)
-		if registration.IsActive() {
-			registerList = append(registerList, registration)
+		if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
+			if registration.IsActive() {
+				registerList = append(registerList, registration)
+			}
 		}
 	}
 	return registerList
@@ -96,8 +98,9 @@ func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
 		}
 		voterAddr := GetAddrFromVoteKey(key)
 		nodeName := new(string)
-		ABIVote.UnpackVariable(nodeName, VariableNameVoteStatus, value)
-		voteInfoList = append(voteInfoList, &VoteInfo{voterAddr, *nodeName})
+		if err := ABIVote.UnpackVariable(nodeName, VariableNameVoteStatus, value); err == nil {
+			voteInfoList = append(voteInfoList, &VoteInfo{voterAddr, *nodeName})
+		}
 	}
 	return voteInfoList
 }
@@ -125,9 +128,10 @@ func GetPledgeInfoList(db StorageDatabase, addr types.Address) []*PledgeInfo {
 		}
 		if IsPledgeKey(key) {
 			pledgeInfo := new(PledgeInfo)
-			ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value)
-			pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(key)
-			pledgeInfoList = append(pledgeInfoList, pledgeInfo)
+			if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value); err == nil {
+				pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(key)
+				pledgeInfoList = append(pledgeInfoList, pledgeInfo)
+			}
 		}
 	}
 	return pledgeInfoList
@@ -146,10 +150,11 @@ func GetActiveConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 			break
 		}
 		consensusGroupInfo := new(ConsensusGroupInfo)
-		ABIConsensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value)
-		if consensusGroupInfo.IsActive() {
-			consensusGroupInfo.Gid = GetGidFromConsensusGroupKey(key)
-			consensusGroupInfoList = append(consensusGroupInfoList, consensusGroupInfo)
+		if err := ABIConsensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value); err == nil {
+			if consensusGroupInfo.IsActive() {
+				consensusGroupInfo.Gid = GetGidFromConsensusGroupKey(key)
+				consensusGroupInfoList = append(consensusGroupInfoList, consensusGroupInfo)
+			}
 		}
 	}
 	return consensusGroupInfoList

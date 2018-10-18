@@ -120,7 +120,6 @@ func (sc *SnapshotChain) GetSnapshotBlocks(height uint64, count uint64, forward,
 
 	iter := sc.db.NewIterator(&util.Range{Start: startKey, Limit: endKey}, nil)
 
-	currentHeight := startHeight
 	for i := uint64(0); i < count && iter.Next(); i++ {
 		data := iter.Value()
 		block := &ledger.SnapshotBlock{}
@@ -137,8 +136,14 @@ func (sc *SnapshotChain) GetSnapshotBlocks(height uint64, count uint64, forward,
 		}
 
 		block.Hash = *getSnapshotBlockHash(iter.Key())
-		blocks = append(blocks, block)
-		currentHeight++
+		if forward {
+			blocks = append(blocks, block)
+		} else {
+			// prepend, less garbage
+			blocks = append(blocks, nil)
+			copy(blocks[1:], blocks)
+			blocks[0] = block
+		}
 	}
 
 	return blocks, nil

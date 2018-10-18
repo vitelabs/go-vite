@@ -53,6 +53,10 @@ func (p *wtPool) start() {
 }
 
 func (p *wtPool) stop() {
+	if p.term == nil {
+		return
+	}
+
 	select {
 	case <-p.term:
 	default:
@@ -180,6 +184,10 @@ func (a *agent) start() error {
 }
 
 func (a *agent) stop() {
+	if a.term == nil {
+		return
+	}
+
 	discvLog.Info("discovery agent term")
 
 	select {

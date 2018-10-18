@@ -71,21 +71,21 @@ func TestWallet(t *testing.T) {
 	}
 
 	// if has no quota
-	if printQuota(vite, genesisAddr).Sign() == 0 {
-		if printPledge(vite, genesisAddr, t).Sign() == 0 {
+	if printQuota(vite, addr).Sign() == 0 {
+		if printPledge(vite, addr, t).Sign() == 0 {
 			waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
 
-			if printPledge(vite, genesisAddr, t).Sign() == 0 {
+			if printPledge(vite, addr, t).Sign() == 0 {
 				// wait snapshot ++
 				waitSnapshotInc(vite, t)
 
-				byt, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, genesisAddr)
+				byt, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr)
 				parms := CreateTransferTxParms{
 					SelfAddr:    genesisAddr,
 					ToAddr:      contracts.AddressPledge,
 					TokenTypeId: ledger.ViteTokenId,
 					Passphrase:  password,
-					Amount:      new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)).String(),
+					Amount:      new(big.Int).Mul(big.NewInt(1e4), big.NewInt(1e18)).String(),
 					Data:        byt,
 					Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
 				}
@@ -97,7 +97,7 @@ func TestWallet(t *testing.T) {
 			}
 			waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
 		}
-		waitQuota(vite, genesisAddr)
+		waitQuota(vite, addr)
 	}
 }
 
@@ -179,7 +179,8 @@ func printHeight(vite *vite.Vite, addr types.Address) uint64 {
 func printQuota(vite *vite.Vite, addr types.Address) *big.Int {
 	head := vite.Chain().GetLatestSnapshotBlock()
 	amount := vite.Chain().GetPledgeAmount(head.Hash, addr)
-	wLog.Info("print quota", "quota", amount.String(), "snapshotHash", head.Hash, "snapshotHeight", head.Height)
+	quota := vite.Chain().GetPledgeQuota(head.Hash, addr)
+	wLog.Info("print quota", "amount", amount.String(), "quota", quota, "snapshotHash", head.Hash, "snapshotHeight", head.Height)
 	return amount
 }
 func printSnapshot(vite *vite.Vite) uint64 {
@@ -289,7 +290,7 @@ func contractOnroadNum(api *PrivateOnroadApi, addr types.Address, t *testing.T) 
 	return len(info)
 }
 
-func TestWalletBalance(t *testing.T) {
+func TestGenData(t *testing.T) {
 	w := wallet.New(nil)
 
 	unlockAll(w)
@@ -300,9 +301,38 @@ func TestWalletBalance(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	waApi := NewWalletApi(vite)
+	onRoadApi := NewPrivateOnroadApi(vite)
 
 	printBalance(vite, addr)
 
+	genesisAddr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
+	vite.OnRoad().StartAutoReceiveWorker(genesisAddr, nil)
+
+	// if has no balance
+	if printBalance(vite, genesisAddr).Sign() == 0 {
+		waitOnroad(onRoadApi, genesisAddr, t)
+	}
+
+	waitSnapshotInc(vite, t)
+
+	parms := CreateTransferTxParms{
+		SelfAddr:    genesisAddr,
+		ToAddr:      addr,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      new(big.Int).Mul(big.NewInt(3300000), big.NewInt(1e18)).String(),
+		Data:        nil,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	}
+	err = waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		panic(err)
+	}
+
+	vite.OnRoad().StartAutoReceiveWorker(addr, nil)
+	waitOnroad(onRoadApi, addr, t)
+	printBalance(vite, addr)
 	waitSnapshotInc(vite, t)
 }
 
@@ -339,42 +369,46 @@ func TestQuota(t *testing.T) {
 }
 
 func TestContractsMintage(t *testing.T) {
+	// modify vm.mintagePledgeHeight  uint64 = 1
 	w := wallet.New(nil)
-
 	unlockAll(w)
-
 	addr, _ := types.HexToAddress("vite_e9b7307aaf51818993bb2675fd26a600bc7ab6d0f52bc5c2c1")
-
 	vite, err := startVite(w, &addr, t)
 	if err != nil {
 		panic(err)
 	}
-
-	waApi := NewWalletApi(vite)
-	onRoadApi := NewPrivateOnroadApi(vite)
 
 	balance := printBalance(vite, addr)
 	if printQuota(vite, addr).Sign() == 0 {
 		t.Fatalf("no pledge")
 	}
 
+	waApi := NewWalletApi(vite)
+	onRoadApi := NewPrivateOnroadApi(vite)
+
+	vite.OnRoad().StartAutoReceiveWorker(addr, nil)
+	waitOnroad(onRoadApi, addr, t)
+
+	waitSnapshotInc(vite, t)
+
 	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
 	if prevBlock == nil {
 		t.Fatalf("prev block not exist")
 	}
 	tokenId := contracts.NewTokenId(addr, prevBlock.Height+1, prevBlock.Hash, vite.Chain().GetLatestSnapshotBlock().Hash)
-	mintageData, err := contracts.ABIMintage.PackMethod(contracts.MethodNameMintage,
+	mintageData, _ := contracts.ABIMintage.PackMethod(contracts.MethodNameMintage,
 		tokenId,
 		"MyToken",
 		"mt",
 		big.NewInt(1e18),
 		uint8(0))
+	mintagePledgeAmount := new(big.Int).Mul(big.NewInt(1e5), big.NewInt(1e18))
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
 		ToAddr:      contracts.AddressMintage,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
-		Amount:      big.NewInt(0).String(),
+		Amount:      mintagePledgeAmount.String(),
 		Data:        mintageData,
 		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
 	}
@@ -385,9 +419,14 @@ func TestContractsMintage(t *testing.T) {
 	}
 
 	waitContractOnroad(onRoadApi, contracts.AddressMintage, t)
-
 	waitSnapshotInc(vite, t)
-	balance.Sub(balance, new(big.Int).Mul(big.NewInt(1e3), big.NewInt(1e18)))
+
+	amount, err := vite.Chain().GetAccountBalanceByTokenId(&addr, &tokenId)
+	if amount.Cmp(big.NewInt(1e18)) != 0 {
+		t.Fatal("token amount error: %v", amount)
+	}
+
+	balance.Sub(balance, mintagePledgeAmount)
 	if balance.Cmp(printBalance(vite, addr)) != 0 {
 		t.Fatal("mintage fee error")
 	}
@@ -396,5 +435,34 @@ func TestContractsMintage(t *testing.T) {
 	if tokenInfo == nil {
 		t.Fatal("token info not exist")
 	}
+	wLog.Debug("token info", tokenId.String(), tokenInfo)
+
+	waitSnapshotInc(vite, t)
+
+	cancelMintageData, _ := contracts.ABIMintage.PackMethod(contracts.MethodNameMintageCancelPledge, tokenId)
+	parms = CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressMintage,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      big.NewInt(0).String(),
+		Data:        cancelMintageData,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	}
+	err = waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressMintage, t)
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+	balance.Add(balance, mintagePledgeAmount)
+	if balance.Cmp(printBalance(vite, addr)) != 0 {
+		t.Fatal("mintage cancel pledge error")
+	}
+	printQuota(vite, addr)
+	tokenInfo = vite.Chain().GetTokenInfoById(&tokenId)
 	wLog.Debug("token info", tokenId.String(), tokenInfo)
 }

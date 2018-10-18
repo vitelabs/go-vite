@@ -20,7 +20,9 @@ type precompiledContract struct {
 }
 type precompiledContractMethod interface {
 	getFee(vm *VM, block *vm_context.VmAccountBlock) (*big.Int, error)
+	// calc and use quota, check tx data
 	doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error)
+	// check status, update state
 	doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error
 }
 
@@ -164,7 +166,6 @@ func (p *pRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBloc
 		param.Name,
 		param.NodeAddr,
 		sendBlock.AccountAddress,
-		param.BeneficialAddr,
 		sendBlock.Amount,
 		snapshotBlock.Height,
 		rewardHeight,
@@ -228,7 +229,6 @@ func (p *pCancelRegister) doReceive(vm *VM, block *vm_context.VmAccountBlock, se
 		contracts.VariableNameRegistration,
 		param.Name, old.NodeAddr,
 		old.PledgeAddr,
-		old.BeneficialAddr,
 		helper.Big0,
 		uint64(0),
 		old.RewardHeight,
@@ -316,6 +316,7 @@ func (p *pReward) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uin
 		contracts.MethodNameReward,
 		param.Gid,
 		param.Name,
+		param.BeneficialAddr,
 		param.EndHeight,
 		param.StartHeight,
 		param.Amount)
@@ -368,7 +369,6 @@ func (p *pReward) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock 
 				old.Name,
 				old.NodeAddr,
 				old.PledgeAddr,
-				old.BeneficialAddr,
 				old.Amount,
 				old.PledgeHeight,
 				param.EndHeight,
@@ -381,7 +381,6 @@ func (p *pReward) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock 
 			old.Name,
 			old.NodeAddr,
 			old.PledgeAddr,
-			old.BeneficialAddr,
 			old.Amount,
 			old.PledgeHeight,
 			param.EndHeight,
@@ -395,7 +394,7 @@ func (p *pReward) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock 
 			&vm_context.VmAccountBlock{
 				makeSendBlock(
 					block.AccountBlock,
-					old.BeneficialAddr,
+					param.BeneficialAddr,
 					ledger.BlockTypeSendReward,
 					param.Amount,
 					ledger.ViteTokenId,
@@ -455,7 +454,6 @@ func (p *pUpdateRegistration) doReceive(vm *VM, block *vm_context.VmAccountBlock
 		contracts.VariableNameRegistration,
 		old.Name, param.NodeAddr,
 		old.PledgeAddr,
-		param.BeneficialAddr,
 		old.Amount,
 		old.PledgeHeight,
 		old.RewardHeight,
@@ -955,9 +953,7 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 	switch method {
 	case contracts.MethodNameRegister:
 		blockParam := blockParamInterface.(*contracts.ParamRegister)
-		if (blockParam.Gid == types.SNAPSHOT_GID && !block.VmContext.IsAddressExisted(&blockParam.BeneficialAddr)) ||
-			!block.VmContext.IsAddressExisted(&blockParam.NodeAddr) ||
-			!isUserAccount(block.VmContext, blockParam.NodeAddr) {
+		if blockParam.Gid == types.DELEGATE_GID {
 			return false
 		}
 		if ok, _ := regexp.MatchString("^[0-9a-zA-Z_.]{1,40}$", blockParam.Name); !ok {
@@ -991,9 +987,7 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 			return false
 		}
 		blockParam := blockParamInterface.(*contracts.ParamRegister)
-		if (blockParam.Gid == types.SNAPSHOT_GID && !block.VmContext.IsAddressExisted(&blockParam.BeneficialAddr)) ||
-			!block.VmContext.IsAddressExisted(&blockParam.NodeAddr) ||
-			!isUserAccount(block.VmContext, blockParam.NodeAddr) {
+		if blockParam.Gid == types.DELEGATE_GID {
 			return false
 		}
 		old := new(contracts.Registration)
@@ -1004,7 +998,7 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 		if err != nil ||
 			old.PledgeAddr != block.AccountBlock.AccountAddress ||
 			!old.IsActive() ||
-			(old.BeneficialAddr == blockParam.BeneficialAddr && old.NodeAddr == blockParam.BeneficialAddr) {
+			old.NodeAddr == blockParam.NodeAddr {
 			return false
 		}
 	}

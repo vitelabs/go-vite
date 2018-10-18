@@ -124,12 +124,12 @@ func (rw *MsgRw) WriteMsg(msg *Msg) (err error) {
 }
 
 // AsyncMsgConn
-var handshakeTimeout = 10 * time.Second
-var msgReadTimeout = 40 * time.Second
-var msgWriteTimeout = 20 * time.Second
+//var handshakeTimeout = 10 * time.Second
+//var msgReadTimeout = 40 * time.Second
+//var msgWriteTimeout = 20 * time.Second
 
-const readBufferLen = 10
-const writeBufferLen = 10
+const readBufferLen = 100
+const writeBufferLen = 100
 
 type AsyncMsgConn struct {
 	fd      net.Conn
@@ -171,11 +171,11 @@ func (c *AsyncMsgConn) Start() {
 	go c.handleLoop()
 }
 
-func (c *AsyncMsgConn) Close(err error) {
+func (c *AsyncMsgConn) Close(reason error) {
 	select {
 	case <-c.term:
 	default:
-		c.reason = err
+		c.reason = reason
 		close(c.term)
 		c.wg.Wait()
 	}
@@ -196,37 +196,23 @@ func (c *AsyncMsgConn) readLoop() {
 		case <-c.term:
 			return
 		default:
-		}
+			monitor.LogEvent("p2p_ts", "read")
 
-		//c.fd.SetReadDeadline(time.Now().Add(msgReadTimeout))
-		msg, err := c.rw.ReadMsg()
-
-		if err == nil {
-			c.rqueue <- msg
-			monitor.LogEvent("async-conn-read", c.fd.RemoteAddr().String())
-		} else {
-			c.report(1, err)
-			return
+			//c.fd.SetReadDeadline(time.Now().Add(msgReadTimeout))
+			if msg, err := c.rw.ReadMsg(); err == nil {
+				c.rqueue <- msg
+			} else {
+				c.report(1, err)
+				return
+			}
 		}
 	}
 }
 
-func (c *AsyncMsgConn) _write(msg *Msg) bool {
-	// there is an error
-	if atomic.LoadInt32(&c.errored) != 0 {
-		return false
-	}
-
+func (c *AsyncMsgConn) _write(msg *Msg) (err error) {
+	monitor.LogEvent("p2p_ts", "write")
 	//c.fd.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
-	err := c.rw.WriteMsg(msg)
-	monitor.LogEvent("async-conn-write", c.fd.RemoteAddr().String())
-
-	if err != nil {
-		c.report(2, err)
-		return false
-	} else {
-		return true
-	}
+	return c.rw.WriteMsg(msg)
 }
 
 func (c *AsyncMsgConn) writeLoop() {
@@ -239,12 +225,14 @@ loop:
 		case <-c.term:
 			break loop
 		case msg := <-c.wqueue:
-			if !c._write(msg) {
-				break loop
+			if err := c._write(msg); err != nil {
+				c.report(2, err)
+				return
 			}
 		}
 	}
 
+	// no error, disconnected initiative
 	if atomic.LoadInt32(&c.errored) == 0 {
 		for i := 0; i < len(c.wqueue); i++ {
 			msg := <-c.wqueue
