@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"sort"
@@ -201,7 +202,7 @@ func (s *subLedgerRequest) State() reqState {
 }
 
 func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
-	defer staticDuration("handle_filelist", time.Now())
+	defer monitor.LogTime("net", "handle_FileListMsg", time.Now())
 
 	if cmd(pkt.Cmd) == FileListCode {
 		s.state = reqRespond
@@ -396,7 +397,7 @@ func (c *chunkRequest) State() reqState {
 }
 
 func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
-	defer staticDuration("handle_chunk", time.Now())
+	defer monitor.LogTime("net", "handle_SubLedgerMsg", time.Now())
 
 	if cmd(pkt.Cmd) == SubLedgerCode {
 		c.state = reqRespond

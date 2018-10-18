@@ -87,10 +87,6 @@ func (t cmd) String() string {
 	return msgNames[t]
 }
 
-func staticDuration(name string, start time.Time) {
-	monitor.LogDuration("net", name, time.Now().Sub(start).Nanoseconds())
-}
-
 type MsgHandler interface {
 	ID() string
 	Cmds() []cmd
@@ -101,7 +97,7 @@ type MsgHandler interface {
 type _statusHandler func(msg *p2p.Msg, sender *Peer) error
 
 func statusHandler(msg *p2p.Msg, sender *Peer) error {
-	defer staticDuration("handle_StatusMsg", time.Now())
+	defer monitor.LogTime("net", "handle_StatusMsg", time.Now())
 
 	status := new(ledger.HashHeight)
 	err := status.Deserialize(msg.Payload)
@@ -139,7 +135,7 @@ func (s *getSubLedgerHandler) Cmds() []cmd {
 }
 
 func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
-	defer staticDuration("handle_GetSubledger", time.Now())
+	defer monitor.LogTime("net", "handle_GetSubledgerMsg", time.Now())
 
 	req := new(message.GetSnapshotBlocks)
 	err = req.Deserialize(msg.Payload)
@@ -192,7 +188,7 @@ func (s *getSnapshotBlocksHandler) Cmds() []cmd {
 }
 
 func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
-	defer staticDuration("handle_GetSnapshotBlocks", time.Now())
+	defer monitor.LogTime("net", "handle_GetSnapshotBlocksMsg", time.Now())
 
 	req := new(message.GetSnapshotBlocks)
 	err = req.Deserialize(msg.Payload)
@@ -265,7 +261,7 @@ var NULL_ADDRESS = types.Address{}
 var errGetABlocksMissingParam = errors.New("missing param to GetAccountBlocks")
 
 func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
-	defer staticDuration("handle_GetAccountBlocks", time.Now())
+	defer monitor.LogTime("net", "handle_GetAccountBlocksMsg", time.Now())
 
 	req := new(message.GetAccountBlocks)
 	err = req.Deserialize(msg.Payload)
@@ -340,7 +336,7 @@ func (c *getChunkHandler) Cmds() []cmd {
 }
 
 func (c *getChunkHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
-	defer staticDuration("handle_GetChunk", time.Now())
+	defer monitor.LogTime("net", "handle_GetChunkMsg", time.Now())
 
 	req := new(message.GetChunk)
 	err = req.Deserialize(msg.Payload)

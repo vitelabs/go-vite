@@ -106,7 +106,7 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 		return
 	}
 
-	staticDuration("receive_newSblock", time.Now())
+	defer monitor.LogTime("net", "receive_newSblock", time.Now())
 	monitor.LogEvent("net", "receive_newSblock")
 
 	if s.filter.has(block.Hash) {
@@ -138,7 +138,7 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 		return
 	}
 
-	staticDuration("receive_newAblock", time.Now())
+	defer monitor.LogTime("net", "receive_newAblock", time.Now())
 	monitor.LogEvent("net", "receive_newAblock")
 
 	if s.filter.has(block.Hash) {
@@ -170,7 +170,7 @@ func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) {
 		return
 	}
 
-	staticDuration("receive_Sblock", time.Now())
+	defer monitor.LogTime("net", "receive_Sblock", time.Now())
 	monitor.LogEvent("net", "receive_Sblock")
 
 	if s.filter.has(block.Hash) {
@@ -193,7 +193,7 @@ func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) {
 		return
 	}
 
-	staticDuration("receive_Ablock", time.Now())
+	defer monitor.LogTime("net", "receive_Ablock", time.Now())
 	monitor.LogEvent("net", "receive_Ablock")
 
 	if s.filter.has(block.Hash) {
