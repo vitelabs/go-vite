@@ -346,8 +346,8 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 		return errors.New("VerifyHash failed")
 	}
 
-	if !verifier.VerifyNonce(block, code) {
-		return errors.New("VerifyNonce failed")
+	if err := verifier.VerifyNonce(block, code); err != nil {
+		return err
 	}
 
 	if block.IsReceiveBlock() || (block.IsSendBlock() && code != ledger.AccountTypeContract) {
@@ -418,19 +418,19 @@ func (verifier *AccountVerifier) VerifySigature(block *ledger.AccountBlock) bool
 	return true
 }
 
-func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock, accountType uint64) bool {
+func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock, accountType uint64) error {
 	if len(block.Nonce) != 0 {
 		if accountType == ledger.AccountTypeContract {
-			return false
+			return errors.New("nonce of AccountTypeContract must be nil")
 		}
 		var nonce [8]byte
 		copy(nonce[:], block.Nonce[:8])
 		hash256Data := crypto.Hash256(block.AccountAddress.Bytes(), block.PrevHash.Bytes())
 		if !pow.CheckPowNonce(nil, nonce, hash256Data) {
-			return false
+			return errors.New("CheckPowNonce failed")
 		}
 	}
-	return true
+	return nil
 }
 
 func (verifier *AccountVerifier) VerifyTimeOut(blockReferSb *ledger.SnapshotBlock) bool {
