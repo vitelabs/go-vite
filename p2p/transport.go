@@ -81,6 +81,10 @@ func ReadMsg(reader io.Reader) (msg *Msg, err error) {
 func WriteMsg(writer io.Writer, msg *Msg) (err error) {
 	defer msg.Recycle()
 
+	if msg.Size == 0 {
+		return errMsgNull
+	}
+
 	if msg.Size > maxPayloadSize {
 		return errMsgTooLarge
 	}

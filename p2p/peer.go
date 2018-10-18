@@ -26,6 +26,7 @@ const maxPayloadSize = ^uint32(0) >> 8
 const paralProtoFrame = 3 // max number of protoFrame write concurrently
 
 var errMsgTooLarge = errors.New("message payload is too large")
+var errMsgNull = errors.New("message payload is 0 byte")
 var errPeerTermed = errors.New("peer has been terminated")
 
 //var errPeerTsBusy = errors.New("peer transport is busy, can`t write message")
