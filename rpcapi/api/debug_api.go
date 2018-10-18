@@ -29,6 +29,14 @@ func (api DebugApi) AccountChainDetail(addr types.Address, chainId string) map[s
 	return api.v.Pool().AccountChainDetail(addr, chainId)
 }
 
+func (api DebugApi) Nodes() []string {
+	if p2p := api.v.P2P(); p2p != nil {
+		return p2p.Nodes()
+	}
+
+	return nil
+}
+
 func NewDebugApi(v *vite.Vite) *DebugApi {
 	return &DebugApi{
 		v: v,
