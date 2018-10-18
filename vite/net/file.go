@@ -207,21 +207,7 @@ func (fc *fileClient) loop() {
 	ticker := time.NewTicker(idleTimeout)
 	defer ticker.Stop()
 
-	//exp := message.FileTransDone
-	//data, _ := exp.Serialize()
-	//noNeed := &p2p.Msg{
-	//	CmdSetID: CmdSet,
-	//	Cmd:      uint64(ExceptionCode),
-	//	Size:     uint64(len(data)),
-	//	Payload:  data,
-	//}
-
-	delCtx := func(ctx *connContext, hasErr bool) {
-		//if !hasErr {
-		//	ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
-		//	p2p.WriteMsg(ctx, true, noNeed)
-		//}
-
+	delCtx := func(ctx *connContext) {
 		delete(fc.conns, ctx.addr)
 		ctx.Close()
 	}
@@ -274,14 +260,14 @@ loop:
 			}
 
 		case e := <-fc.delConn:
-			delCtx(e.ctx, true)
+			delCtx(e.ctx)
 			fc.log.Error(fmt.Sprintf("delete connection %s: %v", e.ctx.addr, e.err))
 
 		case t := <-ticker.C:
 			// remote the idle connection
 			for _, ctx := range fc.conns {
 				if ctx.idle && t.Sub(ctx.idleT) > idleTimeout {
-					delCtx(ctx, false)
+					delCtx(ctx)
 				}
 			}
 		}
@@ -289,16 +275,16 @@ loop:
 
 	for i := 0; i < len(fc.idle); i++ {
 		ctx := <-fc.idle
-		delCtx(ctx, false)
+		delCtx(ctx)
 	}
 
 	for i := 0; i < len(fc.delConn); i++ {
 		e := <-fc.delConn
-		delCtx(e.ctx, true)
+		delCtx(e.ctx)
 	}
 
 	for _, ctx := range fc.conns {
-		delCtx(ctx, false)
+		delCtx(ctx)
 	}
 }
 
