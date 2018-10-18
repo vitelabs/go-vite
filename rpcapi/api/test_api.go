@@ -33,8 +33,12 @@ func NewTestApi(walletApi *WalletApi) *TestApi {
 	}
 }
 
-func (t TestApi) GetTestToken(toAddress types.Address) (string, error) {
-	addresses, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
+func (t TestApi) GetTestToken(ToAddr types.Address) (string, error) {
+	privKey, err := ed25519.HexToPrivateKey(hexPrivKey)
+	if err != nil {
+		return "", err
+	}
+	SelfAddr := types.PrikeyToAddress(privKey)
 	a := rand.Int() % 1000
 	a += 1
 	ba := new(big.Int).SetInt64(int64(a))
@@ -43,14 +47,18 @@ func (t TestApi) GetTestToken(toAddress types.Address) (string, error) {
 	amount := ba.String()
 	tid, _ := types.HexToTokenTypeId("tti_5649544520544f4b454e6e40")
 
-	e := t.walletApi.CreateTxWithPassphrase(CreateTransferTxParms{
-		SelfAddr:    addresses,
-		ToAddr:      toAddress,
+	err = t.CreateTxWithPrivKey(CreateTxWithPrivKeyParmsTest{
+		SelfAddr:    SelfAddr,
+		ToAddr:      ToAddr,
 		TokenTypeId: tid,
-		Passphrase:  "123456",
+		PrivateKey:  hexPrivKey,
 		Amount:      amount,
 	})
-	return amount, e
+	if err != nil {
+		return "", err
+	}
+
+	return amount, nil
 }
 
 func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error {

@@ -249,7 +249,7 @@ func (node *Node) startP2pAndVite() error {
 func (node *Node) startRPC() error {
 
 	// Init rpc log
-	rpcapi.InitLog(node.Config().DataDir, node.Config().LogLevel)
+	rpcapi.Init(node.Config().DataDir, node.Config().LogLevel, node.Config().TestTokenHexPrivKey)
 
 	// Start the various API endpoints, terminating all in case of errors
 	if err := node.startInProcess(node.GetInProcessApis()); err != nil {

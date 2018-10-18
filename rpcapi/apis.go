@@ -6,8 +6,9 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 )
 
-func InitLog(dir, lvl string) {
+func Init(dir, lvl string, hexPrivkey string) {
 	api.InitLog(dir, lvl)
+	api.InitHexPrivKey(hexPrivkey)
 }
 
 func GetApi(vite *vite.Vite, apiModule string) rpc.API {

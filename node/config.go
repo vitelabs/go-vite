@@ -51,11 +51,12 @@ type Config struct {
 	WSHost           string   `json:"WSHost"`
 	WSPort           int      `json:"WSPort"`
 
-	HTTPCors      []string `json:"HTTPCors"`
-	WSOrigins     []string `json:"WSOrigins"`
-	PublicModules []string `json:"PublicModules"`
-	WSExposeAll   bool     `json:"WSExposeAll"`
-	HttpExposeAll bool     `json:"HttpExposeAll"`
+	HTTPCors            []string `json:"HTTPCors"`
+	WSOrigins           []string `json:"WSOrigins"`
+	PublicModules       []string `json:"PublicModules"`
+	WSExposeAll         bool     `json:"WSExposeAll"`
+	HttpExposeAll       bool     `json:"HttpExposeAll"`
+	TestTokenHexPrivKey string   `json:"TestTokenHexPrivKey"`
 
 	//Log level
 	LogLevel string `json:"LogLevel"`

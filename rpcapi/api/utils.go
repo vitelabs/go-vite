@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-var log = log15.New("module", "rpc/api")
+var (
+	log        = log15.New("module", "rpc/api")
+	hexPrivKey = ""
+)
 
 func InitLog(dir, lvl string) {
 	logLevel, err := log15.LvlFromString(lvl)
@@ -24,6 +27,10 @@ func InitLog(dir, lvl string) {
 	log.SetHandler(
 		log15.LvlFilterHandler(logLevel, log15.Must.FileHandler(absFilename, log15.TerminalFormat())),
 	)
+}
+
+func InitHexPrivKey(priv string) {
+	hexPrivKey = priv
 }
 
 func stringToBigInt(str *string) *big.Int {
