@@ -179,11 +179,16 @@ func (p *Peer) run() (err error) {
 
 	p.runProtocols()
 
+	var proactively bool // whether we want to disconnect or not
+	var reason DiscReason
+
 loop:
 	for {
 		select {
-		case err = <-p.disc:
+		case reason = <-p.disc:
+			err = reason
 			p.log.Error(fmt.Sprintf("disconnected: %v", err))
+			proactively = true
 			break loop
 		case e := <-p.protoDone:
 			err = e.err
@@ -194,20 +199,33 @@ loop:
 			if len(p.protoFrames) == 0 {
 				if err == nil {
 					err = DiscAllProtocolDone
+					reason = DiscAllProtocolDone
+				} else {
+					reason = DiscProtocolError
 				}
+				proactively = true
 				break loop
 			}
 		case err = <-p.ts.errch: // error occur from lower transport, like writeError or readError
 			p.log.Error(fmt.Sprintf("transport error: %v", err))
+			proactively = false
 			break loop
 		case err = <-p.errch:
-			p.log.Error(fmt.Sprintf("error: %v", err))
+			p.log.Error(fmt.Sprintf("peer error: %v", err))
+			proactively = false
 			break loop
 		}
 	}
 
 	close(p.term)
-	p.ts.Close(err)
+
+	if proactively {
+		if m, e := PackMsg(baseProtocolCmdSet, discCmd, 0, reason); e == nil {
+			p.ts.SendMsg(m)
+		}
+	}
+	p.ts.Close()
+
 	p.wg.Wait()
 
 	p.log.Info(fmt.Sprintf("peer %s run done: %v", p, err))
@@ -217,37 +235,32 @@ loop:
 func (p *Peer) handleMsg(msg *Msg) {
 	cmdset, cmd := msg.CmdSet, msg.Cmd
 
-	if cmdset == baseProtocolCmdSet {
-		switch cmd {
-		case discCmd:
-			reason, err := DeserializeDiscReason(msg.Payload)
-			if err == nil {
-				p.errch <- reason
-			} else {
-				p.errch <- err
-			}
-		default:
-			msg.Recycle()
-		}
-	} else {
-		pf := p.protoFrames[cmdset]
-		if pf == nil {
-			// may be error occur concurrently
-			select {
-			case p.errch <- fmt.Errorf("missing suitable protoFrame to handle message %d/%d", cmdset, cmd):
+	select {
+	case <-p.term:
+		p.log.Error(fmt.Sprintf("peer has been terminated, can`t handle message %d/%d", cmdset, cmd))
+		msg.Recycle()
+	default:
+		if cmdset == baseProtocolCmdSet {
+			switch cmd {
+			case discCmd:
+				if reason, err := DeserializeDiscReason(msg.Payload); err == nil {
+					p.errch <- reason
+				} else {
+					p.errch <- err
+				}
 			default:
-			}
-			msg.Recycle()
-		} else {
-			select {
-			case <-p.term:
-				p.log.Error(fmt.Sprintf("peer has been terminated, cannot handle message %d/%d", cmdset, cmd))
 				msg.Recycle()
+			}
+		} else if pf := p.protoFrames[cmdset]; pf != nil {
+			select {
 			case pf.input <- msg:
 			default:
-				p.log.Warn(fmt.Sprintf("protoFrame is busy, discard message %d/%d", cmdset, cmd))
+				p.log.Warn(fmt.Sprintf("protocol is busy, discard message %d/%d", cmdset, cmd))
 				msg.Recycle()
 			}
+		} else {
+			p.log.Error(fmt.Sprintf("missing suitable protocol to handle message %d/%d", cmdset, cmd))
+			p.disc <- DiscUnKnownProtocol
 		}
 	}
 }

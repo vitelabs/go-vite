@@ -10,7 +10,7 @@ import (
 type DiscReason uint64
 
 const (
-	DiscRequested DiscReason = iota
+	DiscRequested DiscReason = iota + 1
 	DiscNetworkError
 	DiscAllProtocolDone
 	DiscProtocolError
@@ -25,6 +25,7 @@ const (
 	DiscReadTimeout
 	DiscReadError
 	DiscResponseTimeout
+	DiscUnKnownProtocol
 )
 
 var discReasonStr = [...]string{
@@ -43,6 +44,7 @@ var discReasonStr = [...]string{
 	DiscReadTimeout:         "read timeout",
 	DiscReadError:           "read error",
 	DiscResponseTimeout:     "wait response timeout",
+	DiscUnKnownProtocol:     "missing protocol handler",
 }
 
 func (d DiscReason) String() string {
@@ -59,7 +61,7 @@ func (d DiscReason) Serialize() ([]byte, error) {
 	return buf[:n], nil
 }
 
-var errDiscReasonDesc = errors.New("cannot call DiscReason.Deserialize")
+var errDiscReasonDesc = errors.New("can`t call DiscReason.Deserialize")
 
 // just implement Serializable interface
 func (d DiscReason) Deserialize(buf []byte) error {

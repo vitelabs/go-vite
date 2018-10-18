@@ -137,7 +137,6 @@ type AsyncMsgConn struct {
 	term    chan struct{}
 	wg      sync.WaitGroup
 	wqueue  chan *Msg
-	reason  error      // close reason
 	errored int32      // atomic, indicate whehter there is an error, readErr(1), writeErr(2)
 	errch   chan error // report errch to upper layer
 }
@@ -161,11 +160,10 @@ func (c *AsyncMsgConn) Start() {
 	common.Go(c.writeLoop)
 }
 
-func (c *AsyncMsgConn) Close(reason error) {
+func (c *AsyncMsgConn) Close() {
 	select {
 	case <-c.term:
 	default:
-		c.reason = reason
 		close(c.term)
 		c.wg.Wait()
 	}
@@ -223,12 +221,6 @@ loop:
 		for i := 0; i < len(c.wqueue); i++ {
 			if err := WriteMsg(c.fd, <-c.wqueue); err != nil {
 				return
-			}
-		}
-
-		if reason, ok := c.reason.(DiscReason); ok && reason != DiscNetworkError {
-			if msg, err := PackMsg(baseProtocolCmdSet, discCmd, 0, reason); err == nil {
-				WriteMsg(c.fd, msg)
 			}
 		}
 	}
