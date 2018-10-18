@@ -20,6 +20,7 @@ import (
 )
 
 var errSvrStarted = errors.New("server has started")
+var errNoNodes = errors.New("no nodes to connect")
 
 type Discovery interface {
 	Start() error
@@ -33,6 +34,7 @@ type Discovery interface {
 }
 
 type Config struct {
+	Discovery       bool
 	Name            string
 	NetID           NetworkID          // which network server runs on
 	MaxPeers        uint               // max peers can be connected
@@ -73,11 +75,6 @@ func New(cfg *Config) (svr *Server, err error) {
 	cfg = EnsureConfig(cfg)
 
 	addr := "0.0.0.0:" + strconv.FormatUint(uint64(cfg.Port), 10)
-	// udp discover
-	udpAddr, err := net.ResolveUDPAddr("udp", addr)
-	if err != nil {
-		return
-	}
 
 	// tcp listener
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
@@ -92,8 +89,8 @@ func New(cfg *Config) (svr *Server, err error) {
 
 	node := &discovery.Node{
 		ID:  ID,
-		IP:  udpAddr.IP,
-		UDP: uint16(udpAddr.Port),
+		IP:  tcpAddr.IP,
+		UDP: uint16(tcpAddr.Port),
 		TCP: uint16(tcpAddr.Port),
 	}
 
@@ -112,13 +109,22 @@ func New(cfg *Config) (svr *Server, err error) {
 		dialer:      &net.Dialer{Timeout: 3 * time.Second},
 	}
 
-	svr.discv = discovery.New(&discovery.Config{
-		Priv:      cfg.PrivateKey,
-		DBPath:    cfg.DataDir,
-		BootNodes: parseNodes(cfg.BootNodes),
-		Addr:      udpAddr,
-		Self:      node,
-	})
+	if cfg.Discovery {
+		// udp discover
+		var udpAddr *net.UDPAddr
+		udpAddr, err = net.ResolveUDPAddr("udp", addr)
+		if err != nil {
+			return
+		}
+
+		svr.discv = discovery.New(&discovery.Config{
+			Priv:      cfg.PrivateKey,
+			DBPath:    cfg.DataDir,
+			BootNodes: parseNodes(cfg.BootNodes),
+			Addr:      udpAddr,
+			Self:      node,
+		})
+	}
 
 	return
 }
@@ -144,13 +150,6 @@ func (svr *Server) Start() error {
 
 	svr.log.Info("p2p server start")
 
-	// mapping udp
-	svr.wg.Add(1)
-	common.Go(func() {
-		nat.Map(svr.term, "udp", int(svr.self.UDP), int(svr.self.UDP), "vite p2p udp", 0, svr.updateNode)
-		svr.wg.Done()
-	})
-
 	// mapping tcp
 	svr.wg.Add(1)
 	common.Go(func() {
@@ -158,13 +157,23 @@ func (svr *Server) Start() error {
 		svr.wg.Done()
 	})
 
-	// subscribe nodes
-	svr.discv.SubNodes(svr.nodeChan)
+	// discovery
+	if svr.Discovery {
+		// mapping udp
+		svr.wg.Add(1)
+		common.Go(func() {
+			nat.Map(svr.term, "udp", int(svr.self.UDP), int(svr.self.UDP), "vite p2p udp", 0, svr.updateNode)
+			svr.wg.Done()
+		})
 
-	err = svr.discv.Start()
-	if err != nil {
-		svr.ln.Close()
-		return err
+		// subscribe nodes
+		svr.discv.SubNodes(svr.nodeChan)
+
+		err = svr.discv.Start()
+		if err != nil {
+			svr.ln.Close()
+			return err
+		}
 	}
 
 	svr.wg.Add(1)
@@ -193,8 +202,12 @@ func (svr *Server) Stop() {
 		svr.log.Warn("p2p server stop")
 
 		close(svr.term)
-		svr.discv.Stop()
-		svr.discv.UnSubNodes(svr.nodeChan)
+
+		if svr.discv != nil {
+			svr.discv.Stop()
+			svr.discv.UnSubNodes(svr.nodeChan)
+		}
+
 		svr.wg.Wait()
 
 		svr.log.Warn("p2p server stopped")
@@ -411,7 +424,7 @@ loop:
 				svr.dial(p.ID(), p.RemoteAddr(), static)
 			}
 
-			if peersCount == 0 {
+			if peersCount == 0 && svr.discv != nil {
 				svr.discv.Need(svr.MaxPeers)
 			}
 		}
