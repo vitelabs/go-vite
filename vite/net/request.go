@@ -44,7 +44,7 @@ type context interface {
 	Add(r Request)
 	Retry(id uint64, err error)
 	FC() *fileClient
-	Get(id uint64) (Request, bool)
+	Get(id uint64) Request
 }
 
 type Request interface {
@@ -437,7 +437,7 @@ func (c *chunkRequest) ID() uint64 {
 
 func (c *chunkRequest) Run(ctx context) {
 	c.state = reqWaiting
-	c.expiration = time.Now().Add(u64ToDuration(c.to - c.from + 1))
+	c.expiration = time.Now().Add(u64ToDuration(1000 * (c.to - c.from + 1)))
 
 	chunk := &message.GetChunk{
 		Start: c.from,
@@ -484,5 +484,5 @@ func (a files) Swap(i, j int) {
 
 // helper
 func u64ToDuration(n uint64) time.Duration {
-	return time.Duration(int64(n/100) * int64(time.Second))
+	return time.Duration(int64(n/1000) * int64(time.Second))
 }

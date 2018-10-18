@@ -209,7 +209,7 @@ wait:
 
 	// check download timeout
 	// check chain grow timeout
-	checkTimer := time.NewTimer(u64ToDuration(s.total))
+	checkTimer := time.NewTimer(u64ToDuration(s.total * 1000))
 	defer checkTimer.Stop()
 
 	// will be reset when downloaded
@@ -329,7 +329,7 @@ func (s *syncer) reqError(id uint64, err error) {
 		return
 	}
 
-	if r, ok := s.pool.Get(id); ok {
+	if r := s.pool.Get(id); r != nil {
 		from, to := r.Band()
 		s.log.Error(fmt.Sprintf("GetSubLedger<%d-%d> error: %v", from, to, err))
 
