@@ -13,6 +13,7 @@ gvite
 *.test
 testdata/trie
 testdata/vm_context
+testdata/ledger
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out

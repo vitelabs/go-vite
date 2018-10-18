@@ -5,16 +5,18 @@ import (
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/config"
+	"os"
 )
 
 var innerChainInstance Chain
 
 func getChainInstance() Chain {
 	if innerChainInstance == nil {
-		home := common.HomeDir()
+		dbFile := filepath.Join(common.GoViteTestDataDir(), "ledger")
+		os.RemoveAll(dbFile)
 
 		innerChainInstance = NewChain(&config.Config{
-			DataDir: filepath.Join(home, "viteisbest"),
+			DataDir: filepath.Join(dbFile),
 			//Chain: &config.Chain{
 			//	KafkaProducers: []*config.KafkaProducer{{
 			//		Topic:      "test",

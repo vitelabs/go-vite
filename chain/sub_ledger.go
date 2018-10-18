@@ -109,6 +109,14 @@ func (c *chain) getChainSet(queryParams map[types.Address][2]*ledger.HashHeight)
 			blockList = append(otherBlockList, blockList...)
 		}
 
+		for _, block := range blockList {
+			block.AccountAddress = account.AccountAddress
+			// Not contract account block
+			if len(block.PublicKey) == 0 {
+				block.PublicKey = account.PublicKey
+			}
+		}
+
 		queryResult[addr] = blockList
 	}
 

@@ -21,6 +21,7 @@ func TestContractsAddr(t *testing.T) {
 
 func TestGetAccountBlocksByHash(t *testing.T) {
 	chainInstance := getChainInstance()
+
 	blocks, err1 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, nil, 10, true)
 	if err1 != nil {
 		t.Error(err1)
@@ -58,7 +59,15 @@ func TestGetAccountBlocksByHash(t *testing.T) {
 
 func TestGetAccountBlocksByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
-	blocks, err1 := chainInstance.GetAccountBlocksByHeight(contracts.AddressMintage, 1, 10, true)
+	addr1, _, _ := types.CreateAddress()
+	addr2, _, _ := types.CreateAddress()
+	for i := 0; i < 100; i++ {
+		blocks, _, _ := randomSendViteBlock(chainInstance.GetGenesisSnapshotBlock().Hash, &addr1, &addr2)
+		chainInstance.InsertAccountBlocks(blocks)
+
+	}
+
+	blocks, err1 := chainInstance.GetAccountBlocksByHeight(addr1, 1, 1000, true)
 	if err1 != nil {
 		t.Error(err1)
 	}
@@ -66,29 +75,29 @@ func TestGetAccountBlocksByHeight(t *testing.T) {
 		fmt.Printf("%d: %+v\n", index, block)
 	}
 
-	blocks2, err2 := chainInstance.GetAccountBlocksByHeight(contracts.AddressMintage, 2, 10, false)
-	if err2 != nil {
-		t.Error(err2)
-	}
-	for index, block := range blocks2 {
-		fmt.Printf("%d: %+v\n", index, block)
-	}
-
-	blocks3, err3 := chainInstance.GetAccountBlocksByHeight(contracts.AddressMintage, 0, 10, true)
-	if err3 != nil {
-		t.Error(err3)
-	}
-	for index, block := range blocks3 {
-		fmt.Printf("%d: %+v\n", index, block)
-	}
-
-	blocks4, err4 := chainInstance.GetAccountBlocksByHeight(contracts.AddressMintage, 1000000, 10, false)
-	if err4 != nil {
-		t.Error(err4)
-	}
-	for index, block := range blocks4 {
-		fmt.Printf("%d: %+v\n", index, block)
-	}
+	//blocks2, err2 := chainInstance.GetAccountBlocksByHeight(contracts.AddressMintage, 2, 10, false)
+	//if err2 != nil {
+	//	t.Error(err2)
+	//}
+	//for index, block := range blocks2 {
+	//	fmt.Printf("%d: %+v\n", index, block)
+	//}
+	//
+	//blocks3, err3 := chainInstance.GetAccountBlocksByHeight(contracts.AddressMintage, 0, 10, true)
+	//if err3 != nil {
+	//	t.Error(err3)
+	//}
+	//for index, block := range blocks3 {
+	//	fmt.Printf("%d: %+v\n", index, block)
+	//}
+	//
+	//blocks4, err4 := chainInstance.GetAccountBlocksByHeight(contracts.AddressMintage, 1000000, 10, false)
+	//if err4 != nil {
+	//	t.Error(err4)
+	//}
+	//for index, block := range blocks4 {
+	//	fmt.Printf("%d: %+v\n", index, block)
+	//}
 }
 
 func TestChain_GetAccountBlockMap(t *testing.T) {

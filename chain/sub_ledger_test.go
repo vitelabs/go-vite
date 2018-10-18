@@ -34,6 +34,7 @@ func TestGetSubLedgerByHash(t *testing.T) {
 
 func TestGetConfirmSubLedger(t *testing.T) {
 	chainInstance := getChainInstance()
+	makeBlocks(chainInstance, 1000)
 	snapshotBlocks, subLedger, err := chainInstance.GetConfirmSubLedger(0, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -51,5 +52,4 @@ func TestGetConfirmSubLedger(t *testing.T) {
 			fmt.Printf("%d: %+v\n", index, block)
 		}
 	}
-
 }
