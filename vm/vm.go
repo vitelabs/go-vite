@@ -112,12 +112,12 @@ func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 
 	contractFee, err := calcContractFee(block.AccountBlock.Data)
 	if err != nil {
-		return nil, ErrInvalidData
+		return nil, err
 	}
 
 	gid := contracts.GetGidFromCreateContractData(block.AccountBlock.Data)
 	if !isExistGid(block.VmContext, gid) {
-		return nil, ErrInvalidData
+		return nil, errors.New("consensus group not exist")
 	}
 
 	if !CanTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
@@ -310,7 +310,7 @@ func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 	}
 	if block.AccountBlock.AccountAddress != contracts.AddressRegister &&
 		block.AccountBlock.AccountAddress != contracts.AddressMintage {
-		return nil, ErrInvalidData
+		return nil, errors.New("invalid account address")
 	}
 	vm.updateBlock(block, nil, 0)
 	return block, nil
