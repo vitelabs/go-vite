@@ -268,7 +268,8 @@ func (c *AsyncMsgConn) Handshake(data []byte) (their *Handshake, err error) {
 	return
 }
 
-var errorHandshakeVerify = errors.New("signature of handshake Msg verify failed")
+var errHandshakeVerify = errors.New("signature of handshake Msg verify failed")
+var errHandshakeNotComp = errors.New("handshake payload is too small, maybe old version")
 
 func readHandshake(r io.Reader) (h *Handshake, err error) {
 	msg, err := ReadMsg(r)
@@ -292,6 +293,10 @@ func readHandshake(r io.Reader) (h *Handshake, err error) {
 		return nil, fmt.Errorf("should be handshake message, but got %x", err)
 	}
 
+	if len(msg.Payload) < 64 {
+		return nil, errHandshakeNotComp
+	}
+
 	h = new(Handshake)
 	err = h.Deserialize(msg.Payload[64:])
 	if err != nil {
@@ -299,7 +304,7 @@ func readHandshake(r io.Reader) (h *Handshake, err error) {
 	}
 
 	if !ed25519.Verify(h.ID[:], msg.Payload[64:], msg.Payload[:64]) {
-		return nil, errorHandshakeVerify
+		return nil, errHandshakeVerify
 	}
 
 	return

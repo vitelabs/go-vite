@@ -298,6 +298,7 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 	}
 
 	// handshake data, add remoteIP and remotePort
+	// handshake is not same for every peer
 	handshake := *svr.handshake
 	tcpAddr := c.RemoteAddr().(*net.TCPAddr)
 	handshake.RemoteIP = tcpAddr.IP
@@ -308,6 +309,7 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 		return
 	}
 	sig := ed25519.Sign(svr.PrivateKey, data)
+	// unshift signature before data
 	data = append(sig, data...)
 
 	their, err := ts.Handshake(data)

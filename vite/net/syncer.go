@@ -32,6 +32,9 @@ var syncStatus = [...]string{
 }
 
 func (s SyncState) String() string {
+	if s > SyncDownloaded {
+		return "unknown sync state"
+	}
 	return syncStatus[s]
 }
 

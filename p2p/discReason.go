@@ -50,6 +50,9 @@ var discReasonStr = [...]string{
 }
 
 func (d DiscReason) String() string {
+	if d > DiscHandshakeFail {
+		return "unknown disc reason"
+	}
 	return discReasonStr[d]
 }
 
