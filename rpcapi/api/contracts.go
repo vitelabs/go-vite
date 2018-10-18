@@ -56,17 +56,17 @@ func (c *ContractsApi) GetCreateContractToAddress(selfAddr types.Address, height
 	return contracts.NewContractAddress(selfAddr, height, prevHash, snapshotHash)
 }
 
-func (c *ContractsApi) GetRegisterData(gid types.Gid, name string, nodeAddr types.Address, beneficialAddr types.Address, publicKey []byte, signature []byte) ([]byte, error) {
-	return contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, gid, name, nodeAddr, beneficialAddr, publicKey, signature)
+func (c *ContractsApi) GetRegisterData(gid types.Gid, name string, nodeAddr types.Address, publicKey []byte, signature []byte) ([]byte, error) {
+	return contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, gid, name, nodeAddr, publicKey, signature)
 }
 func (c *ContractsApi) GetCancelRegisterData(gid types.Gid, name string) ([]byte, error) {
 	return contracts.ABIRegister.PackMethod(contracts.MethodNameCancelRegister, gid, name)
 }
-func (c *ContractsApi) GetRewardData(gid types.Gid, name string, endHeight uint64, startHeight uint64, rewardAmount *big.Int) ([]byte, error) {
-	return contracts.ABIRegister.PackMethod(contracts.MethodNameReward, gid, name, endHeight, startHeight, rewardAmount)
+func (c *ContractsApi) GetRewardData(gid types.Gid, name string, beneficialAddr types.Address, endHeight uint64, startHeight uint64, rewardAmount *big.Int) ([]byte, error) {
+	return contracts.ABIRegister.PackMethod(contracts.MethodNameReward, gid, name, beneficialAddr, endHeight, startHeight, rewardAmount)
 }
-func (c *ContractsApi) GetUpdateRegistrationData(gid types.Gid, name string, nodeAddr types.Address, beneficialAddr types.Address, publicKey []byte, signature []byte) ([]byte, error) {
-	return contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration, gid, name, nodeAddr, beneficialAddr, publicKey, signature)
+func (c *ContractsApi) GetUpdateRegistrationData(gid types.Gid, name string, nodeAddr types.Address, publicKey []byte, signature []byte) ([]byte, error) {
+	return contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration, gid, name, nodeAddr, publicKey, signature)
 }
 
 func (c *ContractsApi) GetVoteData(gid types.Gid, name string) ([]byte, error) {
