@@ -271,32 +271,10 @@ func (s *syncer) setTarget(to uint64) {
 		return
 	}
 
-	//s.sLock.Lock()
-	//defer s.sLock.Unlock()
-
-	total2 := to - s.from + 1
-	atomic.StoreUint64(&s.total, total2)
+	atomic.StoreUint64(&s.total, to-s.from+1)
 
 	if to > s.to {
-		//record := make([]uint64, total2)
-		//copy(record, s.blocks)
-		//s.blocks = record
-
-		// send taller task
 		s.sync(s.to+1, to)
-	} else {
-		// update valid count
-		//var useless uint64
-		//for _, r := range s.blocks[total2:] {
-		//	if r > 0 {
-		//		useless++
-		//	}
-		//}
-		//
-		//s.blocks = s.blocks[:total2]
-
-		// remove taller record, reduce s.count
-		//s.counter(false, useless)
 	}
 
 	s.to = to

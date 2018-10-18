@@ -12,6 +12,7 @@ type mockNet struct {
 	*fetcher
 	*broadcaster
 	*receiver
+	*requestPool
 }
 
 func (n *mockNet) Info() *NodeInfo {
@@ -63,5 +64,6 @@ func mock() Net {
 		},
 		broadcaster: broadcaster,
 		receiver:    receiver,
+		requestPool: pool,
 	}
 }
