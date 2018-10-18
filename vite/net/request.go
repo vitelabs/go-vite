@@ -44,7 +44,7 @@ type context interface {
 	Add(r Request)
 	Retry(id uint64, err error)
 	FC() *fileClient
-	Get(id uint64) (Request, bool)
+	Get(id uint64) Request
 }
 
 type Request interface {
@@ -74,7 +74,7 @@ var errUnExpectedRes = errors.New("unexpected response")
 
 const minSubLedger = 3600 // minimal snapshot blocks per subLedger request
 const maxSubLedger = 7200 // maximal snapshot blocks per subLedger request
-const chunk = 300         // chunk blocks count
+const chunk = 10          // chunk blocks count
 const maxBlocks = 300     // max blocks in one message(snapshotblocks + accountblocks)
 
 type subLedgerPiece struct {
@@ -437,7 +437,7 @@ func (c *chunkRequest) ID() uint64 {
 
 func (c *chunkRequest) Run(ctx context) {
 	c.state = reqWaiting
-	c.expiration = time.Now().Add(u64ToDuration(c.to - c.from + 1))
+	c.expiration = time.Now().Add(u64ToDuration(1000 * (c.to - c.from + 1)))
 
 	chunk := &message.GetChunk{
 		Start: c.from,
@@ -484,5 +484,5 @@ func (a files) Swap(i, j int) {
 
 // helper
 func u64ToDuration(n uint64) time.Duration {
-	return time.Duration(int64(n/100) * int64(time.Second))
+	return time.Duration(int64(n/1000) * int64(time.Second))
 }

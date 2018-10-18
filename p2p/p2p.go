@@ -29,6 +29,7 @@ type Discovery interface {
 	Mark(id discovery.NodeID, lifetime int64)
 	Block(id discovery.NodeID, ip net.IP)
 	Need(n uint)
+	Nodes() []*discovery.Node
 }
 
 type Config struct {
@@ -473,6 +474,15 @@ func (svr *Server) maxOutboundPeers() uint {
 
 func (svr *Server) maxInboundPeers() uint {
 	return svr.MaxPeers / svr.MaxInboundRatio
+}
+
+func (svr *Server) Nodes() (urls []string) {
+	nodes := svr.discv.Nodes()
+	for _, node := range nodes {
+		urls = append(urls, node.String())
+	}
+
+	return
 }
 
 // @section NodeInfo

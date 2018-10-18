@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/http"
 	"testing"
 
 	"math/big"
@@ -31,6 +32,8 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 )
 
+import _ "net/http/pprof"
+
 type benchmark struct {
 	passwd        string
 	genesisAddr   types.Address
@@ -46,8 +49,11 @@ type benchmark struct {
 }
 
 func TestBenchmark(t *testing.T) {
+	go func() {
+		http.ListenAndServe("0.0.0.0:8080", nil)
+	}()
 	log15.Root().SetHandler(
-		log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),
+		log15.LvlFilterHandler(log15.LvlError, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),
 	)
 
 	genesisAddr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
@@ -148,16 +154,27 @@ func (b *benchmark) init() {
 	if err != nil {
 		panic(err)
 	}
-	prikeys := []string{"a2bf4b491654e0482cbc42d580fea5398ccb12b30b33c2caee39a4fbe2a4c1d8b193a8a33d61ecc4bfcc9a7ee6001227808408a3ee7f9543f693f6cb0cbe4d6f",
-		"3b464703211b88cdc59e099e2c7fe23099a443b832eeb11c3c1c946fffa9ca85e3e9b3e0c1e49cf0f9554820a62b0fde286f43260c15fc286fd035398f7633e3",
-		"58ca699195a2f6dbbc239d8d3d796d1b2d1df6a00a4809c3522dce14e59b649aea116fae16e8d7b7846082271c8dcbaf392b17784fc0ec30f5a3762cbb46abce",
-		"8754650891209ff942de512d1ce5435672896976b94abd3e4fcfbe767d071b94321323e54c76640d49c021a133b58d36d31a9e909516768e7e3595489fe4edab",
-		"3685004265218f9417761dd1e722b02fd606a2730124c5e2b5bfd9cd8ca365b02b68a7bb739b8899569bd9922d49a606b5f88f805ee8923b8eca046fe2993a4a",
-		"51ed7aae63713f499c229fc0dfbd33c398befd66c99d2b8e12c2efc2aae9c66388bc27cc8c9bfe4a9c0b0934264814694fe3769580d1e0ae3a74f8ad85a78840",
-		"415883413b0b3062d54de6302169b6725e7917c5f580a28af7b6a08d49b92cfcd4150cf94cf256093ceb7f653a9f3fac4f8b39a988ea5e09c27a4da496b65e36",
-		"6ff8b6ab56d4b98b3217dc86995f98b6ced29a603bf6a5991eeda0b13876120c96f51b4edc1173f54f2bf7de3600858648773ed528346b8cb42303b2bb683e9f",
-		"cdb4f58aa12f4aa5a76cc97536af0f898fd4770f68f2176270e7440deaa1e2c3b1b86393c952a3b93ce5d1ad7b7acbbe12f8d1522c5e5fa0d72d58626ec86869",
-		"af88714174391e4e11277a06031a9b7a01e340c0c0835a46f8b2893b75b8b664a9d59b0d7492b3fd2a5e82abc1e5dd65cce0ba918ad4ba98fcf819a0f75a87c6",
+	prikeys := []string{
+		"3117f293b1f1aeea9ae65cc1bebe8512b98cce300356ac0489876feac0981120633a5dbed75e1727cc437cfdfb8d92bb5de217a6642d5e9f1ff5702cd1f8a479",
+		//"cdd493eac75fc34eb534ac68bb84d59e4a345ef6b8e2ab04a2e0db7230d2b2aff4200175f484e11e5bf956dea15afa73fd96e469fe95fa87671472266cb0405f",
+		//"f50f51b45eb344872208b4e6a0388d9248ff89cf167489e43c6db01a23f8f7297a202e6fc7ed56191b1c26853313be9e1d3f301172f062af66084a8547ae4fd5",
+		//"be500095018c15390784aca3ba520315590d908fa3765ac1075af039b9a91781e32883810aa64d340306c737acd24e36a5086f46d03b339a3951e6a134365bae",
+		//"7eaa722695c8a4c77aecd90d8b8ce583d5a5c20cef36bd168e40e3a494c6e942cf750e209a411a23810709453f5958383599da5b5f3bc72d8aa780ebd3ee252f",
+		//"9f675261cc2da29e00a82bacb4d42ee42d15f6c4185fafa9dc032a22067570cf0f5071b58979d20d29d7de19d26e7fedefee2ff90ae54e4de3b2deaf36b0dc08",
+		//"3b82d1ebf96560e43ea7bb631f8bbe39d21472c47e261a31fe7e5cfdcf8df7751d4ffc3587b527a4f0374cff7504ebff23231b3468c030ba54e7975f16255ed9",
+		//"8cc0c24d239afc3eda93fe3f5592e6bac78998b1d6f95fe237465c4e30950d882165b1da324018ecc689a5af108148ce334ee5103ac89fd5ff739f8ff6439633",
+		//"9166cfbdf68f5dce3b9f903953549436f34cc88e6f7a425be73625d452d3c21dde5084fd60d181ad3edb6359a8224fb5ffd321494890210c13ff43ccacfde0e6",
+		//"119511ca34dc8ff4e41e86ac7ccc0c000dd54612d12b8b12255923d4ea5eb2f53c6f346fb8fe541c544232c96c940ca0cefe8378572a78b2405fac81a8e2ce03",
+		//"2614996b86af7fee8a749b52e72d4f68e46a4d899234f19291afb33f0e49cd8f548a2f9f145487880e11255154f67c9caccd670558e58f7b5086d843a2bef65b",
+		//"5293930e7175315f58571636968df715e9e047878d0a29dbbff2c52d43144cf346897cf598021174b23d8b0da31c64eca5e7b0a963c8bbcf27bd9eed7d2fe340",
+		//"bd6b8559af2e12ee9e64694a0d8a0c4a9d3cce01d0af92abe7fdb747bda36943caeab9487a2c6041fbc79ee4fdc2ecdca8f3b76478dcdc8671adca72adee23d2",
+		//"a519e52896cbb213c29f10bb098cbdc17fd7a6b9846f022457d28c47daca15ab54b1ccba28447ec1d481652222fb4d6a18a8667f88e305fbd289a74932a722ad",
+		//"acd70f768e8df22d40f4de0a5a9a4eea8f07ee77b5796e82ba85fb528acdb1ded1bc874bfb8ab8a44c0b29d6eba39e018cb4bb2deded13f36ad244aadd42f2d0",
+		//"ae474e560aabf7db18e33d87b9725ba9e9a9e22015b28c51dea27615973860001340dc484a18e1af9b06fe42e9f63a827318e9bc3dd479ee7e7b1202ae206550",
+		//"5ada7978dca836774be972dc9531c03c440907b8d3e439748fb421b8440050b24b97405ccacffb26884bb16ca9b24f20bb1e58ca4fa8a68e34b8d0f8ccdd6af4",
+		//"064d85cf46e3879e371dd49eecff6b7e78ea698b7a4739fe65ee645a231c183d7eb0dee4811b50ac3ed942d928738b438f29c8301b3cefbef238fe0a7c8afca9",
+		//"0dcf90efdcdc6cb8439edfec774a4742ec2b19f1ec3c7060526957dcb8642b3430f462d21f1ba3a4a8249dea4ab58285f97913a840299d8a71a58d010beab659",
+		//"250b7a817887f11f18b9c93fbc7bd8f175fa3e074581f3a92c74db3fbffdb16a8f46d6fa7db0d0e32b35335d669b615f25e9ceb094213b12c71e9baec5cd63d5",
 	}
 	b.testAddrList = make(map[types.Address]string)
 	for _, v := range prikeys {
@@ -218,7 +235,7 @@ func (b *benchmark) benchmark() {
 				addrKey := tmpKey
 				l := b.mlog.New("address", addr.String())
 				for {
-					err := b.transferTo(addr, addrKey, b.testAddrList, 80)
+					err := b.transferTo(addr, addrKey, b.testAddrList, 0)
 					if err == b.normalErr {
 						break
 					}
@@ -227,18 +244,18 @@ func (b *benchmark) benchmark() {
 						break
 					}
 				}
-				time.Sleep(time.Millisecond * 50)
-				for {
-					err := b.receive(addr, addrKey)
-					if err == b.normalErr {
-						break
-					}
-					if err != nil {
-						l.Error("receiveErr", "err", err)
-						break
-					}
-				}
-				time.Sleep(time.Millisecond * 50)
+				//time.Sleep(time.Millisecond * 50)
+				//for {
+				//	err := b.receive(addr, addrKey)
+				//	if err == b.normalErr {
+				//		break
+				//	}
+				//	if err != nil {
+				//		l.Error("receiveErr", "err", err)
+				//		break
+				//	}
+				//}
+				//time.Sleep(time.Millisecond * 50)
 			}
 		})
 	}

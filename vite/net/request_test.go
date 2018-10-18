@@ -93,7 +93,7 @@ func TestSplitSubLedger(t *testing.T) {
 func TestSplitChunk(t *testing.T) {
 	from, to := mockFromTo()
 
-	count := (to-from)/minSubLedger + 1
+	count := (to-from)/chunk + 1
 
 	fmt.Printf("from %d to %d, %d blocks, need %d chunks\n", from, to, to-from+1, count)
 
@@ -113,7 +113,7 @@ func TestSplitChunk(t *testing.T) {
 			t.Fatalf("chunk from is larger than to: %d - %d", c[0], c[1])
 		}
 
-		if c[1] >= c[0]+minSubLedger {
+		if c[1] >= c[0]+chunk {
 			t.Fatalf("chunk is too large: %d - %d", c[0], c[1])
 		}
 

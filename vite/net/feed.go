@@ -1,14 +1,12 @@
 package net
 
 import (
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
-	"sync"
 )
 
 // @section snapshotblockfeed
 type snapshotBlockFeed struct {
-	lock      sync.RWMutex
+	//lock      sync.RWMutex
 	subs      map[int]SnapshotBlockCallback
 	currentId int
 }
@@ -20,8 +18,8 @@ func newSnapshotBlockFeed() *snapshotBlockFeed {
 }
 
 func (s *snapshotBlockFeed) Sub(fn SnapshotBlockCallback) int {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	//s.lock.Lock()
+	//defer s.lock.Unlock()
 
 	s.currentId++
 	s.subs[s.currentId] = fn
@@ -33,29 +31,25 @@ func (s *snapshotBlockFeed) Unsub(subId int) {
 		return
 	}
 
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	//s.lock.Lock()
+	//defer s.lock.Unlock()
 
 	delete(s.subs, subId)
 }
 
 func (s *snapshotBlockFeed) Notify(block *ledger.SnapshotBlock) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	//s.lock.RLock()
+	//defer s.lock.RUnlock()
 	for _, fn := range s.subs {
 		if fn != nil {
-			// closure
-			fn := fn
-			common.Go(func() {
-				fn(block)
-			})
+			fn(block)
 		}
 	}
 }
 
 // @section accountBlockFeed
 type accountBlockFeed struct {
-	lock      sync.RWMutex
+	//lock      sync.RWMutex
 	subs      map[int]AccountblockCallback
 	currentId int
 }
@@ -67,8 +61,8 @@ func newAccountBlockFeed() *accountBlockFeed {
 }
 
 func (s *accountBlockFeed) Sub(fn AccountblockCallback) int {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	//s.lock.Lock()
+	//defer s.lock.Unlock()
 
 	s.currentId++
 	s.subs[s.currentId] = fn
@@ -80,21 +74,18 @@ func (s *accountBlockFeed) Unsub(subId int) {
 		return
 	}
 
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	//s.lock.Lock()
+	//defer s.lock.Unlock()
 
 	delete(s.subs, subId)
 }
 
 func (s *accountBlockFeed) Notify(block *ledger.AccountBlock) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	//s.lock.RLock()
+	//defer s.lock.RUnlock()
 	for _, fn := range s.subs {
 		if fn != nil {
-			fn := fn // closure
-			common.Go(func() {
-				fn(block.AccountAddress, block)
-			})
+			fn(block.AccountAddress, block)
 		}
 	}
 }
