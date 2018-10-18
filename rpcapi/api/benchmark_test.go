@@ -66,6 +66,7 @@ func (self *benchmark) startVite() (*vite.Vite, error) {
 	p2pServer, err := p2p.New(&p2p.Config{
 		BootNodes: []string{
 			"vnode://6d72c01e467e5280acf1b63f87afd5b6dcf8a596d849ddfc9ca70aab08f10191@192.168.31.146:8483",
+			"vnode://a0cab03dfb22ae4294efe30e7408b752fb659676751a8d36c943594a25dc23b4@192.168.31.46:8483",
 			//"vnode://1ceabc6c2b751b352a6d719b4987f828bb1cf51baafa4efac38bc525ed61059d@192.168.31.190:8483",
 			//"vnode://8343b3f2bc4e8e521d460cadab3e9f1e61ba57529b3fb48c5c076845c92e75d2@192.168.31.193:8483",
 		},
@@ -226,7 +227,7 @@ func (b *benchmark) benchmark() {
 						break
 					}
 				}
-				time.Sleep(time.Millisecond * 500)
+				time.Sleep(time.Millisecond * 50)
 				for {
 					err := b.receive(addr, addrKey)
 					if err == b.normalErr {
@@ -237,7 +238,7 @@ func (b *benchmark) benchmark() {
 						break
 					}
 				}
-				time.Sleep(time.Millisecond * 500)
+				time.Sleep(time.Millisecond * 50)
 			}
 		})
 	}
