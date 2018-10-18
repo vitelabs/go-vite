@@ -71,15 +71,15 @@ func TestWallet(t *testing.T) {
 	}
 
 	// if has no quota
-	if printQuota(vite, addr).Sign() == 0 {
-		if printPledge(vite, addr, t).Sign() == 0 {
+	if printQuota(vite, genesisAddr).Sign() == 0 {
+		if printPledge(vite, genesisAddr, t).Sign() == 0 {
 			waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
 
-			if printPledge(vite, addr, t).Sign() == 0 {
+			if printPledge(vite, genesisAddr, t).Sign() == 0 {
 				// wait snapshot ++
 				waitSnapshotInc(vite, t)
 
-				byt, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr)
+				byt, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, genesisAddr)
 				parms := CreateTransferTxParms{
 					SelfAddr:    genesisAddr,
 					ToAddr:      contracts.AddressPledge,
@@ -97,7 +97,7 @@ func TestWallet(t *testing.T) {
 			}
 			waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
 		}
-		waitQuota(vite, addr)
+		waitQuota(vite, genesisAddr)
 	}
 }
 
@@ -368,8 +368,30 @@ func TestQuota(t *testing.T) {
 	wLog.Debug("print pledge amount", "chain", amount, "vm", pledgeAmount)
 }
 
-func TestContractsMintage(t *testing.T) {
-	// modify vm.mintagePledgeHeight  uint64 = 1
+func TestContracts(t *testing.T) {
+	// modify vm.param.minPledgeHeight to 1
+	// modify vm.param.createConsensusGroupPledgeHeight to 1
+	// modify vm.param.rewardHeightLimit to 1
+	// modify vm.param.mintagePledgeHeight to 1
+	vite, _, waApi, onRoadApi, addr := contractsInit(t)
+	contractsPledge(vite, waApi, onRoadApi, addr, t)
+	tokenId := contractsMintage(vite, waApi, onRoadApi, addr, t)
+	contractsCancelMintage(vite, waApi, onRoadApi, addr, t, tokenId)
+	gid := contractsCreateConsensusGroup(vite, waApi, onRoadApi, addr, t)
+	contractsCancelConsensusGroup(vite, waApi, onRoadApi, addr, t, gid)
+	contractsRecreateConsensusGroup(vite, waApi, onRoadApi, addr, t, gid)
+	nodeName := "MySuperNode1"
+	contractsRegister(vite, waApi, onRoadApi, addr, t, gid, nodeName)
+	contractsUpdateRegister(vite, waApi, onRoadApi, addr, t, gid, nodeName)
+	contractsVote(vite, waApi, onRoadApi, addr, t, gid, nodeName)
+	contractsCancelVote(vite, waApi, onRoadApi, addr, t, gid)
+	contractsCancelRegister(vite, waApi, onRoadApi, addr, t, gid, nodeName)
+	contractsCancelPledge(vite, waApi, onRoadApi, addr, t)
+	contractsReward(vite, waApi, onRoadApi, addr, t)
+}
+
+func contractsInit(t *testing.T) (*vite.Vite, *wallet.Manager, *WalletApi, *PrivateOnroadApi, types.Address) {
+	wLog.Debug("contracts init")
 	w := wallet.New(nil)
 	unlockAll(w)
 	addr, _ := types.HexToAddress("vite_e9b7307aaf51818993bb2675fd26a600bc7ab6d0f52bc5c2c1")
@@ -378,18 +400,107 @@ func TestContractsMintage(t *testing.T) {
 		panic(err)
 	}
 
-	balance := printBalance(vite, addr)
-	if printQuota(vite, addr).Sign() == 0 {
-		t.Fatalf("no pledge")
-	}
-
 	waApi := NewWalletApi(vite)
 	onRoadApi := NewPrivateOnroadApi(vite)
 
 	vite.OnRoad().StartAutoReceiveWorker(addr, nil)
+	waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
 	waitOnroad(onRoadApi, addr, t)
 
 	waitSnapshotInc(vite, t)
+	return vite, w, waApi, onRoadApi, addr
+}
+func contractsPledge(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T) {
+	wLog.Debug("contracts pledge")
+	pledgeAmount := printPledge(vite, addr, t)
+	balance := printBalance(vite, addr)
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	if prevBlock == nil {
+		t.Fatalf("prev block not exist")
+	}
+	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr)
+	amount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
+	parms := CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressPledge,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      amount.String(),
+		Data:        pledgeData,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	}
+	err := waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
+	waitSnapshotInc(vite, t)
+
+	newBalance := printBalance(vite, addr)
+	balance.Sub(balance, amount)
+	if balance.Cmp(newBalance) != 0 {
+		t.Fatalf("pledge balance error, expected %v, got %v", balance, newBalance)
+	}
+
+	newPledgeAmount := printPledge(vite, addr, t)
+	pledgeAmount.Add(pledgeAmount, amount)
+	if pledgeAmount.Cmp(newPledgeAmount) != 0 {
+		t.Fatal("pledge amount error, expected: %v, got %v", pledgeAmount, newPledgeAmount)
+	}
+}
+func contractsCancelPledge(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T) {
+	wLog.Debug("contracts cancel pledge")
+	pledgeAmount := printPledge(vite, addr, t)
+	balance := printBalance(vite, addr)
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	if prevBlock == nil {
+		t.Fatalf("prev block not exist")
+	}
+	amount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
+	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNameCancelPledge,
+		addr, amount)
+	parms := CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressPledge,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      big.NewInt(0).String(),
+		Data:        pledgeData,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	}
+	err := waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+
+	newBalance := printBalance(vite, addr)
+	balance.Add(balance, amount)
+	if balance.Cmp(newBalance) != 0 {
+		t.Fatalf("pledge balance error, expected %v, got %v", balance, newBalance)
+	}
+
+	newPledgeAmount := printPledge(vite, addr, t)
+	pledgeAmount.Sub(pledgeAmount, amount)
+	if pledgeAmount.Cmp(newPledgeAmount) != 0 {
+		t.Fatal("pledge amount error, expected: %v, got %v", pledgeAmount, newPledgeAmount)
+	}
+}
+func contractsMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T) types.TokenTypeId {
+	wLog.Debug("contracts mintage")
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+
+	balance := printBalance(vite, addr)
+	printQuota(vite, addr)
 
 	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
 	if prevBlock == nil {
@@ -412,10 +523,9 @@ func TestContractsMintage(t *testing.T) {
 		Data:        mintageData,
 		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
 	}
-	err = waApi.CreateTxWithPassphrase(parms)
+	err := waApi.CreateTxWithPassphrase(parms)
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 
 	waitContractOnroad(onRoadApi, contracts.AddressMintage, t)
@@ -436,11 +546,18 @@ func TestContractsMintage(t *testing.T) {
 		t.Fatal("token info not exist")
 	}
 	wLog.Debug("token info", tokenId.String(), tokenInfo)
-
+	return tokenId
+}
+func contractsCancelMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T, tokenId types.TokenTypeId) {
+	wLog.Debug("contracts cancel mintage")
+	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 
+	balance := printBalance(vite, addr)
+	printQuota(vite, addr)
+
 	cancelMintageData, _ := contracts.ABIMintage.PackMethod(contracts.MethodNameMintageCancelPledge, tokenId)
-	parms = CreateTransferTxParms{
+	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
 		ToAddr:      contracts.AddressMintage,
 		TokenTypeId: ledger.ViteTokenId,
@@ -449,20 +566,483 @@ func TestContractsMintage(t *testing.T) {
 		Data:        cancelMintageData,
 		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
 	}
-	err = waApi.CreateTxWithPassphrase(parms)
+	err := waApi.CreateTxWithPassphrase(parms)
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 
 	waitContractOnroad(onRoadApi, contracts.AddressMintage, t)
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
+	mintagePledgeAmount := new(big.Int).Mul(big.NewInt(1e5), big.NewInt(1e18))
 	balance.Add(balance, mintagePledgeAmount)
 	if balance.Cmp(printBalance(vite, addr)) != 0 {
 		t.Fatal("mintage cancel pledge error")
 	}
 	printQuota(vite, addr)
-	tokenInfo = vite.Chain().GetTokenInfoById(&tokenId)
+	tokenInfo := vite.Chain().GetTokenInfoById(&tokenId)
 	wLog.Debug("token info", tokenId.String(), tokenInfo)
+}
+func contractsCreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T) types.Gid {
+	wLog.Debug("contracts create consensus group")
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+
+	balance := printBalance(vite, addr)
+	list := vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
+	length := len(list)
+	wLog.Debug("init consensus group list", "length", length)
+	for _, g := range list {
+		wLog.Debug("init consensus group list", g.Gid.String(), g)
+	}
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	if prevBlock == nil {
+		t.Fatalf("prev block not exist")
+	}
+	gid := contracts.NewGid(addr, prevBlock.Height+1, prevBlock.Hash, vite.Chain().GetLatestSnapshotBlock().Hash)
+	registerConditionData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, big.NewInt(1), ledger.ViteTokenId, uint64(1))
+	createConsensusGroupData, _ := contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameCreateConsensusGroup,
+		gid,
+		uint8(3),
+		int64(1),
+		int64(1),
+		uint8(0),
+		uint8(0),
+		ledger.ViteTokenId,
+		uint8(1),
+		registerConditionData,
+		uint8(1),
+		[]byte{})
+	pledgeAmount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
+	parms := CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressConsensusGroup,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      pledgeAmount.String(),
+		Data:        createConsensusGroupData,
+	}
+	err := waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressConsensusGroup, t)
+	waitSnapshotInc(vite, t)
+
+	list = vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
+	wLog.Debug("create consensus group list", "length", len(list))
+	for _, g := range list {
+		wLog.Debug("create consensus group list", g.Gid.String(), g)
+	}
+	if len(list) != length+1 {
+		t.Fatalf("create consensus group failed")
+	}
+
+	balance.Sub(balance, pledgeAmount)
+	if balance.Cmp(printBalance(vite, addr)) != 0 {
+		t.Fatal("create consensus group fee error")
+	}
+	printQuota(vite, addr)
+	return gid
+}
+func contractsCancelConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T, gid types.Gid) {
+	wLog.Debug("contracts cancel consensus group")
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+	balance := printBalance(vite, addr)
+	length := len(vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash))
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	if prevBlock == nil {
+		t.Fatalf("prev block not exist")
+	}
+	cancelConsensusGroupData, _ := contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameCancelConsensusGroup, gid)
+	pledgeAmount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
+	parms := CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressConsensusGroup,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      big.NewInt(0).String(),
+		Data:        cancelConsensusGroupData,
+	}
+	err := waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressConsensusGroup, t)
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+
+	list := vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
+	wLog.Debug("cancel consensus group list", "length", len(list))
+	for _, g := range list {
+		wLog.Debug("cancel consensus group list", g.Gid.String(), g)
+	}
+	if len(list) != length-1 {
+		t.Fatalf("cancel consensus group failed")
+	}
+
+	balance.Add(balance, pledgeAmount)
+	if balance.Cmp(printBalance(vite, addr)) != 0 {
+		t.Fatal("cancel consensus group get fee error")
+	}
+	printQuota(vite, addr)
+}
+func contractsRecreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T, gid types.Gid) {
+	wLog.Debug("contracts recreate consensus group")
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+	balance := printBalance(vite, addr)
+	length := len(vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash))
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	if prevBlock == nil {
+		t.Fatalf("prev block not exist")
+	}
+	recreateConsensusGroupData, _ := contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameReCreateConsensusGroup, gid)
+	pledgeAmount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
+	parms := CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressConsensusGroup,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      pledgeAmount.String(),
+		Data:        recreateConsensusGroupData,
+	}
+	err := waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressConsensusGroup, t)
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+
+	list := vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
+	wLog.Debug("recreate consensus group list", "length", len(list))
+	for _, g := range list {
+		wLog.Debug("recreate consensus group list", g.Gid.String(), g)
+	}
+	if len(list) != length+1 {
+		t.Fatalf("recreate consensus group failed")
+	}
+
+	balance.Sub(balance, pledgeAmount)
+	if balance.Cmp(printBalance(vite, addr)) != 0 {
+		t.Fatal("recreate consensus group get fee error")
+	}
+	printQuota(vite, addr)
+}
+func contractsRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T, gid types.Gid, name string) {
+	wLog.Debug("contracts register")
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+	balance := printBalance(vite, addr)
+	if printQuota(vite, addr).Sign() == 0 {
+		t.Fatalf("no pledge")
+	}
+	registerPledgeAmount := big.NewInt(1)
+	registerList := vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	length := len(registerList)
+	wLog.Debug("init register list", "length", len(registerList))
+	for _, registration := range registerList {
+		wLog.Debug("init register list", registration.NodeAddr.String(), registration)
+	}
+
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	if prevBlock == nil {
+		t.Fatalf("prev block not exist")
+	}
+	nodeAddr, privateKey, _ := types.CreateAddress()
+	publicKey := privateKey.PubByte()
+	signature := ed25519.Sign(privateKey, contracts.GetRegisterMessageForSignature(addr, gid))
+	registerData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameRegister,
+		gid,
+		name,
+		nodeAddr,
+		publicKey,
+		signature)
+	parms := CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressRegister,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      registerPledgeAmount.String(),
+		Data:        registerData,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	}
+	err := waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressRegister, t)
+	waitSnapshotInc(vite, t)
+
+	balance.Sub(balance, registerPledgeAmount)
+	newBalance := printBalance(vite, addr)
+	if balance.Cmp(newBalance) != 0 {
+		t.Fatalf("register pledge amount error: expected %v , got %v", balance, newBalance)
+	}
+
+	printQuota(vite, addr)
+	registerList = vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	wLog.Debug("register list", "length", len(registerList))
+	for _, registration := range registerList {
+		wLog.Debug("register list", registration.NodeAddr.String(), registration)
+	}
+	if len(registerList) != length+1 {
+		t.Fatal("register error")
+	}
+}
+func contractsUpdateRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T, gid types.Gid, name string) {
+	wLog.Debug("contracts update register")
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+	balance := printBalance(vite, addr)
+	length := len(vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid))
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	if prevBlock == nil {
+		t.Fatalf("prev block not exist")
+	}
+	nodeAddr, privateKey, _ := types.CreateAddress()
+	publicKey := privateKey.PubByte()
+	signature := ed25519.Sign(privateKey, contracts.GetRegisterMessageForSignature(addr, gid))
+	registerData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration,
+		gid,
+		name,
+		nodeAddr,
+		publicKey,
+		signature)
+	parms := CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressRegister,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      big.NewInt(0).String(),
+		Data:        registerData,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	}
+	err := waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressRegister, t)
+	waitSnapshotInc(vite, t)
+
+	newBalance := printBalance(vite, addr)
+	if balance.Cmp(newBalance) != 0 {
+		t.Fatalf("update register cost 0: expected %v , got %v", balance, newBalance)
+	}
+
+	printQuota(vite, addr)
+	registerList := vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	wLog.Debug("update register list", "length", len(registerList))
+	for _, registration := range registerList {
+		wLog.Debug("update register list", registration.NodeAddr.String(), registration)
+	}
+	if len(registerList) != length {
+		t.Fatal("update register error")
+	}
+}
+func contractsCancelRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T, gid types.Gid, name string) {
+	wLog.Debug("contracts cancel register")
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+	balance := printBalance(vite, addr)
+	length := len(vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid))
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	if prevBlock == nil {
+		t.Fatalf("prev block not exist")
+	}
+	registerData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameCancelRegister,
+		gid,
+		name)
+	parms := CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressRegister,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      big.NewInt(0).String(),
+		Data:        registerData,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	}
+	err := waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressRegister, t)
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+
+	newBalance := printBalance(vite, addr)
+	registerPledgeAmount := big.NewInt(1)
+	balance.Add(balance, registerPledgeAmount)
+	if balance.Cmp(newBalance) != 0 {
+		t.Fatalf("cancel register gets pledge error: expected %v , got %v", balance, newBalance)
+	}
+
+	printQuota(vite, addr)
+	registerList := vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	wLog.Debug("update register list", "length", len(registerList))
+	for _, registration := range registerList {
+		wLog.Debug("cancel register list", registration.NodeAddr.String(), registration)
+	}
+	if len(registerList) != length-1 {
+		t.Fatal("cancel register error")
+	}
+}
+func contractsVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T, gid types.Gid, name string) {
+	wLog.Debug("contracts vote")
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+
+	printBalance(vite, addr)
+	printQuota(vite, addr)
+	voteList := vite.Chain().GetVoteMap(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	length := len(voteList)
+	wLog.Debug("init vote list", "length", len(voteList))
+	for _, vote := range voteList {
+		wLog.Debug("init vote list", vote.NodeName, vote.VoterAddr)
+	}
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	if prevBlock == nil {
+		t.Fatalf("prev block not exist")
+	}
+	voteData, _ := contracts.ABIVote.PackMethod(contracts.MethodNameVote,
+		gid,
+		name)
+	parms := CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressVote,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      big.NewInt(0).String(),
+		Data:        voteData,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	}
+	err := waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressVote, t)
+	waitSnapshotInc(vite, t)
+
+	printBalance(vite, addr)
+	printQuota(vite, addr)
+	voteList = vite.Chain().GetVoteMap(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	wLog.Debug("vote list", "length", len(voteList))
+	for _, vote := range voteList {
+		wLog.Debug("vote list", vote.NodeName, vote.VoterAddr)
+	}
+	if len(voteList) != length+1 {
+		t.Fatal("vote error")
+	}
+}
+func contractsCancelVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T, gid types.Gid) {
+	wLog.Debug("contracts cancel vote")
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+	length := len(vite.Chain().GetVoteMap(vite.Chain().GetLatestSnapshotBlock().Hash, gid))
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	if prevBlock == nil {
+		t.Fatalf("prev block not exist")
+	}
+	voteData, _ := contracts.ABIVote.PackMethod(contracts.MethodNameCancelVote,
+		gid)
+	parms := CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressVote,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      big.NewInt(0).String(),
+		Data:        voteData,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	}
+	err := waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressVote, t)
+	waitSnapshotInc(vite, t)
+
+	printBalance(vite, addr)
+	printQuota(vite, addr)
+	voteList := vite.Chain().GetVoteMap(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	wLog.Debug("cancel vote list", "length", len(voteList))
+	for _, vote := range voteList {
+		wLog.Debug("cancel vote list", vote.NodeName, vote.VoterAddr)
+	}
+	if len(voteList) != length-1 {
+		t.Fatal("cancel vote error")
+	}
+}
+func contractsReward(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T) {
+	wLog.Debug("contracts reward")
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+
+	balance := printBalance(vite, addr)
+
+	count := int64(0)
+	snapshotBlockList, _ := vite.Chain().GetSnapshotBlocksByHeight(1, 10, true, false)
+	for _, b := range snapshotBlockList {
+		if b.Producer() == addr {
+			count = count + 1
+		}
+	}
+	if count == 0 {
+		t.Fatalf("no snapshot block")
+	}
+	wLog.Debug("print produce snapshot block count", "count", count)
+
+	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
+	if prevBlock == nil {
+		t.Fatalf("prev block not exist")
+	}
+	rewardAmount := new(big.Int).Div(new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)), big.NewInt(1051200000))
+	rewardAmount = rewardAmount.Mul(rewardAmount, big.NewInt(count))
+
+	rewardData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, "s3", addr, uint64(10), uint64(1), rewardAmount)
+	parms := CreateTransferTxParms{
+		SelfAddr:    addr,
+		ToAddr:      contracts.AddressRegister,
+		TokenTypeId: ledger.ViteTokenId,
+		Passphrase:  password,
+		Amount:      big.NewInt(0).String(),
+		Data:        rewardData,
+		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+	}
+	err := waApi.CreateTxWithPassphrase(parms)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitContractOnroad(onRoadApi, contracts.AddressRegister, t)
+	waitOnroad(onRoadApi, addr, t)
+	waitSnapshotInc(vite, t)
+
+	newBalance := printBalance(vite, addr)
+	balance.Add(balance, rewardAmount)
+	if newBalance.Cmp(balance) != 0 {
+		t.Fatalf("get reward balance error, expected %v, got %v", balance, newBalance)
+	}
 }
