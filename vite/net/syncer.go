@@ -2,8 +2,6 @@ package net
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -39,7 +37,7 @@ func (s SyncState) String() string {
 }
 
 type SyncStateFeed struct {
-	lock      sync.RWMutex
+	//lock      sync.RWMutex
 	currentId int
 	subs      map[int]SyncStateCallback
 }
@@ -51,8 +49,8 @@ func newSyncStateFeed() *SyncStateFeed {
 }
 
 func (s *SyncStateFeed) Sub(fn SyncStateCallback) int {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	//s.lock.Lock()
+	//defer s.lock.Unlock()
 
 	s.currentId++
 	s.subs[s.currentId] = fn
@@ -64,22 +62,22 @@ func (s *SyncStateFeed) Unsub(subId int) {
 		return
 	}
 
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	//s.lock.Lock()
+	//defer s.lock.Unlock()
 
 	delete(s.subs, subId)
 }
 
 func (s *SyncStateFeed) Notify(st SyncState) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	//s.lock.RLock()
+	//defer s.lock.RUnlock()
 
 	for _, fn := range s.subs {
 		if fn != nil {
-			fn := fn // closure
-			common.Go(func() {
-				fn(st)
-			})
+			//fn := fn // closure
+			//common.Go(func() {
+			fn(st)
+			//})
 		}
 	}
 }
