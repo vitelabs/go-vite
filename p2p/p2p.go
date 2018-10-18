@@ -305,9 +305,15 @@ func (svr *Server) listenLoop() {
 	}
 }
 
+func (svr *Server) releasePending() {
+	<-svr.pending
+}
+
 func (svr *Server) setupConn(c net.Conn, flag connFlag) {
+	defer svr.releasePending()
+
 	ts := &conn{
-		AsyncMsgConn: NewAsyncMsgConn(c, nil),
+		AsyncMsgConn: NewAsyncMsgConn(c),
 		flags:        flag,
 	}
 
@@ -350,8 +356,6 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 
 		svr.addPeer <- ts
 	}
-
-	<-svr.pending
 }
 
 func (svr *Server) checkConn(id discovery.NodeID, flag connFlag) error {
