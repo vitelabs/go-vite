@@ -7,9 +7,51 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
+	"sync"
 	"testing"
 	"time"
 )
+
+func BenchmarkChain_InsertAccountBlocks(b *testing.B) {
+	chainInstance := getChainInstance()
+	addr1, _, _ := types.CreateAddress()
+	addr2, _, _ := types.CreateAddress()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		lastTime := time.Now()
+		for i := uint64(1); i <= 10000000; i++ {
+			if i%100000 == 0 {
+				now := time.Now()
+				ts := uint64(now.Sub(lastTime).Seconds())
+				fmt.Printf("g1: %d tps\n", 100000/ts)
+				lastTime = time.Now()
+			}
+			blocks, _, _ := randomSendViteBlock(chainInstance.GetGenesisSnapshotBlock().Hash, &addr1, &addr2)
+			chainInstance.InsertAccountBlocks(blocks)
+
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		lastTime := time.Now()
+		for i := uint64(1); i <= 10000000; i++ {
+			if i%100000 == 0 {
+				now := time.Now()
+				ts := uint64(now.Sub(lastTime).Seconds())
+				fmt.Printf("g2: %d tps\n", 100000/ts)
+				lastTime = time.Now()
+			}
+			blocks, _, _ := randomSendViteBlock(chainInstance.GetGenesisSnapshotBlock().Hash, &addr2, &addr1)
+			chainInstance.InsertAccountBlocks(blocks)
+
+		}
+	}()
+	wg.Wait()
+}
 
 func TestContractsAddr(t *testing.T) {
 	fmt.Println(contracts.AddressRegister.String())
