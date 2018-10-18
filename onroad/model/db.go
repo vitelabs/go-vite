@@ -93,7 +93,8 @@ func (ucf *OnroadSet) GetHashList(addr *types.Address) (hashs []*types.Hash, err
 }
 
 func (ucf *OnroadSet) WriteMeta(batch *leveldb.Batch, addr *types.Address, hash *types.Hash) error {
-	value := []byte{uint8(0)}
+	value := []byte{byte(0)}
+
 	key, err := database.EncodeKey(database.DBKP_ONROADMETA, addr.Bytes(), hash.Bytes())
 	if err != nil {
 		return err

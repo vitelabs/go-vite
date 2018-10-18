@@ -210,17 +210,6 @@ func (p *OnroadBlocksPool) WriteOnroadSuccess(blocks []*vm_context.VmAccountBloc
 }
 
 func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_context.VmAccountBlock) error {
-	p.log.Debug("WriteOnroad called", "blockList len", len(blockList))
-	syncOnce := &sync.Once{}
-	syncOnce.Do(func() {
-		var onceErr error
-		for _, v := range initRegisterContracts {
-			if onceErr = p.dbAccess.WriteContractAddrToGid(nil, types.DELEGATE_GID, v); onceErr != nil {
-				p.log.Error("first WriteContractAddrToGid failed", "contractAddr:", v)
-			}
-		}
-	})
-
 	for _, v := range blockList {
 		if v.AccountBlock.IsSendBlock() {
 			// basic writeMeta func
