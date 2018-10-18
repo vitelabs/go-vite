@@ -223,6 +223,7 @@ func (self *committee) update(t *teller, m *sync.Map) {
 
 		if len(subs) == 0 {
 			time.Sleep(electionResult.ETime.Sub(time.Now()))
+			index = index + 1
 			continue
 		}
 

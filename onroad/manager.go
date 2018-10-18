@@ -2,6 +2,10 @@ package onroad
 
 import (
 	"errors"
+	"math/big"
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -13,9 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
-	"math/big"
-	"sync"
-	"time"
 )
 
 var (
