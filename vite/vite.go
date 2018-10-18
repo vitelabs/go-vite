@@ -32,6 +32,7 @@ type Vite struct {
 	pool             pool.BlockPool
 	consensus        consensus.Consensus
 	onRoad           *onroad.Manager
+	p2p              *p2p.Server
 }
 
 func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
@@ -111,6 +112,8 @@ func (v *Vite) Init() (err error) {
 }
 
 func (v *Vite) Start(p2p *p2p.Server) (err error) {
+	v.p2p = p2p
+
 	v.onRoad.Start()
 
 	v.chain.Start()
@@ -187,4 +190,8 @@ func (v *Vite) OnRoad() *onroad.Manager {
 
 func (v *Vite) Config() *config.Config {
 	return v.config
+}
+
+func (v *Vite) P2P() *p2p.Server {
+	return v.p2p
 }

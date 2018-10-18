@@ -411,6 +411,10 @@ func (d *Discovery) loadInitNodes() {
 	}
 }
 
+func (d *Discovery) Nodes() []*Node {
+	return d.tab.nodes()
+}
+
 func (d *Discovery) SubNodes(ch chan<- *Node) {
 	d.subs = append(d.subs, ch)
 }

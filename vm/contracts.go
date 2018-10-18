@@ -566,8 +566,7 @@ func (p *pPledge) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uin
 		return quotaLeft, errors.New("invalid block data")
 	}
 	beneficialAddr := new(types.Address)
-	err = contracts.ABIPledge.UnpackMethod(beneficialAddr, contracts.MethodNamePledge, block.AccountBlock.Data)
-	if err != nil || !block.VmContext.IsAddressExisted(beneficialAddr) {
+	if err = contracts.ABIPledge.UnpackMethod(beneficialAddr, contracts.MethodNamePledge, block.AccountBlock.Data); err != nil {
 		return quotaLeft, errors.New("invalid beneficial address")
 	}
 	return quotaLeft, nil
@@ -622,8 +621,7 @@ func (p *pCancelPledge) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLe
 		return quotaLeft, errors.New("invalid block data")
 	}
 	param := new(contracts.ParamCancelPledge)
-	err = contracts.ABIPledge.UnpackMethod(param, contracts.MethodNameCancelPledge, block.AccountBlock.Data)
-	if err != nil || !block.VmContext.IsAddressExisted(&param.Beneficial) {
+	if err = contracts.ABIPledge.UnpackMethod(param, contracts.MethodNameCancelPledge, block.AccountBlock.Data); err != nil {
 		return quotaLeft, ErrInvalidData
 	}
 	return quotaLeft, nil

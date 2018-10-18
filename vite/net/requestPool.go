@@ -12,13 +12,6 @@ import (
 	"time"
 )
 
-type RequestPool interface {
-	Add(r Request) bool // can add request or not
-	Retry(r uint64) bool
-	Del(r uint64) bool
-	MsgID() uint64
-}
-
 var errRequestTimeout = errors.New("request timeout")
 var errPoolStopped = errors.New("pool stopped")
 
@@ -29,12 +22,13 @@ type requestPool struct {
 	pending map[uint64]Request // has executed, wait for response
 	id      uint64             // atomic, unique request id, identically message id
 	add     chan Request
-	retry   chan *reqEvent
 	term    chan struct{}
 	log     log15.Logger
 	wg      sync.WaitGroup
 	peers   *peerSet
 	fc      *fileClient
+	get     chan uint64
+	out     chan Request
 }
 
 // as message handler
@@ -47,11 +41,8 @@ func (p *requestPool) Cmds() []cmd {
 }
 
 func (p *requestPool) Handle(msg *p2p.Msg, sender *Peer) error {
-	for id, r := range p.pending {
-		if id == msg.Id {
-			r.Handle(p, msg, sender)
-			return nil
-		}
+	if r := p.Get(msg.Id); r != nil {
+		r.Handle(p, msg, sender)
 	}
 
 	return nil
@@ -62,10 +53,11 @@ func newRequestPool(peers *peerSet, fc *fileClient) *requestPool {
 		pending: make(map[uint64]Request, 20),
 		id:      INIT_ID,
 		add:     make(chan Request, 10),
-		retry:   make(chan *reqEvent, 10),
 		log:     log15.New("module", "net/reqpool"),
 		peers:   peers,
 		fc:      fc,
+		get:     make(chan uint64),
+		out:     make(chan Request),
 	}
 
 	return pool
@@ -89,11 +81,6 @@ func (p *requestPool) stop() {
 		close(p.term)
 		p.wg.Wait()
 	}
-}
-
-type reqEvent struct {
-	id  uint64
-	err error
 }
 
 func (p *requestPool) pickPeer(height uint64) (peer *Peer) {
@@ -137,30 +124,22 @@ loop:
 				p.pending[r.ID()] = r
 			}
 
-		case e := <-p.retry:
-			if r, ok := p.pending[e.id]; ok {
-				//select {
-				//case r.Peer().errch <- e.err:
-				//default:
-				//}
-
-				_, to := r.Band()
-				if peer := p.pickPeer(to); peer != nil {
-					r.SetPeer(peer)
-					r.Run(p)
-				} else {
-					r.Catch(errMissingPeer)
-				}
+		case id := <-p.get:
+			if r, ok := p.pending[id]; ok {
+				p.out <- r
+			} else {
+				p.out <- nil
 			}
 
 		case <-ticker.C:
-			for _, r := range p.pending {
+			for id, r := range p.pending {
 				state := r.State()
 
 				if state == reqDone || state == reqError {
 					delete(p.pending, r.ID())
 				} else if r.Expired() && state == reqPending {
-					p.Retry(r.ID(), errRequestTimeout)
+					p.log.Error(fmt.Sprintf("retry request %d, error: %v", id, errRequestTimeout))
+					p.retry(r)
 				}
 			}
 		}
@@ -170,14 +149,6 @@ loop:
 	for i := 0; i < len(p.add); i++ {
 		r := <-p.add
 		r.Catch(errPoolStopped)
-	}
-
-	for i := 0; i < len(p.retry); i++ {
-		e := <-p.retry
-		if r, ok := p.pending[e.id]; ok {
-			r.Catch(errPoolStopped)
-			delete(p.pending, e.id)
-		}
 	}
 
 	for id, r := range p.pending {
@@ -201,14 +172,31 @@ func (p *requestPool) MsgID() uint64 {
 
 func (p *requestPool) Retry(id uint64, err error) {
 	p.log.Error(fmt.Sprintf("retry request %d, error: %v", id, err))
-	p.retry <- &reqEvent{id, err}
+
+	if r := p.Get(id); r != nil && r.State() == reqPending {
+		p.retry(r)
+	}
+}
+
+func (p *requestPool) retry(r Request) {
+	if r == nil {
+		return
+	}
+
+	_, to := r.Band()
+	if peer := p.pickPeer(to); peer != nil {
+		r.SetPeer(peer)
+		r.Run(p)
+	} else {
+		r.Catch(errMissingPeer)
+	}
 }
 
 func (p *requestPool) FC() *fileClient {
 	return p.fc
 }
 
-func (p *requestPool) Get(id uint64) (r Request, ok bool) {
-	r, ok = p.pending[id]
-	return
+func (p *requestPool) Get(id uint64) Request {
+	p.get <- id
+	return <-p.out
 }

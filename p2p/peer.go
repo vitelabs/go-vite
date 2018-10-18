@@ -21,11 +21,11 @@ const handshakeCmd = 0
 const discCmd = 1
 
 const headerLength = 40
-const maxPayloadSize = ^uint32(0)>>8 - 1
+const maxPayloadSize = ^uint32(0) >> 8
 
 const paralProtoFrame = 3 // max number of protoFrame write concurrently
 
-var errMsgTooLarge = errors.New("message payload is two large")
+var errMsgTooLarge = errors.New("message payload is too large")
 var errPeerTermed = errors.New("peer has been terminated")
 
 //var errPeerTsBusy = errors.New("peer transport is busy, can`t write message")

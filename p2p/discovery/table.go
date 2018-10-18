@@ -272,6 +272,16 @@ func (tab *table) randomNodes(dest []*Node) (count int) {
 	return
 }
 
+func (tab *table) nodes() (nodes []*Node) {
+	for _, b := range tab.buckets {
+		if b.size > 0 {
+			nodes = append(nodes, b.nodes()...)
+		}
+	}
+
+	return
+}
+
 func (tab *table) addNode(node *Node) *Node {
 	if node == nil {
 		return nil
