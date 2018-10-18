@@ -33,6 +33,7 @@ type Config struct {
 	StaticNodes          []string `json:"StaticNodes"`
 	Port                 uint     `json:"Port"`
 	NetID                uint     `json:"NetID"`
+	Discovery            bool     `json:"Discovery"`
 
 	//producer
 	CoinBase      string `json:"CoinBase"`
@@ -120,10 +121,9 @@ func (c *Config) makeP2PConfig() *p2p.Config {
 		Port:            c.Port,
 		DataDir:         filepath.Join(c.DataDir, p2p.Dirname),
 		PrivateKey:      c.GetPrivateKey(),
-		//Protocols:nil,
-		BootNodes:   c.BootNodes,
-		StaticNodes: c.StaticNodes,
-		//KafKa:nil,
+		BootNodes:       c.BootNodes,
+		StaticNodes:     c.StaticNodes,
+		Discovery:       c.Discovery,
 	}
 }
 
