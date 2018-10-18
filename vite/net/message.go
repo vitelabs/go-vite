@@ -84,6 +84,11 @@ func (t cmd) String() string {
 	if t == ExceptionCode {
 		return "ExceptionMsg"
 	}
+
+	if t > NewAccountBlockCode {
+		return "UnkownMsg"
+	}
+
 	return msgNames[t]
 }
 

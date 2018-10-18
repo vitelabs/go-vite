@@ -47,6 +47,9 @@ var packetStrs = [...]string{
 }
 
 func (c packetCode) String() string {
+	if c > exceptionCode {
+		return "unknown packet code"
+	}
 	return packetStrs[c]
 }
 
@@ -412,11 +415,17 @@ func composePacket(priv ed25519.PrivateKey, code packetCode, payload []byte) (da
 	return data, hash
 }
 
+var errPktSmall = errors.New("packet is too small")
+
 func unPacket(data []byte) (p *packet, err error) {
 	pktVersion := data[0]
 
 	if pktVersion != version {
 		return nil, fmt.Errorf("unmatched discovery packet version: received packet version is %d, but we are %d", pktVersion, version)
+	}
+
+	if len(data) < 99 {
+		return nil, errPktSmall
 	}
 
 	pktCode := packetCode(data[1])
