@@ -25,7 +25,7 @@ func startManager() (*onroad.Manager, types.Address) {
 	addr := generateAddress()
 
 	c := chain.NewChain(&config.Config{
-		P2P:     nil,
+		Net:     nil,
 		DataDir: common.GoViteTestDataDir(),
 	})
 	c.Init()

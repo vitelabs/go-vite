@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"sync"
 
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
@@ -126,7 +127,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 			v.Start()
 		}
 		log.Info("end start all tp")
-		go w.waitingNewBlock()
+		common.Go(w.waitingNewBlock)
 
 		w.status = Start
 	} else {
@@ -157,10 +158,10 @@ func (w *ContractWorker) Stop() {
 		wg := new(sync.WaitGroup)
 		for _, v := range w.contractTaskProcessors {
 			wg.Add(1)
-			go func() {
+			common.Go(func() {
 				v.Stop()
 				wg.Done()
-			}()
+			})
 		}
 		wg.Wait()
 		w.log.Info("end stop all task")

@@ -1,6 +1,7 @@
 package onroad
 
 import (
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
@@ -67,7 +68,7 @@ func (w *AutoReceiveWorker) Start() {
 
 		w.onroadBlocksPool.AcquireFullOnroadBlocksCache(w.address)
 
-		go w.startWork()
+		common.Go(w.startWork)
 
 		w.status = Start
 

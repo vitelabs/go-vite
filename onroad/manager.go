@@ -3,6 +3,7 @@ package onroad
 import (
 	"errors"
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
@@ -121,7 +122,7 @@ func (manager *Manager) addressLockStateChangeFunc(event keystore.UnlockEvent) {
 	w, found := manager.autoReceiveWorkers[event.Address]
 	if found && !event.Unlocked() {
 		manager.log.Info("found in autoReceiveWorkers stop it")
-		go w.Stop()
+		common.Go(w.Stop)
 	}
 }
 
@@ -167,17 +168,17 @@ func (manager *Manager) stopAllWorks() {
 	var wg = sync.WaitGroup{}
 	for _, v := range manager.autoReceiveWorkers {
 		wg.Add(1)
-		go func() {
+		common.Go(func() {
 			v.Stop()
 			wg.Done()
-		}()
+		})
 	}
 	for _, v := range manager.contractWorkers {
 		wg.Add(1)
-		go func() {
+		common.Go(func() {
 			v.Stop()
 			wg.Done()
-		}()
+		})
 	}
 	wg.Wait()
 	manager.log.Info("stopAllWorks end")

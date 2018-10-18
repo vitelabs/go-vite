@@ -3,6 +3,7 @@ package onroad
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
@@ -56,7 +57,7 @@ func (tp *ContractTaskProcessor) Start() {
 
 		tp.isSleeping = false
 
-		go tp.work()
+		common.Go(tp.work)
 
 		tp.status = Start
 	}
