@@ -246,9 +246,9 @@ func (svr *Server) dialLoop() {
 // so dial(id, addr, flag) not dial(Node, flag)
 func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
 	// has been blocked
-	if svr.blockList.Has(id[:]) {
-		return
-	}
+	//if svr.blockList.Has(id[:]) {
+	//	return
+	//}
 
 	if err := svr.checkConn(id, flag); err != nil {
 		return
@@ -262,7 +262,7 @@ func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
 	} else {
 		<-svr.pending
 		svr.log.Error(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
-		svr.blockList.Add(id[:])
+		//svr.blockList.Add(id[:])
 	}
 }
 
@@ -304,7 +304,7 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 	handshake.RemotePort = uint16(tcpAddr.Port)
 	data, err := handshake.Serialize()
 	if err != nil {
-		ts.Close(nil)
+		ts.Close()
 		return
 	}
 	sig := ed25519.Sign(svr.PrivateKey, data)
@@ -313,11 +313,11 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 	their, err := ts.Handshake(data)
 
 	if err != nil {
-		ts.Close(err)
+		ts.Close()
 		svr.log.Error(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
 	} else if their.NetID != svr.NetID {
 		err = fmt.Errorf("different NetID: our %s, their %s", svr.NetID, their.NetID)
-		ts.Close(err)
+		ts.Close()
 		svr.log.Error(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
 	} else {
 		ts.name = their.Name
@@ -392,7 +392,7 @@ loop:
 					svr.log.Error(fmt.Sprintf("create new peer error: %v", err))
 				}
 			} else {
-				c.Close(err)
+				c.Close()
 				svr.log.Error(fmt.Sprintf("can`t create new peer: %v", err))
 			}
 

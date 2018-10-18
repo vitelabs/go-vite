@@ -26,6 +26,7 @@ const (
 	DiscReadError
 	DiscResponseTimeout
 	DiscUnKnownProtocol
+	DiscHandshakeFail
 )
 
 var discReasonStr = [...]string{
@@ -45,6 +46,7 @@ var discReasonStr = [...]string{
 	DiscReadError:           "read error",
 	DiscResponseTimeout:     "wait response timeout",
 	DiscUnKnownProtocol:     "missing protocol handler",
+	DiscHandshakeFail:       "p2p handshake error",
 }
 
 func (d DiscReason) String() string {
