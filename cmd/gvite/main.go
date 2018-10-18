@@ -1,7 +1,6 @@
 package main
 
 import (
-	//_ "net/http/pprof"
 	"fmt"
 	"github.com/vitelabs/go-vite/cmd/console"
 	"github.com/vitelabs/go-vite/cmd/nodemanager"

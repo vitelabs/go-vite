@@ -2,6 +2,9 @@ package chain
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pow"
 	"testing"
 )
 
@@ -35,21 +38,41 @@ func TestGetSubLedgerByHash(t *testing.T) {
 func TestGetConfirmSubLedger(t *testing.T) {
 	chainInstance := getChainInstance()
 	makeBlocks(chainInstance, 1000)
-	snapshotBlocks, subLedger, err := chainInstance.GetConfirmSubLedger(0, 100)
+	_, subLedger, err := chainInstance.GetConfirmSubLedger(0, 1000)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for index, block := range snapshotBlocks {
-		fmt.Printf("%d: %+v\n", index, block)
-	}
+	//for index, block := range snapshotBlocks {
+	//	fmt.Printf("%d: %+v\n", index, block)
+	//}
 
 	fmt.Println()
 
 	for addr, blocks := range subLedger {
 		fmt.Printf("%s\n", addr.String())
-		for index, block := range blocks {
-			fmt.Printf("%d: %+v\n", index, block)
+		for _, block := range blocks {
+			accountType, err := chainInstance.AccountType(&block.AccountAddress)
+			if err != nil {
+				t.Error(err)
+			}
+			b := block.ComputeHash() != block.Hash
+			if b {
+				t.Error("hash err")
+			}
+			if len(block.Nonce) != 0 {
+				if accountType == ledger.AccountTypeContract {
+					t.Error("AccountTypeContract Nonce must be nil")
+				}
+				t.Log(block.Nonce)
+				var nonce [8]byte
+				copy(nonce[:], block.Nonce[:8])
+				hash256Data := crypto.Hash256(block.AccountAddress.Bytes(), block.PrevHash.Bytes())
+				if !pow.CheckPowNonce(nil, nonce, hash256Data) {
+					t.Error("CheckPowNonce failed")
+				}
+			}
+
 		}
 	}
 }
