@@ -20,7 +20,7 @@ func TestBenchmark(t *testing.T) {
 	w := wallet.New(cfg)
 
 	genesis, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
-	vite, _, err := startNode(w, &genesis, filepath.Join(baseDir, "chain"))
+	vite, _, err := startNode(w, &genesis, filepath.Join(baseDir, "chain"), 0, 0, "")
 	if err != nil {
 		panic(err)
 	}

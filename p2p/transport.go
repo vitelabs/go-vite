@@ -48,11 +48,9 @@ func PackMsg(cmdSetId uint64, cmd uint32, id uint64, s Serializable) (*Msg, erro
 
 func ReadMsg(reader io.Reader) (msg *Msg, err error) {
 	head := make([]byte, headerLength)
-	var n int
-	if n, err = reader.Read(head); err != nil {
+
+	if _, err = io.ReadFull(reader, head); err != nil {
 		return
-	} else if n != headerLength {
-		return nil, fmt.Errorf("read incomplement message header %d/%d bytes", n, headerLength)
 	}
 
 	msg = new(Msg)
@@ -66,10 +64,8 @@ func ReadMsg(reader io.Reader) (msg *Msg, err error) {
 	}
 
 	payload := make([]byte, msg.Size)
-	if n, err = reader.Read(payload); err != nil {
+	if _, err = io.ReadFull(reader, payload); err != nil {
 		return
-	} else if uint32(n) != msg.Size {
-		return nil, fmt.Errorf("read incomplete message payload %d/%d", n, msg.Size)
 	}
 
 	msg.Payload = payload
@@ -171,12 +167,14 @@ func (c *AsyncMsgConn) readLoop() {
 		case <-c.term:
 			return
 		default:
-			monitor.LogEvent("p2p_ts", "read")
-
 			//c.fd.SetReadDeadline(time.Now().Add(msgReadTimeout))
 			if msg, err := ReadMsg(c.fd); err == nil {
+				monitor.LogEvent("p2p_ts", "read")
+				monitor.LogDuration("p2p_ts", "read_bytes", int64(msg.Size))
+
 				c.handler(msg)
 			} else {
+				fmt.Println("read error", err)
 				c.report(1, err)
 				return
 			}
@@ -194,13 +192,13 @@ loop:
 		case <-c.term:
 			break loop
 		case msg := <-c.wqueue:
-			monitor.LogEvent("p2p_ts", "write")
 			//c.fd.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
-
 			if err := WriteMsg(c.fd, msg); err != nil {
 				c.report(2, err)
 				return
 			}
+			monitor.LogEvent("p2p_ts", "write")
+			monitor.LogDuration("p2p_ts", "write_bytes", int64(msg.Size))
 		}
 	}
 

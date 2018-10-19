@@ -21,7 +21,7 @@ const handshakeCmd = 0
 const discCmd = 1
 
 const headerLength = 40
-const maxPayloadSize = ^uint32(0) >> 8
+const maxPayloadSize = ^uint32(0) >> 8 // 16MB
 
 const paralProtoFrame = 3 // max number of protoFrame write concurrently
 

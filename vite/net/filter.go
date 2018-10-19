@@ -23,7 +23,7 @@ type Filter interface {
 type record struct {
 	addAt  time.Time
 	doneAt time.Time
-	mark   int32 // atomic, how many times has fetched
+	mark   int
 	_done  bool
 }
 
@@ -74,7 +74,7 @@ func (f *filter) hold(hash types.Hash) bool {
 			}
 		}
 
-		f.records[hash].inc()
+		r.inc()
 	} else {
 		f.records[hash] = &record{addAt: time.Now()}
 		return false

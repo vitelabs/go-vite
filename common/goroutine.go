@@ -20,7 +20,7 @@ func wrap(fn func()) {
 
 func catch() {
 	if err := recover(); err != nil {
-		glog.Error("panic", "err", err)
+		glog.Error("panic", "err", err, "withstack", fmt.Sprintf("%+v", errors.WithStack(err.(error))))
 		fmt.Printf("%+v", errors.WithStack(err.(error)))
 		panic(err)
 	}
