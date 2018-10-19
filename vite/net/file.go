@@ -29,7 +29,6 @@ type fileServer struct {
 }
 
 func newFileServer(port uint16, chain Chain) *fileServer {
-
 	return &fileServer{
 		port:   port,
 		record: make(map[uint64]struct{}),
@@ -89,46 +88,46 @@ func (s *fileServer) readLoop() {
 	}
 }
 
-func (f *fileServer) handleConn(conn net2.Conn) {
+func (s *fileServer) handleConn(conn net2.Conn) {
 	defer conn.Close()
-	defer f.wg.Done()
+	defer s.wg.Done()
 
 	for {
 		select {
-		case <-f.term:
+		case <-s.term:
 			return
 		default:
 			conn.SetWriteDeadline(time.Now().Add(fReadTimeout))
 			msg, err := p2p.ReadMsg(conn)
 			if err != nil {
-				f.log.Error(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
+				s.log.Error(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
 				return
 			}
 
 			code := cmd(msg.Cmd)
 			if code != GetFilesCode {
-				f.log.Error(fmt.Sprintf("got %d, need %d", code, GetFilesCode))
+				s.log.Error(fmt.Sprintf("got %d, need %d", code, GetFilesCode))
 				return
 			}
 
 			req := new(message.GetFiles)
 			if err = req.Deserialize(msg.Payload); err != nil {
-				f.log.Error(fmt.Sprintf("parse message %s from %s error: %v", code, conn.RemoteAddr(), err))
+				s.log.Error(fmt.Sprintf("parse message %s from %s error: %v", code, conn.RemoteAddr(), err))
 				return
 			}
 
-			f.log.Info(fmt.Sprintf("receive %s from %s", req, conn.RemoteAddr()))
+			s.log.Info(fmt.Sprintf("receive %s from %s", req, conn.RemoteAddr()))
 
 			// send files
+			var n int64
 			for _, filename := range req.Names {
-				var n int64
-				n, err = io.Copy(conn, f.chain.Compressor().FileReader(filename))
+				n, err = io.Copy(conn, s.chain.Compressor().FileReader(filename))
 
 				if err != nil {
-					f.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", filename, conn.RemoteAddr(), err))
+					s.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", filename, conn.RemoteAddr(), err))
 					return
 				} else {
-					f.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", filename, n, conn.RemoteAddr()))
+					s.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", filename, n, conn.RemoteAddr()))
 				}
 			}
 		}
@@ -166,8 +165,8 @@ func newFileClient(chain Chain) *fileClient {
 	return &fileClient{
 		conns:    make(map[string]*connContext),
 		_request: make(chan *fileRequest, 4),
-		idle:     make(chan *connContext, 1),
-		delConn:  make(chan *delCtxEvent, 1),
+		idle:     make(chan *connContext),
+		delConn:  make(chan *delCtxEvent),
 		chain:    chain,
 		log:      log15.New("module", "net/fileClient"),
 		dialer:   &net2.Dialer{Timeout: 3 * time.Second},
@@ -197,6 +196,7 @@ func (fc *fileClient) stop() {
 func (fc *fileClient) request(r *fileRequest) {
 	select {
 	case <-fc.term:
+		fc.log.Warn(fmt.Sprintf("fc has stopped, can`t request %s", r))
 	case fc._request <- r:
 	}
 }
