@@ -2,11 +2,10 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"math/big"
-	"net/http"
-	"os/user"
 	"path"
 	"strconv"
 
@@ -30,19 +29,27 @@ import _ "net/http/pprof"
 var log = log15.New("module", "cmd")
 
 func main() {
-	logFile()
-
-	go func() {
-		http.ListenAndServe("0.0.0.0:6060", nil)
-	}()
+	//go func() {
+	//	http.ListenAndServe("0.0.0.0:6060", nil)
+	//}()
 
 	var coinBaseAddr string
+	var port, fport uint
+	var privateKey string
+	var dir string
 
 	//configPath := flag.String("config", path.Join(config.HomeDir, "/naive_vite/etc/default.yaml"), "config path")
 	//log.Info(*configPath)
 	cfg := new(config.Config)
 	flag.StringVar(&coinBaseAddr, "p", "", "")
+	flag.UintVar(&port, "port", 8483, "tcp listen")
+	flag.UintVar(&fport, "fport", 8484, "file server listen")
+	flag.StringVar(&privateKey, "priv", "", "p2p server privateKey")
+	flag.StringVar(&dir, "dir", common.DefaultDataDir(), "data dirname")
 	flag.Parse()
+
+	logFile(dir)
+
 	//e := cfg.Parse(*configPath)
 	//if e != nil {
 	//	panic(e)
@@ -158,7 +165,7 @@ func main() {
 	var p2p *p2p.Server
 	var err error
 
-	node, p2p, err = startNode(w, coinbase, common.DefaultDataDir())
+	node, p2p, err = startNode(w, coinbase, dir, port, fport, privateKey)
 	{
 		autoCmd := &ishell.Cmd{
 			Name: "node",
@@ -172,7 +179,7 @@ func main() {
 					c.Println("node has started.")
 					return
 				}
-				node, p2p, err = startNode(w, coinbase, common.DefaultDataDir())
+				node, p2p, err = startNode(w, coinbase, dir, port, fport, privateKey)
 				if err != nil {
 					c.Err(err)
 					return
@@ -484,7 +491,7 @@ func main() {
 				if len(c.Args) == 1 {
 					addr, _ = types.HexToAddress(c.Args[0])
 				}
-				err := api.NewPrivateOnroadApi(node.OnRoad()).StartAutoReceive(addr, nil)
+				err := api.NewPrivateOnroadApi(node).StartAutoReceive(addr, nil)
 				c.Println("auto receive successfully.", err)
 			},
 		})
@@ -556,7 +563,7 @@ func main() {
 				}
 				c.Printf("-----address[%s] request blocks-----\n", addr)
 				c.Println("From\tAmount\tReqHash")
-				blocks, _ := api.NewPrivateOnroadApi(node.OnRoad()).GetOnroadBlocksByAddress(addr, 0, 1000)
+				blocks, _ := api.NewPrivateOnroadApi(node).GetOnroadBlocksByAddress(addr, 0, 1000)
 				for _, b := range blocks {
 					c.Printf("%s\t%s\t%s\n", b.FromAddress.String(), b.Amount, b.FromBlockHash)
 				}
@@ -733,15 +740,30 @@ func main() {
 	// run shell
 	shell.Run()
 }
-func startNode(w *wallet.Manager, tmp *types.Address, baseDir string) (*vite.Vite, *p2p.Server, error) {
+func startNode(w *wallet.Manager, tmp *types.Address, baseDir string, port, fport uint, priv string) (*vite.Vite, *p2p.Server, error) {
+	var prv ed25519.PrivateKey
+
+	if priv != "" {
+		pv, err := hex.DecodeString(priv)
+		if err != nil {
+			return nil, nil, err
+		}
+		prv = ed25519.PrivateKey(pv)
+	}
+
 	p2pServer, err := p2p.New(&p2p.Config{
+		NetID:      11,
+		Port:       port,
+		DataDir:    path.Join(baseDir, "/p2p"),
+		PrivateKey: prv,
+		BootNodes:  []string{},
 		StaticNodes: []string{
 			"vnode://6d72c01e467e5280acf1b63f87afd5b6dcf8a596d849ddfc9ca70aab08f10191@192.168.31.146:8483",
 			"vnode://1ceabc6c2b751b352a6d719b4987f828bb1cf51baafa4efac38bc525ed61059d@192.168.31.190:8483",
-			"vnode://8343b3f2bc4e8e521d460cadab3e9f1e61ba57529b3fb48c5c076845c92e75d2@192.168.31.193:8483"},
-		BootNodes: []string{},
-		DataDir:   path.Join(baseDir, "/p2p"),
-		NetID:     11,
+			"vnode://8343b3f2bc4e8e521d460cadab3e9f1e61ba57529b3fb48c5c076845c92e75d2@192.168.31.193:8483",
+			"vnode://a0cab03dfb22ae4294efe30e7408b752fb659676751a8d36c943594a25dc23b4@127.0.0.1:8483",
+			"vnode://09df0f162dc3337d15c11b2b2c4a9c93796baac063b7789a2e7a3f20a6edb2f5@127.0.0.1:8485",
+		},
 	})
 
 	coinbase := "vite_a60e507124c2059ccb61039870dac3b5219aca014abc3807d0"
@@ -756,8 +778,10 @@ func startNode(w *wallet.Manager, tmp *types.Address, baseDir string) (*vite.Vit
 		},
 		Vm: &config.Vm{IsVmTest: true},
 		Net: &config.Net{
-			Single: false,
+			Single:   false,
+			FilePort: uint16(fport),
 		},
+		LogLevel: "debug",
 	}
 	vite, err := vite.New(config, w)
 	if err != nil {
@@ -903,17 +927,14 @@ func printPledge(vite *vite.Vite, addr types.Address) *big.Int {
 	return amount
 }
 
-func logFile() {
+func logFile(dir string) {
 
 	logLevel, err := log15.LvlFromString("dbug")
 	if err != nil {
 		logLevel = log15.LvlInfo
 	}
-	usr, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
-	dir := path.Join(usr.HomeDir, "viteisbest", "log", "tmpvite.log")
+
+	dir = path.Join(dir, "tmp_log", "tmpvite.log")
 	log15.Root().SetHandler(
 		log15.LvlFilterHandler(logLevel, log15.Must.FileHandler(dir, log15.TerminalFormat())),
 	)
