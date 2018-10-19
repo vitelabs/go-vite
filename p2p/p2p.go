@@ -404,7 +404,6 @@ loop:
 					monitor.LogDuration("p2p/peer", "count", int64(peersCount))
 					monitor.LogEvent("p2p/peer", "create")
 
-					svr.wg.Add(1)
 					common.Go(func() {
 						svr.runPeer(p)
 					})
@@ -440,11 +439,9 @@ loop:
 }
 
 func (svr *Server) runPeer(p *Peer) {
-	defer svr.wg.Done()
-
 	err := p.run()
 	if err != nil {
-		svr.log.Error(fmt.Sprintf("run peer error: %v", err))
+		svr.log.Error(fmt.Sprintf("run peer %s error: %v", p, err))
 	}
 	svr.delPeer <- p
 }

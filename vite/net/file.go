@@ -165,7 +165,7 @@ func newFileClient(chain Chain) *fileClient {
 	return &fileClient{
 		conns:    make(map[string]*connContext),
 		_request: make(chan *fileRequest, 4),
-		idle:     make(chan *connContext),
+		idle:     make(chan *connContext, 1),
 		delConn:  make(chan *delCtxEvent),
 		chain:    chain,
 		log:      log15.New("module", "net/fileClient"),
@@ -241,7 +241,6 @@ loop:
 
 			if ctx.idle {
 				ctx.req = req
-				fc.wg.Add(1)
 				common.Go(func() {
 					fc.exe(ctx)
 				})
@@ -254,11 +253,13 @@ loop:
 			ctx.idleT = time.Now()
 			for i, req := range wait {
 				if req.Addr() == ctx.addr {
-					ctx.idle = false
-					ctx.req = req
-
 					copy(wait[i:], wait[i+1:])
 					wait = wait[:len(wait)-1]
+
+					ctx.req = req
+					common.Go(func() {
+						fc.exe(ctx)
+					})
 				}
 			}
 
@@ -292,7 +293,7 @@ loop:
 }
 
 func (fc *fileClient) exe(ctx *connContext) {
-	defer fc.wg.Done()
+	//defer fc.wg.Done()
 
 	ctx.idle = false
 
