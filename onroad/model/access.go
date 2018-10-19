@@ -32,8 +32,16 @@ func (access *UAccess) Init(chain chain.Chain) {
 	access.store = NewOnroadSet(chain)
 }
 
-func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) (addrList []types.Address, err error) {
-	return access.store.GetContractAddrList(gid)
+func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) ([]types.Address, error) {
+	addrList, err := access.store.GetContractAddrList(gid)
+	if err != nil {
+		return nil, err
+	}
+
+	if *gid == types.DELEGATE_GID {
+		addrList = append(addrList, initRegisterContracts...)
+	}
+	return addrList, nil
 }
 
 func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid types.Gid, address types.Address) error {

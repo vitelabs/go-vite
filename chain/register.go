@@ -16,13 +16,31 @@ const (
 	DeleteAccountBlocksSuccessEvent = uint8(4)
 )
 
-type listener struct {
+type iabsListener struct {
 	listenerId uint64
-	processor  interface{}
+	processor  InsertProcessorFunc
+}
+
+type iabssListener struct {
+	listenerId uint64
+	processor  InsertProcessorFuncSuccess
+}
+
+type dabsListener struct {
+	listenerId uint64
+	processor  DeleteProcessorFunc
+}
+type dabssListener struct {
+	listenerId uint64
+	processor  DeleteProcessorFuncSuccess
 }
 
 type eventManager struct {
-	eventListener map[uint8][]*listener
+	iabsEventListener  []iabsListener
+	iabssEventListener []iabssListener
+
+	dabsEventListener  []dabsListener
+	dabssEventListener []dabssListener
 
 	maxListenerId uint64
 	lock          sync.Mutex
@@ -30,27 +48,37 @@ type eventManager struct {
 
 func newEventManager() *eventManager {
 	return &eventManager{
-		eventListener: make(map[uint8][]*listener),
-
 		maxListenerId: 0,
 	}
 }
 
-func (em *eventManager) trigger(actionId uint8, data ...interface{}) error {
-	listenerList := em.eventListener[actionId]
-	for _, listener := range listenerList {
-		switch actionId {
-		case InsertAccountBlocksEvent:
-			return listener.processor.(InsertProcessorFunc)(data[0].(*leveldb.Batch), data[1].([]*vm_context.VmAccountBlock))
-		case InsertAccountBlocksSuccessEvent:
-			listener.processor.(InsertProcessorFuncSuccess)(data[0].([]*vm_context.VmAccountBlock))
-		case DeleteAccountBlocksEvent:
-			return listener.processor.(DeleteProcessorFunc)(data[0].(*leveldb.Batch), data[1].(map[types.Address][]*ledger.AccountBlock))
-		case DeleteAccountBlocksSuccessEvent:
-			listener.processor.(DeleteProcessorFuncSuccess)(data[0].(map[types.Address][]*ledger.AccountBlock))
+func (em *eventManager) triggerInsertAccountBlocks(batch *leveldb.Batch, blocks []*vm_context.VmAccountBlock) error {
+	for _, listener := range em.iabsEventListener {
+		if err := listener.processor(batch, blocks); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+func (em *eventManager) triggerInsertAccountBlocksSuccess(blocks []*vm_context.VmAccountBlock) {
+	for _, listener := range em.iabssEventListener {
+		listener.processor(blocks)
+	}
+}
+
+func (em *eventManager) triggerDeleteAccountBlocks(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
+	for _, listener := range em.dabsEventListener {
+		if err := listener.processor(batch, subLedger); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (em *eventManager) triggerDeleteAccountBlocksSuccess(subLedger map[types.Address][]*ledger.AccountBlock) {
+	for _, listener := range em.dabssEventListener {
+		listener.processor(subLedger)
+	}
 }
 
 func (em *eventManager) register(actionId uint8, processor interface{}) uint64 {
@@ -58,10 +86,29 @@ func (em *eventManager) register(actionId uint8, processor interface{}) uint64 {
 	defer em.lock.Unlock()
 
 	nextListenerId := em.maxListenerId + 1
-	em.eventListener[actionId] = append(em.eventListener[actionId], &listener{
-		listenerId: nextListenerId,
-		processor:  processor,
-	})
+	switch actionId {
+	case InsertAccountBlocksEvent:
+		em.iabsEventListener = append(em.iabsEventListener, iabsListener{
+			listenerId: nextListenerId,
+			processor:  processor.(InsertProcessorFunc),
+		})
+	case InsertAccountBlocksSuccessEvent:
+		em.iabssEventListener = append(em.iabssEventListener, iabssListener{
+			listenerId: nextListenerId,
+			processor:  processor.(InsertProcessorFuncSuccess),
+		})
+	case DeleteAccountBlocksEvent:
+		em.dabsEventListener = append(em.dabsEventListener, dabsListener{
+			listenerId: nextListenerId,
+			processor:  processor.(DeleteProcessorFunc),
+		})
+	case DeleteAccountBlocksSuccessEvent:
+		em.dabssEventListener = append(em.dabssEventListener, dabssListener{
+			listenerId: nextListenerId,
+			processor:  processor.(DeleteProcessorFuncSuccess),
+		})
+	}
+
 	return 0
 }
 
@@ -69,14 +116,33 @@ func (em *eventManager) unRegister(listenerId uint64) {
 	em.lock.Lock()
 	defer em.lock.Unlock()
 
-	for actionId, listenerList := range em.eventListener {
-		for index, listener := range listenerList {
-			if listener.listenerId == listenerId {
-				em.eventListener[actionId] = append(listenerList[:index], listenerList[index+1:]...)
-				return
-			}
+	for index, listener := range em.iabsEventListener {
+		if listener.listenerId == listenerId {
+			em.iabsEventListener = append(em.iabsEventListener[:index], em.iabsEventListener[index+1:]...)
+			return
 		}
 	}
+
+	for index, listener := range em.iabssEventListener {
+		if listener.listenerId == listenerId {
+			em.iabssEventListener = append(em.iabssEventListener[:index], em.iabssEventListener[index+1:]...)
+			return
+		}
+	}
+
+	for index, listener := range em.dabsEventListener {
+		if listener.listenerId == listenerId {
+			em.dabsEventListener = append(em.dabsEventListener[:index], em.dabsEventListener[index+1:]...)
+			return
+		}
+	}
+	for index, listener := range em.dabssEventListener {
+		if listener.listenerId == listenerId {
+			em.dabssEventListener = append(em.dabssEventListener[:index], em.dabssEventListener[index+1:]...)
+			return
+		}
+	}
+
 }
 
 func (c *chain) UnRegister(listenerId uint64) {

@@ -26,6 +26,7 @@ const maxPayloadSize = ^uint32(0) >> 8
 const paralProtoFrame = 3 // max number of protoFrame write concurrently
 
 var errMsgTooLarge = errors.New("message payload is too large")
+var errMsgNull = errors.New("message payload is 0 byte")
 var errPeerTermed = errors.New("peer has been terminated")
 
 //var errPeerTsBusy = errors.New("peer transport is busy, can`t write message")
@@ -130,8 +131,8 @@ func NewPeer(conn *conn, ourSet []*Protocol) (*Peer, error) {
 		protoFrames: protoFrames,
 		term:        make(chan struct{}),
 		created:     time.Now(),
-		disc:        make(chan DiscReason, 1),
-		errch:       make(chan error, 1),
+		disc:        make(chan DiscReason),
+		errch:       make(chan error),
 		protoDone:   make(chan *protoDone, len(protoFrames)),
 		log:         log15.New("module", "p2p/peer"),
 	}
@@ -206,7 +207,8 @@ loop:
 				proactively = true
 				break loop
 			}
-		case err = <-p.ts.errch: // error occur from lower transport, like writeError or readError
+		case err = <-p.ts.errch:
+			// error occur from lower transport, like writeError or readError
 			p.log.Error(fmt.Sprintf("transport error: %v", err))
 			proactively = false
 			break loop

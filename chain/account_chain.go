@@ -139,7 +139,7 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	c.chainDb.Be.AddAccountBlocks(batch, addBlockHashList)
 
 	// trigger writing event
-	if triggerErr := c.em.trigger(InsertAccountBlocksEvent, batch, vmAccountBlocks); triggerErr != nil {
+	if triggerErr := c.em.triggerInsertAccountBlocks(batch, vmAccountBlocks); triggerErr != nil {
 		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "InsertAccountBlocks")
 		return triggerErr
 	}
@@ -165,7 +165,7 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	}
 
 	// trigger writing success event
-	c.em.trigger(InsertAccountBlocksSuccessEvent, vmAccountBlocks)
+	c.em.triggerInsertAccountBlocksSuccess(vmAccountBlocks)
 	return nil
 }
 
@@ -600,7 +600,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		return nil, toSubLedgerErr
 	}
 
-	if triggerErr := c.em.trigger(DeleteAccountBlocksEvent, batch, subLedger); triggerErr != nil {
+	if triggerErr := c.em.triggerDeleteAccountBlocks(batch, subLedger); triggerErr != nil {
 		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "DeleteAccountBlocks")
 		return nil, triggerErr
 	}
@@ -624,7 +624,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		c.needSnapshotCache.Remove(&addr, accountBlocks[0].Height)
 	}
 
-	c.em.trigger(DeleteAccountBlocksSuccessEvent, subLedger)
+	c.em.triggerDeleteAccountBlocksSuccess(subLedger)
 
 	return subLedger, nil
 }

@@ -65,6 +65,10 @@ var (
 		Name:  "nodekeyhex", //mapping:p2p.PrivateKey
 		Usage: "P2P node key as hex",
 	}
+	DiscoveryFlag = cli.StringFlag{
+		Name:  "discovery", //mapping:p2p.Discovery
+		Usage: "enable p2p discovery or not",
+	}
 
 	//IPC Settings
 	IPCEnabledFlag = cli.BoolFlag{

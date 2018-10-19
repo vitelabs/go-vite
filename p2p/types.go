@@ -111,13 +111,13 @@ type Msg struct {
 }
 
 func (msg *Msg) Recycle() {
-	msg.CmdSet = 0
-	msg.Cmd = 0
-	msg.Size = 0
-	msg.Payload = nil
-	msg.Id = 0
-
-	msgPool.Put(msg)
+	//msg.CmdSet = 0
+	//msg.Cmd = 0
+	//msg.Size = 0
+	//msg.Payload = nil
+	//msg.Id = 0
+	//
+	//msgPool.Put(msg)
 }
 
 type MsgReader interface {

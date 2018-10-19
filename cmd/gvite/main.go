@@ -45,6 +45,7 @@ var (
 		utils.MaxPendingPeersFlag,
 		utils.ListenPortFlag,
 		utils.NodeKeyHexFlag,
+		utils.DiscoveryFlag,
 	}
 
 	//IPC

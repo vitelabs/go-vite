@@ -22,6 +22,7 @@ var DefaultNodeConfig = Config{
 	BootNodes:            nil,
 	Port:                 0,
 	NetID:                0,
+	Discovery:            true,
 	LogLevel:             "info",
 	WSOrigins:            []string{"*"},
 	WSExposeAll:          true,

@@ -123,7 +123,7 @@ type Peer struct {
 }
 
 func (t *Topology) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
-	peer := &Peer{p, rw, make(chan error, 1)}
+	peer := &Peer{p, rw, make(chan error)}
 	t.peers.Store(p.String(), peer)
 	defer t.peers.Delete(p.String())
 
@@ -237,12 +237,7 @@ func (t *Topology) Receive(msg *p2p.Msg, sender *Peer) {
 	err := topo.Deserialize(msg.Payload[32:])
 	if err != nil {
 		t.log.Error(fmt.Sprintf("deserialize topoMsg error: %v", err))
-
-		select {
-		case sender.errch <- err:
-		default:
-		}
-
+		sender.errch <- err
 		return
 	}
 

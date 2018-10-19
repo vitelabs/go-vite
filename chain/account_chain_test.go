@@ -2,20 +2,41 @@ package chain
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
+	_ "net/http/pprof"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 )
 
 func BenchmarkChain_InsertAccountBlocks(b *testing.B) {
-	chainInstance := getChainInstance()
+	dataDir := common.HomeDir()
+	os.RemoveAll(filepath.Join(dataDir, "ledger"))
+
+	//chainInstance := vite.Chain()
+	os.RemoveAll(filepath.Join(dataDir, "ledger"))
+	chainInstance := NewChain(&config.Config{
+		DataDir: common.HomeDir(),
+		//Chain: &config.Chain{
+		//	KafkaProducers: []*config.KafkaProducer{{
+		//		Topic:      "test",
+		//		BrokerList: []string{"abc", "def"},
+		//	}},
+		//},
+	})
+	chainInstance.Init()
+	chainInstance.Start()
 	addr1, _, _ := types.CreateAddress()
 	addr2, _, _ := types.CreateAddress()
+	blocks, _, _ := randomSendViteBlock(chainInstance.GetGenesisSnapshotBlock().Hash, &addr1, &addr2)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -23,33 +44,66 @@ func BenchmarkChain_InsertAccountBlocks(b *testing.B) {
 		defer wg.Done()
 		lastTime := time.Now()
 		for i := uint64(1); i <= 10000000; i++ {
-			if i%100000 == 0 {
+			if i%300000 == 0 {
 				now := time.Now()
 				ts := uint64(now.Sub(lastTime).Seconds())
-				fmt.Printf("g1: %d tps\n", 100000/ts)
+				fmt.Printf("g1: %d tps\n", 300000/ts)
 				lastTime = time.Now()
 			}
-			blocks, _, _ := randomSendViteBlock(chainInstance.GetGenesisSnapshotBlock().Hash, &addr1, &addr2)
+			blocks[0].AccountBlock.Height += 1
 			chainInstance.InsertAccountBlocks(blocks)
 
 		}
 	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		lastTime := time.Now()
-		for i := uint64(1); i <= 10000000; i++ {
-			if i%100000 == 0 {
-				now := time.Now()
-				ts := uint64(now.Sub(lastTime).Seconds())
-				fmt.Printf("g2: %d tps\n", 100000/ts)
-				lastTime = time.Now()
-			}
-			blocks, _, _ := randomSendViteBlock(chainInstance.GetGenesisSnapshotBlock().Hash, &addr2, &addr1)
-			chainInstance.InsertAccountBlocks(blocks)
 
-		}
-	}()
+	//for i := 0; i < 10; i++ {
+	//	wg.Add(1)
+	//	go func() {
+	//		defer wg.Done()
+	//		for i := uint64(1); i <= 10000000000; i++ {
+	//			time.Sleep(time.Millisecond * 2)
+	//		}
+	//	}()
+	//}
+	//wg.Add(1)
+	//go func() {
+	//	defer wg.Done()
+	//	//lastTime := time.Now()
+	//
+	//	for i := uint64(1); i <= 10000000000; i++ {
+	//		a := "10"
+	//		b := "24"
+	//		fmt.Sprintf(a + b)
+
+	//time.Sleep(time.Millisecond * 1)
+	//chainInstance.GetAccountBlocksByAddress(&addr1, 0, 1, 10)
+	//if i%100000 == 0 {
+	//	now := time.Now()
+	//	ts := uint64(now.Sub(lastTime).Seconds())
+	//	fmt.Printf("g2: %d tps\n", 100000/ts)
+	//	lastTime = time.Now()
+	//}
+	//blocks, _, _ := randomSendViteBlock(chainInstance.GetGenesisSnapshotBlock().Hash, &addr2, &addr1)
+	//chainInstance.InsertAccountBlocks(blocks)
+
+	//}
+	//}()
+	//wg.Add(1)
+	//go func() {
+	//	defer wg.Done()
+	//	lastTime := time.Now()
+	//	for i := uint64(1); i <= 10000000; i++ {
+	//		if i%100000 == 0 {
+	//			now := time.Now()
+	//			ts := uint64(now.Sub(lastTime).Seconds())
+	//			fmt.Printf("g3: %d tps\n", 100000/ts)
+	//			lastTime = time.Now()
+	//		}
+	//		blocks, _, _ := randomSendViteBlock(chainInstance.GetGenesisSnapshotBlock().Hash, &addr2, &addr1)
+	//		chainInstance.InsertAccountBlocks(blocks)
+	//
+	//	}
+	//}()
 	wg.Wait()
 }
 

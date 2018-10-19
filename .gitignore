@@ -6,7 +6,6 @@
 *.dylib
 .idea
 .DS_Store
-testdata/trie
 gvite
 
 # Test binary, build with `go test -c`
@@ -14,6 +13,7 @@ gvite
 testdata/trie
 testdata/vm_context
 testdata/ledger
+testdata/ledger_file
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out

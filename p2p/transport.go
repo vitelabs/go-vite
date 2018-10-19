@@ -14,14 +14,15 @@ import (
 	"time"
 )
 
-var msgPool = &sync.Pool{
-	New: func() interface{} {
-		return &Msg{}
-	},
-}
+//var msgPool = &sync.Pool{
+//	New: func() interface{} {
+//		return &Msg{}
+//	},
+//}
 
 func NewMsg() *Msg {
-	return msgPool.Get().(*Msg)
+	//return msgPool.Get().(*Msg)
+	return &Msg{}
 }
 
 func PackMsg(cmdSetId uint64, cmd uint32, id uint64, s Serializable) (*Msg, error) {
@@ -47,8 +48,11 @@ func PackMsg(cmdSetId uint64, cmd uint32, id uint64, s Serializable) (*Msg, erro
 
 func ReadMsg(reader io.Reader) (msg *Msg, err error) {
 	head := make([]byte, headerLength)
-	if _, err = io.ReadFull(reader, head); err != nil {
+	var n int
+	if n, err = reader.Read(head); err != nil {
 		return
+	} else if n != headerLength {
+		return nil, fmt.Errorf("read incomplement message header %d/%d bytes", n, headerLength)
 	}
 
 	msg = new(Msg)
@@ -58,18 +62,14 @@ func ReadMsg(reader io.Reader) (msg *Msg, err error) {
 	msg.Size = binary.BigEndian.Uint32(head[20:24])
 
 	if msg.Size > maxPayloadSize {
-		err = errMsgTooLarge
-		return
+		return nil, errMsgTooLarge
 	}
 
 	payload := make([]byte, msg.Size)
-	n, err := io.ReadFull(reader, payload)
-	if err != nil {
+	if n, err = reader.Read(payload); err != nil {
 		return
-	}
-	if uint32(n) != msg.Size {
-		err = fmt.Errorf("read incomplete message %d/%d", n, msg.Size)
-		return
+	} else if uint32(n) != msg.Size {
+		return nil, fmt.Errorf("read incomplete message payload %d/%d", n, msg.Size)
 	}
 
 	msg.Payload = payload
@@ -80,6 +80,10 @@ func ReadMsg(reader io.Reader) (msg *Msg, err error) {
 
 func WriteMsg(writer io.Writer, msg *Msg) (err error) {
 	defer msg.Recycle()
+
+	if msg.Size == 0 {
+		return errMsgNull
+	}
 
 	if msg.Size > maxPayloadSize {
 		return errMsgTooLarge
@@ -103,32 +107,16 @@ func WriteMsg(writer io.Writer, msg *Msg) (err error) {
 	if n, err = writer.Write(msg.Payload); err != nil {
 		return
 	} else if uint32(n) != msg.Size {
-		return fmt.Errorf("write incomplement message %d/%d bytes", n, msg.Size)
+		return fmt.Errorf("write incomplement message payload %d/%d bytes", n, msg.Size)
 	}
 
 	return
 }
 
-// the most basic Msg reader & writer, Thread unsafe
-type MsgRw struct {
-	fd           io.ReadWriter
-	compressible bool
-}
+// @section AsyncMsgConn
+var msgReadTimeout = 20 * time.Second
+var msgWriteTimeout = 10 * time.Second
 
-func (rw *MsgRw) ReadMsg() (msg *Msg, err error) {
-	return ReadMsg(rw.fd)
-}
-
-func (rw *MsgRw) WriteMsg(msg *Msg) (err error) {
-	return WriteMsg(rw.fd, msg)
-}
-
-// AsyncMsgConn
-//var handshakeTimeout = 10 * time.Second
-var msgReadTimeout = 40 * time.Second
-var msgWriteTimeout = 20 * time.Second
-
-//const readBufferLen = 100
 const writeBufferLen = 100
 
 type AsyncMsgConn struct {
@@ -139,16 +127,16 @@ type AsyncMsgConn struct {
 	wqueue  chan *Msg
 	errored int32      // atomic, indicate whehter there is an error, readErr(1), writeErr(2)
 	errch   chan error // report errch to upper layer
+	speed   int        // transport speed, bytes/ns
 }
 
 // create an AsyncMsgConn, fd is the basic connection
-func NewAsyncMsgConn(fd net.Conn, handler func(msg *Msg)) *AsyncMsgConn {
+func NewAsyncMsgConn(fd net.Conn) *AsyncMsgConn {
 	return &AsyncMsgConn{
-		fd:      fd,
-		handler: handler,
-		term:    make(chan struct{}),
-		wqueue:  make(chan *Msg, writeBufferLen),
-		errch:   make(chan error, 1),
+		fd:     fd,
+		term:   make(chan struct{}),
+		wqueue: make(chan *Msg, writeBufferLen),
+		errch:  make(chan error),
 	}
 }
 
