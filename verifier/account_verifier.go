@@ -447,7 +447,7 @@ func (verifier *AccountVerifier) VerifyTimeNotYet(block *ledger.AccountBlock) er
 	//  don't accept which timestamp doesn't satisfy within the (now + 1h) limit
 	currentSb := time.Now()
 	if block.Timestamp.After(currentSb.Add(time.Hour)) {
-		return errors.New("Timestamp not arrive yet")
+		return errors.New("account Timestamp not arrive yet")
 	}
 	return nil
 }

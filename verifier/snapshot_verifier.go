@@ -39,12 +39,9 @@ func (self *SnapshotVerifier) verifyTimestamp(block *ledger.SnapshotBlock) error
 	if block.Timestamp == nil {
 		return errors.New("Timestamp is nil")
 	}
-	currentSb := self.reader.GetLatestSnapshotBlock()
-	if currentSb == nil {
-		return errors.New("latest SnapshotBlock is nil")
-	}
-	if block.Timestamp.Before(*currentSb.Timestamp) {
-		return errors.New("Timestamp not arrive yet")
+
+	if block.Timestamp.After(time.Now().Add(time.Hour)) {
+		return errors.New("snapshot Timestamp not arrive yet")
 	}
 	return nil
 }
