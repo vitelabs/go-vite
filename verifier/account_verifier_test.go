@@ -15,7 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/pow"
@@ -25,6 +24,7 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 	"os"
 	"path/filepath"
+	"github.com/vitelabs/go-vite/generator"
 )
 
 var (
@@ -97,7 +97,7 @@ func TestAccountVerifier_VerifyforRPC(t *testing.T) {
 }
 
 func verifiyRpcFlow(vite *VitePrepared, addFunc AddChainDierct) error {
-	caseTypeList := []byte{1,1,2}
+	caseTypeList := []byte{1, 2}
 Loop:
 	for _, caseType := range caseTypeList {
 		var blocks []*ledger.AccountBlock
@@ -137,11 +137,13 @@ Loop:
 					if err := addFunc(vBlocks); err != nil {
 						return errors.New("addFunc failed," + err.Error())
 					}
-					if err := vite.onroad.GetOnroadBlocksPool().WriteOnroad(nil, vBlocks); err != nil {
-						return errors.New("WriteOnroad failed")
+					if caseType == 1 || caseType == 3 {
+						if err := vite.onroad.GetOnroadBlocksPool().WriteOnroad(nil, vBlocks); err != nil {
+							return errors.New("WriteOnroad failed")
+						}
+						fmt.Println("addOnroad success")
 					}
 					fmt.Println("addFunc success")
-
 				}
 			} else {
 				return errors.New("generator gen an empty block")
@@ -160,22 +162,14 @@ func GenesisReceiveMintage(vite *VitePrepared, addFunc AddChainDierct) error {
 
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
-	preAccountBlock, err := vite.chain.GetLatestAccountBlock(&sendBlock.ToAddress)
-	if err != nil {
-		return err
-	}
-	var preHash *types.Hash
-	if preAccountBlock != nil {
-		preHash = &preAccountBlock.Hash
-	}
-	referredSnapshotBlock := vite.chain.GetLatestSnapshotBlock()
-	gen, err := generator.NewGenerator(vite.chain, &referredSnapshotBlock.Hash, preHash, &sendBlock.ToAddress)
+
+	gen, err := generator.NewGenerator(vite.chain, nil, nil, &sendBlock.ToAddress)
 	if err != nil {
 		return err
 	}
 	genResult, err := gen.GenerateWithOnroad(*sendBlock, nil, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
-	})
+	}, nil)
 	if err != nil {
 		return err
 	}
@@ -380,7 +374,7 @@ func AddrPledgeReceive(c chain.Chain, v *AccountVerifier, sendBlock *ledger.Acco
 
 	return gen.GenerateWithOnroad(*sendBlock, consensusMessage, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		return ed25519.Sign(producerPrivKey, data), producerPubKey, nil
-	})
+	}, nil)
 }
 
 func Add1SendAddr2(c chain.Chain, v *AccountVerifier) (blocks []*vm_context.VmAccountBlock, err error) {

@@ -20,8 +20,9 @@ type IncomingMessage struct {
 	TokenId *types.TokenTypeId
 	Amount  *big.Int
 	Fee     *big.Int
-	Nonce   []byte
 	Data    []byte
+
+	Difficulty *big.Int
 }
 
 func (im *IncomingMessage) ToSendBlock() (*ledger.AccountBlock, error) {
@@ -33,7 +34,6 @@ func (im *IncomingMessage) ToSendBlock() (*ledger.AccountBlock, error) {
 		block.BlockType = im.BlockType
 		block.FromBlockHash = types.Hash{}
 
-		block.Nonce = im.Nonce
 		block.Data = im.Data
 
 		if im.ToAddress != nil {
@@ -73,8 +73,6 @@ func (im *IncomingMessage) ToSendBlock() (*ledger.AccountBlock, error) {
 		block.BlockType = im.BlockType
 		block.FromBlockHash = types.Hash{}
 
-		block.Nonce = im.Nonce
-
 		if im.ToAddress != nil {
 			block.ToAddress = *im.ToAddress
 		} else {
@@ -87,7 +85,6 @@ func (im *IncomingMessage) ToSendBlock() (*ledger.AccountBlock, error) {
 			block.Amount = im.Amount
 		}
 
-		// fixme
 		if im.TokenId != nil {
 			block.TokenId = *im.TokenId
 		} else {

@@ -12,7 +12,6 @@ import (
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pool"
-	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet/keystore"
 )
@@ -160,16 +159,6 @@ func (m *WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 	if !ok {
 		return ErrStrToBigInt
 	}
-	block, e := m.chain.GetLatestAccountBlock(&params.SelfAddr)
-	if e != nil {
-		return e
-	}
-	preHash := types.Hash{}
-	if block != nil {
-		preHash = block.Hash
-	}
-
-	nonce := pow.GetPowNonce(params.Difficulty, types.DataListHash(params.SelfAddr[:], preHash[:]))
 
 	msg := &generator.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
@@ -178,7 +167,7 @@ func (m *WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 		TokenId:        &params.TokenTypeId,
 		Amount:         amount,
 		Fee:            nil,
-		Nonce:          nonce[:],
+		Difficulty:     params.Difficulty,
 		Data:           params.Data,
 	}
 
