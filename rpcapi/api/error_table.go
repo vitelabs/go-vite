@@ -51,6 +51,7 @@ func init() {
 	concernedErrorMap[ErrDecryptKey.Error()] = ErrDecryptKey
 	concernedErrorMap[AddressAlreadyUnLocked.Error()] = AddressAlreadyUnLocked
 	concernedErrorMap[ErrBalanceNotEnough.Error()] = ErrBalanceNotEnough
+	concernedErrorMap[ErrQuotaNotEnough.Error()] = ErrQuotaNotEnough
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {
