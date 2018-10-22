@@ -94,7 +94,7 @@ func TestSignAndVerify(t *testing.T) {
 func TestManager_ImportPriv2(t *testing.T) {
 	kp := NewManager(filepath.Join(common.DefaultDataDir(), "wallet"))
 	kp.Init()
-	hexPri := "prikey"
+	hexPri := ""
 	key, e := kp.ImportPriv(hexPri, "123456")
 	if e != nil {
 		println(e.Error())
