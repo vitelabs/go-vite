@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -68,10 +70,32 @@ func (self *snapshotPool) init(
 	pool *pool) {
 	//self.consensus = accountsConsensus
 	self.pool = pool
-	self.BCPool.init(self.rw, tools)
+	self.BCPool.init(tools)
 }
 
 func (self *snapshotPool) loopCheckFork() {
+	// recover logic
+	defer func() {
+		if err := recover(); err != nil {
+			var e error
+			switch t := err.(type) {
+			case error:
+				e = errors.WithStack(t)
+			case string:
+				e = errors.New(t)
+			default:
+				e = errors.Errorf("unknown type", err)
+			}
+
+			self.log.Error("loopCheckFork start recover", "err", err, "withstack", fmt.Sprintf("%+v", e))
+			fmt.Printf("%+v", e)
+			defer self.log.Warn("loopCheckFork end recover.")
+			self.pool.Lock()
+			defer self.pool.UnLock()
+			self.initPool()
+			self.pool.version.Inc()
+		}
+	}()
 	self.wg.Add(1)
 	defer self.wg.Done()
 	for {
@@ -142,6 +166,29 @@ func (self *snapshotPool) snapshotFork(longest *forkedChain, current *forkedChai
 }
 
 func (self *snapshotPool) loop() {
+	// recover logic
+	defer func() {
+		if err := recover(); err != nil {
+			var e error
+			switch t := err.(type) {
+			case error:
+				e = errors.WithStack(t)
+			case string:
+				e = errors.New(t)
+			default:
+				e = errors.Errorf("unknown type", err)
+			}
+
+			self.log.Error("snapshot loop start recover", "err", err, "withstack", fmt.Sprintf("%+v", e))
+			fmt.Printf("%+v", e)
+			defer self.log.Warn("snapshot loop end recover.")
+			self.pool.Lock()
+			defer self.pool.UnLock()
+			self.initPool()
+			self.pool.version.Inc()
+		}
+	}()
+
 	self.wg.Add(1)
 	defer self.wg.Done()
 	for {

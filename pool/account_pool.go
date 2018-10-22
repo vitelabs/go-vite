@@ -4,8 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"errors"
-
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -63,7 +62,7 @@ func (self *accountPool) Init(
 	self.pool = pool
 	self.v = v
 	self.f = f
-	self.BCPool.init(self.rw, tools)
+	self.BCPool.init(tools)
 }
 
 /**
@@ -84,6 +83,27 @@ func (self *accountPool) Compact() int {
 		defer self.compactLock.UnLock()
 	}
 
+	defer func() {
+		if err := recover(); err != nil {
+			var e error
+			switch t := err.(type) {
+			case error:
+				e = errors.WithStack(t)
+			case string:
+				e = errors.New(t)
+			default:
+				e = errors.Errorf("unknown type", err)
+			}
+
+			self.log.Warn("Compact start recover.", "err", err, "stack", e)
+			defer self.log.Warn("Compact end recover.")
+			self.pool.RLock()
+			defer self.pool.RUnLock()
+			self.rMu.Lock()
+			defer self.rMu.Unlock()
+			self.initPool()
+		}
+	}()
 	//	this is a rate limiter
 	now := time.Now()
 	if now.After(self.loopTime.Add(time.Millisecond * 200)) {
@@ -165,6 +185,25 @@ success:
 func (self *accountPool) tryInsert() verifyTask {
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
+
+	// recover logic
+	defer func() {
+		if err := recover(); err != nil {
+			var e error
+			switch t := err.(type) {
+			case error:
+				e = errors.WithStack(t)
+			case string:
+				e = errors.New(t)
+			default:
+				e = errors.Errorf("unknown type", err)
+			}
+			self.log.Warn("tryInsert start recover.", "err", err, "stack", e)
+			defer self.log.Warn("tryInsert end recover.")
+			self.initPool()
+		}
+	}()
+
 	cp := self.chainpool
 	current := cp.current
 	minH := current.tailHeight + 1
