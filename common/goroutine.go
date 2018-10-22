@@ -20,8 +20,18 @@ func wrap(fn func()) {
 
 func catch() {
 	if err := recover(); err != nil {
-		glog.Error("panic", "err", err, "withstack", fmt.Sprintf("%+v", errors.WithStack(err.(error))))
-		fmt.Printf("%+v", errors.WithStack(err.(error)))
+		var e error
+		switch t := err.(type) {
+		case error:
+			e = errors.WithStack(t)
+		case string:
+			e = errors.New(t)
+		default:
+			e = errors.Errorf("unknown type", err)
+		}
+
+		glog.Error("panic", "err", err, "withstack", e)
+		fmt.Printf("%+v", e)
 		panic(err)
 	}
 }

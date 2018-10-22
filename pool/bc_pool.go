@@ -313,31 +313,31 @@ func newBlockChainPool(name string) *BCPool {
 		Id: name,
 	}
 }
-func (self *BCPool) init(rw chainRw,
-	tools *tools) {
+func (self *BCPool) init(tools *tools) {
+	self.tools = tools
+	self.compactLock = &common.NonBlockLock{}
 
-	diskChain := &diskChain{chainId: self.Id + "-diskchain", rw: rw, v: self.version}
+	self.LIMIT_HEIGHT = 60 * 60
+	self.LIMIT_LONGEST_NUM = 4
+	self.initPool()
+}
+
+func (self *BCPool) initPool() {
+	diskChain := &diskChain{chainId: self.Id + "-diskchain", rw: self.tools.rw, v: self.version}
 	chainpool := &chainPool{
 		poolId:    self.Id,
 		diskChain: diskChain,
 		log:       self.log,
 	}
 	chainpool.current = &forkedChain{}
-
 	chainpool.current.chainId = chainpool.genChainId()
+	chainpool.init()
 	blockpool := &blockPool{
 		compoundBlocks: make(map[types.Hash]commonBlock),
 		freeBlocks:     make(map[types.Hash]commonBlock),
 	}
 	self.chainpool = chainpool
 	self.blockpool = blockpool
-	self.tools = tools
-	self.compactLock = &common.NonBlockLock{}
-
-	self.chainpool.init()
-
-	self.LIMIT_HEIGHT = 60 * 60
-	self.LIMIT_LONGEST_NUM = 4
 }
 
 func (self *chainPool) genChainId() string {

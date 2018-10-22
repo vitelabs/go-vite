@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"sync/atomic"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -115,6 +117,8 @@ type pool struct {
 	accountCond *sync.Cond // if new block add, notify
 
 	log log15.Logger
+
+	stat *recoverStat
 }
 
 func (self *pool) Snapshot() map[string]interface{} {
@@ -171,6 +175,7 @@ func (self *pool) Init(s syncer,
 		self)
 
 	self.pendingSc = snapshotPool
+	self.stat = (&recoverStat{}).reset(10)
 }
 func (self *pool) Info(addr *types.Address) string {
 	if addr == nil {
@@ -226,6 +231,8 @@ func (self *pool) Details(addr *types.Address, hash types.Hash) string {
 	}
 }
 func (self *pool) Start() {
+	self.log.Info("pool start.")
+	defer self.log.Info("pool started.")
 	self.closed = make(chan struct{})
 
 	self.accountSubId = self.sync.SubscribeAccountBlock(self.AddAccountBlock)
@@ -237,6 +244,8 @@ func (self *pool) Start() {
 	common.Go(self.loopBroadcastAndDel)
 }
 func (self *pool) Stop() {
+	self.log.Info("pool stop.")
+	defer self.log.Info("pool stopped.")
 	self.sync.UnsubscribeAccountBlock(self.accountSubId)
 	self.accountSubId = 0
 	self.sync.UnsubscribeSnapshotBlock(self.snapshotSubId)
@@ -245,6 +254,14 @@ func (self *pool) Stop() {
 	self.pendingSc.Stop()
 	close(self.closed)
 	self.wg.Wait()
+}
+func (self *pool) Restart() {
+	self.Lock()
+	defer self.UnLock()
+	self.log.Info("pool restart.")
+	defer self.log.Info("pool restarted.")
+	self.Stop()
+	self.Start()
 }
 
 func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) {
@@ -475,6 +492,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	return chain.(*accountPool)
 }
 func (self *pool) loopTryInsert() {
+	defer self.poolRecover()
 	self.wg.Add(1)
 	defer self.wg.Done()
 
@@ -523,6 +541,7 @@ func (self *pool) accountsTryInsert() int {
 }
 
 func (self *pool) loopCompact() {
+	defer self.poolRecover()
 	self.wg.Add(1)
 	defer self.wg.Done()
 
@@ -548,7 +567,29 @@ func (self *pool) loopCompact() {
 		}
 	}
 }
+func (self *pool) poolRecover() {
+	if err := recover(); err != nil {
+		var e error
+		switch t := err.(type) {
+		case error:
+			e = errors.WithStack(t)
+		case string:
+			e = errors.New(t)
+		default:
+			e = errors.Errorf("unknown type", err)
+		}
+
+		self.log.Error("panic", "err", err, "withstack", fmt.Sprintf("%+v", e))
+		fmt.Printf("%+v", e)
+		if self.stat.inc() {
+			common.Go(self.Restart)
+		} else {
+			panic(e)
+		}
+	}
+}
 func (self *pool) loopBroadcastAndDel() {
+	defer self.poolRecover()
 	self.wg.Add(1)
 	defer self.wg.Done()
 
@@ -664,4 +705,31 @@ func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 		defer self.UnLock()
 		self.RollbackAccountTo(addr, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
 	}
+}
+
+type recoverStat struct {
+	num        int32
+	updateTime time.Time
+	threshold  int32
+}
+
+func (self *recoverStat) reset(t int32) *recoverStat {
+	self.num = 0
+	self.updateTime = time.Now()
+	self.threshold = t
+	return self
+}
+
+func (self *recoverStat) inc() bool {
+	atomic.AddInt32(&self.num, 1)
+	now := time.Now()
+	if now.Sub(self.updateTime) > time.Second*10 {
+		self.updateTime = now
+		atomic.StoreInt32(&self.num, 0)
+	} else {
+		if self.num > self.threshold {
+			return false
+		}
+	}
+	return true
 }
