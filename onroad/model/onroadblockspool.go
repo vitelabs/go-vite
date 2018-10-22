@@ -294,7 +294,6 @@ func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[type
 					gid := contracts.GetGidFromCreateContractData(v.Data)
 					p.dbAccess.DeleteContractAddrFromGid(batch, gid, v.ToAddress)
 				}
-
 			}
 		}
 	}
