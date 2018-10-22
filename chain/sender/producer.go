@@ -221,15 +221,15 @@ func (producer *Producer) Start() error {
 
 					if closeErr != nil {
 						producer.log.Error("kafkaProducer close failed, error is "+closeErr.Error(), "method", "Start")
+					} else {
+						producer.kafkaProducer = nil
+						return
 					}
 				}
 
 				if closeCount == tryCloseCount {
 					producer.log.Crit("kafkaProducer close failed", "method", "Start")
 				}
-
-				producer.kafkaProducer = nil
-				return
 			default:
 				producer.send()
 				time.Sleep(time.Millisecond * 500)

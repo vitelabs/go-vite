@@ -103,22 +103,28 @@ func (c *Console) init(preload []string) error {
 	consoleObj, _ := c.jsre.Get("console")
 	consoleObj.Object().Set("log", c.consoleOutput)
 	consoleObj.Object().Set("error", c.consoleOutput)
-
 	if err := c.jsre.Compile("polyfill.js", jsre.Polyfill); err != nil {
 		return fmt.Errorf("polyfill.js: %v", err)
 	}
 	if _, err := c.jsre.Run("require('polyfill');"); err != nil {
 		return fmt.Errorf("web3 require: %v", err)
 	}
+	if err := c.jsre.Compile("docs.js", jsre.Docs); err != nil {
+		return fmt.Errorf("docs.js: %v", err)
+	}
+	if _, err := c.jsre.Run("var $vite_docs = require('docs').default;"); err != nil {
+		return fmt.Errorf("ViteJS docs: %v", err)
+	}
 	// Load all the internal utility JavaScript libraries
 	if err := c.jsre.Compile("vite.js", jsre.Vite_JS); err != nil {
 		return fmt.Errorf("vite.js: %v", err)
 	}
-
-	if _, err := c.jsre.Run("var vite = require('ViteJS');"); err != nil {
+	if _, err := c.jsre.Run("var vite = require('ViteJS').default;"); err != nil {
 		return fmt.Errorf("ViteJS require: %v", err)
 	}
-
+	// if _, err := c.jsre.Run("b_vite.send({Method:'ledger_getAccountByAccAddr',Params:['vite_09bd04d2d590196316be59367acb5bbacc956acce4650ff689']});"); err != nil {
+	// 	return fmt.Errorf("ViteJS requireffff: %v", err)
+	// }
 	//The admin.sleep and admin.sleepBlocks are offered by the console and not by the RPC layer.
 	c.jsre.Set("admin", struct{}{})
 	admin, err := c.jsre.Get("admin")

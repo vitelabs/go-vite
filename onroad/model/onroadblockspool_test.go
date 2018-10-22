@@ -46,8 +46,12 @@ func TestOnroadBlocksPool_WriteOnroad(t *testing.T) {
 
 	addr, _ := types.HexToAddress(addrString)
 
-	gen := generator.NewGenerator(c, nil, nil, addr)
-	p.WriteOnroad()
+	//gen, err := generator.NewGenerator(c, nil, &addr)
+	//if err != nil {
+	//	t.Error(err)
+	//}
+	//
+	//p.WriteOnroad()
 }
 
 func TestOnroadBlocksPool_RevertOnroad(t *testing.T) {

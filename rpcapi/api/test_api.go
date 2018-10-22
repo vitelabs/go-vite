@@ -10,7 +10,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/pow"
 )
 
 type CreateTxWithPrivKeyParmsTest struct {
@@ -67,17 +66,6 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		return ErrStrToBigInt
 	}
 
-	block, e := t.walletApi.chain.GetLatestAccountBlock(&params.SelfAddr)
-	if e != nil {
-		return e
-	}
-	preHash := types.Hash{}
-	if block != nil {
-		preHash = block.Hash
-	}
-
-	nonce := pow.GetPowNonce(params.Difficulty, types.DataListHash(params.SelfAddr[:], preHash[:]))
-
 	msg := &generator.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: params.SelfAddr,
@@ -85,8 +73,8 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		TokenId:        &params.TokenTypeId,
 		Amount:         amount,
 		Fee:            nil,
-		Nonce:          nonce[:],
 		Data:           params.Data,
+		Difficulty:     params.Difficulty,
 	}
 
 	g, e := generator.NewGenerator(t.walletApi.chain, nil, nil, &params.SelfAddr)
