@@ -56,6 +56,10 @@ func (c *ContractsApi) GetCreateContractToAddress(selfAddr types.Address, height
 	return contracts.NewContractAddress(selfAddr, height, prevHash, snapshotHash)
 }
 
+func (c *ContractsApi) GetSignDataForRegister(pledgeAddr types.Address, gid types.Gid) []byte {
+	return contracts.GetRegisterMessageForSignature(pledgeAddr, gid)
+}
+
 func (c *ContractsApi) GetRegisterData(gid types.Gid, name string, nodeAddr types.Address, publicKey []byte, signature []byte) ([]byte, error) {
 	return contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, gid, name, nodeAddr, publicKey, signature)
 }
@@ -101,7 +105,6 @@ func (c *ContractsApi) GetConditionVoteOfDefault() ([]byte, error) {
 }
 func (c *ContractsApi) GetConditionVoteOfKeepToken(amount *big.Int, tokenId types.TokenTypeId) ([]byte, error) {
 	return contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionVoteOfKeepToken, amount, tokenId)
-
 }
 func (c *ContractsApi) GetCreateConsensusGroupData(param CreateConsensusGroupParam) ([]byte, error) {
 	gid := contracts.NewGid(param.SelfAddr, param.Height, param.PrevHash, param.SnapshotHash)
