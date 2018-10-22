@@ -43,7 +43,7 @@ func init() {
 }
 
 var genesisTrieNodePool = trie.NewTrieNodePool()
-var genesisTimestamp = time.Unix(1539325747, 0)
+var genesisTimestamp = time.Unix(1540200147, 0)
 
 func genesisSnapshotBlock() ledger.SnapshotBlock {
 	genesisSnapshotBlock := ledger.SnapshotBlock{
@@ -167,7 +167,7 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 		uint8(25),
 		int64(1),
 		int64(3),
-		uint8(2),
+		uint8(0),
 		uint8(50),
 		ledger.ViteTokenId,
 		uint8(1),
@@ -182,7 +182,7 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 		uint8(25),
 		int64(3),
 		int64(1),
-		uint8(2),
+		uint8(0),
 		uint8(50),
 		ledger.ViteTokenId,
 		uint8(1),
