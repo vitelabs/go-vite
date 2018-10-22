@@ -1,23 +1,8 @@
 package contracts
 
 import (
-	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/abi"
-	"math/big"
-)
-
-var (
-	precompiledContractsAbiMap = map[types.Address]abi.ABIContract{
-		AddressRegister:       ABIRegister,
-		AddressVote:           ABIVote,
-		AddressPledge:         ABIPledge,
-		AddressConsensusGroup: ABIConsensusGroup,
-		AddressMintage:        ABIMintage,
-	}
-
-	errInvalidParam = errors.New("invalid param")
 )
 
 // pack method params to byte slice
@@ -60,37 +45,4 @@ func PackConsensusGroupConditionParam(conditionIdPrefix ConditionCode, condition
 		}
 	}
 	return nil, errInvalidParam
-}
-
-func NewGid(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.Gid {
-	return types.DataToGid(
-		accountAddress.Bytes(),
-		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
-		prevBlockHash.Bytes(),
-		snapshotHash.Bytes())
-}
-
-func NewTokenId(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.TokenTypeId {
-	return types.CreateTokenTypeId(
-		accountAddress.Bytes(),
-		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
-		prevBlockHash.Bytes(),
-		snapshotHash.Bytes())
-}
-
-func GetNewContractData(bytecode []byte, gid types.Gid) []byte {
-	return append(gid.Bytes(), bytecode...)
-}
-
-func GetGidFromCreateContractData(data []byte) types.Gid {
-	gid, _ := types.BytesToGid(data[:types.GidSize])
-	return gid
-}
-
-func NewContractAddress(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.Address {
-	return types.CreateContractAddress(
-		accountAddress.Bytes(),
-		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
-		prevBlockHash.Bytes(),
-		snapshotHash.Bytes())
 }
