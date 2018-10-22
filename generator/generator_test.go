@@ -106,22 +106,6 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 	}
 }
 
-func TestGenerator_GenerateWithMessage_CallTransfer(t *testing.T) {
-	v := PrepareVite()
-
-	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
-	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
-
-	if err := callTransfer(v, &ledger.GenesisAccountAddress, &addr1, genesisAccountPrivKey, genesisAccountPubKey, defaultDifficulty); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := callTransfer(v, &addr1, &addr2, addr1PrivKey, addr1PubKey, defaultDifficulty); err != nil {
-		t.Error(err)
-		return
-	}
-}
-
 func TestGenerator_GenerateWithMessage_CallCompiledContract(t *testing.T) {
 	v := PrepareVite()
 	if err := createRPCBlockCallPledgeContarct(v, &addr1); err != nil {
@@ -159,6 +143,22 @@ func createRPCBlockCallPledgeContarct(vite *VitePrepared, addr *types.Address) e
 	}
 	fmt.Printf("blocks[0] balance:%+v,tokenId:%+v\n", genResult.BlockGenList[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
 	return nil
+}
+
+func TestGenerator_GenerateWithMessage_CallTransfer(t *testing.T) {
+	v := PrepareVite()
+
+	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
+	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
+
+	if err := callTransfer(v, &ledger.GenesisAccountAddress, &addr1, genesisAccountPrivKey, genesisAccountPubKey, defaultDifficulty); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := callTransfer(v, &addr1, &addr2, addr1PrivKey, addr1PubKey, defaultDifficulty); err != nil {
+		t.Error(err)
+		return
+	}
 }
 
 func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address, fromAddrPrivKey ed25519.PrivateKey, fromAddrPubKey []byte, difficulty *big.Int) error {
