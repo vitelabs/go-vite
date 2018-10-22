@@ -34,7 +34,7 @@ func init() {
 	flag.StringVar(&genesisAccountPrivKeyStr, "k", "", "")
 
 	flag.Parse()
-	vm.InitVmConfig(isTest)
+	vm.InitVmConfig(isTest, false)
 }
 
 type VitePrepared struct {

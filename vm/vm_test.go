@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	InitVmConfig(false)
+	InitVmConfig(false, false)
 }
 
 func TestVmRun(t *testing.T) {
@@ -541,7 +541,7 @@ func BenchmarkVMTransfer(b *testing.B) {
 }
 
 func TestVmForTest(t *testing.T) {
-	InitVmConfig(true)
+	InitVmConfig(true, true)
 	db, _, _, _, snapshot2, _ := prepareDb(big.NewInt(0))
 	blockTime := time.Now()
 
