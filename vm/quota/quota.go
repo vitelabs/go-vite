@@ -4,21 +4,22 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
 )
 
 type quotaDb interface {
-	contracts.StorageDatabase
+	GetStorage(addr *types.Address, key []byte) []byte
+	NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator
 	GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock
 	CurrentSnapshotBlock() *ledger.SnapshotBlock
 	PrevAccountBlock() *ledger.AccountBlock
 	GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock
 }
 
-func GetPledgeQuota(db quotaDb, beneficial types.Address) uint64 {
+func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) uint64 {
 	// TODO cache
-	quotaTotal, _ := CalcQuota(db, beneficial, false)
+	quotaTotal, _ := CalcQuota(db, beneficial, pledgeAmount, false)
 	return quotaTotal
 }
 
@@ -32,11 +33,11 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address) uint64 {
 // user account gets extra quota to send or receive a transaction if calc PoW, extra quota is decided by difficulty
 // contract account only gets quota via pledge
 // user account genesis block(a receive block) must calculate a PoW to get quota
-func CalcQuota(db quotaDb, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
+func CalcQuota(db quotaDb, addr types.Address, pledgeAmount *big.Int, pow bool) (quotaTotal uint64, quotaAddition uint64) {
 	if pow {
-		return CalcQuotaV2(db, addr, DefaultDifficulty)
+		return CalcQuotaV2(db, addr, pledgeAmount, DefaultDifficulty)
 	} else {
-		return CalcQuotaV2(db, addr, helper.Big0)
+		return CalcQuotaV2(db, addr, pledgeAmount, helper.Big0)
 	}
 }
 
@@ -93,76 +94,6 @@ func CalcCreateQuota(fee *big.Int) uint64 {
 	return quotaForCreateContract
 }
 
-func IntrinsicGasCost(data []byte, isCreate bool) (uint64, error) {
-	var gas uint64
-	if isCreate {
-		gas = txContractCreationGas
-	} else {
-		gas = TxGas
-	}
-	gasData, err := DataGasCost(data)
-	if err != nil || helper.MaxUint64-gas < gasData {
-		return 0, errGasUintOverflow
-	}
-	return gas + gasData, nil
-}
-
-func DataGasCost(data []byte) (uint64, error) {
-	var gas uint64
-	if len(data) > 0 {
-		var nonZeroByteCount uint64
-		for _, byteCode := range data {
-			if byteCode != 0 {
-				nonZeroByteCount++
-			}
-		}
-		if helper.MaxUint64/txDataNonZeroGas < nonZeroByteCount {
-			return 0, errGasUintOverflow
-		}
-		gas = nonZeroByteCount * txDataNonZeroGas
-
-		zeroByteCount := uint64(len(data)) - nonZeroByteCount
-		if (helper.MaxUint64-gas)/txDataZeroGas < zeroByteCount {
-			return 0, errGasUintOverflow
-		}
-		gas += zeroByteCount * txDataZeroGas
-	}
-	return gas, nil
-}
-
-func CalcQuotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {
-	if err == ErrOutOfQuota {
-		return quotaTotal - quotaAddition
-	} else if err != nil {
-		if quotaTotal-quotaLeft < quotaAddition {
-			return 0
-		} else {
-			return quotaTotal - quotaAddition - quotaLeft
-		}
-	} else {
-		if quotaTotal-quotaLeft < quotaAddition {
-			return 0
-		} else {
-			return quotaTotal - quotaLeft - quotaAddition - helper.Min(quotaRefund, (quotaTotal-quotaAddition-quotaLeft)/2)
-		}
-	}
-}
-
-func UseQuota(quotaLeft, cost uint64) (uint64, error) {
-	if quotaLeft < cost {
-		return 0, ErrOutOfQuota
-	}
-	quotaLeft = quotaLeft - cost
-	return quotaLeft, nil
-}
-func UseQuotaForData(data []byte, quotaLeft uint64) (uint64, error) {
-	cost, err := DataGasCost(data)
-	if err != nil {
-		return 0, err
-	}
-	return UseQuota(quotaLeft, cost)
-}
-
 func IsPoW(nonce []byte) bool {
 	return len(nonce) > 0
 }
@@ -184,8 +115,7 @@ func calcQuotaInSections(pledgeAmount *big.Int, difficulty *big.Int) uint64 {
 
 var DefaultDifficulty = new(big.Int).SetUint64(0xffffffc000000000)
 
-func CalcQuotaV2(db quotaDb, addr types.Address, difficulty *big.Int) (uint64, uint64) {
-	pledgeAmount := contracts.GetPledgeBeneficialAmount(db, addr)
+func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (uint64, uint64) {
 	isPoW := difficulty.Sign() > 0
 	currentSnapshotHash := db.CurrentSnapshotBlock().Hash
 	prevBlock := db.PrevAccountBlock()

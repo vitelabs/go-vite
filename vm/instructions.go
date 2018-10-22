@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
 
@@ -443,7 +444,7 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *st
 	defer c.intPool.put(memOffset, dataOffset, length, end)
 
 	if end.BitLen() > 64 || uint64(len(c.returnData)) < end.Uint64() {
-		return nil, errReturnDataOutOfBounds
+		return nil, util.ErrReturnDataOutOfBounds
 	}
 	memory.set(memOffset.Uint64(), length.Uint64(), c.returnData[dataOffset.Uint64():end.Uint64()])
 
@@ -631,7 +632,7 @@ func opDelegateCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stac
 	contractAddress, _ := types.BytesToAddress(addr.Bytes())
 	data := memory.get(inOffset.Int64(), inSize.Int64())
 	ret, err := vm.delegateCall(contractAddress, data, c)
-	if err == nil || err == ErrExecutionReverted {
+	if err == nil || err == util.ErrExecutionReverted {
 		memory.set(outOffset.Uint64(), outSize.Uint64(), ret)
 	}
 	if err != nil {
