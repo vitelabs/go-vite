@@ -17,6 +17,7 @@ import (
 var (
 	Vite_JS  = deps.MustAsset("vite.js")
 	Polyfill = deps.MustAsset("polyfill.js")
+	Docs     = deps.MustAsset("docs.js")
 )
 
 /*
