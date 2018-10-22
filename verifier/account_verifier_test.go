@@ -8,18 +8,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/wallet"
+	"os"
+	"path/filepath"
+	"github.com/vitelabs/go-vite/generator"
 )
 
 var (
@@ -48,36 +53,169 @@ func init() {
 	vm.InitVmConfig(isTest)
 }
 
-func PrepareVite() (chain.Chain, *AccountVerifier) {
-	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
-	c.Init()
-	c.Start()
-
-	v := NewAccountVerifier(c, nil)
-	return c, v
+type VitePrepared struct {
+	chain     chain.Chain
+	aVerifier *AccountVerifier
+	wallet    *wallet.Manager
+	onroad    *onroad.Manager
 }
 
+func PrepareVite() *VitePrepared {
+	dataDir := filepath.Join(common.HomeDir(), "testvite")
+	fmt.Printf("----dataDir:%+v\n", dataDir)
+	os.RemoveAll(filepath.Join(common.HomeDir(), "ledger"))
+
+	c := chain.NewChain(&config.Config{DataDir: dataDir})
+
+	v := NewAccountVerifier(c, nil)
+	w := wallet.New(&wallet.Config{DataDir: dataDir})
+	or := onroad.NewManager(nil, nil, nil, w)
+
+	c.Init()
+	or.Init(c)
+	c.Start()
+
+	//p := pool.NewPool(c)
+	//p.Init(&pool.MockSyncer{}, w, nil, v)
+	//p.Start()
+	return &VitePrepared{
+		chain:     c,
+		aVerifier: v,
+		wallet:    w,
+		onroad:    or,
+	}
+}
+
+//type AddPoolDirect func(address types.Address, vmAccountBlock *vm_context.VmAccountBlock) error
+type AddChainDierct func(vmAccountBlocks []*vm_context.VmAccountBlock) error
+
 func TestAccountVerifier_VerifyforRPC(t *testing.T) {
-	c, v := PrepareVite()
+	v := PrepareVite()
+	if err := verifiyRpcFlow(v, v.chain.InsertAccountBlocks); err != nil {
+		t.Error("error", err)
+	}
+}
+
+func verifiyRpcFlow(vite *VitePrepared, addFunc AddChainDierct) error {
+	caseTypeList := []byte{1, 2}
+Loop:
+	for _, caseType := range caseTypeList {
+		var blocks []*ledger.AccountBlock
+		var err error
+		switch caseType {
+		case 0:
+			err = GenesisReceiveMintage(vite, addFunc)
+			if err == nil {
+				// wait next snapshotBlock
+				continue
+			}
+		case 1:
+			blocks, err = createRPCTransferBlockS(vite)
+		case 2:
+			blocks, err = createRPCTransferBlocksR(vite)
+		case 3:
+			blocks, err = createRPCBlockCallContarct(vite)
+		case 4:
+			// blocks, err = createRPCBlockCreateContarct(c)
+		default:
+			break Loop
+		}
+		if err != nil {
+			return err
+		}
+		if len(blocks) <= 0 {
+			return errors.New("createBlock failed")
+		}
+		for _, b := range blocks {
+			vBlocks, err := vite.aVerifier.VerifyforRPC(b)
+			if err != nil {
+				return err
+			}
+			if len(vBlocks) > 0 && vBlocks[0] != nil {
+				fmt.Printf("blocks[0] balance:%+v,tokenId:%+v\n", vBlocks[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
+				if addFunc != nil {
+					if err := addFunc(vBlocks); err != nil {
+						return errors.New("addFunc failed," + err.Error())
+					}
+					if caseType == 1 || caseType == 3 {
+						if err := vite.onroad.GetOnroadBlocksPool().WriteOnroad(nil, vBlocks); err != nil {
+							return errors.New("WriteOnroad failed")
+						}
+						fmt.Println("addOnroad success")
+					}
+					fmt.Println("addFunc success")
+				}
+			} else {
+				return errors.New("generator gen an empty block")
+			}
+		}
+	}
+	return nil
+}
+
+func GenesisReceiveMintage(vite *VitePrepared, addFunc AddChainDierct) error {
+	sendBlock, err := vite.chain.GetLatestAccountBlock(&contracts.AddressMintage)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("mintageSend Hash:%+v\n:, toAddress:%+v\n", sendBlock.Hash, sendBlock.ToAddress)
 
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
-	fromBlock, err := c.GetLatestAccountBlock(&contracts.AddressMintage)
+
+	gen, err := generator.NewGenerator(vite.chain, nil, nil, &sendBlock.ToAddress)
 	if err != nil {
-		t.Error(err)
-		return
+		return err
+	}
+	genResult, err := gen.GenerateWithOnroad(*sendBlock, nil, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+		return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
+	}, nil)
+	if err != nil {
+		return err
+	}
+
+	blocks := genResult.BlockGenList
+	if len(blocks) > 0 && blocks[0] != nil {
+		if addFunc != nil {
+			if err := addFunc(blocks); err != nil {
+				return errors.New("addFunc failed," + err.Error())
+			}
+			if err := vite.onroad.GetOnroadBlocksPool().WriteOnroad(nil, blocks); err != nil {
+				return errors.New("WriteOnroad failed")
+			}
+			fmt.Println("addFunc success")
+		}
+	} else {
+		return errors.New("generator gen an empty block")
+	}
+	return nil
+}
+
+func createRPCTransferBlockS(vite *VitePrepared) ([]*ledger.AccountBlock, error) {
+	var blocks []*ledger.AccountBlock
+	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
+	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
+	latestSb := vite.chain.GetLatestSnapshotBlock()
+	latestAb, err := vite.chain.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
+	if latestAb == nil {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("sendBlock's AccountAddress doesn't exist")
 	}
 	block := &ledger.AccountBlock{
-		Height:         1,
+		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: ledger.GenesisAccountAddress,
-		FromBlockHash:  fromBlock.Hash,
-		BlockType:      ledger.BlockTypeReceive,
-		Fee:            big.NewInt(0),
-		Amount:         big.NewInt(0),
-		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   c.GetLatestSnapshotBlock().Hash,
-		Timestamp:      c.GetLatestSnapshotBlock().Timestamp,
 		PublicKey:      genesisAccountPubKey,
+		ToAddress:      addr1,
+		Height:         latestAb.Height + 1,
+		PrevHash:       latestAb.Hash,
+
+		Fee:          big.NewInt(0),
+		Amount:       big.NewInt(10),
+		TokenId:      ledger.ViteTokenId,
+		SnapshotHash: latestSb.Hash,
+		Timestamp:    latestSb.Timestamp,
 	}
 
 	nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
@@ -85,45 +223,89 @@ func TestAccountVerifier_VerifyforRPC(t *testing.T) {
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
-	blocks, err := v.VerifyforRPC(block)
-	t.Log(block, err)
-
-	t.Log(blocks[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
+	blocks = append(blocks, block)
+	return blocks, nil
 }
 
-func TestAccountVerifier_VerifyforRPC_SendCallContract(t *testing.T) {
-	c, v := PrepareVite()
+func createRPCTransferBlocksR(vite *VitePrepared) ([]*ledger.AccountBlock, error) {
+	var receiveBlocks []*ledger.AccountBlock
+	sBlocks, err := vite.onroad.DbAccess().GetAllOnroadBlocks(addr1)
+	if err != nil {
+		return nil, err
+	}
+	if len(sBlocks) <= 0 {
+		return nil, nil
+	}
+	for _, v := range sBlocks {
+		latestSb := vite.chain.GetLatestSnapshotBlock()
+		latestAb, err := vite.chain.GetLatestAccountBlock(&addr1)
+		height := uint64(1)
+		preHash := types.ZERO_HASH
+		if latestAb == nil {
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			height = latestAb.Height + 1
+			preHash = latestAb.Hash
+		}
+		block := &ledger.AccountBlock{
+			BlockType:      ledger.BlockTypeReceive,
+			AccountAddress: addr1,
+			PublicKey:      addr1PubKey,
+			FromBlockHash:  v.Hash,
+			Height:         height,
+			PrevHash:       preHash,
+
+			Fee:          big.NewInt(0),
+			Amount:       v.Amount,
+			TokenId:      v.TokenId,
+			SnapshotHash: latestSb.Hash,
+			Timestamp:    latestSb.Timestamp,
+		}
+
+		nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+		block.Nonce = nonce[:]
+		block.Hash = block.ComputeHash()
+		block.Signature = ed25519.Sign(addr1PrivKey, block.Hash.Bytes())
+		receiveBlocks = append(receiveBlocks, block)
+	}
+	return receiveBlocks, nil
+}
+
+func createRPCBlockCallContarct(vite *VitePrepared) ([]*ledger.AccountBlock, error) {
+	var blocks []*ledger.AccountBlock
 
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-	latestSnapshotBlock := c.GetLatestSnapshotBlock()
+	// call MethodNamePledge
 	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr1)
+	latestSb := vite.chain.GetLatestSnapshotBlock()
+	latestAb, err := vite.chain.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
+	if latestAb == nil {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("sendBlock's AccountAddress doesn't exist")
+	}
 
+	fmt.Printf("latest genesisAccountBlock height：%d, preHash:%+v\n", latestAb.Height, latestAb.PrevHash)
 	block := &ledger.AccountBlock{
-		AccountAddress: ledger.GenesisAccountAddress,
+
 		BlockType:      ledger.BlockTypeSendCall,
+		AccountAddress: ledger.GenesisAccountAddress,
+		PublicKey:      genesisAccountPubKey,
 		ToAddress:      contracts.AddressPledge,
 		Amount:         pledgeAmount,
 		TokenId:        ledger.ViteTokenId,
-		Fee:            big.NewInt(0),
-		Data:           pledgeData,
-		SnapshotHash:   latestSnapshotBlock.Hash,
-		Timestamp:      latestSnapshotBlock.Timestamp,
-		PublicKey:      genesisAccountPubKey,
-	}
 
-	latestAccountBlock, err := c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if latestAccountBlock != nil {
-		block.Height = latestAccountBlock.Height + 1
-		block.PrevHash = latestAccountBlock.Hash
-	} else {
-		block.Height = 1
-		block.PrevHash = types.ZERO_HASH
+		Height:       latestAb.Height + 1,
+		PrevHash:     latestAb.Hash,
+		Data:         pledgeData,
+		Fee:          big.NewInt(0),
+		SnapshotHash: latestSb.Hash,
+		Timestamp:    latestSb.Timestamp,
 	}
 
 	//nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
@@ -131,24 +313,24 @@ func TestAccountVerifier_VerifyforRPC_SendCallContract(t *testing.T) {
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
-	verifyResult1, err := v.VerifyforRPC(block)
-	if err != nil {
-		t.Error("AddrGenesisSendPledge", err)
-		return
-	}
-	t.Log("AddrGenesisSendPledge result", verifyResult1)
-	t.Log(verifyResult1[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
+	blocks = append(blocks, block)
+	return blocks, nil
+}
+
+func createRPCBlockCreateContarct(c chain.Chain) ([]*ledger.AccountBlock, error) {
+	return nil, nil
 }
 
 func TestAccountVerifier_VerifyforP2P(t *testing.T) {
-	c, v := PrepareVite()
+	v := PrepareVite()
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
-	fromBlock, err := c.GetLatestAccountBlock(&contracts.AddressMintage)
+	fromBlock, err := v.chain.GetLatestAccountBlock(&contracts.AddressMintage)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	latestSb := v.chain.GetLatestSnapshotBlock()
 	block := &ledger.AccountBlock{
 		Height:         1,
 		AccountAddress: ledger.GenesisAccountAddress,
@@ -157,8 +339,8 @@ func TestAccountVerifier_VerifyforP2P(t *testing.T) {
 		Fee:            big.NewInt(0),
 		Amount:         big.NewInt(0),
 		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   c.GetLatestSnapshotBlock().Hash,
-		Timestamp:      c.GetLatestSnapshotBlock().Timestamp,
+		SnapshotHash:   latestSb.Hash,
+		Timestamp:      latestSb.Timestamp,
 		PublicKey:      genesisAccountPubKey,
 	}
 
@@ -169,112 +351,8 @@ func TestAccountVerifier_VerifyforP2P(t *testing.T) {
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
-	isTrue := v.VerifyNetAb(block)
+	isTrue := v.aVerifier.VerifyNetAb(block)
 	t.Log("VerifyforP2P:", isTrue)
-}
-
-func TestAccountVerifierFlow(t *testing.T) {
-	c, v := PrepareVite()
-
-	// AddressGenesis Receive MintageSend need pow
-	mintageSend, err := c.GetLatestAccountBlock(&contracts.AddressMintage)
-	if err != nil {
-		t.Error("GetLatestAccountBlock", err)
-		return
-	}
-	t.Log("mintageSend:", mintageSend)
-	genResult1, err := AddrGenesisReceiveMintage(c, v, mintageSend)
-	if err != nil {
-		t.Error("AddrGenesisReceiveMintage", err)
-		return
-	}
-	t.Log("AddrGenesisReceiveMintage result", genResult1)
-
-	// todo CreateNewSnapshotBlock
-
-	// AddressGenesis sendCall PledgeAddress, need pow
-	verifyResult1, err := AddrGenesisSendPledge(c, v)
-	if err != nil {
-		t.Error("AddrGenesisSendPledge", err)
-		return
-	}
-	t.Log("AddrGenesisSendPledge result", verifyResult1)
-	t.Log(verifyResult1[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
-
-	// PledgeAddress receive call
-	pledgeSend := verifyResult1[0].AccountBlock
-	genResult2, err := AddrPledgeReceive(c, v, pledgeSend)
-	if err != nil {
-		t.Error("AddrGenesisSendPledge", err)
-		return
-	}
-	t.Log("AddrPledgeReceive result", genResult2)
-
-	// test Add1SendAddr2
-	verifyResult2, err := Add1SendAddr2(c, v)
-	if err != nil {
-		t.Error("AddrGenesisSendPledge", err)
-		return
-	}
-	t.Log("Add1SendAddr2 result:", verifyResult2)
-}
-
-func AddrGenesisReceiveMintage(c chain.Chain, v *AccountVerifier, sendBlock *ledger.AccountBlock) (*generator.GenResult, error) {
-	preAccountBlock, err := c.GetLatestAccountBlock(&sendBlock.ToAddress)
-	if err != nil {
-		return nil, err
-	}
-	var preHash *types.Hash
-	if preAccountBlock != nil {
-		preHash = &preAccountBlock.Hash
-	}
-	referredSnapshotBlock := c.GetLatestSnapshotBlock()
-	gen, err := generator.NewGenerator(v.chain, &referredSnapshotBlock.Hash, preHash, &sendBlock.ToAddress)
-	if err != nil {
-		return nil, err
-	}
-	return gen.GenerateWithOnroad(*sendBlock, nil, nil)
-}
-
-func AddrGenesisSendPledge(c chain.Chain, v *AccountVerifier) (blocks []*vm_context.VmAccountBlock, err error) {
-
-	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
-	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
-
-	latestSnapshotBlock := c.GetLatestSnapshotBlock()
-	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr1)
-
-	block := &ledger.AccountBlock{
-		AccountAddress: ledger.GenesisAccountAddress,
-		BlockType:      ledger.BlockTypeSendCall,
-		ToAddress:      contracts.AddressPledge,
-		Amount:         pledgeAmount,
-		TokenId:        ledger.ViteTokenId,
-		Fee:            big.NewInt(0),
-		Data:           pledgeData,
-		SnapshotHash:   latestSnapshotBlock.Hash,
-		Timestamp:      latestSnapshotBlock.Timestamp,
-		PublicKey:      genesisAccountPubKey,
-	}
-
-	latestAccountBlock, err := c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
-	if err != nil {
-		return nil, err
-	}
-	if latestAccountBlock != nil {
-		block.Height = latestAccountBlock.Height + 1
-		block.PrevHash = latestAccountBlock.Hash
-	} else {
-		block.Height = 1
-		block.PrevHash = types.ZERO_HASH
-	}
-
-	//nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
-	//block.Nonce = nonce[:]
-	block.Hash = block.ComputeHash()
-	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
-
-	return v.VerifyforRPC(block)
 }
 
 func AddrPledgeReceive(c chain.Chain, v *AccountVerifier, sendBlock *ledger.AccountBlock) (*generator.GenResult, error) {
@@ -296,11 +374,10 @@ func AddrPledgeReceive(c chain.Chain, v *AccountVerifier, sendBlock *ledger.Acco
 
 	return gen.GenerateWithOnroad(*sendBlock, consensusMessage, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		return ed25519.Sign(producerPrivKey, data), producerPubKey, nil
-	})
+	}, nil)
 }
 
 func Add1SendAddr2(c chain.Chain, v *AccountVerifier) (blocks []*vm_context.VmAccountBlock, err error) {
-
 	latestSnapshotBlock := c.GetLatestSnapshotBlock()
 	block := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeSendCall,
@@ -333,7 +410,7 @@ func Add1SendAddr2(c chain.Chain, v *AccountVerifier) (blocks []*vm_context.VmAc
 }
 
 func TestAccountVerifier_VerifyDataValidity(t *testing.T) {
-	_, v := PrepareVite()
+	v := PrepareVite()
 	ts := time.Now()
 	block1 := &ledger.AccountBlock{
 		Amount:    nil,
@@ -341,7 +418,7 @@ func TestAccountVerifier_VerifyDataValidity(t *testing.T) {
 		Hash:      types.Hash{},
 		Timestamp: &ts,
 	}
-	t.Log(v.VerifyDataValidity(block1), block1.Amount.String(), block1.Fee.String())
+	t.Log(v.aVerifier.VerifyDataValidity(block1), block1.Amount.String(), block1.Fee.String())
 
 	// verifyHash
 	block2 := &ledger.AccountBlock{
@@ -353,7 +430,7 @@ func TestAccountVerifier_VerifyDataValidity(t *testing.T) {
 		Signature:      nil,
 		PublicKey:      nil,
 	}
-	t.Log(v.VerifyDataValidity(block1), block2.Amount.String(), block2.Fee.String())
+	t.Log(v.aVerifier.VerifyDataValidity(block1), block2.Amount.String(), block2.Fee.String())
 
 	// verifySig
 	return

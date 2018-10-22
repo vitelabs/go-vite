@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+var defaultDifficulty = new(big.Int).SetUint64(pow.FullThreshold)
+
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
 type Generator struct {
@@ -32,6 +34,7 @@ func NewGenerator(chain vm_context.Chain, snapshotBlockHash, prevBlockHash *type
 	gen := &Generator{
 		log: log15.New("module", "Generator"),
 	}
+
 	vmContext, err := vm_context.NewVmContext(chain, snapshotBlockHash, prevBlockHash, addr)
 	if err != nil {
 		return nil, err
@@ -54,7 +57,8 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 			return nil, errors.New("FromBlockHash can't be nil when create ReceiveBlock")
 		}
 		sendBlock := gen.vmContext.GetAccountBlockByHash(message.FromBlockHash)
-		genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc)
+		//genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc, message.Difficulty)
+		genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc, nil)
 	default:
 		block, err := gen.packSendBlockWithMessage(message)
 		if err != nil {
@@ -68,14 +72,17 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 	return genResult, nil
 }
 
-func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensusMsg *ConsensusMessage, signFunc SignFunc) (*GenResult, error) {
+func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensusMsg *ConsensusMessage, signFunc SignFunc, difficulty *big.Int) (*GenResult, error) {
 	var producer types.Address
 	if consensusMsg == nil {
 		producer = sendBlock.ToAddress
 	} else {
 		producer = consensusMsg.Producer
 	}
-	block, err := gen.packBlockWithSendBlock(&sendBlock, consensusMsg)
+
+	// currently, default mode of GenerateWithOnroad is to calc pow
+	difficulty = defaultDifficulty
+	block, err := gen.packBlockWithSendBlock(&sendBlock, consensusMsg, difficulty)
 	if err != nil {
 		return nil, err
 	}
@@ -148,6 +155,12 @@ func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockP
 		blockPacked.Height = latestBlock.Height + 1
 		blockPacked.PrevHash = latestBlock.Hash
 	}
+
+	if message.Difficulty != nil {
+		nonce := pow.GetPowNonce(message.Difficulty, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
+		blockPacked.Nonce = nonce[:]
+	}
+
 	latestSnapshotBlock := gen.vmContext.CurrentSnapshotBlock()
 	blockPacked.SnapshotHash = latestSnapshotBlock.Hash
 	st := time.Now()
@@ -156,7 +169,7 @@ func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockP
 	return blockPacked, nil
 }
 
-func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, consensusMsg *ConsensusMessage) (blockPacked *ledger.AccountBlock, err error) {
+func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, consensusMsg *ConsensusMessage, difficulty *big.Int) (blockPacked *ledger.AccountBlock, err error) {
 	gen.log.Info("PackReceiveBlock", "sendBlock.Hash", sendBlock.Hash, "sendBlock.To", sendBlock.ToAddress)
 
 	blockPacked = &ledger.AccountBlock{
@@ -199,8 +212,8 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 		if snapshotBlock == nil {
 			return nil, errors.New("CurrentSnapshotBlock can't be nil")
 		}
-		if snapshotBlock.Height > preBlockReferredSbHeight {
-			nonce := pow.GetPowNonce(nil, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
+		if snapshotBlock.Height > preBlockReferredSbHeight && difficulty != nil {
+			nonce := pow.GetPowNonce(difficulty, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
 			blockPacked.Nonce = nonce[:]
 		}
 		blockPacked.SnapshotHash = snapshotBlock.Hash

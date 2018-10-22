@@ -2,22 +2,27 @@ package generator
 
 import (
 	"flag"
+	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
 var (
 	genesisAccountPrivKeyStr string
-	addr1, _, _              = types.CreateAddress()
+	addr1, privKey1, _       = types.CreateAddress()
+	addr1PrivKey, _          = ed25519.HexToPrivateKey(privKey1.Hex())
+	addr1PubKey              = addr1PrivKey.PubByte()
+	addr2, _, _              = types.CreateAddress()
 
 	attovPerVite = big.NewInt(1e18)
 	pledgeAmount = new(big.Int).Mul(big.NewInt(10), attovPerVite)
@@ -32,34 +37,44 @@ func init() {
 	vm.InitVmConfig(isTest)
 }
 
-func PrepareVite() chain.Chain {
-	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
+type VitePrepared struct {
+	chain chain.Chain
+}
+
+func PrepareVite() *VitePrepared {
+	dataDir := filepath.Join(common.HomeDir(), "testvite")
+	fmt.Printf("----dataDir:%+v\n", dataDir)
+	os.RemoveAll(filepath.Join(common.HomeDir(), "ledger"))
+
+	c := chain.NewChain(&config.Config{DataDir: dataDir})
 	c.Init()
 	c.Start()
 
-	return c
+	return &VitePrepared{
+		chain: c,
+	}
 }
 
 func TestGenerator_GenerateWithOnroad(t *testing.T) {
-	c := PrepareVite()
+	v := PrepareVite()
 
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-	fromBlock, err := c.GetLatestAccountBlock(&contracts.AddressMintage)
+	fromBlock, err := v.chain.GetLatestAccountBlock(&contracts.AddressMintage)
 	if err != nil {
 		t.Error("GetLatestAccountBlock", err)
 		return
 	}
 
-	gen, err := NewGenerator(c, nil, nil, &fromBlock.ToAddress)
+	gen, err := NewGenerator(v.chain, nil, nil, &fromBlock.ToAddress)
 	if err != nil {
 		t.Error(err)
 	}
 	genResult, err := gen.GenerateWithOnroad(*fromBlock, nil,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
-		})
+		}, nil)
 	if err != nil {
 		t.Error("GenerateWithOnroad", err)
 		return
@@ -92,87 +107,85 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 }
 
 func TestGenerator_GenerateWithMessage_CallTransfer(t *testing.T) {
-	c := PrepareVite()
+	v := PrepareVite()
 
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-	message := &IncomingMessage{
-		BlockType:      ledger.BlockTypeSendCall,
-		AccountAddress: ledger.GenesisAccountAddress,
-		ToAddress:      &addr1,
-		FromBlockHash:  nil,
-		TokenId:        &ledger.ViteTokenId,
-		Amount:         big.NewInt(10),
-		Fee:            nil,
-		Data:           nil,
-	}
-
-	preBlock, err := c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
-	if err != nil {
-		t.Error("GetLatestAccountBlock", err)
-		return
-	}
-	var preHash *types.Hash
-	if preBlock != nil {
-		preHash = &preBlock.Hash
-		nonce := pow.GetPowNonce(nil, types.DataListHash(ledger.GenesisAccountAddress.Bytes(), preHash.Bytes()))
-		message.Nonce = nonce[:]
-	} else {
-		nonce := pow.GetPowNonce(nil, types.DataListHash(ledger.GenesisAccountAddress.Bytes(), types.ZERO_HASH.Bytes()))
-		message.Nonce = nonce[:]
-	}
-
-	gen, err := NewGenerator(c, nil, preHash, &message.AccountAddress)
-	if err != nil {
+	if err := callTransfer(v, &ledger.GenesisAccountAddress, &addr1, genesisAccountPrivKey, genesisAccountPubKey, defaultDifficulty); err != nil {
 		t.Error(err)
 		return
 	}
-
-	genResult, err := gen.GenerateWithMessage(message, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-		return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
-	})
-	if err != nil {
-		t.Error("GenerateWithMessage err", err)
+	if err := callTransfer(v, &addr1, &addr2, addr1PrivKey, addr1PubKey, defaultDifficulty); err != nil {
+		t.Error(err)
 		return
 	}
-	t.Log("genResult", genResult)
 }
 
 func TestGenerator_GenerateWithMessage_CallCompiledContract(t *testing.T) {
-	c := PrepareVite()
+	v := PrepareVite()
+	if err := createRPCBlockCallPledgeContarct(v, &addr1); err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func createRPCBlockCallPledgeContarct(vite *VitePrepared, addr *types.Address) error {
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
-	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr1)
+
+	// call MethodNamePledge
+	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr)
 
 	im := &IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: ledger.GenesisAccountAddress,
 		ToAddress:      &contracts.AddressPledge,
-		FromBlockHash:  nil,
-		TokenId:        &ledger.ViteTokenId,
 		Amount:         pledgeAmount,
-		Fee:            nil,
-		Nonce:          nil,
+		TokenId:        &ledger.ViteTokenId,
 		Data:           pledgeData,
 	}
 
-	gen, err := NewGenerator(c, nil, nil, &im.AccountAddress)
+	gen, err := NewGenerator(vite.chain, nil, nil, &im.AccountAddress)
 	if err != nil {
-		t.Error(err)
-		return
+		return err
 	}
 
 	genResult, err := gen.GenerateWithMessage(im, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
 	})
 	if err != nil {
-		t.Error("GenerateWithMessage err", err)
-		return
+		return err
 	}
-	t.Log("genResult", genResult)
+	fmt.Printf("blocks[0] balance:%+v,tokenId:%+v\n", genResult.BlockGenList[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
+	return nil
 }
 
-func TestGenerator_GenerateWithBlock(t *testing.T) {
+func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address, fromAddrPrivKey ed25519.PrivateKey, fromAddrPubKey []byte, difficulty *big.Int) error {
+	im := &IncomingMessage{
+		BlockType:      ledger.BlockTypeSendCall,
+		AccountAddress: *fromAddr,
+		ToAddress:      toAddr,
+		Amount:         big.NewInt(10),
+		TokenId:        &ledger.ViteTokenId,
+		Difficulty:     difficulty,
+	}
 
+	gen, err := NewGenerator(vite.chain, nil, nil, &im.AccountAddress)
+	if err != nil {
+		return err
+	}
+
+	genResult, err := gen.GenerateWithMessage(im, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+		return ed25519.Sign(fromAddrPrivKey, data), fromAddrPubKey, nil
+	})
+	if err != nil {
+		return err
+	}
+	if genResult.Err != nil {
+		fmt.Printf("genResult.Err:%v\n", genResult.Err)
+	}
+	//fmt.Printf("genResult.BlockGenList:%v\n", genResult.BlockGenList)
+	fmt.Printf("blocks[0] balance:%+v,tokenId:%+v\n", genResult.BlockGenList[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
+	return nil
 }
