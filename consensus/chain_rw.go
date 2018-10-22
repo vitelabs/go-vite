@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"math/big"
-
 	"time"
 
 	"github.com/pkg/errors"
