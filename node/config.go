@@ -60,7 +60,8 @@ type Config struct {
 	TestTokenHexPrivKey string   `json:"TestTokenHexPrivKey"`
 
 	//Log level
-	LogLevel string `json:"LogLevel"`
+	LogLevel    string `json:"LogLevel"`
+	ErrorLogDir string `json:"ErrorLogDir"`
 
 	//VM
 	VMTestEnabled bool `json:"VMTestEnabled"`
@@ -224,6 +225,20 @@ func (c *Config) RunLogFile() (string, error) {
 		return "", err
 	}
 	return filepath.Join(c.RunLogDir(), filename), nil
+
+}
+
+func (c *Config) RunErrorLogFile() (string, error) {
+
+	if c.ErrorLogDir == "" {
+		c.ErrorLogDir = c.RunLogDir()
+	}
+
+	filename := time.Now().Format("2006-01-02") + ".error.log"
+	if err := os.MkdirAll(c.ErrorLogDir, 0777); err != nil {
+		return "", err
+	}
+	return filepath.Join(c.ErrorLogDir, filename), nil
 
 }
 
