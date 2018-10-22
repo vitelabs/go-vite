@@ -237,7 +237,7 @@ func TestContractsRegisterRun(t *testing.T) {
 
 	// reward
 	time6 := time.Unix(timestamp+4, 0)
-	snapshot6 := &ledger.SnapshotBlock{Height: snapshot5.Height + rewardHeightLimit, Timestamp: &time6, Hash: types.DataHash([]byte{10, byte(6)})}
+	snapshot6 := &ledger.SnapshotBlock{Height: snapshot5.Height + nodeConfig.params.RewardHeightLimit, Timestamp: &time6, Hash: types.DataHash([]byte{10, byte(6)})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot6)
 	db.storageMap[contracts.AddressPledge][string(types.DataHash(addr1.Bytes()).Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
 	db.storageMap[contracts.AddressPledge][string(contracts.GetPledgeBeneficialKey(addr7))], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
@@ -262,7 +262,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	sendRewardBlockList, isRetry, err := vm.Run(db, block17, nil)
 	block17DataGas, _ := quota.DataGasCost(sendRewardBlockList[0].AccountBlock.Data)
 	reward := new(big.Int).Mul(big.NewInt(2), rewardPerBlock)
-	block17DataExpected, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, nodeName, addr7, snapshot6.Height-rewardHeightLimit, snapshot2.Height, reward)
+	block17DataExpected, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, nodeName, addr7, snapshot6.Height-nodeConfig.params.RewardHeightLimit, snapshot2.Height, reward)
 	if len(sendRewardBlockList) != 1 || isRetry || err != nil ||
 		sendRewardBlockList[0].AccountBlock.Quota != block17DataGas+rewardGas+calcRewardGasPerPage*778 ||
 		!bytes.Equal(sendRewardBlockList[0].AccountBlock.Data, block17DataExpected) {
@@ -539,7 +539,7 @@ func TestContractsPledge(t *testing.T) {
 	receivePledgeBlockList, isRetry, err := vm.Run(db, block51, sendPledgeBlockList[0].AccountBlock)
 	beneficialKey := contracts.GetPledgeBeneficialKey(addr4)
 	pledgeKey := contracts.GetPledgeKey(addr1, beneficialKey)
-	withdrawHeight := snapshot2.Height + minPledgeHeight
+	withdrawHeight := snapshot2.Height + nodeConfig.params.MinPledgeHeight
 	if len(receivePledgeBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr5][string(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize))) ||
 		!bytes.Equal(db.storageMap[addr5][string(beneficialKey)], helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize)) ||
@@ -612,7 +612,7 @@ func TestContractsPledge(t *testing.T) {
 	}
 
 	// cancel pledge
-	for i := uint64(1); i <= uint64(minPledgeHeight); i++ {
+	for i := uint64(1); i <= uint64(nodeConfig.params.MinPledgeHeight); i++ {
 		timei := time.Unix(timestamp+100+int64(i), 0)
 		snapshoti := &ledger.SnapshotBlock{Height: 2 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(2 + i)})}
 		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
@@ -844,7 +844,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 		[]byte{},
 		addr1,
 		createConsensusGroupPledgeAmount,
-		snapshot2.Height+createConsensusGroupPledgeHeight)
+		snapshot2.Height+nodeConfig.params.CreateConsensusGroupPledgeHeight)
 	if len(receiveCreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(createConsensusGroupPledgeAmount) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][string(locHash.Bytes())], groupInfo) ||
@@ -865,7 +865,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 	}
 
 	// cancel consensus group
-	for i := uint64(1); i <= uint64(createConsensusGroupPledgeHeight); i++ {
+	for i := uint64(1); i <= uint64(nodeConfig.params.CreateConsensusGroupPledgeHeight); i++ {
 		timei := time.Unix(timestamp+2+int64(i), 0)
 		snapshoti := &ledger.SnapshotBlock{Height: 2 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(2 + i)})}
 		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
@@ -1024,7 +1024,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 		[]byte{},
 		addr1,
 		createConsensusGroupPledgeAmount,
-		newSnapshot.Height+createConsensusGroupPledgeHeight)
+		newSnapshot.Height+nodeConfig.params.CreateConsensusGroupPledgeHeight)
 	if len(receiveRecreateConsensusGroupBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(createConsensusGroupPledgeAmount) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][string(locHash.Bytes())], groupInfo) ||

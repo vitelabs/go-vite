@@ -150,6 +150,10 @@ var (
 		Name:  "vmtest",
 		Usage: "Enable the Vm Test ",
 	}
+	VMTestParamFlag = cli.BoolFlag{
+		Name:  "vmtestparam",
+		Usage: "Enable the Vm Test params ",
+	}
 
 	//Net
 	SingleFlag = cli.BoolFlag{

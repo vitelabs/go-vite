@@ -89,7 +89,7 @@ func main() {
 			Single: true,
 		},
 		Producer: &config.Producer{},
-		Vm:       &config.Vm{IsVmTest: true},
+		Vm:       &config.Vm{IsVmTest: true, IsUseVmTestParam: true},
 	}
 	vite, _ := vite2.New(cfg, wallet.New(&wallet.Config{
 		DataDir: dataDir,
