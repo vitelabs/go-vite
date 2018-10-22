@@ -640,7 +640,7 @@ func (self *pool) listUnlockedAddr() []types.Address {
 		return todoAddress
 	}
 	for k, v := range status {
-		if v == keystore.Locked {
+		if v == keystore.UnLocked {
 			todoAddress = append(todoAddress, k)
 		}
 	}
