@@ -90,6 +90,7 @@ var (
 	//VM
 	vmFlags = []cli.Flag{
 		utils.VMTestFlag,
+		utils.VMTestParamFlag,
 	}
 
 	//Net
