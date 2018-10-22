@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/block"
+	"github.com/vitelabs/go-vite/p2p/network"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -41,6 +42,7 @@ type Config struct {
 	BootNodes []*Node
 	Addr      *net.UDPAddr
 	Self      *Node
+	NetID     network.ID
 }
 
 type Discovery struct {

@@ -9,51 +9,6 @@ import (
 	"time"
 )
 
-// @section NetworkID
-type NetworkID uint64
-
-const (
-	MainNet NetworkID = iota + 1
-	TestNet
-	Aquarius
-	Pisces
-	Aries
-	Taurus
-	Gemini
-	Cancer
-	Leo
-	Virgo
-	Libra
-	Scorpio
-	Sagittarius
-	Capricorn
-)
-
-var network = [...]string{
-	MainNet:     "MainNet",
-	TestNet:     "TestNet",
-	Aquarius:    "Aquarius",
-	Pisces:      "Pisces",
-	Aries:       "Aries",
-	Taurus:      "Taurus",
-	Gemini:      "Gemini",
-	Cancer:      "Cancer",
-	Leo:         "Leo",
-	Virgo:       "Virgo",
-	Libra:       "Libra",
-	Scorpio:     "Scorpio",
-	Sagittarius: "Sagittarius",
-	Capricorn:   "Capricorn",
-}
-
-func (i NetworkID) String() string {
-	if i >= MainNet && i <= Capricorn {
-		return network[i]
-	}
-
-	return "Unknown"
-}
-
 // @section connFlag
 type connFlag int
 

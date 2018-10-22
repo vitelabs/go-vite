@@ -4,6 +4,7 @@ import (
 	crand "crypto/rand"
 	"encoding/binary"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p/network"
 	mrand "math/rand"
 	"sort"
 	"sync"
@@ -188,6 +189,7 @@ type table struct {
 	buckets []*bucket
 	self    NodeID
 	rand    *mrand.Rand
+	netId   network.ID
 }
 
 func newTable(self NodeID, bucketCount int) *table {
@@ -290,56 +292,16 @@ func (tab *table) addNode(node *Node) *Node {
 		return nil
 	}
 
+	if node.Net != tab.netId {
+		return nil
+	}
+
 	tab.lock.Lock()
 	defer tab.lock.Unlock()
 
 	node.addAt = time.Now()
 	bucket := tab.getBucket(node.ID)
 	return bucket.add(node)
-}
-
-// if bucket is full, then we nil ping-pong check the oldest node
-func (tab *table) mustAddNode(node *Node, check func(*Node) bool) {
-	toChecked := tab.addNode(node)
-	if toChecked != nil && check != nil {
-		// check the old node failed, then replace it
-		if !check(toChecked) {
-			tab.lock.Lock()
-			defer tab.lock.Unlock()
-			node.addAt = time.Now()
-			tab.replaceNode(toChecked, node)
-		}
-	}
-}
-
-func (tab *table) replaceNode(old, new *Node) {
-	if old == nil || new == nil {
-		return
-	}
-
-	tab.lock.Lock()
-	defer tab.lock.Unlock()
-
-	new.addAt = time.Now()
-	bucket := tab.getBucket(old.ID)
-	bucket.replace(old, new)
-}
-
-func (tab *table) updateNode(node *Node) {
-	if node == nil {
-		return
-	}
-
-	tab.lock.Lock()
-	defer tab.lock.Unlock()
-
-	bucket := tab.getBucket(node.ID)
-	old := bucket.node(node.ID)
-
-	if old != nil {
-		node.addAt = old.addAt
-		bucket.replace(node, node)
-	}
 }
 
 func (tab *table) addNodes(nodes []*Node) {
