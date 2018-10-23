@@ -2,6 +2,7 @@ package vm
 
 import (
 	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
 
@@ -36,37 +37,7 @@ const (
 	// callCreateDepth          uint64 = 1024    // Maximum Depth of call/create stack.
 	stackLimit uint64 = 1024 // Maximum size of VM stack allowed.
 
-	// precompiled contract gas
-	registerGas               uint64 = 62200
-	updateRegistrationGas     uint64 = 62200
-	cancelRegisterGas         uint64 = 83200
-	rewardGas                 uint64 = 83200
-	calcRewardGasPerPage      uint64 = 200
-	maxRewardCount            uint64 = 150000000
-	voteGas                   uint64 = 62000
-	cancelVoteGas             uint64 = 62000
-	pledgeGas                 uint64 = 21000
-	cancelPledgeGas           uint64 = 103400
-	createConsensusGroupGas   uint64 = 62200
-	cancelConsensusGroupGas   uint64 = 83200
-	reCreateConsensusGroupGas uint64 = 62200
-	mintageGas                uint64 = 83200
-	mintageCancelPledgeGas    uint64 = 83200
-
-	cgNodeCountMin   uint8 = 3       // Minimum node count of consensus group
-	cgNodeCountMax   uint8 = 101     // Maximum node count of consensus group
-	cgIntervalMin    int64 = 1       // Minimum interval of consensus group in second
-	cgIntervalMax    int64 = 10 * 60 // Maximum interval of consensus group in second
-	cgPerCountMin    int64 = 1
-	cgPerCountMax    int64 = 10 * 60
-	cgPerIntervalMin int64 = 1
-	cgPerIntervalMax int64 = 10 * 60
-
-	dbPageSize            uint64 = 10000 // Batch get snapshot blocks from vm database to calc snapshot block reward
 	getBlockByHeightLimit uint64 = 256
-
-	tokenNameLengthMax   int = 40 // Maximum length of a token name(include)
-	tokenSymbolLengthMax int = 10 // Maximum length of a token symbol(include)
 
 	//CallValueTransferGas  uint64 = 9000  // Paid for CALL when the amount transfer is non-zero.
 	//CallNewAccountGas     uint64 = 25000 // Paid for CALL when the destination address didn't exist prior.
@@ -76,15 +47,7 @@ const (
 )
 
 var (
-	createContractFee = new(big.Int).Mul(helper.Big10, attovPerVite)
-
-	viteTotalSupply                  = new(big.Int).Mul(big.NewInt(1e9), attovPerVite)
-	rewardPerBlock                   = new(big.Int).Div(viteTotalSupply, big.NewInt(1051200000)) // Reward pre snapshot block, rewardPreBlock * blockNumPerYear / viteTotalSupply = 3%
-	attovPerVite                     = big.NewInt(1e18)
-	pledgeAmountMin                  = new(big.Int).Mul(big.NewInt(10), attovPerVite)
-	mintageFee                       = new(big.Int).Mul(big.NewInt(1e3), attovPerVite) // Mintage cost choice 1, destroy ViteToken
-	mintagePledgeAmount              = new(big.Int).Mul(big.NewInt(1e5), attovPerVite) // Mintage cost choice 2, pledge ViteToken for 3 month
-	createConsensusGroupPledgeAmount = new(big.Int).Mul(big.NewInt(1000), attovPerVite)
+	createContractFee = new(big.Int).Mul(helper.Big10, util.AttovPerVite)
 )
 
 type VmParams struct {

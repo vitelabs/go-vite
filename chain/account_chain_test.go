@@ -153,6 +153,14 @@ func TestGetAccountBlocksByHash(t *testing.T) {
 	}
 }
 
+func TestGetAccountBlockMetaByHash(t *testing.T) {
+	chainInstance := getChainInstance()
+	hash, _ := types.HexToHash("ad411c4bcafb83ac71b042df3cd4a9f6171ed843cbd51849e93e004b2c379002")
+	meta, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&hash)
+	fmt.Printf("%+v\n", meta)
+
+}
+
 func TestGetAccountBlocksByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
 	addr1, _, _ := types.CreateAddress()
@@ -339,7 +347,8 @@ func TestGetAccountBlockHashByHeight(t *testing.T) {
 
 func TestGetAccountBlockByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
-	block, err := chainInstance.GetAccountBlockByHeight(&ledger.GenesisAccountAddress, 1)
+	addr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
+	block, err := chainInstance.GetAccountBlockByHeight(&addr, 4239)
 	if err != nil {
 		t.Error(err)
 	}
@@ -377,35 +386,36 @@ func TestGetAccountBlocksByAddress(t *testing.T) {
 
 func TestGetFirstConfirmedAccountBlockBySbHeight(t *testing.T) {
 	chainInstance := getChainInstance()
-	block, err := chainInstance.GetFirstConfirmedAccountBlockBySbHeight(2, &ledger.GenesisAccountAddress)
+	addr, _ := types.HexToAddress("vite_5acd0b2ef651bdc0c586aafe7a780103f45ac532cd886eb859")
+	block, err := chainInstance.GetFirstConfirmedAccountBlockBySbHeight(19943, &addr)
 	if err != nil {
 		t.Error(err)
 	}
 	fmt.Printf("%+v\n", block)
 
-	block2, err2 := chainInstance.GetFirstConfirmedAccountBlockBySbHeight(3, &ledger.GenesisAccountAddress)
-	if err2 == nil {
-		t.Error("Test error")
-	}
-	fmt.Printf("%+v\n", block2)
-
-	block3, err3 := chainInstance.GetFirstConfirmedAccountBlockBySbHeight(1, &ledger.GenesisAccountAddress)
-	if err3 != nil {
-		t.Error(err3)
-	}
-	fmt.Printf("%+v\n", block3)
-
-	block4, err4 := chainInstance.GetFirstConfirmedAccountBlockBySbHeight(1, &GenesisMintageSendBlock.AccountAddress)
-	if err4 != nil {
-		t.Error(err4)
-	}
-	fmt.Printf("%+v\n", block4)
-
-	block5, err5 := chainInstance.GetFirstConfirmedAccountBlockBySbHeight(2, &GenesisMintageSendBlock.AccountAddress)
-	if err5 != nil {
-		t.Error(err5)
-	}
-	fmt.Printf("%+v\n", block5)
+	//block2, err2 := chainInstance.GetFirstConfirmedAccountBlockBySbHeight(3, &ledger.GenesisAccountAddress)
+	//if err2 == nil {
+	//	t.Error("Test error")
+	//}
+	//fmt.Printf("%+v\n", block2)
+	//
+	//block3, err3 := chainInstance.GetFirstConfirmedAccountBlockBySbHeight(1, &ledger.GenesisAccountAddress)
+	//if err3 != nil {
+	//	t.Error(err3)
+	//}
+	//fmt.Printf("%+v\n", block3)
+	//
+	//block4, err4 := chainInstance.GetFirstConfirmedAccountBlockBySbHeight(1, &GenesisMintageSendBlock.AccountAddress)
+	//if err4 != nil {
+	//	t.Error(err4)
+	//}
+	//fmt.Printf("%+v\n", block4)
+	//
+	//block5, err5 := chainInstance.GetFirstConfirmedAccountBlockBySbHeight(2, &GenesisMintageSendBlock.AccountAddress)
+	//if err5 != nil {
+	//	t.Error(err5)
+	//}
+	//fmt.Printf("%+v\n", block5)
 }
 
 func TestGetUnConfirmAccountBlocks(t *testing.T) {

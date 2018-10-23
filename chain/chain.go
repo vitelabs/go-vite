@@ -3,7 +3,6 @@ package chain
 import (
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain_db"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
@@ -193,10 +192,6 @@ func (c *chain) Start() {
 	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
 	if getSubLedgerErr != nil {
 		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "NewChain")
-	}
-
-	for addr := range unconfirmedSubLedger {
-		helper.ReverseSlice(unconfirmedSubLedger[addr])
 	}
 	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
 

@@ -3,12 +3,15 @@ package producer
 import (
 	"fmt"
 
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/wallet"
@@ -59,6 +62,7 @@ func (self *tools) generateSnapshot(e *consensus.Event) (*ledger.SnapshotBlock, 
 	return block, nil
 }
 func (self *tools) insertSnapshot(block *ledger.SnapshotBlock) error {
+	defer monitor.LogTime("producer", "snapshotInsert", time.Now())
 	// todo insert pool ?? dead lock
 	self.log.Info("insert snapshot block.", "block", block)
 	return self.pool.AddDirectSnapshotBlock(block)

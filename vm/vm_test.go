@@ -277,23 +277,23 @@ func TestCalcQuotaV2(t *testing.T) {
 
 	// genesis account block without PoW, pledge amount reaches quota limit
 	quotaTotal, quotaAddition := quota.CalcQuotaV2(db, addr1, maxPledgeAmount, helper.Big0)
-	if quotaTotal != uint64(0) || quotaAddition != uint64(0) {
+	if quotaTotal != quotaLimit || quotaAddition != uint64(0) {
 		t.Fatalf("calc quota error, genesis account block without PoW, pledge amount reaches quota limit")
 	}
 	// genesis account block with PoW, pledge amount reaches quota limit
 	quotaTotal, quotaAddition = quota.CalcQuotaV2(db, addr1, maxPledgeAmount, difficulty)
-	if quotaTotal != quotaForTx || quotaAddition != quotaForTx {
+	if quotaTotal != quotaLimit || quotaAddition != uint64(0) {
 		t.Fatalf("calc quota error, genesis account block with PoW, pledge amount reaches quota limit")
 	}
 
 	// genesis account block without PoW, pledge amount reaches no quota limit
 	quotaTotal, quotaAddition = quota.CalcQuotaV2(db, addr1, minPledgeAmount, helper.Big0)
-	if quotaTotal != uint64(0) || quotaAddition != uint64(0) {
+	if quotaTotal != quotaForTx || quotaAddition != uint64(0) {
 		t.Fatalf("calc quota error, genesis account block without PoW, pledge amount reaches no quota limit")
 	}
 	// genesis account block without PoW, pledge amount reaches no quota limit
 	quotaTotal, quotaAddition = quota.CalcQuotaV2(db, addr1, minPledgeAmount, difficulty)
-	if quotaTotal != quotaForTx || quotaAddition != quotaForTx {
+	if quotaTotal != quotaForTx || quotaAddition != uint64(0) {
 		t.Fatalf("calc quota error, genesis account block without PoW, pledge amount reaches no quota limit")
 	}
 
