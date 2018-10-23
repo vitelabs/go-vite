@@ -33,7 +33,7 @@ func NewTestApi(walletApi *WalletApi) *TestApi {
 }
 
 func (t TestApi) GetTestToken(ToAddr types.Address) (string, error) {
-	privKey, err := ed25519.HexToPrivateKey(hexPrivKey)
+	privKey, err := ed25519.HexToPrivateKey(testapi_hexPrivKey)
 	if err != nil {
 		return "", err
 	}
@@ -44,13 +44,14 @@ func (t TestApi) GetTestToken(ToAddr types.Address) (string, error) {
 	ba.Mul(ba, math.BigPow(10, 18))
 
 	amount := ba.String()
-	tid, _ := types.HexToTokenTypeId("tti_5649544520544f4b454e6e40")
+	//tid, _ := types.HexToTokenTypeId("tti_5649544520544f4b454e6e40")
+	tid, _ := types.HexToTokenTypeId(testapi_tti)
 
 	err = t.CreateTxWithPrivKey(CreateTxWithPrivKeyParmsTest{
 		SelfAddr:    SelfAddr,
 		ToAddr:      ToAddr,
 		TokenTypeId: tid,
-		PrivateKey:  hexPrivKey,
+		PrivateKey:  testapi_hexPrivKey,
 		Amount:      amount,
 	})
 	if err != nil {
