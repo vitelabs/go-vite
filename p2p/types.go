@@ -3,56 +3,12 @@ package p2p
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/p2p/network"
 	"github.com/vitelabs/go-vite/p2p/protos"
 	"net"
 	"strconv"
 	"time"
 )
-
-// @section NetworkID
-type NetworkID uint64
-
-const (
-	MainNet NetworkID = iota + 1
-	TestNet
-	Aquarius
-	Pisces
-	Aries
-	Taurus
-	Gemini
-	Cancer
-	Leo
-	Virgo
-	Libra
-	Scorpio
-	Sagittarius
-	Capricorn
-)
-
-var network = [...]string{
-	MainNet:     "MainNet",
-	TestNet:     "TestNet",
-	Aquarius:    "Aquarius",
-	Pisces:      "Pisces",
-	Aries:       "Aries",
-	Taurus:      "Taurus",
-	Gemini:      "Gemini",
-	Cancer:      "Cancer",
-	Leo:         "Leo",
-	Virgo:       "Virgo",
-	Libra:       "Libra",
-	Scorpio:     "Scorpio",
-	Sagittarius: "Sagittarius",
-	Capricorn:   "Capricorn",
-}
-
-func (i NetworkID) String() string {
-	if i >= MainNet && i <= Capricorn {
-		return network[i]
-	}
-
-	return "Unknown"
-}
 
 // @section connFlag
 type connFlag int
@@ -165,7 +121,7 @@ type Handshake struct {
 	// peer name, use for readability and log
 	Name string
 	// running at which network
-	NetID NetworkID
+	NetID network.ID
 	// peer remoteID
 	ID discovery.NodeID
 	// command set supported
@@ -207,7 +163,7 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 
 	hs.Version = pb.Version
 	hs.ID = id
-	hs.NetID = NetworkID(pb.NetID)
+	hs.NetID = network.ID(pb.NetID)
 	hs.Name = pb.Name
 	hs.RemoteIP = pb.RemoteIP
 	hs.RemotePort = uint16(pb.RemotePort)

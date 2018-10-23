@@ -2,9 +2,8 @@ package api
 
 import (
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/vm"
-	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 type JsonRpc2Error struct {
@@ -24,12 +23,12 @@ var (
 	ErrNotSupport = errors.New("not support this method")
 
 	ErrBalanceNotEnough = JsonRpc2Error{
-		Message: vm.ErrInsufficientBalance.Error(),
+		Message: util.ErrInsufficientBalance.Error(),
 		Code:    -35001,
 	}
 
 	ErrQuotaNotEnough = JsonRpc2Error{
-		Message: quota.ErrOutOfQuota.Error(),
+		Message: util.ErrOutOfQuota.Error(),
 		Code:    -35002,
 	}
 

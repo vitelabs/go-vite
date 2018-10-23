@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/p2p/network"
 	"os"
 	"path/filepath"
 )
@@ -38,7 +39,7 @@ const (
 	DefaultMaxPendingPeers uint = 20
 	DefaultMaxInboundRatio uint = 2
 	DefaultPort            uint = 8483
-	DefaultNetID                = Aquarius
+	DefaultNetID                = network.Aquarius
 )
 
 const Dirname = "p2p"

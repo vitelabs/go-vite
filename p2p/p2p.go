@@ -12,6 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/p2p/block"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/nat"
+	"github.com/vitelabs/go-vite/p2p/network"
 	"net"
 	"strconv"
 	"sync"
@@ -36,7 +37,7 @@ type Discovery interface {
 type Config struct {
 	Discovery       bool
 	Name            string
-	NetID           NetworkID          // which network server runs on
+	NetID           network.ID         // which network server runs on
 	MaxPeers        uint               // max peers can be connected
 	MaxPendingPeers uint               // max peers waiting for connect
 	MaxInboundRatio uint               // max inbound peers: MaxPeers / MaxInboundRatio
@@ -123,6 +124,7 @@ func New(cfg *Config) (svr *Server, err error) {
 			BootNodes: parseNodes(cfg.BootNodes),
 			Addr:      udpAddr,
 			Self:      node,
+			NetID:     cfg.NetID,
 		})
 	}
 
@@ -275,7 +277,7 @@ func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
 		})
 	} else {
 		<-svr.pending
-		svr.log.Error(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
+		svr.log.Warn(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
 		//svr.blockList.Add(id[:])
 	}
 }
@@ -336,11 +338,11 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 
 	if err != nil {
 		ts.Close()
-		svr.log.Error(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
+		svr.log.Warn(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
 	} else if their.NetID != svr.NetID {
 		err = fmt.Errorf("different NetID: our %s, their %s", svr.NetID, their.NetID)
 		ts.Close()
-		svr.log.Error(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
+		svr.log.Warn(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
 	} else {
 		ts.name = their.Name
 		ts.cmdSets = their.CmdSets
@@ -501,12 +503,12 @@ func (svr *Server) Nodes() (urls []string) {
 
 // @section NodeInfo
 type NodeInfo struct {
-	ID        string    `json:"remoteID"`
-	Name      string    `json:"name"`
-	Url       string    `json:"url"`
-	NetID     NetworkID `json:"netId"`
-	Address   *address  `json:"address"`
-	Protocols []string  `json:"protocols"`
+	ID        string     `json:"remoteID"`
+	Name      string     `json:"name"`
+	Url       string     `json:"url"`
+	NetID     network.ID `json:"netId"`
+	Address   *address   `json:"address"`
+	Protocols []string   `json:"protocols"`
 }
 
 type address struct {

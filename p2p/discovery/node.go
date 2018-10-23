@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/p2p/discovery/protos"
+	"github.com/vitelabs/go-vite/p2p/network"
 	"math"
 	mrand "math/rand"
 	"net"
@@ -80,6 +81,7 @@ type Node struct {
 	IP       net.IP
 	UDP      uint16
 	TCP      uint16
+	Net      network.ID
 	addAt    time.Time
 	lastPing time.Time
 	activeAt time.Time
@@ -93,6 +95,7 @@ func (n *Node) proto() *protos.Node {
 		IP:  n.IP,
 		UDP: uint32(n.UDP),
 		TCP: uint32(n.TCP),
+		Net: uint64(n.Net),
 	}
 }
 
@@ -107,6 +110,7 @@ func protoToNode(pb *protos.Node) (*Node, error) {
 	node.IP = pb.IP
 	node.UDP = uint16(pb.UDP)
 	node.TCP = uint16(pb.TCP)
+	node.Net = network.ID(pb.Net)
 
 	return node, nil
 }
@@ -195,6 +199,8 @@ func (n *Node) String() string {
 		nodeURL.Host = n.ID.String()
 	}
 
+	nodeURL.RawQuery = "netid=" + strconv.FormatUint(uint64(n.Net), 10)
+
 	return nodeURL.String()
 }
 
@@ -241,11 +247,21 @@ func ParseNode(u string) (*Node, error) {
 		tcp = udp
 	}
 
+	var netid uint64
+	query := nodeURL.Query()
+	if query.Get("netid") != "" {
+		var nid uint64
+		if nid, err = strconv.ParseUint(query.Get("netid"), 10, 64); err == nil {
+			netid = nid
+		}
+	}
+
 	return &Node{
 		ID:  id,
 		IP:  ip,
 		UDP: udp,
 		TCP: tcp,
+		Net: network.ID(netid),
 	}, nil
 }
 

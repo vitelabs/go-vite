@@ -275,17 +275,7 @@ func (d *agent) findnode(n *Node, ID NodeID, callback func([]*Node, error)) {
 
 				neighbors, _ := m.(*Neighbors)
 
-				total := 0
-				nodes := make([]*Node, 0, maxNeighborsOneTrip)
-
-				for _, n := range neighbors.Nodes {
-					if n.Validate() == nil {
-						nodes = append(nodes, n)
-					}
-					total++
-				}
-
-				callback(nodes, nil)
+				callback(neighbors.Nodes, nil)
 				return true
 			},
 		},
@@ -300,7 +290,6 @@ func (d *agent) sendNeighbors(n *Node, nodes []*Node) {
 
 	// send nodes in batches
 	carriage := make([]*Node, 0, maxNeighborsOneTrip)
-	sent := false
 	for _, node := range nodes {
 		carriage = append(carriage, node)
 
@@ -311,13 +300,11 @@ func (d *agent) sendNeighbors(n *Node, nodes []*Node) {
 				code: neighborsCode,
 				msg:  neighbors,
 			})
-			sent = true
 			carriage = carriage[:0]
 		}
 	}
 
-	// send nodes even if the list is empty
-	if !sent || len(carriage) > 0 {
+	if len(carriage) > 0 {
 		neighbors.Nodes = carriage
 		d.send(&sendPkt{
 			addr: n.UDPAddr(),
@@ -359,8 +346,6 @@ func (a *agent) readLoop() {
 					tempDelay = maxDelay
 				}
 
-				discvLog.Info(fmt.Sprintf("udp read tempError, wait %s", tempDelay))
-
 				time.Sleep(tempDelay)
 
 				continue
@@ -391,7 +376,7 @@ func (a *agent) readLoop() {
 		select {
 		case a.read <- p:
 		default:
-			discvLog.Error("discovery packet read channel is block")
+			discvLog.Warn("discovery packet read channel is block")
 		}
 	}
 }
@@ -419,7 +404,6 @@ func (a *agent) writeLoop() {
 				discvLog.Error(fmt.Sprintf("send incomplete message %s (%d/%dbytes) to %s", s.msg, n, len(data), s.addr))
 			} else {
 				monitor.LogEvent("p2p/discv", "send "+s.code.String())
-				discvLog.Info(fmt.Sprintf("send message %s to %s done", s.msg, s.addr))
 
 				if s.wait != nil {
 					s.wait.sourceHash = hash

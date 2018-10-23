@@ -228,6 +228,10 @@ func (t *Topology) Topology() *Topo {
 func (t *Topology) Receive(msg *p2p.Msg, sender *Peer) {
 	defer msg.Recycle()
 
+	if len(msg.Payload) < 32 {
+		return
+	}
+
 	hash := msg.Payload[:32]
 	if t.record.Lookup(hash) {
 		return

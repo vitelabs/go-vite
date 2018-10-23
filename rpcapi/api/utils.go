@@ -9,8 +9,9 @@ import (
 )
 
 var (
-	log        = log15.New("module", "rpc/api")
-	hexPrivKey = ""
+	log                = log15.New("module", "rpc/api")
+	testapi_hexPrivKey = ""
+	testapi_tti        = ""
 )
 
 func InitLog(dir, lvl string) {
@@ -29,8 +30,9 @@ func InitLog(dir, lvl string) {
 	)
 }
 
-func InitHexPrivKey(priv string) {
-	hexPrivKey = priv
+func InitTestAPIParams(priv, tti string) {
+	testapi_hexPrivKey = priv
+	testapi_tti = tti
 }
 
 func stringToBigInt(str *string) *big.Int {
