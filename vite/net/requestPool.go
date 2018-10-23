@@ -40,9 +40,7 @@ func (p *requestPool) Cmds() []cmd {
 
 func (p *requestPool) Handle(msg *p2p.Msg, sender *Peer) error {
 	if r := p.Get(msg.Id); r != nil {
-		common.Go(func() {
-			r.Handle(p, msg, sender)
-		})
+		r.Handle(p, msg, sender)
 	}
 
 	return nil

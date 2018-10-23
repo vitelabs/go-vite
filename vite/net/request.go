@@ -3,6 +3,7 @@ package net
 import (
 	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
@@ -254,20 +255,22 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 			})
 		}
 
-		// request chunks
-		for _, chunk := range msg.Chunks {
-			// maybe chunk is too large
-			cs := splitChunk(chunk[0], chunk[1])
-			for _, c := range cs {
-				ctx.Add(&chunkRequest{
-					from:  c[0],
-					to:    c[1],
-					peer:  peer,
-					catch: s.catch,
-					rec:   s.rec,
-				})
+		common.Go(func() {
+			// request chunks
+			for _, chunk := range msg.Chunks {
+				// maybe chunk is too large
+				cs := splitChunk(chunk[0], chunk[1])
+				for _, c := range cs {
+					ctx.Add(&chunkRequest{
+						from:  c[0],
+						to:    c[1],
+						peer:  peer,
+						catch: s.catch,
+						rec:   s.rec,
+					})
+				}
 			}
-		}
+		})
 	} else {
 		ctx.Retry(s.id, errUnExpectedRes)
 		netLog.Error(fmt.Sprintf("getSubLedgerHandler got %d need %d", pkt.Cmd, SubLedgerCode))
