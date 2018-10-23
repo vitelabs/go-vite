@@ -383,6 +383,7 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 		fromChain := chain.referChain.(*forkedChain)
 		e := self.modifyRefer(fromChain, chain)
 		if e != nil {
+			self.log.Error(e.Error())
 			break
 		}
 	}
