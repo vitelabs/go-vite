@@ -66,7 +66,7 @@ func New(cfg *Config) (d *Discovery) {
 		cfg:         cfg,
 		bootNodes:   cfg.BootNodes,
 		self:        cfg.Self,
-		tab:         newTable(cfg.Self.ID, N),
+		tab:         newTable(cfg.Self.ID, cfg.NetID),
 		refreshDone: make(chan struct{}),
 		blockList:   block.New(1000),
 		log:         log15.New("module", "p2p/discv"),
@@ -200,7 +200,7 @@ func (d *Discovery) findNode(to *Node, target NodeID, callback func(n *Node, nod
 	d.agent.findnode(to, target, func(nodes []*Node, err error) {
 		callback(to, nodes)
 		if len(nodes) == 0 {
-			discvLog.Error(fmt.Sprintf("find %s to %s, got %d neighbors, error: %v", target, to.UDPAddr(), len(nodes), err))
+			discvLog.Warn(fmt.Sprintf("find %s to %s, got %d neighbors, error: %v", target, to.UDPAddr(), len(nodes), err))
 		} else {
 			discvLog.Info(fmt.Sprintf("find %s to %s, got %d neighbors", target, to.UDPAddr(), len(nodes)))
 
@@ -309,8 +309,6 @@ func (d *Discovery) HandleMsg(res *packet) {
 	if res.msg.isExpired() {
 		return
 	}
-
-	discvLog.Info(fmt.Sprintf("receive %s from %s@%s", res.msg, res.fromID, res.from))
 
 	switch res.code {
 	case pingCode:

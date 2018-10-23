@@ -192,17 +192,15 @@ type table struct {
 	netId   network.ID
 }
 
-func newTable(self NodeID, bucketCount int) *table {
+func newTable(self NodeID, netId network.ID) *table {
 	tab := &table{
-		self: self,
-		rand: mrand.New(mrand.NewSource(0)),
+		self:  self,
+		rand:  mrand.New(mrand.NewSource(0)),
+		netId: netId,
 	}
 
 	// init buckets
-	if bucketCount == 0 {
-		bucketCount = N
-	}
-	tab.buckets = make([]*bucket, bucketCount)
+	tab.buckets = make([]*bucket, N)
 	for i, _ := range tab.buckets {
 		tab.buckets[i] = newBucket(K)
 	}

@@ -3,6 +3,7 @@ package p2p
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/p2p/network"
 	"github.com/vitelabs/go-vite/p2p/protos"
 	"net"
 	"strconv"
@@ -120,7 +121,7 @@ type Handshake struct {
 	// peer name, use for readability and log
 	Name string
 	// running at which network
-	NetID NetworkID
+	NetID network.ID
 	// peer remoteID
 	ID discovery.NodeID
 	// command set supported
@@ -162,7 +163,7 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 
 	hs.Version = pb.Version
 	hs.ID = id
-	hs.NetID = NetworkID(pb.NetID)
+	hs.NetID = network.ID(pb.NetID)
 	hs.Name = pb.Name
 	hs.RemoteIP = pb.RemoteIP
 	hs.RemotePort = uint16(pb.RemotePort)

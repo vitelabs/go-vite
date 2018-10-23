@@ -180,8 +180,8 @@ func (db *nodeDB) deleteNode(ID NodeID) error {
 }
 
 func (db *nodeDB) randomNodes(count int, maxAge time.Duration) []*Node {
-	iterator := db.db.NewIterator(nil, nil)
-	defer iterator.Release()
+	iter := db.db.NewIterator(nil, nil)
+	defer iter.Release()
 
 	nodes := make([]*Node, 0, count)
 	var id NodeID
@@ -192,9 +192,9 @@ func (db *nodeDB) randomNodes(count int, maxAge time.Duration) []*Node {
 		rand.Read(id[:])
 		id[0] = h + id[0]%16
 
-		iterator.Seek(genKey(id, dbDiscvRootBytes))
+		iter.Seek(genKey(id, dbDiscvRootBytes))
 
-		node := nextNode(iterator)
+		node := nextNode(iter)
 
 		if node == nil {
 			id[0] = 0

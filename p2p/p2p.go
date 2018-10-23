@@ -124,6 +124,7 @@ func New(cfg *Config) (svr *Server, err error) {
 			BootNodes: parseNodes(cfg.BootNodes),
 			Addr:      udpAddr,
 			Self:      node,
+			NetID:     cfg.NetID,
 		})
 	}
 
@@ -276,7 +277,7 @@ func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
 		})
 	} else {
 		<-svr.pending
-		svr.log.Error(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
+		svr.log.Warn(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
 		//svr.blockList.Add(id[:])
 	}
 }
@@ -502,12 +503,12 @@ func (svr *Server) Nodes() (urls []string) {
 
 // @section NodeInfo
 type NodeInfo struct {
-	ID        string    `json:"remoteID"`
-	Name      string    `json:"name"`
-	Url       string    `json:"url"`
-	NetID     NetworkID `json:"netId"`
-	Address   *address  `json:"address"`
-	Protocols []string  `json:"protocols"`
+	ID        string     `json:"remoteID"`
+	Name      string     `json:"name"`
+	Url       string     `json:"url"`
+	NetID     network.ID `json:"netId"`
+	Address   *address   `json:"address"`
+	Protocols []string   `json:"protocols"`
 }
 
 type address struct {
