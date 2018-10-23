@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/network"
 	"github.com/vitelabs/go-vite/wallet"
 	"os"
 	"path/filepath"
@@ -118,7 +119,7 @@ func (c *Config) makeMinerConfig() *config.Producer {
 func (c *Config) makeP2PConfig() *p2p.Config {
 	return &p2p.Config{
 		Name:            c.Identity,
-		NetID:           p2p.NetworkID(c.NetID),
+		NetID:           network.ID(c.NetID),
 		MaxPeers:        c.MaxPeers,
 		MaxPendingPeers: c.MaxPendingPeers,
 		MaxInboundRatio: c.MaxPassivePeersRatio,

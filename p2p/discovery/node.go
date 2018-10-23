@@ -199,6 +199,8 @@ func (n *Node) String() string {
 		nodeURL.Host = n.ID.String()
 	}
 
+	nodeURL.RawQuery = "netid=" + strconv.FormatUint(uint64(n.Net), 10)
+
 	return nodeURL.String()
 }
 
@@ -245,11 +247,21 @@ func ParseNode(u string) (*Node, error) {
 		tcp = udp
 	}
 
+	var netid uint64
+	query := nodeURL.Query()
+	if query.Get("netid") != "" {
+		var nid uint64
+		if nid, err = strconv.ParseUint(query.Get("netid"), 10, 64); err == nil {
+			netid = nid
+		}
+	}
+
 	return &Node{
 		ID:  id,
 		IP:  ip,
 		UDP: udp,
 		TCP: tcp,
+		Net: network.ID(netid),
 	}, nil
 }
 

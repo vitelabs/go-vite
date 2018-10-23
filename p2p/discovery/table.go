@@ -290,7 +290,7 @@ func (tab *table) addNode(node *Node) *Node {
 		return nil
 	}
 
-	if node.Net != tab.netId {
+	if node.Net != 0 && node.Net != tab.netId {
 		return nil
 	}
 
