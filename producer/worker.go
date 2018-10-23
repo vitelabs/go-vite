@@ -3,11 +3,14 @@ package producer
 import (
 	"sync"
 
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/monitor"
 )
 
 var wLog = log15.New("module", "miner/worker")
@@ -63,6 +66,9 @@ func (self *worker) produceSnapshot(e consensus.Event) {
 }
 
 func (self *worker) genAndInsert(e *consensus.Event) {
+	wLog.Info("genAndInsert start.", "event", e)
+	defer wLog.Info("genAndInsert end.", "event", e)
+	defer monitor.LogTime("producer", "snapshotGenInsert", time.Now())
 	defer self.wg.Done()
 	self.mu.Lock()
 	defer self.mu.Unlock()
