@@ -1,12 +1,12 @@
 package main
 
 import (
-	"github.com/vitelabs/go-vite/cmd/gvite_plugin"
+	"github.com/vitelabs/go-vite/cmd/gvite_plugins"
 	_ "net/http/pprof"
 )
 
 // gvite is the official command-line client for Vite
 
 func main() {
-	gvite_plugin.Loading()
+	gvite_plugins.Loading()
 }

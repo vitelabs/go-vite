@@ -1,4 +1,4 @@
-package gvite_plugin
+package gvite_plugins
 
 import (
 	"fmt"
