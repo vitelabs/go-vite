@@ -256,7 +256,7 @@ func TestGetConfirmAccountBlock(t *testing.T) {
 	}
 	fmt.Printf("%+v\n", block)
 
-	block2, err2 := chainInstance.GetConfirmAccountBlock(GenesisSnapshotBlock.Height, &GenesisRegisterBlock.AccountAddress)
+	block2, err2 := chainInstance.GetConfirmAccountBlock(GenesisSnapshotBlock.Height+3, &GenesisRegisterBlock.AccountAddress)
 	if err2 != nil {
 		t.Fatal(err2)
 	}
@@ -305,7 +305,7 @@ func randomSendViteBlock(snapshotBlockHash types.Hash, addr1 *types.Address, add
 	var sendBlock = &ledger.AccountBlock{
 		PrevHash:       prevHash,
 		BlockType:      ledger.BlockTypeSendCall,
-		AccountAddress: *addr2,
+		AccountAddress: *addr1,
 		ToAddress:      *addr2,
 		Amount:         sendAmount,
 		TokenId:        ledger.ViteTokenId,
@@ -416,31 +416,38 @@ func TestDeleteSnapshotBlocksToHeight(t *testing.T) {
 	receiveBlock2, _ := newReceiveBlock(snapshotBlock2.Hash, addressList2[1], blocks2[0].AccountBlock.Hash)
 	chainInstance.InsertAccountBlocks(receiveBlock2)
 
+	needContent := chainInstance.GetNeedSnapshotContent()
+	for addr, content := range needContent {
+		fmt.Printf("%s: %+v\n", addr.String(), content)
+	}
+
+	fmt.Println()
+
 	snapshotBlock3, _ := newSnapshotBlock()
 	chainInstance.InsertSnapshotBlock(snapshotBlock3)
 
-	//var display = func() {
-	//	dBlocks1, _ := chainInstance.GetAccountBlocksByHeight(blocks[0].AccountBlock.AccountAddress, 0, 10, true)
-	//	for _, block := range dBlocks1 {
-	//		fmt.Printf("%+v\n", block)
-	//	}
-	//	dBlocks2, _ := chainInstance.GetAccountBlocksByHeight(blocks2[0].AccountBlock.AccountAddress, 0, 10, true)
-	//	for _, block := range dBlocks2 {
-	//		fmt.Printf("%+v\n", block)
-	//	}
-	//	dBlocks3, _ := chainInstance.GetAccountBlocksByHeight(receiveBlock[0].AccountBlock.AccountAddress, 0, 10, true)
-	//	for _, block := range dBlocks3 {
-	//		fmt.Printf("%+v\n", block)
-	//	}
-	//	dBlocks4, _ := chainInstance.GetAccountBlocksByHeight(receiveBlock2[0].AccountBlock.AccountAddress, 0, 10, true)
-	//	for _, block := range dBlocks4 {
-	//		fmt.Printf("%+v\n", block)
-	//	}
-	//
-	//	latestBlock := chainInstance.GetLatestSnapshotBlock()
-	//	fmt.Printf("%+v\n", latestBlock)
-	//}
-	//display()
+	var display = func() {
+		//	dBlocks1, _ := chainInstance.GetAccountBlocksByHeight(blocks[0].AccountBlock.AccountAddress, 0, 10, true)
+		//	for _, block := range dBlocks1 {
+		//		fmt.Printf("%+v\n", block)
+		//	}
+		//	dBlocks2, _ := chainInstance.GetAccountBlocksByHeight(blocks2[0].AccountBlock.AccountAddress, 0, 10, true)
+		//	for _, block := range dBlocks2 {
+		//		fmt.Printf("%+v\n", block)
+		//	}
+		dBlocks3, _ := chainInstance.GetAccountBlocksByHeight(receiveBlock[0].AccountBlock.AccountAddress, 0, 10, true)
+		for _, block := range dBlocks3 {
+			fmt.Printf("%+v\n", block)
+		}
+		dBlocks4, _ := chainInstance.GetAccountBlocksByHeight(receiveBlock2[0].AccountBlock.AccountAddress, 0, 10, true)
+		for _, block := range dBlocks4 {
+			fmt.Printf("%+v\n", block)
+		}
+		fmt.Println()
+
+		//	latestBlock := chainInstance.GetLatestSnapshotBlock()
+		//	fmt.Printf("%+v\n", latestBlock)
+	}
 
 	//fmt.Println()
 
@@ -450,7 +457,16 @@ func TestDeleteSnapshotBlocksToHeight(t *testing.T) {
 	blockMeta1, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&blocks2[0].AccountBlock.Hash)
 	fmt.Printf("%+v\n", blockMeta1)
 
+	needContent = chainInstance.GetNeedSnapshotContent()
+	for addr, content := range needContent {
+		fmt.Printf("%s: %+v\n", addr.String(), content)
+	}
+	fmt.Println()
+
+	display()
+
 	chainInstance.DeleteSnapshotBlocksToHeight(snapshotBlock2.Height)
+	display()
 	//if deleteErr != nil {
 	//	t.Fatal(deleteErr)
 	//}
@@ -470,10 +486,11 @@ func TestDeleteSnapshotBlocksToHeight(t *testing.T) {
 	//display()
 	//fmt.Println()
 	//
-	//needContent := chainInstance.GetNeedSnapshotContent()
-	//for addr, content := range needContent {
-	//	fmt.Printf("%s: %+v\n", addr.String(), content)
-	//}
+
+	needContent = chainInstance.GetNeedSnapshotContent()
+	for addr, content := range needContent {
+		fmt.Printf("%s: %+v\n", addr.String(), content)
+	}
 	//fmt.Println()
 	blockMeta_1, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&blocks[0].AccountBlock.Hash)
 	fmt.Printf("%+v\n", blockMeta_1)

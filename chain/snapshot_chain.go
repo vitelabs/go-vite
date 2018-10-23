@@ -328,11 +328,11 @@ func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Ad
 	blockHeightMap := make(map[types.Address]uint64)
 	for addr, accountBlocks := range deleteSubLedger {
 		accountBlock := accountBlocks[len(accountBlocks)-1]
-		accountBlockHeight := accountBlock.Height
+		needRemoveBlocks[addr] = accountBlock
 
+		accountBlockHeight := accountBlock.Height
 		blockHeightMap[addr] = accountBlockHeight - 1
 
-		needRemoveBlocks[addr] = accountBlock
 	}
 
 	for addr, blockHeight := range blockHeightMap {
@@ -356,6 +356,10 @@ func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Ad
 		if blockMetaErr != nil {
 			c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
 			return nil, nil, nil, err
+		}
+
+		if blockMeta == nil {
+			continue
 		}
 
 		if blockMeta.SnapshotHeight <= 0 {
@@ -397,10 +401,9 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	chainRangeSet := c.getChainRangeSet(snapshotBlocks)
 
 	for addr, changeRangeItem := range chainRangeSet {
-		blockHeightItem := blockHeightMap[addr]
 		min := changeRangeItem[0].Height
 		max := changeRangeItem[1].Height
-		if blockHeightItem > 0 && max > blockHeightItem {
+		if blockHeightItem, ok := blockHeightMap[addr]; ok && max > blockHeightItem {
 			max = blockHeightItem
 		}
 
