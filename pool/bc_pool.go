@@ -1,7 +1,6 @@
 package pool
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"sort"
@@ -10,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -381,7 +381,11 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 	// todo other chain refer to current ???
 	for chain.referChain.id() != self.diskChain.id() {
 		fromChain := chain.referChain.(*forkedChain)
-		self.modifyRefer(fromChain, chain)
+		e := self.modifyRefer(fromChain, chain)
+		if e != nil {
+			self.log.Error(e.Error())
+			break
+		}
 	}
 	self.log.Warn("current modify.", "from", self.current.id(), "to", chain.id(),
 		"fromTailHeight", self.current.tailHeight, "fromHeadHeight", self.current.headHeight,
@@ -391,10 +395,10 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 	return nil
 }
 
-func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) {
-	// from.tailHeight < to.tailHeight  && from.headHeight > to.tail.Height
+func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
+	// from.tailHeight <= to.tailHeight  && from.headHeight > to.tail.Height
 
-	if from.tailHeight < to.tailHeight && from.headHeight > to.tailHeight {
+	if from.tailHeight <= to.tailHeight && from.headHeight > to.tailHeight {
 		for i := to.tailHeight; i > from.tailHeight; i-- {
 			w := from.getBlock(i, false)
 			if w != nil {
@@ -410,10 +414,12 @@ func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) {
 
 		to.referChain = from.referChain
 		from.referChain = to
+		return nil
 	} else {
-		self.log.Error("err for modifyRefer.", "from", from.id(), "to", to.id(),
+		return errors.Errorf("err for modifyRefer.", "from", from.id(), "to", to.id(),
 			"fromTailHeight", from.tailHeight, "fromHeadHeight", from.headHeight,
 			"toTailHeight", to.tailHeight, "toHeadHeight", to.headHeight)
+
 	}
 }
 
@@ -1142,7 +1148,7 @@ func (self *BCPool) info() map[string]interface{} {
 	}
 	result["Chains"] = chainIds
 	result["Current"] = cp.current.info()
-	result["Disk"] = cp.diskChain.id()
+	result["Disk"] = cp.diskChain.info()
 
 	return result
 }

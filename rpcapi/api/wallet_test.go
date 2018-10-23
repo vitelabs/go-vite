@@ -3,6 +3,7 @@ package api
 import (
 	"flag"
 	"fmt"
+	"github.com/vitelabs/go-vite/vm"
 	"testing"
 
 	"github.com/vitelabs/go-vite/vm_context"
@@ -133,7 +134,7 @@ func startVite(w *wallet.Manager, coinbase *types.Address, t *testing.T) (*vite.
 			Producer: true,
 			Coinbase: coinbase.String(),
 		},
-		Vm: &config.Vm{IsVmTest: false},
+		Vm: &config.Vm{IsVmTest: false, IsUseVmTestParam: true},
 		Net: &config.Net{
 			Single: true,
 		},
@@ -369,10 +370,7 @@ func TestQuota(t *testing.T) {
 }
 
 func TestContracts(t *testing.T) {
-	// modify vm.param.minPledgeHeight to 1
-	// modify vm.param.createConsensusGroupPledgeHeight to 1
-	// modify vm.param.rewardHeightLimit to 1
-	// modify vm.param.mintagePledgeHeight to 1
+	vm.InitVmConfig(false, true)
 	vite, _, waApi, onRoadApi, addr := contractsInit(t)
 	contractsPledge(vite, waApi, onRoadApi, addr, t)
 	tokenId := contractsMintage(vite, waApi, onRoadApi, addr, t)

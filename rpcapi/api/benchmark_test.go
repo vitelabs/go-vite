@@ -83,7 +83,7 @@ func (self *benchmark) startVite() (*vite.Vite, error) {
 			Producer: true,
 			Coinbase: self.coinbase.String(),
 		},
-		Vm: &config.Vm{IsVmTest: true},
+		Vm: &config.Vm{IsVmTest: true, IsUseVmTestParam: true},
 		Net: &config.Net{
 			Single: false,
 		},
