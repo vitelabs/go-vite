@@ -1,10 +1,10 @@
-package seedstore
+package entropystore
 
 const (
-	seedStoreVersion = 1
+	cryptoStoreVersion = 1
 )
 
-type encryptedSeedJSON struct {
+type entropyJSON struct {
 	PrimaryAddress string     `json:"primaryAddress"`
 	Crypto         cryptoJSON `json:"crypto"`
 	Version        int        `json:"seedstoreversion"`

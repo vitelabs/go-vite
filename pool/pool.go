@@ -18,7 +18,7 @@ import (
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/wallet/seedstore"
+	"github.com/vitelabs/go-vite/wallet/entropystore"
 )
 
 type Writer interface {
@@ -640,7 +640,7 @@ func (self *pool) listUnlockedAddr() []types.Address {
 		return todoAddress
 	}
 	for k, v := range status {
-		if v == seedstore.Locked {
+		if v == entropystore.Locked {
 			todoAddress = append(todoAddress, k)
 		}
 	}

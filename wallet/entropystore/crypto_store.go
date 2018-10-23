@@ -1,10 +1,11 @@
-package seedstore
+package entropystore
 
 import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/common/types"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
@@ -32,48 +33,58 @@ const (
 	scryptName = "scrypt"
 )
 
-type SeedStorePassphrase struct {
-	SeedStoreFilename string
+type CryptoStore struct {
+	EntropyStoreFilename string
 }
 
-func (ks SeedStorePassphrase) ExtractSeed(password string) ([]byte, error) {
-	keyjson, err := ioutil.ReadFile(ks.SeedStoreFilename)
+func (ks CryptoStore) ExtractSeed(password string) (seed, entropy []byte, err error) {
+	entropy, err = ks.ExtractEntropy(password)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	s, e := bip39.NewMnemonic(entropy)
+	if e != nil {
+		return nil, nil, e
+	}
+
+	return bip39.NewSeed(s, ""), entropy, nil
+}
+
+func (ks CryptoStore) ExtractEntropy(password string) ([]byte, error) {
+	keyjson, err := ioutil.ReadFile(ks.EntropyStoreFilename)
 	if err != nil {
 		return nil, err
 	}
 
-	key, err := DecryptSeed(keyjson, password)
+	key, err := DecryptEntropy(keyjson, password)
 	if err != nil {
 		return nil, err
 	}
 	return key, nil
 }
 
-func (ks SeedStorePassphrase) StoreSeed(seed []byte, password string) error {
-	addr, e := derivation.GetPrimaryAddress(seed)
+func (ks CryptoStore) StoreEntropy(entropy []byte, primaryAddr types.Address, password string) error {
+
+	keyjson, e := EncryptEntropy(entropy, primaryAddr, password)
 	if e != nil {
 		return e
 	}
 
-	keyjson, e := EncryptSeed(seed, *addr, password)
-	if e != nil {
-		return e
-	}
-
-	e = writeKeyFile(ks.SeedStoreFilename, keyjson)
+	e = writeKeyFile(ks.EntropyStoreFilename, keyjson)
 	if e != nil {
 		return e
 	}
 	return nil
 }
 
-func parseJson(keyjson []byte) (k *encryptedSeedJSON, kAddress *types.Address, cipherPriv, nonce, salt []byte, err error) {
-	k = new(encryptedSeedJSON)
-	// parse and check encryptedSeedJSON params
+func parseJson(keyjson []byte) (k *entropyJSON, kAddress *types.Address, cipherData, nonce, salt []byte, err error) {
+	k = new(entropyJSON)
+	// parse and check entropyJSON params
 	if err := json.Unmarshal(keyjson, k); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	if k.Version != seedStoreVersion {
+	if k.Version != cryptoStoreVersion {
 		return nil, nil, nil, nil, nil, fmt.Errorf("version number error : %v", k.Version)
 	}
 
@@ -92,7 +103,7 @@ func parseJson(keyjson []byte) (k *encryptedSeedJSON, kAddress *types.Address, c
 	if k.Crypto.KDF != scryptName {
 		return nil, nil, nil, nil, nil, fmt.Errorf("scryptName  error : %v", k.Crypto.KDF)
 	}
-	cipherPriv, err = hex.DecodeString(k.Crypto.CipherText)
+	cipherData, err = hex.DecodeString(k.Crypto.CipherText)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -108,11 +119,11 @@ func parseJson(keyjson []byte) (k *encryptedSeedJSON, kAddress *types.Address, c
 		return nil, nil, nil, nil, nil, err
 	}
 
-	return k, &addr, cipherPriv, nonce, salt, nil
+	return k, &addr, cipherData, nonce, salt, nil
 }
 
-func DecryptSeed(seedJson []byte, password string) ([]byte, error) {
-	k, kAddress, cipherPriv, nonce, salt, err := parseJson(seedJson)
+func DecryptEntropy(entropyJson []byte, password string) ([]byte, error) {
+	k, kAddress, cipherData, nonce, salt, err := parseJson(entropyJson)
 	if err != nil {
 		return nil, err
 	}
@@ -124,10 +135,16 @@ func DecryptSeed(seedJson []byte, password string) ([]byte, error) {
 		return nil, err
 	}
 
-	seed, err := vcrypto.AesGCMDecrypt(derivedKey[:32], cipherPriv, []byte(nonce))
+	entropy, err := vcrypto.AesGCMDecrypt(derivedKey[:32], cipherData, []byte(nonce))
 	if err != nil {
 		return nil, walleterrors.ErrDecryptSeed
 	}
+
+	mnemonic, e := bip39.NewMnemonic(entropy)
+	if e != nil {
+		return nil, e
+	}
+	seed := bip39.NewSeed(mnemonic, "")
 
 	generateAddr, e := derivation.GetPrimaryAddress(seed)
 	if e != nil {
@@ -139,10 +156,10 @@ func DecryptSeed(seedJson []byte, password string) ([]byte, error) {
 				k.PrimaryAddress, generateAddr.Hex())
 	}
 
-	return seed, nil
+	return entropy, nil
 }
 
-func EncryptSeed(seed []byte, addr types.Address, password string) ([]byte, error) {
+func EncryptEntropy(seed []byte, addr types.Address, password string) ([]byte, error) {
 	n := StandardScryptN
 	p := StandardScryptP
 	pwdArray := []byte(password)
@@ -174,11 +191,11 @@ func EncryptSeed(seed []byte, addr types.Address, password string) ([]byte, erro
 		ScryptParams: ScryptParams,
 	}
 
-	encryptedKeyJSON := encryptedSeedJSON{
+	encryptedKeyJSON := entropyJSON{
 
 		PrimaryAddress: addr.String(),
 		Crypto:         cryptoJSON,
-		Version:        seedStoreVersion,
+		Version:        cryptoStoreVersion,
 		Timestamp:      time.Now().UTC().Unix(),
 	}
 

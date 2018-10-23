@@ -13,7 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/wallet/seedstore"
+	"github.com/vitelabs/go-vite/wallet/entropystore"
 )
 
 type HexSignedTuple struct {
@@ -46,7 +46,7 @@ func NewWalletApi(vite *vite.Vite) *WalletApi {
 }
 
 type WalletApi struct {
-	km    *seedstore.Manager
+	km    *entropystore.Manager
 	chain chain.Chain
 	pool  pool.Writer
 }
@@ -218,7 +218,7 @@ func (m *WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, pa
 
 func (m *WalletApi) IsMayValidKeystoreFile(path string) IsMayValidKeystoreFileResponse {
 	log.Info("IsValidKeystoreFile")
-	b, addr, _ := seedstore.IsMayValidSeedstoreFile(path)
+	b, addr, _ := entropystore.IsMayValidEntropystoreFile(path)
 	if b && addr != nil {
 		return IsMayValidKeystoreFileResponse{
 			true, *addr,

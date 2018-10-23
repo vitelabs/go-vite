@@ -13,14 +13,14 @@ func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
 	manager := wallet.New(&wallet.Config{
 		DataDir: filepath.Join(common.DefaultDataDir(), "wallet"),
 	})
-	mnemonic, seedStoreFile, err := manager.NewMnemonicAndSeedStore("123456", true, nil)
+	mnemonic, seedStoreFile, err := manager.NewMnemonicAndEntropyStore("123456", true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	fmt.Println(mnemonic)
 	fmt.Println(seedStoreFile)
 
-	file, e := manager.RecoverSeedStoreFromMnemonic(mnemonic, "123456", true, nil)
+	file, e := manager.RecoverEntropyStoreFromMnemonic(mnemonic, "123456", true)
 	if e != nil {
 		t.Fatal()
 	}

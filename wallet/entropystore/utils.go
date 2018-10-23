@@ -1,4 +1,4 @@
-package seedstore
+package entropystore
 
 import (
 	"bufio"
@@ -16,7 +16,7 @@ import (
 
 // it it return false it must not be a valid seedstore file
 // if it return a true it only means that might be true
-func IsMayValidSeedstoreFile(path string) (bool, *types.Address, error) {
+func IsMayValidEntropystoreFile(path string) (bool, *types.Address, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return false, nil, err
@@ -41,10 +41,10 @@ func FullKeyFileName(keysDirPath string, keyAddr types.Address) string {
 	return filepath.Join(keysDirPath, keyAddr.Hex())
 }
 
-func readAndFixAddressFile(path string) (*types.Address, *encryptedSeedJSON) {
+func readAndFixAddressFile(path string) (*types.Address, *entropyJSON) {
 	log := log15.New("method", "wallet/keystore/utils/readAndFixAddressFile")
 	buf := new(bufio.Reader)
-	keyJSON := encryptedSeedJSON{}
+	keyJSON := entropyJSON{}
 
 	fd, err := os.Open(path)
 	if err != nil {

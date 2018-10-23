@@ -1,7 +1,8 @@
-package seedstore
+package entropystore
 
 import (
 	"fmt"
+	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
@@ -30,11 +31,12 @@ func (ue UnlockEvent) Unlocked() bool {
 }
 
 type Manager struct {
-	ks             SeedStorePassphrase
+	ks             CryptoStore
 	maxSearchIndex uint32
 
-	unlockedAddr map[types.Address]*derivation.Key
-	unlockedSeed []byte
+	unlockedAddr    map[types.Address]*derivation.Key
+	unlockedSeed    []byte
+	unlockedEntropy []byte
 
 	mutex sync.RWMutex
 
@@ -43,9 +45,9 @@ type Manager struct {
 	log                log15.Logger
 }
 
-func NewManager(seedStoreFilename string, maxSearchIndex uint32) *Manager {
+func NewManager(entropyStoreFilename string, maxSearchIndex uint32) *Manager {
 	return &Manager{
-		ks:                 SeedStorePassphrase{seedStoreFilename},
+		ks:                 CryptoStore{entropyStoreFilename},
 		unlockedAddr:       make(map[types.Address]*derivation.Key),
 		maxSearchIndex:     maxSearchIndex,
 		unlockChangedLis:   make(map[int]func(event UnlockEvent)),
@@ -55,12 +57,12 @@ func NewManager(seedStoreFilename string, maxSearchIndex uint32) *Manager {
 	}
 }
 
-func (km Manager) SeedStoreFile() string {
-	return km.ks.SeedStoreFilename
+func (km Manager) EntropyStoreFile() string {
+	return km.ks.EntropyStoreFilename
 }
 
 func (km *Manager) IsAddrUnlocked(addr types.Address) bool {
-	if !km.IsSeedUnlocked() {
+	if !km.IsUnlocked() {
 		return false
 	}
 
@@ -84,7 +86,7 @@ func (km *Manager) IsAddrUnlocked(addr types.Address) bool {
 	return true
 }
 
-func (km *Manager) IsSeedUnlocked() bool {
+func (km *Manager) IsUnlocked() bool {
 	return km.unlockedSeed != nil
 }
 
@@ -108,12 +110,13 @@ func (km *Manager) ListAddress(maxIndex uint32) ([]*types.Address, error) {
 	return addr, nil
 }
 
-func (km *Manager) UnlockSeed(password string) error {
-	seed, e := km.ks.ExtractSeed(password)
+func (km *Manager) Unlock(password string) error {
+	seed, entropy, e := km.ks.ExtractSeed(password)
 	if e != nil {
 		return e
 	}
 	km.unlockedSeed = seed
+	km.unlockedEntropy = entropy
 
 	pAddr, e := derivation.GetPrimaryAddress(seed)
 	if e != nil {
@@ -125,7 +128,7 @@ func (km *Manager) UnlockSeed(password string) error {
 	return nil
 }
 
-func (km *Manager) LockSeed() error {
+func (km *Manager) Lock() error {
 	pAddr, e := derivation.GetPrimaryAddress(km.unlockedSeed)
 	if e != nil {
 		return e
@@ -142,12 +145,20 @@ func (km *Manager) LockSeed() error {
 	return nil
 }
 
-func (km *Manager) FindAddr(password string, addr types.Address) (*derivation.Key, uint32, error) {
-	seed, err := km.ks.ExtractSeed(password)
+func (km *Manager) FindAddrWithPassword(password string, addr types.Address) (*derivation.Key, uint32, error) {
+	seed, _, err := km.ks.ExtractSeed(password)
 	if err != nil {
 		return nil, 0, err
 	}
 	return FindAddrFromSeed(seed, addr, km.maxSearchIndex)
+}
+
+func (km *Manager) FindAddr(addr types.Address) (*derivation.Key, uint32, error) {
+	if !km.IsUnlocked() {
+		return nil, 0, walleterrors.ErrLocked
+	}
+
+	return FindAddrFromSeed(km.unlockedSeed, addr, km.maxSearchIndex)
 }
 
 func (km *Manager) SignData(a types.Address, data []byte) (signedData, pubkey []byte, err error) {
@@ -161,7 +172,7 @@ func (km *Manager) SignData(a types.Address, data []byte) (signedData, pubkey []
 }
 
 func (km *Manager) SignDataWithPassphrase(addr types.Address, passphrase string, data []byte) (signedData, pubkey []byte, err error) {
-	seed, err := km.ks.ExtractSeed(passphrase)
+	seed, _, err := km.ks.ExtractSeed(passphrase)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -173,7 +184,7 @@ func (km *Manager) SignDataWithPassphrase(addr types.Address, passphrase string,
 	return key.SignData(data)
 }
 
-func (km *Manager) DeriveForFullPath(path string) (string, *derivation.Key, error) {
+func (km *Manager) DeriveForFullPath(path string) (fpath string, key *derivation.Key, err error) {
 	if km.unlockedSeed == nil {
 		return "", nil, walleterrors.ErrLocked
 	}
@@ -186,12 +197,12 @@ func (km *Manager) DeriveForFullPath(path string) (string, *derivation.Key, erro
 	return path, key, nil
 }
 
-func (km *Manager) DeriveForIndexPath(index uint32) (string, *derivation.Key, error) {
+func (km *Manager) DeriveForIndexPath(index uint32) (path string, key *derivation.Key, err error) {
 	return km.DeriveForFullPath(fmt.Sprintf(derivation.ViteAccountPathFormat, index))
 }
 
-func (km *Manager) DeriveForFullPathWithPassphrase(path, passphrase string) (string, *derivation.Key, error) {
-	seed, err := km.ks.ExtractSeed(passphrase)
+func (km *Manager) DeriveForFullPathWithPassphrase(path, passphrase string) (fpath string, key *derivation.Key, err error) {
+	seed, _, err := km.ks.ExtractSeed(passphrase)
 	if err != nil {
 		return "", nil, err
 	}
@@ -204,19 +215,24 @@ func (km *Manager) DeriveForFullPathWithPassphrase(path, passphrase string) (str
 	return path, key, nil
 }
 
-func (km *Manager) DeriveForIndexPathWithPassphrase(index uint32, passphrase string) (string, *derivation.Key, error) {
+func (km *Manager) DeriveForIndexPathWithPassphrase(index uint32, passphrase string) (path string, key *derivation.Key, err error) {
 	return km.DeriveForFullPathWithPassphrase(fmt.Sprintf(derivation.ViteAccountPathFormat, index), passphrase)
 }
 
-func StoreNewSeed(seedDir string, seed []byte, pwd string, maxSearchIndex uint32) (*Manager, error) {
+func StoreNewEntropy(storeDir string, mnemonic string, pwd string, maxSearchIndex uint32) (*Manager, error) {
+	entropy, e := bip39.EntropyFromMnemonic(mnemonic)
+	if e != nil {
+		return nil, e
+	}
+	seed := bip39.NewSeed(mnemonic, "")
 	primaryAddress, e := derivation.GetPrimaryAddress(seed)
 	if e != nil {
 		return nil, e
 	}
 
-	filename := FullKeyFileName(seedDir, *primaryAddress)
-	ss := SeedStorePassphrase{filename}
-	e = ss.StoreSeed(seed, pwd)
+	filename := FullKeyFileName(storeDir, *primaryAddress)
+	ss := CryptoStore{filename}
+	e = ss.StoreEntropy(entropy, *primaryAddress, pwd)
 	if e != nil {
 		return nil, e
 	}

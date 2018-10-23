@@ -3,12 +3,12 @@ package wallet
 import (
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
-	"github.com/vitelabs/go-vite/wallet/seedstore"
+	"github.com/vitelabs/go-vite/wallet/entropystore"
 )
 
 type Manager struct {
-	seedStoreManager *seedstore.Manager
-	config           *Config
+	entropyStoreManager *entropystore.Manager
+	config              *Config
 }
 
 func New(config *Config) *Manager {
@@ -20,56 +20,49 @@ func New(config *Config) *Manager {
 	}
 }
 
-func (m Manager) GetSeedStoreManager() *seedstore.Manager {
-	return m.seedStoreManager
+func (m Manager) GetEntropyStoreManager() *entropystore.Manager {
+	return m.entropyStoreManager
 }
 
-func (m *Manager) RecoverSeedStoreFromMnemonic(mnemonic string, seedStorePassword string, switchToIt bool, seedPassword *string) (seedStoreFile string, err error) {
-	rawSeedPassword := ""
-	if seedPassword != nil {
-		rawSeedPassword = *seedPassword
-	}
-	seed := bip39.NewSeed(mnemonic, rawSeedPassword)
+func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, password string, switchToIt bool) (absFilename string, err error) {
 
-	sm, e := seedstore.StoreNewSeed(m.config.DataDir, seed, seedStorePassword, seedstore.DefaultMaxIndex)
+	sm, e := entropystore.StoreNewEntropy(m.config.DataDir, mnemonic, password, entropystore.DefaultMaxIndex)
 	if e != nil {
 		return "", nil
 	}
 	if switchToIt {
-		m.switchSeedStore(sm)
+		m.switchEntropyStore(sm)
 	}
-	return sm.SeedStoreFile(), e
+	return sm.EntropyStoreFile(), e
 }
 
-func (m *Manager) switchSeedStore(sm *seedstore.Manager) error {
+func (m *Manager) switchEntropyStore(sm *entropystore.Manager) error {
 	if sm == nil {
-		return errors.New("nil seed manager")
+		return errors.New("nil entropy manager")
 	}
-	if m.seedStoreManager != nil {
-		m.seedStoreManager.LockSeed()
+	if m.entropyStoreManager != nil {
+		m.entropyStoreManager.Lock()
 	}
-	m.seedStoreManager = sm
+	m.entropyStoreManager = sm
 	return nil
 }
 
-func (m *Manager) SwitchSeedStore(fullSeedStoreFile string) error {
-	if m.seedStoreManager != nil {
-		m.seedStoreManager.LockSeed()
+func (m *Manager) SwitchEntropyStore(absFilename string) error {
+	if m.entropyStoreManager != nil {
+		m.entropyStoreManager.Lock()
 	}
-	mayValidSeedstoreFile, _, e := seedstore.IsMayValidSeedstoreFile(fullSeedStoreFile)
+	mayValid, _, e := entropystore.IsMayValidEntropystoreFile(absFilename)
 	if e != nil {
 		return e
 	}
-	if !mayValidSeedstoreFile {
-		return errors.New("not valid seed store file")
+	if !mayValid {
+		return errors.New("not valid entropy store file")
 	}
-	m.seedStoreManager = seedstore.NewManager(fullSeedStoreFile, seedstore.DefaultMaxIndex)
+	m.entropyStoreManager = entropystore.NewManager(absFilename, entropystore.DefaultMaxIndex)
 	return nil
 }
 
-// seedStorePassword :  represents the keystore file`s password
-// seedPassword:  in bip 39 when generate a seed from a mnemonic you can pass a password or not
-func (m *Manager) NewMnemonicAndSeedStore(seedStorePassword string, switchToIt bool, seedPassword *string) (mnemonic, seedStoreFile string, err error) {
+func (m *Manager) NewMnemonicAndEntropyStore(password string, switchToIt bool) (mnemonic, absStoreFile string, err error) {
 	entropy, err := bip39.NewEntropy(256)
 	if err != nil {
 		return "", "", nil
@@ -79,7 +72,7 @@ func (m *Manager) NewMnemonicAndSeedStore(seedStorePassword string, switchToIt b
 		return "", "", nil
 	}
 
-	file, e := m.RecoverSeedStoreFromMnemonic(mnemonic, seedStorePassword, switchToIt, seedPassword)
+	file, e := m.RecoverEntropyStoreFromMnemonic(mnemonic, password, switchToIt)
 	if e != nil {
 		return "", "", e
 	}

@@ -15,7 +15,7 @@ import (
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/wallet/seedstore"
+	"github.com/vitelabs/go-vite/wallet/entropystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 )
 
@@ -72,7 +72,7 @@ func (manager *Manager) Init(chain chain.Chain) {
 
 func (manager *Manager) Start() {
 	manager.netStateLid = manager.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
-	manager.unlockLid = manager.wallet.GetSeedStoreManager().AddLockEventListener(manager.addressLockStateChangeFunc)
+	manager.unlockLid = manager.wallet.GetEntropyStoreManager().AddLockEventListener(manager.addressLockStateChangeFunc)
 	if manager.producer != nil {
 		manager.producer.SetAccountEventFunc(manager.producerStartEventFunc)
 	}
@@ -87,7 +87,7 @@ func (manager *Manager) Start() {
 func (manager *Manager) Stop() {
 	manager.log.Info("Close")
 	manager.Net().UnsubscribeSyncStatus(manager.netStateLid)
-	manager.wallet.GetSeedStoreManager().RemoveUnlockChangeChannel(manager.unlockLid)
+	manager.wallet.GetEntropyStoreManager().RemoveUnlockChangeChannel(manager.unlockLid)
 	if manager.producer != nil {
 		manager.Producer().SetAccountEventFunc(nil)
 	}
@@ -115,7 +115,7 @@ func (manager *Manager) netStateChangedFunc(state net.SyncState) {
 	}
 }
 
-func (manager *Manager) addressLockStateChangeFunc(event seedstore.UnlockEvent) {
+func (manager *Manager) addressLockStateChangeFunc(event entropystore.UnlockEvent) {
 	manager.log.Info("addressLockStateChangeFunc ", "event", event)
 
 	w, found := manager.autoReceiveWorkers[event.Address]
