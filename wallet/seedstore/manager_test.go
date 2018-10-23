@@ -72,7 +72,7 @@ func TestStoreNewSeed(t *testing.T) {
 	manager := GetManagerFromStoreNewSeed()
 	fmt.Println(manager.SeedStoreFile())
 	for i := uint32(0); i < 10; i++ {
-		path, key, e := manager.DeriveForIndexPath(i, "123456")
+		path, key, e := manager.DeriveForIndexPathWithPassphrase(i, "123456")
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -112,5 +112,27 @@ func TestManager_FindAddr(t *testing.T) {
 }
 
 func TestManager_LockAndUnlock(t *testing.T) {
+	sm := GetManagerFromStoreNewSeed()
+
+	sm.AddLockEventListener(func(event seedstore.UnlockEvent) {
+		fmt.Println("receive an event:", event.String())
+	})
+
+	_, e := sm.ListAddress(10)
+	if e == nil {
+		t.Fatal("need error")
+	}
+	fmt.Println(e)
+	e = sm.UnlockSeed("123456")
+	if e != nil {
+		t.Fatal(e)
+	}
+	addr, e := sm.ListAddress(10)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for i, v := range addr {
+		fmt.Println(i, v.String())
+	}
 
 }

@@ -92,7 +92,7 @@ func DeriveWithIndex(i uint32, seed []byte) (*Key, error) {
 }
 
 func GetPrimaryAddress(seed []byte) (*types.Address, error) {
-	key, e := NewMasterKey(seed)
+	key, e := DeriveWithIndex(0, seed)
 	if e != nil {
 		return nil, e
 	}

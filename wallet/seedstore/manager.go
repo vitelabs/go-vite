@@ -35,7 +35,6 @@ type Manager struct {
 
 	unlockedAddr map[types.Address]*derivation.Key
 	unlockedSeed []byte
-	addrToIndex  map[types.Address]uint32
 
 	mutex sync.RWMutex
 
@@ -48,7 +47,6 @@ func NewManager(seedStoreFilename string, maxSearchIndex uint32) *Manager {
 	return &Manager{
 		ks:                 SeedStorePassphrase{seedStoreFilename},
 		unlockedAddr:       make(map[types.Address]*derivation.Key),
-		addrToIndex:        make(map[types.Address]uint32),
 		maxSearchIndex:     maxSearchIndex,
 		unlockChangedLis:   make(map[int]func(event UnlockEvent)),
 		unlockChangedIndex: 100,
@@ -74,14 +72,13 @@ func (km *Manager) IsAddrUnlocked(addr types.Address) bool {
 	}
 	km.mutex.RUnlock()
 
-	key, index, e := FindAddrFromSeed(km.unlockedSeed, addr, km.maxSearchIndex)
+	key, _, e := FindAddrFromSeed(km.unlockedSeed, addr, km.maxSearchIndex)
 	if e != nil {
 		return false
 	}
 
 	km.mutex.Lock()
 	km.unlockedAddr[addr] = key
-	km.addrToIndex[addr] = index
 	km.mutex.Unlock()
 
 	return true
@@ -89,6 +86,26 @@ func (km *Manager) IsAddrUnlocked(addr types.Address) bool {
 
 func (km *Manager) IsSeedUnlocked() bool {
 	return km.unlockedSeed != nil
+}
+
+func (km *Manager) ListAddress(maxIndex uint32) ([]*types.Address, error) {
+	if km.unlockedSeed == nil {
+		return nil, walleterrors.ErrLocked
+	}
+	addr := make([]*types.Address, maxIndex)
+	for i := uint32(0); i < maxIndex; i++ {
+		_, key, e := km.DeriveForIndexPath(i)
+		if e != nil {
+			return nil, e
+		}
+		address, e := key.Address()
+		if e != nil {
+			return nil, e
+		}
+		addr[i] = address
+	}
+
+	return addr, nil
 }
 
 func (km *Manager) UnlockSeed(password string) error {
@@ -156,8 +173,25 @@ func (km *Manager) SignDataWithPassphrase(addr types.Address, passphrase string,
 	return key.SignData(data)
 }
 
-func (km *Manager) DeriveForFullPath(path, password string) (string, *derivation.Key, error) {
-	seed, err := km.ks.ExtractSeed(password)
+func (km *Manager) DeriveForFullPath(path string) (string, *derivation.Key, error) {
+	if km.unlockedSeed == nil {
+		return "", nil, walleterrors.ErrLocked
+	}
+
+	key, e := derivation.DeriveForPath(path, km.unlockedSeed)
+	if e != nil {
+		return "", nil, e
+	}
+
+	return path, key, nil
+}
+
+func (km *Manager) DeriveForIndexPath(index uint32) (string, *derivation.Key, error) {
+	return km.DeriveForFullPath(fmt.Sprintf(derivation.ViteAccountPathFormat, index))
+}
+
+func (km *Manager) DeriveForFullPathWithPassphrase(path, passphrase string) (string, *derivation.Key, error) {
+	seed, err := km.ks.ExtractSeed(passphrase)
 	if err != nil {
 		return "", nil, err
 	}
@@ -170,8 +204,8 @@ func (km *Manager) DeriveForFullPath(path, password string) (string, *derivation
 	return path, key, nil
 }
 
-func (km *Manager) DeriveForIndexPath(index uint32, password string) (string, *derivation.Key, error) {
-	return km.DeriveForFullPath(fmt.Sprintf(derivation.ViteAccountPathFormat, index), password)
+func (km *Manager) DeriveForIndexPathWithPassphrase(index uint32, passphrase string) (string, *derivation.Key, error) {
+	return km.DeriveForFullPathWithPassphrase(fmt.Sprintf(derivation.ViteAccountPathFormat, index), passphrase)
 }
 
 func StoreNewSeed(seedDir string, seed []byte, pwd string, maxSearchIndex uint32) (*Manager, error) {
