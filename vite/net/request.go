@@ -45,6 +45,7 @@ type context interface {
 	Retry(id uint64, err error)
 	FC() *fileClient
 	Get(id uint64) Request
+	Del(id uint64)
 }
 
 type Request interface {
@@ -52,7 +53,7 @@ type Request interface {
 	ID() uint64
 	SetID(id uint64)
 	Run(ctx context)
-	Done()
+	Done(ctx context)
 	Catch(err error)
 	Expired() bool
 	State() reqState
@@ -218,6 +219,9 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 			return
 		}
 
+		s.Done(ctx)
+		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
+
 		if len(msg.Files) != 0 {
 			// sort as StartHeight
 			sort.Sort(files(msg.Files))
@@ -264,9 +268,6 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 				})
 			}
 		}
-
-		s.Done()
-		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
 	} else {
 		ctx.Retry(s.id, errUnExpectedRes)
 		netLog.Error(fmt.Sprintf("getSubLedgerHandler got %d need %d", pkt.Cmd, SubLedgerCode))
@@ -297,8 +298,9 @@ func (s *subLedgerRequest) Run(ctx context) {
 	}
 }
 
-func (s *subLedgerRequest) Done() {
+func (s *subLedgerRequest) Done(ctx context) {
 	s.state = reqDone
+	ctx.Del(s.id)
 }
 
 func (s *subLedgerRequest) Catch(err error) {
@@ -413,6 +415,10 @@ func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 			return
 		}
 
+		c.Done(ctx)
+
+		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
+
 		// receive account blocks first
 		for _, block := range msg.ABlocks {
 			c.rec.receiveAccountBlock(block)
@@ -421,10 +427,6 @@ func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 		for _, block := range msg.SBlocks {
 			c.rec.receiveSnapshotBlock(block)
 		}
-
-		c.Done()
-
-		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
 	} else {
 		ctx.Retry(c.id, errUnExpectedRes)
 		netLog.Error(fmt.Sprintf("chunkHandler got %d need %d", pkt.Cmd, SubLedgerCode))
@@ -454,8 +456,9 @@ func (c *chunkRequest) Run(ctx context) {
 	}
 }
 
-func (c *chunkRequest) Done() {
+func (c *chunkRequest) Done(ctx context) {
 	c.state = reqDone
+	ctx.Del(c.id)
 }
 
 func (c *chunkRequest) Catch(err error) {
