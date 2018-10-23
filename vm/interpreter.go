@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/vm/quota"
+	"github.com/vitelabs/go-vite/vm/util"
 	"sync/atomic"
 )
 
@@ -44,10 +44,10 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		if operation.memorySize != nil {
 			memSize, overflow := helper.BigUint64(operation.memorySize(st))
 			if overflow {
-				return nil, errGasUintOverflow
+				return nil, util.ErrGasUintOverflow
 			}
 			if memorySize, overflow = helper.SafeMul(helper.ToWordSize(memSize), helper.WordSize); overflow {
-				return nil, errGasUintOverflow
+				return nil, util.ErrGasUintOverflow
 			}
 		}
 
@@ -55,7 +55,7 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		if err != nil {
 			return nil, err
 		}
-		c.quotaLeft, err = quota.UseQuota(c.quotaLeft, cost)
+		c.quotaLeft, err = util.UseQuota(c.quotaLeft, cost)
 		if err != nil {
 			return nil, err
 		}
@@ -83,7 +83,7 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		case operation.halts:
 			return res, nil
 		case operation.reverts:
-			return res, ErrExecutionReverted
+			return res, util.ErrExecutionReverted
 		case !operation.jumps:
 			pc++
 		}

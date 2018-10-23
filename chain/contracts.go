@@ -62,7 +62,7 @@ func (c *chain) GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.
 			c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuotaList")
 			return nil
 		}
-		quotas[addr] = quota.GetPledgeQuota(vmContext, addr)
+		quotas[addr] = quota.GetPledgeQuota(vmContext, addr, c.GetPledgeAmount(snapshotHash, addr))
 	}
 	return quotas
 }
@@ -72,7 +72,7 @@ func (c *chain) GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuota")
 		return 0
 	}
-	return quota.GetPledgeQuota(vmContext, beneficial)
+	return quota.GetPledgeQuota(vmContext, beneficial, c.GetPledgeAmount(snapshotHash, beneficial))
 }
 
 func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) []*contracts.Registration {
