@@ -155,7 +155,8 @@ func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
 }
 
 func (self *chainPool) modifyChainRefer() {
-	for _, c := range self.allChain() {
+	cs := self.allChain()
+	for _, c := range cs {
 		if c.id() == self.current.id() {
 			continue
 		}
@@ -171,6 +172,16 @@ func (self *chainPool) modifyChainRefer() {
 			}
 		} else {
 			self.log.Error("err for modifyChainRefer.", "from", c.id(), "refer", c.referChain.id(), "tailHeight", c.tailHeight)
+			for _, v := range cs {
+				b2, r2 := v.getBlockByChain(c.tailHeight)
+				if b2 != nil {
+					if r2.id() == self.diskChain.id() {
+						c.referChain = self.current
+					} else {
+						c.referChain = r2
+					}
+				}
+			}
 		}
 	}
 }
