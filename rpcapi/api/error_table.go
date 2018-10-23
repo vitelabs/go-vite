@@ -28,7 +28,7 @@ var (
 	}
 
 	ErrDecryptKey = JsonRpc2Error{
-		Message: walleterrors.ErrDecryptKey.Error(),
+		Message: walleterrors.ErrDecryptSeed.Error(),
 		Code:    -34001,
 	}
 

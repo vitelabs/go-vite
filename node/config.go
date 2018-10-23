@@ -15,7 +15,7 @@ import (
 )
 
 type Config struct {
-	DataDir string `json:"DataDir"`
+	DataDir string `json:"FullSeedStoreFileName"`
 
 	KeyStoreDir string `json:"KeyStoreDir"`
 
@@ -75,7 +75,7 @@ type Config struct {
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
-	return &wallet.Config{DataDir: c.KeyStoreDir}
+	return &wallet.Config{FullSeedStoreFileName: c.KeyStoreDir}
 }
 
 func (c *Config) makeViteConfig() *config.Config {

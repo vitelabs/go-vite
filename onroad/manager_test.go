@@ -13,11 +13,11 @@ import (
 )
 
 var twallet = wallet.New(&wallet.Config{
-	DataDir: common.GoViteTestDataDir(),
+	FullSeedStoreFileName: common.GoViteTestDataDir(),
 })
 
 func generateAddress() types.Address {
-	key, _ := twallet.KeystoreManager.StoreNewKey("123")
+	key, _ := twallet.SeedStoreManagers.StoreNewKey("123")
 	return key.Address
 }
 
@@ -60,10 +60,10 @@ func TestManager_StartAutoReceiveWorker(t *testing.T) {
 			manager.StartAutoReceiveWorker(addr, nil)
 			time.AfterFunc(5*time.Second, func() {
 				fmt.Println("test a lock ")
-				twallet.KeystoreManager.Lock(addr)
+				twallet.SeedStoreManagers.Lock(addr)
 				time.AfterFunc(5*time.Second, func() {
 					fmt.Println("test a unlock ")
-					twallet.KeystoreManager.Unlock(addr, "123", 5*time.Second)
+					twallet.SeedStoreManagers.Unlock(addr, "123", 5*time.Second)
 					manager.StartAutoReceiveWorker(addr, nil)
 				})
 			})

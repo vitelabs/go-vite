@@ -48,7 +48,7 @@ func (maker FullNodeMaker) MakeNodeConfig(ctx *cli.Context) *node.Config {
 	// 3: Override any default configs for hard coded networks.
 	overrideNodeConfigs(ctx, &cfg)
 	log.Info(fmt.Sprintf("Last override config: %v", cfg))
-	log.Info(fmt.Sprintf("NodeServer.DataDir:%v", cfg.DataDir))
+	log.Info(fmt.Sprintf("NodeServer.FullSeedStoreFileName:%v", cfg.DataDir))
 	log.Info(fmt.Sprintf("NodeServer.KeyStoreDir:%v", cfg.KeyStoreDir))
 
 	// 4: Config log to file

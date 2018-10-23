@@ -18,7 +18,7 @@ import (
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/wallet/keystore"
+	"github.com/vitelabs/go-vite/wallet/seedstore"
 )
 
 type Writer interface {
@@ -635,12 +635,12 @@ func (self *pool) delUseLessChains() {
 
 func (self *pool) listUnlockedAddr() []types.Address {
 	var todoAddress []types.Address
-	status, e := self.wt.KeystoreManager.Status()
+	status, e := self.wt.SeedStoreManagers.Status()
 	if e != nil {
 		return todoAddress
 	}
 	for k, v := range status {
-		if v == keystore.Locked {
+		if v == seedstore.Locked {
 			todoAddress = append(todoAddress, k)
 		}
 	}

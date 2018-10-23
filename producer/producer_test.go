@@ -106,11 +106,11 @@ func TestSnapshot(t *testing.T) {
 	p1 := pool.NewPool(c)
 	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
 
-	w.KeystoreManager.ImportPriv(accountPrivKeyStr, "123456")
-	w.KeystoreManager.Lock(coinbase)
-	w.KeystoreManager.Unlock(coinbase, "123456", 0)
+	w.SeedStoreManagers.ImportPriv(accountPrivKeyStr, "123456")
+	w.SeedStoreManagers.Lock(coinbase)
+	w.SeedStoreManagers.Unlock(coinbase, "123456", 0)
 	log.Info("unlock address", "address", coinbase.String())
-	locked := w.KeystoreManager.IsUnLocked(coinbase)
+	locked := w.SeedStoreManagers.IsUnLocked(coinbase)
 	if !locked {
 		t.Error("unlock failed.")
 		return
@@ -150,9 +150,9 @@ func TestProducer_Init(t *testing.T) {
 	p1 := pool.NewPool(c)
 	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
 
-	w.KeystoreManager.ImportPriv(accountPrivKeyStr, "123456")
-	w.KeystoreManager.Lock(coinbase)
-	w.KeystoreManager.Unlock(coinbase, "123456", 0)
+	w.SeedStoreManagers.ImportPriv(accountPrivKeyStr, "123456")
+	w.SeedStoreManagers.Lock(coinbase)
+	w.SeedStoreManagers.Unlock(coinbase, "123456", 0)
 
 	c.Init()
 	c.Start()

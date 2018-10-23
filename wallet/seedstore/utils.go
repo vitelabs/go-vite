@@ -1,4 +1,4 @@
-package keystore
+package seedstore
 
 import (
 	"bufio"
@@ -37,10 +37,10 @@ func IsMayValidKeystoreFile(path string) (bool, *types.Address, error) {
 	return true, addr, nil
 }
 
-func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
+func readAndFixAddressFile(path string) (*types.Address, *encryptedSeedJSON) {
 	log := log15.New("method", "wallet/keystore/utils/readAndFixAddressFile")
 	buf := new(bufio.Reader)
-	keyJSON := encryptedKeyJSON{}
+	keyJSON := encryptedSeedJSON{}
 
 	fd, err := os.Open(path)
 	if err != nil {
@@ -49,20 +49,20 @@ func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
 	}
 	defer fd.Close()
 	buf.Reset(fd)
-	keyJSON.HexAddress = ""
+	keyJSON.PrimaryAddress = ""
 	err = json.NewDecoder(buf).Decode(&keyJSON)
 	if err != nil {
 		log.Error("Decode keystore file failed ", "path", path, "err", err)
 		return nil, nil
 	}
-	addr, err := types.HexToAddress(keyJSON.HexAddress)
+	addr, err := types.HexToAddress(keyJSON.PrimaryAddress)
 	if err != nil {
-		log.Error("Address is invalid ", "path", path, "err", err)
+		log.Error("PrimaryAddress is invalid ", "path", path, "err", err)
 		return nil, nil
 	}
 
 	// fix the file name
-	standFileName := fullKeyFileName(filepath.Dir(path), addr)
+	standFileName := FullKeyFileName(filepath.Dir(path), addr)
 	if standFileName != fd.Name() {
 		oldname := fd.Name()
 		if runtime.GOOS == "windows" {
@@ -79,7 +79,7 @@ func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
 
 }
 
-func fullKeyFileName(keysDirPath string, keyAddr types.Address) string {
+func FullKeyFileName(keysDirPath string, keyAddr types.Address) string {
 	return filepath.Join(keysDirPath, keyAddr.Hex())
 }
 

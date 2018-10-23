@@ -81,7 +81,7 @@ func (node *Node) Start() error {
 	if err := node.openDataDir(); err != nil {
 		return err
 	}
-	log.Info(fmt.Sprintf("DataDir is OK. "))
+	log.Info(fmt.Sprintf("FullSeedStoreFileName is OK. "))
 
 	//wallet start
 	log.Info(fmt.Sprintf("Begin Start Wallet... "))
@@ -339,11 +339,11 @@ func (node *Node) openDataDir() error {
 	if err := os.MkdirAll(node.config.DataDir, 0700); err != nil {
 		return err
 	}
-	log.Info(fmt.Sprintf("Open NodeServer.DataDir:%v", node.config.DataDir))
+	log.Info(fmt.Sprintf("Open NodeServer.FullSeedStoreFileName:%v", node.config.DataDir))
 
 	//Lock the instance directory to prevent concurrent use by another instance as well as accidental use of the instance directory as a database.
 	lockDir := filepath.Join(node.config.DataDir, "LOCK")
-	log.Info(fmt.Sprintf("Try to Lock NodeServer.DataDir,lockDir:%v", lockDir))
+	log.Info(fmt.Sprintf("Try to Lock NodeServer.FullSeedStoreFileName,lockDir:%v", lockDir))
 	release, _, err := flock.New(lockDir)
 	if err != nil {
 		log.Error(fmt.Sprintf("Directory locked failed,lockDir:%v", lockDir))
@@ -356,13 +356,13 @@ func (node *Node) openDataDir() error {
 	if err := os.MkdirAll(node.p2pConfig.DataDir, 0700); err != nil {
 		return err
 	}
-	log.Info(fmt.Sprintf("Open NodeServer.p2pConfig.DataDir:%v", node.p2pConfig.DataDir))
+	log.Info(fmt.Sprintf("Open NodeServer.p2pConfig.FullSeedStoreFileName:%v", node.p2pConfig.DataDir))
 
 	//open wallet data dir
-	if err := os.MkdirAll(node.walletConfig.DataDir, 0700); err != nil {
+	if err := os.MkdirAll(node.walletConfig.FullSeedStoreFileName, 0700); err != nil {
 		return err
 	}
-	log.Info(fmt.Sprintf("Open NodeServer.walletConfig.DataDir:%v", node.walletConfig.DataDir))
+	log.Info(fmt.Sprintf("Open NodeServer.walletConfig.FullSeedStoreFileName:%v", node.walletConfig.FullSeedStoreFileName))
 
 	return nil
 }

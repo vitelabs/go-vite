@@ -129,10 +129,10 @@ func (b *benchmark) getHeight(addr types.Address) uint64 {
 }
 
 func (self *benchmark) unlockAll() []types.Address {
-	results := self.w.KeystoreManager.Addresses()
+	results := self.w.SeedStoreManagers.Addresses()
 
 	for _, r := range results {
-		err := self.w.KeystoreManager.Unlock(r, password, 0)
+		err := self.w.SeedStoreManagers.Unlock(r, password, 0)
 		if err != nil {
 			log.Error("unlock fail.", "err", err, "address", r.String())
 		}

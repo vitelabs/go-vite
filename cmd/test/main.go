@@ -92,7 +92,7 @@ func main() {
 		Vm:       &config.Vm{IsVmTest: true},
 	}
 	vite, _ := vite2.New(cfg, wallet.New(&wallet.Config{
-		DataDir: dataDir,
+		FullSeedStoreFileName: dataDir,
 	}))
 
 	vite.Init()
@@ -101,7 +101,7 @@ func main() {
 	//chainInstance := vite.Chain()
 	//os.RemoveAll(filepath.Join(common.HomeDir(), "ledger"))
 	//chainInstance := chain.NewChain(&config.Config{
-	//	DataDir: common.HomeDir(),
+	//	FullSeedStoreFileName: common.HomeDir(),
 	//Chain: &config.Chain{
 	//	KafkaProducers: []*config.KafkaProducer{{
 	//		Topic:      "test",

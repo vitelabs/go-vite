@@ -15,7 +15,7 @@ import (
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/wallet/keystore"
+	"github.com/vitelabs/go-vite/wallet/seedstore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 )
 
@@ -25,7 +25,7 @@ var (
 )
 
 type Manager struct {
-	keystoreManager *keystore.Manager
+	keystoreManager *seedstore.Manager
 
 	pool     Pool
 	net      Net
@@ -57,7 +57,7 @@ func NewManager(net Net, pool Pool, producer Producer, wallet *wallet.Manager) *
 		net:                net,
 		producer:           producer,
 		wallet:             wallet,
-		keystoreManager:    wallet.KeystoreManager,
+		keystoreManager:    wallet.SeedStoreManagers,
 		autoReceiveWorkers: make(map[types.Address]*AutoReceiveWorker),
 		contractWorkers:    make(map[types.Gid]*ContractWorker),
 		log:                slog.New("w", "manager"),
@@ -117,7 +117,7 @@ func (manager *Manager) netStateChangedFunc(state net.SyncState) {
 	}
 }
 
-func (manager *Manager) addressLockStateChangeFunc(event keystore.UnlockEvent) {
+func (manager *Manager) addressLockStateChangeFunc(event seedstore.UnlockEvent) {
 	manager.log.Info("addressLockStateChangeFunc ", "event", event)
 
 	w, found := manager.autoReceiveWorkers[event.Address]
@@ -140,7 +140,7 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 		return
 	}
 
-	if !manager.keystoreManager.IsUnLocked(event.Address) {
+	if !manager.keystoreManager.IsAddrUnlocked(event.Address) {
 		manager.log.Error("receive a right event but address locked", "event", event)
 		return
 	}
@@ -238,7 +238,7 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 	if _, e := keystoreManager.Find(addr); e != nil {
 		return e
 	}
-	if !keystoreManager.IsUnLocked(addr) {
+	if !keystoreManager.IsAddrUnlocked(addr) {
 		return walleterrors.ErrLocked
 	}
 

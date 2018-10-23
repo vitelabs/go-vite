@@ -13,7 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/wallet/keystore"
+	"github.com/vitelabs/go-vite/wallet/seedstore"
 )
 
 type HexSignedTuple struct {
@@ -39,14 +39,14 @@ type IsMayValidKeystoreFileResponse struct {
 
 func NewWalletApi(vite *vite.Vite) *WalletApi {
 	return &WalletApi{
-		km:    vite.WalletManager().KeystoreManager,
+		km:    vite.WalletManager().SeedStoreManagers,
 		chain: vite.Chain(),
 		pool:  vite.Pool(),
 	}
 }
 
 type WalletApi struct {
-	km    *keystore.Manager
+	km    *seedstore.Manager
 	chain chain.Chain
 	pool  pool.Writer
 }
@@ -87,7 +87,7 @@ func (m *WalletApi) UnlockAddress(addr types.Address, password string, duration 
 		d = time.Duration(*duration) * time.Second
 	}
 
-	err := m.km.Unlock(addr, password, d)
+	err := m.km.UnlockAddress(addr, password, d)
 
 	if err != nil {
 		newerr, _ := TryMakeConcernedError(err)
@@ -98,7 +98,7 @@ func (m *WalletApi) UnlockAddress(addr types.Address, password string, duration 
 
 func (m *WalletApi) LockAddress(addr types.Address) error {
 	log.Info("Lock")
-	err := m.km.Lock(addr)
+	err := m.km.LockAddress(addr)
 	return err
 }
 
@@ -218,7 +218,7 @@ func (m *WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, pa
 
 func (m *WalletApi) IsMayValidKeystoreFile(path string) IsMayValidKeystoreFileResponse {
 	log.Info("IsValidKeystoreFile")
-	b, addr, _ := keystore.IsMayValidKeystoreFile(path)
+	b, addr, _ := seedstore.IsMayValidKeystoreFile(path)
 	if b && addr != nil {
 		return IsMayValidKeystoreFileResponse{
 			true, *addr,

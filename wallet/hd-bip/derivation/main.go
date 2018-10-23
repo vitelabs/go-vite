@@ -11,6 +11,7 @@ import (
 
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
@@ -35,7 +36,17 @@ type Key struct {
 	ChainCode []byte
 }
 
-func (k *Key) StringPair() (seed string, address string, err error) {
+func (k Key) Address() (address *types.Address, err error) {
+	pubkey, e := k.PublicKey()
+	if e != nil {
+		return nil, e
+	}
+
+	addr := types.PubkeyToAddress(pubkey)
+	return &addr, nil
+}
+
+func (k Key) StringPair() (seed string, address string, err error) {
 	seed = hex.EncodeToString(k.Key)
 	pubkey, e := k.PublicKey()
 	if e != nil {
@@ -73,6 +84,19 @@ func DeriveForPath(path string, seed []byte) (*Key, error) {
 	}
 
 	return key, nil
+}
+
+func DeriveWithIndex(i uint32, seed []byte) (*Key, error) {
+	path := fmt.Sprintf(ViteAccountPathFormat, i)
+	return DeriveForPath(path, seed)
+}
+
+func GetPrimaryAddress(seed []byte) (*types.Address, error) {
+	key, e := NewMasterKey(seed)
+	if e != nil {
+		return nil, e
+	}
+	return key.Address()
 }
 
 func NewMasterKey(seed []byte) (*Key, error) {
@@ -113,13 +137,30 @@ func (k *Key) Derive(i uint32) (*Key, error) {
 	return newKey, nil
 }
 
-func (k *Key) PublicKey() ([]byte, error) {
+func (k Key) PublicKey() (ed25519.PublicKey, error) {
 	reader := bytes.NewReader(k.Key)
 	pub, _, err := ed25519.GenerateKey(reader)
 	if err != nil {
 		return nil, err
 	}
 	return pub[:], nil
+}
+
+func (k Key) PrivateKey() (ed25519.PrivateKey, error) {
+	reader := bytes.NewReader(k.Key)
+	_, priv, err := ed25519.GenerateKey(reader)
+	if err != nil {
+		return nil, err
+	}
+	return priv, nil
+}
+
+func (k Key) SignData(message []byte) (pub ed25519.PublicKey, signData []byte, err error) {
+	priv, e := k.PrivateKey()
+	if e != nil {
+		return nil, nil, e
+	}
+	return priv.PubByte(), ed25519.Sign(priv, message), nil
 }
 
 func (k *Key) RawSeed() [32]byte {

@@ -4,8 +4,8 @@ import "errors"
 
 var (
 	ErrLocked        = errors.New("the address is locked")
-	ErrNotFind       = errors.New("not found the given address in any keystore file")
+	ErrNotFind       = errors.New("not found the given address in the seed store file")
 	ErrInvalidPrikey = errors.New("invalid prikey")
 	ErrAlreadyLocked = errors.New("the address was previously unlocked")
-	ErrDecryptKey    = errors.New("error decrypting key")
+	ErrDecryptSeed   = errors.New("error decrypting seed")
 )

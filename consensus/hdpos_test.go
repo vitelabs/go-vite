@@ -9,13 +9,12 @@ import (
 	"github.com/gavv/monotime"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/wallet/keystore"
+	"github.com/vitelabs/go-vite/wallet/seedstore"
 )
 
 func genAddress(n int) []types.Address {
 	dir := common.GoViteTestDataDir()
-	kp := keystore.NewManager(dir)
-	kp.Init()
+	kp := seedstore.NewManager(dir)
 
 	addressArr := make([]types.Address, n)
 	for i := 0; i < n; i++ {
