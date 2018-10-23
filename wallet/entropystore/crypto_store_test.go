@@ -13,9 +13,6 @@ import (
 	"testing"
 )
 
-const (
-	TEST_Seed = "d2755a7b11dfed9cab27d4c2db832c7bb2be755f0d4ef53c86adefc5420164c727631765efe270680d2a0870602c95b09a2c547e107bf7f7aa5de9a060fe261b"
-)
 
 func TestCryptoStore_StoreEntropy(t *testing.T) {
 	entropy, _ := bip39.NewEntropy(256)
@@ -54,7 +51,6 @@ func TestCryptoStore_ExtractSeed(t *testing.T) {
 	if !bytes.Equal(seed, seedExtract) {
 		t.Fatal("not equal")
 	}
-
 }
 
 func TestDecryptEntropy(t *testing.T) {

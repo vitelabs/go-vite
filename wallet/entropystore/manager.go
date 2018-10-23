@@ -19,7 +19,7 @@ const (
 
 type UnlockEvent struct {
 	PrimaryAddr types.Address // represent which seed we use the seed`s PrimaryAddress represents the seed
-	event       string        // "Unlocked Locked "
+	event       string        // "Unlocked Locked"
 }
 
 func (ue UnlockEvent) String() string {
@@ -35,6 +35,7 @@ type Manager struct {
 	maxSearchIndex uint32
 
 	unlockedAddr    map[types.Address]*derivation.Key
+	addrToIndex     map[types.Address]uint32
 	unlockedSeed    []byte
 	unlockedEntropy []byte
 
@@ -49,8 +50,9 @@ func NewManager(entropyStoreFilename string, maxSearchIndex uint32) *Manager {
 	return &Manager{
 		ks:                 CryptoStore{entropyStoreFilename},
 		unlockedAddr:       make(map[types.Address]*derivation.Key),
-		maxSearchIndex:     maxSearchIndex,
+		addrToIndex:        make(map[types.Address]uint32),
 		unlockChangedLis:   make(map[int]func(event UnlockEvent)),
+		maxSearchIndex:     maxSearchIndex,
 		unlockChangedIndex: 100,
 
 		log: log15.New("module", "wallet/keystore/Manager"),
@@ -157,6 +159,13 @@ func (km *Manager) FindAddr(addr types.Address) (*derivation.Key, uint32, error)
 	if !km.IsUnlocked() {
 		return nil, 0, walleterrors.ErrLocked
 	}
+
+	km.mutex.RLock()
+	if key, ok := km.unlockedAddr[addr]; ok {
+		km.mutex.RUnlock()
+		return key, 0, nil
+	}
+	km.mutex.RUnlock()
 
 	return FindAddrFromSeed(km.unlockedSeed, addr, km.maxSearchIndex)
 }
