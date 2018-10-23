@@ -96,7 +96,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 }
 
 func (v *Vite) Init() (err error) {
-	vm.InitVmConfig(v.config.IsVmTest)
+	vm.InitVmConfig(v.config.IsVmTest, v.config.IsUseVmTestParam)
 
 	v.chain.Init()
 	if v.producer != nil {

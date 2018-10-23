@@ -15,6 +15,7 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/pow"
@@ -24,7 +25,6 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 	"os"
 	"path/filepath"
-	"github.com/vitelabs/go-vite/generator"
 )
 
 var (
@@ -50,7 +50,7 @@ func init() {
 	flag.StringVar(&genesisAccountPrivKeyStr, "k", "", "")
 
 	flag.Parse()
-	vm.InitVmConfig(isTest)
+	vm.InitVmConfig(isTest, false)
 }
 
 type VitePrepared struct {

@@ -2,8 +2,9 @@ package api
 
 import (
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"github.com/vitelabs/go-vite/vm"
+	"github.com/vitelabs/go-vite/vm/quota"
+	"github.com/vitelabs/go-vite/wallet/walleterrors"
 )
 
 type JsonRpc2Error struct {
@@ -27,6 +28,11 @@ var (
 		Code:    -35001,
 	}
 
+	ErrQuotaNotEnough = JsonRpc2Error{
+		Message: quota.ErrOutOfQuota.Error(),
+		Code:    -35002,
+	}
+
 	ErrDecryptKey = JsonRpc2Error{
 		Message: walleterrors.ErrDecryptKey.Error(),
 		Code:    -34001,
@@ -45,6 +51,7 @@ func init() {
 	concernedErrorMap[ErrDecryptKey.Error()] = ErrDecryptKey
 	concernedErrorMap[AddressAlreadyUnLocked.Error()] = AddressAlreadyUnLocked
 	concernedErrorMap[ErrBalanceNotEnough.Error()] = ErrBalanceNotEnough
+	concernedErrorMap[ErrQuotaNotEnough.Error()] = ErrQuotaNotEnough
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {

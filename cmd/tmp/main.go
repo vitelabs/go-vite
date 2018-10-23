@@ -776,7 +776,7 @@ func startNode(w *wallet.Manager, tmp *types.Address, baseDir string, port, fpor
 			Producer: true,
 			Coinbase: coinbase,
 		},
-		Vm: &config.Vm{IsVmTest: true},
+		Vm: &config.Vm{IsVmTest: true, IsUseVmTestParam: true},
 		Net: &config.Net{
 			Single:   false,
 			FilePort: uint16(fport),

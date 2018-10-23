@@ -25,25 +25,31 @@ type VMConfig struct {
 type NodeConfig struct {
 	IsTest    bool
 	calcQuota func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64)
+	params    VmParams
 }
 
 var nodeConfig NodeConfig
 
-func InitVmConfig(isTest bool) {
+func InitVmConfig(isTest bool, isTestParam bool) {
 	if isTest {
 		nodeConfig = NodeConfig{
-			isTest,
-			func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
+			IsTest: isTest,
+			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
 				return 1000000, 0
 			},
 		}
 	} else {
 		nodeConfig = NodeConfig{
-			isTest,
-			func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
+			IsTest: isTest,
+			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pow bool) (quotaTotal uint64, quotaAddition uint64) {
 				return quota.CalcQuota(db, addr, pow)
 			},
 		}
+	}
+	if isTestParam {
+		nodeConfig.params = VmParamsTest
+	} else {
+		nodeConfig.params = VmParamsMainNet
 	}
 }
 

@@ -78,6 +78,10 @@ func NewTokenId(accountAddress types.Address, accountBlockHeight uint64, prevBlo
 		snapshotHash.Bytes())
 }
 
+func GetNewContractData(bytecode []byte, gid types.Gid) []byte {
+	return append(gid.Bytes(), bytecode...)
+}
+
 func GetGidFromCreateContractData(data []byte) types.Gid {
 	gid, _ := types.BytesToGid(data[:types.GidSize])
 	return gid

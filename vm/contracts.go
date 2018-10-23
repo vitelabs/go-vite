@@ -280,16 +280,16 @@ func (p *pReward) doSend(vm *VM, block *vm_context.VmAccountBlock, quotaLeft uin
 	if err != nil || block.AccountBlock.AccountAddress != old.PledgeAddr {
 		return quotaLeft, errors.New("invalid register owner")
 	}
-	if block.VmContext.CurrentSnapshotBlock().Height < rewardHeightLimit {
+	if block.VmContext.CurrentSnapshotBlock().Height < nodeConfig.params.RewardHeightLimit {
 		return quotaLeft, errors.New("reward height limit not reached")
 	}
 
 	if param.EndHeight == 0 {
-		param.EndHeight = block.VmContext.CurrentSnapshotBlock().Height - rewardHeightLimit
+		param.EndHeight = block.VmContext.CurrentSnapshotBlock().Height - nodeConfig.params.RewardHeightLimit
 		if !old.IsActive() {
 			param.EndHeight = helper.Min(param.EndHeight, old.CancelHeight)
 		}
-	} else if param.EndHeight > block.VmContext.CurrentSnapshotBlock().Height-rewardHeightLimit ||
+	} else if param.EndHeight > block.VmContext.CurrentSnapshotBlock().Height-nodeConfig.params.RewardHeightLimit ||
 		(!old.IsActive() && param.EndHeight > old.CancelHeight) {
 		return quotaLeft, errors.New("invalid end height")
 	}
@@ -584,7 +584,7 @@ func (p *pPledge) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock 
 		amount = oldPledge.Amount
 	}
 	amount.Add(amount, sendBlock.Amount)
-	pledgeInfo, _ := contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeInfo, amount, block.VmContext.CurrentSnapshotBlock().Height+minPledgeHeight)
+	pledgeInfo, _ := contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeInfo, amount, block.VmContext.CurrentSnapshotBlock().Height+nodeConfig.params.MinPledgeHeight)
 	block.VmContext.SetStorage(pledgeKey, pledgeInfo)
 
 	oldBeneficialData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, beneficialKey)
@@ -773,7 +773,7 @@ func (p *pCreateConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountBlo
 		param.VoteConditionParam,
 		sendBlock.AccountAddress,
 		sendBlock.Amount,
-		block.VmContext.CurrentSnapshotBlock().Height+createConsensusGroupPledgeHeight)
+		block.VmContext.CurrentSnapshotBlock().Height+nodeConfig.params.CreateConsensusGroupPledgeHeight)
 	block.VmContext.SetStorage(key, groupInfo)
 	return nil
 }
@@ -913,7 +913,7 @@ func (p *pReCreateConsensusGroup) doReceive(vm *VM, block *vm_context.VmAccountB
 		groupInfo.VoteConditionParam,
 		groupInfo.Owner,
 		sendBlock.Amount,
-		block.VmContext.CurrentSnapshotBlock().Height+createConsensusGroupPledgeHeight)
+		block.VmContext.CurrentSnapshotBlock().Height+nodeConfig.params.CreateConsensusGroupPledgeHeight)
 	block.VmContext.SetStorage(key, newGroupInfo)
 	return nil
 }
@@ -942,7 +942,7 @@ func (c registerConditionOfPledge) checkParam(param []byte, db vmctxt_interface.
 	if err != nil ||
 		contracts.GetTokenById(db, v.PledgeToken) == nil ||
 		v.PledgeAmount.Sign() == 0 ||
-		v.PledgeHeight < minPledgeHeight {
+		v.PledgeHeight < nodeConfig.params.MinPledgeHeight {
 		return false
 	}
 	return true
@@ -1128,7 +1128,7 @@ func (p *pMintage) doReceive(vm *VM, block *vm_context.VmAccountBlock, sendBlock
 			param.Decimals,
 			sendBlock.AccountAddress,
 			sendBlock.Amount,
-			block.VmContext.CurrentSnapshotBlock().Height+mintagePledgeHeight)
+			block.VmContext.CurrentSnapshotBlock().Height+nodeConfig.params.MintagePledgeHeight)
 	}
 	block.VmContext.SetStorage(key, tokenInfo)
 	vm.blockList = append(vm.blockList,

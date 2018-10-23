@@ -64,7 +64,8 @@ type Config struct {
 	ErrorLogDir string `json:"ErrorLogDir"`
 
 	//VM
-	VMTestEnabled bool `json:"VMTestEnabled"`
+	VMTestEnabled      bool `json:"VMTestEnabled"`
+	VMTestParamEnabled bool `json:"VMTestParamEnabled"`
 
 	//Net TODO: cmd after ？
 	Single                 bool     `json:"Single"`
@@ -101,7 +102,8 @@ func (c *Config) makeNetConfig() *config.Net {
 
 func (c *Config) makeVmConfig() *config.Vm {
 	return &config.Vm{
-		IsVmTest: c.VMTestEnabled,
+		IsVmTest:         c.VMTestEnabled,
+		IsUseVmTestParam: c.VMTestParamEnabled,
 	}
 }
 
