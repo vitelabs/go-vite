@@ -2,6 +2,7 @@ package vm_context
 
 import (
 	"bytes"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -64,6 +65,12 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 		if err != nil {
 			return nil, err
 		}
+
+		if currentSnapshotBlock == nil {
+			err := errors.New("currentSnapshotBlock is nil")
+			vmContext.log.Error(err.Error(), "method", "NewVmContext")
+			return nil, err
+		}
 	}
 
 	vmContext.currentSnapshotBlock = currentSnapshotBlock
@@ -81,6 +88,12 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 		var err error
 		prevAccountBlock, err = chain.GetAccountBlockByHash(prevAccountBlockHash)
 		if err != nil {
+			return nil, err
+		}
+
+		if prevAccountBlock == nil {
+			err := errors.New("prevAccountBlock is nil")
+			vmContext.log.Error(err.Error(), "method", "NewVmContext")
 			return nil, err
 		}
 	}
