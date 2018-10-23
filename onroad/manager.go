@@ -25,7 +25,6 @@ var (
 )
 
 type Manager struct {
-	keystoreManager *seedstore.Manager
 
 	pool     Pool
 	net      Net
@@ -57,7 +56,6 @@ func NewManager(net Net, pool Pool, producer Producer, wallet *wallet.Manager) *
 		net:                net,
 		producer:           producer,
 		wallet:             wallet,
-		keystoreManager:    wallet.SeedStoreManagers,
 		autoReceiveWorkers: make(map[types.Address]*AutoReceiveWorker),
 		contractWorkers:    make(map[types.Gid]*ContractWorker),
 		log:                slog.New("w", "manager"),
@@ -74,7 +72,7 @@ func (manager *Manager) Init(chain chain.Chain) {
 
 func (manager *Manager) Start() {
 	manager.netStateLid = manager.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
-	manager.unlockLid = manager.keystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
+	manager.unlockLid = manager.wallet.GetSeedStoreManager().AddLockEventListener(manager.addressLockStateChangeFunc)
 	if manager.producer != nil {
 		manager.producer.SetAccountEventFunc(manager.producerStartEventFunc)
 	}
@@ -89,7 +87,7 @@ func (manager *Manager) Start() {
 func (manager *Manager) Stop() {
 	manager.log.Info("Close")
 	manager.Net().UnsubscribeSyncStatus(manager.netStateLid)
-	manager.keystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
+	manager.wallet.GetSeedStoreManager().RemoveUnlockChangeChannel(manager.unlockLid)
 	if manager.producer != nil {
 		manager.Producer().SetAccountEventFunc(nil)
 	}

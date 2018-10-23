@@ -14,9 +14,9 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-// it it return false it must not be a valid keystore file
+// it it return false it must not be a valid seedstore file
 // if it return a true it only means that might be true
-func IsMayValidKeystoreFile(path string) (bool, *types.Address, error) {
+func IsMayValidSeedstoreFile(path string) (bool, *types.Address, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return false, nil, err
@@ -35,6 +35,10 @@ func IsMayValidKeystoreFile(path string) (bool, *types.Address, error) {
 		return false, nil, err
 	}
 	return true, addr, nil
+}
+
+func FullKeyFileName(keysDirPath string, keyAddr types.Address) string {
+	return filepath.Join(keysDirPath, keyAddr.Hex())
 }
 
 func readAndFixAddressFile(path string) (*types.Address, *encryptedSeedJSON) {
@@ -79,9 +83,6 @@ func readAndFixAddressFile(path string) (*types.Address, *encryptedSeedJSON) {
 
 }
 
-func FullKeyFileName(keysDirPath string, keyAddr types.Address) string {
-	return filepath.Join(keysDirPath, keyAddr.Hex())
-}
 
 func addressFromKeyPath(keyfile string) (types.Address, error) {
 	_, filename := filepath.Split(keyfile)

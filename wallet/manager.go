@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/wallet/seedstore"
 )
@@ -30,18 +31,39 @@ func (m *Manager) RecoverSeedStoreFromMnemonic(mnemonic string, seedStorePasswor
 	}
 	seed := bip39.NewSeed(mnemonic, rawSeedPassword)
 
-	sm, e := seedstore.StoreNewSeed(m.config.DataDir, seed, seedStorePassword)
+	sm, e := seedstore.StoreNewSeed(m.config.DataDir, seed, seedStorePassword, seedstore.DefaultMaxIndex)
 	if e != nil {
 		return "", nil
 	}
 	if switchToIt {
-		m.seedStoreManager = sm
+		m.switchSeedStore(sm)
 	}
 	return sm.SeedStoreFile(), e
 }
 
+func (m *Manager) switchSeedStore(sm *seedstore.Manager) error {
+	if sm == nil {
+		return errors.New("nil seed manager")
+	}
+	if m.seedStoreManager != nil {
+		m.seedStoreManager.LockSeed()
+	}
+	m.seedStoreManager = sm
+	return nil
+}
+
 func (m *Manager) SwitchSeedStore(fullSeedStoreFile string) error {
-	m.seedStoreManager = seedstore.NewManager(fullSeedStoreFile)
+	if m.seedStoreManager != nil {
+		m.seedStoreManager.LockSeed()
+	}
+	mayValidSeedstoreFile, _, e := seedstore.IsMayValidSeedstoreFile(fullSeedStoreFile)
+	if e != nil {
+		return e
+	}
+	if !mayValidSeedstoreFile {
+		return errors.New("not valid seed store file")
+	}
+	m.seedStoreManager = seedstore.NewManager(fullSeedStoreFile, seedstore.DefaultMaxIndex)
 	return nil
 }
 

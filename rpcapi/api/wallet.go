@@ -218,7 +218,7 @@ func (m *WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, pa
 
 func (m *WalletApi) IsMayValidKeystoreFile(path string) IsMayValidKeystoreFileResponse {
 	log.Info("IsValidKeystoreFile")
-	b, addr, _ := seedstore.IsMayValidKeystoreFile(path)
+	b, addr, _ := seedstore.IsMayValidSeedstoreFile(path)
 	if b && addr != nil {
 		return IsMayValidKeystoreFileResponse{
 			true, *addr,

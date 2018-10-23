@@ -3,12 +3,14 @@ package seedstore_test
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/wallet/seedstore"
+	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"path/filepath"
 	"testing"
-	"github.com/vitelabs/go-vite/common/types"
 )
 
 type testBipTuple struct {
@@ -42,10 +44,11 @@ var (
 )
 
 func init() {
+	seedToChild := make(map[string][]testBipTuple)
 	seedToChild[TestSeed] = testTuples
 
 	bytes, _ := hex.DecodeString(TEST_Seed)
-	testSeedStoreManager, _ = seedstore.StoreNewSeed(utFilePath, bytes, "123456")
+	testSeedStoreManager, _ = seedstore.StoreNewSeed(utFilePath, bytes, "123456", seedstore.DefaultMaxIndex)
 
 }
 
@@ -56,7 +59,7 @@ func GetManagerFromStoreNewSeed() *seedstore.Manager {
 	seed := bip39.NewSeed(mnemonic, "")
 	fmt.Println("seed:", hex.EncodeToString(seed))
 
-	manager, e := seedstore.StoreNewSeed(utFilePath, seed, "123456")
+	manager, e := seedstore.StoreNewSeed(utFilePath, seed, "123456", seedstore.DefaultMaxIndex)
 	if e != nil {
 		panic(e)
 		return nil
@@ -82,10 +85,32 @@ func TestStoreNewSeed(t *testing.T) {
 }
 
 func TestManager_FindAddr(t *testing.T) {
-	for seed, value := range seedToChild {
-		testSeedStoreManager.FindAddr("123456")
+	for _, tuples := range seedToChild {
+		for k, tuple := range tuples {
+			addr, _ := types.HexToAddress(tuple.address)
+			key, u, e := testSeedStoreManager.FindAddr("123456", addr)
+			if e != nil {
+				t.Fatal(e)
+			}
+			rs := key.RawSeed()
+			assert.Equal(t, hex.EncodeToString(rs[:]), tuple.seed)
+			assert.Equal(t, k, u)
+			gAddr, e := key.Address()
+			if e != nil {
+				t.Fatal(e)
+			}
+			assert.Equal(t, *gAddr, addr)
+		}
 	}
 
-	addresses, _ := types.HexToAddress("vite_a7b855f6a5c4e47d60d4633b538145a187849c12bc7b40f238")
-	testSeedStoreManager.FindAddr("123456", addresses)
+	addresses, _, _ := types.CreateAddress()
+	_, _, e := testSeedStoreManager.FindAddr("123456", addresses)
+	if e != walleterrors.ErrNotFind {
+		t.Fatal(e)
+	}
+
+}
+
+func TestManager_LockAndUnlock(t *testing.T) {
+
 }
