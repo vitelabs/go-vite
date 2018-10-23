@@ -6,7 +6,7 @@
 *.dylib
 .idea
 .DS_Store
-
+gvite
 
 # Test binary, build with `go test -c`
 *.test
