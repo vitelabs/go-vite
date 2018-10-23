@@ -28,7 +28,7 @@ var (
 	}
 
 	ErrQuotaNotEnough = JsonRpc2Error{
-		Message: quota.ErrOutOfQuota.Error(),
+		Message: util.ErrOutOfQuota.Error(),
 		Code:    -35002,
 	}
 

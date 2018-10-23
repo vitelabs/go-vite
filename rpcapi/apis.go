@@ -58,11 +58,46 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewNetApi(vite),
 			Public:    true,
 		}
-	case "contracts":
+	case "contract":
 		return rpc.API{
-			Namespace: "contracts",
+			Namespace: "contract",
 			Version:   "1.0",
-			Service:   api.NewContractsApi(vite),
+			Service:   api.NewContractApi(vite),
+			Public:    true,
+		}
+	case "register":
+		return rpc.API{
+			Namespace: "register",
+			Version:   "1.0",
+			Service:   api.NewRegisterApi(vite),
+			Public:    true,
+		}
+	case "vote":
+		return rpc.API{
+			Namespace: "vote",
+			Version:   "1.0",
+			Service:   api.NewVoteApi(vite),
+			Public:    true,
+		}
+	case "mintage":
+		return rpc.API{
+			Namespace: "mintage",
+			Version:   "1.0",
+			Service:   api.NewMintageApi(vite),
+			Public:    true,
+		}
+	case "pledge":
+		return rpc.API{
+			Namespace: "pledge",
+			Version:   "1.0",
+			Service:   api.NewPledgeApi(vite),
+			Public:    true,
+		}
+	case "consensusGroup":
+		return rpc.API{
+			Namespace: "consensusGroup",
+			Version:   "1.0",
+			Service:   api.NewConsensusGroupApi(vite),
 			Public:    true,
 		}
 	case "tx":
@@ -101,9 +136,9 @@ func GetApis(vite *vite.Vite, apiModule ...string) []rpc.API {
 }
 
 func GetPublicApis(vite *vite.Vite) []rpc.API {
-	return GetApis(vite, "ledger", "public_onroad", "net", "contracts", "testapi", "pow", "tx", "debug")
+	return GetApis(vite, "ledger", "public_onroad", "net", "contract", "pledge", "register", "vote", "mintage", "consensusGroup", "testapi", "pow", "tx", "debug")
 }
 
 func GetAllApis(vite *vite.Vite) []rpc.API {
-	return GetApis(vite, "ledger", "wallet", "private_onroad", "net", "contracts", "testapi", "pow", "tx", "debug")
+	return GetApis(vite, "ledger", "wallet", "private_onroad", "net", "contract", "pledge", "register", "vote", "mintage", "consensusGroup", "testapi", "pow", "tx", "debug")
 }

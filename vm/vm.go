@@ -190,7 +190,7 @@ func (vm *VM) receiveCreate(block *vm_context.VmAccountBlock, sendBlock *ledger.
 	c := newContract(sendBlock.AccountAddress, block.AccountBlock.AccountAddress, block, sendBlock, quotaLeft, 0)
 	c.setCallCode(block.AccountBlock.AccountAddress, sendBlock.Data)
 	code, err := c.run(vm)
-	if err == nil && len(code) <= maxCodeSize {
+	if err == nil && len(code) <= MaxCodeSize {
 		codeCost := uint64(len(code)) * contractCodeGas
 		c.quotaLeft, err = util.UseQuota(c.quotaLeft, codeCost)
 		if err == nil {
