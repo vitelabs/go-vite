@@ -264,9 +264,9 @@ func (t *Topology) Receive(msg *p2p.Msg, sender *Peer) {
 		}
 
 		// just broadcast to 1/3 peers
-		if count > t.peerCount/3 {
-			return false
-		}
+		//if count > t.peerCount/3 {
+		//	return false
+		//}
 
 		return true
 	})
