@@ -249,7 +249,8 @@ func makeRunLogFile(cfg *node.Config) {
 		if err != nil {
 			logLevel = log15.LvlInfo
 		}
-		logHandle = append(logHandle, log15.LvlFilterHandler(logLevel, log15.Must.FileHandler(fileName, log15.TerminalFormat())))
+
+		logHandle = append(logHandle, errorExcludeLvlFilterHandler(logLevel, log15.Must.FileHandler(fileName, log15.TerminalFormat())))
 	}
 
 	if errorFileName, e := cfg.RunErrorLogFile(); e == nil {
@@ -259,4 +260,16 @@ func makeRunLogFile(cfg *node.Config) {
 	log15.Root().SetHandler(log15.MultiHandler(
 		logHandle...,
 	))
+}
+
+func errorExcludeLvlFilterHandler(maxLvl log15.Lvl, h log15.Handler) log15.Handler {
+	return log15.FilterHandler(func(r *log15.Record) (pass bool) {
+
+		//Error、Crit 级别的过滤掉
+		if r.Lvl <= log15.LvlError {
+			return false
+		}
+
+		return r.Lvl <= maxLvl
+	}, h)
 }
