@@ -155,6 +155,14 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 	return rpcAccount, nil
 }
 
+func (l *LedgerApi) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, error) {
+	block, err := l.chain.GetSnapshotBlockByHash(&hash)
+	if err != nil {
+		l.log.Error("GetSnapshotBlockByHash failed, error is "+err.Error(), "method", "GetSnapshotBlockByHash")
+	}
+	return block, err
+}
+
 func (l *LedgerApi) GetSnapshotChainHeight() string {
 	l.log.Info("GetLatestSnapshotChainHeight")
 	return strconv.FormatUint(l.chain.GetLatestSnapshotBlock().Height, 10)

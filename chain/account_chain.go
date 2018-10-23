@@ -153,7 +153,7 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 
 	// Set needSnapshotCache
 	if c.needSnapshotCache != nil {
-		c.needSnapshotCache.Add(&account.AccountAddress, lastVmAccountBlock.AccountBlock)
+		c.needSnapshotCache.Set(&account.AccountAddress, lastVmAccountBlock.AccountBlock)
 	}
 
 	// Set stateTriePool
@@ -555,7 +555,23 @@ func (c *chain) GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint
 }
 
 func (c *chain) GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.AccountBlock {
-	return c.needSnapshotCache.Get(addr)
+	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
+	if accountErr != nil {
+		c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "GetUnConfirmAccountBlocks")
+		return nil
+	}
+
+	if account == nil {
+		return nil
+	}
+
+	unconfirmBlocks, err := c.chainDb.Ac.GetUnConfirmAccountBlocks(account.AccountId, 0)
+	if err != nil {
+		c.log.Error("GetUnConfirmAccountBlocks failed, error is "+err.Error(), "method", "GetUnConfirmAccountBlocks")
+		return nil
+	}
+
+	return unconfirmBlocks
 }
 
 func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error) {
@@ -620,8 +636,20 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		return nil, writeErr
 	}
 
-	for addr, accountBlocks := range subLedger {
-		c.needSnapshotCache.Remove(&addr, accountBlocks[0].Height)
+	needAddBlocks, needRemoveBlocks, _, err := c.getNeedSnapshotMapByDeleteSubLedger(subLedger)
+	if err != nil {
+		c.log.Error("getNeedSnapshotMapByDeleteSubLedger failed, error is "+err.Error(), "method", "DeleteAccountBlocks")
+		return nil, err
+	}
+
+	// Set needSnapshotCache, first remove
+	for addr, block := range needRemoveBlocks {
+		c.needSnapshotCache.Remove(&addr, block.Height)
+	}
+
+	// Set needSnapshotCache, then add
+	for addr, block := range needAddBlocks {
+		c.needSnapshotCache.Set(&addr, block)
 	}
 
 	c.em.triggerDeleteAccountBlocksSuccess(subLedger)
@@ -636,6 +664,7 @@ func (c *chain) getUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBl
 		c.log.Error("GetLastAccountId failed, error is "+err.Error(), "method", "getUnConfirmedAccountBlocks")
 		return nil, err
 	}
+
 	subLedger, getErr := c.chainDb.Ac.GetUnConfirmedSubLedger(maxAccountId)
 	if getErr != nil {
 		c.log.Error("GetUnConfirmedSubLedger failed, error is "+getErr.Error(), "method", "getUnConfirmedSubLedger")
