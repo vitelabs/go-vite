@@ -94,6 +94,12 @@ func (self *snapshotPool) loopCheckFork() {
 			self.pool.Lock()
 			defer self.pool.UnLock()
 			self.initPool()
+			if self.rstat.inc() {
+				common.Go(self.loopCheckFork)
+			} else {
+				panic(e)
+			}
+
 			self.pool.version.Inc()
 		}
 	}()
@@ -187,6 +193,11 @@ func (self *snapshotPool) loop() {
 			self.pool.Lock()
 			defer self.pool.UnLock()
 			self.initPool()
+			if self.rstat.inc() {
+				common.Go(self.loop)
+			} else {
+				panic(e)
+			}
 			self.pool.version.Inc()
 		}
 	}()

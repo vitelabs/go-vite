@@ -16,8 +16,14 @@ type verifyTask interface {
 	requests() []fetchRequest
 }
 
+type sverifier interface {
+	VerifyNetSb(block *ledger.SnapshotBlock) error
+	VerifyReferred(block *ledger.SnapshotBlock) *verifier.SnapshotBlockVerifyStat
+	VerifyTimeout(nowHeight uint64, referHeight uint64) bool
+}
+
 type snapshotVerifier struct {
-	v *verifier.SnapshotVerifier
+	v sverifier
 }
 
 func (self *snapshotVerifier) verifySnapshotData(block *ledger.SnapshotBlock) error {
