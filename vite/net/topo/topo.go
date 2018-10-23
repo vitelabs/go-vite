@@ -15,6 +15,7 @@ import (
 	"gopkg.in/Shopify/sarama.v1"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -30,14 +31,15 @@ type Config struct {
 
 type Topology struct {
 	*Config
-	p2p    *p2p.Server
-	peers  *sync.Map
-	prod   sarama.AsyncProducer
-	log    log15.Logger
-	term   chan struct{}
-	rec    chan *Event
-	record *cuckoofilter.CuckooFilter
-	wg     sync.WaitGroup
+	p2p       *p2p.Server
+	peers     *sync.Map
+	peerCount int32 // atomic
+	prod      sarama.AsyncProducer
+	log       log15.Logger
+	term      chan struct{}
+	rec       chan *Event
+	record    *cuckoofilter.CuckooFilter
+	wg        sync.WaitGroup
 }
 
 type Event struct {
@@ -126,6 +128,9 @@ func (t *Topology) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 	peer := &Peer{p, rw, make(chan error)}
 	t.peers.Store(p.String(), peer)
 	defer t.peers.Delete(p.String())
+
+	atomic.AddInt32(&t.peerCount, 1)
+	defer atomic.AddInt32(&t.peerCount, ^int32(0))
 
 	for {
 		select {
@@ -249,12 +254,20 @@ func (t *Topology) Receive(msg *p2p.Msg, sender *Peer) {
 
 	t.record.InsertUnique(hash)
 	// broadcast to other peer
+	var count int32 = 0
 	t.peers.Range(func(key, value interface{}) bool {
 		id := key.(string)
 		p := value.(*Peer)
 		if id != sender.String() {
 			p.rw.WriteMsg(msg)
+			count++
 		}
+
+		// just broadcast to 1/3 peers
+		if count > t.peerCount/3 {
+			return false
+		}
+
 		return true
 	})
 
