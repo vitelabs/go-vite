@@ -318,7 +318,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	if len(receiveRewardRefundBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
 		db.balanceMap[addr7][ledger.ViteTokenId].Cmp(reward) != 0 ||
-		receiveRewardRefundBlockList[0].AccountBlock.Quota != 0 {
+		receiveRewardRefundBlockList[0].AccountBlock.Quota != 21000 {
 		t.Fatalf("receive reward refund transaction error")
 	}
 	db.accountBlockMap[addr7][hash71] = receiveRewardRefundBlockList[0].AccountBlock
