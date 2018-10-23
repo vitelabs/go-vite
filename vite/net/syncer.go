@@ -2,6 +2,7 @@ package net
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/vite/net/message"
 	"sync/atomic"
 	"time"
 
@@ -185,11 +186,14 @@ wait:
 
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
-	// p is lower than me, or p is not all enough, no need to sync
-	if current.Height >= p.height || current.Height+minSubLedger > p.height {
-		// I`am not tall enough, then send my current block to p
-		if current.Height > p.height && current.Height <= p.height+minSubLedger {
-			p.SendNewSnapshotBlock(current)
+	// p is not all enough, no need to sync
+	if current.Height+minSubLedger > p.height {
+		if current.Height < p.height {
+			p.Send(GetSnapshotBlocksCode, 0, &message.GetSnapshotBlocks{
+				From:    ledger.HashHeight{Hash: p.head},
+				Count:   1,
+				Forward: true,
+			})
 		}
 
 		s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))

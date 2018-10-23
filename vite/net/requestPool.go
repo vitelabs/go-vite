@@ -99,6 +99,8 @@ func (p *requestPool) loop() {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
+	concurrency := make(chan struct{}, 100)
+
 loop:
 	for {
 		select {
@@ -120,6 +122,7 @@ loop:
 			if r.Peer() == nil {
 				r.Catch(errMissingPeer)
 			} else {
+				concurrency <- struct{}{}
 				r.Run(p)
 				p.pending[r.ID()] = r
 			}
@@ -137,6 +140,7 @@ loop:
 
 				if state == reqDone || state == reqError {
 					delete(p.pending, r.ID())
+					<-concurrency
 				} else if r.Expired() && state == reqPending {
 					p.log.Error(fmt.Sprintf("retry request %d, error: %v", id, errRequestTimeout))
 					p.retry(r)
