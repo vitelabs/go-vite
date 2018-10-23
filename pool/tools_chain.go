@@ -168,7 +168,7 @@ func (self *snapshotCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 		return nil, nil, e
 	}
 
-	var accountResults map[types.Address][]commonBlock
+	accountResults := make(map[types.Address][]commonBlock)
 	for addr, bs := range bm {
 		var r []commonBlock
 		for _, b := range bs {

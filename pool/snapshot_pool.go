@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/verifier"
 )
 
@@ -121,6 +122,7 @@ func (self *snapshotPool) checkFork() {
 }
 
 func (self *snapshotPool) snapshotFork(longest *forkedChain, current *forkedChain) error {
+	defer monitor.LogTime("pool", "snapshotFork", time.Now())
 	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId())
 	self.pool.Lock()
 	defer self.pool.UnLock()

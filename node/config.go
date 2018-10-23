@@ -58,6 +58,7 @@ type Config struct {
 	WSExposeAll         bool     `json:"WSExposeAll"`
 	HttpExposeAll       bool     `json:"HttpExposeAll"`
 	TestTokenHexPrivKey string   `json:"TestTokenHexPrivKey"`
+	TestTokenTti        string   `json:"TestTokenTti"`
 
 	//Log level
 	LogLevel    string `json:"LogLevel"`
