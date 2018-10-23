@@ -38,8 +38,8 @@ func (p *PledgeApi) GetCancelPledgeData(beneficialAddr types.Address, amount *bi
 }
 
 type QuotaAndTxNum struct {
-	Quota uint64
-	TxNum uint64
+	Quota uint64 `json:"quota"`
+	TxNum uint64 `json:"txNum"`
 }
 
 func (p *PledgeApi) GetPledgeQuota(addr types.Address) QuotaAndTxNum {
@@ -48,10 +48,10 @@ func (p *PledgeApi) GetPledgeQuota(addr types.Address) QuotaAndTxNum {
 }
 
 type PledgeInfo struct {
-	unt            *big.Int
-	WithdrawHeight uint64
-	BeneficialAddr types.Address
-	WithdrawTime   int64
+	Amount         *big.Int      `json:"amount"`
+	WithdrawHeight uint64        `json:"withdrawHeight"`
+	BeneficialAddr types.Address `json:"beneficialAddr"`
+	WithdrawTime   int64         `json:"withdrawTime"`
 }
 type byWithdrawHeight []*contracts.PledgeInfo
 
