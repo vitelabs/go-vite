@@ -112,6 +112,9 @@ func printChain(base *forkedChain) {
 	fmt.Println("-------------start--------------" + string(byt))
 	for i := uint64(1); i <= base.headHeight; i++ {
 		b := base.GetBlock(i)
+		if b == nil {
+			fmt.Println(i, "nil", "nil")
+		}
 		fmt.Println(b.Height(), b.Hash(), b.PrevHash())
 	}
 	fmt.Println("-------------end--------------")

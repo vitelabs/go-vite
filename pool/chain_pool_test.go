@@ -124,3 +124,45 @@ func TestBCPool_CurrentModifyToChain(t *testing.T) {
 
 	cp.check()
 }
+
+func TestChainPoolModifyRefer(t *testing.T) {
+	mock := &mockChainPool{c: mockChain(nil, 1, 1, 10)}
+	mock.c.referChain = nil
+
+	diskChain := &diskChain{chainId: "diskchain", rw: mock, v: &ForkVersion{}}
+	cp := &chainPool{
+		poolId:    "chain-Pool-Id",
+		diskChain: diskChain,
+		log:       log15.New("module", "mock"),
+	}
+	cp.current = &forkedChain{}
+	cp.current.chainId = "c1"
+	cp.init()
+
+	tmps := mockBlocks(1, 10, 20)
+	for _, v := range tmps {
+		cp.current.addHead(v)
+	}
+
+	c2 := mockChain(cp.current, 2, 11, 25)
+	c2.chainId = "c2"
+	cp.addChain(c2)
+
+	c3 := mockChain(c2, 3, 13, 29)
+	c3.chainId = "c3"
+	cp.addChain(c3)
+
+	c4 := mockChain(c3, 4, 15, 29)
+	c4.chainId = "c4"
+	cp.addChain(c4)
+
+	cp.modifyRefer(c4, c3)
+
+	printChain(c3)
+	printChain(c4)
+
+	//println(c3.referChain.id(), c3.id())
+	//println(c4.referChain.id(), c4.id())
+
+	cp.check()
+}

@@ -130,21 +130,6 @@ func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
 		}
 		to.referChain = from.referChain
 		from.referChain = to
-
-		for _, c := range self.allChain() {
-			if c.refer() != nil && c.refer().id() == from.id() {
-				if !from.contains(c.tailHeight) {
-					block, reader := to.referChain.getBlockByChain(c.tailHeight)
-					if block != nil {
-						if reader.id() == self.diskChain.id() {
-							c.referChain = to
-						} else {
-							c.referChain = reader
-						}
-					}
-				}
-			}
-		}
 		return nil
 	} else {
 		return errors.Errorf("err for modifyRefer.", "from", from.id(), "to", to.id(),
