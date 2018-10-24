@@ -155,12 +155,12 @@ func (k Key) PrivateKey() (ed25519.PrivateKey, error) {
 	return priv, nil
 }
 
-func (k Key) SignData(message []byte) (pub ed25519.PublicKey, signData []byte, err error) {
+func (k Key) SignData(message []byte) (signData []byte, pub ed25519.PublicKey, err error) {
 	priv, e := k.PrivateKey()
 	if e != nil {
 		return nil, nil, e
 	}
-	return priv.PubByte(), ed25519.Sign(priv, message), nil
+	return ed25519.Sign(priv, message), priv.PubByte(), nil
 }
 
 func (k *Key) RawSeed() [32]byte {

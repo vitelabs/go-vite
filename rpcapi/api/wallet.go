@@ -20,6 +20,12 @@ type HexSignedTuple struct {
 	Pubkey     string `json:"pubkey"`
 }
 
+type NewStoreResponse struct {
+	Mnemonic    string        `json:"mnemonic"`
+	PrimaryAddr types.Address `json:"primaryAddr"`
+	Filename    string        `json:"filename"`
+}
+
 type CreateTransferTxParms struct {
 	SelfAddr    types.Address
 	ToAddr      types.Address
@@ -66,13 +72,18 @@ func (m WalletApi) ListCurrentStoreAddress(maxIndex uint32) ([]types.Address, er
 	return manager.ListAddress(maxIndex)
 }
 
-func (m WalletApi) NewMnemonicAndEntropyStore(password string, switchToIt bool) (mnemonic string, primaryAddr types.Address, filename string, err error) {
+func (m WalletApi) NewMnemonicAndEntropyStore(password string, switchToIt bool) (*NewStoreResponse, error) {
 	log.Info("NewMnemonicAndEntropyStore")
 	mnemonic, em, err := m.wallet.NewMnemonicAndEntropyStore(password, switchToIt)
 	if err != nil {
-		return "", types.Address{}, "", err
+		return nil, err
 	}
-	return mnemonic, em.GetPrimaryAddr(), em.GetEntropyStoreFile(), nil
+
+	return &NewStoreResponse{
+		Mnemonic:    mnemonic,
+		PrimaryAddr: em.GetPrimaryAddr(),
+		Filename:    em.GetEntropyStoreFile(),
+	}, nil
 }
 
 func (m WalletApi) SwitchEntropyStore(absFilename string) error {
@@ -80,13 +91,17 @@ func (m WalletApi) SwitchEntropyStore(absFilename string) error {
 	return m.wallet.SwitchEntropyStore(absFilename)
 }
 
-func (m WalletApi) RecoverEntropyStoreFromMnemonic(mnemonic string, newpassword string, switchToIt bool) (primaryAddr types.Address, filename string, err error) {
+func (m WalletApi) RecoverEntropyStoreFromMnemonic(mnemonic string, newpassword string, switchToIt bool) (*NewStoreResponse, error) {
 	log.Info("RecoverEntropyStoreFromMnemonic")
 	em, e := m.wallet.RecoverEntropyStoreFromMnemonic(mnemonic, newpassword, switchToIt)
 	if e != nil {
-		return
+		return nil, e
 	}
-	return em.GetPrimaryAddr(), em.GetEntropyStoreFile(), nil
+	return &NewStoreResponse{
+		Mnemonic:    mnemonic,
+		PrimaryAddr: em.GetPrimaryAddr(),
+		Filename:    em.GetEntropyStoreFile(),
+	}, nil
 }
 
 // THESE Are enttropy store api
@@ -161,21 +176,21 @@ func (m WalletApi) FindAddr(addr types.Address) (index uint32, e error) {
 	return u, e
 }
 
-func (m WalletApi) SignData(addr types.Address, hexMsg string) (HexSignedTuple, error) {
+func (m WalletApi) SignData(addr types.Address, hexMsg string) (*HexSignedTuple, error) {
 	log.Info("SignData")
 
 	msgbytes, err := hex.DecodeString(hexMsg)
 	if err != nil {
-		return HexSignedTuple{}, err
+		return nil, err
 	}
 	manager, e := m.wallet.GetEntropyStoreManager()
 	if e != nil {
-		return HexSignedTuple{}, e
+		return nil, e
 	}
 
 	signedData, pubkey, err := manager.SignData(addr, msgbytes)
 	if err != nil {
-		return HexSignedTuple{}, err
+		return nil, err
 	}
 
 	t := HexSignedTuple{
@@ -184,7 +199,7 @@ func (m WalletApi) SignData(addr types.Address, hexMsg string) (HexSignedTuple, 
 		SignedData: hex.EncodeToString(signedData),
 	}
 
-	return t, nil
+	return &t, nil
 }
 
 func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
@@ -231,21 +246,21 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 
 }
 
-func (m WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, password string) (HexSignedTuple, error) {
+func (m WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, password string) (*HexSignedTuple, error) {
 	log.Info("SignDataWithPassphrase")
 
 	msgbytes, err := hex.DecodeString(hexMsg)
 	if err != nil {
-		return HexSignedTuple{}, err
+		return nil, err
 	}
 	manager, e := m.wallet.GetEntropyStoreManager()
 	if e != nil {
-		return HexSignedTuple{}, e
+		return nil, e
 	}
 	signedData, pubkey, err := manager.SignDataWithPassphrase(addr, password, msgbytes)
 	if err != nil {
 		newerr, _ := TryMakeConcernedError(err)
-		return HexSignedTuple{}, newerr
+		return nil, newerr
 	}
 
 	t := HexSignedTuple{
@@ -254,7 +269,7 @@ func (m WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, pas
 		SignedData: hex.EncodeToString(signedData),
 	}
 
-	return t, nil
+	return &t, nil
 }
 
 func (m WalletApi) IsMayValidKeystoreFile(path string) IsMayValidKeystoreFileResponse {

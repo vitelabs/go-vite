@@ -126,9 +126,12 @@ func (km *Manager) FindAddr(addr types.Address) (key *derivation.Key, index uint
 }
 
 func (km *Manager) SignData(a types.Address, data []byte) (signedData, pubkey []byte, err error) {
-	key, _, e := FindAddrFromSeed(data, a, km.maxSearchIndex)
-	if e != nil {
+	if !km.IsUnlocked() {
 		return nil, nil, walleterrors.ErrLocked
+	}
+	key, _, e := FindAddrFromSeed(km.unlockedSeed, a, km.maxSearchIndex)
+	if e != nil {
+		return nil, nil, walleterrors.ErrNotFind
 	}
 	return key.SignData(data)
 }
@@ -223,6 +226,9 @@ func FindAddrFromSeed(seed []byte, addr types.Address, maxSearchIndex uint32) (k
 			return nil, 0, e
 		}
 		genAddr, e := key.Address()
+		if e != nil {
+			return nil, 0, e
+		}
 		if addr == *genAddr {
 			return key, i, nil
 		}

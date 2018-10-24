@@ -24,7 +24,6 @@ func New(config *Config) *Manager {
 	if config == nil {
 		return nil
 	}
-	config.DataDir = filepath.Join(config.DataDir, "wallet")
 	return &Manager{
 		config:           config,
 		unlockChangedLis: make(map[int]func(event entropystore.UnlockEvent)),
