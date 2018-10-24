@@ -359,10 +359,10 @@ func (node *Node) openDataDir() error {
 	log.Info(fmt.Sprintf("Open NodeServer.p2pConfig.FullSeedStoreFileName:%v", node.p2pConfig.DataDir))
 
 	//open wallet data dir
-	if err := os.MkdirAll(node.walletConfig.FullSeedStoreFileName, 0700); err != nil {
+	if err := os.MkdirAll(node.walletConfig.DataDir, 0700); err != nil {
 		return err
 	}
-	log.Info(fmt.Sprintf("Open NodeServer.walletConfig.FullSeedStoreFileName:%v", node.walletConfig.FullSeedStoreFileName))
+	log.Info(fmt.Sprintf("Open NodeServer.walletConfig.FullSeedStoreFileName:%v", node.walletConfig.DataDir))
 
 	return nil
 }
