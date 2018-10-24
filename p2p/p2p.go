@@ -205,6 +205,8 @@ func (svr *Server) Stop() {
 
 		close(svr.term)
 
+		svr.ln.Close()
+
 		if svr.discv != nil {
 			svr.discv.Stop()
 			svr.discv.UnSubNodes(svr.nodeChan)
@@ -225,9 +227,9 @@ func (svr *Server) updateNode(addr *nat.Addr) {
 }
 
 func (svr *Server) setHandshake() {
-	cmdsets := make([]*CmdSet, len(svr.Protocols))
-	for i, p := range svr.Protocols {
-		cmdsets[i] = p.CmdSet()
+	cmdsets := make([]CmdSet, len(svr.Protocols))
+	for i, pt := range svr.Protocols {
+		cmdsets[i] = pt.ID
 	}
 
 	svr.handshake = &Handshake{
@@ -236,6 +238,7 @@ func (svr *Server) setHandshake() {
 		NetID:   svr.NetID,
 		ID:      svr.self.ID,
 		CmdSets: cmdsets,
+		Port:    uint16(svr.Port),
 	}
 }
 
@@ -282,9 +285,9 @@ func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
 	}
 }
 
+// TCPListener will be closed in method: Server.Stop()
 func (svr *Server) listenLoop() {
 	defer svr.wg.Done()
-	defer svr.ln.Close()
 
 	var conn net.Conn
 	var err error

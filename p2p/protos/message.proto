@@ -6,15 +6,11 @@ message Handshake {
     uint64 NetID = 1;
     string Name = 2;
     bytes ID = 3;
-    repeated CmdSet CmdSets = 4;
+    repeated uint64 CmdSets = 4;
     uint64 Version = 5;
     bytes RemoteIP = 6;
 	uint32 RemotePort = 7;
-}
-
-message CmdSet {
-    uint64 ID = 1;
-    string Name = 2;
+    uint32 Port = 8;
 }
 
 message ConnProperty {

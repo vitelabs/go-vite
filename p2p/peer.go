@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common"
 	"io"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,26 +16,14 @@ import (
 	"github.com/vitelabs/go-vite/p2p/protos"
 )
 
-const Version uint64 = 2
-const baseProtocolCmdSet = 0
-const handshakeCmd = 0
-const discCmd = 1
-
-const headerLength = 40
-const maxPayloadSize = ^uint32(0) >> 8 // 16MB
-
-const paralProtoFrame = 3 // max number of protoFrame write concurrently
-
 var errMsgTooLarge = errors.New("message payload is too large")
 var errMsgNull = errors.New("message payload is 0 byte")
 var errPeerTermed = errors.New("peer has been terminated")
 
-//var errPeerTsBusy = errors.New("peer transport is busy, can`t write message")
-
 type conn struct {
 	*AsyncMsgConn
 	flags      connFlag
-	cmdSets    []*CmdSet
+	cmdSets    []CmdSet
 	name       string
 	localID    discovery.NodeID
 	localIP    net.IP
@@ -53,10 +42,9 @@ type ProtoFrame struct {
 	*conn
 	input     chan *Msg
 	term      chan struct{}
-	canWrite  chan struct{}     // if this frame can write message
-	Received  map[uint32]uint64 // message count received
-	Discarded map[uint32]uint64 // message count discarded
-	Send      map[uint32]uint64
+	Received  map[Cmd]uint64 // message count received
+	Discarded map[Cmd]uint64 // message count discarded
+	Send      map[Cmd]uint64
 }
 
 func newProtoFrame(protocol *Protocol, conn *conn) *ProtoFrame {
@@ -64,9 +52,9 @@ func newProtoFrame(protocol *Protocol, conn *conn) *ProtoFrame {
 		Protocol:  protocol,
 		conn:      conn,
 		input:     make(chan *Msg, 100),
-		Received:  make(map[uint32]uint64),
-		Discarded: make(map[uint32]uint64),
-		Send:      make(map[uint32]uint64),
+		Received:  make(map[Cmd]uint64),
+		Discarded: make(map[Cmd]uint64),
+		Send:      make(map[Cmd]uint64),
 	}
 }
 
@@ -80,23 +68,17 @@ func (pf *ProtoFrame) ReadMsg() (msg *Msg, err error) {
 }
 
 func (pf *ProtoFrame) WriteMsg(msg *Msg) (err error) {
-	select {
-	case <-pf.term:
-		return errPeerTermed
-	case pf.canWrite <- struct{}{}:
-		err = pf.conn.SendMsg(msg)
-		<-pf.canWrite
-		pf.Send[msg.Cmd]++
-		return err
-	}
+	err = pf.conn.SendMsg(msg)
+	pf.Send[msg.Cmd]++
+	return err
 }
 
 // create multiple protoFrames above the rw
-func createProtoFrames(ourSet []*Protocol, theirSet []*CmdSet, conn *conn) protoFrameMap {
+func createProtoFrames(ourSet []*Protocol, theirSet []CmdSet, conn *conn) protoFrameMap {
 	protoFrames := make(map[uint64]*ProtoFrame)
 	for _, our := range ourSet {
 		for _, their := range theirSet {
-			if our.ID == their.ID && our.Name == their.Name {
+			if our.ID == their {
 				protoFrames[our.ID] = newProtoFrame(our, conn)
 			}
 		}
@@ -113,7 +95,7 @@ type protoDone struct {
 }
 
 // @section Peer
-type protoFrameMap = map[uint64]*ProtoFrame
+type protoFrameMap = map[CmdSet]*ProtoFrame
 type Peer struct {
 	ts          *conn
 	protoFrames protoFrameMap
@@ -160,21 +142,19 @@ func (p *Peer) Disconnect(reason DiscReason) {
 
 func (p *Peer) runProtocols() {
 	p.wg.Add(len(p.protoFrames))
-	canWrite := make(chan struct{}, paralProtoFrame)
 
 	for _, pf := range p.protoFrames {
 		// closure
 		protoFrame := pf
 		common.Go(func() {
-			p.runProtocol(protoFrame, canWrite)
+			p.runProtocol(protoFrame)
 		})
 	}
 }
 
-func (p *Peer) runProtocol(proto *ProtoFrame, canWrite chan struct{}) {
+func (p *Peer) runProtocol(proto *ProtoFrame) {
 	defer p.wg.Done()
 	proto.term = p.term
-	proto.canWrite = canWrite
 
 	err := proto.Handle(p, proto)
 	p.protoDone <- &protoDone{proto.ID, proto.String(), err}
@@ -288,7 +268,7 @@ func (p *Peer) String() string {
 	return p.ID().String() + "@" + p.RemoteAddr().String()
 }
 
-func (p *Peer) CmdSets() []*CmdSet {
+func (p *Peer) CmdSets() []CmdSet {
 	return p.ts.cmdSets
 }
 
@@ -301,16 +281,18 @@ func (p *Peer) IP() net.IP {
 }
 
 func (p *Peer) Info() *PeerInfo {
-	cmdsets := p.CmdSets()
-	cmdSetsInfo := make([]string, len(cmdsets))
-	for i, cmdset := range cmdsets {
-		cmdSetsInfo[i] = cmdset.String()
+	caps := make([]string, len(p.protoFrames))
+
+	i := 0
+	for _, pf := range p.protoFrames {
+		caps[i] = pf.Name + "/" + strconv.FormatUint(pf.ID, 10)
+		i++
 	}
 
 	return &PeerInfo{
 		ID:      p.ID().String(),
 		Name:    p.Name(),
-		CmdSets: cmdSetsInfo,
+		CmdSets: caps,
 		Address: p.RemoteAddr().String(),
 		Inbound: p.ts.is(inbound),
 	}
@@ -384,7 +366,7 @@ func (s *PeerSet) Traverse(fn func(id discovery.NodeID, p *Peer)) {
 type PeerInfo struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`
-	CmdSets []string `json:"caps"`
+	CmdSets []string `json:"cmdSets"`
 	Address string   `json:"address"`
 	Inbound bool     `json:"inbound"`
 }
