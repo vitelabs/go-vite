@@ -4,6 +4,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 type Manager struct {
@@ -15,9 +19,37 @@ func New(config *Config) *Manager {
 	if config == nil {
 		return nil
 	}
+	config.DataDir = filepath.Join(config.DataDir, "wallet")
 	return &Manager{
 		config: config,
 	}
+}
+
+func (m Manager) ListEntropyFiles() ([]string, error) {
+
+	files, err := ioutil.ReadDir(m.config.DataDir)
+	if err != nil {
+		return nil, err
+	}
+
+	filenames := make([]string, 0)
+	for _, file := range files {
+		if file.IsDir() || file.Mode()&os.ModeType != 0 {
+			continue
+		}
+		fn := file.Name()
+		if strings.HasPrefix(fn, ".") || strings.HasSuffix(fn, "~") {
+			continue
+		}
+		absFilePath := filepath.Join(m.config.DataDir, file.Name())
+		b, _, e := entropystore.IsMayValidEntropystoreFile(absFilePath)
+		if e != nil || !b {
+			continue
+		}
+		filenames = append(filenames, absFilePath)
+	}
+
+	return filenames, nil
 }
 
 func (m Manager) GetEntropyStoreManager() *entropystore.Manager {
@@ -76,4 +108,8 @@ func (m *Manager) NewMnemonicAndEntropyStore(password string, switchToIt bool) (
 		return "", nil, e
 	}
 	return mnemonic, em, nil
+}
+
+func (m Manager) GetDataDir() string {
+	return m.config.DataDir
 }

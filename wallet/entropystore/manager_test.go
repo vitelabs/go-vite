@@ -135,7 +135,7 @@ func TestManager_LockAndUnlock(t *testing.T) {
 		t.Fatal(e)
 	}
 	for i, v := range addr {
-		if !sm.IsAddrUnlocked(*v) {
+		if !sm.IsAddrUnlocked(v) {
 			t.Fatal("expect unlock")
 		}
 		fmt.Println(i, v.String())

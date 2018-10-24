@@ -85,7 +85,7 @@ func TestDecryptEntropy(t *testing.T) {
 	{
 		fmt.Println("password error case:")
 		_, e := entropystore.DecryptEntropy(json, "1234576")
-		if e != walleterrors.ErrDecryptSeed {
+		if e != walleterrors.ErrDecryptEntropy {
 			t.Fatal("no error")
 		}
 	}

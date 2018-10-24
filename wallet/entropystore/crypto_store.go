@@ -137,7 +137,7 @@ func DecryptEntropy(entropyJson []byte, password string) ([]byte, error) {
 
 	entropy, err := vcrypto.AesGCMDecrypt(derivedKey[:32], cipherData, []byte(nonce))
 	if err != nil {
-		return nil, walleterrors.ErrDecryptSeed
+		return nil, walleterrors.ErrDecryptEntropy
 	}
 
 	mnemonic, e := bip39.NewMnemonic(entropy)

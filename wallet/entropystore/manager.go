@@ -71,11 +71,11 @@ func (km *Manager) IsUnlocked() bool {
 	return km.unlockedSeed != nil
 }
 
-func (km *Manager) ListAddress(maxIndex uint32) ([]*types.Address, error) {
+func (km *Manager) ListAddress(maxIndex uint32) ([]types.Address, error) {
 	if km.unlockedSeed == nil {
 		return nil, walleterrors.ErrLocked
 	}
-	addr := make([]*types.Address, maxIndex)
+	addr := make([]types.Address, maxIndex)
 	for i := uint32(0); i < maxIndex; i++ {
 		_, key, e := km.DeriveForIndexPath(i)
 		if e != nil {
@@ -85,7 +85,7 @@ func (km *Manager) ListAddress(maxIndex uint32) ([]*types.Address, error) {
 		if e != nil {
 			return nil, e
 		}
-		addr[i] = address
+		addr[i] = *address
 	}
 
 	return addr, nil
@@ -109,20 +109,16 @@ func (km *Manager) Unlock(password string) error {
 	return nil
 }
 
-func (km *Manager) Lock() error {
-	pAddr, e := derivation.GetPrimaryAddress(km.unlockedSeed)
-	if e != nil {
-		return e
-	}
+func (km *Manager) Lock() {
+
 	km.unlockedSeed = nil
 
 	for _, f := range km.unlockChangedLis {
-		f(UnlockEvent{PrimaryAddr: *pAddr, event: Locked})
+		f(UnlockEvent{PrimaryAddr: km.primaryAddr, event: Locked})
 	}
-	return nil
 }
 
-func (km *Manager) FindAddrWithPassword(password string, addr types.Address) (*derivation.Key, uint32, error) {
+func (km *Manager) FindAddrWithPassword(password string, addr types.Address) (key *derivation.Key, index uint32, e error) {
 	seed, _, err := km.ks.ExtractSeed(password)
 	if err != nil {
 		return nil, 0, err
@@ -130,7 +126,7 @@ func (km *Manager) FindAddrWithPassword(password string, addr types.Address) (*d
 	return FindAddrFromSeed(seed, addr, km.maxSearchIndex)
 }
 
-func (km *Manager) FindAddr(addr types.Address) (*derivation.Key, uint32, error) {
+func (km *Manager) FindAddr(addr types.Address) (key *derivation.Key, index uint32, e error) {
 	if !km.IsUnlocked() {
 		return nil, 0, walleterrors.ErrLocked
 	}
@@ -229,7 +225,7 @@ func MnemonicToPrimaryAddr(mnemonic string) (primaryAddress *types.Address, e er
 }
 
 // it is very fast(in my mac 2.8GHZ intel cpu 1Million search cost 728ms) so we dont need cache the relation
-func FindAddrFromSeed(seed []byte, addr types.Address, maxSearchIndex uint32) (*derivation.Key, uint32, error) {
+func FindAddrFromSeed(seed []byte, addr types.Address, maxSearchIndex uint32) (key *derivation.Key, index uint32, e error) {
 	for i := uint32(0); i < maxSearchIndex; i++ {
 		key, e := derivation.DeriveWithIndex(i, seed)
 		if e != nil {
