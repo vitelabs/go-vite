@@ -25,9 +25,10 @@ type Config struct {
 	Verifier Verifier
 
 	// for topo
-	Topology []string
-	Topic    string
-	Interval int64 // second
+	Topology     []string
+	Topic        string
+	Interval     int64 // second
+	TopoDisabled bool
 }
 
 const DefaultPort uint16 = 8484
@@ -100,7 +101,7 @@ func New(cfg *Config) Net {
 	n.protocols = append(n.protocols, &p2p.Protocol{
 		Name: CmdSetName,
 		ID:   CmdSet,
-		Handle: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
+		Handle: func(p *p2p.Peer, rw *p2p.ProtoFrame) error {
 			// will be called by p2p.Peer.runProtocols use goroutine
 			peer := newPeer(p, rw, CmdSet)
 			return n.handlePeer(peer)
@@ -108,12 +109,14 @@ func New(cfg *Config) Net {
 	})
 
 	// topo
-	n.topo = topo.New(&topo.Config{
-		Addrs:    cfg.Topology,
-		Interval: cfg.Interval,
-		Topic:    cfg.Topic,
-	})
-	n.protocols = append(n.protocols, n.topo.Protocol())
+	if !cfg.TopoDisabled {
+		n.topo = topo.New(&topo.Config{
+			Addrs:    cfg.Topology,
+			Interval: cfg.Interval,
+			Topic:    cfg.Topic,
+		})
+		n.protocols = append(n.protocols, n.topo.Protocol())
+	}
 
 	return n
 }
@@ -137,8 +140,10 @@ func (n *net) Start(svr *p2p.Server) (err error) {
 
 	n.fc.start()
 
-	if err = n.topo.Start(svr); err != nil {
-		return
+	if n.topo != nil {
+		if err = n.topo.Start(svr); err != nil {
+			return
+		}
 	}
 
 	n.pool.start()
@@ -164,7 +169,9 @@ func (n *net) Stop() {
 
 		n.fc.stop()
 
-		n.topo.Stop()
+		if n.topo != nil {
+			n.topo.Stop()
+		}
 
 		n.wg.Wait()
 	}
@@ -239,27 +246,47 @@ func (n *net) handleMsg(p *Peer) (err error) {
 	code := cmd(msg.Cmd)
 
 	if handler, ok := n.handlers[code]; ok && handler != nil {
-		n.log.Info(fmt.Sprintf("begin handle message %s", code))
+		n.log.Info(fmt.Sprintf("begin handle message %s from %s", code, p))
 
 		begin := time.Now()
 		err = handler.Handle(msg, p)
 		monitor.LogDuration("net", "handle_"+code.String(), time.Now().Sub(begin).Nanoseconds())
 
-		n.log.Info(fmt.Sprintf("handle message %s done", code))
+		n.log.Info(fmt.Sprintf("handle message %s from %s done", code, p))
+		p.msgHandled[code]++
+
 		return err
 	}
 
-	n.log.Error(fmt.Sprintf("missing handler for message %d", msg.Cmd))
+	n.log.Error(fmt.Sprintf("missing handler for message %d from %s", msg.Cmd, p))
 
 	return errMissHandler
 }
 
 func (n *net) Info() *NodeInfo {
+	peersInfo := n.peers.Info()
+
+	var send, received, handled, discarded uint64
+	for _, pi := range peersInfo {
+		send += pi.MsgSend
+		received += pi.MsgReceived
+		handled += pi.MsgHandled
+		discarded += pi.MsgDiscarded
+	}
+
 	return &NodeInfo{
-		Peers: n.peers.Info(),
+		Peers:        peersInfo,
+		MsgSend:      send,
+		MsgReceived:  received,
+		MsgHandled:   handled,
+		MsgDiscarded: discarded,
 	}
 }
 
 type NodeInfo struct {
-	Peers []*PeerInfo `json:"peers"`
+	Peers        []*PeerInfo `json:"peers"`
+	MsgSend      uint64      `json:"msgSend"`
+	MsgReceived  uint64      `json:"msgReceived"`
+	MsgHandled   uint64      `json:"msgHandled"`
+	MsgDiscarded uint64      `json:"msgDiscarded"`
 }

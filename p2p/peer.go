@@ -48,23 +48,29 @@ func (c *conn) is(flag connFlag) bool {
 	return c.flags.is(flag)
 }
 
-type protoFrame struct {
+type ProtoFrame struct {
 	*Protocol
 	*conn
-	input    chan *Msg
-	term     chan struct{}
-	canWrite chan struct{} // if this frame can write message
+	input     chan *Msg
+	term      chan struct{}
+	canWrite  chan struct{}     // if this frame can write message
+	Received  map[uint32]uint64 // message count received
+	Discarded map[uint32]uint64 // message count discarded
+	Send      map[uint32]uint64
 }
 
-func newProtoFrame(protocol *Protocol, conn *conn) *protoFrame {
-	return &protoFrame{
-		Protocol: protocol,
-		conn:     conn,
-		input:    make(chan *Msg, 100),
+func newProtoFrame(protocol *Protocol, conn *conn) *ProtoFrame {
+	return &ProtoFrame{
+		Protocol:  protocol,
+		conn:      conn,
+		input:     make(chan *Msg, 100),
+		Received:  make(map[uint32]uint64),
+		Discarded: make(map[uint32]uint64),
+		Send:      make(map[uint32]uint64),
 	}
 }
 
-func (pf *protoFrame) ReadMsg() (msg *Msg, err error) {
+func (pf *ProtoFrame) ReadMsg() (msg *Msg, err error) {
 	select {
 	case <-pf.term:
 		return msg, io.EOF
@@ -73,20 +79,21 @@ func (pf *protoFrame) ReadMsg() (msg *Msg, err error) {
 	}
 }
 
-func (pf *protoFrame) WriteMsg(msg *Msg) (err error) {
+func (pf *ProtoFrame) WriteMsg(msg *Msg) (err error) {
 	select {
 	case <-pf.term:
 		return errPeerTermed
 	case pf.canWrite <- struct{}{}:
 		err = pf.conn.SendMsg(msg)
 		<-pf.canWrite
+		pf.Send[msg.Cmd]++
 		return err
 	}
 }
 
 // create multiple protoFrames above the rw
 func createProtoFrames(ourSet []*Protocol, theirSet []*CmdSet, conn *conn) protoFrameMap {
-	protoFrames := make(map[uint64]*protoFrame)
+	protoFrames := make(map[uint64]*ProtoFrame)
 	for _, our := range ourSet {
 		for _, their := range theirSet {
 			if our.ID == their.ID && our.Name == their.Name {
@@ -106,11 +113,11 @@ type protoDone struct {
 }
 
 // @section Peer
-type protoFrameMap = map[uint64]*protoFrame
+type protoFrameMap = map[uint64]*ProtoFrame
 type Peer struct {
 	ts          *conn
 	protoFrames protoFrameMap
-	created     time.Time
+	Created     time.Time
 	wg          sync.WaitGroup
 	term        chan struct{}
 	disc        chan DiscReason // disconnect proactively
@@ -130,7 +137,7 @@ func NewPeer(conn *conn, ourSet []*Protocol) (*Peer, error) {
 		ts:          conn,
 		protoFrames: protoFrames,
 		term:        make(chan struct{}),
-		created:     time.Now(),
+		Created:     time.Now(),
 		disc:        make(chan DiscReason),
 		errch:       make(chan error),
 		protoDone:   make(chan *protoDone, len(protoFrames)),
@@ -164,7 +171,7 @@ func (p *Peer) runProtocols() {
 	}
 }
 
-func (p *Peer) runProtocol(proto *protoFrame, canWrite chan struct{}) {
+func (p *Peer) runProtocol(proto *ProtoFrame, canWrite chan struct{}) {
 	defer p.wg.Done()
 	proto.term = p.term
 	proto.canWrite = canWrite
@@ -256,8 +263,10 @@ func (p *Peer) handleMsg(msg *Msg) {
 		} else if pf := p.protoFrames[cmdset]; pf != nil {
 			select {
 			case pf.input <- msg:
+				pf.Received[msg.Cmd]++
 			default:
 				p.log.Warn(fmt.Sprintf("protocol is busy, discard message %d/%d", cmdset, cmd))
+				pf.Discarded[msg.Cmd]++
 				msg.Recycle()
 			}
 		} else {

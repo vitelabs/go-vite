@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"time"
 )
 
 const filterCap = 100000
@@ -23,7 +24,7 @@ const filterCap = 100000
 
 type Peer struct {
 	*p2p.Peer
-	mrw         p2p.MsgReadWriter
+	mrw         *p2p.ProtoFrame
 	ID          string
 	head        types.Hash // hash of the top snapshotblock in snapshotchain
 	height      uint64     // height of the snapshotchain
@@ -32,9 +33,10 @@ type Peer struct {
 	KnownBlocks *cuckoofilter.CuckooFilter
 	log         log15.Logger
 	errch       chan error
+	msgHandled  map[cmd]uint64 // message statistic
 }
 
-func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
+func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet uint64) *Peer {
 	return &Peer{
 		Peer:        p,
 		mrw:         mrw,
@@ -43,6 +45,7 @@ func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
 		errch:       make(chan error),
+		msgHandled:  make(map[cmd]uint64),
 	}
 }
 
@@ -204,10 +207,19 @@ func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) (err error
 }
 
 type PeerInfo struct {
-	ID     string `json:"id"`
-	Addr   string `json:"addr"`
-	Head   string `json:"head"`
-	Height uint64 `json:"height"`
+	ID                 string            `json:"id"`
+	Addr               string            `json:"addr"`
+	Head               string            `json:"head"`
+	Height             uint64            `json:"height"`
+	MsgReceived        uint64            `json:"msgReceived"`
+	MsgHandled         uint64            `json:"msgHandled"`
+	MsgSend            uint64            `json:"msgSend"`
+	MsgDiscarded       uint64            `json:"msgDiscarded"`
+	MsgReceivedDetail  map[string]uint64 `json:"msgReceived"`
+	MsgDiscardedDetail map[string]uint64 `json:"msgDiscarded"`
+	MsgHandledDetail   map[string]uint64 `json:"msgHandledDetail"`
+	MsgSendDetail      map[string]uint64 `json:"msgSendDetail"`
+	Uptime             time.Duration     `json:"uptime"`
 }
 
 func (p *PeerInfo) String() string {
@@ -215,11 +227,45 @@ func (p *PeerInfo) String() string {
 }
 
 func (p *Peer) Info() *PeerInfo {
+	var handled, send, received, discard uint64
+	handMap := make(map[string]uint64, len(p.msgHandled))
+	for cmd, num := range p.msgHandled {
+		handMap[cmd.String()] = num
+		handled += num
+	}
+
+	sendMap := make(map[string]uint64, len(p.mrw.Send))
+	for code, num := range p.mrw.Send {
+		sendMap[cmd(code).String()] = num
+		send += num
+	}
+
+	recMap := make(map[string]uint64, len(p.mrw.Received))
+	for code, num := range p.mrw.Received {
+		recMap[cmd(code).String()] = num
+		received += num
+	}
+
+	discMap := make(map[string]uint64, len(p.mrw.Discarded))
+	for code, num := range p.mrw.Discarded {
+		discMap[cmd(code).String()] = num
+		discard += num
+	}
+
 	return &PeerInfo{
-		ID:     p.ID,
-		Addr:   p.RemoteAddr().String(),
-		Head:   p.head.String(),
-		Height: p.height,
+		ID:                 p.ID,
+		Addr:               p.RemoteAddr().String(),
+		Head:               p.head.String(),
+		Height:             p.height,
+		MsgReceived:        received,
+		MsgHandled:         handled,
+		MsgSend:            send,
+		MsgDiscarded:       discard,
+		MsgReceivedDetail:  recMap,
+		MsgDiscardedDetail: discMap,
+		MsgHandledDetail:   handMap,
+		MsgSendDetail:      sendMap,
+		Uptime:             time.Now().Sub(p.Created),
 	}
 }
 
@@ -361,8 +407,12 @@ func (m *peerSet) Info() (info []*PeerInfo) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
+	info = make([]*PeerInfo, len(m.peers))
+
+	i := 0
 	for _, peer := range m.peers {
-		info = append(info, peer.Info())
+		info[i] = peer.Info()
+		i++
 	}
 
 	return
@@ -372,13 +422,17 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*Peer) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
+	peers = make([]*Peer, len(m.peers))
+
+	i := 0
 	for _, peer := range m.peers {
 		if !peer.KnownBlocks.Lookup(hash[:]) {
-			peers = append(peers, peer)
+			peers[i] = peer
+			i++
 		}
 	}
 
-	return
+	return peers[:i]
 }
 
 // @implementation sort.Interface

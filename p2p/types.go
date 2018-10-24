@@ -101,7 +101,7 @@ type Protocol struct {
 	// use for message command set, should be unique
 	ID uint64
 	// read and write Msg with rw
-	Handle func(p *Peer, rw MsgReadWriter) error
+	Handle func(p *Peer, rw *ProtoFrame) error
 }
 
 func (p *Protocol) String() string {

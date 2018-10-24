@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vite/net"
@@ -43,16 +42,8 @@ func (n *NetApi) SyncInfo() *SyncInfo {
 	}
 }
 
-func (n *NetApi) Peers() (ret []string) {
-	info := n.net.Info()
-
-	for _, pinfo := range info.Peers {
-		if js, err := json.Marshal(pinfo); err == nil {
-			ret = append(ret, string(js))
-		}
-	}
-
-	return
+func (n *NetApi) Peers() *net.NodeInfo {
+	return n.net.Info()
 }
 
 func (n *NetApi) PeersCount() uint {

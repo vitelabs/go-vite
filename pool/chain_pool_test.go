@@ -124,3 +124,98 @@ func TestBCPool_CurrentModifyToChain(t *testing.T) {
 
 	cp.check()
 }
+
+func TestChainPoolModifyRefer(t *testing.T) {
+	mock := &mockChainPool{c: mockChain(nil, 1, 1, 10)}
+	mock.c.referChain = nil
+
+	diskChain := &diskChain{chainId: "diskchain", rw: mock, v: &ForkVersion{}}
+	cp := &chainPool{
+		poolId:    "chain-Pool-Id",
+		diskChain: diskChain,
+		log:       log15.New("module", "mock"),
+	}
+	cp.current = &forkedChain{}
+	cp.current.chainId = "c1"
+	cp.init()
+
+	tmps := mockChain(mock.c, 1, 11, 20)
+	for i := tmps.tailHeight + 1; i <= tmps.headHeight; i++ {
+		cp.current.addHead(tmps.getHeightBlock(i))
+	}
+
+	c2 := mockChain(cp.current, 2, 13, 25)
+	c2.chainId = "c2"
+	cp.addChain(c2)
+
+	c3 := mockChain(c2, 3, 15, 29)
+	c3.chainId = "c3"
+	cp.addChain(c3)
+
+	c4 := mockChain(c3, 4, 16, 32)
+	c4.chainId = "c4"
+	cp.addChain(c4)
+
+	//printChain(cp.current)
+	//printChain(c2)
+	printChainJust(c3)
+	printChainJust(c4)
+
+	//cp.modifyRefer(c3, c4)
+	cp.currentModifyToChain(c4)
+
+	printChainJust(c3)
+	printChainJust(c4)
+
+	//println(c3.referChain.id(), c3.id())
+	//println(c4.referChain.id(), c4.id())
+
+	cp.check()
+}
+
+func TestChainPoolModifyRefer2(t *testing.T) {
+	mock := &mockChainPool{c: mockChain(nil, 1, 1, 10)}
+	mock.c.referChain = nil
+
+	diskChain := &diskChain{chainId: "diskchain", rw: mock, v: &ForkVersion{}}
+	cp := &chainPool{
+		poolId:    "chain-Pool-Id",
+		diskChain: diskChain,
+		log:       log15.New("module", "mock"),
+	}
+	cp.current = &forkedChain{}
+	cp.current.chainId = "c1"
+	cp.init()
+	tmps := mockChain(mock.c, 1, 11, 15)
+	for i := tmps.tailHeight + 1; i <= tmps.headHeight; i++ {
+		cp.current.addHead(tmps.getHeightBlock(i))
+	}
+
+	c2 := mockChain(cp.current, 2, 11, 25)
+	c2.chainId = "c2"
+	cp.addChain(c2)
+
+	c3 := mockChain(mock.c, 3, 9, 10)
+	c3.chainId = "c3"
+	c3.referChain = cp.current
+	cp.addChain(c3)
+
+	//printChain(cp.current)
+	//printChain(c2)
+	printChainJust(c3)
+	printChainJust(c2)
+	printChainJust(cp.current)
+
+	cp.modifyRefer(cp.current, c2)
+
+	printChainJust(c3)
+	printChainJust(c2)
+	printChainJust(cp.current)
+
+	//println(c3.referChain.id(), c3.id())
+	//println(c4.referChain.id(), c4.id())
+	//cp.current = c2
+	//cp.check()
+	//cp.modifyChainRefer()
+	//cp.check()
+}

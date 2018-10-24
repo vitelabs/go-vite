@@ -27,13 +27,13 @@ func TestContractsRegisterRun(t *testing.T) {
 	addr6, privateKey6, _ := types.CreateAddress()
 	addr7, privateKey7, _ := types.CreateAddress()
 	publicKey6 := ed25519.PublicKey(privateKey6.PubByte())
-	publicKey7 := ed25519.PublicKey(privateKey7.PubByte())
+	//publicKey7 := ed25519.PublicKey(privateKey7.PubByte())
 	db.accountBlockMap[addr6] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr7] = make(map[types.Hash]*ledger.AccountBlock)
 	addr2 := contracts.AddressRegister
 	nodeName := "super1"
 	sign := ed25519.Sign(privateKey7, contracts.GetRegisterMessageForSignature(addr1, types.SNAPSHOT_GID))
-	block13Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr7, []byte(publicKey7), sign)
+	block13Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr6, []byte(publicKey6), sign)
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -73,7 +73,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	locHashRegister, _ := types.BytesToHash(contracts.GetRegisterKey(nodeName, types.SNAPSHOT_GID))
-	registrationData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr7, addr1, block13.Amount, snapshot2.Height, snapshot2.Height, uint64(0))
+	registrationData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr6, addr1, block13.Amount, snapshot2.Height, snapshot2.Height, uint64(0))
 	db.addr = addr2
 	receiveRegisterBlockList, isRetry, err := vm.Run(db, block21, sendRegisterBlockList[0].AccountBlock)
 	if len(receiveRegisterBlockList) != 1 || isRetry || err != nil ||
@@ -84,58 +84,58 @@ func TestContractsRegisterRun(t *testing.T) {
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr2][hash21] = receiveRegisterBlockList[0].AccountBlock
+	/*
+		// update registration
+		sign = ed25519.Sign(privateKey6, contracts.GetRegisterMessageForSignature(addr1, types.SNAPSHOT_GID))
+		block14Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration, types.SNAPSHOT_GID, nodeName, addr6, []byte(publicKey6), sign)
+		hash14 := types.DataHash([]byte{1, 4})
+		block14 := &ledger.AccountBlock{
+			Height:         4,
+			ToAddress:      addr2,
+			AccountAddress: addr1,
+			BlockType:      ledger.BlockTypeSendCall,
+			PrevHash:       hash13,
+			Data:           block14Data,
+			Amount:         big.NewInt(0),
+			Fee:            big.NewInt(0),
+			TokenId:        ledger.ViteTokenId,
+			SnapshotHash:   snapshot2.Hash,
+			Timestamp:      &blockTime,
+		}
+		vm = NewVM()
+		vm.Debug = true
+		db.addr = addr1
+		block14DataGas, _ := util.DataGasCost(block14Data)
+		sendRegisterBlockList2, isRetry, err := vm.Run(db, block14, nil)
+		if len(sendRegisterBlockList2) != 1 || isRetry || err != nil ||
+			sendRegisterBlockList2[0].AccountBlock.Quota != block14DataGas+62200 ||
+			db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
+			t.Fatalf("send update registration transaction error")
+		}
+		db.accountBlockMap[addr1][hash14] = sendRegisterBlockList2[0].AccountBlock
 
-	// update registration
-	sign = ed25519.Sign(privateKey6, contracts.GetRegisterMessageForSignature(addr1, types.SNAPSHOT_GID))
-	block14Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration, types.SNAPSHOT_GID, nodeName, addr6, []byte(publicKey6), sign)
-	hash14 := types.DataHash([]byte{1, 4})
-	block14 := &ledger.AccountBlock{
-		Height:         4,
-		ToAddress:      addr2,
-		AccountAddress: addr1,
-		BlockType:      ledger.BlockTypeSendCall,
-		PrevHash:       hash13,
-		Data:           block14Data,
-		Amount:         big.NewInt(0),
-		Fee:            big.NewInt(0),
-		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
-	}
-	vm = NewVM()
-	vm.Debug = true
-	db.addr = addr1
-	block14DataGas, _ := util.DataGasCost(block14Data)
-	sendRegisterBlockList2, isRetry, err := vm.Run(db, block14, nil)
-	if len(sendRegisterBlockList2) != 1 || isRetry || err != nil ||
-		sendRegisterBlockList2[0].AccountBlock.Quota != block14DataGas+62200 ||
-		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
-		t.Fatalf("send update registration transaction error")
-	}
-	db.accountBlockMap[addr1][hash14] = sendRegisterBlockList2[0].AccountBlock
-
-	hash22 := types.DataHash([]byte{2, 2})
-	block22 := &ledger.AccountBlock{
-		Height:         2,
-		AccountAddress: addr2,
-		BlockType:      ledger.BlockTypeReceive,
-		FromBlockHash:  hash14,
-		PrevHash:       hash21,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
-	}
-	vm = NewVM()
-	vm.Debug = true
-	registrationData, _ = contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr6, addr1, block13.Amount, snapshot2.Height, snapshot2.Height, uint64(0))
-	db.addr = addr2
-	receiveRegisterBlockList2, isRetry, err := vm.Run(db, block22, sendRegisterBlockList2[0].AccountBlock)
-	if len(receiveRegisterBlockList2) != 1 || isRetry || err != nil ||
-		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
-		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationData) ||
-		receiveRegisterBlockList2[0].AccountBlock.Quota != 0 {
-		t.Fatalf("receive update registration transaction error")
-	}
-	db.accountBlockMap[addr2][hash22] = receiveRegisterBlockList2[0].AccountBlock
+		hash22 := types.DataHash([]byte{2, 2})
+		block22 := &ledger.AccountBlock{
+			Height:         2,
+			AccountAddress: addr2,
+			BlockType:      ledger.BlockTypeReceive,
+			FromBlockHash:  hash14,
+			PrevHash:       hash21,
+			SnapshotHash:   snapshot2.Hash,
+			Timestamp:      &blockTime,
+		}
+		vm = NewVM()
+		vm.Debug = true
+		registrationData, _ = contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr6, addr1, block13.Amount, snapshot2.Height, snapshot2.Height, uint64(0))
+		db.addr = addr2
+		receiveRegisterBlockList2, isRetry, err := vm.Run(db, block22, sendRegisterBlockList2[0].AccountBlock)
+		if len(receiveRegisterBlockList2) != 1 || isRetry || err != nil ||
+			db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
+			!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationData) ||
+			receiveRegisterBlockList2[0].AccountBlock.Quota != 0 {
+			t.Fatalf("receive update registration transaction error")
+		}
+		db.accountBlockMap[addr2][hash22] = receiveRegisterBlockList2[0].AccountBlock*/
 
 	// get contracts data
 	db.addr = contracts.AddressRegister
@@ -241,7 +241,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot6)
 	db.storageMap[contracts.AddressPledge][string(types.DataHash(addr1.Bytes()).Bytes())], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
 	db.storageMap[contracts.AddressPledge][string(contracts.GetPledgeBeneficialKey(addr7))], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
-	block17Data, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, nodeName, addr7, uint64(0), uint64(0), helper.Big0)
+	block17Data, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, nodeName, addr7, uint64(0), uint64(0))
 	hash17 := types.DataHash([]byte{1, 7})
 	block17 := &ledger.AccountBlock{
 		Height:         7,
@@ -262,7 +262,7 @@ func TestContractsRegisterRun(t *testing.T) {
 	sendRewardBlockList, isRetry, err := vm.Run(db, block17, nil)
 	block17DataGas, _ := util.DataGasCost(sendRewardBlockList[0].AccountBlock.Data)
 	reward := new(big.Int).Mul(big.NewInt(2), new(big.Int).Div(viteTotalSupply, big.NewInt(1051200000)))
-	block17DataExpected, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, nodeName, addr7, snapshot6.Height-60*30, snapshot2.Height, reward)
+	block17DataExpected, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, nodeName, addr7, snapshot6.Height-60*30, snapshot2.Height)
 	if len(sendRewardBlockList) != 1 || isRetry || err != nil ||
 		sendRewardBlockList[0].AccountBlock.Quota != block17DataGas+83200+200*778 ||
 		!bytes.Equal(sendRewardBlockList[0].AccountBlock.Data, block17DataExpected) {
