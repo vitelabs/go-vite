@@ -150,6 +150,9 @@ func (self *chainPool) modifyChainRefer() {
 		b, reader := c.referChain.getBlockByChain(c.tailHeight)
 		if b != nil {
 			if reader.id() == self.diskChain.id() {
+				if c.referChain.id() == self.current.id() {
+					continue
+				}
 				c.referChain = self.current
 				self.log.Warn("[1]modify for refer.", "from", c.id(), "refer", c.referChain.id(), "tailHeight", c.tailHeight)
 				continue
