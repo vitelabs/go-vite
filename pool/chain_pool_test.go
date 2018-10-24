@@ -195,13 +195,20 @@ func TestChainPoolModifyRefer2(t *testing.T) {
 	c2.chainId = "c2"
 	cp.addChain(c2)
 
+	c3 := mockChain(mock.c, 3, 9, 10)
+	c3.chainId = "c3"
+	c3.referChain = cp.current
+	cp.addChain(c3)
+
 	//printChain(cp.current)
 	//printChain(c2)
+	printChainJust(c3)
 	printChainJust(c2)
 	printChainJust(cp.current)
 
 	cp.modifyRefer(cp.current, c2)
 
+	printChainJust(c3)
 	printChainJust(c2)
 	printChainJust(cp.current)
 

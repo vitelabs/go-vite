@@ -138,6 +138,28 @@ func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
 				from.removeTail(w)
 			}
 		}
+
+		for _, v := range self.allChain() {
+			if v.id() == from.id() || v.id() == to.id() {
+				continue
+			}
+			if v.referChain.id() == from.id() {
+				block, reader := to.getBlockByChain(v.tailHeight)
+				if block != nil {
+					if reader.id() == self.diskChain.id() {
+						v.referChain = to
+					} else {
+						v.referChain = reader
+					}
+				} else {
+					self.log.Warn("modify refer[3]", "from", from.id(), "to", to.id(),
+						"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
+						"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight,
+						"vTailHeight", v.tailHeight, "vTailHash", v.tailHash)
+				}
+			}
+		}
+
 		to.referChain = from.referChain
 		from.referChain = to
 		self.log.Info("modify refer", "from", from.id(), "to", to.id(),
