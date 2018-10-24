@@ -1,6 +1,8 @@
 package chain
 
 import (
+	"encoding/json"
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -113,6 +115,10 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
 	}
+
+	// FIXME hack!!!!! tmp
+	tmpBuf, _ := json.Marshal(snapshotBlock)
+	c.log.Debug(string(tmpBuf), "method", "debugInsertSnapshotBlock")
 
 	// After write db
 	trieSaveCallback()
@@ -430,6 +436,12 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 					c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
 					return nil, nil, err
 				}
+
+				if blockMeta == nil {
+					err := errors.New("the block meta can't be nil")
+					c.log.Error(err.Error(), "method", "DeleteSnapshotBlocksToHeight")
+					return nil, nil, err
+				}
 			}
 
 			if blockMeta.SnapshotHeight > 0 {
@@ -488,6 +500,12 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	if writeErr != nil {
 		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 		return nil, nil, writeErr
+	}
+
+	// FIXME hack!!!!! tmp
+	for _, snapshotBlock := range snapshotBlocks {
+		tmpBuf, _ := json.Marshal(snapshotBlock)
+		c.log.Debug(string(tmpBuf), "method", "debugDeleteSnapshotBlock")
 	}
 
 	// Set cache
