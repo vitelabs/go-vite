@@ -110,6 +110,7 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 				chain.referChain = fromChain.referChain
 				self.modifyChainRefer2(fromChain, chain)
 				self.delChain(fromChain.id())
+				continue
 			} else {
 				self.log.Error("modify refer[5]", "from", fromChain.id(), "to", chain.id(),
 					"fromTailHeight", fromChain.tailHeight, "fromHeadHeight", fromChain.headHeight,
