@@ -19,16 +19,14 @@ var errPoolStopped = errors.New("pool stopped")
 const INIT_ID uint64 = 1
 
 type requestPool struct {
-	pending map[uint64]Request // has executed, wait for response
-	id      uint64             // atomic, unique request id, identically message id
-	add     chan Request
+	pending *sync.Map // has executed, wait for response
+	id      uint64    // atomic, unique request id, identically message id
 	term    chan struct{}
 	log     log15.Logger
 	wg      sync.WaitGroup
 	peers   *peerSet
 	fc      *fileClient
-	get     chan uint64
-	out     chan Request
+	running chan struct{} // restrict concurrency
 }
 
 // as message handler
@@ -50,14 +48,12 @@ func (p *requestPool) Handle(msg *p2p.Msg, sender *Peer) error {
 
 func newRequestPool(peers *peerSet, fc *fileClient) *requestPool {
 	pool := &requestPool{
-		pending: make(map[uint64]Request, 20),
+		pending: new(sync.Map),
 		id:      INIT_ID,
-		add:     make(chan Request, 10),
 		log:     log15.New("module", "net/reqpool"),
 		peers:   peers,
 		fc:      fc,
-		get:     make(chan uint64),
-		out:     make(chan Request),
+		running: make(chan struct{}, 100),
 	}
 
 	return pool
@@ -105,56 +101,32 @@ loop:
 		case <-p.term:
 			break loop
 
-		case r := <-p.add:
-			if r.ID() == 0 {
-				r.SetID(p.MsgID())
-			}
-
-			if r.Peer() == nil {
-				_, to := r.Band()
-				if peer := p.pickPeer(to); peer != nil {
-					r.SetPeer(peer)
-				}
-			}
-
-			if r.Peer() == nil {
-				r.Catch(errMissingPeer)
-			} else {
-				r.Run(p)
-				p.pending[r.ID()] = r
-			}
-
-		case id := <-p.get:
-			if r, ok := p.pending[id]; ok {
-				p.out <- r
-			} else {
-				p.out <- nil
-			}
-
 		case <-ticker.C:
-			for id, r := range p.pending {
+			p.pending.Range(func(key, value interface{}) bool {
+				id, r := key.(uint64), value.(Request)
 				state := r.State()
 
 				if state == reqDone || state == reqError {
-					delete(p.pending, r.ID())
+					p.pending.Delete(key)
+					<-p.running
 				} else if r.Expired() && state == reqPending {
 					p.log.Error(fmt.Sprintf("retry request %d, error: %v", id, errRequestTimeout))
 					p.retry(r)
 				}
-			}
+
+				return true
+			})
 		}
 	}
 
 	// clean job
-	for i := 0; i < len(p.add); i++ {
-		r := <-p.add
+	p.pending.Range(func(key, value interface{}) bool {
+		r := value.(Request)
 		r.Catch(errPoolStopped)
-	}
+		p.pending.Delete(key)
 
-	for id, r := range p.pending {
-		r.Catch(errPoolStopped)
-		delete(p.pending, id)
-	}
+		return true
+	})
 }
 
 func (p *requestPool) Add(r Request) {
@@ -162,7 +134,24 @@ func (p *requestPool) Add(r Request) {
 	case <-p.term:
 		r.Catch(errPoolStopped)
 		return
-	case p.add <- r:
+	case p.running <- struct{}{}:
+		if r.ID() == 0 {
+			r.SetID(p.MsgID())
+		}
+
+		if r.Peer() == nil {
+			_, to := r.Band()
+			if peer := p.pickPeer(to); peer != nil {
+				r.SetPeer(peer)
+			}
+		}
+
+		if r.Peer() == nil {
+			r.Catch(errMissingPeer)
+		} else {
+			r.Run(p)
+			p.pending.Store(r.ID(), r)
+		}
 	}
 }
 
@@ -197,6 +186,19 @@ func (p *requestPool) FC() *fileClient {
 }
 
 func (p *requestPool) Get(id uint64) Request {
-	p.get <- id
-	return <-p.out
+	if v, ok := p.pending.Load(id); ok {
+		if r, ok := v.(Request); ok {
+			return r
+		}
+		return nil
+	}
+
+	return nil
+}
+
+func (p *requestPool) Del(id uint64) {
+	if _, ok := p.pending.Load(id); ok {
+		p.pending.Delete(id)
+		<-p.running
+	}
 }

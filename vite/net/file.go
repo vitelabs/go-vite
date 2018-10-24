@@ -97,7 +97,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 		case <-s.term:
 			return
 		default:
-			conn.SetWriteDeadline(time.Now().Add(fReadTimeout))
+			//conn.SetWriteDeadline(time.Now().Add(fReadTimeout))
 			msg, err := p2p.ReadMsg(conn)
 			if err != nil {
 				s.log.Error(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
@@ -166,7 +166,7 @@ func newFileClient(chain Chain) *fileClient {
 		conns:    make(map[string]*connContext),
 		_request: make(chan *fileRequest, 4),
 		idle:     make(chan *connContext, 1),
-		delConn:  make(chan *delCtxEvent),
+		delConn:  make(chan *delCtxEvent, 1),
 		chain:    chain,
 		log:      log15.New("module", "net/fileClient"),
 		dialer:   &net2.Dialer{Timeout: 3 * time.Second},
@@ -313,7 +313,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 		return
 	}
 
-	ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
+	//ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
 	if err = p2p.WriteMsg(ctx.Conn, msg); err != nil {
 		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", getFiles, ctx.addr, err))
 		req.Catch(err)

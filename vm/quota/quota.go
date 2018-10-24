@@ -136,11 +136,14 @@ func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 			x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
 			tmpFLoat := new(big.Float).SetPrec(precForFloat)
 			var quotaWithoutPoW uint64
-			if prevBlock == nil || pledgeAmount.Sign() == 0 {
-				// first account block or first few account blocks referring to the same snapshot block
+			if pledgeAmount.Sign() == 0 {
 				quotaWithoutPoW = 0
 			} else {
-				tmpFLoat.SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height-db.GetSnapshotBlockByHash(&prevBlock.SnapshotHash).Height))
+				if prevBlock == nil {
+					tmpFLoat.SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height))
+				} else {
+					tmpFLoat.SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height-db.GetSnapshotBlockByHash(&prevBlock.SnapshotHash).Height))
+				}
 				x.Mul(tmpFLoat, paramA)
 				tmpFLoat.SetInt(pledgeAmount)
 				x.Mul(tmpFLoat, x)
