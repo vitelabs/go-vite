@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 	"net"
 	"os"
 	"path/filepath"
@@ -170,10 +171,6 @@ func (node *Node) Config() *Config {
 	return node.config
 }
 
-func (node *Node) ViteServer() *vite.Vite {
-	return node.viteServer
-}
-
 func (node *Node) WalletManager() *wallet.Manager {
 	return node.walletManager
 }
@@ -191,6 +188,40 @@ func (node *Node) startWallet() error {
 
 	node.walletManager = wallet.New(node.walletConfig)
 	node.walletManager.Start()
+
+	//unlock account
+	if node.config.EntropyStorePath != "" {
+		if err := node.walletManager.SwitchEntropyStore(node.config.EntropyStorePath); err != nil {
+			log.Error(fmt.Sprintf("node.walletManager.SwitchEntropyStore error: %v", err))
+			return ErrEntropyStorePathInvalid
+		}
+
+		entropyStoreManager, err := node.walletManager.GetEntropyStoreManager()
+
+		if err != nil {
+			log.Error(fmt.Sprintf("node.walletManager.GetEntropyStoreManager error: %v", err))
+			return err
+		}
+
+		//unlock
+		if err := entropyStoreManager.Unlock(node.config.EntropyStorePassword); err != nil {
+			log.Error(fmt.Sprintf("entropyStoreManager.Unlock error: %v", err))
+			return err
+		}
+
+		//check coinBase
+		addresses, err := types.HexToAddress(node.config.CoinBase)
+		if err != nil {
+			log.Error(fmt.Sprintf("types.HexToAddress error: %v", err))
+			return err
+		}
+
+		if !entropyStoreManager.IsAddrUnlocked(addresses) {
+			log.Error(fmt.Sprintf("coinBase is not child of entropyStore, coinBase is : %v", node.config.CoinBase))
+			return ErrCoinBase
+		}
+
+	}
 
 	return nil
 }

@@ -37,9 +37,11 @@ type Config struct {
 	Discovery            bool     `json:"Discovery"`
 
 	//producer
-	CoinBase      string `json:"CoinBase"`
-	MinerEnabled  bool   `json:"Miner"`
-	MinerInterval int    `json:"MinerInterval"`
+	EntropyStorePath     string `json:"EntropyStorePath"`
+	EntropyStorePassword string `json:"EntropyStorePassword"`
+	CoinBase             string `json:"CoinBase"`
+	MinerEnabled         bool   `json:"Miner"`
+	MinerInterval        int    `json:"MinerInterval"`
 
 	//rpc
 	RPCEnabled bool `json:"RPCEnabled"`

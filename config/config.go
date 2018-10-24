@@ -17,7 +17,7 @@ type Config struct {
 	*Net      `json:"Net"`
 
 	// global keys
-	DataDir string `json:"FullSeedStoreFileName"`
+	DataDir string `json:"DataDir"`
 	//Log level
 	LogLevel string `json:"LogLevel"`
 }
