@@ -166,7 +166,7 @@ func newFileClient(chain Chain) *fileClient {
 		conns:    make(map[string]*connContext),
 		_request: make(chan *fileRequest, 4),
 		idle:     make(chan *connContext, 1),
-		delConn:  make(chan *delCtxEvent),
+		delConn:  make(chan *delCtxEvent, 1),
 		chain:    chain,
 		log:      log15.New("module", "net/fileClient"),
 		dialer:   &net2.Dialer{Timeout: 3 * time.Second},

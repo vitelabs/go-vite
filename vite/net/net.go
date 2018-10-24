@@ -108,7 +108,9 @@ func New(cfg *Config) Net {
 
 	// topo
 	n.topo = topo.New(&topo.Config{
-		Addrs: cfg.Topology,
+		Addrs:    cfg.Topology,
+		Interval: cfg.Interval,
+		Topic:    cfg.Topic,
 	})
 	n.protocols = append(n.protocols, n.topo.Protocol())
 
