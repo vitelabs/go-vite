@@ -233,11 +233,8 @@ func StoreNewEntropy(storeDir string, mnemonic string, pwd string, maxSearchInde
 	if e != nil {
 		return nil, e
 	}
-	seed := bip39.NewSeed(mnemonic, "")
-	primaryAddress, e := derivation.GetPrimaryAddress(seed)
-	if e != nil {
-		return nil, e
-	}
+
+	primaryAddress, e := MnemonicToPrimaryAddr(mnemonic)
 
 	filename := FullKeyFileName(storeDir, *primaryAddress)
 	ss := CryptoStore{filename}
@@ -246,6 +243,15 @@ func StoreNewEntropy(storeDir string, mnemonic string, pwd string, maxSearchInde
 		return nil, e
 	}
 	return NewManager(filename, maxSearchIndex), nil
+}
+
+func MnemonicToPrimaryAddr(mnemonic string) (primaryAddress *types.Address, e error) {
+	seed := bip39.NewSeed(mnemonic, "")
+	primaryAddress, e = derivation.GetPrimaryAddress(seed)
+	if e != nil {
+		return nil, e
+	}
+	return primaryAddress, nil
 }
 
 func FindAddrFromSeed(seed []byte, addr types.Address, maxSearchIndex uint32) (*derivation.Key, uint32, error) {

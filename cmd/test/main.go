@@ -92,7 +92,7 @@ func main() {
 		Vm:       &config.Vm{IsVmTest: true},
 	}
 	vite, _ := vite2.New(cfg, wallet.New(&wallet.Config{
-		FullSeedStoreFileName: dataDir,
+		DataDir: dataDir,
 	}))
 
 	vite.Init()

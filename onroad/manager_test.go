@@ -13,11 +13,13 @@ import (
 )
 
 var twallet = wallet.New(&wallet.Config{
-	FullSeedStoreFileName: common.GoViteTestDataDir(),
+	DataDir: common.GoViteTestDataDir(),
 })
 
 func generateAddress() types.Address {
-	key, _ := twallet.SeedStoreManagers.StoreNewKey("123")
+	mnemonic, absStoreFile, _ := twallet.NewMnemonicAndEntropyStore("123456", true)
+	fmt.Println(mnemonic)
+	fmt.Println(absStoreFile)
 	return key.Address
 }
 

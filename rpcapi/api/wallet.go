@@ -39,7 +39,6 @@ type IsMayValidKeystoreFileResponse struct {
 
 func NewWalletApi(vite *vite.Vite) *WalletApi {
 	return &WalletApi{
-		km:    vite.WalletManager().SeedStoreManagers,
 		chain: vite.Chain(),
 		pool:  vite.Pool(),
 	}

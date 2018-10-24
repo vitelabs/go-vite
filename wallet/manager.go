@@ -3,6 +3,7 @@ package wallet
 import (
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
 )
 
@@ -24,16 +25,20 @@ func (m Manager) GetEntropyStoreManager() *entropystore.Manager {
 	return m.entropyStoreManager
 }
 
-func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, password string, switchToIt bool) (absFilename string, err error) {
+func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, password string, switchToIt bool) (absFilename string, primaryAddr *types.Address, err error) {
 
 	sm, e := entropystore.StoreNewEntropy(m.config.DataDir, mnemonic, password, entropystore.DefaultMaxIndex)
 	if e != nil {
-		return "", nil
+		return "", nil, e
 	}
 	if switchToIt {
 		m.switchEntropyStore(sm)
 	}
-	return sm.EntropyStoreFile(), e
+	primaryAddress, e := entropystore.MnemonicToPrimaryAddr(mnemonic)
+	if e != nil {
+		return "", nil, e
+	}
+	return sm.EntropyStoreFile(), primaryAddress, e
 }
 
 func (m *Manager) switchEntropyStore(sm *entropystore.Manager) error {
@@ -62,19 +67,19 @@ func (m *Manager) SwitchEntropyStore(absFilename string) error {
 	return nil
 }
 
-func (m *Manager) NewMnemonicAndEntropyStore(password string, switchToIt bool) (mnemonic, absStoreFile string, err error) {
+func (m *Manager) NewMnemonicAndEntropyStore(password string, switchToIt bool) (mnemonic, absStoreFile string, primaryAddr *types.Address, err error) {
 	entropy, err := bip39.NewEntropy(256)
 	if err != nil {
-		return "", "", nil
+		return "", "", nil, nil
 	}
 	mnemonic, err = bip39.NewMnemonic(entropy)
 	if err != nil {
-		return "", "", nil
+		return "", "", nil, nil
 	}
 
-	file, e := m.RecoverEntropyStoreFromMnemonic(mnemonic, password, switchToIt)
+	file, addr, e := m.RecoverEntropyStoreFromMnemonic(mnemonic, password, switchToIt)
 	if e != nil {
-		return "", "", e
+		return "", "", nil, e
 	}
-	return mnemonic, file, nil
+	return mnemonic, file, addr, nil
 }

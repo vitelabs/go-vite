@@ -25,7 +25,6 @@ var (
 )
 
 type Manager struct {
-
 	pool     Pool
 	net      Net
 	chain    chain.Chain
@@ -108,21 +107,27 @@ func (manager *Manager) Close() error {
 
 func (manager *Manager) netStateChangedFunc(state net.SyncState) {
 	manager.log.Info("receive a net event", "state", state)
-	if state == net.Syncdone {
-		manager.resumeContractWorks()
-	} else {
-		manager.stopAllWorks()
-	}
+	common.Go(func() {
+		if state == net.Syncdone {
+			manager.resumeContractWorks()
+		} else {
+			manager.stopAllWorks()
+		}
+	})
 }
 
 func (manager *Manager) addressLockStateChangeFunc(event entropystore.UnlockEvent) {
 	manager.log.Info("addressLockStateChangeFunc ", "event", event)
 
-	w, found := manager.autoReceiveWorkers[event.Address]
-	if found && !event.Unlocked() {
-		manager.log.Info("found in autoReceiveWorkers stop it")
-		common.Go(w.Stop)
+	if !event.Unlocked() {
+		manager.stopAllWorks()
 	}
+
+	//w, found := manager.autoReceiveWorkers[event.Address]
+	//if found && !event.Unlocked() {
+	//	manager.log.Info("found in autoReceiveWorkers stop it")
+	//	common.Go(w.Stop)
+	//}
 }
 
 func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEvent) {
@@ -138,7 +143,7 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 		return
 	}
 
-	if !manager.keystoreManager.IsAddrUnlocked(event.Address) {
+	if !manager.wallet.GetEntropyStoreManager().IsAddrUnlocked(event.Address) {
 		manager.log.Error("receive a right event but address locked", "event", event)
 		return
 	}
@@ -231,12 +236,9 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 		return ErrNotSyncDone
 	}
 
-	keystoreManager := manager.keystoreManager
+	em := manager.wallet.GetEntropyStoreManager()
 
-	if _, e := keystoreManager.Find(addr); e != nil {
-		return e
-	}
-	if !keystoreManager.IsAddrUnlocked(addr) {
+	if !em.IsAddrUnlocked(addr) {
 		return walleterrors.ErrLocked
 	}
 
