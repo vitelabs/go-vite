@@ -15,7 +15,7 @@ Vite is a next-generation Reactive Blockchain that adopts a _message-driven, asy
 
 ## Guides & Documentation
    * [White Paper](https://www.vite.org/whitepaper/vite_en.pdf)
-   * [Documentation](https://doc.vite.org/)
+   * [Documentation](https://vite.wiki)
    * [Techblog](https://vite.blog/)
    
 ## Product
