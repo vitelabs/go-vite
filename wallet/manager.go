@@ -4,15 +4,20 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
+	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 type Manager struct {
 	entropyStoreManager *entropystore.Manager
 	config              *Config
+	unlockChangedIndex  int
+	unlockChangedLis    map[int]func(event entropystore.UnlockEvent)
+	mutex               sync.Mutex
 }
 
 func New(config *Config) *Manager {
@@ -21,8 +26,24 @@ func New(config *Config) *Manager {
 	}
 	config.DataDir = filepath.Join(config.DataDir, "wallet")
 	return &Manager{
-		config: config,
+		config:           config,
+		unlockChangedLis: make(map[int]func(event entropystore.UnlockEvent)),
 	}
+}
+
+func (m Manager) AddLockEventListener(lis func(event entropystore.UnlockEvent)) int {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.unlockChangedIndex++
+	m.unlockChangedLis[m.unlockChangedIndex] = lis
+	return m.unlockChangedIndex
+}
+
+func (m Manager) RemoveUnlockChangeChannel(id int) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	delete(m.unlockChangedLis, id)
 }
 
 func (m Manager) ListEntropyFiles() ([]string, error) {
@@ -52,8 +73,11 @@ func (m Manager) ListEntropyFiles() ([]string, error) {
 	return filenames, nil
 }
 
-func (m Manager) GetEntropyStoreManager() *entropystore.Manager {
-	return m.entropyStoreManager
+func (m Manager) GetEntropyStoreManager() (*entropystore.Manager, error) {
+	if m.entropyStoreManager == nil {
+		return nil, walleterrors.ErrEmptyStore
+	}
+	return m.entropyStoreManager, nil
 }
 
 func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, password string, switchToIt bool) (em *entropystore.Manager, err error) {
@@ -112,4 +136,12 @@ func (m *Manager) NewMnemonicAndEntropyStore(password string, switchToIt bool) (
 
 func (m Manager) GetDataDir() string {
 	return m.config.DataDir
+}
+
+func (m Manager) Start() {
+
+}
+
+func (m Manager) Stop() {
+
 }

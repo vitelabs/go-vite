@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
-	"sync"
 )
 
 const (
@@ -37,20 +36,17 @@ type Manager struct {
 
 	unlockedSeed    []byte
 	unlockedEntropy []byte
-	mutex           sync.Mutex
 
-	unlockChangedLis   map[int]func(event UnlockEvent)
-	unlockChangedIndex int
-	log                log15.Logger
+	unlockChangedLis func(event UnlockEvent)
+
+	log log15.Logger
 }
 
 func NewManager(entropyStoreFilename string, primaryAddr types.Address, maxSearchIndex uint32) *Manager {
 	return &Manager{
-		primaryAddr:        primaryAddr,
-		ks:                 CryptoStore{entropyStoreFilename},
-		unlockChangedLis:   make(map[int]func(event UnlockEvent)),
-		maxSearchIndex:     maxSearchIndex,
-		unlockChangedIndex: 100,
+		primaryAddr:    primaryAddr,
+		ks:             CryptoStore{entropyStoreFilename},
+		maxSearchIndex: maxSearchIndex,
 
 		log: log15.New("module", "wallet/keystore/Manager"),
 	}
@@ -99,12 +95,8 @@ func (km *Manager) Unlock(password string) error {
 	km.unlockedSeed = seed
 	km.unlockedEntropy = entropy
 
-	pAddr, e := derivation.GetPrimaryAddress(seed)
-	if e != nil {
-		return e
-	}
-	for _, f := range km.unlockChangedLis {
-		f(UnlockEvent{PrimaryAddr: *pAddr, event: UnLocked})
+	if km.unlockChangedLis != nil {
+		km.unlockChangedLis(UnlockEvent{PrimaryAddr: km.primaryAddr, event: UnLocked})
 	}
 	return nil
 }
@@ -112,9 +104,8 @@ func (km *Manager) Unlock(password string) error {
 func (km *Manager) Lock() {
 
 	km.unlockedSeed = nil
-
-	for _, f := range km.unlockChangedLis {
-		f(UnlockEvent{PrimaryAddr: km.primaryAddr, event: Locked})
+	if km.unlockChangedLis != nil {
+		km.unlockChangedLis(UnlockEvent{PrimaryAddr: km.primaryAddr, event: Locked})
 	}
 }
 
@@ -239,18 +230,10 @@ func FindAddrFromSeed(seed []byte, addr types.Address, maxSearchIndex uint32) (k
 	return nil, 0, walleterrors.ErrNotFind
 }
 
-func (km *Manager) AddLockEventListener(lis func(event UnlockEvent)) int {
-	km.mutex.Lock()
-	defer km.mutex.Unlock()
-
-	km.unlockChangedIndex++
-	km.unlockChangedLis[km.unlockChangedIndex] = lis
-
-	return km.unlockChangedIndex
+func (km *Manager) AddLockEventListener(lis func(event UnlockEvent)) {
+	km.unlockChangedLis = lis
 }
 
-func (km *Manager) RemoveUnlockChangeChannel(id int) {
-	km.mutex.Lock()
-	defer km.mutex.Unlock()
-	delete(km.unlockChangedLis, id)
+func (km *Manager) RemoveUnlockChangeChannel() {
+	km.unlockChangedLis = nil
 }

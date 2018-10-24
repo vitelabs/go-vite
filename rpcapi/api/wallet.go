@@ -59,7 +59,11 @@ func (m WalletApi) ListEntropyFiles() ([]string, error) {
 
 func (m WalletApi) ListCurrentStoreAddress(maxIndex uint32) ([]types.Address, error) {
 	log.Info("ListCurrentStoreAddress")
-	return m.wallet.GetEntropyStoreManager().ListAddress(maxIndex)
+	manager, e := m.wallet.GetEntropyStoreManager()
+	if e != nil {
+		return nil, e
+	}
+	return manager.ListAddress(maxIndex)
 }
 
 func (m WalletApi) NewMnemonicAndEntropyStore(password string, switchToIt bool) (mnemonic string, primaryAddr types.Address, filename string, err error) {
@@ -88,22 +92,38 @@ func (m WalletApi) RecoverEntropyStoreFromMnemonic(mnemonic string, newpassword 
 // THESE Are enttropy store api
 func (m WalletApi) IsAddrUnlocked(addr types.Address) bool {
 	log.Info("IsAddrUnlocked")
-	return m.wallet.GetEntropyStoreManager().IsAddrUnlocked(addr)
+	manager, e := m.wallet.GetEntropyStoreManager()
+	if e != nil {
+		return false
+	}
+	return manager.IsAddrUnlocked(addr)
 }
 
 func (m WalletApi) IsUnlocked() bool {
 	log.Info("IsUnlocked")
-	return m.wallet.GetEntropyStoreManager().IsUnlocked()
+	manager, e := m.wallet.GetEntropyStoreManager()
+	if e != nil {
+		return false
+	}
+	return manager.IsUnlocked()
 }
 
 func (m WalletApi) ListAddress(addressNum uint32) ([]types.Address, error) {
 	log.Info("ListAddress")
-	return m.wallet.GetEntropyStoreManager().ListAddress(addressNum)
+	manager, e := m.wallet.GetEntropyStoreManager()
+	if e != nil {
+		return nil, e
+	}
+	return manager.ListAddress(addressNum)
 }
 
 func (m WalletApi) Unlock(password string) error {
 	log.Info("Unlock")
-	err := m.wallet.GetEntropyStoreManager().Unlock(password)
+	manager, e := m.wallet.GetEntropyStoreManager()
+	if e != nil {
+		return e
+	}
+	err := manager.Unlock(password)
 	if err != nil {
 		newerr, _ := TryMakeConcernedError(err)
 		return newerr
@@ -113,19 +133,31 @@ func (m WalletApi) Unlock(password string) error {
 
 func (m WalletApi) Lock() error {
 	log.Info("Lock")
-	m.wallet.GetEntropyStoreManager().Lock()
+	manager, e := m.wallet.GetEntropyStoreManager()
+	if e != nil {
+		return e
+	}
+	manager.Lock()
 	return nil
 }
 
 func (m WalletApi) FindAddrWithPassword(password string, addr types.Address) (index uint32, e error) {
 	log.Info("FindAddrWithPassword")
-	_, u, e := m.wallet.GetEntropyStoreManager().FindAddrWithPassword(password, addr)
+	manager, e := m.wallet.GetEntropyStoreManager()
+	if e != nil {
+		return 0, e
+	}
+	_, u, e := manager.FindAddrWithPassword(password, addr)
 	return u, e
 }
 
 func (m WalletApi) FindAddr(addr types.Address) (index uint32, e error) {
 	log.Info("FindAddr")
-	_, u, e := m.wallet.GetEntropyStoreManager().FindAddr(addr)
+	manager, e := m.wallet.GetEntropyStoreManager()
+	if e != nil {
+		return 0, e
+	}
+	_, u, e := manager.FindAddr(addr)
 	return u, e
 }
 
@@ -136,7 +168,12 @@ func (m WalletApi) SignData(addr types.Address, hexMsg string) (HexSignedTuple, 
 	if err != nil {
 		return HexSignedTuple{}, err
 	}
-	signedData, pubkey, err := m.wallet.GetEntropyStoreManager().SignData(addr, msgbytes)
+	manager, e := m.wallet.GetEntropyStoreManager()
+	if e != nil {
+		return HexSignedTuple{}, e
+	}
+
+	signedData, pubkey, err := manager.SignData(addr, msgbytes)
 	if err != nil {
 		return HexSignedTuple{}, err
 	}
@@ -172,7 +209,11 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 		return e
 	}
 	result, e := g.GenerateWithMessage(msg, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-		return m.wallet.GetEntropyStoreManager().SignDataWithPassphrase(addr, params.Passphrase, data)
+		manager, e := m.wallet.GetEntropyStoreManager()
+		if e != nil {
+			return nil, nil, e
+		}
+		return manager.SignDataWithPassphrase(addr, params.Passphrase, data)
 	})
 	if e != nil {
 		newerr, _ := TryMakeConcernedError(e)
@@ -197,7 +238,11 @@ func (m WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, pas
 	if err != nil {
 		return HexSignedTuple{}, err
 	}
-	signedData, pubkey, err := m.wallet.GetEntropyStoreManager().SignDataWithPassphrase(addr, password, msgbytes)
+	manager, e := m.wallet.GetEntropyStoreManager()
+	if e != nil {
+		return HexSignedTuple{}, e
+	}
+	signedData, pubkey, err := manager.SignDataWithPassphrase(addr, password, msgbytes)
 	if err != nil {
 		newerr, _ := TryMakeConcernedError(err)
 		return HexSignedTuple{}, newerr

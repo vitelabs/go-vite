@@ -71,7 +71,7 @@ func (manager *Manager) Init(chain chain.Chain) {
 
 func (manager *Manager) Start() {
 	manager.netStateLid = manager.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
-	manager.unlockLid = manager.wallet.GetEntropyStoreManager().AddLockEventListener(manager.addressLockStateChangeFunc)
+	manager.unlockLid = manager.wallet.AddLockEventListener(manager.addressLockStateChangeFunc)
 	if manager.producer != nil {
 		manager.producer.SetAccountEventFunc(manager.producerStartEventFunc)
 	}
@@ -86,7 +86,7 @@ func (manager *Manager) Start() {
 func (manager *Manager) Stop() {
 	manager.log.Info("Close")
 	manager.Net().UnsubscribeSyncStatus(manager.netStateLid)
-	manager.wallet.GetEntropyStoreManager().RemoveUnlockChangeChannel(manager.unlockLid)
+	manager.wallet.RemoveUnlockChangeChannel(manager.unlockLid)
 	if manager.producer != nil {
 		manager.Producer().SetAccountEventFunc(nil)
 	}
@@ -143,7 +143,12 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 		return
 	}
 
-	if !manager.wallet.GetEntropyStoreManager().IsAddrUnlocked(event.Address) {
+	em, e := manager.wallet.GetEntropyStoreManager()
+	if e != nil {
+		manager.log.Error("receive a right event happen error", "event", event, "err", e)
+	}
+
+	if !em.IsAddrUnlocked(event.Address) {
 		manager.log.Error("receive a right event but address locked", "event", event)
 		return
 	}
@@ -236,7 +241,10 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 		return ErrNotSyncDone
 	}
 
-	em := manager.wallet.GetEntropyStoreManager()
+	em, e := manager.wallet.GetEntropyStoreManager()
+	if e != nil {
+		return e
+	}
 
 	if !em.IsAddrUnlocked(addr) {
 		return walleterrors.ErrLocked

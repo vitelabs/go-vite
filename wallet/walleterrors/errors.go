@@ -8,4 +8,5 @@ var (
 	ErrInvalidPrikey  = errors.New("invalid prikey")
 	ErrAlreadyLocked  = errors.New("the address was previously unlocked")
 	ErrDecryptEntropy = errors.New("error decrypt store")
+	ErrEmptyStore     = errors.New("error empty store")
 )
