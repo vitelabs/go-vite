@@ -191,6 +191,7 @@ func (self *chainPool) modifyChainRefer2(from *forkedChain, to *forkedChain) err
 			}
 		}
 	}
+	return nil
 }
 
 func (self *chainPool) modifyChainRefer() {
