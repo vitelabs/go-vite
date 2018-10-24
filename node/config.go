@@ -75,7 +75,7 @@ type Config struct {
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
-	return &wallet.Config{FullSeedStoreFileName: c.KeyStoreDir}
+	return &wallet.Config{DataDir: c.KeyStoreDir}
 }
 
 func (c *Config) makeViteConfig() *config.Config {

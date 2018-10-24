@@ -17,10 +17,11 @@ var twallet = wallet.New(&wallet.Config{
 })
 
 func generateAddress() types.Address {
-	mnemonic, absStoreFile, _ := twallet.NewMnemonicAndEntropyStore("123456", true)
+	mnemonic, em, _ := twallet.NewMnemonicAndEntropyStore("123456", true)
 	fmt.Println(mnemonic)
-	fmt.Println(absStoreFile)
-	return key.Address
+	fmt.Println(em.GetEntropyStoreFile())
+	fmt.Println(em.GetPrimaryAddr())
+	return em.GetPrimaryAddr()
 }
 
 func startManager() (*onroad.Manager, types.Address) {
@@ -62,10 +63,10 @@ func TestManager_StartAutoReceiveWorker(t *testing.T) {
 			manager.StartAutoReceiveWorker(addr, nil)
 			time.AfterFunc(5*time.Second, func() {
 				fmt.Println("test a lock ")
-				twallet.SeedStoreManagers.Lock(addr)
+				twallet.GetEntropyStoreManager().Lock()
 				time.AfterFunc(5*time.Second, func() {
 					fmt.Println("test a unlock ")
-					twallet.SeedStoreManagers.Unlock(addr, "123", 5*time.Second)
+					twallet.GetEntropyStoreManager().Unlock("123")
 					manager.StartAutoReceiveWorker(addr, nil)
 				})
 			})

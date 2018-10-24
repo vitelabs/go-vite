@@ -9,17 +9,30 @@ import (
 	"github.com/gavv/monotime"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/wallet/entropystore"
+	"github.com/vitelabs/go-vite/wallet"
 )
 
 func genAddress(n int) []types.Address {
 	dir := common.GoViteTestDataDir()
-	kp := entropystore.NewManager(dir)
+	wallet := wallet.New(&wallet.Config{
+		DataDir: dir,
+	})
+	_, em, err := wallet.NewMnemonicAndEntropyStore("123", true)
+	if err != nil {
+		return nil
+	}
+	em.Unlock("123")
 
 	addressArr := make([]types.Address, n)
 	for i := 0; i < n; i++ {
-		key1, _ := kp.StoreNewKey("123")
-		addressArr[i] = key1.Address
+		_, key, e := em.DeriveForIndexPath(uint32(i))
+		if e != nil {
+			fmt.Println(e)
+			return nil
+
+		}
+		address, _ := key.Address()
+		addressArr[i] = *address
 	}
 	return addressArr
 }
