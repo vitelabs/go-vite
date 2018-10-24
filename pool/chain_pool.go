@@ -95,6 +95,10 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 		return errors.New(fmt.Sprintf("chain tail height error. tailHeight:%d, headHeight:%d", chain.tailHeight, head.Height()))
 	}
 
+	e := self.check()
+	if e != nil {
+		self.log.Error("---------[1]", "err", e)
+	}
 	//// todo other chain refer to current ???
 	for chain.referChain.id() != self.diskChain.id() {
 		fromChain := chain.referChain.(*forkedChain)
@@ -108,6 +112,10 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 		"fromTailHeight", self.current.tailHeight, "fromHeadHeight", self.current.headHeight,
 		"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
 	self.current = chain
+	e = self.check()
+	if e != nil {
+		self.log.Error("---------[2]", "err", e)
+	}
 	//self.modifyChainRefer()
 	return nil
 }
@@ -407,7 +415,7 @@ func (self *chainPool) writeBlocksToChain(chain *forkedChain, blocks []commonBlo
 	}
 	return nil
 }
-func (self *chainPool) check() {
+func (self *chainPool) check() error {
 	diskId := self.diskChain.id()
 	currentId := self.current.id()
 	for _, c := range self.allChain() {
@@ -415,10 +423,12 @@ func (self *chainPool) check() {
 		if c.referChain.id() == diskId {
 			if c.id() != currentId {
 				self.log.Error(fmt.Sprintf("chain:%s, refer disk.", c.id()))
+				return errors.New("refer disk")
 			} else {
 				err := checkHeadTailLink(c, c.referChain)
 				if err != nil {
 					self.log.Error(err.Error())
+					return err
 				}
 			}
 		} else if c.referChain.id() == currentId {
@@ -426,14 +436,17 @@ func (self *chainPool) check() {
 			err := checkLink(c, c.referChain, true)
 			if err != nil {
 				self.log.Error(err.Error())
+				return err
 			}
 		} else {
 			err := checkLink(c, c.referChain, false)
 			if err != nil {
 				self.log.Error(err.Error())
+				return err
 			}
 		}
 	}
+	return nil
 }
 func (self *chainPool) addChain(c *forkedChain) {
 	self.chainMu.Lock()

@@ -3,13 +3,14 @@ package nodemanager
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
+
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
-	"io/ioutil"
-	"path/filepath"
 )
 
 var defaultNodeConfigFileName = "node_config.json"
@@ -263,12 +264,12 @@ func makeRunLogFile(cfg *node.Config) {
 }
 
 func errorExcludeLvlFilterHandler(maxLvl log15.Lvl, h log15.Handler) log15.Handler {
-	return log15.FilterHandler(func(r *log15.Record) (pass bool) {
+	return log15.FilterHandler(func(r *log15.Record) (ss bool) {
 
-		//Error、Crit 级别的过滤掉
-		if r.Lvl <= log15.LvlError {
-			return false
-		}
+		////Error、Crit 级别的过滤掉
+		//if r.Lvl <= log15.LvlError {
+		//	return false
+		//}
 
 		return r.Lvl <= maxLvl
 	}, h)

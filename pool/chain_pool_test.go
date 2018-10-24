@@ -207,8 +207,8 @@ func TestChainPoolModifyRefer2(t *testing.T) {
 
 	//println(c3.referChain.id(), c3.id())
 	//println(c4.referChain.id(), c4.id())
-	cp.current = c2
-	cp.check()
-	cp.modifyChainRefer()
-	cp.check()
+	//cp.current = c2
+	//cp.check()
+	//cp.modifyChainRefer()
+	//cp.check()
 }
