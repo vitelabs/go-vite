@@ -31,6 +31,7 @@ func (ue UnlockEvent) Unlocked() bool {
 }
 
 type Manager struct {
+	primaryAddr    types.Address
 	ks             CryptoStore
 	maxSearchIndex uint32
 
@@ -46,8 +47,9 @@ type Manager struct {
 	log                log15.Logger
 }
 
-func NewManager(entropyStoreFilename string, maxSearchIndex uint32) *Manager {
+func NewManager(entropyStoreFilename string, primaryAddr types.Address, maxSearchIndex uint32) *Manager {
 	return &Manager{
+		primaryAddr:        primaryAddr,
 		ks:                 CryptoStore{entropyStoreFilename},
 		unlockedAddr:       make(map[types.Address]*derivation.Key),
 		addrToIndex:        make(map[types.Address]uint32),
@@ -57,10 +59,6 @@ func NewManager(entropyStoreFilename string, maxSearchIndex uint32) *Manager {
 
 		log: log15.New("module", "wallet/keystore/Manager"),
 	}
-}
-
-func (km Manager) EntropyStoreFile() string {
-	return km.ks.EntropyStoreFilename
 }
 
 func (km *Manager) IsAddrUnlocked(addr types.Address) bool {
@@ -166,6 +164,15 @@ func (km *Manager) FindAddr(addr types.Address) (*derivation.Key, uint32, error)
 		return key, 0, nil
 	}
 	km.mutex.RUnlock()
+	key, i, e := FindAddrFromSeed(km.unlockedSeed, addr, km.maxSearchIndex)
+	if e != nil {
+		return nil, 0, e
+	}
+
+	km.mutex.Lock()
+	km.unlockedAddr[addr] = key
+	km.addrToIndex[addr] = i
+	km.mutex.Unlock()
 
 	return FindAddrFromSeed(km.unlockedSeed, addr, km.maxSearchIndex)
 }
@@ -228,6 +235,14 @@ func (km *Manager) DeriveForIndexPathWithPassphrase(index uint32, passphrase str
 	return km.DeriveForFullPathWithPassphrase(fmt.Sprintf(derivation.ViteAccountPathFormat, index), passphrase)
 }
 
+func (km Manager) GetPrimaryAddr() (primaryAddr types.Address) {
+	return km.primaryAddr
+}
+
+func (km Manager) EntropyStoreFile() string {
+	return km.ks.EntropyStoreFilename
+}
+
 func StoreNewEntropy(storeDir string, mnemonic string, pwd string, maxSearchIndex uint32) (*Manager, error) {
 	entropy, e := bip39.EntropyFromMnemonic(mnemonic)
 	if e != nil {
@@ -242,7 +257,7 @@ func StoreNewEntropy(storeDir string, mnemonic string, pwd string, maxSearchInde
 	if e != nil {
 		return nil, e
 	}
-	return NewManager(filename, maxSearchIndex), nil
+	return NewManager(filename, *primaryAddress, maxSearchIndex), nil
 }
 
 func MnemonicToPrimaryAddr(mnemonic string) (primaryAddress *types.Address, e error) {

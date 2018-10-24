@@ -3,7 +3,6 @@ package wallet
 import (
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
 )
 
@@ -25,20 +24,15 @@ func (m Manager) GetEntropyStoreManager() *entropystore.Manager {
 	return m.entropyStoreManager
 }
 
-func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, password string, switchToIt bool) (absFilename string, primaryAddr *types.Address, err error) {
-
+func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, password string, switchToIt bool) (em *entropystore.Manager, err error) {
 	sm, e := entropystore.StoreNewEntropy(m.config.DataDir, mnemonic, password, entropystore.DefaultMaxIndex)
 	if e != nil {
-		return "", nil, e
+		return nil, e
 	}
 	if switchToIt {
 		m.switchEntropyStore(sm)
 	}
-	primaryAddress, e := entropystore.MnemonicToPrimaryAddr(mnemonic)
-	if e != nil {
-		return "", nil, e
-	}
-	return sm.EntropyStoreFile(), primaryAddress, e
+	return sm, e
 }
 
 func (m *Manager) switchEntropyStore(sm *entropystore.Manager) error {
@@ -56,30 +50,30 @@ func (m *Manager) SwitchEntropyStore(absFilename string) error {
 	if m.entropyStoreManager != nil {
 		m.entropyStoreManager.Lock()
 	}
-	mayValid, _, e := entropystore.IsMayValidEntropystoreFile(absFilename)
+	mayValid, addr, e := entropystore.IsMayValidEntropystoreFile(absFilename)
 	if e != nil {
 		return e
 	}
 	if !mayValid {
 		return errors.New("not valid entropy store file")
 	}
-	m.entropyStoreManager = entropystore.NewManager(absFilename, entropystore.DefaultMaxIndex)
+	m.entropyStoreManager = entropystore.NewManager(absFilename, *addr, entropystore.DefaultMaxIndex)
 	return nil
 }
 
-func (m *Manager) NewMnemonicAndEntropyStore(password string, switchToIt bool) (mnemonic, absStoreFile string, primaryAddr *types.Address, err error) {
+func (m *Manager) NewMnemonicAndEntropyStore(password string, switchToIt bool) (mnemonic string, em *entropystore.Manager, err error) {
 	entropy, err := bip39.NewEntropy(256)
 	if err != nil {
-		return "", "", nil, nil
+		return "", nil, nil
 	}
 	mnemonic, err = bip39.NewMnemonic(entropy)
 	if err != nil {
-		return "", "", nil, nil
+		return "", nil, nil
 	}
 
-	file, addr, e := m.RecoverEntropyStoreFromMnemonic(mnemonic, password, switchToIt)
+	em, e := m.RecoverEntropyStoreFromMnemonic(mnemonic, password, switchToIt)
 	if e != nil {
-		return "", "", nil, e
+		return "", nil, e
 	}
-	return mnemonic, file, addr, nil
+	return mnemonic, em, nil
 }
