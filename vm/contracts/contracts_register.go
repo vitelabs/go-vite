@@ -22,7 +22,7 @@ const (
 		{"type":"function","name":"Register", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"publicKey","type":"bytes"},{"name":"signature","type":"bytes"}]},
 		{"type":"function","name":"UpdateRegistration", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"publicKey","type":"bytes"},{"name":"signature","type":"bytes"}]},
 		{"type":"function","name":"CancelRegister","inputs":[{"name":"gid","type":"gid"}, {"name":"name","type":"string"}]},
-		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"beneficialAddr","type":"address"},{"name":"endHeight","type":"uint64"},{"name":"startHeight","type":"uint64"},{"name":"amount","type":"uint256"}]},
+		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"beneficialAddr","type":"address"},{"name":"endHeight","type":"uint64"},{"name":"startHeight","type":"uint64"}]},
 		{"type":"variable","name":"registration","inputs":[{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"pledgeAddr","type":"address"},{"name":"amount","type":"uint256"},{"name":"pledgeHeight","type":"uint64"},{"name":"rewardHeight","type":"uint64"},{"name":"cancelHeight","type":"uint64"}]}
 	]`
 
@@ -54,7 +54,6 @@ type ParamReward struct {
 	BeneficialAddr types.Address
 	EndHeight      uint64
 	StartHeight    uint64
-	Amount         *big.Int
 }
 type Registration struct {
 	Name         string
@@ -75,6 +74,17 @@ func GetRegisterKey(name string, gid types.Gid) []byte {
 	copy(data[:types.GidSize], gid[:])
 	copy(data[types.GidSize:], types.DataHash([]byte(name)).Bytes()[types.GidSize:])
 	return data
+}
+
+func GetRegistration(db StorageDatabase, name string, gid types.Gid) *Registration {
+	value := db.GetStorage(&AddressRegister, GetRegisterKey(name, gid))
+	registration := new(Registration)
+	if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
+		if registration.IsActive() {
+			return registration
+		}
+	}
+	return nil
 }
 
 func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
@@ -174,9 +184,9 @@ func (p *MethodRegister) DoReceive(context contractsContext, block *vm_context.V
 	if len(oldData) > 0 {
 		old := new(Registration)
 		ABIRegister.UnpackVariable(old, VariableNameRegistration, oldData)
-		if old.IsActive() {
-			// duplicate register
-			return errors.New("duplicate register")
+		if old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress || old.NodeAddr != param.NodeAddr {
+			// TODO do not check node address at register
+			return errors.New("register data exist")
 		}
 		// reward of last being a super node is not drained
 		rewardHeight = old.RewardHeight
@@ -239,7 +249,7 @@ func (p *MethodCancelRegister) DoReceive(context contractsContext, block *vm_con
 		old,
 		VariableNameRegistration,
 		block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
-	if err != nil || !old.IsActive() {
+	if err != nil || !old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
 		return errors.New("register not exist or already canceled")
 	}
 
@@ -299,76 +309,57 @@ func (p *MethodReward) DoSend(context contractsContext, block *vm_context.VmAcco
 	if err != nil || block.AccountBlock.AccountAddress != old.PledgeAddr {
 		return quotaLeft, errors.New("invalid register owner")
 	}
-	if block.VmContext.CurrentSnapshotBlock().Height < rewardHeightLimit {
-		return quotaLeft, errors.New("reward height limit not reached")
-	}
-
-	if param.EndHeight == 0 {
-		param.EndHeight = block.VmContext.CurrentSnapshotBlock().Height - rewardHeightLimit
-		if !old.IsActive() {
-			param.EndHeight = helper.Min(param.EndHeight, old.CancelHeight)
-		}
-	} else if param.EndHeight > block.VmContext.CurrentSnapshotBlock().Height-rewardHeightLimit ||
-		(!old.IsActive() && param.EndHeight > old.CancelHeight) {
-		return quotaLeft, errors.New("invalid end height")
-	}
-
-	if param.StartHeight == 0 {
-		param.StartHeight = old.RewardHeight
-	}
-
-	if param.EndHeight <= param.StartHeight {
-		return quotaLeft, errors.New("invalid end height")
-	}
-
-	count := param.EndHeight - param.StartHeight
-	// avoid uint64 overflow
-	if count > maxRewardCount {
-		return quotaLeft, errors.New("height gap overflow")
+	count, data, err := GetRewardData(block.VmContext, old, param.Gid, param.Name, param.BeneficialAddr, param.EndHeight, param.StartHeight)
+	if err != nil {
+		return quotaLeft, err
 	}
 	if quotaLeft, err = util.UseQuota(quotaLeft, ((count+dbPageSize-1)/dbPageSize)*calcRewardGasPerPage); err != nil {
 		return quotaLeft, err
 	}
-
-	// calc snapshot block produce reward between param.StartHeight(excluded) and param.EndHeight(included)
-	calcReward(block.VmContext, old.NodeAddr, param.StartHeight, count, param.Amount)
-	block.AccountBlock.Data, err = ABIRegister.PackMethod(
-		MethodNameReward,
-		param.Gid,
-		param.Name,
-		param.BeneficialAddr,
-		param.EndHeight,
-		param.StartHeight,
-		param.Amount)
-	if err != nil {
-		return quotaLeft, err
-	}
+	block.AccountBlock.Data = data
 	if quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft); err != nil {
 		return quotaLeft, err
 	}
 	return quotaLeft, nil
 }
-func calcReward(db vmctxt_interface.VmDatabase, producer types.Address, startHeight uint64, count uint64, reward *big.Int) {
-	startHeight = startHeight + 1
-	var rewardCount uint64
-	for count > 0 {
-		var list []*ledger.SnapshotBlock
-		if count < dbPageSize {
-			list = db.GetSnapshotBlocks(startHeight, count, true, false)
-			count = 0
-		} else {
-			list = db.GetSnapshotBlocks(startHeight, dbPageSize, true, false)
-			count = count - dbPageSize
-			startHeight = startHeight + dbPageSize
-		}
-		for _, block := range list {
-			if block.Producer() == producer {
-				rewardCount++
-			}
-		}
+func GetRewardData(db vmctxt_interface.VmDatabase, old *Registration, gid types.Gid, name string, beneficialAddr types.Address, endHeight uint64, startHeight uint64) (uint64, []byte, error) {
+	if db.CurrentSnapshotBlock().Height < rewardHeightLimit {
+		return 0, nil, errors.New("reward height limit not reached")
 	}
-	reward.SetUint64(rewardCount)
-	reward.Mul(rewardPerBlock, reward)
+
+	if endHeight == 0 {
+		endHeight = db.CurrentSnapshotBlock().Height - rewardHeightLimit
+		if !old.IsActive() {
+			endHeight = helper.Min(endHeight, old.CancelHeight)
+		}
+	} else if endHeight > db.CurrentSnapshotBlock().Height-rewardHeightLimit ||
+		(!old.IsActive() && endHeight > old.CancelHeight) {
+		return 0, nil, errors.New("invalid end height")
+	}
+
+	if startHeight == 0 {
+		startHeight = old.RewardHeight
+	}
+
+	if endHeight <= startHeight {
+		return 0, nil, errors.New("invalid end height")
+	}
+	count := endHeight - startHeight
+	// avoid uint64 overflow
+	if count > maxRewardCount {
+		return 0, nil, errors.New("height gap overflow")
+	}
+	data, err := ABIRegister.PackMethod(
+		MethodNameReward,
+		gid,
+		name,
+		beneficialAddr,
+		endHeight,
+		startHeight)
+	if err != nil {
+		return 0, nil, err
+	}
+	return count, data, nil
 }
 func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(ParamReward)
@@ -408,7 +399,10 @@ func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmA
 		block.VmContext.SetStorage(key, registerInfo)
 	}
 
-	if param.Amount.Sign() > 0 {
+	// calc snapshot block produce reward between param.StartHeight(excluded) and param.EndHeight(included)
+	count := param.EndHeight - param.StartHeight
+	reward := calcReward(block.VmContext, old.NodeAddr, param.StartHeight, count)
+	if reward != nil {
 		// create reward and return
 		context.AppendBlock(
 			&vm_context.VmAccountBlock{
@@ -416,11 +410,38 @@ func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmA
 					block.AccountBlock,
 					param.BeneficialAddr,
 					ledger.BlockTypeSendReward,
-					param.Amount,
+					reward,
 					ledger.ViteTokenId,
 					context.GetNewBlockHeight(block),
 					[]byte{}),
 				nil})
+	}
+	return nil
+}
+
+func calcReward(db vmctxt_interface.VmDatabase, producer types.Address, startHeight uint64, count uint64) *big.Int {
+	startHeight = startHeight + 1
+	rewardCount := uint64(0)
+	for count > 0 {
+		var list []*ledger.SnapshotBlock
+		if count < dbPageSize {
+			list = db.GetSnapshotBlocks(startHeight, count, true, false)
+			count = 0
+		} else {
+			list = db.GetSnapshotBlocks(startHeight, dbPageSize, true, false)
+			count = count - dbPageSize
+			startHeight = startHeight + dbPageSize
+		}
+		for _, block := range list {
+			if block.Producer() == producer {
+				rewardCount++
+			}
+		}
+	}
+	if rewardCount > 0 {
+		reward := new(big.Int).SetUint64(rewardCount)
+		reward.Mul(rewardPerBlock, reward)
+		return reward
 	}
 	return nil
 }
@@ -467,7 +488,7 @@ func (p *MethodUpdateRegistration) DoReceive(context contractsContext, block *vm
 	key := GetRegisterKey(param.Name, param.Gid)
 	old := new(Registration)
 	err := ABIRegister.UnpackVariable(old, VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
-	if err != nil || !old.IsActive() {
+	if err != nil || !old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
 		return errors.New("register not exist or already canceled")
 	}
 	registerInfo, _ := ABIRegister.PackVariable(

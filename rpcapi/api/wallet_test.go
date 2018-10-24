@@ -1019,7 +1019,7 @@ func contractsReward(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroad
 	rewardAmount := new(big.Int).Div(new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)), big.NewInt(1051200000))
 	rewardAmount = rewardAmount.Mul(rewardAmount, big.NewInt(count))
 
-	rewardData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, "s3", addr, uint64(10), uint64(1), rewardAmount)
+	rewardData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, "s3", addr, uint64(10), uint64(1))
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
 		ToAddr:      contracts.AddressRegister,
