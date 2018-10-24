@@ -16,7 +16,7 @@ import (
 )
 
 type Config struct {
-	DataDir string `json:"DataDir"`
+	DataDir string `json:"FullSeedStoreFileName"`
 
 	KeyStoreDir string `json:"KeyStoreDir"`
 

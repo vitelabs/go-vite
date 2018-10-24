@@ -878,20 +878,20 @@ func transferPledge(vite *vite.Vite, from types.Address, to types.Address) error
 }
 
 func unlockAddr(w *wallet.Manager, passwd string, priKey string) types.Address {
-	w.KeystoreManager.ImportPriv(priKey, passwd)
+	w.SeedStoreManagers.ImportPriv(priKey, passwd)
 	accountPrivKey, _ := ed25519.HexToPrivateKey(priKey)
 	accountPubKey := accountPrivKey.PubByte()
 	addr := types.PubkeyToAddress(accountPubKey)
 
-	w.KeystoreManager.Lock(addr)
-	w.KeystoreManager.Unlock(addr, passwd, 0)
+	w.SeedStoreManagers.Lock(addr)
+	w.SeedStoreManagers.Unlock(addr, passwd, 0)
 	//wLog.Info("unlock address", "address", addr.String(), "r", err)
 	return addr
 }
 
 func unlock(w *wallet.Manager, addr string) types.Address {
 	addresses, _ := types.HexToAddress(addr)
-	err := w.KeystoreManager.Unlock(addresses, password, 0)
+	err := w.SeedStoreManagers.Unlock(addresses, password, 0)
 	if err != nil {
 		log.Error("unlock fail.", "err", err, "address", addresses)
 	}
@@ -899,10 +899,10 @@ func unlock(w *wallet.Manager, addr string) types.Address {
 }
 
 func unlockAll(w *wallet.Manager) []types.Address {
-	results := w.KeystoreManager.Addresses()
+	results := w.SeedStoreManagers.Addresses()
 
 	for _, r := range results {
-		err := w.KeystoreManager.Unlock(r, password, 0)
+		err := w.SeedStoreManagers.Unlock(r, password, 0)
 		if err != nil {
 			log.Error("unlock fail.", "err", err, "address", r.String())
 		}

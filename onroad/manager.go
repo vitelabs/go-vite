@@ -15,7 +15,7 @@ import (
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/wallet/keystore"
+	"github.com/vitelabs/go-vite/wallet/entropystore"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 )
 
@@ -25,8 +25,6 @@ var (
 )
 
 type Manager struct {
-	keystoreManager *keystore.Manager
-
 	pool     Pool
 	net      Net
 	chain    chain.Chain
@@ -57,7 +55,6 @@ func NewManager(net Net, pool Pool, producer Producer, wallet *wallet.Manager) *
 		net:                net,
 		producer:           producer,
 		wallet:             wallet,
-		keystoreManager:    wallet.KeystoreManager,
 		autoReceiveWorkers: make(map[types.Address]*AutoReceiveWorker),
 		contractWorkers:    make(map[types.Gid]*ContractWorker),
 		log:                slog.New("w", "manager"),
@@ -74,7 +71,7 @@ func (manager *Manager) Init(chain chain.Chain) {
 
 func (manager *Manager) Start() {
 	manager.netStateLid = manager.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
-	manager.unlockLid = manager.keystoreManager.AddLockEventListener(manager.addressLockStateChangeFunc)
+	manager.unlockLid = manager.wallet.AddLockEventListener(manager.addressLockStateChangeFunc)
 	if manager.producer != nil {
 		manager.producer.SetAccountEventFunc(manager.producerStartEventFunc)
 	}
@@ -89,7 +86,7 @@ func (manager *Manager) Start() {
 func (manager *Manager) Stop() {
 	manager.log.Info("Close")
 	manager.Net().UnsubscribeSyncStatus(manager.netStateLid)
-	manager.keystoreManager.RemoveUnlockChangeChannel(manager.unlockLid)
+	manager.wallet.RemoveUnlockChangeChannel(manager.unlockLid)
 	if manager.producer != nil {
 		manager.Producer().SetAccountEventFunc(nil)
 	}
@@ -110,21 +107,27 @@ func (manager *Manager) Close() error {
 
 func (manager *Manager) netStateChangedFunc(state net.SyncState) {
 	manager.log.Info("receive a net event", "state", state)
-	if state == net.Syncdone {
-		manager.resumeContractWorks()
-	} else {
-		manager.stopAllWorks()
-	}
+	common.Go(func() {
+		if state == net.Syncdone {
+			manager.resumeContractWorks()
+		} else {
+			manager.stopAllWorks()
+		}
+	})
 }
 
-func (manager *Manager) addressLockStateChangeFunc(event keystore.UnlockEvent) {
+func (manager *Manager) addressLockStateChangeFunc(event entropystore.UnlockEvent) {
 	manager.log.Info("addressLockStateChangeFunc ", "event", event)
 
-	w, found := manager.autoReceiveWorkers[event.Address]
-	if found && !event.Unlocked() {
-		manager.log.Info("found in autoReceiveWorkers stop it")
-		common.Go(w.Stop)
+	if !event.Unlocked() {
+		manager.stopAllWorks()
 	}
+
+	//w, found := manager.autoReceiveWorkers[event.Address]
+	//if found && !event.Unlocked() {
+	//	manager.log.Info("found in autoReceiveWorkers stop it")
+	//	common.Go(w.Stop)
+	//}
 }
 
 func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEvent) {
@@ -140,7 +143,12 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 		return
 	}
 
-	if !manager.keystoreManager.IsUnLocked(event.Address) {
+	em, e := manager.wallet.GetEntropyStoreManager()
+	if e != nil {
+		manager.log.Error("receive a right event happen error", "event", event, "err", e)
+	}
+
+	if !em.IsAddrUnlocked(event.Address) {
 		manager.log.Error("receive a right event but address locked", "event", event)
 		return
 	}
@@ -233,12 +241,12 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 		return ErrNotSyncDone
 	}
 
-	keystoreManager := manager.keystoreManager
-
-	if _, e := keystoreManager.Find(addr); e != nil {
+	em, e := manager.wallet.GetEntropyStoreManager()
+	if e != nil {
 		return e
 	}
-	if !keystoreManager.IsUnLocked(addr) {
+
+	if !em.IsAddrUnlocked(addr) {
 		return walleterrors.ErrLocked
 	}
 

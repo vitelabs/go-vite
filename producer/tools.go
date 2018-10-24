@@ -52,7 +52,12 @@ func (self *tools) generateSnapshot(e *consensus.Event) (*ledger.SnapshotBlock, 
 	}
 
 	block.Hash = block.ComputeHash()
-	signedData, pubkey, err := self.wt.KeystoreManager.SignData(e.Address, block.Hash.Bytes())
+	em, err := self.wt.GetEntropyStoreManager()
+	if err != nil {
+		return nil, err
+	}
+
+	signedData, pubkey, err := em.SignData(e.Address, block.Hash.Bytes())
 
 	if err != nil {
 		return nil, err
@@ -74,7 +79,11 @@ func newChainRw(ch chain.Chain, sVerifier *verifier.SnapshotVerifier, wt *wallet
 }
 
 func (self *tools) checkAddressLock(address types.Address) bool {
-	unLocked := self.wt.KeystoreManager.IsUnLocked(address)
+	em, err := self.wt.GetEntropyStoreManager()
+	if err != nil {
+		return false
+	}
+	unLocked := em.IsAddrUnlocked(address)
 	return unLocked
 }
 func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.SnapshotContent, error) {
