@@ -91,6 +91,16 @@ func (m WalletApi) SwitchEntropyStore(absFilename string) error {
 	return m.wallet.SwitchEntropyStore(absFilename)
 }
 
+func (m WalletApi) CurrentEntropyStore() (*types.Address, error) {
+	log.Info("CurrentEntropyStore")
+	manager, e := m.wallet.GetEntropyStoreManager()
+	if e != nil {
+		return nil, e
+	}
+	primaryAddr := manager.GetPrimaryAddr()
+	return &primaryAddr, nil
+}
+
 func (m WalletApi) RecoverEntropyStoreFromMnemonic(mnemonic string, newpassword string, switchToIt bool) (*NewStoreResponse, error) {
 	log.Info("RecoverEntropyStoreFromMnemonic")
 	em, e := m.wallet.RecoverEntropyStoreFromMnemonic(mnemonic, newpassword, switchToIt)
