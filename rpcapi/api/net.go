@@ -1,8 +1,6 @@
 package api
 
 import (
-	"encoding/json"
-	"fmt"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vite/net"
@@ -44,33 +42,8 @@ func (n *NetApi) SyncInfo() *SyncInfo {
 	}
 }
 
-func (n *NetApi) Peers() (ret []string) {
-	info := n.net.Info()
-
-	var receiveTotal, handleTotal, discardTotal, sendTotal uint64
-	for _, pinfo := range info.Peers {
-		receiveTotal += pinfo.Received
-		discardTotal += pinfo.Discarded
-
-		for _, num := range pinfo.MsgHandle {
-			handleTotal += num
-		}
-
-		for _, num := range pinfo.MsgSend {
-			sendTotal += num
-		}
-
-		if js, err := json.Marshal(pinfo); err == nil {
-			ret = append(ret, string(js))
-		}
-	}
-
-	ret = append(ret, fmt.Sprintf("total received: %d", receiveTotal))
-	ret = append(ret, fmt.Sprintf("total handled: %d", handleTotal))
-	ret = append(ret, fmt.Sprintf("total discarded: %d", discardTotal))
-	ret = append(ret, fmt.Sprintf("total send: %d", sendTotal))
-
-	return
+func (n *NetApi) Peers() *net.NodeInfo {
+	return n.net.Info()
 }
 
 func (n *NetApi) PeersCount() uint {

@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"time"
 )
 
 const filterCap = 100000
@@ -32,8 +33,7 @@ type Peer struct {
 	KnownBlocks *cuckoofilter.CuckooFilter
 	log         log15.Logger
 	errch       chan error
-	msgHandle   map[cmd]uint64 // message statistic
-	msgSend     map[cmd]uint64
+	msgHandled  map[cmd]uint64 // message statistic
 }
 
 func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet uint64) *Peer {
@@ -45,17 +45,8 @@ func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet uint64) *Peer {
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
 		errch:       make(chan error),
-		msgHandle:   make(map[cmd]uint64),
-		msgSend:     make(map[cmd]uint64),
+		msgHandled:  make(map[cmd]uint64),
 	}
-}
-
-func (p *Peer) MsgReceived() uint64 {
-	return p.mrw.Received
-}
-
-func (p *Peer) MsgDiscarded() uint64 {
-	return p.mrw.Discarded
 }
 
 func (p *Peer) FileAddress() *net2.TCPAddr {
@@ -212,20 +203,23 @@ func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) (err error
 		return err
 	}
 
-	p.msgSend[code]++
-
 	return nil
 }
 
 type PeerInfo struct {
-	ID        string            `json:"id"`
-	Addr      string            `json:"addr"`
-	Head      string            `json:"head"`
-	Height    uint64            `json:"height"`
-	Received  uint64            `json:"received"`
-	Discarded uint64            `json:"discarded"`
-	MsgHandle map[string]uint64 `json:"msgHandle"`
-	MsgSend   map[string]uint64 `json:"msgSend"`
+	ID                 string            `json:"id"`
+	Addr               string            `json:"addr"`
+	Head               string            `json:"head"`
+	Height             uint64            `json:"height"`
+	MsgReceived        uint64            `json:"msgReceived"`
+	MsgHandled         uint64            `json:"msgHandled"`
+	MsgSend            uint64            `json:"msgSend"`
+	MsgDiscarded       uint64            `json:"msgDiscarded"`
+	MsgReceivedDetail  map[string]uint64 `json:"msgReceived"`
+	MsgDiscardedDetail map[string]uint64 `json:"msgDiscarded"`
+	MsgHandledDetail   map[string]uint64 `json:"msgHandledDetail"`
+	MsgSendDetail      map[string]uint64 `json:"msgSendDetail"`
+	Uptime             time.Duration     `json:"uptime"`
 }
 
 func (p *PeerInfo) String() string {
@@ -233,25 +227,45 @@ func (p *PeerInfo) String() string {
 }
 
 func (p *Peer) Info() *PeerInfo {
-	recMap := make(map[string]uint64, len(p.msgHandle))
-	for cmd, num := range p.msgHandle {
-		recMap[cmd.String()] = num
+	var handled, send, received, discard uint64
+	handMap := make(map[string]uint64, len(p.msgHandled))
+	for cmd, num := range p.msgHandled {
+		handMap[cmd.String()] = num
+		handled += num
 	}
 
-	sendMap := make(map[string]uint64, len(p.msgSend))
-	for cmd, num := range p.msgSend {
-		sendMap[cmd.String()] = num
+	sendMap := make(map[string]uint64, len(p.mrw.Send))
+	for code, num := range p.mrw.Send {
+		sendMap[cmd(code).String()] = num
+		send += num
+	}
+
+	recMap := make(map[string]uint64, len(p.mrw.Received))
+	for code, num := range p.mrw.Received {
+		recMap[cmd(code).String()] = num
+		received += num
+	}
+
+	discMap := make(map[string]uint64, len(p.mrw.Discarded))
+	for code, num := range p.mrw.Discarded {
+		discMap[cmd(code).String()] = num
+		discard += num
 	}
 
 	return &PeerInfo{
-		ID:        p.ID,
-		Addr:      p.RemoteAddr().String(),
-		Head:      p.head.String(),
-		Height:    p.height,
-		Received:  p.mrw.Received,
-		Discarded: p.mrw.Discarded,
-		MsgHandle: recMap,
-		MsgSend:   sendMap,
+		ID:                 p.ID,
+		Addr:               p.RemoteAddr().String(),
+		Head:               p.head.String(),
+		Height:             p.height,
+		MsgReceived:        received,
+		MsgHandled:         handled,
+		MsgSend:            send,
+		MsgDiscarded:       discard,
+		MsgReceivedDetail:  recMap,
+		MsgDiscardedDetail: discMap,
+		MsgHandledDetail:   handMap,
+		MsgSendDetail:      sendMap,
+		Uptime:             time.Now().Sub(p.Created),
 	}
 }
 
