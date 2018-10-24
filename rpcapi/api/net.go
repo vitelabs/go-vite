@@ -47,12 +47,17 @@ func (n *NetApi) SyncInfo() *SyncInfo {
 func (n *NetApi) Peers() (ret []string) {
 	info := n.net.Info()
 
-	var receiveTotal, handleTotal, discardTotal uint64
+	var receiveTotal, handleTotal, discardTotal, sendTotal uint64
 	for _, pinfo := range info.Peers {
 		receiveTotal += pinfo.Received
 		discardTotal += pinfo.Discarded
-		for _, num := range pinfo.MsgCount {
+
+		for _, num := range pinfo.MsgHandle {
 			handleTotal += num
+		}
+
+		for _, num := range pinfo.MsgSend {
+			sendTotal += num
 		}
 
 		if js, err := json.Marshal(pinfo); err == nil {
@@ -63,6 +68,7 @@ func (n *NetApi) Peers() (ret []string) {
 	ret = append(ret, fmt.Sprintf("total received: %d", receiveTotal))
 	ret = append(ret, fmt.Sprintf("total handled: %d", handleTotal))
 	ret = append(ret, fmt.Sprintf("total discarded: %d", discardTotal))
+	ret = append(ret, fmt.Sprintf("total send: %d", sendTotal))
 
 	return
 }

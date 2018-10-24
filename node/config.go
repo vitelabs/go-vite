@@ -75,6 +75,7 @@ type Config struct {
 	Topology               []string `json:"Topology"`
 	TopologyTopic          string   `json:"TopologyTopic"`
 	TopologyReportInterval int      `json:"TopologyReportInterval"`
+	TopoDisabled           bool     `json:"TopoDisabled"`
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
@@ -94,11 +95,12 @@ func (c *Config) makeViteConfig() *config.Config {
 
 func (c *Config) makeNetConfig() *config.Net {
 	return &config.Net{
-		Single:   c.Single,
-		FilePort: uint16(c.FilePort),
-		Topology: c.Topology,
-		Topic:    c.TopologyTopic,
-		Interval: int64(c.TopologyReportInterval),
+		Single:       c.Single,
+		FilePort:     uint16(c.FilePort),
+		Topology:     c.Topology,
+		Topic:        c.TopologyTopic,
+		Interval:     int64(c.TopologyReportInterval),
+		TopoDisabled: c.TopoDisabled,
 	}
 }
 

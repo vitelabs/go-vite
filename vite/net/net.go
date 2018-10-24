@@ -248,17 +248,17 @@ func (n *net) handleMsg(p *Peer) (err error) {
 	if handler, ok := n.handlers[code]; ok && handler != nil {
 		p.msgHandle[code]++
 
-		n.log.Info(fmt.Sprintf("begin handle message %s", code))
+		n.log.Info(fmt.Sprintf("begin handle message %s from %s", code, p))
 
 		begin := time.Now()
 		err = handler.Handle(msg, p)
 		monitor.LogDuration("net", "handle_"+code.String(), time.Now().Sub(begin).Nanoseconds())
 
-		n.log.Info(fmt.Sprintf("handle message %s done", code))
+		n.log.Info(fmt.Sprintf("handle message %s from %s done", code, p))
 		return err
 	}
 
-	n.log.Error(fmt.Sprintf("missing handler for message %d", msg.Cmd))
+	n.log.Error(fmt.Sprintf("missing handler for message %d from %s", msg.Cmd, p))
 
 	return errMissHandler
 }

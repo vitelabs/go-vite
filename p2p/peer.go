@@ -56,6 +56,7 @@ type ProtoFrame struct {
 	canWrite  chan struct{} // if this frame can write message
 	Received  uint64        // message count received
 	Discarded uint64        // message count discarded
+	Send      uint64
 }
 
 func newProtoFrame(protocol *Protocol, conn *conn) *ProtoFrame {
@@ -82,6 +83,7 @@ func (pf *ProtoFrame) WriteMsg(msg *Msg) (err error) {
 	case pf.canWrite <- struct{}{}:
 		err = pf.conn.SendMsg(msg)
 		<-pf.canWrite
+		pf.Send++
 		return err
 	}
 }

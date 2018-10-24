@@ -33,6 +33,7 @@ type Peer struct {
 	log         log15.Logger
 	errch       chan error
 	msgHandle   map[cmd]uint64 // message statistic
+	msgSend     map[cmd]uint64
 }
 
 func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet uint64) *Peer {
@@ -45,6 +46,7 @@ func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet uint64) *Peer {
 		log:         log15.New("module", "net/peer"),
 		errch:       make(chan error),
 		msgHandle:   make(map[cmd]uint64),
+		msgSend:     make(map[cmd]uint64),
 	}
 }
 
@@ -210,6 +212,8 @@ func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) (err error
 		return err
 	}
 
+	p.msgSend[code]++
+
 	return nil
 }
 
@@ -220,7 +224,8 @@ type PeerInfo struct {
 	Height    uint64            `json:"height"`
 	Received  uint64            `json:"received"`
 	Discarded uint64            `json:"discarded"`
-	MsgCount  map[string]uint64 `json:"MsgCount"`
+	MsgHandle map[string]uint64 `json:"msgHandle"`
+	MsgSend   map[string]uint64 `json:"msgSend"`
 }
 
 func (p *PeerInfo) String() string {
@@ -228,9 +233,14 @@ func (p *PeerInfo) String() string {
 }
 
 func (p *Peer) Info() *PeerInfo {
-	countMap := make(map[string]uint64, len(p.msgHandle))
+	recMap := make(map[string]uint64, len(p.msgHandle))
 	for cmd, num := range p.msgHandle {
-		countMap[cmd.String()] = num
+		recMap[cmd.String()] = num
+	}
+
+	sendMap := make(map[string]uint64, len(p.msgSend))
+	for cmd, num := range p.msgSend {
+		sendMap[cmd.String()] = num
 	}
 
 	return &PeerInfo{
@@ -240,7 +250,8 @@ func (p *Peer) Info() *PeerInfo {
 		Height:    p.height,
 		Received:  p.mrw.Received,
 		Discarded: p.mrw.Discarded,
-		MsgCount:  countMap,
+		MsgHandle: recMap,
+		MsgSend:   sendMap,
 	}
 }
 
