@@ -25,9 +25,10 @@ type Config struct {
 	Verifier Verifier
 
 	// for topo
-	Topology []string
-	Topic    string
-	Interval int64 // second
+	Topology     []string
+	Topic        string
+	Interval     int64 // second
+	TopoDisabled bool
 }
 
 const DefaultPort uint16 = 8484
@@ -108,12 +109,14 @@ func New(cfg *Config) Net {
 	})
 
 	// topo
-	n.topo = topo.New(&topo.Config{
-		Addrs:    cfg.Topology,
-		Interval: cfg.Interval,
-		Topic:    cfg.Topic,
-	})
-	n.protocols = append(n.protocols, n.topo.Protocol())
+	if !cfg.TopoDisabled {
+		n.topo = topo.New(&topo.Config{
+			Addrs:    cfg.Topology,
+			Interval: cfg.Interval,
+			Topic:    cfg.Topic,
+		})
+		n.protocols = append(n.protocols, n.topo.Protocol())
+	}
 
 	return n
 }
@@ -137,8 +140,10 @@ func (n *net) Start(svr *p2p.Server) (err error) {
 
 	n.fc.start()
 
-	if err = n.topo.Start(svr); err != nil {
-		return
+	if n.topo != nil {
+		if err = n.topo.Start(svr); err != nil {
+			return
+		}
 	}
 
 	n.pool.start()
@@ -164,7 +169,9 @@ func (n *net) Stop() {
 
 		n.fc.stop()
 
-		n.topo.Stop()
+		if n.topo != nil {
+			n.topo.Stop()
+		}
 
 		n.wg.Wait()
 	}
