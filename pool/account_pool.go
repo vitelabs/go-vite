@@ -240,6 +240,7 @@ func (self *accountPool) tryInsert() verifyTask {
 				}
 				i = i + cnt
 			} else {
+				self.log.Error("account block forked", "height", block.Height())
 				return self.v.newSuccessTask()
 			}
 		default:

@@ -102,6 +102,20 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 	//// todo other chain refer to current ???
 	for chain.referChain.id() != self.diskChain.id() {
 		fromChain := chain.referChain.(*forkedChain)
+		if fromChain.size() == 0 {
+			if fromChain.tailHeight == chain.tailHeight {
+				self.log.Error("modify refer[6]", "from", fromChain.id(), "to", chain.id(),
+					"fromTailHeight", fromChain.tailHeight, "fromHeadHeight", fromChain.headHeight,
+					"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
+				chain.referChain = fromChain.referChain
+				self.modifyChainRefer2(fromChain, chain)
+				self.delChain(fromChain.id())
+			} else {
+				self.log.Error("modify refer[5]", "from", fromChain.id(), "to", chain.id(),
+					"fromTailHeight", fromChain.tailHeight, "fromHeadHeight", fromChain.headHeight,
+					"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
+			}
+		}
 		e := self.modifyRefer(fromChain, chain)
 		if e != nil {
 			self.log.Error(e.Error())
@@ -139,27 +153,6 @@ func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
 			}
 		}
 
-		for _, v := range self.allChain() {
-			if v.id() == from.id() || v.id() == to.id() {
-				continue
-			}
-			if v.referChain.id() == from.id() {
-				block, reader := to.getBlockByChain(v.tailHeight)
-				if block != nil {
-					if reader.id() == self.diskChain.id() {
-						v.referChain = to
-					} else {
-						v.referChain = reader
-					}
-				} else {
-					self.log.Warn("modify refer[3]", "from", from.id(), "to", to.id(),
-						"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
-						"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight,
-						"vTailHeight", v.tailHeight, "vTailHash", v.tailHash)
-				}
-			}
-		}
-
 		to.referChain = from.referChain
 		from.referChain = to
 		self.log.Info("modify refer", "from", from.id(), "to", to.id(),
@@ -171,6 +164,31 @@ func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
 			"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
 			"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight)
 
+	}
+}
+func (self *chainPool) modifyChainRefer2(from *forkedChain, to *forkedChain) error {
+	toTailHeight := to.tailHeight
+	fromTailHeight := from.tailHeight
+	fromHeadHeight := from.headHeight
+	for _, v := range self.allChain() {
+		if v.id() == from.id() || v.id() == to.id() {
+			continue
+		}
+		if v.referChain.id() == from.id() {
+			block, reader := to.getBlockByChain(v.tailHeight)
+			if block != nil {
+				if reader.id() == self.diskChain.id() {
+					v.referChain = to
+				} else {
+					v.referChain = reader
+				}
+			} else {
+				self.log.Warn("modify refer[4]", "from", from.id(), "to", to.id(),
+					"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
+					"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight,
+					"vTailHeight", v.tailHeight, "vTailHash", v.tailHash)
+			}
+		}
 	}
 }
 
