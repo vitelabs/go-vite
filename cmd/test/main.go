@@ -101,7 +101,7 @@ func main() {
 	//chainInstance := vite.Chain()
 	//os.RemoveAll(filepath.Join(common.HomeDir(), "ledger"))
 	//chainInstance := chain.NewChain(&config.Config{
-	//	FullSeedStoreFileName: common.HomeDir(),
+	//	DataDir: common.HomeDir(),
 	//Chain: &config.Chain{
 	//	KafkaProducers: []*config.KafkaProducer{{
 	//		Topic:      "test",

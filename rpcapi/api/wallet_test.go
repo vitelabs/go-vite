@@ -123,7 +123,7 @@ func startVite(w *wallet.Manager, coinbase *types.Address, t *testing.T) (*vite.
 	//	BootNodes: []string{
 	//		"vnode://6d72c01e467e5280acf1b63f87afd5b6dcf8a596d849ddfc9ca70aab08f10191@192.168.31.146:8483",
 	//	},
-	//	FullSeedStoreFileName: path.Join(common.DefaultDataDir(), "/p2p"),
+	//	DataDir: path.Join(common.DefaultDataDir(), "/p2p"),
 	//	NetID:   10,
 	//})
 

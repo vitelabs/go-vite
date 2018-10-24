@@ -89,7 +89,7 @@ func TestSend(t *testing.T) {
 
 //func TestNew(t *testing.T) {
 //	config := &config.Config{
-//		FullSeedStoreFileName: common.DefaultDataDir(),
+//		DataDir: common.DefaultDataDir(),
 //		Producer: &config.Producer{
 //			Producer: false,
 //		},
