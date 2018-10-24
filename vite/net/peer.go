@@ -23,7 +23,7 @@ const filterCap = 100000
 
 type Peer struct {
 	*p2p.Peer
-	mrw         p2p.MsgReadWriter
+	mrw         *p2p.ProtoFrame
 	ID          string
 	head        types.Hash // hash of the top snapshotblock in snapshotchain
 	height      uint64     // height of the snapshotchain
@@ -32,9 +32,10 @@ type Peer struct {
 	KnownBlocks *cuckoofilter.CuckooFilter
 	log         log15.Logger
 	errch       chan error
+	msgHandle   map[cmd]uint64 // message statistic
 }
 
-func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
+func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet uint64) *Peer {
 	return &Peer{
 		Peer:        p,
 		mrw:         mrw,
@@ -43,7 +44,16 @@ func newPeer(p *p2p.Peer, mrw p2p.MsgReadWriter, cmdSet uint64) *Peer {
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
 		errch:       make(chan error),
+		msgHandle:   make(map[cmd]uint64),
 	}
+}
+
+func (p *Peer) MsgReceived() uint64 {
+	return p.mrw.Received
+}
+
+func (p *Peer) MsgDiscarded() uint64 {
+	return p.mrw.Discarded
 }
 
 func (p *Peer) FileAddress() *net2.TCPAddr {
@@ -204,10 +214,13 @@ func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) (err error
 }
 
 type PeerInfo struct {
-	ID     string `json:"id"`
-	Addr   string `json:"addr"`
-	Head   string `json:"head"`
-	Height uint64 `json:"height"`
+	ID        string            `json:"id"`
+	Addr      string            `json:"addr"`
+	Head      string            `json:"head"`
+	Height    uint64            `json:"height"`
+	Received  uint64            `json:"received"`
+	Discarded uint64            `json:"discarded"`
+	MsgCount  map[string]uint64 `json:"MsgCount"`
 }
 
 func (p *PeerInfo) String() string {
@@ -215,11 +228,19 @@ func (p *PeerInfo) String() string {
 }
 
 func (p *Peer) Info() *PeerInfo {
+	countMap := make(map[string]uint64, len(p.msgHandle))
+	for cmd, num := range p.msgHandle {
+		countMap[cmd.String()] = num
+	}
+
 	return &PeerInfo{
-		ID:     p.ID,
-		Addr:   p.RemoteAddr().String(),
-		Head:   p.head.String(),
-		Height: p.height,
+		ID:        p.ID,
+		Addr:      p.RemoteAddr().String(),
+		Head:      p.head.String(),
+		Height:    p.height,
+		Received:  p.mrw.Received,
+		Discarded: p.mrw.Discarded,
+		MsgCount:  countMap,
 	}
 }
 
@@ -361,8 +382,12 @@ func (m *peerSet) Info() (info []*PeerInfo) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
+	info = make([]*PeerInfo, len(m.peers))
+
+	i := 0
 	for _, peer := range m.peers {
-		info = append(info, peer.Info())
+		info[i] = peer.Info()
+		i++
 	}
 
 	return
@@ -372,13 +397,17 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*Peer) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
+	peers = make([]*Peer, len(m.peers))
+
+	i := 0
 	for _, peer := range m.peers {
 		if !peer.KnownBlocks.Lookup(hash[:]) {
-			peers = append(peers, peer)
+			peers[i] = peer
+			i++
 		}
 	}
 
-	return
+	return peers[:i]
 }
 
 // @implementation sort.Interface

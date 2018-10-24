@@ -48,23 +48,25 @@ func (c *conn) is(flag connFlag) bool {
 	return c.flags.is(flag)
 }
 
-type protoFrame struct {
+type ProtoFrame struct {
 	*Protocol
 	*conn
-	input    chan *Msg
-	term     chan struct{}
-	canWrite chan struct{} // if this frame can write message
+	input     chan *Msg
+	term      chan struct{}
+	canWrite  chan struct{} // if this frame can write message
+	Received  uint64        // message count received
+	Discarded uint64        // message count discarded
 }
 
-func newProtoFrame(protocol *Protocol, conn *conn) *protoFrame {
-	return &protoFrame{
+func newProtoFrame(protocol *Protocol, conn *conn) *ProtoFrame {
+	return &ProtoFrame{
 		Protocol: protocol,
 		conn:     conn,
 		input:    make(chan *Msg, 100),
 	}
 }
 
-func (pf *protoFrame) ReadMsg() (msg *Msg, err error) {
+func (pf *ProtoFrame) ReadMsg() (msg *Msg, err error) {
 	select {
 	case <-pf.term:
 		return msg, io.EOF
@@ -73,7 +75,7 @@ func (pf *protoFrame) ReadMsg() (msg *Msg, err error) {
 	}
 }
 
-func (pf *protoFrame) WriteMsg(msg *Msg) (err error) {
+func (pf *ProtoFrame) WriteMsg(msg *Msg) (err error) {
 	select {
 	case <-pf.term:
 		return errPeerTermed
@@ -86,7 +88,7 @@ func (pf *protoFrame) WriteMsg(msg *Msg) (err error) {
 
 // create multiple protoFrames above the rw
 func createProtoFrames(ourSet []*Protocol, theirSet []*CmdSet, conn *conn) protoFrameMap {
-	protoFrames := make(map[uint64]*protoFrame)
+	protoFrames := make(map[uint64]*ProtoFrame)
 	for _, our := range ourSet {
 		for _, their := range theirSet {
 			if our.ID == their.ID && our.Name == their.Name {
@@ -106,7 +108,7 @@ type protoDone struct {
 }
 
 // @section Peer
-type protoFrameMap = map[uint64]*protoFrame
+type protoFrameMap = map[uint64]*ProtoFrame
 type Peer struct {
 	ts          *conn
 	protoFrames protoFrameMap
@@ -164,7 +166,7 @@ func (p *Peer) runProtocols() {
 	}
 }
 
-func (p *Peer) runProtocol(proto *protoFrame, canWrite chan struct{}) {
+func (p *Peer) runProtocol(proto *ProtoFrame, canWrite chan struct{}) {
 	defer p.wg.Done()
 	proto.term = p.term
 	proto.canWrite = canWrite
@@ -256,9 +258,11 @@ func (p *Peer) handleMsg(msg *Msg) {
 		} else if pf := p.protoFrames[cmdset]; pf != nil {
 			select {
 			case pf.input <- msg:
+				pf.Received++
 			default:
 				p.log.Warn(fmt.Sprintf("protocol is busy, discard message %d/%d", cmdset, cmd))
 				msg.Recycle()
+				pf.Discarded++
 			}
 		} else {
 			p.log.Error(fmt.Sprintf("missing suitable protocol to handle message %d/%d", cmdset, cmd))

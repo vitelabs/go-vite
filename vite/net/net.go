@@ -101,7 +101,7 @@ func New(cfg *Config) Net {
 	n.protocols = append(n.protocols, &p2p.Protocol{
 		Name: CmdSetName,
 		ID:   CmdSet,
-		Handle: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
+		Handle: func(p *p2p.Peer, rw *p2p.ProtoFrame) error {
 			// will be called by p2p.Peer.runProtocols use goroutine
 			peer := newPeer(p, rw, CmdSet)
 			return n.handlePeer(peer)
@@ -246,6 +246,8 @@ func (n *net) handleMsg(p *Peer) (err error) {
 	code := cmd(msg.Cmd)
 
 	if handler, ok := n.handlers[code]; ok && handler != nil {
+		p.msgHandle[code]++
+
 		n.log.Info(fmt.Sprintf("begin handle message %s", code))
 
 		begin := time.Now()

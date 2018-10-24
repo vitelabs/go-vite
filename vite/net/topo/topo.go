@@ -124,7 +124,7 @@ type Peer struct {
 	errch chan error // async handle msg, error report to this channel
 }
 
-func (t *Topology) Handle(p *p2p.Peer, rw p2p.MsgReadWriter) error {
+func (t *Topology) Handle(p *p2p.Peer, rw *p2p.ProtoFrame) error {
 	peer := &Peer{p, rw, make(chan error)}
 	t.peers.Store(p.String(), peer)
 	defer t.peers.Delete(p.String())
