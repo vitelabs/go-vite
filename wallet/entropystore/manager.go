@@ -35,12 +35,9 @@ type Manager struct {
 	ks             CryptoStore
 	maxSearchIndex uint32
 
-	unlockedAddr    map[types.Address]*derivation.Key
-	addrToIndex     map[types.Address]uint32
 	unlockedSeed    []byte
 	unlockedEntropy []byte
-
-	mutex sync.RWMutex
+	mutex           sync.Mutex
 
 	unlockChangedLis   map[int]func(event UnlockEvent)
 	unlockChangedIndex int
@@ -51,8 +48,6 @@ func NewManager(entropyStoreFilename string, primaryAddr types.Address, maxSearc
 	return &Manager{
 		primaryAddr:        primaryAddr,
 		ks:                 CryptoStore{entropyStoreFilename},
-		unlockedAddr:       make(map[types.Address]*derivation.Key),
-		addrToIndex:        make(map[types.Address]uint32),
 		unlockChangedLis:   make(map[int]func(event UnlockEvent)),
 		maxSearchIndex:     maxSearchIndex,
 		unlockChangedIndex: 100,
@@ -65,24 +60,10 @@ func (km *Manager) IsAddrUnlocked(addr types.Address) bool {
 	if !km.IsUnlocked() {
 		return false
 	}
-
-	km.mutex.RLock()
-	_, exist := km.unlockedAddr[addr]
-	if exist {
-		km.mutex.RUnlock()
-		return true
-	}
-	km.mutex.RUnlock()
-
-	key, _, e := FindAddrFromSeed(km.unlockedSeed, addr, km.maxSearchIndex)
+	_, _, e := FindAddrFromSeed(km.unlockedSeed, addr, km.maxSearchIndex)
 	if e != nil {
 		return false
 	}
-
-	km.mutex.Lock()
-	km.unlockedAddr[addr] = key
-	km.mutex.Unlock()
-
 	return true
 }
 
@@ -135,10 +116,6 @@ func (km *Manager) Lock() error {
 	}
 	km.unlockedSeed = nil
 
-	km.mutex.Lock()
-	km.unlockedAddr = make(map[types.Address]*derivation.Key)
-	km.mutex.Unlock()
-
 	for _, f := range km.unlockChangedLis {
 		f(UnlockEvent{PrimaryAddr: *pAddr, event: Locked})
 	}
@@ -158,30 +135,12 @@ func (km *Manager) FindAddr(addr types.Address) (*derivation.Key, uint32, error)
 		return nil, 0, walleterrors.ErrLocked
 	}
 
-	km.mutex.RLock()
-	if key, ok := km.unlockedAddr[addr]; ok {
-		km.mutex.RUnlock()
-		return key, 0, nil
-	}
-	km.mutex.RUnlock()
-	key, i, e := FindAddrFromSeed(km.unlockedSeed, addr, km.maxSearchIndex)
-	if e != nil {
-		return nil, 0, e
-	}
-
-	km.mutex.Lock()
-	km.unlockedAddr[addr] = key
-	km.addrToIndex[addr] = i
-	km.mutex.Unlock()
-
 	return FindAddrFromSeed(km.unlockedSeed, addr, km.maxSearchIndex)
 }
 
 func (km *Manager) SignData(a types.Address, data []byte) (signedData, pubkey []byte, err error) {
-	km.mutex.RLock()
-	key, found := km.unlockedAddr[a]
-	km.mutex.RUnlock()
-	if !found {
+	key, _, e := FindAddrFromSeed(data, a, km.maxSearchIndex)
+	if e != nil {
 		return nil, nil, walleterrors.ErrLocked
 	}
 	return key.SignData(data)
@@ -269,6 +228,7 @@ func MnemonicToPrimaryAddr(mnemonic string) (primaryAddress *types.Address, e er
 	return primaryAddress, nil
 }
 
+// it is very fast(in my mac 2.8GHZ intel cpu 1Million search cost 728ms) so we dont need cache the relation
 func FindAddrFromSeed(seed []byte, addr types.Address, maxSearchIndex uint32) (*derivation.Key, uint32, error) {
 	for i := uint32(0); i < maxSearchIndex; i++ {
 		key, e := derivation.DeriveWithIndex(i, seed)

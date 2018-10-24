@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 type testBipTuple struct {
@@ -163,4 +164,12 @@ func TestManager_LockAndUnlock(t *testing.T) {
 
 	sm.Lock()
 
+}
+
+func TestFindAddrFromSeed(t *testing.T) {
+	seed, _ := hex.DecodeString(TestSeed)
+	s := time.Now()
+	fmt.Println(s)
+	entropystore.FindAddrFromSeed(seed, types.Address{}, 100*100+100)
+	fmt.Println(time.Now().Sub(s))
 }
