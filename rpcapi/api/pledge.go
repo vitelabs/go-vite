@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
 	"sort"
 	"time"
 )
@@ -33,23 +32,23 @@ func (p *PledgeApi) GetPledgeData(beneficialAddr types.Address) ([]byte, error) 
 	return contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, beneficialAddr)
 }
 
-func (p *PledgeApi) GetCancelPledgeData(beneficialAddr types.Address, amount *big.Int) ([]byte, error) {
-	return contracts.ABIPledge.PackMethod(contracts.MethodNameCancelPledge, beneficialAddr, amount)
+func (p *PledgeApi) GetCancelPledgeData(beneficialAddr types.Address, amount string) ([]byte, error) {
+	return contracts.ABIPledge.PackMethod(contracts.MethodNameCancelPledge, beneficialAddr, stringToBigInt(&amount))
 }
 
 type QuotaAndTxNum struct {
-	Quota uint64 `json:"quota"`
-	TxNum uint64 `json:"txNum"`
+	Quota string `json:"quota"`
+	TxNum string `json:"txNum"`
 }
 
 func (p *PledgeApi) GetPledgeQuota(addr types.Address) QuotaAndTxNum {
 	q := p.chain.GetPledgeQuota(p.chain.GetLatestSnapshotBlock().Hash, addr)
-	return QuotaAndTxNum{q, q / util.TxGas}
+	return QuotaAndTxNum{uint64ToString(q), uint64ToString(q / util.TxGas)}
 }
 
 type PledgeInfo struct {
-	Amount         *big.Int      `json:"amount"`
-	WithdrawHeight uint64        `json:"withdrawHeight"`
+	Amount         string        `json:"amount"`
+	WithdrawHeight string        `json:"withdrawHeight"`
 	BeneficialAddr types.Address `json:"beneficialAddr"`
 	WithdrawTime   int64         `json:"withdrawTime"`
 }
@@ -82,8 +81,8 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) ([]*
 	targetList := make([]*PledgeInfo, endHeight-startHeight)
 	for i, info := range list[startHeight:endHeight] {
 		targetList[i] = &PledgeInfo{
-			info.Amount,
-			info.WithdrawHeight,
+			*bigIntToString(info.Amount),
+			uint64ToString(info.WithdrawHeight),
 			info.BeneficialAddr,
 			getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight)}
 	}
