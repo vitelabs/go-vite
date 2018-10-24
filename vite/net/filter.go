@@ -1,6 +1,7 @@
 package net
 
 import (
+	"github.com/vitelabs/go-vite/monitor"
 	"sync"
 	"time"
 
@@ -61,6 +62,8 @@ func (f *filter) hold(hash types.Hash) bool {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
+	defer monitor.LogTime("net/filter", "hold", time.Now())
+
 	if r, ok := f.records[hash]; ok {
 		if r._done {
 			if r.mark >= maxMark && time.Now().Sub(r.doneAt) >= timeThreshold {
@@ -87,6 +90,8 @@ func (f *filter) done(hash types.Hash) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
+	defer monitor.LogTime("net/filter", "done", time.Now())
+
 	if r, ok := f.records[hash]; ok {
 		r.done()
 	} else {
@@ -98,6 +103,8 @@ func (f *filter) done(hash types.Hash) {
 func (f *filter) has(hash types.Hash) bool {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
+
+	defer monitor.LogTime("net/filter", "has", time.Now())
 
 	r, ok := f.records[hash]
 	return ok && r._done

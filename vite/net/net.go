@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/monitor"
 	"sync"
 	"time"
 
@@ -238,7 +239,14 @@ func (n *net) handleMsg(p *Peer) (err error) {
 	code := cmd(msg.Cmd)
 
 	if handler, ok := n.handlers[code]; ok && handler != nil {
-		return handler.Handle(msg, p)
+		n.log.Info(fmt.Sprintf("begin handle message %s", code))
+
+		begin := time.Now()
+		err = handler.Handle(msg, p)
+		monitor.LogDuration("net", "handle_"+code.String(), time.Now().Sub(begin).Nanoseconds())
+
+		n.log.Info(fmt.Sprintf("handle message %s done", code))
+		return err
 	}
 
 	n.log.Error(fmt.Sprintf("missing handler for message %d", msg.Cmd))
