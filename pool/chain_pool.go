@@ -108,7 +108,7 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 		"fromTailHeight", self.current.tailHeight, "fromHeadHeight", self.current.headHeight,
 		"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
 	self.current = chain
-	self.modifyChainRefer()
+	//self.modifyChainRefer()
 	return nil
 }
 
