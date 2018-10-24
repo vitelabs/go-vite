@@ -251,8 +251,11 @@ func (self *chainPool) currentModify(initBlock commonBlock) {
 	new.chainId = self.genChainId()
 	new.init(initBlock)
 	new.referChain = self.diskChain
-	self.current = new
 	self.addChain(new)
+	c := self.current
+	c.referChain = new
+	self.current = new
+	self.modifyChainRefer2(c, new)
 }
 func (self *chainPool) fork2(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain) {
 
