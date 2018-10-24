@@ -327,12 +327,11 @@ func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Ad
 
 	blockHeightMap := make(map[types.Address]uint64)
 	for addr, accountBlocks := range deleteSubLedger {
-		accountBlock := accountBlocks[len(accountBlocks)-1]
+		accountBlock := accountBlocks[0]
 		needRemoveBlocks[addr] = accountBlock
 
 		accountBlockHeight := accountBlock.Height
 		blockHeightMap[addr] = accountBlockHeight - 1
-
 	}
 
 	for addr, blockHeight := range blockHeightMap {
