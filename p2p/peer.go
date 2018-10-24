@@ -53,17 +53,20 @@ type ProtoFrame struct {
 	*conn
 	input     chan *Msg
 	term      chan struct{}
-	canWrite  chan struct{} // if this frame can write message
-	Received  uint64        // message count received
-	Discarded uint64        // message count discarded
-	Send      uint64
+	canWrite  chan struct{}     // if this frame can write message
+	Received  map[uint32]uint64 // message count received
+	Discarded map[uint32]uint64 // message count discarded
+	Send      map[uint32]uint64
 }
 
 func newProtoFrame(protocol *Protocol, conn *conn) *ProtoFrame {
 	return &ProtoFrame{
-		Protocol: protocol,
-		conn:     conn,
-		input:    make(chan *Msg, 100),
+		Protocol:  protocol,
+		conn:      conn,
+		input:     make(chan *Msg, 100),
+		Received:  make(map[uint32]uint64),
+		Discarded: make(map[uint32]uint64),
+		Send:      make(map[uint32]uint64),
 	}
 }
 
@@ -83,7 +86,7 @@ func (pf *ProtoFrame) WriteMsg(msg *Msg) (err error) {
 	case pf.canWrite <- struct{}{}:
 		err = pf.conn.SendMsg(msg)
 		<-pf.canWrite
-		pf.Send++
+		pf.Send[msg.Cmd]++
 		return err
 	}
 }
@@ -114,7 +117,7 @@ type protoFrameMap = map[uint64]*ProtoFrame
 type Peer struct {
 	ts          *conn
 	protoFrames protoFrameMap
-	created     time.Time
+	Created     time.Time
 	wg          sync.WaitGroup
 	term        chan struct{}
 	disc        chan DiscReason // disconnect proactively
@@ -134,7 +137,7 @@ func NewPeer(conn *conn, ourSet []*Protocol) (*Peer, error) {
 		ts:          conn,
 		protoFrames: protoFrames,
 		term:        make(chan struct{}),
-		created:     time.Now(),
+		Created:     time.Now(),
 		disc:        make(chan DiscReason),
 		errch:       make(chan error),
 		protoDone:   make(chan *protoDone, len(protoFrames)),
@@ -260,11 +263,11 @@ func (p *Peer) handleMsg(msg *Msg) {
 		} else if pf := p.protoFrames[cmdset]; pf != nil {
 			select {
 			case pf.input <- msg:
-				pf.Received++
+				pf.Received[msg.Cmd]++
 			default:
 				p.log.Warn(fmt.Sprintf("protocol is busy, discard message %d/%d", cmdset, cmd))
+				pf.Discarded[msg.Cmd]++
 				msg.Recycle()
-				pf.Discarded++
 			}
 		} else {
 			p.log.Error(fmt.Sprintf("missing suitable protocol to handle message %d/%d", cmdset, cmd))
