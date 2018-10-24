@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -53,4 +54,8 @@ func bigIntToString(big *big.Int) *string {
 	}
 	s := big.String()
 	return &s
+}
+
+func uint64ToString(u uint64) string {
+	return strconv.FormatUint(u, 10)
 }
