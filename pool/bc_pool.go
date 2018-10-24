@@ -211,6 +211,14 @@ func (self *snippetChain) info() map[string]interface{} {
 	result["Id"] = self.id()
 	return result
 }
+func (self *snippetChain) getBlock(height uint64) commonBlock {
+	block, ok := self.heightBlocks[height]
+	if ok {
+		return block
+	} else {
+		return nil
+	}
+}
 
 type forkedChain struct {
 	chain
@@ -222,6 +230,9 @@ type forkedChain struct {
 }
 
 func (self *forkedChain) getBlockByChain(height uint64) (commonBlock, heightChainReader) {
+	if height > self.headHeight {
+		return nil, nil
+	}
 	block := self.getHeightBlock(height)
 	if block != nil {
 		return block, self
@@ -674,7 +685,7 @@ func (self *BCPool) loopAppendChains() int {
 	tmpChains := self.chainpool.allChain()
 
 	for _, w := range sortSnippets {
-		forky, insertable, c := self.chainpool.forky(w, tmpChains)
+		forky, insertable, c := self.chainpool.fork2(w, tmpChains)
 		if forky {
 			i++
 			newChain, err := self.chainpool.forkChain(c, w)

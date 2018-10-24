@@ -194,6 +194,81 @@ func (self *chainPool) currentModify(initBlock commonBlock) {
 	self.current = new
 	self.addChain(new)
 }
+func (self *chainPool) fork2(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain) {
+
+	var forky, insertable bool
+	var hr heightChainReader
+
+LOOP:
+	for _, c := range chains {
+		tH := snippet.tailHeight
+		tHash := snippet.tailHash
+		block, reader := c.getBlockByChain(tH)
+		if block == nil || block.Hash() != tHash {
+			continue
+		}
+
+		for i := tH + 1; i <= snippet.headHeight; i++ {
+			b2, r2 := c.getBlockByChain(i)
+			sb := snippet.getBlock(i)
+			if b2 == nil {
+				forky = false
+				insertable = true
+				hr = reader
+				break LOOP
+			}
+			if block.Hash() != sb.Hash() {
+				if r2.id() == reader.id() {
+					forky = true
+					insertable = false
+					hr = reader
+					break LOOP
+				}
+
+				rhead := reader.Head()
+				if rhead.Height() == tH && rhead.Hash() == tHash {
+					forky = false
+					insertable = true
+					hr = reader
+					break LOOP
+				}
+			} else {
+				reader = r2
+				block = b2
+				tail := snippet.remTail()
+				if tail == nil {
+					delete(self.snippetChains, snippet.id())
+					hr = nil
+					break LOOP
+				}
+				tH = tail.Height()
+				tHash = tail.Hash()
+			}
+		}
+	}
+
+	if hr == nil {
+		return false, false, nil
+	}
+	switch t := hr.(type) {
+	case *diskChain:
+		if forky {
+			return forky, insertable, self.current
+		}
+		if insertable {
+			if self.current.headHeight == snippet.tailHeight && self.current.headHash == snippet.tailHash {
+				return false, true, self.current
+			} else {
+				return true, false, self.current
+			}
+		}
+		return forky, insertable, self.current
+	case *forkedChain:
+		return forky, insertable, t
+	}
+
+	return false, false, nil
+}
 
 func (self *chainPool) forky(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain) {
 	for _, c := range chains {
