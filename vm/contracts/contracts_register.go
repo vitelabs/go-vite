@@ -257,7 +257,8 @@ func (p *MethodCancelRegister) DoReceive(context contractsContext, block *vm_con
 	snapshotBlock := block.VmContext.CurrentSnapshotBlock()
 	registerInfo, _ := ABIRegister.PackVariable(
 		VariableNameRegistration,
-		param.Name, old.NodeAddr,
+		param.Name,
+		old.NodeAddr,
 		old.PledgeAddr,
 		helper.Big0,
 		uint64(0),
@@ -306,8 +307,8 @@ func (p *MethodReward) DoSend(context contractsContext, block *vm_context.VmAcco
 	key := GetRegisterKey(param.Name, param.Gid)
 	old := new(Registration)
 	err = ABIRegister.UnpackVariable(old, VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.ToAddress, key))
-	if err != nil || block.AccountBlock.AccountAddress != old.PledgeAddr {
-		return quotaLeft, errors.New("invalid register owner")
+	if err != nil {
+		return quotaLeft, errors.New("registration not exist")
 	}
 	count, data, err := GetRewardData(block.VmContext, old, param.Gid, param.Name, param.BeneficialAddr, param.EndHeight, param.StartHeight)
 	if err != nil {
@@ -339,6 +340,8 @@ func GetRewardData(db vmctxt_interface.VmDatabase, old *Registration, gid types.
 
 	if startHeight == 0 {
 		startHeight = old.RewardHeight
+	} else if startHeight < old.RewardHeight {
+		return 0, nil, errors.New("invalid start height")
 	}
 
 	if endHeight <= startHeight {
@@ -370,22 +373,8 @@ func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmA
 	if err != nil || old.RewardHeight > param.StartHeight || sendBlock.AccountAddress != old.PledgeAddr {
 		return errors.New("invalid owner or start height")
 	}
-	if !old.IsActive() {
-		if param.EndHeight > old.CancelHeight {
-			return errors.New("invalid end height, supposed to be lower than cancel height")
-		} else {
-			// get reward partly, update storage
-			registerInfo, _ := ABIRegister.PackVariable(
-				VariableNameRegistration,
-				old.Name,
-				old.NodeAddr,
-				old.PledgeAddr,
-				old.Amount,
-				old.PledgeHeight,
-				param.EndHeight,
-				old.CancelHeight)
-			block.VmContext.SetStorage(key, registerInfo)
-		}
+	if !old.IsActive() && param.EndHeight > old.CancelHeight {
+		return errors.New("invalid end height, supposed to be lower than cancel height")
 	} else {
 		registerInfo, _ := ABIRegister.PackVariable(
 			VariableNameRegistration,
@@ -493,7 +482,8 @@ func (p *MethodUpdateRegistration) DoReceive(context contractsContext, block *vm
 	}
 	registerInfo, _ := ABIRegister.PackVariable(
 		VariableNameRegistration,
-		old.Name, param.NodeAddr,
+		old.Name,
+		old.NodeAddr,
 		old.PledgeAddr,
 		old.Amount,
 		old.PledgeHeight,
