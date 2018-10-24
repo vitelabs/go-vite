@@ -88,17 +88,21 @@ func mockBlocks(sign int, start uint64, end uint64) []commonBlock {
 	return result
 }
 
-func mockChain(base *forkedChain, sign int, start uint64, end uint64) *forkedChain {
+func mockChain(base *forkedChain, sign int, start uint64, head uint64) *forkedChain {
 	var result []*mockCommonBlock
-	for i := start; i < end; i++ {
+	for i := start; i <= head; i++ {
 		result = append(result, newMockCommonBlock(sign, i))
 	}
+	c := &forkedChain{}
 	if base != nil {
 		b := base.GetBlock(start - 1)
 		result[0].prevHash = b.Hash()
 	}
-	c := &forkedChain{}
 	c.init(result[0])
+	c.tailHash = result[0].prevHash
+	c.tailHeight = result[0].height - 1
+	c.headHash = result[0].prevHash
+	c.headHeight = result[0].height - 1
 	c.referChain = base
 	for _, v := range result {
 		c.addHead(v)
@@ -114,8 +118,23 @@ func printChain(base *forkedChain) {
 		b := base.GetBlock(i)
 		if b == nil {
 			fmt.Println(i, "nil", "nil")
+		} else {
+			fmt.Println(b.Height(), b.Hash(), b.PrevHash())
 		}
-		fmt.Println(b.Height(), b.Hash(), b.PrevHash())
+	}
+	fmt.Println("-------------end--------------")
+}
+
+func printChainJust(base *forkedChain) {
+	byt, _ := json.Marshal(base.info())
+	fmt.Println("-------------start--------------" + string(byt))
+	for i := uint64(base.tailHeight + 1); i <= base.headHeight; i++ {
+		b := base.getHeightBlock(i)
+		if b == nil {
+			fmt.Println(i, "nil", "nil")
+		} else {
+			fmt.Println(b.Height(), b.Hash(), b.PrevHash())
+		}
 	}
 	fmt.Println("-------------end--------------")
 }

@@ -139,27 +139,33 @@ func TestChainPoolModifyRefer(t *testing.T) {
 	cp.current.chainId = "c1"
 	cp.init()
 
-	tmps := mockBlocks(1, 10, 20)
-	for _, v := range tmps {
-		cp.current.addHead(v)
+	tmps := mockChain(mock.c, 1, 11, 20)
+	for i := tmps.tailHeight + 1; i <= tmps.headHeight; i++ {
+		cp.current.addHead(tmps.getHeightBlock(i))
 	}
 
-	c2 := mockChain(cp.current, 2, 11, 25)
+	c2 := mockChain(cp.current, 2, 13, 25)
 	c2.chainId = "c2"
 	cp.addChain(c2)
 
-	c3 := mockChain(c2, 3, 13, 29)
+	c3 := mockChain(c2, 3, 15, 29)
 	c3.chainId = "c3"
 	cp.addChain(c3)
 
-	c4 := mockChain(c3, 4, 15, 29)
+	c4 := mockChain(c3, 4, 16, 32)
 	c4.chainId = "c4"
 	cp.addChain(c4)
 
-	cp.modifyRefer(c4, c3)
+	//printChain(cp.current)
+	//printChain(c2)
+	printChainJust(c3)
+	printChainJust(c4)
 
-	printChain(c3)
-	printChain(c4)
+	//cp.modifyRefer(c3, c4)
+	cp.currentModifyToChain(c4)
+
+	printChainJust(c3)
+	printChainJust(c4)
 
 	//println(c3.referChain.id(), c3.id())
 	//println(c4.referChain.id(), c4.id())
