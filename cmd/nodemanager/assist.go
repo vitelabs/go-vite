@@ -23,6 +23,8 @@ func StartNode(node *node.Node) {
 		fmt.Println(fmt.Sprintf("Failed to start node， %v", err))
 	} else {
 		fmt.Println("Start the Node success!!!")
+		//Start the node Extenders
+		startNodeExtenders(node)
 	}
 
 	// Listening event closes the node
@@ -56,8 +58,14 @@ func WaitNode(node *node.Node) {
 // stop the node
 func StopNode(node *node.Node) {
 	fmt.Sprintf("Stop the Node...")
+
+	//Stop the node Extenders
+	log.Warn("Stop the NodeExtenders...")
+	stopNodeExtenders(node)
+
 	log.Warn("Stop the Node...")
 	if err := node.Stop(); err != nil {
 		log.Error(fmt.Sprintf("Node stop error: %v", err))
 	}
+
 }

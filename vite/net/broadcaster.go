@@ -21,7 +21,7 @@ func newBroadcaster(peers *peerSet) *broadcaster {
 }
 
 func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
-	t := time.Now()
+	defer monitor.LogTime("net/broadcast", "SnapshotBlock", time.Now())
 
 	peers := b.peers.UnknownBlock(block.Hash)
 	for _, peer := range peers {
@@ -29,8 +29,6 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	}
 
 	b.log.Info(fmt.Sprintf("broadcast NewSnapshotBlock %s to %d peers", block.Hash, len(peers)))
-
-	monitor.LogDuration("net/broadcast", "s", time.Now().Sub(t).Nanoseconds())
 }
 
 func (b *broadcaster) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
@@ -40,7 +38,7 @@ func (b *broadcaster) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 }
 
 func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
-	t := time.Now()
+	defer monitor.LogTime("net/broadcast", "AccountBlock", time.Now())
 
 	peers := b.peers.UnknownBlock(block.Hash)
 	for _, peer := range peers {
@@ -48,8 +46,6 @@ func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 	}
 
 	b.log.Info(fmt.Sprintf("broadcast NewAccountBlock %s to %d peers", block.Hash, len(peers)))
-
-	monitor.LogDuration("net/broadcast", "a", time.Now().Sub(t).Nanoseconds())
 }
 
 func (b *broadcaster) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {
