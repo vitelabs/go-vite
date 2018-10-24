@@ -198,7 +198,7 @@ func (km Manager) GetPrimaryAddr() (primaryAddr types.Address) {
 	return km.primaryAddr
 }
 
-func (km Manager) EntropyStoreFile() string {
+func (km Manager) GetEntropyStoreFile() string {
 	return km.ks.EntropyStoreFilename
 }
 

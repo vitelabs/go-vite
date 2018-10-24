@@ -73,7 +73,7 @@ func GetManagerFromStoreNewSeed() *entropystore.Manager {
 
 func TestStoreNewSeed(t *testing.T) {
 	manager := GetManagerFromStoreNewSeed()
-	fmt.Println(manager.EntropyStoreFile())
+	fmt.Println(manager.GetEntropyStoreFile())
 	for i := uint32(0); i < 10; i++ {
 		path, key, e := manager.DeriveForIndexPathWithPassphrase(i, "123456")
 		if e != nil {
