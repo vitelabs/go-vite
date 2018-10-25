@@ -3,14 +3,15 @@ package ledger
 import (
 	"bytes"
 	"encoding/binary"
+	"math/big"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
-	"math/big"
-	"time"
 )
 
 var accountBlockLog = log15.New("module", "ledger/account_block")
@@ -277,7 +278,7 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) {
 	}
 
 	if len(pb.Difficulty) > 0 {
-		ab.Difficulty.SetBytes(pb.Difficulty)
+		ab.Difficulty = new(big.Int).SetBytes(pb.Difficulty)
 	}
 	ab.Nonce = pb.Nonce
 	ab.Signature = pb.Signature
