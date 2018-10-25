@@ -183,8 +183,6 @@ func NewPeer(conn *transport, ourSet []*Protocol) (*Peer, error) {
 }
 
 func (p *Peer) Disconnect(reason DiscReason) {
-	p.log.Info("disconnected", "peer", p.String(), "reason", reason)
-
 	select {
 	case <-p.term:
 	case p.disc <- reason:
@@ -259,6 +257,8 @@ loop:
 
 			monitor.LogEvent("p2p_ts", "write")
 			monitor.LogDuration("p2p_ts", "write_bytes", int64(len(msg.Payload)))
+			monitor.LogDuration("p2p_ts", "write_queue_", int64(len(p.wqueue)))
+			p.log.Debug(fmt.Sprintf("write message %d/%d to %s, rest %d messages", msg.CmdSet, msg.Cmd, p.RemoteAddr(), len(p.wqueue)))
 		}
 	}
 
@@ -290,12 +290,12 @@ wait:
 	select {
 	case reason = <-p.disc:
 		err = reason
-		p.log.Error(fmt.Sprintf("disconnected: %v", err))
+		p.log.Warn(fmt.Sprintf("disconnect with peer %s: %v", p.RemoteAddr(), err))
 		proactively = true
 
 	case e := <-p.protoDone:
 		if pf, ok := p.pfs[e.id]; ok {
-			p.log.Error(fmt.Sprintf("protocol %s is done: %v", pf, e.err))
+			p.log.Error(fmt.Sprintf("peer %s protocol %s is done: %v", p.RemoteAddr(), pf, e.err))
 
 			if err = e.err; err != nil {
 				reason = DiscProtocolError
@@ -319,7 +319,7 @@ wait:
 		goto wait
 
 	case err = <-p.errch:
-		p.log.Error(fmt.Sprintf("peer error: %v", err))
+		p.log.Error(fmt.Sprintf("peer %s error: %v", p.RemoteAddr(), err))
 		proactively = false
 	}
 
@@ -334,7 +334,7 @@ wait:
 
 	p.wg.Wait()
 
-	p.log.Info(fmt.Sprintf("peer %s run done: %v", p, err))
+	p.log.Info(fmt.Sprintf("peer %s run done: %v", p.RemoteAddr(), err))
 	return err
 }
 
@@ -343,7 +343,7 @@ func (p *Peer) handleMsg(msg *Msg) {
 
 	if cmdset == baseProtocolCmdSet {
 		if cmd == discCmd {
-			p.log.Warn(fmt.Sprintf("receive disc from %s", p))
+			p.log.Warn(fmt.Sprintf("receive disc from %s", p.RemoteAddr()))
 
 			var disc error
 			if reason, err := DeserializeDiscReason(msg.Payload); err == nil {
@@ -363,19 +363,22 @@ func (p *Peer) handleMsg(msg *Msg) {
 	} else if pf := p.pfs[cmdset]; pf != nil {
 		select {
 		case <-p.term:
-			p.log.Error(fmt.Sprintf("peer has been terminated, can`t handle message %d/%d from %s", cmdset, cmd, p))
+			p.log.Error(fmt.Sprintf("peer has been terminated, can`t handle message %d/%d from %s", cmdset, cmd, p.RemoteAddr()))
 			msg.Recycle()
 
 		case pf.r <- msg:
 			pf.Received[msg.Cmd]++
+			monitor.LogDuration("p2p_ts", "read_queue_"+pf.String(), int64(len(pf.r)))
+			p.log.Debug(fmt.Sprintf("read message %d/%d from %s, rest %d messages", msg.CmdSet, msg.Cmd, p.RemoteAddr(), len(p.wqueue)))
 
 		default:
-			p.log.Warn(fmt.Sprintf("protocol is busy, discard message %d/%d from %s", cmdset, cmd, p))
+			p.log.Warn(fmt.Sprintf("protocol is busy, discard message %d/%d from %s", cmdset, cmd, p.RemoteAddr()))
 			pf.Discarded[msg.Cmd]++
+			monitor.LogEvent("p2p_ts", "discard")
 			msg.Recycle()
 		}
 	} else {
-		p.log.Error(fmt.Sprintf("missing suitable protocol to handle message %d/%d from %s", cmdset, cmd, p))
+		p.log.Error(fmt.Sprintf("missing suitable protocol to handle message %d/%d from %s", cmdset, cmd, p.RemoteAddr()))
 		p.disc <- DiscUnKnownProtocol
 	}
 }
