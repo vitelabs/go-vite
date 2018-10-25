@@ -594,3 +594,44 @@ func TestDeleteSnapshotBlocksToHeight(t *testing.T) {
 	fmt.Printf("%+v\n", blockMeta2_1)
 
 }
+
+type stru struct {
+	Num uint64
+}
+
+func TestMapSlice(t *testing.T) {
+	data := make(map[string][2]*stru)
+	data["test"] = [2]*stru{{Num: 2}, {Num: 5}}
+	fmt.Printf("%+v\n", data["test"][1])
+
+	tmp := data["test"]
+	tmp[1].Num = 10
+	fmt.Printf("%+v\n", tmp[1])
+	fmt.Printf("%+v\n", data["test"][1])
+}
+
+func TestGetChainRangeSet(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	var snapshotBlocks []*ledger.SnapshotBlock
+	addrRecord := make(map[types.Address]uint64)
+	for i := uint64(1900); i <= 2050; i++ {
+		snapshotBlock, _ := chainInstance.GetSnapshotBlockByHeight(i)
+		snapshotBlocks = append(snapshotBlocks, snapshotBlock)
+		for addr := range snapshotBlock.SnapshotContent {
+			addrRecord[addr] = addrRecord[addr] + 1
+		}
+	}
+
+	for addr, count := range addrRecord {
+		fmt.Printf("%s %d次\n", addr, count)
+		fmt.Println()
+	}
+
+	result := chainInstance.getChainRangeSet(snapshotBlocks)
+
+	for addr, hashHeight := range result {
+		fmt.Printf("%s %d - %d\n", addr, hashHeight[0].Height, hashHeight[1].Height)
+		fmt.Println()
+	}
+}
