@@ -179,16 +179,28 @@ func (self *chainPool) modifyChainRefer2(from *forkedChain, to *forkedChain) err
 		}
 		if v.referChain.id() == from.id() {
 			block, reader := to.getBlockByChain(v.tailHeight)
-			if block != nil {
+			if block != nil && block.Hash() == v.tailHash {
 				if reader.id() == self.diskChain.id() {
+					self.log.Info("modify refer[7]", "from", from.id(), "to", to.id(),
+						"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
+						"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight,
+						"v", v.id(),
+						"vTailHeight", v.tailHeight, "vTailHash", v.tailHash)
 					v.referChain = to
 				} else {
+					self.log.Info("modify refer[8]", "from", from.id(), "to", to.id(),
+						"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
+						"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight,
+						"v", v.id(),
+						"vTailHeight", v.tailHeight, "vTailHash", v.tailHash,
+						"readerId", reader.id())
 					v.referChain = reader
 				}
 			} else {
 				self.log.Warn("modify refer[4]", "from", from.id(), "to", to.id(),
 					"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
 					"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight,
+					"v", v.id(),
 					"vTailHeight", v.tailHeight, "vTailHash", v.tailHash)
 			}
 		}
@@ -251,8 +263,11 @@ func (self *chainPool) currentModify(initBlock commonBlock) {
 	new.chainId = self.genChainId()
 	new.init(initBlock)
 	new.referChain = self.diskChain
-	self.current = new
 	self.addChain(new)
+	c := self.current
+	c.referChain = new
+	self.current = new
+	self.modifyChainRefer2(c, new)
 }
 func (self *chainPool) fork2(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain) {
 

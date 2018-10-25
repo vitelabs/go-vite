@@ -129,7 +129,8 @@ func (self *snapshotPool) checkFork() {
 
 func (self *snapshotPool) snapshotFork(longest *forkedChain, current *forkedChain) error {
 	defer monitor.LogTime("pool", "snapshotFork", time.Now())
-	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId())
+	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId(),
+		"longestTailHeight", longest.tailHeight, "longestHeadHeight", longest.headHeight, "currentTailHeight", current.tailHeight, "currentHeadHeight", current.headHeight)
 	self.pool.Lock()
 	defer self.pool.UnLock()
 	self.log.Warn("[lock]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId())
