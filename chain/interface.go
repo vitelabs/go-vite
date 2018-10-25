@@ -93,4 +93,6 @@ type Chain interface {
 
 	// onroad
 	IsSuccessReceived(addr *types.Address, hash *types.Hash) bool
+
+	getChainRangeSet(snapshotBlocks []*ledger.SnapshotBlock) map[types.Address][2]*ledger.HashHeight
 }

@@ -599,15 +599,11 @@ func (c *chain) getChainRangeSet(snapshotBlocks []*ledger.SnapshotBlock) map[typ
 					},
 				}
 			} else if chainRange[0].Height > height {
-				chainRange[0] = &ledger.HashHeight{
-					Hash:   snapshotContent.Hash,
-					Height: snapshotContent.Height,
-				}
+				chainRange[0].Hash = snapshotContent.Hash
+				chainRange[0].Height = snapshotContent.Height
 			} else if chainRange[1].Height < height {
-				chainRange[1] = &ledger.HashHeight{
-					Hash:   snapshotContent.Hash,
-					Height: snapshotContent.Height,
-				}
+				chainRange[1].Hash = snapshotContent.Hash
+				chainRange[1].Height = snapshotContent.Height
 			}
 		}
 	}
