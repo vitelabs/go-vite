@@ -119,11 +119,13 @@ func (self *accountPool) LockForInsert() {
 	self.compactLock.Lock()
 	// lock other chain insert
 	self.pool.RLock()
+	self.rMu.Lock()
 }
 
 func (self *accountPool) UnLockForInsert() {
 	self.compactLock.UnLock()
 	self.pool.RUnLock()
+	self.rMu.Unlock()
 }
 
 /**
@@ -258,6 +260,7 @@ func (self *accountPool) verifySuccess(bs []*accountPoolBlock) (error, uint64) {
 		return err, 0
 	}
 
+	self.log.Debug("verifySuccess", "id", forked.id(), "TailHeight", forked.tailHeight, "HeadHeight", forked.headHeight)
 	err = cp.currentModifyToChain(forked)
 	if err != nil {
 		return err, 0
@@ -362,6 +365,7 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks 
 		if err != nil {
 			return err
 		}
+		self.log.Debug("AddDirectBlocks", "id", fchain.id(), "TailHeight", fchain.tailHeight, "HeadHeight", fchain.headHeight)
 		err = self.chainpool.currentModifyToChain(fchain)
 		if err != nil {
 			return err
