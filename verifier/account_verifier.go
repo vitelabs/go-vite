@@ -62,14 +62,14 @@ func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock) (block
 	if err := verifier.VerifyTimeNotYet(block); err != nil {
 		return nil, err
 	}
-	if err := verifier.VerifyDataValidity(block); err != nil {
-		return nil, err
-	}
+	//if err := verifier.VerifyDataValidity(block); err != nil {
+	//	return nil, err
+	//}
 	if verifyResult, stat := verifier.VerifyReferred(block); verifyResult != SUCCESS {
 		if stat.errMsg != "" {
 			return nil, errors.New(stat.errMsg)
 		}
-		return nil, errors.New("VerifyReferred failed")
+		return nil, errors.New("verify referred block failed")
 	}
 	return verifier.VerifyforVM(block)
 }
@@ -127,22 +127,22 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 // block from Net or Rpc doesn't have stateHash、Quota, so don't need to verify
 func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, genBlock *ledger.AccountBlock) error {
 	if origBlock.BlockType != genBlock.BlockType {
-		return errors.New("verify BlockType failed")
+		return errors.New("verify vm result's blockType failed")
 	}
 	if origBlock.ToAddress != genBlock.ToAddress {
-		return errors.New("verify ToAddress failed")
+		return errors.New("verify vm result's toAddress failed")
 	}
 	if origBlock.Fee.Cmp(genBlock.Fee) != 0 {
-		return errors.New("verify Fee failed")
+		return errors.New("verify vm result's fee failed")
 	}
 	if !bytes.Equal(origBlock.Data, genBlock.Data) {
-		return errors.New("verify Data failed")
+		return errors.New("verify vm result's data failed")
 	}
 	if (origBlock.LogHash == nil && genBlock.LogHash != nil) || (origBlock.LogHash != nil && genBlock.LogHash == nil) {
-		return errors.New("verify LogHash failed")
+		return errors.New("verify vm result's logHash failed")
 	}
 	if origBlock.LogHash != nil && genBlock.LogHash != nil && *origBlock.LogHash != *genBlock.LogHash {
-		return errors.New("verify LogHash failed")
+		return errors.New("verify vm result's logHash failed")
 	}
 	return nil
 }
@@ -209,7 +209,6 @@ func (verifier *AccountVerifier) verifyFrom(block *ledger.AccountBlock, verifySt
 			verifyStatResult.referredFromResult = result
 		}
 	} else {
-		verifier.log.Info("sendBlock doesn't need to verifyFrom")
 		verifyStatResult.referredFromResult = SUCCESS
 	}
 	return true
@@ -226,7 +225,7 @@ func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock, task
 			if block.Height == 1 {
 				prevZero := &types.Hash{}
 				if !bytes.Equal(block.PrevHash.Bytes(), prevZero.Bytes()) {
-					return FAIL, errors.New("check Account's first Block's PrevHash failed")
+					return FAIL, errors.New("check account's first block's prevHash failed")
 				}
 				return SUCCESS, nil
 			}
@@ -245,7 +244,7 @@ func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock, task
 			task = append(task, &AccountPendingTask{nil, &block.PrevHash})
 			return PENDING, nil
 		default:
-			return FAIL, errors.New("PreHash or Height is invalid")
+			return FAIL, errors.New("preHash or height is invalid")
 		}
 	}
 }
@@ -264,9 +263,9 @@ func (verifier *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, veri
 		verifyStatResult.referredSnapshotResult = PENDING
 		return true
 	} else {
-		if isSucc := verifier.VerifyTimeOut(snapshotBlock); !isSucc {
+		if err := verifier.VerifyTimeOut(snapshotBlock); err != nil {
 			verifyStatResult.referredSnapshotResult = FAIL
-			verifyStatResult.errMsg += errors.New("VerifyTimeOut").Error()
+			verifyStatResult.errMsg += err.Error()
 			return false
 		} else {
 			verifyStatResult.referredSnapshotResult = SUCCESS
@@ -282,14 +281,14 @@ func (verifier *AccountVerifier) VerifySnapshotOfReferredBlock(thisBlock *ledger
 	if referredSnapshotBlock != nil {
 		if thisSnapshotBlock != nil {
 			if referredSnapshotBlock.Height > thisSnapshotBlock.Height {
-				return FAIL, errors.New("VerifySnapshotOfReferredBlock failed")
+				return FAIL, ErrVerifySnapshotOfReferredBlockFailed
 			} else {
 				return SUCCESS, nil
 			}
 		}
 		return PENDING, nil
 	}
-	return FAIL, errors.New("VerifySnapshotOfReferredBlock failed")
+	return FAIL, ErrVerifySnapshotOfReferredBlockFailed
 }
 
 func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock, task []*AccountPendingTask) (VerifyResult, error) {
@@ -305,13 +304,13 @@ func (verifier *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlo
 				if err != nil {
 					verifier.log.Error(err.Error())
 				}
-				return FAIL, errors.New("the block producer is illegal")
+				return FAIL, errors.New("block producer is illegal")
 			}
 		}
 	}
 	if code == ledger.AccountTypeGeneral {
 		if types.PubkeyToAddress(block.PublicKey) != block.AccountAddress {
-			return FAIL, errors.New("PublicKey match AccountAddress failed")
+			return FAIL, errors.New("publicKey doesn't match with the accountAddress")
 		}
 	}
 	return SUCCESS, nil
@@ -322,10 +321,11 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 
 	code, err := verifier.chain.AccountType(&block.AccountAddress)
 	if err != nil || code == ledger.AccountTypeError {
-		return errors.New("get AccountType err")
+		return errors.New("get account type error")
 	}
 	if block.IsSendBlock() && code == ledger.AccountTypeNotExist {
-		return errors.New("sendBlock AccountAddress is AccountTypeNotExist")
+		//verifier.log.Error("verify failed, need receiveTx for more balance first")
+		return ErrVerifyAccountAddrFailed
 	}
 
 	if block.Amount == nil {
@@ -335,17 +335,17 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 		block.Fee = big.NewInt(0)
 	}
 	if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
-		return errors.New("block.Amount out of bounds")
+		return errors.New("block amount out of bounds")
 	}
 	if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
-		return errors.New("block.Fee out of bounds")
+		return errors.New("block fee out of bounds")
 	}
 	if block.Timestamp == nil {
-		return errors.New("Timestamp can't be nil")
+		return errors.New("block timestamp can't be nil")
 	}
 
 	if !verifier.VerifyHash(block) {
-		return errors.New("VerifyHash failed")
+		return ErrVerifyHashFailed
 	}
 
 	if err := verifier.VerifyNonce(block, code); err != nil {
@@ -354,7 +354,7 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 
 	if block.IsReceiveBlock() || (block.IsSendBlock() && code != ledger.AccountTypeContract) {
 		if !verifier.VerifySigature(block) {
-			return errors.New("VerifySigature failed")
+			return ErrVerifySignatureFailed
 		}
 	}
 
@@ -371,22 +371,22 @@ func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBloc
 		block.Fee = big.NewInt(0)
 	}
 	if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
-		return errors.New("block.Amount out of bounds")
+		return errors.New("block amount out of bounds")
 	}
 	if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
-		return errors.New("block.Fee out of bounds")
+		return errors.New("block fee out of bounds")
 	}
 	if block.Timestamp == nil {
-		return errors.New("Timestamp can't be nil")
+		return errors.New("block timestamp can't be nil")
 	}
 
 	if !verifier.VerifyHash(block) {
-		return errors.New("VerifyHash failed")
+		return ErrVerifyHashFailed
 	}
 
 	if block.IsReceiveBlock() || (block.IsSendBlock() && (len(block.Signature) > 0 || len(block.PublicKey) > 0)) {
 		if !verifier.VerifySigature(block) {
-			return errors.New("VerifySigature failed")
+			return ErrVerifySignatureFailed
 		}
 	}
 
@@ -423,37 +423,36 @@ func (verifier *AccountVerifier) VerifySigature(block *ledger.AccountBlock) bool
 func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock, accountType uint64) error {
 	if len(block.Nonce) != 0 {
 		if accountType == ledger.AccountTypeContract {
-			return errors.New("nonce of AccountTypeContract must be nil")
+			return errors.New("nonce of contractAddr's block must be nil")
 		}
 		var nonce [8]byte
 		copy(nonce[:], block.Nonce[:8])
 		hash256Data := crypto.Hash256(block.AccountAddress.Bytes(), block.PrevHash.Bytes())
 
 		if !pow.CheckPowNonce(block.Difficulty, nonce, hash256Data) {
-			return errors.New("CheckPowNonce failed")
+			return errors.New("check pow nonce failed")
 		}
 	} else {
 		if block.Difficulty != nil {
-			return errors.New("difficulty must be nil when Nonce is nil")
+			return errors.New("difficulty must be nil when nonce is nil")
 		}
 	}
 	return nil
 }
 
-func (verifier *AccountVerifier) VerifyTimeOut(blockReferSb *ledger.SnapshotBlock) bool {
+func (verifier *AccountVerifier) VerifyTimeOut(blockReferSb *ledger.SnapshotBlock) error {
 	currentSb := verifier.chain.GetLatestSnapshotBlock()
 	if currentSb.Height > blockReferSb.Height+TimeOutHeight {
-		verifier.log.Error("snapshot time out of limit")
-		return false
+		return errors.New("snapshot timeout, height is too low")
 	}
-	return true
+	return nil
 }
 
 func (verifier *AccountVerifier) VerifyTimeNotYet(block *ledger.AccountBlock) error {
 	//  don't accept which timestamp doesn't satisfy within the (now + 1h) limit
 	currentSb := time.Now()
 	if block.Timestamp.After(currentSb.Add(time.Hour)) {
-		return errors.New("account Timestamp not arrive yet")
+		return errors.New("block timestamp not arrive yet")
 	}
 	return nil
 }
