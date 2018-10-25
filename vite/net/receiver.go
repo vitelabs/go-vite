@@ -48,7 +48,7 @@ func (s *receiver) Cmds() []ViteCmd {
 	return []ViteCmd{NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode}
 }
 
-func (s *receiver) Handle(msg *p2p.Msg, sender PeerInterface) error {
+func (s *receiver) Handle(msg *p2p.Msg, sender Peer) error {
 	switch ViteCmd(msg.Cmd) {
 	case NewSnapshotBlockCode:
 		block := new(ledger.SnapshotBlock)

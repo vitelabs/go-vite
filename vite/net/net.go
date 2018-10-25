@@ -178,7 +178,7 @@ func (n *net) Stop() {
 }
 
 // will be called by p2p.Server, run as goroutine
-func (n *net) handlePeer(p *Peer) error {
+func (n *net) handlePeer(p *peer) error {
 	current := n.Chain.GetLatestSnapshotBlock()
 	genesis := n.Chain.GetGenesisSnapshotBlock()
 
@@ -199,7 +199,7 @@ func (n *net) handlePeer(p *Peer) error {
 	return n.startPeer(p)
 }
 
-func (n *net) startPeer(p *Peer) error {
+func (n *net) startPeer(p *peer) error {
 	n.peers.Add(p)
 	defer n.peers.Del(p)
 
@@ -235,7 +235,7 @@ func (n *net) startPeer(p *Peer) error {
 
 var errMissHandler = errors.New("missing message handler")
 
-func (n *net) handleMsg(p *Peer) (err error) {
+func (n *net) handleMsg(p *peer) (err error) {
 	msg, err := p.mrw.ReadMsg()
 	if err != nil {
 		n.log.Error(fmt.Sprintf("read message from %s error: %v", p, err))

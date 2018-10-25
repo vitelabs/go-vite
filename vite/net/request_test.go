@@ -36,7 +36,7 @@ func mockU64() uint64 {
 	return u >> 40
 }
 
-func mockPeers(n int) (peers []*Peer) {
+func mockPeers(n int) (peers []*peer) {
 	var num int
 	for {
 		num = rand.Intn(n)
@@ -47,7 +47,7 @@ func mockPeers(n int) (peers []*Peer) {
 	fmt.Printf("mock %d peers\n", num)
 
 	for i := 0; i < num; i++ {
-		peers = append(peers, &Peer{ID: RandStringRunes(8), height: mockU64()})
+		peers = append(peers, &peer{ID: RandStringRunes(8), height: mockU64()})
 	}
 
 	return peers

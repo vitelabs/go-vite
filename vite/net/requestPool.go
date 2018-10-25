@@ -38,7 +38,7 @@ func (p *requestPool) Cmds() []ViteCmd {
 	return []ViteCmd{FileListCode, SubLedgerCode, ExceptionCode}
 }
 
-func (p *requestPool) Handle(msg *p2p.Msg, sender PeerInterface) error {
+func (p *requestPool) Handle(msg *p2p.Msg, sender Peer) error {
 	if r := p.Get(msg.Id); r != nil {
 		r.Handle(p, msg, sender)
 	}
@@ -79,7 +79,7 @@ func (p *requestPool) stop() {
 	}
 }
 
-func (p *requestPool) pickPeer(height uint64) (peer *Peer) {
+func (p *requestPool) pickPeer(height uint64) (peer *peer) {
 	peers := p.peers.Pick(height)
 	n := len(peers)
 	if n > 0 {
