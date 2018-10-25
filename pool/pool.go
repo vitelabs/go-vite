@@ -393,8 +393,8 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*l
 		if err != nil {
 			return nil, err
 		}
-		// fork point in disk chain
-		if forkPoint.Height() <= this.CurrentChain().tailHeight {
+		// key point in disk chain
+		if forkPoint.Height() < this.CurrentChain().tailHeight {
 			return h, nil
 		}
 

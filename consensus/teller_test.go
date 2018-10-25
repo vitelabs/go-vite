@@ -31,6 +31,16 @@ func TestFilterVotes(t *testing.T) {
 	testFilterVotes(t, teller, genVotes(100))
 }
 
+func TestMembersInfo(t *testing.T) {
+	info := &membersInfo{genesisTime: time.Now(), memberCnt: 25, interval: 1, perCnt: 3, randCnt: 0, seed: big.NewInt(10)}
+
+	now := time.Now()
+	index := info.time2Index(now)
+
+	sTime := info.genSTime(index - 1)
+	fmt.Println(sTime.Sub(now).String(), now, sTime)
+}
+
 func testFilterVotes(t *testing.T, teller *teller, votes []*Vote) {
 	hash, _ := types.HexToHash("706b00a2ae1725fb5d90b3b7a76d76c922eb075be485749f987af7aa46a66785")
 	testH := &ledger.HashHeight{Hash: hash, Height: 1}
