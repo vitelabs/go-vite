@@ -273,10 +273,13 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error)
 
 	var block *ledger.AccountBlock
 	if req.From.Hash != types.ZERO_HASH {
+		// only need hash
 		block, err = a.chain.GetAccountBlockByHash(&req.From.Hash)
 	} else if req.Address == NULL_ADDRESS {
+		// missing start hash and address, so we can`t handle it
 		return errGetABlocksMissingParam
 	} else {
+		// address and height
 		block, err = a.chain.GetAccountBlockByHeight(&req.Address, req.From.Height)
 	}
 
