@@ -122,6 +122,10 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 			self.log.Error(e.Error())
 			break
 		}
+		r := clearChainBase(chain)
+		if len(r) > 0 {
+			self.log.Debug("currentModifyToChain[2]-clearChainBase", "chainId", chain.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
+		}
 	}
 	self.log.Warn("current modify.", "from", self.current.id(), "to", chain.id(),
 		"fromTailHeight", self.current.tailHeight, "fromHeadHeight", self.current.headHeight,

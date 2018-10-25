@@ -756,10 +756,14 @@ func (self *BCPool) loopFetchForSnippets() int {
 
 func (self *BCPool) CurrentModifyToChain(target *forkedChain, hashH *ledger.HashHeight) error {
 	self.log.Debug("CurrentModifyToChain", "id", target.id(), "TailHeight", target.tailHeight, "HeadHeight", target.headHeight)
-	clearChainBase(target)
+	r := clearChainBase(target)
+	if len(r) > 0 {
+		self.log.Debug("CurrentModifyToChain-clearChainBase", "chainId", target.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
+	}
 	return self.chainpool.currentModifyToChain(target)
 }
-func clearChainBase(target *forkedChain) {
+func clearChainBase(target *forkedChain) []commonBlock {
+	var r []commonBlock
 	tailH := target.tailHeight
 	base := target.referChain
 
@@ -768,8 +772,10 @@ func clearChainBase(target *forkedChain) {
 		baseB := base.getBlock(i, true)
 		if baseB != nil && baseB.Hash() == b.Hash() {
 			target.removeTail(b)
+			r = append(r, b)
 		}
 	}
+	return r
 }
 func (self *BCPool) CurrentModifyToEmpty() error {
 	if self.chainpool.current.size() == 0 {
