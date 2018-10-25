@@ -7,6 +7,8 @@ import (
 
 	"fmt"
 
+	"path/filepath"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -123,5 +125,56 @@ func TestChainBlock(t *testing.T) {
 		if !b {
 			t.Error("snapshot block verify fail.", "block", block, "err", err)
 		}
+	}
+}
+
+var innerChainInstance chain.Chain
+
+func getChainInstance() chain.Chain {
+	if innerChainInstance == nil {
+		//home := common.HomeDir()
+
+		innerChainInstance = chain.NewChain(&config.Config{
+			//DataDir: filepath.Join(common.HomeDir(), "govite_testdata"),
+
+			DataDir: filepath.Join(common.HomeDir(), "viteisbest"),
+			//Chain: &config.Chain{
+			//	KafkaProducers: []*config.KafkaProducer{{
+			//		Topic:      "test",
+			//		BrokerList: []string{"abc", "def"},
+			//	}},
+			//},
+		})
+		innerChainInstance.Init()
+		innerChainInstance.Start()
+	}
+
+	return innerChainInstance
+}
+
+func TestChainRw_checkSnapshotHashValid(t *testing.T) {
+	bc := getChainInstance()
+	rw := chainRw{rw: bc}
+	block, e := bc.GetSnapshotBlockByHeight(129)
+	if e != nil {
+		panic(e)
+	}
+	b2, e := bc.GetSnapshotBlockByHeight(130)
+	if e != nil {
+		panic(e)
+	}
+	err := rw.checkSnapshotHashValid(block.Height, block.Hash, b2.Hash)
+	if err != nil {
+		t.Error(err)
+	}
+	err = rw.checkSnapshotHashValid(block.Height, block.Hash, block.Hash)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = rw.checkSnapshotHashValid(b2.Height, b2.Hash, block.Hash)
+	t.Log(err)
+	if err == nil {
+		t.Error(err)
 	}
 }
