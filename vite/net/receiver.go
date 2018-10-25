@@ -44,12 +44,12 @@ func (s *receiver) ID() string {
 	return "receiver"
 }
 
-func (s *receiver) Cmds() []cmd {
-	return []cmd{NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode}
+func (s *receiver) Cmds() []ViteCmd {
+	return []ViteCmd{NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode}
 }
 
-func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
-	switch cmd(msg.Cmd) {
+func (s *receiver) Handle(msg *p2p.Msg, sender Peer) error {
+	switch ViteCmd(msg.Cmd) {
 	case NewSnapshotBlockCode:
 		block := new(ledger.SnapshotBlock)
 		err := block.Deserialize(msg.Payload)
@@ -61,7 +61,7 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 
 		s.ReceiveNewSnapshotBlock(block)
 
-		s.log.Info(fmt.Sprintf("receive new snapshotblock %s/%s/%d", sender.ID, block.Hash, block.Height))
+		s.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.RemoteAddr()))
 	case NewAccountBlockCode:
 		block := new(ledger.AccountBlock)
 		err := block.Deserialize(msg.Payload)
@@ -73,7 +73,7 @@ func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
 
 		s.ReceiveNewAccountBlock(block)
 
-		s.log.Info(fmt.Sprintf("receive new accountblock %s/%s/%d/%s", sender.ID, block.Hash, block.Height, block.AccountAddress))
+		s.log.Info(fmt.Sprintf("receive new accountblock %s/%d@%s from %s", block.Hash, block.Height, block.AccountAddress, sender.RemoteAddr()))
 	case SnapshotBlocksCode:
 		bs := new(message.SnapshotBlocks)
 		err := bs.Deserialize(msg.Payload)

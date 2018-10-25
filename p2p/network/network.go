@@ -1,6 +1,6 @@
 package network
 
-type ID uint64
+type ID uint32
 
 const (
 	MainNet ID = iota + 1

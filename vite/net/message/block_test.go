@@ -1,64 +1,115 @@
 package message
 
-import "testing"
+import (
+	crand "crypto/rand"
+	mrand "math/rand"
+	"testing"
+)
 
-var ga GetAccountBlocks
+func MockGetAccountBlocks() GetAccountBlocks {
+	var ga GetAccountBlocks
+
+	ga.From.Height = mrand.Uint64()
+	crand.Read(ga.From.Hash[:])
+
+	ga.Count = mrand.Uint64()
+	ga.Forward = mrand.Intn(10) > 5
+
+	crand.Read(ga.Address[:])
+
+	return ga
+}
+
+func equalGetAccountBlocks(g, g2 GetAccountBlocks) bool {
+	if g.From.Height != g2.From.Height {
+		return false
+	}
+
+	if g.From.Hash != g2.From.Hash {
+		return false
+	}
+
+	if g.Count != g2.Count {
+		return false
+	}
+
+	if g.Forward != g2.Forward {
+		return false
+	}
+
+	if g.Address != g2.Address {
+		return false
+	}
+
+	return true
+}
 
 func TestGetAccountBlocks_Serialize(t *testing.T) {
-	ga.From.Height = 1999
+	ga := MockGetAccountBlocks()
 
 	buf, err := ga.Serialize()
 	if err != nil {
 		t.Error(err)
 	}
 
-	g := new(GetAccountBlocks)
+	var g GetAccountBlocks
 	err = g.Deserialize(buf)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if g.From.Height != ga.From.Height {
+	if !equalGetAccountBlocks(ga, g) {
 		t.Fail()
 	}
 }
 
-func TestGetAccountBlocks_DeSerialize(t *testing.T) {
-	ga.From.Height = 1999
+func MockGetSnapshotBlocks() GetSnapshotBlocks {
+	var ga GetSnapshotBlocks
 
-	buf, err := ga.Serialize()
-	if err != nil {
-		t.Error(err)
-	}
+	ga.From.Height = mrand.Uint64()
+	crand.Read(ga.From.Hash[:])
 
-	g := new(GetAccountBlocks)
-	err = g.Deserialize(buf)
-	if err != nil {
-		t.Error(err)
-	}
+	ga.Count = mrand.Uint64()
+	ga.Forward = mrand.Intn(10) > 5
 
-	if g.From.Height != ga.From.Height {
-		t.Fail()
-	}
+	return ga
 }
 
-var gs GetSnapshotBlocks
+func equalGetSnapshotBlocks(g, g2 GetSnapshotBlocks) bool {
+	if g.From.Height != g2.From.Height {
+		return false
+	}
+
+	if g.From.Hash != g2.From.Hash {
+		return false
+	}
+
+	if g.Count != g2.Count {
+		return false
+	}
+
+	if g.Forward != g2.Forward {
+		return false
+	}
+
+	return true
+}
 
 func TestGetSnapshotBlocks_Deserialize(t *testing.T) {
-	gs.From.Height = 1999
+	gs := MockGetSnapshotBlocks()
 
 	buf, err := gs.Serialize()
 	if err != nil {
 		t.Error(err)
 	}
 
-	g := new(GetSnapshotBlocks)
+	var g GetSnapshotBlocks
 	err = g.Deserialize(buf)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if g.From.Height != ga.From.Height {
+	if !equalGetSnapshotBlocks(gs, g) {
 		t.Fail()
 	}
 }

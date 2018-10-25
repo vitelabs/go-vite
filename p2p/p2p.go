@@ -58,7 +58,7 @@ type Server struct {
 	wg        sync.WaitGroup // Wait for all jobs done
 	term      chan struct{}
 	pending   chan struct{} // how many connection can wait for handshake
-	addPeer   chan *conn
+	addPeer   chan *transport
 	delPeer   chan *Peer
 	discv     Discovery
 	handshake *Handshake
@@ -101,7 +101,7 @@ func New(cfg *Config) (svr *Server, err error) {
 		StaticNodes: parseNodes(cfg.StaticNodes),
 		peers:       NewPeerSet(),
 		pending:     make(chan struct{}, cfg.MaxPendingPeers),
-		addPeer:     make(chan *conn, 1),
+		addPeer:     make(chan *transport, 1),
 		delPeer:     make(chan *Peer, 1),
 		blockList:   block.New(100),
 		self:        node,
@@ -205,6 +205,10 @@ func (svr *Server) Stop() {
 
 		close(svr.term)
 
+		if svr.ln != nil {
+			svr.ln.Close()
+		}
+
 		if svr.discv != nil {
 			svr.discv.Stop()
 			svr.discv.UnSubNodes(svr.nodeChan)
@@ -225,17 +229,16 @@ func (svr *Server) updateNode(addr *nat.Addr) {
 }
 
 func (svr *Server) setHandshake() {
-	cmdsets := make([]*CmdSet, len(svr.Protocols))
-	for i, p := range svr.Protocols {
-		cmdsets[i] = p.CmdSet()
+	cmdsets := make([]CmdSet, len(svr.Protocols))
+	for i, pt := range svr.Protocols {
+		cmdsets[i] = pt.ID
 	}
 
 	svr.handshake = &Handshake{
-		Version: Version,
 		Name:    svr.Name,
-		NetID:   svr.NetID,
 		ID:      svr.self.ID,
 		CmdSets: cmdsets,
+		Port:    uint16(svr.Port),
 	}
 }
 
@@ -282,12 +285,14 @@ func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
 	}
 }
 
+// TCPListener will be closed in method: Server.Stop()
 func (svr *Server) listenLoop() {
 	defer svr.wg.Done()
-	defer svr.ln.Close()
 
 	var conn net.Conn
 	var err error
+	var tempDelay time.Duration
+	var maxDelay = time.Second
 
 	for {
 		select {
@@ -296,6 +301,29 @@ func (svr *Server) listenLoop() {
 				if conn, err = svr.ln.Accept(); err == nil {
 					break
 				}
+
+				// temporary error
+				if err, ok := err.(net.Error); ok && err.Temporary() {
+					svr.log.Warn(fmt.Sprintf("listen temp error: %v", err))
+
+					if tempDelay == 0 {
+						tempDelay = 5 * time.Millisecond
+					} else {
+						tempDelay *= 2
+					}
+
+					if tempDelay > maxDelay {
+						tempDelay = maxDelay
+					}
+
+					time.Sleep(tempDelay)
+
+					continue
+				}
+
+				// critical error, may be return
+				svr.log.Warn(fmt.Sprintf("listen error: %v", err))
+				return
 			}
 
 			common.Go(func() {
@@ -314,9 +342,32 @@ func (svr *Server) releasePending() {
 func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 	defer svr.releasePending()
 
-	ts := &conn{
-		AsyncMsgConn: NewAsyncMsgConn(c),
-		flags:        flag,
+	head, err := headShake(c, &headMsg{
+		Version: Version,
+		NetID:   svr.NetID,
+	})
+
+	if err != nil {
+		c.Close()
+		svr.log.Warn(fmt.Sprintf("headShake with %s error: %v", c.RemoteAddr(), err))
+		return
+	}
+
+	if svr.NetID != head.NetID {
+		c.Close()
+		svr.log.Warn(fmt.Sprintf("different NetID %s: our %s, their %s", c.RemoteAddr(), svr.NetID, head.NetID))
+		return
+	}
+
+	if head.Version < Version {
+		c.Close()
+		svr.log.Warn(fmt.Sprintf("different Version %s: our %s, their %s", c.RemoteAddr(), Version, head.Version))
+		return
+	}
+
+	ts := &transport{
+		Conn:  c,
+		flags: flag,
 	}
 
 	// handshake data, add remoteIP and remotePort
@@ -325,22 +376,10 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 	tcpAddr := c.RemoteAddr().(*net.TCPAddr)
 	handshake.RemoteIP = tcpAddr.IP
 	handshake.RemotePort = uint16(tcpAddr.Port)
-	data, err := handshake.Serialize()
-	if err != nil {
-		ts.Close()
-		return
-	}
-	sig := ed25519.Sign(svr.PrivateKey, data)
-	// unshift signature before data
-	data = append(sig, data...)
 
-	their, err := ts.Handshake(data)
+	their, err := ts.Handshake(svr.PrivateKey, &handshake)
 
 	if err != nil {
-		ts.Close()
-		svr.log.Warn(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
-	} else if their.NetID != svr.NetID {
-		err = fmt.Errorf("different NetID: our %s, their %s", svr.NetID, their.NetID)
 		ts.Close()
 		svr.log.Warn(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
 	} else {

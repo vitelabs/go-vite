@@ -50,7 +50,7 @@ type context interface {
 }
 
 type Request interface {
-	Handle(ctx context, msg *p2p.Msg, peer *Peer)
+	Handle(ctx context, msg *p2p.Msg, peer Peer)
 	ID() uint64
 	SetID(id uint64)
 	Run(ctx context)
@@ -61,8 +61,8 @@ type Request interface {
 	Req() Request
 	Band() (from, to uint64)
 	SetBand(from, to uint64)
-	SetPeer(peer *Peer)
-	Peer() *Peer
+	SetPeer(peer Peer)
+	Peer() Peer
 }
 
 type reqRec interface {
@@ -81,12 +81,12 @@ const maxBlocks = 300     // max blocks in one message(snapshotblocks + accountb
 
 type subLedgerPiece struct {
 	from, to uint64
-	peer     *Peer
+	peer     *peer
 }
 
 // split large subledger request to many small pieces
-func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
-	peerCount := len(peers)
+func splitSubLedger(from, to uint64, l peers) (cs []*subLedgerPiece) {
+	peerCount := len(l)
 
 	if peerCount == 0 {
 		return
@@ -97,7 +97,7 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 		cs = append(cs, &subLedgerPiece{
 			from: from,
 			to:   to,
-			peer: peers[peerCount-1], // choose the tallest peer
+			peer: l[peerCount-1], // choose the tallest peer
 		})
 		return
 	}
@@ -106,13 +106,13 @@ func splitSubLedger(from, to uint64, peers Peers) (cs []*subLedgerPiece) {
 
 loop:
 	for from < to {
-		peerCount = len(peers)
+		peerCount = len(l)
 
 		if peerCount == 0 {
 			break loop
 		}
 
-		for i, peer := range peers {
+		for i, peer := range l {
 			if peer.height > from {
 				pTo = peer.height
 
@@ -174,7 +174,7 @@ func splitChunk(from, to uint64) (chunks [][2]uint64) {
 type subLedgerRequest struct {
 	id         uint64 // id & child_id
 	from, to   uint64
-	peer       *Peer
+	peer       Peer
 	state      reqState
 	expiration time.Time
 	catch      errCallback
@@ -194,11 +194,11 @@ func (s *subLedgerRequest) SetBand(from, to uint64) {
 	s.to = to
 }
 
-func (s *subLedgerRequest) SetPeer(peer *Peer) {
+func (s *subLedgerRequest) SetPeer(peer Peer) {
 	s.peer = peer
 }
 
-func (s *subLedgerRequest) Peer() *Peer {
+func (s *subLedgerRequest) Peer() Peer {
 	return s.peer
 }
 
@@ -206,10 +206,10 @@ func (s *subLedgerRequest) State() reqState {
 	return s.state
 }
 
-func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
+func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer Peer) {
 	defer monitor.LogTime("net", "handle_FileListMsg", time.Now())
 
-	if cmd(pkt.Cmd) == FileListCode {
+	if ViteCmd(pkt.Cmd) == FileListCode {
 		s.state = reqRespond
 
 		msg := new(message.FileList)
@@ -324,7 +324,7 @@ type fileRequest struct {
 	from, to uint64
 	files    []*ledger.CompressedFileMeta
 	nonce    uint64
-	peer     *Peer
+	peer     Peer
 	current  uint64 // the tallest snapshotBlock have received, as the breakpoint resume
 	rec      reqRec
 	ctx      context     // for create new GetSubLedgerMsg, retry
@@ -368,7 +368,7 @@ func (r *fileRequest) Addr() string {
 type chunkRequest struct {
 	id         uint64
 	from, to   uint64
-	peer       *Peer
+	peer       Peer
 	state      reqState
 	expiration time.Time
 	catch      errCallback
@@ -388,11 +388,11 @@ func (c *chunkRequest) SetBand(from, to uint64) {
 	c.to = to
 }
 
-func (c *chunkRequest) SetPeer(peer *Peer) {
+func (c *chunkRequest) SetPeer(peer Peer) {
 	c.peer = peer
 }
 
-func (c *chunkRequest) Peer() *Peer {
+func (c *chunkRequest) Peer() Peer {
 	return c.peer
 }
 
@@ -404,10 +404,10 @@ func (c *chunkRequest) State() reqState {
 	return c.state
 }
 
-func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
+func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer Peer) {
 	defer monitor.LogTime("net", "handle_SubLedgerMsg", time.Now())
 
-	if cmd(pkt.Cmd) == SubLedgerCode {
+	if ViteCmd(pkt.Cmd) == SubLedgerCode {
 		c.state = reqRespond
 
 		msg := new(message.SubLedger)

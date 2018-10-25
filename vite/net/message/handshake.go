@@ -7,7 +7,6 @@ import (
 )
 
 type HandShake struct {
-	CmdSet  uint64
 	Height  uint64
 	Port    uint16
 	Current types.Hash
@@ -16,7 +15,7 @@ type HandShake struct {
 
 func (h *HandShake) Serialize() ([]byte, error) {
 	pb := new(vitepb.Handshake)
-	pb.CmdSet = h.CmdSet
+
 	pb.Height = h.Height
 	pb.Port = uint32(h.Port)
 	pb.Current = h.Current[:]
@@ -33,7 +32,6 @@ func (h *HandShake) Deserialize(data []byte) error {
 		return err
 	}
 
-	h.CmdSet = pb.CmdSet
 	h.Height = pb.Height
 	h.Port = uint16(pb.Port)
 	copy(h.Current[:], pb.Current)
