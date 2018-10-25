@@ -650,15 +650,15 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 
 	}
 
-	needAddBlocks, needRemoveBlocks, _, err := c.getNeedSnapshotMapByDeleteSubLedger(subLedger)
+	needAddBlocks, needRemoveAddr, _, err := c.getNeedSnapshotMapByDeleteSubLedger(subLedger)
 	if err != nil {
 		c.log.Error("getNeedSnapshotMapByDeleteSubLedger failed, error is "+err.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
 		return nil, err
 	}
 
 	// Set needSnapshotCache, first remove
-	for addr, block := range needRemoveBlocks {
-		c.needSnapshotCache.Remove(&addr, block.Height)
+	for _, addr := range needRemoveAddr {
+		c.needSnapshotCache.Remove(&addr)
 	}
 
 	// Set needSnapshotCache, then add
