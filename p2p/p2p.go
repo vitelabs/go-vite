@@ -304,6 +304,8 @@ func (svr *Server) listenLoop() {
 
 				// temporary error
 				if err, ok := err.(net.Error); ok && err.Temporary() {
+					svr.log.Warn(fmt.Sprintf("listen temp error: %v", err))
+
 					if tempDelay == 0 {
 						tempDelay = 5 * time.Millisecond
 					} else {
@@ -319,7 +321,8 @@ func (svr *Server) listenLoop() {
 					continue
 				}
 
-				// critical error
+				// critical error, may be return
+				svr.log.Warn(fmt.Sprintf("listen error: %v", err))
 				return
 			}
 
