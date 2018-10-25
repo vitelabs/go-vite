@@ -44,7 +44,7 @@ func getChainInstance() ch.Chain {
 
 func TestChain(t *testing.T) {
 	c := getChainInstance()
-	block, e := c.GetSnapshotBlockByHeight(579)
+	block, e := c.GetSnapshotBlockByHeight(3574)
 	if e != nil {
 		panic(e)
 	}
