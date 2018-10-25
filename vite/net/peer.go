@@ -21,6 +21,18 @@ const filterCap = 100000
 
 // @section Peer for protocol handle, not p2p Peer.
 //var errPeerTermed = errors.New("peer has been terminated")
+type PeerInterface interface {
+	RemoteAddr() *net2.TCPAddr
+	FileAddress() *net2.TCPAddr
+	SetHead(head types.Hash, height uint64)
+	SeeBlock(hash types.Hash)
+	SendSubLedger(bs []*ledger.SnapshotBlock, abs []*ledger.AccountBlock, msgId uint64) (err error)
+	SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error)
+	SendAccountBlocks(bs []*ledger.AccountBlock, msgId uint64) (err error)
+	SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error)
+	SendNewAccountBlock(b *ledger.AccountBlock) (err error)
+	Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error)
+}
 
 type Peer struct {
 	*p2p.Peer

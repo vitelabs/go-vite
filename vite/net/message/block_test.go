@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func mockGetAccountBlocks() GetAccountBlocks {
+func MockGetAccountBlocks() GetAccountBlocks {
 	var ga GetAccountBlocks
 
 	ga.From.Height = mrand.Uint64()
@@ -45,7 +45,7 @@ func equalGetAccountBlocks(g, g2 GetAccountBlocks) bool {
 }
 
 func TestGetAccountBlocks_Serialize(t *testing.T) {
-	ga := mockGetAccountBlocks()
+	ga := MockGetAccountBlocks()
 
 	buf, err := ga.Serialize()
 	if err != nil {
@@ -63,7 +63,7 @@ func TestGetAccountBlocks_Serialize(t *testing.T) {
 	}
 }
 
-func mockGetSnapshotBlocks() GetSnapshotBlocks {
+func MockGetSnapshotBlocks() GetSnapshotBlocks {
 	var ga GetSnapshotBlocks
 
 	ga.From.Height = mrand.Uint64()
@@ -96,7 +96,7 @@ func equalGetSnapshotBlocks(g, g2 GetSnapshotBlocks) bool {
 }
 
 func TestGetSnapshotBlocks_Deserialize(t *testing.T) {
-	gs := mockGetSnapshotBlocks()
+	gs := MockGetSnapshotBlocks()
 
 	buf, err := gs.Serialize()
 	if err != nil {

@@ -50,7 +50,7 @@ type context interface {
 }
 
 type Request interface {
-	Handle(ctx context, msg *p2p.Msg, peer *Peer)
+	Handle(ctx context, msg *p2p.Msg, peer PeerInterface)
 	ID() uint64
 	SetID(id uint64)
 	Run(ctx context)
@@ -61,8 +61,8 @@ type Request interface {
 	Req() Request
 	Band() (from, to uint64)
 	SetBand(from, to uint64)
-	SetPeer(peer *Peer)
-	Peer() *Peer
+	SetPeer(peer PeerInterface)
+	Peer() PeerInterface
 }
 
 type reqRec interface {
@@ -174,7 +174,7 @@ func splitChunk(from, to uint64) (chunks [][2]uint64) {
 type subLedgerRequest struct {
 	id         uint64 // id & child_id
 	from, to   uint64
-	peer       *Peer
+	peer       PeerInterface
 	state      reqState
 	expiration time.Time
 	catch      errCallback
@@ -194,11 +194,11 @@ func (s *subLedgerRequest) SetBand(from, to uint64) {
 	s.to = to
 }
 
-func (s *subLedgerRequest) SetPeer(peer *Peer) {
+func (s *subLedgerRequest) SetPeer(peer PeerInterface) {
 	s.peer = peer
 }
 
-func (s *subLedgerRequest) Peer() *Peer {
+func (s *subLedgerRequest) Peer() PeerInterface {
 	return s.peer
 }
 
@@ -206,7 +206,7 @@ func (s *subLedgerRequest) State() reqState {
 	return s.state
 }
 
-func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
+func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer PeerInterface) {
 	defer monitor.LogTime("net", "handle_FileListMsg", time.Now())
 
 	if ViteCmd(pkt.Cmd) == FileListCode {
@@ -324,7 +324,7 @@ type fileRequest struct {
 	from, to uint64
 	files    []*ledger.CompressedFileMeta
 	nonce    uint64
-	peer     *Peer
+	peer     PeerInterface
 	current  uint64 // the tallest snapshotBlock have received, as the breakpoint resume
 	rec      reqRec
 	ctx      context     // for create new GetSubLedgerMsg, retry
@@ -368,7 +368,7 @@ func (r *fileRequest) Addr() string {
 type chunkRequest struct {
 	id         uint64
 	from, to   uint64
-	peer       *Peer
+	peer       PeerInterface
 	state      reqState
 	expiration time.Time
 	catch      errCallback
@@ -388,11 +388,11 @@ func (c *chunkRequest) SetBand(from, to uint64) {
 	c.to = to
 }
 
-func (c *chunkRequest) SetPeer(peer *Peer) {
+func (c *chunkRequest) SetPeer(peer PeerInterface) {
 	c.peer = peer
 }
 
-func (c *chunkRequest) Peer() *Peer {
+func (c *chunkRequest) Peer() PeerInterface {
 	return c.peer
 }
 
@@ -404,7 +404,7 @@ func (c *chunkRequest) State() reqState {
 	return c.state
 }
 
-func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
+func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer PeerInterface) {
 	defer monitor.LogTime("net", "handle_SubLedgerMsg", time.Now())
 
 	if ViteCmd(pkt.Cmd) == SubLedgerCode {

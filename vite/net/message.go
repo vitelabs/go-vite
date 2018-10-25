@@ -3,13 +3,12 @@ package net
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/monitor"
-	"time"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
+	"time"
 )
 
 var subledgerTimeout = 10 * time.Second
@@ -90,13 +89,13 @@ func (t ViteCmd) String() string {
 type MsgHandler interface {
 	ID() string
 	Cmds() []ViteCmd
-	Handle(msg *p2p.Msg, sender *Peer) error
+	Handle(msg *p2p.Msg, sender PeerInterface) error
 }
 
 // @section statusHandler
-type _statusHandler func(msg *p2p.Msg, sender *Peer) error
+type _statusHandler func(msg *p2p.Msg, sender PeerInterface) error
 
-func statusHandler(msg *p2p.Msg, sender *Peer) error {
+func statusHandler(msg *p2p.Msg, sender PeerInterface) error {
 	defer monitor.LogTime("net", "handle_StatusMsg", time.Now())
 
 	status := new(ledger.HashHeight)
@@ -117,7 +116,7 @@ func (s _statusHandler) Cmds() []ViteCmd {
 	return []ViteCmd{StatusCode}
 }
 
-func (s _statusHandler) Handle(msg *p2p.Msg, sender *Peer) error {
+func (s _statusHandler) Handle(msg *p2p.Msg, sender PeerInterface) error {
 	return s(msg, sender)
 }
 
@@ -134,7 +133,7 @@ func (s *getSubLedgerHandler) Cmds() []ViteCmd {
 	return []ViteCmd{GetSubLedgerCode}
 }
 
-func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
+func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender PeerInterface) (err error) {
 	defer monitor.LogTime("net", "handle_GetSubledgerMsg", time.Now())
 
 	req := new(message.GetSnapshotBlocks)
@@ -187,7 +186,7 @@ func (s *getSnapshotBlocksHandler) Cmds() []ViteCmd {
 	return []ViteCmd{GetSnapshotBlocksCode}
 }
 
-func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
+func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender PeerInterface) (err error) {
 	defer monitor.LogTime("net", "handle_GetSnapshotBlocksMsg", time.Now())
 
 	req := new(message.GetSnapshotBlocks)
@@ -260,7 +259,7 @@ func (a *getAccountBlocksHandler) Cmds() []ViteCmd {
 var NULL_ADDRESS = types.Address{}
 var errGetABlocksMissingParam = errors.New("missing param to GetAccountBlocks")
 
-func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
+func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender PeerInterface) (err error) {
 	defer monitor.LogTime("net", "handle_GetAccountBlocksMsg", time.Now())
 
 	req := new(message.GetAccountBlocks)
@@ -338,7 +337,7 @@ func (c *getChunkHandler) Cmds() []ViteCmd {
 	return []ViteCmd{GetChunkCode}
 }
 
-func (c *getChunkHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
+func (c *getChunkHandler) Handle(msg *p2p.Msg, sender PeerInterface) (err error) {
 	defer monitor.LogTime("net", "handle_GetChunkMsg", time.Now())
 
 	req := new(message.GetChunk)
