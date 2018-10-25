@@ -119,11 +119,13 @@ func (self *accountPool) LockForInsert() {
 	self.compactLock.Lock()
 	// lock other chain insert
 	self.pool.RLock()
+	self.rMu.Lock()
 }
 
 func (self *accountPool) UnLockForInsert() {
 	self.compactLock.UnLock()
 	self.pool.RUnLock()
+	self.rMu.Unlock()
 }
 
 /**
