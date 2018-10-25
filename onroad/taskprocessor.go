@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"sync"
 )
@@ -168,7 +169,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	genResult, err := gen.GenerateWithOnroad(*sBlock, consensusMessage,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			return tp.worker.manager.keystoreManager.SignData(addr, data)
-		}, nil)
+		}, pow.DefaultDifficulty)
 	if err != nil {
 		plog.Error("GenerateWithOnroad failed", "error", err)
 		return

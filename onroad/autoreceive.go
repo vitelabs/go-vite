@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
+	"github.com/vitelabs/go-vite/pow"
 	"math/big"
 	"sync"
 )
@@ -181,7 +182,7 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 	genResult, err := gen.GenerateWithOnroad(*sendBlock, nil,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			return w.manager.keystoreManager.SignData(addr, data)
-		}, nil)
+		}, pow.DefaultDifficulty)
 	if err != nil {
 		w.log.Error("GenerateWithOnroad failed", "error", err)
 		return

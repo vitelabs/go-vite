@@ -16,6 +16,8 @@ const (
 	FullThreshold = 0x000000000000FFFF
 )
 
+var DefaultDifficulty = new(big.Int).SetUint64(FullThreshold)
+
 // data = Hash(address + prehash); data + nonce < target.
 func GetPowNonce(difficulty *big.Int, dataHash types.Hash) [8]byte {
 	rng := crypto.GetEntropyCSPRNG(8)
