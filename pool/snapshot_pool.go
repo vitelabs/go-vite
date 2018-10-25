@@ -166,6 +166,7 @@ func (self *snapshotPool) snapshotFork(longest *forkedChain, current *forkedChai
 		}
 	}
 
+	self.log.Debug("snapshotFork longest modify", "id", longest.id(), "TailHeight", longest.tailHeight, "HeadHeight", longest.headHeight)
 	err = self.CurrentModifyToChain(longest, &ledger.HashHeight{Hash: forked.Hash(), Height: forked.Height()})
 	if err != nil {
 		return err

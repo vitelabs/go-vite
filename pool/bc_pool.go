@@ -754,6 +754,7 @@ func (self *BCPool) loopFetchForSnippets() int {
 }
 
 func (self *BCPool) CurrentModifyToChain(target *forkedChain, hashH *ledger.HashHeight) error {
+	self.log.Debug("CurrentModifyToChain", "id", target.id(), "TailHeight", target.tailHeight, "HeadHeight", target.headHeight)
 	clearChainBase(target)
 	return self.chainpool.currentModifyToChain(target)
 }
