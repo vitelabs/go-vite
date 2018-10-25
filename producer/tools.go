@@ -1,8 +1,6 @@
 package producer
 
 import (
-	"fmt"
-
 	"time"
 
 	"github.com/pkg/errors"
@@ -85,6 +83,7 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 	for k, b := range needSnapshotAccounts {
 		err := self.sVerifier.VerifyAccountTimeout(k, head.Height+1)
 		if err != nil {
+			self.log.Error("account verify timeout.", "addr", k, "accHash", b.Hash, "accHeight", b.Height, "err", err)
 			self.pool.RollbackAccountTo(k, b.Hash, b.Height)
 		}
 	}
@@ -97,11 +96,12 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 	for k, b := range needSnapshotAccounts {
 		err := self.sVerifier.VerifyAccountTimeout(k, head.Height+1)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf(
-				"error account block, account:%s, blockHash:%s, blockHeight:%d",
+			return nil, errors.Errorf(
+				"error account block, account:%s, blockHash:%s, blockHeight:%d, err:%s",
 				k.String(),
 				b.Hash.String(),
-				b.Height))
+				b.Height,
+				err)
 		}
 		finalAccounts[k] = &ledger.HashHeight{Hash: b.Hash, Height: b.Height}
 	}
