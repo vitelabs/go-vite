@@ -10,10 +10,50 @@ import (
 
 	"time"
 
+	"path/filepath"
+
+	"fmt"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/consensus"
 )
 
+var innerChainInstance ch.Chain
+
+func getChainInstance() ch.Chain {
+	if innerChainInstance == nil {
+		//home := common.HomeDir()
+
+		innerChainInstance = ch.NewChain(&config.Config{
+			//DataDir: filepath.Join(common.HomeDir(), "govite_testdata"),
+
+			DataDir: filepath.Join(common.HomeDir(), "viteisbest"),
+			//Chain: &config.Chain{
+			//	KafkaProducers: []*config.KafkaProducer{{
+			//		Topic:      "test",
+			//		BrokerList: []string{"abc", "def"},
+			//	}},
+			//},
+		})
+		innerChainInstance.Init()
+		innerChainInstance.Start()
+	}
+
+	return innerChainInstance
+}
+
+func TestChain(t *testing.T) {
+	c := getChainInstance()
+	block, e := c.GetSnapshotBlockByHeight(579)
+	if e != nil {
+		panic(e)
+	}
+	fmt.Println(block.Hash)
+
+	for k, v := range block.SnapshotContent {
+		fmt.Println(k, v.Hash, v.Height)
+	}
+}
 func TestNewPool(t *testing.T) {
 	c := ch.NewChain(&config.Config{
 		DataDir: common.DefaultDataDir(),
