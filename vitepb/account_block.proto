@@ -34,7 +34,9 @@ message AccountBlock {
 
     bytes logHash = 17;
 
-    bytes nonce = 18;
+    bytes difficulty = 18;
 
-    bytes signature = 19;
+    bytes nonce = 19;
+
+    bytes signature = 20;
 }

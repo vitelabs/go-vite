@@ -608,6 +608,9 @@ func TestMapSlice(t *testing.T) {
 	tmp[1].Num = 10
 	fmt.Printf("%+v\n", tmp[1])
 	fmt.Printf("%+v\n", data["test"][1])
+
+	a := big.NewInt(0)
+	fmt.Println(a.Bytes())
 }
 
 func TestGetChainRangeSet(t *testing.T) {

@@ -113,8 +113,9 @@ type AccountBlock struct {
 
 	LogHash *types.Hash `json:"logHash"`
 
-	Nonce     []byte `json:"nonce"`
-	Signature []byte `json:"signature"`
+	Difficulty *big.Int `json: difficulty`
+	Nonce      []byte   `json:"nonce"`
+	Signature  []byte   `json:"signature"`
 }
 
 func (ab *AccountBlock) Copy() *AccountBlock {
@@ -147,6 +148,10 @@ func (ab *AccountBlock) Copy() *AccountBlock {
 	if ab.LogHash != nil {
 		logHash := *ab.LogHash
 		newAb.LogHash = &logHash
+	}
+
+	if ab.Difficulty != nil {
+		newAb.Difficulty = new(big.Int).Set(ab.Difficulty)
 	}
 
 	newAb.Nonce = make([]byte, len(ab.Nonce))
@@ -199,6 +204,9 @@ func (ab *AccountBlock) proto() *vitepb.AccountBlock {
 	if ab.LogHash != nil {
 		pb.LogHash = ab.LogHash.Bytes()
 	}
+	if ab.Difficulty != nil {
+		pb.Difficulty = ab.Difficulty.Bytes()
+	}
 	pb.Nonce = ab.Nonce
 	pb.Signature = ab.Signature
 	return pb
@@ -228,25 +236,27 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) {
 	ab.PrevHash, _ = types.BytesToHash(pb.PrevHash)
 	ab.AccountAddress, _ = types.BytesToAddress(pb.AccountAddress)
 	ab.PublicKey = pb.PublicKey
-	if len(pb.ToAddress) >= 0 {
+
+	if len(pb.ToAddress) > 0 {
 		ab.ToAddress, _ = types.BytesToAddress(pb.ToAddress)
 	}
-	if len(pb.TokenId) >= 0 {
+	if len(pb.TokenId) > 0 {
 		ab.TokenId, _ = types.BytesToTokenTypeId(pb.TokenId)
 	}
 
 	ab.Amount = big.NewInt(0)
-	if len(pb.Amount) >= 0 {
+
+	if len(pb.Amount) > 0 {
 		ab.Amount.SetBytes(pb.Amount)
 	}
 
-	if len(pb.FromBlockHash) >= 0 {
+	if len(pb.FromBlockHash) > 0 {
 		ab.FromBlockHash, _ = types.BytesToHash(pb.FromBlockHash)
 	}
 	ab.Quota = pb.Quota
 
 	ab.Fee = big.NewInt(0)
-	if len(pb.Fee) >= 0 {
+	if len(pb.Fee) > 0 {
 		ab.Fee.SetBytes(pb.Fee)
 	}
 
@@ -255,11 +265,16 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) {
 	timestamp := time.Unix(0, pb.Timestamp)
 	ab.Timestamp = &timestamp
 	ab.StateHash, _ = types.BytesToHash(pb.StateHash)
+
 	if len(pb.LogHash) > 0 {
 		logHash, _ := types.BytesToHash(pb.LogHash)
 		ab.LogHash = &logHash
 	}
 
+	ab.Difficulty = big.NewInt(0)
+	if len(pb.Difficulty) > 0 {
+		ab.Difficulty.SetBytes(pb.Difficulty)
+	}
 	ab.Nonce = pb.Nonce
 	ab.Signature = pb.Signature
 
@@ -300,7 +315,6 @@ func (ab *AccountBlock) ComputeHash() types.Hash {
 	}
 	source = append(source, fee.Bytes()...)
 
-
 	// SnapshotHash
 	source = append(source, ab.SnapshotHash.Bytes()...)
 
@@ -315,6 +329,11 @@ func (ab *AccountBlock) ComputeHash() types.Hash {
 	// LogHash
 	if ab.LogHash != nil {
 		source = append(source, ab.LogHash.Bytes()...)
+	}
+
+	// Difficulty
+	if ab.Difficulty != nil {
+		source = append(source, ab.Difficulty.Bytes()...)
 	}
 
 	// Nonce

@@ -509,6 +509,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	// write db
 	writeErr := c.chainDb.Commit(batch)
+
 	if writeErr != nil {
 		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 		return nil, nil, writeErr
