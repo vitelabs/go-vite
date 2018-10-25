@@ -349,8 +349,8 @@ func TestGetAccountBlockByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
 	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 	fmt.Printf("%+v\n", latestSnapshotBlock)
-	addr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
-	for i := uint64(1491); i <= 1500; i++ {
+	addr, _ := types.HexToAddress("vite_0b21e2d83e4008cf4ba63598be906b4f03b9181c75d316ac33")
+	for i := uint64(1); i <= 20; i++ {
 		block, _ := chainInstance.GetAccountBlockByHeight(&addr, i)
 		if block == nil {
 			break
@@ -360,11 +360,11 @@ func TestGetAccountBlockByHeight(t *testing.T) {
 		fmt.Printf("%+v\n", block)
 	}
 
-	chainInstance.DeleteAccountBlocks(&addr, 1491)
-
-	snapshotBlock, _ := chainInstance.GetSnapshotBlockByHeight(2007)
-
-	fmt.Printf("%+v\n", snapshotBlock)
+	//chainInstance.DeleteAccountBlocks(&addr, 1491)
+	//
+	//snapshotBlock, _ := chainInstance.GetSnapshotBlockByHeight(2007)
+	//
+	//fmt.Printf("%+v\n", snapshotBlock)
 
 }
 

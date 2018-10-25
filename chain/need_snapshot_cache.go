@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -64,11 +65,18 @@ func (cache *NeedSnapshotCache) Set(addr *types.Address, accountBlock *ledger.Ac
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 	if cachedItem := cache.cacheMap[*addr]; cachedItem != nil && cachedItem.Height >= accountBlock.Height {
+		cache.unsavePrintCacheMap()
 		cache.log.Crit("cachedItem.Height > accountBlock.Height", "method", "Set")
 		return
 	}
 
 	cache.cacheMap[*addr] = accountBlock
+}
+
+func (cache *NeedSnapshotCache) unsavePrintCacheMap() {
+	for addr, block := range cache.cacheMap {
+		cache.log.Error(fmt.Sprintf("%s %+v\n", addr, block))
+	}
 }
 
 func (cache *NeedSnapshotCache) BeSnapshot(addr *types.Address, height uint64) {
@@ -77,10 +85,12 @@ func (cache *NeedSnapshotCache) BeSnapshot(addr *types.Address, height uint64) {
 
 	cachedItem := cache.cacheMap[*addr]
 	if cachedItem == nil {
+		cache.unsavePrintCacheMap()
 		cache.log.Crit("cacheItem is nil", "method", "BeSnapshot")
 	}
 
 	if cachedItem.Height < height {
+		cache.unsavePrintCacheMap()
 		cache.log.Crit("cacheItem.Height < height", "method", "BeSnapshot")
 	}
 
