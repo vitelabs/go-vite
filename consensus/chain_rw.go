@@ -18,6 +18,8 @@ type ch interface {
 	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) map[types.Address]*big.Int // Get balance for addressList
 	GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
 	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
+	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 }
 type chainRw struct {
 	rw ch
@@ -130,4 +132,27 @@ func (self *chainRw) getGid(block *ledger.AccountBlock) (types.Gid, error) {
 }
 func (self *chainRw) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 	return self.rw.GetLatestSnapshotBlock()
+}
+func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.Hash, actual types.Hash) error {
+	if startHash == actual {
+		return nil
+	}
+	startB, e := self.rw.GetSnapshotBlockByHash(&startHash)
+	if e != nil {
+		return e
+	}
+	if startB == nil {
+		return errors.Errorf("start snapshot block is nil. hashH:%s-%d", startHash, startHeight)
+	}
+	actualB, e := self.rw.GetSnapshotBlockByHash(&actual)
+	if e != nil {
+		return e
+	}
+	if actualB == nil {
+		return errors.Errorf("refer snapshot block is nil. hashH:%s", actual)
+	}
+	if actualB.Height < startB.Height {
+		return errors.Errorf("refer snapshot block height must >= start snapshot block height")
+	}
+	return nil
 }

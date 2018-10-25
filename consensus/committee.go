@@ -81,8 +81,9 @@ func (self *committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool,
 		return false, err
 	}
 
-	if electionResult.Hash != header.SnapshotHash {
-		return false, nil
+	err = tel.rw.checkSnapshotHashValid(electionResult.Height, electionResult.Hash, header.SnapshotHash)
+	if err != nil {
+		return false, err
 	}
 	return self.verifyProducer(*header.Timestamp, header.Producer(), electionResult), nil
 }

@@ -72,10 +72,6 @@ func (self *accountPool) Init(
 2. fetch block for snippet chain.
 */
 func (self *accountPool) Compact() int {
-	// If no new data arrives, do nothing.
-	if len(self.blockpool.freeBlocks) == 0 {
-		return 0
-	}
 	// if an insert operation is in progress, do nothing.
 	if !self.compactLock.TryLock() {
 		return 0
@@ -220,6 +216,7 @@ func (self *accountPool) tryInsert() verifyTask {
 		stat := self.v.verifyAccount(block)
 		if !block.checkForkVersion() {
 			block.resetForkVersion()
+			self.log.Warn("snapshot fork happen. account should verify again.", "blockHash", block.Hash(), "blockHeight", block.Height())
 			return self.v.newSuccessTask()
 		}
 		result := stat.verifyResult()
