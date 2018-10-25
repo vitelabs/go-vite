@@ -48,7 +48,7 @@ func (s *fileServer) start() error {
 	s.term = make(chan struct{})
 
 	s.wg.Add(1)
-	common.Go(s.readLoop)
+	common.Go(s.listenLoop)
 
 	return nil
 }
@@ -62,12 +62,16 @@ func (s *fileServer) stop() {
 	case <-s.term:
 	default:
 		close(s.term)
+
+		if s.ln != nil {
+			s.ln.Close()
+		}
+
 		s.wg.Wait()
 	}
 }
 
-func (s *fileServer) readLoop() {
-	defer s.ln.Close()
+func (s *fileServer) listenLoop() {
 	defer s.wg.Done()
 
 	for {

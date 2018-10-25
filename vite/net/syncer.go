@@ -327,7 +327,7 @@ func (s *syncer) sync(from, to uint64) {
 }
 
 func (s *syncer) reqError(id uint64, err error) {
-	if s.state != Syncing || atomic.LoadInt32(&s.running) != 1 {
+	if s.state != Syncing || atomic.LoadInt32(&s.running) == 0 {
 		return
 	}
 

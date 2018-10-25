@@ -205,7 +205,9 @@ func (svr *Server) Stop() {
 
 		close(svr.term)
 
-		svr.ln.Close()
+		if svr.ln != nil {
+			svr.ln.Close()
+		}
 
 		if svr.discv != nil {
 			svr.discv.Stop()
@@ -289,6 +291,8 @@ func (svr *Server) listenLoop() {
 
 	var conn net.Conn
 	var err error
+	var tempDelay time.Duration
+	var maxDelay = time.Second
 
 	for {
 		select {
@@ -297,6 +301,26 @@ func (svr *Server) listenLoop() {
 				if conn, err = svr.ln.Accept(); err == nil {
 					break
 				}
+
+				// temporary error
+				if err, ok := err.(net.Error); ok && err.Temporary() {
+					if tempDelay == 0 {
+						tempDelay = 5 * time.Millisecond
+					} else {
+						tempDelay *= 2
+					}
+
+					if tempDelay > maxDelay {
+						tempDelay = maxDelay
+					}
+
+					time.Sleep(tempDelay)
+
+					continue
+				}
+
+				// critical error
+				break
 			}
 
 			common.Go(func() {

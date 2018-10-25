@@ -122,7 +122,11 @@ loop:
 	// clean job
 	p.pending.Range(func(key, value interface{}) bool {
 		r := value.(Request)
-		r.Catch(errPoolStopped)
+
+		if state := r.State(); state != reqDone && state != reqError {
+			r.Catch(errPoolStopped)
+		}
+
 		p.pending.Delete(key)
 
 		return true
