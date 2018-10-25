@@ -37,10 +37,27 @@ func TestConsensus(t *testing.T) {
 
 }
 
+func TestCommittee_ReadVoteMapByTime(t *testing.T) {
+	cs := genConsensus(t)
+	now := time.Now()
+	u, e := cs.VoteTimeToIndex(types.SNAPSHOT_GID, now)
+	if e != nil {
+		panic(e)
+	}
+
+	details, err := cs.ReadVoteMapByTime(types.SNAPSHOT_GID, u)
+	if err != nil {
+		panic(err)
+	}
+	for k, v := range details {
+		t.Log(k, v.addr, v.name)
+	}
+}
+
 func TestCommittee_ReadByTime(t *testing.T) {
 	cs := genConsensus(t)
 	now := time.Now()
-	contractR, err := cs.ReadByTime(types.DELEGATE_GID, now)
+	contractR, _, err := cs.ReadByTime(types.DELEGATE_GID, now)
 
 	if err != nil {
 		t.Error(err)
@@ -48,7 +65,7 @@ func TestCommittee_ReadByTime(t *testing.T) {
 	for k, v := range contractR {
 		t.Log(types.DELEGATE_GID, k, v, err)
 	}
-	snapshotR, err := cs.ReadByTime(types.SNAPSHOT_GID, now)
+	snapshotR, _, err := cs.ReadByTime(types.SNAPSHOT_GID, now)
 
 	if err != nil {
 		t.Error(err)
