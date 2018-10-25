@@ -335,11 +335,6 @@ func (ab *AccountBlock) ComputeHash() types.Hash {
 		source = append(source, ab.LogHash.Bytes()...)
 	}
 
-	// Difficulty
-	if ab.Difficulty != nil {
-		source = append(source, ab.Difficulty.Bytes()...)
-	}
-
 	// Nonce
 	source = append(source, ab.Nonce...)
 
