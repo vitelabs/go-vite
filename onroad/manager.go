@@ -232,6 +232,10 @@ func (manager *Manager) ResetAutoReceiveFilter(addr types.Address, filter map[ty
 	}
 }
 
+func (manager *Manager) StartPrimaryAutoReceiveWorker(primaryAddr types.Address, filter map[types.TokenTypeId]big.Int) error {
+	return manager.StartAutoReceiveWorker(primaryAddr.String(), primaryAddr, filter)
+}
+
 func (manager *Manager) StartAutoReceiveWorker(entropystore string, addr types.Address, filter map[types.TokenTypeId]big.Int) error {
 	netstate := manager.Net().SyncState()
 	manager.log.Info("StartAutoReceiveWorker ", "addr", addr, "netstate", netstate)
@@ -240,13 +244,18 @@ func (manager *Manager) StartAutoReceiveWorker(entropystore string, addr types.A
 		return ErrNotSyncDone
 	}
 
-	if !manager.wallet.GlobalCheckAddrUnlock(addr) {
+	entropyStoreManager, e := manager.wallet.GetEntropyStoreManager(entropystore)
+	if e != nil {
+		return e
+	}
+
+	if !entropyStoreManager.IsAddrUnlocked(addr) {
 		return walleterrors.ErrLocked
 	}
 
 	w, found := manager.autoReceiveWorkers[addr]
 	if !found {
-		w = NewAutoReceiveWorker(manager, entropystore, addr, filter)
+		w = NewAutoReceiveWorker(manager, entropyStoreManager.GetEntropyStoreFile(), addr, filter)
 		manager.log.Info("Manager get event new Worker")
 		manager.autoReceiveWorkers[addr] = w
 	}

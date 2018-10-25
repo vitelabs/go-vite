@@ -186,11 +186,11 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 
 	genResult, err := gen.GenerateWithOnroad(*sendBlock, nil,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			_, key, _, e := w.manager.wallet.GlobalFindAddr(addr)
+			manager, e := w.manager.wallet.GetEntropyStoreManager(w.entropystore)
 			if e != nil {
 				return nil, nil, e
 			}
-			return key.SignData(data)
+			return manager.SignData(addr, data)
 		}, nil)
 	if err != nil {
 		w.log.Error("GenerateWithOnroad failed", "error", err)
