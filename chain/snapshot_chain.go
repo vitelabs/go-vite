@@ -337,40 +337,47 @@ func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Ad
 		needRemoveAddr = append(needRemoveAddr, addr)
 
 		accountBlockHeight := accountBlock.Height
-		blockHeightMap[addr] = accountBlockHeight - 1
+
+		if accountBlockHeight > 1 {
+			blockHeightMap[addr] = accountBlockHeight - 1
+		}
 	}
 
 	for addr, blockHeight := range blockHeightMap {
 		account, err := c.GetAccount(&addr)
 		if err != nil {
-			c.log.Error("GetAccount failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			c.log.Error("GetAccount failed, error is "+err.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
 			return nil, nil, nil, err
 		}
 
 		blockHash, blockHashErr := c.chainDb.Ac.GetHashByHeight(account.AccountId, blockHeight)
 		if blockHashErr != nil {
-			c.log.Error("GetHashByHeight failed, error is "+blockHashErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			c.log.Error("GetHashByHeight failed, error is "+blockHashErr.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
 			return nil, nil, nil, err
 		}
 
 		if blockHash == nil {
-			continue
+			err := errors.New("blockHash is nil")
+			c.log.Error(err.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
+			return nil, nil, nil, err
 		}
 
 		blockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(blockHash)
 		if blockMetaErr != nil {
-			c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
 			return nil, nil, nil, err
 		}
 
 		if blockMeta == nil {
-			continue
+			err := errors.New("blockMeta is nil")
+			c.log.Error(err.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
+			return nil, nil, nil, err
 		}
 
 		if blockMeta.SnapshotHeight <= 0 {
 			block, blockErr := c.chainDb.Ac.GetBlockByHeight(account.AccountId, blockHeight)
 			if blockErr != nil {
-				c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+				c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
 				return nil, nil, nil, err
 			}
 			block.AccountAddress = account.AccountAddress
@@ -412,9 +419,8 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		if blockHeightItem, ok := blockHeightMap[addr]; ok {
 			if min > blockHeightItem {
 				continue
-			} else if max > blockHeightItem {
-				max = blockHeightItem
 			}
+			max = blockHeightItem
 		}
 
 		account, err := c.GetAccount(&addr)

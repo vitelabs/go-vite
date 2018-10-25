@@ -394,6 +394,49 @@ func newSnapshotBlock() (*ledger.SnapshotBlock, error) {
 
 	return snapshotBlock, err
 }
+func TestDeleteSnapshotBlocksToHeight4(t *testing.T) {
+	chainInstance := getChainInstance()
+	addr1, _, _ := types.CreateAddress()
+	addr2, _, _ := types.CreateAddress()
+
+	for i := 0; i < 5; i++ {
+		snapshotBlock, _ := newSnapshotBlock()
+		chainInstance.InsertSnapshotBlock(snapshotBlock)
+
+		snapshotBlock2, _ := newSnapshotBlock()
+		chainInstance.InsertSnapshotBlock(snapshotBlock2)
+
+		blocks, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addr1, &addr2)
+		chainInstance.InsertAccountBlocks(blocks)
+
+		blocks2, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addr1, &addr2)
+		chainInstance.InsertAccountBlocks(blocks2)
+
+		snapshotBlock3, _ := newSnapshotBlock()
+		chainInstance.InsertSnapshotBlock(snapshotBlock3)
+
+		blocks3, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addr1, &addr2)
+		chainInstance.InsertAccountBlocks(blocks3)
+
+		blocks4, _, _ := randomSendViteBlock(snapshotBlock2.Hash, &addr1, &addr2)
+		chainInstance.InsertAccountBlocks(blocks4)
+
+		blocks5, _, _ := randomSendViteBlock(snapshotBlock2.Hash, &addr1, &addr2)
+		chainInstance.InsertAccountBlocks(blocks5)
+
+		blocks6, _, _ := randomSendViteBlock(snapshotBlock2.Hash, &addr1, &addr2)
+		chainInstance.InsertAccountBlocks(blocks6)
+
+		chainInstance.DeleteSnapshotBlocksToHeight(snapshotBlock2.Height)
+
+		needContent := chainInstance.GetNeedSnapshotContent()
+		for addr, content := range needContent {
+			fmt.Printf("%s: %+v\n", addr.String(), content)
+		}
+		fmt.Println()
+	}
+
+}
 
 func TestDeleteSnapshotBlocksToHeight3(t *testing.T) {
 	chainInstance := getChainInstance()
