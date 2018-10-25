@@ -320,7 +320,7 @@ func (svr *Server) listenLoop() {
 				}
 
 				// critical error
-				break
+				return
 			}
 
 			common.Go(func() {
