@@ -90,11 +90,19 @@ func (c *chain) KafkaSender() *sender.KafkaSender {
 }
 func (c *chain) checkAndInitData() {
 	sb := c.genesisSnapshotBlock
-	dbSb, err := c.GetSnapshotBlockByHeight(1)
+	sb2 := SecondSnapshotBlock
 
-	if err != nil || dbSb == nil || sb.Hash != dbSb.Hash {
+	dbSb, err := c.GetSnapshotBlockByHeight(1)
+	dbSb2, err2 := c.GetSnapshotBlockByHeight(2)
+
+	if err != nil || dbSb == nil || sb.Hash != dbSb.Hash ||
+		err2 != nil || dbSb2 == nil || sb2.Hash != dbSb2.Hash {
 		if err != nil {
 			c.log.Error("GetSnapshotBlockByHeight failed, error is "+err.Error(), "method", "CheckAndInitDb")
+		}
+
+		if err2 != nil {
+			c.log.Error("GetSnapshotBlockByHeight(2) failed, error is "+err.Error(), "method", "CheckAndInitDb")
 		}
 
 		c.clearData()
