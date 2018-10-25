@@ -128,7 +128,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	// Delete needSnapshotCache
 	if c.needSnapshotCache != nil {
 		for addr, item := range snapshotBlock.SnapshotContent {
-			c.needSnapshotCache.Remove(&addr, item.Height)
+			c.needSnapshotCache.BeSnapshot(&addr, item.Height)
 		}
 	}
 
@@ -327,14 +327,14 @@ func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Add
 	return accountBlock, nil
 }
 
-func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Address][]*ledger.AccountBlock) (map[types.Address]*ledger.AccountBlock, map[types.Address]*ledger.AccountBlock, map[types.Address]uint64, error) {
+func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Address][]*ledger.AccountBlock) (map[types.Address]*ledger.AccountBlock, []types.Address, map[types.Address]uint64, error) {
 	needAddBlocks := make(map[types.Address]*ledger.AccountBlock)
-	needRemoveBlocks := make(map[types.Address]*ledger.AccountBlock)
+	var needRemoveAddr []types.Address
 
 	blockHeightMap := make(map[types.Address]uint64)
 	for addr, accountBlocks := range deleteSubLedger {
 		accountBlock := accountBlocks[0]
-		needRemoveBlocks[addr] = accountBlock
+		needRemoveAddr = append(needRemoveAddr, addr)
 
 		accountBlockHeight := accountBlock.Height
 		blockHeightMap[addr] = accountBlockHeight - 1
@@ -381,7 +381,7 @@ func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Ad
 			needAddBlocks[account.AccountAddress] = block
 		}
 	}
-	return needAddBlocks, needRemoveBlocks, blockHeightMap, nil
+	return needAddBlocks, needRemoveAddr, blockHeightMap, nil
 }
 
 // Contains to height
@@ -397,7 +397,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, nil, err
 	}
 
-	needAddBlocks, needRemoveBlocks, blockHeightMap, err := c.getNeedSnapshotMapByDeleteSubLedger(accountBlocksMap)
+	needAddBlocks, needRemoveAddr, blockHeightMap, err := c.getNeedSnapshotMapByDeleteSubLedger(accountBlocksMap)
 	if err != nil {
 		c.log.Error("getNeedSnapshotMapByDeleteSubLedger failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksToHeight")
 		return nil, nil, err
@@ -408,8 +408,12 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	for addr, changeRangeItem := range chainRangeSet {
 		min := changeRangeItem[0].Height
 		max := changeRangeItem[1].Height
-		if blockHeightItem, ok := blockHeightMap[addr]; ok && max > blockHeightItem {
-			max = blockHeightItem
+		if blockHeightItem, ok := blockHeightMap[addr]; ok {
+			if min > blockHeightItem {
+				continue
+			} else if max > blockHeightItem {
+				max = blockHeightItem
+			}
 		}
 
 		account, err := c.GetAccount(&addr)
@@ -419,6 +423,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		}
 
 		// Set block meta
+		var lastBlock *ledger.AccountBlock
 		for i := min; i <= max; i++ {
 			blockHash, blockHashErr := c.chainDb.Ac.GetHashByHeight(account.AccountId, i)
 			if blockHashErr != nil {
@@ -451,20 +456,24 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 					return nil, nil, err
 				}
 
-				if i == max {
-					block, blockErr := c.chainDb.Ac.GetBlockByHeight(account.AccountId, i)
-					if blockErr != nil {
-						c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
-						return nil, nil, err
-					}
-					block.AccountAddress = account.AccountAddress
-					if len(block.PublicKey) == 0 {
-						block.PublicKey = account.PublicKey
-					}
+			}
 
-					needAddBlocks[account.AccountAddress] = block
+			if i == max {
+				var blockErr error
+				lastBlock, blockErr = c.chainDb.Ac.GetBlockByHeight(account.AccountId, i)
+				if blockErr != nil {
+					c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+					return nil, nil, err
+				}
+				lastBlock.AccountAddress = account.AccountAddress
+				if len(lastBlock.PublicKey) == 0 {
+					lastBlock.PublicKey = account.PublicKey
 				}
 			}
+		}
+
+		if _, ok := needAddBlocks[account.AccountAddress]; !ok && lastBlock != nil {
+			needAddBlocks[account.AccountAddress] = lastBlock
 		}
 	}
 
@@ -512,8 +521,8 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	c.latestSnapshotBlock = prevSnapshotBlock
 
 	// Set needSnapshotCache, first remove
-	for addr, block := range needRemoveBlocks {
-		c.needSnapshotCache.Remove(&addr, block.Height)
+	for _, addr := range needRemoveAddr {
+		c.needSnapshotCache.Remove(&addr)
 	}
 
 	// Set needSnapshotCache, then add

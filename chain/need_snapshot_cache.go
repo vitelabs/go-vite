@@ -57,19 +57,37 @@ func (cache *NeedSnapshotCache) GetBlockByHash(addr *types.Address, hash types.H
 func (cache *NeedSnapshotCache) Set(addr *types.Address, accountBlock *ledger.AccountBlock) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
-	if cachedItem := cache.cacheMap[*addr]; cachedItem != nil && cachedItem.Height > accountBlock.Height {
+	if cachedItem := cache.cacheMap[*addr]; cachedItem != nil && cachedItem.Height >= accountBlock.Height {
+		cache.log.Crit("cachedItem.Height > accountBlock.Height", "method", "Set")
 		return
 	}
 
 	cache.cacheMap[*addr] = accountBlock
 }
 
-func (cache *NeedSnapshotCache) Remove(addr *types.Address, height uint64) {
+func (cache *NeedSnapshotCache) BeSnapshot(addr *types.Address, height uint64) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
-	if cachedItem := cache.cacheMap[*addr]; cachedItem != nil && cachedItem.Height < height {
-		return
+
+	cachedItem := cache.cacheMap[*addr]
+	if cachedItem == nil {
+		cache.log.Crit("cacheItem is nil", "method", "BeSnapshot")
 	}
 
-	delete(cache.cacheMap, *addr)
+	if cachedItem.Height < height {
+		cache.log.Crit("cacheItem.Height < height", "method", "BeSnapshot")
+	}
+
+	if cachedItem.Height == height {
+		delete(cache.cacheMap, *addr)
+	}
+}
+
+func (cache *NeedSnapshotCache) Remove(addr *types.Address) {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	if cachedItem := cache.cacheMap[*addr]; cachedItem != nil {
+		delete(cache.cacheMap, *addr)
+	}
 }
