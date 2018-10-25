@@ -204,8 +204,13 @@ func (ab *AccountBlock) proto() *vitepb.AccountBlock {
 	if ab.LogHash != nil {
 		pb.LogHash = ab.LogHash.Bytes()
 	}
+
 	if ab.Difficulty != nil {
 		pb.Difficulty = ab.Difficulty.Bytes()
+		// Difficulty is big.NewInt(0)
+		if len(pb.Difficulty) <= 0 {
+			pb.Difficulty = []byte{0}
+		}
 	}
 	pb.Nonce = ab.Nonce
 	pb.Signature = ab.Signature
@@ -271,7 +276,6 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) {
 		ab.LogHash = &logHash
 	}
 
-	ab.Difficulty = big.NewInt(0)
 	if len(pb.Difficulty) > 0 {
 		ab.Difficulty.SetBytes(pb.Difficulty)
 	}
