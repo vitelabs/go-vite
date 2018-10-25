@@ -398,7 +398,6 @@ func newSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	return snapshotBlock, err
 }
 func TestDeleteSnapshotBlocksToHeight4(t *testing.T) {
-
 	log15.Root().SetHandler(
 		log15.LvlFilterHandler(log15.LvlError, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),
 	)
@@ -410,47 +409,39 @@ func TestDeleteSnapshotBlocksToHeight4(t *testing.T) {
 	snapshotBlock, _ := newSnapshotBlock()
 	chainInstance.InsertSnapshotBlock(snapshotBlock)
 
-	for i := 0; i < 6; i++ {
+	for i := 0; i < 2; i++ {
 		blocks, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addr1, &addr2)
 		chainInstance.InsertAccountBlocks(blocks)
-
-		receiveBlock, _ := newReceiveBlock(snapshotBlock.Hash, addr2, blocks[0].AccountBlock.Hash)
-		chainInstance.InsertAccountBlocks(receiveBlock)
-
 	}
 
 	snapshotBlock2, _ := newSnapshotBlock()
 	chainInstance.InsertSnapshotBlock(snapshotBlock2)
 
 	for i := 0; i < 6; i++ {
-		blocks, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addr1, &addr2)
-		chainInstance.InsertAccountBlocks(blocks)
-		snapshotBlock3, _ := newSnapshotBlock()
-		chainInstance.InsertSnapshotBlock(snapshotBlock3)
-	}
-
-	for i := 0; i < 2; i++ {
 		blocks, _, _ := randomSendViteBlock(snapshotBlock2.Hash, &addr1, &addr2)
 		chainInstance.InsertAccountBlocks(blocks)
-		receiveBlock, _ := newReceiveBlock(snapshotBlock2.Hash, addr2, blocks[0].AccountBlock.Hash)
-		chainInstance.InsertAccountBlocks(receiveBlock)
 	}
 
 	needContent := chainInstance.GetNeedSnapshotContent()
-
-	fmt.Println(1)
-	for addr, content := range needContent {
-		fmt.Printf("%s: %+v\n", addr.String(), content)
+	if len(needContent) != 1 {
+		t.Error("error!!!")
+	}
+	for _, content := range needContent {
+		if content.Height != 8 {
+			t.Error("error!!!")
+		}
 	}
 
-	snapshotBlock4, _ := newSnapshotBlock()
-	chainInstance.InsertSnapshotBlock(snapshotBlock4)
-
 	chainInstance.DeleteSnapshotBlocksToHeight(snapshotBlock2.Height)
+
 	needContent2 := chainInstance.GetNeedSnapshotContent()
-	fmt.Println(2)
-	for addr, content := range needContent2 {
-		fmt.Printf("%s: %+v\n", addr.String(), content)
+	if len(needContent2) != 1 {
+		t.Error("error!!!")
+	}
+	for _, content := range needContent2 {
+		if content.Height != 2 {
+			t.Error("error!!!")
+		}
 	}
 	fmt.Println()
 }
