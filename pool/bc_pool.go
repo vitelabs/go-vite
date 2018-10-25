@@ -426,10 +426,6 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 
 	// from small to big
 	sort.Sort(ByHeight(blocks))
-	err := self.checkChain(blocks)
-	if err != nil {
-		return err
-	}
 
 	head := self.chainpool.diskChain.Head()
 	h := len(blocks) - 1
@@ -444,6 +440,10 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 	}
 	for i := h; i >= 0; i-- {
 		self.chainpool.current.addTail(blocks[i])
+	}
+	err := self.checkChain(blocks)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -703,6 +703,11 @@ func (self *BCPool) loopAppendChains() int {
 			}
 			continue
 		}
+	}
+	dels := self.chainpool.clearUselessChain()
+	for _, c := range dels {
+		self.log.Debug("del useless chain", "info", fmt.Sprintf("%+v", c.id()))
+		i++
 	}
 	return i
 }

@@ -525,6 +525,22 @@ func (self *chainPool) allChain() []*forkedChain {
 	defer self.chainMu.Unlock()
 	return copyChains(self.chains)
 }
+func (self *chainPool) clearUselessChain() []*forkedChain {
+	self.chainMu.Lock()
+	defer self.chainMu.Unlock()
+
+	var r []*forkedChain
+	for id, c := range self.chains {
+		if id == self.current.id() {
+			continue
+		}
+		if c.size() == 0 {
+			delete(self.chains, id)
+			r = append(r, c)
+		}
+	}
+	return r
+}
 func (self *chainPool) delChain(id string) {
 	self.chainMu.Lock()
 	defer self.chainMu.Unlock()
