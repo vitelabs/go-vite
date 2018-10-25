@@ -2,11 +2,16 @@ package message
 
 import (
 	crand "crypto/rand"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"math/big"
 	mrand "math/rand"
 	"testing"
+	"time"
 )
 
-func MockGetAccountBlocks() GetAccountBlocks {
+// GetAccountBlocks
+func mockGetAccountBlocks() GetAccountBlocks {
 	var ga GetAccountBlocks
 
 	ga.From.Height = mrand.Uint64()
@@ -45,7 +50,7 @@ func equalGetAccountBlocks(g, g2 GetAccountBlocks) bool {
 }
 
 func TestGetAccountBlocks_Serialize(t *testing.T) {
-	ga := MockGetAccountBlocks()
+	ga := mockGetAccountBlocks()
 
 	buf, err := ga.Serialize()
 	if err != nil {
@@ -63,7 +68,7 @@ func TestGetAccountBlocks_Serialize(t *testing.T) {
 	}
 }
 
-func MockGetSnapshotBlocks() GetSnapshotBlocks {
+func mockGetSnapshotBlocks() GetSnapshotBlocks {
 	var ga GetSnapshotBlocks
 
 	ga.From.Height = mrand.Uint64()
@@ -96,7 +101,7 @@ func equalGetSnapshotBlocks(g, g2 GetSnapshotBlocks) bool {
 }
 
 func TestGetSnapshotBlocks_Deserialize(t *testing.T) {
-	gs := MockGetSnapshotBlocks()
+	gs := mockGetSnapshotBlocks()
 
 	buf, err := gs.Serialize()
 	if err != nil {
@@ -110,6 +115,69 @@ func TestGetSnapshotBlocks_Deserialize(t *testing.T) {
 	}
 
 	if !equalGetSnapshotBlocks(gs, g) {
+		t.Fail()
+	}
+}
+
+// AccountBlocks
+func mockAccountBlocks() AccountBlocks {
+	var ga AccountBlocks
+
+	n := mrand.Intn(100)
+	ga.Blocks = make([]*ledger.AccountBlock, n)
+
+	for i := 0; i < n; i++ {
+		ga.Blocks[i] = &ledger.AccountBlock{
+			Meta:           &ledger.AccountBlockMeta{},
+			BlockType:      0,
+			Hash:           types.Hash{},
+			Height:         0,
+			PrevHash:       types.Hash{},
+			AccountAddress: types.Address{},
+			PublicKey:      nil,
+			ToAddress:      types.Address{},
+			FromBlockHash:  types.Hash{},
+			Amount:         new(big.Int),
+			TokenId:        types.TokenTypeId{},
+			Quota:          0,
+			Fee:            new(big.Int),
+			SnapshotHash:   types.Hash{},
+			Data:           nil,
+			Timestamp:      &time.Time{},
+			StateHash:      types.Hash{},
+			LogHash:        nil,
+			Difficulty:     nil,
+			Nonce:          nil,
+			Signature:      nil,
+		}
+	}
+
+	return ga
+}
+
+func equalAccountBlocks(g, g2 AccountBlocks) bool {
+	if len(g.Blocks) != len(g2.Blocks) {
+		return false
+	}
+
+	return true
+}
+
+func TestAccountBlocks_Deserialize(t *testing.T) {
+	gs := mockAccountBlocks()
+
+	buf, err := gs.Serialize()
+	if err != nil {
+		t.Error(err)
+	}
+
+	var g AccountBlocks
+	err = g.Deserialize(buf)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !equalAccountBlocks(gs, g) {
 		t.Fail()
 	}
 }
