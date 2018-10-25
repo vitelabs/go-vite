@@ -153,15 +153,15 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		return
 	}
 
-	gen, err := generator.NewGenerator(tp.worker.manager.Chain(), &tp.accEvent().SnapshotHash, nil, &sBlock.ToAddress)
+	consensusMessage, err := tp.packConsensusMessage(sBlock)
 	if err != nil {
-		plog.Error("NewGenerator failed", "error", err)
-		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
 
-	consensusMessage, err := tp.packConsensusMessage(sBlock)
+	gen, err := generator.NewGenerator(tp.worker.manager.Chain(), &consensusMessage.SnapshotHash, nil, &sBlock.ToAddress)
 	if err != nil {
+		plog.Error("NewGenerator failed", "error", err)
+		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
 
@@ -247,7 +247,15 @@ func (tp *ContractTaskProcessor) packConsensusMessage(sendBlock *ledger.AccountB
 	}
 
 	if genSnapshotBlock.Height < sendSnapshotBlock.Height {
-		return nil, errors.New("genSnapshotBlock's Height can't lower than sendSnapshotBlock's")
+		latestSb := tp.worker.manager.chain.GetLatestSnapshotBlock()
+		if latestSb == nil {
+			return nil, errors.New("latestSnapshotBlock is nil")
+		}
+		if latestSb.Height < sendSnapshotBlock.Height {
+			return nil, errors.New("latestSnapshotBlock's Height is lower than sendSnapshotBlock's")
+		} else {
+			consensusMessage.SnapshotHash = latestSb.Hash
+		}
 	}
 	return consensusMessage, nil
 }

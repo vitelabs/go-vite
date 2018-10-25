@@ -297,6 +297,17 @@ func TestCalcQuotaV2(t *testing.T) {
 		t.Fatalf("calc quota error, genesis account block without PoW, pledge amount reaches no quota limit")
 	}
 
+	// genesis account block with PoW, pledge amount reaches quota limit
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, maxPledgeAmount, nil)
+	if quotaTotal != quotaLimit || quotaAddition != uint64(0) {
+		t.Fatalf("calc quota error, genesis account block with PoW, pledge amount reaches quota limit")
+	}
+	// genesis account block without PoW, pledge amount reaches no quota limit
+	quotaTotal, quotaAddition = quota.CalcQuota(db, addr1, minPledgeAmount, nil)
+	if quotaTotal != quotaForTx || quotaAddition != uint64(0) {
+		t.Fatalf("calc quota error, genesis account block without PoW, pledge amount reaches no quota limit")
+	}
+
 	blockTime := time.Now()
 
 	// prepare db

@@ -25,7 +25,7 @@ type VMConfig struct {
 
 type NodeConfig struct {
 	IsTest    bool
-	calcQuota func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, pow bool) (quotaTotal uint64, quotaAddition uint64)
+	calcQuota func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64)
 	params    VmParams
 }
 
@@ -35,15 +35,15 @@ func InitVmConfig(isTest bool, isTestParam bool) {
 	if isTest {
 		nodeConfig = NodeConfig{
 			IsTest: isTest,
-			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, pow bool) (quotaTotal uint64, quotaAddition uint64) {
+			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64) {
 				return 1000000, 0
 			},
 		}
 	} else {
 		nodeConfig = NodeConfig{
 			IsTest: isTest,
-			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, pow bool) (quotaTotal uint64, quotaAddition uint64) {
-				return quota.CalcQuota(db, addr, pledgeAmount, pow)
+			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64) {
+				return quota.CalcQuota(db, addr, pledgeAmount, difficulty)
 			},
 		}
 	}
@@ -85,7 +85,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 			database,
 			block.AccountAddress,
 			contracts.GetPledgeBeneficialAmount(database, block.AccountAddress),
-			quota.IsPoW(block.Nonce))
+			block.Difficulty)
 		blockContext, err = vm.sendCreate(blockContext, quotaTotal, quotaAddition)
 		if err != nil {
 			return nil, NoRetry, err
@@ -97,7 +97,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 			database,
 			block.AccountAddress,
 			contracts.GetPledgeBeneficialAmount(database, block.AccountAddress),
-			quota.IsPoW(block.Nonce))
+			block.Difficulty)
 		blockContext, err = vm.sendCall(blockContext, quotaTotal, quotaAddition)
 		if err != nil {
 			return nil, NoRetry, err
@@ -277,7 +277,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 			block.VmContext,
 			block.AccountBlock.AccountAddress,
 			contracts.GetPledgeBeneficialAmount(block.VmContext, block.AccountBlock.AccountAddress),
-			quota.IsPoW(block.AccountBlock.Nonce))
+			block.AccountBlock.Difficulty)
 		quotaLeft := quotaTotal
 		quotaRefund := uint64(0)
 		cost, err := util.IntrinsicGasCost(nil, false)
