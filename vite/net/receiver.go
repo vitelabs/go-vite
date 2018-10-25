@@ -61,7 +61,8 @@ func (s *receiver) Handle(msg *p2p.Msg, sender Peer) error {
 
 		s.ReceiveNewSnapshotBlock(block)
 
-		s.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.RemoteAddr()))
+		s.log.Debug(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.RemoteAddr()))
+
 	case NewAccountBlockCode:
 		block := new(ledger.AccountBlock)
 		err := block.Deserialize(msg.Payload)
@@ -73,7 +74,8 @@ func (s *receiver) Handle(msg *p2p.Msg, sender Peer) error {
 
 		s.ReceiveNewAccountBlock(block)
 
-		s.log.Info(fmt.Sprintf("receive new accountblock %s/%d@%s from %s", block.Hash, block.Height, block.AccountAddress, sender.RemoteAddr()))
+		s.log.Debug(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender.RemoteAddr()))
+
 	case SnapshotBlocksCode:
 		bs := new(message.SnapshotBlocks)
 		err := bs.Deserialize(msg.Payload)
@@ -110,6 +112,7 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 	monitor.LogEvent("net/receive", "NewSnapshotBlock_Event")
 
 	if s.filter.has(block.Hash) {
+		s.log.Debug(fmt.Sprintf("has NewSnapshotBlock %s/%d", block.Hash, block.Height))
 		return
 	}
 
@@ -117,7 +120,7 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 		verify_b := time.Now()
 		if err := s.verifier.VerifyNetSb(block); err != nil {
 			monitor.LogDuration("net/verifier", "SnapshotBlock", time.Now().Sub(verify_b).Nanoseconds())
-			s.log.Error(fmt.Sprintf("verify new snapshotblock %s/%d fail: %v", block.Hash, block.Height, err))
+			s.log.Error(fmt.Sprintf("verify NewSnapshotBlock %s/%d fail: %v", block.Hash, block.Height, err))
 			return
 		}
 		monitor.LogDuration("net/verifier", "SnapshotBlock", time.Now().Sub(verify_b).Nanoseconds())
@@ -128,12 +131,12 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 
 	if atomic.LoadInt32(&s.ready) == 0 {
 		s.newSBlocks = append(s.newSBlocks, block)
-		s.log.Warn(fmt.Sprintf("not ready, store new snapshotblock %s, total %d", block.Hash, len(s.newSBlocks)))
+		s.log.Debug(fmt.Sprintf("not ready, store NewSnapshotBlock %s/%d, total %d", block.Hash, block.Height, len(s.newSBlocks)))
 	} else {
 		notify_b := time.Now()
 		s.sFeed.Notify(block)
 		monitor.LogDuration("net/notify", "NewSnapshotBlock", time.Now().Sub(notify_b).Nanoseconds())
-		s.log.Info(fmt.Sprintf("notify new snapshotblock %s done", block.Hash))
+		s.log.Debug(fmt.Sprintf("notify NewSnapshotBlock %s/%d done", block.Hash, block.Height))
 	}
 
 	s.broadcaster.BroadcastSnapshotBlock(block)
@@ -148,6 +151,7 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 	monitor.LogEvent("net/receive", "NewAccountBlock_Event")
 
 	if s.filter.has(block.Hash) {
+		s.log.Debug(fmt.Sprintf("has NewAccountBlock %s", block.Hash))
 		return
 	}
 
@@ -155,7 +159,7 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 		verify_b := time.Now()
 		if err := s.verifier.VerifyNetAb(block); err != nil {
 			monitor.LogDuration("net/verifier", "AccountBlock", time.Now().Sub(verify_b).Nanoseconds())
-			s.log.Error(fmt.Sprintf("verify new accountblock %s/%d fail: %v", block.Hash, block.Height, err))
+			s.log.Error(fmt.Sprintf("verify NewAccountBlock %s fail: %v", block.Hash, err))
 			return
 		}
 		monitor.LogDuration("net/verifier", "AccountBlock", time.Now().Sub(verify_b).Nanoseconds())
@@ -166,12 +170,12 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 
 	if atomic.LoadInt32(&s.ready) == 0 {
 		s.newABlocks = append(s.newABlocks, block)
-		s.log.Warn(fmt.Sprintf("not ready, store new accountblock %s, total %d", block.Hash, len(s.newABlocks)))
+		s.log.Warn(fmt.Sprintf("not ready, store NewAccountBlock %s, total %d", block.Hash, len(s.newABlocks)))
 	} else {
 		notify_b := time.Now()
 		s.aFeed.Notify(block)
 		monitor.LogDuration("net/notify", "NewAccountBlock", time.Now().Sub(notify_b).Nanoseconds())
-		s.log.Info(fmt.Sprintf("notify new accountblock %s done", block.Hash))
+		s.log.Debug(fmt.Sprintf("notify NewAccountBlock %s done", block.Hash))
 	}
 
 	s.broadcaster.BroadcastAccountBlock(block)
@@ -186,6 +190,7 @@ func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) {
 	monitor.LogEvent("net/receive", "SnapshotBlock_Event")
 
 	if s.filter.has(block.Hash) {
+		s.log.Debug(fmt.Sprintf("has SnapshotBlock %s/%d", block.Hash, block.Height))
 		return
 	}
 
@@ -193,7 +198,7 @@ func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) {
 		verify_b := time.Now()
 		if err := s.verifier.VerifyNetSb(block); err != nil {
 			monitor.LogDuration("net/verifier", "SnapshotBlock", time.Now().Sub(verify_b).Nanoseconds())
-			s.log.Error(fmt.Sprintf("verify snapshotblock %s/%d fail: %v", block.Hash, block.Height, err))
+			s.log.Error(fmt.Sprintf("verify SnapshotBlock %s/%d fail: %v", block.Hash, block.Height, err))
 			return
 		}
 		monitor.LogDuration("net/verifier", "SnapshotBlock", time.Now().Sub(verify_b).Nanoseconds())
@@ -204,6 +209,7 @@ func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) {
 	notify_b := time.Now()
 	s.sFeed.Notify(block)
 	monitor.LogDuration("net/notify", "SnapshotBlock", time.Now().Sub(notify_b).Nanoseconds())
+	s.log.Debug(fmt.Sprintf("notify SnapshotBlock %s/%d done", block.Hash, block.Height))
 }
 
 func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) {
@@ -215,6 +221,7 @@ func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) {
 	monitor.LogEvent("net/receive", "AccountBlock_Event")
 
 	if s.filter.has(block.Hash) {
+		s.log.Debug(fmt.Sprintf("has AccountBlock %s", block.Hash))
 		return
 	}
 
@@ -222,7 +229,7 @@ func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) {
 		verify_b := time.Now()
 		if err := s.verifier.VerifyNetAb(block); err != nil {
 			monitor.LogDuration("net/verifier", "AccountBlock", time.Now().Sub(verify_b).Nanoseconds())
-			s.log.Error(fmt.Sprintf("verify accountblock %s/%d fail: %v", block.Hash, block.Height, err))
+			s.log.Error(fmt.Sprintf("verify AccountBlock %s fail: %v", block.Hash, err))
 			return
 		}
 		monitor.LogDuration("net/verifier", "AccountBlock", time.Now().Sub(verify_b).Nanoseconds())
@@ -233,6 +240,7 @@ func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) {
 	notify_b := time.Now()
 	s.aFeed.Notify(block)
 	monitor.LogDuration("net/notify", "AccountBlock", time.Now().Sub(notify_b).Nanoseconds())
+	s.log.Debug(fmt.Sprintf("notify AccountBlock %s done", block.Hash))
 }
 
 func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {

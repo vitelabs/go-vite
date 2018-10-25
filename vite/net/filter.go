@@ -13,6 +13,8 @@ const maxMark = 5
 
 var timeThreshold = 5 * time.Second
 
+var logFilter = log15.New("module", "net/filter")
+
 // use to filter redundant fetch
 
 type Filter interface {
@@ -53,16 +55,16 @@ type filter struct {
 func newFilter() *filter {
 	return &filter{
 		records: make(map[types.Hash]*record, 10000),
-		log:     log15.New("module", "net/filter"),
+		log:     logFilter,
 	}
 }
 
 // will suppress fetch
 func (f *filter) hold(hash types.Hash) bool {
+	defer monitor.LogTime("net/filter", "hold", time.Now())
+
 	f.lock.Lock()
 	defer f.lock.Unlock()
-
-	defer monitor.LogTime("net/filter", "hold", time.Now())
 
 	if r, ok := f.records[hash]; ok {
 		if r._done {
@@ -87,10 +89,10 @@ func (f *filter) hold(hash types.Hash) bool {
 }
 
 func (f *filter) done(hash types.Hash) {
+	defer monitor.LogTime("net/filter", "done", time.Now())
+
 	f.lock.Lock()
 	defer f.lock.Unlock()
-
-	defer monitor.LogTime("net/filter", "done", time.Now())
 
 	if r, ok := f.records[hash]; ok {
 		r.done()
@@ -101,10 +103,10 @@ func (f *filter) done(hash types.Hash) {
 }
 
 func (f *filter) has(hash types.Hash) bool {
+	defer monitor.LogTime("net/filter", "has", time.Now())
+
 	f.lock.RLock()
 	defer f.lock.RUnlock()
-
-	defer monitor.LogTime("net/filter", "has", time.Now())
 
 	r, ok := f.records[hash]
 	return ok && r._done

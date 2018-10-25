@@ -120,7 +120,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 				return
 			}
 
-			s.log.Info(fmt.Sprintf("receive %s from %s", req, conn.RemoteAddr()))
+			s.log.Debug(fmt.Sprintf("receive %s from %s", req, conn.RemoteAddr()))
 
 			// send files
 			var n int64
@@ -131,7 +131,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 					s.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", filename, conn.RemoteAddr(), err))
 					return
 				} else {
-					s.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", filename, n, conn.RemoteAddr()))
+					s.log.Debug(fmt.Sprintf("send file<%s> %d bytes to %s done", filename, n, conn.RemoteAddr()))
 				}
 			}
 		}
@@ -276,6 +276,7 @@ loop:
 			for _, ctx := range fc.conns {
 				if ctx.idle && t.Sub(ctx.idleT) > idleTimeout {
 					delCtx(ctx)
+					fc.log.Warn(fmt.Sprintf("delete idle connection %s", ctx.addr))
 				}
 			}
 		}
@@ -297,8 +298,6 @@ loop:
 }
 
 func (fc *fileClient) exe(ctx *connContext) {
-	//defer fc.wg.Done()
-
 	ctx.idle = false
 
 	req := ctx.req
@@ -325,7 +324,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 		return
 	}
 
-	fc.log.Info(fmt.Sprintf("send %s to %s done", getFiles, ctx.addr))
+	fc.log.Debug(fmt.Sprintf("send %s to %s done", getFiles, ctx.addr))
 
 	sCount, aCount, err := fc.readBlocks(ctx)
 	if err != nil {
@@ -333,7 +332,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 		fc.delConn <- &delCtxEvent{ctx, err}
 		ctx.req.Catch(err)
 	} else {
-		fc.log.Info(fmt.Sprintf("read %d SnapshotBlocks %d AccountBlocks from %s", sCount, aCount, ctx.addr))
+		fc.log.Debug(fmt.Sprintf("read %d SnapshotBlocks %d AccountBlocks from %s", sCount, aCount, ctx.addr))
 		fc.idle <- ctx
 	}
 }

@@ -221,7 +221,7 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer Peer) {
 		}
 
 		s.Done(ctx)
-		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
+		netLog.Debug(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
 
 		if len(msg.Files) != 0 {
 			// sort as StartHeight
@@ -297,7 +297,7 @@ func (s *subLedgerRequest) Run(ctx context) {
 		ctx.Retry(s.id, err)
 	} else {
 		s.state = reqPending
-		netLog.Info(fmt.Sprintf("send %s to %s done", msg, s.peer.RemoteAddr()))
+		netLog.Debug(fmt.Sprintf("send %s to %s done", msg, s.peer.RemoteAddr()))
 	}
 }
 
@@ -420,7 +420,7 @@ func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer Peer) {
 
 		c.Done(ctx)
 
-		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
+		netLog.Debug(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
 
 		// receive account blocks first
 		for _, block := range msg.ABlocks {
@@ -455,7 +455,7 @@ func (c *chunkRequest) Run(ctx context) {
 		ctx.Retry(c.id, err)
 	} else {
 		c.state = reqPending
-		netLog.Info(fmt.Sprintf("send %s to %s done", chunk, c.peer.RemoteAddr()))
+		netLog.Debug(fmt.Sprintf("send %s to %s done", chunk, c.peer.RemoteAddr()))
 	}
 }
 
