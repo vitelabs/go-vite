@@ -128,7 +128,6 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 
 type Transport interface {
 	MsgReadWriter
-	Stop()
 	Close()
 	Handshake(our *Handshake) (their *Handshake, err error)
 }

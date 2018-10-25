@@ -58,7 +58,7 @@ type Server struct {
 	wg        sync.WaitGroup // Wait for all jobs done
 	term      chan struct{}
 	pending   chan struct{} // how many connection can wait for handshake
-	addPeer   chan *conn
+	addPeer   chan *transport
 	delPeer   chan *Peer
 	discv     Discovery
 	handshake *Handshake
@@ -101,7 +101,7 @@ func New(cfg *Config) (svr *Server, err error) {
 		StaticNodes: parseNodes(cfg.StaticNodes),
 		peers:       NewPeerSet(),
 		pending:     make(chan struct{}, cfg.MaxPendingPeers),
-		addPeer:     make(chan *conn, 1),
+		addPeer:     make(chan *transport, 1),
 		delPeer:     make(chan *Peer, 1),
 		blockList:   block.New(100),
 		self:        node,
@@ -233,9 +233,7 @@ func (svr *Server) setHandshake() {
 	}
 
 	svr.handshake = &Handshake{
-		Version: Version,
 		Name:    svr.Name,
-		NetID:   svr.NetID,
 		ID:      svr.self.ID,
 		CmdSets: cmdsets,
 		Port:    uint16(svr.Port),
@@ -334,17 +332,15 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 		return
 	}
 
-	// choose the lower version
-	version := Version
 	if head.Version < Version {
-		version = head.Version
+		c.Close()
+		svr.log.Warn(fmt.Sprintf("different Version %s: our %s, their %s", c.RemoteAddr(), Version, head.Version))
+		return
 	}
 
-	// construct transport according to version
-
-	ts := &conn{
-		AsyncMsgConn: NewAsyncMsgConn(c),
-		flags:        flag,
+	ts := &transport{
+		Conn:  c,
+		flags: flag,
 	}
 
 	// handshake data, add remoteIP and remotePort

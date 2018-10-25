@@ -47,7 +47,7 @@ type net struct {
 	wg        sync.WaitGroup
 	fs        *fileServer
 	fc        *fileClient
-	handlers  map[cmd]MsgHandler
+	handlers  map[ViteCmd]MsgHandler
 	topo      *topo.Topology
 }
 
@@ -85,7 +85,7 @@ func New(cfg *Config) Net {
 		receiver:    receiver,
 		fs:          newFileServer(cfg.Port, cfg.Chain),
 		fc:          fc,
-		handlers:    make(map[cmd]MsgHandler),
+		handlers:    make(map[ViteCmd]MsgHandler),
 		log:         netLog,
 		pool:        pool,
 	}
@@ -99,7 +99,7 @@ func New(cfg *Config) Net {
 	n.addHandler(receiver) // NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode
 
 	n.protocols = append(n.protocols, &p2p.Protocol{
-		Name: CmdSetName,
+		Name: Vite,
 		ID:   CmdSet,
 		Handle: func(p *p2p.Peer, rw *p2p.ProtoFrame) error {
 			// will be called by p2p.Peer.runProtocols use goroutine
@@ -243,7 +243,7 @@ func (n *net) handleMsg(p *Peer) (err error) {
 		return
 	}
 
-	code := cmd(msg.Cmd)
+	code := ViteCmd(msg.Cmd)
 
 	if handler, ok := n.handlers[code]; ok && handler != nil {
 		n.log.Info(fmt.Sprintf("begin handle message %s from %s", code, p))

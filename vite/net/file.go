@@ -104,7 +104,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 				return
 			}
 
-			code := cmd(msg.Cmd)
+			code := ViteCmd(msg.Cmd)
 			if code != GetFilesCode {
 				s.log.Error(fmt.Sprintf("got %d, need %d", code, GetFilesCode))
 				return
@@ -304,7 +304,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 	}
 
 	getFiles := &message.GetFiles{filenames, req.nonce}
-	msg, err := p2p.PackMsg(CmdSet, uint32(GetFilesCode), 0, getFiles)
+	msg, err := p2p.PackMsg(CmdSet, p2p.Cmd(GetFilesCode), 0, getFiles)
 
 	if err != nil {
 		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", getFiles, ctx.addr, err))

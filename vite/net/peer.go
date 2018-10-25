@@ -29,14 +29,14 @@ type Peer struct {
 	head        types.Hash // hash of the top snapshotblock in snapshotchain
 	height      uint64     // height of the snapshotchain
 	filePort    uint16     // fileServer port, for request file
-	CmdSet      uint64     // which cmdSet it belongs
+	CmdSet      p2p.CmdSet // which cmdSet it belongs
 	KnownBlocks *cuckoofilter.CuckooFilter
 	log         log15.Logger
 	errch       chan error
-	msgHandled  map[cmd]uint64 // message statistic
+	msgHandled  map[ViteCmd]uint64 // message statistic
 }
 
-func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet uint64) *Peer {
+func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *Peer {
 	return &Peer{
 		Peer:        p,
 		mrw:         mrw,
@@ -45,7 +45,7 @@ func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet uint64) *Peer {
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
 		errch:       make(chan error),
-		msgHandled:  make(map[cmd]uint64),
+		msgHandled:  make(map[ViteCmd]uint64),
 	}
 }
 
@@ -95,7 +95,7 @@ func (p *Peer) ReadHandshake() (their *message.HandShake, err error) {
 		return
 	}
 
-	if msg.Cmd != uint32(HandshakeCode) {
+	if msg.Cmd != p2p.Cmd(HandshakeCode) {
 		err = fmt.Errorf("should be HandshakeCode %d, got %d\n", HandshakeCode, msg.Cmd)
 		return
 	}
@@ -192,10 +192,10 @@ func (p *Peer) SendNewAccountBlock(b *ledger.AccountBlock) (err error) {
 	return
 }
 
-func (p *Peer) Send(code cmd, msgId uint64, payload p2p.Serializable) (err error) {
+func (p *Peer) Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error) {
 	var msg *p2p.Msg
 
-	if msg, err = p2p.PackMsg(p.CmdSet, uint32(code), msgId, payload); err != nil {
+	if msg, err = p2p.PackMsg(p.CmdSet, p2p.Cmd(code), msgId, payload); err != nil {
 		p.log.Error(fmt.Sprintf("pack message %s to %s error: %v", code, p, err))
 		return err
 	} else if err = p.mrw.WriteMsg(msg); err != nil {
@@ -236,19 +236,19 @@ func (p *Peer) Info() *PeerInfo {
 
 	sendMap := make(map[string]uint64, len(p.mrw.Send))
 	for code, num := range p.mrw.Send {
-		sendMap[cmd(code).String()] = num
+		sendMap[ViteCmd(code).String()] = num
 		send += num
 	}
 
 	recMap := make(map[string]uint64, len(p.mrw.Received))
 	for code, num := range p.mrw.Received {
-		recMap[cmd(code).String()] = num
+		recMap[ViteCmd(code).String()] = num
 		received += num
 	}
 
 	discMap := make(map[string]uint64, len(p.mrw.Discarded))
 	for code, num := range p.mrw.Discarded {
-		discMap[cmd(code).String()] = num
+		discMap[ViteCmd(code).String()] = num
 		discard += num
 	}
 

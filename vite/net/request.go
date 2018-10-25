@@ -209,7 +209,7 @@ func (s *subLedgerRequest) State() reqState {
 func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 	defer monitor.LogTime("net", "handle_FileListMsg", time.Now())
 
-	if cmd(pkt.Cmd) == FileListCode {
+	if ViteCmd(pkt.Cmd) == FileListCode {
 		s.state = reqRespond
 
 		msg := new(message.FileList)
@@ -407,7 +407,7 @@ func (c *chunkRequest) State() reqState {
 func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer *Peer) {
 	defer monitor.LogTime("net", "handle_SubLedgerMsg", time.Now())
 
-	if cmd(pkt.Cmd) == SubLedgerCode {
+	if ViteCmd(pkt.Cmd) == SubLedgerCode {
 		c.state = reqRespond
 
 		msg := new(message.SubLedger)

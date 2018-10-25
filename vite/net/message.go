@@ -12,22 +12,17 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-//var errHandshakeTwice = errors.New("handshake should send only once")
-
 var subledgerTimeout = 10 * time.Second
 
-//var accountBlocksTimeout = 30 * time.Second
-//var snapshotBlocksTimeout = time.Minute
-
 // @section Cmd
-const CmdSetName = "vite"
+const Vite = "vite"
 
 const CmdSet = 2
 
-type cmd uint32
+type ViteCmd p2p.Cmd
 
 const (
-	HandshakeCode cmd = iota
+	HandshakeCode ViteCmd = iota
 	StatusCode
 	ForkCode // tell peer it has forked, use for respond GetSnapshotBlocksCode
 	GetSubLedgerCode
@@ -80,7 +75,7 @@ var msgNames = [...]string{
 	NewAccountBlockCode:                "NewAccountBlockMsg",
 }
 
-func (t cmd) String() string {
+func (t ViteCmd) String() string {
 	if t == ExceptionCode {
 		return "ExceptionMsg"
 	}
@@ -94,7 +89,7 @@ func (t cmd) String() string {
 
 type MsgHandler interface {
 	ID() string
-	Cmds() []cmd
+	Cmds() []ViteCmd
 	Handle(msg *p2p.Msg, sender *Peer) error
 }
 
@@ -118,8 +113,8 @@ func (s _statusHandler) ID() string {
 	return "status handler"
 }
 
-func (s _statusHandler) Cmds() []cmd {
-	return []cmd{StatusCode}
+func (s _statusHandler) Cmds() []ViteCmd {
+	return []ViteCmd{StatusCode}
 }
 
 func (s _statusHandler) Handle(msg *p2p.Msg, sender *Peer) error {
@@ -135,8 +130,8 @@ func (s *getSubLedgerHandler) ID() string {
 	return "GetSubLedger Handler"
 }
 
-func (s *getSubLedgerHandler) Cmds() []cmd {
-	return []cmd{GetSubLedgerCode}
+func (s *getSubLedgerHandler) Cmds() []ViteCmd {
+	return []ViteCmd{GetSubLedgerCode}
 }
 
 func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
@@ -188,8 +183,8 @@ func (s *getSnapshotBlocksHandler) ID() string {
 	return "GetSnapshotBlocks"
 }
 
-func (s *getSnapshotBlocksHandler) Cmds() []cmd {
-	return []cmd{GetSnapshotBlocksCode}
+func (s *getSnapshotBlocksHandler) Cmds() []ViteCmd {
+	return []ViteCmd{GetSnapshotBlocksCode}
 }
 
 func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {
@@ -258,8 +253,8 @@ func (a *getAccountBlocksHandler) ID() string {
 	return "GetAccountBlocks Handler"
 }
 
-func (a *getAccountBlocksHandler) Cmds() []cmd {
-	return []cmd{GetAccountBlocksCode}
+func (a *getAccountBlocksHandler) Cmds() []ViteCmd {
+	return []ViteCmd{GetAccountBlocksCode}
 }
 
 var NULL_ADDRESS = types.Address{}
@@ -336,8 +331,8 @@ func (c *getChunkHandler) ID() string {
 	return "GetChunk Handler"
 }
 
-func (c *getChunkHandler) Cmds() []cmd {
-	return []cmd{GetChunkCode}
+func (c *getChunkHandler) Cmds() []ViteCmd {
+	return []ViteCmd{GetChunkCode}
 }
 
 func (c *getChunkHandler) Handle(msg *p2p.Msg, sender *Peer) (err error) {

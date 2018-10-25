@@ -34,8 +34,8 @@ func (p *requestPool) ID() string {
 	return "request pool"
 }
 
-func (p *requestPool) Cmds() []cmd {
-	return []cmd{FileListCode, SubLedgerCode, ExceptionCode}
+func (p *requestPool) Cmds() []ViteCmd {
+	return []ViteCmd{FileListCode, SubLedgerCode, ExceptionCode}
 }
 
 func (p *requestPool) Handle(msg *p2p.Msg, sender *Peer) error {

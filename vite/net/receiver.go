@@ -44,12 +44,12 @@ func (s *receiver) ID() string {
 	return "receiver"
 }
 
-func (s *receiver) Cmds() []cmd {
-	return []cmd{NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode}
+func (s *receiver) Cmds() []ViteCmd {
+	return []ViteCmd{NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode}
 }
 
 func (s *receiver) Handle(msg *p2p.Msg, sender *Peer) error {
-	switch cmd(msg.Cmd) {
+	switch ViteCmd(msg.Cmd) {
 	case NewSnapshotBlockCode:
 		block := new(ledger.SnapshotBlock)
 		err := block.Deserialize(msg.Payload)
