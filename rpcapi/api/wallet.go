@@ -163,6 +163,10 @@ func (m WalletApi) IsUnlocked(entropyStore string) bool {
 	return manager.IsUnlocked()
 }
 
+func (m WalletApi) RefreshCache() {
+	m.wallet.RefreshCache()
+}
+
 func (m WalletApi) Unlock(entropyStore string, passphrase string) error {
 	manager, e := m.wallet.GetEntropyStoreManager(entropyStore)
 	if e != nil {

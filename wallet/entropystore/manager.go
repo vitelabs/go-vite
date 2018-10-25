@@ -249,7 +249,7 @@ func FindAddrFromSeed(seed []byte, addr types.Address, maxSearchIndex uint32) (k
 	return nil, 0, walleterrors.ErrAddressNotFound
 }
 
-func (km *Manager) AddLockEventListener(lis func(event UnlockEvent)) {
+func (km *Manager) SetLockEventListener(lis func(event UnlockEvent)) {
 	km.unlockChangedLis = lis
 }
 

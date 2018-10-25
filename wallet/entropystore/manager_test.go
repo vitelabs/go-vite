@@ -117,11 +117,11 @@ func TestManager_FindAddr(t *testing.T) {
 func TestManager_LockAndUnlock(t *testing.T) {
 	sm := testSeedStoreManager
 
-	sm.AddLockEventListener(func(event entropystore.UnlockEvent) {
+	sm.SetLockEventListener(func(event entropystore.UnlockEvent) {
 		fmt.Println("receive an event:", event.String())
 	})
 
-	_, e := sm.ListAddress(10)
+	_, e := sm.ListAddress(10, 20)
 	if e == nil {
 		t.Fatal("need error")
 	}
@@ -130,7 +130,7 @@ func TestManager_LockAndUnlock(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	addr, e := sm.ListAddress(10)
+	addr, e := sm.ListAddress(0, 10)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -172,4 +172,20 @@ func TestFindAddrFromSeed(t *testing.T) {
 	fmt.Println(s)
 	entropystore.FindAddrFromSeed(seed, types.Address{}, 100*100)
 	fmt.Println(time.Now().Sub(s))
+}
+
+func TestMapDelete(t *testing.T) {
+	m := make(map[string]string)
+	m["123"] = "abc"
+	m["1234"] = "abcd"
+	for k, v := range m {
+		fmt.Println(k, v)
+	}
+	for k, _ := range m {
+		delete(m, k)
+	}
+	for k, v := range m {
+		fmt.Println(k, v)
+	}
+
 }

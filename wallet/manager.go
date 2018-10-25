@@ -74,6 +74,15 @@ func (m Manager) GlobalCheckAddrUnlock(targetAdr types.Address) bool {
 	return err == nil
 }
 
+func (m *Manager) RefreshCache() {
+	for filename, _ := range m.entropyStoreManager {
+		_, e := os.Stat(filename)
+		if e != nil {
+			delete(m.entropyStoreManager, filename)
+		}
+	}
+}
+
 func (m Manager) GlobalFindAddr(targetAdr types.Address) (path string, key *derivation.Key, index uint32, err error) {
 	for path, em := range m.entropyStoreManager {
 		if em.IsUnlocked() {
@@ -162,6 +171,13 @@ func (m *Manager) AddEntropyStore(entropyStore string) error {
 		return nil
 	}
 	m.entropyStoreManager[absPath] = entropystore.NewManager(absPath, *addr, m.config.MaxSearchIndex)
+	m.entropyStoreManager[absPath].SetLockEventListener(func(event entropystore.UnlockEvent) {
+		for _, lis := range m.unlockChangedLis {
+			if lis != nil {
+				lis(event)
+			}
+		}
+	})
 	return nil
 }
 
@@ -171,6 +187,13 @@ func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, password stri
 		return nil, e
 	}
 	m.entropyStoreManager[sm.GetEntropyStoreFile()] = sm
+	sm.SetLockEventListener(func(event entropystore.UnlockEvent) {
+		for _, lis := range m.unlockChangedLis {
+			if lis != nil {
+				lis(event)
+			}
+		}
+	})
 	return sm, nil
 }
 
@@ -200,18 +223,17 @@ func (m *Manager) Start() {
 	if e != nil {
 		m.log.Error("wallet start err", "err", e)
 	}
-
 	for _, entropyStore := range files {
 		if e = m.AddEntropyStore(entropyStore); e != nil {
 			m.log.Error("wallet start AddEntropyStore", "err", e)
 		}
 	}
-
 }
 
 func (m *Manager) Stop() {
 	for _, em := range m.entropyStoreManager {
 		em.Lock()
+		em.RemoveUnlockChangeChannel()
 	}
 	m.entropyStoreManager = make(map[string]*entropystore.Manager)
 }
