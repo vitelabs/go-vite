@@ -607,7 +607,7 @@ func TestContractsPledge(t *testing.T) {
 		t.Fatalf("get pledge beneficial amount failed")
 	}
 
-	if pledgeInfoList := contracts.GetPledgeInfoList(db, addr1); len(pledgeInfoList) != 1 || pledgeInfoList[0].BeneficialAddr != addr4 {
+	if pledgeInfoList, _ := contracts.GetPledgeInfoList(db, addr1); len(pledgeInfoList) != 1 || pledgeInfoList[0].BeneficialAddr != addr4 {
 		t.Fatalf("get pledge amount failed")
 	}
 

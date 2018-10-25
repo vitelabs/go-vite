@@ -12,10 +12,10 @@ import (
 
 type ch interface {
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
-	GetConsensusGroupList(snapshotHash types.Hash) []*contracts.ConsensusGroupInfo                                                 // 获取所有的共识组
-	GetRegisterList(snapshotHash types.Hash, gid types.Gid) []*contracts.Registration                                              // 获取共识组下的参与竞选的候选人
-	GetVoteMap(snapshotHash types.Hash, gid types.Gid) []*contracts.VoteInfo                                                       // 获取候选人的投票
-	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) map[types.Address]*big.Int // 获取所有用户的余额
+	GetConsensusGroupList(snapshotHash types.Hash) []*contracts.ConsensusGroupInfo                                                 // Get all consensus group
+	GetRegisterList(snapshotHash types.Hash, gid types.Gid) []*contracts.Registration                                              // Get register for consensus group
+	GetVoteMap(snapshotHash types.Hash, gid types.Gid) []*contracts.VoteInfo                                                       // Get the candidate's vote
+	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) map[types.Address]*big.Int // Get balance for addressList
 	GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
 	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
 }
@@ -27,6 +27,10 @@ type Vote struct {
 	name    string
 	addr    types.Address
 	balance *big.Int
+}
+type VoteDetails struct {
+	name string
+	addr map[types.Address]*big.Int
 }
 
 func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, error) {
@@ -71,6 +75,30 @@ func (self *chainRw) GenVote(snapshotHash types.Hash, registration *contracts.Re
 		result.balance.Add(result.balance, v)
 	}
 	return result
+}
+func (self *chainRw) CalVoteDetails(gid types.Gid, info *membersInfo, block ledger.HashHeight) ([]*VoteDetails, error) {
+	// query register info
+	registerList := self.rw.GetRegisterList(block.Hash, gid)
+	// query vote info
+	votes := self.rw.GetVoteMap(block.Hash, gid)
+
+	var registers []*VoteDetails
+
+	// cal candidate
+	for _, v := range registerList {
+		registers = append(registers, self.GenVoteDetails(block.Hash, v, votes, info.countingTokenId))
+	}
+	return registers, nil
+}
+func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *contracts.Registration, infos []*contracts.VoteInfo, id types.TokenTypeId) *VoteDetails {
+	var addrs []types.Address
+	for _, v := range infos {
+		if v.NodeName == registration.Name {
+			addrs = append(addrs, v.VoterAddr)
+		}
+	}
+	balanceMap := self.rw.GetBalanceList(snapshotHash, id, addrs)
+	return &VoteDetails{name: registration.Name, addr: balanceMap}
 }
 func (self *chainRw) GetMemberInfo(gid types.Gid, genesis time.Time) *membersInfo {
 	// todo consensus group maybe change ??
