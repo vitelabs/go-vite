@@ -29,7 +29,9 @@ type Subscriber interface {
 }
 
 type Reader interface {
-	ReadByTime(gid types.Gid, t time.Time) ([]*Event, error)
+	ReadByTime(gid types.Gid, t time.Time) ([]*Event, uint64, error)
+	ReadVoteMapByTime(gid types.Gid, index uint64) ([]*VoteDetails, error)
+	VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error)
 }
 type Life interface {
 	Start()
