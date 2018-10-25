@@ -15,6 +15,7 @@ import (
 	"fmt"
 
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 )
 
@@ -53,6 +54,30 @@ func TestChain(t *testing.T) {
 	for k, v := range block.SnapshotContent {
 		fmt.Println(k, v.Hash, v.Height)
 	}
+}
+
+func TestChain2(t *testing.T) {
+	c := getChainInstance()
+	hashes, e := types.HexToHash("8ae598902a4f30ff2390914b8a2b0172fdbc2400348b73231462380e65323b0d")
+	if e != nil {
+		panic(e)
+	}
+	block, e := c.GetAccountBlockByHash(&hashes)
+	if e != nil {
+		panic(e)
+	}
+	fmt.Println(block.Hash, block.Height)
+
+	addr, e := types.HexToAddress("vite_d6851aaf8966f4550bde3d64582f7da9c6ab8b18a289823b95")
+	if e != nil {
+		panic(e)
+	}
+	head, e := c.GetLatestAccountBlock(&addr)
+	if e != nil {
+		panic(e)
+	}
+	fmt.Println(head.Height, head.Hash)
+
 }
 func TestNewPool(t *testing.T) {
 	c := ch.NewChain(&config.Config{

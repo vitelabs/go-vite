@@ -400,6 +400,7 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*l
 
 		this.LockForInsert()
 		defer this.UnLockForInsert()
+		self.log.Info("PendingAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
 		this.CurrentModifyToChain(targetChain, h)
 		return nil, nil
 	}
@@ -436,12 +437,17 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 	}
 	// fork point in disk chain
 	if forkPoint.Height() <= this.CurrentChain().tailHeight {
+		self.log.Info("RollbackAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(),
+			"targetChainTailHeight", targetChain.tailHeight,
+			"targetChainHeadHeight", targetChain.headHeight,
+			"keyPoint", keyPoint.Height())
 		err := self.RollbackAccountTo(addr, keyPoint.Hash(), keyPoint.Height())
 		if err != nil {
 			return err
 		}
 	}
 
+	self.log.Info("ForkAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
 	err = this.CurrentModifyToChain(targetChain, h)
 	if err != nil {
 		return err

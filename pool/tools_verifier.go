@@ -168,7 +168,7 @@ func (self *poolAccountVerifyStat) errMsg() string {
 }
 
 var successT = &successTask{}
-var failT = &failTask{}
+var failT = &failTask{t: time.Now()}
 
 type successTask struct {
 }
@@ -186,7 +186,7 @@ type failTask struct {
 }
 
 func (self *failTask) done(c chainDb) bool {
-	if time.Now().After(self.t.Add(time.Second * 3)) {
+	if time.Now().After(self.t.Add(time.Millisecond * 200)) {
 		return true
 	}
 	return false
