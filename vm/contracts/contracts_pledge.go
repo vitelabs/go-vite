@@ -67,11 +67,12 @@ func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) *bi
 	return big.NewInt(0)
 }
 
-func GetPledgeInfoList(db StorageDatabase, addr types.Address) []*PledgeInfo {
+func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *big.Int) {
+	pledgeAmount := big.NewInt(0)
 	iterator := db.NewStorageIterator(&AddressPledge, addr.Bytes())
 	pledgeInfoList := make([]*PledgeInfo, 0)
 	if iterator == nil {
-		return pledgeInfoList
+		return pledgeInfoList, pledgeAmount
 	}
 	for {
 		key, value, ok := iterator.Next()
@@ -83,10 +84,11 @@ func GetPledgeInfoList(db StorageDatabase, addr types.Address) []*PledgeInfo {
 			if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value); err == nil {
 				pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(key)
 				pledgeInfoList = append(pledgeInfoList, pledgeInfo)
+				pledgeAmount.Add(pledgeAmount, pledgeInfo.Amount)
 			}
 		}
 	}
-	return pledgeInfoList
+	return pledgeInfoList, pledgeAmount
 }
 
 type MethodPledge struct{}
