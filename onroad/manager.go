@@ -143,12 +143,7 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 		return
 	}
 
-	em, e := manager.wallet.GetEntropyStoreManager()
-	if e != nil {
-		manager.log.Error("receive a right event happen error", "event", event, "err", e)
-	}
-
-	if !em.IsAddrUnlocked(event.Address) {
+	if !manager.wallet.GlobalCheckAddrUnlock(event.Address) {
 		manager.log.Error("receive a right event but address locked", "event", event)
 		return
 	}
@@ -241,12 +236,7 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 		return ErrNotSyncDone
 	}
 
-	em, e := manager.wallet.GetEntropyStoreManager()
-	if e != nil {
-		return e
-	}
-
-	if !em.IsAddrUnlocked(addr) {
+	if !manager.wallet.GlobalCheckAddrUnlock(addr) {
 		return walleterrors.ErrLocked
 	}
 

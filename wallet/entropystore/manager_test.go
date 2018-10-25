@@ -108,7 +108,7 @@ func TestManager_FindAddr(t *testing.T) {
 
 	addresses, _, _ := types.CreateAddress()
 	_, _, e := testSeedStoreManager.FindAddrWithPassword("123456", addresses)
-	if e != walleterrors.ErrNotFind {
+	if e != walleterrors.ErrAddressNotFound {
 		t.Fatal(e)
 	}
 
@@ -147,7 +147,7 @@ func TestManager_LockAndUnlock(t *testing.T) {
 		fmt.Println(path, seed, addrStr)
 		_, _, e := sm.FindAddr(*addr)
 		fmt.Println(e)
-		if e != walleterrors.ErrNotFind {
+		if e != walleterrors.ErrAddressNotFound {
 			t.Fatal("expect not found error")
 		}
 

@@ -167,11 +167,11 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
 	genResult, err := gen.GenerateWithOnroad(*sBlock, consensusMessage,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			manager, e := tp.worker.manager.wallet.GetEntropyStoreManager()
-			if e != nil {
-				return nil, nil, e
+			_, key, _, err := tp.worker.manager.wallet.GlobalFindAddr(addr)
+			if err != nil {
+				return nil, nil, err
 			}
-			return manager.SignData(addr, data)
+			return key.SignData(data)
 		}, nil)
 	if err != nil {
 		plog.Error("GenerateWithOnroad failed", "error", err)

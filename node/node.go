@@ -191,12 +191,13 @@ func (node *Node) startWallet() error {
 
 	//unlock account
 	if node.config.EntropyStorePath != "" {
-		if err := node.walletManager.SwitchEntropyStore(node.config.EntropyStorePath); err != nil {
-			log.Error(fmt.Sprintf("node.walletManager.SwitchEntropyStore error: %v", err))
-			return ErrEntropyStorePathInvalid
+
+		if err := node.walletManager.AddEntropyStore(node.config.EntropyStorePath); err != nil {
+			log.Error(fmt.Sprintf("node.walletManager.AddEntropyStore error: %v", err))
+			return err
 		}
 
-		entropyStoreManager, err := node.walletManager.GetEntropyStoreManager()
+		entropyStoreManager, err := node.walletManager.GetEntropyStoreManager(node.config.EntropyStorePath)
 
 		if err != nil {
 			log.Error(fmt.Sprintf("node.walletManager.GetEntropyStoreManager error: %v", err))

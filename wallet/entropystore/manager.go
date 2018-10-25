@@ -2,6 +2,7 @@ package entropystore
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
@@ -67,12 +68,16 @@ func (km *Manager) IsUnlocked() bool {
 	return km.unlockedSeed != nil
 }
 
-func (km *Manager) ListAddress(maxIndex uint32) ([]types.Address, error) {
+func (km *Manager) ListAddress(from, to uint32) ([]types.Address, error) {
+	if from > to {
+		return nil, errors.New("from > to")
+	}
 	if km.unlockedSeed == nil {
 		return nil, walleterrors.ErrLocked
 	}
-	addr := make([]types.Address, maxIndex)
-	for i := uint32(0); i < maxIndex; i++ {
+	addr := make([]types.Address, to-from)
+	addrIndex := 0
+	for i := from; i < to; i++ {
 		_, key, e := km.DeriveForIndexPath(i)
 		if e != nil {
 			return nil, e
@@ -81,7 +86,8 @@ func (km *Manager) ListAddress(maxIndex uint32) ([]types.Address, error) {
 		if e != nil {
 			return nil, e
 		}
-		addr[i] = *address
+		addr[addrIndex] = *address
+		addrIndex++
 	}
 
 	return addr, nil
@@ -131,7 +137,7 @@ func (km *Manager) SignData(a types.Address, data []byte) (signedData, pubkey []
 	}
 	key, _, e := FindAddrFromSeed(km.unlockedSeed, a, km.maxSearchIndex)
 	if e != nil {
-		return nil, nil, walleterrors.ErrNotFind
+		return nil, nil, walleterrors.ErrAddressNotFound
 	}
 	return key.SignData(data)
 }
@@ -233,7 +239,7 @@ func FindAddrFromSeed(seed []byte, addr types.Address, maxSearchIndex uint32) (k
 			return key, i, nil
 		}
 	}
-	return nil, 0, walleterrors.ErrNotFind
+	return nil, 0, walleterrors.ErrAddressNotFound
 }
 
 func (km *Manager) AddLockEventListener(lis func(event UnlockEvent)) {
