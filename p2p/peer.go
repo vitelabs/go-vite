@@ -118,7 +118,6 @@ func (pf *ProtoFrame) WriteMsg(msg *Msg) (err error) {
 	case <-pf.term:
 		return errPeerTermed
 	case pf.w <- msg:
-		pf.Send[msg.Cmd]++
 		return
 	}
 }
@@ -245,6 +244,10 @@ loop:
 		case <-p.term:
 			break loop
 		case msg := <-p.wqueue:
+			if pf, ok := p.pfs[msg.CmdSet]; ok {
+				pf.Send[msg.Cmd]++
+			}
+
 			if err := p.ts.WriteMsg(msg); err != nil {
 				select {
 				case p.errch <- err:
