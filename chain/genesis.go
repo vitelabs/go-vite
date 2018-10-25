@@ -161,7 +161,7 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 		Timestamp:    &timestamp,
 	}
 
-	conditionRegisterData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)), ledger.ViteTokenId, uint64(3600*24*90))
+	conditionRegisterData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)), ledger.ViteTokenId, uint64(3600*24*90))
 
 	snapshotConsensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
 		uint8(25),
