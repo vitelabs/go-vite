@@ -14,7 +14,7 @@ import (
 
 type P2PVersion = uint32
 
-const Version P2PVersion = 0
+const Version P2PVersion = 1
 
 const baseProtocolCmdSet = 0
 const handshakeCmd = 0

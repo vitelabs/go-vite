@@ -184,7 +184,6 @@ func (n *net) handlePeer(p *Peer) error {
 
 	n.log.Info(fmt.Sprintf("handshake with %s", p))
 	err := p.Handshake(&message.HandShake{
-		CmdSet:  p.CmdSet,
 		Height:  current.Height,
 		Port:    n.Port,
 		Current: current.Hash,

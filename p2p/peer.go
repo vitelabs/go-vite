@@ -41,10 +41,12 @@ type transport struct {
 }
 
 func (t *transport) ReadMsg() (*Msg, error) {
+	t.SetReadDeadline(time.Now().Add(msgReadTimeout))
 	return ReadMsg(t)
 }
 
 func (t *transport) WriteMsg(msg *Msg) error {
+	t.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
 	return WriteMsg(t, msg)
 }
 
@@ -84,8 +86,8 @@ func (t *transport) Handshake(key ed25519.PrivateKey, our *Handshake) (their *Ha
 
 type ProtoFrame struct {
 	*Protocol
-	input     chan *Msg
-	out       chan<- *Msg   // use peer`s wqueue
+	r         chan *Msg
+	w         chan<- *Msg   // use peer`s wqueue
 	term      chan struct{} // use peer`s term
 	Received  map[Cmd]uint64
 	Discarded map[Cmd]uint64
@@ -95,7 +97,7 @@ type ProtoFrame struct {
 func newProtoFrame(protocol *Protocol) *ProtoFrame {
 	return &ProtoFrame{
 		Protocol:  protocol,
-		input:     make(chan *Msg, readBufferLen),
+		r:         make(chan *Msg, readBufferLen),
 		Received:  make(map[Cmd]uint64),
 		Discarded: make(map[Cmd]uint64),
 		Send:      make(map[Cmd]uint64),
@@ -106,7 +108,7 @@ func (pf *ProtoFrame) ReadMsg() (msg *Msg, err error) {
 	select {
 	case <-pf.term:
 		return msg, io.EOF
-	case msg = <-pf.input:
+	case msg = <-pf.r:
 		return
 	}
 }
@@ -115,7 +117,7 @@ func (pf *ProtoFrame) WriteMsg(msg *Msg) (err error) {
 	select {
 	case <-pf.term:
 		return errPeerTermed
-	case pf.out <- msg:
+	case pf.w <- msg:
 		pf.Send[msg.Cmd]++
 		return
 	}
@@ -197,24 +199,17 @@ func (p *Peer) startProtocols() {
 		// closure
 		pf := pf
 		common.Go(func() {
+			defer p.wg.Done()
+
 			//p.runProtocol(protoFrame)
 			pf.term = p.term
-			pf.out = p.wqueue
+			pf.w = p.wqueue
 
 			err := pf.Handle(p, pf)
 			p.protoDone <- &protoDone{pf.ID, err}
 		})
 	}
 }
-
-//func (p *Peer) runProtocol(pf *ProtoFrame) {
-//	defer p.wg.Done()
-//	pf.term = p.term
-//	pf.out = p.wqueue
-//
-//	err := pf.Handle(p, pf)
-//	p.protoDone <- &protoDone{pf.ID, err}
-//}
 
 func (p *Peer) readLoop() {
 	defer p.wg.Done()
@@ -224,8 +219,7 @@ func (p *Peer) readLoop() {
 		case <-p.term:
 			return
 		default:
-			p.ts.SetReadDeadline(time.Now().Add(msgReadTimeout))
-			if msg, err := ReadMsg(p.ts); err == nil {
+			if msg, err := p.ts.ReadMsg(); err == nil {
 				monitor.LogEvent("p2p_ts", "read")
 				monitor.LogDuration("p2p_ts", "read_bytes", int64(len(msg.Payload)))
 
@@ -251,8 +245,7 @@ loop:
 		case <-p.term:
 			break loop
 		case msg := <-p.wqueue:
-			p.ts.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
-			if err := WriteMsg(p.ts, msg); err != nil {
+			if err := p.ts.WriteMsg(msg); err != nil {
 				select {
 				case p.errch <- err:
 					atomic.StoreInt32(&p.tsError, 2)
@@ -269,7 +262,7 @@ loop:
 	// no error, disconnected initiative
 	if atomic.LoadInt32(&p.tsError) == 0 {
 		for i := 0; i < len(p.wqueue); i++ {
-			if err := WriteMsg(p.ts, <-p.wqueue); err != nil {
+			if err := p.ts.WriteMsg(<-p.wqueue); err != nil {
 				return
 			}
 		}
@@ -327,7 +320,7 @@ wait:
 		proactively = false
 	}
 
-	if proactively {
+	if proactively && atomic.LoadInt32(&p.tsError) == 0 {
 		if m, e := PackMsg(baseProtocolCmdSet, discCmd, 0, reason); e == nil {
 			p.ts.WriteMsg(m)
 		}
@@ -345,35 +338,42 @@ wait:
 func (p *Peer) handleMsg(msg *Msg) {
 	cmdset, cmd := msg.CmdSet, msg.Cmd
 
-	select {
-	case <-p.term:
-		p.log.Error(fmt.Sprintf("peer has been terminated, can`t handle message %d/%d", cmdset, cmd))
-		msg.Recycle()
-	default:
-		if cmdset == baseProtocolCmdSet {
-			switch cmd {
-			case discCmd:
-				if reason, err := DeserializeDiscReason(msg.Payload); err == nil {
-					p.errch <- reason
-				} else {
-					p.errch <- err
-				}
-			default:
-				msg.Recycle()
+	if cmdset == baseProtocolCmdSet {
+		if cmd == discCmd {
+			p.log.Warn(fmt.Sprintf("receive disc from %s", p))
+
+			var disc error
+			if reason, err := DeserializeDiscReason(msg.Payload); err == nil {
+				disc = reason
+			} else {
+				disc = err
 			}
-		} else if pf := p.pfs[cmdset]; pf != nil {
+
 			select {
-			case pf.input <- msg:
-				pf.Received[msg.Cmd]++
+			case <-p.term:
+			case p.errch <- disc:
 			default:
-				p.log.Warn(fmt.Sprintf("protocol is busy, discard message %d/%d", cmdset, cmd))
-				pf.Discarded[msg.Cmd]++
-				msg.Recycle()
 			}
-		} else {
-			p.log.Error(fmt.Sprintf("missing suitable protocol to handle message %d/%d", cmdset, cmd))
-			p.disc <- DiscUnKnownProtocol
 		}
+
+		msg.Recycle()
+	} else if pf := p.pfs[cmdset]; pf != nil {
+		select {
+		case <-p.term:
+			p.log.Error(fmt.Sprintf("peer has been terminated, can`t handle message %d/%d from %s", cmdset, cmd, p))
+			msg.Recycle()
+
+		case pf.r <- msg:
+			pf.Received[msg.Cmd]++
+
+		default:
+			p.log.Warn(fmt.Sprintf("protocol is busy, discard message %d/%d from %s", cmdset, cmd, p))
+			pf.Discarded[msg.Cmd]++
+			msg.Recycle()
+		}
+	} else {
+		p.log.Error(fmt.Sprintf("missing suitable protocol to handle message %d/%d from %s", cmdset, cmd, p))
+		p.disc <- DiscUnKnownProtocol
 	}
 }
 

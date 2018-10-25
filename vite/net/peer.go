@@ -71,10 +71,6 @@ func (p *Peer) Handshake(our *message.HandShake) error {
 		return err
 	}
 
-	if their.CmdSet != p.CmdSet {
-		return fmt.Errorf("different protocol, our %d, their %d\n", p.CmdSet, their.CmdSet)
-	}
-
 	if their.Genesis != our.Genesis {
 		return errors.New("different genesis block")
 	}
