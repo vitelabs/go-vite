@@ -46,6 +46,10 @@ func (p *PledgeApi) GetPledgeQuota(addr types.Address) QuotaAndTxNum {
 	return QuotaAndTxNum{uint64ToString(q), uint64ToString(q / util.TxGas)}
 }
 
+type PledgeInfoList struct {
+	TotalPledgeAmount string        `json:"totalPledgeAmount"`
+	List              []*PledgeInfo `json:"pledgeInfoList"`
+}
 type PledgeInfo struct {
 	Amount         string        `json:"amount"`
 	WithdrawHeight string        `json:"withdrawHeight"`
@@ -63,17 +67,17 @@ func (a byWithdrawHeight) Less(i, j int) bool {
 	return a[i].WithdrawHeight < a[j].WithdrawHeight
 }
 
-func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) ([]*PledgeInfo, error) {
+func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*PledgeInfoList, error) {
 	snapshotBlock := p.chain.GetLatestSnapshotBlock()
 	vmContext, err := vm_context.NewVmContext(p.chain, &snapshotBlock.Hash, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	list := contracts.GetPledgeInfoList(vmContext, addr)
+	list, amount := contracts.GetPledgeInfoList(vmContext, addr)
 	sort.Sort(byWithdrawHeight(list))
 	startHeight, endHeight := index*count, (index+1)*count
 	if startHeight >= len(list) {
-		return []*PledgeInfo{}, nil
+		return &PledgeInfoList{*bigIntToString(amount), []*PledgeInfo{}}, nil
 	}
 	if endHeight > len(list) {
 		endHeight = len(list)
@@ -86,7 +90,7 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) ([]*
 			info.BeneficialAddr,
 			getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight)}
 	}
-	return targetList, nil
+	return &PledgeInfoList{*bigIntToString(amount), targetList}, nil
 }
 
 const (
