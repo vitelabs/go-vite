@@ -45,7 +45,7 @@ func TestCommittee_ReadVoteMapByTime(t *testing.T) {
 		panic(e)
 	}
 
-	details, err := cs.ReadVoteMapByTime(types.SNAPSHOT_GID, u)
+	details, _, err := cs.ReadVoteMapByTime(types.SNAPSHOT_GID, u)
 	if err != nil {
 		panic(err)
 	}

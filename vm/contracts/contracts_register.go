@@ -23,7 +23,8 @@ const (
 		{"type":"function","name":"UpdateRegistration", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"publicKey","type":"bytes"},{"name":"signature","type":"bytes"}]},
 		{"type":"function","name":"CancelRegister","inputs":[{"name":"gid","type":"gid"}, {"name":"name","type":"string"}]},
 		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"beneficialAddr","type":"address"},{"name":"endHeight","type":"uint64"},{"name":"startHeight","type":"uint64"}]},
-		{"type":"variable","name":"registration","inputs":[{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"pledgeAddr","type":"address"},{"name":"amount","type":"uint256"},{"name":"pledgeHeight","type":"uint64"},{"name":"rewardHeight","type":"uint64"},{"name":"cancelHeight","type":"uint64"}]}
+		{"type":"variable","name":"registration","inputs":[{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"pledgeAddr","type":"address"},{"name":"amount","type":"uint256"},{"name":"pledgeHeight","type":"uint64"},{"name":"rewardHeight","type":"uint64"},{"name":"cancelHeight","type":"uint64"},{"name":"hisAddrList","type":"address[]"}]},
+		{"type":"variable","name":"hisName","inputs":[{"name":"name","type":"string"}]}
 	]`
 
 	MethodNameRegister           = "Register"
@@ -31,6 +32,7 @@ const (
 	MethodNameReward             = "Reward"
 	MethodNameUpdateRegistration = "UpdateRegistration"
 	VariableNameRegistration     = "registration"
+	VariableNameHisName          = "hisName"
 )
 
 var (
@@ -63,6 +65,7 @@ type Registration struct {
 	PledgeHeight uint64
 	RewardHeight uint64
 	CancelHeight uint64
+	HisAddrList  []types.Address
 }
 
 func (r *Registration) IsActive() bool {
@@ -74,6 +77,20 @@ func GetRegisterKey(name string, gid types.Gid) []byte {
 	copy(data[:types.GidSize], gid[:])
 	copy(data[types.GidSize:], types.DataHash([]byte(name)).Bytes()[types.GidSize:])
 	return data
+}
+
+func GetHisNameKey(addr types.Address, gid types.Gid) []byte {
+	var data = make([]byte, types.AddressSize+types.GidSize)
+	copy(data[:types.AddressSize], addr[:])
+	copy(data[types.AddressSize:], gid[:])
+	return data
+}
+
+func IsRegisterKey(key []byte) bool {
+	if len(key) == types.HashSize {
+		return true
+	}
+	return false
 }
 
 func GetRegistration(db StorageDatabase, name string, gid types.Gid) *Registration {
@@ -100,14 +117,16 @@ func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 		return registerList
 	}
 	for {
-		_, value, ok := iterator.Next()
+		key, value, ok := iterator.Next()
 		if !ok {
 			break
 		}
-		registration := new(Registration)
-		if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
-			if registration.IsActive() {
-				registerList = append(registerList, registration)
+		if IsRegisterKey(key) {
+			registration := new(Registration)
+			if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
+				if registration.IsActive() {
+					registerList = append(registerList, registration)
+				}
 			}
 		}
 	}
@@ -170,27 +189,39 @@ func checkRegisterData(methodName string, block *vm_context.VmAccountBlock, para
 func (p *MethodRegister) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(ParamRegister)
 	ABIRegister.UnpackMethod(param, MethodNameRegister, sendBlock.Data)
-	// two registration in one consensus group do not share node address
-	registrationList := GetRegisterList(block.VmContext, param.Gid)
-	for _, registration := range registrationList {
-		if registration.NodeAddr == param.NodeAddr {
-			return errors.New("duplicate node address")
-		}
-	}
+
+	// check old data
 	snapshotBlock := block.VmContext.CurrentSnapshotBlock()
 	rewardHeight := snapshotBlock.Height
 	key := GetRegisterKey(param.Name, param.Gid)
 	oldData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key)
+	var hisAddrList []types.Address
 	if len(oldData) > 0 {
 		old := new(Registration)
 		ABIRegister.UnpackVariable(old, VariableNameRegistration, oldData)
-		if old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress || old.NodeAddr != param.NodeAddr {
-			// TODO do not check node address at register
+		if old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
 			return errors.New("register data exist")
 		}
 		// reward of last being a super node is not drained
 		rewardHeight = old.RewardHeight
+		hisAddrList = old.HisAddrList
 	}
+
+	// check node addr belong to one name in a consensus group
+	hisNameKey := GetHisNameKey(param.NodeAddr, param.Gid)
+	hisName := new(string)
+	err := ABIRegister.UnpackVariable(hisName, VariableNameHisName, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, hisNameKey))
+	if err == nil && *hisName != param.Name {
+		// hisName exist
+		return errors.New("node address is registered to another name before")
+	}
+	if err != nil {
+		// hisName not exist, update hisName
+		hisAddrList = append(hisAddrList, param.NodeAddr)
+		hisNameData, _ := ABIRegister.PackVariable(VariableNameHisName, param.Name)
+		block.VmContext.SetStorage(hisNameKey, hisNameData)
+	}
+
 	registerInfo, _ := ABIRegister.PackVariable(
 		VariableNameRegistration,
 		param.Name,
@@ -199,7 +230,8 @@ func (p *MethodRegister) DoReceive(context contractsContext, block *vm_context.V
 		sendBlock.Amount,
 		snapshotBlock.Height,
 		rewardHeight,
-		uint64(0))
+		uint64(0),
+		hisAddrList)
 	block.VmContext.SetStorage(key, registerInfo)
 	return nil
 }
@@ -263,7 +295,8 @@ func (p *MethodCancelRegister) DoReceive(context contractsContext, block *vm_con
 		helper.Big0,
 		uint64(0),
 		old.RewardHeight,
-		snapshotBlock.Height)
+		snapshotBlock.Height,
+		old.HisAddrList)
 	block.VmContext.SetStorage(key, registerInfo)
 	// return locked ViteToken
 	if old.Amount.Sign() > 0 {
@@ -384,13 +417,14 @@ func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmA
 			old.Amount,
 			old.PledgeHeight,
 			param.EndHeight,
-			old.CancelHeight)
+			old.CancelHeight,
+			old.HisAddrList)
 		block.VmContext.SetStorage(key, registerInfo)
 	}
 
 	// calc snapshot block produce reward between param.StartHeight(excluded) and param.EndHeight(included)
 	count := param.EndHeight - param.StartHeight
-	reward := calcReward(block.VmContext, old.NodeAddr, param.StartHeight, count)
+	reward := calcReward(block.VmContext, old.HisAddrList, param.StartHeight, count)
 	if reward != nil {
 		// create reward and return
 		context.AppendBlock(
@@ -408,9 +442,13 @@ func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmA
 	return nil
 }
 
-func calcReward(db vmctxt_interface.VmDatabase, producer types.Address, startHeight uint64, count uint64) *big.Int {
+func calcReward(db vmctxt_interface.VmDatabase, producerList []types.Address, startHeight uint64, count uint64) *big.Int {
 	startHeight = startHeight + 1
 	rewardCount := uint64(0)
+	producerMap := make(map[types.Address]interface{})
+	for _, producer := range producerList {
+		producerMap[producer] = struct{}{}
+	}
 	for count > 0 {
 		var list []*ledger.SnapshotBlock
 		if count < dbPageSize {
@@ -422,7 +460,7 @@ func calcReward(db vmctxt_interface.VmDatabase, producer types.Address, startHei
 			startHeight = startHeight + dbPageSize
 		}
 		for _, block := range list {
-			if block.Producer() == producer {
+			if _, ok := producerMap[block.Producer()]; ok {
 				rewardCount++
 			}
 		}
@@ -467,28 +505,37 @@ func (p *MethodUpdateRegistration) DoSend(context contractsContext, block *vm_co
 func (p *MethodUpdateRegistration) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(ParamRegister)
 	ABIRegister.UnpackMethod(param, MethodNameUpdateRegistration, sendBlock.Data)
-	// two registration in one consensus group do not share node address
-	registrationList := GetRegisterList(block.VmContext, param.Gid)
-	for _, registration := range registrationList {
-		if registration.NodeAddr == param.NodeAddr {
-			return errors.New("duplicate node address")
-		}
-	}
+
 	key := GetRegisterKey(param.Name, param.Gid)
 	old := new(Registration)
 	err := ABIRegister.UnpackVariable(old, VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
 	if err != nil || !old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
 		return errors.New("register not exist or already canceled")
 	}
+	// check node addr belong to one name in a consensus group
+	hisNameKey := GetHisNameKey(param.NodeAddr, param.Gid)
+	hisName := new(string)
+	err = ABIRegister.UnpackVariable(hisName, VariableNameHisName, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, hisNameKey))
+	if err == nil && *hisName != param.Name {
+		// hisName exist
+		return errors.New("node address is registered to another name before")
+	}
+	if err != nil {
+		// hisName not exist, update hisName
+		old.HisAddrList = append(old.HisAddrList, param.NodeAddr)
+		hisNameData, _ := ABIRegister.PackVariable(VariableNameHisName, param.Name)
+		block.VmContext.SetStorage(hisNameKey, hisNameData)
+	}
 	registerInfo, _ := ABIRegister.PackVariable(
 		VariableNameRegistration,
 		old.Name,
-		old.NodeAddr,
+		param.NodeAddr,
 		old.PledgeAddr,
 		old.Amount,
 		old.PledgeHeight,
 		old.RewardHeight,
-		old.CancelHeight)
+		old.CancelHeight,
+		old.HisAddrList)
 	block.VmContext.SetStorage(key, registerInfo)
 	return nil
 }
