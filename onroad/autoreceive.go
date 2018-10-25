@@ -17,8 +17,9 @@ type SimpleAutoReceiveFilterPair struct {
 }
 
 type AutoReceiveWorker struct {
-	log     log15.Logger
-	address types.Address
+	log          log15.Logger
+	address      types.Address
+	entropystore string
 
 	manager          *Manager
 	onroadBlocksPool *model.OnroadBlocksPool
@@ -36,9 +37,10 @@ type AutoReceiveWorker struct {
 	statusMutex sync.Mutex
 }
 
-func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
+func NewAutoReceiveWorker(manager *Manager, entropystore string, address types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
 		manager:          manager,
+		entropystore:     entropystore,
 		onroadBlocksPool: manager.onroadBlocksPool,
 		address:          address,
 		status:           Create,
@@ -47,6 +49,10 @@ func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[t
 		filters:          filters,
 		log:              slog.New("worker", "a", "addr", address),
 	}
+}
+
+func (w AutoReceiveWorker) GetEntropystore() string {
+	return w.entropystore
 }
 
 func (w *AutoReceiveWorker) Start() {

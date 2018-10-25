@@ -18,12 +18,13 @@ const (
 )
 
 type UnlockEvent struct {
-	PrimaryAddr types.Address // represent which seed we use the seed`s PrimaryAddress represents the seed
-	event       string        // "Unlocked Locked"
+	EntropyStoreFile string
+	PrimaryAddr      types.Address // represent which seed we use the seed`s PrimaryAddress represents the seed
+	event            string        // "Unlocked Locked"
 }
 
 func (ue UnlockEvent) String() string {
-	return ue.PrimaryAddr.String() + " " + ue.event
+	return ue.EntropyStoreFile + " " + ue.PrimaryAddr.String() + " " + ue.event
 }
 
 func (ue UnlockEvent) Unlocked() bool {
@@ -102,7 +103,10 @@ func (km *Manager) Unlock(password string) error {
 	km.unlockedEntropy = entropy
 
 	if km.unlockChangedLis != nil {
-		km.unlockChangedLis(UnlockEvent{PrimaryAddr: km.primaryAddr, event: UnLocked})
+		km.unlockChangedLis(UnlockEvent{
+			EntropyStoreFile: km.GetEntropyStoreFile(),
+			PrimaryAddr:      km.primaryAddr,
+			event:            UnLocked})
 	}
 	return nil
 }
@@ -111,7 +115,10 @@ func (km *Manager) Lock() {
 
 	km.unlockedSeed = nil
 	if km.unlockChangedLis != nil {
-		km.unlockChangedLis(UnlockEvent{PrimaryAddr: km.primaryAddr, event: Locked})
+		km.unlockChangedLis(UnlockEvent{
+			EntropyStoreFile: km.GetEntropyStoreFile(),
+			PrimaryAddr:      km.primaryAddr,
+			event:            Locked})
 	}
 }
 

@@ -120,7 +120,11 @@ func (manager *Manager) addressLockStateChangeFunc(event entropystore.UnlockEven
 	manager.log.Info("addressLockStateChangeFunc ", "event", event)
 
 	if !event.Unlocked() {
-		manager.stopAllWorks()
+		for _, w := range manager.autoReceiveWorkers {
+			if w.GetEntropystore() == event.EntropyStoreFile {
+				common.Go(w.Stop)
+			}
+		}
 	}
 
 	//w, found := manager.autoReceiveWorkers[event.Address]
@@ -228,7 +232,7 @@ func (manager *Manager) ResetAutoReceiveFilter(addr types.Address, filter map[ty
 	}
 }
 
-func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[types.TokenTypeId]big.Int) error {
+func (manager *Manager) StartAutoReceiveWorker(entropystore string, addr types.Address, filter map[types.TokenTypeId]big.Int) error {
 	netstate := manager.Net().SyncState()
 	manager.log.Info("StartAutoReceiveWorker ", "addr", addr, "netstate", netstate)
 
@@ -242,7 +246,7 @@ func (manager *Manager) StartAutoReceiveWorker(addr types.Address, filter map[ty
 
 	w, found := manager.autoReceiveWorkers[addr]
 	if !found {
-		w = NewAutoReceiveWorker(manager, addr, filter)
+		w = NewAutoReceiveWorker(manager, entropystore, addr, filter)
 		manager.log.Info("Manager get event new Worker")
 		manager.autoReceiveWorkers[addr] = w
 	}
