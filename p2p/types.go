@@ -3,7 +3,6 @@ package p2p
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/p2p/discovery"
-	"github.com/vitelabs/go-vite/p2p/network"
 	"github.com/vitelabs/go-vite/p2p/protos"
 	"net"
 	"strconv"
@@ -24,7 +23,7 @@ func (f connFlag) is(f2 connFlag) bool {
 }
 
 // @section CmdSetID
-type CmdSet = uint64
+type CmdSet = uint32
 type Cmd = uint16
 
 // @section Msg
@@ -32,7 +31,6 @@ type Msg struct {
 	CmdSet     CmdSet
 	Cmd        Cmd
 	Id         uint64 // as message context
-	Size       uint32 // how many bytes in payload, used to quickly determine whether payload is valid
 	Payload    []byte
 	ReceivedAt time.Time
 }
@@ -76,16 +74,13 @@ type Protocol struct {
 }
 
 func (p *Protocol) String() string {
-	return p.Name + "/" + strconv.FormatUint(p.ID, 10)
+	return p.Name + "/" + strconv.FormatUint(uint64(p.ID), 10)
 }
 
 // handshake message
 type Handshake struct {
-	Version uint64
 	// peer name, use for readability and log
 	Name string
-	// running at which network
-	NetID network.ID
 	// peer remoteID
 	ID discovery.NodeID
 	// command set supported
@@ -100,7 +95,6 @@ type Handshake struct {
 
 func (hs *Handshake) Serialize() ([]byte, error) {
 	return proto.Marshal(&protos.Handshake{
-		NetID:      uint64(hs.NetID),
 		Name:       hs.Name,
 		ID:         hs.ID[:],
 		CmdSets:    hs.CmdSets,
@@ -122,9 +116,7 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 		return err
 	}
 
-	hs.Version = pb.Version
 	hs.ID = id
-	hs.NetID = network.ID(pb.NetID)
 	hs.Name = pb.Name
 	hs.RemoteIP = pb.RemoteIP
 	hs.RemotePort = uint16(pb.RemotePort)
@@ -136,6 +128,7 @@ func (hs *Handshake) Deserialize(buf []byte) error {
 
 type Transport interface {
 	MsgReadWriter
+	Stop()
 	Close()
 	Handshake(our *Handshake) (their *Handshake, err error)
 }

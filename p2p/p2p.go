@@ -317,6 +317,31 @@ func (svr *Server) releasePending() {
 func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 	defer svr.releasePending()
 
+	head, err := headShake(c, &headMsg{
+		Version: Version,
+		NetID:   svr.NetID,
+	})
+
+	if err != nil {
+		c.Close()
+		svr.log.Warn(fmt.Sprintf("headShake with %s error: %v", c.RemoteAddr(), err))
+		return
+	}
+
+	if svr.NetID != head.NetID {
+		c.Close()
+		svr.log.Warn(fmt.Sprintf("different NetID %s: our %s, their %s", c.RemoteAddr(), svr.NetID, head.NetID))
+		return
+	}
+
+	// choose the lower version
+	version := Version
+	if head.Version < Version {
+		version = head.Version
+	}
+
+	// construct transport according to version
+
 	ts := &conn{
 		AsyncMsgConn: NewAsyncMsgConn(c),
 		flags:        flag,
@@ -328,22 +353,10 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 	tcpAddr := c.RemoteAddr().(*net.TCPAddr)
 	handshake.RemoteIP = tcpAddr.IP
 	handshake.RemotePort = uint16(tcpAddr.Port)
-	data, err := handshake.Serialize()
-	if err != nil {
-		ts.Close()
-		return
-	}
-	sig := ed25519.Sign(svr.PrivateKey, data)
-	// unshift signature before data
-	data = append(sig, data...)
 
-	their, err := ts.Handshake(data)
+	their, err := ts.Handshake(svr.PrivateKey, &handshake)
 
 	if err != nil {
-		ts.Close()
-		svr.log.Warn(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
-	} else if their.NetID != svr.NetID {
-		err = fmt.Errorf("different NetID: our %s, their %s", svr.NetID, their.NetID)
 		ts.Close()
 		svr.log.Warn(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
 	} else {
