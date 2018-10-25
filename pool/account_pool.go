@@ -284,12 +284,20 @@ func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, *forkedCha
 	for _, b := range bs {
 		tmp := current.getHeightBlock(b.Height())
 		if newChain != nil {
+			err := newChain.canAddHead(b)
+			if err != nil {
+				return nil, nil, err
+			}
 			// forked chain
 			newChain.addHead(tmp)
 		} else {
 			if tmp == nil || tmp.Hash() != b.Hash() {
 				// forked chain
 				newChain, err = cp.forkFrom(current, b.Height()-1, b.PrevHash())
+				if err != nil {
+					return nil, nil, err
+				}
+				err := newChain.canAddHead(b)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -419,6 +427,10 @@ func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (*forkedCha
 		return nil, nil, err
 	}
 	for _, b := range blocks {
+		err := fchain.canAddHead(b)
+		if err != nil {
+			return nil, nil, err
+		}
 		fchain.addHead(b)
 		results = append(results, b)
 	}

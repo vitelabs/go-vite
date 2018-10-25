@@ -17,6 +17,8 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
+var defaultDifficulty = new(big.Int).SetUint64(pow.FullThreshold)
+
 const (
 	TimeOutHeight = uint64(24 * 30 * 3600)
 )
@@ -427,8 +429,18 @@ func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock, account
 		copy(nonce[:], block.Nonce[:8])
 		hash256Data := crypto.Hash256(block.AccountAddress.Bytes(), block.PrevHash.Bytes())
 
-		if !pow.CheckPowNonce(nil, nonce, hash256Data) {
+		var difficulty *big.Int
+		if block.Difficulty != nil {
+			difficulty = block.Difficulty
+		} else {
+			difficulty = defaultDifficulty
+		}
+		if !pow.CheckPowNonce(difficulty, nonce, hash256Data) {
 			return errors.New("CheckPowNonce failed")
+		}
+	} else {
+		if block.Difficulty != nil {
+			return errors.New("difficulty must be nil when Nonce is nil")
 		}
 	}
 	return nil
