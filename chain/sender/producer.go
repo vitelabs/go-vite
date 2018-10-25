@@ -43,6 +43,7 @@ type MqAccountBlock struct {
 	Timestamp   int64         `json:"timestamp"`
 
 	ParsedData string `json:"parsedData"`
+	SendData   []byte `json:"sendData"`
 }
 
 type Producer struct {
@@ -341,6 +342,7 @@ func (producer *Producer) send() {
 							mqAccountBlock.TokenId = sendBlock.TokenId
 							mqAccountBlock.FromAddress = sendBlock.AccountAddress
 							mqAccountBlock.ToAddress = mqAccountBlock.AccountAddress
+							mqAccountBlock.SendData = sendBlock.Data
 						}
 					} else {
 						tokenTypeId = &block.TokenId

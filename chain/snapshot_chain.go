@@ -408,6 +408,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	for addr, changeRangeItem := range chainRangeSet {
 		min := changeRangeItem[0].Height
 		max := changeRangeItem[1].Height
+
 		if blockHeightItem, ok := blockHeightMap[addr]; ok {
 			if min > blockHeightItem {
 				continue
@@ -473,7 +474,9 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		}
 
 		if _, ok := needAddBlocks[account.AccountAddress]; !ok && lastBlock != nil {
-			needAddBlocks[account.AccountAddress] = lastBlock
+			if cachedAccountBlock := c.needSnapshotCache.Get(&account.AccountAddress); cachedAccountBlock == nil {
+				needAddBlocks[account.AccountAddress] = lastBlock
+			}
 		}
 	}
 

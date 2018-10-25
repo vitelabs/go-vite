@@ -54,6 +54,12 @@ func (cache *NeedSnapshotCache) GetBlockByHash(addr *types.Address, hash types.H
 	return nil
 }
 
+func (cache *NeedSnapshotCache) Get(addr *types.Address) *ledger.AccountBlock {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+	return cache.cacheMap[*addr]
+}
+
 func (cache *NeedSnapshotCache) Set(addr *types.Address, accountBlock *ledger.AccountBlock) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
@@ -87,7 +93,5 @@ func (cache *NeedSnapshotCache) Remove(addr *types.Address) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 
-	if cachedItem := cache.cacheMap[*addr]; cachedItem != nil {
-		delete(cache.cacheMap, *addr)
-	}
+	delete(cache.cacheMap, *addr)
 }
