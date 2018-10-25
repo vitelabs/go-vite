@@ -126,17 +126,17 @@ func (self *committee) ReadByTime(gid types.Gid, t2 time.Time) ([]*Event, uint64
 	}
 	return result, uint64(electionResult.Index), nil
 }
-func (self *committee) ReadVoteMapByTime(gid types.Gid, index uint64) ([]*VoteDetails, error) {
+func (self *committee) ReadVoteMapByTime(gid types.Gid, index uint64) ([]*VoteDetails, *ledger.HashHeight, error) {
 	t, ok := self.tellers.Load(gid)
 	if !ok {
 		tmp, err := self.initTeller(gid)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		t = tmp
 	}
 	if t == nil {
-		return nil, errors.New("consensus group not exist")
+		return nil, nil, errors.New("consensus group not exist")
 	}
 	tel := t.(*teller)
 
