@@ -2,6 +2,7 @@ package chain
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
@@ -405,6 +406,15 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	}
 
 	needAddBlocks, needRemoveAddr, blockHeightMap, err := c.getNeedSnapshotMapByDeleteSubLedger(accountBlocksMap)
+	// FIXME!!!
+	for addr, block := range needAddBlocks {
+		c.log.Info(fmt.Sprintf("%s %+v\n", addr, block), "log", "ds_testcache_needAddBlocks")
+	}
+
+	for addr, block := range needRemoveAddr {
+		c.log.Info(fmt.Sprintf("%s %+v\n", addr, block), "log", "ds_testcache_needRemoveAddr")
+	}
+
 	if err != nil {
 		c.log.Error("getNeedSnapshotMapByDeleteSubLedger failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksToHeight")
 		return nil, nil, err
@@ -519,6 +529,11 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	if writeErr != nil {
 		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 		return nil, nil, writeErr
+	}
+
+	// FIXME!!!
+	for addr, block := range needAddBlocks {
+		c.log.Info(fmt.Sprintf("%s %+v\n", addr, block), "log", "ds_testcache_needAddBlocks2")
 	}
 
 	// FIXME hack!!!!! tmp
