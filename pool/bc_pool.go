@@ -423,6 +423,7 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 	if len(blocks) <= 0 {
 		return nil
 	}
+	self.log.Debug("rollbackCurrent", "start", blocks[0].Height(), "end", blocks[len(blocks)-1].Height(), "size", len(blocks))
 
 	// from small to big
 	sort.Sort(ByHeight(blocks))
