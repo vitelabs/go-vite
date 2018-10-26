@@ -281,6 +281,7 @@ func (self *chainPool) currentModify(initBlock commonBlock) {
 func (self *chainPool) fork2(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain) {
 
 	var forky, insertable bool
+	var result *forkedChain = nil
 	var hr heightChainReader
 
 LOOP:
@@ -336,22 +337,29 @@ LOOP:
 	}
 	switch t := hr.(type) {
 	case *diskChain:
-		if forky {
-			return forky, insertable, self.current
-		}
+		result = self.current
 		if insertable {
 			if self.current.headHeight == snippet.tailHeight && self.current.headHash == snippet.tailHash {
-				return false, true, self.current
+				forky = false
+				insertable = true
+				result = self.current
 			} else {
-				return true, false, self.current
+				forky = true
+				insertable = false
+				result = self.current
 			}
 		}
-		return forky, insertable, self.current
 	case *forkedChain:
-		return forky, insertable, t
+		result = t
+	}
+	if insertable {
+		err := result.canAddHead(snippet.getBlock(snippet.tailHeight + 1))
+		if err != nil {
+			self.log.Error("fork2 fail.", "sTailHeight", snippet.tailHeight, "sHeadHeight", snippet.headHeight, "cTailHeight", result.tailHeight, "cHeadHeight", result.headHeight)
+		}
 	}
 
-	return false, false, nil
+	return forky, insertable, result
 }
 
 func (self *chainPool) forky(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain) {
