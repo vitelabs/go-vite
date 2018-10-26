@@ -431,13 +431,15 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 		err = this.CurrentModifyToEmpty()
 		return err
 	}
-
-	keyPoint, forkPoint, err := this.getForkPointByChains(targetChain, this.CurrentChain())
+	cu := this.CurrentChain()
+	keyPoint, forkPoint, err := this.getForkPointByChains(targetChain, cu)
 	if err != nil {
 		return err
 	}
 	if keyPoint == nil {
-		return errors.New("forkAccountTo key point is nil.")
+		return errors.Errorf("forkAccountTo key point is nil.", "target", targetChain.id(), "current", cu.id(),
+			"targetTailHeight", targetChain.tailHeight, "targetTailHash", targetChain.tailHash,
+			"currentTailHeight", cu.tailHeight, "currentTailHash", cu.tailHash)
 	}
 	// fork point in disk chain
 	if forkPoint.Height() <= this.CurrentChain().tailHeight {
