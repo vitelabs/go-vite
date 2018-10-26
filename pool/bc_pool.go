@@ -675,7 +675,10 @@ func (self *BCPool) loopGenSnippetChains() int {
 }
 
 func (self *BCPool) loopAppendChains() int {
-	self.chainpool.check()
+	err := self.chainpool.check()
+	if err != nil {
+		self.log.Error("loopAppendChains check chain err", "err", err)
+	}
 	if len(self.chainpool.snippetChains) == 0 {
 		return 0
 	}
