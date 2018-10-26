@@ -100,7 +100,7 @@ func (p *MethodPledge) GetFee(context contractsContext, block *vm_context.VmAcco
 // pledge ViteToken for a beneficial to get quota
 func (p *MethodPledge) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	// pledge gas is low without data gas cost, so that a new account is easy to pledge
-	quotaLeft, err := util.UseQuota(quotaLeft, pledgeGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, PledgeGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -152,7 +152,7 @@ func (p *MethodCancelPledge) GetFee(context contractsContext, block *vm_context.
 
 // cancel pledge ViteToken
 func (p *MethodCancelPledge) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, cancelPledgeGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, CancelPledgeGas)
 	if err != nil {
 		return quotaLeft, err
 	}

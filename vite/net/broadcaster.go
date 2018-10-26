@@ -28,7 +28,7 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 		peer.SendNewSnapshotBlock(block)
 	}
 
-	b.log.Info(fmt.Sprintf("broadcast NewSnapshotBlock %s to %d peers", block.Hash, len(peers)))
+	b.log.Debug(fmt.Sprintf("broadcast SnapshotBlock %s/%d to %d peers", block.Hash, block.Height, len(peers)))
 }
 
 func (b *broadcaster) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
@@ -45,7 +45,7 @@ func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 		peer.SendNewAccountBlock(block)
 	}
 
-	b.log.Info(fmt.Sprintf("broadcast NewAccountBlock %s to %d peers", block.Hash, len(peers)))
+	b.log.Debug(fmt.Sprintf("broadcast AccountBlock %s to %d peers", block.Hash, len(peers)))
 }
 
 func (b *broadcaster) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {

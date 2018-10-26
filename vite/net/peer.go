@@ -19,6 +19,8 @@ import (
 
 const filterCap = 100000
 
+var errDiffGesis = errors.New("different genesis block")
+
 // @section Peer for protocol handle, not p2p Peer.
 //var errPeerTermed = errors.New("peer has been terminated")
 type Peer interface {
@@ -34,6 +36,8 @@ type Peer interface {
 	Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error)
 }
 
+const peerMsgConcurrency = 10
+
 type peer struct {
 	*p2p.Peer
 	mrw         *p2p.ProtoFrame
@@ -44,8 +48,10 @@ type peer struct {
 	CmdSet      p2p.CmdSet // which cmdSet it belongs
 	KnownBlocks *cuckoofilter.CuckooFilter
 	log         log15.Logger
-	errch       chan error
+	errChan     chan error
+	term        chan struct{}
 	msgHandled  map[ViteCmd]uint64 // message statistic
+	wg          sync.WaitGroup
 }
 
 func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *peer {
@@ -56,7 +62,8 @@ func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *peer {
 		CmdSet:      cmdSet,
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
-		errch:       make(chan error),
+		errChan:     make(chan error, peerMsgConcurrency+1),
+		term:        make(chan struct{}),
 		msgHandled:  make(map[ViteCmd]uint64),
 	}
 }
@@ -84,7 +91,7 @@ func (p *peer) Handshake(our *message.HandShake) error {
 	}
 
 	if their.Genesis != our.Genesis {
-		return errors.New("different genesis block")
+		return errDiffGesis
 	}
 
 	p.SetHead(their.Current, their.Height)
@@ -118,11 +125,14 @@ func (p *peer) ReadHandshake() (their *message.HandShake, err error) {
 func (p *peer) SetHead(head types.Hash, height uint64) {
 	p.head = head
 	p.height = height
-	p.log.Info("update status", "ID", p.ID, "height", p.height, "head", p.head)
+
+	p.log.Debug(fmt.Sprintf("update peers %s to status %s/%d", p.RemoteAddr(), head, height))
 }
 
 func (p *peer) SeeBlock(hash types.Hash) {
 	p.KnownBlocks.InsertUnique(hash[:])
+
+	p.log.Debug(fmt.Sprintf("peer %s see block %s", p.RemoteAddr(), hash))
 }
 
 // send
@@ -313,7 +323,7 @@ func (m *peerSet) Sub(c chan<- *peerEvent) {
 	m.subs = append(m.subs, c)
 }
 
-func (m *peerSet) Unsub(c chan<- *peerEvent) {
+func (m *peerSet) UnSub(c chan<- *peerEvent) {
 	m.rw.Lock()
 	defer m.rw.Unlock()
 
@@ -351,11 +361,6 @@ func (m *peerSet) BestPeer() (best *peer) {
 	}
 
 	return
-}
-
-func (m *peerSet) Has(id string) bool {
-	_, ok := m.peers[id]
-	return ok
 }
 
 func (m *peerSet) Add(peer *peer) error {
@@ -437,6 +442,8 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*peer) {
 		if !peer.KnownBlocks.Lookup(hash[:]) {
 			peers[i] = peer
 			i++
+		} else {
+			peer.log.Debug(fmt.Sprintf("peer %s has seen block %s", peer.RemoteAddr(), hash))
 		}
 	}
 
