@@ -404,7 +404,10 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*l
 		this.LockForInsert()
 		defer this.UnLockForInsert()
 		self.log.Info("PendingAccountTo->CurrentModifyToChain", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
-		this.CurrentModifyToChain(targetChain, h)
+		err = this.CurrentModifyToChain(targetChain, h)
+		if err != nil {
+			self.log.Error("PendingAccountTo->CurrentModifyToChain err", "err", err, "targetId", targetChain.id())
+		}
 		return nil, nil
 	}
 	inPool := this.findInPool(h.Hash, h.Height)
