@@ -48,7 +48,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 		return
 	}
 
-	if p := f.peers.BestPeer(); p != nil {
+	if peerList := f.peers.Pick(0); len(peerList) != 0 {
 		m := &message.GetSnapshotBlocks{
 			From:    ledger.HashHeight{Hash: start},
 			Count:   count,
@@ -56,11 +56,16 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 		}
 
 		id := f.pool.MsgID()
-		if err := p.Send(GetSnapshotBlocksCode, id, m); err != nil {
-			f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
-		} else {
+
+		// send fetch request to random half peers
+		for i := 0; i < len(peerList)/2; i++ {
+			p := peerList[i]
+			if err := p.Send(GetSnapshotBlocksCode, id, m); err != nil {
+				f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
+			} else {
+				f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
+			}
 			monitor.LogEvent("net/fetch", "GetSnapshotBlocks_Send")
-			f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
 		}
 	} else {
 		f.log.Error(errNoSuitablePeer.Error())
@@ -81,7 +86,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 		return
 	}
 
-	if p := f.peers.BestPeer(); p != nil {
+	if peerList := f.peers.Pick(0); len(peerList) != 0 {
 		addr := NULL_ADDRESS
 		if address != nil {
 			addr = *address
@@ -96,12 +101,18 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 		}
 
 		id := f.pool.MsgID()
-		if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
+
+		// send fetch request to random half peers
+		for i := 0; i < len(peerList)/2; i++ {
+			p := peerList[i]
+			if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
+				f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
+			} else {
+				f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
+			}
 			monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
-			f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
-		} else {
-			f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
 		}
+
 	} else {
 		f.log.Error(errNoSuitablePeer.Error())
 	}
