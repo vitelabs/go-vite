@@ -67,7 +67,7 @@ func TestGetSnapshotBlocksByHeight(t *testing.T) {
 
 func TestGetSnapshotBlockByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
-	block, err := chainInstance.GetSnapshotBlockByHeight(19943)
+	block, err := chainInstance.GetSnapshotBlockByHeight(902)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,6 +395,54 @@ func newSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	return snapshotBlock, err
 }
 
+func TestDeleteSnapshotBlocksToHeight3(t *testing.T) {
+	chainInstance := getChainInstance()
+	addr1, _, _ := types.CreateAddress()
+	addr2, _, _ := types.CreateAddress()
+	snapshotBlock, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(snapshotBlock)
+
+	blocks, addressList, _ := randomSendViteBlock(snapshotBlock.Hash, &addr1, &addr2)
+	chainInstance.InsertAccountBlocks(blocks)
+
+	receiveBlock, _ := newReceiveBlock(snapshotBlock.Hash, addressList[1], blocks[0].AccountBlock.Hash)
+	chainInstance.InsertAccountBlocks(receiveBlock)
+
+	snapshotBlock2, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(snapshotBlock2)
+
+	blocks2, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addressList[0], &addressList[1])
+	chainInstance.InsertAccountBlocks(blocks2)
+
+	receiveBlock2, _ := newReceiveBlock(snapshotBlock.Hash, addressList[1], blocks2[0].AccountBlock.Hash)
+	chainInstance.InsertAccountBlocks(receiveBlock2)
+
+	needContent := chainInstance.GetNeedSnapshotContent()
+	for addr, content := range needContent {
+		fmt.Printf("%s: %+v\n", addr.String(), content)
+	}
+	fmt.Println()
+
+	snapshotBlock3, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(snapshotBlock3)
+
+	snapshotBlock4, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(snapshotBlock4)
+
+	chainInstance.DeleteSnapshotBlocksToHeight(snapshotBlock3.Height)
+	needContent = chainInstance.GetNeedSnapshotContent()
+	for addr, content := range needContent {
+		fmt.Printf("%s: %+v\n", addr.String(), content)
+	}
+	fmt.Println()
+
+	blockMeta, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&blocks2[0].AccountBlock.Hash)
+	fmt.Printf("%+v\n", blockMeta)
+
+	blockMeta1, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&receiveBlock2[0].AccountBlock.Hash)
+	fmt.Printf("%+v\n", blockMeta1)
+
+}
 func TestDeleteSnapshotBlocksToHeight2(t *testing.T) {
 	chainInstance := getChainInstance()
 	snapshotBlock, _ := newSnapshotBlock()

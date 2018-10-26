@@ -32,6 +32,11 @@ var (
 		Code:    -35002,
 	}
 
+	ErrorNotSupportAddNot = JsonRpc2Error{
+		Message: "Adding note information is not supported currently",
+		Code:    -35003,
+	}
+
 	ErrDecryptKey = JsonRpc2Error{
 		Message: walleterrors.ErrDecryptEntropy.Error(),
 		Code:    -34001,

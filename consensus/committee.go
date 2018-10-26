@@ -101,7 +101,32 @@ func (self *committee) verifyProducer(t time.Time, address types.Address, result
 	return false
 }
 
-func (self *committee) ReadByTime(gid types.Gid, t2 time.Time) ([]*Event, error) {
+func (self *committee) ReadByTime(gid types.Gid, t2 time.Time) ([]*Event, uint64, error) {
+	t, ok := self.tellers.Load(gid)
+	if !ok {
+		tmp, err := self.initTeller(gid)
+		if err != nil {
+			return nil, 0, err
+		}
+		t = tmp
+	}
+	if t == nil {
+		return nil, 0, errors.New("consensus group not exist")
+	}
+	tel := t.(*teller)
+	electionResult, err := tel.electionTime(t2)
+
+	if err != nil {
+		return nil, 0, err
+	}
+	var result []*Event
+	for _, p := range electionResult.Plans {
+		e := newConsensusEvent(electionResult, p, gid)
+		result = append(result, &e)
+	}
+	return result, uint64(electionResult.Index), nil
+}
+func (self *committee) ReadVoteMapByTime(gid types.Gid, index uint64) ([]*VoteDetails, error) {
 	t, ok := self.tellers.Load(gid)
 	if !ok {
 		tmp, err := self.initTeller(gid)
@@ -114,17 +139,26 @@ func (self *committee) ReadByTime(gid types.Gid, t2 time.Time) ([]*Event, error)
 		return nil, errors.New("consensus group not exist")
 	}
 	tel := t.(*teller)
-	electionResult, err := tel.electionTime(t2)
 
-	if err != nil {
-		return nil, err
+	return tel.voteDetails(int32(index))
+}
+
+func (self *committee) VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error) {
+	t, ok := self.tellers.Load(gid)
+	if !ok {
+		tmp, err := self.initTeller(gid)
+		if err != nil {
+			return 0, err
+		}
+		t = tmp
 	}
-	var result []*Event
-	for _, p := range electionResult.Plans {
-		e := newConsensusEvent(electionResult, p, gid)
-		result = append(result, &e)
+	if t == nil {
+		return 0, errors.New("consensus group not exist")
 	}
-	return result, nil
+	tel := t.(*teller)
+
+	index := tel.time2Index(t2)
+	return uint64(index), nil
 }
 
 func NewConsensus(genesisTime time.Time, ch ch) *committee {
