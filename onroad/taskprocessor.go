@@ -2,7 +2,6 @@ package onroad
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
@@ -248,15 +247,12 @@ func (tp *ContractTaskProcessor) packConsensusMessage(sendBlock *ledger.AccountB
 	}
 
 	if genSnapshotBlock.Height < sendSnapshotBlock.Height {
-		latestSb := tp.worker.manager.chain.GetLatestSnapshotBlock()
-		if latestSb == nil {
-			return nil, errors.New("latestSnapshotBlock is nil")
+		fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(tp.worker.manager.Chain(), sendSnapshotBlock)
+		if err != nil {
+			tp.log.Error("GetFitestGeneratorSnapshotHash failed", "error", err)
+			return nil, err
 		}
-		if latestSb.Height < sendSnapshotBlock.Height {
-			return nil, errors.New("latestSnapshotBlock's Height is lower than sendSnapshotBlock's")
-		} else {
-			consensusMessage.SnapshotHash = latestSb.Hash
-		}
+		consensusMessage.SnapshotHash = *fitestSnapshotBlockHash
 	}
 	return consensusMessage, nil
 }

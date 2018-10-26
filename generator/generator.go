@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const DefaultHeightDifference uint64 = 10
+
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
 type Generator struct {
@@ -223,4 +225,40 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 		blockPacked.SnapshotHash = consensusMsg.SnapshotHash
 	}
 	return blockPacked, nil
+}
+
+func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, referredSnapshotBlock *ledger.SnapshotBlock) (*types.Hash, error) {
+	var fitestSbHeight uint64
+	var referredSbHeight uint64
+	latestSb := chain.GetLatestSnapshotBlock()
+	if latestSb == nil {
+		return nil, errors.New("latest snapshotblock is nil")
+	}
+	fitestSbHeight = latestSb.Height
+	referredSbHeight = latestSb.Height - 1
+
+	if referredSnapshotBlock != nil {
+		referredSbHeight = referredSnapshotBlock.Height
+		if referredSbHeight >= latestSb.Height {
+			return nil, errors.New("the snapshotHash referred isn't lower than the latest")
+		}
+	}
+
+	if latestSb.Height <= DefaultHeightDifference {
+		fitestSbHeight = referredSbHeight + 1
+	} else {
+		if referredSbHeight < latestSb.Height-DefaultHeightDifference {
+			fitestSbHeight = latestSb.Height - DefaultHeightDifference
+		} else {
+			fitestSbHeight = referredSbHeight + 1
+		}
+	}
+	fitestSb, err := chain.GetSnapshotBlockByHeight(fitestSbHeight)
+	if fitestSb == nil {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("get snapshotBlock by height failed")
+	}
+	return &fitestSb.Hash, nil
 }
