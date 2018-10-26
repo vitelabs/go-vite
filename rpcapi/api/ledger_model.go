@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
 	"strconv"
@@ -18,8 +19,9 @@ type AccountBlock struct {
 	Height string  `json:"height"`
 	Quota  *string `json:"quota"`
 
-	Amount *string `json:"amount"`
-	Fee    *string `json:"fee"`
+	Amount     *string `json:"amount"`
+	Fee        *string `json:"fee"`
+	Difficulty *string `json:"difficulty"`
 
 	Timestamp int64 `json:"timestamp"`
 
@@ -50,6 +52,18 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 	lAb.Fee = big.NewInt(0)
 	if ab.Fee != nil {
 		lAb.Fee.SetString(*ab.Fee, 10)
+	}
+
+	if ab.Nonce != nil {
+		if ab.Difficulty == nil {
+			lAb.Difficulty = pow.DefaultDifficulty
+		} else {
+			setString, ok := new(big.Int).SetString(*ab.Difficulty, 10)
+			if !ok {
+				return nil, ErrStrToBigInt
+			}
+			lAb.Difficulty = setString
+		}
 	}
 
 	t := time.Unix(ab.Timestamp, 0)
