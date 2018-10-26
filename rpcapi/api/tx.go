@@ -2,9 +2,18 @@ package api
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm/contracts"
 )
+
+var preCompiledContracts = []types.Address{
+	contracts.AddressMintage,
+	contracts.AddressPledge,
+	contracts.AddressRegister,
+	contracts.AddressVote,
+	contracts.AddressConsensusGroup}
 
 type Tx struct {
 	vite *vite.Vite
@@ -19,11 +28,11 @@ func NewTxApi(vite *vite.Vite) *Tx {
 func (t Tx) SendRawTx(block AccountBlock) error {
 	log.Info("SendRawTx")
 	lb, err := block.LedgerAccountBlock()
-	if len(lb.Data) != 0 {
-		return ErrorNotSupportAddNot
-	}
 	if err != nil {
 		return err
+	}
+	if len(lb.Data) != 0 && !isPreCompiledContracts(lb.ToAddress) {
+		return ErrorNotSupportAddNot
 	}
 
 	v := verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus())
@@ -40,4 +49,13 @@ func (t Tx) SendRawTx(block AccountBlock) error {
 		return errors.New("generator gen an empty block")
 	}
 	return nil
+}
+
+func isPreCompiledContracts(address types.Address) bool {
+	for _, v := range preCompiledContracts {
+		if v == address {
+			return true
+		}
+	}
+	return false
 }

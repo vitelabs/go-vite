@@ -500,6 +500,10 @@ func (ac *AccountChain) GetDeleteMapAndReopenList(planToDelete map[uint64]uint64
 						iter.Release()
 						return nil, nil, getAccountErr
 					}
+
+					if receiveAccount == nil {
+						continue
+					}
 					receiveAccountId := receiveAccount.AccountId
 
 					for _, receiveBlockHeight := range accountBlockMeta.ReceiveBlockHeights {
