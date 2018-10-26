@@ -123,7 +123,8 @@ func (self *snapshotPool) checkFork() {
 	if longest.ChainId() == current.ChainId() {
 		return
 	}
-	self.snapshotFork(longest, current)
+	err := self.snapshotFork(longest, current)
+	self.log.Error("checkFork", "err", err)
 
 }
 
@@ -323,7 +324,10 @@ func (self *snapshotPool) forkAccounts(b *snapshotPoolBlock, accounts map[types.
 
 	for k, v := range accounts {
 		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)
-		self.pool.ForkAccountTo(k, v)
+		err := self.pool.ForkAccountTo(k, v)
+		if err != nil {
+			self.log.Error("forkaccountTo err", "err", err)
+		}
 	}
 
 	self.version.Inc()

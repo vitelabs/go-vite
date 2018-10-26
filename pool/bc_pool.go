@@ -440,7 +440,11 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		return errors.New(self.Id + " current chain height hash check fail")
 	}
 	for i := h; i >= 0; i-- {
-		self.chainpool.current.addTail(blocks[i])
+		if self.chainpool.current.canAddTail(blocks[i]) {
+			self.chainpool.current.addTail(blocks[i])
+		} else {
+			return errors.Errorf("err add tail %d-%s", blocks[i].Height(), blocks[i].Hash())
+		}
 	}
 	err := self.checkChain(blocks)
 	if err != nil {
@@ -542,6 +546,13 @@ func (self *forkedChain) addTail(w commonBlock) {
 	self.tailHash = w.PrevHash()
 	self.tailHeight = w.Height() - 1
 	self.setHeightBlock(w.Height(), w)
+}
+func (self *forkedChain) canAddTail(w commonBlock) bool {
+	if self.tailHash == w.Hash() && self.tailHeight == w.Height() {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (self *forkedChain) String() string {
@@ -675,7 +686,10 @@ func (self *BCPool) loopGenSnippetChains() int {
 }
 
 func (self *BCPool) loopAppendChains() int {
-	self.chainpool.check()
+	err := self.chainpool.check()
+	if err != nil {
+		self.log.Error("loopAppendChains check chain err", "err", err)
+	}
 	if len(self.chainpool.snippetChains) == 0 {
 		return 0
 	}
@@ -764,6 +778,12 @@ func (self *BCPool) CurrentModifyToChain(target *forkedChain, hashH *ledger.Hash
 	r := clearChainBase(target)
 	if len(r) > 0 {
 		self.log.Debug("CurrentModifyToChain-clearChainBase", "chainId", target.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
+		if target.referChain.id() != self.chainpool.diskChain.id() {
+			err := self.chainpool.modifyChainRefer2(target, target.referChain.(*forkedChain))
+			if err != nil {
+				self.log.Error("CurrentModifyToChain.modifyChainRefer2 fail", "err", err)
+			}
+		}
 	}
 	return self.chainpool.currentModifyToChain(target)
 }
