@@ -9,13 +9,13 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
-	"github.com/vitelabs/go-vite/pow"
 )
 
 var (
@@ -67,8 +67,12 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 		t.Error("GetLatestAccountBlock", err)
 		return
 	}
-
-	gen, err := NewGenerator(v.chain, nil, nil, &fromBlock.ToAddress)
+	fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(v.chain, nil)
+	if err != nil {
+		t.Error("GetFitestGeneratorSnapshotHash", err)
+		return
+	}
+	gen, err := NewGenerator(v.chain, fitestSnapshotBlockHash, nil, &fromBlock.ToAddress)
 	if err != nil {
 		t.Error(err)
 	}
@@ -131,7 +135,11 @@ func createRPCBlockCallPledgeContarct(vite *VitePrepared, addr *types.Address) e
 		Data:           pledgeData,
 	}
 
-	gen, err := NewGenerator(vite.chain, nil, nil, &im.AccountAddress)
+	fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(vite.chain, nil)
+	if err != nil {
+		return err
+	}
+	gen, err := NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &im.AccountAddress)
 	if err != nil {
 		return err
 	}
@@ -172,7 +180,11 @@ func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address, fromAddrP
 		Difficulty:     difficulty,
 	}
 
-	gen, err := NewGenerator(vite.chain, nil, nil, &im.AccountAddress)
+	fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(vite.chain, nil)
+	if err != nil {
+		return err
+	}
+	gen, err := NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &im.AccountAddress)
 	if err != nil {
 		return err
 	}
