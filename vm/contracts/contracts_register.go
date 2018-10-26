@@ -142,7 +142,7 @@ func (p *MethodRegister) GetFee(context contractsContext, block *vm_context.VmAc
 
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
 func (p *MethodRegister) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, registerGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, RegisterGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -245,7 +245,7 @@ func (p *MethodCancelRegister) GetFee(context contractsContext, block *vm_contex
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
 func (p *MethodCancelRegister) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, cancelRegisterGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, CancelRegisterGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -324,7 +324,7 @@ func (p *MethodReward) GetFee(context contractsContext, block *vm_context.VmAcco
 
 // get reward of generating snapshot block
 func (p *MethodReward) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, rewardGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, RewardGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -347,7 +347,7 @@ func (p *MethodReward) DoSend(context contractsContext, block *vm_context.VmAcco
 	if err != nil {
 		return quotaLeft, err
 	}
-	if quotaLeft, err = util.UseQuota(quotaLeft, ((count+dbPageSize-1)/dbPageSize)*calcRewardGasPerPage); err != nil {
+	if quotaLeft, err = util.UseQuota(quotaLeft, ((count+dbPageSize-1)/dbPageSize)*CalcRewardGasPerPage); err != nil {
 		return quotaLeft, err
 	}
 	block.AccountBlock.Data = data
@@ -382,7 +382,7 @@ func GetRewardData(db vmctxt_interface.VmDatabase, old *Registration, gid types.
 	}
 	count := endHeight - startHeight
 	// avoid uint64 overflow
-	if count > maxRewardCount {
+	if count > MaxRewardCount {
 		return 0, nil, errors.New("height gap overflow")
 	}
 	data, err := ABIRegister.PackMethod(
@@ -482,7 +482,7 @@ func (p *MethodUpdateRegistration) GetFee(context contractsContext, block *vm_co
 
 // update registration info
 func (p *MethodUpdateRegistration) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, updateRegistrationGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, UpdateRegistrationGas)
 	if err != nil {
 		return quotaLeft, err
 	}

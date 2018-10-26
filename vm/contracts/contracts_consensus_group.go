@@ -126,7 +126,7 @@ func (p *MethodCreateConsensusGroup) GetFee(context contractsContext, block *vm_
 }
 
 func (p *MethodCreateConsensusGroup) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, createConsensusGroupGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, CreateConsensusGroupGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -234,7 +234,7 @@ func (p *MethodCancelConsensusGroup) GetFee(context contractsContext, block *vm_
 // A canceled consensus group(no-active) will not generate contract blocks after cancel receive block is confirmed.
 // Consensus group name is kept even if canceled.
 func (p *MethodCancelConsensusGroup) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, cancelConsensusGroupGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, CancelConsensusGroupGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -313,7 +313,7 @@ func (p *MethodReCreateConsensusGroup) GetFee(context contractsContext, block *v
 // Pledge again for a canceled consensus group.
 // A consensus group will start generate contract blocks after recreate receive block is confirmed.
 func (p *MethodReCreateConsensusGroup) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, reCreateConsensusGroupGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, ReCreateConsensusGroupGas)
 	if err != nil {
 		return quotaLeft, err
 	}

@@ -111,7 +111,7 @@ func (p *MethodMintage) GetFee(context contractsContext, block *vm_context.VmAcc
 }
 
 func (p *MethodMintage) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, mintageGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, MintageGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -206,7 +206,7 @@ func (p *MethodMintageCancelPledge) GetFee(context contractsContext, block *vm_c
 }
 
 func (p *MethodMintageCancelPledge) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, mintageCancelPledgeGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, MintageCancelPledgeGas)
 	if err != nil {
 		return quotaLeft, err
 	}

@@ -6,21 +6,21 @@ import (
 )
 
 const (
-	registerGas               uint64 = 62200
-	updateRegistrationGas     uint64 = 62200
-	cancelRegisterGas         uint64 = 83200
-	rewardGas                 uint64 = 83200
-	calcRewardGasPerPage      uint64 = 200
-	maxRewardCount            uint64 = 150000000
-	voteGas                   uint64 = 62000
-	cancelVoteGas             uint64 = 62000
-	pledgeGas                 uint64 = 21000
-	cancelPledgeGas           uint64 = 103400
-	createConsensusGroupGas   uint64 = 62200
-	cancelConsensusGroupGas   uint64 = 83200
-	reCreateConsensusGroupGas uint64 = 62200
-	mintageGas                uint64 = 83200
-	mintageCancelPledgeGas    uint64 = 83200
+	RegisterGas               uint64 = 21000
+	UpdateRegistrationGas     uint64 = 21000
+	CancelRegisterGas         uint64 = 21000
+	RewardGas                 uint64 = 21000
+	CalcRewardGasPerPage      uint64 = 200
+	MaxRewardCount            uint64 = 150000000
+	VoteGas                   uint64 = 21000
+	CancelVoteGas             uint64 = 21000
+	PledgeGas                 uint64 = 21000
+	CancelPledgeGas           uint64 = 21000
+	CreateConsensusGroupGas   uint64 = 21000
+	CancelConsensusGroupGas   uint64 = 21000
+	ReCreateConsensusGroupGas uint64 = 21000
+	MintageGas                uint64 = 21000
+	MintageCancelPledgeGas    uint64 = 21000
 
 	minPledgeHeight uint64 = 3600 * 24 * 3 // Minimum pledge height
 
