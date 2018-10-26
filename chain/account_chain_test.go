@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 	_ "net/http/pprof"
@@ -118,7 +119,8 @@ func TestContractsAddr(t *testing.T) {
 func TestGetAccountBlocksByHash(t *testing.T) {
 	chainInstance := getChainInstance()
 
-	blocks, err1 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, nil, 10, true)
+	addr, _ := types.HexToAddress("vite_5acd0b2ef651bdc0c586aafe7a780103f45ac532cd886eb859")
+	blocks, err1 := chainInstance.GetAccountBlocksByHash(addr, nil, 10000, true)
 	if err1 != nil {
 		t.Error(err1)
 	}
@@ -126,31 +128,31 @@ func TestGetAccountBlocksByHash(t *testing.T) {
 		fmt.Printf("%d: %+v\n", index, block)
 	}
 
-	blocks2, err2 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, nil, 10, false)
-	if err2 != nil {
-		t.Error(err2)
-	}
-	for index, block := range blocks2 {
-		fmt.Printf("%d: %+v\n", index, block)
-	}
-
-	startHash, _ := types.HexToHash("f9380deea688b3afe206f52cc3cf2c2677bca1a0fbb4abdfa9d671bc26b22932")
-	blocks3, err3 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, &startHash, 10, true)
-	if err3 != nil {
-		t.Error(err3)
-	}
-	for index, block := range blocks3 {
-		fmt.Printf("%d: %+v\n", index, block)
-	}
-
-	endHash, _ := types.HexToHash("efe9be9b0e41f37dbb34899bb8891c5e150d35e8e907212128cffb7907b5292a")
-	blocks4, err4 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, &endHash, 10, false)
-	if err4 != nil {
-		t.Error(err4)
-	}
-	for index, block := range blocks4 {
-		fmt.Printf("%d: %+v\n", index, block)
-	}
+	//blocks2, err2 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, nil, 10, false)
+	//if err2 != nil {
+	//	t.Error(err2)
+	//}
+	//for index, block := range blocks2 {
+	//	fmt.Printf("%d: %+v\n", index, block)
+	//}
+	//
+	//startHash, _ := types.HexToHash("vite_5acd0b2ef651bdc0c586aafe7a780103f45ac532cd886eb859")
+	//blocks3, err3 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, &startHash, 10, true)
+	//if err3 != nil {
+	//	t.Error(err3)
+	//}
+	//for index, block := range blocks3 {
+	//	fmt.Printf("%d: %+v\n", index, block)
+	//}
+	//
+	//endHash, _ := types.HexToHash("efe9be9b0e41f37dbb34899bb8891c5e150d35e8e907212128cffb7907b5292a")
+	//blocks4, err4 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, &endHash, 10, false)
+	//if err4 != nil {
+	//	t.Error(err4)
+	//}
+	//for index, block := range blocks4 {
+	//	fmt.Printf("%d: %+v\n", index, block)
+	//}
 }
 
 func TestGetAccountBlockMetaByHash(t *testing.T) {
@@ -349,8 +351,8 @@ func TestGetAccountBlockByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
 	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 	fmt.Printf("%+v\n", latestSnapshotBlock)
-	addr, _ := types.HexToAddress("vite_0b21e2d83e4008cf4ba63598be906b4f03b9181c75d316ac33")
-	for i := uint64(1); i <= 20; i++ {
+	addr, _ := types.HexToAddress("vite_5acd0b2ef651bdc0c586aafe7a780103f45ac532cd886eb859")
+	for i := uint64(1453); i <= 20; i++ {
 		block, _ := chainInstance.GetAccountBlockByHeight(&addr, i)
 		if block == nil {
 			break
@@ -443,6 +445,105 @@ func TestGetUnConfirmAccountBlocks(t *testing.T) {
 	for index, block := range blocks2 {
 		fmt.Printf("%d: %+v\n", index, block)
 	}
+}
+
+func TestChain_GetLatestAccountBlock2(t *testing.T) {
+	log15.Root().SetHandler(
+		log15.LvlFilterHandler(log15.LvlError, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),
+	)
+	chainInstance := getChainInstance()
+
+	addr1, _, _ := types.CreateAddress()
+	addr2, _, _ := types.CreateAddress()
+
+	for i := 0; i < 10000; i++ {
+		blocks, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1, &addr2)
+		chainInstance.InsertAccountBlocks(blocks)
+
+		receiveBlock, _ := newReceiveBlock(SecondSnapshotBlock.Hash, addr2, blocks[0].AccountBlock.Hash)
+		chainInstance.InsertAccountBlocks(receiveBlock)
+	}
+
+	chainInstance.DeleteAccountBlocks(&addr1, 3001)
+	latestBlock1, _ := chainInstance.GetLatestAccountBlock(&addr1)
+	fmt.Printf("%+v\n", latestBlock1)
+
+	latestBlock2, _ := chainInstance.GetLatestAccountBlock(&addr2)
+	fmt.Printf("%+v\n", latestBlock2)
+
+	blocks, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr2, &addr1)
+	chainInstance.InsertAccountBlocks(blocks)
+
+	latestBlock3, _ := chainInstance.GetLatestAccountBlock(&addr2)
+	fmt.Printf("%+v\n", latestBlock3)
+}
+
+func TestChain_GetLatestAccountBlock(t *testing.T) {
+	log15.Root().SetHandler(
+		log15.LvlFilterHandler(log15.LvlError, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),
+	)
+	chainInstance := getChainInstance()
+
+	addr1, _, _ := types.CreateAddress()
+	addr2, _, _ := types.CreateAddress()
+
+	addr1_1, _, _ := types.CreateAddress()
+	addr2_2, _, _ := types.CreateAddress()
+
+	blocks, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1, &addr2)
+	chainInstance.InsertAccountBlocks(blocks)
+
+	blocks_1, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1_1, &addr2_2)
+	chainInstance.InsertAccountBlocks(blocks_1)
+
+	blocks2, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1, &addr2)
+	chainInstance.InsertAccountBlocks(blocks2)
+
+	blocks2_1, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1_1, &addr2_2)
+	chainInstance.InsertAccountBlocks(blocks2_1)
+
+	blocks3, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1, &addr2)
+	chainInstance.InsertAccountBlocks(blocks3)
+
+	blocks3_1, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1_1, &addr2_2)
+	chainInstance.InsertAccountBlocks(blocks3_1)
+
+	latestBlock, _ := chainInstance.GetLatestAccountBlock(&addr1)
+	fmt.Printf("%+v\n", latestBlock)
+
+	latestBlock_1, _ := chainInstance.GetLatestAccountBlock(&addr1_1)
+	fmt.Printf("%+v\n", latestBlock_1)
+
+	blocks4, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1, &addr2)
+	chainInstance.InsertAccountBlocks(blocks4)
+
+	blocks4_1, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1_1, &addr2_2)
+	chainInstance.InsertAccountBlocks(blocks4_1)
+
+	latestBlock2, _ := chainInstance.GetLatestAccountBlock(&addr1)
+	fmt.Printf("%+v\n", latestBlock2)
+
+	latestBlock_2, _ := chainInstance.GetLatestAccountBlock(&addr1_1)
+	fmt.Printf("%+v\n", latestBlock_2)
+
+	chainInstance.DeleteAccountBlocks(&addr1, 2)
+
+	latestBlock3, _ := chainInstance.GetLatestAccountBlock(&addr1)
+	fmt.Printf("%+v\n", latestBlock3)
+
+	blocks5, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1, &addr2)
+	chainInstance.InsertAccountBlocks(blocks5)
+
+	latestBlock4, _ := chainInstance.GetLatestAccountBlock(&addr1)
+	fmt.Printf("%+v\n", latestBlock4)
+
+	latestBlock4_1, _ := chainInstance.GetLatestAccountBlock(&addr1_1)
+	fmt.Printf("%+v\n", latestBlock4_1)
+
+	chainInstance.DeleteAccountBlocks(&addr1_1, 2)
+
+	latestBlock5_1, _ := chainInstance.GetLatestAccountBlock(&addr1_1)
+	fmt.Printf("%+v\n", latestBlock5_1)
 }
 
 // TODO need snapshot
