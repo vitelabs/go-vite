@@ -3,6 +3,7 @@ package net
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/vite/net/message"
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -314,7 +315,11 @@ func (s *syncer) counter(add bool, num uint64) {
 func (s *syncer) sync(from, to uint64) {
 	s.log.Debug(fmt.Sprintf("syncer: from %d to %d", from, to))
 
-	pieces := splitSubLedger(from, to, s.peers.Pick(from+minSubLedger))
+	peerList := s.peers.Pick(from + minSubLedger)
+	// sort from low to high
+	sort.Sort(peers(peerList))
+
+	pieces := splitSubLedger(from, to, peerList)
 
 	for _, piece := range pieces {
 		req := &subLedgerRequest{

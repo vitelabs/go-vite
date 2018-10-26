@@ -230,8 +230,11 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 		blocks, err = s.chain.GetSnapshotBlocksByHeight(chunk[0], chunk[1]-chunk[0]+1, true, true)
 		if err != nil || len(blocks) == 0 {
 			netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
+			monitor.LogEvent("net/handle", "GetSnapshotBlocks_Fail")
 			return sender.Send(ExceptionCode, msg.Id, message.Missing)
 		}
+
+		monitor.LogEvent("net/handle", "GetSnapshotBlocks_Success")
 
 		if err = sender.SendSnapshotBlocks(blocks, msg.Id); err != nil {
 			netLog.Error(fmt.Sprintf("send %d SnapshotBlocks to %s error: %v", len(blocks), sender.RemoteAddr(), err))
@@ -284,6 +287,7 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 
 	if err != nil || block == nil {
 		netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
+		monitor.LogEvent("net/handle", "GetAccountBlocks_Fail")
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
 
@@ -310,8 +314,11 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 		blocks, err = a.chain.GetAccountBlocksByHeight(address, chunk[0], chunk[1]-chunk[0]+1, true)
 		if err != nil || len(blocks) == 0 {
 			netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
+			monitor.LogEvent("net/handle", "GetAccountBlocks_Fail")
 			return sender.Send(ExceptionCode, msg.Id, message.Missing)
 		}
+
+		monitor.LogEvent("net/handle", "GetAccountBlocks_Success")
 
 		if err = sender.SendAccountBlocks(blocks, msg.Id); err != nil {
 			netLog.Error(fmt.Sprintf("send %d AccountBlocks to %s error: %v", len(blocks), sender.RemoteAddr(), err))

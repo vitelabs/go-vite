@@ -11,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	net2 "net"
-	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -410,8 +409,6 @@ func (m *peerSet) Pick(height uint64) (l []*peer) {
 			l = append(l, p)
 		}
 	}
-
-	sort.Sort(peers(l))
 
 	return
 }
