@@ -62,7 +62,7 @@ func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *peer {
 		CmdSet:      cmdSet,
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
-		errChan:     make(chan error, peerMsgConcurrency+1),
+		errChan:     make(chan error, 1),
 		term:        make(chan struct{}),
 		msgHandled:  make(map[ViteCmd]uint64),
 	}
