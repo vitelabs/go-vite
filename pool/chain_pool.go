@@ -91,8 +91,9 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 		w.Hash() != head.Hash() {
 		return errors.New("chain can't refer to disk head")
 	}
-	if chain.tailHeight < head.Height() {
-		return errors.New(fmt.Sprintf("chain tail height error. tailHeight:%d, headHeight:%d", chain.tailHeight, head.Height()))
+	chain.getBlock(self.current.tailHeight, true)
+	if w == nil || w.Hash() != self.current.tailHash {
+		return errors.New(fmt.Sprintf("chain tail height error. tailHeight:%d, headHeight:%d", self.current.tailHeight, head.Height()))
 	}
 
 	e := self.check()
@@ -140,6 +141,10 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 }
 
 func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
+	r := clearChainBase(to)
+	if len(r) > 0 {
+		self.log.Debug("modifyRefer-clearChainBase", "chainId", to.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
+	}
 	// from.tailHeight <= to.tailHeight  && from.headHeight > to.tail.Height
 	toTailHeight := to.tailHeight
 	fromTailHeight := from.tailHeight
