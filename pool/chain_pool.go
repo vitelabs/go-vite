@@ -104,19 +104,13 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 	for chain.referChain.id() != self.diskChain.id() {
 		fromChain := chain.referChain.(*forkedChain)
 		if fromChain.size() == 0 {
-			if fromChain.tailHeight == chain.tailHeight {
-				self.log.Error("modify refer[6]", "from", fromChain.id(), "to", chain.id(),
-					"fromTailHeight", fromChain.tailHeight, "fromHeadHeight", fromChain.headHeight,
-					"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
-				chain.referChain = fromChain.referChain
-				self.modifyChainRefer2(fromChain, chain)
-				self.delChain(fromChain.id())
-				continue
-			} else {
-				self.log.Error("modify refer[5]", "from", fromChain.id(), "to", chain.id(),
-					"fromTailHeight", fromChain.tailHeight, "fromHeadHeight", fromChain.headHeight,
-					"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
-			}
+			self.log.Error("modify refer[6]", "from", fromChain.id(), "to", chain.id(),
+				"fromTailHeight", fromChain.tailHeight, "fromHeadHeight", fromChain.headHeight,
+				"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
+			chain.referChain = fromChain.referChain
+			self.modifyChainRefer2(fromChain, chain)
+			self.delChain(fromChain.id())
+			continue
 		}
 		e := self.modifyRefer(fromChain, chain)
 		if e != nil {
@@ -302,7 +296,7 @@ LOOP:
 				hr = reader
 				break LOOP
 			}
-			if block.Hash() != sb.Hash() {
+			if b2.Hash() != sb.Hash() {
 				if r2.id() == reader.id() {
 					forky = true
 					insertable = false

@@ -402,7 +402,8 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*l
 		if forkPoint.Height() < this.CurrentChain().tailHeight {
 			return h, nil
 		}
-		self.log.Info("PendingAccountTo->CurrentModifyToChain", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
+		self.log.Info("PendingAccountTo->CurrentModifyToChain", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain",
+			targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
 		err = this.CurrentModifyToChain(targetChain, h)
 		if err != nil {
 			self.log.Error("PendingAccountTo->CurrentModifyToChain err", "err", err, "targetId", targetChain.id())
