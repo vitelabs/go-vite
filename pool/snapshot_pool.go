@@ -323,7 +323,10 @@ func (self *snapshotPool) forkAccounts(b *snapshotPoolBlock, accounts map[types.
 
 	for k, v := range accounts {
 		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)
-		self.pool.ForkAccountTo(k, v)
+		err := self.pool.ForkAccountTo(k, v)
+		if err != nil {
+			self.log.Error("forkaccountTo err", "err", err)
+		}
 	}
 
 	self.version.Inc()
