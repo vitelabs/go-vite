@@ -369,7 +369,7 @@ func (p *Peer) handleMsg(msg *Msg) {
 		case pf.r <- msg:
 			pf.Received[msg.Cmd]++
 			monitor.LogDuration("p2p_ts", "read_queue_"+pf.String(), int64(len(pf.r)))
-			p.log.Debug(fmt.Sprintf("read message %d/%d from %s, rest %d messages", msg.CmdSet, msg.Cmd, p.RemoteAddr(), len(p.wqueue)))
+			p.log.Debug(fmt.Sprintf("read message %d/%d from %s, rest %d messages", msg.CmdSet, msg.Cmd, p.RemoteAddr(), len(pf.r)))
 
 		default:
 			p.log.Warn(fmt.Sprintf("protocol is busy, discard message %d/%d from %s", cmdset, cmd, p.RemoteAddr()))
