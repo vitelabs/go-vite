@@ -199,7 +199,7 @@ func (n *net) handlePeer(p *peer) error {
 	return n.startPeer(p)
 }
 
-func (n *net) startPeer(p *peer) error {
+func (n *net) startPeer(p *peer) (err error) {
 	n.peers.Add(p)
 	defer n.peers.Del(p)
 
@@ -210,10 +210,14 @@ func (n *net) startPeer(p *peer) error {
 
 	common.Go(n.syncer.Start)
 
+	n.startHandleMsg(p)
+
+loop:
 	for {
 		select {
 		case <-n.term:
-			return p2p.DiscQuitting
+			err = p2p.DiscQuitting
+			break loop
 
 		case <-ticker.C:
 			current := n.Chain.GetLatestSnapshotBlock()
@@ -222,11 +226,43 @@ func (n *net) startPeer(p *peer) error {
 				Height: current.Height,
 			})
 
-		default:
-			if err := n.handleMsg(p); err != nil {
-				return err
+		case err = <-p.errChan:
+			if err != nil {
+				p.log.Error(fmt.Sprintf("peer %s error: %v", p.RemoteAddr(), err))
+				break loop
 			}
 		}
+	}
+
+	close(p.term)
+	p.wg.Wait()
+
+	return err
+}
+
+func (n *net) startHandleMsg(p *peer) {
+	p.wg.Add(peerMsgConcurrency)
+	for i := 0; i < peerMsgConcurrency; i++ {
+		common.Go(func() {
+			defer p.wg.Done()
+
+			for {
+				select {
+				case <-p.term:
+					return
+				default:
+					if err := n.handleMsg(p); err != nil {
+						select {
+						case p.errChan <- err:
+						default:
+							// nothing
+						}
+
+						return
+					}
+				}
+			}
+		})
 	}
 }
 

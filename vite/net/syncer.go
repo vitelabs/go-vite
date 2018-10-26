@@ -128,7 +128,7 @@ func newSyncer(chain Chain, peers *peerSet, pool context, receiver Receiver) *sy
 		feed:       newSyncStateFeed(),
 		chain:      chain,
 		peers:      peers,
-		pEvent:     make(chan *peerEvent),
+		pEvent:     make(chan *peerEvent, 1),
 		pool:       pool,
 		log:        log15.New("module", "net/syncer"),
 		receiver:   receiver,

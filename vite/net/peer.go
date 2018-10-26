@@ -36,6 +36,8 @@ type Peer interface {
 	Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error)
 }
 
+const peerMsgConcurrency = 10
+
 type peer struct {
 	*p2p.Peer
 	mrw         *p2p.ProtoFrame
@@ -46,8 +48,10 @@ type peer struct {
 	CmdSet      p2p.CmdSet // which cmdSet it belongs
 	KnownBlocks *cuckoofilter.CuckooFilter
 	log         log15.Logger
-	errch       chan error
+	errChan     chan error
+	term        chan struct{}
 	msgHandled  map[ViteCmd]uint64 // message statistic
+	wg          sync.WaitGroup
 }
 
 func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *peer {
@@ -58,7 +62,8 @@ func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *peer {
 		CmdSet:      cmdSet,
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
-		errch:       make(chan error),
+		errChan:     make(chan error, peerMsgConcurrency+1),
+		term:        make(chan struct{}),
 		msgHandled:  make(map[ViteCmd]uint64),
 	}
 }
