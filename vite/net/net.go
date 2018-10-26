@@ -210,8 +210,6 @@ func (n *net) startPeer(p *peer) (err error) {
 
 	common.Go(n.syncer.Start)
 
-	n.startHandleMsg(p)
-
 loop:
 	for {
 		select {
@@ -231,40 +229,45 @@ loop:
 				p.log.Error(fmt.Sprintf("peer %s error: %v", p.RemoteAddr(), err))
 				break loop
 			}
+
+		default:
+			if err := n.handleMsg(p); err != nil {
+				return err
+			}
 		}
 	}
 
-	close(p.term)
-	p.wg.Wait()
+	//close(p.term)
+	//p.wg.Wait()
 
 	return err
 }
 
-func (n *net) startHandleMsg(p *peer) {
-	p.wg.Add(peerMsgConcurrency)
-	for i := 0; i < peerMsgConcurrency; i++ {
-		common.Go(func() {
-			defer p.wg.Done()
-
-			for {
-				select {
-				case <-p.term:
-					return
-				default:
-					if err := n.handleMsg(p); err != nil {
-						select {
-						case p.errChan <- err:
-						default:
-							// nothing
-						}
-
-						return
-					}
-				}
-			}
-		})
-	}
-}
+//func (n *net) startHandleMsg(p *peer) {
+//	p.wg.Add(peerMsgConcurrency)
+//	for i := 0; i < peerMsgConcurrency; i++ {
+//		common.Go(func() {
+//			defer p.wg.Done()
+//
+//			for {
+//				select {
+//				case <-p.term:
+//					return
+//				default:
+//					if err := n.handleMsg(p); err != nil {
+//						select {
+//						case p.errChan <- err:
+//						default:
+//							// nothing
+//						}
+//
+//						return
+//					}
+//				}
+//			}
+//		})
+//	}
+//}
 
 var errMissHandler = errors.New("missing message handler")
 
