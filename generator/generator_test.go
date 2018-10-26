@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"github.com/vitelabs/go-vite/pow"
 )
 
 var (
@@ -151,11 +152,11 @@ func TestGenerator_GenerateWithMessage_CallTransfer(t *testing.T) {
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-	if err := callTransfer(v, &ledger.GenesisAccountAddress, &addr1, genesisAccountPrivKey, genesisAccountPubKey, defaultDifficulty); err != nil {
+	if err := callTransfer(v, &ledger.GenesisAccountAddress, &addr1, genesisAccountPrivKey, genesisAccountPubKey, pow.DefaultDifficulty); err != nil {
 		t.Error(err)
 		return
 	}
-	if err := callTransfer(v, &addr1, &addr2, addr1PrivKey, addr1PubKey, defaultDifficulty); err != nil {
+	if err := callTransfer(v, &addr1, &addr2, addr1PrivKey, addr1PubKey, pow.DefaultDifficulty); err != nil {
 		t.Error(err)
 		return
 	}

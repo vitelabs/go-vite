@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts"
@@ -33,6 +34,11 @@ func (t Tx) SendRawTx(block AccountBlock) error {
 	}
 	if len(lb.Data) != 0 && !isPreCompiledContracts(lb.ToAddress) {
 		return ErrorNotSupportAddNot
+	}
+	if lb.Nonce != nil {
+		if lb.Difficulty == nil {
+			lb.Difficulty = pow.DefaultDifficulty
+		}
 	}
 
 	v := verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus())
