@@ -778,6 +778,12 @@ func (self *BCPool) CurrentModifyToChain(target *forkedChain, hashH *ledger.Hash
 	r := clearChainBase(target)
 	if len(r) > 0 {
 		self.log.Debug("CurrentModifyToChain-clearChainBase", "chainId", target.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
+		if target.referChain.id() != self.chainpool.diskChain.id() {
+			err := self.chainpool.modifyChainRefer2(target, target.referChain.(*forkedChain))
+			if err != nil {
+				self.log.Error("CurrentModifyToChain.modifyChainRefer2 fail", "err", err)
+			}
+		}
 	}
 	return self.chainpool.currentModifyToChain(target)
 }

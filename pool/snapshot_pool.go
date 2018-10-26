@@ -123,7 +123,8 @@ func (self *snapshotPool) checkFork() {
 	if longest.ChainId() == current.ChainId() {
 		return
 	}
-	self.snapshotFork(longest, current)
+	err := self.snapshotFork(longest, current)
+	self.log.Error("checkFork", "err", err)
 
 }
 

@@ -375,7 +375,10 @@ func (self *pool) ExistInPool(address types.Address, requestHash types.Hash) boo
 func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 
 	for k, v := range accounts {
-		self.selfPendingAc(k).rollbackCurrent(v)
+		err := self.selfPendingAc(k).rollbackCurrent(v)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -431,13 +434,16 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 		err = this.CurrentModifyToEmpty()
 		return err
 	}
+	if targetChain.id() == this.CurrentChain().id() {
+		return nil
+	}
 	cu := this.CurrentChain()
 	keyPoint, forkPoint, err := this.getForkPointByChains(targetChain, cu)
 	if err != nil {
 		return err
 	}
 	if keyPoint == nil {
-		return errors.Errorf("forkAccountTo key point is nil.", "target", targetChain.id(), "current", cu.id(),
+		return errors.Errorf("forkAccountTo key point is nil, target:%s", targetChain.id(), "current", cu.id(),
 			"targetTailHeight", targetChain.tailHeight, "targetTailHash", targetChain.tailHash,
 			"currentTailHeight", cu.tailHeight, "currentTailHash", cu.tailHash)
 	}
