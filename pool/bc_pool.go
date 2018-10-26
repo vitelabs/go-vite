@@ -423,7 +423,9 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 	if len(blocks) <= 0 {
 		return nil
 	}
-	self.log.Debug("rollbackCurrent", "start", blocks[0].Height(), "end", blocks[len(blocks)-1].Height(), "size", len(blocks))
+	cur := self.chainpool.current
+	self.log.Debug("rollbackCurrent", "start", blocks[0].Height(), "end", blocks[len(blocks)-1].Height(), "size", len(blocks),
+		"currentId", cur.id())
 
 	// from small to big
 	sort.Sort(ByHeight(blocks))
@@ -436,19 +438,19 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		return errors.New(self.Id + " disk chain height hash check fail")
 	}
 
-	if self.chainpool.current.tailHeight != longest.Height() || self.chainpool.current.tailHash != longest.Hash() {
+	if cur.tailHeight != longest.Height() || cur.tailHash != longest.Hash() {
 		return errors.New(self.Id + " current chain height hash check fail")
 	}
 	for i := h; i >= 0; i-- {
-		if self.chainpool.current.canAddTail(blocks[i]) {
-			self.chainpool.current.addTail(blocks[i])
+		if cur.canAddTail(blocks[i]) {
+			cur.addTail(blocks[i])
 		} else {
 			return errors.Errorf("err add tail %d-%s", blocks[i].Height(), blocks[i].Hash())
 		}
 	}
-	err := self.checkChain(blocks)
+	err := self.chainpool.check()
 	if err != nil {
-		return err
+		self.log.Error("rollbackCurrent check", "err", err)
 	}
 	return nil
 }
@@ -480,7 +482,7 @@ func checkLink(c1 *forkedChain, c2 heightChainReader, refer bool) error {
 	block := c2.getBlock(tailHeight, refer)
 	if block == nil {
 		c2.getBlock(tailHeight, refer)
-		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, tailHeight:%d", c1.id(), c2.id(), refer, tailHeight))
+		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, tail:%d-%s", c1.id(), c2.id(), refer, tailHeight, c1.tailHash))
 	} else if block.Hash() != c1.tailHash {
 		c2.getBlock(tailHeight, refer)
 		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, tailHeight:%d, tailHash:%s, blockHash:%s", c1.id(), c2.id(), refer, tailHeight, c1.tailHash.String(), block.Hash().String()))
