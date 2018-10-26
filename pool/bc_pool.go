@@ -440,7 +440,11 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		return errors.New(self.Id + " current chain height hash check fail")
 	}
 	for i := h; i >= 0; i-- {
-		self.chainpool.current.addTail(blocks[i])
+		if self.chainpool.current.canAddTail(blocks[i]) {
+			self.chainpool.current.addTail(blocks[i])
+		} else {
+			return errors.Errorf("err add tail %d-%s", blocks[i].Height(), blocks[i].Hash())
+		}
 	}
 	err := self.checkChain(blocks)
 	if err != nil {
@@ -542,6 +546,13 @@ func (self *forkedChain) addTail(w commonBlock) {
 	self.tailHash = w.PrevHash()
 	self.tailHeight = w.Height() - 1
 	self.setHeightBlock(w.Height(), w)
+}
+func (self *forkedChain) canAddTail(w commonBlock) bool {
+	if self.tailHash == w.Hash() && self.tailHeight == w.Height() {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (self *forkedChain) String() string {
