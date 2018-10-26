@@ -400,7 +400,7 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*l
 
 		this.LockForInsert()
 		defer this.UnLockForInsert()
-		self.log.Info("PendingAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
+		self.log.Info("PendingAccountTo->CurrentModifyToChain", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
 		this.CurrentModifyToChain(targetChain, h)
 		return nil, nil
 	}
@@ -413,6 +413,8 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*l
 
 func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
 	this := self.selfPendingAc(addr)
+	self.log.Info("RollbackAccountTo[1]", "addr", addr, "hash", h.Hash, "height", h.Height,
+		"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 	err := self.RollbackAccountTo(addr, h.Hash, h.Height)
 
 	if err != nil {
@@ -424,6 +426,8 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 	if targetChain == nil {
 		cnt := h.Height - this.chainpool.diskChain.Head().Height()
 		this.f.fetch(ledger.HashHeight{Height: h.Height, Hash: h.Hash}, cnt)
+		self.log.Info("CurrentModifyToEmpty", "addr", addr, "hash", h.Hash, "height", h.Height,
+			"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 		err = this.CurrentModifyToEmpty()
 		return err
 	}
@@ -437,17 +441,19 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 	}
 	// fork point in disk chain
 	if forkPoint.Height() <= this.CurrentChain().tailHeight {
-		self.log.Info("RollbackAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(),
+		self.log.Info("RollbackAccountTo[2]", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(),
 			"targetChainTailHeight", targetChain.tailHeight,
 			"targetChainHeadHeight", targetChain.headHeight,
-			"keyPoint", keyPoint.Height())
+			"keyPoint", keyPoint.Height(),
+			"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 		err := self.RollbackAccountTo(addr, keyPoint.Hash(), keyPoint.Height())
 		if err != nil {
 			return err
 		}
 	}
 
-	self.log.Info("ForkAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
+	self.log.Info("ForkAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight,
+		"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 	err = this.CurrentModifyToChain(targetChain, h)
 	if err != nil {
 		return err

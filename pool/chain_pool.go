@@ -427,14 +427,12 @@ func (self *chainPool) insert(c *forkedChain, wrapper commonBlock) error {
 			c.addHead(wrapper)
 			return nil
 		} else {
-			self.log.Warn(fmt.Sprintf("account forkedChain fork, fork point height[%d],hash[%s], but next block[%s]'s preHash is [%s]",
-				c.headHeight, c.headHash, wrapper.Hash(), wrapper.PrevHash()))
-			return &ForkChainError{What: "fork chain."}
+			return errors.Errorf("forkedChain fork, fork point height[%d],hash[%s], but next block[%s]'s preHash is [%s]",
+				c.headHeight, c.headHash, wrapper.Hash(), wrapper.PrevHash())
 		}
 	} else {
-		self.log.Warn(fmt.Sprintf("account forkedChain fork, fork point height[%d],hash[%s], but next block[%s]'s preHash is [%s]",
-			c.headHeight, c.headHash, wrapper.Hash(), wrapper.PrevHash()))
-		return &ForkChainError{What: "fork chain."}
+		return errors.Errorf("forkedChain fork, fork point height[%d],hash[%s], but next block[%s]'s preHash[%s]-[%d]",
+			c.headHeight, c.headHash, wrapper.Hash(), wrapper.PrevHash(), wrapper.Height())
 	}
 }
 
@@ -541,6 +539,27 @@ func (self *chainPool) clearUselessChain() []*forkedChain {
 		if c.size() == 0 {
 			delete(self.chains, id)
 			r = append(r, c)
+		}
+	}
+	return r
+}
+func (self *chainPool) clearRepeatChain() []*forkedChain {
+	self.chainMu.Lock()
+	defer self.chainMu.Unlock()
+
+	var r []*forkedChain
+	for id1, c1 := range self.chains {
+		if id1 == self.current.id() {
+			continue
+		}
+		for _, c2 := range self.chains {
+			if c1.tailHeight == c2.tailHeight &&
+				c1.tailHash == c2.tailHash {
+				h := c2.getHeightBlock(c1.headHeight)
+				if h != nil && h.Hash() == c1.headHash {
+					r = append(r, c1)
+				}
+			}
 		}
 	}
 	return r

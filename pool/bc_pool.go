@@ -710,6 +710,11 @@ func (self *BCPool) loopAppendChains() int {
 		self.log.Debug("del useless chain", "info", fmt.Sprintf("%+v", c.id()))
 		i++
 	}
+	repeats := self.chainpool.clearUselessChain()
+	for _, c := range repeats {
+		self.log.Debug("del repeat chain", "info", fmt.Sprintf("%+v", c.id()))
+		i++
+	}
 	return i
 }
 func (self *BCPool) loopFetchForSnippets() int {
