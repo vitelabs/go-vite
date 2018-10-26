@@ -48,6 +48,7 @@ func (p *PledgeApi) GetPledgeQuota(addr types.Address) QuotaAndTxNum {
 
 type PledgeInfoList struct {
 	TotalPledgeAmount string        `json:"totalPledgeAmount"`
+	Count             int           `json:"totalCount"`
 	List              []*PledgeInfo `json:"pledgeInfoList"`
 }
 type PledgeInfo struct {
@@ -77,7 +78,7 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 	sort.Sort(byWithdrawHeight(list))
 	startHeight, endHeight := index*count, (index+1)*count
 	if startHeight >= len(list) {
-		return &PledgeInfoList{*bigIntToString(amount), []*PledgeInfo{}}, nil
+		return &PledgeInfoList{*bigIntToString(amount), len(list), []*PledgeInfo{}}, nil
 	}
 	if endHeight > len(list) {
 		endHeight = len(list)
@@ -90,7 +91,7 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 			info.BeneficialAddr,
 			getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight)}
 	}
-	return &PledgeInfoList{*bigIntToString(amount), targetList}, nil
+	return &PledgeInfoList{*bigIntToString(amount), len(list), targetList}, nil
 }
 
 const (
