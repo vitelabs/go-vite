@@ -34,7 +34,8 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int)
 // contract account only gets quota via pledge
 // user account genesis block(a receive block) must calculate a PoW to get quota
 func CalcQuota(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64) {
-	if difficulty == nil {
+	// TODO test difficulty, update before deploy testnet
+	if difficulty == nil || difficulty.Sign() > 0 {
 		return CalcQuotaV2(db, addr, pledgeAmount, DefaultDifficulty)
 	} else {
 		return CalcQuotaV2(db, addr, pledgeAmount, difficulty)
