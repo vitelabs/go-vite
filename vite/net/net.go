@@ -48,6 +48,7 @@ type net struct {
 	fc        *fileClient
 	handlers  map[ViteCmd]MsgHandler
 	topo      *topo.Topology
+	query     *queryHandler
 }
 
 // auto from
@@ -90,10 +91,12 @@ func New(cfg *Config) Net {
 	}
 
 	n.addHandler(_statusHandler(statusHandler))
-	n.addHandler(&getSubLedgerHandler{cfg.Chain})
-	n.addHandler(&getSnapshotBlocksHandler{cfg.Chain})
-	n.addHandler(&getAccountBlocksHandler{cfg.Chain})
-	n.addHandler(&getChunkHandler{cfg.Chain})
+	//n.addHandler(&getSubLedgerHandler{cfg.Chain})
+	//n.addHandler(&getSnapshotBlocksHandler{cfg.Chain})
+	//n.addHandler(&getAccountBlocksHandler{cfg.Chain})
+	//n.addHandler(&getChunkHandler{cfg.Chain})
+	n.query = newQueryHandler(cfg.Chain)
+	n.addHandler(n.query)
 	n.addHandler(pool)     // FileListCode, SubLedgerCode, ExceptionCode
 	n.addHandler(receiver) // NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode
 
@@ -147,6 +150,11 @@ func (n *net) Start(svr *p2p.Server) (err error) {
 
 	n.pool.start()
 
+	n.wg.Add(1)
+	common.Go(n.heartbeat)
+
+	n.query.start()
+
 	return
 }
 
@@ -171,6 +179,8 @@ func (n *net) Stop() {
 		if n.topo != nil {
 			n.topo.Stop()
 		}
+
+		n.query.stop()
 
 		n.wg.Wait()
 	}
@@ -203,9 +213,6 @@ func (n *net) startPeer(p *peer) (err error) {
 	n.peers.Add(p)
 	defer n.peers.Del(p)
 
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
 	n.log.Debug(fmt.Sprintf("startPeer %s", p))
 
 	common.Go(n.syncer.Start)
@@ -216,13 +223,6 @@ loop:
 		case <-n.term:
 			err = p2p.DiscQuitting
 			break loop
-
-		case <-ticker.C:
-			current := n.Chain.GetLatestSnapshotBlock()
-			p.Send(StatusCode, 0, &ledger.HashHeight{
-				Hash:   current.Hash,
-				Height: current.Height,
-			})
 
 		case err = <-p.errChan:
 			if err != nil {
@@ -237,37 +237,39 @@ loop:
 		}
 	}
 
-	//close(p.term)
-	//p.wg.Wait()
+	close(p.term)
+	p.wg.Wait()
 
 	return err
 }
 
-//func (n *net) startHandleMsg(p *peer) {
-//	p.wg.Add(peerMsgConcurrency)
-//	for i := 0; i < peerMsgConcurrency; i++ {
-//		common.Go(func() {
-//			defer p.wg.Done()
-//
-//			for {
-//				select {
-//				case <-p.term:
-//					return
-//				default:
-//					if err := n.handleMsg(p); err != nil {
-//						select {
-//						case p.errChan <- err:
-//						default:
-//							// nothing
-//						}
-//
-//						return
-//					}
-//				}
-//			}
-//		})
-//	}
-//}
+func (n *net) heartbeat() {
+	defer n.wg.Done()
+
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-n.term:
+			return
+
+		case <-ticker.C:
+			l := n.peers.Pick(0)
+			if len(l) > 0 {
+				current := n.Chain.GetLatestSnapshotBlock()
+				for _, p := range l {
+					p.Send(StatusCode, 0, &ledger.HashHeight{
+						Hash:   current.Hash,
+						Height: current.Height,
+					})
+				}
+
+				monitor.LogEvent("net", "heartbeat")
+			}
+		}
+	}
+}
 
 var errMissHandler = errors.New("missing message handler")
 
