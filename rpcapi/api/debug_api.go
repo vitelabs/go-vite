@@ -139,6 +139,7 @@ func (api DebugApi) ConsensusPlanAndActual(gid types.Gid, offset int64, index ui
 			break
 		}
 		blocks = append(blocks, b)
+		block = b
 	}
 
 	result["blocks"] = blocks
