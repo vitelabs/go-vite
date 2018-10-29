@@ -157,6 +157,10 @@ func mockBlocks(chn chain.Chain, to uint64) {
 type mock_Peer struct {
 }
 
+func (m *mock_Peer) Report(err error) {
+	panic("implement me")
+}
+
 func (m *mock_Peer) FileAddress() *net2.TCPAddr {
 	panic("implement me")
 }

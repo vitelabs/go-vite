@@ -129,6 +129,8 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 	// record
 	s.mark(block.Hash)
 
+	s.broadcaster.BroadcastSnapshotBlock(block)
+
 	if atomic.LoadInt32(&s.ready) == 0 {
 		s.newSBlocks = append(s.newSBlocks, block)
 		s.log.Debug(fmt.Sprintf("not ready, store NewSnapshotBlock %s/%d, total %d", block.Hash, block.Height, len(s.newSBlocks)))
@@ -138,8 +140,6 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 		monitor.LogDuration("net/notify", "NewSnapshotBlock", time.Now().Sub(notify_b).Nanoseconds())
 		s.log.Debug(fmt.Sprintf("notify NewSnapshotBlock %s/%d done", block.Hash, block.Height))
 	}
-
-	s.broadcaster.BroadcastSnapshotBlock(block)
 }
 
 func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
@@ -168,6 +168,8 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 	// record
 	s.mark(block.Hash)
 
+	s.broadcaster.BroadcastAccountBlock(block)
+
 	if atomic.LoadInt32(&s.ready) == 0 {
 		s.newABlocks = append(s.newABlocks, block)
 		s.log.Warn(fmt.Sprintf("not ready, store NewAccountBlock %s, total %d", block.Hash, len(s.newABlocks)))
@@ -177,8 +179,6 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 		monitor.LogDuration("net/notify", "NewAccountBlock", time.Now().Sub(notify_b).Nanoseconds())
 		s.log.Debug(fmt.Sprintf("notify NewAccountBlock %s done", block.Hash))
 	}
-
-	s.broadcaster.BroadcastAccountBlock(block)
 }
 
 func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) {

@@ -18,6 +18,7 @@ type accountPool struct {
 	rw            *accountCh
 	verifyTask    verifyTask
 	loopTime      time.Time
+	loopFetchTime time.Time
 	address       types.Address
 	v             *accountVerifier
 	f             *accountSyncer
@@ -102,16 +103,19 @@ func (self *accountPool) Compact() int {
 	}()
 	//	this is a rate limiter
 	now := time.Now()
-	if now.After(self.loopTime.Add(time.Millisecond * 200)) {
+	sum := 0
+	if now.After(self.loopTime.Add(time.Millisecond * 2)) {
 		defer monitor.LogTime("pool", "accountCompact", now)
 		self.loopTime = now
-		sum := 0
 		sum = sum + self.loopGenSnippetChains()
 		sum = sum + self.loopAppendChains()
-		sum = sum + self.loopFetchForSnippets()
-		return sum
 	}
-	return 0
+	if now.After(self.loopFetchTime.Add(time.Millisecond * 200)) {
+		defer monitor.LogTime("pool", "loopFetchForSnippets", now)
+		self.loopFetchTime = now
+		sum = sum + self.loopFetchForSnippets()
+	}
+	return sum
 }
 
 func (self *accountPool) LockForInsert() {

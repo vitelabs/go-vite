@@ -1,6 +1,9 @@
 package chain
 
 import (
+	"math/big"
+	"time"
+
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain_db"
@@ -10,8 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
-	"time"
 )
 
 type InsertProcessorFunc func(batch *leveldb.Batch, blocks []*vm_context.VmAccountBlock) error

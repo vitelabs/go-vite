@@ -1,13 +1,16 @@
 package net
 
 import (
+	"container/list"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
+	"sync"
 	"time"
 )
 
@@ -120,6 +123,128 @@ func (s _statusHandler) Handle(msg *p2p.Msg, sender Peer) error {
 	return s(msg, sender)
 }
 
+// @section queryHandler
+type queryHandler struct {
+	lock     sync.RWMutex
+	queue    list.List
+	handlers map[ViteCmd]MsgHandler
+	signal   chan struct{}
+	term     chan struct{}
+	sch      int32 // atomic
+	wg       sync.WaitGroup
+}
+
+func newQueryHandler(chain Chain) *queryHandler {
+	q := &queryHandler{
+		handlers: make(map[ViteCmd]MsgHandler),
+		signal:   make(chan struct{}, 1),
+	}
+
+	q.addHandler(&getSubLedgerHandler{chain})
+	q.addHandler(&getSnapshotBlocksHandler{chain})
+	q.addHandler(&getAccountBlocksHandler{chain})
+	q.addHandler(&getChunkHandler{chain})
+
+	return q
+}
+
+func (q *queryHandler) start() {
+	q.term = make(chan struct{})
+
+	q.wg.Add(1)
+	common.Go(q.loop)
+}
+
+func (q *queryHandler) stop() {
+	select {
+	case <-q.term:
+	default:
+		close(q.term)
+		q.wg.Wait()
+	}
+}
+
+func (q *queryHandler) addHandler(handler MsgHandler) {
+	for _, cmd := range handler.Cmds() {
+		q.handlers[cmd] = handler
+	}
+}
+
+func (q *queryHandler) ID() string {
+	return "query handler"
+}
+
+func (q *queryHandler) Cmds() []ViteCmd {
+	return []ViteCmd{GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode}
+}
+
+type msgEvent struct {
+	msg    *p2p.Msg
+	sender Peer
+}
+
+func (e *msgEvent) Recycle() {
+	e.msg = nil
+	e.sender = nil
+	msgEventPool.Put(e)
+}
+
+var msgEventPool = &sync.Pool{
+	New: func() interface{} {
+		return &msgEvent{}
+	},
+}
+
+func newMsgEvent() *msgEvent {
+	v := msgEventPool.Get()
+	return v.(*msgEvent)
+}
+
+func (q *queryHandler) Handle(msg *p2p.Msg, sender Peer) error {
+	e := newMsgEvent()
+	e.msg = msg
+	e.sender = sender
+
+	q.lock.Lock()
+	q.queue.PushBack(e)
+	q.lock.Unlock()
+
+	return nil
+}
+
+func (q *queryHandler) loop() {
+	defer q.wg.Done()
+
+	const count = 10
+	tasks := make([]*msgEvent, count)
+	index := 0
+	var ele *list.Element
+
+	for {
+		q.lock.RLock()
+		for index, ele = 0, q.queue.Front(); index < count && ele != nil; index, ele = index+1, ele.Next() {
+			tasks[index] = ele.Value.(*msgEvent)
+		}
+		q.lock.RUnlock()
+
+		if index == 0 {
+			time.Sleep(20 * time.Millisecond)
+		} else {
+			for _, event := range tasks[:index] {
+				//event := event
+				cmd := ViteCmd(event.msg.Cmd)
+				if h, ok := q.handlers[cmd]; ok {
+					if err := h.Handle(event.msg, event.sender); err != nil {
+						event.sender.Report(err)
+					}
+				}
+
+				//event.Recycle()
+			}
+		}
+	}
+}
+
 // @section getSubLedgerHandler
 type getSubLedgerHandler struct {
 	chain Chain
@@ -230,8 +355,11 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 		blocks, err = s.chain.GetSnapshotBlocksByHeight(chunk[0], chunk[1]-chunk[0]+1, true, true)
 		if err != nil || len(blocks) == 0 {
 			netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
+			monitor.LogEvent("net/handle", "GetSnapshotBlocks_Fail")
 			return sender.Send(ExceptionCode, msg.Id, message.Missing)
 		}
+
+		monitor.LogEvent("net/handle", "GetSnapshotBlocks_Success")
 
 		if err = sender.SendSnapshotBlocks(blocks, msg.Id); err != nil {
 			netLog.Error(fmt.Sprintf("send %d SnapshotBlocks to %s error: %v", len(blocks), sender.RemoteAddr(), err))
@@ -284,6 +412,7 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 
 	if err != nil || block == nil {
 		netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
+		monitor.LogEvent("net/handle", "GetAccountBlocks_Fail")
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
 
@@ -310,8 +439,11 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 		blocks, err = a.chain.GetAccountBlocksByHeight(address, chunk[0], chunk[1]-chunk[0]+1, true)
 		if err != nil || len(blocks) == 0 {
 			netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
+			monitor.LogEvent("net/handle", "GetAccountBlocks_Fail")
 			return sender.Send(ExceptionCode, msg.Id, message.Missing)
 		}
+
+		monitor.LogEvent("net/handle", "GetAccountBlocks_Success")
 
 		if err = sender.SendAccountBlocks(blocks, msg.Id); err != nil {
 			netLog.Error(fmt.Sprintf("send %d AccountBlocks to %s error: %v", len(blocks), sender.RemoteAddr(), err))

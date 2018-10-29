@@ -1,9 +1,8 @@
 package api
 
 import (
-	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/wallet/walleterrors"
 )
 
 type JsonRpc2Error struct {
@@ -20,7 +19,7 @@ func (e JsonRpc2Error) ErrorCode() int {
 }
 
 var (
-	ErrNotSupport = errors.New("not support this method")
+	// ErrNotSupport = errors.New("not support this method")
 
 	ErrBalanceNotEnough = JsonRpc2Error{
 		Message: util.ErrInsufficientBalance.Error(),
@@ -35,6 +34,11 @@ var (
 	ErrorNotSupportAddNot = JsonRpc2Error{
 		Message: "Adding note information is not supported currently",
 		Code:    -35003,
+	}
+
+	ErrorNotSupportRecvAddNote = JsonRpc2Error{
+		Message: "Adding note information in receiveBlock is not allowed",
+		Code:    -35004,
 	}
 
 	ErrDecryptKey = JsonRpc2Error{
@@ -56,6 +60,7 @@ func init() {
 	concernedErrorMap[AddressAlreadyUnLocked.Error()] = AddressAlreadyUnLocked
 	concernedErrorMap[ErrBalanceNotEnough.Error()] = ErrBalanceNotEnough
 	concernedErrorMap[ErrQuotaNotEnough.Error()] = ErrQuotaNotEnough
+	concernedErrorMap[ErrorNotSupportRecvAddNote.Error()] = ErrorNotSupportRecvAddNote
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {

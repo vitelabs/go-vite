@@ -163,7 +163,11 @@ func GenesisReceiveMintage(vite *VitePrepared, addFunc AddChainDierct) error {
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-	gen, err := generator.NewGenerator(vite.chain, nil, nil, &sendBlock.ToAddress)
+	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(vite.chain, nil)
+	if err != nil {
+		return err
+	}
+	gen, err := generator.NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &sendBlock.ToAddress)
 	if err != nil {
 		return err
 	}

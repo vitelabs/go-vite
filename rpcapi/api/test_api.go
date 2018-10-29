@@ -77,8 +77,11 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		Data:           params.Data,
 		Difficulty:     params.Difficulty,
 	}
-
-	g, e := generator.NewGenerator(t.walletApi.chain, nil, nil, &params.SelfAddr)
+	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, nil)
+	if err != nil {
+		return err
+	}
+	g, e := generator.NewGenerator(t.walletApi.chain, fitestSnapshotBlockHash, nil, &params.SelfAddr)
 	if e != nil {
 		return e
 	}
@@ -133,7 +136,11 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	privKey, _ := ed25519.HexToPrivateKey(params.PrivKeyStr)
 	pubKey := privKey.PubByte()
 
-	g, e := generator.NewGenerator(chain, nil, nil, &params.SelfAddr)
+	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, nil)
+	if err != nil {
+		return err
+	}
+	g, e := generator.NewGenerator(chain, fitestSnapshotBlockHash, nil, &params.SelfAddr)
 	if e != nil {
 		return e
 	}

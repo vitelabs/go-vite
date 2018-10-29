@@ -52,7 +52,7 @@ func TestCommittee_ReadVoteMapByTime(t *testing.T) {
 		panic(err)
 	}
 	for k, v := range details {
-		t.Log(k, v.addr, v.name)
+		t.Log(k, v.Addr, v.Name)
 	}
 }
 

@@ -11,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	net2 "net"
-	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -34,6 +33,7 @@ type Peer interface {
 	SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error)
 	SendNewAccountBlock(b *ledger.AccountBlock) (err error)
 	Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error)
+	Report(err error)
 }
 
 const peerMsgConcurrency = 10
@@ -62,9 +62,17 @@ func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *peer {
 		CmdSet:      cmdSet,
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
-		errChan:     make(chan error, peerMsgConcurrency+1),
+		errChan:     make(chan error, 1),
 		term:        make(chan struct{}),
 		msgHandled:  make(map[ViteCmd]uint64),
+	}
+}
+
+func (p *peer) Report(err error) {
+	select {
+	case p.errChan <- err:
+	default:
+		// nothing
 	}
 }
 
@@ -410,8 +418,6 @@ func (m *peerSet) Pick(height uint64) (l []*peer) {
 			l = append(l, p)
 		}
 	}
-
-	sort.Sort(peers(l))
 
 	return
 }

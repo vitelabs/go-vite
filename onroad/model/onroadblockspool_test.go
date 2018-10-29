@@ -159,8 +159,11 @@ func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address,
 		TokenId:        &ledger.ViteTokenId,
 		Difficulty:     difficulty,
 	}
-
-	gen, err := generator.NewGenerator(vite.chain, nil, nil, &im.AccountAddress)
+	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(vite.chain, nil)
+	if err != nil {
+		return nil, err
+	}
+	gen, err := generator.NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &im.AccountAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +236,11 @@ func createContract(vite *VitePrepared, addr *types.Address, addrPrivKey ed25519
 		Difficulty:     difficulty,
 		Data:           data,
 	}
-	gen, err := generator.NewGenerator(vite.chain, nil, nil, &im.AccountAddress)
+	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(vite.chain, nil)
+	if err != nil {
+		return nil, err
+	}
+	gen, err := generator.NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &im.AccountAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +299,11 @@ func receiveTransferSendBlocks(vite *VitePrepared, addr *types.Address) ([]*ledg
 		genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 		genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-		gen, err := generator.NewGenerator(vite.chain, nil, nil, &v.ToAddress)
+		fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(vite.chain, nil)
+		if err != nil {
+			return nil, err
+		}
+		gen, err := generator.NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &v.ToAddress)
 		if err != nil {
 			return nil, err
 		}

@@ -124,8 +124,9 @@ func (self *snapshotPool) checkFork() {
 		return
 	}
 	err := self.snapshotFork(longest, current)
-	self.log.Error("checkFork", "err", err)
-
+	if err != nil {
+		self.log.Error("checkFork", "err", err)
+	}
 }
 
 func (self *snapshotPool) snapshotFork(longest *forkedChain, current *forkedChain) error {

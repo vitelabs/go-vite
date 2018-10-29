@@ -76,7 +76,6 @@ var errUnExpectedRes = errors.New("unexpected response")
 
 const minSubLedger = 3600 // minimal snapshot blocks per subLedger request
 const maxSubLedger = 7200 // maximal snapshot blocks per subLedger request
-const chunk = 10          // chunk blocks count
 const maxBlocks = 300     // max blocks in one message(snapshotblocks + accountblocks)
 
 type subLedgerPiece struct {
@@ -151,13 +150,13 @@ func splitChunk(from, to uint64) (chunks [][2]uint64) {
 		return
 	}
 
-	total := (to-from)/chunk + 1
+	total := (to-from)/maxBlocks + 1
 	chunks = make([][2]uint64, total)
 
 	var cTo uint64
 	var i int
 	for from <= to {
-		if cTo = from + chunk - 1; cTo > to {
+		if cTo = from + maxBlocks - 1; cTo > to {
 			cTo = to
 		}
 
