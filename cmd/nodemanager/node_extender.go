@@ -8,23 +8,35 @@ import (
 
 var (
 	extenderLog     = log15.New("module", "gvite/node_extender")
-	NodeExtenderMap = make(map[string]NodeExtender)
+	nodeExtenderMap = make(map[string]NodeExtender)
 )
 
 type NodeExtender interface {
+	Prepare(node *node.Node) error
 	Start(node *node.Node) error
-	Stop() error
+	Stop(node *node.Node) error
 }
 
 func Register(extenderName string, extender NodeExtender) {
-	NodeExtenderMap[extenderName] = extender
+	nodeExtenderMap[extenderName] = extender
+}
+
+func prepareNodeExtenders(node *node.Node) {
+	for name, extender := range nodeExtenderMap {
+		if err := extender.Prepare(node); err != nil {
+			extenderLog.Error(fmt.Sprintf("ExtenderName:%v ,Prepare error %v", name, err))
+			if err := extender.Stop(node); err != nil {
+				extenderLog.Error(fmt.Sprintf("ExtenderName:%v ,Stop error %v", name, err))
+			}
+		}
+	}
 }
 
 func startNodeExtenders(node *node.Node) {
-	for name, extender := range NodeExtenderMap {
+	for name, extender := range nodeExtenderMap {
 		if err := extender.Start(node); err != nil {
-			extenderLog.Error(fmt.Sprintf("ExtenderName:%v ,Star error %v", name, err))
-			if err := extender.Stop(); err != nil {
+			extenderLog.Error(fmt.Sprintf("ExtenderName:%v ,Start error %v", name, err))
+			if err := extender.Stop(node); err != nil {
 				extenderLog.Error(fmt.Sprintf("ExtenderName:%v ,Stop error %v", name, err))
 			}
 		}
@@ -32,8 +44,8 @@ func startNodeExtenders(node *node.Node) {
 }
 
 func stopNodeExtenders(node *node.Node) {
-	for name, extender := range NodeExtenderMap {
-		if err := extender.Stop(); err != nil {
+	for name, extender := range nodeExtenderMap {
+		if err := extender.Stop(node); err != nil {
 			extenderLog.Error(fmt.Sprintf("ExtenderName:%v ,Stop error %v", name, err))
 		}
 	}
