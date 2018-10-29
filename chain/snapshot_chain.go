@@ -116,6 +116,8 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
 	}
+	// Trigger success
+	c.em.triggerInsertSnapshotBlocksSuccess([]*ledger.SnapshotBlock{snapshotBlock})
 
 	// FIXME hack!!!!! tmp
 	tmpBuf, _ := json.Marshal(snapshotBlock)
@@ -558,6 +560,10 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		c.needSnapshotCache.Set(&addr, block)
 	}
 
+	// Trigger delete snapshot blocks success
+	c.em.triggerDeleteSnapshotBlocksSuccess(snapshotBlocks)
+
+	// Trigger delete account blocks success
 	c.em.triggerDeleteAccountBlocksSuccess(accountBlocksMap)
 	return snapshotBlocks, accountBlocksMap, nil
 }

@@ -19,6 +19,9 @@ type InsertProcessorFuncSuccess func(blocks []*vm_context.VmAccountBlock)
 type DeleteProcessorFunc func(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error
 type DeleteProcessorFuncSuccess func(subLedger map[types.Address][]*ledger.AccountBlock)
 
+type InsertSnapshotBlocksSuccess func([]*ledger.SnapshotBlock)
+type DeleteSnapshotBlocksSuccess func([]*ledger.SnapshotBlock)
+
 type Chain interface {
 	InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error
 	GetAccountBlocksByHash(addr types.Address, origin *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error)

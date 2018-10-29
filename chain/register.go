@@ -14,6 +14,10 @@ const (
 
 	DeleteAccountBlocksEvent        = uint8(3)
 	DeleteAccountBlocksSuccessEvent = uint8(4)
+
+	InsertSnapshotBlocksSuccessEvent = uint8(6)
+
+	DeleteSnapshotBlocksSuccessEvent = uint8(8)
 )
 
 type iabsListener struct {
@@ -35,12 +39,26 @@ type dabssListener struct {
 	processor  DeleteProcessorFuncSuccess
 }
 
+type isbssListener struct {
+	listenerId uint64
+	processor  InsertSnapshotBlocksSuccess
+}
+
+type dsbssListener struct {
+	listenerId uint64
+	processor  DeleteSnapshotBlocksSuccess
+}
+
 type eventManager struct {
 	iabsEventListener  []iabsListener
 	iabssEventListener []iabssListener
 
 	dabsEventListener  []dabsListener
 	dabssEventListener []dabssListener
+
+	isbssEventListener []isbssListener
+
+	dsbssEventListener []dsbssListener
 
 	maxListenerId uint64
 	lock          sync.Mutex
@@ -81,6 +99,18 @@ func (em *eventManager) triggerDeleteAccountBlocksSuccess(subLedger map[types.Ad
 	}
 }
 
+func (em *eventManager) triggerInsertSnapshotBlocksSuccess(snapshotBlocks []*ledger.SnapshotBlock) {
+	for _, listener := range em.isbssEventListener {
+		listener.processor(snapshotBlocks)
+	}
+}
+
+func (em *eventManager) triggerDeleteSnapshotBlocksSuccess(snapshotBlocks []*ledger.SnapshotBlock) {
+	for _, listener := range em.dsbssEventListener {
+		listener.processor(snapshotBlocks)
+	}
+}
+
 func (em *eventManager) register(actionId uint8, processor interface{}) uint64 {
 	em.lock.Lock()
 	defer em.lock.Unlock()
@@ -106,6 +136,16 @@ func (em *eventManager) register(actionId uint8, processor interface{}) uint64 {
 		em.dabssEventListener = append(em.dabssEventListener, dabssListener{
 			listenerId: nextListenerId,
 			processor:  processor.(DeleteProcessorFuncSuccess),
+		})
+	case InsertSnapshotBlocksSuccessEvent:
+		em.isbssEventListener = append(em.isbssEventListener, isbssListener{
+			listenerId: nextListenerId,
+			processor:  processor.(InsertSnapshotBlocksSuccess),
+		})
+	case DeleteSnapshotBlocksSuccessEvent:
+		em.dsbssEventListener = append(em.dsbssEventListener, dsbssListener{
+			listenerId: nextListenerId,
+			processor:  processor.(DeleteSnapshotBlocksSuccess),
 		})
 	}
 
@@ -143,6 +183,20 @@ func (em *eventManager) unRegister(listenerId uint64) {
 		}
 	}
 
+	for index, listener := range em.isbssEventListener {
+		if listener.listenerId == listenerId {
+			em.isbssEventListener = append(em.isbssEventListener[:index], em.isbssEventListener[index+1:]...)
+			return
+		}
+	}
+
+	for index, listener := range em.dsbssEventListener {
+		if listener.listenerId == listenerId {
+			em.dsbssEventListener = append(em.dsbssEventListener[:index], em.dsbssEventListener[index+1:]...)
+			return
+		}
+	}
+
 }
 
 func (c *chain) UnRegister(listenerId uint64) {
@@ -163,4 +217,12 @@ func (c *chain) RegisterDeleteAccountBlocks(processor DeleteProcessorFunc) uint6
 
 func (c *chain) RegisterDeleteAccountBlocksSuccess(processor DeleteProcessorFuncSuccess) uint64 {
 	return c.em.register(DeleteAccountBlocksSuccessEvent, processor)
+}
+
+func (c *chain) RegisterInsertSnapshotBlocksSuccess(processor InsertSnapshotBlocksSuccess) uint64 {
+	return c.em.register(InsertSnapshotBlocksSuccessEvent, processor)
+}
+
+func (c *chain) RegisterDeleteSnapshotBlocksSuccess(processor DeleteSnapshotBlocksSuccess) uint64 {
+	return c.em.register(DeleteSnapshotBlocksSuccessEvent, processor)
 }
