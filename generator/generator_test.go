@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
@@ -66,8 +67,12 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 		t.Error("GetLatestAccountBlock", err)
 		return
 	}
-
-	gen, err := NewGenerator(v.chain, nil, nil, &fromBlock.ToAddress)
+	fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(v.chain, nil)
+	if err != nil {
+		t.Error("GetFitestGeneratorSnapshotHash", err)
+		return
+	}
+	gen, err := NewGenerator(v.chain, fitestSnapshotBlockHash, nil, &fromBlock.ToAddress)
 	if err != nil {
 		t.Error(err)
 	}
@@ -130,7 +135,11 @@ func createRPCBlockCallPledgeContarct(vite *VitePrepared, addr *types.Address) e
 		Data:           pledgeData,
 	}
 
-	gen, err := NewGenerator(vite.chain, nil, nil, &im.AccountAddress)
+	fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(vite.chain, nil)
+	if err != nil {
+		return err
+	}
+	gen, err := NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &im.AccountAddress)
 	if err != nil {
 		return err
 	}
@@ -151,11 +160,11 @@ func TestGenerator_GenerateWithMessage_CallTransfer(t *testing.T) {
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-	if err := callTransfer(v, &ledger.GenesisAccountAddress, &addr1, genesisAccountPrivKey, genesisAccountPubKey, defaultDifficulty); err != nil {
+	if err := callTransfer(v, &ledger.GenesisAccountAddress, &addr1, genesisAccountPrivKey, genesisAccountPubKey, pow.DefaultDifficulty); err != nil {
 		t.Error(err)
 		return
 	}
-	if err := callTransfer(v, &addr1, &addr2, addr1PrivKey, addr1PubKey, defaultDifficulty); err != nil {
+	if err := callTransfer(v, &addr1, &addr2, addr1PrivKey, addr1PubKey, pow.DefaultDifficulty); err != nil {
 		t.Error(err)
 		return
 	}
@@ -171,7 +180,11 @@ func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address, fromAddrP
 		Difficulty:     difficulty,
 	}
 
-	gen, err := NewGenerator(vite.chain, nil, nil, &im.AccountAddress)
+	fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(vite.chain, nil)
+	if err != nil {
+		return err
+	}
+	gen, err := NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &im.AccountAddress)
 	if err != nil {
 		return err
 	}

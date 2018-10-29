@@ -2,13 +2,13 @@ package onroad
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"sync"
 )
@@ -153,15 +153,15 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		return
 	}
 
-	gen, err := generator.NewGenerator(tp.worker.manager.Chain(), &tp.accEvent().SnapshotHash, nil, &sBlock.ToAddress)
+	consensusMessage, err := tp.packConsensusMessage(sBlock)
 	if err != nil {
-		plog.Error("NewGenerator failed", "error", err)
-		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
 
-	consensusMessage, err := tp.packConsensusMessage(sBlock)
+	gen, err := generator.NewGenerator(tp.worker.manager.Chain(), &consensusMessage.SnapshotHash, nil, &sBlock.ToAddress)
 	if err != nil {
+		plog.Error("NewGenerator failed", "error", err)
+		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
 
@@ -172,7 +172,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 				return nil, nil, err
 			}
 			return key.SignData(data)
-		}, nil)
+		}, pow.DefaultDifficulty)
 	if err != nil {
 		plog.Error("GenerateWithOnroad failed", "error", err)
 		return

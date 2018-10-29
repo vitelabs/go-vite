@@ -14,10 +14,10 @@ type precompiledContract struct {
 var simpleContracts = map[types.Address]*precompiledContract{
 	contracts.AddressRegister: {
 		map[string]contracts.PrecompiledContractMethod{
-			contracts.MethodNameRegister:       &contracts.MethodRegister{},
-			contracts.MethodNameCancelRegister: &contracts.MethodCancelRegister{},
-			contracts.MethodNameReward:         &contracts.MethodReward{},
-			// TODO contracts.MethodNameUpdateRegistration: &contracts.MethodUpdateRegistration{},
+			contracts.MethodNameRegister:           &contracts.MethodRegister{},
+			contracts.MethodNameCancelRegister:     &contracts.MethodCancelRegister{},
+			contracts.MethodNameReward:             &contracts.MethodReward{},
+			contracts.MethodNameUpdateRegistration: &contracts.MethodUpdateRegistration{},
 		},
 		contracts.ABIRegister,
 	},

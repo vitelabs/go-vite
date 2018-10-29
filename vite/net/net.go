@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/monitor"
-	"sync"
-	"time"
-
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"github.com/vitelabs/go-vite/vite/net/topo"
+	"sync"
+	"time"
 )
 
 var netLog = log15.New("module", "vite/net")
@@ -47,7 +46,7 @@ type net struct {
 	wg        sync.WaitGroup
 	fs        *fileServer
 	fc        *fileClient
-	handlers  map[cmd]MsgHandler
+	handlers  map[ViteCmd]MsgHandler
 	topo      *topo.Topology
 }
 
@@ -85,7 +84,7 @@ func New(cfg *Config) Net {
 		receiver:    receiver,
 		fs:          newFileServer(cfg.Port, cfg.Chain),
 		fc:          fc,
-		handlers:    make(map[cmd]MsgHandler),
+		handlers:    make(map[ViteCmd]MsgHandler),
 		log:         netLog,
 		pool:        pool,
 	}
@@ -99,7 +98,7 @@ func New(cfg *Config) Net {
 	n.addHandler(receiver) // NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode
 
 	n.protocols = append(n.protocols, &p2p.Protocol{
-		Name: CmdSetName,
+		Name: Vite,
 		ID:   CmdSet,
 		Handle: func(p *p2p.Peer, rw *p2p.ProtoFrame) error {
 			// will be called by p2p.Peer.runProtocols use goroutine
@@ -178,13 +177,12 @@ func (n *net) Stop() {
 }
 
 // will be called by p2p.Server, run as goroutine
-func (n *net) handlePeer(p *Peer) error {
+func (n *net) handlePeer(p *peer) error {
 	current := n.Chain.GetLatestSnapshotBlock()
 	genesis := n.Chain.GetGenesisSnapshotBlock()
 
-	n.log.Info(fmt.Sprintf("handshake with %s", p))
+	n.log.Debug(fmt.Sprintf("handshake with %s", p))
 	err := p.Handshake(&message.HandShake{
-		CmdSet:  p.CmdSet,
 		Height:  current.Height,
 		Port:    n.Port,
 		Current: current.Hash,
@@ -195,30 +193,29 @@ func (n *net) handlePeer(p *Peer) error {
 		n.log.Error(fmt.Sprintf("handshake with %s error: %v", p, err))
 		return err
 	}
-	n.log.Info(fmt.Sprintf("handshake with %s done", p))
+
+	n.log.Debug(fmt.Sprintf("handshake with %s done", p))
 
 	return n.startPeer(p)
 }
 
-func (n *net) startPeer(p *Peer) error {
+func (n *net) startPeer(p *peer) (err error) {
 	n.peers.Add(p)
 	defer n.peers.Del(p)
 
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
-	n.log.Info(fmt.Sprintf("startPeer %s", p))
+	n.log.Debug(fmt.Sprintf("startPeer %s", p))
 
 	common.Go(n.syncer.Start)
 
+loop:
 	for {
 		select {
 		case <-n.term:
-			return p2p.DiscQuitting
-
-		//case err := <-p.errch:
-		//	n.log.Error(fmt.Sprintf("peer error: %v", err))
-		//	return p2p.DiscProtocolError
+			err = p2p.DiscQuitting
+			break loop
 
 		case <-ticker.C:
 			current := n.Chain.GetLatestSnapshotBlock()
@@ -226,33 +223,72 @@ func (n *net) startPeer(p *Peer) error {
 				Hash:   current.Hash,
 				Height: current.Height,
 			})
+
+		case err = <-p.errChan:
+			if err != nil {
+				p.log.Error(fmt.Sprintf("peer %s error: %v", p.RemoteAddr(), err))
+				break loop
+			}
+
 		default:
 			if err := n.handleMsg(p); err != nil {
 				return err
 			}
 		}
 	}
+
+	//close(p.term)
+	//p.wg.Wait()
+
+	return err
 }
+
+//func (n *net) startHandleMsg(p *peer) {
+//	p.wg.Add(peerMsgConcurrency)
+//	for i := 0; i < peerMsgConcurrency; i++ {
+//		common.Go(func() {
+//			defer p.wg.Done()
+//
+//			for {
+//				select {
+//				case <-p.term:
+//					return
+//				default:
+//					if err := n.handleMsg(p); err != nil {
+//						select {
+//						case p.errChan <- err:
+//						default:
+//							// nothing
+//						}
+//
+//						return
+//					}
+//				}
+//			}
+//		})
+//	}
+//}
 
 var errMissHandler = errors.New("missing message handler")
 
-func (n *net) handleMsg(p *Peer) (err error) {
+func (n *net) handleMsg(p *peer) (err error) {
 	msg, err := p.mrw.ReadMsg()
 	if err != nil {
 		n.log.Error(fmt.Sprintf("read message from %s error: %v", p, err))
 		return
 	}
 
-	code := cmd(msg.Cmd)
+	code := ViteCmd(msg.Cmd)
 
 	if handler, ok := n.handlers[code]; ok && handler != nil {
-		n.log.Info(fmt.Sprintf("begin handle message %s from %s", code, p))
+		n.log.Debug(fmt.Sprintf("begin handle message %s from %s", code, p))
 
 		begin := time.Now()
 		err = handler.Handle(msg, p)
 		monitor.LogDuration("net", "handle_"+code.String(), time.Now().Sub(begin).Nanoseconds())
 
-		n.log.Info(fmt.Sprintf("handle message %s from %s done", code, p))
+		n.log.Debug(fmt.Sprintf("handle message %s from %s done", code, p))
+
 		p.msgHandled[code]++
 
 		return err

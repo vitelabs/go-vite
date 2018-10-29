@@ -19,7 +19,7 @@ type quotaDb interface {
 
 func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) uint64 {
 	// TODO cache
-	quotaTotal, _ := CalcQuota(db, beneficial, pledgeAmount, false)
+	quotaTotal, _ := CalcQuota(db, beneficial, pledgeAmount, big.NewInt(0))
 	return quotaTotal
 }
 
@@ -33,8 +33,9 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int)
 // user account gets extra quota to send or receive a transaction if calc PoW, extra quota is decided by difficulty
 // contract account only gets quota via pledge
 // user account genesis block(a receive block) must calculate a PoW to get quota
-func CalcQuota(db quotaDb, addr types.Address, pledgeAmount *big.Int, pow bool) (quotaTotal uint64, quotaAddition uint64) {
-	if pow {
+func CalcQuota(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64) {
+	// TODO test difficulty, update before deploy testnet
+	if difficulty != nil && difficulty.Sign() > 0 {
 		return CalcQuotaV2(db, addr, pledgeAmount, DefaultDifficulty)
 	} else {
 		return CalcQuotaV2(db, addr, pledgeAmount, helper.Big0)

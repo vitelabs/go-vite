@@ -48,7 +48,7 @@ func (s *fileServer) start() error {
 	s.term = make(chan struct{})
 
 	s.wg.Add(1)
-	common.Go(s.readLoop)
+	common.Go(s.listenLoop)
 
 	return nil
 }
@@ -62,12 +62,16 @@ func (s *fileServer) stop() {
 	case <-s.term:
 	default:
 		close(s.term)
+
+		if s.ln != nil {
+			s.ln.Close()
+		}
+
 		s.wg.Wait()
 	}
 }
 
-func (s *fileServer) readLoop() {
-	defer s.ln.Close()
+func (s *fileServer) listenLoop() {
 	defer s.wg.Done()
 
 	for {
@@ -104,7 +108,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 				return
 			}
 
-			code := cmd(msg.Cmd)
+			code := ViteCmd(msg.Cmd)
 			if code != GetFilesCode {
 				s.log.Error(fmt.Sprintf("got %d, need %d", code, GetFilesCode))
 				return
@@ -116,7 +120,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 				return
 			}
 
-			s.log.Info(fmt.Sprintf("receive %s from %s", req, conn.RemoteAddr()))
+			s.log.Debug(fmt.Sprintf("receive %s from %s", req, conn.RemoteAddr()))
 
 			// send files
 			var n int64
@@ -127,7 +131,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 					s.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", filename, conn.RemoteAddr(), err))
 					return
 				} else {
-					s.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", filename, n, conn.RemoteAddr()))
+					s.log.Debug(fmt.Sprintf("send file<%s> %d bytes to %s done", filename, n, conn.RemoteAddr()))
 				}
 			}
 		}
@@ -272,6 +276,7 @@ loop:
 			for _, ctx := range fc.conns {
 				if ctx.idle && t.Sub(ctx.idleT) > idleTimeout {
 					delCtx(ctx)
+					fc.log.Warn(fmt.Sprintf("delete idle connection %s", ctx.addr))
 				}
 			}
 		}
@@ -293,8 +298,6 @@ loop:
 }
 
 func (fc *fileClient) exe(ctx *connContext) {
-	//defer fc.wg.Done()
-
 	ctx.idle = false
 
 	req := ctx.req
@@ -304,7 +307,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 	}
 
 	getFiles := &message.GetFiles{filenames, req.nonce}
-	msg, err := p2p.PackMsg(CmdSet, uint32(GetFilesCode), 0, getFiles)
+	msg, err := p2p.PackMsg(CmdSet, p2p.Cmd(GetFilesCode), 0, getFiles)
 
 	if err != nil {
 		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", getFiles, ctx.addr, err))
@@ -321,7 +324,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 		return
 	}
 
-	fc.log.Info(fmt.Sprintf("send %s to %s done", getFiles, ctx.addr))
+	fc.log.Debug(fmt.Sprintf("send %s to %s done", getFiles, ctx.addr))
 
 	sCount, aCount, err := fc.readBlocks(ctx)
 	if err != nil {
@@ -329,7 +332,7 @@ func (fc *fileClient) exe(ctx *connContext) {
 		fc.delConn <- &delCtxEvent{ctx, err}
 		ctx.req.Catch(err)
 	} else {
-		fc.log.Info(fmt.Sprintf("read %d SnapshotBlocks %d AccountBlocks from %s", sCount, aCount, ctx.addr))
+		fc.log.Debug(fmt.Sprintf("read %d SnapshotBlocks %d AccountBlocks from %s", sCount, aCount, ctx.addr))
 		fc.idle <- ctx
 	}
 }

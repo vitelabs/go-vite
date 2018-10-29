@@ -201,7 +201,6 @@ func (t *Topology) sendLoop() {
 					peer.rw.WriteMsg(&p2p.Msg{
 						CmdSet:  CmdSet,
 						Cmd:     topoCmd,
-						Size:    uint32(len(data)),
 						Payload: data,
 					})
 					return true

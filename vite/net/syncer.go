@@ -3,6 +3,7 @@ package net
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/vite/net/message"
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -128,7 +129,7 @@ func newSyncer(chain Chain, peers *peerSet, pool context, receiver Receiver) *sy
 		feed:       newSyncStateFeed(),
 		chain:      chain,
 		peers:      peers,
-		pEvent:     make(chan *peerEvent),
+		pEvent:     make(chan *peerEvent, 1),
 		pool:       pool,
 		log:        log15.New("module", "net/syncer"),
 		receiver:   receiver,
@@ -144,7 +145,7 @@ func (s *syncer) Stop() {
 	select {
 	case <-s.term:
 	default:
-		s.peers.Unsub(s.pEvent)
+		s.peers.UnSub(s.pEvent)
 		close(s.term)
 	}
 }
@@ -196,7 +197,7 @@ wait:
 			})
 		}
 
-		s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
+		s.log.Debug(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
 		s.setState(Syncdone)
 		return
 	}
@@ -207,7 +208,8 @@ wait:
 	s.count = 0
 	s.setState(Syncing)
 	s.sync(s.from, s.to)
-	s.log.Info(fmt.Sprintf("syncing: from %d, to %d", s.from, s.to))
+
+	s.log.Debug(fmt.Sprintf("syncing: from %d, to %d", s.from, s.to))
 
 	// check download timeout
 	// check chain grow timeout
@@ -230,7 +232,7 @@ wait:
 							s.setTarget(bestPeer.height)
 						} else {
 							// no need sync
-							s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", bestPeer, bestPeer.height, current.Height))
+							s.log.Debug(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", bestPeer, bestPeer.height, current.Height))
 							s.setState(Syncdone)
 							return
 						}
@@ -243,7 +245,7 @@ wait:
 				}
 			}
 		case <-s.downloaded:
-			s.log.Info("sync downloaded")
+			s.log.Debug("sync downloaded")
 			s.setState(SyncDownloaded)
 			// check chain height timeout
 			checkTimer.Reset(chainGrowTimeout)
@@ -257,11 +259,11 @@ wait:
 		case <-checkChainTicker.C:
 			current := s.chain.GetLatestSnapshotBlock()
 			if current.Height >= s.to {
-				s.log.Info(fmt.Sprintf("sync done, current height: %d", current.Height))
+				s.log.Debug(fmt.Sprintf("sync done, current height: %d", current.Height))
 				s.setState(Syncdone)
 				return
 			}
-			s.log.Info(fmt.Sprintf("current height: %d", current.Height))
+			s.log.Debug(fmt.Sprintf("current height: %d", current.Height))
 		case <-s.term:
 			s.log.Warn("sync cancel")
 			s.setState(SyncCancel)
@@ -311,7 +313,13 @@ func (s *syncer) counter(add bool, num uint64) {
 }
 
 func (s *syncer) sync(from, to uint64) {
-	pieces := splitSubLedger(from, to, s.peers.Pick(from+minSubLedger))
+	s.log.Debug(fmt.Sprintf("syncer: from %d to %d", from, to))
+
+	peerList := s.peers.Pick(from + minSubLedger)
+	// sort from low to high
+	sort.Sort(peers(peerList))
+
+	pieces := splitSubLedger(from, to, peerList)
 
 	for _, piece := range pieces {
 		req := &subLedgerRequest{
@@ -327,13 +335,14 @@ func (s *syncer) sync(from, to uint64) {
 }
 
 func (s *syncer) reqError(id uint64, err error) {
-	if s.state != Syncing || atomic.LoadInt32(&s.running) != 1 {
+	if s.state != Syncing || atomic.LoadInt32(&s.running) == 0 {
 		return
 	}
 
 	if r := s.pool.Get(id); r != nil {
 		from, to := r.Band()
-		s.log.Error(fmt.Sprintf("GetSubLedger<%d-%d> error: %v", from, to, err))
+
+		s.log.Warn(fmt.Sprintf("our target: %d, request<%d-%d> error: %v", s.to, from, to, err))
 
 		if from > s.to {
 			return
@@ -343,6 +352,8 @@ func (s *syncer) reqError(id uint64, err error) {
 			req := r.Req()
 			req.SetBand(from, s.to)
 			s.pool.Add(req)
+
+			s.log.Debug(fmt.Sprintf("retry request<%d-%d>", from, s.to))
 		} else {
 			s.setState(Syncerr)
 		}
@@ -367,13 +378,13 @@ func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
 }
 
 func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) {
-	s.log.Info(fmt.Sprintf("syncer: receive SnapshotBlock %s/%d", block.Hash, block.Height))
+	s.log.Debug(fmt.Sprintf("syncer: receive SnapshotBlock %s/%d", block.Hash, block.Height))
 	s.receiver.ReceiveSnapshotBlock(block)
 	s.counter(true, 1)
 }
 
 func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) {
-	s.log.Info(fmt.Sprintf("syncer: receive AccountBlock %s/%d", block.Hash, block.Height))
+	s.log.Debug(fmt.Sprintf("syncer: receive AccountBlock %s/%d", block.Hash, block.Height))
 	s.receiver.ReceiveAccountBlock(block)
 }
 

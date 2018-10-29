@@ -3,11 +3,9 @@
 
 package vitepb
 
-import (
-	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	math "math"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -35,17 +33,16 @@ func (m *Handshake) Reset()         { *m = Handshake{} }
 func (m *Handshake) String() string { return proto.CompactTextString(m) }
 func (*Handshake) ProtoMessage()    {}
 func (*Handshake) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2a6a8486deb9ab39, []int{0}
+	return fileDescriptor_message_ad7acdcebd52bda4, []int{0}
 }
-
 func (m *Handshake) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Handshake.Unmarshal(m, b)
 }
 func (m *Handshake) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Handshake.Marshal(b, m, deterministic)
 }
-func (m *Handshake) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Handshake.Merge(m, src)
+func (dst *Handshake) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Handshake.Merge(dst, src)
 }
 func (m *Handshake) XXX_Size() int {
 	return xxx_messageInfo_Handshake.Size(m)
@@ -103,17 +100,16 @@ func (m *BlockID) Reset()         { *m = BlockID{} }
 func (m *BlockID) String() string { return proto.CompactTextString(m) }
 func (*BlockID) ProtoMessage()    {}
 func (*BlockID) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2a6a8486deb9ab39, []int{1}
+	return fileDescriptor_message_ad7acdcebd52bda4, []int{1}
 }
-
 func (m *BlockID) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockID.Unmarshal(m, b)
 }
 func (m *BlockID) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BlockID.Marshal(b, m, deterministic)
 }
-func (m *BlockID) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BlockID.Merge(m, src)
+func (dst *BlockID) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlockID.Merge(dst, src)
 }
 func (m *BlockID) XXX_Size() int {
 	return xxx_messageInfo_BlockID.Size(m)
@@ -153,17 +149,16 @@ func (m *CompressedFileMeta) Reset()         { *m = CompressedFileMeta{} }
 func (m *CompressedFileMeta) String() string { return proto.CompactTextString(m) }
 func (*CompressedFileMeta) ProtoMessage()    {}
 func (*CompressedFileMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2a6a8486deb9ab39, []int{2}
+	return fileDescriptor_message_ad7acdcebd52bda4, []int{2}
 }
-
 func (m *CompressedFileMeta) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CompressedFileMeta.Unmarshal(m, b)
 }
 func (m *CompressedFileMeta) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CompressedFileMeta.Marshal(b, m, deterministic)
 }
-func (m *CompressedFileMeta) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CompressedFileMeta.Merge(m, src)
+func (dst *CompressedFileMeta) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CompressedFileMeta.Merge(dst, src)
 }
 func (m *CompressedFileMeta) XXX_Size() int {
 	return xxx_messageInfo_CompressedFileMeta.Size(m)
@@ -222,17 +217,16 @@ func (m *FileList) Reset()         { *m = FileList{} }
 func (m *FileList) String() string { return proto.CompactTextString(m) }
 func (*FileList) ProtoMessage()    {}
 func (*FileList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2a6a8486deb9ab39, []int{3}
+	return fileDescriptor_message_ad7acdcebd52bda4, []int{3}
 }
-
 func (m *FileList) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FileList.Unmarshal(m, b)
 }
 func (m *FileList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FileList.Marshal(b, m, deterministic)
 }
-func (m *FileList) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FileList.Merge(m, src)
+func (dst *FileList) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FileList.Merge(dst, src)
 }
 func (m *FileList) XXX_Size() int {
 	return xxx_messageInfo_FileList.Size(m)
@@ -276,17 +270,16 @@ func (m *GetFiles) Reset()         { *m = GetFiles{} }
 func (m *GetFiles) String() string { return proto.CompactTextString(m) }
 func (*GetFiles) ProtoMessage()    {}
 func (*GetFiles) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2a6a8486deb9ab39, []int{4}
+	return fileDescriptor_message_ad7acdcebd52bda4, []int{4}
 }
-
 func (m *GetFiles) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetFiles.Unmarshal(m, b)
 }
 func (m *GetFiles) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetFiles.Marshal(b, m, deterministic)
 }
-func (m *GetFiles) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetFiles.Merge(m, src)
+func (dst *GetFiles) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetFiles.Merge(dst, src)
 }
 func (m *GetFiles) XXX_Size() int {
 	return xxx_messageInfo_GetFiles.Size(m)
@@ -323,17 +316,16 @@ func (m *GetChunk) Reset()         { *m = GetChunk{} }
 func (m *GetChunk) String() string { return proto.CompactTextString(m) }
 func (*GetChunk) ProtoMessage()    {}
 func (*GetChunk) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2a6a8486deb9ab39, []int{5}
+	return fileDescriptor_message_ad7acdcebd52bda4, []int{5}
 }
-
 func (m *GetChunk) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetChunk.Unmarshal(m, b)
 }
 func (m *GetChunk) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetChunk.Marshal(b, m, deterministic)
 }
-func (m *GetChunk) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetChunk.Merge(m, src)
+func (dst *GetChunk) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetChunk.Merge(dst, src)
 }
 func (m *GetChunk) XXX_Size() int {
 	return xxx_messageInfo_GetChunk.Size(m)
@@ -370,17 +362,16 @@ func (m *SubLedger) Reset()         { *m = SubLedger{} }
 func (m *SubLedger) String() string { return proto.CompactTextString(m) }
 func (*SubLedger) ProtoMessage()    {}
 func (*SubLedger) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2a6a8486deb9ab39, []int{6}
+	return fileDescriptor_message_ad7acdcebd52bda4, []int{6}
 }
-
 func (m *SubLedger) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SubLedger.Unmarshal(m, b)
 }
 func (m *SubLedger) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SubLedger.Marshal(b, m, deterministic)
 }
-func (m *SubLedger) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SubLedger.Merge(m, src)
+func (dst *SubLedger) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SubLedger.Merge(dst, src)
 }
 func (m *SubLedger) XXX_Size() int {
 	return xxx_messageInfo_SubLedger.Size(m)
@@ -418,17 +409,16 @@ func (m *GetSnapshotBlocks) Reset()         { *m = GetSnapshotBlocks{} }
 func (m *GetSnapshotBlocks) String() string { return proto.CompactTextString(m) }
 func (*GetSnapshotBlocks) ProtoMessage()    {}
 func (*GetSnapshotBlocks) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2a6a8486deb9ab39, []int{7}
+	return fileDescriptor_message_ad7acdcebd52bda4, []int{7}
 }
-
 func (m *GetSnapshotBlocks) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetSnapshotBlocks.Unmarshal(m, b)
 }
 func (m *GetSnapshotBlocks) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetSnapshotBlocks.Marshal(b, m, deterministic)
 }
-func (m *GetSnapshotBlocks) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetSnapshotBlocks.Merge(m, src)
+func (dst *GetSnapshotBlocks) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetSnapshotBlocks.Merge(dst, src)
 }
 func (m *GetSnapshotBlocks) XXX_Size() int {
 	return xxx_messageInfo_GetSnapshotBlocks.Size(m)
@@ -471,17 +461,16 @@ func (m *SnapshotBlocks) Reset()         { *m = SnapshotBlocks{} }
 func (m *SnapshotBlocks) String() string { return proto.CompactTextString(m) }
 func (*SnapshotBlocks) ProtoMessage()    {}
 func (*SnapshotBlocks) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2a6a8486deb9ab39, []int{8}
+	return fileDescriptor_message_ad7acdcebd52bda4, []int{8}
 }
-
 func (m *SnapshotBlocks) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SnapshotBlocks.Unmarshal(m, b)
 }
 func (m *SnapshotBlocks) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SnapshotBlocks.Marshal(b, m, deterministic)
 }
-func (m *SnapshotBlocks) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SnapshotBlocks.Merge(m, src)
+func (dst *SnapshotBlocks) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SnapshotBlocks.Merge(dst, src)
 }
 func (m *SnapshotBlocks) XXX_Size() int {
 	return xxx_messageInfo_SnapshotBlocks.Size(m)
@@ -513,17 +502,16 @@ func (m *GetAccountBlocks) Reset()         { *m = GetAccountBlocks{} }
 func (m *GetAccountBlocks) String() string { return proto.CompactTextString(m) }
 func (*GetAccountBlocks) ProtoMessage()    {}
 func (*GetAccountBlocks) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2a6a8486deb9ab39, []int{9}
+	return fileDescriptor_message_ad7acdcebd52bda4, []int{9}
 }
-
 func (m *GetAccountBlocks) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetAccountBlocks.Unmarshal(m, b)
 }
 func (m *GetAccountBlocks) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetAccountBlocks.Marshal(b, m, deterministic)
 }
-func (m *GetAccountBlocks) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetAccountBlocks.Merge(m, src)
+func (dst *GetAccountBlocks) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetAccountBlocks.Merge(dst, src)
 }
 func (m *GetAccountBlocks) XXX_Size() int {
 	return xxx_messageInfo_GetAccountBlocks.Size(m)
@@ -573,17 +561,16 @@ func (m *AccountBlocks) Reset()         { *m = AccountBlocks{} }
 func (m *AccountBlocks) String() string { return proto.CompactTextString(m) }
 func (*AccountBlocks) ProtoMessage()    {}
 func (*AccountBlocks) Descriptor() ([]byte, []int) {
-	return fileDescriptor_2a6a8486deb9ab39, []int{10}
+	return fileDescriptor_message_ad7acdcebd52bda4, []int{10}
 }
-
 func (m *AccountBlocks) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccountBlocks.Unmarshal(m, b)
 }
 func (m *AccountBlocks) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AccountBlocks.Marshal(b, m, deterministic)
 }
-func (m *AccountBlocks) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AccountBlocks.Merge(m, src)
+func (dst *AccountBlocks) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccountBlocks.Merge(dst, src)
 }
 func (m *AccountBlocks) XXX_Size() int {
 	return xxx_messageInfo_AccountBlocks.Size(m)
@@ -615,9 +602,9 @@ func init() {
 	proto.RegisterType((*AccountBlocks)(nil), "vitepb.AccountBlocks")
 }
 
-func init() { proto.RegisterFile("vitepb/message.proto", fileDescriptor_2a6a8486deb9ab39) }
+func init() { proto.RegisterFile("vitepb/message.proto", fileDescriptor_message_ad7acdcebd52bda4) }
 
-var fileDescriptor_2a6a8486deb9ab39 = []byte{
+var fileDescriptor_message_ad7acdcebd52bda4 = []byte{
 	// 534 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x94, 0xcd, 0x6e, 0xd3, 0x40,
 	0x10, 0xc7, 0xe5, 0xd8, 0xf9, 0x9a, 0xa4, 0x50, 0x56, 0x01, 0x59, 0x81, 0x83, 0x65, 0x2e, 0x39,

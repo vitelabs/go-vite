@@ -374,7 +374,10 @@ func (self *pool) ExistInPool(address types.Address, requestHash types.Hash) boo
 func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 
 	for k, v := range accounts {
-		self.selfPendingAc(k).rollbackCurrent(v)
+		err := self.selfPendingAc(k).rollbackCurrent(v)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -382,6 +385,8 @@ func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*ledger.HashHeight, error) {
 	this := self.selfPendingAc(addr)
 
+	this.LockForInsert()
+	defer this.UnLockForInsert()
 	targetChain := this.findInTree(h.Hash, h.Height)
 	if targetChain != nil {
 		if targetChain.ChainId() == this.chainpool.current.ChainId() {
@@ -392,14 +397,16 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*l
 		if err != nil {
 			return nil, err
 		}
-		// fork point in disk chain
-		if forkPoint.Height() <= this.CurrentChain().tailHeight {
+		// key point in disk chain
+		if forkPoint.Height() < this.CurrentChain().tailHeight {
 			return h, nil
 		}
-
-		this.LockForInsert()
-		defer this.UnLockForInsert()
-		this.CurrentModifyToChain(targetChain, h)
+		self.log.Info("PendingAccountTo->CurrentModifyToChain", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain",
+			targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
+		err = this.CurrentModifyToChain(targetChain, h)
+		if err != nil {
+			self.log.Error("PendingAccountTo->CurrentModifyToChain err", "err", err, "targetId", targetChain.id())
+		}
 		return nil, nil
 	}
 	inPool := this.findInPool(h.Hash, h.Height)
@@ -411,6 +418,8 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*l
 
 func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
 	this := self.selfPendingAc(addr)
+	self.log.Info("RollbackAccountTo[1]", "addr", addr, "hash", h.Hash, "height", h.Height,
+		"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 	err := self.RollbackAccountTo(addr, h.Hash, h.Height)
 
 	if err != nil {
@@ -422,25 +431,39 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 	if targetChain == nil {
 		cnt := h.Height - this.chainpool.diskChain.Head().Height()
 		this.f.fetch(ledger.HashHeight{Height: h.Height, Hash: h.Hash}, cnt)
+		self.log.Info("CurrentModifyToEmpty", "addr", addr, "hash", h.Hash, "height", h.Height,
+			"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 		err = this.CurrentModifyToEmpty()
 		return err
 	}
-
-	keyPoint, forkPoint, err := this.getForkPointByChains(targetChain, this.CurrentChain())
+	if targetChain.id() == this.CurrentChain().id() {
+		return nil
+	}
+	cu := this.CurrentChain()
+	keyPoint, forkPoint, err := this.getForkPointByChains(targetChain, cu)
 	if err != nil {
 		return err
 	}
 	if keyPoint == nil {
-		return errors.New("forkAccountTo key point is nil.")
+		return errors.Errorf("forkAccountTo key point is nil, target:%s", targetChain.id(), "current", cu.id(),
+			"targetTailHeight", targetChain.tailHeight, "targetTailHash", targetChain.tailHash,
+			"currentTailHeight", cu.tailHeight, "currentTailHash", cu.tailHash)
 	}
 	// fork point in disk chain
 	if forkPoint.Height() <= this.CurrentChain().tailHeight {
+		self.log.Info("RollbackAccountTo[2]", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(),
+			"targetChainTailHeight", targetChain.tailHeight,
+			"targetChainHeadHeight", targetChain.headHeight,
+			"keyPoint", keyPoint.Height(),
+			"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 		err := self.RollbackAccountTo(addr, keyPoint.Hash(), keyPoint.Height())
 		if err != nil {
 			return err
 		}
 	}
 
+	self.log.Info("ForkAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight,
+		"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 	err = this.CurrentModifyToChain(targetChain, h)
 	if err != nil {
 		return err

@@ -87,7 +87,7 @@ func (p *MethodVote) GetFee(context contractsContext, block *vm_context.VmAccoun
 
 // vote for a super node of a consensus group
 func (p *MethodVote) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, voteGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, VoteGas)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -134,7 +134,7 @@ func (p *MethodCancelVote) GetFee(context contractsContext, block *vm_context.Vm
 
 // cancel vote for a super node of a consensus group
 func (p *MethodCancelVote) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, cancelVoteGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, CancelVoteGas)
 	if err != nil {
 		return quotaLeft, err
 	}

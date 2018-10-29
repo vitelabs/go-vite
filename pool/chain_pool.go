@@ -91,8 +91,9 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 		w.Hash() != head.Hash() {
 		return errors.New("chain can't refer to disk head")
 	}
-	if chain.tailHeight < head.Height() {
-		return errors.New(fmt.Sprintf("chain tail height error. tailHeight:%d, headHeight:%d", chain.tailHeight, head.Height()))
+	chain.getBlock(self.current.tailHeight, true)
+	if w == nil || w.Hash() != self.current.tailHash {
+		return errors.New(fmt.Sprintf("chain tail height error. tailHeight:%d, headHeight:%d", self.current.tailHeight, head.Height()))
 	}
 
 	e := self.check()
@@ -103,24 +104,22 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 	for chain.referChain.id() != self.diskChain.id() {
 		fromChain := chain.referChain.(*forkedChain)
 		if fromChain.size() == 0 {
-			if fromChain.tailHeight == chain.tailHeight {
-				self.log.Error("modify refer[6]", "from", fromChain.id(), "to", chain.id(),
-					"fromTailHeight", fromChain.tailHeight, "fromHeadHeight", fromChain.headHeight,
-					"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
-				chain.referChain = fromChain.referChain
-				self.modifyChainRefer2(fromChain, chain)
-				self.delChain(fromChain.id())
-				continue
-			} else {
-				self.log.Error("modify refer[5]", "from", fromChain.id(), "to", chain.id(),
-					"fromTailHeight", fromChain.tailHeight, "fromHeadHeight", fromChain.headHeight,
-					"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
-			}
+			self.log.Error("modify refer[6]", "from", fromChain.id(), "to", chain.id(),
+				"fromTailHeight", fromChain.tailHeight, "fromHeadHeight", fromChain.headHeight,
+				"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
+			chain.referChain = fromChain.referChain
+			self.modifyChainRefer2(fromChain, chain)
+			self.delChain(fromChain.id())
+			continue
 		}
 		e := self.modifyRefer(fromChain, chain)
 		if e != nil {
 			self.log.Error(e.Error())
 			break
+		}
+		r := clearChainBase(chain)
+		if len(r) > 0 {
+			self.log.Debug("currentModifyToChain[2]-clearChainBase", "chainId", chain.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
 		}
 	}
 	self.log.Warn("current modify.", "from", self.current.id(), "to", chain.id(),
@@ -136,6 +135,10 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 }
 
 func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
+	r := clearChainBase(to)
+	if len(r) > 0 {
+		self.log.Debug("modifyRefer-clearChainBase", "chainId", to.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
+	}
 	// from.tailHeight <= to.tailHeight  && from.headHeight > to.tail.Height
 	toTailHeight := to.tailHeight
 	fromTailHeight := from.tailHeight
@@ -272,6 +275,7 @@ func (self *chainPool) currentModify(initBlock commonBlock) {
 func (self *chainPool) fork2(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain) {
 
 	var forky, insertable bool
+	var result *forkedChain = nil
 	var hr heightChainReader
 
 LOOP:
@@ -292,7 +296,7 @@ LOOP:
 				hr = reader
 				break LOOP
 			}
-			if block.Hash() != sb.Hash() {
+			if b2.Hash() != sb.Hash() {
 				if r2.id() == reader.id() {
 					forky = true
 					insertable = false
@@ -327,22 +331,29 @@ LOOP:
 	}
 	switch t := hr.(type) {
 	case *diskChain:
-		if forky {
-			return forky, insertable, self.current
-		}
+		result = self.current
 		if insertable {
 			if self.current.headHeight == snippet.tailHeight && self.current.headHash == snippet.tailHash {
-				return false, true, self.current
+				forky = false
+				insertable = true
+				result = self.current
 			} else {
-				return true, false, self.current
+				forky = true
+				insertable = false
+				result = self.current
 			}
 		}
-		return forky, insertable, self.current
 	case *forkedChain:
-		return forky, insertable, t
+		result = t
+	}
+	if insertable {
+		err := result.canAddHead(snippet.getBlock(snippet.tailHeight + 1))
+		if err != nil {
+			self.log.Error("fork2 fail.", "sTailHeight", snippet.tailHeight, "sHeadHeight", snippet.headHeight, "cTailHeight", result.tailHeight, "cHeadHeight", result.headHeight)
+		}
 	}
 
-	return false, false, nil
+	return forky, insertable, result
 }
 
 func (self *chainPool) forky(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain) {
@@ -423,14 +434,12 @@ func (self *chainPool) insert(c *forkedChain, wrapper commonBlock) error {
 			c.addHead(wrapper)
 			return nil
 		} else {
-			self.log.Warn(fmt.Sprintf("account forkedChain fork, fork point height[%d],hash[%s], but next block[%s]'s preHash is [%s]",
-				c.headHeight, c.headHash, wrapper.Hash(), wrapper.PrevHash()))
-			return &ForkChainError{What: "fork chain."}
+			return errors.Errorf("forkedChain fork, fork point height[%d],hash[%s], but next block[%s]'s preHash is [%s]",
+				c.headHeight, c.headHash, wrapper.Hash(), wrapper.PrevHash())
 		}
 	} else {
-		self.log.Warn(fmt.Sprintf("account forkedChain fork, fork point height[%d],hash[%s], but next block[%s]'s preHash is [%s]",
-			c.headHeight, c.headHash, wrapper.Hash(), wrapper.PrevHash()))
-		return &ForkChainError{What: "fork chain."}
+		return errors.Errorf("forkedChain fork, fork point height[%d],hash[%s], but next block[%s]'s preHash[%s]-[%d]",
+			c.headHeight, c.headHash, wrapper.Hash(), wrapper.PrevHash(), wrapper.Height())
 	}
 }
 
@@ -524,6 +533,43 @@ func (self *chainPool) allChain() []*forkedChain {
 	self.chainMu.Lock()
 	defer self.chainMu.Unlock()
 	return copyChains(self.chains)
+}
+func (self *chainPool) clearUselessChain() []*forkedChain {
+	self.chainMu.Lock()
+	defer self.chainMu.Unlock()
+
+	var r []*forkedChain
+	for id, c := range self.chains {
+		if id == self.current.id() {
+			continue
+		}
+		if c.size() == 0 {
+			delete(self.chains, id)
+			r = append(r, c)
+		}
+	}
+	return r
+}
+func (self *chainPool) clearRepeatChain() []*forkedChain {
+	self.chainMu.Lock()
+	defer self.chainMu.Unlock()
+
+	var r []*forkedChain
+	for id1, c1 := range self.chains {
+		if id1 == self.current.id() {
+			continue
+		}
+		for _, c2 := range self.chains {
+			if c1.tailHeight == c2.tailHeight &&
+				c1.tailHash == c2.tailHash {
+				h := c2.getHeightBlock(c1.headHeight)
+				if h != nil && h.Hash() == c1.headHash {
+					r = append(r, c1)
+				}
+			}
+		}
+	}
+	return r
 }
 func (self *chainPool) delChain(id string) {
 	self.chainMu.Lock()

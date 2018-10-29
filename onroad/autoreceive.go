@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
+	"github.com/vitelabs/go-vite/pow"
 	"math/big"
 	"sync"
 )
@@ -178,7 +179,12 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 		w.log.Info("ProcessOneBlock.checkExistInPool failed")
 		return
 	}
-	gen, err := generator.NewGenerator(w.manager.Chain(), nil, nil, &sendBlock.ToAddress)
+	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(w.manager.Chain(), nil)
+	if err != nil {
+		w.log.Info("GetFitestGeneratorSnapshotHash failed", "error", err)
+		return
+	}
+	gen, err := generator.NewGenerator(w.manager.Chain(), fitestSnapshotBlockHash, nil, &sendBlock.ToAddress)
 	if err != nil {
 		w.log.Error("NewGenerator failed", "error", err)
 		return
@@ -191,7 +197,7 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 				return nil, nil, e
 			}
 			return manager.SignData(addr, data)
-		}, nil)
+		}, pow.DefaultDifficulty)
 	if err != nil {
 		w.log.Error("GenerateWithOnroad failed", "error", err)
 		return

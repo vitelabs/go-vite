@@ -423,13 +423,12 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 	if len(blocks) <= 0 {
 		return nil
 	}
+	cur := self.chainpool.current
+	self.log.Debug("rollbackCurrent", "start", blocks[0].Height(), "end", blocks[len(blocks)-1].Height(), "size", len(blocks),
+		"currentId", cur.id())
 
 	// from small to big
 	sort.Sort(ByHeight(blocks))
-	err := self.checkChain(blocks)
-	if err != nil {
-		return err
-	}
 
 	head := self.chainpool.diskChain.Head()
 	h := len(blocks) - 1
@@ -439,11 +438,19 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		return errors.New(self.Id + " disk chain height hash check fail")
 	}
 
-	if self.chainpool.current.tailHeight != longest.Height() || self.chainpool.current.tailHash != longest.Hash() {
+	if cur.tailHeight != longest.Height() || cur.tailHash != longest.Hash() {
 		return errors.New(self.Id + " current chain height hash check fail")
 	}
 	for i := h; i >= 0; i-- {
-		self.chainpool.current.addTail(blocks[i])
+		if cur.canAddTail(blocks[i]) {
+			cur.addTail(blocks[i])
+		} else {
+			return errors.Errorf("err add tail %d-%s", blocks[i].Height(), blocks[i].Hash())
+		}
+	}
+	err := self.chainpool.check()
+	if err != nil {
+		self.log.Error("rollbackCurrent check", "err", err)
 	}
 	return nil
 }
@@ -475,7 +482,7 @@ func checkLink(c1 *forkedChain, c2 heightChainReader, refer bool) error {
 	block := c2.getBlock(tailHeight, refer)
 	if block == nil {
 		c2.getBlock(tailHeight, refer)
-		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, tailHeight:%d", c1.id(), c2.id(), refer, tailHeight))
+		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, tail:%d-%s", c1.id(), c2.id(), refer, tailHeight, c1.tailHash))
 	} else if block.Hash() != c1.tailHash {
 		c2.getBlock(tailHeight, refer)
 		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, tailHeight:%d, tailHash:%s, blockHash:%s", c1.id(), c2.id(), refer, tailHeight, c1.tailHash.String(), block.Hash().String()))
@@ -541,6 +548,13 @@ func (self *forkedChain) addTail(w commonBlock) {
 	self.tailHash = w.PrevHash()
 	self.tailHeight = w.Height() - 1
 	self.setHeightBlock(w.Height(), w)
+}
+func (self *forkedChain) canAddTail(w commonBlock) bool {
+	if self.tailHash == w.Hash() && self.tailHeight == w.Height() {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (self *forkedChain) String() string {
@@ -674,7 +688,10 @@ func (self *BCPool) loopGenSnippetChains() int {
 }
 
 func (self *BCPool) loopAppendChains() int {
-	self.chainpool.check()
+	err := self.chainpool.check()
+	if err != nil {
+		self.log.Error("loopAppendChains check chain err", "err", err)
+	}
 	if len(self.chainpool.snippetChains) == 0 {
 		return 0
 	}
@@ -704,6 +721,16 @@ func (self *BCPool) loopAppendChains() int {
 			continue
 		}
 	}
+	dels := self.chainpool.clearUselessChain()
+	for _, c := range dels {
+		self.log.Debug("del useless chain", "info", fmt.Sprintf("%+v", c.id()))
+		i++
+	}
+	repeats := self.chainpool.clearUselessChain()
+	for _, c := range repeats {
+		self.log.Debug("del repeat chain", "info", fmt.Sprintf("%+v", c.id()))
+		i++
+	}
 	return i
 }
 func (self *BCPool) loopFetchForSnippets() int {
@@ -714,11 +741,18 @@ func (self *BCPool) loopFetchForSnippets() int {
 	sort.Sort(ByTailHeight(sortSnippets))
 
 	head := new(big.Int).SetUint64(self.chainpool.current.headHeight)
+
+	tailHeight := self.chainpool.current.tailHeight
+
 	i := 0
 	zero := big.NewInt(0)
 	prev := zero
 
 	for _, w := range sortSnippets {
+		// if snippet is lower, ignore
+		if w.headHeight+10 < tailHeight {
+			continue
+		}
 		diff := big.NewInt(0)
 		tailHeight := new(big.Int).SetUint64(w.tailHeight)
 		// prev > 0
@@ -749,10 +783,11 @@ func (self *BCPool) loopFetchForSnippets() int {
 }
 
 func (self *BCPool) CurrentModifyToChain(target *forkedChain, hashH *ledger.HashHeight) error {
-	clearChainBase(target)
+	self.log.Debug("CurrentModifyToChain", "id", target.id(), "TailHeight", target.tailHeight, "HeadHeight", target.headHeight)
 	return self.chainpool.currentModifyToChain(target)
 }
-func clearChainBase(target *forkedChain) {
+func clearChainBase(target *forkedChain) []commonBlock {
+	var r []commonBlock
 	tailH := target.tailHeight
 	base := target.referChain
 
@@ -761,8 +796,10 @@ func clearChainBase(target *forkedChain) {
 		baseB := base.getBlock(i, true)
 		if baseB != nil && baseB.Hash() == b.Hash() {
 			target.removeTail(b)
+			r = append(r, b)
 		}
 	}
+	return r
 }
 func (self *BCPool) CurrentModifyToEmpty() error {
 	if self.chainpool.current.size() == 0 {

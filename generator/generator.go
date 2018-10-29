@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var defaultDifficulty = new(big.Int).SetUint64(pow.FullThreshold)
+const DefaultHeightDifference uint64 = 10
 
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
@@ -58,7 +58,7 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 		}
 		sendBlock := gen.vmContext.GetAccountBlockByHash(message.FromBlockHash)
 		//genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc, message.Difficulty)
-		genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc, nil)
+		genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc, message.Difficulty)
 	default:
 		block, err := gen.packSendBlockWithMessage(message)
 		if err != nil {
@@ -80,8 +80,6 @@ func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensu
 		producer = consensusMsg.Producer
 	}
 
-	// currently, default mode of GenerateWithOnroad is to calc pow
-	difficulty = defaultDifficulty
 	block, err := gen.packBlockWithSendBlock(&sendBlock, consensusMsg, difficulty)
 	if err != nil {
 		return nil, err
@@ -157,8 +155,10 @@ func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockP
 	}
 
 	if message.Difficulty != nil {
+		// currently, default mode of GenerateWithOnroad is to calc pow
 		nonce := pow.GetPowNonce(message.Difficulty, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
 		blockPacked.Nonce = nonce[:]
+		blockPacked.Difficulty = message.Difficulty
 	}
 
 	latestSnapshotBlock := gen.vmContext.CurrentSnapshotBlock()
@@ -213,8 +213,11 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 			return nil, errors.New("CurrentSnapshotBlock can't be nil")
 		}
 		if snapshotBlock.Height > preBlockReferredSbHeight && difficulty != nil {
+			// currently, default mode of GenerateWithOnroad is to calc pow
+			//difficulty = pow.defaultDifficulty
 			nonce := pow.GetPowNonce(difficulty, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
 			blockPacked.Nonce = nonce[:]
+			blockPacked.Difficulty = difficulty
 		}
 		blockPacked.SnapshotHash = snapshotBlock.Hash
 	} else {
@@ -222,4 +225,40 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 		blockPacked.SnapshotHash = consensusMsg.SnapshotHash
 	}
 	return blockPacked, nil
+}
+
+func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, referredSnapshotBlock *ledger.SnapshotBlock) (*types.Hash, error) {
+	var fitestSbHeight uint64
+	var referredSbHeight uint64
+	latestSb := chain.GetLatestSnapshotBlock()
+	if latestSb == nil {
+		return nil, errors.New("latest snapshotblock is nil")
+	}
+	fitestSbHeight = latestSb.Height
+	referredSbHeight = latestSb.Height - 1
+
+	if referredSnapshotBlock != nil {
+		referredSbHeight = referredSnapshotBlock.Height
+		if referredSbHeight >= latestSb.Height {
+			return nil, errors.New("the snapshotHash referred isn't lower than the latest")
+		}
+	}
+
+	if latestSb.Height <= DefaultHeightDifference {
+		fitestSbHeight = referredSbHeight + 1
+	} else {
+		if referredSbHeight < latestSb.Height-DefaultHeightDifference {
+			fitestSbHeight = latestSb.Height - DefaultHeightDifference
+		} else {
+			fitestSbHeight = referredSbHeight + 1
+		}
+	}
+	fitestSb, err := chain.GetSnapshotBlockByHeight(fitestSbHeight)
+	if fitestSb == nil {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("get snapshotBlock by height failed")
+	}
+	return &fitestSb.Hash, nil
 }

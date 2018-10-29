@@ -18,6 +18,7 @@ type accountPool struct {
 	rw            *accountCh
 	verifyTask    verifyTask
 	loopTime      time.Time
+	loopFetchTime time.Time
 	address       types.Address
 	v             *accountVerifier
 	f             *accountSyncer
@@ -72,10 +73,6 @@ func (self *accountPool) Init(
 2. fetch block for snippet chain.
 */
 func (self *accountPool) Compact() int {
-	// If no new data arrives, do nothing.
-	if len(self.blockpool.freeBlocks) == 0 {
-		return 0
-	}
 	// if an insert operation is in progress, do nothing.
 	if !self.compactLock.TryLock() {
 		return 0
@@ -106,16 +103,19 @@ func (self *accountPool) Compact() int {
 	}()
 	//	this is a rate limiter
 	now := time.Now()
-	if now.After(self.loopTime.Add(time.Millisecond * 200)) {
+	sum := 0
+	if now.After(self.loopTime.Add(time.Millisecond * 2)) {
 		defer monitor.LogTime("pool", "accountCompact", now)
 		self.loopTime = now
-		sum := 0
 		sum = sum + self.loopGenSnippetChains()
 		sum = sum + self.loopAppendChains()
-		sum = sum + self.loopFetchForSnippets()
-		return sum
 	}
-	return 0
+	if now.After(self.loopFetchTime.Add(time.Millisecond * 200)) {
+		defer monitor.LogTime("pool", "loopFetchForSnippets", now)
+		self.loopFetchTime = now
+		sum = sum + self.loopFetchForSnippets()
+	}
+	return sum
 }
 
 func (self *accountPool) LockForInsert() {
@@ -123,11 +123,13 @@ func (self *accountPool) LockForInsert() {
 	self.compactLock.Lock()
 	// lock other chain insert
 	self.pool.RLock()
+	self.rMu.Lock()
 }
 
 func (self *accountPool) UnLockForInsert() {
 	self.compactLock.UnLock()
 	self.pool.RUnLock()
+	self.rMu.Unlock()
 }
 
 /**
@@ -220,6 +222,7 @@ func (self *accountPool) tryInsert() verifyTask {
 		stat := self.v.verifyAccount(block)
 		if !block.checkForkVersion() {
 			block.resetForkVersion()
+			self.log.Warn("snapshot fork happen. account should verify again.", "blockHash", block.Hash(), "blockHeight", block.Height())
 			return self.v.newSuccessTask()
 		}
 		result := stat.verifyResult()
@@ -261,6 +264,7 @@ func (self *accountPool) verifySuccess(bs []*accountPoolBlock) (error, uint64) {
 		return err, 0
 	}
 
+	self.log.Debug("verifySuccess", "id", forked.id(), "TailHeight", forked.tailHeight, "HeadHeight", forked.headHeight)
 	err = cp.currentModifyToChain(forked)
 	if err != nil {
 		return err, 0
@@ -287,12 +291,20 @@ func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, *forkedCha
 	for _, b := range bs {
 		tmp := current.getHeightBlock(b.Height())
 		if newChain != nil {
+			err := newChain.canAddHead(b)
+			if err != nil {
+				return nil, nil, err
+			}
 			// forked chain
 			newChain.addHead(tmp)
 		} else {
 			if tmp == nil || tmp.Hash() != b.Hash() {
 				// forked chain
 				newChain, err = cp.forkFrom(current, b.Height()-1, b.PrevHash())
+				if err != nil {
+					return nil, nil, err
+				}
+				err := newChain.canAddHead(b)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -357,6 +369,7 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks 
 		if err != nil {
 			return err
 		}
+		self.log.Debug("AddDirectBlocks", "id", fchain.id(), "TailHeight", fchain.tailHeight, "HeadHeight", fchain.headHeight)
 		err = self.chainpool.currentModifyToChain(fchain)
 		if err != nil {
 			return err
@@ -422,6 +435,10 @@ func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (*forkedCha
 		return nil, nil, err
 	}
 	for _, b := range blocks {
+		err := fchain.canAddHead(b)
+		if err != nil {
+			return nil, nil, err
+		}
 		fchain.addHead(b)
 		results = append(results, b)
 	}

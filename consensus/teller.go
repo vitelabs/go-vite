@@ -76,17 +76,18 @@ func (self *teller) electionIndex(index int32) (*electionResult, error) {
 	return plans, nil
 }
 
-func (self *teller) voteDetails(index int32) ([]*VoteDetails, error) {
+func (self *teller) voteDetails(index int32) ([]*VoteDetails, *ledger.HashHeight, error) {
 	sTime := self.info.genSTime(index - 1)
 
 	block, e := self.rw.GetSnapshotBeforeTime(sTime)
 	if e != nil {
 		self.mLog.Error("geSnapshotBeferTime fail.", "err", e)
-		return nil, e
+		return nil, nil, e
 	}
 
 	headH := ledger.HashHeight{Height: block.Height, Hash: block.Hash}
-	return self.rw.CalVoteDetails(self.gid, self.info, headH)
+	details, err := self.rw.CalVoteDetails(self.gid, self.info, headH)
+	return details, &headH, err
 }
 
 func (self *teller) electionTime(t time.Time) (*electionResult, error) {

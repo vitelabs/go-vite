@@ -2,6 +2,7 @@ package chain
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
@@ -327,52 +328,60 @@ func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Add
 	return accountBlock, nil
 }
 
-func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Address][]*ledger.AccountBlock) (map[types.Address]*ledger.AccountBlock, []types.Address, map[types.Address]uint64, error) {
+func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Address][]*ledger.AccountBlock) (map[types.Address]*ledger.AccountBlock, map[types.Address]*ledger.AccountBlock, map[types.Address]uint64, error) {
 	needAddBlocks := make(map[types.Address]*ledger.AccountBlock)
-	var needRemoveAddr []types.Address
+	needRemoveAddr := make(map[types.Address]*ledger.AccountBlock)
 
 	blockHeightMap := make(map[types.Address]uint64)
 	for addr, accountBlocks := range deleteSubLedger {
 		accountBlock := accountBlocks[0]
-		needRemoveAddr = append(needRemoveAddr, addr)
 
+		needRemoveAddr[addr] = accountBlock
 		accountBlockHeight := accountBlock.Height
-		blockHeightMap[addr] = accountBlockHeight - 1
+
+		if accountBlockHeight > 1 {
+			blockHeightMap[addr] = accountBlockHeight - 1
+		}
 	}
 
 	for addr, blockHeight := range blockHeightMap {
 		account, err := c.GetAccount(&addr)
 		if err != nil {
-			c.log.Error("GetAccount failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			c.log.Error("GetAccount failed, error is "+err.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
 			return nil, nil, nil, err
 		}
 
 		blockHash, blockHashErr := c.chainDb.Ac.GetHashByHeight(account.AccountId, blockHeight)
 		if blockHashErr != nil {
-			c.log.Error("GetHashByHeight failed, error is "+blockHashErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			c.log.Error("GetHashByHeight failed, error is "+blockHashErr.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
 			return nil, nil, nil, err
 		}
 
 		if blockHash == nil {
-			continue
+			err := errors.New("blockHash is nil")
+			c.log.Error(err.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
+			return nil, nil, nil, err
 		}
 
 		blockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(blockHash)
 		if blockMetaErr != nil {
-			c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
 			return nil, nil, nil, err
 		}
 
 		if blockMeta == nil {
-			continue
+			err := errors.New("blockMeta is nil")
+			c.log.Error(err.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
+			return nil, nil, nil, err
 		}
 
 		if blockMeta.SnapshotHeight <= 0 {
 			block, blockErr := c.chainDb.Ac.GetBlockByHeight(account.AccountId, blockHeight)
 			if blockErr != nil {
-				c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+				c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
 				return nil, nil, nil, err
 			}
+
 			block.AccountAddress = account.AccountAddress
 			if len(block.PublicKey) == 0 {
 				block.PublicKey = account.PublicKey
@@ -398,6 +407,15 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	}
 
 	needAddBlocks, needRemoveAddr, blockHeightMap, err := c.getNeedSnapshotMapByDeleteSubLedger(accountBlocksMap)
+	// FIXME!!!
+	for addr, block := range needAddBlocks {
+		c.log.Info(fmt.Sprintf("%s %+v\n", addr.String(), block), "log", "ds_testcache_needAddBlocks")
+	}
+
+	for addr := range needRemoveAddr {
+		c.log.Info(fmt.Sprintf("%s\n", addr.String()), "log", "ds_testcache_needRemoveAddr")
+	}
+
 	if err != nil {
 		c.log.Error("getNeedSnapshotMapByDeleteSubLedger failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksToHeight")
 		return nil, nil, err
@@ -408,12 +426,12 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	for addr, changeRangeItem := range chainRangeSet {
 		min := changeRangeItem[0].Height
 		max := changeRangeItem[1].Height
+
 		if blockHeightItem, ok := blockHeightMap[addr]; ok {
 			if min > blockHeightItem {
 				continue
-			} else if max > blockHeightItem {
-				max = blockHeightItem
 			}
+			max = blockHeightItem
 		}
 
 		account, err := c.GetAccount(&addr)
@@ -473,7 +491,11 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		}
 
 		if _, ok := needAddBlocks[account.AccountAddress]; !ok && lastBlock != nil {
-			needAddBlocks[account.AccountAddress] = lastBlock
+			if _, ok2 := needRemoveAddr[account.AccountAddress]; ok2 {
+				needAddBlocks[account.AccountAddress] = lastBlock
+			} else if cachedAccountBlock := c.needSnapshotCache.Get(&account.AccountAddress); cachedAccountBlock == nil {
+				needAddBlocks[account.AccountAddress] = lastBlock
+			}
 		}
 	}
 
@@ -506,9 +528,15 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	// write db
 	writeErr := c.chainDb.Commit(batch)
+
 	if writeErr != nil {
 		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 		return nil, nil, writeErr
+	}
+
+	// FIXME!!!
+	for addr, block := range needAddBlocks {
+		c.log.Info(fmt.Sprintf("%s %+v\n", addr.String(), block), "log", "ds_testcache_needAddBlocks2")
 	}
 
 	// FIXME hack!!!!! tmp
@@ -521,7 +549,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	c.latestSnapshotBlock = prevSnapshotBlock
 
 	// Set needSnapshotCache, first remove
-	for _, addr := range needRemoveAddr {
+	for addr := range needRemoveAddr {
 		c.needSnapshotCache.Remove(&addr)
 	}
 
@@ -596,15 +624,11 @@ func (c *chain) getChainRangeSet(snapshotBlocks []*ledger.SnapshotBlock) map[typ
 					},
 				}
 			} else if chainRange[0].Height > height {
-				chainRange[0] = &ledger.HashHeight{
-					Hash:   snapshotContent.Hash,
-					Height: snapshotContent.Height,
-				}
+				chainRange[0].Hash = snapshotContent.Hash
+				chainRange[0].Height = snapshotContent.Height
 			} else if chainRange[1].Height < height {
-				chainRange[1] = &ledger.HashHeight{
-					Hash:   snapshotContent.Hash,
-					Height: snapshotContent.Height,
-				}
+				chainRange[1].Hash = snapshotContent.Hash
+				chainRange[1].Height = snapshotContent.Height
 			}
 		}
 	}

@@ -36,7 +36,7 @@ func mockU64() uint64 {
 	return u >> 40
 }
 
-func mockPeers(n int) (peers []*Peer) {
+func mockPeers(n int) (peers []*peer) {
 	var num int
 	for {
 		num = rand.Intn(n)
@@ -47,7 +47,7 @@ func mockPeers(n int) (peers []*Peer) {
 	fmt.Printf("mock %d peers\n", num)
 
 	for i := 0; i < num; i++ {
-		peers = append(peers, &Peer{ID: RandStringRunes(8), height: mockU64()})
+		peers = append(peers, &peer{ID: RandStringRunes(8), height: mockU64()})
 	}
 
 	return peers
@@ -140,7 +140,17 @@ func TestSplitChunkOne(t *testing.T) {
 	}
 }
 
-//func TestU64ToDuration(t *testing.T) {
-//	u := rand.Uint64()
-//	u64ToDuration(u)
-//}
+func TestSplitChunkMini(t *testing.T) {
+	to := rand.Uint64()
+	from := to - uint64(rand.Intn(10))
+
+	cs := splitChunk(from, to)
+
+	if uint64(len(cs)) != 1 {
+		t.Fail()
+	}
+
+	if cs[0][0] != from || cs[0][1] != to {
+		t.Fail()
+	}
+}

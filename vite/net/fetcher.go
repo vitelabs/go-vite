@@ -35,34 +35,37 @@ func newFetcher(filter Filter, peers *peerSet, pool MsgIder) *fetcher {
 }
 
 func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
-	monitor.LogEvent("net/fetch", "s")
+	monitor.LogEvent("net/fetch", "GetSnapshotBlocks")
 
 	// been suppressed
 	if f.filter.hold(start) {
-		f.log.Warn(fmt.Sprintf("fetch suppressed getSnapshotBlocks: %s %d", start, count))
+		f.log.Debug(fmt.Sprintf("fetch suppressed GetSnapshotBlocks[hash %s, count %d]", start, count))
 		return
 	}
 
 	if atomic.LoadInt32(&f.ready) == 0 {
-		f.log.Warn("not ready")
+		f.log.Debug("not ready")
 		return
 	}
 
-	m := &message.GetSnapshotBlocks{
-		From:    ledger.HashHeight{Hash: start},
-		Count:   count,
-		Forward: false,
-	}
+	if peerList := f.peers.Pick(0); len(peerList) != 0 {
+		m := &message.GetSnapshotBlocks{
+			From:    ledger.HashHeight{Hash: start},
+			Count:   count,
+			Forward: false,
+		}
 
-	p := f.peers.BestPeer()
-	if p != nil {
 		id := f.pool.MsgID()
-		err := p.Send(GetSnapshotBlocksCode, id, m)
-		if err != nil {
-			f.log.Error(fmt.Sprintf("send %s to %s error: %v", GetSnapshotBlocksCode, p, err))
-		} else {
-			monitor.LogEvent("net/fetch", "s_send")
-			f.log.Info(fmt.Sprintf("send %s to %s done", GetSnapshotBlocksCode, p))
+
+		// send fetch request to random half peers
+		for i := 0; i < len(peerList)/2; i++ {
+			p := peerList[i]
+			if err := p.Send(GetSnapshotBlocksCode, id, m); err != nil {
+				f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
+			} else {
+				f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
+			}
+			monitor.LogEvent("net/fetch", "GetSnapshotBlocks_Send")
 		}
 	} else {
 		f.log.Error(errNoSuitablePeer.Error())
@@ -70,11 +73,11 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 }
 
 func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) {
-	monitor.LogEvent("net/fetch", "a")
+	monitor.LogEvent("net/fetch", "GetAccountBlocks")
 
 	// been suppressed
 	if f.filter.hold(start) {
-		f.log.Warn(fmt.Sprintf("fetch suppressed getAccountBlocks: %s %d", start, count))
+		f.log.Debug(fmt.Sprintf("fetch suppressed GetAccountBlocks[hash %s, count %d]", start, count))
 		return
 	}
 
@@ -83,29 +86,33 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 		return
 	}
 
-	addr := NULL_ADDRESS
-	if address != nil {
-		addr = *address
-	}
-	m := &message.GetAccountBlocks{
-		Address: addr,
-		From: ledger.HashHeight{
-			Hash: start,
-		},
-		Count:   count,
-		Forward: false,
-	}
-
-	p := f.peers.BestPeer()
-	if p != nil {
-		id := f.pool.MsgID()
-		err := p.Send(GetAccountBlocksCode, id, m)
-		if err != nil {
-			monitor.LogEvent("net/fetch", "a_send")
-			f.log.Error(fmt.Sprintf("send %s to %s error: %v", GetAccountBlocksCode, p, err))
-		} else {
-			f.log.Info(fmt.Sprintf("send %s to %s done", GetAccountBlocksCode, p))
+	if peerList := f.peers.Pick(0); len(peerList) != 0 {
+		addr := NULL_ADDRESS
+		if address != nil {
+			addr = *address
 		}
+		m := &message.GetAccountBlocks{
+			Address: addr,
+			From: ledger.HashHeight{
+				Hash: start,
+			},
+			Count:   count,
+			Forward: false,
+		}
+
+		id := f.pool.MsgID()
+
+		// send fetch request to random half peers
+		for i := 0; i < len(peerList)/2; i++ {
+			p := peerList[i]
+			if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
+				f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
+			} else {
+				f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
+			}
+			monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
+		}
+
 	} else {
 		f.log.Error(errNoSuitablePeer.Error())
 	}

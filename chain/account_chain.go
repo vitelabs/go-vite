@@ -657,7 +657,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	}
 
 	// Set needSnapshotCache, first remove
-	for _, addr := range needRemoveAddr {
+	for addr := range needRemoveAddr {
 		c.needSnapshotCache.Remove(&addr)
 	}
 

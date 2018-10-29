@@ -6,9 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_context"
+	"path/filepath"
 )
 
 func TestGetNeedSnapshotContent(t *testing.T) {
@@ -394,6 +397,54 @@ func newSnapshotBlock() (*ledger.SnapshotBlock, error) {
 
 	return snapshotBlock, err
 }
+func TestDeleteSnapshotBlocksToHeight4(t *testing.T) {
+	log15.Root().SetHandler(
+		log15.LvlFilterHandler(log15.LvlError, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),
+	)
+
+	chainInstance := getChainInstance()
+	addr1, _, _ := types.CreateAddress()
+	addr2, _, _ := types.CreateAddress()
+
+	snapshotBlock, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(snapshotBlock)
+
+	for i := 0; i < 2; i++ {
+		blocks, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addr1, &addr2)
+		chainInstance.InsertAccountBlocks(blocks)
+	}
+
+	snapshotBlock2, _ := newSnapshotBlock()
+	chainInstance.InsertSnapshotBlock(snapshotBlock2)
+
+	for i := 0; i < 6; i++ {
+		blocks, _, _ := randomSendViteBlock(snapshotBlock2.Hash, &addr1, &addr2)
+		chainInstance.InsertAccountBlocks(blocks)
+	}
+
+	needContent := chainInstance.GetNeedSnapshotContent()
+	if len(needContent) != 1 {
+		t.Error("error!!!")
+	}
+	for _, content := range needContent {
+		if content.Height != 8 {
+			t.Error("error!!!")
+		}
+	}
+
+	chainInstance.DeleteSnapshotBlocksToHeight(snapshotBlock2.Height)
+
+	needContent2 := chainInstance.GetNeedSnapshotContent()
+	if len(needContent2) != 1 {
+		t.Error("error!!!")
+	}
+	for _, content := range needContent2 {
+		if content.Height != 2 {
+			t.Error("error!!!")
+		}
+	}
+	fmt.Println()
+}
 
 func TestDeleteSnapshotBlocksToHeight3(t *testing.T) {
 	chainInstance := getChainInstance()
@@ -593,4 +644,48 @@ func TestDeleteSnapshotBlocksToHeight(t *testing.T) {
 	blockMeta2_1, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&blocks2[0].AccountBlock.Hash)
 	fmt.Printf("%+v\n", blockMeta2_1)
 
+}
+
+type stru struct {
+	Num uint64
+}
+
+func TestMapSlice(t *testing.T) {
+	data := make(map[string][2]*stru)
+	data["test"] = [2]*stru{{Num: 2}, {Num: 5}}
+	fmt.Printf("%+v\n", data["test"][1])
+
+	tmp := data["test"]
+	tmp[1].Num = 10
+	fmt.Printf("%+v\n", tmp[1])
+	fmt.Printf("%+v\n", data["test"][1])
+
+	a := big.NewInt(0)
+	fmt.Println(a.Bytes())
+}
+
+func TestGetChainRangeSet(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	var snapshotBlocks []*ledger.SnapshotBlock
+	addrRecord := make(map[types.Address]uint64)
+	for i := uint64(1900); i <= 2050; i++ {
+		snapshotBlock, _ := chainInstance.GetSnapshotBlockByHeight(i)
+		snapshotBlocks = append(snapshotBlocks, snapshotBlock)
+		for addr := range snapshotBlock.SnapshotContent {
+			addrRecord[addr] = addrRecord[addr] + 1
+		}
+	}
+
+	for addr, count := range addrRecord {
+		fmt.Printf("%s %d次\n", addr, count)
+		fmt.Println()
+	}
+
+	result := chainInstance.getChainRangeSet(snapshotBlocks)
+
+	for addr, hashHeight := range result {
+		fmt.Printf("%s %d - %d\n", addr, hashHeight[0].Height, hashHeight[1].Height)
+		fmt.Println()
+	}
 }
