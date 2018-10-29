@@ -30,7 +30,7 @@ func (self *tools) ledgerUnLock() {
 	self.pool.UnLock()
 }
 
-func (self *tools) generateSnapshot(e *consensus.Event) (*ledger.SnapshotBlock, error) {
+func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext) (*ledger.SnapshotBlock, error) {
 	head := self.chain.GetLatestSnapshotBlock()
 	accounts, err := self.generateAccounts(head)
 	if err != nil {
@@ -50,7 +50,11 @@ func (self *tools) generateSnapshot(e *consensus.Event) (*ledger.SnapshotBlock, 
 	}
 
 	block.Hash = block.ComputeHash()
-	_, key, _, err := self.wt.GlobalFindAddr(e.Address)
+	manager, err := self.wt.GetEntropyStoreManager(coinbase.EntryPath)
+	if err != nil {
+		return nil, err
+	}
+	_, key, err := manager.DeriveForIndexPath(coinbase.Index)
 	if err != nil {
 		return nil, err
 	}
@@ -75,8 +79,12 @@ func newChainRw(ch chain.Chain, sVerifier *verifier.SnapshotVerifier, wt *wallet
 	return &tools{chain: ch, log: log, sVerifier: sVerifier, wt: wt, pool: p}
 }
 
-func (self *tools) checkAddressLock(address types.Address) bool {
-	return self.wt.GlobalCheckAddrUnlock(address)
+func (self *tools) checkAddressLock(address types.Address, coinbase *AddressContext) error {
+	if address != coinbase.Address {
+		return errors.Errorf("addres not equals.%s-%s", address, coinbase.Address)
+	}
+
+	return self.wt.MatchAddress(coinbase.EntryPath, coinbase.Address, coinbase.Index)
 }
 
 func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.SnapshotContent, error) {
