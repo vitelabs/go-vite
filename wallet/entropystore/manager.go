@@ -231,7 +231,7 @@ func MnemonicToPrimaryAddr(mnemonic string) (primaryAddress *types.Address, e er
 	return primaryAddress, nil
 }
 
-// it is very fast(in my mac 2.8GHZ intel cpu 1Million search cost 728ms) so we dont need cache the relation
+// it is very fast(in my mac 2.8GHZ intel cpu 10Ks search cost 728ms) so we dont need cache the relation
 func FindAddrFromSeed(seed []byte, addr types.Address, maxSearchIndex uint32) (key *derivation.Key, index uint32, e error) {
 	for i := uint32(0); i < maxSearchIndex; i++ {
 		key, e := derivation.DeriveWithIndex(i, seed)
