@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"testing"
 
+	_ "net/http/pprof"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -17,7 +19,6 @@ import (
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/wallet"
-	_ "net/http/pprof"
 )
 
 var genesisAccountPrivKeyStr string
@@ -112,3 +113,11 @@ func TestSend(t *testing.T) {
 //		return
 //	}
 //}
+func TestSplit(t *testing.T) {
+	addresses, u, e := parseCoinbase("1:vite_91dc0c38d104c7915d3a6c4381a40c360edd871c34ac255bb2")
+	if e != nil {
+		t.Error(e)
+	}
+	t.Log(addresses)
+	t.Log(u)
+}

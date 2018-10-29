@@ -2,6 +2,7 @@ package entropystore
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/common/types"

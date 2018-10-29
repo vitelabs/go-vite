@@ -1,6 +1,12 @@
 package wallet
 
 import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/common/types"
@@ -8,11 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/wallet/entropystore"
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
 )
 
 type Manager struct {
@@ -277,4 +278,22 @@ func (m Manager) RemoveUnlockChangeChannel(id int) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	delete(m.unlockChangedLis, id)
+}
+func (m *Manager) MatchAddress(EntryPath string, coinbase types.Address, index uint32) error {
+	manager, err := m.GetEntropyStoreManager(EntryPath)
+	if err != nil {
+		return err
+	}
+	_, key, err := manager.DeriveForIndexPath(index)
+	if err != nil {
+		return err
+	}
+	address, err := key.Address()
+	if err != nil {
+		return err
+	}
+	if *address != coinbase {
+		return errors.New("address do not match.")
+	}
+	return nil
 }
