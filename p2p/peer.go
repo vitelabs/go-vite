@@ -219,6 +219,7 @@ func (p *Peer) readLoop() {
 			if msg, err := p.ts.ReadMsg(); err == nil {
 				monitor.LogEvent("p2p_ts", "read")
 				monitor.LogDuration("p2p_ts", "read_bytes", int64(len(msg.Payload)))
+				monitor.LogDuration("p2p_ts", "stt", msg.ReceivedAt.Sub(msg.SendAt).Nanoseconds())
 
 				p.handleMsg(msg)
 			} else {
@@ -246,6 +247,7 @@ loop:
 				pf.Send[msg.Cmd]++
 			}
 
+			before := time.Now()
 			if err := p.ts.WriteMsg(msg); err != nil {
 				select {
 				case p.errch <- err:
@@ -257,8 +259,9 @@ loop:
 
 			monitor.LogEvent("p2p_ts", "write")
 			monitor.LogDuration("p2p_ts", "write_bytes", int64(len(msg.Payload)))
-			monitor.LogDuration("p2p_ts", "write_queue_", int64(len(p.wqueue)))
-			p.log.Debug(fmt.Sprintf("write message %d/%d to %s, rest %d messages", msg.CmdSet, msg.Cmd, p.RemoteAddr(), len(p.wqueue)))
+			monitor.LogDuration("p2p_ts", "write_queue", int64(len(p.wqueue)))
+			monitor.LogTime("p2p_ts", "write_time", before)
+			p.log.Debug(fmt.Sprintf("write message %d/%d to %s, spend %s, rest %d messages", msg.CmdSet, msg.Cmd, p.RemoteAddr(), time.Now().Sub(before), len(p.wqueue)))
 		}
 	}
 
