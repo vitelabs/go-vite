@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vite/net/message"
+	"math/rand"
 	"sync/atomic"
 )
 
@@ -57,16 +58,13 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 
 		id := f.pool.MsgID()
 
-		// send fetch request to random half peers
-		for i := 0; i < len(peerList)/2; i++ {
-			p := peerList[i]
-			if err := p.Send(GetSnapshotBlocksCode, id, m); err != nil {
-				f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
-			} else {
-				f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
-			}
-			monitor.LogEvent("net/fetch", "GetSnapshotBlocks_Send")
+		p := peerList[rand.Intn(len(peerList))]
+		if err := p.Send(GetSnapshotBlocksCode, id, m); err != nil {
+			f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
+		} else {
+			f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
 		}
+		monitor.LogEvent("net/fetch", "GetSnapshotBlocks_Send")
 	} else {
 		f.log.Error(errNoSuitablePeer.Error())
 	}
@@ -102,16 +100,13 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 
 		id := f.pool.MsgID()
 
-		// send fetch request to random half peers
-		for i := 0; i < len(peerList)/2; i++ {
-			p := peerList[i]
-			if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
-				f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
-			} else {
-				f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
-			}
-			monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
+		p := peerList[rand.Intn(len(peerList))]
+		if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
+			f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
+		} else {
+			f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
 		}
+		monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
 
 	} else {
 		f.log.Error(errNoSuitablePeer.Error())
