@@ -88,6 +88,9 @@ type Chain interface {
 	RegisterInsertAccountBlocksSuccess(processor InsertProcessorFuncSuccess) uint64
 	RegisterDeleteAccountBlocks(processor DeleteProcessorFunc) uint64
 	RegisterDeleteAccountBlocksSuccess(processor DeleteProcessorFuncSuccess) uint64
+	RegisterInsertSnapshotBlocksSuccess(processor InsertSnapshotBlocksSuccess) uint64
+	RegisterDeleteSnapshotBlocksSuccess(processor DeleteSnapshotBlocksSuccess) uint64
+
 	GetStateTrie(stateHash *types.Hash) *trie.Trie
 	NewStateTrie() *trie.Trie
 
