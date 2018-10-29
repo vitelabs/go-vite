@@ -26,8 +26,11 @@ type accountPool struct {
 	pool          *pool
 }
 
-func newAccountPoolBlock(block *ledger.AccountBlock, vmBlock vmctxt_interface.VmDatabase, version *ForkVersion) *accountPoolBlock {
-	return &accountPoolBlock{block: block, vmBlock: vmBlock, forkBlock: *newForkBlock(version)}
+func newAccountPoolBlock(block *ledger.AccountBlock,
+	vmBlock vmctxt_interface.VmDatabase,
+	version *ForkVersion,
+	source types.BlockSource) *accountPoolBlock {
+	return &accountPoolBlock{block: block, vmBlock: vmBlock, forkBlock: *newForkBlock(version, source)}
 }
 
 type accountPoolBlock struct {

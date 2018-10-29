@@ -57,13 +57,13 @@ func (self *accountCh) head() commonBlock {
 		return nil
 	}
 
-	result := newAccountPoolBlock(block, nil, self.version)
+	result := newAccountPoolBlock(block, nil, self.version, types.RollbackChain)
 	return result
 }
 
 func (self *accountCh) getBlock(height uint64) commonBlock {
 	if height == types.EmptyHeight {
-		return newAccountPoolBlock(&ledger.AccountBlock{Height: types.EmptyHeight}, nil, self.version)
+		return newAccountPoolBlock(&ledger.AccountBlock{Height: types.EmptyHeight}, nil, self.version, types.RollbackChain)
 	}
 	// todo
 	block, e := self.rw.GetAccountBlockByHeight(&self.address, height)
@@ -74,7 +74,7 @@ func (self *accountCh) getBlock(height uint64) commonBlock {
 		return nil
 	}
 
-	return newAccountPoolBlock(block, nil, self.version)
+	return newAccountPoolBlock(block, nil, self.version, types.RollbackChain)
 }
 
 func (self *accountCh) insertBlocks(bs []commonBlock) error {
@@ -98,7 +98,7 @@ func (self *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Addr
 	for addr, bs := range bm {
 		var r []commonBlock
 		for _, b := range bs {
-			r = append(r, newAccountPoolBlock(b, nil, self.version))
+			r = append(r, newAccountPoolBlock(b, nil, self.version, types.RollbackChain))
 		}
 		results[addr] = r
 	}
@@ -132,7 +132,7 @@ func (self *snapshotCh) getBlock(height uint64) commonBlock {
 	if block == nil {
 		return nil
 	}
-	return newSnapshotPoolBlock(block, self.version)
+	return newSnapshotPoolBlock(block, self.version, types.RollbackChain)
 }
 
 func (self *snapshotCh) head() commonBlock {
@@ -140,7 +140,7 @@ func (self *snapshotCh) head() commonBlock {
 	if block == nil {
 		return nil
 	}
-	return newSnapshotPoolBlock(block, self.version)
+	return newSnapshotPoolBlock(block, self.version, types.RollbackChain)
 }
 
 func (self *snapshotCh) headSnapshot() *ledger.SnapshotBlock {
@@ -172,13 +172,13 @@ func (self *snapshotCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 	for addr, bs := range bm {
 		var r []commonBlock
 		for _, b := range bs {
-			r = append(r, newAccountPoolBlock(b, nil, self.version))
+			r = append(r, newAccountPoolBlock(b, nil, self.version, types.RollbackChain))
 		}
 		accountResults[addr] = r
 	}
 	var snapshotResults []commonBlock
 	for _, s := range ss {
-		snapshotResults = append(snapshotResults, newSnapshotPoolBlock(s, self.version))
+		snapshotResults = append(snapshotResults, newSnapshotPoolBlock(s, self.version, types.RollbackChain))
 	}
 	return snapshotResults, accountResults, nil
 }

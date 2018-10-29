@@ -75,13 +75,14 @@ type commonBlock interface {
 	forkVersion() int
 }
 
-func newForkBlock(v *ForkVersion) *forkBlock {
-	return &forkBlock{firstV: v.Val(), v: v}
+func newForkBlock(v *ForkVersion, source types.BlockSource) *forkBlock {
+	return &forkBlock{firstV: v.Val(), v: v, source: source}
 }
 
 type forkBlock struct {
 	firstV int
 	v      *ForkVersion
+	source types.BlockSource
 }
 
 func (self *forkBlock) forkVersion() int {
@@ -264,7 +265,7 @@ func (self *pool) Restart() {
 	self.Start()
 }
 
-func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) {
+func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) {
 
 	self.log.Info("receive snapshot block from network. height:" + strconv.FormatUint(block.Height, 10) + ", hash:" + block.Hash.String() + ".")
 
@@ -273,7 +274,7 @@ func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) {
 		self.log.Error("snapshot error", "err", err, "height", block.Height, "hash", block.Hash)
 		return
 	}
-	self.pendingSc.AddBlock(newSnapshotPoolBlock(block, self.version))
+	self.pendingSc.AddBlock(newSnapshotPoolBlock(block, self.version, source))
 }
 
 func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
@@ -281,7 +282,7 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 	if err != nil {
 		return err
 	}
-	cBlock := newSnapshotPoolBlock(block, self.version)
+	cBlock := newSnapshotPoolBlock(block, self.version, types.Local)
 	err = self.pendingSc.AddDirectBlock(cBlock)
 	if err != nil {
 		return err
@@ -290,7 +291,7 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 	return nil
 }
 
-func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock) {
+func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock, source types.BlockSource) {
 	self.log.Info(fmt.Sprintf("receive account block from network. addr:%s, height:%d, hash:%s.", address, block.Height, block.Hash))
 
 	ac := self.selfPendingAc(address)
@@ -299,7 +300,7 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 		self.log.Error("account err", "err", err, "height", block.Height, "hash", block.Hash, "addr", address)
 		return
 	}
-	ac.AddBlock(newAccountPoolBlock(block, nil, self.version))
+	ac.AddBlock(newAccountPoolBlock(block, nil, self.version, source))
 	ac.AddReceivedBlock(block)
 
 	self.accountCond.L.Lock()
@@ -321,7 +322,7 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 		return err
 	}
 
-	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version)
+	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version, types.Local)
 	err = ac.AddDirectBlocks(cBlock, nil)
 	if err != nil {
 		return err
@@ -333,11 +334,11 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 	return nil
 
 }
-func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.AccountBlock) error {
+func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.AccountBlock, source types.BlockSource) error {
 	defer monitor.LogTime("pool", "addAccountArr", time.Now())
 
 	for _, b := range blocks {
-		self.AddAccountBlock(address, b)
+		self.AddAccountBlock(address, b, source)
 	}
 
 	self.accountCond.L.Lock()
@@ -354,9 +355,9 @@ func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_con
 	// todo
 	var accountPoolBlocks []*accountPoolBlock
 	for _, v := range sendBlocks {
-		accountPoolBlocks = append(accountPoolBlocks, newAccountPoolBlock(v.AccountBlock, v.VmContext, self.version))
+		accountPoolBlocks = append(accountPoolBlocks, newAccountPoolBlock(v.AccountBlock, v.VmContext, self.version, types.Local))
 	}
-	err := ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmContext, self.version), accountPoolBlocks)
+	err := ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmContext, self.version, types.Local), accountPoolBlocks)
 	if err != nil {
 		return err
 	}
