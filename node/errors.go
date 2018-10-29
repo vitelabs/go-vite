@@ -12,7 +12,6 @@ var (
 	ErrServiceUnknown          = errors.New("unknown service")
 	ErrWalletConfigNil         = errors.New("wallet config is nil")
 	ErrEntropyStorePathInvalid = errors.New("entropyStorePath is invalid")
-	ErrCoinBase                = errors.New("coinBase is not child of entropyStore")
 	ErrViteConfigNil           = errors.New("vite config is nil")
 	ErrP2PConfigNil            = errors.New("p2p config is nil")
 	datadirInUseErrnos         = map[uint]bool{11: true, 32: true, 35: true}

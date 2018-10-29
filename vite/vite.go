@@ -1,6 +1,8 @@
 package vite
 
 import (
+	"errors"
+	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
@@ -79,6 +81,12 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	// producer
 	if cfg.Producer.Producer && cfg.Producer.Coinbase != "" {
 		coinbase, err := types.HexToAddress(cfg.Producer.Coinbase)
+
+		if !walletManager.GlobalCheckAddrUnlock(coinbase) {
+			log.Error(fmt.Sprintf("coinBase is not child of entropyStore, coinBase is : %v", cfg.Producer.Coinbase))
+			return nil, errors.New("coinBase is not child of entropyStore")
+
+		}
 
 		if err != nil {
 			log.Error("Coinbase parse failed from config file. Error is "+err.Error(), "method", "new Vite()")
