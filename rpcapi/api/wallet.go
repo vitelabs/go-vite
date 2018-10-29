@@ -38,14 +38,14 @@ type DeriveResult struct {
 }
 
 type CreateTransferTxParms struct {
-	EntropystoreFile *string
-	SelfAddr         types.Address
-	ToAddr           types.Address
-	TokenTypeId      types.TokenTypeId
-	Passphrase       string
-	Amount           string
-	Data             []byte
-	Difficulty       *big.Int
+	EntropystoreFile *string           `json:"entropystoreFile,omitempty"`
+	SelfAddr         types.Address     `json:"selfAddr"`
+	ToAddr           types.Address     `json:"toAddr"`
+	TokenTypeId      types.TokenTypeId `json:"tokenTypeId"`
+	Passphrase       string            `json:"passphrase"`
+	Amount           string            `json:"amount"`
+	Data             []byte            `json:"data,omitempty"`
+	Difficulty       *string           `json:"difficulty,omitempty"`
 }
 
 type IsMayValidKeystoreFileResponse struct {
@@ -266,6 +266,13 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 	if !ok {
 		return ErrStrToBigInt
 	}
+	var difficulty *big.Int = nil
+	if params.Difficulty != nil {
+		difficulty, ok = new(big.Int).SetString(*params.Difficulty, 10)
+		if !ok {
+			return ErrStrToBigInt
+		}
+	}
 
 	msg := &generator.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
@@ -274,7 +281,7 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 		TokenId:        &params.TokenTypeId,
 		Amount:         amount,
 		Fee:            nil,
-		Difficulty:     params.Difficulty,
+		Difficulty:     difficulty,
 		Data:           params.Data,
 	}
 
