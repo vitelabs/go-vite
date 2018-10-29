@@ -49,7 +49,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 		return
 	}
 
-	if peerList := f.peers.Pick(0); len(peerList) != 0 {
+	if p := f.peers.BestPeer(); p != nil {
 		m := &message.GetSnapshotBlocks{
 			From:    ledger.HashHeight{Hash: start},
 			Count:   count,
@@ -58,7 +58,6 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 
 		id := f.pool.MsgID()
 
-		p := peerList[rand.Intn(len(peerList))]
 		if err := p.Send(GetSnapshotBlocksCode, id, m); err != nil {
 			f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
 		} else {
@@ -100,14 +99,32 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 
 		id := f.pool.MsgID()
 
-		p := peerList[rand.Intn(len(peerList))]
-		if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
-			f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
-		} else {
-			f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
-		}
-		monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
+		var peers [2]Peer
+		// bestPeer
+		peers[0] = f.peers.BestPeer()
+		total := 1
+		// random peer
+		if len(peerList) > 1 {
+			var p2 Peer
 
+			for {
+				if p2 = peerList[rand.Intn(len(peerList))]; p2 != peers[0] {
+					break
+				}
+			}
+
+			peers[1] = p2
+			total = 2
+		}
+
+		for _, p := range peers[:total] {
+			if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
+				f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
+			} else {
+				f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
+			}
+			monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
+		}
 	} else {
 		f.log.Error(errNoSuitablePeer.Error())
 	}

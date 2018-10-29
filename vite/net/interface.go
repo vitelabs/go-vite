@@ -126,4 +126,5 @@ type Net interface {
 	Start(svr *p2p.Server) error
 	Stop()
 	Info() *NodeInfo
+	Tasks() []*Task
 }
