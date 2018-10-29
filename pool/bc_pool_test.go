@@ -7,6 +7,7 @@ import (
 
 	"encoding/json"
 
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
@@ -137,4 +138,8 @@ func printChainJust(base *forkedChain) {
 		}
 	}
 	fmt.Println("-------------end--------------")
+}
+
+func TestGid(t *testing.T) {
+	println(types.SNAPSHOT_GID.String())
 }

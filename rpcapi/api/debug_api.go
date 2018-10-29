@@ -107,9 +107,10 @@ func (api DebugApi) ConsensusPlanAndActual(gid types.Gid, offset int64, index ui
 		index = i
 	}
 	type PlanActual struct {
-		t time.Time
-		b ledger.SnapshotBlock
-		e consensus.Event
+		T time.Time
+		B ledger.SnapshotBlock
+		E consensus.Event
+		R bool
 	}
 
 	i := big.NewInt(0).SetUint64(index)
@@ -156,15 +157,18 @@ func (api DebugApi) ConsensusPlanAndActual(gid types.Gid, offset int64, index ui
 	merge := make(map[time.Time]*PlanActual)
 
 	for _, v := range events {
-		merge[v.Timestamp] = &PlanActual{e: *v, t: v.Timestamp}
+		merge[v.Timestamp] = &PlanActual{E: *v, T: v.Timestamp}
 	}
 
 	for _, v := range blocks {
 		a, ok := merge[*v.Timestamp]
 		if ok {
-			a.b = *v
+			a.B = *v
+			if v.Producer() == a.E.Address {
+				a.R = true
+			}
 		} else {
-			merge[*v.Timestamp] = &PlanActual{b: *v, t: *v.Timestamp}
+			merge[*v.Timestamp] = &PlanActual{B: *v, T: *v.Timestamp}
 		}
 	}
 	result["merge"] = merge
