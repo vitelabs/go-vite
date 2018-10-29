@@ -161,10 +161,6 @@ func (p *MethodCreateConsensusGroup) DoSend(context contractsContext, block *vm_
 		param.VoteConditionId,
 		param.VoteConditionParam)
 	block.AccountBlock.Data = paramData
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
-	if err != nil {
-		return quotaLeft, err
-	}
 	return quotaLeft, nil
 }
 func CheckCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *ConsensusGroupInfo) error {
@@ -219,7 +215,7 @@ func (p *MethodCreateConsensusGroup) DoReceive(context contractsContext, block *
 		param.VoteConditionParam,
 		sendBlock.AccountAddress,
 		sendBlock.Amount,
-		block.VmContext.CurrentSnapshotBlock().Height+createConsensusGroupPledgeHeight)
+		block.VmContext.CurrentSnapshotBlock().Height+nodeConfig.params.CreateConsensusGroupPledgeHeight)
 	block.VmContext.SetStorage(key, groupInfo)
 	return nil
 }
@@ -235,10 +231,6 @@ func (p *MethodCancelConsensusGroup) GetFee(context contractsContext, block *vm_
 // Consensus group name is kept even if canceled.
 func (p *MethodCancelConsensusGroup) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, CancelConsensusGroupGas)
-	if err != nil {
-		return quotaLeft, err
-	}
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -317,9 +309,6 @@ func (p *MethodReCreateConsensusGroup) DoSend(context contractsContext, block *v
 	if err != nil {
 		return quotaLeft, err
 	}
-	if quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft); err != nil {
-		return quotaLeft, err
-	}
 	if block.AccountBlock.Amount.Cmp(createConsensusGroupPledgeAmount) != 0 ||
 		!util.IsViteToken(block.AccountBlock.TokenId) ||
 		!IsUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
@@ -359,7 +348,7 @@ func (p *MethodReCreateConsensusGroup) DoReceive(context contractsContext, block
 		groupInfo.VoteConditionParam,
 		groupInfo.Owner,
 		sendBlock.Amount,
-		block.VmContext.CurrentSnapshotBlock().Height+createConsensusGroupPledgeHeight)
+		block.VmContext.CurrentSnapshotBlock().Height+nodeConfig.params.CreateConsensusGroupPledgeHeight)
 	block.VmContext.SetStorage(key, newGroupInfo)
 	return nil
 }
@@ -380,6 +369,15 @@ func getConsensusGroupCondition(conditionId uint8, conditionIdPrefix ConditionCo
 	return condition, ok
 }
 
+func getRegisterWithdrawHeightByCondition(conditionId uint8, param []byte, currentHeight uint64) uint64 {
+	if RegisterConditionPrefix+ConditionCode(conditionId) == RegisterConditionOfPledge {
+		v := new(VariableConditionRegisterOfPledge)
+		ABIConsensusGroup.UnpackVariable(v, VariableNameConditionRegisterOfPledge, param)
+		return currentHeight + v.PledgeHeight
+	}
+	return currentHeight
+}
+
 type registerConditionOfPledge struct{}
 
 func (c registerConditionOfPledge) checkParam(param []byte, db vmctxt_interface.VmDatabase) bool {
@@ -388,7 +386,7 @@ func (c registerConditionOfPledge) checkParam(param []byte, db vmctxt_interface.
 	if err != nil ||
 		GetTokenById(db, v.PledgeToken) == nil ||
 		v.PledgeAmount.Sign() == 0 ||
-		v.PledgeHeight < minPledgeHeight {
+		v.PledgeHeight < nodeConfig.params.MinPledgeHeight {
 		return false
 	}
 	return true
@@ -424,7 +422,7 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 		err := ABIRegister.UnpackVariable(old, VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.ToAddress, key))
 		if err != nil || old.PledgeAddr != block.AccountBlock.AccountAddress ||
 			!old.IsActive() ||
-			old.PledgeHeight+param.PledgeHeight > block.VmContext.CurrentSnapshotBlock().Height {
+			old.WithdrawHeight > block.VmContext.CurrentSnapshotBlock().Height {
 			return false
 		}
 	case MethodNameUpdateRegistration:
