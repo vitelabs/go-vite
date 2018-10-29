@@ -57,7 +57,7 @@ func (self *teller) voteResults(b *ledger.SnapshotBlock) ([]types.Address, *ledg
 }
 
 func (self *teller) electionIndex(index int32) (*electionResult, error) {
-	sTime := self.info.genSTime(index - 1)
+	sTime := self.voteTime(index)
 
 	block, e := self.rw.GetSnapshotBeforeTime(sTime)
 	if e != nil {
@@ -77,7 +77,7 @@ func (self *teller) electionIndex(index int32) (*electionResult, error) {
 }
 
 func (self *teller) voteDetails(index int32) ([]*VoteDetails, *ledger.HashHeight, error) {
-	sTime := self.info.genSTime(index - 1)
+	sTime := self.voteTime(index)
 
 	block, e := self.rw.GetSnapshotBeforeTime(sTime)
 	if e != nil {
@@ -97,6 +97,16 @@ func (self *teller) electionTime(t time.Time) (*electionResult, error) {
 func (self *teller) time2Index(t time.Time) int32 {
 	index := self.info.time2Index(t)
 	return index
+}
+func (self *teller) index2Time(i int32) (time.Time, time.Time) {
+	sTime := self.info.genSTime(i)
+	eTime := self.info.genETime(i)
+	return sTime, eTime
+}
+
+func (self *teller) voteTime(i int32) time.Time {
+	sTime := self.info.genSTime(i - 1)
+	return sTime
 }
 
 func (self *teller) findSeed(votes []*Vote) int64 {

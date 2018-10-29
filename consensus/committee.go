@@ -188,6 +188,24 @@ func (self *committee) VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, err
 	return uint64(index), nil
 }
 
+func (self *committee) VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time.Time, error) {
+	t, ok := self.tellers.Load(gid)
+	if !ok {
+		tmp, err := self.initTeller(gid)
+		if err != nil {
+			return nil, nil, err
+		}
+		t = tmp
+	}
+	if t == nil {
+		return nil, nil, errors.New("consensus group not exist")
+	}
+	tel := t.(*teller)
+
+	st, et := tel.index2Time(int32(i))
+	return &st, &et, nil
+}
+
 func NewConsensus(genesisTime time.Time, ch ch) *committee {
 	committee := &committee{rw: &chainRw{rw: ch}, genesis: genesisTime}
 	committee.mLog = log15.New("module", "consensus/committee")
