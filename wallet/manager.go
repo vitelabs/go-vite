@@ -245,7 +245,15 @@ func (m Manager) GetDataDir() string {
 
 func (m *Manager) Start() {
 	m.entropyStoreManager = make(map[string]*entropystore.Manager)
-	m.RefreshCache()
+	files, e := m.ListEntropyFilesInStandardDir()
+	if e != nil {
+		m.log.Error("wallet start err", "err", e)
+	}
+	for _, entropyStore := range files {
+		if e = m.AddEntropyStore(entropyStore); e != nil {
+			m.log.Error("wallet start AddEntropyStore", "err", e)
+		}
+	}
 }
 
 func (m *Manager) Stop() {
