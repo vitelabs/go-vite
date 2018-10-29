@@ -102,6 +102,32 @@ func (self *committee) verifyProducer(t time.Time, address types.Address, result
 	return false
 }
 
+func (self *committee) ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error) {
+	t, ok := self.tellers.Load(gid)
+	if !ok {
+		tmp, err := self.initTeller(gid)
+		if err != nil {
+			return nil, 0, err
+		}
+		t = tmp
+	}
+	if t == nil {
+		return nil, 0, errors.New("consensus group not exist")
+	}
+	tel := t.(*teller)
+	electionResult, err := tel.electionIndex(int32(index))
+
+	if err != nil {
+		return nil, 0, err
+	}
+	var result []*Event
+	for _, p := range electionResult.Plans {
+		e := newConsensusEvent(electionResult, p, gid)
+		result = append(result, &e)
+	}
+	return result, uint64(electionResult.Index), nil
+}
+
 func (self *committee) ReadByTime(gid types.Gid, t2 time.Time) ([]*Event, uint64, error) {
 	t, ok := self.tellers.Load(gid)
 	if !ok {
