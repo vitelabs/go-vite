@@ -33,6 +33,7 @@ type Msg struct {
 	Id         uint64 // as message context
 	Payload    []byte
 	ReceivedAt time.Time
+	SendAt     time.Time
 }
 
 func (msg *Msg) Recycle() {

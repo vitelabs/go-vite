@@ -20,7 +20,7 @@ const baseProtocolCmdSet = 0
 const handshakeCmd = 0
 const discCmd = 1
 
-const headerLength = 20
+const headerLength = 32
 const maxPayloadSize = ^uint32(0) >> 8 // 15MB
 
 // bigEnd
@@ -139,7 +139,6 @@ func ReadMsg(reader io.Reader) (msg *Msg, err error) {
 	msg.CmdSet = binary.BigEndian.Uint32(head[:4])
 	msg.Cmd = binary.BigEndian.Uint16(head[4:6])
 	msg.Id = binary.BigEndian.Uint64(head[6:14])
-
 	size := binary.BigEndian.Uint32(head[14:18])
 
 	if size > maxPayloadSize {
@@ -152,6 +151,7 @@ func ReadMsg(reader io.Reader) (msg *Msg, err error) {
 	}
 
 	msg.Payload = payload
+	msg.SendAt = time.Unix(int64(binary.BigEndian.Uint64(head[18:26])), 0)
 	msg.ReceivedAt = time.Now()
 
 	return
@@ -175,6 +175,7 @@ func WriteMsg(writer io.Writer, msg *Msg) (err error) {
 	binary.BigEndian.PutUint16(head[4:6], msg.Cmd)
 	binary.BigEndian.PutUint64(head[6:14], msg.Id)
 	binary.BigEndian.PutUint32(head[14:18], size)
+	binary.BigEndian.PutUint64(head[18:26], uint64(time.Now().Unix()))
 
 	// write header
 	var n int

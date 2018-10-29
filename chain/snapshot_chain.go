@@ -3,12 +3,13 @@ package chain
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
-	"time"
 )
 
 func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error) {
@@ -116,6 +117,8 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
 	}
+	// Trigger success
+	c.em.triggerInsertSnapshotBlocksSuccess([]*ledger.SnapshotBlock{snapshotBlock})
 
 	// FIXME hack!!!!! tmp
 	tmpBuf, _ := json.Marshal(snapshotBlock)
@@ -558,6 +561,10 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		c.needSnapshotCache.Set(&addr, block)
 	}
 
+	// Trigger delete snapshot blocks success
+	c.em.triggerDeleteSnapshotBlocksSuccess(snapshotBlocks)
+
+	// Trigger delete account blocks success
 	c.em.triggerDeleteAccountBlocksSuccess(accountBlocksMap)
 	return snapshotBlocks, accountBlocksMap, nil
 }

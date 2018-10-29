@@ -1,6 +1,9 @@
 package chain
 
 import (
+	"math/big"
+	"time"
+
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain_db"
@@ -10,14 +13,15 @@ import (
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
-	"time"
 )
 
 type InsertProcessorFunc func(batch *leveldb.Batch, blocks []*vm_context.VmAccountBlock) error
 type InsertProcessorFuncSuccess func(blocks []*vm_context.VmAccountBlock)
 type DeleteProcessorFunc func(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error
 type DeleteProcessorFuncSuccess func(subLedger map[types.Address][]*ledger.AccountBlock)
+
+type InsertSnapshotBlocksSuccess func([]*ledger.SnapshotBlock)
+type DeleteSnapshotBlocksSuccess func([]*ledger.SnapshotBlock)
 
 type Chain interface {
 	InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error
@@ -84,6 +88,9 @@ type Chain interface {
 	RegisterInsertAccountBlocksSuccess(processor InsertProcessorFuncSuccess) uint64
 	RegisterDeleteAccountBlocks(processor DeleteProcessorFunc) uint64
 	RegisterDeleteAccountBlocksSuccess(processor DeleteProcessorFuncSuccess) uint64
+	RegisterInsertSnapshotBlocksSuccess(processor InsertSnapshotBlocksSuccess) uint64
+	RegisterDeleteSnapshotBlocksSuccess(processor DeleteSnapshotBlocksSuccess) uint64
+
 	GetStateTrie(stateHash *types.Hash) *trie.Trie
 	NewStateTrie() *trie.Trie
 
