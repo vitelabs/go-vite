@@ -15,6 +15,16 @@ var (
 
 // start node
 func StartNode(node *node.Node) {
+	// Prepare the node
+	log.Info(fmt.Sprintf("Begin PrepareNode... "))
+	if err := node.Prepare(); err != nil {
+		log.Error(fmt.Sprintf("Failed to prepare node， %v", err))
+		fmt.Println(fmt.Sprintf("Failed to prepare node， %v", err))
+	} else {
+		//Start the node Extenders
+		prepareNodeExtenders(node)
+		fmt.Println("Prepare the Node success!!!")
+	}
 
 	// Start the node
 	log.Info(fmt.Sprintf("Begin StartNode... "))

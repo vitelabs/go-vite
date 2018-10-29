@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/viteshan/naive-vite/common"
 )
 
 type DebugApi struct {
@@ -125,8 +124,9 @@ func (api DebugApi) ConsensusPlanAndActual(gid types.Gid, offset int64, index ui
 	}
 	blocks = append(blocks, block)
 
-	for block.Height-1 > common.FirstHeight {
-		b, err := api.v.Chain().GetSnapshotBlockByHeight(block.Height - 1)
+	nextHeight := block.Height - 1
+	for block.Height > types.EmptyHeight {
+		b, err := api.v.Chain().GetSnapshotBlockByHeight(nextHeight)
 		if err != nil {
 			result["err"] = err
 			result["blocks"] = blocks
@@ -139,7 +139,7 @@ func (api DebugApi) ConsensusPlanAndActual(gid types.Gid, offset int64, index ui
 			break
 		}
 		blocks = append(blocks, b)
-		block = b
+		nextHeight = b.Height - 1
 	}
 
 	result["blocks"] = blocks
