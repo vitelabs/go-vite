@@ -1,7 +1,6 @@
 package net
 
 import (
-	"container/list"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
