@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"sync"
+	"errors"
 )
 
 type ContractTaskProcessor struct {

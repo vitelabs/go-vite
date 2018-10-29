@@ -127,6 +127,17 @@ LOOP:
 			break
 		}
 
+		entropyStoreManager, e := w.manager.wallet.GetEntropyStoreManager(w.entropystore)
+		if e != nil {
+			w.log.Error("startWork ", "err", e)
+			continue
+		}
+
+		if !entropyStoreManager.IsAddrUnlocked(w.address) {
+			w.log.Error("startWork address locked", "addr", w.address)
+			continue
+		}
+
 		tx := w.onroadBlocksPool.GetNextCommonTx(w.address)
 		if tx != nil {
 			if len(w.filters) == 0 {

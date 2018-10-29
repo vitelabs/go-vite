@@ -156,11 +156,7 @@ func (m WalletApi) IsAddrUnlocked(entropyStore string, addr types.Address) bool 
 }
 
 func (m WalletApi) IsUnlocked(entropyStore string) bool {
-	manager, e := m.wallet.GetEntropyStoreManager(entropyStore)
-	if e != nil {
-		return false
-	}
-	return manager.IsUnlocked()
+	return m.wallet.IsUnlocked(entropyStore)
 }
 
 func (m WalletApi) RefreshCache() {
@@ -234,6 +230,10 @@ func (m WalletApi) GlobalFindAddrWithPassphrase(addr types.Address, passphrase s
 		EntropyStoreFile: path,
 		Index:            index,
 	}, nil
+}
+
+func (m WalletApi) AddEntropyStore(filename string) error {
+	return m.wallet.AddEntropyStore(filename)
 }
 
 func (m WalletApi) SignData(addr types.Address, hexMsg string) (*HexSignedTuple, error) {

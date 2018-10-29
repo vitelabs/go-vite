@@ -60,6 +60,14 @@ func (m *Manager) Unlock(entropyStore, password string) error {
 	return manager.Unlock(password)
 }
 
+func (m *Manager) IsUnlocked(entropyStore string) bool {
+	manager, e := m.GetEntropyStoreManager(entropyStore)
+	if e != nil {
+		return false
+	}
+	return manager.IsUnlocked()
+}
+
 func (m *Manager) Lock(entropyStore string) error {
 	manager, e := m.GetEntropyStoreManager(entropyStore)
 	if e != nil {
@@ -78,7 +86,11 @@ func (m *Manager) RefreshCache() {
 	for filename, _ := range m.entropyStoreManager {
 		_, e := os.Stat(filename)
 		if e != nil {
-			delete(m.entropyStoreManager, filename)
+			manager, ok := m.entropyStoreManager[filename]
+			if ok {
+				manager.Lock()
+				delete(m.entropyStoreManager, filename)
+			}
 		}
 	}
 }
@@ -142,7 +154,7 @@ func (m Manager) ListEntropyFilesInStandardDir() ([]string, error) {
 	return filenames, nil
 }
 
-func (m Manager) GetEntropyStoreManager(entropyStore string) (*entropystore.Manager, error) {
+func (m *Manager) GetEntropyStoreManager(entropyStore string) (*entropystore.Manager, error) {
 	absPath := entropyStore
 	if !filepath.IsAbs(absPath) {
 		absPath = filepath.Join(m.config.DataDir, entropyStore)
@@ -179,6 +191,19 @@ func (m *Manager) AddEntropyStore(entropyStore string) error {
 		}
 	})
 	return nil
+}
+
+func (m *Manager) RemoveEntropyStore(entropyStore string) {
+	absPath := entropyStore
+	if !filepath.IsAbs(absPath) {
+		absPath = filepath.Join(m.config.DataDir, entropyStore)
+	}
+
+	manager, ok := m.entropyStoreManager[absPath]
+	if ok {
+		manager.Lock()
+		delete(m.entropyStoreManager, entropyStore)
+	}
 }
 
 func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, password string) (em *entropystore.Manager, err error) {
@@ -219,15 +244,8 @@ func (m Manager) GetDataDir() string {
 }
 
 func (m *Manager) Start() {
-	files, e := m.ListEntropyFilesInStandardDir()
-	if e != nil {
-		m.log.Error("wallet start err", "err", e)
-	}
-	for _, entropyStore := range files {
-		if e = m.AddEntropyStore(entropyStore); e != nil {
-			m.log.Error("wallet start AddEntropyStore", "err", e)
-		}
-	}
+	m.entropyStoreManager = make(map[string]*entropystore.Manager)
+	m.RefreshCache()
 }
 
 func (m *Manager) Stop() {
@@ -235,7 +253,7 @@ func (m *Manager) Stop() {
 		em.Lock()
 		em.RemoveUnlockChangeChannel()
 	}
-	m.entropyStoreManager = make(map[string]*entropystore.Manager)
+	m.entropyStoreManager = nil
 }
 
 func (m Manager) AddLockEventListener(lis func(event entropystore.UnlockEvent)) int {
