@@ -741,11 +741,18 @@ func (self *BCPool) loopFetchForSnippets() int {
 	sort.Sort(ByTailHeight(sortSnippets))
 
 	head := new(big.Int).SetUint64(self.chainpool.current.headHeight)
+
+	tailHeight := self.chainpool.current.tailHeight
+
 	i := 0
 	zero := big.NewInt(0)
 	prev := zero
 
 	for _, w := range sortSnippets {
+		// if snippet is lower, ignore
+		if w.headHeight+10 < tailHeight {
+			continue
+		}
 		diff := big.NewInt(0)
 		tailHeight := new(big.Int).SetUint64(w.tailHeight)
 		// prev > 0
