@@ -100,7 +100,6 @@ func (self *teller) time2Index(t time.Time) int32 {
 }
 func (self *teller) index2Time(i int32) (time.Time, time.Time) {
 	sTime := self.info.genSTime(i)
-	self.info.genETime()
 	eTime := self.info.genETime(i)
 	return sTime, eTime
 }
