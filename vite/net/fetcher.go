@@ -130,6 +130,49 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 	}
 }
 
+func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) {
+	monitor.LogEvent("net/fetch", "GetAccountBlocks_S")
+
+	// been suppressed
+	if f.filter.hold(start) {
+		f.log.Debug(fmt.Sprintf("fetch suppressed GetAccountBlocks[hash %s, count %d]", start, count))
+		return
+	}
+
+	if atomic.LoadInt32(&f.ready) == 0 {
+		f.log.Warn("not ready")
+		return
+	}
+
+	if peerList := f.peers.Pick(sHeight); len(peerList) != 0 {
+		//addr := NULL_ADDRESS
+		//if address != nil {
+		//	addr = *address
+		//}
+		//m := &message.GetAccountBlocks{
+		//	Address: addr,
+		//	From: ledger.HashHeight{
+		//		Hash: start,
+		//	},
+		//	Count:   count,
+		//	Forward: false,
+		//}
+
+		//id := f.pool.MsgID()
+
+		//for _, p := range peers[:total] {
+		//	if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
+		//		f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
+		//	} else {
+		//		f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
+		//	}
+		//	monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
+		//}
+	} else {
+		f.log.Error(errNoSuitablePeer.Error())
+	}
+}
+
 func (f *fetcher) listen(st SyncState) {
 	if st == Syncdone || st == SyncDownloaded {
 		f.log.Info(fmt.Sprintf("ready: %s", st))
