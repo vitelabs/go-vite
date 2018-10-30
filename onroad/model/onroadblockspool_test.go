@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+	"sync"
 )
 
 func newOnroadBlocksPool() *OnroadBlocksPool {
@@ -390,4 +391,38 @@ func checkRevertSendCreateGidToAddress(vite *VitePrepared, block *ledger.Account
 	}
 	fmt.Printf("revert newAddressToGid.(gid:%v, toAddress:%v)\n", gid, block.ToAddress)
 	return nil
+}
+
+func TestDeleteSyncMap(t *testing.T) {
+	s := &sync.Map{}
+	s.Store("1", 2)
+	s.Store("2", 3)
+	s.Range(func(key, value interface{}) bool {
+		fmt.Println(key, value)
+		return true
+	})
+
+	s.Range(func(key, value interface{}) bool {
+		s.Delete(key)
+		return true
+	})
+
+	fmt.Println("after delete")
+	s.Range(func(key, value interface{}) bool {
+		fmt.Println(key, value)
+		return true
+	})
+
+	alarm := time.AfterFunc(5*time.Second, func() {
+		fmt.Println("time alarm")
+	})
+	alarm.Stop()
+	alarm.Stop()
+	alarm1 := time.AfterFunc(5*time.Second, func() {
+		fmt.Println("time alarm 1")
+	})
+	time.Sleep(10 * time.Second)
+	alarm1.Stop()
+	alarm1.Stop()
+
 }

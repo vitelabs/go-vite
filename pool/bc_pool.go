@@ -356,6 +356,21 @@ func (self *BCPool) initPool() {
 	self.blockpool = blockpool
 }
 
+func (self *BCPool) reInitPool() {
+	diskChain := &diskChain{chainId: self.Id + "-diskchain", rw: self.tools.rw, v: self.version}
+	chainpool := &chainPool{
+		poolId:    self.Id,
+		diskChain: diskChain,
+		log:       self.log,
+	}
+	chainpool.current = &forkedChain{}
+	chainpool.current.chainId = chainpool.genChainId()
+	chainpool.init()
+
+	self.chainpool = chainpool
+	self.blockpool.reInit(diskChain.Head().Height())
+}
+
 func cutSnippet(snippet *snippetChain, height uint64) {
 	for {
 		tail := snippet.remTail()
@@ -607,6 +622,23 @@ func (self *blockPool) delFromCompound(ws map[uint64]commonBlock) {
 	defer self.pendingMu.Unlock()
 	for _, b := range ws {
 		delete(self.compoundBlocks, b.Hash())
+	}
+}
+func (self *blockPool) reInit(max uint64) {
+	self.pendingMu.Lock()
+	defer self.pendingMu.Unlock()
+
+	for _, v := range self.freeBlocks {
+		if v.Height() <= max {
+			delete(self.freeBlocks, v.Hash())
+		}
+	}
+
+	for _, v := range self.compoundBlocks {
+		delete(self.compoundBlocks, v.Hash())
+		if v.Height() > max {
+			self.freeBlocks[v.Hash()] = v
+		}
 	}
 }
 

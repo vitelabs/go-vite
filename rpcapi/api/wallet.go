@@ -32,7 +32,7 @@ type FindAddrResult struct {
 }
 
 type DeriveResult struct {
-	Index      uint32        `json:"index"`
+	Bip44Path  string        `json:"bip44Path"`
 	Address    types.Address `json:"address"`
 	PrivateKey []byte        `json:"privateKey"`
 }
@@ -103,13 +103,12 @@ func (m WalletApi) NewMnemonicAndEntropyStore(passphrase string) (*NewStoreRespo
 		Filename:    em.GetEntropyStoreFile(),
 	}, nil
 }
-
-func (m WalletApi) DeriveForIndexPath(entropyStore string, index uint32) (*DeriveResult, error) {
+func (m WalletApi) DeriveByFullPath(entropyStore string, fullpath string) (*DeriveResult, error) {
 	manager, e := m.wallet.GetEntropyStoreManager(entropyStore)
 	if e != nil {
 		return nil, e
 	}
-	_, key, e := manager.DeriveForIndexPath(index)
+	_, key, e := manager.DeriveForFullPath(fullpath)
 	if e != nil {
 		return nil, e
 	}
@@ -125,7 +124,34 @@ func (m WalletApi) DeriveForIndexPath(entropyStore string, index uint32) (*Deriv
 	}
 
 	return &DeriveResult{
-		Index:      index,
+		Bip44Path:  fullpath,
+		Address:    *address,
+		PrivateKey: privateKey,
+	}, nil
+}
+
+func (m WalletApi) DeriveByIndex(entropyStore string, index uint32) (*DeriveResult, error) {
+	manager, e := m.wallet.GetEntropyStoreManager(entropyStore)
+	if e != nil {
+		return nil, e
+	}
+	path, key, e := manager.DeriveForIndexPath(index)
+	if e != nil {
+		return nil, e
+	}
+
+	address, err := key.Address()
+	if err != nil {
+		return nil, err
+	}
+
+	privateKey, err := key.PrivateKey()
+	if err != nil {
+		return nil, err
+	}
+
+	return &DeriveResult{
+		Bip44Path:  path,
 		Address:    *address,
 		PrivateKey: privateKey,
 	}, nil
