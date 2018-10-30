@@ -244,23 +244,20 @@ func (p *OnroadBlocksPool) DeleteDirect(sendBlock *ledger.AccountBlock) error {
 }
 
 func (p *OnroadBlocksPool) RevertOnroadSuccess(subLedger map[types.Address][]*ledger.AccountBlock) {
-	//async update the cache
-	go func() {
-		cutMap := excludeSubordinate(subLedger)
-		for _, blocks := range cutMap {
-			for i := len(blocks) - 1; i >= 0; i-- {
-				v := blocks[i]
-				addr := types.Address{}
-				if v.IsReceiveBlock() {
-					addr = v.AccountAddress
-				} else {
-					addr = v.ToAddress
-				}
-				p.deleteSimpleCache(addr)
-				p.deleteFullCache(addr)
+	cutMap := excludeSubordinate(subLedger)
+	for _, blocks := range cutMap {
+		for i := len(blocks) - 1; i >= 0; i-- {
+			v := blocks[i]
+			addr := types.Address{}
+			if v.IsReceiveBlock() {
+				addr = v.AccountAddress
+			} else {
+				addr = v.ToAddress
 			}
+			p.deleteSimpleCache(addr)
+			p.deleteFullCache(addr)
 		}
-	}()
+	}
 }
 
 // RevertOnroad means to revert according to bifurcation
