@@ -32,6 +32,7 @@ type Vote struct {
 }
 type VoteDetails struct {
 	Name         string
+	CurrentAddr  types.Address
 	RegisterList []types.Address
 	Addr         map[types.Address]*big.Int
 }
@@ -101,7 +102,7 @@ func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *contr
 		}
 	}
 	balanceMap := self.rw.GetBalanceList(snapshotHash, id, addrs)
-	return &VoteDetails{Name: registration.Name, Addr: balanceMap, RegisterList: registration.HisAddrList}
+	return &VoteDetails{Name: registration.Name, Addr: balanceMap, CurrentAddr: registration.NodeAddr, RegisterList: registration.HisAddrList}
 }
 func (self *chainRw) GetMemberInfo(gid types.Gid, genesis time.Time) *membersInfo {
 	// todo consensus group maybe change ??

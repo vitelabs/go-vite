@@ -24,6 +24,7 @@ type receiver struct {
 	broadcaster Broadcaster
 	filter      Filter
 	log         log15.Logger
+	batchSource types.BlockSource // report to pool
 }
 
 func newReceiver(verifier Verifier, broadcaster Broadcaster, filter Filter) *receiver {
@@ -36,6 +37,7 @@ func newReceiver(verifier Verifier, broadcaster Broadcaster, filter Filter) *rec
 		broadcaster: broadcaster,
 		filter:      filter,
 		log:         log15.New("module", "net/receiver"),
+		batchSource: types.RemoteSync,
 	}
 }
 
@@ -136,7 +138,7 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 		s.log.Debug(fmt.Sprintf("not ready, store NewSnapshotBlock %s/%d, total %d", block.Hash, block.Height, len(s.newSBlocks)))
 	} else {
 		notify_b := time.Now()
-		s.sFeed.Notify(block)
+		s.sFeed.Notify(block, types.RemoteBroadcast)
 		monitor.LogDuration("net/notify", "NewSnapshotBlock", time.Now().Sub(notify_b).Nanoseconds())
 		s.log.Debug(fmt.Sprintf("notify NewSnapshotBlock %s/%d done", block.Hash, block.Height))
 	}
@@ -175,7 +177,7 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 		s.log.Warn(fmt.Sprintf("not ready, store NewAccountBlock %s, total %d", block.Hash, len(s.newABlocks)))
 	} else {
 		notify_b := time.Now()
-		s.aFeed.Notify(block)
+		s.aFeed.Notify(block, types.RemoteBroadcast)
 		monitor.LogDuration("net/notify", "NewAccountBlock", time.Now().Sub(notify_b).Nanoseconds())
 		s.log.Debug(fmt.Sprintf("notify NewAccountBlock %s done", block.Hash))
 	}
@@ -207,7 +209,7 @@ func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) {
 	s.mark(block.Hash)
 
 	notify_b := time.Now()
-	s.sFeed.Notify(block)
+	s.sFeed.Notify(block, s.batchSource)
 	monitor.LogDuration("net/notify", "SnapshotBlock", time.Now().Sub(notify_b).Nanoseconds())
 	s.log.Debug(fmt.Sprintf("notify SnapshotBlock %s/%d done", block.Hash, block.Height))
 }
@@ -238,7 +240,7 @@ func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) {
 	s.mark(block.Hash)
 
 	notify_b := time.Now()
-	s.aFeed.Notify(block)
+	s.aFeed.Notify(block, s.batchSource)
 	monitor.LogDuration("net/notify", "AccountBlock", time.Now().Sub(notify_b).Nanoseconds())
 	s.log.Debug(fmt.Sprintf("notify AccountBlock %s done", block.Hash))
 }
@@ -272,15 +274,18 @@ func (s *receiver) listen(st SyncState) {
 
 		// new blocks
 		for _, block := range s.newSBlocks {
-			s.sFeed.Notify(block)
+			s.sFeed.Notify(block, types.RemoteBroadcast)
 		}
 
 		for _, block := range s.newABlocks {
-			s.aFeed.Notify(block)
+			s.aFeed.Notify(block, types.RemoteBroadcast)
 		}
 
 		s.newSBlocks = s.newSBlocks[:0]
 		s.newABlocks = s.newABlocks[:0]
+
+		// after synced, blocks will be transmit by fetch
+		s.batchSource = types.RemoteFetch
 	}
 }
 

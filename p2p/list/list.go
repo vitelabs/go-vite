@@ -2,26 +2,26 @@ package list
 
 type Element struct {
 	Value interface{}
-	next *Element
+	next  *Element
 }
 
 type List struct {
-	l *Element
-	tail *Element
+	l     *Element
+	tail  *Element
 	count int
 }
 
 func New() *List {
 	head := &Element{}
 	return &List{
-		l: head,
+		l:    head,
 		tail: head,
 	}
 }
 
 func (l *List) Append(data interface{}) {
 	e := &Element{
-		Value:data,
+		Value: data,
 	}
 
 	l.tail.next = e
@@ -53,6 +53,6 @@ func (l *List) Traverse(fn func(prev, current *Element)) {
 	}
 }
 
-func (n *List) Size() int {
-	return n.count
+func (l *List) Size() int {
+	return l.count
 }

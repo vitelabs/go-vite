@@ -79,7 +79,7 @@ func (self *accountVerifier) verifyAccount(b *accountPoolBlock) *poolAccountVeri
 		}
 		var bs []*accountPoolBlock
 		for _, v := range blocks {
-			bs = append(bs, newAccountPoolBlock(v.AccountBlock, v.VmContext, b.v))
+			bs = append(bs, newAccountPoolBlock(v.AccountBlock, v.VmContext, b.v, b.source))
 		}
 		result.blocks = bs
 		return result

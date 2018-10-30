@@ -52,6 +52,17 @@ func GetAddrFromVoteKey(key []byte) types.Address {
 	return addr
 }
 
+func GetVote(db StorageDatabase, gid types.Gid, addr types.Address) *VoteInfo {
+	defer monitor.LogTime("vm", "GetVote", time.Now())
+	data := db.GetStorage(&AddressVote, GetVoteKey(addr, gid))
+	if len(data) > 0 {
+		nodeName := new(string)
+		ABIVote.UnpackVariable(nodeName, VariableNameVoteStatus, data)
+		return &VoteInfo{addr, *nodeName}
+	}
+	return nil
+}
+
 func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
 	defer monitor.LogTime("vm", "GetVoteList", time.Now())
 	var iterator vmctxt_interface.StorageIterator
@@ -91,15 +102,15 @@ func (p *MethodVote) DoSend(context contractsContext, block *vm_context.VmAccoun
 	if err != nil {
 		return quotaLeft, err
 	}
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
-	if err != nil {
-		return quotaLeft, err
-	}
 
 	param := new(ParamVote)
 	err = ABIVote.UnpackMethod(param, MethodNameVote, block.AccountBlock.Data)
 	if err != nil || param.Gid == types.DELEGATE_GID {
 		return quotaLeft, util.ErrInvalidMethodParam
+	}
+
+	if GetRegistration(block.VmContext, param.NodeName, param.Gid) == nil {
+		return quotaLeft, errors.New("registration not exist")
 	}
 
 	consensusGroupInfo := GetConsensusGroup(block.VmContext, param.Gid)
@@ -138,10 +149,7 @@ func (p *MethodCancelVote) DoSend(context contractsContext, block *vm_context.Vm
 	if err != nil {
 		return quotaLeft, err
 	}
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
-	if err != nil {
-		return quotaLeft, err
-	}
+
 	if block.AccountBlock.Amount.Sign() != 0 ||
 		!IsUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
 		return quotaLeft, errors.New("invalid block data")
