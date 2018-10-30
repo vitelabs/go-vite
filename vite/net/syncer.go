@@ -209,7 +209,7 @@ wait:
 	s.setState(Syncing)
 	s.sync(s.from, s.to)
 
-	s.log.Debug(fmt.Sprintf("syncing: from %d, to %d", s.from, s.to))
+	s.log.Debug(fmt.Sprintf("syncing: from %d, to %d, bestPeer %s", s.from, s.to, p.RemoteAddr()))
 
 	// check download timeout
 	// check chain grow timeout

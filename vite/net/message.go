@@ -376,6 +376,7 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 	return
 }
 
+// @section get account blocks
 type getAccountBlocksHandler struct {
 	chain Chain
 }
