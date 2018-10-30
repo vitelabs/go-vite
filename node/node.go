@@ -115,6 +115,13 @@ func (node *Node) Prepare() error {
 		return err
 	}
 
+	//wallet start
+	log.Info(fmt.Sprintf("Begin Start Wallet... "))
+	if err := node.startWallet(); err != nil {
+		log.Error(fmt.Sprintf("startWallet error: %v", err))
+		return err
+	}
+
 	//Initialize the vite server
 	node.viteServer, err = vite.New(node.viteConfig, node.walletManager)
 	if err != nil {
@@ -136,10 +143,6 @@ func (node *Node) Prepare() error {
 func (node *Node) Start() error {
 	node.lock.Lock()
 	defer node.lock.Unlock()
-
-	//wallet start
-	log.Info(fmt.Sprintf("Begin Start Wallet... "))
-	node.walletManager.Start()
 
 	//p2p\vite start
 	log.Info(fmt.Sprintf("Begin Start Vite... "))
@@ -261,7 +264,6 @@ func (node *Node) startWallet() error {
 		}
 
 	}
-
 
 	return nil
 }
