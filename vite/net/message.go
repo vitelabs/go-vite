@@ -1,7 +1,6 @@
 package net
 
 import (
-	"container/list"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
@@ -9,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/list"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"sync"
 	"time"
@@ -126,18 +126,18 @@ func (s _statusHandler) Handle(msg *p2p.Msg, sender Peer) error {
 // @section queryHandler
 type queryHandler struct {
 	lock     sync.RWMutex
-	queue    list.List
+	queue    *list.List
 	handlers map[ViteCmd]MsgHandler
-	signal   chan struct{}
-	term     chan struct{}
-	sch      int32 // atomic
-	wg       sync.WaitGroup
+	//signal   chan struct{}
+	term chan struct{}
+	//sch      int32 // atomic
+	wg sync.WaitGroup
 }
 
 func newQueryHandler(chain Chain) *queryHandler {
 	q := &queryHandler{
 		handlers: make(map[ViteCmd]MsgHandler),
-		signal:   make(chan struct{}, 1),
+		queue:    list.New(),
 	}
 
 	q.addHandler(&getSubLedgerHandler{chain})
@@ -178,36 +178,38 @@ func (q *queryHandler) Cmds() []ViteCmd {
 	return []ViteCmd{GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode}
 }
 
-type msgEvent struct {
-	msg    *p2p.Msg
-	sender Peer
+type queryTask struct {
+	Msg    *p2p.Msg `json:"Msg"`
+	Sender Peer     `json:"Sender"`
 }
 
-func (e *msgEvent) Recycle() {
-	e.msg = nil
-	e.sender = nil
+func (e *queryTask) Recycle() {
+	e.Msg = nil
+	e.Sender = nil
 	msgEventPool.Put(e)
 }
 
 var msgEventPool = &sync.Pool{
 	New: func() interface{} {
-		return &msgEvent{}
+		return &queryTask{}
 	},
 }
 
-func newMsgEvent() *msgEvent {
+func newMsgEvent() *queryTask {
 	v := msgEventPool.Get()
-	return v.(*msgEvent)
+	return v.(*queryTask)
 }
 
 func (q *queryHandler) Handle(msg *p2p.Msg, sender Peer) error {
 	e := newMsgEvent()
-	e.msg = msg
-	e.sender = sender
+	e.Msg = msg
+	e.Sender = sender
 
 	q.lock.Lock()
-	q.queue.PushBack(e)
+	q.queue.Append(e)
 	q.lock.Unlock()
+
+	netLog.Debug(fmt.Sprintf("put message %s into queue, rest %d query tasks in queue", ViteCmd(msg.Cmd), q.queue.Size()))
 
 	return nil
 }
@@ -215,27 +217,31 @@ func (q *queryHandler) Handle(msg *p2p.Msg, sender Peer) error {
 func (q *queryHandler) loop() {
 	defer q.wg.Done()
 
-	const count = 10
-	tasks := make([]*msgEvent, count)
+	const batch = 10
+	tasks := make([]*queryTask, batch)
 	index := 0
-	var ele *list.Element
+	var ele interface{}
 
 	for {
-		q.lock.RLock()
-		for index, ele = 0, q.queue.Front(); index < count && ele != nil; index, ele = index+1, ele.Next() {
-			tasks[index] = ele.Value.(*msgEvent)
+		q.lock.Lock()
+		for index, ele = 0, q.queue.Shift(); ele != nil; ele = q.queue.Shift() {
+			tasks[index] = ele.(*queryTask)
+			index++
+			if index >= batch {
+				break
+			}
 		}
-		q.lock.RUnlock()
+		q.lock.Unlock()
 
 		if index == 0 {
 			time.Sleep(20 * time.Millisecond)
 		} else {
 			for _, event := range tasks[:index] {
 				//event := event
-				cmd := ViteCmd(event.msg.Cmd)
+				cmd := ViteCmd(event.Msg.Cmd)
 				if h, ok := q.handlers[cmd]; ok {
-					if err := h.Handle(event.msg, event.sender); err != nil {
-						event.sender.Report(err)
+					if err := h.Handle(event.Msg, event.Sender); err != nil {
+						event.Sender.Report(err)
 					}
 				}
 
@@ -278,7 +284,7 @@ func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 	}
 
 	if err != nil || (len(files) == 0 && len(chunks) == 0) {
-		netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
+		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
 
@@ -330,7 +336,7 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 	}
 
 	if err != nil || block == nil {
-		netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
+		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
 
@@ -354,7 +360,7 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 	for _, chunk := range chunks {
 		blocks, err = s.chain.GetSnapshotBlocksByHeight(chunk[0], chunk[1]-chunk[0]+1, true, true)
 		if err != nil || len(blocks) == 0 {
-			netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
+			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
 			monitor.LogEvent("net/handle", "GetSnapshotBlocks_Fail")
 			return sender.Send(ExceptionCode, msg.Id, message.Missing)
 		}
@@ -411,7 +417,7 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 	}
 
 	if err != nil || block == nil {
-		netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
+		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
 		monitor.LogEvent("net/handle", "GetAccountBlocks_Fail")
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
@@ -438,7 +444,7 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 	for _, chunk := range chunks {
 		blocks, err = a.chain.GetAccountBlocksByHeight(address, chunk[0], chunk[1]-chunk[0]+1, true)
 		if err != nil || len(blocks) == 0 {
-			netLog.Error(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
+			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
 			monitor.LogEvent("net/handle", "GetAccountBlocks_Fail")
 			return sender.Send(ExceptionCode, msg.Id, message.Missing)
 		}

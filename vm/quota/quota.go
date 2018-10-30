@@ -1,6 +1,7 @@
 package quota
 
 import (
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -19,7 +20,7 @@ type quotaDb interface {
 
 func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) uint64 {
 	// TODO cache
-	quotaTotal, _ := CalcQuota(db, beneficial, pledgeAmount, big.NewInt(0))
+	quotaTotal, _, _ := CalcQuota(db, beneficial, pledgeAmount, big.NewInt(0))
 	return quotaTotal
 }
 
@@ -33,7 +34,7 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int)
 // user account gets extra quota to send or receive a transaction if calc PoW, extra quota is decided by difficulty
 // contract account only gets quota via pledge
 // user account genesis block(a receive block) must calculate a PoW to get quota
-func CalcQuota(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64) {
+func CalcQuota(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
 	// TODO test difficulty, update before deploy testnet
 	if difficulty != nil && difficulty.Sign() > 0 {
 		return CalcQuotaV2(db, addr, pledgeAmount, DefaultDifficulty)
@@ -116,7 +117,7 @@ func calcQuotaInSections(pledgeAmount *big.Int, difficulty *big.Int) uint64 {
 
 var DefaultDifficulty = new(big.Int).SetUint64(0xffffffc000000000)
 
-func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (uint64, uint64) {
+func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (uint64, uint64, error) {
 	isPoW := difficulty.Sign() > 0
 	currentSnapshotHash := db.CurrentSnapshotBlock().Hash
 	prevBlock := db.PrevAccountBlock()
@@ -125,11 +126,11 @@ func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 		if prevBlock != nil && currentSnapshotHash == prevBlock.SnapshotHash {
 			// quick fail on a receive error block referencing to the same snapshot block
 			if prevBlock.BlockType == ledger.BlockTypeReceiveError {
-				return 0, 0
+				return 0, 0, nil
 			}
 			if isPoW && IsPoW(prevBlock.Nonce) {
 				// only one block gets extra quota when referencing to the same snapshot block
-				return 0, 0
+				return 0, 0, errors.New("calc PoW twice referring to one snapshot block")
 			}
 			quotaUsed = quotaUsed + prevBlock.Quota
 			prevBlock = db.GetAccountBlockByHash(&prevBlock.PrevHash)
@@ -151,7 +152,7 @@ func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 				quotaWithoutPoW = uint64(getIndexInSection(x)) * quotaForSection
 			}
 			if quotaWithoutPoW < quotaUsed {
-				return 0, 0
+				return 0, 0, nil
 			}
 			quotaTotal := quotaWithoutPoW
 			if isPoW {
@@ -160,7 +161,7 @@ func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 				x.Add(x, tmpFLoat)
 				quotaTotal = uint64(getIndexInSection(x)) * quotaForSection
 			}
-			return quotaTotal - quotaUsed, quotaTotal - quotaWithoutPoW
+			return quotaTotal - quotaUsed, quotaTotal - quotaWithoutPoW, nil
 		}
 	}
 }

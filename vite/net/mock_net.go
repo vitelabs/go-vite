@@ -27,6 +27,10 @@ func (n *mockNet) Start(svr *p2p.Server) error {
 	return nil
 }
 
+func (n *mockNet) Tasks() []*Task {
+	return nil
+}
+
 func mock() Net {
 	peers := newPeerSet()
 	pool := newRequestPool(peers, nil)

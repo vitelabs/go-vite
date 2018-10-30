@@ -296,5 +296,9 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	db.storageMap[contracts.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
 	db.storageMap[contracts.AddressPledge] = make(map[string][]byte)
 	db.storageMap[contracts.AddressPledge][string(contracts.GetPledgeBeneficialKey(addr1))], _ = contracts.ABIPledge.PackVariable(contracts.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+
+	db.storageMap[contracts.AddressRegister] = make(map[string][]byte)
+	db.storageMap[contracts.AddressRegister][string(contracts.GetRegisterKey("s1", types.SNAPSHOT_GID))], _ = contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, "s1", addr1, addr1, helper.Big0, uint64(1), uint64(1), uint64(0), []types.Address{addr1})
+	db.storageMap[contracts.AddressRegister][string(contracts.GetRegisterKey("s2", types.SNAPSHOT_GID))], _ = contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, "s2", addr1, addr1, helper.Big0, uint64(1), uint64(1), uint64(0), []types.Address{addr1})
 	return
 }

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -28,12 +29,12 @@ func genCommonBlocks(n int) []commonBlock {
 	var results []commonBlock
 	for i := 0; i < n; i++ {
 		block := &ledger.SnapshotBlock{Height: uint64(i)}
-		results = append(results, newSnapshotPoolBlock(block, &ForkVersion{}))
+		results = append(results, newSnapshotPoolBlock(block, &ForkVersion{}, types.Local))
 	}
 
 	for i := n*2 - 1; i >= n; i-- {
 		block := &ledger.SnapshotBlock{Height: uint64(i)}
-		results = append(results, newSnapshotPoolBlock(block, &ForkVersion{}))
+		results = append(results, newSnapshotPoolBlock(block, &ForkVersion{}, types.Local))
 	}
 	return results
 }

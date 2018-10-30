@@ -128,7 +128,7 @@ func (p *MethodPledge) DoReceive(context contractsContext, block *vm_context.VmA
 		amount = oldPledge.Amount
 	}
 	amount.Add(amount, sendBlock.Amount)
-	pledgeInfo, _ := ABIPledge.PackVariable(VariableNamePledgeInfo, amount, block.VmContext.CurrentSnapshotBlock().Height+minPledgeHeight)
+	pledgeInfo, _ := ABIPledge.PackVariable(VariableNamePledgeInfo, amount, block.VmContext.CurrentSnapshotBlock().Height+nodeConfig.params.MinPledgeHeight)
 	block.VmContext.SetStorage(pledgeKey, pledgeInfo)
 
 	oldBeneficialData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, beneficialKey)
@@ -153,10 +153,6 @@ func (p *MethodCancelPledge) GetFee(context contractsContext, block *vm_context.
 // cancel pledge ViteToken
 func (p *MethodCancelPledge) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, CancelPledgeGas)
-	if err != nil {
-		return quotaLeft, err
-	}
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}

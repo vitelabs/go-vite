@@ -134,10 +134,6 @@ func (p *MethodMintage) DoSend(context contractsContext, block *vm_context.VmAcc
 		param.TokenSymbol,
 		param.TotalSupply,
 		param.Decimals)
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
-	if err != nil {
-		return quotaLeft, err
-	}
 	return quotaLeft, nil
 }
 func CheckToken(param ParamMintage) error {
@@ -182,7 +178,7 @@ func (p *MethodMintage) DoReceive(context contractsContext, block *vm_context.Vm
 			param.Decimals,
 			sendBlock.AccountAddress,
 			sendBlock.Amount,
-			block.VmContext.CurrentSnapshotBlock().Height+mintagePledgeHeight)
+			block.VmContext.CurrentSnapshotBlock().Height+nodeConfig.params.MintagePledgeHeight)
 	}
 	block.VmContext.SetStorage(key, tokenInfo)
 	context.AppendBlock(
@@ -207,10 +203,6 @@ func (p *MethodMintageCancelPledge) GetFee(context contractsContext, block *vm_c
 
 func (p *MethodMintageCancelPledge) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, MintageCancelPledgeGas)
-	if err != nil {
-		return quotaLeft, err
-	}
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}

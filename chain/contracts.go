@@ -78,10 +78,10 @@ func (c *chain) GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address
 func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) []*contracts.Registration {
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
 	if err != nil {
-		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetRegisterList")
+		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetCandidateList")
 		return nil
 	}
-	return contracts.GetRegisterList(vmContext, gid)
+	return contracts.GetCandidateList(vmContext, gid)
 }
 
 func (c *chain) GetVoteMap(snapshotHash types.Hash, gid types.Gid) []*contracts.VoteInfo {
