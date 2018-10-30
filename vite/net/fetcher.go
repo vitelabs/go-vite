@@ -3,13 +3,14 @@ package net
 import (
 	"errors"
 	"fmt"
+	"math/rand"
+	"sync/atomic"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"math/rand"
-	"sync/atomic"
 )
 
 var errNoSuitablePeer = errors.New("no suitable peer")
@@ -23,8 +24,7 @@ type fetchPolicy struct {
 }
 
 func (p *fetchPolicy) pickAccount(height uint64) []Peer {
-	var l []Peer
-	taller := make([]Peer, 10)
+	var l, taller []Peer
 
 	peers := p.peers.Peers()
 	total := len(peers)
