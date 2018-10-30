@@ -46,6 +46,8 @@ type RegistrationInfo struct {
 	WithdrawHeight       string        `json:"withdrawHeight"`
 	AvailableReward      string        `json:"availableReward"`
 	AvailableRewardOneTx string        `json:"availableRewardOneTx"`
+	StartHeight          string        `json:"rewardStartHeight"`
+	EndHeight            string        `json:"rewardEndHeight"`
 }
 
 func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error) {
@@ -58,13 +60,19 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	targetList := make([]*RegistrationInfo, len(list))
 	if len(list) > 0 {
 		for i, info := range list {
+			startHeight, endHeight, availableRewardOneTx := contracts.CalcReward(vmContext, info, false)
+			_, _, availableReward := contracts.CalcReward(vmContext, info, true)
 			targetList[i] = &RegistrationInfo{
-				Name: info.Name, NodeAddr: info.NodeAddr, PledgeAddr: info.PledgeAddr, PledgeAmount: *bigIntToString(info.Amount), WithdrawHeight: uint64ToString(info.WithdrawHeight),
+				Name:                 info.Name,
+				NodeAddr:             info.NodeAddr,
+				PledgeAddr:           info.PledgeAddr,
+				PledgeAmount:         *bigIntToString(info.Amount),
+				WithdrawHeight:       uint64ToString(info.WithdrawHeight),
+				AvailableReward:      *bigIntToString(availableReward),
+				AvailableRewardOneTx: *bigIntToString(availableRewardOneTx),
+				StartHeight:          uint64ToString(startHeight),
+				EndHeight:            uint64ToString(endHeight),
 			}
-			_, availableRewardOneTx := contracts.CalcReward(vmContext, info, false)
-			targetList[i].AvailableRewardOneTx = *bigIntToString(availableRewardOneTx)
-			_, availableReward := contracts.CalcReward(vmContext, info, true)
-			targetList[i].AvailableReward = *bigIntToString(availableReward)
 		}
 	}
 	return targetList, nil

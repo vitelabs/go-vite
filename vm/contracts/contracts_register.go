@@ -365,7 +365,7 @@ func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmA
 	if err != nil || sendBlock.AccountAddress != old.PledgeAddr {
 		return errors.New("invalid owner")
 	}
-	endHeight, reward := CalcReward(block.VmContext, old, false)
+	_, endHeight, reward := CalcReward(block.VmContext, old, false)
 	if endHeight != old.RewardHeight {
 		registerInfo, _ := ABIRegister.PackVariable(
 			VariableNameRegistration,
@@ -397,9 +397,9 @@ func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmA
 	return nil
 }
 
-func CalcReward(db vmctxt_interface.VmDatabase, old *Registration, total bool) (uint64, *big.Int) {
+func CalcReward(db vmctxt_interface.VmDatabase, old *Registration, total bool) (uint64, uint64, *big.Int) {
 	if db.CurrentSnapshotBlock().Height < nodeConfig.params.RewardHeightLimit {
-		return old.RewardHeight, big.NewInt(0)
+		return old.RewardHeight, old.RewardHeight, big.NewInt(0)
 	}
 	startHeight := old.RewardHeight
 	endHeight := db.CurrentSnapshotBlock().Height - nodeConfig.params.RewardHeightLimit
@@ -410,7 +410,7 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *Registration, total bool) (
 		endHeight = helper.Min(endHeight, startHeight+MaxRewardCount)
 	}
 	if endHeight <= startHeight {
-		return old.RewardHeight, big.NewInt(0)
+		return old.RewardHeight, old.RewardHeight, big.NewInt(0)
 	}
 	count := endHeight - startHeight
 
@@ -439,9 +439,9 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *Registration, total bool) (
 	if rewardCount > 0 {
 		reward := new(big.Int).SetUint64(rewardCount)
 		reward.Mul(rewardPerBlock, reward)
-		return endHeight, reward
+		return old.RewardHeight, endHeight, reward
 	}
-	return endHeight, big.NewInt(0)
+	return old.RewardHeight, endHeight, big.NewInt(0)
 }
 
 type MethodUpdateRegistration struct {
