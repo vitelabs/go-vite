@@ -1,8 +1,9 @@
 package config
 
 type Producer struct {
-	Producer bool   `json:"Producer"`
-	Coinbase string `json:"Coinbase"`
+	Producer         bool   `json:"Producer"`
+	Coinbase         string `json:"Coinbase"`
+	EntropyStorePath string `json:"EntropyStorePath"`
 }
 
 //func MergeMinerConfig(cfg *Miner) *Miner {

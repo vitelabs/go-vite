@@ -278,6 +278,8 @@ func (self *chainPool) fork2(snippet *snippetChain, chains []*forkedChain) (bool
 	var result *forkedChain = nil
 	var hr heightChainReader
 
+	trace := ""
+
 LOOP:
 	for _, c := range chains {
 		tH := snippet.tailHeight
@@ -288,12 +290,14 @@ LOOP:
 		}
 
 		for i := tH + 1; i <= snippet.headHeight; i++ {
+			trace = ""
 			b2, r2 := c.getBlockByChain(i)
 			sb := snippet.getBlock(i)
 			if b2 == nil {
 				forky = false
 				insertable = true
 				hr = reader
+				trace += "[1]"
 				break LOOP
 			}
 			if b2.Hash() != sb.Hash() {
@@ -301,6 +305,7 @@ LOOP:
 					forky = true
 					insertable = false
 					hr = reader
+					trace += "[2]"
 					break LOOP
 				}
 
@@ -309,6 +314,7 @@ LOOP:
 					forky = false
 					insertable = true
 					hr = reader
+					trace += "[3]"
 					break LOOP
 				}
 			} else {
@@ -318,6 +324,7 @@ LOOP:
 				if tail == nil {
 					delete(self.snippetChains, snippet.id())
 					hr = nil
+					trace += "[4]"
 					break LOOP
 				}
 				tH = tail.Height()
@@ -337,19 +344,25 @@ LOOP:
 				forky = false
 				insertable = true
 				result = self.current
+				trace += "[5]"
 			} else {
 				forky = true
 				insertable = false
 				result = self.current
+				trace += "[6]"
 			}
 		}
 	case *forkedChain:
+		trace += "[7]"
 		result = t
 	}
 	if insertable {
 		err := result.canAddHead(snippet.getBlock(snippet.tailHeight + 1))
 		if err != nil {
-			self.log.Error("fork2 fail.", "sTailHeight", snippet.tailHeight, "sHeadHeight", snippet.headHeight, "cTailHeight", result.tailHeight, "cHeadHeight", result.headHeight)
+			self.log.Error("fork2 fail.",
+				"sTailHeight", snippet.tailHeight, "sHeadHeight",
+				snippet.headHeight, "cTailHeight", result.tailHeight, "cHeadHeight", result.headHeight,
+				"trace", trace)
 		}
 	}
 

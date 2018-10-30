@@ -197,13 +197,13 @@ func printBalance(vite *vite.Vite, addr types.Address) *big.Int {
 }
 
 func unlockAddr(w *wallet.Manager, passwd string, priKey string) types.Address {
-	w.KeystoreManager.ImportPriv(priKey, passwd)
+	w.SeedStoreManagers.ImportPriv(priKey, passwd)
 	accountPrivKey, _ := ed25519.HexToPrivateKey(priKey)
 	accountPubKey := accountPrivKey.PubByte()
 	addr := types.PubkeyToAddress(accountPubKey)
 
-	w.KeystoreManager.Lock(addr)
-	err := w.KeystoreManager.Unlock(addr, passwd, 0)
+	w.SeedStoreManagers.Lock(addr)
+	err := w.SeedStoreManagers.Unlock(addr, passwd, 0)
 	wLog.Info("unlock address", "address", addr.String(), "r", err)
 	return addr
 }
@@ -340,10 +340,10 @@ func TestGenData(t *testing.T) {
 var password = "123456"
 
 func unlockAll(w *wallet.Manager) []types.Address {
-	results := w.KeystoreManager.Addresses()
+	results := w.SeedStoreManagers.Addresses()
 
 	for _, r := range results {
-		err := w.KeystoreManager.Unlock(r, password, 0)
+		err := w.SeedStoreManagers.Unlock(r, password, 0)
 		if err != nil {
 			log.Error("unlock fail.", "err", err, "address", r.String())
 		}

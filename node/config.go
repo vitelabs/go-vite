@@ -3,16 +3,17 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/p2p/network"
-	"github.com/vitelabs/go-vite/wallet"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/network"
+	"github.com/vitelabs/go-vite/wallet"
 )
 
 type Config struct {
@@ -37,9 +38,11 @@ type Config struct {
 	Discovery            bool     `json:"Discovery"`
 
 	//producer
-	CoinBase      string `json:"CoinBase"`
-	MinerEnabled  bool   `json:"Miner"`
-	MinerInterval int    `json:"MinerInterval"`
+	EntropyStorePath     string `json:"EntropyStorePath"`
+	EntropyStorePassword string `json:"EntropyStorePassword"`
+	CoinBase             string `json:"CoinBase"`
+	MinerEnabled         bool   `json:"Miner"`
+	MinerInterval        int    `json:"MinerInterval"`
 
 	//rpc
 	RPCEnabled bool `json:"RPCEnabled"`
@@ -113,8 +116,9 @@ func (c *Config) makeVmConfig() *config.Vm {
 
 func (c *Config) makeMinerConfig() *config.Producer {
 	return &config.Producer{
-		Producer: c.MinerEnabled,
-		Coinbase: c.CoinBase,
+		Producer:         c.MinerEnabled,
+		Coinbase:         c.CoinBase,
+		EntropyStorePath: c.EntropyStorePath,
 	}
 }
 

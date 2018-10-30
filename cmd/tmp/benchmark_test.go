@@ -24,7 +24,7 @@ func TestBenchmark(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	vite.OnRoad().StartAutoReceiveWorker(genesis, nil)
+	vite.OnRoad().StartPrimaryAutoReceiveWorker(genesis, nil)
 
 	for printBalance(vite, genesis).Sign() == 0 {
 		time.Sleep(time.Second)

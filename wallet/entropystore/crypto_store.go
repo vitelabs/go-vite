@@ -1,15 +1,14 @@
-package keystore
+package entropystore
 
 import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/pborman/uuid"
+	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/common/types"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"golang.org/x/crypto/scrypt"
 	"io/ioutil"
@@ -34,49 +33,65 @@ const (
 	scryptName = "scrypt"
 )
 
-type keyStorePassphrase struct {
-	keysDirPath string
+type CryptoStore struct {
+	EntropyStoreFilename string
 }
 
-func (ks keyStorePassphrase) ExtractKey(addr types.Address, password string) (*Key, error) {
-	keyjson, err := ioutil.ReadFile(fullKeyFileName(ks.keysDirPath, addr))
+func (ks CryptoStore) ExtractSeed(password string) (seed, entropy []byte, err error) {
+	entropy, err = ks.ExtractEntropy(password)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	s, e := bip39.NewMnemonic(entropy)
+	if e != nil {
+		return nil, nil, e
+	}
+
+	return bip39.NewSeed(s, ""), entropy, nil
+}
+
+func (ks CryptoStore) ExtractEntropy(password string) ([]byte, error) {
+	keyjson, err := ioutil.ReadFile(ks.EntropyStoreFilename)
 	if err != nil {
 		return nil, err
 	}
 
-	key, err := DecryptKey(keyjson, password)
+	key, err := DecryptEntropy(keyjson, password)
 	if err != nil {
 		return nil, err
 	}
 	return key, nil
 }
 
-func (ks keyStorePassphrase) StoreKey(key *Key, password string) error {
-	keyjson, err := EncryptKey(key, password)
-	if err != nil {
-		return err
+func (ks CryptoStore) StoreEntropy(entropy []byte, primaryAddr types.Address, password string) error {
+
+	keyjson, e := EncryptEntropy(entropy, primaryAddr, password)
+	if e != nil {
+		return e
 	}
-	return writeKeyFile(fullKeyFileName(ks.keysDirPath, key.Address), keyjson)
+
+	e = writeKeyFile(ks.EntropyStoreFilename, keyjson)
+	if e != nil {
+		return e
+	}
+	return nil
 }
 
-func parseJson(keyjson []byte) (k *encryptedKeyJSON, kAddress *types.Address, cipherPriv, nonce, salt []byte, err error) {
-	k = new(encryptedKeyJSON)
-	// parse and check encryptedKeyJSON params
+func parseJson(keyjson []byte) (k *entropyJSON, kAddress *types.Address, cipherData, nonce, salt []byte, err error) {
+	k = new(entropyJSON)
+	// parse and check entropyJSON params
 	if err := json.Unmarshal(keyjson, k); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	if k.Version != keystoreVersion {
+	if k.Version != cryptoStoreVersion {
 		return nil, nil, nil, nil, nil, fmt.Errorf("version number error : %v", k.Version)
 	}
-	kid := uuid.Parse(k.Id)
-	if kid == nil {
-		return nil, nil, nil, nil, nil, fmt.Errorf("uuid  error : %v", kid)
-	}
 
-	if !types.IsValidHexAddress(k.HexAddress) {
-		return nil, nil, nil, nil, nil, fmt.Errorf("address invalid ： %v", k.HexAddress)
+	if !types.IsValidHexAddress(k.PrimaryAddress) {
+		return nil, nil, nil, nil, nil, fmt.Errorf("address invalid ： %v", k.PrimaryAddress)
 	}
-	addr, err := types.HexToAddress(k.HexAddress)
+	addr, err := types.HexToAddress(k.PrimaryAddress)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -88,7 +103,7 @@ func parseJson(keyjson []byte) (k *encryptedKeyJSON, kAddress *types.Address, ci
 	if k.Crypto.KDF != scryptName {
 		return nil, nil, nil, nil, nil, fmt.Errorf("scryptName  error : %v", k.Crypto.KDF)
 	}
-	cipherPriv, err = hex.DecodeString(k.Crypto.CipherText)
+	cipherData, err = hex.DecodeString(k.Crypto.CipherText)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -104,17 +119,15 @@ func parseJson(keyjson []byte) (k *encryptedKeyJSON, kAddress *types.Address, ci
 		return nil, nil, nil, nil, nil, err
 	}
 
-	return k, &addr, cipherPriv, nonce, salt, nil
+	return k, &addr, cipherData, nonce, salt, nil
 }
 
-func DecryptKey(keyjson []byte, password string) (*Key, error) {
-	log := log15.New("method", "wallet/keystore/scrypt_keystore/DecryptKey")
-	k, kAddress, cipherPriv, nonce, salt, err := parseJson(keyjson)
+func DecryptEntropy(entropyJson []byte, password string) ([]byte, error) {
+	k, kAddress, cipherData, nonce, salt, err := parseJson(entropyJson)
 	if err != nil {
 		return nil, err
 	}
 	scryptParams := k.Crypto.ScryptParams
-	kid := uuid.Parse(k.Id)
 
 	// begin decrypt
 	derivedKey, err := scrypt.Key([]byte(password), salt, scryptParams.N, scryptParams.R, scryptParams.P, scryptParams.KeyLen)
@@ -122,31 +135,31 @@ func DecryptKey(keyjson []byte, password string) (*Key, error) {
 		return nil, err
 	}
 
-	var pribyte = make([]byte, ed25519.PrivateKeySize)
-	pribyte, err = vcrypto.AesGCMDecrypt(derivedKey[:32], cipherPriv, []byte(nonce))
+	entropy, err := vcrypto.AesGCMDecrypt(derivedKey[:32], cipherData, []byte(nonce))
 	if err != nil {
-		log.Error("AesGCMDecrypt DecryptKey", "err", err)
-		return nil, walleterrors.ErrDecryptKey
+		return nil, walleterrors.ErrDecryptEntropy
 	}
 
-	privKey := ed25519.PrivateKey(pribyte)
-	generateAddr := types.PrikeyToAddress(privKey)
-	log.Info("generated", "address", generateAddr.String())
-	log.Info("inkeyfile", "address", kAddress)
+	mnemonic, e := bip39.NewMnemonic(entropy)
+	if e != nil {
+		return nil, e
+	}
+	seed := bip39.NewSeed(mnemonic, "")
+
+	generateAddr, e := derivation.GetPrimaryAddress(seed)
+	if e != nil {
+		return nil, e
+	}
 	if !bytes.Equal(generateAddr[:], kAddress[:]) {
 		return nil,
 			fmt.Errorf("address content not equal. In file it is : %s  but generated is : %s",
-				k.HexAddress, generateAddr.Hex())
+				k.PrimaryAddress, generateAddr.Hex())
 	}
 
-	return &Key{
-		Id:         kid,
-		Address:    generateAddr,
-		PrivateKey: &privKey,
-	}, nil
+	return entropy, nil
 }
 
-func EncryptKey(key *Key, password string) ([]byte, error) {
+func EncryptEntropy(seed []byte, addr types.Address, password string) ([]byte, error) {
 	n := StandardScryptN
 	p := StandardScryptP
 	pwdArray := []byte(password)
@@ -157,7 +170,7 @@ func EncryptKey(key *Key, password string) ([]byte, error) {
 	}
 	encryptKey := derivedKey[:32]
 
-	ciphertext, nonce, err := vcrypto.AesGCMEncrypt(encryptKey, *key.PrivateKey)
+	ciphertext, nonce, err := vcrypto.AesGCMEncrypt(encryptKey, seed)
 	if err != nil {
 		return nil, err
 	}
@@ -178,13 +191,12 @@ func EncryptKey(key *Key, password string) ([]byte, error) {
 		ScryptParams: ScryptParams,
 	}
 
-	encryptedKeyJSON := encryptedKeyJSON{
+	encryptedKeyJSON := entropyJSON{
 
-		HexAddress: key.Address.Hex(),
-		Crypto:     cryptoJSON,
-		Id:         key.Id.String(),
-		Version:    keystoreVersion,
-		Timestamp:  time.Now().UTC().Unix(),
+		PrimaryAddress: addr.String(),
+		Crypto:         cryptoJSON,
+		Version:        cryptoStoreVersion,
+		Timestamp:      time.Now().UTC().Unix(),
 	}
 
 	return json.Marshal(encryptedKeyJSON)

@@ -4,7 +4,6 @@ import (
 	"testing"
 )
 
-
 func TestExampleMnemonic12(t *testing.T) {
 	if err := RandomMnemonic12(""); err != nil {
 		t.Fatal(err)
@@ -15,7 +14,7 @@ func TestExampleMnemonic12(t *testing.T) {
 	}
 
 	var b [16]byte
-	if err := Menmonic(b[:],""); err != nil {
+	if err := Menmonic(b[:], ""); err != nil {
 		t.Fatal(err)
 	}
 }

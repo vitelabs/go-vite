@@ -18,8 +18,9 @@ type SimpleAutoReceiveFilterPair struct {
 }
 
 type AutoReceiveWorker struct {
-	log     log15.Logger
-	address types.Address
+	log          log15.Logger
+	address      types.Address
+	entropystore string
 
 	manager          *Manager
 	onroadBlocksPool *model.OnroadBlocksPool
@@ -37,9 +38,10 @@ type AutoReceiveWorker struct {
 	statusMutex sync.Mutex
 }
 
-func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
+func NewAutoReceiveWorker(manager *Manager, entropystore string, address types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
 		manager:          manager,
+		entropystore:     entropystore,
 		onroadBlocksPool: manager.onroadBlocksPool,
 		address:          address,
 		status:           Create,
@@ -48,6 +50,10 @@ func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[t
 		filters:          filters,
 		log:              slog.New("worker", "a", "addr", address),
 	}
+}
+
+func (w AutoReceiveWorker) GetEntropystore() string {
+	return w.entropystore
 }
 
 func (w *AutoReceiveWorker) Start() {
@@ -121,6 +127,17 @@ LOOP:
 			break
 		}
 
+		entropyStoreManager, e := w.manager.wallet.GetEntropyStoreManager(w.entropystore)
+		if e != nil {
+			w.log.Error("startWork ", "err", e)
+			continue
+		}
+
+		if !entropyStoreManager.IsAddrUnlocked(w.address) {
+			w.log.Error("startWork address locked", "addr", w.address)
+			continue
+		}
+
 		tx := w.onroadBlocksPool.GetNextCommonTx(w.address)
 		if tx != nil {
 			if len(w.filters) == 0 {
@@ -186,7 +203,11 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 
 	genResult, err := gen.GenerateWithOnroad(*sendBlock, nil,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			return w.manager.keystoreManager.SignData(addr, data)
+			manager, e := w.manager.wallet.GetEntropyStoreManager(w.entropystore)
+			if e != nil {
+				return nil, nil, e
+			}
+			return manager.SignData(addr, data)
 		}, pow.DefaultDifficulty)
 	if err != nil {
 		w.log.Error("GenerateWithOnroad failed", "error", err)

@@ -1,6 +1,11 @@
 package vite
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
@@ -78,14 +83,24 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 
 	// producer
 	if cfg.Producer.Producer && cfg.Producer.Coinbase != "" {
-		coinbase, err := types.HexToAddress(cfg.Producer.Coinbase)
-
+		coinbase, index, err := parseCoinbase(cfg.Producer.Coinbase)
+		//coinbase, err := types.HexToAddress(cfg.Producer.Coinbase)
 		if err != nil {
-			log.Error("Coinbase parse failed from config file. Error is "+err.Error(), "method", "new Vite()")
+			log.Error(fmt.Sprintf("coinBase parse fail. %v", cfg.Producer.Coinbase), "err", err)
 			return nil, err
 		}
+		err = walletManager.MatchAddress(cfg.EntropyStorePath, *coinbase, index)
 
-		vite.producer = producer.NewProducer(chain, net, coinbase, cs, sbVerifier, walletManager, pl)
+		if err != nil {
+			log.Error(fmt.Sprintf("coinBase is not child of entropyStore, coinBase is : %v", cfg.Producer.Coinbase), "err", err)
+			return nil, err
+		}
+		addressContext := &producer.AddressContext{
+			EntryPath: cfg.EntropyStorePath,
+			Address:   *coinbase,
+			Index:     index,
+		}
+		vite.producer = producer.NewProducer(chain, net, addressContext, cs, sbVerifier, walletManager, pl)
 	}
 
 	// onroad
@@ -195,4 +210,21 @@ func (v *Vite) Config() *config.Config {
 
 func (v *Vite) P2P() *p2p.Server {
 	return v.p2p
+}
+
+func parseCoinbase(coinbaseCfg string) (*types.Address, uint32, error) {
+	splits := strings.Split(coinbaseCfg, ":")
+	if len(splits) != 2 {
+		return nil, 0, errors.New("len is not equals 2.")
+	}
+	i, err := strconv.Atoi(splits[0])
+	if err != nil {
+		return nil, 0, err
+	}
+	addr, err := types.HexToAddress(splits[1])
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return &addr, uint32(i), nil
 }

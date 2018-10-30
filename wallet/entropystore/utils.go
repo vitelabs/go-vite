@@ -1,4 +1,4 @@
-package keystore
+package entropystore
 
 import (
 	"bufio"
@@ -14,9 +14,9 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-// it it return false it must not be a valid keystore file
+// it it return false it must not be a valid seedstore file
 // if it return a true it only means that might be true
-func IsMayValidKeystoreFile(path string) (bool, *types.Address, error) {
+func IsMayValidEntropystoreFile(path string) (bool, *types.Address, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return false, nil, err
@@ -37,10 +37,14 @@ func IsMayValidKeystoreFile(path string) (bool, *types.Address, error) {
 	return true, addr, nil
 }
 
-func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
+func FullKeyFileName(keysDirPath string, keyAddr types.Address) string {
+	return filepath.Join(keysDirPath, keyAddr.Hex())
+}
+
+func readAndFixAddressFile(path string) (*types.Address, *entropyJSON) {
 	log := log15.New("method", "wallet/keystore/utils/readAndFixAddressFile")
 	buf := new(bufio.Reader)
-	keyJSON := encryptedKeyJSON{}
+	keyJSON := entropyJSON{}
 
 	fd, err := os.Open(path)
 	if err != nil {
@@ -49,20 +53,20 @@ func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
 	}
 	defer fd.Close()
 	buf.Reset(fd)
-	keyJSON.HexAddress = ""
+	keyJSON.PrimaryAddress = ""
 	err = json.NewDecoder(buf).Decode(&keyJSON)
 	if err != nil {
 		log.Error("Decode keystore file failed ", "path", path, "err", err)
 		return nil, nil
 	}
-	addr, err := types.HexToAddress(keyJSON.HexAddress)
+	addr, err := types.HexToAddress(keyJSON.PrimaryAddress)
 	if err != nil {
-		log.Error("Address is invalid ", "path", path, "err", err)
+		log.Error("PrimaryAddress is invalid ", "path", path, "err", err)
 		return nil, nil
 	}
 
 	// fix the file name
-	standFileName := fullKeyFileName(filepath.Dir(path), addr)
+	standFileName := FullKeyFileName(filepath.Dir(path), addr)
 	if standFileName != fd.Name() {
 		oldname := fd.Name()
 		if runtime.GOOS == "windows" {
@@ -79,9 +83,6 @@ func readAndFixAddressFile(path string) (*types.Address, *encryptedKeyJSON) {
 
 }
 
-func fullKeyFileName(keysDirPath string, keyAddr types.Address) string {
-	return filepath.Join(keysDirPath, keyAddr.Hex())
-}
 
 func addressFromKeyPath(keyfile string) (types.Address, error) {
 	_, filename := filepath.Split(keyfile)

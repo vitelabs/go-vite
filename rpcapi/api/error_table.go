@@ -42,7 +42,7 @@ var (
 	//}
 
 	ErrDecryptKey = JsonRpc2Error{
-		Message: walleterrors.ErrDecryptKey.Error(),
+		Message: walleterrors.ErrDecryptEntropy.Error(),
 		Code:    -34001,
 	}
 
