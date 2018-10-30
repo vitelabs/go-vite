@@ -321,17 +321,17 @@ func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnaps
 	if len(accounts) > 0 {
 		self.log.Debug("insertVerifyFail", "accountsLen", len(accounts))
 		monitor.LogEventNum("pool", "snapshotFailFork", len(accounts))
-		self.forkAccounts(b, accounts)
+		self.forkAccounts(b, accounts, b.Height())
 	}
 }
 
-func (self *snapshotPool) forkAccounts(b *snapshotPoolBlock, accounts map[types.Address]*ledger.HashHeight) {
+func (self *snapshotPool) forkAccounts(b *snapshotPoolBlock, accounts map[types.Address]*ledger.HashHeight, sHeight uint64) {
 	self.pool.Lock()
 	defer self.pool.UnLock()
 
 	for k, v := range accounts {
 		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)
-		err := self.pool.ForkAccountTo(k, v)
+		err := self.pool.ForkAccountTo(k, v, sHeight)
 		if err != nil {
 			self.log.Error("forkaccountTo err", "err", err)
 		}
@@ -352,7 +352,7 @@ func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSn
 		if result == verifier.PENDING {
 			monitor.LogEvent("pool", "snapshotPending")
 			self.log.Debug("pending for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
-			hashH, e := self.pool.PendingAccountTo(k, account)
+			hashH, e := self.pool.PendingAccountTo(k, account, b.Height())
 			if e != nil {
 				self.log.Error("pending for account fail.", "err", e, "address", k, "hashH", account)
 			}
@@ -363,7 +363,7 @@ func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSn
 	}
 	if len(accounts) > 0 {
 		monitor.LogEventNum("pool", "snapshotPendingFork", len(accounts))
-		self.forkAccounts(b, accounts)
+		self.forkAccounts(b, accounts, b.Height())
 	}
 }
 

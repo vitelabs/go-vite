@@ -39,6 +39,12 @@ func (self *accountSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
 		self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &self.address)
 	}
 }
+func (self *accountSyncer) fetchBySnapshot(hashHeight ledger.HashHeight, prevCnt uint64, sHeight uint64) {
+	if hashHeight.Height > 0 {
+		self.log.Debug("fetch account block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
+		self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &self.address)
+	}
+}
 func (self *accountSyncer) fetchByHash(hash types.Hash, prevCnt uint64) {
 	self.fetcher.FetchAccountBlocks(hash, prevCnt, &self.address)
 }
