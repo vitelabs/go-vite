@@ -48,6 +48,10 @@ func (self *snapshotPoolBlock) PrevHash() types.Hash {
 	return self.block.PrevHash
 }
 
+func (self *snapshotPoolBlock) Source() types.BlockSource {
+	return self.source
+}
+
 func newSnapshotPool(
 	name string,
 	version *ForkVersion,
@@ -123,6 +127,7 @@ func (self *snapshotPool) checkFork() {
 	if longest.ChainId() == current.ChainId() {
 		return
 	}
+	monitor.LogEvent("pool", "snapshotFork")
 	err := self.snapshotFork(longest, current)
 	if err != nil {
 		self.log.Error("checkFork", "err", err)
@@ -315,6 +320,7 @@ func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnaps
 
 	if len(accounts) > 0 {
 		self.log.Debug("insertVerifyFail", "accountsLen", len(accounts))
+		monitor.LogEventNum("pool", "snapshotFailFork", len(accounts))
 		self.forkAccounts(b, accounts)
 	}
 }
@@ -344,6 +350,7 @@ func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSn
 	for k, account := range block.SnapshotContent {
 		result := results[k]
 		if result == verifier.PENDING {
+			monitor.LogEvent("pool", "snapshotPending")
 			self.log.Debug("pending for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
 			hashH, e := self.pool.PendingAccountTo(k, account)
 			if e != nil {
@@ -355,6 +362,7 @@ func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSn
 		}
 	}
 	if len(accounts) > 0 {
+		monitor.LogEventNum("pool", "snapshotPendingFork", len(accounts))
 		self.forkAccounts(b, accounts)
 	}
 }
