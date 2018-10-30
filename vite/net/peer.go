@@ -456,6 +456,21 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*peer) {
 	return peers[:i]
 }
 
+func (m *peerSet) Peers() (peers []*peer) {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+
+	peers = make([]*peer, len(m.peers))
+
+	i := 0
+	for _, peer := range m.peers {
+		peers[i] = peer
+		i++
+	}
+
+	return
+}
+
 // @implementation sort.Interface
 type peers []*peer
 

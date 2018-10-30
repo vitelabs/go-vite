@@ -62,7 +62,7 @@ func mock() Net {
 		},
 		fetcher: &fetcher{
 			filter: filter,
-			peers:  peers,
+			policy: &fetchPolicy{peers},
 			pool:   pool,
 			ready:  1,
 		},
