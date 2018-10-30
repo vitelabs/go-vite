@@ -97,6 +97,10 @@ func (p *MethodPledge) GetFee(context contractsContext, block *vm_context.VmAcco
 	return big.NewInt(0), nil
 }
 
+func (p *MethodPledge) GetRefundData() []byte {
+	return []byte{1}
+}
+
 // pledge ViteToken for a beneficial to get quota
 func (p *MethodPledge) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	// pledge gas is low without data gas cost, so that a new account is easy to pledge
@@ -148,6 +152,10 @@ type MethodCancelPledge struct{}
 
 func (p *MethodCancelPledge) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
+}
+
+func (p *MethodCancelPledge) GetRefundData() []byte {
+	return []byte{2}
 }
 
 // cancel pledge ViteToken

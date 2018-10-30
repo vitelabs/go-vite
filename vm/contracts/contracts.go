@@ -43,6 +43,8 @@ type PrecompiledContractMethod interface {
 	DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error)
 	// check status, update state
 	DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error
+	// refund data at receive error
+	GetRefundData() []byte
 }
 
 var (

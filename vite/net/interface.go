@@ -84,6 +84,9 @@ type Fetcher interface {
 
 	// address is optional
 	FetchAccountBlocks(start types.Hash, count uint64, address *types.Address)
+
+	// add snapshot height
+	FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64)
 }
 
 // @section Receiver

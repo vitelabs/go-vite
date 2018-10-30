@@ -125,6 +125,10 @@ func (p *MethodCreateConsensusGroup) GetFee(context contractsContext, block *vm_
 	return big.NewInt(0), nil
 }
 
+func (p *MethodCreateConsensusGroup) GetRefundData() []byte {
+	return []byte{1}
+}
+
 func (p *MethodCreateConsensusGroup) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, CreateConsensusGroupGas)
 	if err != nil {
@@ -226,6 +230,10 @@ func (p *MethodCancelConsensusGroup) GetFee(context contractsContext, block *vm_
 	return big.NewInt(0), nil
 }
 
+func (p *MethodCancelConsensusGroup) GetRefundData() []byte {
+	return []byte{2}
+}
+
 // Cancel consensus group and get pledge back.
 // A canceled consensus group(no-active) will not generate contract blocks after cancel receive block is confirmed.
 // Consensus group name is kept even if canceled.
@@ -300,6 +308,10 @@ type MethodReCreateConsensusGroup struct{}
 
 func (p *MethodReCreateConsensusGroup) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
+}
+
+func (p *MethodReCreateConsensusGroup) GetRefundData() []byte {
+	return []byte{3}
 }
 
 // Pledge again for a canceled consensus group.

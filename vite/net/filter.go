@@ -157,3 +157,18 @@ func (f *filter) has(hash types.Hash) bool {
 	r, ok := f.records[hash]
 	return ok && r._done
 }
+
+func (f *filter) fail(hash types.Hash) {
+	defer monitor.LogTime("net/filter", "fail", time.Now())
+
+	f.lock.RLock()
+	defer f.lock.RUnlock()
+
+	if r, ok := f.records[hash]; ok {
+		if r._done {
+			return
+		}
+
+		delete(f.records, hash)
+	}
+}

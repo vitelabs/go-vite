@@ -35,6 +35,7 @@ var simpleContracts = map[types.Address]*precompiledContract{
 		},
 		contracts.ABIPledge,
 	},
+	/* TODO not support consensus group this version
 	contracts.AddressConsensusGroup: {
 		map[string]contracts.PrecompiledContractMethod{
 			contracts.MethodNameCreateConsensusGroup:   &contracts.MethodCreateConsensusGroup{},
@@ -42,7 +43,7 @@ var simpleContracts = map[types.Address]*precompiledContract{
 			contracts.MethodNameReCreateConsensusGroup: &contracts.MethodReCreateConsensusGroup{},
 		},
 		contracts.ABIConsensusGroup,
-	},
+	},*/
 	contracts.AddressMintage: {
 		map[string]contracts.PrecompiledContractMethod{
 			contracts.MethodNameMintage:             &contracts.MethodMintage{},
@@ -66,5 +67,5 @@ func getPrecompiledContract(addr types.Address, methodSelector []byte) (contract
 			return nil, ok, err
 		}
 	}
-	return nil, false, nil
+	return nil, ok, nil
 }

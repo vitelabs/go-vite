@@ -110,6 +110,10 @@ func (p *MethodMintage) GetFee(context contractsContext, block *vm_context.VmAcc
 	return new(big.Int).Set(mintageFee), nil
 }
 
+func (p *MethodMintage) GetRefundData() []byte {
+	return []byte{1}
+}
+
 func (p *MethodMintage) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, MintageGas)
 	if err != nil {
@@ -199,6 +203,10 @@ type MethodMintageCancelPledge struct{}
 
 func (p *MethodMintageCancelPledge) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
+}
+
+func (p *MethodMintageCancelPledge) GetRefundData() []byte {
+	return []byte{2}
 }
 
 func (p *MethodMintageCancelPledge) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {

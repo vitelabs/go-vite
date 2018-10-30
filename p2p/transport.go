@@ -52,7 +52,7 @@ const headMsgLen = 32 // netId[4] + version[4]
 
 func readHead(conn net.Conn) (head *headMsg, err error) {
 	headPacket := make([]byte, headMsgLen)
-	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	//conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	_, err = io.ReadFull(conn, headPacket)
 	if err != nil {
 		return
@@ -70,7 +70,7 @@ func writeHead(conn net.Conn, head *headMsg) error {
 	binary.BigEndian.PutUint32(headPacket[:4], uint32(head.NetID))
 	binary.BigEndian.PutUint32(headPacket[4:8], head.Version)
 
-	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	//conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 	if n, err := conn.Write(headPacket); err != nil {
 		return err
 	} else if n != headMsgLen {

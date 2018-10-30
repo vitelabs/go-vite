@@ -384,7 +384,7 @@ func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 	return nil
 }
 
-func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*ledger.HashHeight, error) {
+func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight, sHeight uint64) (*ledger.HashHeight, error) {
 	this := self.selfPendingAc(addr)
 
 	this.LockForInsert()
@@ -412,13 +412,19 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*l
 		return nil, nil
 	}
 	inPool := this.findInPool(h.Hash, h.Height)
+
 	if !inPool {
-		this.f.fetch(ledger.HashHeight{Hash: h.Hash, Height: h.Height}, 5)
+		cnt := uint64(5)
+		headHeight := this.chainpool.diskChain.Head().Height()
+		if h.Height > headHeight {
+			cnt = h.Height - headHeight
+		}
+		this.f.fetchBySnapshot(ledger.HashHeight{Hash: h.Hash, Height: h.Height}, cnt, sHeight)
 	}
 	return nil, nil
 }
 
-func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
+func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight, sHeight uint64) error {
 	this := self.selfPendingAc(addr)
 	self.log.Info("RollbackAccountTo[1]", "addr", addr, "hash", h.Hash, "height", h.Height,
 		"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
@@ -432,7 +438,7 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 
 	if targetChain == nil {
 		cnt := h.Height - this.chainpool.diskChain.Head().Height()
-		this.f.fetch(ledger.HashHeight{Height: h.Height, Hash: h.Hash}, cnt)
+		this.f.fetchBySnapshot(ledger.HashHeight{Height: h.Height, Hash: h.Hash}, cnt, sHeight)
 		self.log.Info("CurrentModifyToEmpty", "addr", addr, "hash", h.Hash, "height", h.Height,
 			"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 		err = this.CurrentModifyToEmpty()
