@@ -72,6 +72,7 @@ type commonBlock interface {
 	checkForkVersion() bool
 	resetForkVersion()
 	forkVersion() int
+	Source() types.BlockSource
 }
 
 func newForkBlock(v *ForkVersion, source types.BlockSource) *forkBlock {

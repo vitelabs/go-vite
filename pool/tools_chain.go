@@ -43,6 +43,7 @@ func (self *accountCh) insertBlock(b commonBlock) error {
 	if !b.checkForkVersion() {
 		return errors.New("error fork version. current:" + self.version.String() + ", target:" + strconv.FormatInt(int64(b.forkVersion()), 10))
 	}
+	monitor.LogEvent("pool", "accountInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	block := b.(*accountPoolBlock)
 	accountBlock := &vm_context.VmAccountBlock{AccountBlock: block.block, VmContext: block.vmBlock}
 	return self.rw.InsertAccountBlocks([]*vm_context.VmAccountBlock{accountBlock})
@@ -82,6 +83,7 @@ func (self *accountCh) insertBlocks(bs []commonBlock) error {
 	for _, b := range bs {
 		block := b.(*accountPoolBlock)
 		blocks = append(blocks, &vm_context.VmAccountBlock{AccountBlock: block.block, VmContext: block.vmBlock})
+		monitor.LogEvent("pool", "accountInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	}
 
 	return self.rw.InsertAccountBlocks(blocks)
@@ -185,12 +187,14 @@ func (self *snapshotCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 
 func (self *snapshotCh) insertBlock(block commonBlock) error {
 	b := block.(*snapshotPoolBlock)
+	monitor.LogEvent("pool", "snapshotInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	return self.bc.InsertSnapshotBlock(b.block)
 }
 
 func (self *snapshotCh) insertBlocks(bs []commonBlock) error {
 	monitor.LogEvent("pool", "NonSnapshot")
 	for _, b := range bs {
+		monitor.LogEvent("pool", "snapshotInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 		err := self.insertBlock(b)
 		if err != nil {
 			return err
