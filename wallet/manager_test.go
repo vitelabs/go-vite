@@ -3,12 +3,13 @@ package wallet_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/wallet"
 	"path/filepath"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/wallet"
 )
 
 func deskTopDir() string {
