@@ -453,13 +453,13 @@ loop:
 				}
 			} else {
 				c.Close()
-				svr.log.Error(fmt.Sprintf("can`t create new peer: %v", err))
+				svr.log.Warn(fmt.Sprintf("can`t create new peer: %v", err))
 			}
 
 		case p := <-svr.delPeer:
 			svr.peers.Del(p)
 			peersCount = svr.peers.Size()
-			svr.log.Info(fmt.Sprintf("delete peer %s, total: %d", p, peersCount))
+			svr.log.Error(fmt.Sprintf("delete peer %s, total: %d", p, peersCount))
 
 			monitor.LogDuration("p2p/peer", "count", int64(peersCount))
 			monitor.LogEvent("p2p/peer", "delete")
