@@ -99,7 +99,7 @@ func NewProducer(producerId uint8, brokerList []string, topic string, chain Chai
 
 func (producer *Producer) init(producerId uint8, chain Chain, db *leveldb.DB) error {
 	producer.producerId = producerId
-	producer.concurrency = 5
+	producer.concurrency = 100
 
 	producer.chain = chain
 	producer.db = db
@@ -451,6 +451,8 @@ func (producer *Producer) send() {
 				continue
 			}
 
+			msgList = append(msgList, m)
+
 		}
 
 		sendErr := producer.sendMessage(msgList)
@@ -494,17 +496,17 @@ func (producer *Producer) getHasSend() (uint64, error) {
 	return binary.BigEndian.Uint64(value), nil
 }
 
-func (producer *Producer) sendMessage(msg []*message) error {
+func (producer *Producer) sendMessage(msgList []*message) error {
 	var err error
-	for i := 0; i < len(msg); i++ {
-		buf, jsonErr := json.Marshal(msg)
+	for i := 0; i < len(msgList); i++ {
+		buf, jsonErr := json.Marshal(msgList[i])
 		if jsonErr != nil {
 			return jsonErr
 		}
 		sMsg := &sarama.ProducerMessage{Topic: producer.topic, Value: sarama.StringEncoder(buf)}
 
 		producer.sendWg.Add(1)
-		// simple
+		// Simple implementation, may be fix
 		go func() {
 			defer producer.sendWg.Done()
 			producer.kafkaProducer.Input() <- sMsg
