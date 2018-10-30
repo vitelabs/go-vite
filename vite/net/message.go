@@ -207,7 +207,7 @@ func (q *queryHandler) Handle(msg *p2p.Msg, sender Peer) error {
 	q.queue.Append(e)
 	q.lock.Unlock()
 
-	netLog.Debug(fmt.Sprintf("put message %s into queue, rest %d query tasks in queue", ViteCmd(msg.Cmd), q.queue.Size()))
+	netLog.Info(fmt.Sprintf("put message %s into queue, rest %d query tasks in queue", ViteCmd(msg.Cmd), q.queue.Size()))
 
 	return nil
 }
@@ -271,7 +271,7 @@ func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 		return
 	}
 
-	netLog.Debug(fmt.Sprintf("receive %s from %s", req, sender.RemoteAddr()))
+	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender.RemoteAddr()))
 
 	var files []*ledger.CompressedFileMeta
 	var chunks [][2]uint64
@@ -297,7 +297,7 @@ func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 	if err != nil {
 		netLog.Error(fmt.Sprintf("send %s to %s error: %v", fileList, sender.RemoteAddr(), err))
 	} else {
-		netLog.Debug(fmt.Sprintf("send %s to %s done", fileList, sender.RemoteAddr()))
+		netLog.Info(fmt.Sprintf("send %s to %s done", fileList, sender.RemoteAddr()))
 	}
 
 	return
@@ -324,7 +324,7 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 		return
 	}
 
-	netLog.Debug(fmt.Sprintf("receive %s from %s", req, sender.RemoteAddr()))
+	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender.RemoteAddr()))
 
 	var block *ledger.SnapshotBlock
 	if req.From.Hash != types.ZERO_HASH {
@@ -369,7 +369,7 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 			netLog.Error(fmt.Sprintf("send %d SnapshotBlocks to %s error: %v", len(blocks), sender.RemoteAddr(), err))
 			return
 		} else {
-			netLog.Debug(fmt.Sprintf("send %d SnapshotBlocks to %s done", len(blocks), sender.RemoteAddr()))
+			netLog.Info(fmt.Sprintf("send %d SnapshotBlocks to %s done", len(blocks), sender.RemoteAddr()))
 		}
 	}
 
@@ -401,7 +401,7 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 		return
 	}
 
-	netLog.Debug(fmt.Sprintf("receive %s from %s", req, sender.RemoteAddr()))
+	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender.RemoteAddr()))
 
 	var block *ledger.AccountBlock
 	if req.From.Hash != types.ZERO_HASH {
@@ -454,7 +454,7 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 			netLog.Error(fmt.Sprintf("send %d AccountBlocks to %s error: %v", len(blocks), sender.RemoteAddr(), err))
 			return
 		} else {
-			netLog.Debug(fmt.Sprintf("send %d AccountBlocks to %s done", len(blocks), sender.RemoteAddr()))
+			netLog.Info(fmt.Sprintf("send %d AccountBlocks to %s done", len(blocks), sender.RemoteAddr()))
 		}
 	}
 
@@ -513,7 +513,7 @@ func (c *getChunkHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 			netLog.Error(fmt.Sprintf("send Chunk<%d-%d>(%d SnapshotBlocks %d AccountBlocks) to %s error: %v", chunk[0], chunk[1], len(sblocks), ablockCount, sender.RemoteAddr(), err))
 			return
 		} else {
-			netLog.Debug(fmt.Sprintf("send Chunk<%d-%d>(%d SnapshotBlocks %d AccountBlocks) to %s done", chunk[0], chunk[1], len(sblocks), ablockCount, sender.RemoteAddr()))
+			netLog.Info(fmt.Sprintf("send Chunk<%d-%d>(%d SnapshotBlocks %d AccountBlocks) to %s done", chunk[0], chunk[1], len(sblocks), ablockCount, sender.RemoteAddr()))
 		}
 	}
 

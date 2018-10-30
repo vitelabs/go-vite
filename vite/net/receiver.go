@@ -63,7 +63,7 @@ func (s *receiver) Handle(msg *p2p.Msg, sender Peer) error {
 
 		s.ReceiveNewSnapshotBlock(block)
 
-		s.log.Debug(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.RemoteAddr()))
+		s.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.RemoteAddr()))
 
 	case NewAccountBlockCode:
 		block := new(ledger.AccountBlock)
@@ -76,7 +76,7 @@ func (s *receiver) Handle(msg *p2p.Msg, sender Peer) error {
 
 		s.ReceiveNewAccountBlock(block)
 
-		s.log.Debug(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender.RemoteAddr()))
+		s.log.Info(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender.RemoteAddr()))
 
 	case SnapshotBlocksCode:
 		bs := new(message.SnapshotBlocks)
@@ -140,7 +140,7 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 		notify_b := time.Now()
 		s.sFeed.Notify(block, types.RemoteBroadcast)
 		monitor.LogDuration("net/notify", "NewSnapshotBlock", time.Now().Sub(notify_b).Nanoseconds())
-		s.log.Debug(fmt.Sprintf("notify NewSnapshotBlock %s/%d done", block.Hash, block.Height))
+		s.log.Info(fmt.Sprintf("notify NewSnapshotBlock %s/%d done", block.Hash, block.Height))
 	}
 }
 
@@ -179,7 +179,7 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 		notify_b := time.Now()
 		s.aFeed.Notify(block, types.RemoteBroadcast)
 		monitor.LogDuration("net/notify", "NewAccountBlock", time.Now().Sub(notify_b).Nanoseconds())
-		s.log.Debug(fmt.Sprintf("notify NewAccountBlock %s done", block.Hash))
+		s.log.Info(fmt.Sprintf("notify NewAccountBlock %s done", block.Hash))
 	}
 }
 
@@ -211,7 +211,7 @@ func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) {
 	notify_b := time.Now()
 	s.sFeed.Notify(block, s.batchSource)
 	monitor.LogDuration("net/notify", "SnapshotBlock", time.Now().Sub(notify_b).Nanoseconds())
-	s.log.Debug(fmt.Sprintf("notify SnapshotBlock %s/%d done", block.Hash, block.Height))
+	s.log.Info(fmt.Sprintf("notify SnapshotBlock %s/%d done", block.Hash, block.Height))
 }
 
 func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) {
@@ -242,7 +242,7 @@ func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) {
 	notify_b := time.Now()
 	s.aFeed.Notify(block, s.batchSource)
 	monitor.LogDuration("net/notify", "AccountBlock", time.Now().Sub(notify_b).Nanoseconds())
-	s.log.Debug(fmt.Sprintf("notify AccountBlock %s done", block.Hash))
+	s.log.Info(fmt.Sprintf("notify AccountBlock %s done", block.Hash))
 }
 
 func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {

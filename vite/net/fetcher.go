@@ -126,7 +126,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 		if err := p.Send(GetSnapshotBlocksCode, id, m); err != nil {
 			f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
 		} else {
-			f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
+			f.log.Info(fmt.Sprintf("send %s to %s done", m, p))
 		}
 		monitor.LogEvent("net/fetch", "GetSnapshotBlocks_Send")
 	} else {
@@ -168,7 +168,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 			if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
 				f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
 			} else {
-				f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
+				f.log.Info(fmt.Sprintf("send %s to %s done", m, p))
 			}
 			monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
 		}
@@ -211,7 +211,7 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 			if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
 				f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
 			} else {
-				f.log.Debug(fmt.Sprintf("send %s to %s done", m, p))
+				f.log.Info(fmt.Sprintf("send %s to %s done", m, p))
 			}
 			monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
 		}
