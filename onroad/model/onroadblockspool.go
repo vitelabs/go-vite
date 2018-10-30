@@ -246,23 +246,20 @@ func (p *OnroadBlocksPool) DeleteDirect(sendBlock *ledger.AccountBlock) error {
 func (p *OnroadBlocksPool) RevertOnroadSuccess(subLedger map[types.Address][]*ledger.AccountBlock) {
 	//async update the cache
 	go func() {
-		for addr, _ := range subLedger {
-			// if the full cache is in hold by a worker we will rebuild it else we delete it
-			if cache, ok := p.fullCache.Load(addr); ok {
-				c := cache.(*onroadBlocksCache)
-				if c.getReferenceCount() > 0 {
-					p.loadFullCacheFromDb(addr)
+		cutMap := excludeSubordinate(subLedger)
+		for _, blocks := range cutMap {
+			for i := len(blocks) - 1; i >= 0; i-- {
+				v := blocks[i]
+				addr := types.Address{}
+				if v.IsReceiveBlock() {
+					addr = v.AccountAddress
 				} else {
-					if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
-						t.(*time.Timer).Stop()
-						p.fullCacheDeadTimer.Delete(addr)
-					}
-					p.fullCache.Delete(addr)
+					addr = v.ToAddress
 				}
+				p.deleteSimpleCache(addr)
+				p.deleteFullCache(addr)
 			}
-			p.deleteSimpleCache(addr)
 		}
-
 	}()
 }
 
@@ -400,12 +397,26 @@ func (p *OnroadBlocksPool) updateSimpleCache(isAdd bool, block *ledger.AccountBl
 
 func (p *OnroadBlocksPool) deleteSimpleCache(addr types.Address) {
 	if t, ok := p.simpleCacheDeadTimer.Load(addr); ok {
-		t.(*time.Timer).Stop()
+		if t != nil {
+			t.(*time.Timer).Stop()
+		}
 		p.simpleCacheDeadTimer.Delete(addr)
 
 	}
 	if _, ok := p.simpleCache.Load(addr); ok {
 		p.simpleCache.Delete(addr)
+	}
+}
+
+func (p *OnroadBlocksPool) deleteFullCache(addr types.Address) {
+	if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
+		if t != nil {
+			t.(*time.Timer).Stop()
+		}
+		p.fullCache.Delete(addr)
+	}
+	if _, ok := p.fullCache.Load(addr); ok {
+		p.fullCache.Delete(addr)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 
 	"bytes"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"fmt"
 )
 
 const (
@@ -82,5 +83,10 @@ func TestGenerateKey(t *testing.T) {
 		pri := hex.EncodeToString(privateKey)
 		println(pri)
 	}
+
+	key, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
+	publicKey, privateKey, _ := ed25519.GenerateKey(bytes.NewReader(key))
+	fmt.Println(hex.EncodeToString(publicKey))
+	fmt.Println(hex.EncodeToString(privateKey))
 
 }
