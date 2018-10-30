@@ -41,12 +41,12 @@ type transport struct {
 }
 
 func (t *transport) ReadMsg() (*Msg, error) {
-	t.SetReadDeadline(time.Now().Add(msgReadTimeout))
+	//t.SetReadDeadline(time.Now().Add(msgReadTimeout))
 	return ReadMsg(t)
 }
 
 func (t *transport) WriteMsg(msg *Msg) error {
-	t.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
+	//t.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
 	return WriteMsg(t, msg)
 }
 

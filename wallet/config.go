@@ -1,5 +1,6 @@
 package wallet
 
 type Config struct {
-	DataDir string
+	DataDir        string
+	MaxSearchIndex uint32
 }

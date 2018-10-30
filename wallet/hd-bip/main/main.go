@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/vitelabs/go-vite/hd-bip/derivation"
+	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 	"fmt"
 )
 

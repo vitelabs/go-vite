@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts"
@@ -33,13 +32,13 @@ func (t Tx) SendRawTx(block AccountBlock) error {
 		return err
 	}
 	// need to remove Later
-	if len(lb.Data) != 0 && !isPreCompiledContracts(lb.ToAddress) {
-		return ErrorNotSupportAddNot
-	}
-
-	if len(lb.Data) != 0 && block.BlockType == ledger.BlockTypeReceive {
-		return ErrorNotSupportRecvAddNote
-	}
+	//if len(lb.Data) != 0 && !isPreCompiledContracts(lb.ToAddress) {
+	//	return ErrorNotSupportAddNot
+	//}
+	//
+	//if len(lb.Data) != 0 && block.BlockType == ledger.BlockTypeReceive {
+	//	return ErrorNotSupportRecvAddNote
+	//}
 
 	v := verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus())
 

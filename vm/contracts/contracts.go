@@ -10,6 +10,20 @@ import (
 	"math/big"
 )
 
+type NodeConfig struct {
+	params ContractsParams
+}
+
+var nodeConfig NodeConfig
+
+func InitContractsConfig(isTestParam bool) {
+	if isTestParam {
+		nodeConfig.params = ContractsParamsTest
+	} else {
+		nodeConfig.params = ContractsParamsMainNet
+	}
+}
+
 var (
 	AddressRegister, _       = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
 	AddressVote, _           = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2})

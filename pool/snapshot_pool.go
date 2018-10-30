@@ -27,8 +27,8 @@ type snapshotPool struct {
 	f      *snapshotSyncer
 }
 
-func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion) *snapshotPoolBlock {
-	return &snapshotPoolBlock{block: block, forkBlock: *newForkBlock(version)}
+func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion, source types.BlockSource) *snapshotPoolBlock {
+	return &snapshotPoolBlock{block: block, forkBlock: *newForkBlock(version, source)}
 }
 
 type snapshotPoolBlock struct {

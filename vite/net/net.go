@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/list"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"github.com/vitelabs/go-vite/vite/net/topo"
 	"sync"
@@ -39,6 +40,7 @@ type net struct {
 	*fetcher
 	*broadcaster
 	*receiver
+	*filter
 	pool      *requestPool
 	term      chan struct{}
 	log       log15.Logger
@@ -48,7 +50,7 @@ type net struct {
 	fc        *fileClient
 	handlers  map[ViteCmd]MsgHandler
 	topo      *topo.Topology
-	query     *queryHandler
+	query     *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
 }
 
 // auto from
@@ -83,6 +85,7 @@ func New(cfg *Config) Net {
 		fetcher:     fetcher,
 		broadcaster: broadcaster,
 		receiver:    receiver,
+		filter:      filter,
 		fs:          newFileServer(cfg.Port, cfg.Chain),
 		fc:          fc,
 		handlers:    make(map[ViteCmd]MsgHandler),
@@ -155,6 +158,8 @@ func (n *net) Start(svr *p2p.Server) (err error) {
 
 	n.query.start()
 
+	n.filter.start()
+
 	return
 }
 
@@ -181,6 +186,8 @@ func (n *net) Stop() {
 		}
 
 		n.query.stop()
+
+		n.filter.stop()
 
 		n.wg.Wait()
 	}
@@ -327,4 +334,29 @@ type NodeInfo struct {
 	MsgReceived  uint64      `json:"msgReceived"`
 	MsgHandled   uint64      `json:"msgHandled"`
 	MsgDiscarded uint64      `json:"msgDiscarded"`
+}
+
+// for debug
+type Task struct {
+	Msg    string `json:"Msg"`
+	Sender string `json:"Sender"`
+}
+
+func (n *net) Tasks() (ts []*Task) {
+	n.query.lock.RLock()
+	defer n.query.lock.RUnlock()
+
+	ts = make([]*Task, n.query.queue.Size())
+	i := 0
+
+	n.query.queue.Traverse(func(prev, current *list.Element) {
+		t := current.Value.(*queryTask)
+		ts[i] = &Task{
+			Msg:    ViteCmd(t.Msg.Cmd).String(),
+			Sender: t.Sender.RemoteAddr().String(),
+		}
+		i++
+	})
+
+	return
 }

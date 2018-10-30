@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm/abi"
@@ -19,11 +18,11 @@ import (
 const (
 	jsonRegister = `
 	[
-		{"type":"function","name":"Register", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"publicKey","type":"bytes"},{"name":"signature","type":"bytes"}]},
-		{"type":"function","name":"UpdateRegistration", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"publicKey","type":"bytes"},{"name":"signature","type":"bytes"}]},
+		{"type":"function","name":"Register", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"}]},
+		{"type":"function","name":"UpdateRegistration", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"}]},
 		{"type":"function","name":"CancelRegister","inputs":[{"name":"gid","type":"gid"}, {"name":"name","type":"string"}]},
-		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"beneficialAddr","type":"address"},{"name":"endHeight","type":"uint64"},{"name":"startHeight","type":"uint64"}]},
-		{"type":"variable","name":"registration","inputs":[{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"pledgeAddr","type":"address"},{"name":"amount","type":"uint256"},{"name":"pledgeHeight","type":"uint64"},{"name":"rewardHeight","type":"uint64"},{"name":"cancelHeight","type":"uint64"},{"name":"hisAddrList","type":"address[]"}]},
+		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"beneficialAddr","type":"address"}]},
+		{"type":"variable","name":"registration","inputs":[{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"pledgeAddr","type":"address"},{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"rewardHeight","type":"uint64"},{"name":"cancelHeight","type":"uint64"},{"name":"hisAddrList","type":"address[]"}]},
 		{"type":"variable","name":"hisName","inputs":[{"name":"name","type":"string"}]}
 	]`
 
@@ -40,11 +39,9 @@ var (
 )
 
 type ParamRegister struct {
-	Gid       types.Gid
-	Name      string
-	NodeAddr  types.Address
-	PublicKey []byte
-	Signature []byte
+	Gid      types.Gid
+	Name     string
+	NodeAddr types.Address
 }
 type ParamCancelRegister struct {
 	Gid  types.Gid
@@ -54,18 +51,16 @@ type ParamReward struct {
 	Gid            types.Gid
 	Name           string
 	BeneficialAddr types.Address
-	EndHeight      uint64
-	StartHeight    uint64
 }
 type Registration struct {
-	Name         string
-	NodeAddr     types.Address
-	PledgeAddr   types.Address
-	Amount       *big.Int
-	PledgeHeight uint64
-	RewardHeight uint64
-	CancelHeight uint64
-	HisAddrList  []types.Address
+	Name           string
+	NodeAddr       types.Address
+	PledgeAddr     types.Address
+	Amount         *big.Int
+	WithdrawHeight uint64
+	RewardHeight   uint64
+	CancelHeight   uint64
+	HisAddrList    []types.Address
 }
 
 func (r *Registration) IsActive() bool {
@@ -104,8 +99,8 @@ func GetRegistration(db StorageDatabase, name string, gid types.Gid) *Registrati
 	return nil
 }
 
-func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
-	defer monitor.LogTime("vm", "GetRegisterList", time.Now())
+func GetCandidateList(db StorageDatabase, gid types.Gid) []*Registration {
+	defer monitor.LogTime("vm", "GetCandidateList", time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
 		iterator = db.NewStorageIterator(&AddressRegister, types.SNAPSHOT_GID.Bytes())
@@ -133,6 +128,35 @@ func GetRegisterList(db StorageDatabase, gid types.Gid) []*Registration {
 	return registerList
 }
 
+func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Address) []*Registration {
+	defer monitor.LogTime("vm", "GetRegistrationList", time.Now())
+	var iterator vmctxt_interface.StorageIterator
+	if gid == types.DELEGATE_GID {
+		iterator = db.NewStorageIterator(&AddressRegister, types.SNAPSHOT_GID.Bytes())
+	} else {
+		iterator = db.NewStorageIterator(&AddressRegister, gid.Bytes())
+	}
+	registerList := make([]*Registration, 0)
+	if iterator == nil {
+		return registerList
+	}
+	for {
+		key, value, ok := iterator.Next()
+		if !ok {
+			break
+		}
+		if IsRegisterKey(key) {
+			registration := new(Registration)
+			if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
+				if registration.PledgeAddr == pledgeAddr {
+					registerList = append(registerList, registration)
+				}
+			}
+		}
+	}
+	return registerList
+}
+
 type MethodRegister struct {
 }
 
@@ -143,10 +167,6 @@ func (p *MethodRegister) GetFee(context contractsContext, block *vm_context.VmAc
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
 func (p *MethodRegister) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, RegisterGas)
-	if err != nil {
-		return quotaLeft, err
-	}
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -171,17 +191,6 @@ func checkRegisterData(methodName string, block *vm_context.VmAccountBlock, para
 		return errors.New("register condition id not exist")
 	} else if !condition.checkData(consensusGroupInfo.RegisterConditionParam, block, param, methodName) {
 		return errors.New("register condition not match")
-	}
-
-	if types.PubkeyToAddress(param.PublicKey) != param.NodeAddr {
-		return errors.New("invalid public key")
-	}
-
-	if verified, err := crypto.VerifySig(
-		param.PublicKey,
-		GetRegisterMessageForSignature(block.AccountBlock.AccountAddress, param.Gid),
-		param.Signature); !verified {
-		return err
 	}
 	return nil
 }
@@ -228,12 +237,18 @@ func (p *MethodRegister) DoReceive(context contractsContext, block *vm_context.V
 		param.NodeAddr,
 		sendBlock.AccountAddress,
 		sendBlock.Amount,
-		snapshotBlock.Height,
+		getRegisterWithdrawHeight(block.VmContext, param.Gid, snapshotBlock.Height),
 		rewardHeight,
 		uint64(0),
 		hisAddrList)
 	block.VmContext.SetStorage(key, registerInfo)
 	return nil
+}
+
+func getRegisterWithdrawHeight(db vmctxt_interface.VmDatabase, gid types.Gid, currentHeight uint64) uint64 {
+	consensusGroupInfo := GetConsensusGroup(db, gid)
+	withdrawHeight := getRegisterWithdrawHeightByCondition(consensusGroupInfo.RegisterConditionId, consensusGroupInfo.RegisterConditionParam, currentHeight)
+	return withdrawHeight
 }
 
 type MethodCancelRegister struct {
@@ -246,10 +261,6 @@ func (p *MethodCancelRegister) GetFee(context contractsContext, block *vm_contex
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
 func (p *MethodCancelRegister) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, CancelRegisterGas)
-	if err != nil {
-		return quotaLeft, err
-	}
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -340,62 +351,10 @@ func (p *MethodReward) DoSend(context contractsContext, block *vm_context.VmAcco
 	key := GetRegisterKey(param.Name, param.Gid)
 	old := new(Registration)
 	err = ABIRegister.UnpackVariable(old, VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.ToAddress, key))
-	if err != nil {
+	if err != nil || old.PledgeAddr != block.AccountBlock.AccountAddress {
 		return quotaLeft, errors.New("registration not exist")
 	}
-	count, data, err := GetRewardData(block.VmContext, old, param.Gid, param.Name, param.BeneficialAddr, param.EndHeight, param.StartHeight)
-	if err != nil {
-		return quotaLeft, err
-	}
-	if quotaLeft, err = util.UseQuota(quotaLeft, ((count+dbPageSize-1)/dbPageSize)*CalcRewardGasPerPage); err != nil {
-		return quotaLeft, err
-	}
-	block.AccountBlock.Data = data
-	if quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft); err != nil {
-		return quotaLeft, err
-	}
 	return quotaLeft, nil
-}
-func GetRewardData(db vmctxt_interface.VmDatabase, old *Registration, gid types.Gid, name string, beneficialAddr types.Address, endHeight uint64, startHeight uint64) (uint64, []byte, error) {
-	if db.CurrentSnapshotBlock().Height < rewardHeightLimit {
-		return 0, nil, errors.New("reward height limit not reached")
-	}
-
-	if endHeight == 0 {
-		endHeight = db.CurrentSnapshotBlock().Height - rewardHeightLimit
-		if !old.IsActive() {
-			endHeight = helper.Min(endHeight, old.CancelHeight)
-		}
-	} else if endHeight > db.CurrentSnapshotBlock().Height-rewardHeightLimit ||
-		(!old.IsActive() && endHeight > old.CancelHeight) {
-		return 0, nil, errors.New("invalid end height")
-	}
-
-	if startHeight == 0 {
-		startHeight = old.RewardHeight
-	} else if startHeight < old.RewardHeight {
-		return 0, nil, errors.New("invalid start height")
-	}
-
-	if endHeight <= startHeight {
-		return 0, nil, errors.New("invalid end height")
-	}
-	count := endHeight - startHeight
-	// avoid uint64 overflow
-	if count > MaxRewardCount {
-		return 0, nil, errors.New("height gap overflow")
-	}
-	data, err := ABIRegister.PackMethod(
-		MethodNameReward,
-		gid,
-		name,
-		beneficialAddr,
-		endHeight,
-		startHeight)
-	if err != nil {
-		return 0, nil, err
-	}
-	return count, data, nil
 }
 func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(ParamReward)
@@ -403,50 +362,62 @@ func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmA
 	key := GetRegisterKey(param.Name, param.Gid)
 	old := new(Registration)
 	err := ABIRegister.UnpackVariable(old, VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
-	if err != nil || old.RewardHeight > param.StartHeight || sendBlock.AccountAddress != old.PledgeAddr {
-		return errors.New("invalid owner or start height")
+	if err != nil || sendBlock.AccountAddress != old.PledgeAddr {
+		return errors.New("invalid owner")
 	}
-	if !old.IsActive() && param.EndHeight > old.CancelHeight {
-		return errors.New("invalid end height, supposed to be lower than cancel height")
-	} else {
+	_, endHeight, reward := CalcReward(block.VmContext, old, false)
+	if endHeight != old.RewardHeight {
 		registerInfo, _ := ABIRegister.PackVariable(
 			VariableNameRegistration,
 			old.Name,
 			old.NodeAddr,
 			old.PledgeAddr,
 			old.Amount,
-			old.PledgeHeight,
-			param.EndHeight,
+			old.WithdrawHeight,
+			endHeight,
 			old.CancelHeight,
 			old.HisAddrList)
 		block.VmContext.SetStorage(key, registerInfo)
-	}
 
-	// calc snapshot block produce reward between param.StartHeight(excluded) and param.EndHeight(included)
-	count := param.EndHeight - param.StartHeight
-	reward := calcReward(block.VmContext, old.HisAddrList, param.StartHeight, count)
-	if reward != nil {
-		// create reward and return
-		context.AppendBlock(
-			&vm_context.VmAccountBlock{
-				util.MakeSendBlock(
-					block.AccountBlock,
-					param.BeneficialAddr,
-					ledger.BlockTypeSendReward,
-					reward,
-					ledger.ViteTokenId,
-					context.GetNewBlockHeight(block),
-					[]byte{}),
-				nil})
+		if reward != nil {
+			// create reward and return
+			context.AppendBlock(
+				&vm_context.VmAccountBlock{
+					util.MakeSendBlock(
+						block.AccountBlock,
+						param.BeneficialAddr,
+						ledger.BlockTypeSendReward,
+						reward,
+						ledger.ViteTokenId,
+						context.GetNewBlockHeight(block),
+						[]byte{}),
+					nil})
+		}
 	}
 	return nil
 }
 
-func calcReward(db vmctxt_interface.VmDatabase, producerList []types.Address, startHeight uint64, count uint64) *big.Int {
+func CalcReward(db vmctxt_interface.VmDatabase, old *Registration, total bool) (uint64, uint64, *big.Int) {
+	if db.CurrentSnapshotBlock().Height < nodeConfig.params.RewardHeightLimit {
+		return old.RewardHeight, old.RewardHeight, big.NewInt(0)
+	}
+	startHeight := old.RewardHeight
+	endHeight := db.CurrentSnapshotBlock().Height - nodeConfig.params.RewardHeightLimit
+	if !old.IsActive() {
+		endHeight = helper.Min(endHeight, old.CancelHeight)
+	}
+	if !total {
+		endHeight = helper.Min(endHeight, startHeight+MaxRewardCount)
+	}
+	if endHeight <= startHeight {
+		return old.RewardHeight, old.RewardHeight, big.NewInt(0)
+	}
+	count := endHeight - startHeight
+
 	startHeight = startHeight + 1
 	rewardCount := uint64(0)
 	producerMap := make(map[types.Address]interface{})
-	for _, producer := range producerList {
+	for _, producer := range old.HisAddrList {
 		producerMap[producer] = struct{}{}
 	}
 	for count > 0 {
@@ -468,9 +439,9 @@ func calcReward(db vmctxt_interface.VmDatabase, producerList []types.Address, st
 	if rewardCount > 0 {
 		reward := new(big.Int).SetUint64(rewardCount)
 		reward.Mul(rewardPerBlock, reward)
-		return reward
+		return old.RewardHeight, endHeight, reward
 	}
-	return nil
+	return old.RewardHeight, endHeight, big.NewInt(0)
 }
 
 type MethodUpdateRegistration struct {
@@ -483,10 +454,6 @@ func (p *MethodUpdateRegistration) GetFee(context contractsContext, block *vm_co
 // update registration info
 func (p *MethodUpdateRegistration) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, UpdateRegistrationGas)
-	if err != nil {
-		return quotaLeft, err
-	}
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -532,7 +499,7 @@ func (p *MethodUpdateRegistration) DoReceive(context contractsContext, block *vm
 		param.NodeAddr,
 		old.PledgeAddr,
 		old.Amount,
-		old.PledgeHeight,
+		old.WithdrawHeight,
 		old.RewardHeight,
 		old.CancelHeight,
 		old.HisAddrList)

@@ -1,15 +1,13 @@
 package api
 
 import (
-	"math/big"
-
-	"time"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/viteshan/naive-vite/common"
+	"github.com/vitelabs/go-vite/vite/net"
+	"math/big"
+	"time"
 )
 
 type DebugApi struct {
@@ -107,9 +105,10 @@ func (api DebugApi) ConsensusPlanAndActual(gid types.Gid, offset int64, index ui
 		index = i
 	}
 	type PlanActual struct {
-		t time.Time
-		b ledger.SnapshotBlock
-		e consensus.Event
+		T time.Time
+		B ledger.SnapshotBlock
+		E consensus.Event
+		R bool
 	}
 
 	i := big.NewInt(0).SetUint64(index)
@@ -124,8 +123,9 @@ func (api DebugApi) ConsensusPlanAndActual(gid types.Gid, offset int64, index ui
 	}
 	blocks = append(blocks, block)
 
-	for block.Height-1 > common.FirstHeight {
-		b, err := api.v.Chain().GetSnapshotBlockByHeight(block.Height - 1)
+	nextHeight := block.Height - 1
+	for block.Height > types.EmptyHeight {
+		b, err := api.v.Chain().GetSnapshotBlockByHeight(nextHeight)
 		if err != nil {
 			result["err"] = err
 			result["blocks"] = blocks
@@ -138,6 +138,7 @@ func (api DebugApi) ConsensusPlanAndActual(gid types.Gid, offset int64, index ui
 			break
 		}
 		blocks = append(blocks, b)
+		nextHeight = b.Height - 1
 	}
 
 	result["blocks"] = blocks
@@ -156,19 +157,26 @@ func (api DebugApi) ConsensusPlanAndActual(gid types.Gid, offset int64, index ui
 	merge := make(map[time.Time]*PlanActual)
 
 	for _, v := range events {
-		merge[v.Timestamp] = &PlanActual{e: *v, t: v.Timestamp}
+		merge[v.Timestamp] = &PlanActual{E: *v, T: v.Timestamp}
 	}
 
 	for _, v := range blocks {
 		a, ok := merge[*v.Timestamp]
 		if ok {
-			a.b = *v
+			a.B = *v
+			if v.Producer() == a.E.Address {
+				a.R = true
+			}
 		} else {
-			merge[*v.Timestamp] = &PlanActual{b: *v, t: *v.Timestamp}
+			merge[*v.Timestamp] = &PlanActual{B: *v, T: *v.Timestamp}
 		}
 	}
 	result["merge"] = merge
 	return result
+}
+
+func (api DebugApi) FetchTaskQueue() []*net.Task {
+	return api.v.Net().Tasks()
 }
 
 func NewDebugApi(v *vite.Vite) *DebugApi {

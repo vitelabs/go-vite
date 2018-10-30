@@ -197,13 +197,13 @@ func printBalance(vite *vite.Vite, addr types.Address) *big.Int {
 }
 
 func unlockAddr(w *wallet.Manager, passwd string, priKey string) types.Address {
-	w.KeystoreManager.ImportPriv(priKey, passwd)
+	w.SeedStoreManagers.ImportPriv(priKey, passwd)
 	accountPrivKey, _ := ed25519.HexToPrivateKey(priKey)
 	accountPubKey := accountPrivKey.PubByte()
 	addr := types.PubkeyToAddress(accountPubKey)
 
-	w.KeystoreManager.Lock(addr)
-	err := w.KeystoreManager.Unlock(addr, passwd, 0)
+	w.SeedStoreManagers.Lock(addr)
+	err := w.SeedStoreManagers.Unlock(addr, passwd, 0)
 	wLog.Info("unlock address", "address", addr.String(), "r", err)
 	return addr
 }
@@ -340,10 +340,10 @@ func TestGenData(t *testing.T) {
 var password = "123456"
 
 func unlockAll(w *wallet.Manager) []types.Address {
-	results := w.KeystoreManager.Addresses()
+	results := w.SeedStoreManagers.Addresses()
 
 	for _, r := range results {
-		err := w.KeystoreManager.Unlock(r, password, 0)
+		err := w.SeedStoreManagers.Unlock(r, password, 0)
 		if err != nil {
 			log.Error("unlock fail.", "err", err, "address", r.String())
 		}
@@ -758,15 +758,11 @@ func contractsRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnro
 	if prevBlock == nil {
 		t.Fatalf("prev block not exist")
 	}
-	nodeAddr, privateKey, _ := types.CreateAddress()
-	publicKey := privateKey.PubByte()
-	signature := ed25519.Sign(privateKey, contracts.GetRegisterMessageForSignature(addr, gid))
+	nodeAddr, _, _ := types.CreateAddress()
 	registerData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameRegister,
 		gid,
 		name,
-		nodeAddr,
-		publicKey,
-		signature)
+		nodeAddr)
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
 		ToAddr:      contracts.AddressRegister,
@@ -812,15 +808,11 @@ func contractsUpdateRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 	if prevBlock == nil {
 		t.Fatalf("prev block not exist")
 	}
-	nodeAddr, privateKey, _ := types.CreateAddress()
-	publicKey := privateKey.PubByte()
-	signature := ed25519.Sign(privateKey, contracts.GetRegisterMessageForSignature(addr, gid))
+	nodeAddr, _, _ := types.CreateAddress()
 	registerData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration,
 		gid,
 		name,
-		nodeAddr,
-		publicKey,
-		signature)
+		nodeAddr)
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
 		ToAddr:      contracts.AddressRegister,
@@ -1001,7 +993,7 @@ func contractsReward(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroad
 	balance := printBalance(vite, addr)
 
 	count := int64(0)
-	snapshotBlockList, _ := vite.Chain().GetSnapshotBlocksByHeight(1, 10, true, false)
+	snapshotBlockList, _ := vite.Chain().GetSnapshotBlocksByHeight(1, vite.Chain().GetLatestSnapshotBlock().Height-2, true, false)
 	for _, b := range snapshotBlockList {
 		if b.Producer() == addr {
 			count = count + 1
@@ -1019,7 +1011,7 @@ func contractsReward(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroad
 	rewardAmount := new(big.Int).Div(new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)), big.NewInt(1051200000))
 	rewardAmount = rewardAmount.Mul(rewardAmount, big.NewInt(count))
 
-	rewardData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, "s3", addr, uint64(10), uint64(1))
+	rewardData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, "s3", addr)
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
 		ToAddr:      contracts.AddressRegister,

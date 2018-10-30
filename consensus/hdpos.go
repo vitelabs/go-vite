@@ -66,7 +66,7 @@ func (self *membersInfo) genSTime(index int32) time.Time {
 }
 func (self *membersInfo) genETime(index int32) time.Time {
 	planInterval := self.interval * self.memberCnt * self.perCnt
-	return self.genesisTime.Add(time.Duration(planInterval*index+1) * time.Second)
+	return self.genesisTime.Add(time.Duration(planInterval*(index+1)) * time.Second)
 }
 
 func (self *membersInfo) String() string {

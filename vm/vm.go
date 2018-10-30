@@ -25,8 +25,7 @@ type VMConfig struct {
 
 type NodeConfig struct {
 	IsTest    bool
-	calcQuota func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64)
-	params    VmParams
+	calcQuota func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
 }
 
 var nodeConfig NodeConfig
@@ -35,23 +34,19 @@ func InitVmConfig(isTest bool, isTestParam bool) {
 	if isTest {
 		nodeConfig = NodeConfig{
 			IsTest: isTest,
-			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64) {
-				return 1000000, 0
+			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
+				return 1000000, 0, nil
 			},
 		}
 	} else {
 		nodeConfig = NodeConfig{
 			IsTest: isTest,
-			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64) {
+			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
 				return quota.CalcQuota(db, addr, pledgeAmount, difficulty)
 			},
 		}
 	}
-	if isTestParam {
-		nodeConfig.params = VmParamsTest
-	} else {
-		nodeConfig.params = VmParamsMainNet
-	}
+	contracts.InitContractsConfig(isTestParam)
 }
 
 type VmContext struct {
@@ -74,6 +69,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 	blockContext := &vm_context.VmAccountBlock{block.Copy(), database}
 	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
+		blockContext.AccountBlock.Data = nil
 		// block data, amount, tokenId, fee is already changed to send block data by generator
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
 			return vm.receiveCreate(blockContext, sendBlock, quota.CalcCreateQuota(sendBlock.Fee))
@@ -81,11 +77,14 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 			return vm.receiveCall(blockContext, sendBlock)
 		}
 	case ledger.BlockTypeSendCreate:
-		quotaTotal, quotaAddition := nodeConfig.calcQuota(
+		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 			database,
 			block.AccountAddress,
 			contracts.GetPledgeBeneficialAmount(database, block.AccountAddress),
 			block.Difficulty)
+		if err != nil {
+			return nil, NoRetry, err
+		}
 		blockContext, err = vm.sendCreate(blockContext, quotaTotal, quotaAddition)
 		if err != nil {
 			return nil, NoRetry, err
@@ -93,11 +92,14 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 			return []*vm_context.VmAccountBlock{blockContext}, NoRetry, nil
 		}
 	case ledger.BlockTypeSendCall:
-		quotaTotal, quotaAddition := nodeConfig.calcQuota(
+		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 			database,
 			block.AccountAddress,
 			contracts.GetPledgeBeneficialAmount(database, block.AccountAddress),
 			block.Difficulty)
+		if err != nil {
+			return nil, NoRetry, err
+		}
 		blockContext, err = vm.sendCall(blockContext, quotaTotal, quotaAddition)
 		if err != nil {
 			return nil, NoRetry, err
@@ -268,16 +270,18 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 			}
 		}
 		vm.revert(block)
-		block.AccountBlock.Data = nil
 		vm.updateBlock(block, err, 0)
 		return vm.blockList, NoRetry, err
 	} else {
 		// check can make transaction
-		quotaTotal, quotaAddition := nodeConfig.calcQuota(
+		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 			block.VmContext,
 			block.AccountBlock.AccountAddress,
 			contracts.GetPledgeBeneficialAmount(block.VmContext, block.AccountBlock.AccountAddress),
 			block.AccountBlock.Difficulty)
+		if err != nil {
+			return nil, NoRetry, err
+		}
 		quotaLeft := quotaTotal
 		quotaRefund := uint64(0)
 		cost, err := util.IntrinsicGasCost(nil, false)
@@ -311,7 +315,6 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		}
 
 		vm.revert(block)
-		block.AccountBlock.Data = nil
 		vm.updateBlock(block, err, util.CalcQuotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, err))
 		return vm.blockList, err == util.ErrOutOfQuota, err
 	}
@@ -387,6 +390,7 @@ func (vm *VM) doSendBlockList(quotaLeft uint64) (err error) {
 func (vm *VM) revert(block *vm_context.VmAccountBlock) {
 	vm.blockList = vm.blockList[:1]
 	block.VmContext.Reset()
+	vm.blockList[0].AccountBlock.Data = block.VmContext.GetStorageHash().Bytes()
 }
 
 func (context *VmContext) AppendBlock(block *vm_context.VmAccountBlock) {

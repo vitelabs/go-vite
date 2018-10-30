@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"sync"
+	"errors"
 )
 
 type ContractTaskProcessor struct {
@@ -167,7 +168,11 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
 	genResult, err := gen.GenerateWithOnroad(*sBlock, consensusMessage,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			return tp.worker.manager.keystoreManager.SignData(addr, data)
+			_, key, _, err := tp.worker.manager.wallet.GlobalFindAddr(addr)
+			if err != nil {
+				return nil, nil, err
+			}
+			return key.SignData(data)
 		}, pow.DefaultDifficulty)
 	if err != nil {
 		plog.Error("GenerateWithOnroad failed", "error", err)
@@ -247,12 +252,7 @@ func (tp *ContractTaskProcessor) packConsensusMessage(sendBlock *ledger.AccountB
 	}
 
 	if genSnapshotBlock.Height < sendSnapshotBlock.Height {
-		fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(tp.worker.manager.Chain(), sendSnapshotBlock)
-		if err != nil {
-			tp.log.Error("GetFitestGeneratorSnapshotHash failed", "error", err)
-			return nil, err
-		}
-		consensusMessage.SnapshotHash = *fitestSnapshotBlockHash
+		return nil, errors.New("genSnapshotBlock's Height can't lower than sendSnapshotBlock's")
 	}
 	return consensusMessage, nil
 }
