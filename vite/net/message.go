@@ -128,10 +128,8 @@ type queryHandler struct {
 	lock     sync.RWMutex
 	queue    *list.List
 	handlers map[ViteCmd]MsgHandler
-	//signal   chan struct{}
-	term chan struct{}
-	//sch      int32 // atomic
-	wg sync.WaitGroup
+	term     chan struct{}
+	wg       sync.WaitGroup
 }
 
 func newQueryHandler(chain Chain) *queryHandler {

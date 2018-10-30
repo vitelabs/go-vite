@@ -40,6 +40,7 @@ type net struct {
 	*fetcher
 	*broadcaster
 	*receiver
+	*filter
 	pool      *requestPool
 	term      chan struct{}
 	log       log15.Logger
@@ -49,7 +50,7 @@ type net struct {
 	fc        *fileClient
 	handlers  map[ViteCmd]MsgHandler
 	topo      *topo.Topology
-	query     *queryHandler
+	query     *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
 }
 
 // auto from
@@ -84,6 +85,7 @@ func New(cfg *Config) Net {
 		fetcher:     fetcher,
 		broadcaster: broadcaster,
 		receiver:    receiver,
+		filter:      filter,
 		fs:          newFileServer(cfg.Port, cfg.Chain),
 		fc:          fc,
 		handlers:    make(map[ViteCmd]MsgHandler),
@@ -156,6 +158,8 @@ func (n *net) Start(svr *p2p.Server) (err error) {
 
 	n.query.start()
 
+	n.filter.start()
+
 	return
 }
 
@@ -182,6 +186,8 @@ func (n *net) Stop() {
 		}
 
 		n.query.stop()
+
+		n.filter.stop()
 
 		n.wg.Wait()
 	}
