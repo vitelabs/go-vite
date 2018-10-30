@@ -68,6 +68,9 @@ type Producer struct {
 
 	kafkaProducer sarama.AsyncProducer
 	chain         Chain
+	concurrency   uint64
+
+	sendWg sync.WaitGroup
 }
 
 func NewProducerFromDb(producerId uint8, buf []byte, chain Chain, db *leveldb.DB) (*Producer, error) {
@@ -96,6 +99,7 @@ func NewProducer(producerId uint8, brokerList []string, topic string, chain Chai
 
 func (producer *Producer) init(producerId uint8, chain Chain, db *leveldb.DB) error {
 	producer.producerId = producerId
+	producer.concurrency = 5
 
 	producer.chain = chain
 	producer.db = db
@@ -288,7 +292,7 @@ func (producer *Producer) send() {
 		}
 	}()
 
-	for i := start + 1; i <= end; i++ {
+	for i := start; i < end; {
 		if producer.hasSend > producer.dbHasSend &&
 			producer.hasSend-producer.dbHasSend >= producer.dbRecordInterval {
 			if err := producer.saveHasSend(); err != nil {
@@ -297,160 +301,168 @@ func (producer *Producer) send() {
 
 		}
 
-		eventType, blockHashList, err := producer.chain.GetEvent(i)
-		if err != nil {
-			producer.log.Error("Get event failed, error is "+err.Error(), "method", "send")
-			return
-		}
+		var msgList []*message
 
-		m := &message{
-			EventId: i,
-		}
-
-		switch eventType {
-		// AddAccountBlocksEvent     = byte(1)
-		case byte(1):
-			m.MsgType = "InsertAccountBlocks"
-			var blocks []*MqAccountBlock
-			for _, blockHash := range blockHashList {
-				block, err := producer.chain.GetAccountBlockByHash(&blockHash)
-				if err != nil {
-					producer.log.Error("GetAccountBlockByHash failed, error is "+err.Error(), "method", "send")
-					return
-				}
-				if block != nil {
-					// Wrap block
-					mqAccountBlock := &MqAccountBlock{}
-					mqAccountBlock.AccountBlock = *block
-
-					var sendBlock *ledger.AccountBlock
-
-					var tokenTypeId *types.TokenTypeId
-					if block.IsReceiveBlock() {
-						var err error
-						sendBlock, err = producer.chain.GetAccountBlockByHash(&block.FromBlockHash)
-
-						if err != nil {
-							producer.log.Error("Get send account block failed, error is "+err.Error(), "method", "send")
-							return
-						}
-
-						if sendBlock != nil {
-							tokenTypeId = &sendBlock.TokenId
-							// set token id
-							mqAccountBlock.Amount = sendBlock.Amount
-							mqAccountBlock.TokenId = sendBlock.TokenId
-							mqAccountBlock.FromAddress = sendBlock.AccountAddress
-							mqAccountBlock.ToAddress = mqAccountBlock.AccountAddress
-							mqAccountBlock.SendData = sendBlock.Data
-						}
-					} else {
-						tokenTypeId = &block.TokenId
-						mqAccountBlock.FromAddress = mqAccountBlock.AccountAddress
-
-						var err error
-						mqAccountBlock.ParsedData, err = producer.getParsedData(block)
-						if err != nil {
-							producer.log.Error("GetParsedData failed, error is "+err.Error(), "method", "send")
-							return
-						}
-
-					}
-
-					balance := big.NewInt(0)
-
-					if tokenTypeId != nil {
-						vc, newVcErr := vm_context.NewVmContext(producer.chain, nil, &block.Hash, &block.AccountAddress)
-						if newVcErr != nil {
-							producer.log.Error("NewVmContext failed, error is "+newVcErr.Error(), "method", "send")
-							return
-						}
-						balance = vc.GetBalance(nil, tokenTypeId)
-					}
-
-					mqAccountBlock.Balance = balance
-					mqAccountBlock.Timestamp = block.Timestamp.Unix()
-					blocks = append(blocks, mqAccountBlock)
-				}
+		for j := i + 1; j-i <= producer.concurrency && j <= end; j++ {
+			eventType, blockHashList, err := producer.chain.GetEvent(j)
+			if err != nil {
+				producer.log.Error("Get event failed, error is "+err.Error(), "method", "send")
+				return
 			}
 
-			if len(blocks) <= 0 {
-				producer.hasSend = i
+			m := &message{
+				EventId: j,
+			}
+
+			switch eventType {
+			// AddAccountBlocksEvent     = byte(1)
+			case byte(1):
+				m.MsgType = "InsertAccountBlocks"
+				var blocks []*MqAccountBlock
+				for _, blockHash := range blockHashList {
+					block, err := producer.chain.GetAccountBlockByHash(&blockHash)
+					if err != nil {
+						producer.log.Error("GetAccountBlockByHash failed, error is "+err.Error(), "method", "send")
+						return
+					}
+					if block != nil {
+						// Wrap block
+						mqAccountBlock := &MqAccountBlock{}
+						mqAccountBlock.AccountBlock = *block
+
+						var sendBlock *ledger.AccountBlock
+
+						var tokenTypeId *types.TokenTypeId
+						if block.IsReceiveBlock() {
+							var err error
+							sendBlock, err = producer.chain.GetAccountBlockByHash(&block.FromBlockHash)
+
+							if err != nil {
+								producer.log.Error("Get send account block failed, error is "+err.Error(), "method", "send")
+								return
+							}
+
+							if sendBlock != nil {
+								tokenTypeId = &sendBlock.TokenId
+								// set token id
+								mqAccountBlock.Amount = sendBlock.Amount
+								mqAccountBlock.TokenId = sendBlock.TokenId
+								mqAccountBlock.FromAddress = sendBlock.AccountAddress
+								mqAccountBlock.ToAddress = mqAccountBlock.AccountAddress
+								mqAccountBlock.SendData = sendBlock.Data
+							}
+						} else {
+							tokenTypeId = &block.TokenId
+							mqAccountBlock.FromAddress = mqAccountBlock.AccountAddress
+
+							var err error
+							mqAccountBlock.ParsedData, err = producer.getParsedData(block)
+							if err != nil {
+								producer.log.Error("GetParsedData failed, error is "+err.Error(), "method", "send")
+								return
+							}
+
+						}
+
+						balance := big.NewInt(0)
+
+						if tokenTypeId != nil {
+							vc, newVcErr := vm_context.NewVmContext(producer.chain, nil, &block.Hash, &block.AccountAddress)
+							if newVcErr != nil {
+								producer.log.Error("NewVmContext failed, error is "+newVcErr.Error(), "method", "send")
+								return
+							}
+							balance = vc.GetBalance(nil, tokenTypeId)
+						}
+
+						mqAccountBlock.Balance = balance
+						mqAccountBlock.Timestamp = block.Timestamp.Unix()
+						blocks = append(blocks, mqAccountBlock)
+					}
+				}
+
+				if len(blocks) <= 0 {
+					producer.hasSend = j
+					continue
+				}
+
+				buf, jsonErr := json.Marshal(blocks)
+				if jsonErr != nil {
+					producer.log.Error("[InsertAccountBlocks] json.Marshal failed, error is "+jsonErr.Error(), "method", "send")
+					return
+				}
+				m.Data += string(buf)
+
+				// DeleteAccountBlocksEvent  = byte(2)
+			case byte(2):
+				m.MsgType = "DeleteAccountBlocks"
+
+				buf, jsonErr := json.Marshal(blockHashList)
+				if jsonErr != nil {
+					producer.log.Error("[DeleteAccountBlocks] json.Marshal failed, error is "+jsonErr.Error(), "method", "send")
+					return
+				}
+				m.Data = string(buf)
+
+				// AddSnapshotBlocksEvent    = byte(3)
+			case byte(3):
+				m.MsgType = "InsertSnapshotBlocks"
+				var blocks []*MqSnapshotBlock
+				for _, blockHash := range blockHashList {
+					block, err := producer.chain.GetSnapshotBlockByHash(&blockHash)
+					if err != nil {
+						producer.log.Error("GetSnapshotBlockByHash failed, error is "+err.Error(), "method", "send")
+						return
+					}
+					if block != nil {
+						mqSnapshotBlock := &MqSnapshotBlock{}
+						mqSnapshotBlock.SnapshotBlock = block
+						mqSnapshotBlock.Producer = mqSnapshotBlock.SnapshotBlock.Producer()
+						mqSnapshotBlock.Timestamp = block.Timestamp.Unix()
+						blocks = append(blocks, mqSnapshotBlock)
+					}
+				}
+
+				if len(blocks) <= 0 {
+					producer.hasSend = j
+					continue
+				}
+
+				buf, jsonErr := json.Marshal(blocks)
+				if jsonErr != nil {
+					producer.log.Error("[InsertSnapshotBlocks] json.Marshal failed, error is "+jsonErr.Error(), "method", "send")
+					return
+				}
+				m.Data += string(buf)
+
+				// DeleteSnapshotBlocksEvent = byte(4)
+			case byte(4):
+				m.MsgType = "DeleteSnapshotBlocks"
+				buf, jsonErr := json.Marshal(blockHashList)
+				if jsonErr != nil {
+					producer.log.Error("[DeleteSnapshotBlocks] json.Marshal failed, error is "+jsonErr.Error(), "method", "send")
+					return
+				}
+				m.Data = string(buf)
+
+				// No event
+			default:
+				producer.hasSend = j
 				continue
 			}
 
-			buf, jsonErr := json.Marshal(blocks)
-			if jsonErr != nil {
-				producer.log.Error("[InsertAccountBlocks] json.Marshal failed, error is "+jsonErr.Error(), "method", "send")
-				return
-			}
-			m.Data += string(buf)
-
-		// DeleteAccountBlocksEvent  = byte(2)
-		case byte(2):
-			m.MsgType = "DeleteAccountBlocks"
-
-			buf, jsonErr := json.Marshal(blockHashList)
-			if jsonErr != nil {
-				producer.log.Error("[DeleteAccountBlocks] json.Marshal failed, error is "+jsonErr.Error(), "method", "send")
-				return
-			}
-			m.Data = string(buf)
-
-		// AddSnapshotBlocksEvent    = byte(3)
-		case byte(3):
-			m.MsgType = "InsertSnapshotBlocks"
-			var blocks []*MqSnapshotBlock
-			for _, blockHash := range blockHashList {
-				block, err := producer.chain.GetSnapshotBlockByHash(&blockHash)
-				if err != nil {
-					producer.log.Error("GetSnapshotBlockByHash failed, error is "+err.Error(), "method", "send")
-					return
-				}
-				if block != nil {
-					mqSnapshotBlock := &MqSnapshotBlock{}
-					mqSnapshotBlock.SnapshotBlock = block
-					mqSnapshotBlock.Producer = mqSnapshotBlock.SnapshotBlock.Producer()
-					mqSnapshotBlock.Timestamp = block.Timestamp.Unix()
-					blocks = append(blocks, mqSnapshotBlock)
-				}
-			}
-
-			if len(blocks) <= 0 {
-				producer.hasSend = i
-				continue
-			}
-
-			buf, jsonErr := json.Marshal(blocks)
-			if jsonErr != nil {
-				producer.log.Error("[InsertSnapshotBlocks] json.Marshal failed, error is "+jsonErr.Error(), "method", "send")
-				return
-			}
-			m.Data += string(buf)
-
-		// DeleteSnapshotBlocksEvent = byte(4)
-		case byte(4):
-			m.MsgType = "DeleteSnapshotBlocks"
-			buf, jsonErr := json.Marshal(blockHashList)
-			if jsonErr != nil {
-				producer.log.Error("[DeleteSnapshotBlocks] json.Marshal failed, error is "+jsonErr.Error(), "method", "send")
-				return
-			}
-			m.Data = string(buf)
-
-		// No event
-		default:
-			producer.hasSend = i
-			continue
 		}
 
-		sendErr := producer.sendMessage(m)
+		sendErr := producer.sendMessage(msgList)
 		if sendErr != nil {
 			producer.log.Error("sendMessage failed, error is "+sendErr.Error(), "method", "send")
 			return
 		}
 
+		i = i + uint64(len(msgList))
+
 		producer.hasSend = i
+
 	}
 }
 
@@ -482,23 +494,32 @@ func (producer *Producer) getHasSend() (uint64, error) {
 	return binary.BigEndian.Uint64(value), nil
 }
 
-func (producer *Producer) sendMessage(msg *message) error {
-	buf, jsonErr := json.Marshal(msg)
-	if jsonErr != nil {
-		return jsonErr
-	}
+func (producer *Producer) sendMessage(msg []*message) error {
+	var err error
+	for i := 0; i < len(msg); i++ {
+		buf, jsonErr := json.Marshal(msg)
+		if jsonErr != nil {
+			return jsonErr
+		}
+		sMsg := &sarama.ProducerMessage{Topic: producer.topic, Value: sarama.StringEncoder(buf)}
 
-	sMsg := &sarama.ProducerMessage{Topic: producer.topic, Value: sarama.StringEncoder(buf)}
+		producer.sendWg.Add(1)
+		// simple
+		go func() {
+			defer producer.sendWg.Done()
+			producer.kafkaProducer.Input() <- sMsg
+			select {
+			// success
+			case <-producer.kafkaProducer.Successes():
+				break
 
-	producer.kafkaProducer.Input() <- sMsg
-	select {
-	// success
-	case <-producer.kafkaProducer.Successes():
-		break
-		// error
-	case sendError := <-producer.kafkaProducer.Errors():
-		producer.log.Error("kafka send failed, error is "+sendError.Error(), "method", "sendMessage")
-		return sendError
+			// error
+			case sendError := <-producer.kafkaProducer.Errors():
+				producer.log.Error("kafka send failed, error is "+sendError.Error(), "method", "sendMessage")
+				err = sendError
+			}
+		}()
 	}
+	producer.sendWg.Wait()
 	return nil
 }
