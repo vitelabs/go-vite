@@ -97,7 +97,7 @@ func (self *accountVerifier) newSuccessTask() verifyTask {
 }
 
 func (self *accountVerifier) newFailTask() verifyTask {
-	return failT
+	return &failTask{t: time.Now()}
 }
 
 func (self *accountVerifier) verifyDirectAccount(received *accountPoolBlock, sends []*accountPoolBlock) (result *poolAccountVerifyStat) {
@@ -168,7 +168,6 @@ func (self *poolAccountVerifyStat) errMsg() string {
 }
 
 var successT = &successTask{}
-var failT = &failTask{t: time.Now()}
 
 type successTask struct {
 }
