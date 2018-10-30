@@ -71,11 +71,14 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		blockContext.AccountBlock.Data = nil
 		// block data, amount, tokenId, fee is already changed to send block data by generator
+		/* TODO not support create contract this version
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
 			return vm.receiveCreate(blockContext, sendBlock, quota.CalcCreateQuota(sendBlock.Fee))
-		} else if sendBlock.BlockType == ledger.BlockTypeSendCall || sendBlock.BlockType == ledger.BlockTypeSendReward {
+		} else*/
+		if sendBlock.BlockType == ledger.BlockTypeSendCall || sendBlock.BlockType == ledger.BlockTypeSendReward {
 			return vm.receiveCall(blockContext, sendBlock)
 		}
+	/* TODO not support create contract this version
 	case ledger.BlockTypeSendCreate:
 		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 			database,
@@ -90,7 +93,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 			return nil, NoRetry, err
 		} else {
 			return []*vm_context.VmAccountBlock{blockContext}, NoRetry, nil
-		}
+		}*/
 	case ledger.BlockTypeSendCall:
 		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 			database,
@@ -265,12 +268,66 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		if err == nil {
 			block.AccountBlock.Data = block.VmContext.GetStorageHash().Bytes()
 			vm.updateBlock(block, err, 0)
-			if err = vm.doSendBlockList(util.TxGas); err == nil {
+			if err = vm.doSendBlockList(util.PrecompiledContractsSendGax); err == nil {
 				return vm.blockList, NoRetry, nil
 			}
 		}
 		vm.revert(block)
 		vm.updateBlock(block, err, 0)
+
+		// precompiled contract receive error, if amount or fee is not zero, refund
+		refundFlag := false
+		if sendBlock.Amount.Sign() > 0 && sendBlock.Fee.Sign() > 0 && sendBlock.TokenId == ledger.ViteTokenId {
+			vm.VmContext.AppendBlock(
+				&vm_context.VmAccountBlock{
+					util.MakeSendBlock(
+						block.AccountBlock,
+						sendBlock.AccountAddress,
+						ledger.BlockTypeSendCall,
+						new(big.Int).Add(block.AccountBlock.Amount, block.AccountBlock.Fee),
+						ledger.ViteTokenId,
+						vm.VmContext.GetNewBlockHeight(block),
+						p.GetRefundData()),
+					nil})
+			refundFlag = true
+		} else {
+			if sendBlock.Amount.Sign() > 0 {
+				vm.VmContext.AppendBlock(
+					&vm_context.VmAccountBlock{
+						util.MakeSendBlock(
+							block.AccountBlock,
+							sendBlock.AccountAddress,
+							ledger.BlockTypeSendCall,
+							new(big.Int).Set(sendBlock.Amount),
+							sendBlock.TokenId,
+							vm.VmContext.GetNewBlockHeight(block),
+							p.GetRefundData()),
+						nil})
+				refundFlag = true
+			}
+			if sendBlock.Fee.Sign() > 0 {
+				vm.VmContext.AppendBlock(
+					&vm_context.VmAccountBlock{
+						util.MakeSendBlock(
+							block.AccountBlock,
+							sendBlock.AccountAddress,
+							ledger.BlockTypeSendCall,
+							new(big.Int).Set(sendBlock.Fee),
+							ledger.ViteTokenId,
+							vm.VmContext.GetNewBlockHeight(block),
+							p.GetRefundData()),
+						nil})
+				refundFlag = true
+			}
+		}
+		if refundFlag {
+			if err = vm.doSendBlockList(util.PrecompiledContractsSendGax); err == nil {
+				return vm.blockList, NoRetry, nil
+			} else {
+				// impossible code
+				return nil, Retry, err
+			}
+		}
 		return vm.blockList, NoRetry, err
 	} else {
 		// check can make transaction

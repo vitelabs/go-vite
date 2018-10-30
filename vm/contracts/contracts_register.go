@@ -163,6 +163,9 @@ type MethodRegister struct {
 func (p *MethodRegister) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
+func (p *MethodRegister) GetRefundData() []byte {
+	return []byte{1}
+}
 
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
 func (p *MethodRegister) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
@@ -257,6 +260,9 @@ type MethodCancelRegister struct {
 func (p *MethodCancelRegister) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
+func (p *MethodCancelRegister) GetRefundData() []byte {
+	return []byte{2}
+}
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
 func (p *MethodCancelRegister) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
@@ -331,6 +337,10 @@ type MethodReward struct {
 
 func (p *MethodReward) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
+}
+
+func (p *MethodReward) GetRefundData() []byte {
+	return []byte{3}
 }
 
 // get reward of generating snapshot block
@@ -449,6 +459,10 @@ type MethodUpdateRegistration struct {
 
 func (p *MethodUpdateRegistration) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
+}
+
+func (p *MethodUpdateRegistration) GetRefundData() []byte {
+	return []byte{4}
 }
 
 // update registration info

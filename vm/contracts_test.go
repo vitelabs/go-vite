@@ -17,6 +17,101 @@ import (
 	"time"
 )
 
+func TestContractsRefund(t *testing.T) {
+	// prepare db
+	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
+	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
+	blockTime := time.Now()
+
+	addr2 := contracts.AddressRegister
+	nodeName := "s1"
+	locHashRegister, _ := types.BytesToHash(contracts.GetRegisterKey(nodeName, types.SNAPSHOT_GID))
+	registrationDataOld := db.storageMap[addr2][string(locHashRegister.Bytes())]
+	// register with an existed super node name, get refund
+	balance1 := new(big.Int).Set(viteTotalSupply)
+	addr6, _, _ := types.CreateAddress()
+	db.accountBlockMap[addr6] = make(map[types.Hash]*ledger.AccountBlock)
+	block13Data, err := contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr6)
+	hash13 := types.DataHash([]byte{1, 3})
+	block13 := &ledger.AccountBlock{
+		Height:         3,
+		ToAddress:      addr2,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeSendCall,
+		PrevHash:       hash12,
+		Amount:         new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
+		Fee:            big.NewInt(0),
+		Data:           block13Data,
+		TokenId:        ledger.ViteTokenId,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+	}
+	vm := NewVM()
+	vm.Debug = true
+	db.addr = addr1
+	sendRegisterBlockList, isRetry, err := vm.Run(db, block13, nil)
+	balance1.Sub(balance1, block13.Amount)
+	if len(sendRegisterBlockList) != 1 || isRetry || err != nil ||
+		sendRegisterBlockList[0].AccountBlock.Quota != contracts.RegisterGas ||
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
+		t.Fatalf("send register transaction error")
+	}
+	db.accountBlockMap[addr1][hash13] = sendRegisterBlockList[0].AccountBlock
+
+	hash21 := types.DataHash([]byte{2, 1})
+	block21 := &ledger.AccountBlock{
+		Height:         1,
+		AccountAddress: addr2,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash13,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+	}
+	vm = NewVM()
+	vm.Debug = true
+	db.addr = addr2
+	receiveRegisterBlockList, isRetry, err := vm.Run(db, block21, sendRegisterBlockList[0].AccountBlock)
+	if len(receiveRegisterBlockList) != 2 || isRetry || err != nil ||
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
+		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationDataOld) ||
+		receiveRegisterBlockList[0].AccountBlock.Quota != 0 ||
+		receiveRegisterBlockList[1].AccountBlock.Height != 2 ||
+		receiveRegisterBlockList[1].AccountBlock.Quota != 0 ||
+		receiveRegisterBlockList[1].AccountBlock.TokenId != block13.TokenId ||
+		receiveRegisterBlockList[1].AccountBlock.Amount.Cmp(block13.Amount) != 0 ||
+		receiveRegisterBlockList[1].AccountBlock.BlockType != ledger.BlockTypeSendCall ||
+		receiveRegisterBlockList[1].AccountBlock.AccountAddress != block13.ToAddress ||
+		receiveRegisterBlockList[1].AccountBlock.ToAddress != block13.AccountAddress ||
+		!bytes.Equal(receiveRegisterBlockList[1].AccountBlock.Data, []byte{1}) {
+		t.Fatalf("receive register transaction error")
+	}
+	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
+	db.accountBlockMap[addr2][hash21] = receiveRegisterBlockList[0].AccountBlock
+	hash22 := types.DataHash([]byte{2, 2})
+	db.accountBlockMap[addr2][hash22] = receiveRegisterBlockList[1].AccountBlock
+
+	hash14 := types.DataHash([]byte{1, 4})
+	block14 := &ledger.AccountBlock{
+		Height:         4,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash22,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+	}
+	vm = NewVM()
+	vm.Debug = true
+	db.addr = addr1
+	receiveRegisterRefuncBlockList, isRetry, err := vm.Run(db, block14, receiveRegisterBlockList[1].AccountBlock)
+	balance1.Add(balance1, block13.Amount)
+	if len(receiveRegisterRefuncBlockList) != 1 || isRetry || err != nil ||
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
+		receiveRegisterRefuncBlockList[0].AccountBlock.Quota != 21000 {
+		t.Fatalf("receive register refund transaction error")
+	}
+	db.accountBlockMap[addr1][hash14] = receiveRegisterRefuncBlockList[0].AccountBlock
+}
+
 func TestContractsRegister(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
@@ -762,7 +857,7 @@ func TestContractsPledge(t *testing.T) {
 	db.accountBlockMap[addr1][hash18] = receiveCancelPledgeRefundBlockList2[0].AccountBlock
 }
 
-func TestContractsConsensusGroup(t *testing.T) {
+/*func TestContractsConsensusGroup(t *testing.T) {
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), util.AttovPerVite)
 	db, addr1, _, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
 	blockTime := time.Now()
@@ -1033,7 +1128,7 @@ func TestContractsConsensusGroup(t *testing.T) {
 	if groupInfoList := contracts.GetActiveConsensusGroupList(db); len(groupInfoList) != 3 || groupInfoList[0].NodeCount != 25 {
 		t.Fatalf("get active group info list failed")
 	}
-}
+}*/
 
 func TestContractsMintage(t *testing.T) {
 	// prepare db

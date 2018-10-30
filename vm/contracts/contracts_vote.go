@@ -96,6 +96,10 @@ func (p *MethodVote) GetFee(context contractsContext, block *vm_context.VmAccoun
 	return big.NewInt(0), nil
 }
 
+func (p *MethodVote) GetRefundData() []byte {
+	return []byte{1}
+}
+
 // vote for a super node of a consensus group
 func (p *MethodVote) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, VoteGas)
@@ -141,6 +145,10 @@ type MethodCancelVote struct {
 
 func (p *MethodCancelVote) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
+}
+
+func (p *MethodCancelVote) GetRefundData() []byte {
+	return []byte{2}
 }
 
 // cancel vote for a super node of a consensus group
