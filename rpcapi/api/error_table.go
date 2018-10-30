@@ -31,15 +31,15 @@ var (
 		Code:    -35002,
 	}
 
-	ErrorNotSupportAddNot = JsonRpc2Error{
-		Message: "Adding note information is not supported currently",
-		Code:    -35003,
-	}
-
-	ErrorNotSupportRecvAddNote = JsonRpc2Error{
-		Message: "Adding note information in receiveBlock is not allowed",
-		Code:    -35004,
-	}
+	//ErrorNotSupportAddNot = JsonRpc2Error{
+	//	Message: "Adding note information is not supported currently",
+	//	Code:    -35003,
+	//}
+	//
+	//ErrorNotSupportRecvAddNote = JsonRpc2Error{
+	//	Message: "Adding note information in receiveBlock is not allowed",
+	//	Code:    -35004,
+	//}
 
 	ErrDecryptKey = JsonRpc2Error{
 		Message: walleterrors.ErrDecryptKey.Error(),
@@ -60,7 +60,7 @@ func init() {
 	concernedErrorMap[AddressAlreadyUnLocked.Error()] = AddressAlreadyUnLocked
 	concernedErrorMap[ErrBalanceNotEnough.Error()] = ErrBalanceNotEnough
 	concernedErrorMap[ErrQuotaNotEnough.Error()] = ErrQuotaNotEnough
-	concernedErrorMap[ErrorNotSupportRecvAddNote.Error()] = ErrorNotSupportRecvAddNote
+	//concernedErrorMap[ErrorNotSupportRecvAddNote.Error()] = ErrorNotSupportRecvAddNote
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {
