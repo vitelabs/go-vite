@@ -393,27 +393,35 @@ func (p *OnroadBlocksPool) updateSimpleCache(isAdd bool, block *ledger.AccountBl
 }
 
 func (p *OnroadBlocksPool) deleteSimpleCache(addr types.Address) {
-	if t, ok := p.simpleCacheDeadTimer.Load(addr); ok {
-		if t != nil {
-			t.(*time.Timer).Stop()
-		}
-		p.simpleCacheDeadTimer.Delete(addr)
+	if p.simpleCacheDeadTimer != nil {
+		if t, ok := p.simpleCacheDeadTimer.Load(addr); ok {
+			if t != nil {
+				t.(*time.Timer).Stop()
+			}
+			p.simpleCacheDeadTimer.Delete(addr)
 
+		}
 	}
-	if _, ok := p.simpleCache.Load(addr); ok {
-		p.simpleCache.Delete(addr)
+	if p.simpleCache != nil {
+		if _, ok := p.simpleCache.Load(addr); ok {
+			p.simpleCache.Delete(addr)
+		}
 	}
 }
 
 func (p *OnroadBlocksPool) deleteFullCache(addr types.Address) {
-	if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
-		if t != nil {
-			t.(*time.Timer).Stop()
+	if p.fullCacheDeadTimer != nil {
+		if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
+			if t != nil {
+				t.(*time.Timer).Stop()
+			}
+			p.fullCache.Delete(addr)
 		}
-		p.fullCache.Delete(addr)
 	}
-	if _, ok := p.fullCache.Load(addr); ok {
-		p.fullCache.Delete(addr)
+	if p.fullCache != nil {
+		if _, ok := p.fullCache.Load(addr); ok {
+			p.fullCache.Delete(addr)
+		}
 	}
 }
 
