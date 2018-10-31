@@ -18,7 +18,7 @@ import (
 )
 
 func TestGetPowNonce(t *testing.T) {
-	d, _ := hex.DecodeString("fffffffffff00000")
+	d, _ := hex.DecodeString("fffff00000000000")
 	dd := make([]byte, 32)
 	copy(dd[:], d[:])
 	bd := new(big.Int).SetBytes(dd)
