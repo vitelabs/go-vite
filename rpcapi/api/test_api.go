@@ -115,6 +115,7 @@ type CreateReceiveTxParms struct {
 	SelfAddr   types.Address
 	FromHash   types.Hash
 	PrivKeyStr string
+	Difficulty *big.Int
 }
 
 func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
@@ -129,6 +130,7 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: params.SelfAddr,
 		FromBlockHash:  &params.FromHash,
+		Difficulty:     params.Difficulty,
 	}
 	if code == ledger.AccountTypeContract && msg.BlockType == ledger.BlockTypeReceive {
 		return errors.New("AccountTypeContract can't receiveTx without consensus's control")
