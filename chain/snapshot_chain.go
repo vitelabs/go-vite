@@ -117,11 +117,6 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
 	}
-	if snapshotBlock.Height >= 47898 && snapshotBlock.Height <= 47900 {
-		fmt.Println("hahah")
-	}
-	// Trigger success
-	c.em.triggerInsertSnapshotBlocksSuccess([]*ledger.SnapshotBlock{snapshotBlock})
 
 	// After write db
 	trieSaveCallback()
@@ -134,6 +129,9 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 			c.needSnapshotCache.BeSnapshot(&addr, item.Height)
 		}
 	}
+
+	// Trigger success
+	c.em.triggerInsertSnapshotBlocksSuccess([]*ledger.SnapshotBlock{snapshotBlock})
 
 	return nil
 }
