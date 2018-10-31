@@ -112,6 +112,8 @@ func (self *accountPool) Compact() int {
 	}()
 	self.pool.RLock()
 	defer self.pool.RUnLock()
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
 	//	this is a rate limiter
 	now := time.Now()
 	sum := 0
