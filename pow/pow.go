@@ -1,11 +1,13 @@
 package pow
 
 import (
-	"encoding/binary"
 	"math/big"
 
+	"encoding/binary"
+	"errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"golang.org/x/crypto/blake2b"
 )
 
 // IN MY 2017 MACBOOK PRO which cpu is---- Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz----
@@ -19,43 +21,29 @@ const (
 var DefaultDifficulty = new(big.Int).SetUint64(FullThreshold)
 
 // data = Hash(address + prehash); data + nonce < target.
-func GetPowNonce(difficulty *big.Int, dataHash types.Hash) [8]byte {
-	rng := crypto.GetEntropyCSPRNG(8)
+func GetPowNonce(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
 	data := dataHash.Bytes()
-
-	calc, target := prepareData(difficulty, data, rng)
 	for {
-		if QuickGreater(crypto.Hash(8, calc), target[:]) {
-			break
+		nonce := crypto.GetEntropyCSPRNG(8)
+		out := powHash256(nonce, data)
+		if new(big.Int).SetBytes(out).Cmp(difficulty) >= 0 {
+			return nonce, nil
 		}
-		calc = QuickInc(calc)
 	}
-
-	var arr [8]byte
-	copy(arr[:], calc[32:])
-	return arr
+	return nil, errors.New("getPowNonce error.")
 }
 
-func CheckPowNonce(difficulty *big.Int, nonce [8]byte, data []byte) bool {
-	calc, target := prepareData(difficulty, data, nonce[:])
-	return QuickGreater(crypto.Hash(8, calc), target[:])
+func powHash256(nonce []byte, data []byte) []byte {
+	hash, _ := blake2b.New256(nil)
+	hash.Write(nonce)
+	hash.Write(data)
+	out := hash.Sum(nil)
+	return out
 }
 
-func prepareData(difficulty *big.Int, data []byte, nonce []byte) ([]byte, [8]byte) {
-	threshold := getThresholdByDifficulty(difficulty)
-	calc := make([]byte, 40)
-	l := copy(calc, data)
-	copy(calc[l:], nonce[:])
-	target := Uint64ToByteArray(threshold)
-	return calc, target
-}
-
-func getThresholdByDifficulty(difficulty *big.Int) uint64 {
-	if difficulty != nil {
-		return difficulty.Uint64()
-	} else {
-		return FullThreshold
-	}
+func CheckPowNonce(difficulty *big.Int, nonce []byte, data []byte) bool {
+	out := powHash256(nonce, data)
+	return QuickGreater(out, difficulty.Bytes())
 }
 
 func QuickInc(x []byte) []byte {
@@ -69,7 +57,7 @@ func QuickInc(x []byte) []byte {
 }
 
 func QuickGreater(x, y []byte) bool {
-	for i := 0; i < 8; i++ {
+	for i := 0; i < 32; i++ {
 		if x[i] > y[i] {
 			return true
 		}
@@ -80,11 +68,11 @@ func QuickGreater(x, y []byte) bool {
 			continue
 		}
 	}
-	return false
+	return true
 }
 
 func Uint64ToByteArray(i uint64) [8]byte {
 	var n [8]byte
-	binary.BigEndian.PutUint64(n[:], i)
+	binary.LittleEndian.PutUint64(n[:], i)
 	return n
 }

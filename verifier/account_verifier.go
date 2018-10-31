@@ -425,11 +425,11 @@ func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock, account
 		if accountType == ledger.AccountTypeContract {
 			return errors.New("nonce of contractAddr's block must be nil")
 		}
-		var nonce [8]byte
-		copy(nonce[:], block.Nonce[:8])
+		if len(block.Nonce) != 8 {
+			return errors.New("error nonce len")
+		}
 		hash256Data := crypto.Hash256(block.AccountAddress.Bytes(), block.PrevHash.Bytes())
-
-		if !pow.CheckPowNonce(block.Difficulty, nonce, hash256Data) {
+		if !pow.CheckPowNonce(block.Difficulty, block.Nonce, hash256Data) {
 			return errors.New("check pow nonce failed")
 		}
 	} else {

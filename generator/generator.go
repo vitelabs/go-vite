@@ -156,7 +156,10 @@ func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockP
 
 	if message.Difficulty != nil {
 		// currently, default mode of GenerateWithOnroad is to calc pow
-		nonce := pow.GetPowNonce(message.Difficulty, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
+		nonce, err := pow.GetPowNonce(message.Difficulty, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
+		if err != nil {
+			return nil, err
+		}
 		blockPacked.Nonce = nonce[:]
 		blockPacked.Difficulty = message.Difficulty
 	}
@@ -215,7 +218,10 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 		if snapshotBlock.Height > preBlockReferredSbHeight && difficulty != nil {
 			// currently, default mode of GenerateWithOnroad is to calc pow
 			//difficulty = pow.defaultDifficulty
-			nonce := pow.GetPowNonce(difficulty, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
+			nonce, err := pow.GetPowNonce(difficulty, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
+			if err != nil {
+				return nil, err
+			}
 			blockPacked.Nonce = nonce[:]
 			blockPacked.Difficulty = difficulty
 		}

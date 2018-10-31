@@ -2,6 +2,8 @@ package pow_test
 
 import (
 	"bytes"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common/types"
@@ -9,18 +11,24 @@ import (
 	"github.com/vitelabs/go-vite/pow"
 	"golang.org/x/crypto/blake2b"
 	"math"
+	"math/big"
+	"strconv"
 	"testing"
 	"time"
 )
 
 func TestGetPowNonce(t *testing.T) {
+	d, _ := hex.DecodeString("fffffffffff00000")
+	dd := make([]byte, 32)
+	copy(dd[:], d[:])
+	bd := new(big.Int).SetBytes(dd)
 	N := 20
 	data := crypto.Hash256([]byte{1})
 	timeList := make([]int64, N)
 	for i := 0; i < N; i++ {
 		startTime := time.Now()
-		nonce := pow.GetPowNonce(nil, types.DataHash([]byte{1}))
-		assert.True(t, pow.CheckPowNonce(nil, nonce, data))
+		nonce, _ := pow.GetPowNonce(bd, types.DataHash([]byte{1}))
+		assert.True(t, pow.CheckPowNonce(bd, nonce, data))
 		d := time.Now().Sub(startTime).Nanoseconds()
 		fmt.Println("#", i, ":", d/1e6, "ms", "nonce", nonce)
 		timeList[i] = d
@@ -28,6 +36,32 @@ func TestGetPowNonce(t *testing.T) {
 
 	max, min, timeSum, average, std := statistics(timeList)
 	fmt.Println("average", average/1e6, "ms max", max/1e6, "ms min", min/1e6, "sum", timeSum/1e6, "standard deviation", std)
+}
+
+func TestCheckPowNonce(t *testing.T) {
+
+	bbb, _ := new(big.Int).SetString("46d0bf9aa4f45153", 16)
+
+	nonceUint64 := bbb.Uint64()
+
+	nn := make([]byte, 8)
+	binary.LittleEndian.PutUint64(nn[:], nonceUint64)
+
+	data, _ := hex.DecodeString("718CC2121C3E641059BC1C2CFC45666C718CC2121C3E641059BC1C2CFC45666C")
+	for e := range data {
+		fmt.Print(strconv.Itoa(int(data[e])))
+		fmt.Print(",")
+	}
+
+	bd, ok := new(big.Int).SetString("FFFFFFc000000000000000000000000000000000000000000000000000000000", 16)
+	if !ok {
+		fmt.Println("!ok")
+	}
+	dd := bd.Bytes()
+	fmt.Println("aaa", len(dd))
+
+	assert.True(t, pow.CheckPowNonce(bd, nn, data))
+
 }
 
 func statistics(data []int64) (timeMax, timeMin, timeSum int64, average, std float64) {
@@ -77,4 +111,20 @@ func TestHash256(t *testing.T) {
 	sum256 := crypto.Hash256([]byte{1, 2}, []byte{1, 3})
 	assert.Equal(t, hash2561[:], sum256[:])
 	assert.Equal(t, crypto.Hash256([]byte{1, 2}, []byte{1, 3}), sum256[:])
+}
+
+func TestHashWithC(t *testing.T) {
+	threshold := uint64(0xffffffc000000000)
+	array := pow.Uint64ToByteArray(threshold)
+	fmt.Println(hex.EncodeToString(array[:]))
+
+	hasher, _ := blake2b.New256(nil)
+	hasher.Write(array[:])
+	sum := hasher.Sum(nil)
+	fmt.Println(hex.EncodeToString(sum))
+
+	tB := make([]byte, 32)
+	binary.BigEndian.PutUint64(tB, threshold)
+	fmt.Println(hex.EncodeToString(tB[:]))
+
 }
