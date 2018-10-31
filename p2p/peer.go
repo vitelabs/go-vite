@@ -92,6 +92,8 @@ type ProtoFrame struct {
 	Received  map[Cmd]uint64
 	Discarded map[Cmd]uint64
 	Send      map[Cmd]uint64
+	log       log15.Logger
+	addr      string
 }
 
 func newProtoFrame(protocol *Protocol) *ProtoFrame {
@@ -118,8 +120,11 @@ func (pf *ProtoFrame) WriteMsg(msg *Msg) (err error) {
 	case <-pf.term:
 		return errPeerTermed
 	case pf.w <- msg:
-		return
+	default:
+		pf.log.Warn(fmt.Sprintf("pf %s write is busy, discard message %d/%d", pf.addr, msg.CmdSet, msg.Cmd))
 	}
+
+	return
 }
 
 // create multiple pfs above the rw
@@ -201,6 +206,8 @@ func (p *Peer) startProtocols() {
 			//p.runProtocol(protoFrame)
 			pf.term = p.term
 			pf.w = p.wqueue
+			pf.log = p.log
+			pf.addr = p.RemoteAddr().String()
 
 			err := pf.Handle(p, pf)
 			p.protoDone <- &protoDone{pf.ID, err}
