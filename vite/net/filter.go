@@ -101,6 +101,8 @@ func (f *filter) loop() {
 			}
 
 			f.lock.Unlock()
+
+			f.log.Info("filter clean")
 		}
 	}
 }
