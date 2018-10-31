@@ -255,6 +255,7 @@ func (n *net) heartbeat() {
 
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
+	var height uint64
 
 	for {
 		select {
@@ -262,18 +263,26 @@ func (n *net) heartbeat() {
 			return
 
 		case <-ticker.C:
-			l := n.peers.Pick(0)
-			if len(l) > 0 {
-				current := n.Chain.GetLatestSnapshotBlock()
-				for _, p := range l {
-					p.Send(StatusCode, 0, &ledger.HashHeight{
-						Hash:   current.Hash,
-						Height: current.Height,
-					})
-				}
-
-				monitor.LogEvent("net", "heartbeat")
+			l := n.peers.Peers()
+			if len(l) == 0 {
+				break
 			}
+
+			current := n.Chain.GetLatestSnapshotBlock()
+			if height == current.Height {
+				break
+			}
+
+			height = current.Height
+
+			for _, p := range l {
+				p.Send(StatusCode, 0, &ledger.HashHeight{
+					Hash:   current.Hash,
+					Height: current.Height,
+				})
+			}
+
+			monitor.LogEvent("net", "heartbeat")
 		}
 	}
 }
