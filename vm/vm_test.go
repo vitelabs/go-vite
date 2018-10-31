@@ -260,6 +260,7 @@ func TestDelegateCall(t *testing.T) {
 }
 
 func TestCalcQuotaV2(t *testing.T) {
+	quota.InitQuotaConfig(false)
 	// prepare db
 	addr1, _, _ := types.CreateAddress()
 	db := NewNoDatabase()
@@ -270,7 +271,7 @@ func TestCalcQuotaV2(t *testing.T) {
 	difficulty := quota.DefaultDifficulty
 	quotaForTx := uint64(21000)
 	quotaLimit := uint64(987000)
-	minPledgeAmount := new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18))
+	minPledgeAmount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
 	maxPledgeAmount := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db.storageMap[contracts.AddressPledge] = make(map[string][]byte)
 	db.addr = addr1
@@ -352,7 +353,7 @@ func TestCalcQuotaV2(t *testing.T) {
 		t.Fatalf("calc quota error")
 	}
 	// first account block with PoW, pledge amount reaches no quota limit, snapshot height gap=1
-	quotaTotal, quotaAddition, err = quota.CalcQuotaV2(db, addr1, new(big.Int).Mul(big.NewInt(15), big.NewInt(1e18)), difficulty)
+	quotaTotal, quotaAddition, err = quota.CalcQuotaV2(db, addr1, new(big.Int).Mul(big.NewInt(1500), big.NewInt(1e18)), difficulty)
 	if quotaTotal != quotaForTx*2 || quotaAddition != quotaForTx || err != nil {
 		t.Fatalf("calc quota error")
 	}
@@ -373,12 +374,12 @@ func TestCalcQuotaV2(t *testing.T) {
 	}
 
 	// first account block without PoW, pledge amount reaches no quota limit, snapshot height gap=2
-	quotaTotal, quotaAddition, err = quota.CalcQuotaV2(db, addr1, new(big.Int).Mul(big.NewInt(15), big.NewInt(1e18)), helper.Big0)
+	quotaTotal, quotaAddition, err = quota.CalcQuotaV2(db, addr1, new(big.Int).Mul(big.NewInt(1500), big.NewInt(1e18)), helper.Big0)
 	if quotaTotal != quotaForTx*2 || quotaAddition != uint64(0) || err != nil {
 		t.Fatalf("calc quota error")
 	}
 	// first account block without PoW, pledge amount reaches no quota limit, snapshot height gap=2
-	quotaTotal, quotaAddition, err = quota.CalcQuotaV2(db, addr1, new(big.Int).Mul(big.NewInt(7), big.NewInt(1e18)), difficulty)
+	quotaTotal, quotaAddition, err = quota.CalcQuotaV2(db, addr1, new(big.Int).Mul(big.NewInt(700), big.NewInt(1e18)), difficulty)
 	if quotaTotal != quotaForTx*2 || quotaAddition != uint64(21000) || err != nil {
 		t.Fatalf("calc quota error")
 	}
@@ -418,7 +419,7 @@ func TestCalcQuotaV2(t *testing.T) {
 		t.Fatalf("calc quota error")
 	}
 	// second account block referring to same snapshotBlock without PoW, pledge amount reaches no quota limit, snapshot height gap=2
-	quotaTotal, quotaAddition, err = quota.CalcQuotaV2(db, addr1, new(big.Int).Mul(big.NewInt(7), big.NewInt(1e18)), difficulty)
+	quotaTotal, quotaAddition, err = quota.CalcQuotaV2(db, addr1, new(big.Int).Mul(big.NewInt(700), big.NewInt(1e18)), difficulty)
 	if quotaTotal != uint64(21000) || quotaAddition != uint64(21000) || err != nil {
 		t.Fatalf("calc quota error")
 	}
@@ -488,7 +489,7 @@ func TestCalcQuotaV2(t *testing.T) {
 	}
 	// second account block referring to same snapshotBlock without PoW, first block calc PoW, pledge amount reaches no quota limit, snapshot height gap=1
 	// error case
-	quotaTotal, quotaAddition, err = quota.CalcQuotaV2(db, addr1, new(big.Int).Mul(big.NewInt(7), big.NewInt(1e18)), difficulty)
+	quotaTotal, quotaAddition, err = quota.CalcQuotaV2(db, addr1, new(big.Int).Mul(big.NewInt(700), big.NewInt(1e18)), difficulty)
 	if quotaTotal != uint64(0) || quotaAddition != uint64(0) || err == nil {
 		t.Fatalf("calc quota error")
 	}

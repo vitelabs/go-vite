@@ -50,7 +50,7 @@ func GetPledgeKey(addr types.Address, pledgeBeneficialKey []byte) []byte {
 	return append(addr.Bytes(), pledgeBeneficialKey...)
 }
 func IsPledgeKey(key []byte) bool {
-	return len(key) > types.AddressSize
+	return len(key) == 2*types.AddressSize
 }
 func GetBeneficialFromPledgeKey(key []byte) types.Address {
 	address, _ := types.BytesToAddress(key[types.AddressSize:])
@@ -60,8 +60,7 @@ func GetBeneficialFromPledgeKey(key []byte) types.Address {
 func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) *big.Int {
 	key := GetPledgeBeneficialKey(beneficial)
 	beneficialAmount := new(VariablePledgeBeneficial)
-	err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, key))
-	if err == nil {
+	if err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, key)); err == nil {
 		return beneficialAmount.Amount
 	}
 	return big.NewInt(0)
@@ -81,7 +80,7 @@ func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *
 		}
 		if IsPledgeKey(key) {
 			pledgeInfo := new(PledgeInfo)
-			if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value); err == nil {
+			if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value); err == nil && pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
 				pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(key)
 				pledgeInfoList = append(pledgeInfoList, pledgeInfo)
 				pledgeAmount.Add(pledgeAmount, pledgeInfo.Amount)

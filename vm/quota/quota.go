@@ -9,6 +9,25 @@ import (
 	"math/big"
 )
 
+type NodeConfig struct {
+	QuotaParams
+	sectionList []*big.Float
+}
+
+var nodeConfig NodeConfig
+
+func InitQuotaConfig(isTestParam bool) {
+	sectionList := make([]*big.Float, len(sectionStrList))
+	for i, str := range sectionStrList {
+		sectionList[i], _ = new(big.Float).SetPrec(precForFloat).SetString(str)
+	}
+	if isTestParam {
+		nodeConfig = NodeConfig{QuotaParamTest, sectionList}
+	} else {
+		nodeConfig = NodeConfig{QuotaParamMainNet, sectionList}
+	}
+}
+
 type quotaDb interface {
 	GetStorage(addr *types.Address, key []byte) []byte
 	NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator
@@ -35,9 +54,8 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int)
 // contract account only gets quota via pledge
 // user account genesis block(a receive block) must calculate a PoW to get quota
 func CalcQuota(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
-	// TODO test difficulty, update before deploy testnet
 	if difficulty != nil && difficulty.Sign() > 0 {
-		return CalcQuotaV2(db, addr, pledgeAmount, DefaultDifficulty)
+		return CalcQuotaV2(db, addr, pledgeAmount, difficulty)
 	} else {
 		return CalcQuotaV2(db, addr, pledgeAmount, helper.Big0)
 	}
@@ -83,7 +101,7 @@ func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 				} else {
 					tmpFLoat.SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height-db.GetSnapshotBlockByHash(&prevBlock.SnapshotHash).Height))
 				}
-				x.Mul(tmpFLoat, paramA)
+				x.Mul(tmpFLoat, nodeConfig.paramA)
 				tmpFLoat.SetInt(pledgeAmount)
 				x.Mul(tmpFLoat, x)
 				quotaWithoutPoW = calcQuotaInSection(x)
@@ -94,7 +112,7 @@ func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 			quotaTotal := quotaWithoutPoW
 			if isPoW {
 				tmpFLoat.SetInt(difficulty)
-				tmpFLoat.Mul(tmpFLoat, paramB)
+				tmpFLoat.Mul(tmpFLoat, nodeConfig.paramB)
 				x.Add(x, tmpFLoat)
 				quotaTotal = calcQuotaInSection(x)
 			}
@@ -111,14 +129,14 @@ func calcQuotaInSection(x *big.Float) uint64 {
 // Get the largest index
 // which makes sectionList[index] <= x
 func getIndexInSection(x *big.Float) int {
-	return getIndexInSectionRange(x, 0, len(sectionList)-1)
+	return getIndexInSectionRange(x, 0, len(nodeConfig.sectionList)-1)
 }
 func getIndexInSectionRange(x *big.Float, left, right int) int {
 	if left == right {
 		return getExactIndex(x, left)
 	}
 	mid := (left + right + 1) / 2
-	cmp := sectionList[mid].Cmp(x)
+	cmp := nodeConfig.sectionList[mid].Cmp(x)
 	if cmp == 0 {
 		return mid
 	} else if cmp > 0 {
@@ -129,7 +147,7 @@ func getIndexInSectionRange(x *big.Float, left, right int) int {
 }
 
 func getExactIndex(x *big.Float, index int) int {
-	if sectionList[index].Cmp(x) <= 0 || index == 0 {
+	if nodeConfig.sectionList[index].Cmp(x) <= 0 || index == 0 {
 		return index
 	} else {
 		return index - 1

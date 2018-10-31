@@ -16,7 +16,7 @@ func IsExistGid(db vmctxt_interface.VmDatabase, gid types.Gid) bool {
 }
 
 // TODO following method belongs to vm
-func GetNewContractData(bytecode []byte, gid types.Gid) []byte {
+func GetCreateContractData(bytecode []byte, gid types.Gid) []byte {
 	return append(gid.Bytes(), bytecode...)
 }
 

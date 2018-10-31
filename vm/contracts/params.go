@@ -13,7 +13,7 @@ const (
 	VoteGas                   uint64 = 21000
 	CancelVoteGas             uint64 = 62000
 	PledgeGas                 uint64 = 21000
-	CancelPledgeGas           uint64 = 103400
+	CancelPledgeGas           uint64 = 21000
 	CreateConsensusGroupGas   uint64 = 62200
 	CancelConsensusGroupGas   uint64 = 83200
 	ReCreateConsensusGroupGas uint64 = 62200
