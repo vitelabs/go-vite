@@ -235,16 +235,15 @@ func (q *queryHandler) loop() {
 		if index == 0 {
 			time.Sleep(20 * time.Millisecond)
 		} else {
+			netLog.Info(fmt.Sprintf("retrive %d query tasks", index))
+
 			for _, event := range tasks[:index] {
-				//event := event
 				cmd := ViteCmd(event.Msg.Cmd)
 				if h, ok := q.handlers[cmd]; ok {
 					if err := h.Handle(event.Msg, event.Sender); err != nil {
 						event.Sender.Report(err)
 					}
 				}
-
-				//event.Recycle()
 			}
 		}
 	}
