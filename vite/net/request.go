@@ -169,6 +169,9 @@ func splitChunk(from, to uint64) (chunks [][2]uint64) {
 	return chunks[:i]
 }
 
+var subledgerTimeout = time.Minute
+var chunkTimeout = 3 * time.Minute
+
 // @request for subLedger, will get FileList and Chunk
 type subLedgerRequest struct {
 	id         uint64 // id & child_id
@@ -441,7 +444,7 @@ func (c *chunkRequest) ID() uint64 {
 
 func (c *chunkRequest) Run(ctx context) {
 	c.state = reqWaiting
-	c.expiration = time.Now().Add(u64ToDuration(1000 * (c.to - c.from + 1)))
+	c.expiration = time.Now().Add(chunkTimeout)
 
 	chunk := &message.GetChunk{
 		Start: c.from,

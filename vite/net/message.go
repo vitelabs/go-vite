@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-var subledgerTimeout = 10 * time.Second
-
 // @section Cmd
 const Vite = "vite"
 
@@ -194,8 +192,9 @@ var msgEventPool = &sync.Pool{
 }
 
 func newMsgEvent() *queryTask {
-	v := msgEventPool.Get()
-	return v.(*queryTask)
+	//v := msgEventPool.Get()
+	//return v.(*queryTask)
+	return &queryTask{}
 }
 
 func (q *queryHandler) Handle(msg *p2p.Msg, sender Peer) error {
@@ -232,18 +231,17 @@ func (q *queryHandler) loop() {
 		q.lock.Unlock()
 
 		if index == 0 {
-			time.Sleep(20 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 		} else {
+			netLog.Info(fmt.Sprintf("retrive %d query tasks", index))
+
 			for _, event := range tasks[:index] {
-				//event := event
 				cmd := ViteCmd(event.Msg.Cmd)
 				if h, ok := q.handlers[cmd]; ok {
 					if err := h.Handle(event.Msg, event.Sender); err != nil {
 						event.Sender.Report(err)
 					}
 				}
-
-				//event.Recycle()
 			}
 		}
 	}
