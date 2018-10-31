@@ -1,13 +1,14 @@
 package api
 
 import (
+	"math/big"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vite/net"
-	"math/big"
-	"time"
 )
 
 type DebugApi struct {
@@ -177,6 +178,12 @@ func (api DebugApi) ConsensusPlanAndActual(gid types.Gid, offset int64, index ui
 
 func (api DebugApi) FetchTaskQueue() []*net.Task {
 	return api.v.Net().Tasks()
+}
+
+func (api DebugApi) MachineInfo() map[string]interface{} {
+	result := make(map[string]interface{})
+	result["now"] = time.Now().String()
+	return result
 }
 
 func NewDebugApi(v *vite.Vite) *DebugApi {
