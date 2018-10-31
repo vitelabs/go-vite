@@ -399,7 +399,7 @@ func (fc *fileClient) readBlocks(ctx *connContext) (uint64, uint64, error) {
 			total += file.BlockNumbers
 		}
 
-		usableAccountBlock := false
+		//usableAccountBlock := false
 		fc.chain.Compressor().BlockParser(ctx, total, func(block ledger.Block, err error) {
 			if err != nil {
 				return
@@ -412,12 +412,12 @@ func (fc *fileClient) readBlocks(ctx *connContext) (uint64, uint64, error) {
 					return
 				}
 
-				if block.Height < start || block.Height > end {
-					return
-				}
+				//if block.Height < start || block.Height > end {
+				//	return
+				//}
 
 				// snapshotblock is in band, so follow account blocks will be available
-				usableAccountBlock = true
+				//usableAccountBlock = true
 				sCount++
 				ctx.req.rec.receiveSnapshotBlock(block)
 				ctx.req.current = block.Height
@@ -428,10 +428,10 @@ func (fc *fileClient) readBlocks(ctx *connContext) (uint64, uint64, error) {
 					return
 				}
 
-				if usableAccountBlock {
-					aCount++
-					ctx.req.rec.receiveAccountBlock(block)
-				}
+				//if usableAccountBlock {
+				aCount++
+				ctx.req.rec.receiveAccountBlock(block)
+				//}
 			}
 		})
 
