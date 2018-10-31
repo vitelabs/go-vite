@@ -3,6 +3,7 @@ package sender
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/golang/protobuf/proto"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -446,6 +447,9 @@ func (producer *Producer) send() {
 							}
 						}
 
+						for _, item := range mqSnapshotBlock.MqSnapshotContent {
+							fmt.Printf("%d - %d\n", item.Start.Height, item.End.Height)
+						}
 						mqSnapshotBlock.Producer = mqSnapshotBlock.SnapshotBlock.Producer()
 						mqSnapshotBlock.Timestamp = block.Timestamp.Unix()
 						blocks = append(blocks, mqSnapshotBlock)
