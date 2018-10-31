@@ -194,8 +194,9 @@ var msgEventPool = &sync.Pool{
 }
 
 func newMsgEvent() *queryTask {
-	v := msgEventPool.Get()
-	return v.(*queryTask)
+	//v := msgEventPool.Get()
+	//return v.(*queryTask)
+	return &queryTask{}
 }
 
 func (q *queryHandler) Handle(msg *p2p.Msg, sender Peer) error {
