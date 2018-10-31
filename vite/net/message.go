@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-var subledgerTimeout = 10 * time.Second
+var subledgerTimeout = time.Minute
 
 // @section Cmd
 const Vite = "vite"
