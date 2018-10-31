@@ -197,7 +197,7 @@ wait:
 			})
 		}
 
-		s.log.Debug(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
+		s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
 		s.setState(Syncdone)
 		return
 	}
@@ -209,7 +209,7 @@ wait:
 	s.setState(Syncing)
 	s.sync(s.from, s.to)
 
-	s.log.Debug(fmt.Sprintf("syncing: from %d, to %d, bestPeer %s", s.from, s.to, p.RemoteAddr()))
+	s.log.Info(fmt.Sprintf("syncing: from %d, to %d, bestPeer %s", s.from, s.to, p.RemoteAddr()))
 
 	// check download timeout
 	// check chain grow timeout
@@ -232,7 +232,7 @@ wait:
 							s.setTarget(bestPeer.height)
 						} else {
 							// no need sync
-							s.log.Debug(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", bestPeer, bestPeer.height, current.Height))
+							s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", bestPeer, bestPeer.height, current.Height))
 							s.setState(Syncdone)
 							return
 						}
@@ -245,7 +245,7 @@ wait:
 				}
 			}
 		case <-s.downloaded:
-			s.log.Debug("sync downloaded")
+			s.log.Info("sync downloaded")
 			s.setState(SyncDownloaded)
 			// check chain height timeout
 			checkTimer.Reset(chainGrowTimeout)
@@ -259,7 +259,7 @@ wait:
 		case <-checkChainTicker.C:
 			current := s.chain.GetLatestSnapshotBlock()
 			if current.Height >= s.to {
-				s.log.Debug(fmt.Sprintf("sync done, current height: %d", current.Height))
+				s.log.Info(fmt.Sprintf("sync done, current height: %d", current.Height))
 				s.setState(Syncdone)
 				return
 			}

@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-var subledgerTimeout = time.Minute
-
 // @section Cmd
 const Vite = "vite"
 
@@ -233,7 +231,7 @@ func (q *queryHandler) loop() {
 		q.lock.Unlock()
 
 		if index == 0 {
-			time.Sleep(20 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 		} else {
 			netLog.Info(fmt.Sprintf("retrive %d query tasks", index))
 
