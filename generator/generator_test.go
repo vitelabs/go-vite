@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/contracts"
@@ -201,4 +202,11 @@ func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address, fromAddrP
 	//fmt.Printf("genResult.BlockGenList:%v\n", genResult.BlockGenList)
 	fmt.Printf("blocks[0] balance:%+v,tokenId:%+v\n", genResult.BlockGenList[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
 	return nil
+}
+
+func TestGenerator(t *testing.T) {
+	//gen, _ := NewGenerator(nil,nil, nil, nil)
+	gen := &Generator{log: log15.New()}
+	block, err := gen.generateBlock(&ledger.AccountBlock{}, &ledger.AccountBlock{}, types.Address{}, nil)
+	t.Error(err, block)
 }
