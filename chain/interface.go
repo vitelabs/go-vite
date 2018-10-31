@@ -90,6 +90,7 @@ type Chain interface {
 	RegisterDeleteAccountBlocksSuccess(processor DeleteProcessorFuncSuccess) uint64
 	RegisterInsertSnapshotBlocksSuccess(processor InsertSnapshotBlocksSuccess) uint64
 	RegisterDeleteSnapshotBlocksSuccess(processor DeleteSnapshotBlocksSuccess) uint64
+	GetConfirmSubLedgerBySnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error)
 
 	GetStateTrie(stateHash *types.Hash) *trie.Trie
 	NewStateTrie() *trie.Trie
