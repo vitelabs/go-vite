@@ -257,7 +257,9 @@ loop:
 			ctx.idleT = time.Now()
 			for i, req := range wait {
 				if req.Addr() == ctx.addr {
-					copy(wait[i:], wait[i+1:])
+					if i != len(wait)-1 {
+						copy(wait[i:], wait[i+1:])
+					}
 					wait = wait[:len(wait)-1]
 
 					ctx.req = req
