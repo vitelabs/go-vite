@@ -259,10 +259,6 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 
 }
 
-func getPrecompiledContractsSendGas(vm *VM) uint64 {
-	return util.PrecompiledContractsSendGas * uint64((len(vm.blockList) - 1))
-}
-
 func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTime("vm", "ReceiveCall", time.Now())
 	if p, ok, _ := getPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
@@ -272,11 +268,12 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		if err == nil {
 			block.AccountBlock.Data = block.VmContext.GetStorageHash().Bytes()
 			vm.updateBlock(block, err, 0)
-			if err = vm.doSendBlockList(getPrecompiledContractsSendGas(vm)); err == nil {
+			if err = vm.doSendBlockList(util.PrecompiledContractsSendGas); err == nil {
 				return vm.blockList, NoRetry, nil
 			}
 		}
 		vm.revert(block)
+		block.AccountBlock.Data = block.VmContext.GetStorageHash().Bytes()
 		vm.updateBlock(block, err, 0)
 
 		// precompiled contract receive error, if amount or fee is not zero, refund
@@ -325,7 +322,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 			}
 		}
 		if refundFlag {
-			if err = vm.doSendBlockList(getPrecompiledContractsSendGas(vm)); err == nil {
+			if err = vm.doSendBlockList(util.PrecompiledContractsSendGas); err == nil {
 				return vm.blockList, NoRetry, nil
 			} else {
 				// impossible code
@@ -376,6 +373,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		}
 
 		vm.revert(block)
+		block.AccountBlock.Data = block.VmContext.GetStorageHash().Bytes()
 		vm.updateBlock(block, err, util.CalcQuotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, err))
 		return vm.blockList, err == util.ErrOutOfQuota, err
 	}
@@ -451,7 +449,6 @@ func (vm *VM) doSendBlockList(quotaLeft uint64) (err error) {
 func (vm *VM) revert(block *vm_context.VmAccountBlock) {
 	vm.blockList = vm.blockList[:1]
 	block.VmContext.Reset()
-	vm.blockList[0].AccountBlock.Data = block.VmContext.GetStorageHash().Bytes()
 }
 
 func (context *VmContext) AppendBlock(block *vm_context.VmAccountBlock) {
