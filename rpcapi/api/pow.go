@@ -13,7 +13,7 @@ import (
 	"net/http"
 )
 
-const requestUrl = "http://123.207.120.25:6007"
+const requestUrl = "http://134.175.140.182:6007"
 
 const ApiActionGenerate = "/api/generate_work"
 
@@ -98,7 +98,6 @@ func httpRequest(requestPath string, bytesData []byte, responseInterface interfa
 		return err
 	}
 	defer resp.Body.Close()
-	//fmt.Println(helper.BytesToString(body))
 
 	responseJson := &ResponseJson{Data: responseInterface}
 	if err := json.Unmarshal(body, responseJson); err != nil {
