@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"testing"
+	"time"
 )
 
 func makeBlocks(chainInstance Chain, toBlockHeight uint64) {
@@ -37,8 +38,18 @@ func makeBlocks(chainInstance Chain, toBlockHeight uint64) {
 
 func TestSend(t *testing.T) {
 	chainInstance := getChainInstance()
+	go func() {
+		for {
+			time.Sleep(time.Second)
+			for index, p := range chainInstance.KafkaSender().RunProducers() {
+				lastId, _ := chainInstance.GetLatestBlockEventId()
+				fmt.Printf("%d %d %d\n", index, p.HasSend(), lastId)
+			}
+		}
 
-	makeBlocks(chainInstance, 1000)
+	}()
+
+	//makeBlocks(chainInstance, 1000)
 	//chainInstance.DeleteSnapshotBlocksToHeight(3)
 
 	channel := make(chan int)

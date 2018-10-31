@@ -5,6 +5,24 @@ import (
 	"testing"
 )
 
+func TestRunTask(t *testing.T) {
+	chainInstance := getChainInstance()
+	for i := 0; i < 1000; i++ {
+		chainInstance.Compressor().RunTask()
+	}
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+}
+
 func TestGetSubLedgerByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
 	makeBlocks(chainInstance, 20000)

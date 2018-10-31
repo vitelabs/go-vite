@@ -311,7 +311,8 @@ func (producer *Producer) send() {
 
 		var msgList []*message
 
-		for j := i + 1; j-i <= producer.concurrency && j <= end; j++ {
+		j := i + 1
+		for ; j-i <= producer.concurrency && j <= end; j++ {
 			eventType, blockHashList, err := producer.chain.GetEvent(j)
 			if err != nil {
 				producer.log.Error("Get event failed, error is "+err.Error(), "method", "send")
@@ -489,8 +490,7 @@ func (producer *Producer) send() {
 			return
 		}
 
-		i = i + uint64(len(msgList))
-
+		i = j - 1
 		producer.hasSend = i
 
 	}

@@ -87,6 +87,10 @@ func TestGetSnapshotBlockByHeight(t *testing.T) {
 
 	fmt.Printf("%+v\n", block)
 
+	for addr, hashHeight := range block.SnapshotContent {
+		fmt.Printf("%s: %d %s\n", addr, hashHeight.Height, hashHeight.Hash.String())
+	}
+
 	block2, err2 := chainInstance.GetSnapshotBlockByHeight(2)
 	if err2 != nil {
 		t.Fatal(err2)
