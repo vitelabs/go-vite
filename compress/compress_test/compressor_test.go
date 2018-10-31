@@ -12,7 +12,6 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"math/rand"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -22,11 +21,8 @@ var innerChainInstance chain.Chain
 
 func getChainInstance() chain.Chain {
 	if innerChainInstance == nil {
-		dbFile := filepath.Join(common.GoViteTestDataDir(), "ledger")
-		os.RemoveAll(dbFile)
-
 		innerChainInstance = chain.NewChain(&config.Config{
-			DataDir: dbFile,
+			DataDir: filepath.Join(common.HomeDir(), "Library/GVite/devdata"),
 		})
 		innerChainInstance.Init()
 		innerChainInstance.Start()
@@ -176,6 +172,14 @@ func TestRunTask(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		compressor.RunTask()
+	}
+}
+
+func TestGet(t *testing.T) {
+	chainInstance := getChainInstance()
+	metas := chainInstance.Compressor().Indexer().Get(43200, 43200)
+	for _, meta := range metas {
+		fmt.Printf("%+v\n", meta)
 	}
 }
 

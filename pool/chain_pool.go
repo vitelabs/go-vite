@@ -594,3 +594,25 @@ func (self *chainPool) size() int {
 	defer self.chainMu.Unlock()
 	return len(self.chains)
 }
+func (self *chainPool) findOtherChainsByTail(cur *forkedChain, hash types.Hash, height uint64) []*forkedChain {
+	self.chainMu.Lock()
+	defer self.chainMu.Unlock()
+	var result []*forkedChain
+	for _, v := range self.chains {
+		if v.id() == cur.id() {
+			continue
+		}
+		if v.tailHeight == height {
+			if v.tailHash == hash {
+				result = append(result, v)
+			}
+			continue
+		}
+		b := v.getHeightBlock(height)
+		if b != nil && b.Hash() == hash && v.tailHeight < height {
+			result = append(result, v)
+			continue
+		}
+	}
+	return result
+}

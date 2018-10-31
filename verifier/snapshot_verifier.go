@@ -128,10 +128,12 @@ func (self *SnapshotVerifier) verifyAccountsTimeout(block *ledger.SnapshotBlock,
 
 func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, snapshotHeight uint64) error {
 	defer monitor.LogTime("verify", "accountTimeout", time.Now())
+
 	first, e := self.reader.GetFirstConfirmedAccountBlockBySbHeight(snapshotHeight, &addr)
 	if e != nil {
 		return e
 	}
+
 	if first == nil {
 		return errors.New("account block is nil.")
 	}

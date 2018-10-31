@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"math/rand"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -30,13 +32,14 @@ func newAccountPoolBlock(block *ledger.AccountBlock,
 	vmBlock vmctxt_interface.VmDatabase,
 	version *ForkVersion,
 	source types.BlockSource) *accountPoolBlock {
-	return &accountPoolBlock{block: block, vmBlock: vmBlock, forkBlock: *newForkBlock(version, source)}
+	return &accountPoolBlock{block: block, vmBlock: vmBlock, forkBlock: *newForkBlock(version, source), recover: (&recoverStat{}).reset(10, time.Hour)}
 }
 
 type accountPoolBlock struct {
 	forkBlock
 	block   *ledger.AccountBlock
 	vmBlock vmctxt_interface.VmDatabase
+	recover *recoverStat
 }
 
 func (self *accountPoolBlock) Height() uint64 {
@@ -107,6 +110,10 @@ func (self *accountPool) Compact() int {
 			self.initPool()
 		}
 	}()
+	self.pool.RLock()
+	defer self.pool.RUnLock()
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
 	//	this is a rate limiter
 	now := time.Now()
 	sum := 0
@@ -234,12 +241,32 @@ func (self *accountPool) tryInsert() verifyTask {
 		result := stat.verifyResult()
 		switch result {
 		case verifier.PENDING:
-			return stat.task()
+			monitor.LogEvent("pool", "AccountPending")
+			t := stat.task()
+			if t == nil || len(t.requests()) == 0 {
+				monitor.LogEvent("pool", "AccountPendingNotFound")
+			}
+
+			err := self.verifyPending(block)
+			if err != nil {
+				self.log.Error("account pending fail. ",
+					"hash", block.Hash(), "height", block.Height(), "err", err)
+			}
+			return t
 		case verifier.FAIL:
+			monitor.LogEvent("pool", "AccountFail")
+			err := self.verifyFail(block)
 			self.log.Error("account block verify fail. ",
-				"hash", block.Hash(), "height", block.Height(), "err", stat.errMsg())
+				"hash", block.Hash(), "height", block.Height(), "err", stat.errMsg(), "err2", err)
 			return self.v.newFailTask()
 		case verifier.SUCCESS:
+			monitor.LogEvent("pool", "AccountSuccess")
+
+			if len(stat.blocks) == 0 {
+				self.log.Error("account block fail. ",
+					"hash", block.Hash(), "height", block.Height(), "error", "stat.blocks is empty.")
+				return self.v.newFailTask()
+			}
 			if block.Height() == current.tailHeight+1 {
 				err, cnt := self.verifySuccess(stat.blocks)
 				if err != nil {
@@ -284,6 +311,32 @@ func (self *accountPool) verifySuccess(bs []*accountPoolBlock) (error, uint64) {
 		self.afterInsertBlock(b)
 	}
 	return nil, uint64(len(bs))
+}
+
+func (self *accountPool) verifyPending(b *accountPoolBlock) error {
+	if !b.recover.inc() {
+		monitor.LogEvent("pool", "accountPendingFail")
+		return self.verifyFail(b)
+	}
+	return nil
+}
+
+func (self *accountPool) verifyFail(b *accountPoolBlock) error {
+	cp := self.chainpool
+	cur := cp.current
+
+	cs := cp.findOtherChainsByTail(cur, cur.tailHash, cur.tailHeight)
+
+	if len(cs) == 0 {
+		return nil
+	}
+
+	monitor.LogEvent("pool", "accountVerifyFailModify")
+	r := rand.Intn(len(cs))
+
+	err := cp.currentModifyToChain(cs[r])
+
+	return err
 }
 
 // result,(need fork)

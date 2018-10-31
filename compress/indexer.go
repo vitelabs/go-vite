@@ -2,6 +2,7 @@ package compress
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
@@ -272,6 +273,7 @@ func (indexer *Indexer) LatestHeight() uint64 {
 }
 
 func (indexer *Indexer) Get(startBlockHeight uint64, endBlockHeight uint64) []*ledger.CompressedFileMeta {
+	indexer.log.Info(fmt.Sprintf("!!!%d - %d", startBlockHeight, endBlockHeight), "method", "indexer.GET")
 	indexer.lock.RLock()
 	defer indexer.lock.RUnlock()
 
@@ -299,9 +301,9 @@ func (indexer *Indexer) Get(startBlockHeight uint64, endBlockHeight uint64) []*l
 		endHeight := currentIndexItem.EndHeight
 
 		if endBlockHeight < startHeight {
-			currentIndexList = indexer.indexList[:currentPointer]
+			currentIndexList = currentIndexList[:currentPointer]
 		} else if startBlockHeight > endHeight {
-			currentIndexList = indexer.indexList[currentPointer+1:]
+			currentIndexList = currentIndexList[currentPointer+1:]
 		} else {
 			for i := currentPointer - 1; i >= 0; i-- {
 				if currentIndexList[i].EndHeight < startBlockHeight {

@@ -47,6 +47,7 @@ func InitVmConfig(isTest bool, isTestParam bool) {
 		}
 	}
 	contracts.InitContractsConfig(isTestParam)
+	quota.InitQuotaConfig(isTestParam)
 }
 
 type VmContext struct {

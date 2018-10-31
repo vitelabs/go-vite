@@ -2,11 +2,26 @@ package chain
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/pow"
 	"testing"
 )
+
+func TestRunTask(t *testing.T) {
+	chainInstance := getChainInstance()
+	for i := 0; i < 1000; i++ {
+		chainInstance.Compressor().RunTask()
+	}
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+	//chainInstance.Compressor().RunTask()
+}
 
 func TestGetSubLedgerByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
@@ -37,42 +52,23 @@ func TestGetSubLedgerByHash(t *testing.T) {
 
 func TestGetConfirmSubLedger(t *testing.T) {
 	chainInstance := getChainInstance()
-	makeBlocks(chainInstance, 1000)
-	_, subLedger, err := chainInstance.GetConfirmSubLedger(0, 1000)
+	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
+	fmt.Println(latestSnapshotBlock)
+
+	//makeBlocks(chainInstance, 1000)
+	snapshotBlocks, subLedger, err := chainInstance.GetConfirmSubLedger(0, 2000)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	//for index, block := range snapshotBlocks {
-	//	fmt.Printf("%d: %+v\n", index, block)
-	//}
+	count := len(snapshotBlocks)
+	addrCount := 0
+	for _, blocks := range subLedger {
+		addrCount++
+		count += len(blocks)
 
-	fmt.Println()
-
-	for addr, blocks := range subLedger {
-		fmt.Printf("%s\n", addr.String())
-		for _, block := range blocks {
-			accountType, err := chainInstance.AccountType(&block.AccountAddress)
-			if err != nil {
-				t.Error(err)
-			}
-			b := block.ComputeHash() != block.Hash
-			if b {
-				t.Error("hash err")
-			}
-			if len(block.Nonce) != 0 {
-				if accountType == ledger.AccountTypeContract {
-					t.Error("AccountTypeContract Nonce must be nil")
-				}
-				t.Log(block.Nonce)
-				var nonce [8]byte
-				copy(nonce[:], block.Nonce[:8])
-				hash256Data := crypto.Hash256(block.AccountAddress.Bytes(), block.PrevHash.Bytes())
-				if !pow.CheckPowNonce(nil, nonce, hash256Data) {
-					t.Error("CheckPowNonce failed")
-				}
-			}
-
-		}
 	}
+	fmt.Println(addrCount)
+
+	fmt.Println(count)
 }

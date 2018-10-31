@@ -103,11 +103,17 @@ func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc Sig
 	return genResult, nil
 }
 
-func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, producer types.Address, signFunc SignFunc) (*GenResult, error) {
+func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, producer types.Address, signFunc SignFunc) (result *GenResult, resultErr error) {
 	gen.log.Info("generateBlock", "BlockType", block.BlockType)
+	defer func() {
+		if err := recover(); err != nil {
+			gen.log.Error("generator_vm panic error", "error", err)
+			result = &GenResult{}
+			resultErr = errors.New("generator_vm panic error")
+		}
+	}()
 
 	blockList, isRetry, err := gen.vm.Run(gen.vmContext, block, sendBlock)
-
 	if len(blockList) > 0 {
 		for k, v := range blockList {
 			v.AccountBlock.Hash = v.AccountBlock.ComputeHash()

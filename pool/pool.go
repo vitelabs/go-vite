@@ -176,7 +176,7 @@ func (self *pool) Init(s syncer,
 		self)
 
 	self.pendingSc = snapshotPool
-	self.stat = (&recoverStat{}).reset(10)
+	self.stat = (&recoverStat{}).reset(10, time.Second*10)
 }
 func (self *pool) Info(addr *types.Address) string {
 	if addr == nil {
@@ -738,22 +738,24 @@ func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 }
 
 type recoverStat struct {
-	num        int32
-	updateTime time.Time
-	threshold  int32
+	num           int32
+	updateTime    time.Time
+	threshold     int32
+	timeThreshold time.Duration
 }
 
-func (self *recoverStat) reset(t int32) *recoverStat {
+func (self *recoverStat) reset(t int32, d time.Duration) *recoverStat {
 	self.num = 0
 	self.updateTime = time.Now()
 	self.threshold = t
+	self.timeThreshold = d
 	return self
 }
 
 func (self *recoverStat) inc() bool {
 	atomic.AddInt32(&self.num, 1)
 	now := time.Now()
-	if now.Sub(self.updateTime) > time.Second*10 {
+	if now.Sub(self.updateTime) > self.timeThreshold {
 		self.updateTime = now
 		atomic.StoreInt32(&self.num, 0)
 	} else {

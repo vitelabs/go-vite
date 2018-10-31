@@ -14,6 +14,12 @@ import (
 	"path/filepath"
 )
 
+func TestGetLatestSnapshotBlock2(t *testing.T) {
+	chainInstance := getChainInstance()
+	sb := chainInstance.GetLatestSnapshotBlock()
+	fmt.Printf("%+v\n", sb)
+}
+
 func TestGetNeedSnapshotContent(t *testing.T) {
 	chainInstance := getChainInstance()
 	content := chainInstance.GetNeedSnapshotContent()
@@ -70,7 +76,7 @@ func TestGetSnapshotBlocksByHeight(t *testing.T) {
 
 func TestGetSnapshotBlockByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
-	block, err := chainInstance.GetSnapshotBlockByHeight(902)
+	block, err := chainInstance.GetSnapshotBlockByHeight(17935)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +84,12 @@ func TestGetSnapshotBlockByHeight(t *testing.T) {
 	//for i := 0; i < 10000; i++ {
 	//	fmt.Println(block.ComputeHash())
 	//}
+
 	fmt.Printf("%+v\n", block)
+
+	for addr, hashHeight := range block.SnapshotContent {
+		fmt.Printf("%s: %d %s\n", addr, hashHeight.Height, hashHeight.Hash.String())
+	}
 
 	block2, err2 := chainInstance.GetSnapshotBlockByHeight(2)
 	if err2 != nil {
@@ -90,11 +101,12 @@ func TestGetSnapshotBlockByHeight(t *testing.T) {
 func TestGetSnapshotBlockByHash(t *testing.T) {
 	chainInstance := getChainInstance()
 
-	hash, _ := types.HexToHash("a43978e9e7c63cdae2e1b49c29ae724736a86aaa35e04b7a0a463fe7daa39502")
+	hash, _ := types.HexToHash("f9435b32f79aab3634df7929de671a4c44196f844fee34cd2ffe38a10cba14d9")
 	block, err := chainInstance.GetSnapshotBlockByHash(&hash)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	fmt.Printf("%+v\n", block)
 
 	for addr, hashHeight := range block.SnapshotContent {

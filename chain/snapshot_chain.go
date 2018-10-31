@@ -117,12 +117,6 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
 	}
-	// Trigger success
-	c.em.triggerInsertSnapshotBlocksSuccess([]*ledger.SnapshotBlock{snapshotBlock})
-
-	// FIXME hack!!!!! tmp
-	tmpBuf, _ := json.Marshal(snapshotBlock)
-	c.log.Debug(string(tmpBuf), "method", "debugInsertSnapshotBlock")
 
 	// After write db
 	trieSaveCallback()
@@ -135,6 +129,9 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 			c.needSnapshotCache.BeSnapshot(&addr, item.Height)
 		}
 	}
+
+	// Trigger success
+	c.em.triggerInsertSnapshotBlocksSuccess([]*ledger.SnapshotBlock{snapshotBlock})
 
 	return nil
 }
@@ -412,11 +409,11 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	needAddBlocks, needRemoveAddr, blockHeightMap, err := c.getNeedSnapshotMapByDeleteSubLedger(accountBlocksMap)
 	// FIXME!!!
 	for addr, block := range needAddBlocks {
-		c.log.Info(fmt.Sprintf("%s %+v\n", addr.String(), block), "log", "ds_testcache_needAddBlocks")
+		c.log.Info(fmt.Sprintf("%s %+v", addr.String(), block), "log", "ds_testcache_needAddBlocks")
 	}
 
 	for addr := range needRemoveAddr {
-		c.log.Info(fmt.Sprintf("%s\n", addr.String()), "log", "ds_testcache_needRemoveAddr")
+		c.log.Info(fmt.Sprintf("%s", addr.String()), "log", "ds_testcache_needRemoveAddr")
 	}
 
 	if err != nil {
@@ -539,7 +536,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	// FIXME!!!
 	for addr, block := range needAddBlocks {
-		c.log.Info(fmt.Sprintf("%s %+v\n", addr.String(), block), "log", "ds_testcache_needAddBlocks2")
+		c.log.Info(fmt.Sprintf("%s %+v", addr.String(), block), "log", "ds_testcache_needAddBlocks2")
 	}
 
 	// FIXME hack!!!!! tmp
