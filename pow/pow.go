@@ -90,10 +90,7 @@ func Uint64ToByteArray(i uint64) [8]byte {
 }
 
 func GetPowNonceFromRemote(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
-	if difficulty == nil {
-		difficulty = DefaultDifficulty
-	}
-	work, err := remote.GenerateWork(dataHash.Bytes(), difficulty.Uint64())
+	work, err := remote.GenerateWork(dataHash.Bytes(), getThresholdByDifficulty(difficulty))
 	if err != nil {
 		return nil, err
 	}
@@ -101,10 +98,7 @@ func GetPowNonceFromRemote(difficulty *big.Int, dataHash types.Hash) ([]byte, er
 }
 
 func CheckPowNonceFromRemote(difficulty *big.Int, nonce [8]byte, dataHash types.Hash) (bool, error) {
-	if difficulty == nil {
-		difficulty = DefaultDifficulty
-	}
-	return remote.VaildateWork(dataHash.Bytes(), difficulty.Uint64(), nonce[:8])
+	return remote.VaildateWork(dataHash.Bytes(), getThresholdByDifficulty(difficulty), nonce[:8])
 }
 
 func CancelPow(dataHash types.Hash) error {
