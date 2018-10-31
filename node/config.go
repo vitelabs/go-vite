@@ -48,6 +48,7 @@ type Config struct {
 	RPCEnabled bool `json:"RPCEnabled"`
 	IPCEnabled bool `json:"IPCEnabled"`
 	WSEnabled  bool `json:"WSEnabled"`
+	PowServerIp      string  `json:"PowServerIp"`
 
 	IPCPath          string   `json:"IPCPath"`
 	HttpHost         string   `json:"HttpHost"`

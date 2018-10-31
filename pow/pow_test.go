@@ -2,11 +2,13 @@ package pow_test
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/pow"
+	"github.com/vitelabs/go-vite/pow/remote"
 	"golang.org/x/crypto/blake2b"
 	"math"
 	"testing"
@@ -77,4 +79,36 @@ func TestHash256(t *testing.T) {
 	sum256 := crypto.Hash256([]byte{1, 2}, []byte{1, 3})
 	assert.Equal(t, hash2561[:], sum256[:])
 	assert.Equal(t, crypto.Hash256([]byte{1, 2}, []byte{1, 3}), sum256[:])
+}
+
+func init() {
+	var url string
+	flag.StringVar(&url, "url", "", "")
+	flag.Parse()
+	remote.InitUrl(url)
+}
+
+func TestCheckPowNonceFromRemote(t *testing.T) {
+	addr, _, _ := types.CreateAddress()
+	prevHash := types.ZERO_HASH
+	dataHash := types.DataListHash(addr.Bytes(), prevHash.Bytes())
+	fmt.Print("dataHash.Bytes() length:", len(dataHash.Bytes()))
+	work, err := pow.GetPowNonceFromRemote(nil, dataHash)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	var arr [8]byte
+	copy(arr[:], work[:8])
+	checkTrue1 := pow.CheckPowNonce(nil, arr, dataHash.Bytes())
+	checkTrue2, err := pow.CheckPowNonceFromRemote(nil, arr, dataHash)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if checkTrue1 != checkTrue2 {
+		t.Error("checkout failed,", checkTrue1, checkTrue2)
+		return
+	}
+	t.Log("Success!")
 }

@@ -2,10 +2,10 @@ package pow
 
 import (
 	"encoding/binary"
-	"math/big"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/pow/remote"
+	"math/big"
 )
 
 // IN MY 2017 MACBOOK PRO which cpu is---- Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz----
@@ -87,4 +87,26 @@ func Uint64ToByteArray(i uint64) [8]byte {
 	var n [8]byte
 	binary.BigEndian.PutUint64(n[:], i)
 	return n
+}
+
+func GetPowNonceFromRemote(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
+	if difficulty == nil {
+		difficulty = DefaultDifficulty
+	}
+	work, err := remote.GenerateWork(dataHash.Bytes(), difficulty.Uint64())
+	if err != nil {
+		return nil, err
+	}
+	return work[:8], nil
+}
+
+func CheckPowNonceFromRemote(difficulty *big.Int, nonce [8]byte, dataHash types.Hash) (bool, error) {
+	if difficulty == nil {
+		difficulty = DefaultDifficulty
+	}
+	return remote.VaildateWork(dataHash.Bytes(), difficulty.Uint64(), nonce[:8])
+}
+
+func CancelPow(dataHash types.Hash) error {
+	return remote.CancelWork(dataHash.Bytes())
 }
