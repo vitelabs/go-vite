@@ -157,7 +157,7 @@ func TestGetAccountBlocksByHash(t *testing.T) {
 
 func TestGetAccountBlockMetaByHash(t *testing.T) {
 	chainInstance := getChainInstance()
-	hash, _ := types.HexToHash("fd896b7c7fa3b900d2a3c4991c5b495a538530dfc2212c4f61e8bb216ed91e28")
+	hash, _ := types.HexToHash("1d91143665c60adb93665d5f725180860124ea4b773d3289fc0ae7b24af4f92a")
 	meta, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&hash)
 	fmt.Printf("%+v\n", meta)
 
@@ -351,8 +351,8 @@ func TestGetAccountBlockByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
 	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 	fmt.Printf("%+v\n", latestSnapshotBlock)
-	addr, _ := types.HexToAddress("vite_5acd0b2ef651bdc0c586aafe7a780103f45ac532cd886eb859")
-	for i := uint64(1453); i <= 20; i++ {
+	addr, _ := types.HexToAddress("vite_b37426114b73a6fe7f9164559aaded278a7b211500138f7c6a")
+	for i := uint64(10241); i <= 10245; i++ {
 		block, _ := chainInstance.GetAccountBlockByHeight(&addr, i)
 		if block == nil {
 			break

@@ -427,7 +427,7 @@ func (producer *Producer) send() {
 						mqSnapshotBlock.SnapshotBlock = block
 						subLedger, err := producer.chain.GetConfirmSubLedgerBySnapshotBlocks([]*ledger.SnapshotBlock{block})
 						if err != nil {
-							producer.log.Error("GetConfirmSubLedgerBySnapshotBlocks failed, error is " + err.Error(), "method", "send")
+							producer.log.Error("GetConfirmSubLedgerBySnapshotBlocks failed, error is "+err.Error(), "method", "send")
 							return
 						}
 
@@ -435,18 +435,16 @@ func (producer *Producer) send() {
 						for addr, blocks := range subLedger {
 							mqSnapshotBlock.MqSnapshotContent[addr] = &MqSnapshotContentItem{
 								Start: &ledger.HashHeight{
-									Hash: blocks[0].Hash,
+									Hash:   blocks[0].Hash,
 									Height: blocks[0].Height,
 								},
 								End: &ledger.HashHeight{
-									Hash: blocks[len(blocks) - 1].Hash,
-									Height: blocks[len(blocks) - 1].Height,
+									Hash:   blocks[len(blocks)-1].Hash,
+									Height: blocks[len(blocks)-1].Height,
 								},
 							}
 						}
-						if subLedger != nil {
-							mqSnapshotBlock.MqSnapshotContent = &
-						}
+
 						mqSnapshotBlock.Producer = mqSnapshotBlock.SnapshotBlock.Producer()
 						mqSnapshotBlock.Timestamp = block.Timestamp.Unix()
 						blocks = append(blocks, mqSnapshotBlock)
