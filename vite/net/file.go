@@ -163,6 +163,7 @@ type fileClient struct {
 	log      log15.Logger
 	wg       sync.WaitGroup
 	dialer   *net2.Dialer
+	record   map[string]bool // file request whether done or not
 }
 
 func newFileClient(chain Chain) *fileClient {
@@ -174,6 +175,7 @@ func newFileClient(chain Chain) *fileClient {
 		chain:    chain,
 		log:      log15.New("module", "net/fileClient"),
 		dialer:   &net2.Dialer{Timeout: 3 * time.Second},
+		record:   make(map[string]bool),
 	}
 }
 
@@ -205,6 +207,27 @@ func (fc *fileClient) request(r *fileRequest) {
 	}
 }
 
+func (fc *fileClient) filter(r *fileRequest) *fileRequest {
+	j := 0
+	var fileName string
+	for i := 0; i < len(r.files); i++ {
+		fileName = r.files[i].Filename
+		if _, ok := fc.record[fileName]; !ok {
+			fc.record[fileName] = false // mark pending
+			r.files[j] = r.files[i]
+			j++
+		}
+	}
+
+	if j == 0 {
+		return nil
+	}
+
+	r.files = r.files[:j]
+
+	return r
+}
+
 func (fc *fileClient) loop() {
 	defer fc.wg.Done()
 
@@ -215,6 +238,15 @@ func (fc *fileClient) loop() {
 	defer ticker.Stop()
 
 	delCtx := func(ctx *connContext) {
+		if ctx.req != nil {
+			// request file error, then delete from record
+			for _, file := range ctx.req.files {
+				if done, ok := fc.record[file.Filename]; ok && !done {
+					delete(fc.record, file.Filename)
+				}
+			}
+		}
+
 		delete(fc.conns, ctx.addr)
 		ctx.Close()
 	}
@@ -226,6 +258,10 @@ loop:
 			break loop
 
 		case req := <-fc._request:
+			if req = fc.filter(req); req == nil {
+				break
+			}
+
 			addr := req.Addr()
 			var ctx *connContext
 			var ok bool
@@ -253,6 +289,12 @@ loop:
 			}
 
 		case ctx := <-fc.idle:
+			if ctx.req != nil {
+				for _, file := range ctx.req.files {
+					fc.record[file.Filename] = true // mark done
+				}
+			}
+
 			ctx.idle = true
 			ctx.idleT = time.Now()
 			for i, req := range wait {
