@@ -333,8 +333,8 @@ func (self *BCPool) init(tools *tools) {
 	self.compactLock = &common.NonBlockLock{}
 
 	self.LIMIT_HEIGHT = 60 * 60
-	self.LIMIT_LONGEST_NUM = 4
-	self.rstat = (&recoverStat{}).reset(10)
+	self.LIMIT_LONGEST_NUM = 1
+	self.rstat = (&recoverStat{}).reset(10, 10*time.Second)
 	self.initPool()
 }
 
