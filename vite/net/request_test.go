@@ -47,7 +47,7 @@ func mockPeers(n int) (peers []*peer) {
 	fmt.Printf("mock %d peers\n", num)
 
 	for i := 0; i < num; i++ {
-		peers = append(peers, &peer{ID: RandStringRunes(8), height: mockU64()})
+		peers = append(peers, &peer{id: RandStringRunes(8), height: mockU64()})
 	}
 
 	return peers

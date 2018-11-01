@@ -57,7 +57,7 @@ func mock() Net {
 			state:   Syncdone,
 			feed:    newSyncStateFeed(),
 			peers:   peers,
-			pool:    pool,
+			pool:    &chunkPool{},
 			running: 1,
 		},
 		fetcher: &fetcher{

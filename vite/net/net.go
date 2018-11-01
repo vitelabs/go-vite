@@ -41,13 +41,11 @@ type net struct {
 	*broadcaster
 	*receiver
 	*filter
-	pool      *requestPool
 	term      chan struct{}
 	log       log15.Logger
 	protocols []*p2p.Protocol // mount to p2p.Server
 	wg        sync.WaitGroup
 	fs        *fileServer
-	fc        *fileClient
 	handlers  map[ViteCmd]MsgHandler
 	topo      *topo.Topology
 	query     *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
@@ -64,16 +62,14 @@ func New(cfg *Config) Net {
 		cfg.Port = DefaultPort
 	}
 
-	fc := newFileClient(cfg.Chain)
-
+	g := new(gid)
 	peers := newPeerSet()
-	pool := newRequestPool(peers, fc)
 
 	broadcaster := newBroadcaster(peers)
 	filter := newFilter()
 	receiver := newReceiver(cfg.Verifier, broadcaster, filter)
-	syncer := newSyncer(cfg.Chain, peers, pool, receiver)
-	fetcher := newFetcher(filter, peers, pool)
+	syncer := newSyncer(cfg.Chain, peers, g, receiver)
+	fetcher := newFetcher(filter, peers, g)
 
 	syncer.feed.Sub(receiver.listen) // subscribe sync status
 	syncer.feed.Sub(fetcher.listen)  // subscribe sync status
@@ -87,20 +83,14 @@ func New(cfg *Config) Net {
 		receiver:    receiver,
 		filter:      filter,
 		fs:          newFileServer(cfg.Port, cfg.Chain),
-		fc:          fc,
 		handlers:    make(map[ViteCmd]MsgHandler),
 		log:         netLog,
-		pool:        pool,
 	}
 
 	n.addHandler(_statusHandler(statusHandler))
-	//n.addHandler(&getSubLedgerHandler{cfg.Chain})
-	//n.addHandler(&getSnapshotBlocksHandler{cfg.Chain})
-	//n.addHandler(&getAccountBlocksHandler{cfg.Chain})
-	//n.addHandler(&getChunkHandler{cfg.Chain})
 	n.query = newQueryHandler(cfg.Chain)
 	n.addHandler(n.query)
-	n.addHandler(pool)     // FileListCode, SubLedgerCode, ExceptionCode
+	n.addHandler(syncer)   // FileListCode, SubLedgerCode, ExceptionCode
 	n.addHandler(receiver) // NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode
 
 	n.protocols = append(n.protocols, &p2p.Protocol{
@@ -151,8 +141,6 @@ func (n *net) Start(svr *p2p.Server) (err error) {
 		}
 	}
 
-	n.pool.start()
-
 	n.wg.Add(1)
 	common.Go(n.heartbeat)
 
@@ -175,11 +163,7 @@ func (n *net) Stop() {
 
 		n.syncer.Stop()
 
-		n.pool.start()
-
 		n.fs.stop()
-
-		n.fc.stop()
 
 		if n.topo != nil {
 			n.topo.Stop()

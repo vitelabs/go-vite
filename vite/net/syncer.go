@@ -2,8 +2,8 @@ package net
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"sort"
 	"sync/atomic"
 	"time"
 
@@ -39,7 +39,6 @@ func (s SyncState) String() string {
 }
 
 type SyncStateFeed struct {
-	//lock      sync.RWMutex
 	currentId int
 	subs      map[int]SyncStateCallback
 }
@@ -51,9 +50,6 @@ func newSyncStateFeed() *SyncStateFeed {
 }
 
 func (s *SyncStateFeed) Sub(fn SyncStateCallback) int {
-	//s.lock.Lock()
-	//defer s.lock.Unlock()
-
 	s.currentId++
 	s.subs[s.currentId] = fn
 	return s.currentId
@@ -64,22 +60,13 @@ func (s *SyncStateFeed) Unsub(subId int) {
 		return
 	}
 
-	//s.lock.Lock()
-	//defer s.lock.Unlock()
-
 	delete(s.subs, subId)
 }
 
 func (s *SyncStateFeed) Notify(st SyncState) {
-	//s.lock.RLock()
-	//defer s.lock.RUnlock()
-
 	for _, fn := range s.subs {
 		if fn != nil {
-			//fn := fn // closure
-			//common.Go(func() {
 			fn(st)
-			//})
 		}
 	}
 }
@@ -102,26 +89,36 @@ func shouldSync(from, to uint64) bool {
 	return false
 }
 
-type syncer struct {
-	from, to uint64 // include
-	count    uint64 // atomic, current amount of snapshotblocks have received
-	total    uint64 // atomic, total amount of snapshotblocks need download, equal: to - from + 1
-	//blocks     []uint64   // mark whether or not get the indexed block
-	//sLock      sync.Mutex // protect blocks
-	state      SyncState
-	term       chan struct{}
-	downloaded chan struct{}
-	feed       *SyncStateFeed
-	chain      Chain // query latest block and genesis block
-	peers      *peerSet
-	pEvent     chan *peerEvent
-	pool       context // add new request
-	log        log15.Logger
-	running    int32
-	receiver   Receiver
+type fileSrc struct {
+	peers
+	state reqState
 }
 
-func newSyncer(chain Chain, peers *peerSet, pool context, receiver Receiver) *syncer {
+type pFileRecord struct {
+	files
+	index int
+}
+
+type syncer struct {
+	from, to   uint64 // include
+	count      uint64 // atomic, current amount of snapshotblocks have received
+	total      uint64 // atomic, total amount of snapshotblocks need download, equal: to - from + 1
+	peers      *peerSet
+	state      SyncState
+	downloaded chan struct{}
+	feed       *SyncStateFeed
+	chain      Chain // query latest block
+	pEvent     chan *peerEvent
+	receiver   Receiver
+	fc         *fileClient
+	pool       *chunkPool
+	chunked    int32
+	running    int32
+	term       chan struct{}
+	log        log15.Logger
+}
+
+func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syncer {
 	s := &syncer{
 		state:      SyncNotStart,
 		term:       make(chan struct{}),
@@ -130,13 +127,18 @@ func newSyncer(chain Chain, peers *peerSet, pool context, receiver Receiver) *sy
 		chain:      chain,
 		peers:      peers,
 		pEvent:     make(chan *peerEvent, 1),
-		pool:       pool,
 		log:        log15.New("module", "net/syncer"),
 		receiver:   receiver,
 	}
 
 	// subscribe peer add/del event
 	peers.Sub(s.pEvent)
+
+	pool := newChunkPool(peers, gid, s)
+	fc := newFileClient(chain, pool, s)
+
+	s.pool = pool
+	s.fc = fc
 
 	return s
 }
@@ -147,6 +149,8 @@ func (s *syncer) Stop() {
 	default:
 		s.peers.UnSub(s.pEvent)
 		close(s.term)
+		s.pool.stop()
+		s.fc.stop()
 	}
 }
 
@@ -156,6 +160,11 @@ func (s *syncer) Start() {
 	}
 
 	defer atomic.StoreInt32(&s.running, 0)
+	defer s.pool.stop()
+	defer s.fc.stop()
+
+	s.pool.start()
+	s.fc.start()
 
 	start := time.NewTimer(waitEnoughPeers)
 	defer start.Stop()
@@ -315,48 +324,81 @@ func (s *syncer) counter(add bool, num uint64) {
 func (s *syncer) sync(from, to uint64) {
 	s.log.Debug(fmt.Sprintf("syncer: from %d to %d", from, to))
 
-	peerList := s.peers.Pick(from + minSubLedger)
-	// sort from low to high
-	sort.Sort(peers(peerList))
+	peerList := s.peers.Pick(from)
 
-	pieces := splitSubLedger(from, to, peerList)
+	msg := &message.GetSubLedger{
+		From:    ledger.HashHeight{Height: from},
+		Count:   to - from + 1,
+		Forward: true,
+	}
 
-	for _, piece := range pieces {
-		req := &subLedgerRequest{
-			from:  piece.from,
-			to:    piece.to,
-			peer:  piece.peer,
-			catch: s.reqError,
-			rec:   s,
-		}
-
-		s.pool.Add(req)
+	for _, peer := range peerList {
+		peer.Send(GetSubLedgerCode, 0, msg)
 	}
 }
 
-func (s *syncer) reqError(id uint64, err error) {
+func (s *syncer) ID() string {
+	return "syncer"
+}
+
+func (s *syncer) Cmds() []ViteCmd {
+	return []ViteCmd{FileListCode, SubLedgerCode, ExceptionCode}
+}
+
+func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
+	cmd := ViteCmd(msg.Cmd)
+	if cmd == FileListCode {
+		res := new(message.FileList)
+
+		if err := res.Deserialize(msg.Payload); err != nil {
+			s.log.Error(fmt.Sprintf("descerialize %s from %s error: %v", res, sender.RemoteAddr(), err))
+			return err
+		}
+
+		s.log.Info(fmt.Sprintf("receive %s from %s", res, sender.RemoteAddr()))
+
+		if len(res.Files) > 0 {
+			s.fc.gotFiles(res.Files, sender)
+		}
+
+		if sender.Height() >= s.to && len(res.Chunks) > 0 {
+			if atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
+				for _, c := range res.Chunks {
+					if c[1] > 0 {
+						// split to small chunks
+						cs := splitChunk(c[0], c[1])
+						for _, chunk := range cs {
+							s.pool.add(&chunkRequest{from: chunk[0], to: chunk[1]})
+						}
+					}
+				}
+			}
+		}
+	} else if cmd == SubLedgerCode {
+		s.pool.Handle(msg, sender)
+	} else {
+		netLog.Error(fmt.Sprintf("getSubLedgerHandler got %d need %d", msg.Cmd, SubLedgerCode))
+	}
+
+	return nil
+}
+
+func (s *syncer) catch(c piece) {
 	if s.state != Syncing || atomic.LoadInt32(&s.running) == 0 {
 		return
 	}
 
-	if r := s.pool.Get(id); r != nil {
-		from, to := r.Band()
+	from, to := c.band()
 
-		s.log.Warn(fmt.Sprintf("our target: %d, request<%d-%d> error: %v", s.to, from, to, err))
+	if from > s.to {
+		return
+	}
 
-		if from > s.to {
-			return
-		}
-
-		if to > s.to {
-			req := r.Req()
-			req.SetBand(from, s.to)
-			s.pool.Add(req)
-
-			s.log.Debug(fmt.Sprintf("retry request<%d-%d>", from, s.to))
-		} else {
-			s.setState(Syncerr)
-		}
+	if to > s.to {
+		s.pool.add(&chunkRequest{from: from, to: s.to})
+		s.log.Warn(fmt.Sprintf("retry request<%d-%d>", from, s.to))
+	} else {
+		s.setState(Syncerr)
 	}
 }
 
