@@ -2,7 +2,7 @@ FROM golang:1.11-alpine as maker
 
 ADD . /usr/local/go/src/github.com/vitelabs/go-vite
 RUN set -eux; \
- 	apk add --no-cache --virtual .build-deps \
+ 	apk add --virtual .build-deps \
  	    gcc
 
 RUN go build -o gvite  github.com/vitelabs/go-vite/cmd/gvite
