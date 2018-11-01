@@ -213,20 +213,24 @@ func (self *snapshotPool) loop() {
 
 	self.wg.Add(1)
 	defer self.wg.Done()
-	self.pool.RLock()
-	defer self.pool.RUnLock()
 	for {
 		select {
 		case <-self.closed:
 			return
 		default:
-			self.loopGenSnippetChains()
-			self.loopAppendChains()
-			self.loopFetchForSnippets()
-			self.loopCheckCurrentInsert()
+			self.loopAll()
 			time.Sleep(200 * time.Millisecond)
 		}
 	}
+}
+
+func (self *snapshotPool) loopAll() {
+	self.pool.RLock()
+	defer self.pool.RUnLock()
+	self.loopGenSnippetChains()
+	self.loopAppendChains()
+	self.loopFetchForSnippets()
+	self.loopCheckCurrentInsert()
 }
 
 func (self *snapshotPool) loopCheckCurrentInsert() {
