@@ -17,25 +17,31 @@ const (
 	FullThreshold = 0x000000000000FFFF
 )
 
-var DefaultDifficulty *big.Int = nil
+var defaultTarget = new(big.Int).SetUint64(FullThreshold)
+var VMTestParamEnabled = false
 
 func Init(vMTestParamEnabled bool) {
-	if vMTestParamEnabled {
-		DefaultDifficulty = new(big.Int).SetUint64(FullThreshold)
-	}
+	VMTestParamEnabled = vMTestParamEnabled
 }
 
 // data = Hash(address + prehash); data + nonce < target.
 func GetPowNonce(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
-	if difficulty == nil || difficulty.BitLen() > 256 {
-		return nil, errors.New("difficulty too long")
+	var target *big.Int = nil
+	if VMTestParamEnabled {
+		target = defaultTarget
+	} else {
+		target = DifficultyToTarget(difficulty)
+		if target == nil || target.BitLen() > 256 {
+			return nil, errors.New("target too long")
+		}
 	}
+
 	data := dataHash.Bytes()
-	difficulty256 := helper.LeftPadBytes(difficulty.Bytes(), 32)
+	target256 := helper.LeftPadBytes(target.Bytes(), 32)
 	for {
 		nonce := crypto.GetEntropyCSPRNG(8)
 		out := powHash256(nonce, data)
-		if QuickGreater(out, difficulty256) {
+		if QuickGreater(out, target256) {
 			return nonce, nil
 		}
 	}
@@ -51,11 +57,17 @@ func powHash256(nonce []byte, data []byte) []byte {
 }
 
 func CheckPowNonce(difficulty *big.Int, nonce []byte, data []byte) bool {
-	if difficulty == nil || difficulty.BitLen() > 256 {
-		return false
+	var target *big.Int = nil
+	if VMTestParamEnabled {
+		target = defaultTarget
+	} else {
+		target = DifficultyToTarget(difficulty)
+		if target == nil || target.BitLen() > 256 {
+			return false
+		}
 	}
 	out := powHash256(nonce, data)
-	return QuickGreater(out, helper.LeftPadBytes(difficulty.Bytes(), 32))
+	return QuickGreater(out, helper.LeftPadBytes(target.Bytes(), 32))
 }
 
 func QuickInc(x []byte) []byte {

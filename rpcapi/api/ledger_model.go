@@ -1,16 +1,15 @@
 package api
 
 import (
+	"errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
 	"strconv"
 	"time"
-	"errors"
 )
 
 type AccountBlock struct {
@@ -57,18 +56,15 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 	}
 
 	if ab.Nonce != nil {
-		if pow.DefaultDifficulty != nil {
-			lAb.Difficulty = pow.DefaultDifficulty
+
+		if ab.Difficulty == nil {
+			return nil, errors.New("lack of difficulty field")
 		} else {
-			if ab.Difficulty == nil {
-				return nil, errors.New("lack of difficulty field")
-			} else {
-				setString, ok := new(big.Int).SetString(*ab.Difficulty, 10)
-				if !ok {
-					return nil, ErrStrToBigInt
-				}
-				lAb.Difficulty = setString
+			setString, ok := new(big.Int).SetString(*ab.Difficulty, 10)
+			if !ok {
+				return nil, ErrStrToBigInt
 			}
+			lAb.Difficulty = setString
 		}
 
 	}

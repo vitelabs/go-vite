@@ -15,9 +15,9 @@ type Pow struct {
 func (p Pow) GetPowNonce(difficulty string, data types.Hash) ([]byte, error) {
 	log.Info("GetPowNonce")
 
-	if pow.DefaultDifficulty != nil {
-		log.Info("use DefaultDifficulty to calc")
-		return pow.GetPowNonce(pow.DefaultDifficulty, data)
+	if pow.VMTestParamEnabled {
+		log.Info("use defaultTarget to calc")
+		return pow.GetPowNonce(nil, data)
 	}
 
 	realDifficulty, ok := new(big.Int).SetString(difficulty, 10)
@@ -25,7 +25,7 @@ func (p Pow) GetPowNonce(difficulty string, data types.Hash) ([]byte, error) {
 		return nil, ErrStrToBigInt
 	}
 
-	work, e := remote.GenerateWork(data.Bytes(), realDifficulty)
+	work, e := remote.GenerateWork(data.Bytes(), pow.DifficultyToTarget(realDifficulty))
 	if e != nil {
 		return nil, e
 	}
