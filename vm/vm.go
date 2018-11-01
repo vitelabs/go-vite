@@ -260,6 +260,19 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 
 }
 
+var (
+	ResultSuccess = byte(0)
+	ResultFail    = byte(1)
+)
+
+func getReceiveCallData(db vmctxt_interface.VmDatabase, err error) []byte {
+	if err == nil {
+		return append(db.GetStorageHash().Bytes(), ResultSuccess)
+	} else {
+		return append(db.GetStorageHash().Bytes(), ResultFail)
+	}
+}
+
 func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTime("vm", "ReceiveCall", time.Now())
 	if p, ok, _ := getPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
@@ -267,14 +280,14 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 		err := p.DoReceive(vm, block, sendBlock)
 		if err == nil {
-			block.AccountBlock.Data = block.VmContext.GetStorageHash().Bytes()
+			block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
 			vm.updateBlock(block, err, 0)
 			if err = vm.doSendBlockList(util.PrecompiledContractsSendGas); err == nil {
 				return vm.blockList, NoRetry, nil
 			}
 		}
 		vm.revert(block)
-		block.AccountBlock.Data = block.VmContext.GetStorageHash().Bytes()
+		block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
 		vm.updateBlock(block, err, 0)
 
 		// precompiled contract receive error, if amount or fee is not zero, refund
@@ -365,7 +378,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		c.setCallCode(block.AccountBlock.AccountAddress, code)
 		_, err = c.run(vm)
 		if err == nil {
-			block.AccountBlock.Data = block.VmContext.GetStorageHash().Bytes()
+			block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
 			vm.updateBlock(block, nil, util.CalcQuotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, nil))
 			err = vm.doSendBlockList(quotaTotal - quotaAddition - block.AccountBlock.Quota)
 			if err == nil {
@@ -374,7 +387,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		}
 
 		vm.revert(block)
-		block.AccountBlock.Data = block.VmContext.GetStorageHash().Bytes()
+		block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
 		vm.updateBlock(block, err, util.CalcQuotaUsed(quotaTotal, quotaAddition, c.quotaLeft, c.quotaRefund, err))
 		return vm.blockList, err == util.ErrOutOfQuota, err
 	}
