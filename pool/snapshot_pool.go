@@ -219,6 +219,7 @@ func (self *snapshotPool) loop() {
 			return
 		default:
 			self.loopAll()
+			self.loopCheckCurrentInsert()
 			time.Sleep(200 * time.Millisecond)
 		}
 	}
@@ -230,7 +231,6 @@ func (self *snapshotPool) loopAll() {
 	self.loopGenSnippetChains()
 	self.loopAppendChains()
 	self.loopFetchForSnippets()
-	self.loopCheckCurrentInsert()
 }
 
 func (self *snapshotPool) loopCheckCurrentInsert() {
@@ -249,6 +249,8 @@ func (self *snapshotPool) loopCheckCurrentInsert() {
 }
 
 func (self *snapshotPool) snapshotTryInsert() (*poolSnapshotVerifyStat, commonBlock) {
+	self.pool.RLock()
+	defer self.pool.RUnLock()
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
 
