@@ -104,6 +104,10 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 	for chain.referChain.id() != self.diskChain.id() {
 		fromChain := chain.referChain.(*forkedChain)
 		if fromChain.size() == 0 {
+			r := clearChainBase(chain)
+			if len(r) > 0 {
+				self.log.Info("currentModifyToChain[3]-clearChainBase", "chainId", chain.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
+			}
 			self.log.Error("modify refer[6]", "from", fromChain.id(), "to", chain.id(),
 				"fromTailHeight", fromChain.tailHeight, "fromHeadHeight", fromChain.headHeight,
 				"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)

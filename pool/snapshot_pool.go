@@ -172,7 +172,7 @@ func (self *snapshotPool) snapshotFork(longest *forkedChain, current *forkedChai
 	defer self.pool.UnLock()
 	self.log.Warn("[lock]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId())
 
-	k, forked, err := self.getForkPoint(longest, current)
+	k, forked, err := self.getForkPointByChains(longest, current)
 	if err != nil {
 		self.log.Error("get snapshot forkPoint err.", "err", err)
 		return err
