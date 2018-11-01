@@ -296,7 +296,7 @@ LOOP:
 			trace = ""
 			b2, r2 := c.getBlockByChain(i)
 			sb := snippet.getBlock(i)
-			if b2 == nil {
+			if b2 == nil && reader.Head().Height() == tH {
 				forky = false
 				insertable = true
 				hr = reader
