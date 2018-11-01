@@ -88,3 +88,29 @@ func Uint64ToByteArray(i uint64) [8]byte {
 	binary.LittleEndian.PutUint64(n[:], i)
 	return n
 }
+
+var (
+	prec        uint = 64
+	floatTwo256      = new(big.Float).SetPrec(prec).SetInt(new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0)))
+	float1           = new(big.Float).SetPrec(prec).SetUint64(1)
+)
+
+func bigFloatToBigInt(f *big.Float) *big.Int {
+	b, _ := new(big.Int).SetString(f.Text('f', 0), 10)
+	return b
+}
+
+func DifficultyToTarget(difficulty *big.Int) *big.Int {
+	fTmp := new(big.Float).SetPrec(prec).SetInt(difficulty)
+	fTmp.Quo(float1, fTmp)
+	fTmp.Add(fTmp, float1)
+	fTmp.Quo(floatTwo256, fTmp)
+	return bigFloatToBigInt(fTmp)
+}
+func TargetToDifficulty(target *big.Int) *big.Int {
+	fTmp := new(big.Float).SetPrec(prec).SetInt(target)
+	fTmp.Quo(floatTwo256, fTmp)
+	fTmp.Sub(fTmp, float1)
+	fTmp.Quo(float1, fTmp)
+	return bigFloatToBigInt(fTmp)
+}
