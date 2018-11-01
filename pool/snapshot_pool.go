@@ -129,7 +129,7 @@ func (self *snapshotPool) checkFork() {
 	current := self.CurrentChain()
 	minHeight := self.pool.realSnapshotHeight(current)
 
-	self.log.Info("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight)
+	self.log.Debug("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight)
 
 	longers := self.LongerChain(minHeight)
 
@@ -140,7 +140,7 @@ func (self *snapshotPool) checkFork() {
 			continue
 		}
 		lH := self.pool.realSnapshotHeight(l)
-		self.log.Info("find chain.", "id", l.id(), "realH", lH, "headH", l.headHeight)
+		self.log.Debug("find chain.", "id", l.id(), "realH", lH, "headH", l.headHeight)
 		if lH > longestH {
 			longestH = lH
 			longest = l
