@@ -409,6 +409,29 @@ func newSnapshotBlock() (*ledger.SnapshotBlock, error) {
 
 	return snapshotBlock, err
 }
+
+func TestDeleteSnapshotBlocksToHeight5(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	for {
+		latestBlock := chainInstance.GetLatestSnapshotBlock()
+		sbs, subLedger, _ := chainInstance.DeleteSnapshotBlocksToHeight(latestBlock.Height)
+		for _, sb := range sbs {
+			fmt.Printf("%+v\n", sb)
+		}
+
+		for addr, blocks := range subLedger {
+			fmt.Printf("%s\n", addr)
+			for _, block := range blocks {
+				fmt.Printf("%+v\n", block)
+			}
+		}
+		if len(subLedger) > 0 {
+			break
+		}
+	}
+
+}
 func TestDeleteSnapshotBlocksToHeight4(t *testing.T) {
 	log15.Root().SetHandler(
 		log15.LvlFilterHandler(log15.LvlError, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),

@@ -21,16 +21,25 @@ import (
 func TestGetUnconfirmBlocks(t *testing.T) {
 	chainInstance := getChainInstance()
 
-	content := chainInstance.GetNeedSnapshotContent()
 	lsb := chainInstance.GetLatestSnapshotBlock()
-	prevSb, _ := chainInstance.GetSnapshotBlockByHeight(lsb.Height - 1)
-	fmt.Println(prevSb)
-	for _, hashHeight := range content {
-		block, _ := chainInstance.GetAccountBlockByHash(&hashHeight.Hash)
-		if block.Hash.String() != block.ComputeHash().String() {
-			fmt.Printf("%s %s\n", block.Hash, block.ComputeHash())
-			fmt.Printf("%+v\n", block)
+	startHeight := lsb.Height
+	for {
+		sb, _ := chainInstance.GetSnapshotBlockByHeight(startHeight)
+		content := sb.SnapshotContent
+		fmt.Println(sb)
+		hasErr := false
+		for _, hashHeight := range content {
+			block, _ := chainInstance.GetAccountBlockByHash(&hashHeight.Hash)
+			if block.Hash.String() != block.ComputeHash().String() {
+				hasErr = true
+				fmt.Printf("%s %s\n", block.Hash, block.ComputeHash())
+				fmt.Printf("%+v\n", block)
+			}
 		}
+		if hasErr {
+			break
+		}
+		startHeight--
 	}
 
 }
