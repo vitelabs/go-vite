@@ -22,7 +22,7 @@ func TestGetPowNonce(t *testing.T) {
 	//dd := make([]byte, 32)
 	//copy(dd[:], d[:])
 	//bd, _ := new(big.Int).SetString("ffffffffffffffff000000000000000000000000000000000000000000000000",16)
-	bd, _ := new(big.Int).SetString("fffffc0000000000000000000000000000000000000000000000000000000000", 16)
+	bd, _ := new(big.Int).SetString("ffffffc000000000000000000000000000000000000000000000000000000000", 16)
 	N := 20
 	data := crypto.Hash256([]byte{1})
 	timeList := make([]int64, N)

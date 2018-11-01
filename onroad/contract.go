@@ -54,6 +54,7 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		isCancel: false,
 
 		blackList: make(map[types.Address]bool),
+		log:       slog.New("worker", "c"),
 	}
 
 	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
