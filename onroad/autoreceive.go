@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
-	"github.com/vitelabs/go-vite/pow"
 	"math/big"
 	"sync"
 )
@@ -18,9 +17,10 @@ type SimpleAutoReceiveFilterPair struct {
 }
 
 type AutoReceiveWorker struct {
-	log          log15.Logger
-	address      types.Address
-	entropystore string
+	log           log15.Logger
+	address       types.Address
+	powDifficulty *big.Int
+	entropystore  string
 
 	manager          *Manager
 	onroadBlocksPool *model.OnroadBlocksPool
@@ -38,7 +38,7 @@ type AutoReceiveWorker struct {
 	statusMutex sync.Mutex
 }
 
-func NewAutoReceiveWorker(manager *Manager, entropystore string, address types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
+func NewAutoReceiveWorker(manager *Manager, entropystore string, address types.Address, filters map[types.TokenTypeId]big.Int, powDifficulty *big.Int) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
 		manager:          manager,
 		entropystore:     entropystore,
@@ -48,6 +48,7 @@ func NewAutoReceiveWorker(manager *Manager, entropystore string, address types.A
 		isSleeping:       false,
 		isCancel:         false,
 		filters:          filters,
+		powDifficulty:    powDifficulty,
 		log:              slog.New("worker", "a", "addr", address),
 	}
 }
@@ -208,7 +209,7 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 				return nil, nil, e
 			}
 			return manager.SignData(addr, data)
-		}, pow.DefaultDifficulty)
+		}, w.powDifficulty)
 	if err != nil {
 		w.log.Error("GenerateWithOnroad failed", "error", err)
 		return

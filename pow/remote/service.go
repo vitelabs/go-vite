@@ -20,16 +20,16 @@ const (
 	ApiActionGenerate = "/api/generate_work"
 	ApiActionValidate = "/api/validate_work"
 	ApiActionCancel   = "/api/cancel_work"
-	DefaultThreshold  = "FFFFFFC000000000000000000000000000000000000000000000000000000000"
+	// DefaultThreshold  = "FFFFFFC000000000000000000000000000000000000000000000000000000000"
 )
 
 func InitUrl(ip string) {
 	requestUrl = "http://" + ip + ":6007"
 }
 
-func GenerateWork(dataHash []byte, threshold string) (*string, error) {
+func GenerateWork(dataHash []byte, threshold *big.Int) (*string, error) {
 	wg := &workGenerate{
-		Threshold: threshold,
+		Threshold: threshold.Text(16),
 		DataHash:  hex.EncodeToString(dataHash),
 	}
 	bytesData, err := json.Marshal(wg)

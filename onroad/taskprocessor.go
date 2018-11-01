@@ -1,6 +1,7 @@
 package onroad
 
 import (
+	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -8,10 +9,8 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
-	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"sync"
-	"errors"
 )
 
 type ContractTaskProcessor struct {
@@ -173,7 +172,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 				return nil, nil, err
 			}
 			return key.SignData(data)
-		}, pow.DefaultDifficulty)
+		}, nil)
 	if err != nil {
 		plog.Error("GenerateWithOnroad failed", "error", err)
 		return
