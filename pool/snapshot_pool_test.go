@@ -20,6 +20,10 @@ type mockCommonBlock struct {
 	prevHash types.Hash
 }
 
+func (self *mockCommonBlock) Source() types.BlockSource {
+	panic("implement me")
+}
+
 func newMockCommonBlock(s int, i uint64) *mockCommonBlock {
 	r := &mockCommonBlock{}
 	r.height = i
@@ -60,6 +64,10 @@ type mockSnapshotI interface {
 }
 
 type mockSnapshotS struct {
+}
+
+func (*mockSnapshotS) FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) {
+	panic("implement me")
 }
 
 func (*mockSnapshotS) insertBlock(block commonBlock) error {

@@ -166,9 +166,8 @@ func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
 			"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight, "err", e)
 		return nil
 	} else {
-		return errors.Errorf("err for modifyRefer.", "from", from.id(), "to", to.id(),
-			"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
-			"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight)
+		return errors.Errorf("err for modifyRefer.from:%s, to:%s, fromTailHeight:%d, fromHeadHeight:%d, toTailHeight:%d, toHeadHeight:%d",
+			from.id(), to.id(), fromTailHeight, fromHeadHeight, toTailHeight, to.headHeight)
 
 	}
 }

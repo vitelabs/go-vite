@@ -453,9 +453,8 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight, sHeigh
 		return err
 	}
 	if keyPoint == nil {
-		return errors.Errorf("forkAccountTo key point is nil, target:%s", targetChain.id(), "current", cu.id(),
-			"targetTailHeight", targetChain.tailHeight, "targetTailHash", targetChain.tailHash,
-			"currentTailHeight", cu.tailHeight, "currentTailHash", cu.tailHash)
+		return errors.Errorf("forkAccountTo key point is nil, target:%s, current:%s, targetTailHeight:%d, targetTailHash:%s, currentTailHeight:%d, currentTailHash:%s",
+			targetChain.id(), cu.id(), targetChain.tailHeight, targetChain.tailHash, cu.tailHeight, cu.tailHash)
 	}
 	// fork point in disk chain
 	if forkPoint.Height() <= this.CurrentChain().tailHeight {
@@ -606,7 +605,7 @@ func (self *pool) poolRecover() {
 		case string:
 			e = errors.New(t)
 		default:
-			e = errors.Errorf("unknown type", err)
+			e = errors.Errorf("unknown type, %+v", err)
 		}
 
 		self.log.Error("panic", "err", err, "withstack", fmt.Sprintf("%+v", e))

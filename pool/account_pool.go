@@ -98,7 +98,7 @@ func (self *accountPool) Compact() int {
 			case string:
 				e = errors.New(t)
 			default:
-				e = errors.Errorf("unknown type", err)
+				e = errors.Errorf("unknown type,%+v", err)
 			}
 
 			self.log.Warn("Compact start recover.", "err", err, "stack", e)
@@ -211,7 +211,7 @@ func (self *accountPool) tryInsert() verifyTask {
 			case string:
 				e = errors.New(t)
 			default:
-				e = errors.Errorf("unknown type", err)
+				e = errors.Errorf("unknown type, %+v", err)
 			}
 			self.log.Warn("tryInsert start recover.", "err", err, "stack", e)
 			defer self.log.Warn("tryInsert end recover.")

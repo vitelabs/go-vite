@@ -89,7 +89,7 @@ func (self *snapshotPool) loopCheckFork() {
 			case string:
 				e = errors.New(t)
 			default:
-				e = errors.Errorf("unknown type", err)
+				e = errors.Errorf("unknown type, %+v", err)
 			}
 
 			self.log.Error("loopCheckFork start recover", "err", err, "withstack", fmt.Sprintf("%+v", e))
@@ -193,7 +193,7 @@ func (self *snapshotPool) loop() {
 			case string:
 				e = errors.New(t)
 			default:
-				e = errors.Errorf("unknown type", err)
+				e = errors.Errorf("unknown type, %+v", err)
 			}
 
 			self.log.Error("snapshot loop start recover", "err", err, "withstack", fmt.Sprintf("%+v", e))
@@ -213,6 +213,8 @@ func (self *snapshotPool) loop() {
 
 	self.wg.Add(1)
 	defer self.wg.Done()
+	self.pool.RLock()
+	defer self.pool.RUnLock()
 	for {
 		select {
 		case <-self.closed:
@@ -243,8 +245,6 @@ func (self *snapshotPool) loopCheckCurrentInsert() {
 }
 
 func (self *snapshotPool) snapshotTryInsert() (*poolSnapshotVerifyStat, commonBlock) {
-	self.pool.RLock()
-	defer self.pool.RUnLock()
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
 
