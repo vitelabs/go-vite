@@ -169,7 +169,7 @@ type fileClient struct {
 func newFileClient(chain Chain) *fileClient {
 	return &fileClient{
 		conns:    make(map[string]*connContext),
-		_request: make(chan *fileRequest, 4),
+		_request: make(chan *fileRequest),
 		idle:     make(chan *connContext),
 		delConn:  make(chan *delCtxEvent),
 		chain:    chain,
@@ -367,30 +367,28 @@ func (fc *fileClient) exe(ctx *connContext) {
 	ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
 	if err = p2p.WriteMsg(ctx.Conn, msg); err != nil {
 		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", getFiles, ctx.addr, err))
-		req.Catch(err)
 		fc.delConn <- &delCtxEvent{ctx, err}
+		req.Catch(err)
 		return
 	}
 
 	fc.log.Info(fmt.Sprintf("send %s to %s done", getFiles, ctx.addr))
 
-	sCount, aCount, err := fc.readBlocks(ctx)
-	if err != nil {
-		fc.log.Error(fmt.Sprintf("read blocks from %s error: %v", ctx.addr, err))
+	if err = fc.readBlocks(ctx); err != nil {
+		fc.log.Error(fmt.Sprintf("receive file from %s error: %v", ctx.addr, err))
 		fc.delConn <- &delCtxEvent{ctx, err}
-		ctx.req.Catch(err)
+		req.Catch(err)
 	} else {
-		fc.log.Info(fmt.Sprintf("read %d SnapshotBlocks %d AccountBlocks from %s", sCount, aCount, ctx.addr))
 		fc.idle <- ctx
 	}
 }
 
 var errFlieClientStopped = errors.New("fileClient stopped")
 
-func (fc *fileClient) readBlocks(ctx *connContext) (uint64, uint64, error) {
+func (fc *fileClient) readBlocks(ctx *connContext) error {
 	select {
 	case <-fc.term:
-		return 0, 0, errFlieClientStopped
+		return errFlieClientStopped
 	default:
 		// total blocks: snapshotblocks & accountblocks
 		var total, sTotal, sCount, aCount uint64
@@ -431,9 +429,10 @@ func (fc *fileClient) readBlocks(ctx *connContext) (uint64, uint64, error) {
 		})
 
 		if sCount < sTotal {
-			return sCount, aCount, fmt.Errorf("incomplete file %d/%d snapshotblocks", sCount, sTotal)
+			return fmt.Errorf("incomplete file %d/%d snapshotblocks", sCount, sTotal)
 		}
 
-		return sCount, aCount, nil
+		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks from %s", sCount, aCount, ctx.RemoteAddr()))
+		return nil
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -226,24 +225,16 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer Peer) {
 		s.Done(ctx)
 		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
 
-		if len(msg.Files) != 0 {
-			// sort as StartHeight
-			sort.Sort(files(msg.Files))
-
-			from := msg.Files[0].StartHeight
-			to := msg.Files[len(msg.Files)-1].EndHeight
-
-			// request files
+		for _, file := range msg.Files {
 			ctx.FC().request(&fileRequest{
-				from:    from,
-				to:      to,
-				files:   msg.Files,
-				nonce:   msg.Nonce,
-				peer:    peer,
-				current: from,
-				rec:     s.rec,
-				ctx:     ctx,
-				catch:   s.catch,
+				from:  file.StartHeight,
+				to:    file.EndHeight,
+				files: []*ledger.CompressedFileMeta{file},
+				nonce: msg.Nonce,
+				peer:  peer,
+				rec:   s.rec,
+				ctx:   ctx,
+				catch: s.catch,
 			})
 		}
 
@@ -342,14 +333,27 @@ func (r *fileRequest) Catch(err error) {
 		from = r.from
 	}
 
-	req := &subLedgerRequest{
-		from:  from,
-		to:    r.to,
-		catch: r.catch,
-		rec:   r.rec,
-	}
+	missing := r.to - from + 1
 
-	r.ctx.Add(req)
+	// if we have receive most file, then the rest part use chunk, not file
+	if missing <= file2Chunk {
+		cs := splitChunk(from, r.to)
+		for _, c := range cs {
+			r.ctx.Add(&chunkRequest{
+				from:  c[0],
+				to:    c[1],
+				catch: r.catch,
+				rec:   r.rec,
+			})
+		}
+	} else {
+		r.ctx.Add(&subLedgerRequest{
+			from:  from,
+			to:    r.to,
+			catch: r.catch,
+			rec:   r.rec,
+		})
+	}
 }
 
 func (r *fileRequest) Addr() string {
