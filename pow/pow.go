@@ -11,15 +11,19 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-// IN MY 2017 MACBOOK PRO which cpu is---- Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz----
-// average 2.17099039203e+10 max 73782690184 min 641170149 sum 217099039203 standard deviation 2.0826136795592163e+10
 const (
 	// todo this is online difficulty !!!
 	// FullThreshold = 0xffffffc000000000
 	FullThreshold = 0x000000000000FFFF
 )
 
-var DefaultDifficulty = new(big.Int).SetUint64(FullThreshold)
+var DefaultDifficulty *big.Int = nil
+
+func Init(vMTestParamEnabled bool) {
+	if vMTestParamEnabled {
+		DefaultDifficulty = new(big.Int).SetUint64(FullThreshold)
+	}
+}
 
 // data = Hash(address + prehash); data + nonce < target.
 func GetPowNonce(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
@@ -31,7 +35,7 @@ func GetPowNonce(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
 			return nonce, nil
 		}
 	}
-	return nil, errors.New("getPowNonce error.")
+	return nil, errors.New("get pow nonce error")
 }
 
 func powHash256(nonce []byte, data []byte) []byte {

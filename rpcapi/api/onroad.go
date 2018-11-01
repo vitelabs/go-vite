@@ -52,7 +52,7 @@ func (o PrivateOnroadApi) ListWorkingAutoReceiveWorker() []types.Address {
 	return o.manager.ListWorkingAutoReceiveWorker()
 }
 
-func (o PrivateOnroadApi) StartAutoReceive(entropystore string, addr types.Address, filter map[string]string) error {
+func (o PrivateOnroadApi) StartAutoReceive(entropystore string, addr types.Address, filter map[string]string, powDifficulty *string) error {
 	log.Info("StartAutoReceive", "addr", addr, "entropystore", entropystore)
 	rawfilter := make(map[types.TokenTypeId]big.Int)
 	if filter != nil {
@@ -69,7 +69,16 @@ func (o PrivateOnroadApi) StartAutoReceive(entropystore string, addr types.Addre
 		}
 	}
 
-	return o.manager.StartAutoReceiveWorker(entropystore, addr, rawfilter)
+	var realDifficulty *big.Int = nil
+	if powDifficulty != nil {
+		b, ok := new(big.Int).SetString(*powDifficulty, 10)
+		if !ok {
+			return ErrStrToBigInt
+		}
+		realDifficulty = b
+	}
+
+	return o.manager.StartAutoReceiveWorker(entropystore, addr, rawfilter, realDifficulty)
 }
 
 func (o PrivateOnroadApi) StopAutoReceive(addr types.Address) error {

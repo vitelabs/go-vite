@@ -14,25 +14,18 @@ type Pow struct {
 
 func (p Pow) GetPowNonce(difficulty string, data types.Hash) ([]byte, error) {
 	log.Info("GetPowNonce")
-	//
-	//wreq := workGenerate{
-	//	DataHash:  data.Hex(),
-	//	Threshold: "FFFFFFC000000000000000000000000000000000000000000000000000000000",
-	//}
-	//reqBytes, e := json.Marshal(wreq)
-	//if e != nil {
-	//	return nil, e
-	//}
-	//
-	//resp, err := http.Post("", "application/json", bytes.NewReader(reqBytes))
-	//if err != nil {
-	//	return nil, e
-	//}
-	//if resp.StatusCode != 200 {
-	//	return nil, errors.New("error pow server return ")
-	//}
 
-	work, e := remote.GenerateWork(data.Bytes(), difficulty)
+	if pow.DefaultDifficulty != nil {
+		log.Info("use DefaultDifficulty to calc")
+		return pow.GetPowNonce(pow.DefaultDifficulty, data)
+	}
+
+	realDifficulty, ok := new(big.Int).SetString(difficulty, 10)
+	if !ok {
+		return nil, ErrStrToBigInt
+	}
+
+	work, e := remote.GenerateWork(data.Bytes(), realDifficulty)
 	if e != nil {
 		return nil, e
 	}

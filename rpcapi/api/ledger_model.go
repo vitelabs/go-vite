@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"strconv"
 	"time"
+	"errors"
 )
 
 type AccountBlock struct {
@@ -56,15 +57,20 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 	}
 
 	if ab.Nonce != nil {
-		if ab.Difficulty == nil {
+		if pow.DefaultDifficulty != nil {
 			lAb.Difficulty = pow.DefaultDifficulty
 		} else {
-			setString, ok := new(big.Int).SetString(*ab.Difficulty, 10)
-			if !ok {
-				return nil, ErrStrToBigInt
+			if ab.Difficulty == nil {
+				return nil, errors.New("lack of difficulty field")
+			} else {
+				setString, ok := new(big.Int).SetString(*ab.Difficulty, 10)
+				if !ok {
+					return nil, ErrStrToBigInt
+				}
+				lAb.Difficulty = setString
 			}
-			lAb.Difficulty = setString
 		}
+
 	}
 
 	t := time.Unix(ab.Timestamp, 0)

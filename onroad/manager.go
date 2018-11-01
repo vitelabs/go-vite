@@ -232,11 +232,11 @@ func (manager *Manager) ResetAutoReceiveFilter(addr types.Address, filter map[ty
 	}
 }
 
-func (manager *Manager) StartPrimaryAutoReceiveWorker(primaryAddr types.Address, filter map[types.TokenTypeId]big.Int) error {
-	return manager.StartAutoReceiveWorker(primaryAddr.String(), primaryAddr, filter)
-}
+//func (manager *Manager) StartPrimaryAutoReceiveWorker(primaryAddr types.Address, filter map[types.TokenTypeId]big.Int) error {
+//	return manager.StartAutoReceiveWorker(primaryAddr.String(), primaryAddr, filter)
+//}
 
-func (manager *Manager) StartAutoReceiveWorker(entropystore string, addr types.Address, filter map[types.TokenTypeId]big.Int) error {
+func (manager *Manager) StartAutoReceiveWorker(entropystore string, addr types.Address, filter map[types.TokenTypeId]big.Int, powDifficulty *big.Int) error {
 	netstate := manager.Net().SyncState()
 	manager.log.Info("StartAutoReceiveWorker ", "addr", addr, "netstate", netstate)
 
@@ -255,7 +255,7 @@ func (manager *Manager) StartAutoReceiveWorker(entropystore string, addr types.A
 
 	w, found := manager.autoReceiveWorkers[addr]
 	if !found {
-		w = NewAutoReceiveWorker(manager, entropyStoreManager.GetEntropyStoreFile(), addr, filter)
+		w = NewAutoReceiveWorker(manager, entropyStoreManager.GetEntropyStoreFile(), addr, filter, powDifficulty)
 		manager.log.Info("Manager get event new Worker")
 		manager.autoReceiveWorkers[addr] = w
 	}
@@ -269,6 +269,7 @@ func (manager *Manager) StopAutoReceiveWorker(addr types.Address) error {
 	w, found := manager.autoReceiveWorkers[addr]
 	if found {
 		w.Stop()
+		delete(manager.autoReceiveWorkers, addr)
 	}
 	return nil
 }
