@@ -53,42 +53,42 @@ func mockPeers(n int) (peers []*peer) {
 	return peers
 }
 
-func TestSplitSubLedger(t *testing.T) {
-	peers := mockPeers(200)
-
-	var to uint64
-	for _, peer := range peers {
-		if peer.height > to {
-			to = peer.height
-		}
-	}
-
-	var from uint64 = 0
-
-	cs := splitSubLedger(from, to, peers)
-	fmt.Printf("from %d to %d split %d ledger pieces\n", from, to, len(cs))
-
-	low := from
-	for _, c := range cs {
-		if low != c.from {
-			t.Fatalf("ledger piece is not coherent: %d, %d - %d @%d", low, c.from, c.to, c.peer.height)
-		}
-
-		if c.to < c.from {
-			t.Fatalf("ledger piece from is larger than to: %d - %d @%d", c.from, c.to, c.peer.height)
-		}
-
-		if c.to > c.peer.height {
-			t.Fatalf("ledger piece from out of peer: %d - %d @%d", c.from, c.to, c.peer.height)
-		}
-
-		low = c.to + 1
-	}
-
-	if low != to+1 {
-		t.Fatalf("ledger pieces is not compelete, %d %d", low, to)
-	}
-}
+//func TestSplitSubLedger(t *testing.T) {
+//	peers := mockPeers(200)
+//
+//	var to uint64
+//	for _, peer := range peers {
+//		if peer.height > to {
+//			to = peer.height
+//		}
+//	}
+//
+//	var from uint64 = 0
+//
+//	cs := splitSubLedger(from, to, peers)
+//	fmt.Printf("from %d to %d split %d ledger pieces\n", from, to, len(cs))
+//
+//	low := from
+//	for _, c := range cs {
+//		if low != c.from {
+//			t.Fatalf("ledger piece is not coherent: %d, %d - %d @%d", low, c.from, c.to, c.peer.height)
+//		}
+//
+//		if c.to < c.from {
+//			t.Fatalf("ledger piece from is larger than to: %d - %d @%d", c.from, c.to, c.peer.height)
+//		}
+//
+//		if c.to > c.peer.height {
+//			t.Fatalf("ledger piece from out of peer: %d - %d @%d", c.from, c.to, c.peer.height)
+//		}
+//
+//		low = c.to + 1
+//	}
+//
+//	if low != to+1 {
+//		t.Fatalf("ledger pieces is not compelete, %d %d", low, to)
+//	}
+//}
 
 func TestSplitChunk(t *testing.T) {
 	from, to := mockFromTo()

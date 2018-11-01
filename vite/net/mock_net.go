@@ -12,7 +12,6 @@ type mockNet struct {
 	*fetcher
 	*broadcaster
 	*receiver
-	*requestPool
 }
 
 func (n *mockNet) Info() *NodeInfo {
@@ -33,7 +32,7 @@ func (n *mockNet) Tasks() []*Task {
 
 func mock() Net {
 	peers := newPeerSet()
-	pool := newRequestPool(peers, nil)
+	pool := &gid{}
 	broadcaster := &broadcaster{
 		peers: peers,
 		log:   log15.New("module", "mocknet/broadcaster"),
@@ -68,6 +67,5 @@ func mock() Net {
 		},
 		broadcaster: broadcaster,
 		receiver:    receiver,
-		requestPool: pool,
 	}
 }
