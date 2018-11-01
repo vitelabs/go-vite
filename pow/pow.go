@@ -27,11 +27,15 @@ func Init(vMTestParamEnabled bool) {
 
 // data = Hash(address + prehash); data + nonce < target.
 func GetPowNonce(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
+	if difficulty == nil || difficulty.BitLen() > 256 {
+		return nil, errors.New("difficulty too long")
+	}
 	data := dataHash.Bytes()
+	difficulty256 := helper.LeftPadBytes(difficulty.Bytes(), 32)
 	for {
 		nonce := crypto.GetEntropyCSPRNG(8)
 		out := powHash256(nonce, data)
-		if QuickGreater(out, helper.LeftPadBytes(difficulty.Bytes(), 32)) {
+		if QuickGreater(out, difficulty256) {
 			return nonce, nil
 		}
 	}
@@ -47,6 +51,9 @@ func powHash256(nonce []byte, data []byte) []byte {
 }
 
 func CheckPowNonce(difficulty *big.Int, nonce []byte, data []byte) bool {
+	if difficulty == nil || difficulty.BitLen() > 256 {
+		return false
+	}
 	out := powHash256(nonce, data)
 	return QuickGreater(out, helper.LeftPadBytes(difficulty.Bytes(), 32))
 }
