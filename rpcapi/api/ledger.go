@@ -88,6 +88,29 @@ func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.H
 
 }
 
+type Statistics struct {
+	SnapshotBlockCount uint64 `json:"snapshotBlockCount"`
+	AccountBlockCount  uint64 `json:"accountBlockCount"`
+}
+
+func (l *LedgerApi) GetStatistics() (*Statistics, error) {
+	latestSnapshotBlock := l.chain.GetLatestSnapshotBlock()
+	allLatestAccountBlock, err := l.chain.GetAllLatestAccountBlock()
+
+	if err != nil {
+		return nil, err
+	}
+	var accountBlockCount uint64
+	for _, block := range allLatestAccountBlock {
+		accountBlockCount += block.Height
+	}
+
+	return &Statistics{
+		SnapshotBlockCount: latestSnapshotBlock.Height,
+		AccountBlockCount:  accountBlockCount,
+	}, nil
+}
+
 func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
 	l.log.Info("GetBlocksByAccAddr")
 

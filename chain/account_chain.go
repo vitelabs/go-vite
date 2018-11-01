@@ -657,6 +657,27 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 
 	return subLedger, nil
 }
+func (c *chain) GetAllLatestAccountBlock() ([]*ledger.AccountBlock, error) {
+	maxAccountId, err := c.chainDb.Account.GetLastAccountId()
+	if err != nil {
+		c.log.Error("GetLastAccountId failed, error is "+err.Error(), "method", "GetAllAccountBlockCount")
+		return nil, err
+	}
+
+	var allLatestAccountBlock []*ledger.AccountBlock
+
+	for i := uint64(1); i <= maxAccountId; i++ {
+		accountBlock, err := c.chainDb.Ac.GetLatestBlock(i)
+		if err != nil {
+			c.log.Error("GetLatestBlock failed, error is "+err.Error(), "method", "GetAllAccountBlockCount")
+			return nil, err
+		}
+		if accountBlock != nil {
+			allLatestAccountBlock = append(allLatestAccountBlock, accountBlock)
+		}
+	}
+	return allLatestAccountBlock, nil
+}
 
 // For init need snapshot cache
 func (c *chain) getUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBlock, error) {
