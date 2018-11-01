@@ -18,11 +18,11 @@ import (
 const (
 	jsonRegister = `
 	[
-		{"type":"function","name":"Register", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"}]},
-		{"type":"function","name":"UpdateRegistration", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"}]},
+		{"type":"function","name":"Register", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"nodeAddr","type":"address"}]},
+		{"type":"function","name":"UpdateRegistration", "inputs":[{"name":"gid","type":"gid"},{"Name":"name","type":"string"},{"name":"nodeAddr","type":"address"}]},
 		{"type":"function","name":"CancelRegister","inputs":[{"name":"gid","type":"gid"}, {"name":"name","type":"string"}]},
 		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"beneficialAddr","type":"address"}]},
-		{"type":"variable","name":"registration","inputs":[{"name":"name","type":"string"},{"name":"NodeAddr","type":"address"},{"name":"pledgeAddr","type":"address"},{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"rewardHeight","type":"uint64"},{"name":"cancelHeight","type":"uint64"},{"name":"hisAddrList","type":"address[]"}]},
+		{"type":"variable","name":"registration","inputs":[{"name":"name","type":"string"},{"name":"nodeAddr","type":"address"},{"name":"pledgeAddr","type":"address"},{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"rewardHeight","type":"uint64"},{"name":"cancelHeight","type":"uint64"},{"name":"hisAddrList","type":"address[]"}]},
 		{"type":"variable","name":"hisName","inputs":[{"name":"name","type":"string"}]}
 	]`
 
@@ -68,35 +68,25 @@ func (r *Registration) IsActive() bool {
 }
 
 func GetRegisterKey(name string, gid types.Gid) []byte {
-	var data = make([]byte, types.HashSize)
-	copy(data[:types.GidSize], gid[:])
-	copy(data[types.GidSize:], types.DataHash([]byte(name)).Bytes()[types.GidSize:])
-	return data
+	return append(gid.Bytes(), types.DataHash([]byte(name)).Bytes()[types.GidSize:]...)
 }
 
 func GetHisNameKey(addr types.Address, gid types.Gid) []byte {
-	var data = make([]byte, types.AddressSize+types.GidSize)
-	copy(data[:types.AddressSize], addr[:])
-	copy(data[types.AddressSize:], gid[:])
-	return data
+	return append(addr.Bytes(), gid.Bytes()...)
 }
 
 func IsRegisterKey(key []byte) bool {
-	if len(key) == types.HashSize {
-		return true
-	}
-	return false
+	return len(key) == types.HashSize
 }
 
-func GetRegistration(db StorageDatabase, name string, gid types.Gid) *Registration {
-	value := db.GetStorage(&AddressRegister, GetRegisterKey(name, gid))
-	registration := new(Registration)
-	if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
-		if registration.IsActive() {
-			return registration
+func IsActiveRegistration(db StorageDatabase, name string, gid types.Gid) bool {
+	if value := db.GetStorage(&AddressRegister, GetRegisterKey(name, gid)); len(value) > 0 {
+		registration := new(Registration)
+		if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
+			return registration.IsActive()
 		}
 	}
-	return nil
+	return false
 }
 
 func GetCandidateList(db StorageDatabase, gid types.Gid) []*Registration {
@@ -118,10 +108,8 @@ func GetCandidateList(db StorageDatabase, gid types.Gid) []*Registration {
 		}
 		if IsRegisterKey(key) {
 			registration := new(Registration)
-			if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
-				if registration.IsActive() {
-					registerList = append(registerList, registration)
-				}
+			if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil && registration.IsActive() {
+				registerList = append(registerList, registration)
 			}
 		}
 	}
@@ -147,10 +135,8 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Add
 		}
 		if IsRegisterKey(key) {
 			registration := new(Registration)
-			if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
-				if registration.PledgeAddr == pledgeAddr {
-					registerList = append(registerList, registration)
-				}
+			if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil && registration.PledgeAddr == pledgeAddr {
+				registerList = append(registerList, registration)
 			}
 		}
 	}
@@ -175,9 +161,11 @@ func (p *MethodRegister) DoSend(context contractsContext, block *vm_context.VmAc
 	}
 
 	param := new(ParamRegister)
-	err = ABIRegister.UnpackMethod(param, MethodNameRegister, block.AccountBlock.Data)
-	if err != nil || param.Gid == types.DELEGATE_GID {
+	if err = ABIRegister.UnpackMethod(param, MethodNameRegister, block.AccountBlock.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
+	}
+	if param.Gid == types.DELEGATE_GID {
+		return quotaLeft, errors.New("cannot register consensus group")
 	}
 	if err = checkRegisterData(MethodNameRegister, block, param); err != nil {
 		return quotaLeft, err
@@ -202,7 +190,8 @@ func (p *MethodRegister) DoReceive(context contractsContext, block *vm_context.V
 	param := new(ParamRegister)
 	ABIRegister.UnpackMethod(param, MethodNameRegister, sendBlock.Data)
 
-	// check old data
+	// Registration is not exist
+	// or registration is not active and belongs to sender account
 	snapshotBlock := block.VmContext.CurrentSnapshotBlock()
 	rewardHeight := snapshotBlock.Height
 	key := GetRegisterKey(param.Name, param.Gid)
@@ -215,16 +204,17 @@ func (p *MethodRegister) DoReceive(context contractsContext, block *vm_context.V
 			return errors.New("register data exist")
 		}
 		// reward of last being a super node is not drained
-		rewardHeight = old.RewardHeight
+		if old.RewardHeight < old.CancelHeight {
+			rewardHeight = old.RewardHeight
+		}
 		hisAddrList = old.HisAddrList
 	}
 
-	// check node addr belong to one name in a consensus group
+	// Node addr belong to one name in a consensus group
 	hisNameKey := GetHisNameKey(param.NodeAddr, param.Gid)
 	hisName := new(string)
 	err := ABIRegister.UnpackVariable(hisName, VariableNameHisName, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, hisNameKey))
 	if err == nil && *hisName != param.Name {
-		// hisName exist
 		return errors.New("node address is registered to another name before")
 	}
 	if err != nil {
@@ -272,8 +262,7 @@ func (p *MethodCancelRegister) DoSend(context contractsContext, block *vm_contex
 	}
 
 	param := new(ParamCancelRegister)
-	err = ABIRegister.UnpackMethod(param, MethodNameCancelRegister, block.AccountBlock.Data)
-	if err != nil {
+	if err = ABIRegister.UnpackMethod(param, MethodNameCancelRegister, block.AccountBlock.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
 
@@ -354,9 +343,11 @@ func (p *MethodReward) DoSend(context contractsContext, block *vm_context.VmAcco
 		return quotaLeft, errors.New("invalid block data")
 	}
 	param := new(ParamReward)
-	err = ABIRegister.UnpackMethod(param, MethodNameReward, block.AccountBlock.Data)
-	if err != nil || !util.IsSnapshotGid(param.Gid) {
+	if err = ABIRegister.UnpackMethod(param, MethodNameReward, block.AccountBlock.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
+	}
+	if !util.IsSnapshotGid(param.Gid) {
+		return quotaLeft, errors.New("consensus group has no reward")
 	}
 	key := GetRegisterKey(param.Name, param.Gid)
 	old := new(Registration)
@@ -473,8 +464,7 @@ func (p *MethodUpdateRegistration) DoSend(context contractsContext, block *vm_co
 	}
 
 	param := new(ParamRegister)
-	err = ABIRegister.UnpackMethod(param, MethodNameUpdateRegistration, block.AccountBlock.Data)
-	if err != nil {
+	if err = ABIRegister.UnpackMethod(param, MethodNameUpdateRegistration, block.AccountBlock.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
 

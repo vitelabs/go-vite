@@ -2,6 +2,9 @@ package generator
 
 import (
 	"errors"
+	"math/big"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -9,8 +12,6 @@ import (
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
-	"math/big"
-	"time"
 )
 
 const DefaultHeightDifference uint64 = 10
@@ -116,20 +117,19 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 	blockList, isRetry, err := gen.vm.Run(gen.vmContext, block, sendBlock)
 	if len(blockList) > 0 {
 		for k, v := range blockList {
-			v.AccountBlock.Hash = v.AccountBlock.ComputeHash()
-
 			if k == 0 {
-				accountBlock := blockList[0].AccountBlock
+				v.AccountBlock.Hash = v.AccountBlock.ComputeHash()
 				if signFunc != nil {
-					signature, publicKey, e := signFunc(producer, accountBlock.Hash.Bytes())
+					signature, publicKey, e := signFunc(producer, v.AccountBlock.Hash.Bytes())
 					if e != nil {
 						return nil, e
 					}
-					accountBlock.Signature = signature
-					accountBlock.PublicKey = publicKey
+					v.AccountBlock.Signature = signature
+					v.AccountBlock.PublicKey = publicKey
 				}
 			} else {
 				v.AccountBlock.PrevHash = blockList[k-1].AccountBlock.Hash
+				v.AccountBlock.Hash = v.AccountBlock.ComputeHash()
 			}
 		}
 	}

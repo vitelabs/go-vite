@@ -28,7 +28,7 @@ func TestCalcLogisticQuotaParam(t *testing.T) {
 	fmt.Printf("paramA      = new(big.Float).SetPrec(precForFloat).SetFloat64(%v)\n", floatTmp.String())
 	// Pledge no Vite Token, calc PoW for default difficulty, gets quota for a pure transfer transaction
 	//defaultDifficulty, _ := new(big.Float).SetPrec(precForFloat).SetString("0x000000000000FFFF")
-	defaultDifficulty, _ := new(big.Float).SetPrec(precForFloat).SetString("0xffffffc000000000")
+	defaultDifficulty := new(big.Float).SetPrec(precForFloat).SetUint64(67108863)
 	floatTmp.Quo(defaultSection, defaultDifficulty)
 	fmt.Printf("paramB      = new(big.Float).SetPrec(precForFloat).SetFloat64(%v)\n", floatTmp.String())
 
@@ -94,7 +94,7 @@ func TestCalcQuotaForPoWMainNet(t *testing.T) {
 	InitQuotaConfig(false)
 	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
 	tmpFLoat := new(big.Float).SetPrec(precForFloat)
-	difficulty := float64(0xffffffc000000000)
+	difficulty := float64(67108863)
 	tmpFLoat.SetFloat64(difficulty)
 	tmpFLoat.Mul(tmpFLoat, QuotaParamMainNet.paramB)
 	x.Add(x, tmpFLoat)
@@ -134,11 +134,12 @@ func TestCalcQuotaForMaxPledgeMainNet(t *testing.T) {
 }
 
 func TestQuotaSection(t *testing.T) {
+	InitQuotaConfig(false)
 	x := new(big.Float).SetPrec(precForFloat)
-	pledgeMin := new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18))
+	pledgeMin := new(big.Int).Mul(big.NewInt(11000), big.NewInt(1e18))
 	for i := 0; i < len(nodeConfig.sectionList); i++ {
 		x.SetInt(pledgeMin)
-		x.Mul(x, QuotaParamTest.paramA)
+		x.Mul(x, nodeConfig.paramA)
 		x.Quo(nodeConfig.sectionList[i], x)
 		f, _ := x.Float64()
 		fmt.Printf("pledgeAmount:1000 vite, wait time: %v, quotaForTx: %v\n", math.Ceil(f), i)

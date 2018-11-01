@@ -10,7 +10,7 @@ const (
 	UpdateRegistrationGas     uint64 = 62200
 	CancelRegisterGas         uint64 = 83200
 	RewardGas                 uint64 = 238800
-	VoteGas                   uint64 = 21000
+	VoteGas                   uint64 = 62000
 	CancelVoteGas             uint64 = 62000
 	PledgeGas                 uint64 = 21000
 	CancelPledgeGas           uint64 = 21000
