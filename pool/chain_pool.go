@@ -147,7 +147,7 @@ func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
 	toTailHeight := to.tailHeight
 	fromTailHeight := from.tailHeight
 	fromHeadHeight := from.headHeight
-	if fromTailHeight <= toTailHeight && fromHeadHeight > toTailHeight {
+	if fromTailHeight <= toTailHeight && fromHeadHeight >= toTailHeight {
 		for i := toTailHeight; i > fromTailHeight; i-- {
 			w := from.getBlock(i, false)
 			if w != nil {
@@ -275,11 +275,13 @@ func (self *chainPool) currentModify(initBlock commonBlock) {
 	self.current = new
 	self.modifyChainRefer2(c, new)
 }
-func (self *chainPool) fork2(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain) {
+func (self *chainPool) fork2(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain, error) {
 
 	var forky, insertable bool
 	var result *forkedChain = nil
 	var hr heightChainReader
+
+	var err error
 
 	trace := ""
 
@@ -296,7 +298,7 @@ LOOP:
 			trace = ""
 			b2, r2 := c.getBlockByChain(i)
 			sb := snippet.getBlock(i)
-			if b2 == nil && reader.Head().Height() == tH {
+			if b2 == nil {
 				forky = false
 				insertable = true
 				hr = reader
@@ -320,6 +322,7 @@ LOOP:
 					trace += "[3]"
 					break LOOP
 				}
+				break
 			} else {
 				reader = r2
 				block = b2
@@ -328,6 +331,14 @@ LOOP:
 					delete(self.snippetChains, snippet.id())
 					hr = nil
 					trace += "[4]"
+					err = errors.Errorf("snippet rem nil. size:%d", snippet.size())
+					break LOOP
+				}
+				if snippet.size() == 0 {
+					delete(self.snippetChains, snippet.id())
+					hr = nil
+					trace += "[5]"
+					err = errors.New("snippet is empty.")
 					break LOOP
 				}
 				tH = tail.Height()
@@ -336,8 +347,12 @@ LOOP:
 		}
 	}
 
+	if err != nil {
+		return false, false, nil, err
+	}
+
 	if hr == nil {
-		return false, false, nil
+		return false, false, nil, nil
 	}
 	switch t := hr.(type) {
 	case *diskChain:
@@ -366,10 +381,11 @@ LOOP:
 				"sTailHeight", snippet.tailHeight, "sHeadHeight",
 				snippet.headHeight, "cTailHeight", result.tailHeight, "cHeadHeight", result.headHeight,
 				"trace", trace)
+			return forky, false, result, nil
 		}
 	}
 
-	return forky, insertable, result
+	return forky, insertable, result, nil
 }
 
 func (self *chainPool) forky(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain) {

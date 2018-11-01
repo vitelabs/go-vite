@@ -6,6 +6,8 @@ import (
 
 	"math/rand"
 
+	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -101,7 +103,8 @@ func (self *accountPool) Compact() int {
 				e = errors.Errorf("unknown type,%+v", err)
 			}
 
-			self.log.Warn("Compact start recover.", "err", err, "stack", e)
+			self.log.Warn("Compact start recover.", "err", err, "withstack", fmt.Sprintf("%+v", e))
+			fmt.Printf("%+v", e)
 			defer self.log.Warn("Compact end recover.")
 			self.pool.RLock()
 			defer self.pool.RUnLock()
@@ -213,7 +216,8 @@ func (self *accountPool) tryInsert() verifyTask {
 			default:
 				e = errors.Errorf("unknown type, %+v", err)
 			}
-			self.log.Warn("tryInsert start recover.", "err", err, "stack", e)
+			self.log.Warn("tryInsert start recover.", "err", err, "stack", fmt.Sprintf("%+v", e))
+			fmt.Printf("%+v", e)
 			defer self.log.Warn("tryInsert end recover.")
 			self.initPool()
 		}
