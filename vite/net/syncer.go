@@ -160,11 +160,13 @@ func (s *syncer) Start() {
 	}
 
 	defer atomic.StoreInt32(&s.running, 0)
-	defer s.pool.stop()
-	defer s.fc.stop()
+	defer atomic.StoreInt32(&s.chunked, 0)
 
 	s.pool.start()
 	s.fc.start()
+
+	defer s.pool.stop()
+	defer s.fc.stop()
 
 	start := time.NewTimer(waitEnoughPeers)
 	defer start.Stop()
