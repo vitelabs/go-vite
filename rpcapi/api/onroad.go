@@ -88,13 +88,11 @@ func (o PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index 
 	sum := 0
 	for k, v := range blockList {
 		if v != nil {
-			confirmedTimes, e := o.manager.Chain().GetConfirmTimes(&v.Hash)
+			accountBlock, e := ledgerToRpcBlock(v, o.manager.DbAccess().Chain)
 			if e != nil {
 				return nil, e
-
 			}
-			block := createAccountBlock(v, o.manager.DbAccess().Chain.GetTokenInfoById(&v.TokenId), confirmedTimes)
-			a[k] = block
+			a[k] = accountBlock
 			sum++
 		}
 	}

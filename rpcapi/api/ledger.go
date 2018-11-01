@@ -29,36 +29,9 @@ func (l LedgerApi) String() string {
 }
 
 func (l *LedgerApi) ledgerBlockToRpcBlock(block *ledger.AccountBlock) (*AccountBlock, error) {
-	confirmTimes, err := l.chain.GetConfirmTimes(&block.Hash)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var fromAddress, toAddress types.Address
-	if block.IsReceiveBlock() {
-		toAddress = block.AccountAddress
-		sendBlock, err := l.chain.GetAccountBlockByHash(&block.FromBlockHash)
-		if err != nil {
-			return nil, err
-		}
-
-		if sendBlock != nil {
-			fromAddress = sendBlock.AccountAddress
-			block.TokenId = sendBlock.TokenId
-			block.Amount = sendBlock.Amount
-		}
-	} else {
-		fromAddress = block.AccountAddress
-		toAddress = block.ToAddress
-	}
-
-	token := l.chain.GetTokenInfoById(&block.TokenId)
-	rpcAccountBlock := createAccountBlock(block, token, confirmTimes)
-	rpcAccountBlock.FromAddress = fromAddress
-	rpcAccountBlock.ToAddress = toAddress
-	return rpcAccountBlock, nil
+	return ledgerToRpcBlock(block, l.chain)
 }
+
 func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*AccountBlock, error) {
 	var blocks []*AccountBlock
 	for _, item := range list {
@@ -86,6 +59,29 @@ func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.H
 		return blocks, nil
 	}
 
+}
+
+type Statistics struct {
+	SnapshotBlockCount uint64 `json:"snapshotBlockCount"`
+	AccountBlockCount  uint64 `json:"accountBlockCount"`
+}
+
+func (l *LedgerApi) GetStatistics() (*Statistics, error) {
+	latestSnapshotBlock := l.chain.GetLatestSnapshotBlock()
+	allLatestAccountBlock, err := l.chain.GetAllLatestAccountBlock()
+
+	if err != nil {
+		return nil, err
+	}
+	var accountBlockCount uint64
+	for _, block := range allLatestAccountBlock {
+		accountBlockCount += block.Height
+	}
+
+	return &Statistics{
+		SnapshotBlockCount: latestSnapshotBlock.Height,
+		AccountBlockCount:  accountBlockCount,
+	}, nil
 }
 
 func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
@@ -225,6 +221,25 @@ func (l *LedgerApi) GetSenderInfo() (*KafkaSendInfo, error) {
 	}
 
 	return senderInfo, nil
+}
+
+func (l *LedgerApi) GetFittestSnapshotHash() (*types.Hash, error) {
+	latestBlock := l.chain.GetLatestSnapshotBlock()
+
+	gap := uint64(10)
+	targetHeight := latestBlock.Height
+
+	if targetHeight > gap {
+		targetHeight = latestBlock.Height - gap
+	} else {
+		targetHeight = 1
+	}
+
+	targetSnapshotBlock, err := l.chain.GetSnapshotBlockByHeight(targetHeight)
+	if err != nil {
+		return nil, err
+	}
+	return &targetSnapshotBlock.Hash, nil
 
 }
 

@@ -349,29 +349,23 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 			from = 0
 		}
 	}
-	fmt.Println("-------------------1", from, to)
 	chunks := splitChunk(from, to)
 
 	var blocks []*ledger.SnapshotBlock
 	for _, chunk := range chunks {
-		fmt.Println("-----------------2", chunk[0], chunk[1]-chunk[0]+1)
 		blocks, err = s.chain.GetSnapshotBlocksByHeight(chunk[0], chunk[1]-chunk[0]+1, true, true)
-		fmt.Println("-----------------3", chunk[0], chunk[1]-chunk[0]+1)
 		if err != nil || len(blocks) == 0 {
 			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
 			monitor.LogEvent("net/handle", "GetSnapshotBlocks_Fail")
 			return sender.Send(ExceptionCode, msg.Id, message.Missing)
 		}
-		fmt.Println("-----------------4", chunk[0], chunk[1]-chunk[0]+1)
 		monitor.LogEvent("net/handle", "GetSnapshotBlocks_Success")
 
 		if err = sender.SendSnapshotBlocks(blocks, msg.Id); err != nil {
 			netLog.Error(fmt.Sprintf("send %d SnapshotBlocks to %s error: %v", len(blocks), sender.RemoteAddr(), err))
-			fmt.Println("-----------------5", chunk[0], chunk[1]-chunk[0]+1)
 			return
 		} else {
 			netLog.Info(fmt.Sprintf("send %d SnapshotBlocks to %s done", len(blocks), sender.RemoteAddr()))
-			fmt.Println("-----------------6", chunk[0], chunk[1]-chunk[0]+1)
 		}
 	}
 

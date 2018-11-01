@@ -114,7 +114,7 @@ type AccountBlock struct {
 
 	LogHash *types.Hash `json:"logHash"`
 
-	Difficulty *big.Int `json: "difficulty"`
+	Difficulty *big.Int `json:"difficulty"`
 	Nonce      []byte   `json:"nonce"`
 	Signature  []byte   `json:"signature"`
 }

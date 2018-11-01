@@ -33,6 +33,7 @@ type Chain interface {
 	GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
 	GetAccountBlockHashByHeight(addr *types.Address, height uint64) (*types.Hash, error)
 
+	GetAllLatestAccountBlock() ([]*ledger.AccountBlock, error)
 	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 	GetAccountBlocksByAddress(addr *types.Address, index int, num int, count int) ([]*ledger.AccountBlock, error)

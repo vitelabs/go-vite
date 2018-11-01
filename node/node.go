@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/pow/remote"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi"
 	"github.com/vitelabs/go-vite/vite"
@@ -131,6 +132,9 @@ func (node *Node) Prepare() error {
 
 	//Protocols setting, maybe should move into module.Start()
 	node.p2pServer.Protocols = append(node.p2pServer.Protocols, node.viteServer.Net().Protocols()...)
+
+	//init rpc_PowServerIp
+	remote.InitUrl(node.Config().PowServerIp)
 
 	// Start vite
 	if err := node.viteServer.Init(); err != nil {
