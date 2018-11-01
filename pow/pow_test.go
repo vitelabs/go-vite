@@ -129,3 +129,14 @@ func TestHashWithC(t *testing.T) {
 	fmt.Println(hex.EncodeToString(tB[:]))
 
 }
+
+func TestDifficultyToTarget(t *testing.T) {
+	difficulty, _ := new(big.Int).SetString("67108863", 10)
+	target, _ := new(big.Int).SetString("115792087511879608725930038149998942284013621552863320996860945217282073690112", 10)
+	if getDifficulty := pow.TargetToDifficulty(target); difficulty.Cmp(getDifficulty) != 0 {
+		t.Fatalf("target to difficulty error, expected %v, got %v", difficulty, getDifficulty)
+	}
+	if getTarget := pow.DifficultyToTarget(difficulty); target.Cmp(getTarget) != 0 {
+		t.Fatalf("difficulty to target error, expected %v, got %v", target, getTarget)
+	}
+}
