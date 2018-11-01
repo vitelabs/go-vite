@@ -524,8 +524,8 @@ func (producer *Producer) getHasSend() (uint64, error) {
 	return binary.BigEndian.Uint64(value), nil
 }
 
-func (producer *Producer) sendMessage(msgList []*message) error {
-	var err error
+func (producer *Producer) sendMessage(msgList []*message) (err error) {
+	//var err error
 	for i := 0; i < len(msgList); i++ {
 		buf, jsonErr := json.Marshal(msgList[i])
 		if jsonErr != nil {
@@ -551,5 +551,5 @@ func (producer *Producer) sendMessage(msgList []*message) error {
 		}()
 	}
 	producer.sendWg.Wait()
-	return nil
+	return
 }

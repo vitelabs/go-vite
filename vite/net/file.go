@@ -298,6 +298,7 @@ loop:
 			ctx.idle = true
 			ctx.idleT = time.Now()
 			for i, req := range wait {
+				// just pick only one task from wait queue
 				if req.Addr() == ctx.addr {
 					if i != len(wait)-1 {
 						copy(wait[i:], wait[i+1:])
@@ -308,6 +309,8 @@ loop:
 					common.Go(func() {
 						fc.exe(ctx)
 					})
+
+					break
 				}
 			}
 
