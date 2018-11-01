@@ -161,11 +161,11 @@ func TestGenerator_GenerateWithMessage_CallTransfer(t *testing.T) {
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-	if err := callTransfer(v, &ledger.GenesisAccountAddress, &addr1, genesisAccountPrivKey, genesisAccountPubKey, pow.DefaultDifficulty); err != nil {
+	if err := callTransfer(v, &ledger.GenesisAccountAddress, &addr1, genesisAccountPrivKey, genesisAccountPubKey, pow.defaultTarget); err != nil {
 		t.Error(err)
 		return
 	}
-	if err := callTransfer(v, &addr1, &addr2, addr1PrivKey, addr1PubKey, pow.DefaultDifficulty); err != nil {
+	if err := callTransfer(v, &addr1, &addr2, addr1PrivKey, addr1PubKey, pow.defaultTarget); err != nil {
 		t.Error(err)
 		return
 	}

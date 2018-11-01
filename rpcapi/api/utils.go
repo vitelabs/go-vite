@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 	"os"
@@ -13,6 +14,7 @@ var (
 	log                = log15.New("module", "rpc/api")
 	testapi_hexPrivKey = ""
 	testapi_tti        = ""
+	convertError       = errors.New("convert error")
 )
 
 func InitLog(dir, lvl string) {
@@ -36,16 +38,16 @@ func InitTestAPIParams(priv, tti string) {
 	testapi_tti = tti
 }
 
-func stringToBigInt(str *string) *big.Int {
+func stringToBigInt(str *string) (*big.Int, error) {
 	if str == nil {
-		return nil
+		return nil, convertError
 	}
 	n := new(big.Int)
 	n, ok := n.SetString(*str, 10)
 	if n == nil || !ok {
-		return nil
+		return nil, convertError
 	}
-	return n
+	return n, nil
 }
 
 func bigIntToString(big *big.Int) *string {

@@ -1,16 +1,14 @@
 package net
 
 import (
-	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/list"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"sort"
-	"strconv"
-	"strings"
+	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -65,85 +63,20 @@ type Request interface {
 	Peer() Peer
 }
 
+type piece interface {
+	band() (from, to uint64)
+	setBand(from, to uint64)
+}
+
 type reqRec interface {
 	receiveSnapshotBlock(block *ledger.SnapshotBlock)
 	receiveAccountBlock(block *ledger.AccountBlock)
+	catch(piece)
 }
-type errCallback = func(id uint64, err error)
 
-var errMissingPeer = errors.New("request missing peer")
-var errUnExpectedRes = errors.New("unexpected response")
-
-const minSubLedger = 3600 // minimal snapshot blocks per subLedger request
-const maxSubLedger = 7200 // maximal snapshot blocks per subLedger request
-const maxBlocks = 300     // max blocks in one message(snapshotblocks + accountblocks)
+const maxBlocks = 300 // max blocks in one message(snapshotblocks + accountblocks)
 const file2Chunk = 600
-
-type subLedgerPiece struct {
-	from, to uint64
-	peer     *peer
-}
-
-// split large subledger request to many small pieces
-func splitSubLedger(from, to uint64, l peers) (cs []*subLedgerPiece) {
-	peerCount := len(l)
-
-	if peerCount == 0 {
-		return
-	}
-
-	total := to - from + 1
-	if total < minSubLedger || peerCount == 1 {
-		cs = append(cs, &subLedgerPiece{
-			from: from,
-			to:   to,
-			peer: l[peerCount-1], // choose the tallest peer
-		})
-		return
-	}
-
-	var pCount, pTo uint64 // piece length
-
-loop:
-	for from < to {
-		peerCount = len(l)
-
-		if peerCount == 0 {
-			break loop
-		}
-
-		for i, peer := range l {
-			if peer.height > from {
-				pTo = peer.height
-
-				pCount = pTo - from + 1
-				// if piece is too small and is not the last peer, then reallocate
-				if pCount < minSubLedger && (i != peerCount-1) {
-					continue
-				} else if pCount > maxSubLedger {
-					pTo = from + maxSubLedger - 1
-				}
-
-				if pTo > to || (to < pTo+minSubLedger && peer.height >= to) {
-					pTo = to
-				}
-
-				cs = append(cs, &subLedgerPiece{
-					from: from,
-					to:   pTo,
-					peer: peer,
-				})
-
-				from = pTo + 1
-				if from > to {
-					break loop
-				}
-			}
-		}
-	}
-
-	return
-}
+const minSubLedger = 1000
 
 func splitChunk(from, to uint64) (chunks [][2]uint64) {
 	// chunks may be only one block, then from == to
@@ -170,314 +103,273 @@ func splitChunk(from, to uint64) (chunks [][2]uint64) {
 	return chunks[:i]
 }
 
-var subledgerTimeout = time.Minute
 var chunkTimeout = 3 * time.Minute
-
-// @request for subLedger, will get FileList and Chunk
-type subLedgerRequest struct {
-	id         uint64 // id & child_id
-	from, to   uint64
-	peer       Peer
-	state      reqState
-	expiration time.Time
-	catch      errCallback
-	rec        reqRec
-}
-
-func (s *subLedgerRequest) SetID(id uint64) {
-	s.id = id
-}
-
-func (s *subLedgerRequest) Band() (from, to uint64) {
-	return s.from, s.to
-}
-
-func (s *subLedgerRequest) SetBand(from, to uint64) {
-	s.from = from
-	s.to = to
-}
-
-func (s *subLedgerRequest) SetPeer(peer Peer) {
-	s.peer = peer
-}
-
-func (s *subLedgerRequest) Peer() Peer {
-	return s.peer
-}
-
-func (s *subLedgerRequest) State() reqState {
-	return s.state
-}
-
-func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer Peer) {
-	defer monitor.LogTime("net", "handle_FileListMsg", time.Now())
-
-	if ViteCmd(pkt.Cmd) == FileListCode {
-		s.state = reqRespond
-
-		msg := new(message.FileList)
-		err := msg.Deserialize(pkt.Payload)
-		if err != nil {
-			netLog.Error(fmt.Sprintf("descerialize %s from %s error: %v", msg, peer.RemoteAddr(), err))
-			ctx.Retry(s.id, err)
-			return
-		}
-
-		s.Done(ctx)
-		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
-
-		if len(msg.Files) != 0 {
-			// sort as StartHeight
-			sort.Sort(files(msg.Files))
-
-			from := msg.Files[0].StartHeight
-			to := msg.Files[len(msg.Files)-1].EndHeight
-
-			// request files
-			ctx.FC().request(&fileRequest{
-				from:    from,
-				to:      to,
-				files:   msg.Files,
-				nonce:   msg.Nonce,
-				peer:    peer,
-				current: from,
-				rec:     s.rec,
-				ctx:     ctx,
-				catch:   s.catch,
-			})
-		}
-
-		common.Go(func() {
-			// request chunks
-			for _, chunk := range msg.Chunks {
-				// maybe chunk is too large
-				cs := splitChunk(chunk[0], chunk[1])
-				for _, c := range cs {
-					ctx.Add(&chunkRequest{
-						from:  c[0],
-						to:    c[1],
-						peer:  peer,
-						catch: s.catch,
-						rec:   s.rec,
-					})
-				}
-			}
-		})
-	} else {
-		ctx.Retry(s.id, errUnExpectedRes)
-		netLog.Error(fmt.Sprintf("getSubLedgerHandler got %d need %d", pkt.Cmd, SubLedgerCode))
-	}
-}
-
-func (s *subLedgerRequest) ID() uint64 {
-	return s.id
-}
-
-func (s *subLedgerRequest) Run(ctx context) {
-	s.expiration = time.Now().Add(subledgerTimeout)
-
-	msg := &message.GetSubLedger{
-		From:    ledger.HashHeight{Height: s.from},
-		Count:   s.to - s.from + 1,
-		Forward: true,
-	}
-	err := s.peer.Send(GetSubLedgerCode, s.id, msg)
-
-	if err != nil {
-		netLog.Error(fmt.Sprintf("send %s to %s error: %v", msg, s.peer.RemoteAddr(), err))
-
-		ctx.Retry(s.id, err)
-	} else {
-		s.state = reqPending
-		netLog.Info(fmt.Sprintf("send %s to %s done", msg, s.peer.RemoteAddr()))
-	}
-}
-
-func (s *subLedgerRequest) Done(ctx context) {
-	s.state = reqDone
-	ctx.Del(s.id)
-}
-
-func (s *subLedgerRequest) Catch(err error) {
-	s.state = reqError
-	s.catch(s.id, err)
-}
-
-func (s *subLedgerRequest) Expired() bool {
-	return time.Now().After(s.expiration)
-}
-
-func (s *subLedgerRequest) Req() Request {
-	return s
-}
-
-// @request file
-type fileRequest struct {
-	from, to uint64
-	files    []*ledger.CompressedFileMeta
-	nonce    uint64
-	peer     Peer
-	current  uint64 // the tallest snapshotBlock have received, as the breakpoint resume
-	rec      reqRec
-	ctx      context     // for create new GetSubLedgerMsg, retry
-	catch    errCallback // for retry GetSubLedger, catch error
-}
-
-// file1/0-3600 file2/3601-7200
-func (r *fileRequest) String() string {
-	files := make([]string, len(r.files))
-	for i, file := range r.files {
-		files[i] = file.Filename + "/" +
-			strconv.FormatUint(file.StartHeight, 10) +
-			"-" +
-			strconv.FormatUint(file.EndHeight, 10)
-	}
-
-	return strings.Join(files, " ")
-}
-
-func (r *fileRequest) Catch(err error) {
-	from := r.current
-	if from == 0 {
-		from = r.from
-	}
-
-	req := &subLedgerRequest{
-		from:  from,
-		to:    r.to,
-		catch: r.catch,
-		rec:   r.rec,
-	}
-
-	r.ctx.Add(req)
-}
-
-func (r *fileRequest) Addr() string {
-	return r.peer.FileAddress().String()
-}
 
 // @request for chunk
 type chunkRequest struct {
-	id         uint64
-	from, to   uint64
-	peer       Peer
-	state      reqState
-	expiration time.Time
-	catch      errCallback
-	rec        reqRec
+	id       uint64
+	from, to uint64
+	peer     Peer
+	state    reqState
+	deadline time.Time
+	msg      *message.GetChunk
 }
 
-func (c *chunkRequest) SetID(id uint64) {
-	c.id = id
+func (c *chunkRequest) setBand(from, to uint64) {
+	c.from, c.to = from, to
 }
 
-func (c *chunkRequest) Band() (from, to uint64) {
+func (c *chunkRequest) band() (from, to uint64) {
 	return c.from, c.to
 }
 
-func (c *chunkRequest) SetBand(from, to uint64) {
-	c.from = from
-	c.to = to
+type chunkPool struct {
+	lock      sync.RWMutex
+	peers     *peerSet
+	gid       MsgIder
+	chunks    map[uint64]*chunkRequest
+	handler   reqRec
+	addChan   chan *chunkRequest
+	doneChan  chan uint64
+	retryChan chan uint64
+	slots     chan struct{}
+	term      chan struct{}
+	wg        sync.WaitGroup
 }
 
-func (c *chunkRequest) SetPeer(peer Peer) {
-	c.peer = peer
+func newChunkPool(peers *peerSet, gid MsgIder, handler reqRec) *chunkPool {
+	return &chunkPool{
+		peers:     peers,
+		gid:       gid,
+		chunks:    make(map[uint64]*chunkRequest),
+		handler:   handler,
+		addChan:   make(chan *chunkRequest, 1),
+		doneChan:  make(chan uint64),
+		retryChan: make(chan uint64, 1),
+	}
 }
 
-func (c *chunkRequest) Peer() Peer {
-	return c.peer
+func (p *chunkPool) ID() string {
+	return "chunk pool"
 }
 
-func (c *chunkRequest) Req() Request {
-	return c
+func (p *chunkPool) Cmds() []ViteCmd {
+	return []ViteCmd{SubLedgerCode}
 }
 
-func (c *chunkRequest) State() reqState {
-	return c.state
-}
+func (p *chunkPool) Handle(msg *p2p.Msg, sender Peer) error {
+	if ViteCmd(msg.Cmd) == SubLedgerCode {
+		res := new(message.SubLedger)
 
-func (c *chunkRequest) Handle(ctx context, pkt *p2p.Msg, peer Peer) {
-	defer monitor.LogTime("net", "handle_SubLedgerMsg", time.Now())
-
-	if ViteCmd(pkt.Cmd) == SubLedgerCode {
-		c.state = reqRespond
-
-		msg := new(message.SubLedger)
-		err := msg.Deserialize(pkt.Payload)
-		if err != nil {
-			netLog.Error(fmt.Sprintf("descerialize %s from %s error: %v", msg, peer.RemoteAddr(), err))
-			ctx.Retry(c.id, err)
-			return
+		if err := res.Deserialize(msg.Payload); err != nil {
+			netLog.Error(fmt.Sprintf("descerialize %s from %s error: %v", res, sender.RemoteAddr(), err))
+			p._retry(msg.Id)
+			return err
 		}
 
-		c.Done(ctx)
-
-		netLog.Info(fmt.Sprintf("receive %s from %s", msg, peer.RemoteAddr()))
+		netLog.Info(fmt.Sprintf("receive %s from %s", res, sender.RemoteAddr()))
 
 		// receive account blocks first
-		for _, block := range msg.ABlocks {
-			c.rec.receiveAccountBlock(block)
+		for _, block := range res.ABlocks {
+			p.handler.receiveAccountBlock(block)
 		}
 
-		for _, block := range msg.SBlocks {
-			c.rec.receiveSnapshotBlock(block)
+		for _, block := range res.SBlocks {
+			p.handler.receiveSnapshotBlock(block)
 		}
+
+		p._done(msg.Id)
 	} else {
-		ctx.Retry(c.id, errUnExpectedRes)
-		netLog.Error(fmt.Sprintf("chunkHandler got %d need %d", pkt.Cmd, SubLedgerCode))
+		p._retry(msg.Id)
+	}
+
+	return nil
+}
+
+func (p *chunkPool) start() {
+	p.term = make(chan struct{})
+
+	p.wg.Add(1)
+	common.Go(p.loop)
+}
+
+func (p *chunkPool) stop() {
+	if p.term == nil {
+		return
+	}
+
+	select {
+	case <-p.term:
+	default:
+		close(p.term)
+		p.wg.Wait()
 	}
 }
 
-func (c *chunkRequest) ID() uint64 {
-	return c.id
-}
+func (p *chunkPool) loop() {
+	defer p.wg.Done()
 
-func (c *chunkRequest) Run(ctx context) {
-	c.state = reqWaiting
-	c.expiration = time.Now().Add(chunkTimeout)
+	var ticker <-chan time.Time
 
-	chunk := &message.GetChunk{
-		Start: c.from,
-		End:   c.to,
+	queue := list.New()
+
+loop:
+	for {
+		select {
+		case <-p.term:
+			break loop
+
+		case c := <-p.addChan:
+			c.id = p.gid.MsgID()
+			queue.Append(c)
+			c.msg = &message.GetChunk{
+				Start: c.from,
+				End:   c.to,
+			}
+
+			if p.slots == nil {
+				p.slots = make(chan struct{}, 10)
+				ticker = time.Tick(chunkTimeout)
+			}
+
+		case id := <-p.retryChan:
+			p.retry(id)
+
+		case id := <-p.doneChan:
+			delete(p.chunks, id)
+
+			if p.slots != nil {
+				<-p.slots
+			}
+
+		case now := <-ticker:
+			var state reqState
+			for id, c := range p.chunks {
+				state = c.state
+				if state == reqPending && now.After(c.deadline) {
+					p._retry(id)
+				}
+
+				if state == reqError {
+					delete(p.chunks, id)
+				}
+			}
+
+		case p.slots <- struct{}{}:
+			if ele := queue.Shift(); ele != nil {
+				c := ele.(*chunkRequest)
+				p.chunks[c.id] = c
+				p.request(c)
+			} else {
+				<-p.slots
+				time.Sleep(200 * time.Millisecond)
+			}
+		}
 	}
-	err := c.peer.Send(GetChunkCode, c.id, chunk)
 
-	if err != nil {
-		netLog.Error(fmt.Sprintf("send %s to %s error: %v", chunk, c.peer.RemoteAddr(), err))
-		ctx.Retry(c.id, err)
-	} else {
-		c.state = reqPending
-		netLog.Info(fmt.Sprintf("send %s to %s done", chunk, c.peer.RemoteAddr()))
+	// clear
+	for id := range p.chunks {
+		delete(p.chunks, id)
+	}
+
+	p.slots = nil
+}
+
+func (p *chunkPool) add(c *chunkRequest) {
+	select {
+	case <-p.term:
+	case p.addChan <- c:
 	}
 }
 
-func (c *chunkRequest) Done(ctx context) {
-	c.state = reqDone
-	ctx.Del(c.id)
+func (p *chunkPool) _retry(id uint64) {
+	select {
+	case <-p.term:
+	case p.retryChan <- id:
+	}
 }
 
-func (c *chunkRequest) Catch(err error) {
+func (p *chunkPool) _done(id uint64) {
+	select {
+	case <-p.term:
+	case p.doneChan <- id:
+	}
+}
+
+func (p *chunkPool) request(c *chunkRequest) {
+	if c.peer == nil {
+		peers := p.peers.Pick(c.to)
+		if len(peers) == 0 {
+			p.catch(c)
+			return
+		}
+		c.peer = peers[rand.Intn(len(peers))]
+	}
+
+	p.do(c)
+}
+
+func (p *chunkPool) retry(id uint64) {
+	if c, ok := p.chunks[id]; ok {
+		old := c.peer
+		c.peer = nil
+
+		peers := p.peers.Pick(c.to)
+		if len(peers) > 0 {
+			for _, peer := range peers {
+				if peer != old {
+					c.peer = peer
+					break
+				}
+			}
+		}
+
+		if c.peer == nil {
+			p.catch(c)
+		} else {
+			p.do(c)
+		}
+	}
+}
+
+func (p *chunkPool) catch(c *chunkRequest) {
 	c.state = reqError
-	c.catch(c.id, err)
+	p.handler.catch(c)
+	<-p.slots
 }
 
-func (c *chunkRequest) Expired() bool {
-	return time.Now().After(c.expiration)
+func (p *chunkPool) do(c *chunkRequest) {
+	c.deadline = time.Now().Add(chunkTimeout)
+	c.state = reqPending
+	c.peer.Send(GetChunkCode, c.id, c.msg)
 }
 
 // helper
 type files []*ledger.CompressedFileMeta
 
-func (a files) Len() int {
-	return len(a)
+func (f files) Len() int {
+	return len(f)
 }
 
-func (a files) Less(i, j int) bool {
-	return a[i].StartHeight < a[j].StartHeight
+func (f files) Less(i, j int) bool {
+	return f[i].StartHeight < f[j].StartHeight
 }
 
-func (a files) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
+func (f files) Swap(i, j int) {
+	f[i], f[j] = f[j], f[i]
+}
+
+// must sort first
+func (f files) unique() files {
+	j := 0
+	for i, file := range f {
+		if file.Filename != f[j].Filename {
+			f[j] = f[i]
+			j++
+		}
+	}
+
+	return f[:j]
 }
 
 // helper

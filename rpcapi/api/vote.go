@@ -33,9 +33,15 @@ func (v *VoteApi) GetCancelVoteData(gid types.Gid) ([]byte, error) {
 	return contracts.ABIVote.PackMethod(contracts.MethodNameCancelVote, gid)
 }
 
+var (
+	NodeStatusActive   uint8 = 1
+	NodeStatusInActive uint8 = 2
+)
+
 type VoteInfo struct {
-	Name    string `json:"name"`
-	Balance string `json:"balance"`
+	Name       string `json:"nodeName"`
+	NodeStatus uint8  `json:"nodeStatus"`
+	Balance    string `json:"balance"`
 }
 
 func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, error) {
@@ -48,7 +54,12 @@ func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, err
 		if err != nil {
 			return nil, err
 		}
-		return &VoteInfo{voteInfo.NodeName, *bigIntToString(balance)}, nil
+		if contracts.IsActiveRegistration(vmContext, voteInfo.NodeName, gid) {
+			return &VoteInfo{voteInfo.NodeName, NodeStatusActive, *bigIntToString(balance)}, nil
+		} else {
+			return &VoteInfo{voteInfo.NodeName, NodeStatusInActive, *bigIntToString(balance)}, nil
+
+		}
 	}
 	return nil, nil
 }

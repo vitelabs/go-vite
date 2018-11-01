@@ -218,8 +218,7 @@ func (p *MethodMintageCancelPledge) DoSend(context contractsContext, block *vm_c
 		return quotaLeft, errors.New("invalid block data")
 	}
 	tokenId := new(types.TokenTypeId)
-	err = ABIMintage.UnpackMethod(tokenId, MethodNameMintageCancelPledge, block.AccountBlock.Data)
-	if err != nil {
+	if err = ABIMintage.UnpackMethod(tokenId, MethodNameMintageCancelPledge, block.AccountBlock.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
 	tokenInfo := GetTokenById(block.VmContext, *tokenId)

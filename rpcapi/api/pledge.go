@@ -33,7 +33,11 @@ func (p *PledgeApi) GetPledgeData(beneficialAddr types.Address) ([]byte, error) 
 }
 
 func (p *PledgeApi) GetCancelPledgeData(beneficialAddr types.Address, amount string) ([]byte, error) {
-	return contracts.ABIPledge.PackMethod(contracts.MethodNameCancelPledge, beneficialAddr, stringToBigInt(&amount))
+	if bAmount, err := stringToBigInt(&amount); err == nil {
+		return contracts.ABIPledge.PackMethod(contracts.MethodNameCancelPledge, beneficialAddr, bAmount)
+	} else {
+		return nil, err
+	}
 }
 
 type QuotaAndTxNum struct {

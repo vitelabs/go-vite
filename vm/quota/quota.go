@@ -70,8 +70,6 @@ func IsPoW(nonce []byte) bool {
 	return len(nonce) > 0
 }
 
-var DefaultDifficulty = new(big.Int).SetUint64(0xffffffc000000000)
-
 func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (uint64, uint64, error) {
 	isPoW := difficulty.Sign() > 0
 	currentSnapshotHash := db.CurrentSnapshotBlock().Hash

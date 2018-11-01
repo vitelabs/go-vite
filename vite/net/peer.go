@@ -34,6 +34,8 @@ type Peer interface {
 	SendNewAccountBlock(b *ledger.AccountBlock) (err error)
 	Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error)
 	Report(err error)
+	ID() string
+	Height() uint64
 }
 
 const peerMsgConcurrency = 10
@@ -41,7 +43,7 @@ const peerMsgConcurrency = 10
 type peer struct {
 	*p2p.Peer
 	mrw         *p2p.ProtoFrame
-	ID          string
+	id          string
 	head        types.Hash // hash of the top snapshotblock in snapshotchain
 	height      uint64     // height of the snapshotchain
 	filePort    uint16     // fileServer port, for request file
@@ -54,11 +56,19 @@ type peer struct {
 	wg          sync.WaitGroup
 }
 
+func (p *peer) Height() uint64 {
+	return p.height
+}
+
+func (p *peer) ID() string {
+	return p.id
+}
+
 func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *peer {
 	return &peer{
 		Peer:        p,
 		mrw:         mrw,
-		ID:          p.ID().String(),
+		id:          p.ID().String(),
 		CmdSet:      cmdSet,
 		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
@@ -139,8 +149,6 @@ func (p *peer) SetHead(head types.Hash, height uint64) {
 
 func (p *peer) SeeBlock(hash types.Hash) {
 	p.KnownBlocks.InsertUnique(hash[:])
-
-	p.log.Debug(fmt.Sprintf("peer %s see block %s", p.RemoteAddr(), hash))
 }
 
 // send
@@ -279,7 +287,7 @@ func (p *peer) Info() *PeerInfo {
 	}
 
 	return &PeerInfo{
-		ID:                 p.ID,
+		ID:                 p.id,
 		Addr:               p.RemoteAddr().String(),
 		Head:               p.head.String(),
 		Height:             p.height,
@@ -375,11 +383,11 @@ func (m *peerSet) Add(peer *peer) error {
 	m.rw.Lock()
 	defer m.rw.Unlock()
 
-	if _, ok := m.peers[peer.ID]; ok {
+	if _, ok := m.peers[peer.id]; ok {
 		return errSetHasPeer
 	}
 
-	m.peers[peer.ID] = peer
+	m.peers[peer.id] = peer
 	m.Notify(&peerEvent{
 		code:  addPeer,
 		peer:  peer,
@@ -392,7 +400,7 @@ func (m *peerSet) Del(peer *peer) {
 	m.rw.Lock()
 	defer m.rw.Unlock()
 
-	delete(m.peers, peer.ID)
+	delete(m.peers, peer.id)
 	m.Notify(&peerEvent{
 		code:  delPeer,
 		peer:  peer,
@@ -472,16 +480,30 @@ func (m *peerSet) Peers() (peers []*peer) {
 }
 
 // @implementation sort.Interface
-type peers []*peer
+type peers []Peer
 
 func (s peers) Len() int {
 	return len(s)
 }
 
 func (s peers) Less(i, j int) bool {
-	return s[i].height < s[j].height
+	return s[i].Height() < s[j].Height()
 }
 
 func (s peers) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
+}
+
+func (s peers) delete(id string) peers {
+	for i, p := range s {
+		if p.ID() == id {
+			lastIndex := len(s) - 1
+			if i != lastIndex {
+				copy(s[i:], s[i+1:])
+			}
+			return s[:lastIndex]
+		}
+	}
+
+	return s
 }

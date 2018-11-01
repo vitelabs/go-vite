@@ -15,6 +15,14 @@ import (
 
 var errNoSuitablePeer = errors.New("no suitable peer")
 
+type gid struct {
+	index uint64 // atomic
+}
+
+func (g *gid) MsgID() uint64 {
+	return atomic.AddUint64(&g.index, 1)
+}
+
 type MsgIder interface {
 	MsgID() uint64
 }
