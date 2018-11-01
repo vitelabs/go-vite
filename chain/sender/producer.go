@@ -3,6 +3,10 @@ package sender
 import (
 	"encoding/binary"
 	"encoding/json"
+	"math/big"
+	"sync"
+	"time"
+
 	"github.com/Shopify/sarama"
 	"github.com/golang/protobuf/proto"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -13,9 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/vitepb"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
-	"sync"
-	"time"
 )
 
 const (
@@ -221,6 +222,7 @@ func (producer *Producer) Start() error {
 	producer.status = RUNNING
 	producer.termination = make(chan int)
 
+	producer.wg.Add(1)
 	common.Go(func() {
 		defer producer.wg.Done()
 		for {
