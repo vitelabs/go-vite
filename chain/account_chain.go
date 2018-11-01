@@ -30,9 +30,6 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	var addBlockHashList []types.Hash
 	for _, vmAccountBlock := range vmAccountBlocks {
 		accountBlock := vmAccountBlock.AccountBlock
-		// FIXME hack!!!!! tmp
-		tmpBuf, _ := json.Marshal(accountBlock)
-		c.log.Debug(string(tmpBuf), "method", "debugInsertAccountBlock")
 
 		addBlockHashList = append(addBlockHashList, accountBlock.Hash)
 
@@ -639,15 +636,6 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	if writeErr != nil {
 		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
 		return nil, writeErr
-	}
-
-	// FIXME hack!!!!! tmp
-	for _, blocks := range subLedger {
-		for _, block := range blocks {
-			tmpBuf, _ := json.Marshal(block)
-			c.log.Debug(string(tmpBuf), "method", "debugDeleteAccountBlock")
-		}
-
 	}
 
 	needAddBlocks, needRemoveAddr, _, err := c.getNeedSnapshotMapByDeleteSubLedger(subLedger)

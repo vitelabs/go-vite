@@ -1,8 +1,6 @@
 package chain
 
 import (
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -407,14 +405,6 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	}
 
 	needAddBlocks, needRemoveAddr, blockHeightMap, err := c.getNeedSnapshotMapByDeleteSubLedger(accountBlocksMap)
-	// FIXME!!!
-	for addr, block := range needAddBlocks {
-		c.log.Info(fmt.Sprintf("%s %+v", addr.String(), block), "log", "ds_testcache_needAddBlocks")
-	}
-
-	for addr := range needRemoveAddr {
-		c.log.Info(fmt.Sprintf("%s", addr.String()), "log", "ds_testcache_needRemoveAddr")
-	}
 
 	if err != nil {
 		c.log.Error("getNeedSnapshotMapByDeleteSubLedger failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksToHeight")
@@ -532,17 +522,6 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	if writeErr != nil {
 		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 		return nil, nil, writeErr
-	}
-
-	// FIXME!!!
-	for addr, block := range needAddBlocks {
-		c.log.Info(fmt.Sprintf("%s %+v", addr.String(), block), "log", "ds_testcache_needAddBlocks2")
-	}
-
-	// FIXME hack!!!!! tmp
-	for _, snapshotBlock := range snapshotBlocks {
-		tmpBuf, _ := json.Marshal(snapshotBlock)
-		c.log.Debug(string(tmpBuf), "method", "debugDeleteSnapshotBlock")
 	}
 
 	// Set cache
