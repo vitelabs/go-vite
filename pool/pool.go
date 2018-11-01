@@ -736,6 +736,40 @@ func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 	}
 }
 
+func (self *pool) checkBlock(block *snapshotPoolBlock) bool {
+	var result = true
+	for k, v := range block.block.SnapshotContent {
+		ac := self.selfPendingAc(k)
+		fc := ac.findInTreeDisk(v.Hash, v.Height, true)
+		if fc == nil {
+			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, 1, block.Height())
+			result = false
+		}
+	}
+	return result
+}
+
+func (self *pool) realSnapshotHeight(fc *forkedChain) uint64 {
+	h := fc.tailHeight
+	for {
+		b := fc.getHeightBlock(h + 1)
+		if b == nil {
+			return h
+		}
+		block := b.(*snapshotPoolBlock)
+		now := time.Now()
+		if now.After(block.lastCheckTime.Add(time.Second * 5)) {
+			block.lastCheckTime = now
+			block.checkResult = self.checkBlock(block)
+		}
+
+		if !block.checkResult {
+			return h
+		}
+		h = h + 1
+	}
+}
+
 type recoverStat struct {
 	num           int32
 	updateTime    time.Time

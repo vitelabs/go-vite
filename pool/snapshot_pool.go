@@ -34,6 +34,10 @@ func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion, sou
 type snapshotPoolBlock struct {
 	forkBlock
 	block *ledger.SnapshotBlock
+
+	// last check data time
+	lastCheckTime time.Time
+	checkResult   bool
 }
 
 func (self *snapshotPoolBlock) Height() uint64 {
@@ -122,11 +126,37 @@ func (self *snapshotPool) loopCheckFork() {
 }
 
 func (self *snapshotPool) checkFork() {
-	longest := self.LongestChain()
 	current := self.CurrentChain()
+	minHeight := self.pool.realSnapshotHeight(current)
+
+	self.log.Info("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight)
+
+	longers := self.LongerChain(minHeight)
+
+	var longest *forkedChain
+	longestH := minHeight
+	for _, l := range longers {
+		if l.headHeight < longestH {
+			continue
+		}
+		lH := self.pool.realSnapshotHeight(l)
+		self.log.Info("find chain.", "id", l.id(), "realH", lH, "headH", l.headHeight)
+		if lH > longestH {
+			longestH = lH
+			longest = l
+			self.log.Info("find more longer chain.", "id", l.id(), "realH", lH, "headH", l.headHeight)
+		}
+	}
+
+	if longest == nil {
+		return
+	}
+
 	if longest.ChainId() == current.ChainId() {
 		return
 	}
+	self.log.Info("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight)
+
 	monitor.LogEvent("pool", "snapshotFork")
 	err := self.snapshotFork(longest, current)
 	if err != nil {

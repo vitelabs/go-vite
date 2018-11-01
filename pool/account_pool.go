@@ -412,6 +412,30 @@ func (self *accountPool) findInTree(hash types.Hash, height uint64) *forkedChain
 	}
 	return nil
 }
+
+func (self *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk bool) *forkedChain {
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
+
+	block := self.chainpool.current.getBlock(height, disk)
+	if block != nil && block.Hash() == hash {
+		return self.chainpool.current
+	}
+
+	for _, c := range self.chainpool.allChain() {
+		b := c.getBlock(height, false)
+
+		if b == nil {
+			continue
+		} else {
+			if b.Hash() == hash {
+				return c
+			}
+		}
+	}
+	return nil
+}
+
 func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks []*accountPoolBlock) error {
 	self.rMu.Lock()
 	defer self.rMu.Unlock()

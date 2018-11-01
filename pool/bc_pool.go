@@ -858,6 +858,21 @@ func (self *BCPool) LongestChain() *forkedChain {
 		return current
 	}
 }
+func (self *BCPool) LongerChain(minHeight uint64) []*forkedChain {
+	var result []*forkedChain
+	readers := self.chainpool.allChain()
+	current := self.chainpool.current
+	for _, reader := range readers {
+		if current.id() == reader.id() {
+			continue
+		}
+		height := reader.headHeight
+		if height > minHeight {
+			result = append(result, reader)
+		}
+	}
+	return result
+}
 func (self *BCPool) CurrentChain() *forkedChain {
 	return self.chainpool.current
 }
