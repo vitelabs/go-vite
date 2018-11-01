@@ -101,9 +101,10 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 		case <-s.term:
 			return
 		default:
+			//conn.SetReadDeadline(time.Now().Add(fReadTimeout))
 			msg, err := p2p.ReadMsg(conn)
 			if err != nil {
-				s.log.Error(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
+				s.log.Warn(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
 				return
 			}
 

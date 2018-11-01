@@ -1,7 +1,6 @@
 package net
 
 import (
-	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
@@ -75,9 +74,6 @@ type reqRec interface {
 	catch(piece)
 }
 
-var errMissingPeer = errors.New("request missing peer")
-var errUnExpectedRes = errors.New("unexpected response")
-
 const maxBlocks = 300 // max blocks in one message(snapshotblocks + accountblocks)
 const file2Chunk = 600
 const minSubLedger = 1000
@@ -150,7 +146,6 @@ func newChunkPool(peers *peerSet, gid MsgIder, handler reqRec) *chunkPool {
 		addChan:   make(chan *chunkRequest, 1),
 		doneChan:  make(chan uint64),
 		retryChan: make(chan uint64, 1),
-		slots:     make(chan struct{}, 10),
 	}
 }
 
@@ -214,8 +209,7 @@ func (p *chunkPool) stop() {
 func (p *chunkPool) loop() {
 	defer p.wg.Done()
 
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
+	var ticker <-chan time.Time
 
 	queue := list.New()
 
@@ -233,7 +227,22 @@ loop:
 				End:   c.to,
 			}
 
-		case now := <-ticker.C:
+			if p.slots == nil {
+				p.slots = make(chan struct{}, 10)
+				ticker = time.Tick(chunkTimeout)
+			}
+
+		case id := <-p.retryChan:
+			p.retry(id)
+
+		case id := <-p.doneChan:
+			delete(p.chunks, id)
+
+			if p.slots != nil {
+				<-p.slots
+			}
+
+		case now := <-ticker:
 			var state reqState
 			for id, c := range p.chunks {
 				state = c.state
@@ -246,21 +255,14 @@ loop:
 				}
 			}
 
-		case id := <-p.retryChan:
-			p.retry(id)
-
-		case id := <-p.doneChan:
-			delete(p.chunks, id)
-			<-p.slots
-
 		case p.slots <- struct{}{}:
 			if ele := queue.Shift(); ele != nil {
 				c := ele.(*chunkRequest)
 				p.chunks[c.id] = c
 				p.request(c)
 			} else {
-				time.Sleep(200 * time.Millisecond)
 				<-p.slots
+				time.Sleep(200 * time.Millisecond)
 			}
 		}
 	}
@@ -270,9 +272,7 @@ loop:
 		delete(p.chunks, id)
 	}
 
-	for i := 0; i < len(p.slots); i++ {
-		<-p.slots
-	}
+	p.slots = nil
 }
 
 func (p *chunkPool) add(c *chunkRequest) {
