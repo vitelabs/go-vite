@@ -15,13 +15,13 @@ func getChainInstance() Chain {
 		innerChainInstance = NewChain(&config.Config{
 			//DataDir: filepath.Join(common.HomeDir(), "govite_testdata"),
 
-			DataDir: filepath.Join(common.HomeDir(), "Library/GVite/testdata"),
-			Chain: &config.Chain{
-				KafkaProducers: []*config.KafkaProducer{{
-					Topic:      "test003",
-					BrokerList: []string{"ckafka-r3rbhht9.ap-guangzhou.ckafka.tencentcloudmq.com:6061"},
-				}},
-			},
+			DataDir: filepath.Join(common.HomeDir(), "Library/GVite/devdata"),
+			//Chain: &config.Chain{
+			//	KafkaProducers: []*config.KafkaProducer{{
+			//		Topic:      "test003",
+			//		BrokerList: []string{"ckafka-r3rbhht9.ap-guangzhou.ckafka.tencentcloudmq.com:6061"},
+			//	}},
+			//},
 		})
 		innerChainInstance.Init()
 		innerChainInstance.Start()

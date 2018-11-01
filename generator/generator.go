@@ -265,6 +265,7 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, referredSnapshotBloc
 			fitestSbHeight = referredSbHeight + 1
 		}
 	}
+
 	fitestSb, err := chain.GetSnapshotBlockByHeight(fitestSbHeight)
 	if fitestSb == nil {
 		if err != nil {

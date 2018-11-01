@@ -18,6 +18,23 @@ import (
 	"time"
 )
 
+func TestGetUnconfirmBlocks(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	content := chainInstance.GetNeedSnapshotContent()
+	lsb := chainInstance.GetLatestSnapshotBlock()
+	prevSb, _ := chainInstance.GetSnapshotBlockByHeight(lsb.Height - 1)
+	fmt.Println(prevSb)
+	for _, hashHeight := range content {
+		block, _ := chainInstance.GetAccountBlockByHash(&hashHeight.Hash)
+		if block.Hash.String() != block.ComputeHash().String() {
+			fmt.Printf("%s %s\n", block.Hash, block.ComputeHash())
+			fmt.Printf("%+v\n", block)
+		}
+	}
+
+}
+
 func BenchmarkChain_InsertAccountBlocks(b *testing.B) {
 	dataDir := common.HomeDir()
 	os.RemoveAll(filepath.Join(dataDir, "ledger"))
@@ -351,8 +368,8 @@ func TestGetAccountBlockByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
 	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 	fmt.Printf("%+v\n", latestSnapshotBlock)
-	addr, _ := types.HexToAddress("vite_b37426114b73a6fe7f9164559aaded278a7b211500138f7c6a")
-	for i := uint64(10241); i <= 10245; i++ {
+	addr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
+	for i := uint64(29150); i <= 29160; i++ {
 		block, _ := chainInstance.GetAccountBlockByHeight(&addr, i)
 		if block == nil {
 			break

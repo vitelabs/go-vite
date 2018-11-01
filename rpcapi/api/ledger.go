@@ -226,20 +226,22 @@ func (l *LedgerApi) GetSenderInfo() (*KafkaSendInfo, error) {
 func (l *LedgerApi) GetFittestSnapshotHash() (*types.Hash, error) {
 	latestBlock := l.chain.GetLatestSnapshotBlock()
 
-	gap := uint64(10)
-	targetHeight := latestBlock.Height
+	return &latestBlock.Hash, nil
 
-	if targetHeight > gap {
-		targetHeight = latestBlock.Height - gap
-	} else {
-		targetHeight = 1
-	}
-
-	targetSnapshotBlock, err := l.chain.GetSnapshotBlockByHeight(targetHeight)
-	if err != nil {
-		return nil, err
-	}
-	return &targetSnapshotBlock.Hash, nil
+	//gap := uint64(0)
+	//targetHeight := latestBlock.Height
+	//
+	//if targetHeight > gap {
+	//	targetHeight = latestBlock.Height - gap
+	//} else {
+	//	targetHeight = 1
+	//}
+	//
+	//targetSnapshotBlock, err := l.chain.GetSnapshotBlockByHeight(targetHeight)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//return &targetSnapshotBlock.Hash, nil
 
 }
 
