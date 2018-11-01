@@ -101,7 +101,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 		case <-s.term:
 			return
 		default:
-			//conn.SetWriteDeadline(time.Now().Add(fReadTimeout))
+			conn.SetWriteDeadline(time.Now().Add(fReadTimeout))
 			msg, err := p2p.ReadMsg(conn)
 			if err != nil {
 				s.log.Error(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
@@ -170,8 +170,8 @@ func newFileClient(chain Chain) *fileClient {
 	return &fileClient{
 		conns:    make(map[string]*connContext),
 		_request: make(chan *fileRequest, 4),
-		idle:     make(chan *connContext, 1),
-		delConn:  make(chan *delCtxEvent, 1),
+		idle:     make(chan *connContext),
+		delConn:  make(chan *delCtxEvent),
 		chain:    chain,
 		log:      log15.New("module", "net/fileClient"),
 		dialer:   &net2.Dialer{Timeout: 3 * time.Second},
@@ -359,11 +359,12 @@ func (fc *fileClient) exe(ctx *connContext) {
 	if err != nil {
 		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", getFiles, ctx.addr, err))
 		req.Catch(err)
+		ctx.req = nil
 		fc.idle <- ctx
 		return
 	}
 
-	//ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
+	ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
 	if err = p2p.WriteMsg(ctx.Conn, msg); err != nil {
 		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", getFiles, ctx.addr, err))
 		req.Catch(err)
@@ -384,7 +385,6 @@ func (fc *fileClient) exe(ctx *connContext) {
 	}
 }
 
-//var errResTimeout = errors.New("wait for file response timeout")
 var errFlieClientStopped = errors.New("fileClient stopped")
 
 func (fc *fileClient) readBlocks(ctx *connContext) (uint64, uint64, error) {
@@ -395,14 +395,14 @@ func (fc *fileClient) readBlocks(ctx *connContext) (uint64, uint64, error) {
 		// total blocks: snapshotblocks & accountblocks
 		var total, sTotal, sCount, aCount uint64
 
-		start, end := ctx.req.from, ctx.req.to
-		sTotal = end - start + 1
+		for _, file := range ctx.req.files {
+			sTotal += file.EndHeight - file.StartHeight + 1
+		}
 
 		for _, file := range ctx.req.files {
 			total += file.BlockNumbers
 		}
 
-		//usableAccountBlock := false
 		fc.chain.Compressor().BlockParser(ctx, total, func(block ledger.Block, err error) {
 			if err != nil {
 				return
@@ -415,12 +415,6 @@ func (fc *fileClient) readBlocks(ctx *connContext) (uint64, uint64, error) {
 					return
 				}
 
-				//if block.Height < start || block.Height > end {
-				//	return
-				//}
-
-				// snapshotblock is in band, so follow account blocks will be available
-				//usableAccountBlock = true
 				sCount++
 				ctx.req.rec.receiveSnapshotBlock(block)
 				ctx.req.current = block.Height
@@ -431,14 +425,12 @@ func (fc *fileClient) readBlocks(ctx *connContext) (uint64, uint64, error) {
 					return
 				}
 
-				//if usableAccountBlock {
 				aCount++
 				ctx.req.rec.receiveAccountBlock(block)
-				//}
 			}
 		})
 
-		if sCount != sTotal {
+		if sCount < sTotal {
 			return sCount, aCount, fmt.Errorf("incomplete file %d/%d snapshotblocks", sCount, sTotal)
 		}
 

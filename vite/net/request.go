@@ -77,6 +77,7 @@ var errUnExpectedRes = errors.New("unexpected response")
 const minSubLedger = 3600 // minimal snapshot blocks per subLedger request
 const maxSubLedger = 7200 // maximal snapshot blocks per subLedger request
 const maxBlocks = 300     // max blocks in one message(snapshotblocks + accountblocks)
+const file2Chunk = 600
 
 type subLedgerPiece struct {
 	from, to uint64
@@ -231,17 +232,6 @@ func (s *subLedgerRequest) Handle(ctx context, pkt *p2p.Msg, peer Peer) {
 
 			from := msg.Files[0].StartHeight
 			to := msg.Files[len(msg.Files)-1].EndHeight
-			if from < s.from {
-				from = s.from
-			}
-			if to > s.to {
-				to = s.to
-			}
-
-			var blockNumber uint64
-			for _, file := range msg.Files {
-				blockNumber += file.BlockNumbers
-			}
 
 			// request files
 			ctx.FC().request(&fileRequest{
