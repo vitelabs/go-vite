@@ -124,7 +124,7 @@ func (p *MethodPledge) DoReceive(context contractsContext, block *vm_context.VmA
 	beneficialKey := GetPledgeBeneficialKey(*beneficialAddr)
 	pledgeKey := GetPledgeKey(sendBlock.AccountAddress, beneficialKey)
 	oldPledgeData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, pledgeKey)
-	amount := new(big.Int)
+	amount := big.NewInt(0)
 	if len(oldPledgeData) > 0 {
 		oldPledge := new(PledgeInfo)
 		ABIPledge.UnpackVariable(oldPledge, VariableNamePledgeInfo, oldPledgeData)
@@ -135,7 +135,7 @@ func (p *MethodPledge) DoReceive(context contractsContext, block *vm_context.VmA
 	block.VmContext.SetStorage(pledgeKey, pledgeInfo)
 
 	oldBeneficialData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, beneficialKey)
-	beneficialAmount := new(big.Int)
+	beneficialAmount := big.NewInt(0)
 	if len(oldBeneficialData) > 0 {
 		oldBeneficial := new(VariablePledgeBeneficial)
 		ABIPledge.UnpackVariable(oldBeneficial, VariableNamePledgeBeneficial, oldBeneficialData)
@@ -170,6 +170,9 @@ func (p *MethodCancelPledge) DoSend(context contractsContext, block *vm_context.
 	param := new(ParamCancelPledge)
 	if err = ABIPledge.UnpackMethod(param, MethodNameCancelPledge, block.AccountBlock.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
+	}
+	if param.Amount.Sign() == 0 {
+		return quotaLeft, errors.New("cancel pledge amount is 0")
 	}
 	return quotaLeft, nil
 }

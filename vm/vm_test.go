@@ -259,6 +259,8 @@ func TestDelegateCall(t *testing.T) {
 	}
 }
 
+var DefaultDifficulty = new(big.Int).SetUint64(67108863)
+
 func TestCalcQuotaV2(t *testing.T) {
 	quota.InitQuotaConfig(false)
 	// prepare db
@@ -268,7 +270,7 @@ func TestCalcQuotaV2(t *testing.T) {
 	snapshot1 := &ledger.SnapshotBlock{Height: 1, Timestamp: &timestamp, Hash: types.DataHash([]byte{10, 1})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
 
-	difficulty := quota.DefaultDifficulty
+	difficulty := DefaultDifficulty
 	quotaForTx := uint64(21000)
 	quotaLimit := uint64(987000)
 	minPledgeAmount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))

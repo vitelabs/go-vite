@@ -41,14 +41,11 @@ type VoteInfo struct {
 }
 
 func GetVoteKey(addr types.Address, gid types.Gid) []byte {
-	var data = make([]byte, types.HashSize)
-	copy(data[:types.GidSize], gid[:])
-	copy(data[types.GidSize:types.GidSize+types.AddressSize], addr[:])
-	return data
+	return append(gid.Bytes(), addr.Bytes()...)
 }
 
 func GetAddrFromVoteKey(key []byte) types.Address {
-	addr, _ := types.BytesToAddress(key[types.GidSize : types.GidSize+types.AddressSize])
+	addr, _ := types.BytesToAddress(key[types.GidSize:])
 	return addr
 }
 
@@ -108,19 +105,22 @@ func (p *MethodVote) DoSend(context contractsContext, block *vm_context.VmAccoun
 	}
 
 	param := new(ParamVote)
-	err = ABIVote.UnpackMethod(param, MethodNameVote, block.AccountBlock.Data)
-	if err != nil || param.Gid == types.DELEGATE_GID {
+	if err = ABIVote.UnpackMethod(param, MethodNameVote, block.AccountBlock.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
-
-	if GetRegistration(block.VmContext, param.NodeName, param.Gid) == nil {
-		return quotaLeft, errors.New("registration not exist")
+	if param.Gid == types.DELEGATE_GID {
+		return quotaLeft, errors.New("cannot vote consensus group")
 	}
 
 	consensusGroupInfo := GetConsensusGroup(block.VmContext, param.Gid)
 	if consensusGroupInfo == nil {
-		return quotaLeft, errors.New("consensus group id not exist")
+		return quotaLeft, errors.New("consensus group not exist")
 	}
+
+	if !IsActiveRegistration(block.VmContext, param.NodeName, param.Gid) {
+		return quotaLeft, errors.New("registration not exist")
+	}
+
 	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.VoteConditionId, VoteConditionPrefix); !ok {
 		return quotaLeft, errors.New("consensus group vote condition not exist")
 	} else if !condition.checkData(consensusGroupInfo.VoteConditionParam, block, param, MethodNameVote) {
@@ -133,10 +133,9 @@ func (p *MethodVote) DoSend(context contractsContext, block *vm_context.VmAccoun
 func (p *MethodVote) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(ParamVote)
 	ABIVote.UnpackMethod(param, MethodNameVote, sendBlock.Data)
-	// storage key: 00(0:2) + gid(2:12) + voter address(12:32)
-	locHash := GetVoteKey(sendBlock.AccountAddress, param.Gid)
+	voteKey := GetVoteKey(sendBlock.AccountAddress, param.Gid)
 	voteStatus, _ := ABIVote.PackVariable(VariableNameVoteStatus, param.NodeName)
-	block.VmContext.SetStorage(locHash, voteStatus)
+	block.VmContext.SetStorage(voteKey, voteStatus)
 	return nil
 }
 
@@ -164,8 +163,8 @@ func (p *MethodCancelVote) DoSend(context contractsContext, block *vm_context.Vm
 	}
 	gid := new(types.Gid)
 	err = ABIVote.UnpackMethod(gid, MethodNameCancelVote, block.AccountBlock.Data)
-	if err != nil || !IsExistGid(block.VmContext, *gid) {
-		return quotaLeft, errors.New("consensus group not exist")
+	if err != nil || *gid == types.DELEGATE_GID || !IsExistGid(block.VmContext, *gid) {
+		return quotaLeft, errors.New("consensus group not exist or cannot cancel vote")
 	}
 	return quotaLeft, nil
 }
@@ -173,7 +172,7 @@ func (p *MethodCancelVote) DoSend(context contractsContext, block *vm_context.Vm
 func (p *MethodCancelVote) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	gid := new(types.Gid)
 	ABIVote.UnpackMethod(gid, MethodNameCancelVote, sendBlock.Data)
-	locHash := GetVoteKey(sendBlock.AccountAddress, *gid)
-	block.VmContext.SetStorage(locHash, nil)
+	voteKey := GetVoteKey(sendBlock.AccountAddress, *gid)
+	block.VmContext.SetStorage(voteKey, nil)
 	return nil
 }

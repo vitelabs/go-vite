@@ -9,7 +9,6 @@ var (
 	ErrAddressCollision            = errors.New("contract address collision")
 	ErrIdCollision                 = errors.New("id collision")
 	ErrExecutionReverted           = errors.New("execution reverted")
-	ErrInvalidData                 = errors.New("invalid data")
 	ErrGasUintOverflow             = errors.New("gas uint64 overflow")
 	ErrReturnDataOutOfBounds       = errors.New("evm: return data out of bounds")
 )
