@@ -1,6 +1,7 @@
 package pow
 
 import (
+	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 
 	"encoding/binary"
@@ -26,7 +27,7 @@ func GetPowNonce(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
 	for {
 		nonce := crypto.GetEntropyCSPRNG(8)
 		out := powHash256(nonce, data)
-		if new(big.Int).SetBytes(out).Cmp(difficulty) >= 0 {
+		if QuickGreater(out, helper.LeftPadBytes(difficulty.Bytes(), 32)) {
 			return nonce, nil
 		}
 	}
@@ -43,7 +44,7 @@ func powHash256(nonce []byte, data []byte) []byte {
 
 func CheckPowNonce(difficulty *big.Int, nonce []byte, data []byte) bool {
 	out := powHash256(nonce, data)
-	return QuickGreater(out, difficulty.Bytes())
+	return QuickGreater(out, helper.LeftPadBytes(difficulty.Bytes(), 32))
 }
 
 func QuickInc(x []byte) []byte {
