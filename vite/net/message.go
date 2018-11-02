@@ -499,17 +499,22 @@ func (c *getChunkHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 			return sender.Send(ExceptionCode, msg.Id, message.Missing)
 		}
 
-		ablockCount := countAccountBlocks(mblocks)
-		ablocks := make([]*ledger.AccountBlock, 0, ablockCount)
-		for _, blocks := range mblocks {
-			ablocks = append(ablocks, blocks...)
+		// split account blocks map to small slice
+		matrix := splitAccountMap(mblocks)
+		for _, ablocks := range matrix {
+			if err = sender.SendAccountBlocks(ablocks, msg.Id); err != nil {
+				netLog.Error(fmt.Sprintf("send %d Accountblosk of Chunk<%d-%d> to %s error: %v", len(ablocks), chunk[0], chunk[1], sender.RemoteAddr(), err))
+				return
+			} else {
+				netLog.Info(fmt.Sprintf("send %d Accountblosk of Chunk<%d-%d> to %s done", len(ablocks), chunk[0], chunk[1], sender.RemoteAddr()))
+			}
 		}
 
-		if err = sender.SendSubLedger(sblocks, ablocks, msg.Id); err != nil {
-			netLog.Error(fmt.Sprintf("send Chunk<%d-%d>(%d SnapshotBlocks %d AccountBlocks) to %s error: %v", chunk[0], chunk[1], len(sblocks), ablockCount, sender.RemoteAddr(), err))
+		if err = sender.SendSubLedger(sblocks, nil, msg.Id); err != nil {
+			netLog.Error(fmt.Sprintf("send SubLedger of Chunk<%d-%d> to %s error: %v", chunk[0], chunk[1], sender.RemoteAddr(), err))
 			return
 		} else {
-			netLog.Info(fmt.Sprintf("send Chunk<%d-%d>(%d SnapshotBlocks %d AccountBlocks) to %s done", chunk[0], chunk[1], len(sblocks), ablockCount, sender.RemoteAddr()))
+			netLog.Info(fmt.Sprintf("send SubLedger of Chunk<%d-%d> to %s done", chunk[0], chunk[1], sender.RemoteAddr()))
 		}
 	}
 
@@ -524,6 +529,39 @@ func countAccountBlocks(mblocks accountBlockMap) (count uint64) {
 		for range blocks {
 			count++
 		}
+	}
+
+	return
+}
+
+func splitAccountMap(mblocks accountBlockMap) (ret [][]*ledger.AccountBlock) {
+	var index, end int
+	var add bool
+	s := make([]*ledger.AccountBlock, 0, maxBlocks)
+
+	for _, blocks := range mblocks {
+		index = 0
+
+		for index < len(blocks) {
+			slotLen := cap(s) - len(s)
+			if len(blocks[index:]) <= slotLen {
+				s = append(s, blocks[index:]...)
+				add = false
+				break
+			} else {
+				end = index + slotLen
+				s = append(s, blocks[index:end]...)
+				index = end
+
+				ret = append(ret, s)
+				add = true
+				s = make([]*ledger.AccountBlock, 0, maxBlocks)
+			}
+		}
+	}
+
+	if !add && len(s) != 0 {
+		ret = append(ret, s)
 	}
 
 	return
