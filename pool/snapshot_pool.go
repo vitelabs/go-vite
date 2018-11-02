@@ -19,12 +19,15 @@ type snapshotPool struct {
 	BCPool
 	//rwMu *sync.RWMutex
 	//consensus consensus.AccountsConsensus
-	closed chan struct{}
-	wg     sync.WaitGroup
-	pool   *pool
-	rw     *snapshotCh
-	v      *snapshotVerifier
-	f      *snapshotSyncer
+	closed          chan struct{}
+	wg              sync.WaitGroup
+	pool            *pool
+	rw              *snapshotCh
+	v               *snapshotVerifier
+	f               *snapshotSyncer
+	nextFetchTime   time.Time
+	nextInsertTime  time.Time
+	nextCompactTime time.Time
 }
 
 func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion, source types.BlockSource) *snapshotPoolBlock {
@@ -71,6 +74,10 @@ func newSnapshotPool(
 	pool.v = v
 	pool.f = f
 	pool.log = log.New("snapshotPool", name)
+	now := time.Now()
+	pool.nextFetchTime = now
+	pool.nextInsertTime = now
+	pool.nextCompactTime = now
 	return pool
 }
 
@@ -251,19 +258,41 @@ func (self *snapshotPool) loop() {
 		case <-self.closed:
 			return
 		default:
-			self.loopAll()
-			self.loopCheckCurrentInsert()
-			time.Sleep(200 * time.Millisecond)
+			now := time.Now()
+			if now.After(self.nextCompactTime) {
+				self.nextCompactTime = now.Add(50 * time.Millisecond)
+				self.loopCompactSnapshot()
+			}
+
+			if now.After(self.nextInsertTime) {
+				self.nextInsertTime = now.Add(200 * time.Millisecond)
+				self.loopCheckCurrentInsert()
+			}
+			n2 := time.Now()
+			s1 := self.nextCompactTime.Sub(n2)
+			s2 := self.nextInsertTime.Sub(n2)
+			if s1 > s2 {
+				time.Sleep(s2)
+			} else {
+				time.Sleep(s1)
+			}
 		}
 	}
 }
 
-func (self *snapshotPool) loopAll() {
+func (self *snapshotPool) loopCompactSnapshot() {
 	self.pool.RLock()
 	defer self.pool.RUnLock()
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
 	self.loopGenSnippetChains()
 	self.loopAppendChains()
-	self.loopFetchForSnippets()
+	now := time.Now()
+	if now.After(self.nextFetchTime) {
+		self.nextFetchTime = now.Add(time.Millisecond * 200)
+		self.loopFetchForSnippets()
+		self.loopFetchForSnapshot()
+	}
 }
 
 func (self *snapshotPool) loopCheckCurrentInsert() {
@@ -429,4 +458,14 @@ func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) error {
 		self.log.Crit("verify unexpected.")
 		return errors.New("verify unexpected")
 	}
+}
+func (self *snapshotPool) loopFetchForSnapshot() {
+	curHeight := self.pool.realSnapshotHeight(self.CurrentChain())
+	longers := self.LongerChain(curHeight)
+
+	self.pool.fetchForSnapshot(self.CurrentChain())
+	for _, v := range longers {
+		self.pool.fetchForSnapshot(v)
+	}
+	return
 }

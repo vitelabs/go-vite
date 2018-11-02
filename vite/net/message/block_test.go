@@ -181,3 +181,17 @@ func TestAccountBlocks_Deserialize(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestSubLedger_Serialize(t *testing.T) {
+	s := new(SubLedger)
+	buf, err := s.Serialize()
+	if err != nil {
+		t.Error(err)
+	}
+
+	s2 := new(SubLedger)
+	err = s2.Deserialize(buf)
+	if err != nil {
+		t.Error(err)
+	}
+}

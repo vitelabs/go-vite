@@ -42,6 +42,9 @@ var (
 	//addr2PubKey        = addr2PrivKey.PubByte()
 
 	producerPrivKeyStr string
+
+	// difficulty test:65535~67108863
+	defaultDifficulty = big.NewInt(65535)
 )
 
 func init() {
@@ -167,13 +170,14 @@ func GenesisReceiveMintage(vite *VitePrepared, addFunc AddChainDierct) error {
 	if err != nil {
 		return err
 	}
+
 	gen, err := generator.NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &sendBlock.ToAddress)
 	if err != nil {
 		return err
 	}
 	genResult, err := gen.GenerateWithOnroad(*sendBlock, nil, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
-	}, nil)
+	}, defaultDifficulty)
 	if err != nil {
 		return err
 	}
@@ -222,7 +226,10 @@ func createRPCTransferBlockS(vite *VitePrepared) ([]*ledger.AccountBlock, error)
 		Timestamp:    latestSb.Timestamp,
 	}
 
-	nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+	nonce, err := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+	if err != nil {
+		return nil, err
+	}
 	block.Nonce = nonce[:]
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
@@ -268,7 +275,10 @@ func createRPCTransferBlocksR(vite *VitePrepared) ([]*ledger.AccountBlock, error
 			Timestamp:    latestSb.Timestamp,
 		}
 
-		nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+		nonce, err := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+		if err != nil {
+			return nil, err
+		}
 		block.Nonce = nonce[:]
 		block.Hash = block.ComputeHash()
 		block.Signature = ed25519.Sign(addr1PrivKey, block.Hash.Bytes())
@@ -348,7 +358,12 @@ func TestAccountVerifier_VerifyforP2P(t *testing.T) {
 		PublicKey:      genesisAccountPubKey,
 	}
 
-	nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+	nonce, err := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	block.Nonce = nonce[:]
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())

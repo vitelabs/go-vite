@@ -1,6 +1,7 @@
 package net
 
 import (
+	crand "crypto/rand"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
@@ -157,6 +158,14 @@ func mockBlocks(chn chain.Chain, to uint64) {
 type mock_Peer struct {
 }
 
+func (m *mock_Peer) ID() string {
+	panic("implement me")
+}
+
+func (m *mock_Peer) Height() uint64 {
+	panic("implement me")
+}
+
 func (m *mock_Peer) Report(err error) {
 	panic("implement me")
 }
@@ -247,4 +256,85 @@ var gaHandler = getAccountBlocksHandler{
 
 func TestGetAccountBlocksHandler_Handle(t *testing.T) {
 	gaHandler.Handle(mockGetAccountBlocksMsg(), &mock_Peer{})
+}
+
+func randInt(m, n int) int {
+	r := rand.Intn(n - m)
+	return r + m
+}
+
+func mockAccountMap(addrm, addrn, blockm, blockn int) (ret accountBlockMap, total int) {
+	ret = make(accountBlockMap)
+	accountCount := randInt(addrm, addrn)
+	var addr types.Address
+	for i := 0; i < accountCount; i++ {
+		crand.Read(addr[:])
+		count := randInt(blockm, blockn)
+		ret[addr] = make([]*ledger.AccountBlock, count)
+		total += count
+	}
+
+	return ret, total
+}
+
+func Test_splitAccountMap(t *testing.T) {
+	mblocks, total := mockAccountMap(100, 1000, 100, 1000)
+	total2 := countAccountBlocks(mblocks)
+	if uint64(total) != total2 {
+		t.Fail()
+	} else {
+		fmt.Println("countAccountBlocks right")
+	}
+
+	matrix := splitAccountMap(mblocks)
+	shouldLen := total/maxBlocks + 1
+	if len(matrix) != shouldLen {
+		t.Fail()
+	} else {
+		fmt.Println("splitAccountMap length right")
+	}
+
+	total3 := 0
+	for _, blocks := range matrix {
+		total3 += len(blocks)
+	}
+
+	if total != total3 {
+		t.Fail()
+	} else {
+		fmt.Println("splitAccountMap total right")
+	}
+
+	fmt.Println(total, total2, total3)
+}
+
+func Test_splitAccountMap_Min(t *testing.T) {
+	mblocks, total := mockAccountMap(100, 300, 1, 2)
+	total2 := countAccountBlocks(mblocks)
+	if uint64(total) != total2 {
+		t.Fail()
+	} else {
+		fmt.Println("countAccountBlocks right")
+	}
+
+	matrix := splitAccountMap(mblocks)
+	shouldLen := total/maxBlocks + 1
+	if len(matrix) != shouldLen {
+		t.Fail()
+	} else {
+		fmt.Println("splitAccountMap length right")
+	}
+
+	total3 := 0
+	for _, blocks := range matrix {
+		total3 += len(blocks)
+	}
+
+	if total != total3 {
+		t.Fail()
+	} else {
+		fmt.Println("splitAccountMap total right")
+	}
+
+	fmt.Println(total, total2, total3)
 }

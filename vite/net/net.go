@@ -133,8 +133,6 @@ func (n *net) Start(svr *p2p.Server) (err error) {
 		return
 	}
 
-	n.fc.start()
-
 	if n.topo != nil {
 		if err = n.topo.Start(svr); err != nil {
 			return

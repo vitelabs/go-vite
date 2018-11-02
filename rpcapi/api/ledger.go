@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
@@ -239,9 +240,8 @@ func (l *LedgerApi) GetSenderInfo() (*KafkaSendInfo, error) {
 }
 
 func (l *LedgerApi) GetFittestSnapshotHash() (*types.Hash, error) {
-	latestBlock := l.chain.GetLatestSnapshotBlock()
-
-	return &latestBlock.Hash, nil
+	//latestBlock := l.chain.GetLatestSnapshotBlock()
+	return generator.GetFitestGeneratorSnapshotHash(l.chain, nil)
 
 	//gap := uint64(0)
 	//targetHeight := latestBlock.Height

@@ -17,8 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
-var defaultDifficulty = new(big.Int).SetUint64(pow.FullThreshold)
-
 const (
 	TimeOutHeight = uint64(24 * 30 * 3600)
 )
@@ -81,7 +79,7 @@ func (verifier *AccountVerifier) VerifyReferred(block *ledger.AccountBlock) (Ver
 	stat := verifier.newVerifyStat()
 
 	if !verifier.verifySnapshot(block, stat) {
-		return FAIL, stat
+		return stat.referredSnapshotResult, stat
 	}
 
 	if !verifier.verifySelf(block, stat) {
@@ -261,7 +259,7 @@ func (verifier *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, veri
 		}
 		verifyStatResult.snapshotTask = &SnapshotPendingTask{Hash: &block.SnapshotHash}
 		verifyStatResult.referredSnapshotResult = PENDING
-		return true
+		return false
 	} else {
 		if err := verifier.VerifyTimeOut(snapshotBlock); err != nil {
 			verifyStatResult.referredSnapshotResult = FAIL

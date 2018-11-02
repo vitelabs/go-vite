@@ -89,16 +89,6 @@ func shouldSync(from, to uint64) bool {
 	return false
 }
 
-type fileSrc struct {
-	peers
-	state reqState
-}
-
-type pFileRecord struct {
-	files
-	index int
-}
-
 type syncer struct {
 	from, to   uint64 // include
 	count      uint64 // atomic, current amount of snapshotblocks have received
@@ -303,15 +293,13 @@ func (s *syncer) setTarget(to uint64) {
 }
 
 func (s *syncer) inc() {
-	count := atomic.AddUint64(&s.count, 1)
-	// total maybe modified
-	total := atomic.LoadUint64(&s.total)
-
 	if s.state == SyncDownloaded {
 		return
 	}
 
-	if count >= total {
+	count := atomic.AddUint64(&s.count, 1)
+
+	if count >= s.total {
 		// all blocks have downloaded
 		s.downloaded <- struct{}{}
 	}

@@ -28,10 +28,13 @@ type syncer interface {
 }
 
 type fetchRequest struct {
-	snapshot bool
-	chain    *types.Address
-	hash     types.Hash
-	prevCnt  uint64
+	snapshot       bool
+	chain          *types.Address
+	hash           types.Hash
+	accHeight      uint64
+	prevCnt        uint64
+	snapshotHash   *types.Hash
+	snapshotHeight uint64
 }
 
 func (self *fetchRequest) String() string {

@@ -11,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
@@ -70,7 +69,8 @@ var (
 	attovPerVite = big.NewInt(1e18)
 	pledgeAmount = new(big.Int).Mul(big.NewInt(10), attovPerVite)
 
-	defaultDifficulty = new(big.Int).SetUint64(pow.FullThreshold)
+	// difficulty test:65535~67108863
+	defaultDifficulty = big.NewInt(65535)
 )
 
 type VitePrepared struct {
@@ -310,7 +310,7 @@ func receiveTransferSendBlocks(vite *VitePrepared, addr *types.Address) ([]*ledg
 		}
 		genResult, err := gen.GenerateWithOnroad(*v, nil, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
-		}, nil)
+		}, defaultDifficulty)
 		if err != nil {
 			return nil, err
 		}
