@@ -91,6 +91,7 @@ func NewProducerFromDb(producerId uint8, buf []byte, chain Chain, db *leveldb.DB
 	if err := producer.init(producerId, chain, db); err != nil {
 		return nil, err
 	}
+	producer.log = log15.New("module", "sender/producer")
 	return producer, nil
 }
 
@@ -103,6 +104,7 @@ func NewProducer(producerId uint8, brokerList []string, topic string, chain Chai
 	if err := producer.init(producerId, chain, db); err != nil {
 		return nil, err
 	}
+	producer.log = log15.New("module", "sender/producer")
 	return producer, nil
 }
 
