@@ -155,6 +155,9 @@ func (self *snapshotPool) checkFork() {
 	if longest.ChainId() == current.ChainId() {
 		return
 	}
+	if longestH-self.LIMIT_LONGEST_NUM < current.headHeight {
+		return
+	}
 	self.log.Info("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight)
 
 	monitor.LogEvent("pool", "snapshotFork")
