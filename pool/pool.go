@@ -770,6 +770,45 @@ func (self *pool) realSnapshotHeight(fc *forkedChain) uint64 {
 	}
 }
 
+func (self *pool) fetchForSnapshot(fc *forkedChain) error {
+	var reqs []*fetchRequest
+	j := 0
+	for i := fc.tailHeight + 1; i < fc.headHeight && j < 100; i++ {
+		j++
+		b := fc.getHeightBlock(i)
+		if b == nil {
+			continue
+		}
+
+		sb := b.(*snapshotPoolBlock)
+
+		hash := sb.Hash()
+		for k, v := range sb.block.SnapshotContent {
+			reqs = append(reqs, &fetchRequest{
+				snapshot:       false,
+				chain:          &k,
+				hash:           v.Hash,
+				accHeight:      v.Height,
+				prevCnt:        1,
+				snapshotHash:   &hash,
+				snapshotHeight: b.Height(),
+			})
+		}
+	}
+
+	for _, v := range reqs {
+		if v.chain == nil {
+			continue
+		}
+		ac := self.selfPendingAc(*v.chain)
+		fc := ac.findInTreeDisk(v.hash, v.accHeight, true)
+		if fc == nil {
+			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.hash, Height: v.accHeight}, 1, v.snapshotHeight)
+		}
+	}
+	return nil
+}
+
 type recoverStat struct {
 	num           int32
 	updateTime    time.Time
