@@ -26,8 +26,8 @@ func (c *chain) completeBlock(block *ledger.AccountBlock, account *ledger.Accoun
 }
 
 func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
-	monitor.LogEventNum("chain", "insert", len(vmAccountBlocks))
 	batch := new(leveldb.Batch)
+	monitor.LogEventNum("chain", "insert", len(vmAccountBlocks))
 	trieSaveCallback := make([]func(), 0)
 	var account *ledger.Account
 

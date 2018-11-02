@@ -260,6 +260,10 @@ func (l *LedgerApi) GetFittestSnapshotHash() (*types.Hash, error) {
 
 }
 
+func (l *LedgerApi) GetNeedSnapshotContent() map[types.Address]*ledger.HashHeight {
+	return l.chain.GetNeedSnapshotContent()
+}
+
 func (l *LedgerApi) SetSenderHasSend(producerId uint8, hasSend uint64) {
 	l.log.Info("SetSenderHasSend")
 
