@@ -315,12 +315,7 @@ func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Add
 	}
 
 	if accountBlock != nil {
-		accountBlock.AccountAddress = account.AccountAddress
-		// Not contract account block
-		if len(accountBlock.PublicKey) == 0 {
-			accountBlock.PublicKey = account.PublicKey
-		}
-		accountBlock.PublicKey = account.PublicKey
+		c.completeBlock(accountBlock, account)
 	}
 
 	return accountBlock, nil
@@ -380,11 +375,7 @@ func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Ad
 				return nil, nil, nil, err
 			}
 
-			block.AccountAddress = account.AccountAddress
-			if len(block.PublicKey) == 0 {
-				block.PublicKey = account.PublicKey
-			}
-
+			c.completeBlock(block, account)
 			needAddBlocks[account.AccountAddress] = block
 		}
 	}
@@ -473,10 +464,8 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 					c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
 					return nil, nil, err
 				}
-				lastBlock.AccountAddress = account.AccountAddress
-				if len(lastBlock.PublicKey) == 0 {
-					lastBlock.PublicKey = account.PublicKey
-				}
+
+				c.completeBlock(lastBlock, account)
 			}
 		}
 

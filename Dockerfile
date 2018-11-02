@@ -1,14 +1,14 @@
 FROM golang:1.11-alpine as maker
 
-ADD . /usr/local/go/src/github.com/vitelabs/go-vite
 RUN set -eux; \
- 	apk add --virtual .build-deps \
- 	    gcc
+ 	apk add gcc \
+ 	    musl-dev
 
+ADD . /usr/local/go/src/github.com/vitelabs/go-vite
 RUN go build -o gvite  github.com/vitelabs/go-vite/cmd/gvite
 
-FROM alpine:latest
-COPY --from=maker ./gvite .
+FROM alpine:3.8
+COPY --from=maker /go/gvite .
 COPY ./node_config.json .
-EXPOSE 8483 8483/udp 8484 48132 41420
-ENTRYPOINT ["gvite"]
+EXPOSE 8483 8484 48132 41420 8483/udp
+ENTRYPOINT ["/gvite"]
