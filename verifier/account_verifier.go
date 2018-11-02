@@ -17,8 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
-var defaultDifficulty = new(big.Int).SetUint64(pow.FullThreshold)
-
 const (
 	TimeOutHeight = uint64(24 * 30 * 3600)
 )

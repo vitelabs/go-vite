@@ -30,6 +30,9 @@ func GetPowNonce(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
 	if VMTestParamEnabled {
 		target = defaultTarget
 	} else {
+		if difficulty == nil {
+			return nil, errors.New("difficulty can't be nil")
+		}
 		target = DifficultyToTarget(difficulty)
 		if target == nil || target.BitLen() > 256 {
 			return nil, errors.New("target too long")
