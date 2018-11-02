@@ -123,9 +123,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	c.latestSnapshotBlock = snapshotBlock
 	// Delete needSnapshotCache
 	if c.needSnapshotCache != nil {
-		for addr, item := range snapshotBlock.SnapshotContent {
-			c.needSnapshotCache.BeSnapshot(&addr, item.Height)
-		}
+		c.needSnapshotCache.BeSnapshot(snapshotBlock.SnapshotContent)
 	}
 
 	// Trigger success
