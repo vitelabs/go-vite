@@ -12,3 +12,11 @@ func TestChain_GetAccount(t *testing.T) {
 	account, _ := chainInstance.GetAccount(&addr)
 	fmt.Printf("%+v\n", account)
 }
+
+func TestAccountType(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	addr, _ := types.HexToAddress("vite_00000000000000000000000000000000000000056ad6d26692")
+	code, _ := chainInstance.AccountType(&addr)
+	fmt.Println(code)
+}
