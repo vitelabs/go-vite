@@ -61,16 +61,19 @@ func (cache *NeedSnapshotCache) Get(addr *types.Address) *ledger.AccountBlock {
 	return cache.cacheMap[*addr]
 }
 
-func (cache *NeedSnapshotCache) Set(addr *types.Address, accountBlock *ledger.AccountBlock) {
+func (cache *NeedSnapshotCache) Set(subLedger map[types.Address]*ledger.AccountBlock) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
-	if cachedItem := cache.cacheMap[*addr]; cachedItem != nil && cachedItem.Height >= accountBlock.Height {
-		cache.unsavePrintCacheMap()
-		cache.log.Crit("cachedItem.Height > accountBlock.Height", "method", "Set")
-		return
+	for addr, accountBlock := range subLedger {
+		if cachedItem := cache.cacheMap[addr]; cachedItem != nil && cachedItem.Height >= accountBlock.Height {
+			cache.unsavePrintCacheMap()
+			cache.log.Crit("cachedItem.Height > accountBlock.Height", "method", "Set")
+			return
+		}
+
+		cache.cacheMap[addr] = accountBlock
 	}
 
-	cache.cacheMap[*addr] = accountBlock
 }
 
 func (cache *NeedSnapshotCache) unsavePrintCacheMap() {
@@ -99,9 +102,11 @@ func (cache *NeedSnapshotCache) BeSnapshot(addr *types.Address, height uint64) {
 	}
 }
 
-func (cache *NeedSnapshotCache) Remove(addr *types.Address) {
+func (cache *NeedSnapshotCache) Remove(addrList []types.Address) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 
-	delete(cache.cacheMap, *addr)
+	for _, addr := range addrList {
+		delete(cache.cacheMap, addr)
+	}
 }

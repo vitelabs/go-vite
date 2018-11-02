@@ -321,15 +321,15 @@ func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Add
 	return accountBlock, nil
 }
 
-func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Address][]*ledger.AccountBlock) (map[types.Address]*ledger.AccountBlock, map[types.Address]*ledger.AccountBlock, map[types.Address]uint64, error) {
+func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Address][]*ledger.AccountBlock) (map[types.Address]*ledger.AccountBlock, []types.Address, map[types.Address]uint64, error) {
 	needAddBlocks := make(map[types.Address]*ledger.AccountBlock)
-	needRemoveAddr := make(map[types.Address]*ledger.AccountBlock)
+	var needRemoveAddr []types.Address
 
 	blockHeightMap := make(map[types.Address]uint64)
 	for addr, accountBlocks := range deleteSubLedger {
 		accountBlock := accountBlocks[0]
 
-		needRemoveAddr[addr] = accountBlock
+		needRemoveAddr = append(needRemoveAddr, addr)
 		accountBlockHeight := accountBlock.Height
 
 		if accountBlockHeight > 1 {
@@ -402,6 +402,11 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, nil, err
 	}
 
+	needRemoveAddrMap := make(map[types.Address]struct{})
+	for _, addr := range needRemoveAddr {
+		needRemoveAddrMap[addr] = struct{}{}
+	}
+
 	chainRangeSet := c.getChainRangeSet(snapshotBlocks)
 
 	for addr, changeRangeItem := range chainRangeSet {
@@ -421,8 +426,6 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 			return nil, nil, err
 		}
 
-		// Set block meta
-		var lastBlock *ledger.AccountBlock
 		for i := min; i <= max; i++ {
 			blockHash, blockHashErr := c.chainDb.Ac.GetHashByHeight(account.AccountId, i)
 			if blockHashErr != nil {
@@ -456,24 +459,29 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 				}
 
 			}
+		}
 
-			if i == max {
+		if _, ok := needAddBlocks[account.AccountAddress]; !ok {
+			needAdd := false
+			if _, ok2 := needRemoveAddrMap[account.AccountAddress]; ok2 {
+				needAdd = true
+			} else if cachedAccountBlock := c.needSnapshotCache.Get(&account.AccountAddress); cachedAccountBlock == nil {
+				needAdd = true
+			}
+
+			if needAdd {
+				var lastBlock *ledger.AccountBlock
+
 				var blockErr error
-				lastBlock, blockErr = c.chainDb.Ac.GetBlockByHeight(account.AccountId, i)
+				lastBlock, blockErr = c.chainDb.Ac.GetBlockByHeight(account.AccountId, max)
 				if blockErr != nil {
 					c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
 					return nil, nil, err
 				}
 
 				c.completeBlock(lastBlock, account)
-			}
-		}
+				needAddBlocks[account.AccountAddress] = lastBlock
 
-		if _, ok := needAddBlocks[account.AccountAddress]; !ok && lastBlock != nil {
-			if _, ok2 := needRemoveAddr[account.AccountAddress]; ok2 {
-				needAddBlocks[account.AccountAddress] = lastBlock
-			} else if cachedAccountBlock := c.needSnapshotCache.Get(&account.AccountAddress); cachedAccountBlock == nil {
-				needAddBlocks[account.AccountAddress] = lastBlock
 			}
 		}
 	}
@@ -517,22 +525,33 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	c.latestSnapshotBlock = prevSnapshotBlock
 
 	// Set needSnapshotCache, first remove
-	for addr := range needRemoveAddr {
-		c.needSnapshotCache.Remove(&addr)
-	}
+	c.needSnapshotCache.Remove(needRemoveAddr)
 
 	// Set needSnapshotCache, then add
-	for addr, block := range needAddBlocks {
-		c.needSnapshotCache.Set(&addr, block)
-	}
+	c.needSnapshotCache.Set(needAddBlocks)
 
+	//c.checkNeedSnapshotCache()
 	// Trigger delete snapshot blocks success
 	c.em.triggerDeleteSnapshotBlocksSuccess(snapshotBlocks)
 
 	// Trigger delete account blocks success
 	c.em.triggerDeleteAccountBlocksSuccess(accountBlocksMap)
+
 	return snapshotBlocks, accountBlocksMap, nil
 }
+
+//func (c *chain) checkNeedSnapshotCache() {
+//	unconfirmSubLedger, err := c.getUnConfirmedSubLedger()
+//	if err != nil {
+//		c.log.Error("getUnConfirmedSubLedger failed, error is "+err.Error(), "method", "checkNeedSnapshotCache")
+//	}
+//
+//	for addr, blocks := range unconfirmSubLedger {
+//		if block2, ok := c.needSnapshotCache.cacheMap[addr]; !ok || block2.Hash != blocks[0].Hash {
+//			c.log.Error("error!!!")
+//		}
+//	}
+//}
 
 func (c *chain) deleteSnapshotBlocksByHeight(batch *leveldb.Batch, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, map[types.Hash]*ledger.AccountBlockMeta, error) {
 	maxAccountId, err := c.chainDb.Account.GetLastAccountId()
