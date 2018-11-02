@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -10,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
+	"math/big"
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
@@ -17,6 +19,29 @@ import (
 	"testing"
 	"time"
 )
+
+func TestHaha(t *testing.T) {
+	//prevHash, _ := types.HexToHash("4ddb2e1bd651527ebb43ef7d37c5edff0bf5e292424b7aaa1c6662893391925d")
+	accountAddress, _ := types.HexToAddress("vite_00000000000000000000000000000000000000056ad6d26692")
+	toAddress, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
+	tokenId, _ := types.HexToTokenTypeId("tti_3cd880a76b7524fc2694d607")
+	snapshotHash, _ := types.HexToHash("68d458d52a13d5594c069a365345d2067ccbceb63680ec384697dda88de2ada8")
+	publicKey, _ := hex.DecodeString("4sYVHCR0fnpUZy3Acj8Wy0JOU81vH/khAW1KLYb19Hk=")
+	ti := time.Unix(1541056128, 0)
+	a := &ledger.AccountBlock{
+		BlockType: 3,
+		//PrevHash:       prevHash,
+		AccountAddress: accountAddress,
+		PublicKey:      publicKey,
+		ToAddress:      toAddress,
+		TokenId:        tokenId,
+		SnapshotHash:   snapshotHash,
+		Height:         6,
+		Amount:         big.NewInt(1000000000),
+		Timestamp:      &ti,
+	}
+	fmt.Println(a.ComputeHash())
+}
 
 func TestGetUnconfirmBlocks(t *testing.T) {
 	chainInstance := getChainInstance()
