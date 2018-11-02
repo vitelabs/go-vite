@@ -188,6 +188,10 @@ func (a *agent) stop() {
 		return
 	}
 
+	if a.conn != nil {
+		a.conn.Close()
+	}
+
 	discvLog.Info("discovery agent term")
 
 	select {

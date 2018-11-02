@@ -147,6 +147,7 @@ type conn struct {
 	peer   Peer
 	idle   bool
 	idleT  time.Time
+	done   bool // file request done
 }
 
 type filesEvent struct {
@@ -178,9 +179,9 @@ type cPool interface {
 
 func newFileClient(chain Chain, pool cPool, handler reqRec) *fileClient {
 	return &fileClient{
-		idleChan:  make(chan *conn),
-		delChan:   make(chan *conn),
-		filesChan: make(chan *filesEvent),
+		idleChan:  make(chan *conn, 1),
+		delChan:   make(chan *conn, 1),
+		filesChan: make(chan *filesEvent, 10),
 		chain:     chain,
 		log:       log15.New("module", "net/fileClient"),
 		dialer:    &net2.Dialer{Timeout: 3 * time.Second},
@@ -209,7 +210,7 @@ func (fc *fileClient) stop() {
 	}
 }
 
-func (fc *fileClient) removePeer(conns map[string]*conn, fRecord map[string]*fileSrc, pFiles map[string]*pFileRecord, sender Peer) {
+func (fc *fileClient) removePeer(conns map[string]*conn, fRecord map[string]*fileState, pFiles map[string]files, sender Peer) {
 	id := sender.ID()
 
 	if conn, ok := conns[id]; ok {
@@ -224,56 +225,50 @@ func (fc *fileClient) removePeer(conns map[string]*conn, fRecord map[string]*fil
 	}
 }
 
-func (fc *fileClient) usePeer(conns map[string]*conn, record map[string]*fileSrc, pFiles map[string]*pFileRecord, sender Peer) {
+func (fc *fileClient) usePeer(conns map[string]*conn, record map[string]*fileState, pFiles map[string]files, sender Peer) {
 	id := sender.ID()
 	// peer is busy
 	if c, ok := conns[id]; ok && !c.idle {
 		return
 	}
 
-	if fileRecord, ok := pFiles[sender.ID()]; ok {
-		// retrieve the last file
-		for {
-			file := fileRecord.files[fileRecord.index]
+	if files, ok := pFiles[sender.ID()]; ok {
+		// retrieve files from low to high
+		for _, file := range files {
 			r := record[file.Filename]
 
-			fileState := r.state
-			if fileState == reqWaiting || fileState == reqError {
+			if r.state == reqWaiting || r.state == reqError {
+				r.state = reqPending
 				if err := fc.doRequest(conns, file, sender); err != nil {
+					r.state = reqError
 					fc.removePeer(conns, record, pFiles, sender)
-				} else {
-					r.state = reqPending
 				}
 
 				break
-			} else if fileRecord.index == 0 {
-				break
 			}
-
-			fileRecord.index--
 		}
 	}
 }
 
-func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fileSrc, pFiles map[string]*pFileRecord, file *ledger.CompressedFileMeta) {
-	if src, ok := record[file.Filename]; ok {
+func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fileState, pFiles map[string]files, file *ledger.CompressedFileMeta) {
+	if r, ok := record[file.Filename]; ok {
 		var id string
-		for _, peer := range src.peers {
+		for _, peer := range r.peers {
 			id = peer.ID()
 			if c, ok := conns[id]; ok && !c.idle {
 				continue
 			}
 
+			r.state = reqPending
 			if err := fc.doRequest(conns, file, peer); err != nil {
 				fc.removePeer(conns, record, pFiles, peer)
 			} else {
-				src.state = reqPending
 				return
 			}
 		}
 
 		// no peers, get chunks
-		src.state = reqError
+		r.state = reqError
 		fc.pool.add(&chunkRequest{
 			from: file.StartHeight,
 			to:   file.EndHeight,
@@ -293,7 +288,7 @@ func (fc *fileClient) doRequest(conns map[string]*conn, file *ledger.CompressedF
 		conns[id] = &conn{
 			Conn:  tcp,
 			peer:  sender,
-			idle:  false,
+			idle:  true,
 			idleT: time.Now(),
 		}
 	}
@@ -315,14 +310,19 @@ func (fc *fileClient) gotFiles(fs files, sender Peer) {
 	}
 }
 
+type fileState struct {
+	peers
+	state reqState
+}
+
 func (fc *fileClient) loop() {
 	defer fc.wg.Done()
 
 	conns := make(map[string]*conn)
-	record := make(map[string]*fileSrc)
-	pFiles := make(map[string]*pFileRecord)
+	record := make(map[string]*fileState)
+	pFiles := make(map[string]files)
 
-	idleTimeout := 30 * time.Second
+	idleTimeout := time.Minute
 	ticker := time.NewTicker(idleTimeout)
 	defer ticker.Stop()
 
@@ -339,13 +339,10 @@ loop:
 
 		case e := <-fc.filesChan: // got new files
 			files, sender := e.files, e.sender
-			if _, ok := pFiles[sender.ID()]; ok {
-				break
-			}
-			pFiles[sender.ID()] = &pFileRecord{files, len(files) - 1}
+			pFiles[sender.ID()] = files
 			for _, file := range files {
 				if _, ok := record[file.Filename]; !ok {
-					record[file.Filename] = new(fileSrc)
+					record[file.Filename] = new(fileState)
 				}
 				record[file.Filename].peers = append(record[file.Filename].peers, sender)
 			}
@@ -353,9 +350,11 @@ loop:
 			fc.usePeer(conns, record, pFiles, sender)
 
 		case ctx := <-fc.idleChan:
-			if ctx.file != nil {
-				if r, ok := record[ctx.file.Filename]; ok {
+			if r, ok := record[ctx.file.Filename]; ok {
+				if ctx.done {
 					r.state = reqDone
+				} else {
+					r.state = reqError
 				}
 			}
 
@@ -365,23 +364,22 @@ loop:
 			fc.usePeer(conns, record, pFiles, ctx.peer)
 
 		case conn := <-fc.delChan:
-			delConn(conn)
+			fc.removePeer(conns, record, pFiles, conn.peer)
 			fc.log.Error(fmt.Sprintf("delete connection %s", conn.RemoteAddr()))
 
 			if file := conn.file; file != nil {
-				if record[file.Filename].state != reqDone {
-					miss := conn.file.EndHeight - conn.height
-					if miss > file2Chunk {
-						// retry file
-						fc.requestFile(conns, record, pFiles, file)
-					} else {
-						record[file.Filename].state = reqDone
-						// use chunk
-						fc.pool.add(&chunkRequest{
-							from: conn.height + 1,
-							to:   conn.file.EndHeight,
-						})
-					}
+				miss := conn.file.EndHeight - conn.height
+				if miss > file2Chunk {
+					record[file.Filename].state = reqError
+					// retry file
+					fc.requestFile(conns, record, pFiles, file)
+				} else {
+					record[file.Filename].state = reqDone
+					// use chunk
+					fc.pool.add(&chunkRequest{
+						from: conn.height + 1,
+						to:   conn.file.EndHeight,
+					})
 				}
 			}
 
@@ -425,8 +423,7 @@ func (fc *fileClient) exec(ctx *conn) {
 	msg, err := p2p.PackMsg(CmdSet, p2p.Cmd(GetFilesCode), 0, getFiles)
 
 	if err != nil {
-		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", getFiles, ctx.RemoteAddr(), err))
-		ctx.file = nil
+		ctx.done = false
 		fc.idle(ctx)
 		return
 	}
@@ -444,6 +441,7 @@ func (fc *fileClient) exec(ctx *conn) {
 		fc.log.Error(fmt.Sprintf("receive file from %s error: %v", ctx.RemoteAddr(), err))
 		fc.delete(ctx)
 	} else {
+		ctx.done = true
 		fc.idle(ctx)
 	}
 }
