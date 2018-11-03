@@ -334,7 +334,7 @@ func (self *BCPool) init(tools *tools) {
 
 	self.LIMIT_HEIGHT = 60 * 60
 	self.LIMIT_LONGEST_NUM = 4
-	self.rstat = (&recoverStat{}).reset(10, 10*time.Second)
+	self.rstat = (&recoverStat{}).init(10, 10*time.Second)
 	self.initPool()
 }
 
@@ -728,10 +728,6 @@ func (self *BCPool) loopGenSnippetChains() int {
 }
 
 func (self *BCPool) loopAppendChains() int {
-	err := self.chainpool.check()
-	if err != nil {
-		self.log.Error("loopAppendChains check chain err", "err", err)
-	}
 	if len(self.chainpool.snippetChains) == 0 {
 		return 0
 	}

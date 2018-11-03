@@ -176,7 +176,7 @@ func (self *pool) Init(s syncer,
 		self)
 
 	self.pendingSc = snapshotPool
-	self.stat = (&recoverStat{}).reset(10, time.Second*10)
+	self.stat = (&recoverStat{}).init(10, time.Second*10)
 }
 func (self *pool) Info(addr *types.Address) string {
 	if addr == nil {
@@ -816,11 +816,17 @@ type recoverStat struct {
 	timeThreshold time.Duration
 }
 
-func (self *recoverStat) reset(t int32, d time.Duration) *recoverStat {
+func (self *recoverStat) init(t int32, d time.Duration) *recoverStat {
 	self.num = 0
 	self.updateTime = time.Now()
 	self.threshold = t
 	self.timeThreshold = d
+	return self
+}
+
+func (self *recoverStat) reset() *recoverStat {
+	self.num = 0
+	self.updateTime = time.Now()
 	return self
 }
 

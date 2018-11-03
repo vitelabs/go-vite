@@ -8,6 +8,8 @@ import (
 
 	"fmt"
 
+	"encoding/base64"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -34,14 +36,25 @@ func newAccountPoolBlock(block *ledger.AccountBlock,
 	vmBlock vmctxt_interface.VmDatabase,
 	version *ForkVersion,
 	source types.BlockSource) *accountPoolBlock {
-	return &accountPoolBlock{block: block, vmBlock: vmBlock, forkBlock: *newForkBlock(version, source), recover: (&recoverStat{}).reset(10, time.Hour)}
+	return &accountPoolBlock{
+		forkBlock: *newForkBlock(version, source),
+		block:     block,
+		vmBlock:   vmBlock,
+		recover:   (&recoverStat{}).init(10, time.Hour),
+		failStat:  (&recoverStat{}).init(10, time.Second*30),
+		delStat:   (&recoverStat{}).init(100, time.Minute*10),
+		fail:      false,
+	}
 }
 
 type accountPoolBlock struct {
 	forkBlock
-	block   *ledger.AccountBlock
-	vmBlock vmctxt_interface.VmDatabase
-	recover *recoverStat
+	block    *ledger.AccountBlock
+	vmBlock  vmctxt_interface.VmDatabase
+	recover  *recoverStat
+	failStat *recoverStat
+	delStat  *recoverStat
+	fail     bool
 }
 
 func (self *accountPoolBlock) Height() uint64 {
@@ -319,13 +332,28 @@ func (self *accountPool) verifySuccess(bs []*accountPoolBlock) (error, uint64) {
 
 func (self *accountPool) verifyPending(b *accountPoolBlock) error {
 	if !b.recover.inc() {
+		b.recover.reset()
 		monitor.LogEvent("pool", "accountPendingFail")
-		return self.verifyFail(b)
+		return self.modifyToOther(b)
 	}
 	return nil
 }
-
 func (self *accountPool) verifyFail(b *accountPoolBlock) error {
+	if b.fail {
+		if !b.delStat.inc() {
+			self.log.Warn("account block delete.", "hash", b.Hash(), "height", b.Height())
+			self.deleteBlock(b)
+		}
+	} else {
+		if !b.failStat.inc() {
+			byt, _ := b.block.DbSerialize()
+			self.log.Warn("account block verify fail.", "hash", b.Hash(), "height", b.Height(), "byt", base64.StdEncoding.EncodeToString(byt))
+			b.fail = true
+		}
+	}
+	return self.modifyToOther(b)
+}
+func (self *accountPool) modifyToOther(b *accountPoolBlock) error {
 	cp := self.chainpool
 	cur := cp.current
 
@@ -530,4 +558,7 @@ func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (*forkedCha
 		results = append(results, b)
 	}
 	return fchain, results, nil
+}
+func (self *accountPool) deleteBlock(block *accountPoolBlock) {
+
 }

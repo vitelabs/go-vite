@@ -151,7 +151,7 @@ func (self *snapshotPool) checkFork() {
 		if lH > longestH {
 			longestH = lH
 			longest = l
-			self.log.Info("find more longer chain.", "id", l.id(), "realH", lH, "headH", l.headHeight)
+			self.log.Info("find more longer chain.", "id", l.id(), "realH", lH, "headH", l.headHeight, "tailH", l.tailHeight)
 		}
 	}
 
@@ -165,7 +165,7 @@ func (self *snapshotPool) checkFork() {
 	if longestH-self.LIMIT_LONGEST_NUM < current.headHeight {
 		return
 	}
-	self.log.Info("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight)
+	self.log.Info("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight, "tailH", current.tailHash)
 
 	monitor.LogEvent("pool", "snapshotFork")
 	err := self.snapshotFork(longest, current)
