@@ -129,6 +129,8 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	// Trigger success
 	c.em.triggerInsertSnapshotBlocksSuccess([]*ledger.SnapshotBlock{snapshotBlock})
 
+	// record insert
+	c.blackBlock.InsertSnapshotBlocks([]*ledger.SnapshotBlock{snapshotBlock})
 	return nil
 }
 func (c *chain) GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
@@ -528,7 +530,12 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	// Set needSnapshotCache, then add
 	c.needSnapshotCache.Set(needAddBlocks)
 
-	//c.checkNeedSnapshotCache()
+	// record delete
+	c.blackBlock.DeleteSnapshotBlock(snapshotBlocks, accountBlocksMap)
+
+	// FIXME hack
+	c.needSnapshotCache.Rebuild()
+
 	// Trigger delete snapshot blocks success
 	c.em.triggerDeleteSnapshotBlocksSuccess(snapshotBlocks)
 
@@ -538,18 +545,22 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	return snapshotBlocks, accountBlocksMap, nil
 }
 
-//func (c *chain) checkNeedSnapshotCache() {
-//	unconfirmSubLedger, err := c.getUnConfirmedSubLedger()
-//	if err != nil {
-//		c.log.Error("getUnConfirmedSubLedger failed, error is "+err.Error(), "method", "checkNeedSnapshotCache")
-//	}
-//
-//	for addr, blocks := range unconfirmSubLedger {
-//		if block2, ok := c.needSnapshotCache.cacheMap[addr]; !ok || block2.Hash != blocks[0].Hash {
-//			c.log.Error("error!!!")
-//		}
-//	}
-//}
+func (c *chain) CheckNeedSnapshotCache(content ledger.SnapshotContent) bool {
+	unconfirmSubLedger, err := c.getUnConfirmedSubLedger()
+	if err != nil {
+		c.log.Error("getUnConfirmedSubLedger failed, error is "+err.Error(), "method", "checkNeedSnapshotCache")
+	}
+	if len(unconfirmSubLedger) != len(content) {
+		return false
+	}
+
+	for addr, blocks := range unconfirmSubLedger {
+		if block2, ok := content[addr]; !ok || block2.Hash != blocks[0].Hash {
+			return false
+		}
+	}
+	return true
+}
 
 func (c *chain) deleteSnapshotBlocksByHeight(batch *leveldb.Batch, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, map[types.Hash]*ledger.AccountBlockMeta, error) {
 	maxAccountId, err := c.chainDb.Account.GetLastAccountId()

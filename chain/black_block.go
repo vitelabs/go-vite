@@ -1,0 +1,104 @@
+package chain
+
+import (
+	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm_context"
+	"path/filepath"
+)
+
+type blackBlock struct {
+	log    log15.Logger
+	chain  *chain
+	isOpen bool
+}
+
+func NewBlackBlock(chain *chain, isOpen bool) *blackBlock {
+	bb := &blackBlock{
+		chain:  chain,
+		log:    log15.New("module", "blackBlockLog"),
+		isOpen: isOpen,
+	}
+
+	if bb.isOpen {
+		bb.log.SetHandler(log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(filepath.Join("vite_black_block.log"), log15.TerminalFormat())))
+	}
+	return bb
+}
+
+func (bb *blackBlock) recordNeedSnapshotCache() {
+	if !bb.isOpen {
+		return
+	}
+	content := bb.chain.GetNeedSnapshotContent()
+	for addr, hashHeight := range content {
+		bb.log.Info(fmt.Sprintf("%s: %d %s", addr, hashHeight.Height, hashHeight.Hash), "method", "recordNeedSnapshotCache")
+	}
+}
+
+func (bb *blackBlock) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) {
+	if !bb.isOpen {
+		return
+	}
+	for _, vmAccountBlock := range vmAccountBlocks {
+		bb.log.Info(fmt.Sprintf("%+v", vmAccountBlock.AccountBlock), "method", "InsertAccountBlocks")
+	}
+	bb.recordNeedSnapshotCache()
+}
+
+func (bb *blackBlock) InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) {
+	if !bb.isOpen {
+		return
+	}
+	for _, snapshotBlock := range snapshotBlocks {
+		bb.log.Info(fmt.Sprintf("%+v", snapshotBlock), "method", "InsertSnapshotBlock")
+	}
+	bb.recordNeedSnapshotCache()
+}
+
+func (bb *blackBlock) DeleteSnapshotBlock(snapshotBlocks []*ledger.SnapshotBlock, subLedger map[types.Address][]*ledger.AccountBlock) {
+	if !bb.isOpen {
+		return
+	}
+
+	for _, snapshotBlock := range snapshotBlocks {
+		bb.log.Info(fmt.Sprintf("%+v", snapshotBlock), "method", "DeleteSnapshotBlock.snapshotBlock")
+	}
+
+	for addr, blocks := range subLedger {
+		bb.log.Info(addr.String())
+		for _, block := range blocks {
+			bb.log.Info(fmt.Sprintf("%+v", block), "method", "DeleteSnapshotBlock.accountBlock")
+		}
+	}
+
+	bb.recordNeedSnapshotCache()
+
+	if !bb.chain.CheckNeedSnapshotCache(bb.chain.GetNeedSnapshotContent()) {
+		bb.log.Error("check failed!!!")
+
+		unconfirmedSubLedger, getSubLedgerErr := bb.chain.getUnConfirmedSubLedger()
+		if getSubLedgerErr != nil {
+			bb.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "printCorrectCacheMap")
+		}
+		for addr, blocks := range unconfirmedSubLedger {
+			bb.log.Info(fmt.Sprintf("%s: %d %s", addr, blocks[0].Height, blocks[0].Hash), "method", "DeleteSnapshotBlock.correctNeedSnapshotCache")
+		}
+	}
+	bb.log.Info("DeleteSnapshotBlock finish")
+}
+
+func (bb *blackBlock) DeleteAccountBlock(subLedger map[types.Address][]*ledger.AccountBlock) {
+	if !bb.isOpen {
+		return
+	}
+	for addr, blocks := range subLedger {
+		bb.log.Info(addr.String())
+		for _, block := range blocks {
+			bb.log.Info(fmt.Sprintf("%+v", block), "method", "DeleteAccountBlock")
+		}
+	}
+	bb.recordNeedSnapshotCache()
+}

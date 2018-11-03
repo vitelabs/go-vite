@@ -7,4 +7,5 @@ type KafkaProducer struct {
 
 type Chain struct {
 	KafkaProducers []*KafkaProducer
+	OpenBlackBlock bool
 }
