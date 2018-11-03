@@ -30,6 +30,9 @@ func NewNeedSnapshotContent(chain *chain, unconfirmedSubLedger map[types.Address
 }
 
 func (cache *NeedSnapshotCache) GetSnapshotContent() ledger.SnapshotContent {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
 	content := make(ledger.SnapshotContent, 0)
 	for addr, block := range cache.cacheMap {
 		content[addr] = &ledger.HashHeight{

@@ -134,6 +134,7 @@ func (c *chain) initData() {
 	err = c.InsertSnapshotBlock(&GenesisSnapshotBlock)
 	if err != nil {
 		c.log.Crit("WriteSnapshotBlock failed, error is "+err.Error(), "method", "initData")
+
 	}
 
 	// Insert mintage block
