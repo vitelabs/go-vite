@@ -62,7 +62,11 @@ func (c *chain) GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.
 			c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuotaList")
 			return nil
 		}
-		quotas[addr] = quota.GetPledgeQuota(vmContext, addr, c.GetPledgeAmount(snapshotHash, addr))
+		if pledgeAmount := c.GetPledgeAmount(snapshotHash, addr); pledgeAmount == nil {
+			return nil
+		} else {
+			quotas[addr] = quota.GetPledgeQuota(vmContext, addr, pledgeAmount)
+		}
 	}
 	return quotas
 }

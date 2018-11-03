@@ -26,8 +26,8 @@ func (c *chain) completeBlock(block *ledger.AccountBlock, account *ledger.Accoun
 }
 
 func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
-	monitor.LogEventNum("chain", "insert", len(vmAccountBlocks))
 	batch := new(leveldb.Batch)
+	monitor.LogEventNum("chain", "insert", len(vmAccountBlocks))
 	trieSaveCallback := make([]func(), 0)
 	var account *ledger.Account
 
@@ -152,7 +152,9 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 
 	// Set needSnapshotCache
 	if c.needSnapshotCache != nil {
-		c.needSnapshotCache.Set(&account.AccountAddress, lastVmAccountBlock.AccountBlock)
+		c.needSnapshotCache.Set(map[types.Address]*ledger.AccountBlock{
+			account.AccountAddress: lastVmAccountBlock.AccountBlock,
+		})
 	}
 
 	// Set stateTriePool
@@ -619,14 +621,11 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	}
 
 	// Set needSnapshotCache, first remove
-	for addr := range needRemoveAddr {
-		c.needSnapshotCache.Remove(&addr)
-	}
+	c.needSnapshotCache.Remove(needRemoveAddr)
 
 	// Set needSnapshotCache, then add
-	for addr, block := range needAddBlocks {
-		c.needSnapshotCache.Set(&addr, block)
-	}
+
+	c.needSnapshotCache.Set(needAddBlocks)
 
 	c.em.triggerDeleteAccountBlocksSuccess(subLedger)
 
