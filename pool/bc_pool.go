@@ -461,7 +461,7 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		for _, v := range blocks {
 			self.log.Info("block delete", "height", v.Height(), "hash", v.Hash(), "prevHash", v.PrevHash())
 		}
-		self.log.Crit("error for db fail.", "headHeight", head.Height(), "headHash", head.Hash(), "smallestHeight", smallest.Height(), "err", errors.New(self.Id+" current chain height hash check fail"))
+		self.log.Crit("error for db fail.", "tailHeight", cur.tailHeight, "tailHash", cur.tailHash, "longestHeight", longest.Height(), "err", errors.New(self.Id+" current chain height hash check fail"))
 		return errors.New(self.Id + " current chain height hash check fail")
 	}
 	for i := h; i >= 0; i-- {
