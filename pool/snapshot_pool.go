@@ -281,8 +281,10 @@ func (self *snapshotPool) loop() {
 }
 
 func (self *snapshotPool) loopCompactSnapshot() {
+	defer monitor.LogTime("pool", "loopCompactSnapshotRLock", time.Now())
 	self.pool.RLock()
 	defer self.pool.RUnLock()
+	defer monitor.LogTime("pool", "loopCompactSnapshotMuLock", time.Now())
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
 	self.loopGenSnippetChains()
@@ -311,8 +313,10 @@ func (self *snapshotPool) loopCheckCurrentInsert() {
 }
 
 func (self *snapshotPool) snapshotTryInsert() (*poolSnapshotVerifyStat, commonBlock) {
+	defer monitor.LogTime("pool", "snapshotTryInsert", time.Now())
 	self.pool.RLock()
 	defer self.pool.RUnLock()
+	defer monitor.LogTime("pool", "snapshotTryInsertRMu", time.Now())
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
 
@@ -460,6 +464,7 @@ func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) error {
 	}
 }
 func (self *snapshotPool) loopFetchForSnapshot() {
+	defer monitor.LogTime("pool", "loopFetchForSnapshot", time.Now())
 	curHeight := self.pool.realSnapshotHeight(self.CurrentChain())
 	longers := self.LongerChain(curHeight)
 

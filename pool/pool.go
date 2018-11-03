@@ -684,8 +684,11 @@ func (self *pool) accountsCompact() int {
 		pendings = append(pendings, p)
 		return true
 	})
-	for _, p := range pendings {
-		sum = sum + p.Compact()
+	if len(pendings) > 0 {
+		monitor.LogEventNum("pool", "AccountsCompact", len(pendings))
+		for _, p := range pendings {
+			sum = sum + p.Compact()
+		}
 	}
 	return sum
 }

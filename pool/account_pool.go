@@ -126,15 +126,18 @@ func (self *accountPool) Compact() int {
 			self.initPool()
 		}
 	}()
+
+	defer monitor.LogTime("pool", "accountCompact", time.Now())
 	self.pool.RLock()
 	defer self.pool.RUnLock()
+	defer monitor.LogTime("pool", "accountCompactRMu", time.Now())
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
 	//	this is a rate limiter
 	now := time.Now()
 	sum := 0
 	if now.After(self.loopTime.Add(time.Millisecond * 2)) {
-		defer monitor.LogTime("pool", "accountCompact", now)
+		defer monitor.LogTime("pool", "accountSnippet", now)
 		self.loopTime = now
 		sum = sum + self.loopGenSnippetChains()
 		sum = sum + self.loopAppendChains()

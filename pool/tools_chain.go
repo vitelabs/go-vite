@@ -3,6 +3,8 @@ package pool
 import (
 	"strconv"
 
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -66,6 +68,7 @@ func (self *accountCh) getBlock(height uint64) commonBlock {
 	if height == types.EmptyHeight {
 		return newAccountPoolBlock(&ledger.AccountBlock{Height: types.EmptyHeight}, nil, self.version, types.RollbackChain)
 	}
+	defer monitor.LogTime("pool", "getAccountBlock", time.Now())
 	// todo
 	block, e := self.rw.GetAccountBlockByHeight(&self.address, height)
 	if e != nil {
@@ -127,6 +130,7 @@ type snapshotCh struct {
 }
 
 func (self *snapshotCh) getBlock(height uint64) commonBlock {
+	defer monitor.LogTime("pool", "getSnapshotBlock", time.Now())
 	block, e := self.bc.GetSnapshotBlockByHeight(height)
 	if e != nil {
 		return nil

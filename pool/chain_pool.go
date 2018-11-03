@@ -112,7 +112,7 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 				"fromTailHeight", fromChain.tailHeight, "fromHeadHeight", fromChain.headHeight,
 				"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
 			chain.referChain = fromChain.referChain
-			self.modifyChainRefer2(fromChain, chain)
+			self.modifyChainRefer2(fromChain, chain, chain)
 			self.delChain(fromChain.id())
 			continue
 		}
@@ -164,7 +164,7 @@ func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
 		to.referChain = from.referChain
 		from.referChain = to
 
-		e := self.modifyChainRefer2(from, to)
+		e := self.modifyChainRefer2(from, to, to)
 		self.log.Info("modify refer", "from", from.id(), "to", to.id(),
 			"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
 			"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight, "err", e)
@@ -175,7 +175,7 @@ func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
 
 	}
 }
-func (self *chainPool) modifyChainRefer2(from *forkedChain, to *forkedChain) error {
+func (self *chainPool) modifyChainRefer2(from *forkedChain, to *forkedChain, diskInstead *forkedChain) error {
 	toTailHeight := to.tailHeight
 	fromTailHeight := from.tailHeight
 	fromHeadHeight := from.headHeight
@@ -192,7 +192,7 @@ func (self *chainPool) modifyChainRefer2(from *forkedChain, to *forkedChain) err
 						"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight,
 						"v", v.id(),
 						"vTailHeight", v.tailHeight, "vTailHash", v.tailHash)
-					v.referChain = to
+					v.referChain = diskInstead
 				} else {
 					self.log.Info("modify refer[8]", "from", from.id(), "to", to.id(),
 						"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
@@ -273,7 +273,7 @@ func (self *chainPool) currentModify(initBlock commonBlock) {
 	c := self.current
 	c.referChain = new
 	self.current = new
-	self.modifyChainRefer2(c, new)
+	self.modifyChainRefer2(c, new, new)
 }
 func (self *chainPool) fork2(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain, error) {
 

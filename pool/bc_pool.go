@@ -332,7 +332,7 @@ func (self *BCPool) init(tools *tools) {
 	self.tools = tools
 	self.compactLock = &common.NonBlockLock{}
 
-	self.LIMIT_HEIGHT = 60 * 60
+	self.LIMIT_HEIGHT = 75 * 2
 	self.LIMIT_LONGEST_NUM = 3
 	self.rstat = (&recoverStat{}).init(10, 10*time.Second)
 	self.initPool()
@@ -942,13 +942,47 @@ func (self *BCPool) loopDelUselessChain() {
 	} else {
 		defer self.compactLock.UnLock()
 	}
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
 
+	dels := make(map[string]*forkedChain)
 	height := self.chainpool.current.tailHeight
 	for _, c := range self.chainpool.allChain() {
 		if c.headHeight+self.LIMIT_HEIGHT < height {
-			self.delChain(c)
+			dels[c.id()] = c
 		}
 	}
+	for {
+		i := 0
+		for _, c := range self.chainpool.allChain() {
+			_, ok := dels[c.id()]
+			if ok {
+				continue
+			}
+			r := c.refer()
+			if r == nil {
+				i++
+				dels[c.id()] = c
+			} else {
+				_, ok := dels[r.id()]
+				if ok {
+					i++
+					dels[c.id()] = c
+				}
+			}
+		}
+		if i == 0 {
+			break
+		} else {
+			i = 0
+		}
+	}
+
+	for _, v := range dels {
+		self.log.Info("del useless chain", "id", v.id(), "headHeight", v.headHeight, "tailHeight", v.tailHeight)
+		self.delChain(v)
+	}
+
 	for _, c := range self.chainpool.snippetChains {
 		if c.headHeight+self.LIMIT_HEIGHT < height {
 			self.delSnippet(c)
