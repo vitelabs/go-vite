@@ -119,6 +119,22 @@ func (cache *NeedSnapshotCache) BeSnapshot(subLedger ledger.SnapshotContent) {
 
 }
 
+func (cache *NeedSnapshotCache) Rebuild() {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	unconfirmedSubLedger, getSubLedgerErr := cache.chain.getUnConfirmedSubLedger()
+	if getSubLedgerErr != nil {
+		cache.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "printCorrectCacheMap")
+	}
+
+	cache.cacheMap = make(map[types.Address]*ledger.AccountBlock)
+
+	for addr, blocks := range unconfirmedSubLedger {
+		cache.cacheMap[addr] = blocks[0]
+	}
+}
+
 func (cache *NeedSnapshotCache) Remove(addrList []types.Address) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()

@@ -15,6 +15,8 @@ import (
 
 type chain struct {
 	log        log15.Logger
+	blackBlock *blackBlock
+
 	chainDb    *chain_db.ChainDb
 	compressor *compress.Compressor
 
@@ -41,13 +43,14 @@ func NewChain(cfg *config.Config) Chain {
 		log:                  log15.New("module", "chain"),
 		genesisSnapshotBlock: &GenesisSnapshotBlock,
 		dataDir:              cfg.DataDir,
-
-		cfg: cfg.Chain,
+		cfg:                  cfg.Chain,
 	}
 
 	if chain.cfg == nil {
 		chain.cfg = &config.Chain{}
 	}
+
+	chain.blackBlock = NewBlackBlock(chain, chain.cfg.OpenBlackBlock)
 
 	return chain
 }
@@ -170,6 +173,8 @@ func (c *chain) initData() {
 		c.log.Crit("WriteSnapshotBlock failed, error is "+err.Error(), "method", "initData")
 	}
 
+	// rebuild cache
+	c.needSnapshotCache.Rebuild()
 }
 
 func (c *chain) Compressor() *compress.Compressor {
@@ -183,6 +188,14 @@ func (c *chain) ChainDb() *chain_db.ChainDb {
 func (c *chain) Start() {
 	// Start compress in the background
 	c.log.Info("Start chain module")
+
+	// needSnapshotCache
+	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
+	if getSubLedgerErr != nil {
+		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "NewChain")
+	}
+	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
+
 	// check
 	c.checkAndInitData()
 
@@ -195,13 +208,6 @@ func (c *chain) Start() {
 	if getLatestBlockErr != nil {
 		c.log.Crit("GetLatestBlock failed, error is "+getLatestBlockErr.Error(), "method", "NewChain")
 	}
-
-	// needSnapshotCache
-	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
-	if getSubLedgerErr != nil {
-		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "NewChain")
-	}
-	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
 
 	// start compressor
 	c.compressor.Start()

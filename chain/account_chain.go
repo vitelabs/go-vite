@@ -167,6 +167,9 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 
 	// trigger writing success event
 	c.em.triggerInsertAccountBlocksSuccess(vmAccountBlocks)
+
+	// record insert
+	c.blackBlock.InsertAccountBlocks(vmAccountBlocks)
 	return nil
 }
 
@@ -628,6 +631,9 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	c.needSnapshotCache.Set(needAddBlocks)
 
 	c.em.triggerDeleteAccountBlocksSuccess(subLedger)
+
+	// record delete
+	c.blackBlock.DeleteAccountBlock(subLedger)
 
 	return subLedger, nil
 }
