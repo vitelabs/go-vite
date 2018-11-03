@@ -165,7 +165,7 @@ func (self *snapshotPool) checkFork() {
 	if longestH-self.LIMIT_LONGEST_NUM < current.headHeight {
 		return
 	}
-	self.log.Info("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight, "tailH", current.tailHash)
+	self.log.Info("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight, "tailH", current.tailHeight)
 
 	monitor.LogEvent("pool", "snapshotFork")
 	err := self.snapshotFork(longest, current)
