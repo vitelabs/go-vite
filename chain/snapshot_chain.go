@@ -85,6 +85,10 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 
 	// Save snapshot content
 	for _, accountBlockHashHeight := range snapshotBlock.SnapshotContent {
+		// Concurrency write block meta
+		c.abmLocker.Lock(accountBlockHashHeight.Hash)
+		defer c.abmLocker.Unlock(accountBlockHashHeight.Hash)
+
 		accountBlockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(&accountBlockHashHeight.Hash)
 		if blockMetaErr != nil {
 			c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "InsertSnapshotBlock")
@@ -96,7 +100,6 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 			c.log.Error("SaveBlockMeta failed, error is "+saveSendBlockMetaErr.Error(), "method", "InsertSnapshotBlock")
 			return blockMetaErr
 		}
-
 	}
 
 	if err := c.chainDb.Sc.WriteSnapshotContent(batch, snapshotBlock.Height, snapshotBlock.SnapshotContent); err != nil {
@@ -125,23 +128,6 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 		return err
 	}
 
-	// FIXME check
-	for _, hashHeight := range snapshotBlock.SnapshotContent {
-		accountBlockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(&hashHeight.Hash)
-		if blockMetaErr != nil {
-			c.log.Crit("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "CheckInsertSnapshotBlock")
-		}
-
-		if accountBlockMeta == nil {
-			c.log.Crit("AccountBlockMeta is nil.", "method", "CheckInsertSnapshotBlock")
-		}
-
-		if accountBlockMeta.SnapshotHeight <= 0 {
-			c.log.Crit("AccountBlockMeta.SnapshotHeight <= 0.", "method", "CheckInsertSnapshotBlock")
-		}
-
-	}
-
 	// After write db
 	trieSaveCallback()
 
@@ -157,8 +143,25 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 
 	// record insert
 	c.blackBlock.InsertSnapshotBlocks([]*ledger.SnapshotBlock{snapshotBlock})
+
+	// FIXME check
+	for _, hashHeight := range snapshotBlock.SnapshotContent {
+		accountBlockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(&hashHeight.Hash)
+		if blockMetaErr != nil {
+			c.log.Crit("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "CheckInsertSnapshotBlock", "hash", hashHeight.Hash, "height", hashHeight.Height)
+		}
+
+		if accountBlockMeta == nil {
+			c.log.Crit("AccountBlockMeta is nil.", "method", "CheckInsertSnapshotBlock", "hash", hashHeight.Hash, "height", hashHeight.Height)
+		}
+
+		if accountBlockMeta.SnapshotHeight <= 0 {
+			c.log.Crit("AccountBlockMeta.SnapshotHeight <= 0.", "method", "CheckInsertSnapshotBlock", "hash", hashHeight.Hash, "height", hashHeight.Height)
+		}
+	}
 	return nil
 }
+
 func (c *chain) GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
 	startHeight := uint64(1)
 	if originBlockHash != nil {

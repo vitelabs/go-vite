@@ -109,6 +109,10 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			}
 
 			if sendBlockMeta != nil {
+				// Concurrency write block meta
+				c.abmLocker.Lock(accountBlock.FromBlockHash)
+				defer c.abmLocker.Unlock(accountBlock.FromBlockHash)
+
 				sendBlockMeta.ReceiveBlockHeights = append(sendBlockMeta.ReceiveBlockHeights, accountBlock.Height)
 				saveSendBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.FromBlockHash, sendBlockMeta)
 				if saveSendBlockMetaErr != nil {

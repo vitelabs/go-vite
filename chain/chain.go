@@ -38,6 +38,8 @@ type chain struct {
 	globalCfg   *config.Config
 	kafkaSender *sender.KafkaSender
 
+	abmLocker *abmLocker
+
 	// FIXME
 	concurrencyControl *uint64
 }
@@ -51,6 +53,7 @@ func NewChain(cfg *config.Config) Chain {
 		dataDir:              cfg.DataDir,
 		cfg:                  cfg.Chain,
 		globalCfg:            cfg,
+		abmLocker:            newAbmLocker(),
 
 		// FIXME
 		concurrencyControl: &initConcurrencyControl,
