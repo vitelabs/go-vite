@@ -51,10 +51,10 @@ type TokenInfo struct {
 }
 
 func GetMintageKey(tokenId types.TokenTypeId) []byte {
-	return tokenId.Bytes()
+	return helper.LeftPadBytes(tokenId.Bytes(), types.HashSize)
 }
 func GetTokenIdFromMintageKey(key []byte) types.TokenTypeId {
-	tokenId, _ := types.BytesToTokenTypeId(key)
+	tokenId, _ := types.BytesToTokenTypeId(key[types.HashSize-types.TokenTypeIdSize:])
 	return tokenId
 }
 

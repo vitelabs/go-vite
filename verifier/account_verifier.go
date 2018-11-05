@@ -102,22 +102,24 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 	}
 	gen, err := generator.NewGenerator(verifier.chain, &block.SnapshotHash, preHash, &block.AccountAddress)
 	if err != nil {
-		return nil, err
+		verifier.log.Error("new generator error," + err.Error())
+		return nil, ErrVerifyForVmGeneratorFailed
 	}
 
 	genResult, err := gen.GenerateWithBlock(block, nil)
 	if err != nil {
-		return nil, err
+		verifier.log.Error("generator block error," + err.Error())
+		return nil, ErrVerifyForVmGeneratorFailed
 	}
 	if len(genResult.BlockGenList) == 0 {
 		if genResult.Err != nil {
 			verifier.log.Error(genResult.Err.Error())
 			return nil, genResult.Err
 		}
-		return nil, errors.New("genResult.BlockGenList is empty")
+		return nil, errors.New("vm failed, blockList is empty")
 	}
 	if err := verifier.verifyVMResult(block, genResult.BlockGenList[0].AccountBlock); err != nil {
-		return nil, err
+		return nil, errors.New(ErrVerifyWithVmResultFailed.Error() + "," + err.Error())
 	}
 	return genResult.BlockGenList, nil
 }
@@ -125,22 +127,22 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 // block from Net or Rpc doesn't have stateHash、Quota, so don't need to verify
 func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, genBlock *ledger.AccountBlock) error {
 	if origBlock.BlockType != genBlock.BlockType {
-		return errors.New("verify vm result's blockType failed")
+		return errors.New("blockType")
 	}
 	if origBlock.ToAddress != genBlock.ToAddress {
-		return errors.New("verify vm result's toAddress failed")
+		return errors.New("toAddress")
 	}
 	if origBlock.Fee.Cmp(genBlock.Fee) != 0 {
-		return errors.New("verify vm result's fee failed")
+		return errors.New("fee")
 	}
 	if !bytes.Equal(origBlock.Data, genBlock.Data) {
-		return errors.New("verify vm result's data failed")
+		return errors.New("data")
 	}
 	if (origBlock.LogHash == nil && genBlock.LogHash != nil) || (origBlock.LogHash != nil && genBlock.LogHash == nil) {
-		return errors.New("verify vm result's logHash failed")
+		return errors.New("logHash")
 	}
 	if origBlock.LogHash != nil && genBlock.LogHash != nil && *origBlock.LogHash != *genBlock.LogHash {
-		return errors.New("verify vm result's logHash failed")
+		return errors.New("logHash")
 	}
 	return nil
 }
@@ -181,7 +183,7 @@ func (verifier *AccountVerifier) verifyFrom(block *ledger.AccountBlock, verifySt
 		if fromBlock == nil {
 			if err != nil {
 				verifyStatResult.referredFromResult = FAIL
-				verifyStatResult.errMsg += errors.New("GetAccountBlockByHash failed").Error()
+				verifyStatResult.errMsg += errors.New("func GetAccountBlockByHash failed").Error()
 				return false
 			}
 			verifyStatResult.accountTask = append(verifyStatResult.accountTask,
@@ -189,8 +191,8 @@ func (verifier *AccountVerifier) verifyFrom(block *ledger.AccountBlock, verifySt
 			verifyStatResult.referredFromResult = PENDING
 		} else {
 			if verifier.VerifyIsReceivedSucceed(block) {
-				verifier.log.Debug("hash", fromBlock.Hash, "addr", fromBlock.AccountAddress,
-					"toAddr", fromBlock.ToAddress, "blockType", fromBlock.BlockType)
+				//verifier.log.Info("hash", fromBlock.Hash, "addr", fromBlock.AccountAddress,
+				//	"toAddr", fromBlock.ToAddress, "blockType", fromBlock.BlockType)
 				verifyStatResult.referredFromResult = FAIL
 				verifyStatResult.errMsg += errors.New("block is already received successfully").Error()
 				return false
@@ -218,12 +220,12 @@ func (verifier *AccountVerifier) verifySelfPrev(block *ledger.AccountBlock, task
 	latestBlock, err := verifier.chain.GetLatestAccountBlock(&block.AccountAddress)
 	if latestBlock == nil {
 		if err != nil {
-			return FAIL, errors.New("GetLatestAccountBlock failed" + err.Error())
+			return FAIL, errors.New("func GetLatestAccountBlock failed" + err.Error())
 		} else {
 			if block.Height == 1 {
 				prevZero := &types.Hash{}
 				if !bytes.Equal(block.PrevHash.Bytes(), prevZero.Bytes()) {
-					return FAIL, errors.New("check account's first block's prevHash failed")
+					return FAIL, errors.New("account first block's prevHash error")
 				}
 				return SUCCESS, nil
 			}
@@ -254,7 +256,7 @@ func (verifier *AccountVerifier) verifySnapshot(block *ledger.AccountBlock, veri
 	if snapshotBlock == nil {
 		if err != nil {
 			verifyStatResult.referredSnapshotResult = FAIL
-			verifyStatResult.errMsg += errors.New("GetAccountBlockByHash failed: " + err.Error()).Error()
+			verifyStatResult.errMsg += errors.New("func GetSnapshotBlockByHash failed: " + err.Error()).Error()
 			return false
 		}
 		verifyStatResult.snapshotTask = &SnapshotPendingTask{Hash: &block.SnapshotHash}
@@ -424,7 +426,7 @@ func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock, account
 			return errors.New("nonce of contractAddr's block must be nil")
 		}
 		if len(block.Nonce) != 8 {
-			return errors.New("error nonce len")
+			return errors.New("nonce length doesn't satisfy with 8")
 		}
 		hash256Data := crypto.Hash256(block.AccountAddress.Bytes(), block.PrevHash.Bytes())
 		if !pow.CheckPowNonce(block.Difficulty, block.Nonce, hash256Data) {

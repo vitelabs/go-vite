@@ -78,7 +78,6 @@ const minHeightDifference = 3600
 
 var waitEnoughPeers = 10 * time.Second
 var enoughPeers = 3
-var chainGrowTimeout = 10 * time.Minute
 var chainGrowInterval = 10 * time.Second
 
 func shouldSync(from, to uint64) bool {
@@ -247,7 +246,7 @@ wait:
 			s.log.Info("sync downloaded")
 			s.setState(SyncDownloaded)
 			// check chain height timeout
-			checkTimer.Reset(chainGrowTimeout)
+			checkTimer.Reset(u64ToDuration(s.total * 1000))
 
 			// check chain height loop
 			checkChainTicker = time.Tick(chainGrowInterval)
