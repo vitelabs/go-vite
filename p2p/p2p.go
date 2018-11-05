@@ -276,7 +276,7 @@ func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
 	svr.pending <- struct{}{}
 	if conn, err := svr.dialer.Dial("tcp", addr.String()); err == nil {
 		common.Go(func() {
-			svr.setupConn(conn, flag)
+			svr.setupConn(conn, flag, id)
 		})
 	} else {
 		<-svr.pending
@@ -327,7 +327,7 @@ func (svr *Server) listenLoop() {
 			}
 
 			common.Go(func() {
-				svr.setupConn(conn, inbound)
+				svr.setupConn(conn, inbound, discovery.ZERO_NODE_ID)
 			})
 		case <-svr.term:
 			return
@@ -339,7 +339,7 @@ func (svr *Server) releasePending() {
 	<-svr.pending
 }
 
-func (svr *Server) setupConn(c net.Conn, flag connFlag) {
+func (svr *Server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
 	defer svr.releasePending()
 
 	head, err := headShake(c, &headMsg{
@@ -382,6 +382,9 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag) {
 	if err != nil {
 		ts.Close()
 		svr.log.Warn(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
+	} else if !id.IsZero() && their.ID != id {
+		ts.Close()
+		svr.log.Warn(fmt.Sprintf("unmatched id"))
 	} else {
 		ts.name = their.Name
 		ts.cmdSets = their.CmdSets
