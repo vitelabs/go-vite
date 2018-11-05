@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -23,7 +24,7 @@ func NewBlackBlock(chain *chain, isOpen bool) *blackBlock {
 	}
 
 	if bb.isOpen {
-		bb.log.SetHandler(log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(filepath.Join("vite_black_block.log"), log15.TerminalFormat())))
+		bb.log.SetHandler(log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(filepath.Join(chain.globalCfg.RunLogDir(), "vite_black_block.log"), log15.TerminalFormat())))
 	}
 	return bb
 }
@@ -53,7 +54,14 @@ func (bb *blackBlock) InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBloc
 		return
 	}
 	for _, snapshotBlock := range snapshotBlocks {
-		bb.log.Info(fmt.Sprintf("%+v", snapshotBlock), "method", "InsertSnapshotBlock")
+		content := snapshotBlock.SnapshotContent
+		var contentString []byte
+		if len(content) > 0 {
+			contentString, _ = json.Marshal(content)
+		}
+
+		bb.log.Info(fmt.Sprintf("height: %d, prevHash: %s, hash: %s, content: %s", snapshotBlock.Height, snapshotBlock.PrevHash, snapshotBlock.Hash, contentString),
+			"method", "InsertSnapshotBlocks")
 	}
 	bb.recordNeedSnapshotCache()
 }
@@ -64,11 +72,16 @@ func (bb *blackBlock) DeleteSnapshotBlock(snapshotBlocks []*ledger.SnapshotBlock
 	}
 
 	for _, snapshotBlock := range snapshotBlocks {
-		bb.log.Info(fmt.Sprintf("%+v", snapshotBlock), "method", "DeleteSnapshotBlock.snapshotBlock")
+		content := snapshotBlock.SnapshotContent
+		var contentString []byte
+		if len(content) > 0 {
+			contentString, _ = json.Marshal(content)
+		}
+		bb.log.Info(fmt.Sprintf("height: %d, prevHash: %s, hash: %s, content: %s", snapshotBlock.Height, snapshotBlock.PrevHash, snapshotBlock.Hash, contentString),
+			"method", "DeleteSnapshotBlock.snapshotBlock")
 	}
 
-	for addr, blocks := range subLedger {
-		bb.log.Info(addr.String())
+	for _, blocks := range subLedger {
 		for _, block := range blocks {
 			bb.log.Info(fmt.Sprintf("%+v", block), "method", "DeleteSnapshotBlock.accountBlock")
 		}
@@ -97,7 +110,7 @@ func (bb *blackBlock) DeleteAccountBlock(subLedger map[types.Address][]*ledger.A
 	for addr, blocks := range subLedger {
 		bb.log.Info(addr.String())
 		for _, block := range blocks {
-			bb.log.Info(fmt.Sprintf("%+v", block), "method", "DeleteAccountBlock")
+			bb.log.Info(fmt.Sprintf("%+v", block), "method", "DeleteAccountBlocks")
 		}
 	}
 	bb.recordNeedSnapshotCache()

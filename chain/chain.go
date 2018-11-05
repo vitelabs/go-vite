@@ -35,15 +35,24 @@ type chain struct {
 	em *eventManager
 
 	cfg         *config.Chain
+	globalCfg   *config.Config
 	kafkaSender *sender.KafkaSender
+
+	// FIXME
+	concurrencyControl *uint64
 }
 
 func NewChain(cfg *config.Config) Chain {
+	initConcurrencyControl := uint64(0)
+
 	chain := &chain{
 		log:                  log15.New("module", "chain"),
 		genesisSnapshotBlock: &GenesisSnapshotBlock,
 		dataDir:              cfg.DataDir,
 		cfg:                  cfg.Chain,
+
+		// FIXME
+		concurrencyControl: &initConcurrencyControl,
 	}
 
 	if chain.cfg == nil {

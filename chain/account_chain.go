@@ -705,3 +705,13 @@ func (c *chain) subLedgerAccountIdToAccountAddress(subLedger map[uint64][]*ledge
 	}
 	return finalSubLedger, nil
 }
+
+func (c *chain) GetAccountBlockMetaByHash(hash *types.Hash) (*ledger.AccountBlockMeta, error) {
+	meta, err := c.chainDb.Ac.GetBlockMeta(hash)
+	if err != nil {
+
+		return nil, err
+	}
+
+	return meta, nil
+}

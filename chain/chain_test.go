@@ -13,9 +13,9 @@ func getChainInstance() Chain {
 		//home := common.HomeDir()
 
 		innerChainInstance = NewChain(&config.Config{
-			//DataDir: filepath.Join(common.HomeDir(), "govite_testdata"),
+			DataDir: filepath.Join(common.HomeDir(), "govite_testdata"),
 
-			DataDir: filepath.Join(common.HomeDir(), "Library/GVite/devdata"),
+			//DataDir: filepath.Join(common.HomeDir(), "Library/GVite/devdata"),
 			//Chain: &config.Chain{
 			//	KafkaProducers: []*config.KafkaProducer{{
 			//		Topic:      "test003",

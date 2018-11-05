@@ -243,6 +243,10 @@ func (l *LedgerApi) GetSenderInfo() (*KafkaSendInfo, error) {
 	return senderInfo, nil
 }
 
+func (l *LedgerApi) GetBlockMeta(hash *types.Hash) (*ledger.AccountBlockMeta, error) {
+	return l.chain.GetAccountBlockMetaByHash(hash)
+}
+
 func (l *LedgerApi) GetFittestSnapshotHash() (*types.Hash, error) {
 	//latestBlock := l.chain.GetLatestSnapshotBlock()
 	return generator.GetFitestGeneratorSnapshotHash(l.chain, nil)

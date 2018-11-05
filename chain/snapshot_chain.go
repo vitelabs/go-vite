@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
+	"sync/atomic"
 )
 
 func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error) {
@@ -40,6 +41,13 @@ func (c *chain) GetNeedSnapshotContent() ledger.SnapshotContent {
 }
 
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
+	// FIXME
+	if swapped := atomic.CompareAndSwapUint64(c.concurrencyControl, 0, 1); !swapped {
+		c.log.Crit("atomic.CompareAndSwapUint64 failed. Concurrency.")
+	}
+
+	defer atomic.StoreUint64(c.concurrencyControl, 0)
+
 	batch := new(leveldb.Batch)
 
 	// Check and create account
@@ -88,6 +96,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 			c.log.Error("SaveBlockMeta failed, error is "+saveSendBlockMetaErr.Error(), "method", "InsertSnapshotBlock")
 			return blockMetaErr
 		}
+
 	}
 
 	if err := c.chainDb.Sc.WriteSnapshotContent(batch, snapshotBlock.Height, snapshotBlock.SnapshotContent); err != nil {
@@ -114,6 +123,23 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	if err := c.chainDb.Commit(batch); err != nil {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
+	}
+
+	// FIXME check
+	for _, hashHeight := range snapshotBlock.SnapshotContent {
+		accountBlockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(&hashHeight.Hash)
+		if blockMetaErr != nil {
+			c.log.Crit("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "CheckInsertSnapshotBlock")
+		}
+
+		if accountBlockMeta == nil {
+			c.log.Crit("AccountBlockMeta is nil.", "method", "CheckInsertSnapshotBlock")
+		}
+
+		if accountBlockMeta.SnapshotHeight <= 0 {
+			c.log.Crit("AccountBlockMeta.SnapshotHeight <= 0.", "method", "CheckInsertSnapshotBlock")
+		}
+
 	}
 
 	// After write db
@@ -384,6 +410,13 @@ func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Ad
 
 // Contains to height
 func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+	// FIXME
+	if swapped := atomic.CompareAndSwapUint64(c.concurrencyControl, 0, 1); !swapped {
+		c.log.Crit("atomic.CompareAndSwapUint64 failed. Concurrency.")
+	}
+
+	defer atomic.StoreUint64(c.concurrencyControl, 0)
+
 	if toHeight <= 0 || toHeight > c.GetLatestSnapshotBlock().Height {
 		return nil, nil, nil
 	}

@@ -18,19 +18,19 @@ var accountBlockLog = log15.New("module", "ledger/account_block")
 
 type AccountBlockMeta struct {
 	// Account id
-	AccountId uint64
+	AccountId uint64 `json:"accountId"`
 
 	// Height
-	Height uint64
+	Height uint64 `json:"height"`
 
 	// Block status, 1 means open, 2 means closed
-	ReceiveBlockHeights []uint64
+	ReceiveBlockHeights []uint64 `json:"receiveBlockHeights"`
 
 	// Height of Snapshot block which confirm this account block
-	SnapshotHeight uint64
+	SnapshotHeight uint64 `json:"snapshotHeight"`
 
 	// Height of Snapshot block which pointed by this account block
-	RefSnapshotHeight uint64
+	RefSnapshotHeight uint64 `json:"refSnapshotHeight"`
 }
 
 func (abm *AccountBlockMeta) Copy() *AccountBlockMeta {
