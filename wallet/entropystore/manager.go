@@ -95,8 +95,8 @@ func (km *Manager) ListAddress(from, to uint32) ([]types.Address, error) {
 	return addr, nil
 }
 
-func (km *Manager) Unlock(password string) error {
-	seed, entropy, e := km.ks.ExtractSeed(password)
+func (km *Manager) Unlock(passphrase string) error {
+	seed, entropy, e := km.ks.ExtractSeed(passphrase)
 	if e != nil {
 		return e
 	}
@@ -123,8 +123,8 @@ func (km *Manager) Lock() {
 	}
 }
 
-func (km *Manager) FindAddrWithPassword(password string, addr types.Address) (key *derivation.Key, index uint32, e error) {
-	seed, _, err := km.ks.ExtractSeed(password)
+func (km *Manager) FindAddrWithPassphrase(passphrase string, addr types.Address) (key *derivation.Key, index uint32, e error) {
+	seed, _, err := km.ks.ExtractSeed(passphrase)
 	if err != nil {
 		return nil, 0, err
 	}

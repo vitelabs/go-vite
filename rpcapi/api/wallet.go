@@ -216,7 +216,7 @@ func (m WalletApi) FindAddrWithPassphrase(entropyStore string, passphrase string
 	if e != nil {
 		return nil, e
 	}
-	_, index, e := manager.FindAddrWithPassword(passphrase, addr)
+	_, index, e := manager.FindAddrWithPassphrase(passphrase, addr)
 	return &FindAddrResult{
 		EntropyStoreFile: manager.GetEntropyStoreFile(),
 		Index:            index,
@@ -352,13 +352,13 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 
 }
 
-func (m WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, password string) (*HexSignedTuple, error) {
+func (m WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, passphrase string) (*HexSignedTuple, error) {
 
 	msgbytes, err := hex.DecodeString(hexMsg)
 	if err != nil {
 		return nil, err
 	}
-	_, key, _, e := m.wallet.GlobalFindAddrWithPassphrase(addr, password)
+	_, key, _, e := m.wallet.GlobalFindAddrWithPassphrase(addr, passphrase)
 	if e != nil {
 		return nil, e
 	}

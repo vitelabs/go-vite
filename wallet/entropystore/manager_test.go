@@ -91,7 +91,7 @@ func TestManager_FindAddr(t *testing.T) {
 	for _, tuples := range seedToChild {
 		for k, tuple := range tuples {
 			addr, _ := types.HexToAddress(tuple.address)
-			key, u, e := testSeedStoreManager.FindAddrWithPassword("123456", addr)
+			key, u, e := testSeedStoreManager.FindAddrWithPassphrase("123456", addr)
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -107,7 +107,7 @@ func TestManager_FindAddr(t *testing.T) {
 	}
 
 	addresses, _, _ := types.CreateAddress()
-	_, _, e := testSeedStoreManager.FindAddrWithPassword("123456", addresses)
+	_, _, e := testSeedStoreManager.FindAddrWithPassphrase("123456", addresses)
 	if e != walleterrors.ErrAddressNotFound {
 		t.Fatal(e)
 	}

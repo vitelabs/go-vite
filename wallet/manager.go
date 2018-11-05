@@ -52,13 +52,13 @@ func (m Manager) ListAllEntropyFiles() []string {
 	return files
 }
 
-func (m *Manager) Unlock(entropyStore, password string) error {
+func (m *Manager) Unlock(entropyStore, passphrase string) error {
 	manager, e := m.GetEntropyStoreManager(entropyStore)
 	if e != nil {
 		return e
 	}
 
-	return manager.Unlock(password)
+	return manager.Unlock(passphrase)
 }
 
 func (m *Manager) IsUnlocked(entropyStore string) bool {
@@ -115,7 +115,7 @@ func (m Manager) GlobalFindAddr(targetAdr types.Address) (path string, key *deri
 
 func (m Manager) GlobalFindAddrWithPassphrase(targetAdr types.Address, pass string) (path string, key *derivation.Key, index uint32, err error) {
 	for path, em := range m.entropyStoreManager {
-		key, index, err = em.FindAddrWithPassword(pass, targetAdr)
+		key, index, err = em.FindAddrWithPassphrase(pass, targetAdr)
 		if err == walleterrors.ErrAddressNotFound {
 			continue
 		}
@@ -207,8 +207,8 @@ func (m *Manager) RemoveEntropyStore(entropyStore string) {
 	}
 }
 
-func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, password string) (em *entropystore.Manager, err error) {
-	sm, e := entropystore.StoreNewEntropy(m.config.DataDir, mnemonic, password, entropystore.DefaultMaxIndex)
+func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, passphrase string) (em *entropystore.Manager, err error) {
+	sm, e := entropystore.StoreNewEntropy(m.config.DataDir, mnemonic, passphrase, entropystore.DefaultMaxIndex)
 	if e != nil {
 		return nil, e
 	}
@@ -223,7 +223,7 @@ func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, password stri
 	return sm, nil
 }
 
-func (m *Manager) NewMnemonicAndEntropyStore(password string) (mnemonic string, em *entropystore.Manager, err error) {
+func (m *Manager) NewMnemonicAndEntropyStore(passphrase string) (mnemonic string, em *entropystore.Manager, err error) {
 	entropy, err := bip39.NewEntropy(256)
 	if err != nil {
 		return "", nil, nil
@@ -233,7 +233,7 @@ func (m *Manager) NewMnemonicAndEntropyStore(password string) (mnemonic string, 
 		return "", nil, nil
 	}
 
-	em, e := m.RecoverEntropyStoreFromMnemonic(mnemonic, password)
+	em, e := m.RecoverEntropyStoreFromMnemonic(mnemonic, passphrase)
 	if e != nil {
 		return "", nil, e
 	}

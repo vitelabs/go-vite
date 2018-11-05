@@ -37,8 +37,8 @@ type CryptoStore struct {
 	EntropyStoreFilename string
 }
 
-func (ks CryptoStore) ExtractSeed(password string) (seed, entropy []byte, err error) {
-	entropy, err = ks.ExtractEntropy(password)
+func (ks CryptoStore) ExtractSeed(passphrase string) (seed, entropy []byte, err error) {
+	entropy, err = ks.ExtractEntropy(passphrase)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -51,22 +51,22 @@ func (ks CryptoStore) ExtractSeed(password string) (seed, entropy []byte, err er
 	return bip39.NewSeed(s, ""), entropy, nil
 }
 
-func (ks CryptoStore) ExtractEntropy(password string) ([]byte, error) {
+func (ks CryptoStore) ExtractEntropy(passphrase string) ([]byte, error) {
 	keyjson, err := ioutil.ReadFile(ks.EntropyStoreFilename)
 	if err != nil {
 		return nil, err
 	}
 
-	key, err := DecryptEntropy(keyjson, password)
+	key, err := DecryptEntropy(keyjson, passphrase)
 	if err != nil {
 		return nil, err
 	}
 	return key, nil
 }
 
-func (ks CryptoStore) StoreEntropy(entropy []byte, primaryAddr types.Address, password string) error {
+func (ks CryptoStore) StoreEntropy(entropy []byte, primaryAddr types.Address, passphrase string) error {
 
-	keyjson, e := EncryptEntropy(entropy, primaryAddr, password)
+	keyjson, e := EncryptEntropy(entropy, primaryAddr, passphrase)
 	if e != nil {
 		return e
 	}
@@ -122,7 +122,7 @@ func parseJson(keyjson []byte) (k *entropyJSON, kAddress *types.Address, cipherD
 	return k, &addr, cipherData, nonce, salt, nil
 }
 
-func DecryptEntropy(entropyJson []byte, password string) ([]byte, error) {
+func DecryptEntropy(entropyJson []byte, passphrase string) ([]byte, error) {
 	k, kAddress, cipherData, nonce, salt, err := parseJson(entropyJson)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func DecryptEntropy(entropyJson []byte, password string) ([]byte, error) {
 	scryptParams := k.Crypto.ScryptParams
 
 	// begin decrypt
-	derivedKey, err := scrypt.Key([]byte(password), salt, scryptParams.N, scryptParams.R, scryptParams.P, scryptParams.KeyLen)
+	derivedKey, err := scrypt.Key([]byte(passphrase), salt, scryptParams.N, scryptParams.R, scryptParams.P, scryptParams.KeyLen)
 	if err != nil {
 		return nil, err
 	}
@@ -159,10 +159,10 @@ func DecryptEntropy(entropyJson []byte, password string) ([]byte, error) {
 	return entropy, nil
 }
 
-func EncryptEntropy(seed []byte, addr types.Address, password string) ([]byte, error) {
+func EncryptEntropy(seed []byte, addr types.Address, passphrase string) ([]byte, error) {
 	n := StandardScryptN
 	p := StandardScryptP
-	pwdArray := []byte(password)
+	pwdArray := []byte(passphrase)
 	salt := vcrypto.GetEntropyCSPRNG(32)
 	derivedKey, err := scrypt.Key(pwdArray, salt, n, scryptR, p, scryptKeyLen)
 	if err != nil {
