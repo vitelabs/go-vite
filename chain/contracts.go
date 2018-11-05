@@ -125,7 +125,7 @@ func (c *chain) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenT
 		return nil, err
 	}
 
-	var balanceList map[types.Address]*big.Int
+	balanceList := make(map[types.Address]*big.Int)
 	for _, addr := range addressList {
 		balanceList[addr] = vmContext.GetBalance(&addr, &tokenTypeId)
 	}
