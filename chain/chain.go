@@ -50,6 +50,7 @@ func NewChain(cfg *config.Config) Chain {
 		genesisSnapshotBlock: &GenesisSnapshotBlock,
 		dataDir:              cfg.DataDir,
 		cfg:                  cfg.Chain,
+		globalCfg:            cfg,
 
 		// FIXME
 		concurrencyControl: &initConcurrencyControl,
