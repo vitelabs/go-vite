@@ -26,6 +26,13 @@ const (
 	// memory and taking approximately 1s CPU time on a modern processor.
 	StandardScryptP = 1
 
+	// memory and taking approximately 100ms CPU time on a modern processor.
+	LightScryptN = 1 << 12
+
+	// LightScryptP is the P parameter of Scrypt encryption algorithm, using 4MB
+	// memory and taking approximately 100ms CPU time on a modern processor.
+	LightScryptP = 6
+
 	scryptR      = 8
 	scryptKeyLen = 32
 
@@ -35,6 +42,14 @@ const (
 
 type CryptoStore struct {
 	EntropyStoreFilename string
+	UseLightScrypt       bool
+}
+
+func NewCryptoStore(entropyStoreFilename string, useLightScrypt bool) *CryptoStore {
+	return &CryptoStore{
+		EntropyStoreFilename: entropyStoreFilename,
+		UseLightScrypt:       useLightScrypt,
+	}
 }
 
 func (ks CryptoStore) ExtractSeed(passphrase string) (seed, entropy []byte, err error) {
@@ -66,7 +81,7 @@ func (ks CryptoStore) ExtractEntropy(passphrase string) ([]byte, error) {
 
 func (ks CryptoStore) StoreEntropy(entropy []byte, primaryAddr types.Address, passphrase string) error {
 
-	keyjson, e := EncryptEntropy(entropy, primaryAddr, passphrase)
+	keyjson, e := EncryptEntropy(entropy, primaryAddr, passphrase, ks.UseLightScrypt)
 	if e != nil {
 		return e
 	}
@@ -159,9 +174,13 @@ func DecryptEntropy(entropyJson []byte, passphrase string) ([]byte, error) {
 	return entropy, nil
 }
 
-func EncryptEntropy(seed []byte, addr types.Address, passphrase string) ([]byte, error) {
+func EncryptEntropy(seed []byte, addr types.Address, passphrase string, useLightScrypt bool) ([]byte, error) {
 	n := StandardScryptN
 	p := StandardScryptP
+	if useLightScrypt {
+		n = LightScryptN
+		p = LightScryptP
+	}
 	pwdArray := []byte(passphrase)
 	salt := vcrypto.GetEntropyCSPRNG(32)
 	derivedKey, err := scrypt.Key(pwdArray, salt, n, scryptR, p, scryptKeyLen)

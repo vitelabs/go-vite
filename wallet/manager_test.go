@@ -37,7 +37,7 @@ func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
 	//em2.Unlock("123456")
 	em.Unlock("123456")
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10; i++ {
 		_, key2, e := em.DeriveForIndexPath(uint32(i))
 		if e != nil {
 			t.Fatal(e)
@@ -60,7 +60,7 @@ func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
 
 func TestManager_GetEntropyStoreManager(t *testing.T) {
 	manager := wallet.New(&wallet.Config{
-		DataDir: "/Users/zhutiantao/Library/GVite/testdata/wallet/",
+		DataDir: "/Users/xxx/Library/GVite/testdata/wallet/",
 	})
 	manager.Start()
 	storeManager, err := manager.GetEntropyStoreManager("vite_b1c00ae7dfd5b935550a6e2507da38886abad2351ae78d4d9a")
