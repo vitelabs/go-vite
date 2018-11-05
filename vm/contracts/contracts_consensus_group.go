@@ -427,33 +427,12 @@ func (c registerConditionOfPledge) checkData(paramData []byte, block *vm_context
 
 		param := new(VariableConditionRegisterOfPledge)
 		ABIConsensusGroup.UnpackVariable(param, VariableNameConditionRegisterOfPledge, paramData)
-
-		blockParam := blockParamInterface.(*ParamCancelRegister)
-		key := GetRegisterKey(blockParam.Name, blockParam.Gid)
-		old := new(Registration)
-		err := ABIRegister.UnpackVariable(old, VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.ToAddress, key))
-		if err != nil || old.PledgeAddr != block.AccountBlock.AccountAddress ||
-			!old.IsActive() ||
-			old.WithdrawHeight > block.VmContext.CurrentSnapshotBlock().Height {
-			return false
-		}
 	case MethodNameUpdateRegistration:
 		if block.AccountBlock.Amount.Sign() != 0 {
 			return false
 		}
 		blockParam := blockParamInterface.(*ParamRegister)
 		if blockParam.Gid == types.DELEGATE_GID {
-			return false
-		}
-		old := new(Registration)
-		err := ABIRegister.UnpackVariable(
-			old,
-			VariableNameRegistration,
-			block.VmContext.GetStorage(&AddressRegister, GetRegisterKey(blockParam.Name, blockParam.Gid)))
-		if err != nil ||
-			old.PledgeAddr != block.AccountBlock.AccountAddress ||
-			!old.IsActive() ||
-			old.NodeAddr == blockParam.NodeAddr {
 			return false
 		}
 	}

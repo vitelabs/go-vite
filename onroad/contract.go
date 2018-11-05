@@ -110,7 +110,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 				return
 			}
 
-			q := w.manager.Chain().GetPledgeQuota(w.accEvent.SnapshotHash, address)
+			q, _ := w.manager.Chain().GetPledgeQuota(w.accEvent.SnapshotHash, address)
 			c := &contractTask{
 				Addr:  address,
 				Quota: q,
@@ -214,7 +214,7 @@ LOOP:
 }
 
 func (w *ContractWorker) getAndSortAllAddrQuota() {
-	quotas := w.manager.Chain().GetPledgeQuotas(w.accEvent.SnapshotHash, w.contractAddressList)
+	quotas, _ := w.manager.Chain().GetPledgeQuotas(w.accEvent.SnapshotHash, w.contractAddressList)
 
 	w.contractTaskPQueue = make([]*contractTask, len(quotas))
 	i := 0

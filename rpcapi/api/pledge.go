@@ -46,7 +46,7 @@ type QuotaAndTxNum struct {
 }
 
 func (p *PledgeApi) GetPledgeQuota(addr types.Address) QuotaAndTxNum {
-	q := p.chain.GetPledgeQuota(p.chain.GetLatestSnapshotBlock().Hash, addr)
+	q, _ := p.chain.GetPledgeQuota(p.chain.GetLatestSnapshotBlock().Hash, addr)
 	return QuotaAndTxNum{uint64ToString(q), uint64ToString(q / util.TxGas)}
 }
 

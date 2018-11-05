@@ -20,7 +20,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/wallet"
@@ -30,6 +29,8 @@ var wLog = log15.New("module", "walletTest")
 
 var genesisAccountPrivKeyStr string
 var accountPrivKeyStr string
+
+var defaultDifficultyStr = "65535"
 
 func init() {
 	flag.StringVar(&genesisAccountPrivKeyStr, "g", "", "")
@@ -88,7 +89,7 @@ func TestWallet(t *testing.T) {
 					Passphrase:  password,
 					Amount:      new(big.Int).Mul(big.NewInt(1e4), big.NewInt(1e18)).String(),
 					Data:        byt,
-					Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+					Difficulty:  &defaultDifficultyStr,
 				}
 				err = waApi.CreateTxWithPassphrase(parms)
 				if err != nil {
@@ -114,7 +115,7 @@ func waitQuota(vite *vite.Vite, genesisAddr types.Address) {
 }
 func printPledge(vite *vite.Vite, addr types.Address, t *testing.T) *big.Int {
 	head := vite.Chain().GetLatestSnapshotBlock()
-	amount := vite.Chain().GetPledgeAmount(head.Hash, addr)
+	amount, _ := vite.Chain().GetPledgeAmount(head.Hash, addr)
 	wLog.Info("print pledge", "height", strconv.FormatUint(head.Height, 10), "pledge", amount.String(), "addr", addr.String())
 	return amount
 }
@@ -179,8 +180,8 @@ func printHeight(vite *vite.Vite, addr types.Address) uint64 {
 }
 func printQuota(vite *vite.Vite, addr types.Address) *big.Int {
 	head := vite.Chain().GetLatestSnapshotBlock()
-	amount := vite.Chain().GetPledgeAmount(head.Hash, addr)
-	quota := vite.Chain().GetPledgeQuota(head.Hash, addr)
+	amount, _ := vite.Chain().GetPledgeAmount(head.Hash, addr)
+	quota, _ := vite.Chain().GetPledgeQuota(head.Hash, addr)
 	wLog.Info("print quota", "amount", amount.String(), "quota", quota, "snapshotHash", head.Hash, "snapshotHeight", head.Height)
 	return amount
 }
@@ -324,7 +325,7 @@ func TestGenData(t *testing.T) {
 		Passphrase:  password,
 		Amount:      new(big.Int).Mul(big.NewInt(3300000), big.NewInt(1e18)).String(),
 		Data:        nil,
-		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+		Difficulty:  &defaultDifficultyStr,
 	}
 	err = waApi.CreateTxWithPassphrase(parms)
 	if err != nil {
@@ -360,7 +361,7 @@ func TestQuota(t *testing.T) {
 	//waitQuota(vite, addr)
 
 	snapshotBlock := vite.Chain().GetLatestSnapshotBlock()
-	amount := vite.Chain().GetPledgeAmount(snapshotBlock.Hash, addr)
+	amount, _ := vite.Chain().GetPledgeAmount(snapshotBlock.Hash, addr)
 
 	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
 	db, _ := vm_context.NewVmContext(vite.Chain(), &snapshotBlock.Hash, &prevBlock.Hash, &addr)
@@ -426,7 +427,7 @@ func contractsPledge(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroad
 		Passphrase:  password,
 		Amount:      amount.String(),
 		Data:        pledgeData,
-		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+		Difficulty:  &defaultDifficultyStr,
 	}
 	err := waApi.CreateTxWithPassphrase(parms)
 	if err != nil {
@@ -468,7 +469,7 @@ func contractsCancelPledge(vite *vite.Vite, waApi *WalletApi, onRoadApi *Private
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
 		Data:        pledgeData,
-		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+		Difficulty:  &defaultDifficultyStr,
 	}
 	err := waApi.CreateTxWithPassphrase(parms)
 	if err != nil {
@@ -519,7 +520,7 @@ func contractsMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroa
 		Passphrase:  password,
 		Amount:      mintagePledgeAmount.String(),
 		Data:        mintageData,
-		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+		Difficulty:  &defaultDifficultyStr,
 	}
 	err := waApi.CreateTxWithPassphrase(parms)
 	if err != nil {
@@ -539,7 +540,7 @@ func contractsMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroa
 		t.Fatal("mintage fee error")
 	}
 	printQuota(vite, addr)
-	tokenInfo := vite.Chain().GetTokenInfoById(&tokenId)
+	tokenInfo, _ := vite.Chain().GetTokenInfoById(&tokenId)
 	if tokenInfo == nil {
 		t.Fatal("token info not exist")
 	}
@@ -562,7 +563,7 @@ func contractsCancelMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *Privat
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
 		Data:        cancelMintageData,
-		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+		Difficulty:  &defaultDifficultyStr,
 	}
 	err := waApi.CreateTxWithPassphrase(parms)
 	if err != nil {
@@ -578,7 +579,7 @@ func contractsCancelMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *Privat
 		t.Fatal("mintage cancel pledge error")
 	}
 	printQuota(vite, addr)
-	tokenInfo := vite.Chain().GetTokenInfoById(&tokenId)
+	tokenInfo, _ := vite.Chain().GetTokenInfoById(&tokenId)
 	wLog.Debug("token info", tokenId.String(), tokenInfo)
 }
 func contractsCreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadApi, addr types.Address, t *testing.T) types.Gid {
@@ -587,7 +588,7 @@ func contractsCreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi 
 	waitSnapshotInc(vite, t)
 
 	balance := printBalance(vite, addr)
-	list := vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
+	list, _ := vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
 	length := len(list)
 	wLog.Debug("init consensus group list", "length", length)
 	for _, g := range list {
@@ -629,7 +630,7 @@ func contractsCreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi 
 	waitContractOnroad(onRoadApi, contracts.AddressConsensusGroup, t)
 	waitSnapshotInc(vite, t)
 
-	list = vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
+	list, _ = vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
 	wLog.Debug("create consensus group list", "length", len(list))
 	for _, g := range list {
 		wLog.Debug("create consensus group list", g.Gid.String(), g)
@@ -650,7 +651,8 @@ func contractsCancelConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi 
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 	balance := printBalance(vite, addr)
-	length := len(vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash))
+	list, _ := vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
+	length := len(list)
 
 	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
 	if prevBlock == nil {
@@ -675,7 +677,7 @@ func contractsCancelConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi 
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 
-	list := vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
+	list, _ = vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
 	wLog.Debug("cancel consensus group list", "length", len(list))
 	for _, g := range list {
 		wLog.Debug("cancel consensus group list", g.Gid.String(), g)
@@ -695,7 +697,8 @@ func contractsRecreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadAp
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 	balance := printBalance(vite, addr)
-	length := len(vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash))
+	list, _ := vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
+	length := len(list)
 
 	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
 	if prevBlock == nil {
@@ -720,7 +723,7 @@ func contractsRecreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadAp
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 
-	list := vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
+	list, _ = vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
 	wLog.Debug("recreate consensus group list", "length", len(list))
 	for _, g := range list {
 		wLog.Debug("recreate consensus group list", g.Gid.String(), g)
@@ -744,7 +747,7 @@ func contractsRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnro
 		t.Fatalf("no pledge")
 	}
 	registerPledgeAmount := big.NewInt(1)
-	registerList := vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	registerList, _ := vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
 	length := len(registerList)
 	wLog.Debug("init register list", "length", len(registerList))
 	for _, registration := range registerList {
@@ -770,7 +773,7 @@ func contractsRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnro
 		Passphrase:  password,
 		Amount:      registerPledgeAmount.String(),
 		Data:        registerData,
-		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+		Difficulty:  &defaultDifficultyStr,
 	}
 	err := waApi.CreateTxWithPassphrase(parms)
 	if err != nil {
@@ -788,7 +791,7 @@ func contractsRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnro
 	}
 
 	printQuota(vite, addr)
-	registerList = vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	registerList, _ = vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
 	wLog.Debug("register list", "length", len(registerList))
 	for _, registration := range registerList {
 		wLog.Debug("register list", registration.NodeAddr.String(), registration)
@@ -802,7 +805,8 @@ func contractsUpdateRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 	balance := printBalance(vite, addr)
-	length := len(vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid))
+	registerList, _ := vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	length := len(registerList)
 
 	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
 	if prevBlock == nil {
@@ -820,7 +824,7 @@ func contractsUpdateRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
 		Data:        registerData,
-		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+		Difficulty:  &defaultDifficultyStr,
 	}
 	err := waApi.CreateTxWithPassphrase(parms)
 	if err != nil {
@@ -836,7 +840,7 @@ func contractsUpdateRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 	}
 
 	printQuota(vite, addr)
-	registerList := vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	registerList, _ = vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
 	wLog.Debug("update register list", "length", len(registerList))
 	for _, registration := range registerList {
 		wLog.Debug("update register list", registration.NodeAddr.String(), registration)
@@ -850,7 +854,8 @@ func contractsCancelRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 	balance := printBalance(vite, addr)
-	length := len(vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid))
+	registerLis, _ := vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	length := len(registerLis)
 
 	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
 	if prevBlock == nil {
@@ -866,7 +871,7 @@ func contractsCancelRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
 		Data:        registerData,
-		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+		Difficulty:  &defaultDifficultyStr,
 	}
 	err := waApi.CreateTxWithPassphrase(parms)
 	if err != nil {
@@ -885,7 +890,7 @@ func contractsCancelRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 	}
 
 	printQuota(vite, addr)
-	registerList := vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	registerList, _ := vite.Chain().GetRegisterList(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
 	wLog.Debug("update register list", "length", len(registerList))
 	for _, registration := range registerList {
 		wLog.Debug("cancel register list", registration.NodeAddr.String(), registration)
@@ -901,7 +906,7 @@ func contractsVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadAp
 
 	printBalance(vite, addr)
 	printQuota(vite, addr)
-	voteList := vite.Chain().GetVoteMap(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	voteList, _ := vite.Chain().GetVoteMap(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
 	length := len(voteList)
 	wLog.Debug("init vote list", "length", len(voteList))
 	for _, vote := range voteList {
@@ -922,7 +927,7 @@ func contractsVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadAp
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
 		Data:        voteData,
-		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+		Difficulty:  &defaultDifficultyStr,
 	}
 	err := waApi.CreateTxWithPassphrase(parms)
 	if err != nil {
@@ -935,7 +940,7 @@ func contractsVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadAp
 
 	printBalance(vite, addr)
 	printQuota(vite, addr)
-	voteList = vite.Chain().GetVoteMap(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	voteList, _ = vite.Chain().GetVoteMap(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
 	wLog.Debug("vote list", "length", len(voteList))
 	for _, vote := range voteList {
 		wLog.Debug("vote list", vote.NodeName, vote.VoterAddr)
@@ -948,7 +953,8 @@ func contractsCancelVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOn
 	wLog.Debug("contracts cancel vote")
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
-	length := len(vite.Chain().GetVoteMap(vite.Chain().GetLatestSnapshotBlock().Hash, gid))
+	voteMap, _ := vite.Chain().GetVoteMap(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	length := len(voteMap)
 
 	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
 	if prevBlock == nil {
@@ -963,7 +969,7 @@ func contractsCancelVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOn
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
 		Data:        voteData,
-		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+		Difficulty:  &defaultDifficultyStr,
 	}
 	err := waApi.CreateTxWithPassphrase(parms)
 	if err != nil {
@@ -976,7 +982,7 @@ func contractsCancelVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOn
 
 	printBalance(vite, addr)
 	printQuota(vite, addr)
-	voteList := vite.Chain().GetVoteMap(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
+	voteList, _ := vite.Chain().GetVoteMap(vite.Chain().GetLatestSnapshotBlock().Hash, gid)
 	wLog.Debug("cancel vote list", "length", len(voteList))
 	for _, vote := range voteList {
 		wLog.Debug("cancel vote list", vote.NodeName, vote.VoterAddr)
@@ -1019,7 +1025,7 @@ func contractsReward(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroad
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
 		Data:        rewardData,
-		Difficulty:  new(big.Int).SetUint64(pow.FullThreshold),
+		Difficulty:  &defaultDifficultyStr,
 	}
 	err := waApi.CreateTxWithPassphrase(parms)
 	if err != nil {

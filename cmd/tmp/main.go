@@ -917,13 +917,13 @@ func printBalance(vite *vite.Vite, addr types.Address) *big.Int {
 
 func printQuota(vite *vite.Vite, addr types.Address) *big.Int {
 	head := vite.Chain().GetLatestSnapshotBlock()
-	amount := vite.Chain().GetPledgeQuota(head.Hash, addr)
+	amount, _ := vite.Chain().GetPledgeQuota(head.Hash, addr)
 	return big.NewInt(0).SetUint64(amount)
 }
 
 func printPledge(vite *vite.Vite, addr types.Address) *big.Int {
 	head := vite.Chain().GetLatestSnapshotBlock()
-	amount := vite.Chain().GetPledgeAmount(head.Hash, addr)
+	amount, _ := vite.Chain().GetPledgeAmount(head.Hash, addr)
 	return amount
 }
 

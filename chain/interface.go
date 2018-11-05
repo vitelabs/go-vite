@@ -63,21 +63,21 @@ type Chain interface {
 	DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
 	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
 	GetContractGid(addr *types.Address) (*types.Gid, error)
-	GetRegisterList(snapshotHash types.Hash, gid types.Gid) []*contracts.Registration
-	GetVoteMap(snapshotHash types.Hash, gid types.Gid) []*contracts.VoteInfo
+	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*contracts.Registration, error)
+	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*contracts.VoteInfo, error)
 	KafkaSender() *sender.KafkaSender
 
 	// Pledge amount
-	GetPledgeAmount(snapshotHash types.Hash, beneficial types.Address) *big.Int
+	GetPledgeAmount(snapshotHash types.Hash, beneficial types.Address) (*big.Int, error)
 
 	// Pledge quota
-	GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) uint64
-	GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.Address) map[types.Address]uint64
+	GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) (uint64, error)
+	GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.Address) (map[types.Address]uint64, error)
 
-	GetConsensusGroupList(snapshotHash types.Hash) []*contracts.ConsensusGroupInfo
-	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) map[types.Address]*big.Int
+	GetConsensusGroupList(snapshotHash types.Hash) ([]*contracts.ConsensusGroupInfo, error)
+	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error)
 
-	GetTokenInfoById(tokenId *types.TokenTypeId) *contracts.TokenInfo
+	GetTokenInfoById(tokenId *types.TokenTypeId) (*contracts.TokenInfo, error)
 	AccountType(address *types.Address) (uint64, error)
 	GetAccount(address *types.Address) (*ledger.Account, error)
 	GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64)

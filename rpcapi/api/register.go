@@ -84,7 +84,10 @@ type CandidateInfo struct {
 }
 
 func (r *RegisterApi) GetCandidateList(gid types.Gid) ([]*CandidateInfo, error) {
-	list := r.chain.GetRegisterList(r.chain.GetLatestSnapshotBlock().Hash, gid)
+	list, err := r.chain.GetRegisterList(r.chain.GetLatestSnapshotBlock().Hash, gid)
+	if err != nil {
+		return nil, err
+	}
 	targetList := make([]*CandidateInfo, len(list))
 	for i, info := range list {
 		targetList[i] = &CandidateInfo{info.Name, info.NodeAddr}

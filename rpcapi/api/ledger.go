@@ -150,7 +150,7 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 
 	tokenBalanceInfoMap := make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
 	for tokenId, amount := range balanceMap {
-		token := l.chain.GetTokenInfoById(&tokenId)
+		token, _ := l.chain.GetTokenInfoById(&tokenId)
 		tokenBalanceInfoMap[tokenId] = &RpcTokenBalanceInfo{
 			TokenInfo:   RawTokenInfoToRpc(token, tokenId),
 			TotalAmount: amount.String(),
@@ -210,7 +210,11 @@ func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 
 func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*RpcTokenInfo, error) {
 	l.log.Info("GetTokenMintage")
-	return RawTokenInfoToRpc(l.chain.GetTokenInfoById(&tti), tti), nil
+	if t, err := l.chain.GetTokenInfoById(&tti); err != nil {
+		return nil, err
+	} else {
+		return RawTokenInfoToRpc(t, tti), nil
+	}
 }
 
 func (l *LedgerApi) GetSenderInfo() (*KafkaSendInfo, error) {

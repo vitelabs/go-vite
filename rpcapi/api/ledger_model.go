@@ -216,7 +216,7 @@ func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBl
 		toAddress = block.ToAddress
 	}
 
-	token := chain.GetTokenInfoById(&block.TokenId)
+	token, _ := chain.GetTokenInfoById(&block.TokenId)
 	rpcAccountBlock := createAccountBlock(block, token, confirmTimes)
 	rpcAccountBlock.FromAddress = fromAddress
 	rpcAccountBlock.ToAddress = toAddress

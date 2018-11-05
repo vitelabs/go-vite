@@ -51,10 +51,10 @@ type TokenInfo struct {
 }
 
 func GetMintageKey(tokenId types.TokenTypeId) []byte {
-	return helper.LeftPadBytes(tokenId.Bytes(), types.HashSize)
+	return tokenId.Bytes()
 }
 func GetTokenIdFromMintageKey(key []byte) types.TokenTypeId {
-	tokenId, _ := types.BytesToTokenTypeId(key[types.HashSize-types.TokenTypeIdSize:])
+	tokenId, _ := types.BytesToTokenTypeId(key)
 	return tokenId
 }
 
@@ -221,12 +221,6 @@ func (p *MethodMintageCancelPledge) DoSend(context contractsContext, block *vm_c
 	if err = ABIMintage.UnpackMethod(tokenId, MethodNameMintageCancelPledge, block.AccountBlock.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
-	tokenInfo := GetTokenById(block.VmContext, *tokenId)
-	if tokenInfo.Owner != block.AccountBlock.AccountAddress ||
-		tokenInfo.PledgeAmount.Sign() == 0 ||
-		tokenInfo.WithdrawHeight > block.VmContext.CurrentSnapshotBlock().Height {
-		return quotaLeft, errors.New("invalid owner or no pledge amount or not due yet")
-	}
 	return quotaLeft, nil
 }
 func (p *MethodMintageCancelPledge) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
@@ -235,6 +229,13 @@ func (p *MethodMintageCancelPledge) DoReceive(context contractsContext, block *v
 	storageKey := GetMintageKey(*tokenId)
 	tokenInfo := new(TokenInfo)
 	ABIMintage.UnpackVariable(tokenInfo, VariableNameMintage, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, storageKey))
+
+	if tokenInfo.Owner != sendBlock.AccountAddress ||
+		tokenInfo.PledgeAmount.Sign() == 0 ||
+		tokenInfo.WithdrawHeight > block.VmContext.CurrentSnapshotBlock().Height {
+		return errors.New("cannot withdraw mintage pledge, status error")
+	}
+
 	newTokenInfo, _ := ABIMintage.PackVariable(
 		VariableNameMintage,
 		tokenInfo.TokenName,

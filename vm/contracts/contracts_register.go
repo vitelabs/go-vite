@@ -281,21 +281,22 @@ func (p *MethodCancelRegister) DoReceive(context contractsContext, block *vm_con
 	param := new(ParamCancelRegister)
 	ABIRegister.UnpackMethod(param, MethodNameCancelRegister, sendBlock.Data)
 
+	snapshotBlock := block.VmContext.CurrentSnapshotBlock()
+
 	key := GetRegisterKey(param.Name, param.Gid)
 	old := new(Registration)
 	err := ABIRegister.UnpackVariable(
 		old,
 		VariableNameRegistration,
 		block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
-	if err != nil || !old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
-		return errors.New("register not exist or already canceled")
+	if err != nil || !old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress || old.WithdrawHeight > snapshotBlock.Height {
+		return errors.New("registration status error")
 	}
 
 	// update lock amount and loc start height
-	snapshotBlock := block.VmContext.CurrentSnapshotBlock()
 	registerInfo, _ := ABIRegister.PackVariable(
 		VariableNameRegistration,
-		param.Name,
+		old.Name,
 		old.NodeAddr,
 		old.PledgeAddr,
 		helper.Big0,
@@ -349,12 +350,6 @@ func (p *MethodReward) DoSend(context contractsContext, block *vm_context.VmAcco
 	if !util.IsSnapshotGid(param.Gid) {
 		return quotaLeft, errors.New("consensus group has no reward")
 	}
-	key := GetRegisterKey(param.Name, param.Gid)
-	old := new(Registration)
-	err = ABIRegister.UnpackVariable(old, VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.ToAddress, key))
-	if err != nil || old.PledgeAddr != block.AccountBlock.AccountAddress {
-		return quotaLeft, errors.New("registration not exist")
-	}
 	return quotaLeft, nil
 }
 func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
@@ -380,7 +375,7 @@ func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmA
 			old.HisAddrList)
 		block.VmContext.SetStorage(key, registerInfo)
 
-		if reward != nil {
+		if reward != nil && reward.Sign() > 0 {
 			// create reward and return
 			context.AppendBlock(
 				&vm_context.VmAccountBlock{
@@ -402,6 +397,7 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *Registration, total bool) (
 	if db.CurrentSnapshotBlock().Height < nodeConfig.params.RewardHeightLimit {
 		return old.RewardHeight, old.RewardHeight, big.NewInt(0)
 	}
+	// startHeight exclusive, endHeight inclusive
 	startHeight := old.RewardHeight
 	endHeight := db.CurrentSnapshotBlock().Height - nodeConfig.params.RewardHeightLimit
 	if !old.IsActive() {
