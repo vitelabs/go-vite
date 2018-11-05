@@ -3,12 +3,13 @@ package chain
 import (
 	"time"
 
+	"sync/atomic"
+
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
-	"sync/atomic"
 )
 
 func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error) {
@@ -126,6 +127,23 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	if err := c.chainDb.Commit(batch); err != nil {
 		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
+	}
+
+	// FIXME check
+	for _, hashHeight := range snapshotBlock.SnapshotContent {
+		accountBlockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(&hashHeight.Hash)
+		if blockMetaErr != nil {
+			c.log.Crit("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "CheckInsertSnapshotBlock")
+		}
+
+		if accountBlockMeta == nil {
+			c.log.Crit("AccountBlockMeta is nil.", "method", "CheckInsertSnapshotBlock")
+		}
+
+		if accountBlockMeta.SnapshotHeight <= 0 {
+			c.log.Error("AccountBlockMeta.SnapshotHeight <= 0.", "method", "CheckInsertSnapshotBlock")
+		}
+
 	}
 
 	// After write db

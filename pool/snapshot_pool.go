@@ -265,7 +265,23 @@ func (self *snapshotPool) loop() {
 			}
 
 			if now.After(self.nextInsertTime) {
-				self.nextInsertTime = now.Add(200 * time.Millisecond)
+				size := self.CurrentChain().size()
+				sleep := 200 * time.Millisecond
+				if size > 10000 {
+					sleep = 2 * time.Millisecond
+					monitor.LogEvent("pool", "trySnapshotInsertSleep2")
+				} else if size > 1000 {
+					sleep = 20 * time.Millisecond
+					monitor.LogEvent("pool", "trySnapshotInsertSleep20")
+				} else if size > 100 {
+					sleep = 50 * time.Millisecond
+					monitor.LogEvent("pool", "trySnapshotInsertSleep50")
+				} else {
+					sleep = 200 * time.Millisecond
+					monitor.LogEvent("pool", "trySnapshotInsertSleep200")
+				}
+
+				self.nextInsertTime = now.Add(sleep)
 				self.loopCheckCurrentInsert()
 			}
 			n2 := time.Now()
