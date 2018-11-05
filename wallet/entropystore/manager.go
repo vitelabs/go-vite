@@ -34,7 +34,7 @@ func (ue UnlockEvent) Unlocked() bool {
 
 type Manager struct {
 	primaryAddr    types.Address
-	ks             CryptoStore
+	ks             *CryptoStore
 	maxSearchIndex uint32
 
 	unlockedSeed    []byte
@@ -45,11 +45,11 @@ type Manager struct {
 	log log15.Logger
 }
 
-func NewManager(entropyStoreFilename string, primaryAddr types.Address, maxSearchIndex uint32) *Manager {
+func NewManager(entropyStoreFilename string, primaryAddr types.Address, config *Config) *Manager {
 	return &Manager{
 		primaryAddr:    primaryAddr,
-		ks:             CryptoStore{entropyStoreFilename},
-		maxSearchIndex: maxSearchIndex,
+		ks:             NewCryptoStore(entropyStoreFilename, config.UseLightScrypt),
+		maxSearchIndex: config.MaxSearchIndex,
 
 		log: log15.New("module", "wallet/keystore/Manager"),
 	}
@@ -206,7 +206,7 @@ func (km Manager) GetEntropyStoreFile() string {
 	return km.ks.EntropyStoreFilename
 }
 
-func StoreNewEntropy(storeDir string, mnemonic string, pwd string, maxSearchIndex uint32) (*Manager, error) {
+func StoreNewEntropy(storeDir string, mnemonic string, pwd string, config *Config) (*Manager, error) {
 	entropy, e := bip39.EntropyFromMnemonic(mnemonic)
 	if e != nil {
 		return nil, e
@@ -215,12 +215,12 @@ func StoreNewEntropy(storeDir string, mnemonic string, pwd string, maxSearchInde
 	primaryAddress, e := MnemonicToPrimaryAddr(mnemonic)
 
 	filename := FullKeyFileName(storeDir, *primaryAddress)
-	ss := CryptoStore{filename}
+	ss := NewCryptoStore(filename, config.UseLightScrypt)
 	e = ss.StoreEntropy(entropy, *primaryAddress, pwd)
 	if e != nil {
 		return nil, e
 	}
-	return NewManager(filename, *primaryAddress, maxSearchIndex), nil
+	return NewManager(filename, *primaryAddress, config), nil
 }
 
 func MnemonicToPrimaryAddr(mnemonic string) (primaryAddress *types.Address, e error) {

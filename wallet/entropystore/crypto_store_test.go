@@ -24,7 +24,7 @@ func TestCryptoStore_StoreEntropy(t *testing.T) {
 	addresses, _ := derivation.GetPrimaryAddress(seed)
 
 	filename := filepath.Join(common.DefaultDataDir(), "UTSeed", addresses.String())
-	store := entropystore.CryptoStore{filename}
+	store := entropystore.NewCryptoStore(filename, true)
 
 	err := store.StoreEntropy(entropy, *addresses, "123456")
 	if err != nil {
@@ -40,7 +40,7 @@ func TestCryptoStore_ExtractSeed(t *testing.T) {
 	addresses, _ := derivation.GetPrimaryAddress(seed)
 
 	filename := filepath.Join(common.DefaultDataDir(), "UTSeed", addresses.String())
-	store := entropystore.CryptoStore{filename}
+	store := entropystore.NewCryptoStore(filename, true)
 
 	seedExtract, entropy, err := store.ExtractSeed("123456")
 	fmt.Println(bip39.NewMnemonic(entropy))
@@ -63,7 +63,7 @@ func TestDecryptEntropy(t *testing.T) {
 
 	addresses, _ := derivation.GetPrimaryAddress(seed)
 
-	json, e := entropystore.EncryptEntropy(entropy, *addresses, "123456")
+	json, e := entropystore.EncryptEntropy(entropy, *addresses, "123456", true)
 	if e != nil {
 		t.Fatal(e)
 	}

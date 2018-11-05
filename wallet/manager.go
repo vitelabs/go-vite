@@ -183,7 +183,10 @@ func (m *Manager) AddEntropyStore(entropyStore string) error {
 	if _, ok := m.entropyStoreManager[absPath]; ok {
 		return nil
 	}
-	m.entropyStoreManager[absPath] = entropystore.NewManager(absPath, *addr, m.config.MaxSearchIndex)
+	m.entropyStoreManager[absPath] = entropystore.NewManager(absPath, *addr, &entropystore.Config{
+		MaxSearchIndex: m.config.MaxSearchIndex,
+		UseLightScrypt: m.config.UseLightScrypt,
+	})
 	m.entropyStoreManager[absPath].SetLockEventListener(func(event entropystore.UnlockEvent) {
 		for _, lis := range m.unlockChangedLis {
 			if lis != nil {
@@ -208,7 +211,10 @@ func (m *Manager) RemoveEntropyStore(entropyStore string) {
 }
 
 func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, passphrase string) (em *entropystore.Manager, err error) {
-	sm, e := entropystore.StoreNewEntropy(m.config.DataDir, mnemonic, passphrase, entropystore.DefaultMaxIndex)
+	sm, e := entropystore.StoreNewEntropy(m.config.DataDir, mnemonic, passphrase, &entropystore.Config{
+		MaxSearchIndex: m.config.MaxSearchIndex,
+		UseLightScrypt: m.config.UseLightScrypt,
+	})
 	if e != nil {
 		return nil, e
 	}
