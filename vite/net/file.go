@@ -235,16 +235,16 @@ func (fc *fileClient) usePeer(conns map[string]*conn, record map[string]*fileSta
 	if files, ok := pFiles[sender.ID()]; ok {
 		// retrieve files from low to high
 		for _, file := range files {
-			r := record[file.Filename]
+			if r, ok := record[file.Filename]; ok {
+				if r.state == reqWaiting || r.state == reqError {
+					r.state = reqPending
+					if err := fc.doRequest(conns, file, sender); err != nil {
+						r.state = reqError
+						fc.removePeer(conns, record, pFiles, sender)
+					}
 
-			if r.state == reqWaiting || r.state == reqError {
-				r.state = reqPending
-				if err := fc.doRequest(conns, file, sender); err != nil {
-					r.state = reqError
-					fc.removePeer(conns, record, pFiles, sender)
+					break
 				}
-
-				break
 			}
 		}
 	}
@@ -368,18 +368,20 @@ loop:
 			fc.log.Error(fmt.Sprintf("delete connection %s", conn.RemoteAddr()))
 
 			if file := conn.file; file != nil {
-				miss := conn.file.EndHeight - conn.height
-				if miss > file2Chunk {
-					record[file.Filename].state = reqError
-					// retry file
-					fc.requestFile(conns, record, pFiles, file)
-				} else {
-					record[file.Filename].state = reqDone
-					// use chunk
-					fc.pool.add(&chunkRequest{
-						from: conn.height + 1,
-						to:   conn.file.EndHeight,
-					})
+				if r, ok := record[file.Filename]; ok {
+					miss := conn.file.EndHeight - conn.height
+					if miss > file2Chunk {
+						r.state = reqError
+						// retry file
+						fc.requestFile(conns, record, pFiles, file)
+					} else {
+						r.state = reqDone
+						// use chunk
+						fc.pool.add(&chunkRequest{
+							from: conn.height + 1,
+							to:   conn.file.EndHeight,
+						})
+					}
 				}
 			}
 
