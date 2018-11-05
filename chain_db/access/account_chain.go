@@ -268,21 +268,10 @@ func (ac *AccountChain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList,
 }
 
 func (ac *AccountChain) getConfirmHeight(accountBlockHash *types.Hash) (uint64, *ledger.AccountBlockMeta, error) {
-
-	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCKMETA, accountBlockHash.Bytes())
-	data, err := ac.db.Get(key, nil)
+	accountBlockMeta, err := ac.GetBlockMeta(accountBlockHash)
 	if err != nil {
-		if err != leveldb.ErrNotFound {
-			return 0, nil, err
-		}
-		return 0, nil, nil
+		return 0, nil, err
 	}
-
-	accountBlockMeta := &ledger.AccountBlockMeta{}
-	if dsErr := accountBlockMeta.Deserialize(data); dsErr != nil {
-		return 0, nil, dsErr
-	}
-
 	if accountBlockMeta.SnapshotHeight > 0 {
 		return accountBlockMeta.SnapshotHeight, accountBlockMeta, nil
 	}

@@ -627,7 +627,6 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	c.needSnapshotCache.Remove(needRemoveAddr)
 
 	// Set needSnapshotCache, then add
-
 	c.needSnapshotCache.Set(needAddBlocks)
 
 	c.em.triggerDeleteAccountBlocksSuccess(subLedger)
