@@ -1,4 +1,4 @@
-package contracts
+package abi
 
 import (
 	"github.com/vitelabs/go-vite/common/helper"

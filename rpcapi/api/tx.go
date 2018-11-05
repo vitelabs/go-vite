@@ -5,15 +5,15 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 )
 
 var preCompiledContracts = []types.Address{
-	contracts.AddressMintage,
-	contracts.AddressPledge,
-	contracts.AddressRegister,
-	contracts.AddressVote,
-	contracts.AddressConsensusGroup}
+	abi.AddressMintage,
+	abi.AddressPledge,
+	abi.AddressRegister,
+	abi.AddressVote,
+	abi.AddressConsensusGroup}
 
 type Tx struct {
 	vite *vite.Vite

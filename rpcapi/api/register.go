@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
@@ -26,16 +27,16 @@ func (r RegisterApi) String() string {
 }
 
 func (r *RegisterApi) GetRegisterData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
-	return contracts.ABIRegister.PackMethod(contracts.MethodNameRegister, gid, name, nodeAddr)
+	return abi.ABIRegister.PackMethod(abi.MethodNameRegister, gid, name, nodeAddr)
 }
 func (r *RegisterApi) GetCancelRegisterData(gid types.Gid, name string) ([]byte, error) {
-	return contracts.ABIRegister.PackMethod(contracts.MethodNameCancelRegister, gid, name)
+	return abi.ABIRegister.PackMethod(abi.MethodNameCancelRegister, gid, name)
 }
 func (r *RegisterApi) GetRewardData(gid types.Gid, name string, beneficialAddr types.Address) ([]byte, error) {
-	return contracts.ABIRegister.PackMethod(contracts.MethodNameReward, gid, name, beneficialAddr)
+	return abi.ABIRegister.PackMethod(abi.MethodNameReward, gid, name, beneficialAddr)
 }
 func (r *RegisterApi) GetUpdateRegistrationData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
-	return contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration, gid, name, nodeAddr)
+	return abi.ABIRegister.PackMethod(abi.MethodNameUpdateRegistration, gid, name, nodeAddr)
 }
 
 type RegistrationInfo struct {
@@ -58,7 +59,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	if err != nil {
 		return nil, err
 	}
-	list := contracts.GetRegistrationList(vmContext, gid, pledgeAddr)
+	list := abi.GetRegistrationList(vmContext, gid, pledgeAddr)
 	targetList := make([]*RegistrationInfo, len(list))
 	if len(list) > 0 {
 		for i, info := range list {

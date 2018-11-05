@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
@@ -99,7 +100,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 			database,
 			block.AccountAddress,
-			contracts.GetPledgeBeneficialAmount(database, block.AccountAddress),
+			abi.GetPledgeBeneficialAmount(database, block.AccountAddress),
 			block.Difficulty)
 		if err != nil {
 			return nil, NoRetry, err
@@ -221,14 +222,14 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 		if err != nil {
 			return nil, err
 		}
-		block.AccountBlock.Fee, err = p.GetFee(vm, block)
+		block.AccountBlock.Fee, err = p.GetFee(block.VmContext, block.AccountBlock)
 		if err != nil {
 			return nil, err
 		}
 		if !CanTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
 			return nil, util.ErrInsufficientBalance
 		}
-		quotaLeft, err = p.DoSend(vm, block, quotaLeft)
+		quotaLeft, err = p.DoSend(block.VmContext, block.AccountBlock, quotaLeft)
 		if err != nil {
 			return nil, err
 		}
@@ -278,10 +279,23 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 	if p, ok, _ := getPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
 		vm.blockList = []*vm_context.VmAccountBlock{block}
 		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
-		err := p.DoReceive(vm, block, sendBlock)
+		blockListToSend, err := p.DoReceive(block.VmContext, block.AccountBlock, sendBlock)
 		if err == nil {
 			block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
 			vm.updateBlock(block, err, 0)
+			for _, blockToSend := range blockListToSend {
+				vm.VmContext.AppendBlock(
+					&vm_context.VmAccountBlock{
+						util.MakeSendBlock(
+							blockToSend.Block,
+							blockToSend.ToAddress,
+							blockToSend.BlockType,
+							blockToSend.Amount,
+							blockToSend.TokenId,
+							vm.VmContext.GetNewBlockHeight(block),
+							blockToSend.Data),
+						nil})
+			}
 			if err = vm.doSendBlockList(util.PrecompiledContractsSendGas); err == nil {
 				return vm.blockList, NoRetry, nil
 			}
@@ -349,7 +363,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 			block.VmContext,
 			block.AccountBlock.AccountAddress,
-			contracts.GetPledgeBeneficialAmount(block.VmContext, block.AccountBlock.AccountAddress),
+			abi.GetPledgeBeneficialAmount(block.VmContext, block.AccountBlock.AccountAddress),
 			block.AccountBlock.Difficulty)
 		if err != nil {
 			return nil, NoRetry, err
@@ -405,8 +419,8 @@ func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 	if err != nil {
 		return nil, err
 	}
-	if block.AccountBlock.AccountAddress != contracts.AddressRegister &&
-		block.AccountBlock.AccountAddress != contracts.AddressMintage {
+	if block.AccountBlock.AccountAddress != abi.AddressRegister &&
+		block.AccountBlock.AccountAddress != abi.AddressMintage {
 		return nil, errors.New("invalid account address")
 	}
 	vm.updateBlock(block, nil, 0)
