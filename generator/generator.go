@@ -52,10 +52,10 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 
 	switch message.BlockType {
 	case ledger.BlockTypeReceiveError:
-		return nil, errors.New("block type can't be BlockTypeReceiveError")
+		return nil, errors.New("block type error")
 	case ledger.BlockTypeReceive:
 		if message.FromBlockHash == nil {
-			return nil, errors.New("FromBlockHash can't be nil when create ReceiveBlock")
+			return nil, errors.New("fromblockhash can't be nil when create receive block")
 		}
 		sendBlock := gen.vmContext.GetAccountBlockByHash(message.FromBlockHash)
 		//genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc, message.Difficulty)
@@ -144,7 +144,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockPacked *ledger.AccountBlock, err error) {
 	latestBlock := gen.vmContext.PrevAccountBlock()
 	if latestBlock == nil {
-		return nil, errors.New("SendTx's AccountAddress doesn't exist")
+		return nil, errors.New("account address doesn't exist")
 	}
 
 	blockPacked, err = message.ToSendBlock()
@@ -219,7 +219,7 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 
 		snapshotBlock := gen.vmContext.CurrentSnapshotBlock()
 		if snapshotBlock == nil {
-			return nil, errors.New("CurrentSnapshotBlock can't be nil")
+			return nil, errors.New("current snapshotblock can't be nil")
 		}
 		if snapshotBlock.Height > preBlockReferredSbHeight && difficulty != nil {
 			// currently, default mode of GenerateWithOnroad is to calc pow
@@ -252,7 +252,7 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, referredSnapshotBloc
 	if referredSnapshotBlock != nil {
 		referredSbHeight = referredSnapshotBlock.Height
 		if referredSbHeight >= latestSb.Height {
-			return nil, errors.New("the snapshotHash referred isn't lower than the latest")
+			return nil, errors.New("the snapshotHeight referred can't be lower than the latest")
 		}
 	}
 

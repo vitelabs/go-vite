@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/monitor"
+	"math/big"
 	"testing"
 	"time"
 )
@@ -20,7 +21,12 @@ func TestPowGenerate(t *testing.T) {
 	addr, _, _ := types.CreateAddress()
 	prevHash := types.ZERO_HASH
 	difficulty := "FFFFFFC000000000000000000000000000000000000000000000000000000000"
-	work, err := GenerateWork(types.DataListHash(addr.Bytes(), prevHash.Bytes()).Bytes(), difficulty)
+
+	realDifficulty, ok := new(big.Int).SetString(difficulty, 10)
+	if !ok {
+		t.Error("string to big.Int failed")
+	}
+	work, err := GenerateWork(types.DataListHash(addr.Bytes(), prevHash.Bytes()).Bytes(), realDifficulty)
 	if err != nil {
 		t.Error(err.Error())
 		return
