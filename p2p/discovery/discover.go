@@ -159,6 +159,9 @@ func (d *Discovery) tableLoop() {
 
 	d.RefreshTable()
 
+	lookSelf := true
+	var findTarget NodeID
+
 	for {
 		select {
 		case <-refreshTicker.C:
@@ -177,7 +180,13 @@ func (d *Discovery) tableLoop() {
 			}
 
 		case <-findTicker.C:
-			d.lookup(d.self.ID, false)
+			if lookSelf {
+				d.lookup(d.self.ID, false)
+				lookSelf = false
+			} else {
+				rand.Read(findTarget[:])
+				d.lookup(d.self.ID, false)
+			}
 
 		case <-storeTicker.C:
 			now := time.Now()
