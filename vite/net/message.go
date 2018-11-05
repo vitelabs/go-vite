@@ -152,6 +152,10 @@ func (q *queryHandler) start() {
 }
 
 func (q *queryHandler) stop() {
+	if q.term == nil {
+		return
+	}
+
 	select {
 	case <-q.term:
 	default:
@@ -220,6 +224,13 @@ func (q *queryHandler) loop() {
 	var ele interface{}
 
 	for {
+		select {
+		case <-q.term:
+			return
+		default:
+			// next
+		}
+
 		q.lock.Lock()
 		for index, ele = 0, q.queue.Shift(); ele != nil; ele = q.queue.Shift() {
 			tasks[index] = ele.(*queryTask)

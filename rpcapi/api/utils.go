@@ -61,3 +61,11 @@ func bigIntToString(big *big.Int) *string {
 func uint64ToString(u uint64) string {
 	return strconv.FormatUint(u, 10)
 }
+
+const (
+	secondBetweenSnapshotBlocks int64 = 1
+)
+
+func getWithdrawTime(snapshotTime *time.Time, snapshotHeight uint64, withdrawHeight uint64) int64 {
+	return snapshotTime.Unix() + int64(withdrawHeight-snapshotHeight)*secondBetweenSnapshotBlocks
+}
