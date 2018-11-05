@@ -110,8 +110,6 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 
 			if sendBlockMeta != nil {
 				// Concurrency write block meta
-				c.abmLocker.Lock(accountBlock.FromBlockHash)
-				defer c.abmLocker.Unlock(accountBlock.FromBlockHash)
 
 				sendBlockMeta.ReceiveBlockHeights = append(sendBlockMeta.ReceiveBlockHeights, accountBlock.Height)
 				saveSendBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.FromBlockHash, sendBlockMeta)
@@ -126,7 +124,6 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		blockMeta := &ledger.AccountBlockMeta{
 			AccountId:         account.AccountId,
 			Height:            accountBlock.Height,
-			SnapshotHeight:    0,
 			RefSnapshotHeight: refSnapshotHeight,
 		}
 
@@ -588,8 +585,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		return nil, deleteAccountBlocksErr
 	}
 
-	_, reopenErr := c.chainDb.Ac.ReopenSendBlocks(batch, reopenList, deleteMap)
-	if reopenErr != nil {
+	if reopenErr := c.chainDb.Ac.ReopenSendBlocks(batch, reopenList, deleteMap); reopenErr != nil {
 		c.log.Error("ReopenSendBlocks failed, error is "+reopenErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
 		return nil, reopenErr
 	}

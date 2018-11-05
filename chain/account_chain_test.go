@@ -208,8 +208,8 @@ func TestGetAccountBlocksByHash(t *testing.T) {
 
 func TestGetAccountBlockMetaByHash(t *testing.T) {
 	chainInstance := getChainInstance()
-	hash, _ := types.HexToHash("1d91143665c60adb93665d5f725180860124ea4b773d3289fc0ae7b24af4f92a")
-	meta, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&hash)
+	//hash, _ := types.HexToHash("1d91143665c60adb93665d5f725180860124ea4b773d3289fc0ae7b24af4f92a")
+	meta, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&GenesisMintageSendBlock.Hash)
 	fmt.Printf("%+v\n", meta)
 
 }

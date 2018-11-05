@@ -507,6 +507,7 @@ func TestDeleteSnapshotBlocksToHeight3(t *testing.T) {
 	chainInstance.InsertAccountBlocks(receiveBlock2)
 
 	needContent := chainInstance.GetNeedSnapshotContent()
+
 	for addr, content := range needContent {
 		fmt.Printf("%s: %+v\n", addr.String(), content)
 	}

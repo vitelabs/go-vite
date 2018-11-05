@@ -32,4 +32,6 @@ const (
 	DBKP_GID_ADDR = byte(15)
 
 	DBKP_BLOCK_EVENT = byte(16)
+
+	DBKP_BE_SNAPSHOT = byte(17)
 )

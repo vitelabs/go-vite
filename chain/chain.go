@@ -37,26 +37,15 @@ type chain struct {
 	cfg         *config.Chain
 	globalCfg   *config.Config
 	kafkaSender *sender.KafkaSender
-
-	abmLocker *abmLocker
-
-	// FIXME
-	concurrencyControl *uint64
 }
 
 func NewChain(cfg *config.Config) Chain {
-	initConcurrencyControl := uint64(0)
-
 	chain := &chain{
 		log:                  log15.New("module", "chain"),
 		genesisSnapshotBlock: &GenesisSnapshotBlock,
 		dataDir:              cfg.DataDir,
 		cfg:                  cfg.Chain,
 		globalCfg:            cfg,
-		abmLocker:            newAbmLocker(),
-
-		// FIXME
-		concurrencyControl: &initConcurrencyControl,
 	}
 
 	if chain.cfg == nil {
@@ -206,7 +195,7 @@ func (c *chain) Start() {
 	// needSnapshotCache
 	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
 	if getSubLedgerErr != nil {
-		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "NewChain")
+		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "Start")
 	}
 	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
 
@@ -220,7 +209,7 @@ func (c *chain) Start() {
 	var getLatestBlockErr error
 	c.latestSnapshotBlock, getLatestBlockErr = c.chainDb.Sc.GetLatestBlock()
 	if getLatestBlockErr != nil {
-		c.log.Crit("GetLatestBlock failed, error is "+getLatestBlockErr.Error(), "method", "NewChain")
+		c.log.Crit("GetLatestBlock failed, error is "+getLatestBlockErr.Error(), "method", "Start")
 	}
 
 	// start compressor

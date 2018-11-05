@@ -48,7 +48,6 @@ func (abm *AccountBlockMeta) Proto() *vitepb.AccountBlockMeta {
 		Height:              abm.Height,
 		ReceiveBlockHeights: abm.ReceiveBlockHeights,
 
-		SnapshotHeight:    abm.SnapshotHeight,
 		RefSnapshotHeight: abm.RefSnapshotHeight,
 	}
 	return pb
@@ -58,7 +57,6 @@ func (abm *AccountBlockMeta) DeProto(pb *vitepb.AccountBlockMeta) {
 	abm.AccountId = pb.AccountId
 	abm.Height = pb.Height
 	abm.ReceiveBlockHeights = pb.ReceiveBlockHeights
-	abm.SnapshotHeight = pb.SnapshotHeight
 	abm.RefSnapshotHeight = pb.RefSnapshotHeight
 }
 
