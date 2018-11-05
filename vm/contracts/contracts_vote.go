@@ -35,10 +35,6 @@ type ParamVote struct {
 	Gid      types.Gid
 	NodeName string
 }
-type VoteInfo struct {
-	VoterAddr types.Address
-	NodeName  string
-}
 
 func GetVoteKey(addr types.Address, gid types.Gid) []byte {
 	return append(gid.Bytes(), addr.Bytes()...)
@@ -49,18 +45,18 @@ func GetAddrFromVoteKey(key []byte) types.Address {
 	return addr
 }
 
-func GetVote(db StorageDatabase, gid types.Gid, addr types.Address) *VoteInfo {
+func GetVote(db StorageDatabase, gid types.Gid, addr types.Address) *types.VoteInfo {
 	defer monitor.LogTime("vm", "GetVote", time.Now())
 	data := db.GetStorage(&AddressVote, GetVoteKey(addr, gid))
 	if len(data) > 0 {
 		nodeName := new(string)
 		ABIVote.UnpackVariable(nodeName, VariableNameVoteStatus, data)
-		return &VoteInfo{addr, *nodeName}
+		return &types.VoteInfo{addr, *nodeName}
 	}
 	return nil
 }
 
-func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
+func GetVoteList(db StorageDatabase, gid types.Gid) []*types.VoteInfo {
 	defer monitor.LogTime("vm", "GetVoteList", time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
@@ -68,7 +64,7 @@ func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
 	} else {
 		iterator = db.NewStorageIterator(&AddressVote, gid.Bytes())
 	}
-	voteInfoList := make([]*VoteInfo, 0)
+	voteInfoList := make([]*types.VoteInfo, 0)
 	if iterator == nil {
 		return voteInfoList
 	}
@@ -80,7 +76,7 @@ func GetVoteList(db StorageDatabase, gid types.Gid) []*VoteInfo {
 		voterAddr := GetAddrFromVoteKey(key)
 		nodeName := new(string)
 		if err := ABIVote.UnpackVariable(nodeName, VariableNameVoteStatus, value); err == nil {
-			voteInfoList = append(voteInfoList, &VoteInfo{voterAddr, *nodeName})
+			voteInfoList = append(voteInfoList, &types.VoteInfo{voterAddr, *nodeName})
 		}
 	}
 	return voteInfoList

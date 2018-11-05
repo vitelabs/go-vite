@@ -7,14 +7,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/contracts"
 )
 
 type ch interface {
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
-	GetConsensusGroupList(snapshotHash types.Hash) ([]*contracts.ConsensusGroupInfo, error)                                                 // Get all consensus group
-	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*contracts.Registration, error)                                              // Get register for consensus group
-	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*contracts.VoteInfo, error)                                                       // Get the candidate's vote
+	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                     // Get all consensus group
+	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                                  // Get register for consensus group
+	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                           // Get the candidate's vote
 	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error) // Get balance for addressList
 	GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
 	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
@@ -65,7 +64,7 @@ func (self *chainRw) CalVotes(gid types.Gid, info *membersInfo, block ledger.Has
 	}
 	return registers, nil
 }
-func (self *chainRw) GenVote(snapshotHash types.Hash, registration *contracts.Registration, infos []*contracts.VoteInfo, id types.TokenTypeId) *Vote {
+func (self *chainRw) GenVote(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *Vote {
 	var addrs []types.Address
 	for _, v := range infos {
 		if v.NodeName == registration.Name {
@@ -94,7 +93,7 @@ func (self *chainRw) CalVoteDetails(gid types.Gid, info *membersInfo, block ledg
 	}
 	return registers, nil
 }
-func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *contracts.Registration, infos []*contracts.VoteInfo, id types.TokenTypeId) *VoteDetails {
+func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *VoteDetails {
 	var addrs []types.Address
 	for _, v := range infos {
 		if v.NodeName == registration.Name {

@@ -82,7 +82,7 @@ func (c *chain) GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address
 	return quota.GetPledgeQuota(vmContext, beneficial, pledgeAmount), nil
 }
 
-func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*contracts.Registration, error) {
+func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetCandidateList")
@@ -91,7 +91,7 @@ func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*cont
 	return contracts.GetCandidateList(vmContext, gid), nil
 }
 
-func (c *chain) GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*contracts.VoteInfo, error) {
+func (c *chain) GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error) {
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetVoteList")
@@ -109,7 +109,7 @@ func (c *chain) GetPledgeAmount(snapshotHash types.Hash, beneficial types.Addres
 	return contracts.GetPledgeBeneficialAmount(vmContext, beneficial), nil
 }
 
-func (c *chain) GetConsensusGroupList(snapshotHash types.Hash) ([]*contracts.ConsensusGroupInfo, error) {
+func (c *chain) GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error) {
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetActiveConsensusGroupList")
@@ -132,7 +132,7 @@ func (c *chain) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenT
 	return balanceList, nil
 }
 
-func (c *chain) GetTokenInfoById(tokenId *types.TokenTypeId) (*contracts.TokenInfo, error) {
+func (c *chain) GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, error) {
 	vmContext, err := vm_context.NewVmContext(c, nil, nil, &contracts.AddressMintage)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetTokenInfoById")

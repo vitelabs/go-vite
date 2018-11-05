@@ -40,16 +40,6 @@ type ParamMintage struct {
 	Decimals    uint8
 }
 
-type TokenInfo struct {
-	TokenName      string        `json:"tokenName"`
-	TokenSymbol    string        `json:"tokenSymbol"`
-	TotalSupply    *big.Int      `json:"totalSupply"`
-	Decimals       uint8         `json:"decimals"`
-	Owner          types.Address `json:"owner"`
-	PledgeAmount   *big.Int      `json:"pledgeAmount"`
-	WithdrawHeight uint64        `json:"withdrawHeight"`
-}
-
 func GetMintageKey(tokenId types.TokenTypeId) []byte {
 	return helper.LeftPadBytes(tokenId.Bytes(), types.HashSize)
 }
@@ -66,20 +56,20 @@ func NewTokenId(accountAddress types.Address, accountBlockHeight uint64, prevBlo
 		snapshotHash.Bytes())
 }
 
-func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *TokenInfo {
+func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *types.TokenInfo {
 	data := db.GetStorage(&AddressMintage, GetMintageKey(tokenId))
 	if len(data) > 0 {
-		tokenInfo := new(TokenInfo)
+		tokenInfo := new(types.TokenInfo)
 		ABIMintage.UnpackVariable(tokenInfo, VariableNameMintage, data)
 		return tokenInfo
 	}
 	return nil
 }
 
-func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*TokenInfo {
+func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*types.TokenInfo {
 	defer monitor.LogTime("vm", "GetTokenMap", time.Now())
 	iterator := db.NewStorageIterator(&AddressMintage, nil)
-	tokenInfoMap := make(map[types.TokenTypeId]*TokenInfo)
+	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
 	if iterator == nil {
 		return tokenInfoMap
 	}
@@ -89,7 +79,7 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*TokenInfo {
 			break
 		}
 		tokenId := GetTokenIdFromMintageKey(key)
-		tokenInfo := new(TokenInfo)
+		tokenInfo := new(types.TokenInfo)
 		if err := ABIMintage.UnpackVariable(tokenInfo, VariableNameMintage, value); err == nil {
 			tokenInfoMap[tokenId] = tokenInfo
 		}
@@ -227,7 +217,7 @@ func (p *MethodMintageCancelPledge) DoReceive(context contractsContext, block *v
 	tokenId := new(types.TokenTypeId)
 	ABIMintage.UnpackMethod(tokenId, MethodNameMintageCancelPledge, sendBlock.Data)
 	storageKey := GetMintageKey(*tokenId)
-	tokenInfo := new(TokenInfo)
+	tokenInfo := new(types.TokenInfo)
 	ABIMintage.UnpackVariable(tokenInfo, VariableNameMintage, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, storageKey))
 
 	if tokenInfo.Owner != sendBlock.AccountAddress ||

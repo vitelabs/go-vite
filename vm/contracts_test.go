@@ -1255,7 +1255,7 @@ func TestCheckCreateConsensusGroupData(t *testing.T) {
 	db, _, _, _, _, _ := prepareDb(big.NewInt(1))
 	for i, test := range tests {
 		inputdata, _ := hex.DecodeString(test.data)
-		param := new(contracts.ConsensusGroupInfo)
+		param := new(types.ConsensusGroupInfo)
 		err := contracts.ABIConsensusGroup.UnpackMethod(param, contracts.MethodNameCreateConsensusGroup, inputdata)
 		if err != nil {
 			t.Fatalf("unpack create consensus group param error, data: [%v]", test.data)

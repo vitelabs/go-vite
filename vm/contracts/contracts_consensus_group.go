@@ -48,26 +48,6 @@ type VariableConditionVoteOfKeepToken struct {
 	KeepAmount *big.Int
 	KeepToken  types.TokenTypeId
 }
-type ConsensusGroupInfo struct {
-	Gid                    types.Gid         // Consensus group id
-	NodeCount              uint8             // Active miner count
-	Interval               int64             // Timestamp gap between two continuous block
-	PerCount               int64             // Continuous block generation interval count
-	RandCount              uint8             // Random miner count
-	RandRank               uint8             // Chose random miner with a rank limit of vote
-	CountingTokenId        types.TokenTypeId // Token id for selecting miner through vote
-	RegisterConditionId    uint8
-	RegisterConditionParam []byte
-	VoteConditionId        uint8
-	VoteConditionParam     []byte
-	Owner                  types.Address
-	PledgeAmount           *big.Int
-	WithdrawHeight         uint64
-}
-
-func (groupInfo *ConsensusGroupInfo) IsActive() bool {
-	return groupInfo.WithdrawHeight > 0
-}
 
 func GetConsensusGroupKey(gid types.Gid) []byte {
 	return helper.LeftPadBytes(gid.Bytes(), types.HashSize)
@@ -85,10 +65,10 @@ func NewGid(accountAddress types.Address, accountBlockHeight uint64, prevBlockHa
 		snapshotHash.Bytes())
 }
 
-func GetActiveConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
+func GetActiveConsensusGroupList(db StorageDatabase) []*types.ConsensusGroupInfo {
 	defer monitor.LogTime("vm", "GetActiveConsensusGroupList", time.Now())
 	iterator := db.NewStorageIterator(&AddressConsensusGroup, nil)
-	consensusGroupInfoList := make([]*ConsensusGroupInfo, 0)
+	consensusGroupInfoList := make([]*types.ConsensusGroupInfo, 0)
 	if iterator == nil {
 		return consensusGroupInfoList
 	}
@@ -97,7 +77,7 @@ func GetActiveConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 		if !ok {
 			break
 		}
-		consensusGroupInfo := new(ConsensusGroupInfo)
+		consensusGroupInfo := new(types.ConsensusGroupInfo)
 		if err := ABIConsensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, value); err == nil {
 			if consensusGroupInfo.IsActive() {
 				consensusGroupInfo.Gid = GetGidFromConsensusGroupKey(key)
@@ -108,10 +88,10 @@ func GetActiveConsensusGroupList(db StorageDatabase) []*ConsensusGroupInfo {
 	return consensusGroupInfoList
 }
 
-func GetConsensusGroup(db StorageDatabase, gid types.Gid) *ConsensusGroupInfo {
+func GetConsensusGroup(db StorageDatabase, gid types.Gid) *types.ConsensusGroupInfo {
 	data := db.GetStorage(&AddressConsensusGroup, GetConsensusGroupKey(gid))
 	if len(data) > 0 {
-		consensusGroupInfo := new(ConsensusGroupInfo)
+		consensusGroupInfo := new(types.ConsensusGroupInfo)
 		ABIConsensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)
 		consensusGroupInfo.Gid = gid
 		return consensusGroupInfo
@@ -139,7 +119,7 @@ func (p *MethodCreateConsensusGroup) DoSend(context contractsContext, block *vm_
 		!IsUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
 		return quotaLeft, errors.New("invalid block data")
 	}
-	param := new(ConsensusGroupInfo)
+	param := new(types.ConsensusGroupInfo)
 	err = ABIConsensusGroup.UnpackMethod(param, MethodNameCreateConsensusGroup, block.AccountBlock.Data)
 	if err != nil {
 		return quotaLeft, err
@@ -167,7 +147,7 @@ func (p *MethodCreateConsensusGroup) DoSend(context contractsContext, block *vm_
 	block.AccountBlock.Data = paramData
 	return quotaLeft, nil
 }
-func CheckCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *ConsensusGroupInfo) error {
+func CheckCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *types.ConsensusGroupInfo) error {
 	if param.NodeCount < cgNodeCountMin || param.NodeCount > cgNodeCountMax ||
 		param.Interval < cgIntervalMin || param.Interval > cgIntervalMax ||
 		param.PerCount < cgPerCountMin || param.PerCount > cgPerCountMax ||
@@ -199,7 +179,7 @@ func checkCondition(db vmctxt_interface.VmDatabase, conditionId uint8, condition
 	return nil
 }
 func (p *MethodCreateConsensusGroup) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
-	param := new(ConsensusGroupInfo)
+	param := new(types.ConsensusGroupInfo)
 	ABIConsensusGroup.UnpackMethod(param, MethodNameCreateConsensusGroup, sendBlock.Data)
 	key := GetConsensusGroupKey(param.Gid)
 	if len(block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key)) > 0 {

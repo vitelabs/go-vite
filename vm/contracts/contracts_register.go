@@ -52,20 +52,6 @@ type ParamReward struct {
 	Name           string
 	BeneficialAddr types.Address
 }
-type Registration struct {
-	Name           string
-	NodeAddr       types.Address
-	PledgeAddr     types.Address
-	Amount         *big.Int
-	WithdrawHeight uint64
-	RewardHeight   uint64
-	CancelHeight   uint64
-	HisAddrList    []types.Address
-}
-
-func (r *Registration) IsActive() bool {
-	return r.CancelHeight == 0
-}
 
 func GetRegisterKey(name string, gid types.Gid) []byte {
 	return append(gid.Bytes(), types.DataHash([]byte(name)).Bytes()[types.GidSize:]...)
@@ -81,7 +67,7 @@ func IsRegisterKey(key []byte) bool {
 
 func IsActiveRegistration(db StorageDatabase, name string, gid types.Gid) bool {
 	if value := db.GetStorage(&AddressRegister, GetRegisterKey(name, gid)); len(value) > 0 {
-		registration := new(Registration)
+		registration := new(types.Registration)
 		if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
 			return registration.IsActive()
 		}
@@ -89,7 +75,7 @@ func IsActiveRegistration(db StorageDatabase, name string, gid types.Gid) bool {
 	return false
 }
 
-func GetCandidateList(db StorageDatabase, gid types.Gid) []*Registration {
+func GetCandidateList(db StorageDatabase, gid types.Gid) []*types.Registration {
 	defer monitor.LogTime("vm", "GetCandidateList", time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
@@ -97,7 +83,7 @@ func GetCandidateList(db StorageDatabase, gid types.Gid) []*Registration {
 	} else {
 		iterator = db.NewStorageIterator(&AddressRegister, gid.Bytes())
 	}
-	registerList := make([]*Registration, 0)
+	registerList := make([]*types.Registration, 0)
 	if iterator == nil {
 		return registerList
 	}
@@ -107,7 +93,7 @@ func GetCandidateList(db StorageDatabase, gid types.Gid) []*Registration {
 			break
 		}
 		if IsRegisterKey(key) {
-			registration := new(Registration)
+			registration := new(types.Registration)
 			if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil && registration.IsActive() {
 				registerList = append(registerList, registration)
 			}
@@ -116,7 +102,7 @@ func GetCandidateList(db StorageDatabase, gid types.Gid) []*Registration {
 	return registerList
 }
 
-func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Address) []*Registration {
+func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Address) []*types.Registration {
 	defer monitor.LogTime("vm", "GetRegistrationList", time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
@@ -124,7 +110,7 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Add
 	} else {
 		iterator = db.NewStorageIterator(&AddressRegister, gid.Bytes())
 	}
-	registerList := make([]*Registration, 0)
+	registerList := make([]*types.Registration, 0)
 	if iterator == nil {
 		return registerList
 	}
@@ -134,7 +120,7 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Add
 			break
 		}
 		if IsRegisterKey(key) {
-			registration := new(Registration)
+			registration := new(types.Registration)
 			if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil && registration.PledgeAddr == pledgeAddr {
 				registerList = append(registerList, registration)
 			}
@@ -198,7 +184,7 @@ func (p *MethodRegister) DoReceive(context contractsContext, block *vm_context.V
 	oldData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key)
 	var hisAddrList []types.Address
 	if len(oldData) > 0 {
-		old := new(Registration)
+		old := new(types.Registration)
 		ABIRegister.UnpackVariable(old, VariableNameRegistration, oldData)
 		if old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
 			return errors.New("register data exist")
@@ -284,7 +270,7 @@ func (p *MethodCancelRegister) DoReceive(context contractsContext, block *vm_con
 	snapshotBlock := block.VmContext.CurrentSnapshotBlock()
 
 	key := GetRegisterKey(param.Name, param.Gid)
-	old := new(Registration)
+	old := new(types.Registration)
 	err := ABIRegister.UnpackVariable(
 		old,
 		VariableNameRegistration,
@@ -356,7 +342,7 @@ func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmA
 	param := new(ParamReward)
 	ABIRegister.UnpackMethod(param, MethodNameReward, sendBlock.Data)
 	key := GetRegisterKey(param.Name, param.Gid)
-	old := new(Registration)
+	old := new(types.Registration)
 	err := ABIRegister.UnpackVariable(old, VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
 	if err != nil || sendBlock.AccountAddress != old.PledgeAddr {
 		return errors.New("invalid owner")
@@ -393,7 +379,7 @@ func (p *MethodReward) DoReceive(context contractsContext, block *vm_context.VmA
 	return nil
 }
 
-func CalcReward(db vmctxt_interface.VmDatabase, old *Registration, total bool) (uint64, uint64, *big.Int) {
+func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, total bool) (uint64, uint64, *big.Int) {
 	if db.CurrentSnapshotBlock().Height < nodeConfig.params.RewardHeightLimit {
 		return old.RewardHeight, old.RewardHeight, big.NewInt(0)
 	}
@@ -474,7 +460,7 @@ func (p *MethodUpdateRegistration) DoReceive(context contractsContext, block *vm
 	ABIRegister.UnpackMethod(param, MethodNameUpdateRegistration, sendBlock.Data)
 
 	key := GetRegisterKey(param.Name, param.Gid)
-	old := new(Registration)
+	old := new(types.Registration)
 	err := ABIRegister.UnpackVariable(old, VariableNameRegistration, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, key))
 	if err != nil || !old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
 		return errors.New("register not exist or already canceled")
