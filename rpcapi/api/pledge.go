@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
 	"sort"
-	"time"
 )
 
 type PledgeApi struct {
@@ -96,12 +95,4 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 			getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight)}
 	}
 	return &PledgeInfoList{*bigIntToString(amount), len(list), targetList}, nil
-}
-
-const (
-	secondBetweenSnapshotBlocks int64 = 1
-)
-
-func getWithdrawTime(snapshotTime *time.Time, snapshotHeight uint64, withdrawHeight uint64) int64 {
-	return snapshotTime.Unix() + int64(withdrawHeight-snapshotHeight)*secondBetweenSnapshotBlocks
 }

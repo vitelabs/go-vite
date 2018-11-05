@@ -44,6 +44,8 @@ type RegistrationInfo struct {
 	PledgeAddr           types.Address `json:"pledgeAddr"`
 	PledgeAmount         string        `json:"pledgeAmount"`
 	WithdrawHeight       string        `json:"withdrawHeight"`
+	WithdrawTime         int64         `json:"withdrawTime"`
+	CancelHeight         string        `json:"cancelHeight"`
 	AvailableReward      string        `json:"availableReward"`
 	AvailableRewardOneTx string        `json:"availableRewardOneTx"`
 	StartHeight          string        `json:"rewardStartHeight"`
@@ -68,6 +70,8 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 				PledgeAddr:           info.PledgeAddr,
 				PledgeAmount:         *bigIntToString(info.Amount),
 				WithdrawHeight:       uint64ToString(info.WithdrawHeight),
+				WithdrawTime:         getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
+				CancelHeight:         uint64ToString(info.CancelHeight),
 				AvailableReward:      *bigIntToString(availableReward),
 				AvailableRewardOneTx: *bigIntToString(availableRewardOneTx),
 				StartHeight:          uint64ToString(startHeight),
