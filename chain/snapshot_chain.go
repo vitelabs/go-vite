@@ -138,7 +138,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 		}
 
 		if accountBlockMeta.SnapshotHeight <= 0 {
-			c.log.Crit("AccountBlockMeta.SnapshotHeight <= 0.", "method", "CheckInsertSnapshotBlock")
+			c.log.Error("AccountBlockMeta.SnapshotHeight <= 0.", "method", "CheckInsertSnapshotBlock")
 		}
 
 	}
