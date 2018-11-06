@@ -47,7 +47,6 @@ type RegistrationInfo struct {
 	WithdrawHeight       string        `json:"withdrawHeight"`
 	WithdrawTime         int64         `json:"withdrawTime"`
 	CancelHeight         string        `json:"cancelHeight"`
-	AvailableReward      string        `json:"availableReward"`
 	AvailableRewardOneTx string        `json:"availableRewardOneTx"`
 	StartHeight          string        `json:"rewardStartHeight"`
 	EndHeight            string        `json:"rewardEndHeight"`
@@ -63,8 +62,10 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	targetList := make([]*RegistrationInfo, len(list))
 	if len(list) > 0 {
 		for i, info := range list {
-			startHeight, endHeight, availableRewardOneTx := contracts.CalcReward(vmContext, info, false)
-			_, _, availableReward := contracts.CalcReward(vmContext, info, true)
+			startHeight, endHeight, availableRewardOneTx, err := contracts.CalcReward(vmContext, info, gid)
+			if err != nil {
+				return nil, err
+			}
 			targetList[i] = &RegistrationInfo{
 				Name:                 info.Name,
 				NodeAddr:             info.NodeAddr,
@@ -73,8 +74,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 				WithdrawHeight:       uint64ToString(info.WithdrawHeight),
 				WithdrawTime:         getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
 				CancelHeight:         uint64ToString(info.CancelHeight),
-				AvailableReward:      *bigIntToString(availableReward),
-				AvailableRewardOneTx: *bigIntToString(availableRewardOneTx),
+				AvailableRewardOneTx: *bigIntToString(availableRewardOneTx), // TODO get available reward by another method
 				StartHeight:          uint64ToString(startHeight),
 				EndHeight:            uint64ToString(endHeight),
 			}

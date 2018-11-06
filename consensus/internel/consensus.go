@@ -10,20 +10,24 @@ import (
 )
 
 type Detail struct {
-	PlanNum   uint64
-	ActualNum uint64
+	PlanNum   uint64 // member plan cnt
+	ActualNum uint64 // member actual cnt
 	//top100, index: nodeName: balance
-	VoteM map[uint64]map[string]*big.Int
+	PeriodM map[uint64]*PeriodDetails
 }
 
-func PeriodTime(info *types.ConsensusGroupInfo) (uint64, error) {
-	return 0, nil
-}
-func TimeToIndex(time, genesisTime time.Time, info *types.ConsensusGroupInfo) (uint64, error) {
-	return 0, nil
+type PeriodDetails struct {
+	ActualNum uint64 // actual block num in period
+	VoteMap   map[string]*big.Int
 }
 
-// return
-func GetDetail(startIndex, endIndex uint64, info *types.ConsensusGroupInfo, register *types.Registration, database vmctxt_interface.VmDatabase) (*Detail, error) {
-	return nil, nil
+type ConsensusReader interface {
+	PeriodTime(info *types.ConsensusGroupInfo) (uint64, error)
+	TimeToIndex(time, genesisTime time.Time, info *types.ConsensusGroupInfo) (uint64, error)
+	// return
+	Detail(startIndex, endIndex uint64, info *types.ConsensusGroupInfo, register *types.Registration, database vmctxt_interface.VmDatabase) (*Detail, error)
+}
+
+func NewReader(info *types.ConsensusGroupInfo) ConsensusReader {
+	return nil
 }

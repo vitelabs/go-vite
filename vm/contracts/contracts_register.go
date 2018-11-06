@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/internel"
 	"github.com/vitelabs/go-vite/ledger"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -61,7 +62,18 @@ func (p *MethodRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger
 	// Registration is not exist
 	// or registration is not active and belongs to sender account
 	snapshotBlock := db.CurrentSnapshotBlock()
-	rewardHeight := snapshotBlock.Height
+
+	var rewardIndex = uint64(0)
+	var err error
+	if param.Gid == types.SNAPSHOT_GID {
+		groupInfo := cabi.GetConsensusGroup(db, param.Gid)
+		reader := internel.NewReader(groupInfo)
+		// TODO Why TimeToIndex returns error
+		rewardIndex, err = reader.TimeToIndex(*snapshotBlock.Timestamp, *db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
+		if err != nil {
+			return nil, err
+		}
+	}
 	key := cabi.GetRegisterKey(param.Name, param.Gid)
 	oldData := db.GetStorage(&block.AccountAddress, key)
 	var hisAddrList []types.Address
@@ -71,17 +83,14 @@ func (p *MethodRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger
 		if old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
 			return nil, errors.New("register data exist")
 		}
-		// reward of last being a super node is not drained
-		if old.RewardHeight < old.CancelHeight {
-			rewardHeight = old.RewardHeight
-		}
+		// TODO check reward of last being a super node is not drained?
 		hisAddrList = old.HisAddrList
 	}
 
 	// Node addr belong to one name in a consensus group
 	hisNameKey := cabi.GetHisNameKey(param.NodeAddr, param.Gid)
 	hisName := new(string)
-	err := cabi.ABIRegister.UnpackVariable(hisName, cabi.VariableNameHisName, db.GetStorage(&block.AccountAddress, hisNameKey))
+	err = cabi.ABIRegister.UnpackVariable(hisName, cabi.VariableNameHisName, db.GetStorage(&block.AccountAddress, hisNameKey))
 	if err == nil && *hisName != param.Name {
 		return nil, errors.New("node address is registered to another name before")
 	}
@@ -99,7 +108,7 @@ func (p *MethodRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger
 		sendBlock.AccountAddress,
 		sendBlock.Amount,
 		getRegisterWithdrawHeight(db, param.Gid, snapshotBlock.Height),
-		rewardHeight,
+		rewardIndex,
 		uint64(0),
 		hisAddrList)
 	db.SetStorage(key, registerInfo)
@@ -169,7 +178,7 @@ func (p *MethodCancelRegister) DoReceive(db vmctxt_interface.VmDatabase, block *
 		old.PledgeAddr,
 		helper.Big0,
 		uint64(0),
-		old.RewardHeight,
+		old.RewardIndex,
 		snapshotBlock.Height,
 		old.HisAddrList)
 	db.SetStorage(key, registerInfo)
@@ -228,8 +237,11 @@ func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.A
 	if err != nil || sendBlock.AccountAddress != old.PledgeAddr {
 		return nil, errors.New("invalid owner")
 	}
-	_, endHeight, reward := CalcReward(db, old, false)
-	if endHeight != old.RewardHeight {
+	_, endIndex, reward, err := CalcReward(db, old, param.Gid)
+	if err != nil {
+		panic(err)
+	}
+	if endIndex != old.RewardIndex {
 		registerInfo, _ := cabi.ABIRegister.PackVariable(
 			cabi.VariableNameRegistration,
 			old.Name,
@@ -237,7 +249,7 @@ func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.A
 			old.PledgeAddr,
 			old.Amount,
 			old.WithdrawHeight,
-			endHeight,
+			endIndex,
 			old.CancelHeight,
 			old.HisAddrList)
 		db.SetStorage(key, registerInfo)
@@ -258,52 +270,113 @@ func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.A
 	return nil, nil
 }
 
-func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, total bool) (uint64, uint64, *big.Int) {
-	if db.CurrentSnapshotBlock().Height < nodeConfig.params.RewardHeightLimit {
-		return old.RewardHeight, old.RewardHeight, big.NewInt(0)
+func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid types.Gid) (uint64, uint64, *big.Int, error) {
+	currentSnapshotBlock := db.CurrentSnapshotBlock()
+	genesisTime := db.GetGenesisSnapshotBlock().Timestamp
+	groupInfo := cabi.GetConsensusGroup(db, gid)
+	if groupInfo == nil {
+		return old.RewardIndex, old.RewardIndex, big.NewInt(0), errors.New("consensus group info not exist")
 	}
-	// startHeight exclusive, endHeight inclusive
-	startHeight := old.RewardHeight
-	endHeight := db.CurrentSnapshotBlock().Height - nodeConfig.params.RewardHeightLimit
-	if !old.IsActive() {
-		endHeight = helper.Min(endHeight, old.CancelHeight)
-	}
-	if !total {
-		endHeight = helper.Min(endHeight, startHeight+MaxRewardCount)
-	}
-	if endHeight <= startHeight {
-		return old.RewardHeight, old.RewardHeight, big.NewInt(0)
-	}
-	count := endHeight - startHeight
+	reader := internel.NewReader(groupInfo)
 
-	startHeight = startHeight + 1
-	rewardCount := uint64(0)
-	producerMap := make(map[types.Address]interface{})
-	for _, producer := range old.HisAddrList {
-		producerMap[producer] = struct{}{}
+	if currentSnapshotBlock.Height < nodeConfig.params.RewardEndHeightLimit ||
+		old.RewardIndex == 0 {
+		return old.RewardIndex, old.RewardIndex, big.NewInt(0), nil
 	}
-	for count > 0 {
-		var list []*ledger.SnapshotBlock
-		if count < dbPageSize {
-			list = db.GetSnapshotBlocks(startHeight, count, true, false)
-			count = 0
-		} else {
-			list = db.GetSnapshotBlocks(startHeight, dbPageSize, true, false)
-			count = count - dbPageSize
-			startHeight = startHeight + dbPageSize
+	var cancelIndex = uint64(0)
+	var err error
+	if !old.IsActive() {
+		cancelIndex, err = reader.TimeToIndex(*db.GetSnapshotBlockByHeight(old.CancelHeight).Timestamp, *genesisTime, groupInfo)
+		if err != nil {
+			return old.RewardIndex, old.RewardIndex, big.NewInt(0), err
 		}
-		for _, block := range list {
-			if _, ok := producerMap[block.Producer()]; ok {
-				rewardCount++
+		cancelIndex = cancelIndex
+		if old.RewardIndex >= cancelIndex {
+			return old.RewardIndex, old.RewardIndex, big.NewInt(0), nil
+		}
+	}
+
+	indexPeriodTime, err := reader.PeriodTime(groupInfo)
+	if err != nil {
+		return old.RewardIndex, old.RewardIndex, big.NewInt(0), err
+	}
+	indexPerDay := SecondPerDay / indexPeriodTime
+
+	startIndex, err := reader.TimeToIndex(*db.GetSnapshotBlockByHeight(old.RewardIndex).Timestamp, *genesisTime, groupInfo)
+	startIndex = startIndex + 1
+
+	endIndex := uint64(0)
+	if !old.IsActive() {
+		endIndex = cancelIndex
+	} else {
+		endHeight := db.CurrentSnapshotBlock().Height - nodeConfig.params.RewardEndHeightLimit
+		endIndex, err = reader.TimeToIndex(*db.GetSnapshotBlockByHeight(endHeight).Timestamp, *genesisTime, groupInfo)
+		if err != nil {
+			return old.RewardIndex, old.RewardIndex, big.NewInt(0), err
+		}
+	}
+
+	indexCount := uint64(0)
+	if endIndexLimit := startIndex + indexPerDay*RewardDayLimit; endIndex >= endIndexLimit {
+		indexCount = indexPerDay * RewardDayLimit
+		endIndex = endIndexLimit
+	} else if !old.IsActive() {
+		indexCount = indexPerDay * ((endIndex - startIndex + indexPerDay - 1) / indexPerDay)
+	} else {
+		indexCount = indexPerDay * ((endIndex - startIndex + indexPerDay - 1) / indexPerDay)
+		endIndex = startIndex + indexPerDay*indexCount
+	}
+
+	if endIndex <= startIndex {
+		return old.RewardIndex, old.RewardIndex, big.NewInt(0), nil
+	}
+
+	rewardF := new(big.Float).SetPrec(rewardPrecForFloat).SetInt64(0)
+	tmp1 := new(big.Float).SetPrec(rewardPrecForFloat).SetInt64(0)
+	tmp2 := new(big.Float).SetPrec(rewardPrecForFloat).SetInt64(0)
+	tmp3 := new(big.Float).SetPrec(rewardPrecForFloat).SetInt64(0)
+	for indexCount > 0 {
+		var dayInfo *internel.Detail
+		if indexCount < indexPerDay {
+			dayInfo, err = reader.Detail(startIndex, startIndex+indexCount, groupInfo, old, db)
+			indexCount = 0
+		} else {
+			dayInfo, err = reader.Detail(startIndex, startIndex+indexPerDay, groupInfo, old, db)
+			indexCount = indexCount - indexPerDay
+			startIndex = startIndex + indexPerDay
+		}
+		if dayInfo.ActualNum == 0 {
+			continue
+		}
+
+		for _, periodInfo := range dayInfo.PeriodM {
+			if periodInfo.ActualNum == 0 {
+				continue
+			}
+			if voteCount, ok := periodInfo.VoteMap[old.Name]; ok && voteCount.Sign() > 0 {
+				totalVoteCount := big.NewInt(0)
+				for _, voteCount := range periodInfo.VoteMap {
+					totalVoteCount.Add(totalVoteCount, voteCount)
+				}
+				tmp1.Quo(tmp1.SetInt(voteCount), tmp2.SetInt(totalVoteCount))
+				tmp1.Mul(tmp1, tmp2.SetUint64(periodInfo.ActualNum))
+				tmp3.Add(tmp3, tmp1)
 			}
 		}
+		tmp1.Quo(tmp2.SetUint64(dayInfo.ActualNum), tmp1.SetUint64(dayInfo.PlanNum))
+		tmp1.Mul(tmp1, tmp3)
+		tmp1.Add(tmp1, float1)
+		tmp1.Mul(tmp1, tmp2)
+		rewardF.Add(rewardF, tmp1)
+
+		tmp3.SetUint64(0)
 	}
-	if rewardCount > 0 {
-		reward := new(big.Int).SetUint64(rewardCount)
-		reward.Mul(rewardPerBlock, reward)
-		return old.RewardHeight, endHeight, reward
+	reward, _ := new(big.Int).SetString(rewardF.Text('f', 0), 10)
+	if reward.Sign() > 0 {
+		reward.Mul(reward, rewardPerBlock)
+		reward.Quo(reward, helper.Big2)
 	}
-	return old.RewardHeight, endHeight, big.NewInt(0)
+	return old.RewardIndex, endIndex, reward, nil
 }
 
 type MethodUpdateRegistration struct {
@@ -365,7 +438,7 @@ func (p *MethodUpdateRegistration) DoReceive(db vmctxt_interface.VmDatabase, blo
 		old.PledgeAddr,
 		old.Amount,
 		old.WithdrawHeight,
-		old.RewardHeight,
+		old.RewardIndex,
 		old.CancelHeight,
 		old.HisAddrList)
 	db.SetStorage(key, registerInfo)
