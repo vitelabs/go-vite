@@ -403,8 +403,7 @@ func (context *VmContext) GetBalanceList(snapshotHash types.Hash, tokenTypeId ty
 	return balanceList, nil
 }
 func (context *VmContext) GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error) {
-	// TODO
-	return nil, nil
+	return context.chain.GetSnapshotBlockBeforeTime(timestamp)
 }
 
 func (context *VmContext) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
