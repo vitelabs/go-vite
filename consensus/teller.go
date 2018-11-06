@@ -8,28 +8,28 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus/internal"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
 
 // Ensure that all nodes get same result
 type teller struct {
-	info *internal.GroupInfo
+	info *core.GroupInfo
 	//voteCache map[int32]*electionResult
 	voteCache *lru.Cache
 	rw        *chainRw
-	algo      internal.Algo
+	algo      core.Algo
 
 	mLog log15.Logger
 }
 
-func newTeller(info *internal.GroupInfo, rw *chainRw, log log15.Logger) *teller {
+func newTeller(info *core.GroupInfo, rw *chainRw, log log15.Logger) *teller {
 
 	t := &teller{rw: rw}
 	//t.info = &membersInfo{genesisTime: genesisTime, memberCnt: memberCnt, interval: interval, perCnt: perCnt, randCnt: 2, LowestLimit: big.NewInt(1000)}
 	t.info = info
-	t.algo = internal.NewAlgo(t.info)
+	t.algo = core.NewAlgo(t.info)
 	t.mLog = log.New("gid", info.Gid.String())
 	t.mLog.Info("new teller.", "membersInfo", info.String())
 	cache, err := lru.New(1024 * 10)
@@ -116,14 +116,14 @@ func (self *teller) voteTime(i uint64) time.Time {
 	return sTime
 }
 
-func (self *teller) findSeed(votes []*internal.Vote) int64 {
+func (self *teller) findSeed(votes []*core.Vote) int64 {
 	result := big.NewInt(0)
 	for _, v := range votes {
 		result.Add(result, v.Balance)
 	}
 	return result.Int64()
 }
-func (self *teller) convertToAddress(votes []*internal.Vote) []types.Address {
+func (self *teller) convertToAddress(votes []*core.Vote) []types.Address {
 	var result []types.Address
 	for _, v := range votes {
 		result = append(result, v.Addr)

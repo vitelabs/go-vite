@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus/internal"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -31,7 +31,7 @@ type chainRw struct {
 }
 
 type VoteDetails struct {
-	internal.Vote
+	core.Vote
 	CurrentAddr  types.Address
 	RegisterList []types.Address
 	Addr         map[types.Address]*big.Int
@@ -63,11 +63,11 @@ func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, 
 	return block, nil
 }
 
-func (self *chainRw) CalVotes(info *internal.GroupInfo, block ledger.HashHeight) ([]*internal.Vote, error) {
-	return internal.CalVotes(info, block, self.rw)
+func (self *chainRw) CalVotes(info *core.GroupInfo, block ledger.HashHeight) ([]*core.Vote, error) {
+	return core.CalVotes(info, block, self.rw)
 }
 
-func (self *chainRw) CalVoteDetails(gid types.Gid, info *internal.GroupInfo, block ledger.HashHeight) ([]*VoteDetails, error) {
+func (self *chainRw) CalVoteDetails(gid types.Gid, info *core.GroupInfo, block ledger.HashHeight) ([]*VoteDetails, error) {
 	// query register info
 	registerList, _ := self.rw.GetRegisterList(block.Hash, gid)
 	// query vote info
@@ -96,7 +96,7 @@ func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *types
 		balanceTotal.Add(balanceTotal, v)
 	}
 	return &VoteDetails{
-		Vote: internal.Vote{
+		Vote: core.Vote{
 			Name:    registration.Name,
 			Addr:    registration.NodeAddr,
 			Balance: balanceTotal,
@@ -106,14 +106,14 @@ func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *types
 	}
 }
 
-func (self *chainRw) GetMemberInfo(gid types.Gid, genesis time.Time) *internal.GroupInfo {
+func (self *chainRw) GetMemberInfo(gid types.Gid, genesis time.Time) *core.GroupInfo {
 	// todo consensus group maybe change ??
-	var result *internal.GroupInfo
+	var result *core.GroupInfo
 	head := self.rw.GetLatestSnapshotBlock()
 	consensusGroupList, _ := self.rw.GetConsensusGroupList(head.Hash)
 	for _, v := range consensusGroupList {
 		if v.Gid == gid {
-			result = internal.NewGroupInfo(genesis, *v)
+			result = core.NewGroupInfo(genesis, *v)
 		}
 	}
 

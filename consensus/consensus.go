@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus/internal"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -25,7 +25,7 @@ type Event struct {
 }
 
 type electionResult struct {
-	Plans  []*internal.MemberPlan
+	Plans  []*core.MemberPlan
 	STime  time.Time
 	ETime  time.Time
 	Index  uint64

@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus/internal"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
@@ -372,7 +372,7 @@ func (self *committee) eventAddr(e *subscribeEvent, result *electionResult) {
 	}
 }
 
-func newConsensusEvent(r *electionResult, p *internal.MemberPlan, gid types.Gid) Event {
+func newConsensusEvent(r *electionResult, p *core.MemberPlan, gid types.Gid) Event {
 	return Event{
 		Gid:            gid,
 		Address:        p.Member,

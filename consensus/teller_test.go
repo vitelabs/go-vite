@@ -11,14 +11,14 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus/internal"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
 
 func TestFilterVotes(t *testing.T) {
 
-	info := internal.NewGroupInfo(time.Now(), types.ConsensusGroupInfo{NodeCount: 25, Interval: 1, PerCount: 3, RandCount: 0})
+	info := core.NewGroupInfo(time.Now(), types.ConsensusGroupInfo{NodeCount: 25, Interval: 1, PerCount: 3, RandCount: 0})
 
 	teller := newTeller(info, &chainRw{}, log15.New("module", "unitTest"))
 	votes := genVotes(10)
@@ -32,7 +32,7 @@ func TestFilterVotes(t *testing.T) {
 }
 
 func TestMembersInfo(t *testing.T) {
-	info := internal.NewGroupInfo(time.Now(), types.ConsensusGroupInfo{NodeCount: 25, Interval: 1, PerCount: 3, RandCount: 0, Gid: types.SNAPSHOT_GID})
+	info := core.NewGroupInfo(time.Now(), types.ConsensusGroupInfo{NodeCount: 25, Interval: 1, PerCount: 3, RandCount: 0, Gid: types.SNAPSHOT_GID})
 
 	now := time.Now()
 	index := info.Time2Index(now)
@@ -41,7 +41,7 @@ func TestMembersInfo(t *testing.T) {
 	fmt.Println(sTime.Sub(now).String(), now, sTime)
 }
 
-func testFilterVotes(t *testing.T, teller *teller, votes []*internal.Vote) {
+func testFilterVotes(t *testing.T, teller *teller, votes []*core.Vote) {
 	hash, _ := types.HexToHash("706b00a2ae1725fb5d90b3b7a76d76c922eb075be485749f987af7aa46a66785")
 	testH := &ledger.HashHeight{Hash: hash, Height: 1}
 	fVotes1 := teller.algo.FilterVotes(votes, testH)
@@ -59,7 +59,7 @@ func testFilterVotes(t *testing.T, teller *teller, votes []*internal.Vote) {
 
 func TestShuffleVotes(t *testing.T) {
 
-	info := internal.NewGroupInfo(time.Now(), types.ConsensusGroupInfo{NodeCount: 25, Interval: 1, PerCount: 3, RandCount: 0, Gid: types.DELEGATE_GID})
+	info := core.NewGroupInfo(time.Now(), types.ConsensusGroupInfo{NodeCount: 25, Interval: 1, PerCount: 3, RandCount: 0, Gid: types.DELEGATE_GID})
 
 	teller := newTeller(info, &chainRw{}, log15.New("module", "unitTest"))
 
@@ -78,7 +78,7 @@ func TestShuffleVotes(t *testing.T) {
 }
 
 func TestGenPlans(t *testing.T) {
-	info := internal.NewGroupInfo(time.Now(), types.ConsensusGroupInfo{NodeCount: 25, Interval: 1, PerCount: 3, RandCount: 0, Gid: types.DELEGATE_GID})
+	info := core.NewGroupInfo(time.Now(), types.ConsensusGroupInfo{NodeCount: 25, Interval: 1, PerCount: 3, RandCount: 0, Gid: types.DELEGATE_GID})
 
 	teller := newTeller(info, &chainRw{}, log15.New("module", "unitTest"))
 
@@ -88,7 +88,7 @@ func TestGenPlans(t *testing.T) {
 	testGenPlan(t, teller, genVotes(26), 75)
 
 }
-func testGenPlan(t *testing.T, teller *teller, votes []*internal.Vote, expectedCnt int) {
+func testGenPlan(t *testing.T, teller *teller, votes []*core.Vote, expectedCnt int) {
 	votes = teller.algo.FilterVotes(votes, nil)
 
 	plans := teller.info.GenPlan(teller.info.Time2Index(time.Now()), teller.convertToAddress(votes))
@@ -101,10 +101,10 @@ func testGenPlan(t *testing.T, teller *teller, votes []*internal.Vote, expectedC
 	}
 }
 
-func genVotes(n int) []*internal.Vote {
-	var votes []*internal.Vote
+func genVotes(n int) []*core.Vote {
+	var votes []*core.Vote
 	for i := 0; i < n; i++ {
-		vote := &internal.Vote{Name: strconv.Itoa(i) + "", Balance: big.NewInt(200000 + int64(i)), Addr: mockAddress(i)}
+		vote := &core.Vote{Name: strconv.Itoa(i) + "", Balance: big.NewInt(200000 + int64(i)), Addr: mockAddress(i)}
 		votes = append(votes, vote)
 	}
 	return votes
