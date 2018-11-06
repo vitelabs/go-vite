@@ -9,6 +9,7 @@ import (
 	"github.com/gavv/monotime"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/internal"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
@@ -17,7 +18,7 @@ func genAddress(n int) []types.Address {
 	wallet := wallet.New(&wallet.Config{
 		DataDir: dir,
 	})
-	_, em, err := wallet.NewMnemonicAndEntropyStore("123", true)
+	_, em, err := wallet.NewMnemonicAndEntropyStore("123")
 	if err != nil {
 		return nil
 	}
@@ -40,14 +41,12 @@ func genAddress(n int) []types.Address {
 func TestGenPlan(t *testing.T) {
 	now := time.Now()
 	println("now:\t" + now.Format(time.RFC3339))
-	info := membersInfo{genesisTime: now, memberCnt: 2, interval: 6}
-	var n = 10
-	for i := 0; i < n; i++ {
-		result := info.genPlan(int32(i), genAddress(n))
-		plans := result.Plans
+	info := internal.NewGroupInfo(now, types.ConsensusGroupInfo{NodeCount: 2, Interval: 6, Gid: types.SNAPSHOT_GID})
+	var n = uint64(10)
+	for i := uint64(0); i < n; i++ {
+		plans := info.GenPlan(i, genAddress(n))
 		for i, p := range plans {
-			println(strconv.Itoa(i) + ":\t" + p.STime.Format(time.StampMilli) + "\t" + p.Member.String() + "\t" +
-				result.STime.Format(time.StampMilli) + "\t" + result.ETime.Format(time.StampMilli))
+			println(strconv.Itoa(i) + ":\t" + p.STime.Format(time.StampMilli) + "\t" + p.Member.String() + "\t")
 		}
 	}
 }
@@ -55,12 +54,12 @@ func TestGenPlan(t *testing.T) {
 func TestTime2Index(t *testing.T) {
 	now := time.Now()
 	println("now:\t" + now.Format(time.RFC3339))
-	info := membersInfo{genesisTime: now, memberCnt: 2, interval: 6}
+	info := internal.NewGroupInfo(now, types.ConsensusGroupInfo{NodeCount: 2, Interval: 6, Gid: types.SNAPSHOT_GID})
 
-	index := info.time2Index(time.Now().Add(6 * time.Second))
+	index := info.Time2Index(time.Now().Add(6 * time.Second))
 	println("" + strconv.FormatInt(int64(index), 10))
 
-	index = info.time2Index(time.Now().Add(13 * time.Second))
+	index = info.Time2Index(time.Now().Add(13 * time.Second))
 	println("" + strconv.FormatInt(int64(index), 10))
 
 	var i int
