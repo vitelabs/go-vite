@@ -71,7 +71,7 @@ func (cache *NeedSnapshotCache) Set(subLedger map[types.Address]*ledger.AccountB
 		if cachedItem := cache.cacheMap[addr]; cachedItem != nil && cachedItem.Height >= accountBlock.Height {
 			cache.unsavePrintCacheMap()
 			cache.printCorrectCacheMap()
-			cache.log.Crit("cachedItem.Height > accountBlock.Height", "method", "Set")
+			cache.log.Error("cachedItem.Height > accountBlock.Height", "method", "Set", "addr", addr, "cachedItem.Height", cachedItem.Height, "accountBlock.Height", accountBlock.Height)
 			return
 		}
 
@@ -82,7 +82,7 @@ func (cache *NeedSnapshotCache) Set(subLedger map[types.Address]*ledger.AccountB
 
 func (cache *NeedSnapshotCache) unsavePrintCacheMap() {
 	for addr, block := range cache.cacheMap {
-		cache.log.Error(fmt.Sprintf("%s %+v\n", addr, block))
+		cache.log.Error(fmt.Sprintf("%s %+v", addr, block))
 	}
 }
 
@@ -106,13 +106,13 @@ func (cache *NeedSnapshotCache) BeSnapshot(subLedger ledger.SnapshotContent) {
 		if cachedItem == nil {
 			cache.unsavePrintCacheMap()
 			cache.printCorrectCacheMap()
-			cache.log.Crit("cacheItem is nil", "method", "BeSnapshot")
+			cache.log.Error("cacheItem is nil", "method", "BeSnapshot", "addr", addr, "hash", hashHeight.Hash, "height", hashHeight.Height)
 		}
 
 		if cachedItem.Height < hashHeight.Height {
 			cache.unsavePrintCacheMap()
 			cache.printCorrectCacheMap()
-			cache.log.Crit("cacheItem.Height < height", "method", "BeSnapshot")
+			cache.log.Error("cacheItem.Height < height", "method", "BeSnapshot", "addr", addr, "hash", hashHeight.Hash, "height", hashHeight.Height)
 		}
 
 		if cachedItem.Height == hashHeight.Height {

@@ -115,9 +115,14 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	// Add snapshot block event
 	c.chainDb.Be.AddSnapshotBlocks(batch, []types.Hash{snapshotBlock.Hash})
 
+	// Delete needSnapshotCache, Need first update cache
+	if c.needSnapshotCache != nil {
+		c.needSnapshotCache.BeSnapshot(snapshotBlock.SnapshotContent)
+	}
+
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
-		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
+		c.log.Crit("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
 	}
 
@@ -126,11 +131,6 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 
 	// Set cache
 	c.latestSnapshotBlock = snapshotBlock
-	// Delete needSnapshotCache
-	if c.needSnapshotCache != nil {
-		c.needSnapshotCache.BeSnapshot(snapshotBlock.SnapshotContent)
-	}
-
 	// Trigger success
 	c.em.triggerInsertSnapshotBlocksSuccess([]*ledger.SnapshotBlock{snapshotBlock})
 
@@ -520,22 +520,22 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	c.chainDb.Be.DeleteSnapshotBlocks(batch, deleteSbHashList)
 	c.chainDb.Be.DeleteAccountBlocks(batch, deleteAbHashList)
 
-	// write db
-	writeErr := c.chainDb.Commit(batch)
-
-	if writeErr != nil {
-		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
-		return nil, nil, writeErr
-	}
-
-	// Set cache
-	c.latestSnapshotBlock = prevSnapshotBlock
-
 	// Set needSnapshotCache, first remove
 	c.needSnapshotCache.Remove(needRemoveAddr)
 
 	// Set needSnapshotCache, then add
 	c.needSnapshotCache.Set(needAddBlocks)
+
+	// write db
+	writeErr := c.chainDb.Commit(batch)
+
+	if writeErr != nil {
+		c.log.Crit("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
+		return nil, nil, writeErr
+	}
+
+	// Set cache
+	c.latestSnapshotBlock = prevSnapshotBlock
 
 	// record delete
 	c.blackBlock.DeleteSnapshotBlock(snapshotBlocks, accountBlocksMap)

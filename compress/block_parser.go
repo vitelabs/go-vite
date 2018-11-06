@@ -35,7 +35,6 @@ var readNum = 1024 * 1024 * 10 // 10M
 
 // If blockNum is zero, finish when stream encounter io.EOF
 func BlockParser(reader io.Reader, blockNum uint64, processor blockProcessor) {
-
 	blockParser := &blockParserCache{
 		reader:        reader,
 		processor:     processor,
