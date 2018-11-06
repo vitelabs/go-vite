@@ -11,20 +11,29 @@ var mobileLog = log15.Root().New()
 
 func InitLog(dir string, needDebug bool) error {
 	filename := time.Now().Format("2006-01-02") + ".log"
-	if err := os.MkdirAll(dir, 0555); err != nil {
-		return err
+
+	{
+		errAbsFilePath := filepath.Join(dir, "glog", "error")
+		if err := os.MkdirAll(errAbsFilePath, 0555); err != nil {
+			return err
+		}
+		infoAbsFilePath := filepath.Join(dir, "glog")
+		if err := os.MkdirAll(infoAbsFilePath, 0555); err != nil {
+			return err
+		}
+		log15.Root().SetHandler(getLogLvlFilter(needDebug, filepath.Join(errAbsFilePath, filename), filepath.Join(errAbsFilePath, filename)))
 	}
 
 	{
-		errAbsFilePath := filepath.Join(dir, "glog", "error", filename)
-		infoAbsFilePath := filepath.Join(dir, "glog", filename)
-		log15.Root().SetHandler(getLogLvlFilter(needDebug, infoAbsFilePath, errAbsFilePath))
-	}
-
-	{
-		errAbsFilePath := filepath.Join(dir, "mlog", "error", filename)
-		infoAbsFilePath := filepath.Join(dir, "mlog", filename)
-		mobileLog.SetHandler(getLogLvlFilter(needDebug, infoAbsFilePath, errAbsFilePath))
+		errAbsFilePath := filepath.Join(dir, "mlog", "error")
+		if err := os.MkdirAll(errAbsFilePath, 0555); err != nil {
+			return err
+		}
+		infoAbsFilePath := filepath.Join(dir, "mlog")
+		if err := os.MkdirAll(infoAbsFilePath, 0555); err != nil {
+			return err
+		}
+		mobileLog.SetHandler(getLogLvlFilter(needDebug, filepath.Join(errAbsFilePath, filename), filepath.Join(errAbsFilePath, filename)))
 	}
 
 	return nil
