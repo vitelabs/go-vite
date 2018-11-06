@@ -142,6 +142,6 @@ func TestQuotaSection(t *testing.T) {
 		x.Mul(x, nodeConfig.paramA)
 		x.Quo(nodeConfig.sectionList[i], x)
 		f, _ := x.Float64()
-		fmt.Printf("pledgeAmount:1000 vite, wait time: %v, quotaForTx: %v\n", math.Ceil(f), i)
+		fmt.Printf("pledgeAmount:10000 vite, wait time: %v, quotaForTx: %v\n", math.Ceil(f), i)
 	}
 }

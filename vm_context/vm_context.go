@@ -406,3 +406,8 @@ func (context *VmContext) GetSnapshotBlockBeforeTime(timestamp *time.Time) (*led
 	// TODO
 	return nil, nil
 }
+
+func (context *VmContext) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
+	block, _ := context.chain.GetSnapshotBlockByHeight(uint64(1))
+	return block
+}
