@@ -216,7 +216,8 @@ wait:
 	defer checkTimer.Stop()
 
 	// check chain height
-	var checkChainTicker <-chan time.Time
+	checkChainTicker := time.NewTicker(chainGrowInterval)
+	defer checkChainTicker.Stop()
 
 	for {
 		select {
@@ -248,21 +249,20 @@ wait:
 			// check chain height timeout
 			checkTimer.Reset(u64ToDuration(s.total * 1000))
 
-			// check chain height loop
-			checkChainTicker = time.Tick(chainGrowInterval)
-
 		case <-checkTimer.C:
 			s.log.Error("sync error: timeout")
 			s.setState(Syncerr)
 			return
 
-		case <-checkChainTicker:
+		case <-checkChainTicker.C:
 			current := s.chain.GetLatestSnapshotBlock()
 			if current.Height >= s.to {
 				s.log.Info(fmt.Sprintf("sync done, current height: %d", current.Height))
 				s.setState(Syncdone)
 				return
 			}
+
+			s.fc.threshold(current.Height)
 			s.log.Debug(fmt.Sprintf("current height: %d", current.Height))
 
 		case <-s.term:
@@ -367,7 +367,7 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 					}
 				}
 
-				s.pool.start()
+				//s.pool.start()
 			}
 		}
 	} else if cmd == SubLedgerCode {

@@ -271,6 +271,16 @@ func (p *chunkPool) add(c *chunkRequest) {
 	}
 }
 
+func (p *chunkPool) exec(c *chunkRequest) {
+	c.id = p.gid.MsgID()
+	c.msg = &message.GetChunk{
+		Start: c.from,
+		End:   c.to,
+	}
+
+	p.request(c)
+}
+
 func (p *chunkPool) _retry(id uint64) {
 	select {
 	case <-p.term:
@@ -346,19 +356,6 @@ func (f files) Less(i, j int) bool {
 
 func (f files) Swap(i, j int) {
 	f[i], f[j] = f[j], f[i]
-}
-
-// must sort first
-func (f files) unique() files {
-	j := 0
-	for i, file := range f {
-		if file.Filename != f[j].Filename {
-			f[j] = f[i]
-			j++
-		}
-	}
-
-	return f[:j]
 }
 
 // helper

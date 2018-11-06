@@ -188,12 +188,14 @@ func (p *peer) Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err e
 	var msg *p2p.Msg
 
 	if msg, err = p2p.PackMsg(p.CmdSet, p2p.Cmd(code), msgId, payload); err != nil {
-		p.log.Error(fmt.Sprintf("pack message %s to %s error: %v", code, p, err))
+		p.log.Error(fmt.Sprintf("pack message %s to %s error: %v", code, p.RemoteAddr(), err))
 		return err
 	} else if err = p.mrw.WriteMsg(msg); err != nil {
-		p.log.Error(fmt.Sprintf("send message %s to %s error: %v", code, p, err))
+		p.log.Error(fmt.Sprintf("send message %s to %s error: %v", code, p.RemoteAddr(), err))
 		return err
 	}
+
+	p.log.Info(fmt.Sprintf("send message %s to %s", code, p.RemoteAddr()))
 
 	return nil
 }
