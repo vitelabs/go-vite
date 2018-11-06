@@ -185,6 +185,7 @@ func TestGet(t *testing.T) {
 
 func TestBlockParser(t *testing.T) {
 	chainInstance := getChainInstance()
+
 	ranges := [][2]uint64{
 		{200, 3000},
 		{200, 10000},

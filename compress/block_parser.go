@@ -44,8 +44,9 @@ func BlockParser(reader io.Reader, blockNum uint64, processor blockProcessor) {
 
 	blockParser.RefreshCache()
 
+	readBytes := make([]byte, readNum)
+
 	for {
-		readBytes := make([]byte, readNum)
 		readN, rErr := reader.Read(readBytes)
 
 		if rErr != nil && rErr != io.EOF {
@@ -67,8 +68,7 @@ func BlockParser(reader io.Reader, blockNum uint64, processor blockProcessor) {
 					blockParser.currentBlockSize = binary.BigEndian.Uint32(blockParser.currentBlockSizeBuffer)
 				}
 			} else if blockParser.currentBlockSize != 0 && blockParser.currentBlockType == 0 {
-				readBytes := buffer.Next(1)
-				blockParser.currentBlockType = readBytes[0]
+				blockParser.currentBlockType = buffer.Next(1)[0]
 
 			} else {
 				readNum := blockParser.currentBlockSize - uint32(len(blockParser.currentBlockBuffer))
