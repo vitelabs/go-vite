@@ -16,9 +16,14 @@ type Detail struct {
 	voteM map[uint64]map[string]*big.Int
 }
 
-type ConsensusReader interface {
-	PeriodTime(info *types.ConsensusGroupInfo) (uint64, error)
-	TimeToIndex(time, genesisTime time.Time, info *types.ConsensusGroupInfo) (uint64, error)
-	// return
-	Detail(startIndex, endIndex uint64, info *types.ConsensusGroupInfo, register *types.Registration, database vmctxt_interface.VmDatabase) (*Detail, error)
+func PeriodTime(info *types.ConsensusGroupInfo) (uint64, error) {
+	return 0, nil
+}
+func TimeToIndex(time, genesisTime time.Time, info *types.ConsensusGroupInfo) (uint64, error) {
+	return 0, nil
+}
+
+// return
+func GetDetail(startIndex, endIndex uint64, info *types.ConsensusGroupInfo, register *types.Registration, database vmctxt_interface.VmDatabase) (*Detail, error) {
+	return nil, nil
 }
