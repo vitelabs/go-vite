@@ -17,7 +17,7 @@ func init() {
 
 func TestPowGenerate(t *testing.T) {
 	defer monitor.LogTime("pow", "remote", time.Now())
-	InitUrl("127.0.0.1")
+	InitRawUrl("http://127.0.0.1:6007")
 	addr, _, _ := types.CreateAddress()
 	prevHash := types.ZERO_HASH
 	difficulty := "FFFFFFC000000000000000000000000000000000000000000000000000000000"

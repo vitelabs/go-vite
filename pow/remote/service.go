@@ -23,8 +23,8 @@ const (
 	// DefaultThreshold  = "FFFFFFC000000000000000000000000000000000000000000000000000000000"
 )
 
-func InitUrl(ip string) {
-	requestUrl = "http://" + ip + ":6007"
+func InitRawUrl(rawurl string) {
+	requestUrl = rawurl
 }
 
 func GenerateWork(dataHash []byte, threshold *big.Int) (*string, error) {

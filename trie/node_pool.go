@@ -1,8 +1,9 @@
 package trie
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
 	"sync"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type TrieNodePool struct {

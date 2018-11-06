@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"time"
 
+	"runtime/debug"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
@@ -13,6 +15,10 @@ import (
 
 type DebugApi struct {
 	v *vite.Vite
+}
+
+func (api DebugApi) Free() {
+	debug.FreeOSMemory()
 }
 
 func (api DebugApi) PoolInfo(addr *types.Address) string {

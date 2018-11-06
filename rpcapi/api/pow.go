@@ -39,7 +39,7 @@ func (p Pow) GetPowNonce(difficulty string, data types.Hash) ([]byte, error) {
 	nn := make([]byte, 8)
 	binary.LittleEndian.PutUint64(nn[:], nonceUint64)
 
-	bd, ok := new(big.Int).SetString(difficulty, 16)
+	bd, ok := new(big.Int).SetString(difficulty, 10)
 	if !ok {
 		return nil, errors.New("wrong nonce difficulty")
 	}

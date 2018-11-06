@@ -67,7 +67,7 @@ type Config struct {
 	TestTokenHexPrivKey string   `json:"TestTokenHexPrivKey"`
 	TestTokenTti        string   `json:"TestTokenTti"`
 
-	PowServerIp string `json:"PowServerIp”`
+	PowServerUrl string `json:"PowServerUrl”`
 
 	//Log level
 	LogLevel    string `json:"LogLevel"`
