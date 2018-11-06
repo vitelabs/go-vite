@@ -366,6 +366,8 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 						}
 					}
 				}
+
+				s.pool.start()
 			}
 		}
 	} else if cmd == SubLedgerCode {
