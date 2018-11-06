@@ -29,8 +29,11 @@ const (
 	cgPerIntervalMin int64 = 1
 	cgPerIntervalMax int64 = 10 * 60
 
-	MaxRewardCount uint64 = 7776000
-	dbPageSize     uint64 = 10000 // Batch get snapshot blocks from vm database to calc snapshot block reward
+	dbPageSize uint64 = 10000 // Batch get snapshot blocks from vm database to calc snapshot block reward
+
+	SecondPerDay       uint64 = 3600 * 24
+	RewardDayLimit     uint64 = 90
+	rewardPrecForFloat uint   = 18
 
 	tokenNameLengthMax   int = 40 // Maximum length of a token name(include)
 	tokenSymbolLengthMax int = 10 // Maximum length of a token symbol(include)
@@ -43,13 +46,15 @@ var (
 	mintageFee                       = new(big.Int).Mul(big.NewInt(1e3), util.AttovPerVite) // Mintage cost choice 1, destroy ViteToken
 	mintagePledgeAmount              = new(big.Int).Mul(big.NewInt(1e5), util.AttovPerVite) // Mintage cost choice 2, pledge ViteToken for 3 month
 	createConsensusGroupPledgeAmount = new(big.Int).Mul(big.NewInt(1000), util.AttovPerVite)
+
+	float1 = new(big.Float).SetPrec(rewardPrecForFloat).SetInt64(1)
 )
 
 type ContractsParams struct {
 	MinPledgeHeight                  uint64 // Minimum pledge height
 	CreateConsensusGroupPledgeHeight uint64 // Pledge height for registering to be a super node of snapshot group and common delegate group
 	MintagePledgeHeight              uint64 // Pledge height for mintage if choose to pledge instead of destroy vite token
-	RewardHeightLimit                uint64 // Cannot get snapshot block reward of current few blocks, for latest snapshot block could be reverted
+	RewardEndHeightLimit             uint64 // Cannot get snapshot block reward of current few blocks, for latest snapshot block could be reverted
 }
 
 var (
@@ -57,12 +62,12 @@ var (
 		MinPledgeHeight:                  1,
 		CreateConsensusGroupPledgeHeight: 1,
 		MintagePledgeHeight:              1,
-		RewardHeightLimit:                1,
+		RewardEndHeightLimit:             1,
 	}
 	ContractsParamsMainNet = ContractsParams{
 		MinPledgeHeight:                  3600 * 24 * 3,
 		CreateConsensusGroupPledgeHeight: 3600 * 24 * 3,
 		MintagePledgeHeight:              3600 * 24 * 30 * 3,
-		RewardHeightLimit:                60 * 30,
+		RewardEndHeightLimit:             3600 * 24,
 	}
 )

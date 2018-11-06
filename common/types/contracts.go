@@ -34,7 +34,7 @@ type Registration struct {
 	PledgeAddr     Address
 	Amount         *big.Int
 	WithdrawHeight uint64
-	RewardHeight   uint64
+	RewardIndex    uint64
 	CancelHeight   uint64
 	HisAddrList    []Address
 }

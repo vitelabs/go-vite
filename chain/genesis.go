@@ -255,7 +255,7 @@ func genesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
 	for index, addr := range addrList {
 		nodeName := "s" + strconv.Itoa(index+1)
-		registerData, _ := abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr, addr, helper.Big0, uint64(1), uint64(1), uint64(0), []types.Address{addr})
+		registerData, _ := abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr, addr, helper.Big0, uint64(1), uint64(0), uint64(0), []types.Address{addr})
 		vmContext.SetStorage(abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID), registerData)
 		hisNameData, _ := abi.ABIRegister.PackVariable(abi.VariableNameHisName, nodeName)
 		vmContext.SetStorage(abi.GetHisNameKey(addr, types.SNAPSHOT_GID), hisNameData)
