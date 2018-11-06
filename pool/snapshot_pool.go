@@ -292,6 +292,7 @@ func (self *snapshotPool) loop() {
 			} else {
 				time.Sleep(s1)
 			}
+			monitor.LogTime("pool", "snapshotRealSleep", n2)
 		}
 	}
 }
@@ -317,6 +318,7 @@ func (self *snapshotPool) loopCheckCurrentInsert() {
 	if self.chainpool.current.size() == 0 {
 		return
 	}
+	defer monitor.LogTime("pool", "loopCheckCurrentInsert", time.Now())
 	stat, block := self.snapshotTryInsert()
 
 	if stat != nil {
@@ -394,6 +396,7 @@ func (self *snapshotPool) Stop() {
 }
 
 func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnapshotVerifyStat) {
+	defer monitor.LogTime("pool", "insertVerifyFail", time.Now())
 	block := b.block
 	results := stat.results
 
@@ -429,6 +432,7 @@ func (self *snapshotPool) forkAccounts(b *snapshotPoolBlock, accounts map[types.
 }
 
 func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSnapshotVerifyStat) {
+	defer monitor.LogTime("pool", "insertVerifyPending", time.Now())
 	block := b.block
 
 	results := stat.results
