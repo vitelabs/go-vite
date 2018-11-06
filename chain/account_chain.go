@@ -630,6 +630,9 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		return nil, writeErr
 	}
 
+	// Delete cache
+	c.stateTriePool.Delete(needRemoveAddr)
+
 	c.em.triggerDeleteAccountBlocksSuccess(subLedger)
 
 	// record delete

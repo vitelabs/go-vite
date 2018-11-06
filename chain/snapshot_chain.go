@@ -534,6 +534,9 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, nil, writeErr
 	}
 
+	// Delete cache
+	c.stateTriePool.Delete(needRemoveAddr)
+
 	// Set cache
 	c.latestSnapshotBlock = prevSnapshotBlock
 
