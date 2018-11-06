@@ -151,11 +151,11 @@ func (s *syncer) Start() {
 	defer atomic.StoreInt32(&s.running, 0)
 	defer atomic.StoreInt32(&s.chunked, 0)
 
-	s.pool.start()
+	// prepare to request file
 	s.fc.start()
-
-	defer s.pool.stop()
 	defer s.fc.stop()
+	// stop chunk pool
+	defer s.pool.stop()
 
 	start := time.NewTimer(waitEnoughPeers)
 
