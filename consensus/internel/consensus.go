@@ -10,10 +10,10 @@ import (
 )
 
 type Detail struct {
-	planNum   uint64
-	actualNum uint64
+	PlanNum   uint64
+	ActualNum uint64
 	//top100, index: nodeName: balance
-	voteM map[uint64]map[string]*big.Int
+	VoteM map[uint64]map[string]*big.Int
 }
 
 func PeriodTime(info *types.ConsensusGroupInfo) (uint64, error) {
