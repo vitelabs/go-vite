@@ -9,6 +9,7 @@ import (
 
 type Chain interface {
 	GetAccount(address *types.Address) (*ledger.Account, error)
+	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
 	GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error)
