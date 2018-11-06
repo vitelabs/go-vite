@@ -159,10 +159,11 @@ type fileClient struct {
 	idleChan  chan *conn
 	delChan   chan *conn
 	filesChan chan *filesEvent
+	slots     chan struct{} // control concurrency
 
 	chain Chain
 
-	handler reqRec
+	handler blockReceiver
 
 	dialer *net2.Dialer
 
@@ -177,11 +178,12 @@ type cPool interface {
 	add(request *chunkRequest)
 }
 
-func newFileClient(chain Chain, pool cPool, handler reqRec) *fileClient {
+func newFileClient(chain Chain, pool cPool, handler blockReceiver) *fileClient {
 	return &fileClient{
 		idleChan:  make(chan *conn, 1),
 		delChan:   make(chan *conn, 1),
 		filesChan: make(chan *filesEvent, 10),
+		slots:     make(chan struct{}, 5),
 		chain:     chain,
 		log:       log15.New("module", "net/fileClient"),
 		dialer:    &net2.Dialer{Timeout: 3 * time.Second},
@@ -208,6 +210,14 @@ func (fc *fileClient) stop() {
 		close(fc.term)
 		fc.wg.Wait()
 	}
+}
+
+func (fc *fileClient) occupy() {
+	fc.slots <- struct{}{}
+}
+
+func (fc *fileClient) release() {
+	<-fc.slots
 }
 
 func (fc *fileClient) removePeer(conns map[string]*conn, fRecord map[string]*fileState, pFiles map[string]files, sender Peer) {
@@ -349,7 +359,7 @@ loop:
 
 			fc.usePeer(conns, record, pFiles, sender)
 
-		case ctx := <-fc.idleChan:
+		case ctx := <-fc.idleChan: // a job done
 			if r, ok := record[ctx.file.Filename]; ok {
 				if ctx.done {
 					r.state = reqDone
@@ -363,7 +373,7 @@ loop:
 
 			fc.usePeer(conns, record, pFiles, ctx.peer)
 
-		case conn := <-fc.delChan:
+		case conn := <-fc.delChan: // a job error
 			fc.removePeer(conns, record, pFiles, conn.peer)
 			fc.log.Error(fmt.Sprintf("delete connection %s", conn.RemoteAddr()))
 
@@ -385,8 +395,7 @@ loop:
 				}
 			}
 
-		case t := <-ticker.C:
-			// remote the idle connection
+		case t := <-ticker.C: // clear idle connections
 			for _, conn := range conns {
 				if conn.idle && t.Sub(conn.idleT) > idleTimeout {
 					delConn(conn)
@@ -416,6 +425,16 @@ func (fc *fileClient) delete(ctx *conn) {
 }
 
 func (fc *fileClient) exec(ctx *conn) {
+	fc.occupy()
+	defer fc.release()
+
+	select {
+	case <-fc.term:
+		return
+	default:
+		// next
+	}
+
 	ctx.idle = false
 
 	getFiles := &message.GetFiles{

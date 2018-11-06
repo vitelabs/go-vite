@@ -68,7 +68,7 @@ type piece interface {
 	setBand(from, to uint64)
 }
 
-type reqRec interface {
+type blockReceiver interface {
 	receiveSnapshotBlock(block *ledger.SnapshotBlock)
 	receiveAccountBlock(block *ledger.AccountBlock)
 	catch(piece)
@@ -128,7 +128,7 @@ type chunkPool struct {
 	peers     *peerSet
 	gid       MsgIder
 	chunks    map[uint64]*chunkRequest
-	handler   reqRec
+	handler   blockReceiver
 	addChan   chan *chunkRequest
 	doneChan  chan uint64
 	retryChan chan uint64
@@ -137,7 +137,7 @@ type chunkPool struct {
 	wg        sync.WaitGroup
 }
 
-func newChunkPool(peers *peerSet, gid MsgIder, handler reqRec) *chunkPool {
+func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool {
 	return &chunkPool{
 		peers:     peers,
 		gid:       gid,

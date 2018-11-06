@@ -27,7 +27,6 @@ type Peer interface {
 	FileAddress() *net2.TCPAddr
 	SetHead(head types.Hash, height uint64)
 	SeeBlock(hash types.Hash)
-	SendSubLedger(bs []*ledger.SnapshotBlock, abs []*ledger.AccountBlock, msgId uint64) (err error)
 	SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error)
 	SendAccountBlocks(bs []*ledger.AccountBlock, msgId uint64) (err error)
 	SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error)
@@ -153,53 +152,12 @@ func (p *peer) SeeBlock(hash types.Hash) {
 
 // send
 
-func (p *peer) SendSubLedger(bs []*ledger.SnapshotBlock, abs []*ledger.AccountBlock, msgId uint64) (err error) {
-	err = p.Send(SubLedgerCode, msgId, &message.SubLedger{
-		SBlocks: bs,
-		ABlocks: abs,
-	})
-
-	if err != nil {
-		return
-	}
-
-	for _, block := range bs {
-		p.SeeBlock(block.Hash)
-	}
-
-	for _, block := range abs {
-		p.SeeBlock(block.Hash)
-	}
-
-	return
-}
-
 func (p *peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error) {
-	err = p.Send(SnapshotBlocksCode, msgId, &message.SnapshotBlocks{bs})
-
-	if err != nil {
-		return
-	}
-
-	for _, b := range bs {
-		p.SeeBlock(b.Hash)
-	}
-
-	return
+	return p.Send(SnapshotBlocksCode, msgId, &message.SnapshotBlocks{bs})
 }
 
 func (p *peer) SendAccountBlocks(bs []*ledger.AccountBlock, msgId uint64) (err error) {
-	err = p.Send(AccountBlocksCode, msgId, &message.AccountBlocks{bs})
-
-	if err != nil {
-		return
-	}
-
-	for _, b := range bs {
-		p.SeeBlock(b.Hash)
-	}
-
-	return
+	return p.Send(AccountBlocksCode, msgId, &message.AccountBlocks{bs})
 }
 
 func (p *peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {

@@ -422,9 +422,9 @@ func (s *syncer) UnsubscribeSyncStatus(subId int) {
 	s.feed.Unsub(subId)
 }
 
-func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
-	return block.Height - s.from
-}
+//func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
+//	return block.Height - s.from
+//}
 
 func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) {
 	s.log.Debug(fmt.Sprintf("syncer: receive SnapshotBlock %s/%d", block.Hash, block.Height))

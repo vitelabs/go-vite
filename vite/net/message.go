@@ -512,7 +512,9 @@ func (c *getChunkHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 
 		// split account blocks map to small slice
 		matrix := splitAccountMap(mblocks)
+		accountCount := 0
 		for _, ablocks := range matrix {
+			accountCount += len(ablocks)
 			if err = sender.SendAccountBlocks(ablocks, msg.Id); err != nil {
 				netLog.Error(fmt.Sprintf("send %d Accountblosk of Chunk<%d-%d> to %s error: %v", len(ablocks), chunk[0], chunk[1], sender.RemoteAddr(), err))
 				return
@@ -521,7 +523,11 @@ func (c *getChunkHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 			}
 		}
 
-		if err = sender.SendSubLedger(sblocks, nil, msg.Id); err != nil {
+		if err = sender.Send(SubLedgerCode, msg.Id, &message.SubLedger{
+			SBlocks:   sblocks,
+			ABlocks:   nil,
+			AblockNum: uint64(accountCount),
+		}); err != nil {
 			netLog.Error(fmt.Sprintf("send SubLedger of Chunk<%d-%d> to %s error: %v", chunk[0], chunk[1], sender.RemoteAddr(), err))
 			return
 		} else {
