@@ -108,8 +108,9 @@ func (b *SnapshotBlocks) Deserialize(buf []byte) error {
 // @section SubLedger
 
 type SubLedger struct {
-	SBlocks []*ledger.SnapshotBlock
-	ABlocks []*ledger.AccountBlock
+	SBlocks   []*ledger.SnapshotBlock
+	ABlocks   []*ledger.AccountBlock
+	AblockNum uint64
 }
 
 func (s *SubLedger) String() string {
@@ -128,6 +129,8 @@ func (s *SubLedger) Serialize() ([]byte, error) {
 	for i, b := range s.ABlocks {
 		pb.ABlocks[i] = b.Proto()
 	}
+
+	pb.AblockNum = s.AblockNum
 
 	return proto.Marshal(pb)
 }
@@ -152,6 +155,8 @@ func (s *SubLedger) Deserialize(buf []byte) error {
 		block.DeProto(abp)
 		s.ABlocks[i] = block
 	}
+
+	s.AblockNum = pb.AblockNum
 
 	return nil
 }

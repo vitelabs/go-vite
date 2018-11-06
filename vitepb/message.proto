@@ -45,6 +45,7 @@ message GetChunk {
 message SubLedger {
     repeated vitepb.SnapshotBlock SBlocks = 1;
     repeated vitepb.AccountBlock ABlocks = 2;
+    uint64 AblockNum = 3;
 }
 
 message GetSnapshotBlocks {

@@ -3,9 +3,11 @@
 
 package vitepb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -29,16 +31,17 @@ func (m *AddressList) Reset()         { *m = AddressList{} }
 func (m *AddressList) String() string { return proto.CompactTextString(m) }
 func (*AddressList) ProtoMessage()    {}
 func (*AddressList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_unreceived_db_c0b95afb86ff66d1, []int{0}
+	return fileDescriptor_f1d9cdc94f71bfd9, []int{0}
 }
+
 func (m *AddressList) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AddressList.Unmarshal(m, b)
 }
 func (m *AddressList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AddressList.Marshal(b, m, deterministic)
 }
-func (dst *AddressList) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AddressList.Merge(dst, src)
+func (m *AddressList) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AddressList.Merge(m, src)
 }
 func (m *AddressList) XXX_Size() int {
 	return xxx_messageInfo_AddressList.Size(m)
@@ -60,11 +63,9 @@ func init() {
 	proto.RegisterType((*AddressList)(nil), "vitepb.AddressList")
 }
 
-func init() {
-	proto.RegisterFile("vitepb/unreceived_db.proto", fileDescriptor_unreceived_db_c0b95afb86ff66d1)
-}
+func init() { proto.RegisterFile("vitepb/unreceived_db.proto", fileDescriptor_f1d9cdc94f71bfd9) }
 
-var fileDescriptor_unreceived_db_c0b95afb86ff66d1 = []byte{
+var fileDescriptor_f1d9cdc94f71bfd9 = []byte{
 	// 92 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x2a, 0xcb, 0x2c, 0x49,
 	0x2d, 0x48, 0xd2, 0x2f, 0xcd, 0x2b, 0x4a, 0x4d, 0x4e, 0xcd, 0x2c, 0x4b, 0x4d, 0x89, 0x4f, 0x49,

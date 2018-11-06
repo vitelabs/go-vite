@@ -68,7 +68,7 @@ type piece interface {
 	setBand(from, to uint64)
 }
 
-type reqRec interface {
+type blockReceiver interface {
 	receiveSnapshotBlock(block *ledger.SnapshotBlock)
 	receiveAccountBlock(block *ledger.AccountBlock)
 	catch(piece)
@@ -127,9 +127,9 @@ type chunkPool struct {
 	lock      sync.RWMutex
 	peers     *peerSet
 	gid       MsgIder
+	queue     *list.List
 	chunks    map[uint64]*chunkRequest
-	handler   reqRec
-	addChan   chan *chunkRequest
+	handler   blockReceiver
 	doneChan  chan uint64
 	retryChan chan uint64
 	slots     chan struct{}
@@ -137,15 +137,16 @@ type chunkPool struct {
 	wg        sync.WaitGroup
 }
 
-func newChunkPool(peers *peerSet, gid MsgIder, handler reqRec) *chunkPool {
+func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool {
 	return &chunkPool{
 		peers:     peers,
 		gid:       gid,
+		queue:     list.New(),
 		chunks:    make(map[uint64]*chunkRequest),
 		handler:   handler,
-		addChan:   make(chan *chunkRequest, 1),
 		doneChan:  make(chan uint64),
 		retryChan: make(chan uint64, 1),
+		slots:     make(chan struct{}, 5),
 	}
 }
 
@@ -209,28 +210,14 @@ func (p *chunkPool) stop() {
 func (p *chunkPool) loop() {
 	defer p.wg.Done()
 
-	var ticker <-chan time.Time
-
-	queue := list.New()
+	ticker := time.NewTicker(chunkTimeout)
+	defer ticker.Stop()
 
 loop:
 	for {
 		select {
 		case <-p.term:
 			break loop
-
-		case c := <-p.addChan:
-			c.id = p.gid.MsgID()
-			queue.Append(c)
-			c.msg = &message.GetChunk{
-				Start: c.from,
-				End:   c.to,
-			}
-
-			if p.slots == nil {
-				p.slots = make(chan struct{}, 10)
-				ticker = time.Tick(chunkTimeout)
-			}
 
 		case id := <-p.retryChan:
 			p.retry(id)
@@ -242,7 +229,7 @@ loop:
 				<-p.slots
 			}
 
-		case now := <-ticker:
+		case now := <-ticker.C:
 			var state reqState
 			for id, c := range p.chunks {
 				state = c.state
@@ -256,7 +243,7 @@ loop:
 			}
 
 		case p.slots <- struct{}{}:
-			if ele := queue.Shift(); ele != nil {
+			if ele := p.queue.Shift(); ele != nil {
 				c := ele.(*chunkRequest)
 				p.chunks[c.id] = c
 				p.request(c)
@@ -276,10 +263,22 @@ loop:
 }
 
 func (p *chunkPool) add(c *chunkRequest) {
-	select {
-	case <-p.term:
-	case p.addChan <- c:
+	c.id = p.gid.MsgID()
+	p.queue.Append(c)
+	c.msg = &message.GetChunk{
+		Start: c.from,
+		End:   c.to,
 	}
+}
+
+func (p *chunkPool) exec(c *chunkRequest) {
+	c.id = p.gid.MsgID()
+	c.msg = &message.GetChunk{
+		Start: c.from,
+		End:   c.to,
+	}
+
+	p.request(c)
 }
 
 func (p *chunkPool) _retry(id uint64) {
@@ -357,19 +356,6 @@ func (f files) Less(i, j int) bool {
 
 func (f files) Swap(i, j int) {
 	f[i], f[j] = f[j], f[i]
-}
-
-// must sort first
-func (f files) unique() files {
-	j := 0
-	for i, file := range f {
-		if file.Filename != f[j].Filename {
-			f[j] = f[i]
-			j++
-		}
-	}
-
-	return f[:j]
 }
 
 // helper
