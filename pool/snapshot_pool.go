@@ -304,12 +304,16 @@ func (self *snapshotPool) loopCompactSnapshot() {
 	defer monitor.LogTime("pool", "loopCompactSnapshotMuLock", time.Now())
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
+	defer monitor.LogTime("pool", "snapshot_loopGenSnippetChains", time.Now())
 	self.loopGenSnippetChains()
+	defer monitor.LogTime("pool", "snapshot_loopAppendChains", time.Now())
 	self.loopAppendChains()
 	now := time.Now()
 	if now.After(self.nextFetchTime) {
 		self.nextFetchTime = now.Add(time.Millisecond * 200)
+		defer monitor.LogTime("pool", "snapshot_loopFetchForSnippets", time.Now())
 		self.loopFetchForSnippets()
+		defer monitor.LogTime("pool", "snapshot_loopFetchForSnapshot", time.Now())
 		self.loopFetchForSnapshot()
 	}
 }
