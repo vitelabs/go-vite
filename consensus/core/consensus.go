@@ -73,7 +73,7 @@ func (self *reader) VoteDetails(startIndex, endIndex uint64,
 	periodM := make(map[uint64]*PeriodDetails)
 	memAllPlanNum := uint64(0)
 	memAllActualNum := uint64(0)
-	for i := startIndex; i < endIndex; i++ {
+	for i := startIndex; i <= endIndex; i++ {
 		votes, finalVotes, err := self.voteDetail(i, r)
 		if err != nil {
 			return nil, err
