@@ -140,37 +140,25 @@ func (self *reader) actualSnapshotBlockNum(index uint64, register *types.Registr
 		m[v] = true
 	}
 
-	zero, err := r.GetSnapshotBlockBeforeTime(&sTime)
-	if err != nil {
-		return 0, 0, err
-	}
-	result++
-	uu := first.Height - zero.Height
+	tmp := first
+	for !tmp.Timestamp.Before(sTime) {
+		result++
+		_, ok := m[tmp.Producer()]
+		if ok {
+			memResult++
+		}
+		if tmp.Height <= types.GenesisHeight {
+			break
+		}
+		tmp, err = r.GetSnapshotBlockByHeight(tmp.Height - 1)
+		if err != nil {
+			return 0, 0, nil
+		}
+		if tmp == nil {
+			break
+		}
 
-	if uu > 0 {
-		blocks, _ := r.GetSnapshotBlocksByHeight(first.Height, uu, false, false)
-		result = result + uint64(len(blocks))
 	}
-
-	//tmp := first
-	//for !tmp.Timestamp.Before(sTime) {
-	//	result++
-	//	_, ok := m[tmp.Producer()]
-	//	if ok {
-	//		memResult++
-	//	}
-	//	if tmp.Height <= types.GenesisHeight {
-	//		break
-	//	}
-	//	tmp, err = r.GetSnapshotBlockByHeight(tmp.Height - 1)
-	//	if err != nil {
-	//		return 0, 0, nil
-	//	}
-	//	if tmp == nil {
-	//		break
-	//	}
-	//
-	//}
 	return result, memResult, nil
 }
 
