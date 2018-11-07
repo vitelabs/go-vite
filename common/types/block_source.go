@@ -8,5 +8,6 @@ const (
 	RemoteFetch                 = 20
 	Local                       = 30
 	RollbackChain               = 40
+	QueryChain                  = 41
 	RemoteSync                  = 50
 )

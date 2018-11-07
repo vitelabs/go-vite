@@ -166,7 +166,7 @@ func (self *pool) Init(s syncer,
 	accountV *verifier.AccountVerifier) {
 	self.sync = s
 	self.wt = wt
-	rw := &snapshotCh{version: self.version, bc: self.bc}
+	rw := &snapshotCh{version: self.version, bc: self.bc, log: self.log}
 	fe := &snapshotSyncer{fetcher: s, log: self.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: snapshotV}
 	self.accountVerifier = accountV
