@@ -29,7 +29,7 @@ func Test(t *testing.T) {
 			defer wg.Done()
 			for !closed {
 				addr, _ := types.HexToHash("fc08446111289c671fe1547f634afcde92fab289c11fe16380958305b2f379ad")
-				list := rw.rw.GetRegisterList(addr, types.SNAPSHOT_GID)
+				list, _ := rw.rw.GetRegisterList(addr, types.SNAPSHOT_GID)
 				r := make(map[types.Address]bool)
 				for _, v := range list {
 					if r[v.NodeAddr] || v.NodeAddr.String() == "vite_0000000000000000000000000000000000000000a4f3a0cb58" {

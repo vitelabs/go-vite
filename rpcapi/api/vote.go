@@ -6,7 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
@@ -27,10 +27,10 @@ func (v VoteApi) String() string {
 }
 
 func (v *VoteApi) GetVoteData(gid types.Gid, name string) ([]byte, error) {
-	return contracts.ABIVote.PackMethod(contracts.MethodNameVote, gid, name)
+	return abi.ABIVote.PackMethod(abi.MethodNameVote, gid, name)
 }
 func (v *VoteApi) GetCancelVoteData(gid types.Gid) ([]byte, error) {
-	return contracts.ABIVote.PackMethod(contracts.MethodNameCancelVote, gid)
+	return abi.ABIVote.PackMethod(abi.MethodNameCancelVote, gid)
 }
 
 var (
@@ -49,16 +49,15 @@ func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, err
 	if err != nil {
 		return nil, err
 	}
-	if voteInfo := contracts.GetVote(vmContext, gid, addr); voteInfo != nil {
+	if voteInfo := abi.GetVote(vmContext, gid, addr); voteInfo != nil {
 		balance, err := v.chain.GetAccountBalanceByTokenId(&addr, &ledger.ViteTokenId)
 		if err != nil {
 			return nil, err
 		}
-		if contracts.IsActiveRegistration(vmContext, voteInfo.NodeName, gid) {
+		if abi.IsActiveRegistration(vmContext, voteInfo.NodeName, gid) {
 			return &VoteInfo{voteInfo.NodeName, NodeStatusActive, *bigIntToString(balance)}, nil
 		} else {
 			return &VoteInfo{voteInfo.NodeName, NodeStatusInActive, *bigIntToString(balance)}, nil
-
 		}
 	}
 	return nil, nil

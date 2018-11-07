@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/contracts"
+	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 )
 
 type precompiledContract struct {
@@ -12,28 +13,28 @@ type precompiledContract struct {
 }
 
 var simpleContracts = map[types.Address]*precompiledContract{
-	contracts.AddressRegister: {
+	cabi.AddressRegister: {
 		map[string]contracts.PrecompiledContractMethod{
-			contracts.MethodNameRegister:           &contracts.MethodRegister{},
-			contracts.MethodNameCancelRegister:     &contracts.MethodCancelRegister{},
-			contracts.MethodNameReward:             &contracts.MethodReward{},
-			contracts.MethodNameUpdateRegistration: &contracts.MethodUpdateRegistration{},
+			cabi.MethodNameRegister:           &contracts.MethodRegister{},
+			cabi.MethodNameCancelRegister:     &contracts.MethodCancelRegister{},
+			cabi.MethodNameReward:             &contracts.MethodReward{},
+			cabi.MethodNameUpdateRegistration: &contracts.MethodUpdateRegistration{},
 		},
-		contracts.ABIRegister,
+		cabi.ABIRegister,
 	},
-	contracts.AddressVote: {
+	cabi.AddressVote: {
 		map[string]contracts.PrecompiledContractMethod{
-			contracts.MethodNameVote:       &contracts.MethodVote{},
-			contracts.MethodNameCancelVote: &contracts.MethodCancelVote{},
+			cabi.MethodNameVote:       &contracts.MethodVote{},
+			cabi.MethodNameCancelVote: &contracts.MethodCancelVote{},
 		},
-		contracts.ABIVote,
+		cabi.ABIVote,
 	},
-	contracts.AddressPledge: {
+	cabi.AddressPledge: {
 		map[string]contracts.PrecompiledContractMethod{
-			contracts.MethodNamePledge:       &contracts.MethodPledge{},
-			contracts.MethodNameCancelPledge: &contracts.MethodCancelPledge{},
+			cabi.MethodNamePledge:       &contracts.MethodPledge{},
+			cabi.MethodNameCancelPledge: &contracts.MethodCancelPledge{},
 		},
-		contracts.ABIPledge,
+		cabi.ABIPledge,
 	},
 	/* TODO not support consensus group this version
 	contracts.AddressConsensusGroup: {
@@ -44,12 +45,12 @@ var simpleContracts = map[types.Address]*precompiledContract{
 		},
 		contracts.ABIConsensusGroup,
 	},*/
-	contracts.AddressMintage: {
+	cabi.AddressMintage: {
 		map[string]contracts.PrecompiledContractMethod{
-			contracts.MethodNameMintage:             &contracts.MethodMintage{},
-			contracts.MethodNameMintageCancelPledge: &contracts.MethodMintageCancelPledge{},
+			cabi.MethodNameMintage:             &contracts.MethodMintage{},
+			cabi.MethodNameMintageCancelPledge: &contracts.MethodMintageCancelPledge{},
 		},
-		contracts.ABIMintage,
+		cabi.ABIMintage,
 	},
 }
 

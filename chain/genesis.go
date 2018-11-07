@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"math/big"
 	"strconv"
 	"time"
@@ -9,7 +10,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
-	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 )
@@ -106,7 +106,7 @@ func genesisMintageBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	block := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		Height:         1,
-		AccountAddress: contracts.AddressMintage,
+		AccountAddress: abi.AddressMintage,
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 
@@ -118,9 +118,9 @@ func genesisMintageBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	tokenName := "Vite Token"
 	tokenSymbol := "VITE"
 	decimals := uint8(18)
-	mintageData, _ := contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, ledger.GenesisAccountAddress, big.NewInt(0), uint64(0))
+	mintageData, _ := abi.ABIMintage.PackVariable(abi.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, ledger.GenesisAccountAddress, big.NewInt(0), uint64(0))
 
-	vmContext.SetStorage(contracts.GetMintageKey(ledger.ViteTokenId), mintageData)
+	vmContext.SetStorage(abi.GetMintageKey(ledger.ViteTokenId), mintageData)
 
 	block.StateHash = *vmContext.GetStorageHash()
 	block.Hash = block.ComputeHash()
@@ -134,7 +134,7 @@ func genesisMintageSendBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase
 		BlockType:      ledger.BlockTypeSendReward,
 		PrevHash:       GenesisMintageBlock.Hash,
 		Height:         2,
-		AccountAddress: contracts.AddressMintage,
+		AccountAddress: abi.AddressMintage,
 		ToAddress:      ledger.GenesisAccountAddress,
 		Amount:         totalSupply,
 		TokenId:        ledger.ViteTokenId,
@@ -154,7 +154,7 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 	block := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		Height:         1,
-		AccountAddress: contracts.AddressConsensusGroup,
+		AccountAddress: abi.AddressConsensusGroup,
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 
@@ -162,14 +162,14 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 		Timestamp:    &timestamp,
 	}
 
-	conditionRegisterData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)), ledger.ViteTokenId, uint64(3600*24*90))
+	conditionRegisterData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)), ledger.ViteTokenId, uint64(3600*24*90))
 
-	snapshotConsensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+	snapshotConsensusGroupData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(1),
 		int64(3),
-		uint8(0),
-		uint8(50),
+		uint8(2),
+		uint8(100),
 		ledger.ViteTokenId,
 		uint8(1),
 		conditionRegisterData,
@@ -179,12 +179,12 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 		big.NewInt(0),
 		uint64(1))
 
-	commonConsensusGroupData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConsensusGroupInfo,
+	commonConsensusGroupData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
 		int64(1),
-		uint8(0),
-		uint8(50),
+		uint8(2),
+		uint8(100),
 		ledger.ViteTokenId,
 		uint8(1),
 		conditionRegisterData,
@@ -195,8 +195,8 @@ func genesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatab
 		uint64(1))
 
 	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
-	vmContext.SetStorage(contracts.GetConsensusGroupKey(types.SNAPSHOT_GID), snapshotConsensusGroupData)
-	vmContext.SetStorage(contracts.GetConsensusGroupKey(types.DELEGATE_GID), commonConsensusGroupData)
+	vmContext.SetStorage(abi.GetConsensusGroupKey(types.SNAPSHOT_GID), snapshotConsensusGroupData)
+	vmContext.SetStorage(abi.GetConsensusGroupKey(types.DELEGATE_GID), commonConsensusGroupData)
 
 	block.StateHash = *vmContext.GetStorageHash()
 	block.Hash = block.ComputeHash()
@@ -210,7 +210,7 @@ func genesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	block := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		Height:         1,
-		AccountAddress: contracts.AddressRegister,
+		AccountAddress: abi.AddressRegister,
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 
@@ -255,10 +255,10 @@ func genesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
 	for index, addr := range addrList {
 		nodeName := "s" + strconv.Itoa(index+1)
-		registerData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameRegistration, nodeName, addr, addr, helper.Big0, uint64(1), uint64(1), uint64(0), []types.Address{addr})
-		vmContext.SetStorage(contracts.GetRegisterKey(nodeName, types.SNAPSHOT_GID), registerData)
-		hisNameData, _ := contracts.ABIRegister.PackVariable(contracts.VariableNameHisName, nodeName)
-		vmContext.SetStorage(contracts.GetHisNameKey(addr, types.SNAPSHOT_GID), hisNameData)
+		registerData, _ := abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr, addr, helper.Big0, uint64(1), uint64(0), uint64(0), []types.Address{addr})
+		vmContext.SetStorage(abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID), registerData)
+		hisNameData, _ := abi.ABIRegister.PackVariable(abi.VariableNameHisName, nodeName)
+		vmContext.SetStorage(abi.GetHisNameKey(addr, types.SNAPSHOT_GID), hisNameData)
 	}
 
 	block.StateHash = *vmContext.GetStorageHash()

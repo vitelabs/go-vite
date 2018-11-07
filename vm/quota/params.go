@@ -31,7 +31,7 @@ func NewQuotaParams(strA, strB string) QuotaParams {
 
 var (
 	QuotaParamTest    = NewQuotaParams("4.200604096e-21", "6.40975486e-07")
-	QuotaParamMainNet = NewQuotaParams("4.200627522e-23", "6.259419649e-10")
+	QuotaParamMainNet = NewQuotaParams("4.200627522e-24", "6.259419649e-10")
 
 	sectionStrList = []string{
 		"0.0",
