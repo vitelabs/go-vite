@@ -52,7 +52,7 @@ func (self *algo) FilterVotes(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
 		simpleVotes = votes
 	}
 
-	votes = self.filterRand(simpleVotes, hashH)
+	votes = self.filterRandV2(simpleVotes, hashH)
 
 	return votes
 }
@@ -116,46 +116,45 @@ func (self *algo) filterRand(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
 }
 
 func (self *algo) filterRandV2(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
+	var result []*Vote
 	total := int(self.info.NodeCount)
 	sort.Sort(ByBalance(votes))
+
+	seed := self.findSeed(votes, hashH.Height)
 	length := len(votes)
 	if length <= int(total) {
-		return votes
+		random1 := rand.New(rand.NewSource(seed))
+		arr := random1.Perm(int(length))
+		for _, v := range arr {
+			result = append(result, votes[v])
+		}
+		return result
 	}
-	seed := self.findSeed(votes, hashH.Height)
 
 	randCnt := self.calRandCnt(total, int(self.info.RandCount))
-
 	topTotal := total - randCnt
 
-	random1 := rand.New(rand.NewSource(seed))
-
-	firstArr := random1.Perm(int(total))[0:topTotal]
-
-	random2 := rand.New(rand.NewSource(seed + 1))
-
-	//
 	//if (total-randCnt)/total) > randCnt/(length-total) {
-	//
-	//}else{
-	//
-	//}
+	if (topTotal)*(length-total) > randCnt*total {
+		random1 := rand.New(rand.NewSource(seed))
+		random2 := rand.New(rand.NewSource(seed + 1))
 
-	limit := int(self.info.RandRank)
-	if limit > length {
-		limit = length
-	}
+		firstArr := random1.Perm(int(total))[0:topTotal]
+		secondArr := random2.Perm(length - total)[0:randCnt]
 
-	secondArr := random2.Perm(int(5))[0:randCnt]
+		for _, v := range firstArr {
+			result = append(result, votes[v])
+		}
 
-	var result []*Vote
-
-	for _, v := range firstArr {
-		result = append(result, votes[v])
-	}
-
-	for _, v := range secondArr {
-		result = append(result, votes[v])
+		for _, v := range secondArr {
+			result = append(result, votes[v+total])
+		}
+	} else {
+		random1 := rand.New(rand.NewSource(seed))
+		arr := random1.Perm(int(length))[0:total]
+		for _, v := range arr {
+			result = append(result, votes[v])
+		}
 	}
 	return result
 }

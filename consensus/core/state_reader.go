@@ -38,11 +38,12 @@ func GenVote(snapshotHash types.Hash, registration *types.Registration, infos []
 			addrs = append(addrs, v.VoterAddr)
 		}
 	}
-	balanceMap, _ := rw.GetBalanceList(snapshotHash, id, addrs)
-
 	result := &Vote{Balance: big.NewInt(0), Name: registration.Name, Addr: registration.NodeAddr}
-	for _, v := range balanceMap {
-		result.Balance.Add(result.Balance, v)
+	if len(addrs) > 0 {
+		balanceMap, _ := rw.GetBalanceList(snapshotHash, id, addrs)
+		for _, v := range balanceMap {
+			result.Balance.Add(result.Balance, v)
+		}
 	}
 	return result
 }

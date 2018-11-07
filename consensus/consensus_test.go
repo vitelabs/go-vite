@@ -18,6 +18,9 @@ import (
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+
+	"net/http"
+	_ "net/http/pprof"
 )
 
 var log = log15.New("module", "consensusTest")
@@ -287,6 +290,9 @@ func TestRead2(t *testing.T) {
 }
 
 func TestReader3(t *testing.T) {
+	go func() {
+		t.Log(http.ListenAndServe("localhost:6060", nil))
+	}()
 	ch := getChainInstance()
 	genesis := chain.GenesisSnapshotBlock
 	info := types.ConsensusGroupInfo{
@@ -310,7 +316,9 @@ func TestReader3(t *testing.T) {
 	height := ledger.HashHeight{block.Height, block.Hash}
 	now := time.Now()
 	for i := 0; i < 10000; i++ {
+		//for {
 		core.CalVotes(core.NewGroupInfo(*genesis.Timestamp, info), height, ch)
+		//}
 	}
 	t.Log(time.Now().Sub(now))
 
