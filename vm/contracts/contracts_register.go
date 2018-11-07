@@ -268,6 +268,15 @@ func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.A
 	return nil, nil
 }
 
+func IndexToTime(index uint64, genesisTime int64, periodTime uint64) int64 {
+	return genesisTime + int64(periodTime*index)
+}
+
+func CalcMinRewardTime(registration *types.Registration, genesisTime int64, periodTime uint64) int64 {
+	startTime := IndexToTime(registration.RewardIndex, genesisTime, periodTime)
+	return startTime + int64(nodeConfig.params.RewardTimeUnit+nodeConfig.params.RewardEndHeightLimit)
+}
+
 func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid types.Gid) (uint64, uint64, *big.Int, uint64, error) {
 	currentSnapshotBlock := db.CurrentSnapshotBlock()
 	genesisTime := db.GetGenesisSnapshotBlock().Timestamp
@@ -297,7 +306,7 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid typ
 		}
 	}
 
-	indexPerDay := SecondPerDay / periodTime
+	indexPerDay := nodeConfig.params.RewardTimeUnit / periodTime
 
 	startIndex, err := reader.TimeToIndex(*db.GetSnapshotBlockByHeight(old.RewardIndex).Timestamp)
 	startIndex = startIndex + 1
