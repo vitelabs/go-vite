@@ -263,6 +263,7 @@ wait:
 			}
 
 			s.fc.threshold(current.Height)
+			s.pool.threshold(current.Height)
 			s.log.Debug(fmt.Sprintf("current height: %d", current.Height))
 
 		case <-s.term:

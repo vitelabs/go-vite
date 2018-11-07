@@ -77,7 +77,7 @@ type blockReceiver interface {
 const file2Chunk = 600
 const minSubLedger = 1000
 
-const chunk = 10
+const chunk = 20
 
 func splitChunk(from, to uint64) (chunks [][2]uint64) {
 	// chunks may be only one block, then from == to
@@ -104,7 +104,7 @@ func splitChunk(from, to uint64) (chunks [][2]uint64) {
 	return chunks[:i]
 }
 
-var chunkTimeout = 3 * time.Minute
+var chunkTimeout = 20 * time.Second
 
 // @request for chunk
 type chunkRequest struct {
@@ -135,6 +135,8 @@ type chunkPool struct {
 	term    chan struct{}
 	wg      sync.WaitGroup
 	recing  int32
+	target  uint64
+	should  bool
 }
 
 func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool {
@@ -144,7 +146,15 @@ func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool
 		queue:   list.New(),
 		chunks:  make(map[uint64]*chunkRequest),
 		handler: handler,
-		slots:   make(chan struct{}, 1),
+		slots:   make(chan struct{}, 5),
+	}
+}
+
+func (p *chunkPool) threshold(current uint64) {
+	if current+3600 > p.target {
+		p.should = true
+	} else {
+		p.should = false
 	}
 }
 
@@ -227,6 +237,11 @@ loop:
 			}
 
 		case p.slots <- struct{}{}:
+			if !p.should {
+				p.release()
+				break
+			}
+
 			if ele := p.queue.Shift(); ele != nil {
 				c := ele.(*chunkRequest)
 				p.chunks[c.id] = c
@@ -281,8 +296,6 @@ func (p *chunkPool) done(id uint64) {
 	p.lock.Lock()
 	delete(p.chunks, id)
 	p.lock.Unlock()
-
-	time.Sleep(10 * time.Second)
 	p.release()
 }
 
@@ -296,6 +309,7 @@ func (p *chunkPool) request(c *chunkRequest) {
 		c.peer = peers[rand.Intn(len(peers))]
 	}
 
+	p.target = c.to
 	p.do(c)
 }
 
