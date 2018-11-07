@@ -76,7 +76,7 @@ func (self *teller) genPlan(index uint64, members []types.Address, hashH *ledger
 	result := electionResult{}
 	result.STime = self.info.GenSTime(index)
 	result.ETime = self.info.GenETime(index)
-	result.Plans = self.info.GenPlan(index, members)
+	result.Plans = self.info.GenPlanByAddress(index, members)
 	result.Index = index
 	result.Hash = hashH.Hash
 	result.Height = hashH.Height
@@ -126,13 +126,7 @@ func (self *teller) findSeed(votes []*core.Vote) int64 {
 	}
 	return result.Int64()
 }
-func (self *teller) convertToAddress(votes []*core.Vote) []types.Address {
-	var result []types.Address
-	for _, v := range votes {
-		result = append(result, v.Addr)
-	}
-	return result
-}
+
 func (self *teller) calVotes(hashH ledger.HashHeight) ([]types.Address, error) {
 	// load from cache
 	r, ok := self.voteCache.Get(hashH.Hash)
@@ -149,7 +143,7 @@ func (self *teller) calVotes(hashH ledger.HashHeight) ([]types.Address, error) {
 	// shuffle the members
 	finalVotes = self.algo.ShuffleVotes(finalVotes, &hashH)
 
-	address := self.convertToAddress(finalVotes)
+	address := core.ConvertVoteToAddress(finalVotes)
 
 	// update cache
 	self.voteCache.Add(hashH.Hash, address)

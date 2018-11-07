@@ -24,6 +24,7 @@ type ch interface {
 	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlocksByHeight(height uint64, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
 }
 
 type chainRw struct {

@@ -67,13 +67,13 @@ func (self *algo) FilterSimple(votes []*Vote) (result []*Vote) {
 
 }
 
-func (self *algo) calRandCnt(total uint8, randNum uint8) int {
+func (self *algo) calRandCnt(total int, randNum int) int {
 	// the random number can't be greater than 1/3
 	// todo need detail info
 	if total/3 > randNum {
-		return int(randNum)
+		return randNum
 	} else {
-		return int(total) / 3
+		return (total) / 3
 	}
 }
 func (self *algo) filterRand(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
@@ -85,7 +85,7 @@ func (self *algo) filterRand(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
 	}
 	seed := self.findSeed(votes, hashH.Height)
 
-	randCnt := self.calRandCnt(total, self.info.RandCount)
+	randCnt := self.calRandCnt(int(total), int(self.info.RandCount))
 	topTotal := int(total) - randCnt
 
 	leftTotal := length - topTotal
@@ -111,6 +111,51 @@ func (self *algo) filterRand(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
 		if b {
 			result = append(result, votes[k+topTotal])
 		}
+	}
+	return result
+}
+
+func (self *algo) filterRandV2(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
+	total := int(self.info.NodeCount)
+	sort.Sort(ByBalance(votes))
+	length := len(votes)
+	if length <= int(total) {
+		return votes
+	}
+	seed := self.findSeed(votes, hashH.Height)
+
+	randCnt := self.calRandCnt(total, int(self.info.RandCount))
+
+	topTotal := total - randCnt
+
+	random1 := rand.New(rand.NewSource(seed))
+
+	firstArr := random1.Perm(int(total))[0:topTotal]
+
+	random2 := rand.New(rand.NewSource(seed + 1))
+
+	//
+	//if (total-randCnt)/total) > randCnt/(length-total) {
+	//
+	//}else{
+	//
+	//}
+
+	limit := int(self.info.RandRank)
+	if limit > length {
+		limit = length
+	}
+
+	secondArr := random2.Perm(int(5))[0:randCnt]
+
+	var result []*Vote
+
+	for _, v := range firstArr {
+		result = append(result, votes[v])
+	}
+
+	for _, v := range secondArr {
+		result = append(result, votes[v])
 	}
 	return result
 }

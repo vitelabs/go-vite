@@ -7,6 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/monitor"
 )
 
 type Detail struct {
@@ -78,7 +79,8 @@ func (self *reader) VoteDetails(startIndex, endIndex uint64,
 		if err != nil {
 			return nil, err
 		}
-		for _, v := range finalVotes {
+
+		for _, v := range self.info.GenPlan(i, finalVotes) {
 			if v.Name == register.Name {
 				memAllPlanNum++
 			}
@@ -103,7 +105,7 @@ func (self *reader) VoteDetails(startIndex, endIndex uint64,
 
 func (self *reader) voteDetail(index uint64,
 	r stateCh) ([]*Vote, []*Vote, error) {
-
+	monitor.LogTime("snapshotdd", "aaa", time.Now())
 	voteTime := self.info.GenVoteTime(index)
 	block, err := r.GetSnapshotBlockBeforeTime(&voteTime)
 
@@ -121,11 +123,13 @@ func (self *reader) voteDetail(index uint64,
 	finalVotes = self.ag.ShuffleVotes(finalVotes, &hashH)
 	return topVotes, finalVotes, nil
 }
+
 func (self *reader) actualSnapshotBlockNum(index uint64, register *types.Registration, r stateCh) (uint64, uint64, error) {
+	monitor.LogTime("snapshotdd", "ddd", time.Now())
 	result := uint64(0)
 	memResult := uint64(0)
 	sTime := self.info.GenSTime(index)
-	eTime := self.info.GenETime(index + 1)
+	eTime := self.info.GenSTime(index + 1)
 	first, err := r.GetSnapshotBlockBeforeTime(&eTime)
 	if err != nil {
 		return 0, 0, err
@@ -136,24 +140,44 @@ func (self *reader) actualSnapshotBlockNum(index uint64, register *types.Registr
 		m[v] = true
 	}
 
-	tmp := first
-	for !tmp.Timestamp.Before(sTime) {
-		result++
-		_, ok := m[tmp.Producer()]
-		if ok {
-			memResult++
-		}
-		if tmp.Height <= types.GenesisHeight {
-			break
-		}
-		tmp, err = r.GetSnapshotBlockByHeight(tmp.Height - 1)
-		if err != nil {
-			return 0, 0, nil
-		}
-		if tmp == nil {
-			break
-		}
-
+	zero, err := r.GetSnapshotBlockBeforeTime(&sTime)
+	if err != nil {
+		return 0, 0, err
 	}
+	result++
+	uu := first.Height - zero.Height
+
+	if uu > 0 {
+		blocks, _ := r.GetSnapshotBlocksByHeight(first.Height, uu, false, false)
+		result = result + uint64(len(blocks))
+	}
+
+	//tmp := first
+	//for !tmp.Timestamp.Before(sTime) {
+	//	result++
+	//	_, ok := m[tmp.Producer()]
+	//	if ok {
+	//		memResult++
+	//	}
+	//	if tmp.Height <= types.GenesisHeight {
+	//		break
+	//	}
+	//	tmp, err = r.GetSnapshotBlockByHeight(tmp.Height - 1)
+	//	if err != nil {
+	//		return 0, 0, nil
+	//	}
+	//	if tmp == nil {
+	//		break
+	//	}
+	//
+	//}
 	return result, memResult, nil
+}
+
+func ConvertVoteToAddress(votes []*Vote) []types.Address {
+	var result []types.Address
+	for _, v := range votes {
+		result = append(result, v.Addr)
+	}
+	return result
 }

@@ -91,7 +91,7 @@ func TestGenPlans(t *testing.T) {
 func testGenPlan(t *testing.T, teller *teller, votes []*core.Vote, expectedCnt int) {
 	votes = teller.algo.FilterVotes(votes, nil)
 
-	plans := teller.info.GenPlan(teller.info.Time2Index(time.Now()), teller.convertToAddress(votes))
+	plans := teller.info.GenPlanByAddress(teller.info.Time2Index(time.Now()), core.ConvertVoteToAddress(votes))
 	for _, v := range plans {
 		print(v.STime.String() + "\t" + v.Member.String())
 		println()

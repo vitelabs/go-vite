@@ -44,7 +44,7 @@ func TestGenPlan(t *testing.T) {
 	info := core.NewGroupInfo(now, types.ConsensusGroupInfo{NodeCount: 2, Interval: 6, Gid: types.SNAPSHOT_GID})
 	var n = uint64(10)
 	for i := uint64(0); i < n; i++ {
-		plans := info.GenPlan(i, genAddress(int(n)))
+		plans := info.GenPlanByAddress(i, genAddress(int(n)))
 		for i, p := range plans {
 			println(strconv.Itoa(i) + ":\t" + p.STime.Format(time.StampMilli) + "\t" + p.Member.String() + "\t")
 		}

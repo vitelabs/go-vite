@@ -285,3 +285,53 @@ func TestRead2(t *testing.T) {
 	fmt.Printf("%d-%s\n", height.Height, height.Hash)
 	fmt.Printf("%+v\n", e)
 }
+
+func TestReader3(t *testing.T) {
+	ch := getChainInstance()
+	genesis := chain.GenesisSnapshotBlock
+	info := types.ConsensusGroupInfo{
+		Gid:                    types.SNAPSHOT_GID,
+		NodeCount:              25,
+		Interval:               1,
+		PerCount:               3,
+		RandCount:              1,
+		RandRank:               25,
+		CountingTokenId:        ledger.ViteTokenId,
+		RegisterConditionId:    0,
+		RegisterConditionParam: nil,
+		VoteConditionId:        0,
+		VoteConditionParam:     nil,
+		Owner:                  types.Address{},
+		PledgeAmount:           big.NewInt(0),
+		WithdrawHeight:         0,
+	}
+
+	block := ch.GetLatestSnapshotBlock()
+	height := ledger.HashHeight{block.Height, block.Hash}
+	now := time.Now()
+	for i := 0; i < 10000; i++ {
+		core.CalVotes(core.NewGroupInfo(*genesis.Timestamp, info), height, ch)
+	}
+	t.Log(time.Now().Sub(now))
+
+	now = time.Now()
+	for i := 0; i < 10000; i++ {
+		ch.GetRegisterList(block.Hash, types.SNAPSHOT_GID)
+	}
+	t.Log("getRegisterList", time.Now().Sub(now))
+
+	now = time.Now()
+	for i := 0; i < 10000; i++ {
+		ch.GetVoteMap(block.Hash, info.Gid)
+	}
+	t.Log("getVoteMap", time.Now().Sub(now))
+
+	now = time.Now()
+	for i := 0; i < 10000; i++ {
+		ch.GetBalanceList(block.Hash, ledger.ViteTokenId, []types.Address{})
+	}
+	t.Log("GetBalanceList", time.Now().Sub(now))
+
+	// query vote info
+
+}

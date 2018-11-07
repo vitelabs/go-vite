@@ -12,6 +12,7 @@ type MemberPlan struct {
 	STime  time.Time
 	ETime  time.Time
 	Member types.Address
+	Name   string
 }
 
 type GroupInfo struct {
@@ -57,7 +58,20 @@ func (self *GroupInfo) GenVoteTime(index uint64) time.Time {
 	return self.genesisTime.Add(time.Duration(planInterval*(index+1)) * time.Second)
 }
 
-func (self *GroupInfo) GenPlan(index uint64, members []types.Address) []*MemberPlan {
+func (self *GroupInfo) GenPlan(index uint64, members []*Vote) []*MemberPlan {
+	sTime := self.GenSTime(index)
+	var plans []*MemberPlan
+	for _, member := range members {
+		for i := int64(0); i < self.PerCount; i++ {
+			etime := sTime.Add(time.Duration(self.Interval) * time.Second)
+			plan := MemberPlan{STime: sTime, ETime: etime, Member: member.Addr, Name: member.Name}
+			plans = append(plans, &plan)
+			sTime = etime
+		}
+	}
+	return plans
+}
+func (self *GroupInfo) GenPlanByAddress(index uint64, members []types.Address) []*MemberPlan {
 	sTime := self.GenSTime(index)
 	var plans []*MemberPlan
 	for _, member := range members {
