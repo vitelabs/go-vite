@@ -358,16 +358,10 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 		if sender.Height() >= s.to && len(res.Chunks) > 0 {
 			if atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
 				for _, c := range res.Chunks {
-					if c[1] > 0 {
-						// split to small chunks
-						cs := splitChunk(c[0], c[1])
-						for _, chunk := range cs {
-							s.pool.add(&chunkRequest{from: chunk[0], to: chunk[1]})
-						}
+					if len(c) == 2 && c[1] > 0 && c[1] >= c[0] {
+						s.pool.add(c[0], c[1])
 					}
 				}
-
-				//s.pool.start()
 			}
 		}
 	} else if cmd == SubLedgerCode {
@@ -407,7 +401,7 @@ func (s *syncer) catch(c piece) {
 		return
 	}
 
-	s.pool.add(&chunkRequest{from: from, to: s.to})
+	s.pool.add(from, s.to)
 	s.log.Warn(fmt.Sprintf("retry sync from %d to %d", from, s.to))
 }
 
