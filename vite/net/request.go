@@ -114,6 +114,7 @@ type chunkRequest struct {
 	state    reqState
 	deadline time.Time
 	msg      *message.GetChunk
+	count    uint64
 }
 
 func (c *chunkRequest) setBand(from, to uint64) {
@@ -151,7 +152,7 @@ func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool
 }
 
 func (p *chunkPool) threshold(current uint64) {
-	if current+3600 > p.target {
+	if current+500 > p.target {
 		p.should = true
 	} else {
 		p.should = false
@@ -187,7 +188,14 @@ func (p *chunkPool) Handle(msg *p2p.Msg, sender Peer) error {
 			p.handler.receiveSnapshotBlock(block)
 		}
 
-		p.done(msg.Id)
+		c := p.chunk(msg.Id)
+		if c != nil {
+			c.count += uint64(len(res.SBlocks))
+
+			if c.count >= c.to-c.from+1 {
+				p.done(msg.Id)
+			}
+		}
 	} else {
 		p.retry(msg.Id)
 	}
@@ -262,6 +270,12 @@ loop:
 
 func (p *chunkPool) release() {
 	<-p.slots
+}
+
+func (p *chunkPool) chunk(id uint64) *chunkRequest {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	return p.chunks[id]
 }
 
 func (p *chunkPool) add(from, to uint64) {

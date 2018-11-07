@@ -227,7 +227,7 @@ func (fc *fileClient) stop() {
 }
 
 func (fc *fileClient) threshold(current uint64) {
-	if current+3600 > fc.target {
+	if current+500 > fc.target {
 		fc.should = true
 	} else {
 		fc.should = false
@@ -388,7 +388,7 @@ func (fc *fileClient) loop() {
 	pFiles := make(map[string]files)
 	fileList := make(files, 0, 10)
 
-	idleTimeout := 20 * time.Second
+	idleTimeout := 5 * time.Second
 	ticker := time.NewTicker(idleTimeout)
 	defer ticker.Stop()
 
