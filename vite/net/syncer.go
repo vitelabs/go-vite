@@ -179,7 +179,7 @@ wait:
 	start.Stop()
 
 	// for now syncState is SyncNotStart
-	p := s.peers.BestPeer()
+	p := s.peers.SyncPeer()
 	if p == nil {
 		s.setState(Syncerr)
 		s.log.Error("sync error: no peers")
@@ -226,12 +226,12 @@ wait:
 				// a taller peer is disconnected, maybe is the peer we syncing to
 				// because peer`s height is growing
 				if e.peer.height >= s.to {
-					if bestPeer := s.peers.BestPeer(); bestPeer != nil {
-						if shouldSync(current.Height, bestPeer.height) {
-							s.setTarget(bestPeer.height)
+					if targetPeer := s.peers.SyncPeer(); targetPeer != nil {
+						if shouldSync(current.Height, targetPeer.height) {
+							s.setTarget(targetPeer.height)
 						} else {
 							// no need sync
-							s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", bestPeer, bestPeer.height, current.Height))
+							s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", targetPeer, targetPeer.height, current.Height))
 							s.setState(Syncdone)
 							return
 						}

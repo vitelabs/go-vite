@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	net2 "net"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -339,6 +340,18 @@ func (m *peerSet) BestPeer() (best *peer) {
 	return
 }
 
+func (m *peerSet) SyncPeer() *peer {
+	s := m.Peers()
+	if len(s) == 0 {
+		return nil
+	}
+
+	sort.Sort(ps(s))
+	mid := len(s) / 2
+
+	return s[mid]
+}
+
 func (m *peerSet) Add(peer *peer) error {
 	m.rw.Lock()
 	defer m.rw.Unlock()
@@ -466,4 +479,19 @@ func (s peers) delete(id string) peers {
 	}
 
 	return s
+}
+
+// @section
+type ps []*peer
+
+func (s ps) Len() int {
+	return len(s)
+}
+
+func (s ps) Less(i, j int) bool {
+	return s[i].Height() < s[j].Height()
+}
+
+func (s ps) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
 }
