@@ -395,13 +395,8 @@ func (a *agent) writeLoop() {
 		case s := <-a.write:
 			data, hash, err := s.msg.pack(a.priv)
 
-			if s.wait != nil {
-				s.wait.sourceHash = hash
-				s.wait.expiration = getExpiration()
-				a.pool.add <- s.wait
-			}
-
 			if err != nil {
+				s.wait.handle(nil, err, nil)
 				discvLog.Error(fmt.Sprintf("pack message %s to %s error: %v", s.msg, s.addr, err))
 				continue
 			}
@@ -409,12 +404,20 @@ func (a *agent) writeLoop() {
 			n, err := a.conn.WriteToUDP(data, s.addr)
 
 			if err != nil {
+				s.wait.handle(nil, err, nil)
 				discvLog.Error(fmt.Sprintf("send message %s to %s error: %v", s.msg, s.addr, err))
 			} else if n != len(data) {
-				discvLog.Error(fmt.Sprintf("send incomplete message %s (%d/%dbytes) to %s", s.msg, n, len(data), s.addr))
+				err = fmt.Errorf("send incomplete message %s (%d/%dbytes) to %s", s.msg, n, len(data), s.addr)
+				s.wait.handle(nil, err, nil)
+				discvLog.Error(err.Error())
 			} else {
 				monitor.LogEvent("p2p/discv", "send "+s.code.String())
 
+				if s.wait != nil {
+					s.wait.sourceHash = hash
+					s.wait.expiration = getExpiration()
+					a.pool.add <- s.wait
+				}
 			}
 		}
 	}
