@@ -40,16 +40,19 @@ func (r *RegisterApi) GetUpdateRegistrationData(gid types.Gid, name string, node
 }
 
 type RegistrationInfo struct {
-	Name                 string        `json:"name"`
-	NodeAddr             types.Address `json:"nodeAddr"`
-	PledgeAddr           types.Address `json:"pledgeAddr"`
-	PledgeAmount         string        `json:"pledgeAmount"`
-	WithdrawHeight       string        `json:"withdrawHeight"`
-	WithdrawTime         int64         `json:"withdrawTime"`
-	CancelHeight         string        `json:"cancelHeight"`
-	AvailableRewardOneTx string        `json:"availableRewardOneTx"`
-	StartHeight          string        `json:"rewardStartHeight"`
-	EndHeight            string        `json:"rewardEndHeight"`
+	Name           string        `json:"name"`
+	NodeAddr       types.Address `json:"nodeAddr"`
+	PledgeAddr     types.Address `json:"pledgeAddr"`
+	PledgeAmount   string        `json:"pledgeAmount"`
+	WithdrawHeight string        `json:"withdrawHeight"`
+	WithdrawTime   int64         `json:"withdrawTime"`
+	CancelHeight   string        `json:"cancelHeight"`
+}
+
+type RewardInfo struct {
+	Reward    string `json:"reward"`
+	StartTime int64  `json:"startTime"`
+	EndTime   int64  `json:"endTime"`
 }
 
 func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error) {
@@ -62,25 +65,40 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	targetList := make([]*RegistrationInfo, len(list))
 	if len(list) > 0 {
 		for i, info := range list {
-			startHeight, endHeight, availableRewardOneTx, err := contracts.CalcReward(vmContext, info, gid)
-			if err != nil {
-				return nil, err
-			}
 			targetList[i] = &RegistrationInfo{
-				Name:                 info.Name,
-				NodeAddr:             info.NodeAddr,
-				PledgeAddr:           info.PledgeAddr,
-				PledgeAmount:         *bigIntToString(info.Amount),
-				WithdrawHeight:       uint64ToString(info.WithdrawHeight),
-				WithdrawTime:         getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
-				CancelHeight:         uint64ToString(info.CancelHeight),
-				AvailableRewardOneTx: *bigIntToString(availableRewardOneTx), // TODO get available reward by another method
-				StartHeight:          uint64ToString(startHeight),
-				EndHeight:            uint64ToString(endHeight),
+				Name:           info.Name,
+				NodeAddr:       info.NodeAddr,
+				PledgeAddr:     info.PledgeAddr,
+				PledgeAmount:   *bigIntToString(info.Amount),
+				WithdrawHeight: uint64ToString(info.WithdrawHeight),
+				WithdrawTime:   getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
+				CancelHeight:   uint64ToString(info.CancelHeight),
 			}
 		}
 	}
 	return targetList, nil
+}
+
+func (r *RegisterApi) GetReward(gid types.Gid, name string) (*RewardInfo, error) {
+	snapshotBlock := r.chain.GetLatestSnapshotBlock()
+	vmContext, err := vm_context.NewVmContext(r.chain, &snapshotBlock.Hash, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	info := abi.GetRegistration(vmContext, gid, name)
+	if info == nil {
+		return nil, nil
+	}
+	startIndex, endIndex, reward, periodTime, err := contracts.CalcReward(vmContext, info, gid)
+	if err != nil {
+		return nil, err
+	}
+	genesisTime := vmContext.GetGenesisSnapshotBlock().Timestamp.Unix()
+	return &RewardInfo{*bigIntToString(reward), indexToTime(startIndex, genesisTime, periodTime), indexToTime(endIndex+1, genesisTime, periodTime)}, nil
+}
+
+func indexToTime(index uint64, genesisTime int64, periodTime uint64) int64 {
+	return genesisTime + int64(periodTime*index)
 }
 
 type CandidateInfo struct {

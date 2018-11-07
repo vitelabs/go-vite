@@ -2,8 +2,6 @@ package contracts
 
 import (
 	"errors"
-	"math/big"
-
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
@@ -11,6 +9,7 @@ import (
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"math/big"
 )
 
 type MethodRegister struct {
@@ -69,10 +68,8 @@ func (p *MethodRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger
 	if param.Gid == types.SNAPSHOT_GID {
 		groupInfo := cabi.GetConsensusGroup(db, param.Gid)
 		reader := core.NewReader(*db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
-		// TODO Why TimeToIndex returns error
-		rewardIndex, err = reader.TimeToIndex(*snapshotBlock.Timestamp)
-		if err != nil {
-			return nil, err
+		if rewardIndex, err = reader.TimeToIndex(*snapshotBlock.Timestamp); err != nil {
+			panic(err)
 		}
 	}
 	key := cabi.GetRegisterKey(param.Name, param.Gid)
@@ -238,7 +235,7 @@ func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.A
 	if err != nil || sendBlock.AccountAddress != old.PledgeAddr {
 		return nil, errors.New("invalid owner")
 	}
-	_, endIndex, reward, err := CalcReward(db, old, param.Gid)
+	_, endIndex, reward, _, err := CalcReward(db, old, param.Gid)
 	if err != nil {
 		panic(err)
 	}
@@ -271,37 +268,36 @@ func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.A
 	return nil, nil
 }
 
-func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid types.Gid) (uint64, uint64, *big.Int, error) {
+func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid types.Gid) (uint64, uint64, *big.Int, uint64, error) {
 	currentSnapshotBlock := db.CurrentSnapshotBlock()
 	genesisTime := db.GetGenesisSnapshotBlock().Timestamp
 	groupInfo := cabi.GetConsensusGroup(db, gid)
 	if groupInfo == nil {
-		return old.RewardIndex, old.RewardIndex, big.NewInt(0), errors.New("consensus group info not exist")
+		return old.RewardIndex, old.RewardIndex, big.NewInt(0), 0, errors.New("consensus group info not exist")
 	}
 	reader := core.NewReader(*genesisTime, groupInfo)
+	periodTime, err := reader.PeriodTime()
+	if err != nil {
+		return old.RewardIndex, old.RewardIndex, big.NewInt(0), 0, err
+	}
 
 	if currentSnapshotBlock.Height < nodeConfig.params.RewardEndHeightLimit ||
 		old.RewardIndex == 0 {
-		return old.RewardIndex, old.RewardIndex, big.NewInt(0), nil
+		return old.RewardIndex, old.RewardIndex, big.NewInt(0), periodTime, nil
 	}
 	var cancelIndex = uint64(0)
-	var err error
 	if !old.IsActive() {
 		cancelIndex, err = reader.TimeToIndex(*db.GetSnapshotBlockByHeight(old.CancelHeight).Timestamp)
 		if err != nil {
-			return old.RewardIndex, old.RewardIndex, big.NewInt(0), err
+			return old.RewardIndex, old.RewardIndex, big.NewInt(0), periodTime, err
 		}
 		cancelIndex = cancelIndex
 		if old.RewardIndex >= cancelIndex {
-			return old.RewardIndex, old.RewardIndex, big.NewInt(0), nil
+			return old.RewardIndex, old.RewardIndex, big.NewInt(0), periodTime, nil
 		}
 	}
 
-	indexPeriodTime, err := reader.PeriodTime()
-	if err != nil {
-		return old.RewardIndex, old.RewardIndex, big.NewInt(0), err
-	}
-	indexPerDay := SecondPerDay / indexPeriodTime
+	indexPerDay := SecondPerDay / periodTime
 
 	startIndex, err := reader.TimeToIndex(*db.GetSnapshotBlockByHeight(old.RewardIndex).Timestamp)
 	startIndex = startIndex + 1
@@ -313,7 +309,7 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid typ
 		endHeight := db.CurrentSnapshotBlock().Height - nodeConfig.params.RewardEndHeightLimit
 		endIndex, err = reader.TimeToIndex(*db.GetSnapshotBlockByHeight(endHeight).Timestamp)
 		if err != nil {
-			return old.RewardIndex, old.RewardIndex, big.NewInt(0), err
+			return old.RewardIndex, old.RewardIndex, big.NewInt(0), periodTime, err
 		}
 	}
 
@@ -329,7 +325,7 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid typ
 	}
 
 	if endIndex <= startIndex {
-		return old.RewardIndex, old.RewardIndex, big.NewInt(0), nil
+		return old.RewardIndex, old.RewardIndex, big.NewInt(0), periodTime, nil
 	}
 
 	rewardF := new(big.Float).SetPrec(rewardPrecForFloat).SetInt64(0)
@@ -358,8 +354,10 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid typ
 				totalVoteCount := big.NewInt(0)
 				for _, voteCount := range periodInfo.VoteMap {
 					totalVoteCount.Add(totalVoteCount, voteCount)
+					totalVoteCount.Add(totalVoteCount, additionForVoteReward)
 				}
-				tmp1.Quo(tmp1.SetInt(voteCount), tmp2.SetInt(totalVoteCount))
+				tmp1.Add(tmp1.SetInt(voteCount), tmp2.SetInt(additionForVoteReward))
+				tmp1.Quo(tmp1, tmp2.SetInt(totalVoteCount))
 				tmp1.Mul(tmp1, tmp2.SetUint64(periodInfo.ActualNum))
 				tmp3.Add(tmp3, tmp1)
 			}
@@ -377,7 +375,7 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid typ
 		reward.Mul(reward, rewardPerBlock)
 		reward.Quo(reward, helper.Big2)
 	}
-	return old.RewardIndex, endIndex, reward, nil
+	return old.RewardIndex, endIndex, reward, periodTime, nil
 }
 
 type MethodUpdateRegistration struct {

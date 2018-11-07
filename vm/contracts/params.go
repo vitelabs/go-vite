@@ -29,8 +29,6 @@ const (
 	cgPerIntervalMin int64 = 1
 	cgPerIntervalMax int64 = 10 * 60
 
-	dbPageSize uint64 = 10000 // Batch get snapshot blocks from vm database to calc snapshot block reward
-
 	SecondPerDay       uint64 = 3600 * 24
 	RewardDayLimit     uint64 = 90
 	rewardPrecForFloat uint   = 18
@@ -47,7 +45,8 @@ var (
 	mintagePledgeAmount              = new(big.Int).Mul(big.NewInt(1e5), util.AttovPerVite) // Mintage cost choice 2, pledge ViteToken for 3 month
 	createConsensusGroupPledgeAmount = new(big.Int).Mul(big.NewInt(1000), util.AttovPerVite)
 
-	float1 = new(big.Float).SetPrec(rewardPrecForFloat).SetInt64(1)
+	float1                = new(big.Float).SetPrec(rewardPrecForFloat).SetInt64(1)
+	additionForVoteReward = new(big.Int).Mul(big.NewInt(5e5), util.AttovPerVite)
 )
 
 type ContractsParams struct {

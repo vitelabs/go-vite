@@ -122,3 +122,13 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Add
 	}
 	return registerList
 }
+
+func GetRegistration(db StorageDatabase, gid types.Gid, name string) *types.Registration {
+	defer monitor.LogTime("vm", "GetRegistration", time.Now())
+	value := db.GetStorageBySnapshotHash(&AddressRegister, GetRegisterKey(name, gid), nil)
+	registration := new(types.Registration)
+	if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
+		return registration
+	}
+	return nil
+}
