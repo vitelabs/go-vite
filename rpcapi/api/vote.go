@@ -3,7 +3,6 @@ package api
 import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
@@ -13,14 +12,12 @@ import (
 
 type VoteApi struct {
 	chain chain.Chain
-	cs    consensus.Consensus
 	log   log15.Logger
 }
 
 func NewVoteApi(vite *vite.Vite) *VoteApi {
 	return &VoteApi{
 		chain: vite.Chain(),
-		cs:    vite.Consensus(),
 		log:   log15.New("module", "rpc_api/vote_api"),
 	}
 }
@@ -42,10 +39,9 @@ var (
 )
 
 type VoteInfo struct {
-	Name       string        `json:"nodeName"`
-	NodeStatus uint8         `json:"nodeStatus"`
-	NodeAddr   types.Address `json:"nodeAddr"`
-	Balance    string        `json:"balance"`
+	Name       string `json:"nodeName"`
+	NodeStatus uint8  `json:"nodeStatus"`
+	Balance    string `json:"balance"`
 }
 
 func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, error) {
@@ -59,29 +55,10 @@ func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, err
 			return nil, err
 		}
 		if abi.IsActiveRegistration(vmContext, voteInfo.NodeName, gid) {
-			return &VoteInfo{voteInfo.NodeName, NodeStatusActive, voteInfo.VoterAddr, *bigIntToString(balance)}, nil
+			return &VoteInfo{voteInfo.NodeName, NodeStatusActive, *bigIntToString(balance)}, nil
 		} else {
-			return &VoteInfo{voteInfo.NodeName, NodeStatusInActive, voteInfo.VoterAddr, *bigIntToString(balance)}, nil
+			return &VoteInfo{voteInfo.NodeName, NodeStatusInActive, *bigIntToString(balance)}, nil
 		}
 	}
 	return nil, nil
-}
-
-func (v *VoteApi) GetVoteDetails() ([]*VoteInfo, error) {
-	head := v.chain.GetLatestSnapshotBlock()
-	gid := types.SNAPSHOT_GID
-	index, err := v.cs.VoteTimeToIndex(gid, *head.Timestamp)
-	if err != nil {
-		return nil, err
-	}
-
-	details, _, err := v.cs.ReadVoteMapByTime(gid, index)
-	if err != nil {
-		return nil, err
-	}
-	var result []*VoteInfo
-	for _, v := range details {
-		result = append(result, &VoteInfo{v.Name, NodeStatusActive, v.CurrentAddr, *bigIntToString(v.Balance)})
-	}
-	return result, nil
 }

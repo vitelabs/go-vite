@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts"
@@ -12,12 +13,14 @@ import (
 
 type RegisterApi struct {
 	chain chain.Chain
+	cs    consensus.Consensus
 	log   log15.Logger
 }
 
 func NewRegisterApi(vite *vite.Vite) *RegisterApi {
 	return &RegisterApi{
 		chain: vite.Chain(),
+		cs:    vite.Consensus(),
 		log:   log15.New("module", "rpc_api/register_api"),
 	}
 }
@@ -86,16 +89,23 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 type CandidateInfo struct {
 	Name     string        `json:"name"`
 	NodeAddr types.Address `json:"nodeAddr"`
+	voteNum  string        `json:"voteNum"`
 }
 
 func (r *RegisterApi) GetCandidateList(gid types.Gid) ([]*CandidateInfo, error) {
-	list, err := r.chain.GetRegisterList(r.chain.GetLatestSnapshotBlock().Hash, gid)
+	head := r.chain.GetLatestSnapshotBlock()
+	index, err := r.cs.VoteTimeToIndex(gid, *head.Timestamp)
 	if err != nil {
 		return nil, err
 	}
-	targetList := make([]*CandidateInfo, len(list))
-	for i, info := range list {
-		targetList[i] = &CandidateInfo{info.Name, info.NodeAddr}
+
+	details, _, err := r.cs.ReadVoteMapByTime(gid, index)
+	if err != nil {
+		return nil, err
 	}
-	return targetList, nil
+	var result []*CandidateInfo
+	for _, v := range details {
+		result = append(result, &CandidateInfo{v.Name, v.CurrentAddr, *bigIntToString(v.Balance)})
+	}
+	return result, nil
 }
