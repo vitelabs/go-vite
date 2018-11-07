@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
+	"time"
 )
 
 type MethodRegister struct {
@@ -274,7 +275,7 @@ func IndexToTime(index uint64, genesisTime int64, periodTime uint64) int64 {
 
 func CalcMinRewardTime(registration *types.Registration, genesisTime int64, periodTime uint64) int64 {
 	startTime := IndexToTime(registration.RewardIndex, genesisTime, periodTime)
-	return startTime + int64(nodeConfig.params.RewardTimeUnit+nodeConfig.params.RewardEndHeightLimit)
+	return startTime + int64(nodeConfig.params.RewardTimeUnit+nodeConfig.params.RewardEndTimeLimit)
 }
 
 func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid types.Gid) (uint64, uint64, *big.Int, uint64, error) {
@@ -290,17 +291,17 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid typ
 		return old.RewardIndex, old.RewardIndex, big.NewInt(0), 0, err
 	}
 
-	if currentSnapshotBlock.Height < nodeConfig.params.RewardEndHeightLimit ||
+	if uint64(currentSnapshotBlock.Timestamp.Unix()) < periodTime+nodeConfig.params.RewardEndTimeLimit ||
 		old.RewardIndex == 0 {
 		return old.RewardIndex, old.RewardIndex, big.NewInt(0), periodTime, nil
 	}
 	var cancelIndex = uint64(0)
 	if !old.IsActive() {
-		cancelIndex, err = reader.TimeToIndex(*db.GetSnapshotBlockByHeight(old.CancelHeight).Timestamp)
+		cancelSnapsotBlock, _ := db.GetSnapshotBlockByHeight(old.CancelHeight)
+		cancelIndex, err = reader.TimeToIndex(*cancelSnapsotBlock.Timestamp)
 		if err != nil {
 			return old.RewardIndex, old.RewardIndex, big.NewInt(0), periodTime, err
 		}
-		cancelIndex = cancelIndex
 		if old.RewardIndex >= cancelIndex {
 			return old.RewardIndex, old.RewardIndex, big.NewInt(0), periodTime, nil
 		}
@@ -308,32 +309,32 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid typ
 
 	indexPerDay := nodeConfig.params.RewardTimeUnit / periodTime
 
-	startIndex, err := reader.TimeToIndex(*db.GetSnapshotBlockByHeight(old.RewardIndex).Timestamp)
+	startIndex := old.RewardIndex
 	startIndex = startIndex + 1
 
 	endIndex := uint64(0)
 	if !old.IsActive() {
 		endIndex = cancelIndex
 	} else {
-		endHeight := db.CurrentSnapshotBlock().Height - nodeConfig.params.RewardEndHeightLimit
-		endIndex, err = reader.TimeToIndex(*db.GetSnapshotBlockByHeight(endHeight).Timestamp)
+		endTime := uint64(db.CurrentSnapshotBlock().Timestamp.Unix()) - nodeConfig.params.RewardEndTimeLimit
+		endIndex, err = reader.TimeToIndex(time.Unix(int64(endTime), 0))
 		if err != nil {
 			return old.RewardIndex, old.RewardIndex, big.NewInt(0), periodTime, err
 		}
 	}
 
-	indexCount := uint64(0)
-	if endIndexLimit := startIndex + indexPerDay*RewardDayLimit; endIndex >= endIndexLimit {
-		indexCount = indexPerDay * RewardDayLimit
+	startDayIndex := ((startIndex+indexPerDay-1)/indexPerDay-1)*indexPerDay + 1
+	endIndexLimit := startDayIndex + indexPerDay*RewardDayLimit - 1
+
+	if endIndex >= endIndexLimit {
 		endIndex = endIndexLimit
-	} else if !old.IsActive() {
-		indexCount = indexPerDay * ((endIndex - startIndex + indexPerDay - 1) / indexPerDay)
-	} else {
-		indexCount = indexPerDay * ((endIndex - startIndex + indexPerDay - 1) / indexPerDay)
-		endIndex = startIndex + indexPerDay*indexCount
+	} else if old.IsActive() {
+		endIndex = ((endIndex+indexPerDay-1)/indexPerDay - 1) * indexPerDay
 	}
 
-	if endIndex <= startIndex {
+	indexCount := endIndex - startIndex + 1
+
+	if endIndex < startIndex {
 		return old.RewardIndex, old.RewardIndex, big.NewInt(0), periodTime, nil
 	}
 
@@ -343,14 +344,11 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid typ
 	tmp3 := new(big.Float).SetPrec(rewardPrecForFloat).SetInt64(0)
 	for indexCount > 0 {
 		var dayInfo *core.Detail
-		if indexCount < indexPerDay {
-			dayInfo, err = reader.VoteDetails(startIndex, startIndex+indexCount, old, nil)
-			indexCount = 0
-		} else {
-			dayInfo, err = reader.VoteDetails(startIndex, startIndex+indexPerDay, old, nil)
-			indexCount = indexCount - indexPerDay
-			startIndex = startIndex + indexPerDay
-		}
+		periodEndIndex, count := getPeriodIndex(startIndex, endIndex, indexPerDay, startDayIndex)
+		dayInfo, err = reader.VoteDetails(startIndex, periodEndIndex, old, db)
+		indexCount = indexCount - count
+		startIndex = startIndex + count
+
 		if dayInfo.ActualNum == 0 {
 			continue
 		}
@@ -385,6 +383,17 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid typ
 		reward.Quo(reward, helper.Big2)
 	}
 	return old.RewardIndex, endIndex, reward, periodTime, nil
+}
+
+func getPeriodIndex(startIndex, endIndex, indexPerDay, startDayIndex uint64) (periodEndIndex, count uint64) {
+	preCount := startIndex - startDayIndex
+	if preCount < indexPerDay {
+		periodEndIndex = helper.Min(startDayIndex+indexPerDay-1, endIndex)
+		return periodEndIndex, periodEndIndex - startIndex + 1
+	} else {
+		periodEndIndex = helper.Min(startIndex+indexPerDay-1, endIndex)
+		return periodEndIndex, periodEndIndex - startIndex + 1
+	}
 }
 
 type MethodUpdateRegistration struct {

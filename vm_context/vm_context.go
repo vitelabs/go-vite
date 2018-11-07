@@ -206,19 +206,19 @@ func (context *VmContext) GetSnapshotBlocks(startHeight, count uint64, forward, 
 	return snapshotBlocks
 }
 
-func (context *VmContext) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
+func (context *VmContext) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
 	// For NewEmptyVmContextByTrie
 	if context.chain == nil {
 		context.log.Error("context.chain is nil", "method", "GetSnapshotBlockByHeight")
-		return nil
+		return nil, errors.New("context.chain is nil")
 	}
 
 	if height > context.currentSnapshotBlock.Height {
-		return nil
+		return nil, nil
 	}
 	snapshotBlock, _ := context.chain.GetSnapshotBlockByHeight(height)
 
-	return snapshotBlock
+	return snapshotBlock, nil
 }
 
 func (context *VmContext) GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock {
