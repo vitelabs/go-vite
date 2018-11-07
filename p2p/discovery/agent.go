@@ -395,6 +395,12 @@ func (a *agent) writeLoop() {
 		case s := <-a.write:
 			data, hash, err := s.msg.pack(a.priv)
 
+			if s.wait != nil {
+				s.wait.sourceHash = hash
+				s.wait.expiration = getExpiration()
+				a.pool.add <- s.wait
+			}
+
 			if err != nil {
 				discvLog.Error(fmt.Sprintf("pack message %s to %s error: %v", s.msg, s.addr, err))
 				continue
@@ -409,11 +415,6 @@ func (a *agent) writeLoop() {
 			} else {
 				monitor.LogEvent("p2p/discv", "send "+s.code.String())
 
-				if s.wait != nil {
-					s.wait.sourceHash = hash
-					s.wait.expiration = getExpiration()
-					a.pool.add <- s.wait
-				}
 			}
 		}
 	}
