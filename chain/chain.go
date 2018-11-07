@@ -35,6 +35,7 @@ type chain struct {
 	em *eventManager
 
 	cfg         *config.Chain
+	globalCfg   *config.Config
 	kafkaSender *sender.KafkaSender
 }
 
@@ -44,6 +45,7 @@ func NewChain(cfg *config.Config) Chain {
 		genesisSnapshotBlock: &GenesisSnapshotBlock,
 		dataDir:              cfg.DataDir,
 		cfg:                  cfg.Chain,
+		globalCfg:            cfg,
 	}
 
 	if chain.cfg == nil {
@@ -193,7 +195,7 @@ func (c *chain) Start() {
 	// needSnapshotCache
 	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
 	if getSubLedgerErr != nil {
-		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "NewChain")
+		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "Start")
 	}
 	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
 
@@ -207,7 +209,7 @@ func (c *chain) Start() {
 	var getLatestBlockErr error
 	c.latestSnapshotBlock, getLatestBlockErr = c.chainDb.Sc.GetLatestBlock()
 	if getLatestBlockErr != nil {
-		c.log.Crit("GetLatestBlock failed, error is "+getLatestBlockErr.Error(), "method", "NewChain")
+		c.log.Crit("GetLatestBlock failed, error is "+getLatestBlockErr.Error(), "method", "Start")
 	}
 
 	// start compressor
@@ -234,7 +236,9 @@ func (c *chain) Stop() {
 	c.compressor.Stop()
 
 	// stop kafka sender
-	c.kafkaSender.StopAll()
+	if c.kafkaSender != nil {
+		c.kafkaSender.StopAll()
+	}
 
 	c.log.Info("Chain module stopped")
 }

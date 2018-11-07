@@ -109,6 +109,8 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			}
 
 			if sendBlockMeta != nil {
+				// Concurrency write block meta
+
 				sendBlockMeta.ReceiveBlockHeights = append(sendBlockMeta.ReceiveBlockHeights, accountBlock.Height)
 				saveSendBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlock.FromBlockHash, sendBlockMeta)
 				if saveSendBlockMetaErr != nil {
@@ -122,7 +124,6 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		blockMeta := &ledger.AccountBlockMeta{
 			AccountId:         account.AccountId,
 			Height:            accountBlock.Height,
-			SnapshotHeight:    0,
 			RefSnapshotHeight: refSnapshotHeight,
 		}
 
@@ -142,19 +143,20 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "InsertAccountBlocks")
 		return triggerErr
 	}
-	// Write db
-	if err := c.chainDb.Commit(batch); err != nil {
-		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertAccountBlocks")
-		return err
-	}
 
 	lastVmAccountBlock := vmAccountBlocks[len(vmAccountBlocks)-1]
 
-	// Set needSnapshotCache
+	// Set needSnapshotCache, Need first update cache
 	if c.needSnapshotCache != nil {
 		c.needSnapshotCache.Set(map[types.Address]*ledger.AccountBlock{
 			account.AccountAddress: lastVmAccountBlock.AccountBlock,
 		})
+	}
+
+	// Write db
+	if err := c.chainDb.Commit(batch); err != nil {
+		c.log.Crit("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertAccountBlocks")
+		return err
 	}
 
 	// Set stateTriePool
@@ -584,8 +586,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		return nil, deleteAccountBlocksErr
 	}
 
-	_, reopenErr := c.chainDb.Ac.ReopenSendBlocks(batch, reopenList, deleteMap)
-	if reopenErr != nil {
+	if reopenErr := c.chainDb.Ac.ReopenSendBlocks(batch, reopenList, deleteMap); reopenErr != nil {
 		c.log.Error("ReopenSendBlocks failed, error is "+reopenErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
 		return nil, reopenErr
 	}
@@ -611,12 +612,6 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	}
 	c.chainDb.Be.DeleteAccountBlocks(batch, deleteHashList)
 
-	writeErr := c.chainDb.Commit(batch)
-	if writeErr != nil {
-		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
-		return nil, writeErr
-	}
-
 	needAddBlocks, needRemoveAddr, _, err := c.getNeedSnapshotMapByDeleteSubLedger(subLedger)
 	if err != nil {
 		c.log.Error("getNeedSnapshotMapByDeleteSubLedger failed, error is "+err.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
@@ -627,8 +622,16 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	c.needSnapshotCache.Remove(needRemoveAddr)
 
 	// Set needSnapshotCache, then add
-
 	c.needSnapshotCache.Set(needAddBlocks)
+
+	writeErr := c.chainDb.Commit(batch)
+	if writeErr != nil {
+		c.log.Crit("Write db failed, error is "+writeErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
+		return nil, writeErr
+	}
+
+	// Delete cache
+	c.stateTriePool.Delete(needRemoveAddr)
 
 	c.em.triggerDeleteAccountBlocksSuccess(subLedger)
 
@@ -704,4 +707,14 @@ func (c *chain) subLedgerAccountIdToAccountAddress(subLedger map[uint64][]*ledge
 		}
 	}
 	return finalSubLedger, nil
+}
+
+func (c *chain) GetAccountBlockMetaByHash(hash *types.Hash) (*ledger.AccountBlockMeta, error) {
+	meta, err := c.chainDb.Ac.GetBlockMeta(hash)
+	if err != nil {
+
+		return nil, err
+	}
+
+	return meta, nil
 }

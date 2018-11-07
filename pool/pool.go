@@ -240,7 +240,10 @@ func (self *pool) Start() {
 	self.snapshotSubId = self.sync.SubscribeSnapshotBlock(self.AddSnapshotBlock)
 
 	self.pendingSc.Start()
-	common.Go(self.loopTryInsert)
+	self.log.Info("pool account parallel.", "parallel", ACCOUNT_PARALLEL)
+	for i := 0; i < ACCOUNT_PARALLEL; i++ {
+		common.Go(self.loopTryInsert)
+	}
 	common.Go(self.loopCompact)
 	common.Go(self.loopBroadcastAndDel)
 }
@@ -525,7 +528,8 @@ func (self *pool) loopTryInsert() {
 	self.wg.Add(1)
 	defer self.wg.Done()
 
-	t := time.NewTicker(time.Millisecond * 20)
+	t := time.NewTicker(time.Millisecond * 100)
+	t2 := time.NewTicker(time.Millisecond * 40)
 	defer t.Stop()
 	sum := 0
 	for {
@@ -534,11 +538,15 @@ func (self *pool) loopTryInsert() {
 			return
 		case <-t.C:
 			if sum == 0 {
-				//self.accountCond.L.Lock()
-				//self.accountCond.Wait()
-				//self.accountCond.L.Unlock()
-				time.Sleep(200 * time.Millisecond)
-				monitor.LogEvent("pool", "tryInsertSleep")
+				time.Sleep(100 * time.Millisecond)
+				monitor.LogEvent("pool", "tryInsertSleep100")
+			}
+			sum = 0
+			sum += self.accountsTryInsert()
+		case <-t2.C:
+			if sum == 0 {
+				time.Sleep(20 * time.Millisecond)
+				monitor.LogEvent("pool", "tryInsertSleep20")
 			}
 			sum = 0
 			sum += self.accountsTryInsert()

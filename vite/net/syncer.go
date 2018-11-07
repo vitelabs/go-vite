@@ -151,11 +151,11 @@ func (s *syncer) Start() {
 	defer atomic.StoreInt32(&s.running, 0)
 	defer atomic.StoreInt32(&s.chunked, 0)
 
-	s.pool.start()
+	// prepare to request file
 	s.fc.start()
-
-	defer s.pool.stop()
 	defer s.fc.stop()
+	// stop chunk pool
+	defer s.pool.stop()
 
 	start := time.NewTimer(waitEnoughPeers)
 
@@ -179,7 +179,7 @@ wait:
 	start.Stop()
 
 	// for now syncState is SyncNotStart
-	p := s.peers.BestPeer()
+	p := s.peers.SyncPeer()
 	if p == nil {
 		s.setState(Syncerr)
 		s.log.Error("sync error: no peers")
@@ -216,7 +216,8 @@ wait:
 	defer checkTimer.Stop()
 
 	// check chain height
-	var checkChainTicker <-chan time.Time
+	checkChainTicker := time.NewTicker(chainGrowInterval)
+	defer checkChainTicker.Stop()
 
 	for {
 		select {
@@ -225,12 +226,12 @@ wait:
 				// a taller peer is disconnected, maybe is the peer we syncing to
 				// because peer`s height is growing
 				if e.peer.height >= s.to {
-					if bestPeer := s.peers.BestPeer(); bestPeer != nil {
-						if shouldSync(current.Height, bestPeer.height) {
-							s.setTarget(bestPeer.height)
+					if targetPeer := s.peers.SyncPeer(); targetPeer != nil {
+						if shouldSync(current.Height, targetPeer.height) {
+							s.setTarget(targetPeer.height)
 						} else {
 							// no need sync
-							s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", bestPeer, bestPeer.height, current.Height))
+							s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", targetPeer, targetPeer.height, current.Height))
 							s.setState(Syncdone)
 							return
 						}
@@ -248,21 +249,20 @@ wait:
 			// check chain height timeout
 			checkTimer.Reset(u64ToDuration(s.total * 1000))
 
-			// check chain height loop
-			checkChainTicker = time.Tick(chainGrowInterval)
-
 		case <-checkTimer.C:
 			s.log.Error("sync error: timeout")
 			s.setState(Syncerr)
 			return
 
-		case <-checkChainTicker:
+		case <-checkChainTicker.C:
 			current := s.chain.GetLatestSnapshotBlock()
 			if current.Height >= s.to {
 				s.log.Info(fmt.Sprintf("sync done, current height: %d", current.Height))
 				s.setState(Syncdone)
 				return
 			}
+
+			s.fc.threshold(current.Height)
 			s.log.Debug(fmt.Sprintf("current height: %d", current.Height))
 
 		case <-s.term:
@@ -358,12 +358,8 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 		if sender.Height() >= s.to && len(res.Chunks) > 0 {
 			if atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
 				for _, c := range res.Chunks {
-					if c[1] > 0 {
-						// split to small chunks
-						cs := splitChunk(c[0], c[1])
-						for _, chunk := range cs {
-							s.pool.add(&chunkRequest{from: chunk[0], to: chunk[1]})
-						}
+					if len(c) == 2 && c[1] > 0 && c[1] >= c[0] {
+						s.pool.add(c[0], c[1])
 					}
 				}
 			}
@@ -405,7 +401,7 @@ func (s *syncer) catch(c piece) {
 		return
 	}
 
-	s.pool.add(&chunkRequest{from: from, to: s.to})
+	s.pool.add(from, s.to)
 	s.log.Warn(fmt.Sprintf("retry sync from %d to %d", from, s.to))
 }
 
@@ -422,9 +418,9 @@ func (s *syncer) UnsubscribeSyncStatus(subId int) {
 	s.feed.Unsub(subId)
 }
 
-func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
-	return block.Height - s.from
-}
+//func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
+//	return block.Height - s.from
+//}
 
 func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) {
 	s.log.Debug(fmt.Sprintf("syncer: receive SnapshotBlock %s/%d", block.Hash, block.Height))

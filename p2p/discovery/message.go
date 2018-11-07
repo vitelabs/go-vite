@@ -17,7 +17,7 @@ import (
 
 const version byte = 2
 
-var expiration = 10 * time.Second
+var expiration = 6 * time.Second
 
 func getExpiration() time.Time {
 	return time.Now().Add(expiration)

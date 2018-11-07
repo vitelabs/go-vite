@@ -12,7 +12,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 	"math"
 	"math/big"
-	"strconv"
 	"testing"
 	"time"
 )
@@ -22,8 +21,8 @@ func TestGetPowNonce(t *testing.T) {
 	//dd := make([]byte, 32)
 	//copy(dd[:], d[:])
 	//bd, _ := new(big.Int).SetString("ffffffffffffffff000000000000000000000000000000000000000000000000",16)
-	bd, _ := new(big.Int).SetString("ffffffc000000000000000000000000000000000000000000000000000000000", 16)
-	N := 20
+	bd, _ := new(big.Int).SetString("67108863", 10)
+	N := 1
 	data := crypto.Hash256([]byte{1})
 	timeList := make([]int64, N)
 	for i := 0; i < N; i++ {
@@ -41,27 +40,18 @@ func TestGetPowNonce(t *testing.T) {
 
 func TestCheckPowNonce(t *testing.T) {
 
-	bbb, _ := new(big.Int).SetString("46d0bf9aa4f45153", 16)
-
+	bbb, _ := new(big.Int).SetString("96dcde7641923e2a", 16)
 	nonceUint64 := bbb.Uint64()
-
 	nn := make([]byte, 8)
 	binary.LittleEndian.PutUint64(nn[:], nonceUint64)
 
 	data, _ := hex.DecodeString("718CC2121C3E641059BC1C2CFC45666C718CC2121C3E641059BC1C2CFC45666C")
-	for e := range data {
-		fmt.Print(strconv.Itoa(int(data[e])))
-		fmt.Print(",")
-	}
 
-	bd, ok := new(big.Int).SetString("FFFFFFc000000000000000000000000000000000000000000000000000000000", 16)
+	d, ok := new(big.Int).SetString("67108863", 10)
 	if !ok {
 		fmt.Println("!ok")
 	}
-	dd := bd.Bytes()
-	fmt.Println("aaa", len(dd))
-
-	assert.True(t, pow.CheckPowNonce(bd, nn, data))
+	assert.True(t, pow.CheckPowNonce(d, nn, data))
 
 }
 

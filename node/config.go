@@ -9,8 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/network"
 	"github.com/vitelabs/go-vite/wallet"
@@ -67,7 +69,7 @@ type Config struct {
 	TestTokenHexPrivKey string   `json:"TestTokenHexPrivKey"`
 	TestTokenTti        string   `json:"TestTokenTti"`
 
-	PowServerIp string `json:"PowServerIp”`
+	PowServerUrl string `json:"PowServerUrl”`
 
 	//Log level
 	LogLevel    string `json:"LogLevel"`
@@ -233,30 +235,19 @@ func (c *Config) IPCEndpoint() string {
 }
 
 func (c *Config) RunLogDir() string {
-	return filepath.Join(c.DataDir, "runlog")
+	return filepath.Join(c.DataDir, "runlog", time.Now().Format("2006-01-02T15-04"))
 }
 
-func (c *Config) RunLogFile() (string, error) {
-	filename := time.Now().Format("2006-01-02") + ".log"
-	if err := os.MkdirAll(c.RunLogDir(), 0777); err != nil {
-		return "", err
-	}
-	return filepath.Join(c.RunLogDir(), filename), nil
-
+func (c *Config) RunLogHandler() log15.Handler {
+	filename := "vite.log"
+	logger := common.MakeDefaultLogger(filepath.Join(c.RunLogDir(), filename))
+	return log15.StreamHandler(logger, log15.LogfmtFormat())
 }
 
-func (c *Config) RunErrorLogFile() (string, error) {
-
-	if c.ErrorLogDir == "" {
-		c.ErrorLogDir = c.RunLogDir()
-	}
-
-	filename := time.Now().Format("2006-01-02") + ".error.log"
-	if err := os.MkdirAll(c.ErrorLogDir, 0777); err != nil {
-		return "", err
-	}
-	return filepath.Join(c.ErrorLogDir, filename), nil
-
+func (c *Config) RunErrorLogHandler() log15.Handler {
+	filename := "vite.error.log"
+	logger := common.MakeDefaultLogger(filepath.Join(c.RunLogDir(), "error", filename))
+	return log15.StreamHandler(logger, log15.LogfmtFormat())
 }
 
 //resolve the dataDir so future changes to the current working directory don't affect the node

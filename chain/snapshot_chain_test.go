@@ -31,8 +31,11 @@ func TestGetNeedSnapshotContent(t *testing.T) {
 func TestInsertSnapshotBlock(t *testing.T) {
 	chainInstance := getChainInstance()
 
-	makeBlocks(chainInstance, 10000)
+	makeBlocks(chainInstance, 100)
 
+	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
+
+	fmt.Printf("%+v\n", latestSnapshotBlock)
 }
 
 func TestGetSnapshotBlocksByHash(t *testing.T) {
@@ -61,6 +64,30 @@ func TestGetSnapshotBlocksByHash(t *testing.T) {
 	//for index, block := range blocks3 {
 	//	fmt.Printf("%d: %+v\n", index, block)
 	//}
+}
+
+func TestChain_GetSnapshotBlockByHeight(t *testing.T) {
+	chainInstance := getChainInstance()
+	num := uint64(100 * 10000 * 10000)
+	makeBlocks(chainInstance, num)
+
+	t1 := time.Now()
+	gap := uint64(2000000)
+	for i := uint64(1); i < num; i++ {
+		_, err := chainInstance.GetSnapshotBlockByHeight(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if i%gap == 0 {
+			now := time.Now()
+			duration := uint64(now.Sub(t1).Nanoseconds() * 1000)
+
+			fmt.Printf("tps: %d\n", (gap*1000*1000)/duration)
+
+		}
+
+	}
+
 }
 
 func TestGetSnapshotBlocksByHeight(t *testing.T) {
@@ -504,6 +531,7 @@ func TestDeleteSnapshotBlocksToHeight3(t *testing.T) {
 	chainInstance.InsertAccountBlocks(receiveBlock2)
 
 	needContent := chainInstance.GetNeedSnapshotContent()
+
 	for addr, content := range needContent {
 		fmt.Printf("%s: %+v\n", addr.String(), content)
 	}

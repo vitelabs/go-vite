@@ -134,8 +134,8 @@ func (node *Node) Prepare() error {
 	//Protocols setting, maybe should move into module.Start()
 	node.p2pServer.Protocols = append(node.p2pServer.Protocols, node.viteServer.Net().Protocols()...)
 
-	//init rpc_PowServerIp
-	remote.InitUrl(node.Config().PowServerIp)
+	//init rpc_PowServerUrl
+	remote.InitRawUrl(node.Config().PowServerUrl)
 	pow.Init(node.Config().VMTestParamEnabled)
 
 	// Start vite

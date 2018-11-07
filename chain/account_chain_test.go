@@ -9,7 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	_ "net/http/pprof"
@@ -160,11 +160,11 @@ func BenchmarkChain_InsertAccountBlocks(b *testing.B) {
 }
 
 func TestContractsAddr(t *testing.T) {
-	fmt.Println(contracts.AddressRegister.String())
-	fmt.Println(contracts.AddressRegister.String())
-	fmt.Println(contracts.AddressRegister.String())
-	fmt.Println(contracts.AddressRegister.String())
-	fmt.Println(contracts.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
 }
 
 func TestGetAccountBlocksByHash(t *testing.T) {
@@ -208,8 +208,8 @@ func TestGetAccountBlocksByHash(t *testing.T) {
 
 func TestGetAccountBlockMetaByHash(t *testing.T) {
 	chainInstance := getChainInstance()
-	hash, _ := types.HexToHash("1d91143665c60adb93665d5f725180860124ea4b773d3289fc0ae7b24af4f92a")
-	meta, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&hash)
+	//hash, _ := types.HexToHash("1d91143665c60adb93665d5f725180860124ea4b773d3289fc0ae7b24af4f92a")
+	meta, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&GenesisMintageSendBlock.Hash)
 	fmt.Printf("%+v\n", meta)
 
 }
@@ -258,20 +258,21 @@ func TestGetAccountBlocksByHeight(t *testing.T) {
 }
 
 func TestChain_GetAccountBlockMap(t *testing.T) {
+
 	chainInstance := getChainInstance()
 	startHash, _ := types.HexToHash("f9380deea688b3afe206f52cc3cf2c2677bca1a0fbb4abdfa9d671bc26b22932")
 	queryParams1 := map[types.Address]*BlockMapQueryParam{
-		contracts.AddressMintage: {
+		abi.AddressMintage: {
 			OriginBlockHash: &startHash,
 			Count:           10,
 			Forward:         true,
 		},
-		contracts.AddressConsensusGroup: {
+		abi.AddressConsensusGroup: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         true,
 		},
-		contracts.AddressRegister: {
+		abi.AddressRegister: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         true,
@@ -289,17 +290,17 @@ func TestChain_GetAccountBlockMap(t *testing.T) {
 
 	fmt.Println()
 	queryParams2 := map[types.Address]*BlockMapQueryParam{
-		contracts.AddressMintage: {
+		abi.AddressMintage: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,
 		},
-		contracts.AddressConsensusGroup: {
+		abi.AddressConsensusGroup: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,
 		},
-		contracts.AddressRegister: {
+		abi.AddressRegister: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,
@@ -402,15 +403,24 @@ func TestGetAccountBlockByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
 	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 	fmt.Printf("%+v\n", latestSnapshotBlock)
-	addr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
-	for i := uint64(29150); i <= 29160; i++ {
-		block, _ := chainInstance.GetAccountBlockByHeight(&addr, i)
-		if block == nil {
-			break
+	count := 0
+	for addr := range latestSnapshotBlock.SnapshotContent {
+		for i := uint64(1); i <= 1000; i++ {
+			block, _ := chainInstance.GetAccountBlockByHeight(&addr, i)
+			if block == nil {
+				break
+			}
+			count++
+			meta, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&block.Hash)
+			if meta.Height%10 == 0 && meta.SnapshotHeight <= 0 || meta.Height%10 != 0 && meta.SnapshotHeight > 0 {
+				t.Fatal("error!!")
+			}
+			if count%10000 == 0 {
+				fmt.Printf("check %d count\n", count)
+			}
+			//fmt.Printf("%+v\n", block)
 		}
-		meta, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&block.Hash)
-		fmt.Printf("%+v\n", meta)
-		fmt.Printf("%+v\n", block)
+
 	}
 
 	//chainInstance.DeleteAccountBlocks(&addr, 1491)
