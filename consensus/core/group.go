@@ -61,7 +61,7 @@ func (self *GroupInfo) GenPlan(index uint64, members []types.Address) []*MemberP
 	sTime := self.GenSTime(index)
 	var plans []*MemberPlan
 	for _, member := range members {
-		for i := uint8(0); i < self.NodeCount; i++ {
+		for i := int64(0); i < self.PerCount; i++ {
 			etime := sTime.Add(time.Duration(self.Interval) * time.Second)
 			plan := MemberPlan{STime: sTime, ETime: etime, Member: member}
 			plans = append(plans, &plan)
