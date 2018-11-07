@@ -113,11 +113,13 @@ func (self *reader) voteDetail(index uint64,
 	if err != nil {
 		return nil, nil, err
 	}
+	// top
+	topVotes := self.ag.FilterSimple(votes)
 	// filter size of members
 	finalVotes := self.ag.FilterVotes(votes, &hashH)
 	// shuffle the members
 	finalVotes = self.ag.ShuffleVotes(finalVotes, &hashH)
-	return votes, finalVotes, nil
+	return topVotes, finalVotes, nil
 }
 func (self *reader) actualSnapshotBlockNum(index uint64, register *types.Registration, r stateCh) (uint64, uint64, error) {
 	result := uint64(0)

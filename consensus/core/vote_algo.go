@@ -11,6 +11,7 @@ import (
 type Algo interface {
 	ShuffleVotes(votes []*Vote, hashH *ledger.HashHeight) []*Vote
 	FilterVotes(votes []*Vote, hashH *ledger.HashHeight) []*Vote
+	FilterSimple(votes []*Vote) []*Vote
 }
 
 type algo struct {
@@ -45,7 +46,7 @@ func (self *algo) ShuffleVotes(votes []*Vote, hashH *ledger.HashHeight) (result 
 
 func (self *algo) FilterVotes(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
 	// simple filter for low balance
-	simpleVotes := self.filterSimple(votes, self.info)
+	simpleVotes := self.FilterSimple(votes)
 
 	if int64(len(simpleVotes)) < int64(self.info.NodeCount) {
 		simpleVotes = votes
@@ -56,12 +57,12 @@ func (self *algo) FilterVotes(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
 	return votes
 }
 
-func (self *algo) filterSimple(votes []*Vote, info *GroupInfo) (result []*Vote) {
-	if int32(len(votes)) < int32(info.RandRank) {
+func (self *algo) FilterSimple(votes []*Vote) (result []*Vote) {
+	if int32(len(votes)) < int32(self.info.RandRank) {
 		return votes
 	}
 	sort.Sort(ByBalance(votes))
-	result = votes[0:info.RandRank]
+	result = votes[0:self.info.RandRank]
 	return result
 
 }
