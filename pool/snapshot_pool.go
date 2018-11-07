@@ -253,11 +253,13 @@ func (self *snapshotPool) loop() {
 
 	self.wg.Add(1)
 	defer self.wg.Done()
+	last := time.Now()
 	for {
 		select {
 		case <-self.closed:
 			return
 		default:
+			monitor.LogTime("pool", "snapshot_selectTime", last)
 			now := time.Now()
 			if now.After(self.nextCompactTime) {
 				self.nextCompactTime = now.Add(50 * time.Millisecond)
@@ -293,6 +295,7 @@ func (self *snapshotPool) loop() {
 				time.Sleep(s1)
 			}
 			monitor.LogTime("pool", "snapshotRealSleep", n2)
+			last = time.Now()
 		}
 	}
 }
