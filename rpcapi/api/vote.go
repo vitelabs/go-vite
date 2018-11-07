@@ -44,7 +44,7 @@ var (
 type VoteInfo struct {
 	Name       string        `json:"nodeName"`
 	NodeStatus uint8         `json:"nodeStatus"`
-	NodeAddr   types.Address `json:nodeAddr`
+	NodeAddr   types.Address `json:"nodeAddr"`
 	Balance    string        `json:"balance"`
 }
 

@@ -112,6 +112,9 @@ func (self *teller) index2Time(i uint64) (time.Time, time.Time) {
 }
 
 func (self *teller) voteTime(i uint64) time.Time {
+	if i < 2 {
+		i = 2
+	}
 	sTime := self.info.GenSTime(i - 1)
 	return sTime
 }

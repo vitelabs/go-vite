@@ -248,3 +248,40 @@ func TestRead(t *testing.T) {
 	}
 
 }
+
+func TestRead2(t *testing.T) {
+	ch := getChainInstance()
+	//info := types.ConsensusGroupInfo{
+	//	Gid:                    types.SNAPSHOT_GID,
+	//	NodeCount:              25,
+	//	Interval:               1,
+	//	PerCount:               3,
+	//	RandCount:              1,
+	//	RandRank:               25,
+	//	CountingTokenId:        ledger.ViteTokenId,
+	//	RegisterConditionId:    0,
+	//	RegisterConditionParam: nil,
+	//	VoteConditionId:        0,
+	//	VoteConditionParam:     nil,
+	//	Owner:                  types.Address{},
+	//	PledgeAmount:           big.NewInt(0),
+	//	WithdrawHeight:         0,
+	//}
+	genesis := chain.GenesisSnapshotBlock
+	cs := NewConsensus(*genesis.Timestamp, ch)
+	err := cs.Init()
+	if err != nil {
+		t.Error(err)
+		panic(err)
+	}
+	cs.Start()
+
+	details, height, e := cs.ReadVoteMapByTime(types.SNAPSHOT_GID, 1)
+	for k, v := range details {
+		fmt.Printf("\t%+v, %+v\n", k, v)
+	}
+	fmt.Println()
+
+	fmt.Printf("%d-%s\n", height.Height, height.Hash)
+	fmt.Printf("%+v\n", e)
+}
