@@ -66,6 +66,30 @@ func TestGetSnapshotBlocksByHash(t *testing.T) {
 	//}
 }
 
+func TestChain_GetSnapshotBlockByHeight(t *testing.T) {
+	chainInstance := getChainInstance()
+	num := uint64(100 * 10000 * 10000)
+	makeBlocks(chainInstance, num)
+
+	t1 := time.Now()
+	gap := uint64(2000000)
+	for i := uint64(1); i < num; i++ {
+		_, err := chainInstance.GetSnapshotBlockByHeight(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if i%gap == 0 {
+			now := time.Now()
+			duration := uint64(now.Sub(t1).Nanoseconds() * 1000)
+
+			fmt.Printf("tps: %d\n", (gap*1000*1000)/duration)
+
+		}
+
+	}
+
+}
+
 func TestGetSnapshotBlocksByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
 	blocks, err := chainInstance.GetSnapshotBlocksByHeight(2, 10, true, false)

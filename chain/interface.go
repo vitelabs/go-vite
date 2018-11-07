@@ -52,8 +52,13 @@ type Chain interface {
 	GetAccountBlockMetaByHash(hash *types.Hash) (*ledger.AccountBlockMeta, error)
 	GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
 	GetSnapshotBlocksByHeight(height uint64, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
+
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockHeadByHeight(height uint64) (*ledger.SnapshotBlock, error)
+
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockHeadByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 	GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotBlock, error)

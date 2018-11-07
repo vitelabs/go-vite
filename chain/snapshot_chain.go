@@ -184,21 +184,34 @@ func (c *chain) GetSnapshotBlocksByHeight(height uint64, count uint64, forward, 
 	return blocks, gErr
 }
 
+func (c *chain) GetSnapshotBlockHeadByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	block, gsbErr := c.chainDb.Sc.GetSnapshotBlock(height, false)
+	if gsbErr != nil {
+		c.log.Error("GetSnapshotBlock failed, error is "+gsbErr.Error(), "method", "GetSnapshotBlockHeadByHeight")
+		return nil, gsbErr
+	}
+
+	return block, nil
+}
+
+func (c *chain) GetSnapshotBlockHeadByHash(hash *types.Hash) (*ledger.SnapshotBlock, error) {
+	height, err := c.chainDb.Sc.GetSnapshotBlockHeight(hash)
+	if err != nil {
+		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSnapshotBlockHeadByHash")
+		return nil, err
+	}
+	if height <= 0 {
+		return nil, nil
+	}
+
+	return c.GetSnapshotBlockHeadByHeight(height)
+}
+
 func (c *chain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
 	block, gsbErr := c.chainDb.Sc.GetSnapshotBlock(height, true)
 	if gsbErr != nil {
 		c.log.Error("GetSnapshotBlock failed, error is "+gsbErr.Error(), "method", "GetSnapshotBlockByHeight")
 		return nil, gsbErr
-	}
-
-	if block != nil {
-		snapshotContent, err := c.chainDb.Sc.GetSnapshotContent(block.Height)
-		if err != nil {
-			c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotBlockByHeight")
-			return nil, err
-		}
-
-		block.SnapshotContent = snapshotContent
 	}
 
 	return block, nil
