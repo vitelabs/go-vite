@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts"
@@ -50,6 +51,7 @@ type RegistrationInfo struct {
 	WithdrawHeight string        `json:"withdrawHeight"`
 	WithdrawTime   int64         `json:"withdrawTime"`
 	CancelHeight   string        `json:"cancelHeight"`
+	MinRewardTime  int64         `json:"minRewardTime"`
 }
 
 type RewardInfo struct {
@@ -67,6 +69,15 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	list := abi.GetRegistrationList(vmContext, gid, pledgeAddr)
 	targetList := make([]*RegistrationInfo, len(list))
 	if len(list) > 0 {
+		genesisTime := vmContext.GetGenesisSnapshotBlock().Timestamp
+		groupInfo := abi.GetConsensusGroup(vmContext, gid)
+		reader := core.NewReader(*genesisTime, groupInfo)
+		periodTime, err := reader.PeriodTime()
+		if err != nil {
+			return nil, err
+		}
+		genesisTimeInt := genesisTime.Unix()
+
 		for i, info := range list {
 			targetList[i] = &RegistrationInfo{
 				Name:           info.Name,
@@ -76,6 +87,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 				WithdrawHeight: uint64ToString(info.WithdrawHeight),
 				WithdrawTime:   getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
 				CancelHeight:   uint64ToString(info.CancelHeight),
+				MinRewardTime:  contracts.CalcMinRewardTime(info, genesisTimeInt, periodTime),
 			}
 		}
 	}
@@ -97,11 +109,7 @@ func (r *RegisterApi) GetReward(gid types.Gid, name string) (*RewardInfo, error)
 		return nil, err
 	}
 	genesisTime := vmContext.GetGenesisSnapshotBlock().Timestamp.Unix()
-	return &RewardInfo{*bigIntToString(reward), indexToTime(startIndex, genesisTime, periodTime), indexToTime(endIndex+1, genesisTime, periodTime)}, nil
-}
-
-func indexToTime(index uint64, genesisTime int64, periodTime uint64) int64 {
-	return genesisTime + int64(periodTime*index)
+	return &RewardInfo{*bigIntToString(reward), contracts.IndexToTime(startIndex, genesisTime, periodTime), contracts.IndexToTime(endIndex+1, genesisTime, periodTime)}, nil
 }
 
 type CandidateInfo struct {
