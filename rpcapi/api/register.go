@@ -107,7 +107,7 @@ func indexToTime(index uint64, genesisTime int64, periodTime uint64) int64 {
 type CandidateInfo struct {
 	Name     string        `json:"name"`
 	NodeAddr types.Address `json:"nodeAddr"`
-	voteNum  string        `json:"voteNum"`
+	VoteNum  string        `json:"voteNum"`
 }
 
 func (r *RegisterApi) GetCandidateList(gid types.Gid) ([]*CandidateInfo, error) {
