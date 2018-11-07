@@ -1,10 +1,11 @@
 package chain
 
 import (
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"math/big"
 	"strconv"
 	"time"
+
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -44,7 +45,7 @@ func init() {
 }
 
 var genesisTrieNodePool = trie.NewTrieNodePool()
-var genesisTimestamp = time.Unix(1540200147, 0)
+var genesisTimestamp = time.Unix(1540200148, 0)
 
 func genesisSnapshotBlock() ledger.SnapshotBlock {
 	genesisSnapshotBlock := ledger.SnapshotBlock{
