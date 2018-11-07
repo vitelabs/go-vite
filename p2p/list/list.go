@@ -6,7 +6,7 @@ type Element struct {
 }
 
 type List struct {
-	l     *Element
+	head  *Element
 	tail  *Element
 	count int
 }
@@ -14,7 +14,7 @@ type List struct {
 func New() *List {
 	head := &Element{}
 	return &List{
-		l:    head,
+		head: head,
 		tail: head,
 	}
 }
@@ -30,12 +30,12 @@ func (l *List) Append(data interface{}) {
 }
 
 func (l *List) Shift() interface{} {
-	e := l.l.next
+	e := l.head.next
 	if e == nil {
 		return nil
 	}
 
-	l.Remove(l.l, e)
+	l.Remove(l.head, e)
 	return e.Value
 }
 
@@ -48,11 +48,17 @@ func (l *List) Remove(prev, current *Element) {
 }
 
 func (l *List) Traverse(fn func(prev, current *Element)) {
-	for prev, current := l.l, l.l.next; current != nil; prev, current = current, current.next {
+	for prev, current := l.head, l.head.next; current != nil; prev, current = current, current.next {
 		fn(prev, current)
 	}
 }
 
 func (l *List) Size() int {
 	return l.count
+}
+
+func (l *List) Clear() {
+	l.head.next = nil
+	l.tail.next = nil
+	l.count = 0
 }

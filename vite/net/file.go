@@ -9,10 +9,12 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"io"
+	"math/rand"
 	net2 "net"
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -170,9 +172,10 @@ type fileClient struct {
 
 	pool cPool
 
-	term chan struct{}
-	log  log15.Logger
-	wg   sync.WaitGroup
+	running int32
+	term    chan struct{}
+	log     log15.Logger
+	wg      sync.WaitGroup
 
 	target uint64
 	should bool
@@ -180,7 +183,7 @@ type fileClient struct {
 }
 
 type cPool interface {
-	exec(request *chunkRequest)
+	exec(from, to uint64)
 	start()
 }
 
@@ -200,16 +203,20 @@ func newFileClient(chain Chain, pool cPool, handler blockReceiver) *fileClient {
 }
 
 func (fc *fileClient) start() {
-	fc.term = make(chan struct{})
+	if atomic.CompareAndSwapInt32(&fc.running, 0, 1) {
+		fc.term = make(chan struct{})
 
-	fc.wg.Add(1)
-	common.Go(fc.loop)
+		fc.wg.Add(1)
+		common.Go(fc.loop)
+	}
 }
 
 func (fc *fileClient) stop() {
 	if fc.term == nil {
 		return
 	}
+
+	defer atomic.CompareAndSwapInt32(&fc.running, 1, 0)
 
 	select {
 	case <-fc.term:
@@ -277,22 +284,47 @@ func (fc *fileClient) usePeer(conns map[string]*conn, record map[string]*fileSta
 
 func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fileState, pFiles map[string]files, file *ledger.CompressedFileMeta) {
 	if r, ok := record[file.Filename]; ok {
+		// no peers
+		if len(r.peers) == 0 {
+			r.state = reqDone
+			fc.target = file.EndHeight
+			fc.pool.exec(file.StartHeight, file.EndHeight)
+			return
+		}
+
 		var id string
-		for _, peer := range r.peers {
-			id = peer.ID()
+		ids := rand.Perm(len(r.peers))
+		for _, idx := range ids {
+			// may be remove peers from r.peers
+			if idx >= len(r.peers) {
+				continue
+			}
+
+			p := r.peers[idx]
+			id = p.ID()
 			if c, ok := conns[id]; ok && !c.idle {
 				continue
 			}
 
 			r.state = reqPending
-			if err := fc.doRequest(conns, file, peer); err != nil {
+			if err := fc.doRequest(conns, file, p); err != nil {
 				r.state = reqError
-				fc.removePeer(conns, record, pFiles, peer)
+				fc.removePeer(conns, record, pFiles, p)
 			} else {
 				fc.target = file.EndHeight
 				return
 			}
 		}
+
+		// find no peers
+		r.state = reqDone
+		fc.target = file.EndHeight
+		fc.pool.exec(file.StartHeight, file.EndHeight)
+		return
+	} else {
+		// no record
+		fc.target = file.EndHeight
+		fc.pool.exec(file.StartHeight, file.EndHeight)
 	}
 }
 
@@ -429,10 +461,7 @@ loop:
 				} else {
 					r.state = reqDone
 					// use chunk
-					fc.pool.exec(&chunkRequest{
-						from: conn.height + 1,
-						to:   file.EndHeight,
-					})
+					fc.pool.exec(conn.height+1, file.EndHeight)
 				}
 			}
 
