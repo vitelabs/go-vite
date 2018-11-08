@@ -1,0 +1,37 @@
+syntax="proto3";
+
+package proto;
+
+message Order {
+    uint64 Id = 1;
+    string Address = 2;
+    uint32 TradeAsset = 3;
+    uint32 QuoteAsset = 4;
+    bool   Side = 5; // false buy, true sell
+    uint32 Type = 6;
+    double Price = 7;
+    uint64 Quantity = 8;
+    uint64 LockQuantity = 9;
+    uint32 Status = 10;
+    uint64 Timestamp = 11;
+    uint64 ExecutedQuantity = 12;
+}
+
+message OrderNode {
+    uint64 OrderId = 1;
+    Order Order = 2;
+    repeated uint64 ForwardOnLevel = 3;
+    repeated uint64 backwardOnLevel = 4;
+}
+
+message OrderListMeta {
+    uint64 Header = 1;
+    uint64 Tail = 2;
+    uint32 Length = 3;
+    uint32 Level = 4;
+    repeated uint64 ForwardOnLevel = 5;
+}
+
+message OrderBook {
+    repeated string MarketSide = 1; //format : TradeAsset|QuoteAsset|Side
+}
