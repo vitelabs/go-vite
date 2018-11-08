@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 )
 
@@ -15,4 +16,8 @@ func TestChain_GetEvent(t *testing.T) {
 		}
 	}
 
+}
+
+func TestDifficulty(t *testing.T) {
+	new(big.Int).SetString("", 10)
 }
