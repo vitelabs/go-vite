@@ -42,7 +42,7 @@ func (a ByBalance) Len() int      { return len(a) }
 func (a ByBalance) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ByBalance) Less(i, j int) bool {
 
-	r := a[i].Balance.Cmp(a[j].Balance)
+	r := a[j].Balance.Cmp(a[i].Balance)
 	if r == 0 {
 		return a[i].Name < a[j].Name
 	} else {
