@@ -29,8 +29,8 @@ func StartNode(node *node.Node) {
 	// Start the node
 	log.Info(fmt.Sprintf("Begin StartNode... "))
 	if err := node.Start(); err != nil {
-		log.Error(fmt.Sprintf("Failed to start node， %v", err))
 		fmt.Println(fmt.Sprintf("Failed to start node， %v", err))
+		log.Crit(fmt.Sprintf("Failed to start node， %v", err))
 	} else {
 		fmt.Println("Start the Node success!!!")
 		//Start the node Extenders
