@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"math/big"
 )
 
@@ -43,18 +43,18 @@ type CreateConsensusGroupParam struct {
 }
 
 func (c *ConsensusGroupApi) GetConditionRegisterOfPledge(amount *big.Int, tokenId types.TokenTypeId, height uint64) ([]byte, error) {
-	return contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, amount, tokenId, height)
+	return abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge, amount, tokenId, height)
 }
 func (c *ConsensusGroupApi) GetConditionVoteOfDefault() ([]byte, error) {
 	return []byte{}, nil
 }
 func (c *ConsensusGroupApi) GetConditionVoteOfKeepToken(amount *big.Int, tokenId types.TokenTypeId) ([]byte, error) {
-	return contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionVoteOfKeepToken, amount, tokenId)
+	return abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionVoteOfKeepToken, amount, tokenId)
 }
 func (c *ConsensusGroupApi) GetCreateConsensusGroupData(param CreateConsensusGroupParam) ([]byte, error) {
-	gid := contracts.NewGid(param.SelfAddr, param.Height, param.PrevHash, param.SnapshotHash)
-	return contracts.ABIConsensusGroup.PackMethod(
-		contracts.MethodNameCreateConsensusGroup,
+	gid := abi.NewGid(param.SelfAddr, param.Height, param.PrevHash, param.SnapshotHash)
+	return abi.ABIConsensusGroup.PackMethod(
+		abi.MethodNameCreateConsensusGroup,
 		gid,
 		param.NodeCount,
 		param.Interval,
@@ -69,9 +69,9 @@ func (c *ConsensusGroupApi) GetCreateConsensusGroupData(param CreateConsensusGro
 
 }
 func (c *ConsensusGroupApi) GetCancelConsensusGroupData(gid types.Gid) ([]byte, error) {
-	return contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameCancelConsensusGroup, gid)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelConsensusGroup, gid)
 
 }
 func (c *ConsensusGroupApi) GetReCreateConsensusGroupData(gid types.Gid) ([]byte, error) {
-	return contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameReCreateConsensusGroup, gid)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameReCreateConsensusGroup, gid)
 }

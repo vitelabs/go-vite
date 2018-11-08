@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -21,6 +22,15 @@ type Event struct {
 	Timestamp      time.Time  // add to block
 	SnapshotHash   types.Hash // add to block
 	SnapshotHeight uint64     // add to block
+}
+
+type electionResult struct {
+	Plans  []*core.MemberPlan
+	STime  time.Time
+	ETime  time.Time
+	Index  uint64
+	Hash   types.Hash
+	Height uint64
 }
 
 type Subscriber interface {

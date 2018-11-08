@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/vitelabs/go-vite/vm"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"testing"
 
 	"github.com/vitelabs/go-vite/vm_context"
@@ -75,16 +76,16 @@ func TestWallet(t *testing.T) {
 	// if has no quota
 	if printQuota(vite, genesisAddr).Sign() == 0 {
 		if printPledge(vite, genesisAddr, t).Sign() == 0 {
-			waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
+			waitContractOnroad(onRoadApi, abi.AddressPledge, t)
 
 			if printPledge(vite, genesisAddr, t).Sign() == 0 {
 				// wait snapshot ++
 				waitSnapshotInc(vite, t)
 
-				byt, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, genesisAddr)
+				byt, _ := abi.ABIPledge.PackMethod(abi.MethodNamePledge, genesisAddr)
 				parms := CreateTransferTxParms{
 					SelfAddr:    genesisAddr,
-					ToAddr:      contracts.AddressPledge,
+					ToAddr:      abi.AddressPledge,
 					TokenTypeId: ledger.ViteTokenId,
 					Passphrase:  password,
 					Amount:      new(big.Int).Mul(big.NewInt(1e4), big.NewInt(1e18)).String(),
@@ -97,7 +98,7 @@ func TestWallet(t *testing.T) {
 					return
 				}
 			}
-			waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
+			waitContractOnroad(onRoadApi, abi.AddressPledge, t)
 		}
 		waitQuota(vite, genesisAddr)
 	}
@@ -110,7 +111,7 @@ func waitQuota(vite *vite.Vite, genesisAddr types.Address) {
 			break
 		}
 		printSnapshot(vite)
-		printHeight(vite, contracts.AddressPledge)
+		printHeight(vite, abi.AddressPledge)
 	}
 }
 func printPledge(vite *vite.Vite, addr types.Address, t *testing.T) *big.Int {
@@ -365,7 +366,7 @@ func TestQuota(t *testing.T) {
 
 	prevBlock, _ := vite.Chain().GetLatestAccountBlock(&addr)
 	db, _ := vm_context.NewVmContext(vite.Chain(), &snapshotBlock.Hash, &prevBlock.Hash, &addr)
-	pledgeAmount := contracts.GetPledgeBeneficialAmount(db, addr)
+	pledgeAmount := abi.GetPledgeBeneficialAmount(db, addr)
 
 	wLog.Debug("print pledge amount", "chain", amount, "vm", pledgeAmount)
 }
@@ -403,7 +404,7 @@ func contractsInit(t *testing.T) (*vite.Vite, *wallet.Manager, *WalletApi, *Priv
 	onRoadApi := NewPrivateOnroadApi(vite)
 
 	vite.OnRoad().StartAutoReceiveWorker(addr, nil)
-	waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
+	waitContractOnroad(onRoadApi, abi.AddressPledge, t)
 	waitOnroad(onRoadApi, addr, t)
 
 	waitSnapshotInc(vite, t)
@@ -418,11 +419,11 @@ func contractsPledge(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroad
 	if prevBlock == nil {
 		t.Fatalf("prev block not exist")
 	}
-	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr)
+	pledgeData, _ := abi.ABIPledge.PackMethod(abi.MethodNamePledge, addr)
 	amount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressPledge,
+		ToAddr:      abi.AddressPledge,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      amount.String(),
@@ -435,7 +436,7 @@ func contractsPledge(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroad
 		return
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
+	waitContractOnroad(onRoadApi, abi.AddressPledge, t)
 	waitSnapshotInc(vite, t)
 
 	newBalance := printBalance(vite, addr)
@@ -460,11 +461,11 @@ func contractsCancelPledge(vite *vite.Vite, waApi *WalletApi, onRoadApi *Private
 		t.Fatalf("prev block not exist")
 	}
 	amount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
-	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNameCancelPledge,
+	pledgeData, _ := abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge,
 		addr, amount)
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressPledge,
+		ToAddr:      abi.AddressPledge,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
@@ -477,7 +478,7 @@ func contractsCancelPledge(vite *vite.Vite, waApi *WalletApi, onRoadApi *Private
 		return
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressPledge, t)
+	waitContractOnroad(onRoadApi, abi.AddressPledge, t)
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 
@@ -505,8 +506,8 @@ func contractsMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroa
 	if prevBlock == nil {
 		t.Fatalf("prev block not exist")
 	}
-	tokenId := contracts.NewTokenId(addr, prevBlock.Height+1, prevBlock.Hash, vite.Chain().GetLatestSnapshotBlock().Hash)
-	mintageData, _ := contracts.ABIMintage.PackMethod(contracts.MethodNameMintage,
+	tokenId := abi.NewTokenId(addr, prevBlock.Height+1, prevBlock.Hash, vite.Chain().GetLatestSnapshotBlock().Hash)
+	mintageData, _ := abi.ABIMintage.PackMethod(abi.MethodNameMintage,
 		tokenId,
 		"MyToken",
 		"mt",
@@ -515,7 +516,7 @@ func contractsMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroa
 	mintagePledgeAmount := new(big.Int).Mul(big.NewInt(1e5), big.NewInt(1e18))
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressMintage,
+		ToAddr:      abi.AddressMintage,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      mintagePledgeAmount.String(),
@@ -527,7 +528,7 @@ func contractsMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroa
 		t.Fatal(err)
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressMintage, t)
+	waitContractOnroad(onRoadApi, abi.AddressMintage, t)
 	waitSnapshotInc(vite, t)
 
 	amount, err := vite.Chain().GetAccountBalanceByTokenId(&addr, &tokenId)
@@ -555,10 +556,10 @@ func contractsCancelMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *Privat
 	balance := printBalance(vite, addr)
 	printQuota(vite, addr)
 
-	cancelMintageData, _ := contracts.ABIMintage.PackMethod(contracts.MethodNameMintageCancelPledge, tokenId)
+	cancelMintageData, _ := abi.ABIMintage.PackMethod(abi.MethodNameMintageCancelPledge, tokenId)
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressMintage,
+		ToAddr:      abi.AddressMintage,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
@@ -570,7 +571,7 @@ func contractsCancelMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *Privat
 		t.Fatal(err)
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressMintage, t)
+	waitContractOnroad(onRoadApi, abi.AddressMintage, t)
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 	mintagePledgeAmount := new(big.Int).Mul(big.NewInt(1e5), big.NewInt(1e18))
@@ -599,9 +600,9 @@ func contractsCreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi 
 	if prevBlock == nil {
 		t.Fatalf("prev block not exist")
 	}
-	gid := contracts.NewGid(addr, prevBlock.Height+1, prevBlock.Hash, vite.Chain().GetLatestSnapshotBlock().Hash)
-	registerConditionData, _ := contracts.ABIConsensusGroup.PackVariable(contracts.VariableNameConditionRegisterOfPledge, big.NewInt(1), ledger.ViteTokenId, uint64(1))
-	createConsensusGroupData, _ := contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameCreateConsensusGroup,
+	gid := abi.NewGid(addr, prevBlock.Height+1, prevBlock.Hash, vite.Chain().GetLatestSnapshotBlock().Hash)
+	registerConditionData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge, big.NewInt(1), ledger.ViteTokenId, uint64(1))
+	createConsensusGroupData, _ := abi.ABIConsensusGroup.PackMethod(abi.MethodNameCreateConsensusGroup,
 		gid,
 		uint8(3),
 		int64(1),
@@ -616,7 +617,7 @@ func contractsCreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi 
 	pledgeAmount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressConsensusGroup,
+		ToAddr:      abi.AddressConsensusGroup,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      pledgeAmount.String(),
@@ -627,7 +628,7 @@ func contractsCreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi 
 		t.Fatal(err)
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressConsensusGroup, t)
+	waitContractOnroad(onRoadApi, abi.AddressConsensusGroup, t)
 	waitSnapshotInc(vite, t)
 
 	list, _ = vite.Chain().GetConsensusGroupList(vite.Chain().GetLatestSnapshotBlock().Hash)
@@ -658,11 +659,11 @@ func contractsCancelConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi 
 	if prevBlock == nil {
 		t.Fatalf("prev block not exist")
 	}
-	cancelConsensusGroupData, _ := contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameCancelConsensusGroup, gid)
+	cancelConsensusGroupData, _ := abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelConsensusGroup, gid)
 	pledgeAmount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressConsensusGroup,
+		ToAddr:      abi.AddressConsensusGroup,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
@@ -673,7 +674,7 @@ func contractsCancelConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi 
 		t.Fatal(err)
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressConsensusGroup, t)
+	waitContractOnroad(onRoadApi, abi.AddressConsensusGroup, t)
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 
@@ -704,11 +705,11 @@ func contractsRecreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadAp
 	if prevBlock == nil {
 		t.Fatalf("prev block not exist")
 	}
-	recreateConsensusGroupData, _ := contracts.ABIConsensusGroup.PackMethod(contracts.MethodNameReCreateConsensusGroup, gid)
+	recreateConsensusGroupData, _ := abi.ABIConsensusGroup.PackMethod(abi.MethodNameReCreateConsensusGroup, gid)
 	pledgeAmount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressConsensusGroup,
+		ToAddr:      abi.AddressConsensusGroup,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      pledgeAmount.String(),
@@ -719,7 +720,7 @@ func contractsRecreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadAp
 		t.Fatal(err)
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressConsensusGroup, t)
+	waitContractOnroad(onRoadApi, abi.AddressConsensusGroup, t)
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 
@@ -762,13 +763,13 @@ func contractsRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnro
 		t.Fatalf("prev block not exist")
 	}
 	nodeAddr, _, _ := types.CreateAddress()
-	registerData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameRegister,
+	registerData, _ := abi.ABIRegister.PackMethod(abi.MethodNameRegister,
 		gid,
 		name,
 		nodeAddr)
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressRegister,
+		ToAddr:      abi.AddressRegister,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      registerPledgeAmount.String(),
@@ -781,7 +782,7 @@ func contractsRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnro
 		return
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressRegister, t)
+	waitContractOnroad(onRoadApi, abi.AddressRegister, t)
 	waitSnapshotInc(vite, t)
 
 	balance.Sub(balance, registerPledgeAmount)
@@ -813,13 +814,13 @@ func contractsUpdateRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 		t.Fatalf("prev block not exist")
 	}
 	nodeAddr, _, _ := types.CreateAddress()
-	registerData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameUpdateRegistration,
+	registerData, _ := abi.ABIRegister.PackMethod(abi.MethodNameUpdateRegistration,
 		gid,
 		name,
 		nodeAddr)
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressRegister,
+		ToAddr:      abi.AddressRegister,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
@@ -831,7 +832,7 @@ func contractsUpdateRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 		t.Fatal(err)
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressRegister, t)
+	waitContractOnroad(onRoadApi, abi.AddressRegister, t)
 	waitSnapshotInc(vite, t)
 
 	newBalance := printBalance(vite, addr)
@@ -861,12 +862,12 @@ func contractsCancelRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 	if prevBlock == nil {
 		t.Fatalf("prev block not exist")
 	}
-	registerData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameCancelRegister,
+	registerData, _ := abi.ABIRegister.PackMethod(abi.MethodNameCancelRegister,
 		gid,
 		name)
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressRegister,
+		ToAddr:      abi.AddressRegister,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
@@ -878,7 +879,7 @@ func contractsCancelRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 		t.Fatal(err)
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressRegister, t)
+	waitContractOnroad(onRoadApi, abi.AddressRegister, t)
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 
@@ -917,12 +918,12 @@ func contractsVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadAp
 	if prevBlock == nil {
 		t.Fatalf("prev block not exist")
 	}
-	voteData, _ := contracts.ABIVote.PackMethod(contracts.MethodNameVote,
+	voteData, _ := abi.ABIVote.PackMethod(abi.MethodNameVote,
 		gid,
 		name)
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressVote,
+		ToAddr:      abi.AddressVote,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
@@ -935,7 +936,7 @@ func contractsVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadAp
 		return
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressVote, t)
+	waitContractOnroad(onRoadApi, abi.AddressVote, t)
 	waitSnapshotInc(vite, t)
 
 	printBalance(vite, addr)
@@ -960,11 +961,11 @@ func contractsCancelVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOn
 	if prevBlock == nil {
 		t.Fatalf("prev block not exist")
 	}
-	voteData, _ := contracts.ABIVote.PackMethod(contracts.MethodNameCancelVote,
+	voteData, _ := abi.ABIVote.PackMethod(abi.MethodNameCancelVote,
 		gid)
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressVote,
+		ToAddr:      abi.AddressVote,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
@@ -977,7 +978,7 @@ func contractsCancelVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOn
 		return
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressVote, t)
+	waitContractOnroad(onRoadApi, abi.AddressVote, t)
 	waitSnapshotInc(vite, t)
 
 	printBalance(vite, addr)
@@ -1017,10 +1018,10 @@ func contractsReward(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroad
 	rewardAmount := new(big.Int).Div(new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)), big.NewInt(1051200000))
 	rewardAmount = rewardAmount.Mul(rewardAmount, big.NewInt(count))
 
-	rewardData, _ := contracts.ABIRegister.PackMethod(contracts.MethodNameReward, types.SNAPSHOT_GID, "s3", addr)
+	rewardData, _ := abi.ABIRegister.PackMethod(abi.MethodNameReward, types.SNAPSHOT_GID, "s3", addr)
 	parms := CreateTransferTxParms{
 		SelfAddr:    addr,
-		ToAddr:      contracts.AddressRegister,
+		ToAddr:      abi.AddressRegister,
 		TokenTypeId: ledger.ViteTokenId,
 		Passphrase:  password,
 		Amount:      big.NewInt(0).String(),
@@ -1032,7 +1033,7 @@ func contractsReward(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroad
 		t.Fatal(err)
 	}
 
-	waitContractOnroad(onRoadApi, contracts.AddressRegister, t)
+	waitContractOnroad(onRoadApi, abi.AddressRegister, t)
 	waitOnroad(onRoadApi, addr, t)
 	waitSnapshotInc(vite, t)
 

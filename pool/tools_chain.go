@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm_context"
 )
@@ -20,6 +21,7 @@ type chainDb interface {
 	GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.AccountBlock
 	GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error)
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockHeadByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error
@@ -127,18 +129,19 @@ func (self *accountCh) getFirstUnconfirmedBlock(head *ledger.SnapshotBlock) *led
 type snapshotCh struct {
 	bc      chainDb
 	version *ForkVersion
+	log     log15.Logger
 }
 
 func (self *snapshotCh) getBlock(height uint64) commonBlock {
 	defer monitor.LogTime("pool", "getSnapshotBlock", time.Now())
-	block, e := self.bc.GetSnapshotBlockByHeight(height)
+	block, e := self.bc.GetSnapshotBlockHeadByHeight(height)
 	if e != nil {
 		return nil
 	}
 	if block == nil {
 		return nil
 	}
-	return newSnapshotPoolBlock(block, self.version, types.RollbackChain)
+	return newSnapshotPoolBlock(block, self.version, types.QueryChain)
 }
 
 func (self *snapshotCh) head() commonBlock {
@@ -191,6 +194,9 @@ func (self *snapshotCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 
 func (self *snapshotCh) insertBlock(block commonBlock) error {
 	b := block.(*snapshotPoolBlock)
+	if b.Source() == types.QueryChain {
+		self.log.Crit("QueryChain insert to chain.", "Height", b.Height(), "Hash", b.Hash())
+	}
 	monitor.LogEvent("pool", "snapshotInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	return self.bc.InsertSnapshotBlock(b.block)
 }

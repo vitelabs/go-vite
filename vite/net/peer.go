@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	net2 "net"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -27,7 +28,6 @@ type Peer interface {
 	FileAddress() *net2.TCPAddr
 	SetHead(head types.Hash, height uint64)
 	SeeBlock(hash types.Hash)
-	SendSubLedger(bs []*ledger.SnapshotBlock, abs []*ledger.AccountBlock, msgId uint64) (err error)
 	SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error)
 	SendAccountBlocks(bs []*ledger.AccountBlock, msgId uint64) (err error)
 	SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error)
@@ -153,53 +153,12 @@ func (p *peer) SeeBlock(hash types.Hash) {
 
 // send
 
-func (p *peer) SendSubLedger(bs []*ledger.SnapshotBlock, abs []*ledger.AccountBlock, msgId uint64) (err error) {
-	err = p.Send(SubLedgerCode, msgId, &message.SubLedger{
-		SBlocks: bs,
-		ABlocks: abs,
-	})
-
-	if err != nil {
-		return
-	}
-
-	for _, block := range bs {
-		p.SeeBlock(block.Hash)
-	}
-
-	for _, block := range abs {
-		p.SeeBlock(block.Hash)
-	}
-
-	return
-}
-
 func (p *peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error) {
-	err = p.Send(SnapshotBlocksCode, msgId, &message.SnapshotBlocks{bs})
-
-	if err != nil {
-		return
-	}
-
-	for _, b := range bs {
-		p.SeeBlock(b.Hash)
-	}
-
-	return
+	return p.Send(SnapshotBlocksCode, msgId, &message.SnapshotBlocks{bs})
 }
 
 func (p *peer) SendAccountBlocks(bs []*ledger.AccountBlock, msgId uint64) (err error) {
-	err = p.Send(AccountBlocksCode, msgId, &message.AccountBlocks{bs})
-
-	if err != nil {
-		return
-	}
-
-	for _, b := range bs {
-		p.SeeBlock(b.Hash)
-	}
-
-	return
+	return p.Send(AccountBlocksCode, msgId, &message.AccountBlocks{bs})
 }
 
 func (p *peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
@@ -230,12 +189,14 @@ func (p *peer) Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err e
 	var msg *p2p.Msg
 
 	if msg, err = p2p.PackMsg(p.CmdSet, p2p.Cmd(code), msgId, payload); err != nil {
-		p.log.Error(fmt.Sprintf("pack message %s to %s error: %v", code, p, err))
+		p.log.Error(fmt.Sprintf("pack message %s to %s error: %v", code, p.RemoteAddr(), err))
 		return err
 	} else if err = p.mrw.WriteMsg(msg); err != nil {
-		p.log.Error(fmt.Sprintf("send message %s to %s error: %v", code, p, err))
+		p.log.Error(fmt.Sprintf("send message %s to %s error: %v", code, p.RemoteAddr(), err))
 		return err
 	}
+
+	p.log.Info(fmt.Sprintf("send message %s to %s", code, p.RemoteAddr()))
 
 	return nil
 }
@@ -379,6 +340,18 @@ func (m *peerSet) BestPeer() (best *peer) {
 	return
 }
 
+func (m *peerSet) SyncPeer() *peer {
+	s := m.Peers()
+	if len(s) == 0 {
+		return nil
+	}
+
+	sort.Sort(ps(s))
+	mid := len(s) / 2
+
+	return s[mid]
+}
+
 func (m *peerSet) Add(peer *peer) error {
 	m.rw.Lock()
 	defer m.rw.Unlock()
@@ -506,4 +479,19 @@ func (s peers) delete(id string) peers {
 	}
 
 	return s
+}
+
+// @section
+type ps []*peer
+
+func (s ps) Len() int {
+	return len(s)
+}
+
+func (s ps) Less(i, j int) bool {
+	return s[i].Height() < s[j].Height()
+}
+
+func (s ps) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
 }

@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
 	"sort"
@@ -28,12 +28,12 @@ func (p PledgeApi) String() string {
 }
 
 func (p *PledgeApi) GetPledgeData(beneficialAddr types.Address) ([]byte, error) {
-	return contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, beneficialAddr)
+	return abi.ABIPledge.PackMethod(abi.MethodNamePledge, beneficialAddr)
 }
 
 func (p *PledgeApi) GetCancelPledgeData(beneficialAddr types.Address, amount string) ([]byte, error) {
 	if bAmount, err := stringToBigInt(&amount); err == nil {
-		return contracts.ABIPledge.PackMethod(contracts.MethodNameCancelPledge, beneficialAddr, bAmount)
+		return abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge, beneficialAddr, bAmount)
 	} else {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ type PledgeInfo struct {
 	BeneficialAddr types.Address `json:"beneficialAddr"`
 	WithdrawTime   int64         `json:"withdrawTime"`
 }
-type byWithdrawHeight []*contracts.PledgeInfo
+type byWithdrawHeight []*abi.PledgeInfo
 
 func (a byWithdrawHeight) Len() int      { return len(a) }
 func (a byWithdrawHeight) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
@@ -77,7 +77,7 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 	if err != nil {
 		return nil, err
 	}
-	list, amount := contracts.GetPledgeInfoList(vmContext, addr)
+	list, amount := abi.GetPledgeInfoList(vmContext, addr)
 	sort.Sort(byWithdrawHeight(list))
 	startHeight, endHeight := index*count, (index+1)*count
 	if startHeight >= len(list) {

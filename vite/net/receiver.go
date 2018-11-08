@@ -13,6 +13,9 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
+const cacheSBlockTotal = 1000
+const cacheABlockTotal = 10000
+
 // receive blocks and record them, construct skeleton to filter subsequent fetch
 type receiver struct {
 	ready       int32 // atomic, can report newBlock to pool
@@ -29,8 +32,8 @@ type receiver struct {
 
 func newReceiver(verifier Verifier, broadcaster Broadcaster, filter Filter) *receiver {
 	return &receiver{
-		newSBlocks:  make([]*ledger.SnapshotBlock, 0, 100),
-		newABlocks:  make([]*ledger.AccountBlock, 0, 100),
+		newSBlocks:  make([]*ledger.SnapshotBlock, 0, cacheSBlockTotal),
+		newABlocks:  make([]*ledger.AccountBlock, 0, cacheABlockTotal),
 		sFeed:       newSnapshotBlockFeed(),
 		aFeed:       newAccountBlockFeed(),
 		verifier:    verifier,
@@ -128,15 +131,23 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 		monitor.LogDuration("net/verifier", "SnapshotBlock", time.Now().Sub(verify_b).Nanoseconds())
 	}
 
-	// record
-	s.mark(block.Hash)
-
+	// broadcast
 	s.broadcaster.BroadcastSnapshotBlock(block)
 
-	if atomic.LoadInt32(&s.ready) == 0 {
+	if s.ready == 0 {
+		if len(s.newSBlocks) >= cacheSBlockTotal {
+			return
+		}
+
+		// record
+		s.mark(block.Hash)
+
 		s.newSBlocks = append(s.newSBlocks, block)
 		s.log.Debug(fmt.Sprintf("not ready, store NewSnapshotBlock %s/%d, total %d", block.Hash, block.Height, len(s.newSBlocks)))
 	} else {
+		// record
+		s.mark(block.Hash)
+
 		notify_b := time.Now()
 		s.sFeed.Notify(block, types.RemoteBroadcast)
 		monitor.LogDuration("net/notify", "NewSnapshotBlock", time.Now().Sub(notify_b).Nanoseconds())
@@ -167,15 +178,21 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 		monitor.LogDuration("net/verifier", "AccountBlock", time.Now().Sub(verify_b).Nanoseconds())
 	}
 
-	// record
-	s.mark(block.Hash)
-
 	s.broadcaster.BroadcastAccountBlock(block)
 
-	if atomic.LoadInt32(&s.ready) == 0 {
+	if s.ready == 0 {
+		if len(s.newABlocks) >= cacheABlockTotal {
+			return
+		}
+		// record
+		s.mark(block.Hash)
+
 		s.newABlocks = append(s.newABlocks, block)
 		s.log.Warn(fmt.Sprintf("not ready, store NewAccountBlock %s, total %d", block.Hash, len(s.newABlocks)))
 	} else {
+		// record
+		s.mark(block.Hash)
+
 		notify_b := time.Now()
 		s.aFeed.Notify(block, types.RemoteBroadcast)
 		monitor.LogDuration("net/notify", "NewAccountBlock", time.Now().Sub(notify_b).Nanoseconds())

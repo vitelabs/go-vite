@@ -11,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
-	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
@@ -53,8 +52,13 @@ type Chain interface {
 	GetAccountBlockMetaByHash(hash *types.Hash) (*ledger.AccountBlockMeta, error)
 	GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
 	GetSnapshotBlocksByHeight(height uint64, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
+
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockHeadByHeight(height uint64) (*ledger.SnapshotBlock, error)
+
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockHeadByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 	GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotBlock, error)
@@ -64,8 +68,8 @@ type Chain interface {
 	DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
 	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
 	GetContractGid(addr *types.Address) (*types.Gid, error)
-	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*contracts.Registration, error)
-	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*contracts.VoteInfo, error)
+	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
+	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
 	KafkaSender() *sender.KafkaSender
 
 	// Pledge amount
@@ -75,10 +79,10 @@ type Chain interface {
 	GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) (uint64, error)
 	GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.Address) (map[types.Address]uint64, error)
 
-	GetConsensusGroupList(snapshotHash types.Hash) ([]*contracts.ConsensusGroupInfo, error)
+	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)
 	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error)
 
-	GetTokenInfoById(tokenId *types.TokenTypeId) (*contracts.TokenInfo, error)
+	GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, error)
 	AccountType(address *types.Address) (uint64, error)
 	GetAccount(address *types.Address) (*ledger.Account, error)
 	GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64)

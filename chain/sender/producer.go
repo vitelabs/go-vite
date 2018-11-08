@@ -3,6 +3,7 @@ package sender
 import (
 	"encoding/binary"
 	"encoding/json"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"math/big"
 	"sync"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
-	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
@@ -275,9 +275,9 @@ func (producer *Producer) getParsedData(block *ledger.AccountBlock) (string, err
 	}
 
 	switch block.ToAddress.String() {
-	case contracts.AddressMintage.String():
-		tokenInfo := new(contracts.TokenInfo)
-		token := contracts.ABIMintage.UnpackVariable(tokenInfo, contracts.VariableNameMintage, block.Data)
+	case abi.AddressMintage.String():
+		tokenInfo := new(types.TokenInfo)
+		token := abi.ABIMintage.UnpackVariable(tokenInfo, abi.VariableNameMintage, block.Data)
 		tokenBytes, err := json.Marshal(token)
 		return string(tokenBytes), err
 	}

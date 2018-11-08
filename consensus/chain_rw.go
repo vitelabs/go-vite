@@ -4,37 +4,50 @@ import (
 	"math/big"
 	"time"
 
+	"sort"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/contracts"
 )
 
 type ch interface {
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
-	GetConsensusGroupList(snapshotHash types.Hash) ([]*contracts.ConsensusGroupInfo, error)                                                 // Get all consensus group
-	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*contracts.Registration, error)                                              // Get register for consensus group
-	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*contracts.VoteInfo, error)                                                       // Get the candidate's vote
+
+	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                     // Get all consensus group
+	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                                  // Get register for consensus group
+	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                           // Get the candidate's vote
 	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error) // Get balance for addressList
 	GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
+
 	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 }
+
 type chainRw struct {
 	rw ch
 }
 
-type Vote struct {
-	name    string
-	addr    types.Address
-	balance *big.Int
-}
 type VoteDetails struct {
-	Name         string
+	core.Vote
 	CurrentAddr  types.Address
 	RegisterList []types.Address
 	Addr         map[types.Address]*big.Int
+}
+type ByBalance []*VoteDetails
+
+func (a ByBalance) Len() int      { return len(a) }
+func (a ByBalance) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByBalance) Less(i, j int) bool {
+
+	r := a[i].Balance.Cmp(a[j].Balance)
+	if r == 0 {
+		return a[i].Name < a[j].Name
+	} else {
+		return r < 0
+	}
 }
 
 func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, error) {
@@ -50,37 +63,11 @@ func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, 
 	return block, nil
 }
 
-func (self *chainRw) CalVotes(gid types.Gid, info *membersInfo, block ledger.HashHeight) ([]*Vote, error) {
-
-	// query register info
-	registerList, _ := self.rw.GetRegisterList(block.Hash, gid)
-	// query vote info
-	votes, _ := self.rw.GetVoteMap(block.Hash, gid)
-
-	var registers []*Vote
-
-	// cal candidate
-	for _, v := range registerList {
-		registers = append(registers, self.GenVote(block.Hash, v, votes, info.countingTokenId))
-	}
-	return registers, nil
+func (self *chainRw) CalVotes(info *core.GroupInfo, block ledger.HashHeight) ([]*core.Vote, error) {
+	return core.CalVotes(info, block, self.rw)
 }
-func (self *chainRw) GenVote(snapshotHash types.Hash, registration *contracts.Registration, infos []*contracts.VoteInfo, id types.TokenTypeId) *Vote {
-	var addrs []types.Address
-	for _, v := range infos {
-		if v.NodeName == registration.Name {
-			addrs = append(addrs, v.VoterAddr)
-		}
-	}
-	balanceMap, _ := self.rw.GetBalanceList(snapshotHash, id, addrs)
 
-	result := &Vote{balance: big.NewInt(0), name: registration.Name, addr: registration.NodeAddr}
-	for _, v := range balanceMap {
-		result.balance.Add(result.balance, v)
-	}
-	return result
-}
-func (self *chainRw) CalVoteDetails(gid types.Gid, info *membersInfo, block ledger.HashHeight) ([]*VoteDetails, error) {
+func (self *chainRw) CalVoteDetails(gid types.Gid, info *core.GroupInfo, block ledger.HashHeight) ([]*VoteDetails, error) {
 	// query register info
 	registerList, _ := self.rw.GetRegisterList(block.Hash, gid)
 	// query vote info
@@ -90,11 +77,13 @@ func (self *chainRw) CalVoteDetails(gid types.Gid, info *membersInfo, block ledg
 
 	// cal candidate
 	for _, v := range registerList {
-		registers = append(registers, self.GenVoteDetails(block.Hash, v, votes, info.countingTokenId))
+		registers = append(registers, self.GenVoteDetails(block.Hash, v, votes, info.CountingTokenId))
 	}
+	sort.Sort(ByBalance(registers))
 	return registers, nil
 }
-func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *contracts.Registration, infos []*contracts.VoteInfo, id types.TokenTypeId) *VoteDetails {
+
+func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *VoteDetails {
 	var addrs []types.Address
 	for _, v := range infos {
 		if v.NodeName == registration.Name {
@@ -102,25 +91,29 @@ func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *contr
 		}
 	}
 	balanceMap, _ := self.rw.GetBalanceList(snapshotHash, id, addrs)
-	return &VoteDetails{Name: registration.Name, Addr: balanceMap, CurrentAddr: registration.NodeAddr, RegisterList: registration.HisAddrList}
+	balanceTotal := big.NewInt(0)
+	for _, v := range balanceMap {
+		balanceTotal.Add(balanceTotal, v)
+	}
+	return &VoteDetails{
+		Vote: core.Vote{
+			Name:    registration.Name,
+			Addr:    registration.NodeAddr,
+			Balance: balanceTotal,
+		},
+		RegisterList: registration.HisAddrList,
+		Addr:         balanceMap,
+	}
 }
-func (self *chainRw) GetMemberInfo(gid types.Gid, genesis time.Time) *membersInfo {
+
+func (self *chainRw) GetMemberInfo(gid types.Gid, genesis time.Time) *core.GroupInfo {
 	// todo consensus group maybe change ??
-	var result *membersInfo
+	var result *core.GroupInfo
 	head := self.rw.GetLatestSnapshotBlock()
 	consensusGroupList, _ := self.rw.GetConsensusGroupList(head.Hash)
 	for _, v := range consensusGroupList {
 		if v.Gid == gid {
-			result = &membersInfo{
-				genesisTime:     genesis,
-				interval:        int32(v.Interval),
-				memberCnt:       int32(v.NodeCount),
-				seed:            new(big.Int).SetBytes(v.Gid.Bytes()),
-				perCnt:          int32(v.PerCount),
-				randCnt:         int32(v.RandCount),
-				randRange:       int32(v.RandRank),
-				countingTokenId: v.CountingTokenId,
-			}
+			result = core.NewGroupInfo(genesis, *v)
 		}
 	}
 

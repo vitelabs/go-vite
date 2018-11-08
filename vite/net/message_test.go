@@ -287,7 +287,7 @@ func Test_splitAccountMap(t *testing.T) {
 	}
 
 	matrix := splitAccountMap(mblocks)
-	shouldLen := total/maxBlocks + 1
+	shouldLen := total/1000 + 1
 	if len(matrix) != shouldLen {
 		t.Fail()
 	} else {
@@ -318,7 +318,7 @@ func Test_splitAccountMap_Min(t *testing.T) {
 	}
 
 	matrix := splitAccountMap(mblocks)
-	shouldLen := total/maxBlocks + 1
+	shouldLen := total/1000 + 1
 	if len(matrix) != shouldLen {
 		t.Fail()
 	} else {

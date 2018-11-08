@@ -19,15 +19,19 @@ func NewStateTriePool(chain *chain) *StateTriePool {
 	}
 }
 
-func (pool *StateTriePool) unsafeSet(address *types.Address, trie *trie.Trie) {
-	pool.cache[*address] = trie
-}
+func (pool *StateTriePool) Delete(addrList []types.Address) {
+	pool.setLock.Lock()
+	defer pool.setLock.Unlock()
 
+	for _, addr := range addrList {
+		delete(pool.cache, addr)
+	}
+}
 func (pool *StateTriePool) Set(address *types.Address, trie *trie.Trie) {
 	pool.setLock.Lock()
 	defer pool.setLock.Unlock()
 
-	pool.unsafeSet(address, trie)
+	pool.cache[*address] = trie
 }
 
 func (pool *StateTriePool) Get(address *types.Address) (*trie.Trie, error) {
@@ -45,7 +49,8 @@ func (pool *StateTriePool) Get(address *types.Address) (*trie.Trie, error) {
 
 	if latestBlock != nil {
 		stateTrie := pool.chain.GetStateTrie(&latestBlock.StateHash)
-		pool.unsafeSet(address, stateTrie)
+		pool.cache[*address] = stateTrie
+
 		return stateTrie, nil
 	}
 	return nil, nil

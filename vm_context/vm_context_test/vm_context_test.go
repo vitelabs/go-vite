@@ -165,7 +165,7 @@ func TestVmContextIterator2(t *testing.T) {
 				if !ok {
 					break
 				}
-				registration := new(contracts.Registration)
+				registration := new(types.Registration)
 				contracts.ABIRegister.UnpackVariable(registration, contracts.VariableNameRegistration, value)
 				if registration.IsActive() {
 					fmt.Println(registration.NodeAddr)

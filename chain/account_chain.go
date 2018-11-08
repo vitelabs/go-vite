@@ -143,19 +143,20 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "InsertAccountBlocks")
 		return triggerErr
 	}
-	// Write db
-	if err := c.chainDb.Commit(batch); err != nil {
-		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertAccountBlocks")
-		return err
-	}
 
 	lastVmAccountBlock := vmAccountBlocks[len(vmAccountBlocks)-1]
 
-	// Set needSnapshotCache
+	// Set needSnapshotCache, Need first update cache
 	if c.needSnapshotCache != nil {
 		c.needSnapshotCache.Set(map[types.Address]*ledger.AccountBlock{
 			account.AccountAddress: lastVmAccountBlock.AccountBlock,
 		})
+	}
+
+	// Write db
+	if err := c.chainDb.Commit(batch); err != nil {
+		c.log.Crit("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertAccountBlocks")
+		return err
 	}
 
 	// Set stateTriePool
@@ -611,12 +612,6 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	}
 	c.chainDb.Be.DeleteAccountBlocks(batch, deleteHashList)
 
-	writeErr := c.chainDb.Commit(batch)
-	if writeErr != nil {
-		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
-		return nil, writeErr
-	}
-
 	needAddBlocks, needRemoveAddr, _, err := c.getNeedSnapshotMapByDeleteSubLedger(subLedger)
 	if err != nil {
 		c.log.Error("getNeedSnapshotMapByDeleteSubLedger failed, error is "+err.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
@@ -628,6 +623,15 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 
 	// Set needSnapshotCache, then add
 	c.needSnapshotCache.Set(needAddBlocks)
+
+	writeErr := c.chainDb.Commit(batch)
+	if writeErr != nil {
+		c.log.Crit("Write db failed, error is "+writeErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
+		return nil, writeErr
+	}
+
+	// Delete cache
+	c.stateTriePool.Delete(needRemoveAddr)
 
 	c.em.triggerDeleteAccountBlocksSuccess(subLedger)
 

@@ -1,8 +1,35 @@
-package contracts
+package abi
 
 import (
-	"github.com/vitelabs/go-vite/common/helper"
+	"errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+)
+
+type StorageDatabase interface {
+	GetStorageBySnapshotHash(addr *types.Address, key []byte, snapshotHash *types.Hash) []byte
+	NewStorageIteratorBySnapshotHash(addr *types.Address, prefix []byte, snapshotHash *types.Hash) vmctxt_interface.StorageIterator
+}
+
+var (
+	AddressRegister, _       = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
+	AddressVote, _           = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2})
+	AddressPledge, _         = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3})
+	AddressConsensusGroup, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4})
+	AddressMintage, _        = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5})
+)
+
+var (
+	precompiledContractsAbiMap = map[types.Address]abi.ABIContract{
+		AddressRegister:       ABIRegister,
+		AddressVote:           ABIVote,
+		AddressPledge:         ABIPledge,
+		AddressConsensusGroup: ABIConsensusGroup,
+		AddressMintage:        ABIMintage,
+	}
+
+	errInvalidParam = errors.New("invalid param")
 )
 
 // pack method params to byte slice
@@ -13,11 +40,6 @@ func PackMethodParam(contractsAddr types.Address, methodName string, params ...i
 		}
 	}
 	return nil, errInvalidParam
-}
-
-// Sign certain tx data using private key of node address to prove ownership of node address
-func GetRegisterMessageForSignature(accountAddress types.Address, gid types.Gid) []byte {
-	return helper.JoinBytes(accountAddress.Bytes(), gid.Bytes())
 }
 
 type ConditionCode uint8

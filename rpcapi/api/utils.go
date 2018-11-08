@@ -2,9 +2,9 @@ package api
 
 import (
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -22,14 +22,10 @@ func InitLog(dir, lvl string) {
 	if err != nil {
 		logLevel = log15.LvlInfo
 	}
-	filename := time.Now().Format("2006-01-02") + ".log"
-	path := filepath.Join(dir, "rpclog")
-	if err := os.MkdirAll(path, 0777); err != nil {
-		return
-	}
-	absFilename := filepath.Join(path, filename)
+	path := filepath.Join(dir, "rpclog", time.Now().Format("2006-01-02T15-04"))
+	filename := filepath.Join(path, "rpc.log")
 	log.SetHandler(
-		log15.LvlFilterHandler(logLevel, log15.Must.FileHandler(absFilename, log15.TerminalFormat())),
+		log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(filename), log15.LogfmtFormat())),
 	)
 }
 

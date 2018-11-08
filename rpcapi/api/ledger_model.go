@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/contracts"
 	"math/big"
 	"strconv"
 	"time"
@@ -75,7 +74,7 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 	return lAb, nil
 }
 
-func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *contracts.TokenInfo, confirmedTimes uint64) *AccountBlock {
+func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *types.TokenInfo, confirmedTimes uint64) *AccountBlock {
 	zero := "0"
 	quota := strconv.FormatUint(ledgerBlock.Quota, 10)
 	confirmedTimeStr := strconv.FormatUint(confirmedTimes, 10)
@@ -132,7 +131,7 @@ type RpcTokenInfo struct {
 	TokenId        types.TokenTypeId `json:"tokenId"`
 }
 
-func RawTokenInfoToRpc(tinfo *contracts.TokenInfo, tti types.TokenTypeId) *RpcTokenInfo {
+func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenInfo {
 	var rt *RpcTokenInfo = nil
 	if tinfo != nil {
 		rt = &RpcTokenInfo{

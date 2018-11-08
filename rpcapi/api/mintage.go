@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"math/big"
 )
 
@@ -37,9 +37,9 @@ type MintageParams struct {
 }
 
 func (m *MintageApi) GetMintageData(param MintageParams) ([]byte, error) {
-	tokenId := contracts.NewTokenId(param.SelfAddr, param.Height, param.PrevHash, param.SnapshotHash)
-	return contracts.ABIMintage.PackMethod(contracts.MethodNameMintage, tokenId, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals)
+	tokenId := abi.NewTokenId(param.SelfAddr, param.Height, param.PrevHash, param.SnapshotHash)
+	return abi.ABIMintage.PackMethod(abi.MethodNameMintage, tokenId, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals)
 }
 func (m *MintageApi) GetMintageCancelPledgeData(tokenId types.TokenTypeId) ([]byte, error) {
-	return contracts.ABIMintage.PackMethod(contracts.MethodNameMintageCancelPledge, tokenId)
+	return abi.ABIMintage.PackMethod(abi.MethodNameMintageCancelPledge, tokenId)
 }

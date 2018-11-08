@@ -9,7 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	_ "net/http/pprof"
@@ -160,11 +160,11 @@ func BenchmarkChain_InsertAccountBlocks(b *testing.B) {
 }
 
 func TestContractsAddr(t *testing.T) {
-	fmt.Println(contracts.AddressRegister.String())
-	fmt.Println(contracts.AddressRegister.String())
-	fmt.Println(contracts.AddressRegister.String())
-	fmt.Println(contracts.AddressRegister.String())
-	fmt.Println(contracts.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
 }
 
 func TestGetAccountBlocksByHash(t *testing.T) {
@@ -258,20 +258,21 @@ func TestGetAccountBlocksByHeight(t *testing.T) {
 }
 
 func TestChain_GetAccountBlockMap(t *testing.T) {
+
 	chainInstance := getChainInstance()
 	startHash, _ := types.HexToHash("f9380deea688b3afe206f52cc3cf2c2677bca1a0fbb4abdfa9d671bc26b22932")
 	queryParams1 := map[types.Address]*BlockMapQueryParam{
-		contracts.AddressMintage: {
+		abi.AddressMintage: {
 			OriginBlockHash: &startHash,
 			Count:           10,
 			Forward:         true,
 		},
-		contracts.AddressConsensusGroup: {
+		abi.AddressConsensusGroup: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         true,
 		},
-		contracts.AddressRegister: {
+		abi.AddressRegister: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         true,
@@ -289,17 +290,17 @@ func TestChain_GetAccountBlockMap(t *testing.T) {
 
 	fmt.Println()
 	queryParams2 := map[types.Address]*BlockMapQueryParam{
-		contracts.AddressMintage: {
+		abi.AddressMintage: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,
 		},
-		contracts.AddressConsensusGroup: {
+		abi.AddressConsensusGroup: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,
 		},
-		contracts.AddressRegister: {
+		abi.AddressRegister: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,

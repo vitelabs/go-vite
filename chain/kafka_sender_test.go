@@ -16,7 +16,7 @@ func makeBlocks(chainInstance Chain, toBlockHeight uint64) {
 	count := toBlockHeight - latestSnapshotBlock.Height
 
 	var addrList [][2]types.Address
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 2; i++ {
 		oneAddr := [2]types.Address{}
 		oneAddr[0], _, _ = types.CreateAddress()
 		oneAddr[1], _, _ = types.CreateAddress()
@@ -27,7 +27,7 @@ func makeBlocks(chainInstance Chain, toBlockHeight uint64) {
 		snapshotBlock, _ := newSnapshotBlock()
 		chainInstance.InsertSnapshotBlock(snapshotBlock)
 
-		for j := 0; j < 10; j++ {
+		for j := 0; j < 1; j++ {
 			for _, addr := range addrList {
 				blocks, _, _ := randomSendViteBlock(snapshotBlock.Hash, &addr[0], &addr[1])
 				chainInstance.InsertAccountBlocks(blocks)
@@ -37,7 +37,7 @@ func makeBlocks(chainInstance Chain, toBlockHeight uint64) {
 			}
 		}
 
-		if (i+1)%10 == 0 {
+		if (i+1)%100 == 0 {
 			fmt.Printf("Make %d snapshot blocks.\n", i+1)
 		}
 

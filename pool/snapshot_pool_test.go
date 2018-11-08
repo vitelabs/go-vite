@@ -236,3 +236,7 @@ func TestSelect(t *testing.T) {
 		}
 	}
 }
+
+func TestName(t *testing.T) {
+	println(time.Millisecond.Nanoseconds())
+}

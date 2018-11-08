@@ -166,7 +166,7 @@ func (self *pool) Init(s syncer,
 	accountV *verifier.AccountVerifier) {
 	self.sync = s
 	self.wt = wt
-	rw := &snapshotCh{version: self.version, bc: self.bc}
+	rw := &snapshotCh{version: self.version, bc: self.bc, log: self.log}
 	fe := &snapshotSyncer{fetcher: s, log: self.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: snapshotV}
 	self.accountVerifier = accountV
@@ -240,8 +240,10 @@ func (self *pool) Start() {
 	self.snapshotSubId = self.sync.SubscribeSnapshotBlock(self.AddSnapshotBlock)
 
 	self.pendingSc.Start()
-	common.Go(self.loopTryInsert)
-	common.Go(self.loopTryInsert)
+	self.log.Info("pool account parallel.", "parallel", ACCOUNT_PARALLEL)
+	for i := 0; i < ACCOUNT_PARALLEL; i++ {
+		common.Go(self.loopTryInsert)
+	}
 	common.Go(self.loopCompact)
 	common.Go(self.loopBroadcastAndDel)
 }
@@ -536,9 +538,6 @@ func (self *pool) loopTryInsert() {
 			return
 		case <-t.C:
 			if sum == 0 {
-				//self.accountCond.L.Lock()
-				//self.accountCond.Wait()
-				//self.accountCond.L.Unlock()
 				time.Sleep(100 * time.Millisecond)
 				monitor.LogEvent("pool", "tryInsertSleep100")
 			}
@@ -546,9 +545,6 @@ func (self *pool) loopTryInsert() {
 			sum += self.accountsTryInsert()
 		case <-t2.C:
 			if sum == 0 {
-				//self.accountCond.L.Lock()
-				//self.accountCond.Wait()
-				//self.accountCond.L.Unlock()
 				time.Sleep(20 * time.Millisecond)
 				monitor.LogEvent("pool", "tryInsertSleep20")
 			}

@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
@@ -53,7 +54,7 @@ func (self *committee) initTeller(gid types.Gid) (*teller, error) {
 	if info == nil {
 		return nil, errors.New("can't get member info.")
 	}
-	t := newTeller(info, gid, self.rw, self.mLog)
+	t := newTeller(info, self.rw, self.mLog)
 	self.tellers.Store(gid, t)
 	return t, nil
 }
@@ -115,7 +116,7 @@ func (self *committee) ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint6
 		return nil, 0, errors.New("consensus group not exist")
 	}
 	tel := t.(*teller)
-	electionResult, err := tel.electionIndex(int32(index))
+	electionResult, err := tel.electionIndex(index)
 
 	if err != nil {
 		return nil, 0, err
@@ -167,7 +168,7 @@ func (self *committee) ReadVoteMapByTime(gid types.Gid, index uint64) ([]*VoteDe
 	}
 	tel := t.(*teller)
 
-	return tel.voteDetails(int32(index))
+	return tel.voteDetails(index)
 }
 
 func (self *committee) VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error) {
@@ -202,7 +203,7 @@ func (self *committee) VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *ti
 	}
 	tel := t.(*teller)
 
-	st, et := tel.index2Time(int32(i))
+	st, et := tel.index2Time(i)
 	return &st, &et, nil
 }
 
@@ -288,7 +289,7 @@ func (self *committee) update(t *teller, m *sync.Map) {
 
 		if err != nil {
 			self.mLog.Error("can't get election result. time is "+time.Now().Format(time.RFC3339Nano)+"\".", "err", err)
-			time.Sleep(time.Duration(t.info.interval) * time.Second)
+			time.Sleep(time.Second)
 			// error handle
 			continue
 		}
@@ -371,7 +372,7 @@ func (self *committee) eventAddr(e *subscribeEvent, result *electionResult) {
 	}
 }
 
-func newConsensusEvent(r *electionResult, p *memberPlan, gid types.Gid) Event {
+func newConsensusEvent(r *electionResult, p *core.MemberPlan, gid types.Gid) Event {
 	return Event{
 		Gid:            gid,
 		Address:        p.Member,

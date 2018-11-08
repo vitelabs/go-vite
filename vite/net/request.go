@@ -2,14 +2,15 @@ package net
 
 import (
 	"fmt"
+	"math/rand"
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/list"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"math/rand"
-	"sync"
-	"time"
 )
 
 type reqState byte
@@ -68,15 +69,16 @@ type piece interface {
 	setBand(from, to uint64)
 }
 
-type reqRec interface {
+type blockReceiver interface {
 	receiveSnapshotBlock(block *ledger.SnapshotBlock)
 	receiveAccountBlock(block *ledger.AccountBlock)
 	catch(piece)
 }
 
-const maxBlocks = 300 // max blocks in one message(snapshotblocks + accountblocks)
 const file2Chunk = 600
 const minSubLedger = 1000
+
+const chunk = 20
 
 func splitChunk(from, to uint64) (chunks [][2]uint64) {
 	// chunks may be only one block, then from == to
@@ -84,13 +86,13 @@ func splitChunk(from, to uint64) (chunks [][2]uint64) {
 		return
 	}
 
-	total := (to-from)/maxBlocks + 1
+	total := (to-from)/chunk + 1
 	chunks = make([][2]uint64, total)
 
 	var cTo uint64
 	var i int
 	for from <= to {
-		if cTo = from + maxBlocks - 1; cTo > to {
+		if cTo = from + chunk - 1; cTo > to {
 			cTo = to
 		}
 
@@ -103,7 +105,7 @@ func splitChunk(from, to uint64) (chunks [][2]uint64) {
 	return chunks[:i]
 }
 
-var chunkTimeout = 3 * time.Minute
+var chunkTimeout = 20 * time.Second
 
 // @request for chunk
 type chunkRequest struct {
@@ -113,6 +115,7 @@ type chunkRequest struct {
 	state    reqState
 	deadline time.Time
 	msg      *message.GetChunk
+	count    uint64
 }
 
 func (c *chunkRequest) setBand(from, to uint64) {
@@ -124,28 +127,34 @@ func (c *chunkRequest) band() (from, to uint64) {
 }
 
 type chunkPool struct {
-	lock      sync.RWMutex
-	peers     *peerSet
-	gid       MsgIder
-	chunks    map[uint64]*chunkRequest
-	handler   reqRec
-	addChan   chan *chunkRequest
-	doneChan  chan uint64
-	retryChan chan uint64
-	slots     chan struct{}
-	term      chan struct{}
-	wg        sync.WaitGroup
+	lock    sync.RWMutex
+	peers   *peerSet
+	gid     MsgIder
+	queue   *list.List
+	chunks  *sync.Map
+	handler blockReceiver
+	term    chan struct{}
+	wg      sync.WaitGroup
+	recing  int32
+	target  uint64
+	should  bool
 }
 
-func newChunkPool(peers *peerSet, gid MsgIder, handler reqRec) *chunkPool {
+func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool {
 	return &chunkPool{
-		peers:     peers,
-		gid:       gid,
-		chunks:    make(map[uint64]*chunkRequest),
-		handler:   handler,
-		addChan:   make(chan *chunkRequest, 1),
-		doneChan:  make(chan uint64),
-		retryChan: make(chan uint64, 1),
+		peers:   peers,
+		gid:     gid,
+		queue:   list.New(),
+		chunks:  new(sync.Map),
+		handler: handler,
+	}
+}
+
+func (p *chunkPool) threshold(current uint64) {
+	if current+500 > p.target {
+		p.should = true
+	} else {
+		p.should = false
 	}
 }
 
@@ -163,7 +172,7 @@ func (p *chunkPool) Handle(msg *p2p.Msg, sender Peer) error {
 
 		if err := res.Deserialize(msg.Payload); err != nil {
 			netLog.Error(fmt.Sprintf("descerialize %s from %s error: %v", res, sender.RemoteAddr(), err))
-			p._retry(msg.Id)
+			p.retry(msg.Id)
 			return err
 		}
 
@@ -178,9 +187,16 @@ func (p *chunkPool) Handle(msg *p2p.Msg, sender Peer) error {
 			p.handler.receiveSnapshotBlock(block)
 		}
 
-		p._done(msg.Id)
+		c := p.chunk(msg.Id)
+		if c != nil {
+			c.count += uint64(len(res.SBlocks))
+
+			if c.count >= c.to-c.from+1 {
+				p.done(msg.Id)
+			}
+		}
 	} else {
-		p._retry(msg.Id)
+		p.retry(msg.Id)
 	}
 
 	return nil
@@ -191,6 +207,9 @@ func (p *chunkPool) start() {
 
 	p.wg.Add(1)
 	common.Go(p.loop)
+
+	p.wg.Add(1)
+	common.Go(p.taskLoop)
 }
 
 func (p *chunkPool) stop() {
@@ -206,12 +225,11 @@ func (p *chunkPool) stop() {
 	}
 }
 
-func (p *chunkPool) loop() {
+func (p *chunkPool) taskLoop() {
 	defer p.wg.Done()
 
-	var ticker <-chan time.Time
-
-	queue := list.New()
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
 
 loop:
 	for {
@@ -219,80 +237,95 @@ loop:
 		case <-p.term:
 			break loop
 
-		case c := <-p.addChan:
-			c.id = p.gid.MsgID()
-			queue.Append(c)
-			c.msg = &message.GetChunk{
-				Start: c.from,
-				End:   c.to,
+		case <-ticker.C:
+			if !p.should {
+				break
 			}
 
-			if p.slots == nil {
-				p.slots = make(chan struct{}, 10)
-				ticker = time.Tick(chunkTimeout)
-			}
-
-		case id := <-p.retryChan:
-			p.retry(id)
-
-		case id := <-p.doneChan:
-			delete(p.chunks, id)
-
-			if p.slots != nil {
-				<-p.slots
-			}
-
-		case now := <-ticker:
-			var state reqState
-			for id, c := range p.chunks {
-				state = c.state
-				if state == reqPending && now.After(c.deadline) {
-					p._retry(id)
-				}
-
-				if state == reqError {
-					delete(p.chunks, id)
-				}
-			}
-
-		case p.slots <- struct{}{}:
-			if ele := queue.Shift(); ele != nil {
+			if ele := p.queue.Shift(); ele != nil {
 				c := ele.(*chunkRequest)
-				p.chunks[c.id] = c
+				p.chunks.Store(c.id, c)
 				p.request(c)
-			} else {
-				<-p.slots
-				time.Sleep(200 * time.Millisecond)
 			}
 		}
 	}
 
-	// clear
-	for id := range p.chunks {
-		delete(p.chunks, id)
-	}
-
-	p.slots = nil
+	p.chunks.Range(func(key, value interface{}) bool {
+		p.chunks.Delete(key)
+		return true
+	})
 }
 
-func (p *chunkPool) add(c *chunkRequest) {
-	select {
-	case <-p.term:
-	case p.addChan <- c:
+func (p *chunkPool) loop() {
+	defer p.wg.Done()
+
+	ticker := time.NewTicker(chunkTimeout)
+	defer ticker.Stop()
+
+	var state reqState
+	var id uint64
+	var c *chunkRequest
+
+loop:
+	for {
+		select {
+		case <-p.term:
+			break loop
+
+		case now := <-ticker.C:
+			p.chunks.Range(func(key, value interface{}) bool {
+				id, c = key.(uint64), value.(*chunkRequest)
+				state = c.state
+				if state == reqPending && now.After(c.deadline) {
+					p.retry(id)
+				}
+				return true
+			})
+		}
 	}
 }
 
-func (p *chunkPool) _retry(id uint64) {
-	select {
-	case <-p.term:
-	case p.retryChan <- id:
+func (p *chunkPool) chunk(id uint64) *chunkRequest {
+	v, ok := p.chunks.Load(id)
+
+	if ok {
+		return v.(*chunkRequest)
+	}
+
+	return nil
+}
+
+func (p *chunkPool) add(from, to uint64) {
+	cs := splitChunk(from, to)
+
+	for _, chunk := range cs {
+		c := &chunkRequest{from: chunk[0], to: chunk[1]}
+		c.id = p.gid.MsgID()
+		p.queue.Append(c)
+		c.msg = &message.GetChunk{
+			Start: c.from,
+			End:   c.to,
+		}
 	}
 }
 
-func (p *chunkPool) _done(id uint64) {
-	select {
-	case <-p.term:
-	case p.doneChan <- id:
+func (p *chunkPool) exec(from, to uint64) {
+	cs := splitChunk(from, to)
+
+	for _, chunk := range cs {
+		c := &chunkRequest{from: chunk[0], to: chunk[1]}
+		c.id = p.gid.MsgID()
+		c.msg = &message.GetChunk{
+			Start: c.from,
+			End:   c.to,
+		}
+		p.request(c)
+	}
+}
+
+func (p *chunkPool) done(id uint64) {
+	if _, ok := p.chunks.Load(id); ok {
+		p.chunks.Delete(id)
 	}
 }
 
@@ -306,11 +339,19 @@ func (p *chunkPool) request(c *chunkRequest) {
 		c.peer = peers[rand.Intn(len(peers))]
 	}
 
+	p.target = c.to
 	p.do(c)
 }
 
 func (p *chunkPool) retry(id uint64) {
-	if c, ok := p.chunks[id]; ok {
+	v, ok := p.chunks.Load(id)
+
+	if ok {
+		c := v.(*chunkRequest)
+		if c == nil {
+			return
+		}
+
 		old := c.peer
 		c.peer = nil
 
@@ -335,7 +376,6 @@ func (p *chunkPool) retry(id uint64) {
 func (p *chunkPool) catch(c *chunkRequest) {
 	c.state = reqError
 	p.handler.catch(c)
-	<-p.slots
 }
 
 func (p *chunkPool) do(c *chunkRequest) {
@@ -357,19 +397,6 @@ func (f files) Less(i, j int) bool {
 
 func (f files) Swap(i, j int) {
 	f[i], f[j] = f[j], f[i]
-}
-
-// must sort first
-func (f files) unique() files {
-	j := 0
-	for i, file := range f {
-		if file.Filename != f[j].Filename {
-			f[j] = f[i]
-			j++
-		}
-	}
-
-	return f[:j]
 }
 
 // helper

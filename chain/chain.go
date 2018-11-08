@@ -236,7 +236,9 @@ func (c *chain) Stop() {
 	c.compressor.Stop()
 
 	// stop kafka sender
-	c.kafkaSender.StopAll()
+	if c.kafkaSender != nil {
+		c.kafkaSender.StopAll()
+	}
 
 	c.log.Info("Chain module stopped")
 }

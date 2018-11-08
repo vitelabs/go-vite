@@ -21,7 +21,7 @@ func TestCalcLogisticQuotaParam(t *testing.T) {
 	// maxHeightGap := 86400.0
 	// Pledge minimum amount of Vite Token, calc no PoW, wait for one snapshot block, gets quota for a pure transfer transaction
 	maxHeightGap, _ := new(big.Float).SetPrec(precForFloat).SetString("1.0")
-	minPledgeAmount, _ := new(big.Float).SetPrec(precForFloat).SetString("1.0e21")
+	minPledgeAmount, _ := new(big.Float).SetPrec(precForFloat).SetString("1.0e22")
 	floatTmp := new(big.Float).SetPrec(precForFloat)
 	floatTmp.Quo(defaultSection, maxHeightGap)
 	floatTmp.Quo(floatTmp, minPledgeAmount)
@@ -110,7 +110,7 @@ func TestCalcQuotaForMinPledgeMainNet(t *testing.T) {
 	tmpFLoat := new(big.Float).SetPrec(precForFloat)
 	tmpFLoat.SetUint64(1)
 	x.Mul(tmpFLoat, QuotaParamMainNet.paramA)
-	tmpFLoat.SetInt(new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18)))
+	tmpFLoat.SetInt(new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)))
 	x.Mul(tmpFLoat, x)
 	quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
 	if quotaWithoutPoW != util.TxGas {
@@ -136,12 +136,12 @@ func TestCalcQuotaForMaxPledgeMainNet(t *testing.T) {
 func TestQuotaSection(t *testing.T) {
 	InitQuotaConfig(false)
 	x := new(big.Float).SetPrec(precForFloat)
-	pledgeMin := new(big.Int).Mul(big.NewInt(11000), big.NewInt(1e18))
+	pledgeMin := new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18))
 	for i := 0; i < len(nodeConfig.sectionList); i++ {
 		x.SetInt(pledgeMin)
 		x.Mul(x, nodeConfig.paramA)
 		x.Quo(nodeConfig.sectionList[i], x)
 		f, _ := x.Float64()
-		fmt.Printf("pledgeAmount:1000 vite, wait time: %v, quotaForTx: %v\n", math.Ceil(f), i)
+		fmt.Printf("pledgeAmount:10000 vite, wait time: %v, quotaForTx: %v\n", math.Ceil(f), i)
 	}
 }
