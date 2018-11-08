@@ -33,12 +33,12 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 	lAb := ab.AccountBlock
 
 	var err error
-	lAb.Height, err = strconv.ParseUint(ab.Height, 10, 8)
+	lAb.Height, err = strconv.ParseUint(ab.Height, 10, 64)
 	if err != nil {
 		return nil, err
 	}
 	if ab.Quota != nil {
-		lAb.Quota, err = strconv.ParseUint(*ab.Quota, 10, 8)
+		lAb.Quota, err = strconv.ParseUint(*ab.Quota, 10, 64)
 		if err != nil {
 			return nil, err
 		}

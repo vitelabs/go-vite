@@ -266,7 +266,7 @@ func (api DebugApi) ConsensusBlockRate(gid types.Gid, startIndex, endIndex uint6
 		return errMap(err)
 	}
 	m["startTime"] = s.String()
-	e, _, err := api.v.Consensus().VoteIndexToTime(gid, startIndex)
+	e, _, err := api.v.Consensus().VoteIndexToTime(gid, endIndex)
 	if err != nil {
 		return errMap(err)
 	}

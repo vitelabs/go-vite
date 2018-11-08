@@ -14,7 +14,7 @@ const (
 	AccountTypeContract = 3
 )
 
-var GenesisAccountAddress, _ = types.HexToAddress("vite_ed4145797f414199cea82aa9333fc4a963c09c0d18fcb71de2")
+var GenesisAccountAddress, _ = types.HexToAddress("vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122")
 
 type Account struct {
 	AccountAddress types.Address
