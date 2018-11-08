@@ -3,6 +3,11 @@ package topo
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/seiflotfy/cuckoofilter"
@@ -13,10 +18,6 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/protos"
 	"gopkg.in/Shopify/sarama.v1"
-	"strconv"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const Name = "Topo"

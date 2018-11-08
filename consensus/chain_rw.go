@@ -101,6 +101,7 @@ func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *types
 			Addr:    registration.NodeAddr,
 			Balance: balanceTotal,
 		},
+		CurrentAddr:  registration.NodeAddr,
 		RegisterList: registration.HisAddrList,
 		Addr:         balanceMap,
 	}
