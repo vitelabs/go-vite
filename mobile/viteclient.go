@@ -33,7 +33,7 @@ func (vc *Client) Close() {
 
 func (vc *Client) GetBlocksByAccAddr(addr *Address, index int, count int) (string, error) {
 	var b []*api.AccountBlock
-	err := vc.c.Call(b, "ledger_getBlocksByAccAddr", addr.address, index, count)
+	err := vc.c.Call(&b, "ledger_getBlocksByAccAddr", addr.address, index, count)
 	if err != nil {
 		return "", nil
 	}
