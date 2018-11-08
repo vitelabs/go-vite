@@ -48,3 +48,5 @@ func (a *Address) SetHex(s string) error {
 func (a *Address) GetHex() string {
 	return a.address.Hex()
 }
+
+

@@ -2,7 +2,9 @@ package mobile
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/vitelabs/go-vite/rpc"
+	"github.com/vitelabs/go-vite/rpcapi/api"
 )
 
 type Client struct {
@@ -27,4 +29,17 @@ func NewClient(c *rpc.Client) *Client {
 
 func (vc *Client) Close() {
 	vc.c.Close()
+}
+
+func (vc *Client) GetBlocksByAccAddr(addr *Address, index int, count int) (string, error) {
+	var b []*api.AccountBlock
+	err := vc.c.Call(b, "ledger_getBlocksByAccAddr", addr.address, index, count)
+	if err != nil {
+		return "", nil
+	}
+	jsonb, err := json.Marshal(b)
+	if err != nil {
+		return "", nil
+	}
+	return string(jsonb), nil
 }
