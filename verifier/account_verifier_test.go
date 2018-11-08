@@ -20,7 +20,7 @@ import (
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
 	"os"
@@ -157,7 +157,7 @@ Loop:
 }
 
 func GenesisReceiveMintage(vite *VitePrepared, addFunc AddChainDierct) error {
-	sendBlock, err := vite.chain.GetLatestAccountBlock(&contracts.AddressMintage)
+	sendBlock, err := vite.chain.GetLatestAccountBlock(&abi.AddressMintage)
 	if err != nil {
 		return err
 	}
@@ -294,7 +294,7 @@ func createRPCBlockCallContarct(vite *VitePrepared) ([]*ledger.AccountBlock, err
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
 	// call MethodNamePledge
-	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr1)
+	pledgeData, _ := abi.ABIPledge.PackMethod(abi.MethodNamePledge, addr1)
 	latestSb := vite.chain.GetLatestSnapshotBlock()
 	latestAb, err := vite.chain.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
 	if latestAb == nil {
@@ -310,7 +310,7 @@ func createRPCBlockCallContarct(vite *VitePrepared) ([]*ledger.AccountBlock, err
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: ledger.GenesisAccountAddress,
 		PublicKey:      genesisAccountPubKey,
-		ToAddress:      contracts.AddressPledge,
+		ToAddress:      abi.AddressPledge,
 		Amount:         pledgeAmount,
 		TokenId:        ledger.ViteTokenId,
 
@@ -339,7 +339,7 @@ func TestAccountVerifier_VerifyforP2P(t *testing.T) {
 	v := PrepareVite()
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
-	fromBlock, err := v.chain.GetLatestAccountBlock(&contracts.AddressMintage)
+	fromBlock, err := v.chain.GetLatestAccountBlock(&abi.AddressMintage)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -442,7 +442,7 @@ func TestAccountVerifier_VerifyDataValidity(t *testing.T) {
 	// verifyHash
 	block2 := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeSendCall,
-		AccountAddress: contracts.AddressPledge,
+		AccountAddress: abi.AddressPledge,
 		Amount:         big.NewInt(100),
 		Fee:            big.NewInt(100),
 		Timestamp:      nil,

@@ -25,7 +25,7 @@ func (p Pow) GetPowNonce(difficulty string, data types.Hash) ([]byte, error) {
 		return nil, ErrStrToBigInt
 	}
 
-	work, e := remote.GenerateWork(data.Bytes(), pow.DifficultyToTarget(realDifficulty))
+	work, e := remote.GenerateWork(data.Bytes(), realDifficulty)
 	if e != nil {
 		return nil, e
 	}

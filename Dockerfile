@@ -1,8 +1,8 @@
 FROM golang:1.11-alpine as maker
 
 RUN set -eux; \
- 	apk add gcc \
- 	    musl-dev
+    apk add gcc \
+        musl-dev
 
 ADD . /usr/local/go/src/github.com/vitelabs/go-vite
 RUN go build -o gvite  github.com/vitelabs/go-vite/cmd/gvite
