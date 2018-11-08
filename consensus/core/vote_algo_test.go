@@ -43,6 +43,48 @@ func TestAlgo_FilterVotes(t *testing.T) {
 
 }
 
+func TestAlgo_FilterVotes2(t *testing.T) {
+
+	now := time.Unix(1541640427, 0)
+	info := NewGroupInfo(now, types.ConsensusGroupInfo{
+		Gid:                    types.SNAPSHOT_GID,
+		NodeCount:              25,
+		Interval:               1,
+		PerCount:               3,
+		RandCount:              2,
+		RandRank:               100,
+		CountingTokenId:        ledger.ViteTokenId,
+		RegisterConditionId:    0,
+		RegisterConditionParam: nil,
+		VoteConditionId:        0,
+		VoteConditionParam:     nil,
+		Owner:                  types.Address{},
+		PledgeAmount:           nil,
+		WithdrawHeight:         0,
+	})
+	ag := NewAlgo(info)
+	var votes []*Vote
+	for i := 0; i < 100; i++ {
+		votes = append(votes, &Vote{Name: "wj_" + strconv.Itoa(i), Balance: big.NewInt(int64(i))})
+	}
+	//result := make(map[string]uint64)
+	hashH := &ledger.HashHeight{Height: 1}
+	actual := ag.FilterVotes(votes, hashH)
+	for _, v := range actual {
+		print("\""+v.Name+"\"", ",")
+	}
+	expected := []string{"wj_16", "wj_2", "wj_10", "wj_8", "wj_7", "wj_3", "wj_12", "wj_22", "wj_24", "wj_11", "wj_13", "wj_20", "wj_18", "wj_19", "wj_17", "wj_4", "wj_1", "wj_15", "wj_0", "wj_9", "wj_5", "wj_14", "wj_21", "wj_50", "wj_72"}
+	for _, v := range expected {
+		print("\""+v+"\"", ",")
+	}
+	for i, v := range actual {
+		if v.Name != expected[i] {
+			t.Error("fail.")
+		}
+	}
+
+}
+
 func printResult(ag *algo, total uint64, cnt int) {
 	println("-----------------------", strconv.FormatUint(total, 10), strconv.Itoa(cnt), "--------------------------------------------------")
 	var votes []*Vote
