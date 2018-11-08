@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/pow"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -27,7 +28,8 @@ func InitRawUrl(rawurl string) {
 	requestUrl = rawurl
 }
 
-func GenerateWork(dataHash []byte, threshold *big.Int) (*string, error) {
+func GenerateWork(dataHash []byte, difficulty *big.Int) (*string, error) {
+	threshold := pow.DifficultyToTarget(difficulty)
 	wg := &workGenerate{
 		Threshold: threshold.Text(16),
 		DataHash:  hex.EncodeToString(dataHash),
