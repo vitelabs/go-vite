@@ -304,7 +304,7 @@ func (n *net) handleMsg(p *peer) (err error) {
 
 	n.log.Error(fmt.Sprintf("missing handler for message %d from %s", msg.Cmd, p))
 
-	return errMissHandler
+	return nil
 }
 
 func (n *net) Info() *NodeInfo {

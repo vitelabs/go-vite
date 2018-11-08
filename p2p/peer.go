@@ -388,8 +388,7 @@ func (p *Peer) handleMsg(msg *Msg) {
 			msg.Recycle()
 		}
 	} else {
-		p.log.Error(fmt.Sprintf("missing suitable protocol to handle message %d/%d from %s", cmdset, cmd, p.RemoteAddr()))
-		p.disc <- DiscUnKnownProtocol
+		msg.Recycle()
 	}
 }
 
