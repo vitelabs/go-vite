@@ -1,11 +1,11 @@
 package vitedb
 
 import (
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 	"strconv"
 )
@@ -205,9 +205,6 @@ func (ac *AccountChain) GetBlocksFromOrigin(originBlockHash *types.Hash, count u
 		// Because leveldb iterator range is [a, b)
 		endHeight.Add(endHeight, big.NewInt(1))
 		startHeight.Sub(endHeight, gap)
-		if startHeight.Cmp(big.NewInt(1)) < 0 {
-			startHeight = big.NewInt(1)
-		}
 	}
 
 	ac.log.Info("AccountChain.GetBlocksFromOrigin:", "Start height", startHeight, "End height", endHeight)
