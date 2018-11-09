@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 type precompiledContract struct {
@@ -65,7 +66,7 @@ func getPrecompiledContract(addr types.Address, methodSelector []byte) (contract
 			c, ok := p.m[method.Name]
 			return c, ok, nil
 		} else {
-			return nil, ok, err
+			return nil, ok, util.ErrAbiMethodNotFound
 		}
 	}
 	return nil, ok, nil

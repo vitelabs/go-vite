@@ -1,10 +1,10 @@
 package quota
 
 import (
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
 )
@@ -83,7 +83,7 @@ func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 			}
 			if isPoW && IsPoW(prevBlock.Nonce) {
 				// only one block gets extra quota when referencing to the same snapshot block
-				return 0, 0, errors.New("calc PoW twice referring to one snapshot block")
+				return 0, 0, util.ErrCalcPoWTwice
 			}
 			quotaUsed = quotaUsed + prevBlock.Quota
 			prevBlock = db.GetAccountBlockByHash(&prevBlock.PrevHash)
