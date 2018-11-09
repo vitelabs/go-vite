@@ -50,6 +50,11 @@ var (
 		Code:    -35005,
 	}
 
+	ErrVmMethodNotFound = JsonRpc2Error{
+		Message: util.ErrAbiMethodNotFound.Error(),
+		Code:    -35006,
+	}
+
 	concernedErrorMap map[string]JsonRpc2Error
 )
 
@@ -63,6 +68,7 @@ func init() {
 	concernedErrorMap[ErrVmIdCollision.Error()] = ErrVmIdCollision
 	concernedErrorMap[ErrVmInvaildBlockData.Error()] = ErrVmInvaildBlockData
 	concernedErrorMap[ErrVmCalPoWTwice.Error()] = ErrVmCalPoWTwice
+	concernedErrorMap[ErrVmMethodNotFound.Error()] = ErrVmMethodNotFound
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {
