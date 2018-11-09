@@ -280,6 +280,14 @@ func (n *net) handleMsg(p *peer) (err error) {
 
 	code := ViteCmd(msg.Cmd)
 
+	// before syncDone, ignore GetAccountBlocksCode
+	if n.syncer.SyncState() != Syncdone {
+		if code == GetAccountBlocksCode {
+			// ignore
+			return
+		}
+	}
+
 	if handler, ok := n.handlers[code]; ok && handler != nil {
 		n.log.Debug(fmt.Sprintf("begin handle message %s from %s", code, p))
 

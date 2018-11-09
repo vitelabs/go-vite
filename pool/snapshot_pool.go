@@ -253,11 +253,13 @@ func (self *snapshotPool) loop() {
 
 	self.wg.Add(1)
 	defer self.wg.Done()
+	last := time.Now()
 	for {
 		select {
 		case <-self.closed:
 			return
 		default:
+			monitor.LogTime("pool", "snapshot_selectTime", last)
 			now := time.Now()
 			if now.After(self.nextCompactTime) {
 				self.nextCompactTime = now.Add(50 * time.Millisecond)
@@ -292,6 +294,8 @@ func (self *snapshotPool) loop() {
 			} else {
 				time.Sleep(s1)
 			}
+			monitor.LogTime("pool", "snapshotRealSleep", n2)
+			last = time.Now()
 		}
 	}
 }
@@ -303,12 +307,16 @@ func (self *snapshotPool) loopCompactSnapshot() {
 	defer monitor.LogTime("pool", "loopCompactSnapshotMuLock", time.Now())
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
+	defer monitor.LogTime("pool", "snapshot_loopGenSnippetChains", time.Now())
 	self.loopGenSnippetChains()
+	defer monitor.LogTime("pool", "snapshot_loopAppendChains", time.Now())
 	self.loopAppendChains()
 	now := time.Now()
 	if now.After(self.nextFetchTime) {
 		self.nextFetchTime = now.Add(time.Millisecond * 200)
+		defer monitor.LogTime("pool", "snapshot_loopFetchForSnippets", time.Now())
 		self.loopFetchForSnippets()
+		defer monitor.LogTime("pool", "snapshot_loopFetchForSnapshot", time.Now())
 		self.loopFetchForSnapshot()
 	}
 }
@@ -317,6 +325,7 @@ func (self *snapshotPool) loopCheckCurrentInsert() {
 	if self.chainpool.current.size() == 0 {
 		return
 	}
+	defer monitor.LogTime("pool", "loopCheckCurrentInsert", time.Now())
 	stat, block := self.snapshotTryInsert()
 
 	if stat != nil {
@@ -394,6 +403,7 @@ func (self *snapshotPool) Stop() {
 }
 
 func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnapshotVerifyStat) {
+	defer monitor.LogTime("pool", "insertVerifyFail", time.Now())
 	block := b.block
 	results := stat.results
 
@@ -429,6 +439,7 @@ func (self *snapshotPool) forkAccounts(b *snapshotPoolBlock, accounts map[types.
 }
 
 func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSnapshotVerifyStat) {
+	defer monitor.LogTime("pool", "insertVerifyPending", time.Now())
 	block := b.block
 
 	results := stat.results

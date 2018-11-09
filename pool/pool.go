@@ -242,6 +242,7 @@ func (self *pool) Start() {
 	self.pendingSc.Start()
 	common.Go(self.loopTryInsert)
 	common.Go(self.loopTryInsert)
+	common.Go(self.loopTryInsert)
 	common.Go(self.loopCompact)
 	common.Go(self.loopBroadcastAndDel)
 }
