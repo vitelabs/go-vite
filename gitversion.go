@@ -2,19 +2,12 @@ package govite
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
-	"runtime"
 )
 
 func PrintBuildVersion() {
-	_, filename, _, _ := runtime.Caller(0)
-	path := filepath.Join(filepath.Dir(filename), "gitversion")
-	bytes, e := ioutil.ReadFile(path)
-	gitversion := string(bytes)
-	if e == nil || gitversion != "" {
-		fmt.Println("this vite node`s git version is ", gitversion)
+	if  VITE_VERSION != "" {
+		fmt.Println("this vite node`s git GO version is ", VITE_VERSION)
 	} else {
-		println("can not read gitversion file please use Make to build Vite ")
+		fmt.Println("can not read gitversion file please use Make to build Vite ")
 	}
 }

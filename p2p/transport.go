@@ -3,292 +3,236 @@ package p2p
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p/protos"
+	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/p2p/network"
+	"io"
 	"net"
+	"time"
 )
 
-type NetworkID uint32
+type P2PVersion = uint32
 
-const Version uint32 = 1
+const Version P2PVersion = 1
 
-const (
-	MainNet NetworkID = iota + 1
-	TestNet
-)
+const baseProtocolCmdSet = 0
+const handshakeCmd = 0
+const discCmd = 1
 
-func (i NetworkID) String() string {
-	switch i {
-	case MainNet:
-		return "MainNet"
-	case TestNet:
-		return "TestNet"
-	default:
-		return "Unknown"
-	}
-}
+const headerLength = 32
+const maxPayloadSize = ^uint32(0) >> 8 // 15MB
 
-// @section Msg
-type Msg struct {
-	Code    uint64
-	Id      uint64
-	Payload []byte
-}
-
-type MsgReader interface {
-	ReadMsg() (Msg, error)
-}
-
-type MsgWriter interface {
-	WriteMsg(Msg) error
-}
-
-type MsgReadWriter interface {
-	MsgReader
-	MsgWriter
-}
-
-// handshake message
-type Handshake struct {
-	NetID   NetworkID
-	Name    string
-	ID      NodeID
-	Version uint32
-}
-
-func (hs *Handshake) Serialize() ([]byte, error) {
-	hspb := &protos.Handshake{
-		NetID:   uint32(hs.NetID),
-		Name:    hs.Name,
-		ID:      hs.ID[:],
-		Version: hs.Version,
+// bigEnd
+func PutUint24(buf []byte, v uint32) {
+	if len(buf) < 3 {
+		panic("put uint24: target byte slice is not long enough")
 	}
 
-	return proto.Marshal(hspb)
+	buf[0] = byte(v >> 16)
+	buf[1] = byte(v >> 8)
+	buf[2] = byte(v)
 }
 
-func (hs *Handshake) Deserialize(buf []byte) error {
-	hspb := &protos.Handshake{}
-	err := proto.Unmarshal(buf, hspb)
+func Uint24(buf []byte) uint32 {
+	if len(buf) < 3 {
+		panic("read uint24: target byte slice is not long enough")
+	}
+
+	return uint32(buf[0])<<16 | uint32(buf[1])<<8 | uint32(buf[2])
+}
+
+// head message is the first message in a tcp connection
+type headMsg struct {
+	Version P2PVersion
+	NetID   network.ID
+}
+
+const headMsgLen = 32 // netId[4] + version[4]
+
+func readHead(conn net.Conn) (head *headMsg, err error) {
+	headPacket := make([]byte, headMsgLen)
+	//conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	_, err = io.ReadFull(conn, headPacket)
 	if err != nil {
-		return err
+		return
 	}
 
-	copy(hs.ID[:], hspb.ID)
-	hs.Name = hspb.Name
-	hs.NetID = NetworkID(hspb.NetID)
-	hs.Version = hspb.Version
+	head = new(headMsg)
+	head.NetID = network.ID(binary.BigEndian.Uint32(headPacket[:4]))
+	head.Version = binary.BigEndian.Uint32(headPacket[4:8])
+
+	return
+}
+
+func writeHead(conn net.Conn, head *headMsg) error {
+	headPacket := make([]byte, headMsgLen)
+	binary.BigEndian.PutUint32(headPacket[:4], uint32(head.NetID))
+	binary.BigEndian.PutUint32(headPacket[4:8], head.Version)
+
+	//conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	if n, err := conn.Write(headPacket); err != nil {
+		return err
+	} else if n != headMsgLen {
+		return fmt.Errorf("write incomplete HeadMsg %d/%d", n, headMsgLen)
+	}
+
 	return nil
 }
 
-// disc message
-type DiscMsg struct {
-	reason DiscReason
-}
+func headShake(conn net.Conn, head *headMsg) (their *headMsg, err error) {
+	send := make(chan error, 1)
+	common.Go(func() {
+		send <- writeHead(conn, head)
+	})
 
-func (d *DiscMsg) Serialize() ([]byte, error) {
-	discpb := &protos.Disc{
-		Reason: uint32(d.reason),
+	if their, err = readHead(conn); err != nil {
+		return
 	}
 
-	return proto.Marshal(discpb)
+	if err = <-send; err != nil {
+		return
+	}
+
+	return
 }
 
-func (d *DiscMsg) Deserialize(buf []byte) error {
-	discpb := &protos.Disc{}
-	err := proto.Unmarshal(buf, discpb)
+//var msgPool = &sync.Pool{
+//	New: func() interface{} {
+//		return &Msg{}
+//	},
+//}
+
+func NewMsg() *Msg {
+	//return msgPool.Get().(*Msg)
+	return &Msg{}
+}
+
+func PackMsg(cmdSetId CmdSet, cmd Cmd, id uint64, s Serializable) (*Msg, error) {
+	data, err := s.Serialize()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	d.reason = DiscReason(discpb.Reason)
-	return nil
-}
-
-// mean the msg transport link of peers.
-type transport interface {
-	Handshake(our *Handshake) (*Handshake, error)
-	MsgReadWriter
-	Close(error)
-}
-
-func Send(w MsgWriter, msg *Msg) error {
-	return w.WriteMsg(*msg)
-}
-
-// transport use protobuf to serialize/deserialize message.
-func NewPBTS(conn net.Conn) transport {
-	return &PBTS{
-		conn: conn,
-		log:  log15.New("module", "p2p/transport"),
-	}
-}
-
-// @section PBTS
-const headerLength = 20
-const maxPayloadSize = ^uint32(0) >> 8
-
-type PBTS struct {
-	//peerID NodeID
-	//priv ed25519.PrivateKey
-	conn net.Conn
-	log  log15.Logger
-}
-
-func (pt *PBTS) ReadMsg() (m Msg, err error) {
-	header := make([]byte, headerLength)
-
-	err = readFullBytes(pt.conn, header)
-	if err != nil {
-		return m, fmt.Errorf("read msg header error: %v\n", err)
+	size := uint32(len(data))
+	if size > maxPayloadSize {
+		return nil, errMsgTooLarge
 	}
 
-	// extract msg.Code
-	m.Code = binary.BigEndian.Uint64(header[:8])
+	msg := NewMsg()
+	msg.CmdSet = cmdSetId
+	msg.Cmd = cmd
+	msg.Payload = data
+	msg.Id = id
 
-	// extract length of payload
-	size := binary.BigEndian.Uint32(header[8:12])
+	return msg, nil
+}
 
-	m.Id = binary.BigEndian.Uint64(header[12:20])
+func ReadMsg(reader io.Reader) (msg *Msg, err error) {
+	head := make([]byte, headerLength)
+
+	if _, err = io.ReadFull(reader, head); err != nil {
+		return
+	}
+
+	msg = new(Msg)
+	msg.CmdSet = binary.BigEndian.Uint32(head[:4])
+	msg.Cmd = binary.BigEndian.Uint16(head[4:6])
+	msg.Id = binary.BigEndian.Uint64(head[6:14])
+	size := binary.BigEndian.Uint32(head[14:18])
 
 	if size > maxPayloadSize {
-		return m, fmt.Errorf("msg %d payload too large: %d / %d\n", m.Code, size, maxPayloadSize)
+		return nil, errMsgTooLarge
 	}
 
-	// read payload according to size
-	if size > 0 {
-		payload := make([]byte, size)
-
-		err = readFullBytes(pt.conn, payload)
-		if err != nil {
-			return m, fmt.Errorf("read msg %d payload (%d bytes) error: %v\n", m.Code, size, err)
-		}
-
-		m.Payload = payload
+	payload := make([]byte, size)
+	if _, err = io.ReadFull(reader, payload); err != nil {
+		return
 	}
 
-	return m, nil
+	msg.Payload = payload
+	msg.SendAt = time.Unix(int64(binary.BigEndian.Uint64(head[18:26])), 0)
+	msg.ReceivedAt = time.Now()
+
+	return
 }
 
-func readFullBytes(conn net.Conn, data []byte) error {
-	length := cap(data)
-	index := 0
-	for {
-		n, err := conn.Read(data[index:])
-		if err != nil {
-			return err
-		}
+func WriteMsg(writer io.Writer, msg *Msg) (err error) {
+	defer msg.Recycle()
 
-		index += n
-		if index == length {
-			break
-		}
-	}
-	return nil
-}
+	size := uint32(len(msg.Payload))
 
-func (pt *PBTS) WriteMsg(m Msg) error {
-	data, err := pack(m)
-
-	if err != nil {
-		return fmt.Errorf("pack smg %d (%d bytes) to %s error: %v\n", m.Code, len(m.Payload), pt.conn.RemoteAddr(), err)
-	}
-
-	n, err := pt.conn.Write(data)
-	if err != nil {
-		return fmt.Errorf("write msg %d (%d bytes) to %s error: %v\n", m.Code, len(m.Payload), pt.conn.RemoteAddr(), err)
-	}
-	if n != len(data) {
-		return fmt.Errorf("write incomplete msg to %s: %d / %d\n", pt.conn.RemoteAddr(), n, len(data))
-	}
-
-	return nil
-}
-
-func (pt *PBTS) Handshake(our *Handshake) (*Handshake, error) {
-	data, err := our.Serialize()
-	if err != nil {
-		return nil, fmt.Errorf("our handshake with %s serialize error: %v\n", pt.conn.RemoteAddr(), err)
-	}
-
-	sendErr := make(chan error, 1)
-	go func() {
-		sendErr <- pt.WriteMsg(Msg{
-			Code:    handshakeMsg,
-			Payload: data,
-		})
-	}()
-
-	msg, err := pt.ReadMsg()
-	if err != nil {
-		<-sendErr
-		return nil, fmt.Errorf("read handshake from %s error: %v\n", pt.conn.RemoteAddr(), err)
-	}
-
-	if msg.Code != handshakeMsg {
-		return nil, fmt.Errorf("need handshake from %s, got %d\n", pt.conn.RemoteAddr(), msg.Code)
-	}
-
-	hs := &Handshake{}
-	err = hs.Deserialize(msg.Payload)
-	if err != nil {
-		return nil, fmt.Errorf("handshake from %s deserialize error: %v\n", pt.conn.RemoteAddr(), err)
-	}
-
-	if hs.Version != our.Version {
-		return nil, fmt.Errorf("unmatched version\n")
-	}
-
-	if hs.NetID != our.NetID {
-		return nil, fmt.Errorf("unmatched network id: %d / %d from %s\n", hs.NetID, our.NetID, pt.conn.RemoteAddr())
-	}
-
-	if err := <-sendErr; err != nil {
-		return nil, fmt.Errorf("send handshake to %s error: %v\n", pt.conn.RemoteAddr(), err)
-	}
-
-	return hs, nil
-}
-
-func (pt *PBTS) Close(err error) {
-	reason := errTodiscReason(err)
-	data := make([]byte, 8)
-	binary.BigEndian.PutUint64(data, uint64(reason))
-
-	err = pt.WriteMsg(Msg{
-		Code:    discMsg,
-		Payload: data,
-	})
-	if err != nil {
-		pt.log.Error("send disc msg error", "to", pt.conn.RemoteAddr().String(), "error", err)
-	}
-
-	pt.conn.Close()
-	pt.log.Info("disconnect", "to", pt.conn.RemoteAddr().String(), "error", err)
-}
-
-func pack(m Msg) (data []byte, err error) {
-	if uint32(len(m.Payload)) > maxPayloadSize {
-		return data, fmt.Errorf("msg %d payload too large: %d / %d\n", m.Code, len(m.Payload), maxPayloadSize)
-	}
-
-	header := make([]byte, headerLength)
-
-	// add code to header
-	binary.BigEndian.PutUint64(header[:8], m.Code)
-
-	// sign payload length to header
-	size := uint32(len(m.Payload))
-	binary.BigEndian.PutUint32(header[8:12], size)
-
-	binary.BigEndian.PutUint64(header[12:20], m.Id)
-
-	// concat header and payload
 	if size == 0 {
-		return header, nil
+		return errMsgNull
 	}
 
-	data = append(header, m.Payload...)
-	return data, nil
+	if size > maxPayloadSize {
+		return errMsgTooLarge
+	}
+
+	head := make([]byte, headerLength)
+	binary.BigEndian.PutUint32(head[:4], msg.CmdSet)
+	binary.BigEndian.PutUint16(head[4:6], msg.Cmd)
+	binary.BigEndian.PutUint64(head[6:14], msg.Id)
+	binary.BigEndian.PutUint32(head[14:18], size)
+	binary.BigEndian.PutUint64(head[18:26], uint64(time.Now().Unix()))
+
+	// write header
+	var n int
+	if n, err = writer.Write(head); err != nil {
+		return
+	} else if n != headerLength {
+		return fmt.Errorf("write incomplement message header %d/%d bytes", n, headerLength)
+	}
+
+	// write payload
+	if n, err = writer.Write(msg.Payload); err != nil {
+		return
+	} else if uint32(n) != size {
+		return fmt.Errorf("write incomplement message payload %d/%d bytes", n, size)
+	}
+
+	return
+}
+
+var errHandshakeVerify = errors.New("signature of handshake Msg verify failed")
+var errHandshakeNotComp = errors.New("handshake payload is too small, maybe old version")
+
+func readHandshake(r io.Reader) (h *Handshake, err error) {
+	msg, err := ReadMsg(r)
+	if err != nil {
+		return nil, err
+	}
+	if msg.CmdSet != baseProtocolCmdSet {
+		return nil, fmt.Errorf("should be baseProtocolCmdSet, got %x", msg.CmdSet)
+	}
+
+	if msg.Cmd == discCmd {
+		discReason, err := DeserializeDiscReason(msg.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("disconnected, but parse DiscReason error: %v", err)
+		}
+
+		return nil, discReason
+	}
+
+	if msg.Cmd != handshakeCmd {
+		return nil, fmt.Errorf("should be handshake message, but got %x", err)
+	}
+
+	if len(msg.Payload) < 64 {
+		return nil, errHandshakeNotComp
+	}
+
+	h = new(Handshake)
+	err = h.Deserialize(msg.Payload[64:])
+	if err != nil {
+		return
+	}
+
+	if !ed25519.Verify(h.ID[:], msg.Payload[64:], msg.Payload[:64]) {
+		return nil, errHandshakeVerify
+	}
+
+	return
 }

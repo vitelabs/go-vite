@@ -1,0 +1,12 @@
+syntax="proto3";
+
+package vitepb;
+
+message SnapshotItem {
+    uint64 accountBlockHeight = 1;
+    bytes accountBlockHash = 2;
+}
+
+message SnapshotContent {
+    map<string, SnapshotItem> content = 1;
+}

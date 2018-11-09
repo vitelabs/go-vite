@@ -13,6 +13,8 @@ const (
 
 type Hash [HashSize]byte
 
+var ZERO_HASH = Hash{}
+
 func BytesToHash(b []byte) (Hash, error) {
 	var h Hash
 	err := h.SetBytes(b)
@@ -54,11 +56,43 @@ func (h Hash) Big() *big.Int {
 	return new(big.Int).SetBytes(h[:])
 }
 
+func (h Hash) IsZero() bool {
+	return h == ZERO_HASH
+}
+
 func BigToHash(b *big.Int) (Hash, error) {
-	return BytesToHash(b.Bytes())
+	slice := b.Bytes()
+	if len(slice) < HashSize {
+		padded := make([]byte, HashSize)
+		copy(padded[HashSize-len(slice):], slice)
+		return BytesToHash(padded)
+	} else {
+		return BytesToHash(slice)
+	}
 }
 
 func DataHash(data []byte) Hash {
 	h, _ := BytesToHash(crypto.Hash256(data))
 	return h
+}
+
+func DataListHash(data ...[]byte) Hash {
+	h, _ := BytesToHash(crypto.Hash256(data...))
+	return h
+}
+
+func (h *Hash) UnmarshalJSON(input []byte) error {
+	if !isString(input) {
+		return ErrJsonNotString
+	}
+	hash, e := HexToHash(string(trimLeftRightQuotation(input)))
+	if e != nil {
+		return e
+	}
+	h.SetBytes(hash.Bytes())
+	return nil
+}
+
+func (h Hash) MarshalText() ([]byte, error) {
+	return []byte(h.String()), nil
 }

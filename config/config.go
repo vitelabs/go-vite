@@ -11,12 +11,15 @@ import (
 )
 
 type Config struct {
-	*P2P    `json:"P2P"`
-	*Miner  `json:"Miner"`
-	*Ledger `json:"Ledger"`
+	*Producer `json:"Producer"`
+	*Chain    `json:"Chain"`
+	*Vm       `json:"Vm"`
+	*Net      `json:"Net"`
 
 	// global keys
 	DataDir string `json:"DataDir"`
+	//Log level
+	LogLevel string `json:"LogLevel"`
 }
 
 func (c Config) RunLogDir() string {
@@ -40,25 +43,11 @@ var GlobalConfig *Config
 
 func defaultConfig() {
 	GlobalConfig = &Config{
-		P2P: &P2P{
-			Name:                 "vite-server",
-			PrivateKey:           "",
-			MaxPeers:             100,
-			MaxPassivePeersRatio: 2,
-			MaxPendingPeers:      20,
-			BootNodes:            nil,
-			Addr:                 "0.0.0.0:8483",
-			Datadir:              common.DefaultDataDir(),
-			NetID:                6,
+		Producer: &Producer{
+			Producer: false,
+			Coinbase: "",
 		},
-		Miner: &Miner{
-			Miner:         false,
-			Coinbase:      "",
-			MinerInterval: 6,
-		},
-		Ledger: &Ledger{
-			IsDownload: true, // Default download ledger zip
-		},
+		Chain:   &Chain{},
 		DataDir: common.DefaultDataDir(),
 	}
 }

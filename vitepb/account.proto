@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package vitepb;
+
+message Account {
+    uint64 accountId = 1;
+    bytes publicKey = 2;
+}

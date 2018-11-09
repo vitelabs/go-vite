@@ -1,24 +1,29 @@
 package ledger
 
 import (
+	"bytes"
+	"fmt"
 	"testing"
+	"time"
 )
 
-func TestNewSortedSnapshot(t *testing.T) {
-	var testS = map[string]*SnapshotItem{
-		"F": &SnapshotItem{},
-		"D": &SnapshotItem{},
-		"E": &SnapshotItem{},
+//func TestGetGenesesSnapshotBlock(t *testing.T) {
+//
+//}
+func TestA(t *testing.T) {
+	fmt.Println(ViteTokenId.String())
+}
+
+func BenchmarkGetGenesisSnapshotBlock(b *testing.B) {
+
+	aBytes := []byte{123, 23, 224}
+	for i := 0; i < 100000000; i++ {
+		var aTime = time.Unix(12123123123133123, 0)
+		noThing(bytes.Equal(aBytes, []byte(string(aTime.Unix()))))
 	}
 
-	ss := newSortedSnapshot(testS)
-	for i := 0; i < 1000; i++ {
-		addressList := []string{"D", "E", "F"}
-		for index, item := range ss {
-			if addressList[index] != item.address {
-				t.Fatal("Not Valid")
-			}
-		}
-	}
+}
+
+func noThing(interface{}) {
 
 }

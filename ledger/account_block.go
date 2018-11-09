@@ -1,564 +1,385 @@
 package ledger
 
 import (
-	"math/big"
-
 	"bytes"
+	"encoding/binary"
+	"math/big"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
 )
 
+var accountBlockLog = log15.New("module", "ledger/account_block")
+
 type AccountBlockMeta struct {
 	// Account id
-	AccountId *big.Int
+	AccountId uint64 `json:"accountId"`
 
-	// AccountBlock height
-	Height *big.Int
+	// Height
+	Height uint64 `json:"height"`
 
 	// Block status, 1 means open, 2 means closed
-	Status int
+	ReceiveBlockHeights []uint64 `json:"receiveBlockHeights"`
 
-	// Is snapshotted
-	IsSnapshotted bool
+	// Height of Snapshot block which confirm this account block
+	SnapshotHeight uint64 `json:"snapshotHeight"`
+
+	// Height of Snapshot block which pointed by this account block
+	RefSnapshotHeight uint64 `json:"refSnapshotHeight"`
 }
 
-func safeBytes(bigNumber *big.Int) []byte {
-	if bigNumber == nil {
-		return []byte{0}
+func (abm *AccountBlockMeta) Copy() *AccountBlockMeta {
+	newAbm := *abm
+
+	newAbm.ReceiveBlockHeights = make([]uint64, len(abm.ReceiveBlockHeights))
+	copy(newAbm.ReceiveBlockHeights, abm.ReceiveBlockHeights)
+
+	return &newAbm
+}
+
+func (abm *AccountBlockMeta) Proto() *vitepb.AccountBlockMeta {
+	pb := &vitepb.AccountBlockMeta{
+		AccountId:           abm.AccountId,
+		Height:              abm.Height,
+		ReceiveBlockHeights: abm.ReceiveBlockHeights,
+
+		RefSnapshotHeight: abm.RefSnapshotHeight,
 	}
-
-	buffer := bigNumber.Bytes()
-	if len(buffer) == 0 {
-		return []byte{0}
-	}
-
-	return buffer
+	return pb
 }
 
-func (abm *AccountBlockMeta) NetSerialize() ([]byte, error) {
-	return abm.DbSerialize()
+func (abm *AccountBlockMeta) DeProto(pb *vitepb.AccountBlockMeta) {
+	abm.AccountId = pb.AccountId
+	abm.Height = pb.Height
+	abm.ReceiveBlockHeights = pb.ReceiveBlockHeights
+	abm.RefSnapshotHeight = pb.RefSnapshotHeight
 }
 
-func (abm *AccountBlockMeta) NetDeserialize(buf []byte) error {
-	return abm.DbDeserialize(buf)
+func (abm *AccountBlockMeta) Serialize() ([]byte, error) {
+	return proto.Marshal(abm.Proto())
 }
 
-func (abm *AccountBlockMeta) DbSerialize() ([]byte, error) {
-	accountBlockMetaPb := &vitepb.AccountBlockMeta{
-		AccountId:     abm.AccountId.Bytes(),
-		Height:        abm.Height.Bytes(),
-		Status:        uint32(abm.Status),
-		IsSnapshotted: abm.IsSnapshotted,
-	}
-
-	return proto.Marshal(accountBlockMetaPb)
-}
-
-func (abm *AccountBlockMeta) DbDeserialize(buf []byte) error {
-	accountBlockMetaPb := &vitepb.AccountBlockMeta{}
-	if err := proto.Unmarshal(buf, accountBlockMetaPb); err != nil {
+func (abm *AccountBlockMeta) Deserialize(buf []byte) error {
+	pb := &vitepb.AccountBlockMeta{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
 		return err
 	}
 
-	abm.AccountId = &big.Int{}
-	abm.AccountId.SetBytes(accountBlockMetaPb.AccountId)
-
-	abm.Height = &big.Int{}
-	abm.Height.SetBytes(accountBlockMetaPb.Height)
-
-	abm.Status = int(accountBlockMetaPb.Status)
-	abm.IsSnapshotted = accountBlockMetaPb.IsSnapshotted
-
+	abm.DeProto(pb)
 	return nil
 }
 
-type AccountBlockList []*AccountBlock
-
-func (ablist *AccountBlockList) NetSerialize() ([]byte, error) {
-	accountBlockListNetPB := &vitepb.AccountBlockListNet{}
-	accountBlockListNetPB.Blocks = []*vitepb.AccountBlockNet{}
-
-	for _, accountBlock := range *ablist {
-		accountBlockListNetPB.Blocks = append(accountBlockListNetPB.Blocks, accountBlock.GetNetPB())
-	}
-	return proto.Marshal(accountBlockListNetPB)
-}
-
-func (ablist *AccountBlockList) NetDeserialize(buf []byte) error {
-	accountBlockListNetPB := &vitepb.AccountBlockListNet{}
-	if err := proto.Unmarshal(buf, accountBlockListNetPB); err != nil {
-		return err
-	}
-
-	for _, blockPB := range accountBlockListNetPB.Blocks {
-		block := &AccountBlock{}
-		block.SetByNetPB(blockPB)
-		*ablist = append(*ablist, block)
-	}
-
-	return nil
-}
+const (
+	BlockTypeSendCreate byte = iota + 1
+	BlockTypeSendCall
+	BlockTypeSendReward
+	BlockTypeReceive
+	BlockTypeReceiveError
+)
 
 type AccountBlock struct {
-	// [Optional] AccountBlockMeta
-	Meta *AccountBlockMeta
+	Meta *AccountBlockMeta `json:"-"`
 
-	// Self account
-	AccountAddress *types.Address
+	producer *types.Address
 
-	// Public key
-	PublicKey ed25519.PublicKey
+	BlockType byte       `json:"blockType"`
+	Hash      types.Hash `json:"hash"`
+	Height    uint64     `json:"height"`
+	PrevHash  types.Hash `json:"prevHash"`
 
-	// Receiver account, exists in send block
-	To *types.Address
+	AccountAddress types.Address `json:"accountAddress"`
 
-	// [Optional] Sender account, exists in receive block
-	From *types.Address
+	PublicKey     ed25519.PublicKey `json:"publicKey"`
+	ToAddress     types.Address     `json:"toAddress"`
+	FromBlockHash types.Hash        `json:"fromBlockHash"`
 
-	// Correlative send block hash, exists in receive block
-	FromHash *types.Hash
+	Amount  *big.Int          `json:"amount"`
+	TokenId types.TokenTypeId `json:"tokenId"`
 
-	// Last block hash
-	PrevHash *types.Hash
+	Quota uint64   `json:"quota"`
+	Fee   *big.Int `json:"fee"`
 
-	// Block hash
-	Hash *types.Hash
+	SnapshotHash types.Hash `json:"snapshotHash"`
+	Data         []byte     `json:"data"`
 
-	// Balance of current account
-	Balance *big.Int
+	Timestamp *time.Time `json:"timestamp"`
+	StateHash types.Hash `json:"-"`
 
-	// Amount of this transaction
-	Amount *big.Int
+	LogHash *types.Hash `json:"logHash"`
 
-	// Timestamp
-	Timestamp uint64
-
-	// Id of token received or sent
-	TokenId *types.TokenTypeId
-
-	// [Optional] Height of last transaction block in this token
-	LastBlockHeightInToken *big.Int
-
-	// Data requested or repsonsed
-	Data string
-
-	// Snapshot timestamp
-	SnapshotTimestamp *types.Hash
-
-	// Signature of current block
-	Signature []byte
-
-	// PoW nounce
-	Nounce []byte
-
-	// PoW difficulty
-	Difficulty []byte
-
-	// Service fee
-	FAmount *big.Int
+	Difficulty *big.Int `json:"difficulty"`
+	Nonce      []byte   `json:"nonce"`
+	Signature  []byte   `json:"signature"`
 }
 
-func (ab *AccountBlock) ComputeHash() (*types.Hash, error) {
-	// Hash source data:
-	var source []byte
-	if ab.PrevHash != nil {
-		source = append(source, ab.PrevHash.Bytes()...)
-	}
-	source = append(source, []byte(ab.Meta.Height.String())...)
-	source = append(source, ab.AccountAddress.Bytes()...)
-
-	if ab.To != nil {
-		source = append(source, ab.To.Bytes()...)
-		if ab.TokenId != nil {
-			source = append(source, ab.TokenId.Bytes()...)
-		}
-		if ab.Amount != nil {
-			source = append(source, []byte(ab.Amount.String())...)
-		}
-	} else {
-		source = append(source, ab.FromHash.Bytes()...)
-	}
-
-	source = append(source, []byte(string(ab.Timestamp))...)
-
-	if ab.Data != "" {
-		source = append(source, []byte(ab.Data)...)
-	}
-	source = append(source, ab.SnapshotTimestamp.Bytes()...)
-
-	source = append(source, ab.Nounce...)
-	source = append(source, ab.Difficulty...)
-	if ab.FAmount != nil {
-		source = append(source, []byte(ab.FAmount.String())...)
-	}
-
-	hash, err := types.BytesToHash(crypto.Hash256(source))
-	if err != nil {
-		return nil, err
-	}
-
-	return &hash, nil
-}
-
-// Genesis block
-func (ab *AccountBlock) IsGenesisBlock() bool {
-	return ab.PrevHash == nil &&
-		bytes.Equal(ab.Signature, AccountGenesisBlockFirst.Signature) &&
-		bytes.Equal(ab.Hash.Bytes(), AccountGenesisBlockFirst.Hash.Bytes())
-}
-
-// Genesis second block
-func (ab *AccountBlock) IsGenesisSecondBlock() bool {
-	return bytes.Equal(ab.Signature, AccountGenesisBlockSecond.Signature) &&
-		bytes.Equal(ab.Hash.Bytes(), AccountGenesisBlockSecond.Hash.Bytes())
-}
-
-// Send block
-func (ab *AccountBlock) IsSendBlock() bool {
-	return ab.To != nil
-}
-
-// Receive block
-func (ab *AccountBlock) IsReceiveBlock() bool {
-	return ab.FromHash != nil
-}
-
-// Mintage block
-func (ab *AccountBlock) IsMintageBlock() bool {
-	return ab.IsSendBlock() && bytes.Equal(ab.To.Bytes(), MintageAddress.Bytes())
-}
-
-func (ab *AccountBlock) GetNetPB() *vitepb.AccountBlockNet {
-	accountBlockNetPB := &vitepb.AccountBlockNet{
-		Data:      ab.Data,
-		Timestamp: ab.Timestamp,
-		PublicKey: ab.PublicKey,
-		Signature: ab.Signature,
-		Nounce:    ab.Nounce,
-
-		Difficulty: ab.Difficulty,
-	}
-
-	if ab.AccountAddress != nil {
-		accountBlockNetPB.AccountAddress = ab.AccountAddress.Bytes()
-	}
+func (ab *AccountBlock) Copy() *AccountBlock {
+	newAb := *ab
 
 	if ab.Meta != nil {
-		accountBlockNetPB.Meta = &vitepb.AccountBlockMeta{
-			Height: ab.Meta.Height.Bytes(),
-		}
+		newAb.Meta = ab.Meta.Copy()
 	}
 
-	if ab.To != nil {
-		accountBlockNetPB.To = ab.To.Bytes()
+	if ab.producer != nil {
+		producer := *ab.producer
+		newAb.producer = &producer
 	}
 
-	if ab.PrevHash != nil {
-		accountBlockNetPB.PrevHash = ab.PrevHash.Bytes()
+	if ab.Amount != nil {
+		newAb.Amount = new(big.Int).Set(ab.Amount)
 	}
 
-	if ab.FromHash != nil {
-		accountBlockNetPB.FromHash = ab.FromHash.Bytes()
+	if ab.Fee != nil {
+		newAb.Fee = new(big.Int).Set(ab.Fee)
+	}
+	newAb.SnapshotHash = ab.SnapshotHash
+
+	newAb.Data = make([]byte, len(ab.Data))
+	copy(newAb.Data, ab.Data)
+
+	timestamp := time.Unix(0, ab.Timestamp.UnixNano())
+	newAb.Timestamp = &timestamp
+
+	if ab.LogHash != nil {
+		logHash := *ab.LogHash
+		newAb.LogHash = &logHash
 	}
 
-	if ab.Hash != nil {
-		accountBlockNetPB.Hash = ab.Hash.Bytes()
-	}
-	if ab.TokenId != nil {
-		accountBlockNetPB.TokenId = ab.TokenId.Bytes()
+	if ab.Difficulty != nil {
+		newAb.Difficulty = new(big.Int).Set(ab.Difficulty)
 	}
 
-	accountBlockNetPB.Amount = safeBytes(ab.Amount)
+	newAb.Nonce = make([]byte, len(ab.Nonce))
+	copy(newAb.Nonce, ab.Nonce)
 
-	accountBlockNetPB.Balance = safeBytes(ab.Balance)
-
-	if ab.SnapshotTimestamp != nil {
-		accountBlockNetPB.SnapshotTimestamp = ab.SnapshotTimestamp.Bytes()
-	}
-
-	accountBlockNetPB.FAmount = safeBytes(ab.FAmount)
-
-	return accountBlockNetPB
+	newAb.Signature = make([]byte, len(ab.Signature))
+	copy(newAb.Signature, ab.Signature)
+	return &newAb
 }
 
-func (ab *AccountBlock) SetByNetPB(accountBlockNetPB *vitepb.AccountBlockNet) error {
-	if accountBlockNetPB.Meta != nil {
-		ab.Meta = &AccountBlockMeta{}
-
-		ab.Meta.Height = &big.Int{}
-		ab.Meta.Height.SetBytes(accountBlockNetPB.Meta.Height)
-	}
-
-	if accountBlockNetPB.To != nil {
-		to, err := types.BytesToAddress(accountBlockNetPB.To)
-		if err != nil {
-			return nil
-		}
-		ab.To = &to
-	}
-
-	if accountBlockNetPB.PrevHash != nil {
-		prevHash, err := types.BytesToHash(accountBlockNetPB.PrevHash)
-		if err != nil {
-			return nil
-		}
-		ab.PrevHash = &prevHash
-	}
-
-	if accountBlockNetPB.FromHash != nil {
-		fromHash, err := types.BytesToHash(accountBlockNetPB.FromHash)
-		if err != nil {
-			return nil
-		}
-		ab.FromHash = &fromHash
-	}
-
-	if accountBlockNetPB.Hash != nil {
-		hash, err := types.BytesToHash(accountBlockNetPB.Hash)
-		if err != nil {
-			return nil
-		}
-		ab.Hash = &hash
-	}
-
-	if accountBlockNetPB.TokenId != nil {
-		tokenId, err := types.BytesToTokenTypeId(accountBlockNetPB.TokenId)
-		if err != nil {
-			return nil
-		}
-		ab.TokenId = &tokenId
-	}
-
-	if accountBlockNetPB.Amount != nil {
-		ab.Amount = &big.Int{}
-		ab.Amount.SetBytes(accountBlockNetPB.Amount)
-	}
-
-	if accountBlockNetPB.Balance != nil {
-		ab.Balance = &big.Int{}
-		ab.Balance.SetBytes(accountBlockNetPB.Balance)
-	}
-
-	if accountBlockNetPB.Data != "" {
-		ab.Data = accountBlockNetPB.Data
-	}
-
-	if accountBlockNetPB.SnapshotTimestamp != nil {
-		snapshotTimestamp, err := types.BytesToHash(accountBlockNetPB.SnapshotTimestamp)
-		if err != nil {
-			return nil
-		}
-		ab.SnapshotTimestamp = &snapshotTimestamp
-	}
-
-	if accountBlockNetPB.AccountAddress != nil {
-		address, err := types.BytesToAddress(accountBlockNetPB.AccountAddress)
-		if err != nil {
-			return nil
+func (ab *AccountBlock) Producer() types.Address {
+	if ab.producer == nil {
+		if len(ab.PublicKey) > 0 {
+			producer := types.PubkeyToAddress(ab.PublicKey)
+			ab.producer = &producer
+		} else {
+			ab.producer = &ab.AccountAddress
 		}
 
-		ab.AccountAddress = &address
 	}
-	ab.Timestamp = accountBlockNetPB.Timestamp
+	return *ab.producer
+}
+func (ab *AccountBlock) proto() *vitepb.AccountBlock {
+	pb := &vitepb.AccountBlock{}
+	pb.BlockType = uint32(ab.BlockType)
+	pb.Hash = ab.Hash.Bytes()
+	pb.Height = ab.Height
+	pb.PrevHash = ab.PrevHash.Bytes()
 
-	ab.PublicKey = accountBlockNetPB.PublicKey
-
-	ab.Signature = accountBlockNetPB.Signature
-
-	ab.Nounce = accountBlockNetPB.Nounce
-
-	ab.Difficulty = accountBlockNetPB.Difficulty
-
-	ab.FAmount = big.NewInt(0)
-	if accountBlockNetPB.FAmount != nil {
-		ab.FAmount.SetBytes(accountBlockNetPB.FAmount)
+	if ab.IsSendBlock() {
+		pb.ToAddress = ab.ToAddress.Bytes()
+		pb.Amount = ab.Amount.Bytes()
+		pb.TokenId = ab.TokenId.Bytes()
+	} else {
+		pb.FromBlockHash = ab.FromBlockHash.Bytes()
 	}
 
-	return nil
+	pb.Quota = ab.Quota
+
+	fee := ab.Fee
+	if fee == nil {
+		fee = big.NewInt(0)
+	}
+	pb.Fee = fee.Bytes()
+
+	pb.SnapshotHash = ab.SnapshotHash.Bytes()
+	pb.Data = ab.Data
+	pb.Timestamp = ab.Timestamp.UnixNano()
+
+	if ab.LogHash != nil {
+		pb.LogHash = ab.LogHash.Bytes()
+	}
+
+	if ab.Difficulty != nil {
+		pb.Difficulty = ab.Difficulty.Bytes()
+		// Difficulty is big.NewInt(0)
+		if len(pb.Difficulty) <= 0 {
+			pb.Difficulty = []byte{0}
+		}
+	}
+	pb.Nonce = ab.Nonce
+	pb.Signature = ab.Signature
+	return pb
 }
 
-func (ab *AccountBlock) NetDeserialize(buf []byte) error {
-	accountBlockNetPB := &vitepb.AccountBlockNet{}
-	if err := proto.Unmarshal(buf, accountBlockNetPB); err != nil {
-		return err
+func (ab *AccountBlock) DbProto() *vitepb.AccountBlock {
+	pb := ab.proto()
+	pb.StateHash = ab.StateHash.Bytes()
+	if len(ab.Producer()) > 0 && !bytes.Equal(ab.Producer().Bytes(), ab.AccountAddress.Bytes()) {
+		pb.PublicKey = ab.PublicKey
 	}
 
-	ab.SetByNetPB(accountBlockNetPB)
-
-	return nil
+	return pb
 }
 
-func (ab *AccountBlock) NetSerialize() ([]byte, error) {
-	return proto.Marshal(ab.GetNetPB())
+func (ab *AccountBlock) Proto() *vitepb.AccountBlock {
+	pb := ab.proto()
+	pb.AccountAddress = ab.AccountAddress.Bytes()
+	pb.PublicKey = ab.PublicKey
+	return pb
+}
+
+func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) {
+	ab.BlockType = byte(pb.BlockType)
+	ab.Hash, _ = types.BytesToHash(pb.Hash)
+	ab.Height = pb.Height
+	ab.PrevHash, _ = types.BytesToHash(pb.PrevHash)
+	ab.AccountAddress, _ = types.BytesToAddress(pb.AccountAddress)
+	ab.PublicKey = pb.PublicKey
+
+	if len(pb.ToAddress) > 0 {
+		ab.ToAddress, _ = types.BytesToAddress(pb.ToAddress)
+	}
+	if len(pb.TokenId) > 0 {
+		ab.TokenId, _ = types.BytesToTokenTypeId(pb.TokenId)
+	}
+
+	ab.Amount = big.NewInt(0)
+
+	if len(pb.Amount) > 0 {
+		ab.Amount.SetBytes(pb.Amount)
+	}
+
+	if len(pb.FromBlockHash) > 0 {
+		ab.FromBlockHash, _ = types.BytesToHash(pb.FromBlockHash)
+	}
+	ab.Quota = pb.Quota
+
+	ab.Fee = big.NewInt(0)
+	if len(pb.Fee) > 0 {
+		ab.Fee.SetBytes(pb.Fee)
+	}
+
+	ab.SnapshotHash, _ = types.BytesToHash(pb.SnapshotHash)
+	ab.Data = pb.Data
+	timestamp := time.Unix(0, pb.Timestamp)
+	ab.Timestamp = &timestamp
+	ab.StateHash, _ = types.BytesToHash(pb.StateHash)
+
+	if len(pb.LogHash) > 0 {
+		logHash, _ := types.BytesToHash(pb.LogHash)
+		ab.LogHash = &logHash
+	}
+
+	if len(pb.Difficulty) > 0 {
+		ab.Difficulty = new(big.Int).SetBytes(pb.Difficulty)
+	}
+	ab.Nonce = pb.Nonce
+	ab.Signature = pb.Signature
+
+}
+
+func (ab *AccountBlock) ComputeHash() types.Hash {
+	var source []byte
+	// BlockType
+	source = append(source, ab.BlockType)
+
+	// PrevHash
+	source = append(source, ab.PrevHash.Bytes()...)
+
+	// Height
+	heightBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(heightBytes, ab.Height)
+	source = append(source, heightBytes...)
+
+	// AccountAddress
+	source = append(source, ab.AccountAddress.Bytes()...)
+
+	if ab.IsSendBlock() {
+		// ToAddress
+		source = append(source, ab.ToAddress.Bytes()...)
+		// Amount
+		source = append(source, ab.Amount.Bytes()...)
+		// TokenId
+		source = append(source, ab.TokenId.Bytes()...)
+	} else {
+		// FromBlockHash
+		source = append(source, ab.FromBlockHash.Bytes()...)
+	}
+
+	// Fee
+	fee := ab.Fee
+	if fee == nil {
+		fee = big.NewInt(0)
+	}
+	source = append(source, fee.Bytes()...)
+
+	// SnapshotHash
+	source = append(source, ab.SnapshotHash.Bytes()...)
+
+	// Data
+	source = append(source, ab.Data...)
+
+	// Timestamp
+	unixTimeBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(unixTimeBytes, uint64(ab.Timestamp.Unix()))
+	source = append(source, unixTimeBytes...)
+
+	// LogHash
+	if ab.LogHash != nil {
+		source = append(source, ab.LogHash.Bytes()...)
+	}
+
+	// Nonce
+	source = append(source, ab.Nonce...)
+
+	hash, _ := types.BytesToHash(crypto.Hash256(source))
+	return hash
+}
+
+func (ab *AccountBlock) VerifySignature() bool {
+	isVerified, verifyErr := crypto.VerifySig(ab.PublicKey, ab.Hash.Bytes(), ab.Signature)
+	if verifyErr != nil {
+		accountBlockLog.Error("crypto.VerifySig failed, error is "+verifyErr.Error(), "method", "VerifySignature")
+	}
+	return isVerified
 }
 
 func (ab *AccountBlock) DbSerialize() ([]byte, error) {
-	accountBlockPB := &vitepb.AccountBlockDb{
-		Timestamp: ab.Timestamp,
-		Data:      ab.Data,
-
-		Signature: ab.Signature,
-
-		Nounce:     ab.Nounce,
-		Difficulty: ab.Difficulty,
-	}
-
-	if ab.Hash != nil {
-		accountBlockPB.Hash = ab.Hash.Bytes()
-	}
-	if ab.PrevHash != nil {
-		accountBlockPB.PrevHash = ab.PrevHash.Bytes()
-	}
-	if ab.FromHash != nil {
-		accountBlockPB.FromHash = ab.FromHash.Bytes()
-	}
-
-	accountBlockPB.Amount = safeBytes(ab.Amount)
-
-	if ab.To != nil {
-		accountBlockPB.To = ab.To.Bytes()
-	}
-
-	if ab.TokenId != nil {
-		accountBlockPB.TokenId = ab.TokenId.Bytes()
-	}
-
-	if ab.SnapshotTimestamp != nil {
-		accountBlockPB.SnapshotTimestamp = ab.SnapshotTimestamp.Bytes()
-	}
-
-	accountBlockPB.Balance = safeBytes(ab.Balance)
-
-	accountBlockPB.FAmount = safeBytes(ab.FAmount)
-
-	return proto.Marshal(accountBlockPB)
+	return proto.Marshal(ab.DbProto())
 }
 
 func (ab *AccountBlock) DbDeserialize(buf []byte) error {
-	accountBlockPB := &vitepb.AccountBlockDb{}
-	if err := proto.Unmarshal(buf, accountBlockPB); err != nil {
+	pb := &vitepb.AccountBlock{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
 		return err
 	}
+	ab.DeProto(pb)
+	return nil
+}
 
-	if accountBlockPB.To != nil {
-		toAddress, err := types.BytesToAddress(accountBlockPB.To)
-		if err != nil {
-			return err
-		}
+func (ab *AccountBlock) Serialize() ([]byte, error) {
+	return proto.Marshal(ab.Proto())
+}
 
-		ab.To = &toAddress
+func (ab *AccountBlock) Deserialize(buf []byte) error {
+	pb := &vitepb.AccountBlock{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
+		return err
 	}
-
-	if accountBlockPB.Hash != nil {
-		hash, err := types.BytesToHash(accountBlockPB.Hash)
-		if err != nil {
-			return err
-		}
-		ab.Hash = &hash
-	}
-
-	if accountBlockPB.PrevHash != nil {
-		prevHash, err := types.BytesToHash(accountBlockPB.PrevHash)
-		if err != nil {
-			return err
-		}
-		ab.PrevHash = &prevHash
-	}
-
-	if accountBlockPB.FromHash != nil {
-		fromHash, err := types.BytesToHash(accountBlockPB.FromHash)
-		if err != nil {
-			return err
-		}
-		ab.FromHash = &fromHash
-	}
-
-	if accountBlockPB.TokenId != nil {
-		tokenId, err := types.BytesToTokenTypeId(accountBlockPB.TokenId)
-		if err != nil {
-			return err
-		}
-
-		ab.TokenId = &tokenId
-	}
-
-	if accountBlockPB.Amount != nil {
-		ab.Amount = &big.Int{}
-		ab.Amount.SetBytes(accountBlockPB.Amount)
-	}
-
-	ab.Timestamp = accountBlockPB.Timestamp
-
-	if accountBlockPB.Balance != nil {
-		ab.Balance = &big.Int{}
-		ab.Balance.SetBytes(accountBlockPB.Balance)
-	}
-
-	ab.Data = accountBlockPB.Data
-
-	if accountBlockPB.SnapshotTimestamp != nil {
-		snapshotTimestamp, err := types.BytesToHash(accountBlockPB.SnapshotTimestamp)
-		if err != nil {
-			return err
-		}
-		ab.SnapshotTimestamp = &snapshotTimestamp
-	}
-
-	ab.Signature = accountBlockPB.Signature
-
-	ab.Nounce = accountBlockPB.Nounce
-
-	ab.Difficulty = accountBlockPB.Difficulty
-
-	ab.FAmount = &big.Int{}
-	ab.FAmount.SetBytes(accountBlockPB.FAmount)
+	ab.DeProto(pb)
 
 	return nil
 }
 
-func GetGenesisBlockFirst() *AccountBlock {
-	hash, _ := types.HexToHash("dea522da8f23293a02fdb805b54aa131146031e3c65ef2a8bcec54985b5fa4b9")
-	return &AccountBlock{
-		Hash: &hash,
-		//Signature: ,
-		Meta: &AccountBlockMeta{
-			Height: big.NewInt(1),
-		},
-		Signature:         []byte{159, 47, 204, 220, 246, 65, 16, 33, 61, 64, 159, 109, 164, 248, 99, 179, 61, 116, 190, 167, 188, 192, 185, 36, 92, 22, 141, 62, 40, 123, 6, 230, 50, 4, 201, 245, 251, 225, 32, 178, 102, 37, 169, 55, 18, 194, 249, 29, 94, 46, 39, 197, 177, 6, 74, 173, 24, 239, 197, 191, 2, 159, 163, 4},
-		AccountAddress:    SnapshotGenesisBlock.Producer,
-		To:                &MintageAddress,
-		SnapshotTimestamp: SnapshotGenesisBlock.Hash,
-		Timestamp:         uint64(1532084800),
-		Data: "{" +
-			"\"tokenName\": \"vite\"," +
-			"\"tokenSymbol\": \"VITE\"," +
-			"\"owner\":\"" + SnapshotGenesisBlock.Producer.String() + "\"," +
-			"\"decimals\": 18," +
-			"\"tokenId\":\"" + MockViteTokenId.String() + "\"," +
-			"\"totalSupply\": \"1000000000\"" +
-			"}",
-	}
-}
-func GetGenesisBlockSecond(prevHash *types.Hash, fromHash *types.Hash) *AccountBlock {
-	hash, _ := types.HexToHash("1461ec0ac3e55164767f9e116920d7fe0129535d49310b34d641da8fc764248f")
-
-	return &AccountBlock{
-		Hash: &hash,
-		Meta: &AccountBlockMeta{
-			Height: big.NewInt(2),
-		},
-		Signature:      []byte{2, 10, 234, 156, 56, 2, 46, 89, 156, 249, 211, 241, 253, 11, 214, 24, 254, 95, 230, 200, 19, 119, 120, 7, 61, 54, 188, 165, 104, 190, 196, 25, 35, 164, 46, 26, 135, 138, 150, 4, 191, 103, 74, 62, 186, 107, 43, 247, 121, 61, 215, 117, 96, 224, 216, 128, 4, 127, 213, 235, 186, 210, 161, 10},
-		AccountAddress: SnapshotGenesisBlock.Producer,
-		FromHash:       fromHash,
-		PrevHash:       prevHash,
-
-		Timestamp:         uint64(1532084900),
-		SnapshotTimestamp: SnapshotGenesisBlock.Hash,
-	}
+func (ab *AccountBlock) IsSendBlock() bool {
+	return ab.BlockType == BlockTypeSendCreate || ab.BlockType == BlockTypeSendCall || ab.BlockType == BlockTypeSendReward
 }
 
-var AccountGenesisBlockFirst = GetGenesisBlockFirst()
-var AccountGenesisBlockSecond = GetGenesisBlockSecond(AccountGenesisBlockFirst.Hash, AccountGenesisBlockFirst.Hash)
+func (ab *AccountBlock) IsReceiveBlock() bool {
+	return ab.BlockType == BlockTypeReceive || ab.BlockType == BlockTypeReceiveError
+}

@@ -1,377 +1,186 @@
 package ledger
 
 import (
-	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vitepb"
-	"math/big"
-	"sort"
+	"time"
 )
 
-type SnapshotBlockList []*SnapshotBlock
+var snapshotBlockLog = log15.New("module", "ledger/snapshot_block")
 
-func (sblist *SnapshotBlockList) NetSerialize() ([]byte, error) {
-	snapshotBlockListNetPB := &vitepb.SnapshotBlockListNet{}
-	snapshotBlockListNetPB.Blocks = []*vitepb.SnapshotBlockNet{}
+type SnapshotContent map[types.Address]*HashHeight
 
-	for _, snapshotBlock := range *sblist {
-		snapshotBlockListNetPB.Blocks = append(snapshotBlockListNetPB.Blocks, snapshotBlock.GetNetPB())
+func (sc SnapshotContent) DeProto(pb *vitepb.SnapshotContent) {
+	for addrString, snapshotItem := range pb.Content {
+		addr, _ := types.HexToAddress(addrString)
+		accountBlockHash, _ := types.BytesToHash(snapshotItem.AccountBlockHash)
+
+		sc[addr] = &HashHeight{
+			Height: snapshotItem.AccountBlockHeight,
+			Hash:   accountBlockHash,
+		}
 	}
-
-	return proto.Marshal(snapshotBlockListNetPB)
 }
 
-func (sblist *SnapshotBlockList) NetDeserialize(buf []byte) error {
-	snapshotBlockListNetPB := &vitepb.SnapshotBlockListNet{}
-	if err := proto.Unmarshal(buf, snapshotBlockListNetPB); err != nil {
-		return err
+func (sc SnapshotContent) Proto() *vitepb.SnapshotContent {
+	pb := &vitepb.SnapshotContent{
+		Content: make(map[string]*vitepb.SnapshotItem),
 	}
 
-	for _, blockPB := range snapshotBlockListNetPB.Blocks {
-		block := &SnapshotBlock{}
-		block.SetByNetPB(blockPB)
-		*sblist = append(*sblist, block)
+	for addr, snapshotItem := range sc {
+		pb.Content[addr.String()] = &vitepb.SnapshotItem{
+			AccountBlockHash:   snapshotItem.Hash.Bytes(),
+			AccountBlockHeight: snapshotItem.Height,
+		}
+	}
+	return pb
+}
+
+func (sc *SnapshotContent) Serialize() ([]byte, error) {
+	pb := sc.Proto()
+	buf, err := proto.Marshal(pb)
+	if err != nil {
+		snapshotBlockLog.Error("proto.Marshal failed, error is "+err.Error(), "method", "SnapshotContent.Serialize")
+	}
+	return buf, nil
+}
+func (sc *SnapshotContent) Deserialize(buf []byte) error {
+	pb := &vitepb.SnapshotContent{}
+	unmarshalErr := proto.Unmarshal(buf, pb)
+	if unmarshalErr != nil {
+		snapshotBlockLog.Error("proto.Unmarshal failed, error is "+unmarshalErr.Error(), "method", "SnapshotContent.Deserialize")
 	}
 
+	sc.DeProto(pb)
 	return nil
-}
-
-type SnapshotItem struct {
-	AccountBlockHash   *types.Hash
-	AccountBlockHeight *big.Int
 }
 
 type SnapshotBlock struct {
-	// Snapshot block hash
-	Hash *types.Hash
+	Hash types.Hash `json:"hash"`
 
-	// Previous snapshot block hash
-	PrevHash *types.Hash
+	PrevHash types.Hash `json:"prevHash"`
+	Height   uint64     `json:"height"`
+	producer *types.Address
 
-	// Height of current snapshot block
-	Height *big.Int
+	PublicKey ed25519.PublicKey `json:"publicKey"`
+	Signature []byte            `json:"signature"`
 
-	// Producer create the block
-	Producer *types.Address
+	Timestamp *time.Time `json:"timestamp"`
 
-	// Current snapshot
-	Snapshot map[string]*SnapshotItem
+	StateHash types.Hash `json:"stateHash"`
+	StateTrie *trie.Trie `json:"-"`
 
-	// Signature
-	Signature []byte
+	SnapshotContent SnapshotContent `json:"snapshotContent"`
+}
+
+func (sb *SnapshotBlock) ComputeHash() types.Hash {
+	var source []byte
+	// PrevHash
+	source = append(source, sb.PrevHash.Bytes()...)
+
+	// Height
+	heightBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(heightBytes, sb.Height)
+	source = append(source, heightBytes...)
 
 	// Timestamp
-	Timestamp uint64
+	unixTimeBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(unixTimeBytes, uint64(sb.Timestamp.Unix()))
+	source = append(source, unixTimeBytes...)
 
-	// Reward fee
-	Amount *big.Int
+	// StateHash
+	source = append(source, sb.StateHash.Bytes()...)
 
-	// Public Key
-	PublicKey ed25519.PublicKey
+	hash, _ := types.BytesToHash(crypto.Hash256(source))
+	return hash
 }
 
-type sortedSnapshotItem struct {
-	address string
-	block   *SnapshotItem
-}
-type sortedSnapshot []*sortedSnapshotItem
-
-func (a sortedSnapshot) Len() int           { return len(a) }
-func (a sortedSnapshot) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a sortedSnapshot) Less(i, j int) bool { return a[i].address < a[j].address }
-
-func newSortedSnapshot(snapshot map[string]*SnapshotItem) sortedSnapshot {
-	ss := sortedSnapshot{}
-	for addr, snapshotItem := range snapshot {
-		ss = append(ss, &sortedSnapshotItem{
-			address: addr,
-			block:   snapshotItem,
-		})
+func (sb *SnapshotBlock) Producer() types.Address {
+	if sb.producer == nil {
+		producer := types.PubkeyToAddress(sb.PublicKey)
+		sb.producer = &producer
 	}
-
-	sort.Sort(ss)
-	return ss
+	return *sb.producer
 }
 
-func (sb *SnapshotBlock) IsGenesisBlock() bool {
-	return sb.PrevHash == nil &&
-		bytes.Equal(sb.Producer.Bytes(), SnapshotGenesisBlock.Producer.Bytes()) &&
-		bytes.Equal(sb.Signature, SnapshotGenesisBlock.Signature) &&
-		bytes.Equal(sb.Hash.Bytes(), SnapshotGenesisBlock.Hash.Bytes()) &&
-		sb.Timestamp == SnapshotGenesisBlock.Timestamp &&
-		sb.Height.Cmp(big.NewInt(1)) == 0
-}
-func (sb *SnapshotBlock) getSnapshotBytes() []byte {
-	var source []byte
-
-	// Hard fork
-	if sb.Height.Cmp(big.NewInt(112000)) >= 0 {
-		ss := newSortedSnapshot(sb.Snapshot)
-		for _, snapshotItem := range ss {
-			address, _ := types.HexToAddress(snapshotItem.address)
-			source = append(source, address.Bytes()...)
-			source = append(source, snapshotItem.block.AccountBlockHash.Bytes()...)
-			source = append(source, snapshotItem.block.AccountBlockHeight.Bytes()...)
-		}
-	} else {
-		for addr, snapshotItem := range sb.Snapshot {
-			address, _ := types.HexToAddress(addr)
-			source = append(source, address.Bytes()...)
-			source = append(source, snapshotItem.AccountBlockHash.Bytes()...)
-			source = append(source, snapshotItem.AccountBlockHeight.Bytes()...)
-		}
+func (sb *SnapshotBlock) VerifySignature() bool {
+	isVerified, verifyErr := crypto.VerifySig(sb.PublicKey, sb.Hash.Bytes(), sb.Signature)
+	if verifyErr != nil {
+		accountBlockLog.Error("crypto.VerifySig failed, error is "+verifyErr.Error(), "method", "VerifySignature")
 	}
-
-	return source
-
+	return isVerified
 }
 
-func (sb *SnapshotBlock) ComputeHash() (*types.Hash, error) {
-	// Hash source data:
-	// PrevHash|Height|Producer|Snapshot|Timestamp|Amount
-	var source []byte
-	if sb.PrevHash != nil {
-		source = append(source, sb.PrevHash.Bytes()...)
-	}
-	source = append(source, []byte(sb.Height.String())...)
-	source = append(source, []byte(sb.Producer.String())...)
-
-	if sb.Snapshot != nil {
-		source = append(source, sb.getSnapshotBytes()...)
-	}
-
-	timestampBinary := make([]byte, 8)
-	binary.LittleEndian.PutUint64(timestampBinary, uint64(sb.Timestamp))
-
-	source = append(source, timestampBinary...)
-	source = append(source, []byte(sb.Amount.String())...)
-
-	hash, err := types.BytesToHash(crypto.Hash256(source))
-	if err != nil {
-		return nil, err
-	}
-
-	return &hash, nil
+func (sb *SnapshotBlock) proto() *vitepb.SnapshotBlock {
+	pb := &vitepb.SnapshotBlock{}
+	pb.Hash = sb.Hash.Bytes()
+	pb.PrevHash = sb.PrevHash.Bytes()
+	pb.Height = sb.Height
+	pb.PublicKey = sb.PublicKey
+	pb.Signature = sb.Signature
+	pb.Timestamp = sb.Timestamp.UnixNano()
+	pb.StateHash = sb.StateHash.Bytes()
+	return pb
 }
 
-func (sb *SnapshotBlock) GetNetPB() *vitepb.SnapshotBlockNet {
-	snapshotBlockPB := &vitepb.SnapshotBlockNet{
-		Signature: sb.Signature,
-		Timestamp: sb.Timestamp,
-		PublicKey: []byte(sb.PublicKey),
+func (sb *SnapshotBlock) Proto() *vitepb.SnapshotBlock {
+	pb := sb.proto()
+	if sb.SnapshotContent != nil {
+		pb.SnapshotContent = sb.SnapshotContent.Proto()
 	}
 
-	if sb.Producer != nil {
-		snapshotBlockPB.Producer = sb.Producer.Bytes()
-	}
-	if sb.Hash != nil {
-		snapshotBlockPB.Hash = sb.Hash.Bytes()
-	}
-
-	if sb.PrevHash != nil {
-		snapshotBlockPB.PrevHash = sb.PrevHash.Bytes()
-	}
-
-	if sb.Snapshot != nil {
-		snapshotBlockPB.Snapshot = sb.GetSnapshotPB()
-	}
-	if sb.Amount != nil {
-		snapshotBlockPB.Amount = sb.Amount.Bytes()
-	}
-	if sb.Height != nil {
-		snapshotBlockPB.Height = sb.Height.Bytes()
-	}
-
-	return snapshotBlockPB
+	return pb
 }
 
-func (sb *SnapshotBlock) SetByNetPB(snapshotBlockPB *vitepb.SnapshotBlockNet) error {
-	if snapshotBlockPB.Hash != nil {
-		hash, err := types.BytesToHash(snapshotBlockPB.Hash)
-		if err != nil {
-			return err
-		}
-		sb.Hash = &hash
+func (sb *SnapshotBlock) DeProto(pb *vitepb.SnapshotBlock) {
+	sb.Hash, _ = types.BytesToHash(pb.Hash)
+	sb.PrevHash, _ = types.BytesToHash(pb.PrevHash)
+	sb.Height = pb.Height
+	sb.PublicKey = pb.PublicKey
+	sb.Signature = pb.Signature
+
+	timestamp := time.Unix(0, pb.Timestamp)
+	sb.Timestamp = &timestamp
+
+	sb.StateHash, _ = types.BytesToHash(pb.StateHash)
+
+	if pb.SnapshotContent != nil {
+		sb.SnapshotContent = SnapshotContent{}
+		sb.SnapshotContent.DeProto(pb.SnapshotContent)
 	}
-	if snapshotBlockPB.PrevHash != nil {
-		prevHash, err := types.BytesToHash(snapshotBlockPB.PrevHash)
-		if err != nil {
-			return err
-		}
-		sb.PrevHash = &prevHash
-	}
-
-	sb.Height = &big.Int{}
-	sb.Height.SetBytes(snapshotBlockPB.Height)
-	if snapshotBlockPB.Producer != nil {
-		producer, _ := types.BytesToAddress(snapshotBlockPB.Producer)
-		sb.Producer = &producer
-	}
-	if snapshotBlockPB.Snapshot != nil {
-		err := sb.SetSnapshotByPB(snapshotBlockPB.Snapshot)
-		if err != nil {
-			return err
-		}
-	}
-	sb.Signature = snapshotBlockPB.Signature
-	sb.Timestamp = snapshotBlockPB.Timestamp
-	sb.Amount = big.NewInt(0)
-	sb.Amount.SetBytes(snapshotBlockPB.Amount)
-	sb.PublicKey = snapshotBlockPB.PublicKey
-	return nil
-}
-
-func (sb *SnapshotBlock) GetDbPB() *vitepb.SnapshotBlock {
-	snapshotBlockPB := &vitepb.SnapshotBlock{
-		Signature: sb.Signature,
-		Timestamp: sb.Timestamp,
-	}
-
-	if sb.Producer != nil {
-		snapshotBlockPB.Producer = sb.Producer.Bytes()
-	}
-	if sb.Hash != nil {
-		snapshotBlockPB.Hash = sb.Hash.Bytes()
-	}
-
-	if sb.PrevHash != nil {
-		snapshotBlockPB.PrevHash = sb.PrevHash.Bytes()
-	}
-
-	if sb.Snapshot != nil {
-		snapshotBlockPB.Snapshot = sb.GetSnapshotPB()
-	}
-	if sb.Amount != nil {
-		snapshotBlockPB.Amount = sb.Amount.Bytes()
-	}
-	if sb.Height != nil {
-		snapshotBlockPB.Height = sb.Height.Bytes()
-	}
-
-	return snapshotBlockPB
-}
-
-func (sb *SnapshotBlock) SetByDbPB(snapshotBlockPB *vitepb.SnapshotBlock) error {
-	if snapshotBlockPB.Hash != nil {
-		hash, err := types.BytesToHash(snapshotBlockPB.Hash)
-		if err != nil {
-			return err
-		}
-		sb.Hash = &hash
-	}
-	if snapshotBlockPB.PrevHash != nil {
-		prevHash, err := types.BytesToHash(snapshotBlockPB.PrevHash)
-		if err != nil {
-			return err
-		}
-		sb.PrevHash = &prevHash
-	}
-
-	sb.Height = &big.Int{}
-	sb.Height.SetBytes(snapshotBlockPB.Height)
-	if snapshotBlockPB.Producer != nil {
-		producer, _ := types.BytesToAddress(snapshotBlockPB.Producer)
-		sb.Producer = &producer
-	}
-	if snapshotBlockPB.Snapshot != nil {
-		err := sb.SetSnapshotByPB(snapshotBlockPB.Snapshot)
-		if err != nil {
-			return err
-		}
-	}
-	sb.Signature = snapshotBlockPB.Signature
-	sb.Timestamp = snapshotBlockPB.Timestamp
-	sb.Amount = &big.Int{}
-	sb.Amount.SetBytes(snapshotBlockPB.Amount)
-	return nil
-}
-
-func (sb *SnapshotBlock) GetSnapshotPB() map[string]*vitepb.SnapshotItem {
-	snapshotPB := make(map[string]*vitepb.SnapshotItem)
-	for key, snapshotItem := range sb.Snapshot {
-		snapshotPB[key] = &vitepb.SnapshotItem{
-			AccountBlockHash:   snapshotItem.AccountBlockHash.Bytes(),
-			AccountBlockHeight: snapshotItem.AccountBlockHeight.Bytes(),
-		}
-	}
-
-	return snapshotPB
-}
-
-func (sb *SnapshotBlock) SetSnapshotByPB(snapshotPB map[string]*vitepb.SnapshotItem) error {
-	sb.Snapshot = make(map[string]*SnapshotItem)
-
-	for key, snapshotItem := range snapshotPB {
-		hash, err := types.BytesToHash(snapshotItem.AccountBlockHash)
-		if err != nil {
-			return err
-		}
-
-		height := &big.Int{}
-		height.SetBytes(snapshotItem.AccountBlockHeight)
-
-		sb.Snapshot[key] = &SnapshotItem{
-			AccountBlockHash:   &hash,
-			AccountBlockHeight: height,
-		}
-	}
-
-	return nil
-}
-
-func (sb *SnapshotBlock) NetDeserialize(buf []byte) error {
-	snapshotBlockPB := &vitepb.SnapshotBlockNet{}
-	if err := proto.Unmarshal(buf, snapshotBlockPB); err != nil {
-		return err
-	}
-
-	sb.SetByNetPB(snapshotBlockPB)
-
-	return nil
-}
-
-func (sb *SnapshotBlock) NetSerialize() ([]byte, error) {
-	return proto.Marshal(sb.GetNetPB())
-}
-
-func (sb *SnapshotBlock) DbDeserialize(buf []byte) error {
-	snapshotBlockPB := &vitepb.SnapshotBlock{}
-	if err := proto.Unmarshal(buf, snapshotBlockPB); err != nil {
-		return err
-	}
-
-	sb.SetByDbPB(snapshotBlockPB)
-
-	return nil
 }
 
 func (sb *SnapshotBlock) DbSerialize() ([]byte, error) {
-	return proto.Marshal(sb.GetDbPB())
-}
-
-func GetSnapshotGenesisBlock() *SnapshotBlock {
-	var genesisSnapshotBlockHash, _ = types.HexToHash("f7ede1921e23588cb420dc7f05846d4dcfb795bb38458239b9d1230ae5bda7f0")
-	var genesisProducer, _ = types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
-	var genesisSignature = []byte{1, 26, 214, 26, 96, 233, 83, 46, 77, 84, 7, 129, 184, 209, 149, 71, 127, 91, 70, 196, 224, 177, 55, 239, 31, 206, 86, 37, 192, 212, 181, 111, 95, 41, 239, 46, 179, 127, 108, 72, 52, 56, 187, 53, 61, 142, 127, 80, 118, 164, 61, 93, 23, 216, 207, 102, 75, 216, 72, 70, 222, 251, 122, 1}
-
-	publicKey, _ := hex.DecodeString("3af9a47a11140c681c2b2a85a4ce987fab0692589b2ce233bf7e174bd430177a")
-	var genesisPublicKey = ed25519.PublicKey(publicKey)
-
-	snapshotBLock := &SnapshotBlock{
-		Hash:      &genesisSnapshotBlockHash,
-		PublicKey: genesisPublicKey,
-		PrevHash:  nil,
-		Height:    big.NewInt(1),
-		Timestamp: uint64(1532099890),
-		Producer:  &genesisProducer,
-		Signature: genesisSignature,
+	pb := sb.proto()
+	buf, err := proto.Marshal(pb)
+	if err != nil {
+		snapshotBlockLog.Error("proto.Marshal failed, error is "+err.Error(), "method", "SnapshotBlock.DbSerialize")
 	}
-	return snapshotBLock
+	return buf, nil
 }
 
-var SnapshotGenesisBlock = GetSnapshotGenesisBlock()
+func (sb *SnapshotBlock) Serialize() ([]byte, error) {
+	pb := sb.Proto()
+	buf, err := proto.Marshal(pb)
+	if err != nil {
+		snapshotBlockLog.Error("proto.Marshal failed, error is "+err.Error(), "method", "SnapshotBlock.Serialize")
+	}
+	return buf, nil
+}
+
+func (sb *SnapshotBlock) Deserialize(buf []byte) error {
+	pb := &vitepb.SnapshotBlock{}
+	unmarshalErr := proto.Unmarshal(buf, pb)
+	if unmarshalErr != nil {
+		snapshotBlockLog.Error("proto.Unmarshal failed, error is "+unmarshalErr.Error(), "method", "SnapshotBlock.Deserialize")
+	}
+
+	sb.DeProto(pb)
+	return nil
+}

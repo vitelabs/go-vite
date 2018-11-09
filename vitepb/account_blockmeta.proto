@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package vitepb;
+
+message AccountBlockMeta {
+    uint64 accountId = 1;
+    uint64 height = 2;
+    repeated uint64 receiveBlockHeights = 3;
+    uint64 refSnapshotHeight = 4;
+}
