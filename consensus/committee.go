@@ -171,6 +171,23 @@ func (self *committee) ReadVoteMapByTime(gid types.Gid, index uint64) ([]*VoteDe
 	return tel.voteDetails(index)
 }
 
+func (self *committee) ReadVoteMapForAPI(gid types.Gid, ti time.Time) ([]*VoteDetails, *ledger.HashHeight, error) {
+	t, ok := self.tellers.Load(gid)
+	if !ok {
+		tmp, err := self.initTeller(gid)
+		if err != nil {
+			return nil, nil, err
+		}
+		t = tmp
+	}
+	if t == nil {
+		return nil, nil, errors.New("consensus group not exist")
+	}
+	tel := t.(*teller)
+
+	return tel.voteDetailsBeforeTime(ti)
+}
+
 func (self *committee) VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error) {
 	t, ok := self.tellers.Load(gid)
 	if !ok {

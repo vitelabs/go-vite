@@ -1,6 +1,8 @@
 package api
 
 import (
+	"time"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
@@ -83,12 +85,7 @@ type CandidateInfo struct {
 
 func (r *RegisterApi) GetCandidateList(gid types.Gid) ([]*CandidateInfo, error) {
 	head := r.chain.GetLatestSnapshotBlock()
-	index, err := r.cs.VoteTimeToIndex(gid, *head.Timestamp)
-	if err != nil {
-		return nil, err
-	}
-
-	details, _, err := r.cs.ReadVoteMapByTime(gid, index)
+	details, _, err := r.cs.ReadVoteMapForAPI(gid, (*head.Timestamp).Add(time.Second))
 	if err != nil {
 		return nil, err
 	}

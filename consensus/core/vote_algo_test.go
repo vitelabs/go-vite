@@ -107,3 +107,37 @@ func printResult(ag *algo, total uint64, cnt int) {
 
 	println("-------------------------------------------------------------------------")
 }
+
+func TestAlgo_FilterVotes3(t *testing.T) {
+
+	now := time.Unix(1541640427, 0)
+	info := NewGroupInfo(now, types.ConsensusGroupInfo{
+		Gid:                    types.SNAPSHOT_GID,
+		NodeCount:              25,
+		Interval:               1,
+		PerCount:               3,
+		RandCount:              2,
+		RandRank:               100,
+		CountingTokenId:        ledger.ViteTokenId,
+		RegisterConditionId:    0,
+		RegisterConditionParam: nil,
+		VoteConditionId:        0,
+		VoteConditionParam:     nil,
+		Owner:                  types.Address{},
+		PledgeAmount:           nil,
+		WithdrawHeight:         0,
+	})
+	ag := NewAlgo(info)
+	var votes []*Vote
+	for i := 0; i < 100; i++ {
+		votes = append(votes, &Vote{Name: "wj_" + strconv.Itoa(i), Balance: big.NewInt(int64(100 - i))})
+	}
+	//result := make(map[string]uint64)
+	hashH := &ledger.HashHeight{Height: 1}
+	actual := ag.FilterVotes(votes, hashH)
+	sort.Sort(ByBalance(actual))
+	for _, v := range actual {
+		println("\""+v.Name+"\"", v.Balance.String(), ",")
+	}
+
+}
