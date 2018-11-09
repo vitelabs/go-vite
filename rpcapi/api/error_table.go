@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 )
@@ -55,6 +56,28 @@ var (
 		Code:    -35006,
 	}
 
+	// -36001 ~ -36999 verifier_account
+	ErrVerifyAccountAddr = JsonRpc2Error{
+		Message: verifier.ErrVerifyAccountAddrFailed.Error(),
+		Code:    -36001,
+	}
+	ErrVerifyHash = JsonRpc2Error{
+		Message: verifier.ErrVerifyHashFailed.Error(),
+		Code:    -36002,
+	}
+	ErrVerifySignature = JsonRpc2Error{
+		Message: verifier.ErrVerifySignatureFailed.Error(),
+		Code:    -36003,
+	}
+	ErrVerifyNonce = JsonRpc2Error{
+		Message: verifier.ErrVerifyNonceFailed.Error(),
+		Code:    -36004,
+	}
+	ErrVerifySnapshotOfReferredBlock = JsonRpc2Error{
+		Message: verifier.ErrVerifySnapshotOfReferredBlockFailed.Error(),
+		Code:    -36005,
+	}
+
 	concernedErrorMap map[string]JsonRpc2Error
 )
 
@@ -69,6 +92,12 @@ func init() {
 	concernedErrorMap[ErrVmInvaildBlockData.Error()] = ErrVmInvaildBlockData
 	concernedErrorMap[ErrVmCalPoWTwice.Error()] = ErrVmCalPoWTwice
 	concernedErrorMap[ErrVmMethodNotFound.Error()] = ErrVmMethodNotFound
+
+	concernedErrorMap[ErrVerifyAccountAddr.Error()] = ErrVerifyAccountAddr
+	concernedErrorMap[ErrVerifyHash.Error()] = ErrVerifyHash
+	concernedErrorMap[ErrVerifySignature.Error()] = ErrVerifySignature
+	concernedErrorMap[ErrVerifyNonce.Error()] = ErrVerifyNonce
+	concernedErrorMap[ErrVerifySnapshotOfReferredBlock.Error()] = ErrVerifySnapshotOfReferredBlock
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {

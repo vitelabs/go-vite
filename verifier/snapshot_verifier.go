@@ -37,7 +37,7 @@ func (self *SnapshotVerifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
 
 func (self *SnapshotVerifier) verifyTimestamp(block *ledger.SnapshotBlock) error {
 	if block.Timestamp == nil {
-		return errors.New("Timestamp is nil")
+		return errors.New("timestamp is nil")
 	}
 
 	if block.Timestamp.After(time.Now().Add(time.Hour)) {
@@ -49,15 +49,15 @@ func (self *SnapshotVerifier) verifyTimestamp(block *ledger.SnapshotBlock) error
 func (self *SnapshotVerifier) verifyDataValidity(block *ledger.SnapshotBlock) error {
 	computedHash := block.ComputeHash()
 	if block.Hash.IsZero() || computedHash != block.Hash {
-		return errors.New("verify hash failed")
+		return ErrVerifyHashFailed
 	}
 
 	if len(block.Signature) == 0 || len(block.PublicKey) == 0 {
-		return errors.New("Signature or PublicKey is nil")
+		return errors.New("signature or publicKey is nil")
 	}
 	isVerified, _ := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
 	if !isVerified {
-		return errors.New("VerifySig failed")
+		return ErrVerifySignatureFailed
 	}
 	return nil
 }
