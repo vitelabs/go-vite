@@ -27,7 +27,8 @@ type Config struct {
 	KafkaProducers []string `json:"KafkaProducers"`
 
 	// chain
-	OpenBlackBlock bool `json:"OpenBlackBlock"`
+	OpenBlackBlock bool   `json:"OpenBlackBlock"`
+	GenesisFile    string `json:"GenesisFile"`
 
 	// p2p
 	NetSelect            string
@@ -151,6 +152,7 @@ func (c *Config) makeChainConfig() *config.Chain {
 		return &config.Chain{
 			KafkaProducers: nil,
 			OpenBlackBlock: c.OpenBlackBlock,
+			GenesisFile:    c.GenesisFile,
 		}
 	}
 
@@ -179,6 +181,7 @@ END:
 	return &config.Chain{
 		KafkaProducers: kafkaProducers,
 		OpenBlackBlock: c.OpenBlackBlock,
+		GenesisFile:    c.GenesisFile,
 	}
 }
 

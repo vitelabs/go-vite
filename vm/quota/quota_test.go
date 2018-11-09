@@ -133,7 +133,7 @@ func TestCalcQuotaForMaxPledgeMainNet(t *testing.T) {
 	}
 }
 
-func TestQuotaSection(t *testing.T) {
+func TestPledgeQuotaSection(t *testing.T) {
 	InitQuotaConfig(false)
 	x := new(big.Float).SetPrec(precForFloat)
 	pledgeMin := new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18))
@@ -143,5 +143,32 @@ func TestQuotaSection(t *testing.T) {
 		x.Quo(nodeConfig.sectionList[i], x)
 		f, _ := x.Float64()
 		fmt.Printf("pledgeAmount:10000 vite, wait time: %v, quotaForTx: %v\n", math.Ceil(f), i)
+	}
+}
+
+func TestPoWQuotaSection(t *testing.T) {
+	InitQuotaConfig(true)
+	x := new(big.Float).SetPrec(precForFloat)
+	for i := 0; i < len(nodeConfig.sectionList); i++ {
+		x.Set(nodeConfig.paramB)
+		x.Quo(nodeConfig.sectionList[i], x)
+		difficulty, _ := new(big.Int).SetString(x.Text('f', 0), 0)
+		//target := pow.DifficultyToTarget(difficulty)
+		//fmt.Printf("pow difficulty: %v, quota: %v\n", difficulty, i*21000)
+		fmt.Printf("%v\n", difficulty)
+	}
+}
+
+func TestPoWQuota(t *testing.T) {
+	InitQuotaConfig(false)
+	list := []string{"0", "67108864", "134276096", "201564160", "269029376", "336736256", "404742144", "473120768", "541929472", "611241984", "681119744", "751652864", "822910976", "894976000", "967946240", "1041903616", "1116962816", "1193222144", "1270800384", "1349836800", "1430462464", "1512824832", "1597120512", "1683513344", "1772216320", "1863491584", "1957568512", "2054791168", "2155479040", "2260041728", "2368962560", "2482749440", "2602090496", "2727755776", "2860646400", "3001925632", "3153051648", "3315826688", "3492593664", "3686514688", "3901882368", "4144775168", "4424400896", "4755193856", "5162500096", "5696520192", "6482067456", "8034975744"}
+	x := new(big.Float).SetPrec(precForFloat)
+	for i, str := range list {
+		difficulty, _ := new(big.Int).SetString(str, 10)
+		x.SetInt(difficulty)
+		x.Mul(x, nodeConfig.paramB)
+		if getIndexInSection(x) != i {
+			fmt.Println("get quota by pow failed, difficulty = %v", str)
+		}
 	}
 }

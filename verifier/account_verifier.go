@@ -324,7 +324,6 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 		return errors.New("get account type error")
 	}
 	if block.IsSendBlock() && code == ledger.AccountTypeNotExist {
-		//verifier.log.Error("verify failed, need receiveTx for more balance first")
 		return ErrVerifyAccountAddrFailed
 	}
 
@@ -344,8 +343,8 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 		return errors.New("block timestamp can't be nil")
 	}
 
-	if !verifier.VerifyHash(block) {
-		return ErrVerifyHashFailed
+	if err := verifier.VerifyHash(block); err != nil {
+		return err
 	}
 
 	if err := verifier.VerifyNonce(block, code); err != nil {
@@ -353,8 +352,8 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock) 
 	}
 
 	if block.IsReceiveBlock() || (block.IsSendBlock() && code != ledger.AccountTypeContract) {
-		if !verifier.VerifySigature(block) {
-			return ErrVerifySignatureFailed
+		if err := verifier.VerifySigature(block); err != nil {
+			return err
 		}
 	}
 
@@ -380,13 +379,13 @@ func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBloc
 		return errors.New("block timestamp can't be nil")
 	}
 
-	if !verifier.VerifyHash(block) {
-		return ErrVerifyHashFailed
+	if err := verifier.VerifyHash(block); err != nil {
+		return err
 	}
 
 	if block.IsReceiveBlock() || (block.IsSendBlock() && (len(block.Signature) > 0 || len(block.PublicKey) > 0)) {
-		if !verifier.VerifySigature(block) {
-			return ErrVerifySignatureFailed
+		if err := verifier.VerifySigature(block); err != nil {
+			return err
 		}
 	}
 
@@ -397,27 +396,30 @@ func (verifier *AccountVerifier) VerifyIsReceivedSucceed(block *ledger.AccountBl
 	return verifier.chain.IsSuccessReceived(&block.AccountAddress, &block.FromBlockHash)
 }
 
-func (verifier *AccountVerifier) VerifyHash(block *ledger.AccountBlock) bool {
+func (verifier *AccountVerifier) VerifyHash(block *ledger.AccountBlock) error {
 	computedHash := block.ComputeHash()
-	if block.Hash.IsZero() || computedHash != block.Hash {
-		//verifier.log.Error("checkHash failed", "originHash", block.Hash, "computedHash", computedHash)
-		return false
+	if block.Hash.IsZero() {
+		return errors.New("hash can't be allzero")
 	}
-	return true
+	if computedHash != block.Hash {
+		//verifier.log.Error("checkHash failed", "originHash", block.Hash, "computedHash", computedHash)
+		return ErrVerifyHashFailed
+	}
+	return nil
 }
 
-func (verifier *AccountVerifier) VerifySigature(block *ledger.AccountBlock) bool {
+func (verifier *AccountVerifier) VerifySigature(block *ledger.AccountBlock) error {
 	if len(block.Signature) == 0 || len(block.PublicKey) == 0 {
-		return false
+		return errors.New("signature or publicKey can't be nil")
 	}
 	isVerified, verifyErr := crypto.VerifySig(block.PublicKey, block.Hash.Bytes(), block.Signature)
 	if !isVerified {
 		if verifyErr != nil {
 			verifier.log.Error("VerifySig failed", "error", verifyErr)
 		}
-		return false
+		return ErrVerifySignatureFailed
 	}
-	return true
+	return nil
 }
 
 func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock, accountType uint64) error {
@@ -430,7 +432,7 @@ func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock, account
 		}
 		hash256Data := crypto.Hash256(block.AccountAddress.Bytes(), block.PrevHash.Bytes())
 		if !pow.CheckPowNonce(block.Difficulty, block.Nonce, hash256Data) {
-			return errors.New("check pow nonce failed")
+			return ErrVerifyNonceFailed
 		}
 	} else {
 		if block.Difficulty != nil {

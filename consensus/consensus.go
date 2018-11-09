@@ -42,6 +42,7 @@ type Reader interface {
 	ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error)
 	ReadByTime(gid types.Gid, t time.Time) ([]*Event, uint64, error)
 	ReadVoteMapByTime(gid types.Gid, index uint64) ([]*VoteDetails, *ledger.HashHeight, error)
+	ReadVoteMapForAPI(gid types.Gid, t time.Time) ([]*VoteDetails, *ledger.HashHeight, error)
 	VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error)
 	VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time.Time, error)
 }
