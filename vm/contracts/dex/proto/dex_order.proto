@@ -8,7 +8,7 @@ message Order {
     uint32 TradeAsset = 3;
     uint32 QuoteAsset = 4;
     bool   Side = 5; // false buy, true sell
-    uint32 Type = 6;
+    uint32 Type = 6; // 0 limit order, 1 market order
     double Price = 7;
     uint64 Quantity = 8;
     uint64 LockQuantity = 9;
@@ -18,10 +18,9 @@ message Order {
 }
 
 message OrderNode {
-    uint64 OrderId = 1;
-    Order Order = 2;
-    repeated uint64 ForwardOnLevel = 3;
-    repeated uint64 backwardOnLevel = 4;
+    Order Order = 1;
+    repeated uint64 ForwardOnLevel = 2;
+    repeated uint64 backwardOnLevel = 3;
 }
 
 message OrderListMeta {

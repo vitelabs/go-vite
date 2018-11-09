@@ -53,7 +53,7 @@ func newSkipListTest (t *testing.T) *skiplist {
 	var po nodePayloadProtocol = &OrderNodeProtocol{}
 
 	// Test new
-	skiplist := NewSkiplist("listName", getAddress(), &st, &po)
+	skiplist := newSkiplist("listName", getAddress(), &st, &po)
 	assert.Equal(t, skiplist.level, int8(1))
 	return skiplist
 }

@@ -76,7 +76,7 @@ func (meta *skiplistMeta) getMetaStorageKey(name string) []byte {
 	return []byte(metaStorageSalt + name)
 }
 
-func NewSkiplist(name string, contractAddress *types.Address, storage *baseStorage, protocol *nodePayloadProtocol) *skiplist {
+func newSkiplist(name string, contractAddress *types.Address, storage *baseStorage, protocol *nodePayloadProtocol) *skiplist {
 	skl := &skiplist{}
 	skl.name = name
 	skl.header = (*protocol).getNilKey()
@@ -142,6 +142,7 @@ func (skl *skiplist) saveNode(node *skiplistNode) error {
 	(*skl.storage).SetStorage(node.nodeKey.getStorageKey(), nodeData)
 	return nil
 }
+
 
 func (skl *skiplist) saveMeta() {
 	meta := &skiplistMeta{}
@@ -337,16 +338,16 @@ func (skl *skiplist) peek() (pl *nodePayload, forwardKey nodeKeyType, backwardKe
 
 func (skl *skiplist) getByKey(key nodeKeyType) (pl *nodePayload, forwardKey nodeKeyType, backwardKey nodeKeyType, err error) {
 	node := skl.getNode(key)
-	fmt.Printf(">>>>>>>>>>>>>> info for key %s\n", key.toString())
-	fmt.Printf("node.forwardOnLevel.len %d, node.backwardOnLevel.len %d\n", len(node.forwardOnLevel), len(node.backwardOnLevel))
-	fmt.Printf("forwardOnLevel\n")
-	for  i , v := range node.forwardOnLevel {
-		fmt.Printf("%d : %s\n", i, v.toString())
-	}
-	fmt.Printf("backwardOnLevel\n")
-	for  i , v := range node.backwardOnLevel {
-		fmt.Printf("%d : %s\n", i, v.toString())
-	}
+	//fmt.Printf(">>>>>>>>>>>>>> info for key %s\n", key.toString())
+	//fmt.Printf("node.forwardOnLevel.len %d, node.backwardOnLevel.len %d\n", len(node.forwardOnLevel), len(node.backwardOnLevel))
+	//fmt.Printf("forwardOnLevel\n")
+	//for  i , v := range node.forwardOnLevel {
+	//	fmt.Printf("%d : %s\n", i, v.toString())
+	//}
+	//fmt.Printf("backwardOnLevel\n")
+	//for  i , v := range node.backwardOnLevel {
+	//	fmt.Printf("%d : %s\n", i, v.toString())
+	//}
 	if node != nil {
 		return node.payload, node.forwardOnLevel[0], node.backwardOnLevel[0], nil
 	} else {
@@ -357,5 +358,15 @@ func (skl *skiplist) getByKey(key nodeKeyType) (pl *nodePayload, forwardKey node
 func (skl *skiplist) saveNodes(needSaveNodes map[string]*skiplistNode) {
 	for _, v := range needSaveNodes {
 		skl.saveNode(v)
+	}
+}
+
+func (skl *skiplist) updatePayload(key nodeKeyType, pl *nodePayload) error {
+	node := skl.getNode(key)
+	if node == nil {
+		return fmt.Errorf("key not exists")
+	} else {
+		node.payload = pl
+		return skl.saveNode(node)
 	}
 }

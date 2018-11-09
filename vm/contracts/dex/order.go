@@ -9,9 +9,29 @@ import (
 
 const orderStorageSalt = "order:"
 const orderHeaderValue = math.MaxUint64
+const (
+	pending  = iota
+	partialExecuted
+	fullyExecuted
+	cancelled
+	cancelledByMarket
+	cancelledOnTimeout
+	partialExecutedCancelled
+	partialExecutedCancelledByMarket
+	partialExecutedCancelledOnTimeout
+)
+
+const (
+	limited = iota
+	market
+)
 
 type Order struct {
 	orderproto.Order
+	matchedQuantity uint64
+	matchedPrice uint64
+	matchedAmount uint64
+	matchedTimestamp uint64
 }
 
 type orderKey struct {
@@ -57,8 +77,6 @@ func (protocol *OrderNodeProtocol) getHeaderKey() nodeKeyType {
 
 func (protocol *OrderNodeProtocol) serialize(node *skiplistNode) []byte  {
 	protoNode := &orderproto.OrderNode{}
-	odKey, _ := node.nodeKey.(orderKey)
-	protoNode.OrderId = odKey.value
 	protoNode.ForwardOnLevel = convertKeyOnLevelToProto(node.forwardOnLevel)
 	protoNode.BackwardOnLevel = convertKeyOnLevelToProto(node.backwardOnLevel)
 	pl := *node.payload
@@ -74,7 +92,7 @@ func (protocol *OrderNodeProtocol) deSerialize(nodeData []byte) *skiplistNode {
 		return nil
 	} else {
 		node := &skiplistNode{}
-		node.nodeKey = newOrderKey(orderNode.OrderId)
+		node.nodeKey = newOrderKey(orderNode.Order.Id)
 		order := Order{}
 		order.Order = *orderNode.Order
 		od := nodePayload(order)
