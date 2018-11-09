@@ -718,6 +718,12 @@
 			"revisionTime": "2018-06-28T17:31:08Z"
 		},
 		{
+			"checksumSHA1": "TM3Neoy1xRAKyZYMGzKc41sDFW4=",
+			"path": "gopkg.in/natefinch/lumberjack.v2",
+			"revision": "a96e63847dc3c67d17befa69c303767e2f84e54f",
+			"revisionTime": "2017-05-31T16:03:50Z"
+		},
+		{
 			"checksumSHA1": "0xgs8lwcWLUffemlj+SsgKlxvDU=",
 			"path": "gopkg.in/natefinch/npipe.v2",
 			"revision": "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6",
