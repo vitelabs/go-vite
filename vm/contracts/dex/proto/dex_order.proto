@@ -11,10 +11,12 @@ message Order {
     uint32 Type = 6; // 0 limit order, 1 market order
     double Price = 7;
     uint64 Quantity = 8;
-    uint64 LockQuantity = 9;
+    uint64 Amount = 9; // QuoteAmount
     uint32 Status = 10;
-    uint64 Timestamp = 11;
-    uint64 ExecutedQuantity = 12;
+    uint32 cancelReason = 11;
+    int64 Timestamp = 12;
+    uint64 ExecutedQuantity = 13;
+    uint64 ExecutedAmount = 14;
 }
 
 message OrderNode {
@@ -33,4 +35,15 @@ message OrderListMeta {
 
 message OrderBook {
     repeated string MarketSide = 1; //format : TradeAsset|QuoteAsset|Side
+}
+
+message Transaction {
+    uint64 TxId = 1;
+    bool TakerSide = 2;
+    uint64 TakerId = 3;
+    uint64 MakerId = 4;
+    double Price = 5;
+    uint64 Quantity = 6;
+    uint64 Amount = 7;
+    int64 Timestamp = 8;
 }

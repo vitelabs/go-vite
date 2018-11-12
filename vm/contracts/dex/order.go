@@ -14,11 +14,16 @@ const (
 	partialExecuted
 	fullyExecuted
 	cancelled
+)
+
+const (
+	cancelledByuser = iota
 	cancelledByMarket
 	cancelledOnTimeout
-	partialExecutedCancelled
+	partialExecutedUserCancelled
 	partialExecutedCancelledByMarket
 	partialExecutedCancelledOnTimeout
+	unknownCancelledOnTimeout
 )
 
 const (
@@ -28,10 +33,9 @@ const (
 
 type Order struct {
 	orderproto.Order
-	matchedQuantity uint64
-	matchedPrice uint64
-	matchedAmount uint64
-	matchedTimestamp uint64
+	tx orderproto.Transaction
+	refundAsset uint32
+	refundQuantity uint64 //refund trade/quote asset
 }
 
 type orderKey struct {
