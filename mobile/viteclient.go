@@ -43,3 +43,18 @@ func (vc *Client) GetBlocksByAccAddr(addr *Address, index int, count int) (strin
 	}
 	return string(jsonb), nil
 }
+
+func (vc *Client) GetAccountByAccAddr(addr *Address) (*api.RpcAccountInfo, error) {
+	var info *api.RpcAccountInfo
+	err := vc.c.Call(&info, "ledger_getAccountByAccAddr", addr.address)
+	if err != nil {
+		return nil, err
+	}
+	return info, nil
+}
+
+func (vc *Client) GetSnapshotChainHeight() (string, error) {
+	height := ""
+	err := vc.c.Call(&height, "ledger_getSnapshotChainHeight")
+	return height, err
+}
