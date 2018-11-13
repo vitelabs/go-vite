@@ -36,7 +36,7 @@ Vite is a next-generation Reactive Blockchain that adopts a _message-driven, asy
 
 1. [Install Go](https://golang.org/doc/install)
 2. Run `go get github.com/vitelabs/go-vite` in your terminal, then you will find the source code here: `$GOPATH/src/github.com/vitelabs/go-vite/` (as default, $GOPATH is `~/go`)
-3. Go to the source code directory and run `make all`, you will get executable files of darwin, linux, windows here: `$GOPATH/src/github.com/vitelabs/go-vite/build/cmd/rpc`  
+3. Go to the source code directory and run `make all`, you will get executable files of darwin, linux, windows here: `$GOPATH/src/github.com/vitelabs/go-vite/build/cmd/gvite`
 4. Run the appropriate binary file on your OS.
 
 
