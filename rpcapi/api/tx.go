@@ -65,32 +65,57 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 }
 
 func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock, error) {
-	amount, ok := new(big.Int).SetString(param.Amount, 10)
+
+	if param.Amount == nil {
+		return nil, errors.New("amount is nil")
+	}
+
+	if param.SelfAddr == nil {
+		return nil, errors.New("selfAddr is nil")
+	}
+
+	if param.ToAddr == nil {
+		return nil, errors.New("toAddr is nil")
+	}
+
+	if param.PrivateKey == nil {
+		return nil, errors.New("privateKey is nil")
+	}
+
+	var d *big.Int = nil
+	if param.Difficulty != nil {
+		t, ok := new(big.Int).SetString(*param.Difficulty, 10)
+		if !ok {
+			return nil, ErrStrToBigInt
+		}
+		d = t
+	}
+
+	amount, ok := new(big.Int).SetString(*param.Amount, 10)
 	if !ok {
 		return nil, ErrStrToBigInt
 	}
-
 	msg := &generator.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
-		AccountAddress: param.SelfAddr,
-		ToAddress:      &param.ToAddr,
+		AccountAddress: *param.SelfAddr,
+		ToAddress:      param.ToAddr,
 		TokenId:        &param.TokenTypeId,
 		Amount:         amount,
 		Fee:            nil,
 		Data:           param.Data,
-		Difficulty:     param.Difficulty,
+		Difficulty:     d,
 	}
 	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.vite.Chain(), nil)
 	if err != nil {
 		return nil, err
 	}
-	g, e := generator.NewGenerator(t.vite.Chain(), fitestSnapshotBlockHash, nil, &param.SelfAddr)
+	g, e := generator.NewGenerator(t.vite.Chain(), fitestSnapshotBlockHash, nil, param.SelfAddr)
 	if e != nil {
 		return nil, e
 	}
 	result, e := g.GenerateWithMessage(msg, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		var privkey ed25519.PrivateKey
-		privkey, e := ed25519.HexToPrivateKey(param.PrivateKey)
+		privkey, e := ed25519.HexToPrivateKey(*param.PrivateKey)
 		if e != nil {
 			return nil, nil, e
 		}
@@ -107,7 +132,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		return nil, newerr
 	}
 	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
-		if err := t.vite.Pool().AddDirectAccountBlock(param.SelfAddr, result.BlockGenList[0]); err != nil {
+		if err := t.vite.Pool().AddDirectAccountBlock(*param.SelfAddr, result.BlockGenList[0]); err != nil {
 			return nil, err
 		}
 		return ledgerToRpcBlock(result.BlockGenList[0].AccountBlock, t.vite.Chain())
@@ -128,11 +153,11 @@ func isPreCompiledContracts(address types.Address) bool {
 }
 
 type SendTxWithPrivateKeyParam struct {
-	SelfAddr    types.Address
-	ToAddr      types.Address
-	TokenTypeId types.TokenTypeId
-	PrivateKey  string
-	Amount      string
-	Data        []byte
-	Difficulty  *big.Int
+	SelfAddr    *types.Address    `json:"selfAddr"`
+	ToAddr      *types.Address    `json:"toAddr"`
+	TokenTypeId types.TokenTypeId `json:"tokenTypeId"`
+	PrivateKey  *string           `json:"privateKey"` //hex16
+	Amount      *string           `json:"amount"`
+	Data        []byte            `json:"data"` //base64
+	Difficulty  *string           `json:"difficulty,omitempty"`
 }
