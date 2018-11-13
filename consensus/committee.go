@@ -325,9 +325,8 @@ func (self *committee) update(t *teller, m *sync.Map) {
 		if len(subs) == 0 {
 			select {
 			case <-time.After(electionResult.ETime.Sub(time.Now())):
-				continue
 			case <-self.closed:
-				break
+				return
 			}
 			index = index + 1
 			continue
@@ -345,9 +344,8 @@ func (self *committee) update(t *teller, m *sync.Map) {
 		sleepT := electionResult.ETime.Sub(time.Now()) - time.Second
 		select {
 		case <-time.After(sleepT):
-			continue
 		case <-self.closed:
-			break
+			return
 		}
 		index = electionResult.Index + 1
 	}

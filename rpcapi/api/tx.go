@@ -25,8 +25,12 @@ func NewTxApi(vite *vite.Vite) *Tx {
 	}
 }
 
-func (t Tx) SendRawTx(block AccountBlock) error {
+func (t Tx) SendRawTx(block *AccountBlock) error {
 	log.Info("SendRawTx")
+	if block == nil {
+		return errors.New("empty block")
+	}
+
 	lb, err := block.LedgerAccountBlock()
 	if err != nil {
 		return err
