@@ -31,6 +31,9 @@ type AccountBlock struct {
 
 func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 	lAb := ab.AccountBlock
+	if lAb == nil {
+		lAb = &ledger.AccountBlock{}
+	}
 
 	var err error
 	lAb.Height, err = strconv.ParseUint(ab.Height, 10, 64)
