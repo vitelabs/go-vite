@@ -57,7 +57,7 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 		lAb.Fee.SetString(*ab.Fee, 10)
 	}
 
-	if ab.Nonce != nil {
+	if ab.AccountBlock != nil && ab.AccountBlock.Nonce != nil {
 
 		if ab.Difficulty == nil {
 			return nil, errors.New("lack of difficulty field")
@@ -68,7 +68,6 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 			}
 			lAb.Difficulty = setString
 		}
-
 	}
 
 	t := time.Unix(ab.Timestamp, 0)
