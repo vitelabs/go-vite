@@ -32,3 +32,42 @@ func TestTopoJson(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestCalcDuration(t *testing.T) {
+	d := calcDuration(50)
+	if d.Seconds() != 50 {
+		t.Fail()
+	}
+}
+
+func TestRmEmptyString(t *testing.T) {
+	s0 := []string{}
+	s1 := []string{""}
+	s2 := []string{"", "hello", "", "", "world"}
+	s3 := []string{"", "hello", ""}
+	s4 := []string{"", ""}
+	s5 := []string{"hello", "world"}
+	s6 := []string{"hello", ""}
+
+	if len(rmEmptyString(s0)) != 0 {
+		t.Fail()
+	}
+	if len(rmEmptyString(s1)) != 0 {
+		t.Fail()
+	}
+	if len(rmEmptyString(s2)) != 2 {
+		t.Fail()
+	}
+	if len(rmEmptyString(s3)) != 1 {
+		t.Fail()
+	}
+	if len(rmEmptyString(s4)) != 0 {
+		t.Fail()
+	}
+	if len(rmEmptyString(s5)) != 2 {
+		t.Fail()
+	}
+	if len(rmEmptyString(s6)) != 1 {
+		t.Fail()
+	}
+}

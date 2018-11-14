@@ -3,6 +3,7 @@ package topo
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/vitelabs/go-vite/p2p/list"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -24,10 +25,31 @@ const Name = "Topo"
 const CmdSet = 3
 const topoCmd = 1
 
+var defaultTopic = "p2p_status_event"
+var defaultInterval int64 = 60
+
 type Config struct {
 	Addrs    []string
 	Interval int64 // second
 	Topic    string
+}
+
+func safeConfig(cfg *Config) *Config {
+	if cfg == nil {
+		return &Config{
+			Interval: defaultInterval,
+			Topic:    defaultTopic,
+		}
+	}
+
+	if cfg.Topic == "" {
+		cfg.Topic = defaultTopic
+	}
+	if cfg.Interval == 0 {
+		cfg.Interval = defaultInterval
+	}
+
+	return cfg
 }
 
 type Topology struct {
@@ -49,12 +71,7 @@ type Event struct {
 }
 
 func New(cfg *Config) *Topology {
-	if cfg.Topic == "" {
-		cfg.Topic = "p2p_status_event"
-	}
-	if cfg.Interval == 0 {
-		cfg.Interval = 5
-	}
+	cfg = safeConfig(cfg)
 
 	return &Topology{
 		Config: cfg,
@@ -75,17 +92,15 @@ func (t *Topology) Start(p2p *p2p.Server) error {
 	}
 	t.p2p = p2p
 
-	if len(t.Config.Addrs) > 0 {
+	if addrs := rmEmptyString(t.Config.Addrs); len(addrs) > 0 {
 		config := sarama.NewConfig()
-		prod, err := sarama.NewAsyncProducer(t.Config.Addrs, config)
-
-		if err != nil {
+		if prod, err := sarama.NewAsyncProducer(addrs, config); err != nil {
 			t.log.Error(fmt.Sprintf("create topo producer error: %v", err))
 			return err
+		} else {
+			t.log.Info("topo producer created")
+			t.prod = prod
 		}
-
-		t.log.Info("topo producer created")
-		t.prod = prod
 	}
 
 	t.wg.Add(1)
@@ -121,8 +136,8 @@ func (t *Topology) Stop() {
 
 type Peer struct {
 	*p2p.Peer
-	rw    p2p.MsgReadWriter
-	errch chan error // async handle msg, error report to this channel
+	rw      p2p.MsgReadWriter
+	errChan chan error // async handle msg, error report to this channel
 }
 
 func (t *Topology) Handle(p *p2p.Peer, rw *p2p.ProtoFrame) error {
@@ -137,7 +152,7 @@ func (t *Topology) Handle(p *p2p.Peer, rw *p2p.ProtoFrame) error {
 		select {
 		case <-t.term:
 			return nil
-		case err := <-peer.errch:
+		case err := <-peer.errChan:
 			return err
 		default:
 			msg, err := rw.ReadMsg()
@@ -151,9 +166,7 @@ func (t *Topology) Handle(p *p2p.Peer, rw *p2p.ProtoFrame) error {
 				return nil
 			}
 
-			length := len(msg.Payload)
-
-			if length < 32 {
+			if len(msg.Payload) < 32 {
 				return fmt.Errorf("receive invalid topoMsg from %s", p)
 			}
 
@@ -168,12 +181,30 @@ func (t *Topology) Handle(p *p2p.Peer, rw *p2p.ProtoFrame) error {
 func (t *Topology) handleLoop() {
 	defer t.wg.Done()
 
+	var hash []byte
+	queue := list.New()
+
 	for {
 		select {
 		case <-t.term:
 			return
 		case e := <-t.rec:
-			t.Receive(e.msg, e.sender)
+			if queue.Size() > 30 {
+				queue.Clear()
+			}
+
+			hash = e.msg.Payload[:32]
+			if t.record.InsertUnique(hash) {
+				queue.Append(e)
+			}
+
+		default:
+			if e := queue.Shift(); e != nil {
+				e := e.(*Event)
+				t.Receive(e.msg, e.sender)
+			} else {
+				time.Sleep(20 * time.Millisecond)
+			}
 		}
 	}
 }
@@ -184,6 +215,8 @@ func (t *Topology) sendLoop() {
 	ticker := time.NewTicker(time.Duration(t.Config.Interval * int64(time.Second)))
 	defer ticker.Stop()
 
+	var msg *Topo
+
 	for {
 		select {
 		case <-t.term:
@@ -191,23 +224,18 @@ func (t *Topology) sendLoop() {
 
 		case <-ticker.C:
 			monitor.LogEvent("topo", "send")
-			topo := t.Topology()
 
-			data, err := topo.Serialize()
-			if err != nil {
+			msg = t.Topology()
+			if data, err := msg.Serialize(); err != nil {
 				t.log.Error(fmt.Sprintf("serialize topo error: %v", err))
 			} else {
-				t.peers.Range(func(key, value interface{}) bool {
-					peer := value.(*Peer)
-					peer.rw.WriteMsg(&p2p.Msg{
-						CmdSet:  CmdSet,
-						Cmd:     topoCmd,
-						Payload: data,
-					})
-					return true
-				})
+				t.broadcast(&p2p.Msg{
+					CmdSet:  CmdSet,
+					Cmd:     topoCmd,
+					Payload: data,
+				}, nil)
 
-				t.write(t.Topic, topo.Json())
+				t.write(t.Topic, msg.Json())
 			}
 		}
 	}
@@ -231,53 +259,29 @@ func (t *Topology) Topology() *Topo {
 }
 
 func (t *Topology) Receive(msg *p2p.Msg, sender *Peer) {
-	defer msg.Recycle()
+	topoMsg := new(Topo)
 
-	if len(msg.Payload) < 32 {
-		return
-	}
-
-	hash := msg.Payload[:32]
-	if t.record.Lookup(hash) {
-		return
-	}
-
-	topo := new(Topo)
-	err := topo.Deserialize(msg.Payload[32:])
-	if err != nil {
+	if err := topoMsg.Deserialize(msg.Payload[32:]); err != nil {
 		t.log.Error(fmt.Sprintf("deserialize topoMsg error: %v", err))
-		sender.errch <- err
+		sender.errChan <- err
 		return
 	}
 
 	monitor.LogEvent("topo", "receive")
 
-	t.record.InsertUnique(hash)
 	// broadcast to other peer
-	var count int32 = 0
-	t.peers.Range(func(key, value interface{}) bool {
-		id := key.(string)
-		p := value.(*Peer)
-		if id != sender.String() {
-			p.rw.WriteMsg(msg)
-			count++
-		}
+	t.broadcast(msg, sender)
 
-		// just broadcast to 1/3 peers
-		//if count > t.peerCount/3 {
-		//	return false
-		//}
-
-		return true
-	})
-
-	t.write("p2p_status_event", topo.Json())
+	// report to kafka
+	t.write("p2p_status_event", topoMsg.Json())
 }
 
 func (t *Topology) write(topic string, data []byte) {
 	if t.prod == nil {
 		return
 	}
+
+	defer monitor.LogTime("topo", "kafka", time.Now())
 
 	t.prod.Input() <- &sarama.ProducerMessage{
 		Topic:     topic,
@@ -286,6 +290,29 @@ func (t *Topology) write(topic string, data []byte) {
 	}
 
 	monitor.LogEvent("topo", "report")
+}
+
+func (t *Topology) broadcast(msg *p2p.Msg, except *Peer) {
+	var count int32 = 0
+	var id string
+	var p *Peer
+	t.peers.Range(func(key, value interface{}) bool {
+		id, p = key.(string), value.(*Peer)
+
+		if except != nil && id == except.String() {
+			// do nothing
+		} else {
+			p.rw.WriteMsg(msg)
+			count++
+		}
+
+		// just broadcast to 1/3 peers
+		if count > t.peerCount/3 {
+			return false
+		}
+
+		return true
+	})
 }
 
 func (t *Topology) Protocol() *p2p.Protocol {
@@ -370,4 +397,24 @@ func (t *Topo) Deserialize(buf []byte) error {
 func (t *Topo) Json() []byte {
 	buf, _ := json.Marshal(t)
 	return buf
+}
+
+func calcDuration(t int64) time.Duration {
+	return time.Duration(t * int64(time.Second))
+}
+
+func rmEmptyString(strs []string) (ret []string) {
+	if len(strs) == 0 {
+		return
+	}
+
+	var i, j int
+	for i = 0; i < len(strs); i++ {
+		if strs[i] != "" {
+			strs[j] = strs[i]
+			j++
+		}
+	}
+
+	return strs[:j]
 }
