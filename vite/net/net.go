@@ -25,10 +25,10 @@ type Config struct {
 	Verifier Verifier
 
 	// for topo
-	Topology     []string
-	Topic        string
-	Interval     int64 // second
-	TopoDisabled bool
+	Topology   []string
+	Topic      string
+	Interval   int64 // second
+	TopoEnable bool
 }
 
 const DefaultPort uint16 = 8484
@@ -104,7 +104,7 @@ func New(cfg *Config) Net {
 	})
 
 	// topo
-	if !cfg.TopoDisabled {
+	if cfg.TopoEnable {
 		n.topo = topo.New(&topo.Config{
 			Addrs:    cfg.Topology,
 			Interval: cfg.Interval,
