@@ -21,6 +21,28 @@ import (
 )
 
 var errSvrStarted = errors.New("server has started")
+var blockMinExpired = 10 * time.Second
+var blockMaxExpired = 3 * time.Minute
+
+const blockCount = 10
+
+func blockPolicy(t time.Time, count int) bool {
+	del := time.Now().Sub(t)
+
+	if del < blockMinExpired {
+		return true
+	}
+
+	if del > blockMaxExpired {
+		return false
+	}
+
+	if count < blockCount {
+		return false
+	}
+
+	return true
+}
 
 type Discovery interface {
 	Start() error
@@ -62,12 +84,13 @@ type Server struct {
 	discv     Discovery
 	handshake *Handshake
 	peers     *PeerSet
-	blockList *block.Set
+	blockUtil *block.Block
 	self      *discovery.Node
 	ln        net.Listener
 	nodeChan  chan *discovery.Node // sub discovery nodes
 	log       log15.Logger
 
+	rw     sync.RWMutex // for block
 	dialer *net.Dialer
 }
 
@@ -103,7 +126,7 @@ func New(cfg *Config) (svr *Server, err error) {
 		pending:     make(chan struct{}, cfg.MaxPendingPeers),
 		addPeer:     make(chan *transport, 1),
 		delPeer:     make(chan *Peer, 1),
-		blockList:   block.New(100),
+		blockUtil:   block.New(blockPolicy),
 		self:        node,
 		nodeChan:    make(chan *discovery.Node, 10),
 		log:         log15.New("module", "p2p/server"),
@@ -242,6 +265,20 @@ func (svr *Server) setHandshake() {
 	}
 }
 
+func (svr *Server) blocked(buf []byte) bool {
+	svr.rw.RLock()
+	defer svr.rw.RUnlock()
+
+	return svr.blockUtil.Blocked(buf)
+}
+
+func (svr *Server) block(buf []byte) {
+	svr.rw.Lock()
+	defer svr.rw.Unlock()
+
+	svr.blockUtil.Block(buf)
+}
+
 func (svr *Server) dialLoop() {
 	defer svr.wg.Done()
 
@@ -257,6 +294,10 @@ func (svr *Server) dialLoop() {
 		case <-svr.term:
 			return
 		case node = <-svr.nodeChan:
+			if svr.blocked(node.ID[:]) {
+				break
+			}
+
 			svr.dial(node.ID, node.TCPAddr(), outbound)
 		}
 	}
@@ -287,6 +328,7 @@ func (svr *Server) listenLoop() {
 	defer svr.wg.Done()
 
 	var conn net.Conn
+	var addr *net.TCPAddr
 	var err error
 	var tempDelay time.Duration
 	var maxDelay = time.Second
@@ -323,6 +365,12 @@ func (svr *Server) listenLoop() {
 				return
 			}
 
+			addr = conn.RemoteAddr().(*net.TCPAddr)
+			if svr.blocked(addr.IP) {
+				conn.Close()
+				break
+			}
+
 			common.Go(func() {
 				svr.setupConn(conn, inbound, discovery.ZERO_NODE_ID)
 			})
@@ -343,6 +391,13 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
 	if err = svr.checkHead(c); err != nil {
 		svr.log.Warn(fmt.Sprintf("HeadShake with %s error: %v", c.RemoteAddr(), err))
 		c.Close()
+
+		if id == discovery.ZERO_NODE_ID {
+			svr.block(c.RemoteAddr().(*net.TCPAddr).IP)
+		} else {
+			svr.block(id[:])
+		}
+
 		return
 	}
 
@@ -354,6 +409,13 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
 	if err = svr.handleTS(ts, id); err != nil {
 		svr.log.Warn(fmt.Sprintf("HandShake with %s error: %v", c.RemoteAddr(), err))
 		ts.Close()
+
+		if id == discovery.ZERO_NODE_ID {
+			svr.block(c.RemoteAddr().(*net.TCPAddr).IP)
+		} else {
+			svr.block(id[:])
+		}
+
 		return
 	}
 
