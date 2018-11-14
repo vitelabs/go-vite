@@ -92,6 +92,7 @@ func New(cfg *Config) (svr *Server, err error) {
 		IP:  tcpAddr.IP,
 		UDP: uint16(tcpAddr.Port),
 		TCP: uint16(tcpAddr.Port),
+		Net: cfg.NetID,
 	}
 
 	svr = &Server{
