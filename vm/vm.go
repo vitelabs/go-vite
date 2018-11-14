@@ -5,6 +5,10 @@ package vm
 
 import (
 	"errors"
+	"math/big"
+	"sync/atomic"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -15,9 +19,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
-	"math/big"
-	"sync/atomic"
-	"time"
 )
 
 type VMConfig struct {
@@ -350,6 +351,13 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 			}
 		}
 		if refundFlag {
+			if sendBlock.Amount.Sign() > 0 {
+				block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
+			}
+			if sendBlock.Fee.Sign() > 0 {
+				block.VmContext.AddBalance(&ledger.ViteTokenId, sendBlock.Fee)
+			}
+			vm.updateBlock(block, err, 0)
 			if err = vm.doSendBlockList(util.PrecompiledContractsSendGas); err == nil {
 				return vm.blockList, NoRetry, nil
 			} else {
