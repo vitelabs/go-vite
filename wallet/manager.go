@@ -210,6 +210,11 @@ func (m *Manager) RemoveEntropyStore(entropyStore string) {
 	}
 }
 
+func (m *Manager) Bip39RecoverEntropyStoreFromMnemonic(wordlist, mnemonic, extraword, newPassphrase string) (entropyStore *string, err error) {
+
+	return nil, nil
+}
+
 func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, passphrase string) (em *entropystore.Manager, err error) {
 	sm, e := entropystore.StoreNewEntropy(m.config.DataDir, mnemonic, passphrase, &entropystore.Config{
 		MaxSearchIndex: m.config.MaxSearchIndex,

@@ -63,7 +63,7 @@ func (w *Wallet) RecoverEntropyStoreFromMnemonic(mnemonic string, newPassphrase 
 	return &f, nil
 }
 
-func (w *Wallet) NewMnemonicAndEntropyStore(passphrase string) (result *NewEntropyResult, err error) {
+func (w *Wallet) NewMnemonicAndEntropyStore(mnemonicSize int, passphrase string) (result *NewEntropyResult, err error) {
 	mnemonic, em, e := w.wallet.NewMnemonicAndEntropyStore(passphrase)
 	if e != nil {
 		return nil, e

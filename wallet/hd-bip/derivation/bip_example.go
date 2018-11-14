@@ -1,9 +1,9 @@
 package derivation
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/tyler-smith/go-bip39"
-	"encoding/hex"
 )
 
 func RandomMnemonic12(passphrase string) error {
@@ -15,6 +15,12 @@ func RandomMnemonic12(passphrase string) error {
 func RandomMnemonic24(passphrase string) error {
 	fmt.Println("RandomMnemonic24:")
 	entropy, _ := bip39.NewEntropy(256)
+	return Menmonic(entropy, passphrase)
+}
+
+func RandomMnemonic15(passphrase string) error {
+	fmt.Println("RandomMnemonic15:")
+	entropy, _ := bip39.NewEntropy(160)
 	return Menmonic(entropy, passphrase)
 }
 

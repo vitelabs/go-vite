@@ -216,7 +216,7 @@ func StoreNewEntropy(storeDir string, mnemonic string, pwd string, config *Confi
 
 	filename := FullKeyFileName(storeDir, *primaryAddress)
 	ss := NewCryptoStore(filename, config.UseLightScrypt)
-	e = ss.StoreEntropy(entropy, *primaryAddress, pwd)
+	e = ss.StoreEntropy(entropy, primaryAddress.String(), pwd)
 	if e != nil {
 		return nil, e
 	}
