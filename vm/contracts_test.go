@@ -4,6 +4,12 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"regexp"
+	"strconv"
+	"testing"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -12,11 +18,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"math/big"
-	"regexp"
-	"strconv"
-	"testing"
-	"time"
 )
 
 func TestContractsRefund(t *testing.T) {
@@ -1325,6 +1326,59 @@ func TestCheckTokenName(t *testing.T) {
 			t.Fatalf("match string error, [%v] expected %v, got %v", test.data, test.exp, ok)
 		}
 	}
+}
+func TestABI_MethodById2(t *testing.T) {
+	data := "8pxs4gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAACLPGY836Hk51+jDRsuw0HeAWVwzwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGMTIzNDM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+	databyte := []byte(data)
+	method, e := abi.ABIRegister.MethodById(databyte[0:4])
+	if e != nil {
+		panic(e)
+	}
+
+	t.Log(method.Name)
+}
+func TestSenData(t *testing.T) {
+
+	param := new(abi.ParamRegister)
+	data := "f29c6ce2000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000600000000000000000000000008b3c663cdfa1e4e75fa30d1b2ec341de016570cf00000000000000000000000000000000000000000000000000000000000000063132333433340000000000000000000000000000000000000000000000000000"
+
+	databyte, err := hex.DecodeString(data)
+	if err != nil {
+		panic(err)
+	}
+	if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameRegister, databyte); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%+v", param)
+
+	//param := new(abi.ParamReward)
+	//data := "8pxs4gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAACLPGY836Hk51+jDRsuw0HeAWVwzwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGMTIzNDM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+	//databyte := []byte(data)
+	//if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameReward, databyte); err != nil {
+	//	panic(err)
+	//}
+
+	//param := new(abi.ParamCancelRegister)
+	//data := "8pxs4gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAACLPGY836Hk51+jDRsuw0HeAWVwzwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGMTIzNDM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+	//databyte := []byte(data)
+	//if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameCancelRegister, databyte); err != nil {
+	//	panic(err)
+	//}
+
+	//param := new(abi.ParamRegister)
+	//data := "8pxs4gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAACLPGY836Hk51+jDRsuw0HeAWVwzwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGMTIzNDM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+	//databyte := []byte(data)
+	//if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameRegister, databyte); err != nil {
+	//	panic(err)
+	//}
+	//
+	//param := new(abi.ParamRegister)
+	//data := "8pxs4gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAACLPGY836Hk51+jDRsuw0HeAWVwzwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGMTIzNDM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+	//databyte := []byte(data)
+	//if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameRegister, databyte); err != nil {
+	//	panic(err)
+	//}
 }
 
 func TestGenesisBlockData(t *testing.T) {

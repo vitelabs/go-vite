@@ -3,6 +3,9 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
+	"math/big"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -10,8 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
-	"math/big"
-	"time"
 )
 
 type testDatabase struct {
@@ -61,11 +62,11 @@ func (db *testDatabase) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.I
 	}
 
 }
-func (db *testDatabase) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
+func (db *testDatabase) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
 	if height < uint64(len(db.snapshotBlockList)) {
-		return db.snapshotBlockList[height-1]
+		return db.snapshotBlockList[height-1], nil
 	}
-	return nil
+	return nil, nil
 }
 
 // forward=true return [startHeight, startHeight+count), forward=false return (startHeight-count, startHeight]
