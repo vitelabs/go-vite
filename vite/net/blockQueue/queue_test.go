@@ -35,3 +35,19 @@ func TestBlockQueue_Pop(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestBlockQueue_Close(t *testing.T) {
+	q := New()
+	pending := make(chan struct{})
+
+	go func() {
+		q.Pop()
+		pending <- struct{}{}
+	}()
+
+	go func() {
+		q.Close()
+	}()
+
+	<-pending
+}
