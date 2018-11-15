@@ -2,6 +2,7 @@ package net
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/vite/net/blockQueue"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -128,25 +129,29 @@ func (c *chunkRequest) band() (from, to uint64) {
 }
 
 type chunkPool struct {
-	lock    sync.RWMutex
-	peers   *peerSet
-	gid     MsgIder
-	queue   *list.List
-	chunks  *sync.Map
-	handler blockReceiver
-	term    chan struct{}
-	wg      sync.WaitGroup
-	to      uint64
-	running int32
+	lock     sync.RWMutex
+	peers    *peerSet
+	gid      MsgIder
+	queue    *list.List
+	chunks   *sync.Map
+	handler  blockReceiver
+	term     chan struct{}
+	wg       sync.WaitGroup
+	to       uint64
+	running  int32
+	resQueue *blockQueue.BlockQueue
+	addChan  chan [2]uint64
 }
 
 func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool {
 	return &chunkPool{
-		peers:   peers,
-		gid:     gid,
-		queue:   list.New(),
-		chunks:  new(sync.Map),
-		handler: handler,
+		peers:    peers,
+		gid:      gid,
+		queue:    list.New(),
+		chunks:   new(sync.Map),
+		handler:  handler,
+		resQueue: blockQueue.New(),
+		addChan:  make(chan [2]uint64, 5),
 	}
 }
 
@@ -180,37 +185,10 @@ func (p *chunkPool) Cmds() []ViteCmd {
 }
 
 func (p *chunkPool) Handle(msg *p2p.Msg, sender Peer) error {
-	if ViteCmd(msg.Cmd) == SubLedgerCode {
-		res := new(message.SubLedger)
+	cmd := ViteCmd(msg.Cmd)
+	netLog.Info(fmt.Sprintf("receive %s from %s", cmd, sender.RemoteAddr()))
 
-		if err := res.Deserialize(msg.Payload); err != nil {
-			netLog.Error(fmt.Sprintf("descerialize %s from %s error: %v", res, sender.RemoteAddr(), err))
-			p.retry(msg.Id)
-			return err
-		}
-
-		netLog.Info(fmt.Sprintf("receive %s from %s", res, sender.RemoteAddr()))
-
-		// receive account blocks first
-		for _, block := range res.ABlocks {
-			p.handler.receiveAccountBlock(block)
-		}
-
-		for _, block := range res.SBlocks {
-			p.handler.receiveSnapshotBlock(block)
-		}
-
-		c := p.chunk(msg.Id)
-		if c != nil {
-			c.count += uint64(len(res.SBlocks))
-
-			if c.count >= c.to-c.from+1 {
-				p.done(msg.Id)
-			}
-		}
-	} else {
-		p.retry(msg.Id)
-	}
+	p.resQueue.Push(msg)
 
 	return nil
 }
@@ -221,6 +199,9 @@ func (p *chunkPool) start() {
 
 		p.wg.Add(1)
 		common.Go(p.loop)
+
+		p.wg.Add(1)
+		common.Go(p.handleLoop)
 	}
 }
 
@@ -231,6 +212,43 @@ func (p *chunkPool) stop() {
 		default:
 			close(p.term)
 			p.wg.Wait()
+		}
+	}
+}
+
+func (p *chunkPool) handleLoop() {
+	defer p.wg.Done()
+
+	for {
+		select {
+		case <-p.term:
+			return
+
+		default:
+			msg := p.resQueue.Pop().(*p2p.Msg)
+
+			res := new(message.SubLedger)
+
+			if err := res.Deserialize(msg.Payload); err != nil {
+				p.retry(msg.Id)
+			}
+
+			// receive account blocks first
+			for _, block := range res.ABlocks {
+				p.handler.receiveAccountBlock(block)
+			}
+
+			for _, block := range res.SBlocks {
+				p.handler.receiveSnapshotBlock(block)
+			}
+
+			if c := p.chunk(msg.Id); c != nil {
+				c.count += uint64(len(res.SBlocks))
+
+				if c.count >= c.to-c.from+1 {
+					p.done(msg.Id)
+				}
+			}
 		}
 	}
 }
@@ -250,6 +268,24 @@ loop:
 		select {
 		case <-p.term:
 			break loop
+
+		case piece := <-p.addChan:
+			from, to := piece[0], piece[1]
+			cs := splitChunk(from, to)
+
+			for _, chunk := range cs {
+				c := &chunkRequest{from: chunk[0], to: chunk[1]}
+				c.id = p.gid.MsgID()
+				p.queue.Append(c)
+				c.msg = &message.GetChunk{
+					Start: c.from,
+					End:   c.to,
+				}
+
+				if c.from <= p.to {
+					p.request(c)
+				}
+			}
 
 		case now := <-ticker.C:
 			p.chunks.Range(func(key, value interface{}) bool {
@@ -275,33 +311,11 @@ func (p *chunkPool) chunk(id uint64) *chunkRequest {
 }
 
 func (p *chunkPool) add(from, to uint64) {
-	cs := splitChunk(from, to)
-
-	for _, chunk := range cs {
-		c := &chunkRequest{from: chunk[0], to: chunk[1]}
-		c.id = p.gid.MsgID()
-		p.queue.Append(c)
-		c.msg = &message.GetChunk{
-			Start: c.from,
-			End:   c.to,
-		}
+	select {
+	case <-p.term:
+		return
+	case p.addChan <- [2]uint64{from, to}:
 	}
-}
-
-func (p *chunkPool) exec(from, to uint64) {
-	cs := splitChunk(from, to)
-
-	for _, chunk := range cs {
-		c := &chunkRequest{from: chunk[0], to: chunk[1]}
-		c.id = p.gid.MsgID()
-		p.queue.UnShift(c)
-		c.msg = &message.GetChunk{
-			Start: c.from,
-			End:   c.to,
-		}
-	}
-
-	p.start()
 }
 
 func (p *chunkPool) done(id uint64) {
@@ -320,7 +334,7 @@ func (p *chunkPool) request(c *chunkRequest) {
 		c.peer = peers[rand.Intn(len(peers))]
 	}
 
-	p.do(c)
+	p.send(c)
 }
 
 func (p *chunkPool) retry(id uint64) {
@@ -348,7 +362,7 @@ func (p *chunkPool) retry(id uint64) {
 		if c.peer == nil {
 			p.catch(c)
 		} else {
-			p.do(c)
+			p.send(c)
 		}
 	}
 }
@@ -358,7 +372,7 @@ func (p *chunkPool) catch(c *chunkRequest) {
 	p.handler.catch(c)
 }
 
-func (p *chunkPool) do(c *chunkRequest) {
+func (p *chunkPool) send(c *chunkRequest) {
 	c.deadline = time.Now().Add(chunkTimeout)
 	c.state = reqPending
 	c.peer.Send(GetChunkCode, c.id, c.msg)

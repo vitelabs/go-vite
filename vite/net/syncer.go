@@ -345,12 +345,11 @@ func (s *syncer) ID() string {
 }
 
 func (s *syncer) Cmds() []ViteCmd {
-	return []ViteCmd{FileListCode, SubLedgerCode, ExceptionCode}
+	return []ViteCmd{FileListCode, SubLedgerCode}
 }
 
 func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
-	cmd := ViteCmd(msg.Cmd)
-	if cmd == FileListCode {
+	if ViteCmd(msg.Cmd) == FileListCode {
 		res := new(message.FileList)
 
 		if err := res.Deserialize(msg.Payload); err != nil {
@@ -363,20 +362,8 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 		if len(res.Files) > 0 {
 			s.fc.gotFiles(res.Files, sender)
 		}
-
-		if sender.Height() >= s.to && len(res.Chunks) > 0 {
-			if atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
-				for _, c := range res.Chunks {
-					if len(c) == 2 && c[1] > 0 && c[1] >= c[0] {
-						s.pool.add(c[0], c[1])
-					}
-				}
-			}
-		}
-	} else if cmd == SubLedgerCode {
-		s.pool.Handle(msg, sender)
 	} else {
-		s.log.Warn(fmt.Sprintf("syncer: got %d need %d", msg.Cmd, SubLedgerCode))
+		s.pool.Handle(msg, sender)
 	}
 
 	return nil

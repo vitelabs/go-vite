@@ -180,7 +180,7 @@ type fileClient struct {
 }
 
 type cPool interface {
-	exec(from, to uint64)
+	add(from, to uint64)
 	start()
 }
 
@@ -251,6 +251,10 @@ func (fc *fileClient) usePeer(conns map[string]*conn, record map[string]*fileSta
 		// retrieve files from low to high
 		for _, file := range files {
 			if r, ok := record[file.Filename]; ok {
+				if file.StartHeight > fc.to {
+					break
+				}
+
 				if r.state == reqWaiting || r.state == reqError {
 					r.state = reqPending
 					if err := fc.doRequest(conns, file, sender); err != nil {
@@ -267,41 +271,37 @@ func (fc *fileClient) usePeer(conns map[string]*conn, record map[string]*fileSta
 
 func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fileState, pFiles map[string]files, file *ledger.CompressedFileMeta) {
 	if r, ok := record[file.Filename]; ok {
+		if len(r.peers) > 0 {
+			var id string
+			ids := rand.Perm(len(r.peers))
+			// random a idle peer
+			for _, idx := range ids {
+				// may be remove peers from r.peers
+				if idx >= len(r.peers) {
+					continue
+				}
+
+				p := r.peers[idx]
+				id = p.ID()
+
+				// connection is busy
+				if c, ok := conns[id]; ok && !c.idle {
+					continue
+				}
+
+				r.state = reqPending
+				if err := fc.doRequest(conns, file, p); err != nil {
+					r.state = reqError
+					fc.removePeer(conns, record, pFiles, p)
+				} else {
+					return
+				}
+			}
+		}
+
 		// no peers
-		if len(r.peers) == 0 {
-			r.state = reqDone
-			fc.pool.exec(file.StartHeight, file.EndHeight)
-			return
-		}
-
-		var id string
-		ids := rand.Perm(len(r.peers))
-		for _, idx := range ids {
-			// may be remove peers from r.peers
-			if idx >= len(r.peers) {
-				continue
-			}
-
-			p := r.peers[idx]
-			id = p.ID()
-
-			// connection is busy
-			if c, ok := conns[id]; ok && !c.idle {
-				continue
-			}
-
-			r.state = reqPending
-			if err := fc.doRequest(conns, file, p); err != nil {
-				r.state = reqError
-				fc.removePeer(conns, record, pFiles, p)
-			} else {
-				return
-			}
-		}
-
-		// find no peers
 		r.state = reqDone
-		fc.pool.exec(file.StartHeight, file.EndHeight)
+		fc.pool.add(file.StartHeight, file.EndHeight)
 		return
 	}
 }
@@ -402,19 +402,23 @@ loop:
 			if could == nil {
 				could = make(chan struct{})
 				close(could)
+
+				fc.usePeer(conns, record, pFiles, e.sender)
 			}
 
-		case ctx := <-fc.idleChan: // a job done
-			if r, ok := record[ctx.file.Filename]; ok {
-				if ctx.done {
+		case c := <-fc.idleChan: // a job done
+			if r, ok := record[c.file.Filename]; ok {
+				if c.done {
 					r.state = reqDone
 				} else {
 					r.state = reqError
 				}
 			}
 
-			ctx.idle = true
-			ctx.idleT = time.Now()
+			c.idle = true
+			c.idleT = time.Now()
+
+			fc.usePeer(conns, record, pFiles, c.peer)
 
 		case conn := <-fc.delChan: // a job error
 			delConn(conn)
@@ -442,7 +446,7 @@ loop:
 				} else {
 					r.state = reqDone
 					// use chunk
-					fc.pool.exec(conn.height+1, file.EndHeight)
+					fc.pool.add(conn.height+1, file.EndHeight)
 				}
 			}
 
