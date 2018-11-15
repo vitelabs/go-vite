@@ -208,7 +208,7 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 			if e != nil {
 				return nil, nil, e
 			}
-			return manager.SignData(addr, data, nil)
+			return manager.SignData(addr, data, nil, nil)
 		}, w.powDifficulty)
 	if err != nil {
 		w.log.Error("GenerateWithOnroad failed", "error", err)

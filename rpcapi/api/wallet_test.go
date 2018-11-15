@@ -22,7 +22,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
@@ -83,7 +82,7 @@ func TestWallet(t *testing.T) {
 				waitSnapshotInc(vite, t)
 
 				byt, _ := abi.ABIPledge.PackMethod(abi.MethodNamePledge, genesisAddr)
-				parms := CreateTransferTxParms{
+				parms := CreateTransferTxParams{
 					SelfAddr:    genesisAddr,
 					ToAddr:      abi.AddressPledge,
 					TokenTypeId: ledger.ViteTokenId,
@@ -319,7 +318,7 @@ func TestGenData(t *testing.T) {
 
 	waitSnapshotInc(vite, t)
 
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    genesisAddr,
 		ToAddr:      addr,
 		TokenTypeId: ledger.ViteTokenId,
@@ -421,7 +420,7 @@ func contractsPledge(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroad
 	}
 	pledgeData, _ := abi.ABIPledge.PackMethod(abi.MethodNamePledge, addr)
 	amount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressPledge,
 		TokenTypeId: ledger.ViteTokenId,
@@ -463,7 +462,7 @@ func contractsCancelPledge(vite *vite.Vite, waApi *WalletApi, onRoadApi *Private
 	amount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
 	pledgeData, _ := abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge,
 		addr, amount)
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressPledge,
 		TokenTypeId: ledger.ViteTokenId,
@@ -514,7 +513,7 @@ func contractsMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroa
 		big.NewInt(1e18),
 		uint8(0))
 	mintagePledgeAmount := new(big.Int).Mul(big.NewInt(1e5), big.NewInt(1e18))
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressMintage,
 		TokenTypeId: ledger.ViteTokenId,
@@ -557,7 +556,7 @@ func contractsCancelMintage(vite *vite.Vite, waApi *WalletApi, onRoadApi *Privat
 	printQuota(vite, addr)
 
 	cancelMintageData, _ := abi.ABIMintage.PackMethod(abi.MethodNameMintageCancelPledge, tokenId)
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressMintage,
 		TokenTypeId: ledger.ViteTokenId,
@@ -615,7 +614,7 @@ func contractsCreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi 
 		uint8(1),
 		[]byte{})
 	pledgeAmount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressConsensusGroup,
 		TokenTypeId: ledger.ViteTokenId,
@@ -661,7 +660,7 @@ func contractsCancelConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadApi 
 	}
 	cancelConsensusGroupData, _ := abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelConsensusGroup, gid)
 	pledgeAmount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressConsensusGroup,
 		TokenTypeId: ledger.ViteTokenId,
@@ -707,7 +706,7 @@ func contractsRecreateConsensusGroup(vite *vite.Vite, waApi *WalletApi, onRoadAp
 	}
 	recreateConsensusGroupData, _ := abi.ABIConsensusGroup.PackMethod(abi.MethodNameReCreateConsensusGroup, gid)
 	pledgeAmount := new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressConsensusGroup,
 		TokenTypeId: ledger.ViteTokenId,
@@ -767,7 +766,7 @@ func contractsRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnro
 		gid,
 		name,
 		nodeAddr)
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressRegister,
 		TokenTypeId: ledger.ViteTokenId,
@@ -818,7 +817,7 @@ func contractsUpdateRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 		gid,
 		name,
 		nodeAddr)
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressRegister,
 		TokenTypeId: ledger.ViteTokenId,
@@ -865,7 +864,7 @@ func contractsCancelRegister(vite *vite.Vite, waApi *WalletApi, onRoadApi *Priva
 	registerData, _ := abi.ABIRegister.PackMethod(abi.MethodNameCancelRegister,
 		gid,
 		name)
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressRegister,
 		TokenTypeId: ledger.ViteTokenId,
@@ -921,7 +920,7 @@ func contractsVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroadAp
 	voteData, _ := abi.ABIVote.PackMethod(abi.MethodNameVote,
 		gid,
 		name)
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressVote,
 		TokenTypeId: ledger.ViteTokenId,
@@ -963,7 +962,7 @@ func contractsCancelVote(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOn
 	}
 	voteData, _ := abi.ABIVote.PackMethod(abi.MethodNameCancelVote,
 		gid)
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressVote,
 		TokenTypeId: ledger.ViteTokenId,
@@ -1019,7 +1018,7 @@ func contractsReward(vite *vite.Vite, waApi *WalletApi, onRoadApi *PrivateOnroad
 	rewardAmount = rewardAmount.Mul(rewardAmount, big.NewInt(count))
 
 	rewardData, _ := abi.ABIRegister.PackMethod(abi.MethodNameReward, types.SNAPSHOT_GID, "s3", addr)
-	parms := CreateTransferTxParms{
+	parms := CreateTransferTxParams{
 		SelfAddr:    addr,
 		ToAddr:      abi.AddressRegister,
 		TokenTypeId: ledger.ViteTokenId,

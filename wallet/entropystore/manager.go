@@ -147,10 +147,19 @@ func (km *Manager) FindAddrWithPassphrase(passphrase string, addr types.Address,
 	return FindAddrFromEntropy(*entropy, addr, extensionWord, km.maxSearchIndex)
 }
 
-func (km *Manager) SignData(a types.Address, data []byte, extensionWord *string) (signedData, pubkey []byte, err error) {
+func (km *Manager) SignData(a types.Address, data []byte, bip44index *uint32, extensionWord *string) (signedData, pubkey []byte, err error) {
 	if !km.IsUnlocked() {
 		return nil, nil, walleterrors.ErrLocked
 	}
+
+	if bip44index != nil {
+		_, key, e := km.DeriveForIndexPath(*bip44index, extensionWord)
+		if e != nil {
+			return nil, nil, e
+		}
+		return key.SignData(data)
+	}
+
 	key, _, e := FindAddrFromEntropy(*km.unlockedEntropy, a, extensionWord, km.maxSearchIndex)
 	if e != nil {
 		return nil, nil, walleterrors.ErrAddressNotFound
@@ -158,11 +167,25 @@ func (km *Manager) SignData(a types.Address, data []byte, extensionWord *string)
 	return key.SignData(data)
 }
 
-func (km *Manager) SignDataWithPassphrase(addr types.Address, passphrase string, data []byte, extensionWord *string) (signedData, pubkey []byte, err error) {
+func (km *Manager) SignDataWithPassphrase(addr types.Address, passphrase string, data []byte, bip44index *uint32, extensionWord *string) (signedData, pubkey []byte, err error) {
 
 	entropyProfile, err := km.ks.ExtractEntropy(passphrase)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if bip44index != nil {
+		seed, err := km.unlockedEntropy.GetSeed(extensionWord)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		key, e := derivation.DeriveWithIndex(*bip44index, seed)
+		if e != nil {
+			return nil, nil, e
+		}
+
+		return key.SignData(data)
 	}
 
 	key, _, e := FindAddrFromEntropy(*entropyProfile, addr, extensionWord, km.maxSearchIndex)

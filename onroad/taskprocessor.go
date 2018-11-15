@@ -166,7 +166,11 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
 	genResult, err := gen.GenerateWithOnroad(*sBlock, consensusMessage,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			_, key, _, err := tp.worker.manager.wallet.GlobalFindAddr(addr)
+			m, err := tp.worker.manager.wallet.GetEntropyStoreManager(tp.accEvent().EntropyStorePath)
+			if err != nil {
+				return nil, nil, err
+			}
+			_, key, err := m.DeriveForIndexPath(tp.accEvent().Bip44Index, nil)
 			if err != nil {
 				return nil, nil, err
 			}

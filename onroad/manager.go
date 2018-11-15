@@ -147,8 +147,8 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 		return
 	}
 
-	if !manager.wallet.GlobalCheckAddrUnlock(event.Address) {
-		manager.log.Error("receive a right event but address locked", "event", event)
+	if err := manager.wallet.MatchAddress(event.EntropyStorePath, event.Address, event.Bip44Index, nil); err != nil {
+		manager.log.Error("receive a right event but address not matched", "event.Address", event.Address)
 		return
 	}
 

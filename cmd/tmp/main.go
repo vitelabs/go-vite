@@ -840,7 +840,7 @@ func startNode(w *wallet.Manager, tmp *types.Address, baseDir string, port, fpor
 var password = "123456"
 
 func transfer(vite *vite.Vite, from types.Address, to types.Address, amount *big.Int) error {
-	parms := api.CreateTransferTxParms{
+	parms := api.CreateTransferTxParams{
 		SelfAddr:    from,
 		ToAddr:      to,
 		TokenTypeId: ledger.ViteTokenId,
@@ -861,7 +861,7 @@ func transferPledge(vite *vite.Vite, from types.Address, to types.Address) error
 		difficulty = new(big.Int).SetUint64(0x00)
 	}
 	byt, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, from)
-	parms := api.CreateTransferTxParms{
+	parms := api.CreateTransferTxParams{
 		SelfAddr:    from,
 		ToAddr:      to,
 		TokenTypeId: ledger.ViteTokenId,

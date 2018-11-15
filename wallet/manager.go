@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -248,21 +249,29 @@ func (m Manager) RemoveUnlockChangeChannel(id int) {
 	delete(m.unlockChangedLis, id)
 }
 
-func (m *Manager) MatchAddress(entropyPath string, coinbase types.Address, index uint32, extensionWord *string) error {
+func (m *Manager) DeriveKey(entropyPath string, addr *types.Address, index uint32, extensionWord *string) (*derivation.Key, error) {
 	manager, err := m.GetEntropyStoreManager(entropyPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	_, key, err := manager.DeriveForIndexPath(index, extensionWord)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	address, err := key.Address()
-	if err != nil {
-		return err
+	if addr != nil {
+		address, err := key.Address()
+		if err != nil {
+			return nil, err
+		}
+		if *address != *addr {
+			return nil, errors.New("address do not match.")
+		}
 	}
-	if *address != coinbase {
-		return errors.New("address do not match.")
-	}
-	return nil
+
+	return key, nil
+}
+
+func (m *Manager) MatchAddress(entropyPath string, addr types.Address, index uint32, extensionWord *string) error {
+	_, e := m.DeriveKey(entropyPath, &addr, index, extensionWord)
+	return e
 }
