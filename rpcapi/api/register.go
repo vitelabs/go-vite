@@ -102,8 +102,8 @@ func (r *RegisterApi) GetRegisterPledgeAddr(name string, gid *types.Gid) (*types
 }
 
 type RegistParam struct {
-	name string
-	gid  *types.Gid
+	Name string     `json:"name"`
+	Gid  *types.Gid `json:"gid"`
 }
 
 func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*types.Address, error) {
@@ -112,7 +112,7 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 	}
 	addrList := make([]*types.Address, len(paramList))
 	for k, v := range paramList {
-		addr, err := r.GetRegisterPledgeAddr(v.name, v.gid)
+		addr, err := r.GetRegisterPledgeAddr(v.Name, v.Gid)
 		if err != nil {
 			return nil, err
 		}

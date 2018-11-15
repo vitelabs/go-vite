@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
@@ -288,4 +289,21 @@ func (l *LedgerApi) StopSender(producerId uint8) {
 		return
 	}
 	l.chain.KafkaSender().StopById(producerId)
+}
+
+func (l *LedgerApi) GetLogHashList(blockHash *types.Hash) (ledger.VmLogList, error) {
+	block, err := l.chain.GetAccountBlockByHash(blockHash)
+	if err != nil {
+		return nil, err
+	}
+	if block == nil {
+		return nil, errors.New("get block failed")
+	}
+	if block.LogHash == nil {
+		if block.IsSendBlock() {
+			return nil, nil
+		}
+		return nil, errors.New("log hash nil error")
+	}
+	return l.chain.GetVmLogList(block.LogHash)
 }
