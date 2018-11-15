@@ -107,7 +107,7 @@ func (m WalletApi) NewMnemonicAndEntropyStore(passphrase string, language, exten
 	if language != nil {
 		lang = *language
 	}
-	mnemonic, em, err := m.wallet.NewMnemonicAndEntropyStore(lang, passphrase, nil)
+	mnemonic, em, err := m.wallet.NewMnemonicAndEntropyStore(lang, passphrase, extensionWord)
 	if err != nil {
 		return nil, err
 	}

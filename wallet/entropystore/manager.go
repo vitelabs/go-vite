@@ -43,16 +43,11 @@ type Manager struct {
 	log log15.Logger
 }
 
-func StoreNewEntropy(storeDir, mnemonic, language, passphrase string, extensionWord *string, config *Config) (*Manager, error) {
-
-	entropyprofile, e := MnemonicToEntropy(mnemonic, language, extensionWord != nil, extensionWord)
-	if e != nil {
-		return nil, e
-	}
+func StoreNewEntropy(storeDir, passphrase string, entropyprofile *EntropyProfile, config *Config) (*Manager, error) {
 
 	filename := FullKeyFileName(storeDir, *entropyprofile.PrimaryAddress)
 	ss := NewCryptoStore(filename, config.UseLightScrypt)
-	e = ss.StoreEntropy(*entropyprofile, passphrase)
+	e := ss.StoreEntropy(*entropyprofile, passphrase)
 	if e != nil {
 		return nil, e
 	}

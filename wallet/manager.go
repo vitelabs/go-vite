@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/vitelabs/go-vite/wallet/hd-bip"
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 	"io/ioutil"
 	"os"
@@ -174,7 +175,13 @@ func (m *Manager) RemoveEntropyStore(entropyStore string) {
 }
 
 func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic, language, passphrase string, extensionWord *string) (em *entropystore.Manager, err error) {
-	sm, e := entropystore.StoreNewEntropy(m.config.DataDir, mnemonic, language, passphrase, extensionWord, &entropystore.Config{
+
+	entropyprofile, e := entropystore.MnemonicToEntropy(mnemonic, language, extensionWord != nil, extensionWord)
+	if e != nil {
+		return nil, e
+	}
+
+	sm, e := entropystore.StoreNewEntropy(m.config.DataDir, passphrase, entropyprofile, &entropystore.Config{
 		MaxSearchIndex: m.config.MaxSearchIndex,
 		UseLightScrypt: m.config.UseLightScrypt,
 	})
@@ -197,16 +204,25 @@ func (m *Manager) NewMnemonicAndEntropyStore(language, passphrase string, extens
 	if err != nil {
 		return "", nil, nil
 	}
-	mnemonic, err = bip39.NewMnemonic(entropy)
-	if err != nil {
-		return "", nil, nil
+
+	wordList := hd_bip.GetWordList(language)
+	currentWl := bip39.GetWordList()
+	if &wordList != &currentWl {
+		bip39.SetWordList(wordList)
+		defer bip39.SetWordList(currentWl)
 	}
 
-	em, e := m.RecoverEntropyStoreFromMnemonic(mnemonic, language, passphrase, extensionWord)
+	mnemonic, err = bip39.NewMnemonic(entropy)
+	if err != nil {
+		return "", nil, err
+	}
+
+	manager, e := m.RecoverEntropyStoreFromMnemonic(mnemonic, language, passphrase, extensionWord)
 	if e != nil {
 		return "", nil, e
 	}
-	return mnemonic, em, nil
+
+	return mnemonic, manager, nil
 }
 
 func (m Manager) GetDataDir() string {
