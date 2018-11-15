@@ -378,10 +378,10 @@ func (m WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, pas
 }
 
 func (m WalletApi) IsMayValidKeystoreFile(path string) IsMayValidKeystoreFileResponse {
-	b, addr, _ := entropystore.IsMayValidEntropystoreFile(path)
-	if b && addr != nil {
+	b, json, _ := entropystore.IsMayValidEntropystoreFile(path)
+	if b {
 		return IsMayValidKeystoreFileResponse{
-			true, *addr,
+			true, *json.PrimaryAddress,
 		}
 	}
 	return IsMayValidKeystoreFileResponse{

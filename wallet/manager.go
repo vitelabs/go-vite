@@ -12,7 +12,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 )
 
@@ -78,11 +77,6 @@ func (m *Manager) Lock(entropyStore string) error {
 	return nil
 }
 
-func (m Manager) GlobalCheckAddrUnlock(targetAdr types.Address) bool {
-	_, _, _, err := m.GlobalFindAddr(targetAdr)
-	return err == nil
-}
-
 func (m *Manager) RefreshCache() {
 	for filename, _ := range m.entropyStoreManager {
 		_, e := os.Stat(filename)
@@ -94,38 +88,6 @@ func (m *Manager) RefreshCache() {
 			}
 		}
 	}
-}
-
-func (m Manager) GlobalFindAddr(targetAdr types.Address) (path string, key *derivation.Key, index uint32, err error) {
-	for path, em := range m.entropyStoreManager {
-		if em.IsUnlocked() {
-			key, index, err = em.FindAddr(targetAdr)
-			if err == walleterrors.ErrAddressNotFound {
-				continue
-			}
-			if err != nil {
-				return "", nil, 0, err
-			}
-			return path, key, index, nil
-		}
-
-	}
-	return "", nil, 0, walleterrors.ErrAddressNotFound
-}
-
-func (m Manager) GlobalFindAddrWithPassphrase(targetAdr types.Address, pass string) (path string, key *derivation.Key, index uint32, err error) {
-	for path, em := range m.entropyStoreManager {
-		key, index, err = em.FindAddrWithPassphrase(pass, targetAdr)
-		if err == walleterrors.ErrAddressNotFound {
-			continue
-		}
-		if err != nil {
-			return "", nil, 0, err
-		}
-		return path, key, index, nil
-
-	}
-	return "", nil, 0, walleterrors.ErrAddressNotFound
 }
 
 func (m Manager) ListEntropyFilesInStandardDir() ([]string, error) {
@@ -173,7 +135,7 @@ func (m *Manager) AddEntropyStore(entropyStore string) error {
 		absPath = filepath.Join(m.config.DataDir, entropyStore)
 	}
 
-	mayValid, addr, e := entropystore.IsMayValidEntropystoreFile(absPath)
+	mayValid, json, e := entropystore.IsMayValidEntropystoreFile(absPath)
 	if e != nil {
 		return e
 	}
@@ -183,7 +145,7 @@ func (m *Manager) AddEntropyStore(entropyStore string) error {
 	if _, ok := m.entropyStoreManager[absPath]; ok {
 		return nil
 	}
-	m.entropyStoreManager[absPath] = entropystore.NewManager(absPath, *addr, &entropystore.Config{
+	m.entropyStoreManager[absPath] = entropystore.NewManager(absPath, *json.PrimaryAddress, &entropystore.Config{
 		MaxSearchIndex: m.config.MaxSearchIndex,
 		UseLightScrypt: m.config.UseLightScrypt,
 	})
@@ -210,13 +172,8 @@ func (m *Manager) RemoveEntropyStore(entropyStore string) {
 	}
 }
 
-func (m *Manager) Bip39RecoverEntropyStoreFromMnemonic(wordlist, mnemonic, extraword, newPassphrase string) (entropyStore *string, err error) {
-
-	return nil, nil
-}
-
-func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, passphrase string) (em *entropystore.Manager, err error) {
-	sm, e := entropystore.StoreNewEntropy(m.config.DataDir, mnemonic, passphrase, &entropystore.Config{
+func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic, language, passphrase string, extensionWord *string) (em *entropystore.Manager, err error) {
+	sm, e := entropystore.StoreNewEntropy(m.config.DataDir, mnemonic, language, passphrase, extensionWord, &entropystore.Config{
 		MaxSearchIndex: m.config.MaxSearchIndex,
 		UseLightScrypt: m.config.UseLightScrypt,
 	})
@@ -234,7 +191,7 @@ func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic string, passphrase st
 	return sm, nil
 }
 
-func (m *Manager) NewMnemonicAndEntropyStore(passphrase string) (mnemonic string, em *entropystore.Manager, err error) {
+func (m *Manager) NewMnemonicAndEntropyStore(language, passphrase string, extensionWord *string) (mnemonic string, em *entropystore.Manager, err error) {
 	entropy, err := bip39.NewEntropy(256)
 	if err != nil {
 		return "", nil, nil
@@ -244,7 +201,7 @@ func (m *Manager) NewMnemonicAndEntropyStore(passphrase string) (mnemonic string
 		return "", nil, nil
 	}
 
-	em, e := m.RecoverEntropyStoreFromMnemonic(mnemonic, passphrase)
+	em, e := m.RecoverEntropyStoreFromMnemonic(mnemonic, language, passphrase, extensionWord)
 	if e != nil {
 		return "", nil, e
 	}
@@ -290,12 +247,13 @@ func (m Manager) RemoveUnlockChangeChannel(id int) {
 	defer m.mutex.Unlock()
 	delete(m.unlockChangedLis, id)
 }
-func (m *Manager) MatchAddress(EntryPath string, coinbase types.Address, index uint32) error {
-	manager, err := m.GetEntropyStoreManager(EntryPath)
+
+func (m *Manager) MatchAddress(entropyPath string, coinbase types.Address, index uint32, extensionWord *string) error {
+	manager, err := m.GetEntropyStoreManager(entropyPath)
 	if err != nil {
 		return err
 	}
-	_, key, err := manager.DeriveForIndexPath(index)
+	_, key, err := manager.DeriveForIndexPath(index, extensionWord)
 	if err != nil {
 		return err
 	}

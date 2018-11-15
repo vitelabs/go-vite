@@ -179,7 +179,7 @@ func TestFindAddrFromSeed(t *testing.T) {
 	seed, _ := hex.DecodeString(TestSeed)
 	s := time.Now()
 	fmt.Println(s)
-	entropystore.FindAddrFromSeed(seed, types.Address{}, 100*100)
+	entropystore.FindAddrFromEntropy(seed, types.Address{}, 100*100)
 	fmt.Println(time.Now().Sub(s))
 }
 

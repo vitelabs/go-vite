@@ -84,7 +84,7 @@ func (self *tools) checkAddressLock(address types.Address, coinbase *AddressCont
 		return errors.Errorf("addres not equals.%s-%s", address, coinbase.Address)
 	}
 
-	return self.wt.MatchAddress(coinbase.EntryPath, coinbase.Address, coinbase.Index)
+	return self.wt.MatchAddress(coinbase.EntryPath, coinbase.Address, coinbase.Index, nil)
 }
 
 func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.SnapshotContent, error) {
