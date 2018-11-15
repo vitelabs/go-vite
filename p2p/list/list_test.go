@@ -33,3 +33,29 @@ func TestList_Shift(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestList_UnShift(t *testing.T) {
+	l := New()
+
+	l.UnShift(1)
+	l.UnShift(2)
+
+	var i, j int
+	l.Traverse(func(prev, current *Element) {
+		i++
+		j = current.Value.(int)
+	})
+
+	if i != 2 || l.Size() != 2 {
+		t.Fail()
+	}
+
+	if j != 1 {
+		t.Fail()
+	}
+
+	i = l.Shift().(int)
+	if i != 2 {
+		t.Fail()
+	}
+}
