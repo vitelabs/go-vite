@@ -125,6 +125,7 @@ func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syn
 
 	pool := newChunkPool(peers, gid, s)
 	fc := newFileClient(chain, pool, s)
+	fc.subAllFileDownloaded(s.createChunkTasks)
 
 	s.pool = pool
 	s.fc = fc
@@ -367,6 +368,18 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 	}
 
 	return nil
+}
+
+func (s *syncer) createChunkTasks(fileEnd uint64) {
+	if fileEnd >= s.to {
+		return
+	}
+
+	if s.state != Syncing {
+		return
+	}
+
+	s.pool.add(fileEnd+1, s.to)
 }
 
 func (s *syncer) catch(c piece) {

@@ -163,6 +163,8 @@ type fileClient struct {
 	delChan   chan *conn
 	filesChan chan *filesEvent
 
+	finishCallbacks []func(end uint64)
+
 	chain Chain
 
 	rec blockReceiver
@@ -223,6 +225,16 @@ func (fc *fileClient) stop() {
 
 func (fc *fileClient) threshold(to uint64) {
 	fc.to = to
+}
+
+func (fc *fileClient) allFileDownloaded(end uint64) {
+	for _, fn := range fc.finishCallbacks {
+		fn(end)
+	}
+}
+
+func (fc *fileClient) subAllFileDownloaded(fn func(uint64)) {
+	fc.finishCallbacks = append(fc.finishCallbacks, fn)
 }
 
 func (fc *fileClient) removePeer(conns map[string]*conn, fRecord map[string]*fileState, pFiles map[string]files, sender Peer) {
@@ -375,7 +387,7 @@ func (fc *fileClient) loop() {
 		c.Close()
 	}
 
-	var could chan struct{}
+	var jobTicker <-chan time.Time
 
 loop:
 	for {
@@ -399,10 +411,10 @@ loop:
 			}
 			sort.Sort(fileList)
 
-			if could == nil {
-				could = make(chan struct{})
-				close(could)
-
+			if jobTicker == nil {
+				t := time.NewTicker(5 * time.Second)
+				jobTicker = t.C
+				defer t.Stop()
 				fc.usePeer(conns, record, pFiles, e.sender)
 			}
 
@@ -450,14 +462,20 @@ loop:
 				}
 			}
 
-		case <-could:
+		case <-jobTicker:
 			if file := fc.nextFile(fileList, record); file == nil {
-				fc.pool.start()
+				// some files are downloading
+				for _, c := range conns {
+					if !c.idle {
+						break
+					}
+				}
+
+				// all files down
+				fc.allFileDownloaded(fileList[len(fileList)-1].EndHeight)
 				break loop
 			} else if file.StartHeight <= fc.to {
 				fc.requestFile(conns, record, pFiles, file)
-			} else {
-				time.Sleep(5 * time.Second)
 			}
 
 		case now := <-ticker.C:

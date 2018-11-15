@@ -211,6 +211,7 @@ func (p *chunkPool) stop() {
 		case <-p.term:
 		default:
 			close(p.term)
+			p.resQueue.Close()
 			p.wg.Wait()
 		}
 	}
@@ -315,6 +316,7 @@ func (p *chunkPool) add(from, to uint64) {
 	case <-p.term:
 		return
 	case p.addChan <- [2]uint64{from, to}:
+		p.start()
 	}
 }
 
