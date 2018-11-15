@@ -162,11 +162,10 @@ type fileClient struct {
 	idleChan  chan *conn
 	delChan   chan *conn
 	filesChan chan *filesEvent
-	slots     chan struct{} // control concurrency
 
 	chain Chain
 
-	handler blockReceiver
+	rec blockReceiver
 
 	dialer *net2.Dialer
 
@@ -185,17 +184,16 @@ type cPool interface {
 	start()
 }
 
-func newFileClient(chain Chain, pool cPool, handler blockReceiver) *fileClient {
+func newFileClient(chain Chain, pool cPool, rec blockReceiver) *fileClient {
 	return &fileClient{
 		idleChan:  make(chan *conn, 1),
 		delChan:   make(chan *conn, 1),
 		filesChan: make(chan *filesEvent, 10),
-		slots:     make(chan struct{}, 1),
 		chain:     chain,
 		log:       log15.New("module", "net/fileClient"),
 		dialer:    &net2.Dialer{Timeout: 3 * time.Second},
 		pool:      pool,
-		handler:   handler,
+		rec:       rec,
 	}
 }
 
@@ -225,14 +223,6 @@ func (fc *fileClient) stop() {
 
 func (fc *fileClient) threshold(to uint64) {
 	fc.to = to
-}
-
-func (fc *fileClient) occupy() {
-	fc.slots <- struct{}{}
-}
-
-func (fc *fileClient) release() {
-	<-fc.slots
 }
 
 func (fc *fileClient) removePeer(conns map[string]*conn, fRecord map[string]*fileState, pFiles map[string]files, sender Peer) {
@@ -294,6 +284,8 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 
 			p := r.peers[idx]
 			id = p.ID()
+
+			// connection is busy
 			if c, ok := conns[id]; ok && !c.idle {
 				continue
 			}
@@ -311,9 +303,6 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 		r.state = reqDone
 		fc.pool.exec(file.StartHeight, file.EndHeight)
 		return
-	} else {
-		// no record
-		fc.pool.exec(file.StartHeight, file.EndHeight)
 	}
 }
 
@@ -461,7 +450,7 @@ loop:
 			if file := fc.nextFile(fileList, record); file == nil {
 				fc.pool.start()
 				break loop
-			} else if file.StartHeight < fc.to {
+			} else if file.StartHeight <= fc.to {
 				fc.requestFile(conns, record, pFiles, file)
 			} else {
 				time.Sleep(5 * time.Second)
@@ -560,7 +549,7 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 				}
 
 				sCount++
-				fc.handler.receiveSnapshotBlock(block)
+				fc.rec.receiveSnapshotBlock(block)
 				ctx.height = block.Height
 
 			case *ledger.AccountBlock:
@@ -570,7 +559,7 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 				}
 
 				aCount++
-				fc.handler.receiveAccountBlock(block)
+				fc.rec.receiveAccountBlock(block)
 			}
 		})
 

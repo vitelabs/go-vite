@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/vitelabs/go-vite/common"
@@ -135,9 +136,8 @@ type chunkPool struct {
 	handler blockReceiver
 	term    chan struct{}
 	wg      sync.WaitGroup
-	recing  int32
-	target  uint64
-	should  bool
+	to      uint64
+	running int32
 }
 
 func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool {
@@ -150,11 +150,24 @@ func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool
 	}
 }
 
-func (p *chunkPool) threshold(current uint64) {
-	if current+500 > p.target {
-		p.should = true
-	} else {
-		p.should = false
+func (p *chunkPool) threshold(to uint64) {
+	p.to = to
+
+	if p.running > 0 {
+		for {
+			if ele := p.queue.Shift(); ele != nil {
+				c := ele.(*chunkRequest)
+				if c.from <= p.to {
+					p.chunks.Store(c.id, c)
+					p.request(c)
+				} else {
+					p.queue.UnShift(c)
+					break
+				}
+			} else {
+				break
+			}
+		}
 	}
 }
 
@@ -203,57 +216,23 @@ func (p *chunkPool) Handle(msg *p2p.Msg, sender Peer) error {
 }
 
 func (p *chunkPool) start() {
-	p.term = make(chan struct{})
+	if atomic.CompareAndSwapInt32(&p.running, 0, 1) {
+		p.term = make(chan struct{})
 
-	p.wg.Add(1)
-	common.Go(p.loop)
-
-	p.wg.Add(1)
-	common.Go(p.taskLoop)
+		p.wg.Add(1)
+		common.Go(p.loop)
+	}
 }
 
 func (p *chunkPool) stop() {
-	if p.term == nil {
-		return
-	}
-
-	select {
-	case <-p.term:
-	default:
-		close(p.term)
-		p.wg.Wait()
-	}
-}
-
-func (p *chunkPool) taskLoop() {
-	defer p.wg.Done()
-
-	ticker := time.NewTicker(200 * time.Millisecond)
-	defer ticker.Stop()
-
-loop:
-	for {
+	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
 		select {
 		case <-p.term:
-			break loop
-
-		case <-ticker.C:
-			if !p.should {
-				break
-			}
-
-			if ele := p.queue.Shift(); ele != nil {
-				c := ele.(*chunkRequest)
-				p.chunks.Store(c.id, c)
-				p.request(c)
-			}
+		default:
+			close(p.term)
+			p.wg.Wait()
 		}
 	}
-
-	p.chunks.Range(func(key, value interface{}) bool {
-		p.chunks.Delete(key)
-		return true
-	})
 }
 
 func (p *chunkPool) loop() {
@@ -315,12 +294,14 @@ func (p *chunkPool) exec(from, to uint64) {
 	for _, chunk := range cs {
 		c := &chunkRequest{from: chunk[0], to: chunk[1]}
 		c.id = p.gid.MsgID()
+		p.queue.UnShift(c)
 		c.msg = &message.GetChunk{
 			Start: c.from,
 			End:   c.to,
 		}
-		p.request(c)
 	}
+
+	p.start()
 }
 
 func (p *chunkPool) done(id uint64) {
@@ -339,7 +320,6 @@ func (p *chunkPool) request(c *chunkRequest) {
 		c.peer = peers[rand.Intn(len(peers))]
 	}
 
-	p.target = c.to
 	p.do(c)
 }
 
