@@ -291,19 +291,23 @@ func (l *LedgerApi) StopSender(producerId uint8) {
 	l.chain.KafkaSender().StopById(producerId)
 }
 
-func (l *LedgerApi) GetLogHashList(blockHash *types.Hash) (ledger.VmLogList, error) {
-	block, err := l.chain.GetAccountBlockByHash(blockHash)
-	if err != nil {
-		return nil, err
-	}
+func (l *LedgerApi) GetVmLogList(blockHash types.Hash) (ledger.VmLogList, error) {
+	block, err := l.chain.GetAccountBlockByHash(&blockHash)
 	if block == nil {
+		if err != nil {
+			return nil, err
+		}
 		return nil, errors.New("get block failed")
 	}
 	if block.LogHash == nil {
-		if block.IsSendBlock() {
-			return nil, nil
+		code, err2 := l.chain.AccountType(&block.AccountAddress)
+		if err2 != nil {
+			return nil, err
 		}
-		return nil, errors.New("log hash nil error")
+		if code == ledger.AccountTypeContract {
+			return nil, errors.New("log hash can't be error")
+		}
+		return nil, nil
 	}
 	return l.chain.GetVmLogList(block.LogHash)
 }
