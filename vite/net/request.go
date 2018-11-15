@@ -157,23 +157,6 @@ func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool
 
 func (p *chunkPool) threshold(to uint64) {
 	p.to = to
-
-	if p.running > 0 {
-		for {
-			if ele := p.queue.Shift(); ele != nil {
-				c := ele.(*chunkRequest)
-				if c.from <= p.to {
-					p.chunks.Store(c.id, c)
-					p.request(c)
-				} else {
-					p.queue.UnShift(c)
-					break
-				}
-			} else {
-				break
-			}
-		}
-	}
 }
 
 func (p *chunkPool) ID() string {
@@ -226,7 +209,15 @@ func (p *chunkPool) handleLoop() {
 			return
 
 		default:
-			msg := p.resQueue.Pop().(*p2p.Msg)
+			v := p.resQueue.Pop()
+			if v == nil {
+				break
+			}
+
+			msg := v.(*p2p.Msg)
+			if msg == nil {
+				break
+			}
 
 			res := new(message.SubLedger)
 
@@ -260,6 +251,9 @@ func (p *chunkPool) loop() {
 	ticker := time.NewTicker(chunkTimeout)
 	defer ticker.Stop()
 
+	doTicker := time.NewTicker(5 * time.Second)
+	defer doTicker.Stop()
+
 	var state reqState
 	var id uint64
 	var c *chunkRequest
@@ -282,9 +276,21 @@ loop:
 					Start: c.from,
 					End:   c.to,
 				}
+			}
 
-				if c.from <= p.to {
-					p.request(c)
+		case <-doTicker.C:
+			for {
+				if ele := p.queue.Shift(); ele != nil {
+					c := ele.(*chunkRequest)
+					if c.from <= p.to {
+						p.chunks.Store(c.id, c)
+						p.request(c)
+					} else {
+						p.queue.UnShift(c)
+						break
+					}
+				} else {
+					break
 				}
 			}
 

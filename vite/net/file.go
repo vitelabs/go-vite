@@ -449,31 +449,24 @@ loop:
 			// clean
 			fc.removePeer(conns, record, pFiles, conn.peer)
 
-			if r, ok := record[file.Filename]; ok {
-				miss := file.EndHeight - conn.height
-				if miss > file2Chunk {
-					r.state = reqError
-					// retry file
-					fc.requestFile(conns, record, pFiles, file)
-				} else {
-					r.state = reqDone
-					// use chunk
-					fc.pool.add(conn.height+1, file.EndHeight)
-				}
-			}
+			fc.requestFile(conns, record, pFiles, file)
 
 		case <-jobTicker:
 			if file := fc.nextFile(fileList, record); file == nil {
 				// some files are downloading
+				done := true
 				for _, c := range conns {
 					if !c.idle {
+						done = false
 						break
 					}
 				}
 
-				// all files down
-				fc.allFileDownloaded(fileList[len(fileList)-1].EndHeight)
-				break loop
+				if done {
+					// all files down
+					fc.allFileDownloaded(fileList[len(fileList)-1].EndHeight)
+					break loop
+				}
 			} else if file.StartHeight <= fc.to {
 				fc.requestFile(conns, record, pFiles, file)
 			}

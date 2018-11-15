@@ -244,7 +244,10 @@ wait:
 						return
 					}
 				}
+			} else if shouldSync(current.Height, e.peer.Height()) {
+				s.getSubLedgerFrom(e.peer)
 			}
+
 		case <-s.downloaded:
 			s.log.Info("sync downloaded")
 			s.setState(SyncDownloaded)
@@ -317,28 +320,27 @@ func (s *syncer) inc() {
 func (s *syncer) sync() {
 	peerList := s.peers.Pick(s.from + 1)
 
-	var msg *message.GetSubLedger
-
-	from, to := s.from, s.to
-	var pTo, pHeight uint64
 	for _, peer := range peerList {
-		pHeight = peer.Height()
-		if pHeight > to {
-			pTo = to
-		} else {
-			pTo = pHeight
-		}
-
-		msg = &message.GetSubLedger{
-			From:    ledger.HashHeight{Height: from},
-			Count:   pTo - from + 1,
-			Forward: true,
-		}
-
-		peer.Send(GetSubLedgerCode, 0, msg)
-
-		s.log.Info(fmt.Sprintf("sync from %d to %d to %s at %d", from, pTo, peer.RemoteAddr(), peer.Height()))
+		s.getSubLedgerFrom(peer)
 	}
+}
+
+func (s *syncer) getSubLedgerFrom(peer Peer) {
+	from, to := s.from, s.to
+	pTo := peer.Height()
+	if pTo > to {
+		pTo = to
+	}
+
+	msg := &message.GetSubLedger{
+		From:    ledger.HashHeight{Height: from},
+		Count:   pTo - from + 1,
+		Forward: true,
+	}
+
+	peer.Send(GetSubLedgerCode, 0, msg)
+
+	s.log.Info(fmt.Sprintf("sync from %d to %d to %s at %d", from, pTo, peer.RemoteAddr(), peer.Height()))
 }
 
 func (s *syncer) ID() string {
@@ -362,6 +364,10 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 
 		if len(res.Files) > 0 {
 			s.fc.gotFiles(res.Files, sender)
+		} else if sender.Height() >= s.to && atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
+			for _, c := range res.Chunks {
+				s.pool.add(c[0], c[1])
+			}
 		}
 	} else {
 		s.pool.Handle(msg, sender)
