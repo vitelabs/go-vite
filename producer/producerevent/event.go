@@ -10,10 +10,14 @@ type AccountEvent interface {
 
 type AccountStartEvent struct {
 	AccountEvent
-	Gid     types.Gid
-	Address types.Address
-	Stime   time.Time
-	Etime   time.Time
+	Gid types.Gid
+
+	EntropyStorePath string
+	Bip44Index       uint32
+	Address          types.Address
+
+	Stime time.Time
+	Etime time.Time
 
 	Timestamp      time.Time  // add to block
 	SnapshotHash   types.Hash // add to block

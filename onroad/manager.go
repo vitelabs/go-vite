@@ -249,7 +249,7 @@ func (manager *Manager) StartAutoReceiveWorker(entropystore string, addr types.A
 		return e
 	}
 
-	if !entropyStoreManager.IsAddrUnlocked(addr) {
+	if !entropyStoreManager.IsAddrUnlocked(addr, nil) {
 		return walleterrors.ErrLocked
 	}
 

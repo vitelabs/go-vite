@@ -54,7 +54,7 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 	if err != nil {
 		return nil, err
 	}
-	_, key, err := manager.DeriveForIndexPath(coinbase.Index)
+	_, key, err := manager.DeriveForIndexPath(coinbase.Index, nil)
 	if err != nil {
 		return nil, err
 	}

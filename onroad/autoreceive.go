@@ -134,7 +134,7 @@ LOOP:
 			continue
 		}
 
-		if !entropyStoreManager.IsAddrUnlocked(w.address) {
+		if !entropyStoreManager.IsAddrUnlocked(w.address, nil) {
 			w.log.Error("startWork address locked", "addr", w.address)
 			continue
 		}
@@ -208,7 +208,7 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 			if e != nil {
 				return nil, nil, e
 			}
-			return manager.SignData(addr, data)
+			return manager.SignData(addr, data, nil)
 		}, w.powDifficulty)
 	if err != nil {
 		w.log.Error("GenerateWithOnroad failed", "error", err)
