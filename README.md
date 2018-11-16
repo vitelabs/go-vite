@@ -31,7 +31,10 @@ Vite is a next-generation Reactive Blockchain that adopts a _message-driven, asy
    * [Reddit](https://www.reddit.com/r/vitelabs)
    * [Discord](https://discordapp.com/invite/CsVY76q)
    * [Youtube](https://www.youtube.com/channel/UC8qft2rEzBnP9yJOGdsJBVg)
-   
+
+## RELEASE TAG
+the stable version is the tag of 1.0.1. https://github.com/vitelabs/go-vite/releases/tag/1.0.1
+
 ## BUILD 
 
 1. [Install Go](https://golang.org/doc/install)
