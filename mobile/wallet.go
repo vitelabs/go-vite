@@ -54,8 +54,8 @@ func (w *Wallet) RemoveEntropyStore(entropyStore string) {
 	w.wallet.RemoveEntropyStore(entropyStore)
 }
 
-func (w *Wallet) RecoverEntropyStoreFromMnemonic(mnemonic string, newPassphrase string) (entropyStore *string, err error) {
-	em, e := w.wallet.RecoverEntropyStoreFromMnemonic(mnemonic, newPassphrase)
+func (w *Wallet) RecoverEntropyStoreFromMnemonic(mnemonic, newPassphrase, language, extensionWord string) (entropyStore *string, err error) {
+	em, e := w.wallet.RecoverEntropyStoreFromMnemonic(mnemonic, language, newPassphrase, &extensionWord)
 	if e != nil {
 		return nil, e
 	}
@@ -63,8 +63,8 @@ func (w *Wallet) RecoverEntropyStoreFromMnemonic(mnemonic string, newPassphrase 
 	return &f, nil
 }
 
-func (w *Wallet) NewMnemonicAndEntropyStore(mnemonicSize int, passphrase string) (result *NewEntropyResult, err error) {
-	mnemonic, em, e := w.wallet.NewMnemonicAndEntropyStore(passphrase)
+func (w *Wallet) NewMnemonicAndEntropyStore(passphrase, language, extensionWord string, mnemonicSize int) (result *NewEntropyResult, err error) {
+	mnemonic, em, e := w.wallet.NewMnemonicAndEntropyStore(passphrase, passphrase, &extensionWord, &mnemonicSize)
 	if e != nil {
 		return nil, e
 	}
@@ -75,13 +75,13 @@ func (w *Wallet) NewMnemonicAndEntropyStore(mnemonicSize int, passphrase string)
 	}, nil
 }
 
-func (w *Wallet) DeriveByFullPath(entropyStore, path string) (dResult *DerivationResult, err error) {
+func (w *Wallet) DeriveByFullPath(entropyStore, fullpath, extensionWord string) (dResult *DerivationResult, err error) {
 	manager, err := w.wallet.GetEntropyStoreManager(entropyStore)
 	if err != nil {
 		return nil, err
 	}
 
-	s, key, err := manager.DeriveForFullPath(path)
+	s, key, err := manager.DeriveForFullPath(fullpath, &extensionWord)
 	if err != nil {
 		return nil, err
 	}
@@ -97,13 +97,13 @@ func (w *Wallet) DeriveByFullPath(entropyStore, path string) (dResult *Derivatio
 	}, nil
 }
 
-func (w *Wallet) DeriveByIndex(entropyStore string, index int) (dResult *DerivationResult, err error) {
+func (w *Wallet) DeriveByIndex(entropyStore string, index int, extensionWord string) (dResult *DerivationResult, err error) {
 	manager, err := w.wallet.GetEntropyStoreManager(entropyStore)
 	if err != nil {
 		return nil, err
 	}
 
-	s, key, err := manager.DeriveForIndexPath(uint32(index))
+	s, key, err := manager.DeriveForIndexPath(uint32(index), &extensionWord)
 	if err != nil {
 		return nil, err
 	}
