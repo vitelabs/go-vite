@@ -17,6 +17,8 @@ message Order {
     int64 Timestamp = 12;
     uint64 ExecutedQuantity = 13;
     uint64 ExecutedAmount = 14;
+    uint32 refundAsset = 15;
+    uint64 refundQuantity = 16; //refund trade/quote asset
 }
 
 message OrderNode {
@@ -38,7 +40,7 @@ message OrderBook {
 }
 
 message Transaction {
-    uint64 TxId = 1;
+    uint64 Id = 1;
     bool TakerSide = 2;
     uint64 TakerId = 3;
     uint64 MakerId = 4;
@@ -46,4 +48,8 @@ message Transaction {
     uint64 Quantity = 6;
     uint64 Amount = 7;
     int64 Timestamp = 8;
+}
+
+message OrderEvent {
+
 }

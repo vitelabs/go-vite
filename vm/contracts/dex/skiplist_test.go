@@ -3,18 +3,21 @@ package dex
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/ledger"
 	"testing"
 )
 
 type localMapStorage struct {
 	data map[string][]byte
+	logs []*ledger.VmLog
 }
 
-func NewMapStorage() baseStorage {
-	return localMapStorage{data : make(map[string][]byte, 0)}
+func NewMapStorage() localMapStorage {
+	return localMapStorage{data : make(map[string][]byte, 0), logs : make([]*ledger.VmLog, 0, 10)}
 }
 
-func (ls localMapStorage) GetStorage(addr *types.Address, key []byte) []byte {
+func (ls *localMapStorage) GetStorage(addr *types.Address, key []byte) []byte {
 	if v, ok := ls.data[string(key)]; ok {
 		return v
 	} else {
@@ -22,14 +25,37 @@ func (ls localMapStorage) GetStorage(addr *types.Address, key []byte) []byte {
 	}
 }
 
-func (ls localMapStorage) SetStorage(key []byte, value []byte) {
+func (ls *localMapStorage) SetStorage(key []byte, value []byte) {
 	ls.data[string(key)] = value
 }
 
-func (ls localMapStorage) ClearStorage(key []byte, value []byte) {
+func (ls *localMapStorage) ClearStorage(key []byte, value []byte) {
 	for k, _ := range ls.data {
 		delete(ls.data, k)
 	}
+}
+
+func (ls *localMapStorage) AddLog(log *ledger.VmLog) {
+	ls.logs = append(ls.logs, log)
+}
+
+func (ls *localMapStorage) GetLogListHash() *types.Hash {
+	if len(ls.logs) == 0 {
+		return nil
+	}
+	var source []byte
+
+	// Nonce
+	for _, vmLog := range ls.logs {
+		for _, topic := range vmLog.Topics {
+			source = append(source, topic.Bytes()...)
+		}
+		source = append(source, vmLog.Data...)
+	}
+
+	hash, _ := types.BytesToHash(crypto.Hash256(source))
+	return &hash
+	return nil
 }
 
 func getAddress() *types.Address {
@@ -49,7 +75,7 @@ func TestSkiplist(t *testing.T) {
 
 func newSkipListTest (t *testing.T) *skiplist {
 	localStorage := NewMapStorage()
-	st, _ := localStorage.(baseStorage)
+	st := baseStorage(&localStorage)
 	var po nodePayloadProtocol = &OrderNodeProtocol{}
 
 	// Test new
@@ -74,7 +100,7 @@ func insertNodes(skiplist *skiplist) {
 
 func clearStorage(skiplist *skiplist) {
 	localStorage := NewMapStorage()
-	st, _ := localStorage.(baseStorage)
+	st := baseStorage(&localStorage)
 	skiplist.storage = &st
 }
 

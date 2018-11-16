@@ -3,6 +3,7 @@ package dex
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"math/rand"
 )
 
@@ -33,6 +34,8 @@ type nodePayloadProtocol interface {
 type baseStorage interface {
 	GetStorage(addr *types.Address, key []byte) []byte
 	SetStorage(key []byte, value []byte)
+	AddLog(log *ledger.VmLog)
+	GetLogListHash() *types.Hash
 }
 
 type skiplistNode struct {
@@ -171,7 +174,7 @@ func (nd *skiplistNode) isHeader() bool {
 }
 
 func (skl *skiplist) insert(key nodeKeyType, payload *nodePayload) {
-	fmt.Printf("enter into insert for %s\n", key.toString())
+	//fmt.Printf("enter into insert for %s\n", key.toString())
 	var dirtyNodes = make(map[string]*skiplistNode, skiplistMaxLevel)
 	var updateNodes = make([]*skiplistNode, skiplistMaxLevel)
 	var headerNode = skl.headerNode
@@ -208,14 +211,14 @@ func (skl *skiplist) insert(key nodeKeyType, payload *nodePayload) {
 			}
 			forwardNode.backwardOnLevel[i] = key
 			dirtyNodes[forwardNode.nodeKey.toString()] = forwardNode
-			fmt.Printf("level %d : set backward to %s for node %s\n", i, key.toString(), forwardNode.nodeKey.toString())
+			//fmt.Printf("level %d : set backward to %s for node %s\n", i, key.toString(), forwardNode.nodeKey.toString())
 		}
 		updateNodes[i].forwardOnLevel[i] = key
 		newNode.backwardOnLevel[i] = updateNodes[i].nodeKey
 		dirtyNodes[updateNodes[i].nodeKey.toString()] = updateNodes[i]
 	}
 	dirtyNodes[key.toString()] = newNode
-	fmt.Printf("newNode.forwardOnLevel[0].len %d, level : %d\n", len(newNode.forwardOnLevel), level)
+	//fmt.Printf("newNode.forwardOnLevel[0].len %d, level : %d\n", len(newNode.forwardOnLevel), level)
 	if newNode.forwardOnLevel[0].isNil() {
 		skl.tail = key
 	}

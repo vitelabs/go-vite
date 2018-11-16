@@ -17,7 +17,7 @@ const (
 )
 
 const (
-	cancelledByuser = iota
+	cancelledByUser = iota
 	cancelledByMarket
 	cancelledOnTimeout
 	partialExecutedUserCancelled
@@ -33,9 +33,6 @@ const (
 
 type Order struct {
 	orderproto.Order
-	tx orderproto.Transaction
-	refundAsset uint32
-	refundQuantity uint64 //refund trade/quote asset
 }
 
 type orderKey struct {

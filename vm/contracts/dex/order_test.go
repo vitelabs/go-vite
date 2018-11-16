@@ -57,7 +57,7 @@ func newNodeInfoWithPriceAndTs(value uint8, price float64, ts uint64) (nodeKeyTy
 	order := Order{}
 	order.Id = uint64(value)
 	order.Price = float64(price)
-	order.Timestamp = uint64(ts)
+	order.Timestamp = int64(ts)
 	order.Side = false // buy
 	pl := nodePayload(order)
 	return newOrderKey(order.Id), &pl
