@@ -6,9 +6,10 @@ import (
 )
 
 type BlockQueue struct {
-	mu   *sync.Mutex
-	cond *sync.Cond
-	list *list.List
+	mu     *sync.Mutex
+	cond   *sync.Cond
+	list   *list.List
+	closed bool
 }
 
 func New() *BlockQueue {
@@ -24,7 +25,7 @@ func (q *BlockQueue) Pop() interface{} {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	for q.list.Size() == 0 {
+	for q.list.Size() == 0 && !q.closed {
 		q.cond.Wait()
 	}
 
@@ -35,8 +36,10 @@ func (q *BlockQueue) Push(v interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	q.list.Append(v)
-	q.cond.Broadcast()
+	if !q.closed {
+		q.list.Append(v)
+		q.cond.Broadcast()
+	}
 }
 
 func (q *BlockQueue) Size() int {
@@ -44,4 +47,15 @@ func (q *BlockQueue) Size() int {
 	defer q.mu.Unlock()
 
 	return q.list.Size()
+}
+
+func (q *BlockQueue) Close() {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	if !q.closed {
+		q.closed = true
+		q.cond.Broadcast()
+
+	}
 }
