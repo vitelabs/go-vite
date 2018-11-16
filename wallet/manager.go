@@ -199,10 +199,20 @@ func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic, language, passphrase
 	return sm, nil
 }
 
-func (m *Manager) NewMnemonicAndEntropyStore(language, passphrase string, extensionWord *string) (mnemonic string, em *entropystore.Manager, err error) {
-	entropy, err := bip39.NewEntropy(256)
+func (m *Manager) NewMnemonicAndEntropyStore(language, passphrase string, extensionWord *string, mnemonicSize *int) (mnemonic string, em *entropystore.Manager, err error) {
+	size := 24
+	if mnemonicSize != nil {
+		size = *mnemonicSize
+		if size != 12 && size != 15 && size != 18 && size != 21 && size != 24 {
+			return "", nil, errors.New("wrong mnemonic size")
+		}
+	}
+
+	entropySize := 32 * size / 3
+
+	entropy, err := bip39.NewEntropy(entropySize)
 	if err != nil {
-		return "", nil, nil
+		return "", nil, err
 	}
 
 	wordList := hd_bip.GetWordList(language)

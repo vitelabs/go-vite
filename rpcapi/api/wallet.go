@@ -102,12 +102,12 @@ func (m WalletApi) ListEntropyStoreAddresses(entropyStore string, from, to uint3
 	return manager.ListAddress(from, to, extensionWord)
 }
 
-func (m WalletApi) NewMnemonicAndEntropyStore(passphrase string, language, extensionWord *string) (*NewStoreResponse, error) {
+func (m WalletApi) NewMnemonicAndEntropyStore(passphrase string, language, extensionWord *string, mnemonicSize *int) (*NewStoreResponse, error) {
 	lang := ""
 	if language != nil {
 		lang = *language
 	}
-	mnemonic, em, err := m.wallet.NewMnemonicAndEntropyStore(lang, passphrase, extensionWord)
+	mnemonic, em, err := m.wallet.NewMnemonicAndEntropyStore(lang, passphrase, extensionWord, mnemonicSize)
 	if err != nil {
 		return nil, err
 	}
