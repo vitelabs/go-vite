@@ -6,20 +6,18 @@
 
 ## What is Vite?
 
----
-
-Vite is a next-generation Reactive Blockchain that adopts a _message-driven, asynchronous architecture and a DAG-based ledger_. The goal for Vite’s design is to _provide a reliable public platform for industrial dApps_, with features of ultra-high throughput and scalability.
-
-
----
+> Vite is a next-generation Reactive Blockchain that adopts a _message-driven, asynchronous architecture and a DAG-based ledger_. The goal for Vite’s design is to _provide a reliable public platform for industrial dApps_, with features of ultra-high throughput and scalability.
 
 ## Guides & Documentation
    * [White Paper](https://www.vite.org/whitepaper/vite_en.pdf)
-   * [Documentation](https://doc.vite.org/)
+   * [Documentation](https://vite.wiki/)
    * [Techblog](https://vite.blog/)
+   * [Runing a node](https://vite.wiki/tutorial/node/install.html)
    
 ## Product
+   * [Web Wallet](https://wallet.vite.net)
    * [Desktop Wallet](https://github.com/vitelabs/vite-wallet)
+   * [iOS Wallet](https://itunes.apple.com/us/app/vite-official-hd-wallet/id1437629486?mt=8)
    * [Testnet Explorer](https://testnet.vite.net/)
    * [Vite.net](https://vite.net/)
    
