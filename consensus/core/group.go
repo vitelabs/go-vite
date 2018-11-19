@@ -54,8 +54,11 @@ func (self *GroupInfo) GenETime(index uint64) time.Time {
 	return self.genesisTime.Add(time.Duration(planInterval*(index+1)) * time.Second)
 }
 func (self *GroupInfo) GenVoteTime(index uint64) time.Time {
+	if index < 2 {
+		index = 2
+	}
 	planInterval := self.PlanInterval
-	return self.genesisTime.Add(time.Duration(planInterval*(index+1)) * time.Second)
+	return self.genesisTime.Add(time.Duration(planInterval*(index-1)) * time.Second)
 }
 
 func (self *GroupInfo) GenPlan(index uint64, members []*Vote) []*MemberPlan {
