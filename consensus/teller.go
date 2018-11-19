@@ -56,7 +56,7 @@ func (self *teller) voteResults(b *ledger.SnapshotBlock) ([]types.Address, *ledg
 }
 
 func (self *teller) electionIndex(index uint64) (*electionResult, error) {
-	sTime := self.voteTime(index)
+	sTime := self.info.GenVoteTime(index)
 
 	block, e := self.rw.GetSnapshotBeforeTime(sTime)
 	if e != nil {
@@ -124,10 +124,7 @@ func (self *teller) index2Time(i uint64) (time.Time, time.Time) {
 }
 
 func (self *teller) voteTime(i uint64) time.Time {
-	if i < 2 {
-		i = 2
-	}
-	sTime := self.info.GenSTime(i - 1)
+	sTime := self.info.GenVoteTime(i)
 	return sTime
 }
 

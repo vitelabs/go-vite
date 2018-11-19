@@ -1,6 +1,8 @@
 package consensus
 
 import (
+	"encoding/json"
+	"strconv"
 	"testing"
 
 	"time"
@@ -11,6 +13,7 @@ import (
 
 	"math/big"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -169,13 +172,14 @@ func getChainInstance() chain.Chain {
 
 		innerChainInstance = chain.NewChain(&config.Config{
 
-			DataDir: filepath.Join(common.HomeDir(), "Library/GVite/devdata/ledger"),
+			DataDir: filepath.Join(common.HomeDir(), "Library/GVite/testdata"),
 			//Chain: &config.Chain{
 			//	KafkaProducers: []*config.KafkaProducer{{
 			//		Topic:      "test003",
 			//		BrokerList: []string{"ckafka-r3rbhht9.ap-guangzhou.ckafka.tencentcloudmq.com:6061"},
 			//	}},
 			//},
+			Chain: &config.Chain{},
 		})
 		innerChainInstance.Init()
 		innerChainInstance.Start()
@@ -342,4 +346,147 @@ func TestReader3(t *testing.T) {
 
 	// query vote info
 
+}
+
+func TestCommittee_ReadByIndex(t *testing.T) {
+	ch := getChainInstance()
+	genesis := ch.GetGenesisSnapshotBlock()
+	cs := NewConsensus(*genesis.Timestamp, ch)
+
+	events, voteHeight, _ := cs.ReadByIndex(types.SNAPSHOT_GID, 9550)
+
+	t.Log("vote Height", strconv.FormatUint(voteHeight, 10))
+	for _, v := range events {
+		t.Log(v.Stime.String(), v.Address.String())
+	}
+
+	block := ch.GetLatestSnapshotBlock()
+	infos, err := ch.GetConsensusGroupList(block.Hash)
+	if err != nil {
+		panic(err)
+	}
+	var info *types.ConsensusGroupInfo
+	for _, cs := range infos {
+		if cs.Gid == types.SNAPSHOT_GID {
+			info = cs
+			break
+		}
+	}
+	if info == nil {
+		panic(errors.New("can't find group."))
+	}
+	reader := core.NewReader(*genesis.Timestamp, info)
+	registers, _ := ch.GetRegisterList(block.Hash, types.SNAPSHOT_GID)
+	for _, v := range registers {
+		if v.Name == "s1" {
+			detail, err := reader.VoteDetails(9550, 9550, v, ch)
+			if err != nil {
+				panic(err)
+			}
+			t.Log("planNum", strconv.FormatUint(detail.PlanNum, 10))
+			t.Log("actualNum", strconv.FormatUint(detail.ActualNum, 10))
+			t.Log("address", v.NodeAddr.String())
+		}
+
+	}
+}
+
+func TestCommittee_ReadByIndex2(t *testing.T) {
+
+	gid := types.SNAPSHOT_GID
+	startIndex := uint64(9550)
+	endIndex := uint64(9550)
+	ch := getChainInstance()
+	genesis := ch.GetGenesisSnapshotBlock()
+	cs := NewConsensus(*genesis.Timestamp, ch)
+
+	block := ch.GetLatestSnapshotBlock()
+
+	t.Log(strconv.FormatUint(block.Height, 10))
+
+	registers, err := ch.GetRegisterList(block.Hash, gid)
+	if err != nil {
+		panic(err)
+	}
+	infos, err := ch.GetConsensusGroupList(block.Hash)
+	if err != nil {
+		panic(err)
+	}
+	var info *types.ConsensusGroupInfo
+	for _, cs := range infos {
+		if cs.Gid == gid {
+			info = cs
+			break
+		}
+	}
+	if info == nil {
+		panic(err)
+	}
+	reader := core.NewReader(*genesis.Timestamp, info)
+	u, err := reader.TimeToIndex(*block.Timestamp)
+	if err != nil {
+		panic(err)
+	}
+	if u < endIndex {
+		endIndex = u
+	}
+	if endIndex <= 0 {
+		endIndex = u
+	}
+	ch.GetLatestSnapshotBlock()
+	first, err := ch.GetSnapshotBlockHeadByHeight(3)
+	if err != nil {
+		panic(err)
+	}
+	if first == nil {
+		panic(err)
+	}
+	fromIndex, err := reader.TimeToIndex(*first.Timestamp)
+	if err != nil {
+		panic(err)
+	}
+	if startIndex < fromIndex {
+		startIndex = fromIndex
+	}
+	if startIndex <= 0 {
+		startIndex = fromIndex
+	}
+	type Rate struct {
+		Actual uint64
+		Plan   uint64
+		Rate   uint64
+	}
+	m := make(map[string]interface{})
+
+	for _, register := range registers {
+		detail, err := reader.VoteDetails(startIndex, endIndex, register, ch)
+		if err != nil {
+			panic(err)
+		}
+
+		rate := uint64(0)
+		if detail.PlanNum > 0 {
+			rate = (detail.ActualNum * 10000.0) / detail.PlanNum
+		}
+		m[register.Name] = &Rate{
+			Actual: detail.ActualNum,
+			Plan:   detail.PlanNum,
+			Rate:   rate,
+		}
+	}
+	m["startIndex"] = startIndex
+	m["endIndex"] = endIndex
+	s, _, err := cs.VoteIndexToTime(gid, startIndex)
+	if err != nil {
+		panic(err)
+	}
+	m["startTime"] = s.String()
+	e, _, err := cs.VoteIndexToTime(gid, endIndex)
+	if err != nil {
+		panic(err)
+	}
+	m["endTime"] = e.String()
+
+	bytes, _ := json.Marshal(m)
+	t.Log(string(bytes))
 }
