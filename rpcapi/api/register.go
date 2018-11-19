@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/pkg/errors"
+	"sort"
 	"time"
 
 	"github.com/vitelabs/go-vite/chain"
@@ -54,6 +55,17 @@ type RegistrationInfo struct {
 	CancelHeight   string        `json:"cancelHeight"`
 }
 
+type byRegistrationWithdrawHeight []*types.Registration
+
+func (a byRegistrationWithdrawHeight) Len() int      { return len(a) }
+func (a byRegistrationWithdrawHeight) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byRegistrationWithdrawHeight) Less(i, j int) bool {
+	if a[i].WithdrawHeight == a[j].WithdrawHeight {
+		return a[i].CancelHeight > a[j].CancelHeight
+	}
+	return a[i].WithdrawHeight > a[j].WithdrawHeight
+}
+
 func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error) {
 	snapshotBlock := r.chain.GetLatestSnapshotBlock()
 	vmContext, err := vm_context.NewVmContext(r.chain, &snapshotBlock.Hash, nil, nil)
@@ -63,6 +75,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	list := abi.GetRegistrationList(vmContext, gid, pledgeAddr)
 	targetList := make([]*RegistrationInfo, len(list))
 	if len(list) > 0 {
+		sort.Sort(byRegistrationWithdrawHeight(list))
 		for i, info := range list {
 			targetList[i] = &RegistrationInfo{
 				Name:           info.Name,
@@ -90,6 +103,8 @@ func (r *RegisterApi) GetRegisterPledgeAddr(name string, gid *types.Gid) (*types
 	var g types.Gid
 	if gid == nil || *gid == types.DELEGATE_GID {
 		g = types.SNAPSHOT_GID
+	} else {
+		g = *gid
 	}
 	registration, err := r.GetRegistration(name, g)
 	if err != nil {
