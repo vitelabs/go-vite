@@ -39,6 +39,21 @@ func (l *List) Shift() interface{} {
 	return e.Value
 }
 
+func (l *List) UnShift(data interface{}) {
+	e := &Element{
+		Value: data,
+	}
+
+	e.next = l.head.next
+	l.head.next = e
+
+	if e.next == nil {
+		l.tail = e
+	}
+
+	l.count++
+}
+
 func (l *List) Remove(prev, current *Element) {
 	prev.next = current.next
 	if current.next == nil {

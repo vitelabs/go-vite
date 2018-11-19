@@ -125,6 +125,7 @@ func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syn
 
 	pool := newChunkPool(peers, gid, s)
 	fc := newFileClient(chain, pool, s)
+	fc.subAllFileDownloaded(s.createChunkTasks)
 
 	s.pool = pool
 	s.fc = fc
@@ -217,6 +218,9 @@ wait:
 	checkChainTicker := time.NewTicker(chainGrowInterval)
 	defer checkChainTicker.Stop()
 
+	var speed uint64 = 100
+	prevHeight := current.Height
+
 	for {
 		select {
 		case e := <-s.pEvent:
@@ -240,7 +244,10 @@ wait:
 						return
 					}
 				}
+			} else if shouldSync(current.Height, e.peer.Height()) {
+				s.getSubLedgerFrom(e.peer)
 			}
+
 		case <-s.downloaded:
 			s.log.Info("sync downloaded")
 			s.setState(SyncDownloaded)
@@ -260,8 +267,15 @@ wait:
 				return
 			}
 
-			s.fc.threshold(current.Height)
-			s.pool.threshold(current.Height)
+			speed = speed/2 + (current.Height-prevHeight)/2
+			if speed == 0 {
+				speed = 100
+			} else if speed > 200 {
+				speed = 200
+			}
+
+			s.fc.threshold(current.Height + 30*speed)
+			s.pool.threshold(current.Height + 30*speed)
 			s.log.Debug(fmt.Sprintf("current height: %d", current.Height))
 
 		case <-s.term:
@@ -306,28 +320,27 @@ func (s *syncer) inc() {
 func (s *syncer) sync() {
 	peerList := s.peers.Pick(s.from + 1)
 
-	var msg *message.GetSubLedger
-
-	from, to := s.from, s.to
-	var pTo, pHeight uint64
 	for _, peer := range peerList {
-		pHeight = peer.Height()
-		if pHeight > to {
-			pTo = to
-		} else {
-			pTo = pHeight
-		}
-
-		msg = &message.GetSubLedger{
-			From:    ledger.HashHeight{Height: from},
-			Count:   pTo - from + 1,
-			Forward: true,
-		}
-
-		peer.Send(GetSubLedgerCode, 0, msg)
-
-		s.log.Info(fmt.Sprintf("sync from %d to %d to %s at %d", from, pTo, peer.RemoteAddr(), peer.Height()))
+		s.getSubLedgerFrom(peer)
 	}
+}
+
+func (s *syncer) getSubLedgerFrom(peer Peer) {
+	from, to := s.from, s.to
+	pTo := peer.Height()
+	if pTo > to {
+		pTo = to
+	}
+
+	msg := &message.GetSubLedger{
+		From:    ledger.HashHeight{Height: from},
+		Count:   pTo - from + 1,
+		Forward: true,
+	}
+
+	peer.Send(GetSubLedgerCode, 0, msg)
+
+	s.log.Info(fmt.Sprintf("sync from %d to %d to %s at %d", from, pTo, peer.RemoteAddr(), peer.Height()))
 }
 
 func (s *syncer) ID() string {
@@ -335,12 +348,11 @@ func (s *syncer) ID() string {
 }
 
 func (s *syncer) Cmds() []ViteCmd {
-	return []ViteCmd{FileListCode, SubLedgerCode, ExceptionCode}
+	return []ViteCmd{FileListCode, SubLedgerCode}
 }
 
 func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
-	cmd := ViteCmd(msg.Cmd)
-	if cmd == FileListCode {
+	if ViteCmd(msg.Cmd) == FileListCode {
 		res := new(message.FileList)
 
 		if err := res.Deserialize(msg.Payload); err != nil {
@@ -352,24 +364,28 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 
 		if len(res.Files) > 0 {
 			s.fc.gotFiles(res.Files, sender)
-		}
-
-		if sender.Height() >= s.to && len(res.Chunks) > 0 {
-			if atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
-				for _, c := range res.Chunks {
-					if len(c) == 2 && c[1] > 0 && c[1] >= c[0] {
-						s.pool.add(c[0], c[1])
-					}
-				}
+		} else if sender.Height() >= s.to && atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
+			for _, c := range res.Chunks {
+				s.pool.add(c[0], c[1])
 			}
 		}
-	} else if cmd == SubLedgerCode {
-		s.pool.Handle(msg, sender)
 	} else {
-		s.log.Warn(fmt.Sprintf("syncer: got %d need %d", msg.Cmd, SubLedgerCode))
+		s.pool.Handle(msg, sender)
 	}
 
 	return nil
+}
+
+func (s *syncer) createChunkTasks(fileEnd uint64) {
+	if fileEnd >= s.to {
+		return
+	}
+
+	if s.state != Syncing {
+		return
+	}
+
+	s.pool.add(fileEnd+1, s.to)
 }
 
 func (s *syncer) catch(c piece) {

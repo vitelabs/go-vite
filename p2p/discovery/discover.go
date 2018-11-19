@@ -268,7 +268,10 @@ loop:
 				asked[n.ID] = struct{}{}
 				common.Go(func() {
 					d.findNode(n, id, func(n *Node, nodes []*Node) {
-						reply <- nodes
+						select {
+						case <-d.term:
+						case reply <- nodes:
+						}
 					})
 				})
 				queries++
