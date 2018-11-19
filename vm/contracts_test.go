@@ -4,12 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"math/big"
-	"regexp"
-	"strconv"
-	"testing"
-	"time"
-
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -18,6 +12,11 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
+	"math/big"
+	"regexp"
+	"strconv"
+	"testing"
+	"time"
 )
 
 func TestContractsRefund(t *testing.T) {
@@ -30,6 +29,7 @@ func TestContractsRefund(t *testing.T) {
 	nodeName := "s1"
 	locHashRegister, _ := types.BytesToHash(abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID))
 	registrationDataOld := db.storageMap[addr2][string(locHashRegister.Bytes())]
+	contractBalance := db.GetBalance(&addr2, &ledger.ViteTokenId)
 	// register with an existed super node name, get refund
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr6, _, _ := types.CreateAddress()
@@ -74,6 +74,7 @@ func TestContractsRefund(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr2
 	receiveRegisterBlockList, isRetry, err := vm.Run(db, block21, sendRegisterBlockList[0].AccountBlock)
+	contractBalance.Add(contractBalance, block13.Amount)
 	if len(receiveRegisterBlockList) != 2 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationDataOld) ||
@@ -85,6 +86,7 @@ func TestContractsRefund(t *testing.T) {
 		receiveRegisterBlockList[1].AccountBlock.BlockType != ledger.BlockTypeSendCall ||
 		receiveRegisterBlockList[1].AccountBlock.AccountAddress != block13.ToAddress ||
 		receiveRegisterBlockList[1].AccountBlock.ToAddress != block13.AccountAddress ||
+		db.GetBalance(&addr2, &ledger.ViteTokenId).Cmp(contractBalance) != 0 ||
 		!bytes.Equal(receiveRegisterBlockList[1].AccountBlock.Data, []byte{1}) {
 		t.Fatalf("receive register transaction error")
 	}
@@ -170,7 +172,7 @@ func TestContractsRegister(t *testing.T) {
 	locHashRegister, _ := types.BytesToHash(abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID))
 	hisAddrList := []types.Address{addr7}
 	withdrawHeight := snapshot2.Height + 3600*24*90
-	registrationData, _ := abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr7, addr1, block13.Amount, withdrawHeight, snapshot2.Height, uint64(0), hisAddrList)
+	registrationData, _ := abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr7, addr1, block13.Amount, withdrawHeight, uint64(0), uint64(0), hisAddrList)
 	db.addr = addr2
 	receiveRegisterBlockList, isRetry, err := vm.Run(db, block21, sendRegisterBlockList[0].AccountBlock)
 	if len(receiveRegisterBlockList) != 1 || isRetry || err != nil ||
@@ -222,7 +224,7 @@ func TestContractsRegister(t *testing.T) {
 	vm = NewVM()
 	vm.Debug = true
 	hisAddrList = append(hisAddrList, addr6)
-	registrationData, _ = abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, block13.Amount, withdrawHeight, snapshot2.Height, uint64(0), hisAddrList)
+	registrationData, _ = abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, block13.Amount, withdrawHeight, uint64(0), uint64(0), hisAddrList)
 	db.addr = addr2
 	receiveRegisterBlockList2, isRetry, err := vm.Run(db, block22, sendRegisterBlockList2[0].AccountBlock)
 	if len(receiveRegisterBlockList2) != 1 || isRetry || err != nil ||
@@ -290,7 +292,7 @@ func TestContractsRegister(t *testing.T) {
 	vm.Debug = true
 	db.addr = addr2
 	receiveCancelRegisterBlockList, isRetry, err := vm.Run(db, block23, sendCancelRegisterBlockList[0].AccountBlock)
-	registrationData, _ = abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, helper.Big0, uint64(0), snapshot2.Height, snapshot5.Height, hisAddrList)
+	registrationData, _ = abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, helper.Big0, uint64(0), uint64(0), snapshot5.Height, hisAddrList)
 	if len(receiveCancelRegisterBlockList) != 2 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
@@ -330,7 +332,7 @@ func TestContractsRegister(t *testing.T) {
 	}
 	db.accountBlockMap[addr1][hash16] = receiveCancelRegisterRefundBlockList[0].AccountBlock
 
-	// reward
+	/*// reward
 	time6 := time.Unix(timestamp+4, 0)
 	snapshot6 := &ledger.SnapshotBlock{Height: snapshot5.Height + 256, Timestamp: &time6, Hash: types.DataHash([]byte{10, byte(6)})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot6)
@@ -415,7 +417,7 @@ func TestContractsRegister(t *testing.T) {
 		receiveRewardRefundBlockList[0].AccountBlock.Quota != 21000 {
 		t.Fatalf("receive reward refund transaction error")
 	}
-	db.accountBlockMap[addr7][hash71] = receiveRewardRefundBlockList[0].AccountBlock
+	db.accountBlockMap[addr7][hash71] = receiveRewardRefundBlockList[0].AccountBlock*/
 }
 
 func TestContractsVote(t *testing.T) {
@@ -1326,59 +1328,6 @@ func TestCheckTokenName(t *testing.T) {
 			t.Fatalf("match string error, [%v] expected %v, got %v", test.data, test.exp, ok)
 		}
 	}
-}
-func TestABI_MethodById2(t *testing.T) {
-	data := "8pxs4gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAACLPGY836Hk51+jDRsuw0HeAWVwzwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGMTIzNDM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-	databyte := []byte(data)
-	method, e := abi.ABIRegister.MethodById(databyte[0:4])
-	if e != nil {
-		panic(e)
-	}
-
-	t.Log(method.Name)
-}
-func TestSenData(t *testing.T) {
-
-	param := new(abi.ParamRegister)
-	data := "f29c6ce2000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000600000000000000000000000008b3c663cdfa1e4e75fa30d1b2ec341de016570cf00000000000000000000000000000000000000000000000000000000000000063132333433340000000000000000000000000000000000000000000000000000"
-
-	databyte, err := hex.DecodeString(data)
-	if err != nil {
-		panic(err)
-	}
-	if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameRegister, databyte); err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("%+v", param)
-
-	//param := new(abi.ParamReward)
-	//data := "8pxs4gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAACLPGY836Hk51+jDRsuw0HeAWVwzwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGMTIzNDM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-	//databyte := []byte(data)
-	//if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameReward, databyte); err != nil {
-	//	panic(err)
-	//}
-
-	//param := new(abi.ParamCancelRegister)
-	//data := "8pxs4gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAACLPGY836Hk51+jDRsuw0HeAWVwzwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGMTIzNDM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-	//databyte := []byte(data)
-	//if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameCancelRegister, databyte); err != nil {
-	//	panic(err)
-	//}
-
-	//param := new(abi.ParamRegister)
-	//data := "8pxs4gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAACLPGY836Hk51+jDRsuw0HeAWVwzwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGMTIzNDM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-	//databyte := []byte(data)
-	//if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameRegister, databyte); err != nil {
-	//	panic(err)
-	//}
-	//
-	//param := new(abi.ParamRegister)
-	//data := "8pxs4gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAACLPGY836Hk51+jDRsuw0HeAWVwzwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGMTIzNDM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-	//databyte := []byte(data)
-	//if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameRegister, databyte); err != nil {
-	//	panic(err)
-	//}
 }
 
 func TestGenesisBlockData(t *testing.T) {
