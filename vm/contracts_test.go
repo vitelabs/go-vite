@@ -5,19 +5,89 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"testing"
 	"time"
 )
+
+func TestContractsRefundWithVmContext(t *testing.T) {
+	// init chain
+	chn := chain.NewChain(&config.Config{
+		DataDir: filepath.Join(common.HomeDir(), "Library/GVite/devdata"),
+		Chain:   &config.Chain{GenesisFile: filepath.Join(common.HomeDir(), "genesis.json")},
+	})
+	chn.Init()
+	chn.Start()
+
+	// init sendBlock and receive block
+	snapshotBlock := chn.GetLatestSnapshotBlock()
+	addr, _ := types.HexToAddress("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
+	contractAddr := abi.AddressRegister
+	contractBalance, _ := chn.GetAccountBalanceByTokenId(&contractAddr, &ledger.ViteTokenId)
+	vm := NewVM()
+	prevAccountBlock, err := chn.GetLatestAccountBlock(&contractAddr)
+	if err != nil || prevAccountBlock == nil {
+		t.Fatalf("prev contract account block is nil")
+	}
+	db, err := vm_context.NewVmContext(chn, &snapshotBlock.Hash, &prevAccountBlock.Hash, &contractAddr)
+	if err != nil {
+		t.Fatalf("new vm context failed", err)
+	}
+	nodeName := "s1"
+	registerData, _ := abi.ABIRegister.PackMethod(abi.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr)
+	timestamp := time.Now()
+	sendBlock := ledger.AccountBlock{
+		BlockType:      ledger.BlockTypeSendCall,
+		AccountAddress: addr,
+		ToAddress:      contractAddr,
+		Amount:         new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)),
+		TokenId:        ledger.ViteTokenId,
+		Fee:            big.NewInt(10),
+		Data:           registerData,
+		Timestamp:      &timestamp,
+	}
+	receiveBlock := ledger.AccountBlock{
+		BlockType:      ledger.BlockTypeReceive,
+		Height:         prevAccountBlock.Height + 1,
+		AccountAddress: contractAddr,
+		Timestamp:      &timestamp,
+	}
+	refundAmount := new(big.Int).Add(sendBlock.Amount, sendBlock.Fee)
+
+	// duplicate register, refund
+	receiveBlockList, isRetry, err := vm.Run(db, &receiveBlock, &sendBlock)
+	if len(receiveBlockList) != 2 || isRetry || err != nil ||
+		receiveBlockList[0].AccountBlock.BlockType != ledger.BlockTypeReceive ||
+		!bytes.Equal(receiveBlockList[0].AccountBlock.Data, append(receiveBlockList[0].AccountBlock.StateHash.Bytes(), byte(1))) ||
+		receiveBlockList[0].AccountBlock.Quota != 0 ||
+		!bytes.Equal(receiveBlockList[1].AccountBlock.Data, []byte{1}) ||
+		receiveBlockList[1].AccountBlock.BlockType != ledger.BlockTypeSendCall ||
+		receiveBlockList[1].AccountBlock.Height != receiveBlockList[0].AccountBlock.Height+1 ||
+		receiveBlockList[1].AccountBlock.TokenId != ledger.ViteTokenId ||
+		receiveBlockList[1].AccountBlock.Amount.Cmp(refundAmount) != 0 ||
+		receiveBlockList[1].AccountBlock.Fee.Sign() != 0 ||
+		receiveBlockList[1].AccountBlock.AccountAddress != contractAddr ||
+		receiveBlockList[1].AccountBlock.ToAddress != addr ||
+		receiveBlockList[1].AccountBlock.Quota != 0 ||
+		receiveBlockList[0].VmContext.GetBalance(&contractAddr, &ledger.ViteTokenId).Cmp(new(big.Int).Add(contractBalance, refundAmount)) != 0 ||
+		receiveBlockList[1].VmContext.GetBalance(&contractAddr, &ledger.ViteTokenId).Cmp(contractBalance) != 0 {
+		t.Fatalf("refund error")
+	}
+}
 
 func TestContractsRefund(t *testing.T) {
 	// prepare db

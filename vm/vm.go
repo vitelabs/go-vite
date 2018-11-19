@@ -310,7 +310,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		// precompiled contract receive error, if amount or fee is not zero, refund
 		refundFlag := false
 		if sendBlock.Amount.Sign() > 0 && sendBlock.Fee.Sign() > 0 && sendBlock.TokenId == ledger.ViteTokenId {
-			refundAmount := new(big.Int).Add(block.AccountBlock.Amount, block.AccountBlock.Fee)
+			refundAmount := new(big.Int).Add(sendBlock.Amount, sendBlock.Fee)
 			vm.VmContext.AppendBlock(
 				&vm_context.VmAccountBlock{
 					util.MakeSendBlock(
