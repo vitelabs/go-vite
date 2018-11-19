@@ -109,7 +109,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	if err != nil {
 		return nil, err
 	}
-	g, e := generator.NewGenerator(t.vite.Chain(), fitestSnapshotBlockHash, nil, param.SelfAddr)
+	g, e := generator.NewGenerator(t.vite.Chain(), fitestSnapshotBlockHash, param.PreBlockHash, param.SelfAddr)
 	if e != nil {
 		return nil, e
 	}
@@ -153,11 +153,12 @@ func isPreCompiledContracts(address types.Address) bool {
 }
 
 type SendTxWithPrivateKeyParam struct {
-	SelfAddr    *types.Address    `json:"selfAddr"`
-	ToAddr      *types.Address    `json:"toAddr"`
-	TokenTypeId types.TokenTypeId `json:"tokenTypeId"`
-	PrivateKey  *string           `json:"privateKey"` //hex16
-	Amount      *string           `json:"amount"`
-	Data        []byte            `json:"data"` //base64
-	Difficulty  *string           `json:"difficulty,omitempty"`
+	SelfAddr     *types.Address    `json:"selfAddr"`
+	ToAddr       *types.Address    `json:"toAddr"`
+	TokenTypeId  types.TokenTypeId `json:"tokenTypeId"`
+	PrivateKey   *string           `json:"privateKey"` //hex16
+	Amount       *string           `json:"amount"`
+	Data         []byte            `json:"data"` //base64
+	Difficulty   *string           `json:"difficulty,omitempty"`
+	PreBlockHash *types.Hash       `json:"preBlockHash,omitempty"`
 }
