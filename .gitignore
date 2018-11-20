@@ -10,6 +10,10 @@ gvite
 
 # Test binary, build with `go test -c`
 *.test
+testdata/trie
+testdata/vm_context
+testdata/ledger
+testdata/ledger_file
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
@@ -21,6 +25,9 @@ vite.p2p.db
 # idea files
 .idea/
 
+# Build files
 build/
 
-gitversion
+# config files for test
+node_config.json
+genesis.json

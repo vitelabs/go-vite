@@ -2,41 +2,26 @@ syntax="proto3";
 
 package protos;
 
-// all udp messages must attach NodeID of sender.
-
-message Node {
-    bytes ID = 1;
-    string IP = 2;
-    uint32 Port = 3;
-}
-
-message Ping {
-    bytes ID = 1;
-}
-
-message Pong {
-    bytes ID = 1;
-    bytes Ping = 2;
-}
-
-message FindNode {
-    bytes ID = 1;
-    bytes Target = 2;
-}
-
-message Neighbors {
-    bytes ID = 1;
-    repeated Node Nodes = 2;
-}
-
-// tcp message
-message Disc {
-    uint32 reason = 1;
-}
-
 message Handshake {
-    uint32 NetID = 1;
-    string Name = 2;
-    bytes ID = 3;
-    uint32 Version = 4;
+    string Name = 1;
+    bytes ID = 2;
+    repeated uint32 CmdSets = 3;
+    bytes RemoteIP = 4;
+	uint32 RemotePort = 5;
+    uint32 Port = 6;
+}
+
+message ConnProperty {
+    string LocalID = 1;
+    bytes LocalIP = 2;
+    uint32 LocalPort = 3;
+    string RemoteID = 4;
+    bytes RemoteIP = 5;
+    uint32 RemotePort = 6;
+}
+
+message Topo {
+    string Pivot = 1;
+    repeated ConnProperty Peers = 2;
+    int64 Time = 3;
 }

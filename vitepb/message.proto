@@ -2,33 +2,69 @@ syntax="proto3";
 
 package vitepb;
 
-import "vitepb/account_block_net.proto";
-import "vitepb/snapshot_block_net.proto";
+import "vitepb/account_block.proto";
+import "vitepb/snapshot_block.proto";
 
-message StatusMsg {
-    uint64 NetworkId = 1;
-    uint32 ProtocolVersion = 2;
-    bytes Height = 3;
-    bytes CurrentBlock = 4;
-    bytes GenesisBlock = 5;
+message Handshake {
+    uint64 CmdSet = 1;
+    uint64 Height = 2;
+    uint32 Port = 3;
+    bytes Current = 4;
+    bytes Genesis = 5;
 }
 
-message GetSnapshotBlocksMsg {
-    bytes Origin = 1;
+message BlockID {
+    bytes Hash = 1;
+    uint64 Height = 2;
+}
+
+message CompressedFileMeta {
+    uint64 StartHeight = 1;
+    uint64 EndHeight = 2;
+    string Filename  =3;
+    int64 FileSize = 4;
+    uint64 BlockNumbers = 5;
+}
+
+message FileList {
+    repeated CompressedFileMeta Files = 1;
+    repeated uint64 Chunks = 2;
+    uint64 Nonce = 3;
+}
+
+message GetFiles {
+    repeated string Names = 1;
+    uint64 Nonce = 2;
+}
+
+message GetChunk {
+    uint64 Start = 1;
+    uint64 End = 2;
+}
+
+message SubLedger {
+    repeated vitepb.SnapshotBlock SBlocks = 1;
+    repeated vitepb.AccountBlock ABlocks = 2;
+    uint64 AblockNum = 3;
+}
+
+message GetSnapshotBlocks {
+    BlockID From = 1;
     uint64 Count = 2;
     bool Forward = 3;
 }
 
-message SnapshotBlocksMsg {
-    repeated vitepb.SnapshotBlockNet blocks = 1;
+message SnapshotBlocks {
+    repeated vitepb.SnapshotBlock Blocks = 1;
 }
 
-message GetAccountBlocksMsg {
-    bytes Origin = 1;
-    uint64 Count = 2;
-    bool Forward = 3;
+message GetAccountBlocks {
+    bytes Address = 1;
+    BlockID From = 2;
+    uint64 Count = 3;
+    bool Forward = 4;
 }
 
-message AccountBlocksMsg {
-    repeated vitepb.AccountBlockNet blocks = 3;
+message AccountBlocks {
+    repeated vitepb.AccountBlock Blocks = 1;
 }

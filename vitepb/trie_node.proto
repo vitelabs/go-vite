@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package vitepb;
+
+message TrieNode {
+    uint32 NodeType = 1;
+    map<uint32, bytes> Children = 2;
+    bytes key = 3;
+    bytes child = 4;
+    bytes value = 5;
+}
