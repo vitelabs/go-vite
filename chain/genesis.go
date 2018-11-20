@@ -10,14 +10,44 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 )
 
+type ConditionRegisterData struct {
+	PledgeAmount *big.Int
+	PledgeToken  types.TokenTypeId
+	PledgeHeight uint64
+}
+
+type VoteConditionData struct {
+	Amount  *big.Int
+	TokenId types.TokenTypeId
+}
+
+type ConsensusGroupInfo struct {
+	NodeCount              uint8
+	Interval               int64
+	PerCount               int64
+	RandCount              uint8
+	RandRank               uint8
+	CountingTokenId        types.TokenTypeId
+	RegisterConditionId    uint8
+	RegisterConditionParam ConditionRegisterData
+	VoteConditionId        uint8
+	VoteConditionParam     VoteConditionData
+	Owner                  types.Address
+	PledgeAmount           *big.Int
+	WithdrawHeight         uint64
+}
+
 type GenesisConfig struct {
-	GenesisAccountAddress types.Address   `json:"genesisAccountAddress"`
-	BlockProducers        []types.Address `json:"blockProducers"`
+	GenesisAccountAddress  types.Address
+	BlockProducers         []types.Address
+	SnapshotConsensusGroup *ConsensusGroupInfo
+	CommonConsensusGroup   *ConsensusGroupInfo
 }
 
 var GenesisSnapshotBlock ledger.SnapshotBlock
@@ -154,6 +184,43 @@ func genesisMintageSendBlock(config *GenesisConfig) (ledger.AccountBlock, vmctxt
 	return block, GenesisMintageBlockVC.CopyAndFreeze()
 }
 
+func getConsensusGroupData(consensusGroupConfig *ConsensusGroupInfo) ([]byte, error) {
+
+	conditionRegisterData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge,
+		consensusGroupConfig.RegisterConditionParam.PledgeAmount,
+		consensusGroupConfig.RegisterConditionParam.PledgeToken,
+		consensusGroupConfig.RegisterConditionParam.PledgeHeight)
+
+	if err != nil {
+		return nil, err
+	}
+	voteConditionData := []byte{}
+
+	if consensusGroupConfig.VoteConditionId > 1 {
+		voteConditionData, err = abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionVoteOfKeepToken,
+			consensusGroupConfig.VoteConditionParam.Amount,
+			consensusGroupConfig.VoteConditionParam.TokenId)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
+		consensusGroupConfig.NodeCount,
+		consensusGroupConfig.Interval,
+		consensusGroupConfig.PerCount,
+		consensusGroupConfig.RandCount,
+		consensusGroupConfig.RandRank,
+		consensusGroupConfig.CountingTokenId,
+		consensusGroupConfig.RegisterConditionId,
+		conditionRegisterData,
+		consensusGroupConfig.VoteConditionId,
+		voteConditionData,
+		consensusGroupConfig.Owner,
+		consensusGroupConfig.PledgeAmount,
+		consensusGroupConfig.WithdrawHeight)
+}
+
 func genesisConsensusGroupBlock(config *GenesisConfig) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	timestamp := genesisTimestamp.Add(time.Second * 10)
 
@@ -168,37 +235,14 @@ func genesisConsensusGroupBlock(config *GenesisConfig) (ledger.AccountBlock, vmc
 		Timestamp:    &timestamp,
 	}
 
-	conditionRegisterData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)), ledger.ViteTokenId, uint64(3600*24*90))
-
-	snapshotConsensusGroupData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
-		uint8(25),
-		int64(1),
-		int64(3),
-		uint8(2),
-		uint8(100),
-		ledger.ViteTokenId,
-		uint8(1),
-		conditionRegisterData,
-		uint8(1),
-		[]byte{},
-		config.GenesisAccountAddress,
-		big.NewInt(0),
-		uint64(1))
-
-	commonConsensusGroupData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
-		uint8(25),
-		int64(3),
-		int64(1),
-		uint8(2),
-		uint8(100),
-		ledger.ViteTokenId,
-		uint8(1),
-		conditionRegisterData,
-		uint8(1),
-		[]byte{},
-		config.GenesisAccountAddress,
-		big.NewInt(0),
-		uint64(1))
+	snapshotConsensusGroupData, err := getConsensusGroupData(config.SnapshotConsensusGroup)
+	if err != nil {
+		log15.Crit("Init snapshot consensus group information failed, error is "+err.Error(), "module", "genesis")
+	}
+	commonConsensusGroupData, err := getConsensusGroupData(config.CommonConsensusGroup)
+	if err != nil {
+		log15.Crit("Init common consensus group information failed, error is "+err.Error(), "module", "genesis")
+	}
 
 	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
 	vmContext.SetStorage(abi.GetConsensusGroupKey(types.SNAPSHOT_GID), snapshotConsensusGroupData)

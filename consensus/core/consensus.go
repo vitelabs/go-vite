@@ -105,7 +105,6 @@ func (self *reader) VoteDetails(startIndex, endIndex uint64,
 
 func (self *reader) voteDetail(index uint64,
 	r stateCh) ([]*Vote, []*Vote, error) {
-	monitor.LogTime("snapshotdd", "aaa", time.Now())
 	voteTime := self.info.GenVoteTime(index)
 	block, err := r.GetSnapshotBlockBeforeTime(&voteTime)
 

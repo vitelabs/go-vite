@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/vitelabs/go-vite/cmd/utils"
@@ -238,7 +239,14 @@ func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) {
 		}
 		log.Warn("Cannot unmarshal the default config file content", "error", err)
 	}
-	log.Warn("Read the default config file content error, The program will skip here and continue processing")
+
+	log.Warn(fmt.Sprintf("Read the default config file `%v `content error, The reason may be that the file does not exist or the content is incorrect.", defaultNodeConfigFileName))
+	log.Info(fmt.Sprintf("The program will skip here and continue processing"))
+}
+
+func IsExist(f string) bool {
+	_, err := os.Stat(f)
+	return err == nil || os.IsExist(err)
 }
 
 func makeRunLogFile(cfg *node.Config) {

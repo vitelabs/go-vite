@@ -3,11 +3,12 @@ package chain
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_context"
-	"path/filepath"
 )
 
 type blackBlock struct {

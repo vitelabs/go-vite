@@ -37,7 +37,8 @@ type committee struct {
 	// subscribes map[types.Gid]map[string]*subscribeEvent
 	subscribes sync.Map
 
-	wg sync.WaitGroup
+	wg     sync.WaitGroup
+	closed chan struct{}
 }
 
 func (self *committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
@@ -255,6 +256,7 @@ func (self *committee) Init() error {
 func (self *committee) Start() {
 	self.PreStart()
 	defer self.PostStart()
+	self.closed = make(chan struct{})
 
 	self.wg.Add(1)
 	snapshotSubs, _ := self.subscribes.LoadOrStore(types.SNAPSHOT_GID, &sync.Map{})
@@ -276,6 +278,8 @@ func (self *committee) Start() {
 func (self *committee) Stop() {
 	self.PreStop()
 	defer self.PostStop()
+
+	close(self.closed)
 	self.wg.Wait()
 }
 
@@ -319,7 +323,11 @@ func (self *committee) update(t *teller, m *sync.Map) {
 		subs := copyMap(m)
 
 		if len(subs) == 0 {
-			time.Sleep(electionResult.ETime.Sub(time.Now()))
+			select {
+			case <-time.After(electionResult.ETime.Sub(time.Now())):
+			case <-self.closed:
+				return
+			}
 			index = index + 1
 			continue
 		}
@@ -333,8 +341,12 @@ func (self *committee) update(t *teller, m *sync.Map) {
 				self.event(tmpV, tmpResult)
 			})
 		}
-
-		time.Sleep(electionResult.ETime.Sub(time.Now()) - time.Second)
+		sleepT := electionResult.ETime.Sub(time.Now()) - time.Second
+		select {
+		case <-time.After(sleepT):
+		case <-self.closed:
+			return
+		}
 		index = electionResult.Index + 1
 	}
 }
