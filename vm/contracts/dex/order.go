@@ -9,11 +9,12 @@ import (
 
 const orderStorageSalt = "order:"
 const orderHeaderValue = math.MaxUint64
+const MinPricePermit = 0.00000001
 const (
-	pending  = iota
-	partialExecuted
-	fullyExecuted
-	cancelled
+	Pending = iota
+	PartialExecuted
+	FullyExecuted
+	Cancelled
 )
 
 const (
@@ -27,8 +28,8 @@ const (
 )
 
 const (
-	limited = iota
-	market
+	Limited = iota
+	Market
 )
 
 type Order struct {
@@ -135,7 +136,7 @@ func (protocol *OrderNodeProtocol) deSerializeMeta(nodeData []byte) *skiplistMet
 }
 
 func priceEqual(a float64, b float64) bool {
-	return math.Abs(float64(a) - float64(b)) < 0.0000000099
+	return math.Abs(float64(a) - float64(b)) < MinPricePermit
 }
 
 func convertKeyOnLevelToProto(from []nodeKeyType) []uint64 {

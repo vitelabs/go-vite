@@ -5,8 +5,8 @@ package proto;
 message Order {
     uint64 Id = 1;
     string Address = 2;
-    uint32 TradeAsset = 3;
-    uint32 QuoteAsset = 4;
+    bytes TradeAsset = 3;
+    bytes QuoteAsset = 4;
     bool   Side = 5; // false buy, true sell
     uint32 Type = 6; // 0 limit order, 1 market order
     double Price = 7;
@@ -17,7 +17,7 @@ message Order {
     int64 Timestamp = 12;
     uint64 ExecutedQuantity = 13;
     uint64 ExecutedAmount = 14;
-    uint32 refundAsset = 15;
+    bytes refundAsset = 15;
     uint64 refundQuantity = 16; //refund trade/quote asset
 }
 
@@ -50,6 +50,3 @@ message Transaction {
     int64 Timestamp = 8;
 }
 
-message OrderEvent {
-
-}

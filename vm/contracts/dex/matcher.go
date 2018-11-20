@@ -88,11 +88,11 @@ func (mc *matcher) recursiveTakeOrder(taker *Order, maker Order, makerBook *skip
 			*txs = append(*txs, tx)
 		}
 	}
-	if taker.Status == partialExecuted && len(*txs) >= maxTxsCountPerTaker {
-		taker.Status = cancelled
+	if taker.Status == PartialExecuted && len(*txs) >= maxTxsCountPerTaker {
+		taker.Status = Cancelled
 		taker.CancelReason = partialExecutedCancelledByMarket
 	}
-	if taker.Status == fullyExecuted || taker.Status == cancelled {
+	if taker.Status == FullyExecuted || taker.Status == Cancelled {
 		return nil
 	}
 	// current maker is the last item in the book
@@ -117,7 +117,7 @@ func (mc *matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) {
 	}
 	size := len(makers)
 	if size > 0 {
-		if makers[size-1].Status == fullyExecuted || makers[size-1].Status == cancelled {
+		if makers[size-1].Status == FullyExecuted || makers[size-1].Status == Cancelled {
 			makerBook.truncateHeadTo(newOrderKey(makers[size-1].Id), size)
 		} else if size >= 2 {
 			makerBook.truncateHeadTo(newOrderKey(makers[size-2].Id), size-1)
@@ -127,7 +127,7 @@ func (mc *matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) {
 }
 
 func (mc *matcher) handleTakerRes(order Order) {
-	if order.Status == partialExecuted || order.Status == pending {
+	if order.Status == PartialExecuted || order.Status == Pending {
 		mc.saveTakerAsMaker(order)
 	}
 	mc.emitOrderRes(order)
@@ -170,7 +170,7 @@ func newLog(event OrderEvent) *ledger.VmLog {
 }
 
 func matchPrice(taker Order, maker Order) (matched bool, executedPrice float64) {
-	if taker.Type == market || priceEqual(taker.Price, maker.Price) {
+	if taker.Type == Market || priceEqual(taker.Price, maker.Price) {
 		return true, maker.Price
 	} else {
 		matched = false
@@ -187,14 +187,14 @@ func matchPrice(taker Order, maker Order) (matched bool, executedPrice float64) 
 func filterTimeout(maker *Order) bool {
 	if time.Now().Unix()*1000 > maker.Timestamp+timeoutMillisecond {
 		switch maker.Status {
-		case pending:
+		case Pending:
 			maker.CancelReason = cancelledOnTimeout
-		case partialExecuted:
+		case PartialExecuted:
 			maker.CancelReason = partialExecutedCancelledOnTimeout
 		default:
 			maker.CancelReason = unknownCancelledOnTimeout
 		}
-		maker.Status = cancelled
+		maker.Status = Cancelled
 		return true
 	} else {
 		return false
@@ -202,7 +202,7 @@ func filterTimeout(maker *Order) bool {
 }
 
 func calculateRefund(order *Order) {
-	if order.Status == fullyExecuted || order.Status == cancelled {
+	if order.Status == FullyExecuted || order.Status == Cancelled {
 		switch order.Side {
 		case false: //buy
 			order.RefundAsset = order.QuoteAsset
@@ -241,7 +241,7 @@ func calculateOrderAndTx(taker *Order, maker *Order) (tx proto.Transaction) {
 }
 
 func calculateOrderAmount(order *Order, quantity uint64, price float64) uint64 {
-	amount := calculateAmount(quantity, price)
+	amount := CalculateAmount(quantity, price)
 	if !order.Side && order.Amount < order.ExecutedAmount+amount {// side is buy
 		amount = order.Amount - order.ExecutedAmount
 	}
@@ -251,16 +251,16 @@ func calculateOrderAmount(order *Order, quantity uint64, price float64) uint64 {
 func updateOrder(order *Order, quantity uint64, amount uint64) uint64 {
 	order.ExecutedAmount += amount
 	if order.Quantity-order.ExecutedQuantity == quantity || isDust(order, quantity) {
-		order.Status = fullyExecuted
+		order.Status = FullyExecuted
 	} else {
-		order.Status = partialExecuted
+		order.Status = PartialExecuted
 	}
 	order.ExecutedQuantity += quantity
 	return amount
 }
 // leave quantity is too small for calculate precision
 func isDust(order *Order, quantity uint64) bool {
-	return calculateAmount(order.Quantity-order.ExecutedQuantity - quantity, order.Price) < 1
+	return CalculateAmount(order.Quantity-order.ExecutedQuantity - quantity, order.Price) < 1
 }
 
 func getMakerById(makerBook *skiplist, orderId nodeKeyType) (od Order, nextId orderKey, err error) {
@@ -274,13 +274,13 @@ func getMakerById(makerBook *skiplist, orderId nodeKeyType) (od Order, nextId or
 
 func validateAndRenderOrder(order Order) (orderRes Order, isValid bool) {
 	if order.Id == 0 || !validPrice(order.Price) {
-		order.Status = cancelled
+		order.Status = Cancelled
 		order.CancelReason = cancelledByMarket
 		return order, false
 	} else {
-		order.Status = pending
+		order.Status = Pending
 		if order.Amount == 0 {
-			order.Amount = calculateAmount(order.Quantity, order.Price)
+			order.Amount = CalculateAmount(order.Quantity, order.Price)
 		}
 		return order, true
 	}
@@ -294,7 +294,7 @@ func validPrice(price float64) bool {
 	}
 }
 
-func calculateAmount(quantity uint64, price float64) uint64 {
+func CalculateAmount(quantity uint64, price float64) uint64 {
 	qtF := big.NewFloat(0).SetUint64(quantity)
 	prF := big.NewFloat(0).SetFloat64(price)
 	amountF := prF.Mul(prF, qtF)
@@ -311,11 +311,11 @@ func calculateQuantity(amount uint64, price float64) uint64 {
 }
 
 func getBookNameToTake(order Order) string {
-	return fmt.Sprintf("%d|%d|%d", order.TradeAsset, order.QuoteAsset, 1-toSideInt(order.Side))
+	return fmt.Sprintf("%s|%s|%d", string(order.TradeAsset), string(order.QuoteAsset), 1-toSideInt(order.Side))
 }
 
 func getBookNameToMake(order Order) string {
-	return fmt.Sprintf("%d|%d|%d", order.TradeAsset, order.QuoteAsset, toSideInt(order.Side))
+	return fmt.Sprintf("%s|%s|%d", string(order.TradeAsset), string(order.QuoteAsset), toSideInt(order.Side))
 }
 
 func toSideInt(side bool) int {

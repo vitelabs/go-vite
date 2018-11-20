@@ -1,0 +1,26 @@
+syntax="proto3";
+
+package proto;
+
+message Account {
+    bytes Asset = 1;
+    uint64 Available = 2;
+    uint64 Locked   = 3;
+}
+
+message Fund {
+    string Address = 1;
+    repeated Account Accounts = 2;
+}
+
+message SettleAction {
+    uint64 Address = 1;
+    bytes Asset = 2;
+    uint32 IncAvailable = 3;
+    uint32 DeduceLocked = 4;
+    uint32 ReleaseLocked = 5;
+}
+
+message SettleOrders {
+    repeated SettleAction actions = 1;
+}

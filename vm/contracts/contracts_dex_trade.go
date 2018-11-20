@@ -9,85 +9,56 @@ import (
 )
 
 const (
+	VITE = iota
+	BTC
+	ETH
+)
+
+const (
+	// dexSuportToken
+
 	jsonDexTrade = `
 	[
-		{"type":"function","name":"DexTradeUserNewOrder", "inputs":[{"name":"beneficial","type":"address"}]},
-		{"type":"function","name":"DexTradeSystemPendingOrder","inputs":[{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"}]},
-		{"type":"function","name":"DexTradeUserStopOrder","inputs":[{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"}]},
-		{"type":"function","name":"DexTradeSystemStopOrder","inputs":[{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"}]},
-        {"type":"variable","name":"pledgeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"}]},
-		{"type":"variable","name":"pledgeBeneficial","inputs":[{"name":"amount","type":"uint256"}]}
+		{"type":"function","name":"DexTradeNewOrder", "inputs":[{"name":"data","type":"bytes"}]},
+		{"type":"function","name":"DexTradeCancelOrder", "inputs":[{"name":"data","type":"bytes"}]}
 	]`
 
-	MethodNameDexTradeUserNewOrder       = "DexTradeUserNewOrder"
-	MethodNameDexTradeSystemPendingOrder = "DexTradeSystemPendingOrder"
-	MethodNameDexTradeUserStopOrder      = "DexTradeUserStopOrder"
-	MethodNameDexTradeSystemStopOrder    = "DexTradeSystemStopOrder"
+	MethodNameDexTradeNewOrder = "DexTradeNewOrder"
+	MethodNameDexTradeCancelOrder = "DexTradeCancelOrder"
 
-	//VariableNamePledgeInfo       = "pledgeInfo"
-	//VariableNamePledgeBeneficial = "pledgeBeneficial"
 )
+
 
 var (
-	ABIDexTrade, _ = abi.JSONToABIContract(strings.NewReader(jsonDexTrade))
+	ABIDexTrade, _ = abi.JSONToABIContract(strings.NewReader(jsonDexFund))
 )
 
-type MethodDexTradeUserNewOrder struct {
+type MethodDexTradeNewOrder struct {
 }
 
-func (dex *MethodDexTradeUserNewOrder) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
+func (dex *MethodDexTradeNewOrder) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (dex *MethodDexTradeUserNewOrder) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
+func (dex *MethodDexTradeNewOrder) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	return 0, nil
 }
 
-func (dex MethodDexTradeUserNewOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
+func (dex *MethodDexTradeNewOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	return nil
 }
 
-type MethodDexTradeSystemPendingOrder struct {
+type MethodDexTradeCancelOrder struct {
 }
 
-func (dex *MethodDexTradeSystemPendingOrder) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
+func (dex *MethodDexTradeCancelOrder) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (dex *MethodDexTradeSystemPendingOrder) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
+func (dex *MethodDexTradeCancelOrder) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
 	return 0, nil
 }
 
-func (dex MethodDexTradeSystemPendingOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
-	return nil
-}
-
-type MethodDexTradeUserStopOrder struct {
-}
-
-func (dex *MethodDexTradeUserStopOrder) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
-func (dex *MethodDexTradeUserStopOrder) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	return 0, nil
-}
-
-func (dex MethodDexTradeUserStopOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
-	return nil
-}
-
-type MethodDexTradeSystemStopOrder struct {
-}
-
-func (dex *MethodDexTradeSystemStopOrder) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
-func (dex *MethodDexTradeSystemStopOrder) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	return 0, nil
-}
-
-func (dex MethodDexTradeSystemStopOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
+func (dex MethodDexTradeCancelOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	return nil
 }
