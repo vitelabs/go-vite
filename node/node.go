@@ -124,12 +124,13 @@ func (node *Node) Prepare() error {
 	}
 
 	// extract p2p privateKey from node.walletManager
-	var err error
-	priv, err := node.extractPrivateKeyFromCoinbase()
-	if err == nil {
-		node.p2pConfig.PrivateKey = priv
+	if node.p2pConfig.PrivateKey == nil {
+		if priv, err := node.extractPrivateKeyFromCoinbase(); err == nil {
+			node.p2pConfig.PrivateKey = priv
+		}
 	}
 
+	var err error
 	node.p2pServer, err = p2p.New(node.p2pConfig)
 	if err != nil {
 		log.Error(fmt.Sprintf("P2P new error: %v", err))
