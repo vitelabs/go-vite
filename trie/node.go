@@ -166,6 +166,10 @@ func (trieNode *TrieNode) NodeType() byte {
 	return trieNode.nodeType
 }
 
+func (trieNode *TrieNode) Children() map[byte]*TrieNode {
+	return trieNode.children
+}
+
 func (trieNode *TrieNode) parseChildrenToPb(children map[byte]*TrieNode) map[uint32][]byte {
 	if children == nil {
 		return nil
