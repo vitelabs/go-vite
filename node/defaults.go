@@ -15,7 +15,7 @@ var DefaultNodeConfig = Config{
 	KeyStoreDir:          DefaultDataDir(),
 	HttpPort:             common.DefaultHTTPPort,
 	WSPort:               common.DefaultWSPort,
-	PrivateKey:           "",
+	P2Pkey:               "",
 	MaxPeers:             0,
 	MaxPassivePeersRatio: 0,
 	MaxPendingPeers:      0,
