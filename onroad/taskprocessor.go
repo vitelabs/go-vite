@@ -2,14 +2,17 @@ package onroad
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"sync"
 )
 
 type ContractTaskProcessor struct {
@@ -128,6 +131,7 @@ func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
 }
 
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
+	defer monitor.LogTime("onroad", "processOneAddress", time.Now())
 	plog := tp.log.New("method", "processOneAddress")
 
 	plog.Debug("task addr" + task.Addr.String())
