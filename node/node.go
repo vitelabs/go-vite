@@ -1,22 +1,28 @@
 package node
 
 import (
+	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/wallet/entropystore"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/vitelabs/go-vite/cmd/utils/flock"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/pow/remote"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/pow"
 )
 
 var (
@@ -97,6 +103,13 @@ func (node *Node) Prepare() error {
 	}
 	node.walletManager = wallet.New(node.walletConfig)
 
+	//wallet start
+	log.Info(fmt.Sprintf("Begin Start Wallet... "))
+	if err := node.startWallet(); err != nil {
+		log.Error(fmt.Sprintf("startWallet error: %v", err))
+		return err
+	}
+
 	//prepare p2p
 	if node.p2pConfig == nil {
 		return ErrP2PConfigNil
@@ -110,17 +123,16 @@ func (node *Node) Prepare() error {
 		return ErrNodeRunning
 	}
 
+	// extract p2p privateKey from node.walletManager
 	var err error
+	priv, err := node.extractPrivateKeyFromCoinbase()
+	if err == nil {
+		node.p2pConfig.PrivateKey = priv
+	}
+
 	node.p2pServer, err = p2p.New(node.p2pConfig)
 	if err != nil {
 		log.Error(fmt.Sprintf("P2P new error: %v", err))
-		return err
-	}
-
-	//wallet start
-	log.Info(fmt.Sprintf("Begin Start Wallet... "))
-	if err := node.startWallet(); err != nil {
-		log.Error(fmt.Sprintf("startWallet error: %v", err))
 		return err
 	}
 
@@ -397,4 +409,49 @@ func (node *Node) openDataDir() error {
 	log.Info(fmt.Sprintf("Open NodeServer.walletConfig.DataDir:%v", node.walletConfig.DataDir))
 
 	return nil
+}
+
+func (node *Node) extractPrivateKeyFromCoinbase() (priv ed25519.PrivateKey, err error) {
+	addr, index, err := parseCoinbase(node.config.CoinBase)
+	if err != nil {
+		return
+	}
+
+	err = node.walletManager.MatchAddress(node.config.EntropyStorePath, addr, uint32(index))
+	if err != nil {
+		return
+	}
+
+	var em *entropystore.Manager
+	em, err = node.walletManager.GetEntropyStoreManager(node.config.EntropyStorePath)
+	if err != nil {
+		return
+	}
+
+	_, key, err := em.DeriveForIndexPath(uint32(index))
+	if err != nil {
+		return
+	}
+
+	return key.PrivateKey()
+}
+
+func parseCoinbase(coinbase string) (addr types.Address, index int, err error) {
+	splits := strings.Split(coinbase, ":")
+	if len(splits) != 2 {
+		err = errors.New("len is not equals 2")
+		return
+	}
+
+	index, err = strconv.Atoi(splits[0])
+	if err != nil {
+		return
+	}
+
+	addr, err = types.HexToAddress(splits[1])
+	if err != nil {
+		return
+	}
+
+	return
 }
