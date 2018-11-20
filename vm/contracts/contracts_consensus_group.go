@@ -298,10 +298,12 @@ func (c registerConditionOfPledge) checkData(paramData []byte, db vmctxt_interfa
 	switch method {
 	case cabi.MethodNameRegister:
 		blockParam := blockParamInterface.(*cabi.ParamRegister)
-		if blockParam.Gid == types.DELEGATE_GID {
+		if blockParam.Gid == types.DELEGATE_GID ||
+			len(blockParam.Name) == 0 ||
+			len(blockParam.Name) > registrationNameLengthMax {
 			return false
 		}
-		if ok, _ := regexp.MatchString("^[0-9a-zA-Z_.]{1,40}$", blockParam.Name); !ok {
+		if ok, _ := regexp.MatchString("^([0-9a-zA-Z_.]+[ ]?)*[0-9a-zA-Z_.]$", blockParam.Name); !ok {
 			return false
 		}
 		param := new(cabi.VariableConditionRegisterOfPledge)
