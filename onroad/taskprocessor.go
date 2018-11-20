@@ -241,19 +241,12 @@ func (tp *ContractTaskProcessor) packConsensusMessage(sendBlock *ledger.AccountB
 		Timestamp:    tp.accEvent().Timestamp,
 		Producer:     tp.accEvent().Address,
 	}
-	genSnapshotBlock, err := tp.worker.manager.chain.GetSnapshotBlockByHash(&consensusMessage.SnapshotHash)
+	fitestHash, err := generator.GetFitestGeneratorSnapshotHash(tp.worker.manager.chain, &sendBlock.ToAddress,
+		&sendBlock.SnapshotHash, &consensusMessage.SnapshotHash)
 	if err != nil {
 		return nil, err
 	}
-	sendSnapshotBlock, err := tp.worker.manager.chain.GetSnapshotBlockByHash(&sendBlock.SnapshotHash)
-	if err != nil {
-		return nil, err
-	}
-	if genSnapshotBlock.Height < sendSnapshotBlock.Height {
-		fitestHash, err := generator.GetFitestGeneratorSnapshotHash(tp.worker.manager.chain, sendSnapshotBlock)
-		if err != nil {
-			return nil, err
-		}
+	if fitestHash != nil {
 		consensusMessage.SnapshotHash = *fitestHash
 	}
 	return consensusMessage, nil

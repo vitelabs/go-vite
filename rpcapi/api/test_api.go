@@ -77,7 +77,7 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		Data:           params.Data,
 		Difficulty:     params.Difficulty,
 	}
-	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, nil)
+	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, nil)
 	if err != nil {
 		return err
 	}
@@ -138,7 +138,18 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	privKey, _ := ed25519.HexToPrivateKey(params.PrivKeyStr)
 	pubKey := privKey.PubByte()
 
-	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, nil)
+	if msg.FromBlockHash == nil {
+		return errors.New("params fromblockhash can't be nil")
+	}
+	fromBlock, err := t.walletApi.chain.GetAccountBlockByHash(msg.FromBlockHash)
+	if fromBlock == nil {
+		if err != nil {
+			return err
+		}
+		return errors.New("get sendblock by hash failed")
+	}
+
+	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, &fromBlock.SnapshotHash)
 	if err != nil {
 		return err
 	}
