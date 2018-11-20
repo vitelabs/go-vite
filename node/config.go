@@ -33,7 +33,7 @@ type Config struct {
 	// p2p
 	NetSelect            string
 	Identity             string   `json:"Identity"`
-	P2Pkey               string   `json:"P2Pkey"`
+	PeerKey              string   `json:"PeerKey"`
 	MaxPeers             uint     `json:"MaxPeers"`
 	MaxPassivePeersRatio uint     `json:"MaxPassivePeersRatio"`
 	MaxPendingPeers      uint     `json:"MaxPendingPeers"`
@@ -200,13 +200,13 @@ func (c *Config) WSEndpoint() string {
 }
 
 func (c *Config) SetPrivateKey(privateKey string) {
-	c.P2Pkey = privateKey
+	c.PeerKey = privateKey
 }
 
 func (c *Config) GetPrivateKey() ed25519.PrivateKey {
 
-	if c.P2Pkey != "" {
-		privateKey, err := hex.DecodeString(c.P2Pkey)
+	if c.PeerKey != "" {
+		privateKey, err := hex.DecodeString(c.PeerKey)
 		if err == nil {
 			return ed25519.PrivateKey(privateKey)
 		}
