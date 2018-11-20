@@ -154,6 +154,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
 	consensusMessage, err := tp.packConsensusMessage(sBlock)
 	if err != nil {
+		plog.Info("packConsensusMessage failed", "error", err)
 		return
 	}
 
