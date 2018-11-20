@@ -436,7 +436,7 @@ func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract) (ret []byte, err error) {
 	code := c.block.VmContext.GetContractCode(&contractAddr)
 	if len(code) > 0 {
-		cNew := newContract(c.caller, c.address, c.block, c.sendBlock, c.sendBlock.Data, c.quotaLeft, c.quotaRefund)
+		cNew := newContract(c.caller, c.self, c.block, c.sendBlock, c.data, c.quotaLeft, c.quotaRefund)
 		cNew.setCallCode(contractAddr, code)
 		ret, err = cNew.run(vm)
 		c.quotaLeft, c.quotaRefund = cNew.quotaLeft, cNew.quotaRefund

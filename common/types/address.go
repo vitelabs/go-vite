@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/helper"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"math/big"
 	"strings"
 )
 
@@ -24,6 +26,10 @@ func BytesToAddress(b []byte) (Address, error) {
 	var a Address
 	err := a.SetBytes(b)
 	return a, err
+}
+
+func BigToAddress(b *big.Int) (Address, error) {
+	return BytesToAddress(helper.LeftPadBytes(b.Bytes(), AddressSize))
 }
 
 func HexToAddress(hexStr string) (Address, error) {
