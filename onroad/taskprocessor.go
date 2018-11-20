@@ -41,7 +41,7 @@ func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskPr
 		status:     Create,
 		isCancel:   false,
 		isSleeping: false,
-		log:        slog.New("tp", index, "worker", worker.address),
+		log:        slog.New("tp", index),
 	}
 
 	return task
@@ -132,7 +132,7 @@ func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
 
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	defer monitor.LogTime("onroad", "processOneAddress", time.Now())
-	plog := tp.log.New("method", "processOneAddress")
+	plog := tp.log.New("method", "processOneAddress", "worker", task.Addr)
 
 	plog.Debug("task addr" + task.Addr.String())
 	blockList, e := tp.worker.manager.uAccess.GetOnroadBlocks(0, 1, 1, &task.Addr)
