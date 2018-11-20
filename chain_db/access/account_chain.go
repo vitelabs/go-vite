@@ -10,7 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	vmutil "github.com/vitelabs/go-vite/vm/util"
 )
 
 func getAccountBlockHash(dbKey []byte) *types.Hash {
@@ -382,7 +382,7 @@ func (ac *AccountChain) GetContractGid(accountId uint64) (*types.Gid, error) {
 		return nil, nil
 	}
 
-	gid := contracts.GetGidFromCreateContractData(fromBlock.Data)
+	gid := vmutil.GetGidFromCreateContractData(fromBlock.Data)
 	return &gid, nil
 }
 

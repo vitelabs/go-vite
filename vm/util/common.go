@@ -33,3 +33,24 @@ func MakeSendBlock(block *ledger.AccountBlock, toAddress types.Address, blockTyp
 		Timestamp:      &newTimestamp,
 	}
 }
+
+func GetCreateContractData(bytecode []byte, gid types.Gid) []byte {
+	return append(gid.Bytes(), bytecode...)
+}
+
+func GetGidFromCreateContractData(data []byte) types.Gid {
+	gid, _ := types.BytesToGid(data[:types.GidSize])
+	return gid
+}
+
+func GetCodeFromCreateContractData(data []byte) []byte {
+	return data[types.GidSize:]
+}
+
+func NewContractAddress(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.Address {
+	return types.CreateContractAddress(
+		accountAddress.Bytes(),
+		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
+		prevBlockHash.Bytes(),
+		snapshotHash.Bytes())
+}

@@ -3,6 +3,7 @@ package model
 import (
 	"container/list"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 	"sync"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
@@ -286,7 +286,7 @@ func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[type
 					return err
 				}
 				if v.BlockType == ledger.BlockTypeSendCreate {
-					gid := contracts.GetGidFromCreateContractData(v.Data)
+					gid := util.GetGidFromCreateContractData(v.Data)
 					p.dbAccess.DeleteContractAddrFromGid(batch, gid, v.ToAddress)
 				}
 			}

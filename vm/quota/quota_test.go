@@ -168,7 +168,7 @@ func TestPoWQuota(t *testing.T) {
 		x.SetInt(difficulty)
 		x.Mul(x, nodeConfig.paramB)
 		if getIndexInSection(x) != i {
-			fmt.Println("get quota by pow failed, difficulty = %v", str)
+			fmt.Printf("get quota by pow failed, difficulty = %v\n", str)
 		}
 	}
 }

@@ -30,11 +30,7 @@ type operation struct {
 }
 
 var (
-	simpleInstructionSet = newInstructionSet()
-)
-
-func newInstructionSet() [256]operation {
-	return [256]operation{
+	simpleInstructionSet = [256]operation{
 		STOP: {
 			execute:       opStop,
 			gasCost:       constGasFunc(0),
@@ -827,4 +823,4 @@ func newInstructionSet() [256]operation {
 			returns:       true,
 		},
 	}
-}
+)

@@ -15,6 +15,7 @@ type contract struct {
 	caller                 types.Address
 	address                types.Address
 	jumpdests              destinations
+	data                   []byte
 	code                   []byte
 	codeAddr               types.Address
 	block                  *vm_context.VmAccountBlock
@@ -24,11 +25,12 @@ type contract struct {
 	returnData             []byte
 }
 
-func newContract(caller types.Address, address types.Address, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock, quotaLeft, quotaRefund uint64) *contract {
+func newContract(caller types.Address, address types.Address, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock, data []byte, quotaLeft, quotaRefund uint64) *contract {
 	return &contract{caller: caller,
 		address:     address,
 		block:       block,
 		sendBlock:   sendBlock,
+		data:        data,
 		quotaLeft:   quotaLeft,
 		quotaRefund: quotaRefund,
 		jumpdests:   make(destinations),
@@ -43,7 +45,6 @@ func (c *contract) getByte(n uint64) byte {
 	if n < uint64(len(c.code)) {
 		return c.code[n]
 	}
-
 	return 0
 }
 

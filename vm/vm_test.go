@@ -250,6 +250,7 @@ func TestDelegateCall(t *testing.T) {
 		addr2,
 		&vm_context.VmAccountBlock{receiveCallBlock, db},
 		&sendCallBlock,
+		nil,
 		1000000,
 		0)
 	c.setCallCode(addr2, code2)

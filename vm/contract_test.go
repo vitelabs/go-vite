@@ -70,6 +70,7 @@ func TestRun(t *testing.T) {
 			receiveCallBlock.ToAddress,
 			&vm_context.VmAccountBlock{receiveCallBlock, NewNoDatabase()},
 			&sendCallBlock,
+			test.input,
 			1000000,
 			0)
 		c.setCallCode(types.Address{}, test.input)

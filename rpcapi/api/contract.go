@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 type ContractApi struct {
@@ -25,5 +25,5 @@ func (c ContractApi) String() string {
 }
 
 func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, height uint64, prevHash types.Hash, snapshotHash types.Hash) types.Address {
-	return contracts.NewContractAddress(selfAddr, height, prevHash, snapshotHash)
+	return util.NewContractAddress(selfAddr, height, prevHash, snapshotHash)
 }

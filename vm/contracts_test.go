@@ -45,7 +45,7 @@ func TestContractsRefundWithVmContext(t *testing.T) {
 	}
 	db, err := vm_context.NewVmContext(chn, &snapshotBlock.Hash, &prevAccountBlock.Hash, &contractAddr)
 	if err != nil {
-		t.Fatalf("new vm context failed", err)
+		t.Fatalf("new vm context failed, %v", err)
 	}
 	nodeName := "s1"
 	registerData, _ := abi.ABIRegister.PackMethod(abi.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr)
@@ -74,6 +74,8 @@ func TestContractsRefundWithVmContext(t *testing.T) {
 		receiveBlockList[0].AccountBlock.BlockType != ledger.BlockTypeReceive ||
 		!bytes.Equal(receiveBlockList[0].AccountBlock.Data, append(receiveBlockList[0].AccountBlock.StateHash.Bytes(), byte(1))) ||
 		receiveBlockList[0].AccountBlock.Quota != 0 ||
+		len(receiveBlockList[0].AccountBlock.Data) != 33 ||
+		receiveBlockList[0].AccountBlock.Data[32] != byte(1) ||
 		!bytes.Equal(receiveBlockList[1].AccountBlock.Data, []byte{1}) ||
 		receiveBlockList[1].AccountBlock.BlockType != ledger.BlockTypeSendCall ||
 		receiveBlockList[1].AccountBlock.Height != receiveBlockList[0].AccountBlock.Height+1 ||
@@ -149,6 +151,8 @@ func TestContractsRefund(t *testing.T) {
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationDataOld) ||
 		receiveRegisterBlockList[0].AccountBlock.Quota != 0 ||
+		len(receiveRegisterBlockList[0].AccountBlock.Data) != 33 ||
+		receiveRegisterBlockList[0].AccountBlock.Data[32] != byte(1) ||
 		receiveRegisterBlockList[1].AccountBlock.Height != 2 ||
 		receiveRegisterBlockList[1].AccountBlock.Quota != 0 ||
 		receiveRegisterBlockList[1].AccountBlock.TokenId != block13.TokenId ||
@@ -248,6 +252,8 @@ func TestContractsRegister(t *testing.T) {
 	if len(receiveRegisterBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationData) ||
+		len(receiveRegisterBlockList[0].AccountBlock.Data) != 33 ||
+		receiveRegisterBlockList[0].AccountBlock.Data[32] != byte(0) ||
 		receiveRegisterBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive register transaction error")
 	}
@@ -300,6 +306,8 @@ func TestContractsRegister(t *testing.T) {
 	if len(receiveRegisterBlockList2) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationData) ||
+		len(receiveRegisterBlockList2[0].AccountBlock.Data) != 33 ||
+		receiveRegisterBlockList2[0].AccountBlock.Data[32] != byte(0) ||
 		receiveRegisterBlockList2[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive update registration transaction error")
 	}
@@ -367,6 +375,8 @@ func TestContractsRegister(t *testing.T) {
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationData) ||
+		len(receiveCancelRegisterBlockList[0].AccountBlock.Data) != 33 ||
+		receiveCancelRegisterBlockList[0].AccountBlock.Data[32] != byte(0) ||
 		receiveCancelRegisterBlockList[0].AccountBlock.Quota != 0 ||
 		receiveCancelRegisterBlockList[1].AccountBlock.Quota != 0 ||
 		receiveCancelRegisterBlockList[1].AccountBlock.Height != 4 ||
@@ -540,6 +550,8 @@ func TestContractsVote(t *testing.T) {
 	voteData, _ := abi.ABIVote.PackVariable(abi.VariableNameVoteStatus, nodeName)
 	if len(receiveVoteBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr3][string(voteKey)], voteData) ||
+		len(receiveVoteBlockList[0].AccountBlock.Data) != 33 ||
+		receiveVoteBlockList[0].AccountBlock.Data[32] != byte(0) ||
 		receiveVoteBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive vote transaction error")
 	}
@@ -591,6 +603,8 @@ func TestContractsVote(t *testing.T) {
 	voteData, _ = abi.ABIVote.PackVariable(abi.VariableNameVoteStatus, nodeName2)
 	if len(receiveVoteBlockList2) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr3][string(voteKey)], voteData) ||
+		len(receiveVoteBlockList2[0].AccountBlock.Data) != 33 ||
+		receiveVoteBlockList2[0].AccountBlock.Data[32] != byte(0) ||
 		receiveVoteBlockList2[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive vote transaction 2 error")
 	}
@@ -644,6 +658,8 @@ func TestContractsVote(t *testing.T) {
 	receiveCancelVoteBlockList, isRetry, err := vm.Run(db, block33, sendCancelVoteBlockList[0].AccountBlock)
 	if len(receiveCancelVoteBlockList) != 1 || isRetry || err != nil ||
 		len(db.storageMap[addr3][string(voteKey)]) != 0 ||
+		len(receiveCancelVoteBlockList[0].AccountBlock.Data) != 33 ||
+		receiveCancelVoteBlockList[0].AccountBlock.Data[32] != byte(0) ||
 		receiveCancelVoteBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive cancel vote transaction error")
 	}
@@ -708,6 +724,8 @@ func TestContractsPledge(t *testing.T) {
 		!bytes.Equal(db.storageMap[addr5][string(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize))) ||
 		!bytes.Equal(db.storageMap[addr5][string(beneficialKey)], helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize)) ||
 		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
+		len(receivePledgeBlockList[0].AccountBlock.Data) != 33 ||
+		receivePledgeBlockList[0].AccountBlock.Data[32] != byte(0) ||
 		receivePledgeBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive pledge transaction error")
 	}
@@ -760,6 +778,8 @@ func TestContractsPledge(t *testing.T) {
 		!bytes.Equal(db.storageMap[addr5][string(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(newPledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize))) ||
 		!bytes.Equal(db.storageMap[addr5][string(beneficialKey)], helper.LeftPadBytes(newPledgeAmount.Bytes(), helper.WordSize)) ||
 		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(newPledgeAmount) != 0 ||
+		len(receivePledgeBlockList2[0].AccountBlock.Data) != 33 ||
+		receivePledgeBlockList2[0].AccountBlock.Data[32] != byte(0) ||
 		receivePledgeBlockList2[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive pledge transaction 2 error")
 	}
@@ -827,6 +847,8 @@ func TestContractsPledge(t *testing.T) {
 		!bytes.Equal(db.storageMap[addr5][string(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize))) ||
 		!bytes.Equal(db.storageMap[addr5][string(beneficialKey)], helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize)) ||
 		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
+		len(receiveCancelPledgeBlockList[0].AccountBlock.Data) != 33 ||
+		receiveCancelPledgeBlockList[0].AccountBlock.Data[32] != byte(0) ||
 		receiveCancelPledgeBlockList[0].AccountBlock.Quota != 0 ||
 		receiveCancelPledgeBlockList[1].AccountBlock.Quota != 0 {
 		t.Fatalf("receive cancel pledge transaction error")
@@ -901,6 +923,8 @@ func TestContractsPledge(t *testing.T) {
 		len(db.storageMap[addr5][string(pledgeKey)]) != 0 ||
 		len(db.storageMap[addr5][string(beneficialKey)]) != 0 ||
 		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
+		len(receiveCancelPledgeBlockList2[0].AccountBlock.Data) != 33 ||
+		receiveCancelPledgeBlockList2[0].AccountBlock.Data[32] != byte(0) ||
 		receiveCancelPledgeBlockList2[0].AccountBlock.Quota != 0 ||
 		receiveCancelPledgeBlockList2[1].AccountBlock.Quota != 0 {
 		t.Fatalf("receive cancel pledge transaction 2 error")
@@ -1265,6 +1289,8 @@ func TestContractsMintage(t *testing.T) {
 	if len(receiveMintageBlockList) != 2 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][string(key.Bytes())], tokenInfoData) ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
+		len(receiveMintageBlockList[0].AccountBlock.Data) != 33 ||
+		receiveMintageBlockList[0].AccountBlock.Data[32] != byte(0) ||
 		receiveMintageBlockList[0].AccountBlock.Quota != 0 {
 		t.Fatalf("receive mintage transaction error")
 	}
