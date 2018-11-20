@@ -84,6 +84,12 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 			return blockMetaErr
 		}
 
+		if accountBlockMeta == nil {
+			err := errors.New("AccountBlockMeta is nil")
+			c.log.Error(err.Error(), "method", "InsertSnapshotBlock")
+			return err
+		}
+
 		if saveSendBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlockHashHeight.Hash, accountBlockMeta); saveSendBlockMetaErr != nil {
 			c.log.Error("SaveBlockMeta failed, error is "+saveSendBlockMetaErr.Error(), "method", "InsertSnapshotBlock")
 			return blockMetaErr
@@ -105,7 +111,6 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 
 	// Save state trie
 	var trieSaveCallback func()
-
 	var saveTrieErr error
 	if trieSaveCallback, saveTrieErr = snapshotBlock.StateTrie.Save(batch); saveTrieErr != nil {
 		c.log.Error("Save state trie failed, error is "+saveTrieErr.Error(), "method", "InsertSnapshotBlock")
@@ -137,21 +142,6 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	// record insert
 	c.blackBlock.InsertSnapshotBlocks([]*ledger.SnapshotBlock{snapshotBlock})
 
-	// FIXME check
-	for _, hashHeight := range snapshotBlock.SnapshotContent {
-		accountBlockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(&hashHeight.Hash)
-		if blockMetaErr != nil {
-			c.log.Crit("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "CheckInsertSnapshotBlock", "hash", hashHeight.Hash, "height", hashHeight.Height)
-		}
-
-		if accountBlockMeta == nil {
-			c.log.Crit("AccountBlockMeta is nil.", "method", "CheckInsertSnapshotBlock", "hash", hashHeight.Hash, "height", hashHeight.Height)
-		}
-
-		if accountBlockMeta.SnapshotHeight <= 0 {
-			c.log.Crit("AccountBlockMeta.SnapshotHeight <= 0.", "method", "CheckInsertSnapshotBlock", "hash", hashHeight.Hash, "height", hashHeight.Height)
-		}
-	}
 	return nil
 }
 
