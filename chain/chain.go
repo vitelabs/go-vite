@@ -58,7 +58,7 @@ func NewChain(cfg *config.Config) Chain {
 
 	chain.blackBlock = NewBlackBlock(chain, chain.cfg.OpenBlackBlock)
 
-	initGenesis(chain.readGenesis(cfg.GenesisFile))
+	initGenesis(chain.readGenesis(chain.cfg.GenesisFile))
 
 	return chain
 }
