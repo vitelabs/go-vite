@@ -32,6 +32,8 @@ const (
 	RewardDayLimit     uint64 = 90
 	rewardPrecForFloat uint   = 18
 
+	registrationNameLengthMax int = 40
+
 	tokenNameLengthMax   int = 40 // Maximum length of a token name(include)
 	tokenSymbolLengthMax int = 10 // Maximum length of a token symbol(include)
 )

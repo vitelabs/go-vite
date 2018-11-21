@@ -351,6 +351,7 @@ func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Accou
 }
 
 func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) error {
+	self.log.Info(fmt.Sprintf("receive account blocks from direct. addr:%s, height:%d, hash:%s.", address, received.AccountBlock.Height, received.AccountBlock.Hash))
 	defer monitor.LogTime("pool", "addDirectAccountArr", time.Now())
 	self.RLock()
 	defer self.RUnLock()
