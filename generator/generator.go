@@ -289,6 +289,9 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 	if fitestSbHeight > latestSb.Height {
 		fitestSbHeight = latestSb.Height
 	}
+	if fitestSbHeight < referredMaxSbHeight {
+		fitestSbHeight = latestSb.Height
+	}
 
 	var fitestSbHash *types.Hash
 	fitestSb, err := chain.GetSnapshotBlockByHeight(fitestSbHeight)
