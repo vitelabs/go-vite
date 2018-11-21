@@ -248,17 +248,24 @@ func (l *LedgerApi) GetBlockMeta(hash *types.Hash) (*ledger.AccountBlockMeta, er
 	return l.chain.GetAccountBlockMetaByHash(hash)
 }
 
-type SnapshotHashList []types.Hash
-
-func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, referredSnapshotBlockHashList *SnapshotHashList) (*types.Hash, error) {
-	//latestBlock := l.chain.GetLatestSnapshotBlock()
-	var referredList []types.Hash
-	if referredSnapshotBlockHashList != nil {
-		for _, v := range *referredSnapshotBlockHashList {
-			referredList = append(referredList, v)
+func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, sendBlockHash *types.Hash) (*types.Hash, error) {
+	if accAddr == nil && sendBlockHash == nil {
+		latestBlock := l.chain.GetLatestSnapshotBlock()
+		if latestBlock != nil {
+			return &latestBlock.Hash, nil
 		}
+		return nil, nil
+	}
+	var referredList []types.Hash
+	if sendBlockHash != nil {
+		sendBlock, _ := l.chain.GetAccountBlockByHash(sendBlockHash)
+		if sendBlock == nil {
+			return nil, errors.New("get block referred failed")
+		}
+		referredList = append(referredList, sendBlock.SnapshotHash)
 	}
 	return generator.GetFitestGeneratorSnapshotHash(l.chain, accAddr, referredList)
+
 	//gap := uint64(0)
 	//targetHeight := latestBlock.Height
 	//
