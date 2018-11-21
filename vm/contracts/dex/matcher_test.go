@@ -15,32 +15,31 @@ var (
 
 func TestMatcher(t *testing.T) {
 	localStorage := NewMapStorage()
-	st := baseStorage(&localStorage)
-	var po nodePayloadProtocol = &OrderNodeProtocol{}
-	mc := newMatcher(getAddress(), &st, &po)
+	st := BaseStorage(&localStorage)
+	mc := NewMatcher(getAddress(), &st)
 	// buy
 	buy5 := newOrderInfo(105, ETH, VITE, false, Limited, 100.01, 20, time.Now().UnixNano()/1000)
 	buy3 := newOrderInfo(103, ETH, VITE, false, Limited, 100.02, 70, time.Now().UnixNano()/1000)
 	buy4 := newOrderInfo(104, ETH, VITE, false, Limited, 100.04, 45, time.Now().UnixNano()/1000)
 	buy2 := newOrderInfo(102, ETH, VITE, false, Limited, 100.03, 30, time.Now().UnixNano()/1000)
 	buy1 := newOrderInfo(101, ETH, VITE, false, Limited, 100.02, 10, time.Now().UnixNano()/1000)
-	mc.matchOrder(buy1)
-	mc.matchOrder(buy2)
-	mc.matchOrder(buy3)
-	mc.matchOrder(buy4)
-	mc.matchOrder(buy5)
+	mc.MatchOrder(buy1)
+	mc.MatchOrder(buy2)
+	mc.MatchOrder(buy3)
+	mc.MatchOrder(buy4)
+	mc.MatchOrder(buy5)
 	assert.Equal(t, 5, len(localStorage.logs))
 
-	bookNameToMakeForBuy := getBookNameToMake(buy5)
+	bookNameToMakeForBuy := getBookNameToMakeForOrder(buy5)
 	assert.Equal(t,104, int(mc.books[bookNameToMakeForBuy].header.(orderKey).value))
 
 	sell1 := newOrderInfo(201, ETH, VITE, true, Limited, 100.1, 100, time.Now().UnixNano()/1000)
 	sell2 := newOrderInfo(202, ETH, VITE, true, Limited, 100.02, 50, time.Now().UnixNano()/1000)
-	mc.matchOrder(sell1)
+	mc.MatchOrder(sell1)
 	assert.Equal(t, 6, len(localStorage.logs))
-	mc.matchOrder(sell2)
+	mc.MatchOrder(sell2)
 
-	bookNameToMakeForSell := getBookNameToMake(sell1)
+	bookNameToMakeForSell := getBookNameToMakeForOrder(sell1)
 	assert.Equal(t,201, int(mc.books[bookNameToMakeForSell].header.(orderKey).value))
 	assert.Equal(t,102, int(mc.books[bookNameToMakeForBuy].header.(orderKey).value))
 	assert.Equal(t,4, mc.books[bookNameToMakeForBuy].length)
@@ -70,8 +69,8 @@ func TestMatcher(t *testing.T) {
 	assert.Equal(t, uint64(500), txEvent.Amount)
 
 	buy6 := newOrderInfo(106, ETH, VITE, false, Limited, 100.3, 101, time.Now().UnixNano()/1000)
-	mc.matchOrder(buy6)
-	bookNameForBuy := getBookNameToMake(buy6)
+	mc.MatchOrder(buy6)
+	bookNameForBuy := getBookNameToMakeForOrder(buy6)
 	bookNameForSell := getBookNameToTake(buy6)
 	assert.Equal(t,106, int(mc.books[bookNameForBuy].header.(orderKey).value))
 	assert.Equal(t,0, int(mc.books[bookNameForSell].header.(orderKey).value))
@@ -108,18 +107,17 @@ func TestMatcher(t *testing.T) {
 
 func TestDust(t *testing.T) {
 	localStorage := NewMapStorage()
-	st := baseStorage(&localStorage)
-	var po nodePayloadProtocol = &OrderNodeProtocol{}
-	mc := newMatcher(getAddress(), &st, &po)
+	st := BaseStorage(&localStorage)
+	mc := NewMatcher(getAddress(), &st)
 	// buy quantity = origin * 100,000,000
 	buy1 := newOrderInfo(301, VITE, ETH, false, Limited, float64(0.0012345), 100000000, time.Now().UnixNano()/1000)
-	mc.matchOrder(buy1)
+	mc.MatchOrder(buy1)
 	// sell
 	sell1 := newOrderInfo(401, VITE, ETH,true, Limited, float64(0.0012342), 100000200, time.Now().UnixNano()/1000)
-	mc.matchOrder(sell1)
+	mc.MatchOrder(sell1)
 
-	bookNameToMakeForBuy := getBookNameToMake(buy1)
-	bookNameToMakeForSell := getBookNameToMake(sell1)
+	bookNameToMakeForBuy := getBookNameToMakeForOrder(buy1)
+	bookNameToMakeForSell := getBookNameToMakeForOrder(sell1)
 	assert.Equal(t,0, mc.books[bookNameToMakeForBuy].length)
 	assert.Equal(t,0, mc.books[bookNameToMakeForSell].length)
 	assert.Equal(t,0, int(mc.books[bookNameToMakeForBuy].header.(orderKey).value))

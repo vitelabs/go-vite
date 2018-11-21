@@ -31,7 +31,7 @@ type nodePayloadProtocol interface {
 	deSerializeMeta(nodeData []byte) *skiplistMeta
 }
 
-type baseStorage interface {
+type BaseStorage interface {
 	GetStorage(addr *types.Address, key []byte) []byte
 	SetStorage(key []byte, value []byte)
 	AddLog(log *ledger.VmLog)
@@ -50,7 +50,7 @@ type skiplist struct {
 	header, tail nodeKeyType
 	length int
 	level int8
-	storage *baseStorage
+	storage *BaseStorage
 	protocol *nodePayloadProtocol
 	headerNode *skiplistNode
 	contractAddress *types.Address
@@ -79,7 +79,7 @@ func (meta *skiplistMeta) getMetaStorageKey(name string) []byte {
 	return []byte(metaStorageSalt + name)
 }
 
-func newSkiplist(name string, contractAddress *types.Address, storage *baseStorage, protocol *nodePayloadProtocol) *skiplist {
+func newSkiplist(name string, contractAddress *types.Address, storage *BaseStorage, protocol *nodePayloadProtocol) *skiplist {
 	skl := &skiplist{}
 	skl.name = name
 	skl.header = (*protocol).getNilKey()

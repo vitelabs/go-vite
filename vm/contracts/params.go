@@ -21,9 +21,12 @@ const (
 	reCreateConsensusGroupGas uint64 = 62200
 	mintageGas                uint64 = 83200
 	mintageCancelPledgeGas    uint64 = 83200
-	dexFunddepositGas         uint64 = 300
-	dexFundWithdrawGas		  uint64 = 300
-	dexFundNewOrderGas		  uint64 = 300
+	dexFundDepositGas         uint64 = 300
+	dexFundWithdrawGas        uint64 = 300
+	dexFundNewOrderGas        uint64 = 300
+	dexFundSettleOrdersGas    uint64 = 300
+	dexTradeNewOrderGas    	  uint64 = 300
+	dexTradeCancelOrderGas    uint64 = 300
 
 	minPledgeHeight uint64 = 3600 * 24 * 3 // Minimum pledge height
 

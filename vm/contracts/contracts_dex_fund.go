@@ -29,29 +29,41 @@ const (
 
 	MethodNameDexFundUserDeposit  = "DexFundUserDeposit"
 	MethodNameDexFundUserWithdraw = "DexFundUserWithdraw"
-	MethodNameDexFundNewOrder     = "DexFundNewOrder "
+	MethodNameDexFundNewOrder     = "DexFundNewOrder"
 	MethodNameDexFundSettleOrders = "DexFundSettleOrders"
 )
 
 var (
+	ABIDexFund, _ = abi.JSONToABIContract(strings.NewReader(jsonDexFund))
 	fundKeyPrefix = []byte("fund:")
 )
 
-type ParamDexFundDeposit struct {
+type ParamDexFundDepositAndWithDraw struct {
 	Address *types.Address
 	Asset   types.TokenTypeId
 	Amount  *big.Int
 }
 
-type ParamDexFundWithdraw struct {
-	Address *types.Address
-	Asset   types.TokenTypeId
-	Amount  *big.Int
+type ParamDexSerializedData struct {
+	Data []byte
 }
 
-var (
-	ABIDexFund, _ = abi.JSONToABIContract(strings.NewReader(jsonDexFund))
-)
+type DexFund struct {
+	dexproto.Fund
+}
+
+func (df *DexFund) serialize() (data []byte, err error) {
+	return proto.Marshal(&df.Fund)
+}
+
+func (df *DexFund) deSerialize(fundData []byte) (dexFund *DexFund, err error) {
+	protoFund := dexproto.Fund{}
+	if err := proto.Unmarshal(fundData, &protoFund); err != nil {
+		return nil, err
+	} else {
+		return &DexFund{protoFund}, nil
+	}
+}
 
 type MethodDexFundUserDeposit struct {
 }
@@ -61,12 +73,12 @@ func (md *MethodDexFundUserDeposit) GetFee(context contractsContext, block *vm_c
 }
 
 func (md *MethodDexFundUserDeposit) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, dexFunddepositGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, dexFundDepositGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	param := new(ParamDexFundDeposit)
-	err = ABIMintage.UnpackMethod(param, MethodNameDexFundUserDeposit, block.AccountBlock.Data)
+	param := new(ParamDexFundDepositAndWithDraw)
+	err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserDeposit, block.AccountBlock.Data)
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -118,8 +130,8 @@ func (md *MethodDexFundUserWithdraw) DoSend(context contractsContext, block *vm_
 	if quotaLeft, err := util.UseQuota(quotaLeft, dexFundWithdrawGas); err != nil {
 		return quotaLeft, err
 	}
-	param := new(ParamDexFundWithdraw)
-	if err = ABIMintage.UnpackMethod(param, MethodNameDexFundUserWithdraw, block.AccountBlock.Data); err != nil {
+	param := new(ParamDexFundDepositAndWithDraw)
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserWithdraw, block.AccountBlock.Data); err != nil {
 		return quotaLeft, err
 	}
 	if param.Amount.Cmp(big.NewInt(0)) <= 0 {
@@ -144,8 +156,8 @@ func (md *MethodDexFundUserWithdraw) DoSend(context contractsContext, block *vm_
 }
 
 func (md *MethodDexFundUserWithdraw) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
-	param := new(ParamDexFundWithdraw)
-	ABIMintage.UnpackMethod(param, MethodNameDexFundUserWithdraw, sendBlock.Data)
+	param := new(ParamDexFundDepositAndWithDraw)
+	ABIDexFund.UnpackMethod(param, MethodNameDexFundUserWithdraw, sendBlock.Data)
 	var (
 		dexFund = &DexFund{}
 		err     error
@@ -192,8 +204,12 @@ func (md *MethodDexFundNewOrder) DoSend(context contractsContext, block *vm_cont
 	if quotaLeft, err := util.UseQuota(quotaLeft, dexFundNewOrderGas); err != nil {
 		return quotaLeft, err
 	}
+	param := new(ParamDexSerializedData)
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, block.AccountBlock.Data); err != nil {
+		return quotaLeft, err
+	}
 	order := &dexproto.Order{}
-	if err = proto.Unmarshal(block.AccountBlock.Data, order); err != nil {
+	if err = proto.Unmarshal(param.Data, order); err != nil {
 		return quotaLeft, fmt.Errorf("input data format of order is invalid")
 	}
 	if err = checkOrderParam(block.VmContext, order); err != nil {
@@ -204,6 +220,114 @@ func (md *MethodDexFundNewOrder) DoSend(context contractsContext, block *vm_cont
 	if dexFund, err = getFundFromStorage(block.VmContext, block.AccountBlock.AccountAddress); err != nil {
 		return quotaLeft, err
 	}
+	if err = checkFundForNewOrder(dexFund, order); err != nil {
+		return quotaLeft, err
+	}
+	param.Data, _ = proto.Marshal(order)
+	block.AccountBlock.Data, _ = ABIDexFund.PackMethod(MethodNameDexFundNewOrder, param.Data)
+	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
+	if err != nil {
+		return quotaLeft, err
+	}
+	return quotaLeft, nil
+}
+
+func (md *MethodDexFundNewOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) (err error) {
+	param := new(ParamDexSerializedData)
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, block.AccountBlock.Data); err != nil {
+		return err
+	}
+	order := &dexproto.Order{}
+	proto.Unmarshal(param.Data, order)
+	var (
+		dexFund = &DexFund{}
+	)
+	if dexFund, err = getFundFromStorage(block.VmContext, sendBlock.AccountAddress); err != nil {
+		return err
+	}
+	if err = tryLockFundForNewOrder(dexFund, order); err != nil {
+		return err
+	}
+	if err = saveFundToStorage(block.VmContext, sendBlock.AccountAddress, dexFund); err != nil {
+		return err
+	}
+	tradeBlockData, _ := ABIDexTrade.PackMethod(MethodNameDexTradeNewOrder, param.Data)
+	context.AppendBlock(
+		&vm_context.VmAccountBlock{
+			util.MakeSendBlock(
+				block.AccountBlock,
+				AddressDexTrade,
+				ledger.BlockTypeSendCall,
+				big.NewInt(0),
+				ledger.ViteTokenId, // no need send token
+				context.GetNewBlockHeight(block),
+				tradeBlockData),
+			nil})
+	return nil
+}
+
+type MethodDexFundSettleOrders struct {
+}
+
+func (md *MethodDexFundSettleOrders) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexFundSettleOrders) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
+	var err error
+	if quotaLeft, err := util.UseQuota(quotaLeft, dexFundSettleOrdersGas); err != nil {
+		return quotaLeft, err
+	}
+	if bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), AddressDexTrade.Bytes()) {
+		return quotaLeft, fmt.Errorf("invalid block source")
+	}
+	param := new(ParamDexSerializedData)
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundSettleOrders, block.AccountBlock.Data); err != nil {
+		return quotaLeft, err
+	}
+	settleActions := &dexproto.SettleOrders{}
+	if err = proto.Unmarshal(param.Data, settleActions); err != nil {
+		return quotaLeft, err
+	}
+	if err = checkActions(settleActions); err != nil {
+		return quotaLeft, err
+	}
+	return quotaLeft, nil
+}
+
+func (md MethodDexFundSettleOrders) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
+	if bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), AddressDexTrade.Bytes()) {
+		return fmt.Errorf("invalid block source")
+	}
+	param := new(ParamDexSerializedData)
+	var err error
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundSettleOrders, block.AccountBlock.Data); err != nil {
+		return err
+	}
+	settleActions := &dexproto.SettleOrders{}
+	if err = proto.Unmarshal(param.Data, settleActions); err != nil {
+		return err
+	}
+	for _, action := range settleActions.Actions {
+		if err = doSettleAction(block.VmContext, action); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func GetUserFundKey(address types.Address) []byte {
+	return append(fundKeyPrefix, address.Bytes()...)
+}
+
+func checkFundForNewOrder(dexFund *DexFund, order *dexproto.Order) error {
+	return checkAndLockFundForNewOrder(dexFund, order, false)
+}
+func tryLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order) error {
+	return checkAndLockFundForNewOrder(dexFund, order, true)
+}
+
+func checkAndLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order, onlyCheck bool) error {
 	var (
 		lockAsset []byte
 		lockAmount uint64
@@ -217,57 +341,24 @@ func (md *MethodDexFundNewOrder) DoSend(context contractsContext, block *vm_cont
 		lockAmount = order.Quantity
 	}
 	lockTokenId, _ := fromBytesToTokenTypeId(lockAsset)
-	account, _ := getAccountByTokeIdFromFund(dexFund, *lockTokenId)
+	account, exists := getAccountByTokeIdFromFund(dexFund, *lockTokenId)
 	available := big.NewInt(0).SetUint64(account.Available)
-	if available.Cmp(big.NewInt(0).SetUint64(lockAmount)) < 0 {
-		return quotaLeft, fmt.Errorf("order lock amount exceed md fund available")
+	lockAmountToInc := big.NewInt(0).SetUint64(lockAmount)
+	if available.Cmp(lockAmountToInc) < 0 {
+		return fmt.Errorf("order lock amount exceed fund available")
 	}
-	block.AccountBlock.Data, _ = proto.Marshal(order)
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
-	if err != nil {
-		return quotaLeft, err
+	if onlyCheck {
+		return nil
 	}
-	return quotaLeft, nil
-}
-
-func (md *MethodDexFundNewOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
+	available = available.Sub(available, lockAmountToInc)
+	lockedInBig := big.NewInt(0).SetUint64(account.Locked)
+	lockedInBig = lockedInBig.Add(lockedInBig, lockAmountToInc)
+	account.Available = available.Uint64()
+	account.Locked = lockedInBig.Uint64()
+	if !exists {
+		dexFund.Accounts = append(dexFund.Accounts, account)
+	}
 	return nil
-}
-
-type MethodDexFundSettleOrders struct {
-}
-
-func (md *MethodDexFundSettleOrders) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
-func (md *MethodDexFundSettleOrders) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	return 0, nil
-}
-
-func (md MethodDexFundSettleOrders) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
-	return nil
-}
-
-func GetUserFundKey(address types.Address) []byte {
-	return append(fundKeyPrefix, address.Bytes()...)
-}
-
-type DexFund struct {
-	dexproto.Fund
-}
-
-func (df *DexFund) serialize() (data []byte, err error) {
-	return proto.Marshal(&df.Fund)
-}
-
-func (df *DexFund) deSerialize(fundData []byte) (dexFund *DexFund, err error) {
-	protoFund := dexproto.Fund{}
-	if err := proto.Unmarshal(fundData, &protoFund); err != nil {
-		return nil, nil
-	} else {
-		return &DexFund{protoFund}, nil
-	}
 }
 
 func getFundFromStorage(storage vmctxt_interface.VmDatabase, address types.Address) (dexFund *DexFund, err error) {
@@ -292,7 +383,7 @@ func saveFundToStorage(storage vmctxt_interface.VmDatabase, address types.Addres
 
 func getAccountByTokeIdFromFund(dexFund *DexFund, asset types.TokenTypeId) (account *dexproto.Account, exists bool) {
 	for _, a := range dexFund.Accounts {
-		if bytes.Compare(asset.Bytes(), a.Asset) == 0 {
+		if bytes.Equal(asset.Bytes(), a.Asset) {
 			return a, true
 		}
 	}
@@ -330,6 +421,9 @@ func checkToken(db StorageDatabase, tokenId types.TokenTypeId) error {
 
 func checkOrderParam(db StorageDatabase, order *dexproto.Order) error {
 	var err error
+	if order.Id <= 0 {
+		return fmt.Errorf("invalid order id")
+	}
 	if err = checkTokenByProto(db, order.TradeAsset); err != nil {
 		return err
 	}
@@ -357,4 +451,68 @@ func renderOrder(order *dexproto.Order, block *vm_context.VmAccountBlock) {
 	order.ExecutedAmount = 0
 	order.RefundAsset = []byte{}
 	order.RefundQuantity = 0
+}
+
+func checkActions(actions *dexproto.SettleOrders) error {
+	if actions == nil || len(actions.Actions) == 0 {
+		return fmt.Errorf("settle orders is emtpy")
+	}
+	for _ , v := range actions.Actions {
+		if len(v.Address) != 20 {
+			return fmt.Errorf("invalid address format for settle")
+		}
+		if len(v.Asset) != 20 {
+			return fmt.Errorf("invalid tokenId format for settle")
+		}
+		if v.IncAvailable < 0 {
+			return fmt.Errorf("negative incrAvailable for settle")
+		}
+		if v.DeduceLocked < 0 {
+			return fmt.Errorf("negative deduceLocked for settle")
+		}
+		if v.ReleaseLocked < 0 {
+			return fmt.Errorf("negative releaseLocked for settle")
+		}
+	}
+	return nil
+}
+
+func doSettleAction(db vmctxt_interface.VmDatabase, action *dexproto.SettleAction) error {
+	address := &types.Address{}
+	address.SetBytes([]byte(action.Address))
+	if dexFund, err := getFundFromStorage(db, *address); err != nil {
+		return err
+	} else {
+		if tokenId, err := fromBytesToTokenTypeId(action.Asset); err != nil {
+			return err
+		} else {
+			if err = checkToken(db, *tokenId); err != nil {
+				return err
+			}
+			account, exists := getAccountByTokeIdFromFund(dexFund, *tokenId)
+			if action.DeduceLocked > 0 {
+				if action.DeduceLocked > account.Locked {
+					return fmt.Errorf("try deduce locked amount execeed locked")
+				}
+				account.Locked -= action.DeduceLocked
+			}
+			if action.ReleaseLocked > 0 {
+				if action.ReleaseLocked > account.Locked {
+					return fmt.Errorf("try release locked amount execeed locked")
+				}
+				account.Locked -= action.ReleaseLocked
+			}
+			if action.IncAvailable > 0 {
+				account.Available += action.IncAvailable
+			}
+			if !exists {
+				dexFund.Accounts = append(dexFund.Accounts, account)
+			}
+			if err = saveFundToStorage(db, *address, dexFund); err != nil {
+				return err
+			}
+		}
+		return err
+	}
+	return nil
 }

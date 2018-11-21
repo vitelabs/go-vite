@@ -75,7 +75,7 @@ func TestSkiplist(t *testing.T) {
 
 func newSkipListTest (t *testing.T) *skiplist {
 	localStorage := NewMapStorage()
-	st := baseStorage(&localStorage)
+	st := BaseStorage(&localStorage)
 	var po nodePayloadProtocol = &OrderNodeProtocol{}
 
 	// Test new
@@ -100,7 +100,7 @@ func insertNodes(skiplist *skiplist) {
 
 func clearStorage(skiplist *skiplist) {
 	localStorage := NewMapStorage()
-	st := baseStorage(&localStorage)
+	st := BaseStorage(&localStorage)
 	skiplist.storage = &st
 }
 

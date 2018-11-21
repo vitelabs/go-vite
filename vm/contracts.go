@@ -50,6 +50,22 @@ var simpleContracts = map[types.Address]*precompiledContract{
 		},
 		contracts.ABIMintage,
 	},
+	contracts.AddressDexFund: {
+		map[string]contracts.PrecompiledContractMethod{
+			contracts.MethodNameDexFundUserDeposit:             &contracts.MethodDexFundUserDeposit{},
+			contracts.MethodNameDexFundUserWithdraw:             &contracts.MethodDexFundUserWithdraw{},
+			contracts.MethodNameDexFundNewOrder:             &contracts.MethodDexFundNewOrder{},
+			contracts.MethodNameDexFundSettleOrders:             &contracts.MethodDexFundSettleOrders{},
+		},
+		contracts.ABIDexFund,
+	},
+	contracts.AddressDexTrade: {
+		map[string]contracts.PrecompiledContractMethod{
+			contracts.MethodNameDexTradeNewOrder:             &contracts.MethodDexTradeNewOrder{},
+			contracts.MethodNameDexTradeCancelOrder:             &contracts.MethodDexTradeCancelOrder{},
+		},
+		contracts.ABIDexTrade,
+	},
 }
 
 func isPrecompiledContractAddress(addr types.Address) bool {

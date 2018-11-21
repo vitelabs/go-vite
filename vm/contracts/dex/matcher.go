@@ -18,21 +18,31 @@ const timeoutMillisecond = 7 * 24 * 3600 * 1000
 
 type matcher struct {
 	contractAddress *types.Address
-	storage         *baseStorage
+	storage         *BaseStorage
 	protocol        *nodePayloadProtocol
 	books           map[string]*skiplist
+	settleActions   map[string]map[string]*proto.SettleAction // address->(asset->settleAction)
 }
 
-func newMatcher(contractAddress *types.Address, storage *baseStorage, protocol *nodePayloadProtocol) *matcher {
+type OrderTx struct {
+	proto.Transaction
+	takerAddress string
+	makerAddress string
+	takerTradeAsset []byte
+	takerQuoteAsset []byte
+}
+
+func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *matcher {
 	mc := &matcher{}
 	mc.contractAddress = contractAddress
 	mc.storage = storage
-	mc.protocol = protocol
+	var po nodePayloadProtocol = &OrderNodeProtocol{}
+	mc.protocol = &po
 	mc.books = make(map[string]*skiplist)
 	return mc
 }
 
-func (mc *matcher) matchOrder(order Order) {
+func (mc *matcher) MatchOrder(order Order) {
 	var (
 		bookToTake *skiplist
 		taker      Order
@@ -42,14 +52,50 @@ func (mc *matcher) matchOrder(order Order) {
 		mc.emitOrderRes(taker)
 		return
 	}
-	bookNameToTake := getBookNameToTake(taker)
-	if bookToTake, ok = mc.books[bookNameToTake]; !ok {
-		bookToTake = newSkiplist(bookNameToTake, mc.contractAddress, mc.storage, mc.protocol)
-	}
-	mc.books[bookNameToTake] = bookToTake
+	bookToTake = mc.getBookByName(getBookNameToTake(taker))
 	if err := mc.doMatchTaker(taker, bookToTake); err != nil {
 		fmt.Printf("Failed to match taker for %s", err.Error())
 	}
+}
+
+func (mc *matcher) GetSettleActions() map[string]map[string]*proto.SettleAction {
+	return mc.settleActions
+}
+
+func (mc *matcher) GetOrderByIdAndBookName(orderId uint64, makerBookName string) (*Order, error) {
+	book := mc.getBookByName(makerBookName)
+	if pl, _, _, err := book.getByKey(orderKey{orderId}); err != nil {
+		return nil, err
+	} else {
+		od, _ := (*pl).(Order)
+		return &od, nil
+	}
+}
+
+func (mc *matcher) CancelOrderByIdAndBookName(order *Order, makerBookName string) (err error) {
+	book := mc.getBookByName(makerBookName)
+	switch order.Status {
+	case Pending:
+		order.CancelReason = cancelledByUser
+	case PartialExecuted:
+		order.CancelReason = partialExecutedUserCancelled
+	}
+	order.Status = Cancelled
+	mc.handleRefund(order)
+	mc.emitOrderRes(*order)
+	pl := nodePayload(order)
+	if err = book.updatePayload(newOrderKey(order.Id), &pl); err != nil {
+		return err
+	}
+	return book.delete(newOrderKey(order.Id))
+}
+
+func (mc *matcher) getBookByName(bookName string) *skiplist {
+	if book, ok := mc.books[bookName]; !ok {
+		book = newSkiplist(bookName, mc.contractAddress, mc.storage, mc.protocol)
+		mc.books[bookName] = book
+	}
+	return mc.books[bookName]
 }
 
 func (mc *matcher) doMatchTaker(taker Order, makerBook *skiplist) error {
@@ -58,7 +104,7 @@ func (mc *matcher) doMatchTaker(taker Order, makerBook *skiplist) error {
 		return nil
 	}
 	modifiedMakers := make([]Order, 0, 20)
-	txs := make([]proto.Transaction, 0, 20)
+	txs := make([]OrderTx, 0, 20)
 	if maker, nextOrderId, err := getMakerById(makerBook, makerBook.header); err != nil {
 		return err
 	} else {
@@ -73,17 +119,17 @@ func (mc *matcher) doMatchTaker(taker Order, makerBook *skiplist) error {
 	}
 }
 //TODO add assertion for order calculation correctness
-func (mc *matcher) recursiveTakeOrder(taker *Order, maker Order, makerBook *skiplist, modifiedMakers *[]Order, txs *[]proto.Transaction, nextOrderId nodeKeyType) error {
+func (mc *matcher) recursiveTakeOrder(taker *Order, maker Order, makerBook *skiplist, modifiedMakers *[]Order, txs *[]OrderTx, nextOrderId nodeKeyType) error {
 	if filterTimeout(&maker) {
-		calculateRefund(&maker)
+		mc.handleRefund(&maker)
 		*modifiedMakers = append(*modifiedMakers, maker)
 	} else {
 		matched, _ := matchPrice(*taker, maker)
 		fmt.Printf("recursiveTakeOrder matched for taker.id %d is %t\n", taker.Id, matched)
 		if matched {
 			tx := calculateOrderAndTx(taker, &maker)
-			calculateRefund(taker)
-			calculateRefund(&maker)
+			mc.handleRefund(taker)
+			mc.handleRefund(&maker)
 			*modifiedMakers = append(*modifiedMakers, maker)
 			*txs = append(*txs, tx)
 		}
@@ -123,7 +169,6 @@ func (mc *matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) {
 			makerBook.truncateHeadTo(newOrderKey(makers[size-2].Id), size-1)
 		}
 	}
-
 }
 
 func (mc *matcher) handleTakerRes(order Order) {
@@ -134,15 +179,7 @@ func (mc *matcher) handleTakerRes(order Order) {
 }
 
 func (mc *matcher) saveTakerAsMaker(maker Order) {
-	var (
-		bookToMake *skiplist
-		ok         bool
-	)
-	bookNameToMake := getBookNameToMake(maker)
-	if bookToMake, ok = mc.books[bookNameToMake]; !ok {
-		bookToMake = newSkiplist(bookNameToMake, mc.contractAddress, mc.storage, mc.protocol)
-		mc.books[bookNameToMake] = bookToMake
-	}
+	bookToMake := mc.getBookByName(getBookNameToMakeForOrder(maker))
 	pl := nodePayload(maker)
 	bookToMake.insert(newOrderKey(maker.Id), &pl)
 }
@@ -153,14 +190,84 @@ func (mc *matcher) emitOrderRes(orderRes Order) {
 	fmt.Printf("order matched res %s : \n", orderRes.String())
 }
 
-func (mc *matcher) emitTxs(txs []proto.Transaction) {
+func (mc *matcher) emitTxs(txs []OrderTx) {
 	fmt.Printf("matched txs >>>>>>>>> %d\n", len(txs))
 	for _, tx := range txs {
-		txEvent := TransactionEvent{tx}
+		mc.handleTxSettleAction(tx)
+		txEvent := TransactionEvent{tx.Transaction}
 		(*mc.storage).AddLog(newLog(txEvent))
 		fmt.Printf("matched tx is : %s\n", tx.String())
 	}
 }
+
+func (mc *matcher) handleRefund(order *Order) {
+	if order.Status == FullyExecuted || order.Status == Cancelled {
+		switch order.Side {
+		case false: //buy
+			order.RefundAsset = order.QuoteAsset
+			order.RefundQuantity = order.Amount - order.ExecutedAmount
+		case true:
+			order.RefundAsset = order.TradeAsset
+			order.RefundQuantity = order.Quantity - order.ExecutedQuantity
+		}
+		mc.updateSettleAction(proto.SettleAction{Address:order.Address, Asset:order.RefundAsset, ReleaseLocked:order.RefundQuantity})
+	}
+}
+
+func (mc *matcher) handleTxSettleAction(tx OrderTx) {
+	takerInSettle := proto.SettleAction{Address : tx.takerAddress}
+	takerOutSettle := proto.SettleAction{Address : tx.takerAddress}
+	makerInSettle := proto.SettleAction{Address : tx.makerAddress}
+	makerOutSettle := proto.SettleAction{Address : tx.makerAddress}
+	switch tx.TakerSide {
+		case false: //buy
+			takerInSettle.Asset = tx.takerTradeAsset
+			takerInSettle.IncAvailable = tx.Quantity
+			makerOutSettle.Asset = tx.takerTradeAsset
+			makerOutSettle.DeduceLocked = tx.Quantity
+
+			takerOutSettle.Asset = tx.takerQuoteAsset
+			takerOutSettle.DeduceLocked = tx.Amount
+			makerInSettle.Asset = tx.takerQuoteAsset
+			makerInSettle.IncAvailable = tx.Amount
+
+		case true: //sell
+			takerInSettle.Asset = tx.takerQuoteAsset
+			takerInSettle.IncAvailable = tx.Amount
+			makerOutSettle.Asset = tx.takerQuoteAsset
+			makerOutSettle.DeduceLocked = tx.Amount
+
+			takerOutSettle.Asset = tx.takerTradeAsset
+			takerOutSettle.DeduceLocked = tx.Quantity
+			makerInSettle.Asset = tx.takerTradeAsset
+			makerInSettle.IncAvailable = tx.Quantity
+	}
+	for _, ac := range []proto.SettleAction{takerInSettle, takerOutSettle, makerInSettle, makerOutSettle} {
+		mc.updateSettleAction(ac)
+	}
+}
+
+func (mc *matcher) updateSettleAction(action proto.SettleAction) {
+	var (
+		actionMap map[string]*proto.SettleAction
+		ok bool
+		ac *proto.SettleAction
+		address = string(action.Address)
+	)
+	if actionMap, ok = mc.settleActions[address]; !ok {
+		actionMap = make(map[string]*proto.SettleAction)
+	}
+	asset := string(action.Asset)
+	if ac, ok = actionMap[string(asset)]; !ok {
+		ac = &proto.SettleAction{Address:address, Asset:action.Asset}
+	}
+	ac.IncAvailable += action.IncAvailable
+	ac.ReleaseLocked += action.ReleaseLocked
+	ac.DeduceLocked += action.DeduceLocked
+	actionMap[address] = ac
+	mc.settleActions[address] = actionMap
+}
+
 
 func newLog(event OrderEvent) *ledger.VmLog {
 	log := &ledger.VmLog{}
@@ -201,21 +308,8 @@ func filterTimeout(maker *Order) bool {
 	}
 }
 
-func calculateRefund(order *Order) {
-	if order.Status == FullyExecuted || order.Status == Cancelled {
-		switch order.Side {
-		case false: //buy
-			order.RefundAsset = order.QuoteAsset
-			order.RefundQuantity = order.Amount - order.ExecutedAmount
-		case true:
-			order.RefundAsset = order.TradeAsset
-			order.RefundQuantity = order.Quantity - order.ExecutedQuantity
-		}
-	}
-}
-
-func calculateOrderAndTx(taker *Order, maker *Order) (tx proto.Transaction) {
-	tx = proto.Transaction{}
+func calculateOrderAndTx(taker *Order, maker *Order) (tx OrderTx) {
+	tx = OrderTx{}
 	tx.Id = getTxId(taker.Id, maker.Id)
 	tx.TakerSide = taker.Side
 	tx.TakerId = taker.Id
@@ -237,6 +331,11 @@ func calculateOrderAndTx(taker *Order, maker *Order) (tx proto.Transaction) {
 	tx.Quantity = executeQuantity
 	tx.Amount = executeAmount
 	tx.Timestamp = time.Now().UnixNano() / 1000
+	tx.takerAddress = taker.Address
+	tx.makerAddress = maker.Address
+	tx.takerTradeAsset = taker.TradeAsset
+	tx.takerQuoteAsset = taker.QuoteAsset
+	tx.makerAddress = maker.Address
 	return tx
 }
 
@@ -314,8 +413,12 @@ func getBookNameToTake(order Order) string {
 	return fmt.Sprintf("%s|%s|%d", string(order.TradeAsset), string(order.QuoteAsset), 1-toSideInt(order.Side))
 }
 
-func getBookNameToMake(order Order) string {
-	return fmt.Sprintf("%s|%s|%d", string(order.TradeAsset), string(order.QuoteAsset), toSideInt(order.Side))
+func getBookNameToMakeForOrder(order Order) string {
+	return GetBookNameToMake(order.TradeAsset, order.QuoteAsset, order.Side)
+}
+
+func GetBookNameToMake(tradeAsset []byte, quoteAsset []byte, side bool) string {
+	return fmt.Sprintf("%s|%s|%d", string(tradeAsset), string(quoteAsset), toSideInt(side))
 }
 
 func toSideInt(side bool) int {

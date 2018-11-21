@@ -14,11 +14,11 @@ message Fund {
 }
 
 message SettleAction {
-    uint64 Address = 1;
+    string Address = 1;
     bytes Asset = 2;
-    uint32 IncAvailable = 3;
-    uint32 DeduceLocked = 4;
-    uint32 ReleaseLocked = 5;
+    uint64 IncAvailable = 3;
+    uint64 DeduceLocked = 4;
+    uint64 ReleaseLocked = 5;
 }
 
 message SettleOrders {

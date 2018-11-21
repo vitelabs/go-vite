@@ -40,6 +40,8 @@ var (
 		AddressPledge:         ABIPledge,
 		AddressConsensusGroup: ABIConsensusGroup,
 		AddressMintage:        ABIMintage,
+		AddressDexFund:        ABIDexFund,
+		AddressDexTrade:       ABIDexTrade,
 	}
 
 	errInvalidParam = errors.New("invalid param")
