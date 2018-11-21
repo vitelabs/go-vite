@@ -54,7 +54,7 @@ func TestVmRun(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	vm := NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendCreateBlockList, isRetry, err := vm.Run(db, block13, nil)
 	balance1.Sub(balance1, block13.Amount)
@@ -84,7 +84,7 @@ func TestVmRun(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr2
 	receiveCreateBlockList, isRetry, err := vm.Run(db, block21, sendCreateBlockList[0].AccountBlock)
 	balance2.Add(balance2, block13.Amount)
@@ -114,7 +114,7 @@ func TestVmRun(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendCallBlockList, isRetry, err := vm.Run(db, block14, nil)
 	balance1.Sub(balance1, block14.Amount)
@@ -140,7 +140,7 @@ func TestVmRun(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr2
 	receiveCallBlockList, isRetry, err := vm.Run(db, block22, sendCallBlockList[0].AccountBlock)
 	balance2.Add(balance2, block14.Amount)
@@ -167,7 +167,7 @@ func TestVmRun(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendCallBlockList2, isRetry, err := vm.Run(db, block15, nil)
 	if len(sendCallBlockList2) != 0 || err != util.ErrInsufficientBalance {
@@ -190,7 +190,7 @@ func TestVmRun(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendCallBlockList2, isRetry, err = vm.Run(db, block15, nil)
 	db.accountBlockMap[addr1][hash15] = sendCallBlockList2[0].AccountBlock
@@ -206,7 +206,7 @@ func TestVmRun(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr2
 	receiveCallBlockList2, isRetry, err := vm.Run(db, block23, sendCallBlockList2[0].AccountBlock)
 	if len(receiveCallBlockList2) != 1 || isRetry || err != util.ErrExecutionReverted ||
@@ -231,7 +231,7 @@ func TestDelegateCall(t *testing.T) {
 	blockTime := time.Now()
 
 	vm := NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	sendCallBlock := ledger.AccountBlock{
 		AccountAddress: addr1,
 		ToAddress:      addr2,
@@ -246,8 +246,6 @@ func TestDelegateCall(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	c := newContract(
-		addr2,
-		addr2,
 		&vm_context.VmAccountBlock{receiveCallBlock, db},
 		&sendCallBlock,
 		nil,
@@ -557,7 +555,7 @@ func TestVmForTest(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	vm := NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendCallBlockList, isRetry, err := vm.Run(db, block11, nil)
 	if len(sendCallBlockList) != 1 || isRetry || err != nil {

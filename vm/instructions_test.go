@@ -2,6 +2,7 @@ package vm
 
 import (
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"testing"
@@ -11,6 +12,23 @@ type twoOperandTest struct {
 	x        string
 	y        string
 	expected string
+}
+
+func TestInitVmConfig(t *testing.T) {
+	back := big.NewInt(2)
+	num := big.NewInt(-1)
+
+	if back.Cmp(helper.Big31) < 0 {
+		bit := uint(back.Uint64()*8 + 7)
+		mask := back.Lsh(helper.Big1, bit)
+		mask.Sub(mask, helper.Big1)
+		if num.Bit(int(bit)) > 0 {
+			num.Or(num, mask.Not(mask))
+		} else {
+			num.And(num, mask)
+		}
+	}
+	t.Log(helper.U256(num))
 }
 
 func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error), args ...string) {

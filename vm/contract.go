@@ -12,8 +12,6 @@ var (
 )
 
 type contract struct {
-	caller                 types.Address
-	self                   types.Address
 	jumpdests              destinations
 	data                   []byte
 	code                   []byte
@@ -22,11 +20,11 @@ type contract struct {
 	sendBlock              *ledger.AccountBlock
 	quotaLeft, quotaRefund uint64
 	intPool                *intPool
+	returnData             []byte
 }
 
-func newContract(caller types.Address, self types.Address, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock, data []byte, quotaLeft, quotaRefund uint64) *contract {
-	return &contract{caller: caller,
-		self:        self,
+func newContract(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock, data []byte, quotaLeft, quotaRefund uint64) *contract {
+	return &contract{
 		block:       block,
 		sendBlock:   sendBlock,
 		data:        data,

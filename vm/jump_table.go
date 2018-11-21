@@ -26,6 +26,7 @@ type operation struct {
 	writes  bool // determines whether this a state modifying operation
 	valid   bool // indication whether the retrieved operation is valid and known
 	reverts bool // determines whether the operation reverts state (implicitly halts)
+	returns bool // determines whether the operations sets the return data content
 }
 
 var (
@@ -261,6 +262,19 @@ var (
 			gasCost:       gasExtCodeCopy,
 			validateStack: makeStackFunc(4, 0),
 			memorySize:    memoryExtCodeCopy,
+			valid:         true,
+		},
+		RETURNDATASIZE: {
+			execute:       opReturnDataSize,
+			gasCost:       constGasFunc(quickStepGas),
+			validateStack: makeStackFunc(0, 1),
+			valid:         true,
+		},
+		RETURNDATACOPY: {
+			execute:       opReturnDataCopy,
+			gasCost:       gasReturnDataCopy,
+			validateStack: makeStackFunc(3, 0),
+			memorySize:    memoryReturnDataCopy,
 			valid:         true,
 		},
 		BLOCKHASH: {
@@ -783,6 +797,7 @@ var (
 			valid:         true,
 			writes:        true,
 		},
+		// TODO CALL
 		RETURN: {
 			execute:       opReturn,
 			gasCost:       gasReturn,
@@ -791,13 +806,13 @@ var (
 			halts:         true,
 			valid:         true,
 		},
-		// TODO delegate call not support
 		DELEGATECALL: {
 			execute:       opDelegateCall,
 			gasCost:       gasDelegateCall,
 			validateStack: makeStackFunc(5, 1),
 			memorySize:    memoryDelegateCall,
 			valid:         true,
+			returns:       true,
 		},
 		REVERT: {
 			execute:       opRevert,
@@ -806,6 +821,8 @@ var (
 			memorySize:    memoryRevert,
 			valid:         true,
 			reverts:       true,
+			returns:       true,
 		},
+		// TODO SELFDESTRUCT
 	}
 )

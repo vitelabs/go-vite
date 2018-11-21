@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
-	"math/big"
 )
 
 func opStop(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
@@ -140,7 +139,7 @@ func opExp(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 
 func opSignExtend(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	back := stack.pop()
-	if back.Cmp(big.NewInt(31)) < 0 {
+	if back.Cmp(helper.Big31) < 0 {
 		bit := uint(back.Uint64()*8 + 7)
 		num := stack.pop()
 		mask := back.Lsh(helper.Big1, bit)
@@ -335,15 +334,14 @@ func opSAR(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byt
 func opBlake2b(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	offset, size := stack.pop(), stack.pop()
 	data := memory.get(offset.Int64(), size.Int64())
-	hash := crypto.Hash256(data)
-	stack.push(c.intPool.get().SetBytes(hash))
+	stack.push(c.intPool.get().SetBytes(crypto.Hash256(data)))
 
 	c.intPool.put(offset, size)
 	return nil, nil
 }
 
 func opAddress(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.get().SetBytes(c.self.Bytes()))
+	stack.push(c.intPool.get().SetBytes(c.block.AccountBlock.AccountAddress.Bytes()))
 	return nil, nil
 }
 
@@ -358,7 +356,7 @@ func opBalance(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([
 }
 
 func opCaller(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.get().SetBytes(c.caller.Bytes()))
+	stack.push(c.intPool.get().SetBytes(c.sendBlock.AccountAddress.Bytes()))
 	return nil, nil
 }
 
@@ -368,7 +366,10 @@ func opCallValue(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) 
 }
 
 func opCallDataLoad(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.get().SetBytes(helper.GetDataBig(c.data, stack.pop(), helper.Big32)))
+	offset := stack.pop()
+	stack.push(c.intPool.get().SetBytes(helper.GetDataBig(c.data, offset, helper.Big32)))
+
+	c.intPool.put(offset)
 	return nil, nil
 }
 
@@ -428,12 +429,35 @@ func opExtCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack
 	return nil, nil
 }
 
+func opReturnDataSize(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	stack.push(c.intPool.get().SetUint64(uint64(len(c.returnData))))
+	return nil, nil
+}
+
+func opReturnDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	var (
+		memOffset  = stack.pop()
+		dataOffset = stack.pop()
+		length     = stack.pop()
+
+		end = c.intPool.get().Add(dataOffset, length)
+	)
+	defer c.intPool.put(memOffset, dataOffset, length, end)
+
+	if end.BitLen() > 64 || uint64(len(c.returnData)) < end.Uint64() {
+		return nil, util.ErrReturnDataOutOfBounds
+	}
+	memory.set(memOffset.Uint64(), length.Uint64(), c.returnData[dataOffset.Uint64():end.Uint64()])
+
+	return nil, nil
+}
+
 func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	tmp := stack.pop()
 	height := tmp.Uint64()
-	snapshotHeight := c.block.VmContext.CurrentSnapshotBlock().Height
-	n := snapshotHeight - getBlockByHeightLimit
-	if height > n && height <= snapshotHeight {
+	currentHeight := c.block.VmContext.CurrentSnapshotBlock().Height
+	minHeight := currentHeight - getBlockByHeightLimit
+	if height > minHeight && height <= currentHeight {
 		block, _ := c.block.VmContext.GetSnapshotBlockByHeight(height)
 		stack.push(c.intPool.get().SetBytes(block.Hash.Bytes()))
 	} else {
@@ -492,7 +516,7 @@ func opMstore8(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([
 func opSLoad(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	loc := stack.peek()
 	locHash, _ := types.BigToHash(loc)
-	val := c.block.VmContext.GetStorage(&c.self, locHash.Bytes())
+	val := c.block.VmContext.GetStorage(&c.block.AccountBlock.AccountAddress, locHash.Bytes())
 	loc.SetBytes(val)
 	return nil, nil
 }
@@ -594,7 +618,9 @@ func makeLog(size int) executionFunc {
 		topics := make([]types.Hash, size)
 		mStart, mSize := stack.pop(), stack.pop()
 		for i := 0; i < size; i++ {
-			topics[i], _ = types.BigToHash(stack.pop())
+			topic := stack.pop()
+			topics[i], _ = types.BigToHash(topic)
+			c.intPool.put(topic)
 		}
 
 		d := memory.get(mStart.Int64(), mSize.Int64())

@@ -17,6 +17,8 @@ var (
 )
 
 func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
+	c.returnData = nil
+
 	var (
 		op   opCode
 		mem  = newMemory()
@@ -68,6 +70,10 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 			fmt.Printf("current code: %v \n", hex.EncodeToString(c.code[currentPc:]))
 			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemory: [%v]\nquotaLeft: %v, quotaRefund: %v\n", opCodeToString[op], currentPc, st.print(), mem.print(), c.quotaLeft, c.quotaRefund)
 			fmt.Println("--------------------")
+		}
+
+		if operation.returns {
+			c.returnData = res
 		}
 
 		switch {

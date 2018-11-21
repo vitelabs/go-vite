@@ -50,7 +50,7 @@ func TestRun(t *testing.T) {
 	}
 	for _, test := range tests {
 		vm := NewVM()
-		vm.Debug = true
+		//vm.Debug = true
 		sendCallBlock := ledger.AccountBlock{
 			AccountAddress: types.Address{},
 			ToAddress:      types.Address{},
@@ -66,8 +66,6 @@ func TestRun(t *testing.T) {
 			BlockType:      ledger.BlockTypeReceive,
 		}
 		c := newContract(
-			receiveCallBlock.AccountAddress,
-			receiveCallBlock.ToAddress,
 			&vm_context.VmAccountBlock{receiveCallBlock, NewNoDatabase()},
 			&sendCallBlock,
 			test.input,

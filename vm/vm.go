@@ -190,7 +190,7 @@ func (vm *VM) receiveCreate(block *vm_context.VmAccountBlock, sendBlock *ledger.
 
 	// init contract state and set contract code
 	initCode := util.GetCodeFromCreateContractData(sendBlock.Data)
-	c := newContract(sendBlock.AccountAddress, block.AccountBlock.AccountAddress, block, sendBlock, initCode, quotaLeft, 0)
+	c := newContract(block, sendBlock, initCode, quotaLeft, 0)
 	c.setCallCode(block.AccountBlock.AccountAddress, initCode)
 	code, err := c.run(vm)
 	if err == nil && len(code) <= MaxCodeSize {
@@ -394,7 +394,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 			return vm.blockList, NoRetry, nil
 		}
 		// run code
-		c := newContract(sendBlock.AccountAddress, block.AccountBlock.AccountAddress, block, sendBlock, sendBlock.Data, quotaLeft, quotaRefund)
+		c := newContract(block, sendBlock, sendBlock.Data, quotaLeft, quotaRefund)
 		c.setCallCode(block.AccountBlock.AccountAddress, code)
 		_, err = c.run(vm)
 		if err == nil {
@@ -436,7 +436,7 @@ func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract) (ret []byte, err error) {
 	code := c.block.VmContext.GetContractCode(&contractAddr)
 	if len(code) > 0 {
-		cNew := newContract(c.caller, c.self, c.block, c.sendBlock, c.data, c.quotaLeft, c.quotaRefund)
+		cNew := newContract(c.block, c.sendBlock, c.data, c.quotaLeft, c.quotaRefund)
 		cNew.setCallCode(contractAddr, code)
 		ret, err = cNew.run(vm)
 		c.quotaLeft, c.quotaRefund = cNew.quotaLeft, cNew.quotaRefund
