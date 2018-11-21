@@ -250,7 +250,7 @@ func (l *LedgerApi) GetBlockMeta(hash *types.Hash) (*ledger.AccountBlockMeta, er
 
 func (l *LedgerApi) GetFittestSnapshotHash() (*types.Hash, error) {
 	//latestBlock := l.chain.GetLatestSnapshotBlock()
-	return generator.GetFitestGeneratorSnapshotHash(l.chain, nil)
+	return generator.GetFitestGeneratorSnapshotHash(l.chain, nil, nil)
 
 	//gap := uint64(0)
 	//targetHeight := latestBlock.Height

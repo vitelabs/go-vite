@@ -191,7 +191,8 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 		w.log.Info("ProcessOneBlock.checkExistInPool failed")
 		return
 	}
-	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(w.manager.Chain(), nil)
+
+	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(w.manager.Chain(), &sendBlock.ToAddress, &sendBlock.SnapshotHash)
 	if err != nil {
 		w.log.Info("GetFitestGeneratorSnapshotHash failed", "error", err)
 		return
