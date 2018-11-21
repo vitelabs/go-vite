@@ -322,10 +322,10 @@ func addHeight(gapHeight uint64) uint64 {
 }
 
 func calMin(us ...uint64) uint64 {
-	min := uint64(0)
 	if len(us) == 0 {
 		panic("zero args")
 	}
+	min := us[0]
 	for _, u := range us {
 		if u < min {
 			min = u
