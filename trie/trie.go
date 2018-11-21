@@ -20,6 +20,15 @@ type Trie struct {
 	unSavedRefValueMap map[types.Hash][]byte
 }
 
+func DeleteNodes(db *leveldb.DB, hashList []types.Hash) error {
+	batch := new(leveldb.Batch)
+	for _, hash := range hashList {
+		dbKey, _ := database.EncodeKey(database.DBKP_TRIE_NODE, hash.Bytes())
+		batch.Delete(dbKey)
+	}
+	db.Write(batch, nil)
+}
+
 func NewTrie(db *leveldb.DB, rootHash *types.Hash, pool *TrieNodePool) *Trie {
 	trie := &Trie{
 		db:        db,
@@ -221,6 +230,35 @@ func (trie *Trie) traverseSave(batch *leveldb.Batch, node *TrieNode) error {
 		trie.traverseSave(batch, node.child)
 	}
 	return nil
+}
+
+func (trie *Trie) NodeHashList() []*types.Hash {
+	if trie.Root == nil {
+		return nil
+	}
+	var hashList []*types.Hash
+	tmpNodes := []*TrieNode{trie.Root}
+
+	for {
+		if len(tmpNodes) < 0 {
+			break
+		}
+		node := tmpNodes[0]
+		nodeHash := node.Hash()
+		hashList = append(hashList, nodeHash)
+
+		tmpNodes = tmpNodes[1:]
+		switch node.NodeType() {
+		case TRIE_FULL_NODE:
+			for _, child := range node.children {
+				tmpNodes = append(tmpNodes, child)
+			}
+		case TRIE_SHORT_NODE:
+			tmpNodes = append(tmpNodes, node.child)
+		}
+	}
+
+	return hashList
 }
 
 func (trie *Trie) SetValue(key []byte, value []byte) {
