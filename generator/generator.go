@@ -249,7 +249,7 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 	}
 	fitestSbHeight = latestSb.Height
 
-	referredSbHeight = latestSb.Height
+	referredSbHeight = 1
 	if accAddr != nil {
 		prevAccountBlock, err := chain.GetLatestAccountBlock(accAddr)
 		if err != nil {
@@ -275,14 +275,14 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 	case gapHeight < 0:
 		return nil, errors.New("the height of the snapshotblock referred can't be larger than the latest")
 	case gapHeight > 0:
-		addedHeight := getAddedHeight()
+		heightAdded := addHeight(0)
 		if latestSb.Height <= DefaultHeightDifference {
-			fitestSbHeight = referredSbHeight + addedHeight
+			fitestSbHeight = referredSbHeight + heightAdded
 		} else {
 			if referredSbHeight < latestSb.Height-DefaultHeightDifference {
 				fitestSbHeight = latestSb.Height - DefaultHeightDifference
 			} else {
-				fitestSbHeight = referredSbHeight + addedHeight
+				fitestSbHeight = referredSbHeight + heightAdded
 			}
 		}
 	default:
@@ -298,8 +298,11 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 	return &fitestSb.Hash, nil
 }
 
-func getAddedHeight() uint64 {
-	rand.Seed(time.Now().UnixNano())
-	randHeight := uint64(rand.Intn(2))
+func addHeight(gapHeight uint64) uint64 {
+	randHeight := uint64(0)
+	if gapHeight >= 1 {
+		rand.Seed(time.Now().UnixNano())
+		randHeight = uint64(rand.Intn(int(gapHeight + 1)))
+	}
 	return randHeight
 }
