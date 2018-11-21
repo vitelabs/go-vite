@@ -242,14 +242,14 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 
 func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Address, referredSnapshotHashList ...*types.Hash) (*types.Hash, error) {
 	var fitestSbHeight uint64
-	var referredSbHeight uint64
+	var referredMaxSbHeight uint64
 	latestSb := chain.GetLatestSnapshotBlock()
 	if latestSb == nil {
 		return nil, errors.New("latest snapshotblock is nil")
 	}
 	fitestSbHeight = latestSb.Height
 
-	referredSbHeight = 1
+	referredMaxSbHeight = 1
 	if accAddr != nil {
 		prevAccountBlock, err := chain.GetLatestAccountBlock(accAddr)
 		if err != nil {
@@ -259,35 +259,38 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 			referredSnapshotHashList = append(referredSnapshotHashList, &prevAccountBlock.SnapshotHash)
 		}
 	}
+	// get max referredSbHeight
 	for _, v := range referredSnapshotHashList {
 		if v != nil {
 			snapshotBlock, err := chain.GetSnapshotBlockByHash(v)
 			if err != nil {
 				return nil, err
 			}
-			if snapshotBlock != nil && referredSbHeight < snapshotBlock.Height {
-				referredSbHeight = snapshotBlock.Height
+			if snapshotBlock != nil && referredMaxSbHeight < snapshotBlock.Height {
+				referredMaxSbHeight = snapshotBlock.Height
 			}
 		}
 	}
 
-	switch gapHeight := latestSb.Height - referredSbHeight; {
-	case gapHeight < 0:
+	if latestSb.Height < referredMaxSbHeight {
 		return nil, errors.New("the height of the snapshotblock referred can't be larger than the latest")
-	case gapHeight > 0:
-		heightAdded := addHeight(0)
-		if latestSb.Height <= DefaultHeightDifference {
-			fitestSbHeight = referredSbHeight + heightAdded
-		} else {
-			if referredSbHeight < latestSb.Height-DefaultHeightDifference {
-				fitestSbHeight = latestSb.Height - DefaultHeightDifference
-			} else {
-				fitestSbHeight = referredSbHeight + heightAdded
-			}
-		}
-	default:
-		break
 	}
+
+	gapHeight := latestSb.Height - referredMaxSbHeight
+	// cal min gap
+	min := calMin(gapHeight, gapHeight-DefaultHeightDifference)
+
+	fitestSbHeight = referredMaxSbHeight + min
+	if fitestSbHeight < latestSb.Height {
+		fitestSbHeight = fitestSbHeight + addHeight(1)
+	}
+
+	// protect code
+	if fitestSbHeight > latestSb.Height {
+		fitestSbHeight = latestSb.Height
+	}
+
+	var fitestSbHash *types.Hash
 	fitestSb, err := chain.GetSnapshotBlockByHeight(fitestSbHeight)
 	if fitestSb == nil {
 		if err != nil {
@@ -295,7 +298,18 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 		}
 		return nil, errors.New("get snapshotBlock by height failed")
 	}
-	return &fitestSb.Hash, nil
+	fitestSbHash = &fitestSb.Hash
+
+	//fitestSb2, _ := chain.GetSnapshotBlockByHeight(fitestSbHeight + 1)
+	//if fitestSb2 != nil && accAddr != nil {
+	//	quota1, _ := chain.GetPledgeQuota(fitestSb.Hash, *accAddr)
+	//	quota2, _ := chain.GetPledgeQuota(fitestSb2.Hash, *accAddr)
+	//	if quota1 < quota2 {
+	//		fitestSbHash = &fitestSb2.Hash
+	//	}
+	//}
+
+	return fitestSbHash, nil
 }
 
 func addHeight(gapHeight uint64) uint64 {
@@ -305,4 +319,17 @@ func addHeight(gapHeight uint64) uint64 {
 		randHeight = uint64(rand.Intn(int(gapHeight + 1)))
 	}
 	return randHeight
+}
+
+func calMin(us ...uint64) uint64 {
+	min := uint64(0)
+	if len(us) == 0 {
+		panic("zero args")
+	}
+	for _, u := range us {
+		if u < min {
+			min = u
+		}
+	}
+	return min
 }
