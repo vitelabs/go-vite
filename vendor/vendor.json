@@ -436,6 +436,12 @@
 			"revisionTime": "2018-06-17T13:11:54Z"
 		},
 		{
+			"checksumSHA1": "xGlhb4NZjBVCNSbb7GIMvhn6mQg=",
+			"path": "github.com/robfig/cron",
+			"revision": "b41be1df696709bb6395fe435af20370037c0b4c",
+			"revisionTime": "2018-05-05T20:34:41Z"
+		},
+		{
 			"checksumSHA1": "ZLkqsBqmc4RVc/Ng1ldrGZuTE8o=",
 			"path": "github.com/rs/cors",
 			"revision": "dc7332ab32be5dfec05dae2a6ab79cbfa53b6407",

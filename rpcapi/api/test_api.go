@@ -1,15 +1,20 @@
 package api
 
 import (
+	"context"
 	"errors"
+	"github.com/hashicorp/golang-lru"
 	"math/big"
 	"math/rand"
+	"strings"
 
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
+
+	"github.com/robfig/cron"
 )
 
 type CreateTxWithPrivKeyParmsTest struct {
@@ -23,16 +28,77 @@ type CreateTxWithPrivKeyParmsTest struct {
 }
 
 type TestApi struct {
-	walletApi *WalletApi
+	walletApi        *WalletApi
+	testTokenIpCache *lru.Cache
+	cacheCron        *cron.Cron
 }
 
 func NewTestApi(walletApi *WalletApi) *TestApi {
-	return &TestApi{
+	testApi := &TestApi{
 		walletApi: walletApi,
 	}
+
+	cache, e := lru.New(2048)
+	if e != nil {
+		log.Error("NewTestApi new lrucache", "err", e)
+	} else {
+		testApi.testTokenIpCache = cache
+	}
+
+	cacheCron := cron.New()
+	e = cacheCron.AddFunc("@daily", func() {
+		log.Info("clear lrucache")
+		if testApi.testTokenIpCache != nil {
+			newcache, e := lru.New(2048)
+			if e != nil {
+				log.Error("NewTestApi new lrucache clear", "err", e)
+			} else {
+				testApi.testTokenIpCache = newcache
+			}
+		}
+	})
+	if e != nil {
+		log.Error("NewTestApi addFunc", "err", e)
+	} else {
+		cacheCron.Start()
+	}
+	testApi.cacheCron = cacheCron
+
+	return testApi
+
 }
 
-func (t TestApi) GetTestToken(ToAddr types.Address) (string, error) {
+func CheckIpFrequent(cache *lru.Cache, ctx context.Context) error {
+	if cache == nil {
+		return nil
+	}
+	endpoint, ok := ctx.Value("remote").(string)
+	if ok {
+		log.Info("GetTestToken", "remote", endpoint)
+		split := strings.Split(endpoint, ":")
+		if len(split) == 2 {
+			ip := split[0]
+			if count, ok := cache.Get(ip); ok {
+				c := count.(int)
+				if c >= 20 {
+					return errors.New("too frequent")
+				} else {
+					c++
+					cache.Add(ip, c)
+				}
+			} else {
+				cache.Add(ip, 1)
+			}
+		}
+	}
+	return nil
+}
+
+func (t *TestApi) GetTestToken(ctx context.Context, ToAddr types.Address) (string, error) {
+	if e := CheckIpFrequent(t.testTokenIpCache, ctx); e != nil {
+		return "", e
+	}
+
 	privKey, err := ed25519.HexToPrivateKey(testapi_hexPrivKey)
 	if err != nil {
 		return "", err
