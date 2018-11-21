@@ -172,14 +172,14 @@ func getChainInstance() chain.Chain {
 
 		innerChainInstance = chain.NewChain(&config.Config{
 
-			DataDir: filepath.Join(common.HomeDir(), "Library/GVite/testdata"),
+			DataDir: filepath.Join(common.HomeDir(), "Library/GVite/devdata"),
 			//Chain: &config.Chain{
 			//	KafkaProducers: []*config.KafkaProducer{{
 			//		Topic:      "test003",
 			//		BrokerList: []string{"ckafka-r3rbhht9.ap-guangzhou.ckafka.tencentcloudmq.com:6061"},
 			//	}},
 			//},
-			Chain: &config.Chain{},
+			Chain: &config.Chain{GenesisFile: "/Users/jie/Documents/vite/src/github.com/vitelabs/genesis.json"},
 		})
 		innerChainInstance.Init()
 		innerChainInstance.Start()
@@ -489,4 +489,58 @@ func TestCommittee_ReadByIndex2(t *testing.T) {
 
 	bytes, _ := json.Marshal(m)
 	t.Log(string(bytes))
+}
+
+func TestChain(t *testing.T) {
+	ch := getChainInstance()
+
+	addr, _ := types.HexToAddress("vite_000000000000000000000000000000000000000309508ba646")
+	head, _ := ch.GetLatestAccountBlock(&addr)
+
+	for i := head.Height; i > 0; i-- {
+		block, e := ch.GetAccountBlockByHeight(&addr, i)
+		if e != nil {
+			panic(e)
+		}
+		snapshotBlock, e2 := ch.GetSnapshotBlockByHash(&block.SnapshotHash)
+		if e2 != nil {
+			panic(e2)
+		}
+
+		accountBlock, e3 := ch.GetAccountBlockByHash(&block.FromBlockHash)
+		if e3 != nil {
+			panic(e3)
+		}
+
+		s2, err := ch.GetSnapshotBlockByHash(&accountBlock.SnapshotHash)
+		if err != nil {
+			panic(err)
+		}
+
+		t.Log(block.Timestamp.Format("15:04:05"),
+			strconv.FormatUint(i, 10),
+			strconv.FormatUint(snapshotBlock.Height, 10),
+			snapshotBlock.Timestamp.Format("15:04:05"),
+			strconv.FormatUint(s2.Height, 10),
+			s2.Timestamp.Format("15:04:05"),
+			accountBlock.Timestamp.Format("15:04:05"))
+	}
+
+}
+
+func TestChain2(t *testing.T) {
+	ch := getChainInstance()
+
+	head := ch.GetLatestSnapshotBlock()
+
+	for i := head.Height; i > 0; i-- {
+		block, e := ch.GetSnapshotBlockByHeight(i)
+		if e != nil {
+			panic(e)
+		}
+
+		t.Log(block.Timestamp.Format("15:04:05"),
+			strconv.FormatUint(i, 10))
+	}
+
 }
