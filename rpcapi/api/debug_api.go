@@ -294,3 +294,8 @@ func NewDebugApi(v *vite.Vite) *DebugApi {
 		v: v,
 	}
 }
+
+func (api DebugApi) SetGetTestTokenLimitSize(size int) error {
+	testtokenlruLimitSize = size
+	return nil
+}
