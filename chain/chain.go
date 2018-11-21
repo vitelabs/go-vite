@@ -12,6 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm_context"
+	"math/big"
 	"os"
 	"path/filepath"
 	"sync"
@@ -58,7 +59,7 @@ func NewChain(cfg *config.Config) Chain {
 
 	chain.blackBlock = NewBlackBlock(chain, chain.cfg.OpenBlackBlock)
 
-	initGenesis(chain.readGenesis(cfg.GenesisFile))
+	initGenesis(chain.readGenesis(chain.cfg.GenesisFile))
 
 	return chain
 }
@@ -309,6 +310,43 @@ func (c *chain) readGenesis(genesisPath string) *GenesisConfig {
 		defaultBlockProducers = append(defaultBlockProducers, addr)
 	}
 
+	defaultSnapshotConsensusGroup := ConsensusGroupInfo{
+		NodeCount:           25,
+		Interval:            1,
+		PerCount:            3,
+		RandCount:           2,
+		RandRank:            100,
+		CountingTokenId:     ledger.ViteTokenId,
+		RegisterConditionId: 1,
+		RegisterConditionParam: ConditionRegisterData{
+			PledgeAmount: new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)),
+			PledgeHeight: uint64(3600 * 24 * 90),
+			PledgeToken:  ledger.ViteTokenId,
+		},
+		VoteConditionId: 1,
+		Owner:           defaultGenesisAccountAddress,
+		PledgeAmount:    big.NewInt(0),
+		WithdrawHeight:  1,
+	}
+	defaultCommonConsensusGroup := ConsensusGroupInfo{
+		NodeCount:           25,
+		Interval:            3,
+		PerCount:            1,
+		RandCount:           2,
+		RandRank:            100,
+		CountingTokenId:     ledger.ViteTokenId,
+		RegisterConditionId: 1,
+		RegisterConditionParam: ConditionRegisterData{
+			PledgeAmount: new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)),
+			PledgeHeight: uint64(3600 * 24 * 90),
+			PledgeToken:  ledger.ViteTokenId,
+		},
+		VoteConditionId: 1,
+		Owner:           defaultGenesisAccountAddress,
+		PledgeAmount:    big.NewInt(0),
+		WithdrawHeight:  1,
+	}
+
 	config := &GenesisConfig{
 		GenesisAccountAddress: defaultGenesisAccountAddress,
 		BlockProducers:        defaultBlockProducers,
@@ -325,6 +363,14 @@ func (c *chain) readGenesis(genesisPath string) *GenesisConfig {
 		if err := json.NewDecoder(file).Decode(config); err != nil {
 			c.log.Crit(fmt.Sprintf("invalid genesis file: %v", err), "method", "readGenesis")
 		}
+	}
+
+	if config.SnapshotConsensusGroup == nil {
+		config.SnapshotConsensusGroup = &defaultSnapshotConsensusGroup
+	}
+
+	if config.CommonConsensusGroup == nil {
+		config.CommonConsensusGroup = &defaultCommonConsensusGroup
 	}
 
 	// hack, will be fix

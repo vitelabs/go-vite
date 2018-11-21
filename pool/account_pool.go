@@ -402,7 +402,7 @@ func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, *forkedCha
 				if err != nil {
 					return nil, nil, err
 				}
-				newChain.addHead(tmp)
+				newChain.addHead(b)
 			}
 		}
 		result = append(result, b)

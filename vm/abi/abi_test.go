@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
 	"log"
 	"math/big"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 const jsondata = `

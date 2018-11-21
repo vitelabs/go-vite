@@ -1,106 +1,79 @@
 
 .PHONY: all clean
-.PHONY: gvite_linux gvite-linux-386 gvite-linux-amd64 gvite-darwin-amd64
+.PHONY: gvite_linux  gvite-linux-amd64 gvite-darwin-amd64
 .PHONY: gvite-darwin gvite-darwin-amd64
 .PHONY: gvite-windows gvite-windows-386 gvite-windows-amd64
 .PHONY: gitversion
 
 
-
 GO ?= latest
 
-MAINDIR = rpc
+MAINDIR = gvite
 SERVERMAIN = $(shell pwd)/cmd/$(MAINDIR)/main.go
 BUILDDIR = $(shell pwd)/build
 GOBIN = $(BUILDDIR)/cmd/$(MAINDIR)
-
-TESTCLIENTMAIN = $(shell pwd)/testdata/main/ipc_client.go
-
+VITE_VERSION = $(shell cat buildversion)
 
 gitversion:
-	@echo "package govite\nconst VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" > $(shell pwd)/buildversion.go
+	@echo "package govite" > $(shell pwd)/buildversion.go
+	@echo "const VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" >> $(shell pwd)/buildversion.go
 
 gvite:
-	@echo "package govite\nconst VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" > $(shell pwd)/buildversion.go
+	@echo "package govite" > $(shell pwd)/buildversion.go
+	@echo "const VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" >> $(shell pwd)/buildversion.go
 	go build -i -o $(GOBIN)/gvite $(SERVERMAIN)
 	@echo "Build server done."
 	@echo "Run \"$(GOBIN)/gvite\" to start gvite."
 
-	go build -i -o $(GOBIN)/gvite-test-client $(TESTCLIENTMAIN)
-	@echo "Build test client done."
-	@echo "Run \"$(GOBIN)/gvite-test-client\" to start test client."
-	@echo "package govite\nconst VITE_VERSION = \"\"" > $(shell pwd)/buildversion.go
-
 all: gvite-windows gvite-darwin  gvite-linux
+
 
 clean:
 	rm -r $(BUILDDIR)/
 
-gvite-linux: gvite-linux-386 gvite-linux-amd64
+gvite-linux: gvite-linux-amd64
 	@echo "Linux cross compilation done:"
-	@ls -ld $(GOBIN)/linux/gvite-linux-*
-
-gvite-linux-386:
-	@echo "package govite\nconst VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" > $(shell pwd)/buildversion.go
-	env GOOS=linux GOARCH=386 go build -i -o $(GOBIN)/linux/gvite-linux-386 $(SERVERMAIN)
-	@echo "Build server done."
-	@ls -ld $(GOBIN)/linux/gvite-linux-386
-
-	env GOOS=linux GOARCH=386 go build -i -o $(GOBIN)/linux/gvite-test-client-linux-386 $(TESTCLIENTMAIN)
-	@echo "Build test client done."
-	@ls -ld $(GOBIN)/linux/gvite-test-client-linux-386
-	@echo "package govite\nconst VITE_VERSION = \"\"" > $(shell pwd)/buildversion.go
 
 
 gvite-linux-amd64:
-	@echo "package govite\nconst VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" > $(shell pwd)/buildversion.go
-	env GOOS=linux GOARCH=amd64 go build -i -o $(GOBIN)/linux/gvite-linux-amd64 $(SERVERMAIN)
+	@echo "version package version is "$(VITE_VERSION)"."
+	@echo "package govite" > $(shell pwd)/buildversion.go
+	@echo "const VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" >> $(shell pwd)/buildversion.go
+	env GOOS=linux GOARCH=amd64 go build -i -o $(GOBIN)/gvite-$(VITE_VERSION)-linux/gvite $(SERVERMAIN)
+	@cp  $(shell pwd)/node_config.json $(GOBIN)/gvite-$(VITE_VERSION)-linux/node_config.json
+	@cp  $(shell pwd)/bootstrap $(GOBIN)/gvite-$(VITE_VERSION)-linux/bootstrap
 	@echo "Build server done."
-	@ls -ld $(GOBIN)/linux/gvite-linux-amd64
-
-	env GOOS=linux GOARCH=amd64 go build -i -o $(GOBIN)/linux/gvite-test-client-linux-amd64 $(TESTCLIENTMAIN)
-	@echo "Build test client done."
-	@ls -ld $(GOBIN)/linux/gvite-test-client-linux-amd64
-	@echo "package govite\nconst VITE_VERSION = \"\"" > $(shell pwd)/buildversion.go
-
+	@ls -ld $(GOBIN)/gvite-$(VITE_VERSION)-linux/gvite
 
 gvite-darwin:
-	@echo "package govite\nconst VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" > $(shell pwd)/buildversion.go
-	env GOOS=darwin GOARCH=amd64 go build -i -o $(GOBIN)/darwin/gvite-darwin $(SERVERMAIN)
+	@echo "version package version is "$(VITE_VERSION)"."
+	@echo "package govite" > $(shell pwd)/buildversion.go
+	@echo "const VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" >> $(shell pwd)/buildversion.go
+	env GOOS=darwin GOARCH=amd64 go build -i -o $(GOBIN)/gvite-$(VITE_VERSION)-darwin/gvite $(SERVERMAIN)
+	@cp  $(shell pwd)/node_config.json $(GOBIN)/gvite-$(VITE_VERSION)-darwin/node_config.json
+	@cp  $(shell pwd)/bootstrap $(GOBIN)/gvite-$(VITE_VERSION)-darwin/bootstrap
 	@echo "Build server done."
-	@ls -ld $(GOBIN)/darwin/gvite-darwin
-
-	env GOOS=darwin GOARCH=amd64 go build -i -o $(GOBIN)/darwin/gvite-test-client-darwin $(TESTCLIENTMAIN)
-	@echo "Build test client done."
-	@ls -ld $(GOBIN)/darwin/gvite-test-client-darwin
-	@echo "package govite\nconst VITE_VERSION = \"\"" > $(shell pwd)/buildversion.go
-
+	@ls -ld $(GOBIN)/gvite-$(VITE_VERSION)-darwin/gvite
 
 gvite-windows: gvite-windows-386 gvite-windows-amd64
 	@echo "Windows cross compilation done:"
-	@ls -ld $(GOBIN)/windows/gvite-windows-*
+	@ls -ld $(GOBIN)/gvite-$(VITE_VERSION)-windows/gvite-windows-*
 
 gvite-windows-386:
-	@echo "package govite\nconst VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" > $(shell pwd)/buildversion.go
-	env GOOS=windows GOARCH=386 go build -i -o $(GOBIN)/windows/gvite-windows-386.exe $(SERVERMAIN)
+	@echo "package govite" > $(shell pwd)/buildversion.go
+	@echo "const VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" >> $(shell pwd)/buildversion.go
+	env GOOS=windows GOARCH=386 go build -i -o $(GOBIN)/gvite-$(VITE_VERSION)-windows/gvite-windows-386.exe $(SERVERMAIN)
+	@cp  $(shell pwd)/node_config.json $(GOBIN)/gvite-$(VITE_VERSION)-windows/node_config.json
 	@echo "Build server done."
-	@ls -ld $(GOBIN)/windows/gvite-windows-386.exe
-
-	env GOOS=windows GOARCH=386 go build -i -o $(GOBIN)/windows/gvite-test-client-windows-386.exe $(TESTCLIENTMAIN)
-	@echo "Build test client done."
-	@ls -ld $(GOBIN)/windows/gvite-test-client-windows-386.exe
-	@echo "package govite\nconst VITE_VERSION = \"\"" > $(shell pwd)/buildversion.go
-
+	@ls -ld $(GOBIN)/gvite-$(VITE_VERSION)-windows/gvite-windows-386.exe
 
 gvite-windows-amd64:
-	@echo "package govite\nconst VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" > $(shell pwd)/buildversion.go
-	env GOOS=windows GOARCH=amd64 go build -i -o $(GOBIN)/windows/gvite-windows-amd64.exe $(SERVERMAIN)
-	@echo "Build server done."
-	@ls -ld $(GOBIN)/windows/gvite-windows-amd64.exe
+	@echo "package govite" > $(shell pwd)/buildversion.go
+	@echo "const VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" >> $(shell pwd)/buildversion.go
+	env GOOS=windows GOARCH=amd64 go build -i -o $(GOBIN)/gvite-$(VITE_VERSION)-windows/gvite-windows-amd64.exe $(SERVERMAIN)
+	@cp  $(shell pwd)/node_config.json $(GOBIN)/gvite-$(VITE_VERSION)-windows/node_config.json
+	@echo "Build server done."ls
+	@ls -ld $(GOBIN)/gvite-$(VITE_VERSION)-windows/gvite-windows-amd64.exe
 
-	env GOOS=windows GOARCH=amd64 go build -i -o $(GOBIN)/windows/gvite-test-client-windows-amd64.exe $(TESTCLIENTMAIN)
-	@echo "Build test client done."
-	@ls -ld $(GOBIN)/windows/gvite-test-client-windows-amd64.exe
-	@echo "package govite\nconst VITE_VERSION = \"\"" > $(shell pwd)/buildversion.go
 
 

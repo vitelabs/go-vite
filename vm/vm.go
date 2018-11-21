@@ -5,6 +5,11 @@ package vm
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/log15"
+	"math/big"
+	"sync/atomic"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -15,9 +20,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
-	"math/big"
-	"sync/atomic"
-	"time"
 )
 
 type VMConfig struct {
@@ -27,6 +29,7 @@ type VMConfig struct {
 type NodeConfig struct {
 	IsTest    bool
 	calcQuota func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
+	log       log15.Logger
 }
 
 var nodeConfig NodeConfig
@@ -47,6 +50,7 @@ func InitVmConfig(isTest bool, isTestParam bool) {
 			},
 		}
 	}
+	nodeConfig.log = log15.New("module", "vm")
 	contracts.InitContractsConfig(isTestParam)
 	quota.InitQuotaConfig(isTestParam)
 }
@@ -300,24 +304,25 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 				return vm.blockList, NoRetry, nil
 			}
 		}
+
 		vm.revert(block)
-		block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
-		vm.updateBlock(block, err, 0)
 
 		// precompiled contract receive error, if amount or fee is not zero, refund
 		refundFlag := false
 		if sendBlock.Amount.Sign() > 0 && sendBlock.Fee.Sign() > 0 && sendBlock.TokenId == ledger.ViteTokenId {
+			refundAmount := new(big.Int).Add(sendBlock.Amount, sendBlock.Fee)
 			vm.VmContext.AppendBlock(
 				&vm_context.VmAccountBlock{
 					util.MakeSendBlock(
 						block.AccountBlock,
 						sendBlock.AccountAddress,
 						ledger.BlockTypeSendCall,
-						new(big.Int).Add(block.AccountBlock.Amount, block.AccountBlock.Fee),
+						refundAmount,
 						ledger.ViteTokenId,
 						vm.VmContext.GetNewBlockHeight(block),
 						p.GetRefundData()),
 					nil})
+			block.VmContext.AddBalance(&ledger.ViteTokenId, refundAmount)
 			refundFlag = true
 		} else {
 			if sendBlock.Amount.Sign() > 0 {
@@ -332,6 +337,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 							vm.VmContext.GetNewBlockHeight(block),
 							p.GetRefundData()),
 						nil})
+				block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 				refundFlag = true
 			}
 			if sendBlock.Fee.Sign() > 0 {
@@ -346,14 +352,20 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 							vm.VmContext.GetNewBlockHeight(block),
 							p.GetRefundData()),
 						nil})
+				block.VmContext.AddBalance(&ledger.ViteTokenId, sendBlock.Fee)
 				refundFlag = true
 			}
 		}
+
+		block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
+		vm.updateBlock(block, err, 0)
+
 		if refundFlag {
 			if err = vm.doSendBlockList(util.PrecompiledContractsSendGas); err == nil {
 				return vm.blockList, NoRetry, nil
 			} else {
-				// impossible code
+				monitor.LogEvent("vm", "impossibleReceiveError")
+				nodeConfig.log.Error("Impossible receive error", "err", err, "fromhash", sendBlock.Hash)
 				return nil, Retry, err
 			}
 		}

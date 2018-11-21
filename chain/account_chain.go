@@ -40,19 +40,21 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 
 		vmContext := vmAccountBlock.VmContext
 		unsavedCache := vmContext.UnsavedCache()
-		// Save trie
-		if callback, saveTrieErr := unsavedCache.Trie().Save(batch); saveTrieErr != nil {
-			c.log.Error("SaveTrie failed, error is "+saveTrieErr.Error(), "method", "InsertAccountBlocks")
-			return saveTrieErr
-		} else {
-			trieSaveCallback = append(trieSaveCallback, callback)
-		}
+		if unsavedCache != nil {
+			// Save trie
+			if callback, saveTrieErr := unsavedCache.Trie().Save(batch); saveTrieErr != nil {
+				c.log.Error("SaveTrie failed, error is "+saveTrieErr.Error(), "method", "InsertAccountBlocks")
+				return saveTrieErr
+			} else {
+				trieSaveCallback = append(trieSaveCallback, callback)
+			}
 
-		// Save log list
-		if logList := unsavedCache.LogList(); len(logList) > 0 {
-			if err := c.chainDb.Ac.WriteVmLogList(batch, logList); err != nil {
-				c.log.Error("WriteVmLogList failed, error is "+err.Error(), "method", "InsertAccountBlocks")
-				return err
+			// Save log list
+			if logList := unsavedCache.LogList(); len(logList) > 0 {
+				if err := c.chainDb.Ac.WriteVmLogList(batch, logList); err != nil {
+					c.log.Error("WriteVmLogList failed, error is "+err.Error(), "method", "InsertAccountBlocks")
+					return err
+				}
 			}
 		}
 
@@ -160,7 +162,9 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	}
 
 	// Set stateTriePool
-	c.stateTriePool.Set(&lastVmAccountBlock.AccountBlock.AccountAddress, lastVmAccountBlock.VmContext.UnsavedCache().Trie())
+	if lastVmAccountBlock.VmContext.UnsavedCache() != nil {
+		c.stateTriePool.Set(&lastVmAccountBlock.AccountBlock.AccountAddress, lastVmAccountBlock.VmContext.UnsavedCache().Trie())
+	}
 
 	// After write db
 	for _, callback := range trieSaveCallback {
@@ -216,6 +220,10 @@ func (c *chain) GetAccountBlocksByHash(addr types.Address, origin *types.Hash, c
 
 // No block meta
 func (c *chain) GetAccountBlocksByHeight(addr types.Address, start, count uint64, forward bool) ([]*ledger.AccountBlock, error) {
+	if count <= 0 {
+		return nil, nil
+	}
+
 	account, gaErr := c.chainDb.Account.GetAccountByAddress(&addr)
 	if gaErr != nil {
 		c.log.Error("Query account failed. Error is "+gaErr.Error(), "method", "GetAccountBlocksByHeight")
@@ -650,14 +658,38 @@ func (c *chain) GetAllLatestAccountBlock() ([]*ledger.AccountBlock, error) {
 	var allLatestAccountBlock []*ledger.AccountBlock
 
 	for i := uint64(1); i <= maxAccountId; i++ {
+		addr, err := c.chainDb.Account.GetAddressById(i)
+		if err != nil {
+			c.log.Error("GetAddressById failed, error is "+err.Error(), "method", "GetAllAccountBlockCount")
+			return nil, err
+		}
+		if addr == nil {
+			err := errors.New("Address is nil")
+			c.log.Error(err.Error(), "method", "GetAllAccountBlockCount")
+			return nil, err
+		}
+
+		account, err := c.chainDb.Account.GetAccountByAddress(addr)
+		if err != nil {
+			c.log.Error("GetAccountByAddress failed, error is "+err.Error(), "method", "GetAllAccountBlockCount")
+			return nil, err
+		}
+		if account == nil {
+			err := errors.New("Account is nil")
+			c.log.Error(err.Error(), "method", "GetAllAccountBlockCount")
+			return nil, err
+		}
+
 		accountBlock, err := c.chainDb.Ac.GetLatestBlock(i)
 		if err != nil {
 			c.log.Error("GetLatestBlock failed, error is "+err.Error(), "method", "GetAllAccountBlockCount")
 			return nil, err
 		}
 		if accountBlock != nil {
+			c.completeBlock(accountBlock, account)
 			allLatestAccountBlock = append(allLatestAccountBlock, accountBlock)
 		}
+
 	}
 	return allLatestAccountBlock, nil
 }
