@@ -3,6 +3,7 @@ package generator
 import (
 	"errors"
 	"math/big"
+	"math/rand"
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -248,7 +249,7 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 	}
 	fitestSbHeight = latestSb.Height
 
-	referredSbHeight = latestSb.Height - 1
+	referredSbHeight = latestSb.Height
 	if accAddr != nil {
 		prevAccountBlock, err := chain.GetLatestAccountBlock(accAddr)
 		if err != nil {
@@ -268,22 +269,25 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 				referredSbHeight = snapshotBlock.Height
 			}
 		}
-
-	}
-	if referredSbHeight >= latestSb.Height {
-		return nil, errors.New("the snapshotHeight referred can't be lower than the latest")
 	}
 
-	if latestSb.Height <= DefaultHeightDifference {
-		fitestSbHeight = referredSbHeight + 1
-	} else {
-		if referredSbHeight < latestSb.Height-DefaultHeightDifference {
-			fitestSbHeight = latestSb.Height - DefaultHeightDifference
+	switch gapHeight := latestSb.Height - referredSbHeight; {
+	case gapHeight < 0:
+		return nil, errors.New("the height of the snapshotblock referred can't be larger than the latest")
+	case gapHeight > 0:
+		addedHeight := getAddedHeight()
+		if latestSb.Height <= DefaultHeightDifference {
+			fitestSbHeight = referredSbHeight + addedHeight
 		} else {
-			fitestSbHeight = referredSbHeight + 1
+			if referredSbHeight < latestSb.Height-DefaultHeightDifference {
+				fitestSbHeight = latestSb.Height - DefaultHeightDifference
+			} else {
+				fitestSbHeight = referredSbHeight + addedHeight
+			}
 		}
+	default:
+		break
 	}
-
 	fitestSb, err := chain.GetSnapshotBlockByHeight(fitestSbHeight)
 	if fitestSb == nil {
 		if err != nil {
@@ -292,4 +296,10 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 		return nil, errors.New("get snapshotBlock by height failed")
 	}
 	return &fitestSb.Hash, nil
+}
+
+func getAddedHeight() uint64 {
+	rand.Seed(time.Now().UnixNano())
+	randHeight := uint64(rand.Intn(2))
+	return randHeight
 }
