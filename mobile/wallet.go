@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/wallet"
 	"path/filepath"
+	"strings"
 )
 
 type DerivationResult struct {
@@ -30,8 +31,9 @@ func NewWallet(dataDir string, maxSearchIndex int, useLightScrypt bool) *Wallet 
 	}
 }
 
-func (w Wallet) ListAllEntropyFiles() []string {
-	return w.wallet.ListAllEntropyFiles()
+func (w Wallet) ListAllEntropyFiles() string {
+	files := w.wallet.ListAllEntropyFiles()
+	return strings.Join(files, "\n")
 }
 
 func (w *Wallet) Unlock(entropyStore, passphrase string) error {
@@ -54,13 +56,13 @@ func (w *Wallet) RemoveEntropyStore(entropyStore string) {
 	w.wallet.RemoveEntropyStore(entropyStore)
 }
 
-func (w *Wallet) RecoverEntropyStoreFromMnemonic(mnemonic, newPassphrase, language, extensionWord string) (entropyStore *string, err error) {
+func (w *Wallet) RecoverEntropyStoreFromMnemonic(mnemonic, newPassphrase, language, extensionWord string) (entropyStore string, err error) {
 	em, e := w.wallet.RecoverEntropyStoreFromMnemonic(mnemonic, language, newPassphrase, &extensionWord)
 	if e != nil {
-		return nil, e
+		return "", e
 	}
 	f := em.GetPrimaryAddr().String()
-	return &f, nil
+	return f, nil
 }
 
 func (w *Wallet) NewMnemonicAndEntropyStore(passphrase, language, extensionWord string, mnemonicSize int) (result *NewEntropyResult, err error) {
