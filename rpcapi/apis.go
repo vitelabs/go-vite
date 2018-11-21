@@ -9,6 +9,7 @@ import (
 func Init(dir, lvl string, testApi_prikey, testApi_tti string) {
 	api.InitLog(dir, lvl)
 	api.InitTestAPIParams(testApi_prikey, testApi_tti)
+	api.InitGetTestTokenLimitPolicy()
 }
 
 func GetApi(vite *vite.Vite, apiModule string) rpc.API {
