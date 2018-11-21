@@ -1,14 +1,14 @@
 package api
 
 import (
+	"strconv"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"strconv"
 )
 
 // !!! Block = Transaction = TX
@@ -249,8 +249,8 @@ func (l *LedgerApi) GetBlockMeta(hash *types.Hash) (*ledger.AccountBlockMeta, er
 }
 
 func (l *LedgerApi) GetFittestSnapshotHash() (*types.Hash, error) {
-	//latestBlock := l.chain.GetLatestSnapshotBlock()
-	return generator.GetFitestGeneratorSnapshotHash(l.chain, nil, nil)
+	latestBlock := l.chain.GetLatestSnapshotBlock()
+	return &latestBlock.Hash, nil
 
 	//gap := uint64(0)
 	//targetHeight := latestBlock.Height
