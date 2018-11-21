@@ -157,7 +157,9 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 		return errors.New("get sendblock by hash failed")
 	}
 
-	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, &fromBlock.SnapshotHash)
+	var referredSnapshotHashList []types.Hash
+	referredSnapshotHashList = append(referredSnapshotHashList, fromBlock.SnapshotHash)
+	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, referredSnapshotHashList)
 	if err != nil {
 		return err
 	}

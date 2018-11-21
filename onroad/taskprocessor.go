@@ -245,8 +245,10 @@ func (tp *ContractTaskProcessor) packConsensusMessage(sendBlock *ledger.AccountB
 		Timestamp:    tp.accEvent().Timestamp,
 		Producer:     tp.accEvent().Address,
 	}
-	fitestHash, err := generator.GetFitestGeneratorSnapshotHash(tp.worker.manager.chain, &sendBlock.ToAddress,
-		&sendBlock.SnapshotHash, &consensusMessage.SnapshotHash)
+	var referredSnapshotHashList []types.Hash
+	referredSnapshotHashList = append(referredSnapshotHashList, sendBlock.SnapshotHash)
+	referredSnapshotHashList = append(referredSnapshotHashList, consensusMessage.SnapshotHash)
+	fitestHash, err := generator.GetFitestGeneratorSnapshotHash(tp.worker.manager.chain, &sendBlock.ToAddress, referredSnapshotHashList)
 	if err != nil {
 		return nil, err
 	}

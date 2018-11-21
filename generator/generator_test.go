@@ -69,7 +69,9 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 		t.Error("GetLatestAccountBlock", err)
 		return
 	}
-	fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(v.chain, &fromBlock.ToAddress, &fromBlock.SnapshotHash)
+	var referredSnapshotHashList []types.Hash
+	referredSnapshotHashList = append(referredSnapshotHashList, fromBlock.SnapshotHash)
+	fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(v.chain, &fromBlock.ToAddress, referredSnapshotHashList)
 	if err != nil {
 		t.Error("GetFitestGeneratorSnapshotHash", err)
 		return

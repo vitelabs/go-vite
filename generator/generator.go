@@ -240,7 +240,7 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 	return blockPacked, nil
 }
 
-func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Address, referredSnapshotHashList ...*types.Hash) (*types.Hash, error) {
+func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Address, referredSnapshotHashList []types.Hash) (*types.Hash, error) {
 	var fitestSbHeight uint64
 	var referredMaxSbHeight uint64
 	latestSb := chain.GetLatestSnapshotBlock()
@@ -249,25 +249,27 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 	}
 	fitestSbHeight = latestSb.Height
 
-	referredMaxSbHeight = 1
 	if accAddr != nil {
 		prevAccountBlock, err := chain.GetLatestAccountBlock(accAddr)
 		if err != nil {
 			return nil, err
 		}
 		if prevAccountBlock != nil {
-			referredSnapshotHashList = append(referredSnapshotHashList, &prevAccountBlock.SnapshotHash)
+			referredSnapshotHashList = append(referredSnapshotHashList, prevAccountBlock.SnapshotHash)
 		}
 	}
 	// get max referredSbHeight
-	for _, v := range referredSnapshotHashList {
-		if v != nil {
-			snapshotBlock, err := chain.GetSnapshotBlockByHash(v)
+	referredMaxSbHeight = 1
+	if len(referredSnapshotHashList) <= 0 {
+		referredMaxSbHeight = latestSb.Height
+	} else {
+		for _, v := range referredSnapshotHashList {
+			vSb, err := chain.GetSnapshotBlockByHash(&v)
 			if err != nil {
 				return nil, err
 			}
-			if snapshotBlock != nil && referredMaxSbHeight < snapshotBlock.Height {
-				referredMaxSbHeight = snapshotBlock.Height
+			if vSb != nil && referredMaxSbHeight < vSb.Height {
+				referredMaxSbHeight = vSb.Height
 			}
 		}
 	}
@@ -276,8 +278,8 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 		return nil, errors.New("the height of the snapshotblock referred can't be larger than the latest")
 	}
 
-	gapHeight := latestSb.Height - referredMaxSbHeight
 	// cal min gap
+	gapHeight := latestSb.Height - referredMaxSbHeight
 	min := calMin(gapHeight, gapHeight-DefaultHeightDifference)
 
 	fitestSbHeight = referredMaxSbHeight + min
