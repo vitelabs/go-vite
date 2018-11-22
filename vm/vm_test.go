@@ -206,11 +206,22 @@ func TestVmRun(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
-	//vm.Debug = true
+	vm.Debug = true
 	db.addr = addr2
 	receiveCallBlockList2, isRetry, err := vm.Run(db, block23, sendCallBlockList2[0].AccountBlock)
-	if len(receiveCallBlockList2) != 1 || isRetry || err != util.ErrExecutionReverted ||
-		receiveCallBlockList2[0].AccountBlock.Quota != 21046 {
+	if len(receiveCallBlockList2) != 2 || isRetry || err != util.ErrExecutionReverted ||
+		receiveCallBlockList2[0].AccountBlock.Quota != 21046 ||
+		len(receiveCallBlockList2[0].AccountBlock.Data) != 33 ||
+		receiveCallBlockList2[0].AccountBlock.Data[32] != 1 ||
+		receiveCallBlockList2[1].AccountBlock.BlockType != ledger.BlockTypeSendCall ||
+		receiveCallBlockList2[1].AccountBlock.Height != 4 ||
+		receiveCallBlockList2[1].AccountBlock.AccountAddress != addr2 ||
+		receiveCallBlockList2[1].AccountBlock.ToAddress != addr1 ||
+		receiveCallBlockList2[1].AccountBlock.Amount.Cmp(block15.Amount) != 0 ||
+		receiveCallBlockList2[1].AccountBlock.TokenId != ledger.ViteTokenId ||
+		receiveCallBlockList2[1].AccountBlock.Quota != 0 ||
+		receiveCallBlockList2[1].AccountBlock.Fee.Sign() != 0 ||
+		len(receiveCallBlockList2[1].AccountBlock.Data) != 0 {
 		t.Fatalf("receive call transaction error")
 	}
 	db.accountBlockMap[addr2][hash23] = receiveCallBlockList2[0].AccountBlock
@@ -360,9 +371,9 @@ func TestCall(t *testing.T) {
 	db.addr = addr3
 	receiveCallBlockList2, isRetry, err := vm.Run(db, block31, receiveCallBlockList[1].AccountBlock)
 	if len(receiveCallBlockList2) != 1 || isRetry || err != nil ||
-		receiveCallBlockList[0].AccountBlock.Quota != 21038 ||
-		len(receiveCallBlockList[0].AccountBlock.Data) != 33 ||
-		receiveCallBlockList[0].AccountBlock.Data[32] != 0 ||
+		receiveCallBlockList2[0].AccountBlock.Quota != 21038 ||
+		len(receiveCallBlockList2[0].AccountBlock.Data) != 33 ||
+		receiveCallBlockList2[0].AccountBlock.Data[32] != 0 ||
 		db.balanceMap[addr3][ledger.ViteTokenId].Cmp(balance3) != 0 {
 		t.Fatalf("contract receive call transaction error")
 	}

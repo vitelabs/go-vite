@@ -70,7 +70,7 @@ func TestContractsRefundWithVmContext(t *testing.T) {
 
 	// duplicate register, refund
 	receiveBlockList, isRetry, err := vm.Run(db, &receiveBlock, &sendBlock)
-	if len(receiveBlockList) != 2 || isRetry || err != nil ||
+	if len(receiveBlockList) != 2 || isRetry || err == nil ||
 		receiveBlockList[0].AccountBlock.BlockType != ledger.BlockTypeReceive ||
 		!bytes.Equal(receiveBlockList[0].AccountBlock.Data, append(receiveBlockList[0].AccountBlock.StateHash.Bytes(), byte(1))) ||
 		receiveBlockList[0].AccountBlock.Quota != 0 ||
@@ -147,7 +147,7 @@ func TestContractsRefund(t *testing.T) {
 	db.addr = addr2
 	receiveRegisterBlockList, isRetry, err := vm.Run(db, block21, sendRegisterBlockList[0].AccountBlock)
 	contractBalance.Add(contractBalance, block13.Amount)
-	if len(receiveRegisterBlockList) != 2 || isRetry || err != nil ||
+	if len(receiveRegisterBlockList) != 2 || isRetry || err == nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationDataOld) ||
 		receiveRegisterBlockList[0].AccountBlock.Quota != 0 ||
