@@ -181,11 +181,12 @@ func (d *Discovery) tableLoop() {
 
 		case <-findTicker.C:
 			if lookSelf {
-				d.lookup(d.self.ID, false)
+				d.lookup(d.self.ID, true)
 				lookSelf = false
 			} else {
 				rand.Read(findTarget[:])
-				d.lookup(d.self.ID, false)
+				d.lookup(findTarget, false)
+				lookSelf = true
 			}
 
 		case <-storeTicker.C:
