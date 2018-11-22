@@ -245,7 +245,7 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 	var referredMaxSbHeight uint64
 	latestSb := chain.GetLatestSnapshotBlock()
 	if latestSb == nil {
-		return nil, errors.New("latest snapshotblock is nil")
+		return nil, errors.New("get latest snapshotblock failed")
 	}
 	fitestSbHeight = latestSb.Height
 
@@ -298,7 +298,7 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 		if err != nil {
 			return nil, err
 		}
-		return nil, errors.New("get snapshotBlock by height failed")
+		return nil, ErrGetFittestSnapshotBlockFailed
 	}
 	fitestSbHash = &fitestSb.Hash
 

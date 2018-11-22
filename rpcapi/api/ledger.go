@@ -254,7 +254,7 @@ func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, sendBlockHash
 		if latestBlock != nil {
 			return &latestBlock.Hash, nil
 		}
-		return nil, nil
+		return nil, generator.ErrGetFittestSnapshotBlockFailed
 	}
 	var referredList []types.Hash
 	if sendBlockHash != nil {
