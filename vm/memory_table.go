@@ -58,8 +58,7 @@ func memoryDelegateCall(stack *stack) *big.Int {
 }
 
 func memoryCall(stack *stack) *big.Int {
-	// TODO
-	return calcMemSize(stack.back(0), stack.back(1))
+	return calcMemSize(stack.back(3), stack.back(4))
 }
 
 func memoryReturn(stack *stack) *big.Int {

@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/vm_context"
 )
 
 func opStop(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
@@ -650,7 +651,21 @@ func opDelegateCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stac
 }
 
 func opCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	// TODO
+	toAddrBig, amount, tokenIdBig, inOffset, inSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
+	toAddress, _ := types.BigToAddress(toAddrBig)
+	tokenId, _ := types.BigToTokenTypeId(tokenIdBig)
+	data := memory.get(inOffset.Int64(), inSize.Int64())
+	vm.AppendBlock(
+		&vm_context.VmAccountBlock{
+			util.MakeSendBlock(
+				c.block.AccountBlock,
+				toAddress,
+				ledger.BlockTypeSendCall,
+				amount,
+				tokenId,
+				vm.VmContext.GetNewBlockHeight(c.block),
+				data),
+			nil})
 	return nil, nil
 }
 

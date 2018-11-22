@@ -294,8 +294,15 @@ func gasDelegateCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize 
 }
 
 func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
-	// TODO
-	return 0, nil
+	gas, err := memoryGasCost(mem, memorySize)
+	if err != nil {
+		return 0, err
+	}
+	var overflow bool
+	if gas, overflow = helper.SafeAdd(gas, callGas); overflow {
+		return 0, util.ErrGasUintOverflow
+	}
+	return gas, nil
 }
 
 func gasReturn(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
