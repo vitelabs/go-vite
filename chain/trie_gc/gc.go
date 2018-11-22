@@ -8,8 +8,11 @@ import (
 )
 
 const (
-	status_stopped = 0
-	status_started = 1
+	STATUS_STOPPED       = 1
+	STATUS_STARTED       = 2
+	STATUS_MARKING       = 3
+	STATUS_FILTER_MARKED = 4
+	STATUS_CLEANING      = 5
 )
 
 type collector struct {
@@ -17,7 +20,7 @@ type collector struct {
 	taskTerminal chan struct{}
 
 	statusLock sync.Mutex
-	status     int8 // 0 is stopped, 1 is started
+	status     uint8 // 0 is stopped, 1 is started
 
 	wg sync.WaitGroup
 
@@ -30,7 +33,7 @@ type collector struct {
 
 	minRetain uint64
 
-	marker *marker
+	marker *Marker
 }
 
 func NewCollector(chain Chain, gcDbPath string) (Collector, error) {
@@ -44,10 +47,12 @@ func NewCollector(chain Chain, gcDbPath string) (Collector, error) {
 
 	gcDb, err := leveldb.OpenFile(gcDbPath, nil)
 	if err != nil {
+		gc.log.Error("gcDb open failed, error is "+err.Error(), "method", "NewCollector")
 		return nil, err
 	}
 
-	if mk, err := newMarker(chain, gcDb); err != nil {
+	if mk, err := NewMarker(chain, gcDb); err != nil {
+		gc.log.Error("newMarker failed, error is "+err.Error(), "method", "NewCollector")
 		return nil, err
 	} else {
 		gc.marker = mk
@@ -59,11 +64,10 @@ func NewCollector(chain Chain, gcDbPath string) (Collector, error) {
 func (gc *collector) Start() {
 	gc.statusLock.Lock()
 	defer gc.statusLock.Unlock()
-	if gc.status == status_started {
+	if gc.status >= STATUS_STARTED {
 		gc.log.Error("gc is started, don't start again")
 		return
 	}
-	gc.status = status_started
 
 	gc.ticker = time.NewTicker(gc.checkInterval)
 	gc.taskTerminal = make(chan struct{})
@@ -84,23 +88,37 @@ func (gc *collector) Start() {
 		}
 
 	}()
+	gc.status = STATUS_STARTED
 }
 
 func (gc *collector) Stop() {
 	gc.statusLock.Lock()
 	defer gc.statusLock.Unlock()
-	if gc.status == status_stopped {
+	if gc.status < STATUS_STARTED {
 		gc.log.Error("gc is stopped, don't stop again")
 		return
 	}
-	gc.status = status_stopped
 
 	gc.ticker.Stop()
 	gc.taskTerminal <- struct{}{}
 	gc.terminal <- struct{}{}
 
 	gc.wg.Wait()
+	gc.status = STATUS_STOPPED
 }
+
+func (gc *collector) Status() uint8 {
+	return gc.status
+}
+
+func (gc *collector) ClearedHeight() uint64 {
+	return gc.marker.clearedHeight
+}
+
+func (gc *collector) MarkedHeight() uint64 {
+	return gc.marker.markedHeight
+}
+
 func (gc *collector) checkAndRunTask() {
 	if gc.check() {
 		gc.runTask()
@@ -124,21 +142,49 @@ func (gc *collector) runTask() {
 		return
 	}
 
-	if err := gc.marker.Mark(targetHeight, gc.taskTerminal); err != nil {
-		gc.log.Error("gc.marker.Mark failed, error is "+err.Error(), "method", "runTask")
+	defer func() {
+		gc.statusLock.Lock()
+		gc.status = STATUS_STARTED
+		gc.statusLock.Unlock()
+	}()
+
+	gc.statusLock.Lock()
+	gc.status = STATUS_MARKING
+	gc.statusLock.Unlock()
+	if isTerminal, err := gc.marker.Mark(targetHeight, gc.taskTerminal); err != nil {
+		gc.log.Error("gc.Marker.Mark failed, error is "+err.Error(), "method", "runTask")
+		return
+	} else if isTerminal {
 		return
 	}
+
+	gc.statusLock.Lock()
+	gc.status = STATUS_FILTER_MARKED
+	gc.statusLock.Unlock()
 	if err := gc.marker.FilterMarked(); err != nil {
-		gc.log.Error("gc.marker.FilterMarked failed, error is "+err.Error(), "method", "runTask")
+		gc.log.Error("gc.Marker.FilterMarked failed, error is "+err.Error(), "method", "runTask")
 		return
 	}
-	if err := gc.marker.Clean(gc.taskTerminal); err != nil {
-		gc.log.Error("gc.marker.clean failed, error is "+err.Error(), "method", "runTask")
+
+	gc.statusLock.Lock()
+	gc.status = STATUS_CLEANING
+	gc.statusLock.Unlock()
+
+	if isTerminal, err := gc.marker.Clean(gc.taskTerminal); err != nil {
+		gc.log.Error("gc.Marker.clean failed, error is "+err.Error(), "method", "runTask")
+		return
+	} else if isTerminal {
 		return
 	}
+
 }
 
 func (gc *collector) getTargetHeight() uint64 {
+	latestSnapshotBlock := gc.chain.GetLatestSnapshotBlock()
+	if latestSnapshotBlock == nil {
+		return 0
+	}
+
 	latestHeight := gc.chain.GetLatestSnapshotBlock().Height
 	if latestHeight < gc.minRetain {
 		return 0

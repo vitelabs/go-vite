@@ -6,6 +6,11 @@ import (
 )
 
 type Collector interface {
+	Start()
+	Stop()
+	Status() uint8
+	ClearedHeight() uint64
+	MarkedHeight() uint64
 }
 
 type Chain interface {

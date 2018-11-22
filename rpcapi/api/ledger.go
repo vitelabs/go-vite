@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
@@ -19,6 +20,14 @@ func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 		//signer:        vite.Signer(),
 		log: log15.New("module", "rpc_api/ledger_api"),
 	}
+}
+
+type GcStatus struct {
+	Code        uint8  `json:"code"`
+	Description string `json:"description"`
+
+	ClearedHeight uint64 `json:"clearedHeight"`
+	MarkedHeight  uint64 `json:"markedHeight"`
 }
 
 type LedgerApi struct {
@@ -310,4 +319,27 @@ func (l *LedgerApi) GetVmLogList(blockHash types.Hash) (ledger.VmLogList, error)
 		return nil, nil
 	}
 	return l.chain.GetVmLogList(block.LogHash)
+}
+
+func (l *LedgerApi) GetGcStatus() *GcStatus {
+	statusCode := l.chain.TrieGc().Status()
+
+	gStatus := &GcStatus{
+		Code:          statusCode,
+		ClearedHeight: l.chain.TrieGc().ClearedHeight(),
+		MarkedHeight:  l.chain.TrieGc().MarkedHeight(),
+	}
+	switch statusCode {
+	case trie_gc.STATUS_STOPPED:
+		gStatus.Description = "STATUS_STOPPED"
+	case trie_gc.STATUS_STARTED:
+		gStatus.Description = "STATUS_STARTED"
+	case trie_gc.STATUS_MARKING:
+		gStatus.Description = "STATUS_MARKING"
+	case trie_gc.STATUS_FILTER_MARKED:
+		gStatus.Description = "STATUS_FILTER_MARKED"
+	case trie_gc.STATUS_CLEANING:
+		gStatus.Description = "STATUS_CLEANING"
+	}
+	return gStatus
 }

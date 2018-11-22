@@ -26,7 +26,7 @@ func DeleteNodes(db *leveldb.DB, hashList []types.Hash) error {
 		dbKey, _ := database.EncodeKey(database.DBKP_TRIE_NODE, hash.Bytes())
 		batch.Delete(dbKey)
 	}
-	db.Write(batch, nil)
+	return db.Write(batch, nil)
 }
 
 func NewTrie(db *leveldb.DB, rootHash *types.Hash, pool *TrieNodePool) *Trie {
@@ -232,20 +232,19 @@ func (trie *Trie) traverseSave(batch *leveldb.Batch, node *TrieNode) error {
 	return nil
 }
 
-func (trie *Trie) NodeHashList() []*types.Hash {
+func (trie *Trie) NodeList() []*TrieNode {
 	if trie.Root == nil {
 		return nil
 	}
-	var hashList []*types.Hash
+	var nodeList []*TrieNode
 	tmpNodes := []*TrieNode{trie.Root}
 
 	for {
-		if len(tmpNodes) < 0 {
+		if len(tmpNodes) <= 0 {
 			break
 		}
 		node := tmpNodes[0]
-		nodeHash := node.Hash()
-		hashList = append(hashList, nodeHash)
+		nodeList = append(nodeList, node)
 
 		tmpNodes = tmpNodes[1:]
 		switch node.NodeType() {
@@ -258,7 +257,7 @@ func (trie *Trie) NodeHashList() []*types.Hash {
 		}
 	}
 
-	return hashList
+	return nodeList
 }
 
 func (trie *Trie) SetValue(key []byte, value []byte) {

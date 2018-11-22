@@ -2,6 +2,7 @@ package vm_context
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -287,6 +288,7 @@ func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
 	} else if context.chain != nil {
 		latestAccountBlock, _ := context.chain.GetConfirmAccountBlock(context.currentSnapshotBlock.Height, addr)
 		if latestAccountBlock != nil {
+			fmt.Printf(" %+v\n", latestAccountBlock)
 			trie := context.chain.GetStateTrie(&latestAccountBlock.StateHash)
 			return trie.GetValue(key)
 		}
@@ -317,6 +319,8 @@ func (context *VmContext) AddLog(log *ledger.VmLog) {
 func (context *VmContext) GetLogListHash() *types.Hash {
 	return context.unsavedCache.logList.Hash()
 }
+
+// todo
 
 func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 	if context.chain == nil {

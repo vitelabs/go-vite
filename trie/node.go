@@ -1,6 +1,7 @@
 package trie
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -125,6 +126,10 @@ func (trieNode *TrieNode) Copy(copyHash bool) *TrieNode {
 	return newNode
 }
 
+func (trieNode *TrieNode) IsLeafNode() bool {
+	return trieNode.nodeType == TRIE_HASH_NODE || trieNode.nodeType == TRIE_VALUE_NODE
+}
+
 func (trieNode *TrieNode) Hash() *types.Hash {
 	if trieNode.hash == nil {
 		var source []byte
@@ -143,6 +148,7 @@ func (trieNode *TrieNode) Hash() *types.Hash {
 		case TRIE_SHORT_NODE:
 			source = []byte{TRIE_SHORT_NODE}
 			source = append(source, trieNode.key[:]...)
+			fmt.Printf("gogo: %+v\n", trieNode.child)
 			source = append(source, trieNode.child.Hash().Bytes()...)
 		case TRIE_HASH_NODE:
 			source = []byte{TRIE_HASH_NODE}
