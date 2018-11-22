@@ -12,14 +12,16 @@ import (
 )
 
 type PledgeApi struct {
-	chain chain.Chain
-	log   log15.Logger
+	chain     chain.Chain
+	log       log15.Logger
+	ledgerApi *LedgerApi
 }
 
 func NewPledgeApi(vite *vite.Vite) *PledgeApi {
 	return &PledgeApi{
-		chain: vite.Chain(),
-		log:   log15.New("module", "rpc_api/pledge_api"),
+		chain:     vite.Chain(),
+		log:       log15.New("module", "rpc_api/pledge_api"),
+		ledgerApi: NewLedgerApi(vite),
 	}
 }
 
@@ -44,9 +46,16 @@ type QuotaAndTxNum struct {
 	TxNum string `json:"txNum"`
 }
 
-func (p *PledgeApi) GetPledgeQuota(addr types.Address) QuotaAndTxNum {
-	q, _ := p.chain.GetPledgeQuota(p.chain.GetLatestSnapshotBlock().Hash, addr)
-	return QuotaAndTxNum{uint64ToString(q), uint64ToString(q / util.TxGas)}
+func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
+	hash, err := p.ledgerApi.GetFittestSnapshotHash(&addr, nil)
+	if err != nil {
+		return nil, err
+	}
+	q, err := p.chain.GetPledgeQuota(*hash, addr)
+	if err != nil {
+		return nil, err
+	}
+	return &QuotaAndTxNum{uint64ToString(q), uint64ToString(q / util.TxGas)}, nil
 }
 
 type PledgeInfoList struct {
