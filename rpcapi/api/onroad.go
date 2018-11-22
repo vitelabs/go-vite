@@ -54,6 +54,7 @@ func (o PrivateOnroadApi) ListWorkingAutoReceiveWorker() []types.Address {
 
 func (o PrivateOnroadApi) StartAutoReceive(entropystore string, addr types.Address, filter map[string]string, powDifficulty *string) error {
 	log.Info("StartAutoReceive", "addr", addr, "entropystore", entropystore)
+
 	rawfilter := make(map[types.TokenTypeId]big.Int)
 	if filter != nil {
 		for k, v := range filter {
