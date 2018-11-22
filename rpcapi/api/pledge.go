@@ -47,7 +47,7 @@ type QuotaAndTxNum struct {
 }
 
 func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
-	hash, err := p.ledgerApi.GetFittestSnapshotHash()
+	hash, err := p.ledgerApi.GetFittestSnapshotHash(&addr, nil)
 	if err != nil {
 		return nil, err
 	}
