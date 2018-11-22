@@ -258,47 +258,35 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 			referredSnapshotHashList = append(referredSnapshotHashList, prevAccountBlock.SnapshotHash)
 		}
 	}
-	// get max referredSbHeight
 	referredMaxSbHeight = 1
-	if len(referredSnapshotHashList) <= 0 {
-		referredMaxSbHeight = latestSb.Height
-	} else {
-		var getReferredSnapshotBlockAllFailed = true
+	if len(referredSnapshotHashList) > 0 {
+		// get max referredSbHeight
 		for _, v := range referredSnapshotHashList {
-			vSb, err := chain.GetSnapshotBlockByHash(&v)
-			if err != nil {
-				return nil, err
-			}
-			if vSb != nil {
-				getReferredSnapshotBlockAllFailed = false
+			vSb, _ := chain.GetSnapshotBlockByHash(&v)
+			if vSb == nil {
+				return nil, errors.New("get snapshotBlock referred failed")
+			} else {
 				if referredMaxSbHeight < vSb.Height {
 					referredMaxSbHeight = vSb.Height
 				}
 			}
 		}
-		if getReferredSnapshotBlockAllFailed {
-			return nil, errors.New("get snapshotBlock referred all failed")
+		if latestSb.Height < referredMaxSbHeight {
+			return nil, errors.New("the height of the snapshotblock referred can't be larger than the latest")
+		}
+		gapHeight := latestSb.Height - referredMaxSbHeight
+		fitestSbHeight = referredMaxSbHeight + minGapToLatest(gapHeight, gapHeight-DefaultHeightDifference)
+	} else {
+		if latestSb.Height-DefaultHeightDifference > 0 {
+			fitestSbHeight = latestSb.Height - DefaultHeightDifference
 		}
 	}
-
-	if latestSb.Height < referredMaxSbHeight {
-		return nil, errors.New("the height of the snapshotblock referred can't be larger than the latest")
-	}
-
-	// cal min gap
-	gapHeight := latestSb.Height - referredMaxSbHeight
-	min := calMin(gapHeight, gapHeight-DefaultHeightDifference)
-
-	fitestSbHeight = referredMaxSbHeight + min
 	if fitestSbHeight < latestSb.Height {
 		fitestSbHeight = fitestSbHeight + addHeight(1)
 	}
 
 	// protect code
-	if fitestSbHeight > latestSb.Height {
-		fitestSbHeight = latestSb.Height
-	}
-	if fitestSbHeight < referredMaxSbHeight {
+	if fitestSbHeight > latestSb.Height || fitestSbHeight < referredMaxSbHeight {
 		fitestSbHeight = latestSb.Height
 	}
 
@@ -333,7 +321,7 @@ func addHeight(gapHeight uint64) uint64 {
 	return randHeight
 }
 
-func calMin(us ...uint64) uint64 {
+func minGapToLatest(us ...uint64) uint64 {
 	if len(us) == 0 {
 		panic("zero args")
 	}
