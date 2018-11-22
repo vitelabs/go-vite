@@ -649,6 +649,11 @@ func opDelegateCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stac
 	return ret, nil
 }
 
+func opCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	// TODO
+	return nil, nil
+}
+
 func opReturn(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	offset, size := stack.pop(), stack.pop()
 	ret := memory.getPtr(offset.Int64(), size.Int64())

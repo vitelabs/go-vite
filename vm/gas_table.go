@@ -293,6 +293,11 @@ func gasDelegateCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize 
 	return gas, nil
 }
 
+func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
+	// TODO
+	return 0, nil
+}
+
 func gasReturn(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
 	return memoryGasCost(mem, memorySize)
 }

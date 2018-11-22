@@ -57,6 +57,11 @@ func memoryDelegateCall(stack *stack) *big.Int {
 	return helper.BigMax(x, y)
 }
 
+func memoryCall(stack *stack) *big.Int {
+	// TODO
+	return calcMemSize(stack.back(0), stack.back(1))
+}
+
 func memoryReturn(stack *stack) *big.Int {
 	return calcMemSize(stack.back(0), stack.back(1))
 }

@@ -797,7 +797,13 @@ var (
 			valid:         true,
 			writes:        true,
 		},
-		// TODO CALL
+		CALL: {
+			execute:       opCall,
+			gasCost:       gasCall,
+			validateStack: makeStackFunc(5, 0),
+			memorySize:    memoryCall,
+			valid:         true,
+		},
 		RETURN: {
 			execute:       opReturn,
 			gasCost:       gasReturn,
@@ -823,6 +829,5 @@ var (
 			reverts:       true,
 			returns:       true,
 		},
-		// TODO SELFDESTRUCT
 	}
 )
