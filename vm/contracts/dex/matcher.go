@@ -39,6 +39,7 @@ func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *matcher {
 	var po nodePayloadProtocol = &OrderNodeProtocol{}
 	mc.protocol = &po
 	mc.books = make(map[string]*skiplist)
+	mc.settleActions = make(map[string]map[string]*proto.SettleAction)
 	return mc
 }
 

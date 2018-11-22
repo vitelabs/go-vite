@@ -63,7 +63,7 @@ func (md *MethodDexTradeNewOrder) DoReceive(context contractsContext, block *vm_
 		return fmt.Errorf("invalid block source")
 	}
 	param := new(ParamDexSerializedData)
-	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeNewOrder, block.AccountBlock.Data); err != nil {
+	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeNewOrder, sendBlock.Data); err != nil {
 		return err
 	}
 	order := &dexproto.Order{}
@@ -110,7 +110,7 @@ func (md *MethodDexTradeCancelOrder) DoSend(context contractsContext, block *vm_
 
 func (md MethodDexTradeCancelOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(ParamDexCancelOrder)
-	ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, block.AccountBlock.Data)
+	ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, sendBlock.Data)
 	makerBookName := dex.GetBookNameToMake(param.tradeAsset.Bytes(), param.quoteAsset.Bytes(), param.side)
 	storage, _ := block.VmContext.(dex.BaseStorage)
 	matcher := dex.NewMatcher(&AddressDexTrade, &storage)

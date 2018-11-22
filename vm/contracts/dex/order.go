@@ -9,7 +9,7 @@ import (
 
 const orderStorageSalt = "order:"
 const orderHeaderValue = math.MaxUint64
-const MinPricePermit = 0.00000001
+const MinPricePermit = 0.000000009
 const (
 	Pending = iota
 	PartialExecuted

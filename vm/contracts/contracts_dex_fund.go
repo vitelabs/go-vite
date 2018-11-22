@@ -39,7 +39,7 @@ var (
 )
 
 type ParamDexFundDepositAndWithDraw struct {
-	Address *types.Address
+	Address types.Address
 	Asset   types.TokenTypeId
 	Amount  *big.Int
 }
@@ -78,16 +78,14 @@ func (md *MethodDexFundUserDeposit) DoSend(context contractsContext, block *vm_c
 		return quotaLeft, err
 	}
 	param := new(ParamDexFundDepositAndWithDraw)
-	err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserDeposit, block.AccountBlock.Data)
-	if err != nil {
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserDeposit, block.AccountBlock.Data); err != nil {
 		return quotaLeft, err
+	}
+	if param.Amount.Uint64() == 0 {
+		return quotaLeft, fmt.Errorf("deposit amount is zero")
 	}
 	if err = checkToken(block.VmContext, param.Asset); err != nil {
 		return quotaLeft, err
-	}
-	available := block.VmContext.GetBalance(&block.AccountBlock.AccountAddress, &param.Asset)
-	if available.Cmp(param.Amount) < 0 {
-		return quotaLeft, fmt.Errorf("deposit amount exceed token balance")
 	}
 	block.AccountBlock.TokenId = param.Asset
 	block.AccountBlock.Amount = param.Amount
@@ -104,12 +102,15 @@ func (md *MethodDexFundUserDeposit) DoReceive(context contractsContext, block *v
 		dexFund = &DexFund{}
 		err     error
 	)
-	if dexFund, err = getFundFromStorage(block.VmContext, sendBlock.AccountAddress); err != nil {
+	if dexFund, err = GetFundFromStorage(block.VmContext, sendBlock.AccountAddress); err != nil {
 		return err
 	}
+	available := block.VmContext.GetBalance(&sendBlock.AccountAddress, &sendBlock.TokenId)
+	if available.Cmp(sendBlock.Amount) < 0 {
+		return fmt.Errorf("deposit amount exceed token balance")
+	}
 	account, exists := getAccountByTokeIdFromFund(dexFund, sendBlock.TokenId)
-	bigAmt := big.NewInt(0)
-	bigAmt.SetUint64(account.Available)
+	bigAmt := big.NewInt(0).SetUint64(account.Available)
 	bigAmt = bigAmt.Add(bigAmt, sendBlock.Amount)
 	account.Available += bigAmt.Uint64()
 	if !exists {
@@ -134,19 +135,11 @@ func (md *MethodDexFundUserWithdraw) DoSend(context contractsContext, block *vm_
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserWithdraw, block.AccountBlock.Data); err != nil {
 		return quotaLeft, err
 	}
-	if param.Amount.Cmp(big.NewInt(0)) <= 0 {
-		return quotaLeft, fmt.Errorf("withdraw amount is invalid")
+	if param.Amount.Uint64() == 0 {
+		return quotaLeft, fmt.Errorf("withdraw amount is zero")
 	}
 	if tokenInfo := GetTokenById(block.VmContext, param.Asset); tokenInfo == nil {
 		return quotaLeft, fmt.Errorf("token to withdraw is invalid")
-	}
-	var dexFund = &DexFund{}
-	if dexFund, err = getFundFromStorage(block.VmContext, block.AccountBlock.AccountAddress); err != nil {
-		return quotaLeft, err
-	}
-	account, _ := getAccountByTokeIdFromFund(dexFund, param.Asset)
-	if big.NewInt(0).SetUint64(account.Available).Cmp(param.Amount) < 0 {
-		return quotaLeft, fmt.Errorf("withdraw amount exceed md fund available")
 	}
 	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
 	if err != nil {
@@ -162,19 +155,16 @@ func (md *MethodDexFundUserWithdraw) DoReceive(context contractsContext, block *
 		dexFund = &DexFund{}
 		err     error
 	)
-	if dexFund, err = getFundFromStorage(block.VmContext, sendBlock.AccountAddress); err != nil {
+	if dexFund, err = GetFundFromStorage(block.VmContext, sendBlock.AccountAddress); err != nil {
 		return err
 	}
-	account, exists := getAccountByTokeIdFromFund(dexFund, param.Asset)
+	account, _ := getAccountByTokeIdFromFund(dexFund, param.Asset)
 	available := big.NewInt(0).SetUint64(account.Available)
 	if available.Cmp(param.Amount) < 0 {
-		return fmt.Errorf("withdraw amount exceed md fund available")
+		return fmt.Errorf("withdraw amount exceed fund available")
 	}
 	available = available.Sub(available, param.Amount)
 	account.Available = available.Uint64()
-	if !exists {
-		dexFund.Accounts = append(dexFund.Accounts, account)
-	}
 	if err = saveFundToStorage(block.VmContext, sendBlock.AccountAddress, dexFund); err != nil {
 		return err
 	}
@@ -215,9 +205,9 @@ func (md *MethodDexFundNewOrder) DoSend(context contractsContext, block *vm_cont
 	if err = checkOrderParam(block.VmContext, order); err != nil {
 		return quotaLeft, err
 	}
-	renderOrder(order, block)
+	renderOrder(order, block.AccountBlock.AccountAddress)
 	var dexFund = &DexFund{}
-	if dexFund, err = getFundFromStorage(block.VmContext, block.AccountBlock.AccountAddress); err != nil {
+	if dexFund, err = GetFundFromStorage(block.VmContext, block.AccountBlock.AccountAddress); err != nil {
 		return quotaLeft, err
 	}
 	if err = checkFundForNewOrder(dexFund, order); err != nil {
@@ -234,15 +224,13 @@ func (md *MethodDexFundNewOrder) DoSend(context contractsContext, block *vm_cont
 
 func (md *MethodDexFundNewOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) (err error) {
 	param := new(ParamDexSerializedData)
-	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, block.AccountBlock.Data); err != nil {
-		return err
-	}
+	ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, sendBlock.Data)
 	order := &dexproto.Order{}
 	proto.Unmarshal(param.Data, order)
 	var (
 		dexFund = &DexFund{}
 	)
-	if dexFund, err = getFundFromStorage(block.VmContext, sendBlock.AccountAddress); err != nil {
+	if dexFund, err = GetFundFromStorage(block.VmContext, sendBlock.AccountAddress); err != nil {
 		return err
 	}
 	if err = tryLockFundForNewOrder(dexFund, order); err != nil {
@@ -278,7 +266,7 @@ func (md *MethodDexFundSettleOrders) DoSend(context contractsContext, block *vm_
 	if quotaLeft, err := util.UseQuota(quotaLeft, dexFundSettleOrdersGas); err != nil {
 		return quotaLeft, err
 	}
-	if bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), AddressDexTrade.Bytes()) {
+	if !bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), AddressDexTrade.Bytes()) {
 		return quotaLeft, fmt.Errorf("invalid block source")
 	}
 	param := new(ParamDexSerializedData)
@@ -296,12 +284,12 @@ func (md *MethodDexFundSettleOrders) DoSend(context contractsContext, block *vm_
 }
 
 func (md MethodDexFundSettleOrders) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
-	if bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), AddressDexTrade.Bytes()) {
+	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), AddressDexTrade.Bytes()) {
 		return fmt.Errorf("invalid block source")
 	}
 	param := new(ParamDexSerializedData)
 	var err error
-	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundSettleOrders, block.AccountBlock.Data); err != nil {
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundSettleOrders, sendBlock.Data); err != nil {
 		return err
 	}
 	settleActions := &dexproto.SettleOrders{}
@@ -321,16 +309,18 @@ func GetUserFundKey(address types.Address) []byte {
 }
 
 func checkFundForNewOrder(dexFund *DexFund, order *dexproto.Order) error {
-	return checkAndLockFundForNewOrder(dexFund, order, false)
+	return checkAndLockFundForNewOrder(dexFund, order, true)
 }
 func tryLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order) error {
-	return checkAndLockFundForNewOrder(dexFund, order, true)
+	return checkAndLockFundForNewOrder(dexFund, order, false)
 }
 
 func checkAndLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order, onlyCheck bool) error {
 	var (
 		lockAsset []byte
 		lockAmount uint64
+		lockTokenId *types.TokenTypeId
+		err error
 	)
 	switch order.Side {
 	case false: //buy
@@ -340,7 +330,9 @@ func checkAndLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order, onlyCh
 		lockAsset = order.TradeAsset
 		lockAmount = order.Quantity
 	}
-	lockTokenId, _ := fromBytesToTokenTypeId(lockAsset)
+	if lockTokenId, err = fromBytesToTokenTypeId(lockAsset); err != nil {
+		return err
+	}
 	account, exists := getAccountByTokeIdFromFund(dexFund, *lockTokenId)
 	available := big.NewInt(0).SetUint64(account.Available)
 	lockAmountToInc := big.NewInt(0).SetUint64(lockAmount)
@@ -361,7 +353,7 @@ func checkAndLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order, onlyCh
 	return nil
 }
 
-func getFundFromStorage(storage vmctxt_interface.VmDatabase, address types.Address) (dexFund *DexFund, err error) {
+func GetFundFromStorage(storage vmctxt_interface.VmDatabase, address types.Address) (dexFund *DexFund, err error) {
 	fundKey := GetUserFundKey(address)
 	dexFund = &DexFund{}
 	if fundBytes := storage.GetStorage(&AddressDexFund, fundKey); len(fundBytes) > 0 {
@@ -373,7 +365,7 @@ func getFundFromStorage(storage vmctxt_interface.VmDatabase, address types.Addre
 }
 
 func saveFundToStorage(storage vmctxt_interface.VmDatabase, address types.Address, dexFund *DexFund) error {
-	if fundRes, err := dexFund.serialize(); err != nil {
+	if fundRes, err := dexFund.serialize(); err == nil {
 		storage.SetStorage(GetUserFundKey(address), fundRes)
 		return nil
 	} else {
@@ -396,7 +388,7 @@ func getAccountByTokeIdFromFund(dexFund *DexFund, asset types.TokenTypeId) (acco
 
 func fromBytesToTokenTypeId(bytes []byte) (tokenId *types.TokenTypeId, err error) {
 	tokenId = &types.TokenTypeId{}
-	if err := tokenId.SetBytes(bytes); err != nil {
+	if err := tokenId.SetBytes(bytes); err == nil {
 		return tokenId, nil
 	} else {
 		return nil, err
@@ -413,7 +405,7 @@ func checkTokenByProto(db StorageDatabase, protoBytes []byte) error {
 
 func checkToken(db StorageDatabase, tokenId types.TokenTypeId) error {
 	if tokenInfo := GetTokenById(db, tokenId); tokenInfo == nil {
-		return fmt.Errorf("token to deposit is invalid")
+		return fmt.Errorf("token is invalid")
 	} else {
 		return nil
 	}
@@ -442,8 +434,8 @@ func checkOrderParam(db StorageDatabase, order *dexproto.Order) error {
 	return nil
 }
 
-func renderOrder(order *dexproto.Order, block *vm_context.VmAccountBlock) {
-	order.Address = string(block.AccountBlock.AccountAddress.Bytes())
+func renderOrder(order *dexproto.Order, address types.Address) {
+	order.Address = string(address.Bytes())
 	order.Amount = dex.CalculateAmount(order.Quantity, order.Price)
 	order.Status = dex.Pending
 	order.Timestamp = time.Now().UnixNano() / 1000
@@ -461,7 +453,7 @@ func checkActions(actions *dexproto.SettleOrders) error {
 		if len(v.Address) != 20 {
 			return fmt.Errorf("invalid address format for settle")
 		}
-		if len(v.Asset) != 20 {
+		if len(v.Asset) != 10 {
 			return fmt.Errorf("invalid tokenId format for settle")
 		}
 		if v.IncAvailable < 0 {
@@ -480,7 +472,7 @@ func checkActions(actions *dexproto.SettleOrders) error {
 func doSettleAction(db vmctxt_interface.VmDatabase, action *dexproto.SettleAction) error {
 	address := &types.Address{}
 	address.SetBytes([]byte(action.Address))
-	if dexFund, err := getFundFromStorage(db, *address); err != nil {
+	if dexFund, err := GetFundFromStorage(db, *address); err != nil {
 		return err
 	} else {
 		if tokenId, err := fromBytesToTokenTypeId(action.Asset); err != nil {
