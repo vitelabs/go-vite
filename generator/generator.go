@@ -256,8 +256,6 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 		}
 		if prevAccountBlock != nil {
 			referredSnapshotHashList = append(referredSnapshotHashList, prevAccountBlock.SnapshotHash)
-		} else {
-			return nil, ErrGetSnapshotOfReferredBlockFailed
 		}
 	}
 	referredMaxSbHeight = 1
