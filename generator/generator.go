@@ -256,6 +256,8 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 		}
 		if prevAccountBlock != nil {
 			referredSnapshotHashList = append(referredSnapshotHashList, prevAccountBlock.SnapshotHash)
+		} else {
+			return nil, ErrGetSnapshotOfReferredBlockFailed
 		}
 	}
 	referredMaxSbHeight = 1
@@ -264,7 +266,7 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 		for _, v := range referredSnapshotHashList {
 			vSb, _ := chain.GetSnapshotBlockByHash(&v)
 			if vSb == nil {
-				return nil, errors.New("get snapshotBlock referred failed")
+				return nil, ErrGetSnapshotOfReferredBlockFailed
 			} else {
 				if referredMaxSbHeight < vSb.Height {
 					referredMaxSbHeight = vSb.Height

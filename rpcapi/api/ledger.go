@@ -260,7 +260,7 @@ func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, sendBlockHash
 	if sendBlockHash != nil {
 		sendBlock, _ := l.chain.GetAccountBlockByHash(sendBlockHash)
 		if sendBlock == nil {
-			return nil, errors.New("get block referred failed")
+			return nil, generator.ErrGetSnapshotOfReferredBlockFailed
 		}
 		referredList = append(referredList, sendBlock.SnapshotHash)
 	}
