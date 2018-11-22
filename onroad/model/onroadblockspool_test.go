@@ -300,7 +300,9 @@ func receiveTransferSendBlocks(vite *VitePrepared, addr *types.Address) ([]*ledg
 		genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 		genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-		fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(vite.chain, &v.ToAddress, &v.SnapshotHash)
+		var referredSnapshotHashList []types.Hash
+		referredSnapshotHashList = append(referredSnapshotHashList, v.SnapshotHash)
+		fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(vite.chain, &v.ToAddress, referredSnapshotHashList)
 		if err != nil {
 			return nil, err
 		}
