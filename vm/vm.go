@@ -361,11 +361,11 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		vm.updateBlock(block, err, 0)
 
 		if refundFlag {
-			if err = vm.doSendBlockList(util.PrecompiledContractsSendGas); err == nil {
-				return vm.blockList, NoRetry, nil
+			if refundError := vm.doSendBlockList(util.PrecompiledContractsSendGas); refundError == nil {
+				return vm.blockList, NoRetry, err
 			} else {
 				monitor.LogEvent("vm", "impossibleReceiveError")
-				nodeConfig.log.Error("Impossible receive error", "err", err, "fromhash", sendBlock.Hash)
+				nodeConfig.log.Error("Impossible receive error", "err", refundError, "fromhash", sendBlock.Hash)
 				return nil, Retry, err
 			}
 		}
