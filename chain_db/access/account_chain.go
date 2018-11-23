@@ -150,16 +150,17 @@ func (ac *AccountChain) GetBlockListByAccountId(accountId, startHeight, endHeigh
 	defer iter.Release()
 
 	// cap
-	cap := uint64(0)
+	listLength := uint64(0)
 	if endHeight >= startHeight {
-		cap = endHeight - startHeight + 1
+		listLength = endHeight - startHeight + 1
 	} else {
 		return nil, errors.New("endHeight is less than startHeight")
 	}
 
-	blockList := make([]*ledger.AccountBlock, 0, cap)
+	blockList := make([]*ledger.AccountBlock, listLength)
 
-	for iter.Next() {
+	i := uint64(0)
+	for ; iter.Next(); i++ {
 		block := &ledger.AccountBlock{}
 		err := block.DbDeserialize(iter.Value())
 
@@ -169,12 +170,9 @@ func (ac *AccountChain) GetBlockListByAccountId(accountId, startHeight, endHeigh
 
 		block.Hash = *getAccountBlockHash(iter.Key())
 		if forward {
-			blockList = append(blockList, block)
+			blockList[i] = block
 		} else {
-			// prepend, less garbage
-			blockList = append(blockList, nil)
-			copy(blockList[1:], blockList)
-			blockList[0] = block
+			blockList[listLength-i-1] = block
 		}
 	}
 
@@ -182,7 +180,15 @@ func (ac *AccountChain) GetBlockListByAccountId(accountId, startHeight, endHeigh
 		return nil, err
 	}
 
-	return blockList, nil
+	if i <= 0 {
+		return nil, nil
+	}
+
+	if forward {
+		return blockList[:i], nil
+	} else {
+		return blockList[listLength-i:], nil
+	}
 }
 
 func (ac *AccountChain) GetBlock(blockHash *types.Hash) (*ledger.AccountBlock, error) {

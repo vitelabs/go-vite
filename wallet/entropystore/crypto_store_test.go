@@ -13,7 +13,6 @@ import (
 	"testing"
 )
 
-
 func TestCryptoStore_StoreEntropy(t *testing.T) {
 	entropy, _ := bip39.NewEntropy(256)
 	m, _ := bip39.NewMnemonic(entropy)
@@ -51,6 +50,18 @@ func TestCryptoStore_ExtractSeed(t *testing.T) {
 	if !bytes.Equal(seed, seedExtract) {
 		t.Fatal("not equal")
 	}
+}
+
+func TestCryptoStore_ExtractMnemonic(t *testing.T) {
+
+	store := entropystore.CryptoStore{"filename"}
+
+	seed, entropy, _ := store.ExtractSeed("password")
+	fmt.Println(bip39.NewMnemonic(entropy))
+
+	key, _ := derivation.DeriveWithIndex(0, seed)
+	address, _ := key.Address()
+	fmt.Println(address)
 }
 
 func TestDecryptEntropy(t *testing.T) {

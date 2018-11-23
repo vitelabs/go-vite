@@ -34,8 +34,10 @@ func TestAesGCMEncrypt(t *testing.T) {
 	keyArray := []byte(gcm_dummy_key_32)
 	plain := []byte(gcm_dummy_plain_text)
 	out, nonce, err := AesGCMEncrypt(keyArray, plain)
-	println(hex.EncodeToString(out))
-	println(hex.EncodeToString(nonce))
+	println("key:", hex.EncodeToString(keyArray))
+	println("origin:", hex.EncodeToString(plain))
+	println("cipher:", hex.EncodeToString(out))
+	println("nonce:", hex.EncodeToString(nonce))
 	println("Encrypt finish")
 	if err != nil {
 		t.Fatal(err)

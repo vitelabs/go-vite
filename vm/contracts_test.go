@@ -45,7 +45,7 @@ func TestContractsRefundWithVmContext(t *testing.T) {
 	}
 	db, err := vm_context.NewVmContext(chn, &snapshotBlock.Hash, &prevAccountBlock.Hash, &contractAddr)
 	if err != nil {
-		t.Fatalf("new vm context failed, %v", err)
+		t.Fatalf("new vm context failed %v", err)
 	}
 	nodeName := "s1"
 	registerData, _ := abi.ABIRegister.PackMethod(abi.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr)
