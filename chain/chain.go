@@ -3,6 +3,7 @@ package chain
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/chain_db"
@@ -46,6 +47,11 @@ type chain struct {
 	globalCfg   *config.Config
 	kafkaSender *sender.KafkaSender
 	trieGc      trie_gc.Collector
+
+	saveTrieLock sync.RWMutex
+
+	saveTrieStatus     uint8
+	saveTrieStatusLock sync.Mutex
 }
 
 func NewChain(cfg *config.Config) Chain {
@@ -306,6 +312,10 @@ func (c *chain) Destroy() {
 }
 func (c *chain) TrieGc() trie_gc.Collector {
 	return c.trieGc
+}
+
+func (c *chain) TrieDb() *leveldb.DB {
+	return c.ChainDb().Db()
 }
 
 func (c *chain) readGenesis(genesisPath string) *GenesisConfig {

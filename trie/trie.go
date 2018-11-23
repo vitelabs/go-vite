@@ -232,34 +232,6 @@ func (trie *Trie) traverseSave(batch *leveldb.Batch, node *TrieNode) error {
 	return nil
 }
 
-func (trie *Trie) NodeList() []*TrieNode {
-	if trie.Root == nil {
-		return nil
-	}
-	var nodeList []*TrieNode
-	tmpNodes := []*TrieNode{trie.Root}
-
-	for {
-		if len(tmpNodes) <= 0 {
-			break
-		}
-		node := tmpNodes[0]
-		nodeList = append(nodeList, node)
-
-		tmpNodes = tmpNodes[1:]
-		switch node.NodeType() {
-		case TRIE_FULL_NODE:
-			for _, child := range node.children {
-				tmpNodes = append(tmpNodes, child)
-			}
-		case TRIE_SHORT_NODE:
-			tmpNodes = append(tmpNodes, node.child)
-		}
-	}
-
-	return nodeList
-}
-
 func (trie *Trie) SetValue(key []byte, value []byte) {
 	var leafNode *TrieNode
 	if len(value) > 32 {
@@ -401,6 +373,10 @@ func (trie *Trie) GetValue(key []byte) []byte {
 	leafNode := trie.getLeafNode(trie.Root, key)
 
 	return trie.LeafNodeValue(leafNode)
+}
+
+func (trie *Trie) NewNodeIterator() *NodeIterator {
+	return NewNodeIterator(trie)
 }
 
 func (trie *Trie) NewIterator(prefix []byte) *Iterator {

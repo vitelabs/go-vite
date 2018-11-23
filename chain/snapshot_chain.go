@@ -116,6 +116,10 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	// Save state trie
 	var trieSaveCallback func()
 	var saveTrieErr error
+
+	c.saveTrieLock.RLock()
+	defer c.saveTrieLock.RUnlock()
+
 	if trieSaveCallback, saveTrieErr = snapshotBlock.StateTrie.Save(batch); saveTrieErr != nil {
 		c.log.Error("Save state trie failed, error is "+saveTrieErr.Error(), "method", "InsertSnapshotBlock")
 		return saveTrieErr

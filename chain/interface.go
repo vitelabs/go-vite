@@ -43,6 +43,10 @@ type Chain interface {
 	Init()
 	Compressor() *compress.Compressor
 	TrieGc() trie_gc.Collector
+
+	StopSaveTrie()
+	StartSaveTrie()
+
 	ChainDb() *chain_db.ChainDb
 	Start()
 	Destroy()
@@ -92,6 +96,8 @@ type Chain interface {
 	GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
 	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)
 	UnRegister(listenerId uint64)
+	TrieDb() *leveldb.DB
+	CleanTrieNodePool()
 	RegisterInsertAccountBlocks(processor InsertProcessorFunc) uint64
 	RegisterInsertAccountBlocksSuccess(processor InsertProcessorFuncSuccess) uint64
 	RegisterDeleteAccountBlocks(processor DeleteProcessorFunc) uint64

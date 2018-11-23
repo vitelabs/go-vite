@@ -1,6 +1,7 @@
 package trie_gc
 
 import (
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain_db"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -18,4 +19,9 @@ type Chain interface {
 	GetSnapshotBlocksByHeight(height uint64, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
 	ChainDb() *chain_db.ChainDb
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+	TrieDb() *leveldb.DB
+	CleanTrieNodePool()
+
+	StopSaveTrie()
+	StartSaveTrie()
 }

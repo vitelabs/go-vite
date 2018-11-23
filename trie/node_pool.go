@@ -39,6 +39,13 @@ func (pool *TrieNodePool) Set(key *types.Hash, trieNode *TrieNode) {
 	}
 }
 
+func (pool *TrieNodePool) Clear() {
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
+
+	pool.nodes = make(map[types.Hash]*TrieNode)
+}
+
 func (pool *TrieNodePool) clear() {
 	i := 0
 	for key := range pool.nodes {

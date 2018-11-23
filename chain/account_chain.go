@@ -42,6 +42,9 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		unsavedCache := vmContext.UnsavedCache()
 		if unsavedCache != nil {
 			// Save trie
+			c.saveTrieLock.RLock()
+			defer c.saveTrieLock.RUnlock()
+
 			if callback, saveTrieErr := unsavedCache.Trie().Save(batch); saveTrieErr != nil {
 				c.log.Error("SaveTrie failed, error is "+saveTrieErr.Error(), "method", "InsertAccountBlocks")
 				return saveTrieErr
