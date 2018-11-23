@@ -21,9 +21,9 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type Account struct {
-	Asset                []byte   `protobuf:"bytes,1,opt,name=Asset,proto3" json:"Asset,omitempty"`
-	Available            uint64   `protobuf:"varint,2,opt,name=Available,proto3" json:"Available,omitempty"`
-	Locked               uint64   `protobuf:"varint,3,opt,name=Locked,proto3" json:"Locked,omitempty"`
+	Token                []byte   `protobuf:"bytes,1,opt,name=Token,proto3" json:"Token,omitempty"`
+	Available            []byte   `protobuf:"bytes,2,opt,name=Available,proto3" json:"Available,omitempty"`
+	Locked               []byte   `protobuf:"bytes,3,opt,name=Locked,proto3" json:"Locked,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -54,29 +54,29 @@ func (m *Account) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Account proto.InternalMessageInfo
 
-func (m *Account) GetAsset() []byte {
+func (m *Account) GetToken() []byte {
 	if m != nil {
-		return m.Asset
+		return m.Token
 	}
 	return nil
 }
 
-func (m *Account) GetAvailable() uint64 {
+func (m *Account) GetAvailable() []byte {
 	if m != nil {
 		return m.Available
 	}
-	return 0
+	return nil
 }
 
-func (m *Account) GetLocked() uint64 {
+func (m *Account) GetLocked() []byte {
 	if m != nil {
 		return m.Locked
 	}
-	return 0
+	return nil
 }
 
 type Fund struct {
-	Address              string     `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
+	Address              []byte     `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
 	Accounts             []*Account `protobuf:"bytes,2,rep,name=Accounts,proto3" json:"Accounts,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
@@ -108,11 +108,11 @@ func (m *Fund) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Fund proto.InternalMessageInfo
 
-func (m *Fund) GetAddress() string {
+func (m *Fund) GetAddress() []byte {
 	if m != nil {
 		return m.Address
 	}
-	return ""
+	return nil
 }
 
 func (m *Fund) GetAccounts() []*Account {
@@ -123,11 +123,11 @@ func (m *Fund) GetAccounts() []*Account {
 }
 
 type SettleAction struct {
-	Address              string   `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
-	Asset                []byte   `protobuf:"bytes,2,opt,name=Asset,proto3" json:"Asset,omitempty"`
-	IncAvailable         uint64   `protobuf:"varint,3,opt,name=IncAvailable,proto3" json:"IncAvailable,omitempty"`
-	DeduceLocked         uint64   `protobuf:"varint,4,opt,name=DeduceLocked,proto3" json:"DeduceLocked,omitempty"`
-	ReleaseLocked        uint64   `protobuf:"varint,5,opt,name=ReleaseLocked,proto3" json:"ReleaseLocked,omitempty"`
+	Address              []byte   `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
+	Token                []byte   `protobuf:"bytes,2,opt,name=Token,proto3" json:"Token,omitempty"`
+	IncAvailable         []byte   `protobuf:"bytes,3,opt,name=IncAvailable,proto3" json:"IncAvailable,omitempty"`
+	DeduceLocked         []byte   `protobuf:"bytes,4,opt,name=DeduceLocked,proto3" json:"DeduceLocked,omitempty"`
+	ReleaseLocked        []byte   `protobuf:"bytes,5,opt,name=ReleaseLocked,proto3" json:"ReleaseLocked,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -158,74 +158,74 @@ func (m *SettleAction) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_SettleAction proto.InternalMessageInfo
 
-func (m *SettleAction) GetAddress() string {
+func (m *SettleAction) GetAddress() []byte {
 	if m != nil {
 		return m.Address
-	}
-	return ""
-}
-
-func (m *SettleAction) GetAsset() []byte {
-	if m != nil {
-		return m.Asset
 	}
 	return nil
 }
 
-func (m *SettleAction) GetIncAvailable() uint64 {
+func (m *SettleAction) GetToken() []byte {
+	if m != nil {
+		return m.Token
+	}
+	return nil
+}
+
+func (m *SettleAction) GetIncAvailable() []byte {
 	if m != nil {
 		return m.IncAvailable
 	}
-	return 0
+	return nil
 }
 
-func (m *SettleAction) GetDeduceLocked() uint64 {
+func (m *SettleAction) GetDeduceLocked() []byte {
 	if m != nil {
 		return m.DeduceLocked
 	}
-	return 0
+	return nil
 }
 
-func (m *SettleAction) GetReleaseLocked() uint64 {
+func (m *SettleAction) GetReleaseLocked() []byte {
 	if m != nil {
 		return m.ReleaseLocked
 	}
-	return 0
+	return nil
 }
 
-type SettleOrders struct {
+type SettleActions struct {
 	Actions              []*SettleAction `protobuf:"bytes,1,rep,name=actions,proto3" json:"actions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
 }
 
-func (m *SettleOrders) Reset()         { *m = SettleOrders{} }
-func (m *SettleOrders) String() string { return proto.CompactTextString(m) }
-func (*SettleOrders) ProtoMessage()    {}
-func (*SettleOrders) Descriptor() ([]byte, []int) {
+func (m *SettleActions) Reset()         { *m = SettleActions{} }
+func (m *SettleActions) String() string { return proto.CompactTextString(m) }
+func (*SettleActions) ProtoMessage()    {}
+func (*SettleActions) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c247044ebb68d1ae, []int{3}
 }
 
-func (m *SettleOrders) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SettleOrders.Unmarshal(m, b)
+func (m *SettleActions) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SettleActions.Unmarshal(m, b)
 }
-func (m *SettleOrders) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SettleOrders.Marshal(b, m, deterministic)
+func (m *SettleActions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SettleActions.Marshal(b, m, deterministic)
 }
-func (m *SettleOrders) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SettleOrders.Merge(m, src)
+func (m *SettleActions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SettleActions.Merge(m, src)
 }
-func (m *SettleOrders) XXX_Size() int {
-	return xxx_messageInfo_SettleOrders.Size(m)
+func (m *SettleActions) XXX_Size() int {
+	return xxx_messageInfo_SettleActions.Size(m)
 }
-func (m *SettleOrders) XXX_DiscardUnknown() {
-	xxx_messageInfo_SettleOrders.DiscardUnknown(m)
+func (m *SettleActions) XXX_DiscardUnknown() {
+	xxx_messageInfo_SettleActions.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SettleOrders proto.InternalMessageInfo
+var xxx_messageInfo_SettleActions proto.InternalMessageInfo
 
-func (m *SettleOrders) GetActions() []*SettleAction {
+func (m *SettleActions) GetActions() []*SettleAction {
 	if m != nil {
 		return m.Actions
 	}
@@ -236,28 +236,27 @@ func init() {
 	proto.RegisterType((*Account)(nil), "proto.Account")
 	proto.RegisterType((*Fund)(nil), "proto.Fund")
 	proto.RegisterType((*SettleAction)(nil), "proto.SettleAction")
-	proto.RegisterType((*SettleOrders)(nil), "proto.SettleOrders")
+	proto.RegisterType((*SettleActions)(nil), "proto.SettleActions")
 }
 
 func init() { proto.RegisterFile("dex_fund.proto", fileDescriptor_c247044ebb68d1ae) }
 
 var fileDescriptor_c247044ebb68d1ae = []byte{
-	// 257 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x8f, 0x3f, 0x4b, 0xc4, 0x30,
-	0x18, 0xc6, 0x69, 0xaf, 0xbd, 0x7a, 0xaf, 0xf5, 0x86, 0x28, 0x92, 0xc1, 0xa1, 0x04, 0x87, 0x22,
-	0x78, 0x83, 0xce, 0x0e, 0x01, 0x11, 0x84, 0x03, 0x21, 0xe2, 0x2c, 0xbd, 0xe4, 0x15, 0x0e, 0x4b,
-	0x22, 0x4d, 0x2a, 0x7e, 0x28, 0x3f, 0xa4, 0x34, 0x4d, 0xee, 0xda, 0xc5, 0x29, 0x3c, 0x7f, 0x78,
-	0xf3, 0xfc, 0x60, 0xad, 0xf0, 0xe7, 0xfd, 0xa3, 0xd7, 0x6a, 0xf3, 0xd5, 0x19, 0x67, 0x48, 0xee,
-	0x1f, 0xf6, 0x06, 0x05, 0x97, 0xd2, 0xf4, 0xda, 0x91, 0x0b, 0xc8, 0xb9, 0xb5, 0xe8, 0x68, 0x52,
-	0x25, 0x75, 0x29, 0x46, 0x41, 0xae, 0x60, 0xc5, 0xbf, 0x9b, 0x7d, 0xdb, 0xec, 0x5a, 0xa4, 0x69,
-	0x95, 0xd4, 0x99, 0x38, 0x1a, 0xe4, 0x12, 0x96, 0x5b, 0x23, 0x3f, 0x51, 0xd1, 0x85, 0x8f, 0x82,
-	0x62, 0x5b, 0xc8, 0x9e, 0x7a, 0xad, 0x08, 0x85, 0x82, 0x2b, 0xd5, 0xa1, 0xb5, 0xfe, 0xea, 0x4a,
-	0x44, 0x49, 0x6e, 0xe0, 0x24, 0x7c, 0x6c, 0x69, 0x5a, 0x2d, 0xea, 0xd3, 0xbb, 0xf5, 0xb8, 0x6c,
-	0x13, 0x6c, 0x71, 0xc8, 0xd9, 0x6f, 0x02, 0xe5, 0x2b, 0x3a, 0xd7, 0x22, 0x97, 0x6e, 0x6f, 0xf4,
-	0x3f, 0x67, 0x0f, 0x10, 0xe9, 0x14, 0x82, 0x41, 0xf9, 0xac, 0xe5, 0x91, 0x63, 0x1c, 0x3b, 0xf3,
-	0x86, 0xce, 0x23, 0xaa, 0x5e, 0x62, 0x00, 0xca, 0xc6, 0xce, 0xd4, 0x23, 0xd7, 0x70, 0x26, 0xb0,
-	0xc5, 0xc6, 0xc6, 0x52, 0xee, 0x4b, 0x73, 0x93, 0x3d, 0xc4, 0xb5, 0x2f, 0x9d, 0xc2, 0xce, 0x92,
-	0x5b, 0x28, 0x1a, 0xbf, 0x7b, 0x58, 0x3b, 0x90, 0x9e, 0x07, 0xd2, 0x29, 0x93, 0x88, 0x9d, 0xdd,
-	0xd2, 0x87, 0xf7, 0x7f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x77, 0xf2, 0x59, 0x2e, 0xb2, 0x01, 0x00,
-	0x00,
+	// 251 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x8f, 0xc1, 0x4a, 0x03, 0x31,
+	0x10, 0x86, 0xd9, 0x6d, 0xb7, 0xab, 0xe3, 0xb6, 0x87, 0x51, 0x24, 0x07, 0x0f, 0x25, 0x78, 0x28,
+	0x82, 0x3d, 0xe8, 0x5d, 0x58, 0x10, 0x41, 0xe8, 0x69, 0xd5, 0xb3, 0x6c, 0x93, 0x11, 0x4a, 0x43,
+	0x22, 0x4d, 0x22, 0x3e, 0x94, 0x0f, 0x29, 0x26, 0xd9, 0x36, 0xbd, 0x78, 0xda, 0x9d, 0xff, 0xff,
+	0x98, 0xcc, 0x07, 0x33, 0x49, 0xdf, 0xef, 0x1f, 0x5e, 0xcb, 0xe5, 0xe7, 0xce, 0x38, 0x83, 0x55,
+	0xf8, 0xf0, 0x37, 0xa8, 0x5b, 0x21, 0x8c, 0xd7, 0x0e, 0x2f, 0xa0, 0x7a, 0x35, 0x5b, 0xd2, 0xac,
+	0x98, 0x17, 0x8b, 0xa6, 0x8b, 0x03, 0x5e, 0xc1, 0x69, 0xfb, 0xd5, 0x6f, 0x54, 0xbf, 0x56, 0xc4,
+	0xca, 0xd0, 0x1c, 0x02, 0xbc, 0x84, 0xc9, 0xca, 0x88, 0x2d, 0x49, 0x36, 0x0a, 0x55, 0x9a, 0xf8,
+	0x0a, 0xc6, 0x4f, 0x5e, 0x4b, 0x64, 0x50, 0xb7, 0x52, 0xee, 0xc8, 0xda, 0xb4, 0x75, 0x18, 0xf1,
+	0x06, 0x4e, 0xd2, 0xc3, 0x96, 0x95, 0xf3, 0xd1, 0xe2, 0xec, 0x6e, 0x16, 0x2f, 0x5b, 0xa6, 0xb8,
+	0xdb, 0xf7, 0xfc, 0xa7, 0x80, 0xe6, 0x85, 0x9c, 0x53, 0xd4, 0x0a, 0xb7, 0x31, 0xfa, 0x9f, 0xb5,
+	0x7b, 0x89, 0x32, 0x97, 0xe0, 0xd0, 0x3c, 0x6b, 0x71, 0xf0, 0x88, 0xc7, 0x1e, 0x65, 0x7f, 0xcc,
+	0x23, 0x49, 0x2f, 0x28, 0x09, 0x8d, 0x23, 0x93, 0x67, 0x78, 0x0d, 0xd3, 0x8e, 0x14, 0xf5, 0x76,
+	0x80, 0xaa, 0x00, 0x1d, 0x87, 0xfc, 0x01, 0xa6, 0xf9, 0xb5, 0x16, 0x6f, 0xa1, 0xee, 0xe3, 0x2f,
+	0x2b, 0x82, 0xea, 0x79, 0x52, 0xcd, 0xb1, 0x6e, 0x60, 0xd6, 0x93, 0x50, 0xde, 0xff, 0x06, 0x00,
+	0x00, 0xff, 0xff, 0x05, 0x70, 0x82, 0x52, 0xb3, 0x01, 0x00, 0x00,
 }

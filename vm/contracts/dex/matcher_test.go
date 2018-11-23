@@ -131,7 +131,7 @@ func TestDust(t *testing.T) {
 	assert.Equal(t, FullyExecuted, int(orderEvent.Status))
 	assert.Equal(t, uint64(100000000), orderEvent.ExecutedQuantity)
 	assert.Equal(t, uint64(123450), orderEvent.ExecutedAmount)
-	assert.Equal(t, VITE.Bytes(), orderEvent.RefundAsset)
+	assert.Equal(t, VITE.Bytes(), orderEvent.RefundToken)
 	assert.Equal(t, uint64(200), orderEvent.RefundQuantity)
 
 	log = localStorage.logs[2]
@@ -141,7 +141,7 @@ func TestDust(t *testing.T) {
 	assert.Equal(t, FullyExecuted, int(orderEvent.Status))
 	assert.Equal(t, uint64(100000000), orderEvent.ExecutedQuantity)
 	assert.Equal(t, uint64(123450), orderEvent.ExecutedAmount)
-	assert.Equal(t, ETH.Bytes(), orderEvent.RefundAsset)
+	assert.Equal(t, ETH.Bytes(), orderEvent.RefundToken)
 	assert.Equal(t, uint64(0), orderEvent.RefundQuantity)
 
 	log = localStorage.logs[3]
@@ -160,11 +160,11 @@ func TestMarket(t *testing.T) {
 }
 
 
-func newOrderInfo(id uint64, tradeAsset types.TokenTypeId, quoteAsset types.TokenTypeId, side bool, orderType uint32, price float64, quantity uint64, ts int64) Order {
+func newOrderInfo(id uint64, tradeToken types.TokenTypeId, quoteToken types.TokenTypeId, side bool, orderType uint32, price float64, quantity uint64, ts int64) Order {
 	order := Order{}
 	order.Id = uint64(id)
-	order.TradeAsset = tradeAsset.Bytes()
-	order.QuoteAsset = quoteAsset.Bytes()
+	order.TradeToken = tradeToken.Bytes()
+	order.QuoteToken = quoteToken.Bytes()
 	order.Side = side // buy
 	order.Type = orderType
 	order.Price = price

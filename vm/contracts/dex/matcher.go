@@ -21,15 +21,15 @@ type matcher struct {
 	storage         *BaseStorage
 	protocol        *nodePayloadProtocol
 	books           map[string]*skiplist
-	settleActions   map[string]map[string]*proto.SettleAction // address->(asset->settleAction)
+	settleActions   map[string]map[string]*proto.SettleAction // address->(token->settleAction)
 }
 
 type OrderTx struct {
 	proto.Transaction
-	takerAddress string
-	makerAddress string
-	takerTradeAsset []byte
-	takerQuoteAsset []byte
+	takerAddress    []byte
+	makerAddress    []byte
+	takerTradeToken []byte
+	takerQuoteToken []byte
 }
 
 func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *matcher {
@@ -65,8 +65,9 @@ func (mc *matcher) GetSettleActions() map[string]map[string]*proto.SettleAction 
 
 func (mc *matcher) GetOrderByIdAndBookName(orderId uint64, makerBookName string) (*Order, error) {
 	book := mc.getBookByName(makerBookName)
+	//fmt.Printf("makerBookName %s, orderId %d\n", makerBookName, orderId)
 	if pl, _, _, err := book.getByKey(orderKey{orderId}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed get order by orderId")
 	} else {
 		od, _ := (*pl).(Order)
 		return &od, nil
@@ -84,7 +85,7 @@ func (mc *matcher) CancelOrderByIdAndBookName(order *Order, makerBookName string
 	order.Status = Cancelled
 	mc.handleRefund(order)
 	mc.emitOrderRes(*order)
-	pl := nodePayload(order)
+	pl := nodePayload(*order)
 	if err = book.updatePayload(newOrderKey(order.Id), &pl); err != nil {
 		return err
 	}
@@ -119,6 +120,7 @@ func (mc *matcher) doMatchTaker(taker Order, makerBook *skiplist) error {
 		}
 	}
 }
+
 //TODO add assertion for order calculation correctness
 func (mc *matcher) recursiveTakeOrder(taker *Order, maker Order, makerBook *skiplist, modifiedMakers *[]Order, txs *[]OrderTx, nextOrderId nodeKeyType) error {
 	if filterTimeout(&maker) {
@@ -126,7 +128,7 @@ func (mc *matcher) recursiveTakeOrder(taker *Order, maker Order, makerBook *skip
 		*modifiedMakers = append(*modifiedMakers, maker)
 	} else {
 		matched, _ := matchPrice(*taker, maker)
-		fmt.Printf("recursiveTakeOrder matched for taker.id %d is %t\n", taker.Id, matched)
+		//fmt.Printf("recursiveTakeOrder matched for taker.id %d is %t\n", taker.Id, matched)
 		if matched {
 			tx := calculateOrderAndTx(taker, &maker)
 			mc.handleRefund(taker)
@@ -158,7 +160,7 @@ func (mc *matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) {
 	for _, maker := range makers {
 		pl := nodePayload(maker)
 		if err := makerBook.updatePayload(newOrderKey(maker.Id), &pl); err != nil {
-			fmt.Printf("failed update maker storage for err : %s\n", err.Error())
+			//fmt.Printf("failed update maker storage for err : %s\n", err.Error())
 		}
 		mc.emitOrderRes(maker)
 	}
@@ -188,16 +190,16 @@ func (mc *matcher) saveTakerAsMaker(maker Order) {
 func (mc *matcher) emitOrderRes(orderRes Order) {
 	event := OrderUpdateEvent{orderRes.Order}
 	(*mc.storage).AddLog(newLog(event))
-	fmt.Printf("order matched res %s : \n", orderRes.String())
+	//fmt.Printf("order matched res %s : \n", orderRes.String())
 }
 
 func (mc *matcher) emitTxs(txs []OrderTx) {
-	fmt.Printf("matched txs >>>>>>>>> %d\n", len(txs))
+	//fmt.Printf("matched txs >>>>>>>>> %d\n", len(txs))
 	for _, tx := range txs {
 		mc.handleTxSettleAction(tx)
 		txEvent := TransactionEvent{tx.Transaction}
 		(*mc.storage).AddLog(newLog(txEvent))
-		fmt.Printf("matched tx is : %s\n", tx.String())
+		//fmt.Printf("matched tx is : %s\n", tx.String())
 	}
 }
 
@@ -205,13 +207,13 @@ func (mc *matcher) handleRefund(order *Order) {
 	if order.Status == FullyExecuted || order.Status == Cancelled {
 		switch order.Side {
 		case false: //buy
-			order.RefundAsset = order.QuoteAsset
-			order.RefundQuantity = order.Amount - order.ExecutedAmount
+			order.RefundToken = order.QuoteToken
+			order.RefundQuantity = SubBigInt(order.Amount, order.ExecutedAmount)
 		case true:
-			order.RefundAsset = order.TradeAsset
-			order.RefundQuantity = order.Quantity - order.ExecutedQuantity
+			order.RefundToken = order.TradeToken
+			order.RefundQuantity = SubBigInt(order.Quantity, order.ExecutedQuantity)
 		}
-		mc.updateSettleAction(proto.SettleAction{Address:order.Address, Asset:order.RefundAsset, ReleaseLocked:order.RefundQuantity})
+		mc.updateSettleAction(proto.SettleAction{Address:order.Address, Token:order.RefundToken, ReleaseLocked:order.RefundQuantity})
 	}
 }
 
@@ -222,25 +224,25 @@ func (mc *matcher) handleTxSettleAction(tx OrderTx) {
 	makerOutSettle := proto.SettleAction{Address : tx.makerAddress}
 	switch tx.TakerSide {
 		case false: //buy
-			takerInSettle.Asset = tx.takerTradeAsset
+			takerInSettle.Token = tx.takerTradeToken
 			takerInSettle.IncAvailable = tx.Quantity
-			makerOutSettle.Asset = tx.takerTradeAsset
+			makerOutSettle.Token = tx.takerTradeToken
 			makerOutSettle.DeduceLocked = tx.Quantity
 
-			takerOutSettle.Asset = tx.takerQuoteAsset
+			takerOutSettle.Token = tx.takerQuoteToken
 			takerOutSettle.DeduceLocked = tx.Amount
-			makerInSettle.Asset = tx.takerQuoteAsset
+			makerInSettle.Token = tx.takerQuoteToken
 			makerInSettle.IncAvailable = tx.Amount
 
 		case true: //sell
-			takerInSettle.Asset = tx.takerQuoteAsset
+			takerInSettle.Token = tx.takerQuoteToken
 			takerInSettle.IncAvailable = tx.Amount
-			makerOutSettle.Asset = tx.takerQuoteAsset
+			makerOutSettle.Token = tx.takerQuoteToken
 			makerOutSettle.DeduceLocked = tx.Amount
 
-			takerOutSettle.Asset = tx.takerTradeAsset
+			takerOutSettle.Token = tx.takerTradeToken
 			takerOutSettle.DeduceLocked = tx.Quantity
-			makerInSettle.Asset = tx.takerTradeAsset
+			makerInSettle.Token = tx.takerTradeToken
 			makerInSettle.IncAvailable = tx.Quantity
 	}
 	for _, ac := range []proto.SettleAction{takerInSettle, takerOutSettle, makerInSettle, makerOutSettle} {
@@ -250,7 +252,7 @@ func (mc *matcher) handleTxSettleAction(tx OrderTx) {
 
 func (mc *matcher) updateSettleAction(action proto.SettleAction) {
 	var (
-		actionMap map[string]*proto.SettleAction
+		actionMap map[string]*proto.SettleAction // token -> action
 		ok bool
 		ac *proto.SettleAction
 		address = string(action.Address)
@@ -258,14 +260,14 @@ func (mc *matcher) updateSettleAction(action proto.SettleAction) {
 	if actionMap, ok = mc.settleActions[address]; !ok {
 		actionMap = make(map[string]*proto.SettleAction)
 	}
-	asset := string(action.Asset)
-	if ac, ok = actionMap[string(asset)]; !ok {
-		ac = &proto.SettleAction{Address:address, Asset:action.Asset}
+	token := string(action.Token)
+	if ac, ok = actionMap[string(token)]; !ok {
+		ac = &proto.SettleAction{Address:[]byte(address), Token:action.Token}
 	}
-	ac.IncAvailable += action.IncAvailable
-	ac.ReleaseLocked += action.ReleaseLocked
-	ac.DeduceLocked += action.DeduceLocked
-	actionMap[address] = ac
+	ac.IncAvailable = AddBigInt(ac.IncAvailable, action.IncAvailable)
+	ac.ReleaseLocked = AddBigInt(ac.ReleaseLocked, action.ReleaseLocked)
+	ac.DeduceLocked = AddBigInt(ac.DeduceLocked, action.DeduceLocked)
+	actionMap[string(token)] = ac
 	mc.settleActions[address] = actionMap
 }
 
@@ -277,7 +279,7 @@ func newLog(event OrderEvent) *ledger.VmLog {
 	return log
 }
 
-func matchPrice(taker Order, maker Order) (matched bool, executedPrice float64) {
+func matchPrice(taker Order, maker Order) (matched bool, executedPrice string) {
 	if taker.Type == Market || priceEqual(taker.Price, maker.Price) {
 		return true, maker.Price
 	} else {
@@ -316,17 +318,11 @@ func calculateOrderAndTx(taker *Order, maker *Order) (tx OrderTx) {
 	tx.TakerId = taker.Id
 	tx.MakerId = maker.Id
 	tx.Price = maker.Price
-	executeQuantity := minUint64(taker.Quantity-taker.ExecutedQuantity, maker.Quantity-maker.ExecutedQuantity)
+	executeQuantity := MinBigInt(SubBigInt(taker.Quantity, taker.ExecutedQuantity), SubBigInt(maker.Quantity, maker.ExecutedQuantity))
 	takerAmount := calculateOrderAmount(taker, executeQuantity, maker.Price)
 	makerAmount := calculateOrderAmount(maker, executeQuantity, maker.Price)
-	executeAmount := minUint64(takerAmount, makerAmount)
-	executeQuantity = minUint64(executeQuantity, calculateQuantity(executeAmount, maker.Price))
-	fmt.Printf("calculateOrderAndTx >>> taker.ExecutedQuantity : %d, maker.ExecutedQuantity : %d, maker.Price : %f, executeQuantity : %d, executeAmount : %d \n",
-		taker.ExecutedQuantity,
-		maker.ExecutedQuantity,
-		maker.Price,
-		executeQuantity,
-		executeAmount)
+	executeAmount := MinBigInt(takerAmount, makerAmount)
+	executeQuantity = MinBigInt(executeQuantity, calculateQuantity(executeAmount, maker.Price))
 	updateOrder(taker, executeQuantity, executeAmount)
 	updateOrder(maker, executeQuantity, executeAmount)
 	tx.Quantity = executeQuantity
@@ -334,33 +330,33 @@ func calculateOrderAndTx(taker *Order, maker *Order) (tx OrderTx) {
 	tx.Timestamp = time.Now().UnixNano() / 1000
 	tx.takerAddress = taker.Address
 	tx.makerAddress = maker.Address
-	tx.takerTradeAsset = taker.TradeAsset
-	tx.takerQuoteAsset = taker.QuoteAsset
+	tx.takerTradeToken = taker.TradeToken
+	tx.takerQuoteToken = taker.QuoteToken
 	tx.makerAddress = maker.Address
 	return tx
 }
 
-func calculateOrderAmount(order *Order, quantity uint64, price float64) uint64 {
+func calculateOrderAmount(order *Order, quantity []byte, price string) []byte {
 	amount := CalculateAmount(quantity, price)
-	if !order.Side && order.Amount < order.ExecutedAmount+amount {// side is buy
-		amount = order.Amount - order.ExecutedAmount
+	if !order.Side && new(big.Int).SetBytes(order.Amount).Cmp(new(big.Int).SetBytes(AddBigInt(order.ExecutedAmount, amount))) < 0 {// side is buy
+		amount = SubBigInt(order.Amount, order.ExecutedAmount)
 	}
 	return amount
 }
 
-func updateOrder(order *Order, quantity uint64, amount uint64) uint64 {
-	order.ExecutedAmount += amount
-	if order.Quantity-order.ExecutedQuantity == quantity || isDust(order, quantity) {
+func updateOrder(order *Order, quantity []byte, amount []byte) []byte {
+	order.ExecutedAmount = AddBigInt(order.ExecutedAmount, amount)
+	if bytes.Equal(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity) || isDust(order, quantity) {
 		order.Status = FullyExecuted
 	} else {
 		order.Status = PartialExecuted
 	}
-	order.ExecutedQuantity += quantity
+	order.ExecutedQuantity = AddBigInt(order.ExecutedQuantity, quantity)
 	return amount
 }
 // leave quantity is too small for calculate precision
-func isDust(order *Order, quantity uint64) bool {
-	return CalculateAmount(order.Quantity-order.ExecutedQuantity - quantity, order.Price) < 1
+func isDust(order *Order, quantity []byte) bool {
+	return new(big.Int).SetBytes(CalculateAmount(SubBigInt(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity), order.Price)).Cmp(big.NewInt(1)) < 0
 }
 
 func getMakerById(makerBook *skiplist, orderId nodeKeyType) (od Order, nextId orderKey, err error) {
@@ -379,47 +375,54 @@ func validateAndRenderOrder(order Order) (orderRes Order, isValid bool) {
 		return order, false
 	} else {
 		order.Status = Pending
-		if order.Amount == 0 {
+		if new(big.Int).SetBytes(order.Amount).Cmp(big.NewInt(0)) == 0 {
 			order.Amount = CalculateAmount(order.Quantity, order.Price)
 		}
 		return order, true
 	}
 }
 
-func validPrice(price float64) bool {
-	if price < 0 || price < 0.00000001 {
+func validPrice(price string) bool {
+	var (
+		priceF *big.Float
+		ok bool
+	)
+	if priceF, ok = new(big.Float).SetString(price); !ok {
+		return false
+	}
+	if priceF.Cmp(big.NewFloat(0)) < 0 {
 		return false
 	} else {
 		return true
 	}
 }
 
-func CalculateAmount(quantity uint64, price float64) uint64 {
-	qtF := big.NewFloat(0).SetUint64(quantity)
-	prF := big.NewFloat(0).SetFloat64(price)
+func CalculateAmount(quantity []byte, price string) []byte {
+	qtF := big.NewFloat(0).SetInt(new(big.Int).SetBytes(quantity))
+	prF, _ := big.NewFloat(0).SetString(price)
 	amountF := prF.Mul(prF, qtF)
-	amount, _ := amountF.Add(amountF, big.NewFloat(0.5)).Uint64()
-	return amount
+	amount, _ := amountF.Add(amountF, big.NewFloat(0.5)).Int(nil)
+	return amount.Bytes()
 }
 
-func calculateQuantity(amount uint64, price float64) uint64 {
-	amtF := big.NewFloat(0).SetUint64(amount)
-	prF := big.NewFloat(0).SetFloat64(price)
+func calculateQuantity(amount []byte, price string) []byte {
+	amtF := big.NewFloat(0).SetInt(new(big.Int).SetBytes(amount))
+	prF, _ := big.NewFloat(0).SetString(price)
 	qtyF := amtF.Quo(amtF, prF)
-	qty, _ := qtyF.Add(qtyF, big.NewFloat(0.5)).Uint64()
-	return qty
+	qty, _ := qtyF.Add(qtyF, big.NewFloat(0.5)).Int(nil)
+	return qty.Bytes()
 }
 
 func getBookNameToTake(order Order) string {
-	return fmt.Sprintf("%s|%s|%d", string(order.TradeAsset), string(order.QuoteAsset), 1-toSideInt(order.Side))
+	return fmt.Sprintf("%s|%s|%d", string(order.TradeToken), string(order.QuoteToken), 1-toSideInt(order.Side))
 }
 
 func getBookNameToMakeForOrder(order Order) string {
-	return GetBookNameToMake(order.TradeAsset, order.QuoteAsset, order.Side)
+	return GetBookNameToMake(order.TradeToken, order.QuoteToken, order.Side)
 }
 
-func GetBookNameToMake(tradeAsset []byte, quoteAsset []byte, side bool) string {
-	return fmt.Sprintf("%s|%s|%d", string(tradeAsset), string(quoteAsset), toSideInt(side))
+func GetBookNameToMake(tradeToken []byte, quoteToken []byte, side bool) string {
+	return fmt.Sprintf("%s|%s|%d", string(tradeToken), string(quoteToken), toSideInt(side))
 }
 
 func toSideInt(side bool) int {
@@ -428,14 +431,6 @@ func toSideInt(side bool) int {
 		sideInt = 1 // sell
 	}
 	return sideInt
-}
-
-func minUint64(a uint64, b uint64) uint64 {
-	if a > b {
-		return b
-	} else {
-		return a
-	}
 }
 
 func getTxId(takerId uint64, makerId uint64) uint64 {

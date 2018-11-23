@@ -19,7 +19,7 @@ const (
 	jsonDexTrade = `
 	[
 		{"type":"function","name":"DexTradeNewOrder", "inputs":[{"name":"data","type":"bytes"}]},
-		{"type":"function","name":"DexTradeCancelOrder", "inputs":[{"name":"orderId","type":"uint64"}, {"name":"quoteAsset","type":"tokenId"}, {"name":"tradeAsset","type":"tokenId"}, {"name":"side", "type":"bool"}]}
+		{"type":"function","name":"DexTradeCancelOrder", "inputs":[{"name":"orderId","type":"uint256"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}]}
 	]`
 
 	MethodNameDexTradeNewOrder    = "DexTradeNewOrder"
@@ -31,10 +31,10 @@ var (
 )
 
 type ParamDexCancelOrder struct {
-	orderId     uint64
-	quoteAsset  types.TokenTypeId
-	tradeAsset 	types.TokenTypeId
-	side bool
+	OrderId    *big.Int
+	QuoteToken types.TokenTypeId
+	TradeToken types.TokenTypeId
+	Side       bool
 }
 
 
@@ -46,20 +46,18 @@ func (md *MethodDexTradeNewOrder) GetFee(context contractsContext, block *vm_con
 }
 
 func (md *MethodDexTradeNewOrder) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	var err error
-	if quotaLeft, err = util.UseQuota(quotaLeft, dexTradeNewOrderGas); err != nil {
+	if quotaLeft, err := util.UseQuota(quotaLeft, dexTradeNewOrderGas); err != nil {
 		return quotaLeft, err
 	}
 	if !bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), AddressDexFund.Bytes()) {
 		return quotaLeft, fmt.Errorf("invalid block source")
 	}
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
-	return quotaLeft, nil
+	return util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
 }
 
 func (md *MethodDexTradeNewOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	var err error
-	if !bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), AddressDexFund.Bytes()) {
+	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), AddressDexFund.Bytes()) {
 		return fmt.Errorf("invalid block source")
 	}
 	param := new(ParamDexSerializedData)
@@ -92,11 +90,11 @@ func (md *MethodDexTradeCancelOrder) DoSend(context contractsContext, block *vm_
 	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, block.AccountBlock.Data); err != nil {
 		return quotaLeft, err
 	}
-	makerBookName := dex.GetBookNameToMake(param.tradeAsset.Bytes(), param.quoteAsset.Bytes(), param.side)
+	makerBookName := dex.GetBookNameToMake(param.TradeToken.Bytes(), param.QuoteToken.Bytes(), param.Side)
 	storage, _ := block.VmContext.(dex.BaseStorage)
 	matcher := dex.NewMatcher(&AddressDexTrade, &storage)
 	var order *dex.Order
-	if order, err = matcher.GetOrderByIdAndBookName(param.orderId, makerBookName); err != nil {
+	if order, err = matcher.GetOrderByIdAndBookName(param.OrderId.Uint64(), makerBookName); err != nil {
 		return quotaLeft, err
 	}
 	if !bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), []byte(order.Address)) {
@@ -105,23 +103,23 @@ func (md *MethodDexTradeCancelOrder) DoSend(context contractsContext, block *vm_
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
 		return quotaLeft, fmt.Errorf("order status is invalid to cancel")
 	}
-	return quotaLeft, nil
+	return util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
 }
 
 func (md MethodDexTradeCancelOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
 	param := new(ParamDexCancelOrder)
 	ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, sendBlock.Data)
-	makerBookName := dex.GetBookNameToMake(param.tradeAsset.Bytes(), param.quoteAsset.Bytes(), param.side)
+	makerBookName := dex.GetBookNameToMake(param.TradeToken.Bytes(), param.QuoteToken.Bytes(), param.Side)
 	storage, _ := block.VmContext.(dex.BaseStorage)
 	matcher := dex.NewMatcher(&AddressDexTrade, &storage)
 	var (
 		order *dex.Order
 		err error
 	)
-	if order, err = matcher.GetOrderByIdAndBookName(param.orderId, makerBookName); err != nil {
+	if order, err = matcher.GetOrderByIdAndBookName(param.OrderId.Uint64(), makerBookName); err != nil {
 		return err
 	}
-	if !bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), []byte(order.Address)) {
+	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), []byte(order.Address)) {
 		return fmt.Errorf("cancel order not own to initiator")
 	}
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
@@ -143,7 +141,7 @@ func handleSettleActions(context contractsContext, block *vm_context.VmAccountBl
 			actions = append(actions, action)
 		}
 	}
-	settleOrders := &dexproto.SettleOrders{Actions: actions}
+	settleOrders := &dexproto.SettleActions{Actions: actions}
 	var settleData []byte
 	if settleData, err = proto.Marshal(settleOrders); err != nil {
 		return err

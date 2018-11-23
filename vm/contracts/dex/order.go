@@ -4,6 +4,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	orderproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"math"
+	"math/big"
 	"strconv"
 	)
 
@@ -135,8 +136,10 @@ func (protocol *OrderNodeProtocol) deSerializeMeta(nodeData []byte) *skiplistMet
 	}
 }
 
-func priceEqual(a float64, b float64) bool {
-	return math.Abs(float64(a) - float64(b)) < MinPricePermit
+func priceEqual(a string, b string) bool {
+	af, _ := new(big.Float).SetString(a)
+	bf, _ := new(big.Float).SetString(b)
+	return  af.Cmp(bf) == 0
 }
 
 func convertKeyOnLevelToProto(from []nodeKeyType) []uint64 {

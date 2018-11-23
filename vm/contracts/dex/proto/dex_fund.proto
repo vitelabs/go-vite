@@ -3,24 +3,24 @@ syntax="proto3";
 package proto;
 
 message Account {
-    bytes Asset = 1;
-    uint64 Available = 2;
-    uint64 Locked   = 3;
+    bytes Token = 1;
+    bytes Available = 2;
+    bytes Locked   = 3;
 }
 
 message Fund {
-    string Address = 1;
+    bytes Address = 1;
     repeated Account Accounts = 2;
 }
 
 message SettleAction {
-    string Address = 1;
-    bytes Asset = 2;
-    uint64 IncAvailable = 3;
-    uint64 DeduceLocked = 4;
-    uint64 ReleaseLocked = 5;
+    bytes Address = 1;
+    bytes Token = 2;
+    bytes IncAvailable = 3;
+    bytes DeduceLocked = 4;
+    bytes ReleaseLocked = 5;
 }
 
-message SettleOrders {
+message SettleActions {
     repeated SettleAction actions = 1;
 }

@@ -4,21 +4,21 @@ package proto;
 
 message Order {
     uint64 Id = 1;
-    string Address = 2;
-    bytes TradeAsset = 3;
-    bytes QuoteAsset = 4;
+    bytes Address = 2;
+    bytes TradeToken = 3;
+    bytes QuoteToken = 4;
     bool   Side = 5; // false buy, true sell
     uint32 Type = 6; // 0 limit order, 1 market order
-    double Price = 7;
-    uint64 Quantity = 8;
-    uint64 Amount = 9; // QuoteAmount
+    string Price = 7;
+    bytes Quantity = 8;
+    bytes Amount = 9; // QuoteAmount
     uint32 Status = 10;
     uint32 cancelReason = 11;
     int64 Timestamp = 12;
-    uint64 ExecutedQuantity = 13;
-    uint64 ExecutedAmount = 14;
-    bytes refundAsset = 15;
-    uint64 refundQuantity = 16; //refund trade/quote asset
+    bytes ExecutedQuantity = 13;
+    bytes ExecutedAmount = 14;
+    bytes refundToken = 15;
+    bytes refundQuantity = 16; //refund trade/quote token
 }
 
 message OrderNode {
@@ -36,7 +36,7 @@ message OrderListMeta {
 }
 
 message OrderBook {
-    repeated string MarketSide = 1; //format : TradeAsset|QuoteAsset|Side
+    repeated string MarketSide = 1; //format : TradeToken|QuoteToken|Side
 }
 
 message Transaction {
@@ -44,9 +44,9 @@ message Transaction {
     bool TakerSide = 2;
     uint64 TakerId = 3;
     uint64 MakerId = 4;
-    double Price = 5;
-    uint64 Quantity = 6;
-    uint64 Amount = 7;
+    string Price = 5;
+    bytes Quantity = 6;
+    bytes Amount = 7;
     int64 Timestamp = 8;
 }
 
