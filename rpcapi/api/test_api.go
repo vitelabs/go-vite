@@ -3,13 +3,14 @@ package api
 import (
 	"context"
 	"errors"
+	"math/big"
+	"math/rand"
+
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"math/rand"
 )
 
 type CreateTxWithPrivKeyParmsTest struct {
@@ -143,7 +144,10 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	if code == ledger.AccountTypeContract && msg.BlockType == ledger.BlockTypeReceive {
 		return errors.New("AccountTypeContract can't receiveTx without consensus's control")
 	}
-	privKey, _ := ed25519.HexToPrivateKey(params.PrivKeyStr)
+	privKey, err := ed25519.HexToPrivateKey(params.PrivKeyStr)
+	if err != nil {
+		return err
+	}
 	pubKey := privKey.PubByte()
 
 	if msg.FromBlockHash == nil {
