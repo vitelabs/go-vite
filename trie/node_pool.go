@@ -14,6 +14,14 @@ type TrieNodePool struct {
 	lock sync.RWMutex
 }
 
+func NewCustomTrieNodePool(limit int, clearNum int) *TrieNodePool {
+	return &TrieNodePool{
+		nodes:    make(map[types.Hash]*TrieNode),
+		limit:    limit,
+		clearNum: clearNum,
+	}
+}
+
 func NewTrieNodePool() *TrieNodePool {
 	return &TrieNodePool{
 		nodes:    make(map[types.Hash]*TrieNode),

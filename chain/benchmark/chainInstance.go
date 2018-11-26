@@ -9,7 +9,15 @@ import (
 )
 
 func newChainInstance(dirName string, clearDataDir bool) chain.Chain {
-	dataDir := filepath.Join(node.DefaultDataDir(), "benchmark", dirName)
+	return newChainInstanceByDataDir("benchmark", dirName, clearDataDir)
+}
+
+func newTestChainInstance() chain.Chain {
+	return newChainInstanceByDataDir("testdata", "", false)
+}
+
+func newChainInstanceByDataDir(dataRoot, dirName string, clearDataDir bool) chain.Chain {
+	dataDir := filepath.Join(node.DefaultDataDir(), dataRoot, dirName)
 
 	if clearDataDir {
 		os.RemoveAll(dataDir)

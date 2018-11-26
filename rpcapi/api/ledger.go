@@ -325,21 +325,15 @@ func (l *LedgerApi) GetGcStatus() *GcStatus {
 	statusCode := l.chain.TrieGc().Status()
 
 	gStatus := &GcStatus{
-		Code:          statusCode,
-		ClearedHeight: l.chain.TrieGc().ClearedHeight(),
-		MarkedHeight:  l.chain.TrieGc().MarkedHeight(),
+		Code: statusCode,
 	}
 	switch statusCode {
 	case trie_gc.STATUS_STOPPED:
 		gStatus.Description = "STATUS_STOPPED"
 	case trie_gc.STATUS_STARTED:
 		gStatus.Description = "STATUS_STARTED"
-	case trie_gc.STATUS_MARKING:
-		gStatus.Description = "STATUS_MARKING"
-	case trie_gc.STATUS_FILTER_MARKED:
-		gStatus.Description = "STATUS_FILTER_MARKED"
-	case trie_gc.STATUS_CLEANING:
-		gStatus.Description = "STATUS_CLEANING"
+	case trie_gc.STATUS_MARKING_AND_CLEANING:
+		gStatus.Description = "STATUS_MARKING_AND_CLEANING"
 	}
 	return gStatus
 }

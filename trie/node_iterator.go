@@ -22,11 +22,14 @@ func (ni *NodeIterator) Next(deepInto func(*TrieNode) bool) bool {
 	ni.currentNode = node
 
 	ni.tmpNodes = ni.tmpNodes[1:]
-	if deepInto(node) {
+	if deepInto == nil || deepInto(node) {
 		switch node.NodeType() {
 		case TRIE_FULL_NODE:
 			for _, child := range node.children {
 				ni.tmpNodes = append(ni.tmpNodes, child)
+			}
+			if node.child != nil {
+				ni.tmpNodes = append(ni.tmpNodes, node.child)
 			}
 		case TRIE_SHORT_NODE:
 			ni.tmpNodes = append(ni.tmpNodes, node.child)

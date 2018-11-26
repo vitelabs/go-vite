@@ -1,18 +1,25 @@
 package trie_gc
 
 import (
+	"errors"
+	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/chain_db/access"
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
 	"sync"
+	"time"
 )
 
 type Marker struct {
-	chain              Chain
-	markHeightPerRound uint64
+	chain             Chain
+	markEventPerRound uint64
+	markSleepPerRound time.Duration
+
+	retainSnapshotHeight uint64
 
 	triePool *trie.TrieNodePool
 
@@ -22,78 +29,185 @@ type Marker struct {
 
 func NewMarker(chain Chain) *Marker {
 	m := &Marker{
-		chain:              chain,
-		markHeightPerRound: 100,
-		triePool:           trie.NewTrieNodePool(),
+		chain:             chain,
+		markEventPerRound: 10 * 100,
+		markSleepPerRound: time.Millisecond * 5,
 
-		stopSaveMinGap: 8,
+		retainSnapshotHeight: 86400,
+		stopSaveMinGap:       100,
+
+		triePool: trie.NewCustomTrieNodePool(50*10000, 25*10000),
 	}
 
 	return m
 }
 
-func (m *Marker) getTargetHeight() uint64 {
+func (m *Marker) getMinSnapshotHeight() uint64 {
 	latestSnapshotBlock := m.chain.GetLatestSnapshotBlock()
-	if latestSnapshotBlock == nil {
-		return 0
+	if latestSnapshotBlock.Height <= m.retainSnapshotHeight+types.AccountLimitSnapshotHeight {
+		return 1
+	} else {
+		return latestSnapshotBlock.Height - m.retainSnapshotHeight - types.AccountLimitSnapshotHeight
 	}
-
-	return m.chain.GetLatestSnapshotBlock().Height
 }
 
-func (m *Marker) Mark(fromHeight uint64, terminal <-chan struct{}) (hashSet map[types.Hash]struct{}, isTerminal bool, err error) {
-	markedHeight := fromHeight
+func (m *Marker) MarkAndClean(terminal <-chan struct{}) error {
 	markedHashSet := make(map[types.Hash]struct{})
+	refHashSet := make(map[types.Hash]struct{})
 
-	targetHeight := m.getTargetHeight()
+	// First clear all
+	m.triePool.Clear()
 
-	for {
-		for markedHeight < targetHeight {
-			select {
-			case <-terminal:
-				return nil, true, nil
-			default:
-				currentTargetHeight := markedHeight + m.markHeightPerRound
-				if currentTargetHeight > targetHeight {
-					currentTargetHeight = targetHeight
-				}
-
-				blocks, err := m.chain.GetSnapshotBlocksByHeight(markedHeight, currentTargetHeight-markedHeight, true, false)
-				if err != nil {
-					return nil, false, err
-				}
-				if err := m.setNodeHashSet(blocks, markedHashSet); err != nil {
-					return nil, false, err
-				}
-
-				// if err := m.saveMarkedHeight(currentTargetHeight); err != nil {
-				//		return false, err
-				// }
-				markedHeight = currentTargetHeight
-			}
-		}
-
-		// stop save
-		m.chain.StopSaveTrie()
-
-		nextTargetHeight := m.getTargetHeight()
-		if nextTargetHeight <= targetHeight {
-			break
-		}
-
-		gap := nextTargetHeight - targetHeight
-		if gap > m.stopSaveMinGap {
-			m.chain.StartSaveTrie()
-			// unlock
-		}
-
-		targetHeight = nextTargetHeight
+	lastBeId, err := m.chain.GetLatestBlockEventId()
+	if err != nil {
+		return err
 	}
 
-	// Clean
-	return markedHashSet, false, nil
+	minSnapshotHeight := m.getMinSnapshotHeight()
+	if minSnapshotHeight <= 1 {
+		return nil
+	}
 
+	beginEventId := uint64(1)
+	targetEventId := lastBeId
+
+	markEventIndex := uint64(0)
+	for {
+	LOOP:
+		for i := targetEventId; i >= beginEventId; i-- {
+			eventType, hashList, err := m.chain.GetEvent(i)
+			if err != nil {
+				return err
+			}
+			switch eventType {
+			case access.AddAccountBlocksEvent:
+				for _, hash := range hashList {
+					block, err := m.chain.GetAccountBlockByHash(&hash)
+					if err != nil {
+						return err
+					}
+					if block == nil {
+						continue
+					}
+
+					setErr := m.setAccountBlockNodeHashSet(block, markedHashSet, refHashSet)
+					if setErr != nil {
+						return setErr
+					}
+				}
+			case access.AddSnapshotBlocksEvent:
+				isOver := false
+				for _, hash := range hashList {
+					block, err := m.chain.GetSnapshotBlockByHash(&hash)
+					if err != nil {
+						return err
+					}
+					if block == nil {
+						continue
+					}
+
+					setErr := m.setSnapshotBlockNodeHashSet(block, markedHashSet, refHashSet)
+					if setErr != nil {
+						return setErr
+					}
+
+					if block.Height <= minSnapshotHeight {
+						isOver = true
+					}
+				}
+				if isOver {
+					break LOOP
+				}
+			}
+			markEventIndex++
+			if markEventIndex > m.markEventPerRound {
+				select {
+				case <-terminal:
+					return nil
+				default:
+					if m.markSleepPerRound > 0 {
+						time.Sleep(m.markSleepPerRound)
+					}
+				}
+				markEventIndex = 0
+			}
+
+		}
+
+		// stop
+		m.chain.StopSaveTrie()
+		lastBeId, err := m.chain.GetLatestBlockEventId()
+		if err != nil {
+			return err
+		}
+
+		if lastBeId <= targetEventId {
+			break
+		} else if lastBeId-targetEventId > m.stopSaveMinGap {
+			m.chain.StartSaveTrie()
+		}
+
+		beginEventId = targetEventId + 1
+		targetEventId = lastBeId
+	}
+
+	m.clean(markedHashSet, refHashSet)
+	return nil
 }
+
+//func (m *Marker) Mark(fromHeight uint64, terminal <-chan struct{}) (hashSet map[types.Hash]struct{}, isTerminal bool, err error) {
+//	markedHeight := fromHeight
+//	markedHashSet := make(map[types.Hash]struct{})
+//
+//	targetHeight := m.getTargetHeight()
+//
+//	for {
+//		for markedHeight < targetHeight {
+//			select {
+//			case <-terminal:
+//				return nil, true, nil
+//			default:
+//				currentTargetHeight := markedHeight + m.markHeightPerRound
+//				if currentTargetHeight > targetHeight {
+//					currentTargetHeight = targetHeight
+//				}
+//
+//				blocks, err := m.chain.GetSnapshotBlocksByHeight(markedHeight, currentTargetHeight-markedHeight, true, false)
+//				if err != nil {
+//					return nil, false, err
+//				}
+//				if err := m.setNodeHashSet(blocks, markedHashSet); err != nil {
+//					return nil, false, err
+//				}
+//
+//				// if err := m.saveMarkedHeight(currentTargetHeight); err != nil {
+//				//		return false, err
+//				// }
+//				markedHeight = currentTargetHeight
+//			}
+//		}
+//
+//		// stop save
+//		m.chain.StopSaveTrie()
+//
+//		nextTargetHeight := m.getTargetHeight()
+//		if nextTargetHeight <= targetHeight {
+//			break
+//		}
+//
+//		gap := nextTargetHeight - targetHeight
+//		if gap > m.stopSaveMinGap {
+//			m.chain.StartSaveTrie()
+//			// unlock
+//		}
+//
+//		targetHeight = nextTargetHeight
+//	}
+//
+//	// Clean
+//	return markedHashSet, false, nil
+//
+//}
 
 //func (m *Marker) _Mark(targetHeight uint64, terminal <-chan struct{}) (bool, error) {
 //	targetHeight = m.fixTargetHeight(targetHeight)
@@ -143,15 +257,17 @@ func (m *Marker) Mark(fromHeight uint64, terminal <-chan struct{}) (hashSet map[
 //	return nil
 //}
 
-func (m *Marker) Clean(hashSet map[types.Hash]struct{}) (bool, error) {
-	// do clean
-	// clear cache
-	// clear db
+func (m *Marker) clean(hashSet map[types.Hash]struct{}, refHashSet map[types.Hash]struct{}) (bool, error) {
+
+	m.chain.StopSaveTrie()
+
+	batch := new(leveldb.Batch)
+
+	// clear trie node
 	dbkey, _ := database.EncodeKey(database.DBKP_TRIE_NODE)
 	iter := m.chain.TrieDb().NewIterator(util.BytesPrefix(dbkey), nil)
 	defer iter.Release()
 
-	batch := new(leveldb.Batch)
 	for iter.Next() {
 		key := iter.Key()
 		hash, _ := types.BytesToHash(key[1:])
@@ -160,6 +276,20 @@ func (m *Marker) Clean(hashSet map[types.Hash]struct{}) (bool, error) {
 			batch.Delete(iter.Key())
 		}
 	}
+
+	// clear ref value
+	refDbKey, _ := database.EncodeKey(database.DBKP_TRIE_REF_VALUE)
+	refIter := m.chain.TrieDb().NewIterator(util.BytesPrefix(refDbKey), nil)
+	defer refIter.Release()
+	for refIter.Next() {
+		key := refIter.Key()
+		hash, _ := types.BytesToHash(key[1:])
+
+		if _, ok := refHashSet[hash]; !ok {
+			batch.Delete(refIter.Key())
+		}
+	}
+
 	if err := m.chain.ChainDb().Commit(batch); err != nil {
 		return false, err
 	}
@@ -170,6 +300,8 @@ func (m *Marker) Clean(hashSet map[types.Hash]struct{}) (bool, error) {
 	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 		return false, err
 	}
+
+	m.chain.StartSaveTrie()
 	return false, nil
 
 	//for {
@@ -208,8 +340,31 @@ func (m *Marker) Clean(hashSet map[types.Hash]struct{}) (bool, error) {
 	//return false, nil
 }
 
-func (m *Marker) setNodeHashSet(blocks []*ledger.SnapshotBlock, hashSet map[types.Hash]struct{}) error {
-	var accountStateHashList []types.Hash
+func (m *Marker) setAccountBlockNodeHashSet(accountBlock *ledger.AccountBlock, hashSet map[types.Hash]struct{}, refHashSet map[types.Hash]struct{}) error {
+	stateHash := accountBlock.StateHash
+	return m.setNodeHashSet(stateHash, hashSet, refHashSet, nil)
+}
+func (m *Marker) setSnapshotBlockNodeHashSet(snapshotBlock *ledger.SnapshotBlock, hashSet map[types.Hash]struct{}, refHashSet map[types.Hash]struct{}) error {
+	stateHash := snapshotBlock.StateHash
+	iterateFunc := func(node *trie.TrieNode) error {
+		if node.NodeType() == trie.TRIE_VALUE_NODE {
+			value := node.Value()
+			if len(value) == types.HashSize {
+				accountStateHash, _ := types.BytesToHash(value)
+				if _, ok := hashSet[accountStateHash]; !ok {
+					if err := m.setNodeHashSet(accountStateHash, hashSet, refHashSet, nil); err != nil {
+						return err
+					}
+				}
+
+			}
+		}
+		return nil
+	}
+	return m.setNodeHashSet(stateHash, hashSet, refHashSet, iterateFunc)
+
+}
+func (m *Marker) setNodeHashSet(stateHash types.Hash, hashSet map[types.Hash]struct{}, refHashSet map[types.Hash]struct{}, iterateFunc func(node *trie.TrieNode) error) error {
 
 	inHashSet := func(node *trie.TrieNode) bool {
 		if _, ok := hashSet[*node.Hash()]; ok {
@@ -217,47 +372,86 @@ func (m *Marker) setNodeHashSet(blocks []*ledger.SnapshotBlock, hashSet map[type
 		}
 		return true
 	}
-	for _, block := range blocks {
-		stateTrie := trie.NewTrie(m.chain.ChainDb().Db(), &block.StateHash, m.triePool)
-		ni := stateTrie.NewNodeIterator()
-		for ni.Next(inHashSet) {
-			node := ni.Node()
 
-			nodeHash := node.Hash()
-			if _, ok := hashSet[*nodeHash]; !ok {
-				hashSet[*nodeHash] = struct{}{}
-				if node.IsLeafNode() {
-					value := stateTrie.LeafNodeValue(node)
-					if len(value) == types.HashSize {
-						accountStateHash, err := types.BytesToHash(value)
-						if err != nil {
-							return err
-						}
+	stateTrie := trie.NewTrie(m.chain.ChainDb().Db(), &stateHash, m.triePool)
+	if stateTrie == nil {
+		return errors.New(fmt.Sprintf("stateTrie is nil, stateHash is %s", stateHash))
+	}
+	ni := stateTrie.NewNodeIterator()
+	for ni.Next(inHashSet) {
+		node := ni.Node()
 
-						if _, ok := hashSet[*nodeHash]; !ok {
-							accountStateHashList = append(accountStateHashList, accountStateHash)
-						}
-
-					}
-
+		nodeHash := node.Hash()
+		if _, ok := hashSet[*nodeHash]; !ok {
+			hashSet[*nodeHash] = struct{}{}
+			if iterateFunc != nil {
+				if err := iterateFunc(node); err != nil {
+					return err
 				}
+			}
+			if node.NodeType() == trie.TRIE_HASH_NODE {
+				nodeValue := node.Value()
+				refHash, err := types.BytesToHash(nodeValue)
+				if err != nil {
+					return err
+				}
+				refHashSet[refHash] = struct{}{}
 			}
 		}
 	}
-
-	for _, stateHash := range accountStateHashList {
-		stateTrie := trie.NewTrie(m.chain.ChainDb().Db(), &stateHash, m.triePool)
-		ni := stateTrie.NewNodeIterator()
-		for ni.Next(inHashSet) {
-			node := ni.Node()
-			nodeHash := node.Hash()
-
-			hashSet[*nodeHash] = struct{}{}
-		}
-	}
-
 	return nil
 }
+
+//func (m *Marker) setNodeHashSet(blocks []*ledger.SnapshotBlock, hashSet map[types.Hash]struct{}) error {
+//	var accountStateHashList []types.Hash
+//
+//	inHashSet := func(node *trie.TrieNode) bool {
+//		if _, ok := hashSet[*node.Hash()]; ok {
+//			return false
+//		}
+//		return true
+//	}
+//	for _, block := range blocks {
+//		stateTrie := trie.NewTrie(m.chain.ChainDb().Db(), &block.StateHash, m.triePool)
+//		ni := stateTrie.NewNodeIterator()
+//		for ni.Next(inHashSet) {
+//			node := ni.Node()
+//
+//			nodeHash := node.Hash()
+//			if _, ok := hashSet[*nodeHash]; !ok {
+//				hashSet[*nodeHash] = struct{}{}
+//				if node.IsLeafNode() {
+//					value := stateTrie.LeafNodeValue(node)
+//					if len(value) == types.HashSize {
+//						accountStateHash, err := types.BytesToHash(value)
+//						if err != nil {
+//							return err
+//						}
+//
+//						if _, ok := hashSet[*nodeHash]; !ok {
+//							accountStateHashList = append(accountStateHashList, accountStateHash)
+//						}
+//
+//					}
+//
+//				}
+//			}
+//		}
+//	}
+//
+//	for _, stateHash := range accountStateHashList {
+//		stateTrie := trie.NewTrie(m.chain.ChainDb().Db(), &stateHash, m.triePool)
+//		ni := stateTrie.NewNodeIterator()
+//		for ni.Next(inHashSet) {
+//			node := ni.Node()
+//			nodeHash := node.Hash()
+//
+//			hashSet[*nodeHash] = struct{}{}
+//		}
+//	}
+//
+//	return nil
+//}
 
 //
 //func (m *Marker) isAllCleared() (bool, error) {

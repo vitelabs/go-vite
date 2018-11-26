@@ -2,25 +2,24 @@ package trie_gc_unittest
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/chain/trie_gc"
+	"github.com/vitelabs/go-vite/chain_db/access"
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
 	"testing"
 )
 
 func mergeHashSet(setList ...map[types.Hash]struct{}) map[types.Hash]struct{} {
-	merged := make(map[types.Hash]struct{})
+	newHashSet := make(map[types.Hash]struct{})
 	for _, hashSet := range setList {
 		for hash := range hashSet {
-			merged[hash] = struct{}{}
+			newHashSet[hash] = struct{}{}
 		}
 	}
-	return merged
+
+	return newHashSet
 }
 
 func filterHashSet(setA map[types.Hash]struct{}, setB map[types.Hash]struct{}) map[types.Hash]struct{} {
@@ -33,89 +32,51 @@ func filterHashSet(setA map[types.Hash]struct{}, setB map[types.Hash]struct{}) m
 	return newHashSet
 }
 
-func trieToNodeHashSet(t *trie.Trie) map[types.Hash]struct{} {
-	hasSet := make(map[types.Hash]struct{})
-	nodeList := t.NodeList()
-	for _, node := range nodeList {
-		hash := node.Hash()
-		hasSet[*hash] = struct{}{}
+func getNodeHashSet(chainInstance chain.Chain, isSnapshotBlock bool, stateHash types.Hash, hashSetCache map[types.Hash]struct{}, refHashSet map[types.Hash]struct{}, nodePool *trie.TrieNodePool) {
+
+	if _, ok := hashSetCache[stateHash]; ok {
+		return
 	}
-	return hasSet
-}
 
-func mark(chainInstance chain.Chain, marker *trie_gc.Marker, fromHeight uint64, toHeight uint64) uint64 {
-	latestBlock := chainInstance.GetLatestSnapshotBlock()
-
-	targetHeight := latestBlock.Height
-	if targetHeight > toHeight {
-		targetHeight = toHeight
+	stateTrie := trie.NewTrie(chainInstance.ChainDb().Db(), &stateHash, nodePool)
+	if stateTrie == nil {
+		return
 	}
-	marker.SetMarkedHeight(fromHeight - 1)
-	marker.Mark(targetHeight, nil)
 
-	return targetHeight
-}
-
-func getHashSet(chainInstance chain.Chain, snapshotBlocks []*ledger.SnapshotBlock) (map[types.Hash]struct{}, error) {
-	hashSet := make(map[types.Hash]struct{})
-	for _, snapshotBlock := range snapshotBlocks {
-		stateTrie := trie.NewTrie(chainInstance.ChainDb().Db(), &snapshotBlock.StateHash, nil)
-		if stateTrie == nil {
-			return nil, errors.New("stateTrie is nil")
+	inHashSet := func(node *trie.TrieNode) bool {
+		if _, ok := hashSetCache[*node.Hash()]; ok {
+			return false
 		}
-		hashSet = mergeHashSet(hashSet, trieToNodeHashSet(stateTrie))
+		return true
+	}
+	ni := stateTrie.NewNodeIterator()
+	for ni.Next(inHashSet) {
+		node := ni.Node()
 
-		iter := stateTrie.NewIterator(nil)
-		for {
-			_, value, ok := iter.Next()
-			if !ok {
-				break
-			}
-
-			if len(value) == 32 {
-				accountHash, _ := types.BytesToHash(value)
-				accountStateTrie := trie.NewTrie(chainInstance.ChainDb().Db(), &accountHash, nil)
-
-				hashSet = mergeHashSet(hashSet, trieToNodeHashSet(accountStateTrie))
-
+		nodeHash := node.Hash()
+		hashSetCache[*nodeHash] = struct{}{}
+		if node.NodeType() == trie.TRIE_HASH_NODE {
+			refHash, _ := types.BytesToHash(node.Value())
+			refHashSet[refHash] = struct{}{}
+		} else if node.NodeType() == trie.TRIE_VALUE_NODE {
+			if isSnapshotBlock {
+				value := node.Value()
+				if len(value) == types.HashSize {
+					accountStateHash, _ := types.BytesToHash(value)
+					getNodeHashSet(chainInstance, false, accountStateHash, hashSetCache, refHashSet, nodePool)
+				}
 			}
 		}
+
 	}
-	return hashSet, nil
-}
-
-func getDbTrieNodeNumber(chainInstance chain.Chain) uint64 {
-	key, _ := database.EncodeKey(database.DBKP_TRIE_NODE)
-	iter := chainInstance.ChainDb().Db().NewIterator(util.BytesPrefix(key), nil)
-	defer iter.Release()
-	count := uint64(0)
-	for iter.Next() {
-		count++
-	}
-	return count
-}
-
-func getDbHashSet(marker *trie_gc.Marker) map[types.Hash]struct{} {
-	dbHashSet := make(map[types.Hash]struct{})
-	dbKey, _ := database.EncodeKey(trie_gc.DBKP_MARKED_HASHLIST)
-
-	iter := marker.Db().NewIterator(util.BytesPrefix(dbKey), nil)
-	defer iter.Release()
-
-	for iter.Next() {
-		key := iter.Key()
-		hash, _ := types.BytesToHash(key[1:])
-		dbHashSet[hash] = struct{}{}
-	}
-	return dbHashSet
 }
 
 func checkHashSet(t *testing.T, hashSet1 map[types.Hash]struct{}, hashSet2 map[types.Hash]struct{}) {
 	hashSetLen := len(hashSet1)
-	dbHashSetLen := len(hashSet2)
+	hashSetLen2 := len(hashSet2)
 
-	if hashSetLen != dbHashSetLen {
-		t.Fatal(fmt.Sprintf("hashSet length is wrong, len(hashSet) is %d, len(dbHashSet) id %d", hashSetLen, dbHashSetLen))
+	if hashSetLen != hashSetLen2 {
+		t.Fatal(fmt.Sprintf("hashSet length is wrong, len(hashSet1) is %d, len(hashSet2) id %d", hashSetLen, hashSetLen2))
 	}
 
 	for hash := range hashSet1 {
@@ -123,115 +84,132 @@ func checkHashSet(t *testing.T, hashSet1 map[types.Hash]struct{}, hashSet2 map[t
 			t.Fatal("hashSet is wrong")
 		}
 	}
-
 }
 
-func Test_marker_mark(t *testing.T) {
-	dirName := "testdata"
-	chainInstance := newChainInstance(dirName, false)
+func mockMark(chainInstance chain.Chain) (map[types.Hash]struct{}, map[types.Hash]struct{}, error) {
+	markedHashSet := make(map[types.Hash]struct{})
+	refHashSet := make(map[types.Hash]struct{})
+	boundarySnapshotHeight := chainInstance.GetLatestSnapshotBlock().Height - (86400 + types.AccountLimitSnapshotHeight)
 
-	marker, err := newMarkerInstance(chainInstance, dirName, true)
+	beginEventId := uint64(1)
+	lastBeId, err := chainInstance.GetLatestBlockEventId()
 	if err != nil {
-		t.Fatal(err)
+		return nil, nil, err
 	}
 
-	const (
-		MARK_TO_HEIGHT   = 1000
-		MARK_FROM_HEIGHT = 1
-	)
+	fmt.Printf("lastBeId is %d\n", lastBeId)
 
-	targetHeight := mark(chainInstance, marker, MARK_FROM_HEIGHT, MARK_TO_HEIGHT) - 1
-	count := targetHeight - MARK_FROM_HEIGHT + 1
+	pool := trie.NewCustomTrieNodePool(50*10000, 25*10000)
 
-	snapshotBlocks, err := chainInstance.GetSnapshotBlocksByHeight(targetHeight, count, false, false)
-	if err != nil {
-		t.Fatal(err)
+LOOP:
+	for i := lastBeId; i >= beginEventId; i-- {
+		if i%10000 == 0 {
+			fmt.Printf("current event id is %d, markedHashSet length is %d \n", i, len(markedHashSet))
+		}
+		eventType, hashList, err := chainInstance.GetEvent(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		switch eventType {
+		case access.AddAccountBlocksEvent:
+			for _, hash := range hashList {
+				block, err := chainInstance.GetAccountBlockByHash(&hash)
+				if err != nil {
+					return nil, nil, err
+				}
+				if block == nil {
+					continue
+				}
+				getNodeHashSet(chainInstance, false, block.StateHash, markedHashSet, refHashSet, pool)
+
+			}
+		case access.AddSnapshotBlocksEvent:
+			for _, hash := range hashList {
+				block, err := chainInstance.GetSnapshotBlockByHash(&hash)
+				if err != nil {
+					return nil, nil, err
+				}
+				if block == nil {
+					continue
+				}
+
+				getNodeHashSet(chainInstance, true, block.StateHash, markedHashSet, refHashSet, pool)
+
+				if block.Height < boundarySnapshotHeight {
+					break LOOP
+				}
+			}
+		}
+
 	}
 
-	// get hash set
-	hashSet, err := getHashSet(chainInstance, snapshotBlocks)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// get db hash set
-	dbHashSet := getDbHashSet(marker)
-
-	markedHeight := marker.MarkedHeight()
-	if markedHeight != uint64(count) {
-		t.Fatal("markedHeight is wrong")
-	}
-	checkHashSet(t, hashSet, dbHashSet)
-
-	fmt.Printf("hash set length is %d\n", len(hashSet))
+	return markedHashSet, refHashSet, nil
 }
 
-func Test_marker_filter_mark(t *testing.T) {
-	dirName := "testdata"
-	chainInstance := newChainInstance(dirName, false)
-
-	marker, err := newMarkerInstance(chainInstance, dirName, true)
-	if err != nil {
-		t.Fatal(err)
+func loadAllHashSet(chainInstance chain.Chain) map[types.Hash]struct{} {
+	allHashSet := make(map[types.Hash]struct{})
+	key, _ := database.EncodeKey(database.DBKP_TRIE_NODE)
+	iter := chainInstance.ChainDb().Db().NewIterator(util.BytesPrefix(key), nil)
+	defer iter.Release()
+	for iter.Next() {
+		key, _ := types.BytesToHash(iter.Key()[1:])
+		allHashSet[key] = struct{}{}
 	}
-
-	const (
-		MARK_TO_HEIGHT   = 1000
-		MARK_FROM_HEIGHT = 1
-	)
-
-	targetHeight := mark(chainInstance, marker, MARK_FROM_HEIGHT, MARK_TO_HEIGHT)
-
-	// get db hash set
-	dbHashSet := getDbHashSet(marker)
-
-	snapshotBlock, err := chainInstance.GetSnapshotBlockByHeight(targetHeight)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	hashSet, err := getHashSet(chainInstance, []*ledger.SnapshotBlock{snapshotBlock})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	newHashSet := filterHashSet(dbHashSet, hashSet)
-
-	marker.FilterMarked()
-	newDbHashSet := getDbHashSet(marker)
-
-	checkHashSet(t, newHashSet, newDbHashSet)
-
-	fmt.Printf("Origin hash set is %d, new hash set is %d\n", len(dbHashSet), len(newDbHashSet))
+	return allHashSet
 }
 
-func Test_marker_clean(t *testing.T) {
+func loadAllRefHashSet(chainInstance chain.Chain) map[types.Hash]struct{} {
+	allHashSet := make(map[types.Hash]struct{})
+	key, _ := database.EncodeKey(database.DBKP_TRIE_REF_VALUE)
+	iter := chainInstance.ChainDb().Db().NewIterator(util.BytesPrefix(key), nil)
+	defer iter.Release()
+	for iter.Next() {
+		key, _ := types.BytesToHash(iter.Key()[1:])
+		allHashSet[key] = struct{}{}
+	}
+	return allHashSet
+}
+
+func Test_marker_mark_clean(t *testing.T) {
 	dirName := "testdata"
 	chainInstance := newChainInstance(dirName, false)
+	marker := newMarkerInstance(chainInstance)
 
-	marker, err := newMarkerInstance(chainInstance, dirName, true)
+	fmt.Printf("loadAllHashSet...\n")
+	allHashSet := loadAllHashSet(chainInstance)
+	fmt.Printf("allHashSet length is %d...\n", len(allHashSet))
+
+	fmt.Printf("loadAllRefHashSet...\n")
+	allRefHashSet := loadAllRefHashSet(chainInstance)
+	fmt.Printf("allRefHashSet length is %d...\n", len(allRefHashSet))
+
+	fmt.Printf("mockMark...\n")
+	markedHashSetByMock, refHashSetByMock, err := mockMark(chainInstance)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	const (
-		MARK_TO_HEIGHT   = 100 * 10000
-		MARK_FROM_HEIGHT = 1
-	)
-	mark(chainInstance, marker, MARK_FROM_HEIGHT, MARK_TO_HEIGHT)
-	marker.FilterMarked()
-
-	dbHashSet := getDbHashSet(marker)
-	trieNodeCount := getDbTrieNodeNumber(chainInstance)
-
-	marker.Clean(nil)
-	newDbHashSet := getDbHashSet(marker)
-	if len(newDbHashSet) > 0 {
-		t.Fatal("clean failed")
+	fmt.Printf("marker.MarkAndClean...\n")
+	err2 := marker.MarkAndClean(nil)
+	if err2 != nil {
+		t.Fatal(err2)
 	}
 
-	newTrieNodeCount := getDbTrieNodeNumber(chainInstance)
-	if trieNodeCount-newTrieNodeCount != uint64(len(dbHashSet)) {
-		t.Fatal(fmt.Sprintf("clean error, newTrieNodeCount is %d, trieNodeCount is %d, delete count is %d, len(dbHashSet) is %d", newTrieNodeCount, trieNodeCount, trieNodeCount-newTrieNodeCount, len(dbHashSet)))
-	}
+	fmt.Printf("loadNewAllHashSet...\n")
+	newAllHashSet := loadAllHashSet(chainInstance)
+
+	fmt.Printf("loadNewAllRefHashSet...\n")
+	newAllRefHashSet := loadAllRefHashSet(chainInstance)
+
+	fmt.Printf("checkHashSet...\n")
+	checkHashSet(t, newAllHashSet, markedHashSetByMock)
+
+	fmt.Printf("checkRefHashSet...\n")
+	checkHashSet(t, newAllRefHashSet, refHashSetByMock)
+
+	cleanHashSet := filterHashSet(allHashSet, newAllHashSet)
+	fmt.Printf("Clean %d trie nodes\n", len(cleanHashSet))
+
+	cleanRefHashSet := filterHashSet(allRefHashSet, newAllRefHashSet)
+	fmt.Printf("Clean %d ref nodes\n", len(cleanRefHashSet))
 }

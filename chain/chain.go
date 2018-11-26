@@ -37,9 +37,8 @@ type chain struct {
 	genesisSnapshotBlock *ledger.SnapshotBlock
 	latestSnapshotBlock  *ledger.SnapshotBlock
 
-	dataDir         string
-	ledgerDirName   string
-	ledgerGcDirName string
+	dataDir       string
+	ledgerDirName string
 
 	em *eventManager
 
@@ -58,7 +57,6 @@ func NewChain(cfg *config.Config) Chain {
 	chain := &chain{
 		log:                  log15.New("module", "chain"),
 		ledgerDirName:        "ledger",
-		ledgerGcDirName:      "ledger_gc",
 		genesisSnapshotBlock: &GenesisSnapshotBlock,
 		dataDir:              cfg.DataDir,
 		cfg:                  cfg.Chain,
@@ -97,11 +95,7 @@ func (c *chain) Init() {
 	c.initCache()
 
 	// trie gc
-	var newCollectorGcErr error
-	c.trieGc, newCollectorGcErr = trie_gc.NewCollector(c, filepath.Join(c.dataDir, c.ledgerGcDirName))
-	if newCollectorGcErr != nil {
-		c.log.Crit("trie_gc.NewCollector failed, error is "+newCollectorGcErr.Error(), "method", "Init")
-	}
+	c.trieGc = trie_gc.NewCollector(c)
 
 	// compressor
 	compressor := compress.NewCompressor(c, c.dataDir)

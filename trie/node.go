@@ -1,7 +1,6 @@
 package trie
 
 import (
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -72,6 +71,10 @@ func NewValueNode(value []byte) *TrieNode {
 	}
 
 	return node
+}
+
+func (trieNode *TrieNode) Value() []byte {
+	return trieNode.value
 }
 
 func (trieNode *TrieNode) AtomicComplete(completeFunc func()) {
@@ -148,7 +151,6 @@ func (trieNode *TrieNode) Hash() *types.Hash {
 		case TRIE_SHORT_NODE:
 			source = []byte{TRIE_SHORT_NODE}
 			source = append(source, trieNode.key[:]...)
-			fmt.Printf("gogo: %+v\n", trieNode.child)
 			source = append(source, trieNode.child.Hash().Bytes()...)
 		case TRIE_HASH_NODE:
 			source = []byte{TRIE_HASH_NODE}

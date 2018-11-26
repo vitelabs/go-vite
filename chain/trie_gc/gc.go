@@ -1,18 +1,16 @@
 package trie_gc
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/log15"
+	"math/rand"
 	"sync"
 	"time"
 )
 
 const (
-	STATUS_STOPPED       = 1
-	STATUS_STARTED       = 2
-	STATUS_MARKING       = 3
-	STATUS_FILTER_MARKED = 4
-	STATUS_CLEANING      = 5
+	STATUS_STOPPED              = 1
+	STATUS_STARTED              = 2
+	STATUS_MARKING_AND_CLEANING = 3
 )
 
 type collector struct {
@@ -24,41 +22,35 @@ type collector struct {
 
 	wg sync.WaitGroup
 
-	checkInterval time.Duration
-	ticker        *time.Ticker
+	minCheckInterval time.Duration
+	maxCheckInterval time.Duration
+	ticker           *time.Ticker
 
 	chain Chain
 
 	log log15.Logger
 
-	minRetain uint64
-
 	marker *Marker
 }
 
-func NewCollector(chain Chain, gcDbPath string) (Collector, error) {
+func NewCollector(chain Chain) Collector {
 	gc := &collector{
-		checkInterval: time.Hour,
-		chain:         chain,
-		log:           log15.New("module", "trie_gc"),
+		minCheckInterval: time.Hour,
+		maxCheckInterval: 3 * time.Hour,
 
-		minRetain: 3600 * 24, // retain trie for about the most recent day
+		chain: chain,
+		log:   log15.New("module", "trie_gc"),
+
+		marker: NewMarker(chain),
 	}
 
-	gcDb, err := leveldb.OpenFile(gcDbPath, nil)
-	if err != nil {
-		gc.log.Error("gcDb open failed, error is "+err.Error(), "method", "NewCollector")
-		return nil, err
-	}
+	return gc
+}
 
-	if mk, err := NewMarker(chain, gcDb); err != nil {
-		gc.log.Error("newMarker failed, error is "+err.Error(), "method", "NewCollector")
-		return nil, err
-	} else {
-		gc.marker = mk
-	}
-
-	return gc, nil
+func (gc *collector) randomCheckInterval() time.Duration {
+	minCheckInterval := int64(gc.minCheckInterval)
+	maxCheckInterval := int64(gc.maxCheckInterval)
+	return time.Duration(minCheckInterval + rand.Int63n(maxCheckInterval-minCheckInterval))
 }
 
 func (gc *collector) Start() {
@@ -69,7 +61,7 @@ func (gc *collector) Start() {
 		return
 	}
 
-	gc.ticker = time.NewTicker(gc.checkInterval)
+	gc.ticker = time.NewTicker(gc.randomCheckInterval())
 	gc.taskTerminal = make(chan struct{})
 	gc.terminal = make(chan struct{})
 
@@ -77,11 +69,12 @@ func (gc *collector) Start() {
 	go func() {
 		defer gc.wg.Done()
 
-		gc.checkAndRunTask()
+		gc.runTask()
 		for {
 			select {
 			case <-gc.ticker.C:
-				gc.checkAndRunTask()
+				gc.ticker = time.NewTicker(gc.randomCheckInterval())
+				gc.runTask()
 			case <-gc.terminal:
 				return
 			}
@@ -111,36 +104,15 @@ func (gc *collector) Status() uint8 {
 	return gc.status
 }
 
-func (gc *collector) ClearedHeight() uint64 {
-	return gc.marker.clearedHeight
-}
-
-func (gc *collector) MarkedHeight() uint64 {
-	return gc.marker.markedHeight
-}
-
-func (gc *collector) checkAndRunTask() {
-	if gc.check() {
-		gc.runTask()
-	}
-}
-
-func (gc *collector) check() bool {
-	needGc := true
-	targetHeight := gc.getTargetHeight()
-	if targetHeight <= 1 ||
-		targetHeight <= gc.marker.ClearedHeight() {
-		needGc = false
-	}
-
-	return needGc
-}
-
 func (gc *collector) runTask() {
-	targetHeight := gc.getTargetHeight()
-	if targetHeight <= 1 {
+	gc.statusLock.Lock()
+	if gc.status > STATUS_STARTED {
+		gc.log.Error("One task is already running, can't run multiple tasks in parallel.", "method", "runTask")
+		gc.statusLock.Unlock()
 		return
 	}
+	gc.status = STATUS_MARKING_AND_CLEANING
+	gc.statusLock.Unlock()
 
 	defer func() {
 		gc.statusLock.Lock()
@@ -148,47 +120,8 @@ func (gc *collector) runTask() {
 		gc.statusLock.Unlock()
 	}()
 
-	gc.statusLock.Lock()
-	gc.status = STATUS_MARKING
-	gc.statusLock.Unlock()
-	if isTerminal, err := gc.marker.Mark(targetHeight, gc.taskTerminal); err != nil {
+	if err := gc.marker.MarkAndClean(gc.taskTerminal); err != nil {
 		gc.log.Error("gc.Marker.Mark failed, error is "+err.Error(), "method", "runTask")
 		return
-	} else if isTerminal {
-		return
 	}
-
-	gc.statusLock.Lock()
-	gc.status = STATUS_FILTER_MARKED
-	gc.statusLock.Unlock()
-	if err := gc.marker.FilterMarked(); err != nil {
-		gc.log.Error("gc.Marker.FilterMarked failed, error is "+err.Error(), "method", "runTask")
-		return
-	}
-
-	gc.statusLock.Lock()
-	gc.status = STATUS_CLEANING
-	gc.statusLock.Unlock()
-
-	if isTerminal, err := gc.marker.Clean(gc.taskTerminal); err != nil {
-		gc.log.Error("gc.Marker.clean failed, error is "+err.Error(), "method", "runTask")
-		return
-	} else if isTerminal {
-		return
-	}
-
-}
-
-func (gc *collector) getTargetHeight() uint64 {
-	latestSnapshotBlock := gc.chain.GetLatestSnapshotBlock()
-	if latestSnapshotBlock == nil {
-		return 0
-	}
-
-	latestHeight := gc.chain.GetLatestSnapshotBlock().Height
-	if latestHeight < gc.minRetain {
-		return 0
-	}
-
-	return latestHeight - gc.minRetain + 1
 }
