@@ -264,7 +264,27 @@ func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, sendBlockHash
 		}
 		referredList = append(referredList, sendBlock.SnapshotHash)
 	}
-	return generator.GetFitestGeneratorSnapshotHash(l.chain, accAddr, referredList)
+
+	prevHash, fittestHash, err := generator.GetFitestGeneratorSnapshotHash(l.chain, accAddr, referredList)
+	if err != nil {
+		return nil, err
+	}
+	if prevHash == nil {
+		return fittestHash, nil
+	}
+	prevQuota, err := l.chain.GetPledgeQuota(*prevHash, *accAddr)
+	if err != nil {
+		return nil, err
+	}
+	fittestQuota, err := l.chain.GetPledgeQuota(*fittestHash, *accAddr)
+	if err != nil {
+		return nil, err
+	}
+	if prevQuota <= fittestQuota {
+		return fittestHash, nil
+	} else {
+		return prevHash, nil
+	}
 
 	//gap := uint64(0)
 	//targetHeight := latestBlock.Height
