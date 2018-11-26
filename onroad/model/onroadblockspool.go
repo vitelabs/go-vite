@@ -22,7 +22,9 @@ var (
 		contracts.AddressPledge,
 		contracts.AddressRegister,
 		contracts.AddressVote,
-		contracts.AddressConsensusGroup}
+		contracts.AddressConsensusGroup,
+		contracts.AddressDexFund,
+		contracts.AddressDexTrade}
 )
 
 // obtaining the account info from cache or db and manage the cache lifecycle

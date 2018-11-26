@@ -29,7 +29,9 @@ func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 		bytes.Equal(addr.Bytes(), contracts.AddressVote.Bytes()) ||
 		bytes.Equal(addr.Bytes(), contracts.AddressPledge.Bytes()) ||
 		bytes.Equal(addr.Bytes(), contracts.AddressConsensusGroup.Bytes()) ||
-		bytes.Equal(addr.Bytes(), contracts.AddressMintage.Bytes()) {
+		bytes.Equal(addr.Bytes(), contracts.AddressMintage.Bytes()) ||
+		bytes.Equal(addr.Bytes(), contracts.AddressDexFund.Bytes()) ||
+		bytes.Equal(addr.Bytes(), contracts.AddressDexTrade.Bytes()) {
 		return &types.DELEGATE_GID, nil
 	}
 

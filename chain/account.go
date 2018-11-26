@@ -15,7 +15,9 @@ func (c *chain) AccountType(address *types.Address) (uint64, error) {
 		bytes.Equal(address.Bytes(), contracts.AddressVote.Bytes()) ||
 		bytes.Equal(address.Bytes(), contracts.AddressPledge.Bytes()) ||
 		bytes.Equal(address.Bytes(), contracts.AddressConsensusGroup.Bytes()) ||
-		bytes.Equal(address.Bytes(), contracts.AddressMintage.Bytes()) {
+		bytes.Equal(address.Bytes(), contracts.AddressMintage.Bytes()) ||
+		bytes.Equal(address.Bytes(), contracts.AddressDexFund.Bytes()) ||
+		bytes.Equal(address.Bytes(), contracts.AddressDexTrade.Bytes()) {
 		return ledger.AccountTypeContract, nil
 	}
 
