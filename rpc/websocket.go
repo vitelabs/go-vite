@@ -80,6 +80,12 @@ func NewWSServer(allowedOrigins []string, srv *Server) *http.Server {
 	return &http.Server{Handler: srv.WebsocketHandler(allowedOrigins)}
 }
 
+// NewWSCli creates a new websocket RPC connect around an API provider.
+//
+func NewWSCli(url url.URL, srv *Server) *WebSocketCli {
+	return &WebSocketCli{u: url, srv: srv}
+}
+
 // wsHandshakeValidator returns a handler that verifies the origin during the
 // websocket upgrade process. When a '*' is specified as an allowed origins all
 // connections are accepted.
@@ -194,3 +200,61 @@ func contextDialer(ctx context.Context) *net.Dialer {
 	return dialer
 }
 
+type WebSocketCli struct {
+	u            url.URL
+	c            *websocket.Conn
+	srv          *Server
+	closed       chan struct{}
+	nextConnTime time.Time
+}
+
+func (self *WebSocketCli) Srv(c *websocket.Conn) error {
+	// Create a custom encode/decode pair to enforce payload size and number encoding
+	c.MaxPayloadBytes = maxRequestContentLength
+
+	encoder := func(v interface{}) error {
+		return websocketJSONCodec.Send(c, v)
+	}
+	decoder := func(v interface{}) error {
+		return websocketJSONCodec.Receive(c, v)
+	}
+	self.srv.ServeCodec(NewCodec(c, encoder, decoder), OptionMethodInvocation|OptionSubscriptions)
+
+	return nil
+}
+
+func (self *WebSocketCli) Close() {
+	close(self.closed)
+	conn := self.c
+	if conn != nil {
+		conn.Close()
+	}
+}
+func (self *WebSocketCli) Handle() {
+	for {
+		select {
+		case <-self.closed:
+			return
+		default:
+		}
+
+		c, err := websocket.Dial(self.u.String(), "", "*")
+		if err == nil {
+			log.Info("connect to " + self.u.String() + " success.")
+			self.c = c
+		} else {
+			log.Warn("can't connect to "+self.u.String()+" by websocket.", err)
+		}
+		if c != nil {
+			err = self.Srv(c)
+			if err != nil {
+				log.Warn("deal message error", err)
+			}
+			self.c = nil
+		}
+		if c == nil {
+			time.Sleep(time.Second * 20)
+			break
+		}
+	}
+}

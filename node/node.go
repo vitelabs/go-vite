@@ -11,12 +11,12 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/pow/remote"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/pow"
 )
 
 var (
@@ -318,6 +318,17 @@ func (node *Node) startRPC() error {
 			node.stopIPC()
 			node.stopHTTP()
 			return err
+		}
+	}
+	{
+		apis := rpcapi.GetPublicApis(node.viteServer)
+		if len(node.config.PublicModules) != 0 {
+			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
+		}
+		cli, server, e := rpc.StartWSCliEndpoint(apis, nil, true)
+		if e != nil {
+			cli.Close()
+			server.Stop()
 		}
 	}
 
