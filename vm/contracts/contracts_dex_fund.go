@@ -12,7 +12,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
-	"math"
 	"math/big"
 	"strings"
 	"time"
@@ -106,9 +105,9 @@ func (md *MethodDexFundUserDeposit) DoReceive(context contractsContext, block *v
 		return fmt.Errorf("deposit amount exceed token balance")
 	}
 	account, exists := getAccountByTokeIdFromFund(dexFund, sendBlock.TokenId)
-	bigAmt := big.NewInt(0).SetUint64(account.Available)
+	bigAmt := big.NewInt(0).SetBytes(account.Available)
 	bigAmt = bigAmt.Add(bigAmt, sendBlock.Amount)
-	account.Available += bigAmt.Uint64()
+	account.Available = dex.AddBigInt(account.Available, bigAmt.Bytes())
 	if !exists {
 		dexFund.Accounts = append(dexFund.Accounts, account)
 	}
@@ -151,12 +150,12 @@ func (md *MethodDexFundUserWithdraw) DoReceive(context contractsContext, block *
 		return err
 	}
 	account, _ := getAccountByTokeIdFromFund(dexFund, param.Token)
-	available := big.NewInt(0).SetUint64(account.Available)
+	available := big.NewInt(0).SetBytes(account.Available)
 	if available.Cmp(param.Amount) < 0 {
 		return fmt.Errorf("withdraw amount exceed fund available")
 	}
 	available = available.Sub(available, param.Amount)
-	account.Available = available.Uint64()
+	account.Available = available.Bytes()
 	if err = saveFundToStorage(block.VmContext, sendBlock.AccountAddress, dexFund); err != nil {
 		return err
 	}
@@ -217,15 +216,19 @@ func (md *MethodDexFundNewOrder) DoReceive(context contractsContext, block *vm_c
 	proto.Unmarshal(param.Data, order)
 	var (
 		dexFund = &DexFund{}
+		needUpdate bool
 	)
 	if dexFund, err = GetFundFromStorage(block.VmContext, sendBlock.AccountAddress); err != nil {
 		return err
 	}
-	if err = tryLockFundForNewOrder(dexFund, order); err != nil {
+	if needUpdate, err = tryLockFundForNewOrder(dexFund, order); err != nil {
 		return err
 	}
 	if err = saveFundToStorage(block.VmContext, sendBlock.AccountAddress, dexFund); err != nil {
 		return err
+	}
+	if needUpdate {// update for market buy order amount setting
+		param.Data, _ = proto.Marshal(order)
 	}
 	tradeBlockData, _ := ABIDexTrade.PackMethod(MethodNameDexTradeNewOrder, param.Data)
 	context.AppendBlock(
@@ -297,48 +300,65 @@ func GetUserFundKey(address types.Address) []byte {
 }
 
 func checkFundForNewOrder(dexFund *DexFund, order *dexproto.Order) error {
-	return checkAndLockFundForNewOrder(dexFund, order, true)
+	_, err := checkAndLockFundForNewOrder(dexFund, order, true)
+	return err
 }
-func tryLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order) error {
+
+func tryLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order) (needUpdate bool, err error) {
 	return checkAndLockFundForNewOrder(dexFund, order, false)
 }
 
-func checkAndLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order, onlyCheck bool) error {
+func checkAndLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order, onlyCheck bool) (needUpdate bool, err error) {
 	var (
-		lockToken   []byte
-		lockAmount  uint64
+		lockToken, lockAmount []byte
 		lockTokenId *types.TokenTypeId
-		err         error
+		lockAmountToInc *big.Int
 	)
 	switch order.Side {
 	case false: //buy
 		lockToken = order.QuoteToken
-		lockAmount = order.Amount
+		if order.Type == dex.Limited {
+			lockAmount = order.Amount
+		}
 	case true: // sell
 		lockToken = order.TradeToken
 		lockAmount = order.Quantity
 	}
 	if lockTokenId, err = fromBytesToTokenTypeId(lockToken); err != nil {
-		return err
+		return false, err
 	}
 	account, exists := getAccountByTokeIdFromFund(dexFund, *lockTokenId)
-	available := big.NewInt(0).SetUint64(account.Available)
-	lockAmountToInc := big.NewInt(0).SetUint64(lockAmount)
-	if available.Cmp(lockAmountToInc) < 0 {
-		return fmt.Errorf("order lock amount exceed fund available")
+	available := big.NewInt(0).SetBytes(account.Available)
+	if order.Type != dex.Market || order.Side {// limited or sell order
+		lockAmountToInc = new(big.Int).SetBytes(lockAmount)
+		if available.Cmp(lockAmountToInc) < 0 {
+			return false, fmt.Errorf("order lock amount exceed fund available")
+		}
 	}
+
 	if onlyCheck {
-		return nil
+		return false, nil
+	}
+	if !order.Side && order.Type == dex.Market {
+		if available.Cmp(big.NewInt(0)) == 0 {
+			return false, fmt.Errorf("no quote amount available for market sell order")
+		} else {
+			lockAmount = available.Bytes()
+			//NOTE: use amount available for order amount to full fill
+			order.Amount = lockAmount
+			lockAmountToInc = available
+			needUpdate = true
+		}
 	}
 	available = available.Sub(available, lockAmountToInc)
-	lockedInBig := big.NewInt(0).SetUint64(account.Locked)
+	lockedInBig := big.NewInt(0).SetBytes(account.Locked)
 	lockedInBig = lockedInBig.Add(lockedInBig, lockAmountToInc)
-	account.Available = available.Uint64()
-	account.Locked = lockedInBig.Uint64()
+	account.Available = available.Bytes()
+	account.Locked = lockedInBig.Bytes()
 	if !exists {
 		dexFund.Accounts = append(dexFund.Accounts, account)
 	}
-	return nil
+	return needUpdate, nil
 }
 
 func GetFundFromStorage(storage vmctxt_interface.VmDatabase, address types.Address) (dexFund *DexFund, err error) {
@@ -369,8 +389,8 @@ func getAccountByTokeIdFromFund(dexFund *DexFund, token types.TokenTypeId) (acco
 	}
 	account = &dexproto.Account{}
 	account.Token = token.Bytes()
-	account.Available = 0
-	account.Locked = 0
+	account.Available = big.NewInt(0).Bytes()
+	account.Locked = big.NewInt(0).Bytes()
 	return account, false
 }
 
@@ -413,24 +433,32 @@ func checkOrderParam(db StorageDatabase, order *dexproto.Order) error {
 	if order.Type != dex.Market && order.Type != dex.Limited {
 		return fmt.Errorf("invalid order type")
 	}
-	if order.Price < 0 || math.Abs(order.Price) < dex.MinPricePermit {
-		return fmt.Errorf("invalid order price")
+	if order.Type == dex.Limited {
+		if !dex.ValidPrice(order.Price) {
+			return fmt.Errorf("invalid format for price")
+		}
 	}
-	if order.Quantity <= 0 {
+	if dex.CmpToBigZero(order.Quantity) <= 0 {
 		return fmt.Errorf("invalid trade quantity for order")
 	}
 	return nil
 }
 
 func renderOrder(order *dexproto.Order, address types.Address) {
-	order.Address = string(address.Bytes())
-	order.Amount = dex.CalculateAmount(order.Quantity, order.Price)
+	order.Address = address.Bytes()
+	if order.Type == dex.Limited {
+		order.Amount = dex.CalculateAmount(order.Quantity, order.Price)
+	}
 	order.Status = dex.Pending
 	order.Timestamp = time.Now().UnixNano() / 1000
-	order.ExecutedQuantity = 0
-	order.ExecutedAmount = 0
+	order.ExecutedQuantity = big.NewInt(0).Bytes()
+	order.ExecutedAmount = big.NewInt(0).Bytes()
 	order.RefundToken = []byte{}
-	order.RefundQuantity = 0
+	order.RefundQuantity = big.NewInt(0).Bytes()
+}
+
+func renderForMarketBuy(order *dexproto.Order) {
+
 }
 
 func checkActions(actions *dexproto.SettleActions) error {
@@ -444,13 +472,13 @@ func checkActions(actions *dexproto.SettleActions) error {
 		if len(v.Token) != 10 {
 			return fmt.Errorf("invalid tokenId format for settle")
 		}
-		if v.IncAvailable < 0 {
+		if dex.CmpToBigZero(v.IncAvailable) < 0 {
 			return fmt.Errorf("negative incrAvailable for settle")
 		}
-		if v.DeduceLocked < 0 {
+		if dex.CmpToBigZero(v.DeduceLocked) < 0 {
 			return fmt.Errorf("negative deduceLocked for settle")
 		}
-		if v.ReleaseLocked < 0 {
+		if dex.CmpToBigZero(v.ReleaseLocked) < 0 {
 			return fmt.Errorf("negative releaseLocked for settle")
 		}
 	}
@@ -470,20 +498,20 @@ func doSettleAction(db vmctxt_interface.VmDatabase, action *dexproto.SettleActio
 				return err
 			}
 			account, exists := getAccountByTokeIdFromFund(dexFund, *tokenId)
-			if action.DeduceLocked > 0 {
-				if action.DeduceLocked > account.Locked {
+			if dex.CmpToBigZero(action.DeduceLocked) > 0 {
+				if dex.CmpForBigInt(action.DeduceLocked, account.Locked) > 0 {
 					return fmt.Errorf("try deduce locked amount execeed locked")
 				}
-				account.Locked -= action.DeduceLocked
+				account.Locked = dex.SubBigInt(account.Locked, action.DeduceLocked)
 			}
-			if action.ReleaseLocked > 0 {
-				if action.ReleaseLocked > account.Locked {
+			if dex.CmpToBigZero(action.ReleaseLocked) > 0 {
+				if dex.CmpForBigInt(action.ReleaseLocked, account.Locked) > 0 {
 					return fmt.Errorf("try release locked amount execeed locked")
 				}
-				account.Locked -= action.ReleaseLocked
+				account.Locked = dex.SubBigInt(account.Locked, action.ReleaseLocked)
 			}
-			if action.IncAvailable > 0 {
-				account.Available += action.IncAvailable
+			if dex.CmpToBigZero(action.IncAvailable) > 0 {
+				account.Available = dex.AddBigInt(account.Available, action.IncAvailable)
 			}
 			if !exists {
 				dexFund.Accounts = append(dexFund.Accounts, account)

@@ -34,7 +34,7 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = buyAddress0
 	senderVmBlock.AccountBlock = senderAccBlock
-	buyOrder0 := getNewOrderData(101, buyAddress0, ETH, VITE, false, 30, 10)
+	buyOrder0 := getNewOrderData(101, buyAddress0, ETH, VITE, false, "30", 10)
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, buyOrder0)
 	_, err := method.DoSend(&VmContext{}, senderVmBlock, 100100100)
 	assert.Equal(t, "invalid block source", err.Error())
@@ -57,7 +57,7 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	assert.Equal(t, 0, len(context.appendedBlocks))
 
 	clearContext(context, db)
-	sellOrder0 := getNewOrderData(202, sellAddress0, ETH, VITE, true, 31, 300)
+	sellOrder0 := getNewOrderData(202, sellAddress0, ETH, VITE, true, "31", 300)
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, sellOrder0)
 	err = method.DoReceive(context, receiveVmBlock, senderAccBlock)
 	assert.True(t, err == nil)
@@ -65,7 +65,7 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	assert.Equal(t, 0, len(context.appendedBlocks))
 
 	clearContext(context, db)
-	buyOrder1 := getNewOrderData(102, buyAddress1, ETH, VITE, false, 32, 400)
+	buyOrder1 := getNewOrderData(102, buyAddress1, ETH, VITE, false, "32", 400)
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, buyOrder1)
 	err = method.DoReceive(context, receiveVmBlock, senderAccBlock)
 	assert.Equal(t, 3, len(db.logList))
@@ -83,15 +83,15 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 		// sellOrder0
 		if bytes.Equal([]byte(ac.Address), sellAddress0.Bytes()) {
 			if bytes.Equal(ac.Token, ETH.Bytes()) {
-				assert.Equal(t, ac.DeduceLocked, uint64(300))
+				assert.True(t, CheckBigEqualToInt(300, ac.DeduceLocked))
 			} else if bytes.Equal(ac.Token, VITE.Bytes()) {
-				assert.Equal(t, ac.IncAvailable, uint64(9300))
+				assert.True(t, CheckBigEqualToInt(9300, ac.IncAvailable))
 			}
 		} else {
 			if bytes.Equal(ac.Token, ETH.Bytes()) {
-				assert.Equal(t, ac.IncAvailable, uint64(300))
+				assert.True(t, CheckBigEqualToInt(300, ac.IncAvailable))
 			} else if bytes.Equal(ac.Token, VITE.Bytes()) {
-				assert.Equal(t, ac.DeduceLocked, uint64(9300))
+				assert.True(t, CheckBigEqualToInt(9300, ac.DeduceLocked))
 			}
 		}
 	}
@@ -147,7 +147,7 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 1, len(actions.Actions))
 	assert.True(t, bytes.Equal(actions.Actions[0].Token, VITE.Bytes()))
-	assert.Equal(t, uint64(3500), actions.Actions[0].ReleaseLocked)
+	assert.True(t, CheckBigEqualToInt(3500, actions.Actions[0].ReleaseLocked))
 
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, big.NewInt(102), ETH, VITE, false)
 	_, err = method.DoSend(&VmContext{}, senderVmBlock, 100100100)
@@ -160,23 +160,23 @@ func initDexTradeDatabase()  *testDatabase {
 	return db
 }
 
-func getNewOrderData(id uint64, address types.Address, tradeToken types.TokenTypeId, quoteToken types.TokenTypeId, side bool, price float64, quantity uint64) []byte {
+func getNewOrderData(id uint64, address types.Address, tradeToken types.TokenTypeId, quoteToken types.TokenTypeId, side bool, price string, quantity int64) []byte {
 	order := &dexproto.Order{}
 	order.Id = id
-	order.Address = string(address.Bytes())
+	order.Address = address.Bytes()
 	order.TradeToken = tradeToken.Bytes()
 	order.QuoteToken = quoteToken.Bytes()
 	order.Side = side //sell
 	order.Type = dex.Limited
 	order.Price = price
-	order.Quantity = quantity
+	order.Quantity = big.NewInt(quantity).Bytes()
 	order.Amount = dex.CalculateAmount(order.Quantity, order.Price)
-	order.Status =  dex.FullyExecuted
+	order.Status =  dex.Pending
 	order.Timestamp = time.Now().UnixNano()/1000
-	order.ExecutedQuantity = 0
-	order.ExecutedAmount = 0
+	order.ExecutedQuantity = big.NewInt(0).Bytes()
+	order.ExecutedAmount = big.NewInt(0).Bytes()
 	order.RefundToken = []byte{}
-	order.RefundQuantity = 0
+	order.RefundQuantity = big.NewInt(0).Bytes()
 	data, _ := proto.Marshal(order)
 	return data
 }

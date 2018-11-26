@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"math/big"
+	"strings"
 	"time"
 )
 
@@ -43,16 +44,8 @@ func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *matcher {
 	return mc
 }
 
-func (mc *matcher) MatchOrder(order Order) {
-	var (
-		bookToTake *skiplist
-		taker      Order
-		ok         bool
-	)
-	if taker, ok = validateAndRenderOrder(order); !ok {
-		mc.emitOrderRes(taker)
-		return
-	}
+func (mc *matcher) MatchOrder(taker Order) {
+	var bookToTake *skiplist
 	bookToTake = mc.getBookByName(getBookNameToTake(taker))
 	if err := mc.doMatchTaker(taker, bookToTake); err != nil {
 		fmt.Printf("Failed to match taker for %s", err.Error())
@@ -284,11 +277,13 @@ func matchPrice(taker Order, maker Order) (matched bool, executedPrice string) {
 		return true, maker.Price
 	} else {
 		matched = false
-		switch maker.Side {
+		tp, _ := new(big.Float).SetString(taker.Price)
+		mp, _ := new(big.Float).SetString(maker.Price)
+		switch taker.Side {
 		case false: // buy
-			matched = maker.Price > taker.Price
+			matched = tp.Cmp(mp) >= 0
 		case true: // sell
-			matched = maker.Price < taker.Price
+			matched = tp.Cmp(mp) <= 0
 		}
 		return matched, maker.Price
 	}
@@ -346,7 +341,9 @@ func calculateOrderAmount(order *Order, quantity []byte, price string) []byte {
 
 func updateOrder(order *Order, quantity []byte, amount []byte) []byte {
 	order.ExecutedAmount = AddBigInt(order.ExecutedAmount, amount)
-	if bytes.Equal(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity) || isDust(order, quantity) {
+	if bytes.Equal(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity) ||
+		order.Type == Market && !order.Side && bytes.Equal(SubBigInt(order.Amount, order.ExecutedAmount), amount) || // market buy order
+		isDust(order, quantity) {
 		order.Status = FullyExecuted
 	} else {
 		order.Status = PartialExecuted
@@ -354,6 +351,7 @@ func updateOrder(order *Order, quantity []byte, amount []byte) []byte {
 	order.ExecutedQuantity = AddBigInt(order.ExecutedQuantity, quantity)
 	return amount
 }
+
 // leave quantity is too small for calculate precision
 func isDust(order *Order, quantity []byte) bool {
 	return new(big.Int).SetBytes(CalculateAmount(SubBigInt(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity), order.Price)).Cmp(big.NewInt(1)) < 0
@@ -368,33 +366,18 @@ func getMakerById(makerBook *skiplist, orderId nodeKeyType) (od Order, nextId or
 	}
 }
 
-func validateAndRenderOrder(order Order) (orderRes Order, isValid bool) {
-	if order.Id == 0 || !validPrice(order.Price) {
-		order.Status = Cancelled
-		order.CancelReason = cancelledByMarket
-		return order, false
+func ValidPrice(price string) bool {
+	if len(price) == 0 {
+		return false
+	} else if  pr, ok := new(big.Float).SetString(price);  !ok || pr.Cmp(big.NewFloat(0)) <= 0 {
+		return false
 	} else {
-		order.Status = Pending
-		if new(big.Int).SetBytes(order.Amount).Cmp(big.NewInt(0)) == 0 {
-			order.Amount = CalculateAmount(order.Quantity, order.Price)
+		idx := strings.Index(price, ",")
+		if idx > 0 && len(price) - idx >= 12 { // price max precision is 10 decimal
+			return false
 		}
-		return order, true
 	}
-}
-
-func validPrice(price string) bool {
-	var (
-		priceF *big.Float
-		ok bool
-	)
-	if priceF, ok = new(big.Float).SetString(price); !ok {
-		return false
-	}
-	if priceF.Cmp(big.NewFloat(0)) < 0 {
-		return false
-	} else {
-		return true
-	}
+	return true
 }
 
 func CalculateAmount(quantity []byte, price string) []byte {

@@ -18,3 +18,21 @@ func MinBigInt(a []byte, b []byte) []byte {
 		return a
 	}
 }
+
+func CmpToBigZero(a []byte) int {
+	if len(a) == 0 {
+		return 0
+	}
+	return new(big.Int).SetBytes(a).Cmp(big.NewInt(0))
+}
+
+func CmpForBigInt(a []byte, b []byte) int {
+	if len(a) == 0 && len(b) == 0 {
+		return 0
+	} else if len(a) == 0 {
+		return -1
+	} else if len(b) == 0 {
+		return 1
+	}
+	return new(big.Int).SetBytes(a).Cmp(new(big.Int).SetBytes(b))
+}

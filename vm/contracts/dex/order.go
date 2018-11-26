@@ -10,7 +10,7 @@ import (
 
 const orderStorageSalt = "order:"
 const orderHeaderValue = math.MaxUint64
-const MinPricePermit = 0.000000009
+//const MinPricePermit = 0.000000009
 const (
 	Pending = iota
 	PartialExecuted
@@ -161,6 +161,11 @@ func convertKeyOnLevelFromProto(from []uint64) []nodeKeyType {
 // orders should sort as desc by price and timestamp
 func (order Order) compareTo(toPayload *nodePayload) int8 {
 	target, _:= (*toPayload).(Order)
+	return CompareOrderPrice(order, target)
+
+}
+
+func CompareOrderPrice(order Order, target Order) int8 {
 	var result int8
 	if priceEqual(order.GetPrice(), target.GetPrice()) {
 		if order.GetTimestamp() == target.GetTimestamp() {
@@ -170,20 +175,25 @@ func (order Order) compareTo(toPayload *nodePayload) int8 {
 		} else {
 			result = 1
 		}
-	} else if order.GetPrice() > target.GetPrice() {
-		switch order.GetSide() {
-		case false: // bid/buy
-			result = 1
-		case true: // ask/sell
-			result = -1
-		}
 	} else {
-		switch target.GetSide() {
-		case false:
-			result = -1
-		case true:
-			result = 1
+		cp, _ := new(big.Float).SetString(order.Price)
+		tp, _ := new(big.Float).SetString(target.Price)
+		if cp.Cmp(tp) > 0 {
+			switch order.GetSide() {
+			case false: // bid/buy
+				result = 1
+			case true: // ask/sell
+				result = -1
+			}
+		} else {
+			switch target.GetSide() {
+			case false:
+				result = -1
+			case true:
+				result = 1
+			}
 		}
 	}
 	return result
 }
+

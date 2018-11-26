@@ -76,8 +76,8 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	assert.Equal(t, 1, len(dexFund.Accounts))
 	acc := dexFund.Accounts[0]
 	assert.True(t, bytes.Equal(acc.Token, VITE.Bytes()))
-	assert.Equal(t, acc.Available, uint64(3000))
-	assert.Equal(t, acc.Locked, uint64(0))
+	assert.True(t, CheckBigEqualToInt(3000, acc.Available))
+	assert.True(t, CheckBigEqualToInt(0, acc.Locked))
 
 
 	//withdraw
@@ -106,7 +106,7 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 
 	dexFund, _ = contracts.GetFundFromStorage(db, userAddress)
 	acc = dexFund.Accounts[0]
-	assert.Equal(t, acc.Available, uint64(2800))
+	assert.True(t, CheckBigEqualToInt(2800, acc.Available))
 	assert.Equal(t, 1, len(context.appendedBlocks))
 
 }
@@ -123,14 +123,14 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	senderVmBlock.AccountBlock = senderAccBlock
 	order := dexproto.Order{}
 	order.Id = uint64(1)
-	order.Address = string(userAddress.Bytes())
+	order.Address = userAddress.Bytes()
 	order.TradeToken = VITE.Bytes()
 	order.QuoteToken = ETH.Bytes()
 	order.Side = true //sell
 	order.Type = dex.Limited
-	order.Price = 0.03
-	order.Quantity = 2000
-	order.Amount = 0
+	order.Price = "0.03"
+	order.Quantity = big.NewInt(2000).Bytes()
+	order.Amount = big.NewInt(0).Bytes()
 	order.Status =  dex.FullyExecuted
 	order.Timestamp = time.Now().UnixNano()/1000
 	data, _ := proto.Marshal(&order)
@@ -144,7 +144,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundNewOrder, senderVmBlock.AccountBlock.Data)
 	order1 := &dexproto.Order{}
 	proto.Unmarshal(param.Data, order1)
-	assert.Equal(t, order1.Amount, uint64(60))
+	assert.True(t, CheckBigEqualToInt(60, order1.Amount))
 	assert.Equal(t, order1.Status, uint32(dex.Pending))
 
 	receiveVmBlock := &vm_context.VmAccountBlock{}
@@ -160,8 +160,8 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 
 	dexFund, _ := contracts.GetFundFromStorage(db, userAddress)
 	acc := dexFund.Accounts[0]
-	assert.Equal(t, acc.Available, uint64(800))
-	assert.Equal(t, acc.Locked, uint64(2000))
+	assert.True(t, CheckBigEqualToInt(800, acc.Available))
+	assert.True(t, CheckBigEqualToInt(2000, acc.Locked))
 	assert.Equal(t, 1, len(context.appendedBlocks))
 }
 
@@ -176,14 +176,14 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	senderVmBlock.AccountBlock = senderAccBlock
 
 	viteAction := dexproto.SettleAction{}
-	viteAction.Address = string(userAddress.Bytes())
+	viteAction.Address = userAddress.Bytes()
 	viteAction.Token = VITE.Bytes()
-	viteAction.DeduceLocked = 1000
+	viteAction.DeduceLocked = big.NewInt(1000).Bytes()
 
 	ethAction := dexproto.SettleAction{}
-	ethAction.Address = string(userAddress.Bytes())
+	ethAction.Address = userAddress.Bytes()
 	ethAction.Token = ETH.Bytes()
-	ethAction.IncAvailable = 30
+	ethAction.IncAvailable = big.NewInt(30).Bytes()
 
 	actions := dexproto.SettleActions{}
 	actions.Actions = append(actions.Actions, &viteAction)
@@ -212,8 +212,8 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 		ethAcc = dexFund.Accounts[1]
 		viteAcc = dexFund.Accounts[0]
 	}
-	assert.Equal(t, ethAcc.Available, uint64(30))
-	assert.Equal(t, viteAcc.Locked, uint64(1000))
+	assert.True(t, CheckBigEqualToInt(30, ethAcc.Available))
+	assert.True(t, CheckBigEqualToInt(1000, viteAcc.Locked))
 }
 
 func initDexFundDatabase()  *testDatabase {
@@ -239,4 +239,9 @@ func registerToken(db *testDatabase, token types.TokenTypeId) {
 	}
 	mintageKey := string(contracts.GetMintageKey(token))
 	db.storageMap[contracts.AddressMintage][mintageKey] = tokenData
+}
+
+
+func CheckBigEqualToInt(expected int, value []byte) bool {
+	return new(big.Int).SetUint64(uint64(expected)).Cmp(new(big.Int).SetBytes(value)) == 0
 }
