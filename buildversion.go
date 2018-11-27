@@ -1,2 +1,3 @@
 package govite
-const VITE_VERSION = "b2abbcfd095708c3c3c456967a2795eba879b0df"
+const VITE_VERSION = "015a14dc58dfd4a123905d166b293419897c88a4"
+const VITE_BUILD_VERSION = "1.0.2"

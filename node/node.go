@@ -1,8 +1,10 @@
 package node
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -327,7 +329,9 @@ func (node *Node) startRPC() error {
 		if len(node.config.PublicModules) != 0 {
 			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
 		}
-		cli, server, e := rpc.StartWSCliEndpoint(node.config.DashboardTargetURL, apis, nil, node.config.WSExposeAll)
+
+		u := url.URL{Scheme: "ws", Host: node.config.DashboardTargetURL, Path: "/ws/gvite/" + hex.EncodeToString(node.p2pServer.PrivateKey.PubByte())}
+		cli, server, e := rpc.StartWSCliEndpoint(u, apis, nil, node.config.WSExposeAll)
 		if e != nil {
 			cli.Close()
 			server.Stop()

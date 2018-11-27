@@ -224,10 +224,12 @@ func (self *WebSocketCli) Srv(c *websocket.Conn) error {
 }
 
 func (self *WebSocketCli) Close() {
-	close(self.closed)
-	conn := self.c
-	if conn != nil {
-		conn.Close()
+	if self.closed != nil {
+		close(self.closed)
+		conn := self.c
+		if conn != nil {
+			conn.Close()
+		}
 	}
 }
 func (self *WebSocketCli) Handle() {
@@ -243,7 +245,7 @@ func (self *WebSocketCli) Handle() {
 			log.Info("connect to " + self.u.String() + " success.")
 			self.c = c
 		} else {
-			log.Warn("can't connect to "+self.u.String()+" by websocket.", err)
+			log.Warn("can't connect to "+self.u.String()+" by websocket.", "err", err)
 		}
 		if c != nil {
 			err = self.Srv(c)
@@ -254,7 +256,6 @@ func (self *WebSocketCli) Handle() {
 		}
 		if c == nil {
 			time.Sleep(time.Second * 20)
-			break
 		}
 	}
 }
