@@ -25,6 +25,9 @@ vite.p2p.db
 # idea files
 .idea/
 
+# Build files
 build/
 
+# config files for test
 node_config.json
+genesis.json

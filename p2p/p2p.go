@@ -21,7 +21,6 @@ import (
 )
 
 var errSvrStarted = errors.New("server has started")
-var errNoNodes = errors.New("no nodes to connect")
 
 type Discovery interface {
 	Start() error
@@ -58,7 +57,7 @@ type Server struct {
 	wg        sync.WaitGroup // Wait for all jobs done
 	term      chan struct{}
 	pending   chan struct{} // how many connection can wait for handshake
-	addPeer   chan *conn
+	addPeer   chan *transport
 	delPeer   chan *Peer
 	discv     Discovery
 	handshake *Handshake
@@ -101,7 +100,7 @@ func New(cfg *Config) (svr *Server, err error) {
 		StaticNodes: parseNodes(cfg.StaticNodes),
 		peers:       NewPeerSet(),
 		pending:     make(chan struct{}, cfg.MaxPendingPeers),
-		addPeer:     make(chan *conn, 1),
+		addPeer:     make(chan *transport, 1),
 		delPeer:     make(chan *Peer, 1),
 		blockList:   block.New(100),
 		self:        node,
@@ -205,6 +204,10 @@ func (svr *Server) Stop() {
 
 		close(svr.term)
 
+		if svr.ln != nil {
+			svr.ln.Close()
+		}
+
 		if svr.discv != nil {
 			svr.discv.Stop()
 			svr.discv.UnSubNodes(svr.nodeChan)
@@ -225,25 +228,26 @@ func (svr *Server) updateNode(addr *nat.Addr) {
 }
 
 func (svr *Server) setHandshake() {
-	cmdsets := make([]*CmdSet, len(svr.Protocols))
-	for i, p := range svr.Protocols {
-		cmdsets[i] = p.CmdSet()
+	cmds := make([]CmdSet, len(svr.Protocols))
+	for i, pt := range svr.Protocols {
+		cmds[i] = pt.ID
 	}
 
 	svr.handshake = &Handshake{
-		Version: Version,
 		Name:    svr.Name,
-		NetID:   svr.NetID,
 		ID:      svr.self.ID,
-		CmdSets: cmdsets,
+		CmdSets: cmds,
+		Port:    uint16(svr.Port),
 	}
 }
 
 func (svr *Server) dialLoop() {
 	defer svr.wg.Done()
 
+	var node *discovery.Node
+
 	// connect to static node first
-	for _, node := range svr.StaticNodes {
+	for _, node = range svr.StaticNodes {
 		svr.dial(node.ID, node.TCPAddr(), static)
 	}
 
@@ -251,7 +255,7 @@ func (svr *Server) dialLoop() {
 		select {
 		case <-svr.term:
 			return
-		case node := <-svr.nodeChan:
+		case node = <-svr.nodeChan:
 			svr.dial(node.ID, node.TCPAddr(), outbound)
 		}
 	}
@@ -261,33 +265,30 @@ func (svr *Server) dialLoop() {
 // we can get ID and addr only from peer, but not Node
 // so dial(id, addr, flag) not dial(Node, flag)
 func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
-	// has been blocked
-	//if svr.blockList.Has(id[:]) {
-	//	return
-	//}
-
 	if err := svr.checkConn(id, flag); err != nil {
 		return
 	}
 
-	svr.pending <- struct{}{}
-	if conn, err := svr.dialer.Dial("tcp", addr.String()); err == nil {
-		common.Go(func() {
-			svr.setupConn(conn, flag)
-		})
-	} else {
-		<-svr.pending
-		svr.log.Warn(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
-		//svr.blockList.Add(id[:])
-	}
+	common.Go(func() {
+		svr.pending <- struct{}{}
+
+		if conn, err := svr.dialer.Dial("tcp", addr.String()); err == nil {
+			svr.setupConn(conn, flag, id)
+		} else {
+			svr.release()
+			svr.log.Warn(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
+		}
+	})
 }
 
+// TCPListener will be closed in method: Server.Stop()
 func (svr *Server) listenLoop() {
 	defer svr.wg.Done()
-	defer svr.ln.Close()
 
 	var conn net.Conn
 	var err error
+	var tempDelay time.Duration
+	var maxDelay = time.Second
 
 	for {
 		select {
@@ -296,10 +297,33 @@ func (svr *Server) listenLoop() {
 				if conn, err = svr.ln.Accept(); err == nil {
 					break
 				}
+
+				// temporary error
+				if err, ok := err.(net.Error); ok && err.Temporary() {
+					svr.log.Warn(fmt.Sprintf("listen temp error: %v", err))
+
+					if tempDelay == 0 {
+						tempDelay = 5 * time.Millisecond
+					} else {
+						tempDelay *= 2
+					}
+
+					if tempDelay > maxDelay {
+						tempDelay = maxDelay
+					}
+
+					time.Sleep(tempDelay)
+
+					continue
+				}
+
+				// critical error, may be return
+				svr.log.Warn(fmt.Sprintf("listen error: %v", err))
+				return
 			}
 
 			common.Go(func() {
-				svr.setupConn(conn, inbound)
+				svr.setupConn(conn, inbound, discovery.ZERO_NODE_ID)
 			})
 		case <-svr.term:
 			return
@@ -307,57 +331,91 @@ func (svr *Server) listenLoop() {
 	}
 }
 
-func (svr *Server) releasePending() {
+func (svr *Server) release() {
 	<-svr.pending
 }
 
-func (svr *Server) setupConn(c net.Conn, flag connFlag) {
-	defer svr.releasePending()
+func (svr *Server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
+	defer svr.release()
 
-	ts := &conn{
-		AsyncMsgConn: NewAsyncMsgConn(c),
-		flags:        flag,
+	var err error
+	if err = svr.checkHead(c); err != nil {
+		svr.log.Warn(fmt.Sprintf("HeadShake with %s error: %v", c.RemoteAddr(), err))
+		c.Close()
+		return
 	}
 
-	// handshake data, add remoteIP and remotePort
-	// handshake is not same for every peer
-	handshake := *svr.handshake
-	tcpAddr := c.RemoteAddr().(*net.TCPAddr)
-	handshake.RemoteIP = tcpAddr.IP
-	handshake.RemotePort = uint16(tcpAddr.Port)
-	data, err := handshake.Serialize()
-	if err != nil {
+	ts := &transport{
+		Conn:  c,
+		flags: flag,
+	}
+
+	if err = svr.handleTS(ts, id); err != nil {
+		svr.log.Warn(fmt.Sprintf("HandShake with %s error: %v", c.RemoteAddr(), err))
 		ts.Close()
 		return
 	}
-	sig := ed25519.Sign(svr.PrivateKey, data)
-	// unshift signature before data
-	data = append(sig, data...)
 
-	their, err := ts.Handshake(data)
+	svr.addPeer <- ts
+}
+
+func (svr *Server) handleTS(ts *transport, id discovery.NodeID) error {
+	// handshake data, add remoteIP and remotePort
+	// handshake is not same for every peer
+	handshake := *svr.handshake
+	tcpAddr := ts.RemoteAddr().(*net.TCPAddr)
+	handshake.RemoteIP = tcpAddr.IP
+	handshake.RemotePort = uint16(tcpAddr.Port)
+
+	their, err := ts.Handshake(svr.PrivateKey, &handshake)
 
 	if err != nil {
-		ts.Close()
-		svr.log.Warn(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
-	} else if their.NetID != svr.NetID {
-		err = fmt.Errorf("different NetID: our %s, their %s", svr.NetID, their.NetID)
-		ts.Close()
-		svr.log.Warn(fmt.Sprintf("handshake with %s error: %v", c.RemoteAddr(), err))
-	} else {
-		ts.name = their.Name
-		ts.cmdSets = their.CmdSets
-
-		// use to discribe the connection
-		ts.remoteID = their.ID
-		ts.remoteIP = handshake.RemoteIP
-		ts.remotePort = handshake.RemotePort
-
-		ts.localID = svr.self.ID
-		ts.localIP = their.RemoteIP
-		ts.localPort = their.RemotePort
-
-		svr.addPeer <- ts
+		return err
 	}
+
+	if id != discovery.ZERO_NODE_ID && their.ID != id {
+		return fmt.Errorf("unmatched server ID, dial %s got %s", id, their.ID)
+	}
+
+	if err = svr.checkConn(id, ts.flags); err != nil {
+		return err
+	}
+
+	ts.name = their.Name
+	ts.cmdSets = their.CmdSets
+
+	// use to describe the connection
+	ts.remoteID = their.ID
+	ts.remoteIP = handshake.RemoteIP
+	ts.remotePort = handshake.RemotePort
+
+	ts.localID = svr.self.ID
+	ts.localIP = their.RemoteIP
+	ts.localPort = their.RemotePort
+
+	return nil
+}
+
+func (svr *Server) checkHead(c net.Conn) error {
+	head, err := headShake(c, &headMsg{
+		Version: Version,
+		NetID:   svr.NetID,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if svr.NetID != head.NetID {
+		return fmt.Errorf("different NetID: our %s, their %s", svr.NetID, head.NetID)
+	}
+
+	// todo compatibility
+	if head.Version < Version {
+		return fmt.Errorf("P2P version too low: our %d, their %d", Version, head.Version)
+	}
+
+	return nil
 }
 
 func (svr *Server) checkConn(id discovery.NodeID, flag connFlag) error {
@@ -414,13 +472,13 @@ loop:
 				}
 			} else {
 				c.Close()
-				svr.log.Error(fmt.Sprintf("can`t create new peer: %v", err))
+				svr.log.Warn(fmt.Sprintf("can`t create new peer: %v", err))
 			}
 
 		case p := <-svr.delPeer:
 			svr.peers.Del(p)
 			peersCount = svr.peers.Size()
-			svr.log.Info(fmt.Sprintf("delete peer %s, total: %d", p, peersCount))
+			svr.log.Error(fmt.Sprintf("delete peer %s, total: %d", p, peersCount))
 
 			monitor.LogDuration("p2p/peer", "count", int64(peersCount))
 			monitor.LogEvent("p2p/peer", "delete")

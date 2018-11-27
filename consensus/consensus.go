@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -23,13 +24,27 @@ type Event struct {
 	SnapshotHeight uint64     // add to block
 }
 
+type electionResult struct {
+	Plans  []*core.MemberPlan
+	STime  time.Time
+	ETime  time.Time
+	Index  uint64
+	Hash   types.Hash
+	Height uint64
+}
+
 type Subscriber interface {
 	Subscribe(gid types.Gid, id string, addr *types.Address, fn func(Event))
 	UnSubscribe(gid types.Gid, id string)
 }
 
 type Reader interface {
-	ReadByTime(gid types.Gid, t time.Time) ([]*Event, error)
+	ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error)
+	ReadByTime(gid types.Gid, t time.Time) ([]*Event, uint64, error)
+	ReadVoteMapByTime(gid types.Gid, index uint64) ([]*VoteDetails, *ledger.HashHeight, error)
+	ReadVoteMapForAPI(gid types.Gid, t time.Time) ([]*VoteDetails, *ledger.HashHeight, error)
+	VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error)
+	VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time.Time, error)
 }
 type Life interface {
 	Start()

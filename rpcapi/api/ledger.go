@@ -1,8 +1,10 @@
 package api
 
 import (
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
@@ -29,36 +31,9 @@ func (l LedgerApi) String() string {
 }
 
 func (l *LedgerApi) ledgerBlockToRpcBlock(block *ledger.AccountBlock) (*AccountBlock, error) {
-	confirmTimes, err := l.chain.GetConfirmTimes(&block.Hash)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var fromAddress, toAddress types.Address
-	if block.IsReceiveBlock() {
-		toAddress = block.AccountAddress
-		sendBlock, err := l.chain.GetAccountBlockByHash(&block.FromBlockHash)
-		if err != nil {
-			return nil, err
-		}
-
-		if sendBlock != nil {
-			fromAddress = sendBlock.AccountAddress
-			block.TokenId = sendBlock.TokenId
-			block.Amount = sendBlock.Amount
-		}
-	} else {
-		fromAddress = block.AccountAddress
-		toAddress = block.ToAddress
-	}
-
-	token := l.chain.GetTokenInfoById(&block.TokenId)
-	rpcAccountBlock := createAccountBlock(block, token, confirmTimes)
-	rpcAccountBlock.FromAddress = fromAddress
-	rpcAccountBlock.ToAddress = toAddress
-	return rpcAccountBlock, nil
+	return ledgerToRpcBlock(block, l.chain)
 }
+
 func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*AccountBlock, error) {
 	var blocks []*AccountBlock
 	for _, item := range list {
@@ -69,6 +44,21 @@ func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*Acc
 		blocks = append(blocks, rpcBlock)
 	}
 	return blocks, nil
+}
+
+func (l *LedgerApi) GetBlockByHash(blockHash *types.Hash) (*AccountBlock, error) {
+	block, getError := l.chain.GetAccountBlockByHash(blockHash)
+
+	if getError != nil {
+		l.log.Error("GetAccountBlockByHash failed, error is "+getError.Error(), "method", "GetBlockByHash")
+
+		return nil, getError
+	}
+	if block == nil {
+		return nil, nil
+	}
+
+	return l.ledgerBlockToRpcBlock(block)
 }
 
 func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error) {
@@ -86,6 +76,29 @@ func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.H
 		return blocks, nil
 	}
 
+}
+
+type Statistics struct {
+	SnapshotBlockCount uint64 `json:"snapshotBlockCount"`
+	AccountBlockCount  uint64 `json:"accountBlockCount"`
+}
+
+func (l *LedgerApi) GetStatistics() (*Statistics, error) {
+	latestSnapshotBlock := l.chain.GetLatestSnapshotBlock()
+	allLatestAccountBlock, err := l.chain.GetAllLatestAccountBlock()
+
+	if err != nil {
+		return nil, err
+	}
+	var accountBlockCount uint64
+	for _, block := range allLatestAccountBlock {
+		accountBlockCount += block.Height
+	}
+
+	return &Statistics{
+		SnapshotBlockCount: latestSnapshotBlock.Height,
+		AccountBlockCount:  accountBlockCount,
+	}, nil
 }
 
 func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
@@ -138,7 +151,7 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 
 	tokenBalanceInfoMap := make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
 	for tokenId, amount := range balanceMap {
-		token := l.chain.GetTokenInfoById(&tokenId)
+		token, _ := l.chain.GetTokenInfoById(&tokenId)
 		tokenBalanceInfoMap[tokenId] = &RpcTokenBalanceInfo{
 			TokenInfo:   RawTokenInfoToRpc(token, tokenId),
 			TotalAmount: amount.String(),
@@ -159,6 +172,14 @@ func (l *LedgerApi) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlo
 	block, err := l.chain.GetSnapshotBlockByHash(&hash)
 	if err != nil {
 		l.log.Error("GetSnapshotBlockByHash failed, error is "+err.Error(), "method", "GetSnapshotBlockByHash")
+	}
+	return block, err
+}
+
+func (l *LedgerApi) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	block, err := l.chain.GetSnapshotBlockByHeight(height)
+	if err != nil {
+		l.log.Error("GetSnapshotBlockByHash failed, error is "+err.Error(), "method", "GetSnapshotBlockByHeight")
 	}
 	return block, err
 }
@@ -190,7 +211,11 @@ func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 
 func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*RpcTokenInfo, error) {
 	l.log.Info("GetTokenMintage")
-	return RawTokenInfoToRpc(l.chain.GetTokenInfoById(&tti), tti), nil
+	if t, err := l.chain.GetTokenInfoById(&tti); err != nil {
+		return nil, err
+	} else {
+		return RawTokenInfoToRpc(t, tti), nil
+	}
 }
 
 func (l *LedgerApi) GetSenderInfo() (*KafkaSendInfo, error) {
@@ -217,7 +242,69 @@ func (l *LedgerApi) GetSenderInfo() (*KafkaSendInfo, error) {
 	}
 
 	return senderInfo, nil
+}
 
+func (l *LedgerApi) GetBlockMeta(hash *types.Hash) (*ledger.AccountBlockMeta, error) {
+	return l.chain.GetAccountBlockMetaByHash(hash)
+}
+
+func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, sendBlockHash *types.Hash) (*types.Hash, error) {
+	if accAddr == nil && sendBlockHash == nil {
+		latestBlock := l.chain.GetLatestSnapshotBlock()
+		if latestBlock != nil {
+			return &latestBlock.Hash, nil
+		}
+		return nil, generator.ErrGetFittestSnapshotBlockFailed
+	}
+	var referredList []types.Hash
+	if sendBlockHash != nil {
+		sendBlock, _ := l.chain.GetAccountBlockByHash(sendBlockHash)
+		if sendBlock == nil {
+			return nil, generator.ErrGetSnapshotOfReferredBlockFailed
+		}
+		referredList = append(referredList, sendBlock.SnapshotHash)
+	}
+
+	prevHash, fittestHash, err := generator.GetFitestGeneratorSnapshotHash(l.chain, accAddr, referredList, false)
+	if err != nil {
+		return nil, err
+	}
+	if prevHash == nil {
+		return fittestHash, nil
+	}
+	prevQuota, err := l.chain.GetPledgeQuota(*prevHash, *accAddr)
+	if err != nil {
+		return nil, err
+	}
+	fittestQuota, err := l.chain.GetPledgeQuota(*fittestHash, *accAddr)
+	if err != nil {
+		return nil, err
+	}
+	if prevQuota <= fittestQuota {
+		return fittestHash, nil
+	} else {
+		return prevHash, nil
+	}
+
+	//gap := uint64(0)
+	//targetHeight := latestBlock.Height
+	//
+	//if targetHeight > gap {
+	//	targetHeight = latestBlock.Height - gap
+	//} else {
+	//	targetHeight = 1
+	//}
+	//
+	//targetSnapshotBlock, err := l.chain.GetSnapshotBlockByHeight(targetHeight)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//return &targetSnapshotBlock.Hash, nil
+
+}
+
+func (l *LedgerApi) GetNeedSnapshotContent() map[types.Address]*ledger.HashHeight {
+	return l.chain.GetNeedSnapshotContent()
 }
 
 func (l *LedgerApi) SetSenderHasSend(producerId uint8, hasSend uint64) {
@@ -236,4 +323,25 @@ func (l *LedgerApi) StopSender(producerId uint8) {
 		return
 	}
 	l.chain.KafkaSender().StopById(producerId)
+}
+
+func (l *LedgerApi) GetVmLogList(blockHash types.Hash) (ledger.VmLogList, error) {
+	block, err := l.chain.GetAccountBlockByHash(&blockHash)
+	if block == nil {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("get block failed")
+	}
+	if block.LogHash == nil {
+		code, err2 := l.chain.AccountType(&block.AccountAddress)
+		if err2 != nil {
+			return nil, err
+		}
+		if code == ledger.AccountTypeContract {
+			return nil, errors.New("log hash can't be error")
+		}
+		return nil, nil
+	}
+	return l.chain.GetVmLogList(block.LogHash)
 }

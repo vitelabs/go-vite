@@ -18,7 +18,6 @@ import (
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/wallet/keystore"
 )
 
 type Writer interface {
@@ -73,15 +72,17 @@ type commonBlock interface {
 	checkForkVersion() bool
 	resetForkVersion()
 	forkVersion() int
+	Source() types.BlockSource
 }
 
-func newForkBlock(v *ForkVersion) *forkBlock {
-	return &forkBlock{firstV: v.Val(), v: v}
+func newForkBlock(v *ForkVersion, source types.BlockSource) *forkBlock {
+	return &forkBlock{firstV: v.Val(), v: v, source: source}
 }
 
 type forkBlock struct {
 	firstV int
 	v      *ForkVersion
+	source types.BlockSource
 }
 
 func (self *forkBlock) forkVersion() int {
@@ -165,7 +166,7 @@ func (self *pool) Init(s syncer,
 	accountV *verifier.AccountVerifier) {
 	self.sync = s
 	self.wt = wt
-	rw := &snapshotCh{version: self.version, bc: self.bc}
+	rw := &snapshotCh{version: self.version, bc: self.bc, log: self.log}
 	fe := &snapshotSyncer{fetcher: s, log: self.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: snapshotV}
 	self.accountVerifier = accountV
@@ -175,7 +176,7 @@ func (self *pool) Init(s syncer,
 		self)
 
 	self.pendingSc = snapshotPool
-	self.stat = (&recoverStat{}).reset(10)
+	self.stat = (&recoverStat{}).init(10, time.Second*10)
 }
 func (self *pool) Info(addr *types.Address) string {
 	if addr == nil {
@@ -239,7 +240,10 @@ func (self *pool) Start() {
 	self.snapshotSubId = self.sync.SubscribeSnapshotBlock(self.AddSnapshotBlock)
 
 	self.pendingSc.Start()
-	common.Go(self.loopTryInsert)
+	self.log.Info("pool account parallel.", "parallel", ACCOUNT_PARALLEL)
+	for i := 0; i < ACCOUNT_PARALLEL; i++ {
+		common.Go(self.loopTryInsert)
+	}
 	common.Go(self.loopCompact)
 	common.Go(self.loopBroadcastAndDel)
 }
@@ -264,7 +268,7 @@ func (self *pool) Restart() {
 	self.Start()
 }
 
-func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) {
+func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) {
 
 	self.log.Info("receive snapshot block from network. height:" + strconv.FormatUint(block.Height, 10) + ", hash:" + block.Hash.String() + ".")
 
@@ -273,7 +277,7 @@ func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock) {
 		self.log.Error("snapshot error", "err", err, "height", block.Height, "hash", block.Hash)
 		return
 	}
-	self.pendingSc.AddBlock(newSnapshotPoolBlock(block, self.version))
+	self.pendingSc.AddBlock(newSnapshotPoolBlock(block, self.version, source))
 }
 
 func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
@@ -281,7 +285,7 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 	if err != nil {
 		return err
 	}
-	cBlock := newSnapshotPoolBlock(block, self.version)
+	cBlock := newSnapshotPoolBlock(block, self.version, types.Local)
 	err = self.pendingSc.AddDirectBlock(cBlock)
 	if err != nil {
 		return err
@@ -290,7 +294,7 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 	return nil
 }
 
-func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock) {
+func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock, source types.BlockSource) {
 	self.log.Info(fmt.Sprintf("receive account block from network. addr:%s, height:%d, hash:%s.", address, block.Height, block.Hash))
 
 	ac := self.selfPendingAc(address)
@@ -299,7 +303,7 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 		self.log.Error("account err", "err", err, "height", block.Height, "hash", block.Hash, "addr", address)
 		return
 	}
-	ac.AddBlock(newAccountPoolBlock(block, nil, self.version))
+	ac.AddBlock(newAccountPoolBlock(block, nil, self.version, source))
 	ac.AddReceivedBlock(block)
 
 	self.accountCond.L.Lock()
@@ -321,7 +325,7 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 		return err
 	}
 
-	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version)
+	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version, types.Local)
 	err = ac.AddDirectBlocks(cBlock, nil)
 	if err != nil {
 		return err
@@ -333,11 +337,11 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 	return nil
 
 }
-func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.AccountBlock) error {
+func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.AccountBlock, source types.BlockSource) error {
 	defer monitor.LogTime("pool", "addAccountArr", time.Now())
 
 	for _, b := range blocks {
-		self.AddAccountBlock(address, b)
+		self.AddAccountBlock(address, b, source)
 	}
 
 	self.accountCond.L.Lock()
@@ -347,6 +351,7 @@ func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Accou
 }
 
 func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) error {
+	self.log.Info(fmt.Sprintf("receive account blocks from direct. addr:%s, height:%d, hash:%s.", address, received.AccountBlock.Height, received.AccountBlock.Hash))
 	defer monitor.LogTime("pool", "addDirectAccountArr", time.Now())
 	self.RLock()
 	defer self.RUnLock()
@@ -354,9 +359,9 @@ func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_con
 	// todo
 	var accountPoolBlocks []*accountPoolBlock
 	for _, v := range sendBlocks {
-		accountPoolBlocks = append(accountPoolBlocks, newAccountPoolBlock(v.AccountBlock, v.VmContext, self.version))
+		accountPoolBlocks = append(accountPoolBlocks, newAccountPoolBlock(v.AccountBlock, v.VmContext, self.version, types.Local))
 	}
-	err := ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmContext, self.version), accountPoolBlocks)
+	err := ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmContext, self.version, types.Local), accountPoolBlocks)
 	if err != nil {
 		return err
 	}
@@ -375,14 +380,19 @@ func (self *pool) ExistInPool(address types.Address, requestHash types.Hash) boo
 func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 
 	for k, v := range accounts {
-		self.selfPendingAc(k).rollbackCurrent(v)
+		err := self.selfPendingAc(k).rollbackCurrent(v)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*ledger.HashHeight, error) {
+func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight, sHeight uint64) (*ledger.HashHeight, error) {
 	this := self.selfPendingAc(addr)
 
+	this.LockForInsert()
+	defer this.UnLockForInsert()
 	targetChain := this.findInTree(h.Hash, h.Height)
 	if targetChain != nil {
 		if targetChain.ChainId() == this.chainpool.current.ChainId() {
@@ -393,25 +403,35 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight) (*l
 		if err != nil {
 			return nil, err
 		}
-		// fork point in disk chain
-		if forkPoint.Height() <= this.CurrentChain().tailHeight {
+		// key point in disk chain
+		if forkPoint.Height() < this.CurrentChain().tailHeight {
 			return h, nil
 		}
-
-		this.LockForInsert()
-		defer this.UnLockForInsert()
-		this.CurrentModifyToChain(targetChain, h)
+		self.log.Info("PendingAccountTo->CurrentModifyToChain", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain",
+			targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
+		err = this.CurrentModifyToChain(targetChain, h)
+		if err != nil {
+			self.log.Error("PendingAccountTo->CurrentModifyToChain err", "err", err, "targetId", targetChain.id())
+		}
 		return nil, nil
 	}
 	inPool := this.findInPool(h.Hash, h.Height)
+
 	if !inPool {
-		this.f.fetch(ledger.HashHeight{Hash: h.Hash, Height: h.Height}, 5)
+		cnt := uint64(5)
+		headHeight := this.chainpool.diskChain.Head().Height()
+		if h.Height > headHeight {
+			cnt = h.Height - headHeight
+		}
+		this.f.fetchBySnapshot(ledger.HashHeight{Hash: h.Hash, Height: h.Height}, cnt, sHeight)
 	}
 	return nil, nil
 }
 
-func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
+func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight, sHeight uint64) error {
 	this := self.selfPendingAc(addr)
+	self.log.Info("RollbackAccountTo[1]", "addr", addr, "hash", h.Hash, "height", h.Height,
+		"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 	err := self.RollbackAccountTo(addr, h.Hash, h.Height)
 
 	if err != nil {
@@ -422,26 +442,39 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 
 	if targetChain == nil {
 		cnt := h.Height - this.chainpool.diskChain.Head().Height()
-		this.f.fetch(ledger.HashHeight{Height: h.Height, Hash: h.Hash}, cnt)
+		this.f.fetchBySnapshot(ledger.HashHeight{Height: h.Height, Hash: h.Hash}, cnt, sHeight)
+		self.log.Info("CurrentModifyToEmpty", "addr", addr, "hash", h.Hash, "height", h.Height,
+			"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 		err = this.CurrentModifyToEmpty()
 		return err
 	}
-
-	keyPoint, forkPoint, err := this.getForkPointByChains(targetChain, this.CurrentChain())
+	if targetChain.id() == this.CurrentChain().id() {
+		return nil
+	}
+	cu := this.CurrentChain()
+	keyPoint, forkPoint, err := this.getForkPointByChains(targetChain, cu)
 	if err != nil {
 		return err
 	}
 	if keyPoint == nil {
-		return errors.New("forkAccountTo key point is nil.")
+		return errors.Errorf("forkAccountTo key point is nil, target:%s, current:%s, targetTailHeight:%d, targetTailHash:%s, currentTailHeight:%d, currentTailHash:%s",
+			targetChain.id(), cu.id(), targetChain.tailHeight, targetChain.tailHash, cu.tailHeight, cu.tailHash)
 	}
 	// fork point in disk chain
 	if forkPoint.Height() <= this.CurrentChain().tailHeight {
+		self.log.Info("RollbackAccountTo[2]", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(),
+			"targetChainTailHeight", targetChain.tailHeight,
+			"targetChainHeadHeight", targetChain.headHeight,
+			"keyPoint", keyPoint.Height(),
+			"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 		err := self.RollbackAccountTo(addr, keyPoint.Hash(), keyPoint.Height())
 		if err != nil {
 			return err
 		}
 	}
 
+	self.log.Info("ForkAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight,
+		"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
 	err = this.CurrentModifyToChain(targetChain, h)
 	if err != nil {
 		return err
@@ -496,7 +529,8 @@ func (self *pool) loopTryInsert() {
 	self.wg.Add(1)
 	defer self.wg.Done()
 
-	t := time.NewTicker(time.Millisecond * 20)
+	t := time.NewTicker(time.Millisecond * 100)
+	t2 := time.NewTicker(time.Millisecond * 40)
 	defer t.Stop()
 	sum := 0
 	for {
@@ -505,11 +539,15 @@ func (self *pool) loopTryInsert() {
 			return
 		case <-t.C:
 			if sum == 0 {
-				//self.accountCond.L.Lock()
-				//self.accountCond.Wait()
-				//self.accountCond.L.Unlock()
-				time.Sleep(200 * time.Millisecond)
-				monitor.LogEvent("pool", "tryInsertSleep")
+				time.Sleep(100 * time.Millisecond)
+				monitor.LogEvent("pool", "tryInsertSleep100")
+			}
+			sum = 0
+			sum += self.accountsTryInsert()
+		case <-t2.C:
+			if sum == 0 {
+				time.Sleep(20 * time.Millisecond)
+				monitor.LogEvent("pool", "tryInsertSleep20")
 			}
 			sum = 0
 			sum += self.accountsTryInsert()
@@ -576,7 +614,7 @@ func (self *pool) poolRecover() {
 		case string:
 			e = errors.New(t)
 		default:
-			e = errors.Errorf("unknown type", err)
+			e = errors.Errorf("unknown type, %+v", err)
 		}
 
 		self.log.Error("panic", "err", err, "withstack", fmt.Sprintf("%+v", e))
@@ -635,15 +673,15 @@ func (self *pool) delUseLessChains() {
 
 func (self *pool) listUnlockedAddr() []types.Address {
 	var todoAddress []types.Address
-	status, e := self.wt.KeystoreManager.Status()
-	if e != nil {
-		return todoAddress
-	}
-	for k, v := range status {
-		if v == keystore.UnLocked {
-			todoAddress = append(todoAddress, k)
-		}
-	}
+	//status, e := self.wt.SeedStoreManagers.Status()
+	//if e != nil {
+	//	return todoAddress
+	//}
+	//for k, v := range status {
+	//	if v == entropystore.Locked {
+	//		todoAddress = append(todoAddress, k)
+	//	}
+	//}
 	return todoAddress
 }
 
@@ -655,8 +693,11 @@ func (self *pool) accountsCompact() int {
 		pendings = append(pendings, p)
 		return true
 	})
-	for _, p := range pendings {
-		sum = sum + p.Compact()
+	if len(pendings) > 0 {
+		monitor.LogEventNum("pool", "AccountsCompact", len(pendings))
+		for _, p := range pendings {
+			sum = sum + p.Compact()
+		}
 	}
 	return sum
 }
@@ -707,23 +748,104 @@ func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 	}
 }
 
-type recoverStat struct {
-	num        int32
-	updateTime time.Time
-	threshold  int32
+func (self *pool) checkBlock(block *snapshotPoolBlock) bool {
+	var result = true
+	for k, v := range block.block.SnapshotContent {
+		ac := self.selfPendingAc(k)
+		fc := ac.findInTreeDisk(v.Hash, v.Height, true)
+		if fc == nil {
+			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, 1, block.Height())
+			result = false
+		}
+	}
+	return result
 }
 
-func (self *recoverStat) reset(t int32) *recoverStat {
+func (self *pool) realSnapshotHeight(fc *forkedChain) uint64 {
+	h := fc.tailHeight
+	for {
+		b := fc.getHeightBlock(h + 1)
+		if b == nil {
+			return h
+		}
+		block := b.(*snapshotPoolBlock)
+		now := time.Now()
+		if now.After(block.lastCheckTime.Add(time.Second * 5)) {
+			block.lastCheckTime = now
+			block.checkResult = self.checkBlock(block)
+		}
+
+		if !block.checkResult {
+			return h
+		}
+		h = h + 1
+	}
+}
+
+func (self *pool) fetchForSnapshot(fc *forkedChain) error {
+	var reqs []*fetchRequest
+	j := 0
+	for i := fc.tailHeight + 1; i < fc.headHeight && j < 100; i++ {
+		j++
+		b := fc.getHeightBlock(i)
+		if b == nil {
+			continue
+		}
+
+		sb := b.(*snapshotPoolBlock)
+
+		hash := sb.Hash()
+		for k, v := range sb.block.SnapshotContent {
+			reqs = append(reqs, &fetchRequest{
+				snapshot:       false,
+				chain:          &k,
+				hash:           v.Hash,
+				accHeight:      v.Height,
+				prevCnt:        1,
+				snapshotHash:   &hash,
+				snapshotHeight: b.Height(),
+			})
+		}
+	}
+
+	for _, v := range reqs {
+		if v.chain == nil {
+			continue
+		}
+		ac := self.selfPendingAc(*v.chain)
+		fc := ac.findInTreeDisk(v.hash, v.accHeight, true)
+		if fc == nil {
+			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.hash, Height: v.accHeight}, 1, v.snapshotHeight)
+		}
+	}
+	return nil
+}
+
+type recoverStat struct {
+	num           int32
+	updateTime    time.Time
+	threshold     int32
+	timeThreshold time.Duration
+}
+
+func (self *recoverStat) init(t int32, d time.Duration) *recoverStat {
 	self.num = 0
 	self.updateTime = time.Now()
 	self.threshold = t
+	self.timeThreshold = d
+	return self
+}
+
+func (self *recoverStat) reset() *recoverStat {
+	self.num = 0
+	self.updateTime = time.Now()
 	return self
 }
 
 func (self *recoverStat) inc() bool {
 	atomic.AddInt32(&self.num, 1)
 	now := time.Now()
-	if now.Sub(self.updateTime) > time.Second*10 {
+	if now.Sub(self.updateTime) > self.timeThreshold {
 		self.updateTime = now
 		atomic.StoreInt32(&self.num, 0)
 	} else {

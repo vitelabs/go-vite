@@ -2,6 +2,7 @@ package onroad
 
 import (
 	"container/heap"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"sync"
 
 	"github.com/vitelabs/go-vite/common"
@@ -10,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"github.com/vitelabs/go-vite/vm/contracts"
 	"strconv"
 )
 
@@ -54,6 +54,7 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		isCancel: false,
 
 		blackList: make(map[types.Address]bool),
+		log:       slog.New("worker", "c"),
 	}
 
 	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
@@ -109,7 +110,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 				return
 			}
 
-			q := w.manager.Chain().GetPledgeQuota(w.accEvent.SnapshotHash, address)
+			q, _ := w.manager.Chain().GetPledgeQuota(w.accEvent.SnapshotHash, address)
 			c := &contractTask{
 				Addr:  address,
 				Quota: q,
@@ -213,7 +214,7 @@ LOOP:
 }
 
 func (w *ContractWorker) getAndSortAllAddrQuota() {
-	quotas := w.manager.Chain().GetPledgeQuotas(w.accEvent.SnapshotHash, w.contractAddressList)
+	quotas, _ := w.manager.Chain().GetPledgeQuotas(w.accEvent.SnapshotHash, w.contractAddressList)
 
 	w.contractTaskPQueue = make([]*contractTask, len(quotas))
 	i := 0
@@ -223,7 +224,7 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 			Index: i,
 			Quota: quota,
 		}
-		if addr == contracts.AddressPledge {
+		if addr == abi.AddressPledge {
 			task.Quota = math.MaxUint64
 		}
 		w.contractTaskPQueue[i] = task

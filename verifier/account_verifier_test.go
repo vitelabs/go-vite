@@ -20,7 +20,7 @@ import (
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
 	"os"
@@ -42,6 +42,9 @@ var (
 	//addr2PubKey        = addr2PrivKey.PubByte()
 
 	producerPrivKeyStr string
+
+	// difficulty test:65535~67108863
+	defaultDifficulty = big.NewInt(65535)
 )
 
 func init() {
@@ -154,7 +157,7 @@ Loop:
 }
 
 func GenesisReceiveMintage(vite *VitePrepared, addFunc AddChainDierct) error {
-	sendBlock, err := vite.chain.GetLatestAccountBlock(&contracts.AddressMintage)
+	sendBlock, err := vite.chain.GetLatestAccountBlock(&abi.AddressMintage)
 	if err != nil {
 		return err
 	}
@@ -163,13 +166,20 @@ func GenesisReceiveMintage(vite *VitePrepared, addFunc AddChainDierct) error {
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-	gen, err := generator.NewGenerator(vite.chain, nil, nil, &sendBlock.ToAddress)
+	var referredSnapshotHashList []types.Hash
+	referredSnapshotHashList = append(referredSnapshotHashList, sendBlock.SnapshotHash)
+	_, fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(vite.chain, &sendBlock.ToAddress, referredSnapshotHashList, true)
+	if err != nil {
+		return err
+	}
+
+	gen, err := generator.NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &sendBlock.ToAddress)
 	if err != nil {
 		return err
 	}
 	genResult, err := gen.GenerateWithOnroad(*sendBlock, nil, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
-	}, nil)
+	}, defaultDifficulty)
 	if err != nil {
 		return err
 	}
@@ -218,7 +228,10 @@ func createRPCTransferBlockS(vite *VitePrepared) ([]*ledger.AccountBlock, error)
 		Timestamp:    latestSb.Timestamp,
 	}
 
-	nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+	nonce, err := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+	if err != nil {
+		return nil, err
+	}
 	block.Nonce = nonce[:]
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
@@ -264,7 +277,10 @@ func createRPCTransferBlocksR(vite *VitePrepared) ([]*ledger.AccountBlock, error
 			Timestamp:    latestSb.Timestamp,
 		}
 
-		nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+		nonce, err := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+		if err != nil {
+			return nil, err
+		}
 		block.Nonce = nonce[:]
 		block.Hash = block.ComputeHash()
 		block.Signature = ed25519.Sign(addr1PrivKey, block.Hash.Bytes())
@@ -280,7 +296,7 @@ func createRPCBlockCallContarct(vite *VitePrepared) ([]*ledger.AccountBlock, err
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
 	// call MethodNamePledge
-	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr1)
+	pledgeData, _ := abi.ABIPledge.PackMethod(abi.MethodNamePledge, addr1)
 	latestSb := vite.chain.GetLatestSnapshotBlock()
 	latestAb, err := vite.chain.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
 	if latestAb == nil {
@@ -296,7 +312,7 @@ func createRPCBlockCallContarct(vite *VitePrepared) ([]*ledger.AccountBlock, err
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: ledger.GenesisAccountAddress,
 		PublicKey:      genesisAccountPubKey,
-		ToAddress:      contracts.AddressPledge,
+		ToAddress:      abi.AddressPledge,
 		Amount:         pledgeAmount,
 		TokenId:        ledger.ViteTokenId,
 
@@ -325,7 +341,7 @@ func TestAccountVerifier_VerifyforP2P(t *testing.T) {
 	v := PrepareVite()
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
-	fromBlock, err := v.chain.GetLatestAccountBlock(&contracts.AddressMintage)
+	fromBlock, err := v.chain.GetLatestAccountBlock(&abi.AddressMintage)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -344,7 +360,12 @@ func TestAccountVerifier_VerifyforP2P(t *testing.T) {
 		PublicKey:      genesisAccountPubKey,
 	}
 
-	nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+	nonce, err := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	block.Nonce = nonce[:]
 	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
@@ -423,7 +444,7 @@ func TestAccountVerifier_VerifyDataValidity(t *testing.T) {
 	// verifyHash
 	block2 := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeSendCall,
-		AccountAddress: contracts.AddressPledge,
+		AccountAddress: abi.AddressPledge,
 		Amount:         big.NewInt(100),
 		Fee:            big.NewInt(100),
 		Timestamp:      nil,

@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
-	"sync"
-	"time"
-
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/list"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"github.com/vitelabs/go-vite/vite/net/topo"
+	"sync"
+	"time"
 )
 
 var netLog = log15.New("module", "vite/net")
@@ -24,9 +25,10 @@ type Config struct {
 	Verifier Verifier
 
 	// for topo
-	Topology []string
-	Topic    string
-	Interval int64 // second
+	Topology     []string
+	Topic        string
+	Interval     int64 // second
+	TopoDisabled bool
 }
 
 const DefaultPort uint16 = 8484
@@ -38,15 +40,15 @@ type net struct {
 	*fetcher
 	*broadcaster
 	*receiver
-	pool      *requestPool
+	*filter
 	term      chan struct{}
 	log       log15.Logger
 	protocols []*p2p.Protocol // mount to p2p.Server
 	wg        sync.WaitGroup
 	fs        *fileServer
-	fc        *fileClient
-	handlers  map[cmd]MsgHandler
+	handlers  map[ViteCmd]MsgHandler
 	topo      *topo.Topology
+	query     *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
 }
 
 // auto from
@@ -60,16 +62,14 @@ func New(cfg *Config) Net {
 		cfg.Port = DefaultPort
 	}
 
-	fc := newFileClient(cfg.Chain)
-
+	g := new(gid)
 	peers := newPeerSet()
-	pool := newRequestPool(peers, fc)
 
 	broadcaster := newBroadcaster(peers)
 	filter := newFilter()
 	receiver := newReceiver(cfg.Verifier, broadcaster, filter)
-	syncer := newSyncer(cfg.Chain, peers, pool, receiver)
-	fetcher := newFetcher(filter, peers, pool)
+	syncer := newSyncer(cfg.Chain, peers, g, receiver)
+	fetcher := newFetcher(filter, peers, g)
 
 	syncer.feed.Sub(receiver.listen) // subscribe sync status
 	syncer.feed.Sub(fetcher.listen)  // subscribe sync status
@@ -81,25 +81,22 @@ func New(cfg *Config) Net {
 		fetcher:     fetcher,
 		broadcaster: broadcaster,
 		receiver:    receiver,
+		filter:      filter,
 		fs:          newFileServer(cfg.Port, cfg.Chain),
-		fc:          fc,
-		handlers:    make(map[cmd]MsgHandler),
+		handlers:    make(map[ViteCmd]MsgHandler),
 		log:         netLog,
-		pool:        pool,
 	}
 
 	n.addHandler(_statusHandler(statusHandler))
-	n.addHandler(&getSubLedgerHandler{cfg.Chain})
-	n.addHandler(&getSnapshotBlocksHandler{cfg.Chain})
-	n.addHandler(&getAccountBlocksHandler{cfg.Chain})
-	n.addHandler(&getChunkHandler{cfg.Chain})
-	n.addHandler(pool)     // FileListCode, SubLedgerCode, ExceptionCode
+	n.query = newQueryHandler(cfg.Chain)
+	n.addHandler(n.query)
+	n.addHandler(syncer)   // FileListCode, SubLedgerCode, ExceptionCode
 	n.addHandler(receiver) // NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode
 
 	n.protocols = append(n.protocols, &p2p.Protocol{
-		Name: CmdSetName,
+		Name: Vite,
 		ID:   CmdSet,
-		Handle: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
+		Handle: func(p *p2p.Peer, rw *p2p.ProtoFrame) error {
 			// will be called by p2p.Peer.runProtocols use goroutine
 			peer := newPeer(p, rw, CmdSet)
 			return n.handlePeer(peer)
@@ -107,10 +104,14 @@ func New(cfg *Config) Net {
 	})
 
 	// topo
-	n.topo = topo.New(&topo.Config{
-		Addrs: cfg.Topology,
-	})
-	n.protocols = append(n.protocols, n.topo.Protocol())
+	if !cfg.TopoDisabled {
+		n.topo = topo.New(&topo.Config{
+			Addrs:    cfg.Topology,
+			Interval: cfg.Interval,
+			Topic:    cfg.Topic,
+		})
+		n.protocols = append(n.protocols, n.topo.Protocol())
+	}
 
 	return n
 }
@@ -132,13 +133,18 @@ func (n *net) Start(svr *p2p.Server) (err error) {
 		return
 	}
 
-	n.fc.start()
-
-	if err = n.topo.Start(svr); err != nil {
-		return
+	if n.topo != nil {
+		if err = n.topo.Start(svr); err != nil {
+			return
+		}
 	}
 
-	n.pool.start()
+	n.wg.Add(1)
+	common.Go(n.heartbeat)
+
+	n.query.start()
+
+	n.filter.start()
 
 	return
 }
@@ -155,26 +161,27 @@ func (n *net) Stop() {
 
 		n.syncer.Stop()
 
-		n.pool.start()
-
 		n.fs.stop()
 
-		n.fc.stop()
+		if n.topo != nil {
+			n.topo.Stop()
+		}
 
-		n.topo.Stop()
+		n.query.stop()
+
+		n.filter.stop()
 
 		n.wg.Wait()
 	}
 }
 
 // will be called by p2p.Server, run as goroutine
-func (n *net) handlePeer(p *Peer) error {
+func (n *net) handlePeer(p *peer) error {
 	current := n.Chain.GetLatestSnapshotBlock()
 	genesis := n.Chain.GetGenesisSnapshotBlock()
 
-	n.log.Info(fmt.Sprintf("handshake with %s", p))
+	n.log.Debug(fmt.Sprintf("handshake with %s", p))
 	err := p.Handshake(&message.HandShake{
-		CmdSet:  p.CmdSet,
 		Height:  current.Height,
 		Port:    n.Port,
 		Current: current.Hash,
@@ -185,71 +192,170 @@ func (n *net) handlePeer(p *Peer) error {
 		n.log.Error(fmt.Sprintf("handshake with %s error: %v", p, err))
 		return err
 	}
-	n.log.Info(fmt.Sprintf("handshake with %s done", p))
+
+	n.log.Debug(fmt.Sprintf("handshake with %s done", p))
 
 	return n.startPeer(p)
 }
 
-func (n *net) startPeer(p *Peer) error {
+func (n *net) startPeer(p *peer) (err error) {
 	n.peers.Add(p)
 	defer n.peers.Del(p)
 
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
-	n.log.Info(fmt.Sprintf("startPeer %s", p))
+	n.log.Debug(fmt.Sprintf("startPeer %s", p))
 
 	common.Go(n.syncer.Start)
 
+loop:
 	for {
 		select {
 		case <-n.term:
-			return p2p.DiscQuitting
+			err = p2p.DiscQuitting
+			break loop
 
-		//case err := <-p.errch:
-		//	n.log.Error(fmt.Sprintf("peer error: %v", err))
-		//	return p2p.DiscProtocolError
+		case err = <-p.errChan:
+			if err != nil {
+				p.log.Error(fmt.Sprintf("peer %s error: %v", p.RemoteAddr(), err))
+				break loop
+			}
 
-		case <-ticker.C:
-			current := n.Chain.GetLatestSnapshotBlock()
-			p.Send(StatusCode, 0, &ledger.HashHeight{
-				Hash:   current.Hash,
-				Height: current.Height,
-			})
 		default:
 			if err := n.handleMsg(p); err != nil {
 				return err
 			}
 		}
 	}
+
+	close(p.term)
+	p.wg.Wait()
+
+	return err
+}
+
+func (n *net) heartbeat() {
+	defer n.wg.Done()
+
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	var height uint64
+
+	for {
+		select {
+		case <-n.term:
+			return
+
+		case <-ticker.C:
+			l := n.peers.Peers()
+			if len(l) == 0 {
+				break
+			}
+
+			current := n.Chain.GetLatestSnapshotBlock()
+			if height == current.Height {
+				break
+			}
+
+			height = current.Height
+
+			for _, p := range l {
+				p.Send(StatusCode, 0, &ledger.HashHeight{
+					Hash:   current.Hash,
+					Height: current.Height,
+				})
+			}
+
+			monitor.LogEvent("net", "heartbeat")
+		}
+	}
 }
 
 var errMissHandler = errors.New("missing message handler")
 
-func (n *net) handleMsg(p *Peer) (err error) {
+func (n *net) handleMsg(p *peer) (err error) {
 	msg, err := p.mrw.ReadMsg()
 	if err != nil {
 		n.log.Error(fmt.Sprintf("read message from %s error: %v", p, err))
 		return
 	}
 
-	code := cmd(msg.Cmd)
+	code := ViteCmd(msg.Cmd)
 
-	if handler, ok := n.handlers[code]; ok && handler != nil {
-		return handler.Handle(msg, p)
+	// before syncDone, ignore GetAccountBlocksCode
+	if n.syncer.SyncState() != Syncdone {
+		if code == GetAccountBlocksCode {
+			// ignore
+			return
+		}
 	}
 
-	n.log.Error(fmt.Sprintf("missing handler for message %d", msg.Cmd))
+	if handler, ok := n.handlers[code]; ok && handler != nil {
+		n.log.Debug(fmt.Sprintf("begin handle message %s from %s", code, p))
 
-	return errMissHandler
+		begin := time.Now()
+		err = handler.Handle(msg, p)
+		monitor.LogDuration("net", "handle_"+code.String(), time.Now().Sub(begin).Nanoseconds())
+
+		n.log.Debug(fmt.Sprintf("handle message %s from %s done", code, p))
+
+		p.msgHandled[code]++
+
+		return err
+	}
+
+	n.log.Error(fmt.Sprintf("missing handler for message %d from %s", msg.Cmd, p))
+
+	return nil
 }
 
 func (n *net) Info() *NodeInfo {
+	peersInfo := n.peers.Info()
+
+	var send, received, handled, discarded uint64
+	for _, pi := range peersInfo {
+		send += pi.MsgSend
+		received += pi.MsgReceived
+		handled += pi.MsgHandled
+		discarded += pi.MsgDiscarded
+	}
+
 	return &NodeInfo{
-		Peers: n.peers.Info(),
+		Peers:        peersInfo,
+		MsgSend:      send,
+		MsgReceived:  received,
+		MsgHandled:   handled,
+		MsgDiscarded: discarded,
 	}
 }
 
 type NodeInfo struct {
-	Peers []*PeerInfo `json:"peers"`
+	Peers        []*PeerInfo `json:"peers"`
+	MsgSend      uint64      `json:"msgSend"`
+	MsgReceived  uint64      `json:"msgReceived"`
+	MsgHandled   uint64      `json:"msgHandled"`
+	MsgDiscarded uint64      `json:"msgDiscarded"`
+}
+
+// for debug
+type Task struct {
+	Msg    string `json:"Msg"`
+	Sender string `json:"Sender"`
+}
+
+func (n *net) Tasks() (ts []*Task) {
+	n.query.lock.RLock()
+	defer n.query.lock.RUnlock()
+
+	ts = make([]*Task, n.query.queue.Size())
+	i := 0
+
+	n.query.queue.Traverse(func(prev, current *list.Element) {
+		t := current.Value.(*queryTask)
+		ts[i] = &Task{
+			Msg:    ViteCmd(t.Msg.Cmd).String(),
+			Sender: t.Sender.RemoteAddr().String(),
+		}
+		i++
+	})
+
+	return
 }

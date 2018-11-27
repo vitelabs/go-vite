@@ -457,7 +457,8 @@ func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) 
 	snapshotHeight := c.block.VmContext.CurrentSnapshotBlock().Height
 	n := snapshotHeight - getBlockByHeightLimit
 	if height > n && height <= snapshotHeight {
-		stack.push(c.intPool.get().SetBytes(c.block.VmContext.GetSnapshotBlockByHeight(height).Hash.Bytes()))
+		block, _ := c.block.VmContext.GetSnapshotBlockByHeight(height)
+		stack.push(c.intPool.get().SetBytes(block.Hash.Bytes()))
 	} else {
 		stack.push(c.intPool.getZero())
 	}

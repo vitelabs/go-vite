@@ -9,9 +9,12 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"io"
+	"math/rand"
 	net2 "net"
+	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -48,7 +51,7 @@ func (s *fileServer) start() error {
 	s.term = make(chan struct{})
 
 	s.wg.Add(1)
-	common.Go(s.readLoop)
+	common.Go(s.listenLoop)
 
 	return nil
 }
@@ -62,12 +65,16 @@ func (s *fileServer) stop() {
 	case <-s.term:
 	default:
 		close(s.term)
+
+		if s.ln != nil {
+			s.ln.Close()
+		}
+
 		s.wg.Wait()
 	}
 }
 
-func (s *fileServer) readLoop() {
-	defer s.ln.Close()
+func (s *fileServer) listenLoop() {
 	defer s.wg.Done()
 
 	for {
@@ -97,14 +104,14 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 		case <-s.term:
 			return
 		default:
-			//conn.SetWriteDeadline(time.Now().Add(fReadTimeout))
+			//conn.SetReadDeadline(time.Now().Add(fReadTimeout))
 			msg, err := p2p.ReadMsg(conn)
 			if err != nil {
-				s.log.Error(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
+				s.log.Warn(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
 				return
 			}
 
-			code := cmd(msg.Cmd)
+			code := ViteCmd(msg.Cmd)
 			if code != GetFilesCode {
 				s.log.Error(fmt.Sprintf("got %d, need %d", code, GetFilesCode))
 				return
@@ -136,54 +143,77 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 
 // @section fileClient
 
-type connContext struct {
+type conn struct {
 	net2.Conn
-	req   *fileRequest
-	addr  string
-	idle  bool
-	idleT time.Time
+	file   *ledger.CompressedFileMeta
+	height uint64 // block has got
+	peer   Peer
+	idle   bool
+	idleT  time.Time
+	done   bool // file request done
 }
 
-type delCtxEvent struct {
-	ctx *connContext
-	err error
+type filesEvent struct {
+	files
+	sender Peer
 }
 
 type fileClient struct {
-	conns    map[string]*connContext
-	_request chan *fileRequest
-	idle     chan *connContext
-	delConn  chan *delCtxEvent
-	chain    Chain
-	term     chan struct{}
-	log      log15.Logger
-	wg       sync.WaitGroup
-	dialer   *net2.Dialer
+	idleChan  chan *conn
+	delChan   chan *conn
+	filesChan chan *filesEvent
+
+	finishCallbacks []func(end uint64)
+
+	chain Chain
+
+	rec blockReceiver
+
+	dialer *net2.Dialer
+
+	pool cPool
+
+	running int32
+	term    chan struct{}
+	log     log15.Logger
+	wg      sync.WaitGroup
+
+	to uint64
 }
 
-func newFileClient(chain Chain) *fileClient {
+type cPool interface {
+	add(from, to uint64)
+	start()
+}
+
+func newFileClient(chain Chain, pool cPool, rec blockReceiver) *fileClient {
 	return &fileClient{
-		conns:    make(map[string]*connContext),
-		_request: make(chan *fileRequest, 4),
-		idle:     make(chan *connContext, 1),
-		delConn:  make(chan *delCtxEvent),
-		chain:    chain,
-		log:      log15.New("module", "net/fileClient"),
-		dialer:   &net2.Dialer{Timeout: 3 * time.Second},
+		idleChan:  make(chan *conn, 1),
+		delChan:   make(chan *conn, 1),
+		filesChan: make(chan *filesEvent, 10),
+		chain:     chain,
+		log:       log15.New("module", "net/fileClient"),
+		dialer:    &net2.Dialer{Timeout: 3 * time.Second},
+		pool:      pool,
+		rec:       rec,
 	}
 }
 
 func (fc *fileClient) start() {
-	fc.term = make(chan struct{})
+	if atomic.CompareAndSwapInt32(&fc.running, 0, 1) {
+		fc.term = make(chan struct{})
 
-	fc.wg.Add(1)
-	common.Go(fc.loop)
+		fc.wg.Add(1)
+		common.Go(fc.loop)
+	}
 }
 
 func (fc *fileClient) stop() {
 	if fc.term == nil {
 		return
 	}
+
+	defer atomic.CompareAndSwapInt32(&fc.running, 1, 0)
 
 	select {
 	case <-fc.term:
@@ -193,27 +223,171 @@ func (fc *fileClient) stop() {
 	}
 }
 
-func (fc *fileClient) request(r *fileRequest) {
+func (fc *fileClient) threshold(to uint64) {
+	fc.to = to
+}
+
+func (fc *fileClient) allFileDownloaded(end uint64) {
+	for _, fn := range fc.finishCallbacks {
+		fn(end)
+	}
+}
+
+func (fc *fileClient) subAllFileDownloaded(fn func(uint64)) {
+	fc.finishCallbacks = append(fc.finishCallbacks, fn)
+}
+
+func (fc *fileClient) removePeer(conns map[string]*conn, fRecord map[string]*fileState, pFiles map[string]files, sender Peer) {
+	id := sender.ID()
+
+	if conn, ok := conns[id]; ok {
+		delete(conns, id)
+		conn.Close()
+	}
+
+	delete(pFiles, id)
+
+	for _, r := range fRecord {
+		r.peers = r.peers.delete(id)
+	}
+}
+
+func (fc *fileClient) usePeer(conns map[string]*conn, record map[string]*fileState, pFiles map[string]files, sender Peer) {
+	id := sender.ID()
+	// peer is busy
+	if c, ok := conns[id]; ok && !c.idle {
+		return
+	}
+
+	if files, ok := pFiles[sender.ID()]; ok {
+		// retrieve files from low to high
+		for _, file := range files {
+			if r, ok := record[file.Filename]; ok {
+				if file.StartHeight > fc.to {
+					break
+				}
+
+				if r.state == reqWaiting || r.state == reqError {
+					r.state = reqPending
+					if err := fc.doRequest(conns, file, sender); err != nil {
+						r.state = reqError
+						fc.removePeer(conns, record, pFiles, sender)
+					}
+
+					break
+				}
+			}
+		}
+	}
+}
+
+func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fileState, pFiles map[string]files, file *ledger.CompressedFileMeta) {
+	if r, ok := record[file.Filename]; ok {
+		if len(r.peers) > 0 {
+			var id string
+			ids := rand.Perm(len(r.peers))
+			// random a idle peer
+			for _, idx := range ids {
+				// may be remove peers from r.peers
+				if idx >= len(r.peers) {
+					continue
+				}
+
+				p := r.peers[idx]
+				id = p.ID()
+
+				// connection is busy
+				if c, ok := conns[id]; ok && !c.idle {
+					continue
+				}
+
+				r.state = reqPending
+				if err := fc.doRequest(conns, file, p); err != nil {
+					r.state = reqError
+					fc.removePeer(conns, record, pFiles, p)
+				} else {
+					return
+				}
+			}
+		}
+
+		// no peers
+		r.state = reqDone
+		fc.pool.add(file.StartHeight, file.EndHeight)
+		return
+	}
+}
+
+func (fc *fileClient) doRequest(conns map[string]*conn, file *ledger.CompressedFileMeta, sender Peer) error {
+	id := sender.ID()
+
+	if _, ok := conns[id]; !ok {
+		tcp, err := fc.dialer.Dial("tcp", sender.FileAddress().String())
+		if err != nil {
+			return err
+		}
+
+		conns[id] = &conn{
+			Conn:  tcp,
+			peer:  sender,
+			idle:  true,
+			idleT: time.Now(),
+		}
+	}
+
+	conns[id].file = file
+
+	// exec
+	common.Go(func() {
+		fc.exec(conns[id])
+	})
+
+	return nil
+}
+
+func (fc *fileClient) nextFile(fileList files, record map[string]*fileState) (file *ledger.CompressedFileMeta) {
+	for _, file := range fileList {
+		if r, ok := record[file.Filename]; ok {
+			if r.state == reqWaiting || r.state == reqError {
+				return file
+			}
+		}
+	}
+
+	return nil
+}
+
+func (fc *fileClient) gotFiles(fs files, sender Peer) {
 	select {
 	case <-fc.term:
-		fc.log.Warn(fmt.Sprintf("fc has stopped, can`t request %s", r))
-	case fc._request <- r:
+	case fc.filesChan <- &filesEvent{fs, sender}:
 	}
+}
+
+type fileState struct {
+	file *ledger.CompressedFileMeta
+	peers
+	state reqState
 }
 
 func (fc *fileClient) loop() {
 	defer fc.wg.Done()
 
-	wait := make([]*fileRequest, 0, 10)
+	conns := make(map[string]*conn)
+	record := make(map[string]*fileState)
+	pFiles := make(map[string]files)
+	fileList := make(files, 0, 10)
 
 	idleTimeout := 30 * time.Second
 	ticker := time.NewTicker(idleTimeout)
 	defer ticker.Stop()
 
-	delCtx := func(ctx *connContext) {
-		delete(fc.conns, ctx.addr)
-		ctx.Close()
+	delConn := func(c *conn) {
+		delete(conns, c.peer.ID())
+		c.Close()
 	}
+
+	var jobTicker <-chan time.Time
 
 loop:
 	for {
@@ -221,139 +395,163 @@ loop:
 		case <-fc.term:
 			break loop
 
-		case req := <-fc._request:
-			addr := req.Addr()
-			var ctx *connContext
-			var ok bool
-			if ctx, ok = fc.conns[addr]; !ok {
-				conn, err := fc.dialer.Dial("tcp", addr)
-				if err != nil {
-					req.Catch(err)
-					break
+		case e := <-fc.filesChan: // got new files
+			files, sender := e.files, e.sender
+			pFiles[sender.ID()] = files
+			for _, file := range files {
+				if _, ok := record[file.Filename]; !ok {
+					record[file.Filename] = &fileState{file: file}
 				}
-				ctx = &connContext{
-					Conn: conn,
-					addr: addr,
-					idle: true,
-				}
-				fc.conns[addr] = ctx
+				record[file.Filename].peers = append(record[file.Filename].peers, sender)
 			}
 
-			if ctx.idle {
-				ctx.req = req
-				common.Go(func() {
-					fc.exe(ctx)
-				})
-			} else {
-				wait = append(wait, req)
+			fileList = fileList[:0]
+			for _, r := range record {
+				fileList = append(fileList, r.file)
+			}
+			sort.Sort(fileList)
+
+			if jobTicker == nil {
+				t := time.NewTicker(5 * time.Second)
+				jobTicker = t.C
+				defer t.Stop()
+				fc.usePeer(conns, record, pFiles, e.sender)
 			}
 
-		case ctx := <-fc.idle:
-			ctx.idle = true
-			ctx.idleT = time.Now()
-			for i, req := range wait {
-				if req.Addr() == ctx.addr {
-					copy(wait[i:], wait[i+1:])
-					wait = wait[:len(wait)-1]
-
-					ctx.req = req
-					common.Go(func() {
-						fc.exe(ctx)
-					})
+		case c := <-fc.idleChan: // a job done
+			if r, ok := record[c.file.Filename]; ok {
+				if c.done {
+					r.state = reqDone
+				} else {
+					r.state = reqError
 				}
 			}
 
-		case e := <-fc.delConn:
-			delCtx(e.ctx)
-			fc.log.Error(fmt.Sprintf("delete connection %s: %v", e.ctx.addr, e.err))
+			c.idle = true
+			c.idleT = time.Now()
 
-		case t := <-ticker.C:
-			// remote the idle connection
-			for _, ctx := range fc.conns {
-				if ctx.idle && t.Sub(ctx.idleT) > idleTimeout {
-					delCtx(ctx)
+			fc.usePeer(conns, record, pFiles, c.peer)
+
+		case conn := <-fc.delChan: // a job error
+			delConn(conn)
+			fc.log.Error(fmt.Sprintf("delete connection %s", conn.RemoteAddr()))
+
+			file := conn.file
+			if file == nil {
+				break
+			}
+
+			// retry
+			if err := fc.doRequest(conns, file, conn.peer); err == nil {
+				break
+			}
+
+			// clean
+			fc.removePeer(conns, record, pFiles, conn.peer)
+
+			fc.requestFile(conns, record, pFiles, file)
+
+		case <-jobTicker:
+			if file := fc.nextFile(fileList, record); file == nil {
+				// some files are downloading
+				done := true
+				for _, c := range conns {
+					if !c.idle {
+						done = false
+						break
+					}
+				}
+
+				if done {
+					// all files down
+					fc.allFileDownloaded(fileList[len(fileList)-1].EndHeight)
+					break loop
+				}
+			} else if file.StartHeight <= fc.to {
+				fc.requestFile(conns, record, pFiles, file)
+			}
+
+		case now := <-ticker.C:
+			for _, c := range conns {
+				if c.idle && now.Sub(c.idleT) > idleTimeout {
+					delConn(c)
 				}
 			}
 		}
 	}
 
-	for i := 0; i < len(fc.idle); i++ {
-		ctx := <-fc.idle
-		delCtx(ctx)
-	}
-
-	for i := 0; i < len(fc.delConn); i++ {
-		e := <-fc.delConn
-		delCtx(e.ctx)
-	}
-
-	for _, ctx := range fc.conns {
-		delCtx(ctx)
+	for _, c := range conns {
+		delConn(c)
 	}
 }
 
-func (fc *fileClient) exe(ctx *connContext) {
-	//defer fc.wg.Done()
+func (fc *fileClient) idle(ctx *conn) {
+	select {
+	case <-fc.term:
+	case fc.idleChan <- ctx:
+	}
+}
+
+func (fc *fileClient) delete(ctx *conn) {
+	select {
+	case <-fc.term:
+	case fc.delChan <- ctx:
+	}
+}
+
+func (fc *fileClient) exec(ctx *conn) {
+	select {
+	case <-fc.term:
+		return
+	default:
+		// next
+	}
 
 	ctx.idle = false
 
-	req := ctx.req
-	filenames := make([]string, len(req.files))
-	for i, file := range req.files {
-		filenames[i] = file.Filename
+	getFiles := &message.GetFiles{
+		Names: []string{ctx.file.Filename},
 	}
 
-	getFiles := &message.GetFiles{filenames, req.nonce}
-	msg, err := p2p.PackMsg(CmdSet, uint32(GetFilesCode), 0, getFiles)
+	msg, err := p2p.PackMsg(CmdSet, p2p.Cmd(GetFilesCode), 0, getFiles)
 
 	if err != nil {
-		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", getFiles, ctx.addr, err))
-		req.Catch(err)
-		fc.idle <- ctx
+		ctx.done = false
+		fc.idle(ctx)
 		return
 	}
 
-	//ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
+	ctx.SetWriteDeadline(time.Now().Add(fWriteTimeout))
 	if err = p2p.WriteMsg(ctx.Conn, msg); err != nil {
-		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", getFiles, ctx.addr, err))
-		req.Catch(err)
-		fc.delConn <- &delCtxEvent{ctx, err}
+		fc.log.Error(fmt.Sprintf("send %s to %s error: %v", getFiles, ctx.RemoteAddr(), err))
+		fc.delete(ctx)
 		return
 	}
 
-	fc.log.Info(fmt.Sprintf("send %s to %s done", getFiles, ctx.addr))
+	fc.log.Info(fmt.Sprintf("send %s to %s done", getFiles, ctx.RemoteAddr()))
 
-	sCount, aCount, err := fc.readBlocks(ctx)
-	if err != nil {
-		fc.log.Error(fmt.Sprintf("read blocks from %s error: %v", ctx.addr, err))
-		fc.delConn <- &delCtxEvent{ctx, err}
-		ctx.req.Catch(err)
+	if err = fc.receiveFile(ctx); err != nil {
+		fc.log.Error(fmt.Sprintf("receive file from %s error: %v", ctx.RemoteAddr(), err))
+		fc.delete(ctx)
 	} else {
-		fc.log.Info(fmt.Sprintf("read %d SnapshotBlocks %d AccountBlocks from %s", sCount, aCount, ctx.addr))
-		fc.idle <- ctx
+		ctx.done = true
+		fc.idle(ctx)
 	}
 }
 
-//var errResTimeout = errors.New("wait for file response timeout")
 var errFlieClientStopped = errors.New("fileClient stopped")
 
-func (fc *fileClient) readBlocks(ctx *connContext) (uint64, uint64, error) {
+func (fc *fileClient) receiveFile(ctx *conn) error {
 	select {
 	case <-fc.term:
-		return 0, 0, errFlieClientStopped
+		return errFlieClientStopped
 	default:
 		// total blocks: snapshotblocks & accountblocks
-		var total, sTotal, sCount, aCount uint64
+		var sCount, aCount uint64
 
-		start, end := ctx.req.from, ctx.req.to
-		sTotal = end - start + 1
+		file := ctx.file
 
-		for _, file := range ctx.req.files {
-			total += file.BlockNumbers
-		}
-
-		usableAccountBlock := false
-		fc.chain.Compressor().BlockParser(ctx, total, func(block ledger.Block, err error) {
+		fc.chain.Compressor().BlockParser(ctx, file.BlockNumbers, func(block ledger.Block, err error) {
 			if err != nil {
 				return
 			}
@@ -365,15 +563,9 @@ func (fc *fileClient) readBlocks(ctx *connContext) (uint64, uint64, error) {
 					return
 				}
 
-				if block.Height < start || block.Height > end {
-					return
-				}
-
-				// snapshotblock is in band, so follow account blocks will be available
-				usableAccountBlock = true
 				sCount++
-				ctx.req.rec.receiveSnapshotBlock(block)
-				ctx.req.current = block.Height
+				fc.rec.receiveSnapshotBlock(block)
+				ctx.height = block.Height
 
 			case *ledger.AccountBlock:
 				block := block.(*ledger.AccountBlock)
@@ -381,17 +573,17 @@ func (fc *fileClient) readBlocks(ctx *connContext) (uint64, uint64, error) {
 					return
 				}
 
-				if usableAccountBlock {
-					aCount++
-					ctx.req.rec.receiveAccountBlock(block)
-				}
+				aCount++
+				fc.rec.receiveAccountBlock(block)
 			}
 		})
 
-		if sCount != sTotal {
-			return sCount, aCount, fmt.Errorf("incomplete file %d/%d snapshotblocks", sCount, sTotal)
+		sTotal := file.EndHeight - file.StartHeight + 1
+		if sCount < sTotal {
+			return fmt.Errorf("incomplete file %s %d/%d", file.Filename, sCount, sTotal)
 		}
 
-		return sCount, aCount, nil
+		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s", sCount, aCount, file.Filename, ctx.RemoteAddr()))
+		return nil
 	}
 }

@@ -9,8 +9,9 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -26,6 +27,8 @@ var (
 
 	attovPerVite = big.NewInt(1e18)
 	pledgeAmount = new(big.Int).Mul(big.NewInt(10), attovPerVite)
+	// difficulty test:65535~67108863
+	defaultDifficulty = big.NewInt(65535)
 )
 
 func init() {
@@ -61,20 +64,26 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-	fromBlock, err := v.chain.GetLatestAccountBlock(&contracts.AddressMintage)
+	fromBlock, err := v.chain.GetLatestAccountBlock(&abi.AddressMintage)
 	if err != nil {
 		t.Error("GetLatestAccountBlock", err)
 		return
 	}
-
-	gen, err := NewGenerator(v.chain, nil, nil, &fromBlock.ToAddress)
+	var referredSnapshotHashList []types.Hash
+	referredSnapshotHashList = append(referredSnapshotHashList, fromBlock.SnapshotHash)
+	_, fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(v.chain, &fromBlock.ToAddress, referredSnapshotHashList, true)
+	if err != nil {
+		t.Error("GetFitestGeneratorSnapshotHash", err)
+		return
+	}
+	gen, err := NewGenerator(v.chain, fitestSnapshotBlockHash, nil, &fromBlock.ToAddress)
 	if err != nil {
 		t.Error(err)
 	}
 	genResult, err := gen.GenerateWithOnroad(*fromBlock, nil,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			return ed25519.Sign(genesisAccountPrivKey, data), genesisAccountPubKey, nil
-		}, nil)
+		}, defaultDifficulty)
 	if err != nil {
 		t.Error("GenerateWithOnroad", err)
 		return
@@ -119,18 +128,22 @@ func createRPCBlockCallPledgeContarct(vite *VitePrepared, addr *types.Address) e
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
 	// call MethodNamePledge
-	pledgeData, _ := contracts.ABIPledge.PackMethod(contracts.MethodNamePledge, addr)
+	pledgeData, _ := abi.ABIPledge.PackMethod(abi.MethodNamePledge, addr)
 
 	im := &IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: ledger.GenesisAccountAddress,
-		ToAddress:      &contracts.AddressPledge,
+		ToAddress:      &abi.AddressPledge,
 		Amount:         pledgeAmount,
 		TokenId:        &ledger.ViteTokenId,
 		Data:           pledgeData,
 	}
 
-	gen, err := NewGenerator(vite.chain, nil, nil, &im.AccountAddress)
+	_, fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
+	if err != nil {
+		return err
+	}
+	gen, err := NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &im.AccountAddress)
 	if err != nil {
 		return err
 	}
@@ -171,7 +184,11 @@ func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address, fromAddrP
 		Difficulty:     difficulty,
 	}
 
-	gen, err := NewGenerator(vite.chain, nil, nil, &im.AccountAddress)
+	_, fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
+	if err != nil {
+		return err
+	}
+	gen, err := NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &im.AccountAddress)
 	if err != nil {
 		return err
 	}
@@ -188,4 +205,11 @@ func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address, fromAddrP
 	//fmt.Printf("genResult.BlockGenList:%v\n", genResult.BlockGenList)
 	fmt.Printf("blocks[0] balance:%+v,tokenId:%+v\n", genResult.BlockGenList[0].VmContext.GetBalance(&ledger.GenesisAccountAddress, &ledger.ViteTokenId), err)
 	return nil
+}
+
+func TestGenerator(t *testing.T) {
+	//gen, _ := NewGenerator(nil,nil, nil, nil)
+	gen := &Generator{log: log15.New()}
+	block, err := gen.generateBlock(&ledger.AccountBlock{}, &ledger.AccountBlock{}, types.Address{}, nil)
+	t.Error(err, block)
 }

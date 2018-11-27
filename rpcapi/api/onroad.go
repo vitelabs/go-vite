@@ -52,8 +52,9 @@ func (o PrivateOnroadApi) ListWorkingAutoReceiveWorker() []types.Address {
 	return o.manager.ListWorkingAutoReceiveWorker()
 }
 
-func (o PrivateOnroadApi) StartAutoReceive(addr types.Address, filter map[string]string) error {
-	log.Info("StartAutoReceive", "addr", addr)
+func (o PrivateOnroadApi) StartAutoReceive(entropystore string, addr types.Address, filter map[string]string, powDifficulty *string) error {
+	log.Info("StartAutoReceive", "addr", addr, "entropystore", entropystore)
+
 	rawfilter := make(map[types.TokenTypeId]big.Int)
 	if filter != nil {
 		for k, v := range filter {
@@ -69,7 +70,16 @@ func (o PrivateOnroadApi) StartAutoReceive(addr types.Address, filter map[string
 		}
 	}
 
-	return o.manager.StartAutoReceiveWorker(addr, rawfilter)
+	var realDifficulty *big.Int = nil
+	if powDifficulty != nil {
+		b, ok := new(big.Int).SetString(*powDifficulty, 10)
+		if !ok {
+			return ErrStrToBigInt
+		}
+		realDifficulty = b
+	}
+
+	return o.manager.StartAutoReceiveWorker(entropystore, addr, rawfilter, realDifficulty)
 }
 
 func (o PrivateOnroadApi) StopAutoReceive(addr types.Address) error {
@@ -88,13 +98,11 @@ func (o PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index 
 	sum := 0
 	for k, v := range blockList {
 		if v != nil {
-			confirmedTimes, e := o.manager.Chain().GetConfirmTimes(&v.Hash)
+			accountBlock, e := ledgerToRpcBlock(v, o.manager.DbAccess().Chain)
 			if e != nil {
 				return nil, e
-
 			}
-			block := createAccountBlock(v, o.manager.DbAccess().Chain.GetTokenInfoById(&v.TokenId), confirmedTimes)
-			a[k] = block
+			a[k] = accountBlock
 			sum++
 		}
 	}
@@ -122,7 +130,7 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccoun
 	for tti, v := range onroadInfo.TokenBalanceInfoMap {
 		if v != nil {
 			number := strconv.FormatUint(v.Number, 10)
-			tinfo := chain.GetTokenInfoById(&tti)
+			tinfo, _ := chain.GetTokenInfoById(&tti)
 			b := &RpcTokenBalanceInfo{
 				TokenInfo:   RawTokenInfoToRpc(tinfo, tti),
 				TotalAmount: v.TotalAmount.String(),

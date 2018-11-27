@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -68,17 +69,24 @@ func (c *chain) GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledg
 	count := toHeight - fromHeight + 1
 	snapshotBlocks, err := c.GetSnapshotBlocksByHeight(fromHeight, count, true, true)
 	if err != nil {
+		c.log.Error("GetConfirmSubLedger failed, error is "+err.Error(), "method", "GetConfirmSubLedger")
 		return nil, nil, err
 	}
 
+	accountChainSubLedger, err := c.GetConfirmSubLedgerBySnapshotBlocks(snapshotBlocks)
+	return snapshotBlocks, accountChainSubLedger, err
+}
+
+func (c *chain) GetConfirmSubLedgerBySnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error) {
 	chainRangeSet := c.getChainRangeSet(snapshotBlocks)
 
 	accountChainSubLedger, getErr := c.getChainSet(chainRangeSet)
 	if getErr != nil {
-		return nil, nil, getErr
+		c.log.Error("getChainSet failed, error is "+getErr.Error(), "method", "GetConfirmSubLedgerBySnapshotBlocks")
+		return nil, getErr
 	}
 
-	return snapshotBlocks, accountChainSubLedger, nil
+	return accountChainSubLedger, nil
 }
 
 func (c *chain) getChainSet(queryParams map[types.Address][2]*ledger.HashHeight) (map[types.Address][]*ledger.AccountBlock, error) {
@@ -106,15 +114,12 @@ func (c *chain) getChainSet(queryParams map[types.Address][2]*ledger.HashHeight)
 		}
 
 		if otherBlockList != nil {
+			helper.ReverseSlice(otherBlockList)
 			blockList = append(otherBlockList, blockList...)
 		}
 
 		for _, block := range blockList {
-			block.AccountAddress = account.AccountAddress
-			// Not contract account block
-			if len(block.PublicKey) == 0 {
-				block.PublicKey = account.PublicKey
-			}
+			c.completeBlock(block, account)
 		}
 
 		queryResult[addr] = blockList

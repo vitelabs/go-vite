@@ -7,6 +7,8 @@ import (
 
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
 type SyncState uint
@@ -37,7 +39,6 @@ func (s SyncState) String() string {
 }
 
 type SyncStateFeed struct {
-	//lock      sync.RWMutex
 	currentId int
 	subs      map[int]SyncStateCallback
 }
@@ -49,9 +50,6 @@ func newSyncStateFeed() *SyncStateFeed {
 }
 
 func (s *SyncStateFeed) Sub(fn SyncStateCallback) int {
-	//s.lock.Lock()
-	//defer s.lock.Unlock()
-
 	s.currentId++
 	s.subs[s.currentId] = fn
 	return s.currentId
@@ -62,22 +60,13 @@ func (s *SyncStateFeed) Unsub(subId int) {
 		return
 	}
 
-	//s.lock.Lock()
-	//defer s.lock.Unlock()
-
 	delete(s.subs, subId)
 }
 
 func (s *SyncStateFeed) Notify(st SyncState) {
-	//s.lock.RLock()
-	//defer s.lock.RUnlock()
-
 	for _, fn := range s.subs {
 		if fn != nil {
-			//fn := fn // closure
-			//common.Go(func() {
 			fn(st)
-			//})
 		}
 	}
 }
@@ -89,8 +78,7 @@ const minHeightDifference = 3600
 
 var waitEnoughPeers = 10 * time.Second
 var enoughPeers = 3
-var chainGrowTimeout = 10 * time.Minute
-var chainGrowInterval = 10 * time.Second
+var chainGrowInterval = time.Second
 
 func shouldSync(from, to uint64) bool {
 	if to >= from+minHeightDifference {
@@ -101,25 +89,25 @@ func shouldSync(from, to uint64) bool {
 }
 
 type syncer struct {
-	from, to uint64 // include
-	count    uint64 // atomic, current amount of snapshotblocks have received
-	total    uint64 // atomic, total amount of snapshotblocks need download, equal: to - from + 1
-	//blocks     []uint64   // mark whether or not get the indexed block
-	//sLock      sync.Mutex // protect blocks
+	from, to   uint64 // include
+	count      uint64 // atomic, current amount of snapshotblocks have received
+	total      uint64 // atomic, total amount of snapshotblocks need download, equal: to - from + 1
+	peers      *peerSet
 	state      SyncState
-	term       chan struct{}
 	downloaded chan struct{}
 	feed       *SyncStateFeed
-	chain      Chain // query latest block and genesis block
-	peers      *peerSet
+	chain      Chain // query latest block
 	pEvent     chan *peerEvent
-	pool       context // add new request
-	log        log15.Logger
-	running    int32
 	receiver   Receiver
+	fc         *fileClient
+	pool       *chunkPool
+	chunked    int32
+	running    int32
+	term       chan struct{}
+	log        log15.Logger
 }
 
-func newSyncer(chain Chain, peers *peerSet, pool context, receiver Receiver) *syncer {
+func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syncer {
 	s := &syncer{
 		state:      SyncNotStart,
 		term:       make(chan struct{}),
@@ -127,14 +115,20 @@ func newSyncer(chain Chain, peers *peerSet, pool context, receiver Receiver) *sy
 		feed:       newSyncStateFeed(),
 		chain:      chain,
 		peers:      peers,
-		pEvent:     make(chan *peerEvent),
-		pool:       pool,
+		pEvent:     make(chan *peerEvent, 1),
 		log:        log15.New("module", "net/syncer"),
 		receiver:   receiver,
 	}
 
 	// subscribe peer add/del event
 	peers.Sub(s.pEvent)
+
+	pool := newChunkPool(peers, gid, s)
+	fc := newFileClient(chain, pool, s)
+	fc.subAllFileDownloaded(s.createChunkTasks)
+
+	s.pool = pool
+	s.fc = fc
 
 	return s
 }
@@ -143,8 +137,10 @@ func (s *syncer) Stop() {
 	select {
 	case <-s.term:
 	default:
-		s.peers.Unsub(s.pEvent)
+		s.peers.UnSub(s.pEvent)
 		close(s.term)
+		s.pool.stop()
+		s.fc.stop()
 	}
 }
 
@@ -154,11 +150,15 @@ func (s *syncer) Start() {
 	}
 
 	defer atomic.StoreInt32(&s.running, 0)
+	defer atomic.StoreInt32(&s.chunked, 0)
+
+	// prepare to request file
+	s.fc.start()
+	defer s.fc.stop()
+	// stop chunk pool
+	defer s.pool.stop()
 
 	start := time.NewTimer(waitEnoughPeers)
-	defer start.Stop()
-
-	s.log.Info("prepare sync")
 
 wait:
 	for {
@@ -170,13 +170,17 @@ wait:
 		case <-start.C:
 			break wait
 		case <-s.term:
+			s.log.Warn("sync cancel")
 			s.setState(SyncCancel)
+			start.Stop()
 			return
 		}
 	}
 
+	start.Stop()
+
 	// for now syncState is SyncNotStart
-	p := s.peers.BestPeer()
+	p := s.peers.SyncPeer()
 	if p == nil {
 		s.setState(Syncerr)
 		s.log.Error("sync error: no peers")
@@ -185,14 +189,17 @@ wait:
 
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
-	// p is lower than me, or p is not all enough, no need to sync
-	if current.Height >= p.height || current.Height+minSubLedger > p.height {
-		// I`am not tall enough, then send my current block to p
-		if current.Height > p.height && current.Height <= p.height+minSubLedger {
-			p.SendNewSnapshotBlock(current)
+	// p is not all enough, no need to sync
+	if current.Height+minSubLedger > p.height {
+		if current.Height < p.height {
+			p.Send(GetSnapshotBlocksCode, 0, &message.GetSnapshotBlocks{
+				From:    ledger.HashHeight{Hash: p.head},
+				Count:   1,
+				Forward: true,
+			})
 		}
 
-		s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", p, p.height, current.Height))
+		s.log.Info(fmt.Sprintf("sync done: bestPeer %s at %d, our height: %d", p.RemoteAddr(), p.height, current.Height))
 		s.setState(Syncdone)
 		return
 	}
@@ -202,17 +209,17 @@ wait:
 	s.total = s.to - s.from + 1
 	s.count = 0
 	s.setState(Syncing)
-	s.sync(s.from, s.to)
-	s.log.Info(fmt.Sprintf("syncing: from %d, to %d", s.from, s.to))
+	s.sync()
 
-	// check download timeout
 	// check chain grow timeout
-	checkTimer := time.NewTimer(u64ToDuration(s.total * 1000))
-	defer checkTimer.Stop()
+	var timeoutChan <-chan time.Time
 
-	// will be reset when downloaded
-	checkChainTicker := time.NewTicker(24 * 365 * time.Hour)
+	// check chain height
+	checkChainTicker := time.NewTicker(chainGrowInterval)
 	defer checkChainTicker.Stop()
+
+	var speed uint64 = 100
+	prevHeight := current.Height
 
 	for {
 		select {
@@ -221,12 +228,12 @@ wait:
 				// a taller peer is disconnected, maybe is the peer we syncing to
 				// because peer`s height is growing
 				if e.peer.height >= s.to {
-					if bestPeer := s.peers.BestPeer(); bestPeer != nil {
-						if shouldSync(current.Height, bestPeer.height) {
-							s.setTarget(bestPeer.height)
+					if targetPeer := s.peers.SyncPeer(); targetPeer != nil {
+						if shouldSync(current.Height, targetPeer.height) {
+							s.setTarget(targetPeer.height)
 						} else {
 							// no need sync
-							s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", bestPeer, bestPeer.height, current.Height))
+							s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", targetPeer, targetPeer.height, current.Height))
 							s.setState(Syncdone)
 							return
 						}
@@ -237,19 +244,21 @@ wait:
 						return
 					}
 				}
+			} else if shouldSync(current.Height, e.peer.Height()) {
+				s.getSubLedgerFrom(e.peer)
 			}
+
 		case <-s.downloaded:
 			s.log.Info("sync downloaded")
 			s.setState(SyncDownloaded)
 			// check chain height timeout
-			checkTimer.Reset(chainGrowTimeout)
-			// check chain height loop
-			checkChainTicker.Stop()
-			checkChainTicker = time.NewTicker(chainGrowInterval)
-		case <-checkTimer.C:
+			timeoutChan = time.NewTimer(u64ToDuration(s.total * 1000)).C
+
+		case <-timeoutChan:
 			s.log.Error("sync error: timeout")
 			s.setState(Syncerr)
 			return
+
 		case <-checkChainTicker.C:
 			current := s.chain.GetLatestSnapshotBlock()
 			if current.Height >= s.to {
@@ -257,7 +266,18 @@ wait:
 				s.setState(Syncdone)
 				return
 			}
-			s.log.Info(fmt.Sprintf("current height: %d", current.Height))
+
+			speed = speed/2 + (current.Height-prevHeight)/2
+			if speed == 0 {
+				speed = 100
+			} else if speed > 200 {
+				speed = 200
+			}
+
+			s.fc.threshold(current.Height + 30*speed)
+			s.pool.threshold(current.Height + 30*speed)
+			s.log.Debug(fmt.Sprintf("current height: %d", current.Height))
+
 		case <-s.term:
 			s.log.Warn("sync cancel")
 			s.setState(SyncCancel)
@@ -268,81 +288,136 @@ wait:
 
 // this method will be called when our target Height changed, (eg. the best peer disconnected)
 func (s *syncer) setTarget(to uint64) {
-	if to == s.to {
+	if to == atomic.LoadUint64(&s.to) {
 		return
 	}
 
 	atomic.StoreUint64(&s.total, to-s.from+1)
+	atomic.StoreUint64(&s.to, to)
 
-	if to > s.to {
-		s.sync(s.to+1, to)
+	if s.count >= s.total {
+		select {
+		case s.downloaded <- struct{}{}:
+		default:
+			// nothing
+		}
 	}
-
-	s.to = to
 }
 
-func (s *syncer) counter(add bool, num uint64) {
-	if num == 0 {
-		return
-	}
-
-	var count uint64
-	if add {
-		count = atomic.AddUint64(&s.count, num)
-	} else {
-		count = atomic.AddUint64(&s.count, ^uint64(num-1))
-	}
-
-	// total maybe modified
-	total := atomic.LoadUint64(&s.total)
-
+func (s *syncer) inc() {
 	if s.state == SyncDownloaded {
 		return
 	}
 
-	if count >= total {
+	count := atomic.AddUint64(&s.count, 1)
+
+	if count >= s.total {
 		// all blocks have downloaded
 		s.downloaded <- struct{}{}
 	}
 }
 
-func (s *syncer) sync(from, to uint64) {
-	pieces := splitSubLedger(from, to, s.peers.Pick(from+minSubLedger))
+func (s *syncer) sync() {
+	peerList := s.peers.Pick(s.from + 1)
 
-	for _, piece := range pieces {
-		req := &subLedgerRequest{
-			from:  piece.from,
-			to:    piece.to,
-			peer:  piece.peer,
-			catch: s.reqError,
-			rec:   s,
-		}
-
-		s.pool.Add(req)
+	for _, peer := range peerList {
+		s.getSubLedgerFrom(peer)
 	}
 }
 
-func (s *syncer) reqError(id uint64, err error) {
-	if s.state != Syncing || atomic.LoadInt32(&s.running) != 1 {
+func (s *syncer) getSubLedgerFrom(peer Peer) {
+	from, to := s.from, s.to
+	pTo := peer.Height()
+	if pTo > to {
+		pTo = to
+	}
+
+	msg := &message.GetSubLedger{
+		From:    ledger.HashHeight{Height: from},
+		Count:   pTo - from + 1,
+		Forward: true,
+	}
+
+	peer.Send(GetSubLedgerCode, 0, msg)
+
+	s.log.Info(fmt.Sprintf("sync from %d to %d to %s at %d", from, pTo, peer.RemoteAddr(), peer.Height()))
+}
+
+func (s *syncer) ID() string {
+	return "syncer"
+}
+
+func (s *syncer) Cmds() []ViteCmd {
+	return []ViteCmd{FileListCode, SubLedgerCode}
+}
+
+func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
+	if ViteCmd(msg.Cmd) == FileListCode {
+		res := new(message.FileList)
+
+		if err := res.Deserialize(msg.Payload); err != nil {
+			s.log.Error(fmt.Sprintf("descerialize %s from %s error: %v", res, sender.RemoteAddr(), err))
+			return err
+		}
+
+		s.log.Info(fmt.Sprintf("receive %s from %s", res, sender.RemoteAddr()))
+
+		if len(res.Files) > 0 {
+			s.fc.gotFiles(res.Files, sender)
+		} else if sender.Height() >= s.to && atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
+			for _, c := range res.Chunks {
+				s.pool.add(c[0], c[1])
+			}
+		}
+	} else {
+		s.pool.Handle(msg, sender)
+	}
+
+	return nil
+}
+
+func (s *syncer) createChunkTasks(fileEnd uint64) {
+	if fileEnd >= s.to {
 		return
 	}
 
-	if r := s.pool.Get(id); r != nil {
-		from, to := r.Band()
-		s.log.Error(fmt.Sprintf("GetSubLedger<%d-%d> error: %v", from, to, err))
-
-		if from > s.to {
-			return
-		}
-
-		if to > s.to {
-			req := r.Req()
-			req.SetBand(from, s.to)
-			s.pool.Add(req)
-		} else {
-			s.setState(Syncerr)
-		}
+	if s.state != Syncing {
+		return
 	}
+
+	s.pool.add(fileEnd+1, s.to)
+}
+
+func (s *syncer) catch(c piece) {
+	if s.state != Syncing || atomic.LoadInt32(&s.running) == 0 {
+		return
+	}
+
+	// no peers
+	if bestPeer := s.peers.BestPeer(); bestPeer == nil {
+		s.setState(Syncerr)
+	} else if atomic.LoadUint64(&s.to) > bestPeer.Height() {
+		// our target is taller than bestPeer, maybe bestPeer fallback
+		s.setTarget(bestPeer.Height())
+	}
+
+	from, to := c.band()
+	// piece is too taller, out of our sync target
+	if from > s.to {
+		return
+	}
+
+	newTo := to
+	if newTo > s.to {
+		newTo = s.to
+	}
+
+	if from > newTo {
+		return
+	}
+
+	s.pool.add(from, s.to)
+	s.log.Warn(fmt.Sprintf("retry sync from %d to %d", from, s.to))
 }
 
 func (s *syncer) setState(t SyncState) {
@@ -358,18 +433,18 @@ func (s *syncer) UnsubscribeSyncStatus(subId int) {
 	s.feed.Unsub(subId)
 }
 
-func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
-	return block.Height - s.from
-}
+//func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
+//	return block.Height - s.from
+//}
 
 func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) {
-	s.log.Info(fmt.Sprintf("syncer: receive SnapshotBlock %s/%d", block.Hash, block.Height))
+	s.log.Debug(fmt.Sprintf("syncer: receive SnapshotBlock %s/%d", block.Hash, block.Height))
 	s.receiver.ReceiveSnapshotBlock(block)
-	s.counter(true, 1)
+	s.inc()
 }
 
 func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) {
-	s.log.Info(fmt.Sprintf("syncer: receive AccountBlock %s/%d", block.Hash, block.Height))
+	s.log.Debug(fmt.Sprintf("syncer: receive AccountBlock %s/%d", block.Hash, block.Height))
 	s.receiver.ReceiveAccountBlock(block)
 }
 

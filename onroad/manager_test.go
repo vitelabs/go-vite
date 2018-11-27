@@ -17,8 +17,12 @@ var twallet = wallet.New(&wallet.Config{
 })
 
 func generateAddress() types.Address {
-	key, _ := twallet.KeystoreManager.StoreNewKey("123")
-	return key.Address
+	mnemonic, em, _ := twallet.NewMnemonicAndEntropyStore("123456")
+	em.Unlock("123456")
+	fmt.Println(mnemonic)
+	fmt.Println(em.GetEntropyStoreFile())
+	fmt.Println(em.GetPrimaryAddr())
+	return em.GetPrimaryAddr()
 }
 
 func startManager() (*onroad.Manager, types.Address) {
@@ -49,23 +53,25 @@ func startManager() (*onroad.Manager, types.Address) {
 func TestManager_StartAutoReceiveWorker(t *testing.T) {
 
 	manager, addr := startManager()
-	fmt.Println("test a stop ")
-	manager.StartAutoReceiveWorker(addr, nil)
+	fmt.Println("test a stop1 ")
+	manager.StartAutoReceiveWorker(addr.String(), addr, nil)
 
 	time.AfterFunc(5*time.Second, func() {
-		fmt.Println("test a stop ")
+		fmt.Println("test a stop2")
 		manager.StopAutoReceiveWorker(addr)
 		time.AfterFunc(5*time.Second, func() {
-			fmt.Println("test a start ")
-			manager.StartAutoReceiveWorker(addr, nil)
+			fmt.Println("test a start 3")
+			manager.StartAutoReceiveWorker(addr.String(), addr, nil)
 			time.AfterFunc(5*time.Second, func() {
-				fmt.Println("test a lock ")
-				twallet.KeystoreManager.Lock(addr)
-				time.AfterFunc(5*time.Second, func() {
-					fmt.Println("test a unlock ")
-					twallet.KeystoreManager.Unlock(addr, "123", 5*time.Second)
-					manager.StartAutoReceiveWorker(addr, nil)
-				})
+				fmt.Println("test a lock4 ")
+				storeManager, _ := twallet.GetEntropyStoreManager(addr.String())
+				storeManager.Lock()
+				//time.AfterFunc(5*time.Second, func() {
+				//	fmt.Println("test a unlock ")
+				//	storeManager, _ := twallet.GetEntropyStoreManager(addr.String())
+				//	storeManager.Unlock("123456")
+				//	manager.StartAutoReceiveWorker(addr.String(), addr, nil)
+				//})
 			})
 		})
 	})

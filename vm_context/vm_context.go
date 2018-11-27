@@ -7,8 +7,10 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/trie"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
+	"time"
 )
 
 var (
@@ -204,19 +206,19 @@ func (context *VmContext) GetSnapshotBlocks(startHeight, count uint64, forward, 
 	return snapshotBlocks
 }
 
-func (context *VmContext) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
+func (context *VmContext) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
 	// For NewEmptyVmContextByTrie
 	if context.chain == nil {
 		context.log.Error("context.chain is nil", "method", "GetSnapshotBlockByHeight")
-		return nil
+		return nil, errors.New("context.chain is nil")
 	}
 
 	if height > context.currentSnapshotBlock.Height {
-		return nil
+		return nil, nil
 	}
 	snapshotBlock, _ := context.chain.GetSnapshotBlockByHeight(height)
 
-	return snapshotBlock
+	return snapshotBlock, nil
 }
 
 func (context *VmContext) GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock {
@@ -350,4 +352,60 @@ func (context *VmContext) NewStorageIterator(addr *types.Address, prefix []byte)
 		}
 	}
 	return nil
+}
+
+func (context *VmContext) getBalanceBySnapshotHash(addr *types.Address, tokenTypeId *types.TokenTypeId, snapshotHash *types.Hash) *big.Int {
+	var balance = big.NewInt(0)
+	if balanceBytes := context.GetStorageBySnapshotHash(addr, BalanceKey(tokenTypeId), snapshotHash); balanceBytes != nil {
+		balance.SetBytes(balanceBytes)
+	}
+	return balance
+}
+func (context *VmContext) GetStorageBySnapshotHash(addr *types.Address, key []byte, snapshotHash *types.Hash) []byte {
+	if snapshotHash == nil || *snapshotHash == context.currentSnapshotBlock.Hash {
+		return context.GetStorage(addr, key)
+	}
+	if snapshotBlock := context.GetSnapshotBlockByHash(snapshotHash); snapshotBlock != nil {
+		if latestAccountBlock, _ := context.chain.GetConfirmAccountBlock(snapshotBlock.Height, addr); latestAccountBlock != nil {
+			trie := context.chain.GetStateTrie(&latestAccountBlock.StateHash)
+			return trie.GetValue(key)
+		}
+	}
+	return nil
+}
+func (context *VmContext) NewStorageIteratorBySnapshotHash(addr *types.Address, prefix []byte, snapshotHash *types.Hash) vmctxt_interface.StorageIterator {
+	if snapshotHash == nil || *snapshotHash == context.currentSnapshotBlock.Hash {
+		return context.NewStorageIterator(addr, prefix)
+	}
+	if snapshotBlock := context.GetSnapshotBlockByHash(snapshotHash); snapshotBlock != nil {
+		if latestAccountBlock, _ := context.chain.GetConfirmAccountBlock(snapshotBlock.Height, addr); latestAccountBlock != nil {
+			trie := context.chain.GetStateTrie(&latestAccountBlock.StateHash)
+			return NewStorageIterator(trie, prefix)
+		}
+	}
+	return nil
+}
+
+func (context *VmContext) GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error) {
+	return abi.GetActiveConsensusGroupList(context, &snapshotHash), nil
+}
+func (context *VmContext) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
+	return abi.GetCandidateList(context, gid, &snapshotHash), nil
+}
+func (context *VmContext) GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error) {
+	return abi.GetVoteList(context, gid, &snapshotHash), nil
+}
+func (context *VmContext) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error) {
+	balanceList := make(map[types.Address]*big.Int)
+	for _, addr := range addressList {
+		balanceList[addr] = context.getBalanceBySnapshotHash(&addr, &tokenTypeId, &snapshotHash)
+	}
+	return balanceList, nil
+}
+func (context *VmContext) GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error) {
+	return context.chain.GetSnapshotBlockBeforeTime(timestamp)
+}
+
+func (context *VmContext) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
+	return context.chain.GetGenesisSnapshotBlock()
 }

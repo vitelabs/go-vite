@@ -49,25 +49,3 @@ const (
 var (
 	createContractFee = new(big.Int).Mul(helper.Big10, util.AttovPerVite)
 )
-
-type VmParams struct {
-	MinPledgeHeight                  uint64 // Minimum pledge height
-	CreateConsensusGroupPledgeHeight uint64 // Pledge height for registering to be a super node of snapshot group and common delegate group
-	MintagePledgeHeight              uint64 // Pledge height for mintage if choose to pledge instead of destroy vite token
-	RewardHeightLimit                uint64 // Cannot get snapshot block reward of current few blocks, for latest snapshot block could be reverted
-}
-
-var (
-	VmParamsTest = VmParams{
-		MinPledgeHeight:                  1,
-		CreateConsensusGroupPledgeHeight: 1,
-		MintagePledgeHeight:              1,
-		RewardHeightLimit:                1,
-	}
-	VmParamsMainNet = VmParams{
-		MinPledgeHeight:                  3600 * 24 * 3,
-		CreateConsensusGroupPledgeHeight: 3600 * 24 * 3,
-		MintagePledgeHeight:              3600 * 24 * 30 * 3,
-		RewardHeightLimit:                60 * 30,
-	}
-)

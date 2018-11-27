@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -29,6 +30,9 @@ func NewNeedSnapshotContent(chain *chain, unconfirmedSubLedger map[types.Address
 }
 
 func (cache *NeedSnapshotCache) GetSnapshotContent() ledger.SnapshotContent {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
 	content := make(ledger.SnapshotContent, 0)
 	for addr, block := range cache.cacheMap {
 		content[addr] = &ledger.HashHeight{
@@ -54,22 +58,91 @@ func (cache *NeedSnapshotCache) GetBlockByHash(addr *types.Address, hash types.H
 	return nil
 }
 
-func (cache *NeedSnapshotCache) Set(addr *types.Address, accountBlock *ledger.AccountBlock) {
+func (cache *NeedSnapshotCache) Get(addr *types.Address) *ledger.AccountBlock {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
-	if cachedItem := cache.cacheMap[*addr]; cachedItem != nil && cachedItem.Height > accountBlock.Height {
-		return
-	}
-
-	cache.cacheMap[*addr] = accountBlock
+	return cache.cacheMap[*addr]
 }
 
-func (cache *NeedSnapshotCache) Remove(addr *types.Address, height uint64) {
+func (cache *NeedSnapshotCache) Set(subLedger map[types.Address]*ledger.AccountBlock) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
-	if cachedItem := cache.cacheMap[*addr]; cachedItem != nil && cachedItem.Height < height {
-		return
+	for addr, accountBlock := range subLedger {
+		if cachedItem := cache.cacheMap[addr]; cachedItem != nil && cachedItem.Height >= accountBlock.Height {
+			cache.unsavePrintCacheMap()
+			cache.printCorrectCacheMap()
+			cache.log.Error("cachedItem.Height > accountBlock.Height", "method", "Set", "addr", addr, "cachedItem.Height", cachedItem.Height, "accountBlock.Height", accountBlock.Height)
+			return
+		}
+
+		cache.cacheMap[addr] = accountBlock
 	}
 
-	delete(cache.cacheMap, *addr)
+}
+
+func (cache *NeedSnapshotCache) unsavePrintCacheMap() {
+	for addr, block := range cache.cacheMap {
+		cache.log.Error(fmt.Sprintf("%s %+v", addr, block))
+	}
+}
+
+func (cache *NeedSnapshotCache) printCorrectCacheMap() {
+	unconfirmedSubLedger, getSubLedgerErr := cache.chain.getUnConfirmedSubLedger()
+	if getSubLedgerErr != nil {
+		cache.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "printCorrectCacheMap")
+	}
+
+	correctSnapshotCache := NewNeedSnapshotContent(cache.chain, unconfirmedSubLedger)
+	cache.log.Error("The correct needSnapshotContent is ...")
+	correctSnapshotCache.unsavePrintCacheMap()
+}
+
+func (cache *NeedSnapshotCache) BeSnapshot(subLedger ledger.SnapshotContent) {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	for addr, hashHeight := range subLedger {
+		cachedItem := cache.cacheMap[addr]
+		if cachedItem == nil {
+			cache.unsavePrintCacheMap()
+			cache.printCorrectCacheMap()
+			cache.log.Error("cacheItem is nil", "method", "BeSnapshot", "addr", addr, "hash", hashHeight.Hash, "height", hashHeight.Height)
+		}
+
+		if cachedItem.Height < hashHeight.Height {
+			cache.unsavePrintCacheMap()
+			cache.printCorrectCacheMap()
+			cache.log.Error("cacheItem.Height < height", "method", "BeSnapshot", "addr", addr, "hash", hashHeight.Hash, "height", hashHeight.Height)
+		}
+
+		if cachedItem.Height == hashHeight.Height {
+			delete(cache.cacheMap, addr)
+		}
+	}
+
+}
+
+func (cache *NeedSnapshotCache) Rebuild() {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	unconfirmedSubLedger, getSubLedgerErr := cache.chain.getUnConfirmedSubLedger()
+	if getSubLedgerErr != nil {
+		cache.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "printCorrectCacheMap")
+	}
+
+	cache.cacheMap = make(map[types.Address]*ledger.AccountBlock)
+
+	for addr, blocks := range unconfirmedSubLedger {
+		cache.cacheMap[addr] = blocks[0]
+	}
+}
+
+func (cache *NeedSnapshotCache) Remove(addrList []types.Address) {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	for _, addr := range addrList {
+		delete(cache.cacheMap, addr)
+	}
 }

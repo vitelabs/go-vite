@@ -18,6 +18,8 @@ import (
 // @section NodeID
 var errUnmatchedLength = errors.New("unmatch length, needs 64 hex chars")
 
+var ZERO_NODE_ID NodeID
+
 type NodeID [32]byte
 
 func (id NodeID) Bytes() []byte {

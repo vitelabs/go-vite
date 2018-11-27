@@ -188,6 +188,10 @@ func (a *agent) stop() {
 		return
 	}
 
+	if a.conn != nil {
+		a.conn.Close()
+	}
+
 	discvLog.Info("discovery agent term")
 
 	select {
@@ -392,6 +396,9 @@ func (a *agent) writeLoop() {
 			data, hash, err := s.msg.pack(a.priv)
 
 			if err != nil {
+				if s.wait != nil {
+					s.wait.handle(nil, err, nil)
+				}
 				discvLog.Error(fmt.Sprintf("pack message %s to %s error: %v", s.msg, s.addr, err))
 				continue
 			}
@@ -399,9 +406,17 @@ func (a *agent) writeLoop() {
 			n, err := a.conn.WriteToUDP(data, s.addr)
 
 			if err != nil {
+				if s.wait != nil {
+					s.wait.handle(nil, err, nil)
+				}
+
 				discvLog.Error(fmt.Sprintf("send message %s to %s error: %v", s.msg, s.addr, err))
 			} else if n != len(data) {
-				discvLog.Error(fmt.Sprintf("send incomplete message %s (%d/%dbytes) to %s", s.msg, n, len(data), s.addr))
+				err = fmt.Errorf("send incomplete message %s (%d/%dbytes) to %s", s.msg, n, len(data), s.addr)
+				if s.wait != nil {
+					s.wait.handle(nil, err, nil)
+				}
+				discvLog.Error(err.Error())
 			} else {
 				monitor.LogEvent("p2p/discv", "send "+s.code.String())
 

@@ -9,18 +9,31 @@ import (
 	"github.com/gavv/monotime"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/wallet/keystore"
+	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/wallet"
 )
 
 func genAddress(n int) []types.Address {
 	dir := common.GoViteTestDataDir()
-	kp := keystore.NewManager(dir)
-	kp.Init()
+	wallet := wallet.New(&wallet.Config{
+		DataDir: dir,
+	})
+	_, em, err := wallet.NewMnemonicAndEntropyStore("123")
+	if err != nil {
+		return nil
+	}
+	em.Unlock("123")
 
 	addressArr := make([]types.Address, n)
 	for i := 0; i < n; i++ {
-		key1, _ := kp.StoreNewKey("123")
-		addressArr[i] = key1.Address
+		_, key, e := em.DeriveForIndexPath(uint32(i))
+		if e != nil {
+			fmt.Println(e)
+			return nil
+
+		}
+		address, _ := key.Address()
+		addressArr[i] = *address
 	}
 	return addressArr
 }
@@ -28,14 +41,12 @@ func genAddress(n int) []types.Address {
 func TestGenPlan(t *testing.T) {
 	now := time.Now()
 	println("now:\t" + now.Format(time.RFC3339))
-	info := membersInfo{genesisTime: now, memberCnt: 2, interval: 6}
-	var n = 10
-	for i := 0; i < n; i++ {
-		result := info.genPlan(int32(i), genAddress(n))
-		plans := result.Plans
+	info := core.NewGroupInfo(now, types.ConsensusGroupInfo{NodeCount: 2, Interval: 6, Gid: types.SNAPSHOT_GID})
+	var n = uint64(10)
+	for i := uint64(0); i < n; i++ {
+		plans := info.GenPlanByAddress(i, genAddress(int(n)))
 		for i, p := range plans {
-			println(strconv.Itoa(i) + ":\t" + p.STime.Format(time.StampMilli) + "\t" + p.Member.String() + "\t" +
-				result.STime.Format(time.StampMilli) + "\t" + result.ETime.Format(time.StampMilli))
+			println(strconv.Itoa(i) + ":\t" + p.STime.Format(time.StampMilli) + "\t" + p.Member.String() + "\t")
 		}
 	}
 }
@@ -43,12 +54,12 @@ func TestGenPlan(t *testing.T) {
 func TestTime2Index(t *testing.T) {
 	now := time.Now()
 	println("now:\t" + now.Format(time.RFC3339))
-	info := membersInfo{genesisTime: now, memberCnt: 2, interval: 6}
+	info := core.NewGroupInfo(now, types.ConsensusGroupInfo{NodeCount: 2, Interval: 6, Gid: types.SNAPSHOT_GID})
 
-	index := info.time2Index(time.Now().Add(6 * time.Second))
+	index := info.Time2Index(time.Now().Add(6 * time.Second))
 	println("" + strconv.FormatInt(int64(index), 10))
 
-	index = info.time2Index(time.Now().Add(13 * time.Second))
+	index = info.Time2Index(time.Now().Add(13 * time.Second))
 	println("" + strconv.FormatInt(int64(index), 10))
 
 	var i int

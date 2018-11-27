@@ -44,8 +44,8 @@ type Verifier interface {
 }
 
 // @section Subscriber
-type SnapshotBlockCallback = func(block *ledger.SnapshotBlock)
-type AccountblockCallback = func(addr types.Address, block *ledger.AccountBlock)
+type SnapshotBlockCallback = func(block *ledger.SnapshotBlock, source types.BlockSource)
+type AccountblockCallback = func(addr types.Address, block *ledger.AccountBlock, source types.BlockSource)
 type SyncStateCallback = func(SyncState)
 
 type Subscriber interface {
@@ -84,6 +84,9 @@ type Fetcher interface {
 
 	// address is optional
 	FetchAccountBlocks(start types.Hash, count uint64, address *types.Address)
+
+	// add snapshot height
+	FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64)
 }
 
 // @section Receiver
@@ -126,4 +129,5 @@ type Net interface {
 	Start(svr *p2p.Server) error
 	Stop()
 	Info() *NodeInfo
+	Tasks() []*Task
 }

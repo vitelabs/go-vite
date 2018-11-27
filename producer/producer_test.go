@@ -13,7 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/verifier"
@@ -96,9 +95,15 @@ func TestSnapshot(t *testing.T) {
 
 	cs := genConsensus(c, t)
 
-	accountPrivKey, _ := ed25519.HexToPrivateKey(accountPrivKeyStr)
-	accountPubKey := accountPrivKey.PubByte()
-	coinbase := types.PubkeyToAddress(accountPubKey)
+	addr, err := types.HexToAddress("vite_91dc0c38d104c7915d3a6c4381a40c360edd871c34ac255bb2")
+	if err != nil {
+		panic(err)
+	}
+	coinbase := &AddressContext{
+		EntryPath: "/Users/jie/viteisbest/wallet2/vite_91dc0c38d104c7915d3a6c4381a40c360edd871c34ac255bb2",
+		Address:   addr,
+		Index:     0,
+	}
 
 	sv := verifier.NewSnapshotVerifier(c, cs)
 	w := wallet.New(nil)
@@ -106,20 +111,10 @@ func TestSnapshot(t *testing.T) {
 	p1 := pool.NewPool(c)
 	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
 
-	w.KeystoreManager.ImportPriv(accountPrivKeyStr, "123456")
-	w.KeystoreManager.Lock(coinbase)
-	w.KeystoreManager.Unlock(coinbase, "123456", 0)
-	log.Info("unlock address", "address", coinbase.String())
-	locked := w.KeystoreManager.IsUnLocked(coinbase)
-	if !locked {
-		t.Error("unlock failed.")
-		return
-	}
-
 	p1.Init(&pool.MockSyncer{}, w, sv, av)
 	p.Init()
 
-	cs.Subscribe(types.SNAPSHOT_GID, "snapshot_mock", &coinbase, func(e consensus.Event) {
+	cs.Subscribe(types.SNAPSHOT_GID, "snapshot_mock", &coinbase.Address, func(e consensus.Event) {
 		log.Info("snapshot", "e", e)
 	})
 	p1.Start()
@@ -137,22 +132,23 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestProducer_Init(t *testing.T) {
-	accountPrivKey, _ := ed25519.HexToPrivateKey(accountPrivKeyStr)
-	accountPubKey := accountPrivKey.PubByte()
-	coinbase := types.PubkeyToAddress(accountPubKey)
-
+	addr, err := types.HexToAddress("vite_91dc0c38d104c7915d3a6c4381a40c360edd871c34ac255bb2")
+	if err != nil {
+		panic(err)
+	}
 	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
 
+	coinbase := &AddressContext{
+		EntryPath: "/Users/jie/viteisbest/wallet2/vite_91dc0c38d104c7915d3a6c4381a40c360edd871c34ac255bb2",
+		Address:   addr,
+		Index:     0,
+	}
 	cs := &consensus.MockConsensus{}
 	sv := verifier.NewSnapshotVerifier(c, cs)
 	w := wallet.New(nil)
 	av := verifier.NewAccountVerifier(c, cs)
 	p1 := pool.NewPool(c)
 	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
-
-	w.KeystoreManager.ImportPriv(accountPrivKeyStr, "123456")
-	w.KeystoreManager.Lock(coinbase)
-	w.KeystoreManager.Unlock(coinbase, "123456", 0)
 
 	c.Init()
 	c.Start()
@@ -164,7 +160,7 @@ func TestProducer_Init(t *testing.T) {
 
 	e := consensus.Event{
 		Gid:            types.SNAPSHOT_GID,
-		Address:        coinbase,
+		Address:        coinbase.Address,
 		Stime:          time.Now(),
 		Etime:          time.Now(),
 		Timestamp:      time.Now(),

@@ -4,213 +4,138 @@ import (
 	"errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/abi"
+	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
-	"strings"
 )
-
-const (
-	jsonPledge = `
-	[
-		{"type":"function","name":"Pledge", "inputs":[{"name":"beneficial","type":"address"}]},
-		{"type":"function","name":"CancelPledge","inputs":[{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"}]},
-		{"type":"variable","name":"pledgeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"}]},
-		{"type":"variable","name":"pledgeBeneficial","inputs":[{"name":"amount","type":"uint256"}]}
-	]`
-
-	MethodNamePledge             = "Pledge"
-	MethodNameCancelPledge       = "CancelPledge"
-	VariableNamePledgeInfo       = "pledgeInfo"
-	VariableNamePledgeBeneficial = "pledgeBeneficial"
-)
-
-var (
-	ABIPledge, _ = abi.JSONToABIContract(strings.NewReader(jsonPledge))
-)
-
-type VariablePledgeBeneficial struct {
-	Amount *big.Int
-}
-type ParamCancelPledge struct {
-	Beneficial types.Address
-	Amount     *big.Int
-}
-type PledgeInfo struct {
-	Amount         *big.Int
-	WithdrawHeight uint64
-	BeneficialAddr types.Address
-}
-
-func GetPledgeBeneficialKey(beneficial types.Address) []byte {
-	return beneficial.Bytes()
-}
-func GetPledgeKey(addr types.Address, pledgeBeneficialKey []byte) []byte {
-	return append(addr.Bytes(), pledgeBeneficialKey...)
-}
-func IsPledgeKey(key []byte) bool {
-	return len(key) > types.AddressSize
-}
-func GetBeneficialFromPledgeKey(key []byte) types.Address {
-	address, _ := types.BytesToAddress(key[types.AddressSize:])
-	return address
-}
-
-func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) *big.Int {
-	key := GetPledgeBeneficialKey(beneficial)
-	beneficialAmount := new(VariablePledgeBeneficial)
-	err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&AddressPledge, key))
-	if err == nil {
-		return beneficialAmount.Amount
-	}
-	return big.NewInt(0)
-}
-
-func GetPledgeInfoList(db StorageDatabase, addr types.Address) []*PledgeInfo {
-	iterator := db.NewStorageIterator(&AddressPledge, addr.Bytes())
-	pledgeInfoList := make([]*PledgeInfo, 0)
-	if iterator == nil {
-		return pledgeInfoList
-	}
-	for {
-		key, value, ok := iterator.Next()
-		if !ok {
-			break
-		}
-		if IsPledgeKey(key) {
-			pledgeInfo := new(PledgeInfo)
-			if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value); err == nil {
-				pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(key)
-				pledgeInfoList = append(pledgeInfoList, pledgeInfo)
-			}
-		}
-	}
-	return pledgeInfoList
-}
 
 type MethodPledge struct{}
 
-func (p *MethodPledge) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
+func (p *MethodPledge) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
+func (p *MethodPledge) GetRefundData() []byte {
+	return []byte{1}
+}
+
 // pledge ViteToken for a beneficial to get quota
-func (p *MethodPledge) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	// pledge gas is low without data gas cost, so that a new account is easy to pledge
-	quotaLeft, err := util.UseQuota(quotaLeft, pledgeGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, PledgeGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.AccountBlock.Amount.Cmp(pledgeAmountMin) < 0 ||
-		!util.IsViteToken(block.AccountBlock.TokenId) ||
-		!IsUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
+	if block.Amount.Cmp(pledgeAmountMin) < 0 ||
+		!util.IsViteToken(block.TokenId) ||
+		!IsUserAccount(db, block.AccountAddress) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	beneficialAddr := new(types.Address)
-	if err = ABIPledge.UnpackMethod(beneficialAddr, MethodNamePledge, block.AccountBlock.Data); err != nil {
+	if err = cabi.ABIPledge.UnpackMethod(beneficialAddr, cabi.MethodNamePledge, block.Data); err != nil {
 		return quotaLeft, errors.New("invalid beneficial address")
 	}
 	return quotaLeft, nil
 }
-func (p *MethodPledge) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
+func (p *MethodPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	beneficialAddr := new(types.Address)
-	ABIPledge.UnpackMethod(beneficialAddr, MethodNamePledge, sendBlock.Data)
-	beneficialKey := GetPledgeBeneficialKey(*beneficialAddr)
-	pledgeKey := GetPledgeKey(sendBlock.AccountAddress, beneficialKey)
-	oldPledgeData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, pledgeKey)
-	amount := new(big.Int)
+	cabi.ABIPledge.UnpackMethod(beneficialAddr, cabi.MethodNamePledge, sendBlock.Data)
+	beneficialKey := cabi.GetPledgeBeneficialKey(*beneficialAddr)
+	pledgeKey := cabi.GetPledgeKey(sendBlock.AccountAddress, beneficialKey)
+	oldPledgeData := db.GetStorage(&block.AccountAddress, pledgeKey)
+	amount := big.NewInt(0)
 	if len(oldPledgeData) > 0 {
-		oldPledge := new(PledgeInfo)
-		ABIPledge.UnpackVariable(oldPledge, VariableNamePledgeInfo, oldPledgeData)
+		oldPledge := new(cabi.PledgeInfo)
+		cabi.ABIPledge.UnpackVariable(oldPledge, cabi.VariableNamePledgeInfo, oldPledgeData)
 		amount = oldPledge.Amount
 	}
 	amount.Add(amount, sendBlock.Amount)
-	pledgeInfo, _ := ABIPledge.PackVariable(VariableNamePledgeInfo, amount, block.VmContext.CurrentSnapshotBlock().Height+minPledgeHeight)
-	block.VmContext.SetStorage(pledgeKey, pledgeInfo)
+	pledgeInfo, _ := cabi.ABIPledge.PackVariable(cabi.VariableNamePledgeInfo, amount, db.CurrentSnapshotBlock().Height+nodeConfig.params.MinPledgeHeight)
+	db.SetStorage(pledgeKey, pledgeInfo)
 
-	oldBeneficialData := block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, beneficialKey)
-	beneficialAmount := new(big.Int)
+	oldBeneficialData := db.GetStorage(&block.AccountAddress, beneficialKey)
+	beneficialAmount := big.NewInt(0)
 	if len(oldBeneficialData) > 0 {
-		oldBeneficial := new(VariablePledgeBeneficial)
-		ABIPledge.UnpackVariable(oldBeneficial, VariableNamePledgeBeneficial, oldBeneficialData)
+		oldBeneficial := new(cabi.VariablePledgeBeneficial)
+		cabi.ABIPledge.UnpackVariable(oldBeneficial, cabi.VariableNamePledgeBeneficial, oldBeneficialData)
 		beneficialAmount = oldBeneficial.Amount
 	}
 	beneficialAmount.Add(beneficialAmount, sendBlock.Amount)
-	beneficialData, _ := ABIPledge.PackVariable(VariableNamePledgeBeneficial, beneficialAmount)
-	block.VmContext.SetStorage(beneficialKey, beneficialData)
-	return nil
+	beneficialData, _ := cabi.ABIPledge.PackVariable(cabi.VariableNamePledgeBeneficial, beneficialAmount)
+	db.SetStorage(beneficialKey, beneficialData)
+	return nil, nil
 }
 
 type MethodCancelPledge struct{}
 
-func (p *MethodCancelPledge) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
+func (p *MethodCancelPledge) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
+func (p *MethodCancelPledge) GetRefundData() []byte {
+	return []byte{2}
+}
+
 // cancel pledge ViteToken
-func (p *MethodCancelPledge) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, cancelPledgeGas)
+func (p *MethodCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+	quotaLeft, err := util.UseQuota(quotaLeft, CancelPledgeGas)
 	if err != nil {
 		return quotaLeft, err
 	}
-	quotaLeft, err = util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
-	if err != nil {
-		return quotaLeft, err
-	}
-	if block.AccountBlock.Amount.Sign() > 0 ||
-		!IsUserAccount(block.VmContext, block.AccountBlock.AccountAddress) {
+	if block.Amount.Sign() > 0 ||
+		!IsUserAccount(db, block.AccountAddress) {
 		return quotaLeft, errors.New("invalid block data")
 	}
-	param := new(ParamCancelPledge)
-	if err = ABIPledge.UnpackMethod(param, MethodNameCancelPledge, block.AccountBlock.Data); err != nil {
+	param := new(cabi.ParamCancelPledge)
+	if err = cabi.ABIPledge.UnpackMethod(param, cabi.MethodNameCancelPledge, block.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
+	}
+	if param.Amount.Sign() == 0 {
+		return quotaLeft, errors.New("cancel pledge amount is 0")
 	}
 	return quotaLeft, nil
 }
 
-func (p *MethodCancelPledge) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
-	param := new(ParamCancelPledge)
-	ABIPledge.UnpackMethod(param, MethodNameCancelPledge, sendBlock.Data)
-	beneficialKey := GetPledgeBeneficialKey(param.Beneficial)
-	pledgeKey := GetPledgeKey(sendBlock.AccountAddress, beneficialKey)
-	oldPledge := new(PledgeInfo)
-	err := ABIPledge.UnpackVariable(oldPledge, VariableNamePledgeInfo, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, pledgeKey))
-	if err != nil || oldPledge.WithdrawHeight > block.VmContext.CurrentSnapshotBlock().Height || oldPledge.Amount.Cmp(param.Amount) < 0 {
-		return errors.New("pledge not yet due")
+func (p *MethodCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+	param := new(cabi.ParamCancelPledge)
+	cabi.ABIPledge.UnpackMethod(param, cabi.MethodNameCancelPledge, sendBlock.Data)
+	beneficialKey := cabi.GetPledgeBeneficialKey(param.Beneficial)
+	pledgeKey := cabi.GetPledgeKey(sendBlock.AccountAddress, beneficialKey)
+	oldPledge := new(cabi.PledgeInfo)
+	err := cabi.ABIPledge.UnpackVariable(oldPledge, cabi.VariableNamePledgeInfo, db.GetStorage(&block.AccountAddress, pledgeKey))
+	if err != nil || oldPledge.WithdrawHeight > db.CurrentSnapshotBlock().Height || oldPledge.Amount.Cmp(param.Amount) < 0 {
+		return nil, errors.New("pledge not yet due")
 	}
 	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)
-	oldBeneficial := new(VariablePledgeBeneficial)
-	err = ABIPledge.UnpackVariable(oldBeneficial, VariableNamePledgeBeneficial, block.VmContext.GetStorage(&block.AccountBlock.AccountAddress, beneficialKey))
+	oldBeneficial := new(cabi.VariablePledgeBeneficial)
+	err = cabi.ABIPledge.UnpackVariable(oldBeneficial, cabi.VariableNamePledgeBeneficial, db.GetStorage(&block.AccountAddress, beneficialKey))
 	if err != nil || oldBeneficial.Amount.Cmp(param.Amount) < 0 {
-		return errors.New("invalid pledge amount")
+		return nil, errors.New("invalid pledge amount")
 	}
 	oldBeneficial.Amount.Sub(oldBeneficial.Amount, param.Amount)
 
 	if oldPledge.Amount.Sign() == 0 {
-		block.VmContext.SetStorage(pledgeKey, nil)
+		db.SetStorage(pledgeKey, nil)
 	} else {
-		pledgeInfo, _ := ABIPledge.PackVariable(VariableNamePledgeInfo, oldPledge.Amount, oldPledge.WithdrawHeight)
-		block.VmContext.SetStorage(pledgeKey, pledgeInfo)
+		pledgeInfo, _ := cabi.ABIPledge.PackVariable(cabi.VariableNamePledgeInfo, oldPledge.Amount, oldPledge.WithdrawHeight)
+		db.SetStorage(pledgeKey, pledgeInfo)
 	}
 
 	if oldBeneficial.Amount.Sign() == 0 {
-		block.VmContext.SetStorage(beneficialKey, nil)
+		db.SetStorage(beneficialKey, nil)
 	} else {
-		pledgeBeneficial, _ := ABIPledge.PackVariable(VariableNamePledgeBeneficial, oldBeneficial.Amount)
-		block.VmContext.SetStorage(beneficialKey, pledgeBeneficial)
+		pledgeBeneficial, _ := cabi.ABIPledge.PackVariable(cabi.VariableNamePledgeBeneficial, oldBeneficial.Amount)
+		db.SetStorage(beneficialKey, pledgeBeneficial)
 	}
-
-	context.AppendBlock(
-		&vm_context.VmAccountBlock{
-			util.MakeSendBlock(
-				block.AccountBlock,
-				sendBlock.AccountAddress,
-				ledger.BlockTypeSendCall,
-				param.Amount,
-				ledger.ViteTokenId,
-				context.GetNewBlockHeight(block),
-				[]byte{}),
-			nil})
-	return nil
+	return []*SendBlock{
+		{
+			block,
+			sendBlock.AccountAddress,
+			ledger.BlockTypeSendCall,
+			param.Amount,
+			ledger.ViteTokenId,
+			[]byte{},
+		},
+	}, nil
 }

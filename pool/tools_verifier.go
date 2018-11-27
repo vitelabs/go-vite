@@ -16,8 +16,14 @@ type verifyTask interface {
 	requests() []fetchRequest
 }
 
+type sverifier interface {
+	VerifyNetSb(block *ledger.SnapshotBlock) error
+	VerifyReferred(block *ledger.SnapshotBlock) *verifier.SnapshotBlockVerifyStat
+	VerifyTimeout(nowHeight uint64, referHeight uint64) bool
+}
+
 type snapshotVerifier struct {
-	v *verifier.SnapshotVerifier
+	v sverifier
 }
 
 func (self *snapshotVerifier) verifySnapshotData(block *ledger.SnapshotBlock) error {
@@ -73,7 +79,7 @@ func (self *accountVerifier) verifyAccount(b *accountPoolBlock) *poolAccountVeri
 		}
 		var bs []*accountPoolBlock
 		for _, v := range blocks {
-			bs = append(bs, newAccountPoolBlock(v.AccountBlock, v.VmContext, b.v))
+			bs = append(bs, newAccountPoolBlock(v.AccountBlock, v.VmContext, b.v, b.source))
 		}
 		result.blocks = bs
 		return result
@@ -91,7 +97,7 @@ func (self *accountVerifier) newSuccessTask() verifyTask {
 }
 
 func (self *accountVerifier) newFailTask() verifyTask {
-	return failT
+	return &failTask{t: time.Now()}
 }
 
 func (self *accountVerifier) verifyDirectAccount(received *accountPoolBlock, sends []*accountPoolBlock) (result *poolAccountVerifyStat) {
@@ -162,7 +168,6 @@ func (self *poolAccountVerifyStat) errMsg() string {
 }
 
 var successT = &successTask{}
-var failT = &failTask{}
 
 type successTask struct {
 }
@@ -180,7 +185,7 @@ type failTask struct {
 }
 
 func (self *failTask) done(c chainDb) bool {
-	if time.Now().After(self.t.Add(time.Second * 3)) {
+	if time.Now().After(self.t.Add(time.Millisecond * 200)) {
 		return true
 	}
 	return false

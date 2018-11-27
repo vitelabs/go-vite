@@ -159,6 +159,9 @@ func (d *Discovery) tableLoop() {
 
 	d.RefreshTable()
 
+	lookSelf := true
+	var findTarget NodeID
+
 	for {
 		select {
 		case <-refreshTicker.C:
@@ -177,7 +180,13 @@ func (d *Discovery) tableLoop() {
 			}
 
 		case <-findTicker.C:
-			d.lookup(d.self.ID, false)
+			if lookSelf {
+				d.lookup(d.self.ID, false)
+				lookSelf = false
+			} else {
+				rand.Read(findTarget[:])
+				d.lookup(d.self.ID, false)
+			}
 
 		case <-storeTicker.C:
 			now := time.Now()
@@ -257,8 +266,13 @@ loop:
 			n := result.nodes[i]
 			if _, ok := asked[n.ID]; !ok {
 				asked[n.ID] = struct{}{}
-				d.findNode(n, id, func(n *Node, nodes []*Node) {
-					reply <- nodes
+				common.Go(func() {
+					d.findNode(n, id, func(n *Node, nodes []*Node) {
+						select {
+						case <-d.term:
+						case reply <- nodes:
+						}
+					})
 				})
 				queries++
 			}
@@ -351,6 +365,7 @@ func (d *Discovery) HandleMsg(res *packet) {
 
 		d.agent.sendNeighbors(node, nodes)
 		d.tab.addNode(node)
+		d.batchNotify(nodes)
 	case neighborsCode:
 		monitor.LogEvent("p2p/discv", "neighbors-receive")
 

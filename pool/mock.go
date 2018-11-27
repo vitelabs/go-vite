@@ -13,6 +13,10 @@ var logger = log15.New("module", "pool/mock")
 type MockSyncer struct {
 }
 
+func (*MockSyncer) FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) {
+	panic("implement me")
+}
+
 func (*MockSyncer) SyncState() net.SyncState {
 	return net.Syncdone
 }

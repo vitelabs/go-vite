@@ -31,9 +31,16 @@ func (self *accountSyncer) broadcastReceivedBlocks(received *vm_context.VmAccoun
 	for _, b := range sendBlocks {
 		blocks = append(blocks, b.AccountBlock)
 	}
+	self.fetcher.BroadcastAccountBlocks(blocks)
 }
 
 func (self *accountSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
+	if hashHeight.Height > 0 {
+		self.log.Debug("fetch account block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
+		self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &self.address)
+	}
+}
+func (self *accountSyncer) fetchBySnapshot(hashHeight ledger.HashHeight, prevCnt uint64, sHeight uint64) {
 	if hashHeight.Height > 0 {
 		self.log.Debug("fetch account block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
 		self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &self.address)

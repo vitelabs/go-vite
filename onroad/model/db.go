@@ -62,6 +62,7 @@ func (ucf *OnroadSet) GetHashsByCount(count uint64, addr *types.Address) (hashs 
 			continue
 		}
 		hashs = append(hashs, &hash)
+		i++
 	}
 	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 		return nil, err

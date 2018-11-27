@@ -3,13 +3,15 @@ package nodemanager
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
-	"io/ioutil"
-	"path/filepath"
 )
 
 var defaultNodeConfigFileName = "node_config.json"
@@ -237,25 +239,27 @@ func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) {
 		}
 		log.Warn("Cannot unmarshal the default config file content", "error", err)
 	}
-	log.Warn("Read the default config file content error, The program will skip here and continue processing")
+
+	log.Warn(fmt.Sprintf("Read the default config file `%v `content error, The reason may be that the file does not exist or the content is incorrect.", defaultNodeConfigFileName))
+	log.Info(fmt.Sprintf("The program will skip here and continue processing"))
+}
+
+func IsExist(f string) bool {
+	_, err := os.Stat(f)
+	return err == nil || os.IsExist(err)
 }
 
 func makeRunLogFile(cfg *node.Config) {
 
 	logHandle := []log15.Handler{}
-	if fileName, e := cfg.RunLogFile(); e == nil {
 
-		logLevel, err := log15.LvlFromString(cfg.LogLevel)
-		if err != nil {
-			logLevel = log15.LvlInfo
-		}
-
-		logHandle = append(logHandle, errorExcludeLvlFilterHandler(logLevel, log15.Must.FileHandler(fileName, log15.TerminalFormat())))
+	logLevel, err := log15.LvlFromString(cfg.LogLevel)
+	if err != nil {
+		logLevel = log15.LvlInfo
 	}
 
-	if errorFileName, e := cfg.RunErrorLogFile(); e == nil {
-		logHandle = append(logHandle, log15.LvlFilterHandler(log15.LvlError, log15.Must.FileHandler(errorFileName, log15.TerminalFormat())))
-	}
+	logHandle = append(logHandle, errorExcludeLvlFilterHandler(logLevel, cfg.RunLogHandler()))
+	logHandle = append(logHandle, log15.LvlFilterHandler(log15.LvlError, cfg.RunErrorLogHandler()))
 
 	log15.Root().SetHandler(log15.MultiHandler(
 		logHandle...,
@@ -263,12 +267,12 @@ func makeRunLogFile(cfg *node.Config) {
 }
 
 func errorExcludeLvlFilterHandler(maxLvl log15.Lvl, h log15.Handler) log15.Handler {
-	return log15.FilterHandler(func(r *log15.Record) (pass bool) {
+	return log15.FilterHandler(func(r *log15.Record) (ss bool) {
 
-		//Error、Crit 级别的过滤掉
-		if r.Lvl <= log15.LvlError {
-			return false
-		}
+		////Error、Crit 级别的过滤掉
+		//if r.Lvl <= log15.LvlError {
+		//	return false
+		//}
 
 		return r.Lvl <= maxLvl
 	}, h)

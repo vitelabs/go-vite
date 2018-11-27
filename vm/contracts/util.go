@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
 )
@@ -11,12 +12,12 @@ func IsUserAccount(db vmctxt_interface.VmDatabase, addr types.Address) bool {
 }
 
 func IsExistGid(db vmctxt_interface.VmDatabase, gid types.Gid) bool {
-	value := db.GetStorage(&AddressConsensusGroup, GetConsensusGroupKey(gid))
+	value := db.GetStorage(&abi.AddressConsensusGroup, abi.GetConsensusGroupKey(gid))
 	return len(value) > 0
 }
 
 // TODO following method belongs to vm
-func GetNewContractData(bytecode []byte, gid types.Gid) []byte {
+func GetCreateContractData(bytecode []byte, gid types.Gid) []byte {
 	return append(gid.Bytes(), bytecode...)
 }
 

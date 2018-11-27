@@ -3,7 +3,6 @@ require = (function () {
         function o(i, f) {
             if (!n[i]) {
                 if (!e[i]) {
-                    console.log('99999',e)
                     var c = "function" == typeof require && require;
                     if (!f && c) return c(i, !0);
                     if (u) return u(i, !0);
@@ -24,66 +23,155 @@ require = (function () {
             exports.default = void 0;
             var _default = {
                 //-----------down--------- 在此处修改
-                helpContent: '任意api下使用api.help即可查看使用说明文档',
-                //vite.help
-                wallet: {
-                    helpContent: '该命名空间包括钱包相关的api',
-                    listAddress: 'vite.wallet_listAddress(<none>) @return <Array>HexAddress-string ',
-                    newAddress: 'vite.wallet_newAddress(<password-string>) @return address-string',
-                    status: '',
-                    unlockAddress: '',
-                    lockAddress: '',
-                    reloadAndFixAddressFile: '',
-                    isMayValidKeystoreFile: '',
-                    getDataDir: '',
-                    createTxWithPassphrase: ''
+                help: {// vite.help
+                    "wallet": {
+                        "listEntropyFilesInStandardDir": "return sth",
+                        "listAllEntropyFiles": "",
+                        "unlock": "",
+                        "lock": "",
+                        "listEntropyStoreAddresses": "",
+                        "newMnemonicAndEntropyStore": "",
+                        "deriveForIndexPath": "",
+                        "recoverEntropyStoreFromMnemonic": "",
+                        "globalCheckAddrUnlocked": "",
+                        "isAddrUnlocked": "",
+                        "isUnlocked": "",
+                        "findAddr": "",
+                        "globalFindAddr": "",
+                        "createTxWithPassphrase": "",
+                        "addEntropyStore": ""
+                    },
+                    "net": {
+                        "syncInfo": "",
+                        "peers": ""
+                    },
+                    "onroad": {
+                        "getOnroadBlocksByAddress": "",
+                        "getAccountOnroadInfo": "",
+                        "listWorkingAutoReceiveWorker": "",
+                        "startAutoReceive": "",
+                        "stopAutoReceive": ""
+                    },
+                    "contract": {
+                        "getCreateContractToAddress": ""
+                    },
+                    "pledge": {
+                        "getPledgeData": "",
+                        "getCancelPledgeData": "",
+                        "getPledgeQuota": "",
+                        "getPledgeList": ""
+                    },
+                    "register": {
+                        "getSignDataForRegister": "",
+                        "getRegisterData": "",
+                        "getCancelRegisterData": "",
+                        "getRewardData": "",
+                        "getUpdateRegistrationData": ""
+                    },
+                    "vote": {
+                        "getVoteData": "",
+                        "getCancelVoteData": ""
+                    },
+                    "mintage": {
+                        "getMintageData": "",
+                        "getMintageCancelPledgeData": ""
+                    },
+                    "consensusGroup": {
+                        "getConditionRegisterOfPledge": "",
+                        "getConditionVoteOfDefault": "",
+                        "getConditionVoteOfKeepToken": "",
+                        "getCreateConsensusGroupData": "",
+                        "getCancelConsensusGroupData": "",
+                        "getReCreateConsensusGroupData": ""
+                    },
+                    "ledger": {
+                        "getBlocksByAccAddr": "",
+                        "getAccountByAccAddr": "",
+                        "getLatestSnapshotChainHash": "",
+                        "getLatestBlock": "",
+                        "getTokenMintage": "",
+                        "getBlocksByHash": "",
+                        "getSnapshotChainHeight": "",
+                        "getFittestSnapshotHash": ""
+                    },
+                    "tx": {
+                        "sendRawTx": ""
+                    }
                 },
-                p2p: {
-                    networkAvailable: '',
-                    peersCount: ''
+
+                "wallet": {//vite.wallet_listEntropyFilesInStandardDir.help
+                    "listEntropyFilesInStandardDir": "return sth",
+                    "listAllEntropyFiles": "",
+                    "unlock": "",
+                    "lock": "",
+                    "listEntropyStoreAddresses": "",
+                    "newMnemonicAndEntropyStore": "",
+                    "deriveForIndexPath": "",
+                    "recoverEntropyStoreFromMnemonic": "",
+                    "globalCheckAddrUnlocked": "",
+                    "isAddrUnlocked": "",
+                    "isUnlocked": "",
+                    "findAddr": "",
+                    "globalFindAddr": "",
+                    "createTxWithPassphrase": "",
+                    "addEntropyStore": ""
                 },
-                ledger: {
-                    getBlocksByAccAddr: '',
-                    getAccountByAccAddr: '',
-                    getLatestSnapshotChainHash: '',
-                    getLatestBlock: '',
-                    getTokenMintage: '',
-                    getBlocksByHash: '',
-                    getSnapshotChainHeight: ''
+                "net": {
+                    "syncInfo": "",
+                    "peers": ""
                 },
-                onroad: {
-                    getOnroadBlocksByAddress: '',
-                    getAccountOnroadInfo: '',
-                    listWorkingAutoReceiveWorker: '',
-                    startAutoReceive: '',
-                    stopAutoReceive: ''
+                "onroad": {
+                    "getOnroadBlocksByAddress": "",
+                    "getAccountOnroadInfo": "",
+                    "listWorkingAutoReceiveWorker": "",
+                    "startAutoReceive": "",
+                    "stopAutoReceive": ""
                 },
-                contracts: {
-                    getPledgeData: '',
-                    getCancelPledgeData: '',
-                    getMintageData: '',
-                    getMintageCancelPledgeData: '',
-                    getCreateContractToAddress: '',
-                    getRegisterData: '',
-                    getCancelRegisterData: '',
-                    getRewardData: '',
-                    getUpdateRegistrationData: '',
-                    getVoteData: '',
-                    getCancelVoteData: '',
-                    getConditionRegisterOfPledge: '',
-                    getConditionVoteOfDefault: '',
-                    getConditionVoteOfKeepToken: '',
-                    getCreateConsensusGroupData: '',
-                    getCancelConsensusGroupData: '',
-                    getReCreateConsensusGroupData: ''
+                "contract": {
+                    "getCreateContractToAddress": ""
                 },
-                pow: {
-                    getPowNonce: ''
+                "pledge": {
+                    "getPledgeData": "",
+                    "getCancelPledgeData": "",
+                    "getPledgeQuota": "",
+                    "getPledgeList": ""
                 },
-                tx: {
-                    sendRawTx: ''
-                }
-     //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 在以上地方修改^^^^^^^^^^^ 
+                "register": {
+                    "getSignDataForRegister": "",
+                    "getRegisterData": "",
+                    "getCancelRegisterData": "",
+                    "getRewardData": "",
+                    "getUpdateRegistrationData": ""
+                },
+                "vote": {
+                    "getVoteData": "",
+                    "getCancelVoteData": ""
+                },
+                "mintage": {
+                    "getMintageData": "",
+                    "getMintageCancelPledgeData": ""
+                },
+                "consensusGroup": {
+                    "getConditionRegisterOfPledge": "",
+                    "getConditionVoteOfDefault": "",
+                    "getConditionVoteOfKeepToken": "",
+                    "getCreateConsensusGroupData": "",
+                    "getCancelConsensusGroupData": "",
+                    "getReCreateConsensusGroupData": ""
+                },
+                "ledger": {
+                    "getBlocksByAccAddr": "",
+                    "getAccountByAccAddr": "",
+                    "getLatestSnapshotChainHash": "",
+                    "getLatestBlock": "",
+                    "getTokenMintage": "",
+                    "getBlocksByHash": "",
+                    "getSnapshotChainHeight": "",
+                    "getFittestSnapshotHash": ""
+                },
+                "tx": {
+                    "sendRawTx": ""
+                }                //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 在以上地方修改^^^^^^^^^^^ 
             };
             exports.default = _default;
 

@@ -11,10 +11,12 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/pow/remote"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet"
+	"github.com/vitelabs/go-vite/pow"
 )
 
 var (
@@ -73,7 +75,7 @@ func New(conf *Config) (*Node, error) {
 	}, nil
 }
 
-func (node *Node) Start() error {
+func (node *Node) Prepare() error {
 	node.lock.Lock()
 	defer node.lock.Unlock()
 
@@ -83,20 +85,85 @@ func (node *Node) Start() error {
 	}
 	log.Info(fmt.Sprintf("DataDir is OK. "))
 
+	//prepare node
+	log.Info(fmt.Sprintf("Begin Prepare node... "))
+	//prepare wallet
+	if node.walletConfig == nil {
+		return ErrWalletConfigNil
+	}
+
+	if node.walletManager != nil {
+		return ErrNodeRunning
+	}
+	node.walletManager = wallet.New(node.walletConfig)
+
+	//prepare p2p
+	if node.p2pConfig == nil {
+		return ErrP2PConfigNil
+	}
+
+	if node.p2pServer != nil {
+		return ErrNodeRunning
+	}
+
+	if node.viteServer != nil {
+		return ErrNodeRunning
+	}
+
+	var err error
+	node.p2pServer, err = p2p.New(node.p2pConfig)
+	if err != nil {
+		log.Error(fmt.Sprintf("P2P new error: %v", err))
+		return err
+	}
+
 	//wallet start
 	log.Info(fmt.Sprintf("Begin Start Wallet... "))
-
 	if err := node.startWallet(); err != nil {
-		log.Error(fmt.Sprintf("Node startWallet error: %v", err))
+		log.Error(fmt.Sprintf("startWallet error: %v", err))
 		return err
 	}
-	//p2p\vite start
-	log.Info(fmt.Sprintf("Begin Start P2P And Vite... "))
 
-	if err := node.startP2pAndVite(); err != nil {
-		log.Error(fmt.Sprintf("Node startP2pAndVite error: %v", err))
+	//Initialize the vite server
+	node.viteServer, err = vite.New(node.viteConfig, node.walletManager)
+	if err != nil {
+		log.Error(fmt.Sprintf("Vite new error: %v", err))
 		return err
 	}
+
+	//Protocols setting, maybe should move into module.Start()
+	node.p2pServer.Protocols = append(node.p2pServer.Protocols, node.viteServer.Net().Protocols()...)
+
+	//init rpc_PowServerUrl
+	remote.InitRawUrl(node.Config().PowServerUrl)
+	pow.Init(node.Config().VMTestParamEnabled)
+
+	// Start vite
+	if err := node.viteServer.Init(); err != nil {
+		log.Error(fmt.Sprintf("ViteServer init error: %v", err))
+		return err
+	}
+	return nil
+}
+
+func (node *Node) Start() error {
+	node.lock.Lock()
+	defer node.lock.Unlock()
+
+	//p2p\vite start
+	log.Info(fmt.Sprintf("Begin Start Vite... "))
+	if err := node.startVite(); err != nil {
+		log.Error(fmt.Sprintf("ViteServer start error: %v", err))
+		return err
+	}
+
+	// Start p2p
+	log.Info(fmt.Sprintf("Begin Start P2p... "))
+	if err := node.p2pServer.Start(); err != nil {
+		log.Error(fmt.Sprintf("P2PServer start error: %v", err))
+		return err
+	}
+
 	//rpc start
 	log.Info(fmt.Sprintf("Begin Start RPC... "))
 	if err := node.startRPC(); err != nil {
@@ -180,76 +247,41 @@ func (node *Node) WalletManager() *wallet.Manager {
 
 //wallet start
 func (node *Node) startWallet() error {
-
-	if node.walletConfig == nil {
-		return ErrWalletConfigNil
-	}
-
-	if node.walletManager != nil {
-		return ErrNodeRunning
-	}
-
-	node.walletManager = wallet.New(node.walletConfig)
 	node.walletManager.Start()
+	//unlock account
+	if node.config.EntropyStorePath != "" {
+
+		if err := node.walletManager.AddEntropyStore(node.config.EntropyStorePath); err != nil {
+			log.Error(fmt.Sprintf("node.walletManager.AddEntropyStore error: %v", err))
+			return err
+		}
+
+		entropyStoreManager, err := node.walletManager.GetEntropyStoreManager(node.config.EntropyStorePath)
+
+		if err != nil {
+			log.Error(fmt.Sprintf("node.walletManager.GetEntropyStoreManager error: %v", err))
+			return err
+		}
+
+		//unlock
+		if err := entropyStoreManager.Unlock(node.config.EntropyStorePassword); err != nil {
+			log.Error(fmt.Sprintf("entropyStoreManager.Unlock error: %v", err))
+			return err
+		}
+
+	}
 
 	return nil
 }
 
-//p2p、vite safe start
-func (node *Node) startP2pAndVite() error {
-
-	if node.p2pConfig == nil {
-		return ErrP2PConfigNil
-	}
-
-	if node.p2pServer != nil {
-		return ErrNodeRunning
-	}
-
-	if node.viteServer != nil {
-		return ErrNodeRunning
-	}
-
-	var err error
-	node.p2pServer, err = p2p.New(node.p2pConfig)
-	if err != nil {
-		log.Error(fmt.Sprintf("P2P new error: %v", err))
-		return err
-	}
-
-	//Initialize the vite server
-	node.viteServer, err = vite.New(node.viteConfig, node.walletManager)
-	if err != nil {
-		log.Error(fmt.Sprintf("Vite new error: %v", err))
-		return err
-	}
-
-	//Protocols setting, maybe should move into module.Start()
-	node.p2pServer.Protocols = append(node.p2pServer.Protocols, node.viteServer.Net().Protocols()...)
-
-	// Start vite
-	if e := node.viteServer.Init(); e != nil {
-		log.Error(fmt.Sprintf("ViteServer init error: %v", e))
-		return err
-	}
-
-	if e := node.viteServer.Start(node.p2pServer); e != nil {
-		log.Error(fmt.Sprintf("ViteServer start error: %v", e))
-		return err
-	}
-
-	// Start p2p
-	if e := node.p2pServer.Start(); e != nil {
-		log.Error(fmt.Sprintf("P2PServer start error: %v", e))
-		return err
-	}
-	return nil
+func (node *Node) startVite() error {
+	return node.viteServer.Start(node.p2pServer)
 }
 
 func (node *Node) startRPC() error {
 
 	// Init rpc log
-	rpcapi.Init(node.Config().DataDir, node.Config().LogLevel, node.Config().TestTokenHexPrivKey, node.config.TestTokenTti)
+	rpcapi.Init(node.config.DataDir, node.config.LogLevel, node.config.TestTokenHexPrivKey, node.config.TestTokenTti)
 
 	// Start the various API endpoints, terminating all in case of errors
 	if err := node.startInProcess(node.GetInProcessApis()); err != nil {

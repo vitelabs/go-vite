@@ -2,39 +2,35 @@ package p2p
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/p2p/protos"
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p/discovery"
-	"github.com/vitelabs/go-vite/p2p/protos"
 )
 
-const Version uint64 = 2
-const baseProtocolCmdSet = 0
-const handshakeCmd = 0
-const discCmd = 1
+const writeBufferLen = 100
+const readBufferLen = 100
 
-const headerLength = 40
-const maxPayloadSize = ^uint32(0) >> 8 // 16MB
-
-const paralProtoFrame = 3 // max number of protoFrame write concurrently
+var msgReadTimeout = 40 * time.Second
+var msgWriteTimeout = 20 * time.Second
 
 var errMsgTooLarge = errors.New("message payload is too large")
 var errMsgNull = errors.New("message payload is 0 byte")
 var errPeerTermed = errors.New("peer has been terminated")
 
-//var errPeerTsBusy = errors.New("peer transport is busy, can`t write message")
-
-type conn struct {
-	*AsyncMsgConn
+type transport struct {
+	net.Conn
 	flags      connFlag
-	cmdSets    []*CmdSet
+	cmdSets    []CmdSet
 	name       string
 	localID    discovery.NodeID
 	localIP    net.IP
@@ -44,226 +40,355 @@ type conn struct {
 	remotePort uint16
 }
 
-func (c *conn) is(flag connFlag) bool {
-	return c.flags.is(flag)
+func (t *transport) ReadMsg() (*Msg, error) {
+	//t.SetReadDeadline(time.Now().Add(msgReadTimeout))
+	return ReadMsg(t)
 }
 
-type protoFrame struct {
+func (t *transport) WriteMsg(msg *Msg) error {
+	//t.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
+	return WriteMsg(t, msg)
+}
+
+func (t *transport) is(flag connFlag) bool {
+	return t.flags.is(flag)
+}
+
+func (t *transport) Handshake(key ed25519.PrivateKey, our *Handshake) (their *Handshake, err error) {
+	data, err := our.Serialize()
+	if err != nil {
+		return
+	}
+	sig := ed25519.Sign(key, data)
+	// unshift signature before data
+	data = append(sig, data...)
+
+	send := make(chan error, 1)
+	common.Go(func() {
+		msg := NewMsg()
+		msg.CmdSet = baseProtocolCmdSet
+		msg.Cmd = handshakeCmd
+		msg.Payload = data
+
+		send <- WriteMsg(t, msg)
+	})
+
+	if their, err = readHandshake(t); err != nil {
+		return
+	}
+
+	if err = <-send; err != nil {
+		return
+	}
+
+	return
+}
+
+type ProtoFrame struct {
 	*Protocol
-	*conn
-	input    chan *Msg
-	term     chan struct{}
-	canWrite chan struct{} // if this frame can write message
+	r         chan *Msg
+	w         chan<- *Msg   // use peer`s wqueue
+	term      chan struct{} // use peer`s term
+	Received  map[Cmd]uint64
+	Discarded map[Cmd]uint64
+	Send      map[Cmd]uint64
+	log       log15.Logger
+	addr      string
 }
 
-func newProtoFrame(protocol *Protocol, conn *conn) *protoFrame {
-	return &protoFrame{
-		Protocol: protocol,
-		conn:     conn,
-		input:    make(chan *Msg, 100),
+func newProtoFrame(protocol *Protocol) *ProtoFrame {
+	return &ProtoFrame{
+		Protocol:  protocol,
+		r:         make(chan *Msg, readBufferLen),
+		Received:  make(map[Cmd]uint64),
+		Discarded: make(map[Cmd]uint64),
+		Send:      make(map[Cmd]uint64),
 	}
 }
 
-func (pf *protoFrame) ReadMsg() (msg *Msg, err error) {
+func (pf *ProtoFrame) ReadMsg() (msg *Msg, err error) {
 	select {
 	case <-pf.term:
 		return msg, io.EOF
-	case msg = <-pf.input:
+	case msg = <-pf.r:
 		return
 	}
 }
 
-func (pf *protoFrame) WriteMsg(msg *Msg) (err error) {
+func (pf *ProtoFrame) WriteMsg(msg *Msg) (err error) {
 	select {
 	case <-pf.term:
 		return errPeerTermed
-	case pf.canWrite <- struct{}{}:
-		err = pf.conn.SendMsg(msg)
-		<-pf.canWrite
-		return err
+	case pf.w <- msg:
+	default:
+		pf.log.Warn(fmt.Sprintf("pf %s write is busy, discard message %d/%d", pf.addr, msg.CmdSet, msg.Cmd))
 	}
+
+	return
 }
 
-// create multiple protoFrames above the rw
-func createProtoFrames(ourSet []*Protocol, theirSet []*CmdSet, conn *conn) protoFrameMap {
-	protoFrames := make(map[uint64]*protoFrame)
+// create multiple pfs above the rw
+func createProtoFrames(ourSet []*Protocol, theirSet []CmdSet) pfMap {
+	pfs := make(pfMap)
 	for _, our := range ourSet {
 		for _, their := range theirSet {
-			if our.ID == their.ID && our.Name == their.Name {
-				protoFrames[our.ID] = newProtoFrame(our, conn)
+			if our.ID == their {
+				pfs[our.ID] = newProtoFrame(our)
 			}
 		}
 	}
 
-	return protoFrames
+	return pfs
 }
 
 // event
 type protoDone struct {
-	id   uint64
-	name string
-	err  error
+	id  CmdSet
+	err error
 }
 
 // @section Peer
-type protoFrameMap = map[uint64]*protoFrame
+type pfMap = map[CmdSet]*ProtoFrame
 type Peer struct {
-	ts          *conn
-	protoFrames protoFrameMap
-	created     time.Time
-	wg          sync.WaitGroup
-	term        chan struct{}
-	disc        chan DiscReason // disconnect proactively
-	errch       chan error      // for common error
-	protoDone   chan *protoDone // for protocols
-	log         log15.Logger
+	ts        *transport
+	tsError   int32 // atomic if transport occur an error
+	pfs       pfMap
+	Created   time.Time
+	wg        sync.WaitGroup
+	term      chan struct{}
+	disc      chan DiscReason // disconnect proactively
+	errch     chan error      // for common error
+	protoDone chan *protoDone // for protocols
+	wqueue    chan *Msg
+	speed     float64
+	rwLock    sync.RWMutex
+	log       log15.Logger
 }
 
-func NewPeer(conn *conn, ourSet []*Protocol) (*Peer, error) {
-	protoFrames := createProtoFrames(ourSet, conn.cmdSets, conn)
+func NewPeer(conn *transport, ourSet []*Protocol) (*Peer, error) {
+	pfs := createProtoFrames(ourSet, conn.cmdSets)
 
-	if len(protoFrames) == 0 {
+	if len(pfs) == 0 {
 		return nil, DiscUselessPeer
 	}
 
 	p := &Peer{
-		ts:          conn,
-		protoFrames: protoFrames,
-		term:        make(chan struct{}),
-		created:     time.Now(),
-		disc:        make(chan DiscReason),
-		errch:       make(chan error),
-		protoDone:   make(chan *protoDone, len(protoFrames)),
-		log:         log15.New("module", "p2p/peer"),
+		ts:        conn,
+		pfs:       pfs,
+		term:      make(chan struct{}),
+		Created:   time.Now(),
+		disc:      make(chan DiscReason, 1),
+		errch:     make(chan error),
+		protoDone: make(chan *protoDone, len(pfs)),
+		wqueue:    make(chan *Msg, writeBufferLen),
+		log:       log15.New("module", "p2p/peer"),
 	}
-
-	p.ts.handler = p.handleMsg
 
 	return p, nil
 }
 
 func (p *Peer) Disconnect(reason DiscReason) {
-	p.log.Info("disconnected", "peer", p.String(), "reason", reason)
-
 	select {
 	case <-p.term:
 	case p.disc <- reason:
 	}
 }
 
-func (p *Peer) runProtocols() {
-	p.wg.Add(len(p.protoFrames))
-	canWrite := make(chan struct{}, paralProtoFrame)
+func (p *Peer) startProtocols() {
+	p.wg.Add(len(p.pfs))
 
-	for _, pf := range p.protoFrames {
+	for _, pf := range p.pfs {
 		// closure
-		protoFrame := pf
+		pf := pf
 		common.Go(func() {
-			p.runProtocol(protoFrame, canWrite)
+			defer p.wg.Done()
+
+			//p.runProtocol(protoFrame)
+			pf.term = p.term
+			pf.w = p.wqueue
+			pf.log = p.log
+			pf.addr = p.RemoteAddr().String()
+
+			err := pf.Handle(p, pf)
+			p.protoDone <- &protoDone{pf.ID, err}
 		})
 	}
 }
 
-func (p *Peer) runProtocol(proto *protoFrame, canWrite chan struct{}) {
+func (p *Peer) readLoop() {
 	defer p.wg.Done()
-	proto.term = p.term
-	proto.canWrite = canWrite
 
-	err := proto.Handle(p, proto)
-	p.protoDone <- &protoDone{proto.ID, proto.String(), err}
+	for {
+		select {
+		case <-p.term:
+			return
+		default:
+			if msg, err := p.ts.ReadMsg(); err == nil {
+				monitor.LogEvent("p2p_ts", "read")
+				monitor.LogDuration("p2p_ts", "read_bytes", int64(len(msg.Payload)))
+				monitor.LogDuration("p2p_ts", "stt", msg.ReceivedAt.Sub(msg.SendAt).Nanoseconds())
+
+				p.handleMsg(msg)
+			} else {
+				select {
+				case p.errch <- err:
+					atomic.StoreInt32(&p.tsError, 1)
+				default:
+					return
+				}
+			}
+		}
+	}
+}
+
+func (p *Peer) writeLoop() {
+	defer p.wg.Done()
+
+loop:
+	for {
+		select {
+		case <-p.term:
+			break loop
+		case msg := <-p.wqueue:
+			if pf, ok := p.pfs[msg.CmdSet]; ok {
+				pf.Send[msg.Cmd]++
+			}
+
+			before := time.Now()
+			if err := p.ts.WriteMsg(msg); err != nil {
+				select {
+				case p.errch <- err:
+					atomic.StoreInt32(&p.tsError, 2)
+				default:
+					return
+				}
+			}
+
+			monitor.LogEvent("p2p_ts", "write")
+			monitor.LogDuration("p2p_ts", "write_bytes", int64(len(msg.Payload)))
+			monitor.LogDuration("p2p_ts", "write_queue", int64(len(p.wqueue)))
+			monitor.LogTime("p2p_ts", "write_time", before)
+			p.log.Debug(fmt.Sprintf("write message %d/%d to %s, spend %s, rest %d messages", msg.CmdSet, msg.Cmd, p.RemoteAddr(), time.Now().Sub(before), len(p.wqueue)))
+		}
+	}
+
+	// no error, disconnected initiative
+	if atomic.LoadInt32(&p.tsError) == 0 {
+		for i := 0; i < len(p.wqueue); i++ {
+			if err := p.ts.WriteMsg(<-p.wqueue); err != nil {
+				return
+			}
+		}
+	}
 }
 
 func (p *Peer) run() (err error) {
 	p.log.Info(fmt.Sprintf("peer %s run", p))
 
-	p.ts.Start()
+	p.startProtocols()
 
-	p.runProtocols()
+	p.wg.Add(1)
+	common.Go(p.readLoop)
+
+	p.wg.Add(1)
+	common.Go(p.writeLoop)
 
 	var proactively bool // whether we want to disconnect or not
 	var reason DiscReason
 
-loop:
-	for {
-		select {
-		case reason = <-p.disc:
-			err = reason
-			p.log.Error(fmt.Sprintf("disconnected: %v", err))
-			proactively = true
-			break loop
-		case e := <-p.protoDone:
-			err = e.err
-			p.log.Error(fmt.Sprintf("protocol %s is done: %v", e.name, e.err))
+wait:
+	select {
+	case reason = <-p.disc:
+		err = reason
+		p.log.Warn(fmt.Sprintf("disconnect with peer %s: %v", p.RemoteAddr(), err))
+		proactively = true
 
-			delete(p.protoFrames, e.id)
+	case e := <-p.protoDone:
+		if pf, ok := p.pfs[e.id]; ok {
+			p.log.Error(fmt.Sprintf("peer %s protocol %s is done: %v", p.RemoteAddr(), pf, e.err))
 
-			if len(p.protoFrames) == 0 {
-				if err == nil {
-					err = DiscAllProtocolDone
-					reason = DiscAllProtocolDone
-				} else {
-					reason = DiscProtocolError
-				}
+			if err = e.err; err != nil {
+				reason = DiscProtocolError
 				proactively = true
-				break loop
+				break
 			}
-		case err = <-p.ts.errch:
-			// error occur from lower transport, like writeError or readError
-			p.log.Error(fmt.Sprintf("transport error: %v", err))
-			proactively = false
-			break loop
-		case err = <-p.errch:
-			p.log.Error(fmt.Sprintf("peer error: %v", err))
-			proactively = false
-			break loop
+
+			p.rwLock.Lock()
+			delete(p.pfs, e.id)
+			p.rwLock.Unlock()
+
+			if len(p.pfs) == 0 {
+				err = DiscAllProtocolDone
+				reason = DiscAllProtocolDone
+				proactively = true
+				break
+			}
+		}
+
+		// wait for rest protocols
+		goto wait
+
+	case err = <-p.errch:
+		p.log.Error(fmt.Sprintf("peer %s error: %v", p.RemoteAddr(), err))
+		proactively = false
+	}
+
+	if proactively && atomic.LoadInt32(&p.tsError) == 0 {
+		if m, e := PackMsg(baseProtocolCmdSet, discCmd, 0, reason); e == nil {
+			p.ts.WriteMsg(m)
 		}
 	}
 
 	close(p.term)
-
-	if proactively {
-		if m, e := PackMsg(baseProtocolCmdSet, discCmd, 0, reason); e == nil {
-			p.ts.SendMsg(m)
-		}
-	}
 	p.ts.Close()
 
 	p.wg.Wait()
 
-	p.log.Info(fmt.Sprintf("peer %s run done: %v", p, err))
+	p.log.Info(fmt.Sprintf("peer %s run done: %v", p.RemoteAddr(), err))
 	return err
 }
 
 func (p *Peer) handleMsg(msg *Msg) {
 	cmdset, cmd := msg.CmdSet, msg.Cmd
 
-	select {
-	case <-p.term:
-		p.log.Error(fmt.Sprintf("peer has been terminated, can`t handle message %d/%d", cmdset, cmd))
-		msg.Recycle()
-	default:
-		if cmdset == baseProtocolCmdSet {
-			switch cmd {
-			case discCmd:
-				if reason, err := DeserializeDiscReason(msg.Payload); err == nil {
-					p.errch <- reason
-				} else {
-					p.errch <- err
-				}
-			default:
-				msg.Recycle()
+	if cmdset == baseProtocolCmdSet {
+		if cmd == discCmd {
+			p.log.Warn(fmt.Sprintf("receive disc from %s", p.RemoteAddr()))
+
+			var disc error
+			if reason, err := DeserializeDiscReason(msg.Payload); err == nil {
+				disc = reason
+			} else {
+				disc = err
 			}
-		} else if pf := p.protoFrames[cmdset]; pf != nil {
+
 			select {
-			case pf.input <- msg:
+			case <-p.term:
+			case p.errch <- disc:
 			default:
-				p.log.Warn(fmt.Sprintf("protocol is busy, discard message %d/%d", cmdset, cmd))
-				msg.Recycle()
 			}
-		} else {
-			p.log.Error(fmt.Sprintf("missing suitable protocol to handle message %d/%d", cmdset, cmd))
-			p.disc <- DiscUnKnownProtocol
 		}
+
+		msg.Recycle()
+	} else if pf := p.pfs[cmdset]; pf != nil {
+		select {
+		case <-p.term:
+			p.log.Error(fmt.Sprintf("peer has been terminated, can`t handle message %d/%d from %s", cmdset, cmd, p.RemoteAddr()))
+			msg.Recycle()
+
+		case pf.r <- msg:
+			pf.Received[msg.Cmd]++
+			monitor.LogDuration("p2p_ts", "read_queue_"+pf.String(), int64(len(pf.r)))
+			p.log.Debug(fmt.Sprintf("read message %d/%d from %s, rest %d messages", msg.CmdSet, msg.Cmd, p.RemoteAddr(), len(pf.r)))
+
+		default:
+			p.log.Warn(fmt.Sprintf("protocol is busy, discard message %d/%d from %s", cmdset, cmd, p.RemoteAddr()))
+			pf.Discarded[msg.Cmd]++
+			monitor.LogEvent("p2p_ts", "discard")
+			msg.Recycle()
+		}
+	} else {
+		msg.Recycle()
 	}
 }
 
@@ -279,12 +404,12 @@ func (p *Peer) String() string {
 	return p.ID().String() + "@" + p.RemoteAddr().String()
 }
 
-func (p *Peer) CmdSets() []*CmdSet {
+func (p *Peer) CmdSets() []CmdSet {
 	return p.ts.cmdSets
 }
 
 func (p *Peer) RemoteAddr() *net.TCPAddr {
-	return p.ts.fd.RemoteAddr().(*net.TCPAddr)
+	return p.ts.RemoteAddr().(*net.TCPAddr)
 }
 
 func (p *Peer) IP() net.IP {
@@ -292,16 +417,18 @@ func (p *Peer) IP() net.IP {
 }
 
 func (p *Peer) Info() *PeerInfo {
-	cmdsets := p.CmdSets()
-	cmdSetsInfo := make([]string, len(cmdsets))
-	for i, cmdset := range cmdsets {
-		cmdSetsInfo[i] = cmdset.String()
+	caps := make([]string, len(p.pfs))
+
+	i := 0
+	for _, pf := range p.pfs {
+		caps[i] = pf.String()
+		i++
 	}
 
 	return &PeerInfo{
 		ID:      p.ID().String(),
 		Name:    p.Name(),
-		CmdSets: cmdSetsInfo,
+		CmdSets: caps,
 		Address: p.RemoteAddr().String(),
 		Inbound: p.ts.is(inbound),
 	}
@@ -309,6 +436,7 @@ func (p *Peer) Info() *PeerInfo {
 
 // @section PeerSet
 type PeerSet struct {
+	mu       sync.Mutex
 	peers    map[discovery.NodeID]*Peer
 	inbound  int
 	outbound int
@@ -322,6 +450,9 @@ func NewPeerSet() *PeerSet {
 }
 
 func (s *PeerSet) Add(p *Peer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.peers[p.ID()] = p
 	if p.ts.is(inbound) {
 		s.inbound++
@@ -333,6 +464,9 @@ func (s *PeerSet) Add(p *Peer) {
 }
 
 func (s *PeerSet) Del(p *Peer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	delete(s.peers, p.ID())
 
 	if p.ts.is(inbound) {
@@ -345,15 +479,24 @@ func (s *PeerSet) Del(p *Peer) {
 }
 
 func (s *PeerSet) Has(id discovery.NodeID) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	_, ok := s.peers[id]
 	return ok
 }
 
 func (s *PeerSet) Size() uint {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	return s.size
 }
 
 func (s *PeerSet) Info() []*PeerInfo {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	info := make([]*PeerInfo, s.Size())
 	i := 0
 	for _, p := range s.peers {
@@ -365,6 +508,9 @@ func (s *PeerSet) Info() []*PeerInfo {
 }
 
 func (s *PeerSet) Traverse(fn func(id discovery.NodeID, p *Peer)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	for id, p := range s.peers {
 		id, p := id, p
 		fn(id, p)
@@ -375,7 +521,7 @@ func (s *PeerSet) Traverse(fn func(id discovery.NodeID, p *Peer)) {
 type PeerInfo struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`
-	CmdSets []string `json:"caps"`
+	CmdSets []string `json:"cmdSets"`
 	Address string   `json:"address"`
 	Inbound bool     `json:"inbound"`
 }

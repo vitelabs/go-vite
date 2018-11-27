@@ -1,8 +1,9 @@
 package trie
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
 	"sync"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type TrieNodePool struct {
@@ -16,8 +17,8 @@ type TrieNodePool struct {
 func NewTrieNodePool() *TrieNodePool {
 	return &TrieNodePool{
 		nodes:    make(map[types.Hash]*TrieNode),
-		limit:    10000000,
-		clearNum: 1000000,
+		limit:    100000,
+		clearNum: 50000,
 	}
 }
 
@@ -39,9 +40,6 @@ func (pool *TrieNodePool) Set(key *types.Hash, trieNode *TrieNode) {
 }
 
 func (pool *TrieNodePool) clear() {
-	pool.lock.Lock()
-	defer pool.lock.Unlock()
-
 	i := 0
 	for key := range pool.nodes {
 		delete(pool.nodes, key)

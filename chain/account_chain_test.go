@@ -1,14 +1,17 @@
 package chain
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context"
+	"math/big"
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
@@ -16,6 +19,55 @@ import (
 	"testing"
 	"time"
 )
+
+func TestHaha(t *testing.T) {
+	//prevHash, _ := types.HexToHash("4ddb2e1bd651527ebb43ef7d37c5edff0bf5e292424b7aaa1c6662893391925d")
+	accountAddress, _ := types.HexToAddress("vite_00000000000000000000000000000000000000056ad6d26692")
+	toAddress, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
+	tokenId, _ := types.HexToTokenTypeId("tti_3cd880a76b7524fc2694d607")
+	snapshotHash, _ := types.HexToHash("68d458d52a13d5594c069a365345d2067ccbceb63680ec384697dda88de2ada8")
+	publicKey, _ := hex.DecodeString("4sYVHCR0fnpUZy3Acj8Wy0JOU81vH/khAW1KLYb19Hk=")
+	ti := time.Unix(1541056128, 0)
+	a := &ledger.AccountBlock{
+		BlockType: 3,
+		//PrevHash:       prevHash,
+		AccountAddress: accountAddress,
+		PublicKey:      publicKey,
+		ToAddress:      toAddress,
+		TokenId:        tokenId,
+		SnapshotHash:   snapshotHash,
+		Height:         6,
+		Amount:         big.NewInt(1000000000),
+		Timestamp:      &ti,
+	}
+	fmt.Println(a.ComputeHash())
+}
+
+func TestGetUnconfirmBlocks(t *testing.T) {
+	chainInstance := getChainInstance()
+
+	lsb := chainInstance.GetLatestSnapshotBlock()
+	startHeight := lsb.Height
+	for {
+		sb, _ := chainInstance.GetSnapshotBlockByHeight(startHeight)
+		content := sb.SnapshotContent
+		fmt.Println(sb)
+		hasErr := false
+		for _, hashHeight := range content {
+			block, _ := chainInstance.GetAccountBlockByHash(&hashHeight.Hash)
+			if block.Hash.String() != block.ComputeHash().String() {
+				hasErr = true
+				fmt.Printf("%s %s\n", block.Hash, block.ComputeHash())
+				fmt.Printf("%+v\n", block)
+			}
+		}
+		if hasErr {
+			break
+		}
+		startHeight--
+	}
+
+}
 
 func BenchmarkChain_InsertAccountBlocks(b *testing.B) {
 	dataDir := common.HomeDir()
@@ -108,17 +160,18 @@ func BenchmarkChain_InsertAccountBlocks(b *testing.B) {
 }
 
 func TestContractsAddr(t *testing.T) {
-	fmt.Println(contracts.AddressRegister.String())
-	fmt.Println(contracts.AddressRegister.String())
-	fmt.Println(contracts.AddressRegister.String())
-	fmt.Println(contracts.AddressRegister.String())
-	fmt.Println(contracts.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(abi.AddressRegister.String())
 }
 
 func TestGetAccountBlocksByHash(t *testing.T) {
 	chainInstance := getChainInstance()
 
-	blocks, err1 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, nil, 10, true)
+	addr, _ := types.HexToAddress("vite_5acd0b2ef651bdc0c586aafe7a780103f45ac532cd886eb859")
+	blocks, err1 := chainInstance.GetAccountBlocksByHash(addr, nil, 10000, true)
 	if err1 != nil {
 		t.Error(err1)
 	}
@@ -126,37 +179,37 @@ func TestGetAccountBlocksByHash(t *testing.T) {
 		fmt.Printf("%d: %+v\n", index, block)
 	}
 
-	blocks2, err2 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, nil, 10, false)
-	if err2 != nil {
-		t.Error(err2)
-	}
-	for index, block := range blocks2 {
-		fmt.Printf("%d: %+v\n", index, block)
-	}
-
-	startHash, _ := types.HexToHash("f9380deea688b3afe206f52cc3cf2c2677bca1a0fbb4abdfa9d671bc26b22932")
-	blocks3, err3 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, &startHash, 10, true)
-	if err3 != nil {
-		t.Error(err3)
-	}
-	for index, block := range blocks3 {
-		fmt.Printf("%d: %+v\n", index, block)
-	}
-
-	endHash, _ := types.HexToHash("efe9be9b0e41f37dbb34899bb8891c5e150d35e8e907212128cffb7907b5292a")
-	blocks4, err4 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, &endHash, 10, false)
-	if err4 != nil {
-		t.Error(err4)
-	}
-	for index, block := range blocks4 {
-		fmt.Printf("%d: %+v\n", index, block)
-	}
+	//blocks2, err2 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, nil, 10, false)
+	//if err2 != nil {
+	//	t.Error(err2)
+	//}
+	//for index, block := range blocks2 {
+	//	fmt.Printf("%d: %+v\n", index, block)
+	//}
+	//
+	//startHash, _ := types.HexToHash("vite_5acd0b2ef651bdc0c586aafe7a780103f45ac532cd886eb859")
+	//blocks3, err3 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, &startHash, 10, true)
+	//if err3 != nil {
+	//	t.Error(err3)
+	//}
+	//for index, block := range blocks3 {
+	//	fmt.Printf("%d: %+v\n", index, block)
+	//}
+	//
+	//endHash, _ := types.HexToHash("efe9be9b0e41f37dbb34899bb8891c5e150d35e8e907212128cffb7907b5292a")
+	//blocks4, err4 := chainInstance.GetAccountBlocksByHash(contracts.AddressMintage, &endHash, 10, false)
+	//if err4 != nil {
+	//	t.Error(err4)
+	//}
+	//for index, block := range blocks4 {
+	//	fmt.Printf("%d: %+v\n", index, block)
+	//}
 }
 
 func TestGetAccountBlockMetaByHash(t *testing.T) {
 	chainInstance := getChainInstance()
-	hash, _ := types.HexToHash("ad411c4bcafb83ac71b042df3cd4a9f6171ed843cbd51849e93e004b2c379002")
-	meta, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&hash)
+	//hash, _ := types.HexToHash("1d91143665c60adb93665d5f725180860124ea4b773d3289fc0ae7b24af4f92a")
+	meta, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&GenesisMintageSendBlock.Hash)
 	fmt.Printf("%+v\n", meta)
 
 }
@@ -205,20 +258,21 @@ func TestGetAccountBlocksByHeight(t *testing.T) {
 }
 
 func TestChain_GetAccountBlockMap(t *testing.T) {
+
 	chainInstance := getChainInstance()
 	startHash, _ := types.HexToHash("f9380deea688b3afe206f52cc3cf2c2677bca1a0fbb4abdfa9d671bc26b22932")
 	queryParams1 := map[types.Address]*BlockMapQueryParam{
-		contracts.AddressMintage: {
+		abi.AddressMintage: {
 			OriginBlockHash: &startHash,
 			Count:           10,
 			Forward:         true,
 		},
-		contracts.AddressConsensusGroup: {
+		abi.AddressConsensusGroup: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         true,
 		},
-		contracts.AddressRegister: {
+		abi.AddressRegister: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         true,
@@ -236,17 +290,17 @@ func TestChain_GetAccountBlockMap(t *testing.T) {
 
 	fmt.Println()
 	queryParams2 := map[types.Address]*BlockMapQueryParam{
-		contracts.AddressMintage: {
+		abi.AddressMintage: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,
 		},
-		contracts.AddressConsensusGroup: {
+		abi.AddressConsensusGroup: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,
 		},
-		contracts.AddressRegister: {
+		abi.AddressRegister: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,
@@ -347,18 +401,40 @@ func TestGetAccountBlockHashByHeight(t *testing.T) {
 
 func TestGetAccountBlockByHeight(t *testing.T) {
 	chainInstance := getChainInstance()
-	addr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
-	block, err := chainInstance.GetAccountBlockByHeight(&addr, 4239)
-	if err != nil {
-		t.Error(err)
+	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
+	fmt.Printf("%+v\n", latestSnapshotBlock)
+	count := 0
+	for addr := range latestSnapshotBlock.SnapshotContent {
+		for i := uint64(1); i <= 1000; i++ {
+			block, _ := chainInstance.GetAccountBlockByHeight(&addr, i)
+			if block == nil {
+				break
+			}
+			count++
+			meta, _ := chainInstance.ChainDb().Ac.GetBlockMeta(&block.Hash)
+			if meta.Height%10 == 0 && meta.SnapshotHeight <= 0 || meta.Height%10 != 0 && meta.SnapshotHeight > 0 {
+				t.Fatal("error!!")
+			}
+			if count%10000 == 0 {
+				fmt.Printf("check %d count\n", count)
+			}
+			//fmt.Printf("%+v\n", block)
+		}
+
 	}
-	fmt.Printf("%+v\n", block)
+
+	//chainInstance.DeleteAccountBlocks(&addr, 1491)
+	//
+	//snapshotBlock, _ := chainInstance.GetSnapshotBlockByHeight(2007)
+	//
+	//fmt.Printf("%+v\n", snapshotBlock)
+
 }
 
 func TestGetAccountBlockByHash(t *testing.T) {
 	chainInstance := getChainInstance()
-	//hash, _ := types.HexToHash("8df6b1e1f3a9574016a7853dd90fb39c21d8d4aacedbb600b405b3d984b2f5c4")
-	hash := types.Hash{}
+	hash, _ := types.HexToHash("fd896b7c7fa3b900d2a3c4991c5b495a538530dfc2212c4f61e8bb216ed91e28")
+	//hash := types.Hash{}
 	block, err := chainInstance.GetAccountBlockByHash(&hash)
 	if err != nil {
 		t.Error(err)
@@ -430,6 +506,105 @@ func TestGetUnConfirmAccountBlocks(t *testing.T) {
 	for index, block := range blocks2 {
 		fmt.Printf("%d: %+v\n", index, block)
 	}
+}
+
+func TestChain_GetLatestAccountBlock2(t *testing.T) {
+	log15.Root().SetHandler(
+		log15.LvlFilterHandler(log15.LvlError, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),
+	)
+	chainInstance := getChainInstance()
+
+	addr1, _, _ := types.CreateAddress()
+	addr2, _, _ := types.CreateAddress()
+
+	for i := 0; i < 10000; i++ {
+		blocks, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1, &addr2)
+		chainInstance.InsertAccountBlocks(blocks)
+
+		receiveBlock, _ := newReceiveBlock(SecondSnapshotBlock.Hash, addr2, blocks[0].AccountBlock.Hash)
+		chainInstance.InsertAccountBlocks(receiveBlock)
+	}
+
+	chainInstance.DeleteAccountBlocks(&addr1, 3001)
+	latestBlock1, _ := chainInstance.GetLatestAccountBlock(&addr1)
+	fmt.Printf("%+v\n", latestBlock1)
+
+	latestBlock2, _ := chainInstance.GetLatestAccountBlock(&addr2)
+	fmt.Printf("%+v\n", latestBlock2)
+
+	blocks, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr2, &addr1)
+	chainInstance.InsertAccountBlocks(blocks)
+
+	latestBlock3, _ := chainInstance.GetLatestAccountBlock(&addr2)
+	fmt.Printf("%+v\n", latestBlock3)
+}
+
+func TestChain_GetLatestAccountBlock(t *testing.T) {
+	log15.Root().SetHandler(
+		log15.LvlFilterHandler(log15.LvlError, log15.Must.FileHandler(filepath.Join(common.DefaultDataDir(), "log"), log15.TerminalFormat())),
+	)
+	chainInstance := getChainInstance()
+
+	addr1, _, _ := types.CreateAddress()
+	addr2, _, _ := types.CreateAddress()
+
+	addr1_1, _, _ := types.CreateAddress()
+	addr2_2, _, _ := types.CreateAddress()
+
+	blocks, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1, &addr2)
+	chainInstance.InsertAccountBlocks(blocks)
+
+	blocks_1, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1_1, &addr2_2)
+	chainInstance.InsertAccountBlocks(blocks_1)
+
+	blocks2, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1, &addr2)
+	chainInstance.InsertAccountBlocks(blocks2)
+
+	blocks2_1, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1_1, &addr2_2)
+	chainInstance.InsertAccountBlocks(blocks2_1)
+
+	blocks3, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1, &addr2)
+	chainInstance.InsertAccountBlocks(blocks3)
+
+	blocks3_1, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1_1, &addr2_2)
+	chainInstance.InsertAccountBlocks(blocks3_1)
+
+	latestBlock, _ := chainInstance.GetLatestAccountBlock(&addr1)
+	fmt.Printf("%+v\n", latestBlock)
+
+	latestBlock_1, _ := chainInstance.GetLatestAccountBlock(&addr1_1)
+	fmt.Printf("%+v\n", latestBlock_1)
+
+	blocks4, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1, &addr2)
+	chainInstance.InsertAccountBlocks(blocks4)
+
+	blocks4_1, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1_1, &addr2_2)
+	chainInstance.InsertAccountBlocks(blocks4_1)
+
+	latestBlock2, _ := chainInstance.GetLatestAccountBlock(&addr1)
+	fmt.Printf("%+v\n", latestBlock2)
+
+	latestBlock_2, _ := chainInstance.GetLatestAccountBlock(&addr1_1)
+	fmt.Printf("%+v\n", latestBlock_2)
+
+	chainInstance.DeleteAccountBlocks(&addr1, 2)
+
+	latestBlock3, _ := chainInstance.GetLatestAccountBlock(&addr1)
+	fmt.Printf("%+v\n", latestBlock3)
+
+	blocks5, _, _ := randomSendViteBlock(SecondSnapshotBlock.Hash, &addr1, &addr2)
+	chainInstance.InsertAccountBlocks(blocks5)
+
+	latestBlock4, _ := chainInstance.GetLatestAccountBlock(&addr1)
+	fmt.Printf("%+v\n", latestBlock4)
+
+	latestBlock4_1, _ := chainInstance.GetLatestAccountBlock(&addr1_1)
+	fmt.Printf("%+v\n", latestBlock4_1)
+
+	chainInstance.DeleteAccountBlocks(&addr1_1, 2)
+
+	latestBlock5_1, _ := chainInstance.GetLatestAccountBlock(&addr1_1)
+	fmt.Printf("%+v\n", latestBlock5_1)
 }
 
 // TODO need snapshot

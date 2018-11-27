@@ -17,8 +17,10 @@ type SimpleAutoReceiveFilterPair struct {
 }
 
 type AutoReceiveWorker struct {
-	log     log15.Logger
-	address types.Address
+	log           log15.Logger
+	address       types.Address
+	powDifficulty *big.Int
+	entropystore  string
 
 	manager          *Manager
 	onroadBlocksPool *model.OnroadBlocksPool
@@ -36,17 +38,23 @@ type AutoReceiveWorker struct {
 	statusMutex sync.Mutex
 }
 
-func NewAutoReceiveWorker(manager *Manager, address types.Address, filters map[types.TokenTypeId]big.Int) *AutoReceiveWorker {
+func NewAutoReceiveWorker(manager *Manager, entropystore string, address types.Address, filters map[types.TokenTypeId]big.Int, powDifficulty *big.Int) *AutoReceiveWorker {
 	return &AutoReceiveWorker{
 		manager:          manager,
+		entropystore:     entropystore,
 		onroadBlocksPool: manager.onroadBlocksPool,
 		address:          address,
 		status:           Create,
 		isSleeping:       false,
 		isCancel:         false,
 		filters:          filters,
+		powDifficulty:    powDifficulty,
 		log:              slog.New("worker", "a", "addr", address),
 	}
+}
+
+func (w AutoReceiveWorker) GetEntropystore() string {
+	return w.entropystore
 }
 
 func (w *AutoReceiveWorker) Start() {
@@ -120,6 +128,17 @@ LOOP:
 			break
 		}
 
+		entropyStoreManager, e := w.manager.wallet.GetEntropyStoreManager(w.entropystore)
+		if e != nil {
+			w.log.Error("startWork ", "err", e)
+			continue
+		}
+
+		if !entropyStoreManager.IsAddrUnlocked(w.address) {
+			w.log.Error("startWork address locked", "addr", w.address)
+			continue
+		}
+
 		tx := w.onroadBlocksPool.GetNextCommonTx(w.address)
 		if tx != nil {
 			if len(w.filters) == 0 {
@@ -172,7 +191,15 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 		w.log.Info("ProcessOneBlock.checkExistInPool failed")
 		return
 	}
-	gen, err := generator.NewGenerator(w.manager.Chain(), nil, nil, &sendBlock.ToAddress)
+
+	var referredSnapshotHashList []types.Hash
+	referredSnapshotHashList = append(referredSnapshotHashList, sendBlock.SnapshotHash)
+	_, fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(w.manager.Chain(), &sendBlock.ToAddress, referredSnapshotHashList, true)
+	if err != nil {
+		w.log.Info("GetFitestGeneratorSnapshotHash failed", "error", err)
+		return
+	}
+	gen, err := generator.NewGenerator(w.manager.Chain(), fitestSnapshotBlockHash, nil, &sendBlock.ToAddress)
 	if err != nil {
 		w.log.Error("NewGenerator failed", "error", err)
 		return
@@ -180,8 +207,12 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 
 	genResult, err := gen.GenerateWithOnroad(*sendBlock, nil,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			return w.manager.keystoreManager.SignData(addr, data)
-		}, nil)
+			manager, e := w.manager.wallet.GetEntropyStoreManager(w.entropystore)
+			if e != nil {
+				return nil, nil, e
+			}
+			return manager.SignData(addr, data)
+		}, w.powDifficulty)
 	if err != nil {
 		w.log.Error("GenerateWithOnroad failed", "error", err)
 		return

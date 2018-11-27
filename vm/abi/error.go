@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	errBadBool = errors.New("abi: improperly encoded boolean value")
+	errBadBool     = errors.New("abi: improperly encoded boolean value")
+	errEmptyOutput = errors.New("unmarshalling empty output")
 )
 
 // formatSliceString formats the reflection kind with the given slice size

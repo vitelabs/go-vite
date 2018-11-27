@@ -1,11 +1,13 @@
 package chain
 
 import (
+	"time"
+
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
-	"time"
 )
 
 func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error) {
@@ -38,6 +40,7 @@ func (c *chain) GetNeedSnapshotContent() ledger.SnapshotContent {
 }
 
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
+
 	batch := new(leveldb.Batch)
 
 	// Check and create account
@@ -81,9 +84,19 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 			return blockMetaErr
 		}
 
-		accountBlockMeta.SnapshotHeight = snapshotBlock.Height
+		if accountBlockMeta == nil {
+			err := errors.New("AccountBlockMeta is nil")
+			c.log.Error(err.Error(), "method", "InsertSnapshotBlock")
+			return err
+		}
+
 		if saveSendBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlockHashHeight.Hash, accountBlockMeta); saveSendBlockMetaErr != nil {
 			c.log.Error("SaveBlockMeta failed, error is "+saveSendBlockMetaErr.Error(), "method", "InsertSnapshotBlock")
+			return blockMetaErr
+		}
+
+		if saveBeSnapshotErr := c.chainDb.Ac.WriteBeSnapshot(batch, &accountBlockHashHeight.Hash, snapshotBlock.Height); saveBeSnapshotErr != nil {
+			c.log.Error("SaveBeSnapshot failed, error is "+saveBeSnapshotErr.Error(), "method", "InsertSnapshotBlock")
 			return blockMetaErr
 		}
 	}
@@ -98,7 +111,6 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 
 	// Save state trie
 	var trieSaveCallback func()
-
 	var saveTrieErr error
 	if trieSaveCallback, saveTrieErr = snapshotBlock.StateTrie.Save(batch); saveTrieErr != nil {
 		c.log.Error("Save state trie failed, error is "+saveTrieErr.Error(), "method", "InsertSnapshotBlock")
@@ -108,9 +120,14 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	// Add snapshot block event
 	c.chainDb.Be.AddSnapshotBlocks(batch, []types.Hash{snapshotBlock.Hash})
 
+	// Delete needSnapshotCache, Need first update cache
+	if c.needSnapshotCache != nil {
+		c.needSnapshotCache.BeSnapshot(snapshotBlock.SnapshotContent)
+	}
+
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
-		c.log.Error("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
+		c.log.Crit("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
 	}
 
@@ -119,15 +136,15 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 
 	// Set cache
 	c.latestSnapshotBlock = snapshotBlock
-	// Delete needSnapshotCache
-	if c.needSnapshotCache != nil {
-		for addr, item := range snapshotBlock.SnapshotContent {
-			c.needSnapshotCache.Remove(&addr, item.Height)
-		}
-	}
+	// Trigger success
+	c.em.triggerInsertSnapshotBlocksSuccess([]*ledger.SnapshotBlock{snapshotBlock})
+
+	// record insert
+	c.blackBlock.InsertSnapshotBlocks([]*ledger.SnapshotBlock{snapshotBlock})
 
 	return nil
 }
+
 func (c *chain) GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
 	startHeight := uint64(1)
 	if originBlockHash != nil {
@@ -157,21 +174,34 @@ func (c *chain) GetSnapshotBlocksByHeight(height uint64, count uint64, forward, 
 	return blocks, gErr
 }
 
+func (c *chain) GetSnapshotBlockHeadByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	block, gsbErr := c.chainDb.Sc.GetSnapshotBlock(height, false)
+	if gsbErr != nil {
+		c.log.Error("GetSnapshotBlock failed, error is "+gsbErr.Error(), "method", "GetSnapshotBlockHeadByHeight")
+		return nil, gsbErr
+	}
+
+	return block, nil
+}
+
+func (c *chain) GetSnapshotBlockHeadByHash(hash *types.Hash) (*ledger.SnapshotBlock, error) {
+	height, err := c.chainDb.Sc.GetSnapshotBlockHeight(hash)
+	if err != nil {
+		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSnapshotBlockHeadByHash")
+		return nil, err
+	}
+	if height <= 0 {
+		return nil, nil
+	}
+
+	return c.GetSnapshotBlockHeadByHeight(height)
+}
+
 func (c *chain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
 	block, gsbErr := c.chainDb.Sc.GetSnapshotBlock(height, true)
 	if gsbErr != nil {
 		c.log.Error("GetSnapshotBlock failed, error is "+gsbErr.Error(), "method", "GetSnapshotBlockByHeight")
 		return nil, gsbErr
-	}
-
-	if block != nil {
-		snapshotContent, err := c.chainDb.Sc.GetSnapshotContent(block.Height)
-		if err != nil {
-			c.log.Error("GetSnapshotContent failed, error is "+err.Error(), "method", "GetSnapshotBlockByHeight")
-			return nil, err
-		}
-
-		block.SnapshotContent = snapshotContent
 	}
 
 	return block, nil
@@ -310,73 +340,71 @@ func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Add
 	}
 
 	if accountBlock != nil {
-		accountBlock.AccountAddress = account.AccountAddress
-		// Not contract account block
-		if len(accountBlock.PublicKey) == 0 {
-			accountBlock.PublicKey = account.PublicKey
-		}
-		accountBlock.PublicKey = account.PublicKey
+		c.completeBlock(accountBlock, account)
 	}
 
 	return accountBlock, nil
 }
 
-func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Address][]*ledger.AccountBlock) (map[types.Address]*ledger.AccountBlock, map[types.Address]*ledger.AccountBlock, map[types.Address]uint64, error) {
+func (c *chain) getNeedSnapshotMapByDeleteSubLedger(deleteSubLedger map[types.Address][]*ledger.AccountBlock) (map[types.Address]*ledger.AccountBlock, []types.Address, map[types.Address]uint64, error) {
 	needAddBlocks := make(map[types.Address]*ledger.AccountBlock)
-	needRemoveBlocks := make(map[types.Address]*ledger.AccountBlock)
+	var needRemoveAddr []types.Address
 
 	blockHeightMap := make(map[types.Address]uint64)
 	for addr, accountBlocks := range deleteSubLedger {
-		accountBlock := accountBlocks[len(accountBlocks)-1]
-		needRemoveBlocks[addr] = accountBlock
+		accountBlock := accountBlocks[0]
 
+		needRemoveAddr = append(needRemoveAddr, addr)
 		accountBlockHeight := accountBlock.Height
-		blockHeightMap[addr] = accountBlockHeight - 1
 
+		if accountBlockHeight > 1 {
+			blockHeightMap[addr] = accountBlockHeight - 1
+		}
 	}
 
 	for addr, blockHeight := range blockHeightMap {
 		account, err := c.GetAccount(&addr)
 		if err != nil {
-			c.log.Error("GetAccount failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			c.log.Error("GetAccount failed, error is "+err.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
 			return nil, nil, nil, err
 		}
 
 		blockHash, blockHashErr := c.chainDb.Ac.GetHashByHeight(account.AccountId, blockHeight)
 		if blockHashErr != nil {
-			c.log.Error("GetHashByHeight failed, error is "+blockHashErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			c.log.Error("GetHashByHeight failed, error is "+blockHashErr.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
 			return nil, nil, nil, err
 		}
 
 		if blockHash == nil {
-			continue
+			err := errors.New("blockHash is nil")
+			c.log.Error(err.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
+			return nil, nil, nil, err
 		}
 
 		blockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(blockHash)
 		if blockMetaErr != nil {
-			c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
 			return nil, nil, nil, err
 		}
 
 		if blockMeta == nil {
-			continue
+			err := errors.New("blockMeta is nil")
+			c.log.Error(err.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
+			return nil, nil, nil, err
 		}
 
 		if blockMeta.SnapshotHeight <= 0 {
 			block, blockErr := c.chainDb.Ac.GetBlockByHeight(account.AccountId, blockHeight)
 			if blockErr != nil {
-				c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+				c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "getNeedSnapshotMapByDeleteSubLedger")
 				return nil, nil, nil, err
 			}
-			block.AccountAddress = account.AccountAddress
-			if len(block.PublicKey) == 0 {
-				block.PublicKey = account.PublicKey
-			}
 
+			c.completeBlock(block, account)
 			needAddBlocks[account.AccountAddress] = block
 		}
 	}
-	return needAddBlocks, needRemoveBlocks, blockHeightMap, nil
+	return needAddBlocks, needRemoveAddr, blockHeightMap, nil
 }
 
 // Contains to height
@@ -386,16 +414,22 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	}
 
 	batch := new(leveldb.Batch)
-	snapshotBlocks, accountBlocksMap, blockMetaCache, err := c.deleteSnapshotBlocksByHeight(batch, toHeight)
+	snapshotBlocks, accountBlocksMap, err := c.deleteSnapshotBlocksByHeight(batch, toHeight)
 	if err != nil {
 		c.log.Error("deleteSnapshotBlocksByHeight failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksToHeight")
 		return nil, nil, err
 	}
 
-	needAddBlocks, needRemoveBlocks, blockHeightMap, err := c.getNeedSnapshotMapByDeleteSubLedger(accountBlocksMap)
+	needAddBlocks, needRemoveAddr, blockHeightMap, err := c.getNeedSnapshotMapByDeleteSubLedger(accountBlocksMap)
+
 	if err != nil {
 		c.log.Error("getNeedSnapshotMapByDeleteSubLedger failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksToHeight")
 		return nil, nil, err
+	}
+
+	needRemoveAddrMap := make(map[types.Address]struct{})
+	for _, addr := range needRemoveAddr {
+		needRemoveAddrMap[addr] = struct{}{}
 	}
 
 	chainRangeSet := c.getChainRangeSet(snapshotBlocks)
@@ -403,7 +437,11 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	for addr, changeRangeItem := range chainRangeSet {
 		min := changeRangeItem[0].Height
 		max := changeRangeItem[1].Height
-		if blockHeightItem, ok := blockHeightMap[addr]; ok && max > blockHeightItem {
+
+		if blockHeightItem, ok := blockHeightMap[addr]; ok {
+			if min > blockHeightItem {
+				continue
+			}
 			max = blockHeightItem
 		}
 
@@ -413,7 +451,6 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 			return nil, nil, err
 		}
 
-		// Set block meta
 		for i := min; i <= max; i++ {
 			blockHash, blockHashErr := c.chainDb.Ac.GetHashByHeight(account.AccountId, i)
 			if blockHashErr != nil {
@@ -421,38 +458,40 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 				return nil, nil, blockHashErr
 			}
 
-			// Get block meta
-			var blockMeta *ledger.AccountBlockMeta
+			// Get be snapshot
+			beSnapshot, getBeSnapshotErr := c.chainDb.Ac.GetBeSnapshot(blockHash)
 
-			if blockMeta = blockMetaCache[*blockHash]; blockMeta == nil {
-				var blockMetaErr error
-				blockMeta, blockMetaErr = c.chainDb.Ac.GetBlockMeta(blockHash)
-				if blockMetaErr != nil {
-					c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
-					return nil, nil, err
-				}
+			if getBeSnapshotErr != nil {
+				c.log.Error("GetBeSnapshot failed, error is "+getBeSnapshotErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+				return nil, nil, err
 			}
 
-			if blockMeta.SnapshotHeight > 0 {
-				blockMeta.SnapshotHeight = 0
-				if err := c.chainDb.Ac.WriteBlockMeta(batch, blockHash, blockMeta); err != nil {
-					c.log.Error("WriteBlockMeta failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			if beSnapshot > 0 {
+				c.chainDb.Ac.DeleteBeSnapshot(batch, blockHash)
+			}
+		}
+
+		if _, ok := needAddBlocks[account.AccountAddress]; !ok {
+			needAdd := false
+			if _, ok2 := needRemoveAddrMap[account.AccountAddress]; ok2 {
+				needAdd = true
+			} else if cachedAccountBlock := c.needSnapshotCache.Get(&account.AccountAddress); cachedAccountBlock == nil {
+				needAdd = true
+			}
+
+			if needAdd {
+				var lastBlock *ledger.AccountBlock
+
+				var blockErr error
+				lastBlock, blockErr = c.chainDb.Ac.GetBlockByHeight(account.AccountId, max)
+				if blockErr != nil {
+					c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
 					return nil, nil, err
 				}
 
-				if i == max {
-					block, blockErr := c.chainDb.Ac.GetBlockByHeight(account.AccountId, i)
-					if blockErr != nil {
-						c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
-						return nil, nil, err
-					}
-					block.AccountAddress = account.AccountAddress
-					if len(block.PublicKey) == 0 {
-						block.PublicKey = account.PublicKey
-					}
+				c.completeBlock(lastBlock, account)
+				needAddBlocks[account.AccountAddress] = lastBlock
 
-					needAddBlocks[account.AccountAddress] = block
-				}
 			}
 		}
 	}
@@ -484,35 +523,60 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	c.chainDb.Be.DeleteSnapshotBlocks(batch, deleteSbHashList)
 	c.chainDb.Be.DeleteAccountBlocks(batch, deleteAbHashList)
 
+	// Set needSnapshotCache, first remove
+	c.needSnapshotCache.Remove(needRemoveAddr)
+
+	// Set needSnapshotCache, then add
+	c.needSnapshotCache.Set(needAddBlocks)
+
 	// write db
 	writeErr := c.chainDb.Commit(batch)
+
 	if writeErr != nil {
-		c.log.Error("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
+		c.log.Crit("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 		return nil, nil, writeErr
 	}
+
+	// Delete cache
+	c.stateTriePool.Delete(needRemoveAddr)
 
 	// Set cache
 	c.latestSnapshotBlock = prevSnapshotBlock
 
-	// Set needSnapshotCache, first remove
-	for addr, block := range needRemoveBlocks {
-		c.needSnapshotCache.Remove(&addr, block.Height)
-	}
+	// record delete
+	c.blackBlock.DeleteSnapshotBlock(snapshotBlocks, accountBlocksMap)
 
-	// Set needSnapshotCache, then add
-	for addr, block := range needAddBlocks {
-		c.needSnapshotCache.Set(&addr, block)
-	}
+	// Trigger delete snapshot blocks success
+	c.em.triggerDeleteSnapshotBlocksSuccess(snapshotBlocks)
 
+	// Trigger delete account blocks success
 	c.em.triggerDeleteAccountBlocksSuccess(accountBlocksMap)
+
 	return snapshotBlocks, accountBlocksMap, nil
 }
 
-func (c *chain) deleteSnapshotBlocksByHeight(batch *leveldb.Batch, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, map[types.Hash]*ledger.AccountBlockMeta, error) {
+func (c *chain) CheckNeedSnapshotCache(content ledger.SnapshotContent) bool {
+	unconfirmSubLedger, err := c.getUnConfirmedSubLedger()
+	if err != nil {
+		c.log.Error("getUnConfirmedSubLedger failed, error is "+err.Error(), "method", "checkNeedSnapshotCache")
+	}
+	if len(unconfirmSubLedger) != len(content) {
+		return false
+	}
+
+	for addr, blocks := range unconfirmSubLedger {
+		if block2, ok := content[addr]; !ok || block2.Hash != blocks[0].Hash {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *chain) deleteSnapshotBlocksByHeight(batch *leveldb.Batch, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
 	maxAccountId, err := c.chainDb.Account.GetLastAccountId()
 	if err != nil {
 		c.log.Error("GetLastAccountId failed, error is "+err.Error(), "method", "DeleteSnapshotBlocksByHeight")
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	planToDelete, getPlanErr := c.chainDb.Ac.GetPlanToDelete(maxAccountId, toHeight)
@@ -523,35 +587,34 @@ func (c *chain) deleteSnapshotBlocksByHeight(batch *leveldb.Batch, toHeight uint
 	deleteMap, reopenList, getDeleteAndReopenErr := c.chainDb.Ac.GetDeleteMapAndReopenList(planToDelete, c.chainDb.Account.GetAccountByAddress, false, false)
 	if getDeleteAndReopenErr != nil {
 		c.log.Error("GetDeleteMapAndReopenList failed, error is "+getDeleteAndReopenErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
-		return nil, nil, nil, getDeleteAndReopenErr
+		return nil, nil, getDeleteAndReopenErr
 	}
 
 	deleteSnapshotBlocks, deleteSnapshotBlocksErr := c.chainDb.Sc.DeleteToHeight(batch, toHeight)
 	if deleteSnapshotBlocksErr != nil {
 		c.log.Error("DeleteByHeight failed, error is "+deleteSnapshotBlocksErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
-		return nil, nil, nil, deleteSnapshotBlocksErr
+		return nil, nil, deleteSnapshotBlocksErr
 	}
 
 	deleteAccountBlocks, deleteAccountBlocksErr := c.chainDb.Ac.Delete(batch, deleteMap)
 	if deleteAccountBlocksErr != nil {
 		c.log.Error("Delete failed, error is "+deleteAccountBlocksErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
-		return nil, nil, nil, deleteAccountBlocksErr
+		return nil, nil, deleteAccountBlocksErr
 	}
 
 	subLedger, toSubLedgerErr := c.subLedgerAccountIdToAccountAddress(deleteAccountBlocks)
 
 	if toSubLedgerErr != nil {
 		c.log.Error("subLedgerAccountIdToAccountAddress failed, error is "+toSubLedgerErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
-		return nil, nil, nil, toSubLedgerErr
+		return nil, nil, toSubLedgerErr
 	}
 
-	blockMetas, reopenErr := c.chainDb.Ac.ReopenSendBlocks(batch, reopenList, deleteMap)
-	if reopenErr != nil {
+	if reopenErr := c.chainDb.Ac.ReopenSendBlocks(batch, reopenList, deleteMap); reopenErr != nil {
 		c.log.Error("ReopenSendBlocks failed, error is "+reopenErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
-		return nil, nil, nil, reopenErr
+		return nil, nil, reopenErr
 	}
 
-	return deleteSnapshotBlocks, subLedger, blockMetas, nil
+	return deleteSnapshotBlocks, subLedger, nil
 }
 
 func (c *chain) getChainRangeSet(snapshotBlocks []*ledger.SnapshotBlock) map[types.Address][2]*ledger.HashHeight {
@@ -570,15 +633,11 @@ func (c *chain) getChainRangeSet(snapshotBlocks []*ledger.SnapshotBlock) map[typ
 					},
 				}
 			} else if chainRange[0].Height > height {
-				chainRange[0] = &ledger.HashHeight{
-					Hash:   snapshotContent.Hash,
-					Height: snapshotContent.Height,
-				}
+				chainRange[0].Hash = snapshotContent.Hash
+				chainRange[0].Height = snapshotContent.Height
 			} else if chainRange[1].Height < height {
-				chainRange[1] = &ledger.HashHeight{
-					Hash:   snapshotContent.Hash,
-					Height: snapshotContent.Height,
-				}
+				chainRange[1].Hash = snapshotContent.Hash
+				chainRange[1].Height = snapshotContent.Height
 			}
 		}
 	}

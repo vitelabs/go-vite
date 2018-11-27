@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"math/big"
 	"math/rand"
@@ -32,7 +33,15 @@ func NewTestApi(walletApi *WalletApi) *TestApi {
 	}
 }
 
-func (t TestApi) GetTestToken(ToAddr types.Address) (string, error) {
+func (t TestApi) Bazinga(ctx context.Context) error {
+	return CheckGetTestTokenIpFrequency(testapi_testtokenlru, ctx)
+}
+
+func (t TestApi) GetTestToken(ctx context.Context, ToAddr types.Address) (string, error) {
+	if e := CheckGetTestTokenIpFrequency(testapi_testtokenlru, ctx); e != nil {
+		return "", e
+	}
+
 	privKey, err := ed25519.HexToPrivateKey(testapi_hexPrivKey)
 	if err != nil {
 		return "", err
@@ -77,8 +86,11 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		Data:           params.Data,
 		Difficulty:     params.Difficulty,
 	}
-
-	g, e := generator.NewGenerator(t.walletApi.chain, nil, nil, &params.SelfAddr)
+	_, fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, nil, true)
+	if err != nil {
+		return err
+	}
+	g, e := generator.NewGenerator(t.walletApi.chain, fitestSnapshotBlockHash, nil, &params.SelfAddr)
 	if e != nil {
 		return e
 	}
@@ -112,6 +124,7 @@ type CreateReceiveTxParms struct {
 	SelfAddr   types.Address
 	FromHash   types.Hash
 	PrivKeyStr string
+	Difficulty *big.Int
 }
 
 func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
@@ -126,14 +139,39 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: params.SelfAddr,
 		FromBlockHash:  &params.FromHash,
+		Difficulty:     params.Difficulty,
 	}
 	if code == ledger.AccountTypeContract && msg.BlockType == ledger.BlockTypeReceive {
 		return errors.New("AccountTypeContract can't receiveTx without consensus's control")
 	}
-	privKey, _ := ed25519.HexToPrivateKey(params.PrivKeyStr)
+	privKey, err := ed25519.HexToPrivateKey(params.PrivKeyStr)
+	if err != nil {
+		return err
+	}
 	pubKey := privKey.PubByte()
 
-	g, e := generator.NewGenerator(chain, nil, nil, &params.SelfAddr)
+	if msg.FromBlockHash == nil {
+		return errors.New("params fromblockhash can't be nil")
+	}
+	fromBlock, err := t.walletApi.chain.GetAccountBlockByHash(msg.FromBlockHash)
+	if fromBlock == nil {
+		if err != nil {
+			return err
+		}
+		return errors.New("get sendblock by hash failed")
+	}
+
+	if fromBlock.ToAddress != params.SelfAddr {
+		return errors.New("can't receive other address's block")
+	}
+
+	var referredSnapshotHashList []types.Hash
+	referredSnapshotHashList = append(referredSnapshotHashList, fromBlock.SnapshotHash)
+	_, fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, referredSnapshotHashList, true)
+	if err != nil {
+		return err
+	}
+	g, e := generator.NewGenerator(chain, fitestSnapshotBlockHash, nil, &params.SelfAddr)
 	if e != nil {
 		return e
 	}

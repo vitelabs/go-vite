@@ -3,33 +3,34 @@ package ledger
 import (
 	"bytes"
 	"encoding/binary"
+	"math/big"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
-	"math/big"
-	"time"
 )
 
 var accountBlockLog = log15.New("module", "ledger/account_block")
 
 type AccountBlockMeta struct {
 	// Account id
-	AccountId uint64
+	AccountId uint64 `json:"accountId"`
 
 	// Height
-	Height uint64
+	Height uint64 `json:"height"`
 
 	// Block status, 1 means open, 2 means closed
-	ReceiveBlockHeights []uint64
+	ReceiveBlockHeights []uint64 `json:"receiveBlockHeights"`
 
 	// Height of Snapshot block which confirm this account block
-	SnapshotHeight uint64
+	SnapshotHeight uint64 `json:"snapshotHeight"`
 
 	// Height of Snapshot block which pointed by this account block
-	RefSnapshotHeight uint64
+	RefSnapshotHeight uint64 `json:"refSnapshotHeight"`
 }
 
 func (abm *AccountBlockMeta) Copy() *AccountBlockMeta {
@@ -47,7 +48,6 @@ func (abm *AccountBlockMeta) Proto() *vitepb.AccountBlockMeta {
 		Height:              abm.Height,
 		ReceiveBlockHeights: abm.ReceiveBlockHeights,
 
-		SnapshotHeight:    abm.SnapshotHeight,
 		RefSnapshotHeight: abm.RefSnapshotHeight,
 	}
 	return pb
@@ -57,7 +57,6 @@ func (abm *AccountBlockMeta) DeProto(pb *vitepb.AccountBlockMeta) {
 	abm.AccountId = pb.AccountId
 	abm.Height = pb.Height
 	abm.ReceiveBlockHeights = pb.ReceiveBlockHeights
-	abm.SnapshotHeight = pb.SnapshotHeight
 	abm.RefSnapshotHeight = pb.RefSnapshotHeight
 }
 
@@ -113,8 +112,9 @@ type AccountBlock struct {
 
 	LogHash *types.Hash `json:"logHash"`
 
-	Nonce     []byte `json:"nonce"`
-	Signature []byte `json:"signature"`
+	Difficulty *big.Int `json:"difficulty"`
+	Nonce      []byte   `json:"nonce"`
+	Signature  []byte   `json:"signature"`
 }
 
 func (ab *AccountBlock) Copy() *AccountBlock {
@@ -147,6 +147,10 @@ func (ab *AccountBlock) Copy() *AccountBlock {
 	if ab.LogHash != nil {
 		logHash := *ab.LogHash
 		newAb.LogHash = &logHash
+	}
+
+	if ab.Difficulty != nil {
+		newAb.Difficulty = new(big.Int).Set(ab.Difficulty)
 	}
 
 	newAb.Nonce = make([]byte, len(ab.Nonce))
@@ -199,6 +203,14 @@ func (ab *AccountBlock) proto() *vitepb.AccountBlock {
 	if ab.LogHash != nil {
 		pb.LogHash = ab.LogHash.Bytes()
 	}
+
+	if ab.Difficulty != nil {
+		pb.Difficulty = ab.Difficulty.Bytes()
+		// Difficulty is big.NewInt(0)
+		if len(pb.Difficulty) <= 0 {
+			pb.Difficulty = []byte{0}
+		}
+	}
 	pb.Nonce = ab.Nonce
 	pb.Signature = ab.Signature
 	return pb
@@ -228,25 +240,27 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) {
 	ab.PrevHash, _ = types.BytesToHash(pb.PrevHash)
 	ab.AccountAddress, _ = types.BytesToAddress(pb.AccountAddress)
 	ab.PublicKey = pb.PublicKey
-	if len(pb.ToAddress) >= 0 {
+
+	if len(pb.ToAddress) > 0 {
 		ab.ToAddress, _ = types.BytesToAddress(pb.ToAddress)
 	}
-	if len(pb.TokenId) >= 0 {
+	if len(pb.TokenId) > 0 {
 		ab.TokenId, _ = types.BytesToTokenTypeId(pb.TokenId)
 	}
 
 	ab.Amount = big.NewInt(0)
-	if len(pb.Amount) >= 0 {
+
+	if len(pb.Amount) > 0 {
 		ab.Amount.SetBytes(pb.Amount)
 	}
 
-	if len(pb.FromBlockHash) >= 0 {
+	if len(pb.FromBlockHash) > 0 {
 		ab.FromBlockHash, _ = types.BytesToHash(pb.FromBlockHash)
 	}
 	ab.Quota = pb.Quota
 
 	ab.Fee = big.NewInt(0)
-	if len(pb.Fee) >= 0 {
+	if len(pb.Fee) > 0 {
 		ab.Fee.SetBytes(pb.Fee)
 	}
 
@@ -255,11 +269,15 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) {
 	timestamp := time.Unix(0, pb.Timestamp)
 	ab.Timestamp = &timestamp
 	ab.StateHash, _ = types.BytesToHash(pb.StateHash)
+
 	if len(pb.LogHash) > 0 {
 		logHash, _ := types.BytesToHash(pb.LogHash)
 		ab.LogHash = &logHash
 	}
 
+	if len(pb.Difficulty) > 0 {
+		ab.Difficulty = new(big.Int).SetBytes(pb.Difficulty)
+	}
 	ab.Nonce = pb.Nonce
 	ab.Signature = pb.Signature
 
@@ -299,7 +317,6 @@ func (ab *AccountBlock) ComputeHash() types.Hash {
 		fee = big.NewInt(0)
 	}
 	source = append(source, fee.Bytes()...)
-
 
 	// SnapshotHash
 	source = append(source, ab.SnapshotHash.Bytes()...)

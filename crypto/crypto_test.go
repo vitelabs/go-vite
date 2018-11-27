@@ -6,6 +6,7 @@ import (
 
 	"bytes"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"fmt"
 )
 
 const (
@@ -33,8 +34,10 @@ func TestAesGCMEncrypt(t *testing.T) {
 	keyArray := []byte(gcm_dummy_key_32)
 	plain := []byte(gcm_dummy_plain_text)
 	out, nonce, err := AesGCMEncrypt(keyArray, plain)
-	println(hex.EncodeToString(out))
-	println(hex.EncodeToString(nonce))
+	println("key:", hex.EncodeToString(keyArray))
+	println("origin:", hex.EncodeToString(plain))
+	println("cipher:", hex.EncodeToString(out))
+	println("nonce:", hex.EncodeToString(nonce))
 	println("Encrypt finish")
 	if err != nil {
 		t.Fatal(err)
@@ -82,5 +85,10 @@ func TestGenerateKey(t *testing.T) {
 		pri := hex.EncodeToString(privateKey)
 		println(pri)
 	}
+
+	key, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
+	publicKey, privateKey, _ := ed25519.GenerateKey(bytes.NewReader(key))
+	fmt.Println(hex.EncodeToString(publicKey))
+	fmt.Println(hex.EncodeToString(privateKey))
 
 }

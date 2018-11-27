@@ -1,6 +1,8 @@
 package net
 
 import (
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/monitor"
 	"sync"
 	"time"
 
@@ -11,6 +13,8 @@ import (
 const maxMark = 5
 
 var timeThreshold = 5 * time.Second
+
+var logFilter = log15.New("module", "net/filter")
 
 // use to filter redundant fetch
 
@@ -47,17 +51,66 @@ type filter struct {
 	records map[types.Hash]*record
 	lock    sync.RWMutex
 	log     log15.Logger
+	term    chan struct{}
+	wg      sync.WaitGroup
 }
 
 func newFilter() *filter {
 	return &filter{
 		records: make(map[types.Hash]*record, 10000),
-		log:     log15.New("module", "net/filter"),
+		log:     logFilter,
+	}
+}
+
+func (f *filter) start() {
+	f.term = make(chan struct{})
+
+	f.wg.Add(1)
+	common.Go(f.loop)
+}
+
+func (f *filter) stop() {
+	if f.term == nil {
+		return
+	}
+
+	select {
+	case <-f.term:
+	default:
+		close(f.term)
+	}
+}
+
+func (f *filter) loop() {
+	defer f.wg.Done()
+
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-f.term:
+			return
+		case now := <-ticker.C:
+			f.lock.Lock()
+
+			for hash, r := range f.records {
+				if r._done && now.Sub(r.doneAt) > timeThreshold {
+					delete(f.records, hash)
+				}
+			}
+
+			f.lock.Unlock()
+
+			f.log.Info("filter clean")
+		}
 	}
 }
 
 // will suppress fetch
 func (f *filter) hold(hash types.Hash) bool {
+	defer monitor.LogTime("net/filter", "hold", time.Now())
+
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
@@ -84,6 +137,8 @@ func (f *filter) hold(hash types.Hash) bool {
 }
 
 func (f *filter) done(hash types.Hash) {
+	defer monitor.LogTime("net/filter", "done", time.Now())
+
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
@@ -96,9 +151,26 @@ func (f *filter) done(hash types.Hash) {
 }
 
 func (f *filter) has(hash types.Hash) bool {
+	defer monitor.LogTime("net/filter", "has", time.Now())
+
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
 	r, ok := f.records[hash]
 	return ok && r._done
+}
+
+func (f *filter) fail(hash types.Hash) {
+	defer monitor.LogTime("net/filter", "fail", time.Now())
+
+	f.lock.RLock()
+	defer f.lock.RUnlock()
+
+	if r, ok := f.records[hash]; ok {
+		if r._done {
+			return
+		}
+
+		delete(f.records, hash)
+	}
 }

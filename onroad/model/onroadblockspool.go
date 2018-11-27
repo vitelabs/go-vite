@@ -2,6 +2,7 @@ package model
 
 import (
 	"container/list"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"sync"
 	"time"
 
@@ -18,13 +19,13 @@ var (
 	simpleCacheExpireTime = 20 * time.Minute
 
 	initRegisterContracts = []types.Address{
-		contracts.AddressMintage,
-		contracts.AddressPledge,
-		contracts.AddressRegister,
-		contracts.AddressVote,
-		contracts.AddressConsensusGroup,
-		contracts.AddressDexFund,
-		contracts.AddressDexTrade}
+		abi.AddressMintage,
+		abi.AddressPledge,
+		abi.AddressRegister,
+		abi.AddressVote,
+		abi.AddressConsensusGroup,
+		abi.AddressDexFund,
+		abi.AddressDexTrade}
 )
 
 // obtaining the account info from cache or db and manage the cache lifecycle
@@ -246,26 +247,20 @@ func (p *OnroadBlocksPool) DeleteDirect(sendBlock *ledger.AccountBlock) error {
 }
 
 func (p *OnroadBlocksPool) RevertOnroadSuccess(subLedger map[types.Address][]*ledger.AccountBlock) {
-	//async update the cache
-	go func() {
-		for addr, _ := range subLedger {
-			// if the full cache is in hold by a worker we will rebuild it else we delete it
-			if cache, ok := p.fullCache.Load(addr); ok {
-				c := cache.(*onroadBlocksCache)
-				if c.getReferenceCount() > 0 {
-					p.loadFullCacheFromDb(addr)
-				} else {
-					if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
-						t.(*time.Timer).Stop()
-						p.fullCacheDeadTimer.Delete(addr)
-					}
-					p.fullCache.Delete(addr)
-				}
+	cutMap := excludeSubordinate(subLedger)
+	for _, blocks := range cutMap {
+		for i := len(blocks) - 1; i >= 0; i-- {
+			v := blocks[i]
+			addr := types.Address{}
+			if v.IsReceiveBlock() {
+				addr = v.AccountAddress
+			} else {
+				addr = v.ToAddress
 			}
 			p.deleteSimpleCache(addr)
+			p.deleteFullCache(addr)
 		}
-
-	}()
+	}
 }
 
 // RevertOnroad means to revert according to bifurcation
@@ -401,13 +396,35 @@ func (p *OnroadBlocksPool) updateSimpleCache(isAdd bool, block *ledger.AccountBl
 }
 
 func (p *OnroadBlocksPool) deleteSimpleCache(addr types.Address) {
-	if t, ok := p.simpleCacheDeadTimer.Load(addr); ok {
-		t.(*time.Timer).Stop()
-		p.simpleCacheDeadTimer.Delete(addr)
+	if p.simpleCacheDeadTimer != nil {
+		if t, ok := p.simpleCacheDeadTimer.Load(addr); ok {
+			if t != nil {
+				t.(*time.Timer).Stop()
+			}
+			p.simpleCacheDeadTimer.Delete(addr)
 
+		}
 	}
-	if _, ok := p.simpleCache.Load(addr); ok {
-		p.simpleCache.Delete(addr)
+	if p.simpleCache != nil {
+		if _, ok := p.simpleCache.Load(addr); ok {
+			p.simpleCache.Delete(addr)
+		}
+	}
+}
+
+func (p *OnroadBlocksPool) deleteFullCache(addr types.Address) {
+	if p.fullCacheDeadTimer != nil {
+		if t, ok := p.fullCacheDeadTimer.Load(addr); ok {
+			if t != nil {
+				t.(*time.Timer).Stop()
+			}
+			p.fullCache.Delete(addr)
+		}
+	}
+	if p.fullCache != nil {
+		if _, ok := p.fullCache.Load(addr); ok {
+			p.fullCache.Delete(addr)
+		}
 	}
 }
 

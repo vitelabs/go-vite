@@ -15,14 +15,26 @@ var (
 
 // start node
 func StartNode(node *node.Node) {
+	// Prepare the node
+	log.Info(fmt.Sprintf("Begin PrepareNode... "))
+	if err := node.Prepare(); err != nil {
+		log.Error(fmt.Sprintf("Failed to prepare node， %v", err))
+		fmt.Println(fmt.Sprintf("Failed to prepare node， %v", err))
+	} else {
+		//Start the node Extenders
+		prepareNodeExtenders(node)
+		fmt.Println("Prepare the Node success!!!")
+	}
 
 	// Start the node
 	log.Info(fmt.Sprintf("Begin StartNode... "))
 	if err := node.Start(); err != nil {
-		log.Error(fmt.Sprintf("Failed to start node， %v", err))
 		fmt.Println(fmt.Sprintf("Failed to start node， %v", err))
+		log.Crit(fmt.Sprintf("Failed to start node， %v", err))
 	} else {
 		fmt.Println("Start the Node success!!!")
+		//Start the node Extenders
+		startNodeExtenders(node)
 	}
 
 	// Listening event closes the node
@@ -56,8 +68,14 @@ func WaitNode(node *node.Node) {
 // stop the node
 func StopNode(node *node.Node) {
 	fmt.Sprintf("Stop the Node...")
+
+	//Stop the node Extenders
+	log.Warn("Stop the NodeExtenders...")
+	stopNodeExtenders(node)
+
 	log.Warn("Stop the Node...")
 	if err := node.Stop(); err != nil {
 		log.Error(fmt.Sprintf("Node stop error: %v", err))
 	}
+
 }

@@ -74,7 +74,7 @@ func (abi ABIContract) PackVariable(name string, args ...interface{}) ([]byte, e
 // UnpackMethod output in v according to the abi specification
 func (abi ABIContract) UnpackMethod(v interface{}, name string, output []byte) (err error) {
 	if len(output) <= 4 {
-		return fmt.Errorf("abi: unmarshalling empty output")
+		return errEmptyOutput
 	}
 	if method, err := abi.MethodById(output[0:4]); err == nil && method.Name == name {
 		return method.Inputs.Unpack(v, output[4:])
@@ -85,7 +85,7 @@ func (abi ABIContract) UnpackMethod(v interface{}, name string, output []byte) (
 // UnpackEvent output in v according to the abi specification
 func (abi ABIContract) UnpackEvent(v interface{}, name string, output []byte) (err error) {
 	if len(output) == 0 {
-		return fmt.Errorf("abi: unmarshalling empty output")
+		return errEmptyOutput
 	}
 	if event, ok := abi.Events[name]; ok {
 		return event.Inputs.Unpack(v, output)
@@ -95,7 +95,7 @@ func (abi ABIContract) UnpackEvent(v interface{}, name string, output []byte) (e
 
 func (abi ABIContract) UnpackVariable(v interface{}, name string, output []byte) (err error) {
 	if len(output) == 0 {
-		return fmt.Errorf("abi: unmarshalling empty output")
+		return errEmptyOutput
 	}
 	if variable, ok := abi.Variables[name]; ok {
 		return variable.Inputs.Unpack(v, output)

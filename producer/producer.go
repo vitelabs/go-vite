@@ -21,6 +21,12 @@ import (
 
 var mLog = log15.New("module", "producer")
 
+type AddressContext struct {
+	EntryPath string
+	Address   types.Address
+	Index     uint32
+}
+
 type Producer interface {
 	SetAccountEventFunc(func(producerevent.AccountEvent))
 	Init() error
@@ -63,7 +69,7 @@ type producer struct {
 	producerLifecycle
 	tools                *tools
 	mining               int32
-	coinbase             types.Address // address
+	coinbase             *AddressContext
 	worker               *worker
 	cs                   consensus.Subscriber
 	subscriber           net.Subscriber
@@ -77,7 +83,7 @@ type producer struct {
 // todo syncDone
 func NewProducer(rw chain.Chain,
 	subscriber net.Subscriber,
-	coinbase types.Address,
+	coinbase *AddressContext,
 	cs consensus.Subscriber,
 	verifier *verifier.SnapshotVerifier,
 	wt *wallet.Manager,
@@ -120,18 +126,21 @@ func (self *producer) Start() error {
 	if err != nil {
 		return err
 	}
+	if self.coinbase == nil {
+		return errors.New("coinbase must not be nil.")
+	}
 
-	snapshotId := self.coinbase.String() + "_snapshot"
-	contractId := self.coinbase.String() + "_contract"
+	snapshotId := self.coinbase.Address.String() + "_snapshot"
+	contractId := self.coinbase.Address.String() + "_contract"
 
-	self.cs.Subscribe(types.SNAPSHOT_GID, snapshotId, &self.coinbase, func(e consensus.Event) {
-		mLog.Info("snapshot producer trigger.", "addr", self.coinbase.String(), "syncState", self.syncState, "e", e)
+	self.cs.Subscribe(types.SNAPSHOT_GID, snapshotId, &self.coinbase.Address, func(e consensus.Event) {
+		mLog.Info("snapshot producer trigger.", "addr", self.coinbase.Address, "syncState", self.syncState, "e", e)
 		if self.syncState == net.Syncdone {
 			self.worker.produceSnapshot(e)
 		}
 	})
-	self.cs.Subscribe(types.DELEGATE_GID, contractId, &self.coinbase, func(e consensus.Event) {
-		mLog.Info("contract producer trigger.", "addr", self.coinbase.String(), "syncState", self.syncState, "e", e)
+	self.cs.Subscribe(types.DELEGATE_GID, contractId, &self.coinbase.Address, func(e consensus.Event) {
+		mLog.Info("contract producer trigger.", "addr", self.coinbase.Address, "syncState", self.syncState, "e", e)
 		if self.syncState == net.Syncdone {
 			self.producerContract(e)
 		}
@@ -152,8 +161,8 @@ func (self *producer) Stop() error {
 	}
 	defer self.PostStop()
 
-	snapshotId := self.coinbase.String() + "_snapshot"
-	contractId := self.coinbase.String() + "_contract"
+	snapshotId := self.coinbase.Address.String() + "_snapshot"
+	contractId := self.coinbase.Address.String() + "_contract"
 
 	self.cs.UnSubscribe(types.SNAPSHOT_GID, snapshotId)
 	self.cs.UnSubscribe(types.DELEGATE_GID, contractId)
@@ -172,8 +181,9 @@ func (self *producer) producerContract(e consensus.Event) {
 	fn := self.accountFn
 
 	if fn != nil {
-		if !self.tools.checkAddressLock(e.Address) {
-			mLog.Error("coinbase must be unlock.", "addr", e.Address.String())
+		err := self.tools.checkAddressLock(e.Address, self.coinbase)
+		if err != nil {
+			mLog.Error("coinbase must be unlock.", "addr", e.Address.String(), "err", err)
 			return
 		}
 
