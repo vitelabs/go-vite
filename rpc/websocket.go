@@ -239,7 +239,7 @@ func (self *WebSocketCli) Handle() {
 			return
 		default:
 		}
-
+		log.Info("connecting to " + self.u.String() + ".")
 		c, err := websocket.Dial(self.u.String(), "", "*")
 		if err == nil {
 			log.Info("connect to " + self.u.String() + " success.")
