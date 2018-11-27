@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/log15"
 	"net"
 	"sort"
 	"time"
@@ -22,23 +23,41 @@ func (s durations) Len() int           { return len(s) }
 func (s durations) Less(i, j int) bool { return s[i] < s[j] }
 func (s durations) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
+var ntp_logger = log15.New("module", "ntp")
+
 func init() {
+	checkTime()
+
+	go checkLoop()
+}
+
+func checkLoop() {
+	t := time.NewTicker(time.Minute)
+	for {
+		select {
+		case <-t.C:
+			checkTime()
+		}
+	}
+}
+
+func checkTime() {
 	addr, err := net.ResolveUDPAddr("udp", server+":123")
 	if err != nil {
-		fmt.Println(fmt.Sprintf("ntp server address parse error: %v", err))
+		ntp_logger.Error(fmt.Sprintf("ntp server address parse error: %v", err))
 		return
 	}
 
 	drift, err := request(times, addr)
 	if err != nil {
-		fmt.Println(fmt.Sprint("can not get ntp server time"))
+		ntp_logger.Error(fmt.Sprint("can not get ntp server time"))
 		return
 	}
 
 	if drift < -threshold || drift > threshold {
-		fmt.Println(fmt.Sprintf("too much delta to ntp server: %s", drift))
+		ntp_logger.Error(fmt.Sprintf("too much delta to ntp server: %s", drift))
 	} else {
-		fmt.Println(fmt.Sprintf("time dela to ntp server: %s", drift))
+		ntp_logger.Info(fmt.Sprintf("time dela to ntp server: %s", drift))
 	}
 }
 
