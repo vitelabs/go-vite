@@ -17,11 +17,14 @@
 package rpc
 
 import (
+	"math/rand"
 	"net"
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
+	"time"
 
 	log "github.com/vitelabs/go-vite/log15"
 )
@@ -123,7 +126,7 @@ func StartIPCEndpoint(ipcEndpoint string, apis []API) (net.Listener, *Server, er
 }
 
 // StartWSEndpoint starts a websocket endpoint
-func StartWSCliEndpoint(apis []API, modules []string, exposeAll bool) (*WebSocketCli, *Server, error) {
+func StartWSCliEndpoint(targetHost string, apis []API, modules []string, exposeAll bool) (*WebSocketCli, *Server, error) {
 
 	// Generate the whitelist based on the allowed modules
 	whitelist := make(map[string]bool)
@@ -146,7 +149,9 @@ func StartWSCliEndpoint(apis []API, modules []string, exposeAll bool) (*WebSocke
 		err error
 	)
 
-	u := url.URL{Scheme: "ws", Host: "192.168.31.146:8080", Path: "/websocket/viteshan"}
+	pid := strconv.FormatInt(time.Now().UnixNano(), 10) + "_" + strconv.FormatInt(rand.Int63(), 10)
+
+	u := url.URL{Scheme: "ws", Host: targetHost, Path: "/ws/gvite/" + pid}
 
 	ws = NewWSCli(u, handler)
 

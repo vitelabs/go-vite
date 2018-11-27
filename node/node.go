@@ -56,6 +56,8 @@ type Node struct {
 	wsListener net.Listener
 	wsHandler  *rpc.Server
 
+	wsCli *rpc.WebSocketCli
+
 	// Channel to wait for termination notifications
 	stop            chan struct{}
 	lock            sync.RWMutex
@@ -320,15 +322,17 @@ func (node *Node) startRPC() error {
 			return err
 		}
 	}
-	{
+	if len(node.config.DashboardTargetURL) > 0 {
 		apis := rpcapi.GetPublicApis(node.viteServer)
 		if len(node.config.PublicModules) != 0 {
 			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
 		}
-		cli, server, e := rpc.StartWSCliEndpoint(apis, nil, true)
+		cli, server, e := rpc.StartWSCliEndpoint(node.config.DashboardTargetURL, apis, nil, node.config.WSExposeAll)
 		if e != nil {
 			cli.Close()
 			server.Stop()
+		} else {
+			node.wsCli = cli
 		}
 	}
 

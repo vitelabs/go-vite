@@ -87,6 +87,7 @@ type Config struct {
 	TopologyTopic          string   `json:"TopologyTopic"`
 	TopologyReportInterval int      `json:"TopologyReportInterval"`
 	TopoDisabled           bool     `json:"TopoDisabled"`
+	DashboardTargetURL     string
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
