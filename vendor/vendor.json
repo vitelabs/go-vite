@@ -460,6 +460,18 @@
 			"revisionTime": "2018-11-24T14:38:04Z"
 		},
 		{
+			"checksumSHA1": "ySTfb/hW3LOAVbYXWFlwLsFJuns=",
+			"path": "github.com/shirou/gopsutil/host",
+			"revision": "0f70a4a06f7a1039305ec9b3ba9c2800f8929fba",
+			"revisionTime": "2018-11-24T14:38:04Z"
+		},
+		{
+			"checksumSHA1": "gGB1nTLAIFGWOwzfYSkaONzn52k=",
+			"path": "github.com/shirou/gopsutil/mem",
+			"revision": "0f70a4a06f7a1039305ec9b3ba9c2800f8929fba",
+			"revisionTime": "2018-11-24T14:38:04Z"
+		},
+		{
 			"checksumSHA1": "yEqObY2i8tbWEB4e/oVJDURhMf4=",
 			"path": "github.com/stretchr/testify/assert",
 			"revision": "2db35c88b92a1631e987089b5485a95e68bc5d3a",
