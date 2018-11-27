@@ -28,6 +28,7 @@ type Config struct {
 
 	// chain
 	OpenBlackBlock bool   `json:"OpenBlackBlock"`
+	LedgerGcRetain uint64 `json:"LedgerGcRetain"`
 	GenesisFile    string `json:"GenesisFile"`
 
 	// p2p
@@ -152,6 +153,7 @@ func (c *Config) makeChainConfig() *config.Chain {
 		return &config.Chain{
 			KafkaProducers: nil,
 			OpenBlackBlock: c.OpenBlackBlock,
+			LedgerGcRetain: c.LedgerGcRetain,
 			GenesisFile:    c.GenesisFile,
 		}
 	}
@@ -181,6 +183,7 @@ END:
 	return &config.Chain{
 		KafkaProducers: kafkaProducers,
 		OpenBlackBlock: c.OpenBlackBlock,
+		LedgerGcRetain: c.LedgerGcRetain,
 		GenesisFile:    c.GenesisFile,
 	}
 }

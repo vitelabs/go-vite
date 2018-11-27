@@ -33,7 +33,7 @@ type collector struct {
 	marker *Marker
 }
 
-func NewCollector(chain Chain) Collector {
+func NewCollector(chain Chain, ledgerGcRetain uint64) Collector {
 	gc := &collector{
 		minCheckInterval: time.Hour,
 		maxCheckInterval: 3 * time.Hour,
@@ -41,7 +41,7 @@ func NewCollector(chain Chain) Collector {
 		chain: chain,
 		log:   log15.New("module", "trie_gc"),
 
-		marker: NewMarker(chain),
+		marker: NewMarker(chain, ledgerGcRetain),
 	}
 
 	return gc

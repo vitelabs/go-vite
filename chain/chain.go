@@ -95,7 +95,7 @@ func (c *chain) Init() {
 	c.initCache()
 
 	// trie gc
-	c.trieGc = trie_gc.NewCollector(c)
+	c.trieGc = trie_gc.NewCollector(c, c.cfg.LedgerGcRetain)
 
 	// compressor
 	compressor := compress.NewCompressor(c, c.dataDir)
