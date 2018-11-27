@@ -13,4 +13,3 @@ func main() {
 	govite.PrintBuildVersion()
 	gvite_plugins.Loading()
 }
-git 
