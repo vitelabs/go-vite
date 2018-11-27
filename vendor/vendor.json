@@ -460,14 +460,38 @@
 			"revisionTime": "2018-11-24T14:38:04Z"
 		},
 		{
+			"checksumSHA1": "ZRkivbqqxTXH267b+mFAEk55HRI=",
+			"path": "github.com/shirou/gopsutil/cpu",
+			"revision": "0f70a4a06f7a1039305ec9b3ba9c2800f8929fba",
+			"revisionTime": "2018-11-24T14:38:04Z"
+		},
+		{
 			"checksumSHA1": "ySTfb/hW3LOAVbYXWFlwLsFJuns=",
 			"path": "github.com/shirou/gopsutil/host",
 			"revision": "0f70a4a06f7a1039305ec9b3ba9c2800f8929fba",
 			"revisionTime": "2018-11-24T14:38:04Z"
 		},
 		{
+			"checksumSHA1": "GR7l7Ez4ppxIfonl7aJayYRVPWc=",
+			"path": "github.com/shirou/gopsutil/internal/common",
+			"revision": "0f70a4a06f7a1039305ec9b3ba9c2800f8929fba",
+			"revisionTime": "2018-11-24T14:38:04Z"
+		},
+		{
 			"checksumSHA1": "gGB1nTLAIFGWOwzfYSkaONzn52k=",
 			"path": "github.com/shirou/gopsutil/mem",
+			"revision": "0f70a4a06f7a1039305ec9b3ba9c2800f8929fba",
+			"revisionTime": "2018-11-24T14:38:04Z"
+		},
+		{
+			"checksumSHA1": "wAc1Qo6T9MTYdSog78uJfCYZPtc=",
+			"path": "github.com/shirou/gopsutil/net",
+			"revision": "0f70a4a06f7a1039305ec9b3ba9c2800f8929fba",
+			"revisionTime": "2018-11-24T14:38:04Z"
+		},
+		{
+			"checksumSHA1": "zmTDTI1hxFh35tjtZ9qJMoWvNOI=",
+			"path": "github.com/shirou/gopsutil/process",
 			"revision": "0f70a4a06f7a1039305ec9b3ba9c2800f8929fba",
 			"revisionTime": "2018-11-24T14:38:04Z"
 		},
@@ -626,6 +650,12 @@
 			"path": "golang.org/x/sys/unix",
 			"revision": "56ede360ec1c541828fb88741b3f1049406d28f5",
 			"revisionTime": "2018-06-13T15:50:41Z"
+		},
+		{
+			"checksumSHA1": "DssjltU28TeBlMe16egT15lW0VA=",
+			"path": "golang.org/x/sys/windows",
+			"revision": "ebe1bf3edb3325c393447059974de898d5133eb8",
+			"revisionTime": "2018-09-05T07:36:18Z"
 		},
 		{
 			"checksumSHA1": "Mr4ur60bgQJnQFfJY0dGtwWwMPE=",
