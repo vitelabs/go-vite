@@ -64,7 +64,7 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-	fromBlock, err := v.chain.GetLatestAccountBlock(&abi.AddressMintage)
+	fromBlock, err := v.chain.GetLatestAccountBlock(&types.AddressMintage)
 	if err != nil {
 		t.Error("GetLatestAccountBlock", err)
 		return
@@ -133,7 +133,7 @@ func createRPCBlockCallPledgeContarct(vite *VitePrepared, addr *types.Address) e
 	im := &IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: ledger.GenesisAccountAddress,
-		ToAddress:      &abi.AddressPledge,
+		ToAddress:      &types.AddressPledge,
 		Amount:         pledgeAmount,
 		TokenId:        &ledger.ViteTokenId,
 		Data:           pledgeData,

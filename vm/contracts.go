@@ -14,7 +14,7 @@ type precompiledContract struct {
 }
 
 var simpleContracts = map[types.Address]*precompiledContract{
-	cabi.AddressRegister: {
+	types.AddressRegister: {
 		map[string]contracts.PrecompiledContractMethod{
 			cabi.MethodNameRegister:       &contracts.MethodRegister{},
 			cabi.MethodNameCancelRegister: &contracts.MethodCancelRegister{},
@@ -23,14 +23,14 @@ var simpleContracts = map[types.Address]*precompiledContract{
 		},
 		cabi.ABIRegister,
 	},
-	cabi.AddressVote: {
+	types.AddressVote: {
 		map[string]contracts.PrecompiledContractMethod{
 			cabi.MethodNameVote:       &contracts.MethodVote{},
 			cabi.MethodNameCancelVote: &contracts.MethodCancelVote{},
 		},
 		cabi.ABIVote,
 	},
-	cabi.AddressPledge: {
+	types.AddressPledge: {
 		map[string]contracts.PrecompiledContractMethod{
 			cabi.MethodNamePledge:       &contracts.MethodPledge{},
 			cabi.MethodNameCancelPledge: &contracts.MethodCancelPledge{},
@@ -38,7 +38,7 @@ var simpleContracts = map[types.Address]*precompiledContract{
 		cabi.ABIPledge,
 	},
 	/* TODO not support consensus group this version
-	contracts.AddressConsensusGroup: {
+	types.AddressConsensusGroup: {
 		map[string]contracts.PrecompiledContractMethod{
 			contracts.MethodNameCreateConsensusGroup:   &contracts.MethodCreateConsensusGroup{},
 			contracts.MethodNameCancelConsensusGroup:   &contracts.MethodCancelConsensusGroup{},
@@ -46,7 +46,7 @@ var simpleContracts = map[types.Address]*precompiledContract{
 		},
 		contracts.ABIConsensusGroup,
 	},*/
-	cabi.AddressMintage: {
+	types.AddressMintage: {
 		map[string]contracts.PrecompiledContractMethod{
 			cabi.MethodNameMintage:             &contracts.MethodMintage{},
 			cabi.MethodNameMintageCancelPledge: &contracts.MethodMintageCancelPledge{},
