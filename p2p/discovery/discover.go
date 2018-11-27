@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/p2p/block"
 	"github.com/vitelabs/go-vite/p2p/network"
 	"net"
 	"sync"
@@ -56,7 +55,6 @@ type Discovery struct {
 	refreshing  int32 // atomic, whether indicate node table is refreshing
 	refreshDone chan struct{}
 	wg          sync.WaitGroup
-	blockList   *block.Set
 	subs        []chan<- *Node
 	log         log15.Logger
 }
@@ -68,7 +66,6 @@ func New(cfg *Config) (d *Discovery) {
 		self:        cfg.Self,
 		tab:         newTable(cfg.Self.ID, cfg.NetID),
 		refreshDone: make(chan struct{}),
-		blockList:   block.New(1000),
 		log:         log15.New("module", "p2p/discv"),
 	}
 
@@ -124,12 +121,7 @@ func (d *Discovery) Stop() {
 }
 
 func (d *Discovery) Block(ID NodeID, IP net.IP) {
-	if !ID.IsZero() {
-		d.blockList.Add(ID[:])
-	}
-	if IP != nil {
-		d.blockList.Add(IP)
-	}
+	// todo
 }
 
 func (d *Discovery) Mark(id NodeID, lifetime int64) {
@@ -181,11 +173,12 @@ func (d *Discovery) tableLoop() {
 
 		case <-findTicker.C:
 			if lookSelf {
-				d.lookup(d.self.ID, false)
+				d.lookup(d.self.ID, true)
 				lookSelf = false
 			} else {
 				rand.Read(findTarget[:])
-				d.lookup(d.self.ID, false)
+				d.lookup(findTarget, false)
+				lookSelf = true
 			}
 
 		case <-storeTicker.C:
