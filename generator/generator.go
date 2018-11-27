@@ -240,7 +240,7 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 	return blockPacked, nil
 }
 
-func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Address, referredSnapshotHashList []types.Hash) (*types.Hash, *types.Hash, error) {
+func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Address, referredSnapshotHashList []types.Hash, isRandom bool) (*types.Hash, *types.Hash, error) {
 	var fitestSbHeight uint64
 	var referredMaxSbHeight uint64
 	latestSb := chain.GetLatestSnapshotBlock()
@@ -283,7 +283,7 @@ func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addre
 			fitestSbHeight = latestSb.Height - DefaultHeightDifference
 		}
 	}
-	if fitestSbHeight < latestSb.Height {
+	if isRandom && fitestSbHeight < latestSb.Height {
 		fitestSbHeight = fitestSbHeight + addHeight(1)
 	}
 
