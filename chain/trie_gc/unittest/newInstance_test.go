@@ -1,14 +1,15 @@
-package chain_unittest
+package trie_gc_unittest
 
 import (
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/node"
 	"os"
 	"path/filepath"
 )
 
-func newChainInstance(dirName string, clearDataDir bool, noStart bool) chain.Chain {
+func newChainInstance(dirName string, clearDataDir bool) chain.Chain {
 	dataDir := filepath.Join(node.DefaultDataDir(), dirName)
 
 	if clearDataDir {
@@ -19,9 +20,11 @@ func newChainInstance(dirName string, clearDataDir bool, noStart bool) chain.Cha
 		DataDir: dataDir,
 	})
 	chainInstance.Init()
-	if noStart {
-		chainInstance.Start()
-	}
 
 	return chainInstance
+}
+
+func newMarkerInstance(chainInstance chain.Chain) *trie_gc.Marker {
+	return trie_gc.NewMarker(chainInstance)
+
 }

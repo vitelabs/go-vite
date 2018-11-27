@@ -3,7 +3,9 @@ package chain
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/sender"
+	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/chain_db"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/compress"
@@ -35,18 +37,26 @@ type chain struct {
 	genesisSnapshotBlock *ledger.SnapshotBlock
 	latestSnapshotBlock  *ledger.SnapshotBlock
 
-	dataDir string
+	dataDir       string
+	ledgerDirName string
 
 	em *eventManager
 
 	cfg         *config.Chain
 	globalCfg   *config.Config
 	kafkaSender *sender.KafkaSender
+	trieGc      trie_gc.Collector
+
+	saveTrieLock sync.RWMutex
+
+	saveTrieStatus     uint8
+	saveTrieStatusLock sync.Mutex
 }
 
 func NewChain(cfg *config.Config) Chain {
 	chain := &chain{
 		log:                  log15.New("module", "chain"),
+		ledgerDirName:        "ledger",
 		genesisSnapshotBlock: &GenesisSnapshotBlock,
 		dataDir:              cfg.DataDir,
 		cfg:                  cfg.Chain,
@@ -75,11 +85,17 @@ func (c *chain) Init() {
 	c.em = newEventManager()
 
 	// chainDb
-	chainDb := chain_db.NewChainDb(filepath.Join(c.dataDir, "ledger"))
+	chainDb := chain_db.NewChainDb(filepath.Join(c.dataDir, c.ledgerDirName))
 	if chainDb == nil {
 		c.log.Crit("NewChain failed, db init failed", "method", "Init")
 	}
 	c.chainDb = chainDb
+
+	// cache
+	c.initCache()
+
+	// trie gc
+	c.trieGc = trie_gc.NewCollector(c)
 
 	// compressor
 	compressor := compress.NewCompressor(c, c.dataDir)
@@ -100,7 +116,8 @@ func (c *chain) Init() {
 func (c *chain) KafkaSender() *sender.KafkaSender {
 	return c.kafkaSender
 }
-func (c *chain) checkAndInitData() {
+
+func (c *chain) checkData() bool {
 	sb := c.genesisSnapshotBlock
 	sb2 := SecondSnapshotBlock
 
@@ -116,9 +133,18 @@ func (c *chain) checkAndInitData() {
 		if err2 != nil {
 			c.log.Error("GetSnapshotBlockByHeight(2) failed, error is "+err.Error(), "method", "CheckAndInitDb")
 		}
-
+		return false
+	}
+	return true
+}
+func (c *chain) checkAndInitData() {
+	if !c.checkData() {
+		// clear data
 		c.clearData()
+		// init data
 		c.initData()
+		// init cache
+		c.initCache()
 		return
 	}
 }
@@ -182,9 +208,25 @@ func (c *chain) initData() {
 	if err != nil {
 		c.log.Crit("WriteSnapshotBlock failed, error is "+err.Error(), "method", "initData")
 	}
+}
 
-	// rebuild cache
-	c.needSnapshotCache.Rebuild()
+func (c *chain) initCache() {
+	// latestSnapshotBlock
+	var getLatestBlockErr error
+	c.latestSnapshotBlock, getLatestBlockErr = c.chainDb.Sc.GetLatestBlock()
+	if getLatestBlockErr != nil {
+		c.log.Crit("GetLatestBlock failed, error is "+getLatestBlockErr.Error(), "method", "Start")
+	}
+
+	// needSnapshotCache
+	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
+	if getSubLedgerErr != nil {
+		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "Start")
+	}
+	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
+
+	// trieNodePool
+	c.trieNodePool = trie.NewTrieNodePool()
 }
 
 func (c *chain) Compressor() *compress.Compressor {
@@ -199,25 +241,8 @@ func (c *chain) Start() {
 	// Start compress in the background
 	c.log.Info("Start chain module")
 
-	// needSnapshotCache
-	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
-	if getSubLedgerErr != nil {
-		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "Start")
-	}
-	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
-
 	// check
 	c.checkAndInitData()
-
-	// trieNodePool
-	c.trieNodePool = trie.NewTrieNodePool()
-
-	// latestSnapshotBlock
-	var getLatestBlockErr error
-	c.latestSnapshotBlock, getLatestBlockErr = c.chainDb.Sc.GetLatestBlock()
-	if getLatestBlockErr != nil {
-		c.log.Crit("GetLatestBlock failed, error is "+getLatestBlockErr.Error(), "method", "Start")
-	}
 
 	// start compressor
 	c.compressor.Start()
@@ -232,10 +257,16 @@ func (c *chain) Start() {
 		}
 	}
 
+	// trie gc
+	c.trieGc.Start()
+
 	c.log.Info("Chain module started")
 }
 
 func (c *chain) Stop() {
+	// trie gc
+	c.trieGc.Stop()
+
 	// Stop compress
 	c.log.Info("Stop chain module")
 
@@ -272,6 +303,13 @@ func (c *chain) Destroy() {
 	c.kafkaSender = nil
 
 	c.log.Info("Chain module destroyed")
+}
+func (c *chain) TrieGc() trie_gc.Collector {
+	return c.trieGc
+}
+
+func (c *chain) TrieDb() *leveldb.DB {
+	return c.ChainDb().Db()
 }
 
 func (c *chain) readGenesis(genesisPath string) *GenesisConfig {
