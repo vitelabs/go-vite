@@ -50,6 +50,7 @@ func TestContractsRefundWithVmContext(t *testing.T) {
 	nodeName := "s1"
 	registerData, _ := abi.ABIRegister.PackMethod(abi.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr)
 	timestamp := time.Now()
+	sendHash := types.DataHash([]byte{1, 1})
 	sendBlock := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: addr,
@@ -59,12 +60,16 @@ func TestContractsRefundWithVmContext(t *testing.T) {
 		Fee:            big.NewInt(10),
 		Data:           registerData,
 		Timestamp:      &timestamp,
+		Hash:           sendHash,
+		Height:         1,
 	}
+	chn.InsertAccountBlocks([]*vm_context.VmAccountBlock{{&sendBlock, db}})
 	receiveBlock := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		Height:         prevAccountBlock.Height + 1,
 		AccountAddress: contractAddr,
 		Timestamp:      &timestamp,
+		FromBlockHash:  sendHash,
 	}
 	refundAmount := new(big.Int).Add(sendBlock.Amount, sendBlock.Fee)
 
@@ -120,6 +125,7 @@ func TestContractsRefund(t *testing.T) {
 		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash13,
 	}
 	vm := NewVM()
 	vm.Debug = true
@@ -141,6 +147,7 @@ func TestContractsRefund(t *testing.T) {
 		FromBlockHash:  hash13,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash21,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -167,6 +174,8 @@ func TestContractsRefund(t *testing.T) {
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr2][hash21] = receiveRegisterBlockList[0].AccountBlock
 	hash22 := types.DataHash([]byte{2, 2})
+	receiveRegisterBlockList[1].AccountBlock.Hash = hash22
+	receiveRegisterBlockList[1].AccountBlock.PrevHash = hash21
 	db.accountBlockMap[addr2][hash22] = receiveRegisterBlockList[1].AccountBlock
 
 	hash14 := types.DataHash([]byte{1, 4})
@@ -177,6 +186,7 @@ func TestContractsRefund(t *testing.T) {
 		FromBlockHash:  hash22,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash14,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -219,6 +229,7 @@ func TestContractsRegister(t *testing.T) {
 		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash13,
 	}
 	vm := NewVM()
 	vm.Debug = true
@@ -240,6 +251,7 @@ func TestContractsRegister(t *testing.T) {
 		FromBlockHash:  hash13,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash21,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -275,6 +287,7 @@ func TestContractsRegister(t *testing.T) {
 		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash14,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -296,6 +309,7 @@ func TestContractsRegister(t *testing.T) {
 		PrevHash:       hash21,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash22,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -344,6 +358,7 @@ func TestContractsRegister(t *testing.T) {
 		Data:           block15Data,
 		SnapshotHash:   snapshot5.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash15,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -387,6 +402,8 @@ func TestContractsRegister(t *testing.T) {
 	}
 	db.accountBlockMap[addr2][hash23] = receiveCancelRegisterBlockList[0].AccountBlock
 	hash24 := types.DataHash([]byte{2, 4})
+	receiveCancelRegisterBlockList[1].AccountBlock.Hash = hash24
+	receiveCancelRegisterBlockList[1].AccountBlock.PrevHash = hash23
 	db.accountBlockMap[addr2][hash24] = receiveCancelRegisterBlockList[1].AccountBlock
 
 	hash16 := types.DataHash([]byte{1, 6})
@@ -398,6 +415,7 @@ func TestContractsRegister(t *testing.T) {
 		FromBlockHash:  hash23,
 		SnapshotHash:   snapshot5.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash16,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -522,6 +540,7 @@ func TestContractsVote(t *testing.T) {
 		Data:           block13Data,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash13,
 	}
 	vm := NewVM()
 	vm.Debug = true
@@ -541,6 +560,7 @@ func TestContractsVote(t *testing.T) {
 		FromBlockHash:  hash13,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash31,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -575,6 +595,7 @@ func TestContractsVote(t *testing.T) {
 		Data:           block14Data,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash14,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -595,6 +616,7 @@ func TestContractsVote(t *testing.T) {
 		FromBlockHash:  hash14,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash32,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -631,6 +653,7 @@ func TestContractsVote(t *testing.T) {
 		Data:           block15Data,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash15,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -651,6 +674,7 @@ func TestContractsVote(t *testing.T) {
 		FromBlockHash:  hash15,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash33,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -691,6 +715,7 @@ func TestContractsPledge(t *testing.T) {
 		Data:           block13Data,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash13,
 	}
 	vm := NewVM()
 	vm.Debug = true
@@ -712,6 +737,7 @@ func TestContractsPledge(t *testing.T) {
 		FromBlockHash:  hash13,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash51,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -746,6 +772,7 @@ func TestContractsPledge(t *testing.T) {
 		Data:           block14Data,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash14,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -768,6 +795,7 @@ func TestContractsPledge(t *testing.T) {
 		FromBlockHash:  hash14,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash52,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -817,6 +845,7 @@ func TestContractsPledge(t *testing.T) {
 		Data:           block15Data,
 		SnapshotHash:   currentSnapshot.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash15,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -837,6 +866,7 @@ func TestContractsPledge(t *testing.T) {
 		FromBlockHash:  hash15,
 		SnapshotHash:   currentSnapshot.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash53,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -855,6 +885,8 @@ func TestContractsPledge(t *testing.T) {
 	}
 	db.accountBlockMap[addr5][hash53] = receiveCancelPledgeBlockList[0].AccountBlock
 	hash54 := types.DataHash([]byte{5, 4})
+	receiveCancelPledgeBlockList[1].AccountBlock.Hash = hash54
+	receiveCancelPledgeBlockList[1].AccountBlock.PrevHash = hash53
 	db.accountBlockMap[addr5][hash54] = receiveCancelPledgeBlockList[1].AccountBlock
 
 	hash16 := types.DataHash([]byte{1, 6})
@@ -866,6 +898,7 @@ func TestContractsPledge(t *testing.T) {
 		FromBlockHash:  hash54,
 		SnapshotHash:   currentSnapshot.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash16,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -893,6 +926,7 @@ func TestContractsPledge(t *testing.T) {
 		Data:           block17Data,
 		SnapshotHash:   currentSnapshot.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash17,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -913,6 +947,7 @@ func TestContractsPledge(t *testing.T) {
 		FromBlockHash:  hash17,
 		SnapshotHash:   currentSnapshot.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash55,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -931,6 +966,8 @@ func TestContractsPledge(t *testing.T) {
 	}
 	db.accountBlockMap[addr5][hash55] = receiveCancelPledgeBlockList2[0].AccountBlock
 	hash56 := types.DataHash([]byte{5, 6})
+	receiveCancelPledgeBlockList2[1].AccountBlock.Hash = hash56
+	receiveCancelPledgeBlockList2[1].AccountBlock.PrevHash = hash55
 	db.accountBlockMap[addr5][hash56] = receiveCancelPledgeBlockList2[1].AccountBlock
 
 	hash18 := types.DataHash([]byte{1, 8})
@@ -942,6 +979,7 @@ func TestContractsPledge(t *testing.T) {
 		FromBlockHash:  hash56,
 		SnapshotHash:   currentSnapshot.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash18,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -1255,6 +1293,7 @@ func TestContractsMintage(t *testing.T) {
 		Data:           block13Data,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash13,
 	}
 	vm := NewVM()
 	vm.Debug = true
@@ -1278,6 +1317,7 @@ func TestContractsMintage(t *testing.T) {
 		FromBlockHash:  hash13,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash21,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -1297,6 +1337,8 @@ func TestContractsMintage(t *testing.T) {
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr2][hash21] = receiveMintageBlockList[0].AccountBlock
 	hash22 := types.DataHash([]byte{2, 2})
+	receiveMintageBlockList[1].AccountBlock.Hash = hash22
+	receiveMintageBlockList[1].AccountBlock.PrevHash = hash21
 	db.accountBlockMap[addr2][hash22] = receiveMintageBlockList[1].AccountBlock
 
 	hash14 := types.DataHash([]byte{1, 4})
@@ -1308,6 +1350,7 @@ func TestContractsMintage(t *testing.T) {
 		PrevHash:       hash13,
 		SnapshotHash:   snapshot2.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash14,
 	}
 	vm = NewVM()
 	vm.Debug = true

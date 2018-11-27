@@ -3,6 +3,7 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -52,6 +53,7 @@ func TestVmRun(t *testing.T) {
 		SnapshotHash:   snapshot.Hash,
 		Data:           data13,
 		Timestamp:      &blockTime,
+		Hash:           hash13,
 	}
 	vm := NewVM()
 	//vm.Debug = true
@@ -82,6 +84,7 @@ func TestVmRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		SnapshotHash:   snapshot.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash21,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -112,6 +115,7 @@ func TestVmRun(t *testing.T) {
 		SnapshotHash:   snapshot.Hash,
 		Data:           data14,
 		Timestamp:      &blockTime,
+		Hash:           hash14,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -138,6 +142,7 @@ func TestVmRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		SnapshotHash:   snapshot.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash22,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -153,6 +158,7 @@ func TestVmRun(t *testing.T) {
 
 	// send call error, insufficient balance
 	data15, _ := hex.DecodeString("f021ab8f0000000000000000000000000000000000000000000000000000000000000005")
+	hash15 := types.DataHash([]byte{1, 5})
 	block15 := &ledger.AccountBlock{
 		Height:         5,
 		AccountAddress: addr1,
@@ -165,6 +171,7 @@ func TestVmRun(t *testing.T) {
 		SnapshotHash:   snapshot.Hash,
 		Data:           data15,
 		Timestamp:      &blockTime,
+		Hash:           hash15,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -175,7 +182,6 @@ func TestVmRun(t *testing.T) {
 	}
 	// receive call error, execution revert
 	data15, _ = hex.DecodeString("")
-	hash15 := types.DataHash([]byte{1, 5})
 	block15 = &ledger.AccountBlock{
 		Height:         5,
 		AccountAddress: addr1,
@@ -188,6 +194,7 @@ func TestVmRun(t *testing.T) {
 		SnapshotHash:   snapshot.Hash,
 		Data:           data15,
 		Timestamp:      &blockTime,
+		Hash:           hash15,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -277,9 +284,9 @@ func TestCall(t *testing.T) {
 
 	// code2 calls addr1 with data=100 and amount=10
 	addr2, _, _ := types.CreateAddress()
-	code2 := helper.JoinBytes([]byte{
+	code2 := []byte{
 		byte(PUSH1), 32, byte(PUSH1), 100, byte(PUSH1), 0, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE),
-		byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N', byte(PUSH1), 10, byte(PUSH20), 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, byte(CALL)})
+		byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N', byte(PUSH1), 10, byte(PUSH20), 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, byte(CALL)}
 	db.codeMap[addr2] = code2
 
 	// code3 return amount+data
@@ -308,6 +315,7 @@ func TestCall(t *testing.T) {
 		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash13,
 	}
 	db.addr = addr1
 	sendCallBlockList, isRetry, err := vm.Run(db, block13, nil)
@@ -331,6 +339,7 @@ func TestCall(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		SnapshotHash:   snapshot.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash21,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -353,6 +362,8 @@ func TestCall(t *testing.T) {
 	}
 	db.accountBlockMap[addr2][hash21] = receiveCallBlockList[0].AccountBlock
 	hash22 := types.DataHash([]byte{2, 2})
+	receiveCallBlockList[1].AccountBlock.PrevHash = hash21
+	receiveCallBlockList[1].AccountBlock.Hash = hash22
 	db.accountBlockMap[addr2][hash22] = receiveCallBlockList[1].AccountBlock
 
 	// contract3 receive call
@@ -365,6 +376,7 @@ func TestCall(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		SnapshotHash:   snapshot.Hash,
 		Timestamp:      &blockTime,
+		Hash:           hash31,
 	}
 	vm = NewVM()
 	vm.Debug = true
@@ -521,6 +533,7 @@ func TestCalcQuotaV2(t *testing.T) {
 		PrevHash:       hash11,
 		Quota:          quotaForTx,
 		Timestamp:      &blockTime,
+		Hash:           hash12,
 	}
 	db.accountBlockMap[addr1][hash12] = block12
 
@@ -561,6 +574,7 @@ func TestCalcQuotaV2(t *testing.T) {
 		PrevHash:       hash12,
 		Quota:          uint64(0),
 		Timestamp:      &blockTime,
+		Hash:           hash13,
 	}
 	db.accountBlockMap[addr1][hash13] = block13
 	// second account block referring to same snapshotBlock with PoW, first block receive error
@@ -590,6 +604,7 @@ func TestCalcQuotaV2(t *testing.T) {
 		Quota:          uint64(0),
 		Timestamp:      &blockTime,
 		Nonce:          []byte{1},
+		Hash:           hash14,
 	}
 	db.accountBlockMap[addr1][hash14] = block14
 
@@ -648,6 +663,7 @@ func BenchmarkVMTransfer(b *testing.B) {
 			TokenId:        ledger.ViteTokenId,
 			SnapshotHash:   types.DataHash([]byte(strconv.Itoa(i))),
 			Timestamp:      &blockTime,
+			Hash:           hashi,
 		}
 		vm := NewVM()
 		sendCallBlockList, _, err := vm.Run(db, blocki, nil)
@@ -683,4 +699,171 @@ func TestVmForTest(t *testing.T) {
 	if len(sendCallBlockList) != 1 || isRetry || err != nil {
 		t.Fatalf("init test vm config failed")
 	}
+}
+
+func TestCheckDepth(t *testing.T) {
+	db, addr1, _, prevHash1, snapshot, _ := prepareDb(big.NewInt(0))
+
+	addr2, _ := types.HexToAddress("vite_0acbb1335822c8df4488f3eea6e9000eabb0f19d8802f57c87")
+	addr3, _ := types.HexToAddress("vite_14edbc9214bd1e5f6082438f707d10bf43463a6d599a4f2d08")
+	db.storageMap[abi.AddressPledge][string(abi.GetPledgeBeneficialKey(addr2))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.storageMap[abi.AddressPledge][string(abi.GetPledgeBeneficialKey(addr3))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
+	db.accountBlockMap[addr3] = make(map[types.Hash]*ledger.AccountBlock)
+
+	blockTime := time.Now()
+
+	initSendHash := getHash(1, 3)
+	initSendBlock := &ledger.AccountBlock{
+		Height:         3,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeSendCall,
+		Amount:         big.NewInt(0),
+		Fee:            big.NewInt(0),
+		TokenId:        ledger.ViteTokenId,
+		SnapshotHash:   snapshot.Hash,
+		Timestamp:      &blockTime,
+		Hash:           initSendHash,
+		PrevHash:       prevHash1,
+	}
+	vm := NewVM()
+	db.addr = addr1
+	sendBlockList, isRetry, err := vm.Run(db, initSendBlock, nil)
+	if len(sendBlockList) != 1 || isRetry || err != nil {
+		t.Fatalf("init send call error")
+	}
+	db.accountBlockMap[addr1][initSendHash] = sendBlockList[0].AccountBlock
+
+	initReceiveHash := getHash(2, 1)
+	initReceiveBlock := &ledger.AccountBlock{
+		Height:         1,
+		AccountAddress: addr2,
+		FromBlockHash:  initSendHash,
+		BlockType:      ledger.BlockTypeReceive,
+		SnapshotHash:   snapshot.Hash,
+		Timestamp:      &blockTime,
+		Hash:           initReceiveHash,
+	}
+	vm = NewVM()
+	db.addr = addr2
+	receiveBlockList, isRetry, err := vm.Run(db, initReceiveBlock, sendBlockList[0].AccountBlock)
+	if len(receiveBlockList) != 1 || isRetry || err != nil {
+		t.Fatalf("init receive call error")
+	}
+	db.accountBlockMap[addr2][initReceiveHash] = receiveBlockList[0].AccountBlock
+
+	code2 := helper.JoinBytes([]byte{
+		byte(PUSH1), 0,
+		byte(PUSH1), 0,
+		byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N',
+		byte(PUSH1), 0,
+		byte(PUSH20)}, addr3.Bytes(),
+		[]byte{byte(CALL)})
+	db.codeMap = make(map[types.Address][]byte)
+	db.codeMap[addr2] = code2
+	code3 := helper.JoinBytes([]byte{
+		byte(PUSH1), 0,
+		byte(PUSH1), 0,
+		byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N',
+		byte(PUSH1), 0,
+		byte(PUSH20)}, addr2.Bytes(),
+		[]byte{byte(CALL)})
+	db.codeMap[addr3] = code3
+
+	newHash := getHash(1, 4)
+	prevHash := initSendHash
+	sendBlock := &ledger.AccountBlock{
+		Height:         4,
+		AccountAddress: addr1,
+		ToAddress:      addr2,
+		BlockType:      ledger.BlockTypeSendCall,
+		Amount:         big.NewInt(0),
+		Fee:            big.NewInt(0),
+		TokenId:        ledger.ViteTokenId,
+		SnapshotHash:   snapshot.Hash,
+		Timestamp:      &blockTime,
+		Hash:           newHash,
+		PrevHash:       prevHash,
+	}
+	vm = NewVM()
+	db.addr = addr1
+	sendBlockList, isRetry, err = vm.Run(db, sendBlock, nil)
+	if len(sendBlockList) != 1 || isRetry || err != nil {
+		t.Fatalf("send call error")
+	}
+	db.accountBlockMap[addr1][newHash] = sendBlockList[0].AccountBlock
+
+	prevHash2 := initReceiveHash
+	height2 := uint64(1)
+
+	height3 := uint64(0)
+	sendBlock = sendBlockList[0].AccountBlock
+	prevHash3 := types.Hash{}
+	depth := 1
+	for {
+		addr := sendBlock.ToAddress
+		var height uint64
+		if addr == addr2 {
+			height2 = height2 + 1
+			height = height2
+			newHash = getHash(2, height)
+			prevHash = prevHash2
+		} else if addr == addr3 {
+			height3 = height3 + 1
+			height = height3
+			newHash = getHash(3, height)
+			prevHash = prevHash3
+		}
+		receiveBlock := &ledger.AccountBlock{
+			Height:         height,
+			AccountAddress: addr,
+			FromBlockHash:  sendBlock.Hash,
+			BlockType:      ledger.BlockTypeReceive,
+			SnapshotHash:   snapshot.Hash,
+			Timestamp:      &blockTime,
+			PrevHash:       prevHash,
+			Hash:           newHash,
+		}
+		db.addr = addr
+		receiveBlockList, isRetry, err := vm.Run(db, receiveBlock, sendBlock)
+		if len(receiveBlockList) == 1 {
+			if isRetry || err != util.ErrDepth {
+				t.Fatalf("receive block failed, list size = 1")
+			}
+			fmt.Printf("depth %v reached, height2: %v, height3: %v\n", depth, height2, height3)
+			return
+		} else if len(receiveBlockList) == 2 {
+			if isRetry || err != nil {
+				t.Fatalf("receive block failed, list size = 2")
+			}
+		} else {
+			t.Fatalf("receive block failed, list size unknown")
+		}
+
+		db.accountBlockMap[addr][newHash] = receiveBlockList[0].AccountBlock
+		receiveBlockList[1].AccountBlock.PrevHash = newHash
+		if addr == addr2 {
+			height2 = height2 + 1
+			newHash = getHash(2, height2)
+			prevHash2 = newHash
+		} else if addr == addr3 {
+			height3 = height3 + 1
+			newHash = getHash(3, height3)
+			prevHash3 = newHash
+		}
+		receiveBlockList[1].AccountBlock.Hash = newHash
+		db.accountBlockMap[addr][newHash] = receiveBlockList[1].AccountBlock
+
+		snapshot = &ledger.SnapshotBlock{Height: snapshot.Height + 1, Timestamp: &blockTime, Hash: getHash(10, snapshot.Height+1)}
+		db.snapshotBlockList = append(db.snapshotBlockList, snapshot)
+		depth = depth + 1
+
+		sendBlock = receiveBlockList[1].AccountBlock
+	}
+}
+
+func getHash(a, b uint64) types.Hash {
+	h, _ := types.BigToHash(big.NewInt(int64(a*10000 + b)))
+	return h
+
 }

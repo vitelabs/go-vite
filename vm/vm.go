@@ -254,13 +254,16 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 }
 
 var (
-	ResultSuccess = byte(0)
-	ResultFail    = byte(1)
+	ResultSuccess  = byte(0)
+	ResultFail     = byte(1)
+	ResultDepthErr = byte(2)
 )
 
 func getReceiveCallData(db vmctxt_interface.VmDatabase, err error) []byte {
 	if err == nil {
 		return append(db.GetStorageHash().Bytes(), ResultSuccess)
+	} else if err == util.ErrDepth {
+		return append(db.GetStorageHash().Bytes(), ResultDepthErr)
 	} else {
 		return append(db.GetStorageHash().Bytes(), ResultFail)
 	}
@@ -268,6 +271,13 @@ func getReceiveCallData(db vmctxt_interface.VmDatabase, err error) []byte {
 
 func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTime("vm", "ReceiveCall", time.Now())
+	if checkDepth(block.VmContext, sendBlock) {
+		vm.blockList = []*vm_context.VmAccountBlock{block}
+		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
+		block.AccountBlock.Data = getReceiveCallData(block.VmContext, util.ErrDepth)
+		vm.updateBlock(block, util.ErrDepth, 0)
+		return vm.blockList, NoRetry, util.ErrDepth
+	}
 	if p, ok, _ := getPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
 		vm.blockList = []*vm_context.VmAccountBlock{block}
 		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
@@ -518,4 +528,35 @@ func (context *VmContext) GetNewBlockHeight(block *vm_context.VmAccountBlock) ui
 
 func calcContractFee(data []byte) (*big.Int, error) {
 	return createContractFee, nil
+}
+
+func checkDepth(db vmctxt_interface.VmDatabase, sendBlock *ledger.AccountBlock) bool {
+	prevBlock := sendBlock
+	depth := uint64(1)
+	for depth < callDepth {
+		if IsUserAccount(db, prevBlock.AccountAddress) {
+			return false
+		}
+		depth = depth + 1
+		prevReceiveBlock := findPrevReceiveBlock(db, prevBlock)
+		prevBlock = db.GetAccountBlockByHash(&prevReceiveBlock.FromBlockHash)
+	}
+	return true
+}
+
+func findPrevReceiveBlock(db vmctxt_interface.VmDatabase, sendBlock *ledger.AccountBlock) *ledger.AccountBlock {
+	if sendBlock.Height == 1 {
+		return nil
+	}
+	prevHash := sendBlock.PrevHash
+	for {
+		prevBlock := db.GetAccountBlockByHash(&prevHash)
+		if prevBlock == nil {
+			panic("cannot find prev block by hash while check depth")
+		}
+		if prevBlock.IsReceiveBlock() {
+			return prevBlock
+		}
+		prevHash = prevBlock.PrevHash
+	}
 }

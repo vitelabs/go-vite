@@ -100,11 +100,12 @@ func (db *testDatabase) GetSnapshotBlockByHash(hash *types.Hash) *ledger.Snapsho
 }
 
 func (db *testDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
-	if block, ok := db.accountBlockMap[db.addr][*hash]; ok {
-		return block
-	} else {
-		return nil
+	for _, m := range db.accountBlockMap {
+		if block, ok := m[*hash]; ok {
+			return block
+		}
 	}
+	return nil
 }
 func (db *testDatabase) Reset() {}
 func (db *testDatabase) IsAddressExisted(addr *types.Address) bool {
@@ -274,6 +275,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		Amount:         viteTotalSupply,
 		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot1.Hash,
+		Hash:           hash11,
 	}
 	db.accountBlockMap[addr1] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr1][hash11] = block11
@@ -288,6 +290,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		Amount:         viteTotalSupply,
 		TokenId:        ledger.ViteTokenId,
 		SnapshotHash:   snapshot1.Hash,
+		Hash:           hash12,
 	}
 	db.accountBlockMap[addr1][hash12] = block12
 

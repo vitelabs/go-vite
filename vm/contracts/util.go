@@ -7,6 +7,7 @@ import (
 )
 
 func IsUserAccount(db vmctxt_interface.VmDatabase, addr types.Address) bool {
+	// TODO merge method
 	return len(db.GetContractCode(&addr)) == 0
 }
 
