@@ -2,8 +2,6 @@ package model
 
 import (
 	"container/list"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm/util"
 	"sync"
 	"time"
 
@@ -11,19 +9,13 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
 var (
 	fullCacheExpireTime   = 2 * time.Minute
 	simpleCacheExpireTime = 20 * time.Minute
-
-	initRegisterContracts = []types.Address{
-		abi.AddressMintage,
-		abi.AddressPledge,
-		abi.AddressRegister,
-		abi.AddressVote,
-		abi.AddressConsensusGroup}
 )
 
 // obtaining the account info from cache or db and manage the cache lifecycle
@@ -286,7 +278,7 @@ func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[type
 					return err
 				}
 				if v.BlockType == ledger.BlockTypeSendCreate {
-					gid := util.GetGidFromCreateContractData(v.Data)
+					gid := contracts.GetGidFromCreateContractData(v.Data)
 					p.dbAccess.DeleteContractAddrFromGid(batch, gid, v.ToAddress)
 				}
 			}

@@ -56,7 +56,7 @@ func GetBeneficialFromPledgeKey(key []byte) types.Address {
 func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) *big.Int {
 	key := GetPledgeBeneficialKey(beneficial)
 	beneficialAmount := new(VariablePledgeBeneficial)
-	if err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorageBySnapshotHash(&AddressPledge, key, nil)); err == nil {
+	if err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorageBySnapshotHash(&types.AddressPledge, key, nil)); err == nil {
 		return beneficialAmount.Amount
 	}
 	return big.NewInt(0)
@@ -64,7 +64,7 @@ func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) *bi
 
 func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *big.Int) {
 	pledgeAmount := big.NewInt(0)
-	iterator := db.NewStorageIteratorBySnapshotHash(&AddressPledge, addr.Bytes(), nil)
+	iterator := db.NewStorageIteratorBySnapshotHash(&types.AddressPledge, addr.Bytes(), nil)
 	pledgeInfoList := make([]*PledgeInfo, 0)
 	if iterator == nil {
 		return pledgeInfoList, pledgeAmount

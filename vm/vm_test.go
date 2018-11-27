@@ -73,7 +73,7 @@ func TestVmRun(t *testing.T) {
 
 	// receive create
 	addr2 := sendCreateBlockList[0].AccountBlock.ToAddress
-	db.storageMap[abi.AddressPledge][string(abi.GetPledgeBeneficialKey(addr2))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.storageMap[types.AddressPledge][string(abi.GetPledgeBeneficialKey(addr2))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 	balance2 := big.NewInt(0)
 
 	hash21 := types.DataHash([]byte{2, 1})
@@ -408,7 +408,7 @@ func TestCalcQuotaV2(t *testing.T) {
 	quotaLimit := uint64(987000)
 	minPledgeAmount := new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18))
 	maxPledgeAmount := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
-	db.storageMap[abi.AddressPledge] = make(map[string][]byte)
+	db.storageMap[types.AddressPledge] = make(map[string][]byte)
 	db.addr = addr1
 
 	// genesis account block without PoW, pledge amount reaches quota limit

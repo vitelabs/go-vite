@@ -20,6 +20,25 @@ const (
 	hexAddressLength    = addressPrefixLen + 2*AddressSize + 2*addressChecksumSize
 )
 
+var (
+	AddressRegister, _       = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
+	AddressVote, _           = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2})
+	AddressPledge, _         = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3})
+	AddressConsensusGroup, _ = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4})
+	AddressMintage, _        = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5})
+
+	PrecompiledContractAddressList = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage}
+)
+
+func IsPrecompiledContractAddress(addr Address) bool {
+	for _, cAddr := range PrecompiledContractAddressList {
+		if cAddr == addr {
+			return true
+		}
+	}
+	return false
+}
+
 type Address [AddressSize]byte
 
 func BytesToAddress(b []byte) (Address, error) {

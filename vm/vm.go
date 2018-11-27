@@ -446,8 +446,8 @@ func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 	if err != nil {
 		return nil, err
 	}
-	if block.AccountBlock.AccountAddress != abi.AddressRegister &&
-		block.AccountBlock.AccountAddress != abi.AddressMintage {
+	if block.AccountBlock.AccountAddress != types.AddressRegister &&
+		block.AccountBlock.AccountAddress != types.AddressMintage {
 		return nil, errors.New("invalid account address")
 	}
 	vm.updateBlock(block, nil, 0)
