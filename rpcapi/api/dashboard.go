@@ -63,5 +63,8 @@ func (api DashboardApi) RuntimeInfo() map[string]interface{} {
 	head := api.v.Chain().GetLatestSnapshotBlock()
 	result["latestSnapshot"] = hashHeightTime{head.Hash.String(), head.Height, head.Timestamp.UnixNano() / 1e6}
 	result["updateTime"] = time.Now().UnixNano() / 1e6
+	if api.v.Producer() != nil {
+		result["producer"] = api.v.Producer().GetCoinBase().String()
+	}
 	return result
 }
