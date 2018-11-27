@@ -148,15 +148,12 @@ func (n *Node) Deserialize(bytes []byte) error {
 		return err
 	}
 
-	id, err := Bytes2NodeID(pb.ID)
+	n2, err := protoToNode(pb)
 	if err != nil {
 		return err
 	}
 
-	n.ID = id
-	n.IP = pb.IP
-	n.UDP = uint16(pb.UDP)
-	n.TCP = uint16(pb.TCP)
+	*n = *n2
 
 	return nil
 }
