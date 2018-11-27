@@ -7,6 +7,10 @@ import (
 	"github.com/vitelabs/go-vite/rpcapi/api"
 )
 
+type AccountInfo struct {
+	api.RpcAccountInfo
+}
+
 type Client struct {
 	c *rpc.Client
 }
@@ -44,13 +48,17 @@ func (vc *Client) GetBlocksByAccAddr(addr *Address, index int, count int) (strin
 	return string(jsonb), nil
 }
 
-func (vc *Client) GetAccountByAccAddr(addr *Address) (*api.RpcAccountInfo, error) {
-	var info *api.RpcAccountInfo
+func (vc *Client) GetAccountByAccAddr(addr *Address) (string, error) {
+	info := json.RawMessage{}
 	err := vc.c.Call(&info, "ledger_getAccountByAccAddr", addr.address)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return info, nil
+	bytes, e := info.MarshalJSON()
+	if e != nil {
+		return "", e
+	}
+	return string(bytes), nil
 }
 
 func (vc *Client) GetSnapshotChainHeight() (string, error) {

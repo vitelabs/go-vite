@@ -9,7 +9,7 @@ import (
 
 type DerivationResult struct {
 	Path    string
-	Address Address
+	Address *Address
 }
 
 type NewEntropyResult struct {
@@ -57,7 +57,11 @@ func (w *Wallet) RemoveEntropyStore(entropyStore string) {
 }
 
 func (w *Wallet) RecoverEntropyStoreFromMnemonic(mnemonic, newPassphrase, language, extensionWord string) (entropyStore string, err error) {
-	em, e := w.wallet.RecoverEntropyStoreFromMnemonic(mnemonic, language, newPassphrase, &extensionWord)
+	extensionWordP := &extensionWord
+	if extensionWord == "" {
+		extensionWordP = nil
+	}
+	em, e := w.wallet.RecoverEntropyStoreFromMnemonic(mnemonic, language, newPassphrase, extensionWordP)
 	if e != nil {
 		return "", e
 	}
@@ -66,7 +70,7 @@ func (w *Wallet) RecoverEntropyStoreFromMnemonic(mnemonic, newPassphrase, langua
 }
 
 func (w *Wallet) NewMnemonicAndEntropyStore(passphrase, language, extensionWord string, mnemonicSize int) (result *NewEntropyResult, err error) {
-	mnemonic, em, e := w.wallet.NewMnemonicAndEntropyStore(passphrase, passphrase, &extensionWord, &mnemonicSize)
+	mnemonic, em, e := w.wallet.NewMnemonicAndEntropyStore(language, passphrase, &extensionWord, &mnemonicSize)
 	if e != nil {
 		return nil, e
 	}
@@ -93,7 +97,7 @@ func (w *Wallet) DeriveByFullPath(entropyStore, fullpath, extensionWord string) 
 	}
 	return &DerivationResult{
 		Path: s,
-		Address: Address{
+		Address: &Address{
 			address: *addr,
 		},
 	}, nil
@@ -115,7 +119,7 @@ func (w *Wallet) DeriveByIndex(entropyStore string, index int, extensionWord str
 	}
 	return &DerivationResult{
 		Path: s,
-		Address: Address{
+		Address: &Address{
 			address: *addr,
 		},
 	}, nil

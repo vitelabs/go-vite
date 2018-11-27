@@ -1,7 +1,6 @@
 package wallet
 
 import (
-	"github.com/vitelabs/go-vite/wallet/hd-bip"
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 	"io/ioutil"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
@@ -200,31 +198,10 @@ func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic, language, passphrase
 }
 
 func (m *Manager) NewMnemonicAndEntropyStore(language, passphrase string, extensionWord *string, mnemonicSize *int) (mnemonic string, em *entropystore.Manager, err error) {
-	size := 24
-	if mnemonicSize != nil {
-		size = *mnemonicSize
-		if size != 12 && size != 15 && size != 18 && size != 21 && size != 24 {
-			return "", nil, errors.New("wrong mnemonic size")
-		}
-	}
 
-	entropySize := 32 * size / 3
-
-	entropy, err := bip39.NewEntropy(entropySize)
-	if err != nil {
-		return "", nil, err
-	}
-
-	wordList := hd_bip.GetWordList(language)
-	currentWl := bip39.GetWordList()
-	if &wordList != &currentWl {
-		bip39.SetWordList(wordList)
-		defer bip39.SetWordList(currentWl)
-	}
-
-	mnemonic, err = bip39.NewMnemonic(entropy)
-	if err != nil {
-		return "", nil, err
+	mnemonic, e := entropystore.NewMnemonic(language, mnemonicSize)
+	if e != nil {
+		return "", nil, e
 	}
 
 	manager, e := m.RecoverEntropyStoreFromMnemonic(mnemonic, language, passphrase, extensionWord)
