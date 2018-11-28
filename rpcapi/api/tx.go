@@ -97,11 +97,11 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		Data:           param.Data,
 		Difficulty:     d,
 	}
-	_, fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.vite.Chain(), &msg.AccountAddress, nil, true)
+	_, fittestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.vite.Chain(), &msg.AccountAddress, nil, true)
 	if err != nil {
 		return nil, err
 	}
-	g, e := generator.NewGenerator(t.vite.Chain(), fitestSnapshotBlockHash, param.PreBlockHash, param.SelfAddr)
+	g, e := generator.NewGenerator(t.vite.Chain(), fittestSnapshotBlockHash, param.PreBlockHash, param.SelfAddr)
 	if e != nil {
 		return nil, e
 	}

@@ -86,11 +86,11 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		Data:           params.Data,
 		Difficulty:     params.Difficulty,
 	}
-	_, fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, nil, true)
+	_, fittestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, nil, true)
 	if err != nil {
 		return err
 	}
-	g, e := generator.NewGenerator(t.walletApi.chain, fitestSnapshotBlockHash, nil, &params.SelfAddr)
+	g, e := generator.NewGenerator(t.walletApi.chain, fittestSnapshotBlockHash, nil, &params.SelfAddr)
 	if e != nil {
 		return e
 	}
@@ -167,11 +167,11 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 
 	var referredSnapshotHashList []types.Hash
 	referredSnapshotHashList = append(referredSnapshotHashList, fromBlock.SnapshotHash)
-	_, fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, referredSnapshotHashList, true)
+	_, fittestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, referredSnapshotHashList, true)
 	if err != nil {
 		return err
 	}
-	g, e := generator.NewGenerator(chain, fitestSnapshotBlockHash, nil, &params.SelfAddr)
+	g, e := generator.NewGenerator(chain, fittestSnapshotBlockHash, nil, &params.SelfAddr)
 	if e != nil {
 		return e
 	}

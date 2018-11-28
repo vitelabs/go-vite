@@ -71,12 +71,12 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 	}
 	var referredSnapshotHashList []types.Hash
 	referredSnapshotHashList = append(referredSnapshotHashList, fromBlock.SnapshotHash)
-	_, fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(v.chain, &fromBlock.ToAddress, referredSnapshotHashList, true)
+	_, fittestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(v.chain, &fromBlock.ToAddress, referredSnapshotHashList, true)
 	if err != nil {
-		t.Error("GetFitestGeneratorSnapshotHash", err)
+		t.Error("GetFittestGeneratorSnapshotHash", err)
 		return
 	}
-	gen, err := NewGenerator(v.chain, fitestSnapshotBlockHash, nil, &fromBlock.ToAddress)
+	gen, err := NewGenerator(v.chain, fittestSnapshotBlockHash, nil, &fromBlock.ToAddress)
 	if err != nil {
 		t.Error(err)
 	}
@@ -139,11 +139,11 @@ func createRPCBlockCallPledgeContarct(vite *VitePrepared, addr *types.Address) e
 		Data:           pledgeData,
 	}
 
-	_, fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
+	_, fittestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
 	if err != nil {
 		return err
 	}
-	gen, err := NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &im.AccountAddress)
+	gen, err := NewGenerator(vite.chain, fittestSnapshotBlockHash, nil, &im.AccountAddress)
 	if err != nil {
 		return err
 	}
@@ -184,11 +184,11 @@ func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address, fromAddrP
 		Difficulty:     difficulty,
 	}
 
-	_, fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
+	_, fittestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
 	if err != nil {
 		return err
 	}
-	gen, err := NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &im.AccountAddress)
+	gen, err := NewGenerator(vite.chain, fittestSnapshotBlockHash, nil, &im.AccountAddress)
 	if err != nil {
 		return err
 	}
