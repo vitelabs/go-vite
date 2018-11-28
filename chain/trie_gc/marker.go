@@ -240,10 +240,17 @@ func (m *Marker) setNodeHashSet(stateHash types.Hash, hashSet map[types.Hash]str
 	}
 
 	stateTrie := trie.NewTrie(m.chain.ChainDb().Db(), &stateHash, m.triePool)
+
+	if stateTrie.Root == nil {
+		return errors.New(fmt.Sprintf("stateTrie.Root is nil, stateHash is %s", stateHash))
+	}
+
 	if stateTrie == nil {
 		return errors.New(fmt.Sprintf("stateTrie is nil, stateHash is %s", stateHash))
 	}
+
 	ni := stateTrie.NewNodeIterator()
+
 	for ni.Next(inHashSet) {
 		node := ni.Node()
 
