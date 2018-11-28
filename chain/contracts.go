@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"bytes"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"math/big"
 
@@ -25,11 +24,7 @@ func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 		return nil, nil
 	}
 
-	if bytes.Equal(addr.Bytes(), abi.AddressRegister.Bytes()) ||
-		bytes.Equal(addr.Bytes(), abi.AddressVote.Bytes()) ||
-		bytes.Equal(addr.Bytes(), abi.AddressPledge.Bytes()) ||
-		bytes.Equal(addr.Bytes(), abi.AddressConsensusGroup.Bytes()) ||
-		bytes.Equal(addr.Bytes(), abi.AddressMintage.Bytes()) {
+	if types.IsPrecompiledContractAddress(*addr) {
 		return &types.DELEGATE_GID, nil
 	}
 
@@ -133,7 +128,7 @@ func (c *chain) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenT
 }
 
 func (c *chain) GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, error) {
-	vmContext, err := vm_context.NewVmContext(c, nil, nil, &abi.AddressMintage)
+	vmContext, err := vm_context.NewVmContext(c, nil, nil, &types.AddressMintage)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetTokenInfoById")
 		return nil, err
