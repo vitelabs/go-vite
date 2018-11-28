@@ -2,14 +2,17 @@ package onroad
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"sync"
 )
 
 type ContractTaskProcessor struct {
@@ -38,7 +41,7 @@ func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskPr
 		status:     Create,
 		isCancel:   false,
 		isSleeping: false,
-		log:        slog.New("tp", index, "worker", worker.address),
+		log:        slog.New("tp", index),
 	}
 
 	return task
@@ -128,7 +131,8 @@ func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
 }
 
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
-	plog := tp.log.New("method", "processOneAddress")
+	defer monitor.LogTime("onroad", "processOneAddress", time.Now())
+	plog := tp.log.New("method", "processOneAddress", "worker", task.Addr)
 
 	plog.Debug("task addr" + task.Addr.String())
 	blockList, e := tp.worker.manager.uAccess.GetOnroadBlocks(0, 1, 1, &task.Addr)
@@ -154,6 +158,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
 	consensusMessage, err := tp.packConsensusMessage(sBlock)
 	if err != nil {
+		plog.Info("packConsensusMessage failed", "error", err)
 		return
 	}
 
@@ -240,19 +245,13 @@ func (tp *ContractTaskProcessor) packConsensusMessage(sendBlock *ledger.AccountB
 		Timestamp:    tp.accEvent().Timestamp,
 		Producer:     tp.accEvent().Address,
 	}
-	genSnapshotBlock, err := tp.worker.manager.chain.GetSnapshotBlockByHash(&consensusMessage.SnapshotHash)
+	var referredSnapshotHashList []types.Hash
+	referredSnapshotHashList = append(referredSnapshotHashList, sendBlock.SnapshotHash, consensusMessage.SnapshotHash)
+	_, fitestHash, err := generator.GetFitestGeneratorSnapshotHash(tp.worker.manager.chain, &sendBlock.ToAddress, referredSnapshotHashList, true)
 	if err != nil {
 		return nil, err
 	}
-	sendSnapshotBlock, err := tp.worker.manager.chain.GetSnapshotBlockByHash(&sendBlock.SnapshotHash)
-	if err != nil {
-		return nil, err
-	}
-	if genSnapshotBlock.Height < sendSnapshotBlock.Height {
-		fitestHash, err := generator.GetFitestGeneratorSnapshotHash(tp.worker.manager.chain, sendSnapshotBlock)
-		if err != nil {
-			return nil, err
-		}
+	if fitestHash != nil {
 		consensusMessage.SnapshotHash = *fitestHash
 	}
 	return consensusMessage, nil

@@ -211,9 +211,9 @@ func (s *Server) serveRequest(ctx context.Context, codec ServerCodec, singleShot
 // ServeCodec reads incoming requests from codec, calls the appropriate callback and writes the
 // response back using the given codec. It will block until the codec is closed or the server is
 // stopped. In either case the codec is closed.
-func (s *Server) ServeCodec(codec ServerCodec, options CodecOption) {
+func (s *Server) ServeCodec(codec ServerCodec, options CodecOption) error {
 	defer codec.Close()
-	s.serveRequest(context.Background(), codec, false, options)
+	return s.serveRequest(context.Background(), codec, false, options)
 }
 
 // ServeSingleRequest reads and processes a single RPC request from the given codec. It will not

@@ -3,6 +3,7 @@ package generator
 import (
 	"errors"
 	"math/big"
+	"math/rand"
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -239,39 +240,107 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 	return blockPacked, nil
 }
 
-func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, referredSnapshotBlock *ledger.SnapshotBlock) (*types.Hash, error) {
+func GetFitestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Address, referredSnapshotHashList []types.Hash, isRandom bool) (*types.Hash, *types.Hash, error) {
 	var fitestSbHeight uint64
-	var referredSbHeight uint64
+	var referredMaxSbHeight uint64
 	latestSb := chain.GetLatestSnapshotBlock()
 	if latestSb == nil {
-		return nil, errors.New("latest snapshotblock is nil")
+		return nil, nil, errors.New("get latest snapshotblock failed")
 	}
 	fitestSbHeight = latestSb.Height
-	referredSbHeight = latestSb.Height - 1
 
-	if referredSnapshotBlock != nil {
-		referredSbHeight = referredSnapshotBlock.Height
-		if referredSbHeight >= latestSb.Height {
-			return nil, errors.New("the snapshotHeight referred can't be lower than the latest")
+	var prevSbHash *types.Hash
+	if accAddr != nil {
+		prevAccountBlock, err := chain.GetLatestAccountBlock(accAddr)
+		if err != nil {
+			return nil, nil, err
+		}
+		if prevAccountBlock != nil {
+			referredSnapshotHashList = append(referredSnapshotHashList, prevAccountBlock.SnapshotHash)
+			prevSbHash = &prevAccountBlock.SnapshotHash
 		}
 	}
-
-	if latestSb.Height <= DefaultHeightDifference {
-		fitestSbHeight = referredSbHeight + 1
+	referredMaxSbHeight = 1
+	if len(referredSnapshotHashList) > 0 {
+		// get max referredSbHeight
+		for _, v := range referredSnapshotHashList {
+			vSb, _ := chain.GetSnapshotBlockByHash(&v)
+			if vSb == nil {
+				return nil, nil, ErrGetSnapshotOfReferredBlockFailed
+			} else {
+				if referredMaxSbHeight < vSb.Height {
+					referredMaxSbHeight = vSb.Height
+				}
+			}
+		}
+		if latestSb.Height < referredMaxSbHeight {
+			return nil, nil, errors.New("the height of the snapshotblock referred can't be larger than the latest")
+		}
+		gapHeight := latestSb.Height - referredMaxSbHeight
+		fitestSbHeight = referredMaxSbHeight + minGapToLatest(gapHeight, gapHeight-DefaultHeightDifference)
 	} else {
-		if referredSbHeight < latestSb.Height-DefaultHeightDifference {
+		if latestSb.Height-DefaultHeightDifference > 0 {
 			fitestSbHeight = latestSb.Height - DefaultHeightDifference
-		} else {
-			fitestSbHeight = referredSbHeight + 1
 		}
 	}
+	if isRandom && fitestSbHeight < latestSb.Height {
+		fitestSbHeight = fitestSbHeight + addHeight(1)
+	}
 
+	// protect code
+	if fitestSbHeight > latestSb.Height || fitestSbHeight < referredMaxSbHeight {
+		fitestSbHeight = latestSb.Height
+	}
+
+	var fitestSbHash *types.Hash
 	fitestSb, err := chain.GetSnapshotBlockByHeight(fitestSbHeight)
 	if fitestSb == nil {
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return nil, errors.New("get snapshotBlock by height failed")
+		return nil, nil, ErrGetFittestSnapshotBlockFailed
 	}
-	return &fitestSb.Hash, nil
+	fitestSbHash = &fitestSb.Hash
+
+	//fitestSb2, _ := chain.GetSnapshotBlockByHeight(fitestSbHeight + 1)
+	//if fitestSb2 != nil && accAddr != nil {
+	//	quota1, _ := chain.GetPledgeQuota(fitestSb.Hash, *accAddr)
+	//	quota2, _ := chain.GetPledgeQuota(fitestSb2.Hash, *accAddr)
+	//	if quota1 < quota2 {
+	//		fitestSbHash = &fitestSb2.Hash
+	//	}
+	//}
+	if prevSbHash == nil || referredMaxSbHeight == 1 || *prevSbHash == *fitestSbHash {
+		return nil, fitestSbHash, nil
+	}
+	prevSb, err := chain.GetSnapshotBlockByHash(prevSbHash)
+	if err != nil {
+		return nil, nil, err
+	}
+	if prevSb.Height < referredMaxSbHeight || prevSb.Height+3600 < fitestSbHeight {
+		return nil, fitestSbHash, nil
+	}
+	return prevSbHash, fitestSbHash, nil
+}
+
+func addHeight(gapHeight uint64) uint64 {
+	randHeight := uint64(0)
+	if gapHeight >= 1 {
+		rand.Seed(time.Now().UnixNano())
+		randHeight = uint64(rand.Intn(int(gapHeight + 1)))
+	}
+	return randHeight
+}
+
+func minGapToLatest(us ...uint64) uint64 {
+	if len(us) == 0 {
+		panic("zero args")
+	}
+	min := us[0]
+	for _, u := range us {
+		if u < min {
+			min = u
+		}
+	}
+	return min
 }

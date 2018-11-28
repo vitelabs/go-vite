@@ -1,8 +1,10 @@
 package node
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -11,12 +13,12 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/pow/remote"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/pow"
 )
 
 var (
@@ -55,6 +57,8 @@ type Node struct {
 	wsEndpoint string
 	wsListener net.Listener
 	wsHandler  *rpc.Server
+
+	wsCli *rpc.WebSocketCli
 
 	// Channel to wait for termination notifications
 	stop            chan struct{}
@@ -318,6 +322,21 @@ func (node *Node) startRPC() error {
 			node.stopIPC()
 			node.stopHTTP()
 			return err
+		}
+	}
+	if len(node.config.DashboardTargetURL) > 0 {
+		apis := rpcapi.GetPublicApis(node.viteServer)
+		if len(node.config.PublicModules) != 0 {
+			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
+		}
+
+		u := url.URL{Scheme: "ws", Host: node.config.DashboardTargetURL, Path: "/ws/gvite/" + hex.EncodeToString(node.p2pServer.PrivateKey.PubByte())}
+		cli, server, e := rpc.StartWSCliEndpoint(u, apis, nil, node.config.WSExposeAll)
+		if e != nil {
+			cli.Close()
+			server.Stop()
+		} else {
+			node.wsCli = cli
 		}
 	}
 
