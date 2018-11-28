@@ -529,8 +529,6 @@ func (svr *Server) loop() {
 	defer svr.wg.Done()
 
 	var peersCount uint
-	var err error
-	var p *Peer
 
 loop:
 	for {
@@ -538,9 +536,10 @@ loop:
 		case <-svr.term:
 			break loop
 		case c := <-svr.addPeer:
-			err = svr.checkConn(c.remoteID, c.flags)
+			err := svr.checkConn(c.remoteID, c.flags)
 
 			if err == nil {
+				var p *Peer
 				if p, err = NewPeer(c, svr.Protocols); err == nil {
 					svr.peers.Add(p)
 					peersCount = svr.peers.Size()
