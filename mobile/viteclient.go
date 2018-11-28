@@ -61,6 +61,19 @@ func (vc *Client) GetAccountByAccAddr(addr *Address) (string, error) {
 	return string(bytes), nil
 }
 
+func (vc *Client) GetOnroadAccountByAccAddr(addr *Address) (string, error) {
+	info := json.RawMessage{}
+	err := vc.c.Call(&info, "onroad_getAccountOnroadInfo", addr.address)
+	if err != nil {
+		return "", err
+	}
+	bytes, e := info.MarshalJSON()
+	if e != nil {
+		return "", e
+	}
+	return string(bytes), nil
+}
+
 func (vc *Client) GetSnapshotChainHeight() (string, error) {
 	height := ""
 	err := vc.c.Call(&height, "ledger_getSnapshotChainHeight")
