@@ -20,7 +20,10 @@ func NewDefaultNodeManager(ctx *cli.Context, maker NodeMaker) DefaultNodeManager
 func (nodeManager *DefaultNodeManager) Start() error {
 
 	// 1: Start up the node
-	StartNode(nodeManager.node)
+	err := StartNode(nodeManager.node)
+	if err != nil {
+		return err
+	}
 
 	// 2: Waiting for node to close
 	WaitNode(nodeManager.node)
