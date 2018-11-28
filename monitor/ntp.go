@@ -50,7 +50,7 @@ func checkTime() {
 
 	drift, err := request(times, addr)
 	if err != nil {
-		ntp_logger.Error(fmt.Sprint("can not get ntp server time"))
+		ntp_logger.Error(fmt.Sprintf("can not get ntp server time: %v", err))
 		return
 	}
 
@@ -79,7 +79,7 @@ func request(times int, saddr *net.UDPAddr) (time.Duration, error) {
 		defer conn.Close()
 
 		sent := time.Now()
-		conn.SetDeadline(time.Now().Add(5 * time.Second))
+		conn.SetDeadline(time.Now().Add(10 * time.Second))
 		if _, err = conn.Write(request); err != nil {
 			return 0, err
 		}
