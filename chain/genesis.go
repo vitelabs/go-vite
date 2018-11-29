@@ -142,7 +142,7 @@ func genesisMintageBlock(config *GenesisConfig) (ledger.AccountBlock, vmctxt_int
 	block := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		Height:         1,
-		AccountAddress: abi.AddressMintage,
+		AccountAddress: types.AddressMintage,
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 
@@ -170,7 +170,7 @@ func genesisMintageSendBlock(config *GenesisConfig) (ledger.AccountBlock, vmctxt
 		BlockType:      ledger.BlockTypeSendReward,
 		PrevHash:       GenesisMintageBlock.Hash,
 		Height:         2,
-		AccountAddress: abi.AddressMintage,
+		AccountAddress: types.AddressMintage,
 		ToAddress:      config.GenesisAccountAddress,
 		Amount:         totalSupply,
 		TokenId:        ledger.ViteTokenId,
@@ -227,7 +227,7 @@ func genesisConsensusGroupBlock(config *GenesisConfig) (ledger.AccountBlock, vmc
 	block := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		Height:         1,
-		AccountAddress: abi.AddressConsensusGroup,
+		AccountAddress: types.AddressConsensusGroup,
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 
@@ -260,7 +260,7 @@ func genesisRegisterBlock(config *GenesisConfig) (ledger.AccountBlock, vmctxt_in
 	block := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		Height:         1,
-		AccountAddress: abi.AddressRegister,
+		AccountAddress: types.AddressRegister,
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 

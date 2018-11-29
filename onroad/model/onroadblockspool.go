@@ -2,7 +2,6 @@ package model
 
 import (
 	"container/list"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"sync"
 	"time"
 
@@ -17,15 +16,6 @@ import (
 var (
 	fullCacheExpireTime   = 2 * time.Minute
 	simpleCacheExpireTime = 20 * time.Minute
-
-	initRegisterContracts = []types.Address{
-		abi.AddressMintage,
-		abi.AddressPledge,
-		abi.AddressRegister,
-		abi.AddressVote,
-		abi.AddressConsensusGroup,
-		abi.AddressDexFund,
-		abi.AddressDexTrade}
 )
 
 // obtaining the account info from cache or db and manage the cache lifecycle

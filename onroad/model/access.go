@@ -39,7 +39,7 @@ func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) ([]types.Address
 	}
 
 	if *gid == types.DELEGATE_GID {
-		addrList = append(addrList, initRegisterContracts...)
+		addrList = append(addrList, types.PrecompiledContractAddressList...)
 	}
 	return addrList, nil
 }

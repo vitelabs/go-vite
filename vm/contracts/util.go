@@ -12,7 +12,7 @@ func IsUserAccount(db vmctxt_interface.VmDatabase, addr types.Address) bool {
 }
 
 func IsExistGid(db vmctxt_interface.VmDatabase, gid types.Gid) bool {
-	value := db.GetStorage(&abi.AddressConsensusGroup, abi.GetConsensusGroupKey(gid))
+	value := db.GetStorage(&types.AddressConsensusGroup, abi.GetConsensusGroupKey(gid))
 	return len(value) > 0
 }
 

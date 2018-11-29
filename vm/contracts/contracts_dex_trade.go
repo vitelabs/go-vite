@@ -10,7 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
 	"strings"
 )
@@ -41,99 +41,107 @@ type ParamDexCancelOrder struct {
 type MethodDexTradeNewOrder struct {
 }
 
-func (md *MethodDexTradeNewOrder) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
+func (p *MethodDexTradeNewOrder) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeNewOrder) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodDexTradeNewOrder) GetRefundData() []byte {
+	return []byte{}
+}
+
+func (md *MethodDexTradeNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	if quotaLeft, err := util.UseQuota(quotaLeft, dexTradeNewOrderGas); err != nil {
 		return quotaLeft, err
 	}
-	if !bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), AddressDexFund.Bytes()) {
+	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return quotaLeft, fmt.Errorf("invalid block source")
 	}
-	return util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
+	return util.UseQuotaForData(block.Data, quotaLeft)
 }
 
-func (md *MethodDexTradeNewOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
+func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	var err error
-	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), AddressDexFund.Bytes()) {
-		return fmt.Errorf("invalid block source")
+	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
+		return []*SendBlock{}, fmt.Errorf("invalid block source")
 	}
 	param := new(ParamDexSerializedData)
 	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeNewOrder, sendBlock.Data); err != nil {
-		return err
+		return []*SendBlock{}, err
 	}
 	order := &dexproto.Order{}
 	if err = proto.Unmarshal(param.Data, order); err != nil {
-		return err
+		return []*SendBlock{}, err
 	}
-	storage, _ := block.VmContext.(dex.BaseStorage)
-	matcher := dex.NewMatcher(&AddressDexTrade, &storage)
+	storage, _ := db.(dex.BaseStorage)
+	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
 	matcher.MatchOrder(dex.Order{*order})
-	return handleSettleActions(context, block, matcher.GetSettleActions())
+	return handleSettleActions(db, block, matcher.GetSettleActions())
 }
 
 type MethodDexTradeCancelOrder struct {
 }
 
-func (md *MethodDexTradeCancelOrder) GetFee(context contractsContext, block *vm_context.VmAccountBlock) (*big.Int, error) {
+func (p *MethodDexTradeCancelOrder) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeCancelOrder) DoSend(context contractsContext, block *vm_context.VmAccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodDexTradeCancelOrder) GetRefundData() []byte {
+	return []byte{}
+}
+
+func (md *MethodDexTradeCancelOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	var err error
 	if quotaLeft, err = util.UseQuota(quotaLeft, dexTradeCancelOrderGas); err != nil {
 		return quotaLeft, err
 	}
 	param := new(ParamDexCancelOrder)
-	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, block.AccountBlock.Data); err != nil {
+	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, block.Data); err != nil {
 		return quotaLeft, err
 	}
 	makerBookName := dex.GetBookNameToMake(param.TradeToken.Bytes(), param.QuoteToken.Bytes(), param.Side)
-	storage, _ := block.VmContext.(dex.BaseStorage)
-	matcher := dex.NewMatcher(&AddressDexTrade, &storage)
+	storage, _ := db.(dex.BaseStorage)
+	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
 	var order *dex.Order
 	if order, err = matcher.GetOrderByIdAndBookName(param.OrderId.Uint64(), makerBookName); err != nil {
 		return quotaLeft, err
 	}
-	if !bytes.Equal(block.AccountBlock.AccountAddress.Bytes(), []byte(order.Address)) {
+	if !bytes.Equal(block.AccountAddress.Bytes(), []byte(order.Address)) {
 		return quotaLeft, fmt.Errorf("cancel order not own to initiator")
 	}
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
 		return quotaLeft, fmt.Errorf("order status is invalid to cancel")
 	}
-	return util.UseQuotaForData(block.AccountBlock.Data, quotaLeft)
+	return util.UseQuotaForData(block.Data, quotaLeft)
 }
 
-func (md MethodDexTradeCancelOrder) DoReceive(context contractsContext, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) error {
+func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	param := new(ParamDexCancelOrder)
 	ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, sendBlock.Data)
 	makerBookName := dex.GetBookNameToMake(param.TradeToken.Bytes(), param.QuoteToken.Bytes(), param.Side)
-	storage, _ := block.VmContext.(dex.BaseStorage)
-	matcher := dex.NewMatcher(&AddressDexTrade, &storage)
+	storage, _ := db.(dex.BaseStorage)
+	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
 	var (
 		order *dex.Order
 		err error
 	)
 	if order, err = matcher.GetOrderByIdAndBookName(param.OrderId.Uint64(), makerBookName); err != nil {
-		return err
+		return []*SendBlock{}, err
 	}
 	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), []byte(order.Address)) {
-		return fmt.Errorf("cancel order not own to initiator")
+		return []*SendBlock{}, fmt.Errorf("cancel order not own to initiator")
 	}
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
-		return fmt.Errorf("order status is invalid to cancel")
+		return []*SendBlock{}, fmt.Errorf("order status is invalid to cancel")
 	}
 	if err = matcher.CancelOrderByIdAndBookName(order, makerBookName); err != nil {
-		return err
+		return []*SendBlock{}, err
 	}
-	return handleSettleActions(context, block, matcher.GetSettleActions())
+	return handleSettleActions(db, block, matcher.GetSettleActions())
 }
 
-func handleSettleActions(context contractsContext, block *vm_context.VmAccountBlock, actionMaps map[string]map[string]*dexproto.SettleAction) (err error) {
+func handleSettleActions(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, actionMaps map[string]map[string]*dexproto.SettleAction) ([]*SendBlock, error) {
 	if len(actionMaps) == 0 {
-		return nil
+		return []*SendBlock{}, nil
 	}
 	actions := make([]*dexproto.SettleAction, 0, 100)
 	for _, actionMap := range actionMaps {
@@ -142,23 +150,24 @@ func handleSettleActions(context contractsContext, block *vm_context.VmAccountBl
 		}
 	}
 	settleOrders := &dexproto.SettleActions{Actions: actions}
-	var settleData []byte
+	var (
+		settleData []byte
+		err error
+	)
 	if settleData, err = proto.Marshal(settleOrders); err != nil {
-		return err
+		return []*SendBlock{}, err
 	}
 	if len(actions) > 0 {
 		dexFundBlockData, _ := ABIDexFund.PackMethod(MethodNameDexFundSettleOrders, settleData)
-		context.AppendBlock(
-			&vm_context.VmAccountBlock{
-				util.MakeSendBlock(
-					block.AccountBlock,
-					AddressDexFund,
-					ledger.BlockTypeSendCall,
-					big.NewInt(0),
-					ledger.ViteTokenId, // no need send token
-					context.GetNewBlockHeight(block),
-					dexFundBlockData),
-				nil})
+		return []*SendBlock{
+			{block,
+				types.AddressDexFund,
+				ledger.BlockTypeSendCall,
+				big.NewInt(0),
+				ledger.ViteTokenId, // no need send token
+				dexFundBlockData,
+			},
+		} ,nil
 	}
-	return nil
+	return []*SendBlock{}, nil
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"testing"
 	"time"
@@ -28,52 +27,46 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	sellAddress0, _ := types.BytesToAddress([]byte("12345678901234567892"))
 
 	method := contracts.MethodDexTradeNewOrder{}
-	senderVmBlock := &vm_context.VmAccountBlock{}
-	senderVmBlock.VmContext = db
 
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = buyAddress0
-	senderVmBlock.AccountBlock = senderAccBlock
 	buyOrder0 := getNewOrderData(101, buyAddress0, ETH, VITE, false, "30", 10)
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, buyOrder0)
-	_, err := method.DoSend(&VmContext{}, senderVmBlock, 100100100)
+	_, err := method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, "invalid block source", err.Error())
 
-	senderAccBlock.AccountAddress = contracts.AddressDexFund
-	_, err = method.DoSend(&VmContext{}, senderVmBlock, 100100100)
+	senderAccBlock.AccountAddress = types.AddressDexFund
+	_, err = method.DoSend(db, senderAccBlock, 100100100)
 	assert.True(t,  err == nil)
 
-	receiveVmBlock := &vm_context.VmAccountBlock{}
-	receiveVmBlock.VmContext = db
-	receiveVmBlock.AccountBlock = &ledger.AccountBlock{}
+	receiveBlock := &ledger.AccountBlock{}
 	now := time.Now()
-	receiveVmBlock.AccountBlock.Timestamp = &now
-	receiveVmBlock.AccountBlock.AccountAddress = contracts.AddressDexTrade
-
-	context := &vmMockVmCtx{}
-	err = method.DoReceive(context, receiveVmBlock, senderAccBlock)
+	receiveBlock.Timestamp = &now
+	receiveBlock.AccountAddress = types.AddressDexTrade
+	var appendedBlocks []*contracts.SendBlock
+	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
 	assert.True(t, err == nil)
 	assert.True(t, len(db.logList) == 1)
-	assert.Equal(t, 0, len(context.appendedBlocks))
+	assert.Equal(t, 0, len(appendedBlocks))
 
-	clearContext(context, db)
+	clearContext(db)
 	sellOrder0 := getNewOrderData(202, sellAddress0, ETH, VITE, true, "31", 300)
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, sellOrder0)
-	err = method.DoReceive(context, receiveVmBlock, senderAccBlock)
+	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
 	assert.True(t, err == nil)
 	assert.Equal(t, 1, len(db.logList))
-	assert.Equal(t, 0, len(context.appendedBlocks))
+	assert.Equal(t, 0, len(appendedBlocks))
 
-	clearContext(context, db)
+	clearContext(db)
 	buyOrder1 := getNewOrderData(102, buyAddress1, ETH, VITE, false, "32", 400)
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, buyOrder1)
-	err = method.DoReceive(context, receiveVmBlock, senderAccBlock)
+	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
 	assert.Equal(t, 3, len(db.logList))
-	assert.Equal(t, 1, len(context.appendedBlocks))
-	assert.True(t, bytes.Equal(context.appendedBlocks[0].AccountBlock.AccountAddress.Bytes(), contracts.AddressDexTrade.Bytes()))
-	assert.True(t, bytes.Equal(context.appendedBlocks[0].AccountBlock.ToAddress.Bytes(), contracts.AddressDexFund.Bytes()))
+	assert.Equal(t, 1, len(appendedBlocks))
+	assert.True(t, bytes.Equal(appendedBlocks[0].Block.AccountAddress.Bytes(), types.AddressDexTrade.Bytes()))
+	assert.True(t, bytes.Equal(appendedBlocks[0].ToAddress.Bytes(), types.AddressDexFund.Bytes()))
 	param := new(contracts.ParamDexSerializedData)
-	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundSettleOrders, context.appendedBlocks[0].AccountBlock.Data)
+	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
 	assert.Equal(t, nil, err)
 	actions := &dexproto.SettleActions{}
 	err = proto.Unmarshal(param.Data, actions)
@@ -103,44 +96,39 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	userAddress2, _ := types.BytesToAddress([]byte("12345678901234567892"))
 
 	method := contracts.MethodDexTradeCancelOrder{}
-	senderVmBlock := &vm_context.VmAccountBlock{}
-	senderVmBlock.VmContext = db
 
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = userAddress1
-	senderVmBlock.AccountBlock = senderAccBlock
 
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, big.NewInt(102), ETH, VITE, false)
-	_, err := method.DoSend(&VmContext{}, senderVmBlock, 100100100)
+	_, err := method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, "cancel order not own to initiator", err.Error())
 
 	senderAccBlock.AccountAddress = userAddress2
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, big.NewInt(202), ETH, VITE, true)
-	_, err = method.DoSend(&VmContext{}, senderVmBlock, 100100100)
+	_, err = method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, "order status is invalid to cancel", err.Error())
 
 	senderAccBlock.AccountAddress = userAddress
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, big.NewInt(102), ETH, VITE, false)
-	_, err = method.DoSend(&VmContext{}, senderVmBlock, 100100100)
+	_, err = method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, nil, err)
 
-	receiveVmBlock := &vm_context.VmAccountBlock{}
-	receiveVmBlock.VmContext = db
-	receiveVmBlock.AccountBlock = &ledger.AccountBlock{}
+	receiveBlock := &ledger.AccountBlock{}
 	now := time.Now()
-	receiveVmBlock.AccountBlock.Timestamp = &now
-	receiveVmBlock.AccountBlock.AccountAddress = contracts.AddressDexTrade
+	receiveBlock.Timestamp = &now
+	receiveBlock.AccountAddress = types.AddressDexTrade
 
-	context := &vmMockVmCtx{}
-	clearContext(context, db)
-	err = method.DoReceive(context, receiveVmBlock, senderAccBlock)
+	var appendedBlocks []*contracts.SendBlock
+	clearContext(db)
+	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
 	assert.Equal(t, nil, err)
 
 	assert.Equal(t, 1, len(db.logList))
-	assert.Equal(t, 1, len(context.appendedBlocks))
-	assert.True(t, bytes.Equal(context.appendedBlocks[0].AccountBlock.ToAddress.Bytes(), contracts.AddressDexFund.Bytes()))
+	assert.Equal(t, 1, len(appendedBlocks))
+	assert.True(t, bytes.Equal(appendedBlocks[0].ToAddress.Bytes(), types.AddressDexFund.Bytes()))
 	param := new(contracts.ParamDexSerializedData)
-	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundSettleOrders, context.appendedBlocks[0].AccountBlock.Data)
+	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
 	assert.Equal(t, nil, err)
 	actions := &dexproto.SettleActions{}
 	err = proto.Unmarshal(param.Data, actions)
@@ -150,13 +138,13 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	assert.True(t, CheckBigEqualToInt(3500, actions.Actions[0].ReleaseLocked))
 
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, big.NewInt(102), ETH, VITE, false)
-	_, err = method.DoSend(&VmContext{}, senderVmBlock, 100100100)
+	_, err = method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, "order status is invalid to cancel", err.Error())
 }
 
 func initDexTradeDatabase()  *testDatabase {
 	db := NewNoDatabase()
-	db.addr = contracts.AddressDexTrade
+	db.addr = types.AddressDexTrade
 	return db
 }
 
@@ -181,8 +169,7 @@ func getNewOrderData(id uint64, address types.Address, tradeToken types.TokenTyp
 	return data
 }
 
-func clearContext(ctx *vmMockVmCtx, db *testDatabase) {
-	ctx.appendedBlocks = make([]*vm_context.VmAccountBlock, 0)
+func clearContext(db *testDatabase) {
 	db.logList = make([]*ledger.VmLog, 0)
 }
 

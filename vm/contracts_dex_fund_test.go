@@ -7,6 +7,8 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm_context"
@@ -25,7 +27,7 @@ type vmMockVmCtx struct {
 	appendedBlocks []*vm_context.VmAccountBlock
 }
 
-func(ctx *vmMockVmCtx) AppendBlock(block *vm_context.VmAccountBlock) {
+func (ctx *vmMockVmCtx) AppendBlock(block *vm_context.VmAccountBlock) {
 	ctx.appendedBlocks = append(ctx.appendedBlocks, block)
 }
 
@@ -47,29 +49,25 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	registerToken(db, VITE)
 	//deposit
 	depositMethod := contracts.MethodDexFundUserDeposit{}
-	depositSenderVmBlock := &vm_context.VmAccountBlock{}
-	depositSenderVmBlock.VmContext = db
 
 	depositSendAccBlock := &ledger.AccountBlock{}
-	depositSenderVmBlock.AccountBlock = depositSendAccBlock
-
 	depositSendAccBlock.AccountAddress = userAddress
 
 	depositSendAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserDeposit, userAddress, ETH, big.NewInt(100))
-	_, err = depositMethod.DoSend(&VmContext{}, depositSenderVmBlock, 100010001000)
+	_, err = depositMethod.DoSend(db, depositSendAccBlock, 100010001000)
 	assert.True(t, err != nil)
 	assert.True(t, bytes.Equal([]byte(err.Error()), []byte("token is invalid")))
 
 	depositSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserDeposit, userAddress, VITE, big.NewInt(3000))
-	_, err = depositMethod.DoSend(&VmContext{}, depositSenderVmBlock, 100010001000)
+	_, err = depositMethod.DoSend(db, depositSendAccBlock, 100010001000)
 	assert.True(t, err == nil)
 	assert.True(t, bytes.Equal(depositSendAccBlock.TokenId.Bytes(), VITE.Bytes()))
 	assert.Equal(t, depositSendAccBlock.Amount.Uint64(), uint64(3000))
-	assert.True(t, bytes.Equal(depositSendAccBlock.ToAddress.Bytes(), contracts.AddressDexFund.Bytes()))
+	assert.True(t, bytes.Equal(depositSendAccBlock.ToAddress.Bytes(), types.AddressDexFund.Bytes()))
 
-	depositReceiveVmBlock := &vm_context.VmAccountBlock{}
-	depositReceiveVmBlock.VmContext = db
-	err = depositMethod.DoReceive(&VmContext{}, depositReceiveVmBlock, depositSendAccBlock)
+	depositReceiveBlock := &ledger.AccountBlock{}
+
+	_, err = depositMethod.DoReceive(db, depositReceiveBlock, depositSendAccBlock)
 	assert.True(t, err == nil)
 
 	dexFund, _ := contracts.GetFundFromStorage(db, userAddress)
@@ -79,35 +77,26 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	assert.True(t, CheckBigEqualToInt(3000, acc.Available))
 	assert.True(t, CheckBigEqualToInt(0, acc.Locked))
 
-
 	//withdraw
 	withdrawMethod := contracts.MethodDexFundUserWithdraw{}
-	withdrawSenderVmBlock := &vm_context.VmAccountBlock{}
-	withdrawSenderVmBlock.VmContext = db
 
 	withdrawSendAccBlock := &ledger.AccountBlock{}
-	withdrawSenderVmBlock.AccountBlock = withdrawSendAccBlock
-
 	withdrawSendAccBlock.AccountAddress = userAddress
-
 	withdrawSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserWithdraw, userAddress, VITE, big.NewInt(200))
-	_, err = withdrawMethod.DoSend(&VmContext{}, withdrawSenderVmBlock, 100010001000)
+	_, err = withdrawMethod.DoSend(db, withdrawSendAccBlock, 100010001000)
 	assert.True(t, err == nil)
 
-	withdrawReceiveVmBlock := &vm_context.VmAccountBlock{}
-	withdrawReceiveVmBlock.VmContext = db
-	withdrawReceiveVmBlock.AccountBlock = &ledger.AccountBlock{}
+	withdrawReceiveBlock := &ledger.AccountBlock{}
 	now := time.Now()
-	withdrawReceiveVmBlock.AccountBlock.Timestamp = &now
+	withdrawReceiveBlock.Timestamp = &now
 
 	withdrawSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserWithdraw, userAddress, VITE, big.NewInt(200))
-	context := &vmMockVmCtx{}
-	withdrawMethod.DoReceive(context, withdrawReceiveVmBlock, withdrawSendAccBlock)
+	appendedBlocks, _ := withdrawMethod.DoReceive(db, withdrawReceiveBlock, withdrawSendAccBlock)
 
 	dexFund, _ = contracts.GetFundFromStorage(db, userAddress)
 	acc = dexFund.Accounts[0]
 	assert.True(t, CheckBigEqualToInt(2800, acc.Available))
-	assert.Equal(t, 1, len(context.appendedBlocks))
+	assert.Equal(t, 1, len(appendedBlocks))
 
 }
 
@@ -115,12 +104,9 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	registerToken(db, ETH)
 
 	method := contracts.MethodDexFundNewOrder{}
-	senderVmBlock := &vm_context.VmAccountBlock{}
-	senderVmBlock.VmContext = db
 
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = userAddress
-	senderVmBlock.AccountBlock = senderAccBlock
 	order := dexproto.Order{}
 	order.Id = uint64(1)
 	order.Address = userAddress.Bytes()
@@ -131,49 +117,42 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	order.Price = "0.03"
 	order.Quantity = big.NewInt(2000).Bytes()
 	order.Amount = big.NewInt(0).Bytes()
-	order.Status =  dex.FullyExecuted
-	order.Timestamp = time.Now().UnixNano()/1000
+	order.Status = dex.FullyExecuted
+	order.Timestamp = time.Now().UnixNano() / 1000
 	data, _ := proto.Marshal(&order)
 
 	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, data)
-	_, err := method.DoSend(&VmContext{}, senderVmBlock, 100100100)
+	_, err := method.DoSend(db, senderAccBlock, 100100100)
 	//fmt.Printf("err for send %s\n", err.Error())
 	assert.True(t, err == nil)
 
 	param := new(contracts.ParamDexSerializedData)
-	contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundNewOrder, senderVmBlock.AccountBlock.Data)
+	contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundNewOrder, senderAccBlock.Data)
 	order1 := &dexproto.Order{}
 	proto.Unmarshal(param.Data, order1)
 	assert.True(t, CheckBigEqualToInt(60, order1.Amount))
 	assert.Equal(t, order1.Status, uint32(dex.Pending))
 
-	receiveVmBlock := &vm_context.VmAccountBlock{}
-	receiveVmBlock.VmContext = db
-	receiveVmBlock.AccountBlock = &ledger.AccountBlock{}
+	receiveBlock := &ledger.AccountBlock{}
 	now := time.Now()
-	receiveVmBlock.AccountBlock.Timestamp = &now
+	receiveBlock.Timestamp = &now
 
-	context := &vmMockVmCtx{}
-
-	err = method.DoReceive(context, receiveVmBlock, senderAccBlock)
+	var appendedBlocks []*contracts.SendBlock
+	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
 	assert.True(t, err == nil)
 
 	dexFund, _ := contracts.GetFundFromStorage(db, userAddress)
 	acc := dexFund.Accounts[0]
 	assert.True(t, CheckBigEqualToInt(800, acc.Available))
 	assert.True(t, CheckBigEqualToInt(2000, acc.Locked))
-	assert.Equal(t, 1, len(context.appendedBlocks))
+	assert.Equal(t, 1, len(appendedBlocks))
 }
-
 
 func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Address) {
 	method := contracts.MethodDexFundSettleOrders{}
-	senderVmBlock := &vm_context.VmAccountBlock{}
-	senderVmBlock.VmContext = db
 
 	senderAccBlock := &ledger.AccountBlock{}
-	senderAccBlock.AccountAddress = contracts.AddressDexTrade
-	senderVmBlock.AccountBlock = senderAccBlock
+	senderAccBlock.AccountAddress = types.AddressDexTrade
 
 	viteAction := dexproto.SettleAction{}
 	viteAction.Address = userAddress.Bytes()
@@ -188,17 +167,15 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	actions := dexproto.SettleActions{}
 	actions.Actions = append(actions.Actions, &viteAction)
 	actions.Actions = append(actions.Actions, &ethAction)
-	data,_ := proto.Marshal(&actions)
+	data, _ := proto.Marshal(&actions)
 
 	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundSettleOrders, data)
-	_, err := method.DoSend(&VmContext{}, senderVmBlock, 100100100)
+	_, err := method.DoSend(db, senderAccBlock, 100100100)
 	//fmt.Printf("err %s\n", err.Error())
 	assert.True(t, err == nil)
 
-	receiveVmBlock := &vm_context.VmAccountBlock{}
-	receiveVmBlock.VmContext = db
-
-	err = method.DoReceive(&vmMockVmCtx{}, receiveVmBlock, senderAccBlock)
+	receiveBlock := &ledger.AccountBlock{}
+	_, err = method.DoReceive(db, receiveBlock, senderAccBlock)
 	assert.True(t, err == nil)
 	//fmt.Printf("receive err %s\n", err.Error())
 	dexFund, _ := contracts.GetFundFromStorage(db, userAddress)
@@ -216,9 +193,9 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	assert.True(t, CheckBigEqualToInt(1000, viteAcc.Locked))
 }
 
-func initDexFundDatabase()  *testDatabase {
+func initDexFundDatabase() *testDatabase {
 	db := NewNoDatabase()
-	db.addr = contracts.AddressDexFund
+	db.addr = types.AddressDexFund
 	return db
 }
 
@@ -233,14 +210,13 @@ func registerToken(db *testDatabase, token types.TokenTypeId) {
 	tokenName := string(token.Bytes()[0:4])
 	tokenSymbol := string(token.Bytes()[5:10])
 	decimals := uint8(18)
-	tokenData, _ := contracts.ABIMintage.PackVariable(contracts.VariableNameMintage, tokenName, tokenSymbol, big.NewInt(1e16), decimals, ledger.GenesisAccountAddress, big.NewInt(0), uint64(0))
-	if _, ok := db.storageMap[contracts.AddressMintage]; !ok {
-		db.storageMap[contracts.AddressMintage] = make(map[string][]byte)
+	tokenData, _ := abi.ABIMintage.PackVariable(abi.VariableNameMintage, tokenName, tokenSymbol, big.NewInt(1e16), decimals, ledger.GenesisAccountAddress, big.NewInt(0), uint64(0))
+	if _, ok := db.storageMap[types.AddressMintage]; !ok {
+		db.storageMap[types.AddressMintage] = make(map[string][]byte)
 	}
-	mintageKey := string(contracts.GetMintageKey(token))
-	db.storageMap[contracts.AddressMintage][mintageKey] = tokenData
+	mintageKey := string(cabi.GetMintageKey(token))
+	db.storageMap[types.AddressMintage][mintageKey] = tokenData
 }
-
 
 func CheckBigEqualToInt(expected int, value []byte) bool {
 	return new(big.Int).SetUint64(uint64(expected)).Cmp(new(big.Int).SetBytes(value)) == 0
