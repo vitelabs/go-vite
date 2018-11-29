@@ -91,7 +91,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 }
 
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
-	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, &types.AddressRegister)
+	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 		return nil, nil
 	}
 	addrList := make([]*types.Address, len(paramList))
-	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, &types.AddressRegister)
+	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
