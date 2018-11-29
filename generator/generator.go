@@ -262,7 +262,7 @@ func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addr
 			prevSbFlag = true
 		}
 	}
-	referredMaxSbHeight = 1
+	referredMaxSbHeight = uint64(1)
 	if len(referredSnapshotHashList) > 0 {
 		// get max referredSbHeight
 		for k, v := range referredSnapshotHashList {
@@ -281,13 +281,9 @@ func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addr
 		if latestSb.Height < referredMaxSbHeight {
 			return nil, nil, errors.New("the height of the snapshotblock referred can't be larger than the latest")
 		}
-		gapHeight := latestSb.Height - referredMaxSbHeight
-		fittestSbHeight = referredMaxSbHeight + minGapToLatest(gapHeight, gapHeight-DefaultHeightDifference)
-	} else {
-		if latestSb.Height-DefaultHeightDifference > 0 {
-			fittestSbHeight = latestSb.Height - DefaultHeightDifference
-		}
 	}
+	gapHeight := latestSb.Height - referredMaxSbHeight
+	fittestSbHeight = latestSb.Height - minGapToLatest(gapHeight, DefaultHeightDifference)
 	if isRandom && fittestSbHeight < latestSb.Height {
 		fittestSbHeight = fittestSbHeight + addHeight(1)
 	}
