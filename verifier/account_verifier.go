@@ -17,9 +17,7 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
-const (
-	TimeOutHeight = uint64(24 * 30 * 3600)
-)
+var TimeOutHeight = uint64(30 * types.SnapshotDayHeight)
 
 type AccountVerifier struct {
 	chain     Chain
