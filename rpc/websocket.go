@@ -82,7 +82,7 @@ func NewWSServer(allowedOrigins []string, srv *Server) *http.Server {
 
 // NewWSCli creates a new websocket RPC connect around an API provider.
 //
-func NewWSCli(url url.URL, srv *Server) *WebSocketCli {
+func NewWSCli(url *url.URL, srv *Server) *WebSocketCli {
 	return &WebSocketCli{u: url, srv: srv}
 }
 
@@ -201,7 +201,7 @@ func contextDialer(ctx context.Context) *net.Dialer {
 }
 
 type WebSocketCli struct {
-	u            url.URL
+	u            *url.URL
 	c            *websocket.Conn
 	srv          *Server
 	closed       chan struct{}
@@ -233,6 +233,10 @@ func (self *WebSocketCli) Close() {
 	}
 }
 func (self *WebSocketCli) Handle() {
+	if self.u == nil {
+		log.Warn("websocket url is nil.")
+		return
+	}
 	for {
 		select {
 		case <-self.closed:
