@@ -7,7 +7,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/vitelabs/go-vite/cmd/utils/flock"
 	"github.com/vitelabs/go-vite/config"
@@ -330,11 +333,21 @@ func (node *Node) startRPC() error {
 			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
 		}
 
-		u := url.URL{Scheme: "ws", Host: node.config.DashboardTargetURL, Path: "/ws/gvite/" + hex.EncodeToString(node.p2pServer.PrivateKey.PubByte())}
+		targetUrl := node.config.DashboardTargetURL + "/" + "/ws/gvite/" + strconv.FormatUint(uint64(node.config.NetID), 10) + "@" + hex.EncodeToString(node.p2pServer.PrivateKey.PubByte())
+
+		u, e := url.Parse(targetUrl)
+		if e != nil {
+			return e
+		}
+		if u.Scheme != "ws" && u.Scheme != "wss" {
+			return errors.New("DashboardTargetURL need match WebSocket Protocol.")
+		}
+
 		cli, server, e := rpc.StartWSCliEndpoint(u, apis, nil, node.config.WSExposeAll)
 		if e != nil {
 			cli.Close()
 			server.Stop()
+			return e
 		} else {
 			node.wsCli = cli
 		}
