@@ -218,9 +218,7 @@ func (self *WebSocketCli) Srv(c *websocket.Conn) error {
 	decoder := func(v interface{}) error {
 		return websocketJSONCodec.Receive(c, v)
 	}
-	self.srv.ServeCodec(NewCodec(c, encoder, decoder), OptionMethodInvocation|OptionSubscriptions)
-
-	return nil
+	return self.srv.ServeCodec(NewCodec(c, encoder, decoder), OptionMethodInvocation|OptionSubscriptions)
 }
 
 func (self *WebSocketCli) Close() {
