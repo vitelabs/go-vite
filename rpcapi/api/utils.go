@@ -1,20 +1,27 @@
 package api
 
 import (
+	"context"
+	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
+	"github.com/robfig/cron"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
 var (
-	log                = log15.New("module", "rpc/api")
-	testapi_hexPrivKey = ""
-	testapi_tti        = ""
-	convertError       = errors.New("convert error")
+	log                              = log15.New("module", "rpc/api")
+	testapi_hexPrivKey               = ""
+	testapi_tti                      = ""
+	convertError                     = errors.New("convert error")
+	testapi_testtokenlru  *lru.Cache = nil
+	testtokenlruCron      *cron.Cron = nil
+	testtokenlruLimitSize            = 20
 )
 
 func InitLog(dir, lvl string) {
@@ -27,6 +34,47 @@ func InitLog(dir, lvl string) {
 	log.SetHandler(
 		log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(filename), log15.LogfmtFormat())),
 	)
+}
+
+func InitGetTestTokenLimitPolicy() {
+	testapi_testtokenlru, _ = lru.New(2048)
+
+	testtokenlruCron = cron.New()
+	testtokenlruCron.AddFunc("@daily", func() {
+		log.Info("clear lrucache")
+		if testapi_testtokenlru != nil {
+			newcache, _ := lru.New(2048)
+			testapi_testtokenlru = newcache
+		}
+	})
+
+	testtokenlruCron.Start()
+}
+
+func CheckGetTestTokenIpFrequency(cache *lru.Cache, ctx context.Context) error {
+	if cache == nil {
+		return nil
+	}
+	endpoint, ok := ctx.Value("remote").(string)
+	if ok {
+		log.Info("GetTestToken", "remote", endpoint)
+		split := strings.Split(endpoint, ":")
+		if len(split) == 2 {
+			ip := split[0]
+			if count, ok := cache.Get(ip); ok {
+				c := count.(int)
+				if c >= testtokenlruLimitSize {
+					return errors.New("too frequent")
+				} else {
+					c++
+					cache.Add(ip, c)
+				}
+			} else {
+				cache.Add(ip, 1)
+			}
+		}
+	}
+	return nil
 }
 
 func InitTestAPIParams(priv, tti string) {

@@ -1,15 +1,15 @@
 package api
 
 import (
+	"context"
 	"errors"
-	"math/big"
-	"math/rand"
-
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
+	"math/big"
+	"math/rand"
 )
 
 type CreateTxWithPrivKeyParmsTest struct {
@@ -32,7 +32,15 @@ func NewTestApi(walletApi *WalletApi) *TestApi {
 	}
 }
 
-func (t TestApi) GetTestToken(ToAddr types.Address) (string, error) {
+func (t TestApi) Bazinga(ctx context.Context) error {
+	return CheckGetTestTokenIpFrequency(testapi_testtokenlru, ctx)
+}
+
+func (t TestApi) GetTestToken(ctx context.Context, ToAddr types.Address) (string, error) {
+	if e := CheckGetTestTokenIpFrequency(testapi_testtokenlru, ctx); e != nil {
+		return "", e
+	}
+
 	privKey, err := ed25519.HexToPrivateKey(testapi_hexPrivKey)
 	if err != nil {
 		return "", err
@@ -77,7 +85,7 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		Data:           params.Data,
 		Difficulty:     params.Difficulty,
 	}
-	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, nil)
+	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, nil)
 	if err != nil {
 		return err
 	}
@@ -138,7 +146,18 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	privKey, _ := ed25519.HexToPrivateKey(params.PrivKeyStr)
 	pubKey := privKey.PubByte()
 
-	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, nil)
+	if msg.FromBlockHash == nil {
+		return errors.New("params fromblockhash can't be nil")
+	}
+	fromBlock, err := t.walletApi.chain.GetAccountBlockByHash(msg.FromBlockHash)
+	if fromBlock == nil {
+		if err != nil {
+			return err
+		}
+		return errors.New("get sendblock by hash failed")
+	}
+
+	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, &fromBlock.SnapshotHash)
 	if err != nil {
 		return err
 	}
