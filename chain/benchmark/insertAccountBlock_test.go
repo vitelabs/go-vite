@@ -10,7 +10,7 @@ import (
 func Benchmark_InsertAccountBlock(b *testing.B) {
 	chainInstance := newChainInstance("insertAccountBlock", true)
 	const (
-		ACCOUNT_NUMS        = 1000
+		ACCOUNT_NUMS        = 100000
 		ACCOUNT_BLOCK_LIMIT = 1000 * 10000
 
 		PRINT_PER_COUNT               = 100000

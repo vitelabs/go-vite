@@ -236,9 +236,6 @@ func Benchmark_GetSnapshotBlockByHash(b *testing.B) {
 		tps.doOne()
 	}
 
-	for i := 0; i < PARAMS_LENGTH; i++ {
-
-	}
 	tps.Print()
 	tps.Stop()
 }
