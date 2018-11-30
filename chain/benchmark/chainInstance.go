@@ -29,6 +29,7 @@ func newChainInstanceByDataDir(dataRoot, dirName string, clearDataDir bool) chai
 	chainInstance.Init()
 	chainInstance.Start()
 	chainInstance.Compressor().Stop()
+	chainInstance.TrieGc().Stop()
 
 	return chainInstance
 }

@@ -55,21 +55,26 @@ func (gc *collector) randomCheckInterval() time.Duration {
 
 func (gc *collector) Start() {
 	gc.statusLock.Lock()
-	defer gc.statusLock.Unlock()
 	if gc.status >= STATUS_STARTED {
 		gc.log.Error("gc is started, don't start again")
+		gc.statusLock.Unlock()
 		return
 	}
 
+	gc.status = STATUS_STARTED
+
 	gc.ticker = time.NewTicker(gc.randomCheckInterval())
-	gc.taskTerminal = make(chan struct{})
-	gc.terminal = make(chan struct{})
+	gc.taskTerminal = make(chan struct{}, 1)
+	gc.terminal = make(chan struct{}, 1)
 
 	gc.wg.Add(1)
+	gc.statusLock.Unlock()
+
 	go func() {
 		defer gc.wg.Done()
 
 		gc.runTask()
+
 		for {
 			select {
 			case <-gc.ticker.C:
@@ -81,23 +86,27 @@ func (gc *collector) Start() {
 		}
 
 	}()
-	gc.status = STATUS_STARTED
+	gc.log.Info("gc started.")
 }
 
 func (gc *collector) Stop() {
 	gc.statusLock.Lock()
-	defer gc.statusLock.Unlock()
 	if gc.status < STATUS_STARTED {
-		gc.log.Error("gc is stopped, don't stop again")
+		gc.statusLock.Unlock()
 		return
 	}
+	gc.status = STATUS_STOPPED
+
+	gc.log.Info("gc stopping.")
 
 	gc.ticker.Stop()
 	gc.taskTerminal <- struct{}{}
 	gc.terminal <- struct{}{}
 
+	gc.statusLock.Unlock()
+
 	gc.wg.Wait()
-	gc.status = STATUS_STOPPED
+	gc.log.Info("gc stopped.")
 }
 
 func (gc *collector) Status() uint8 {
@@ -119,7 +128,7 @@ func (gc *collector) runTask() {
 		gc.status = STATUS_STARTED
 		gc.statusLock.Unlock()
 	}()
-
+	gc.log.Info("gc run task.")
 	if err := gc.marker.MarkAndClean(gc.taskTerminal); err != nil {
 		gc.log.Error("gc.Marker.Mark failed, error is "+err.Error(), "method", "runTask")
 		return

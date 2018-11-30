@@ -197,3 +197,42 @@ func Benchmark_GetAccountBlockByHeight(b *testing.B) {
 	tps.Stop()
 	tps.Print()
 }
+
+func Benchmark_GetLatestAccountBlock(b *testing.B) {
+	chainInstance := newChainInstance("insertAccountBlock", false)
+
+	const (
+		QUERY_NUM_LIMIT = 10000 * 10000
+		PRINT_PER_COUNT = 1 * 10000
+	)
+
+	var addrList []types.Address
+	fmt.Printf("prepare address list...")
+	allLatestBlock, _ := chainInstance.GetAllLatestAccountBlock()
+	for _, latestBlock := range allLatestBlock {
+		addrList = append(addrList, latestBlock.AccountAddress)
+	}
+
+	addrLength := uint64(len(addrList))
+	fmt.Printf("address list length is %d\n", addrLength)
+
+	tps := newTps(tpsOption{
+		name:          "GetAccountBlockByHeight",
+		printPerCount: PRINT_PER_COUNT,
+	})
+
+	tps.Start()
+	for i := 0; i < QUERY_NUM_LIMIT; i++ {
+		randomIndex := rand.Uint64() % addrLength
+		addr := addrList[randomIndex]
+
+		_, err := chainInstance.GetLatestAccountBlock(&addr)
+		if err != nil {
+			b.Fatal(err)
+		}
+		tps.doOne()
+	}
+
+	tps.Stop()
+	tps.Print()
+}
