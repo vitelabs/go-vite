@@ -54,7 +54,7 @@ func Benchmark_GetAccountBlocksByHash(b *testing.B) {
 		params = append(params, getAbsByHashParam{
 			addr:    addr,
 			origin:  &randomBlock.Hash,
-			count:   count,dd
+			count:   count,
 			forward: forward,
 		})
 	}
