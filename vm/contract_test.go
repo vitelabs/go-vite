@@ -5,35 +5,13 @@ import (
 	"errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
-	"log"
 	"math/big"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 )
 
-func SetTestLogContext() {
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		log.Fatal(err)
-	}
-	dir = filepath.Join(strings.Replace(dir, "\\", "/", -1), "runlog")
-	if err := os.MkdirAll(dir, 0777); err != nil {
-		return
-	}
-	dir = filepath.Join(dir, "test.log")
-	log15.Info(dir)
-	log15.Root().SetHandler(
-		log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(dir, log15.TerminalFormat())),
-	)
-}
-
 func TestRun(t *testing.T) {
-	SetTestLogContext()
 	tests := []struct {
 		input, result          []byte
 		err                    error
@@ -68,7 +46,7 @@ func TestRun(t *testing.T) {
 		c := newContract(
 			&vm_context.VmAccountBlock{receiveCallBlock, NewNoDatabase()},
 			&sendCallBlock,
-			test.input,
+			sendCallBlock.Data,
 			1000000,
 			0)
 		c.setCallCode(types.Address{}, test.input)

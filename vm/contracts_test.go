@@ -128,7 +128,7 @@ func TestContractsRefund(t *testing.T) {
 		Hash:           hash13,
 	}
 	vm := NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendRegisterBlockList, isRetry, err := vm.Run(db, block13, nil)
 	balance1.Sub(balance1, block13.Amount)
@@ -150,7 +150,7 @@ func TestContractsRefund(t *testing.T) {
 		Hash:           hash21,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr2
 	receiveRegisterBlockList, isRetry, err := vm.Run(db, block21, sendRegisterBlockList[0].AccountBlock)
 	contractBalance.Add(contractBalance, block13.Amount)
@@ -189,7 +189,7 @@ func TestContractsRefund(t *testing.T) {
 		Hash:           hash14,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	receiveRegisterRefuncBlockList, isRetry, err := vm.Run(db, block14, receiveRegisterBlockList[1].AccountBlock)
 	balance1.Add(balance1, block13.Amount)
@@ -232,7 +232,7 @@ func TestContractsRegister(t *testing.T) {
 		Hash:           hash13,
 	}
 	vm := NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendRegisterBlockList, isRetry, err := vm.Run(db, block13, nil)
 	balance1.Sub(balance1, block13.Amount)
@@ -254,7 +254,7 @@ func TestContractsRegister(t *testing.T) {
 		Hash:           hash21,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	locHashRegister, _ := types.BytesToHash(abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID))
 	hisAddrList := []types.Address{addr7}
 	withdrawHeight := snapshot2.Height + 3600*24*90
@@ -290,7 +290,7 @@ func TestContractsRegister(t *testing.T) {
 		Hash:           hash14,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendRegisterBlockList2, isRetry, err := vm.Run(db, block14, nil)
 	if len(sendRegisterBlockList2) != 1 || isRetry || err != nil ||
@@ -312,7 +312,7 @@ func TestContractsRegister(t *testing.T) {
 		Hash:           hash22,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	hisAddrList = append(hisAddrList, addr6)
 	registrationData, _ = abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, block13.Amount, withdrawHeight, uint64(0), uint64(0), hisAddrList)
 	db.addr = addr2
@@ -361,7 +361,7 @@ func TestContractsRegister(t *testing.T) {
 		Hash:           hash15,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendCancelRegisterBlockList, isRetry, err := vm.Run(db, block15, nil)
 	if len(sendCancelRegisterBlockList) != 1 || isRetry || err != nil ||
@@ -382,7 +382,7 @@ func TestContractsRegister(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr2
 	receiveCancelRegisterBlockList, isRetry, err := vm.Run(db, block23, sendCancelRegisterBlockList[0].AccountBlock)
 	registrationData, _ = abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, helper.Big0, uint64(0), uint64(0), snapshot5.Height, hisAddrList)
@@ -418,7 +418,7 @@ func TestContractsRegister(t *testing.T) {
 		Hash:           hash16,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	balance1.Add(balance1, block13.Amount)
 	receiveCancelRegisterRefundBlockList, isRetry, err := vm.Run(db, block16, receiveCancelRegisterBlockList[1].AccountBlock)
@@ -543,7 +543,7 @@ func TestContractsVote(t *testing.T) {
 		Hash:           hash13,
 	}
 	vm := NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendVoteBlockList, isRetry, err := vm.Run(db, block13, nil)
 	if len(sendVoteBlockList) != 1 || isRetry || err != nil ||
@@ -563,7 +563,7 @@ func TestContractsVote(t *testing.T) {
 		Hash:           hash31,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr3
 	receiveVoteBlockList, isRetry, err := vm.Run(db, block31, sendVoteBlockList[0].AccountBlock)
 	voteKey := abi.GetVoteKey(addr1, types.SNAPSHOT_GID)
@@ -598,7 +598,7 @@ func TestContractsVote(t *testing.T) {
 		Hash:           hash14,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendVoteBlockList2, isRetry, err := vm.Run(db, block14, nil)
 	if len(sendVoteBlockList2) != 1 || isRetry || err != nil ||
@@ -619,7 +619,7 @@ func TestContractsVote(t *testing.T) {
 		Hash:           hash32,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr3
 	receiveVoteBlockList2, isRetry, err := vm.Run(db, block32, sendVoteBlockList2[0].AccountBlock)
 	voteData, _ = abi.ABIVote.PackVariable(abi.VariableNameVoteStatus, nodeName2)
@@ -656,7 +656,7 @@ func TestContractsVote(t *testing.T) {
 		Hash:           hash15,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendCancelVoteBlockList, isRetry, err := vm.Run(db, block15, nil)
 	if len(sendCancelVoteBlockList) != 1 || isRetry || err != nil ||
@@ -677,7 +677,7 @@ func TestContractsVote(t *testing.T) {
 		Hash:           hash33,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr3
 	receiveCancelVoteBlockList, isRetry, err := vm.Run(db, block33, sendCancelVoteBlockList[0].AccountBlock)
 	if len(receiveCancelVoteBlockList) != 1 || isRetry || err != nil ||
@@ -718,7 +718,7 @@ func TestContractsPledge(t *testing.T) {
 		Hash:           hash13,
 	}
 	vm := NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendPledgeBlockList, isRetry, err := vm.Run(db, block13, nil)
 	balance1.Sub(balance1, pledgeAmount)
@@ -740,7 +740,7 @@ func TestContractsPledge(t *testing.T) {
 		Hash:           hash51,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr5
 	receivePledgeBlockList, isRetry, err := vm.Run(db, block51, sendPledgeBlockList[0].AccountBlock)
 	beneficialKey := abi.GetPledgeBeneficialKey(addr4)
@@ -775,7 +775,7 @@ func TestContractsPledge(t *testing.T) {
 		Hash:           hash14,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendPledgeBlockList2, isRetry, err := vm.Run(db, block14, nil)
 	balance1.Sub(balance1, pledgeAmount)
@@ -798,7 +798,7 @@ func TestContractsPledge(t *testing.T) {
 		Hash:           hash52,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr5
 	receivePledgeBlockList2, isRetry, err := vm.Run(db, block52, sendPledgeBlockList2[0].AccountBlock)
 	newPledgeAmount := new(big.Int).Add(pledgeAmount, pledgeAmount)
@@ -848,7 +848,7 @@ func TestContractsPledge(t *testing.T) {
 		Hash:           hash15,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendCancelPledgeBlockList, isRetry, err := vm.Run(db, block15, nil)
 	if len(sendCancelPledgeBlockList) != 1 || isRetry || err != nil ||
@@ -869,7 +869,7 @@ func TestContractsPledge(t *testing.T) {
 		Hash:           hash53,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr5
 	receiveCancelPledgeBlockList, isRetry, err := vm.Run(db, block53, sendCancelPledgeBlockList[0].AccountBlock)
 	if len(receiveCancelPledgeBlockList) != 2 || isRetry || err != nil ||
@@ -901,7 +901,7 @@ func TestContractsPledge(t *testing.T) {
 		Hash:           hash16,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	receiveCancelPledgeRefundBlockList, isRetry, err := vm.Run(db, block16, receiveCancelPledgeBlockList[1].AccountBlock)
 	balance1.Add(balance1, pledgeAmount)
@@ -929,7 +929,7 @@ func TestContractsPledge(t *testing.T) {
 		Hash:           hash17,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendCancelPledgeBlockList2, isRetry, err := vm.Run(db, block17, nil)
 	if len(sendCancelPledgeBlockList2) != 1 || isRetry || err != nil ||
@@ -950,7 +950,7 @@ func TestContractsPledge(t *testing.T) {
 		Hash:           hash55,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr5
 	receiveCancelPledgeBlockList2, isRetry, err := vm.Run(db, block55, sendCancelPledgeBlockList2[0].AccountBlock)
 	if len(receiveCancelPledgeBlockList2) != 2 || isRetry || err != nil ||
@@ -982,7 +982,7 @@ func TestContractsPledge(t *testing.T) {
 		Hash:           hash18,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	balance1.Add(balance1, pledgeAmount)
 	receiveCancelPledgeRefundBlockList2, isRetry, err := vm.Run(db, block18, receiveCancelPledgeBlockList2[1].AccountBlock)
@@ -1296,7 +1296,7 @@ func TestContractsMintage(t *testing.T) {
 		Hash:           hash13,
 	}
 	vm := NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	sendMintageBlockList, isRetry, err := vm.Run(db, block13, nil)
 	balance1.Sub(balance1, new(big.Int).Mul(big.NewInt(1e3), util.AttovPerVite))
@@ -1320,7 +1320,7 @@ func TestContractsMintage(t *testing.T) {
 		Hash:           hash21,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr2
 	receiveMintageBlockList, isRetry, err := vm.Run(db, block21, sendMintageBlockList[0].AccountBlock)
 	tokenId, _ := types.BytesToTokenTypeId(sendMintageBlockList[0].AccountBlock.Data[26:36])
@@ -1353,7 +1353,7 @@ func TestContractsMintage(t *testing.T) {
 		Hash:           hash14,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr1
 	receiveMintageRewardBlockList, isRetry, err := vm.Run(db, block14, receiveMintageBlockList[1].AccountBlock)
 	if len(receiveMintageRewardBlockList) != 1 || isRetry || err != nil ||

@@ -213,7 +213,7 @@ func TestVmRun(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr2
 	receiveCallBlockList2, isRetry, err := vm.Run(db, block23, sendCallBlockList2[0].AccountBlock)
 	if len(receiveCallBlockList2) != 2 || isRetry || err != util.ErrExecutionReverted ||
@@ -295,13 +295,13 @@ func TestCall(t *testing.T) {
 	db.codeMap[addr3] = code3
 
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
-	db.storageMap[abi.AddressPledge][string(abi.GetPledgeBeneficialKey(addr2))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.storageMap[types.AddressPledge][string(abi.GetPledgeBeneficialKey(addr2))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 
 	db.accountBlockMap[addr3] = make(map[types.Hash]*ledger.AccountBlock)
-	db.storageMap[abi.AddressPledge][string(abi.GetPledgeBeneficialKey(addr3))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.storageMap[types.AddressPledge][string(abi.GetPledgeBeneficialKey(addr3))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 
 	vm := NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	// call contract
 	balance1 := db.balanceMap[addr1][ledger.ViteTokenId]
 	hash13 := types.DataHash([]byte{1, 3})
@@ -342,7 +342,7 @@ func TestCall(t *testing.T) {
 		Hash:           hash21,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr2
 	receiveCallBlockList, isRetry, err := vm.Run(db, block21, sendCallBlockList[0].AccountBlock)
 	if len(receiveCallBlockList) != 2 || isRetry || err != nil ||
@@ -379,7 +379,7 @@ func TestCall(t *testing.T) {
 		Hash:           hash31,
 	}
 	vm = NewVM()
-	vm.Debug = true
+	//vm.Debug = true
 	db.addr = addr3
 	receiveCallBlockList2, isRetry, err := vm.Run(db, block31, receiveCallBlockList[1].AccountBlock)
 	if len(receiveCallBlockList2) != 1 || isRetry || err != nil ||
@@ -706,8 +706,8 @@ func TestCheckDepth(t *testing.T) {
 
 	addr2, _ := types.HexToAddress("vite_0acbb1335822c8df4488f3eea6e9000eabb0f19d8802f57c87")
 	addr3, _ := types.HexToAddress("vite_14edbc9214bd1e5f6082438f707d10bf43463a6d599a4f2d08")
-	db.storageMap[abi.AddressPledge][string(abi.GetPledgeBeneficialKey(addr2))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
-	db.storageMap[abi.AddressPledge][string(abi.GetPledgeBeneficialKey(addr3))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.storageMap[types.AddressPledge][string(abi.GetPledgeBeneficialKey(addr2))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.storageMap[types.AddressPledge][string(abi.GetPledgeBeneficialKey(addr3))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr3] = make(map[types.Hash]*ledger.AccountBlock)
 

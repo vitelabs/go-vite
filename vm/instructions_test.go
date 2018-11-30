@@ -1,11 +1,18 @@
 package vm
 
 import (
+	"bytes"
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/common/helper"
+	"encoding/json"
+	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_context"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"testing"
+	"time"
 )
 
 type twoOperandTest struct {
@@ -14,26 +21,9 @@ type twoOperandTest struct {
 	expected string
 }
 
-func TestInitVmConfig(t *testing.T) {
-	back := big.NewInt(2)
-	num := big.NewInt(-1)
-
-	if back.Cmp(helper.Big31) < 0 {
-		bit := uint(back.Uint64()*8 + 7)
-		mask := back.Lsh(helper.Big1, bit)
-		mask.Sub(mask, helper.Big1)
-		if num.Bit(int(bit)) > 0 {
-			num.Or(num, mask.Not(mask))
-		} else {
-			num.And(num, mask)
-		}
-	}
-	t.Log(helper.U256(num))
-}
-
 func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error), args ...string) {
 	vm := &VM{}
-	vm.Debug = true
+	//vm.Debug = true
 	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
 	stack := newStack()
 
@@ -279,7 +269,7 @@ func TestByteOp(t *testing.T) {
 		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 0xFFFFFFFFFFFFFFFF, big.NewInt(0x0)},
 	}
 	vm := &VM{}
-	vm.Debug = true
+	//vm.Debug = true
 	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
 	stack := newStack()
 	pc := uint64(0)
@@ -300,7 +290,7 @@ func TestByteOp(t *testing.T) {
 
 func testTwoOperandOp(t *testing.T, tests []twoOperandTest, opFn func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error)) {
 	vm := &VM{}
-	vm.Debug = true
+	//vm.Debug = true
 	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
 	stack := newStack()
 	pc := uint64(0)
@@ -416,7 +406,7 @@ func TestSLT(t *testing.T) {
 
 func TestOpMstore(t *testing.T) {
 	vm := &VM{}
-	vm.Debug = true
+	//vm.Debug = true
 	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
 	stack := newStack()
 	mem := newMemory()
@@ -441,7 +431,7 @@ func TestOpMstore(t *testing.T) {
 
 func BenchmarkOpMstore(bench *testing.B) {
 	vm := &VM{}
-	vm.Debug = true
+	//vm.Debug = true
 	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
 	stack := newStack()
 	mem := newMemory()
@@ -457,4 +447,103 @@ func BenchmarkOpMstore(bench *testing.B) {
 		opMstore(&pc, vm, c, mem, stack)
 	}
 	poolOfIntPools.put(c.intPool)
+}
+
+type InstructionTestCaseMap map[string]InstructionTestCase
+
+type InstructionTestCase struct {
+	FromAddress types.Address
+	ToAddress   types.Address
+	InputData   string
+	Amount      string
+	TokenId     types.TokenTypeId
+	Code        string
+	ReturnData  string
+	QuotaTotal  uint64
+	QuotaLeft   uint64
+	QuotaRefund uint64
+	Err         string
+	Storage     map[string]string
+}
+
+func TestInstructions(t *testing.T) {
+	testDir := "./test/"
+	testFiles, err := ioutil.ReadDir(testDir)
+	if err != nil {
+		t.Fatalf("read dir failed, %v", err)
+	}
+	for _, testFile := range testFiles {
+		file, err := os.Open(testDir + testFile.Name())
+		if err != nil {
+			t.Fatalf("open test file failed, %v", err)
+		}
+		testCaseMap := new(InstructionTestCaseMap)
+		if err := json.NewDecoder(file).Decode(testCaseMap); err != nil {
+			t.Fatalf("decode test file failed, %v", err)
+		}
+		sbTime := time.Now()
+		sb := ledger.SnapshotBlock{
+			Height:    1,
+			Timestamp: &sbTime,
+			Hash:      types.DataHash([]byte{1, 1}),
+		}
+
+		for k, testCase := range *testCaseMap {
+			vm := NewVM()
+			//vm.Debug = true
+			fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
+			inputData, _ := hex.DecodeString(testCase.InputData)
+			amount, _ := hex.DecodeString(testCase.Amount)
+			sendCallBlock := ledger.AccountBlock{
+				AccountAddress: testCase.FromAddress,
+				ToAddress:      testCase.ToAddress,
+				BlockType:      ledger.BlockTypeSendCall,
+				Data:           inputData,
+				Amount:         new(big.Int).SetBytes(amount),
+				Fee:            big.NewInt(0),
+				TokenId:        testCase.TokenId,
+				SnapshotHash:   sb.Hash,
+			}
+			receiveCallBlock := &ledger.AccountBlock{
+				AccountAddress: testCase.ToAddress,
+				BlockType:      ledger.BlockTypeReceive,
+				SnapshotHash:   sb.Hash,
+			}
+			db := NewMemoryDatabase(testCase.ToAddress)
+			c := newContract(
+				&vm_context.VmAccountBlock{receiveCallBlock, db},
+				&sendCallBlock,
+				sendCallBlock.Data,
+				testCase.QuotaTotal,
+				0)
+			code, _ := hex.DecodeString(testCase.Code)
+			c.setCallCode(testCase.ToAddress, code)
+			db.AddBalance(&sendCallBlock.TokenId, sendCallBlock.Amount)
+			ret, err := c.run(vm)
+			// TODO debuglog
+			returnData, _ := hex.DecodeString(testCase.ReturnData)
+			if bytes.Compare(returnData, ret) != 0 {
+				t.Fatalf("%v: %v failed, return Data error, expected %v, got %v", testFile.Name(), k, returnData, ret)
+			} else if c.quotaLeft != testCase.QuotaLeft {
+				t.Fatalf("%v: %v failed, quota left error, expected %v, got %v", testFile.Name(), k, testCase.QuotaLeft, c.quotaLeft)
+			} else if c.quotaRefund != testCase.QuotaRefund {
+				t.Fatalf("%v: %v failed, quota refund error, expected %v, got %v", testFile.Name(), k, testCase.QuotaRefund, c.quotaRefund)
+			} else if (err == nil && testCase.Err != "") || (err != nil && testCase.Err == "") {
+				t.Fatalf("%v: %v failed, err not match, expected %v, got %v", testFile.Name(), k, testCase.Err, err)
+			} else if !checkStorage(db, testCase.Storage) {
+				t.Fatalf("%v: %v failed, storage error, expected %v, got %v", testFile.Name(), k, testCase.Storage, db.PrintStorage())
+			}
+		}
+	}
+}
+func checkStorage(db *memoryDatabase, storage map[string]string) bool {
+	if len(storage) != len(db.storage) {
+		return false
+	}
+	for k, v := range db.storage {
+		if sv, ok := storage[k]; !ok || sv != hex.EncodeToString(v) {
+			return false
+		}
+	}
+	return true
 }
