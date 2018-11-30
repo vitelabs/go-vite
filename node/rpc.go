@@ -2,9 +2,10 @@ package node
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi"
-	"strings"
 )
 
 //In-proc apis
@@ -126,6 +127,9 @@ func (node *Node) stopWS() {
 	if node.wsHandler != nil {
 		node.wsHandler.Stop()
 		node.wsHandler = nil
+	}
+	if node.wsCli != nil {
+		node.wsCli.Close()
 	}
 }
 

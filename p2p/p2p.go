@@ -21,6 +21,28 @@ import (
 )
 
 var errSvrStarted = errors.New("server has started")
+var blockMinExpired = 10 * time.Second
+var blockMaxExpired = 3 * time.Minute
+
+const blockCount = 10
+
+func blockPolicy(t time.Time, count int) bool {
+	del := time.Now().Sub(t)
+
+	if del < blockMinExpired {
+		return true
+	}
+
+	if del > blockMaxExpired {
+		return false
+	}
+
+	if count < blockCount {
+		return false
+	}
+
+	return true
+}
 
 type Discovery interface {
 	Start() error
@@ -62,12 +84,13 @@ type Server struct {
 	discv     Discovery
 	handshake *Handshake
 	peers     *PeerSet
-	blockList *block.Set
+	blockUtil *block.Block
 	self      *discovery.Node
 	ln        net.Listener
 	nodeChan  chan *discovery.Node // sub discovery nodes
 	log       log15.Logger
 
+	rw     sync.RWMutex // for block
 	dialer *net.Dialer
 }
 
@@ -92,6 +115,7 @@ func New(cfg *Config) (svr *Server, err error) {
 		IP:  tcpAddr.IP,
 		UDP: uint16(tcpAddr.Port),
 		TCP: uint16(tcpAddr.Port),
+		Net: cfg.NetID,
 	}
 
 	svr = &Server{
@@ -102,7 +126,7 @@ func New(cfg *Config) (svr *Server, err error) {
 		pending:     make(chan struct{}, cfg.MaxPendingPeers),
 		addPeer:     make(chan *transport, 1),
 		delPeer:     make(chan *Peer, 1),
-		blockList:   block.New(100),
+		blockUtil:   block.New(blockPolicy),
 		self:        node,
 		nodeChan:    make(chan *discovery.Node, 10),
 		log:         log15.New("module", "p2p/server"),
@@ -241,22 +265,63 @@ func (svr *Server) setHandshake() {
 	}
 }
 
+func (svr *Server) blocked(buf []byte) bool {
+	svr.rw.RLock()
+	defer svr.rw.RUnlock()
+
+	return svr.blockUtil.Blocked(buf)
+}
+
+func (svr *Server) block(id discovery.NodeID, ip net.IP, err error) {
+	svr.rw.Lock()
+	defer svr.rw.Unlock()
+
+	svr.blockUtil.Block(id[:])
+	svr.blockUtil.Block(ip)
+	svr.log.Warn(fmt.Sprintf("block %s@%s: %v", id, ip, err))
+}
+
+func (svr *Server) unblock(id discovery.NodeID, ip net.IP) {
+	svr.rw.Lock()
+	defer svr.rw.Unlock()
+
+	svr.blockUtil.UnBlock(id[:])
+	svr.blockUtil.UnBlock(ip)
+	svr.log.Warn(fmt.Sprintf("unblock %s@%s", id, ip))
+}
+
 func (svr *Server) dialLoop() {
 	defer svr.wg.Done()
+
+	dialing := make(map[discovery.NodeID]struct{})
 
 	var node *discovery.Node
 
 	// connect to static node first
 	for _, node = range svr.StaticNodes {
-		svr.dial(node.ID, node.TCPAddr(), static)
+		svr.dial(node.ID, node.TCPAddr(), static, nil)
 	}
+
+	dialDone := make(chan discovery.NodeID, svr.MaxPendingPeers)
 
 	for {
 		select {
 		case <-svr.term:
 			return
 		case node = <-svr.nodeChan:
-			svr.dial(node.ID, node.TCPAddr(), outbound)
+			if _, ok := dialing[node.ID]; ok {
+				break
+			}
+
+			if svr.blocked(node.ID[:]) {
+				break
+			}
+
+			dialing[node.ID] = struct{}{}
+			svr.dial(node.ID, node.TCPAddr(), outbound, dialDone)
+
+		case id := <-dialDone:
+			delete(dialing, id)
 		}
 	}
 }
@@ -264,8 +329,12 @@ func (svr *Server) dialLoop() {
 // when peer is disconnected, maybe we want to reconnect it.
 // we can get ID and addr only from peer, but not Node
 // so dial(id, addr, flag) not dial(Node, flag)
-func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
+func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, done chan<- discovery.NodeID) {
 	if err := svr.checkConn(id, flag); err != nil {
+		if done != nil {
+			done <- id
+		}
+
 		return
 	}
 
@@ -278,6 +347,10 @@ func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag) {
 			svr.release()
 			svr.log.Warn(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
 		}
+
+		if done != nil {
+			done <- id
+		}
 	})
 }
 
@@ -286,6 +359,7 @@ func (svr *Server) listenLoop() {
 	defer svr.wg.Done()
 
 	var conn net.Conn
+	var addr *net.TCPAddr
 	var err error
 	var tempDelay time.Duration
 	var maxDelay = time.Second
@@ -322,6 +396,12 @@ func (svr *Server) listenLoop() {
 				return
 			}
 
+			addr = conn.RemoteAddr().(*net.TCPAddr)
+			if svr.blocked(addr.IP) {
+				conn.Close()
+				break
+			}
+
 			common.Go(func() {
 				svr.setupConn(conn, inbound, discovery.ZERO_NODE_ID)
 			})
@@ -342,6 +422,7 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
 	if err = svr.checkHead(c); err != nil {
 		svr.log.Warn(fmt.Sprintf("HeadShake with %s error: %v", c.RemoteAddr(), err))
 		c.Close()
+		svr.block(id, c.RemoteAddr().(*net.TCPAddr).IP, err)
 		return
 	}
 
@@ -353,6 +434,7 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
 	if err = svr.handleTS(ts, id); err != nil {
 		svr.log.Warn(fmt.Sprintf("HandShake with %s error: %v", c.RemoteAddr(), err))
 		ts.Close()
+		svr.block(id, c.RemoteAddr().(*net.TCPAddr).IP, err)
 		return
 	}
 
@@ -447,6 +529,7 @@ func (svr *Server) loop() {
 	defer svr.wg.Done()
 
 	var peersCount uint
+
 loop:
 	for {
 		select {
@@ -456,7 +539,8 @@ loop:
 			err := svr.checkConn(c.remoteID, c.flags)
 
 			if err == nil {
-				if p, err := NewPeer(c, svr.Protocols); err == nil {
+				var p *Peer
+				if p, err = NewPeer(c, svr.Protocols); err == nil {
 					svr.peers.Add(p)
 					peersCount = svr.peers.Size()
 					svr.log.Info(fmt.Sprintf("create new peer %s, total: %d", p, peersCount))
@@ -467,15 +551,17 @@ loop:
 					common.Go(func() {
 						svr.runPeer(p)
 					})
-				} else {
-					svr.log.Error(fmt.Sprintf("create new peer error: %v", err))
 				}
-			} else {
+			}
+
+			if err != nil {
 				c.Close()
+				svr.block(c.remoteID, c.remoteIP, err)
 				svr.log.Warn(fmt.Sprintf("can`t create new peer: %v", err))
 			}
 
 		case p := <-svr.delPeer:
+			svr.unblock(p.ID(), p.ts.remoteIP)
 			svr.peers.Del(p)
 			peersCount = svr.peers.Size()
 			svr.log.Error(fmt.Sprintf("delete peer %s, total: %d", p, peersCount))
@@ -484,7 +570,7 @@ loop:
 			monitor.LogEvent("p2p/peer", "delete")
 
 			if p.ts.is(static) {
-				svr.dial(p.ID(), p.RemoteAddr(), static)
+				svr.dial(p.ID(), p.RemoteAddr(), static, nil)
 			}
 
 			if peersCount == 0 && svr.discv != nil {

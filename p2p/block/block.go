@@ -1,31 +1,53 @@
 package block
 
 import (
-	"github.com/seiflotfy/cuckoofilter"
+	"encoding/hex"
+	"time"
 )
 
-// use to block specified net.IP or NodeID
-type Set struct {
-	filter *cuckoofilter.CuckooFilter
+type Record struct {
+	T time.Time
+	C int
 }
 
-func (s *Set) Has(v []byte) bool {
-	return s.filter.Lookup(v)
+type Policy func(t time.Time, count int) bool
+
+type Block struct {
+	records map[string]*Record
+	policy  Policy
 }
 
-func (s *Set) Add(v []byte) {
-	s.filter.InsertUnique(v)
-}
-func (s *Set) Del(v []byte) {
-	s.filter.Delete(v)
-}
-
-func (s *Set) Count() uint {
-	return s.filter.Count()
-}
-
-func New(cap uint) *Set {
-	return &Set{
-		filter: cuckoofilter.NewCuckooFilter(cap),
+func New(policy Policy) *Block {
+	return &Block{
+		records: make(map[string]*Record),
+		policy:  policy,
 	}
+}
+
+func (b *Block) Block(buf []byte) {
+	id := hex.EncodeToString(buf)
+	if r, ok := b.records[id]; ok {
+		r.T = time.Now()
+		r.C++
+	} else {
+		b.records[id] = &Record{
+			T: time.Now(),
+			C: 1,
+		}
+	}
+}
+
+func (b *Block) UnBlock(buf []byte) {
+	id := hex.EncodeToString(buf)
+	delete(b.records, id)
+}
+
+func (b *Block) Blocked(buf []byte) bool {
+	id := hex.EncodeToString(buf)
+
+	if r, ok := b.records[id]; ok {
+		return b.policy(r.T, r.C)
+	}
+
+	return false
 }

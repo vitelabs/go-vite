@@ -160,7 +160,7 @@ func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address,
 		TokenId:        &ledger.ViteTokenId,
 		Difficulty:     difficulty,
 	}
-	_, fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +237,7 @@ func createContract(vite *VitePrepared, addr *types.Address, addrPrivKey ed25519
 		Difficulty:     difficulty,
 		Data:           data,
 	}
-	_, fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func receiveTransferSendBlocks(vite *VitePrepared, addr *types.Address) ([]*ledg
 
 		var referredSnapshotHashList []types.Hash
 		referredSnapshotHashList = append(referredSnapshotHashList, v.SnapshotHash)
-		_, fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(vite.chain, &v.ToAddress, referredSnapshotHashList, true)
+		_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(vite.chain, &v.ToAddress, referredSnapshotHashList, true)
 		if err != nil {
 			return nil, err
 		}

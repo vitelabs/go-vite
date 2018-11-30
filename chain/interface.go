@@ -6,6 +6,7 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/sender"
+	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/chain_db"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/compress"
@@ -41,6 +42,11 @@ type Chain interface {
 	DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
 	Init()
 	Compressor() *compress.Compressor
+	TrieGc() trie_gc.Collector
+
+	StopSaveTrie()
+	StartSaveTrie()
+
 	ChainDb() *chain_db.ChainDb
 	Start()
 	Destroy()
@@ -90,6 +96,8 @@ type Chain interface {
 	GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
 	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)
 	UnRegister(listenerId uint64)
+	TrieDb() *leveldb.DB
+	CleanTrieNodePool()
 	RegisterInsertAccountBlocks(processor InsertProcessorFunc) uint64
 	RegisterInsertAccountBlocksSuccess(processor InsertProcessorFuncSuccess) uint64
 	RegisterDeleteAccountBlocks(processor DeleteProcessorFunc) uint64
@@ -100,6 +108,8 @@ type Chain interface {
 
 	GetStateTrie(stateHash *types.Hash) *trie.Trie
 	NewStateTrie() *trie.Trie
+
+	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
 
 	// Be
 	GetLatestBlockEventId() (uint64, error)
