@@ -123,7 +123,7 @@ func StartIPCEndpoint(ipcEndpoint string, apis []API) (net.Listener, *Server, er
 }
 
 // StartWSEndpoint starts a websocket endpoint
-func StartWSCliEndpoint(u url.URL, apis []API, modules []string, exposeAll bool) (*WebSocketCli, *Server, error) {
+func StartWSCliEndpoint(u *url.URL, apis []API, modules []string, exposeAll bool) (*WebSocketCli, *Server, error) {
 
 	// Generate the whitelist based on the allowed modules
 	whitelist := make(map[string]bool)

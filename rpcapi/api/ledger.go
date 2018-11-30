@@ -274,7 +274,7 @@ func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, sendBlockHash
 		referredList = append(referredList, sendBlock.SnapshotHash)
 	}
 
-	prevHash, fittestHash, err := generator.GetFitestGeneratorSnapshotHash(l.chain, accAddr, referredList, false)
+	prevHash, fittestHash, err := generator.GetFittestGeneratorSnapshotHash(l.chain, accAddr, referredList, false)
 	if err != nil {
 		return nil, err
 	}
