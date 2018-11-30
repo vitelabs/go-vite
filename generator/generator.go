@@ -302,7 +302,8 @@ func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addr
 	}
 	fittestSbHash = &fittestSb.Hash
 
-	if accAddr == nil || prevSb == nil || prevSb.Hash == *fittestSbHash || prevSb.Height+types.SnapshotHourHeight < fittestSbHeight {
+	if accAddr == nil || prevSb == nil || prevSb.Height < referredMaxSbHeight ||
+		prevSb.Height+types.SnapshotHourHeight < fittestSbHeight || prevSb.Hash == *fittestSbHash {
 		return nil, fittestSbHash, nil
 	}
 	return &prevSb.Hash, fittestSbHash, nil
