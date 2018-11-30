@@ -13,6 +13,12 @@ type getSbListByHashParam struct {
 	forward bool
 }
 
+type getSbListByHeight struct {
+	height  uint64
+	count   uint64
+	forward bool
+}
+
 func Benchmark_GetSnapshotBlocksByHash(b *testing.B) {
 	//chainInstance := newChainInstance("insertAccountBlock", false)
 	chainInstance := newTestChainInstance()
@@ -21,7 +27,7 @@ func Benchmark_GetSnapshotBlocksByHash(b *testing.B) {
 		PARAMS_LENGTH   = 2 * 10000
 		QUERY_NUM_LIMIT = 10 * 10000
 
-		CONTAIM_SNAPSHOT_CONTENT = false
+		CONTAIN_SNAPSHOT_CONTENT = false
 		FORWARD_TRUE_PROBABILITY = 50
 		MAX_COUNT                = 200
 		MIN_COUNT                = 100
@@ -79,7 +85,84 @@ func Benchmark_GetSnapshotBlocksByHash(b *testing.B) {
 	for i := 0; i < QUERY_NUM_LIMIT; i++ {
 		randomParamIndex := rand.Intn(PARAMS_LENGTH)
 		param := params[randomParamIndex]
-		sbs, err := chainInstance.GetSnapshotBlocksByHash(&param.hash, param.count, param.forward, CONTAIM_SNAPSHOT_CONTENT)
+		sbs, err := chainInstance.GetSnapshotBlocksByHash(&param.hash, param.count, param.forward, CONTAIN_SNAPSHOT_CONTENT)
+		if err != nil {
+			b.Fatal(err)
+		}
+		tps.do(uint64(len(sbs)))
+		tps2.doOne()
+	}
+
+	tps.Stop()
+	tps.Print()
+
+	tps2.Stop()
+	tps2.Print()
+}
+
+func Benchmark_GetSnapshotBlocksByHeight(b *testing.B) {
+	chainInstance := newTestChainInstance()
+
+	const (
+		PARAMS_LENGTH   = 2 * 10000
+		QUERY_NUM_LIMIT = 100 * 10000
+
+		CONTAIN_SNAPSHOT_CONTENT = false
+		FORWARD_TRUE_PROBABILITY = 50
+		MAX_COUNT                = uint64(200)
+		SUGGEST_MIN_COUNT        = uint64(100)
+
+		PRINT_PER_COUNT      = 100 * 10000
+		PRINT_PER_QUERY_TIME = 1 * 100
+	)
+	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
+	var params [PARAMS_LENGTH]*getSbListByHeight
+	for i := 0; i < PARAMS_LENGTH; i++ {
+		randomHeight := rand.Uint64() % latestSnapshotBlock.Height
+		if randomHeight <= 0 {
+			randomHeight = 1
+		}
+
+		forward := false
+
+		if rand.Intn(100) < FORWARD_TRUE_PROBABILITY {
+			forward = true
+		}
+
+		count := SUGGEST_MIN_COUNT + rand.Uint64()%(MAX_COUNT-SUGGEST_MIN_COUNT)
+
+		if forward {
+			targetHeight := randomHeight + count
+			if targetHeight > latestSnapshotBlock.Height {
+				targetHeight = latestSnapshotBlock.Height
+			}
+			count = targetHeight - randomHeight
+		} else if randomHeight < count {
+			count = randomHeight
+		}
+
+		params[i] = &getSbListByHeight{
+			height:  randomHeight,
+			forward: forward,
+			count:   count,
+		}
+	}
+	tps := newTps(tpsOption{
+		name:          "getAccountBlocksByHeight|blockNum",
+		printPerCount: PRINT_PER_COUNT,
+	})
+
+	tps2 := newTps(tpsOption{
+		name:          "getAccountBlocksByHeight|queryTimes",
+		printPerCount: PRINT_PER_QUERY_TIME,
+	})
+	tps.Start()
+	tps2.Start()
+
+	for i := 0; i < QUERY_NUM_LIMIT; i++ {
+		randomParamIndex := rand.Intn(PARAMS_LENGTH)
+		param := params[randomParamIndex]
+		sbs, err := chainInstance.GetSnapshotBlocksByHeight(param.height, param.count, param.forward, CONTAIN_SNAPSHOT_CONTENT)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -153,6 +236,9 @@ func Benchmark_GetSnapshotBlockByHash(b *testing.B) {
 		tps.doOne()
 	}
 
+	for i := 0; i < PARAMS_LENGTH; i++ {
+
+	}
 	tps.Print()
 	tps.Stop()
 }
