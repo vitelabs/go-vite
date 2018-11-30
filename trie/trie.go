@@ -20,6 +20,15 @@ type Trie struct {
 	unSavedRefValueMap map[types.Hash][]byte
 }
 
+func DeleteNodes(db *leveldb.DB, hashList []types.Hash) error {
+	batch := new(leveldb.Batch)
+	for _, hash := range hashList {
+		dbKey, _ := database.EncodeKey(database.DBKP_TRIE_NODE, hash.Bytes())
+		batch.Delete(dbKey)
+	}
+	return db.Write(batch, nil)
+}
+
 func NewTrie(db *leveldb.DB, rootHash *types.Hash, pool *TrieNodePool) *Trie {
 	trie := &Trie{
 		db:        db,
@@ -364,6 +373,10 @@ func (trie *Trie) GetValue(key []byte) []byte {
 	leafNode := trie.getLeafNode(trie.Root, key)
 
 	return trie.LeafNodeValue(leafNode)
+}
+
+func (trie *Trie) NewNodeIterator() *NodeIterator {
+	return NewNodeIterator(trie)
 }
 
 func (trie *Trie) NewIterator(prefix []byte) *Iterator {
