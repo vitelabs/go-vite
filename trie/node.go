@@ -73,6 +73,10 @@ func NewValueNode(value []byte) *TrieNode {
 	return node
 }
 
+func (trieNode *TrieNode) Value() []byte {
+	return trieNode.value
+}
+
 func (trieNode *TrieNode) AtomicComplete(completeFunc func()) {
 	trieNode.childrenSetLock.Lock()
 	defer trieNode.childrenSetLock.Unlock()
@@ -125,6 +129,10 @@ func (trieNode *TrieNode) Copy(copyHash bool) *TrieNode {
 	return newNode
 }
 
+func (trieNode *TrieNode) IsLeafNode() bool {
+	return trieNode.nodeType == TRIE_HASH_NODE || trieNode.nodeType == TRIE_VALUE_NODE
+}
+
 func (trieNode *TrieNode) Hash() *types.Hash {
 	if trieNode.hash == nil {
 		var source []byte
@@ -164,6 +172,10 @@ func (trieNode *TrieNode) SetChild(child *TrieNode) {
 
 func (trieNode *TrieNode) NodeType() byte {
 	return trieNode.nodeType
+}
+
+func (trieNode *TrieNode) Children() map[byte]*TrieNode {
+	return trieNode.children
 }
 
 func (trieNode *TrieNode) parseChildrenToPb(children map[byte]*TrieNode) map[uint32][]byte {

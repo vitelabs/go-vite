@@ -20,7 +20,10 @@ func NewConsoleNodeManager(ctx *cli.Context, maker NodeMaker) ConsoleNodeManager
 func (nodeManager *ConsoleNodeManager) Start() error {
 
 	// Start up the node
-	StartNode(nodeManager.node)
+	err := StartNode(nodeManager.node)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -318,6 +318,8 @@ func (context *VmContext) GetLogListHash() *types.Hash {
 	return context.unsavedCache.logList.Hash()
 }
 
+// todo
+
 func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 	if context.chain == nil {
 		context.log.Error("context.chain is nil", "method", "IsAddressExisted")

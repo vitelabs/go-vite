@@ -10,13 +10,17 @@ import (
 func Benchmark_InsertAccountBlock(b *testing.B) {
 	chainInstance := newChainInstance("insertAccountBlock", true)
 	const (
-		ACCOUNT_NUMS        = 10
+		ACCOUNT_NUMS        = 1000
 		ACCOUNT_BLOCK_LIMIT = 1000 * 10000
 
-		PRINT_PER_COUNT               = 10 * 10000
+		PRINT_PER_COUNT               = 1000
 		CREATE_REQUEST_TX_PROBABILITY = 50
 
 		LOOP_INSERT_SNAPSHOTBLOCK = true
+
+		INSERT_SNAPSHOTBLOCK_INTERVAL = time.Millisecond * 100
+
+		INSERT_ACCOUNTBLOCK_INTERVAL = 0
 	)
 
 	cTxOptions := &createTxOptions{
@@ -34,9 +38,9 @@ func Benchmark_InsertAccountBlock(b *testing.B) {
 
 	tps.Start()
 
-	var loopTermial chan struct{}
+	var loopTerminal chan struct{}
 	if LOOP_INSERT_SNAPSHOTBLOCK {
-		loopTermial = loopInsertSnapshotBlock(chainInstance, time.Second)
+		loopTerminal = loopInsertSnapshotBlock(chainInstance, INSERT_SNAPSHOTBLOCK_INTERVAL)
 	}
 
 	for tps.Ops() < ACCOUNT_BLOCK_LIMIT {
@@ -59,9 +63,12 @@ func Benchmark_InsertAccountBlock(b *testing.B) {
 
 			chainInstance.InsertAccountBlocks(tx)
 			tps.doOne()
+			if INSERT_ACCOUNTBLOCK_INTERVAL > 0 {
+				time.Sleep(INSERT_ACCOUNTBLOCK_INTERVAL)
+			}
 		}
 	}
-	loopTermial <- struct{}{}
+	loopTerminal <- struct{}{}
 	tps.Stop()
 	tps.Print()
 }

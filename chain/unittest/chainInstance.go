@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-func newChainInstance(dirName string, clearDataDir bool) chain.Chain {
+func newChainInstance(dirName string, clearDataDir bool, noStart bool) chain.Chain {
 	dataDir := filepath.Join(node.DefaultDataDir(), dirName)
 
 	if clearDataDir {
@@ -19,7 +19,9 @@ func newChainInstance(dirName string, clearDataDir bool) chain.Chain {
 		DataDir: dataDir,
 	})
 	chainInstance.Init()
-	chainInstance.Start()
+	if noStart {
+		chainInstance.Start()
+	}
 
 	return chainInstance
 }
