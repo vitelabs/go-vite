@@ -531,7 +531,7 @@ func TestInstructions(t *testing.T) {
 			} else if (err == nil && testCase.Err != "") || (err != nil && testCase.Err == "") {
 				t.Fatalf("%v: %v failed, err not match, expected %v, got %v", testFile.Name(), k, testCase.Err, err)
 			} else if !checkStorage(db, testCase.Storage) {
-				t.Fatalf("%v: %v failed, storage error, expected %v, got %v", testFile.Name(), k, testCase.Storage, db.PrintStorage())
+				t.Fatalf("%v: %v failed, storage error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.Storage, db.PrintStorage())
 			}
 		}
 	}
