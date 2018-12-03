@@ -29,13 +29,15 @@ type memoryDatabase struct {
 	addr    types.Address
 	storage map[string][]byte
 	logList []*ledger.VmLog
+	sb      *ledger.SnapshotBlock
 }
 
-func NewMemoryDatabase(addr types.Address) *memoryDatabase {
+func NewMemoryDatabase(addr types.Address, sb *ledger.SnapshotBlock) *memoryDatabase {
 	return &memoryDatabase{
 		addr:    addr,
 		storage: make(map[string][]byte),
 		logList: make([]*ledger.VmLog, 0),
+		sb:      sb,
 	}
 }
 func (db *memoryDatabase) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
@@ -56,6 +58,9 @@ func (db *memoryDatabase) SubBalance(tokenTypeId *types.TokenTypeId, amount *big
 }
 func (db *memoryDatabase) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
 	balance := db.GetBalance(&db.addr, tokenTypeId)
+	if balance.Sign() == 0 && amount.Sign() == 0 {
+		return
+	}
 	db.storage[getBalanceKey(tokenTypeId)] = balance.Add(balance, amount).Bytes()
 }
 func (db *memoryDatabase) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
@@ -97,6 +102,11 @@ func (db *memoryDatabase) GetStorage(addr *types.Address, key []byte) []byte {
 	}
 }
 func (db *memoryDatabase) SetStorage(key []byte, value []byte) {
+	if len(value) == 0 {
+		if _, ok := db.storage[hex.EncodeToString(key)]; !ok {
+			return
+		}
+	}
 	db.storage[hex.EncodeToString(key)] = value
 }
 func (db *memoryDatabase) PrintStorage() string {
@@ -132,7 +142,7 @@ func (db *memoryDatabase) Address() *types.Address {
 	return nil
 }
 func (db *memoryDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
-	return nil
+	return db.sb
 }
 func (db *memoryDatabase) PrevAccountBlock() *ledger.AccountBlock {
 	return nil

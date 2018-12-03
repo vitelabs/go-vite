@@ -231,7 +231,7 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 	)
 	if len(val) == 0 && y.Sign() != 0 {
 		return sstoreSetGas, nil
-	} else if len(val) == 0 && y.Sign() == 0 {
+	} else if len(val) > 0 && y.Sign() == 0 {
 		c.quotaRefund = c.quotaRefund + sstoreRefundGas
 		return sstoreClearGas, nil
 	} else {

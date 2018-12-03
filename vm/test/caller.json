@@ -1,19 +1,20 @@
 {
-  "arith1": {
+  "caller": {
     "SBHeight": 1,
     "FromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "ToAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
     "InputData": "",
     "Amount": "0de0b6b3a7640000",
     "TokenId": "tti_2445f6e5cde8c2c70e446c83",
-    "Code": "6001600190016007026005016002900460049060016021900560150160030260059007600303600960110a60005260086000f3",
-    "ReturnData": "0000000000000000",
-    "QuotaTotal": 1000000,
-    "QuotaLeft": 999831,
+    "Code": "33600055",
+    "ReturnData": "",
+    "QuotaTotal": 100000000000,
+    "QuotaLeft": 99999979995,
     "QuotaRefund": 0,
     "Err": "",
     "Storage": {
-      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "ab24ef68b84e642c0ddca06beec81c9acb1977bb"
     }
   }
 }
