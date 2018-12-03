@@ -8,8 +8,9 @@ import (
 )
 
 type DerivationResult struct {
-	Path    string
-	Address *Address
+	Path       string
+	Address    *Address
+	PrivateKey []byte
 }
 
 type NewEntropyResult struct {
@@ -95,11 +96,16 @@ func (w *Wallet) DeriveByFullPath(entropyStore, fullpath, extensionWord string) 
 	if err != nil {
 		return nil, err
 	}
+	keys, err := key.PrivateKey()
+	if err != nil {
+		return nil, err
+	}
 	return &DerivationResult{
 		Path: s,
 		Address: &Address{
 			address: *addr,
 		},
+		PrivateKey: keys,
 	}, nil
 }
 
@@ -117,11 +123,16 @@ func (w *Wallet) DeriveByIndex(entropyStore string, index int, extensionWord str
 	if err != nil {
 		return nil, err
 	}
+	keys, err := key.PrivateKey()
+	if err != nil {
+		return nil, err
+	}
 	return &DerivationResult{
 		Path: s,
 		Address: &Address{
 			address: *addr,
 		},
+		PrivateKey: keys,
 	}, nil
 }
 

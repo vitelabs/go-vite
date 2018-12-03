@@ -1,6 +1,7 @@
 package mobile_test
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/vitelabs/go-vite/mobile"
 	"testing"
@@ -15,5 +16,6 @@ func TestDial(t *testing.T) {
 	} else {
 		fmt.Println(s)
 	}
-	client.Ttt()
+
+	fmt.Println(base64.StdEncoding.EncodeToString([]byte("123")))
 }
