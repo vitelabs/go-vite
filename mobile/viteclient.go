@@ -57,6 +57,9 @@ func (vc *Client) GetLatestBlock(addr *Address) (string, error) {
 }
 
 func (vc *Client) GetFittestSnapshotHash(accAddr *Address, sendBlockHash string) (string, error) {
+	if sendBlockHash == "" {
+		return vc.normalCall("ledger_getFittestSnapshotHash", accAddr.address)
+	}
 	return vc.normalCall("ledger_getFittestSnapshotHash", accAddr.address, sendBlockHash)
 }
 

@@ -49,4 +49,47 @@ func (a *Address) GetHex() string {
 	return a.address.Hex()
 }
 
+type TokenTypeId struct {
+	tti types.TokenTypeId
+}
 
+func NewTokenTypeIdFromByte(binary []byte) (tti *TokenTypeId, _ error) {
+	atti, e := types.BytesToTokenTypeId(binary)
+	if e != nil {
+		return nil, e
+	}
+	a := new(TokenTypeId)
+	a.tti = atti
+	return a, nil
+}
+
+func NewTokenTypeIdFromString(s string) (tti *TokenTypeId, _ error) {
+	htti, e := types.HexToTokenTypeId(s)
+	if e != nil {
+		return nil, e
+	}
+	a := new(TokenTypeId)
+	a.tti = htti
+	return a, nil
+}
+
+func (t *TokenTypeId) SetBytes(tti []byte) error {
+	return t.tti.SetBytes(tti)
+}
+
+func (t *TokenTypeId) GetBytes() []byte {
+	return t.tti[:]
+}
+
+func (t *TokenTypeId) SetHex(s string) error {
+	tti, e := types.HexToTokenTypeId(s)
+	if e != nil {
+		return e
+	}
+	t.tti = tti
+	return nil
+}
+
+func (t *TokenTypeId) GetHex() string {
+	return t.tti.Hex()
+}
