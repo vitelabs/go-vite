@@ -1,7 +1,6 @@
 package api
 
 import (
-	"github.com/pkg/errors"
 	"sort"
 	"time"
 
@@ -92,13 +91,14 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 }
 
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
-	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, &abi.AddressRegister)
+	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	return abi.GetRegistration(vmContext, gid, name), nil
 }
 
+// Deprecated: Use GetRegistration instead
 func (r *RegisterApi) GetRegisterPledgeAddr(name string, gid *types.Gid) (*types.Address, error) {
 	var g types.Gid
 	if gid == nil || *gid == types.DELEGATE_GID {
@@ -122,16 +122,24 @@ type RegistParam struct {
 }
 
 func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*types.Address, error) {
-	if len(paramList) <= 0 {
-		return nil, errors.New("request param is empty")
+	if len(paramList) == 0 {
+		return nil, nil
 	}
 	addrList := make([]*types.Address, len(paramList))
+	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
 	for k, v := range paramList {
-		addr, err := r.GetRegisterPledgeAddr(v.Name, v.Gid)
-		if err != nil {
-			return nil, err
+		var r *types.Registration
+		if v.Gid == nil || *v.Gid == types.DELEGATE_GID {
+			r = abi.GetRegistration(vmContext, types.SNAPSHOT_GID, v.Name)
+		} else {
+			r = abi.GetRegistration(vmContext, *v.Gid, v.Name)
 		}
-		addrList[k] = addr
+		if r != nil {
+			addrList[k] = &r.PledgeAddr
+		}
 	}
 	return addrList, nil
 }

@@ -3,6 +3,7 @@ package pool
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strconv"
 	"sync"
 	"time"
@@ -45,6 +46,8 @@ type Reader interface {
 type Debug interface {
 	Info(addr *types.Address) string
 	Snapshot() map[string]interface{}
+	SnapshotPendingNum() uint64
+	AccountPendingNum() *big.Int
 	Account(addr types.Address) map[string]interface{}
 	SnapshotChainDetail(chainId string) map[string]interface{}
 	AccountChainDetail(addr types.Address, chainId string) map[string]interface{}
@@ -124,6 +127,22 @@ type pool struct {
 
 func (self *pool) Snapshot() map[string]interface{} {
 	return self.pendingSc.info()
+}
+func (self *pool) SnapshotPendingNum() uint64 {
+	return self.pendingSc.CurrentChain().size()
+}
+
+func (self *pool) AccountPendingNum() *big.Int {
+	result := big.NewInt(0)
+	self.pendingAc.Range(func(_, v interface{}) bool {
+		p := v.(*accountPool)
+		size := p.CurrentChain().size()
+		if size > 0 {
+			result.Add(result, big.NewInt(0).SetUint64(size))
+		}
+		return true
+	})
+	return result
 }
 
 func (self *pool) Account(addr types.Address) map[string]interface{} {

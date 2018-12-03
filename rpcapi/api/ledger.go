@@ -1,14 +1,15 @@
 package api
 
 import (
-	"strconv"
-
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
+	"strconv"
 )
 
 // !!! Block = Transaction = TX
@@ -19,6 +20,14 @@ func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 		//signer:        vite.Signer(),
 		log: log15.New("module", "rpc_api/ledger_api"),
 	}
+}
+
+type GcStatus struct {
+	Code        uint8  `json:"code"`
+	Description string `json:"description"`
+
+	ClearedHeight uint64 `json:"clearedHeight"`
+	MarkedHeight  uint64 `json:"markedHeight"`
 }
 
 type LedgerApi struct {
@@ -248,9 +257,43 @@ func (l *LedgerApi) GetBlockMeta(hash *types.Hash) (*ledger.AccountBlockMeta, er
 	return l.chain.GetAccountBlockMetaByHash(hash)
 }
 
-func (l *LedgerApi) GetFittestSnapshotHash() (*types.Hash, error) {
-	latestBlock := l.chain.GetLatestSnapshotBlock()
-	return &latestBlock.Hash, nil
+func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, sendBlockHash *types.Hash) (*types.Hash, error) {
+	if accAddr == nil && sendBlockHash == nil {
+		latestBlock := l.chain.GetLatestSnapshotBlock()
+		if latestBlock != nil {
+			return &latestBlock.Hash, nil
+		}
+		return nil, generator.ErrGetFittestSnapshotBlockFailed
+	}
+	var referredList []types.Hash
+	if sendBlockHash != nil {
+		sendBlock, _ := l.chain.GetAccountBlockByHash(sendBlockHash)
+		if sendBlock == nil {
+			return nil, generator.ErrGetSnapshotOfReferredBlockFailed
+		}
+		referredList = append(referredList, sendBlock.SnapshotHash)
+	}
+
+	prevHash, fittestHash, err := generator.GetFittestGeneratorSnapshotHash(l.chain, accAddr, referredList, false)
+	if err != nil {
+		return nil, err
+	}
+	if prevHash == nil {
+		return fittestHash, nil
+	}
+	prevQuota, err := l.chain.GetPledgeQuota(*prevHash, *accAddr)
+	if err != nil {
+		return nil, err
+	}
+	fittestQuota, err := l.chain.GetPledgeQuota(*fittestHash, *accAddr)
+	if err != nil {
+		return nil, err
+	}
+	if prevQuota <= fittestQuota {
+		return fittestHash, nil
+	} else {
+		return prevHash, nil
+	}
 
 	//gap := uint64(0)
 	//targetHeight := latestBlock.Height
@@ -310,4 +353,21 @@ func (l *LedgerApi) GetVmLogList(blockHash types.Hash) (ledger.VmLogList, error)
 		return nil, nil
 	}
 	return l.chain.GetVmLogList(block.LogHash)
+}
+
+func (l *LedgerApi) GetGcStatus() *GcStatus {
+	statusCode := l.chain.TrieGc().Status()
+
+	gStatus := &GcStatus{
+		Code: statusCode,
+	}
+	switch statusCode {
+	case trie_gc.STATUS_STOPPED:
+		gStatus.Description = "STATUS_STOPPED"
+	case trie_gc.STATUS_STARTED:
+		gStatus.Description = "STATUS_STARTED"
+	case trie_gc.STATUS_MARKING_AND_CLEANING:
+		gStatus.Description = "STATUS_MARKING_AND_CLEANING"
+	}
+	return gStatus
 }

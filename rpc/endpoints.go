@@ -18,13 +18,13 @@ package rpc
 
 import (
 	"net"
-
-	log "github.com/vitelabs/go-vite/log15"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
-)
 
+	log "github.com/vitelabs/go-vite/log15"
+)
 
 // StartHTTPEndpoint starts the HTTP RPC endpoint, configured with cors/vhosts/modules
 func StartHTTPEndpoint(endpoint string, apis []API, modules []string, cors []string, vhosts []string, timeouts HTTPTimeouts, exposeAll bool) (net.Listener, *Server, error) {
@@ -120,4 +120,36 @@ func StartIPCEndpoint(ipcEndpoint string, apis []API) (net.Listener, *Server, er
 	go handler.ServeListener(listener)
 
 	return listener, handler, nil
+}
+
+// StartWSEndpoint starts a websocket endpoint
+func StartWSCliEndpoint(u *url.URL, apis []API, modules []string, exposeAll bool) (*WebSocketCli, *Server, error) {
+
+	// Generate the whitelist based on the allowed modules
+	whitelist := make(map[string]bool)
+	for _, module := range modules {
+		whitelist[module] = true
+	}
+	// Register all the APIs exposed by the services
+	handler := NewServer()
+	for _, api := range apis {
+		if exposeAll || whitelist[api.Namespace] || (len(whitelist) == 0 && api.Public) {
+			if err := handler.RegisterName(api.Namespace, api.Service); err != nil {
+				return nil, nil, err
+			}
+			log.Debug("WebSocket registered", "service", api.Service, "namespace", api.Namespace)
+		}
+	}
+	// All APIs registered, start the HTTP listener
+	var (
+		ws  *WebSocketCli
+		err error
+	)
+
+	ws = NewWSCli(u, handler)
+
+	go ws.Handle()
+
+	return ws, handler, err
+
 }

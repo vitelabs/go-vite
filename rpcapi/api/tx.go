@@ -8,16 +8,8 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"math/big"
 )
-
-var preCompiledContracts = []types.Address{
-	abi.AddressMintage,
-	abi.AddressPledge,
-	abi.AddressRegister,
-	abi.AddressVote,
-	abi.AddressConsensusGroup}
 
 type Tx struct {
 	vite *vite.Vite
@@ -105,7 +97,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		Data:           param.Data,
 		Difficulty:     d,
 	}
-	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.vite.Chain(), &msg.AccountAddress, nil)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.vite.Chain(), &msg.AccountAddress, nil, true)
 	if err != nil {
 		return nil, err
 	}
@@ -141,15 +133,6 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		return nil, errors.New("generator gen an empty block")
 	}
 
-}
-
-func isPreCompiledContracts(address types.Address) bool {
-	for _, v := range preCompiledContracts {
-		if v == address {
-			return true
-		}
-	}
-	return false
 }
 
 type SendTxWithPrivateKeyParam struct {

@@ -13,20 +13,12 @@ type StorageDatabase interface {
 }
 
 var (
-	AddressRegister, _       = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
-	AddressVote, _           = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2})
-	AddressPledge, _         = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3})
-	AddressConsensusGroup, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4})
-	AddressMintage, _        = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5})
-)
-
-var (
 	precompiledContractsAbiMap = map[types.Address]abi.ABIContract{
-		AddressRegister:       ABIRegister,
-		AddressVote:           ABIVote,
-		AddressPledge:         ABIPledge,
-		AddressConsensusGroup: ABIConsensusGroup,
-		AddressMintage:        ABIMintage,
+		types.AddressRegister:       ABIRegister,
+		types.AddressVote:           ABIVote,
+		types.AddressPledge:         ABIPledge,
+		types.AddressConsensusGroup: ABIConsensusGroup,
+		types.AddressMintage:        ABIMintage,
 	}
 
 	errInvalidParam = errors.New("invalid param")

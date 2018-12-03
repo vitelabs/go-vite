@@ -2,7 +2,6 @@ package onroad
 
 import (
 	"container/heap"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"sync"
 
 	"github.com/vitelabs/go-vite/common"
@@ -224,7 +223,7 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 			Index: i,
 			Quota: quota,
 		}
-		if addr == abi.AddressPledge {
+		if addr == types.AddressPledge {
 			task.Quota = math.MaxUint64
 		}
 		w.contractTaskPQueue[i] = task

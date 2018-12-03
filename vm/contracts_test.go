@@ -36,7 +36,7 @@ func TestContractsRefundWithVmContext(t *testing.T) {
 	// init sendBlock and receive block
 	snapshotBlock := chn.GetLatestSnapshotBlock()
 	addr, _ := types.HexToAddress("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
-	contractAddr := abi.AddressRegister
+	contractAddr := types.AddressRegister
 	contractBalance, _ := chn.GetAccountBalanceByTokenId(&contractAddr, &ledger.ViteTokenId)
 	vm := NewVM()
 	prevAccountBlock, err := chn.GetLatestAccountBlock(&contractAddr)
@@ -45,7 +45,7 @@ func TestContractsRefundWithVmContext(t *testing.T) {
 	}
 	db, err := vm_context.NewVmContext(chn, &snapshotBlock.Hash, &prevAccountBlock.Hash, &contractAddr)
 	if err != nil {
-		t.Fatalf("new vm context failed", err)
+		t.Fatalf("new vm context failed %v", err)
 	}
 	nodeName := "s1"
 	registerData, _ := abi.ABIRegister.PackMethod(abi.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr)
@@ -70,7 +70,7 @@ func TestContractsRefundWithVmContext(t *testing.T) {
 
 	// duplicate register, refund
 	receiveBlockList, isRetry, err := vm.Run(db, &receiveBlock, &sendBlock)
-	if len(receiveBlockList) != 2 || isRetry || err != nil ||
+	if len(receiveBlockList) != 2 || isRetry || err == nil ||
 		receiveBlockList[0].AccountBlock.BlockType != ledger.BlockTypeReceive ||
 		!bytes.Equal(receiveBlockList[0].AccountBlock.Data, append(receiveBlockList[0].AccountBlock.StateHash.Bytes(), byte(1))) ||
 		receiveBlockList[0].AccountBlock.Quota != 0 ||
@@ -95,7 +95,7 @@ func TestContractsRefund(t *testing.T) {
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
 	blockTime := time.Now()
 
-	addr2 := abi.AddressRegister
+	addr2 := types.AddressRegister
 	nodeName := "s1"
 	locHashRegister, _ := types.BytesToHash(abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID))
 	registrationDataOld := db.storageMap[addr2][string(locHashRegister.Bytes())]
@@ -145,7 +145,7 @@ func TestContractsRefund(t *testing.T) {
 	db.addr = addr2
 	receiveRegisterBlockList, isRetry, err := vm.Run(db, block21, sendRegisterBlockList[0].AccountBlock)
 	contractBalance.Add(contractBalance, block13.Amount)
-	if len(receiveRegisterBlockList) != 2 || isRetry || err != nil ||
+	if len(receiveRegisterBlockList) != 2 || isRetry || err == nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][string(locHashRegister.Bytes())], registrationDataOld) ||
 		receiveRegisterBlockList[0].AccountBlock.Quota != 0 ||
@@ -199,7 +199,7 @@ func TestContractsRegister(t *testing.T) {
 	publicKey6 := ed25519.PublicKey(privateKey6.PubByte())
 	db.accountBlockMap[addr6] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr7] = make(map[types.Hash]*ledger.AccountBlock)
-	addr2 := abi.AddressRegister
+	addr2 := types.AddressRegister
 	nodeName := "super1"
 	block13Data, err := abi.ABIRegister.PackMethod(abi.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr7)
 	hash13 := types.DataHash([]byte{1, 3})
@@ -306,7 +306,7 @@ func TestContractsRegister(t *testing.T) {
 	db.accountBlockMap[addr2][hash22] = receiveRegisterBlockList2[0].AccountBlock
 
 	// get contracts data
-	db.addr = abi.AddressRegister
+	db.addr = types.AddressRegister
 	if registerList := abi.GetCandidateList(db, types.SNAPSHOT_GID, nil); len(registerList) != 3 || len(registerList[0].Name) == 0 {
 		t.Fatalf("get register list failed")
 	}
@@ -496,7 +496,7 @@ func TestContractsVote(t *testing.T) {
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
 	blockTime := time.Now()
 	// vote
-	addr3 := abi.AddressVote
+	addr3 := types.AddressVote
 	nodeName := "s1"
 	block13Data, _ := abi.ABIVote.PackMethod(abi.MethodNameVote, types.SNAPSHOT_GID, nodeName)
 	hash13 := types.DataHash([]byte{1, 3})
@@ -597,7 +597,7 @@ func TestContractsVote(t *testing.T) {
 	db.accountBlockMap[addr3][hash32] = receiveVoteBlockList2[0].AccountBlock
 
 	// get contracts data
-	db.addr = abi.AddressVote
+	db.addr = types.AddressVote
 	if voteList := abi.GetVoteList(db, types.SNAPSHOT_GID, nil); len(voteList) != 1 || voteList[0].NodeName != nodeName2 {
 		t.Fatalf("get vote list failed")
 	}
@@ -659,7 +659,7 @@ func TestContractsPledge(t *testing.T) {
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr4, _, _ := types.CreateAddress()
 	db.accountBlockMap[addr4] = make(map[types.Hash]*ledger.AccountBlock)
-	addr5 := abi.AddressPledge
+	addr5 := types.AddressPledge
 	pledgeAmount := new(big.Int).Set(new(big.Int).Mul(big.NewInt(10), util.AttovPerVite))
 	block13Data, err := abi.ABIPledge.PackMethod(abi.MethodNamePledge, addr4)
 	hash13 := types.DataHash([]byte{1, 3})
@@ -766,7 +766,7 @@ func TestContractsPledge(t *testing.T) {
 	db.accountBlockMap[addr5][hash52] = receivePledgeBlockList2[0].AccountBlock
 
 	// get contracts data
-	db.addr = abi.AddressPledge
+	db.addr = types.AddressPledge
 	if pledgeAmount := abi.GetPledgeBeneficialAmount(db, addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
 		t.Fatalf("get pledge beneficial amount failed")
 	}
@@ -1212,7 +1212,7 @@ func TestContractsMintage(t *testing.T) {
 	blockTime := time.Now()
 	// mintage
 	balance1 := new(big.Int).Set(viteTotalSupply)
-	addr2 := abi.AddressMintage
+	addr2 := types.AddressMintage
 	tokenName := "test token"
 	tokenSymbol := "t"
 	totalSupply := big.NewInt(1e10)
@@ -1295,7 +1295,7 @@ func TestContractsMintage(t *testing.T) {
 	db.accountBlockMap[addr1][hash14] = receiveMintageRewardBlockList[0].AccountBlock
 
 	// get contracts data
-	db.addr = abi.AddressMintage
+	db.addr = types.AddressMintage
 	if tokenInfo := abi.GetTokenById(db, tokenId); tokenInfo == nil || tokenInfo.TokenName != tokenName {
 		t.Fatalf("get token by id failed")
 	}
@@ -1411,9 +1411,9 @@ func TestGenesisBlockData(t *testing.T) {
 		t.Fatalf("pack mintage variable error, %v", err)
 	}
 	fmt.Println("-------------mintage genesis block-------------")
-	fmt.Printf("address: %v\n", hex.EncodeToString(abi.AddressMintage.Bytes()))
+	fmt.Printf("address: %v\n", hex.EncodeToString(types.AddressMintage.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v\n}\n",
-		ledger.BlockTypeReceive, hex.EncodeToString(abi.AddressMintage.Bytes()), 1, big.NewInt(0), big.NewInt(0))
+		ledger.BlockTypeReceive, hex.EncodeToString(types.AddressMintage.Bytes()), 1, big.NewInt(0), big.NewInt(0))
 	fmt.Printf("Storage:{\n\t%v:%v\n}\n", hex.EncodeToString(abi.GetMintageKey(ledger.ViteTokenId)), hex.EncodeToString(mintageData))
 
 	fmt.Println("-------------vite owner genesis block-------------")
@@ -1461,15 +1461,15 @@ func TestGenesisBlockData(t *testing.T) {
 		t.Fatalf("pack consensus group data variable error, %v", err)
 	}
 	fmt.Println("-------------snapshot consensus group and common consensus group genesis block-------------")
-	fmt.Printf("address:%v\n", hex.EncodeToString(abi.AddressConsensusGroup.Bytes()))
+	fmt.Printf("address:%v\n", hex.EncodeToString(types.AddressConsensusGroup.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
-		ledger.BlockTypeReceive, hex.EncodeToString(abi.AddressConsensusGroup.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
+		ledger.BlockTypeReceive, hex.EncodeToString(types.AddressConsensusGroup.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
 	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(abi.GetConsensusGroupKey(types.SNAPSHOT_GID)), hex.EncodeToString(snapshotConsensusGroupData), hex.EncodeToString(abi.GetConsensusGroupKey(types.DELEGATE_GID)), hex.EncodeToString(commonConsensusGroupData))
 
 	fmt.Println("-------------snapshot consensus group and common consensus group register genesis block-------------")
-	fmt.Printf("address:%v\n", hex.EncodeToString(abi.AddressRegister.Bytes()))
+	fmt.Printf("address:%v\n", hex.EncodeToString(types.AddressRegister.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
-		ledger.BlockTypeReceive, hex.EncodeToString(abi.AddressRegister.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
+		ledger.BlockTypeReceive, hex.EncodeToString(types.AddressRegister.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
 	fmt.Printf("Storage:{\n")
 	for i := 1; i <= 25; i++ {
 		addr, _, _ := types.CreateAddress()

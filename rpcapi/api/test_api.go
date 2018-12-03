@@ -3,13 +3,14 @@ package api
 import (
 	"context"
 	"errors"
+	"math/big"
+	"math/rand"
+
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"math/rand"
 )
 
 type CreateTxWithPrivKeyParmsTest struct {
@@ -85,7 +86,7 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		Data:           params.Data,
 		Difficulty:     params.Difficulty,
 	}
-	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, nil)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, nil, true)
 	if err != nil {
 		return err
 	}
@@ -143,7 +144,10 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	if code == ledger.AccountTypeContract && msg.BlockType == ledger.BlockTypeReceive {
 		return errors.New("AccountTypeContract can't receiveTx without consensus's control")
 	}
-	privKey, _ := ed25519.HexToPrivateKey(params.PrivKeyStr)
+	privKey, err := ed25519.HexToPrivateKey(params.PrivKeyStr)
+	if err != nil {
+		return err
+	}
 	pubKey := privKey.PubByte()
 
 	if msg.FromBlockHash == nil {
@@ -157,7 +161,13 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 		return errors.New("get sendblock by hash failed")
 	}
 
-	fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, &fromBlock.SnapshotHash)
+	if fromBlock.ToAddress != params.SelfAddr {
+		return errors.New("can't receive other address's block")
+	}
+
+	var referredSnapshotHashList []types.Hash
+	referredSnapshotHashList = append(referredSnapshotHashList, fromBlock.SnapshotHash)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, referredSnapshotHashList, true)
 	if err != nil {
 		return err
 	}

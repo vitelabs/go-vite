@@ -8,5 +8,6 @@ type KafkaProducer struct {
 type Chain struct {
 	KafkaProducers []*KafkaProducer
 	OpenBlackBlock bool
+	LedgerGcRetain uint64
 	GenesisFile    string
 }

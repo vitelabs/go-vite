@@ -252,9 +252,9 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	addr1, _ = types.BytesToAddress(helper.HexToBytes("6c1032417f80329f3abe0a024fa3a7aa0e952b0f"))
 	privKey, _ = ed25519.HexToPrivateKey("44e9768b7d8320a282e75337df8fc1f12a4f000b9f9906ddb886c6823bb599addfda7318e7824d25aae3c749c1cbd4e72ce9401653c66479554a05a2e3cb4f88")
 	db = NewNoDatabase()
-	db.storageMap[abi.AddressMintage] = make(map[string][]byte)
+	db.storageMap[types.AddressMintage] = make(map[string][]byte)
 	viteTokenIdLoc, _ := types.BytesToHash(helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), 32))
-	db.storageMap[abi.AddressMintage][string(viteTokenIdLoc.Bytes())], _ = abi.ABIMintage.PackVariable(abi.VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), uint64(0))
+	db.storageMap[types.AddressMintage][string(viteTokenIdLoc.Bytes())], _ = abi.ABIMintage.PackVariable(abi.VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), uint64(0))
 
 	timestamp = 1536214502
 	t1 := time.Unix(timestamp-1, 0)
@@ -294,7 +294,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	db.balanceMap[addr1] = make(map[types.TokenTypeId]*big.Int)
 	db.balanceMap[addr1][ledger.ViteTokenId] = new(big.Int).Set(viteTotalSupply)
 
-	db.storageMap[abi.AddressConsensusGroup] = make(map[string][]byte)
+	db.storageMap[types.AddressConsensusGroup] = make(map[string][]byte)
 	consensusGroupKey, _ := types.BytesToHash(abi.GetConsensusGroupKey(types.SNAPSHOT_GID))
 	consensusGroupData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
 		uint8(25),
@@ -310,7 +310,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		addr1,
 		big.NewInt(0),
 		uint64(1))
-	db.storageMap[abi.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
+	db.storageMap[types.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
 	consensusGroupKey, _ = types.BytesToHash(abi.GetConsensusGroupKey(types.DELEGATE_GID))
 	consensusGroupData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
 		uint8(25),
@@ -326,12 +326,12 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		addr1,
 		big.NewInt(0),
 		uint64(1))
-	db.storageMap[abi.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
-	db.storageMap[abi.AddressPledge] = make(map[string][]byte)
-	db.storageMap[abi.AddressPledge][string(abi.GetPledgeBeneficialKey(addr1))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.storageMap[types.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
+	db.storageMap[types.AddressPledge] = make(map[string][]byte)
+	db.storageMap[types.AddressPledge][string(abi.GetPledgeBeneficialKey(addr1))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 
-	db.storageMap[abi.AddressRegister] = make(map[string][]byte)
-	db.storageMap[abi.AddressRegister][string(abi.GetRegisterKey("s1", types.SNAPSHOT_GID))], _ = abi.ABIRegister.PackVariable(abi.VariableNameRegistration, "s1", addr1, addr1, helper.Big0, uint64(1), uint64(1), uint64(0), []types.Address{addr1})
-	db.storageMap[abi.AddressRegister][string(abi.GetRegisterKey("s2", types.SNAPSHOT_GID))], _ = abi.ABIRegister.PackVariable(abi.VariableNameRegistration, "s2", addr1, addr1, helper.Big0, uint64(1), uint64(1), uint64(0), []types.Address{addr1})
+	db.storageMap[types.AddressRegister] = make(map[string][]byte)
+	db.storageMap[types.AddressRegister][string(abi.GetRegisterKey("s1", types.SNAPSHOT_GID))], _ = abi.ABIRegister.PackVariable(abi.VariableNameRegistration, "s1", addr1, addr1, helper.Big0, uint64(1), uint64(1), uint64(0), []types.Address{addr1})
+	db.storageMap[types.AddressRegister][string(abi.GetRegisterKey("s2", types.SNAPSHOT_GID))], _ = abi.ABIRegister.PackVariable(abi.VariableNameRegistration, "s2", addr1, addr1, helper.Big0, uint64(1), uint64(1), uint64(0), []types.Address{addr1})
 	return
 }

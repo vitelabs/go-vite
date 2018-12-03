@@ -64,14 +64,16 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
 
-	fromBlock, err := v.chain.GetLatestAccountBlock(&abi.AddressMintage)
+	fromBlock, err := v.chain.GetLatestAccountBlock(&types.AddressMintage)
 	if err != nil {
 		t.Error("GetLatestAccountBlock", err)
 		return
 	}
-	fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(v.chain, &fromBlock.ToAddress, &fromBlock.SnapshotHash)
+	var referredSnapshotHashList []types.Hash
+	referredSnapshotHashList = append(referredSnapshotHashList, fromBlock.SnapshotHash)
+	_, fitestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(v.chain, &fromBlock.ToAddress, referredSnapshotHashList, true)
 	if err != nil {
-		t.Error("GetFitestGeneratorSnapshotHash", err)
+		t.Error("GetFittestGeneratorSnapshotHash", err)
 		return
 	}
 	gen, err := NewGenerator(v.chain, fitestSnapshotBlockHash, nil, &fromBlock.ToAddress)
@@ -131,13 +133,13 @@ func createRPCBlockCallPledgeContarct(vite *VitePrepared, addr *types.Address) e
 	im := &IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: ledger.GenesisAccountAddress,
-		ToAddress:      &abi.AddressPledge,
+		ToAddress:      &types.AddressPledge,
 		Amount:         pledgeAmount,
 		TokenId:        &ledger.ViteTokenId,
 		Data:           pledgeData,
 	}
 
-	fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil)
+	_, fitestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
 	if err != nil {
 		return err
 	}
@@ -182,7 +184,7 @@ func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address, fromAddrP
 		Difficulty:     difficulty,
 	}
 
-	fitestSnapshotBlockHash, err := GetFitestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil)
+	_, fitestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
 	if err != nil {
 		return err
 	}

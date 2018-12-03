@@ -32,6 +32,7 @@ type Producer interface {
 	Init() error
 	Start() error
 	Stop() error
+	GetCoinBase() types.Address
 }
 
 // Backend wraps all methods required for mining.
@@ -206,4 +207,8 @@ func (self *producer) producerContract(e consensus.Event) {
 
 func (self *producer) SetAccountEventFunc(accountFn func(producerevent.AccountEvent)) {
 	self.accountFn = accountFn
+}
+
+func (self *producer) GetCoinBase() types.Address {
+	return self.coinbase.Address
 }
