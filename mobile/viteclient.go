@@ -56,8 +56,8 @@ func (vc *Client) GetLatestBlock(addr *Address) (string, error) {
 	return vc.normalCall("ledger_getLatestBlock", addr.address)
 }
 
-func (vc *Client) GetFittestSnapshotHash() (string, error) {
-	return vc.normalCall("ledger_getFittestSnapshotHash")
+func (vc *Client) GetFittestSnapshotHash(accAddr *Address, sendBlockHash string) (string, error) {
+	return vc.normalCall("ledger_getFittestSnapshotHash", accAddr.address, sendBlockHash)
 }
 
 func (vc *Client) GetPowNonce(difficulty string, data string) (string, error) {
