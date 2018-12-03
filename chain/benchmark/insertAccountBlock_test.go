@@ -8,7 +8,8 @@ import (
 )
 
 func Benchmark_InsertAccountBlock(b *testing.B) {
-	chainInstance := newChainInstance("insertAccountBlock", true)
+	//chainInstance := newChainInstance("insertAccountBlock", true)
+	chainInstance := newRocketChainInstance("insertAccountBlock", true)
 	const (
 		ACCOUNT_NUMS        = 100000
 		ACCOUNT_BLOCK_LIMIT = 1000 * 10000
@@ -16,7 +17,7 @@ func Benchmark_InsertAccountBlock(b *testing.B) {
 		PRINT_PER_COUNT               = 100000
 		CREATE_REQUEST_TX_PROBABILITY = 50
 
-		LOOP_INSERT_SNAPSHOTBLOCK = true
+		LOOP_INSERT_SNAPSHOTBLOCK = false
 
 		INSERT_SNAPSHOTBLOCK_INTERVAL = time.Millisecond * 1000
 

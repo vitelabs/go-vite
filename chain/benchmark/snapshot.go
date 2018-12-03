@@ -2,7 +2,6 @@ package chain_benchmark
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"time"
@@ -12,7 +11,7 @@ type snapshotOptions struct {
 	mockTrie bool
 }
 
-func createSnapshotBlock(chainInstance chain.Chain, options *snapshotOptions) *ledger.SnapshotBlock {
+func createSnapshotBlock(chainInstance Chain, options *snapshotOptions) *ledger.SnapshotBlock {
 	latestBlock := chainInstance.GetLatestSnapshotBlock()
 	now := time.Now()
 	snapshotBlock := &ledger.SnapshotBlock{
@@ -37,7 +36,7 @@ func createSnapshotBlock(chainInstance chain.Chain, options *snapshotOptions) *l
 	return snapshotBlock
 }
 
-func loopInsertSnapshotBlock(chainInstance chain.Chain, interval time.Duration) chan struct{} {
+func loopInsertSnapshotBlock(chainInstance Chain, interval time.Duration) chan struct{} {
 	terminal := make(chan struct{})
 	ticker := time.NewTicker(interval)
 

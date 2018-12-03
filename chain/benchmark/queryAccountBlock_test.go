@@ -236,3 +236,83 @@ func Benchmark_GetLatestAccountBlock(b *testing.B) {
 	tps.Stop()
 	tps.Print()
 }
+
+func Benchmark_AccountType(b *testing.B) {
+	chainInstance := newChainInstance("insertAccountBlock", false)
+
+	const (
+		MAX_ADDR_LIST   = 1000
+		QUERY_NUM_LIMIT = 10000 * 10000
+		PRINT_PER_COUNT = 1 * 10000
+	)
+	var addrList []types.Address
+	fmt.Printf("prepare address list...\n")
+	allLatestBlock, _ := chainInstance.GetAllLatestAccountBlock()
+	for index, latestBlock := range allLatestBlock {
+		if index >= MAX_ADDR_LIST {
+			break
+		}
+
+		addrList = append(addrList, latestBlock.AccountAddress)
+	}
+	addrListLength := len(addrList)
+	fmt.Printf("address list length is %d...\n", len(addrList))
+
+	tps := newTps(tpsOption{
+		name:          "AccountType",
+		printPerCount: PRINT_PER_COUNT,
+	})
+
+	tps.Start()
+	for i := 0; i < QUERY_NUM_LIMIT; i++ {
+		addr := addrList[rand.Intn(addrListLength)]
+		_, err := chainInstance.AccountType(&addr)
+		if err != nil {
+			b.Fatal(err)
+		}
+		tps.doOne()
+	}
+
+	tps.Stop()
+	tps.Print()
+}
+
+func Benchmark_GetAccount(b *testing.B) {
+	chainInstance := newChainInstance("insertAccountBlock", false)
+
+	const (
+		MAX_ADDR_LIST   = 1000
+		QUERY_NUM_LIMIT = 10000 * 10000
+		PRINT_PER_COUNT = 1 * 10000
+	)
+	var addrList []types.Address
+	fmt.Printf("prepare address list...\n")
+	allLatestBlock, _ := chainInstance.GetAllLatestAccountBlock()
+	for index, latestBlock := range allLatestBlock {
+		if index >= MAX_ADDR_LIST {
+			break
+		}
+
+		addrList = append(addrList, latestBlock.AccountAddress)
+	}
+	addrListLength := len(addrList)
+	fmt.Printf("address list length is %d...\n", len(addrList))
+
+	tps := newTps(tpsOption{
+		name:          "GetAccount",
+		printPerCount: PRINT_PER_COUNT,
+	})
+
+	tps.Start()
+	for i := 0; i < QUERY_NUM_LIMIT; i++ {
+		addr := addrList[rand.Intn(addrListLength)]
+		_, err := chainInstance.GetAccount(&addr)
+		if err != nil {
+			b.Fatal(err)
+		}
+		tps.doOne()
+	}
+
+	tps.Stop()
+	tps.Print()
+}

@@ -1,7 +1,6 @@
 package chain_benchmark
 
 import (
-	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
@@ -22,7 +21,7 @@ type account struct {
 
 	unreceivedLock sync.Mutex
 
-	chainInstance chain.Chain
+	chainInstance Chain
 }
 
 type createTxOptions struct {
@@ -152,7 +151,7 @@ func (acc *account) createResponseTx(options *createTxOptions) []*vm_context.VmA
 	}}
 }
 
-func makeAccounts(num uint64, chainInstance chain.Chain) []*account {
+func makeAccounts(num uint64, chainInstance Chain) []*account {
 	accountList := make([]*account, num)
 	for i := uint64(0); i < num; i++ {
 		addr, privateKey, _ := types.CreateAddress()
