@@ -465,6 +465,7 @@ type InstructionTestCase struct {
 	QuotaRefund uint64
 	Err         string
 	Storage     map[string]string
+	PreStorage  map[string]string
 }
 
 func TestInstructions(t *testing.T) {
@@ -514,6 +515,13 @@ func TestInstructions(t *testing.T) {
 				SnapshotHash:   sb.Hash,
 			}
 			db := NewMemoryDatabase(testCase.ToAddress, &sb)
+			if len(testCase.PreStorage) > 0 {
+				for k, v := range testCase.PreStorage {
+					kByte, _ := hex.DecodeString(k)
+					vByte, _ := hex.DecodeString(v)
+					db.SetStorage(kByte, vByte)
+				}
+			}
 			c := newContract(
 				&vm_context.VmAccountBlock{receiveCallBlock, db},
 				&sendCallBlock,

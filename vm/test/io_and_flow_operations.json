@@ -1,0 +1,2444 @@
+{
+  "bad_indirect_jump1": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "601b602502565b",
+    "returnData": "",
+    "quotaTotal": 100000000000,
+    "quotaLeft": 100000000000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "bad_indirect_jump2": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60016003600302576000600056",
+    "returnData": "",
+    "quotaTotal": 100000000000,
+    "quotaLeft": 100000000000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "BlockNumberDynamicJump0_AfterJumpdest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6023600843015660015b600255",
+    "returnData": "",
+    "quotaTotal": 100000000000,
+    "quotaLeft": 100000000000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "BlockNumberDynamicJump0_AfterJumpdest3": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6023600b60085043015660015b600255",
+    "returnData": "",
+    "quotaTotal": 100000000000,
+    "quotaLeft": 100000000000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "BlockNumberDynamicJump0_foreverOutOfGas": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "5b600060000156",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "err": "out of quota",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "BlockNumberDynamicJump0_jumpdest0": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6023600743015660015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79977,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000002": "23"
+    }
+  },
+  "BlockNumberDynamicJump0_jumpdest2": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6023600a60085043015660015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79972,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000002": "23"
+    }
+  },
+  "BlockNumberDynamicJump0_withoutJumpdest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "602360074301566001600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "BlockNumberDynamicJump1": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "620fffff620fffff01430156",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "BlockNumberDynamicJumpi0": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6023600160094301576001600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "BlockNumberDynamicJumpi1": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6023600060094301576001600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79970,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000002": "01"
+    }
+  },
+  "BlockNumberDynamicJumpi1_jumpdest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60236001600a43015760015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "BlockNumberDynamicJumpiAfterStop": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "600160084301570060015b6002600355",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79972,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "02"
+    }
+  },
+  "BlockNumberDynamicJumpifInsidePushWithJumpDest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60016006430157655b6001600155",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "BlockNumberDynamicJumpifInsidePushWithoutJumpDest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6001600743015761eeff",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "BlockNumberDynamicJumpInsidePushWithJumpDest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6004430156655b6001600155",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "BlockNumberDynamicJumpInsidePushWithoutJumpDest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "600543015661eeff",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "BlockNumberDynamicJumpiOutsideBoundary": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60017ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff04301576002600355",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "byte1": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "7f112233445566778899001122334455667788990011223344556677889900aabb60001a6000557f112233445566778899001122334455667788990011223344556677889900aabb60011a6001557f112233445566778899001122334455667788990011223344556677889900aabb60021a6002557f112233445566778899001122334455667788990011223344556677889900aabb60031a6003557f112233445566778899001122334455667788990011223344556677889900aabb60041a6004557f112233445566778899001122334455667788990011223344556677889900aabb60051a6005557f112233445566778899001122334455667788990011223344556677889900aabb60061a6006557f112233445566778899001122334455667788990011223344556677889900aabb60071a6007557f112233445566778899001122334455667788990011223344556677889900aabb60081a6008557f112233445566778899001122334455667788990011223344556677889900aabb60091a6009557f112233445566778899001122334455667788990011223344556677889900aabb600a1a600a557f112233445566778899001122334455667788990011223344556677889900aabb600b1a600b557f112233445566778899001122334455667788990011223344556677889900aabb600c1a600c557f112233445566778899001122334455667788990011223344556677889900aabb600d1a600d557f112233445566778899001122334455667788990011223344556677889900aabb600e1a600e557f112233445566778899001122334455667788990011223344556677889900aabb600f1a600f557f112233445566778899001122334455667788990011223344556677889900aabb60101a6010557f112233445566778899001122334455667788990011223344556677889900aabb60111a6011557f112233445566778899001122334455667788990011223344556677889900aabb60121a6012557f112233445566778899001122334455667788990011223344556677889900aabb60131a6013557f112233445566778899001122334455667788990011223344556677889900aabb60141a6014557f112233445566778899001122334455667788990011223344556677889900aabb60151a6015557f112233445566778899001122334455667788990011223344556677889900aabb60161a6016557f112233445566778899001122334455667788990011223344556677889900aabb60171a6017557f112233445566778899001122334455667788990011223344556677889900aabb60181a6018557f112233445566778899001122334455667788990011223344556677889900aabb60191a6019557f112233445566778899001122334455667788990011223344556677889900aabb601a1a601a557f112233445566778899001122334455667788990011223344556677889900aabb601b1a601b557f112233445566778899001122334455667788990011223344556677889900aabb601c1a601c557f112233445566778899001122334455667788990011223344556677889900aabb601d1a601d557f112233445566778899001122334455667788990011223344556677889900aabb601e1a601e557f112233445566778899001122334455667788990011223344556677889900aabb601f1a601f557f112233445566778899001122334455667788990011223344556677889900aabb60201a6020557f112233445566778899001122334455667788990011223344556677889900aabb6107de1a6107de55",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 394592,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "11",
+      "0000000000000000000000000000000000000000000000000000000000000001": "22",
+      "0000000000000000000000000000000000000000000000000000000000000002": "33",
+      "0000000000000000000000000000000000000000000000000000000000000003": "44",
+      "0000000000000000000000000000000000000000000000000000000000000004": "55",
+      "0000000000000000000000000000000000000000000000000000000000000005": "66",
+      "0000000000000000000000000000000000000000000000000000000000000006": "77",
+      "0000000000000000000000000000000000000000000000000000000000000007": "88",
+      "0000000000000000000000000000000000000000000000000000000000000008": "99",
+      "000000000000000000000000000000000000000000000000000000000000000a": "11",
+      "000000000000000000000000000000000000000000000000000000000000000b": "22",
+      "000000000000000000000000000000000000000000000000000000000000000c": "33",
+      "000000000000000000000000000000000000000000000000000000000000000d": "44",
+      "000000000000000000000000000000000000000000000000000000000000000e": "55",
+      "000000000000000000000000000000000000000000000000000000000000000f": "66",
+      "0000000000000000000000000000000000000000000000000000000000000010": "77",
+      "0000000000000000000000000000000000000000000000000000000000000011": "88",
+      "0000000000000000000000000000000000000000000000000000000000000012": "99",
+      "0000000000000000000000000000000000000000000000000000000000000014": "11",
+      "0000000000000000000000000000000000000000000000000000000000000015": "22",
+      "0000000000000000000000000000000000000000000000000000000000000016": "33",
+      "0000000000000000000000000000000000000000000000000000000000000017": "44",
+      "0000000000000000000000000000000000000000000000000000000000000018": "55",
+      "0000000000000000000000000000000000000000000000000000000000000019": "66",
+      "000000000000000000000000000000000000000000000000000000000000001a": "77",
+      "000000000000000000000000000000000000000000000000000000000000001b": "88",
+      "000000000000000000000000000000000000000000000000000000000000001c": "99",
+      "000000000000000000000000000000000000000000000000000000000000001e": "aa",
+      "000000000000000000000000000000000000000000000000000000000000001f": "bb"
+    }
+  },
+  "calldatacopyMemExp": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60ff60ff630fffffff630fffffff37",
+    "returnData": "",
+    "quotaTotal": 100000000,
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "err": "out of quota",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "codecopyMemExp": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60ff60ff630fffffff630fffffff39",
+    "returnData": "",
+    "quotaTotal": 100000000,
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "err": "out of quota",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "deadCode_1": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6001600053596000f300000000000000005b00",
+    "returnData": "0100000000000000000000000000000000000000000000000000000000000000",
+    "quotaTotal": 100000,
+    "quotaLeft": 99983,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "dupAt51becameMload": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "600260035155",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79985,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "02"
+    }
+  },
+  "DyanmicJump0_outOfBoundary": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6023600760005401566001600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "DynamicJump0_AfterJumpdest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "602360086003015660015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "DynamicJump0_AfterJumpdest3": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6023600b6008506003015660015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "DynamicJump0_foreverOutOfGas": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "5b600060000156",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "out of quota",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "DynamicJump0_jumpdest0": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "602360076003015660015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79976,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000002": "23"
+    }
+  },
+  "DynamicJump0_jumpdest2": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6023600a6008506003015660015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79971,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000002": "23"
+    }
+  },
+  "DynamicJump0_withoutJumpdest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60236007600301566001600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "DynamicJump1": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "620fffff620fffff0160030156",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "DynamicJump_value1": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "08",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60016002600334565b5050600052596000f35b50600052596000f35b600052596000f3",
+    "returnData": "0000000000000000000000000000000000000000000000000000000000000001",
+    "quotaTotal": 100000,
+    "quotaLeft": 99962,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "08"
+    }
+  },
+  "DynamicJump_value2": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "12",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60016002600334565b5050600052596000f35b50600052596000f35b600052596000f3",
+    "returnData": "0000000000000000000000000000000000000000000000000000000000000002",
+    "quotaTotal": 100000,
+    "quotaLeft": 99964,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "12"
+    }
+  },
+  "DynamicJump_value3": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60016002600334565b5050600052596000f35b50600052596000f35b600052596000f3",
+    "returnData": "0000000000000000000000000000000000000000000000000000000000000003",
+    "quotaTotal": 100000,
+    "quotaLeft": 99966,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJump_valueUnderflow": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60016002600334565b5050600052596000f35b50600052596000f35b505050600052596000f3",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "MSTORE stack underflow",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJumpAfterStop": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6008600101560060015b6002600355",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79976,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b",
+      "0000000000000000000000000000000000000000000000000000000000000003": "02"
+    }
+  },
+  "DynamicJumpi0": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "602360016009600301576001600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJumpi1": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "602360006009600301576001600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79969,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b",
+      "0000000000000000000000000000000000000000000000000000000000000002": "01"
+    }
+  },
+  "DynamicJumpi1_jumpdest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60236001600a6003015760015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJumpiAfterStop": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60016008600301570060015b6002600355",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79971,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b",
+      "0000000000000000000000000000000000000000000000000000000000000003": "02"
+    }
+  },
+  "DynamicJumpifInsidePushWithJumpDest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6001600660030157655b6001600155",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJumpifInsidePushWithoutJumpDest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "600160076003015761eeff",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJumpInsidePushWithJumpDest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "600460030156655b6001600155",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJumpInsidePushWithoutJumpDest": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60056003015661eeff",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJumpiOutsideBoundary": {
+    "sBHeight": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60017ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0600301576002600355",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJumpJD_DependsOnJumps0": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6009436006575b566001",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJumpJD_DependsOnJumps1": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "600a436006575b5660015b6001600155",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79966,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b",
+      "0000000000000000000000000000000000000000000000000000000000000001": "01"
+    }
+  },
+  "DynamicJumpPathologicalTest0": {
+    "sBHeight": 4,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "435660615b4343025660615b60615b5b5b6001600155",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79965,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b",
+      "0000000000000000000000000000000000000000000000000000000000000001": "01"
+    }
+  },
+  "DynamicJumpPathologicalTest1": {
+    "sBHeight": 4,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "435660615b4343025660615b60615b605b6001600155",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJumpPathologicalTest2": {
+    "sBHeight": 4,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "435631615b60615b60615b606001600155",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJumpPathologicalTest3": {
+    "sBHeight": 7,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "435631615b60615b60615b606001600155",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "DynamicJumpStartWithJumpDest": {
+    "sBHeight": 7,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "5b586000555960115758600052596000575b58600055",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 69926,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b",
+      "0000000000000000000000000000000000000000000000000000000000000000": "12"
+    }
+  },
+  "for_loop1": {
+    "sBHeight": 7,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "600a6080525b6000608051111560265760a0516080510160a0526001608051036080526005565b",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 99153,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "for_loop2": {
+    "sBHeight": 7,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60006080525b600a608051101560265760a0516080510160a0526001608051016080526005565b",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 99153,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "gasOverFlow": {
+    "sBHeight": 7,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "1b",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60035b600190038060025768010000000000000016565b63badf000d60115500",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
+    }
+  },
+  "indirect_jump1": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "600460030156005b6001600052596000f3",
+    "returnData": "0000000000000000000000000000000000000000000000000000000000000001",
+    "quotaTotal": 100000,
+    "quotaLeft": 99965,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "indirect_jump2": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "600860060156005b6001600052005b6002600052596000f3",
+    "returnData": "0000000000000000000000000000000000000000000000000000000000000002",
+    "quotaTotal": 100000,
+    "quotaLeft": 99965,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "indirect_jump3": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6001600460050157005b6001600052596000f3",
+    "returnData": "0000000000000000000000000000000000000000000000000000000000000001",
+    "quotaTotal": 100000,
+    "quotaLeft": 99960,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "indirect_jump4": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60006007600501576001600052005b",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 99966,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "JDfromStorageDynamicJump0_AfterJumpdest": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60236008600054015660015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJump0_AfterJumpdest3": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6023600b600850600054015660015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJump0_foreverOutOfGas": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "5b600060000156",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJump0_jumpdest0": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60236007600054015660015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79776,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "04",
+      "0000000000000000000000000000000000000000000000000000000000000002": "23"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJump0_jumpdest2": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6023600a600850600054015660015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79771,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "04",
+      "0000000000000000000000000000000000000000000000000000000000000002": "23"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJump0_withoutJumpdest": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6023600760005401566001600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJump1": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "620fffff620fffff016000540156",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJumpi0": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60236001600960005401576001600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJumpi1": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60236000600960005401576001600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79769,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "04",
+      "0000000000000000000000000000000000000000000000000000000000000002": "01"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJumpi1_jumpdest": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60236001600a600054015760015b600255",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJumpiAfterStop": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6001600860005401570060015b6002600355",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 79771,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "04",
+      "0000000000000000000000000000000000000000000000000000000000000003": "02"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJumpifInsidePushWithJumpDest": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "600160066000540157655b6001600155",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJumpifInsidePushWithoutJumpDest": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60016007600054015761eeff",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJumpInsidePushWithJumpDest": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60046000540156655b6001600155",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJumpInsidePushWithoutJumpDest": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6005600054015661eeff",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "JDfromStorageDynamicJumpiOutsideBoundary": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60017ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff060005401576002600355",
+    "returnData": "",
+    "quotaTotal": 100000,
+    "quotaLeft": 100000,
+    "quotaRefund": 0,
+    "err": "invalid jump destination",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "preStorage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "04"
+    }
+  },
+  "jumpAfterStop": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6006560060015b6002600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79982,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "02"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jump0_jumpdest0": {
+    "amount": "0de0b6b3a7640000",
+    "code": "602360075660015b600255",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79982,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000002": "23"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "sstore_load_1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60ff60005560ee600a55606454601455",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 54782,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "000000000000000000000000000000000000000000000000000000000000000a": "ee",
+      "0000000000000000000000000000000000000000000000000000000000000000": "ff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "loop_stacklimit_1020": {
+    "amount": "03fc",
+    "code": "6000345b60019003906001018180600357600052600152600059f3",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 61212,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "03fc"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "msize0": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60ff60005259600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79983,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "20"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpiToUintmaxPlus1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6001640100000009575b5b6001600155",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mstore8WordToBigError": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600153600151600155",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79976,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000001": "ff00000000000000000000000000000000000000000000000000000000000000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpInsidePushWithJumpDest": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600456655b6001600155",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "return1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6001620f4240f3",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mloadMemExp": {
+    "amount": "0de0b6b3a7640000",
+    "code": "630fffffff51",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 8390000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpInsidePushWithoutJumpDest": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60055661eeff",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpOntoJump": {
+    "amount": "0de0b6b3a7640000",
+    "code": "565b600056",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "msize1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "64ffffffffff60005259600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79983,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "20"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpHigh": {
+    "amount": "0de0b6b3a7640000",
+    "code": "630fffffff565b5b6001600155",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "loop_stacklimit_1021": {
+    "amount": "03fd",
+    "code": "6000345b60019003906001018180600357600052600152600059f3",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "03fd"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "sstore_load_0": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60ff60005560ee600a55600054601455",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 39782,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000014": "ff",
+      "000000000000000000000000000000000000000000000000000000000000000a": "ee",
+      "0000000000000000000000000000000000000000000000000000000000000000": "ff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpTo1InstructionafterJump_noJumpDest": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6003566001600055",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 10000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mstore0": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600152600151600155",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79976,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000001": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpifInsidePushWithJumpDest": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6001600657655b6001600155",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jump0_withoutJumpdest": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60236007566001600255",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpToUint64maxPlus1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6801000000000000000b565b5b6001600155",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpi1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "602360006009576001600255",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79975,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000002": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mloadOutOfGasError2": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6272482551600155",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mloadError0": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600051600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 94988,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mloadError1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6017600152600051600155",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 94976,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpToUintmaxPlus1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "640100000007565b5b6001600155",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpi0": {
+    "amount": "0de0b6b3a7640000",
+    "code": "602360016009576001600255",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpTo1InstructionafterJump_jumpdestFirstInstruction": {
+    "amount": "0de0b6b3a7640000",
+    "code": "5b6003565b6001600055",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 10000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpifInsidePushWithoutJumpDest": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600160075761eeff",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mstore1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600201600152600151600155",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79970,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000001": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jump0_AfterJumpdest3": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6023600b6008505660015b600255",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swapAt52becameMstore": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600260035255",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mstore8_0": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600153600151600155",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79976,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000001": "ff00000000000000000000000000000000000000000000000000000000000000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jump0_AfterJumpdest": {
+    "amount": "0de0b6b3a7640000",
+    "code": "602360085660015b600255",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jump1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "620fffff620fffff0156",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "memory1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600260005360036001536000516001510160025260406000f3",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99949,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "returnData": "02030503000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jump0_foreverOutOfGas": {
+    "amount": "0de0b6b3a7640000",
+    "code": "5b600056",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jump0_outOfBoundary": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60236007566001600255",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "kv1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "33604555602d80600f6000396000f3604554331415602c575b366080511015602b576020608051013560805135556040608051016080526009565b5b",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79965,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "returnData": "604554331415602c575b366080511015602b576020608051013560805135556040608051016080526009565b5b",
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000045": "ab24ef68b84e642c0ddca06beec81c9acb1977bb"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpdestBigList": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6009565b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99999905,
+    "quotaRefund": 0,
+    "quotaTotal": 100000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "stackjump1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6004600660096014565b600a03600052596000f35b60005201600956",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99938,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "returnData": "0000000000000000000000000000000000000000000000000000000000000000",
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpTo1InstructionafterJump": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6003565b6001600055",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 10000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpi1_jumpdest": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60236001600a5760015b600255",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mstore8_1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60ff60015360ee600253600051600155",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79970,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000001": "ffee0000000000000000000000000000000000000000000000000000000000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpDynamicJumpSameDest": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6002600401565b600360005260206000f3600656",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99964,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "returnData": "0000000000000000000000000000000000000000000000000000000000000003",
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "pop1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "5060026003600455",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "msize2": {
+    "amount": "0de0b6b3a7640000",
+    "code": "64ffffffffff60005261eeee60205259600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79971,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "40"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mstoreWordToBigError": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600152600151600155",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79976,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000001": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpiToUint64maxPlus1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60016801000000000000000d575b5b6001600155",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "stack_loop": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60015b6001810380600257600053600153600253600353600453600553600653600753600853600953596000f3",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jump0_jumpdest2": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6023600a6008505660015b600255",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79977,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000002": "23"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "sstore_underflow": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600155",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "return2": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6001608052600060805111601b57600160005260206000f3602b565b602760005260206000f360026080525b",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99935,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "returnData": "0000000000000000000000000000000000000000000000000000000000000027",
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpiOutsideBoundary": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff576002600355",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mstore8MemExp": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60f1630fffffff53",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 8390000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpi_at_the_end": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600a6000525b6000516001900380600052600557",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 608,
+    "quotaRefund": 0,
+    "quotaTotal": 1000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "pc0": {
+    "amount": "0de0b6b3a7640000",
+    "code": "58600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 94995,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "when": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600060011115600e57600d6080525b",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99950,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "pc1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60ff60005558600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 74989,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "05"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "jumpiAfterStop": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60016008570060015b6002600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79977,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "02"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mstore_mload0": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6017600052600051600155",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79979,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000001": "17"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "sstore_load_2": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60ff60005560ee60015560dd600255600154600a55600254601455",
+    "err": "err",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "msize3": {
+    "amount": "0de0b6b3a7640000",
+    "code": "64ffffffffff60005261eeee605a5259600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79965,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "80"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "pop0": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6002600360045055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79989,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "02"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "log1MemExp": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60ff60ff630fffffffa1",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaRefund": 0,
+    "quotaTotal": 8390000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "err":"err",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "mstoreMemExp": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60f1630fffffff52",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaRefund": 0,
+    "quotaTotal": 8390000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "err":"err",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "sha3MemExp": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60ff630fffffff20",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaRefund": 0,
+    "quotaTotal": 8390000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "err":"err",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  }
+}
