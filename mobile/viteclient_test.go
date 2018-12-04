@@ -1,15 +1,14 @@
 package mobile_test
 
 import (
-	"encoding/base64"
 	"fmt"
 	"github.com/vitelabs/go-vite/mobile"
 	"testing"
 )
 
-func TestDial(t *testing.T) {
-	client, _ := mobile.Dial("http://127.0.0.1:48132")
-	a, _ := mobile.NewAddressFromString("vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122")
+func TestGetBlocksByAccAddr(t *testing.T) {
+	client, _ := mobile.Dial("https://testnet.vitewallet.com/ios")
+	a, _ := mobile.NewAddressFromString("vite_328aecc858abe80f4d9530cfdf15536082e51f4ef8cb870f33")
 	s, err := client.GetBlocksByAccAddr(a, 0, 20)
 	if err != nil {
 		fmt.Println(err)
@@ -17,5 +16,16 @@ func TestDial(t *testing.T) {
 		fmt.Println(s)
 	}
 
-	fmt.Println(base64.StdEncoding.EncodeToString([]byte("123")))
+}
+
+func TestGetAccountByAccAddr(t *testing.T) {
+	client, _ := mobile.Dial("https://testnet.vitewallet.com/ios")
+	a, _ := mobile.NewAddressFromString("vite_328aecc858abe80f4d9530cfdf15536082e51f4ef8cb870f33")
+	s, err := client.GetAccountByAccAddr(a)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(s)
+	}
+
 }

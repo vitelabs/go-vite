@@ -78,7 +78,7 @@ func (vc *Client) SendRawTx(accBlock string) (string, error) {
 
 func (vc *Client) normalCall(method string, args ...interface{}) (string, error) {
 	info := json.RawMessage{}
-	err := vc.c.Call(&info, method, args)
+	err := vc.c.Call(&info, method, args...)
 	if err != nil {
 		return "", makeJsonError(err)
 	}

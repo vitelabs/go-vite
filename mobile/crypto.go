@@ -20,6 +20,12 @@ type Ed25519KeyPair struct {
 	PrivateKey []byte
 }
 
+type SignDataResult struct {
+	PublicKey []byte
+	Message   []byte
+	Signature []byte
+}
+
 func GenerateEd25519KeyPair(seed []byte) (p *Ed25519KeyPair, _ error) {
 	var s [32]byte
 	copy(s[:], seed[:])
@@ -33,8 +39,15 @@ func GenerateEd25519KeyPair(seed []byte) (p *Ed25519KeyPair, _ error) {
 	}, nil
 }
 
-func SignData(priv []byte, message []byte) []byte {
-	return ed25519.Sign(priv, message)
+func SignData(priv []byte, message []byte) *SignDataResult {
+	var a ed25519.PrivateKey = priv
+	signature := ed25519.Sign(a, message)
+
+	return &SignDataResult{
+		PublicKey: a.PubByte(),
+		Message:   message,
+		Signature: signature,
+	}
 }
 
 func VerifySignature(pub, message, signData []byte) (bool, error) {
