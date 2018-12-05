@@ -651,7 +651,7 @@ func opDelegateCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stac
 }
 
 func opCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	toAddrBig, amount, tokenIdBig, inOffset, inSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
+	toAddrBig, tokenIdBig, amount, inOffset, inSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
 	toAddress, _ := types.BigToAddress(toAddrBig)
 	tokenId, _ := types.BigToTokenTypeId(tokenIdBig)
 	data := memory.get(inOffset.Int64(), inSize.Int64())

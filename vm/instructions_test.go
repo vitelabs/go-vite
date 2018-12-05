@@ -1,17 +1,10 @@
 package vm
 
 import (
-	"bytes"
 	"encoding/hex"
-	"encoding/json"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_context"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"testing"
-	"time"
 )
 
 type twoOperandTest struct {
@@ -446,124 +439,4 @@ func BenchmarkOpMstore(bench *testing.B) {
 		opMstore(&pc, vm, c, mem, stack)
 	}
 	poolOfIntPools.put(c.intPool)
-}
-
-type InstructionTestCaseMap map[string]InstructionTestCase
-
-type InstructionTestCase struct {
-	SBHeight    uint64
-	SBTime      int64
-	FromAddress types.Address
-	ToAddress   types.Address
-	InputData   string
-	Amount      string
-	TokenId     types.TokenTypeId
-	Code        string
-	ReturnData  string
-	QuotaTotal  uint64
-	QuotaLeft   uint64
-	QuotaRefund uint64
-	Err         string
-	Storage     map[string]string
-	PreStorage  map[string]string
-	LogHash     string
-}
-
-func TestInstructions(t *testing.T) {
-	testDir := "./test/"
-	testFiles, err := ioutil.ReadDir(testDir)
-	if err != nil {
-		t.Fatalf("read dir failed, %v", err)
-	}
-	for _, testFile := range testFiles {
-		file, err := os.Open(testDir + testFile.Name())
-		if err != nil {
-			t.Fatalf("open test file failed, %v", err)
-		}
-		testCaseMap := new(InstructionTestCaseMap)
-		if err := json.NewDecoder(file).Decode(testCaseMap); err != nil {
-			t.Fatalf("decode test file failed, %v", err)
-		}
-
-		for k, testCase := range *testCaseMap {
-			var sbTime time.Time
-			if testCase.SBTime > 0 {
-				sbTime = time.Unix(testCase.SBTime, 0)
-			} else {
-				sbTime = time.Now()
-			}
-			sb := ledger.SnapshotBlock{
-				Height:    testCase.SBHeight,
-				Timestamp: &sbTime,
-				Hash:      types.DataHash([]byte{1, 1}),
-			}
-			vm := NewVM()
-			//vm.Debug = true
-			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
-			inputData, _ := hex.DecodeString(testCase.InputData)
-			amount, _ := hex.DecodeString(testCase.Amount)
-			sendCallBlock := ledger.AccountBlock{
-				AccountAddress: testCase.FromAddress,
-				ToAddress:      testCase.ToAddress,
-				BlockType:      ledger.BlockTypeSendCall,
-				Data:           inputData,
-				Amount:         new(big.Int).SetBytes(amount),
-				Fee:            big.NewInt(0),
-				TokenId:        testCase.TokenId,
-				SnapshotHash:   sb.Hash,
-			}
-			receiveCallBlock := &ledger.AccountBlock{
-				AccountAddress: testCase.ToAddress,
-				BlockType:      ledger.BlockTypeReceive,
-				SnapshotHash:   sb.Hash,
-			}
-			db := NewMemoryDatabase(testCase.ToAddress, &sb)
-			if len(testCase.PreStorage) > 0 {
-				for k, v := range testCase.PreStorage {
-					kByte, _ := hex.DecodeString(k)
-					vByte, _ := hex.DecodeString(v)
-					db.SetStorage(kByte, vByte)
-				}
-			}
-			c := newContract(
-				&vm_context.VmAccountBlock{receiveCallBlock, db},
-				&sendCallBlock,
-				sendCallBlock.Data,
-				testCase.QuotaTotal,
-				0)
-			code, _ := hex.DecodeString(testCase.Code)
-			c.setCallCode(testCase.ToAddress, code)
-			db.AddBalance(&sendCallBlock.TokenId, sendCallBlock.Amount)
-			ret, err := c.run(vm)
-			// TODO debuglog
-			returnData, _ := hex.DecodeString(testCase.ReturnData)
-			if (err == nil && testCase.Err != "") || (err != nil && testCase.Err != err.Error()) {
-				t.Fatalf("%v: %v failed, err not match, expected %v, got %v", testFile.Name(), k, testCase.Err, err)
-			}
-			if err == nil {
-				if bytes.Compare(returnData, ret) != 0 {
-					t.Fatalf("%v: %v failed, return Data error, expected %v, got %v", testFile.Name(), k, returnData, ret)
-				} else if c.quotaLeft != testCase.QuotaLeft {
-					t.Fatalf("%v: %v failed, quota left error, expected %v, got %v", testFile.Name(), k, testCase.QuotaLeft, c.quotaLeft)
-				} else if c.quotaRefund != testCase.QuotaRefund {
-					t.Fatalf("%v: %v failed, quota refund error, expected %v, got %v", testFile.Name(), k, testCase.QuotaRefund, c.quotaRefund)
-				} else if !checkStorage(db, testCase.Storage) {
-					t.Fatalf("%v: %v failed, storage error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.Storage, db.PrintStorage())
-				} else if logHash := db.GetLogListHash(); (logHash == nil && len(testCase.LogHash) != 0) || (logHash != nil && logHash.String() != testCase.LogHash) {
-					t.Fatalf("%v: %v failed, log hash error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.LogHash, logHash)
-				}
-			}
-		}
-	}
-}
-func checkStorage(db *memoryDatabase, storage map[string]string) bool {
-	if len(storage) != len(db.storage) {
-		return false
-	}
-	for k, v := range db.storage {
-		if sv, ok := storage[k]; !ok || sv != hex.EncodeToString(v) {
-			return false
-		}
-	}
-	return true
 }

@@ -3,16 +3,21 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	vabi "github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -866,4 +871,170 @@ func getHash(a, b uint64) types.Hash {
 	h, _ := types.BigToHash(big.NewInt(int64(a*10000 + b)))
 	return h
 
+}
+
+type TestCaseMap map[string]TestCase
+
+type TestCaseSendBlock struct {
+	ToAddress types.Address
+	Amount    string
+	TokenId   types.TokenTypeId
+	Data      string
+}
+
+type TestCase struct {
+	SBHeight      uint64
+	SBTime        int64
+	FromAddress   types.Address
+	ToAddress     types.Address
+	InputData     string
+	Amount        string
+	TokenId       types.TokenTypeId
+	Code          string
+	ReturnData    string
+	QuotaTotal    uint64
+	QuotaLeft     uint64
+	QuotaRefund   uint64
+	Err           string
+	Storage       map[string]string
+	PreStorage    map[string]string
+	LogHash       string
+	SendBlockList []*TestCaseSendBlock
+}
+
+func TestVm(t *testing.T) {
+	testDir := "./test/"
+	testFiles, err := ioutil.ReadDir(testDir)
+	if err != nil {
+		t.Fatalf("read dir failed, %v", err)
+	}
+	for _, testFile := range testFiles {
+		file, err := os.Open(testDir + testFile.Name())
+		if err != nil {
+			t.Fatalf("open test file failed, %v", err)
+		}
+		testCaseMap := new(TestCaseMap)
+		if err := json.NewDecoder(file).Decode(testCaseMap); err != nil {
+			t.Fatalf("decode test file failed, %v", err)
+		}
+
+		for k, testCase := range *testCaseMap {
+			var sbTime time.Time
+			if testCase.SBTime > 0 {
+				sbTime = time.Unix(testCase.SBTime, 0)
+			} else {
+				sbTime = time.Now()
+			}
+			sb := ledger.SnapshotBlock{
+				Height:    testCase.SBHeight,
+				Timestamp: &sbTime,
+				Hash:      types.DataHash([]byte{1, 1}),
+			}
+			vm := NewVM()
+			//vm.Debug = true
+			if k == "transfer_balanceEven_address1" {
+				vm.Debug = true
+			}
+			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
+			inputData, _ := hex.DecodeString(testCase.InputData)
+			amount, _ := hex.DecodeString(testCase.Amount)
+			sendCallBlock := ledger.AccountBlock{
+				AccountAddress: testCase.FromAddress,
+				ToAddress:      testCase.ToAddress,
+				BlockType:      ledger.BlockTypeSendCall,
+				Data:           inputData,
+				Amount:         new(big.Int).SetBytes(amount),
+				Fee:            big.NewInt(0),
+				TokenId:        testCase.TokenId,
+				SnapshotHash:   sb.Hash,
+				Timestamp:      &sbTime,
+			}
+			receiveCallBlock := &ledger.AccountBlock{
+				AccountAddress: testCase.ToAddress,
+				BlockType:      ledger.BlockTypeReceive,
+				SnapshotHash:   sb.Hash,
+				Timestamp:      &sbTime,
+			}
+			db := NewMemoryDatabase(testCase.ToAddress, &sb)
+			if len(testCase.PreStorage) > 0 {
+				for k, v := range testCase.PreStorage {
+					kByte, _ := hex.DecodeString(k)
+					vByte, _ := hex.DecodeString(v)
+					db.SetStorage(kByte, vByte)
+				}
+			}
+			c := newContract(
+				&vm_context.VmAccountBlock{receiveCallBlock, db},
+				&sendCallBlock,
+				sendCallBlock.Data,
+				testCase.QuotaTotal,
+				0)
+			code, _ := hex.DecodeString(testCase.Code)
+			c.setCallCode(testCase.ToAddress, code)
+			db.AddBalance(&sendCallBlock.TokenId, sendCallBlock.Amount)
+			ret, err := c.run(vm)
+			// TODO debuglog
+			returnData, _ := hex.DecodeString(testCase.ReturnData)
+			if (err == nil && testCase.Err != "") || (err != nil && testCase.Err != err.Error()) {
+				t.Fatalf("%v: %v failed, err not match, expected %v, got %v", testFile.Name(), k, testCase.Err, err)
+			}
+			if err == nil || err.Error() == "execution reverted" {
+				if bytes.Compare(returnData, ret) != 0 {
+					t.Fatalf("%v: %v failed, return Data error, expected %v, got %v", testFile.Name(), k, returnData, ret)
+				} else if c.quotaLeft != testCase.QuotaLeft {
+					t.Fatalf("%v: %v failed, quota left error, expected %v, got %v", testFile.Name(), k, testCase.QuotaLeft, c.quotaLeft)
+				} else if c.quotaRefund != testCase.QuotaRefund {
+					t.Fatalf("%v: %v failed, quota refund error, expected %v, got %v", testFile.Name(), k, testCase.QuotaRefund, c.quotaRefund)
+				} else if !checkStorage(db, testCase.Storage) {
+					t.Fatalf("%v: %v failed, storage error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.Storage, db.PrintStorage())
+				} else if logHash := db.GetLogListHash(); (logHash == nil && len(testCase.LogHash) != 0) || (logHash != nil && logHash.String() != testCase.LogHash) {
+					t.Fatalf("%v: %v failed, log hash error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.LogHash, logHash)
+				} else if checkSendBlockListResult := checkSendBlockList(testCase.SendBlockList, vm.blockList); checkSendBlockListResult != "" {
+					t.Fatalf("%v: %v failed, send block list error, %v", testFile.Name(), k, checkSendBlockListResult)
+				}
+			}
+		}
+	}
+}
+func checkStorage(db *memoryDatabase, storage map[string]string) bool {
+	if len(storage) != len(db.storage) {
+		return false
+	}
+	for k, v := range db.storage {
+		if sv, ok := storage[k]; !ok || sv != hex.EncodeToString(v) {
+			return false
+		}
+	}
+	return true
+}
+
+func checkSendBlockList(expected []*TestCaseSendBlock, got []*vm_context.VmAccountBlock) string {
+	if len(got) != len(expected) {
+		return "expected len " + string(len(expected)) + ", got len" + string(len(got))
+	}
+	for i, expectedSendBlock := range expected {
+		gotSendBlock := got[i].AccountBlock
+		if gotSendBlock.ToAddress != expectedSendBlock.ToAddress {
+			return "expected toAddress " + expectedSendBlock.ToAddress.String() + ", got toAddress " + gotSendBlock.ToAddress.String()
+		} else if gotAmount := hex.EncodeToString(gotSendBlock.Amount.Bytes()); gotAmount != expectedSendBlock.Amount {
+			return "expected amount " + expectedSendBlock.Amount + ", got amount " + gotAmount
+		} else if gotSendBlock.TokenId != expectedSendBlock.TokenId {
+			return "expected tokenId " + expectedSendBlock.TokenId.String() + ", got tokenId " + gotSendBlock.TokenId.String()
+		} else if gotData := hex.EncodeToString(gotSendBlock.Data); gotData != expectedSendBlock.Data {
+			return "expected data " + expectedSendBlock.Data + ", got data " + gotData
+		}
+	}
+	return ""
+}
+
+func TestAbiMethodId(t *testing.T) {
+	abiString := `[{"constant":false,"inputs":[{"name":"body","type":"uint256[]"}],"name":"transfer","outputs":[],"payable":true,"stateMutability":"payable","type":"function"}]`
+	abiContract, _ := vabi.JSONToABIContract(strings.NewReader(abiString))
+	fmt.Println(hex.EncodeToString(abiContract.Methods["transfer"].Id()))
+	p1, _ := new(big.Int).SetString("ab24ef68b84e642c0ddca06beec81c9acb1977bb", 16)
+	p2, _ := new(big.Int).SetString("0de0b6b3a7640000", 16)
+	list := []*big.Int{p1, p2}
+	data, err := abiContract.PackMethod("transfer", list)
+	fmt.Println(hex.EncodeToString(data))
+	fmt.Println(err)
 }
