@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vitelabs/go-vite/config/biz"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -89,6 +91,10 @@ type Config struct {
 	TopologyReportInterval int      `json:"TopologyReportInterval"`
 	TopoDisabled           bool     `json:"TopoDisabled"`
 	DashboardTargetURL     string
+
+	// reward
+	RewardAddr  string `json:"RewardAddr"`
+	RewardEmail string `json:"RewardEmail"`
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
@@ -102,6 +108,7 @@ func (c *Config) makeViteConfig() *config.Config {
 		DataDir:  c.DataDir,
 		Net:      c.makeNetConfig(),
 		Vm:       c.makeVmConfig(),
+		Reward:   c.makeRewardConfig(),
 		LogLevel: c.LogLevel,
 	}
 }
@@ -114,6 +121,14 @@ func (c *Config) makeNetConfig() *config.Net {
 		Topic:        c.TopologyTopic,
 		Interval:     int64(c.TopologyReportInterval),
 		TopoDisabled: c.TopoDisabled,
+	}
+}
+
+func (c *Config) makeRewardConfig() *biz.Reward {
+	return &biz.Reward{
+		RewardAddr:  c.RewardAddr,
+		RewardEmail: c.RewardEmail,
+		Name:        c.Identity,
 	}
 }
 
