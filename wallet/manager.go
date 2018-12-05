@@ -1,12 +1,13 @@
 package wallet
 
 import (
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
