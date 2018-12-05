@@ -50,7 +50,10 @@ func init() {
 	seedToChild := make(map[string][]testBipTuple)
 	seedToChild[TestSeed] = testTuples
 
-	testSeedStoreManager, _ = entropystore.StoreNewEntropy(utFilePath, TestMnemonic, "123456", entropystore.DefaultMaxIndex)
+	testSeedStoreManager, _ = entropystore.StoreNewEntropy(utFilePath, TestMnemonic, "123456", &entropystore.Config{
+		MaxSearchIndex: entropystore.DefaultMaxIndex,
+		UseLightScrypt: true,
+	})
 
 }
 
@@ -62,7 +65,10 @@ func GetManagerFromStoreNewSeed() *entropystore.Manager {
 	seed := bip39.NewSeed(mnemonic, "")
 	fmt.Println("seed   :", hex.EncodeToString(seed))
 
-	manager, e := entropystore.StoreNewEntropy(utFilePath, mnemonic, "123456", entropystore.DefaultMaxIndex)
+	manager, e := entropystore.StoreNewEntropy(utFilePath, mnemonic, "123456", &entropystore.Config{
+		MaxSearchIndex: entropystore.DefaultMaxIndex,
+		UseLightScrypt: true,
+	})
 	if e != nil {
 		panic(e)
 		return nil
@@ -151,7 +157,10 @@ func TestManager_LockAndUnlock(t *testing.T) {
 			t.Fatal("expect not found error")
 		}
 
-		dsm, _ := entropystore.StoreNewEntropy(utFilePath, TestMnemonic, "123456", 200)
+		dsm, _ := entropystore.StoreNewEntropy(utFilePath, TestMnemonic, "123456", &entropystore.Config{
+			MaxSearchIndex: 200,
+			UseLightScrypt: true,
+		})
 		dsm.Unlock("123456")
 		k, i, e := dsm.FindAddr(*addr)
 		if e != nil {
@@ -170,22 +179,7 @@ func TestFindAddrFromSeed(t *testing.T) {
 	seed, _ := hex.DecodeString(TestSeed)
 	s := time.Now()
 	fmt.Println(s)
-	entropystore.FindAddrFromSeed(seed, types.Address{}, 100*100)
+	entropystore.FindAddrFromEntropy(seed, types.Address{}, 100*100)
 	fmt.Println(time.Now().Sub(s))
 }
 
-func TestMapDelete(t *testing.T) {
-	m := make(map[string]string)
-	m["123"] = "abc"
-	m["1234"] = "abcd"
-	for k, v := range m {
-		fmt.Println(k, v)
-	}
-	for k, _ := range m {
-		delete(m, k)
-	}
-	for k, v := range m {
-		fmt.Println(k, v)
-	}
-
-}

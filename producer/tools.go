@@ -54,7 +54,7 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 	if err != nil {
 		return nil, err
 	}
-	_, key, err := manager.DeriveForIndexPath(coinbase.Index)
+	_, key, err := manager.DeriveForIndexPath(coinbase.Index, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (self *tools) checkAddressLock(address types.Address, coinbase *AddressCont
 		return errors.Errorf("addres not equals.%s-%s", address, coinbase.Address)
 	}
 
-	return self.wt.MatchAddress(coinbase.EntryPath, coinbase.Address, coinbase.Index)
+	return self.wt.MatchAddress(coinbase.EntryPath, coinbase.Address, coinbase.Index, nil)
 }
 
 func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.SnapshotContent, error) {

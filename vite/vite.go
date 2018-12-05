@@ -89,7 +89,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 			log.Error(fmt.Sprintf("coinBase parse fail. %v", cfg.Producer.Coinbase), "err", err)
 			return nil, err
 		}
-		err = walletManager.MatchAddress(cfg.EntropyStorePath, *coinbase, index)
+		err = walletManager.MatchAddress(cfg.EntropyStorePath, *coinbase, index, nil)
 
 		if err != nil {
 			log.Error(fmt.Sprintf("coinBase is not child of entropyStore, coinBase is : %v", cfg.Producer.Coinbase), "err", err)

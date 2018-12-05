@@ -6,17 +6,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"runtime"
-	"github.com/vitelabs/go-vite/log15"
+	"strings"
 )
 
 // it it return false it must not be a valid seedstore file
 // if it return a true it only means that might be true
-func IsMayValidEntropystoreFile(path string) (bool, *types.Address, error) {
+func IsMayValidEntropystoreFile(path string) (bool, *EntropyJSONV1, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return false, nil, err
@@ -30,11 +30,11 @@ func IsMayValidEntropystoreFile(path string) (bool, *types.Address, error) {
 	if err != nil {
 		return false, nil, err
 	}
-	_, addr, _, _, _, err := parseJson(b)
+	entropy, err := parseJson(b)
 	if err != nil {
 		return false, nil, err
 	}
-	return true, addr, nil
+	return true, entropy, nil
 }
 
 func FullKeyFileName(keysDirPath string, keyAddr types.Address) string {
@@ -82,7 +82,6 @@ func readAndFixAddressFile(path string) (*types.Address, *entropyJSON) {
 	return &addr, &keyJSON
 
 }
-
 
 func addressFromKeyPath(keyfile string) (types.Address, error) {
 	_, filename := filepath.Split(keyfile)

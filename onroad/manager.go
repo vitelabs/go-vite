@@ -16,6 +16,7 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
+	"github.com/vitelabs/go-vite/wallet/walleterrors"
 )
 
 var (
@@ -146,8 +147,8 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 		return
 	}
 
-	if !manager.wallet.GlobalCheckAddrUnlock(event.Address) {
-		manager.log.Error("receive a right event but address locked", "event", event)
+	if err := manager.wallet.MatchAddress(event.EntropyStorePath, event.Address, event.Bip44Index, nil); err != nil {
+		manager.log.Error("receive a right event but address not matched", "event.Address", event.Address)
 		return
 	}
 
@@ -248,8 +249,8 @@ func (manager *Manager) StartAutoReceiveWorker(entropystore string, addr types.A
 		return e
 	}
 
-	if _, _, e = entropyStoreManager.FindAddr(addr); e != nil {
-		return e
+	if !entropyStoreManager.IsAddrUnlocked(addr, nil) {
+		return walleterrors.ErrLocked
 	}
 
 	w, found := manager.autoReceiveWorkers[addr]

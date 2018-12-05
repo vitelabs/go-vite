@@ -189,13 +189,15 @@ func (self *producer) producerContract(e consensus.Event) {
 		}
 
 		tmpEvent := producerevent.AccountStartEvent{
-			Gid:            e.Gid,
-			Address:        e.Address,
-			Stime:          e.Stime,
-			Etime:          e.Etime,
-			Timestamp:      e.Timestamp,
-			SnapshotHeight: e.SnapshotHeight,
-			SnapshotHash:   e.SnapshotHash,
+			Gid:              e.Gid,
+			EntropyStorePath: self.coinbase.EntryPath,
+			Bip44Index:       self.coinbase.Index,
+			Address:          e.Address,
+			Stime:            e.Stime,
+			Etime:            e.Etime,
+			Timestamp:        e.Timestamp,
+			SnapshotHash:     e.SnapshotHash,
+			SnapshotHeight:   e.SnapshotHeight,
 		}
 		common.Go(func() {
 			fn(tmpEvent)

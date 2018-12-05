@@ -50,7 +50,7 @@ type jsonSuccessResponse struct {
 	Result  interface{} `json:"result"`
 }
 
-type jsonError struct {
+type JsonError struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
@@ -59,7 +59,7 @@ type jsonError struct {
 type jsonErrResponse struct {
 	Version string      `json:"jsonrpc"`
 	Id      interface{} `json:"id,omitempty"`
-	Error   jsonError   `json:"error"`
+	Error   JsonError   `json:"error"`
 }
 
 type jsonSubscription struct {
@@ -85,14 +85,14 @@ type jsonCodec struct {
 	rw     io.ReadWriteCloser        // connection
 }
 
-func (err *jsonError) Error() string {
+func (err *JsonError) Error() string {
 	if err.Message == "" {
 		return fmt.Sprintf("json-rpc error %d", err.Code)
 	}
 	return err.Message
 }
 
-func (err *jsonError) ErrorCode() int {
+func (err *JsonError) ErrorCode() int {
 	return err.Code
 }
 
@@ -325,14 +325,14 @@ func (c *jsonCodec) CreateResponse(id interface{}, reply interface{}) interface{
 
 // CreateErrorResponse will create a JSON-RPC error response with the given id and error.
 func (c *jsonCodec) CreateErrorResponse(id interface{}, err Error) interface{} {
-	return &jsonErrResponse{Version: jsonrpcVersion, Id: id, Error: jsonError{Code: err.ErrorCode(), Message: err.Error()}}
+	return &jsonErrResponse{Version: jsonrpcVersion, Id: id, Error: JsonError{Code: err.ErrorCode(), Message: err.Error()}}
 }
 
 // CreateErrorResponseWithInfo will create a JSON-RPC error response with the given id and error.
 // info is optional and contains additional information about the error. When an empty string is passed it is ignored.
 func (c *jsonCodec) CreateErrorResponseWithInfo(id interface{}, err Error, info interface{}) interface{} {
 	return &jsonErrResponse{Version: jsonrpcVersion, Id: id,
-		Error: jsonError{Code: err.ErrorCode(), Message: err.Error(), Data: info}}
+		Error: JsonError{Code: err.ErrorCode(), Message: err.Error(), Data: info}}
 }
 
 // CreateNotification will create a JSON-RPC notification with the given subscription id and event as params.

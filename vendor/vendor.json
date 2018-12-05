@@ -15,7 +15,7 @@
 			"revisionTime": "2018-10-01T17:15:34Z"
 		},
 		{
-			"checksumSHA1": "cztBjKMYginFa6dsAHlcPp8SteE=",
+			"checksumSHA1": "WWXhuRhgml0Mzo16A17a9ngTuOc=",
 			"path": "github.com/Shopify/sarama",
 			"revision": "f21e149e5948e9c9b9034f1a19f430d62e00c4d3",
 			"revisionTime": "2018-10-03T07:13:06Z"
@@ -610,16 +610,16 @@
 			"revisionTime": "2018-06-21T01:01:48Z"
 		},
 		{
-			"checksumSHA1": "TwXeqVAeWRsw5vd2iKCRno105tI=",
+			"checksumSHA1": "SsMMqb3xn7hg1ZX5ugwZz5rzpx0=",
 			"path": "github.com/tyler-smith/go-bip39",
-			"revision": "95c66720ed7ac2f4b78ddb31d940d59193894f49",
-			"revisionTime": "2018-07-16T17:03:10Z"
+			"revision": "dbb3b84ba2ef14e894f5e33d6c6e43641e665738",
+			"revisionTime": "2018-10-17T06:06:43Z"
 		},
 		{
-			"checksumSHA1": "+347vHML6CFl9flxJzDPoHmQA7Y=",
+			"checksumSHA1": "xa+UUbqD3zPfa8mKAxWabRsqSzM=",
 			"path": "github.com/tyler-smith/go-bip39/wordlists",
-			"revision": "95c66720ed7ac2f4b78ddb31d940d59193894f49",
-			"revisionTime": "2018-07-16T17:03:10Z"
+			"revision": "dbb3b84ba2ef14e894f5e33d6c6e43641e665738",
+			"revisionTime": "2018-10-17T06:06:43Z"
 		},
 		{
 			"checksumSHA1": "ejjxT0+wDWWncfh0Rt3lSH4IbXQ=",
