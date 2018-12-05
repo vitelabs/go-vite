@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_context"
@@ -453,6 +452,7 @@ type InstructionTestCaseMap map[string]InstructionTestCase
 
 type InstructionTestCase struct {
 	SBHeight    uint64
+	SBTime      int64
 	FromAddress types.Address
 	ToAddress   types.Address
 	InputData   string
@@ -466,6 +466,7 @@ type InstructionTestCase struct {
 	Err         string
 	Storage     map[string]string
 	PreStorage  map[string]string
+	LogHash     string
 }
 
 func TestInstructions(t *testing.T) {
@@ -483,9 +484,14 @@ func TestInstructions(t *testing.T) {
 		if err := json.NewDecoder(file).Decode(testCaseMap); err != nil {
 			t.Fatalf("decode test file failed, %v", err)
 		}
-		sbTime := time.Now()
 
 		for k, testCase := range *testCaseMap {
+			var sbTime time.Time
+			if testCase.SBTime > 0 {
+				sbTime = time.Unix(testCase.SBTime, 0)
+			} else {
+				sbTime = time.Now()
+			}
 			sb := ledger.SnapshotBlock{
 				Height:    testCase.SBHeight,
 				Timestamp: &sbTime,
@@ -493,10 +499,7 @@ func TestInstructions(t *testing.T) {
 			}
 			vm := NewVM()
 			//vm.Debug = true
-			if k == "BlockNumberDynamicJump0_AfterJumpdest" {
-				vm.Debug = true
-			}
-			fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
+			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
 			amount, _ := hex.DecodeString(testCase.Amount)
 			sendCallBlock := ledger.AccountBlock{
@@ -534,7 +537,7 @@ func TestInstructions(t *testing.T) {
 			ret, err := c.run(vm)
 			// TODO debuglog
 			returnData, _ := hex.DecodeString(testCase.ReturnData)
-			if (err == nil && testCase.Err != "") || (err != nil && testCase.Err == "") {
+			if (err == nil && testCase.Err != "") || (err != nil && testCase.Err != err.Error()) {
 				t.Fatalf("%v: %v failed, err not match, expected %v, got %v", testFile.Name(), k, testCase.Err, err)
 			}
 			if err == nil {
@@ -546,6 +549,8 @@ func TestInstructions(t *testing.T) {
 					t.Fatalf("%v: %v failed, quota refund error, expected %v, got %v", testFile.Name(), k, testCase.QuotaRefund, c.quotaRefund)
 				} else if !checkStorage(db, testCase.Storage) {
 					t.Fatalf("%v: %v failed, storage error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.Storage, db.PrintStorage())
+				} else if logHash := db.GetLogListHash(); (logHash == nil && len(testCase.LogHash) != 0) || (logHash != nil && logHash.String() != testCase.LogHash) {
+					t.Fatalf("%v: %v failed, log hash error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.LogHash, logHash)
 				}
 			}
 		}

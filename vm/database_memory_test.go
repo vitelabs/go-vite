@@ -2,6 +2,7 @@ package vm
 
 import (
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/crypto"
 	"math/big"
 	"time"
 
@@ -124,7 +125,20 @@ func (db *memoryDatabase) AddLog(log *ledger.VmLog) {
 	db.logList = append(db.logList, log)
 }
 func (db *memoryDatabase) GetLogListHash() *types.Hash {
-	return &types.Hash{}
+	if len(db.logList) == 0 {
+		return nil
+	} else {
+		var source []byte
+		for _, vmLog := range db.logList {
+			for _, topic := range vmLog.Topics {
+				source = append(source, topic.Bytes()...)
+			}
+			source = append(source, vmLog.Data...)
+		}
+
+		hash, _ := types.BytesToHash(crypto.Hash256(source))
+		return &hash
+	}
 }
 
 func (db *memoryDatabase) NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator {

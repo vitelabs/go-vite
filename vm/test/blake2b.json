@@ -1,0 +1,290 @@
+{
+  "blake2b_0": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6000600020600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99979961,
+    "quotaRefund": 0,
+    "quotaTotal": 100000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_memSizeNoQuadraticCost31": {
+    "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "code": "60016103c020600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99979861,
+    "quotaRefund": 0,
+    "quotaTotal": 100000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "0000000000000000000000000000000000000000000000000000000000000000": "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_memSizeQuadraticCost63": {
+    "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "code": "60016107c020600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99979759,
+    "quotaRefund": 0,
+    "quotaTotal": 100000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "0000000000000000000000000000000000000000000000000000000000000000": "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6005600420600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79952,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "569ed9e4a5463896190447e6ffe37c394c4d77ce470aa29ad762e0286b896832"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_memSizeQuadraticCost65": {
+    "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "code": "600161080020600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99979752,
+    "quotaRefund": 0,
+    "quotaTotal": 100000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "0000000000000000000000000000000000000000000000000000000000000000": "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_memSizeQuadraticCost32": {
+    "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "code": "60016103e020600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99979857,
+    "quotaRefund": 0,
+    "quotaTotal": 100000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "0000000000000000000000000000000000000000000000000000000000000000": "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_bigOffset": {
+    "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "code": "60027e0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff20600055",
+    "err": "memory size uint64 overflow",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_6": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff20600055",
+    "err": "memory size uint64 overflow",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_memSizeQuadraticCost33": {
+    "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "code": "600161040020600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99979854,
+    "quotaRefund": 0,
+    "quotaTotal": 100000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "0000000000000000000000000000000000000000000000000000000000000000": "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_memSizeQuadraticCost64": {
+    "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "code": "60016107e020600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99979755,
+    "quotaRefund": 0,
+    "quotaTotal": 100000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "0000000000000000000000000000000000000000000000000000000000000000": "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_memSizeQuadraticCost64_2": {
+    "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "code": "60206107e020600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99979755,
+    "quotaRefund": 0,
+    "quotaTotal": 100000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "0000000000000000000000000000000000000000000000000000000000000000": "89eb0d6a8a691dae2cd15ed0369931ce0a949ecafa5c3f93f8121833646e15c3"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_4": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6064640fffffffff20600055",
+    "err": "out of quota",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_5": {
+    "amount": "0de0b6b3a7640000",
+    "code": "640fffffffff61271020600055",
+    "err": "out of quota",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_bigSize": {
+    "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "code": "7effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff20600055",
+    "err": "memory size uint64 overflow",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_2": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600a600a20600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79952,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "8a833f318209f48a635f8fdd18653d1e761ea488ebb83e1617c6ec4d9344b1a9"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_memSizeQuadraticCost32_zeroSize": {
+    "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "code": "600061040020600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99979961,
+    "quotaRefund": 0,
+    "quotaTotal": 100000000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "0000000000000000000000000000000000000000000000000000000000000000": "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_3": {
+    "amount": "0de0b6b3a7640000",
+    "code": "620fffff6103e820600055",
+    "err": "out of quota",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "blake2b_bigOffset2": {
+    "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "code": "6002630100000020600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 3756501424,
+    "quotaRefund": 0,
+    "quotaTotal": 4294967296,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "0000000000000000000000000000000000000000000000000000000000000000": "9ee6dfb61a2fb903df487c401663825643bb825d41695e63df8af6162ab145a6"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  }
+}
