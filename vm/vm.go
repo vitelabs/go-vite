@@ -540,6 +540,10 @@ func checkDepth(db vmctxt_interface.VmDatabase, sendBlock *ledger.AccountBlock) 
 		depth = depth + 1
 		prevReceiveBlock := findPrevReceiveBlock(db, prevBlock)
 		prevBlock = db.GetAccountBlockByHash(&prevReceiveBlock.FromBlockHash)
+		if prevBlock == nil && prevReceiveBlock.Height == 1 && IsPrecompiledContractAddress(prevReceiveBlock.AccountAddress) {
+			// some precompiled contracts' genesis block does not have prevblock
+			return false
+		}
 	}
 	return true
 }
