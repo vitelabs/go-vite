@@ -5,13 +5,15 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
 	"path/filepath"
+	"sync"
 )
 
 type chain struct {
-	chainDb *chain_db.ChainDb
-	cfg     *config.Chain
-	dataDir string
-	log     log15.Logger
+	chainDb           *chain_db.ChainDb
+	cfg               *config.Chain
+	dataDir           string
+	log               log15.Logger
+	createAccountLock sync.Mutex
 
 	ledgerDirName string
 }
