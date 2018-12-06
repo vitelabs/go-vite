@@ -1,6 +1,7 @@
 package vite
 
 import (
+	"encoding/base64"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -128,7 +129,7 @@ func TestGen(t *testing.T) {
 		",vite_c4a8fe0c93156fe3fd5dc965cc5aea3fcb46f5a0777f9d1304,600" +
 		",vite_228f578d58842437fb52104b25750aa84a6f8558b6d9e970b1,200" +
 		",vite_562d82b129541fc4ceb6cca3fec234b09dbaa3412cf248e298,100" +
-		",vite_e1cf2c438d2e88a8beb49f887f823f36bbe66f724f11e4a4e7,300"
+		",vite_e1cf2c438d2e88a8beb49f887f823f36bbe66f724f11e4a4e7,-100"
 	intputStrList := strings.Split(inputString, ",")
 	list := make([]*big.Int, len(intputStrList))
 	for i, inputStr := range intputStrList {
@@ -139,6 +140,7 @@ func TestGen(t *testing.T) {
 		}
 	}
 	data, err := abiContract.PackMethod("transfer", list)
+	fmt.Println(base64.StdEncoding.EncodeToString(data))
 	fmt.Println(hex.EncodeToString(data))
 	fmt.Println(hexutil.Encode(data))
 	fmt.Println(err)
