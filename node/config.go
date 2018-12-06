@@ -93,8 +93,7 @@ type Config struct {
 	DashboardTargetURL     string
 
 	// reward
-	RewardAddr  string `json:"RewardAddr"`
-	RewardEmail string `json:"RewardEmail"`
+	RewardAddr string `json:"RewardAddr"`
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
@@ -126,9 +125,8 @@ func (c *Config) makeNetConfig() *config.Net {
 
 func (c *Config) makeRewardConfig() *biz.Reward {
 	return &biz.Reward{
-		RewardAddr:  c.RewardAddr,
-		RewardEmail: c.RewardEmail,
-		Name:        c.Identity,
+		RewardAddr: c.RewardAddr,
+		Name:       c.Identity,
 	}
 }
 

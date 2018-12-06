@@ -52,7 +52,6 @@ func (api DashboardApi) ProcessInfo() map[string]interface{} {
 	if api.v.Config().Reward != nil {
 		result["nodeName"] = api.v.Config().Name
 		result["rewardAddress"] = api.v.Config().RewardAddr
-		result["email"] = api.v.Config().RewardEmail
 	}
 
 	return result
