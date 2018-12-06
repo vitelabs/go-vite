@@ -333,7 +333,7 @@ func (node *Node) startRPC() error {
 			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
 		}
 
-		targetUrl := node.config.DashboardTargetURL + "/" + "/ws/gvite/" + strconv.FormatUint(uint64(node.config.NetID), 10) + "@" + hex.EncodeToString(node.p2pServer.PrivateKey.PubByte())
+		targetUrl := node.config.DashboardTargetURL + "/ws/gvite/" + strconv.FormatUint(uint64(node.config.NetID), 10) + "@" + hex.EncodeToString(node.p2pServer.PrivateKey.PubByte())
 
 		u, e := url.Parse(targetUrl)
 		if e != nil {
