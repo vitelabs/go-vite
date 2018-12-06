@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strconv"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
@@ -9,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"strconv"
 )
 
 // !!! Block = Transaction = TX
@@ -175,6 +176,71 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 	}
 
 	return rpcAccount, nil
+}
+
+func (l *LedgerApi) GetBalanceByAccAddr(addr types.Address) ([]*RpcTokenBalanceInfo, error) {
+	l.log.Info("GetAccountByAccAddr")
+
+	account, err := l.chain.GetAccount(&addr)
+	if err != nil {
+		l.log.Error("GetBalanceByAccAddr failed, error is "+err.Error(), "method", "GetBalanceByAccAddr")
+		return nil, err
+	}
+
+	if account == nil {
+		return nil, errors.New("account is not exists.")
+	}
+
+	balanceMap, err := l.chain.GetAccountBalance(&addr)
+	if err != nil {
+		l.log.Error("GetBalanceByAccAddr failed, error is "+err.Error(), "method", "GetBalanceByAccAddr")
+		return nil, err
+	}
+
+	var tokens []*RpcTokenBalanceInfo
+	for tokenId, amount := range balanceMap {
+		token, err := l.chain.GetTokenInfoById(&tokenId)
+		if err != nil {
+			return nil, err
+		}
+		tokens = append(tokens, &RpcTokenBalanceInfo{
+			TokenInfo:   RawTokenInfoToRpc(token, tokenId),
+			TotalAmount: amount.String(),
+			Number:      nil,
+		})
+	}
+
+	return tokens, nil
+}
+
+func (l *LedgerApi) GetBalanceByAccAddrToken(addr types.Address, tokenId types.TokenTypeId) (*RpcTokenBalanceInfo, error) {
+	l.log.Info("GetAccountByAccAddr")
+
+	account, err := l.chain.GetAccount(&addr)
+	if err != nil {
+		l.log.Error("GetAccount failed, error is "+err.Error(), "method", "GetBalanceByAccAddrToken")
+		return nil, err
+	}
+
+	if account == nil {
+		return nil, errors.New("account is not exists.")
+	}
+
+	balance, err := l.chain.GetAccountBalanceByTokenId(&addr, &tokenId)
+	if err != nil {
+		l.log.Error("GetBalanceByAccAddrToken failed, error is "+err.Error(), "method", "GetBalanceByAccAddrToken")
+		return nil, err
+	}
+
+	token, err := l.chain.GetTokenInfoById(&tokenId)
+	if err != nil {
+		return nil, err
+	}
+	return &RpcTokenBalanceInfo{
+		TokenInfo:   RawTokenInfoToRpc(token, tokenId),
+		TotalAmount: balance.String(),
+		Number:      nil,
+	}, nil
 }
 
 func (l *LedgerApi) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, error) {

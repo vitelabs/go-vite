@@ -115,10 +115,36 @@ type BlockHeader struct {
 	Timestamp int64 `json:"timestamp"`
 }
 
+type AccBlockHeader struct {
+	Hash           types.Hash    `json:"hash"`
+	PrevHash       types.Hash    `json:"prevHash"`
+	AccountAddress types.Address `json:"accountAddress"`
+	Height         string        `json:"height"`
+	Timestamp      int64         `json:"timestamp"`
+
+	Amount string `json:"amount"`
+	TInfo  `json:"tokenInfo"`
+}
+
+type TInfo struct {
+	TokenId     types.TokenTypeId `json:"tokenId"`
+	TokenName   string            `json:"tokenName"`
+	TokenSymbol string            `json:"tokenSymbol"`
+}
+
+type TokenBalance struct {
+	TotalAmount string `json:"totalAmount"`
+	TInfo       `json:"tokenInfo"`
+}
+
 type RpcClient interface {
 	SubmitRaw(block RawBlock) error
 	GetLatest(address types.Address) (*BlockHeader, error)
-	getFittestSnapshot() (*types.Hash, error)
+	GetFittestSnapshot() (*types.Hash, error)
+	GetAccBlock(hash types.Hash) (*AccBlockHeader, error)
+	GetOnroad(query OnroadQuery) ([]*AccBlockHeader, error)
+	Balance(query BalanceQuery) (*TokenBalance, error)
+	BalanceList(query BalanceListQuery) ([]*TokenBalance, error)
 }
 
 func NewRpcClient(rawurl string) (RpcClient, error) {
@@ -135,7 +161,43 @@ type rpcClient struct {
 	cc *rpc.Client
 }
 
-func (c *rpcClient) getFittestSnapshot() (*types.Hash, error) {
+func (c *rpcClient) BalanceList(query BalanceListQuery) ([]*TokenBalance, error) {
+	var bs []*TokenBalance
+	err := c.cc.Call(&bs, "ledger_getBalanceByAccAddr", query.Addr)
+	if err != nil {
+		return nil, err
+	}
+	return bs, nil
+}
+
+func (c *rpcClient) Balance(query BalanceQuery) (*TokenBalance, error) {
+	b := TokenBalance{}
+	err := c.cc.Call(&b, "ledger_getBalanceByAccAddrToken", query.Addr, query.TokenId)
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+func (c *rpcClient) GetOnroad(query OnroadQuery) ([]*AccBlockHeader, error) {
+	var blocks []*AccBlockHeader
+	err := c.cc.Call(&blocks, "onroad_getOnroadBlocksByAddress", query.Address, query.Index, query.Cnt)
+	if err != nil {
+		return nil, err
+	}
+	return blocks, nil
+}
+
+func (c *rpcClient) GetAccBlock(hash types.Hash) (*AccBlockHeader, error) {
+	header := AccBlockHeader{}
+	err := c.cc.Call(&header, "ledger_getBlockByHash", hash)
+	if err != nil {
+		return nil, err
+	}
+	return &header, nil
+}
+
+func (c *rpcClient) GetFittestSnapshot() (*types.Hash, error) {
 	hash := types.Hash{}
 	c.cc.Call(&hash, "ledger_getFittestSnapshotHash", nil)
 	return &hash, nil
