@@ -4,9 +4,12 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/hexutil"
+
 	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/vitelabs/go-vite"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/vite"
 )
 
@@ -46,6 +49,11 @@ func (api DashboardApi) ProcessInfo() map[string]interface{} {
 	result := make(map[string]interface{})
 	result["build_version"] = govite.VITE_BUILD_VERSION
 	result["commit_version"] = govite.VITE_VERSION
+	if api.v.Config().Reward != nil {
+		result["nodeName"] = api.v.Config().Name
+		result["rewardAddress"] = api.v.Config().RewardAddr
+	}
+
 	return result
 }
 
@@ -66,5 +74,8 @@ func (api DashboardApi) RuntimeInfo() map[string]interface{} {
 	if api.v.Producer() != nil {
 		result["producer"] = api.v.Producer().GetCoinBase().String()
 	}
+	priKey := api.v.P2P().PrivateKey
+	sign := ed25519.Sign(priKey, head.Hash.Bytes())
+	result["signData"] = hexutil.Encode(sign)
 	return result
 }
