@@ -376,7 +376,7 @@ func (ac *AccountChain) GetContractGid(accountId uint64) (*types.Gid, error) {
 	}
 
 	fromBlock, getBlockErr := ac.GetBlock(&genesisBlock.FromBlockHash)
-	if getBlockErr == nil {
+	if getBlockErr != nil {
 		return nil, getBlockErr
 	}
 
