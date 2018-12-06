@@ -2,10 +2,11 @@ package monitor
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/log15"
 	"net"
 	"sort"
 	"time"
+
+	"github.com/vitelabs/go-vite/log15"
 )
 
 const times = 3
@@ -92,7 +93,7 @@ func checkTime() {
 	if drift < -threshold || drift > threshold {
 		ntp_logger.Error(fmt.Sprintf("too much delta to ntp server: %s", drift))
 	} else {
-		ntp_logger.Info(fmt.Sprintf("time dela to ntp server: %s", drift))
+		ntp_logger.Info(fmt.Sprintf("time delta to ntp server: %s", drift))
 	}
 }
 
