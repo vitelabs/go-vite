@@ -8,6 +8,11 @@ type Address struct {
 	address types.Address
 }
 
+func IsValidAddress(s string) bool {
+	_, e := types.HexToAddress(s)
+	return e == nil
+}
+
 func NewAddressFromByte(binary []byte) (address *Address, _ error) {
 	addresses, e := types.BytesToAddress(binary)
 	if e != nil {
@@ -53,6 +58,10 @@ type TokenTypeId struct {
 	tti types.TokenTypeId
 }
 
+func IsValidTokenTypeId(s string) bool {
+	_, e := types.HexToTokenTypeId(s)
+	return e == nil
+}
 func NewTokenTypeIdFromByte(binary []byte) (tti *TokenTypeId, _ error) {
 	atti, e := types.BytesToTokenTypeId(binary)
 	if e != nil {

@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/rpc"
 )
 
-
 type Client struct {
 	c *rpc.Client
 }
@@ -50,6 +49,10 @@ func (vc *Client) GetOnroadBlocksByAddress(addr *Address, index int, count int) 
 
 func (vc *Client) GetLatestBlock(addr *Address) (string, error) {
 	return vc.rawMsgCall("ledger_getLatestBlock", addr.address)
+}
+
+func (vc *Client) GetPledgeData(addr *Address) (string, error) {
+	return vc.rawMsgCall("pledge_getPledgeData", addr.address)
 }
 
 func (vc *Client) GetFittestSnapshotHash(accAddr *Address, sendBlockHash string) (string, error) {
