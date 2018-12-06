@@ -237,6 +237,7 @@ func (context *VmContext) GetSnapshotBlockByHash(hash *types.Hash) *ledger.Snaps
 
 func (context *VmContext) Reset() {
 	context.unsavedCache = NewUnsavedCache(context.trie)
+	context.frozen = false
 }
 
 func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address) {
