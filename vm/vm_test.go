@@ -291,7 +291,7 @@ func TestCall(t *testing.T) {
 	addr2, _, _ := types.CreateAddress()
 	code2 := []byte{
 		byte(PUSH1), 32, byte(PUSH1), 100, byte(PUSH1), 0, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE),
-		byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N', byte(PUSH1), 10, byte(PUSH20), 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, byte(CALL)}
+		byte(PUSH1), 10, byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N', byte(PUSH20), 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, byte(CALL)}
 	db.codeMap[addr2] = code2
 
 	// code3 return amount+data
@@ -760,8 +760,8 @@ func TestCheckDepth(t *testing.T) {
 	code2 := helper.JoinBytes([]byte{
 		byte(PUSH1), 0,
 		byte(PUSH1), 0,
-		byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N',
 		byte(PUSH1), 0,
+		byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N',
 		byte(PUSH20)}, addr3.Bytes(),
 		[]byte{byte(CALL)})
 	db.codeMap = make(map[types.Address][]byte)
@@ -769,8 +769,8 @@ func TestCheckDepth(t *testing.T) {
 	code3 := helper.JoinBytes([]byte{
 		byte(PUSH1), 0,
 		byte(PUSH1), 0,
-		byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N',
 		byte(PUSH1), 0,
+		byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N',
 		byte(PUSH20)}, addr2.Bytes(),
 		[]byte{byte(CALL)})
 	db.codeMap[addr3] = code3
