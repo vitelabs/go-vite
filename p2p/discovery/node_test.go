@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"bytes"
 	crand "crypto/rand"
 	"fmt"
 	"github.com/vitelabs/go-vite/p2p/network"
@@ -32,17 +33,25 @@ func mockPort() uint16 {
 	return uint16(mrand.Intn(65535))
 }
 
+func mockRest() []byte {
+	n := mrand.Intn(1000)
+	ret := make([]byte, n)
+	crand.Read(ret)
+	return ret
+}
+
 func mockNode() *Node {
 	return &Node{
-		ID:  mockID(),
-		IP:  mockIP(),
-		UDP: mockPort(),
-		TCP: mockPort(),
-		Net: network.ID(mrand.Uint32()),
+		ID:   mockID(),
+		IP:   mockIP(),
+		UDP:  mockPort(),
+		TCP:  mockPort(),
+		Net:  network.ID(mrand.Uint32()),
+		Rest: mockRest(),
 	}
 }
 
-func compare(n, n2 *Node) bool {
+func compare(n, n2 *Node, rest bool) bool {
 	if n.ID != n2.ID {
 		fmt.Println("id", n.ID, n2.ID)
 		return false
@@ -68,6 +77,11 @@ func compare(n, n2 *Node) bool {
 		return false
 	}
 
+	if rest && !bytes.Equal(n.Rest, n2.Rest) {
+		fmt.Printf("different rest")
+		return false
+	}
+
 	return true
 }
 
@@ -90,7 +104,7 @@ func TestNode_Deserialize(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !compare(n, n2) {
+	if !compare(n, n2, true) {
 		t.Fail()
 	}
 }
@@ -105,7 +119,7 @@ func TestNode_String(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !compare(n, n2) {
+	if !compare(n, n2, false) {
 		t.Fail()
 	}
 }

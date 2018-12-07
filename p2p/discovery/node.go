@@ -79,11 +79,13 @@ var errMissPort = errors.New("missing port")
 var errInvalidScheme = errors.New("invalid scheme")
 
 type Node struct {
-	ID       NodeID
-	IP       net.IP
-	UDP      uint16
-	TCP      uint16
-	Net      network.ID
+	ID   NodeID
+	IP   net.IP
+	UDP  uint16
+	TCP  uint16
+	Net  network.ID
+	Rest []byte
+
 	addAt    time.Time
 	lastPing time.Time
 	activeAt time.Time
@@ -93,11 +95,12 @@ type Node struct {
 
 func (n *Node) proto() *protos.Node {
 	return &protos.Node{
-		ID:  n.ID[:],
-		IP:  n.IP,
-		UDP: uint32(n.UDP),
-		TCP: uint32(n.TCP),
-		Net: uint64(n.Net),
+		ID:   n.ID[:],
+		IP:   n.IP,
+		UDP:  uint32(n.UDP),
+		TCP:  uint32(n.TCP),
+		Net:  uint64(n.Net),
+		Rest: n.Rest,
 	}
 }
 
@@ -113,6 +116,7 @@ func protoToNode(pb *protos.Node) (*Node, error) {
 	node.UDP = uint16(pb.UDP)
 	node.TCP = uint16(pb.TCP)
 	node.Net = network.ID(pb.Net)
+	node.Rest = pb.Rest
 
 	return node, nil
 }
