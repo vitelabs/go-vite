@@ -354,6 +354,10 @@ func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, d
 	})
 }
 
+func (svr *Server) Connect(addr *net.TCPAddr) {
+	svr.dial(discovery.ZERO_NODE_ID, addr, static, nil)
+}
+
 // TCPListener will be closed in method: Server.Stop()
 func (svr *Server) listenLoop() {
 	defer svr.wg.Done()
