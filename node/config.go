@@ -80,6 +80,7 @@ type Config struct {
 	//VM
 	VMTestEnabled      bool `json:"VMTestEnabled"`
 	VMTestParamEnabled bool `json:"VMTestParamEnabled"`
+	VMDebug            bool `json:"VMDebug"`
 
 	//Net TODO: cmd after ？
 	Single                 bool     `json:"Single"`
@@ -121,6 +122,7 @@ func (c *Config) makeVmConfig() *config.Vm {
 	return &config.Vm{
 		IsVmTest:         c.VMTestEnabled,
 		IsUseVmTestParam: c.VMTestParamEnabled,
+		IsVmDebug:        c.VMDebug,
 	}
 }
 

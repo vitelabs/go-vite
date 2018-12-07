@@ -153,6 +153,9 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(utils.VMTestParamFlag.Name) {
 		cfg.VMTestParamEnabled = ctx.GlobalBool(utils.VMTestParamFlag.Name)
 	}
+	if ctx.GlobalIsSet(utils.VMTestFlag.Name) {
+		cfg.VMDebug = ctx.GlobalBool(utils.VMDebugFlag.Name)
+	}
 
 	//Net
 	if ctx.GlobalIsSet(utils.SingleFlag.Name) {

@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	InitVmConfig(false, false)
+	InitVmConfig(false, false, false, "")
 }
 
 func TestVmRun(t *testing.T) {
@@ -681,7 +681,7 @@ func BenchmarkVMTransfer(b *testing.B) {
 }
 
 func TestVmForTest(t *testing.T) {
-	InitVmConfig(true, true)
+	InitVmConfig(true, true, false, "")
 	db, _, _, _, snapshot2, _ := prepareDb(big.NewInt(0))
 	blockTime := time.Now()
 
@@ -931,10 +931,6 @@ func TestVm(t *testing.T) {
 				Hash:      types.DataHash([]byte{1, 1}),
 			}
 			vm := NewVM()
-			//vm.Debug = true
-			if k == "transfer_balanceEven_address1" {
-				vm.Debug = true
-			}
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
 			amount, _ := hex.DecodeString(testCase.Amount)

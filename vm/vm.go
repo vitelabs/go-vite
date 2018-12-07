@@ -5,8 +5,10 @@ package vm
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -30,11 +32,12 @@ type NodeConfig struct {
 	IsTest    bool
 	calcQuota func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
 	log       log15.Logger
+	IsDebug   bool
 }
 
 var nodeConfig NodeConfig
 
-func InitVmConfig(isTest bool, isTestParam bool) {
+func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 	if isTest {
 		nodeConfig = NodeConfig{
 			IsTest: isTest,
@@ -53,6 +56,22 @@ func InitVmConfig(isTest bool, isTestParam bool) {
 	nodeConfig.log = log15.New("module", "vm")
 	contracts.InitContractsConfig(isTestParam)
 	quota.InitQuotaConfig(isTestParam)
+	nodeConfig.IsDebug = isDebug
+	if isDebug {
+		InitLog(datadir, "dbug")
+	}
+}
+
+func InitLog(dir, lvl string) {
+	logLevel, err := log15.LvlFromString(lvl)
+	if err != nil {
+		logLevel = log15.LvlInfo
+	}
+	path := filepath.Join(dir, "vmlog", time.Now().Format("2006-01-02T15-04"))
+	filename := filepath.Join(path, "vm.log")
+	nodeConfig.log.SetHandler(
+		log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(filename), log15.LogfmtFormat())),
+	)
 }
 
 type VmContext struct {
@@ -72,6 +91,9 @@ func NewVM() *VM {
 
 func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTime("vm", "run", time.Now())
+	if nodeConfig.IsDebug {
+		nodeConfig.log.Info("vm run", "blockType", block.BlockType, "address", block.AccountAddress.String(), "height", block.Height, "fromHash", block.FromBlockHash.String())
+	}
 	blockContext := &vm_context.VmAccountBlock{block.Copy(), database}
 	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:

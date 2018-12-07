@@ -148,11 +148,15 @@ var (
 	//VM
 	VMTestFlag = cli.BoolFlag{
 		Name:  "vmtest",
-		Usage: "Enable the Vm Test ",
+		Usage: "Enable the VM Test ",
 	}
 	VMTestParamFlag = cli.BoolFlag{
 		Name:  "vmtestparam",
-		Usage: "Enable the Vm Test params ",
+		Usage: "Enable the VM Test params ",
+	}
+	VMDebugFlag = cli.BoolFlag{
+		Name:  "vmdebug",
+		Usage: "Enable VM debug",
 	}
 
 	//Net

@@ -66,10 +66,15 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 
 		res, err := operation.execute(&pc, vm, c, mem, st)
 
-		if vm.Debug {
-			fmt.Printf("current code: %v \n", hex.EncodeToString(c.code[currentPc:]))
-			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemory: [%v]\nquotaLeft: %v, quotaRefund: %v\n", opCodeToString[op], currentPc, st.print(), mem.print(), c.quotaLeft, c.quotaRefund)
-			fmt.Println("--------------------")
+		if nodeConfig.IsDebug {
+			nodeConfig.log.Info("interpreter",
+				"\ncurrent code", hex.EncodeToString(c.code[currentPc:]),
+				"\nop", opCodeToString[op],
+				"\npc", currentPc,
+				"\nstack", st.print(),
+				"\nmemory", mem.print(),
+				"\nquotaLeft", c.quotaLeft, "quotaRefund", c.quotaRefund)
+			// TODO print storage
 		}
 
 		if operation.returns {
