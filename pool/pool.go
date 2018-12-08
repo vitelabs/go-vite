@@ -774,6 +774,8 @@ func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 		err := self.RollbackAccountTo(addr, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
 		if err != nil {
 			self.log.Error("rollback account fail.", "err", err)
+		} else {
+			self.selfPendingAc(addr).CurrentModifyToEmpty()
 		}
 	}
 }
