@@ -35,6 +35,6 @@
   "EntropyStorePassword": "",
   "TopoDisabled": true,
   "LogLevel": "info",
-  "DashboardTargetURL":"ws://127.0.0.1:8080",
-  "RewardAddr":"vite_9065ff0e14ebf983e090cde47d59fe77d7164b576a6d2d0eda"
+  "DashboardTargetURL":"",
+  "RewardAddr":"vite_xxxxxxxxxxxxxxxxxx"
 }
