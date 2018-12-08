@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
+	"fmt"
 )
 
 func getAccountBlockHash(dbKey []byte) *types.Hash {
@@ -652,7 +653,7 @@ func (ac *AccountChain) GetConfirmAccountBlock(snapshotHeight uint64, accountId 
 			return nil, getMetaErr
 		}
 		if accountBlockMeta == nil {
-			return nil, errors.New("account block meta is nil")
+			return nil, errors.New(fmt.Sprintf("account block meta is nil, block hash is %s", accountBlockHash))
 		}
 		if accountBlockMeta.SnapshotHeight > 0 && accountBlockMeta.SnapshotHeight <= snapshotHeight {
 			accountBlock := &ledger.AccountBlock{}
