@@ -756,6 +756,7 @@ func (self *pool) fetchForTask(task verifyTask) {
 	return
 }
 func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
+	self.log.Debug("try to delete timeout unconfirmed blocks.", "addr", addr)
 	headSnapshot := self.pendingSc.rw.headSnapshot()
 	ac := self.selfPendingAc(addr)
 	firstUnconfirmedBlock := ac.rw.getFirstUnconfirmedBlock(headSnapshot)
