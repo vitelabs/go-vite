@@ -651,7 +651,7 @@ func (self *pool) loopBroadcastAndDel() {
 	defer self.wg.Done()
 
 	broadcastT := time.NewTicker(time.Second * 30)
-	delT := time.NewTicker(time.Second * 40)
+	delT := time.NewTicker(time.Minute * 2)
 	delUselessChainT := time.NewTicker(time.Minute)
 
 	defer broadcastT.Stop()
@@ -666,7 +666,12 @@ func (self *pool) loopBroadcastAndDel() {
 				self.selfPendingAc(addr).broadcastUnConfirmedBlocks()
 			}
 		case <-delT.C:
-			addrList := self.listUnlockedAddr()
+			var addrList []types.Address
+			self.pendingAc.Range(func(_, v interface{}) bool {
+				p := v.(*accountPool)
+				addrList = append(addrList, p.address)
+				return true
+			})
 			for _, addr := range addrList {
 				self.delTimeoutUnConfirmedBlocks(addr)
 			}

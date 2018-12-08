@@ -117,7 +117,7 @@ func (self *SnapshotVerifier) verifyAccountsTimeout(block *ledger.SnapshotBlock,
 	}
 
 	for addr, _ := range block.SnapshotContent {
-		err := self.VerifyAccountTimeout(addr, block.Height)
+		_, err := self.VerifyAccountTimeout(addr, block.Height)
 		if err != nil {
 			stat.result = FAIL
 			return err
@@ -126,31 +126,31 @@ func (self *SnapshotVerifier) verifyAccountsTimeout(block *ledger.SnapshotBlock,
 	return nil
 }
 
-func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, snapshotHeight uint64) error {
+func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, snapshotHeight uint64) (*ledger.HashHeight, error) {
 	defer monitor.LogTime("verify", "accountTimeout", time.Now())
 
 	first, e := self.reader.GetFirstConfirmedAccountBlockBySbHeight(snapshotHeight, &addr)
 	if e != nil {
-		return e
+		return nil, e
 	}
 
 	if first == nil {
-		return errors.New("account block is nil.")
+		return nil, errors.New("account block is nil.")
 	}
 	refer, e := self.reader.GetSnapshotBlockByHash(&first.SnapshotHash)
 
 	if e != nil {
-		return e
+		return nil, e
 	}
 	if refer == nil {
-		return errors.New("snapshot block is nil.")
+		return nil, errors.New("snapshot block is nil.")
 	}
 
 	ok := self.VerifyTimeout(snapshotHeight, refer.Height)
 	if !ok {
-		return errors.New("snapshot account block timeout.")
+		return &ledger.HashHeight{Height: refer.Height, Hash: refer.Hash}, errors.New("snapshot account block timeout.")
 	}
-	return nil
+	return nil, nil
 }
 
 func (self *SnapshotVerifier) VerifyTimeout(nowHeight uint64, referHeight uint64) bool {
