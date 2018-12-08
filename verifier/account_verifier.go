@@ -442,7 +442,7 @@ func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock, account
 
 func (verifier *AccountVerifier) VerifyTimeOut(blockReferSb *ledger.SnapshotBlock) error {
 	currentSb := verifier.chain.GetLatestSnapshotBlock()
-	if currentSb.Height > blockReferSb.Height+TimeOutHeight {
+	if currentSb.Height > blockReferSb.Height+types.AccountLimitSnapshotHeight {
 		return errors.New("snapshot timeout, height is too low")
 	}
 	return nil
