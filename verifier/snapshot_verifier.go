@@ -148,7 +148,7 @@ func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, snapshotH
 
 	ok := self.VerifyTimeout(snapshotHeight, refer.Height)
 	if !ok {
-		return &ledger.HashHeight{Height: refer.Height, Hash: refer.Hash}, errors.New("snapshot account block timeout.")
+		return &ledger.HashHeight{Height: first.Height, Hash: first.Hash}, errors.New("snapshot account block timeout.")
 	}
 	return nil, nil
 }
