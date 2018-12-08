@@ -168,7 +168,7 @@ func GenesisReceiveMintage(vite *VitePrepared, addFunc AddChainDierct) error {
 
 	var referredSnapshotHashList []types.Hash
 	referredSnapshotHashList = append(referredSnapshotHashList, sendBlock.SnapshotHash)
-	_, fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(vite.chain, &sendBlock.ToAddress, referredSnapshotHashList, true)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(vite.chain, &sendBlock.ToAddress, referredSnapshotHashList, true)
 	if err != nil {
 		return err
 	}
