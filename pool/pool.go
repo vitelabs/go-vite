@@ -762,13 +762,18 @@ func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 	if firstUnconfirmedBlock == nil {
 		return
 	}
+	self.log.Debug("account block unconfirmed.", "acc", addr, "hash", firstUnconfirmedBlock.Hash, "height", firstUnconfirmedBlock.Height)
 	referSnapshot := self.pendingSc.rw.getSnapshotBlockByHash(firstUnconfirmedBlock.SnapshotHash)
 
 	// verify account timeout
 	if !self.pendingSc.v.verifyAccountTimeout(headSnapshot, referSnapshot) {
+		self.log.Info("account block timeout, rollback", "hash", firstUnconfirmedBlock.Hash, "height", firstUnconfirmedBlock.Height)
 		self.Lock()
 		defer self.UnLock()
-		self.RollbackAccountTo(addr, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
+		err := self.RollbackAccountTo(addr, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
+		if err != nil {
+			self.log.Error("rollback account fail.", "err", err)
+		}
 	}
 }
 
