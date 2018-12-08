@@ -651,6 +651,9 @@ func (ac *AccountChain) GetConfirmAccountBlock(snapshotHeight uint64, accountId 
 		if getMetaErr != nil {
 			return nil, getMetaErr
 		}
+		if accountBlockMeta == nil {
+			return nil, errors.New("account block meta is nil")
+		}
 		if accountBlockMeta.SnapshotHeight > 0 && accountBlockMeta.SnapshotHeight <= snapshotHeight {
 			accountBlock := &ledger.AccountBlock{}
 			if dsErr := accountBlock.DbDeserialize(iter.Value()); dsErr != nil {
