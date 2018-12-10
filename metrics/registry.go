@@ -265,6 +265,8 @@ func findPrefix(registry Registry, prefix string) (Registry, string) {
 		return findPrefix(r.underlying, r.prefix+prefix)
 	case *StandardRegistry:
 		return r, prefix
+	default:
+		break
 	}
 	return nil, ""
 }

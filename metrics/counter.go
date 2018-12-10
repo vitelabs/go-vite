@@ -33,7 +33,7 @@ func GetOrRegisterCounterForced(name string, r Registry) Counter {
 
 // NewCounter constructs a new StandardCounter.
 func NewCounter() Counter {
-	if UseNilMetrics {
+	if MetricsEnabled {
 		return NilCounter{}
 	}
 	return &StandardCounter{0}

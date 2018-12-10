@@ -41,7 +41,7 @@ func GetOrRegisterTimer(name string, r Registry) Timer {
 // NewCustomTimer constructs a new StandardTimer from a Histogram and a Meter.
 // Be sure to call Stop() once the timer is of no use to allow for garbage collection.
 func NewCustomTimer(h Histogram, m Meter) Timer {
-	if UseNilMetrics {
+	if MetricsEnabled {
 		return NilTimer{}
 	}
 	return &StandardTimer{
@@ -66,7 +66,7 @@ func NewRegisteredTimer(name string, r Registry) Timer {
 // sample with the same reservoir size and alpha as UNIX load averages.
 // Be sure to call Stop() once the timer is of no use to allow for garbage collection.
 func NewTimer() Timer {
-	if UseNilMetrics {
+	if MetricsEnabled {
 		return NilTimer{}
 	}
 	return &StandardTimer{

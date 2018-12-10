@@ -20,7 +20,7 @@ func GetOrRegisterGaugeFloat64(name string, r Registry) GaugeFloat64 {
 
 // NewGaugeFloat64 constructs a new StandardGaugeFloat64.
 func NewGaugeFloat64() GaugeFloat64 {
-	if !UseNilMetrics {
+	if !MetricsEnabled {
 		return NilGaugeFloat64{}
 	}
 	return &StandardGaugeFloat64{
@@ -40,7 +40,7 @@ func NewRegisteredGaugeFloat64(name string, r Registry) GaugeFloat64 {
 
 // NewFunctionalGauge constructs a new FunctionalGauge.
 func NewFunctionalGaugeFloat64(f func() float64) GaugeFloat64 {
-	if !UseNilMetrics {
+	if !MetricsEnabled {
 		return NilGaugeFloat64{}
 	}
 	return &FunctionalGaugeFloat64{value: f}

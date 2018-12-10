@@ -20,7 +20,7 @@ func GetOrRegisterGauge(name string, r Registry) Gauge {
 
 // NewGauge constructs a new StandardGauge.
 func NewGauge() Gauge {
-	if UseNilMetrics {
+	if MetricsEnabled {
 		return NilGauge{}
 	}
 	return &StandardGauge{0}
@@ -38,7 +38,7 @@ func NewRegisteredGauge(name string, r Registry) Gauge {
 
 // NewFunctionalGauge constructs a new FunctionalGauge.
 func NewFunctionalGauge(f func() int64) Gauge {
-	if UseNilMetrics {
+	if MetricsEnabled {
 		return NilGauge{}
 	}
 	return &FunctionalGauge{value: f}

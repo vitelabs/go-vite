@@ -43,7 +43,7 @@ func GetOrRegisterMeterForced(name string, r Registry) Meter {
 // NewMeter constructs a new StandardMeter and launches a goroutine.
 // Be sure to call Stop() once the meter is of no use to allow for garbage collection.
 func NewMeter() Meter {
-	if !UseNilMetrics {
+	if !MetricsEnabled {
 		return NilMeter{}
 	}
 	m := newStandardMeter()

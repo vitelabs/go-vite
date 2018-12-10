@@ -13,14 +13,14 @@ import (
 	"time"
 )
 
-// UseNilMetrics is checked by the constructor functions for all of the
+// MetricsEnabled is checked by the constructor functions for all of the
 // standard metrics.  If it is true, the metric returned is a stub.
 //
 // This global kill-switch helps quantify the observer effect and makes
 // for less cluttered pprof profiles.
 var (
-	UseNilMetrics bool = false
-	log                = log15.New("module", "metrics")
+	MetricsEnabled bool = false
+	log                 = log15.New("module", "metrics")
 )
 
 // MetricsEnabledFlag is the CLI flag name to use to enable metrics collections.
@@ -34,7 +34,7 @@ func init() {
 	for _, arg := range os.Args {
 		if flag := strings.TrimLeft(arg, "-"); flag == MetricsEnabledFlag || flag == DashboardEnabledFlag {
 			log.Info("Enabling metrics collection")
-			UseNilMetrics = true
+			MetricsEnabled = true
 		}
 	}
 }
@@ -42,7 +42,7 @@ func init() {
 // CollectProcessMetrics periodically collects various metrics about the running process.
 func CollectProcessMetrics(refresh time.Duration) {
 	// Short circuit if the metrics system is disabled
-	if !UseNilMetrics {
+	if !MetricsEnabled {
 		return
 	}
 	// Create the various data collectors
