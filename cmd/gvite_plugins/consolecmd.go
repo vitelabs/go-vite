@@ -163,7 +163,7 @@ func remoteConsoleAction(ctx *cli.Context) error {
 	}
 	client, err := dialRPC(dataDir, attachEndpoint)
 	if err != nil {
-		log.Error(fmt.Sprintf("Unable to attach to remote geth: %v", err))
+		log.Error(fmt.Sprintf("Unable to attach to remote gvite: %v", err))
 	}
 	config := console.Config{
 		DataDir: dataDir,
