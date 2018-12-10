@@ -319,7 +319,8 @@ func (n *net) Info() *NodeInfo {
 	// }
 
 	return &NodeInfo{
-		Peers: peersInfo,
+		Peers:   peersInfo,
+		Latency: n.broadcaster.Statistic(),
 		// MsgSend:      send,
 		// MsgReceived:  received,
 		// MsgHandled:   handled,
@@ -328,7 +329,8 @@ func (n *net) Info() *NodeInfo {
 }
 
 type NodeInfo struct {
-	Peers []*PeerInfo `json:"peers"`
+	Peers   []*PeerInfo `json:"peers"`
+	Latency []int64     `json:"latency"` // [0,1,12,24]
 	// MsgSend      uint64      `json:"msgSend"`
 	// MsgReceived  uint64      `json:"msgReceived"`
 	// MsgHandled   uint64      `json:"msgHandled"`
