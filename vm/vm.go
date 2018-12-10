@@ -29,10 +29,12 @@ type VMConfig struct {
 }
 
 type NodeConfig struct {
-	IsTest    bool
-	calcQuota func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
-	log       log15.Logger
-	IsDebug   bool
+	IsTest      bool
+	calcQuota   func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
+	canTransfer func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
+
+	log     log15.Logger
+	IsDebug bool
 }
 
 var nodeConfig NodeConfig
@@ -44,12 +46,25 @@ func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
 				return 1000000, 0, nil
 			},
+			canTransfer: func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
+				return true
+			},
 		}
 	} else {
 		nodeConfig = NodeConfig{
 			IsTest: isTest,
 			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
 				return quota.CalcQuota(db, addr, pledgeAmount, difficulty)
+			},
+			canTransfer: func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
+				if feeAmount.Sign() == 0 {
+					return tokenAmount.Cmp(db.GetBalance(&addr, &tokenTypeId)) <= 0
+				}
+				if util.IsViteToken(tokenTypeId) {
+					balance := new(big.Int).Add(tokenAmount, feeAmount)
+					return balance.Cmp(db.GetBalance(&addr, &tokenTypeId)) <= 0
+				}
+				return tokenAmount.Cmp(db.GetBalance(&addr, &tokenTypeId)) <= 0 && feeAmount.Cmp(db.GetBalance(&addr, &ledger.ViteTokenId)) <= 0
 			},
 		}
 	}
@@ -166,7 +181,7 @@ func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 		return nil, errors.New("consensus group not exist")
 	}
 
-	if !CanTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
+	if !nodeConfig.canTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
 		return nil, util.ErrInsufficientBalance
 	}
 
@@ -245,7 +260,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 		if err != nil {
 			return nil, err
 		}
-		if !CanTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
+		if !nodeConfig.canTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
 			return nil, util.ErrInsufficientBalance
 		}
 		quotaLeft, err = p.DoSend(block.VmContext, block.AccountBlock, quotaLeft)
@@ -264,7 +279,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 		if err != nil {
 			return nil, err
 		}
-		if !CanTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
+		if !nodeConfig.canTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
 			return nil, util.ErrInsufficientBalance
 		}
 		block.VmContext.SubBalance(&block.AccountBlock.TokenId, block.AccountBlock.Amount)
@@ -531,17 +546,6 @@ func (vm *VM) revert(block *vm_context.VmAccountBlock) {
 
 func (context *VmContext) AppendBlock(block *vm_context.VmAccountBlock) {
 	context.blockList = append(context.blockList, block)
-}
-
-func CanTransfer(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
-	if feeAmount.Sign() == 0 {
-		return tokenAmount.Cmp(db.GetBalance(&addr, &tokenTypeId)) <= 0
-	}
-	if util.IsViteToken(tokenTypeId) {
-		balance := new(big.Int).Add(tokenAmount, feeAmount)
-		return balance.Cmp(db.GetBalance(&addr, &tokenTypeId)) <= 0
-	}
-	return tokenAmount.Cmp(db.GetBalance(&addr, &tokenTypeId)) <= 0 && feeAmount.Cmp(db.GetBalance(&addr, &ledger.ViteTokenId)) <= 0
 }
 
 func (context *VmContext) GetNewBlockHeight(block *vm_context.VmAccountBlock) uint64 {

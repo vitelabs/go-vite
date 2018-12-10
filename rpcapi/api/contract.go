@@ -40,7 +40,7 @@ func (c *ContractApi) GetCreateContractData(gid types.Gid, hexCode string) ([]by
 	return append(gid.Bytes(), code...), nil
 }
 
-func (c *ContractApi) GetCallContractData(abiStr string, methodName string, params []string) (*string, error) {
+func (c *ContractApi) GetCallContractData(abiStr string, methodName string, params []string) ([]byte, error) {
 	abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
 	if err != nil {
 		return nil, err
@@ -53,10 +53,5 @@ func (c *ContractApi) GetCallContractData(abiStr string, methodName string, para
 	if err != nil {
 		return nil, err
 	}
-	result, err := abiContract.PackMethod(methodName, arguments...)
-	if err != nil {
-		return nil, err
-	}
-	resultStr := hex.EncodeToString(result)
-	return &resultStr, err
+	return abiContract.PackMethod(methodName, arguments...)
 }
