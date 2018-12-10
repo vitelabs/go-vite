@@ -302,7 +302,7 @@ func (n *net) handleMsg(p *peer) (err error) {
 		return err
 	}
 
-	n.log.Error(fmt.Sprintf("missing handler for message %d from %s", msg.Cmd, p))
+	// n.log.Error(fmt.Sprintf("missing handler for message %d from %s", msg.Cmd, p))
 
 	return nil
 }
@@ -310,29 +310,29 @@ func (n *net) handleMsg(p *peer) (err error) {
 func (n *net) Info() *NodeInfo {
 	peersInfo := n.peers.Info()
 
-	var send, received, handled, discarded uint64
-	for _, pi := range peersInfo {
-		send += pi.MsgSend
-		received += pi.MsgReceived
-		handled += pi.MsgHandled
-		discarded += pi.MsgDiscarded
-	}
+	// var send, received, handled, discarded uint64
+	// for _, pi := range peersInfo {
+	// 	send += pi.MsgSend
+	// 	received += pi.MsgReceived
+	// 	handled += pi.MsgHandled
+	// 	discarded += pi.MsgDiscarded
+	// }
 
 	return &NodeInfo{
-		Peers:        peersInfo,
-		MsgSend:      send,
-		MsgReceived:  received,
-		MsgHandled:   handled,
-		MsgDiscarded: discarded,
+		Peers: peersInfo,
+		// MsgSend:      send,
+		// MsgReceived:  received,
+		// MsgHandled:   handled,
+		// MsgDiscarded: discarded,
 	}
 }
 
 type NodeInfo struct {
-	Peers        []*PeerInfo `json:"peers"`
-	MsgSend      uint64      `json:"msgSend"`
-	MsgReceived  uint64      `json:"msgReceived"`
-	MsgHandled   uint64      `json:"msgHandled"`
-	MsgDiscarded uint64      `json:"msgDiscarded"`
+	Peers []*PeerInfo `json:"peers"`
+	// MsgSend      uint64      `json:"msgSend"`
+	// MsgReceived  uint64      `json:"msgReceived"`
+	// MsgHandled   uint64      `json:"msgHandled"`
+	// MsgDiscarded uint64      `json:"msgDiscarded"`
 }
 
 // for debug

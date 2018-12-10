@@ -537,7 +537,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	f := &accountSyncer{address: addr, fetcher: self.sync, log: self.log.New()}
 	v := &accountVerifier{v: self.accountVerifier, log: self.log.New()}
 	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.log)
-
+	p.address = addr
 	p.Init(newTools(f, rw), self, v, f)
 
 	chain, _ = self.pendingAc.LoadOrStore(addr, p)
@@ -651,7 +651,7 @@ func (self *pool) loopBroadcastAndDel() {
 	defer self.wg.Done()
 
 	broadcastT := time.NewTicker(time.Second * 30)
-	delT := time.NewTicker(time.Second * 40)
+	delT := time.NewTicker(time.Minute * 2)
 	delUselessChainT := time.NewTicker(time.Minute)
 
 	defer broadcastT.Stop()
@@ -666,7 +666,12 @@ func (self *pool) loopBroadcastAndDel() {
 				self.selfPendingAc(addr).broadcastUnConfirmedBlocks()
 			}
 		case <-delT.C:
-			addrList := self.listUnlockedAddr()
+			var addrList []types.Address
+			self.pendingAc.Range(func(_, v interface{}) bool {
+				p := v.(*accountPool)
+				addrList = append(addrList, p.address)
+				return true
+			})
 			for _, addr := range addrList {
 				self.delTimeoutUnConfirmedBlocks(addr)
 			}
@@ -751,19 +756,27 @@ func (self *pool) fetchForTask(task verifyTask) {
 	return
 }
 func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
+	self.log.Debug("try to delete timeout unconfirmed blocks.", "addr", addr)
 	headSnapshot := self.pendingSc.rw.headSnapshot()
 	ac := self.selfPendingAc(addr)
 	firstUnconfirmedBlock := ac.rw.getFirstUnconfirmedBlock(headSnapshot)
 	if firstUnconfirmedBlock == nil {
 		return
 	}
+	self.log.Debug("account block unconfirmed.", "acc", addr, "hash", firstUnconfirmedBlock.Hash, "height", firstUnconfirmedBlock.Height)
 	referSnapshot := self.pendingSc.rw.getSnapshotBlockByHash(firstUnconfirmedBlock.SnapshotHash)
 
 	// verify account timeout
 	if !self.pendingSc.v.verifyAccountTimeout(headSnapshot, referSnapshot) {
+		self.log.Info("account block timeout, rollback", "hash", firstUnconfirmedBlock.Hash, "height", firstUnconfirmedBlock.Height)
 		self.Lock()
 		defer self.UnLock()
-		self.RollbackAccountTo(addr, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
+		err := self.RollbackAccountTo(addr, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
+		if err != nil {
+			self.log.Error("rollback account fail.", "err", err)
+		} else {
+			self.selfPendingAc(addr).CurrentModifyToEmpty()
+		}
 	}
 }
 
