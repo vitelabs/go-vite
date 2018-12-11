@@ -2,6 +2,8 @@ package client
 
 import (
 	"math/big"
+	"os/user"
+	"path"
 	"testing"
 
 	"github.com/vitelabs/go-vite/ledger"
@@ -11,9 +13,17 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 )
 
+var WalletDir string
+
+func init() {
+	current, _ := user.Current()
+	home := current.HomeDir
+	WalletDir = path.Join(home, "Library/GVite/devdata/wallet")
+}
+
 func TestClient(t *testing.T) {
 	w := wallet.New(&wallet.Config{
-		DataDir:        "~/Library/GVite/devdata/wallet",
+		DataDir:        WalletDir,
 		MaxSearchIndex: 100000,
 	})
 
@@ -56,7 +66,7 @@ func TestClient(t *testing.T) {
 
 func TestClient_SubmitRequestTx(t *testing.T) {
 	w := wallet.New(&wallet.Config{
-		DataDir:        "~/Library/GVite/devdata/wallet",
+		DataDir:        WalletDir,
 		MaxSearchIndex: 100000,
 	})
 
@@ -111,7 +121,7 @@ func TestClient_SubmitRequestTx(t *testing.T) {
 }
 func TestClient_SubmitResponseTx(t *testing.T) {
 	w := wallet.New(&wallet.Config{
-		DataDir:        "~/Library/GVite/devdata/wallet",
+		DataDir:        WalletDir,
 		MaxSearchIndex: 100000,
 	})
 
