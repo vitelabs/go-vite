@@ -34,15 +34,12 @@ type OnroadQuery struct {
 	Cnt     int
 }
 
-type TokenQuery struct {
-}
-
 type BalanceQuery struct {
 	Addr    types.Address
 	TokenId types.TokenTypeId
 }
 
-type BalanceListQuery struct {
+type BalanceAllQuery struct {
 	Addr types.Address
 }
 
@@ -52,9 +49,8 @@ type ledgerClient interface {
 	SubmitResponseTx(params ResponseTxParams, f SignFunc) error
 	SubmitResponseTxWithPow(params ResponseTxParams) error
 	QueryOnroad(query OnroadQuery) ([]*AccBlockHeader, error)
-	TokenList(query TokenQuery)
 	Balance(query BalanceQuery) (*TokenBalance, error)
-	BalanceList(query BalanceListQuery) ([]*TokenBalance, error)
+	BalanceAll(query BalanceAllQuery) ([]*TokenBalance, error)
 }
 
 type Client interface {
@@ -204,14 +200,10 @@ func (c *client) QueryOnroad(query OnroadQuery) ([]*AccBlockHeader, error) {
 	return c.rpc.GetOnroad(query)
 }
 
-func (*client) TokenList(query TokenQuery) {
-	panic("implement me")
-}
-
 func (c *client) Balance(query BalanceQuery) (*TokenBalance, error) {
 	return c.rpc.Balance(query)
 }
 
-func (c *client) BalanceList(query BalanceListQuery) ([]*TokenBalance, error) {
-	return c.rpc.BalanceList(query)
+func (c *client) BalanceAll(query BalanceAllQuery) ([]*TokenBalance, error) {
+	return c.rpc.BalanceAll(query)
 }

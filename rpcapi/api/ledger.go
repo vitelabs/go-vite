@@ -243,6 +243,7 @@ func (l *LedgerApi) GetBalanceByAccAddrToken(addr types.Address, tokenId types.T
 	}, nil
 }
 
+// Deprecated: use GetSnapshotByHash
 func (l *LedgerApi) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, error) {
 	block, err := l.chain.GetSnapshotBlockByHash(&hash)
 	if err != nil {
@@ -251,6 +252,15 @@ func (l *LedgerApi) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlo
 	return block, err
 }
 
+func (l *LedgerApi) GetSnapshotByHash(hash types.Hash) (*RpcSnapshotBlock, error) {
+	block, err := l.chain.GetSnapshotBlockByHash(&hash)
+	if err != nil {
+		l.log.Error("GetSnapshotBlockByHash failed, error is "+err.Error(), "method", "GetSnapshotBlockByHash")
+	}
+	return genRpcSnapshotBlock(block), err
+}
+
+// Deprecated: use GetSnapshotByHeight
 func (l *LedgerApi) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
 	block, err := l.chain.GetSnapshotBlockByHeight(height)
 	if err != nil {
@@ -259,9 +269,22 @@ func (l *LedgerApi) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlo
 	return block, err
 }
 
+func (l *LedgerApi) GetSnapshotByHeight(height uint64) (*RpcSnapshotBlock, error) {
+	block, err := l.chain.GetSnapshotBlockByHeight(height)
+	if err != nil {
+		l.log.Error("GetSnapshotBlockByHash failed, error is "+err.Error(), "method", "GetSnapshotBlockByHeight")
+	}
+	return genRpcSnapshotBlock(block), err
+}
+
 func (l *LedgerApi) GetSnapshotChainHeight() string {
 	l.log.Info("GetLatestSnapshotChainHeight")
 	return strconv.FormatUint(l.chain.GetLatestSnapshotBlock().Height, 10)
+}
+
+func (l *LedgerApi) GetSnapshotChain() *RpcSnapshotBlock {
+	l.log.Info("GetSnapshotChain")
+	return genRpcSnapshotBlock(l.chain.GetLatestSnapshotBlock())
 }
 
 func (l *LedgerApi) GetLatestSnapshotChainHash() *types.Hash {

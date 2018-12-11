@@ -13,7 +13,7 @@ import (
 
 func TestClient(t *testing.T) {
 	w := wallet.New(&wallet.Config{
-		DataDir:        "/Users/jie/Library/GVite/devdata/wallet",
+		DataDir:        "~/Library/GVite/devdata/wallet",
 		MaxSearchIndex: 100000,
 	})
 
@@ -56,7 +56,7 @@ func TestClient(t *testing.T) {
 
 func TestClient_SubmitRequestTx(t *testing.T) {
 	w := wallet.New(&wallet.Config{
-		DataDir:        "/Users/jie/Library/GVite/devdata/wallet",
+		DataDir:        "~/Library/GVite/devdata/wallet",
 		MaxSearchIndex: 100000,
 	})
 
@@ -111,7 +111,7 @@ func TestClient_SubmitRequestTx(t *testing.T) {
 }
 func TestClient_SubmitResponseTx(t *testing.T) {
 	w := wallet.New(&wallet.Config{
-		DataDir:        "/Users/jie/Library/GVite/devdata/wallet",
+		DataDir:        "~/Library/GVite/devdata/wallet",
 		MaxSearchIndex: 100000,
 	})
 

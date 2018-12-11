@@ -2,14 +2,30 @@ package api
 
 import (
 	"errors"
+	"math/big"
+	"strconv"
+	"time"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"strconv"
-	"time"
 )
+
+type RpcSnapshotBlock struct {
+	ledger.SnapshotBlock
+	Height    string        `json:"height"`
+	Producer  types.Address `json:"producer"`
+	Timestamp int64         `json:"timestamp"`
+}
+
+func genRpcSnapshotBlock(block *ledger.SnapshotBlock) *RpcSnapshotBlock {
+	b := &RpcSnapshotBlock{SnapshotBlock: *block}
+	b.Height = strconv.FormatUint(block.Height, 10)
+	b.Producer = block.Producer()
+	b.Timestamp = block.Timestamp.UnixNano() / 1e6
+	return b
+}
 
 type AccountBlock struct {
 	*ledger.AccountBlock

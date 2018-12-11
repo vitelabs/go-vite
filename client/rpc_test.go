@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/hex"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -63,6 +64,38 @@ func TestFittest(t *testing.T) {
 	}
 	t.Log(hashes)
 }
+
+func TestGetSnapshotByHeight(t *testing.T) {
+	client, err := NewRpcClient(RawUrl)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	hash, err := types.HexToHash("b3725777f3b8a3c6a1d126a934e0757d9b9e55df791639b2e241c78c75b8137f")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h, e := client.GetSnapshotByHash(hash)
+	if e != nil {
+		t.Error(e)
+		return
+	}
+
+	t.Log(h)
+
+	heightInt, e := strconv.ParseUint(h.Height, 10, 64)
+	if e != nil {
+		t.Fatal(e)
+	}
+	h2, e := client.GetSnapshotByHeight(heightInt)
+	if e != nil {
+		t.Fatal(e)
+	}
+	t.Log(h2)
+}
+
 func TestAccBlock(t *testing.T) {
 	client, err := NewRpcClient(RawUrl)
 	if err != nil {
@@ -134,7 +167,7 @@ func TestQueryBalance(t *testing.T) {
 	t.Log(bs)
 }
 
-func TestQueryBalanceList(t *testing.T) {
+func TestQueryBalanceAll(t *testing.T) {
 	client, err := NewRpcClient(RawUrl)
 	if err != nil {
 		t.Error(err)
@@ -146,7 +179,7 @@ func TestQueryBalanceList(t *testing.T) {
 		t.Error(addr)
 		return
 	}
-	bs, e := client.BalanceList(BalanceListQuery{
+	bs, e := client.BalanceAll(BalanceAllQuery{
 		Addr: addr,
 	})
 	if e != nil {
