@@ -7,9 +7,7 @@ package metrics
 
 import (
 	"github.com/vitelabs/go-vite/log15"
-	"os"
 	"runtime"
-	"strings"
 	"time"
 )
 
@@ -23,21 +21,10 @@ var (
 	log                 = log15.New("module", "metrics")
 )
 
-// MetricsEnabledFlag is the CLI flag name to use to enable metrics collections.
-const MetricsEnabledFlag = "metrics"
-const DashboardEnabledFlag = "dashboard"
-
-// Init enables or disables the metrics system. Since we need this to run before
-// any other code gets to create meters and timers, we'll actually do an ugly hack
-// and peek into the command line args for the metrics flag.
-func init() {
-	for _, arg := range os.Args {
-		if flag := strings.TrimLeft(arg, "-"); flag == MetricsEnabledFlag || flag == DashboardEnabledFlag {
-			log.Info("Enabling metrics collection")
-			MetricsEnabled = true
-		}
-	}
-}
+const (
+	MetricsEnableFlag   = "metrics"
+	DashboardEnableFlag = "dashboard"
+)
 
 // CollectProcessMetrics periodically collects various metrics about the running process.
 func CollectProcessMetrics(refresh time.Duration) {
@@ -48,7 +35,7 @@ func CollectProcessMetrics(refresh time.Duration) {
 	// Create the various data collectors
 	memstats := make([]*runtime.MemStats, 2)
 	diskstats := make([]*DiskStats, 2)
-	for i := 0; i < len(memstats); i++ {
+	for i := 0; i < 2; i++ {
 		memstats[i] = new(runtime.MemStats)
 		diskstats[i] = new(DiskStats)
 	}
@@ -70,6 +57,7 @@ func CollectProcessMetrics(refresh time.Duration) {
 	} else {
 		log.Debug("Failed to read disk metrics", "err", err)
 	}
+
 	// Iterate loading the different stats and updating the meters
 	for i := 1; ; i++ {
 		location1 := i % 2
