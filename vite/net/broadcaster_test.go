@@ -113,3 +113,20 @@ func TestBroadcaster_Statistic(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func BenchmarkBroadcaster_Statistic(b *testing.B) {
+	bdc := &broadcaster{
+		statis: circle.NewList(records_24),
+	}
+
+	for i := int64(0); i < records_24*2; i++ {
+		bdc.statis.Put(i)
+	}
+
+	var ret []int64
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ret = bdc.Statistic()
+	}
+	fmt.Println(ret)
+}

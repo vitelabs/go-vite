@@ -41,30 +41,36 @@ func (b *broadcaster) Statistic() []int64 {
 	defer b.mu.Unlock()
 
 	count := int64(b.statis.Size())
+	count_f := float64(count)
+	var v_f float64
 	b.statis.TraverseR(func(key circle.Key) bool {
-		v := key.(int64)
+		v, ok := key.(int64)
+		if !ok {
+			return false
+		}
 
 		if first {
 			ret[0] = v
 			first = false
 		}
 
+		v_f = float64(v)
 		if count < records_1 {
-			t1 += float64(v) / float64(count)
+			t1 += v_f / count_f
 		} else if count < records_12 {
-			t12 += float64(v) / float64(count)
+			t12 += v_f / count_f
 
 			if i < records_1 {
-				t1 += float64(v) / records_1f
+				t1 += v_f / records_1f
 			}
 		} else {
-			t24 += float64(v) / float64(count)
+			t24 += v_f / count_f
 
 			if i < records_1 {
-				t1 += float64(v) / records_1f
+				t1 += v_f / records_1f
 			}
 			if i < records_12 {
-				t12 += float64(v) / records_12f
+				t12 += v_f / records_12f
 			}
 		}
 
