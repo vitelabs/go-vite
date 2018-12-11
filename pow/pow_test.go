@@ -2,6 +2,7 @@ package pow_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -40,18 +41,15 @@ func TestGetPowNonce(t *testing.T) {
 
 func TestCheckPowNonce(t *testing.T) {
 
-	bbb, _ := new(big.Int).SetString("96dcde7641923e2a", 16)
-	nonceUint64 := bbb.Uint64()
-	nn := make([]byte, 8)
-	binary.LittleEndian.PutUint64(nn[:], nonceUint64)
-
-	data, _ := hex.DecodeString("718CC2121C3E641059BC1C2CFC45666C718CC2121C3E641059BC1C2CFC45666C")
+	nonce, _ := base64.StdEncoding.DecodeString("LvQMQs6FHOc=")
+	prehash, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
+	addr, _ := types.HexToAddress("vite_c2406893861fa23cc5deafb2461f50163b728ccc2d2931b830")
 
 	d, ok := new(big.Int).SetString("67108863", 10)
 	if !ok {
 		fmt.Println("!ok")
 	}
-	assert.True(t, pow.CheckPowNonce(d, nn, data))
+	assert.True(t, pow.CheckPowNonce(d, nonce, crypto.Hash256(addr.Bytes(), prehash)))
 
 }
 

@@ -35,6 +35,14 @@ func (vc *Client) GetBlocksByAccAddr(addr *Address, index int, count int) (strin
 	return vc.rawMsgCall("ledger_getBlocksByAccAddr", addr.address, index, count)
 }
 
+func (vc *Client) GetBlocksByHash(addr *Address, startHash string, count int) (string, error) {
+	if startHash == "" {
+		return vc.rawMsgCall("ledger_getBlocksByHash", addr.address, nil, count)
+	}
+	return vc.rawMsgCall("ledger_getBlocksByHash", addr.address, startHash, count)
+
+}
+
 func (vc *Client) GetAccountByAccAddr(addr *Address) (string, error) {
 	return vc.rawMsgCall("ledger_getAccountByAccAddr", addr.address)
 }
@@ -52,7 +60,11 @@ func (vc *Client) GetLatestBlock(addr *Address) (string, error) {
 }
 
 func (vc *Client) GetPledgeData(addr *Address) (string, error) {
-	return vc.rawMsgCall("pledge_getPledgeData", addr.address)
+	return vc.stringCall("pledge_getPledgeData", addr.address)
+}
+
+func (vc *Client) GetPledgeQuota(addr *Address) (string, error) {
+	return vc.rawMsgCall("pledge_getPledgeQuota", addr.address)
 }
 
 func (vc *Client) GetFittestSnapshotHash(accAddr *Address, sendBlockHash string) (string, error) {
