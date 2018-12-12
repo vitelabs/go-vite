@@ -365,6 +365,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 				return vm.blockList, NoRetry, err
 			} else {
 				monitor.LogEvent("vm", "impossibleReceiveError")
+				codexecTimeCounter.Inc(1)
 				nodeConfig.log.Error("Impossible receive error", "err", refundError, "fromhash", sendBlock.Hash)
 				return nil, Retry, err
 			}

@@ -53,8 +53,7 @@ func InfluxDB(r metrics.Registry, d time.Duration, url, database, username, pass
 // InfluxDBWithTags starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval with the specified tags
 func InfluxDBWithTags(r metrics.Registry, d time.Duration, url, database, username, password, namespace string, tags map[string]string) {
 	if !metrics.InfluxDBExportFlag {
-		fmt.Println("influxdb export disable")
-		//log.Info("influxdb export disable")
+		log.Info("InfluxDB export disable")
 		return
 	}
 	rep := &reporter{
@@ -69,7 +68,7 @@ func InfluxDBWithTags(r metrics.Registry, d time.Duration, url, database, userna
 		cache:     make(map[string]int64),
 	}
 	if err := rep.makeClient(); err != nil {
-		log.Warn("Unable to make InfluxDB client", "err", err)
+		log.Error("Unable to make InfluxDB client", "err", err)
 		return
 	}
 	rep.run()
@@ -181,7 +180,7 @@ func (r *reporter) send() error {
 			ms := metric.Snapshot()
 			ps := ms.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999, 0.9999})
 			pt, err = client.NewPoint(
-				fmt.Sprint("%s%s.timer", namespace, name),
+				fmt.Sprintf("%s%s.timer", namespace, name),
 				r.tags,
 				map[string]interface{}{
 					"count":    ms.Count(),
@@ -232,5 +231,3 @@ func (r *reporter) send() error {
 	})
 	return r.client.Write(bp)
 }
-
-

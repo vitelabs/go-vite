@@ -255,7 +255,7 @@ func SetupMetricsExport(ctx *cli.Context) {
 			password = ctx.GlobalString(MetricsInfluxDBPasswordFlag.Name)
 			hosttag  = ctx.GlobalString(MetricsInfluxDBHostTagFlag.Name)
 		)
-		go influxdb.InfluxDBWithTags(metrics.DefaultRegistry, 10*time.Second, endpoint, database, username, password, "basic/", map[string]string{
+		go influxdb.InfluxDBWithTags(metrics.DefaultRegistry, 10*time.Second, endpoint, database, username, password, "monitor", map[string]string{
 			"host": hosttag,
 		})
 

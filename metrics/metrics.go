@@ -43,20 +43,20 @@ func CollectProcessMetrics(refresh time.Duration) {
 		diskstats[i] = new(DiskStats)
 	}
 	// Define the various metrics to collect
-	memAllocs := GetOrRegisterMeter("system/memory/allocs", DefaultRegistry)
-	memFrees := GetOrRegisterMeter("system/memory/frees", DefaultRegistry)
-	memInuse := GetOrRegisterMeter("system/memory/inuse", DefaultRegistry)
-	memPauses := GetOrRegisterMeter("system/memory/pauses", DefaultRegistry)
+	memAllocs := GetOrRegisterMeter("/system/memory/allocs", DefaultRegistry)
+	memFrees := GetOrRegisterMeter("/system/memory/frees", DefaultRegistry)
+	memInuse := GetOrRegisterMeter("/system/memory/inuse", DefaultRegistry)
+	memPauses := GetOrRegisterMeter("/system/memory/pauses", DefaultRegistry)
 
 	var diskReads, diskReadBytes, diskWrites, diskWriteBytes Meter
 	var diskReadBytesCounter, diskWriteBytesCounter Counter
 	if err := ReadDiskStats(diskstats[0]); err == nil {
-		diskReads = GetOrRegisterMeter("system/disk/readcount", DefaultRegistry)
-		diskReadBytes = GetOrRegisterMeter("system/disk/readdata", DefaultRegistry)
-		diskReadBytesCounter = GetOrRegisterCounter("system/disk/readbytes", DefaultRegistry)
-		diskWrites = GetOrRegisterMeter("system/disk/writecount", DefaultRegistry)
-		diskWriteBytes = GetOrRegisterMeter("system/disk/writedata", DefaultRegistry)
-		diskWriteBytesCounter = GetOrRegisterCounter("system/disk/writebytes", DefaultRegistry)
+		diskReads = GetOrRegisterMeter("/system/disk/readcount", DefaultRegistry)
+		diskReadBytes = GetOrRegisterMeter("/system/disk/readdata", DefaultRegistry)
+		diskReadBytesCounter = GetOrRegisterCounter("/system/disk/readbytes", DefaultRegistry)
+		diskWrites = GetOrRegisterMeter("/system/disk/writecount", DefaultRegistry)
+		diskWriteBytes = GetOrRegisterMeter("/system/disk/writedata", DefaultRegistry)
+		diskWriteBytesCounter = GetOrRegisterCounter("/system/disk/writebytes", DefaultRegistry)
 	} else {
 		log.Debug("Failed to read disk metrics", "err", err)
 	}
