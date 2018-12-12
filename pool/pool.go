@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
+
 	"sync/atomic"
 
 	"github.com/pkg/errors"
@@ -116,13 +118,14 @@ type pool struct {
 	rwMutex sync.RWMutex
 	version *ForkVersion
 
-	closed      chan struct{}
-	wg          sync.WaitGroup
-	accountCond *sync.Cond // if new block add, notify
+	closed chan struct{}
+	wg     sync.WaitGroup
 
 	log log15.Logger
 
 	stat *recoverStat
+
+	addrCache *lru.Cache
 }
 
 func (self *pool) Snapshot() map[string]interface{} {
@@ -174,8 +177,14 @@ func (self *pool) RUnLock() {
 }
 
 func NewPool(bc chainDb) *pool {
-	self := &pool{bc: bc, rwMutex: sync.RWMutex{}, version: &ForkVersion{}, accountCond: sync.NewCond(&sync.Mutex{})}
+	self := &pool{bc: bc, rwMutex: sync.RWMutex{}, version: &ForkVersion{}}
 	self.log = log15.New("module", "pool")
+	cache, err := lru.New(1024)
+	if err != nil {
+		panic(err)
+	}
+	self.addrCache = cache
+
 	return self
 }
 
@@ -325,9 +334,6 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 	ac.AddBlock(newAccountPoolBlock(block, nil, self.version, source))
 	ac.AddReceivedBlock(block)
 
-	self.accountCond.L.Lock()
-	defer self.accountCond.L.Unlock()
-	self.accountCond.Broadcast()
 }
 
 func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context.VmAccountBlock) error {
@@ -350,9 +356,7 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 		return err
 	}
 	ac.f.broadcastBlock(block.AccountBlock)
-	self.accountCond.L.Lock()
-	defer self.accountCond.L.Unlock()
-	self.accountCond.Broadcast()
+	self.addrCache.Add(address, time.Now().Add(time.Hour*24))
 	return nil
 
 }
@@ -363,9 +367,6 @@ func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Accou
 		self.AddAccountBlock(address, b, source)
 	}
 
-	self.accountCond.L.Lock()
-	defer self.accountCond.L.Unlock()
-	self.accountCond.Broadcast()
 	return nil
 }
 
@@ -386,9 +387,7 @@ func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_con
 	}
 	ac.f.broadcastReceivedBlocks(received, sendBlocks)
 
-	self.accountCond.L.Lock()
-	defer self.accountCond.L.Unlock()
-	self.accountCond.Broadcast()
+	self.addrCache.Add(address, time.Now().Add(time.Hour*24))
 	return nil
 }
 
@@ -661,7 +660,7 @@ func (self *pool) loopBroadcastAndDel() {
 		case <-self.closed:
 			return
 		case <-broadcastT.C:
-			addrList := self.listUnlockedAddr()
+			addrList := self.listPoolRelAddr()
 			for _, addr := range addrList {
 				self.selfPendingAc(addr).broadcastUnConfirmedBlocks()
 			}
@@ -695,17 +694,21 @@ func (self *pool) delUseLessChains() {
 	}
 }
 
-func (self *pool) listUnlockedAddr() []types.Address {
+func (self *pool) listPoolRelAddr() []types.Address {
 	var todoAddress []types.Address
-	//status, e := self.wt.SeedStoreManagers.Status()
-	//if e != nil {
-	//	return todoAddress
-	//}
-	//for k, v := range status {
-	//	if v == entropystore.Locked {
-	//		todoAddress = append(todoAddress, k)
-	//	}
-	//}
+	keys := self.addrCache.Keys()
+	now := time.Now()
+	for _, k := range keys {
+		value, ok := self.addrCache.Get(k)
+		if ok {
+			t := value.(time.Time)
+			if t.Before(now) {
+				self.addrCache.Remove(k)
+			} else {
+				todoAddress = append(todoAddress, k.(types.Address))
+			}
+		}
+	}
 	return todoAddress
 }
 
