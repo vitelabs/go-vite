@@ -88,8 +88,24 @@ func (f *finder) receive(event consensus.ProducersEvent) {
 }
 
 func (f *finder) connect(addrs []types.Address) {
+	iAmSBP := false
+	for _, addr := range addrs {
+		if addr == f.self {
+			iAmSBP = true
+			break
+		}
+	}
+
+	if !iAmSBP {
+		return
+	}
+
 	var node *target
 	for _, addr := range addrs {
+		if addr == f.self {
+			continue
+		}
+
 		if v, ok := f.nodes.Load(addr); ok {
 			if node, ok = v.(*target); ok {
 				f.p2p.Connect(node.id, node.tcp)

@@ -130,4 +130,5 @@ type Net interface {
 	Stop()
 	Info() *NodeInfo
 	Tasks() []*Task
+	AddPlugin(plugin p2p.Plugin)
 }

@@ -49,6 +49,7 @@ type net struct {
 	handlers  map[ViteCmd]MsgHandler
 	topo      *topo.Topology
 	query     *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
+	plugins   []p2p.Plugin
 }
 
 // auto from
@@ -120,6 +121,19 @@ func (n *net) Protocols() []*p2p.Protocol {
 	return n.protocols
 }
 
+func (n *net) AddPlugin(plugin p2p.Plugin) {
+	n.plugins = append(n.plugins, plugin)
+}
+
+func (n *net) startPlugins(svr *p2p.Server) (err error) {
+	for _, plugin := range n.plugins {
+		if err = plugin.Start(svr); err != nil {
+			return
+		}
+	}
+	return nil
+}
+
 func (n *net) addHandler(handler MsgHandler) {
 	for _, cmd := range handler.Cmds() {
 		n.handlers[cmd] = handler
@@ -137,6 +151,10 @@ func (n *net) Start(svr *p2p.Server) (err error) {
 		if err = n.topo.Start(svr); err != nil {
 			return
 		}
+	}
+
+	if err = n.startPlugins(svr); err != nil {
+		return
 	}
 
 	n.wg.Add(1)

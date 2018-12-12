@@ -3,6 +3,7 @@ package vite
 import (
 	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/vite/net/sbpn"
 	"strconv"
 	"strings"
 
@@ -101,6 +102,8 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 			Index:     index,
 		}
 		vite.producer = producer.NewProducer(chain, net, addressContext, cs, sbVerifier, walletManager, pl)
+
+		net.AddPlugin(sbpn.New(*coinbase, cs))
 	}
 
 	// onroad
