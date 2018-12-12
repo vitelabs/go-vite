@@ -649,6 +649,19 @@ func (svr *Server) Nodes() (urls []string) {
 	return
 }
 
+func (svr *Server) SubNodes(ch chan<- *discovery.Node) {
+	if svr.discv == nil {
+		return
+	}
+	svr.discv.SubNodes(ch)
+}
+func (svr *Server) UnSubNodes(ch chan<- *discovery.Node) {
+	if svr.discv == nil {
+		return
+	}
+	svr.discv.UnSubNodes(ch)
+}
+
 // @section NodeInfo
 type NodeInfo struct {
 	ID        string     `json:"remoteID"`

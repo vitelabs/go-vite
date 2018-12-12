@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"net"
 	"sync"
@@ -21,12 +22,6 @@ type Informer interface {
 	UnSubscribe(gid types.Gid, id string)
 }
 
-type P2P interface {
-	SubNodes(ch chan<- *discovery.Node)
-	UnSubNodes(ch chan<- *discovery.Node)
-	Connect(id discovery.NodeID, addr *net.TCPAddr)
-}
-
 type target struct {
 	id      discovery.NodeID
 	address types.Address
@@ -34,7 +29,7 @@ type target struct {
 }
 
 type Finder interface {
-	Start(p2p P2P) error
+	Start(p2p *p2p.Server) error
 	Stop()
 }
 
@@ -43,7 +38,7 @@ type finder struct {
 	informer Informer
 	nodes    sync.Map
 	nodeChan chan *discovery.Node
-	p2p      P2P
+	p2p      p2p.Server
 	term     chan struct{}
 	wg       sync.WaitGroup
 }
@@ -72,13 +67,13 @@ func New(addr types.Address, informer Informer) Finder {
 	}
 }
 
-func (f *finder) Start(p2p P2P) error {
-	if p2p == nil {
+func (f *finder) Start(svr *p2p.Server) error {
+	if svr == nil {
 		return errors.New("p2p server is invalid")
 	}
 
 	f.term = make(chan struct{})
-	p2p.SubNodes(f.nodeChan)
+	svr.SubNodes(f.nodeChan)
 
 	f.informer.SubscribeProducers(types.SNAPSHOT_GID, subId, f.receive)
 
