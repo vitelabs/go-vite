@@ -136,6 +136,10 @@ func (w *Wallet) DeriveByIndex(entropyStore string, index int, extensionWord str
 	}, nil
 }
 
+func (w Wallet) ExtractMnemonic(entropyStore, passphrase string) (string, error) {
+	return w.wallet.ExtractMnemonic(entropyStore, passphrase)
+}
+
 func (w Wallet) GetDataDir() string {
 	return w.wallet.GetDataDir()
 }

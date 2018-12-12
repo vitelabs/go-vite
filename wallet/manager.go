@@ -171,6 +171,18 @@ func (m *Manager) RemoveEntropyStore(entropyStore string) {
 		delete(m.entropyStoreManager, entropyStore)
 	}
 }
+func (m *Manager) ExtractMnemonic(entropyStore, passphrase string) (string, error) {
+	absPath := entropyStore
+	if !filepath.IsAbs(absPath) {
+		absPath = filepath.Join(m.config.DataDir, entropyStore)
+	}
+
+	manager, ok := m.entropyStoreManager[absPath]
+	if ok {
+		return manager.ExtractMnemonic(passphrase)
+	}
+	return "", walleterrors.ErrStoreNotFound
+}
 
 func (m *Manager) RecoverEntropyStoreFromMnemonic(mnemonic, language, passphrase string, extensionWord *string) (em *entropystore.Manager, err error) {
 

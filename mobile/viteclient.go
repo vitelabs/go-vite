@@ -67,6 +67,10 @@ func (vc *Client) GetPledgeQuota(addr *Address) (string, error) {
 	return vc.rawMsgCall("pledge_getPledgeQuota", addr.address)
 }
 
+func (vc *Client) GetPledgeList(addr *Address, index int, count int) (string, error) {
+	return vc.rawMsgCall("pledge_getPledgeList", addr.address, index, count)
+}
+
 func (vc *Client) GetFittestSnapshotHash(accAddr *Address, sendBlockHash string) (string, error) {
 	if sendBlockHash == "" {
 		return vc.stringCall("ledger_getFittestSnapshotHash", accAddr.address)
