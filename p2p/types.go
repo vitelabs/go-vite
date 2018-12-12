@@ -132,3 +132,8 @@ type Transport interface {
 	Close()
 	Handshake(our *Handshake) (their *Handshake, err error)
 }
+
+type Plugin interface {
+	Start(p2p *Server) error
+	Stop()
+}

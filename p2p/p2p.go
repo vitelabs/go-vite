@@ -92,6 +92,8 @@ type Server struct {
 
 	rw     sync.RWMutex // for block
 	dialer *net.Dialer
+
+	plugins []Plugin
 }
 
 func New(cfg *Config) (svr *Server, err error) {
@@ -201,6 +203,11 @@ func (svr *Server) Start() error {
 		}
 	}
 
+	err = svr.startPlugins()
+	if err != nil {
+		return err
+	}
+
 	svr.wg.Add(1)
 	common.Go(svr.dialLoop)
 
@@ -241,6 +248,19 @@ func (svr *Server) Stop() {
 
 		svr.log.Warn("p2p server stopped")
 	}
+}
+
+func (svr *Server) AddPlugin(plugin Plugin) {
+	svr.plugins = append(svr.plugins, plugin)
+}
+
+func (svr *Server) startPlugins() (err error) {
+	for _, plugin := range svr.plugins {
+		if err = plugin.Start(svr); err != nil {
+			return
+		}
+	}
+	return nil
 }
 
 func (svr *Server) updateNode(addr *nat.Addr) {
