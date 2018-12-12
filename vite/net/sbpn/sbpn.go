@@ -3,19 +3,22 @@ package sbpn
 import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"net"
 	"sync"
-	"time"
 )
 
 /**
 network between super block producers
 */
 
+const subId = "enhance"
+
 // tell me who are super block producers
 type Informer interface {
-	SubscribeProducers()
+	SubscribeProducers(gid types.Gid, id string, fn func(event consensus.ProducersEvent))
+	UnSubscribe(gid types.Gid, id string)
 }
 
 type P2P interface {
@@ -37,6 +40,7 @@ type Finder interface {
 
 type finder struct {
 	self     types.Address
+	informer Informer
 	nodes    sync.Map
 	nodeChan chan *discovery.Node
 	p2p      P2P
@@ -55,11 +59,17 @@ func (f *finder) Stop() {
 		close(f.term)
 		f.wg.Wait()
 		f.p2p.UnSubNodes(f.nodeChan)
+		f.informer.UnSubscribe(types.SNAPSHOT_GID, subId)
 	}
 }
 
-func New(informer Informer) Finder {
-	return &finder{}
+func New(addr types.Address, informer Informer) Finder {
+	return &finder{
+		self:     addr,
+		informer: informer,
+		nodes:    sync.Map{},
+		nodeChan: make(chan *discovery.Node, 16),
+	}
 }
 
 func (f *finder) Start(p2p P2P) error {
@@ -70,8 +80,7 @@ func (f *finder) Start(p2p P2P) error {
 	f.term = make(chan struct{})
 	p2p.SubNodes(f.nodeChan)
 
-	f.wg.Add(1)
-	go f.loop()
+	f.informer.SubscribeProducers(types.SNAPSHOT_GID, subId, f.receive)
 
 	f.wg.Add(1)
 	go f.parseLoop()
@@ -79,20 +88,17 @@ func (f *finder) Start(p2p P2P) error {
 	return nil
 }
 
-func (f *finder) loop() {
-	defer f.wg.Done()
+func (f *finder) receive(event consensus.ProducersEvent) {
+	go f.connect(event.Addrs)
+}
 
-	interval := 75 * time.Second
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-loop:
-	for {
-		select {
-		case <-f.term:
-			break loop
-		case <-ticker.C:
-			// todo get fellows and connect
+func (f *finder) connect(addrs []types.Address) {
+	var node *target
+	for _, addr := range addrs {
+		if v, ok := f.nodes.Load(addr); ok {
+			if node, ok = v.(*target); ok {
+				f.p2p.Connect(node.id, node.tcp)
+			}
 		}
 	}
 }
