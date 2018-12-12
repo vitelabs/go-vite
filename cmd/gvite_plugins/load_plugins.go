@@ -104,6 +104,17 @@ var (
 		utils.PProfEnabledFlag,
 		utils.PProfPortFlag,
 	}
+
+	// Metrics
+	metricsFlags = []cli.Flag{
+		utils.MetricsEnabledFlag,
+		utils.MetricsEnableInfluxDBFlag,
+		utils.MetricsInfluxDBEndpointFlag,
+		utils.MetricsInfluxDBDatabaseFlag,
+		utils.MetricsInfluxDBUsernameFlag,
+		utils.MetricsInfluxDBPasswordFlag,
+		utils.MetricsInfluxDBHostTagFlag,
+	}
 )
 
 func init() {
@@ -132,7 +143,7 @@ func init() {
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	//Import: Please add the New Flags here
-	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags, statFlags)
+	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags, statFlags, metricsFlags)
 
 	app.Before = beforeAction
 	app.Action = action

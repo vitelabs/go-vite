@@ -17,14 +17,17 @@ import (
 // This global kill-switch helps quantify the observer effect and makes
 // for less cluttered pprof profiles.
 var (
-	MetricsEnabled bool = false
-	log                 = log15.New("module", "metrics")
+	MetricsEnabled     = false
+	InfluxDBExportFlag = false
+	log                = log15.New("module", "metrics")
 )
 
-const (
-	MetricsEnableFlag   = "metrics"
-	DashboardEnableFlag = "dashboard"
-)
+func InitMetrics(metricFlag, influxDBFlag bool) {
+	log.Info("Enabling metrics collection")
+	MetricsEnabled = metricFlag
+	log.Info("Enabling metrics collection and influxdb export. ")
+	InfluxDBExportFlag = influxDBFlag
+}
 
 // CollectProcessMetrics periodically collects various metrics about the running process.
 func CollectProcessMetrics(refresh time.Duration) {

@@ -8,10 +8,7 @@ import (
 	"time"
 )
 
-var (
-	influxDBExportFlag = false
-	log                = log15.New("module", "influxdb")
-)
+var log = log15.New("module", "influxdb")
 
 // DefaultTimeout is the default connection timeout used to connect to an InfluxDB instance
 const DefaultTimeout = 0
@@ -55,6 +52,11 @@ func InfluxDB(r metrics.Registry, d time.Duration, url, database, username, pass
 
 // InfluxDBWithTags starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval with the specified tags
 func InfluxDBWithTags(r metrics.Registry, d time.Duration, url, database, username, password, namespace string, tags map[string]string) {
+	if !metrics.InfluxDBExportFlag {
+		fmt.Println("influxdb export disable")
+		//log.Info("influxdb export disable")
+		return
+	}
 	rep := &reporter{
 		reg:       r,
 		interval:  d,
@@ -70,7 +72,6 @@ func InfluxDBWithTags(r metrics.Registry, d time.Duration, url, database, userna
 		log.Warn("Unable to make InfluxDB client", "err", err)
 		return
 	}
-
 	rep.run()
 }
 
@@ -231,3 +232,5 @@ func (r *reporter) send() error {
 	})
 	return r.client.Write(bp)
 }
+
+

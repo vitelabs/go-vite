@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"github.com/vitelabs/go-vite/metrics"
+	"github.com/vitelabs/go-vite/metrics/influxdb"
 	"gopkg.in/urfave/cli.v1"
+	"time"
 )
 
 var (
@@ -176,6 +179,45 @@ var (
 		Name:  "pprofport",
 		Usage: "pporof visit `port`, you can visit the address[http://localhost:`port`/debug/pprof]",
 	}
+
+	// Metrics flags
+	MetricsEnabledFlag = cli.BoolFlag{
+		Name:  "metrics",
+		Usage: "Enable metrics collection and reporting",
+	}
+	MetricsEnableInfluxDBFlag = cli.BoolFlag{
+		Name:  "metrics.influxdb",
+		Usage: "Enable metrics export/push to an external InfluxDB database",
+	}
+	MetricsInfluxDBEndpointFlag = cli.StringFlag{
+		Name:  "metrics.influxdb.endpoint",
+		Usage: "InfluxDB API endpoint to report metrics to",
+		Value: "http://127.0.0.1:8086",
+	}
+	MetricsInfluxDBDatabaseFlag = cli.StringFlag{
+		Name:  "metrics.influxdb.database",
+		Usage: "InfluxDB database name to push reported metrics to",
+		Value: "metrics",
+	}
+	MetricsInfluxDBUsernameFlag = cli.StringFlag{
+		Name:  "metrics.influxdb.username",
+		Usage: "Username to authorize access to the database",
+		Value: "test",
+	}
+	MetricsInfluxDBPasswordFlag = cli.StringFlag{
+		Name:  "metrics.influxdb.password",
+		Usage: "Password to authorize access to the database",
+		Value: "test",
+	}
+	// The `host` tag is part of every measurement sent to InfluxDB. Queries on tags are faster in InfluxDB.
+	// It is used so that we can group all nodes and average a measurement across all of them, but also so
+	// that we can select a specific node and inspect its measurements.
+	// https://docs.influxdata.com/influxdb/v1.4/concepts/key_concepts/#tag-key
+	MetricsInfluxDBHostTagFlag = cli.StringFlag{
+		Name:  "metrics.influxdb.host.tag",
+		Usage: "InfluxDB `host` tag attached to all measurements",
+		Value: "localhost",
+	}
 )
 
 // This allows the use of the existing configuration functionality.
@@ -202,4 +244,20 @@ func MergeFlags(flagsSet ...[]cli.Flag) []cli.Flag {
 		mergeFlags = append(mergeFlags, flags...)
 	}
 	return mergeFlags
+}
+
+func SetupMetricsExport(ctx *cli.Context) {
+	if metrics.MetricsEnabled {
+		var (
+			endpoint = ctx.GlobalString(MetricsInfluxDBEndpointFlag.Name)
+			database = ctx.GlobalString(MetricsInfluxDBDatabaseFlag.Name)
+			username = ctx.GlobalString(MetricsInfluxDBUsernameFlag.Name)
+			password = ctx.GlobalString(MetricsInfluxDBPasswordFlag.Name)
+			hosttag  = ctx.GlobalString(MetricsInfluxDBHostTagFlag.Name)
+		)
+		go influxdb.InfluxDBWithTags(metrics.DefaultRegistry, 10*time.Second, endpoint, database, username, password, "basic/", map[string]string{
+			"host": hosttag,
+		})
+
+	}
 }
