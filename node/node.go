@@ -38,7 +38,7 @@ type Node struct {
 
 	//p2p
 	p2pConfig *p2p.Config
-	p2pServer *p2p.Server
+	p2pServer p2p.Server
 
 	//vite
 	viteConfig *config.Config
@@ -139,7 +139,7 @@ func (node *Node) Prepare() error {
 	}
 
 	//Protocols setting, maybe should move into module.Start()
-	node.p2pServer.Protocols = append(node.p2pServer.Protocols, node.viteServer.Net().Protocols()...)
+	node.p2pServer.Config().Protocols = append(node.p2pServer.Config().Protocols, node.viteServer.Net().Protocols()...)
 
 	//init rpc_PowServerUrl
 	remote.InitRawUrl(node.Config().PowServerUrl)
@@ -333,7 +333,7 @@ func (node *Node) startRPC() error {
 			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
 		}
 
-		targetUrl := node.config.DashboardTargetURL + "/ws/gvite/" + strconv.FormatUint(uint64(node.config.NetID), 10) + "@" + hex.EncodeToString(node.p2pServer.PrivateKey.PubByte())
+		targetUrl := node.config.DashboardTargetURL + "/ws/gvite/" + strconv.FormatUint(uint64(node.config.NetID), 10) + "@" + hex.EncodeToString(node.p2pServer.Config().PrivateKey.PubByte())
 
 		u, e := url.Parse(targetUrl)
 		if e != nil {

@@ -26,7 +26,7 @@ func (n *mockNet) Protocols() []*p2p.Protocol {
 	return nil
 }
 
-func (n *mockNet) Start(svr *p2p.Server) error {
+func (n *mockNet) Start(svr p2p.Server) error {
 	return nil
 }
 

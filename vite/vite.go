@@ -3,9 +3,10 @@ package vite
 import (
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/vite/net/sbpn"
 	"strconv"
 	"strings"
+
+	"github.com/vitelabs/go-vite/vite/net/sbpn"
 
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
@@ -38,7 +39,7 @@ type Vite struct {
 	pool             pool.BlockPool
 	consensus        consensus.Consensus
 	onRoad           *onroad.Manager
-	p2p              *p2p.Server
+	p2p              p2p.Server
 }
 
 func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
@@ -130,7 +131,7 @@ func (v *Vite) Init() (err error) {
 	return nil
 }
 
-func (v *Vite) Start(p2p *p2p.Server) (err error) {
+func (v *Vite) Start(p2p p2p.Server) (err error) {
 	v.p2p = p2p
 
 	v.onRoad.Start()
@@ -211,7 +212,7 @@ func (v *Vite) Config() *config.Config {
 	return v.config
 }
 
-func (v *Vite) P2P() *p2p.Server {
+func (v *Vite) P2P() p2p.Server {
 	return v.p2p
 }
 

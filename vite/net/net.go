@@ -43,7 +43,7 @@ type net struct {
 	*filter
 	term      chan struct{}
 	log       log15.Logger
-	protocols []*p2p.Protocol // mount to p2p.Server
+	protocols []*p2p.Protocol // mount to p2p.server
 	wg        sync.WaitGroup
 	fs        *fileServer
 	handlers  map[ViteCmd]MsgHandler
@@ -125,7 +125,7 @@ func (n *net) AddPlugin(plugin p2p.Plugin) {
 	n.plugins = append(n.plugins, plugin)
 }
 
-func (n *net) startPlugins(svr *p2p.Server) (err error) {
+func (n *net) startPlugins(svr p2p.Server) (err error) {
 	for _, plugin := range n.plugins {
 		if err = plugin.Start(svr); err != nil {
 			return
@@ -140,7 +140,7 @@ func (n *net) addHandler(handler MsgHandler) {
 	}
 }
 
-func (n *net) Start(svr *p2p.Server) (err error) {
+func (n *net) Start(svr p2p.Server) (err error) {
 	n.term = make(chan struct{})
 
 	if err = n.fs.start(); err != nil {
@@ -193,7 +193,7 @@ func (n *net) Stop() {
 	}
 }
 
-// will be called by p2p.Server, run as goroutine
+// will be called by p2p.server, run as goroutine
 func (n *net) handlePeer(p *peer) error {
 	current := n.Chain.GetLatestSnapshotBlock()
 	genesis := n.Chain.GetGenesisSnapshotBlock()

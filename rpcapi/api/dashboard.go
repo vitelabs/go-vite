@@ -86,7 +86,7 @@ func (api DashboardApi) RuntimeInfo(id *string) map[string]interface{} {
 	if api.v.Producer() != nil {
 		result["producer"] = api.v.Producer().GetCoinBase().String()
 	}
-	priKey := api.v.P2P().PrivateKey
+	priKey := api.v.P2P().Config().PrivateKey
 	sign := ed25519.Sign(priKey, head.Hash.Bytes())
 	result["signData"] = hexutil.Encode(sign)
 	return result

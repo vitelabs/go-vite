@@ -1,13 +1,14 @@
 package sbpn
 
 import (
+	"net"
+	"sync"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/discovery"
-	"net"
-	"sync"
 )
 
 /**
@@ -29,7 +30,7 @@ type target struct {
 }
 
 type Finder interface {
-	Start(p2p *p2p.Server) error
+	Start(p2p p2p.Server) error
 	Stop()
 }
 
@@ -67,7 +68,7 @@ func New(addr types.Address, informer Informer) Finder {
 	}
 }
 
-func (f *finder) Start(svr *p2p.Server) error {
+func (f *finder) Start(svr p2p.Server) error {
 	if svr == nil {
 		return errors.New("p2p server is invalid")
 	}
