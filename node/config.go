@@ -32,6 +32,7 @@ type Config struct {
 	OpenBlackBlock bool   `json:"OpenBlackBlock"`
 	LedgerGcRetain uint64 `json:"LedgerGcRetain"`
 	GenesisFile    string `json:"GenesisFile"`
+	LedgerGc       bool   `json:"LedgerGc"`
 
 	// p2p
 	NetSelect            string
@@ -169,6 +170,7 @@ func (c *Config) makeChainConfig() *config.Chain {
 			OpenBlackBlock: c.OpenBlackBlock,
 			LedgerGcRetain: c.LedgerGcRetain,
 			GenesisFile:    c.GenesisFile,
+			LedgerGc:       true,
 		}
 	}
 
@@ -199,6 +201,7 @@ END:
 		OpenBlackBlock: c.OpenBlackBlock,
 		LedgerGcRetain: c.LedgerGcRetain,
 		GenesisFile:    c.GenesisFile,
+		LedgerGc:       c.LedgerGc,
 	}
 }
 

@@ -30,6 +30,7 @@
     "dashboard"
   ],
   "Miner": false,
+  "LedgerGc": false,
   "CoinBase": "",
   "EntropyStorePath": "",
   "EntropyStorePassword": "",
