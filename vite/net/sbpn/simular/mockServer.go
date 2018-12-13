@@ -31,6 +31,7 @@ import (
 )
 
 type mockServer struct {
+	mk   *mocker
 	rec  chan<- *discovery.Node
 	term chan struct{}
 }
@@ -42,7 +43,6 @@ func (ms *mockServer) Start() error {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 
-		var id discovery.NodeID
 		ip := make([]byte, 4)
 		var port uint16
 		var addr types.Address
@@ -53,17 +53,16 @@ func (ms *mockServer) Start() error {
 			case <-ms.term:
 				break Loop
 			case <-ticker.C:
-				rand.Read(id[:])
 				rand.Read(ip)
-				rand.Read(addr[:])
+				addr = ms.mk.randAddr()
 				port = uint16(mrand.Intn(65535))
 				ms.rec <- &discovery.Node{
-					ID:   id,
-					IP:   ip,
-					UDP:  port,
-					TCP:  port,
-					Net:  3,
-					Rest: addr[:],
+					ID:  ms.mk.randID(),
+					IP:  ip,
+					UDP: port,
+					TCP: port,
+					Net: 3,
+					Ext: addr[:],
 				}
 			}
 		}
@@ -85,7 +84,6 @@ func (ms *mockServer) AddPlugin(plugin p2p.Plugin) {
 }
 
 func (ms *mockServer) Connect(id discovery.NodeID, addr *net.TCPAddr) {
-	panic("implement me")
 }
 
 func (ms *mockServer) Peers() []*p2p.PeerInfo {

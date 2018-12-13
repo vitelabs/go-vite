@@ -10,7 +10,7 @@ message Node {
     uint32 UDP = 3;
     uint32 TCP = 4;
     uint64 Net = 5;
-    bytes Rest = 6;
+    bytes Ext = 6;
 }
 
 message Ping {

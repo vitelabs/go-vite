@@ -4,10 +4,11 @@ import (
 	"bytes"
 	crand "crypto/rand"
 	"fmt"
-	"github.com/vitelabs/go-vite/p2p/network"
 	mrand "math/rand"
 	"net"
 	"testing"
+
+	"github.com/vitelabs/go-vite/p2p/network"
 )
 
 func mockID() (id NodeID) {
@@ -40,15 +41,20 @@ func mockRest() []byte {
 	return ret
 }
 
-func mockNode() *Node {
-	return &Node{
-		ID:   mockID(),
-		IP:   mockIP(),
-		UDP:  mockPort(),
-		TCP:  mockPort(),
-		Net:  network.ID(mrand.Uint32()),
-		Rest: mockRest(),
+func mockNode(ext bool) *Node {
+	n := &Node{
+		ID:  mockID(),
+		IP:  mockIP(),
+		UDP: mockPort(),
+		TCP: mockPort(),
+		Net: network.ID(mrand.Uint32()),
 	}
+
+	if ext {
+		n.Ext = mockRest()
+	}
+
+	return n
 }
 
 func compare(n, n2 *Node, rest bool) bool {
@@ -77,7 +83,7 @@ func compare(n, n2 *Node, rest bool) bool {
 		return false
 	}
 
-	if rest && !bytes.Equal(n.Rest, n2.Rest) {
+	if rest && !bytes.Equal(n.Ext, n2.Ext) {
 		fmt.Printf("different rest")
 		return false
 	}
@@ -92,7 +98,25 @@ func TestNodeID_IsZero(t *testing.T) {
 }
 
 func TestNode_Deserialize(t *testing.T) {
-	n := mockNode()
+	n := mockNode(true)
+	data, err := n.Serialize()
+	if err != nil {
+		t.Error(err)
+	}
+
+	n2 := new(Node)
+	err = n2.Deserialize(data)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !compare(n, n2, true) {
+		t.Fail()
+	}
+}
+
+func TestNode_Serialize(t *testing.T) {
+	n := mockNode(false)
 	data, err := n.Serialize()
 	if err != nil {
 		t.Error(err)
@@ -110,7 +134,7 @@ func TestNode_Deserialize(t *testing.T) {
 }
 
 func TestNode_String(t *testing.T) {
-	n := mockNode()
+	n := mockNode(true)
 
 	str := n.String()
 

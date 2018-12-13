@@ -3,9 +3,6 @@ package discovery
 import (
 	"encoding/hex"
 	"errors"
-	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/p2p/discovery/protos"
-	"github.com/vitelabs/go-vite/p2p/network"
 	"math"
 	mrand "math/rand"
 	"net"
@@ -13,6 +10,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/p2p/discovery/protos"
+	"github.com/vitelabs/go-vite/p2p/network"
 )
 
 // @section NodeID
@@ -89,12 +90,13 @@ var errInvalidScheme = errors.New("invalid scheme")
 
 // Node mean a node in vite P2P network
 type Node struct {
-	ID   NodeID
-	IP   net.IP
-	UDP  uint16
-	TCP  uint16
-	Net  network.ID
-	Rest []byte
+	ID      NodeID
+	IP      net.IP
+	UDP     uint16
+	TCP     uint16
+	Net     network.ID
+	Ext     []byte
+	Version byte
 
 	addAt    time.Time
 	lastPing time.Time
@@ -105,12 +107,12 @@ type Node struct {
 
 func (n *Node) proto() *protos.Node {
 	return &protos.Node{
-		ID:   n.ID[:],
-		IP:   n.IP,
-		UDP:  uint32(n.UDP),
-		TCP:  uint32(n.TCP),
-		Net:  uint64(n.Net),
-		Rest: n.Rest,
+		ID:  n.ID[:],
+		IP:  n.IP,
+		UDP: uint32(n.UDP),
+		TCP: uint32(n.TCP),
+		Net: uint64(n.Net),
+		Ext: n.Ext,
 	}
 }
 
@@ -126,7 +128,7 @@ func protoToNode(pb *protos.Node) (*Node, error) {
 	node.UDP = uint16(pb.UDP)
 	node.TCP = uint16(pb.TCP)
 	node.Net = network.ID(pb.Net)
-	node.Rest = pb.Rest
+	node.Ext = pb.Ext
 
 	return node, nil
 }

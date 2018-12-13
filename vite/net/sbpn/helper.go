@@ -7,7 +7,7 @@ import (
 
 func nodeParser(node *discovery.Node) *target {
 	var address types.Address
-	copy(address[:], node.Rest)
+	copy(address[:], node.Ext)
 
 	return &target{
 		id:      node.ID,

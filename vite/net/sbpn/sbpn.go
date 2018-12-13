@@ -101,6 +101,7 @@ func (f *finder) Start(svr p2p.Server) error {
 
 	f.term = make(chan struct{})
 	svr.SubNodes(f.nodeChan)
+	f.p2p = svr
 
 	f.informer.SubscribeProducers(types.SNAPSHOT_GID, subId, f.receive)
 

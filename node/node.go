@@ -8,7 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
+
+	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/pkg/errors"
 
@@ -117,17 +120,26 @@ func (node *Node) Prepare() error {
 		return ErrNodeRunning
 	}
 
-	var err error
-	node.p2pServer, err = p2p.New(node.p2pConfig)
-	if err != nil {
-		log.Error(fmt.Sprintf("P2P new error: %v", err))
-		return err
-	}
-
 	//wallet start
 	log.Info(fmt.Sprintf("Begin Start Wallet... "))
 	if err := node.startWallet(); err != nil {
 		log.Error(fmt.Sprintf("startWallet error: %v", err))
+		return err
+	}
+
+	// should after startWallet
+	if node.config.MinerEnabled && node.config.CoinBase != "" {
+		if addr, err := node.extractAddr(); err != nil {
+			log.Error(fmt.Sprintf("extract address error: %v", err))
+		} else {
+			node.p2pConfig.ExtNodeData = addr[:]
+		}
+	}
+
+	var err error
+	node.p2pServer, err = p2p.New(node.p2pConfig)
+	if err != nil {
+		log.Error(fmt.Sprintf("P2P new error: %v", err))
 		return err
 	}
 
@@ -429,4 +441,40 @@ func (node *Node) openDataDir() error {
 	log.Info(fmt.Sprintf("Open NodeServer.walletConfig.DataDir:%v", node.walletConfig.DataDir))
 
 	return nil
+}
+
+func (node *Node) extractAddr() (addr *types.Address, err error) {
+	coinBase := node.config.CoinBase
+
+	var index uint32
+	addr, index, err = parseCoinBase(coinBase)
+
+	if err != nil {
+		log.Error(fmt.Sprintf("coinBase parse fail. %v", coinBase), "err", err)
+		return
+	}
+	err = node.walletManager.MatchAddress(node.config.EntropyStorePath, *addr, index)
+
+	if err != nil {
+		log.Error(fmt.Sprintf("coinBase is not child of entropyStore, coinBase is : %v", coinBase), "err", err)
+	}
+
+	return
+}
+
+func parseCoinBase(coinBase string) (*types.Address, uint32, error) {
+	splits := strings.Split(coinBase, ":")
+	if len(splits) != 2 {
+		return nil, 0, errors.New("len is not equals 2.")
+	}
+	i, err := strconv.Atoi(splits[0])
+	if err != nil {
+		return nil, 0, err
+	}
+	addr, err := types.HexToAddress(splits[1])
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return &addr, uint32(i), nil
 }

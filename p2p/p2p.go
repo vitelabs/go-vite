@@ -56,6 +56,7 @@ type Config struct {
 	Port            uint               // TCP and UDP listen port
 	DataDir         string             // the directory for storing node table, default is "~/viteisbest/p2p"
 	PrivateKey      ed25519.PrivateKey // use for encrypt message, the corresponding public key use for NodeID
+	ExtNodeData     []byte             // extension data for Node
 	Protocols       []*Protocol        // protocols server supported
 	BootNodes       []string           // nodes as discovery seed
 	StaticNodes     []string           // nodes to connect
@@ -129,6 +130,7 @@ func New(cfg *Config) (Server, error) {
 		UDP: uint16(tcpAddr.Port),
 		TCP: uint16(tcpAddr.Port),
 		Net: cfg.NetID,
+		Ext: cfg.ExtNodeData,
 	}
 
 	svr := &server{

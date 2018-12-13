@@ -33,6 +33,7 @@ import (
 )
 
 type mockInformer struct {
+	mk   *mocker
 	sbps []types.Address
 	cb   func(event consensus.ProducersEvent)
 	term chan struct{}
@@ -49,27 +50,29 @@ func (mi *mockInformer) UnSubscribe(gid types.Gid, id string) {
 func (mi *mockInformer) start() {
 	mi.term = make(chan struct{})
 
-	ticker := time.NewTicker(3 * time.Second)
-	defer ticker.Stop()
+	go func() {
+		ticker := time.NewTicker(3 * time.Second)
+		defer ticker.Stop()
 
-Loop:
-	for {
-		select {
-		case <-mi.term:
-			break Loop
-		case <-ticker.C:
-			mi.sbps = mockAddresses(25)
-			mi.cb(consensus.ProducersEvent{
-				Addrs: mi.sbps,
-			})
+	Loop:
+		for {
+			select {
+			case <-mi.term:
+				break Loop
+			case <-ticker.C:
+				mi.sbps = mi.mockAddresses(5)
+				mi.cb(consensus.ProducersEvent{
+					Addrs: mi.sbps,
+				})
+			}
 		}
-	}
+	}()
 }
 
-func mockAddresses(n int) []types.Address {
+func (mi *mockInformer) mockAddresses(n int) []types.Address {
 	ret := make([]types.Address, n)
 	for i := 0; i < n; i++ {
-		rand.Read(ret[i][:])
+		ret[i] = mi.mk.randAddr()
 	}
 	return ret
 }
@@ -89,10 +92,16 @@ type mockListener struct {
 }
 
 func (ml *mockListener) GotNodeCallback(node *discovery.Node) {
-	ml.pool.Store(node.Rest, node.ID)
+	var addr types.Address
+	copy(addr[:], node.Ext)
+	ml.pool.Store(addr, node.ID)
+	fmt.Println("node", addr.String(), node.ID.String())
 }
 
 func (ml *mockListener) GotSBPSCallback(addrs []types.Address) {
+	for _, addr := range addrs {
+		fmt.Println("addr", addr)
+	}
 	ml.bps = addrs
 }
 
@@ -109,11 +118,19 @@ func main() {
 	var selfAddr types.Address
 	rand.Read(selfAddr[:])
 
-	mi := &mockInformer{}
+	mk := &mocker{
+		self: selfAddr,
+	}
+
+	mi := &mockInformer{
+		mk: mk,
+	}
 	ml := &mockListener{
 		self: selfAddr,
 	}
-	ms := &mockServer{}
+	ms := &mockServer{
+		mk: mk,
+	}
 
 	finder := sbpn.New(selfAddr, mi)
 	finder.SetListener(ml)
@@ -122,5 +139,5 @@ func main() {
 	mi.start()
 	ms.Start()
 
-	time.Sleep(time.Minute)
+	time.Sleep(5 * time.Minute)
 }
