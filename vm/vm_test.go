@@ -904,18 +904,18 @@ type TestCase struct {
 
 func TestVm(t *testing.T) {
 	testDir := "./test/"
-	testFiles, err := ioutil.ReadDir(testDir)
-	if err != nil {
-		t.Fatalf("read dir failed, %v", err)
+	testFiles, ok := ioutil.ReadDir(testDir)
+	if ok != nil {
+		t.Fatalf("read dir failed, %v", ok)
 	}
 	for _, testFile := range testFiles {
-		file, err := os.Open(testDir + testFile.Name())
-		if err != nil {
-			t.Fatalf("open test file failed, %v", err)
+		file, ok := os.Open(testDir + testFile.Name())
+		if ok != nil {
+			t.Fatalf("open test file failed, %v", ok)
 		}
 		testCaseMap := new(TestCaseMap)
-		if err := json.NewDecoder(file).Decode(testCaseMap); err != nil {
-			t.Fatalf("decode test file failed, %v", err)
+		if ok := json.NewDecoder(file).Decode(testCaseMap); ok != nil {
+			t.Fatalf("decode test file failed, %v", ok)
 		}
 
 		for k, testCase := range *testCaseMap {
@@ -968,8 +968,10 @@ func TestVm(t *testing.T) {
 			code, _ := hex.DecodeString(testCase.Code)
 			c.setCallCode(testCase.ToAddress, code)
 			db.AddBalance(&sendCallBlock.TokenId, sendCallBlock.Amount)
+			if k == "transfer_balanceOverflow" {
+				fmt.Println("transfer_balanceOverflow")
+			}
 			ret, err := c.run(vm)
-			// TODO debuglog
 			returnData, _ := hex.DecodeString(testCase.ReturnData)
 			if (err == nil && testCase.Err != "") || (err != nil && testCase.Err != err.Error()) {
 				t.Fatalf("%v: %v failed, err not match, expected %v, got %v", testFile.Name(), k, testCase.Err, err)

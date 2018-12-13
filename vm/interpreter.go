@@ -67,13 +67,17 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		res, err := operation.execute(&pc, vm, c, mem, st)
 
 		if nodeConfig.IsDebug {
-			nodeConfig.log.Info("interpreter",
+			nodeConfig.log.Info("vm step",
+				"blockType", c.block.AccountBlock.BlockType,
+				"address", c.block.AccountBlock.AccountAddress.String(),
+				"height", c.block.AccountBlock.Height,
+				"fromHash", c.block.AccountBlock.FromBlockHash.String(),
 				"\ncurrent code", hex.EncodeToString(c.code[currentPc:]),
 				"\nop", opCodeToString[op],
-				"\npc", currentPc,
+				"pc", currentPc,
+				"quotaLeft", c.quotaLeft, "quotaRefund", c.quotaRefund,
 				"\nstack", st.print(),
-				"\nmemory", mem.print(),
-				"\nquotaLeft", c.quotaLeft, "quotaRefund", c.quotaRefund)
+				"\nmemory", mem.print())
 			// TODO print storage
 		}
 

@@ -10,21 +10,21 @@ import (
 )
 
 type VmDebugApi struct {
-	c chain.Chain
-	log   log15.Logger
-	wallet *WalletApi
-	tx *Tx
+	c       chain.Chain
+	log     log15.Logger
+	wallet  *WalletApi
+	tx      *Tx
 	testapi *TestApi
-	onroad *PublicOnroadApi
+	onroad  *PublicOnroadApi
 }
 
 func NewVmDebugApi(vite *vite.Vite) *VmDebugApi {
-	api :=  &VmDebugApi{
-		c: vite.Chain(),
-		log:   log15.New("module", "rpc_api/vmdebug_api"),
+	api := &VmDebugApi{
+		c:      vite.Chain(),
+		log:    log15.New("module", "rpc_api/vmdebug_api"),
 		wallet: NewWalletApi(vite),
-		tx: NewTxApi(vite),
-		onroad:NewPublicOnroadApi(vite),
+		tx:     NewTxApi(vite),
+		onroad: NewPublicOnroadApi(vite),
 	}
 	api.testapi = NewTestApi(api.wallet)
 	return api
@@ -36,12 +36,12 @@ func (v VmDebugApi) String() string {
 
 var (
 	defaultPassphrase = "123"
-	initAmount = "0"
+	initAmount        = "0"
 )
 
 type AccountInfo struct {
-	Addr types.Address `json:"address"`
-	PrivateKey string `json:"privateKey"`
+	Addr       types.Address `json:"address"`
+	PrivateKey string        `json:"privateKey"`
 }
 
 func (v *VmDebugApi) Init() (*AccountInfo, error) {
@@ -56,11 +56,11 @@ func (v *VmDebugApi) Init() (*AccountInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		if len(onroadList) > 0 && onroadList[0].FromAddress == types.AddressMintage && onroadList[0].Height == "2"{
+		if len(onroadList) > 0 && onroadList[0].FromAddress == types.AddressMintage && onroadList[0].Height == "2" {
 			err = v.testapi.ReceiveOnroadTx(CreateReceiveTxParms{
-				SelfAddr:ledger.GenesisAccountAddress,
-				FromHash:onroadList[0].Hash,
-				PrivKeyStr:testapi_hexPrivKey,
+				SelfAddr:   ledger.GenesisAccountAddress,
+				FromHash:   onroadList[0].Hash,
+				PrivKeyStr: testapi_hexPrivKey,
 			})
 		}
 		if err != nil {
@@ -91,8 +91,8 @@ func (v *VmDebugApi) NewAccount() (*AccountInfo, error) {
 		return nil, err
 	}
 	acc := AccountInfo{
-		Addr:response.PrimaryAddr,
-		PrivateKey:hex.EncodeToString(privateKey),
+		Addr:       response.PrimaryAddr,
+		PrivateKey: hex.EncodeToString(privateKey),
 	}
 	// transfer from genesis account to user account
 	tid, _ := types.HexToTokenTypeId(testapi_tti)
@@ -103,18 +103,17 @@ func (v *VmDebugApi) NewAccount() (*AccountInfo, error) {
 		PrivateKey:  &testapi_hexPrivKey,
 		Amount:      &initAmount,
 	})
-	 if err != nil {
-	 	return nil, err
-	 }
+	if err != nil {
+		return nil, err
+	}
 
 	err = v.testapi.ReceiveOnroadTx(CreateReceiveTxParms{
-		SelfAddr:acc.Addr,
-		FromHash:sendBlock.Hash,
-		PrivKeyStr:acc.PrivateKey,
-		})
+		SelfAddr:   acc.Addr,
+		FromHash:   sendBlock.Hash,
+		PrivKeyStr: acc.PrivateKey,
+	})
 	if err != nil {
 		return nil, err
 	}
 	return &acc, nil
 }
-
