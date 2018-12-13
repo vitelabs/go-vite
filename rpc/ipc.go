@@ -18,11 +18,10 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	log "github.com/vitelabs/go-vite/log15"
-	//"github.com/ethereum/go-ethereum/p2p/netutil"
-	"fmt"
 )
 
 // ServeListener accepts connections on l, serving JSON-RPC on them.
@@ -41,7 +40,7 @@ func (srv *Server) ServeListener(l net.Listener) error {
 		//	return err
 		//}
 		if conn != nil {
-			log.Info("Accepted connection", "addr", conn.RemoteAddr())
+			log.Info("Accepted connection", conn.RemoteAddr(), "addr", conn.LocalAddr())
 		}
 		go srv.ServeCodec(NewJSONCodec(conn), OptionMethodInvocation|OptionSubscriptions)
 	}
@@ -58,5 +57,3 @@ func DialIPC(ctx context.Context, endpoint string) (*Client, error) {
 		return newIPCConnection(ctx, endpoint)
 	})
 }
-
-
