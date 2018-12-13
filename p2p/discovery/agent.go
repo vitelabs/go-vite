@@ -243,16 +243,16 @@ func (a *agent) ping(node *Node, callback func(*Node, error)) {
 	})
 }
 
-func (d *agent) pong(node *Node, ack types.Hash) {
-	if node.ID == d.self.ID {
+func (a *agent) pong(node *Node, ack types.Hash) {
+	if node.ID == a.self.ID {
 		return
 	}
 
-	d.send(&sendPkt{
+	a.send(&sendPkt{
 		addr: node.UDPAddr(),
 		code: pongCode,
 		msg: &Pong{
-			ID:         d.self.ID,
+			ID:         a.self.ID,
 			Ping:       ack,
 			IP:         node.IP,
 			Expiration: getExpiration(),
@@ -261,12 +261,12 @@ func (d *agent) pong(node *Node, ack types.Hash) {
 }
 
 // should ping-pong checked before
-func (d *agent) findnode(n *Node, ID NodeID, callback func([]*Node, error)) {
-	d.send(&sendPkt{
+func (a *agent) findnode(n *Node, ID NodeID, callback func([]*Node, error)) {
+	a.send(&sendPkt{
 		addr: n.UDPAddr(),
 		code: findnodeCode,
 		msg: &FindNode{
-			ID:         d.self.ID,
+			ID:         a.self.ID,
 			Target:     ID,
 			Expiration: getExpiration(),
 		},
@@ -288,9 +288,9 @@ func (d *agent) findnode(n *Node, ID NodeID, callback func([]*Node, error)) {
 	})
 }
 
-func (d *agent) sendNeighbors(n *Node, nodes []*Node) {
+func (a *agent) sendNeighbors(n *Node, nodes []*Node) {
 	neighbors := &Neighbors{
-		ID:         d.self.ID,
+		ID:         a.self.ID,
 		Expiration: getExpiration(),
 	}
 
@@ -301,7 +301,7 @@ func (d *agent) sendNeighbors(n *Node, nodes []*Node) {
 
 		if len(carriage) == maxNeighborsOneTrip {
 			neighbors.Nodes = carriage
-			d.send(&sendPkt{
+			a.send(&sendPkt{
 				addr: n.UDPAddr(),
 				code: neighborsCode,
 				msg:  neighbors,
@@ -312,7 +312,7 @@ func (d *agent) sendNeighbors(n *Node, nodes []*Node) {
 
 	if len(carriage) > 0 {
 		neighbors.Nodes = carriage
-		d.send(&sendPkt{
+		a.send(&sendPkt{
 			addr: n.UDPAddr(),
 			code: neighborsCode,
 			msg:  neighbors,

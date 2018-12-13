@@ -18,22 +18,28 @@ import (
 // @section NodeID
 var errUnmatchedLength = errors.New("unmatch length, needs 64 hex chars")
 
+// ZERO_NODE_ID is the zero-value of NodeID type
 var ZERO_NODE_ID NodeID
 
+// NodeID use to mark node, and build a structural network
 type NodeID [32]byte
 
+// Bytes return a slice derived from NodeID
 func (id NodeID) Bytes() []byte {
 	return id[:]
 }
 
+// String return a hex coded string of NodeID
 func (id NodeID) String() string {
 	return hex.EncodeToString(id[:])
 }
 
+// Brief return the front 4 bytes hex coded string of NodeID
 func (id NodeID) Brief() string {
 	return hex.EncodeToString(id[:4])
 }
 
+// IsZero validate whether a NodeID is zero-value
 func (id NodeID) IsZero() bool {
 	for _, byt := range id {
 		if byt|0 != 0 {
@@ -43,6 +49,7 @@ func (id NodeID) IsZero() bool {
 	return true
 }
 
+// Equal validate whether two NodeID is equal
 func (id NodeID) Equal(id2 NodeID) bool {
 	for i := 0; i < 32; i++ {
 		if id[i]^id2[i] != 0 {
@@ -53,6 +60,7 @@ func (id NodeID) Equal(id2 NodeID) bool {
 	return true
 }
 
+// HexStr2NodeID parse a hex coded string to NodeID
 func HexStr2NodeID(str string) (id NodeID, err error) {
 	bytes, err := hex.DecodeString(strings.TrimPrefix(str, "0x"))
 	if err != nil {
@@ -62,6 +70,7 @@ func HexStr2NodeID(str string) (id NodeID, err error) {
 	return Bytes2NodeID(bytes)
 }
 
+// Bytes2NodeID turn a slice to NodeID
 func Bytes2NodeID(buf []byte) (id NodeID, err error) {
 	if len(buf) != len(id) {
 		return id, errUnmatchedLength
@@ -78,6 +87,7 @@ var errInvalidIP = errors.New("invalid IP")
 var errMissPort = errors.New("missing port")
 var errInvalidScheme = errors.New("invalid scheme")
 
+// Node mean a node in vite P2P network
 type Node struct {
 	ID   NodeID
 	IP   net.IP
@@ -121,6 +131,7 @@ func protoToNode(pb *protos.Node) (*Node, error) {
 	return node, nil
 }
 
+// Validate whether a node has essential information
 func (n *Node) Validate() error {
 	if n.ID.IsZero() {
 		return errMissID
@@ -141,10 +152,15 @@ func (n *Node) Validate() error {
 	return nil
 }
 
+// Serialize a Node to []byte
 func (n *Node) Serialize() ([]byte, error) {
 	return proto.Marshal(n.proto())
 }
 
+// Deserialize encoded data, []byte, to a Node,
+// you must create the Node first, like following:
+//		n := new(Node)
+//		err := n.Deserialize(buf)
 func (n *Node) Deserialize(bytes []byte) error {
 	pb := new(protos.Node)
 	err := proto.Unmarshal(bytes, pb)
@@ -162,6 +178,7 @@ func (n *Node) Deserialize(bytes []byte) error {
 	return nil
 }
 
+// UDPAddr return the address that can communication with udp
 func (n *Node) UDPAddr() *net.UDPAddr {
 	return &net.UDPAddr{
 		IP:   n.IP,
@@ -169,6 +186,7 @@ func (n *Node) UDPAddr() *net.UDPAddr {
 	}
 }
 
+// TCPAddr return the address that can be connected with tcp
 func (n *Node) TCPAddr() *net.TCPAddr {
 	port := n.TCP
 	if port == 0 {
@@ -183,9 +201,9 @@ func (n *Node) TCPAddr() *net.TCPAddr {
 // @section NodeURL
 const NodeURLScheme = "vnode"
 
-// marshal node to url-like string which looks like:
-// vnode://<hex node id>
-// vnode://<hex node id>@<ip>:<udpPort>#<tcpPort>
+// String marshal node to url-like string which looks like:
+// 	vnode://<hex node id>
+// 	vnode://<hex node id>@<ip>:<udpPort>#<tcpPort>
 func (n *Node) String() string {
 	nodeURL := url.URL{
 		Scheme: NodeURLScheme,
@@ -207,7 +225,7 @@ func (n *Node) String() string {
 	return nodeURL.String()
 }
 
-// parse a url-like string to Node
+// ParseNode parse a url-like string to Node
 func ParseNode(u string) (*Node, error) {
 	nodeURL, err := url.Parse(u)
 	if err != nil {

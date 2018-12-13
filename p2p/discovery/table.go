@@ -15,7 +15,10 @@ var discvLog = log15.New("module", "p2p/discv")
 
 // @section Bucket
 
+// K is the default bucketSize
 const K = 16
+
+// N is the default number of buckets
 const N = 17
 const alpha = 3
 const minDistance = 239
@@ -189,19 +192,19 @@ type table struct {
 	buckets []*bucket
 	self    NodeID
 	rand    *mrand.Rand
-	netId   network.ID
+	netID   network.ID
 }
 
-func newTable(self NodeID, netId network.ID) *table {
+func newTable(self NodeID, netID network.ID) *table {
 	tab := &table{
 		self:  self,
 		rand:  mrand.New(mrand.NewSource(0)),
-		netId: netId,
+		netID: netID,
 	}
 
 	// init buckets
 	tab.buckets = make([]*bucket, N)
-	for i, _ := range tab.buckets {
+	for i := range tab.buckets {
 		tab.buckets[i] = newBucket(K)
 	}
 
@@ -216,7 +219,7 @@ func (tab *table) refresh() {
 
 	tab.initRand()
 
-	for i, _ := range tab.buckets {
+	for i := range tab.buckets {
 		tab.buckets[i].reset()
 	}
 }
@@ -290,7 +293,7 @@ func (tab *table) addNode(node *Node) *Node {
 		return nil
 	}
 
-	if node.Net != 0 && node.Net != tab.netId {
+	if node.Net != 0 && node.Net != tab.netID {
 		return nil
 	}
 

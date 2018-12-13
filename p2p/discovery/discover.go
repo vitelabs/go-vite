@@ -29,12 +29,13 @@ var dbCleanInterval = time.Hour
 
 var errUnsolicitedMsg = errors.New("unsolicited message")
 
+// Priv2NodeID got the corresponding NodeID from ed25519.PrivateKey
 func Priv2NodeID(priv ed25519.PrivateKey) (NodeID, error) {
 	pub := priv.PubByte()
 	return Bytes2NodeID(pub)
 }
 
-// @section Discovery
+// Config is the essential configuration to create a Discovery implementation
 type Config struct {
 	Priv      ed25519.PrivateKey
 	DBPath    string
@@ -44,7 +45,19 @@ type Config struct {
 	NetID     network.ID
 }
 
-type Discovery struct {
+// Discovery is the interface to discovery other node
+type Discovery interface {
+	Start() error
+	Stop()
+	SubNodes(ch chan<- *Node)
+	UnSubNodes(ch chan<- *Node)
+	Mark(id NodeID, lifetime int64)
+	Block(id NodeID, ip net.IP)
+	Need(n uint)
+	Nodes() []*Node
+}
+
+type discovery struct {
 	cfg         *Config
 	bootNodes   []*Node
 	self        *Node
@@ -59,8 +72,9 @@ type Discovery struct {
 	log         log15.Logger
 }
 
-func New(cfg *Config) (d *Discovery) {
-	d = &Discovery{
+// New create a Discovery implementation
+func New(cfg *Config) Discovery {
+	d := &discovery{
 		cfg:         cfg,
 		bootNodes:   cfg.BootNodes,
 		self:        cfg.Self,
@@ -76,10 +90,10 @@ func New(cfg *Config) (d *Discovery) {
 		Handler: d.HandleMsg,
 	})
 
-	return
+	return d
 }
 
-func (d *Discovery) Start() (err error) {
+func (d *discovery) Start() (err error) {
 	d.log.Info(fmt.Sprintf("discovery %s start", d.self))
 
 	db, err := newDB(d.cfg.DBPath, 2, d.self.ID)
@@ -101,7 +115,7 @@ func (d *Discovery) Start() (err error) {
 	return
 }
 
-func (d *Discovery) Stop() {
+func (d *discovery) Stop() {
 	if d.term == nil {
 		return
 	}
@@ -120,21 +134,21 @@ func (d *Discovery) Stop() {
 	}
 }
 
-func (d *Discovery) Block(ID NodeID, IP net.IP) {
+func (d *discovery) Block(ID NodeID, IP net.IP) {
 	// todo
 }
 
-func (d *Discovery) Mark(id NodeID, lifetime int64) {
+func (d *discovery) Mark(id NodeID, lifetime int64) {
 	// todo
 }
 
-func (d *Discovery) Need(n uint) {
+func (d *discovery) Need(n uint) {
 	nodes := make([]*Node, n)
 	i := d.RandomNodes(nodes)
 	d.batchNotify(nodes[:i])
 }
 
-func (d *Discovery) tableLoop() {
+func (d *discovery) tableLoop() {
 	defer d.wg.Done()
 
 	checkTicker := time.NewTicker(checkInterval)
@@ -198,7 +212,7 @@ func (d *Discovery) tableLoop() {
 	}
 }
 
-func (d *Discovery) findNode(to *Node, target NodeID, callback func(n *Node, nodes []*Node)) {
+func (d *discovery) findNode(to *Node, target NodeID, callback func(n *Node, nodes []*Node)) {
 	d.agent.findnode(to, target, func(nodes []*Node, err error) {
 		callback(to, nodes)
 		if len(nodes) == 0 {
@@ -214,15 +228,15 @@ func (d *Discovery) findNode(to *Node, target NodeID, callback func(n *Node, nod
 	})
 }
 
-func (d *Discovery) RandomNodes(result []*Node) int {
+func (d *discovery) RandomNodes(result []*Node) int {
 	return d.tab.randomNodes(result)
 }
 
-func (d *Discovery) Lookup(id NodeID) []*Node {
+func (d *discovery) Lookup(id NodeID) []*Node {
 	return d.lookup(id, true)
 }
 
-func (d *Discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
+func (d *discovery) lookup(id NodeID, refreshIfNull bool) []*Node {
 	var result *neighbors
 
 	for {
@@ -295,7 +309,7 @@ loop:
 }
 
 // find Node who`s equal id
-func (d *Discovery) Resolve(id NodeID) *Node {
+func (d *discovery) Resolve(id NodeID) *Node {
 	nodes := d.tab.findNeighbors(id, 1).nodes
 
 	if len(nodes) > 0 && id.Equal(nodes[0].ID) {
@@ -312,7 +326,7 @@ func (d *Discovery) Resolve(id NodeID) *Node {
 	return nil
 }
 
-func (d *Discovery) HandleMsg(res *packet) {
+func (d *discovery) HandleMsg(res *packet) {
 	if res.msg.isExpired() {
 		return
 	}
@@ -373,7 +387,7 @@ func (d *Discovery) HandleMsg(res *packet) {
 	}
 }
 
-func (d *Discovery) RefreshTable() {
+func (d *discovery) RefreshTable() {
 	if !atomic.CompareAndSwapInt32(&d.refreshing, 0, 1) {
 		select {
 		case <-d.term:
@@ -408,7 +422,7 @@ func (d *Discovery) RefreshTable() {
 	discvLog.Info("refresh table done")
 }
 
-func (d *Discovery) loadInitNodes() {
+func (d *discovery) loadInitNodes() {
 	nodes := d.db.randomNodes(seedCount, seedMaxAge) // get random nodes from db
 	nodes = append(nodes, d.bootNodes...)
 
@@ -419,15 +433,15 @@ func (d *Discovery) loadInitNodes() {
 	}
 }
 
-func (d *Discovery) Nodes() []*Node {
+func (d *discovery) Nodes() []*Node {
 	return d.tab.nodes()
 }
 
-func (d *Discovery) SubNodes(ch chan<- *Node) {
+func (d *discovery) SubNodes(ch chan<- *Node) {
 	d.subs = append(d.subs, ch)
 }
 
-func (d *Discovery) UnSubNodes(ch chan<- *Node) {
+func (d *discovery) UnSubNodes(ch chan<- *Node) {
 	for i, c := range d.subs {
 		if c == ch {
 			copy(d.subs[i:], d.subs[i+1:])
@@ -436,7 +450,7 @@ func (d *Discovery) UnSubNodes(ch chan<- *Node) {
 	}
 }
 
-func (d *Discovery) notify(node *Node) {
+func (d *discovery) notify(node *Node) {
 	for _, ch := range d.subs {
 		select {
 		case ch <- node:
@@ -445,7 +459,7 @@ func (d *Discovery) notify(node *Node) {
 	}
 }
 
-func (d *Discovery) batchNotify(nodes []*Node) {
+func (d *discovery) batchNotify(nodes []*Node) {
 	for _, node := range nodes {
 		d.notify(node)
 	}

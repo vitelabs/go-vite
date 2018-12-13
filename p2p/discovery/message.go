@@ -71,6 +71,7 @@ type packet struct {
 	msg    Message
 }
 
+// Message is the discovery protocol message type
 type Message interface {
 	serialize() ([]byte, error)
 	deserialize([]byte) error
@@ -80,7 +81,7 @@ type Message interface {
 	String() string
 }
 
-// message Ping
+// Ping is the message to check whether a node is alive
 type Ping struct {
 	ID         NodeID
 	IP         net.IP
@@ -139,7 +140,7 @@ func (p *Ping) String() string {
 	return "ping"
 }
 
-// message Pong
+// Pong is the respond message to Ping
 type Pong struct {
 	ID         NodeID
 	Ping       types.Hash
@@ -200,7 +201,7 @@ func (p *Pong) String() string {
 	return "pong<" + p.Ping.String() + ">"
 }
 
-// @message findnode
+// FindNode to find neighbor nodes of the target NodeID
 type FindNode struct {
 	ID         NodeID
 	Target     NodeID
@@ -263,7 +264,7 @@ func (f *FindNode) String() string {
 	return "findnode<" + f.Target.String() + ">"
 }
 
-// @message neighbors
+// Neighbors is the respond message to FindNode
 type Neighbors struct {
 	ID         NodeID
 	Nodes      []*Node
@@ -356,6 +357,7 @@ func (e eCode) String() string {
 	return eMsg[e]
 }
 
+// Exception is the exception message of discovery protocol
 type Exception struct {
 	Code eCode
 }
@@ -393,8 +395,8 @@ func (e *Exception) sender() (id NodeID) {
 	return
 }
 
-func (n *Exception) String() string {
-	return "exception<" + n.Code.String() + ">"
+func (e *Exception) String() string {
+	return "exception<" + e.Code.String() + ">"
 }
 
 // version code checksum signature payload

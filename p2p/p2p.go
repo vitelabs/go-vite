@@ -44,17 +44,7 @@ func blockPolicy(t time.Time, count int) bool {
 	return true
 }
 
-type Discovery interface {
-	Start() error
-	Stop()
-	SubNodes(ch chan<- *discovery.Node)
-	UnSubNodes(ch chan<- *discovery.Node)
-	Mark(id discovery.NodeID, lifetime int64)
-	Block(id discovery.NodeID, ip net.IP)
-	Need(n uint)
-	Nodes() []*discovery.Node
-}
-
+// Config is the essential configuration to create a p2p.Server
 type Config struct {
 	Discovery       bool
 	Name            string
@@ -81,7 +71,7 @@ type Server struct {
 	pending   chan struct{} // how many connection can wait for handshake
 	addPeer   chan *transport
 	delPeer   chan *Peer
-	discv     Discovery
+	discv     discovery.Discovery
 	handshake *Handshake
 	peers     *PeerSet
 	blockUtil *block.Block

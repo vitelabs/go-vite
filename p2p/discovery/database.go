@@ -78,26 +78,25 @@ func newFileDB(path string, version int, id NodeID) (*nodeDB, error) {
 		if err != nil {
 			db.Close()
 			return nil, err
-		} else {
-			return &nodeDB{
-				db: db,
-				id: id,
-			}, nil
 		}
+		return &nodeDB{
+			db: db,
+			id: id,
+		}, nil
 	} else if err == nil {
 		if bytes.Equal(oldVBytes, vBytes) {
 			return &nodeDB{
 				db: db,
 				id: id,
 			}, err
-		} else {
-			db.Close()
-			err = os.RemoveAll(path)
-			if err != nil {
-				return nil, err
-			}
-			return newFileDB(path, version, id)
 		}
+
+		db.Close()
+		err = os.RemoveAll(path)
+		if err != nil {
+			return nil, err
+		}
+		return newFileDB(path, version, id)
 	}
 
 	return nil, err
