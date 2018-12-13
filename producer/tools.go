@@ -93,10 +93,22 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 
 	// todo get block
 	for k, b := range needSnapshotAccounts {
-		err := self.sVerifier.VerifyAccountTimeout(k, head.Height+1)
+		hashH, err := self.sVerifier.VerifyAccountTimeout(k, head.Height+1)
 		if err != nil {
 			self.log.Error("account verify timeout.", "addr", k, "accHash", b.Hash, "accHeight", b.Height, "err", err)
-			self.pool.RollbackAccountTo(k, b.Hash, b.Height)
+			if hashH != nil {
+				err := self.pool.RollbackAccountTo(k, hashH.Hash, hashH.Height)
+				if err != nil {
+					self.log.Error("account rollback err.", "addr", k, "accHash", hashH.Hash, "accHeight", hashH.Height, "err", err)
+					return nil, err
+				}
+			} else {
+				err := self.pool.RollbackAccountTo(k, b.Hash, b.Height)
+				if err != nil {
+					self.log.Error("account rollback err.", "addr", k, "accHash", hashH.Hash, "accHeight", hashH.Height, "err", err)
+					return nil, err
+				}
+			}
 		}
 	}
 
@@ -106,13 +118,18 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 	var finalAccounts = make(map[types.Address]*ledger.HashHeight)
 
 	for k, b := range needSnapshotAccounts {
-		err := self.sVerifier.VerifyAccountTimeout(k, head.Height+1)
+
+		errB := b
+		hashH, err := self.sVerifier.VerifyAccountTimeout(k, head.Height+1)
+		if hashH != nil {
+			errB = hashH
+		}
 		if err != nil {
 			return nil, errors.Errorf(
 				"error account block, account:%s, blockHash:%s, blockHeight:%d, err:%s",
 				k.String(),
-				b.Hash.String(),
-				b.Height,
+				errB.Hash.String(),
+				errB.Height,
 				err)
 		}
 		finalAccounts[k] = &ledger.HashHeight{Hash: b.Hash, Height: b.Height}
