@@ -17,7 +17,7 @@ network between super block producers
 
 const subId = "enhance"
 
-// tell me who are super block producers
+// Informer tell me who are super block producers
 type Informer interface {
 	SubscribeProducers(gid types.Gid, id string, fn func(event consensus.ProducersEvent))
 	UnSubscribe(gid types.Gid, id string)
@@ -29,9 +29,23 @@ type target struct {
 	tcp     *net.TCPAddr
 }
 
+// Finder to find snapshot block producers, and connect to them
 type Finder interface {
 	Start(p2p p2p.Server) error
 	Stop()
+	Info() *Info
+	SetListener(listener Listener)
+}
+
+type Info struct {
+	Addr string
+	SBPS []string
+}
+
+type Listener interface {
+	GotNodeCallback(*discovery.Node)
+	GotSBPSCallback([]types.Address)
+	ConnectCallback(addr types.Address, id discovery.NodeID)
 }
 
 type finder struct {
@@ -42,6 +56,18 @@ type finder struct {
 	p2p      p2p.Server
 	term     chan struct{}
 	wg       sync.WaitGroup
+	listener Listener
+}
+
+func (f *finder) SetListener(listener Listener) {
+	f.listener = listener
+}
+
+func (f *finder) Info() *Info {
+	return &Info{
+		Addr: f.self.String(),
+		SBPS: []string{},
+	}
 }
 
 func (f *finder) Stop() {
@@ -89,6 +115,10 @@ func (f *finder) receive(event consensus.ProducersEvent) {
 }
 
 func (f *finder) connect(addrs []types.Address) {
+	if f.listener != nil {
+		f.listener.GotSBPSCallback(addrs)
+	}
+
 	iAmSBP := false
 	for _, addr := range addrs {
 		if addr == f.self {
@@ -110,6 +140,9 @@ func (f *finder) connect(addrs []types.Address) {
 		if v, ok := f.nodes.Load(addr); ok {
 			if node, ok = v.(*target); ok {
 				f.p2p.Connect(node.id, node.tcp)
+				if f.listener != nil {
+					f.listener.ConnectCallback(addr, node.id)
+				}
 			}
 		}
 	}
@@ -125,6 +158,9 @@ loop:
 		case node := <-f.nodeChan:
 			t := nodeParser(node)
 			f.nodes.Store(t.address, t)
+			if f.listener != nil {
+				f.listener.GotNodeCallback(node)
+			}
 		}
 	}
 }

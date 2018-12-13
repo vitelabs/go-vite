@@ -16,4 +16,111 @@
  * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package simular
+package main
+
+import (
+	"crypto/rand"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/vitelabs/go-vite/p2p/discovery"
+
+	"github.com/vitelabs/go-vite/consensus"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vite/net/sbpn"
+)
+
+type mockInformer struct {
+	sbps []types.Address
+	cb   func(event consensus.ProducersEvent)
+	term chan struct{}
+}
+
+func (mi *mockInformer) SubscribeProducers(gid types.Gid, id string, fn func(event consensus.ProducersEvent)) {
+	mi.cb = fn
+}
+
+func (mi *mockInformer) UnSubscribe(gid types.Gid, id string) {
+	mi.cb = nil
+}
+
+func (mi *mockInformer) start() {
+	mi.term = make(chan struct{})
+
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+
+Loop:
+	for {
+		select {
+		case <-mi.term:
+			break Loop
+		case <-ticker.C:
+			mi.sbps = mockAddresses(25)
+			mi.cb(consensus.ProducersEvent{
+				Addrs: mi.sbps,
+			})
+		}
+	}
+}
+
+func mockAddresses(n int) []types.Address {
+	ret := make([]types.Address, n)
+	for i := 0; i < n; i++ {
+		rand.Read(ret[i][:])
+	}
+	return ret
+}
+
+func (mi *mockInformer) stop() {
+	select {
+	case <-mi.term:
+	default:
+		close(mi.term)
+	}
+}
+
+type mockListener struct {
+	self types.Address
+	pool sync.Map
+	bps  []types.Address
+}
+
+func (ml *mockListener) GotNodeCallback(node *discovery.Node) {
+	ml.pool.Store(node.Rest, node.ID)
+}
+
+func (ml *mockListener) GotSBPSCallback(addrs []types.Address) {
+	ml.bps = addrs
+}
+
+func (ml *mockListener) ConnectCallback(addr types.Address, id discovery.NodeID) {
+	v, ok := ml.pool.Load(addr)
+	if ok && v.(discovery.NodeID) == id {
+		fmt.Println("ok", id, addr)
+	} else {
+		fmt.Println("error", id, addr)
+	}
+}
+
+func main() {
+	var selfAddr types.Address
+	rand.Read(selfAddr[:])
+
+	mi := &mockInformer{}
+	ml := &mockListener{
+		self: selfAddr,
+	}
+	ms := &mockServer{}
+
+	finder := sbpn.New(selfAddr, mi)
+	finder.SetListener(ml)
+
+	finder.Start(ms)
+	mi.start()
+	ms.Start()
+
+	time.Sleep(time.Minute)
+}
