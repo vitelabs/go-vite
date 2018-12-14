@@ -9,7 +9,7 @@ message Node {
     bytes IP = 2;
     uint32 UDP = 3;
     uint32 TCP = 4;
-    uint64 Net = 5;
+    uint32 Net = 5;
     bytes Ext = 6;
 }
 
@@ -17,6 +17,8 @@ message Ping {
     bytes ID = 1;
     uint32 TCP = 2;
     int64 Expiration = 3;
+    uint32 Net = 4;
+    bytes Ext = 5;
 }
 
 message Pong {

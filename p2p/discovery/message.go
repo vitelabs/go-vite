@@ -5,14 +5,17 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
+	"time"
+
+	"github.com/vitelabs/go-vite/p2p/network"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/discovery/protos"
-	"net"
-	"strconv"
-	"time"
 )
 
 const version byte = 2
@@ -87,6 +90,8 @@ type Ping struct {
 	IP         net.IP
 	UDP        uint16
 	TCP        uint16
+	Net        network.ID
+	Ext        []byte
 	Expiration time.Time
 }
 
@@ -99,6 +104,8 @@ func (p *Ping) serialize() ([]byte, error) {
 		ID:         p.ID[:],
 		TCP:        uint32(p.TCP),
 		Expiration: p.Expiration.Unix(),
+		Net:        uint32(p.Net),
+		Ext:        p.Ext,
 	}
 	return proto.Marshal(pb)
 }
@@ -118,6 +125,8 @@ func (p *Ping) deserialize(buf []byte) error {
 	p.ID = id
 	p.TCP = uint16(pb.TCP)
 	p.Expiration = time.Unix(pb.Expiration, 0)
+	p.Net = network.ID(pb.Net)
+	p.Ext = pb.Ext
 
 	return nil
 }

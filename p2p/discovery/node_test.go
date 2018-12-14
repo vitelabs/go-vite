@@ -147,3 +147,61 @@ func TestNode_String(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestNode_Update(t *testing.T) {
+	n := Node{
+		ID:  mockID(),
+		IP:  mockIP(),
+		UDP: mockPort(),
+		TCP: mockPort(),
+		Net: 0,
+		Ext: mockRest(),
+	}
+
+	n2 := new(Node)
+	*n2 = n
+
+	// different ID
+	n2.Update(&Node{
+		ID: mockID(),
+		IP: mockIP(),
+	})
+	if !compare(&n, n2, true) {
+		t.Fail()
+	}
+
+	// nil Ext
+	n2.Update(&Node{
+		ID:  n.ID,
+		Ext: nil,
+	})
+	if !compare(&n, n2, true) {
+		t.Fail()
+	}
+
+	// Ext
+	n2.Update(&Node{
+		ID:  n.ID,
+		Ext: mockRest(),
+	})
+	if compare(&n, n2, true) {
+		t.Fail()
+	}
+
+	// IP
+	n3 := &Node{
+		ID:  n.ID,
+		IP:  mockIP(),
+		UDP: mockPort(),
+		TCP: mockPort(),
+		Ext: mockRest(),
+		Net: network.ID(mrand.Uint32()),
+	}
+	n2.Update(n3)
+	if !compare(n2, n3, true) {
+		t.Fail()
+	}
+
+	fmt.Println(n.Ext)
+	fmt.Println(n2.Ext)
+}

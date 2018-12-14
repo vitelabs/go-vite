@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	"net"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/network"
-	"net"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const seedCount = 20
@@ -341,6 +342,8 @@ func (d *discovery) HandleMsg(res *packet) {
 			IP:  res.from.IP,
 			UDP: uint16(res.from.Port), // use the remote address
 			TCP: ping.TCP,              // extract from the message
+			Net: ping.Net,
+			Ext: ping.Ext,
 		}
 
 		d.db.setLastPing(res.fromID, time.Now())

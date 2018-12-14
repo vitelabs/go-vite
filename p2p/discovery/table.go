@@ -3,12 +3,13 @@ package discovery
 import (
 	crand "crypto/rand"
 	"encoding/binary"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p/network"
 	mrand "math/rand"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p/network"
 )
 
 var discvLog = log15.New("module", "p2p/discv")
@@ -66,15 +67,17 @@ func (b *bucket) tail() (item *nodeList) {
 }
 
 // move the node whose NodeID is id to tail
-func (b *bucket) bubble(id NodeID) bool {
+func (b *bucket) bubble(node *Node) bool {
 	for prev, current := b.list, b.list.next; current != nil; prev, current = current, current.next {
-		if current.node.ID == id {
+		if current.node.ID == node.ID {
 			// move the target Item to tail
 			for prev.next = current.next; prev.next != nil; prev = prev.next {
 				// do nothing
 			}
 			current.next = nil
 			prev.next = current
+			// update node info
+			current.node.Update(node)
 			return true
 		}
 	}
@@ -91,7 +94,7 @@ func (b *bucket) add(node *Node) (toCheck *Node) {
 	}
 
 	// node has been in bucket, update the node info
-	if b.bubble(node.ID) {
+	if b.bubble(node) {
 		return
 	}
 
@@ -106,20 +109,6 @@ func (b *bucket) add(node *Node) (toCheck *Node) {
 	}
 
 	return b.oldest()
-}
-
-func (b *bucket) bubbleNode(node *Node) bool {
-	return b.bubble(node.ID)
-}
-
-func (b *bucket) replace(old, new *Node) {
-	item := b.list
-	for item.next != nil {
-		if item.node.ID == old.ID {
-			item.node = new
-			return
-		}
-	}
 }
 
 func (b *bucket) oldest() *Node {
@@ -293,7 +282,7 @@ func (tab *table) addNode(node *Node) *Node {
 		return nil
 	}
 
-	if node.Net != 0 && node.Net != tab.netID {
+	if node.Net != 0 && tab.netID != 0 && node.Net != tab.netID {
 		return nil
 	}
 
@@ -343,7 +332,7 @@ func (tab *table) bubble(node *Node) {
 	defer tab.lock.Unlock()
 
 	bucket := tab.getBucket(node.ID)
-	bucket.bubble(node.ID)
+	bucket.bubble(node)
 }
 
 func (tab *table) findNeighbors(target NodeID, count int) *neighbors {

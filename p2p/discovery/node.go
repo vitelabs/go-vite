@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"math"
@@ -105,13 +106,34 @@ type Node struct {
 	findfail int
 }
 
+func (n *Node) Update(n2 *Node) {
+	if n.ID != n2.ID {
+		return
+	}
+	if len(n2.IP) > 0 && !bytes.Equal(n.IP, n2.IP) {
+		n.IP = n2.IP
+	}
+	if n.UDP != n2.UDP && n2.UDP > 0 {
+		n.UDP = n2.UDP
+	}
+	if n.TCP != n2.TCP && n2.TCP > 0 {
+		n.TCP = n2.TCP
+	}
+	if n.Net != n2.Net {
+		n.Net = n2.Net
+	}
+	if len(n2.Ext) > 0 {
+		n.Ext = n2.Ext
+	}
+}
+
 func (n *Node) proto() *protos.Node {
 	return &protos.Node{
 		ID:  n.ID[:],
 		IP:  n.IP,
 		UDP: uint32(n.UDP),
 		TCP: uint32(n.TCP),
-		Net: uint64(n.Net),
+		Net: uint32(n.Net),
 		Ext: n.Ext,
 	}
 }
