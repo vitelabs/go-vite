@@ -2,17 +2,17 @@ package net
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/p2p/list"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"github.com/vitelabs/go-vite/vite/net/topo"
-	"sync"
-	"time"
 )
 
 var netLog = log15.New("module", "vite/net")
@@ -348,13 +348,14 @@ func (n *net) Tasks() (ts []*Task) {
 	ts = make([]*Task, n.query.queue.Size())
 	i := 0
 
-	n.query.queue.Traverse(func(prev, current *list.Element) {
-		t := current.Value.(*queryTask)
+	n.query.queue.Traverse(func(value interface{}) bool {
+		t := value.(*queryTask)
 		ts[i] = &Task{
 			Msg:    ViteCmd(t.Msg.Cmd).String(),
 			Sender: t.Sender.RemoteAddr().String(),
 		}
 		i++
+		return true
 	})
 
 	return
