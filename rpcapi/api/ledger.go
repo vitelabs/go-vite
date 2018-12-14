@@ -110,6 +110,34 @@ func (l *LedgerApi) GetStatistics() (*Statistics, error) {
 	}, nil
 }
 
+func (l *LedgerApi) GetVmLogListByHash(logHash types.Hash) (ledger.VmLogList, error) {
+	logList, err := l.chain.GetVmLogList(&logHash)
+	if err != nil {
+		l.log.Error("GetVmLogList failed, error is "+err.Error(), "method", "GetVmLogListByHash")
+		return nil, err
+	}
+	return logList, err
+}
+
+func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height uint64, count uint64, forward bool) ([]*AccountBlock, error) {
+	accountBlocks, err := l.chain.GetAccountBlocksByHeight(addr, height, count, forward)
+	if err != nil {
+		l.log.Error("GetAccountBlocksByHeight failed, error is "+err.Error(), "method", "GetBlocksByHeight")
+		return nil, err
+	}
+	return l.ledgerBlocksToRpcBlocks(accountBlocks)
+}
+
+func (l *LedgerApi) GetBlockByHeight(addr types.Address, height uint64) (*AccountBlock, error) {
+	accountBlock, err := l.chain.GetAccountBlockByHeight(&addr, height)
+	if err != nil {
+		l.log.Error("GetAccountBlockByHeight failed, error is "+err.Error(), "method", "GetBlockByHeight")
+		return nil, err
+	}
+
+	return l.ledgerBlockToRpcBlock(accountBlock)
+}
+
 func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
 	l.log.Info("GetBlocksByAccAddr")
 
