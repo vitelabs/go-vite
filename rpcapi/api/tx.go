@@ -154,8 +154,8 @@ type SendTxWithPrivateKeyParam struct {
 
 type CalcPoWDifficultyParam struct {
 	SelfAddr     types.Address `json:"selfAddr"`
-	PrevHash     *types.Hash   `json:"prevHash"`
-	SnapshotHash *types.Hash   `json:"snapshotHash"`
+	PrevHash     types.Hash    `json:"prevHash"`
+	SnapshotHash types.Hash    `json:"snapshotHash"`
 
 	BlockType byte           `json:"blockType"`
 	ToAddr    *types.Address `json:"toAddr"`
@@ -171,6 +171,9 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (difficulty string, 
 	} else if param.BlockType == ledger.BlockTypeReceive {
 		quotaRequired, err = util.IntrinsicGasCost(nil, false)
 	} else if param.BlockType == ledger.BlockTypeSendCall {
+		if param.ToAddr == nil {
+			return "", errors.New("toAddr is nil")
+		}
 		if vm.IsPrecompiledContractAddress(*param.ToAddr) {
 			if method, ok, err := vm.GetPrecompiledContract(*param.ToAddr, param.Data); !ok || err != nil {
 				return "", errors.New("precompiled contract method not exists")
@@ -184,7 +187,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (difficulty string, 
 		return "", errors.New("block type not supported")
 	}
 
-	db, err := vm_context.NewVmContext(t.vite.Chain(), param.SnapshotHash, param.PrevHash, &param.SelfAddr)
+	db, err := vm_context.NewVmContext(t.vite.Chain(), &param.SnapshotHash, &param.PrevHash, &param.SelfAddr)
 	if err != nil {
 		return "", err
 	}
