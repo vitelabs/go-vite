@@ -25,9 +25,7 @@ var (
 )
 
 func InitMetrics(metricFlag, influxDBFlag bool) {
-	log.Info("Enabling metrics collection")
 	MetricsEnabled = metricFlag
-	log.Info("Enabling metrics collection and influxdb export. ")
 	InfluxDBExportFlag = influxDBFlag
 }
 
@@ -103,6 +101,9 @@ func CollectProcessMetrics(refresh time.Duration) {
 }
 
 func RefreshCpuStats(refresh time.Duration, prevProcessCPUTime float64, prevSystemCPUUsage gosigar.Cpu) (float64, gosigar.Cpu) {
+	if !MetricsEnabled {
+		return 0, gosigar.Cpu{}
+	}
 	frequency := float64(refresh / time.Second)
 	numCPU := float64(runtime.NumCPU())
 	curSystemCPUUsage := gosigar.Cpu{}
@@ -132,13 +133,14 @@ var (
 )
 
 func TimeConsuming(names []string, sinceTime time.Time) {
+	if !MetricsEnabled {
+		return
+	}
 	var name string
 	for _, v := range names {
 		name += "/" + strings.ToLower(v)
 	}
 	if timer, ok := GetOrRegisterResettingTimer(name, TimeConsumingRegistry).(*StandardResettingTimer); timer != nil && ok {
 		timer.UpdateSince(sinceTime)
-	} else {
-		log.Error("moduleRegistry is nil")
 	}
 }
