@@ -39,7 +39,8 @@ func sliceTypeCheck(t Type, val reflect.Value) error {
 		return sliceTypeCheck(*t.Elem, val.Index(0))
 	}
 
-	if elemKind := val.Type().Elem().Kind(); elemKind != t.Elem.Kind {
+	if elemKind := val.Type().Elem().Kind(); (elemKind != reflect.Slice && elemKind != t.Elem.Kind) ||
+		(elemKind == reflect.Slice && t.Elem.Kind != reflect.Slice && t.Elem.Kind != reflect.Array) {
 		return typeErr(formatSliceString(t.Elem.Kind, t.Size), val.Type())
 	}
 	return nil
