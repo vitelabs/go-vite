@@ -5,10 +5,9 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/vitelabs/go-vite/ledger"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/rpc"
 	"golang.org/x/crypto/ed25519"
 )
@@ -154,6 +153,7 @@ type RpcClient interface {
 	GetOnroad(query OnroadQuery) ([]*AccBlockHeader, error)
 	Balance(query BalanceQuery) (*TokenBalance, error)
 	BalanceAll(query BalanceAllQuery) ([]*TokenBalance, error)
+	GetDifficulty(query DifficultyQuery) (diffculty string, err error)
 }
 
 func NewRpcClient(rawurl string) (RpcClient, error) {
@@ -254,4 +254,21 @@ func (c *rpcClient) GetLatest(address types.Address) (*BlockHeader, error) {
 func (c *rpcClient) SubmitRaw(block RawBlock) error {
 	err := c.cc.Call(nil, "tx_sendRawTx", &block)
 	return err
+}
+
+type DifficultyQuery struct {
+	SelfAddr     types.Address `json:"selfAddr"`
+	PrevHash     types.Hash    `json:"prevHash"`
+	SnapshotHash types.Hash    `json:"snapshotHash"`
+
+	BlockType byte           `json:"blockType"`
+	ToAddr    *types.Address `json:"toAddr"`
+	Data      []byte         `json:"data"`
+
+	UsePledgeQuota bool `json:"usePledgeQuota"`
+}
+
+func (c *rpcClient) GetDifficulty(query DifficultyQuery) (diffculty string, err error) {
+	err = c.cc.Call(&diffculty, "tx_calcPoWDifficulty", &query)
+	return
 }

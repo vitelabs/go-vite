@@ -2,6 +2,8 @@ package api
 
 import (
 	"errors"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -14,7 +16,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
 )
 
 type Tx struct {
@@ -187,7 +188,18 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (difficulty string, 
 		return "", errors.New("block type not supported")
 	}
 
-	db, err := vm_context.NewVmContext(t.vite.Chain(), &param.SnapshotHash, &param.PrevHash, &param.SelfAddr)
+	var PrevHash *types.Hash
+	Empty := types.Hash{}
+	if param.PrevHash != Empty {
+		PrevHash = &param.PrevHash
+	} else {
+		account, _ := t.vite.Chain().GetAccount(&param.SelfAddr)
+		if account != nil {
+			return "", errors.New("prevHash is nil")
+		}
+	}
+
+	db, err := vm_context.NewVmContext(t.vite.Chain(), &param.SnapshotHash, PrevHash, &param.SelfAddr)
 	if err != nil {
 		return "", err
 	}

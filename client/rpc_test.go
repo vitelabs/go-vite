@@ -151,7 +151,7 @@ func TestQueryBalance(t *testing.T) {
 		return
 	}
 
-	addr, err := types.HexToAddress("vite_c4a8fe0c93156fe3fd5dc965cc5aea3fcb46f5a0777f9d1304")
+	addr, err := types.HexToAddress("vite_165a295e214421ef1276e79990533953e901291d29b2d4851f")
 	if err != nil {
 		t.Error(addr)
 		return
