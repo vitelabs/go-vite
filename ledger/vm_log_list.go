@@ -8,8 +8,8 @@ import (
 )
 
 type VmLog struct {
-	Topics []types.Hash
-	Data   []byte
+	Topics []types.Hash `json:"topics"`
+	Data   []byte       `json:"data"`
 }
 
 type VmLogList []*VmLog

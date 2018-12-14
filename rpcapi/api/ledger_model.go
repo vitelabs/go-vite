@@ -108,6 +108,11 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *types.TokenInfo
 		ConfirmedTimes: &confirmedTimeStr,
 	}
 
+	if ledgerBlock.Difficulty != nil {
+		difficulty := ledgerBlock.Difficulty.String()
+		ab.Difficulty = &difficulty
+	}
+
 	if ledgerBlock.Timestamp != nil {
 		ab.Timestamp = ledgerBlock.Timestamp.Unix()
 	}
@@ -123,6 +128,7 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *types.TokenInfo
 		s := ledgerBlock.Fee.String()
 		ab.Fee = &s
 	}
+
 	return ab
 }
 
