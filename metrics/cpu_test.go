@@ -17,8 +17,10 @@ func TestRefreshCpuStats(t *testing.T) {
 
 	for i := 0; i < 30; i++ {
 		if i%3 == 0 {
-			t.Logf("prevProcessCPUTime:%v prevSystemCPUUsage:%v\n", prevProcessCPUTime, prevSystemCPUUsage)
 			prevProcessCPUTime, prevSystemCPUUsage = RefreshCpuStats(3*time.Second, prevProcessCPUTime, prevSystemCPUUsage)
+			if systemCPUUsageGuage, ok := GetOrRegisterGaugeFloat64("/sysusage", cpuRegistry).(*StandardGaugeFloat64); ok && systemCPUUsageGuage != nil {
+				t.Logf("prevProcessCPUTime:%v prevSystemCPUUsage:%v systemCPUUsageValue:%v\n", prevProcessCPUTime, prevSystemCPUUsage, systemCPUUsageGuage.Value())
+			}
 		}
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/elastic/gosigar"
 	"github.com/vitelabs/go-vite/log15"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -30,6 +31,13 @@ func InitMetrics(metricFlag, influxDBFlag bool) {
 	InfluxDBExportFlag = influxDBFlag
 }
 
+var (
+	systemRegistry = NewPrefixedChildRegistry(DefaultRegistry, "/system")
+	cpuRegistry    = NewPrefixedChildRegistry(systemRegistry, "/cpu")
+	memoryRegistry = NewPrefixedChildRegistry(systemRegistry, "/memory")
+	diskRegistry   = NewPrefixedChildRegistry(systemRegistry, "/disk")
+)
+
 // CollectProcessMetrics periodically collects various metrics about the running process.
 func CollectProcessMetrics(refresh time.Duration) {
 	// Short circuit if the metrics system is disabled
@@ -44,20 +52,20 @@ func CollectProcessMetrics(refresh time.Duration) {
 		diskstats[i] = new(DiskStats)
 	}
 	// Define the various metrics to collect
-	memAllocs := GetOrRegisterMeter("/system/memory/allocs", DefaultRegistry)
-	memFrees := GetOrRegisterMeter("/system/memory/frees", DefaultRegistry)
-	memInuse := GetOrRegisterMeter("/system/memory/inuse", DefaultRegistry)
-	memPauses := GetOrRegisterMeter("/system/memory/pauses", DefaultRegistry)
+	memAllocs := GetOrRegisterMeter("/allocs", memoryRegistry)
+	memFrees := GetOrRegisterMeter("/frees", memoryRegistry)
+	memInuse := GetOrRegisterMeter("/inuse", memoryRegistry)
+	memPauses := GetOrRegisterMeter("/pauses", memoryRegistry)
 
 	var diskReads, diskReadBytes, diskWrites, diskWriteBytes Meter
 	var diskReadBytesCounter, diskWriteBytesCounter Counter
 	if err := ReadDiskStats(diskstats[0]); err == nil {
-		diskReads = GetOrRegisterMeter("/system/disk/readcount", DefaultRegistry)
-		diskReadBytes = GetOrRegisterMeter("/system/disk/readdata", DefaultRegistry)
-		diskReadBytesCounter = GetOrRegisterCounter("/system/disk/readbytes", DefaultRegistry)
-		diskWrites = GetOrRegisterMeter("/system/disk/writecount", DefaultRegistry)
-		diskWriteBytes = GetOrRegisterMeter("/system/disk/writedata", DefaultRegistry)
-		diskWriteBytesCounter = GetOrRegisterCounter("/system/disk/writebytes", DefaultRegistry)
+		diskReads = GetOrRegisterMeter("/readcount", diskRegistry)
+		diskReadBytes = GetOrRegisterMeter("/readdata", diskRegistry)
+		diskReadBytesCounter = GetOrRegisterCounter("/readbytes", diskRegistry)
+		diskWrites = GetOrRegisterMeter("/writecount", diskRegistry)
+		diskWriteBytes = GetOrRegisterMeter("/writedata", diskRegistry)
+		diskWriteBytesCounter = GetOrRegisterCounter("/writebytes", diskRegistry)
 	} else {
 		log.Debug("Failed to read disk metrics", "err", err)
 	}
@@ -91,5 +99,46 @@ func CollectProcessMetrics(refresh time.Duration) {
 		}
 		prevProcessCPUTime, prevSystemCPUUsage = RefreshCpuStats(3*time.Second, prevProcessCPUTime, prevSystemCPUUsage)
 		time.Sleep(refresh)
+	}
+}
+
+func RefreshCpuStats(refresh time.Duration, prevProcessCPUTime float64, prevSystemCPUUsage gosigar.Cpu) (float64, gosigar.Cpu) {
+	frequency := float64(refresh / time.Second)
+	numCPU := float64(runtime.NumCPU())
+	curSystemCPUUsage := gosigar.Cpu{}
+	var curProcessCPUTime float64
+
+	if processCPUTimeGuage, ok := GetOrRegisterGaugeFloat64("/processtime", cpuRegistry).(*StandardGaugeFloat64); ok && processCPUTimeGuage != nil {
+		curProcessCPUTime = getProcessCPUTime()
+		deltaProcessCPUTime := curProcessCPUTime - prevProcessCPUTime
+		processCPUTime := deltaProcessCPUTime / frequency / numCPU * 100
+
+		processCPUTimeGuage.Update(processCPUTime)
+	}
+	if systemCPUUsageGuage, ok := GetOrRegisterGaugeFloat64("/sysusage", cpuRegistry).(*StandardGaugeFloat64); ok && systemCPUUsageGuage != nil {
+		curSystemCPUUsage.Get()
+		deltaSystemCPUUsage := curSystemCPUUsage.Delta(prevSystemCPUUsage)
+		systemCPUValue := float64(deltaSystemCPUUsage.Sys+deltaSystemCPUUsage.User) / frequency / numCPU
+
+		systemCPUUsageGuage.Update(systemCPUValue)
+	}
+	return curProcessCPUTime, curSystemCPUUsage
+}
+
+var (
+	CodexecRegistry       = NewPrefixedChildRegistry(DefaultRegistry, "/codexec")
+	BranchRegistry        = NewPrefixedChildRegistry(CodexecRegistry, "/branch")
+	TimeConsumingRegistry = NewPrefixedChildRegistry(CodexecRegistry, "/timeconsuming")
+)
+
+func TimeConsuming(names []string, sinceTime time.Time) {
+	var name string
+	for _, v := range names {
+		name += "/" + strings.ToLower(v)
+	}
+	if timer, ok := GetOrRegisterResettingTimer(name, TimeConsumingRegistry).(*StandardResettingTimer); timer != nil && ok {
+		timer.UpdateSince(sinceTime)
+	} else {
+		log.Error("moduleRegistry is nil")
 	}
 }
