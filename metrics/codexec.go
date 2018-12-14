@@ -8,12 +8,15 @@ import (
 var (
 	CodexecRegistry       = NewPrefixedChildRegistry(DefaultRegistry, "/codexec")
 	TimeconsumingRegistry = NewPrefixedChildRegistry(CodexecRegistry, "/timeconsuming")
+	BranchRegistry        = NewPrefixedChildRegistry(CodexecRegistry, "/branch")
 )
 
-func TimeConsuming(moduleName string, funcName string, sinceTime time.Time) {
-	mName := "/" + strings.ToLower(moduleName)
-	fName := "/" + strings.ToLower(funcName)
-	if timer, ok := TimeconsumingRegistry.GetOrRegister(mName+fName, NewTimer()).(*StandardTimer); timer != nil && ok {
+func TimeConsuming(names []string, sinceTime time.Time) {
+	var name string
+	for _, v := range names {
+		name += "/" + strings.ToLower(v)
+	}
+	if timer, ok := GetOrRegisterResettingTimer(name, TimeconsumingRegistry).(*StandardResettingTimer); timer != nil && ok {
 		timer.UpdateSince(sinceTime)
 	} else {
 		log.Error("moduleRegistry is nil")

@@ -69,6 +69,12 @@
 			"revisionTime": "2018-02-27T14:14:24Z"
 		},
 		{
+			"checksumSHA1": "RcSAu8uvUpmZDF4u5IsogcncvNQ=",
+			"path": "github.com/elastic/gosigar",
+			"revision": "f498c67133bcded80f5966ee63acfe68cff4e6bf",
+			"revisionTime": "2018-11-15T17:14:25Z"
+		},
+		{
 			"checksumSHA1": "J12tRgeIEE5eeWcHwa4J8nXTdn4=",
 			"path": "github.com/ethereum/go-ethereum/common",
 			"revision": "41ac8dd803b646b5fa92354a983ee5df68253e2a",

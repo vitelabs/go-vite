@@ -6,6 +6,7 @@
 package metrics
 
 import (
+	"github.com/elastic/gosigar"
 	"github.com/vitelabs/go-vite/log15"
 	"runtime"
 	"time"
@@ -61,6 +62,13 @@ func CollectProcessMetrics(refresh time.Duration) {
 		log.Debug("Failed to read disk metrics", "err", err)
 	}
 
+	var (
+		prevProcessCPUTime = float64(0)
+		prevSystemCPUUsage = gosigar.Cpu{}
+	)
+	prevSystemCPUUsage.Get()
+	prevProcessCPUTime = getProcessCPUTime()
+
 	// Iterate loading the different stats and updating the meters
 	for i := 1; ; i++ {
 		location1 := i % 2
@@ -81,6 +89,7 @@ func CollectProcessMetrics(refresh time.Duration) {
 			diskReadBytesCounter.Inc(diskstats[location1].ReadBytes - diskstats[location2].ReadBytes)
 			diskWriteBytesCounter.Inc(diskstats[location1].WriteBytes - diskstats[location2].WriteBytes)
 		}
+		prevProcessCPUTime, prevSystemCPUUsage = RefreshCpuStats(3*time.Second, prevProcessCPUTime, prevSystemCPUUsage)
 		time.Sleep(refresh)
 	}
 }
