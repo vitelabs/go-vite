@@ -19,11 +19,14 @@ func (p *MethodPledge) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Acco
 func (p *MethodPledge) GetRefundData() []byte {
 	return []byte{1}
 }
+func (p *MethodPledge) GetQuota() uint64 {
+	return PledgeGas
+}
 
 // pledge ViteToken for a beneficial to get quota
 func (p *MethodPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	// pledge gas is low without data gas cost, so that a new account is easy to pledge
-	quotaLeft, err := util.UseQuota(quotaLeft, PledgeGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -76,10 +79,13 @@ func (p *MethodCancelPledge) GetFee(db vmctxt_interface.VmDatabase, block *ledge
 func (p *MethodCancelPledge) GetRefundData() []byte {
 	return []byte{2}
 }
+func (p *MethodCancelPledge) GetQuota() uint64 {
+	return CancelPledgeGas
+}
 
 // cancel pledge ViteToken
 func (p *MethodCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, CancelPledgeGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}

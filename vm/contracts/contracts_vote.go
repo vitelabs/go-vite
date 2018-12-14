@@ -20,10 +20,13 @@ func (p *MethodVote) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 func (p *MethodVote) GetRefundData() []byte {
 	return []byte{1}
 }
+func (p *MethodVote) GetQuota() uint64 {
+	return VoteGas
+}
 
 // vote for a super node of a consensus group
 func (p *MethodVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, VoteGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -73,10 +76,13 @@ func (p *MethodCancelVote) GetFee(db vmctxt_interface.VmDatabase, block *ledger.
 func (p *MethodCancelVote) GetRefundData() []byte {
 	return []byte{2}
 }
+func (p *MethodCancelVote) GetQuota() uint64 {
+	return CancelVoteGas
+}
 
 // cancel vote for a super node of a consensus group
 func (p *MethodCancelVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, CancelVoteGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}

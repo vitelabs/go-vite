@@ -222,7 +222,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 	defer monitor.LogTime("vm", "SendCall", time.Now())
 	// check can make transaction
 	quotaLeft := quotaTotal
-	if p, ok, err := getPrecompiledContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
+	if p, ok, err := GetPrecompiledContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
 		if err != nil {
 			return nil, err
 		}
@@ -255,7 +255,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 		block.VmContext.SubBalance(&block.AccountBlock.TokenId, block.AccountBlock.Amount)
 	}
 	var quotaUsed uint64
-	if isPrecompiledContractAddress(block.AccountBlock.AccountAddress) {
+	if IsPrecompiledContractAddress(block.AccountBlock.AccountAddress) {
 		quotaUsed = 0
 	} else {
 		quotaUsed = util.CalcQuotaUsed(quotaTotal, quotaAddition, quotaLeft, 0, nil)
@@ -280,7 +280,7 @@ func getReceiveCallData(db vmctxt_interface.VmDatabase, err error) []byte {
 
 func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTime("vm", "ReceiveCall", time.Now())
-	if p, ok, _ := getPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
+	if p, ok, _ := GetPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
 		vm.blockList = []*vm_context.VmAccountBlock{block}
 		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 		blockListToSend, err := p.DoReceive(block.VmContext, block.AccountBlock, sendBlock)

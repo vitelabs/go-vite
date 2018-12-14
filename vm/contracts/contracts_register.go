@@ -22,10 +22,13 @@ func (p *MethodRegister) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Ac
 func (p *MethodRegister) GetRefundData() []byte {
 	return []byte{1}
 }
+func (p *MethodRegister) GetQuota() uint64 {
+	return RegisterGas
+}
 
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
 func (p *MethodRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, RegisterGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -129,10 +132,13 @@ func (p *MethodCancelRegister) GetFee(db vmctxt_interface.VmDatabase, block *led
 func (p *MethodCancelRegister) GetRefundData() []byte {
 	return []byte{2}
 }
+func (p *MethodCancelRegister) GetQuota() uint64 {
+	return CancelRegisterGas
+}
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
 func (p *MethodCancelRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, CancelRegisterGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -207,10 +213,13 @@ func (p *MethodReward) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Acco
 func (p *MethodReward) GetRefundData() []byte {
 	return []byte{3}
 }
+func (p *MethodReward) GetQuota() uint64 {
+	return RewardGas
+}
 
 // get reward of generating snapshot block
 func (p *MethodReward) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, RewardGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -406,10 +415,13 @@ func (p *MethodUpdateRegistration) GetFee(db vmctxt_interface.VmDatabase, block 
 func (p *MethodUpdateRegistration) GetRefundData() []byte {
 	return []byte{4}
 }
+func (p *MethodUpdateRegistration) GetQuota() uint64 {
+	return UpdateRegistrationGas
+}
 
 // update registration info
 func (p *MethodUpdateRegistration) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, UpdateRegistrationGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}

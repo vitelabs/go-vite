@@ -79,7 +79,7 @@ func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 		if prevBlock != nil && currentSnapshotHash == prevBlock.SnapshotHash {
 			// quick fail on a receive error block referencing to the same snapshot block
 			if prevBlock.BlockType == ledger.BlockTypeReceiveError {
-				return 0, 0, nil
+				return 0, 0, util.ErrOutOfQuota
 			}
 			if isPoW && IsPoW(prevBlock.Nonce) {
 				// only one block gets extra quota when referencing to the same snapshot block
@@ -124,6 +124,13 @@ func calcQuotaInSection(x *big.Float) uint64 {
 	return uint64(getIndexInSection(x)) * quotaForSection
 }
 
+func calcSectionIndexByQuotaRequired(quotaRequired uint64) uint64 {
+	if quotaRequired > helper.MaxUint64-quotaForSection+1 {
+		return helper.MaxUint64/quotaForSection + 1
+	}
+	return (quotaRequired + quotaForSection - 1) / quotaForSection
+}
+
 // Get the largest index
 // which makes sectionList[index] <= x
 func getIndexInSection(x *big.Float) int {
@@ -150,4 +157,39 @@ func getExactIndex(x *big.Float, index int) int {
 	} else {
 		return index - 1
 	}
+}
+
+func CanPoW(db quotaDb, addr types.Address) bool {
+	currentSnapshotHash := db.CurrentSnapshotBlock().Hash
+	prevBlock := db.PrevAccountBlock()
+	for {
+		if prevBlock != nil && currentSnapshotHash == prevBlock.SnapshotHash {
+			if IsPoW(prevBlock.Nonce) {
+				return false
+			} else {
+				continue
+			}
+		} else {
+			return true
+		}
+	}
+}
+
+func CalcPoWDifficulty(quotaRequired uint64) *big.Int {
+	index := calcSectionIndexByQuotaRequired(quotaRequired)
+	tmpFLoat := new(big.Float).SetPrec(precForFloat)
+	tmpFLoat.Set(nodeConfig.sectionList[index])
+	tmpFLoat.Quo(tmpFLoat, nodeConfig.paramB)
+	d := new(big.Int)
+	d, _ = tmpFLoat.Int(d)
+	// check d value to avoid float precision problem
+	for {
+		tmpFLoat.SetInt(d)
+		tmpFLoat.Mul(tmpFLoat, nodeConfig.paramB)
+		if q := calcQuotaInSection(tmpFLoat); q >= quotaRequired {
+			return d
+		}
+		d.Add(d, helper.Big1)
+	}
+	return nil
 }
