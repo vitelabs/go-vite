@@ -87,8 +87,6 @@ type Message interface {
 // Ping is the message to check whether a node is alive
 type Ping struct {
 	ID         NodeID
-	IP         net.IP
-	UDP        uint16
 	TCP        uint16
 	Net        network.ID
 	Ext        []byte

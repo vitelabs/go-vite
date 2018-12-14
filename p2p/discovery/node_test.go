@@ -201,7 +201,4 @@ func TestNode_Update(t *testing.T) {
 	if !compare(n2, n3, true) {
 		t.Fail()
 	}
-
-	fmt.Println(n.Ext)
-	fmt.Println(n2.Ext)
 }

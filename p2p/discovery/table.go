@@ -294,15 +294,6 @@ func (tab *table) addNode(node *Node) *Node {
 	return bucket.add(node)
 }
 
-func (tab *table) addNodes(nodes []*Node) {
-	tab.lock.Lock()
-	defer tab.lock.Unlock()
-
-	for _, n := range nodes {
-		tab.addNode(n)
-	}
-}
-
 func (tab *table) getBucket(id NodeID) *bucket {
 	d := calcDistance(tab.self, id)
 	if d <= minDistance {
