@@ -20,7 +20,10 @@ func NewSubCmdNodeManager(ctx *cli.Context, maker NodeMaker) SubCmdNodeManager {
 func (nodeManager *SubCmdNodeManager) Start() error {
 
 	// Start up the node
-	StartNode(nodeManager.node)
+	err := StartNode(nodeManager.node)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

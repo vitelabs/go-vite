@@ -71,12 +71,12 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 	}
 	var referredSnapshotHashList []types.Hash
 	referredSnapshotHashList = append(referredSnapshotHashList, fromBlock.SnapshotHash)
-	_, fittestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(v.chain, &fromBlock.ToAddress, referredSnapshotHashList, true)
+	_, fitestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(v.chain, &fromBlock.ToAddress, referredSnapshotHashList, true)
 	if err != nil {
 		t.Error("GetFittestGeneratorSnapshotHash", err)
 		return
 	}
-	gen, err := NewGenerator(v.chain, fittestSnapshotBlockHash, nil, &fromBlock.ToAddress)
+	gen, err := NewGenerator(v.chain, fitestSnapshotBlockHash, nil, &fromBlock.ToAddress)
 	if err != nil {
 		t.Error(err)
 	}
@@ -139,11 +139,11 @@ func createRPCBlockCallPledgeContarct(vite *VitePrepared, addr *types.Address) e
 		Data:           pledgeData,
 	}
 
-	_, fittestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
+	_, fitestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
 	if err != nil {
 		return err
 	}
-	gen, err := NewGenerator(vite.chain, fittestSnapshotBlockHash, nil, &im.AccountAddress)
+	gen, err := NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &im.AccountAddress)
 	if err != nil {
 		return err
 	}
@@ -184,11 +184,11 @@ func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address, fromAddrP
 		Difficulty:     difficulty,
 	}
 
-	_, fittestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
+	_, fitestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
 	if err != nil {
 		return err
 	}
-	gen, err := NewGenerator(vite.chain, fittestSnapshotBlockHash, nil, &im.AccountAddress)
+	gen, err := NewGenerator(vite.chain, fitestSnapshotBlockHash, nil, &im.AccountAddress)
 	if err != nil {
 		return err
 	}

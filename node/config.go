@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vitelabs/go-vite/config/biz"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -28,7 +30,9 @@ type Config struct {
 
 	// chain
 	OpenBlackBlock bool   `json:"OpenBlackBlock"`
+	LedgerGcRetain uint64 `json:"LedgerGcRetain"`
 	GenesisFile    string `json:"GenesisFile"`
+	LedgerGc       bool   `json:"LedgerGc"`
 
 	// p2p
 	NetSelect            string
@@ -87,6 +91,10 @@ type Config struct {
 	TopologyTopic          string   `json:"TopologyTopic"`
 	TopologyReportInterval int      `json:"TopologyReportInterval"`
 	TopoDisabled           bool     `json:"TopoDisabled"`
+	DashboardTargetURL     string
+
+	// reward
+	RewardAddr string `json:"RewardAddr"`
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
@@ -100,6 +108,7 @@ func (c *Config) makeViteConfig() *config.Config {
 		DataDir:  c.DataDir,
 		Net:      c.makeNetConfig(),
 		Vm:       c.makeVmConfig(),
+		Reward:   c.makeRewardConfig(),
 		LogLevel: c.LogLevel,
 	}
 }
@@ -112,6 +121,13 @@ func (c *Config) makeNetConfig() *config.Net {
 		Topic:        c.TopologyTopic,
 		Interval:     int64(c.TopologyReportInterval),
 		TopoDisabled: c.TopoDisabled,
+	}
+}
+
+func (c *Config) makeRewardConfig() *biz.Reward {
+	return &biz.Reward{
+		RewardAddr: c.RewardAddr,
+		Name:       c.Identity,
 	}
 }
 
@@ -152,7 +168,9 @@ func (c *Config) makeChainConfig() *config.Chain {
 		return &config.Chain{
 			KafkaProducers: nil,
 			OpenBlackBlock: c.OpenBlackBlock,
+			LedgerGcRetain: c.LedgerGcRetain,
 			GenesisFile:    c.GenesisFile,
+			LedgerGc:       true,
 		}
 	}
 
@@ -181,7 +199,9 @@ END:
 	return &config.Chain{
 		KafkaProducers: kafkaProducers,
 		OpenBlackBlock: c.OpenBlackBlock,
+		LedgerGcRetain: c.LedgerGcRetain,
 		GenesisFile:    c.GenesisFile,
+		LedgerGc:       c.LedgerGc,
 	}
 }
 

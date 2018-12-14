@@ -194,12 +194,12 @@ func (w *AutoReceiveWorker) ProcessOneBlock(sendBlock *ledger.AccountBlock) {
 
 	var referredSnapshotHashList []types.Hash
 	referredSnapshotHashList = append(referredSnapshotHashList, sendBlock.SnapshotHash)
-	_, fittestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(w.manager.Chain(), &sendBlock.ToAddress, referredSnapshotHashList, true)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(w.manager.Chain(), &sendBlock.ToAddress, referredSnapshotHashList, true)
 	if err != nil {
 		w.log.Info("GetFittestGeneratorSnapshotHash failed", "error", err)
 		return
 	}
-	gen, err := generator.NewGenerator(w.manager.Chain(), fittestSnapshotBlockHash, nil, &sendBlock.ToAddress)
+	gen, err := generator.NewGenerator(w.manager.Chain(), fitestSnapshotBlockHash, nil, &sendBlock.ToAddress)
 	if err != nil {
 		w.log.Error("NewGenerator failed", "error", err)
 		return

@@ -237,6 +237,7 @@ func (context *VmContext) GetSnapshotBlockByHash(hash *types.Hash) *ledger.Snaps
 
 func (context *VmContext) Reset() {
 	context.unsavedCache = NewUnsavedCache(context.trie)
+	context.frozen = false
 }
 
 func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address) {
@@ -317,6 +318,8 @@ func (context *VmContext) AddLog(log *ledger.VmLog) {
 func (context *VmContext) GetLogListHash() *types.Hash {
 	return context.unsavedCache.logList.Hash()
 }
+
+// todo
 
 func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 	if context.chain == nil {
@@ -408,4 +411,31 @@ func (context *VmContext) GetSnapshotBlockBeforeTime(timestamp *time.Time) (*led
 
 func (context *VmContext) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 	return context.chain.GetGenesisSnapshotBlock()
+}
+
+// No Balance and Code
+func (context *VmContext) DebugGetStorage() map[string][]byte {
+	storage := make(map[string][]byte)
+	iter := context.NewStorageIterator(nil, nil)
+	for {
+		key, value, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if !context.isBalanceOrCode(key) {
+			storage[string(key)] = value
+
+		}
+	}
+
+	for key, value := range context.unsavedCache.storage {
+		if !context.isBalanceOrCode([]byte(key)) {
+			storage[key] = value
+		}
+	}
+	return storage
+}
+
+func (context *VmContext) isBalanceOrCode(key []byte) bool {
+	return bytes.HasPrefix(key, context.codeKey()) || bytes.HasPrefix(key, STORAGE_KEY_BALANCE)
 }

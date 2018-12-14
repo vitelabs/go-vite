@@ -311,11 +311,11 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 		Data:           params.Data,
 	}
 
-	_, fittestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(m.chain, &msg.AccountAddress, nil, true)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(m.chain, &msg.AccountAddress, nil, true)
 	if err != nil {
 		return err
 	}
-	g, e := generator.NewGenerator(m.chain, fittestSnapshotBlockHash, nil, &params.SelfAddr)
+	g, e := generator.NewGenerator(m.chain, fitestSnapshotBlockHash, nil, &params.SelfAddr)
 	if e != nil {
 		return e
 	}

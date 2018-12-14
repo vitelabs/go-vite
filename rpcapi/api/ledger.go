@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
@@ -19,6 +20,14 @@ func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 		//signer:        vite.Signer(),
 		log: log15.New("module", "rpc_api/ledger_api"),
 	}
+}
+
+type GcStatus struct {
+	Code        uint8  `json:"code"`
+	Description string `json:"description"`
+
+	ClearedHeight uint64 `json:"clearedHeight"`
+	MarkedHeight  uint64 `json:"markedHeight"`
 }
 
 type LedgerApi struct {
@@ -99,6 +108,34 @@ func (l *LedgerApi) GetStatistics() (*Statistics, error) {
 		SnapshotBlockCount: latestSnapshotBlock.Height,
 		AccountBlockCount:  accountBlockCount,
 	}, nil
+}
+
+func (l *LedgerApi) GetVmLogListByHash(logHash types.Hash) (ledger.VmLogList, error) {
+	logList, err := l.chain.GetVmLogList(&logHash)
+	if err != nil {
+		l.log.Error("GetVmLogList failed, error is "+err.Error(), "method", "GetVmLogListByHash")
+		return nil, err
+	}
+	return logList, err
+}
+
+func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height uint64, count uint64, forward bool) ([]*AccountBlock, error) {
+	accountBlocks, err := l.chain.GetAccountBlocksByHeight(addr, height, count, forward)
+	if err != nil {
+		l.log.Error("GetAccountBlocksByHeight failed, error is "+err.Error(), "method", "GetBlocksByHeight")
+		return nil, err
+	}
+	return l.ledgerBlocksToRpcBlocks(accountBlocks)
+}
+
+func (l *LedgerApi) GetBlockByHeight(addr types.Address, height uint64) (*AccountBlock, error) {
+	accountBlock, err := l.chain.GetAccountBlockByHeight(&addr, height)
+	if err != nil {
+		l.log.Error("GetAccountBlockByHeight failed, error is "+err.Error(), "method", "GetBlockByHeight")
+		return nil, err
+	}
+
+	return l.ledgerBlockToRpcBlock(accountBlock)
 }
 
 func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
@@ -344,4 +381,21 @@ func (l *LedgerApi) GetVmLogList(blockHash types.Hash) (ledger.VmLogList, error)
 		return nil, nil
 	}
 	return l.chain.GetVmLogList(block.LogHash)
+}
+
+func (l *LedgerApi) GetGcStatus() *GcStatus {
+	statusCode := l.chain.TrieGc().Status()
+
+	gStatus := &GcStatus{
+		Code: statusCode,
+	}
+	switch statusCode {
+	case trie_gc.STATUS_STOPPED:
+		gStatus.Description = "STATUS_STOPPED"
+	case trie_gc.STATUS_STARTED:
+		gStatus.Description = "STATUS_STARTED"
+	case trie_gc.STATUS_MARKING_AND_CLEANING:
+		gStatus.Description = "STATUS_MARKING_AND_CLEANING"
+	}
+	return gStatus
 }

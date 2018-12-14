@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
@@ -9,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
 	"math/big"
+	"time"
 )
 
 type Tx struct {
@@ -97,11 +99,11 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		Data:           param.Data,
 		Difficulty:     d,
 	}
-	_, fittestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.vite.Chain(), &msg.AccountAddress, nil, true)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.vite.Chain(), &msg.AccountAddress, nil, true)
 	if err != nil {
 		return nil, err
 	}
-	g, e := generator.NewGenerator(t.vite.Chain(), fittestSnapshotBlockHash, param.PreBlockHash, param.SelfAddr)
+	g, e := generator.NewGenerator(t.vite.Chain(), fitestSnapshotBlockHash, param.PreBlockHash, param.SelfAddr)
 	if e != nil {
 		return nil, e
 	}
@@ -144,4 +146,49 @@ type SendTxWithPrivateKeyParam struct {
 	Data         []byte            `json:"data"` //base64
 	Difficulty   *string           `json:"difficulty,omitempty"`
 	PreBlockHash *types.Hash       `json:"preBlockHash,omitempty"`
+}
+
+const (
+	day           = 24 * time.Hour
+	powTimesLimit = 10
+)
+
+// A single account is limited to send 10 tx with PoW in one day
+func checkPoWLimit(c chain.Chain, addr types.Address, prevHash *types.Hash, snapshotHash types.Hash, nonce []byte) (bool, error) {
+	if prevHash == nil || !isPoW(nonce) {
+		return false, nil
+	}
+	powtimes := 1
+	currentSb, err := c.GetSnapshotBlockByHash(&snapshotHash)
+	if err != nil {
+		return false, err
+	}
+	startTime := getTodayStartTime(currentSb.Timestamp, *c.GetGenesisSnapshotBlock().Timestamp)
+	prevBlockHash := *prevHash
+	for {
+		prevBlock, err := c.GetAccountBlockByHash(&prevBlockHash)
+		if err != nil {
+			return false, err
+		}
+		if prevBlock == nil || prevBlock.Timestamp.Before(*startTime) {
+			return false, nil
+		}
+		if isPoW(prevBlock.Nonce) {
+			powtimes = powtimes + 1
+			if powtimes > powTimesLimit {
+				return true, nil
+			}
+		}
+		prevBlockHash = prevBlock.PrevHash
+	}
+	return false, err
+}
+
+func getTodayStartTime(currentTime *time.Time, genesisTime time.Time) *time.Time {
+	startTime := genesisTime.Add(currentTime.Sub(genesisTime).Round(day))
+	return &startTime
+}
+
+func isPoW(nonce []byte) bool {
+	return len(nonce) > 0
 }
