@@ -25,6 +25,7 @@ func init() {
 	WalletDir = path.Join(home, "Library/GVite/devdata/wallet")
 }
 
+// wallet1 == wallet2
 var Wallet1 *entropystore.Manager
 var Wallet2 *entropystore.Manager
 var Wallet3 *entropystore.Manager
@@ -88,46 +89,37 @@ func PreTest() {
 }
 
 func TestWallet(t *testing.T) {
-	w := wallet.New(&wallet.Config{
-		DataDir:        WalletDir,
-		MaxSearchIndex: 100000,
-	})
-
-	w.Start()
-
-	manager, err := w.GetEntropyStoreManager("vite_165a295e214421ef1276e79990533953e901291d29b2d4851f")
-
-	if err != nil {
-		t.Error(err)
-		return
+	PreTest()
+	t.Log("----------------------Wallet1----------------------")
+	for i := uint32(0); i < 10; i++ {
+		_, key, err := Wallet1.DeriveForIndexPath(i, nil)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		t.Log(key.Address())
 	}
-	manager.Unlock("123456")
-	path, key, err := manager.DeriveForIndexPath(0, nil)
-	if err != nil {
-		t.Error(err)
-		return
+	t.Log("----------------------Wallet1----------------------")
+	t.Log("----------------------Wallet2----------------------")
+	for i := uint32(0); i < 10; i++ {
+		_, key, err := Wallet2.DeriveForIndexPath(i, nil)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		t.Log(key.Address())
 	}
-	t.Log(path)
-	t.Log(key.Address())
-
-	em, err := w.RecoverEntropyStoreFromMnemonic("extend excess vibrant crop split vehicle order veteran then fog panel appear frozen deer logic path yard tenant bag nuclear witness annual silent fold", "en", "123456", nil)
-
-	if err != nil {
-		t.Error(err)
-		return
+	t.Log("----------------------Wallet2----------------------")
+	t.Log("----------------------Wallet3----------------------")
+	for i := uint32(0); i < 10; i++ {
+		_, key, err := Wallet3.DeriveForIndexPath(i, nil)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		t.Log(key.Address())
 	}
-	err = em.Unlock("123456")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	path, key, err = em.DeriveForIndexPath(0, nil)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	t.Log(path)
-	t.Log(key.Address())
+	t.Log("----------------------Wallet3----------------------")
 }
 
 func TestClient_SubmitRequestTx(t *testing.T) {
@@ -143,12 +135,12 @@ func TestClient_SubmitRequestTx(t *testing.T) {
 		t.Error(e)
 		return
 	}
-	self, err := types.HexToAddress("vite_165a295e214421ef1276e79990533953e901291d29b2d4851f")
+	self, err := types.HexToAddress("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	to, err := types.HexToAddress("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
+	to, err := types.HexToAddress("vite_73c6b08e401608bca17272e7c59508f2e549c221ae7efccd53")
 	if err != nil {
 		t.Error(err)
 		return
@@ -161,7 +153,7 @@ func TestClient_SubmitRequestTx(t *testing.T) {
 		SnapshotHash: nil,
 		Data:         []byte("hello pow"),
 	}, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-		return Wallet1.SignData(addr, data, nil, nil)
+		return Wallet3.SignData(addr, data, nil, nil)
 	})
 	if err != nil {
 		t.Error(err)
@@ -187,7 +179,7 @@ func TestClient_SubmitRequestTxWithPow(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	to, err := types.HexToAddress("vite_165a295e214421ef1276e79990533953e901291d29b2d4851f")
+	to, err := types.HexToAddress("vite_2ca3c5f1f18b38f865eb47196027ae0c50d0c21e67774abdda")
 	if err != nil {
 		t.Error(err)
 		return
@@ -264,7 +256,7 @@ func TestClient_SubmitResponseTx(t *testing.T) {
 
 func TestClient_SubmitResponseTxWithPow(t *testing.T) {
 	PreTest()
-	to, err := types.HexToAddress("vite_165a295e214421ef1276e79990533953e901291d29b2d4851f")
+	to, err := types.HexToAddress("vite_73c6b08e401608bca17272e7c59508f2e549c221ae7efccd53")
 	if err != nil {
 		t.Error(err)
 		return
@@ -329,7 +321,7 @@ func TestClient_QueryOnroad(t *testing.T) {
 		return
 	}
 
-	addr, err := types.HexToAddress("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
+	addr, err := types.HexToAddress("vite_73c6b08e401608bca17272e7c59508f2e549c221ae7efccd53")
 	if err != nil {
 		t.Error(err)
 		return

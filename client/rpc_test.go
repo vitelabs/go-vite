@@ -151,7 +151,7 @@ func TestQueryBalance(t *testing.T) {
 		return
 	}
 
-	addr, err := types.HexToAddress("vite_165a295e214421ef1276e79990533953e901291d29b2d4851f")
+	addr, err := types.HexToAddress("vite_2ca3c5f1f18b38f865eb47196027ae0c50d0c21e67774abdda")
 	if err != nil {
 		t.Error(addr)
 		return
@@ -190,4 +190,49 @@ func TestQueryBalanceAll(t *testing.T) {
 		t.Log(v)
 	}
 
+}
+
+func TestQueryDifficulty(t *testing.T) {
+	client, err := NewRpcClient(RawUrl)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	self, err := types.HexToAddress("vite_165a295e214421ef1276e79990533953e901291d29b2d4851f")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	to, err := types.HexToAddress("vite_228f578d58842437fb52104b25750aa84a6f8558b6d9e970b1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	prevHash, err := types.HexToHash("58cb3cd2d00c6c0c883ec3aee9069445b826a165eacc75ece9e1fd008f6ccc5e")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	snapshotHash, err := types.HexToHash("0579d6bbcd227d87db2caefd244769507e07a12bcb757ad253dd6c8c68bdea67")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bs, e := client.GetDifficulty(DifficultyQuery{
+		SelfAddr:       self,
+		PrevHash:       prevHash,
+		SnapshotHash:   snapshotHash,
+		BlockType:      ledger.BlockTypeSendCall,
+		ToAddr:         &to,
+		Data:           []byte("hello world"),
+		UsePledgeQuota: false,
+	})
+
+	if e != nil {
+		t.Error(e)
+		return
+	}
+	t.Log(bs)
 }
