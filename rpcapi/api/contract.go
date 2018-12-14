@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
@@ -32,12 +33,29 @@ func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, height 
 	return util.NewContractAddress(selfAddr, height, prevHash, snapshotHash)
 }
 
-func (c *ContractApi) GetCreateContractData(gid types.Gid, hexCode string) ([]byte, error) {
+func (c *ContractApi) GetCreateContractData(gid types.Gid, hexCode string, abiStr string, params []string) ([]byte, error) {
 	code, err := hex.DecodeString(hexCode)
 	if err != nil {
 		return nil, err
 	}
-	return append(gid.Bytes(), code...), nil
+	if len(params) > 0 {
+		abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
+		if err != nil {
+			return nil, err
+		}
+		arguments, err := convert(params, abiContract.Constructor.Inputs)
+		if err != nil {
+			return nil, err
+		}
+		constructorParams, err := abiContract.PackMethod("", arguments...)
+		if err != nil {
+			return nil, err
+		}
+		data := helper.JoinBytes(gid.Bytes(), code, constructorParams)
+		return data, nil
+	} else {
+		return append(gid.Bytes(), code...), nil
+	}
 }
 
 func (c *ContractApi) GetCallContractData(abiStr string, methodName string, params []string) ([]byte, error) {
