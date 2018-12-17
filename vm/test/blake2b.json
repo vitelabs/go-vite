@@ -1,7 +1,7 @@
 {
   "blake2b_0": {
     "amount": "0de0b6b3a7640000",
-    "code": "6000600020600055",
+    "code": "6000600021600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99979961,
@@ -17,7 +17,7 @@
   },
   "blake2b_memSizeNoQuadraticCost31": {
     "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-    "code": "60016103c020600055",
+    "code": "60016103c021600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99979861,
@@ -33,7 +33,7 @@
   },
   "blake2b_memSizeQuadraticCost63": {
     "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-    "code": "60016107c020600055",
+    "code": "60016107c021600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99979759,
@@ -49,7 +49,7 @@
   },
   "blake2b_1": {
     "amount": "0de0b6b3a7640000",
-    "code": "6005600420600055",
+    "code": "6005600421600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79952,
@@ -65,7 +65,7 @@
   },
   "blake2b_memSizeQuadraticCost65": {
     "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-    "code": "600161080020600055",
+    "code": "600161080021600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99979752,
@@ -81,7 +81,7 @@
   },
   "blake2b_memSizeQuadraticCost32": {
     "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-    "code": "60016103e020600055",
+    "code": "60016103e021600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99979857,
@@ -97,7 +97,7 @@
   },
   "blake2b_bigOffset": {
     "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-    "code": "60027e0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff20600055",
+    "code": "60027e0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff21600055",
     "err": "memory size uint64 overflow",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
@@ -113,7 +113,7 @@
   },
   "blake2b_6": {
     "amount": "0de0b6b3a7640000",
-    "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff20600055",
+    "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff21600055",
     "err": "memory size uint64 overflow",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
@@ -129,7 +129,7 @@
   },
   "blake2b_memSizeQuadraticCost33": {
     "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-    "code": "600161040020600055",
+    "code": "600161040021600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99979854,
@@ -145,7 +145,7 @@
   },
   "blake2b_memSizeQuadraticCost64": {
     "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-    "code": "60016107e020600055",
+    "code": "60016107e021600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99979755,
@@ -161,7 +161,7 @@
   },
   "blake2b_memSizeQuadraticCost64_2": {
     "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-    "code": "60206107e020600055",
+    "code": "60206107e021600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99979755,
@@ -177,7 +177,7 @@
   },
   "blake2b_4": {
     "amount": "0de0b6b3a7640000",
-    "code": "6064640fffffffff20600055",
+    "code": "6064640fffffffff21600055",
     "err": "out of quota",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
@@ -193,7 +193,7 @@
   },
   "blake2b_5": {
     "amount": "0de0b6b3a7640000",
-    "code": "640fffffffff61271020600055",
+    "code": "640fffffffff61271021600055",
     "err": "out of quota",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
@@ -209,7 +209,7 @@
   },
   "blake2b_bigSize": {
     "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-    "code": "7effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff20600055",
+    "code": "7effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff21600055",
     "err": "memory size uint64 overflow",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
@@ -225,7 +225,7 @@
   },
   "blake2b_2": {
     "amount": "0de0b6b3a7640000",
-    "code": "600a600a20600055",
+    "code": "600a600a21600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79952,
@@ -241,7 +241,7 @@
   },
   "blake2b_memSizeQuadraticCost32_zeroSize": {
     "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-    "code": "600061040020600055",
+    "code": "600061040021600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99979961,
@@ -257,7 +257,7 @@
   },
   "blake2b_3": {
     "amount": "0de0b6b3a7640000",
-    "code": "620fffff6103e820600055",
+    "code": "620fffff6103e821600055",
     "err": "out of quota",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
@@ -273,7 +273,7 @@
   },
   "blake2b_bigOffset2": {
     "amount": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-    "code": "6002630100000020600055",
+    "code": "6002630100000021600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 3756501424,

@@ -918,6 +918,9 @@ func TestVm(t *testing.T) {
 		}
 
 		for k, testCase := range *testCaseMap {
+			if k != "sendMessage_msgA" {
+				continue
+			}
 			var sbTime time.Time
 			if testCase.SBTime > 0 {
 				sbTime = time.Unix(testCase.SBTime, 0)
@@ -953,9 +956,8 @@ func TestVm(t *testing.T) {
 			db := NewMemoryDatabase(testCase.ToAddress, &sb)
 			if len(testCase.PreStorage) > 0 {
 				for k, v := range testCase.PreStorage {
-					kByte, _ := hex.DecodeString(k)
 					vByte, _ := hex.DecodeString(v)
-					db.SetStorage(kByte, vByte)
+					db.storage[k] = vByte
 				}
 			}
 			c := newContract(
@@ -1022,4 +1024,8 @@ func checkSendBlockList(expected []*TestCaseSendBlock, got []*vm_context.VmAccou
 		}
 	}
 	return ""
+}
+
+func TestInitVmConfig(t *testing.T) {
+	types.BigToTokenTypeId(big.NewInt(1))
 }
