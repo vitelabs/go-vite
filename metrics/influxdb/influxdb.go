@@ -82,15 +82,15 @@ func (r *reporter) run() {
 		select {
 		case <-intervalTicker:
 			if err := r.send(); err != nil {
-				log.Warn("Unable to send to InfluxDB", "err", err)
+				log.Info("Unable to send to InfluxDB", "err", err)
 			}
 		case <-pingTicker:
 			_, _, err := r.client.Ping(r.interval)
 			if err != nil {
-				log.Warn("Got error while sending a ping to InfluxDB, trying to recreate client", "err", err)
+				log.Info("Got error while sending a ping to InfluxDB, trying to recreate client", "err", err)
 
 				if err = r.makeClient(); err != nil {
-					log.Warn("Unable to make InfluxDB client", "err", err)
+					log.Error("Unable to make InfluxDB client", "err", err)
 				}
 			}
 		}
@@ -150,8 +150,8 @@ func (r *reporter) send() error {
 				r.tags,
 				map[string]interface{}{
 					"count":    ms.Count(),
-					"max":      ms.Max(),
 					"mean":     ms.Mean(),
+					"max":      ms.Max(),
 					"min":      ms.Min(),
 					"stddev":   ms.StdDev(),
 					"variance": ms.Variance(),
@@ -184,8 +184,8 @@ func (r *reporter) send() error {
 				r.tags,
 				map[string]interface{}{
 					"count":    ms.Count(),
-					"max":      ms.Max(),
 					"mean":     ms.Mean(),
+					"max":      ms.Max(),
 					"min":      ms.Min(),
 					"stddev":   ms.StdDev(),
 					"variance": ms.Variance(),
@@ -210,8 +210,8 @@ func (r *reporter) send() error {
 					r.tags,
 					map[string]interface{}{
 						"count": len(val),
-						"max":   val[len(val)-1],
 						"mean":  t.Mean(),
+						"max":   val[len(val)-1],
 						"min":   val[0],
 						"p50":   ps[0],
 						"p95":   ps[1],

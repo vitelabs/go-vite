@@ -14,7 +14,7 @@ func TestInfluxDBWithTags(t *testing.T) {
 		influxDbDatabase  = "metrics"
 		influxDbUsername  = "test"
 		influxDbPassword  = "test"
-		influxDbNamespace = "basic/"
+		influxDbNamespace = "monitor"
 	)
 
 	if metrics.InfluxDBExportFlag == true {
