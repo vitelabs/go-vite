@@ -375,9 +375,16 @@ func (d *discovery) HandleMsg(res *packet) {
 
 		d.agent.sendNeighbors(node, nodes)
 		d.tab.addNode(node)
-		d.batchNotify(nodes)
 	case neighborsCode:
 		monitor.LogEvent("p2p/discv", "neighbors-receive")
+		neigh, ok := res.msg.(*Neighbors)
+		if ok {
+			nodes := neigh.Nodes
+			for _, n := range nodes {
+				d.tab.addNode(n)
+				d.notify(n)
+			}
+		}
 
 	default:
 		d.agent.send(&sendPkt{
