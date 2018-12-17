@@ -172,3 +172,28 @@ func TestPoWQuota(t *testing.T) {
 		}
 	}
 }
+
+func TestCalcPoWDifficultyMainNet(t *testing.T) {
+	InitQuotaConfig(false)
+	tmpFLoat := new(big.Float).SetPrec(precForFloat)
+	for i, difficulty := range difficultyListMainNet {
+		tmpFLoat.SetInt(difficulty)
+		tmpFLoat.Mul(tmpFLoat, nodeConfig.paramB)
+		q := calcQuotaInSection(tmpFLoat)
+		if q != uint64(i)*quotaForSection {
+			t.Fatalf("calc pow difficulty of main net failed, %v: %v", i, difficulty)
+		}
+	}
+}
+func TestCalcPoWDifficultyTest(t *testing.T) {
+	InitQuotaConfig(true)
+	tmpFLoat := new(big.Float).SetPrec(precForFloat)
+	for i, difficulty := range difficultyListTest {
+		tmpFLoat.SetInt(difficulty)
+		tmpFLoat.Mul(tmpFLoat, nodeConfig.paramB)
+		q := calcQuotaInSection(tmpFLoat)
+		if q != uint64(i)*quotaForSection {
+			t.Fatalf("calc pow difficulty of main net failed, %v: %v", i, difficulty)
+		}
+	}
+}

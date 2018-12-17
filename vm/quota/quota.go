@@ -11,7 +11,8 @@ import (
 
 type NodeConfig struct {
 	QuotaParams
-	sectionList []*big.Float
+	sectionList    []*big.Float
+	difficultyList []*big.Int
 }
 
 var nodeConfig NodeConfig
@@ -22,9 +23,9 @@ func InitQuotaConfig(isTestParam bool) {
 		sectionList[i], _ = new(big.Float).SetPrec(precForFloat).SetString(str)
 	}
 	if isTestParam {
-		nodeConfig = NodeConfig{QuotaParamTest, sectionList}
+		nodeConfig = NodeConfig{QuotaParamTest, sectionList, difficultyListTest}
 	} else {
-		nodeConfig = NodeConfig{QuotaParamMainNet, sectionList}
+		nodeConfig = NodeConfig{QuotaParamMainNet, sectionList, difficultyListMainNet}
 	}
 }
 
@@ -167,6 +168,7 @@ func CanPoW(db quotaDb, addr types.Address) bool {
 			if IsPoW(prevBlock.Nonce) {
 				return false
 			} else {
+				prevBlock = db.GetAccountBlockByHash(&prevBlock.PrevHash)
 				continue
 			}
 		} else {
@@ -177,19 +179,5 @@ func CanPoW(db quotaDb, addr types.Address) bool {
 
 func CalcPoWDifficulty(quotaRequired uint64) *big.Int {
 	index := calcSectionIndexByQuotaRequired(quotaRequired)
-	tmpFLoat := new(big.Float).SetPrec(precForFloat)
-	tmpFLoat.Set(nodeConfig.sectionList[index])
-	tmpFLoat.Quo(tmpFLoat, nodeConfig.paramB)
-	d := new(big.Int)
-	d, _ = tmpFLoat.Int(d)
-	// check d value to avoid float precision problem
-	for {
-		tmpFLoat.SetInt(d)
-		tmpFLoat.Mul(tmpFLoat, nodeConfig.paramB)
-		if q := calcQuotaInSection(tmpFLoat); q >= quotaRequired {
-			return d
-		}
-		d.Add(d, helper.Big1)
-	}
-	return nil
+	return new(big.Int).Set(nodeConfig.difficultyList[index])
 }
