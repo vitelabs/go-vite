@@ -157,7 +157,15 @@ func NewQueue(f ExistsFunc) *queue {
 	return &queue{all: make(map[string]*ownerLevel), ls: tmpLs}
 }
 
-func (self *queue) add(b *Item) error {
+func (self *queue) Levels() []Level {
+	var levels []Level
+	for _, v := range self.ls {
+		levels = append(levels, v)
+	}
+	return levels
+}
+
+func (self *queue) AddItem(b *Item) error {
 	max := 0
 	for _, r := range b.refers {
 		tmp, ok := self.all[r]
