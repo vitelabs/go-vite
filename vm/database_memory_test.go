@@ -195,3 +195,7 @@ func (db *memoryDatabase) GetSnapshotBlockBeforeTime(timestamp *time.Time) (*led
 func (db *memoryDatabase) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 	return db.CurrentSnapshotBlock()
 }
+
+func (db *memoryDatabase) DebugGetStorage() map[string][]byte {
+	return db.storage
+}

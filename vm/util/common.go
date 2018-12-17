@@ -1,9 +1,11 @@
 package util
 
 import (
+	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
+	"sort"
 	"time"
 )
 
@@ -53,4 +55,20 @@ func NewContractAddress(accountAddress types.Address, accountBlockHeight uint64,
 		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
 		prevBlockHash.Bytes(),
 		snapshotHash.Bytes())
+}
+
+func PrintMap(m map[string][]byte) string {
+	var result string
+	if len(m) > 0 {
+		var keys []string
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			result += k + "=>" + hex.EncodeToString(m[k]) + ", "
+		}
+		result = result[:len(result)-2]
+	}
+	return result
 }

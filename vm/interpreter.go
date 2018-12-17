@@ -77,8 +77,8 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 				"pc", currentPc,
 				"quotaLeft", c.quotaLeft, "quotaRefund", c.quotaRefund,
 				"\nstack", st.print(),
-				"\nmemory", mem.print())
-			// TODO print storage
+				"\nmemory", mem.print(),
+				"\nstorage", util.PrintMap(c.block.VmContext.DebugGetStorage()))
 		}
 
 		if operation.returns {

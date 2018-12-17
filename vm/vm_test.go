@@ -5,10 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	vabi "github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -17,13 +17,12 @@ import (
 	"math/big"
 	"os"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 )
 
 func init() {
-	InitVmConfig(false, false, false, "")
+	InitVmConfig(false, false, true, common.HomeDir())
 }
 
 func TestVmRun(t *testing.T) {
@@ -983,8 +982,8 @@ func TestVm(t *testing.T) {
 					t.Fatalf("%v: %v failed, quota left error, expected %v, got %v", testFile.Name(), k, testCase.QuotaLeft, c.quotaLeft)
 				} else if c.quotaRefund != testCase.QuotaRefund {
 					t.Fatalf("%v: %v failed, quota refund error, expected %v, got %v", testFile.Name(), k, testCase.QuotaRefund, c.quotaRefund)
-				} else if !checkStorage(db, testCase.Storage) {
-					t.Fatalf("%v: %v failed, storage error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.Storage, db.PrintStorage())
+				} else if checkStorageResult := checkStorage(db, testCase.Storage); checkStorageResult != "" {
+					t.Fatalf("%v: %v failed, storage error, %v", testFile.Name(), k, checkStorageResult)
 				} else if logHash := db.GetLogListHash(); (logHash == nil && len(testCase.LogHash) != 0) || (logHash != nil && logHash.String() != testCase.LogHash) {
 					t.Fatalf("%v: %v failed, log hash error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.LogHash, logHash)
 				} else if checkSendBlockListResult := checkSendBlockList(testCase.SendBlockList, vm.blockList); checkSendBlockListResult != "" {
@@ -994,16 +993,16 @@ func TestVm(t *testing.T) {
 		}
 	}
 }
-func checkStorage(db *memoryDatabase, storage map[string]string) bool {
-	if len(storage) != len(db.storage) {
-		return false
+func checkStorage(got *memoryDatabase, expected map[string]string) string {
+	if len(expected) != len(got.storage) {
+		return "expected len " + string(len(expected)) + ", got len" + string(len(got.storage))
 	}
-	for k, v := range db.storage {
-		if sv, ok := storage[k]; !ok || sv != hex.EncodeToString(v) {
-			return false
+	for k, v := range got.storage {
+		if sv, ok := expected[k]; !ok || sv != hex.EncodeToString(v) {
+			return "expect " + k + ": " + sv + ", got " + k + ": " + hex.EncodeToString(v)
 		}
 	}
-	return true
+	return ""
 }
 
 func checkSendBlockList(expected []*TestCaseSendBlock, got []*vm_context.VmAccountBlock) string {
@@ -1023,16 +1022,4 @@ func checkSendBlockList(expected []*TestCaseSendBlock, got []*vm_context.VmAccou
 		}
 	}
 	return ""
-}
-
-func TestAbiMethodId(t *testing.T) {
-	abiString := `[{"constant":false,"inputs":[{"name":"body","type":"uint256[]"}],"name":"transfer","outputs":[],"payable":true,"stateMutability":"payable","type":"function"}]`
-	abiContract, _ := vabi.JSONToABIContract(strings.NewReader(abiString))
-	fmt.Println(hex.EncodeToString(abiContract.Methods["transfer"].Id()))
-	p1, _ := new(big.Int).SetString("ab24ef68b84e642c0ddca06beec81c9acb1977bb", 16)
-	p2, _ := new(big.Int).SetString("0de0b6b3a7640000", 16)
-	list := []*big.Int{p1, p2}
-	data, err := abiContract.PackMethod("transfer", list)
-	fmt.Println(hex.EncodeToString(data))
-	fmt.Println(err)
 }
