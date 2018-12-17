@@ -43,15 +43,15 @@ type snapshotPoolBlock struct {
 	checkResult   bool
 }
 
-func (self *snapshotPoolBlock) ReferHashes() []types.Hash {
-	var refers []types.Hash
+func (self *snapshotPoolBlock) ReferHashes() (accounts []types.Hash, snapshot *types.Hash) {
 	for _, v := range self.block.SnapshotContent {
-		refers = append(refers, v.Hash)
+		accounts = append(accounts, v.Hash)
 	}
 	if self.Height() > types.GenesisHeight {
-		refers = append(refers, self.PrevHash())
+		prev := self.PrevHash()
+		snapshot = &prev
 	}
-	return refers
+	return
 }
 
 func (self *snapshotPoolBlock) Height() uint64 {

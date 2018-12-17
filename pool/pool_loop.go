@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/helper"
+
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -19,13 +21,13 @@ func (self *pool) loopQueue() {
 			time.Sleep(20 * time.Millisecond)
 			continue
 		}
-		fmt.Println(q.Size())
 		self.insert(q, 5)
+		fmt.Println(q.Info())
 	}
 }
 
 func (self *pool) makeQueue() Queue {
-	q := NewQueue(self.exists)
+	q := NewQueue(self.snapshotExists, self.accountExists, 50)
 	addrOffsets := make(map[types.Address]*offsetInfo)
 	snapshotOffset := &offsetInfo{}
 
@@ -57,10 +59,12 @@ func (self *pool) insert(q Queue, N int) {
 	levels := q.Levels()
 	for _, level := range levels {
 		bs := level.Buckets()
-		if len(bs) == 0 {
+		lenBs := len(bs)
+		if lenBs == 0 {
 			return
 		}
-		bucketCh := make(chan Bucket, len(bs))
+		N = helper.MinInt(lenBs, 5)
+		bucketCh := make(chan Bucket, lenBs)
 
 		wg.Add(N)
 
@@ -116,11 +120,7 @@ func (self *pool) insertBucket(bucket Bucket) error {
 	return nil
 }
 
-func (self *pool) exists(h string) error {
-	hash, err := types.HexToHash(h)
-	if err != nil {
-		return err
-	}
+func (self *pool) accountExists(hash types.Hash) error {
 	ab, err := self.bc.GetAccountBlockByHash(&hash)
 	if err != nil {
 		return err
@@ -128,7 +128,9 @@ func (self *pool) exists(h string) error {
 	if ab != nil {
 		return nil
 	}
-
+	return errors.New("Not Found")
+}
+func (self *pool) snapshotExists(hash types.Hash) error {
 	sb, err := self.bc.GetSnapshotBlockByHash(&hash)
 	if err != nil {
 		return err

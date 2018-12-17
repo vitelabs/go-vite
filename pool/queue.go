@@ -18,6 +18,7 @@ type Queue interface {
 	AddItem(item *Item) error
 	Levels() []Level
 	Size() int
+	Info() string
 }
 
 type Level interface {
@@ -31,28 +32,21 @@ type Bucket interface {
 
 type Item struct {
 	commonBlock
-	height       uint64
-	prev         string
-	hash         string
-	owner        *types.Address
-	ownerWrapper string
-	refers       []string
+	owner         *types.Address
+	ownerWrapper  string
+	referAccounts []types.Hash
+	referSnapshot *types.Hash
 }
 
 func NewItem(b commonBlock, owner *types.Address) *Item {
 	i := &Item{commonBlock: b}
-	i.height = b.Height()
-	i.prev = b.PrevHash().String()
-	i.hash = b.Hash().String()
 	i.owner = owner
 	if owner == nil {
 		i.ownerWrapper = "snapshot"
 	} else {
 		i.ownerWrapper = owner.String()
 	}
-	for _, v := range b.ReferHashes() {
-		i.refers = append(i.refers, v.String())
-	}
+	i.referAccounts, i.referSnapshot = b.ReferHashes()
 	return i
 }
 
@@ -80,7 +74,7 @@ func (self *bucket) add(b *Item) error {
 		if lastB == nil {
 			return errors.New("lastB must be exists")
 		}
-		if lastB.hash != b.prev {
+		if lastB.Hash() != b.PrevHash() {
 			return errors.New("prev and hash")
 		}
 	}
@@ -91,7 +85,7 @@ func (self *bucket) add(b *Item) error {
 }
 func (self *bucket) print() {
 	for _, v := range self.bs {
-		fmt.Print(strconv.FormatUint(v.height, 10) + ",")
+		fmt.Print(strconv.FormatUint(v.Height(), 10) + ",")
 	}
 	fmt.Println()
 }
@@ -137,23 +131,45 @@ type ownerLevel struct {
 }
 
 type queue struct {
-	all     map[string]*ownerLevel
-	ls      []*level
-	existsF ExistsFunc
+	all             map[types.Hash]*ownerLevel
+	ls              []*level
+	snapshotExistsF SnapshotExistsFunc
+	accountExistsF  AccountExistsFunc
+	maxLevel        int
+}
+
+func (self *queue) Info() string {
+	levelInfo := ""
+	for max, l := range self.Levels() {
+		levelInfo += "\n"
+		buckets := l.Buckets()
+		if len(buckets) == 0 {
+			levelInfo = strconv.Itoa(max) + ":" + levelInfo
+			break
+		}
+		bucketInfo := ""
+		for _, b := range buckets {
+			bucketInfo += "|" + strconv.Itoa(len(b.Items()))
+		}
+		levelInfo += bucketInfo
+	}
+
+	return fmt.Sprintf("sum:%d, level:%s\n", len(self.all), levelInfo)
 }
 
 func (self *queue) Size() int {
 	return len(self.all)
 }
 
-type ExistsFunc func(hash string) error
+type SnapshotExistsFunc func(hash types.Hash) error
+type AccountExistsFunc func(hash types.Hash) error
 
-func NewQueue(f ExistsFunc) Queue {
-	tmpLs := make([]*level, 50)
-	for i := 0; i < 50; i++ {
+func NewQueue(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, max int) Queue {
+	tmpLs := make([]*level, max)
+	for i := 0; i < max; i++ {
 		tmpLs[i] = newLevel()
 	}
-	return &queue{all: make(map[string]*ownerLevel), ls: tmpLs, existsF: f}
+	return &queue{all: make(map[types.Hash]*ownerLevel), ls: tmpLs, snapshotExistsF: snapshotF, accountExistsF: accountF, maxLevel: max}
 }
 
 func (self *queue) Levels() []Level {
@@ -166,10 +182,12 @@ func (self *queue) Levels() []Level {
 
 func (self *queue) AddItem(b *Item) error {
 	max := 0
-	for _, r := range b.refers {
+
+	// account level
+	for _, r := range b.referAccounts {
 		tmp, ok := self.all[r]
 		if !ok {
-			err := self.existsF(r)
+			err := self.accountExistsF(r)
 			if err != nil {
 				return REFER_ERROR
 			}
@@ -183,14 +201,35 @@ func (self *queue) AddItem(b *Item) error {
 				max = lNum + 1
 			}
 		}
-		if max > 9 {
+		if max > self.maxLevel-1 {
 			return MAX_ERROR
 		}
 	}
-	if max > 9 {
+	// snapshot level
+	if b.referSnapshot != nil {
+		sHash := *b.referSnapshot
+		tmp, ok := self.all[sHash]
+		if !ok {
+			err := self.snapshotExistsF(sHash)
+			if err != nil {
+				return REFER_ERROR
+			}
+		} else {
+			lNum := tmp.level
+			if lNum >= max {
+				if tmp.owner == b.ownerWrapper {
+					max = lNum
+				} else {
+					max = lNum + 1
+				}
+			}
+		}
+	}
+
+	if max > self.maxLevel-1 {
 		return MAX_ERROR
 	}
-	self.all[b.hash] = &ownerLevel{b.ownerWrapper, max}
+	self.all[b.Hash()] = &ownerLevel{b.ownerWrapper, max}
 	return self.ls[max].add(b)
 }
 func (self *queue) print() {
