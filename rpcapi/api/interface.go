@@ -2,7 +2,7 @@ package api
 
 import (
 	"encoding/hex"
-	"github.com/json-iterator/go"
+	"encoding/json"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
@@ -56,7 +56,7 @@ func convertToArray(param string, t abi.Type) (interface{}, error) {
 		return nil, errors.New(t.String() + " type not supported")
 	}
 	elemList := []string{}
-	if err := jsoniter.UnmarshalFromString(param, &elemList); err != nil {
+	if err := json.Unmarshal([]byte(param), &elemList); err != nil {
 		return nil, err
 	}
 	typeString := t.Elem.String()
