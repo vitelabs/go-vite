@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -67,11 +68,11 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 
 		if nodeConfig.IsDebug {
 			nodeConfig.log.Info("vm step",
-				//"blockType", c.block.AccountBlock.BlockType,
-				//"address", c.block.AccountBlock.AccountAddress.String(),
-				//"height", c.block.AccountBlock.Height,
-				//"fromHash", c.block.AccountBlock.FromBlockHash.String(),
-				//"\ncurrent code", hex.EncodeToString(c.code[currentPc:]),
+				"blockType", c.block.AccountBlock.BlockType,
+				"address", c.block.AccountBlock.AccountAddress.String(),
+				"height", c.block.AccountBlock.Height,
+				"fromHash", c.block.AccountBlock.FromBlockHash.String(),
+				"\ncurrent code", hex.EncodeToString(c.code[currentPc:]),
 				"\nop", opCodeToString[op],
 				"pc", currentPc,
 				"quotaLeft", c.quotaLeft, "quotaRefund", c.quotaRefund,
