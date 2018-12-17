@@ -91,9 +91,9 @@ func (m *memory) print() string {
 		addr := 0
 		for i := 0; i+helper.WordSize <= len(m.store); i += helper.WordSize {
 			if i+helper.WordSize < len(m.store) {
-				result += strconv.Itoa(addr) + "=>" + hex.EncodeToString(m.store[i:i+helper.WordSize]) + ", "
+				result += strconv.FormatInt(int64(addr), 16) + "=>" + hex.EncodeToString(m.store[i:i+helper.WordSize]) + ", "
 			} else {
-				result += strconv.Itoa(addr) + "=>" + hex.EncodeToString(m.store[i:i+helper.WordSize])
+				result += strconv.FormatInt(int64(addr), 16) + "=>" + hex.EncodeToString(m.store[i:i+helper.WordSize])
 			}
 			addr++
 		}
