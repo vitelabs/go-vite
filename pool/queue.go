@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/pkg/errors"
 )
@@ -17,6 +17,7 @@ var (
 type Queue interface {
 	AddItem(item *Item) error
 	Levels() []Level
+	Size() int
 }
 
 type Level interface {
@@ -25,51 +26,44 @@ type Level interface {
 
 type Bucket interface {
 	Items() []*Item
+	Owner() *types.Address
 }
 
 type Item struct {
-	*ledger.AccountBlock
-	*ledger.SnapshotBlock
-	height uint64
-	prev   string
-	hash   string
-	owner  string
-	refers []string
+	commonBlock
+	height       uint64
+	prev         string
+	hash         string
+	owner        *types.Address
+	ownerWrapper string
+	refers       []string
 }
 
-func (item *Item) Val() (*ledger.SnapshotBlock, *ledger.AccountBlock) {
-	return item.SnapshotBlock, item.AccountBlock
-}
-
-func NewSnapshotItem(b *ledger.SnapshotBlock) *Item {
-	i := &Item{SnapshotBlock: b}
-	i.height = b.Height
-	i.prev = b.PrevHash.String()
-	i.hash = b.Hash.String()
-	i.owner = "snapshot"
-	for _, v := range b.SnapshotContent {
-		i.refers = append(i.refers, v.Hash.String())
+func NewItem(b commonBlock, owner *types.Address) *Item {
+	i := &Item{commonBlock: b}
+	i.height = b.Height()
+	i.prev = b.PrevHash().String()
+	i.hash = b.Hash().String()
+	i.owner = owner
+	if owner == nil {
+		i.ownerWrapper = "snapshot"
+	} else {
+		i.ownerWrapper = owner.String()
 	}
-	i.refers = append(i.refers, i.prev)
-	return i
-}
-
-func NewAccountItem(b *ledger.AccountBlock) *Item {
-	i := &Item{AccountBlock: b}
-	i.height = b.Height
-	i.prev = b.PrevHash.String()
-	i.hash = b.Hash.String()
-	i.owner = b.AccountAddress.String()
-	if b.IsReceiveBlock() {
-		i.refers = append(i.refers, b.FromBlockHash.String())
+	for _, v := range b.ReferHashes() {
+		i.refers = append(i.refers, v.String())
 	}
-	i.refers = append(i.refers, i.prev)
 	return i
 }
 
 type bucket struct {
-	bs   []*Item
-	last int
+	bs    []*Item
+	last  int
+	owner *types.Address
+}
+
+func (self *bucket) Owner() *types.Address {
+	return self.owner
 }
 
 func (self *bucket) Items() []*Item {
@@ -102,6 +96,10 @@ func (self *bucket) print() {
 	fmt.Println()
 }
 
+func newBucket(owner *types.Address) *bucket {
+	return &bucket{last: -1, owner: owner}
+}
+
 type level struct {
 	bs map[string]*bucket
 }
@@ -118,10 +116,10 @@ func newLevel() *level {
 }
 
 func (self *level) add(b *Item) error {
-	bu, ok := self.bs[b.owner]
+	bu, ok := self.bs[b.ownerWrapper]
 	if !ok {
-		self.bs[b.owner] = newBucket()
-		bu = self.bs[b.owner]
+		self.bs[b.ownerWrapper] = newBucket(b.owner)
+		bu = self.bs[b.ownerWrapper]
 	}
 	return bu.add(b)
 }
@@ -131,9 +129,6 @@ func (self *level) print() {
 		v.print()
 	}
 
-}
-func newBucket() *bucket {
-	return &bucket{last: -1}
 }
 
 type ownerLevel struct {
@@ -147,14 +142,18 @@ type queue struct {
 	existsF ExistsFunc
 }
 
+func (self *queue) Size() int {
+	return len(self.all)
+}
+
 type ExistsFunc func(hash string) error
 
-func NewQueue(f ExistsFunc) *queue {
-	tmpLs := make([]*level, 10)
-	for i := 0; i < 10; i++ {
+func NewQueue(f ExistsFunc) Queue {
+	tmpLs := make([]*level, 50)
+	for i := 0; i < 50; i++ {
 		tmpLs[i] = newLevel()
 	}
-	return &queue{all: make(map[string]*ownerLevel), ls: tmpLs}
+	return &queue{all: make(map[string]*ownerLevel), ls: tmpLs, existsF: f}
 }
 
 func (self *queue) Levels() []Level {
@@ -178,7 +177,7 @@ func (self *queue) AddItem(b *Item) error {
 		}
 		lNum := tmp.level
 		if lNum >= max {
-			if tmp.owner == b.owner {
+			if tmp.owner == b.ownerWrapper {
 				max = lNum
 			} else {
 				max = lNum + 1
@@ -191,7 +190,7 @@ func (self *queue) AddItem(b *Item) error {
 	if max > 9 {
 		return MAX_ERROR
 	}
-	self.all[b.hash] = &ownerLevel{b.owner, max}
+	self.all[b.hash] = &ownerLevel{b.ownerWrapper, max}
 	return self.ls[max].add(b)
 }
 func (self *queue) print() {

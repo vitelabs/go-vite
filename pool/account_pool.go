@@ -57,6 +57,18 @@ type accountPoolBlock struct {
 	fail     bool
 }
 
+func (self *accountPoolBlock) ReferHashes() []types.Hash {
+	var refers []types.Hash
+	if self.block.IsReceiveBlock() {
+		refers = append(refers, self.block.FromBlockHash)
+	}
+	if self.Height() > types.GenesisHeight {
+		refers = append(refers, self.PrevHash())
+	}
+	refers = append(refers, self.block.SnapshotHash)
+	return refers
+}
+
 func (self *accountPoolBlock) Height() uint64 {
 	return self.block.Height
 }
@@ -564,4 +576,100 @@ func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (*forkedCha
 }
 func (self *accountPool) deleteBlock(block *accountPoolBlock) {
 
+}
+func (self *accountPool) makeQueue(q Queue, info *offsetInfo) (uint64, error) {
+	// if current size is empty, do nothing.
+	if self.chainpool.current.size() <= 0 {
+		return 0, errors.New("empty chainpool")
+	}
+
+	// if an compact operation is in progress, do nothing.
+	self.compactLock.Lock()
+	defer self.compactLock.UnLock()
+
+	// lock other chain insert
+	self.pool.RLock()
+	defer self.pool.RUnLock()
+
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
+
+	cp := self.chainpool
+	current := cp.current
+
+	if info.offset == nil {
+		info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
+	} else {
+		block := current.getBlock(info.offset.Height+1, false)
+		if block == nil || block.PrevHash() != info.offset.Hash {
+			return uint64(0), errors.New("current chain modify.")
+		}
+	}
+
+	minH := info.offset.Height + 1
+	headH := current.headHeight
+	for i := minH; i <= headH; i++ {
+		block := self.getCurrentBlock(i)
+		if block == nil {
+			return uint64(i - minH), errors.New("current chain modify")
+		}
+
+		item := NewItem(block, &self.address)
+
+		err := q.AddItem(item)
+		if err != nil {
+			return uint64(i - minH), err
+		}
+		info.offset.Hash = item.Hash()
+		info.offset.Height = item.Height()
+	}
+
+	return uint64(headH - minH), errors.New("all in")
+}
+
+func (self *accountPool) tryInsertItems(items []*Item) error {
+	// if current size is empty, do nothing.
+	if self.chainpool.current.size() <= 0 {
+		return errors.New("empty chainpool")
+	}
+
+	// if an compact operation is in progress, do nothing.
+	self.compactLock.Lock()
+	defer self.compactLock.UnLock()
+
+	// lock other chain insert
+	self.pool.RLock()
+	defer self.pool.RUnLock()
+
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
+
+	cp := self.chainpool
+	current := cp.current
+
+	for i := 0; i < len(items); i++ {
+		item := items[i]
+		block := item.commonBlock
+
+		if block.Height() == current.tailHeight+1 &&
+			block.PrevHash() == current.tailHash {
+			block.resetForkVersion()
+			stat := self.v.verifyAccount(block.(*accountPoolBlock))
+			if !block.checkForkVersion() {
+				block.resetForkVersion()
+				return errors.New("new fork version")
+			}
+			err, num := self.verifySuccess(stat.blocks)
+			if err != nil {
+				self.log.Error("account block write fail. ",
+					"hash", block.Hash(), "height", block.Height(), "error", err)
+				return err
+			}
+			i = i + int(num) - 1
+		} else {
+			fmt.Println(self.address, item.commonBlock.(*accountPoolBlock).block.IsSendBlock())
+			return errors.New("tail not match")
+		}
+	}
+	return nil
 }

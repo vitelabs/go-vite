@@ -3,6 +3,8 @@ package chain
 import (
 	"time"
 
+	"github.com/vitelabs/go-vite/monitor"
+
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
@@ -44,6 +46,8 @@ func (c *chain) GetNeedSnapshotContent() ledger.SnapshotContent {
 }
 
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
+
+	monitor.LogEventNum("chain", "insert", 1)
 
 	batch := new(leveldb.Batch)
 

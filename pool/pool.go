@@ -76,6 +76,7 @@ type commonBlock interface {
 	resetForkVersion()
 	forkVersion() int
 	Source() types.BlockSource
+	ReferHashes() []types.Hash
 }
 
 func newForkBlock(v *ForkVersion, source types.BlockSource) *forkBlock {
@@ -260,11 +261,12 @@ func (self *pool) Start() {
 
 	self.pendingSc.Start()
 	self.log.Info("pool account parallel.", "parallel", ACCOUNT_PARALLEL)
-	for i := 0; i < ACCOUNT_PARALLEL; i++ {
-		common.Go(self.loopTryInsert)
-	}
+	//for i := 0; i < ACCOUNT_PARALLEL; i++ {
+	//	common.Go(self.loopTryInsert)
+	//}
 	common.Go(self.loopCompact)
 	common.Go(self.loopBroadcastAndDel)
+	common.Go(self.loopQueue)
 }
 func (self *pool) Stop() {
 	self.log.Info("pool stop.")
