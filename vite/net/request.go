@@ -2,11 +2,12 @@ package net
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/vite/net/blockQueue"
 	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/vite/net/blockQueue"
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
@@ -132,7 +133,7 @@ type chunkPool struct {
 	lock     sync.RWMutex
 	peers    *peerSet
 	gid      MsgIder
-	queue    *list.List
+	queue    list.List
 	chunks   *sync.Map
 	handler  blockReceiver
 	term     chan struct{}
