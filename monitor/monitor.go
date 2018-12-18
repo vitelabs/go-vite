@@ -26,7 +26,7 @@ func init() {
 	os.MkdirAll(dir, os.ModePerm)
 
 	rand.Seed(time.Now().Unix())
-	fileName := path.Join(dir, "backend.log."+PID)
+	fileName := path.Join(dir, "backend.log."+"test") // TODO fix
 
 	log15.Info("", "monitor-log", fileName)
 
@@ -99,6 +99,7 @@ func LogDuration(t string, name string, duration int64) {
 }
 
 func log(t string, name string, i int64) {
+	// TODO fix
 	k := key(t, name)
 	value, ok := m.ms.Load(k)
 	if ok {
@@ -181,6 +182,7 @@ func loop() {
 				//		"metric-sum", s,
 				//	)
 				//}
+				// todo FIX
 				if key == "chain-insert" {
 					fmt.Println("group", key, "interval", 1, "name", key,
 						"metric-cnt", c,

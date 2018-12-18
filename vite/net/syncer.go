@@ -274,8 +274,9 @@ wait:
 				speed = 200
 			}
 
-			s.fc.threshold(current.Height + 30*speed)
-			s.pool.threshold(current.Height + 30*speed)
+			// todo fix
+			s.fc.threshold(current.Height + 80*speed)
+			s.pool.threshold(current.Height + 80*speed)
 			s.log.Debug(fmt.Sprintf("current height: %d", current.Height))
 
 		case <-s.term:

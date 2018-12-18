@@ -299,3 +299,6 @@ func (api DebugApi) SetGetTestTokenLimitSize(size int) error {
 	testtokenlruLimitSize = size
 	return nil
 }
+func (api DebugApi) peersDetails() map[string]interface{} {
+	return nil
+}

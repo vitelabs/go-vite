@@ -2,12 +2,6 @@ package net
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vite/net/message"
 	"io"
 	"math/rand"
 	net2 "net"
@@ -16,6 +10,13 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
 var fReadTimeout = 20 * time.Second
@@ -312,8 +313,8 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 		}
 
 		// no peers
-		r.state = reqDone
-		fc.pool.add(file.StartHeight, file.EndHeight)
+		//r.state = reqDone
+		//fc.pool.add(file.StartHeight, file.EndHeight)
 		return
 	}
 }
@@ -542,6 +543,7 @@ func (fc *fileClient) exec(ctx *conn) {
 var errFlieClientStopped = errors.New("fileClient stopped")
 
 func (fc *fileClient) receiveFile(ctx *conn) error {
+	t1 := time.Now()
 	select {
 	case <-fc.term:
 		return errFlieClientStopped
@@ -551,10 +553,16 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 
 		file := ctx.file
 
+		var t2 time.Time
+		once := sync.Once{}
+
 		fc.chain.Compressor().BlockParser(ctx, file.BlockNumbers, func(block ledger.Block, err error) {
 			if err != nil {
 				return
 			}
+			once.Do(func() {
+				t2 = time.Now()
+			})
 
 			switch block.(type) {
 			case *ledger.SnapshotBlock:
@@ -583,7 +591,8 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 			return fmt.Errorf("incomplete file %s %d/%d", file.Filename, sCount, sTotal)
 		}
 
-		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s", sCount, aCount, file.Filename, ctx.RemoteAddr()))
+		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s, diff1:%s, diff2:%s, diff3:%s",
+			sCount, aCount, file.Filename, ctx.RemoteAddr(), time.Now().Sub(t1), t2.Sub(t1), time.Now().Sub(t2)))
 		return nil
 	}
 }
