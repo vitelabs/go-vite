@@ -28,6 +28,9 @@ type OnroadBlocksPool struct {
 	simpleCache          *sync.Map // map[types.Address]*OnroadAccountInfo
 	simpleCacheDeadTimer *sync.Map //map[types.Address]*time.Timer
 
+	contractCache          *sync.Map //map[types.Address]*onroadContractBlocksCache
+	contractCacheDeadTimer *sync.Map // map[types.Address]*time.Timer
+
 	newCommonTxListener   map[types.Address]func()
 	commonTxListenerMutex sync.RWMutex
 
@@ -106,6 +109,15 @@ func (p *OnroadBlocksPool) GetNextCommonTx(addr types.Address) *ledger.AccountBl
 	return c.(*onroadBlocksCache).GetNextTx()
 }
 
+func (p *OnroadBlocksPool) GetNextContractTx(addr types.Address) *ledger.AccountBlock {
+	p.log.Debug("GetNextContractTx", "addr", addr)
+	c, ok := p.fullCache.Load(addr)
+	if !ok {
+		return nil
+	}
+	return c.(*onroadBlocksCache).GetNextTx()
+}
+
 func (p *OnroadBlocksPool) ResetCacheCursor(addr types.Address) {
 	p.log.Debug("ResetCacheCursor", "addr", addr)
 	c, ok := p.fullCache.Load(addr)
@@ -158,6 +170,9 @@ func (p *OnroadBlocksPool) AcquireFullOnroadBlocksCache(addr types.Address) {
 	if e := p.loadFullCacheFromDb(addr); e != nil {
 		log.Error(e.Error())
 	}
+}
+
+func (p *OnroadBlocksPool) AcquireSortedContractOnroadBlocksCache(addr types.Address) {
 }
 
 func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) error {

@@ -103,6 +103,9 @@ LOOP:
 		tp.log.Debug("pre popContractTask")
 		task := tp.worker.popContractTask()
 		tp.log.Debug("after popContractTask")
+
+		// todo: sort addr fromAddress's height
+		tp.worker.manager.onroadBlocksPool.AcquireFullOnroadBlocksCache(task.Addr)
 		if task != nil {
 			tp.log.Debug("pre processOneAddress " + task.Addr.String())
 			tp.processOneAddress(task)
@@ -134,20 +137,24 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	defer monitor.LogTime("onroad", "processOneAddress", time.Now())
 	plog := tp.log.New("method", "processOneAddress", "worker", task.Addr)
 
-	plog.Debug("task addr" + task.Addr.String())
-	blockList, e := tp.worker.manager.uAccess.GetOnroadBlocks(0, 1, 1, &task.Addr)
-	if e != nil {
-		plog.Error("GetOnroadBlocks ", "e", e)
+	// todo get from Cache
+	sBlock := tp.worker.manager.onroadBlocksPool.GetNextCommonTx(task.Addr)
+	if sBlock == nil {
 		return
 	}
+	plog.Info(fmt.Sprintf("block processing hash is %v", sBlock.Hash), "toAddr", sBlock.ToAddress)
 
-	if len(blockList) == 0 {
-		return
-	}
+	//blockList, e := tp.worker.manager.uAccess.GetOnroadBlocks(0, 1, 1, &task.Addr)
+	//if e != nil {
+	//	plog.Error("GetOnroadBlocks ", "e", e)
+	//	return
+	//}
+	//if len(blockList) == 0 {
+	//	return
+	//}
+	//sBlock := blockList[0]
 
-	sBlock := blockList[0]
-
-	plog.Info(fmt.Sprintf("get %v blocks, the first Hash is %v", len(blockList), sBlock.Hash), "addr", sBlock.ToAddress)
+	//plog.Info(fmt.Sprintf("get %v blocks, the first Hash is %v", len(blockList), sBlock.Hash), "addr", sBlock.ToAddress)
 
 	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
 		plog.Info("checkExistInPool true")

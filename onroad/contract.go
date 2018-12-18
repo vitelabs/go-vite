@@ -255,6 +255,7 @@ func (w *ContractWorker) popContractTask() *contractTask {
 	return nil
 }
 
+// Don't deal with it for this around of blocks-generating period
 func (w *ContractWorker) addIntoBlackList(addr types.Address) {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
