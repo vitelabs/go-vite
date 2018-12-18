@@ -86,7 +86,7 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 				return nil, err
 			}
 		}
-	} else {
+	} else if *prevAccountBlockHash != types.ZERO_HASH {
 		var err error
 		prevAccountBlock, err = chain.GetAccountBlockByHash(prevAccountBlockHash)
 		if err != nil {
@@ -95,6 +95,12 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 
 		if prevAccountBlock == nil {
 			err := errors.New("prevAccountBlock is nil")
+			vmContext.log.Error(err.Error(), "method", "NewVmContext")
+			return nil, err
+		}
+
+		if addr != nil && prevAccountBlock.AccountAddress != *addr {
+			err := errors.New("prevAccountBlock.AccountAddress != addr")
 			vmContext.log.Error(err.Error(), "method", "NewVmContext")
 			return nil, err
 		}
