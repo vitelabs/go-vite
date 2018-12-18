@@ -48,6 +48,8 @@ type GenesisConfig struct {
 	BlockProducers         []types.Address
 	SnapshotConsensusGroup *ConsensusGroupInfo
 	CommonConsensusGroup   *ConsensusGroupInfo
+
+	Fork *fork
 }
 
 var GenesisSnapshotBlock ledger.SnapshotBlock

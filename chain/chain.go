@@ -51,6 +51,8 @@ type chain struct {
 
 	saveTrieStatus     uint8
 	saveTrieStatusLock sync.Mutex
+
+	*fork
 }
 
 func NewChain(cfg *config.Config) Chain {
@@ -413,6 +415,10 @@ func (c *chain) readGenesis(genesisPath string) *GenesisConfig {
 	if config.CommonConsensusGroup == nil {
 		config.CommonConsensusGroup = &defaultCommonConsensusGroup
 	}
+
+	// set fork
+	config.Fork = NewFork(config)
+	c.fork = config.Fork
 
 	// hack, will be fix
 	ledger.GenesisAccountAddress = config.GenesisAccountAddress
