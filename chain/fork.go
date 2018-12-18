@@ -7,10 +7,14 @@ import (
 type fork struct {
 	Vite1Height uint64
 	Vite1Hash   *types.Hash
+
+	chn Chain
 }
 
-func NewFork(config *GenesisConfig) *fork {
+func NewFork(chn Chain, config *GenesisConfig) *fork {
+	// default config
 	f := &fork{
+		chn:         chn,
 		Vite1Height: 1,
 		Vite1Hash:   &types.Hash{},
 	}
@@ -25,6 +29,18 @@ func NewFork(config *GenesisConfig) *fork {
 		}
 	}
 	return f
+}
+func (f *fork) checkForkPoints() (bool, error) {
+	// check Vite1 upgrade
+	vite1block, err := f.chn.GetAccountBlockByHash(f.Vite1Hash)
+	if err != nil {
+		return false, err
+	}
+	if vite1block == nil || vite1block.Height != f.Vite1Height {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func (f *fork) IsVite1(blockHash types.Hash) bool {

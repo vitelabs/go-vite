@@ -129,15 +129,20 @@ func (c *chain) checkData() bool {
 	if err != nil || dbSb == nil || sb.Hash != dbSb.Hash ||
 		err2 != nil || dbSb2 == nil || sb2.Hash != dbSb2.Hash {
 		if err != nil {
-			c.log.Error("GetSnapshotBlockByHeight failed, error is "+err.Error(), "method", "CheckAndInitDb")
+			c.log.Crit("GetSnapshotBlockByHeight failed, error is "+err.Error(), "method", "CheckAndInitDb")
 		}
 
 		if err2 != nil {
-			c.log.Error("GetSnapshotBlockByHeight(2) failed, error is "+err.Error(), "method", "CheckAndInitDb")
+			c.log.Crit("GetSnapshotBlockByHeight(2) failed, error is "+err.Error(), "method", "CheckAndInitDb")
 		}
 		return false
 	}
-	return true
+
+	result, err := c.fork.checkForkPoints()
+	if err != nil {
+		c.log.Crit("checkForkPoints failed, error is "+err.Error(), "method", "CheckAndInitDb")
+	}
+	return result
 }
 func (c *chain) checkAndInitData() {
 	if !c.checkData() {
@@ -417,7 +422,7 @@ func (c *chain) readGenesis(genesisPath string) *GenesisConfig {
 	}
 
 	// set fork
-	config.Fork = NewFork(config)
+	config.Fork = NewFork(c, config)
 	c.fork = config.Fork
 
 	// hack, will be fix
