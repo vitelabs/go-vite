@@ -312,6 +312,7 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 			}
 		}
 
+		// todo fix
 		// no peers
 		//r.state = reqDone
 		//fc.pool.add(file.StartHeight, file.EndHeight)

@@ -157,7 +157,3 @@ func (self *pool) snapshotExists(hash types.Hash) error {
 type offsetInfo struct {
 	offset *ledger.HashHeight
 }
-
-type AtomicInt struct {
-	val int32
-}
