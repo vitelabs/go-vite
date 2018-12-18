@@ -5,6 +5,7 @@ import (
 )
 
 type fork struct {
+	// example, need modify
 	Vite1Height uint64
 	Vite1Hash   *types.Hash
 
@@ -13,10 +14,11 @@ type fork struct {
 
 func NewFork(chn Chain, config *GenesisConfig) *fork {
 	// default config
+	testHash, _ := types.HexToHash("8c40ac404065c1e63a06243c65fe313fb241b48029f9a6ea60c91aa5061ad991")
 	f := &fork{
 		chn:         chn,
 		Vite1Height: 1,
-		Vite1Hash:   &types.Hash{},
+		Vite1Hash:   &testHash,
 	}
 
 	cf := config.Fork
@@ -32,7 +34,7 @@ func NewFork(chn Chain, config *GenesisConfig) *fork {
 }
 func (f *fork) checkForkPoints() (bool, error) {
 	// check Vite1 upgrade
-	vite1block, err := f.chn.GetAccountBlockByHash(f.Vite1Hash)
+	vite1block, err := f.chn.GetSnapshotBlockByHash(f.Vite1Hash)
 	if err != nil {
 		return false, err
 	}
