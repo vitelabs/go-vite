@@ -28,7 +28,7 @@ func TestManager_Gen18(t *testing.T) {
 	password := "66e44688e02a334d"
 	var addrs []string
 	for i := 0; i < 18; i++ {
-		mnemonic, em, err := manager.NewMnemonicAndEntropyStore(password)
+		mnemonic, em, err := manager.NewMnemonicAndEntropyStore("", password, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,14 +57,14 @@ func TestManager_Gen26(t *testing.T) {
 	fmt.Println()
 	var addrs []string
 	for i := 0; i < 26; i++ {
-		mnemonic, em, err := manager.NewMnemonicAndEntropyStore(password)
+		mnemonic, em, err := manager.NewMnemonicAndEntropyStore("", password, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		fmt.Println(mnemonic)
 		fmt.Println(em.GetPrimaryAddr())
 		em.Unlock(password)
-		path, key, _ := em.DeriveForIndexPath(20181108)
+		path, key, _ := em.DeriveForIndexPath(20181108, nil)
 
 		address, _ := key.Address()
 		privateKey, _ := key.PrivateKey()
@@ -85,7 +85,7 @@ func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
 	manager := wallet.New(&wallet.Config{
 		DataDir: deskTopDir(),
 	})
-	mnemonic, em, err := manager.NewMnemonicAndEntropyStore("123456")
+	mnemonic, em, err := manager.NewMnemonicAndEntropyStore("", "123456", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
 	em.Unlock("123456")
 
 	for i := 0; i < 10; i++ {
-		_, key2, e := em.DeriveForIndexPath(uint32(i))
+		_, key2, e := em.DeriveForIndexPath(uint32(i), nil)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -118,8 +118,28 @@ func TestManager_GetEntropyStoreManager(t *testing.T) {
 	}
 	storeManager.Unlock("123456")
 	for i := 0; i < 25; i++ {
-		_, key, _ := storeManager.DeriveForIndexPath(uint32(i))
+		_, key, _ := storeManager.DeriveForIndexPath(uint32(i), nil)
 		address, _ := key.Address()
 		fmt.Println(strconv.Itoa(i) + ":" + address.String())
 	}
+}
+
+func TestManager_RecoverEntropyStoreFromMnemonic(t *testing.T) {
+	s := "gun olympic     \n   hint account elite voice alarm floor check render fence hope month argue slow brick mobile nominee smile congress long hire loyal author"
+	manager := wallet.New(&wallet.Config{
+		DataDir: "/Users/zhutiantao/Library/GVite/testdata/wallet/",
+	})
+	manager.Start()
+
+	sm, err := manager.RecoverEntropyStoreFromMnemonic(s, "", "123", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sm.Unlock("123")
+
+	for i := 0; i < 10; i++ {
+		fmt.Println(sm.DeriveForIndexPath(uint32(i), nil))
+
+	}
+
 }

@@ -60,9 +60,9 @@ func DefaultIpcFile() string {
 func MakeDefaultLogger(absFilePath string) *lumberjack.Logger {
 	return &lumberjack.Logger{
 		Filename:   absFilePath,
-		MaxSize:    100,
-		MaxBackups: 14,
-		MaxAge:     14,
+		MaxSize:    1,
+		MaxBackups: 1,
+		MaxAge:     1,
 		Compress:   true,
 		LocalTime:  true,
 	}

@@ -22,7 +22,7 @@ type EntropyProfile struct {
 func (ep *EntropyProfile) ExtractMnemonic() (mnemonic string, err error) {
 	wordList := hd_bip.GetWordList(ep.MnemonicLang)
 	currentWl := bip39.GetWordList()
-	if &wordList != &currentWl {
+	if wordList[0] != currentWl[0] {
 		bip39.SetWordList(wordList)
 		defer bip39.SetWordList(currentWl)
 	}
@@ -40,7 +40,7 @@ func (ep *EntropyProfile) GetSeed(extensionWord *string) (seed []byte, err error
 	}
 	wordList := hd_bip.GetWordList(ep.MnemonicLang)
 	currentWl := bip39.GetWordList()
-	if &wordList != &currentWl {
+	if wordList[0] != currentWl[0] {
 		bip39.SetWordList(wordList)
 		defer bip39.SetWordList(currentWl)
 	}
