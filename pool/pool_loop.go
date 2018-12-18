@@ -22,7 +22,7 @@ func (self *pool) loopQueue() {
 			time.Sleep(20 * time.Millisecond)
 			continue
 		}
-		self.insert(q, 5)
+		self.insertQueue(q, 5)
 		//fmt.Println(q.Info())
 	}
 }
@@ -55,8 +55,9 @@ func (self *pool) makeQueue() Queue {
 	return q
 }
 
-func (self *pool) insert(q Queue, N int) {
+func (self *pool) insertQueue(q Queue, N int) {
 	var wg sync.WaitGroup
+	closed := NewClosed()
 	levels := q.Levels()
 	for _, level := range levels {
 		bs := level.Buckets()
@@ -69,27 +70,20 @@ func (self *pool) insert(q Queue, N int) {
 
 		wg.Add(N)
 
-		var closedOnce sync.Once
-		closed := make(chan struct{})
 		var num int32
 		t1 := time.Now()
 		for i := 0; i < N; i++ {
 			common.Go(func() {
 				defer wg.Done()
 				for b := range bucketCh {
-					select {
-					case <-closed:
+					if closed.IsClosed() {
 						return
-					default:
-						atomic.AddInt32(&num, int32(len(b.Items())))
-						err := self.insertBucket(b)
-						if err != nil {
-							closedOnce.Do(func() {
-								self.log.Error("err insert", "err", err)
-								close(closed)
-							})
-							return
-						}
+					}
+					atomic.AddInt32(&num, int32(len(b.Items())))
+					err := self.insertBucket(b)
+					if err != nil {
+						closed.Close()
+						return
 					}
 				}
 			})
@@ -109,10 +103,9 @@ func (self *pool) insert(q Queue, N int) {
 		sub := time.Now().Sub(t1)
 		levelInfo = "[" + sub.String() + "][" + strconv.Itoa(int((int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds())) + "]" + "[" + strconv.Itoa(int(num)) + "]" + "->" + levelInfo
 		fmt.Println(levelInfo)
-		select {
-		case <-closed:
+
+		if closed.IsClosed() {
 			return
-		default:
 		}
 	}
 }
