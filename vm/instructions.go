@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -626,6 +627,23 @@ func makeLog(size int) executionFunc {
 
 		d := memory.get(mStart.Int64(), mSize.Int64())
 		c.block.VmContext.AddLog(&ledger.VmLog{Topics: topics, Data: d})
+
+		if nodeConfig.IsDebug {
+			topicsStr := ""
+			if size > 0 {
+				for _, t := range topics {
+					topicsStr = topicsStr + t.String() + ","
+				}
+				topicsStr = topicsStr[:len(topicsStr)-1]
+			}
+			nodeConfig.log.Info("vm log",
+				"blockType", c.block.AccountBlock.BlockType,
+				"address", c.block.AccountBlock.AccountAddress.String(),
+				"height", c.block.AccountBlock.Height,
+				"fromHash", c.block.AccountBlock.FromBlockHash.String(),
+				"topics", topicsStr,
+				"data", hex.EncodeToString(d))
+		}
 
 		c.intPool.put(mStart, mSize)
 		return nil, nil

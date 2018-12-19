@@ -4,11 +4,13 @@ Package vm implements the vite virtual machine
 package vm
 
 import (
+	"encoding/hex"
 	"errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 	"path/filepath"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -33,8 +35,9 @@ type NodeConfig struct {
 	calcQuota   func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
 	canTransfer func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
 
-	log     log15.Logger
-	IsDebug bool
+	interpreterLog log15.Logger
+	log            log15.Logger
+	IsDebug        bool
 }
 
 var nodeConfig NodeConfig
@@ -69,6 +72,7 @@ func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 		}
 	}
 	nodeConfig.log = log15.New("module", "vm")
+	nodeConfig.interpreterLog = log15.New("module", "vm")
 	contracts.InitContractsConfig(isTestParam)
 	quota.InitQuotaConfig(isTestParam)
 	nodeConfig.IsDebug = isDebug
@@ -87,6 +91,10 @@ func InitLog(dir, lvl string) {
 	nodeConfig.log.SetHandler(
 		log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(filename), log15.LogfmtFormat())),
 	)
+	interpreterFileName := filepath.Join(path, "interpreter.log")
+	nodeConfig.interpreterLog.SetHandler(
+		log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(interpreterFileName), log15.LogfmtFormat())),
+	)
 }
 
 type VmContext struct {
@@ -104,10 +112,81 @@ func NewVM() *VM {
 	return &VM{i: simpleInterpreter}
 }
 
+func printDebugBlockInfo(block *ledger.AccountBlock, blockList []*vm_context.VmAccountBlock, err error) {
+	responseBlockList := make([]string, 0)
+	if len(blockList) > 0 {
+		for _, sendBlock := range blockList[:] {
+			responseBlockList = append(responseBlockList,
+				"{SelfAddr: "+sendBlock.AccountBlock.AccountAddress.String()+", "+
+					"ToAddr: "+sendBlock.AccountBlock.ToAddress.String()+", "+
+					"BlockType: "+string(sendBlock.AccountBlock.BlockType)+", "+
+					"Amount: "+sendBlock.AccountBlock.Amount.String()+", "+
+					"TokenId: "+sendBlock.AccountBlock.TokenId.String()+", "+
+					"Height: "+string(sendBlock.AccountBlock.Height)+", "+
+					"Data: "+hex.EncodeToString(sendBlock.AccountBlock.Data)+", "+
+					"Fee: "+sendBlock.AccountBlock.Fee.String()+"}")
+		}
+	}
+	if nodeConfig.IsDebug {
+		nodeConfig.log.Info("vm run stop",
+			"blockType", block.BlockType,
+			"address", block.AccountAddress.String(),
+			"height", block.Height,
+			"fromHash", block.FromBlockHash.String(),
+			"err", err,
+			"responseBlockList", responseBlockList,
+		)
+	}
+}
+
 func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTime("vm", "run", time.Now())
+	defer func() {
+		if nodeConfig.IsDebug {
+			responseBlockList := make([]string, 0)
+			if len(blockList) > 0 {
+				for _, sendBlock := range blockList[:] {
+					if sendBlock.AccountBlock.IsSendBlock() {
+						responseBlockList = append(responseBlockList,
+							"{SelfAddr: "+sendBlock.AccountBlock.AccountAddress.String()+", "+
+								"ToAddr: "+sendBlock.AccountBlock.ToAddress.String()+", "+
+								"BlockType: "+strconv.FormatInt(int64(sendBlock.AccountBlock.BlockType), 10)+", "+
+								"Quota: "+strconv.FormatUint(sendBlock.AccountBlock.Quota, 10)+", "+
+								"Amount: "+sendBlock.AccountBlock.Amount.String()+", "+
+								"TokenId: "+sendBlock.AccountBlock.TokenId.String()+", "+
+								"Height: "+strconv.FormatUint(sendBlock.AccountBlock.Height, 10)+", "+
+								"Data: "+hex.EncodeToString(sendBlock.AccountBlock.Data)+", "+
+								"Fee: "+sendBlock.AccountBlock.Fee.String()+"}")
+					} else {
+						responseBlockList = append(responseBlockList,
+							"{SelfAddr: "+sendBlock.AccountBlock.AccountAddress.String()+", "+
+								"FromHash: "+sendBlock.AccountBlock.FromBlockHash.String()+", "+
+								"BlockType: "+strconv.FormatInt(int64(sendBlock.AccountBlock.BlockType), 10)+", "+
+								"Quota: "+strconv.FormatUint(sendBlock.AccountBlock.Quota, 10)+", "+
+								"Amount: "+sendBlock.AccountBlock.Amount.String()+", "+
+								"TokenId: "+sendBlock.AccountBlock.TokenId.String()+", "+
+								"Height: "+strconv.FormatUint(sendBlock.AccountBlock.Height, 10)+", "+
+								"Data: "+hex.EncodeToString(sendBlock.AccountBlock.Data)+", "+
+								"Fee: "+sendBlock.AccountBlock.Fee.String()+"}")
+					}
+				}
+			}
+			nodeConfig.log.Info("vm run stop",
+				"blockType", block.BlockType,
+				"address", block.AccountAddress.String(),
+				"height", block.Height,
+				"fromHash", block.FromBlockHash.String(),
+				"err", err,
+				"responseBlockList", responseBlockList,
+			)
+		}
+	}()
 	if nodeConfig.IsDebug {
-		nodeConfig.log.Info("vm run", "blockType", block.BlockType, "address", block.AccountAddress.String(), "height", block.Height, "fromHash", block.FromBlockHash.String())
+		nodeConfig.log.Info("vm run start",
+			"blockType", block.BlockType,
+			"address", block.AccountAddress.String(),
+			"height", block.Height, ""+
+				"fromHash", block.FromBlockHash.String())
 	}
 	blockContext := &vm_context.VmAccountBlock{block.Copy(), database}
 	switch block.BlockType {

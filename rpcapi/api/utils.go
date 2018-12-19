@@ -22,9 +22,11 @@ var (
 	testapi_testtokenlru  *lru.Cache = nil
 	testtokenlruCron      *cron.Cron = nil
 	testtokenlruLimitSize            = 20
+	dataDir                          = ""
 )
 
 func InitLog(dir, lvl string) {
+	dataDir = dir
 	logLevel, err := log15.LvlFromString(lvl)
 	if err != nil {
 		logLevel = log15.LvlInfo

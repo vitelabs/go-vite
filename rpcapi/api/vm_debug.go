@@ -2,29 +2,39 @@ package api
 
 import (
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/chain"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm/abi"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 )
 
 type VmDebugApi struct {
-	c       chain.Chain
-	log     log15.Logger
-	wallet  *WalletApi
-	tx      *Tx
-	testapi *TestApi
-	onroad  *PublicOnroadApi
+	vite       *vite.Vite
+	log        log15.Logger
+	wallet     *WalletApi
+	tx         *Tx
+	testapi    *TestApi
+	onroad     *PublicOnroadApi
+	contract   *ContractApi
+	accountMap map[types.Address]string
 }
 
 func NewVmDebugApi(vite *vite.Vite) *VmDebugApi {
 	api := &VmDebugApi{
-		c:      vite.Chain(),
-		log:    log15.New("module", "rpc_api/vmdebug_api"),
-		wallet: NewWalletApi(vite),
-		tx:     NewTxApi(vite),
-		onroad: NewPublicOnroadApi(vite),
+		vite:       vite,
+		log:        log15.New("module", "rpc_api/vmdebug_api"),
+		wallet:     NewWalletApi(vite),
+		tx:         NewTxApi(vite),
+		onroad:     NewPublicOnroadApi(vite),
+		contract:   NewContractApi(vite),
+		accountMap: make(map[types.Address]string),
 	}
 	api.testapi = NewTestApi(api.wallet)
 	return api
@@ -46,7 +56,7 @@ type AccountInfo struct {
 
 func (v *VmDebugApi) Init() (*AccountInfo, error) {
 	// check genesis account status
-	prevBlock, err := v.c.GetLatestAccountBlock(&ledger.GenesisAccountAddress)
+	prevBlock, err := v.vite.Chain().GetLatestAccountBlock(&ledger.GenesisAccountAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -115,5 +125,234 @@ func (v *VmDebugApi) NewAccount() (*AccountInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	v.accountMap[acc.Addr] = acc.PrivateKey
 	return &acc, nil
+}
+
+type CreateContractParam struct {
+	FileName string   `json:"fileName"`
+	Amount   string   `json:"amount"`
+	Params   []string `json:"params"`
+}
+type CreateContractResult struct {
+	AccountAddr       types.Address       `json:"accountAddr"`
+	AccountPrivateKey string              `json:"accountPrivateKey"`
+	ContractAddr      types.Address       `json:"contractAddr"`
+	SendBlockHash     types.Hash          `json:"sendBlockHash"`
+	MethodList        []CallContractParam `json:"methodList"'`
+}
+
+func (v *VmDebugApi) CreateContract(param CreateContractParam) (*CreateContractResult, error) {
+	// compile solidity++ file
+	code, abiJson, err := compile(param.FileName)
+	if err != nil {
+		return nil, err
+	}
+	// init and get test account
+	testAccount, err := v.Init()
+	if err != nil {
+		return nil, err
+	}
+	// send create contract tx
+	createContractData, err := v.contract.GetCreateContractData(types.DELEGATE_GID, code, abiJson, param.Params)
+	if err != nil {
+		return nil, err
+	}
+	if len(param.Amount) == 0 {
+		param.Amount = "0"
+	}
+	sendBlock, err := v.tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
+		SelfAddr:    &testAccount.Addr,
+		TokenTypeId: ledger.ViteTokenId,
+		PrivateKey:  &testAccount.PrivateKey,
+		Amount:      &param.Amount,
+		Data:        createContractData,
+		BlockType:   ledger.BlockTypeSendCreate,
+	})
+	if err != nil {
+		return nil, err
+	}
+	// save contractAddress and contract data
+	if err := writeContractData(abiJson, sendBlock.ToAddress); err != nil {
+		return nil, err
+	}
+	methodList, err := packMethodList(abiJson, sendBlock.ToAddress, testAccount.Addr)
+	if err != nil {
+		return nil, err
+	}
+	return &CreateContractResult{
+		AccountAddr:       testAccount.Addr,
+		AccountPrivateKey: testAccount.PrivateKey,
+		ContractAddr:      sendBlock.ToAddress,
+		SendBlockHash:     sendBlock.Hash,
+		MethodList:        methodList,
+	}, nil
+}
+
+type CallContractParam struct {
+	ContractAddr types.Address  `json:"contractAddr"`
+	AccountAddr  *types.Address `json:"accountAddr"`
+	Amount       string         `json:"amount"`
+	MethodName   string         `json:"methodName"`
+	Params       []string       `json:"params"`
+}
+type CallContractResult struct {
+	ContractAddr      types.Address `json:"contractAddr"`
+	AccountAddr       types.Address `json:"accountAddr"`
+	AccountPrivateKey string        `json:"accountPrivateKey"`
+	SendBlockHash     types.Hash    `json:"sendBlockHash"`
+}
+
+func (v *VmDebugApi) CallContract(param CallContractParam) (*CallContractResult, error) {
+	abiJson, err := readContractData(param.ContractAddr)
+	if err != nil {
+		return nil, err
+	}
+	data, err := v.contract.GetCallContractData(abiJson, param.MethodName, param.Params)
+	if err != nil {
+		return nil, err
+	}
+	if len(param.Amount) == 0 {
+		param.Amount = "0"
+	}
+	var privateKey string
+	if param.AccountAddr == nil || len(v.accountMap[*param.AccountAddr]) == 0 {
+		testAccount, err := v.Init()
+		if err != nil {
+			return nil, err
+		}
+		param.AccountAddr = &testAccount.Addr
+		privateKey = testAccount.PrivateKey
+	} else {
+		privateKey = v.accountMap[*param.AccountAddr]
+	}
+	sendBlock, err := v.tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
+		SelfAddr:    param.AccountAddr,
+		ToAddr:      &param.ContractAddr,
+		TokenTypeId: ledger.ViteTokenId,
+		PrivateKey:  &privateKey,
+		Amount:      &param.Amount,
+		Data:        data,
+		BlockType:   ledger.BlockTypeSendCall,
+	})
+	if err != nil {
+		return nil, err
+	} else {
+		return &CallContractResult{
+			ContractAddr:      param.ContractAddr,
+			AccountAddr:       *param.AccountAddr,
+			AccountPrivateKey: privateKey,
+			SendBlockHash:     sendBlock.Hash,
+		}, nil
+	}
+}
+
+func (v *VmDebugApi) GetContractList() (map[types.Address][]CallContractParam, error) {
+	fileList, err := ioutil.ReadDir(getDir())
+	if err != nil {
+		return nil, err
+	}
+	resultMap := make(map[types.Address][]CallContractParam)
+	if len(fileList) == 0 {
+		return resultMap, nil
+	}
+	testAccount, err := v.Init()
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range fileList {
+		addr, err := types.HexToAddress(file.Name())
+		if err != nil {
+			continue
+		}
+		abiJson, err := readContractData(addr)
+		if err != nil {
+			return nil, err
+		}
+		resultMap[addr], err = packMethodList(abiJson, addr, testAccount.Addr)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return resultMap, nil
+}
+
+func (v *VmDebugApi) ClearData() error {
+	dir := getDir()
+	fileList, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, file := range fileList {
+		if !file.IsDir() {
+			os.Remove(filepath.Join(dir, file.Name()))
+		}
+	}
+	v.accountMap = make(map[types.Address]string, 0)
+	return nil
+}
+
+func compile(fileName string) (string, string, error) {
+	cmd := exec.Command("./solc", "--bin", "--abi", fileName)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", "", errors.New(string(out))
+	}
+	compileResult := strings.Split(string(out), "\n")
+	var code, abiJson string
+	for i := 0; i < len(compileResult); i++ {
+		if compileResult[i] == "Binary: " && i < len(compileResult)-1 {
+			code = compileResult[i+1]
+			i++
+		} else if compileResult[i] == "Contract JSON ABI " && i < len(compileResult)-1 {
+			abiJson = compileResult[i+1]
+			i++
+		}
+	}
+	if len(code) == 0 || len(abiJson) == 0 {
+		return "", "", errors.New("code len is 0")
+	}
+	return code, abiJson, nil
+}
+
+func packMethodList(abiJson string, contractAddr types.Address, accountAddr types.Address) ([]CallContractParam, error) {
+	abiContract, err := abi.JSONToABIContract(strings.NewReader(abiJson))
+	if err != nil {
+		return nil, err
+	}
+	methodList := make([]CallContractParam, 0)
+	for name, method := range abiContract.Methods {
+		params := make([]string, len(method.Inputs))
+		for i, input := range method.Inputs {
+			params[i] = input.Type.String()
+		}
+		methodList = append(methodList, CallContractParam{
+			ContractAddr: contractAddr,
+			AccountAddr:  &accountAddr,
+			Amount:       "0",
+			MethodName:   name,
+			Params:       params,
+		})
+	}
+	return methodList, nil
+}
+
+func writeContractData(abiJson string, addr types.Address) error {
+	os.MkdirAll(getDir(), os.ModePerm)
+	return ioutil.WriteFile(getFileName(addr), []byte(abiJson), os.ModePerm)
+}
+
+func readContractData(addr types.Address) (string, error) {
+	data, err := ioutil.ReadFile(getFileName(addr))
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func getDir() string {
+	return filepath.Join(dataDir, "contracts")
+}
+func getFileName(addr types.Address) string {
+	return filepath.Join(getDir(), addr.String())
 }

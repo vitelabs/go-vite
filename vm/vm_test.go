@@ -997,7 +997,7 @@ func TestVm(t *testing.T) {
 }
 func checkStorage(got *memoryDatabase, expected map[string]string) string {
 	if len(expected) != len(got.storage) {
-		return "expected len " + string(len(expected)) + ", got len" + string(len(got.storage))
+		return "expected len " + strconv.Itoa(len(expected)) + ", got len" + strconv.Itoa(len(got.storage))
 	}
 	for k, v := range got.storage {
 		if sv, ok := expected[k]; !ok || sv != hex.EncodeToString(v) {
@@ -1009,7 +1009,7 @@ func checkStorage(got *memoryDatabase, expected map[string]string) string {
 
 func checkSendBlockList(expected []*TestCaseSendBlock, got []*vm_context.VmAccountBlock) string {
 	if len(got) != len(expected) {
-		return "expected len " + string(len(expected)) + ", got len" + string(len(got))
+		return "expected len " + strconv.Itoa(len(expected)) + ", got len" + strconv.Itoa(len(got))
 	}
 	for i, expectedSendBlock := range expected {
 		gotSendBlock := got[i].AccountBlock
@@ -1024,8 +1024,4 @@ func checkSendBlockList(expected []*TestCaseSendBlock, got []*vm_context.VmAccou
 		}
 	}
 	return ""
-}
-
-func TestInitVmConfig(t *testing.T) {
-	types.BigToTokenTypeId(big.NewInt(1))
 }

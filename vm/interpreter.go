@@ -67,7 +67,7 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		res, err := operation.execute(&pc, vm, c, mem, st)
 
 		if nodeConfig.IsDebug {
-			nodeConfig.log.Info("vm step",
+			nodeConfig.interpreterLog.Info("vm step",
 				"blockType", c.block.AccountBlock.BlockType,
 				"address", c.block.AccountBlock.AccountAddress.String(),
 				"height", c.block.AccountBlock.Height,
