@@ -126,6 +126,8 @@ func (self *pool) insertBucket(bucket Bucket) error {
 	return nil
 }
 
+var NotFound = errors.New("Not Found")
+
 func (self *pool) accountExists(hash types.Hash) error {
 	ab, err := self.bc.GetAccountBlockByHash(&hash)
 	if err != nil {
@@ -134,7 +136,20 @@ func (self *pool) accountExists(hash types.Hash) error {
 	if ab != nil {
 		return nil
 	}
-	return errors.New("Not Found")
+	return NotFound
+}
+
+func (self *pool) accountBlockCheckAndFetch(snapshot *snapshotPoolBlock, hashH *ledger.HashHeight, address types.Address) (*ledger.HashHeight, error) {
+	err := self.accountExists(hashH.Hash)
+	if err == nil {
+		return nil, nil
+	}
+	if err != nil && err != NotFound {
+		return nil, err
+	}
+	hashHeight, err := self.PendingAccountTo(address, hashH, snapshot.Height())
+
+	return hashHeight, err
 }
 func (self *pool) snapshotExists(hash types.Hash) error {
 	sb, err := self.bc.GetSnapshotBlockByHash(&hash)
@@ -149,4 +164,35 @@ func (self *pool) snapshotExists(hash types.Hash) error {
 
 type offsetInfo struct {
 	offset *ledger.HashHeight
+}
+
+// todo fix: not in same thread with loopCompact
+func (self *pool) loopPendingSnapshot() {
+	snapshots, err := self.pendingSc.getPendingForCurrent()
+	if err != nil {
+		self.log.Error("getPendingForCurrent error.", "error", err)
+	}
+
+	accounts := make(map[types.Address]*ledger.HashHeight)
+
+	for _, b := range snapshots {
+		block := b.(*snapshotPoolBlock)
+		for addr, hashH := range block.block.SnapshotContent {
+			hashH, err := self.accountBlockCheckAndFetch(block, hashH, addr)
+			if err != nil {
+				self.log.Error("account block check and fetch fail.", "err", err, "addr", addr, "hash", hashH.Hash, "height", hashH.Height)
+			}
+
+			_, ok := accounts[addr]
+			if hashH != nil && !ok {
+				accounts[addr] = hashH
+			}
+		}
+	}
+	if len(accounts) > 0 {
+		self.pendingSc.forkAccounts(accounts)
+
+		// todo fix
+		self.pendingSc.fetchAccounts(accounts, snapshots[len(snapshots)-1].Height())
+	}
 }

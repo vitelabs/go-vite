@@ -39,7 +39,7 @@ func PrepareVite() (chain.Chain, *verifier.AccountVerifier, pool.BlockPool) {
 
 	v := verifier.NewAccountVerifier(c, nil)
 
-	p := pool.NewPool(c)
+	p, _ := pool.NewPool(c)
 
 	p.Init(&pool.MockSyncer{}, w, verifier.NewSnapshotVerifier(c, nil), v)
 	p.Start()

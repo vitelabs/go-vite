@@ -28,6 +28,7 @@ type snapshotPool struct {
 	nextFetchTime   time.Time
 	nextInsertTime  time.Time
 	nextCompactTime time.Time
+	hashBlacklist   Blacklist
 }
 
 func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion, source types.BlockSource) *snapshotPoolBlock {
@@ -76,6 +77,7 @@ func newSnapshotPool(
 	v *snapshotVerifier,
 	f *snapshotSyncer,
 	rw *snapshotCh,
+	hashBlacklist Blacklist,
 	log log15.Logger,
 ) *snapshotPool {
 	pool := &snapshotPool{}
@@ -89,6 +91,7 @@ func newSnapshotPool(
 	pool.nextFetchTime = now
 	pool.nextInsertTime = now
 	pool.nextCompactTime = now
+	pool.hashBlacklist = hashBlacklist
 	return pool
 }
 
@@ -419,10 +422,19 @@ func (self *snapshotPool) snapshotTryInsertItems(items []*Item) error {
 		if block.Height() == current.tailHeight+1 &&
 			block.PrevHash() == current.tailHash {
 			block.resetForkVersion()
-			self.v.verifySnapshot(block.(*snapshotPoolBlock))
+			stat := self.v.verifySnapshot(block.(*snapshotPoolBlock))
 			if !block.checkForkVersion() {
 				block.resetForkVersion()
 				return errors.New("new fork version")
+			}
+			switch stat.verifyResult() {
+			case verifier.FAIL:
+				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height())
+				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
+				return errors.New("fail verifier")
+			case verifier.PENDING:
+				self.log.Error("snapshot pending.", "hash", block.Hash(), "height", block.Height())
+				return errors.New("fail verifier pending.")
 			}
 			err := pool.writeToChain(current, block)
 			if err != nil {
@@ -465,17 +477,18 @@ func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnaps
 	if len(accounts) > 0 {
 		self.log.Debug("insertVerifyFail", "accountsLen", len(accounts))
 		monitor.LogEventNum("pool", "snapshotFailFork", len(accounts))
-		self.forkAccounts(b, accounts, b.Height())
+		self.forkAccounts(accounts)
+		self.fetchAccounts(accounts, b.Height())
 	}
 }
 
-func (self *snapshotPool) forkAccounts(b *snapshotPoolBlock, accounts map[types.Address]*ledger.HashHeight, sHeight uint64) {
+func (self *snapshotPool) forkAccounts(accounts map[types.Address]*ledger.HashHeight) {
 	self.pool.Lock()
 	defer self.pool.UnLock()
 
 	for k, v := range accounts {
 		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)
-		err := self.pool.ForkAccountTo(k, v, sHeight)
+		err := self.pool.ForkAccountTo(k, v)
 		if err != nil {
 			self.log.Error("forkaccountTo err", "err", err)
 		}
@@ -498,6 +511,7 @@ func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSn
 			monitor.LogEvent("pool", "snapshotPending")
 			self.log.Debug("pending for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
 			hashH, e := self.pool.PendingAccountTo(k, account, b.Height())
+			self.fetchAccounts(accounts, b.Height())
 			if e != nil {
 				self.log.Error("pending for account fail.", "err", e, "address", k, "hashH", account)
 			}
@@ -508,7 +522,7 @@ func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSn
 	}
 	if len(accounts) > 0 {
 		monitor.LogEventNum("pool", "snapshotPendingFork", len(accounts))
-		self.forkAccounts(b, accounts, b.Height())
+		self.forkAccounts(accounts)
 	}
 }
 
@@ -573,6 +587,10 @@ func (self *snapshotPool) makeQueue(q Queue, info *offsetInfo) (uint64, error) {
 			return uint64(i - minH), errors.New("current chain modify")
 		}
 
+		if self.hashBlacklist.Exists(block.Hash()) {
+			return uint64(i - minH), errors.New("block in blacklist")
+		}
+
 		item := NewItem(block, nil)
 
 		err := q.AddItem(item)
@@ -593,4 +611,28 @@ func (self *snapshotPool) getCurrentBlock(i uint64) *snapshotPoolBlock {
 	} else {
 		return nil
 	}
+}
+func (self *snapshotPool) getPendingForCurrent() ([]commonBlock, error) {
+	begin := self.chainpool.current.tailHeight + 1
+	blocks := self.chainpool.getCurrentBlocks(begin, begin+10)
+	err := self.checkChain(blocks)
+	if err != nil {
+		return nil, err
+	}
+
+	return blocks, nil
+}
+func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64) {
+	for addr, hashH := range accounts {
+		ac := self.pool.selfPendingAc(addr)
+		if !ac.existInPool(hashH.Hash) {
+			head := ac.chainpool.diskChain.Head()
+			u := uint64(10)
+			if hashH.Height > head.Height() {
+				u = hashH.Height - head.Height()
+			}
+			ac.f.fetchBySnapshot(*hashH, u, sHeight)
+		}
+	}
+
 }

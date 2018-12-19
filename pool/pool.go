@@ -123,7 +123,8 @@ type pool struct {
 
 	log log15.Logger
 
-	stat *recoverStat
+	stat          *recoverStat
+	hashBlacklist Blacklist
 }
 
 func (self *pool) Snapshot() map[string]interface{} {
@@ -174,10 +175,15 @@ func (self *pool) RUnLock() {
 	self.rwMutex.RUnlock()
 }
 
-func NewPool(bc chainDb) *pool {
+func NewPool(bc chainDb) (*pool, error) {
 	self := &pool{bc: bc, rwMutex: sync.RWMutex{}, version: &ForkVersion{}, accountCond: sync.NewCond(&sync.Mutex{})}
 	self.log = log15.New("module", "pool")
-	return self
+	var err error
+	self.hashBlacklist, err = NewBlacklist()
+	if err != nil {
+		return nil, err
+	}
+	return self, nil
 }
 
 func (self *pool) Init(s syncer,
@@ -190,7 +196,7 @@ func (self *pool) Init(s syncer,
 	fe := &snapshotSyncer{fetcher: s, log: self.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: snapshotV}
 	self.accountVerifier = accountV
-	snapshotPool := newSnapshotPool("snapshotPool", self.version, v, fe, rw, self.log)
+	snapshotPool := newSnapshotPool("snapshotPool", self.version, v, fe, rw, self.hashBlacklist, self.log)
 	snapshotPool.init(
 		newTools(fe, rw),
 		self)
@@ -436,37 +442,18 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight, sHe
 		}
 		return nil, nil
 	}
-	inPool := this.findInPool(h.Hash, h.Height)
-
-	if !inPool {
-		cnt := uint64(5)
-		headHeight := this.chainpool.diskChain.Head().Height()
-		if h.Height > headHeight {
-			cnt = h.Height - headHeight
-		}
-		this.f.fetchBySnapshot(ledger.HashHeight{Hash: h.Hash, Height: h.Height}, cnt, sHeight)
-	}
 	return nil, nil
 }
 
-func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight, sHeight uint64) error {
+func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
 	this := self.selfPendingAc(addr)
-	self.log.Info("RollbackAccountTo[1]", "addr", addr, "hash", h.Hash, "height", h.Height,
-		"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
-	err := self.RollbackAccountTo(addr, h.Hash, h.Height)
-
-	if err != nil {
-		return err
-	}
 	// find in tree
 	targetChain := this.findInTree(h.Hash, h.Height)
 
 	if targetChain == nil {
-		cnt := h.Height - this.chainpool.diskChain.Head().Height()
-		this.f.fetchBySnapshot(ledger.HashHeight{Height: h.Height, Hash: h.Hash}, cnt, sHeight)
 		self.log.Info("CurrentModifyToEmpty", "addr", addr, "hash", h.Hash, "height", h.Height,
 			"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
-		err = this.CurrentModifyToEmpty()
+		err := this.CurrentModifyToEmpty()
 		return err
 	}
 	if targetChain.id() == this.CurrentChain().id() {
@@ -538,7 +525,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	rw := &accountCh{address: addr, rw: self.bc, version: self.version}
 	f := &accountSyncer{address: addr, fetcher: self.sync, log: self.log.New()}
 	v := &accountVerifier{v: self.accountVerifier, log: self.log.New()}
-	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.log)
+	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.hashBlacklist, self.log)
 	p.address = addr
 	p.Init(newTools(f, rw), self, v, f)
 

@@ -30,6 +30,7 @@ type accountPool struct {
 	f             *accountSyncer
 	receivedIndex sync.Map
 	pool          *pool
+	hashBlacklist Blacklist
 }
 
 func newAccountPoolBlock(block *ledger.AccountBlock,
@@ -83,13 +84,14 @@ func (self *accountPoolBlock) Source() types.BlockSource {
 	return self.source
 }
 
-func newAccountPool(name string, rw *accountCh, v *ForkVersion, log log15.Logger) *accountPool {
+func newAccountPool(name string, rw *accountCh, v *ForkVersion, hashBlacklist Blacklist, log log15.Logger) *accountPool {
 	pool := &accountPool{}
 	pool.Id = name
 	pool.rw = rw
 	pool.version = v
 	pool.loopTime = time.Now()
 	pool.log = log.New("account", name)
+	pool.hashBlacklist = hashBlacklist
 	return pool
 }
 
@@ -427,17 +429,7 @@ func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, *forkedCha
 }
 
 func (self *accountPool) findInPool(hash types.Hash, height uint64) bool {
-	for _, c := range self.chainpool.allChain() {
-		b := c.getBlock(height, false)
-		if b == nil {
-			continue
-		} else {
-			if b.Hash() == hash {
-				return true
-			}
-		}
-	}
-	return false
+	return self.blockpool.contains(hash, height)
 }
 
 func (self *accountPool) findInTree(hash types.Hash, height uint64) *forkedChain {
@@ -460,9 +452,6 @@ func (self *accountPool) findInTree(hash types.Hash, height uint64) *forkedChain
 }
 
 func (self *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk bool) *forkedChain {
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
-
 	block := self.chainpool.current.getBlock(height, disk)
 	if block != nil && block.Hash() == hash {
 		return self.chainpool.current
@@ -612,6 +601,9 @@ func (self *accountPool) makeQueue(q Queue, info *offsetInfo) (uint64, error) {
 		if block == nil {
 			return uint64(i - minH), errors.New("current chain modify")
 		}
+		if self.hashBlacklist.Exists(block.Hash()) {
+			return uint64(i - minH), errors.New("block in blacklist")
+		}
 
 		item := NewItem(block, &self.address)
 
@@ -657,6 +649,15 @@ func (self *accountPool) tryInsertItems(items []*Item) error {
 			if !block.checkForkVersion() {
 				block.resetForkVersion()
 				return errors.New("new fork version")
+			}
+			switch stat.verifyResult() {
+			case verifier.FAIL:
+				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height())
+				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
+				return errors.New("fail verifier")
+			case verifier.PENDING:
+				self.log.Error("snapshot pending.", "hash", block.Hash(), "height", block.Height())
+				return errors.New("fail verifier pending.")
 			}
 			err, num := self.verifySuccess(stat.blocks)
 			if err != nil {

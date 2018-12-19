@@ -20,6 +20,10 @@ type mockCommonBlock struct {
 	prevHash types.Hash
 }
 
+func (self *mockCommonBlock) ReferHashes() ([]types.Hash, *types.Hash) {
+	panic("implement me")
+}
+
 func (self *mockCommonBlock) Source() types.BlockSource {
 	panic("implement me")
 }
@@ -64,6 +68,10 @@ type mockSnapshotI interface {
 }
 
 type mockSnapshotS struct {
+}
+
+func (*mockSnapshotS) GetSnapshotBlockHeadByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	panic("implement me")
 }
 
 func (*mockSnapshotS) FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) {
@@ -202,7 +210,8 @@ func TestNewSnapshotPool(t *testing.T) {
 	v := &ForkVersion{}
 	mock := &mockSnapshotS{}
 	l := log15.New("module", "mock")
-	p := newSnapshotPool("snapshot", v, &snapshotVerifier{v: mock}, &snapshotSyncer{fetcher: mock, log: l}, &snapshotCh{bc: mock, version: v}, l)
+	blacklist, _ := NewBlacklist()
+	p := newSnapshotPool("snapshot", v, &snapshotVerifier{v: mock}, &snapshotSyncer{fetcher: mock, log: l}, &snapshotCh{bc: mock, version: v}, blacklist, l)
 	po := &pool{}
 	p.init(&tools{rw: mock}, po)
 	p.Start()
