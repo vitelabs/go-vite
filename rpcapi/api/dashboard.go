@@ -1,6 +1,7 @@
 package api
 
 import (
+	"os"
 	"runtime"
 	"time"
 
@@ -59,6 +60,7 @@ func (api DashboardApi) ProcessInfo(id *string) map[string]interface{} {
 		result["nodeName"] = api.v.Config().Name
 		result["rewardAddress"] = api.v.Config().RewardAddr
 	}
+	result["pid"] = os.Getpid()
 
 	return result
 }
