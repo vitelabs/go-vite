@@ -38,7 +38,11 @@ type Chain interface {
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 	GetAccountBlocksByAddress(addr *types.Address, index int, num int, count int) ([]*ledger.AccountBlock, error)
 	GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error)
+
 	GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.AccountBlock
+	GetUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBlock, error)
+	GetUnConfirmedPartSubLedger(addrList []types.Address) (map[types.Address][]*ledger.AccountBlock, error)
+
 	DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
 	Init()
 	Compressor() *compress.Compressor

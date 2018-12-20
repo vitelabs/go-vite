@@ -219,7 +219,7 @@ func (c *chain) initCache() {
 	}
 
 	// needSnapshotCache
-	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
+	unconfirmedSubLedger, getSubLedgerErr := c.GetUnConfirmedSubLedger()
 	if getSubLedgerErr != nil {
 		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "Start")
 	}

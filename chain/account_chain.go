@@ -509,7 +509,7 @@ func (c *chain) GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint
 		// Cache
 		blocks := c.GetUnConfirmAccountBlocks(addr)
 		if len(blocks) > 0 {
-			return blocks[len(blocks)-1], nil
+			return blocks[0], nil
 		}
 		return nil, nil
 	} else {
@@ -559,13 +559,13 @@ func (c *chain) GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.Account
 		return nil
 	}
 
-	unconfirmBlocks, err := c.chainDb.Ac.GetUnConfirmAccountBlocks(account.AccountId, 0)
+	unconfirmedBlocks, err := c.chainDb.Ac.GetUnConfirmAccountBlocks(account.AccountId, 0)
 	if err != nil {
 		c.log.Error("GetUnConfirmAccountBlocks failed, error is "+err.Error(), "method", "GetUnConfirmAccountBlocks")
 		return nil
 	}
 
-	return unconfirmBlocks
+	return unconfirmedBlocks
 }
 
 func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error) {
@@ -698,7 +698,7 @@ func (c *chain) GetAllLatestAccountBlock() ([]*ledger.AccountBlock, error) {
 }
 
 // For init need snapshot cache
-func (c *chain) getUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBlock, error) {
+func (c *chain) GetUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBlock, error) {
 	maxAccountId, err := c.chainDb.Account.GetLastAccountId()
 	if err != nil {
 		c.log.Error("GetLastAccountId failed, error is "+err.Error(), "method", "getUnConfirmedAccountBlocks")
@@ -706,6 +706,34 @@ func (c *chain) getUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBl
 	}
 
 	subLedger, getErr := c.chainDb.Ac.GetUnConfirmedSubLedger(maxAccountId)
+	if getErr != nil {
+		c.log.Error("GetUnConfirmedSubLedger failed, error is "+getErr.Error(), "method", "getUnConfirmedSubLedger")
+		return nil, getErr
+	}
+
+	finalSubLedger, finalErr := c.subLedgerAccountIdToAccountAddress(subLedger)
+	if finalErr != nil {
+		c.log.Error("subLedgerAccountIdToAccountAddress failed, error is "+getErr.Error(), "method", "getUnConfirmedSubLedger")
+		return nil, finalErr
+	}
+
+	return finalSubLedger, nil
+}
+
+// For init need snapshot cache
+func (c *chain) GetUnConfirmedPartSubLedger(addrList []types.Address) (map[types.Address][]*ledger.AccountBlock, error) {
+
+	accountIds := make([]uint64, len(addrList))
+	for i, addr := range addrList {
+		account, err := c.chainDb.Account.GetAccountByAddress(&addr)
+		if err != nil {
+			c.log.Error("GetAccountByAddress failed, error is "+err.Error(), "method", "getUnConfirmedSubLedger")
+			return nil, err
+		}
+		accountIds[i] = account.AccountId
+	}
+
+	subLedger, getErr := c.chainDb.Ac.GetUnConfirmedSubLedgerByAccounts(accountIds)
 	if getErr != nil {
 		c.log.Error("GetUnConfirmedSubLedger failed, error is "+getErr.Error(), "method", "getUnConfirmedSubLedger")
 		return nil, getErr

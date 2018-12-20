@@ -87,7 +87,7 @@ func (cache *NeedSnapshotCache) unsavePrintCacheMap() {
 }
 
 func (cache *NeedSnapshotCache) printCorrectCacheMap() {
-	unconfirmedSubLedger, getSubLedgerErr := cache.chain.getUnConfirmedSubLedger()
+	unconfirmedSubLedger, getSubLedgerErr := cache.chain.GetUnConfirmedSubLedger()
 	if getSubLedgerErr != nil {
 		cache.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "printCorrectCacheMap")
 	}
@@ -126,7 +126,7 @@ func (cache *NeedSnapshotCache) Rebuild() {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 
-	unconfirmedSubLedger, getSubLedgerErr := cache.chain.getUnConfirmedSubLedger()
+	unconfirmedSubLedger, getSubLedgerErr := cache.chain.GetUnConfirmedSubLedger()
 	if getSubLedgerErr != nil {
 		cache.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "printCorrectCacheMap")
 	}
