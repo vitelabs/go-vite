@@ -23,8 +23,11 @@ func NewDashboardApi(v *vite.Vite) *DashboardApi {
 	}
 }
 
-func (api DashboardApi) OsInfo() map[string]interface{} {
+func (api DashboardApi) OsInfo(id *string) map[string]interface{} {
 	result := make(map[string]interface{})
+	if id != nil {
+		result["reqId"] = id
+	}
 	stat, e := host.Info()
 	if e == nil {
 		result["os"] = stat.OS                           // ex: freebsd, linux
@@ -45,8 +48,11 @@ func (api DashboardApi) OsInfo() map[string]interface{} {
 	return result
 }
 
-func (api DashboardApi) ProcessInfo() map[string]interface{} {
+func (api DashboardApi) ProcessInfo(id *string) map[string]interface{} {
 	result := make(map[string]interface{})
+	if id != nil {
+		result["reqId"] = id
+	}
 	result["build_version"] = govite.VITE_BUILD_VERSION
 	result["commit_version"] = govite.VITE_VERSION
 	if api.v.Config().Reward != nil {
@@ -63,14 +69,18 @@ type hashHeightTime struct {
 	Time   int64
 }
 
-func (api DashboardApi) RuntimeInfo() map[string]interface{} {
+func (api DashboardApi) RuntimeInfo(id *string) map[string]interface{} {
 	result := make(map[string]interface{})
+	if id != nil {
+		result["reqId"] = id
+	}
 	result["peersNum"] = len(api.v.Net().Info().Peers)
 	result["snapshotPendingNum"] = api.v.Pool().SnapshotPendingNum()
 	result["accountPendingNum"] = api.v.Pool().AccountPendingNum().String()
 	head := api.v.Chain().GetLatestSnapshotBlock()
 	result["latestSnapshot"] = hashHeightTime{head.Hash.String(), head.Height, head.Timestamp.UnixNano() / 1e6}
 	result["updateTime"] = time.Now().UnixNano() / 1e6
+	result["delayTime"] = api.v.Net().Info().Latency
 	if api.v.Producer() != nil {
 		result["producer"] = api.v.Producer().GetCoinBase().String()
 	}
