@@ -2,12 +2,6 @@ package gvite_plugins
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/cmd/console"
-	"github.com/vitelabs/go-vite/cmd/nodemanager"
-	"github.com/vitelabs/go-vite/cmd/params"
-	"github.com/vitelabs/go-vite/cmd/utils"
-	"github.com/vitelabs/go-vite/log15"
-	"gopkg.in/urfave/cli.v1"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -15,6 +9,13 @@ import (
 	"runtime"
 	"sort"
 	"time"
+
+	"github.com/vitelabs/go-vite/cmd/console"
+	"github.com/vitelabs/go-vite/cmd/nodemanager"
+	"github.com/vitelabs/go-vite/cmd/params"
+	"github.com/vitelabs/go-vite/cmd/utils"
+	"github.com/vitelabs/go-vite/log15"
+	"gopkg.in/urfave/cli.v1"
 )
 
 // gvite is the official command-line client for Vite
@@ -175,7 +176,11 @@ func action(ctx *cli.Context) error {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 
-	nodeManager := nodemanager.NewDefaultNodeManager(ctx, nodemanager.FullNodeMaker{})
+	nodeManager, err := nodemanager.NewDefaultNodeManager(ctx, nodemanager.FullNodeMaker{})
+	if err != nil {
+		fmt.Errorf("new node error, %+v", err)
+		return err
+	}
 
 	return nodeManager.Start()
 }
