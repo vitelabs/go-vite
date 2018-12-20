@@ -66,7 +66,7 @@ func PrintMap(m map[string][]byte) string {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			result += k + "=>" + hex.EncodeToString(m[k]) + ", "
+			result += hex.EncodeToString([]byte(k)) + "=>" + hex.EncodeToString(m[k]) + ", "
 		}
 		result = result[:len(result)-2]
 	}

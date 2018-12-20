@@ -130,9 +130,12 @@ func (v *VmDebugApi) NewAccount() (*AccountInfo, error) {
 }
 
 type CreateContractParam struct {
-	FileName string   `json:"fileName"`
-	Amount   string   `json:"amount"`
-	Params   []string `json:"params"`
+	FileName string                      `json:"fileName"`
+	Params   map[string]ConstructorParam `json:"params"`
+}
+type ConstructorParam struct {
+	Amount string   `json:"amount"`
+	Params []string `json:"params"`
 }
 type CreateContractResult struct {
 	AccountAddr       types.Address       `json:"accountAddr"`
@@ -142,9 +145,9 @@ type CreateContractResult struct {
 	MethodList        []CallContractParam `json:"methodList"'`
 }
 
-func (v *VmDebugApi) CreateContract(param CreateContractParam) (*CreateContractResult, error) {
+func (v *VmDebugApi) CreateContract(param CreateContractParam) ([]*CreateContractResult, error) {
 	// compile solidity++ file
-	code, abiJson, err := compile(param.FileName)
+	compileResultList, err := compile(param.FileName)
 	if err != nil {
 		return nil, err
 	}
@@ -153,40 +156,45 @@ func (v *VmDebugApi) CreateContract(param CreateContractParam) (*CreateContractR
 	if err != nil {
 		return nil, err
 	}
-	// send create contract tx
-	createContractData, err := v.contract.GetCreateContractData(types.DELEGATE_GID, code, abiJson, param.Params)
-	if err != nil {
-		return nil, err
+	resultList := make([]*CreateContractResult, 0)
+	for _, c := range compileResultList {
+		txParam := param.Params[c.name]
+		// send create contract tx
+		createContractData, err := v.contract.GetCreateContractData(types.DELEGATE_GID, c.code, c.abiJson, txParam.Params)
+		if err != nil {
+			return nil, err
+		}
+		if len(txParam.Amount) == 0 {
+			txParam.Amount = "0"
+		}
+		sendBlock, err := v.tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
+			SelfAddr:    &testAccount.Addr,
+			TokenTypeId: ledger.ViteTokenId,
+			PrivateKey:  &testAccount.PrivateKey,
+			Amount:      &txParam.Amount,
+			Data:        createContractData,
+			BlockType:   ledger.BlockTypeSendCreate,
+		})
+		if err != nil {
+			return nil, err
+		}
+		// save contractAddress and contract data
+		if err := writeContractData(c.abiJson, sendBlock.ToAddress); err != nil {
+			return nil, err
+		}
+		methodList, err := packMethodList(c.abiJson, sendBlock.ToAddress, testAccount.Addr)
+		if err != nil {
+			return nil, err
+		}
+		resultList = append(resultList, &CreateContractResult{
+			AccountAddr:       testAccount.Addr,
+			AccountPrivateKey: testAccount.PrivateKey,
+			ContractAddr:      sendBlock.ToAddress,
+			SendBlockHash:     sendBlock.Hash,
+			MethodList:        methodList,
+		})
 	}
-	if len(param.Amount) == 0 {
-		param.Amount = "0"
-	}
-	sendBlock, err := v.tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
-		SelfAddr:    &testAccount.Addr,
-		TokenTypeId: ledger.ViteTokenId,
-		PrivateKey:  &testAccount.PrivateKey,
-		Amount:      &param.Amount,
-		Data:        createContractData,
-		BlockType:   ledger.BlockTypeSendCreate,
-	})
-	if err != nil {
-		return nil, err
-	}
-	// save contractAddress and contract data
-	if err := writeContractData(abiJson, sendBlock.ToAddress); err != nil {
-		return nil, err
-	}
-	methodList, err := packMethodList(abiJson, sendBlock.ToAddress, testAccount.Addr)
-	if err != nil {
-		return nil, err
-	}
-	return &CreateContractResult{
-		AccountAddr:       testAccount.Addr,
-		AccountPrivateKey: testAccount.PrivateKey,
-		ContractAddr:      sendBlock.ToAddress,
-		SendBlockHash:     sendBlock.Hash,
-		MethodList:        methodList,
-	}, nil
+	return resultList, nil
 }
 
 type CallContractParam struct {
@@ -292,27 +300,34 @@ func (v *VmDebugApi) ClearData() error {
 	return nil
 }
 
-func compile(fileName string) (string, string, error) {
+type compileResult struct {
+	name    string
+	code    string
+	abiJson string
+}
+
+func compile(fileName string) ([]compileResult, error) {
 	cmd := exec.Command("./solc", "--bin", "--abi", fileName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", "", errors.New(string(out))
+		return nil, errors.New(string(out))
 	}
-	compileResult := strings.Split(string(out), "\n")
-	var code, abiJson string
-	for i := 0; i < len(compileResult); i++ {
-		if compileResult[i] == "Binary: " && i < len(compileResult)-1 {
-			code = compileResult[i+1]
-			i++
-		} else if compileResult[i] == "Contract JSON ABI " && i < len(compileResult)-1 {
-			abiJson = compileResult[i+1]
-			i++
+	list := strings.Split(string(out), "\n")
+	codeList := make([]compileResult, 0)
+	for i := 0; i < len(list); i++ {
+		if strings.HasPrefix(list[i], "=======") && i < len(list)-4 && list[i+1] == "Binary: " && list[i+3] == "Contract JSON ABI " {
+			if len(list[i+2]) == 0 || len(list[i+4]) == 0 {
+				return nil, errors.New("code len is 0")
+			}
+			name := list[i][9+len(fileName) : len(list[i])-8]
+			codeList = append(codeList, compileResult{name, list[i+2], list[i+4]})
+			i = i + 4
 		}
 	}
-	if len(code) == 0 || len(abiJson) == 0 {
-		return "", "", errors.New("code len is 0")
+	if len(codeList) == 0 {
+		return nil, errors.New("contract len is 0")
 	}
-	return code, abiJson, nil
+	return codeList, nil
 }
 
 func packMethodList(abiJson string, contractAddr types.Address, accountAddr types.Address) ([]CallContractParam, error) {
