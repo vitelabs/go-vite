@@ -86,7 +86,7 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 				return nil, err
 			}
 		}
-	} else {
+	} else if *prevAccountBlockHash != types.ZERO_HASH {
 		var err error
 		prevAccountBlock, err = chain.GetAccountBlockByHash(prevAccountBlockHash)
 		if err != nil {
@@ -95,6 +95,12 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 
 		if prevAccountBlock == nil {
 			err := errors.New("prevAccountBlock is nil")
+			vmContext.log.Error(err.Error(), "method", "NewVmContext")
+			return nil, err
+		}
+
+		if addr != nil && prevAccountBlock.AccountAddress != *addr {
+			err := errors.New("prevAccountBlock.AccountAddress != addr")
 			vmContext.log.Error(err.Error(), "method", "NewVmContext")
 			return nil, err
 		}
@@ -237,6 +243,7 @@ func (context *VmContext) GetSnapshotBlockByHash(hash *types.Hash) *ledger.Snaps
 
 func (context *VmContext) Reset() {
 	context.unsavedCache = NewUnsavedCache(context.trie)
+	context.frozen = false
 }
 
 func (context *VmContext) SetContractGid(gid *types.Gid, addr *types.Address) {
@@ -410,4 +417,31 @@ func (context *VmContext) GetSnapshotBlockBeforeTime(timestamp *time.Time) (*led
 
 func (context *VmContext) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 	return context.chain.GetGenesisSnapshotBlock()
+}
+
+// No Balance and Code
+func (context *VmContext) DebugGetStorage() map[string][]byte {
+	storage := make(map[string][]byte)
+	iter := context.NewStorageIterator(nil, nil)
+	for {
+		key, value, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if !context.isBalanceOrCode(key) {
+			storage[string(key)] = value
+
+		}
+	}
+
+	for key, value := range context.unsavedCache.storage {
+		if !context.isBalanceOrCode([]byte(key)) {
+			storage[key] = value
+		}
+	}
+	return storage
+}
+
+func (context *VmContext) isBalanceOrCode(key []byte) bool {
+	return bytes.HasPrefix(key, context.codeKey()) || bytes.HasPrefix(key, STORAGE_KEY_BALANCE)
 }

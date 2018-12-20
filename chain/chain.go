@@ -258,15 +258,18 @@ func (c *chain) Start() {
 	}
 
 	// trie gc
-	c.trieGc.Start()
+	if c.cfg.LedgerGc {
+		c.trieGc.Start()
+	}
 
 	c.log.Info("Chain module started")
 }
 
 func (c *chain) Stop() {
 	// trie gc
-	c.trieGc.Stop()
-
+	if c.cfg.LedgerGc {
+		c.trieGc.Stop()
+	}
 	// Stop compress
 	c.log.Info("Stop chain module")
 

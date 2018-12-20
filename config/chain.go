@@ -10,4 +10,5 @@ type Chain struct {
 	OpenBlackBlock bool
 	LedgerGcRetain uint64
 	GenesisFile    string
+	LedgerGc       bool
 }
