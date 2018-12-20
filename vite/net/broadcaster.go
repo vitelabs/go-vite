@@ -2,12 +2,13 @@ package net
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vite/net/circle"
-	"sync"
-	"time"
 )
 
 type broadcaster struct {
@@ -95,7 +96,7 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	if block.Timestamp != nil {
 		delta := now.Sub(*block.Timestamp)
 		b.mu.Lock()
-		b.statis.Put(delta.Nanoseconds())
+		b.statis.Put(delta.Nanoseconds() / 1e6)
 		b.mu.Unlock()
 	}
 
@@ -120,7 +121,7 @@ func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 	if block.Timestamp != nil {
 		delta := now.Sub(*block.Timestamp)
 		b.mu.Lock()
-		b.statis.Put(delta.Nanoseconds())
+		b.statis.Put(delta.Nanoseconds() / 1e6)
 		b.mu.Unlock()
 	}
 
