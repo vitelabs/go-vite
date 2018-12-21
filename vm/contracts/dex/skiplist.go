@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/rand"
 )
 
 const skiplistMaxLevel int8 = 13 // 2^13 8192
@@ -20,6 +19,7 @@ type nodeKeyType interface {
 
 type nodePayload interface {
 	compareTo(payload *nodePayload) int8
+	randSeed() int64
 }
 
 type nodePayloadProtocol interface {
@@ -63,8 +63,8 @@ type skiplistMeta struct {
 	forwardOnLevel []nodeKeyType
 }
 
-func randomLevel() int8 {
-	return int8(rand.Intn(int(skiplistMaxLevel)))+1
+func randomLevel(seed int64) int8 {
+	return int8(seed % int64(skiplistMaxLevel)) + 1
 }
 
 func (meta *skiplistMeta) fromList(list *skiplist) {
@@ -72,6 +72,7 @@ func (meta *skiplistMeta) fromList(list *skiplist) {
 	meta.tail = list.tail
 	meta.length = list.length
 	meta.level = list.level
+	meta.forwardOnLevel = make([]nodeKeyType, len(list.headerNode.forwardOnLevel))
 	copy(meta.forwardOnLevel, list.headerNode.forwardOnLevel)
 }
 
@@ -165,7 +166,12 @@ func (skl *skiplist) initMeta(name string) {
 		skl.header = meta.header
 		skl.tail = meta.tail
 		skl.level = meta.level
+		skl.headerNode.forwardOnLevel = make([]nodeKeyType, len(meta.forwardOnLevel))
 		copy(skl.headerNode.forwardOnLevel, meta.forwardOnLevel)
+		//fmt.Printf("meta.length %d, meta.header %d, meta.tail %d, meta.level %d\n", meta.length, meta.header, meta.tail, meta.level)
+		//for l, v := range skl.headerNode.forwardOnLevel {
+		//	fmt.Printf("meta.level %d, forward %s\n", l, v.toString())
+		//}
 	}
 }
 
@@ -192,7 +198,8 @@ func (skl *skiplist) insert(key nodeKeyType, payload *nodePayload) {
 		}
 		updateNodes[i] = currentNode
 	}
-	level := randomLevel()
+
+	level := randomLevel((*payload).randSeed())
 	newNode, level := skl.createNode(key, payload, level)
 	if level > skl.level {
 		for i = skl.level; i < level; i++ {

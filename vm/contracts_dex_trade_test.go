@@ -160,7 +160,7 @@ func getNewOrderData(id uint64, address types.Address, tradeToken types.TokenTyp
 	order.Quantity = big.NewInt(quantity).Bytes()
 	order.Amount = dex.CalculateAmount(order.Quantity, order.Price)
 	order.Status =  dex.Pending
-	order.Timestamp = time.Now().UnixNano()/1000
+	order.Timestamp = time.Now().Unix()
 	order.ExecutedQuantity = big.NewInt(0).Bytes()
 	order.ExecutedAmount = big.NewInt(0).Bytes()
 	order.RefundToken = []byte{}

@@ -11,11 +11,10 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"math/big"
 	"strings"
-	"time"
 )
 
 const maxTxsCountPerTaker = 1000
-const timeoutMillisecond = 7 * 24 * 3600 * 1000
+const timeoutSecond = 7 * 24 * 3600
 
 type matcher struct {
 	contractAddress *types.Address
@@ -116,7 +115,7 @@ func (mc *matcher) doMatchTaker(taker Order, makerBook *skiplist) error {
 
 //TODO add assertion for order calculation correctness
 func (mc *matcher) recursiveTakeOrder(taker *Order, maker Order, makerBook *skiplist, modifiedMakers *[]Order, txs *[]OrderTx, nextOrderId nodeKeyType) error {
-	if filterTimeout(&maker) {
+	if filterTimeout(taker.Timestamp, &maker) {
 		mc.handleRefund(&maker)
 		*modifiedMakers = append(*modifiedMakers, maker)
 	} else {
@@ -289,8 +288,8 @@ func matchPrice(taker Order, maker Order) (matched bool, executedPrice string) {
 	}
 }
 
-func filterTimeout(maker *Order) bool {
-	if time.Now().Unix()*1000 > maker.Timestamp+timeoutMillisecond {
+func filterTimeout(takerTimestamp int64, maker *Order) bool {
+	if takerTimestamp > maker.Timestamp+timeoutSecond {
 		switch maker.Status {
 		case Pending:
 			maker.CancelReason = cancelledOnTimeout
@@ -322,7 +321,7 @@ func calculateOrderAndTx(taker *Order, maker *Order) (tx OrderTx) {
 	updateOrder(maker, executeQuantity, executeAmount)
 	tx.Quantity = executeQuantity
 	tx.Amount = executeAmount
-	tx.Timestamp = time.Now().UnixNano() / 1000
+	tx.Timestamp = taker.Timestamp
 	tx.takerAddress = taker.Address
 	tx.makerAddress = maker.Address
 	tx.takerTradeToken = taker.TradeToken

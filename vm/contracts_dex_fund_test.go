@@ -53,17 +53,22 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	depositSendAccBlock := &ledger.AccountBlock{}
 	depositSendAccBlock.AccountAddress = userAddress
 
-	depositSendAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserDeposit, userAddress, ETH, big.NewInt(100))
+	depositSendAccBlock.TokenId = ETH
+	depositSendAccBlock.Amount = big.NewInt(100)
+
+	depositSendAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserDeposit)
 	_, err = depositMethod.DoSend(db, depositSendAccBlock, 100010001000)
 	assert.True(t, err != nil)
 	assert.True(t, bytes.Equal([]byte(err.Error()), []byte("token is invalid")))
 
-	depositSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserDeposit, userAddress, VITE, big.NewInt(3000))
+	depositSendAccBlock.TokenId = VITE
+	depositSendAccBlock.Amount = big.NewInt(3000)
+
+	depositSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserDeposit)
 	_, err = depositMethod.DoSend(db, depositSendAccBlock, 100010001000)
 	assert.True(t, err == nil)
 	assert.True(t, bytes.Equal(depositSendAccBlock.TokenId.Bytes(), VITE.Bytes()))
 	assert.Equal(t, depositSendAccBlock.Amount.Uint64(), uint64(3000))
-	assert.True(t, bytes.Equal(depositSendAccBlock.ToAddress.Bytes(), types.AddressDexFund.Bytes()))
 
 	depositReceiveBlock := &ledger.AccountBlock{}
 
@@ -118,7 +123,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	order.Quantity = big.NewInt(2000).Bytes()
 	order.Amount = big.NewInt(0).Bytes()
 	order.Status = dex.FullyExecuted
-	order.Timestamp = time.Now().UnixNano() / 1000
+	order.Timestamp = time.Now().Unix()
 	data, _ := proto.Marshal(&order)
 
 	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, data)
@@ -128,10 +133,6 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 
 	param := new(contracts.ParamDexSerializedData)
 	contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundNewOrder, senderAccBlock.Data)
-	order1 := &dexproto.Order{}
-	proto.Unmarshal(param.Data, order1)
-	assert.True(t, CheckBigEqualToInt(60, order1.Amount))
-	assert.Equal(t, order1.Status, uint32(dex.Pending))
 
 	receiveBlock := &ledger.AccountBlock{}
 	now := time.Now()
@@ -143,9 +144,17 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 
 	dexFund, _ := contracts.GetFundFromStorage(db, userAddress)
 	acc := dexFund.Accounts[0]
+
 	assert.True(t, CheckBigEqualToInt(800, acc.Available))
 	assert.True(t, CheckBigEqualToInt(2000, acc.Locked))
 	assert.Equal(t, 1, len(appendedBlocks))
+
+	param1 := new(contracts.ParamDexSerializedData)
+	err = contracts.ABIDexTrade.UnpackMethod(param1, contracts.MethodNameDexTradeNewOrder, appendedBlocks[0].Data)
+	order1 := &dexproto.Order{}
+	proto.Unmarshal(param1.Data, order1)
+	assert.True(t, CheckBigEqualToInt(60, order1.Amount))
+	assert.Equal(t, order1.Status, uint32(dex.Pending))
 }
 
 func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Address) {

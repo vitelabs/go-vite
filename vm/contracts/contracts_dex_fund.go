@@ -20,7 +20,7 @@ import (
 const (
 	jsonDexFund = `
 	[
-		{"type":"function","name":"DexFundUserDeposit", "inputs":[{"name":"address","type":"address"},{"name":"token","type":"tokenId"},{"name":"amount","type":"uint256"}]},
+		{"type":"function","name":"DexFundUserDeposit", "inputs":[]},
 		{"type":"function","name":"DexFundUserWithdraw", "inputs":[{"name":"address","type":"address"},{"name":"token","type":"tokenId"},{"name":"amount","type":"uint256"}]},
 		{"type":"function","name":"DexFundNewOrder", "inputs":[{"name":"data","type":"bytes"}]},
 		{"type":"function","name":"DexFundSettleOrders", "inputs":[{"name":"data","type":"bytes"}]}
@@ -67,11 +67,11 @@ func (df *DexFund) deSerialize(fundData []byte) (dexFund *DexFund, err error) {
 type MethodDexFundUserDeposit struct {
 }
 
-func (p *MethodDexFundUserDeposit) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexFundUserDeposit) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodDexFundUserDeposit) GetRefundData() []byte {
+func (md *MethodDexFundUserDeposit) GetRefundData() []byte {
 	return []byte{}
 }
 
@@ -80,19 +80,12 @@ func (md *MethodDexFundUserDeposit) DoSend(db vmctxt_interface.VmDatabase, block
 	if err != nil {
 		return quotaLeft, err
 	}
-	param := new(ParamDexFundDepositAndWithDraw)
-	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserDeposit, block.Data); err != nil {
-		return quotaLeft, err
-	}
-	if param.Amount.Uint64() == 0 {
+	if block.Amount.Cmp(big.NewInt(0)) <= 0 {
 		return quotaLeft, fmt.Errorf("deposit amount is zero")
 	}
-	if err = checkToken(db, param.Token); err != nil {
+	if err = checkToken(db, block.TokenId); err != nil {
 		return quotaLeft, err
 	}
-	block.TokenId = param.Token
-	block.Amount = param.Amount
-	block.ToAddress = types.AddressDexFund
 	return util.UseQuotaForData(block.Data, quotaLeft)
 }
 
@@ -104,16 +97,15 @@ func (md *MethodDexFundUserDeposit) DoReceive(db vmctxt_interface.VmDatabase, bl
 	if dexFund, err = GetFundFromStorage(db, sendBlock.AccountAddress); err != nil {
 		return []*SendBlock{}, err
 	}
-	available := db.GetBalance(&sendBlock.AccountAddress, &sendBlock.TokenId)
-	if available.Cmp(sendBlock.Amount) < 0 {
+	walletAvailable := db.GetBalance(&sendBlock.AccountAddress, &sendBlock.TokenId)
+	if walletAvailable.Cmp(sendBlock.Amount) < 0 {
 		return []*SendBlock{}, fmt.Errorf("deposit amount exceed token balance")
 	}
-	account, exists := getAccountByTokeIdFromFund(dexFund, sendBlock.TokenId)
-	bigAmt := big.NewInt(0).SetBytes(account.Available)
-	bigAmt = bigAmt.Add(bigAmt, sendBlock.Amount)
-	account.Available = dex.AddBigInt(account.Available, bigAmt.Bytes())
+	dexAccount, exists := getAccountByTokeIdFromFund(dexFund, sendBlock.TokenId)
+	dexAvailable := new(big.Int).SetBytes(dexAccount.Available)
+	dexAccount.Available = dexAvailable.Add(dexAvailable, sendBlock.Amount).Bytes()
 	if !exists {
-		dexFund.Accounts = append(dexFund.Accounts, account)
+		dexFund.Accounts = append(dexFund.Accounts, dexAccount)
 	}
 	return []*SendBlock{}, saveFundToStorage(db, sendBlock.AccountAddress, dexFund)
 }
@@ -125,7 +117,7 @@ func (md *MethodDexFundUserWithdraw) GetFee(db vmctxt_interface.VmDatabase, bloc
 	return big.NewInt(0), nil
 }
 
-func (p *MethodDexFundUserWithdraw) GetRefundData() []byte {
+func (md *MethodDexFundUserWithdraw) GetRefundData() []byte {
 	return []byte{}
 }
 
@@ -138,7 +130,7 @@ func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, bloc
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserWithdraw, block.Data); err != nil {
 		return quotaLeft, err
 	}
-	if param.Amount.Uint64() == 0 {
+	if param.Amount.Cmp(big.NewInt(0)) <= 0 {
 		return quotaLeft, fmt.Errorf("withdraw amount is zero")
 	}
 	if tokenInfo := cabi.GetTokenById(db, param.Token); tokenInfo == nil {
@@ -206,41 +198,39 @@ func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *l
 	if err = checkOrderParam(db, order); err != nil {
 		return quotaLeft, err
 	}
-	renderOrder(order, block.AccountAddress)
-	var dexFund = &DexFund{}
-	if dexFund, err = GetFundFromStorage(db, block.AccountAddress); err != nil {
-		return quotaLeft, err
-	}
-	if err = checkFundForNewOrder(dexFund, order); err != nil {
-		return quotaLeft, err
-	}
-	param.Data, _ = proto.Marshal(order)
-	block.Data, _ = ABIDexFund.PackMethod(MethodNameDexFundNewOrder, param.Data)
+	address := &types.Address{}
+	address.SetBytes(order.Address)
 	return util.UseQuotaForData(block.Data, quotaLeft)
 }
 
 func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
-	param := new(ParamDexSerializedData)
-	ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, sendBlock.Data)
-	order := &dexproto.Order{}
-	proto.Unmarshal(param.Data, order)
 	var (
 		dexFund = &DexFund{}
-		needUpdate bool
 		err error
 	)
+	param := new(ParamDexSerializedData)
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, sendBlock.Data); err != nil {
+		return []*SendBlock{}, err
+	}
+	order := &dexproto.Order{}
+	if err = proto.Unmarshal(param.Data, order); err != nil {
+		return []*SendBlock{}, err
+	}
+
+	renderOrder(order, sendBlock.AccountAddress, db.GetSnapshotBlockByHash(&block.SnapshotHash).Timestamp)
 	if dexFund, err = GetFundFromStorage(db, sendBlock.AccountAddress); err != nil {
 		return []*SendBlock{}, err
 	}
-	if needUpdate, err = tryLockFundForNewOrder(dexFund, order); err != nil {
+	if _, err = tryLockFundForNewOrder(db, dexFund, order); err != nil {
+		fmt.Printf("tryLockFundForNewOrder err %s\n", err.Error())
 		return []*SendBlock{}, err
 	}
 	if err = saveFundToStorage(db, sendBlock.AccountAddress, dexFund); err != nil {
 		return []*SendBlock{}, err
 	}
-	if needUpdate {// update for market buy order amount setting
-		param.Data, _ = proto.Marshal(order)
-	}
+	address := &types.Address{}
+	address.SetBytes(order.Address)
+	param.Data, _ = proto.Marshal(order)
 	tradeBlockData, _ := ABIDexTrade.PackMethod(MethodNameDexTradeNewOrder, param.Data)
 	return []*SendBlock{
 		{
@@ -312,16 +302,11 @@ func GetUserFundKey(address types.Address) []byte {
 	return append(fundKeyPrefix, address.Bytes()...)
 }
 
-func checkFundForNewOrder(dexFund *DexFund, order *dexproto.Order) error {
-	_, err := checkAndLockFundForNewOrder(dexFund, order, true)
-	return err
+func tryLockFundForNewOrder(db vmctxt_interface.VmDatabase, dexFund *DexFund, order *dexproto.Order) (needUpdate bool, err error) {
+	return checkAndLockFundForNewOrder(db, dexFund, order, false)
 }
 
-func tryLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order) (needUpdate bool, err error) {
-	return checkAndLockFundForNewOrder(dexFund, order, false)
-}
-
-func checkAndLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order, onlyCheck bool) (needUpdate bool, err error) {
+func checkAndLockFundForNewOrder(db vmctxt_interface.VmDatabase, dexFund *DexFund, order *dexproto.Order, onlyCheck bool) (needUpdate bool, err error) {
 	var (
 		lockToken, lockAmount []byte
 		lockTokenId *types.TokenTypeId
@@ -340,10 +325,15 @@ func checkAndLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order, onlyCh
 	if lockTokenId, err = fromBytesToTokenTypeId(lockToken); err != nil {
 		return false, err
 	}
+	//var tokenName string
+	//if tokenInfo := cabi.GetTokenById(db, *lockTokenId); tokenInfo != nil {
+	//	tokenName = tokenInfo.TokenName
+	//}
 	account, exists := getAccountByTokeIdFromFund(dexFund, *lockTokenId)
 	available := big.NewInt(0).SetBytes(account.Available)
 	if order.Type != dex.Market || order.Side {// limited or sell order
 		lockAmountToInc = new(big.Int).SetBytes(lockAmount)
+		//fmt.Printf("token %s, available %s , lockAmountToInc %s\n", tokenName, available.String(), lockAmountToInc.String())
 		if available.Cmp(lockAmountToInc) < 0 {
 			return false, fmt.Errorf("order lock amount exceed fund available")
 		}
@@ -352,7 +342,7 @@ func checkAndLockFundForNewOrder(dexFund *DexFund, order *dexproto.Order, onlyCh
 	if onlyCheck {
 		return false, nil
 	}
-	if !order.Side && order.Type == dex.Market {
+	if !order.Side && order.Type == dex.Market {// buy or market order
 		if available.Cmp(big.NewInt(0)) == 0 {
 			return false, fmt.Errorf("no quote amount available for market sell order")
 		} else {
@@ -457,13 +447,13 @@ func checkOrderParam(db vmctxt_interface.VmDatabase, order *dexproto.Order) erro
 	return nil
 }
 
-func renderOrder(order *dexproto.Order, address types.Address) {
+func renderOrder(order *dexproto.Order, address types.Address, snapshotTM *time.Time) {
 	order.Address = address.Bytes()
 	if order.Type == dex.Limited {
 		order.Amount = dex.CalculateAmount(order.Quantity, order.Price)
 	}
 	order.Status = dex.Pending
-	order.Timestamp = time.Now().UnixNano() / 1000
+	order.Timestamp = snapshotTM.Unix()
 	order.ExecutedQuantity = big.NewInt(0).Bytes()
 	order.ExecutedAmount = big.NewInt(0).Bytes()
 	order.RefundToken = []byte{}
@@ -507,6 +497,7 @@ func doSettleAction(db vmctxt_interface.VmDatabase, action *dexproto.SettleActio
 				return err
 			}
 			account, exists := getAccountByTokeIdFromFund(dexFund, *tokenId)
+			//fmt.Printf("origin account for :address %s, tokenId %s, available %s, locked %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(account.Available).String(), new(big.Int).SetBytes(account.Locked).String())
 			if dex.CmpToBigZero(action.DeduceLocked) > 0 {
 				if dex.CmpForBigInt(action.DeduceLocked, account.Locked) > 0 {
 					return fmt.Errorf("try deduce locked amount execeed locked")
@@ -528,6 +519,7 @@ func doSettleAction(db vmctxt_interface.VmDatabase, action *dexproto.SettleActio
 			if err = saveFundToStorage(db, *address, dexFund); err != nil {
 				return err
 			}
+			//fmt.Printf("settle for :address %s, tokenId %s, DeduceLocked %s, ReleaseLocked %s, IncAvailable %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(action.DeduceLocked).String(), new(big.Int).SetBytes(action.ReleaseLocked).String(), new(big.Int).SetBytes(action.IncAvailable).String())
 		}
 		return err
 	}

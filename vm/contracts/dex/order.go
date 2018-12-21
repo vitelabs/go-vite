@@ -6,7 +6,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
-	)
+)
 
 const orderStorageSalt = "order:"
 const orderHeaderValue = math.MaxUint64
@@ -112,8 +112,9 @@ func (protocol *OrderNodeProtocol) serializeMeta(meta *skiplistMeta) []byte {
 	protoMeta.Tail = meta.tail.(orderKey).value
 	protoMeta.Length = uint32(meta.length)
 	protoMeta.Level = uint32(meta.level)
-	for _, v := range meta.forwardOnLevel {
-		protoMeta.ForwardOnLevel = append(protoMeta.ForwardOnLevel, v.(orderKey).value)
+	protoMeta.ForwardOnLevel = make([]uint64, len(meta.forwardOnLevel))
+	for i, v := range meta.forwardOnLevel {
+		protoMeta.ForwardOnLevel[i] = v.(orderKey).value
 	}
 	metaData, _ := proto.Marshal(protoMeta)
 	return metaData
@@ -129,8 +130,9 @@ func (protocol *OrderNodeProtocol) deSerializeMeta(nodeData []byte) *skiplistMet
 		meta.tail = newOrderKey(orderMeta.Tail)
 		meta.length = int(orderMeta.Length)
 		meta.level = int8(orderMeta.Level)
-		for _, v := range orderMeta.ForwardOnLevel {
-			meta.forwardOnLevel = append(meta.forwardOnLevel, newOrderKey(v))
+		meta.forwardOnLevel = make([]nodeKeyType, len(orderMeta.ForwardOnLevel))
+		for i, v := range orderMeta.ForwardOnLevel {
+			meta.forwardOnLevel[i] = newOrderKey(v)
 		}
 		return meta
 	}
@@ -143,7 +145,7 @@ func priceEqual(a string, b string) bool {
 }
 
 func convertKeyOnLevelToProto(from []nodeKeyType) []uint64 {
-	to := make([]uint64, len(from), len(from))
+	to := make([]uint64, len(from))
 	for i, v := range from {
 		to[i] = v.(orderKey).value
 	}
@@ -151,7 +153,7 @@ func convertKeyOnLevelToProto(from []nodeKeyType) []uint64 {
 }
 
 func convertKeyOnLevelFromProto(from []uint64) []nodeKeyType {
-	to := make([]nodeKeyType, len(from), len(from))
+	to := make([]nodeKeyType, len(from))
 	for i, v := range from {
 		to[i] = newOrderKey(v)
 	}
@@ -162,7 +164,11 @@ func convertKeyOnLevelFromProto(from []uint64) []nodeKeyType {
 func (order Order) compareTo(toPayload *nodePayload) int8 {
 	target, _:= (*toPayload).(Order)
 	return CompareOrderPrice(order, target)
+}
 
+// orders should sort as desc by price and timestamp
+func (order Order) randSeed() int64 {
+	return order.Timestamp
 }
 
 func CompareOrderPrice(order Order, target Order) int8 {
