@@ -96,7 +96,6 @@ func (nsCache *NeedSnapshotCache) recalculateQuota(addr types.Address) {
 }
 
 func (nsCache *NeedSnapshotCache) addBlocks(blocks []*ledger.AccountBlock) {
-
 	addr := blocks[0].AccountAddress
 	accumulateQuota := uint64(0)
 	cacheBlockList := nsCache.subLedger[addr]
@@ -146,7 +145,6 @@ func (nsCache *NeedSnapshotCache) addBlocks(blocks []*ledger.AccountBlock) {
 }
 
 func (nsCache *NeedSnapshotCache) addBlock(block *ledger.AccountBlock) {
-
 	accumulateQuota := block.Quota
 	addr := block.AccountAddress
 	blockList := nsCache.subLedger[addr]
@@ -165,6 +163,7 @@ func (nsCache *NeedSnapshotCache) addBlock(block *ledger.AccountBlock) {
 		Block:           block,
 		AccumulateQuota: accumulateQuota,
 	})
+	nsCache.subLedger[addr] = blockList
 
 	if needRecalculateQuota {
 		nsCache.recalculateQuota(addr)
@@ -175,7 +174,7 @@ func (nsCache *NeedSnapshotCache) InsertAccountBlock(block *ledger.AccountBlock)
 	nsCache.lock.Lock()
 	defer nsCache.lock.Unlock()
 
-	if cacheBlocks, ok := nsCache.subLedger[block.AccountAddress]; ok {
+	if cacheBlocks, ok := nsCache.subLedger[block.AccountAddress]; ok && len(cacheBlocks) > 0 {
 		headCacheBlock := cacheBlocks[len(cacheBlocks)-1]
 
 		if block.Height != headCacheBlock.Block.Height+1 {
@@ -250,6 +249,20 @@ func (nsCache *NeedSnapshotCache) NotSnapshot(horizontalLine map[types.Address]*
 	}
 }
 
+func (nsCache *NeedSnapshotCache) GetBlockByHash(addr types.Address, hashHeight *ledger.HashHeight) *ledger.AccountBlock {
+	nsCache.lock.Lock()
+	defer nsCache.lock.Unlock()
+	blockList := nsCache.subLedger[addr]
+	if len(blockList) <= 0 {
+		return nil
+	}
+	index, err := nsCache.findIndex(blockList, hashHeight)
+	if err == nil {
+		return blockList[index].Block
+	}
+	return nil
+
+}
 func (nsCache *NeedSnapshotCache) NeedReSnapshot(subLedger map[types.Address][]*ledger.AccountBlock) error {
 	nsCache.lock.Lock()
 	defer nsCache.lock.Unlock()
@@ -279,4 +292,19 @@ func (nsCache *NeedSnapshotCache) NeedReSnapshot(subLedger map[types.Address][]*
 		processedAddrList = append(processedAddrList, addr)
 	}
 	return nil
+}
+
+func (nsCache *NeedSnapshotCache) GetSnapshotContent() ledger.SnapshotContent {
+	nsCache.lock.Lock()
+	defer nsCache.lock.Unlock()
+
+	content := make(ledger.SnapshotContent, 0)
+	for addr, blocks := range nsCache.subLedger {
+		headBlock := blocks[len(blocks)-1]
+		content[addr] = &ledger.HashHeight{
+			Height: headBlock.Block.Height,
+			Hash:   headBlock.Block.Hash,
+		}
+	}
+	return content
 }

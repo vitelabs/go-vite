@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/chain/cache"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/chain_db"
@@ -32,7 +33,7 @@ type chain struct {
 
 	createAccountLock sync.Mutex
 
-	needSnapshotCache *NeedSnapshotCache
+	needSnapshotCache *chain_cache.NeedSnapshotCache
 
 	genesisSnapshotBlock *ledger.SnapshotBlock
 	latestSnapshotBlock  *ledger.SnapshotBlock
@@ -67,6 +68,7 @@ func NewChain(cfg *config.Config) Chain {
 		chain.cfg = &config.Chain{}
 	}
 
+	chain.needSnapshotCache = chain_cache.NewNeedSnapshotCache(chain)
 	chain.blackBlock = NewBlackBlock(chain, chain.cfg.OpenBlackBlock)
 
 	initGenesis(chain.readGenesis(chain.cfg.GenesisFile))
@@ -219,11 +221,7 @@ func (c *chain) initCache() {
 	}
 
 	// needSnapshotCache
-	unconfirmedSubLedger, getSubLedgerErr := c.GetUnConfirmedSubLedger()
-	if getSubLedgerErr != nil {
-		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "Start")
-	}
-	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
+	c.needSnapshotCache.Build()
 
 	// trieNodePool
 	c.trieNodePool = trie.NewTrieNodePool()

@@ -149,13 +149,15 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		return triggerErr
 	}
 
-	lastVmAccountBlock := vmAccountBlocks[len(vmAccountBlocks)-1]
-
 	// Set needSnapshotCache, Need first update cache
 	if c.needSnapshotCache != nil {
-		c.needSnapshotCache.Set(map[types.Address]*ledger.AccountBlock{
-			account.AccountAddress: lastVmAccountBlock.AccountBlock,
-		})
+		for _, vmAccountBlock := range vmAccountBlocks {
+			err := c.needSnapshotCache.InsertAccountBlock(vmAccountBlock.AccountBlock)
+			if err != nil {
+				c.log.Error("c.needSnapshotCache.InsertAccountBlock failed, error is "+err.Error(), "method", "InsertAccountBlocks")
+				return err
+			}
+		}
 	}
 
 	// Write db
@@ -165,6 +167,8 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	}
 
 	// Set stateTriePool
+	lastVmAccountBlock := vmAccountBlocks[len(vmAccountBlocks)-1]
+
 	if lastVmAccountBlock.VmContext.UnsavedCache() != nil {
 		c.stateTriePool.Set(&lastVmAccountBlock.AccountBlock.AccountAddress, lastVmAccountBlock.VmContext.UnsavedCache().Trie())
 	}
@@ -616,24 +620,17 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 
 	// Write delete blocks event
 	var deleteHashList []types.Hash
-	for _, accountBlocks := range subLedger {
+	var needRemoveAddrList []types.Address
+	for addr, accountBlocks := range subLedger {
+		needRemoveAddrList = append(needRemoveAddrList, addr)
 		for _, block := range accountBlocks {
 			deleteHashList = append(deleteHashList, block.Hash)
 		}
 	}
 	c.chainDb.Be.DeleteAccountBlocks(batch, deleteHashList)
 
-	needAddBlocks, needRemoveAddr, _, err := c.getNeedSnapshotMapByDeleteSubLedger(subLedger)
-	if err != nil {
-		c.log.Error("getNeedSnapshotMapByDeleteSubLedger failed, error is "+err.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
-		return nil, err
-	}
-
-	// Set needSnapshotCache, first remove
-	c.needSnapshotCache.Remove(needRemoveAddr)
-
-	// Set needSnapshotCache, then add
-	c.needSnapshotCache.Set(needAddBlocks)
+	needNotSnapshot := c.calculateNeedNotSnapshot(subLedger)
+	c.needSnapshotCache.NotSnapshot(needNotSnapshot)
 
 	writeErr := c.chainDb.Commit(batch)
 	if writeErr != nil {
@@ -642,7 +639,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	}
 
 	// Delete cache
-	c.stateTriePool.Delete(needRemoveAddr)
+	c.stateTriePool.Delete(needRemoveAddrList)
 
 	c.em.triggerDeleteAccountBlocksSuccess(subLedger)
 

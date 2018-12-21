@@ -611,10 +611,13 @@ func (ac *AccountChain) GetPlanToDelete(maxAccountId uint64, snapshotBlockHeight
 func (ac *AccountChain) GetUnConfirmedSubLedgerByAccounts(accountIds []uint64) (map[uint64][]*ledger.AccountBlock, error) {
 	unConfirmedAccountBlocks := make(map[uint64][]*ledger.AccountBlock)
 	for _, accountId := range accountIds {
-		var err error
-		unConfirmedAccountBlocks[accountId], err = ac.GetUnConfirmAccountBlocks(accountId, 0)
+		blockList, err := ac.GetUnConfirmAccountBlocks(accountId, 0)
 		if err != nil {
 			return nil, err
+		}
+
+		if len(blockList) > 0 {
+			unConfirmedAccountBlocks[accountId] = blockList
 		}
 	}
 	return unConfirmedAccountBlocks, nil
@@ -623,11 +626,15 @@ func (ac *AccountChain) GetUnConfirmedSubLedgerByAccounts(accountIds []uint64) (
 func (ac *AccountChain) GetUnConfirmedSubLedger(maxAccountId uint64) (map[uint64][]*ledger.AccountBlock, error) {
 	unConfirmedAccountBlocks := make(map[uint64][]*ledger.AccountBlock)
 	for accountId := uint64(1); accountId <= maxAccountId; accountId++ {
-		var err error
-		unConfirmedAccountBlocks[accountId], err = ac.GetUnConfirmAccountBlocks(accountId, 0)
+		blockList, err := ac.GetUnConfirmAccountBlocks(accountId, 0)
 		if err != nil {
 			return nil, err
 		}
+
+		if len(blockList) > 0 {
+			unConfirmedAccountBlocks[accountId] = blockList
+		}
+
 	}
 	return unConfirmedAccountBlocks, nil
 }
