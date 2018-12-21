@@ -15,7 +15,6 @@ func (c *chain) IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool {
 	return block.Hash == GenesisSnapshotBlock.Hash || block.Hash == SecondSnapshotBlock.Hash
 }
 
-// TODO verify
 func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error) {
 	prevTrie := c.GetStateTrie(&prevStateHash)
 	if prevTrie == nil {
