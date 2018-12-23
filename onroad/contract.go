@@ -144,6 +144,8 @@ func (w *ContractWorker) Stop() {
 	if w.status == Start {
 		w.isCancel = true
 
+		// todo release left
+
 		w.breaker <- struct{}{}
 		close(w.breaker)
 
@@ -260,6 +262,7 @@ func (w *ContractWorker) addIntoBlackList(addr types.Address) {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
 	w.blackList[addr] = true
+	w.manager.onroadBlocksPool.ReleaseContractCache(addr)
 }
 
 func (w *ContractWorker) isInBlackList(addr types.Address) bool {

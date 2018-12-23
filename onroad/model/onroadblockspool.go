@@ -2,6 +2,7 @@ package model
 
 import (
 	"container/list"
+	"fmt"
 	"sync"
 	"time"
 
@@ -28,8 +29,7 @@ type OnroadBlocksPool struct {
 	simpleCache          *sync.Map // map[types.Address]*OnroadAccountInfo
 	simpleCacheDeadTimer *sync.Map //map[types.Address]*time.Timer
 
-	contractCache          *sync.Map //map[types.Address]*onroadContractBlocksCache
-	contractCacheDeadTimer *sync.Map // map[types.Address]*time.Timer
+	contractCache *sync.Map //map[types.Address]*ContractCallerList
 
 	newCommonTxListener   map[types.Address]func()
 	commonTxListenerMutex sync.RWMutex
@@ -47,6 +47,7 @@ func NewOnroadBlocksPool(dbAccess *UAccess) *OnroadBlocksPool {
 		fullCacheDeadTimer:   &sync.Map{},
 		simpleCache:          &sync.Map{},
 		simpleCacheDeadTimer: &sync.Map{},
+		contractCache:        &sync.Map{},
 		newCommonTxListener:  make(map[types.Address]func()),
 		newContractListener:  make(map[types.Gid]func(address types.Address)),
 		log:                  log15.New("onroad", "OnroadBlocksPool"),
@@ -98,24 +99,6 @@ func (p *OnroadBlocksPool) GetOnroadAccountInfo(addr types.Address) (*OnroadAcco
 
 	return accountInfo, nil
 
-}
-
-func (p *OnroadBlocksPool) GetNextCommonTx(addr types.Address) *ledger.AccountBlock {
-	p.log.Debug("GetNextCommonTx", "addr", addr)
-	c, ok := p.fullCache.Load(addr)
-	if !ok {
-		return nil
-	}
-	return c.(*onroadBlocksCache).GetNextTx()
-}
-
-func (p *OnroadBlocksPool) GetNextContractTx(addr types.Address) *ledger.AccountBlock {
-	p.log.Debug("GetNextContractTx", "addr", addr)
-	c, ok := p.fullCache.Load(addr)
-	if !ok {
-		return nil
-	}
-	return c.(*onroadBlocksCache).GetNextTx()
 }
 
 func (p *OnroadBlocksPool) ResetCacheCursor(addr types.Address) {
@@ -172,7 +155,13 @@ func (p *OnroadBlocksPool) AcquireFullOnroadBlocksCache(addr types.Address) {
 	}
 }
 
-func (p *OnroadBlocksPool) AcquireSortedContractOnroadBlocksCache(addr types.Address) {
+func (p *OnroadBlocksPool) GetNextCommonTx(addr types.Address) *ledger.AccountBlock {
+	p.log.Debug("GetNextCommonTx", "addr", addr)
+	c, ok := p.fullCache.Load(addr)
+	if !ok {
+		return nil
+	}
+	return c.(*onroadBlocksCache).GetNextTx()
 }
 
 func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) error {
@@ -195,6 +184,73 @@ func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) erro
 	}
 	log.Debug("after release", "ref", c.getReferenceCount())
 
+	return nil
+}
+
+func (p *OnroadBlocksPool) loadContractCacheFromDb(addr types.Address) error {
+	if c, ok := p.contractCache.Load(addr); ok {
+		if cc, ok := c.(*ContractCallerList); ok && cc != nil {
+			return nil
+		}
+		// refactoring cache
+		p.contractCache.Delete(addr)
+	}
+
+	blockList, e := p.dbAccess.GetAllOnroadBlocks(addr)
+	if e != nil {
+		return e
+	}
+	p.log.Debug(fmt.Sprintf("get contract onroad %v from db", addr), "len", len(blockList))
+	if len(blockList) <= 0 {
+		return nil
+	}
+	contractBlocksList := &ContractCallerList{list: make([]contractCallerBlocks, 0)}
+	for k, b := range blockList {
+		p.log.Debug(fmt.Sprintf("block[%v]: addr=%v blockHash=%v", k, b.AccountAddress, b.Hash), "height", b.Height)
+		contractBlocksList.AddNewTx(b)
+	}
+	p.contractCache.Store(addr, contractBlocksList)
+	p.log.Debug(fmt.Sprintf("loadContractCacheFromDb %v result", addr), "len", contractBlocksList.TxRemain())
+	contractBlocksList.TxRemain()
+	return nil
+}
+
+func (p *OnroadBlocksPool) AcquireOnroadSortedContractCache(addr types.Address) {
+	log := p.log.New("AcquireOnroadSortedContractCache", addr)
+	if e := p.loadContractCacheFromDb(addr); e != nil {
+		log.Error(e.Error())
+	}
+}
+
+func (p *OnroadBlocksPool) GetNextContractTx(addr types.Address) *ledger.AccountBlock {
+	p.log.Debug("GetNextContractTx", "addr", addr)
+	if c, ok := p.contractCache.Load(addr); ok {
+		if cc, ok := c.(*ContractCallerList); ok && cc != nil {
+			b := cc.GetNextTx()
+			p.log.Debug(fmt.Sprintf("get next: currentCallerIndex=%v fromAddr=%v blockHash=%v", cc.GetCurrentIndex(), b.AccountAddress, b.Hash), "height", b.Height)
+			return b
+		}
+	}
+	return nil
+}
+
+func (p *OnroadBlocksPool) GetContractCallerList(addr types.Address) *ContractCallerList {
+	if c, ok := p.contractCache.Load(addr); ok {
+		if cc, ok := c.(*ContractCallerList); ok && cc != nil {
+			return cc
+		}
+	}
+	return nil
+}
+
+func (p *OnroadBlocksPool) ReleaseContractCache(addr types.Address) error {
+	log := p.log.New("ReleaseContractCache", addr)
+	if v, ok := p.contractCache.Load(addr); ok {
+		if l, ok := v.(*ContractCallerList); ok && l != nil {
+			log.Debug(fmt.Sprintf("release %v callers", l.Len()), "tx num remain", l.TxRemain())
+		}
+		p.contractCache.Delete(addr)
+	}
 	return nil
 }
 
@@ -480,6 +536,7 @@ func (p *OnroadBlocksPool) Close() error {
 		return true
 	})
 	p.fullCache = nil
+	p.contractCache = nil
 
 	p.log.Info("Close() end")
 	return nil
