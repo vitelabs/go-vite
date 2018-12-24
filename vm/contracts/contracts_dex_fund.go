@@ -509,6 +509,7 @@ func doSettleAction(db vmctxt_interface.VmDatabase, action *dexproto.SettleActio
 					return fmt.Errorf("try release locked amount execeed locked")
 				}
 				account.Locked = dex.SubBigInt(account.Locked, action.ReleaseLocked)
+				account.Available = dex.AddBigInt(account.Locked, action.ReleaseLocked)
 			}
 			if dex.CmpToBigZero(action.IncAvailable) > 0 {
 				account.Available = dex.AddBigInt(account.Available, action.IncAvailable)

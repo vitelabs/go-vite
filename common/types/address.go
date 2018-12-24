@@ -27,7 +27,7 @@ var (
 	AddressDexFund, _        = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6})
 	AddressDexTrade, _       = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7})
 
-	PrecompiledContractAddressList = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage}
+	PrecompiledContractAddressList = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage, AddressDexFund, AddressDexTrade, }
 )
 
 func IsPrecompiledContractAddress(addr Address) bool {

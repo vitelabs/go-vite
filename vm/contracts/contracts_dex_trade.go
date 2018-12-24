@@ -129,9 +129,6 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 	if order, err = matcher.GetOrderByIdAndBookName(param.OrderId.Uint64(), makerBookName); err != nil {
 		return []*SendBlock{}, err
 	}
-	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), []byte(order.Address)) {
-		return []*SendBlock{}, fmt.Errorf("cancel order not own to initiator")
-	}
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
 		return []*SendBlock{}, fmt.Errorf("order status is invalid to cancel")
 	}
