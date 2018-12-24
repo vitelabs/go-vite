@@ -31,7 +31,7 @@ type VMConfig struct {
 }
 
 type NodeConfig struct {
-	IsTest      bool
+	isTest      bool
 	calcQuota   func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
 	canTransfer func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
 
@@ -42,10 +42,14 @@ type NodeConfig struct {
 
 var nodeConfig NodeConfig
 
+func IsTest() bool {
+	return nodeConfig.isTest
+}
+
 func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 	if isTest {
 		nodeConfig = NodeConfig{
-			IsTest: isTest,
+			isTest: isTest,
 			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
 				return 1000000, 0, nil
 			},
@@ -55,7 +59,7 @@ func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 		}
 	} else {
 		nodeConfig = NodeConfig{
-			IsTest: isTest,
+			isTest: isTest,
 			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
 				return quota.CalcQuota(db, addr, pledgeAmount, difficulty)
 			},

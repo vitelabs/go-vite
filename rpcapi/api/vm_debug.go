@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"io/ioutil"
 	"os"
@@ -46,7 +47,7 @@ func (v VmDebugApi) String() string {
 
 var (
 	defaultPassphrase = "123"
-	initAmount        = "0"
+	initAmount        = "100000000000000000000000"
 )
 
 type AccountInfo struct {
@@ -117,21 +118,24 @@ func (v *VmDebugApi) NewAccount() (*AccountInfo, error) {
 		return nil, err
 	}
 
-	err = v.testapi.ReceiveOnroadTx(CreateReceiveTxParms{
-		SelfAddr:   acc.Addr,
-		FromHash:   sendBlock.Hash,
-		PrivKeyStr: acc.PrivateKey,
-	})
-	if err != nil {
-		return nil, err
+	if vm.IsTest() {
+		err = v.testapi.ReceiveOnroadTx(CreateReceiveTxParms{
+			SelfAddr:   acc.Addr,
+			FromHash:   sendBlock.Hash,
+			PrivKeyStr: acc.PrivateKey,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	v.accountMap[acc.Addr] = acc.PrivateKey
 	return &acc, nil
 }
 
 type CreateContractParam struct {
-	FileName string                      `json:"fileName"`
-	Params   map[string]ConstructorParam `json:"params"`
+	FileName    string                      `json:"fileName"`
+	Params      map[string]ConstructorParam `json:"params"`
+	AccountAddr *types.Address              `json:"accountAddr"`
 }
 type ConstructorParam struct {
 	Amount string   `json:"amount"`
@@ -152,10 +156,16 @@ func (v *VmDebugApi) CreateContract(param CreateContractParam) ([]*CreateContrac
 		return nil, err
 	}
 	// init and get test account
-	testAccount, err := v.Init()
-	if err != nil {
-		return nil, err
+	var testAccount *AccountInfo
+	if param.AccountAddr == nil || len(v.accountMap[*param.AccountAddr]) == 0 {
+		testAccount, err = v.Init()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		testAccount = &AccountInfo{*param.AccountAddr, v.accountMap[*param.AccountAddr]}
 	}
+
 	resultList := make([]*CreateContractResult, 0)
 	for _, c := range compileResultList {
 		txParam := param.Params[c.name]
@@ -310,7 +320,7 @@ func compile(fileName string) ([]compileResult, error) {
 	cmd := exec.Command("./solc", "--bin", "--abi", fileName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, errors.New(string(out))
+		return nil, errors.New(strings.Trim(string(out), "\n"))
 	}
 	list := strings.Split(string(out), "\n")
 	codeList := make([]compileResult, 0)
