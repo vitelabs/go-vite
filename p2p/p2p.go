@@ -157,7 +157,7 @@ func New(cfg *Config) (Server, error) {
 		}
 
 		svr.discv = discovery.New(&discovery.Config{
-			Priv:      cfg.PrivateKey,
+			PeerKey:   cfg.PrivateKey,
 			DBPath:    cfg.DataDir,
 			BootNodes: parseNodes(cfg.BootNodes),
 			Addr:      udpAddr,

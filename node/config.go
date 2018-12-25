@@ -37,7 +37,7 @@ type Config struct {
 	// p2p
 	NetSelect            string
 	Identity             string   `json:"Identity"`
-	PrivateKey           string   `json:"PrivateKey"`
+	PrivateKey           string   `json:"PeerKey"`
 	MaxPeers             uint     `json:"MaxPeers"`
 	MaxPassivePeersRatio uint     `json:"MaxPassivePeersRatio"`
 	MaxPendingPeers      uint     `json:"MaxPendingPeers"`

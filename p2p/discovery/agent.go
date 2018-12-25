@@ -7,12 +7,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/p2p/list"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/p2p/list"
 )
 
 const maxNeighborsOneTrip = 10

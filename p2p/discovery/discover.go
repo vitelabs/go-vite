@@ -30,7 +30,7 @@ var dbCleanInterval = time.Hour
 
 var errUnsolicitedMsg = errors.New("unsolicited message")
 
-// Priv2NodeID got the corresponding NodeID from ed25519.PrivateKey
+// Priv2NodeID got the corresponding NodeID from ed25519.PeerKey
 func Priv2NodeID(priv ed25519.PrivateKey) (NodeID, error) {
 	pub := priv.PubByte()
 	return Bytes2NodeID(pub)
@@ -38,11 +38,10 @@ func Priv2NodeID(priv ed25519.PrivateKey) (NodeID, error) {
 
 // Config is the essential configuration to create a Discovery implementation
 type Config struct {
-	Priv      ed25519.PrivateKey
+	PeerKey   ed25519.PrivateKey
 	DBPath    string
 	BootNodes []*Node
-	Addr      *net.UDPAddr
-	Self      *Node
+	Addr      string
 	NetID     network.ID
 }
 
@@ -50,7 +49,7 @@ type Config struct {
 type Discovery interface {
 	Start() error
 	Stop()
-	SubNodes(ch chan<- *Node)
+	SubNodes(ch chan<- *Node, near bool)
 	UnSubNodes(ch chan<- *Node)
 	Mark(id NodeID, lifetime int64)
 	Block(id NodeID, ip net.IP)
@@ -68,9 +67,14 @@ type discovery struct {
 	term        chan struct{}
 	refreshing  int32 // atomic, whether indicate node table is refreshing
 	refreshDone chan struct{}
-	wg          sync.WaitGroup
-	subs        []chan<- *Node
-	log         log15.Logger
+
+	wg sync.WaitGroup
+
+	rw        sync.RWMutex
+	nearSubs  []chan<- *Node
+	otherSubs []chan<- *Node
+
+	log log15.Logger
 }
 
 // New create a Discovery implementation
@@ -87,7 +91,7 @@ func New(cfg *Config) Discovery {
 	d.agent = newAgent(&agentConfig{
 		Self:    cfg.Self,
 		Addr:    cfg.Addr,
-		Priv:    cfg.Priv,
+		Priv:    cfg.PeerKey,
 		Handler: d.HandleMsg,
 	})
 
@@ -447,30 +451,52 @@ func (d *discovery) Nodes() []*Node {
 	return d.tab.nodes()
 }
 
-func (d *discovery) SubNodes(ch chan<- *Node) {
-	d.subs = append(d.subs, ch)
-}
+func (d *discovery) SubNodes(ch chan<- *Node, near bool) {
+	d.rw.Lock()
+	defer d.rw.Unlock()
 
-func (d *discovery) UnSubNodes(ch chan<- *Node) {
-	for i, c := range d.subs {
-		if c == ch {
-			copy(d.subs[i:], d.subs[i+1:])
-			d.subs = d.subs[:len(d.subs)-1]
-		}
+	if near {
+		d.nearSubs = append(d.nearSubs, ch)
+	} else {
+		d.otherSubs = append(d.otherSubs, ch)
 	}
 }
 
-func (d *discovery) notify(node *Node) {
-	for _, ch := range d.subs {
+func (d *discovery) UnSubNodes(ch chan<- *Node) {
+	d.rw.Lock()
+	defer d.rw.Unlock()
+
+	d.nearSubs = removeCh(d.nearSubs, ch)
+	d.otherSubs = removeCh(d.otherSubs, ch)
+}
+
+func removeCh(chs []chan<- *Node, ch chan<- *Node) []chan<- *Node {
+	for i, c := range chs {
+		if c == ch {
+			if i != len(chs)-1 {
+				copy(chs[i:], chs[i+1:])
+			}
+
+			return chs[:len(chs)-1]
+		}
+	}
+
+	return chs
+}
+
+func (d *discovery) notify(node *Node, near bool) {
+	d.rw.RLock()
+	defer d.rw.RUnlock()
+
+	chs := d.otherSubs
+	if near {
+		chs = d.nearSubs
+	}
+
+	for _, ch := range chs {
 		select {
 		case ch <- node:
 		default:
 		}
-	}
-}
-
-func (d *discovery) batchNotify(nodes []*Node) {
-	for _, node := range nodes {
-		d.notify(node)
 	}
 }
