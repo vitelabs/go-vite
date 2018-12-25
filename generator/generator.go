@@ -2,6 +2,7 @@ package generator
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"time"
@@ -109,7 +110,11 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 	gen.log.Info("generateBlock", "BlockType", block.BlockType)
 	defer func() {
 		if err := recover(); err != nil {
-			gen.log.Error("generator_vm panic error", "error", err)
+			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v sbHash:%v )", block.AccountAddress, block.PrevHash, block.SnapshotHash)
+			if sendBlock != nil {
+				errDetail += fmt.Sprintf("sendBlock(addr:%v hash:%v)", block.AccountAddress, block.Hash)
+			}
+			gen.log.Error("generator_vm panic error", "error", err, errDetail)
 			result = &GenResult{}
 			resultErr = errors.New("generator_vm panic error")
 		}

@@ -3,15 +3,14 @@ package nodemanager
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 var defaultNodeConfigFileName = "node_config.json"
@@ -168,6 +167,14 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 
 	if ctx.GlobalIsSet(utils.FilePortFlag.Name) {
 		cfg.FilePort = ctx.GlobalInt(utils.FilePortFlag.Name)
+	}
+
+	// metrics
+	if ctx.GlobalIsSet(utils.MetricsEnabledFlag.Name) {
+		cfg.MetricsEnable = ctx.GlobalBool(utils.MetricsEnabledFlag.Name)
+	}
+	if ctx.GlobalIsSet(utils.MetricsEnableInfluxDBFlag.Name) {
+		cfg.MetricsInfluxDBEnable = ctx.GlobalBool(utils.MetricsEnableInfluxDBFlag.Name)
 	}
 }
 

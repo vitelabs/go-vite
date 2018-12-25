@@ -3,14 +3,13 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/pkg/errors"
 	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
-
-	"github.com/pkg/errors"
 
 	"github.com/vitelabs/go-vite/cmd/utils/flock"
 	"github.com/vitelabs/go-vite/config"
