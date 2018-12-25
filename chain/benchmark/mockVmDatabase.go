@@ -8,118 +8,122 @@ import (
 	"time"
 )
 
-type mockVmDatabse struct{}
+type mockVmDatabase struct{}
 
-func (context *mockVmDatabse) CopyAndFreeze() vmctxt_interface.VmDatabase {
+func (context *mockVmDatabase) CopyAndFreeze() vmctxt_interface.VmDatabase {
 	return nil
 }
 
-func (context *mockVmDatabse) Address() *types.Address {
+func (context *mockVmDatabase) Address() *types.Address {
 	return nil
 }
 
-func (context *mockVmDatabse) CurrentSnapshotBlock() *ledger.SnapshotBlock {
+func (context *mockVmDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
 	return nil
 }
-func (context *mockVmDatabse) PrevAccountBlock() *ledger.AccountBlock {
-	return nil
-}
-
-func (context *mockVmDatabse) UnsavedCache() vmctxt_interface.UnsavedCache {
+func (context *mockVmDatabase) PrevAccountBlock() *ledger.AccountBlock {
 	return nil
 }
 
-func (context *mockVmDatabse) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
+func (context *mockVmDatabase) UnsavedCache() vmctxt_interface.UnsavedCache {
 	return nil
 }
 
-func (context *mockVmDatabse) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
-}
-
-func (context *mockVmDatabse) SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
-}
-
-func (context *mockVmDatabse) GetSnapshotBlocks(startHeight, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
+func (context *mockVmDatabase) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
 	return nil
 }
 
-func (context *mockVmDatabse) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+func (context *mockVmDatabase) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+}
+
+func (context *mockVmDatabase) SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+}
+
+func (context *mockVmDatabase) GetSnapshotBlocks(startHeight, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
+	return nil
+}
+
+func (context *mockVmDatabase) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
 	return nil, nil
 }
 
-func (context *mockVmDatabse) GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock {
+func (context *mockVmDatabase) GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock {
 	return nil
 }
 
-func (context *mockVmDatabse) Reset() {}
+func (context *mockVmDatabase) Reset() {}
 
-func (context *mockVmDatabse) SetContractGid(gid *types.Gid, addr *types.Address) {}
+func (context *mockVmDatabase) SetContractGid(gid *types.Gid, addr *types.Address) {}
 
-func (context *mockVmDatabse) SetContractCode(code []byte) {}
+func (context *mockVmDatabase) SetContractCode(code []byte) {}
 
-func (context *mockVmDatabse) GetContractCode(addr *types.Address) []byte {
+func (context *mockVmDatabase) GetContractCode(addr *types.Address) []byte {
 	return nil
 }
 
-func (context *mockVmDatabse) SetStorage(key []byte, value []byte) {}
+func (context *mockVmDatabase) SetStorage(key []byte, value []byte) {}
 
-func (context *mockVmDatabse) GetStorage(addr *types.Address, key []byte) []byte {
+func (context *mockVmDatabase) GetStorage(addr *types.Address, key []byte) []byte {
 	return nil
 }
 
-func (context *mockVmDatabse) GetStorageHash() *types.Hash {
+func (context *mockVmDatabase) GetStorageHash() *types.Hash {
 	return nil
 }
 
-func (context *mockVmDatabse) GetGid() *types.Gid {
+func (context *mockVmDatabase) GetGid() *types.Gid {
 	return nil
 }
 
-func (context *mockVmDatabse) AddLog(log *ledger.VmLog) {
+func (context *mockVmDatabase) AddLog(log *ledger.VmLog) {
 }
 
-func (context *mockVmDatabse) GetLogListHash() *types.Hash {
+func (context *mockVmDatabase) GetLogListHash() *types.Hash {
 	return nil
 }
 
-func (context *mockVmDatabse) IsAddressExisted(addr *types.Address) bool {
+func (context *mockVmDatabase) IsAddressExisted(addr *types.Address) bool {
 	return false
 }
 
-func (context *mockVmDatabse) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
+func (context *mockVmDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
 	return nil
 }
 
-func (context *mockVmDatabse) NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator {
+func (context *mockVmDatabase) NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator {
 	return nil
 }
 
-func (context *mockVmDatabse) getBalanceBySnapshotHash(addr *types.Address, tokenTypeId *types.TokenTypeId, snapshotHash *types.Hash) *big.Int {
+func (context *mockVmDatabase) getBalanceBySnapshotHash(addr *types.Address, tokenTypeId *types.TokenTypeId, snapshotHash *types.Hash) *big.Int {
 	return nil
 }
-func (context *mockVmDatabse) GetStorageBySnapshotHash(addr *types.Address, key []byte, snapshotHash *types.Hash) []byte {
+func (context *mockVmDatabase) GetStorageBySnapshotHash(addr *types.Address, key []byte, snapshotHash *types.Hash) []byte {
 	return nil
 }
-func (context *mockVmDatabse) NewStorageIteratorBySnapshotHash(addr *types.Address, prefix []byte, snapshotHash *types.Hash) vmctxt_interface.StorageIterator {
+func (context *mockVmDatabase) NewStorageIteratorBySnapshotHash(addr *types.Address, prefix []byte, snapshotHash *types.Hash) vmctxt_interface.StorageIterator {
 	return nil
 }
 
-func (context *mockVmDatabse) GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error) {
+func (context *mockVmDatabase) GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error) {
 	return nil, nil
 }
-func (context *mockVmDatabse) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
+func (context *mockVmDatabase) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
 	return nil, nil
 }
-func (context *mockVmDatabse) GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error) {
+func (context *mockVmDatabase) GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error) {
 	return nil, nil
 }
-func (context *mockVmDatabse) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error) {
+func (context *mockVmDatabase) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error) {
 	return nil, nil
 }
-func (context *mockVmDatabse) GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error) {
+func (context *mockVmDatabase) GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error) {
 	return nil, nil
 }
 
-func (context *mockVmDatabse) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
+func (context *mockVmDatabase) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
+	return nil
+}
+
+func (context *mockVmDatabase) DebugGetStorage() map[string][]byte {
 	return nil
 }

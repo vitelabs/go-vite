@@ -73,7 +73,7 @@ func (acc *account) createRequestTx(toAccount *account, options *createTxOptions
 
 	var vmContext vmctxt_interface.VmDatabase
 	if options != nil && options.mockVmContext {
-		vmContext = &mockVmDatabse{}
+		vmContext = &mockVmDatabase{}
 	} else {
 		vmContext, _ = vm_context.NewVmContext(acc.chainInstance, nil, nil, &acc.addr)
 	}
@@ -119,7 +119,7 @@ func (acc *account) createResponseTx(options *createTxOptions) []*vm_context.VmA
 
 	var vmContext vmctxt_interface.VmDatabase
 	if options != nil && options.mockVmContext {
-		vmContext = &mockVmDatabse{}
+		vmContext = &mockVmDatabase{}
 	} else {
 		vmContext, _ = vm_context.NewVmContext(acc.chainInstance, nil, nil, &acc.addr)
 	}
