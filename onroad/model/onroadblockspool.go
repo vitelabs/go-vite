@@ -188,8 +188,10 @@ func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) erro
 }
 
 func (p *OnroadBlocksPool) loadContractCacheFromDb(addr types.Address) error {
+	p.log.Debug("loadContractCacheFromDb", "addr", addr)
 	if c, ok := p.contractCache.Load(addr); ok {
 		if cc, ok := c.(*ContractCallerList); ok && cc != nil {
+			p.log.Debug(fmt.Sprintf("found in cache, tx remain=%v", cc.TxRemain()))
 			return nil
 		}
 		// refactoring cache
@@ -200,18 +202,17 @@ func (p *OnroadBlocksPool) loadContractCacheFromDb(addr types.Address) error {
 	if e != nil {
 		return e
 	}
-	p.log.Debug(fmt.Sprintf("get contract onroad %v from db", addr), "len", len(blockList))
+	p.log.Debug(fmt.Sprintf("get contract onroad %v from db, len=%v", addr, len(blockList)))
 	if len(blockList) <= 0 {
 		return nil
 	}
-	contractBlocksList := &ContractCallerList{list: make([]contractCallerBlocks, 0)}
+	contractBlocksList := &ContractCallerList{list: make([]*contractCallerBlocks, 0)}
 	for k, b := range blockList {
-		p.log.Debug(fmt.Sprintf("block[%v]: addr=%v blockHash=%v", k, b.AccountAddress, b.Hash), "height", b.Height)
+		p.log.Debug(fmt.Sprintf("add block[%v]: addr=%v height=%v blockHash=%v ", k, b.AccountAddress, b.Height, b.Hash))
 		contractBlocksList.AddNewTx(b)
 	}
 	p.contractCache.Store(addr, contractBlocksList)
-	p.log.Debug(fmt.Sprintf("loadContractCacheFromDb %v result", addr), "len", contractBlocksList.TxRemain())
-	contractBlocksList.TxRemain()
+	p.log.Debug(fmt.Sprintf("load result: len=%v", contractBlocksList.TxRemain()))
 	return nil
 }
 
@@ -227,7 +228,7 @@ func (p *OnroadBlocksPool) GetNextContractTx(addr types.Address) *ledger.Account
 	if c, ok := p.contractCache.Load(addr); ok {
 		if cc, ok := c.(*ContractCallerList); ok && cc != nil {
 			b := cc.GetNextTx()
-			p.log.Debug(fmt.Sprintf("get next: currentCallerIndex=%v fromAddr=%v blockHash=%v", cc.GetCurrentIndex(), b.AccountAddress, b.Hash), "height", b.Height)
+			p.log.Debug(fmt.Sprintf("currentCallerIndex=%v", cc.GetCurrentIndex()))
 			return b
 		}
 	}
@@ -243,7 +244,7 @@ func (p *OnroadBlocksPool) GetContractCallerList(addr types.Address) *ContractCa
 	return nil
 }
 
-func (p *OnroadBlocksPool) ReleaseContractCache(addr types.Address) error {
+func (p *OnroadBlocksPool) ReleaseContractCache(addr types.Address) {
 	log := p.log.New("ReleaseContractCache", addr)
 	if v, ok := p.contractCache.Load(addr); ok {
 		if l, ok := v.(*ContractCallerList); ok && l != nil {
@@ -251,7 +252,13 @@ func (p *OnroadBlocksPool) ReleaseContractCache(addr types.Address) error {
 		}
 		p.contractCache.Delete(addr)
 	}
-	return nil
+}
+
+func (p *OnroadBlocksPool) DeleteContractCache(gid types.Gid) {
+	p.log.Debug("DeleteContractCache", "gid", gid)
+	if p.contractCache != nil {
+		p.contractCache = &sync.Map{}
+	}
 }
 
 func (p *OnroadBlocksPool) WriteOnroadSuccess(blocks []*vm_context.VmAccountBlock) {

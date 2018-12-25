@@ -106,8 +106,7 @@ LOOP:
 		tp.log.Debug("after popContractTask")
 
 		if task != nil {
-			// todo: sort addr fromAddress's height
-			//fmt.Println("contractAddr", task.Addr)
+			tp.worker.uBlocksPool.AcquireOnroadSortedContractCache(task.Addr)
 
 			tp.log.Debug("pre processOneAddress " + task.Addr.String())
 			tp.processOneAddress(task)
@@ -139,23 +138,11 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	defer monitor.LogTime("onroad", "processOneAddress", time.Now())
 	plog := tp.log.New("method", "processOneAddress", "worker", task.Addr)
 
-	sBlock := tp.worker.manager.onroadBlocksPool.GetNextContractTx(task.Addr)
+	sBlock := tp.worker.uBlocksPool.GetNextContractTx(task.Addr)
 	if sBlock == nil {
 		return
 	}
-	plog.Info(fmt.Sprintf("block processing: hash %v height %v accAddr:", sBlock.Hash, sBlock.Height, sBlock.AccountAddress))
-
-	//blockList, e := tp.worker.manager.uAccess.GetOnroadBlocks(0, 1, 1, &task.Addr)
-	//if e != nil {
-	//	plog.Error("GetOnroadBlocks ", "e", e)
-	//	return
-	//}
-	//if len(blockList) == 0 {
-	//	return
-	//}
-	//sBlock := blockList[0]
-
-	//plog.Info(fmt.Sprintf("get %v blocks, the first Hash is %v", len(blockList), sBlock.Hash), "addr", sBlock.ToAddress)
+	plog.Info(fmt.Sprintf("block processing: accAddr=%v,height=%v,hash=%v", sBlock.AccountAddress, sBlock.Height, sBlock.Hash))
 
 	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
 		plog.Info("checkExistInPool true")

@@ -53,12 +53,12 @@ func TestContractBlocksPQueue_Sort(t *testing.T) {
 	var cbpq contractBlocksPQueue
 	b1 := &contractBlock{
 		block:  ledger.AccountBlock{},
-		Height: 8,
+		Height: 5,
 	}
 	heap.Push(&cbpq, b1)
 	b2 := &contractBlock{
 		block:  ledger.AccountBlock{},
-		Height: 3,
+		Height: 4,
 	}
 	heap.Push(&cbpq, b2)
 	b3 := &contractBlock{
@@ -71,6 +71,11 @@ func TestContractBlocksPQueue_Sort(t *testing.T) {
 		Height: 6,
 	}
 	heap.Push(&cbpq, b4)
+	b5 := &contractBlock{
+		block:  ledger.AccountBlock{},
+		Height: 10,
+	}
+	heap.Push(&cbpq, b5)
 	for cbpq.Len() > 0 {
 		if b, ok := heap.Pop(&cbpq).(*contractBlock); ok {
 			t.Logf("%v\n", b.Height)

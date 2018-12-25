@@ -73,7 +73,19 @@ func TestContractWorker_Start(t *testing.T) {
 
 func TestOnroadBlocksPool_GetNextContractTx(t *testing.T) {
 	db := PrepareDb()
+	sb := db.chain.GetLatestSnapshotBlock()
+	if sb == nil {
+		return
+	}
+	t.Logf("snapshotbloclk: hash %v, height %v ", sb.Hash, sb.Height)
 	addr, _ := types.HexToAddress("vite_000000000000000000000000000000000000000270a48cc491")
+	//blocks, err := db.onroad.DbAccess().GetAllOnroadBlocks(addr)
+	//if err != nil {
+	//	t.Error(err)
+	//	return
+	//}
+	//t.Logf("totalnum %v", len(blocks))
+
 	p := db.onroad.GetOnroadBlocksPool()
 	p.AcquireOnroadSortedContractCache(addr)
 	if cList := p.GetContractCallerList(addr); cList != nil {

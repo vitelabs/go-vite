@@ -15,6 +15,18 @@ type contractBlock struct {
 
 type contractBlocksPQueue []*contractBlock
 
+func (q contractBlocksPQueue) Len() int { return len(q) }
+
+func (q contractBlocksPQueue) Less(i, j int) bool {
+	return q[i].Height < q[j].Height
+}
+
+func (q contractBlocksPQueue) Swap(i, j int) {
+	q[i], q[j] = q[j], q[i]
+	q[i].Index = i
+	q[j].Index = j
+}
+
 func (q *contractBlocksPQueue) Push(x interface{}) {
 	item := x.(*contractBlock)
 	item.Index = len(*q)
@@ -25,32 +37,21 @@ func (q *contractBlocksPQueue) Pop() interface{} {
 	old := *q
 	n := len(old)
 	item := old[n-1]
+	//fmt.Printf("\n----Pop item (%v,%v)", item.block.Height, item.Index)
 	item.Index = -1 // for safety
 	*q = old[0 : n-1]
 	return item
 }
 
-func (q *contractBlocksPQueue) Len() int { return len(*q) }
-
-func (q *contractBlocksPQueue) Less(i, j int) bool {
-	return (*q)[i].Height < (*q)[j].Height
-}
-
-func (q *contractBlocksPQueue) Swap(i, j int) {
-	(*q)[i], (*q)[j] = (*q)[j], (*q)[i]
-	(*q)[i].Index = i
-	(*q)[j].Index = j
-}
-
 type contractCallerBlocks struct {
 	addr   types.Address
-	blocks contractBlocksPQueue
+	bQueue contractBlocksPQueue
 }
 
 type ContractCallerList struct {
-	list         []contractCallerBlocks
-	listMutex    sync.RWMutex
+	list         []*contractCallerBlocks
 	currentIndex int
+	listMutex    sync.RWMutex
 
 	totalNum int
 	numMutex sync.Mutex
@@ -70,13 +71,13 @@ func (cList *ContractCallerList) GetNextTx() *ledger.AccountBlock {
 	}
 	cList.listMutex.Lock()
 	defer cList.listMutex.Unlock()
-	for {
-		if cList.list[cList.currentIndex].blocks.Len() > 0 {
+	for i := 1; i <= cList.Len(); i++ {
+		if cList.list[cList.currentIndex].bQueue.Len() > 0 {
 			break
 		}
-		cList.currentIndex = (cList.currentIndex + 1) % len(cList.list)
+		cList.currentIndex = (cList.currentIndex + i) % len(cList.list)
 	}
-	if cb, ok := heap.Pop(&cList.list[cList.currentIndex].blocks).(*contractBlock); ok && cb != nil {
+	if cb, ok := heap.Pop(&cList.list[cList.currentIndex].bQueue).(*contractBlock); ok && cb != nil {
 		cList.SubTotalNum()
 		return &cb.block
 	}
@@ -94,25 +95,24 @@ func (cList *ContractCallerList) AddNewTx(block *ledger.AccountBlock) {
 		return
 	}
 	cb := &contractBlock{
-		block:  *block,
 		Height: block.Height,
+		block:  *block,
 	}
 	cList.listMutex.Lock()
 	defer cList.listMutex.Unlock()
 	var isAddressNew = true
 	for _, v := range cList.list {
 		if v.addr == block.AccountAddress {
-			heap.Push(&v.blocks, cb)
+			heap.Push(&v.bQueue, cb)
 			isAddressNew = false
 		}
 	}
 	if isAddressNew == true {
-		callerBlocks := &contractCallerBlocks{
+		var q contractBlocksPQueue
+		heap.Push(&q, cb)
+		cList.list = append(cList.list, &contractCallerBlocks{
 			addr:   block.AccountAddress,
-			blocks: make(contractBlocksPQueue, 0),
-		}
-		heap.Push(&callerBlocks.blocks, cb)
-		cList.list = append(cList.list, *callerBlocks)
+			bQueue: q})
 	}
 	cList.AddTotalNum()
 }
@@ -136,5 +136,5 @@ func (cList *ContractCallerList) removeCaller() {
 		i := cList.currentIndex
 		cList.list = append(cList.list[:i], cList.list[i+1:]...)
 	}
-	cList.currentIndex = -1
+	cList.currentIndex = 0
 }
