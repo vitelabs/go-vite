@@ -241,3 +241,5 @@ func (sc *SnapshotChain) DeleteToHeight(batch *leveldb.Batch, toHeight uint64) (
 
 	return deleteList, nil
 }
+
+//func (sc *SnapshotChain) WriteAdditionalList()

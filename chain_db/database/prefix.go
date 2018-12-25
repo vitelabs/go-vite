@@ -34,4 +34,6 @@ const (
 	DBKP_BLOCK_EVENT = byte(16)
 
 	DBKP_BE_SNAPSHOT = byte(17)
+
+	DBKP_ADDITIONAL_LIST = byte(18)
 )
