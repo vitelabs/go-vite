@@ -110,6 +110,40 @@ func (l *LedgerApi) GetStatistics() (*Statistics, error) {
 	}, nil
 }
 
+func (l *LedgerApi) GetVmLogListByHash(logHash types.Hash) (ledger.VmLogList, error) {
+	logList, err := l.chain.GetVmLogList(&logHash)
+	if err != nil {
+		l.log.Error("GetVmLogList failed, error is "+err.Error(), "method", "GetVmLogListByHash")
+		return nil, err
+	}
+	return logList, err
+}
+
+func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height uint64, count uint64, forward bool) ([]*AccountBlock, error) {
+	accountBlocks, err := l.chain.GetAccountBlocksByHeight(addr, height, count, forward)
+	if err != nil {
+		l.log.Error("GetAccountBlocksByHeight failed, error is "+err.Error(), "method", "GetBlocksByHeight")
+		return nil, err
+	}
+	if len(accountBlocks) <= 0 {
+		return nil, nil
+	}
+	return l.ledgerBlocksToRpcBlocks(accountBlocks)
+}
+
+func (l *LedgerApi) GetBlockByHeight(addr types.Address, height uint64) (*AccountBlock, error) {
+	accountBlock, err := l.chain.GetAccountBlockByHeight(&addr, height)
+	if err != nil {
+		l.log.Error("GetAccountBlockByHeight failed, error is "+err.Error(), "method", "GetBlockByHeight")
+		return nil, err
+	}
+
+	if accountBlock == nil {
+		return nil, nil
+	}
+	return l.ledgerBlockToRpcBlock(accountBlock)
+}
+
 func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
 	l.log.Info("GetBlocksByAccAddr")
 
@@ -274,7 +308,7 @@ func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, sendBlockHash
 		referredList = append(referredList, sendBlock.SnapshotHash)
 	}
 
-	prevHash, fittestHash, err := generator.GetFitestGeneratorSnapshotHash(l.chain, accAddr, referredList, false)
+	prevHash, fittestHash, err := generator.GetFittestGeneratorSnapshotHash(l.chain, accAddr, referredList, false)
 	if err != nil {
 		return nil, err
 	}

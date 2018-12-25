@@ -10,17 +10,24 @@ type DefaultNodeManager struct {
 	node *node.Node
 }
 
-func NewDefaultNodeManager(ctx *cli.Context, maker NodeMaker) DefaultNodeManager {
-	return DefaultNodeManager{
-		ctx:  ctx,
-		node: maker.MakeNode(ctx),
+func NewDefaultNodeManager(ctx *cli.Context, maker NodeMaker) (*DefaultNodeManager, error) {
+	node, err := maker.MakeNode(ctx)
+	if err != nil {
+		return nil, err
 	}
+	return &DefaultNodeManager{
+		ctx:  ctx,
+		node: node,
+	}, nil
 }
 
 func (nodeManager *DefaultNodeManager) Start() error {
 
 	// 1: Start up the node
-	StartNode(nodeManager.node)
+	err := StartNode(nodeManager.node)
+	if err != nil {
+		return err
+	}
 
 	// 2: Waiting for node to close
 	WaitNode(nodeManager.node)

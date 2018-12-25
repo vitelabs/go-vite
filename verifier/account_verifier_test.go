@@ -157,7 +157,7 @@ Loop:
 }
 
 func GenesisReceiveMintage(vite *VitePrepared, addFunc AddChainDierct) error {
-	sendBlock, err := vite.chain.GetLatestAccountBlock(&abi.AddressMintage)
+	sendBlock, err := vite.chain.GetLatestAccountBlock(&types.AddressMintage)
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func GenesisReceiveMintage(vite *VitePrepared, addFunc AddChainDierct) error {
 
 	var referredSnapshotHashList []types.Hash
 	referredSnapshotHashList = append(referredSnapshotHashList, sendBlock.SnapshotHash)
-	_, fitestSnapshotBlockHash, err := generator.GetFitestGeneratorSnapshotHash(vite.chain, &sendBlock.ToAddress, referredSnapshotHashList, true)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(vite.chain, &sendBlock.ToAddress, referredSnapshotHashList, true)
 	if err != nil {
 		return err
 	}
@@ -312,7 +312,7 @@ func createRPCBlockCallContarct(vite *VitePrepared) ([]*ledger.AccountBlock, err
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: ledger.GenesisAccountAddress,
 		PublicKey:      genesisAccountPubKey,
-		ToAddress:      abi.AddressPledge,
+		ToAddress:      types.AddressPledge,
 		Amount:         pledgeAmount,
 		TokenId:        ledger.ViteTokenId,
 
@@ -341,7 +341,7 @@ func TestAccountVerifier_VerifyforP2P(t *testing.T) {
 	v := PrepareVite()
 	genesisAccountPrivKey, _ := ed25519.HexToPrivateKey(genesisAccountPrivKeyStr)
 	genesisAccountPubKey := genesisAccountPrivKey.PubByte()
-	fromBlock, err := v.chain.GetLatestAccountBlock(&abi.AddressMintage)
+	fromBlock, err := v.chain.GetLatestAccountBlock(&types.AddressMintage)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -444,7 +444,7 @@ func TestAccountVerifier_VerifyDataValidity(t *testing.T) {
 	// verifyHash
 	block2 := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeSendCall,
-		AccountAddress: abi.AddressPledge,
+		AccountAddress: types.AddressPledge,
 		Amount:         big.NewInt(100),
 		Fee:            big.NewInt(100),
 		Timestamp:      nil,

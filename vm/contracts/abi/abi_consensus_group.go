@@ -61,7 +61,7 @@ func NewGid(accountAddress types.Address, accountBlockHeight uint64, prevBlockHa
 
 func GetActiveConsensusGroupList(db StorageDatabase, snapshotHash *types.Hash) []*types.ConsensusGroupInfo {
 	defer monitor.LogTime("vm", "GetActiveConsensusGroupList", time.Now())
-	iterator := db.NewStorageIteratorBySnapshotHash(&AddressConsensusGroup, nil, snapshotHash)
+	iterator := db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, nil, snapshotHash)
 	consensusGroupInfoList := make([]*types.ConsensusGroupInfo, 0)
 	if iterator == nil {
 		return consensusGroupInfoList
@@ -83,7 +83,7 @@ func GetActiveConsensusGroupList(db StorageDatabase, snapshotHash *types.Hash) [
 }
 
 func GetConsensusGroup(db StorageDatabase, gid types.Gid) *types.ConsensusGroupInfo {
-	data := db.GetStorageBySnapshotHash(&AddressConsensusGroup, GetConsensusGroupKey(gid), nil)
+	data := db.GetStorageBySnapshotHash(&types.AddressConsensusGroup, GetConsensusGroupKey(gid), nil)
 	if len(data) > 0 {
 		consensusGroupInfo := new(types.ConsensusGroupInfo)
 		ABIConsensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)

@@ -100,8 +100,8 @@ func (gc *collector) Stop() {
 	gc.log.Info("gc stopping.")
 
 	gc.ticker.Stop()
-	gc.taskTerminal <- struct{}{}
-	gc.terminal <- struct{}{}
+	close(gc.taskTerminal)
+	close(gc.terminal)
 
 	gc.statusLock.Unlock()
 

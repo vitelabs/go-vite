@@ -141,6 +141,7 @@ func (m *Marker) MarkAndClean(terminal <-chan struct{}) error {
 		m.chain.StopSaveTrie()
 		lastBeId, err := m.chain.GetLatestBlockEventId()
 		if err != nil {
+			m.chain.StartSaveTrie()
 			return err
 		}
 
@@ -154,13 +155,12 @@ func (m *Marker) MarkAndClean(terminal <-chan struct{}) error {
 		targetEventId = lastBeId
 	}
 
-	m.clean(markedHashSet, refHashSet)
-	return nil
+	return m.clean(markedHashSet, refHashSet)
 }
 
-func (m *Marker) clean(hashSet map[types.Hash]struct{}, refHashSet map[types.Hash]struct{}) (bool, error) {
-
+func (m *Marker) clean(hashSet map[types.Hash]struct{}, refHashSet map[types.Hash]struct{}) error {
 	m.chain.StopSaveTrie()
+	defer m.chain.StartSaveTrie()
 
 	batch := new(leveldb.Batch)
 
@@ -192,18 +192,17 @@ func (m *Marker) clean(hashSet map[types.Hash]struct{}, refHashSet map[types.Has
 	}
 
 	if err := m.chain.ChainDb().Commit(batch); err != nil {
-		return false, err
+		return err
 	}
 
 	// clear cache
 	m.chain.CleanTrieNodePool()
 
 	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
-		return false, err
+		return err
 	}
 
-	m.chain.StartSaveTrie()
-	return false, nil
+	return nil
 }
 
 func (m *Marker) setAccountBlockNodeHashSet(accountBlock *ledger.AccountBlock, hashSet map[types.Hash]struct{}, refHashSet map[types.Hash]struct{}) error {
@@ -240,10 +239,17 @@ func (m *Marker) setNodeHashSet(stateHash types.Hash, hashSet map[types.Hash]str
 	}
 
 	stateTrie := trie.NewTrie(m.chain.ChainDb().Db(), &stateHash, m.triePool)
+
+	if stateTrie.Root == nil {
+		return errors.New(fmt.Sprintf("stateTrie.Root is nil, stateHash is %s", stateHash))
+	}
+
 	if stateTrie == nil {
 		return errors.New(fmt.Sprintf("stateTrie is nil, stateHash is %s", stateHash))
 	}
+
 	ni := stateTrie.NewNodeIterator()
+
 	for ni.Next(inHashSet) {
 		node := ni.Node()
 

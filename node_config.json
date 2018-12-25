@@ -26,12 +26,15 @@
     "vote",
     "mintage",
     "consensusGroup",
-    "tx"
+    "tx",
+    "dashboard"
   ],
   "Miner": false,
   "CoinBase": "",
   "EntropyStorePath": "",
   "EntropyStorePassword": "",
   "TopoDisabled": true,
-  "LogLevel": "info"
+  "LogLevel": "info",
+  "DashboardTargetURL":"",
+  "RewardAddr":"vite_xxxxxxxxxxxxxxxxxx"
 }

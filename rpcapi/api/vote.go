@@ -45,7 +45,7 @@ type VoteInfo struct {
 }
 
 func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, error) {
-	vmContext, err := vm_context.NewVmContext(v.chain, nil, nil, &addr)
+	vmContext, err := vm_context.NewVmContext(v.chain, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -160,11 +160,11 @@ func BenchmarkChain_InsertAccountBlocks(b *testing.B) {
 }
 
 func TestContractsAddr(t *testing.T) {
-	fmt.Println(abi.AddressRegister.String())
-	fmt.Println(abi.AddressRegister.String())
-	fmt.Println(abi.AddressRegister.String())
-	fmt.Println(abi.AddressRegister.String())
-	fmt.Println(abi.AddressRegister.String())
+	fmt.Println(types.AddressRegister.String())
+	fmt.Println(types.AddressRegister.String())
+	fmt.Println(types.AddressRegister.String())
+	fmt.Println(types.AddressRegister.String())
+	fmt.Println(types.AddressRegister.String())
 }
 
 func TestGetAccountBlocksByHash(t *testing.T) {
@@ -262,17 +262,17 @@ func TestChain_GetAccountBlockMap(t *testing.T) {
 	chainInstance := getChainInstance()
 	startHash, _ := types.HexToHash("f9380deea688b3afe206f52cc3cf2c2677bca1a0fbb4abdfa9d671bc26b22932")
 	queryParams1 := map[types.Address]*BlockMapQueryParam{
-		abi.AddressMintage: {
+		types.AddressMintage: {
 			OriginBlockHash: &startHash,
 			Count:           10,
 			Forward:         true,
 		},
-		abi.AddressConsensusGroup: {
+		types.AddressConsensusGroup: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         true,
 		},
-		abi.AddressRegister: {
+		types.AddressRegister: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         true,
@@ -290,17 +290,17 @@ func TestChain_GetAccountBlockMap(t *testing.T) {
 
 	fmt.Println()
 	queryParams2 := map[types.Address]*BlockMapQueryParam{
-		abi.AddressMintage: {
+		types.AddressMintage: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,
 		},
-		abi.AddressConsensusGroup: {
+		types.AddressConsensusGroup: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,
 		},
-		abi.AddressRegister: {
+		types.AddressRegister: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,

@@ -10,17 +10,25 @@ type SubCmdNodeManager struct {
 	node *node.Node
 }
 
-func NewSubCmdNodeManager(ctx *cli.Context, maker NodeMaker) SubCmdNodeManager {
-	return SubCmdNodeManager{
-		ctx:  ctx,
-		node: maker.MakeNode(ctx),
+func NewSubCmdNodeManager(ctx *cli.Context, maker NodeMaker) (*SubCmdNodeManager, error) {
+
+	node, err := maker.MakeNode(ctx)
+	if err != nil {
+		return nil, err
 	}
+	return &SubCmdNodeManager{
+		ctx:  ctx,
+		node: node,
+	}, nil
 }
 
 func (nodeManager *SubCmdNodeManager) Start() error {
 
 	// Start up the node
-	StartNode(nodeManager.node)
+	err := StartNode(nodeManager.node)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

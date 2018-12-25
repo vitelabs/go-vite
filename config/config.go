@@ -2,13 +2,16 @@ package config
 
 import (
 	"path/filepath"
+
+	"github.com/vitelabs/go-vite/config/biz"
 )
 
 type Config struct {
-	*Producer `json:"Producer"`
-	*Chain    `json:"Chain"`
-	*Vm       `json:"Vm"`
-	*Net      `json:"Net"`
+	*Producer   `json:"Producer"`
+	*Chain      `json:"Chain"`
+	*Vm         `json:"Vm"`
+	*Net        `json:"Net"`
+	*biz.Reward `json:"Reward"`
 
 	// global keys
 	DataDir string `json:"DataDir"`

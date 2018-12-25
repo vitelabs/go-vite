@@ -47,7 +47,7 @@ func BenchmarkConsensusGroupUnpackVariable(b *testing.B) {
 }
 
 func TestPackMethodParam(t *testing.T) {
-	_, err := PackMethodParam(AddressVote, MethodNameVote, types.DELEGATE_GID, "node")
+	_, err := PackMethodParam(types.AddressVote, MethodNameVote, types.DELEGATE_GID, "node")
 	if err != nil {
 		t.Fatalf("pack method param failed, %v", err)
 	}
