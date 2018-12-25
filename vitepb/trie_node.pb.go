@@ -3,11 +3,9 @@
 
 package vitepb
 
-import (
-	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	math "math"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -35,17 +33,16 @@ func (m *TrieNode) Reset()         { *m = TrieNode{} }
 func (m *TrieNode) String() string { return proto.CompactTextString(m) }
 func (*TrieNode) ProtoMessage()    {}
 func (*TrieNode) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cadd8afa91e4b7ec, []int{0}
+	return fileDescriptor_trie_node_911d8d6a044f3ba4, []int{0}
 }
-
 func (m *TrieNode) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TrieNode.Unmarshal(m, b)
 }
 func (m *TrieNode) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TrieNode.Marshal(b, m, deterministic)
 }
-func (m *TrieNode) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TrieNode.Merge(m, src)
+func (dst *TrieNode) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TrieNode.Merge(dst, src)
 }
 func (m *TrieNode) XXX_Size() int {
 	return xxx_messageInfo_TrieNode.Size(m)
@@ -96,9 +93,9 @@ func init() {
 	proto.RegisterMapType((map[uint32][]byte)(nil), "vitepb.TrieNode.ChildrenEntry")
 }
 
-func init() { proto.RegisterFile("vitepb/trie_node.proto", fileDescriptor_cadd8afa91e4b7ec) }
+func init() { proto.RegisterFile("vitepb/trie_node.proto", fileDescriptor_trie_node_911d8d6a044f3ba4) }
 
-var fileDescriptor_cadd8afa91e4b7ec = []byte{
+var fileDescriptor_trie_node_911d8d6a044f3ba4 = []byte{
 	// 188 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x2b, 0xcb, 0x2c, 0x49,
 	0x2d, 0x48, 0xd2, 0x2f, 0x29, 0xca, 0x4c, 0x8d, 0xcf, 0xcb, 0x4f, 0x49, 0xd5, 0x2b, 0x28, 0xca,

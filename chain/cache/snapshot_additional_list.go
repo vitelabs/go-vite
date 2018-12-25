@@ -1,7 +1,18 @@
 package chain_cache
 
 import (
+	"encoding/binary"
+	"fmt"
+	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/chain_db/database"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vitepb"
+	"sync"
 	"time"
 )
 
@@ -11,10 +22,81 @@ type Fragment struct {
 	List       []*AdditionItem
 }
 
+func (frag *Fragment) GetDbKey() []byte {
+	tailHeightKey := make([]byte, 8)
+	binary.BigEndian.PutUint64(tailHeightKey, frag.TailHeight)
+
+	headHeightKey := make([]byte, 8)
+	binary.BigEndian.PutUint64(headHeightKey, frag.HeadHeight)
+
+	key, _ := database.EncodeKey(database.DBKP_ADDITIONAL_LIST, tailHeightKey, headHeightKey)
+	return key
+}
+
+func GetFragTailHeightFromDbKey(dbKey []byte) uint64 {
+	return binary.BigEndian.Uint64(dbKey[1:9])
+}
+
+func GetFragHeadHeightFromDbKey(dbKey []byte) uint64 {
+	return binary.BigEndian.Uint64(dbKey[9:17])
+}
+
+func (frag *Fragment) Serialize() ([]byte, error) {
+	listPb := make([]*vitepb.SnapshotAdditionalItem, len(frag.List))
+
+	for index, fragAdditionItem := range frag.List {
+		listPb[index] = fragAdditionItem.Proto()
+	}
+
+	pb := &vitepb.SnapshotAdditionalFragment{
+		List: listPb,
+	}
+	return proto.Marshal(pb)
+}
+
+func (frag *Fragment) Deserialize(buf []byte) error {
+	pb := &vitepb.SnapshotAdditionalFragment{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
+		return err
+	}
+
+	frag.List = make([]*AdditionItem, len(pb.List))
+	for index, pbItem := range pb.List {
+		ai := &AdditionItem{}
+		ai.DeProto(pbItem)
+		frag.List[index] = ai
+	}
+	return nil
+}
+
 type AdditionItem struct {
 	Quota              uint64
 	AggregateQuota     uint64
 	SnapshotHashHeight *ledger.HashHeight
+}
+
+func (ai *AdditionItem) DeProto(pb *vitepb.SnapshotAdditionalItem) {
+	ai.Quota = pb.Quota
+	ai.AggregateQuota = pb.AggregateQuota
+	hash, _ := types.BytesToHash(pb.SnapshotHashHeight.Hash)
+	ai.SnapshotHashHeight = &ledger.HashHeight{
+		Hash:   hash,
+		Height: pb.SnapshotHashHeight.Height,
+	}
+}
+
+func (ai *AdditionItem) Proto() *vitepb.SnapshotAdditionalItem {
+	hashHeightPb := &vitepb.HashHeight{
+		Hash:   ai.SnapshotHashHeight.Hash.Bytes(),
+		Height: ai.SnapshotHashHeight.Height,
+	}
+
+	pb := &vitepb.SnapshotAdditionalItem{
+		Quota:              ai.Quota,
+		AggregateQuota:     ai.AggregateQuota,
+		SnapshotHashHeight: hashHeightPb,
+	}
+	return pb
 }
 
 type AdditionList struct {
@@ -26,6 +108,15 @@ type AdditionList struct {
 	flushInterval   time.Duration
 
 	chain Chain
+
+	log log15.Logger
+
+	modifyLock sync.RWMutex
+	wg         sync.WaitGroup
+	statusLock sync.Mutex
+	status     int // 0 means stop, 1 means start
+	timer      *time.Ticker
+	terminal   chan struct{}
 }
 
 func NewAdditionList(chain Chain) (*AdditionList, error) {
@@ -33,21 +124,66 @@ func NewAdditionList(chain Chain) (*AdditionList, error) {
 		aggregateHeight: 60 * 60,
 		saveHeight:      5 * 24 * 60 * 60,
 
-		flushInterval: time.Minute * 20,
+		flushInterval: time.Hour * 1,
+		status:        0,
+		log:           log15.New("module", "snapshot_additional_list"),
 		chain:         chain,
 	}
 
-	var err error
-	al.list, err = al.readFromDb()
-
-	if err != nil {
+	if err := al.loadFromDb(); err != nil {
+		al.log.Error("al.loadFromDb failed, error is "+err.Error(), "method", "NewAdditionList")
+		return nil, err
+	}
+	if err := al.build(); err != nil {
+		al.log.Error("al.build failed, error is "+err.Error(), "method", "NewAdditionList")
 		return nil, err
 	}
 
 	return al, nil
 }
 
-func (al *AdditionList) Build() error {
+func (al *AdditionList) Start() {
+	al.statusLock.Lock()
+	defer al.statusLock.Unlock()
+	if al.status == 1 {
+		return
+	}
+	al.terminal = make(chan struct{})
+
+	al.wg.Add(1)
+	go func() {
+		defer al.wg.Done()
+		al.timer = time.NewTicker(al.flushInterval)
+		for {
+			select {
+			case <-al.timer.C:
+				al.flush()
+			case <-al.terminal:
+				return
+			}
+		}
+
+	}()
+	al.status = 1
+}
+
+func (al *AdditionList) Stop() {
+	al.statusLock.Lock()
+	defer al.statusLock.Unlock()
+	if al.status == 0 {
+		return
+	}
+
+	al.timer.Stop()
+	close(al.terminal)
+	al.wg.Wait()
+	al.status = 0
+}
+
+func (al *AdditionList) build() error {
+	al.modifyLock.Lock()
+	defer al.modifyLock.Unlock()
+
 	latestSnapshotBlock := al.chain.GetLatestSnapshotBlock()
 	latestHeight := latestSnapshotBlock.Height
 
@@ -108,6 +244,9 @@ func (al *AdditionList) Build() error {
 }
 
 func (al *AdditionList) flush() {
+	al.modifyLock.Lock()
+	defer al.modifyLock.Unlock()
+
 	if len(al.list) <= 0 {
 		return
 	}
@@ -138,7 +277,10 @@ func (al *AdditionList) flush() {
 		List:       newFragList,
 	}
 
-	al.saveFrag(newFrag)
+	if err := al.saveFrag(newFrag); err != nil {
+		al.log.Error("saveFrag failed, error is "+err.Error(), "method", "flush")
+		return
+	}
 	al.frags = append(al.frags, newFrag)
 	al.clearStaleData()
 }
@@ -171,7 +313,7 @@ func (al *AdditionList) clearStaleData() {
 	}
 
 	if err := al.deleteFrags(needClearFrags); err != nil {
-		// log
+		al.log.Error("deleteFrags failed, error is "+err.Error(), "method", "clearStaleData")
 		return
 	}
 	al.frags = al.frags[needClearIndex+1:]
@@ -179,19 +321,62 @@ func (al *AdditionList) clearStaleData() {
 }
 
 func (al *AdditionList) deleteFrags(fragments []*Fragment) error {
+	batch := new(leveldb.Batch)
 
-	return nil
+	for _, fragment := range fragments {
+		key := fragment.GetDbKey()
+		batch.Delete(key)
+	}
+
+	return al.chain.ChainDb().Commit(batch)
 }
 
 func (al *AdditionList) saveFrag(fragment *Fragment) error {
+	key := fragment.GetDbKey()
+	value, err := fragment.Serialize()
+	if err != nil {
+		return err
+	}
+
+	db := al.chain.ChainDb().Db()
+	if err := db.Put(key, value, nil); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (al *AdditionList) readFromDb() ([]*AdditionItem, error) {
-	return nil, nil
+func (al *AdditionList) loadFromDb() error {
+	db := al.chain.ChainDb().Db()
+
+	iter := db.NewIterator(util.BytesPrefix([]byte{database.DBKP_ADDITIONAL_LIST}), nil)
+	defer iter.Release()
+
+	var frags []*Fragment
+	var list []*AdditionItem
+
+	for iter.Next() {
+		value := iter.Value()
+		frag := &Fragment{}
+		if err := frag.Deserialize(value); err != nil {
+			return err
+		}
+		frag.TailHeight = GetFragTailHeightFromDbKey(iter.Key())
+		frag.HeadHeight = GetFragHeadHeightFromDbKey(iter.Key())
+
+		frags = append(frags, frag)
+		list = append(list, frag.List...)
+	}
+	if err := iter.Error(); err != leveldb.ErrNotFound {
+		return err
+	}
+
+	al.frags = frags
+	al.list = list
+
+	return nil
 }
 
-// TODO
 func (al *AdditionList) addList(snapshotBlocks []*ledger.SnapshotBlock) error {
 	for _, snapshotBlock := range snapshotBlocks {
 		subLedger, err := al.chain.GetConfirmSubLedgerBySnapshotBlocks([]*ledger.SnapshotBlock{snapshotBlock})
@@ -207,8 +392,13 @@ func (al *AdditionList) addList(snapshotBlocks []*ledger.SnapshotBlock) error {
 		}
 		al.Add(snapshotBlock, quota)
 	}
+	return nil
 }
+
 func (al *AdditionList) Add(block *ledger.SnapshotBlock, quota uint64) {
+	al.modifyLock.Lock()
+	defer al.modifyLock.Unlock()
+
 	aggregateQuota := al.calculateQuota(block, quota)
 	ai := &AdditionItem{
 		Quota:          quota,
@@ -219,6 +409,18 @@ func (al *AdditionList) Add(block *ledger.SnapshotBlock, quota uint64) {
 		},
 	}
 	al.list = append(al.list, ai)
+}
+
+func (al *AdditionList) GetAggregateQuota(block *ledger.SnapshotBlock) (uint64, error) {
+	al.modifyLock.RLock()
+	defer al.modifyLock.RUnlock()
+
+	item := al.getByHeight(block.Height)
+	if item == nil || item.SnapshotHashHeight.Hash != block.Hash {
+		err := errors.New(fmt.Sprintf("hash %s not found.", block.Hash))
+		return 0, err
+	}
+	return item.AggregateQuota, nil
 }
 
 func (al *AdditionList) calculateQuota(block *ledger.SnapshotBlock, quota uint64) uint64 {

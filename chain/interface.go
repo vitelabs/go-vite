@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/chain/cache"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/chain_db"
@@ -52,6 +53,8 @@ type Chain interface {
 	StartSaveTrie()
 
 	ChainDb() *chain_db.ChainDb
+	SaList() *chain_cache.AdditionList
+
 	Start()
 	Destroy()
 	Stop()

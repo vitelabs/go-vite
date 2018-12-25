@@ -52,6 +52,8 @@ type chain struct {
 
 	saveTrieStatus     uint8
 	saveTrieStatusLock sync.Mutex
+
+	saList *chain_cache.AdditionList
 }
 
 func NewChain(cfg *config.Config) Chain {
@@ -72,7 +74,11 @@ func NewChain(cfg *config.Config) Chain {
 	chain.blackBlock = NewBlackBlock(chain, chain.cfg.OpenBlackBlock)
 
 	initGenesis(chain.readGenesis(chain.cfg.GenesisFile))
-
+	var err error
+	chain.saList, err = chain_cache.NewAdditionList(chain)
+	if err != nil {
+		chain.log.Crit("chain_cache.NewAdditionList failed, error is "+err.Error(), "method", "NewChain")
+	}
 	return chain
 }
 
@@ -235,7 +241,14 @@ func (c *chain) ChainDb() *chain_db.ChainDb {
 	return c.chainDb
 }
 
+func (c *chain) SaList() *chain_cache.AdditionList {
+	return c.saList
+}
+
 func (c *chain) Start() {
+	// saList start
+	c.saList.Start()
+
 	// Start compress in the background
 	c.log.Info("Start chain module")
 
@@ -264,6 +277,9 @@ func (c *chain) Start() {
 }
 
 func (c *chain) Stop() {
+	// saList top
+	c.saList.Stop()
+
 	// trie gc
 	if c.cfg.LedgerGc {
 		c.trieGc.Stop()
