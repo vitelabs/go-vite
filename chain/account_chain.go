@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm_context"
+	"time"
 )
 
 type BlockMapQueryParam struct {
@@ -26,8 +27,13 @@ func (c *chain) completeBlock(block *ledger.AccountBlock, account *ledger.Accoun
 }
 
 func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
+	monitorTags := []string{"chain", "InsertAccountBlocks"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
+	monitor.LogEventNum("chain", "InsertAccountBlocks", len(vmAccountBlocks))
+
 	batch := new(leveldb.Batch)
-	monitor.LogEventNum("chain", "insert", len(vmAccountBlocks))
+
 	trieSaveCallback := make([]func(), 0)
 	var account *ledger.Account
 
@@ -184,6 +190,9 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 
 // No block meta
 func (c *chain) GetAccountBlocksByHash(addr types.Address, origin *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error) {
+	monitorTags := []string{"chain", "GetAccountBlocksByHash"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	startHeight := uint64(1)
 	if origin != nil {
 		blockMeta, gbmErr := c.chainDb.Ac.GetBlockMeta(origin)
@@ -223,6 +232,9 @@ func (c *chain) GetAccountBlocksByHash(addr types.Address, origin *types.Hash, c
 
 // No block meta
 func (c *chain) GetAccountBlocksByHeight(addr types.Address, start, count uint64, forward bool) ([]*ledger.AccountBlock, error) {
+	monitorTags := []string{"chain", "GetAccountBlocksByHeight"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	if count <= 0 {
 		return nil, nil
 	}
@@ -262,6 +274,9 @@ func (c *chain) GetAccountBlocksByHeight(addr types.Address, start, count uint64
 
 // No block meta
 func (c *chain) GetAccountBlockMap(queryParams map[types.Address]*BlockMapQueryParam) map[types.Address][]*ledger.AccountBlock {
+	monitorTags := []string{"chain", "GetAccountBlockMap"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	queryResult := make(map[types.Address][]*ledger.AccountBlock)
 	for addr, params := range queryParams {
 		blockList, gbErr := c.GetAccountBlocksByHash(addr, params.OriginBlockHash, params.Count, params.Forward)
@@ -277,6 +292,9 @@ func (c *chain) GetAccountBlockMap(queryParams map[types.Address]*BlockMapQueryP
 }
 
 func (c *chain) GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error) {
+	monitorTags := []string{"chain", "GetLatestAccountBlock"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	account, err := c.chainDb.Account.GetAccountByAddress(addr)
 	if err != nil {
 		c.log.Error("Query account meta failed. Error is "+err.Error(), "method", "GetLatestAccountBlock")
@@ -301,6 +319,9 @@ func (c *chain) GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock
 }
 
 func (c *chain) GetAccountBalance(addr *types.Address) (map[types.TokenTypeId]*big.Int, error) {
+	monitorTags := []string{"chain", "GetAccountBalance"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	trie, err := c.stateTriePool.Get(addr)
 	if err != nil {
 		c.log.Error("GetTrie failed, error is "+err.Error(), "method", "GetAccountBalance")
@@ -336,6 +357,9 @@ func (c *chain) GetAccountBalance(addr *types.Address) (map[types.TokenTypeId]*b
 }
 
 func (c *chain) GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error) {
+	monitorTags := []string{"chain", "GetAccountBalanceByTokenId"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	trie, err := c.stateTriePool.Get(addr)
 	if err != nil {
 		c.log.Error("GetTrie failed, error is "+err.Error(), "method", "GetAccountBalanceByTokenId")
@@ -353,6 +377,9 @@ func (c *chain) GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.T
 }
 
 func (c *chain) GetAccountBlockHashByHeight(addr *types.Address, height uint64) (*types.Hash, error) {
+	monitorTags := []string{"chain", "GetAccountBlockHashByHeight"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
 	if accountErr != nil {
 		c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "GetAccountBlockHashByHeight")
@@ -372,6 +399,9 @@ func (c *chain) GetAccountBlockHashByHeight(addr *types.Address, height uint64) 
 }
 
 func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error) {
+	monitorTags := []string{"chain", "GetAccountBlockByHeight"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	account, err := c.chainDb.Account.GetAccountByAddress(addr)
 	if err != nil {
 		c.log.Error("Query account failed. Error is "+err.Error(), "method", "GetAccountBlockByHeight")
@@ -402,6 +432,9 @@ func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*le
 
 // With block meta
 func (c *chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
+	monitorTags := []string{"chain", "GetAccountBlockByHash"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	block, err := c.chainDb.Ac.GetBlock(blockHash)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
@@ -433,6 +466,9 @@ func (c *chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlo
 }
 
 func (c *chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count int) ([]*ledger.AccountBlock, error) {
+	monitorTags := []string{"chain", "GetAccountBlocksByAddress"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	if num == 0 || count == 0 {
 		err := errors.New("Num or count can not be 0")
 		c.log.Error(err.Error(), "method", "GetAccountBlocksByAddress")
@@ -499,6 +535,9 @@ func (c *chain) GetAccountBlocksByAddress(addr *types.Address, index, num, count
 }
 
 func (c *chain) GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error) {
+	monitorTags := []string{"chain", "GetFirstConfirmedAccountBlockBySbHeight"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	gap := snapshotBlockHeight - c.GetLatestSnapshotBlock().Height
 	if gap > 1 {
 		// Error
@@ -549,6 +588,9 @@ func (c *chain) GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint
 }
 
 func (c *chain) GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.AccountBlock {
+	monitorTags := []string{"chain", "GetUnConfirmAccountBlocks"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
 	if accountErr != nil {
 		c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "GetUnConfirmAccountBlocks")
@@ -569,6 +611,9 @@ func (c *chain) GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.Account
 }
 
 func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error) {
+	monitorTags := []string{"chain", "DeleteAccountBlocks"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
 	if accountErr != nil {
 		c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
@@ -652,6 +697,9 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	return subLedger, nil
 }
 func (c *chain) GetAllLatestAccountBlock() ([]*ledger.AccountBlock, error) {
+	monitorTags := []string{"chain", "GetAllLatestAccountBlock"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	maxAccountId, err := c.chainDb.Account.GetLastAccountId()
 	if err != nil {
 		c.log.Error("GetLastAccountId failed, error is "+err.Error(), "method", "GetAllAccountBlockCount")
@@ -745,6 +793,9 @@ func (c *chain) subLedgerAccountIdToAccountAddress(subLedger map[uint64][]*ledge
 }
 
 func (c *chain) GetAccountBlockMetaByHash(hash *types.Hash) (*ledger.AccountBlockMeta, error) {
+	monitorTags := []string{"chain", "GetAccountBlockMetaByHash"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	meta, err := c.chainDb.Ac.GetBlockMeta(hash)
 	if err != nil {
 

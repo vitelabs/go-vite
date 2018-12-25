@@ -5,10 +5,15 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/monitor"
+	"time"
 )
 
 // 0 means error, 1 means not exist, 2 means general account, 3 means contract account.
 func (c *chain) AccountType(address *types.Address) (uint64, error) {
+	monitorTags := []string{"chain", "AccountType"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	if types.IsPrecompiledContractAddress(*address) {
 		return ledger.AccountTypeContract, nil
 	}
@@ -35,6 +40,9 @@ func (c *chain) AccountType(address *types.Address) (uint64, error) {
 
 // TODO cache
 func (c *chain) GetAccount(address *types.Address) (*ledger.Account, error) {
+	monitorTags := []string{"chain", "GetAccount"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	account, err := c.chainDb.Account.GetAccountByAddress(address)
 	if err != nil {
 		c.log.Error("Query account failed, error is "+err.Error(), "method", "GetAccount")
