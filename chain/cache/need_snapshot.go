@@ -189,12 +189,13 @@ func (nsCache *NeedSnapshotCache) InsertAccountBlock(block *ledger.AccountBlock)
 	return nil
 }
 
-func (nsCache *NeedSnapshotCache) HasSnapshot(subLedger ledger.SnapshotContent) error {
+func (nsCache *NeedSnapshotCache) HasSnapshot(subLedger ledger.SnapshotContent) (uint64, error) {
 	nsCache.lock.Lock()
 	defer nsCache.lock.Unlock()
 
 	var processedAddrList []types.Address
 
+	snapshotQuota := uint64(0)
 	for addr, hashHeight := range subLedger {
 		blockList := nsCache.subLedger[addr]
 		if len(blockList) <= 0 {
@@ -205,7 +206,7 @@ func (nsCache *NeedSnapshotCache) HasSnapshot(subLedger ledger.SnapshotContent) 
 
 			//recover cache
 			nsCache.buildPart(processedAddrList)
-			return err
+			return 0, err
 		}
 
 		index, err := nsCache.findIndex(blockList, hashHeight)
@@ -214,14 +215,17 @@ func (nsCache *NeedSnapshotCache) HasSnapshot(subLedger ledger.SnapshotContent) 
 
 			//recover cache
 			nsCache.buildPart(processedAddrList)
-			return err
+			return 0, err
 		}
+
+		tailBlock := blockList[0]
+		snapshotQuota += blockList[index].AccumulateQuota - tailBlock.AccumulateQuota + tailBlock.Block.Quota
 		blockList = blockList[index+1:]
 		nsCache.subLedger[addr] = blockList
 
 		processedAddrList = append(processedAddrList, addr)
 	}
-	return nil
+	return snapshotQuota, nil
 }
 
 func (nsCache *NeedSnapshotCache) NotSnapshot(horizontalLine map[types.Address]*ledger.AccountBlock) {

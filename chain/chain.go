@@ -74,11 +74,6 @@ func NewChain(cfg *config.Config) Chain {
 	chain.blackBlock = NewBlackBlock(chain, chain.cfg.OpenBlackBlock)
 
 	initGenesis(chain.readGenesis(chain.cfg.GenesisFile))
-	var err error
-	chain.saList, err = chain_cache.NewAdditionList(chain)
-	if err != nil {
-		chain.log.Crit("chain_cache.NewAdditionList failed, error is "+err.Error(), "method", "NewChain")
-	}
 	return chain
 }
 
@@ -101,6 +96,13 @@ func (c *chain) Init() {
 
 	// cache
 	c.initCache()
+
+	// saList
+	var err error
+	c.saList, err = chain_cache.NewAdditionList(c)
+	if err != nil {
+		c.log.Crit("chain_cache.NewAdditionList failed, error is "+err.Error(), "method", "Init")
+	}
 
 	// trie gc
 	c.trieGc = trie_gc.NewCollector(c, c.cfg.LedgerGcRetain)

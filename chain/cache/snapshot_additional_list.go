@@ -390,15 +390,12 @@ func (al *AdditionList) addList(snapshotBlocks []*ledger.SnapshotBlock) error {
 				quota += block.Quota
 			}
 		}
-		al.Add(snapshotBlock, quota)
+		al.add(snapshotBlock, quota)
 	}
 	return nil
 }
 
-func (al *AdditionList) Add(block *ledger.SnapshotBlock, quota uint64) {
-	al.modifyLock.Lock()
-	defer al.modifyLock.Unlock()
-
+func (al *AdditionList) add(block *ledger.SnapshotBlock, quota uint64) {
 	aggregateQuota := al.calculateQuota(block, quota)
 	ai := &AdditionItem{
 		Quota:          quota,
@@ -409,6 +406,30 @@ func (al *AdditionList) Add(block *ledger.SnapshotBlock, quota uint64) {
 		},
 	}
 	al.list = append(al.list, ai)
+}
+
+func (al *AdditionList) Add(block *ledger.SnapshotBlock, quota uint64) {
+	al.modifyLock.Lock()
+	defer al.modifyLock.Unlock()
+
+	al.add(block, quota)
+}
+
+func (al *AdditionList) DeleteStartWith(block *ledger.SnapshotBlock) error {
+	al.modifyLock.Lock()
+	defer al.modifyLock.Unlock()
+
+	index := al.getIndexByHeight(block.Height)
+	if index < 0 {
+		return errors.New(fmt.Sprintf("Can't find block, block hash is %s, block height is %d", block.Hash, block.Height))
+	}
+	ai := al.list[index]
+	if ai.SnapshotHashHeight.Hash != block.Hash {
+		return errors.New(fmt.Sprintf("Block hash is error, block hash is %s, block height is %d", block.Hash, block.Height))
+	}
+	al.list = al.list[:index]
+
+	return nil
 }
 
 func (al *AdditionList) GetAggregateQuota(block *ledger.SnapshotBlock) (uint64, error) {

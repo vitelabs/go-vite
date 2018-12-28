@@ -134,8 +134,10 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	c.chainDb.Be.AddSnapshotBlocks(batch, []types.Hash{snapshotBlock.Hash})
 
 	// Delete needSnapshotCache, Need first update cache
+	var snapshotBlockQuota uint64
 	if c.needSnapshotCache != nil {
-		if err := c.needSnapshotCache.HasSnapshot(snapshotBlock.SnapshotContent); err != nil {
+		var err error
+		if snapshotBlockQuota, err = c.needSnapshotCache.HasSnapshot(snapshotBlock.SnapshotContent); err != nil {
 			c.log.Error("HasSnapshot failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 			return err
 		}
@@ -147,6 +149,9 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 		c.log.Crit("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertSnapshotBlock")
 		return err
 	}
+
+	// add sa cache
+	c.saList.Add(snapshotBlock, snapshotBlockQuota)
 
 	// After write db
 	trieSaveCallback()
@@ -559,7 +564,11 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	if writeErr != nil {
 		c.log.Crit("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
-		return nil, nil, writeErr
+	}
+
+	// Delete sa list cache
+	if deleteErr := c.saList.DeleteStartWith(snapshotBlocks[0]); deleteErr != nil {
+		c.log.Crit("c.saList.DeleteStartWith failed, error is "+deleteErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 	}
 
 	// Delete cache
