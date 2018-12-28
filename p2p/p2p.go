@@ -143,24 +143,17 @@ func New(cfg *Config) (Server, error) {
 		delPeer:     make(chan *Peer, 1),
 		blockUtil:   block.New(blockPolicy),
 		self:        node,
-		nodeChan:    make(chan *discovery.Node, 10),
+		nodeChan:    make(chan *discovery.Node, cfg.MaxPendingPeers),
 		log:         log15.New("module", "p2p/server"),
-		dialer:      &net.Dialer{Timeout: 3 * time.Second},
+		dialer:      &net.Dialer{Timeout: 5 * time.Second},
 	}
 
 	if cfg.Discovery {
-		// udp discover
-		var udpAddr *net.UDPAddr
-		udpAddr, err = net.ResolveUDPAddr("udp", addr)
-		if err != nil {
-			return nil, err
-		}
-
 		svr.discv = discovery.New(&discovery.Config{
 			PeerKey:   cfg.PrivateKey,
 			DBPath:    cfg.DataDir,
 			BootNodes: parseNodes(cfg.BootNodes),
-			Addr:      udpAddr,
+			Addr:      addr,
 			Self:      node,
 			NetID:     cfg.NetID,
 		})
@@ -207,7 +200,7 @@ func (svr *server) Start() error {
 		})
 
 		// subscribe nodes
-		svr.discv.SubNodes(svr.nodeChan)
+		svr.discv.SubNodes(svr.nodeChan, true)
 
 		err = svr.discv.Start()
 		if err != nil {
@@ -611,13 +604,22 @@ loop:
 				svr.dial(p.ID(), p.RemoteAddr(), static, nil)
 			}
 
-			if peersCount == 0 && svr.discv != nil {
-				svr.discv.Need(svr.config.MaxPeers)
+			if svr.discv != nil {
+				svr.discv.More(svr.nodeChan)
 			}
 		}
 	}
 
 	svr.peers.DisconnectAll()
+
+	if svr.discv != nil {
+		now := time.Now()
+		svr.peers.mu.Lock()
+		defer svr.peers.mu.Unlock()
+		for id, p := range svr.peers.peers {
+			svr.discv.Mark(id, now.Sub(p.Created).Nanoseconds())
+		}
+	}
 }
 
 func (svr *server) runPeer(p *Peer) {
@@ -676,11 +678,6 @@ func (svr *server) maxInboundPeers() uint {
 }
 
 func (svr *server) Nodes() (urls []string) {
-	nodes := svr.discv.Nodes()
-	for _, node := range nodes {
-		urls = append(urls, node.String())
-	}
-
 	return
 }
 
@@ -688,7 +685,7 @@ func (svr *server) SubNodes(ch chan<- *discovery.Node) {
 	if svr.discv == nil {
 		return
 	}
-	svr.discv.SubNodes(ch)
+	svr.discv.SubNodes(ch, false)
 }
 func (svr *server) UnSubNodes(ch chan<- *discovery.Node) {
 	if svr.discv == nil {

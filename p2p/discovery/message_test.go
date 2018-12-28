@@ -21,29 +21,39 @@ func TestUnpack(t *testing.T) {
 
 	var id NodeID
 	copy(id[:], pub)
-	p := &Ping{
-		ID: id,
-	}
+	p := new(Ping)
+	p.ID = id
+	p.Expiration = getExpiration()
 
 	data, _, err := p.pack(priv)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = unPacket(data)
+	pkt, err := unPacket(data)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	p2, ok := pkt.msg.(*Ping)
+	if !ok {
+		t.Fatal()
+	}
+	if p2.Expiration.Unix() != p.Expiration.Unix() {
+		t.Fatal()
+	}
+
 }
 
 func TestPing_serialize(t *testing.T) {
 	p1 := &Ping{
-		ID:         mockID(),
-		TCP:        mockPort(),
-		Net:        network.ID(rand.Uint32()),
-		Ext:        mockRest(),
-		Expiration: time.Now(),
+		TCP: mockPort(),
+		Net: network.ID(rand.Uint32()),
+		Ext: mockRest(),
 	}
+	p1.ID = mockID()
+	p1.Expiration = time.Now()
+
 	data, err := p1.serialize()
 	if err != nil {
 		t.Error(err)
@@ -75,11 +85,11 @@ func TestPong_serialize(t *testing.T) {
 	var hash types.Hash
 	crand.Read(hash[:])
 	p1 := &Pong{
-		ID:         mockID(),
-		Ping:       hash,
-		IP:         mockIP(),
-		Expiration: time.Now(),
+		Ping: hash,
 	}
+	p1.ID = mockID()
+	p1.Expiration = time.Now()
+
 	data, err := p1.serialize()
 	if err != nil {
 		t.Error(err)
@@ -94,9 +104,6 @@ func TestPong_serialize(t *testing.T) {
 		t.Fail()
 	}
 	if p1.Ping != p2.Ping {
-		t.Fail()
-	}
-	if !bytes.Equal(p1.IP, p2.IP) {
 		t.Fail()
 	}
 	if p1.Expiration.Unix() != p2.Expiration.Unix() {
@@ -134,7 +141,6 @@ func TestFindNode_serialize(t *testing.T) {
 
 func TestNeighbors_serialize(t *testing.T) {
 	p1 := &Neighbors{
-		ID: mockID(),
 		Nodes: []*Node{
 			mockNode(true),
 			mockNode(true),
@@ -144,8 +150,9 @@ func TestNeighbors_serialize(t *testing.T) {
 			mockNode(true),
 			mockNode(true),
 		},
-		Expiration: time.Now(),
 	}
+	p1.ID = mockID()
+	p1.Expiration = time.Now()
 
 	data, err := p1.serialize()
 	if err != nil {

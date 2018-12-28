@@ -202,3 +202,28 @@ func TestNode_Update(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestCommon_Bits(t *testing.T) {
+	var a, b NodeID
+	total := len(a)
+	b[total-1] = b[total-1] | 1
+
+	cnb := commonBits(a, b)
+	if cnb != 0 {
+		t.Fail()
+	}
+
+	b = a
+	b[0] = b[0] | 1
+	cnb = commonBits(a, b)
+	if cnb != 8*(total-1) {
+		t.Fail()
+	}
+
+	b = a
+	b[0] = b[0] | (1 << 7)
+	cnb = commonBits(a, b)
+	if cnb != 8*total-1 {
+		t.Fail()
+	}
+}
