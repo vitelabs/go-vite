@@ -20,10 +20,10 @@ import (
 
 const version byte = 2
 
-var expiration = 6 * time.Second
+var expiration = 10 * time.Second
 
 func getExpiration() time.Time {
-	return time.Now().Add(expiration)
+	return time.Now().Add(2 * expiration)
 }
 
 func isExpired(t time.Time) bool {
@@ -61,20 +61,10 @@ func (c packetCode) String() string {
 // consider varint encoding of protobuf, 1 byte origin data maybe take up 2 bytes space after encode.
 // so the payload should small than 1200 bytes.
 const maxPacketLength = 1200 // should small than MTU
-const maxNeighborsNodes = 10
 
 var errUnmatchedHash = errors.New("validate discovery packet error: invalid hash")
 var errInvalidSig = errors.New("validate discovery packet error: invalid signature")
 
-type packet struct {
-	fromID NodeID
-	from   *net.UDPAddr
-	code   packetCode
-	hash   types.Hash
-	msg    Message
-}
-
-// Message is the discovery protocol message type
 type Message interface {
 	serialize() ([]byte, error)
 	deserialize([]byte) error
@@ -84,13 +74,12 @@ type Message interface {
 	String() string
 }
 
-// Ping is the message to check whether a node is alive
 type Ping struct {
 	ID         NodeID
 	TCP        uint16
+	Expiration time.Time
 	Net        network.ID
 	Ext        []byte
-	Expiration time.Time
 }
 
 func (p *Ping) sender() NodeID {
@@ -147,7 +136,6 @@ func (p *Ping) String() string {
 	return "ping"
 }
 
-// Pong is the respond message to Ping
 type Pong struct {
 	ID         NodeID
 	Ping       types.Hash
@@ -208,11 +196,11 @@ func (p *Pong) String() string {
 	return "pong<" + p.Ping.String() + ">"
 }
 
-// FindNode to find neighbor nodes of the target NodeID
 type FindNode struct {
 	ID         NodeID
 	Target     NodeID
 	Expiration time.Time
+	N          uint32
 }
 
 func (f *FindNode) sender() NodeID {
@@ -224,6 +212,7 @@ func (f *FindNode) serialize() ([]byte, error) {
 		ID:         f.ID[:],
 		Target:     f.Target[:],
 		Expiration: f.Expiration.Unix(),
+		N:          f.N,
 	}
 	return proto.Marshal(pb)
 }
@@ -248,6 +237,7 @@ func (f *FindNode) deserialize(buf []byte) error {
 	f.ID = id
 	f.Target = target
 	f.Expiration = time.Unix(pb.Expiration, 0)
+	f.N = pb.N
 
 	return nil
 }
@@ -271,7 +261,6 @@ func (f *FindNode) String() string {
 	return "findnode<" + f.Target.String() + ">"
 }
 
-// Neighbors is the respond message to FindNode
 type Neighbors struct {
 	ID         NodeID
 	Nodes      []*Node
@@ -364,7 +353,6 @@ func (e eCode) String() string {
 	return eMsg[e]
 }
 
-// Exception is the exception message of discovery protocol
 type Exception struct {
 	Code eCode
 }
@@ -402,8 +390,8 @@ func (e *Exception) sender() (id NodeID) {
 	return
 }
 
-func (e *Exception) String() string {
-	return "exception<" + e.Code.String() + ">"
+func (n *Exception) String() string {
+	return "exception<" + n.Code.String() + ">"
 }
 
 // version code checksum signature payload

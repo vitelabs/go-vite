@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"math"
-	mrand "math/rand"
 	"net"
 	"net/url"
 	"strconv"
@@ -82,7 +80,6 @@ func Bytes2NodeID(buf []byte) (id NodeID, err error) {
 	return
 }
 
-// @section Node
 var errMissID = errors.New("missing NodeID")
 var errMissIP = errors.New("missing IP")
 var errInvalidIP = errors.New("invalid IP")
@@ -91,25 +88,22 @@ var errInvalidScheme = errors.New("invalid scheme")
 
 // Node mean a node in vite P2P network
 type Node struct {
-	ID      NodeID
-	IP      net.IP
-	UDP     uint16
-	TCP     uint16
-	Net     network.ID
-	Ext     []byte
-	Version byte
+	ID  NodeID
+	IP  net.IP
+	UDP uint16
+	TCP uint16
+	Net network.ID
+	Ext []byte
 
 	addAt    time.Time
 	lastPing time.Time
+	lastFind time.Time
 	activeAt time.Time
-	weight   int64 // tcp connection lifetime, longer is better
-	findfail int
+	mark     int64
 }
 
 func (n *Node) Update(n2 *Node) {
-	if n.ID != n2.ID {
-		return
-	}
+	n.ID = n2.ID
 	if len(n2.IP) > 0 && !bytes.Equal(n.IP, n2.IP) {
 		n.IP = n2.IP
 	}
@@ -222,7 +216,13 @@ func (n *Node) TCPAddr() *net.TCPAddr {
 	}
 }
 
-// @section NodeURL
+func (n *Node) shouldPing() bool {
+	return time.Now().Sub(n.lastPing) > 3*time.Minute
+}
+func (n *Node) shouldFind() bool {
+	return time.Now().Sub(n.lastFind) > 3*time.Minute
+}
+
 const NodeURLScheme = "vnode"
 
 // String marshal node to url-like string which looks like:
@@ -319,112 +319,34 @@ func parsePort(str string) (port uint16, err error) {
 	return uint16(i), nil
 }
 
-// @section distance
+// commonBits between a and b, from right to left
+func commonBits(a, b NodeID) int {
+	total := len(a)
 
-// bytes xor to distance mapping table
-var matrix = [256]int{
-	0, 1, 2, 2, 3, 3, 3, 3,
-	4, 4, 4, 4, 4, 4, 4, 4,
-	5, 5, 5, 5, 5, 5, 5, 5,
-	5, 5, 5, 5, 5, 5, 5, 5,
-	6, 6, 6, 6, 6, 6, 6, 6,
-	6, 6, 6, 6, 6, 6, 6, 6,
-	6, 6, 6, 6, 6, 6, 6, 6,
-	6, 6, 6, 6, 6, 6, 6, 6,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-}
+	if a == b {
+		return 8 * total
+	}
 
-// xor every byte of a and b from left to right.
-// term at the first different byte (for brevity, we call it FDB).
-// distance of a and b is bits-count of the FDB plus the bits-count of rest bytes.
-func calcDistance(a, b NodeID) int {
-	delta := 0
+	commonByts := 0
 	var i int
-	for i := range a {
-		x := a[i] ^ b[i]
-		if x != 0 {
-			delta += matrix[x]
+	for i = total - 1; i > -1; i-- {
+		if a[i] != b[i] {
 			break
 		}
+		commonByts++
 	}
 
-	return delta + (len(a)-i-1)*8
+	xor := a[i] ^ b[i]
+	commonBits := 0
+
+	for (xor & 1) == 0 {
+		commonBits++
+		xor >>= 1
+	}
+
+	return commonByts*8 + commonBits
 }
 
-// (distance between target and a) compare to (distance between target and b)
-func disCmp(target, a, b NodeID) int {
-	var cmp byte
-	for i := range target {
-		cmp = a[i] ^ target[i] - b[i] ^ target[i]
-		if cmp > 0 {
-			return 1
-		}
-		if cmp < 0 {
-			return -1
-		}
-	}
-
-	return 0
-}
-
-func findNodeIDFromDistance(a NodeID, d int) NodeID {
-	if d == 0 {
-		return a
-	}
-	b := a
-
-	// pos mean the FDB between a and b from left to right.
-	pos := len(a) - d/8 - 1
-
-	xor := byte(d % 8)
-	// mean the xor of FDB is greater or equal 127.
-	if xor == 0 {
-		pos++
-		xor = byte(randInt(127, 256))
-	} else {
-		xor = expRand(xor)
-	}
-	// if byte1 xor byte2 get d,
-	// then byte2 can be calc from (byte1^d | ^byte1&d)
-	b[pos] = a[pos]&^xor | ^a[pos]&xor
-
-	// fill the rest bytes.
-	for i := pos + 1; i < len(a); i++ {
-		b[i] = byte(mrand.Intn(255))
-	}
-
-	return b
-}
-
-func randInt(min, max int) int {
-	return mrand.Intn(max-min) + min
-}
-
-// get rand int in [2**(n-1), 2**n)
-func expRand(n byte) byte {
-	low, up := int(math.Pow(2.0, float64(n-1))), int(math.Pow(2.0, float64(n)))
-	return byte(randInt(low, up))
+func distance(a, b NodeID) int {
+	return 8*len(a) - commonBits(a, b)
 }

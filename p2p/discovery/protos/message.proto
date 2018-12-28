@@ -32,6 +32,7 @@ message FindNode {
     bytes ID = 1;
     bytes Target = 2;
     int64 Expiration = 3;
+    uint32 N = 4;
 }
 
 message Neighbors {
