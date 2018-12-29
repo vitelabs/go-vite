@@ -264,6 +264,11 @@ func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 		return nil, errors.New("consensus group not exist")
 	}
 
+	contractType := util.GetContractTypeFromCreateContractData(block.AccountBlock.Data)
+	if !util.IsExistContractType(contractType) {
+		return nil, errors.New("invalid contract type")
+	}
+
 	if !nodeConfig.canTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
 		return nil, util.ErrInsufficientBalance
 	}

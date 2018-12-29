@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -56,6 +57,12 @@ func GetCodeFromCreateContractData(data []byte) []byte {
 }
 func GetContractTypeFromCreateContractData(data []byte) []byte {
 	return data[types.GidSize : types.GidSize+contractTypeSize]
+}
+func IsExistContractType(contractType []byte) bool {
+	if bytes.Equal(contractType, SolidityXXContractType) {
+		return true
+	}
+	return false
 }
 
 func PackContractCode(contractType, code []byte) []byte {
