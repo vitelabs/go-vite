@@ -185,6 +185,9 @@ func (al *AdditionList) build() error {
 	defer al.modifyLock.Unlock()
 
 	latestSnapshotBlock := al.chain.GetLatestSnapshotBlock()
+	if latestSnapshotBlock == nil {
+		return nil
+	}
 	latestHeight := latestSnapshotBlock.Height
 
 	// prepend

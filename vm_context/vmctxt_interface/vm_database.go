@@ -24,7 +24,6 @@ type VmDatabase interface {
 	Reset()
 
 	IsAddressExisted(addr *types.Address) bool
-
 	SetContractGid(gid *types.Gid, addr *types.Address)
 	SetContractCode(code []byte)
 	GetContractCode(addr *types.Address) []byte
