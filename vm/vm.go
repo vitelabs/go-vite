@@ -314,6 +314,7 @@ func (vm *VM) receiveCreate(block *vm_context.VmAccountBlock, sendBlock *ledger.
 	c.setCallCode(block.AccountBlock.AccountAddress, initCode)
 	code, err := c.run(vm)
 	if err == nil && len(code) <= MaxCodeSize {
+		code := util.PackContractCode(util.GetContractTypeFromCreateContractData(sendBlock.Data), code)
 		codeCost := uint64(len(code)) * contractCodeGas
 		c.quotaLeft, err = util.UseQuota(c.quotaLeft, codeCost)
 		if err == nil {
@@ -460,7 +461,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		// add balance, create account if not exist
 		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 		// do transfer transaction if account code size is zero
-		code := block.VmContext.GetContractCode(&block.AccountBlock.AccountAddress)
+		_, code := util.GetContractCode(block.VmContext, &block.AccountBlock.AccountAddress)
 		if len(code) == 0 {
 			vm.updateBlock(block, nil, util.CalcQuotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil))
 			return vm.blockList, NoRetry, nil
@@ -575,7 +576,7 @@ func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 }
 
 func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract) (ret []byte, err error) {
-	code := c.block.VmContext.GetContractCode(&contractAddr)
+	_, code := util.GetContractCode(c.block.VmContext, &contractAddr)
 	if len(code) > 0 {
 		cNew := newContract(c.block, c.sendBlock, c.data, c.quotaLeft, c.quotaRefund)
 		cNew.setCallCode(contractAddr, code)

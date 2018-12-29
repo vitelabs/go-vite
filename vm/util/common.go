@@ -2,6 +2,7 @@ package util
 
 import (
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
@@ -36,8 +37,13 @@ func MakeSendBlock(block *ledger.AccountBlock, toAddress types.Address, blockTyp
 	}
 }
 
-func GetCreateContractData(bytecode []byte, gid types.Gid) []byte {
-	return append(gid.Bytes(), bytecode...)
+var (
+	SolidityXXContractType = []byte{1}
+	contractTypeSize       = 1
+)
+
+func GetCreateContractData(bytecode []byte, contractType []byte, gid types.Gid) []byte {
+	return helper.JoinBytes(gid.Bytes(), contractType, bytecode)
 }
 
 func GetGidFromCreateContractData(data []byte) types.Gid {
@@ -46,7 +52,26 @@ func GetGidFromCreateContractData(data []byte) types.Gid {
 }
 
 func GetCodeFromCreateContractData(data []byte) []byte {
-	return data[types.GidSize:]
+	return data[types.GidSize+contractTypeSize:]
+}
+func GetContractTypeFromCreateContractData(data []byte) []byte {
+	return data[types.GidSize : types.GidSize+contractTypeSize]
+}
+
+func PackContractCode(contractType, code []byte) []byte {
+	return helper.JoinBytes(contractType, code)
+}
+
+type CommonDb interface {
+	GetContractCode(addr *types.Address) []byte
+}
+
+func GetContractCode(db CommonDb, addr *types.Address) ([]byte, []byte) {
+	code := db.GetContractCode(addr)
+	if len(code) > 0 {
+		return code[:contractTypeSize], code[contractTypeSize:]
+	}
+	return nil, nil
 }
 
 func NewContractAddress(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.Address {

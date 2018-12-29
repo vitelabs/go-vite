@@ -412,7 +412,8 @@ func opCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) (
 func opExtCodeSize(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	addrBig := stack.peek()
 	contractAddress, _ := types.BigToAddress(addrBig)
-	addrBig.SetInt64(int64(len(c.block.VmContext.GetContractCode(&contractAddress))))
+	_, code := util.GetContractCode(c.block.VmContext, &contractAddress)
+	addrBig.SetInt64(int64(len(code)))
 	return nil, nil
 }
 
@@ -424,7 +425,8 @@ func opExtCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack
 		length     = stack.pop()
 	)
 	contractAddress, _ := types.BigToAddress(addrBig)
-	codeCopy := helper.GetDataBig(c.block.VmContext.GetContractCode(&contractAddress), codeOffset, length)
+	_, code := util.GetContractCode(c.block.VmContext, &contractAddress)
+	codeCopy := helper.GetDataBig(code, codeOffset, length)
 	memory.set(memOffset.Uint64(), length.Uint64(), codeCopy)
 
 	c.intPool.put(addrBig, memOffset, codeOffset, length)

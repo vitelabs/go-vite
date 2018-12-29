@@ -44,7 +44,7 @@ func TestVmRun(t *testing.T) {
 	 */
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	// send create
-	data13, _ := hex.DecodeString("00000000000000000002608060405260858060116000396000f300608060405260043610603e5763ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041663f021ab8f81146043575b600080fd5b604c600435604e565b005b6000805490910190555600a165627a7a72305820b8d8d60a46c6ac6569047b17b012aa1ea458271f9bc8078ef0cff9208999d0900029")
+	data13, _ := hex.DecodeString("0000000000000000000201608060405260858060116000396000f300608060405260043610603e5763ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041663f021ab8f81146043575b600080fd5b604c600435604e565b005b6000805490910190555600a165627a7a72305820b8d8d60a46c6ac6569047b17b012aa1ea458271f9bc8078ef0cff9208999d0900029")
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -68,7 +68,7 @@ func TestVmRun(t *testing.T) {
 	if len(sendCreateBlockList) != 1 ||
 		isRetry ||
 		err != nil ||
-		sendCreateBlockList[0].AccountBlock.Quota != 28936 ||
+		sendCreateBlockList[0].AccountBlock.Quota != 29004 ||
 		sendCreateBlockList[0].AccountBlock.Fee.Cmp(createContractFee) != 0 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
 		t.Fatalf("send create transaction error")
@@ -243,12 +243,12 @@ func TestDelegateCall(t *testing.T) {
 	db := NewNoDatabase()
 	// code1 return 1+2
 	addr1, _, _ := types.CreateAddress()
-	code1 := []byte{byte(PUSH1), 1, byte(PUSH1), 2, byte(ADD), byte(PUSH1), 32, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE), byte(PUSH1), 32, byte(SWAP1), byte(RETURN)}
+	code1 := []byte{1, byte(PUSH1), 1, byte(PUSH1), 2, byte(ADD), byte(PUSH1), 32, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE), byte(PUSH1), 32, byte(SWAP1), byte(RETURN)}
 	db.codeMap = make(map[types.Address][]byte)
 	db.codeMap[addr1] = code1
 
 	addr2, _, _ := types.CreateAddress()
-	code2 := helper.JoinBytes([]byte{byte(PUSH1), 32, byte(PUSH1), 0, byte(PUSH1), 0, byte(PUSH1), 0, byte(PUSH20)}, addr1.Bytes(), []byte{byte(DELEGATECALL), byte(PUSH1), 32, byte(PUSH1), 0, byte(RETURN)})
+	code2 := helper.JoinBytes([]byte{1, byte(PUSH1), 32, byte(PUSH1), 0, byte(PUSH1), 0, byte(PUSH1), 0, byte(PUSH20)}, addr1.Bytes(), []byte{byte(DELEGATECALL), byte(PUSH1), 32, byte(PUSH1), 0, byte(RETURN)})
 	db.codeMap[addr2] = code2
 	blockTime := time.Now()
 
@@ -273,7 +273,7 @@ func TestDelegateCall(t *testing.T) {
 		nil,
 		1000000,
 		0)
-	c.setCallCode(addr2, code2)
+	c.setCallCode(addr2, code2[1:])
 	ret, err := c.run(vm)
 	if err != nil || !bytes.Equal(ret, helper.LeftPadBytes([]byte{3}, 32)) {
 		t.Fatalf("delegate call error")
@@ -289,13 +289,14 @@ func TestCall(t *testing.T) {
 	// code2 calls addr1 with data=100 and amount=10
 	addr2, _, _ := types.CreateAddress()
 	code2 := []byte{
+		1,
 		byte(PUSH1), 32, byte(PUSH1), 100, byte(PUSH1), 0, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE),
 		byte(PUSH1), 10, byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N', byte(PUSH20), 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, byte(CALL)}
 	db.codeMap[addr2] = code2
 
 	// code3 return amount+data
 	addr3 := types.Address{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-	code3 := []byte{byte(CALLVALUE), byte(PUSH1), 0, byte(CALLDATALOAD), byte(ADD), byte(PUSH1), 32, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE), byte(PUSH1), 32, byte(SWAP1), byte(RETURN)}
+	code3 := []byte{1, byte(CALLVALUE), byte(PUSH1), 0, byte(CALLDATALOAD), byte(ADD), byte(PUSH1), 32, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE), byte(PUSH1), 32, byte(SWAP1), byte(RETURN)}
 	db.codeMap[addr3] = code3
 
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
@@ -757,6 +758,7 @@ func TestCheckDepth(t *testing.T) {
 	db.accountBlockMap[addr2][initReceiveHash] = receiveBlockList[0].AccountBlock
 
 	code2 := helper.JoinBytes([]byte{
+		1,
 		byte(PUSH1), 0,
 		byte(PUSH1), 0,
 		byte(PUSH1), 0,
@@ -766,6 +768,7 @@ func TestCheckDepth(t *testing.T) {
 	db.codeMap = make(map[types.Address][]byte)
 	db.codeMap[addr2] = code2
 	code3 := helper.JoinBytes([]byte{
+		1,
 		byte(PUSH1), 0,
 		byte(PUSH1), 0,
 		byte(PUSH1), 0,

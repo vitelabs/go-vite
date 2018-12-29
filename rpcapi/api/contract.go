@@ -51,10 +51,11 @@ func (c *ContractApi) GetCreateContractData(gid types.Gid, hexCode string, abiSt
 		if err != nil {
 			return nil, err
 		}
-		data := helper.JoinBytes(gid.Bytes(), code, constructorParams)
+		data := util.GetCreateContractData(helper.JoinBytes(code, constructorParams), util.SolidityXXContractType, gid)
 		return data, nil
 	} else {
-		return append(gid.Bytes(), code...), nil
+		data := util.GetCreateContractData(code, util.SolidityXXContractType, gid)
+		return data, nil
 	}
 }
 
