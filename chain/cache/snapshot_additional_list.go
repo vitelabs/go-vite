@@ -134,10 +134,15 @@ func NewAdditionList(chain Chain) (*AdditionList, error) {
 		al.log.Error("al.loadFromDb failed, error is "+err.Error(), "method", "NewAdditionList")
 		return nil, err
 	}
+
+	al.log.Info("Calculate the entire network quota and build cache...")
 	if err := al.build(); err != nil {
 		al.log.Error("al.build failed, error is "+err.Error(), "method", "NewAdditionList")
 		return nil, err
 	}
+	al.log.Info("Complete the calculation of entire network quota and cache build")
+
+	al.flush()
 
 	return al, nil
 }
@@ -270,7 +275,7 @@ func (al *AdditionList) flush() {
 	}
 
 	newFragListStartIndex := al.getIndexByHeight(NewFragTailHeight)
-	newFragListEndIndex := al.getIndexByHeight(NewFragTailHeight)
+	newFragListEndIndex := al.getIndexByHeight(NewFragHeadHeight)
 
 	newFragList := al.list[newFragListStartIndex : newFragListEndIndex+1]
 
@@ -370,7 +375,8 @@ func (al *AdditionList) loadFromDb() error {
 		frags = append(frags, frag)
 		list = append(list, frag.List...)
 	}
-	if err := iter.Error(); err != leveldb.ErrNotFound {
+	if err := iter.Error(); err != nil &&
+		err != leveldb.ErrNotFound {
 		return err
 	}
 

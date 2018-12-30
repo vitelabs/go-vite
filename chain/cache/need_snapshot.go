@@ -304,6 +304,9 @@ func (nsCache *NeedSnapshotCache) GetSnapshotContent() ledger.SnapshotContent {
 
 	content := make(ledger.SnapshotContent, 0)
 	for addr, blocks := range nsCache.subLedger {
+		if len(blocks) <= 0 {
+			continue
+		}
 		headBlock := blocks[len(blocks)-1]
 		content[addr] = &ledger.HashHeight{
 			Height: headBlock.Block.Height,

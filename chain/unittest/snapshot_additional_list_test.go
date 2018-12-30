@@ -5,18 +5,19 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/chain/test_tools"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm_context"
 	"math/rand"
 	"testing"
 )
 
 func Test_SaList_Add(t *testing.T) {
 	const (
-		MIN_BLOCKS_PERSNAPSOHT     = 100
-		MAX_BLOCKS_PERSNAPSOHT     = 200
+		MIN_BLOCKS_PERSNAPSOHT     = 10
+		MAX_BLOCKS_PERSNAPSOHT     = 20
 		SNAPSHOT_BLOCKS            = 60 * 60 * 24 * 2
 		TEST_SNAPSHOT_BLOCKS_RANGE = 60 * 60 * 24
 
-		TEST_TIMES = 3
+		TEST_TIMES = 10
 	)
 	chainInstance := newChainInstance("unittest", false, true)
 
@@ -30,17 +31,26 @@ func Test_SaList_Add(t *testing.T) {
 		Quota:         quota,
 	}
 
-	sbList := make([]*ledger.SnapshotBlock, SNAPSHOT_BLOCKS)
-	for sbIndex := 0; sbIndex < SNAPSHOT_BLOCKS; sbIndex++ {
+	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
+	snapshotBlockCount := uint64(0)
+	if latestSnapshotBlock.Height < SNAPSHOT_BLOCKS {
+		snapshotBlockCount = SNAPSHOT_BLOCKS - latestSnapshotBlock.Height
+	}
+	sbList := make([]*ledger.SnapshotBlock, snapshotBlockCount)
+	for sbIndex := uint64(0); sbIndex < snapshotBlockCount; sbIndex++ {
 		txNums := rand.Intn(MAX_BLOCKS_PERSNAPSOHT-MIN_BLOCKS_PERSNAPSOHT) + MIN_BLOCKS_PERSNAPSOHT
 
 		for txIndex := 0; txIndex < txNums; txIndex++ {
 			randomAccount := accounts[rand.Intn(accountLen)]
+			var blocks []*vm_context.VmAccountBlock
 			if randomAccount.HasUnreceivedBlock() {
-				randomAccount.CreateResponseTx(cTxOptions)
+				blocks = randomAccount.CreateResponseTx(cTxOptions)
 			} else {
 				toAccount := accounts[rand.Intn(accountLen)]
-				randomAccount.CreateRequestTx(toAccount, cTxOptions)
+				blocks = randomAccount.CreateRequestTx(toAccount, cTxOptions)
+			}
+			if err := chainInstance.InsertAccountBlocks(blocks); err != nil {
+				t.Fatal(err)
 			}
 		}
 
@@ -50,27 +60,32 @@ func Test_SaList_Add(t *testing.T) {
 		chainInstance.InsertSnapshotBlock(sb)
 		sbList[sbIndex] = sb
 
-		if sbIndex%99 == 0 {
+		if (sbIndex+1)%100 == 0 {
 			fmt.Printf("Insert %d snapshot blocks\n", sbIndex+1)
 		}
 	}
 
 	sbListLength := len(sbList)
-	fmt.Printf("There are %d snapshot blocks\n", sbListLength)
+	fmt.Printf("Insert %d snapshot blocks in total\n", sbListLength)
 
-	randomStartIndex := sbListLength - TEST_SNAPSHOT_BLOCKS_RANGE
-	randomEndIndex := sbListLength - 1
+	latestSnapshotBlock = chainInstance.GetLatestSnapshotBlock()
+	randomStartHeight := latestSnapshotBlock.Height - TEST_SNAPSHOT_BLOCKS_RANGE + 1
+	randomEndHeight := latestSnapshotBlock.Height
 
 	for i := 0; i < TEST_TIMES; i++ {
-		randomIndex := rand.Intn(randomEndIndex-randomStartIndex) + randomStartIndex
-		randomSnapshotBlock := sbList[randomIndex]
+		randomHeight := rand.Uint64()%(randomEndHeight-randomStartHeight) + randomStartHeight
+
+		randomSnapshotBlock, err := chainInstance.GetSnapshotBlockByHeight(randomHeight)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		aggregateQuota, err := chainInstance.SaList().GetAggregateQuota(randomSnapshotBlock)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		sbs, err := chainInstance.GetSnapshotBlocksByHeight(randomSnapshotBlock.Height, uint64(60*60), false, false)
+		sbs, err := chainInstance.GetSnapshotBlocksByHeight(randomSnapshotBlock.Height, uint64(60*60), false, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -88,7 +103,7 @@ func Test_SaList_Add(t *testing.T) {
 		}
 
 		if aggregateQuota != subLedgerTotalQuota {
-			err := errors.New(fmt.Sprintf("aggregateQuota != subLedgerTotalQuota, aggregateQuota is %d, subLedgerTotalQuota is %d", aggregateQuota, subLedgerTotalQuota))
+			err := errors.New(fmt.Sprintf("aggregateQuota != subLedgerTotalQuota, aggregateQuota is %d, subLedgerTotalQuota is %d\n", aggregateQuota, subLedgerTotalQuota))
 			t.Fatal(err)
 		}
 
