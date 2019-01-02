@@ -559,16 +559,16 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, nil, reSnapshotErr
 	}
 
+	// Delete sa list cache
+	if deleteErr := c.saList.DeleteStartWith(snapshotBlocks[0]); deleteErr != nil {
+		c.log.Crit("c.saList.DeleteStartWith failed, error is "+deleteErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
+	}
+
 	// write db
 	writeErr := c.chainDb.Commit(batch)
 
 	if writeErr != nil {
 		c.log.Crit("Write db failed, error is "+writeErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
-	}
-
-	// Delete sa list cache
-	if deleteErr := c.saList.DeleteStartWith(snapshotBlocks[0]); deleteErr != nil {
-		c.log.Crit("c.saList.DeleteStartWith failed, error is "+deleteErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 	}
 
 	// Delete cache

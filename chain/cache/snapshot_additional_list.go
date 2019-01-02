@@ -142,7 +142,7 @@ func NewAdditionList(chain Chain) (*AdditionList, error) {
 	}
 	al.log.Info("Complete the calculation of entire network quota and cache build")
 
-	al.flush()
+	al.flush(true)
 
 	return al, nil
 }
@@ -162,7 +162,7 @@ func (al *AdditionList) Start() {
 		for {
 			select {
 			case <-al.timer.C:
-				al.flush()
+				al.flush(true)
 			case <-al.terminal:
 				return
 			}
@@ -175,6 +175,7 @@ func (al *AdditionList) Start() {
 func (al *AdditionList) Stop() {
 	al.statusLock.Lock()
 	defer al.statusLock.Unlock()
+
 	if al.status == 0 {
 		return
 	}
@@ -251,46 +252,64 @@ func (al *AdditionList) build() error {
 	return nil
 }
 
-func (al *AdditionList) flush() {
-	al.modifyLock.Lock()
-	defer al.modifyLock.Unlock()
+func (al *AdditionList) flush(isLock bool) error {
+	if isLock {
+		al.modifyLock.Lock()
+		defer al.modifyLock.Unlock()
+	}
 
 	if len(al.list) <= 0 {
-		return
+		return nil
 	}
 
 	headAdditionItem := al.list[len(al.list)-1]
 	tailAdditionItem := al.list[0]
 
-	NewFragTailHeight := tailAdditionItem.SnapshotHashHeight.Height
+	newFragTailHeight := tailAdditionItem.SnapshotHashHeight.Height
 	if len(al.frags) > 0 {
 		savedFragHeadHeight := al.frags[len(al.frags)-1].HeadHeight
 
-		NewFragTailHeight = savedFragHeadHeight + 1
+		newFragTailHeight = savedFragHeadHeight + 1
 	}
-	NewFragHeadHeight := headAdditionItem.SnapshotHashHeight.Height
+	newFragHeadHeight := headAdditionItem.SnapshotHashHeight.Height
 
-	if NewFragTailHeight > NewFragHeadHeight {
-		return
+	if newFragTailHeight <= newFragHeadHeight {
+		newFragListStartIndex := al.getIndexByHeight(newFragTailHeight)
+		newFragListEndIndex := al.getIndexByHeight(newFragHeadHeight)
+
+		newFragList := al.list[newFragListStartIndex : newFragListEndIndex+1]
+
+		newFrag := &Fragment{
+			HeadHeight: newFragHeadHeight,
+			TailHeight: newFragTailHeight,
+			List:       newFragList,
+		}
+
+		if err := al.saveFrag(newFrag); err != nil {
+			err := errors.New("saveFrag failed, error is " + err.Error())
+			al.log.Error(err.Error(), "method", "flush")
+			return err
+		}
+		al.frags = append(al.frags, newFrag)
+		al.clearStaleData()
+	} else {
+		i := len(al.frags) - 1
+		for ; i >= 0; i-- {
+			frag := al.frags[i]
+			if frag.TailHeight < newFragHeadHeight {
+				break
+			}
+		}
+		if i < 0 {
+			i = 0
+		}
+		if err := al.deleteFrags(al.frags[i:]); err != nil {
+			return err
+		}
+
 	}
 
-	newFragListStartIndex := al.getIndexByHeight(NewFragTailHeight)
-	newFragListEndIndex := al.getIndexByHeight(NewFragHeadHeight)
-
-	newFragList := al.list[newFragListStartIndex : newFragListEndIndex+1]
-
-	newFrag := &Fragment{
-		HeadHeight: NewFragHeadHeight,
-		TailHeight: NewFragTailHeight,
-		List:       newFragList,
-	}
-
-	if err := al.saveFrag(newFrag); err != nil {
-		al.log.Error("saveFrag failed, error is "+err.Error(), "method", "flush")
-		return
-	}
-	al.frags = append(al.frags, newFrag)
-	al.clearStaleData()
+	return nil
 }
 
 func (al *AdditionList) clearStaleData() {
@@ -434,11 +453,11 @@ func (al *AdditionList) DeleteStartWith(block *ledger.SnapshotBlock) error {
 	}
 	ai := al.list[index]
 	if ai.SnapshotHashHeight.Hash != block.Hash {
-		return errors.New(fmt.Sprintf("Block hash is error, block hash is %s, block height is %d", block.Hash, block.Height))
+		return errors.New(fmt.Sprintf("Block hash is error, block hash is %s, block height is %d, ai.SnapshotHashHeight.Hash is %s ,ai.SnapshotHashHeight.Height is %d",
+			block.Hash, block.Height, ai.SnapshotHashHeight.Hash, ai.SnapshotHashHeight.Height))
 	}
 	al.list = al.list[:index]
-
-	return nil
+	return al.flush(false)
 }
 
 func (al *AdditionList) GetAggregateQuota(block *ledger.SnapshotBlock) (uint64, error) {
