@@ -35,5 +35,7 @@ const (
 
 	DBKP_BE_SNAPSHOT = byte(17)
 
-	DBKP_ADDITIONAL_LIST = byte(18)
+	DBKP_HEAD_META_BY_TOKEN = byte(18)
+
+	DBKP_HASH_LIST_BY_TOKEN = byte(19)
 )
