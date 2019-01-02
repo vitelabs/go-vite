@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -114,7 +113,6 @@ func (c *chain) getChainSet(queryParams map[types.Address][2]*ledger.HashHeight)
 		}
 
 		if otherBlockList != nil {
-			helper.ReverseSlice(otherBlockList)
 			blockList = append(otherBlockList, blockList...)
 		}
 

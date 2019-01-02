@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/chain/cache"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/chain_db"
@@ -32,7 +33,7 @@ type chain struct {
 
 	createAccountLock sync.Mutex
 
-	needSnapshotCache *NeedSnapshotCache
+	needSnapshotCache *chain_cache.NeedSnapshotCache
 
 	genesisSnapshotBlock *ledger.SnapshotBlock
 	latestSnapshotBlock  *ledger.SnapshotBlock
@@ -51,6 +52,8 @@ type chain struct {
 
 	saveTrieStatus     uint8
 	saveTrieStatusLock sync.Mutex
+
+	saList *chain_cache.AdditionList
 }
 
 func NewChain(cfg *config.Config) Chain {
@@ -67,10 +70,10 @@ func NewChain(cfg *config.Config) Chain {
 		chain.cfg = &config.Chain{}
 	}
 
+	chain.needSnapshotCache = chain_cache.NewNeedSnapshotCache(chain)
 	chain.blackBlock = NewBlackBlock(chain, chain.cfg.OpenBlackBlock)
 
 	initGenesis(chain.readGenesis(chain.cfg.GenesisFile))
-
 	return chain
 }
 
@@ -93,6 +96,13 @@ func (c *chain) Init() {
 
 	// cache
 	c.initCache()
+
+	// saList
+	var err error
+	c.saList, err = chain_cache.NewAdditionList(c)
+	if err != nil {
+		c.log.Crit("chain_cache.NewAdditionList failed, error is "+err.Error(), "method", "Init")
+	}
 
 	// trie gc
 	c.trieGc = trie_gc.NewCollector(c, c.cfg.LedgerGcRetain)
@@ -219,11 +229,7 @@ func (c *chain) initCache() {
 	}
 
 	// needSnapshotCache
-	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
-	if getSubLedgerErr != nil {
-		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "Start")
-	}
-	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
+	c.needSnapshotCache.Build()
 
 	// trieNodePool
 	c.trieNodePool = trie.NewTrieNodePool()
@@ -237,7 +243,14 @@ func (c *chain) ChainDb() *chain_db.ChainDb {
 	return c.chainDb
 }
 
+func (c *chain) SaList() *chain_cache.AdditionList {
+	return c.saList
+}
+
 func (c *chain) Start() {
+	// saList start
+	c.saList.Start()
+
 	// Start compress in the background
 	c.log.Info("Start chain module")
 
@@ -266,6 +279,9 @@ func (c *chain) Start() {
 }
 
 func (c *chain) Stop() {
+	// saList top
+	c.saList.Stop()
+
 	// trie gc
 	if c.cfg.LedgerGc {
 		c.trieGc.Stop()

@@ -1,6 +1,7 @@
 package vm_context
 
 import (
+	"github.com/vitelabs/go-vite/chain/cache"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
@@ -24,4 +25,6 @@ type Chain interface {
 	NewStateTrie() *trie.Trie
 	GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error)
 	GetContractGid(addr *types.Address) (*types.Gid, error)
+
+	SaList() *chain_cache.AdditionList
 }

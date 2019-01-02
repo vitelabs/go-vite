@@ -3,6 +3,7 @@ package access
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -11,7 +12,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
-	"fmt"
 )
 
 func getAccountBlockHash(dbKey []byte) *types.Hash {
@@ -608,18 +608,49 @@ func (ac *AccountChain) GetPlanToDelete(maxAccountId uint64, snapshotBlockHeight
 
 	return planToDelete, nil
 }
-
-func (ac *AccountChain) GetUnConfirmedSubLedger(maxAccountId uint64) (map[uint64][]*ledger.AccountBlock, error) {
+func (ac *AccountChain) GetUnConfirmedSubLedgerByAccounts(accountIds []uint64) (map[uint64][]*ledger.AccountBlock, error) {
 	unConfirmedAccountBlocks := make(map[uint64][]*ledger.AccountBlock)
-	for i := uint64(1); i <= maxAccountId; i++ {
-		block, err := ac.GetLatestBlock(i)
+	for _, accountId := range accountIds {
+		blockList, err := ac.GetUnConfirmAccountBlocks(accountId, 0)
 		if err != nil {
 			return nil, err
 		}
-		if block == nil {
-			continue
+
+		if len(blockList) > 0 {
+			unConfirmedAccountBlocks[accountId] = blockList
+		}
+	}
+	return unConfirmedAccountBlocks, nil
+}
+
+func (ac *AccountChain) GetUnConfirmedSubLedger(maxAccountId uint64) (map[uint64][]*ledger.AccountBlock, error) {
+	unConfirmedAccountBlocks := make(map[uint64][]*ledger.AccountBlock)
+	for accountId := uint64(1); accountId <= maxAccountId; accountId++ {
+		blockList, err := ac.GetUnConfirmAccountBlocks(accountId, 0)
+		if err != nil {
+			return nil, err
 		}
 
+		if len(blockList) > 0 {
+			unConfirmedAccountBlocks[accountId] = blockList
+		}
+
+	}
+	return unConfirmedAccountBlocks, nil
+}
+
+func (ac *AccountChain) getUnconfirmedBlocks(accountId uint64) ([]*ledger.AccountBlock, error) {
+	var unconfirmedBlocks []*ledger.AccountBlock
+	block, err := ac.GetLatestBlock(accountId)
+	if err != nil {
+		return nil, err
+	}
+
+	if block == nil {
+		return nil, nil
+	}
+	for {
+		currentHeight := block.Height
 		blockMeta, getMetaErr := ac.GetBlockMeta(&block.Hash)
 
 		if getMetaErr != nil {
@@ -632,10 +663,27 @@ func (ac *AccountChain) GetUnConfirmedSubLedger(maxAccountId uint64) (map[uint64
 		}
 
 		if blockMeta.SnapshotHeight <= 0 {
-			unConfirmedAccountBlocks[i] = []*ledger.AccountBlock{block}
+			// prepend, less garbage
+			unconfirmedBlocks = append(unconfirmedBlocks, nil)
+			copy(unconfirmedBlocks[1:], unconfirmedBlocks)
+			unconfirmedBlocks[0] = block
+		} else {
+			break
+		}
+
+		if currentHeight <= 0 {
+			break
+		}
+		block, err := ac.GetBlockByHeight(accountId, currentHeight-1)
+		if err != nil {
+			return nil, err
+		}
+		if block == nil {
+			break
 		}
 	}
-	return unConfirmedAccountBlocks, nil
+
+	return unconfirmedBlocks, nil
 }
 
 // TODO Add cache, call frequently.
@@ -745,7 +793,10 @@ func (ac *AccountChain) GetUnConfirmAccountBlocks(accountId uint64, beforeHeight
 			accountBlock.Hash = *accountBlockHash
 			accountBlock.Meta = accountBlockMeta
 
-			accountBlocks = append(accountBlocks, accountBlock)
+			// prepend
+			accountBlocks = append(accountBlocks, nil)
+			copy(accountBlocks[1:], accountBlocks)
+			accountBlocks[0] = accountBlock
 		} else {
 			return accountBlocks, nil
 		}
