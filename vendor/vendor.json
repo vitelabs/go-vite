@@ -268,6 +268,12 @@
 			"revisionTime": "2018-11-29T16:20:56Z"
 		},
 		{
+			"checksumSHA1": "+b9Dcrefp1FAUW1mDYpqr7jVKuA=",
+			"path": "github.com/influxdata/influxdb/client/v2",
+			"revision": "38b07bbaab8616d26ce9e71eb9a7e62fd6463c6e",
+			"revisionTime": "2018-12-21T16:29:26Z"
+		},
+		{
 			"checksumSHA1": "fDPeeWbnxZqrfrU0JFyMa+glPDI=",
 			"path": "github.com/jackpal/gateway",
 			"revision": "cbcf4e3f3baee7952fc386c8b2534af4d267c875",
