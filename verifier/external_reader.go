@@ -14,7 +14,6 @@ type Consensus interface {
 type Chain interface {
 	AccountReader
 	SnapshotReader
-	OnRoad
 }
 
 type SnapshotReader interface {
@@ -37,8 +36,5 @@ type AccountReader interface {
 	GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error)
 	GetStateTrie(hash *types.Hash) *trie.Trie
 	NewStateTrie() *trie.Trie
-}
-
-type OnRoad interface {
 	IsSuccessReceived(addr *types.Address, hash *types.Hash) bool
 }

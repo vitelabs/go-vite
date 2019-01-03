@@ -2,6 +2,7 @@ package gvite_plugins
 
 import (
 	"fmt"
+
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"gopkg.in/urfave/cli.v1"
@@ -34,7 +35,11 @@ var (
 func demoAction(ctx *cli.Context) error {
 
 	// Create and start the node based on the CLI flags
-	nodeManager := nodemanager.NewSubCmdNodeManager(ctx, nodemanager.FullNodeMaker{})
+	nodeManager, err := nodemanager.NewSubCmdNodeManager(ctx, nodemanager.FullNodeMaker{})
+	if err != nil {
+		fmt.Println("demo error", err)
+		return err
+	}
 	nodeManager.Start()
 	defer nodeManager.Stop()
 

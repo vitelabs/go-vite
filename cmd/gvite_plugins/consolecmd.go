@@ -65,7 +65,11 @@ This command allows to open a console on a running gvite node.`,
 func localConsoleAction(ctx *cli.Context) error {
 
 	// Create and start the node based on the CLI flags
-	nodeManager := nodemanager.NewConsoleNodeManager(ctx, nodemanager.FullNodeMaker{})
+	nodeManager, err := nodemanager.NewConsoleNodeManager(ctx, nodemanager.FullNodeMaker{})
+	if err != nil {
+		log.Error(fmt.Sprintf("new Node error, %+v", err))
+		return err
+	}
 	nodeManager.Start()
 	defer nodeManager.Stop()
 
@@ -73,6 +77,7 @@ func localConsoleAction(ctx *cli.Context) error {
 	client, err := nodeManager.Node().Attach()
 	if client == nil || err != nil {
 		log.Error(fmt.Sprintf("Failed to attach to the inproc gvite: %v", err))
+		return err
 	}
 
 	config := console.Config{
@@ -85,6 +90,7 @@ func localConsoleAction(ctx *cli.Context) error {
 	console, err := console.New(config)
 	if err != nil {
 		log.Error(fmt.Sprintf("Failed to start the JavaScript console: %v", err))
+		return err
 	}
 	defer console.Stop(false)
 
@@ -107,7 +113,10 @@ func localConsoleAction(ctx *cli.Context) error {
 func ephemeralConsoleAction(ctx *cli.Context) error {
 
 	// Create and start the node based on the CLI flags
-	nodeManager := nodemanager.NewConsoleNodeManager(ctx, nodemanager.FullNodeMaker{})
+	nodeManager, err := nodemanager.NewConsoleNodeManager(ctx, nodemanager.FullNodeMaker{})
+	if err != nil {
+		return err
+	}
 	nodeManager.Start()
 	defer nodeManager.Stop()
 

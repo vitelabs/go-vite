@@ -10,11 +10,15 @@ type ConsoleNodeManager struct {
 	node *node.Node
 }
 
-func NewConsoleNodeManager(ctx *cli.Context, maker NodeMaker) ConsoleNodeManager {
-	return ConsoleNodeManager{
-		ctx:  ctx,
-		node: maker.MakeNode(ctx),
+func NewConsoleNodeManager(ctx *cli.Context, maker NodeMaker) (*ConsoleNodeManager, error) {
+	node, err := maker.MakeNode(ctx)
+	if err != nil {
+		return nil, err
 	}
+	return &ConsoleNodeManager{
+		ctx:  ctx,
+		node: node,
+	}, nil
 }
 
 func (nodeManager *ConsoleNodeManager) Start() error {

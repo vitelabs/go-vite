@@ -154,6 +154,8 @@ func (w *ContractWorker) Stop() {
 		<-w.stopDispatcherListener
 		close(w.stopDispatcherListener)
 
+		w.uBlocksPool.DeleteContractCache(w.gid)
+
 		w.log.Info("stop all task")
 		wg := new(sync.WaitGroup)
 		for _, v := range w.contractTaskProcessors {
@@ -226,6 +228,9 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 		if addr == types.AddressPledge {
 			task.Quota = math.MaxUint64
 		}
+		if addr == types.AddressVote {
+			task.Quota = math.MaxUint64 - 1
+		}
 		w.contractTaskPQueue[i] = task
 		i++
 	}
@@ -260,6 +265,7 @@ func (w *ContractWorker) addIntoBlackList(addr types.Address) {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
 	w.blackList[addr] = true
+	w.uBlocksPool.ReleaseContractCache(addr)
 }
 
 func (w *ContractWorker) isInBlackList(addr types.Address) bool {
