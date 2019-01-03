@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
@@ -41,6 +42,8 @@ type Vite struct {
 }
 
 func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
+	// set fork points
+	fork.SetForkPoints(cfg.ForkPoints)
 
 	// chain
 	chain := chain.NewChain(cfg)

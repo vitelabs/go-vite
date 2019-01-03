@@ -193,7 +193,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		plog.Error("vm.Run error, ignore", "error", genResult.Err)
 	}
 
-	plog.Info(fmt.Sprintf("len(genResult.BlockGenList) = %v", len(blockList)))
+	//plog.Info(fmt.Sprintf("len(genResult.BlockGenList) = %v", len(blockList)))
 	if len(genResult.BlockGenList) > 0 {
 		if err := tp.worker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
 			plog.Error("insertContractBlocksToPool", "error", err)

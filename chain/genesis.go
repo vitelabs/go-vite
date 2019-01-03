@@ -9,48 +9,13 @@ import (
 
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 )
-
-type ConditionRegisterData struct {
-	PledgeAmount *big.Int
-	PledgeToken  types.TokenTypeId
-	PledgeHeight uint64
-}
-
-type VoteConditionData struct {
-	Amount  *big.Int
-	TokenId types.TokenTypeId
-}
-
-type ConsensusGroupInfo struct {
-	NodeCount              uint8
-	Interval               int64
-	PerCount               int64
-	RandCount              uint8
-	RandRank               uint8
-	CountingTokenId        types.TokenTypeId
-	RegisterConditionId    uint8
-	RegisterConditionParam ConditionRegisterData
-	VoteConditionId        uint8
-	VoteConditionParam     VoteConditionData
-	Owner                  types.Address
-	PledgeAmount           *big.Int
-	WithdrawHeight         uint64
-}
-
-type GenesisConfig struct {
-	GenesisAccountAddress  types.Address
-	BlockProducers         []types.Address
-	SnapshotConsensusGroup *ConsensusGroupInfo
-	CommonConsensusGroup   *ConsensusGroupInfo
-
-	Fork *fork
-}
 
 var GenesisSnapshotBlock ledger.SnapshotBlock
 var SecondSnapshotBlock ledger.SnapshotBlock
@@ -67,7 +32,7 @@ var GenesisConsensusGroupBlockVC vmctxt_interface.VmDatabase
 var GenesisRegisterBlock ledger.AccountBlock
 var GenesisRegisterBlockVC vmctxt_interface.VmDatabase
 
-func initGenesis(config *GenesisConfig) {
+func initGenesis(config *config.Genesis) {
 	GenesisSnapshotBlock = genesisSnapshotBlock()
 
 	GenesisMintageBlock, GenesisMintageBlockVC = genesisMintageBlock(config)
@@ -139,7 +104,7 @@ func secondSnapshotBlock() ledger.SnapshotBlock {
 
 var totalSupply = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9))
 
-func genesisMintageBlock(config *GenesisConfig) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
+func genesisMintageBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	timestamp := genesisTimestamp.Add(time.Second * 10)
 	block := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
@@ -166,7 +131,7 @@ func genesisMintageBlock(config *GenesisConfig) (ledger.AccountBlock, vmctxt_int
 	return block, vmContext
 }
 
-func genesisMintageSendBlock(config *GenesisConfig) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
+func genesisMintageSendBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	timestamp := genesisTimestamp.Add(time.Second * 12)
 	block := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeSendReward,
@@ -186,7 +151,7 @@ func genesisMintageSendBlock(config *GenesisConfig) (ledger.AccountBlock, vmctxt
 	return block, GenesisMintageBlockVC.CopyAndFreeze()
 }
 
-func getConsensusGroupData(consensusGroupConfig *ConsensusGroupInfo) ([]byte, error) {
+func getConsensusGroupData(consensusGroupConfig *config.ConsensusGroupInfo) ([]byte, error) {
 
 	conditionRegisterData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge,
 		consensusGroupConfig.RegisterConditionParam.PledgeAmount,
@@ -223,7 +188,7 @@ func getConsensusGroupData(consensusGroupConfig *ConsensusGroupInfo) ([]byte, er
 		consensusGroupConfig.WithdrawHeight)
 }
 
-func genesisConsensusGroupBlock(config *GenesisConfig) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
+func genesisConsensusGroupBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	timestamp := genesisTimestamp.Add(time.Second * 10)
 
 	block := ledger.AccountBlock{
@@ -256,7 +221,7 @@ func genesisConsensusGroupBlock(config *GenesisConfig) (ledger.AccountBlock, vmc
 	return block, vmContext
 }
 
-func genesisRegisterBlock(config *GenesisConfig) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
+func genesisRegisterBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	timestamp := genesisTimestamp.Add(time.Second * 10)
 
 	block := ledger.AccountBlock{
