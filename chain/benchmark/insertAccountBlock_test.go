@@ -14,7 +14,8 @@ func Benchmark_InsertAccountBlock(b *testing.B) {
 		ACCOUNT_NUMS        = 1000
 		ACCOUNT_BLOCK_LIMIT = 1000 * 10000
 
-		PRINT_PER_COUNT               = 1000
+		PRINT_PER_COUNT = 1000
+
 		CREATE_REQUEST_TX_PROBABILITY = 50
 
 		LOOP_INSERT_SNAPSHOTBLOCK = true
