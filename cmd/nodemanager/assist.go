@@ -69,7 +69,7 @@ func WaitNode(node *node.Node) {
 
 // stop the node
 func StopNode(node *node.Node) {
-	fmt.Sprintf("Stop the Node...")
+	log.Warn("Stop the Node...")
 
 	//Stop the node Extenders
 	log.Warn("Stop the NodeExtenders...")
