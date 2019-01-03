@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/generator"
@@ -58,8 +59,7 @@ func (verifier *AccountVerifier) VerifyNetAb(block *ledger.AccountBlock) error {
 		}
 		return errors.New("snapshotBlock doesn't exist ")
 	}
-	isVite1 := verifier.satisfyVite1(snapshotBlock)
-	if err := verifier.VerifyP2PDataValidity(block, isVite1); err != nil {
+	if err := verifier.VerifyP2PDataValidity(block, snapshotBlock.Height); err != nil {
 		return err
 	}
 
@@ -87,7 +87,7 @@ type BlockState struct {
 	block   *ledger.AccountBlock
 	accType uint64
 
-	isVite1 bool // fork
+	sbHeight uint64 // fork
 
 	vStat *AccountBlockVerifyStat
 }
@@ -97,10 +97,10 @@ func (verifier *AccountVerifier) VerifyReferred(block *ledger.AccountBlock) (Ver
 	defer monitor.LogTime("AccountVerifier", "accountVerifyReferred", time.Now())
 
 	bs := &BlockState{
-		block:   block,
-		isVite1: true,
-		accType: ledger.AccountTypeNotExist,
-		vStat:   verifier.newVerifyStat(),
+		block:    block,
+		sbHeight: 2,
+		accType:  ledger.AccountTypeNotExist,
+		vStat:    verifier.newVerifyStat(),
 	}
 
 	if !verifier.verifySnapshot(bs) {
@@ -154,7 +154,7 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 	return genResult.BlockGenList, nil
 }
 
-// referredBlock' snapshotBlock's height can't lower than thisBlock
+// referredBlock' snapshotBlock's sbHeight can't lower than thisBlock
 func (verifier *AccountVerifier) VerifySnapshotOfReferredBlock(thisBlock *ledger.AccountBlock, referredBlock *ledger.AccountBlock) (VerifyResult, error) {
 	thisSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&thisBlock.SnapshotHash)
 	referredSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&referredBlock.SnapshotHash)
@@ -175,8 +175,8 @@ func (verifier *AccountVerifier) VerifyIsReceivedSucceed(block *ledger.AccountBl
 	return verifier.chain.IsSuccessReceived(&block.AccountAddress, &block.FromBlockHash)
 }
 
-func (verifier *AccountVerifier) VerifyHash(block *ledger.AccountBlock) error {
-	computedHash := block.ComputeHash()
+func (verifier *AccountVerifier) VerifyHash(block *ledger.AccountBlock, sbHeight uint64) error {
+	computedHash := block.ComputeHash(sbHeight)
 	if block.Hash.IsZero() {
 		return errors.New("hash can't be allzero")
 	}
@@ -224,7 +224,7 @@ func (verifier *AccountVerifier) VerifyNonce(block *ledger.AccountBlock, account
 func (verifier *AccountVerifier) VerifyTimeOut(blockReferSb *ledger.SnapshotBlock) error {
 	currentSb := verifier.chain.GetLatestSnapshotBlock()
 	if currentSb.Height > blockReferSb.Height+TimeOutHeight {
-		return errors.New("snapshot timeout, height is too low")
+		return errors.New("snapshot timeout, sbHeight is too low")
 	}
 	return nil
 }
@@ -260,20 +260,20 @@ func (verifier *AccountVerifier) VerifyProducerLegality(block *ledger.AccountBlo
 	return nil
 }
 
-func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock, isVite1 bool, accType uint64) error {
+func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock, sbHeight uint64, accType uint64) error {
 	defer monitor.LogTime("AccountVerifier", "VerifyDataValidity", time.Now())
 
-	if err := verifier.verifyDatasIntergrity(block, isVite1); err != nil {
+	if err := verifier.verifyDatasIntergrity(block, sbHeight); err != nil {
 		return err
 	}
 
-	if !isVite1 {
+	if fork.IsVite1(sbHeight) {
 		if block.IsReceiveBlock() && block.Data != nil && accType == ledger.AccountTypeGeneral {
 			return errors.New("receiveBlock data must be nil when addr is general")
 		}
 	}
 
-	if err := verifier.VerifyHash(block); err != nil {
+	if err := verifier.VerifyHash(block, sbHeight); err != nil {
 		return err
 	}
 
@@ -289,14 +289,14 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock, 
 	return nil
 }
 
-func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBlock, isVite1 bool) error {
+func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBlock, sbHeight uint64) error {
 	defer monitor.LogTime("AccountVerifier", "VerifyP2PDataValidity", time.Now())
 
-	if err := verifier.verifyDatasIntergrity(block, isVite1); err != nil {
+	if err := verifier.verifyDatasIntergrity(block, sbHeight); err != nil {
 		return err
 	}
 
-	if err := verifier.VerifyHash(block); err != nil {
+	if err := verifier.VerifyHash(block, sbHeight); err != nil {
 		return err
 	}
 
@@ -330,7 +330,7 @@ func (verifier *AccountVerifier) verifySnapshot(bs *BlockState) bool {
 			bs.vStat.referredSnapshotResult = FAIL
 			return false
 		} else {
-			bs.isVite1 = verifier.satisfyVite1(snapshotBlock)
+			bs.sbHeight = snapshotBlock.Height
 			bs.vStat.referredSnapshotResult = SUCCESS
 			return true
 		}
@@ -340,7 +340,7 @@ func (verifier *AccountVerifier) verifySnapshot(bs *BlockState) bool {
 func (verifier *AccountVerifier) verifySelf(bs *BlockState) bool {
 	defer monitor.LogTime("verify", "accountSelf", time.Now())
 
-	if err := verifier.VerifyDataValidity(bs.block, bs.isVite1, bs.accType); err != nil {
+	if err := verifier.VerifyDataValidity(bs.block, bs.sbHeight, bs.accType); err != nil {
 		bs.vStat.referredSelfResult = FAIL
 		bs.vStat.errMsg += err.Error()
 		return false
@@ -400,7 +400,7 @@ func (verifier *AccountVerifier) verifySelfPrev(bs *BlockState) VerifyResult {
 			bs.vStat.referredSelfResult = PENDING
 			return PENDING
 		default:
-			bs.vStat.errMsg += "preHash or height is invalid"
+			bs.vStat.errMsg += "preHash or sbHeight is invalid"
 			bs.vStat.referredSelfResult = FAIL
 			return FAIL
 		}
@@ -449,25 +449,12 @@ func (verifier *AccountVerifier) verifyFrom(bs *BlockState) bool {
 	return true
 }
 
-func (verifier *AccountVerifier) verifyDatasIntergrity(block *ledger.AccountBlock, isVite1 bool) error {
+func (verifier *AccountVerifier) verifyDatasIntergrity(block *ledger.AccountBlock, vite1Height uint64) error {
 	if block.Timestamp == nil {
 		return errors.New("block timestamp can't be nil")
 	}
 
-	if isVite1 {
-		if block.Amount == nil {
-			block.Amount = big.NewInt(0)
-		}
-		if block.Fee == nil {
-			block.Fee = big.NewInt(0)
-		}
-		if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
-			return errors.New("block amount out of bounds")
-		}
-		if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
-			return errors.New("block fee out of bounds")
-		}
-	} else {
+	if fork.IsVite1(vite1Height) {
 		if block.IsSendBlock() {
 			if block.Amount == nil {
 				block.Amount = big.NewInt(0)
@@ -491,6 +478,19 @@ func (verifier *AccountVerifier) verifyDatasIntergrity(block *ledger.AccountBloc
 				return errors.New("fee in receive block must be nil after fork point")
 			}
 		}
+	} else {
+		if block.Amount == nil {
+			block.Amount = big.NewInt(0)
+		}
+		if block.Fee == nil {
+			block.Fee = big.NewInt(0)
+		}
+		if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
+			return errors.New("block amount out of bounds")
+		}
+		if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
+			return errors.New("block fee out of bounds")
+		}
 	}
 	return nil
 }
@@ -504,8 +504,7 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 		}
 		return errors.New("snapshotBlock doesn't exist ")
 	}
-	isVite1 := verifier.satisfyVite1(snapshotBlock)
-	if isVite1 {
+	if !fork.IsVite1(snapshotBlock.Height) {
 		if origBlock.Fee.Cmp(genBlock.Fee) != 0 {
 			return errors.New("fee")
 		}
@@ -568,13 +567,6 @@ func (verifier *AccountVerifier) checkAccAddressType(bs *BlockState) bool {
 	}
 	bs.vStat.referredSelfResult = SUCCESS
 	return true
-}
-
-func (verifier *AccountVerifier) satisfyVite1(sb *ledger.SnapshotBlock) bool {
-	if verifier.chain.IsVite1ByHeight(sb.Height) && verifier.chain.IsVite1(sb.Hash) {
-		return true
-	}
-	return false
 }
 
 type AccountBlockVerifyStat struct {

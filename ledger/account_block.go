@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -283,7 +284,7 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) {
 
 }
 
-func (ab *AccountBlock) ComputeHash() types.Hash {
+func (ab *AccountBlock) ComputeHash(sbHeight uint64) types.Hash {
 	var source []byte
 	// BlockType
 	source = append(source, ab.BlockType)
@@ -306,17 +307,24 @@ func (ab *AccountBlock) ComputeHash() types.Hash {
 		source = append(source, ab.Amount.Bytes()...)
 		// TokenId
 		source = append(source, ab.TokenId.Bytes()...)
+		// Fee
+		fee := ab.Fee
+		if fee == nil {
+			fee = big.NewInt(0)
+		}
+		source = append(source, fee.Bytes()...)
 	} else {
 		// FromBlockHash
 		source = append(source, ab.FromBlockHash.Bytes()...)
+		if !fork.IsVite(sbHeight) {
+			// Fee
+			fee := ab.Fee
+			if fee == nil {
+				fee = big.NewInt(0)
+			}
+			source = append(source, fee.Bytes()...)
+		}
 	}
-
-	// Fee
-	fee := ab.Fee
-	if fee == nil {
-		fee = big.NewInt(0)
-	}
-	source = append(source, fee.Bytes()...)
 
 	// SnapshotHash
 	source = append(source, ab.SnapshotHash.Bytes()...)

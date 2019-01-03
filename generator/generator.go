@@ -2,9 +2,7 @@ package generator
 
 import (
 	"errors"
-	"math/big"
-	"time"
-
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -12,6 +10,8 @@ import (
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"math/big"
+	"time"
 )
 
 const DefaultHeightDifference uint64 = 10
@@ -21,7 +21,7 @@ type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, 
 type Generator struct {
 	vmContext vmctxt_interface.VmDatabase
 	vm        vm.VM
-	isVite1   bool
+	sbHeight  uint64
 
 	log log15.Logger
 }
@@ -32,10 +32,10 @@ type GenResult struct {
 	Err          error
 }
 
-func NewGenerator(chain Chain, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
+func NewGenerator(chain vm_context.Chain, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
 	gen := &Generator{
-		log:     log15.New("module", "Generator"),
-		isVite1: false,
+		log:      log15.New("module", "Generator"),
+		sbHeight: 2,
 	}
 
 	gen.vm = *vm.NewVM()
@@ -47,9 +47,7 @@ func NewGenerator(chain Chain, snapshotBlockHash, prevBlockHash *types.Hash, add
 	gen.vmContext = vmContext
 
 	if sb := gen.vmContext.CurrentSnapshotBlock(); sb != nil {
-		if chain.IsVite1ByHeight(sb.Height) {
-			gen.isVite1 = true
-		}
+		gen.sbHeight = sb.Height
 	} else {
 		return nil, errors.New("failed to new generator, cause current snapshotblock is nil")
 	}
@@ -128,7 +126,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 	if len(blockList) > 0 {
 		for k, v := range blockList {
 			if k == 0 {
-				v.AccountBlock.Hash = v.AccountBlock.ComputeHash()
+				v.AccountBlock.Hash = v.AccountBlock.ComputeHash(gen.sbHeight)
 				if signFunc != nil {
 					signature, publicKey, e := signFunc(producer, v.AccountBlock.Hash.Bytes())
 					if e != nil {
@@ -139,7 +137,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 				}
 			} else {
 				v.AccountBlock.PrevHash = blockList[k-1].AccountBlock.Hash
-				v.AccountBlock.Hash = v.AccountBlock.ComputeHash()
+				v.AccountBlock.Hash = v.AccountBlock.ComputeHash(gen.sbHeight)
 			}
 		}
 	}
@@ -238,18 +236,19 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 func (gen *Generator) getDatasFromSendBlock(blockPacked, sendBlock *ledger.AccountBlock) {
 	blockPacked.AccountAddress = sendBlock.ToAddress
 	blockPacked.FromBlockHash = sendBlock.Hash
-	if gen.isVite1 {
-		if sendBlock.Amount == nil {
-			blockPacked.Amount = big.NewInt(0)
-		} else {
-			blockPacked.Amount = sendBlock.Amount
-		}
-		blockPacked.TokenId = sendBlock.TokenId
+	if fork.IsVite1(gen.sbHeight) {
+		return
+	}
+	if sendBlock.Amount == nil {
+		blockPacked.Amount = big.NewInt(0)
+	} else {
+		blockPacked.Amount = sendBlock.Amount
+	}
+	blockPacked.TokenId = sendBlock.TokenId
 
-		if sendBlock.Fee == nil {
-			blockPacked.Fee = big.NewInt(0)
-		} else {
-			blockPacked.Fee = sendBlock.Fee
-		}
+	if sendBlock.Fee == nil {
+		blockPacked.Fee = big.NewInt(0)
+	} else {
+		blockPacked.Fee = sendBlock.Fee
 	}
 }
