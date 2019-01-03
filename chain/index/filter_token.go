@@ -6,12 +6,12 @@ import (
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_context"
 )
 
 type FilterTokenIndex struct {
-	chainInstance chain.Chain
-	Meta          map[types.Address]map[types.TokenTypeId]types.Hash
+	chainInstance    chain.Chain
+	BlockNumPerBuild uint64
+	Meta             map[types.Address]map[types.TokenTypeId]types.Hash
 }
 
 func NewFilterTokenIndex() {
@@ -24,13 +24,22 @@ func (fti *FilterTokenIndex) build() error {
 	if err != nil {
 		return err
 	}
+
 	for i := uint64(1); i <= lastAccountId; i++ {
 		startHeight := uint64(1)
 		for {
-			endHeight := startHeight + 999
+			endHeight := startHeight + fti.BlockNumPerBuild
 
 			blocks, err := fti.chainInstance.ChainDb().Ac.GetBlockListByAccountId(i, startHeight, endHeight, true)
 			if err != nil {
+				return err
+			}
+
+			if len(blocks) < 0 {
+				break
+			}
+
+			if err := fti.AddBlocks(i, blocks); err != nil {
 				return err
 			}
 
@@ -46,8 +55,8 @@ func (fti *FilterTokenIndex) build() error {
 
 }
 
-func (fti *FilterTokenIndex) getHeadHash(account *ledger.Account, tokenTypeId types.TokenTypeId) (*types.Hash, error) {
-	key, _ := database.EncodeKey(database.DBKP_ACCOUNT_TOKEN_META, account.AccountId, tokenTypeId)
+func (fti *FilterTokenIndex) getHeadHash(accountId uint64, tokenTypeId types.TokenTypeId) (*types.Hash, error) {
+	key, _ := database.EncodeKey(database.DBKP_ACCOUNT_TOKEN_META, accountId, tokenTypeId)
 	db := fti.chainInstance.ChainDb().Db()
 	value, err := db.Get(key, nil)
 	if err != nil {
@@ -58,30 +67,47 @@ func (fti *FilterTokenIndex) getHeadHash(account *ledger.Account, tokenTypeId ty
 	return &hash, err
 }
 
-func (fti *FilterTokenIndex) saveHeadHash(batch *leveldb.Batch, account *ledger.Account, tokenTypeId types.TokenTypeId, hash types.Hash) {
-	key, _ := database.EncodeKey(database.DBKP_ACCOUNT_TOKEN_META, account.AccountId, tokenTypeId)
+func (fti *FilterTokenIndex) saveHeadHash(batch *leveldb.Batch, accountId uint64, tokenTypeId types.TokenTypeId, hash types.Hash) {
+	key, _ := database.EncodeKey(database.DBKP_ACCOUNT_TOKEN_META, accountId, tokenTypeId)
 	value := hash.Bytes()
 
 	batch.Put(key, value)
 }
 
-func (fti *FilterTokenIndex) addBlocks(account *ledger.Account, vmBlocks []*vm_context.VmAccountBlock) error {
+func (fti *FilterTokenIndex) AddBlocks(accountId uint64, blocks []*ledger.AccountBlock) error {
 	// add
 	batch := new(leveldb.Batch)
-	for _, block := range vmBlocks {
-		key, _ := database.EncodeKey(database.DBKP_BLOCK_LIST_BY_TOKEN, account.AccountId, block.AccountBlock.Hash)
-		prevHashInToken, err := fti.getHeadHash(account, block.AccountBlock.TokenId)
-		if err != nil {
-			return err
+
+	unsavedHeadHash := make(map[types.TokenTypeId]types.Hash)
+
+	for _, block := range blocks {
+		key, _ := database.EncodeKey(database.DBKP_BLOCK_LIST_BY_TOKEN, accountId, block.Hash)
+
+		var prevHashInToken *types.Hash
+		if hash, ok := unsavedHeadHash[block.TokenId]; ok {
+			prevHashInToken = &hash
+		} else {
+			var err error
+			prevHashInToken, err = fti.getHeadHash(accountId, block.TokenId)
+
+			if err != nil {
+				return err
+			}
 		}
 
-		value := prevHashInToken.Bytes()
+		var value []byte
+		if prevHashInToken != nil {
+			value = prevHashInToken.Bytes()
+		}
 
 		// batch write
 		batch.Put(key, value)
 
-		fti.saveHeadHash(batch, account, block.AccountBlock.TokenId, block.AccountBlock.Hash)
 	}
+	for tokenTypeId, prevHash := range unsavedHeadHash {
+		fti.saveHeadHash(batch, accountId, tokenTypeId, prevHash)
+	}
+
 	return fti.chainInstance.ChainDb().Commit(batch)
 }
 
@@ -107,14 +133,15 @@ func (fti *FilterTokenIndex) deleteBlocks(subLedger map[types.Address][]*ledger.
 				headHash = &hash
 			} else {
 				var err error
-				headHash, err = fti.getHeadHash(account, block.TokenId)
+				headHash, err = fti.getHeadHash(account.AccountId, block.TokenId)
 				if err != nil {
 					return err
 				}
 			}
 
-			if headHash != nil &&
-				*headHash == block.Hash {
+			if headHash == nil {
+				// delete
+			} else if *headHash == block.Hash {
 				value, err := db.Get(key, nil)
 				if err != nil {
 					return err
@@ -133,7 +160,7 @@ func (fti *FilterTokenIndex) deleteBlocks(subLedger map[types.Address][]*ledger.
 
 		for tokenTypeId, prevHash := range unsavedHeadHash {
 			// save
-			fti.saveHeadHash(batch, account, tokenTypeId, prevHash)
+			fti.saveHeadHash(batch, account.AccountId, tokenTypeId, prevHash)
 		}
 
 	}
