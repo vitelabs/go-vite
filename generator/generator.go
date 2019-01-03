@@ -3,7 +3,6 @@ package generator
 import (
 	"errors"
 	"math/big"
-	"math/rand"
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -20,8 +19,9 @@ const DefaultHeightDifference uint64 = 10
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
 type Generator struct {
-	vm        vm.VM
 	vmContext vmctxt_interface.VmDatabase
+	vm        vm.VM
+	isVite1   bool
 
 	log log15.Logger
 }
@@ -32,18 +32,27 @@ type GenResult struct {
 	Err          error
 }
 
-func NewGenerator(chain vm_context.Chain, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
+func NewGenerator(chain Chain, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
 	gen := &Generator{
-		log: log15.New("module", "Generator"),
+		log:     log15.New("module", "Generator"),
+		isVite1: false,
 	}
+
+	gen.vm = *vm.NewVM()
 
 	vmContext, err := vm_context.NewVmContext(chain, snapshotBlockHash, prevBlockHash, addr)
 	if err != nil {
 		return nil, err
 	}
-
 	gen.vmContext = vmContext
-	gen.vm = *vm.NewVM()
+
+	if sb := gen.vmContext.CurrentSnapshotBlock(); sb != nil {
+		if chain.IsVite1ByHeight(sb.Height) {
+			gen.isVite1 = true
+		}
+	} else {
+		return nil, errors.New("failed to new generator, cause current snapshotblock is nil")
+	}
 	return gen, nil
 }
 
@@ -182,24 +191,9 @@ func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockP
 func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, consensusMsg *ConsensusMessage, difficulty *big.Int) (blockPacked *ledger.AccountBlock, err error) {
 	gen.log.Info("PackReceiveBlock", "sendBlock.Hash", sendBlock.Hash, "sendBlock.To", sendBlock.ToAddress)
 
-	blockPacked = &ledger.AccountBlock{
-		BlockType:      ledger.BlockTypeReceive,
-		AccountAddress: sendBlock.ToAddress,
-		FromBlockHash:  sendBlock.Hash,
-	}
+	blockPacked = &ledger.AccountBlock{BlockType: ledger.BlockTypeReceive}
 
-	if sendBlock.Amount == nil {
-		blockPacked.Amount = big.NewInt(0)
-	} else {
-		blockPacked.Amount = sendBlock.Amount
-	}
-	blockPacked.TokenId = sendBlock.TokenId
-
-	if sendBlock.Fee == nil {
-		blockPacked.Fee = big.NewInt(0)
-	} else {
-		blockPacked.Fee = sendBlock.Fee
-	}
+	gen.getDatasFromSendBlock(blockPacked, sendBlock)
 
 	preBlockReferredSbHeight := uint64(0)
 	preBlock := gen.vmContext.PrevAccountBlock()
@@ -240,93 +234,22 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 	return blockPacked, nil
 }
 
-func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Address,
-	referredSnapshotHashList []types.Hash, isRandom bool) (prevSbHash *types.Hash, fittestSbHash *types.Hash, err error) {
-	var fittestSbHeight uint64
-	var referredMaxSbHeight uint64
-	latestSb := chain.GetLatestSnapshotBlock()
-	if latestSb == nil {
-		return nil, nil, errors.New("get latest snapshotblock failed")
-	}
-	fittestSbHeight = latestSb.Height
-
-	var prevSbFlag = false
-	var prevSb *ledger.SnapshotBlock
-	if accAddr != nil {
-		prevAccountBlock, err := chain.GetLatestAccountBlock(accAddr)
-		if err != nil {
-			return nil, nil, err
+// includes fork logic
+func (gen *Generator) getDatasFromSendBlock(blockPacked, sendBlock *ledger.AccountBlock) {
+	blockPacked.AccountAddress = sendBlock.ToAddress
+	blockPacked.FromBlockHash = sendBlock.Hash
+	if gen.isVite1 {
+		if sendBlock.Amount == nil {
+			blockPacked.Amount = big.NewInt(0)
+		} else {
+			blockPacked.Amount = sendBlock.Amount
 		}
-		if prevAccountBlock != nil {
-			referredSnapshotHashList = append(referredSnapshotHashList, prevAccountBlock.SnapshotHash)
-			prevSbFlag = true
+		blockPacked.TokenId = sendBlock.TokenId
+
+		if sendBlock.Fee == nil {
+			blockPacked.Fee = big.NewInt(0)
+		} else {
+			blockPacked.Fee = sendBlock.Fee
 		}
 	}
-	referredMaxSbHeight = uint64(1)
-	if len(referredSnapshotHashList) > 0 {
-		// get max referredSbHeight
-		for k, v := range referredSnapshotHashList {
-			vSb, _ := chain.GetSnapshotBlockByHash(&v)
-			if vSb == nil {
-				return nil, nil, ErrGetSnapshotOfReferredBlockFailed
-			} else {
-				if referredMaxSbHeight < vSb.Height {
-					referredMaxSbHeight = vSb.Height
-				}
-				if k == len(referredSnapshotHashList)-1 && prevSbFlag {
-					prevSb = vSb
-				}
-			}
-		}
-		if latestSb.Height < referredMaxSbHeight {
-			return nil, nil, errors.New("the height of the snapshotblock referred can't be larger than the latest")
-		}
-	}
-	gapHeight := latestSb.Height - referredMaxSbHeight
-	fittestSbHeight = latestSb.Height - minGapToLatest(gapHeight, DefaultHeightDifference)
-	if isRandom && fittestSbHeight < latestSb.Height {
-		fittestSbHeight = fittestSbHeight + addHeight(1)
-	}
-
-	// protect code
-	if fittestSbHeight > latestSb.Height || fittestSbHeight < referredMaxSbHeight {
-		fittestSbHeight = latestSb.Height
-	}
-
-	fittestSb, err := chain.GetSnapshotBlockByHeight(fittestSbHeight)
-	if fittestSb == nil {
-		if err != nil {
-			return nil, nil, err
-		}
-		return nil, nil, ErrGetFittestSnapshotBlockFailed
-	}
-	fittestSbHash = &fittestSb.Hash
-
-	if accAddr == nil || prevSb == nil || prevSb.Height < referredMaxSbHeight ||
-		prevSb.Height+types.SnapshotHourHeight < fittestSbHeight || prevSb.Hash == *fittestSbHash {
-		return nil, fittestSbHash, nil
-	}
-	return &prevSb.Hash, fittestSbHash, nil
-}
-
-func addHeight(gapHeight uint64) uint64 {
-	randHeight := uint64(0)
-	if gapHeight >= 1 {
-		rand.Seed(time.Now().UnixNano())
-		randHeight = uint64(rand.Intn(int(gapHeight + 1)))
-	}
-	return randHeight
-}
-
-func minGapToLatest(us ...uint64) uint64 {
-	if len(us) == 0 {
-		panic("zero args")
-	}
-	min := us[0]
-	for _, u := range us {
-		if u < min {
-			min = u
-		}
-	}
-	return min
 }

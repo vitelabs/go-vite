@@ -437,7 +437,7 @@ func TestAccountVerifier_VerifyDataValidity(t *testing.T) {
 		Hash:      types.Hash{},
 		Timestamp: &ts,
 	}
-	t.Log(v.aVerifier.VerifyDataValidity(block1), block1.Amount.String(), block1.Fee.String())
+	t.Log(v.aVerifier.VerifyDataValidity(block1, false, ledger.AccountTypeContract), block1.Amount.String(), block1.Fee.String())
 	block2 := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: types.AddressPledge,
@@ -447,7 +447,7 @@ func TestAccountVerifier_VerifyDataValidity(t *testing.T) {
 		Signature:      nil,
 		PublicKey:      nil,
 	}
-	t.Log(v.aVerifier.VerifyDataValidity(block1), block2.Amount.String(), block2.Fee.String())
+	t.Log(v.aVerifier.VerifyDataValidity(block1, false, ledger.AccountTypeContract), block2.Amount.String(), block2.Fee.String())
 
 	// verifySig
 	return
@@ -528,7 +528,18 @@ func TestAccountVerifier_VerifyDataValidity_Hash(t *testing.T) {
 	if err := v.aVerifier.VerifySigature(&block); err != nil {
 		t.Error(err)
 	}
-	if err := v.aVerifier.VerifyDataValidity(&block); err != nil {
+
+	bs := &BlockState{
+		block:   &block,
+		accType: ledger.AccountTypeNotExist,
+		isVite1: false,
+		vStat:   &AccountBlockVerifyStat{},
+	}
+	if !v.aVerifier.checkAccAddressType(bs) {
+		t.Error("Acc not exits")
+	}
+
+	if err := v.aVerifier.VerifyDataValidity(bs.block, bs.isVite1, bs.accType); err != nil {
 		t.Error(err)
 	}
 }
