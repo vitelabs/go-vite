@@ -316,7 +316,7 @@ func (ab *AccountBlock) ComputeHash(sbHeight uint64) types.Hash {
 	} else {
 		// FromBlockHash
 		source = append(source, ab.FromBlockHash.Bytes()...)
-		if !fork.IsVite(sbHeight) {
+		if !fork.IsVite1(sbHeight) {
 			// Fee
 			fee := ab.Fee
 			if fee == nil {
