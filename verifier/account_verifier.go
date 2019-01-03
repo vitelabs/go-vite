@@ -470,13 +470,6 @@ func (verifier *AccountVerifier) verifyDatasIntergrity(block *ledger.AccountBloc
 					return errors.New("block fee out of bounds")
 				}
 			}
-		} else {
-			if block.Amount != nil {
-				return errors.New("amount in receive block must be nil after fork point")
-			}
-			if block.Fee != nil {
-				return errors.New("fee in receive block must be nil after fork point")
-			}
 		}
 	} else {
 		if block.Amount == nil {
