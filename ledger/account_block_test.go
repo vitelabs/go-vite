@@ -39,8 +39,7 @@ func TestComputeHash(t *testing.T) {
 		FromBlockHash:  fromBlockHash,
 		SnapshotHash:   snapshotBlockHash,
 	}
-	fmt.Println(block.ComputeHash(2))
-	fmt.Println(block.ComputeHash(5))
+	fmt.Println(block.ComputeHash())
 }
 
 func TestHash(t *testing.T) {

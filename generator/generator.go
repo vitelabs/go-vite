@@ -126,7 +126,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 	if len(blockList) > 0 {
 		for k, v := range blockList {
 			if k == 0 {
-				v.AccountBlock.Hash = v.AccountBlock.ComputeHash(gen.sbHeight)
+				v.AccountBlock.Hash = v.AccountBlock.ComputeHash()
 				if signFunc != nil {
 					signature, publicKey, e := signFunc(producer, v.AccountBlock.Hash.Bytes())
 					if e != nil {
@@ -137,7 +137,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 				}
 			} else {
 				v.AccountBlock.PrevHash = blockList[k-1].AccountBlock.Hash
-				v.AccountBlock.Hash = v.AccountBlock.ComputeHash(gen.sbHeight)
+				v.AccountBlock.Hash = v.AccountBlock.ComputeHash()
 			}
 		}
 	}
