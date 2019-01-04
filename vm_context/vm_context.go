@@ -334,12 +334,12 @@ func (context *VmContext) GetLogListHash() *types.Hash {
 	return context.unsavedCache.logList.Hash()
 }
 
-func (context *VmContext) GetOneHourQuota() uint64 {
+func (context *VmContext) GetOneHourQuota() (uint64, error) {
 	quota, err := context.chain.SaList().GetAggregateQuota(context.currentSnapshotBlock)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
-	return quota
+	return quota, nil
 }
 
 func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
