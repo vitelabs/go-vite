@@ -47,23 +47,18 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 		}
 	}
 
-	if ab.IsSendBlock() {
-		lAb.Amount = big.NewInt(0)
-		if ab.Amount != nil {
-			if _, ok := lAb.Amount.SetString(*ab.Amount, 10); !ok {
-				return nil, ErrStrToBigInt
-			}
+	lAb.Amount = big.NewInt(0)
+	if ab.Amount != nil {
+		if _, ok := lAb.Amount.SetString(*ab.Amount, 10); !ok {
+			return nil, ErrStrToBigInt
 		}
+	}
 
-		lAb.Fee = big.NewInt(0)
-		if ab.Fee != nil {
-			if _, ok := lAb.Fee.SetString(*ab.Fee, 10); !ok {
-				return nil, ErrStrToBigInt
-			}
+	lAb.Fee = big.NewInt(0)
+	if ab.Fee != nil {
+		if _, ok := lAb.Fee.SetString(*ab.Fee, 10); !ok {
+			return nil, ErrStrToBigInt
 		}
-	} else {
-		lAb.Amount = nil
-		lAb.Fee = nil
 	}
 
 	if ab.AccountBlock != nil && ab.AccountBlock.Nonce != nil {
