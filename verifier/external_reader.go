@@ -1,6 +1,7 @@
 package verifier
 
 import (
+	"github.com/vitelabs/go-vite/chain/cache"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
@@ -14,6 +15,7 @@ type Consensus interface {
 type Chain interface {
 	AccountReader
 	SnapshotReader
+	SaList() *chain_cache.AdditionList
 }
 
 type SnapshotReader interface {

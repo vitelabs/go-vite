@@ -3,46 +3,16 @@ package chain_benchmark
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/chain/test_tools"
 	"time"
 )
-
-type snapshotOptions struct {
-	mockTrie bool
-}
-
-func createSnapshotBlock(chainInstance chain.Chain, options *snapshotOptions) *ledger.SnapshotBlock {
-	latestBlock := chainInstance.GetLatestSnapshotBlock()
-	now := time.Now()
-	snapshotBlock := &ledger.SnapshotBlock{
-		Height:    latestBlock.Height + 1,
-		PrevHash:  latestBlock.Hash,
-		Timestamp: &now,
-	}
-
-	content := chainInstance.GetNeedSnapshotContent()
-	snapshotBlock.SnapshotContent = content
-
-	if options != nil && options.mockTrie {
-		snapshotBlock.StateHash = types.Hash{}
-	} else {
-		trie, _ := chainInstance.GenStateTrie(latestBlock.StateHash, content)
-		snapshotBlock.StateTrie = trie
-		snapshotBlock.StateHash = *trie.Hash()
-	}
-
-	snapshotBlock.Hash = snapshotBlock.ComputeHash()
-
-	return snapshotBlock
-}
 
 func loopInsertSnapshotBlock(chainInstance chain.Chain, interval time.Duration) chan struct{} {
 	terminal := make(chan struct{})
 	ticker := time.NewTicker(interval)
 
-	createSbOptions := &snapshotOptions{
-		mockTrie: false,
+	createSbOptions := &test_tools.SnapshotOptions{
+		MockTrie: false,
 	}
 	go func() {
 		for {
@@ -51,7 +21,7 @@ func loopInsertSnapshotBlock(chainInstance chain.Chain, interval time.Duration) 
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				sb := createSnapshotBlock(chainInstance, createSbOptions)
+				sb := test_tools.CreateSnapshotBlock(chainInstance, createSbOptions)
 				chainInstance.InsertSnapshotBlock(sb)
 				fmt.Printf("latest snapshot height: %d. snapshot account number: %d\n", sb.Height, len(sb.SnapshotContent))
 			}
