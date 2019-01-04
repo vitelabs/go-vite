@@ -145,7 +145,7 @@ func New(cfg *Config) (Server, error) {
 		self:        node,
 		nodeChan:    make(chan *discovery.Node, cfg.MaxPendingPeers),
 		log:         log15.New("module", "p2p/server"),
-		dialer:      &net.Dialer{Timeout: 3 * time.Second},
+		dialer:      &net.Dialer{Timeout: 5 * time.Second},
 	}
 
 	if cfg.Discovery {
