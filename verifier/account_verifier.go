@@ -33,7 +33,7 @@ func NewAccountVerifier(chain Chain, consensus Consensus) *AccountVerifier {
 		chain:     chain,
 		consensus: consensus,
 
-		log: log15.New("class", "AccountVerifier"),
+		log: log15.New("module", "AccountVerifier"),
 	}
 }
 
@@ -285,6 +285,16 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock, 
 func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBlock) error {
 	defer monitor.LogTime("AccountVerifier", "VerifyP2PDataValidity", time.Now())
 
+	if block.Amount != nil && block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
+		return errors.New("block amount out of bounds")
+	}
+	if block.Fee != nil && block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
+		return errors.New("block fee out of bounds")
+	}
+	if block.Timestamp == nil {
+		return errors.New("block timestamp can't be nil")
+	}
+
 	if err := verifier.VerifyHash(block); err != nil {
 		return err
 	}
@@ -458,6 +468,13 @@ func (verifier *AccountVerifier) verifyDatasIntergrity(block *ledger.AccountBloc
 				if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
 					return errors.New("block fee out of bounds")
 				}
+			}
+		} else {
+			if block.Amount != nil && block.Amount.Cmp(big.NewInt(0)) != 0 {
+				return errors.New("block amount can't be anything other than nil or 0 ")
+			}
+			if block.Fee != nil && block.Fee.Cmp(big.NewInt(0)) != 0 {
+				return errors.New("block fee can't be anything other than nil or 0")
 			}
 		}
 	} else {

@@ -66,6 +66,9 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 			return nil, errors.New("fromblockhash can't be nil when create receive block")
 		}
 		sendBlock := gen.vmContext.GetAccountBlockByHash(message.FromBlockHash)
+		if sendBlock == nil {
+			return nil, ErrGetVmContextValueFailed
+		}
 		//genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc, message.Difficulty)
 		genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc, message.Difficulty)
 	default:
@@ -103,7 +106,9 @@ func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensu
 func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc SignFunc) (*GenResult, error) {
 	var sendBlock *ledger.AccountBlock = nil
 	if block.IsReceiveBlock() {
-		sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash)
+		if sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash); sendBlock == nil {
+			return nil, ErrGetVmContextValueFailed
+		}
 	}
 	genResult, err := gen.generateBlock(block, sendBlock, block.AccountAddress, signFunc)
 	if err != nil {
@@ -201,7 +206,9 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 	} else {
 		blockPacked.PrevHash = preBlock.Hash
 		blockPacked.Height = preBlock.Height + 1
-		if sb := gen.vmContext.GetSnapshotBlockByHash(&preBlock.SnapshotHash); sb != nil {
+		if sb := gen.vmContext.GetSnapshotBlockByHash(&preBlock.SnapshotHash); sb == nil {
+			return nil, ErrGetVmContextValueFailed
+		} else {
 			preBlockReferredSbHeight = sb.Height
 		}
 	}
