@@ -93,8 +93,8 @@ func (gc *collector) Stop() {
 	}
 
 	gc.ticker.Stop()
-	gc.taskTerminal <- struct{}{}
-	gc.terminal <- struct{}{}
+	close(gc.taskTerminal)
+	close(gc.terminal)
 
 	gc.wg.Wait()
 	gc.status = STATUS_STOPPED

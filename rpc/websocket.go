@@ -209,6 +209,7 @@ type WebSocketCli struct {
 }
 
 func (self *WebSocketCli) Srv(c *websocket.Conn) error {
+	defer c.Close()
 	// Create a custom encode/decode pair to enforce payload size and number encoding
 	c.MaxPayloadBytes = maxRequestContentLength
 
