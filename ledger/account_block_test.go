@@ -33,13 +33,14 @@ func TestComputeHash(t *testing.T) {
 		Height:         1,
 		PrevHash:       types.Hash{},
 		AccountAddress: addr,
-		Fee:            big.NewInt(0),
+		Fee:            big.NewInt(1),
 		Nonce:          nonce,
 		Timestamp:      &ts,
 		FromBlockHash:  fromBlockHash,
 		SnapshotHash:   snapshotBlockHash,
 	}
-	fmt.Println(block.ComputeHash())
+	fmt.Println(block.ComputeHash(2))
+	fmt.Println(block.ComputeHash(5))
 }
 
 func TestHash(t *testing.T) {

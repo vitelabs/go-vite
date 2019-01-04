@@ -72,6 +72,7 @@ func (tp *ContractTaskProcessor) Stop() {
 	defer tp.statusMutex.Unlock()
 	if tp.status == Start {
 		tp.isCancel = true
+
 		tp.breaker <- struct{}{}
 		close(tp.breaker)
 
@@ -103,7 +104,10 @@ LOOP:
 		tp.log.Debug("pre popContractTask")
 		task := tp.worker.popContractTask()
 		tp.log.Debug("after popContractTask")
+
 		if task != nil {
+			tp.worker.uBlocksPool.AcquireOnroadSortedContractCache(task.Addr)
+
 			tp.log.Debug("pre processOneAddress " + task.Addr.String())
 			tp.processOneAddress(task)
 			tp.log.Debug("after processOneAddress " + task.Addr.String())
@@ -134,20 +138,11 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	defer monitor.LogTime("onroad", "processOneAddress", time.Now())
 	plog := tp.log.New("method", "processOneAddress", "worker", task.Addr)
 
-	plog.Debug("task addr" + task.Addr.String())
-	blockList, e := tp.worker.manager.uAccess.GetOnroadBlocks(0, 1, 1, &task.Addr)
-	if e != nil {
-		plog.Error("GetOnroadBlocks ", "e", e)
+	sBlock := tp.worker.uBlocksPool.GetNextContractTx(task.Addr)
+	if sBlock == nil {
 		return
 	}
-
-	if len(blockList) == 0 {
-		return
-	}
-
-	sBlock := blockList[0]
-
-	plog.Info(fmt.Sprintf("get %v blocks, the first Hash is %v", len(blockList), sBlock.Hash), "addr", sBlock.ToAddress)
+	plog.Info(fmt.Sprintf("block processing: accAddr=%v,height=%v,hash=%v", sBlock.AccountAddress, sBlock.Height, sBlock.Hash))
 
 	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
 		plog.Info("checkExistInPool true")
@@ -186,7 +181,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		plog.Error("vm.Run error, ignore", "error", genResult.Err)
 	}
 
-	plog.Info(fmt.Sprintf("len(genResult.BlockGenList) = %v", len(blockList)))
+	plog.Info(fmt.Sprintf("len(genResult.BlockGenList) = %v", len(genResult.BlockGenList)))
 	if len(genResult.BlockGenList) > 0 {
 		if err := tp.worker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
 			plog.Error("insertContractBlocksToPool", "error", err)

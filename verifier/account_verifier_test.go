@@ -38,8 +38,6 @@ var (
 	addr1PubKey        = addr1PrivKey.PubByte()
 
 	addr2, _, _ = types.CreateAddress()
-	//addr2PrivKey, _    = ed25519.HexToPrivateKey(privKey1.Hex())
-	//addr2PubKey        = addr2PrivKey.PubByte()
 
 	producerPrivKeyStr string
 
@@ -233,7 +231,7 @@ func createRPCTransferBlockS(vite *VitePrepared) ([]*ledger.AccountBlock, error)
 		return nil, err
 	}
 	block.Nonce = nonce[:]
-	block.Hash = block.ComputeHash()
+	block.Hash = block.ComputeHash(latestAb.Height)
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
 	blocks = append(blocks, block)
@@ -282,7 +280,7 @@ func createRPCTransferBlocksR(vite *VitePrepared) ([]*ledger.AccountBlock, error
 			return nil, err
 		}
 		block.Nonce = nonce[:]
-		block.Hash = block.ComputeHash()
+		block.Hash = block.ComputeHash(latestSb.Height)
 		block.Signature = ed25519.Sign(addr1PrivKey, block.Hash.Bytes())
 		receiveBlocks = append(receiveBlocks, block)
 	}
@@ -306,7 +304,7 @@ func createRPCBlockCallContarct(vite *VitePrepared) ([]*ledger.AccountBlock, err
 		return nil, errors.New("sendBlock's AccountAddress doesn't exist")
 	}
 
-	fmt.Printf("latest genesisAccountBlock height：%d, preHash:%+v\n", latestAb.Height, latestAb.PrevHash)
+	fmt.Printf("latest genesisAccountBlock sbHeight：%d, preHash:%+v\n", latestAb.Height, latestAb.PrevHash)
 	block := &ledger.AccountBlock{
 
 		BlockType:      ledger.BlockTypeSendCall,
@@ -326,7 +324,7 @@ func createRPCBlockCallContarct(vite *VitePrepared) ([]*ledger.AccountBlock, err
 
 	//nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
 	//block.Nonce = nonce[:]
-	block.Hash = block.ComputeHash()
+	block.Hash = block.ComputeHash(latestSb.Height)
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
 	blocks = append(blocks, block)
@@ -367,9 +365,9 @@ func TestAccountVerifier_VerifyforP2P(t *testing.T) {
 	}
 
 	block.Nonce = nonce[:]
-	block.Hash = block.ComputeHash()
+	block.Hash = block.ComputeHash(latestSb.Height)
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
-	block.Hash = block.ComputeHash()
+	block.Hash = block.ComputeHash(latestSb.Height)
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
 	isTrue := v.aVerifier.VerifyNetAb(block)
@@ -388,7 +386,7 @@ func AddrPledgeReceive(c chain.Chain, v *AccountVerifier, sendBlock *ledger.Acco
 		Producer:     producerAddress,
 	}
 
-	gen, err := generator.NewGenerator(v.chain, &consensusMessage.SnapshotHash, nil, &sendBlock.ToAddress)
+	gen, err := generator.NewGenerator(c, &consensusMessage.SnapshotHash, nil, &sendBlock.ToAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -424,7 +422,7 @@ func Add1SendAddr2(c chain.Chain, v *AccountVerifier) (blocks []*vm_context.VmAc
 		block.Height = 1
 	}
 
-	block.Hash = block.ComputeHash()
+	block.Hash = block.ComputeHash(latestSnapshotBlock.Height)
 	block.Signature = ed25519.Sign(addr1PrivKey, block.Hash.Bytes())
 
 	return v.VerifyforRPC(block)
@@ -439,9 +437,7 @@ func TestAccountVerifier_VerifyDataValidity(t *testing.T) {
 		Hash:      types.Hash{},
 		Timestamp: &ts,
 	}
-	t.Log(v.aVerifier.VerifyDataValidity(block1), block1.Amount.String(), block1.Fee.String())
-
-	// verifyHash
+	t.Log(v.aVerifier.VerifyDataValidity(block1, 2, ledger.AccountTypeContract), block1.Amount.String(), block1.Fee.String())
 	block2 := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: types.AddressPledge,
@@ -451,16 +447,16 @@ func TestAccountVerifier_VerifyDataValidity(t *testing.T) {
 		Signature:      nil,
 		PublicKey:      nil,
 	}
-	t.Log(v.aVerifier.VerifyDataValidity(block1), block2.Amount.String(), block2.Fee.String())
+	t.Log(v.aVerifier.VerifyDataValidity(block1, 2, ledger.AccountTypeContract), block2.Amount.String(), block2.Fee.String())
 
 	// verifySig
 	return
 }
 
 func TestAccountVerifier_VerifySigature(t *testing.T) {
-	var hashString = "b94ba5fadca89002c48db47b234d15dd0c3f8e39ad68ba74dfb3f63d45b938b6"
-	var pubKeyString = "ZTkxYzg2MGM2M2QwMWY2ZDRhOTI5MDE5NzE5MDdhNzIxMDNlOGJhYTg3Zjg4Nzg2NjVmNWE0ZGVmOWVjN2EzNg=="
-	var sigString = "MWIyYTUzMTNjYTVjMDAyYTRjODkyYzkwYzIzNDA5NjkyNzM4NjRhMGU1MzhjNDI0MDExODM1NzQ1ZmNiNWY0NjY4ZTc2ZmZiODk5ZjU2Y2Q4ZmU0Y2Q2MjAxODkxMTZkYTgyMmFjMzk5ODU2NDVjNmM0ZTUxMzVhMmNkMTk2MDk="
+	var hashString = ""
+	var pubKeyString = "=="
+	var sigString = "="
 
 	pubKey, _ := ed25519.HexToPublicKey(pubKeyString)
 	hash, _ := types.HexToHash(hashString)
@@ -478,4 +474,72 @@ func TestAccountVerifier_VerifySigature(t *testing.T) {
 		return
 	}
 	t.Log("success")
+}
+
+func TestAccountVerifier_VerifyDataValidity_Hash(t *testing.T) {
+	block := ledger.AccountBlock{}
+
+	block.BlockType = 4
+	block.Height = 3
+	block.Difficulty = big.NewInt(67108864)
+
+	accountAddressStr := ""
+	block.AccountAddress, _ = types.HexToAddress(accountAddressStr)
+	fmt.Printf("block.AccountAddress:%v\n", block.AccountAddress)
+
+	fromBlockHashStr := ""
+	block.FromBlockHash, _ = types.HexToHash(fromBlockHashStr)
+	fmt.Printf("block.FromBlockHash:%v\n", block.FromBlockHash)
+
+	//block.Hash = block.ComputeHash()
+	hashStr := ""
+	block.Hash, _ = types.HexToHash(hashStr)
+	fmt.Printf("block.Hash:%v\n", block.Hash)
+
+	prevHashStr := ""
+	block.PrevHash, _ = types.HexToHash(prevHashStr)
+	fmt.Printf("block.PrevHash:%v\n", block.PrevHash)
+
+	nonceStr := ""
+	block.Nonce = common.Hex2Bytes(nonceStr)[:8]
+	fmt.Printf("block.Nonce:%v\n", block.Nonce)
+
+	publicKeyStr := ""
+	block.PublicKey, _ = ed25519.HexToPublicKey(publicKeyStr)
+	fmt.Printf("block.PublicKey:%v\n", block.PublicKey)
+
+	signatureStr := ""
+	block.Signature, _ = hex.DecodeString(signatureStr)
+	fmt.Printf("block.Signature:%v\n", block.Signature)
+
+	snapshotHashStr := ""
+	block.SnapshotHash, _ = types.HexToHash(snapshotHashStr)
+	fmt.Printf("block.SnapshotHash:%v\n", block.SnapshotHash)
+
+	ts := time.Unix(1543910066, 0)
+	block.Timestamp = &ts
+
+	fmt.Printf("")
+
+	v := PrepareVite()
+	if err := v.aVerifier.VerifyHash(&block, 2); err != nil {
+		t.Error(err)
+	}
+	if err := v.aVerifier.VerifySigature(&block); err != nil {
+		t.Error(err)
+	}
+
+	bs := &BlockState{
+		block:    &block,
+		accType:  ledger.AccountTypeNotExist,
+		sbHeight: 2,
+		vStat:    &AccountBlockVerifyStat{},
+	}
+	if !v.aVerifier.checkAccAddressType(bs) {
+		t.Error("Acc not exits")
+	}
+
+	if err := v.aVerifier.VerifyDataValidity(bs.block, 2, bs.accType); err != nil {
+		t.Error(err)
+	}
 }
