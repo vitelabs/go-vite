@@ -86,6 +86,22 @@ func (vc *Client) GetSnapshotChainHeight() (string, error) {
 	return vc.stringCall("ledger_getSnapshotChainHeight")
 }
 
+func (vc *Client) GetCandidateList(gid string) (string, error) {
+	return vc.rawMsgCall("register_getCandidateList", gid)
+}
+
+func (vc *Client) GetVoteData(gid string, name string) (string, error) {
+	return vc.rawMsgCall("vote_getVoteData", gid, name)
+}
+
+func (vc *Client) GetVoteInfo(gid string, addr *Address) (string, error) {
+	return vc.rawMsgCall("vote_getVoteInfo", gid, addr.address)
+}
+
+func (vc *Client) GetCancelVoteData(gid string) (string, error) {
+	return vc.rawMsgCall("vote_getCancelVoteData", gid)
+}
+
 func (vc *Client) SendRawTx(accBlock string) error {
 	var js json.RawMessage = []byte(accBlock)
 	err := vc.c.Call(nil, "tx_sendRawTx", js)
