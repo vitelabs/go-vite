@@ -3,9 +3,10 @@ package verifier
 import (
 	"bytes"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/math"
 	"math/big"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/math"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/fork"
@@ -285,10 +286,10 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock, 
 func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBlock) error {
 	defer monitor.LogTime("AccountVerifier", "VerifyP2PDataValidity", time.Now())
 
-	if block.Amount != nil && block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
+	if block.Amount != nil && (block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen) {
 		return errors.New("block amount out of bounds")
 	}
-	if block.Fee != nil && block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
+	if block.Fee != nil && (block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen) {
 		return errors.New("block fee out of bounds")
 	}
 	if block.Timestamp == nil {
