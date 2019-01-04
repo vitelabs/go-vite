@@ -126,7 +126,7 @@ func genesisMintageBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_in
 	vmContext.SetStorage(abi.GetMintageKey(ledger.ViteTokenId), mintageData)
 
 	block.StateHash = *vmContext.GetStorageHash()
-	block.Hash = block.ComputeHash()
+	block.Hash = block.ComputeHash(GenesisSnapshotBlock.Height)
 
 	return block, vmContext
 }
@@ -146,7 +146,7 @@ func genesisMintageSendBlock(config *config.Genesis) (ledger.AccountBlock, vmctx
 		SnapshotHash:   GenesisSnapshotBlock.Hash,
 		Timestamp:      &timestamp,
 	}
-	block.Hash = block.ComputeHash()
+	block.Hash = block.ComputeHash(GenesisSnapshotBlock.Height)
 
 	return block, GenesisMintageBlockVC.CopyAndFreeze()
 }
@@ -216,7 +216,7 @@ func genesisConsensusGroupBlock(config *config.Genesis) (ledger.AccountBlock, vm
 	vmContext.SetStorage(abi.GetConsensusGroupKey(types.DELEGATE_GID), commonConsensusGroupData)
 
 	block.StateHash = *vmContext.GetStorageHash()
-	block.Hash = block.ComputeHash()
+	block.Hash = block.ComputeHash(GenesisSnapshotBlock.Height)
 
 	return block, vmContext
 }
@@ -245,7 +245,7 @@ func genesisRegisterBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_i
 	}
 
 	block.StateHash = *vmContext.GetStorageHash()
-	block.Hash = block.ComputeHash()
+	block.Hash = block.ComputeHash(GenesisSnapshotBlock.Height)
 
 	return block, vmContext
 }

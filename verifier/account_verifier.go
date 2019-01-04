@@ -524,12 +524,15 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 
 func (verifier *AccountVerifier) checkAccAddressType(bs *BlockState) bool {
 	var accErr error
+	bs.vStat.referredSelfResult = SUCCESS
+
 	bs.accType, accErr = verifier.chain.AccountType(&bs.block.AccountAddress)
 	if accErr != nil || bs.accType == ledger.AccountTypeError {
 		bs.vStat.referredSelfResult = FAIL
 		bs.vStat.errMsg += "get account type error"
 		return false
 	}
+
 	if bs.accType == ledger.AccountTypeNotExist {
 		if bs.block.Height == 1 {
 			if bs.block.IsSendBlock() {
@@ -538,14 +541,12 @@ func (verifier *AccountVerifier) checkAccAddressType(bs *BlockState) bool {
 				return false
 			}
 			if sendBlock, _ := verifier.chain.GetAccountBlockByHash(&bs.block.FromBlockHash); sendBlock != nil {
-				if sendBlock.BlockType == ledger.BlockTypeSendCall {
-					bs.accType = ledger.AccountTypeGeneral
-					return true
-				}
 				if sendBlock.BlockType == ledger.BlockTypeSendCreate {
 					bs.accType = ledger.AccountTypeContract
-					return true
+				} else {
+					bs.accType = ledger.AccountTypeGeneral
 				}
+				return true
 			}
 			bs.vStat.referredSelfResult = PENDING
 			bs.vStat.accountTask = append(bs.vStat.accountTask,
@@ -558,7 +559,6 @@ func (verifier *AccountVerifier) checkAccAddressType(bs *BlockState) bool {
 			return false
 		}
 	}
-	bs.vStat.referredSelfResult = SUCCESS
 	return true
 }
 
