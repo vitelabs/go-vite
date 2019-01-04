@@ -54,6 +54,7 @@ func (verifier *AccountVerifier) VerifyNetAb(block *ledger.AccountBlock) error {
 
 	snapshotBlock, err := verifier.chain.GetSnapshotBlockByHash(&block.SnapshotHash)
 	if snapshotBlock == nil {
+		fmt.Printf("%s\n", block.SnapshotHash)
 		if err != nil {
 			return errors.New("func GetSnapshotBlockByHash failed: " + err.Error())
 		}
