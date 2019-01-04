@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/producer"
 )
 
 const (
@@ -22,7 +23,7 @@ const (
 type FilterTokenIndex struct {
 	db               *leveldb.DB
 	chainInstance    chain.Chain
-	BlockNumPerBuild uint64
+	EventNumPerBatch uint64
 	Meta             map[types.Address]map[types.TokenTypeId]types.Hash
 }
 
@@ -56,6 +57,7 @@ func (fti *FilterTokenIndex) getConsumeId() (uint64, error) {
 	return binary.BigEndian.Uint64(value), nil
 }
 
+// todo save consume id
 func (fti *FilterTokenIndex) build() error {
 	consumeId, err := fti.getConsumeId()
 	if err != nil {
@@ -67,44 +69,67 @@ func (fti *FilterTokenIndex) build() error {
 		return err
 	}
 
+	unsavedBlocks := make(map[types.Address][]*ledger.AccountBlock)
+	deletedBlocks := make(map[types.Hash]struct{})
+
+	eventNum := uint64(0)
 	for eventId := consumeId; eventId <= latestBeId; eventId++ {
+		eventType, blockHashList, err := fti.chainInstance.GetEvent(eventId)
+		if err != nil {
+			return err
+		}
+		switch eventType {
+		// AddAccountBlocksEvent = byte(1)
+		case byte(1):
+			for _, blockHash := range blockHashList {
+				block, err := fti.chainInstance.GetAccountBlockByHash(&blockHash)
+				if err != nil {
+					// .log.Error("GetAccountBlockByHash failed, error is "+err.Error(), "method", "send")
+					return err
+				}
 
+				if block == nil {
+					continue
+				}
+
+				//fti.AddBlocks(block.Meta.AccountId, []*ledger.AccountBlock{block})
+				unsavedBlocks[block.AccountAddress] = append(unsavedBlocks[block.AccountAddress], block)
+			}
+
+		// DeleteAccountBlocksEvent  = byte(2)
+		case byte(2):
+			for _, blockHash := range blockHashList {
+				deletedBlocks[blockHash] = struct{}{}
+			}
+
+		}
+
+		eventNum++
+		if eventNum >= fti.EventNumPerBatch {
+			for addr, blocks := range unsavedBlocks {
+				account, err := fti.chainInstance.GetAccount(&addr)
+				if err != nil {
+					return err
+				}
+				//fti.deleteBlocks()
+
+				var filterBlocks []*ledger.AccountBlock
+				for _, block := range blocks {
+					if _, ok := deletedBlocks[block.Hash]; ok {
+						continue
+					}
+					filterBlocks = append(filterBlocks, block)
+				}
+
+				fti.AddBlocks(account.AccountId, filterBlocks)
+
+			}
+			unsavedBlocks = make(map[types.Address][]*ledger.AccountBlock)
+			deletedBlocks = make(map[types.Hash]struct{})
+			eventNum = 0
+		}
 	}
-
-	//latestBlockEventId := fti.chainInstance.GetLatestBlockEventId()
-	//// scan
-	//lastAccountId, err := fti.chainInstance.ChainDb().Account.GetLastAccountId()
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//for i := uint64(1); i <= lastAccountId; i++ {
-	//	startHeight := uint64(1)
-	//	for {
-	//		endHeight := startHeight + fti.BlockNumPerBuild
-	//
-	//		blocks, err := fti.chainInstance.ChainDb().Ac.GetBlockListByAccountId(i, startHeight, endHeight, true)
-	//		if err != nil {
-	//			return err
-	//		}
-	//
-	//		if len(blocks) < 0 {
-	//			break
-	//		}
-	//
-	//		if err := fti.AddBlocks(i, blocks); err != nil {
-	//			return err
-	//		}
-	//
-	//		// do
-	//		if blocks[len(blocks)-1].Height < endHeight {
-	//			break
-	//		}
-	//
-	//		startHeight = endHeight + 1
-	//	}
-	//}
-	//return nil
+	return nil
 }
 func (fti *FilterTokenIndex) rollback(accountId uint64) (*types.Hash, error) {
 	key, _ := database.EncodeKey(DBKP_ACCOUNT_TOKEN_META, accountId)
