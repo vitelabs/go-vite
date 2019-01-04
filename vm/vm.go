@@ -633,6 +633,9 @@ func checkDepth(db vmctxt_interface.VmDatabase, sendBlock *ledger.AccountBlock) 
 	prevBlock := sendBlock
 	depth := uint64(1)
 	for depth < callDepth {
+		if prevBlock == nil {
+			panic("cannot find prev block by hash while check depth")
+		}
 		if IsUserAccount(db, prevBlock.AccountAddress) {
 			return false
 		}

@@ -75,7 +75,10 @@ func (c *chain) GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.
 			return nil, err
 		}
 		pledgeAmount := abi.GetPledgeBeneficialAmount(pledgeDb, addr)
-		quotas[addr] = quota.GetPledgeQuota(balanceDb, addr, pledgeAmount)
+		quotas[addr], err = quota.GetPledgeQuota(balanceDb, addr, pledgeAmount)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return quotas, nil
 }
@@ -86,7 +89,7 @@ func (c *chain) GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address
 		return 0, err
 	}
 	pledgeAmount := abi.GetPledgeBeneficialAmount(vmContext, beneficial)
-	return quota.GetPledgeQuota(vmContext, beneficial, pledgeAmount), nil
+	return quota.GetPledgeQuota(vmContext, beneficial, pledgeAmount)
 }
 
 func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
