@@ -231,7 +231,7 @@ func createRPCTransferBlockS(vite *VitePrepared) ([]*ledger.AccountBlock, error)
 		return nil, err
 	}
 	block.Nonce = nonce[:]
-	block.Hash = block.ComputeHash(latestAb.Height)
+	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
 	blocks = append(blocks, block)
@@ -280,7 +280,7 @@ func createRPCTransferBlocksR(vite *VitePrepared) ([]*ledger.AccountBlock, error
 			return nil, err
 		}
 		block.Nonce = nonce[:]
-		block.Hash = block.ComputeHash(latestSb.Height)
+		block.Hash = block.ComputeHash()
 		block.Signature = ed25519.Sign(addr1PrivKey, block.Hash.Bytes())
 		receiveBlocks = append(receiveBlocks, block)
 	}
@@ -324,7 +324,7 @@ func createRPCBlockCallContarct(vite *VitePrepared) ([]*ledger.AccountBlock, err
 
 	//nonce := pow.GetPowNonce(nil, types.DataListHash(block.AccountAddress.Bytes(), block.PrevHash.Bytes()))
 	//block.Nonce = nonce[:]
-	block.Hash = block.ComputeHash(latestSb.Height)
+	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
 	blocks = append(blocks, block)
@@ -365,9 +365,9 @@ func TestAccountVerifier_VerifyforP2P(t *testing.T) {
 	}
 
 	block.Nonce = nonce[:]
-	block.Hash = block.ComputeHash(latestSb.Height)
+	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
-	block.Hash = block.ComputeHash(latestSb.Height)
+	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(genesisAccountPrivKey, block.Hash.Bytes())
 
 	isTrue := v.aVerifier.VerifyNetAb(block)
@@ -422,7 +422,7 @@ func Add1SendAddr2(c chain.Chain, v *AccountVerifier) (blocks []*vm_context.VmAc
 		block.Height = 1
 	}
 
-	block.Hash = block.ComputeHash(latestSnapshotBlock.Height)
+	block.Hash = block.ComputeHash()
 	block.Signature = ed25519.Sign(addr1PrivKey, block.Hash.Bytes())
 
 	return v.VerifyforRPC(block)
@@ -522,7 +522,7 @@ func TestAccountVerifier_VerifyDataValidity_Hash(t *testing.T) {
 	fmt.Printf("")
 
 	v := PrepareVite()
-	if err := v.aVerifier.VerifyHash(&block, 2); err != nil {
+	if err := v.aVerifier.VerifyHash(&block); err != nil {
 		t.Error(err)
 	}
 	if err := v.aVerifier.VerifySigature(&block); err != nil {

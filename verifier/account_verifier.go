@@ -52,15 +52,7 @@ func (verifier *AccountVerifier) VerifyNetAb(block *ledger.AccountBlock) error {
 		return err
 	}
 
-	snapshotBlock, err := verifier.chain.GetSnapshotBlockByHash(&block.SnapshotHash)
-	if snapshotBlock == nil {
-		fmt.Printf("%s\n", block.SnapshotHash)
-		if err != nil {
-			return errors.New("func GetSnapshotBlockByHash failed: " + err.Error())
-		}
-		return errors.New("snapshotBlock doesn't exist ")
-	}
-	if err := verifier.VerifyP2PDataValidity(block, snapshotBlock.Height); err != nil {
+	if err := verifier.VerifyP2PDataValidity(block); err != nil {
 		return err
 	}
 
@@ -176,8 +168,8 @@ func (verifier *AccountVerifier) VerifyIsReceivedSucceed(block *ledger.AccountBl
 	return verifier.chain.IsSuccessReceived(&block.AccountAddress, &block.FromBlockHash)
 }
 
-func (verifier *AccountVerifier) VerifyHash(block *ledger.AccountBlock, sbHeight uint64) error {
-	computedHash := block.ComputeHash(sbHeight)
+func (verifier *AccountVerifier) VerifyHash(block *ledger.AccountBlock) error {
+	computedHash := block.ComputeHash()
 	if block.Hash.IsZero() {
 		return errors.New("hash can't be allzero")
 	}
@@ -274,7 +266,7 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock, 
 		}
 	}
 
-	if err := verifier.VerifyHash(block, sbHeight); err != nil {
+	if err := verifier.VerifyHash(block); err != nil {
 		return err
 	}
 
@@ -290,14 +282,10 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock, 
 	return nil
 }
 
-func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBlock, sbHeight uint64) error {
+func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBlock) error {
 	defer monitor.LogTime("AccountVerifier", "VerifyP2PDataValidity", time.Now())
 
-	if err := verifier.verifyDatasIntergrity(block, sbHeight); err != nil {
-		return err
-	}
-
-	if err := verifier.VerifyHash(block, sbHeight); err != nil {
+	if err := verifier.VerifyHash(block); err != nil {
 		return err
 	}
 
