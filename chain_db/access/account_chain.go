@@ -381,6 +381,10 @@ func (ac *AccountChain) GetContractGid(accountId uint64) (*types.Gid, error) {
 		return nil, getBlockErr
 	}
 
+	return ac.GetContractGidFromSendCreateBlock(fromBlock)
+}
+
+func (ac *AccountChain) GetContractGidFromSendCreateBlock(fromBlock *ledger.AccountBlock) (*types.Gid, error) {
 	if fromBlock == nil {
 		return nil, nil
 	}

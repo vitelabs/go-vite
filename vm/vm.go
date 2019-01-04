@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 	"path/filepath"
@@ -119,70 +120,44 @@ func NewVM() *VM {
 func printDebugBlockInfo(block *ledger.AccountBlock, blockList []*vm_context.VmAccountBlock, err error) {
 	responseBlockList := make([]string, 0)
 	if len(blockList) > 0 {
-		for _, sendBlock := range blockList[:] {
-			responseBlockList = append(responseBlockList,
-				"{SelfAddr: "+sendBlock.AccountBlock.AccountAddress.String()+", "+
-					"ToAddr: "+sendBlock.AccountBlock.ToAddress.String()+", "+
-					"BlockType: "+string(sendBlock.AccountBlock.BlockType)+", "+
-					"Amount: "+sendBlock.AccountBlock.Amount.String()+", "+
-					"TokenId: "+sendBlock.AccountBlock.TokenId.String()+", "+
-					"Height: "+string(sendBlock.AccountBlock.Height)+", "+
-					"Data: "+hex.EncodeToString(sendBlock.AccountBlock.Data)+", "+
-					"Fee: "+sendBlock.AccountBlock.Fee.String()+"}")
+		for _, b := range blockList[:] {
+			if b.AccountBlock.IsSendBlock() {
+				responseBlockList = append(responseBlockList,
+					"{SelfAddr: "+b.AccountBlock.AccountAddress.String()+", "+
+						"ToAddr: "+b.AccountBlock.ToAddress.String()+", "+
+						"BlockType: "+strconv.FormatInt(int64(b.AccountBlock.BlockType), 10)+", "+
+						"Quota: "+strconv.FormatUint(b.AccountBlock.Quota, 10)+", "+
+						"Amount: "+b.AccountBlock.Amount.String()+", "+
+						"TokenId: "+b.AccountBlock.TokenId.String()+", "+
+						"Height: "+strconv.FormatUint(b.AccountBlock.Height, 10)+", "+
+						"Data: "+hex.EncodeToString(b.AccountBlock.Data)+", "+
+						"Fee: "+b.AccountBlock.Fee.String()+"}")
+			} else {
+				responseBlockList = append(responseBlockList,
+					"{SelfAddr: "+b.AccountBlock.AccountAddress.String()+", "+
+						"FromHash: "+b.AccountBlock.FromBlockHash.String()+", "+
+						"BlockType: "+strconv.FormatInt(int64(b.AccountBlock.BlockType), 10)+", "+
+						"Quota: "+strconv.FormatUint(b.AccountBlock.Quota, 10)+", "+
+						"Height: "+strconv.FormatUint(b.AccountBlock.Height, 10)+", "+
+						"Data: "+hex.EncodeToString(b.AccountBlock.Data)+"}")
+			}
 		}
 	}
-	if nodeConfig.IsDebug {
-		nodeConfig.log.Info("vm run stop",
-			"blockType", block.BlockType,
-			"address", block.AccountAddress.String(),
-			"height", block.Height,
-			"fromHash", block.FromBlockHash.String(),
-			"err", err,
-			"responseBlockList", responseBlockList,
-		)
-	}
+	nodeConfig.log.Info("vm run stop",
+		"blockType", block.BlockType,
+		"address", block.AccountAddress.String(),
+		"height", block.Height,
+		"fromHash", block.FromBlockHash.String(),
+		"err", err,
+		"generatedBlockList", responseBlockList,
+	)
 }
 
 func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTime("vm", "run", time.Now())
 	defer func() {
 		if nodeConfig.IsDebug {
-			responseBlockList := make([]string, 0)
-			if len(blockList) > 0 {
-				for _, b := range blockList[:] {
-					if b.AccountBlock.IsSendBlock() {
-						responseBlockList = append(responseBlockList,
-							"{SelfAddr: "+b.AccountBlock.AccountAddress.String()+", "+
-								"ToAddr: "+b.AccountBlock.ToAddress.String()+", "+
-								"BlockType: "+strconv.FormatInt(int64(b.AccountBlock.BlockType), 10)+", "+
-								"Quota: "+strconv.FormatUint(b.AccountBlock.Quota, 10)+", "+
-								"Amount: "+b.AccountBlock.Amount.String()+", "+
-								"TokenId: "+b.AccountBlock.TokenId.String()+", "+
-								"Height: "+strconv.FormatUint(b.AccountBlock.Height, 10)+", "+
-								"Data: "+hex.EncodeToString(b.AccountBlock.Data)+", "+
-								"Fee: "+b.AccountBlock.Fee.String()+"}")
-					} else {
-						responseBlockList = append(responseBlockList,
-							"{SelfAddr: "+b.AccountBlock.AccountAddress.String()+", "+
-								"FromHash: "+b.AccountBlock.FromBlockHash.String()+", "+
-								"BlockType: "+strconv.FormatInt(int64(b.AccountBlock.BlockType), 10)+", "+
-								"Quota: "+strconv.FormatUint(b.AccountBlock.Quota, 10)+", "+
-								"Amount: "+b.AccountBlock.Amount.String()+", "+
-								"TokenId: "+b.AccountBlock.TokenId.String()+", "+
-								"Height: "+strconv.FormatUint(b.AccountBlock.Height, 10)+", "+
-								"Data: "+hex.EncodeToString(b.AccountBlock.Data)+", "+
-								"Fee: "+b.AccountBlock.Fee.String()+"}")
-					}
-				}
-			}
-			nodeConfig.log.Info("vm run stop",
-				"blockType", block.BlockType,
-				"address", block.AccountAddress.String(),
-				"height", block.Height,
-				"fromHash", block.FromBlockHash.String(),
-				"err", err,
-				"responseBlockList", responseBlockList,
-			)
+			printDebugBlockInfo(block, blockList, err)
 		}
 	}()
 	if nodeConfig.IsDebug {
@@ -197,11 +172,17 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		blockContext.AccountBlock.Data = nil
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
+			if !fork.IsVite1(database.GetSnapshotBlockByHash(&block.SnapshotHash).Height) {
+				return nil, NoRetry, errors.New("snapshot height not supported")
+			}
 			return vm.receiveCreate(blockContext, sendBlock, quota.CalcCreateQuota(sendBlock.Fee))
 		} else if sendBlock.BlockType == ledger.BlockTypeSendCall || sendBlock.BlockType == ledger.BlockTypeSendReward {
 			return vm.receiveCall(blockContext, sendBlock)
 		}
 	case ledger.BlockTypeSendCreate:
+		if !fork.IsVite1(database.GetSnapshotBlockByHash(&block.SnapshotHash).Height) {
+			return nil, NoRetry, errors.New("snapshot height not supported")
+		}
 		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 			database,
 			block.AccountAddress,

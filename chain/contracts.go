@@ -15,6 +15,13 @@ func (c *chain) GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types
 		return nil, nil
 	}
 
+	if block.Height == 1 {
+		fromBlock, err := c.GetAccountBlockByHash(&block.FromBlockHash)
+		if err != nil {
+			return nil, err
+		}
+		return c.chainDb.Ac.GetContractGidFromSendCreateBlock(fromBlock)
+	}
 	return c.GetContractGid(&block.AccountAddress)
 }
 
