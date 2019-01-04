@@ -126,8 +126,9 @@ type Net interface {
 	Broadcaster
 	Receiver
 	Protocols() []*p2p.Protocol
-	Start(svr *p2p.Server) error
+	Start(svr p2p.Server) error
 	Stop()
 	Info() *NodeInfo
 	Tasks() []*Task
+	AddPlugin(plugin p2p.Plugin)
 }

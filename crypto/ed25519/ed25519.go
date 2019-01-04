@@ -22,10 +22,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
-	"golang.org/x/crypto/blake2b"
 	"io"
 	"strconv"
+
+	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
+	"golang.org/x/crypto/blake2b"
 )
 
 const (
@@ -42,7 +43,7 @@ const (
 // PublicKey is the type of Ed25519 public keys.
 type PublicKey []byte
 
-// PrivateKey is the type of Ed25519 private keys. It implements crypto.Signer.
+// PeerKey is the type of Ed25519 private keys. It implements crypto.Signer.
 type PrivateKey []byte
 
 // Public returns the PublicKey corresponding to priv.

@@ -5,6 +5,12 @@ package p2p
 import (
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
@@ -13,11 +19,6 @@ import (
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/nat"
 	"github.com/vitelabs/go-vite/p2p/network"
-	"net"
-	"strconv"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 var errSvrStarted = errors.New("server has started")
@@ -44,17 +45,7 @@ func blockPolicy(t time.Time, count int) bool {
 	return true
 }
 
-type Discovery interface {
-	Start() error
-	Stop()
-	SubNodes(ch chan<- *discovery.Node)
-	UnSubNodes(ch chan<- *discovery.Node)
-	Mark(id discovery.NodeID, lifetime int64)
-	Block(id discovery.NodeID, ip net.IP)
-	Need(n uint)
-	Nodes() []*discovery.Node
-}
-
+// Config is the essential configuration to create a p2p.server
 type Config struct {
 	Discovery       bool
 	Name            string
@@ -65,13 +56,30 @@ type Config struct {
 	Port            uint               // TCP and UDP listen port
 	DataDir         string             // the directory for storing node table, default is "~/viteisbest/p2p"
 	PrivateKey      ed25519.PrivateKey // use for encrypt message, the corresponding public key use for NodeID
+	ExtNodeData     []byte             // extension data for Node
 	Protocols       []*Protocol        // protocols server supported
 	BootNodes       []string           // nodes as discovery seed
 	StaticNodes     []string           // nodes to connect
 }
 
-type Server struct {
-	*Config
+type Server interface {
+	Start() error
+	Stop()
+	AddPlugin(plugin Plugin)
+	Connect(id discovery.NodeID, addr *net.TCPAddr)
+	Peers() []*PeerInfo
+	PeersCount() uint
+	NodeInfo() *NodeInfo
+	Available() bool
+	Nodes() (urls []string)
+	SubNodes(ch chan<- *discovery.Node)
+	UnSubNodes(ch chan<- *discovery.Node)
+	URL() string
+	Config() *Config
+}
+
+type server struct {
+	config      *Config
 	addr        *net.TCPAddr
 	StaticNodes []*discovery.Node
 
@@ -81,7 +89,7 @@ type Server struct {
 	pending   chan struct{} // how many connection can wait for handshake
 	addPeer   chan *transport
 	delPeer   chan *Peer
-	discv     Discovery
+	discv     discovery.Discovery
 	handshake *Handshake
 	peers     *PeerSet
 	blockUtil *block.Block
@@ -92,9 +100,15 @@ type Server struct {
 
 	rw     sync.RWMutex // for block
 	dialer *net.Dialer
+
+	plugins []Plugin
 }
 
-func New(cfg *Config) (svr *Server, err error) {
+func (svr *server) Config() *Config {
+	return svr.config
+}
+
+func New(cfg *Config) (Server, error) {
 	cfg = EnsureConfig(cfg)
 
 	addr := "0.0.0.0:" + strconv.FormatUint(uint64(cfg.Port), 10)
@@ -102,12 +116,12 @@ func New(cfg *Config) (svr *Server, err error) {
 	// tcp listener
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	ID, err := discovery.Priv2NodeID(cfg.PrivateKey)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	node := &discovery.Node{
@@ -116,10 +130,11 @@ func New(cfg *Config) (svr *Server, err error) {
 		UDP: uint16(tcpAddr.Port),
 		TCP: uint16(tcpAddr.Port),
 		Net: cfg.NetID,
+		Ext: cfg.ExtNodeData,
 	}
 
-	svr = &Server{
-		Config:      cfg,
+	svr := &server{
+		config:      cfg,
 		addr:        tcpAddr,
 		StaticNodes: parseNodes(cfg.StaticNodes),
 		peers:       NewPeerSet(),
@@ -128,33 +143,26 @@ func New(cfg *Config) (svr *Server, err error) {
 		delPeer:     make(chan *Peer, 1),
 		blockUtil:   block.New(blockPolicy),
 		self:        node,
-		nodeChan:    make(chan *discovery.Node, 10),
+		nodeChan:    make(chan *discovery.Node, cfg.MaxPendingPeers),
 		log:         log15.New("module", "p2p/server"),
 		dialer:      &net.Dialer{Timeout: 3 * time.Second},
 	}
 
 	if cfg.Discovery {
-		// udp discover
-		var udpAddr *net.UDPAddr
-		udpAddr, err = net.ResolveUDPAddr("udp", addr)
-		if err != nil {
-			return
-		}
-
 		svr.discv = discovery.New(&discovery.Config{
-			Priv:      cfg.PrivateKey,
+			PeerKey:   cfg.PrivateKey,
 			DBPath:    cfg.DataDir,
 			BootNodes: parseNodes(cfg.BootNodes),
-			Addr:      udpAddr,
+			Addr:      addr,
 			Self:      node,
 			NetID:     cfg.NetID,
 		})
 	}
 
-	return
+	return svr, nil
 }
 
-func (svr *Server) Start() error {
+func (svr *server) Start() error {
 	if !atomic.CompareAndSwapInt32(&svr.running, 0, 1) {
 		return errSvrStarted
 	}
@@ -183,7 +191,7 @@ func (svr *Server) Start() error {
 	})
 
 	// discovery
-	if svr.Discovery {
+	if svr.config.Discovery {
 		// mapping udp
 		svr.wg.Add(1)
 		common.Go(func() {
@@ -192,13 +200,18 @@ func (svr *Server) Start() error {
 		})
 
 		// subscribe nodes
-		svr.discv.SubNodes(svr.nodeChan)
+		svr.discv.SubNodes(svr.nodeChan, true)
 
 		err = svr.discv.Start()
 		if err != nil {
 			svr.ln.Close()
 			return err
 		}
+	}
+
+	err = svr.startPlugins()
+	if err != nil {
+		return err
 	}
 
 	svr.wg.Add(1)
@@ -216,7 +229,7 @@ func (svr *Server) Start() error {
 	return nil
 }
 
-func (svr *Server) Stop() {
+func (svr *server) Stop() {
 	if svr.term == nil {
 		return
 	}
@@ -243,7 +256,20 @@ func (svr *Server) Stop() {
 	}
 }
 
-func (svr *Server) updateNode(addr *nat.Addr) {
+func (svr *server) AddPlugin(plugin Plugin) {
+	svr.plugins = append(svr.plugins, plugin)
+}
+
+func (svr *server) startPlugins() (err error) {
+	for _, plugin := range svr.plugins {
+		if err = plugin.Start(svr); err != nil {
+			return
+		}
+	}
+	return nil
+}
+
+func (svr *server) updateNode(addr *nat.Addr) {
 	if addr.Proto == "tcp" {
 		svr.self.TCP = uint16(addr.Port)
 	} else {
@@ -251,28 +277,29 @@ func (svr *Server) updateNode(addr *nat.Addr) {
 	}
 }
 
-func (svr *Server) setHandshake() {
-	cmds := make([]CmdSet, len(svr.Protocols))
-	for i, pt := range svr.Protocols {
+func (svr *server) setHandshake() {
+	config := svr.config
+	cmds := make([]CmdSet, len(config.Protocols))
+	for i, pt := range config.Protocols {
 		cmds[i] = pt.ID
 	}
 
 	svr.handshake = &Handshake{
-		Name:    svr.Name,
+		Name:    config.Name,
 		ID:      svr.self.ID,
 		CmdSets: cmds,
-		Port:    uint16(svr.Port),
+		Port:    uint16(config.Port),
 	}
 }
 
-func (svr *Server) blocked(buf []byte) bool {
+func (svr *server) blocked(buf []byte) bool {
 	svr.rw.RLock()
 	defer svr.rw.RUnlock()
 
 	return svr.blockUtil.Blocked(buf)
 }
 
-func (svr *Server) block(id discovery.NodeID, ip net.IP, err error) {
+func (svr *server) block(id discovery.NodeID, ip net.IP, err error) {
 	svr.rw.Lock()
 	defer svr.rw.Unlock()
 
@@ -281,7 +308,7 @@ func (svr *Server) block(id discovery.NodeID, ip net.IP, err error) {
 	svr.log.Warn(fmt.Sprintf("block %s@%s: %v", id, ip, err))
 }
 
-func (svr *Server) unblock(id discovery.NodeID, ip net.IP) {
+func (svr *server) unblock(id discovery.NodeID, ip net.IP) {
 	svr.rw.Lock()
 	defer svr.rw.Unlock()
 
@@ -290,7 +317,7 @@ func (svr *Server) unblock(id discovery.NodeID, ip net.IP) {
 	svr.log.Warn(fmt.Sprintf("unblock %s@%s", id, ip))
 }
 
-func (svr *Server) dialLoop() {
+func (svr *server) dialLoop() {
 	defer svr.wg.Done()
 
 	dialing := make(map[discovery.NodeID]struct{})
@@ -302,7 +329,7 @@ func (svr *Server) dialLoop() {
 		svr.dial(node.ID, node.TCPAddr(), static, nil)
 	}
 
-	dialDone := make(chan discovery.NodeID, svr.MaxPendingPeers)
+	dialDone := make(chan discovery.NodeID, svr.config.MaxPendingPeers)
 
 	for {
 		select {
@@ -329,7 +356,7 @@ func (svr *Server) dialLoop() {
 // when peer is disconnected, maybe we want to reconnect it.
 // we can get ID and addr only from peer, but not Node
 // so dial(id, addr, flag) not dial(Node, flag)
-func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, done chan<- discovery.NodeID) {
+func (svr *server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, done chan<- discovery.NodeID) {
 	if err := svr.checkConn(id, flag); err != nil {
 		if done != nil {
 			done <- id
@@ -354,8 +381,12 @@ func (svr *Server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, d
 	})
 }
 
-// TCPListener will be closed in method: Server.Stop()
-func (svr *Server) listenLoop() {
+func (svr *server) Connect(id discovery.NodeID, addr *net.TCPAddr) {
+	svr.dial(id, addr, static, nil)
+}
+
+// TCPListener will be closed in method: server.Stop()
+func (svr *server) listenLoop() {
 	defer svr.wg.Done()
 
 	var conn net.Conn
@@ -411,11 +442,11 @@ func (svr *Server) listenLoop() {
 	}
 }
 
-func (svr *Server) release() {
+func (svr *server) release() {
 	<-svr.pending
 }
 
-func (svr *Server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
+func (svr *server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
 	defer svr.release()
 
 	var err error
@@ -441,7 +472,7 @@ func (svr *Server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
 	svr.addPeer <- ts
 }
 
-func (svr *Server) handleTS(ts *transport, id discovery.NodeID) error {
+func (svr *server) handleTS(ts *transport, id discovery.NodeID) error {
 	// handshake data, add remoteIP and remotePort
 	// handshake is not same for every peer
 	handshake := *svr.handshake
@@ -449,7 +480,7 @@ func (svr *Server) handleTS(ts *transport, id discovery.NodeID) error {
 	handshake.RemoteIP = tcpAddr.IP
 	handshake.RemotePort = uint16(tcpAddr.Port)
 
-	their, err := ts.Handshake(svr.PrivateKey, &handshake)
+	their, err := ts.Handshake(svr.config.PrivateKey, &handshake)
 
 	if err != nil {
 		return err
@@ -478,18 +509,18 @@ func (svr *Server) handleTS(ts *transport, id discovery.NodeID) error {
 	return nil
 }
 
-func (svr *Server) checkHead(c net.Conn) error {
+func (svr *server) checkHead(c net.Conn) error {
 	head, err := headShake(c, &headMsg{
 		Version: Version,
-		NetID:   svr.NetID,
+		NetID:   svr.config.NetID,
 	})
 
 	if err != nil {
 		return err
 	}
 
-	if svr.NetID != head.NetID {
-		return fmt.Errorf("different NetID: our %s, their %s", svr.NetID, head.NetID)
+	if svr.config.NetID != head.NetID {
+		return fmt.Errorf("different NetID: our %s, their %s", svr.config.NetID, head.NetID)
 	}
 
 	// todo compatibility
@@ -500,7 +531,7 @@ func (svr *Server) checkHead(c net.Conn) error {
 	return nil
 }
 
-func (svr *Server) checkConn(id discovery.NodeID, flag connFlag) error {
+func (svr *server) checkConn(id discovery.NodeID, flag connFlag) error {
 	if id == svr.self.ID {
 		return DiscSelf
 	}
@@ -514,7 +545,7 @@ func (svr *Server) checkConn(id discovery.NodeID, flag connFlag) error {
 		return nil
 	}
 
-	if uint(svr.peers.Size()) >= svr.MaxPeers {
+	if uint(svr.peers.Size()) >= svr.config.MaxPeers {
 		return DiscTooManyPeers
 	}
 
@@ -525,7 +556,7 @@ func (svr *Server) checkConn(id discovery.NodeID, flag connFlag) error {
 	return nil
 }
 
-func (svr *Server) loop() {
+func (svr *server) loop() {
 	defer svr.wg.Done()
 
 	var peersCount uint
@@ -540,7 +571,7 @@ loop:
 
 			if err == nil {
 				var p *Peer
-				if p, err = NewPeer(c, svr.Protocols); err == nil {
+				if p, err = NewPeer(c, svr.config.Protocols); err == nil {
 					svr.peers.Add(p)
 					peersCount = svr.peers.Size()
 					svr.log.Info(fmt.Sprintf("create new peer %s, total: %d", p, peersCount))
@@ -573,44 +604,54 @@ loop:
 				svr.dial(p.ID(), p.RemoteAddr(), static, nil)
 			}
 
-			if peersCount == 0 && svr.discv != nil {
-				svr.discv.Need(svr.MaxPeers)
+			if svr.discv != nil {
+				svr.discv.More(svr.nodeChan)
 			}
 		}
 	}
 
-	svr.peers.Traverse(func(id discovery.NodeID, p *Peer) {
-		p.Disconnect(DiscQuitting)
-	})
+	svr.peers.DisconnectAll()
+
+	if svr.discv != nil {
+		now := time.Now()
+		svr.peers.mu.Lock()
+		defer svr.peers.mu.Unlock()
+		for id, p := range svr.peers.peers {
+			svr.discv.Mark(id, now.Sub(p.Created).Nanoseconds())
+		}
+	}
 }
 
-func (svr *Server) runPeer(p *Peer) {
+func (svr *server) runPeer(p *Peer) {
 	err := p.run()
 	if err != nil {
 		svr.log.Error(fmt.Sprintf("run peer %s error: %v", p, err))
 	}
-	svr.delPeer <- p
+	select {
+	case svr.delPeer <- p:
+	case <-svr.term:
+	}
 }
 
-func (svr *Server) Peers() []*PeerInfo {
+func (svr *server) Peers() []*PeerInfo {
 	return svr.peers.Info()
 }
 
-func (svr *Server) PeersCount() uint {
+func (svr *server) PeersCount() uint {
 	return svr.peers.Size()
 }
 
-func (svr *Server) NodeInfo() *NodeInfo {
-	protocols := make([]string, len(svr.Protocols))
-	for i, protocol := range svr.Protocols {
+func (svr *server) NodeInfo() *NodeInfo {
+	protocols := make([]string, len(svr.config.Protocols))
+	for i, protocol := range svr.config.Protocols {
 		protocols[i] = protocol.String()
 	}
 
 	return &NodeInfo{
 		ID:    svr.self.ID.String(),
-		Name:  svr.Name,
+		Name:  svr.config.Name,
 		Url:   svr.self.String(),
-		NetID: svr.NetID,
+		NetID: svr.config.NetID,
 		Address: &address{
 			IP:  svr.self.IP,
 			TCP: svr.self.TCP,
@@ -620,29 +661,37 @@ func (svr *Server) NodeInfo() *NodeInfo {
 	}
 }
 
-func (svr *Server) URL() string {
+func (svr *server) URL() string {
 	return svr.self.String()
 }
 
-func (svr *Server) Available() bool {
+func (svr *server) Available() bool {
 	return svr.PeersCount() > 0
 }
 
-func (svr *Server) maxOutboundPeers() uint {
-	return svr.MaxPeers - svr.maxInboundPeers()
+func (svr *server) maxOutboundPeers() uint {
+	return svr.config.MaxPeers - svr.maxInboundPeers()
 }
 
-func (svr *Server) maxInboundPeers() uint {
-	return svr.MaxPeers / svr.MaxInboundRatio
+func (svr *server) maxInboundPeers() uint {
+	return svr.config.MaxPeers / svr.config.MaxInboundRatio
 }
 
-func (svr *Server) Nodes() (urls []string) {
-	nodes := svr.discv.Nodes()
-	for _, node := range nodes {
-		urls = append(urls, node.String())
-	}
-
+func (svr *server) Nodes() (urls []string) {
 	return
+}
+
+func (svr *server) SubNodes(ch chan<- *discovery.Node) {
+	if svr.discv == nil {
+		return
+	}
+	svr.discv.SubNodes(ch, false)
+}
+func (svr *server) UnSubNodes(ch chan<- *discovery.Node) {
+	if svr.discv == nil {
+		return
+	}
+	svr.discv.UnSubNodes(ch)
 }
 
 // @section NodeInfo

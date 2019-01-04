@@ -4,7 +4,7 @@ type P2P struct {
 	Name string `json:"Names""`
 
 	// use for sign data
-	PrivateKey string `json:"PrivateKey"`
+	PrivateKey string `json:"PeerKey"`
 
 	// `MaxPeers` is the maximum number of peers that can be connected.
 	MaxPeers uint `json:"MaxPeers"`
