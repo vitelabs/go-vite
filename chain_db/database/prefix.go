@@ -34,8 +34,4 @@ const (
 	DBKP_BLOCK_EVENT = byte(16)
 
 	DBKP_BE_SNAPSHOT = byte(17)
-
-	DBKP_BLOCK_LIST_BY_TOKEN = byte(18)
-
-	DBKP_ACCOUNT_TOKEN_META = byte(19)
 )
