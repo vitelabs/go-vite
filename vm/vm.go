@@ -149,29 +149,29 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 		if nodeConfig.IsDebug {
 			responseBlockList := make([]string, 0)
 			if len(blockList) > 0 {
-				for _, sendBlock := range blockList[:] {
-					if sendBlock.AccountBlock.IsSendBlock() {
+				for _, b := range blockList[:] {
+					if b.AccountBlock.IsSendBlock() {
 						responseBlockList = append(responseBlockList,
-							"{SelfAddr: "+sendBlock.AccountBlock.AccountAddress.String()+", "+
-								"ToAddr: "+sendBlock.AccountBlock.ToAddress.String()+", "+
-								"BlockType: "+strconv.FormatInt(int64(sendBlock.AccountBlock.BlockType), 10)+", "+
-								"Quota: "+strconv.FormatUint(sendBlock.AccountBlock.Quota, 10)+", "+
-								"Amount: "+sendBlock.AccountBlock.Amount.String()+", "+
-								"TokenId: "+sendBlock.AccountBlock.TokenId.String()+", "+
-								"Height: "+strconv.FormatUint(sendBlock.AccountBlock.Height, 10)+", "+
-								"Data: "+hex.EncodeToString(sendBlock.AccountBlock.Data)+", "+
-								"Fee: "+sendBlock.AccountBlock.Fee.String()+"}")
+							"{SelfAddr: "+b.AccountBlock.AccountAddress.String()+", "+
+								"ToAddr: "+b.AccountBlock.ToAddress.String()+", "+
+								"BlockType: "+strconv.FormatInt(int64(b.AccountBlock.BlockType), 10)+", "+
+								"Quota: "+strconv.FormatUint(b.AccountBlock.Quota, 10)+", "+
+								"Amount: "+b.AccountBlock.Amount.String()+", "+
+								"TokenId: "+b.AccountBlock.TokenId.String()+", "+
+								"Height: "+strconv.FormatUint(b.AccountBlock.Height, 10)+", "+
+								"Data: "+hex.EncodeToString(b.AccountBlock.Data)+", "+
+								"Fee: "+b.AccountBlock.Fee.String()+"}")
 					} else {
 						responseBlockList = append(responseBlockList,
-							"{SelfAddr: "+sendBlock.AccountBlock.AccountAddress.String()+", "+
-								"FromHash: "+sendBlock.AccountBlock.FromBlockHash.String()+", "+
-								"BlockType: "+strconv.FormatInt(int64(sendBlock.AccountBlock.BlockType), 10)+", "+
-								"Quota: "+strconv.FormatUint(sendBlock.AccountBlock.Quota, 10)+", "+
-								"Amount: "+sendBlock.AccountBlock.Amount.String()+", "+
-								"TokenId: "+sendBlock.AccountBlock.TokenId.String()+", "+
-								"Height: "+strconv.FormatUint(sendBlock.AccountBlock.Height, 10)+", "+
-								"Data: "+hex.EncodeToString(sendBlock.AccountBlock.Data)+", "+
-								"Fee: "+sendBlock.AccountBlock.Fee.String()+"}")
+							"{SelfAddr: "+b.AccountBlock.AccountAddress.String()+", "+
+								"FromHash: "+b.AccountBlock.FromBlockHash.String()+", "+
+								"BlockType: "+strconv.FormatInt(int64(b.AccountBlock.BlockType), 10)+", "+
+								"Quota: "+strconv.FormatUint(b.AccountBlock.Quota, 10)+", "+
+								"Amount: "+b.AccountBlock.Amount.String()+", "+
+								"TokenId: "+b.AccountBlock.TokenId.String()+", "+
+								"Height: "+strconv.FormatUint(b.AccountBlock.Height, 10)+", "+
+								"Data: "+hex.EncodeToString(b.AccountBlock.Data)+", "+
+								"Fee: "+b.AccountBlock.Fee.String()+"}")
 					}
 				}
 			}
@@ -328,6 +328,9 @@ func (vm *VM) receiveCreate(block *vm_context.VmAccountBlock, sendBlock *ledger.
 			vm.updateBlock(block, nil, 0)
 			quotaLeft = quotaTotal - util.CalcQuotaUsed(quotaTotal, 0, c.quotaLeft, c.quotaRefund, nil)
 			err = vm.doSendBlockList(quotaLeft, 0)
+			for i, _ := range vm.blockList[1:] {
+				vm.blockList[i+1].AccountBlock.Quota = 0
+			}
 			if err == nil {
 				return vm.blockList, NoRetry, nil
 			}

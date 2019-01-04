@@ -98,6 +98,8 @@ func (m *memory) print() string {
 			}
 			addr++
 		}
+	} else {
+		result = "omitted"
 	}
 	return result
 }

@@ -40,7 +40,8 @@ func sliceTypeCheck(t Type, val reflect.Value) error {
 	}
 
 	if elemKind := val.Type().Elem().Kind(); (elemKind != reflect.Slice && elemKind != t.Elem.Kind) ||
-		(elemKind == reflect.Slice && t.Elem.Kind != reflect.Slice && t.Elem.Kind != reflect.Array) {
+		(elemKind == reflect.Slice && t.Elem.Kind != reflect.Slice && t.Elem.Kind != reflect.Array) ||
+		(elemKind == reflect.Slice && t.Elem.Kind == reflect.Array && val.Type().Elem().Len() != t.Elem.Size) {
 		return typeErr(formatSliceString(t.Elem.Kind, t.Size), val.Type())
 	}
 	return nil
@@ -54,7 +55,8 @@ func typeCheck(t Type, value reflect.Value) error {
 	}
 
 	// Check base type validity. Element types will be checked later on.
-	if (t.Kind != reflect.Array && t.Kind != value.Kind()) || (t.Kind == reflect.Array && value.Kind() == reflect.Slice && t.Size != value.Len()) {
+	if (t.Kind != reflect.Array && t.Kind != value.Kind()) ||
+		(t.Kind == reflect.Array && value.Kind() == reflect.Slice && t.Size != value.Len()) {
 		return typeErr(t.Kind, value.Kind())
 	} else if t.T == FixedBytesTy && t.Size != value.Len() {
 		return typeErr(t.Type, value.Type())
