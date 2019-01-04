@@ -32,7 +32,7 @@ type Config struct {
 
 type Topology struct {
 	*Config
-	p2p       *p2p.Server
+	p2p       p2p.Server
 	peers     *sync.Map
 	peerCount int32 // atomic
 	prod      sarama.AsyncProducer
@@ -67,7 +67,7 @@ func New(cfg *Config) *Topology {
 
 var errMissingP2P = errors.New("missing p2p server")
 
-func (t *Topology) Start(p2p *p2p.Server) error {
+func (t *Topology) Start(p2p p2p.Server) error {
 	t.term = make(chan struct{})
 
 	if p2p == nil {

@@ -30,4 +30,6 @@ build/
 
 # config files for test
 node_config.json
+node_config_test.json
 genesis.json
+genesis-test.json

@@ -33,7 +33,7 @@ func NewAccountVerifier(chain Chain, consensus Consensus) *AccountVerifier {
 		chain:     chain,
 		consensus: consensus,
 
-		log: log15.New("module", "AccountVerifier"),
+		log: log15.New("class", "AccountVerifier"),
 	}
 }
 

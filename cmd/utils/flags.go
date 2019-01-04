@@ -62,7 +62,7 @@ var (
 		Usage: "Network listening port",
 	}
 	NodeKeyHexFlag = cli.StringFlag{
-		Name:  "nodekeyhex", //mapping:p2p.PrivateKey
+		Name:  "nodekeyhex", //mapping:p2p.PeerKey
 		Usage: "P2P node key as hex",
 	}
 	DiscoveryFlag = cli.StringFlag{
