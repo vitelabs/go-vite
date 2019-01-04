@@ -16,10 +16,15 @@ func (c *chain) GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types
 	}
 
 	if block.Height == 1 {
+		if types.IsPrecompiledContractAddress(block.AccountAddress) {
+			return &types.DELEGATE_GID, nil
+		}
+
 		fromBlock, err := c.GetAccountBlockByHash(&block.FromBlockHash)
 		if err != nil {
 			return nil, err
 		}
+
 		return c.chainDb.Ac.GetContractGidFromSendCreateBlock(fromBlock)
 	}
 	return c.GetContractGid(&block.AccountAddress)
