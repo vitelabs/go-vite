@@ -71,9 +71,14 @@ func (t *transport) Handshake(key ed25519.PrivateKey, our *Handshake) (their *Ha
 		msg.Cmd = handshakeCmd
 		msg.Payload = data
 
+		t.SetWriteDeadline(time.Now().Add(10 * time.Second))
+		defer t.SetWriteDeadline(time.Time{})
+
 		send <- WriteMsg(t, msg)
 	})
 
+	t.SetReadDeadline(time.Now().Add(10 * time.Second))
+	defer t.SetReadDeadline(time.Time{})
 	if their, err = readHandshake(t); err != nil {
 		return
 	}

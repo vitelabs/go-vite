@@ -317,6 +317,12 @@ func (svr *server) unblock(id discovery.NodeID, ip net.IP) {
 	svr.log.Warn(fmt.Sprintf("unblock %s@%s", id, ip))
 }
 
+func (svr *server) dialStatic() {
+	for _, node := range svr.StaticNodes {
+		svr.dial(node.ID, node.TCPAddr(), static, nil)
+	}
+}
+
 func (svr *server) dialLoop() {
 	defer svr.wg.Done()
 
@@ -325,9 +331,7 @@ func (svr *server) dialLoop() {
 	var node *discovery.Node
 
 	// connect to static node first
-	for _, node = range svr.StaticNodes {
-		svr.dial(node.ID, node.TCPAddr(), static, nil)
-	}
+	svr.dialStatic()
 
 	dialDone := make(chan discovery.NodeID, svr.config.MaxPendingPeers)
 
@@ -561,6 +565,9 @@ func (svr *server) loop() {
 
 	var peersCount uint
 
+	checkTicker := time.NewTicker(10 * time.Second)
+	defer checkTicker.Stop()
+
 loop:
 	for {
 		select {
@@ -606,6 +613,14 @@ loop:
 
 			if svr.discv != nil {
 				svr.discv.More(svr.nodeChan)
+			}
+
+		case <-checkTicker.C:
+			if svr.PeersCount() < DefaultMinPeers {
+				svr.dialStatic()
+				if svr.discv != nil {
+					svr.discv.More(svr.nodeChan)
+				}
 			}
 		}
 	}
@@ -698,7 +713,7 @@ func (svr *server) UnSubNodes(ch chan<- *discovery.Node) {
 	svr.discv.UnSubNodes(ch)
 }
 
-// @section NodeInfo
+// NodeInfo represent current p2p node
 type NodeInfo struct {
 	ID        string     `json:"remoteID"`
 	Name      string     `json:"name"`

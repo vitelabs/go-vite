@@ -379,13 +379,15 @@ func (tab *table) store(db tableDB) {
 
 func (tab *table) near() (nodes []*Node) {
 	tab.mu.RLock()
+	defer tab.mu.RUnlock()
+
 	for _, bkt := range tab.buckets {
 		if bkt.size > 0 {
 			nodes = bkt.nodes(bkt.size)
 			break
 		}
 	}
-	tab.mu.RUnlock()
+
 	return
 }
 
