@@ -55,7 +55,7 @@ type Config struct {
 	MaxInboundRatio uint               // max inbound peers: MaxPeers / MaxInboundRatio
 	Port            uint               // TCP and UDP listen port
 	DataDir         string             // the directory for storing node table, default is "~/viteisbest/p2p"
-	PrivateKey      ed25519.PrivateKey // use for encrypt message, the corresponding public key use for NodeID
+	PeerKey         ed25519.PrivateKey // use for encrypt message, the corresponding public key use for NodeID
 	ExtNodeData     []byte             // extension data for Node
 	Protocols       []*Protocol        // protocols server supported
 	BootNodes       []string           // nodes as discovery seed
@@ -119,7 +119,7 @@ func New(cfg *Config) (Server, error) {
 		return nil, err
 	}
 
-	ID, err := discovery.Priv2NodeID(cfg.PrivateKey)
+	ID, err := discovery.Priv2NodeID(cfg.PeerKey)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func New(cfg *Config) (Server, error) {
 
 	if cfg.Discovery {
 		svr.discv = discovery.New(&discovery.Config{
-			PeerKey:   cfg.PrivateKey,
+			PeerKey:   cfg.PeerKey,
 			DBPath:    cfg.DataDir,
 			BootNodes: parseNodes(cfg.BootNodes),
 			Addr:      addr,
@@ -480,7 +480,7 @@ func (svr *server) handleTS(ts *transport, id discovery.NodeID) error {
 	handshake.RemoteIP = tcpAddr.IP
 	handshake.RemotePort = uint16(tcpAddr.Port)
 
-	their, err := ts.Handshake(svr.config.PrivateKey, &handshake)
+	their, err := ts.Handshake(svr.config.PeerKey, &handshake)
 
 	if err != nil {
 		return err
@@ -678,7 +678,11 @@ func (svr *server) maxInboundPeers() uint {
 }
 
 func (svr *server) Nodes() (urls []string) {
-	return
+	if svr.discv == nil {
+		return nil
+	}
+
+	return svr.discv.Nodes()
 }
 
 func (svr *server) SubNodes(ch chan<- *discovery.Node) {
