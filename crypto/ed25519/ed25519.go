@@ -43,7 +43,7 @@ const (
 // PublicKey is the type of Ed25519 public keys.
 type PublicKey []byte
 
-// PeerKey is the type of Ed25519 private keys. It implements crypto.Signer.
+// PrivateKey is the type of Ed25519 private keys. It implements crypto.Signer.
 type PrivateKey []byte
 
 // Public returns the PublicKey corresponding to priv.
