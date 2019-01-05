@@ -55,6 +55,7 @@ type Discovery interface {
 	UnMark(id NodeID)
 	Block(id NodeID, ip net.IP)
 	More(ch chan<- *Node)
+	Nodes() []string
 }
 
 type discovery struct {
@@ -83,6 +84,16 @@ func (d *discovery) More(ch chan<- *Node) {
 			d.init()
 		}
 	}()
+}
+func (d *discovery) Nodes() (nodes []string) {
+	d.table.m.Range(func(key, value interface{}) bool {
+		if node := value.(*Node); node != nil {
+			nodes = append(nodes, node.String())
+		}
+		return true
+	})
+
+	return nodes
 }
 
 // New create a Discovery implementation
@@ -228,6 +239,8 @@ func (d *discovery) pingLoop() {
 		default:
 			if e := wait.Shift(); e != nil {
 				do(e.(*Node))
+			} else {
+				time.Sleep(time.Second)
 			}
 		}
 	}
@@ -286,6 +299,8 @@ func (d *discovery) findLoop() {
 		default:
 			if e := wait.Shift(); e != nil {
 				do(e.(*Node))
+			} else {
+				time.Sleep(time.Second)
 			}
 		}
 	}

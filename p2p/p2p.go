@@ -678,7 +678,11 @@ func (svr *server) maxInboundPeers() uint {
 }
 
 func (svr *server) Nodes() (urls []string) {
-	return
+	if svr.discv == nil {
+		return nil
+	}
+
+	return svr.discv.Nodes()
 }
 
 func (svr *server) SubNodes(ch chan<- *discovery.Node) {
