@@ -23,6 +23,7 @@ const discCmd = 1
 
 const headerLength = 32
 const maxPayloadSize = ^uint32(0) >> 8 // 15MB
+const shakeTimeout = 30 * time.Second
 
 // bigEnd
 func PutUint24(buf []byte, v uint32) {
@@ -52,7 +53,7 @@ type headMsg struct {
 const headMsgLen = 32 // netId[4] + version[4]
 
 func readHead(conn net.Conn) (head *headMsg, err error) {
-	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	conn.SetReadDeadline(time.Now().Add(shakeTimeout))
 	defer conn.SetReadDeadline(time.Time{})
 
 	headPacket := make([]byte, headMsgLen)
@@ -69,7 +70,7 @@ func readHead(conn net.Conn) (head *headMsg, err error) {
 }
 
 func writeHead(conn net.Conn, head *headMsg) error {
-	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	conn.SetWriteDeadline(time.Now().Add(shakeTimeout))
 	defer conn.SetWriteDeadline(time.Time{})
 
 	headPacket := make([]byte, headMsgLen)

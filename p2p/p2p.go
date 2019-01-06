@@ -433,6 +433,7 @@ func (svr *server) listenLoop() {
 
 			addr = conn.RemoteAddr().(*net.TCPAddr)
 			if svr.blocked(addr.IP) {
+				svr.log.Warn(fmt.Sprintf("%s is blocked", addr))
 				conn.Close()
 				break
 			}
