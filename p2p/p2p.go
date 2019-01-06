@@ -22,10 +22,10 @@ import (
 )
 
 var errSvrStarted = errors.New("server has started")
-var blockMinExpired = 10 * time.Second
-var blockMaxExpired = 3 * time.Minute
+var blockMinExpired = time.Minute
+var blockMaxExpired = 5 * time.Minute
 
-const blockCount = 10
+const blockCount = 5
 
 func blockPolicy(t time.Time, count int) bool {
 	del := time.Now().Sub(t)
@@ -139,8 +139,8 @@ func New(cfg *Config) (Server, error) {
 		StaticNodes: parseNodes(cfg.StaticNodes),
 		peers:       NewPeerSet(),
 		pending:     make(chan struct{}, cfg.MaxPendingPeers),
-		addPeer:     make(chan *transport, 1),
-		delPeer:     make(chan *Peer, 1),
+		addPeer:     make(chan *transport, 5),
+		delPeer:     make(chan *Peer, 5),
 		blockUtil:   block.New(blockPolicy),
 		self:        node,
 		nodeChan:    make(chan *discovery.Node, cfg.MaxPendingPeers),
@@ -566,9 +566,6 @@ func (svr *server) loop() {
 
 	var peersCount uint
 
-	checkTicker := time.NewTicker(10 * time.Second)
-	defer checkTicker.Stop()
-
 loop:
 	for {
 		select {
@@ -614,14 +611,6 @@ loop:
 
 			if svr.discv != nil {
 				svr.discv.More(svr.nodeChan)
-			}
-
-		case <-checkTicker.C:
-			if svr.PeersCount() < DefaultMinPeers {
-				svr.dialStatic()
-				if svr.discv != nil {
-					svr.discv.More(svr.nodeChan)
-				}
 			}
 		}
 	}
