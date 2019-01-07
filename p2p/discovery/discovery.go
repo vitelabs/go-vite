@@ -501,7 +501,7 @@ Look:
 	// all nodes of responsive neighbors, use for filter to ensure the same node pushed once
 	seen := make(map[NodeID]struct{})
 
-	const alpha = 5
+	const alpha = 10
 	reply := make(chan []*Node, alpha)
 	queries := 0
 

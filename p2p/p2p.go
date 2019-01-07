@@ -22,10 +22,10 @@ import (
 )
 
 var errSvrStarted = errors.New("server has started")
-var blockMinExpired = 10 * time.Second
-var blockMaxExpired = 3 * time.Minute
+var blockMinExpired = time.Minute
+var blockMaxExpired = 5 * time.Minute
 
-const blockCount = 10
+const blockCount = 5
 
 func blockPolicy(t time.Time, count int) bool {
 	del := time.Now().Sub(t)
@@ -139,8 +139,8 @@ func New(cfg *Config) (Server, error) {
 		StaticNodes: parseNodes(cfg.StaticNodes),
 		peers:       NewPeerSet(),
 		pending:     make(chan struct{}, cfg.MaxPendingPeers),
-		addPeer:     make(chan *transport, 1),
-		delPeer:     make(chan *Peer, 1),
+		addPeer:     make(chan *transport, 5),
+		delPeer:     make(chan *Peer, 5),
 		blockUtil:   block.New(blockPolicy),
 		self:        node,
 		nodeChan:    make(chan *discovery.Node, cfg.MaxPendingPeers),
@@ -317,6 +317,12 @@ func (svr *server) unblock(id discovery.NodeID, ip net.IP) {
 	svr.log.Warn(fmt.Sprintf("unblock %s@%s", id, ip))
 }
 
+func (svr *server) dialStatic() {
+	for _, node := range svr.StaticNodes {
+		svr.dial(node.ID, node.TCPAddr(), static, nil)
+	}
+}
+
 func (svr *server) dialLoop() {
 	defer svr.wg.Done()
 
@@ -325,9 +331,7 @@ func (svr *server) dialLoop() {
 	var node *discovery.Node
 
 	// connect to static node first
-	for _, node = range svr.StaticNodes {
-		svr.dial(node.ID, node.TCPAddr(), static, nil)
-	}
+	svr.dialStatic()
 
 	dialDone := make(chan discovery.NodeID, svr.config.MaxPendingPeers)
 
@@ -365,19 +369,23 @@ func (svr *server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, d
 		return
 	}
 
+	dialPending := make(chan struct{}, 10)
+
 	common.Go(func() {
-		svr.pending <- struct{}{}
+		dialPending <- struct{}{}
 
 		if conn, err := svr.dialer.Dial("tcp", addr.String()); err == nil {
 			svr.setupConn(conn, flag, id)
 		} else {
-			svr.release()
+			svr.block(id, addr.IP, err)
 			svr.log.Warn(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
 		}
 
 		if done != nil {
 			done <- id
 		}
+
+		<-dialPending
 	})
 }
 
@@ -429,12 +437,14 @@ func (svr *server) listenLoop() {
 
 			addr = conn.RemoteAddr().(*net.TCPAddr)
 			if svr.blocked(addr.IP) {
+				svr.log.Warn(fmt.Sprintf("%s is blocked", addr))
 				conn.Close()
 				break
 			}
 
 			common.Go(func() {
 				svr.setupConn(conn, inbound, discovery.ZERO_NODE_ID)
+				<-svr.pending
 			})
 		case <-svr.term:
 			return
@@ -442,16 +452,10 @@ func (svr *server) listenLoop() {
 	}
 }
 
-func (svr *server) release() {
-	<-svr.pending
-}
-
 func (svr *server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
-	defer svr.release()
-
 	var err error
 	if err = svr.checkHead(c); err != nil {
-		svr.log.Warn(fmt.Sprintf("HeadShake with %s error: %v", c.RemoteAddr(), err))
+		svr.log.Warn(fmt.Sprintf("HeadShake with %s error: %v, block it", c.RemoteAddr(), err))
 		c.Close()
 		svr.block(id, c.RemoteAddr().(*net.TCPAddr).IP, err)
 		return
@@ -463,7 +467,7 @@ func (svr *server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
 	}
 
 	if err = svr.handleTS(ts, id); err != nil {
-		svr.log.Warn(fmt.Sprintf("HandShake with %s error: %v", c.RemoteAddr(), err))
+		svr.log.Warn(fmt.Sprintf("HandShake with %s error: %v, block it", c.RemoteAddr(), err))
 		ts.Close()
 		svr.block(id, c.RemoteAddr().(*net.TCPAddr).IP, err)
 		return
@@ -698,7 +702,7 @@ func (svr *server) UnSubNodes(ch chan<- *discovery.Node) {
 	svr.discv.UnSubNodes(ch)
 }
 
-// @section NodeInfo
+// NodeInfo represent current p2p node
 type NodeInfo struct {
 	ID        string     `json:"remoteID"`
 	Name      string     `json:"name"`

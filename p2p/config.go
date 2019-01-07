@@ -16,6 +16,7 @@ const (
 	DefaultMaxInboundRatio uint = 2
 	DefaultPort            uint = 8483
 	DefaultNetID                = network.Aquarius
+	DefaultMinPeers             = 5
 )
 
 const Dirname = "p2p"
