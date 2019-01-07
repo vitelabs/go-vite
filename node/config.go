@@ -182,13 +182,6 @@ func (c *Config) makeForkPointsConfig(genesisConfig *config.Genesis) *config.For
 		forkPoints.Vite1 = &config.ForkPoint{}
 	}
 
-	if forkPoints.Vite1.Height <= 0 {
-		forkPoints.Vite1.Height = 1000 // test, need modify
-	}
-
-	/*if forkPoints.Vite1.Hash == nil {
-		forkPoints.Vite1.Hash = &types.Hash{} // test, need modify
-	}*/
 	return forkPoints
 }
 
