@@ -326,9 +326,11 @@ func (p *chunkPool) add(from, to uint64, front bool) {
 	}
 
 	if front {
+		p.mu.Lock()
 		for i := len(crs) - 1; i > -1; i-- {
 			p.queue.UnShift(crs[i])
 		}
+		p.mu.Unlock()
 	} else {
 		p.mu.Lock()
 		for _, cr := range crs {
