@@ -307,15 +307,16 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 					r.state = reqError
 					fc.removePeer(conns, record, pFiles, p)
 				} else {
+					// download
 					return
 				}
 			}
 		}
 
 		// no peers
-		r.state = reqDone
-		fc.pool.add(file.StartHeight, file.EndHeight)
-		return
+		//r.state = reqDone
+		//fc.pool.add(file.StartHeight, file.EndHeight)
+		//return
 	}
 }
 
@@ -351,7 +352,7 @@ func (fc *fileClient) doRequest(conns map[string]*conn, file *ledger.CompressedF
 }
 
 func (fc *fileClient) nextFile(fileList files, record map[string]*fileState) (file *ledger.CompressedFileMeta) {
-	for _, file := range fileList {
+	for _, file = range fileList {
 		if r, ok := record[file.Filename]; ok {
 			if r.state == reqWaiting || r.state == reqError {
 				return file
