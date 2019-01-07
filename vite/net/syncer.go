@@ -124,7 +124,7 @@ func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syn
 	peers.Sub(s.pEvent)
 
 	pool := newChunkPool(peers, gid, s)
-	fc := newFileClient(chain, pool, s)
+	fc := newFileClient(chain, s)
 	fc.subAllFileDownloaded(s.createChunkTasks)
 
 	s.pool = pool

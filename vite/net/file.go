@@ -174,8 +174,6 @@ type fileClient struct {
 
 	dialer *net2.Dialer
 
-	pool cPool
-
 	running int32
 	term    chan struct{}
 	log     log15.Logger
@@ -184,12 +182,7 @@ type fileClient struct {
 	to uint64
 }
 
-type cPool interface {
-	add(from, to uint64, front bool)
-	start()
-}
-
-func newFileClient(chain Chain, pool cPool, rec blockReceiver) *fileClient {
+func newFileClient(chain Chain, rec blockReceiver) *fileClient {
 	return &fileClient{
 		idleChan:  make(chan *conn, 1),
 		delChan:   make(chan *conn, 1),
@@ -197,7 +190,6 @@ func newFileClient(chain Chain, pool cPool, rec blockReceiver) *fileClient {
 		chain:     chain,
 		log:       log15.New("module", "net/fileClient"),
 		dialer:    &net2.Dialer{Timeout: 3 * time.Second},
-		pool:      pool,
 		rec:       rec,
 	}
 }

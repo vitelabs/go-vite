@@ -422,7 +422,7 @@ func (d *discovery) lookup(target NodeID) []*Node {
 Look:
 	defer atomic.StoreInt32(&d.looking, 0)
 
-	const total = 3 * maxNeighborsOneTrip
+	const total = 5 * maxNeighborsOneTrip
 	var result = neighbors{
 		pivot: target,
 	}
