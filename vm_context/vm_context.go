@@ -334,12 +334,12 @@ func (context *VmContext) GetLogListHash() *types.Hash {
 	return context.unsavedCache.logList.Hash()
 }
 
-func (context *VmContext) GetOneHourQuota() uint64 {
+func (context *VmContext) GetOneHourQuota() (uint64, error) {
 	quota, err := context.chain.SaList().GetAggregateQuota(context.currentSnapshotBlock)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
-	return quota
+	return quota, nil
 }
 
 func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
@@ -459,4 +459,8 @@ func (context *VmContext) DebugGetStorage() map[string][]byte {
 
 func (context *VmContext) isBalanceOrCode(key []byte) bool {
 	return bytes.HasPrefix(key, context.codeKey()) || bytes.HasPrefix(key, STORAGE_KEY_BALANCE)
+}
+
+func (context *VmContext) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
+	return context.chain.GetReceiveBlockHeights(hash)
 }

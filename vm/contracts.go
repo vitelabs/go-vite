@@ -55,7 +55,7 @@ var simpleContracts = map[types.Address]*precompiledContract{
 	},
 }
 
-func isPrecompiledContractAddress(addr types.Address) bool {
+func IsPrecompiledContractAddress(addr types.Address) bool {
 	_, ok := simpleContracts[addr]
 	return ok
 }

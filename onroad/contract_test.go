@@ -1,10 +1,16 @@
 package onroad_test
 
 import (
+	"fmt"
+	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/onroad"
+	"github.com/vitelabs/go-vite/vite/net"
+	"path/filepath"
 	"testing"
 	"time"
-	"fmt"
-	"github.com/vitelabs/go-vite/vite/net"
 )
 
 func TestContractWorker_Start(t *testing.T) {
@@ -63,4 +69,53 @@ func TestContractWorker_Start(t *testing.T) {
 	//})
 
 	time.Sleep(5 * time.Minute)
+}
+
+func TestOnroadBlocksPool_GetNextContractTx(t *testing.T) {
+	db := PrepareDb()
+	sb := db.chain.GetLatestSnapshotBlock()
+	if sb == nil {
+		return
+	}
+	t.Logf("snapshotbloclk: hash %v, height %v ", sb.Hash, sb.Height)
+	addr, _ := types.HexToAddress("vite_000000000000000000000000000000000000000270a48cc491")
+	//blocks, err := db.onroad.DbAccess().GetAllOnroadBlocks(addr)
+	//if err != nil {
+	//	t.Error(err)
+	//	return
+	//}
+	//t.Logf("totalnum %v", len(blocks))
+
+	p := db.onroad.GetOnroadBlocksPool()
+	p.AcquireOnroadSortedContractCache(addr)
+	if cList := p.GetContractCallerList(addr); cList != nil {
+		t.Logf("cList length", cList.Len())
+		for cList.Len() > 0 {
+			b := cList.GetNextTx()
+			t.Logf("get next: currentCallerIndex=%v fromAddr=%v blockHash=%v height", cList.GetCurrentIndex(), b.AccountAddress, b.Hash, b.Height)
+		}
+	}
+}
+
+type testDb struct {
+	chain  chain.Chain
+	onroad *onroad.Manager
+}
+
+func PrepareDb() *testDb {
+	dataDir := filepath.Join(common.HomeDir(), "testvite")
+	fmt.Printf("----dataDir:%+v\n", dataDir)
+	//os.RemoveAll(filepath.Join(common.HomeDir(), "ledger"))
+
+	c := chain.NewChain(&config.Config{DataDir: dataDir})
+	or := onroad.NewManager(nil, nil, nil, nil)
+
+	c.Init()
+	or.Init(c)
+	c.Start()
+
+	return &testDb{
+		chain:  c,
+		onroad: or,
+	}
 }

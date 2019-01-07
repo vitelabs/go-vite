@@ -129,4 +129,7 @@ type Chain interface {
 
 	// account block is existed
 	IsAccountBlockExisted(hash types.Hash) (bool, error)
+
+	// get receive block heights
+	GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error)
 }

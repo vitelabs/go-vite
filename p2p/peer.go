@@ -2,6 +2,12 @@ package p2p
 
 import (
 	"fmt"
+	"io"
+	"net"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
@@ -10,11 +16,6 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/protos"
-	"io"
-	"net"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const writeBufferLen = 100
@@ -70,9 +71,14 @@ func (t *transport) Handshake(key ed25519.PrivateKey, our *Handshake) (their *Ha
 		msg.Cmd = handshakeCmd
 		msg.Payload = data
 
+		t.SetWriteDeadline(time.Now().Add(shakeTimeout))
+		defer t.SetWriteDeadline(time.Time{})
+
 		send <- WriteMsg(t, msg)
 	})
 
+	t.SetReadDeadline(time.Now().Add(shakeTimeout))
+	defer t.SetReadDeadline(time.Time{})
 	if their, err = readHandshake(t); err != nil {
 		return
 	}
@@ -507,13 +513,12 @@ func (s *PeerSet) Info() []*PeerInfo {
 	return info
 }
 
-func (s *PeerSet) Traverse(fn func(id discovery.NodeID, p *Peer)) {
+func (s *PeerSet) DisconnectAll() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	for id, p := range s.peers {
-		id, p := id, p
-		fn(id, p)
+	for id, peer := range s.peers {
+		peer.Disconnect(DiscQuitting)
+		delete(s.peers, id)
 	}
 }
 

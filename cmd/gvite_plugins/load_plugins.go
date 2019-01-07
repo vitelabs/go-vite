@@ -178,8 +178,7 @@ func action(ctx *cli.Context) error {
 
 	nodeManager, err := nodemanager.NewDefaultNodeManager(ctx, nodemanager.FullNodeMaker{})
 	if err != nil {
-		fmt.Errorf("new node error, %+v", err)
-		return err
+		return fmt.Errorf("new node error, %+v", err)
 	}
 
 	return nodeManager.Start()

@@ -772,7 +772,6 @@ func (c *chain) subLedgerAccountIdToAccountAddress(subLedger map[uint64][]*ledge
 func (c *chain) GetAccountBlockMetaByHash(hash *types.Hash) (*ledger.AccountBlockMeta, error) {
 	meta, err := c.chainDb.Ac.GetBlockMeta(hash)
 	if err != nil {
-
 		return nil, err
 	}
 
@@ -787,13 +786,13 @@ func (c *chain) IsAccountBlockExisted(hash types.Hash) (bool, error) {
 	}
 	return isExisted, nil
 }
+
 func (c *chain) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
 	blockMeta, err := c.GetAccountBlockMetaByHash(hash)
 
 	if err != nil {
 		return nil, err
 	}
-
 	if blockMeta == nil {
 		return nil, nil
 	}

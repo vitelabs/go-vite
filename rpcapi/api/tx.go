@@ -68,7 +68,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		return nil, errors.New("selfAddr is nil")
 	}
 
-	if param.ToAddr == nil {
+	if param.ToAddr == nil && param.BlockType != ledger.BlockTypeSendCreate {
 		return nil, errors.New("toAddr is nil")
 	}
 
@@ -89,8 +89,14 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	if !ok {
 		return nil, ErrStrToBigInt
 	}
+	var blockType byte
+	if param.BlockType > 0 {
+		blockType = param.BlockType
+	} else {
+		blockType = ledger.BlockTypeSendCall
+	}
 	msg := &generator.IncomingMessage{
-		BlockType:      ledger.BlockTypeSendCall,
+		BlockType:      blockType,
 		AccountAddress: *param.SelfAddr,
 		ToAddress:      param.ToAddr,
 		TokenId:        &param.TokenTypeId,
@@ -99,7 +105,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		Data:           param.Data,
 		Difficulty:     d,
 	}
-	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.vite.Chain(), &msg.AccountAddress, nil, true)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.vite.Chain(), &msg.AccountAddress, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -146,6 +152,7 @@ type SendTxWithPrivateKeyParam struct {
 	Data         []byte            `json:"data"` //base64
 	Difficulty   *string           `json:"difficulty,omitempty"`
 	PreBlockHash *types.Hash       `json:"preBlockHash,omitempty"`
+	BlockType    byte              `json:"blockType"`
 }
 
 const (

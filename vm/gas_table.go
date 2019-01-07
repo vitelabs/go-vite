@@ -227,11 +227,11 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 		y          = stack.back(1)
 		loc        = stack.back(0)
 		locHash, _ = types.BigToHash(loc)
-		val        = c.block.VmContext.GetStorage(&c.address, locHash.Bytes())
+		val        = c.block.VmContext.GetStorage(&c.block.AccountBlock.AccountAddress, locHash.Bytes())
 	)
 	if len(val) == 0 && y.Sign() != 0 {
 		return sstoreSetGas, nil
-	} else if len(val) == 0 && y.Sign() == 0 {
+	} else if len(val) > 0 && y.Sign() == 0 {
 		c.quotaRefund = c.quotaRefund + sstoreRefundGas
 		return sstoreClearGas, nil
 	} else {
@@ -282,6 +282,18 @@ func makeGasLog(n uint64) gasFunc {
 }
 
 func gasDelegateCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
+	gas, err := memoryGasCost(mem, memorySize)
+	if err != nil {
+		return 0, err
+	}
+	var overflow bool
+	if gas, overflow = helper.SafeAdd(gas, callGas); overflow {
+		return 0, util.ErrGasUintOverflow
+	}
+	return gas, nil
+}
+
+func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
 	gas, err := memoryGasCost(mem, memorySize)
 	if err != nil {
 		return 0, err

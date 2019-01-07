@@ -29,12 +29,12 @@ const (
 	sstoreClearGas  uint64 = 5000  // Once per SSTORE operation if the zeroness doesn't change.
 	sstoreRefundGas uint64 = 15000 // Once per SSTORE operation if the zeroness changes to zero.
 	jumpdestGas     uint64 = 1     // Jumpdest gas cost.
-	callGas         uint64 = 700   // Once per CALL operation & message call transaction.
+	callGas         uint64 = 700   // Once per DELEGATECALL operation & message call transaction.
 	contractCodeGas uint64 = 200   // Per byte in contract code
 	copyGas         uint64 = 3     //
 	memoryGas       uint64 = 3     // Times the address of the (highest referenced byte in memory + 1). NOTE: referencing happens on read, write and in instructions such as RETURN and CALL.
 
-	// callCreateDepth          uint64 = 1024    // Maximum Depth of call/create stack.
+	callDepth  uint64 = 512  // Maximum Depth of call.
 	stackLimit uint64 = 1024 // Maximum size of VM stack allowed.
 
 	getBlockByHeightLimit uint64 = 256
@@ -43,7 +43,7 @@ const (
 	//CallNewAccountGas     uint64 = 25000 // Paid for CALL when the destination address didn't exist prior.
 	//CallStipend           uint64 = 2300  // Free gas given at beginning of call.
 
-	MaxCodeSize = 24576 // Maximum bytecode to permit for a contract
+	MaxCodeSize = 24575 // Maximum bytecode to permit for a contract
 )
 
 var (
