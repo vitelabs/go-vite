@@ -373,17 +373,19 @@ func (svr *server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, d
 
 	common.Go(func() {
 		dialPending <- struct{}{}
-		defer release(dialPending)
 
 		if conn, err := svr.dialer.Dial("tcp", addr.String()); err == nil {
-			svr.setupConn(conn, flag, id, dialPending)
+			svr.setupConn(conn, flag, id)
 		} else {
+			svr.block(id, addr.IP, err)
 			svr.log.Warn(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
 		}
 
 		if done != nil {
 			done <- id
 		}
+
+		<-dialPending
 	})
 }
 
@@ -441,7 +443,8 @@ func (svr *server) listenLoop() {
 			}
 
 			common.Go(func() {
-				svr.setupConn(conn, inbound, discovery.ZERO_NODE_ID, svr.pending)
+				svr.setupConn(conn, inbound, discovery.ZERO_NODE_ID)
+				<-svr.pending
 			})
 		case <-svr.term:
 			return
@@ -449,13 +452,7 @@ func (svr *server) listenLoop() {
 	}
 }
 
-func release(pending <-chan struct{}) {
-	<-pending
-}
-
-func (svr *server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID, pending <-chan struct{}) {
-	defer release(pending)
-
+func (svr *server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
 	var err error
 	if err = svr.checkHead(c); err != nil {
 		svr.log.Warn(fmt.Sprintf("HeadShake with %s error: %v, block it", c.RemoteAddr(), err))

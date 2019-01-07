@@ -23,26 +23,7 @@ const discCmd = 1
 
 const headerLength = 32
 const maxPayloadSize = ^uint32(0) >> 8 // 15MB
-const shakeTimeout = 30 * time.Second
-
-// bigEnd
-func PutUint24(buf []byte, v uint32) {
-	if len(buf) < 3 {
-		panic("put uint24: target byte slice is not long enough")
-	}
-
-	buf[0] = byte(v >> 16)
-	buf[1] = byte(v >> 8)
-	buf[2] = byte(v)
-}
-
-func Uint24(buf []byte) uint32 {
-	if len(buf) < 3 {
-		panic("read uint24: target byte slice is not long enough")
-	}
-
-	return uint32(buf[0])<<16 | uint32(buf[1])<<8 | uint32(buf[2])
-}
+const shakeTimeout = 10 * time.Second
 
 // head message is the first message in a tcp connection
 type headMsg struct {
