@@ -218,9 +218,6 @@ wait:
 	checkChainTicker := time.NewTicker(chainGrowInterval)
 	defer checkChainTicker.Stop()
 
-	var speed uint64 = 100
-	prevHeight := current.Height
-
 	for {
 		select {
 		case e := <-s.pEvent:
@@ -267,15 +264,8 @@ wait:
 				return
 			}
 
-			speed = speed/2 + (current.Height-prevHeight)/2
-			if speed == 0 {
-				speed = 100
-			} else if speed > 200 {
-				speed = 200
-			}
-
-			s.fc.threshold(current.Height + 30*speed)
-			s.pool.threshold(current.Height + 30*speed)
+			s.fc.threshold(current.Height + 3600)
+			s.pool.threshold(current.Height + 3600)
 			s.log.Debug(fmt.Sprintf("current height: %d", current.Height))
 
 		case <-s.term:
@@ -366,7 +356,7 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 			s.fc.gotFiles(res.Files, sender)
 		} else if sender.Height() >= s.to && atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
 			for _, c := range res.Chunks {
-				s.pool.add(c[0], c[1])
+				s.pool.add(c[0], c[1], false)
 			}
 		}
 	} else {
@@ -385,7 +375,7 @@ func (s *syncer) createChunkTasks(fileEnd uint64) {
 		return
 	}
 
-	s.pool.add(fileEnd+1, s.to)
+	s.pool.add(fileEnd+1, s.to, false)
 }
 
 func (s *syncer) catch(c piece) {
@@ -416,7 +406,7 @@ func (s *syncer) catch(c piece) {
 		return
 	}
 
-	s.pool.add(from, s.to)
+	s.pool.add(from, s.to, true)
 	s.log.Warn(fmt.Sprintf("retry sync from %d to %d", from, s.to))
 }
 

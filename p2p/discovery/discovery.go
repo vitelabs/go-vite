@@ -56,6 +56,7 @@ type Discovery interface {
 	Block(id NodeID, ip net.IP)
 	More(ch chan<- *Node)
 	Nodes() []string
+	Delete(id NodeID)
 }
 
 type discovery struct {
@@ -93,6 +94,10 @@ func (d *discovery) Nodes() (nodes []string) {
 	})
 
 	return nodes
+}
+
+func (d *discovery) Delete(id NodeID) {
+	d.table.removeById(id)
 }
 
 // New create a Discovery implementation

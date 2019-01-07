@@ -130,10 +130,13 @@ func (c *chunkRequest) band() (from, to uint64) {
 }
 
 type chunkPool struct {
-	lock     sync.RWMutex
-	peers    *peerSet
-	gid      MsgIder
-	queue    list.List
+	lock  sync.RWMutex
+	peers *peerSet
+	gid   MsgIder
+
+	mu    sync.Mutex
+	queue list.List // wait to request
+
 	chunks   *sync.Map
 	handler  blockReceiver
 	term     chan struct{}
@@ -141,7 +144,6 @@ type chunkPool struct {
 	to       uint64
 	running  int32
 	resQueue *blockQueue.BlockQueue
-	addChan  chan [2]uint64
 }
 
 func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool {
@@ -152,7 +154,6 @@ func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool
 		chunks:   new(sync.Map),
 		handler:  handler,
 		resQueue: blockQueue.New(),
-		addChan:  make(chan [2]uint64, 5),
 	}
 }
 
@@ -265,32 +266,24 @@ loop:
 		case <-p.term:
 			break loop
 
-		case piece := <-p.addChan:
-			from, to := piece[0], piece[1]
-			cs := splitChunk(from, to)
-
-			for _, chunk := range cs {
-				c := &chunkRequest{from: chunk[0], to: chunk[1]}
-				c.id = p.gid.MsgID()
-				p.queue.Append(c)
-				c.msg = &message.GetChunk{
-					Start: c.from,
-					End:   c.to,
-				}
-			}
-
 		case <-doTicker.C:
 			for {
+				p.mu.Lock()
 				if ele := p.queue.Shift(); ele != nil {
+					p.mu.Unlock()
 					c := ele.(*chunkRequest)
 					if c.from <= p.to {
 						p.chunks.Store(c.id, c)
 						p.request(c)
 					} else {
+						// put back
+						p.mu.Lock()
 						p.queue.UnShift(c)
+						p.mu.Unlock()
 						break
 					}
 				} else {
+					p.mu.Unlock()
 					break
 				}
 			}
@@ -318,13 +311,35 @@ func (p *chunkPool) chunk(id uint64) *chunkRequest {
 	return nil
 }
 
-func (p *chunkPool) add(from, to uint64) {
-	select {
-	case <-p.term:
-		return
-	case p.addChan <- [2]uint64{from, to}:
-		p.start()
+func (p *chunkPool) add(from, to uint64, front bool) {
+	cs := splitChunk(from, to)
+	crs := make([]*chunkRequest, len(cs))
+
+	for i, c := range cs {
+		cr := &chunkRequest{from: c[0], to: c[1]}
+		cr.id = p.gid.MsgID()
+		cr.msg = &message.GetChunk{
+			Start: cr.from,
+			End:   cr.to,
+		}
+		crs[i] = cr
 	}
+
+	if front {
+		p.mu.Lock()
+		for i := len(crs) - 1; i > -1; i-- {
+			p.queue.UnShift(crs[i])
+		}
+		p.mu.Unlock()
+	} else {
+		p.mu.Lock()
+		for _, cr := range crs {
+			p.queue.Append(cr)
+		}
+		p.mu.Unlock()
+	}
+
+	p.start()
 }
 
 func (p *chunkPool) done(id uint64) {
@@ -358,11 +373,10 @@ func (p *chunkPool) retry(id uint64) {
 		old := c.peer
 		c.peer = nil
 
-		peers := p.peers.Pick(c.to)
-		if len(peers) > 0 {
-			for _, peer := range peers {
-				if peer != old {
-					c.peer = peer
+		if ps := p.peers.Pick(c.to); len(ps) > 0 {
+			for _, p := range ps {
+				if p != old {
+					c.peer = p
 					break
 				}
 			}
