@@ -19,8 +19,9 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-var fReadTimeout = 20 * time.Second
-var fWriteTimeout = 20 * time.Second
+const fReadTimeout = 20 * time.Second
+const fWriteTimeout = 20 * time.Second
+const fileTimeout = 5 * time.Minute
 
 type fileServer struct {
 	port   uint16
@@ -105,7 +106,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 		case <-s.term:
 			return
 		default:
-			//conn.SetReadDeadline(time.Now().Add(fReadTimeout))
+			conn.SetReadDeadline(time.Now().Add(fReadTimeout))
 			msg, err := p2p.ReadMsg(conn)
 			if err != nil {
 				s.log.Warn(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
@@ -129,6 +130,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 			// send files
 			var n int64
 			for _, filename := range req.Names {
+				conn.SetWriteDeadline(time.Now().Add(fileTimeout))
 				n, err = io.Copy(conn, s.chain.Compressor().FileReader(filename))
 
 				if err != nil {
@@ -548,6 +550,9 @@ func (fc *fileClient) exec(ctx *conn) {
 var errFlieClientStopped = errors.New("fileClient stopped")
 
 func (fc *fileClient) receiveFile(ctx *conn) error {
+	ctx.SetReadDeadline(time.Now().Add(fileTimeout))
+	defer ctx.SetReadDeadline(time.Time{})
+
 	select {
 	case <-fc.term:
 		return errFlieClientStopped
