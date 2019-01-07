@@ -369,7 +369,7 @@ func (svr *server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, d
 		return
 	}
 
-	dialPending := make(chan struct{}, 10)
+	dialPending := make(chan struct{}, svr.config.MaxPendingPeers)
 
 	common.Go(func() {
 		dialPending <- struct{}{}
@@ -397,55 +397,57 @@ func (svr *server) Connect(id discovery.NodeID, addr *net.TCPAddr) {
 func (svr *server) listenLoop() {
 	defer svr.wg.Done()
 
-	var conn net.Conn
-	var addr *net.TCPAddr
-	var err error
 	var tempDelay time.Duration
 	var maxDelay = time.Second
 
 	for {
 		select {
 		case svr.pending <- struct{}{}:
+			// for goroutine setupConn catch, so can`t declare them out of select
+			var conn net.Conn
+			var err error
+
 			for {
-				if conn, err = svr.ln.Accept(); err == nil {
-					break
-				}
+				if conn, err = svr.ln.Accept(); err != nil {
+					// temporary error
+					if ne, ok := err.(net.Error); ok && ne.Temporary() {
+						svr.log.Warn(fmt.Sprintf("listen temp error: %v", ne))
 
-				// temporary error
-				if err, ok := err.(net.Error); ok && err.Temporary() {
-					svr.log.Warn(fmt.Sprintf("listen temp error: %v", err))
+						if tempDelay == 0 {
+							tempDelay = 5 * time.Millisecond
+						} else {
+							tempDelay *= 2
+						}
 
-					if tempDelay == 0 {
-						tempDelay = 5 * time.Millisecond
-					} else {
-						tempDelay *= 2
+						if tempDelay > maxDelay {
+							tempDelay = maxDelay
+						}
+
+						time.Sleep(tempDelay)
+
+						continue
 					}
 
-					if tempDelay > maxDelay {
-						tempDelay = maxDelay
-					}
-
-					time.Sleep(tempDelay)
-
-					continue
+					svr.log.Warn(fmt.Sprintf("listen error: %v", err))
+					return
 				}
 
-				// critical error, may be return
-				svr.log.Warn(fmt.Sprintf("listen error: %v", err))
-				return
-			}
-
-			addr = conn.RemoteAddr().(*net.TCPAddr)
-			if svr.blocked(addr.IP) {
-				svr.log.Warn(fmt.Sprintf("%s is blocked", addr))
-				conn.Close()
+				// next Accept
 				break
 			}
 
-			common.Go(func() {
-				svr.setupConn(conn, inbound, discovery.ZERO_NODE_ID)
+			if addr := conn.RemoteAddr().(*net.TCPAddr); svr.blocked(addr.IP) {
+				svr.log.Warn(fmt.Sprintf("%s has been blocked, will not setup", addr))
+				conn.Close()
+				// next pending
 				<-svr.pending
-			})
+			} else {
+				common.Go(func() {
+					svr.setupConn(conn, inbound, discovery.ZERO_NODE_ID)
+					<-svr.pending
+				})
+			}
+
 		case <-svr.term:
 			return
 		}
