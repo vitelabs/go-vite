@@ -35,7 +35,7 @@ type FilterTokenIndex struct {
 	EventNumPerBatch uint64
 }
 
-// TODO clear data
+// TODO register process func
 func NewFilterTokenIndex(cfg *config.Config, chainInstance chain.Chain) (*FilterTokenIndex, error) {
 	// register
 	fti := &FilterTokenIndex{
@@ -58,7 +58,14 @@ func NewFilterTokenIndex(cfg *config.Config, chainInstance chain.Chain) (*Filter
 
 	// register insert account blocks success
 	chainInstance.RegisterInsertAccountBlocksSuccess(func(blocks []*vm_context.VmAccountBlock) {
+		needAddBlocks := make([]*ledger.AccountBlock, len(blocks))
 
+		for index, block := range blocks {
+			needAddBlocks[index] = block.AccountBlock
+		}
+
+		accountId := needAddBlocks[0].Meta.AccountId
+		fti.AddBlocks(accountId, needAddBlocks)
 	})
 
 	// register delete sub ledger success

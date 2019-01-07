@@ -138,6 +138,7 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			return saveBlockMetaErr
 		}
 
+		accountBlock.Meta = blockMeta
 	}
 
 	// Add account block event
