@@ -185,7 +185,6 @@ func genesisMintageSendBlock(config *GenesisConfig) (ledger.AccountBlock, vmctxt
 }
 
 func getConsensusGroupData(consensusGroupConfig *ConsensusGroupInfo) ([]byte, error) {
-
 	conditionRegisterData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge,
 		consensusGroupConfig.RegisterConditionParam.PledgeAmount,
 		consensusGroupConfig.RegisterConditionParam.PledgeToken,
@@ -194,6 +193,7 @@ func getConsensusGroupData(consensusGroupConfig *ConsensusGroupInfo) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
+
 	voteConditionData := []byte{}
 
 	if consensusGroupConfig.VoteConditionId > 1 {

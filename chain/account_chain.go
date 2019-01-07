@@ -780,5 +780,23 @@ func (c *chain) GetAccountBlockMetaByHash(hash *types.Hash) (*ledger.AccountBloc
 }
 
 func (c *chain) IsAccountBlockExisted(hash types.Hash) (bool, error) {
-	return false, nil
+	isExisted, err := c.chainDb.Ac.IsBlockExisted(hash)
+	if err != nil {
+		c.log.Error("IsBlockExisted failed, error is "+err.Error(), "method", "IsAccountBlockExisted")
+		return false, err
+	}
+	return isExisted, nil
+}
+func (c *chain) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
+	blockMeta, err := c.GetAccountBlockMetaByHash(hash)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if blockMeta == nil {
+		return nil, nil
+	}
+
+	return blockMeta.ReceiveBlockHeights, nil
 }
