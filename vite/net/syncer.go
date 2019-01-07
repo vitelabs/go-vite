@@ -356,7 +356,7 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 			s.fc.gotFiles(res.Files, sender)
 		} else if sender.Height() >= s.to && atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
 			for _, c := range res.Chunks {
-				s.pool.add(c[0], c[1])
+				s.pool.add(c[0], c[1], false)
 			}
 		}
 	} else {
@@ -375,7 +375,7 @@ func (s *syncer) createChunkTasks(fileEnd uint64) {
 		return
 	}
 
-	s.pool.add(fileEnd+1, s.to)
+	s.pool.add(fileEnd+1, s.to, false)
 }
 
 func (s *syncer) catch(c piece) {
@@ -406,7 +406,7 @@ func (s *syncer) catch(c piece) {
 		return
 	}
 
-	s.pool.add(from, s.to)
+	s.pool.add(from, s.to, true)
 	s.log.Warn(fmt.Sprintf("retry sync from %d to %d", from, s.to))
 }
 

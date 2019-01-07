@@ -185,7 +185,7 @@ type fileClient struct {
 }
 
 type cPool interface {
-	add(from, to uint64)
+	add(from, to uint64, front bool)
 	start()
 }
 
