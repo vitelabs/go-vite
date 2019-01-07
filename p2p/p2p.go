@@ -306,6 +306,10 @@ func (svr *server) block(id discovery.NodeID, ip net.IP, err error) {
 	svr.blockUtil.Block(id[:])
 	svr.blockUtil.Block(ip)
 	svr.log.Warn(fmt.Sprintf("block %s@%s: %v", id, ip, err))
+
+	if svr.discv != nil && id != discovery.ZERO_NODE_ID {
+		svr.discv.Delete(id)
+	}
 }
 
 func (svr *server) unblock(id discovery.NodeID, ip net.IP) {
