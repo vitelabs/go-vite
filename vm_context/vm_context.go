@@ -460,3 +460,7 @@ func (context *VmContext) DebugGetStorage() map[string][]byte {
 func (context *VmContext) isBalanceOrCode(key []byte) bool {
 	return bytes.HasPrefix(key, context.codeKey()) || bytes.HasPrefix(key, STORAGE_KEY_BALANCE)
 }
+
+func (context *VmContext) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
+	return context.chain.GetReceiveBlockHeights(hash)
+}

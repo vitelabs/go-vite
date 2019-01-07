@@ -54,4 +54,6 @@ type VmDatabase interface {
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
 	DebugGetStorage() map[string][]byte
+
+	GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error)
 }

@@ -27,4 +27,6 @@ type Chain interface {
 	GetContractGid(addr *types.Address) (*types.Gid, error)
 
 	SaList() *chain_cache.AdditionList
+
+	GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error)
 }
