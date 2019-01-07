@@ -126,4 +126,7 @@ type Chain interface {
 	IsSuccessReceived(addr *types.Address, hash *types.Hash) bool
 
 	getChainRangeSet(snapshotBlocks []*ledger.SnapshotBlock) map[types.Address][2]*ledger.HashHeight
+
+	// account block is existed
+	IsAccountBlockExisted(hash types.Hash) (bool, error)
 }

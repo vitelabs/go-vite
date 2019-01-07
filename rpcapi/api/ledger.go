@@ -1,8 +1,10 @@
 package api
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
@@ -15,11 +17,23 @@ import (
 // !!! Block = Transaction = TX
 
 func NewLedgerApi(vite *vite.Vite) *LedgerApi {
-	return &LedgerApi{
+	api := &LedgerApi{
 		chain: vite.Chain(),
 		//signer:        vite.Signer(),
 		log: log15.New("module", "rpc_api/ledger_api"),
 	}
+
+	fmt.Printf("ledger api is being initialized...")
+	filterTokenIndex, err := index.NewFilterTokenIndex(vite.Config(), vite.Chain())
+	if err != nil {
+		api.log.Crit("NewFilterTokenIndex failed, error is "+err.Error(), "method", "NewLedgerApi")
+		return nil
+	}
+
+	fmt.Printf("ledger api initialization complete")
+
+	api.filterTokenIndex = filterTokenIndex
+	return api
 }
 
 type GcStatus struct {
@@ -31,8 +45,9 @@ type GcStatus struct {
 }
 
 type LedgerApi struct {
-	chain chain.Chain
-	log   log15.Logger
+	chain            chain.Chain
+	log              log15.Logger
+	filterTokenIndex *index.FilterTokenIndex
 }
 
 func (l LedgerApi) String() string {

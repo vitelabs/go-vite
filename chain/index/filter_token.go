@@ -4,12 +4,16 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
+	errors2 "github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/producer"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm_context"
+	"os"
+	"path/filepath"
 )
 
 const (
@@ -18,19 +22,112 @@ const (
 	DBKP_ACCOUNT_TOKEN_META = byte(2)
 
 	DBKP_FILTER_TOKEN_CONSUME_ID = byte(3)
+
+	DBKP_HEAD_HASH = byte(4)
 )
 
 type FilterTokenIndex struct {
-	db               *leveldb.DB
+	db *leveldb.DB
+
+	dataDirName      string
+	log              log15.Logger
 	chainInstance    chain.Chain
 	EventNumPerBatch uint64
-	Meta             map[types.Address]map[types.TokenTypeId]types.Hash
 }
 
-func NewFilterTokenIndex() *FilterTokenIndex {
+// TODO clear data
+func NewFilterTokenIndex(cfg *config.Config, chainInstance chain.Chain) (*FilterTokenIndex, error) {
 	// register
+	fti := &FilterTokenIndex{
+		log:         log15.New("module", "filter_token"),
+		dataDirName: filepath.Join(cfg.DataDir, "ledger_index"),
 
-	return nil
+		chainInstance:    chainInstance,
+		EventNumPerBatch: 1000,
+	}
+
+	db, err := fti.initDb()
+	if err != nil {
+		err := errors.New("initDb failed, error is " + err.Error())
+		fti.log.Error(err.Error(), "method", "NewFilterTokenIndex")
+
+		return nil, err
+	}
+
+	fti.db = db
+
+	// register insert account blocks success
+	chainInstance.RegisterInsertAccountBlocksSuccess(func(blocks []*vm_context.VmAccountBlock) {
+
+	})
+
+	// register delete sub ledger success
+	chainInstance.RegisterDeleteAccountBlocksSuccess(func(subLedger map[types.Address][]*ledger.AccountBlock) {
+
+	})
+	return fti, nil
+}
+
+func (fti *FilterTokenIndex) initDb() (*leveldb.DB, error) {
+	db, err := database.NewLevelDb(fti.dataDirName)
+	if err != nil {
+		switch err.(type) {
+		case *errors2.ErrCorrupted:
+			// clear
+			return fti.clearAndInitDb()
+		default:
+			fti.log.Error("NewLevelDb failed, error is "+err.Error(), "method", "initDb")
+			return nil, nil
+		}
+	}
+
+	if db == nil {
+		err := errors.New("NewFilterTokenIndex failed, db is nil")
+		fti.log.Error(err.Error(), "method", "initDb")
+		return nil, err
+	}
+
+	if isConsistency, err := fti.checkConsistency(); err != nil {
+		fti.log.Error("checkConsistency failed, error is "+err.Error(), "method", "initDb")
+		return nil, err
+	} else if !isConsistency {
+		return fti.clearAndInitDb()
+	}
+
+	return db, nil
+}
+
+func (fti *FilterTokenIndex) checkConsistency() (bool, error) {
+	latestBlockEventId, err := fti.chainInstance.GetLatestBlockEventId()
+	if err != nil {
+		return false, err
+	}
+
+	consumeId, err := fti.getConsumeId()
+	if err != nil {
+		return false, err
+	}
+
+	if consumeId > latestBlockEventId {
+		return false, nil
+	}
+	return true, nil
+
+}
+
+func (fti *FilterTokenIndex) clearAndInitDb() (*leveldb.DB, error) {
+	if fti.db != nil {
+		if closeErr := fti.db.Close(); closeErr != nil {
+			return nil, errors.New("Close db failed, error is " + closeErr.Error())
+		}
+	}
+
+	if err := os.RemoveAll(fti.dataDirName); err != nil && err != os.ErrNotExist {
+		return nil, errors.New("Remove " + fti.dataDirName + " failed, error is " + err.Error())
+	}
+
+	fti.db = nil
+	return fti.initDb()
 }
 
 func (fti *FilterTokenIndex) updateConsumeId(eventId uint64) error {
@@ -70,7 +167,8 @@ func (fti *FilterTokenIndex) build() error {
 	}
 
 	unsavedBlocks := make(map[types.Address][]*ledger.AccountBlock)
-	deletedBlocks := make(map[types.Hash]struct{})
+
+	notFoundBlocks := make(map[types.Hash]struct{})
 
 	eventNum := uint64(0)
 	for eventId := consumeId; eventId <= latestBeId; eventId++ {
@@ -89,19 +187,23 @@ func (fti *FilterTokenIndex) build() error {
 				}
 
 				if block == nil {
+					notFoundBlocks[blockHash] = struct{}{}
 					continue
 				}
 
 				//fti.AddBlocks(block.Meta.AccountId, []*ledger.AccountBlock{block})
 				unsavedBlocks[block.AccountAddress] = append(unsavedBlocks[block.AccountAddress], block)
 			}
-
-		// DeleteAccountBlocksEvent  = byte(2)
 		case byte(2):
-			for _, blockHash := range blockHashList {
-				deletedBlocks[blockHash] = struct{}{}
+			for _, hash := range blockHashList {
+				if _, ok := notFoundBlocks[hash]; ok {
+					delete(notFoundBlocks, hash)
+					continue
+				}
+				if err := fti.deleteHash(hash); err != nil {
+					return err
+				}
 			}
-
 		}
 
 		eventNum++
@@ -111,39 +213,19 @@ func (fti *FilterTokenIndex) build() error {
 				if err != nil {
 					return err
 				}
-				//fti.deleteBlocks()
 
-				var filterBlocks []*ledger.AccountBlock
-				for _, block := range blocks {
-					if _, ok := deletedBlocks[block.Hash]; ok {
-						continue
-					}
-					filterBlocks = append(filterBlocks, block)
-				}
-
-				fti.AddBlocks(account.AccountId, filterBlocks)
-
+				fti.AddBlocks(account.AccountId, blocks)
 			}
 			unsavedBlocks = make(map[types.Address][]*ledger.AccountBlock)
-			deletedBlocks = make(map[types.Hash]struct{})
 			eventNum = 0
+		}
+		if err := fti.updateConsumeId(eventId); err != nil {
+			return err
 		}
 	}
 	return nil
 }
-func (fti *FilterTokenIndex) rollback(accountId uint64) (*types.Hash, error) {
-	key, _ := database.EncodeKey(DBKP_ACCOUNT_TOKEN_META, accountId)
 
-	iter := fti.db.NewIterator(util.BytesPrefix(key), nil)
-	for iter.Next() {
-
-	}
-
-	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
-		return nil, err
-	}
-
-}
 func (fti *FilterTokenIndex) getHeadHash(accountId uint64, tokenTypeId types.TokenTypeId) (*types.Hash, error) {
 	key, _ := database.EncodeKey(DBKP_ACCOUNT_TOKEN_META, accountId, tokenTypeId)
 	value, err := fti.db.Get(key, nil)
@@ -163,6 +245,90 @@ func (fti *FilterTokenIndex) saveHeadHash(batch *leveldb.Batch, accountId uint64
 	value := hash.Bytes()
 
 	batch.Put(key, value)
+
+	key2, _ := database.EncodeKey(DBKP_HEAD_HASH, hash)
+
+	accountIdBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(accountIdBytes, accountId)
+	value2 := append(accountIdBytes, tokenTypeId.Bytes()...)
+	batch.Put(key2, value2)
+}
+
+func (fti *FilterTokenIndex) deleteHash(headHash types.Hash) error {
+	key, _ := database.EncodeKey(DBKP_HEAD_HASH, headHash)
+	value, err := fti.db.Get(key, nil)
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return nil
+		}
+		return err
+	}
+	if len(value) <= 0 {
+		return nil
+	}
+
+	accountId := binary.BigEndian.Uint64(value[:8])
+	tokenTypeId, err := types.BytesToTokenTypeId(value[8:])
+	if err != nil {
+		return err
+	}
+
+	batch := new(leveldb.Batch)
+	newHeadHash := &headHash
+
+	for {
+		deletedKey, _ := database.EncodeKey(DBKP_HEAD_HASH, newHeadHash)
+		batch.Delete(deletedKey)
+
+		prevHash, err := fti.getPrevHash(*newHeadHash)
+		if err != nil {
+			return err
+		}
+		newHeadHash = prevHash
+
+		if newHeadHash == nil {
+			break
+		}
+
+		isExisted, err := fti.chainInstance.IsAccountBlockExisted(*prevHash)
+		if err != nil {
+			return err
+		}
+
+		if isExisted {
+			break
+		}
+	}
+	fti.deleteHeadHash(batch, accountId, tokenTypeId)
+	fti.deleteHeadHashIndex(batch, headHash)
+
+	if newHeadHash != nil {
+		fti.saveHeadHash(batch, accountId, tokenTypeId, *newHeadHash)
+	}
+
+	return fti.db.Write(batch, nil)
+}
+
+func (fti *FilterTokenIndex) getPrevHash(hash types.Hash) (*types.Hash, error) {
+	key, _ := database.EncodeKey(DBKP_BLOCK_LIST_BY_TOKEN, hash)
+
+	value, err := fti.db.Get(key, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	prevHash, err := types.BytesToHash(value)
+	if err != nil {
+		return nil, err
+	}
+
+	return &prevHash, nil
+}
+
+func (fti *FilterTokenIndex) deleteHeadHashIndex(batch *leveldb.Batch, hash types.Hash) {
+	key, _ := database.EncodeKey(DBKP_HEAD_HASH, hash)
+
+	batch.Delete(key)
 }
 
 func (fti *FilterTokenIndex) deleteHeadHash(batch *leveldb.Batch, accountId uint64, tokenTypeId types.TokenTypeId) {
@@ -178,7 +344,7 @@ func (fti *FilterTokenIndex) AddBlocks(accountId uint64, blocks []*ledger.Accoun
 	unsavedHeadHash := make(map[types.TokenTypeId]types.Hash)
 
 	for _, block := range blocks {
-		key, _ := database.EncodeKey(DBKP_BLOCK_LIST_BY_TOKEN, accountId, block.Hash)
+		key, _ := database.EncodeKey(DBKP_BLOCK_LIST_BY_TOKEN, block.Hash)
 
 		var prevHashInToken *types.Hash
 		if hash, ok := unsavedHeadHash[block.TokenId]; ok {
@@ -225,7 +391,7 @@ func (fti *FilterTokenIndex) deleteBlocks(subLedger map[types.Address][]*ledger.
 		for i := len(blocks) - 1; i >= 0; i-- {
 			block := blocks[i]
 
-			key, _ := database.EncodeKey(DBKP_BLOCK_LIST_BY_TOKEN, account.AccountId, block.Hash)
+			key, _ := database.EncodeKey(DBKP_BLOCK_LIST_BY_TOKEN, block.Hash)
 			var headHash *types.Hash
 			if hash, ok := unsavedHeadHash[block.TokenId]; ok {
 				headHash = hash
@@ -255,7 +421,7 @@ func (fti *FilterTokenIndex) deleteBlocks(subLedger map[types.Address][]*ledger.
 				} else {
 					unsavedHeadHash[block.TokenId] = nil
 				}
-
+				fti.deleteHeadHashIndex(batch, block.Hash)
 			}
 
 			batch.Delete(key)

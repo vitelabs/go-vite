@@ -778,3 +778,7 @@ func (c *chain) GetAccountBlockMetaByHash(hash *types.Hash) (*ledger.AccountBloc
 
 	return meta, nil
 }
+
+func (c *chain) IsAccountBlockExisted(hash types.Hash) (bool, error) {
+	return false, nil
+}
