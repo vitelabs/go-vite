@@ -82,8 +82,9 @@ const file2Chunk = 600
 const minSubLedger = 1000
 
 const chunk = 20
+const maxBlocksOneTrip = 1000
 
-func splitChunk(from, to uint64) (chunks [][2]uint64) {
+func splitChunk(from, to uint64, chunk uint64) (chunks [][2]uint64) {
 	// chunks may be only one block, then from == to
 	if from > to || to == 0 {
 		return
@@ -312,7 +313,7 @@ func (p *chunkPool) chunk(id uint64) *chunkRequest {
 }
 
 func (p *chunkPool) add(from, to uint64, front bool) {
-	cs := splitChunk(from, to)
+	cs := splitChunk(from, to, 50)
 	crs := make([]*chunkRequest, len(cs))
 
 	for i, c := range cs {
@@ -350,12 +351,12 @@ func (p *chunkPool) done(id uint64) {
 
 func (p *chunkPool) request(c *chunkRequest) {
 	if c.peer == nil {
-		peers := p.peers.Pick(c.to)
-		if len(peers) == 0 {
+		ps := p.peers.Pick(c.to)
+		if len(ps) == 0 {
 			p.catch(c)
 			return
 		}
-		c.peer = peers[rand.Intn(len(peers))]
+		c.peer = ps[rand.Intn(len(ps))]
 	}
 
 	p.send(c)
@@ -383,6 +384,7 @@ func (p *chunkPool) retry(id uint64) {
 		}
 
 		if c.peer == nil {
+			p.chunks.Delete(c.id)
 			p.catch(c)
 		} else {
 			p.send(c)
