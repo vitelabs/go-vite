@@ -2,6 +2,7 @@ package generator
 
 import (
 	"errors"
+	"fmt"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -121,7 +122,11 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 	gen.log.Info("generateBlock", "BlockType", block.BlockType)
 	defer func() {
 		if err := recover(); err != nil {
-			gen.log.Error("generator_vm panic error", "error", err)
+			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v sbHash:%v )", block.AccountAddress, block.PrevHash, block.SnapshotHash)
+			if sendBlock != nil {
+				errDetail += fmt.Sprintf("sendBlock(addr:%v hash:%v)", block.AccountAddress, block.Hash)
+			}
+			gen.log.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
 			result = &GenResult{}
 			resultErr = errors.New("generator_vm panic error")
 		}
