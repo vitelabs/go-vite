@@ -2,12 +2,6 @@ package net
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vite/net/message"
 	"io"
 	"math/rand"
 	net2 "net"
@@ -16,6 +10,13 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
 var fReadTimeout = 20 * time.Second
@@ -321,7 +322,9 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 func (fc *fileClient) doRequest(conns map[string]*conn, file *ledger.CompressedFileMeta, sender Peer) error {
 	id := sender.ID()
 
-	if _, ok := conns[id]; !ok {
+	var c *conn
+	var ok bool
+	if c, ok = conns[id]; !ok {
 		tcp, err := fc.dialer.Dial("tcp", sender.FileAddress().String())
 		if err != nil {
 			return err
@@ -333,13 +336,15 @@ func (fc *fileClient) doRequest(conns map[string]*conn, file *ledger.CompressedF
 			idle:  true,
 			idleT: time.Now(),
 		}
+
+		c = conns[id]
 	}
 
-	conns[id].file = file
+	c.file = file
 
 	// exec
 	common.Go(func() {
-		fc.exec(conns[id])
+		fc.exec(c)
 	})
 
 	return nil
