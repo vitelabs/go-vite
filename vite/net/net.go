@@ -348,7 +348,7 @@ func (n *net) Info() *NodeInfo {
 }
 
 type NodeInfo struct {
-	PeerCount int         `json:peerCount`
+	PeerCount int         `json:"peerCount"`
 	Peers     []*PeerInfo `json:"peers"`
 	Latency   []int64     `json:"latency"` // [0,1,12,24]
 	// MsgSend      uint64      `json:"msgSend"`
