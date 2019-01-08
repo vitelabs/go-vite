@@ -29,7 +29,7 @@ func (p *MethodPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Acco
 	}
 	if block.Amount.Cmp(pledgeAmountMin) < 0 ||
 		!util.IsViteToken(block.TokenId) ||
-		!IsUserAccount(db, block.AccountAddress) {
+		!util.IsUserAccount(db, block.AccountAddress) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	beneficialAddr := new(types.Address)
@@ -84,7 +84,7 @@ func (p *MethodCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledge
 		return quotaLeft, err
 	}
 	if block.Amount.Sign() > 0 ||
-		!IsUserAccount(db, block.AccountAddress) {
+		!util.IsUserAccount(db, block.AccountAddress) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	param := new(cabi.ParamCancelPledge)
