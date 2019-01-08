@@ -333,7 +333,7 @@ func (p *OnroadBlocksPool) RevertOnroadSuccess(subLedger map[types.Address][]*le
 
 // RevertOnroad means to revert according to bifurcation
 func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
-	revertLog := p.log.New("RevertOnroad")
+	revertLog := p.log.New("method", "RevertOnroad")
 
 	cutMap := excludeSubordinate(subLedger)
 	for _, blocks := range cutMap {
@@ -341,25 +341,26 @@ func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[type
 		for i := len(blocks) - 1; i >= 0; i-- {
 			v := blocks[i]
 
-			revertLog.Debug(fmt.Sprintf("block(hash:%v,addr:%v,toAddr:%v,fromHash:%v)",
-				v.Hash, v.AccountAddress, v.ToAddress, v.FromBlockHash))
+			revertLog.Info(fmt.Sprintf("block(hash:%v,addr:%v,toAddr:%v,fromHash:%v,type:%v)",
+				v.Hash, v.AccountAddress, v.ToAddress, v.FromBlockHash, v.BlockType))
 
 			if v.IsReceiveBlock() {
 				sendBlock, err := p.dbAccess.Chain.GetAccountBlockByHash(&v.FromBlockHash)
-				if err != nil {
-					p.log.Error("GetAccountBlockByHash", "error", err)
+				if err != nil || sendBlock == nil {
+					revertLog.Error("GetAccountBlockByHash failed", "error", err)
 					return err
 				}
 				if err := p.dbAccess.writeOnroadMeta(batch, sendBlock); err != nil {
-					p.log.Error("revert receiveBlock failed", "error", err)
+					revertLog.Error("revert receiveBlock failed", "error", err)
 					return err
 				}
 			} else {
 				if err := p.dbAccess.deleteOnroadMeta(batch, v); err != nil {
-					p.log.Error("revert the sendBlock's and the referred failed", "error", err)
+					revertLog.Error("revert the sendBlock's and the referred failed", "error", err)
 					return err
 				}
 				if v.BlockType == ledger.BlockTypeSendCreate {
+					revertLog.Info("delete contract addr from gid")
 					gid := util.GetGidFromCreateContractData(v.Data)
 					p.dbAccess.DeleteContractAddrFromGid(batch, gid, v.ToAddress)
 				}
