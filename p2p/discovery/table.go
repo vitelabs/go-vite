@@ -170,6 +170,10 @@ func newTable(id NodeID, netID network.ID) *table {
 	return tab
 }
 
+func (tab *table) acceptNode(node *Node) bool {
+	return node.Net == 0 || node.Net == tab.netID
+}
+
 func (tab *table) addNode(node *Node) *Node {
 	if node == nil {
 		return nil
@@ -180,7 +184,7 @@ func (tab *table) addNode(node *Node) *Node {
 	}
 
 	// different network
-	if node.Net != 0 && tab.netID != 0 && node.Net != tab.netID {
+	if !tab.acceptNode(node) {
 		return nil
 	}
 

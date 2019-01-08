@@ -81,7 +81,7 @@ type Server interface {
 type server struct {
 	config      *Config
 	addr        *net.TCPAddr
-	StaticNodes []*discovery.Node
+	staticNodes []*discovery.Node
 
 	running   int32          // atomic
 	wg        sync.WaitGroup // Wait for all jobs done
@@ -136,7 +136,7 @@ func New(cfg *Config) (Server, error) {
 	svr := &server{
 		config:      cfg,
 		addr:        tcpAddr,
-		StaticNodes: parseNodes(cfg.StaticNodes),
+		staticNodes: parseNodes(cfg.StaticNodes),
 		peers:       NewPeerSet(),
 		pending:     make(chan struct{}, cfg.MaxPendingPeers),
 		addPeer:     make(chan *transport, 5),
@@ -322,7 +322,7 @@ func (svr *server) unblock(id discovery.NodeID, ip net.IP) {
 }
 
 func (svr *server) dialStatic() {
-	for _, node := range svr.StaticNodes {
+	for _, node := range svr.staticNodes {
 		svr.dial(node.ID, node.TCPAddr(), static, nil)
 	}
 }
