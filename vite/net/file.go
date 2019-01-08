@@ -2,12 +2,6 @@ package net
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vite/net/message"
 	"io"
 	"math/rand"
 	net2 "net"
@@ -16,10 +10,18 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-var fReadTimeout = 20 * time.Second
-var fWriteTimeout = 20 * time.Second
+const fReadTimeout = 20 * time.Second
+const fWriteTimeout = 20 * time.Second
+const fileTimeout = 5 * time.Minute
 
 type fileServer struct {
 	port   uint16
@@ -104,7 +106,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 		case <-s.term:
 			return
 		default:
-			//conn.SetReadDeadline(time.Now().Add(fReadTimeout))
+			conn.SetReadDeadline(time.Now().Add(fReadTimeout))
 			msg, err := p2p.ReadMsg(conn)
 			if err != nil {
 				s.log.Warn(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
@@ -128,6 +130,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 			// send files
 			var n int64
 			for _, filename := range req.Names {
+				conn.SetWriteDeadline(time.Now().Add(fileTimeout))
 				n, err = io.Copy(conn, s.chain.Compressor().FileReader(filename))
 
 				if err != nil {
@@ -171,8 +174,6 @@ type fileClient struct {
 
 	dialer *net2.Dialer
 
-	pool cPool
-
 	running int32
 	term    chan struct{}
 	log     log15.Logger
@@ -181,12 +182,7 @@ type fileClient struct {
 	to uint64
 }
 
-type cPool interface {
-	add(from, to uint64)
-	start()
-}
-
-func newFileClient(chain Chain, pool cPool, rec blockReceiver) *fileClient {
+func newFileClient(chain Chain, rec blockReceiver) *fileClient {
 	return &fileClient{
 		idleChan:  make(chan *conn, 1),
 		delChan:   make(chan *conn, 1),
@@ -194,7 +190,6 @@ func newFileClient(chain Chain, pool cPool, rec blockReceiver) *fileClient {
 		chain:     chain,
 		log:       log15.New("module", "net/fileClient"),
 		dialer:    &net2.Dialer{Timeout: 3 * time.Second},
-		pool:      pool,
 		rec:       rec,
 	}
 }
@@ -306,22 +301,25 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 					r.state = reqError
 					fc.removePeer(conns, record, pFiles, p)
 				} else {
+					// download
 					return
 				}
 			}
 		}
 
 		// no peers
-		r.state = reqDone
-		fc.pool.add(file.StartHeight, file.EndHeight)
-		return
+		//r.state = reqDone
+		//fc.pool.add(file.StartHeight, file.EndHeight)
+		//return
 	}
 }
 
 func (fc *fileClient) doRequest(conns map[string]*conn, file *ledger.CompressedFileMeta, sender Peer) error {
 	id := sender.ID()
 
-	if _, ok := conns[id]; !ok {
+	var c *conn
+	var ok bool
+	if c, ok = conns[id]; !ok {
 		tcp, err := fc.dialer.Dial("tcp", sender.FileAddress().String())
 		if err != nil {
 			return err
@@ -333,20 +331,22 @@ func (fc *fileClient) doRequest(conns map[string]*conn, file *ledger.CompressedF
 			idle:  true,
 			idleT: time.Now(),
 		}
+
+		c = conns[id]
 	}
 
-	conns[id].file = file
+	c.file = file
 
 	// exec
 	common.Go(func() {
-		fc.exec(conns[id])
+		fc.exec(c)
 	})
 
 	return nil
 }
 
 func (fc *fileClient) nextFile(fileList files, record map[string]*fileState) (file *ledger.CompressedFileMeta) {
-	for _, file := range fileList {
+	for _, file = range fileList {
 		if r, ok := record[file.Filename]; ok {
 			if r.state == reqWaiting || r.state == reqError {
 				return file
@@ -542,6 +542,9 @@ func (fc *fileClient) exec(ctx *conn) {
 var errFlieClientStopped = errors.New("fileClient stopped")
 
 func (fc *fileClient) receiveFile(ctx *conn) error {
+	ctx.SetReadDeadline(time.Now().Add(fileTimeout))
+	defer ctx.SetReadDeadline(time.Time{})
+
 	select {
 	case <-fc.term:
 		return errFlieClientStopped
