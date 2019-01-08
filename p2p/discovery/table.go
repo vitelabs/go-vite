@@ -93,9 +93,11 @@ func (b *bucket) add(node *Node) (toCheck *Node) {
 	return b.oldest()
 }
 
-func (b *bucket) remove(id NodeID) {
+func (b *bucket) remove(id NodeID) (n *Node) {
 	for prev, current := b.head, b.head.next; current != nil; prev, current = current, current.next {
 		if current.ID == id {
+			n = current.Node
+
 			prev.next = current.next
 			if b.tail == current {
 				b.tail = prev
@@ -105,6 +107,8 @@ func (b *bucket) remove(id NodeID) {
 			return
 		}
 	}
+
+	return nil
 }
 
 func (b *bucket) nodes(count int) (nodes []*Node) {
@@ -221,6 +225,20 @@ func (tab *table) remove(node *Node) {
 	defer tab.mu.Unlock()
 
 	bkt.remove(node.ID)
+}
+
+func (tab *table) removeById(id NodeID) {
+	bkt := tab.getBucket(id)
+
+	tab.mu.Lock()
+	if n := bkt.remove(id); n != nil {
+		tab.mu.Unlock()
+
+		addr := n.UDPAddr().String()
+		tab.m.Delete(addr)
+	} else {
+		tab.mu.Unlock()
+	}
 }
 
 func (tab *table) bubble(id NodeID) bool {
