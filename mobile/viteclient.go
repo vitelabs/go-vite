@@ -91,7 +91,7 @@ func (vc *Client) GetCandidateList(gid string) (string, error) {
 }
 
 func (vc *Client) GetVoteData(gid string, name string) (string, error) {
-	return vc.rawMsgCall("vote_getVoteData", gid, name)
+	return vc.stringCall("vote_getVoteData", gid, name)
 }
 
 func (vc *Client) GetVoteInfo(gid string, addr *Address) (string, error) {
@@ -99,7 +99,7 @@ func (vc *Client) GetVoteInfo(gid string, addr *Address) (string, error) {
 }
 
 func (vc *Client) GetCancelVoteData(gid string) (string, error) {
-	return vc.rawMsgCall("vote_getCancelVoteData", gid)
+	return vc.stringCall("vote_getCancelVoteData", gid)
 }
 
 func (vc *Client) SendRawTx(accBlock string) error {
