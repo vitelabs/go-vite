@@ -253,6 +253,14 @@ func (db *testDatabase) DebugGetStorage() map[string][]byte {
 	return db.storageMap[db.addr]
 }
 
+func (db *testDatabase) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
+	return nil, nil
+}
+
+func (db *testDatabase) GetOneHourQuota() (uint64, error) {
+	return 0, nil
+}
+
 func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address, privKey ed25519.PrivateKey, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {
 	addr1, _ = types.BytesToAddress(helper.HexToBytes("6c1032417f80329f3abe0a024fa3a7aa0e952b0f"))
 	privKey, _ = ed25519.HexToPrivateKey("44e9768b7d8320a282e75337df8fc1f12a4f000b9f9906ddb886c6823bb599addfda7318e7824d25aae3c749c1cbd4e72ce9401653c66479554a05a2e3cb4f88")

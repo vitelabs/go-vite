@@ -199,3 +199,11 @@ func (db *memoryDatabase) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 func (db *memoryDatabase) DebugGetStorage() map[string][]byte {
 	return db.storage
 }
+
+func (db *memoryDatabase) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
+	return nil, nil
+}
+
+func (db *memoryDatabase) GetOneHourQuota() (uint64, error) {
+	return 0, nil
+}
