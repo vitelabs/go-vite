@@ -258,6 +258,7 @@ func (manager *Manager) StartAutoReceiveWorker(entropystore string, addr types.A
 		manager.log.Info("Manager get event new Worker")
 		manager.autoReceiveWorkers[addr] = w
 	}
+	w.ResetPowDifficulty(powDifficulty)
 	w.ResetAutoReceiveFilter(filter)
 	w.Start()
 	return nil
