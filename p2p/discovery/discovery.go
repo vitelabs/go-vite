@@ -1,7 +1,7 @@
 package discovery
 
 import (
-	"crypto/rand"
+	crand "crypto/rand"
 	"fmt"
 	mrand "math/rand"
 	"net"
@@ -56,6 +56,7 @@ type Discovery interface {
 	Block(id NodeID, ip net.IP)
 	More(ch chan<- *Node)
 	Nodes() []string
+	Delete(id NodeID)
 }
 
 type discovery struct {
@@ -65,7 +66,6 @@ type discovery struct {
 	db       *nodeDB
 	term     chan struct{}
 	pingChan chan *Node
-	findChan chan *Node
 	finding  sync.Map
 	looking  int32 // is looking self
 	wg       sync.WaitGroup
@@ -96,13 +96,16 @@ func (d *discovery) Nodes() (nodes []string) {
 	return nodes
 }
 
+func (d *discovery) Delete(id NodeID) {
+	d.table.removeById(id)
+}
+
 // New create a Discovery implementation
 func New(cfg *Config) Discovery {
 	d := &discovery{
 		Config:   cfg,
 		table:    newTable(cfg.Self.ID, cfg.NetID),
 		pingChan: make(chan *Node, 10),
-		findChan: make(chan *Node, 5),
 		log:      log15.New("module", "p2p/discv"),
 	}
 
@@ -145,9 +148,6 @@ func (d *discovery) Start() (err error) {
 
 	d.wg.Add(1)
 	common.Go(d.pingLoop)
-
-	d.wg.Add(1)
-	common.Go(d.findLoop)
 
 	return
 }
@@ -214,14 +214,14 @@ func (d *discovery) pingLoop() {
 		pending.Delete(addr)
 	}
 
-	wait := list.New()
+	queue := list.New()
 
 	do := func(node *Node) {
 		select {
 		case <-tickets:
 			go run(node)
 		default:
-			wait.Append(node)
+			queue.Append(node)
 		}
 	}
 
@@ -237,67 +237,7 @@ func (d *discovery) pingLoop() {
 				do(node)
 			}
 		default:
-			if e := wait.Shift(); e != nil {
-				do(e.(*Node))
-			} else {
-				time.Sleep(time.Second)
-			}
-		}
-	}
-}
-
-func (d *discovery) findLoop() {
-	defer d.wg.Done()
-
-	var pending sync.Map
-
-	const alpha = 10
-	tickets := make(chan struct{}, 10)
-	for i := 0; i < alpha; i++ {
-		tickets <- struct{}{}
-	}
-
-	run := func(node *Node) {
-		node.lastFind = time.Now()
-		ch := make(chan []*Node, 1)
-
-		id := d.Self.ID
-		if mrand.Intn(10) < 5 {
-			rand.Read(id[:])
-		}
-		d.agent.findnode(node.ID, node.UDPAddr(), id, maxNeighborsOneTrip, ch)
-
-		nodes := <-ch
-		tickets <- struct{}{}
-		addr := node.UDPAddr().String()
-		pending.Delete(addr)
-		d.log.Info(fmt.Sprintf("got %d neighbors from %s", len(nodes), node.UDPAddr()))
-	}
-
-	wait := list.New()
-
-	do := func(node *Node) {
-		select {
-		case <-tickets:
-			go run(node)
-		default:
-			wait.Append(node)
-		}
-	}
-
-	for {
-		select {
-		case <-d.term:
-			return
-		case node := <-d.findChan:
-			addr := node.UDPAddr().String()
-			if _, loaded := pending.LoadOrStore(addr, struct{}{}); loaded {
-				continue
-			} else {
-				do(node)
-			}
-		default:
-			if e := wait.Shift(); e != nil {
+			if e := queue.Shift(); e != nil {
 				do(e.(*Node))
 			} else {
 				time.Sleep(time.Second)
@@ -406,10 +346,6 @@ func (d *discovery) seeNode(n *Node) {
 		} else {
 			node.Update(n)
 			d.bubble(n.ID)
-
-			if node.shouldFind() && d.table.needMore() {
-				d.findNode(n)
-			}
 		}
 	} else {
 		d.pingNode(n)
@@ -423,13 +359,6 @@ func (d *discovery) pingNode(n *Node) {
 		d.pingChan <- n
 	}
 }
-func (d *discovery) findNode(n *Node) {
-	select {
-	case <-d.term:
-	default:
-		d.findChan <- n
-	}
-}
 
 func (d *discovery) init() {
 	nodes := d.db.randomNodes(seedCount, seedMaxAge) // get random nodes from db
@@ -441,7 +370,7 @@ func (d *discovery) init() {
 			d.pingNode(node)
 		} else {
 			d.addNode(node)
-			if node.mark > 0 && notified < 5 {
+			if node.mark > 0 && notified < 10 {
 				notified++
 				d.notifyAll(node)
 			}
@@ -472,6 +401,15 @@ func (d *discovery) init() {
 			d.notifyAll(d.BootNodes[idx])
 		}
 	}
+
+	var id NodeID
+	for i := 0; i < 5; i++ {
+		if _, err := crand.Read(id[:]); err != nil {
+			continue
+		} else {
+			d.lookup(id)
+		}
+	}
 }
 
 func (d *discovery) lookup(target NodeID) []*Node {
@@ -484,7 +422,7 @@ func (d *discovery) lookup(target NodeID) []*Node {
 Look:
 	defer atomic.StoreInt32(&d.looking, 0)
 
-	const total = 3 * maxNeighborsOneTrip
+	const total = 5 * maxNeighborsOneTrip
 	var result = neighbors{
 		pivot: target,
 	}
