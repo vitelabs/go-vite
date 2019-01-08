@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/hex"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
@@ -9,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/vm_context"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -308,6 +310,27 @@ func (v *VmDebugApi) ClearData() error {
 	}
 	v.accountMap = make(map[types.Address]string, 0)
 	return nil
+}
+
+func (v *VmDebugApi) GetContractStorage(addr types.Address) (map[string]string, error) {
+	db, err := vm_context.NewVmContext(v.vite.Chain(), nil, nil, &addr)
+	if err != nil {
+		return nil, err
+	}
+	iter := db.NewStorageIterator(&addr, nil)
+	if iter == nil {
+		return nil, nil
+	}
+	m := make(map[string]string)
+	for {
+		key, value, ok := iter.Next()
+		if !ok {
+			return m, nil
+		}
+		if !bytes.HasPrefix(key, []byte("$code")) && !bytes.HasPrefix(key, []byte("$balance")) {
+			m["0x"+hex.EncodeToString(key)] = "0x" + hex.EncodeToString(value)
+		}
+	}
 }
 
 type compileResult struct {
