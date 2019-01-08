@@ -215,7 +215,7 @@ func (p *MethodReward) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Acco
 		return quotaLeft, err
 	}
 	if block.Amount.Sign() != 0 ||
-		!IsUserAccount(db, block.AccountAddress) {
+		!util.IsUserAccount(db, block.AccountAddress) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	param := new(cabi.ParamReward)

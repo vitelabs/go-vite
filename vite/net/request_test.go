@@ -93,11 +93,12 @@ func mockPeers(n int) (peers []*peer) {
 func TestSplitChunk(t *testing.T) {
 	from, to := mockFromTo()
 
-	count := (to-from)/chunk + 1
+	const batch = 300
+	count := (to-from)/batch + 1
 
 	fmt.Printf("from %d to %d, %d blocks, need %d chunks\n", from, to, to-from+1, count)
 
-	cs := splitChunk(from, to)
+	cs := splitChunk(from, to, batch)
 
 	if uint64(len(cs)) != count {
 		t.Fail()
@@ -129,7 +130,7 @@ func TestSplitChunkOne(t *testing.T) {
 	to := rand.Uint64()
 	from := to
 
-	cs := splitChunk(from, to)
+	cs := splitChunk(from, to, 243)
 
 	if uint64(len(cs)) != 1 {
 		t.Fail()
@@ -144,7 +145,8 @@ func TestSplitChunkMini(t *testing.T) {
 	to := rand.Uint64()
 	from := to - uint64(rand.Intn(10))
 
-	cs := splitChunk(from, to)
+	const batch = 333
+	cs := splitChunk(from, to, batch)
 
 	if uint64(len(cs)) != 1 {
 		t.Fail()
