@@ -1,8 +1,10 @@
 package chain
 
 import (
+	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/cache"
+	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/chain_db"
@@ -50,6 +52,7 @@ type chain struct {
 	saveTrieStatusLock sync.Mutex
 
 	saList *chain_cache.AdditionList
+	fti    *chain_index.FilterTokenIndex
 }
 
 func NewChain(cfg *config.Config) Chain {
@@ -64,6 +67,15 @@ func NewChain(cfg *config.Config) Chain {
 
 	if chain.cfg == nil {
 		chain.cfg = &config.Chain{}
+	}
+
+	if chain.cfg.OpenFilterTokenIndex {
+		var err error
+		chain.fti, err = chain_index.NewFilterTokenIndex(cfg, chain)
+		if err != nil {
+			chain.log.Crit("NewFilterTokenIndex failed, error is "+err.Error(), "method", "NewChain")
+			return nil
+		}
 	}
 
 	chain.needSnapshotCache = chain_cache.NewNeedSnapshotCache(chain)
@@ -277,6 +289,10 @@ func (c *chain) SaList() *chain_cache.AdditionList {
 	return c.saList
 }
 
+func (c *chain) Fti() *chain_index.FilterTokenIndex {
+	return c.fti
+}
+
 func (c *chain) Start() {
 	// saList start
 	c.saList.Start()
@@ -305,10 +321,22 @@ func (c *chain) Start() {
 		c.trieGc.Start()
 	}
 
+	// start build filter token index
+	if c.fti != nil {
+		fmt.Printf("FilterTokenIndex is being initialized...\n")
+		c.fti.Start()
+		fmt.Printf("FilterTokenIndex initialization complete\n")
+	}
+
 	c.log.Info("Chain module started")
 }
 
 func (c *chain) Stop() {
+	// stop build filter token index
+	if c.fti != nil {
+		c.fti.Stop()
+	}
+
 	// saList top
 	c.saList.Stop()
 

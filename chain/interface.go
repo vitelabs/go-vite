@@ -6,6 +6,7 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/cache"
+	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/chain_db"
@@ -117,6 +118,7 @@ type Chain interface {
 	NewStateTrie() *trie.Trie
 
 	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
+	IsGenesisAccountBlock(block *ledger.AccountBlock) bool
 
 	// Be
 	GetLatestBlockEventId() (uint64, error)
@@ -127,6 +129,10 @@ type Chain interface {
 
 	getChainRangeSet(snapshotBlocks []*ledger.SnapshotBlock) map[types.Address][2]*ledger.HashHeight
 
+	// account block is existed
+	IsAccountBlockExisted(hash types.Hash) (bool, error)
+
 	// get receive block heights
 	GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error)
+	Fti() *chain_index.FilterTokenIndex
 }

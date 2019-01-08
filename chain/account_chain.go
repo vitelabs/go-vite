@@ -138,10 +138,8 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			return saveBlockMetaErr
 		}
 
+		accountBlock.Meta = blockMeta
 	}
-
-	// Add account block event
-	c.chainDb.Be.AddAccountBlocks(batch, addBlockHashList)
 
 	// trigger writing event
 	if triggerErr := c.em.triggerInsertAccountBlocks(batch, vmAccountBlocks); triggerErr != nil {
@@ -159,6 +157,9 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			}
 		}
 	}
+
+	// Add account block event
+	c.chainDb.Be.AddAccountBlocks(batch, addBlockHashList)
 
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
@@ -778,6 +779,15 @@ func (c *chain) GetAccountBlockMetaByHash(hash *types.Hash) (*ledger.AccountBloc
 	return meta, nil
 }
 
+func (c *chain) IsAccountBlockExisted(hash types.Hash) (bool, error) {
+	isExisted, err := c.chainDb.Ac.IsBlockExisted(hash)
+	if err != nil {
+		c.log.Error("IsBlockExisted failed, error is "+err.Error(), "method", "IsAccountBlockExisted")
+		return false, err
+	}
+	return isExisted, nil
+}
+
 func (c *chain) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
 	blockMeta, err := c.GetAccountBlockMetaByHash(hash)
 
@@ -789,4 +799,8 @@ func (c *chain) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
 	}
 
 	return blockMeta.ReceiveBlockHeights, nil
+}
+
+func (c *chain) IsGenesisAccountBlock(block *ledger.AccountBlock) bool {
+	return block.Hash == GenesisMintageBlock.Hash || block.Hash == GenesisMintageSendBlock.Hash || block.Hash == GenesisConsensusGroupBlock.Hash || block.Hash == GenesisRegisterBlock.Hash
 }
