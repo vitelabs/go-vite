@@ -161,6 +161,7 @@ func getConsensusGroupData(consensusGroupConfig *config.ConsensusGroupInfo) ([]b
 	if err != nil {
 		return nil, err
 	}
+
 	voteConditionData := []byte{}
 
 	if consensusGroupConfig.VoteConditionId > 1 {

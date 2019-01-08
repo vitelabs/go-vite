@@ -119,6 +119,11 @@ func (ac *AccountChain) GetHashByHeight(accountId uint64, height uint64) (*types
 
 }
 
+func (ac *AccountChain) IsBlockExisted(hash types.Hash) (bool, error) {
+	key, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCKMETA, hash.Bytes())
+	return ac.db.Has(key, nil)
+}
+
 func (ac *AccountChain) GetLatestBlock(accountId uint64) (*ledger.AccountBlock, error) {
 	key, err := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId)
 	if err != nil {
