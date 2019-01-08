@@ -299,14 +299,11 @@ func convertToBytes(param string, size int) (interface{}, error) {
 }
 
 func convertToFixedBytes(param string, size int) (interface{}, error) {
-	if !strings.HasPrefix(param, "0x") || len(param) != size*2+2 {
+	if len(param) != size*2 {
 		return nil, errors.New(param + " is not valid bytes")
 	}
 	return hex.DecodeString(param[2:])
 }
 func convertToDynamicBytes(param string) (interface{}, error) {
-	if !strings.HasPrefix(param, "0x") {
-		return nil, errors.New(param + " is not valid bytes")
-	}
 	return hex.DecodeString(param[2:])
 }
