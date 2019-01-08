@@ -1,10 +1,8 @@
 package api
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
@@ -23,16 +21,6 @@ func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 		log: log15.New("module", "rpc_api/ledger_api"),
 	}
 
-	fmt.Printf("ledger api is being initialized...")
-	filterTokenIndex, err := index.NewFilterTokenIndex(vite.Config(), vite.Chain())
-	if err != nil {
-		api.log.Crit("NewFilterTokenIndex failed, error is "+err.Error(), "method", "NewLedgerApi")
-		return nil
-	}
-
-	fmt.Printf("ledger api initialization complete")
-
-	api.filterTokenIndex = filterTokenIndex
 	return api
 }
 
@@ -45,9 +33,8 @@ type GcStatus struct {
 }
 
 type LedgerApi struct {
-	chain            chain.Chain
-	log              log15.Logger
-	filterTokenIndex *index.FilterTokenIndex
+	chain chain.Chain
+	log   log15.Logger
 }
 
 func (l LedgerApi) String() string {
@@ -100,6 +87,33 @@ func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.H
 		return blocks, nil
 	}
 
+}
+
+func (l *LedgerApi) GetBlocksByHashInToken(addr types.Address, originBlockHash *types.Hash, tokenTypeId types.TokenTypeId, count uint64) ([]*AccountBlock, error) {
+	l.log.Info("GetBlocksByHashInToken")
+	account, err := l.chain.GetAccount(&addr)
+	if err != nil {
+		return nil, err
+	}
+	if account == nil {
+		return nil, nil
+	}
+
+	hashList, err := l.chain.Fti().GetBlockHashList(account, originBlockHash, tokenTypeId, count)
+	if err != nil {
+		return nil, err
+	}
+
+	blockList := make([]*ledger.AccountBlock, len(hashList))
+	for index, blockHash := range hashList {
+		block, err := l.chain.GetAccountBlockByHash(&blockHash)
+		if err != nil {
+			return nil, err
+		}
+
+		blockList[index] = block
+	}
+	return l.ledgerBlocksToRpcBlocks(blockList)
 }
 
 type Statistics struct {

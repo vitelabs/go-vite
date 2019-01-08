@@ -6,6 +6,7 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/cache"
+	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/chain_db"
@@ -132,4 +133,5 @@ type Chain interface {
 
 	// get receive block heights
 	GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error)
+	Fti() *chain_index.FilterTokenIndex
 }

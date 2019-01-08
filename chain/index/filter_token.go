@@ -1,11 +1,11 @@
-package index
+package chain_index
 
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	errors2 "github.com/syndtr/goleveldb/leveldb/errors"
-	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
@@ -37,17 +37,19 @@ type FilterTokenIndex struct {
 
 	dataDirName      string
 	log              log15.Logger
-	chainInstance    chain.Chain
+	chainInstance    Chain
 	EventNumPerBatch uint64
 
-	status   int
-	ticker   *time.Ticker
-	terminal chan struct{}
-	wg       sync.WaitGroup
+	status     int
+	statusLock sync.Mutex
+	ticker     *time.Ticker
+	terminal   chan struct{}
+	wg         sync.WaitGroup
+
+	buildLock sync.Mutex
 }
 
-// TODO register process func
-func NewFilterTokenIndex(cfg *config.Config, chainInstance chain.Chain) (*FilterTokenIndex, error) {
+func NewFilterTokenIndex(cfg *config.Config, chainInstance Chain) (*FilterTokenIndex, error) {
 	// register
 	fti := &FilterTokenIndex{
 		log:         log15.New("module", "filter_token"),
@@ -55,9 +57,11 @@ func NewFilterTokenIndex(cfg *config.Config, chainInstance chain.Chain) (*Filter
 
 		chainInstance:    chainInstance,
 		EventNumPerBatch: 1000,
+
+		status: STOP,
 	}
 
-	db, err := fti.initDb()
+	err := fti.initDb()
 	if err != nil {
 		err := errors.New("initDb failed, error is " + err.Error())
 		fti.log.Error(err.Error(), "method", "NewFilterTokenIndex")
@@ -65,12 +69,20 @@ func NewFilterTokenIndex(cfg *config.Config, chainInstance chain.Chain) (*Filter
 		return nil, err
 	}
 
-	fti.db = db
-
 	return fti, nil
 }
 
 func (fti *FilterTokenIndex) Start() {
+	fti.statusLock.Lock()
+	defer fti.statusLock.Unlock()
+	if fti.status == START {
+		return
+	}
+
+	if err := fti.checkAndInitData(); err != nil {
+		fti.log.Crit("FilterTokenIndex start failed, error is "+err.Error(), "method", "Start")
+	}
+	fti.build()
 	fti.ticker = time.NewTicker(time.Second * 2)
 	fti.wg.Add(1)
 	go func() {
@@ -78,15 +90,32 @@ func (fti *FilterTokenIndex) Start() {
 		for {
 			select {
 			case <-fti.ticker.C:
-
+				fti.build()
 			case <-fti.terminal:
 				return
 			}
 		}
 	}()
+	fti.status = START
+
 }
 
-func (fti *FilterTokenIndex) initDb() (*leveldb.DB, error) {
+func (fti *FilterTokenIndex) Stop() {
+	fti.statusLock.Lock()
+	defer fti.statusLock.Unlock()
+
+	if fti.status == STOP {
+		return
+	}
+
+	fti.ticker.Stop()
+	close(fti.terminal)
+	fti.wg.Wait()
+	fti.status = STOP
+
+}
+
+func (fti *FilterTokenIndex) initDb() error {
 	db, err := database.NewLevelDb(fti.dataDirName)
 	if err != nil {
 		switch err.(type) {
@@ -95,24 +124,29 @@ func (fti *FilterTokenIndex) initDb() (*leveldb.DB, error) {
 			return fti.clearAndInitDb()
 		default:
 			fti.log.Error("NewLevelDb failed, error is "+err.Error(), "method", "initDb")
-			return nil, nil
+			return nil
 		}
 	}
 
 	if db == nil {
 		err := errors.New("NewFilterTokenIndex failed, db is nil")
 		fti.log.Error(err.Error(), "method", "initDb")
-		return nil, err
+		return err
 	}
 
+	fti.db = db
+
+	return nil
+}
+
+func (fti *FilterTokenIndex) checkAndInitData() error {
 	if isConsistency, err := fti.checkConsistency(); err != nil {
 		fti.log.Error("checkConsistency failed, error is "+err.Error(), "method", "initDb")
-		return nil, err
+		return err
 	} else if !isConsistency {
 		return fti.clearAndInitDb()
 	}
-
-	return db, nil
+	return nil
 }
 
 func (fti *FilterTokenIndex) checkConsistency() (bool, error) {
@@ -123,6 +157,9 @@ func (fti *FilterTokenIndex) checkConsistency() (bool, error) {
 
 	consumeId, err := fti.getConsumeId()
 	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return true, nil
+		}
 		return false, err
 	}
 
@@ -133,15 +170,15 @@ func (fti *FilterTokenIndex) checkConsistency() (bool, error) {
 
 }
 
-func (fti *FilterTokenIndex) clearAndInitDb() (*leveldb.DB, error) {
+func (fti *FilterTokenIndex) clearAndInitDb() error {
 	if fti.db != nil {
 		if closeErr := fti.db.Close(); closeErr != nil {
-			return nil, errors.New("Close db failed, error is " + closeErr.Error())
+			return errors.New("Close db failed, error is " + closeErr.Error())
 		}
 	}
 
 	if err := os.RemoveAll(fti.dataDirName); err != nil && err != os.ErrNotExist {
-		return nil, errors.New("Remove " + fti.dataDirName + " failed, error is " + err.Error())
+		return errors.New("Remove " + fti.dataDirName + " failed, error is " + err.Error())
 	}
 
 	fti.db = nil
@@ -172,11 +209,17 @@ func (fti *FilterTokenIndex) getConsumeId() (uint64, error) {
 	return binary.BigEndian.Uint64(value), nil
 }
 
-// todo save consume id
 func (fti *FilterTokenIndex) build() error {
+	fti.buildLock.Lock()
+	defer fti.buildLock.Unlock()
+
 	consumeId, err := fti.getConsumeId()
 	if err != nil {
-		return err
+		if err == leveldb.ErrNotFound {
+			consumeId = 1
+		} else {
+			return err
+		}
 	}
 
 	latestBeId, err := fti.chainInstance.GetLatestBlockEventId()
@@ -225,14 +268,14 @@ func (fti *FilterTokenIndex) build() error {
 		}
 
 		eventNum++
-		if eventNum >= fti.EventNumPerBatch {
+		if eventId == latestBeId || eventNum >= fti.EventNumPerBatch {
 			for addr, blocks := range unsavedBlocks {
 				account, err := fti.chainInstance.GetAccount(&addr)
 				if err != nil {
 					return err
 				}
 
-				fti.AddBlocks(account.AccountId, blocks)
+				fti.addBlocks(account.AccountId, blocks)
 			}
 			unsavedBlocks = make(map[types.Address][]*ledger.AccountBlock)
 			eventNum = 0
@@ -241,11 +284,12 @@ func (fti *FilterTokenIndex) build() error {
 			return err
 		}
 	}
+
 	return nil
 }
 
 func (fti *FilterTokenIndex) getHeadHash(accountId uint64, tokenTypeId types.TokenTypeId) (*types.Hash, error) {
-	key, _ := database.EncodeKey(DBKP_ACCOUNT_TOKEN_META, accountId, tokenTypeId)
+	key, _ := database.EncodeKey(DBKP_ACCOUNT_TOKEN_META, accountId, tokenTypeId.Bytes())
 	value, err := fti.db.Get(key, nil)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
@@ -259,12 +303,12 @@ func (fti *FilterTokenIndex) getHeadHash(accountId uint64, tokenTypeId types.Tok
 }
 
 func (fti *FilterTokenIndex) saveHeadHash(batch *leveldb.Batch, accountId uint64, tokenTypeId types.TokenTypeId, hash types.Hash) {
-	key, _ := database.EncodeKey(DBKP_ACCOUNT_TOKEN_META, accountId, tokenTypeId)
+	key, _ := database.EncodeKey(DBKP_ACCOUNT_TOKEN_META, accountId, tokenTypeId.Bytes())
 	value := hash.Bytes()
 
 	batch.Put(key, value)
 
-	key2, _ := database.EncodeKey(DBKP_HEAD_HASH, hash)
+	key2, _ := database.EncodeKey(DBKP_HEAD_HASH, hash.Bytes())
 
 	accountIdBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(accountIdBytes, accountId)
@@ -273,7 +317,7 @@ func (fti *FilterTokenIndex) saveHeadHash(batch *leveldb.Batch, accountId uint64
 }
 
 func (fti *FilterTokenIndex) deleteHash(headHash types.Hash) error {
-	key, _ := database.EncodeKey(DBKP_HEAD_HASH, headHash)
+	key, _ := database.EncodeKey(DBKP_HEAD_HASH, headHash.Bytes())
 	value, err := fti.db.Get(key, nil)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
@@ -295,7 +339,7 @@ func (fti *FilterTokenIndex) deleteHash(headHash types.Hash) error {
 	newHeadHash := &headHash
 
 	for {
-		deletedKey, _ := database.EncodeKey(DBKP_HEAD_HASH, newHeadHash)
+		deletedKey, _ := database.EncodeKey(DBKP_HEAD_HASH, newHeadHash.Bytes())
 		batch.Delete(deletedKey)
 
 		prevHash, err := fti.getPrevHash(*newHeadHash)
@@ -328,10 +372,13 @@ func (fti *FilterTokenIndex) deleteHash(headHash types.Hash) error {
 }
 
 func (fti *FilterTokenIndex) getPrevHash(hash types.Hash) (*types.Hash, error) {
-	key, _ := database.EncodeKey(DBKP_BLOCK_LIST_BY_TOKEN, hash)
+	key, _ := database.EncodeKey(DBKP_BLOCK_LIST_BY_TOKEN, hash.Bytes())
 
 	value, err := fti.db.Get(key, nil)
 	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -344,18 +391,23 @@ func (fti *FilterTokenIndex) getPrevHash(hash types.Hash) (*types.Hash, error) {
 }
 
 func (fti *FilterTokenIndex) deleteHeadHashIndex(batch *leveldb.Batch, hash types.Hash) {
-	key, _ := database.EncodeKey(DBKP_HEAD_HASH, hash)
+	key, _ := database.EncodeKey(DBKP_HEAD_HASH, hash.Bytes())
 
 	batch.Delete(key)
 }
 
 func (fti *FilterTokenIndex) deleteHeadHash(batch *leveldb.Batch, accountId uint64, tokenTypeId types.TokenTypeId) {
-	key, _ := database.EncodeKey(DBKP_ACCOUNT_TOKEN_META, accountId, tokenTypeId)
+	key, _ := database.EncodeKey(DBKP_ACCOUNT_TOKEN_META, accountId, tokenTypeId.Bytes())
 
 	batch.Delete(key)
 }
 
-func (fti *FilterTokenIndex) AddBlocks(accountId uint64, blocks []*ledger.AccountBlock) error {
+func (fti *FilterTokenIndex) isExisted(hash *types.Hash) (bool, error) {
+	key, _ := database.EncodeKey(DBKP_BLOCK_LIST_BY_TOKEN, hash.Bytes())
+	return fti.db.Has(key, nil)
+}
+
+func (fti *FilterTokenIndex) addBlocks(accountId uint64, blocks []*ledger.AccountBlock) error {
 	// add
 	batch := new(leveldb.Batch)
 
@@ -458,6 +510,43 @@ func (fti *FilterTokenIndex) deleteBlocks(subLedger map[types.Address][]*ledger.
 	return fti.db.Write(batch, nil)
 }
 
-func (fti *FilterTokenIndex) GetBlockHashList(account *ledger.Account, originBlockHash *types.Hash, count uint64) []types.Hash {
-	return nil
+func (fti *FilterTokenIndex) GetBlockHashList(account *ledger.Account, originBlockHash *types.Hash, tokenTypeId types.TokenTypeId, count uint64) ([]types.Hash, error) {
+	var headHash *types.Hash
+	if originBlockHash == nil {
+		var err error
+		headHash, err = fti.getHeadHash(account.AccountId, tokenTypeId)
+		if err != nil {
+			return nil, err
+		}
+		if headHash == nil {
+			return nil, nil
+		}
+	} else {
+		headHash = originBlockHash
+		if isExisted, err := fti.isExisted(headHash); err != nil {
+			return nil, err
+		} else if !isExisted {
+			err := errors.New(fmt.Sprintf("block %s is not exited", headHash))
+			return nil, err
+		}
+
+	}
+
+	hashList := []types.Hash{*headHash}
+
+	currentHash := *headHash
+	for i := uint64(1); i < count; i++ {
+		prevHash, err := fti.getPrevHash(currentHash)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if prevHash == nil {
+			break
+		}
+
+		hashList = append(hashList, *prevHash)
+	}
+	return hashList, nil
 }
