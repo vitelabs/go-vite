@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	_ "net/http/pprof"
