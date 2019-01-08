@@ -91,6 +91,12 @@ func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.H
 
 func (l *LedgerApi) GetBlocksByHashInToken(addr types.Address, originBlockHash *types.Hash, tokenTypeId types.TokenTypeId, count uint64) ([]*AccountBlock, error) {
 	l.log.Info("GetBlocksByHashInToken")
+	fti := l.chain.Fti()
+	if fti == nil {
+		err := errors.New("config.OpenFilterTokenIndex is false, api can't work")
+		return nil, err
+	}
+
 	account, err := l.chain.GetAccount(&addr)
 	if err != nil {
 		return nil, err
@@ -99,7 +105,7 @@ func (l *LedgerApi) GetBlocksByHashInToken(addr types.Address, originBlockHash *
 		return nil, nil
 	}
 
-	hashList, err := l.chain.Fti().GetBlockHashList(account, originBlockHash, tokenTypeId, count)
+	hashList, err := fti.GetBlockHashList(account, originBlockHash, tokenTypeId, count)
 	if err != nil {
 		return nil, err
 	}

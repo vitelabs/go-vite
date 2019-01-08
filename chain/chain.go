@@ -65,15 +65,17 @@ func NewChain(cfg *config.Config) Chain {
 		globalCfg:            cfg,
 	}
 
-	var err error
-	chain.fti, err = chain_index.NewFilterTokenIndex(cfg, chain)
-	if err != nil {
-		chain.log.Crit("NewFilterTokenIndex failed, error is "+err.Error(), "method", "NewChain")
-		return nil
-	}
-
 	if chain.cfg == nil {
 		chain.cfg = &config.Chain{}
+	}
+
+	if chain.cfg.OpenFilterTokenIndex {
+		var err error
+		chain.fti, err = chain_index.NewFilterTokenIndex(cfg, chain)
+		if err != nil {
+			chain.log.Crit("NewFilterTokenIndex failed, error is "+err.Error(), "method", "NewChain")
+			return nil
+		}
 	}
 
 	chain.needSnapshotCache = chain_cache.NewNeedSnapshotCache(chain)
@@ -320,16 +322,20 @@ func (c *chain) Start() {
 	}
 
 	// start build filter token index
-	fmt.Printf("FilterTokenIndex is being initialized...\n")
-	c.fti.Start()
-	fmt.Printf("FilterTokenIndex initialization complete\n")
+	if c.fti != nil {
+		fmt.Printf("FilterTokenIndex is being initialized...\n")
+		c.fti.Start()
+		fmt.Printf("FilterTokenIndex initialization complete\n")
+	}
 
 	c.log.Info("Chain module started")
 }
 
 func (c *chain) Stop() {
 	// stop build filter token index
-	c.fti.Stop()
+	if c.fti != nil {
+		c.fti.Stop()
+	}
 
 	// saList top
 	c.saList.Stop()
