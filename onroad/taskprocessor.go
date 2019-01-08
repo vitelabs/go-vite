@@ -151,6 +151,28 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		return
 	}
 
+	receiveErrHeightList, err := tp.worker.manager.chain.GetReceiveBlockHeights(&sBlock.Hash)
+	if err != nil {
+		plog.Info("GetReceiveBlockHeights failed", "error", err)
+		return
+	}
+	if len(receiveErrHeightList) > 0 {
+		highestHeight := receiveErrHeightList[len(receiveErrHeightList)-1]
+
+		plog.Info(fmt.Sprintf("receiveErrBlock highest height %v", highestHeight))
+
+		receiveErrBlock, hErr := tp.worker.manager.chain.GetAccountBlockByHeight(&sBlock.ToAddress, highestHeight)
+		if hErr != nil || receiveErrBlock == nil {
+			plog.Info(fmt.Sprintf("GetAccountBlockByHeight failed, err:%v", hErr))
+			return
+		}
+		if task.Quota < receiveErrBlock.Quota {
+			plog.Info("contractAddr still out of quota")
+			tp.worker.addIntoBlackList(task.Addr)
+			return
+		}
+	}
+
 	consensusMessage, err := tp.packConsensusMessage(sBlock)
 	if err != nil {
 		plog.Info("packConsensusMessage failed", "error", err)

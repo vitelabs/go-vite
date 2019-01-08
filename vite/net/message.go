@@ -361,11 +361,11 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 			from = 0
 		}
 	}
-	chunks := splitChunk(from, to)
+	chunks := splitChunk(from, to, maxBlocksOneTrip)
 
 	var blocks []*ledger.SnapshotBlock
-	for _, chunk := range chunks {
-		blocks, err = s.chain.GetSnapshotBlocksByHeight(chunk[0], chunk[1]-chunk[0]+1, true, true)
+	for _, c := range chunks {
+		blocks, err = s.chain.GetSnapshotBlocksByHeight(c[0], c[1]-c[0]+1, true, true)
 		if err != nil || len(blocks) == 0 {
 			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
 			monitor.LogEvent("net/handle", "GetSnapshotBlocks_Fail")
@@ -445,11 +445,11 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 		}
 	}
 
-	chunks := splitChunk(from, to)
+	chunks := splitChunk(from, to, maxBlocksOneTrip)
 
 	var blocks []*ledger.AccountBlock
-	for _, chunk := range chunks {
-		blocks, err = a.chain.GetAccountBlocksByHeight(address, chunk[0], chunk[1]-chunk[0]+1, true)
+	for _, c := range chunks {
+		blocks, err = a.chain.GetAccountBlocksByHeight(address, c[0], c[1]-c[0]+1, true)
 		if err != nil || len(blocks) == 0 {
 			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
 			monitor.LogEvent("net/handle", "GetAccountBlocks_Fail")
@@ -499,7 +499,7 @@ func (c *getChunkHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 	}
 
 	// split chunk
-	chunks := splitChunk(start, end)
+	chunks := splitChunk(start, end, 50)
 
 	var sblocks []*ledger.SnapshotBlock
 	var mblocks accountBlockMap
@@ -511,18 +511,6 @@ func (c *getChunkHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 			return sender.Send(ExceptionCode, msg.Id, message.Missing)
 		}
 
-		// split account blocks map to small slice
-		//matrix := splitAccountMap(mblocks)
-		//accountCount := 0
-		//for _, ablocks := range matrix {
-		//	accountCount += len(ablocks)
-		//	if err = sender.SendAccountBlocks(ablocks, msg.Id); err != nil {
-		//		netLog.Error(fmt.Sprintf("send %d Accountblosk of Chunk<%d-%d> to %s error: %v", len(ablocks), chunk[0], chunk[1], sender.RemoteAddr(), err))
-		//		return
-		//	} else {
-		//		netLog.Info(fmt.Sprintf("send %d Accountblosk of Chunk<%d-%d> to %s done", len(ablocks), chunk[0], chunk[1], sender.RemoteAddr()))
-		//	}
-		//}
 		ablocks := mapToSlice(mblocks)
 
 		if err = sender.Send(SubLedgerCode, msg.Id, &message.SubLedger{

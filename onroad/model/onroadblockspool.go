@@ -333,12 +333,16 @@ func (p *OnroadBlocksPool) RevertOnroadSuccess(subLedger map[types.Address][]*le
 
 // RevertOnroad means to revert according to bifurcation
 func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
+	revertLog := p.log.New("RevertOnroad")
 
 	cutMap := excludeSubordinate(subLedger)
 	for _, blocks := range cutMap {
 		// the blockList is sorted by height with ascending order
 		for i := len(blocks) - 1; i >= 0; i-- {
 			v := blocks[i]
+
+			revertLog.Debug(fmt.Sprintf("block(hash:%v,addr:%v,toAddr:%v,fromHash:%v)",
+				v.Hash, v.AccountAddress, v.ToAddress, v.FromBlockHash))
 
 			if v.IsReceiveBlock() {
 				sendBlock, err := p.dbAccess.Chain.GetAccountBlockByHash(&v.FromBlockHash)

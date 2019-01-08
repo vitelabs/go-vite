@@ -3,6 +3,7 @@ package verifier
 import (
 	"bytes"
 	"fmt"
+	"github.com/vitelabs/go-vite/chain"
 	"math/big"
 	"time"
 
@@ -23,13 +24,13 @@ import (
 var TimeOutHeight = uint64(30 * types.SnapshotDayHeight)
 
 type AccountVerifier struct {
-	chain     Chain
+	chain     chain.Chain
 	consensus Consensus
 
 	log log15.Logger
 }
 
-func NewAccountVerifier(chain Chain, consensus Consensus) *AccountVerifier {
+func NewAccountVerifier(chain chain.Chain, consensus Consensus) *AccountVerifier {
 	return &AccountVerifier{
 		chain:     chain,
 		consensus: consensus,

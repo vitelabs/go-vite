@@ -43,7 +43,8 @@ const (
 	//CallNewAccountGas     uint64 = 25000 // Paid for CALL when the destination address didn't exist prior.
 	//CallStipend           uint64 = 2300  // Free gas given at beginning of call.
 
-	MaxCodeSize = 24575 // Maximum bytecode to permit for a contract
+	MaxCodeSize         = 24575 // Maximum bytecode to permit for a contract
+	outOfQuotaRetryTime = 2     // Retry 3 times when a contract receive block runs out of quota
 )
 
 var (
