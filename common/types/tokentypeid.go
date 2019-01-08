@@ -20,6 +20,8 @@ const (
 
 type TokenTypeId [TokenTypeIdSize]byte
 
+var ZERO_TOKENID = TokenTypeId{}
+
 func (tid *TokenTypeId) SetBytes(b []byte) error {
 	if length := len(b); length != TokenTypeIdSize {
 		return fmt.Errorf("error tokentypeid size error %v", length)
