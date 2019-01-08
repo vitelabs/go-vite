@@ -11,9 +11,10 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm_context"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 )
 
 const (
@@ -26,6 +27,11 @@ const (
 	DBKP_HEAD_HASH = byte(4)
 )
 
+const (
+	STOP  = 1
+	START = 2
+)
+
 type FilterTokenIndex struct {
 	db *leveldb.DB
 
@@ -33,6 +39,11 @@ type FilterTokenIndex struct {
 	log              log15.Logger
 	chainInstance    chain.Chain
 	EventNumPerBatch uint64
+
+	status   int
+	ticker   *time.Ticker
+	terminal chan struct{}
+	wg       sync.WaitGroup
 }
 
 // TODO register process func
@@ -56,23 +67,23 @@ func NewFilterTokenIndex(cfg *config.Config, chainInstance chain.Chain) (*Filter
 
 	fti.db = db
 
-	// register insert account blocks success
-	chainInstance.RegisterInsertAccountBlocksSuccess(func(blocks []*vm_context.VmAccountBlock) {
-		needAddBlocks := make([]*ledger.AccountBlock, len(blocks))
-
-		for index, block := range blocks {
-			needAddBlocks[index] = block.AccountBlock
-		}
-
-		accountId := needAddBlocks[0].Meta.AccountId
-		fti.AddBlocks(accountId, needAddBlocks)
-	})
-
-	// register delete sub ledger success
-	chainInstance.RegisterDeleteAccountBlocksSuccess(func(subLedger map[types.Address][]*ledger.AccountBlock) {
-
-	})
 	return fti, nil
+}
+
+func (fti *FilterTokenIndex) Start() {
+	fti.ticker = time.NewTicker(time.Second * 2)
+	fti.wg.Add(1)
+	go func() {
+		defer fti.wg.Done()
+		for {
+			select {
+			case <-fti.ticker.C:
+
+			case <-fti.terminal:
+				return
+			}
+		}
+	}()
 }
 
 func (fti *FilterTokenIndex) initDb() (*leveldb.DB, error) {

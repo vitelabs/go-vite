@@ -141,9 +141,6 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		accountBlock.Meta = blockMeta
 	}
 
-	// Add account block event
-	c.chainDb.Be.AddAccountBlocks(batch, addBlockHashList)
-
 	// trigger writing event
 	if triggerErr := c.em.triggerInsertAccountBlocks(batch, vmAccountBlocks); triggerErr != nil {
 		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "InsertAccountBlocks")
@@ -166,6 +163,9 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		c.log.Crit("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertAccountBlocks")
 		return err
 	}
+
+	// Add account block event
+	c.chainDb.Be.AddAccountBlocks(batch, addBlockHashList)
 
 	// Set stateTriePool
 	lastVmAccountBlock := vmAccountBlocks[len(vmAccountBlocks)-1]
