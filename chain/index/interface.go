@@ -15,4 +15,5 @@ type Chain interface {
 	GetAccount(address *types.Address) (*ledger.Account, error)
 	IsAccountBlockExisted(hash types.Hash) (bool, error)
 	ChainDb() *chain_db.ChainDb
+	IsGenesisAccountBlock(block *ledger.AccountBlock) bool
 }

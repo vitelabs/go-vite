@@ -158,14 +158,14 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		}
 	}
 
+	// Add account block event
+	c.chainDb.Be.AddAccountBlocks(batch, addBlockHashList)
+
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
 		c.log.Crit("c.chainDb.Commit(batch) failed, error is "+err.Error(), "method", "InsertAccountBlocks")
 		return err
 	}
-
-	// Add account block event
-	c.chainDb.Be.AddAccountBlocks(batch, addBlockHashList)
 
 	// Set stateTriePool
 	lastVmAccountBlock := vmAccountBlocks[len(vmAccountBlocks)-1]
@@ -799,4 +799,8 @@ func (c *chain) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
 	}
 
 	return blockMeta.ReceiveBlockHeights, nil
+}
+
+func (c *chain) IsGenesisAccountBlock(block *ledger.AccountBlock) bool {
+	return block.Hash == GenesisMintageBlock.Hash || block.Hash == GenesisMintageSendBlock.Hash || block.Hash == GenesisConsensusGroupBlock.Hash || block.Hash == GenesisRegisterBlock.Hash
 }

@@ -118,6 +118,7 @@ type Chain interface {
 	NewStateTrie() *trie.Trie
 
 	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
+	IsGenesisAccountBlock(block *ledger.AccountBlock) bool
 
 	// Be
 	GetLatestBlockEventId() (uint64, error)
