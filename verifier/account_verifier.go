@@ -465,68 +465,50 @@ func (verifier *AccountVerifier) verifyDatasIntergrity(block *ledger.AccountBloc
 		return errors.New("block timestamp can't be nil")
 	}
 
+	if block.Amount == nil {
+		block.Amount = big.NewInt(0)
+	} else {
+		if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
+			return errors.New("block amount out of bounds")
+		}
+	}
+
+	if block.Fee == nil {
+		block.Fee = big.NewInt(0)
+	} else {
+		if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
+			return errors.New("block fee out of bounds")
+		}
+	}
+
 	if fork.IsVite1(vite1Height) {
-		if block.IsSendBlock() {
-			if block.Amount == nil {
-				block.Amount = big.NewInt(0)
-			} else {
-				if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
-					return errors.New("block amount out of bounds")
-				}
-			}
-			if block.Fee == nil {
-				block.Fee = big.NewInt(0)
-			} else {
-				if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
-					return errors.New("block fee out of bounds")
-				}
-			}
-		} else {
+		if block.IsReceiveBlock() {
 			if block.Amount != nil && block.Amount.Cmp(big.NewInt(0)) != 0 {
 				return errors.New("block amount can't be anything other than nil or 0 ")
 			}
 			if block.Fee != nil && block.Fee.Cmp(big.NewInt(0)) != 0 {
 				return errors.New("block fee can't be anything other than nil or 0")
 			}
-		}
-	} else {
-		if block.Amount == nil {
-			block.Amount = big.NewInt(0)
-		}
-		if block.Fee == nil {
-			block.Fee = big.NewInt(0)
-		}
-		if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
-			return errors.New("block amount out of bounds")
-		}
-		if block.Fee.Sign() < 0 || block.Fee.BitLen() > math.MaxBigIntLen {
-			return errors.New("block fee out of bounds")
+			if block.TokenId != types.ZERO_TOKENID {
+				return errors.New("block TokenId can't be anything other than ZERO_TOKENID")
+			}
 		}
 	}
+
 	return nil
 }
 
 // block from Net or Rpc doesn't have stateHash、Quota, so don't need to verify
 func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, genBlock *ledger.AccountBlock) error {
-	snapshotBlock, err := verifier.chain.GetSnapshotBlockByHash(&origBlock.SnapshotHash)
-	if snapshotBlock == nil {
-		if err != nil {
-			return errors.New("func GetSnapshotBlockByHash failed: " + err.Error())
-		}
-		return errors.New("snapshotBlock doesn't exist ")
-	}
-	if !fork.IsVite1(snapshotBlock.Height) {
-		if origBlock.Fee.Cmp(genBlock.Fee) != 0 {
-			return errors.New("fee")
-		}
-	}
 	if origBlock.BlockType != genBlock.BlockType {
 		return errors.New("blockType")
 	}
 	if origBlock.ToAddress != genBlock.ToAddress {
 		return errors.New("toAddress")
 	}
-
+	if origBlock.Fee.Cmp(genBlock.Fee) != 0 {
+		return errors.New("fee")
+	}
 	if !bytes.Equal(origBlock.Data, genBlock.Data) {
 		return errors.New("data")
 	}

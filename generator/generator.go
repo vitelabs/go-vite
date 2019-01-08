@@ -249,6 +249,9 @@ func (gen *Generator) getDatasFromSendBlock(blockPacked, sendBlock *ledger.Accou
 	blockPacked.AccountAddress = sendBlock.ToAddress
 	blockPacked.FromBlockHash = sendBlock.Hash
 	if fork.IsVite1(gen.sbHeight) {
+		blockPacked.Amount = big.NewInt(0)
+		blockPacked.Fee = big.NewInt(0)
+		blockPacked.TokenId = types.ZERO_TOKENID
 		return
 	}
 	if sendBlock.Amount == nil {
