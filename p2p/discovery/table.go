@@ -401,14 +401,22 @@ func (tab *table) store(db tableDB) {
 	})
 }
 
-func (tab *table) near() (nodes []*Node) {
+func (tab *table) near(n int) (nodes []*Node) {
+	nodes = make([]*Node, 0, n)
+	got := n
+
 	tab.mu.RLock()
 	defer tab.mu.RUnlock()
 
 	for _, bkt := range tab.buckets {
 		if bkt.size > 0 {
-			nodes = bkt.nodes(bkt.size)
-			break
+			batch := bkt.nodes(bkt.size)
+			nodes = append(nodes, batch...)
+			got += bkt.size
+
+			if got >= n {
+				break
+			}
 		}
 	}
 

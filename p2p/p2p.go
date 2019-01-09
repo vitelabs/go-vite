@@ -569,13 +569,13 @@ func (svr *server) checkConn(id discovery.NodeID, flag connFlag) error {
 func (svr *server) loop() {
 	defer svr.wg.Done()
 
-	var peersCount uint
+	var peersCount int
 	var checkTicker = time.NewTicker(30 * time.Second)
 	defer checkTicker.Stop()
 	run := func() {
 		svr.dialStatic()
 		if svr.discv != nil {
-			svr.discv.More(svr.nodeChan)
+			svr.discv.More(svr.nodeChan, (DefaultMinPeers-peersCount)*4)
 		}
 	}
 
@@ -622,10 +622,6 @@ loop:
 				svr.dial(p.ID(), p.RemoteAddr(), static, nil)
 			}
 
-			if svr.discv != nil {
-				svr.discv.More(svr.nodeChan)
-			}
-
 		case <-checkTicker.C:
 			if peersCount < DefaultMinPeers {
 				run()
@@ -661,7 +657,7 @@ func (svr *server) Peers() []*PeerInfo {
 }
 
 func (svr *server) PeersCount() uint {
-	return svr.peers.Size()
+	return uint(svr.peers.Size())
 }
 
 func (svr *server) NodeInfo() *NodeInfo {

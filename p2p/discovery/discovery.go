@@ -54,7 +54,7 @@ type Discovery interface {
 	Mark(id NodeID, lifetime int64)
 	UnMark(id NodeID)
 	Block(id NodeID, ip net.IP)
-	More(ch chan<- *Node)
+	More(ch chan<- *Node, n int)
 	Nodes() []string
 	Delete(id NodeID)
 }
@@ -77,8 +77,8 @@ type discovery struct {
 	log     log15.Logger
 }
 
-func (d *discovery) More(ch chan<- *Node) {
-	nodes := d.table.near()
+func (d *discovery) More(ch chan<- *Node, n int) {
+	nodes := d.table.near(n)
 
 	go func() {
 		for _, node := range nodes {
