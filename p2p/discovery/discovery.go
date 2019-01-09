@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/p2p/list"
+	"github.com/vitelabs/go-vite/p2p/unique_list"
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -54,7 +54,7 @@ type Discovery interface {
 	Mark(id NodeID, lifetime int64)
 	UnMark(id NodeID)
 	Block(id NodeID, ip net.IP)
-	More(ch chan<- *Node)
+	More(ch chan<- *Node, n int)
 	Nodes() []string
 	Delete(id NodeID)
 }
@@ -62,19 +62,23 @@ type Discovery interface {
 type discovery struct {
 	*Config
 	*table
-	agent    *agent
-	db       *nodeDB
-	term     chan struct{}
-	pingChan chan *Node
-	findChan chan *Node // find random NodeID
-	finding  sync.Map
-	looking  int32 // is looking self
-	wg       sync.WaitGroup
-	log      log15.Logger
+	agent *agent
+	db    *nodeDB
+	term  chan struct{}
+
+	pmu      sync.Mutex
+	pingList unique_list.UniqueList
+
+	fmu      sync.Mutex
+	findList unique_list.UniqueList
+
+	looking int32 // is looking self
+	wg      sync.WaitGroup
+	log     log15.Logger
 }
 
-func (d *discovery) More(ch chan<- *Node) {
-	nodes := d.table.near()
+func (d *discovery) More(ch chan<- *Node, n int) {
+	nodes := d.table.near(n)
 
 	go func() {
 		for _, node := range nodes {
@@ -99,6 +103,7 @@ func (d *discovery) Nodes() (nodes []string) {
 
 func (d *discovery) Delete(id NodeID) {
 	d.table.removeById(id)
+	d.db.deleteNode(id)
 }
 
 // New create a Discovery implementation
@@ -106,8 +111,8 @@ func New(cfg *Config) Discovery {
 	d := &discovery{
 		Config:   cfg,
 		table:    newTable(cfg.Self.ID, cfg.NetID),
-		pingChan: make(chan *Node, 10),
-		findChan: make(chan *Node, 5),
+		pingList: unique_list.New(),
+		findList: unique_list.New(),
 		log:      log15.New("module", "p2p/discv"),
 	}
 
@@ -195,8 +200,6 @@ func (d *discovery) UnMark(id NodeID) {
 func (d *discovery) pingLoop() {
 	defer d.wg.Done()
 
-	var pending sync.Map
-
 	const alpha = 10
 	tickets := make(chan struct{}, 10)
 	for i := 0; i < alpha; i++ {
@@ -211,39 +214,28 @@ func (d *discovery) pingLoop() {
 		if <-done {
 			d.bubbleOrAdd(node)
 		} else {
-			d.remove(node)
+			d.removeById(node.ID)
+			d.db.deleteNode(node.ID)
 		}
 
 		tickets <- struct{}{}
-		addr := node.UDPAddr().String()
-		pending.Delete(addr)
 	}
 
-	queue := list.New()
-
-	do := func(node *Node) {
-		select {
-		case <-tickets:
-			go run(node)
-		default:
-			queue.Append(node)
-		}
-	}
+	ticker := time.NewTicker(100 * time.Microsecond)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-d.term:
 			return
-		case node := <-d.pingChan:
-			addr := node.UDPAddr().String()
-			if _, loaded := pending.LoadOrStore(addr, struct{}{}); loaded {
-				continue
-			} else {
-				do(node)
-			}
-		default:
-			if e := queue.Shift(); e != nil {
-				do(e.(*Node))
+		case <-ticker.C:
+			d.pmu.Lock()
+			_, v := d.pingList.Shift()
+			d.pmu.Unlock()
+
+			if v != nil {
+				<-tickets
+				go run(v.(*Node))
 			} else {
 				time.Sleep(time.Second)
 			}
@@ -253,8 +245,6 @@ func (d *discovery) pingLoop() {
 
 func (d *discovery) findLoop() {
 	defer d.wg.Done()
-
-	var pending sync.Map
 
 	const alpha = 10
 	tickets := make(chan struct{}, 10)
@@ -270,38 +260,25 @@ func (d *discovery) findLoop() {
 		crand.Read(id[:])
 		d.agent.findnode(node.ID, node.UDPAddr(), id, maxNeighborsOneTrip, ch)
 
-		nodes := <-ch
+		<-ch
 		tickets <- struct{}{}
-		addr := node.UDPAddr().String()
-		pending.Delete(addr)
-		d.log.Info(fmt.Sprintf("got %d neighbors from %s", len(nodes), node.UDPAddr()))
 	}
 
-	queue := list.New()
-
-	do := func(node *Node) {
-		select {
-		case <-tickets:
-			go run(node)
-		default:
-			queue.Append(node)
-		}
-	}
+	ticker := time.NewTicker(100 * time.Microsecond)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-d.term:
 			return
-		case node := <-d.findChan:
-			addr := node.UDPAddr().String()
-			if _, loaded := pending.LoadOrStore(addr, struct{}{}); loaded {
-				continue
-			} else {
-				do(node)
-			}
-		default:
-			if e := queue.Shift(); e != nil {
-				do(e.(*Node))
+		case <-ticker.C:
+			d.fmu.Lock()
+			_, v := d.findList.Shift()
+			d.fmu.Unlock()
+
+			if v != nil {
+				<-tickets
+				go run(v.(*Node))
 			} else {
 				time.Sleep(time.Second)
 			}
@@ -405,6 +382,9 @@ func (d *discovery) seeNode(n *Node) {
 
 	if node := d.table.resolve(n.UDPAddr().String()); node != nil {
 		if node.ID != n.ID {
+			// remove the old node from db
+			d.db.deleteNode(node.ID)
+			// ping new node
 			d.pingNode(n)
 		} else {
 			node.Update(n)
@@ -420,18 +400,20 @@ func (d *discovery) seeNode(n *Node) {
 }
 
 func (d *discovery) pingNode(n *Node) {
-	select {
-	case <-d.term:
-	default:
-		d.pingChan <- n
+	if d.acceptNode(n) {
+		id := n.ID.String()
+		d.pmu.Lock()
+		defer d.pmu.Unlock()
+		d.pingList.Append(id, n)
 	}
 }
 
 func (d *discovery) findNode(n *Node) {
-	select {
-	case <-d.term:
-	default:
-		d.findChan <- n
+	if d.acceptNode(n) {
+		addr := n.UDPAddr().String()
+		d.fmu.Lock()
+		defer d.fmu.Unlock()
+		d.findList.Append(addr, n)
 	}
 }
 
@@ -441,14 +423,10 @@ func (d *discovery) init() {
 
 	notified := 0
 	for _, node := range nodes {
-		if node.shouldPing() {
-			d.pingNode(node)
-		} else {
-			d.addNode(node)
-			if node.mark > 0 && notified < 10 {
-				notified++
-				d.notifyAll(node)
-			}
+		d.addNode(node)
+		if node.mark > 0 && notified < 10 {
+			notified++
+			d.notifyAll(node)
 		}
 	}
 
@@ -513,6 +491,7 @@ Look:
 
 	// all nodes of responsive neighbors, use for filter to ensure the same node pushed once
 	seen := make(map[NodeID]struct{})
+	seen[target] = struct{}{}
 
 	const alpha = 10
 	reply := make(chan []*Node, alpha)
@@ -540,7 +519,7 @@ Loop:
 		case nodes := <-reply:
 			queries--
 			for _, n := range nodes {
-				if n != nil && n.ID != target {
+				if n != nil && d.acceptNode(n) {
 					if _, ok := seen[n.ID]; !ok {
 						seen[n.ID] = struct{}{}
 						result.push(n)
