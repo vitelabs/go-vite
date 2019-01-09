@@ -461,6 +461,7 @@ func (context *VmContext) isBalanceOrCode(key []byte) bool {
 	return bytes.HasPrefix(key, context.codeKey()) || bytes.HasPrefix(key, STORAGE_KEY_BALANCE)
 }
 
+// get current account receive heights of a send block hash
 func (context *VmContext) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
 	heights, err := context.chain.GetReceiveBlockHeights(hash)
 	if err != nil {
