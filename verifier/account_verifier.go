@@ -482,6 +482,7 @@ func (verifier *AccountVerifier) verifyDatasIntergrity(block *ledger.AccountBloc
 	}
 
 	if fork.IsVite1(vite1Height) {
+		//forkBranch.Update(1)
 		if block.IsReceiveBlock() {
 			if block.Amount != nil && block.Amount.Cmp(big.NewInt(0)) != 0 {
 				return errors.New("block amount can't be anything other than nil or 0 ")
