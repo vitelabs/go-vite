@@ -417,11 +417,13 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		}
 		vm.revert(block)
 		refundFlag := false
-		if fork.IsVite1(block.VmContext.GetSnapshotBlockByHash(&block.AccountBlock.SnapshotHash).Height) {
+		// TODO
+		/*if fork.IsVite1(block.VmContext.GetSnapshotBlockByHash(&block.AccountBlock.SnapshotHash).Height) {
 			refundFlag = doRefund(vm, block, sendBlock, p.GetRefundData(), ledger.BlockTypeSendRefund)
 		} else {
 			refundFlag = doRefund(vm, block, sendBlock, p.GetRefundData(), ledger.BlockTypeSendCall)
-		}
+		}*/
+		refundFlag = doRefund(vm, block, sendBlock, p.GetRefundData(), ledger.BlockTypeSendCall)
 		block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
 		vm.updateBlock(block, err, 0)
 		if refundFlag {
