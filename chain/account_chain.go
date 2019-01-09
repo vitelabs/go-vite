@@ -138,10 +138,8 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			return saveBlockMetaErr
 		}
 
+		accountBlock.Meta = blockMeta
 	}
-
-	// Add account block event
-	c.chainDb.Be.AddAccountBlocks(batch, addBlockHashList)
 
 	// trigger writing event
 	if triggerErr := c.em.triggerInsertAccountBlocks(batch, vmAccountBlocks); triggerErr != nil {
@@ -149,14 +147,19 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 		return triggerErr
 	}
 
-	lastVmAccountBlock := vmAccountBlocks[len(vmAccountBlocks)-1]
-
 	// Set needSnapshotCache, Need first update cache
 	if c.needSnapshotCache != nil {
-		c.needSnapshotCache.Set(map[types.Address]*ledger.AccountBlock{
-			account.AccountAddress: lastVmAccountBlock.AccountBlock,
-		})
+		for _, vmAccountBlock := range vmAccountBlocks {
+			err := c.needSnapshotCache.InsertAccountBlock(vmAccountBlock.AccountBlock)
+			if err != nil {
+				c.log.Error("c.needSnapshotCache.InsertAccountBlock failed, error is "+err.Error(), "method", "InsertAccountBlocks")
+				return err
+			}
+		}
 	}
+
+	// Add account block event
+	c.chainDb.Be.AddAccountBlocks(batch, addBlockHashList)
 
 	// Write db
 	if err := c.chainDb.Commit(batch); err != nil {
@@ -165,6 +168,8 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	}
 
 	// Set stateTriePool
+	lastVmAccountBlock := vmAccountBlocks[len(vmAccountBlocks)-1]
+
 	if lastVmAccountBlock.VmContext.UnsavedCache() != nil {
 		c.stateTriePool.Set(&lastVmAccountBlock.AccountBlock.AccountAddress, lastVmAccountBlock.VmContext.UnsavedCache().Trie())
 	}
@@ -509,7 +514,7 @@ func (c *chain) GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint
 		// Cache
 		blocks := c.GetUnConfirmAccountBlocks(addr)
 		if len(blocks) > 0 {
-			return blocks[len(blocks)-1], nil
+			return blocks[0], nil
 		}
 		return nil, nil
 	} else {
@@ -559,13 +564,13 @@ func (c *chain) GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.Account
 		return nil
 	}
 
-	unconfirmBlocks, err := c.chainDb.Ac.GetUnConfirmAccountBlocks(account.AccountId, 0)
+	unconfirmedBlocks, err := c.chainDb.Ac.GetUnConfirmAccountBlocks(account.AccountId, 0)
 	if err != nil {
 		c.log.Error("GetUnConfirmAccountBlocks failed, error is "+err.Error(), "method", "GetUnConfirmAccountBlocks")
 		return nil
 	}
 
-	return unconfirmBlocks
+	return unconfirmedBlocks
 }
 
 func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error) {
@@ -616,24 +621,17 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 
 	// Write delete blocks event
 	var deleteHashList []types.Hash
-	for _, accountBlocks := range subLedger {
+	var needRemoveAddrList []types.Address
+	for addr, accountBlocks := range subLedger {
+		needRemoveAddrList = append(needRemoveAddrList, addr)
 		for _, block := range accountBlocks {
 			deleteHashList = append(deleteHashList, block.Hash)
 		}
 	}
 	c.chainDb.Be.DeleteAccountBlocks(batch, deleteHashList)
 
-	needAddBlocks, needRemoveAddr, _, err := c.getNeedSnapshotMapByDeleteSubLedger(subLedger)
-	if err != nil {
-		c.log.Error("getNeedSnapshotMapByDeleteSubLedger failed, error is "+err.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
-		return nil, err
-	}
-
-	// Set needSnapshotCache, first remove
-	c.needSnapshotCache.Remove(needRemoveAddr)
-
-	// Set needSnapshotCache, then add
-	c.needSnapshotCache.Set(needAddBlocks)
+	needNotSnapshot := c.calculateNeedNotSnapshot(subLedger)
+	c.needSnapshotCache.NotSnapshot(needNotSnapshot)
 
 	writeErr := c.chainDb.Commit(batch)
 	if writeErr != nil {
@@ -642,7 +640,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 	}
 
 	// Delete cache
-	c.stateTriePool.Delete(needRemoveAddr)
+	c.stateTriePool.Delete(needRemoveAddrList)
 
 	c.em.triggerDeleteAccountBlocksSuccess(subLedger)
 
@@ -698,7 +696,7 @@ func (c *chain) GetAllLatestAccountBlock() ([]*ledger.AccountBlock, error) {
 }
 
 // For init need snapshot cache
-func (c *chain) getUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBlock, error) {
+func (c *chain) GetUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBlock, error) {
 	maxAccountId, err := c.chainDb.Account.GetLastAccountId()
 	if err != nil {
 		c.log.Error("GetLastAccountId failed, error is "+err.Error(), "method", "getUnConfirmedAccountBlocks")
@@ -706,6 +704,34 @@ func (c *chain) getUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBl
 	}
 
 	subLedger, getErr := c.chainDb.Ac.GetUnConfirmedSubLedger(maxAccountId)
+	if getErr != nil {
+		c.log.Error("GetUnConfirmedSubLedger failed, error is "+getErr.Error(), "method", "getUnConfirmedSubLedger")
+		return nil, getErr
+	}
+
+	finalSubLedger, finalErr := c.subLedgerAccountIdToAccountAddress(subLedger)
+	if finalErr != nil {
+		c.log.Error("subLedgerAccountIdToAccountAddress failed, error is "+getErr.Error(), "method", "getUnConfirmedSubLedger")
+		return nil, finalErr
+	}
+
+	return finalSubLedger, nil
+}
+
+// For init need snapshot cache
+func (c *chain) GetUnConfirmedPartSubLedger(addrList []types.Address) (map[types.Address][]*ledger.AccountBlock, error) {
+
+	accountIds := make([]uint64, len(addrList))
+	for i, addr := range addrList {
+		account, err := c.chainDb.Account.GetAccountByAddress(&addr)
+		if err != nil {
+			c.log.Error("GetAccountByAddress failed, error is "+err.Error(), "method", "getUnConfirmedSubLedger")
+			return nil, err
+		}
+		accountIds[i] = account.AccountId
+	}
+
+	subLedger, getErr := c.chainDb.Ac.GetUnConfirmedSubLedgerByAccounts(accountIds)
 	if getErr != nil {
 		c.log.Error("GetUnConfirmedSubLedger failed, error is "+getErr.Error(), "method", "getUnConfirmedSubLedger")
 		return nil, getErr
@@ -747,9 +773,34 @@ func (c *chain) subLedgerAccountIdToAccountAddress(subLedger map[uint64][]*ledge
 func (c *chain) GetAccountBlockMetaByHash(hash *types.Hash) (*ledger.AccountBlockMeta, error) {
 	meta, err := c.chainDb.Ac.GetBlockMeta(hash)
 	if err != nil {
-
 		return nil, err
 	}
 
 	return meta, nil
+}
+
+func (c *chain) IsAccountBlockExisted(hash types.Hash) (bool, error) {
+	isExisted, err := c.chainDb.Ac.IsBlockExisted(hash)
+	if err != nil {
+		c.log.Error("IsBlockExisted failed, error is "+err.Error(), "method", "IsAccountBlockExisted")
+		return false, err
+	}
+	return isExisted, nil
+}
+
+func (c *chain) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
+	blockMeta, err := c.GetAccountBlockMetaByHash(hash)
+
+	if err != nil {
+		return nil, err
+	}
+	if blockMeta == nil {
+		return nil, nil
+	}
+
+	return blockMeta.ReceiveBlockHeights, nil
+}
+
+func (c *chain) IsGenesisAccountBlock(block *ledger.AccountBlock) bool {
+	return block.Hash == GenesisMintageBlock.Hash || block.Hash == GenesisMintageSendBlock.Hash || block.Hash == GenesisConsensusGroupBlock.Hash || block.Hash == GenesisRegisterBlock.Hash
 }

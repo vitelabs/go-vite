@@ -65,7 +65,7 @@ var (
 		Usage: "Network listening port",
 	}
 	NodeKeyHexFlag = cli.StringFlag{
-		Name:  "nodekeyhex", //mapping:p2p.PrivateKey
+		Name:  "nodekeyhex", //mapping:p2p.PeerKey
 		Usage: "P2P node key as hex",
 	}
 	DiscoveryFlag = cli.StringFlag{
@@ -151,11 +151,15 @@ var (
 	//VM
 	VMTestFlag = cli.BoolFlag{
 		Name:  "vmtest",
-		Usage: "Enable the Vm Test ",
+		Usage: "Enable the VM Test ",
 	}
 	VMTestParamFlag = cli.BoolFlag{
 		Name:  "vmtestparam",
-		Usage: "Enable the Vm Test params ",
+		Usage: "Enable the VM Test params ",
+	}
+	VMDebugFlag = cli.BoolFlag{
+		Name:  "vmdebug",
+		Usage: "Enable VM debug",
 	}
 
 	//Net

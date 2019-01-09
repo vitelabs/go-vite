@@ -1,6 +1,7 @@
 package chain_benchmark
 
 import (
+	"github.com/vitelabs/go-vite/chain/test_tools"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/rand"
 	"testing"
@@ -13,7 +14,8 @@ func Benchmark_InsertAccountBlock(b *testing.B) {
 		ACCOUNT_NUMS        = 1000
 		ACCOUNT_BLOCK_LIMIT = 1000 * 10000
 
-		PRINT_PER_COUNT               = 1000
+		PRINT_PER_COUNT = 1000
+
 		CREATE_REQUEST_TX_PROBABILITY = 50
 
 		LOOP_INSERT_SNAPSHOTBLOCK = true
@@ -23,9 +25,9 @@ func Benchmark_InsertAccountBlock(b *testing.B) {
 		INSERT_ACCOUNTBLOCK_INTERVAL = 0
 	)
 
-	cTxOptions := &createTxOptions{
-		mockVmContext: true,
-		mockSignature: true,
+	cTxOptions := &test_tools.CreateTxOptions{
+		MockVmContext: true,
+		MockSignature: true,
 	}
 
 	tps := newTps(tpsOption{
@@ -33,7 +35,7 @@ func Benchmark_InsertAccountBlock(b *testing.B) {
 		printPerCount: PRINT_PER_COUNT,
 	})
 
-	accounts := makeAccounts(ACCOUNT_NUMS, chainInstance)
+	accounts := test_tools.MakeAccounts(ACCOUNT_NUMS, chainInstance)
 	accountLength := len(accounts)
 
 	tps.Start()
@@ -56,9 +58,9 @@ func Benchmark_InsertAccountBlock(b *testing.B) {
 			var tx []*vm_context.VmAccountBlock
 			if createRequestTx {
 				toAccount := accounts[rand.Intn(accountLength)]
-				tx = account.createRequestTx(toAccount, cTxOptions)
+				tx = account.CreateRequestTx(toAccount, cTxOptions)
 			} else {
-				tx = account.createResponseTx(cTxOptions)
+				tx = account.CreateResponseTx(cTxOptions)
 			}
 
 			chainInstance.InsertAccountBlocks(tx)

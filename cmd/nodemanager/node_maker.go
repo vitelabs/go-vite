@@ -8,8 +8,8 @@ import (
 type NodeMaker interface {
 
 	//create Node
-	MakeNode(ctx *cli.Context) *node.Node
+	MakeNode(ctx *cli.Context) (*node.Node, error)
 
 	//create NodeConfig
-	MakeNodeConfig(ctx *cli.Context) *node.Config
+	MakeNodeConfig(ctx *cli.Context) (*node.Config, error)
 }

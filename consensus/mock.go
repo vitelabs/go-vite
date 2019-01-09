@@ -11,6 +11,14 @@ var mockLogger = log15.New("module", "consensusMock")
 type MockConsensus struct {
 }
 
+func (*MockConsensus) SubscribeProducers(gid types.Gid, id string, fn func(event ProducersEvent)) {
+	panic("implement me")
+}
+
+func (*MockConsensus) UnSubscribeProducers(gid types.Gid, id string) {
+	panic("implement me")
+}
+
 func (*MockConsensus) Subscribe(gid types.Gid, id string, addr *types.Address, fn func(Event)) {
 	mockLogger.Info("Subscribe")
 }

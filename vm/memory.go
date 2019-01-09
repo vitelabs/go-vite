@@ -87,16 +87,19 @@ func (m *memory) set32(offset uint64, val *big.Int) {
 
 func (m *memory) print() string {
 	var result string
-	if len(m.store) > 0 {
+	// do not print memory when memory size too large
+	if len(m.store) > 0 && len(m.store) < 100 {
 		addr := 0
 		for i := 0; i+helper.WordSize <= len(m.store); i += helper.WordSize {
 			if i+helper.WordSize < len(m.store) {
-				result += strconv.Itoa(addr) + "=>" + hex.EncodeToString(m.store[i:i+helper.WordSize]) + ", "
+				result += strconv.FormatInt(int64(addr), 16) + "=>" + hex.EncodeToString(m.store[i:i+helper.WordSize]) + ", "
 			} else {
-				result += strconv.Itoa(addr) + "=>" + hex.EncodeToString(m.store[i:i+helper.WordSize])
+				result += strconv.FormatInt(int64(addr), 16) + "=>" + hex.EncodeToString(m.store[i:i+helper.WordSize])
 			}
 			addr++
 		}
+	} else {
+		result = "omitted"
 	}
 	return result
 }

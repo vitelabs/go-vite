@@ -49,16 +49,19 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 
 	lAb.Amount = big.NewInt(0)
 	if ab.Amount != nil {
-		lAb.Amount.SetString(*ab.Amount, 10)
+		if _, ok := lAb.Amount.SetString(*ab.Amount, 10); !ok {
+			return nil, ErrStrToBigInt
+		}
 	}
 
 	lAb.Fee = big.NewInt(0)
 	if ab.Fee != nil {
-		lAb.Fee.SetString(*ab.Fee, 10)
+		if _, ok := lAb.Fee.SetString(*ab.Fee, 10); !ok {
+			return nil, ErrStrToBigInt
+		}
 	}
 
 	if ab.AccountBlock != nil && ab.AccountBlock.Nonce != nil {
-
 		if ab.Difficulty == nil {
 			return nil, errors.New("lack of difficulty field")
 		} else {
@@ -92,6 +95,11 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *types.TokenInfo
 		ConfirmedTimes: &confirmedTimeStr,
 	}
 
+	if ledgerBlock.Difficulty != nil {
+		difficulty := ledgerBlock.Difficulty.String()
+		ab.Difficulty = &difficulty
+	}
+
 	if ledgerBlock.Timestamp != nil {
 		ab.Timestamp = ledgerBlock.Timestamp.Unix()
 	}
@@ -107,6 +115,7 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *types.TokenInfo
 		s := ledgerBlock.Fee.String()
 		ab.Fee = &s
 	}
+
 	return ab
 }
 
@@ -211,6 +220,7 @@ func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBl
 			fromAddress = sendBlock.AccountAddress
 			block.TokenId = sendBlock.TokenId
 			block.Amount = sendBlock.Amount
+			block.Fee = sendBlock.Fee
 		}
 	} else {
 		fromAddress = block.AccountAddress

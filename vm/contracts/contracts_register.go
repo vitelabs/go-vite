@@ -215,7 +215,7 @@ func (p *MethodReward) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Acco
 		return quotaLeft, err
 	}
 	if block.Amount.Sign() != 0 ||
-		!IsUserAccount(db, block.AccountAddress) {
+		!util.IsUserAccount(db, block.AccountAddress) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	param := new(cabi.ParamReward)
@@ -298,6 +298,9 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid typ
 	var cancelIndex = uint64(0)
 	if !old.IsActive() {
 		cancelSnapsotBlock, _ := db.GetSnapshotBlockByHeight(old.CancelHeight)
+		if cancelSnapsotBlock == nil {
+			return old.RewardIndex, old.RewardIndex, big.NewInt(0), periodTime, errors.New("snapshot block not exists")
+		}
 		cancelIndex, err = reader.TimeToIndex(*cancelSnapsotBlock.Timestamp)
 		if err != nil {
 			return old.RewardIndex, old.RewardIndex, big.NewInt(0), periodTime, err

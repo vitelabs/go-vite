@@ -3,11 +3,9 @@
 
 package vitepb
 
-import (
-	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	math "math"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -33,17 +31,16 @@ func (m *UnconfirmedMeta) Reset()         { *m = UnconfirmedMeta{} }
 func (m *UnconfirmedMeta) String() string { return proto.CompactTextString(m) }
 func (*UnconfirmedMeta) ProtoMessage()    {}
 func (*UnconfirmedMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1e2624ecce2a23a9, []int{0}
+	return fileDescriptor_unconfirmed_db_ff8cc88dba39a031, []int{0}
 }
-
 func (m *UnconfirmedMeta) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UnconfirmedMeta.Unmarshal(m, b)
 }
 func (m *UnconfirmedMeta) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_UnconfirmedMeta.Marshal(b, m, deterministic)
 }
-func (m *UnconfirmedMeta) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UnconfirmedMeta.Merge(m, src)
+func (dst *UnconfirmedMeta) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UnconfirmedMeta.Merge(dst, src)
 }
 func (m *UnconfirmedMeta) XXX_Size() int {
 	return xxx_messageInfo_UnconfirmedMeta.Size(m)
@@ -87,17 +84,16 @@ func (m *TokenInfo) Reset()         { *m = TokenInfo{} }
 func (m *TokenInfo) String() string { return proto.CompactTextString(m) }
 func (*TokenInfo) ProtoMessage()    {}
 func (*TokenInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1e2624ecce2a23a9, []int{1}
+	return fileDescriptor_unconfirmed_db_ff8cc88dba39a031, []int{1}
 }
-
 func (m *TokenInfo) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TokenInfo.Unmarshal(m, b)
 }
 func (m *TokenInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TokenInfo.Marshal(b, m, deterministic)
 }
-func (m *TokenInfo) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TokenInfo.Merge(m, src)
+func (dst *TokenInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TokenInfo.Merge(dst, src)
 }
 func (m *TokenInfo) XXX_Size() int {
 	return xxx_messageInfo_TokenInfo.Size(m)
@@ -133,17 +129,16 @@ func (m *HashList) Reset()         { *m = HashList{} }
 func (m *HashList) String() string { return proto.CompactTextString(m) }
 func (*HashList) ProtoMessage()    {}
 func (*HashList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1e2624ecce2a23a9, []int{2}
+	return fileDescriptor_unconfirmed_db_ff8cc88dba39a031, []int{2}
 }
-
 func (m *HashList) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HashList.Unmarshal(m, b)
 }
 func (m *HashList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HashList.Marshal(b, m, deterministic)
 }
-func (m *HashList) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HashList.Merge(m, src)
+func (dst *HashList) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HashList.Merge(dst, src)
 }
 func (m *HashList) XXX_Size() int {
 	return xxx_messageInfo_HashList.Size(m)
@@ -167,9 +162,11 @@ func init() {
 	proto.RegisterType((*HashList)(nil), "vitepb.HashList")
 }
 
-func init() { proto.RegisterFile("vitepb/unconfirmed_db.proto", fileDescriptor_1e2624ecce2a23a9) }
+func init() {
+	proto.RegisterFile("vitepb/unconfirmed_db.proto", fileDescriptor_unconfirmed_db_ff8cc88dba39a031)
+}
 
-var fileDescriptor_1e2624ecce2a23a9 = []byte{
+var fileDescriptor_unconfirmed_db_ff8cc88dba39a031 = []byte{
 	// 204 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x2e, 0xcb, 0x2c, 0x49,
 	0x2d, 0x48, 0xd2, 0x2f, 0xcd, 0x4b, 0xce, 0xcf, 0x4b, 0xcb, 0x2c, 0xca, 0x4d, 0x4d, 0x89, 0x4f,

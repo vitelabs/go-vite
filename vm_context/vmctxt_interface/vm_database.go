@@ -13,6 +13,7 @@ type VmDatabase interface {
 	SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int)
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock
+	GetOneHourQuota() (uint64, error)
 
 	// forward=true return [startHeight, startHeight+count), forward=false return (startHeight-count, startHeight]
 	GetSnapshotBlocks(startHeight uint64, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock
@@ -23,7 +24,6 @@ type VmDatabase interface {
 	Reset()
 
 	IsAddressExisted(addr *types.Address) bool
-
 	SetContractGid(gid *types.Gid, addr *types.Address)
 	SetContractCode(code []byte)
 	GetContractCode(addr *types.Address) []byte
@@ -52,4 +52,8 @@ type VmDatabase interface {
 	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error)
 	GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
+
+	DebugGetStorage() map[string][]byte
+
+	GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error)
 }

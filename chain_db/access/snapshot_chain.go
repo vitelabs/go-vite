@@ -101,7 +101,6 @@ func (sc *SnapshotChain) GetSnapshotContent(snapshotBlockHeight uint64) (ledger.
 	return snapshotContent, nil
 }
 func (sc *SnapshotChain) GetSnapshotBlocks(height uint64, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
-	var blocks []*ledger.SnapshotBlock
 	var startHeight, endHeight = uint64(0), uint64(0)
 	if forward {
 		startHeight = height
@@ -120,33 +119,38 @@ func (sc *SnapshotChain) GetSnapshotBlocks(height uint64, count uint64, forward,
 
 	iter := sc.db.NewIterator(&util.Range{Start: startKey, Limit: endKey}, nil)
 
+	blocks := make([]*ledger.SnapshotBlock, count)
+	actualCount := uint64(0)
 	for i := uint64(0); i < count && iter.Next(); i++ {
 		data := iter.Value()
 		block := &ledger.SnapshotBlock{}
 		if dsErr := block.Deserialize(data); dsErr != nil {
-			return blocks, dsErr
+			return nil, dsErr
 		}
 
 		if containSnapshotContent {
 			snapshotContent, err := sc.GetSnapshotContent(block.Height)
 			if err != nil {
-				return blocks, err
+				return nil, err
 			}
 			block.SnapshotContent = snapshotContent
 		}
 
 		block.Hash = *getSnapshotBlockHash(iter.Key())
 		if forward {
-			blocks = append(blocks, block)
+			blocks[i] = block
 		} else {
 			// prepend, less garbage
-			blocks = append(blocks, nil)
-			copy(blocks[1:], blocks)
-			blocks[0] = block
+			blocks[count-1-i] = block
 		}
+		actualCount++
 	}
 
-	return blocks, nil
+	if forward {
+		return blocks[:actualCount], nil
+	} else {
+		return blocks[count-actualCount:], nil
+	}
 }
 
 func (sc *SnapshotChain) GetSnapshotBlockHeight(snapshotHash *types.Hash) (uint64, error) {

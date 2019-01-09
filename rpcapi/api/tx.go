@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
@@ -9,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
 	"math/big"
+	"time"
 )
 
 type Tx struct {
@@ -66,7 +68,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		return nil, errors.New("selfAddr is nil")
 	}
 
-	if param.ToAddr == nil {
+	if param.ToAddr == nil && param.BlockType != ledger.BlockTypeSendCreate {
 		return nil, errors.New("toAddr is nil")
 	}
 
@@ -87,8 +89,14 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	if !ok {
 		return nil, ErrStrToBigInt
 	}
+	var blockType byte
+	if param.BlockType > 0 {
+		blockType = param.BlockType
+	} else {
+		blockType = ledger.BlockTypeSendCall
+	}
 	msg := &generator.IncomingMessage{
-		BlockType:      ledger.BlockTypeSendCall,
+		BlockType:      blockType,
 		AccountAddress: *param.SelfAddr,
 		ToAddress:      param.ToAddr,
 		TokenId:        &param.TokenTypeId,
@@ -97,7 +105,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		Data:           param.Data,
 		Difficulty:     d,
 	}
-	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.vite.Chain(), &msg.AccountAddress, nil, true)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.vite.Chain(), &msg.AccountAddress, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -144,4 +152,50 @@ type SendTxWithPrivateKeyParam struct {
 	Data         []byte            `json:"data"` //base64
 	Difficulty   *string           `json:"difficulty,omitempty"`
 	PreBlockHash *types.Hash       `json:"preBlockHash,omitempty"`
+	BlockType    byte              `json:"blockType"`
+}
+
+const (
+	day           = 24 * time.Hour
+	powTimesLimit = 10
+)
+
+// A single account is limited to send 10 tx with PoW in one day
+func checkPoWLimit(c chain.Chain, addr types.Address, prevHash *types.Hash, snapshotHash types.Hash, nonce []byte) (bool, error) {
+	if prevHash == nil || !isPoW(nonce) {
+		return false, nil
+	}
+	powtimes := 1
+	currentSb, err := c.GetSnapshotBlockByHash(&snapshotHash)
+	if err != nil {
+		return false, err
+	}
+	startTime := getTodayStartTime(currentSb.Timestamp, *c.GetGenesisSnapshotBlock().Timestamp)
+	prevBlockHash := *prevHash
+	for {
+		prevBlock, err := c.GetAccountBlockByHash(&prevBlockHash)
+		if err != nil {
+			return false, err
+		}
+		if prevBlock == nil || prevBlock.Timestamp.Before(*startTime) {
+			return false, nil
+		}
+		if isPoW(prevBlock.Nonce) {
+			powtimes = powtimes + 1
+			if powtimes > powTimesLimit {
+				return true, nil
+			}
+		}
+		prevBlockHash = prevBlock.PrevHash
+	}
+	return false, err
+}
+
+func getTodayStartTime(currentTime *time.Time, genesisTime time.Time) *time.Time {
+	startTime := genesisTime.Add(currentTime.Sub(genesisTime).Round(day))
+	return &startTime
+}
+
+func isPoW(nonce []byte) bool {
+	return len(nonce) > 0
 }

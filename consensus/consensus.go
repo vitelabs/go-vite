@@ -33,9 +33,16 @@ type electionResult struct {
 	Height uint64
 }
 
+type ProducersEvent struct {
+	Addrs []types.Address
+	Index uint64
+	Gid   types.Gid
+}
+
 type Subscriber interface {
 	Subscribe(gid types.Gid, id string, addr *types.Address, fn func(Event))
 	UnSubscribe(gid types.Gid, id string)
+	SubscribeProducers(gid types.Gid, id string, fn func(event ProducersEvent))
 }
 
 type Reader interface {

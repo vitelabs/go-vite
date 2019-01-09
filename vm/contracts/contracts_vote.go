@@ -82,7 +82,7 @@ func (p *MethodCancelVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.
 	}
 
 	if block.Amount.Sign() != 0 ||
-		!IsUserAccount(db, block.AccountAddress) {
+		!util.IsUserAccount(db, block.AccountAddress) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	gid := new(types.Gid)

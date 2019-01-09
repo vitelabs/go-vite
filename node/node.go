@@ -3,13 +3,17 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/pkg/errors"
 	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
+
+	"github.com/vitelabs/go-vite/common/types"
+
+	"github.com/pkg/errors"
 
 	"github.com/vitelabs/go-vite/cmd/utils/flock"
 	"github.com/vitelabs/go-vite/config"
@@ -37,7 +41,7 @@ type Node struct {
 
 	//p2p
 	p2pConfig *p2p.Config
-	p2pServer *p2p.Server
+	p2pServer p2p.Server
 
 	//vite
 	viteConfig *config.Config
@@ -116,17 +120,26 @@ func (node *Node) Prepare() error {
 		return ErrNodeRunning
 	}
 
-	var err error
-	node.p2pServer, err = p2p.New(node.p2pConfig)
-	if err != nil {
-		log.Error(fmt.Sprintf("P2P new error: %v", err))
-		return err
-	}
-
 	//wallet start
 	log.Info(fmt.Sprintf("Begin Start Wallet... "))
 	if err := node.startWallet(); err != nil {
 		log.Error(fmt.Sprintf("startWallet error: %v", err))
+		return err
+	}
+
+	// should after startWallet
+	if node.config.MinerEnabled && node.config.CoinBase != "" {
+		if addr, err := node.extractAddr(); err != nil {
+			log.Error(fmt.Sprintf("extract address error: %v", err))
+		} else {
+			node.p2pConfig.ExtNodeData = addr[:]
+		}
+	}
+
+	var err error
+	node.p2pServer, err = p2p.New(node.p2pConfig)
+	if err != nil {
+		log.Error(fmt.Sprintf("P2P new error: %v", err))
 		return err
 	}
 
@@ -138,7 +151,7 @@ func (node *Node) Prepare() error {
 	}
 
 	//Protocols setting, maybe should move into module.Start()
-	node.p2pServer.Protocols = append(node.p2pServer.Protocols, node.viteServer.Net().Protocols()...)
+	node.p2pServer.Config().Protocols = append(node.p2pServer.Config().Protocols, node.viteServer.Net().Protocols()...)
 
 	//init rpc_PowServerUrl
 	remote.InitRawUrl(node.Config().PowServerUrl)
@@ -332,7 +345,7 @@ func (node *Node) startRPC() error {
 			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
 		}
 
-		targetUrl := node.config.DashboardTargetURL + "/ws/gvite/" + strconv.FormatUint(uint64(node.config.NetID), 10) + "@" + hex.EncodeToString(node.p2pServer.PrivateKey.PubByte())
+		targetUrl := node.config.DashboardTargetURL + "/ws/gvite/" + strconv.FormatUint(uint64(node.config.NetID), 10) + "@" + hex.EncodeToString(node.p2pServer.Config().PeerKey.PubByte())
 
 		u, e := url.Parse(targetUrl)
 		if e != nil {
@@ -428,4 +441,40 @@ func (node *Node) openDataDir() error {
 	log.Info(fmt.Sprintf("Open NodeServer.walletConfig.DataDir:%v", node.walletConfig.DataDir))
 
 	return nil
+}
+
+func (node *Node) extractAddr() (addr *types.Address, err error) {
+	coinBase := node.config.CoinBase
+
+	var index uint32
+	addr, index, err = parseCoinBase(coinBase)
+
+	if err != nil {
+		log.Error(fmt.Sprintf("coinBase parse fail. %v", coinBase), "err", err)
+		return
+	}
+	err = node.walletManager.MatchAddress(node.config.EntropyStorePath, *addr, index)
+
+	if err != nil {
+		log.Error(fmt.Sprintf("coinBase is not child of entropyStore, coinBase is : %v", coinBase), "err", err)
+	}
+
+	return
+}
+
+func parseCoinBase(coinBase string) (*types.Address, uint32, error) {
+	splits := strings.Split(coinBase, ":")
+	if len(splits) != 2 {
+		return nil, 0, errors.New("len is not equals 2.")
+	}
+	i, err := strconv.Atoi(splits[0])
+	if err != nil {
+		return nil, 0, err
+	}
+	addr, err := types.HexToAddress(splits[1])
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return &addr, uint32(i), nil
 }

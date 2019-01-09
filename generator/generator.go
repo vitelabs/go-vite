@@ -3,10 +3,7 @@ package generator
 import (
 	"errors"
 	"fmt"
-	"math/big"
-	"math/rand"
-	"time"
-
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -14,6 +11,8 @@ import (
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"math/big"
+	"time"
 )
 
 const DefaultHeightDifference uint64 = 10
@@ -21,8 +20,9 @@ const DefaultHeightDifference uint64 = 10
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
 type Generator struct {
-	vm        vm.VM
 	vmContext vmctxt_interface.VmDatabase
+	vm        vm.VM
+	sbHeight  uint64
 
 	log log15.Logger
 }
@@ -35,16 +35,23 @@ type GenResult struct {
 
 func NewGenerator(chain vm_context.Chain, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
 	gen := &Generator{
-		log: log15.New("module", "Generator"),
+		log:      log15.New("module", "Generator"),
+		sbHeight: 2,
 	}
+
+	gen.vm = *vm.NewVM()
 
 	vmContext, err := vm_context.NewVmContext(chain, snapshotBlockHash, prevBlockHash, addr)
 	if err != nil {
 		return nil, err
 	}
-
 	gen.vmContext = vmContext
-	gen.vm = *vm.NewVM()
+
+	if sb := gen.vmContext.CurrentSnapshotBlock(); sb != nil {
+		gen.sbHeight = sb.Height
+	} else {
+		return nil, errors.New("failed to new generator, cause current snapshotblock is nil")
+	}
 	return gen, nil
 }
 
@@ -60,6 +67,9 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc Sig
 			return nil, errors.New("fromblockhash can't be nil when create receive block")
 		}
 		sendBlock := gen.vmContext.GetAccountBlockByHash(message.FromBlockHash)
+		if sendBlock == nil {
+			return nil, ErrGetVmContextValueFailed
+		}
 		//genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc, message.Difficulty)
 		genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc, message.Difficulty)
 	default:
@@ -97,7 +107,9 @@ func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensu
 func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc SignFunc) (*GenResult, error) {
 	var sendBlock *ledger.AccountBlock = nil
 	if block.IsReceiveBlock() {
-		sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash)
+		if sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash); sendBlock == nil {
+			return nil, ErrGetVmContextValueFailed
+		}
 	}
 	genResult, err := gen.generateBlock(block, sendBlock, block.AccountAddress, signFunc)
 	if err != nil {
@@ -114,7 +126,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 			if sendBlock != nil {
 				errDetail += fmt.Sprintf("sendBlock(addr:%v hash:%v)", block.AccountAddress, block.Hash)
 			}
-			gen.log.Error("generator_vm panic error", "error", err, errDetail)
+			gen.log.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
 			result = &GenResult{}
 			resultErr = errors.New("generator_vm panic error")
 		}
@@ -187,24 +199,9 @@ func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockP
 func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, consensusMsg *ConsensusMessage, difficulty *big.Int) (blockPacked *ledger.AccountBlock, err error) {
 	gen.log.Info("PackReceiveBlock", "sendBlock.Hash", sendBlock.Hash, "sendBlock.To", sendBlock.ToAddress)
 
-	blockPacked = &ledger.AccountBlock{
-		BlockType:      ledger.BlockTypeReceive,
-		AccountAddress: sendBlock.ToAddress,
-		FromBlockHash:  sendBlock.Hash,
-	}
+	blockPacked = &ledger.AccountBlock{BlockType: ledger.BlockTypeReceive}
 
-	if sendBlock.Amount == nil {
-		blockPacked.Amount = big.NewInt(0)
-	} else {
-		blockPacked.Amount = sendBlock.Amount
-	}
-	blockPacked.TokenId = sendBlock.TokenId
-
-	if sendBlock.Fee == nil {
-		blockPacked.Fee = big.NewInt(0)
-	} else {
-		blockPacked.Fee = sendBlock.Fee
-	}
+	gen.getDatasFromSendBlock(blockPacked, sendBlock)
 
 	preBlockReferredSbHeight := uint64(0)
 	preBlock := gen.vmContext.PrevAccountBlock()
@@ -214,7 +211,9 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 	} else {
 		blockPacked.PrevHash = preBlock.Hash
 		blockPacked.Height = preBlock.Height + 1
-		if sb := gen.vmContext.GetSnapshotBlockByHash(&preBlock.SnapshotHash); sb != nil {
+		if sb := gen.vmContext.GetSnapshotBlockByHash(&preBlock.SnapshotHash); sb == nil {
+			return nil, ErrGetVmContextValueFailed
+		} else {
 			preBlockReferredSbHeight = sb.Height
 		}
 	}
@@ -245,93 +244,26 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 	return blockPacked, nil
 }
 
-func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Address,
-	referredSnapshotHashList []types.Hash, isRandom bool) (prevSbHash *types.Hash, fittestSbHash *types.Hash, err error) {
-	var fittestSbHeight uint64
-	var referredMaxSbHeight uint64
-	latestSb := chain.GetLatestSnapshotBlock()
-	if latestSb == nil {
-		return nil, nil, errors.New("get latest snapshotblock failed")
+// includes fork logic
+func (gen *Generator) getDatasFromSendBlock(blockPacked, sendBlock *ledger.AccountBlock) {
+	blockPacked.AccountAddress = sendBlock.ToAddress
+	blockPacked.FromBlockHash = sendBlock.Hash
+	if fork.IsVite1(gen.sbHeight) {
+		blockPacked.Amount = big.NewInt(0)
+		blockPacked.Fee = big.NewInt(0)
+		blockPacked.TokenId = types.ZERO_TOKENID
+		return
 	}
-	fittestSbHeight = latestSb.Height
+	if sendBlock.Amount == nil {
+		blockPacked.Amount = big.NewInt(0)
+	} else {
+		blockPacked.Amount = sendBlock.Amount
+	}
+	blockPacked.TokenId = sendBlock.TokenId
 
-	var prevSbFlag = false
-	var prevSb *ledger.SnapshotBlock
-	if accAddr != nil {
-		prevAccountBlock, err := chain.GetLatestAccountBlock(accAddr)
-		if err != nil {
-			return nil, nil, err
-		}
-		if prevAccountBlock != nil {
-			referredSnapshotHashList = append(referredSnapshotHashList, prevAccountBlock.SnapshotHash)
-			prevSbFlag = true
-		}
+	if sendBlock.Fee == nil {
+		blockPacked.Fee = big.NewInt(0)
+	} else {
+		blockPacked.Fee = sendBlock.Fee
 	}
-	referredMaxSbHeight = uint64(1)
-	if len(referredSnapshotHashList) > 0 {
-		// get max referredSbHeight
-		for k, v := range referredSnapshotHashList {
-			vSb, _ := chain.GetSnapshotBlockByHash(&v)
-			if vSb == nil {
-				return nil, nil, ErrGetSnapshotOfReferredBlockFailed
-			} else {
-				if referredMaxSbHeight < vSb.Height {
-					referredMaxSbHeight = vSb.Height
-				}
-				if k == len(referredSnapshotHashList)-1 && prevSbFlag {
-					prevSb = vSb
-				}
-			}
-		}
-		if latestSb.Height < referredMaxSbHeight {
-			return nil, nil, errors.New("the height of the snapshotblock referred can't be larger than the latest")
-		}
-	}
-	gapHeight := latestSb.Height - referredMaxSbHeight
-	fittestSbHeight = latestSb.Height - minGapToLatest(gapHeight, DefaultHeightDifference)
-	if isRandom && fittestSbHeight < latestSb.Height {
-		fittestSbHeight = fittestSbHeight + addHeight(1)
-	}
-
-	// protect code
-	if fittestSbHeight > latestSb.Height || fittestSbHeight < referredMaxSbHeight {
-		fittestSbHeight = latestSb.Height
-	}
-
-	fittestSb, err := chain.GetSnapshotBlockByHeight(fittestSbHeight)
-	if fittestSb == nil {
-		if err != nil {
-			return nil, nil, err
-		}
-		return nil, nil, ErrGetFittestSnapshotBlockFailed
-	}
-	fittestSbHash = &fittestSb.Hash
-
-	if accAddr == nil || prevSb == nil || prevSb.Height < referredMaxSbHeight ||
-		prevSb.Height+types.SnapshotHourHeight < fittestSbHeight || prevSb.Hash == *fittestSbHash {
-		return nil, fittestSbHash, nil
-	}
-	return &prevSb.Hash, fittestSbHash, nil
-}
-
-func addHeight(gapHeight uint64) uint64 {
-	randHeight := uint64(0)
-	if gapHeight >= 1 {
-		rand.Seed(time.Now().UnixNano())
-		randHeight = uint64(rand.Intn(int(gapHeight + 1)))
-	}
-	return randHeight
-}
-
-func minGapToLatest(us ...uint64) uint64 {
-	if len(us) == 0 {
-		panic("zero args")
-	}
-	min := us[0]
-	for _, u := range us {
-		if u < min {
-			min = u
-		}
-	}
-	return min
 }
