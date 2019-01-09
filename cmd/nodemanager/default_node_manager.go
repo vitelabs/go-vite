@@ -29,7 +29,7 @@ func (nodeManager *DefaultNodeManager) Start() error {
 	// 0: metrics: init and start system runtime metrics collection;
 	metrics.InitMetrics(nodeManager.node.Config().MetricsEnable, nodeManager.node.Config().MetricsInfluxDBEnable)
 	go metrics.CollectProcessMetrics(3 * time.Second)
-	utils.SetupMetricsExport(nodeManager.ctx)
+	utils.SetupMetricsExport(nodeManager.node)
 
 	// 1: Start up the node
 	err := StartNode(nodeManager.node)
