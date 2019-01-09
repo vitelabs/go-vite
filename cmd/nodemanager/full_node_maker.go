@@ -179,6 +179,9 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(utils.MetricsEnableInfluxDBFlag.Name) {
 		cfg.MetricsInfluxDBEnable = ctx.GlobalBool(utils.MetricsEnableInfluxDBFlag.Name)
 	}
+	if endpoint := ctx.GlobalString(utils.MetricsInfluxDBEndpointFlag.Name); len(endpoint) > 0 {
+		cfg.MetricsInfluxDBEndpoint = endpoint
+	}
 }
 
 func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
