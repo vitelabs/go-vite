@@ -69,6 +69,12 @@
 			"revisionTime": "2018-02-27T14:14:24Z"
 		},
 		{
+			"checksumSHA1": "RcSAu8uvUpmZDF4u5IsogcncvNQ=",
+			"path": "github.com/elastic/gosigar",
+			"revision": "f498c67133bcded80f5966ee63acfe68cff4e6bf",
+			"revisionTime": "2018-11-15T17:14:25Z"
+		},
+		{
 			"checksumSHA1": "J12tRgeIEE5eeWcHwa4J8nXTdn4=",
 			"path": "github.com/ethereum/go-ethereum/common",
 			"revision": "41ac8dd803b646b5fa92354a983ee5df68253e2a",
@@ -254,6 +260,18 @@
 			"path": "github.com/imdario/mergo",
 			"revision": "9316a62528ac99aaecb4e47eadd6dc8aa6533d58",
 			"revisionTime": "2018-06-08T14:01:56Z"
+		},
+		{
+			"checksumSHA1": "VKZuPjjqg4OYIqJKvcr1dEslMvA=",
+			"path": "github.com/influxdata/influxdb/client",
+			"revision": "39a3d2335e11bf7bf7796c11b9c7d8fb2192e3d0",
+			"revisionTime": "2018-11-29T16:20:56Z"
+		},
+		{
+			"checksumSHA1": "+b9Dcrefp1FAUW1mDYpqr7jVKuA=",
+			"path": "github.com/influxdata/influxdb/client/v2",
+			"revision": "38b07bbaab8616d26ce9e71eb9a7e62fd6463c6e",
+			"revisionTime": "2018-12-21T16:29:26Z"
 		},
 		{
 			"checksumSHA1": "fDPeeWbnxZqrfrU0JFyMa+glPDI=",

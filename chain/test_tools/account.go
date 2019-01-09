@@ -1,7 +1,6 @@
 package test_tools
 
 import (
-	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
@@ -10,6 +9,7 @@ import (
 	"math/big"
 	"sync"
 	"time"
+	"github.com/vitelabs/go-vite/chain"
 )
 
 type Account struct {
@@ -22,7 +22,7 @@ type Account struct {
 
 	unreceivedLock sync.Mutex
 
-	chainInstance chain.Chain
+	chainInstance Chain
 }
 
 type CreateTxOptions struct {
@@ -74,6 +74,7 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 	now := time.Now()
 
 	var vmContext vmctxt_interface.VmDatabase
+
 	if options != nil && options.MockVmContext {
 		vmContext = &MockVmDatabase{}
 	} else {
@@ -121,6 +122,7 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) []*vm_context.VmA
 	now := time.Now()
 
 	var vmContext vmctxt_interface.VmDatabase
+
 	if options != nil && options.MockVmContext {
 		vmContext = &MockVmDatabase{}
 	} else {
@@ -156,8 +158,13 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) []*vm_context.VmA
 	}}
 }
 
+<<<<<<< HEAD:chain/test_tools/account.go
 func MakeAccounts(num uint64, chainInstance chain.Chain) []*Account {
 	accountList := make([]*Account, num)
+=======
+func makeAccounts(num uint64, chainInstance Chain) []*account {
+	accountList := make([]*account, num)
+>>>>>>> benchmark/chain:chain/benchmark/account.go
 	for i := uint64(0); i < num; i++ {
 		addr, privateKey, _ := types.CreateAddress()
 
