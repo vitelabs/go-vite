@@ -292,11 +292,11 @@ func (al *AdditionList) flush(isLock bool) error {
 		}
 		al.frags = append(al.frags, newFrag)
 		al.clearStaleData()
-	} else {
+	} else if newFragTailHeight > newFragHeadHeight+1 {
 		i := len(al.frags) - 1
 		for ; i >= 0; i-- {
 			frag := al.frags[i]
-			if frag.TailHeight < newFragHeadHeight {
+			if frag.TailHeight <= newFragHeadHeight {
 				break
 			}
 		}
@@ -366,11 +366,7 @@ func (al *AdditionList) saveFrag(fragment *Fragment) error {
 	}
 
 	db := al.chain.ChainDb().Db()
-	if err := db.Put(key, value, nil); err != nil {
-		return err
-	}
-
-	return nil
+	return db.Put(key, value, nil)
 }
 
 func (al *AdditionList) loadFromDb() error {
@@ -388,6 +384,7 @@ func (al *AdditionList) loadFromDb() error {
 		if err := frag.Deserialize(value); err != nil {
 			return err
 		}
+
 		frag.TailHeight = GetFragTailHeightFromDbKey(iter.Key())
 		frag.HeadHeight = GetFragHeadHeightFromDbKey(iter.Key())
 
