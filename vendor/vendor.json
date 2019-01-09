@@ -274,6 +274,12 @@
 			"revisionTime": "2018-12-21T16:29:26Z"
 		},
 		{
+			"checksumSHA1": "/SC4ZMeKnNqhuYDhWLZp+z4yeG8=",
+			"path": "github.com/influxdata/influxdb/models",
+			"revision": "38b07bbaab8616d26ce9e71eb9a7e62fd6463c6e",
+			"revisionTime": "2018-12-21T16:29:26Z"
+		},
+		{
 			"checksumSHA1": "fDPeeWbnxZqrfrU0JFyMa+glPDI=",
 			"path": "github.com/jackpal/gateway",
 			"revision": "cbcf4e3f3baee7952fc386c8b2534af4d267c875",
