@@ -446,7 +446,6 @@ type PeerSet struct {
 	peers    map[discovery.NodeID]*Peer
 	inbound  int
 	outbound int
-	size     uint
 }
 
 func NewPeerSet() *PeerSet {
@@ -465,8 +464,6 @@ func (s *PeerSet) Add(p *Peer) {
 	} else {
 		s.outbound++
 	}
-
-	s.size++
 }
 
 func (s *PeerSet) Del(p *Peer) {
@@ -480,8 +477,6 @@ func (s *PeerSet) Del(p *Peer) {
 	} else {
 		s.outbound--
 	}
-
-	s.size--
 }
 
 func (s *PeerSet) Has(id discovery.NodeID) bool {
@@ -492,11 +487,11 @@ func (s *PeerSet) Has(id discovery.NodeID) bool {
 	return ok
 }
 
-func (s *PeerSet) Size() uint {
+func (s *PeerSet) Size() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.size
+	return len(s.peers)
 }
 
 func (s *PeerSet) Info() []*PeerInfo {

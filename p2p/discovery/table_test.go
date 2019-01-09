@@ -126,3 +126,36 @@ func TestTable_Find(t *testing.T) {
 	}
 	fmt.Println("total", table.size())
 }
+
+func TestTable_Delete(t *testing.T) {
+	var id NodeID
+	rand.Read(id[:])
+	table := newTable(id, 0)
+
+	var id2 NodeID
+	port := uint16(8483)
+	for i := 0; i < 100; i++ {
+		rand.Read(id2[:])
+
+		n := &Node{
+			ID:  id2,
+			IP:  net.IPv4(127, 0, 0, 1),
+			UDP: port,
+		}
+		table.addNode(n)
+
+		port++
+	}
+
+	n := table.resolveById(id2)
+	if n == nil || n.ID != id2 || n.UDP != (port-1) {
+		fmt.Println(n, id2)
+		t.Fail()
+	}
+
+	table.removeById(id2)
+	n = table.resolveById(id2)
+	if n != nil {
+		t.Fail()
+	}
+}

@@ -81,7 +81,7 @@ type Server interface {
 type server struct {
 	config      *Config
 	addr        *net.TCPAddr
-	StaticNodes []*discovery.Node
+	staticNodes []*discovery.Node
 
 	running   int32          // atomic
 	wg        sync.WaitGroup // Wait for all jobs done
@@ -136,7 +136,7 @@ func New(cfg *Config) (Server, error) {
 	svr := &server{
 		config:      cfg,
 		addr:        tcpAddr,
-		StaticNodes: parseNodes(cfg.StaticNodes),
+		staticNodes: parseNodes(cfg.StaticNodes),
 		peers:       NewPeerSet(),
 		pending:     make(chan struct{}, cfg.MaxPendingPeers),
 		addPeer:     make(chan *transport, 5),
@@ -322,7 +322,7 @@ func (svr *server) unblock(id discovery.NodeID, ip net.IP) {
 }
 
 func (svr *server) dialStatic() {
-	for _, node := range svr.StaticNodes {
+	for _, node := range svr.staticNodes {
 		svr.dial(node.ID, node.TCPAddr(), static, nil)
 	}
 }
@@ -569,7 +569,15 @@ func (svr *server) checkConn(id discovery.NodeID, flag connFlag) error {
 func (svr *server) loop() {
 	defer svr.wg.Done()
 
-	var peersCount uint
+	var peersCount int
+	var checkTicker = time.NewTicker(30 * time.Second)
+	defer checkTicker.Stop()
+	run := func() {
+		svr.dialStatic()
+		if svr.discv != nil {
+			svr.discv.More(svr.nodeChan, (DefaultMinPeers-peersCount)*4)
+		}
+	}
 
 loop:
 	for {
@@ -614,8 +622,9 @@ loop:
 				svr.dial(p.ID(), p.RemoteAddr(), static, nil)
 			}
 
-			if svr.discv != nil {
-				svr.discv.More(svr.nodeChan)
+		case <-checkTicker.C:
+			if peersCount < DefaultMinPeers {
+				run()
 			}
 		}
 	}
@@ -648,7 +657,7 @@ func (svr *server) Peers() []*PeerInfo {
 }
 
 func (svr *server) PeersCount() uint {
-	return svr.peers.Size()
+	return uint(svr.peers.Size())
 }
 
 func (svr *server) NodeInfo() *NodeInfo {
