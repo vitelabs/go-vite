@@ -213,7 +213,8 @@ func (d *discovery) pingLoop() {
 		if <-done {
 			d.bubbleOrAdd(node)
 		} else {
-			d.remove(node)
+			d.removeById(node.ID)
+			d.db.deleteNode(node.ID)
 		}
 
 		tickets <- struct{}{}
@@ -380,6 +381,9 @@ func (d *discovery) seeNode(n *Node) {
 
 	if node := d.table.resolve(n.UDPAddr().String()); node != nil {
 		if node.ID != n.ID {
+			// remove the old node from db
+			d.db.deleteNode(node.ID)
+			// ping new node
 			d.pingNode(n)
 		} else {
 			node.Update(n)
@@ -396,10 +400,10 @@ func (d *discovery) seeNode(n *Node) {
 
 func (d *discovery) pingNode(n *Node) {
 	if d.acceptNode(n) {
-		addr := n.UDPAddr().String()
+		id := n.ID.String()
 		d.pmu.Lock()
 		defer d.pmu.Unlock()
-		d.pingList.Append(addr, n)
+		d.pingList.Append(id, n)
 	}
 }
 

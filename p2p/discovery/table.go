@@ -269,7 +269,9 @@ func (tab *table) bubbleAddr(addr string) bool {
 }
 
 func (tab *table) bubbleOrAdd(node *Node) {
-	if _, ok := tab.m.Load(node.UDPAddr().String()); ok {
+	if n, ok := tab.m.Load(node.UDPAddr().String()); ok {
+		old := n.(*Node)
+		old.Update(node)
 		if tab.bubble(node.ID) {
 			return
 		}
