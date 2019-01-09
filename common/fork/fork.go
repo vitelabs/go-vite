@@ -13,3 +13,7 @@ func SetForkPoints(points *config.ForkPoints) {
 func IsVite1(blockHeight uint64) bool {
 	return forkPoints.Vite1.Height > 0 && blockHeight >= forkPoints.Vite1.Height
 }
+
+func GetForkPoints() config.ForkPoints {
+	return forkPoints
+}

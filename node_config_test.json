@@ -45,6 +45,5 @@
   "Miner": false,
   "TopoDisabled": true,
   "LogLevel": "dbug",
-  "VMTestParamEnabled":true,
-  "GenesisFile": "./genesis-test.json"
+  "VMTestParamEnabled":true
 }
