@@ -3,6 +3,7 @@ package utils
 import (
 	"github.com/vitelabs/go-vite/metrics"
 	"github.com/vitelabs/go-vite/metrics/influxdb"
+	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
 	"time"
 )
@@ -196,7 +197,6 @@ var (
 	MetricsInfluxDBEndpointFlag = cli.StringFlag{
 		Name:  "metrics.influxdb.endpoint",
 		Usage: "InfluxDB API endpoint to report metrics to",
-		Value: "http://127.0.0.1:8086",
 	}
 	MetricsInfluxDBDatabaseFlag = cli.StringFlag{
 		Name:  "metrics.influxdb.database",
@@ -250,17 +250,17 @@ func MergeFlags(flagsSet ...[]cli.Flag) []cli.Flag {
 	return mergeFlags
 }
 
-func SetupMetricsExport(ctx *cli.Context) {
+func SetupMetricsExport(node *node.Node) {
 	if metrics.MetricsEnabled {
 		var (
-			endpoint = ctx.GlobalString(MetricsInfluxDBEndpointFlag.Name)
-			database = ctx.GlobalString(MetricsInfluxDBDatabaseFlag.Name)
-			username = ctx.GlobalString(MetricsInfluxDBUsernameFlag.Name)
-			password = ctx.GlobalString(MetricsInfluxDBPasswordFlag.Name)
-			hosttag  = ctx.GlobalString(MetricsInfluxDBHostTagFlag.Name)
+			endpoint = node.Config().MetricsInfluxDBEndpoint
+			//database = ctx.GlobalString(MetricsInfluxDBDatabaseFlag.Name)
+			//username = ctx.GlobalString(MetricsInfluxDBUsernameFlag.Name)
+			//password = ctx.GlobalString(MetricsInfluxDBPasswordFlag.Name)
+			//hosttag  = ctx.GlobalString(MetricsInfluxDBHostTagFlag.Name)
 		)
-		go influxdb.InfluxDBWithTags(metrics.DefaultRegistry, 10*time.Second, endpoint, database, username, password, "monitor", map[string]string{
-			"host": hosttag,
+		go influxdb.InfluxDBWithTags(metrics.DefaultRegistry, 10*time.Second, endpoint, "metrics", "test", "test", "monitor", map[string]string{
+			"host": "localhost",
 		})
 
 	}

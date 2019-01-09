@@ -105,8 +105,9 @@ type Config struct {
 	RewardAddr string `json:"RewardAddr"`
 
 	//metrics
-	MetricsEnable         bool `json:"MetricsEnable"`
-	MetricsInfluxDBEnable bool `json:"MetricsInfluxDBEnable"`
+	MetricsEnable           bool   `json:"MetricsEnable"`
+	MetricsInfluxDBEnable   bool   `json:"MetricsInfluxDBEnable"`
+	MetricsInfluxDBEndpoint string `json:"MetricsInfluxDBEndpoint"`
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
