@@ -570,6 +570,14 @@ func (svr *server) loop() {
 	defer svr.wg.Done()
 
 	var peersCount uint
+	var checkTicker = time.NewTicker(30 * time.Second)
+	defer checkTicker.Stop()
+	run := func() {
+		svr.dialStatic()
+		if svr.discv != nil {
+			svr.discv.More(svr.nodeChan)
+		}
+	}
 
 loop:
 	for {
@@ -616,6 +624,11 @@ loop:
 
 			if svr.discv != nil {
 				svr.discv.More(svr.nodeChan)
+			}
+
+		case <-checkTicker.C:
+			if peersCount < DefaultMinPeers {
+				run()
 			}
 		}
 	}
