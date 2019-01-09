@@ -103,6 +103,7 @@ func (d *discovery) Nodes() (nodes []string) {
 
 func (d *discovery) Delete(id NodeID) {
 	d.table.removeById(id)
+	d.db.deleteNode(id)
 }
 
 // New create a Discovery implementation
