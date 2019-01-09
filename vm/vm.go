@@ -214,6 +214,8 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 		} else {
 			return []*vm_context.VmAccountBlock{blockContext}, NoRetry, nil
 		}
+	case ledger.BlockTypeSendReward, ledger.BlockTypeSendRefund:
+		return nil, NoRetry, util.ErrContractSendBlockRunFailed
 	}
 	return nil, NoRetry, errors.New("transaction type not supported")
 }

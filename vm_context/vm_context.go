@@ -462,5 +462,18 @@ func (context *VmContext) isBalanceOrCode(key []byte) bool {
 }
 
 func (context *VmContext) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
-	return context.chain.GetReceiveBlockHeights(hash)
+	heights, err := context.chain.GetReceiveBlockHeights(hash)
+	if err != nil {
+		return nil, err
+	}
+	if context.prevAccountBlock == nil {
+		return heights, nil
+	}
+	var prevHeights = make([]uint64, 0)
+	for _, height := range heights {
+		if height <= context.prevAccountBlock.Height {
+			prevHeights = append(prevHeights, height)
+		}
+	}
+	return prevHeights, nil
 }
