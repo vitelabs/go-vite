@@ -422,22 +422,16 @@ func (d *discovery) init() {
 
 	notified := 0
 	for _, node := range nodes {
-		if node.shouldPing() {
-			d.pingNode(node)
-		} else {
-			d.addNode(node)
-			if node.mark > 0 && notified < 10 {
-				notified++
-				d.notifyAll(node)
-			}
+		d.addNode(node)
+		if node.mark > 0 && notified < 10 {
+			notified++
+			d.notifyAll(node)
 		}
 	}
 
 	// send findnode to bootnode directly, bypass ping-pong check
 	for _, node := range d.BootNodes {
-		if node.Net == 0 || node.Net == d.Self.Net {
-			d.table.addNode(node)
-		}
+		d.table.addNode(node)
 	}
 
 	if len(nodes)+len(d.BootNodes) == 0 {
