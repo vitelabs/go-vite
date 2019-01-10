@@ -73,8 +73,8 @@ type piece interface {
 }
 
 type blockReceiver interface {
-	receiveSnapshotBlock(block *ledger.SnapshotBlock)
-	receiveAccountBlock(block *ledger.AccountBlock)
+	receiveSnapshotBlock(block *ledger.SnapshotBlock) (err error)
+	receiveAccountBlock(block *ledger.AccountBlock) (err error)
 	catch(piece)
 }
 

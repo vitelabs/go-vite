@@ -68,7 +68,7 @@ func New(cfg *Config) Net {
 
 	broadcaster := newBroadcaster(peers)
 	filter := newFilter()
-	receiver := newReceiver(cfg.Verifier, broadcaster, filter)
+	receiver := newReceiver(cfg.Verifier, broadcaster, filter, nil)
 	syncer := newSyncer(cfg.Chain, peers, g, receiver)
 	fetcher := newFetcher(filter, peers, g)
 
@@ -142,6 +142,8 @@ func (n *net) addHandler(handler MsgHandler) {
 
 func (n *net) Start(svr p2p.Server) (err error) {
 	n.term = make(chan struct{})
+
+	n.receiver.p2p = svr
 
 	if err = n.fs.start(); err != nil {
 		return

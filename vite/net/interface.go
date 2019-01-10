@@ -91,14 +91,14 @@ type Fetcher interface {
 
 // @section Receiver
 type Receiver interface {
-	ReceiveSnapshotBlock(block *ledger.SnapshotBlock)
-	ReceiveAccountBlock(block *ledger.AccountBlock)
+	ReceiveSnapshotBlock(block *ledger.SnapshotBlock) (err error)
+	ReceiveAccountBlock(block *ledger.AccountBlock) (err error)
 
-	ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock)
-	ReceiveAccountBlocks(blocks []*ledger.AccountBlock)
+	ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) (err error)
+	ReceiveAccountBlocks(blocks []*ledger.AccountBlock) (err error)
 
-	ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock)
-	ReceiveNewAccountBlock(block *ledger.AccountBlock)
+	ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) (err error)
+	ReceiveNewAccountBlock(block *ledger.AccountBlock) (err error)
 
 	SubscribeAccountBlock(fn AccountblockCallback) (subId int)
 	// if subId is 0, then ignore

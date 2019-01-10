@@ -1,9 +1,12 @@
 package net
 
 import (
+	"encoding/hex"
 	"fmt"
 	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/p2p/discovery"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -28,9 +31,10 @@ type receiver struct {
 	filter      Filter
 	log         log15.Logger
 	batchSource types.BlockSource // report to pool
+	p2p         p2p.Server
 }
 
-func newReceiver(verifier Verifier, broadcaster Broadcaster, filter Filter) *receiver {
+func newReceiver(verifier Verifier, broadcaster Broadcaster, filter Filter, p2p p2p.Server) *receiver {
 	return &receiver{
 		newSBlocks:  make([]*ledger.SnapshotBlock, 0, cacheSBlockTotal),
 		newABlocks:  make([]*ledger.AccountBlock, 0, cacheABlockTotal),
@@ -41,10 +45,10 @@ func newReceiver(verifier Verifier, broadcaster Broadcaster, filter Filter) *rec
 		filter:      filter,
 		log:         log15.New("module", "net/receiver"),
 		batchSource: types.RemoteSync,
+		p2p:         p2p,
 	}
 }
 
-// implementation MsgHandler
 func (s *receiver) ID() string {
 	return "receiver"
 }
@@ -53,7 +57,7 @@ func (s *receiver) Cmds() []ViteCmd {
 	return []ViteCmd{NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode}
 }
 
-func (s *receiver) Handle(msg *p2p.Msg, sender Peer) error {
+func (s *receiver) Handle(msg *p2p.Msg, sender Peer) (err error) {
 	switch ViteCmd(msg.Cmd) {
 	case NewSnapshotBlockCode:
 		block := new(ledger.SnapshotBlock)
@@ -62,11 +66,13 @@ func (s *receiver) Handle(msg *p2p.Msg, sender Peer) error {
 			return err
 		}
 
+		s.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.RemoteAddr()))
+
 		sender.SeeBlock(block.Hash)
 
-		s.ReceiveNewSnapshotBlock(block)
-
-		s.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.RemoteAddr()))
+		if err = s.ReceiveNewSnapshotBlock(block); err != nil {
+			s.block(sender, p2p.DiscProtocolError)
+		}
 
 	case NewAccountBlockCode:
 		block := new(ledger.AccountBlock)
@@ -88,7 +94,9 @@ func (s *receiver) Handle(msg *p2p.Msg, sender Peer) error {
 			return err
 		}
 
-		s.ReceiveSnapshotBlocks(bs.Blocks)
+		if err = s.ReceiveSnapshotBlocks(bs.Blocks); err != nil {
+			s.block(sender, p2p.DiscProtocolError)
+		}
 
 	case AccountBlocksCode:
 		bs := new(message.AccountBlocks)
@@ -107,8 +115,21 @@ func (s *receiver) mark(hash types.Hash) {
 	s.filter.done(hash)
 }
 
-// implementation Receiver
-func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
+func (s *receiver) block(peer Peer, reason p2p.DiscReason) {
+	peer.Disconnect(reason)
+
+	var id discovery.NodeID
+	buf, err := hex.DecodeString(peer.ID())
+	if err != nil {
+		id = discovery.ZERO_NODE_ID
+	} else {
+		copy(id[:], buf)
+	}
+
+	s.p2p.Block(id, peer.RemoteAddr().IP, reason)
+}
+
+func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) (err error) {
 	if block == nil {
 		return
 	}
@@ -122,13 +143,9 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 	}
 
 	if s.verifier != nil {
-		verify_b := time.Now()
-		if err := s.verifier.VerifyNetSb(block); err != nil {
-			monitor.LogDuration("net/verifier", "SnapshotBlock", time.Now().Sub(verify_b).Nanoseconds())
-			s.log.Error(fmt.Sprintf("verify NewSnapshotBlock %s/%d fail: %v", block.Hash, block.Height, err))
-			return
+		if err = s.verifier.VerifyNetSb(block); err != nil {
+			return err
 		}
-		monitor.LogDuration("net/verifier", "SnapshotBlock", time.Now().Sub(verify_b).Nanoseconds())
 	}
 
 	// broadcast
@@ -148,13 +165,13 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) {
 		// record
 		s.mark(block.Hash)
 
-		notify_b := time.Now()
 		s.sFeed.Notify(block, types.RemoteBroadcast)
-		monitor.LogDuration("net/notify", "NewSnapshotBlock", time.Now().Sub(notify_b).Nanoseconds())
 	}
+
+	return nil
 }
 
-func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
+func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) (err error) {
 	if block == nil {
 		return
 	}
@@ -168,13 +185,9 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 	}
 
 	if s.verifier != nil {
-		verify_b := time.Now()
-		if err := s.verifier.VerifyNetAb(block); err != nil {
-			monitor.LogDuration("net/verifier", "AccountBlock", time.Now().Sub(verify_b).Nanoseconds())
-			s.log.Error(fmt.Sprintf("verify NewAccountBlock %s fail: %v", block.Hash, err))
+		if err = s.verifier.VerifyNetAb(block); err != nil {
 			return
 		}
-		monitor.LogDuration("net/verifier", "AccountBlock", time.Now().Sub(verify_b).Nanoseconds())
 	}
 
 	s.broadcaster.BroadcastAccountBlock(block)
@@ -192,13 +205,13 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) {
 		// record
 		s.mark(block.Hash)
 
-		notify_b := time.Now()
 		s.aFeed.Notify(block, types.RemoteBroadcast)
-		monitor.LogDuration("net/notify", "NewAccountBlock", time.Now().Sub(notify_b).Nanoseconds())
 	}
+
+	return nil
 }
 
-func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) {
+func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) (err error) {
 	if block == nil {
 		return
 	}
@@ -212,23 +225,20 @@ func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) {
 	}
 
 	if s.verifier != nil {
-		verify_b := time.Now()
-		if err := s.verifier.VerifyNetSb(block); err != nil {
-			monitor.LogDuration("net/verifier", "SnapshotBlock", time.Now().Sub(verify_b).Nanoseconds())
+		if err = s.verifier.VerifyNetSb(block); err != nil {
 			s.log.Error(fmt.Sprintf("verify SnapshotBlock %s/%d fail: %v", block.Hash, block.Height, err))
-			return
+			return err
 		}
-		monitor.LogDuration("net/verifier", "SnapshotBlock", time.Now().Sub(verify_b).Nanoseconds())
 	}
 
 	s.mark(block.Hash)
 
-	notify_b := time.Now()
 	s.sFeed.Notify(block, s.batchSource)
-	monitor.LogDuration("net/notify", "SnapshotBlock", time.Now().Sub(notify_b).Nanoseconds())
+
+	return nil
 }
 
-func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) {
+func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) (err error) {
 	if block == nil {
 		return
 	}
@@ -242,32 +252,36 @@ func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) {
 	}
 
 	if s.verifier != nil {
-		verify_b := time.Now()
-		if err := s.verifier.VerifyNetAb(block); err != nil {
-			monitor.LogDuration("net/verifier", "AccountBlock", time.Now().Sub(verify_b).Nanoseconds())
-			s.log.Error(fmt.Sprintf("verify AccountBlock %s fail: %v", block.Hash, err))
+		if err = s.verifier.VerifyNetAb(block); err != nil {
 			return
 		}
-		monitor.LogDuration("net/verifier", "AccountBlock", time.Now().Sub(verify_b).Nanoseconds())
 	}
 
 	s.mark(block.Hash)
 
-	notify_b := time.Now()
 	s.aFeed.Notify(block, s.batchSource)
-	monitor.LogDuration("net/notify", "AccountBlock", time.Now().Sub(notify_b).Nanoseconds())
+
+	return nil
 }
 
-func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
+func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) (err error) {
 	for _, block := range blocks {
-		s.ReceiveSnapshotBlock(block)
+		if err = s.ReceiveSnapshotBlock(block); err != nil {
+			return
+		}
 	}
+
+	return
 }
 
-func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) {
+func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) (err error) {
 	for _, block := range blocks {
-		s.ReceiveAccountBlock(block)
+		if err = s.ReceiveAccountBlock(block); err != nil {
+			return
+		}
 	}
+
+	return
 }
 
 func (s *receiver) listen(st SyncState) {

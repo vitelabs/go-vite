@@ -124,7 +124,7 @@ func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syn
 	peers.Sub(s.pEvent)
 
 	pool := newChunkPool(peers, gid, s)
-	fc := newFileClient(chain, s)
+	fc := newFileClient(chain, s, peers)
 	fc.subAllFileDownloaded(s.createChunkTasks)
 
 	s.pool = pool
@@ -423,19 +423,18 @@ func (s *syncer) UnsubscribeSyncStatus(subId int) {
 	s.feed.Unsub(subId)
 }
 
-//func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
-//	return block.Height - s.from
-//}
-
-func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) {
-	s.log.Debug(fmt.Sprintf("syncer: receive SnapshotBlock %s/%d", block.Hash, block.Height))
-	s.receiver.ReceiveSnapshotBlock(block)
+func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) (err error) {
+	err = s.receiver.ReceiveSnapshotBlock(block)
+	if err != nil {
+		return
+	}
 	s.inc()
+
+	return nil
 }
 
-func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) {
-	s.log.Debug(fmt.Sprintf("syncer: receive AccountBlock %s/%d", block.Hash, block.Height))
-	s.receiver.ReceiveAccountBlock(block)
+func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) (err error) {
+	return s.receiver.ReceiveAccountBlock(block)
 }
 
 type SyncStatus struct {
