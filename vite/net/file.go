@@ -172,6 +172,8 @@ type fileClient struct {
 
 	rec blockReceiver
 
+	peers *peerSet
+
 	dialer *net2.Dialer
 
 	running int32
@@ -182,12 +184,13 @@ type fileClient struct {
 	to uint64
 }
 
-func newFileClient(chain Chain, rec blockReceiver) *fileClient {
+func newFileClient(chain Chain, rec blockReceiver, peers *peerSet) *fileClient {
 	return &fileClient{
 		idleChan:  make(chan *conn, 1),
 		delChan:   make(chan *conn, 1),
 		filesChan: make(chan *filesEvent, 10),
 		chain:     chain,
+		peers:     peers,
 		log:       log15.New("module", "net/fileClient"),
 		dialer:    &net2.Dialer{Timeout: 3 * time.Second},
 		rec:       rec,
@@ -314,8 +317,14 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 	}
 }
 
+var errDisconnectedPeer = errors.New("peer has disconnected, can`t download file")
+
 func (fc *fileClient) doRequest(conns map[string]*conn, file *ledger.CompressedFileMeta, sender Peer) error {
 	id := sender.ID()
+
+	if !fc.peers.Has(id) {
+		return errDisconnectedPeer
+	}
 
 	var c *conn
 	var ok bool
@@ -531,7 +540,7 @@ func (fc *fileClient) exec(ctx *conn) {
 	fc.log.Info(fmt.Sprintf("send %s to %s done", getFiles, ctx.RemoteAddr()))
 
 	if err = fc.receiveFile(ctx); err != nil {
-		fc.log.Error(fmt.Sprintf("receive file from %s error: %v", ctx.RemoteAddr(), err))
+		fc.log.Error(fmt.Sprintf("receive file %s from %s error: %v", ctx.file.Filename, ctx.RemoteAddr(), err))
 		fc.delete(ctx)
 	} else {
 		ctx.done = true
@@ -554,8 +563,11 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 
 		file := ctx.file
 
+		var fileError error
+
 		fc.chain.Compressor().BlockParser(ctx, file.BlockNumbers, func(block ledger.Block, err error) {
-			if err != nil {
+			if err != nil || fileError != nil {
+				ctx.Close()
 				return
 			}
 
@@ -567,7 +579,7 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 				}
 
 				sCount++
-				fc.rec.receiveSnapshotBlock(block)
+				fileError = fc.rec.receiveSnapshotBlock(block, ctx.peer)
 				ctx.height = block.Height
 
 			case *ledger.AccountBlock:
@@ -577,9 +589,13 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 				}
 
 				aCount++
-				fc.rec.receiveAccountBlock(block)
+				fileError = fc.rec.receiveAccountBlock(block, ctx.peer)
 			}
 		})
+
+		if fileError != nil {
+			return fileError
+		}
 
 		sTotal := file.EndHeight - file.StartHeight + 1
 		if sCount < sTotal {
