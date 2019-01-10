@@ -109,12 +109,12 @@ var (
 	// Metrics
 	metricsFlags = []cli.Flag{
 		utils.MetricsEnabledFlag,
-		utils.MetricsEnableInfluxDBFlag,
-		utils.MetricsInfluxDBEndpointFlag,
-		utils.MetricsInfluxDBDatabaseFlag,
-		utils.MetricsInfluxDBUsernameFlag,
-		utils.MetricsInfluxDBPasswordFlag,
-		utils.MetricsInfluxDBHostTagFlag,
+		utils.InfluxDBEnableFlag,
+		utils.InfluxDBEndpointFlag,
+		utils.InfluxDBDatabaseFlag,
+		utils.InfluxDBUsernameFlag,
+		utils.InfluxDBPasswordFlag,
+		utils.InfluxDBHostTagFlag,
 	}
 )
 

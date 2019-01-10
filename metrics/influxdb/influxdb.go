@@ -3,6 +3,7 @@ package influxdb
 import (
 	"fmt"
 	"github.com/influxdata/influxdb/client/v2"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/metrics"
 	"time"
@@ -13,7 +14,7 @@ var log = log15.New("module", "influxdb")
 // DefaultTimeout is the default connection timeout used to connect to an InfluxDB instance
 const DefaultTimeout = 0
 
-type reporter struct {
+type Reporter struct {
 	reg      metrics.Registry
 	interval time.Duration
 
@@ -29,9 +30,12 @@ type reporter struct {
 	client client.Client
 
 	cache map[string]int64
+
+	breaker      chan struct{}
+	stopListener chan struct{}
 }
 
-func (r *reporter) makeClient() (err error) {
+func (r *Reporter) makeClient() (err error) {
 	r.client, err = client.NewHTTPClient(client.HTTPConfig{
 		Addr:               r.addr,
 		Username:           r.username,
@@ -53,10 +57,18 @@ func InfluxDB(r metrics.Registry, d time.Duration, url, database, username, pass
 // InfluxDBWithTags starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval with the specified tags
 func InfluxDBWithTags(r metrics.Registry, d time.Duration, url, database, username, password, namespace string, tags map[string]string) {
 	if !metrics.InfluxDBExportFlag {
-		log.Info("InfluxDB export disable")
+		log.Info("influxdb export disable")
 		return
 	}
-	rep := &reporter{
+	rep, err := NewReporter(r, d, url, database, username, password, namespace, tags)
+	if err != nil || rep == nil {
+		log.Error("unable to make influxdb client", "err", err)
+	}
+	rep.run()
+}
+
+func NewReporter(r metrics.Registry, d time.Duration, url, database, username, password, namespace string, tags map[string]string) (*Reporter, error) {
+	rep := &Reporter{
 		reg:       r,
 		interval:  d,
 		addr:      url,
@@ -65,39 +77,50 @@ func InfluxDBWithTags(r metrics.Registry, d time.Duration, url, database, userna
 		password:  password,
 		namespace: namespace,
 		tags:      tags,
-		cache:     make(map[string]int64),
 	}
 	if err := rep.makeClient(); err != nil {
-		log.Error("Unable to make InfluxDB client", "err", err)
-		return
+		return nil, errors.New("unable to make influxdb client, err " + err.Error())
 	}
-	rep.run()
+	rep.cache = make(map[string]int64)
+	rep.breaker = make(chan struct{})
+	rep.stopListener = make(chan struct{})
+
+	return rep, nil
 }
 
-func (r *reporter) run() {
+func (r *Reporter) run() {
+	log.Info("export started")
 	intervalTicker := time.Tick(r.interval)
-	pingTicker := time.Tick(time.Second * 5)
-
+	pingTicker := time.Tick(r.interval)
+LOOP:
 	for {
 		select {
 		case <-intervalTicker:
 			if err := r.send(); err != nil {
-				log.Info("Unable to send to InfluxDB", "err", err)
+				log.Info("unable to send to influxdb", "err", err)
 			}
 		case <-pingTicker:
 			_, _, err := r.client.Ping(r.interval)
 			if err != nil {
-				log.Info("Got error while sending a ping to InfluxDB, trying to recreate client", "err", err)
+				log.Info("got error while sending a ping to influxdb, trying to recreate client", "err", err)
 
 				if err = r.makeClient(); err != nil {
-					log.Error("Unable to make InfluxDB client", "err", err)
+					log.Error("unable to make influxdb client", "err", err)
 				}
 			}
+		case <-r.breaker:
+			log.Info("call breaker")
+			break LOOP
 		}
 	}
+
+	log.Info("call stopListener")
+	r.stopListener <- struct{}{}
+
+	log.Info("export ended")
 }
 
-func (r *reporter) send() error {
+func (r *Reporter) send() error {
 	bp, err := client.NewBatchPoints(client.BatchPointsConfig{
 		Database: r.database,
 	})
@@ -230,4 +253,28 @@ func (r *reporter) send() error {
 		bp.AddPoint(pt)
 	})
 	return r.client.Write(bp)
+}
+
+// InfluxDBWithTags starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval with the specified tags
+func (r *Reporter) Start() {
+	if !metrics.InfluxDBExportFlag {
+		log.Error("influxdb export disable")
+		return
+	}
+	log.Info("reporter start")
+	r.run()
+}
+
+func (r *Reporter) Stop() {
+	log.Info("reporter be called to stop")
+
+	r.breaker <- struct{}{}
+	close(r.breaker)
+
+	<-r.stopListener
+	close(r.stopListener)
+
+	metrics.InfluxDBExportFlag = false
+
+	log.Info("reporter stoped")
 }

@@ -587,7 +587,11 @@ func doRefund(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.Accoun
 }
 
 func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlock, error) {
-	defer monitor.LogTime("vm", "SendReward", time.Now())
+	//defer monitor.LogTime("vm", "SendReward", time.Now())
+	var monitorTags []string
+	monitorTags = append(monitorTags, "vm", "sendReward")
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	// check can make transaction
 	quotaLeft := quotaTotal
 	cost, err := util.IntrinsicGasCost(block.AccountBlock.Data, false)
@@ -607,7 +611,11 @@ func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 }
 
 func (vm *VM) sendRefund(block *vm_context.VmAccountBlock, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlock, error) {
-	defer monitor.LogTime("vm", "sendRefund", time.Now())
+	//defer monitor.LogTime("vm", "sendRefund", time.Now())
+	var monitorTags []string
+	monitorTags = append(monitorTags, "vm", "sendRefund")
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	block.AccountBlock.Fee = helper.Big0
 	cost, err := util.IntrinsicGasCost(block.AccountBlock.Data, false)
 	if err != nil {
