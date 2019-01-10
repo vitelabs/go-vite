@@ -412,7 +412,7 @@ loop:
 			sort.Sort(fileList)
 
 			if jobTicker == nil {
-				t := time.NewTicker(5 * time.Second)
+				t := time.NewTicker(time.Second)
 				jobTicker = t.C
 				defer t.Stop()
 				fc.usePeer(conns, record, pFiles, e.sender)

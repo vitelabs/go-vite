@@ -626,16 +626,21 @@ loop:
 			if peersCount < DefaultMinPeers {
 				run()
 			}
+			svr.markPeers()
 		}
 	}
 
 	svr.peers.DisconnectAll()
 
+	svr.markPeers()
+}
+
+func (svr *server) markPeers() {
 	if svr.discv != nil {
 		now := time.Now()
 		svr.peers.mu.Lock()
 		defer svr.peers.mu.Unlock()
-		for id, p := range svr.peers.peers {
+		for id, p := range svr.peers.m {
 			svr.discv.Mark(id, now.Sub(p.Created).Nanoseconds())
 		}
 	}
