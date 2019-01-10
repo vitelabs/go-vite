@@ -3,15 +3,16 @@ package discovery
 import (
 	"errors"
 	"fmt"
+	"net"
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/list"
-	"net"
-	"sync"
-	"time"
 )
 
 const maxNeighborsOneTrip = 10
@@ -31,7 +32,7 @@ type wait struct {
 }
 
 type wtPool struct {
-	list *list.List
+	list list.List
 	add  chan *wait
 	rec  chan *packet
 	term chan struct{}
@@ -75,9 +76,12 @@ func (p *wtPool) loop() {
 	for {
 		select {
 		case <-p.term:
-			p.list.Traverse(func(_, e *list.Element) {
-				wt, _ := e.Value.(*wait)
-				wt.handle(nil, errStopped, wt)
+			p.list.Traverse(func(value interface{}) bool {
+				wt, ok := value.(*wait)
+				if ok {
+					wt.handle(nil, errStopped, wt)
+				}
+				return true
 			})
 			return
 		case w := <-p.add:
@@ -91,26 +95,24 @@ func (p *wtPool) loop() {
 }
 
 func (p *wtPool) handle(rs *packet) {
-	p.list.Traverse(func(prev, current *list.Element) {
-		wt, _ := current.Value.(*wait)
-		if wt.expectFrom == rs.fromID && wt.expectCode == rs.code {
-			if wt.handle(rs.msg, nil, wt) {
-				// remove current wait from list
-				p.list.Remove(prev, current)
-			}
+	p.list.Filter(func(value interface{}) bool {
+		wt, ok := value.(*wait)
+		if ok && wt.expectFrom == rs.fromID && wt.expectCode == rs.code {
+			return wt.handle(rs.msg, nil, wt)
 		}
+		return false
 	})
 }
 
 func (p *wtPool) clean() {
 	now := time.Now()
-	p.list.Traverse(func(prev, current *list.Element) {
-		wt, _ := current.Value.(*wait)
-		if wt.expiration.Before(now) {
+	p.list.Filter(func(value interface{}) bool {
+		wt, ok := value.(*wait)
+		if ok && wt.expiration.Before(now) {
 			wt.handle(nil, errWaitOvertime, wt)
-			// remove current wait from list
-			p.list.Remove(prev, current)
+			return true
 		}
+		return false
 	})
 }
 

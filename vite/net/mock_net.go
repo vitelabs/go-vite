@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/vite/net/circle"
 )
 
 type mockNet struct {
@@ -34,8 +35,9 @@ func mock() Net {
 	peers := newPeerSet()
 	pool := &gid{}
 	broadcaster := &broadcaster{
-		peers: peers,
-		log:   log15.New("module", "mocknet/broadcaster"),
+		peers:  peers,
+		log:    log15.New("module", "mocknet/broadcaster"),
+		statis: circle.NewList(records_24),
 	}
 	filter := &filter{
 		records: make(map[types.Hash]*record),

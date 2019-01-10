@@ -2,6 +2,9 @@ package net
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -10,8 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/list"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"sync"
-	"time"
 )
 
 // @section Cmd
@@ -124,7 +125,7 @@ func (s _statusHandler) Handle(msg *p2p.Msg, sender Peer) error {
 // @section queryHandler
 type queryHandler struct {
 	lock     sync.RWMutex
-	queue    *list.List
+	queue    list.List
 	handlers map[ViteCmd]MsgHandler
 	term     chan struct{}
 	wg       sync.WaitGroup

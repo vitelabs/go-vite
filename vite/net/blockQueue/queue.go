@@ -1,14 +1,15 @@
 package blockQueue
 
 import (
-	"github.com/vitelabs/go-vite/p2p/list"
 	"sync"
+
+	"github.com/vitelabs/go-vite/p2p/list"
 )
 
 type BlockQueue struct {
 	mu     *sync.Mutex
 	cond   *sync.Cond
-	list   *list.List
+	list   list.List
 	closed bool
 }
 
