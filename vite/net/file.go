@@ -540,7 +540,7 @@ func (fc *fileClient) exec(ctx *conn) {
 	fc.log.Info(fmt.Sprintf("send %s to %s done", getFiles, ctx.RemoteAddr()))
 
 	if err = fc.receiveFile(ctx); err != nil {
-		fc.log.Error(fmt.Sprintf("receive file from %s error: %v", ctx.RemoteAddr(), err))
+		fc.log.Error(fmt.Sprintf("receive file %s from %s error: %v", ctx.file.Filename, ctx.RemoteAddr(), err))
 		fc.delete(ctx)
 	} else {
 		ctx.done = true
