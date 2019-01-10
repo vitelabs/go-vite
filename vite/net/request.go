@@ -73,8 +73,8 @@ type piece interface {
 }
 
 type blockReceiver interface {
-	receiveSnapshotBlock(block *ledger.SnapshotBlock)
-	receiveAccountBlock(block *ledger.AccountBlock)
+	receiveSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error)
+	receiveAccountBlock(block *ledger.AccountBlock, sender Peer) (err error)
 	catch(piece)
 }
 
@@ -170,11 +170,16 @@ func (p *chunkPool) Cmds() []ViteCmd {
 	return []ViteCmd{SubLedgerCode}
 }
 
+type chunkResponse struct {
+	msg    *p2p.Msg
+	sender Peer
+}
+
 func (p *chunkPool) Handle(msg *p2p.Msg, sender Peer) error {
 	cmd := ViteCmd(msg.Cmd)
 	netLog.Info(fmt.Sprintf("receive %s from %s", cmd, sender.RemoteAddr()))
 
-	p.resQueue.Push(msg)
+	p.resQueue.Push(chunkResponse{msg, sender})
 
 	return nil
 }
@@ -217,35 +222,44 @@ func (p *chunkPool) handleLoop() {
 				break
 			}
 
-			msg := v.(*p2p.Msg)
-			if msg == nil {
-				break
-			}
+			res := v.(chunkResponse)
 
-			res := new(message.SubLedger)
+			if subLedger, err := p.handleResponse(res); err != nil {
+				p.retry(res.msg.Id)
+			} else {
+				if c := p.chunk(res.msg.Id); c != nil {
+					c.count += uint64(len(subLedger.SBlocks))
 
-			if err := res.Deserialize(msg.Payload); err != nil {
-				p.retry(msg.Id)
-			}
-
-			// receive account blocks first
-			for _, block := range res.ABlocks {
-				p.handler.receiveAccountBlock(block)
-			}
-
-			for _, block := range res.SBlocks {
-				p.handler.receiveSnapshotBlock(block)
-			}
-
-			if c := p.chunk(msg.Id); c != nil {
-				c.count += uint64(len(res.SBlocks))
-
-				if c.count >= c.to-c.from+1 {
-					p.done(msg.Id)
+					if c.count >= c.to-c.from+1 {
+						p.done(res.msg.Id)
+					}
 				}
 			}
 		}
 	}
+}
+
+func (p *chunkPool) handleResponse(res chunkResponse) (subLedger *message.SubLedger, err error) {
+	subLedger = new(message.SubLedger)
+
+	if err = subLedger.Deserialize(res.msg.Payload); err != nil {
+		return
+	}
+
+	// receive account blocks first
+	for _, block := range subLedger.ABlocks {
+		if err = p.handler.receiveAccountBlock(block, res.sender); err != nil {
+			return
+		}
+	}
+
+	for _, block := range subLedger.SBlocks {
+		if err = p.handler.receiveSnapshotBlock(block, res.sender); err != nil {
+			return
+		}
+	}
+
+	return
 }
 
 func (p *chunkPool) loop() {

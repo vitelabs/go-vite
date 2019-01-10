@@ -76,6 +76,7 @@ type Server interface {
 	UnSubNodes(ch chan<- *discovery.Node)
 	URL() string
 	Config() *Config
+	Block(id discovery.NodeID, ip net.IP, err error)
 }
 
 type server struct {
@@ -299,7 +300,7 @@ func (svr *server) blocked(buf []byte) bool {
 	return svr.blockUtil.Blocked(buf)
 }
 
-func (svr *server) block(id discovery.NodeID, ip net.IP, err error) {
+func (svr *server) Block(id discovery.NodeID, ip net.IP, err error) {
 	svr.rw.Lock()
 	defer svr.rw.Unlock()
 
@@ -381,7 +382,7 @@ func (svr *server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, d
 		if conn, err := svr.dialer.Dial("tcp", addr.String()); err == nil {
 			svr.setupConn(conn, flag, id)
 		} else {
-			svr.block(id, addr.IP, err)
+			svr.Block(id, addr.IP, err)
 			svr.log.Warn(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
 		}
 
@@ -463,7 +464,7 @@ func (svr *server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
 	if err = svr.checkHead(c); err != nil {
 		svr.log.Warn(fmt.Sprintf("HeadShake with %s error: %v, block it", c.RemoteAddr(), err))
 		c.Close()
-		svr.block(id, c.RemoteAddr().(*net.TCPAddr).IP, err)
+		svr.Block(id, c.RemoteAddr().(*net.TCPAddr).IP, err)
 		return
 	}
 
@@ -475,7 +476,7 @@ func (svr *server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
 	if err = svr.handleTS(ts, id); err != nil {
 		svr.log.Warn(fmt.Sprintf("HandShake with %s error: %v, block it", c.RemoteAddr(), err))
 		ts.Close()
-		svr.block(id, c.RemoteAddr().(*net.TCPAddr).IP, err)
+		svr.Block(id, c.RemoteAddr().(*net.TCPAddr).IP, err)
 		return
 	}
 
@@ -605,7 +606,7 @@ loop:
 
 			if err != nil {
 				c.Close()
-				svr.block(c.remoteID, c.remoteIP, err)
+				svr.Block(c.remoteID, c.remoteIP, err)
 				svr.log.Warn(fmt.Sprintf("can`t create new peer: %v", err))
 			}
 

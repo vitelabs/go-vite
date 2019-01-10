@@ -248,7 +248,7 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 func (gen *Generator) getDatasFromSendBlock(blockPacked, sendBlock *ledger.AccountBlock) {
 	blockPacked.AccountAddress = sendBlock.ToAddress
 	blockPacked.FromBlockHash = sendBlock.Hash
-	if fork.IsVite1(gen.sbHeight) {
+	if fork.IsSmartFork(gen.sbHeight) {
 		blockPacked.Amount = big.NewInt(0)
 		blockPacked.Fee = big.NewInt(0)
 		blockPacked.TokenId = types.ZERO_TOKENID
