@@ -13,6 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -21,8 +22,8 @@ const (
 	jsonDexFund = `
 	[
 		{"type":"function","name":"DexFundUserDeposit", "inputs":[]},
-		{"type":"function","name":"DexFundUserWithdraw", "inputs":[{"name":"address","type":"address"},{"name":"token","type":"tokenId"},{"name":"amount","type":"uint256"}]},
-		{"type":"function","name":"DexFundNewOrder", "inputs":[{"name":"data","type":"bytes"}]},
+		{"type":"function","name":"DexFundUserWithdraw", "inputs":[{"name":"token","type":"tokenId"},{"name":"amount","type":"uint256"}]},
+		{"type":"function","name":"DexFundNewOrder", "inputs":[{"name":"orderId","type":"bytes"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}, {"name":"orderType", "type":"uint32"}, {"name":"price", "type":"string"}, {"name":"quantity", "type":"uint256"}]},
 		{"type":"function","name":"DexFundSettleOrders", "inputs":[{"name":"data","type":"bytes"}]}
 	]`
 
@@ -37,10 +38,19 @@ var (
 	fundKeyPrefix = []byte("fund:")
 )
 
-type ParamDexFundDepositAndWithDraw struct {
-	Address types.Address
+type ParamDexFundWithDraw struct {
 	Token   types.TokenTypeId
 	Amount  *big.Int
+}
+
+type ParamDexFundNewOrder struct {
+	OrderId []byte
+	TradeToken   types.TokenTypeId
+	QuoteToken   types.TokenTypeId
+	Side bool
+	OrderType uint32
+	Price string
+	Quantity *big.Int
 }
 
 type ParamDexSerializedData struct {
@@ -126,7 +136,7 @@ func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, bloc
 	if quotaLeft, err = util.UseQuota(quotaLeft, dexFundWithdrawGas); err != nil {
 		return quotaLeft, err
 	}
-	param := new(ParamDexFundDepositAndWithDraw)
+	param := new(ParamDexFundWithDraw)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserWithdraw, block.Data); err != nil {
 		return quotaLeft, err
 	}
@@ -140,7 +150,7 @@ func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, bloc
 }
 
 func (md *MethodDexFundUserWithdraw) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
-	param := new(ParamDexFundDepositAndWithDraw)
+	param := new(ParamDexFundWithDraw)
 	var (
 		dexFund = &DexFund{}
 		err     error
@@ -189,19 +199,13 @@ func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *l
 	if quotaLeft, err = util.UseQuota(quotaLeft, dexFundNewOrderGas); err != nil {
 		return quotaLeft, err
 	}
-	param := new(ParamDexSerializedData)
+	param := new(ParamDexFundNewOrder)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, block.Data); err != nil {
 		return quotaLeft, err
 	}
-	order := &dexproto.Order{}
-	if err = proto.Unmarshal(param.Data, order); err != nil {
-		return quotaLeft, fmt.Errorf("input data format of order is invalid")
-	}
-	if err = checkOrderParam(db, order); err != nil {
+	if err = checkOrderParam(db, param); err != nil {
 		return quotaLeft, err
 	}
-	address := &types.Address{}
-	address.SetBytes(order.Address)
 	return util.UseQuotaForData(block.Data, quotaLeft)
 }
 
@@ -210,17 +214,14 @@ func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block
 		dexFund = &DexFund{}
 		tradeBlockData []byte
 		err error
+		orderBytes []byte
 	)
-	param := new(ParamDexSerializedData)
+	param := new(ParamDexFundNewOrder)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, sendBlock.Data); err != nil {
 		return []*SendBlock{}, err
 	}
 	order := &dexproto.Order{}
-	if err = proto.Unmarshal(param.Data, order); err != nil {
-		return []*SendBlock{}, err
-	}
-
-	renderOrder(order, sendBlock.AccountAddress, db.GetSnapshotBlockByHash(&block.SnapshotHash).Timestamp)
+	renderOrder(order, param, sendBlock.AccountAddress, db.GetSnapshotBlockByHash(&block.SnapshotHash).Timestamp)
 	if dexFund, err = GetFundFromStorage(db, sendBlock.AccountAddress); err != nil {
 		return []*SendBlock{}, err
 	}
@@ -230,12 +231,10 @@ func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block
 	if err = saveFundToStorage(db, sendBlock.AccountAddress, dexFund); err != nil {
 		return []*SendBlock{}, err
 	}
-	address := &types.Address{}
-	address.SetBytes(order.Address)
-	if param.Data, err = proto.Marshal(order); err != nil {
+	if orderBytes, err = proto.Marshal(order); err != nil {
 		return []*SendBlock{}, err
 	}
-	if tradeBlockData, err = ABIDexTrade.PackMethod(MethodNameDexTradeNewOrder, param.Data); err != nil {
+	if tradeBlockData, err = ABIDexTrade.PackMethod(MethodNameDexTradeNewOrder, orderBytes); err != nil {
 		return []*SendBlock{}, err
 	}
 	return []*SendBlock{
@@ -412,14 +411,6 @@ func fromBytesToTokenTypeId(bytes []byte) (tokenId *types.TokenTypeId, err error
 	}
 }
 
-func checkTokenByProto(db vmctxt_interface.VmDatabase, protoBytes []byte) error {
-	if tokenId, err := fromBytesToTokenTypeId(protoBytes); err != nil {
-		return err
-	} else {
-		return checkToken(db, *tokenId)
-	}
-}
-
 func checkToken(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) error {
 	if tokenInfo := cabi.GetTokenById(db, tokenId); tokenInfo == nil {
 		return fmt.Errorf("token is invalid")
@@ -428,39 +419,49 @@ func checkToken(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) error
 	}
 }
 
-func checkOrderParam(db vmctxt_interface.VmDatabase, order *dexproto.Order) error {
+func checkOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNewOrder) error {
 	var (
 		orderId dex.OrderId
 		err error
 	)
-	if orderId, err = dex.NewOrderId(order.Id); err != nil {
+	if orderId, err = dex.NewOrderId(orderParam.OrderId); err != nil {
 		return err
 	}
 	if !orderId.IsNormal() {
 		return fmt.Errorf("invalid order id")
 	}
-	if err = checkTokenByProto(db, order.TradeToken); err != nil {
+	if err = checkToken(db, orderParam.TradeToken); err != nil {
 		return err
 	}
-	if err = checkTokenByProto(db, order.QuoteToken); err != nil {
+	if err = checkToken(db, orderParam.QuoteToken); err != nil {
 		return err
 	}
-	if order.Type != dex.Market && order.Type != dex.Limited {
+	if orderParam.OrderType != dex.Market && orderParam.OrderType != dex.Limited {
 		return fmt.Errorf("invalid order type")
 	}
-	if order.Type == dex.Limited {
-		if !dex.ValidPrice(order.Price) {
+	if orderParam.OrderType == dex.Limited {
+		if !dex.ValidPrice(orderParam.Price) {
 			return fmt.Errorf("invalid format for price")
 		}
 	}
-	if dex.CmpToBigZero(order.Quantity) <= 0 {
+	if orderParam.Quantity.Sign() <= 0 {
 		return fmt.Errorf("invalid trade quantity for order")
+	}
+	if _, err = strconv.ParseFloat(orderParam.Price, 64); err != nil {
+		return fmt.Errorf("invalid price format")
 	}
 	return nil
 }
 
-func renderOrder(order *dexproto.Order, address types.Address, snapshotTM *time.Time) {
+func renderOrder(order *dexproto.Order, param *ParamDexFundNewOrder, address types.Address, snapshotTM *time.Time) {
+	order.Id = param.OrderId
 	order.Address = address.Bytes()
+	order.TradeToken = param.TradeToken.Bytes()
+	order.QuoteToken = param.QuoteToken.Bytes()
+	order.Side = param.Side
+	order.Type = int32(param.OrderType)
+	order.Price = param.Price
+	order.Quantity = param.Quantity.Bytes()
 	if order.Type == dex.Limited {
 		order.Amount = dex.CalculateAmount(order.Quantity, order.Price)
 	}
