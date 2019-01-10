@@ -170,6 +170,10 @@ func newTable(id NodeID, netID network.ID) *table {
 	return tab
 }
 
+func (tab *table) acceptNode(node *Node) bool {
+	return node.Net == 0 || node.Net == tab.netID
+}
+
 func (tab *table) addNode(node *Node) *Node {
 	if node == nil {
 		return nil
@@ -180,7 +184,7 @@ func (tab *table) addNode(node *Node) *Node {
 	}
 
 	// different network
-	if node.Net != 0 && tab.netID != 0 && node.Net != tab.netID {
+	if !tab.acceptNode(node) {
 		return nil
 	}
 
@@ -265,7 +269,9 @@ func (tab *table) bubbleAddr(addr string) bool {
 }
 
 func (tab *table) bubbleOrAdd(node *Node) {
-	if _, ok := tab.m.Load(node.UDPAddr().String()); ok {
+	if n, ok := tab.m.Load(node.UDPAddr().String()); ok {
+		old := n.(*Node)
+		old.Update(node)
 		if tab.bubble(node.ID) {
 			return
 		}
@@ -395,14 +401,22 @@ func (tab *table) store(db tableDB) {
 	})
 }
 
-func (tab *table) near() (nodes []*Node) {
+func (tab *table) near(n int) (nodes []*Node) {
+	nodes = make([]*Node, 0, n)
+	got := n
+
 	tab.mu.RLock()
 	defer tab.mu.RUnlock()
 
 	for _, bkt := range tab.buckets {
 		if bkt.size > 0 {
-			nodes = bkt.nodes(bkt.size)
-			break
+			batch := bkt.nodes(bkt.size)
+			nodes = append(nodes, batch...)
+			got += bkt.size
+
+			if got >= n {
+				break
+			}
 		}
 	}
 

@@ -254,7 +254,7 @@ func (p *chunkPool) loop() {
 	ticker := time.NewTicker(chunkTimeout)
 	defer ticker.Stop()
 
-	doTicker := time.NewTicker(5 * time.Second)
+	doTicker := time.NewTicker(time.Second)
 	defer doTicker.Stop()
 
 	var state reqState

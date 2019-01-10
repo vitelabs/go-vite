@@ -16,5 +16,6 @@ var (
 	ErrAbiMethodNotFound           = errors.New("abi: method not found")
 	ErrDepth                       = errors.New("max call depth exceeded")
 
-	ErrForked = errors.New("chain forked")
+	ErrForked                     = errors.New("chain forked")
+	ErrContractSendBlockRunFailed = errors.New("contract send block run failed")
 )

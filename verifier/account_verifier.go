@@ -501,24 +501,27 @@ func (verifier *AccountVerifier) verifyDatasIntergrity(block *ledger.AccountBloc
 
 // block from Net or Rpc doesn't have stateHash、Quota, so don't need to verify
 func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, genBlock *ledger.AccountBlock) error {
-	if origBlock.BlockType != genBlock.BlockType {
-		return errors.New("blockType")
+	if origBlock.Hash != genBlock.Hash {
+		return errors.New("hash")
 	}
-	if origBlock.ToAddress != genBlock.ToAddress {
-		return errors.New("toAddress")
-	}
-	if origBlock.Fee.Cmp(genBlock.Fee) != 0 {
-		return errors.New("fee")
-	}
-	if !bytes.Equal(origBlock.Data, genBlock.Data) {
-		return errors.New("data")
-	}
-	if (origBlock.LogHash == nil && genBlock.LogHash != nil) || (origBlock.LogHash != nil && genBlock.LogHash == nil) {
-		return errors.New("logHash")
-	}
-	if origBlock.LogHash != nil && genBlock.LogHash != nil && *origBlock.LogHash != *genBlock.LogHash {
-		return errors.New("logHash")
-	}
+	//if origBlock.BlockType != genBlock.BlockType {
+	//	return errors.New("blockType")
+	//}
+	//if origBlock.ToAddress != genBlock.ToAddress {
+	//	return errors.New("toAddress")
+	//}
+	//if origBlock.Fee.Cmp(genBlock.Fee) != 0 {
+	//	return errors.New("fee")
+	//}
+	//if !bytes.Equal(origBlock.Data, genBlock.Data) {
+	//	return errors.New("data")
+	//}
+	//if (origBlock.LogHash == nil && genBlock.LogHash != nil) || (origBlock.LogHash != nil && genBlock.LogHash == nil) {
+	//	return errors.New("logHash")
+	//}
+	//if origBlock.LogHash != nil && genBlock.LogHash != nil && *origBlock.LogHash != *genBlock.LogHash {
+	//	return errors.New("logHash")
+	//}
 
 	return nil
 }
