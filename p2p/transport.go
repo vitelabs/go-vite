@@ -3,13 +3,14 @@ package p2p
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
+	"net"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/network"
-	"io"
-	"net"
-	"time"
 )
 
 type P2PVersion = uint32
@@ -22,25 +23,7 @@ const discCmd = 1
 
 const headerLength = 32
 const maxPayloadSize = ^uint32(0) >> 8 // 15MB
-
-// bigEnd
-func PutUint24(buf []byte, v uint32) {
-	if len(buf) < 3 {
-		panic("put uint24: target byte slice is not long enough")
-	}
-
-	buf[0] = byte(v >> 16)
-	buf[1] = byte(v >> 8)
-	buf[2] = byte(v)
-}
-
-func Uint24(buf []byte) uint32 {
-	if len(buf) < 3 {
-		panic("read uint24: target byte slice is not long enough")
-	}
-
-	return uint32(buf[0])<<16 | uint32(buf[1])<<8 | uint32(buf[2])
-}
+const shakeTimeout = 10 * time.Second
 
 // head message is the first message in a tcp connection
 type headMsg struct {
@@ -51,8 +34,10 @@ type headMsg struct {
 const headMsgLen = 32 // netId[4] + version[4]
 
 func readHead(conn net.Conn) (head *headMsg, err error) {
+	conn.SetReadDeadline(time.Now().Add(shakeTimeout))
+	defer conn.SetReadDeadline(time.Time{})
+
 	headPacket := make([]byte, headMsgLen)
-	//conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	_, err = io.ReadFull(conn, headPacket)
 	if err != nil {
 		return
@@ -66,11 +51,13 @@ func readHead(conn net.Conn) (head *headMsg, err error) {
 }
 
 func writeHead(conn net.Conn, head *headMsg) error {
+	conn.SetWriteDeadline(time.Now().Add(shakeTimeout))
+	defer conn.SetWriteDeadline(time.Time{})
+
 	headPacket := make([]byte, headMsgLen)
 	binary.BigEndian.PutUint32(headPacket[:4], uint32(head.NetID))
 	binary.BigEndian.PutUint32(headPacket[4:8], head.Version)
 
-	//conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 	if n, err := conn.Write(headPacket); err != nil {
 		return err
 	} else if n != headMsgLen {

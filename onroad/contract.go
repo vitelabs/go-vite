@@ -154,6 +154,8 @@ func (w *ContractWorker) Stop() {
 		<-w.stopDispatcherListener
 		close(w.stopDispatcherListener)
 
+		w.uBlocksPool.DeleteContractCache(w.gid)
+
 		w.log.Info("stop all task")
 		wg := new(sync.WaitGroup)
 		for _, v := range w.contractTaskProcessors {
@@ -223,7 +225,7 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 			Index: i,
 			Quota: quota,
 		}
-		if addr == types.AddressPledge {
+		if types.IsPrecompiledContractAddress(addr) {
 			task.Quota = math.MaxUint64
 		}
 		w.contractTaskPQueue[i] = task
@@ -255,10 +257,12 @@ func (w *ContractWorker) popContractTask() *contractTask {
 	return nil
 }
 
+// Don't deal with it for this around of blocks-generating period
 func (w *ContractWorker) addIntoBlackList(addr types.Address) {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
 	w.blackList[addr] = true
+	w.uBlocksPool.ReleaseContractCache(addr)
 }
 
 func (w *ContractWorker) isInBlackList(addr types.Address) bool {

@@ -15,7 +15,7 @@ type twoOperandTest struct {
 
 func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error), args ...string) {
 	vm := &VM{}
-	vm.Debug = true
+	//vm.Debug = true
 	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
 	stack := newStack()
 
@@ -261,7 +261,7 @@ func TestByteOp(t *testing.T) {
 		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 0xFFFFFFFFFFFFFFFF, big.NewInt(0x0)},
 	}
 	vm := &VM{}
-	vm.Debug = true
+	//vm.Debug = true
 	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
 	stack := newStack()
 	pc := uint64(0)
@@ -282,7 +282,7 @@ func TestByteOp(t *testing.T) {
 
 func testTwoOperandOp(t *testing.T, tests []twoOperandTest, opFn func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error)) {
 	vm := &VM{}
-	vm.Debug = true
+	//vm.Debug = true
 	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
 	stack := newStack()
 	pc := uint64(0)
@@ -398,7 +398,7 @@ func TestSLT(t *testing.T) {
 
 func TestOpMstore(t *testing.T) {
 	vm := &VM{}
-	vm.Debug = true
+	//vm.Debug = true
 	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
 	stack := newStack()
 	mem := newMemory()
@@ -423,7 +423,7 @@ func TestOpMstore(t *testing.T) {
 
 func BenchmarkOpMstore(bench *testing.B) {
 	vm := &VM{}
-	vm.Debug = true
+	//vm.Debug = true
 	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
 	stack := newStack()
 	mem := newMemory()

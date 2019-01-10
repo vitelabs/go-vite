@@ -37,10 +37,10 @@ type quotaDb interface {
 	GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock
 }
 
-func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) uint64 {
+func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) (uint64, error) {
 	// TODO cache
-	quotaTotal, _, _ := CalcQuota(db, beneficial, pledgeAmount, big.NewInt(0))
-	return quotaTotal
+	quotaTotal, _, err := CalcQuota(db, beneficial, pledgeAmount, big.NewInt(0))
+	return quotaTotal, err
 }
 
 // quotaInit = quotaLimitForAccount * (1 - 2/(1 + e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount)))
@@ -97,7 +97,11 @@ func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 				if prevBlock == nil {
 					tmpFLoat.SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height))
 				} else {
-					tmpFLoat.SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height-db.GetSnapshotBlockByHash(&prevBlock.SnapshotHash).Height))
+					prevSnapshotBlock := db.GetSnapshotBlockByHash(&prevBlock.SnapshotHash)
+					if prevSnapshotBlock == nil {
+						return 0, 0, util.ErrForked
+					}
+					tmpFLoat.SetUint64(helper.Min(maxQuotaHeightGap, db.CurrentSnapshotBlock().Height-prevSnapshotBlock.Height))
 				}
 				x.Mul(tmpFLoat, nodeConfig.paramA)
 				tmpFLoat.SetInt(pledgeAmount)

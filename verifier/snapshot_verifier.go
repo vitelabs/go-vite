@@ -216,8 +216,8 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 
 //func (self *SnapshotVerifier) VerifyProducer(block *ledger.SnapshotBlock) *SnapshotBlockVerifyStat {
 //	defer monitor.LogTime("verify", "snapshotProducer", time.Now())
-//	stat := self.newVerifyStat(block)
-//	return stat
+//	vStat := self.newVerifyStat(block)
+//	return vStat
 //}
 
 type AccountHashH struct {

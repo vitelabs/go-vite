@@ -173,7 +173,7 @@ func (context *VmContext) AddBalance(tokenTypeId *types.TokenTypeId, amount *big
 
 	currentBalance.Add(currentBalance, amount)
 
-	context.SetStorage(BalanceKey(tokenTypeId), currentBalance.Bytes())
+	context.setStorage(BalanceKey(tokenTypeId), currentBalance.Bytes())
 }
 
 func (context *VmContext) SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
@@ -187,7 +187,7 @@ func (context *VmContext) SubBalance(tokenTypeId *types.TokenTypeId, amount *big
 		return
 	}
 
-	context.SetStorage(BalanceKey(tokenTypeId), currentBalance.Bytes())
+	context.setStorage(BalanceKey(tokenTypeId), currentBalance.Bytes())
 }
 
 func (context *VmContext) GetSnapshotBlocks(startHeight, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
@@ -263,14 +263,14 @@ func (context *VmContext) SetContractCode(code []byte) {
 		return
 	}
 
-	context.SetStorage(context.codeKey(), code)
+	context.setStorage(context.codeKey(), code)
 }
 
 func (context *VmContext) GetContractCode(addr *types.Address) []byte {
 	return context.GetStorage(addr, context.codeKey())
 }
 
-func (context *VmContext) SetStorage(key []byte, value []byte) {
+func (context *VmContext) setStorage(key []byte, value []byte) {
 	if context.frozen {
 		return
 	}
@@ -280,6 +280,15 @@ func (context *VmContext) SetStorage(key []byte, value []byte) {
 		value = make([]byte, 0)
 	}
 	context.unsavedCache.SetStorage(key, value)
+}
+
+func (context *VmContext) SetStorage(key []byte, value []byte) {
+	// Must not use `SetStorage` function to set balance and code, but use `SetContractCode`, `AddBalance`, `SubBalance` function
+	if context.isBalanceOrCode(key) {
+		return
+	}
+
+	context.setStorage(key, value)
 }
 
 func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
@@ -325,7 +334,13 @@ func (context *VmContext) GetLogListHash() *types.Hash {
 	return context.unsavedCache.logList.Hash()
 }
 
-// todo
+func (context *VmContext) GetOneHourQuota() (uint64, error) {
+	quota, err := context.chain.SaList().GetAggregateQuota(context.currentSnapshotBlock)
+	if err != nil {
+		return 0, err
+	}
+	return quota, nil
+}
 
 func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 	if context.chain == nil {
@@ -444,4 +459,22 @@ func (context *VmContext) DebugGetStorage() map[string][]byte {
 
 func (context *VmContext) isBalanceOrCode(key []byte) bool {
 	return bytes.HasPrefix(key, context.codeKey()) || bytes.HasPrefix(key, STORAGE_KEY_BALANCE)
+}
+
+// get current account receive heights of a send block hash
+func (context *VmContext) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
+	heights, err := context.chain.GetReceiveBlockHeights(hash)
+	if err != nil {
+		return nil, err
+	}
+	if context.prevAccountBlock == nil {
+		return heights, nil
+	}
+	var prevHeights = make([]uint64, 0)
+	for _, height := range heights {
+		if height <= context.prevAccountBlock.Height {
+			prevHeights = append(prevHeights, height)
+		}
+	}
+	return prevHeights, nil
 }

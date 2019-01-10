@@ -44,10 +44,10 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		if operation.memorySize != nil {
 			memSize, overflow := helper.BigUint64(operation.memorySize(st))
 			if overflow {
-				return nil, util.ErrGasUintOverflow
+				return nil, util.ErrMemSizeOverflow
 			}
 			if memorySize, overflow = helper.SafeMul(helper.ToWordSize(memSize), helper.WordSize); overflow {
-				return nil, util.ErrGasUintOverflow
+				return nil, util.ErrMemSizeOverflow
 			}
 		}
 
@@ -66,11 +66,19 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 
 		res, err := operation.execute(&pc, vm, c, mem, st)
 
-		if vm.Debug {
-			logger.Info("current code", "code", hex.EncodeToString(c.code[currentPc:]))
-			fmt.Printf("code: %v \n", hex.EncodeToString(c.code[currentPc:]))
-			fmt.Printf("op: %v, pc: %v\nstack: [%v]\nmemory: [%v]\nquotaLeft: %v, quotaRefund: %v\n", opCodeToString[op], currentPc, st.print(), mem.print(), c.quotaLeft, c.quotaRefund)
-			fmt.Println("--------------------")
+		if nodeConfig.IsDebug {
+			nodeConfig.interpreterLog.Info("vm step",
+				"blockType", c.block.AccountBlock.BlockType,
+				"address", c.block.AccountBlock.AccountAddress.String(),
+				"height", c.block.AccountBlock.Height,
+				"fromHash", c.block.AccountBlock.FromBlockHash.String(),
+				"\ncurrent code", hex.EncodeToString(c.code[currentPc:]),
+				"\nop", opCodeToString[op],
+				"pc", currentPc,
+				"quotaLeft", c.quotaLeft, "quotaRefund", c.quotaRefund,
+				"\nstack", st.print(),
+				"\nmemory", mem.print(),
+				"\nstorage", util.PrintMap(c.block.VmContext.DebugGetStorage()))
 		}
 
 		if operation.returns {

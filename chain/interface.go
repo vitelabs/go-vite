@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/chain/cache"
+	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/chain_db"
@@ -38,7 +40,11 @@ type Chain interface {
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 	GetAccountBlocksByAddress(addr *types.Address, index int, num int, count int) ([]*ledger.AccountBlock, error)
 	GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error)
+
 	GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.AccountBlock
+	GetUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBlock, error)
+	GetUnConfirmedPartSubLedger(addrList []types.Address) (map[types.Address][]*ledger.AccountBlock, error)
+
 	DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
 	Init()
 	Compressor() *compress.Compressor
@@ -48,6 +54,8 @@ type Chain interface {
 	StartSaveTrie()
 
 	ChainDb() *chain_db.ChainDb
+	SaList() *chain_cache.AdditionList
+
 	Start()
 	Destroy()
 	Stop()
@@ -110,6 +118,7 @@ type Chain interface {
 	NewStateTrie() *trie.Trie
 
 	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
+	IsGenesisAccountBlock(block *ledger.AccountBlock) bool
 
 	// Be
 	GetLatestBlockEventId() (uint64, error)
@@ -119,4 +128,11 @@ type Chain interface {
 	IsSuccessReceived(addr *types.Address, hash *types.Hash) bool
 
 	getChainRangeSet(snapshotBlocks []*ledger.SnapshotBlock) map[types.Address][2]*ledger.HashHeight
+
+	// account block is existed
+	IsAccountBlockExisted(hash types.Hash) (bool, error)
+
+	// get receive block heights
+	GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error)
+	Fti() *chain_index.FilterTokenIndex
 }

@@ -2,6 +2,12 @@ package p2p
 
 import (
 	"fmt"
+	"io"
+	"net"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
@@ -10,11 +16,6 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/protos"
-	"io"
-	"net"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const writeBufferLen = 100
@@ -70,9 +71,14 @@ func (t *transport) Handshake(key ed25519.PrivateKey, our *Handshake) (their *Ha
 		msg.Cmd = handshakeCmd
 		msg.Payload = data
 
+		t.SetWriteDeadline(time.Now().Add(shakeTimeout))
+		defer t.SetWriteDeadline(time.Time{})
+
 		send <- WriteMsg(t, msg)
 	})
 
+	t.SetReadDeadline(time.Now().Add(shakeTimeout))
+	defer t.SetReadDeadline(time.Time{})
 	if their, err = readHandshake(t); err != nil {
 		return
 	}
@@ -437,15 +443,14 @@ func (p *Peer) Info() *PeerInfo {
 // @section PeerSet
 type PeerSet struct {
 	mu       sync.Mutex
-	peers    map[discovery.NodeID]*Peer
+	m        map[discovery.NodeID]*Peer
 	inbound  int
 	outbound int
-	size     uint
 }
 
 func NewPeerSet() *PeerSet {
 	return &PeerSet{
-		peers: make(map[discovery.NodeID]*Peer),
+		m: make(map[discovery.NodeID]*Peer),
 	}
 }
 
@@ -453,44 +458,40 @@ func (s *PeerSet) Add(p *Peer) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.peers[p.ID()] = p
+	s.m[p.ID()] = p
 	if p.ts.is(inbound) {
 		s.inbound++
 	} else {
 		s.outbound++
 	}
-
-	s.size++
 }
 
 func (s *PeerSet) Del(p *Peer) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	delete(s.peers, p.ID())
+	delete(s.m, p.ID())
 
 	if p.ts.is(inbound) {
 		s.inbound--
 	} else {
 		s.outbound--
 	}
-
-	s.size--
 }
 
 func (s *PeerSet) Has(id discovery.NodeID) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, ok := s.peers[id]
+	_, ok := s.m[id]
 	return ok
 }
 
-func (s *PeerSet) Size() uint {
+func (s *PeerSet) Size() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.size
+	return len(s.m)
 }
 
 func (s *PeerSet) Info() []*PeerInfo {
@@ -499,7 +500,7 @@ func (s *PeerSet) Info() []*PeerInfo {
 
 	info := make([]*PeerInfo, s.Size())
 	i := 0
-	for _, p := range s.peers {
+	for _, p := range s.m {
 		info[i] = p.Info()
 		i++
 	}
@@ -507,13 +508,12 @@ func (s *PeerSet) Info() []*PeerInfo {
 	return info
 }
 
-func (s *PeerSet) Traverse(fn func(id discovery.NodeID, p *Peer)) {
+func (s *PeerSet) DisconnectAll() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	for id, p := range s.peers {
-		id, p := id, p
-		fn(id, p)
+	for id, peer := range s.m {
+		peer.Disconnect(DiscQuitting)
+		delete(s.m, id)
 	}
 }
 

@@ -2,6 +2,8 @@ package model
 
 import (
 	"container/list"
+	"fmt"
+	"github.com/vitelabs/go-vite/vm/util"
 	"sync"
 	"time"
 
@@ -9,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
@@ -28,6 +29,8 @@ type OnroadBlocksPool struct {
 	simpleCache          *sync.Map // map[types.Address]*OnroadAccountInfo
 	simpleCacheDeadTimer *sync.Map //map[types.Address]*time.Timer
 
+	contractCache *sync.Map //map[types.Address]*ContractCallerList
+
 	newCommonTxListener   map[types.Address]func()
 	commonTxListenerMutex sync.RWMutex
 
@@ -44,6 +47,7 @@ func NewOnroadBlocksPool(dbAccess *UAccess) *OnroadBlocksPool {
 		fullCacheDeadTimer:   &sync.Map{},
 		simpleCache:          &sync.Map{},
 		simpleCacheDeadTimer: &sync.Map{},
+		contractCache:        &sync.Map{},
 		newCommonTxListener:  make(map[types.Address]func()),
 		newContractListener:  make(map[types.Gid]func(address types.Address)),
 		log:                  log15.New("onroad", "OnroadBlocksPool"),
@@ -95,15 +99,6 @@ func (p *OnroadBlocksPool) GetOnroadAccountInfo(addr types.Address) (*OnroadAcco
 
 	return accountInfo, nil
 
-}
-
-func (p *OnroadBlocksPool) GetNextCommonTx(addr types.Address) *ledger.AccountBlock {
-	p.log.Debug("GetNextCommonTx", "addr", addr)
-	c, ok := p.fullCache.Load(addr)
-	if !ok {
-		return nil
-	}
-	return c.(*onroadBlocksCache).GetNextTx()
 }
 
 func (p *OnroadBlocksPool) ResetCacheCursor(addr types.Address) {
@@ -160,6 +155,15 @@ func (p *OnroadBlocksPool) AcquireFullOnroadBlocksCache(addr types.Address) {
 	}
 }
 
+func (p *OnroadBlocksPool) GetNextCommonTx(addr types.Address) *ledger.AccountBlock {
+	p.log.Debug("GetNextCommonTx", "addr", addr)
+	c, ok := p.fullCache.Load(addr)
+	if !ok {
+		return nil
+	}
+	return c.(*onroadBlocksCache).GetNextTx()
+}
+
 func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) error {
 	log := p.log.New("ReleaseFullOnroadBlocksCache", addr)
 	v, ok := p.fullCache.Load(addr)
@@ -181,6 +185,80 @@ func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) erro
 	log.Debug("after release", "ref", c.getReferenceCount())
 
 	return nil
+}
+
+func (p *OnroadBlocksPool) loadContractCacheFromDb(addr types.Address) error {
+	p.log.Debug("loadContractCacheFromDb", "addr", addr)
+	if c, ok := p.contractCache.Load(addr); ok {
+		if cc, ok := c.(*ContractCallerList); ok && cc != nil {
+			p.log.Debug(fmt.Sprintf("found in cache, tx remain=%v", cc.TxRemain()))
+			return nil
+		}
+		// refactoring cache
+		p.contractCache.Delete(addr)
+	}
+
+	blockList, e := p.dbAccess.GetAllOnroadBlocks(addr)
+	if e != nil {
+		return e
+	}
+	p.log.Debug(fmt.Sprintf("get contract onroad %v from db, len=%v", addr, len(blockList)))
+	if len(blockList) <= 0 {
+		return nil
+	}
+	contractBlocksList := &ContractCallerList{list: make([]*contractCallerBlocks, 0)}
+	for k, b := range blockList {
+		p.log.Debug(fmt.Sprintf("add block[%v]: addr=%v height=%v blockHash=%v ", k, b.AccountAddress, b.Height, b.Hash))
+		contractBlocksList.AddNewTx(b)
+	}
+	p.contractCache.Store(addr, contractBlocksList)
+	p.log.Debug(fmt.Sprintf("load result: len=%v", contractBlocksList.TxRemain()))
+	return nil
+}
+
+func (p *OnroadBlocksPool) AcquireOnroadSortedContractCache(addr types.Address) {
+	log := p.log.New("AcquireOnroadSortedContractCache", addr)
+	if e := p.loadContractCacheFromDb(addr); e != nil {
+		log.Error(e.Error())
+	}
+}
+
+func (p *OnroadBlocksPool) GetNextContractTx(addr types.Address) *ledger.AccountBlock {
+	p.log.Debug("GetNextContractTx", "addr", addr)
+	if c, ok := p.contractCache.Load(addr); ok {
+		if cc, ok := c.(*ContractCallerList); ok && cc != nil {
+			b := cc.GetNextTx()
+			p.log.Debug(fmt.Sprintf("currentCallerIndex=%v", cc.GetCurrentIndex()))
+			return b
+		}
+	}
+	return nil
+}
+
+func (p *OnroadBlocksPool) GetContractCallerList(addr types.Address) *ContractCallerList {
+	if c, ok := p.contractCache.Load(addr); ok {
+		if cc, ok := c.(*ContractCallerList); ok && cc != nil {
+			return cc
+		}
+	}
+	return nil
+}
+
+func (p *OnroadBlocksPool) ReleaseContractCache(addr types.Address) {
+	log := p.log.New("ReleaseContractCache", addr)
+	if v, ok := p.contractCache.Load(addr); ok {
+		if l, ok := v.(*ContractCallerList); ok && l != nil {
+			log.Debug(fmt.Sprintf("release %v callers", l.Len()), "tx num remain", l.TxRemain())
+		}
+		p.contractCache.Delete(addr)
+	}
+}
+
+func (p *OnroadBlocksPool) DeleteContractCache(gid types.Gid) {
+	p.log.Debug("DeleteContractCache", "gid", gid)
+	if p.contractCache != nil {
+		p.contractCache = &sync.Map{}
+	}
 }
 
 func (p *OnroadBlocksPool) WriteOnroadSuccess(blocks []*vm_context.VmAccountBlock) {
@@ -255,6 +333,7 @@ func (p *OnroadBlocksPool) RevertOnroadSuccess(subLedger map[types.Address][]*le
 
 // RevertOnroad means to revert according to bifurcation
 func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
+	revertLog := p.log.New("method", "RevertOnroad")
 
 	cutMap := excludeSubordinate(subLedger)
 	for _, blocks := range cutMap {
@@ -262,23 +341,27 @@ func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[type
 		for i := len(blocks) - 1; i >= 0; i-- {
 			v := blocks[i]
 
+			revertLog.Info(fmt.Sprintf("block(hash:%v,addr:%v,toAddr:%v,fromHash:%v,type:%v)",
+				v.Hash, v.AccountAddress, v.ToAddress, v.FromBlockHash, v.BlockType))
+
 			if v.IsReceiveBlock() {
 				sendBlock, err := p.dbAccess.Chain.GetAccountBlockByHash(&v.FromBlockHash)
-				if err != nil {
-					p.log.Error("GetAccountBlockByHash", "error", err)
+				if err != nil || sendBlock == nil {
+					revertLog.Error("GetAccountBlockByHash failed", "error", err)
 					return err
 				}
 				if err := p.dbAccess.writeOnroadMeta(batch, sendBlock); err != nil {
-					p.log.Error("revert receiveBlock failed", "error", err)
+					revertLog.Error("revert receiveBlock failed", "error", err)
 					return err
 				}
 			} else {
 				if err := p.dbAccess.deleteOnroadMeta(batch, v); err != nil {
-					p.log.Error("revert the sendBlock's and the referred failed", "error", err)
+					revertLog.Error("revert the sendBlock's and the referred failed", "error", err)
 					return err
 				}
 				if v.BlockType == ledger.BlockTypeSendCreate {
-					gid := contracts.GetGidFromCreateContractData(v.Data)
+					revertLog.Info("delete contract addr from gid")
+					gid := util.GetGidFromCreateContractData(v.Data)
 					p.dbAccess.DeleteContractAddrFromGid(batch, gid, v.ToAddress)
 				}
 			}
@@ -465,6 +548,7 @@ func (p *OnroadBlocksPool) Close() error {
 		return true
 	})
 	p.fullCache = nil
+	p.contractCache = nil
 
 	p.log.Info("Close() end")
 	return nil

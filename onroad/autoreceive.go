@@ -53,6 +53,10 @@ func NewAutoReceiveWorker(manager *Manager, entropystore string, address types.A
 	}
 }
 
+func (w AutoReceiveWorker) ResetPowDifficulty(powDifficulty *big.Int) {
+	w.powDifficulty = powDifficulty
+}
+
 func (w AutoReceiveWorker) GetEntropystore() string {
 	return w.entropystore
 }

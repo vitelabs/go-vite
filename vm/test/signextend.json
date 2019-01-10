@@ -1,0 +1,216 @@
+{
+  "signextend_0_BigByte": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff60000b600055",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 979986,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  },
+  "signextend_00": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "600060000b600055",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 994986,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "signextend_AlmostBiggestByte": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0b600055",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 979986,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+    }
+  },
+  "signextend_BigByte_0": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0b600055",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 994986,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    }
+  },
+  "signextend_BigByteBigByte": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0b600055",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 979986,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  },
+  "signextend_bigBytePlus1": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "66f000000000000161ffff0b600055",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 979986,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "f0000000000001"
+    }
+  },
+  "signextend_BigBytePlus1_2": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60ff68f000000000000000010b600055",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 979986,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "ff"
+    }
+  },
+  "signextend_BitIsNotSet": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "62122f6a60000b600055",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 979986,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "6a"
+    }
+  },
+  "signextend_BitIsNotSetInHigherByte": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "62126af460010b600055",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 979986,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "6af4"
+    }
+  },
+  "signextend_bitIsSet": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "62122ff460000b600055",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 979986,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff4"
+    }
+  },
+  "signextend_BitIsSetInHigherByte": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "6212faf460010b600055",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 979986,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaf4"
+    }
+  },
+  "signextendInvalidByteNumber": {
+    "sBHeight": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "",
+    "amount": "0de0b6b3a7640000",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "62126af460500b600055",
+    "returnData": "",
+    "quotaTotal": 1000000,
+    "quotaLeft": 979986,
+    "quotaRefund": 0,
+    "err": "",
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000000": "126af4"
+    }
+  }
+}

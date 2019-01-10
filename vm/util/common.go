@@ -1,9 +1,13 @@
 package util
 
 import (
+	"bytes"
+	"encoding/hex"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
+	"sort"
 	"time"
 )
 
@@ -32,4 +36,79 @@ func MakeSendBlock(block *ledger.AccountBlock, toAddress types.Address, blockTyp
 		Fee:            big.NewInt(0),
 		Timestamp:      &newTimestamp,
 	}
+}
+
+var (
+	SolidityXXContractType = []byte{1}
+	contractTypeSize       = 1
+)
+
+func GetCreateContractData(bytecode []byte, contractType []byte, gid types.Gid) []byte {
+	return helper.JoinBytes(gid.Bytes(), contractType, bytecode)
+}
+
+func GetGidFromCreateContractData(data []byte) types.Gid {
+	gid, _ := types.BytesToGid(data[:types.GidSize])
+	return gid
+}
+
+func GetCodeFromCreateContractData(data []byte) []byte {
+	return data[types.GidSize+contractTypeSize:]
+}
+func GetContractTypeFromCreateContractData(data []byte) []byte {
+	return data[types.GidSize : types.GidSize+contractTypeSize]
+}
+func IsExistContractType(contractType []byte) bool {
+	if bytes.Equal(contractType, SolidityXXContractType) {
+		return true
+	}
+	return false
+}
+
+func PackContractCode(contractType, code []byte) []byte {
+	return helper.JoinBytes(contractType, code)
+}
+
+type CommonDb interface {
+	GetContractCode(addr *types.Address) []byte
+}
+
+func GetContractCode(db CommonDb, addr *types.Address) ([]byte, []byte) {
+	code := db.GetContractCode(addr)
+	if len(code) > 0 {
+		return code[:contractTypeSize], code[contractTypeSize:]
+	}
+	return nil, nil
+}
+
+func NewContractAddress(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.Address {
+	return types.CreateContractAddress(
+		accountAddress.Bytes(),
+		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
+		prevBlockHash.Bytes(),
+		snapshotHash.Bytes())
+}
+
+func PrintMap(m map[string][]byte) string {
+	var result string
+	if len(m) > 0 {
+		var keys []string
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			result += hex.EncodeToString([]byte(k)) + "=>" + hex.EncodeToString(m[k]) + ", "
+		}
+		result = result[:len(result)-2]
+	}
+	return result
+}
+
+func IsUserAccount(db CommonDb, addr types.Address) bool {
+	if types.IsPrecompiledContractAddress(addr) {
+		return false
+	}
+	_, code := GetContractCode(db, &addr)
+	return len(code) == 0
 }

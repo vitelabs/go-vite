@@ -15,6 +15,7 @@ const (
 	txDataNonZeroGas            uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero.
 	TxGas                       uint64 = 21000 // Per transaction not creating a contract.
 	PrecompiledContractsSendGas uint64 = 21068
+	RefundGas                   uint64 = 21000
 	txContractCreationGas       uint64 = 53000 // Per transaction that creates a contract.
 )
 
