@@ -136,7 +136,7 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender P
 
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetSb(block); err != nil {
-			s.log.Error(fmt.Sprintf("verify NewSnapshotBlock %s/%d fail: %v", block.Hash, block.Height, err))
+			s.log.Error(fmt.Sprintf("verify NewSnapshotBlock %s/%d from %s fail: %v", block.Hash, block.Height, sender.RemoteAddr(), err))
 			s.block(sender, p2p.DiscProtocolError)
 			return err
 		}
@@ -180,7 +180,7 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Pee
 
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetAb(block); err != nil {
-			s.log.Error(fmt.Sprintf("verify NewAccountBlock %s/%d fail: %v", block.Hash, block.Height, err))
+			s.log.Error(fmt.Sprintf("verify NewAccountBlock %s/%d from %s fail: %v", block.Hash, block.Height, sender.RemoteAddr(), err))
 			s.block(sender, p2p.DiscProtocolError)
 			return
 		}
@@ -222,7 +222,7 @@ func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock, sender Peer
 
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetSb(block); err != nil {
-			s.log.Error(fmt.Sprintf("verify SnapshotBlock %s/%d fail: %v", block.Hash, block.Height, err))
+			s.log.Error(fmt.Sprintf("verify SnapshotBlock %s/%d from %s fail: %v", block.Hash, block.Height, sender.RemoteAddr(), err))
 			s.block(sender, p2p.DiscProtocolError)
 			return err
 		}
@@ -250,7 +250,7 @@ func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock, sender Peer) 
 
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetAb(block); err != nil {
-			s.log.Error(fmt.Sprintf("verify AccountBlock %s/%d fail: %v", block.Hash, block.Height, err))
+			s.log.Error(fmt.Sprintf("verify AccountBlock %s/%d from %s fail: %v", block.Hash, block.Height, sender.RemoteAddr(), err))
 			s.block(sender, p2p.DiscProtocolError)
 			return
 		}

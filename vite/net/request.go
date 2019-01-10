@@ -224,32 +224,42 @@ func (p *chunkPool) handleLoop() {
 
 			res := v.(chunkResponse)
 
-			subLedger := new(message.SubLedger)
-
-			if err := subLedger.Deserialize(res.msg.Payload); err != nil {
+			if subLedger, err := p.handleResponse(res); err != nil {
 				p.retry(res.msg.Id)
-			}
+			} else {
+				if c := p.chunk(res.msg.Id); c != nil {
+					c.count += uint64(len(subLedger.SBlocks))
 
-			// receive account blocks first
-			for _, block := range subLedger.ABlocks {
-				p.handler.receiveAccountBlock(block, res.sender)
-			}
-
-			for _, block := range subLedger.SBlocks {
-				if err := p.handler.receiveSnapshotBlock(block, res.sender); err != nil {
-					break
-				}
-			}
-
-			if c := p.chunk(res.msg.Id); c != nil {
-				c.count += uint64(len(subLedger.SBlocks))
-
-				if c.count >= c.to-c.from+1 {
-					p.done(res.msg.Id)
+					if c.count >= c.to-c.from+1 {
+						p.done(res.msg.Id)
+					}
 				}
 			}
 		}
 	}
+}
+
+func (p *chunkPool) handleResponse(res chunkResponse) (subLedger *message.SubLedger, err error) {
+	subLedger = new(message.SubLedger)
+
+	if err = subLedger.Deserialize(res.msg.Payload); err != nil {
+		return
+	}
+
+	// receive account blocks first
+	for _, block := range subLedger.ABlocks {
+		if err = p.handler.receiveAccountBlock(block, res.sender); err != nil {
+			return
+		}
+	}
+
+	for _, block := range subLedger.SBlocks {
+		if err = p.handler.receiveSnapshotBlock(block, res.sender); err != nil {
+			return
+		}
+	}
+
+	return
 }
 
 func (p *chunkPool) loop() {

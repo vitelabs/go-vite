@@ -2,6 +2,7 @@ package net
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -101,10 +102,16 @@ type syncer struct {
 	receiver   Receiver
 	fc         *fileClient
 	pool       *chunkPool
-	chunked    int32
-	running    int32
-	term       chan struct{}
-	log        log15.Logger
+
+	cmu       sync.Mutex
+	fileEnd   uint64
+	chunkFrom uint64
+	chunkTo   uint64
+	chunked   int32
+
+	running int32
+	term    chan struct{}
+	log     log15.Logger
 }
 
 func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syncer {
@@ -354,9 +361,25 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 
 		if len(res.Files) > 0 {
 			s.fc.gotFiles(res.Files, sender)
-		} else if sender.Height() >= s.to && atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
-			for _, c := range res.Chunks {
-				s.pool.add(c[0], c[1], false)
+		} else if sender.Height() >= s.to {
+			if atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
+				for _, c := range res.Chunks {
+					s.pool.add(c[0], c[1], false)
+					s.cmu.Lock()
+					s.chunkFrom = c[0]
+					s.chunkTo = c[1]
+					s.cmu.Unlock()
+				}
+			} else {
+				for _, c := range res.Chunks {
+					var from, to uint64
+					s.cmu.Lock()
+					if c[1] > s.chunkTo {
+						from, to = s.chunkTo+1, c[1]
+						s.pool.add(from, to, false)
+					}
+					s.cmu.Unlock()
+				}
 			}
 		}
 	} else {
