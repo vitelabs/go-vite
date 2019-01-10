@@ -10,10 +10,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-const (
-	MaxReceiveErrCount = 3
-)
-
 type UAccess struct {
 	Chain chain.Chain
 	store *OnroadSet
@@ -91,37 +87,22 @@ func (access *UAccess) writeOnroadMeta(batch *leveldb.Batch, block *ledger.Accou
 		addr := &block.AccountAddress
 		hash := &block.FromBlockHash
 
-		count, err1 := access.store.GetReceiveErrCount(hash, addr)
-		if err1 != nil {
-			return errors.New("GetReceiveErrCount error" + err1.Error())
+		recvErrList, recvErr := access.Chain.GetReceiveBlockHeights(hash)
+		if recvErr != nil {
+			return errors.New("GetReceiveErrCount error" + recvErr.Error())
 		}
-		if count <= 0 && block.BlockType == ledger.BlockTypeReceiveError {
+		if block.BlockType == ledger.BlockTypeReceiveError && len(recvErrList) <= 0 {
 			return errors.New("conflict, revert receiveError but recvErrCount is 0")
 		}
 
-		value, err2 := access.Chain.ChainDb().OnRoad.GetMeta(addr, hash)
-		if len(value) == 0 {
-			if err2 != nil {
-				return errors.New("GetMeta error:" + err2.Error())
+		if block.BlockType == ledger.BlockTypeReceive {
+			if access.Chain.IsSuccessReceived(addr, hash) {
+				access.log.Info("the corresponding sendBlock has already been delete")
+				return access.store.WriteMeta(batch, addr, hash)
 			}
-			if block.BlockType == ledger.BlockTypeReceiveError {
-				if count != MaxReceiveErrCount {
-					return errors.New("conflict, revert receiveError failed:")
-				}
-				if err := access.store.DecreaseReceiveErrCount(batch, hash, addr); err != nil {
-					return errors.New("DecreaseReceiveErrCount error:" + err.Error())
-				}
-			}
-			return access.store.WriteMeta(batch, addr, hash)
-		} else {
-			if block.BlockType == ledger.BlockTypeReceive {
-				return errors.New("conflict, revert receiveSuccess but referred send still in onroad")
-			}
-			if err := access.store.DecreaseReceiveErrCount(batch, hash, addr); err != nil {
-				return errors.New("DecreaseReceiveErrCount error:" + err.Error())
-			}
-			return nil
+			return errors.New("conflict, revert receiveBlock but referred send still in onroad")
 		}
+		return nil
 	}
 }
 
@@ -131,46 +112,16 @@ func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.Acco
 		addr := &block.AccountAddress
 		hash := &block.FromBlockHash
 
-		code, atErr := access.Chain.AccountType(&block.AccountAddress)
-		switch code {
-		case ledger.AccountTypeGeneral, ledger.AccountTypeNotExist:
-			return access.store.DeleteMeta(batch, addr, hash)
-		case ledger.AccountTypeContract:
-			value, err1 := access.Chain.ChainDb().OnRoad.GetMeta(addr, hash)
-			if len(value) == 0 {
-				if err1 != nil {
-					return errors.New("GetMeta error:" + err1.Error())
-				}
-				access.log.Info("the corresponding sendBlock has already been delete")
-				return nil
-			}
-
-			count, err2 := access.store.GetReceiveErrCount(hash, addr)
-			if err2 != nil {
-				return errors.New("GetReceiveErrCount error:" + err2.Error())
-			}
-			if block.BlockType == ledger.BlockTypeReceiveError {
-				if count < MaxReceiveErrCount {
-					if err3 := access.store.IncreaseReceiveErrCount(batch, hash, addr); err3 != nil {
-						return errors.New("IncreaseReceiveErrCount error:" + err3.Error())
-					}
-					if count+1 == MaxReceiveErrCount {
-						return access.store.DeleteMeta(batch, addr, hash)
-					}
-				}
-			}
-			return access.store.DeleteMeta(batch, addr, hash)
-		default:
-			if atErr != nil {
-				access.log.Error("AccountType", "error", atErr)
-			}
-			return errors.New("AccountType error ")
+		if access.Chain.IsSuccessReceived(&block.AccountAddress, &block.FromBlockHash) {
+			access.log.Info("the corresponding sendBlock has already been delete")
+			return nil
 		}
+		if block.BlockType == ledger.BlockTypeReceive {
+			return access.store.DeleteMeta(batch, addr, hash)
+		}
+		return nil
 	} else {
 		// call from the  RevertOnroad(revert) func to handle sendBlock
-		if err := access.store.DeleteReceiveErrCount(batch, &block.Hash, &block.ToAddress); err != nil {
-			return err
-		}
 		return access.store.DeleteMeta(batch, &block.ToAddress, &block.Hash)
 	}
 }
@@ -271,11 +222,4 @@ func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.
 
 	}
 	return infoMap, uint64(len(hashList)), nil
-}
-
-func (access *UAccess) IsSuccessReceived(addr *types.Address, hash *types.Hash) bool {
-	if meta, _ := access.Chain.ChainDb().OnRoad.GetMeta(addr, hash); meta != nil {
-		return false
-	}
-	return true
 }

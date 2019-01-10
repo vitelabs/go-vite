@@ -54,7 +54,7 @@ const (
 )
 
 const (
-	BLAKE2B opCode = 0x20 + iota
+	BLAKE2B opCode = 0x21
 )
 
 // 0x30 range - closure state.

@@ -73,8 +73,6 @@ func (im *IncomingMessage) ToSendBlock() (*ledger.AccountBlock, error) {
 
 		if im.ToAddress != nil {
 			block.ToAddress = *im.ToAddress
-		} else {
-			return nil, errors.New("block toaddress can't be nil")
 		}
 
 		if im.Amount == nil {

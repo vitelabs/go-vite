@@ -1,12 +1,13 @@
 package p2p
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/p2p/discovery"
-	"github.com/vitelabs/go-vite/p2p/protos"
 	"net"
 	"strconv"
 	"time"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/p2p/protos"
 )
 
 // @section connFlag
@@ -131,4 +132,9 @@ type Transport interface {
 	MsgReadWriter
 	Close()
 	Handshake(our *Handshake) (their *Handshake, err error)
+}
+
+type Plugin interface {
+	Start(p2p Server) error
+	Stop()
 }

@@ -33,7 +33,7 @@ func TestComputeHash(t *testing.T) {
 		Height:         1,
 		PrevHash:       types.Hash{},
 		AccountAddress: addr,
-		Fee:            big.NewInt(0),
+		Fee:            big.NewInt(1),
 		Nonce:          nonce,
 		Timestamp:      &ts,
 		FromBlockHash:  fromBlockHash,

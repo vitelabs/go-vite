@@ -3,6 +3,7 @@ package ledger
 import (
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -96,6 +97,12 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 
 	// StateHash
 	source = append(source, sb.StateHash.Bytes()...)
+
+	// Add fork name
+	forkName := fork.GetRecentForkName(sb.Height)
+	if forkName != "" {
+		source = append(source, []byte(forkName)...)
+	}
 
 	hash, _ := types.BytesToHash(crypto.Hash256(source))
 	return hash

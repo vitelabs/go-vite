@@ -12,6 +12,7 @@ type Config struct {
 	*Vm         `json:"Vm"`
 	*Net        `json:"Net"`
 	*biz.Reward `json:"Reward"`
+	*Genesis    `json:"Genesis"`
 
 	// global keys
 	DataDir string `json:"DataDir"`

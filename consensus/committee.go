@@ -20,6 +20,10 @@ type subscribeEvent struct {
 	gid  types.Gid
 	fn   func(Event)
 }
+type producerSubscribeEvent struct {
+	gid types.Gid
+	fn  func(ProducersEvent)
+}
 
 // update committee result
 type committee struct {
@@ -263,6 +267,7 @@ func (self *committee) Start() {
 
 	tmpSnapshot := self.snapshot
 	common.Go(func() {
+		defer self.wg.Done()
 		self.update(tmpSnapshot, snapshotSubs.(*sync.Map))
 	})
 
@@ -271,6 +276,7 @@ func (self *committee) Start() {
 
 	tmpContract := self.contract
 	common.Go(func() {
+		defer self.wg.Done()
 		self.update(tmpContract, contractSubs.(*sync.Map))
 	})
 }
@@ -300,9 +306,16 @@ func (self *committee) UnSubscribe(gid types.Gid, id string) {
 	v.Delete(id)
 }
 
-func (self *committee) update(t *teller, m *sync.Map) {
-	defer self.wg.Done()
+func (self *committee) SubscribeProducers(gid types.Gid, id string, fn func(event ProducersEvent)) {
+	value, ok := self.subscribes.Load(gid)
+	if !ok {
+		value, _ = self.subscribes.LoadOrStore(gid, &sync.Map{})
+	}
+	v := value.(*sync.Map)
+	v.Store(id, &producerSubscribeEvent{fn: fn, gid: gid})
+}
 
+func (self *committee) update(t *teller, m *sync.Map) {
 	index := t.time2Index(time.Now())
 	for !self.Stopped() {
 		//var current *memberPlan = nil
@@ -317,12 +330,12 @@ func (self *committee) update(t *teller, m *sync.Map) {
 
 		if electionResult.Index != index {
 			self.mLog.Error("can't get Index election result. Index is " + strconv.FormatInt(int64(index), 10))
-			index = index + 1
+			index = t.time2Index(time.Now())
 			continue
 		}
-		subs := copyMap(m)
+		subs1, subs2 := copyMap(m)
 
-		if len(subs) == 0 {
+		if len(subs1) == 0 && len(subs2) == 0 {
 			select {
 			case <-time.After(electionResult.ETime.Sub(time.Now())):
 			case <-self.closed:
@@ -332,16 +345,23 @@ func (self *committee) update(t *teller, m *sync.Map) {
 			continue
 		}
 
-		for _, v := range subs {
-			self.wg.Add(1)
-
+		for _, v := range subs1 {
 			tmpV := v
 			tmpResult := electionResult
 			common.Go(func() {
 				self.event(tmpV, tmpResult)
 			})
 		}
-		sleepT := electionResult.ETime.Sub(time.Now()) - time.Second
+
+		for _, v := range subs2 {
+			tmpV := v
+			tmpResult := electionResult
+			common.Go(func() {
+				self.eventProducer(tmpV, tmpResult)
+			})
+		}
+
+		sleepT := electionResult.ETime.Sub(time.Now()) - time.Millisecond*500
 		select {
 		case <-time.After(sleepT):
 		case <-self.closed:
@@ -350,13 +370,28 @@ func (self *committee) update(t *teller, m *sync.Map) {
 		index = electionResult.Index + 1
 	}
 }
-func copyMap(m *sync.Map) map[string]*subscribeEvent {
-	result := make(map[string]*subscribeEvent)
+func copyMap(m *sync.Map) (map[string]*subscribeEvent, map[string]*producerSubscribeEvent) {
+	r1 := make(map[string]*subscribeEvent)
+	r2 := make(map[string]*producerSubscribeEvent)
 	m.Range(func(k, v interface{}) bool {
-		result[k.(string)] = v.(*subscribeEvent)
+		switch t := v.(type) {
+		case *subscribeEvent:
+			r1[k.(string)] = t
+		case *producerSubscribeEvent:
+			r2[k.(string)] = t
+		}
 		return true
 	})
-	return result
+	return r1, r2
+}
+func (self *committee) eventProducer(e *producerSubscribeEvent, result *electionResult) {
+	self.wg.Add(1)
+	defer self.wg.Done()
+	var r []types.Address
+	for _, v := range result.Plans {
+		r = append(r, v.Member)
+	}
+	e.fn(ProducersEvent{Addrs: r, Index: result.Index, Gid: e.gid})
 }
 
 func (self *committee) event(e *subscribeEvent, result *electionResult) {

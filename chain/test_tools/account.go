@@ -1,4 +1,4 @@
-package chain_benchmark
+package test_tools
 
 import (
 	"github.com/vitelabs/go-vite/chain"
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type account struct {
+type Account struct {
 	addr       types.Address
 	privateKey ed25519.PrivateKey
 	publicKey  ed25519.PublicKey
@@ -25,37 +25,38 @@ type account struct {
 	chainInstance chain.Chain
 }
 
-type createTxOptions struct {
-	mockVmContext bool
-	mockSignature bool
+type CreateTxOptions struct {
+	MockVmContext bool
+	MockSignature bool
+	Quota         uint64
 }
 
-func (acc *account) Height() uint64 {
+func (acc *Account) Height() uint64 {
 	if acc.latestBlock != nil {
 		return acc.latestBlock.Height
 	}
 	return 0
 }
 
-func (acc *account) Hash() types.Hash {
+func (acc *Account) Hash() types.Hash {
 	if acc.latestBlock != nil {
 		return acc.latestBlock.Hash
 	}
 	return types.Hash{}
 }
 
-func (acc *account) HasUnreceivedBlock() bool {
+func (acc *Account) HasUnreceivedBlock() bool {
 	return len(acc.unreceivedBlocks) > 0
 }
 
-func (acc *account) AddUnreceivedBlock(block *ledger.AccountBlock) {
+func (acc *Account) AddUnreceivedBlock(block *ledger.AccountBlock) {
 	acc.unreceivedLock.Lock()
 	defer acc.unreceivedLock.Unlock()
 
 	acc.unreceivedBlocks = append(acc.unreceivedBlocks, block)
 }
 
-func (acc *account) PopUnreceivedBlock() *ledger.AccountBlock {
+func (acc *Account) PopUnreceivedBlock() *ledger.AccountBlock {
 	acc.unreceivedLock.Lock()
 	defer acc.unreceivedLock.Unlock()
 
@@ -69,12 +70,12 @@ func (acc *account) PopUnreceivedBlock() *ledger.AccountBlock {
 }
 
 // No state hash
-func (acc *account) createRequestTx(toAccount *account, options *createTxOptions) []*vm_context.VmAccountBlock {
+func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions) []*vm_context.VmAccountBlock {
 	now := time.Now()
 
 	var vmContext vmctxt_interface.VmDatabase
-	if options != nil && options.mockVmContext {
-		vmContext = &mockVmDatabse{}
+	if options != nil && options.MockVmContext {
+		vmContext = &MockVmDatabase{}
 	} else {
 		vmContext, _ = vm_context.NewVmContext(acc.chainInstance, nil, nil, &acc.addr)
 	}
@@ -87,13 +88,14 @@ func (acc *account) createRequestTx(toAccount *account, options *createTxOptions
 		TokenId:        ledger.ViteTokenId,
 		Timestamp:      &now,
 		PublicKey:      acc.publicKey,
+		Quota:          options.Quota,
 	}
 
 	// compute hash
 	tx.Hash = tx.ComputeHash()
 
 	// sign
-	if options != nil && options.mockSignature {
+	if options != nil && options.MockSignature {
 		tx.Signature = []byte("This is a mock signature")
 	} else {
 		tx.Signature = ed25519.Sign(acc.privateKey, tx.Hash.Bytes())
@@ -109,7 +111,7 @@ func (acc *account) createRequestTx(toAccount *account, options *createTxOptions
 }
 
 // No state hash
-func (acc *account) createResponseTx(options *createTxOptions) []*vm_context.VmAccountBlock {
+func (acc *Account) CreateResponseTx(options *CreateTxOptions) []*vm_context.VmAccountBlock {
 
 	UnreceivedBlock := acc.PopUnreceivedBlock()
 	if UnreceivedBlock == nil {
@@ -119,8 +121,8 @@ func (acc *account) createResponseTx(options *createTxOptions) []*vm_context.VmA
 	now := time.Now()
 
 	var vmContext vmctxt_interface.VmDatabase
-	if options != nil && options.mockVmContext {
-		vmContext = &mockVmDatabse{}
+	if options != nil && options.MockVmContext {
+		vmContext = &MockVmDatabase{}
 	} else {
 		vmContext, _ = vm_context.NewVmContext(acc.chainInstance, nil, nil, &acc.addr)
 	}
@@ -132,13 +134,15 @@ func (acc *account) createResponseTx(options *createTxOptions) []*vm_context.VmA
 		PrevHash:       acc.Hash(),
 		Timestamp:      &now,
 		PublicKey:      acc.publicKey,
+
+		Quota: options.Quota,
 	}
 
 	// compute hash
 	receiveTx.Hash = receiveTx.ComputeHash()
 
 	// sign
-	if options != nil && options.mockSignature {
+	if options != nil && options.MockSignature {
 		receiveTx.Signature = []byte("This is a mock signature")
 	} else {
 		receiveTx.Signature = ed25519.Sign(acc.privateKey, receiveTx.Hash.Bytes())
@@ -152,12 +156,12 @@ func (acc *account) createResponseTx(options *createTxOptions) []*vm_context.VmA
 	}}
 }
 
-func makeAccounts(num uint64, chainInstance chain.Chain) []*account {
-	accountList := make([]*account, num)
+func MakeAccounts(num uint64, chainInstance chain.Chain) []*Account {
+	accountList := make([]*Account, num)
 	for i := uint64(0); i < num; i++ {
 		addr, privateKey, _ := types.CreateAddress()
 
-		accountList[i] = &account{
+		accountList[i] = &Account{
 			addr:          addr,
 			privateKey:    privateKey,
 			publicKey:     privateKey.PubByte(),

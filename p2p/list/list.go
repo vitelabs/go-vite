@@ -109,6 +109,6 @@ func (l *list) Size() int {
 // Clear remove all elements from list
 func (l *list) Clear() {
 	l.head.next = nil
-	l.tail.next = nil
+	l.tail = l.head
 	l.count = 0
 }
