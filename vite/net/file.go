@@ -579,7 +579,7 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 				}
 
 				sCount++
-				fileError = fc.rec.receiveSnapshotBlock(block)
+				fileError = fc.rec.receiveSnapshotBlock(block, ctx.peer)
 				ctx.height = block.Height
 
 			case *ledger.AccountBlock:
@@ -589,7 +589,7 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 				}
 
 				aCount++
-				fileError = fc.rec.receiveAccountBlock(block)
+				fileError = fc.rec.receiveAccountBlock(block, ctx.peer)
 			}
 		})
 

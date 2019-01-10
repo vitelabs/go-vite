@@ -61,8 +61,7 @@ func (s *receiver) Handle(msg *p2p.Msg, sender Peer) (err error) {
 	switch ViteCmd(msg.Cmd) {
 	case NewSnapshotBlockCode:
 		block := new(ledger.SnapshotBlock)
-		err := block.Deserialize(msg.Payload)
-		if err != nil {
+		if err = block.Deserialize(msg.Payload); err != nil {
 			return err
 		}
 
@@ -70,42 +69,35 @@ func (s *receiver) Handle(msg *p2p.Msg, sender Peer) (err error) {
 
 		sender.SeeBlock(block.Hash)
 
-		if err = s.ReceiveNewSnapshotBlock(block); err != nil {
-			s.block(sender, p2p.DiscProtocolError)
-		}
+		return s.ReceiveNewSnapshotBlock(block, sender)
 
 	case NewAccountBlockCode:
 		block := new(ledger.AccountBlock)
-		err := block.Deserialize(msg.Payload)
-		if err != nil {
+		if err = block.Deserialize(msg.Payload); err != nil {
 			return err
 		}
-
-		sender.SeeBlock(block.Hash)
-
-		s.ReceiveNewAccountBlock(block)
 
 		s.log.Info(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender.RemoteAddr()))
 
+		sender.SeeBlock(block.Hash)
+
+		return s.ReceiveNewAccountBlock(block, sender)
+
 	case SnapshotBlocksCode:
 		bs := new(message.SnapshotBlocks)
-		err := bs.Deserialize(msg.Payload)
-		if err != nil {
+		if err = bs.Deserialize(msg.Payload); err != nil {
 			return err
 		}
 
-		if err = s.ReceiveSnapshotBlocks(bs.Blocks); err != nil {
-			s.block(sender, p2p.DiscProtocolError)
-		}
+		return s.ReceiveSnapshotBlocks(bs.Blocks, sender)
 
 	case AccountBlocksCode:
 		bs := new(message.AccountBlocks)
-		err := bs.Deserialize(msg.Payload)
-		if err != nil {
+		if err = bs.Deserialize(msg.Payload); err != nil {
 			return err
 		}
 
-		s.ReceiveAccountBlocks(bs.Blocks)
+		return s.ReceiveAccountBlocks(bs.Blocks, sender)
 	}
 
 	return nil
@@ -129,7 +121,7 @@ func (s *receiver) block(peer Peer, reason p2p.DiscReason) {
 	s.p2p.Block(id, peer.RemoteAddr().IP, reason)
 }
 
-func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) (err error) {
+func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error) {
 	if block == nil {
 		return
 	}
@@ -144,6 +136,8 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) (err err
 
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetSb(block); err != nil {
+			s.log.Error(fmt.Sprintf("verify NewSnapshotBlock %s/%d fail: %v", block.Hash, block.Height, err))
+			s.block(sender, p2p.DiscProtocolError)
 			return err
 		}
 	}
@@ -171,7 +165,7 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) (err err
 	return nil
 }
 
-func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) (err error) {
+func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Peer) (err error) {
 	if block == nil {
 		return
 	}
@@ -186,6 +180,8 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) (err error
 
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetAb(block); err != nil {
+			s.log.Error(fmt.Sprintf("verify NewAccountBlock %s/%d fail: %v", block.Hash, block.Height, err))
+			s.block(sender, p2p.DiscProtocolError)
 			return
 		}
 	}
@@ -211,7 +207,7 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock) (err error
 	return nil
 }
 
-func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) (err error) {
+func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error) {
 	if block == nil {
 		return
 	}
@@ -227,6 +223,7 @@ func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) (err error)
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetSb(block); err != nil {
 			s.log.Error(fmt.Sprintf("verify SnapshotBlock %s/%d fail: %v", block.Hash, block.Height, err))
+			s.block(sender, p2p.DiscProtocolError)
 			return err
 		}
 	}
@@ -238,7 +235,7 @@ func (s *receiver) ReceiveSnapshotBlock(block *ledger.SnapshotBlock) (err error)
 	return nil
 }
 
-func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) (err error) {
+func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock, sender Peer) (err error) {
 	if block == nil {
 		return
 	}
@@ -253,6 +250,8 @@ func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) (err error) {
 
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetAb(block); err != nil {
+			s.log.Error(fmt.Sprintf("verify AccountBlock %s/%d fail: %v", block.Hash, block.Height, err))
+			s.block(sender, p2p.DiscProtocolError)
 			return
 		}
 	}
@@ -264,9 +263,9 @@ func (s *receiver) ReceiveAccountBlock(block *ledger.AccountBlock) (err error) {
 	return nil
 }
 
-func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) (err error) {
+func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock, sender Peer) (err error) {
 	for _, block := range blocks {
-		if err = s.ReceiveSnapshotBlock(block); err != nil {
+		if err = s.ReceiveSnapshotBlock(block, sender); err != nil {
 			return
 		}
 	}
@@ -274,9 +273,9 @@ func (s *receiver) ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) (err er
 	return
 }
 
-func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock) (err error) {
+func (s *receiver) ReceiveAccountBlocks(blocks []*ledger.AccountBlock, sender Peer) (err error) {
 	for _, block := range blocks {
-		if err = s.ReceiveAccountBlock(block); err != nil {
+		if err = s.ReceiveAccountBlock(block, sender); err != nil {
 			return
 		}
 	}

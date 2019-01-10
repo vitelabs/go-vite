@@ -73,8 +73,8 @@ type piece interface {
 }
 
 type blockReceiver interface {
-	receiveSnapshotBlock(block *ledger.SnapshotBlock) (err error)
-	receiveAccountBlock(block *ledger.AccountBlock) (err error)
+	receiveSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error)
+	receiveAccountBlock(block *ledger.AccountBlock, sender Peer) (err error)
 	catch(piece)
 }
 
@@ -170,11 +170,16 @@ func (p *chunkPool) Cmds() []ViteCmd {
 	return []ViteCmd{SubLedgerCode}
 }
 
+type chunkResponse struct {
+	msg    *p2p.Msg
+	sender Peer
+}
+
 func (p *chunkPool) Handle(msg *p2p.Msg, sender Peer) error {
 	cmd := ViteCmd(msg.Cmd)
 	netLog.Info(fmt.Sprintf("receive %s from %s", cmd, sender.RemoteAddr()))
 
-	p.resQueue.Push(msg)
+	p.resQueue.Push(chunkResponse{msg, sender})
 
 	return nil
 }
@@ -217,31 +222,30 @@ func (p *chunkPool) handleLoop() {
 				break
 			}
 
-			msg := v.(*p2p.Msg)
-			if msg == nil {
-				break
-			}
+			res := v.(chunkResponse)
 
-			res := new(message.SubLedger)
+			subLedger := new(message.SubLedger)
 
-			if err := res.Deserialize(msg.Payload); err != nil {
-				p.retry(msg.Id)
+			if err := subLedger.Deserialize(res.msg.Payload); err != nil {
+				p.retry(res.msg.Id)
 			}
 
 			// receive account blocks first
-			for _, block := range res.ABlocks {
-				p.handler.receiveAccountBlock(block)
+			for _, block := range subLedger.ABlocks {
+				p.handler.receiveAccountBlock(block, res.sender)
 			}
 
-			for _, block := range res.SBlocks {
-				p.handler.receiveSnapshotBlock(block)
+			for _, block := range subLedger.SBlocks {
+				if err := p.handler.receiveSnapshotBlock(block, res.sender); err != nil {
+					break
+				}
 			}
 
-			if c := p.chunk(msg.Id); c != nil {
-				c.count += uint64(len(res.SBlocks))
+			if c := p.chunk(res.msg.Id); c != nil {
+				c.count += uint64(len(subLedger.SBlocks))
 
 				if c.count >= c.to-c.from+1 {
-					p.done(msg.Id)
+					p.done(res.msg.Id)
 				}
 			}
 		}

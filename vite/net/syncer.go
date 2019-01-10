@@ -423,8 +423,8 @@ func (s *syncer) UnsubscribeSyncStatus(subId int) {
 	s.feed.Unsub(subId)
 }
 
-func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) (err error) {
-	err = s.receiver.ReceiveSnapshotBlock(block)
+func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error) {
+	err = s.receiver.ReceiveSnapshotBlock(block, sender)
 	if err != nil {
 		return
 	}
@@ -433,8 +433,8 @@ func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) (err error) {
 	return nil
 }
 
-func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) (err error) {
-	return s.receiver.ReceiveAccountBlock(block)
+func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock, sender Peer) (err error) {
+	return s.receiver.ReceiveAccountBlock(block, sender)
 }
 
 type SyncStatus struct {
