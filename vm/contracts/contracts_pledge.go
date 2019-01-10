@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -29,7 +30,8 @@ func (p *MethodPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Acco
 	}
 	if block.Amount.Cmp(pledgeAmountMin) < 0 ||
 		!util.IsViteToken(block.TokenId) ||
-		!util.IsUserAccount(db, block.AccountAddress) {
+		!util.IsUserAccount(db, block.AccountAddress) ||
+		(fork.IsVite2(db.CurrentSnapshotBlock().Height) && block.Amount.Cmp(pledgeAmountMin2) < 0) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	beneficialAddr := new(types.Address)
@@ -114,6 +116,9 @@ func (p *MethodCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *le
 		return nil, errors.New("invalid pledge amount")
 	}
 	oldBeneficial.Amount.Sub(oldBeneficial.Amount, param.Amount)
+	if fork.IsVite2(db.CurrentSnapshotBlock().Height) && oldBeneficial.Amount.Sign() != 0 && oldBeneficial.Amount.Cmp(pledgeAmountMin2) < 0 {
+		return nil, errors.New("invalid pledge amount")
+	}
 
 	if oldPledge.Amount.Sign() == 0 {
 		db.SetStorage(pledgeKey, nil)

@@ -172,7 +172,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		blockContext.AccountBlock.Data = nil
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
-			if !fork.IsVite1(database.GetSnapshotBlockByHash(&block.SnapshotHash).Height) {
+			if !fork.IsVite1(database.CurrentSnapshotBlock().Height) {
 				return nil, NoRetry, errors.New("snapshot height not supported")
 			}
 			return vm.receiveCreate(blockContext, sendBlock, quota.CalcCreateQuota(sendBlock.Fee))
@@ -182,7 +182,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 			return vm.receiveRefund(blockContext, sendBlock)
 		}
 	case ledger.BlockTypeSendCreate:
-		if !fork.IsVite1(database.GetSnapshotBlockByHash(&block.SnapshotHash).Height) {
+		if !fork.IsVite1(database.CurrentSnapshotBlock().Height) {
 			return nil, NoRetry, errors.New("snapshot height not supported")
 		}
 		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(

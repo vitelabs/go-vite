@@ -42,6 +42,10 @@ func IsVite1(blockHeight uint64) bool {
 	return forkPoints.Vite1.Height > 0 && blockHeight >= forkPoints.Vite1.Height
 }
 
+func IsVite2(blockHeight uint64) bool {
+	return forkPoints.Vite2.Height > 0 && blockHeight >= forkPoints.Vite2.Height
+}
+
 func GetForkPoints() config.ForkPoints {
 	return forkPoints
 }
