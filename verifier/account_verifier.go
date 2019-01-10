@@ -262,7 +262,7 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock, 
 		return err
 	}
 
-	if fork.IsVite1(sbHeight) {
+	if fork.IsSmartFork(sbHeight) {
 		if block.IsReceiveBlock() && block.Data != nil && accType == ledger.AccountTypeGeneral {
 			return errors.New("receiveBlock data must be nil when addr is general")
 		}
@@ -481,7 +481,7 @@ func (verifier *AccountVerifier) verifyDatasIntergrity(block *ledger.AccountBloc
 		}
 	}
 
-	if fork.IsVite1(vite1Height) {
+	if fork.IsSmartFork(vite1Height) {
 		if block.IsReceiveBlock() {
 			if block.Amount != nil && block.Amount.Cmp(big.NewInt(0)) != 0 {
 				return errors.New("block amount can't be anything other than nil or 0 ")

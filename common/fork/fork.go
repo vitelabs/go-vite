@@ -38,8 +38,8 @@ func SetForkPoints(points *config.ForkPoints) {
 	sort.Sort(forkPointList)
 }
 
-func IsVite1(blockHeight uint64) bool {
-	return forkPoints.Vite1.Height > 0 && blockHeight >= forkPoints.Vite1.Height
+func IsSmartFork(blockHeight uint64) bool {
+	return forkPoints.Smart.Height > 0 && blockHeight >= forkPoints.Smart.Height
 }
 
 func GetForkPoints() config.ForkPoints {
