@@ -3,7 +3,6 @@ package utils
 import (
 	"github.com/vitelabs/go-vite/metrics"
 	"github.com/vitelabs/go-vite/metrics/influxdb"
-	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
 	"time"
 )
@@ -190,25 +189,25 @@ var (
 		Name:  "metrics",
 		Usage: "Enable metrics collection and reporting",
 	}
-	MetricsEnableInfluxDBFlag = cli.BoolFlag{
+	InfluxDBEnableFlag = cli.BoolFlag{
 		Name:  "metrics.influxdb",
 		Usage: "Enable metrics export/push to an external InfluxDB database",
 	}
-	MetricsInfluxDBEndpointFlag = cli.StringFlag{
+	InfluxDBEndpointFlag = cli.StringFlag{
 		Name:  "metrics.influxdb.endpoint",
 		Usage: "InfluxDB API endpoint to report metrics to",
 	}
-	MetricsInfluxDBDatabaseFlag = cli.StringFlag{
+	InfluxDBDatabaseFlag = cli.StringFlag{
 		Name:  "metrics.influxdb.database",
 		Usage: "InfluxDB database name to push reported metrics to",
 		Value: "metrics",
 	}
-	MetricsInfluxDBUsernameFlag = cli.StringFlag{
+	InfluxDBUsernameFlag = cli.StringFlag{
 		Name:  "metrics.influxdb.username",
 		Usage: "Username to authorize access to the database",
 		Value: "test",
 	}
-	MetricsInfluxDBPasswordFlag = cli.StringFlag{
+	InfluxDBPasswordFlag = cli.StringFlag{
 		Name:  "metrics.influxdb.password",
 		Usage: "Password to authorize access to the database",
 		Value: "test",
@@ -217,7 +216,7 @@ var (
 	// It is used so that we can group all nodes and average a measurement across all of them, but also so
 	// that we can select a specific node and inspect its measurements.
 	// https://docs.influxdata.com/influxdb/v1.4/concepts/key_concepts/#tag-key
-	MetricsInfluxDBHostTagFlag = cli.StringFlag{
+	InfluxDBHostTagFlag = cli.StringFlag{
 		Name:  "metrics.influxdb.host.tag",
 		Usage: "InfluxDB `host` tag attached to all measurements",
 		Value: "localhost",
@@ -250,18 +249,18 @@ func MergeFlags(flagsSet ...[]cli.Flag) []cli.Flag {
 	return mergeFlags
 }
 
-func SetupMetricsExport(node *node.Node) {
+func SetupMetricsExport(ctx *cli.Context) {
 	if metrics.MetricsEnabled {
 		var (
-			endpoint = node.Config().MetricsInfluxDBEndpoint
-			//database = ctx.GlobalString(MetricsInfluxDBDatabaseFlag.Name)
-			//username = ctx.GlobalString(MetricsInfluxDBUsernameFlag.Name)
-			//password = ctx.GlobalString(MetricsInfluxDBPasswordFlag.Name)
-			//hosttag  = ctx.GlobalString(MetricsInfluxDBHostTagFlag.Name)
+			endpoint  = ctx.GlobalString(InfluxDBEndpointFlag.Name)
+			database  = ctx.GlobalString(InfluxDBDatabaseFlag.Name)
+			username  = ctx.GlobalString(InfluxDBUsernameFlag.Name)
+			password  = ctx.GlobalString(InfluxDBPasswordFlag.Name)
+			hosttag   = ctx.GlobalString(InfluxDBHostTagFlag.Name)
+			namespace = "monitor"
 		)
-		go influxdb.InfluxDBWithTags(metrics.DefaultRegistry, 10*time.Second, endpoint, "metrics", "test", "test", "monitor", map[string]string{
-			"host": "localhost",
-		})
+		go influxdb.InfluxDBWithTags(metrics.DefaultRegistry, 10*time.Second, endpoint, database, username, password, namespace,
+			map[string]string{"host": hosttag})
 
 	}
 }

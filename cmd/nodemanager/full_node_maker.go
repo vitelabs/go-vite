@@ -172,15 +172,29 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.FilePort = ctx.GlobalInt(utils.FilePortFlag.Name)
 	}
 
-	// metrics
+	//metrics
 	if ctx.GlobalIsSet(utils.MetricsEnabledFlag.Name) {
-		cfg.MetricsEnable = ctx.GlobalBool(utils.MetricsEnabledFlag.Name)
+		mBool := ctx.GlobalBool(utils.MetricsEnabledFlag.Name)
+		cfg.MetricsEnable = &mBool
 	}
-	if ctx.GlobalIsSet(utils.MetricsEnableInfluxDBFlag.Name) {
-		cfg.MetricsInfluxDBEnable = ctx.GlobalBool(utils.MetricsEnableInfluxDBFlag.Name)
+	if ctx.GlobalIsSet(utils.InfluxDBEnableFlag.Name) {
+		iBool := ctx.GlobalBool(utils.InfluxDBEnableFlag.Name)
+		cfg.InfluxDBEnable = &iBool
 	}
-	if endpoint := ctx.GlobalString(utils.MetricsInfluxDBEndpointFlag.Name); len(endpoint) > 0 {
-		cfg.MetricsInfluxDBEndpoint = endpoint
+	if endpoint := ctx.GlobalString(utils.InfluxDBEndpointFlag.Name); len(endpoint) > 0 {
+		cfg.InfluxDBEndpoint = &endpoint
+	}
+	if database := ctx.GlobalString(utils.InfluxDBDatabaseFlag.Name); len(database) > 0 {
+		cfg.InfluxDBDatabase = &database
+	}
+	if username := ctx.GlobalString(utils.InfluxDBUsernameFlag.Name); len(username) > 0 {
+		cfg.InfluxDBUsername = &username
+	}
+	if password := ctx.GlobalString(utils.InfluxDBPasswordFlag.Name); len(password) > 0 {
+		cfg.InfluxDBPassword = &password
+	}
+	if tag := ctx.GlobalString(utils.InfluxDBHostTagFlag.Name); len(tag) > 0 {
+		cfg.InfluxDBHostTag = &tag
 	}
 }
 

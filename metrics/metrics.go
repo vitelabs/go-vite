@@ -24,6 +24,20 @@ var (
 	log                = log15.New("module", "metrics")
 )
 
+type InfluxDBConfig struct {
+	Endpoint string
+	Database string
+	Username string
+	Password string
+	HostTag  string
+}
+
+type Config struct {
+	IsEnable         bool
+	IsInfluxDBEnable bool
+	InfluxDBInfo     *InfluxDBConfig
+}
+
 func InitMetrics(metricFlag, influxDBFlag bool) {
 	MetricsEnabled = metricFlag
 	InfluxDBExportFlag = influxDBFlag

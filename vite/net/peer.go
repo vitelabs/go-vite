@@ -2,6 +2,11 @@ package net
 
 import (
 	"fmt"
+	net2 "net"
+	"sort"
+	"strconv"
+	"sync"
+
 	"github.com/pkg/errors"
 	"github.com/seiflotfy/cuckoofilter"
 	"github.com/vitelabs/go-vite/common"
@@ -10,10 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	net2 "net"
-	"sort"
-	"strconv"
-	"sync"
 )
 
 const filterCap = 100000
@@ -35,6 +36,7 @@ type Peer interface {
 	Report(err error)
 	ID() string
 	Height() uint64
+	Disconnect(reason p2p.DiscReason)
 }
 
 const peerMsgConcurrency = 10
@@ -449,6 +451,14 @@ func (m *peerSet) Peers() (peers []*peer) {
 	}
 
 	return
+}
+
+func (m *peerSet) Has(id string) bool {
+	m.rw.Lock()
+	defer m.rw.Unlock()
+
+	_, ok := m.peers[id]
+	return ok
 }
 
 // @implementation sort.Interface

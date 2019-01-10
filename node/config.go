@@ -3,6 +3,7 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/vitelabs/go-vite/metrics"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -105,9 +106,13 @@ type Config struct {
 	RewardAddr string `json:"RewardAddr"`
 
 	//metrics
-	MetricsEnable           bool   `json:"MetricsEnable"`
-	MetricsInfluxDBEnable   bool   `json:"MetricsInfluxDBEnable"`
-	MetricsInfluxDBEndpoint string `json:"MetricsInfluxDBEndpoint"`
+	MetricsEnable    *bool   `json:"MetricsEnable"`
+	InfluxDBEnable   *bool   `json:"InfluxDBEnable"`
+	InfluxDBEndpoint *string `json:"InfluxDBEndpoint"`
+	InfluxDBDatabase *string `json:"InfluxDBDatabase"`
+	InfluxDBUsername *string `json:"InfluxDBUsername"`
+	InfluxDBPassword *string `json:"InfluxDBPassword"`
+	InfluxDBHostTag  *string `json:"InfluxDBHostTag"`
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
@@ -153,6 +158,31 @@ func (c *Config) makeVmConfig() *config.Vm {
 	}
 }
 
+func (c *Config) makeMetricsConfig() *metrics.Config {
+	mc := &metrics.Config{
+		IsEnable:         false,
+		IsInfluxDBEnable: false,
+		InfluxDBInfo:     nil,
+	}
+	if c.MetricsEnable != nil && *c.MetricsEnable == true {
+		mc.IsEnable = true
+		if c.InfluxDBEnable != nil && *c.InfluxDBEnable == true &&
+			c.InfluxDBEndpoint != nil && len(*c.InfluxDBEndpoint) > 0 &&
+			(c.InfluxDBEndpoint != nil && c.InfluxDBDatabase != nil && c.InfluxDBPassword != nil && c.InfluxDBHostTag != nil) {
+			mc.IsInfluxDBEnable = true
+			mc.InfluxDBInfo = &metrics.InfluxDBConfig{
+				Endpoint: *c.InfluxDBEndpoint,
+				Database: *c.InfluxDBDatabase,
+				Username: *c.InfluxDBUsername,
+				Password: *c.InfluxDBPassword,
+				HostTag:  *c.InfluxDBHostTag,
+			}
+		}
+	}
+
+	return mc
+}
+
 func (c *Config) makeMinerConfig() *config.Producer {
 	return &config.Producer{
 		Producer:         c.MinerEnabled,
@@ -184,8 +214,11 @@ func (c *Config) makeForkPointsConfig(genesisConfig *config.Genesis) *config.For
 		forkPoints = genesisConfig.ForkPoints
 	}
 
-	if forkPoints.Vite1 == nil {
-		forkPoints.Vite1 = &config.ForkPoint{}
+	if forkPoints.Smart == nil {
+		forkPoints.Smart = &config.ForkPoint{}
+	}
+	if forkPoints.Smart.Height == 0 {
+		forkPoints.Smart.Height = 5788912
 	}
 
 	return forkPoints

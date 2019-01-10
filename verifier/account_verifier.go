@@ -262,7 +262,7 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock, 
 		return err
 	}
 
-	if fork.IsVite1(sbHeight) {
+	if fork.IsSmartFork(sbHeight) {
 		if block.IsReceiveBlock() && block.Data != nil && accType == ledger.AccountTypeGeneral {
 			return errors.New("receiveBlock data must be nil when addr is general")
 		}
@@ -481,8 +481,7 @@ func (verifier *AccountVerifier) verifyDatasIntergrity(block *ledger.AccountBloc
 		}
 	}
 
-	if fork.IsVite1(vite1Height) {
-		//forkBranch.Update(1)
+	if fork.IsSmartFork(vite1Height) {
 		if block.IsReceiveBlock() {
 			if block.Amount != nil && block.Amount.Cmp(big.NewInt(0)) != 0 {
 				return errors.New("block amount can't be anything other than nil or 0 ")
@@ -501,24 +500,27 @@ func (verifier *AccountVerifier) verifyDatasIntergrity(block *ledger.AccountBloc
 
 // block from Net or Rpc doesn't have stateHash、Quota, so don't need to verify
 func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, genBlock *ledger.AccountBlock) error {
-	if origBlock.BlockType != genBlock.BlockType {
-		return errors.New("blockType")
+	if origBlock.Hash != genBlock.Hash {
+		return errors.New("hash")
 	}
-	if origBlock.ToAddress != genBlock.ToAddress {
-		return errors.New("toAddress")
-	}
-	if origBlock.Fee.Cmp(genBlock.Fee) != 0 {
-		return errors.New("fee")
-	}
-	if !bytes.Equal(origBlock.Data, genBlock.Data) {
-		return errors.New("data")
-	}
-	if (origBlock.LogHash == nil && genBlock.LogHash != nil) || (origBlock.LogHash != nil && genBlock.LogHash == nil) {
-		return errors.New("logHash")
-	}
-	if origBlock.LogHash != nil && genBlock.LogHash != nil && *origBlock.LogHash != *genBlock.LogHash {
-		return errors.New("logHash")
-	}
+	//if origBlock.BlockType != genBlock.BlockType {
+	//	return errors.New("blockType")
+	//}
+	//if origBlock.ToAddress != genBlock.ToAddress {
+	//	return errors.New("toAddress")
+	//}
+	//if origBlock.Fee.Cmp(genBlock.Fee) != 0 {
+	//	return errors.New("fee")
+	//}
+	//if !bytes.Equal(origBlock.Data, genBlock.Data) {
+	//	return errors.New("data")
+	//}
+	//if (origBlock.LogHash == nil && genBlock.LogHash != nil) || (origBlock.LogHash != nil && genBlock.LogHash == nil) {
+	//	return errors.New("logHash")
+	//}
+	//if origBlock.LogHash != nil && genBlock.LogHash != nil && *origBlock.LogHash != *genBlock.LogHash {
+	//	return errors.New("logHash")
+	//}
 
 	return nil
 }
