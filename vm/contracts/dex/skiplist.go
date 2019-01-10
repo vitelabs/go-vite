@@ -8,6 +8,21 @@ import (
 
 const skiplistMaxLevel int8 = 13 // 2^13 8192
 const metaStorageSalt = "listMeta:"
+const skiplistIdLength = 21
+
+type SkipListId [skiplistIdLength]byte // TradeToken[10] + QuoteToken[10] + side[1]
+
+func (id *SkipListId) Bytes() []byte {
+	return id[:]
+}
+
+func (id *SkipListId) SetBytes(data []byte) error {
+	if length := len(data); length != skiplistIdLength {
+		return fmt.Errorf("error SkipListId size error %v", length)
+	}
+	copy(id[:], data)
+	return nil
+}
 
 type nodeKeyType interface {
 	getStorageKey() []byte
@@ -25,10 +40,10 @@ type nodePayload interface {
 type nodePayloadProtocol interface {
 	getNilKey() nodeKeyType
 	getHeaderKey() nodeKeyType
-	serialize(node *skiplistNode) []byte
-	deSerialize(nodeData []byte) *skiplistNode
-	serializeMeta(meta *skiplistMeta) []byte
-	deSerializeMeta(nodeData []byte) *skiplistMeta
+	serialize(node *skiplistNode) ([]byte, error)
+	deSerialize(nodeData []byte) (*skiplistNode, error)
+	serializeMeta(meta *skiplistMeta) ([]byte, error)
+	deSerializeMeta(nodeData []byte) (*skiplistMeta, error)
 }
 
 type BaseStorage interface {
@@ -39,32 +54,32 @@ type BaseStorage interface {
 }
 
 type skiplistNode struct {
-	nodeKey nodeKeyType
-	payload *nodePayload
-	forwardOnLevel []nodeKeyType
+	nodeKey         nodeKeyType
+	payload         *nodePayload
+	forwardOnLevel  []nodeKeyType
 	backwardOnLevel []nodeKeyType
 }
 
 type skiplist struct {
-	name string
-	header, tail nodeKeyType
-	length int
-	level int8
-	storage *BaseStorage
-	protocol *nodePayloadProtocol
-	headerNode *skiplistNode
+	listId          SkipListId
+	header, tail    nodeKeyType
+	length          int32
+	level           int8
+	storage         *BaseStorage
+	protocol        *nodePayloadProtocol
+	headerNode      *skiplistNode
 	contractAddress *types.Address
 }
 
 type skiplistMeta struct {
-	header, tail nodeKeyType
-	length int
-	level int8
+	header, tail   nodeKeyType
+	length         int32
+	level          int8
 	forwardOnLevel []nodeKeyType
 }
 
 func randomLevel(seed int64) int8 {
-	return int8(seed % int64(skiplistMaxLevel)) + 1
+	return int8(seed%int64(skiplistMaxLevel)) + 1
 }
 
 func (meta *skiplistMeta) fromList(list *skiplist) {
@@ -76,23 +91,25 @@ func (meta *skiplistMeta) fromList(list *skiplist) {
 	copy(meta.forwardOnLevel, list.headerNode.forwardOnLevel)
 }
 
-func (meta *skiplistMeta) getMetaStorageKey(name string) []byte {
-	return []byte(metaStorageSalt + name)
+func (meta *skiplistMeta) getMetaStorageKey(listId SkipListId) []byte {
+	return append([]byte(metaStorageSalt), listId.Bytes()...)
 }
 
-func newSkiplist(name string, contractAddress *types.Address, storage *BaseStorage, protocol *nodePayloadProtocol) *skiplist {
+func newSkiplist(listId SkipListId, contractAddress *types.Address, storage *BaseStorage, protocol *nodePayloadProtocol) (*skiplist, error) {
 	skl := &skiplist{}
-	skl.name = name
+	skl.listId = listId
 	skl.header = (*protocol).getNilKey()
 	skl.tail = (*protocol).getNilKey()
 	skl.length = 0
 	skl.level = 1
 	skl.storage = storage
 	skl.protocol = protocol
-	skl.headerNode, _ = skl.createNode((*skl.protocol).getHeaderKey(),nil, skiplistMaxLevel)
+	skl.headerNode, _ = skl.createNode((*skl.protocol).getHeaderKey(), nil, skiplistMaxLevel)
 	skl.contractAddress = contractAddress
-	skl.initMeta(name)
-	return skl
+	if err := skl.initMeta(listId); err != nil {
+		return nil, err
+	}
+	return skl, nil
 }
 
 func (skl *skiplist) createNode(key nodeKeyType, payload *nodePayload, level int8) (*skiplistNode, int8) {
@@ -110,28 +127,28 @@ func (skl *skiplist) createNode(key nodeKeyType, payload *nodePayload, level int
 	return &node, level
 }
 
-func (skl *skiplist) getNodeWithDirtyFilter(nodeKey nodeKeyType, dirtyNodes map[string]*skiplistNode) *skiplistNode {
+func (skl *skiplist) getNodeWithDirtyFilter(nodeKey nodeKeyType, dirtyNodes map[string]*skiplistNode) (*skiplistNode, error) {
 	if nodeKey == nil || nodeKey.isNil() {
-		return nil
+		return nil, nil
 	}
 	if nodeKey.isHeader() {
-		return skl.headerNode
+		return skl.headerNode, nil
 	}
 	if len(dirtyNodes) > 0 {
 		if node, ok := dirtyNodes[nodeKey.toString()]; ok {
-			return node
+			return node, nil
 		}
 	}
 	nodeData := (*skl.storage).GetStorage(skl.contractAddress, nodeKey.getStorageKey())
 	if len(nodeData) != 0 {
 		return (*skl.protocol).deSerialize(nodeData)
 	} else {
-		return nil
+		return nil, nil
 	}
 }
 
 //TODO whether delete node can be get from storage by key
-func (skl *skiplist) getNode(nodeKey nodeKeyType) *skiplistNode {
+func (skl *skiplist) getNode(nodeKey nodeKeyType) (*skiplistNode, error) {
 	return skl.getNodeWithDirtyFilter(nodeKey, nil)
 }
 
@@ -142,26 +159,43 @@ func (skl *skiplist) saveNode(node *skiplistNode) error {
 	if node.nodeKey.isHeader() {
 		return nil
 	}
-	nodeData := (*skl.protocol).serialize(node)
+	var (
+		nodeData []byte
+		err error
+	)
+	if nodeData, err = (*skl.protocol).serialize(node); err != nil {
+		return err
+	}
 	(*skl.storage).SetStorage(node.nodeKey.getStorageKey(), nodeData)
 	return nil
 }
 
-
-func (skl *skiplist) saveMeta() {
+func (skl *skiplist) saveMeta() error {
 	meta := &skiplistMeta{}
 	meta.fromList(skl)
-	metaData := (*skl.protocol).serializeMeta(meta)
-	(*skl.storage).SetStorage(meta.getMetaStorageKey(skl.name), metaData)
+	var (
+		metaData []byte
+		err error
+	)
+	if metaData, err = (*skl.protocol).serializeMeta(meta); err != nil {
+		return err
+	}
+	(*skl.storage).SetStorage(meta.getMetaStorageKey(skl.listId), metaData)
+	return nil
 }
 
-func (skl *skiplist) initMeta(name string) {
-	meta := &skiplistMeta{}
+func (skl *skiplist) initMeta(name SkipListId) error {
+	var (
+		meta = &skiplistMeta{}
+		err error
+	)
 	metaData := (*skl.storage).GetStorage(skl.contractAddress, meta.getMetaStorageKey(name))
 	if len(metaData) == 0 {
-		return
+		return nil
 	} else {
-		meta = (*skl.protocol).deSerializeMeta(metaData)
+		if meta, err = (*skl.protocol).deSerializeMeta(metaData); err != nil {
+			return err
+		}
 		skl.length = meta.length
 		skl.header = meta.header
 		skl.tail = meta.tail
@@ -172,6 +206,7 @@ func (skl *skiplist) initMeta(name string) {
 		//for l, v := range skl.headerNode.forwardOnLevel {
 		//	fmt.Printf("meta.level %d, forward %s\n", l, v.toString())
 		//}
+		return nil
 	}
 }
 
@@ -179,17 +214,22 @@ func (nd *skiplistNode) isHeader() bool {
 	return nd.nodeKey.isHeader()
 }
 
-func (skl *skiplist) insert(key nodeKeyType, payload *nodePayload) {
+func (skl *skiplist) insert(key nodeKeyType, payload *nodePayload) (err error) {
 	//fmt.Printf("enter into insert for %s\n", key.toString())
-	var dirtyNodes = make(map[string]*skiplistNode, skiplistMaxLevel)
-	var updateNodes = make([]*skiplistNode, skiplistMaxLevel)
-	var headerNode = skl.headerNode
-	var currentNode = headerNode
-	var i int8
+	var (
+		dirtyNodes = make(map[string]*skiplistNode, skiplistMaxLevel)
+		updateNodes = make([]*skiplistNode, skiplistMaxLevel)
+		headerNode = skl.headerNode
+		currentNode = headerNode
+		forwardNode *skiplistNode
+		i int8
+	)
 	for i = skl.level - 1; i >= 0; i-- {
 		// skl is desc list
 		for !currentNode.forwardOnLevel[i].isNil() {
-		   forwardNode := skl.getNode(currentNode.forwardOnLevel[i])
+			if forwardNode, err = skl.getNode(currentNode.forwardOnLevel[i]); err != nil {
+				return err
+			}
 			if (*payload).compareTo(forwardNode.payload) <= 0 {
 				currentNode = forwardNode
 			} else {
@@ -210,22 +250,26 @@ func (skl *skiplist) insert(key nodeKeyType, payload *nodePayload) {
 	for i = 0; i < level; i++ {
 		forwardKey := updateNodes[i].forwardOnLevel[i]
 		newNode.forwardOnLevel[i] = forwardKey
+		//fmt.Printf("level %d : set forward to %s for node %s\n", i, forwardKey.toString(), newNode.nodeKey.toString())
 		if !forwardKey.isNil() {
 			var forwardNode *skiplistNode
 			var ok bool
 			if forwardNode, ok = dirtyNodes[forwardKey.toString()]; !ok {
-				forwardNode = skl.getNodeWithDirtyFilter(updateNodes[i].forwardOnLevel[i], dirtyNodes)
+				if forwardNode, err = skl.getNodeWithDirtyFilter(updateNodes[i].forwardOnLevel[i], dirtyNodes); err != nil {
+					return err
+				}
 			}
 			forwardNode.backwardOnLevel[i] = key
-			dirtyNodes[forwardNode.nodeKey.toString()] = forwardNode
 			//fmt.Printf("level %d : set backward to %s for node %s\n", i, key.toString(), forwardNode.nodeKey.toString())
+			dirtyNodes[forwardNode.nodeKey.toString()] = forwardNode
 		}
 		updateNodes[i].forwardOnLevel[i] = key
+		//fmt.Printf("level %d : set forward to %s for node %s\n", i, key.toString(), updateNodes[i].nodeKey.toString())
 		newNode.backwardOnLevel[i] = updateNodes[i].nodeKey
+		//fmt.Printf("level %d : set backward to %s for node %s\n", i, updateNodes[i].nodeKey.toString(), newNode.nodeKey.toString())
 		dirtyNodes[updateNodes[i].nodeKey.toString()] = updateNodes[i]
 	}
 	dirtyNodes[key.toString()] = newNode
-	//fmt.Printf("newNode.forwardOnLevel[0].len %d, level : %d\n", len(newNode.forwardOnLevel), level)
 	if newNode.forwardOnLevel[0].isNil() {
 		skl.tail = key
 	}
@@ -233,24 +277,36 @@ func (skl *skiplist) insert(key nodeKeyType, payload *nodePayload) {
 		skl.header = key
 	}
 	skl.length++
-	skl.saveMeta()
-	skl.saveNodes(dirtyNodes)
+	if err = skl.saveMeta(); err != nil {
+		return err
+	}
+	if err = skl.saveNodes(dirtyNodes); err != nil {
+		return err
+	}
+	//skl.traverse()
+	return nil
 }
 
-func (skl *skiplist) delete(key nodeKeyType) error {
-	var dirtyNodes = make(map[string]*skiplistNode, skiplistMaxLevel)
-	deleteNode := skl.getNode(key)
+func (skl *skiplist) delete(key nodeKeyType) (err error)  {
+	var (
+		dirtyNodes = make(map[string]*skiplistNode, skiplistMaxLevel)
+		deleteNode, forwardNode, backwardNode *skiplistNode
+	)
+	if deleteNode, err = skl.getNode(key); err != nil {
+		return err
+	}
 	if deleteNode == nil {
 		return fmt.Errorf("node not exists for %s", key.toString())
 	}
 	var i int8
 	for i = 0; int(i) < len(deleteNode.backwardOnLevel); i++ {
 		backwardKey := deleteNode.backwardOnLevel[i]
-		var backwardNode *skiplistNode
 		if backwardKey.isNil() || backwardKey.isHeader() {
 			backwardNode = skl.headerNode
 		} else {
-			backwardNode = skl.getNodeWithDirtyFilter(deleteNode.backwardOnLevel[i], dirtyNodes)
+			if backwardNode, err = skl.getNodeWithDirtyFilter(deleteNode.backwardOnLevel[i], dirtyNodes); err != nil {
+				return err
+			}
 			if backwardNode == nil {
 				return fmt.Errorf("invalid backward node for %s, at index %d", key.toString(), i)
 			}
@@ -259,7 +315,9 @@ func (skl *skiplist) delete(key nodeKeyType) error {
 		dirtyNodes[backwardNode.nodeKey.toString()] = backwardNode
 		forwardKey := deleteNode.forwardOnLevel[i]
 		if !forwardKey.isNil() {
-			forwardNode := skl.getNodeWithDirtyFilter(forwardKey, dirtyNodes)
+			if forwardNode, err = skl.getNodeWithDirtyFilter(forwardKey, dirtyNodes); err != nil {
+				return err
+			}
 			forwardNode.backwardOnLevel[i] = backwardKey
 			dirtyNodes[forwardNode.nodeKey.toString()] = forwardNode
 		}
@@ -279,35 +337,51 @@ func (skl *skiplist) delete(key nodeKeyType) error {
 	}
 	skl.length--
 	if skl.length == 0 {
+		skl.header = (*skl.protocol).getNilKey()
+		skl.tail = (*skl.protocol).getNilKey()
 		skl.level = 0
 	}
-	skl.saveMeta()
-	skl.saveNodes(dirtyNodes)
+	if err = skl.saveMeta(); err != nil {
+		return err
+	}
+	if err = skl.saveNodes(dirtyNodes); err != nil {
+		return err
+	}
+	//skl.traverse()
 	return nil
 }
 
 // node of the key is the last to be deleted
 // NOTE: key must be exits before truncate
-func (skl *skiplist) truncateHeadTo(key nodeKeyType, length int) error {
-	splitNode := skl.getNode(key)
+func (skl *skiplist) truncateHeadTo(key nodeKeyType, length int32) (err error) {
+	var (
+		splitNode, backwardNode, forwardNode *skiplistNode
+	)
+	if splitNode, err = skl.getNode(key); err != nil {
+		return err
+	}
 	if splitNode == nil {
 		return fmt.Errorf("node not exists for %s", key.toString())
 	}
 	splitNodes := make([]*skiplistNode, skiplistMaxLevel)
 	var dirtyNodes = make(map[string]*skiplistNode, skiplistMaxLevel)
 	i := 0
-	for ;i < len(splitNode.forwardOnLevel); i++ {
+	for ; i < len(splitNode.forwardOnLevel); i++ {
 		splitNodes[i] = splitNode
 	}
 	if i < int(skl.level) {
-		backwardNode := skl.getNode(splitNode.backwardOnLevel[i-1])
+		if backwardNode, err = skl.getNode(splitNode.backwardOnLevel[i-1]); err != nil {
+			return err
+		}
 		if backwardNode == nil {
 			return fmt.Errorf("node not exists for %s", splitNode.backwardOnLevel[i-1])
 		}
 		// find node with higher level
 		for ; i < int(skl.level); i++ {
 			for ; !backwardNode.isHeader() && len(backwardNode.backwardOnLevel) <= int(i); {
-				backwardNode = skl.getNode(backwardNode.backwardOnLevel[i-1])
+				if backwardNode, err = skl.getNode(backwardNode.backwardOnLevel[i-1]); err != nil {
+					return err
+				}
 			}
 			if backwardNode.isHeader() {
 				break
@@ -318,29 +392,37 @@ func (skl *skiplist) truncateHeadTo(key nodeKeyType, length int) error {
 			i--
 		}
 	}
-	for j := 0 ; j < i; j++ {
+	for j := 0; j < i; j++ {
 		forwardKey := splitNodes[j].forwardOnLevel[j]
 		skl.headerNode.forwardOnLevel[j] = splitNodes[j].forwardOnLevel[j]
 		if j == 0 {
 			skl.header = forwardKey
 		}
 		if !forwardKey.isNil() {
-			forwardNode := skl.getNodeWithDirtyFilter(forwardKey, dirtyNodes)
+			if forwardNode, err = skl.getNodeWithDirtyFilter(forwardKey, dirtyNodes); err != nil {
+				return err
+			}
 			forwardNode.backwardOnLevel[j] = skl.headerNode.nodeKey
 			dirtyNodes[forwardKey.toString()] = forwardNode
 		}
 	}
 	skl.length -= length
 	if skl.length == 0 {
+		skl.header = (*skl.protocol).getNilKey()
 		skl.tail = (*skl.protocol).getNilKey()
 		skl.level = 0
 	}
-	skl.saveMeta()
-	skl.saveNodes(dirtyNodes)
+	if err = skl.saveMeta(); err != nil {
+		return err
+	}
+	if err := skl.saveNodes(dirtyNodes); err != nil {
+		return err
+	}
+	//skl.traverse()
 	return nil
 }
 
-func (skl *skiplist) peek() (pl *nodePayload, forwardKey nodeKeyType, backwardKey nodeKeyType, err error)  {
+func (skl *skiplist) peek() (pl *nodePayload, forwardKey nodeKeyType, backwardKey nodeKeyType, err error) {
 	if skl.length == 0 {
 		return nil, nil, nil, fmt.Errorf("skiplist is empty")
 	}
@@ -348,26 +430,54 @@ func (skl *skiplist) peek() (pl *nodePayload, forwardKey nodeKeyType, backwardKe
 }
 
 func (skl *skiplist) getByKey(key nodeKeyType) (pl *nodePayload, forwardKey nodeKeyType, backwardKey nodeKeyType, err error) {
-	node := skl.getNode(key)
-	if node != nil {
+	if node, err := skl.getNode(key); err != nil {
+		return nil, nil, nil, err
+	} else if node != nil {
 		return node.payload, node.forwardOnLevel[0], node.backwardOnLevel[0], nil
 	} else {
 		return nil, nil, nil, fmt.Errorf("node not exists for key : %s", skl.header.toString())
 	}
 }
 
-func (skl *skiplist) saveNodes(needSaveNodes map[string]*skiplistNode) {
+func (skl *skiplist) saveNodes(needSaveNodes map[string]*skiplistNode) error {
 	for _, v := range needSaveNodes {
-		skl.saveNode(v)
+		if err := skl.saveNode(v); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (skl *skiplist) updatePayload(key nodeKeyType, pl *nodePayload) error {
-	node := skl.getNode(key)
-	if node == nil {
+	if node, err := skl.getNode(key); err != nil {
+		return err
+	} else if node == nil {
 		return fmt.Errorf("key not exists")
 	} else {
 		node.payload = pl
 		return skl.saveNode(node)
+	}
+}
+
+func (skl *skiplist) traverse() {
+	if skl.header.isNil() {
+		fmt.Printf("skiplist to traverse is empty!!\n")
+		return
+	}
+	if currentNode, err := skl.getNode(skl.header); err != nil {
+		fmt.Printf("traverse failed get header node for key %s\n", skl.header.toString())
+		return
+	} else {
+		for i := 0;; i++ {
+			fmt.Printf("index %d, key is %s\n", i, currentNode.nodeKey.toString())
+			if !currentNode.forwardOnLevel[0].isNil() {
+				if currentNode, err = skl.getNode(currentNode.forwardOnLevel[0]); err != nil {
+					fmt.Printf("failed get node for key %s\n", skl.header.toString())
+					return
+				}
+			} else {
+				return
+			}
+		}
 	}
 }

@@ -100,17 +100,17 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = userAddress1
 
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, big.NewInt(102), ETH, VITE, false)
+	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH, VITE, false)
 	_, err := method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, "cancel order not own to initiator", err.Error())
 
 	senderAccBlock.AccountAddress = userAddress2
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, big.NewInt(202), ETH, VITE, true)
+	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(202), ETH, VITE, true)
 	_, err = method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, "order status is invalid to cancel", err.Error())
 
 	senderAccBlock.AccountAddress = userAddress
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, big.NewInt(102), ETH, VITE, false)
+	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH, VITE, false)
 	_, err = method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, nil, err)
 
@@ -137,7 +137,7 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	assert.True(t, bytes.Equal(actions.Actions[0].Token, VITE.Bytes()))
 	assert.True(t, CheckBigEqualToInt(3500, actions.Actions[0].ReleaseLocked))
 
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, big.NewInt(102), ETH, VITE, false)
+	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH, VITE, false)
 	_, err = method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, "order status is invalid to cancel", err.Error())
 }
@@ -148,9 +148,9 @@ func initDexTradeDatabase()  *testDatabase {
 	return db
 }
 
-func getNewOrderData(id uint64, address types.Address, tradeToken types.TokenTypeId, quoteToken types.TokenTypeId, side bool, price string, quantity int64) []byte {
+func getNewOrderData(id int, address types.Address, tradeToken types.TokenTypeId, quoteToken types.TokenTypeId, side bool, price string, quantity int64) []byte {
 	order := &dexproto.Order{}
-	order.Id = id
+	order.Id = orderIdBytesFromInt(id)
 	order.Address = address.Bytes()
 	order.TradeToken = tradeToken.Bytes()
 	order.QuoteToken = quoteToken.Bytes()

@@ -79,7 +79,9 @@ func newSkipListTest (t *testing.T) *skiplist {
 	var po nodePayloadProtocol = &OrderNodeProtocol{}
 
 	// Test new
-	skiplist := newSkiplist("listName", getAddress(), &st, &po)
+	listId := SkipListId{}
+	listId.SetBytes([]byte("skiplistName"))
+	skiplist, _ := newSkiplist(listId, getAddress(), &st, &po)
 	assert.Equal(t, skiplist.level, int8(1))
 	return skiplist
 }
@@ -106,9 +108,9 @@ func clearStorage(skiplist *skiplist) {
 
 func insertTest(t *testing.T, skiplist *skiplist) {
 	// Test Insert
-	assert.Equal(t, 4, skiplist.length)
-	assert.Equal(t, uint64(5), skiplist.header.(orderKey).value)
-	assert.Equal(t, uint64(1), skiplist.tail.(orderKey).value)
+	assert.Equal(t, int32(4), skiplist.length)
+	assert.Equal(t, 5, fromOrderIdToInt(skiplist.header))
+	assert.Equal(t, 1, fromOrderIdToInt(skiplist.tail))
 
 	var pl *nodePayload
 	var fwk, bwk nodeKeyType
@@ -117,75 +119,81 @@ func insertTest(t *testing.T, skiplist *skiplist) {
 	var od Order
 
 	od, _ = (*pl).(Order)
-	assert.Equal(t, uint64(5), od.Id)
-	assert.Equal(t, uint64(3), fwk.(orderKey).value)
+	assert.Equal(t, 5, fromOrderIdBytesToInt(od.Id))
+	assert.Equal(t, 3, fromOrderIdToInt(fwk))
 	assert.True(t, bwk.isHeader())
 
 	pl, fwk, bwk, _ = skiplist.getByKey(fwk)
 	od, _ = (*pl).(Order)
-	assert.Equal(t, uint64(3), od.Id)
-	assert.Equal(t, uint64(2), fwk.(orderKey).value)
-	assert.Equal(t, uint64(5), bwk.(orderKey).value)
+	assert.Equal(t, 3, fromOrderIdBytesToInt(od.Id))
+	assert.Equal(t, 2, fromOrderIdToInt(fwk))
+	assert.Equal(t, 5, fromOrderIdToInt(bwk))
 
 	pl, fwk, bwk, _ = skiplist.getByKey(fwk)
 	od, _ = (*pl).(Order)
-	assert.Equal(t, uint64(2), od.Id)
-	assert.Equal(t, uint64(1), fwk.(orderKey).value)
-	assert.Equal(t, uint64(3), bwk.(orderKey).value, )
+	assert.Equal(t, 2, fromOrderIdBytesToInt(od.Id))
+	assert.Equal(t, 1, fromOrderIdToInt(fwk))
+	assert.Equal(t, 3, fromOrderIdToInt(bwk))
 
 	pl, fwk, bwk, _ = skiplist.getByKey(fwk)
 	od, _ = (*pl).(Order)
-	assert.Equal(t, uint64(1), od.Id)
+	assert.Equal(t, 1, fromOrderIdBytesToInt(od.Id))
 	assert.True(t, fwk.isNil())
-	assert.Equal(t, uint64(2), bwk.(orderKey).value)
+	assert.Equal(t, 2, fromOrderIdToInt(bwk))
 }
 
 func deleteTest(t *testing.T, skiplist *skiplist) {
 	var fwk, bwk nodeKeyType
 	var err error
 
-	err = skiplist.delete(newOrderKey(2))
+	err = skiplist.delete(orderIdFromInt(2))
 	assert.True(t, err == nil)
-	assert.Equal(t, 3, skiplist.length)
+	assert.Equal(t, int32(3), skiplist.length)
 
-	_, fwk, bwk, _ = skiplist.getByKey(newOrderKey(3))
-	assert.Equal(t, uint64(1), fwk.(orderKey).value)
+	_, fwk, bwk, _ = skiplist.getByKey(orderIdFromInt(3))
+	assert.Equal(t, 1, fromOrderIdToInt(fwk))
 
-	_, fwk, bwk, _ = skiplist.getByKey(newOrderKey(1))
-	assert.Equal(t, uint64(3), bwk.(orderKey).value)
+	_, fwk, bwk, _ = skiplist.getByKey(orderIdFromInt(1))
+	assert.Equal(t, 3, fromOrderIdToInt(bwk))
 
-	skiplist.delete(newOrderKey(1))
-	_, fwk, bwk, _ = skiplist.getByKey(newOrderKey(3))
+	skiplist.delete(orderIdFromInt(1))
+	_, fwk, bwk, _ = skiplist.getByKey(orderIdFromInt(3))
 	assert.True(t, fwk.isNil())
-	assert.Equal(t, uint64(3), skiplist.tail.(orderKey).value)
+	assert.Equal(t, 3, fromOrderIdToInt(skiplist.tail))
 
-	skiplist.delete(newOrderKey(5))
-	_, fwk, bwk, _ = skiplist.getByKey(newOrderKey(3))
+	skiplist.delete(orderIdFromInt(5))
+	_, fwk, bwk, _ = skiplist.getByKey(orderIdFromInt(3))
 	assert.True(t, bwk.isHeader())
-	assert.Equal(t, uint64(3), skiplist.header.(orderKey).value)
+	assert.Equal(t, 3, fromOrderIdToInt(skiplist.header))
 
-	skiplist.delete(newOrderKey(3))
+	skiplist.delete(orderIdFromInt(3))
 	assert.True(t, skiplist.length == 0)
-	assert.Equal(t, uint64(0), skiplist.header.(orderKey).value)
-	assert.Equal(t, uint64(0), skiplist.tail.(orderKey).value)
+	assert.Equal(t, 0, fromOrderIdToInt(skiplist.header))
+	assert.Equal(t, 0, fromOrderIdToInt(skiplist.tail))
 }
 
 func truncateTest(t *testing.T, skiplist *skiplist) {
 	var err error
 	var fwk, bwk nodeKeyType
 
-	err = skiplist.truncateHeadTo(newOrderKey(2), 3)
+	err = skiplist.truncateHeadTo(orderIdFromInt(2), 3)
 	assert.True(t, err == nil)
-	assert.Equal(t, 1, skiplist.length)
-	assert.Equal(t, uint64(1), skiplist.header.(orderKey).value)
-	assert.Equal(t, uint64(1), skiplist.tail.(orderKey).value)
+	assert.Equal(t, int32(1), skiplist.length)
+	assert.Equal(t, 1, fromOrderIdToInt(skiplist.header))
+	assert.Equal(t, 1, fromOrderIdToInt(skiplist.tail))
 
-	_, fwk, bwk, _ = skiplist.getByKey(newOrderKey(1))
+	_, fwk, bwk, _ = skiplist.getByKey(orderIdFromInt(1))
 	assert.True(t, bwk.isHeader())
 	assert.True(t, fwk.isNil())
 
-	err = skiplist.truncateHeadTo(newOrderKey(1), 1)
-	assert.Equal(t, 0, skiplist.length)
-	assert.Equal(t, uint64(0), skiplist.header.(orderKey).value)
-	assert.Equal(t, uint64(0), skiplist.tail.(orderKey).value)
+	err = skiplist.truncateHeadTo(orderIdFromInt(1), 1)
+	assert.Equal(t, int32(0), skiplist.length)
+	assert.Equal(t, 0, fromOrderIdToInt(skiplist.header))
+	assert.Equal(t, 0, fromOrderIdToInt(skiplist.tail))
+}
+
+func orderIdFromInt(v int) OrderId {
+	key := OrderId{}
+	key.setBytes(orderIdBytesFromInt(v))
+	return key
 }

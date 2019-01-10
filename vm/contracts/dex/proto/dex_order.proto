@@ -3,17 +3,17 @@ syntax="proto3";
 package proto;
 
 message Order {
-    uint64 Id = 1;
+    bytes Id = 1;
     bytes Address = 2;
     bytes TradeToken = 3;
     bytes QuoteToken = 4;
     bool   Side = 5; // false buy, true sell
-    uint32 Type = 6; // 0 limit order, 1 market order
+    int32 Type = 6; // 0 limit order, 1 market order
     string Price = 7;
     bytes Quantity = 8;
     bytes Amount = 9; // QuoteAmount
-    uint32 Status = 10;
-    uint32 cancelReason = 11;
+    int32 Status = 10;
+    int32 cancelReason = 11;
     int64 Timestamp = 12;
     bytes ExecutedQuantity = 13;
     bytes ExecutedAmount = 14;
@@ -23,16 +23,16 @@ message Order {
 
 message OrderNode {
     Order Order = 1;
-    repeated uint64 ForwardOnLevel = 2;
-    repeated uint64 backwardOnLevel = 3;
+    repeated bytes ForwardOnLevel = 2;
+    repeated bytes backwardOnLevel = 3;
 }
 
 message OrderListMeta {
-    uint64 Header = 1;
-    uint64 Tail = 2;
-    uint32 Length = 3;
-    uint32 Level = 4;
-    repeated uint64 ForwardOnLevel = 5;
+    bytes Header = 1;
+    bytes Tail = 2;
+    int32 Length = 3;
+    int32 Level = 4;
+    repeated bytes ForwardOnLevel = 5;
 }
 
 message OrderBook {
@@ -40,10 +40,10 @@ message OrderBook {
 }
 
 message Transaction {
-    uint64 Id = 1;
+    bytes Id = 1;
     bool TakerSide = 2;
-    uint64 TakerId = 3;
-    uint64 MakerId = 4;
+    bytes TakerId = 3;
+    bytes MakerId = 4;
     string Price = 5;
     bytes Quantity = 6;
     bytes Amount = 7;

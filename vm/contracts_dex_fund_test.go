@@ -2,6 +2,7 @@ package vm
 
 import (
 	"bytes"
+	"encoding/binary"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common/types"
@@ -11,7 +12,6 @@ import (
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"testing"
 	"time"
@@ -20,20 +20,7 @@ import (
 var (
 	VITE = types.TokenTypeId{'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N'}
 	ETH  = types.TokenTypeId{'E', 'T', 'H', ' ', ' ', 'T', 'O', 'K', 'E', 'N'}
-	NANO = types.TokenTypeId{'N', 'A', 'N', 'O', ' ', 'T', 'O', 'K', 'E', 'N'}
 )
-
-type vmMockVmCtx struct {
-	appendedBlocks []*vm_context.VmAccountBlock
-}
-
-func (ctx *vmMockVmCtx) AppendBlock(block *vm_context.VmAccountBlock) {
-	ctx.appendedBlocks = append(ctx.appendedBlocks, block)
-}
-
-func (ctx *vmMockVmCtx) GetNewBlockHeight(block *vm_context.VmAccountBlock) uint64 {
-	return 100
-}
 
 func TestDexFund(t *testing.T) {
 	db := initDexFundDatabase()
@@ -113,7 +100,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = userAddress
 	order := dexproto.Order{}
-	order.Id = uint64(1)
+	order.Id = orderIdBytesFromInt(1)
 	order.Address = userAddress.Bytes()
 	order.TradeToken = VITE.Bytes()
 	order.QuoteToken = ETH.Bytes()
@@ -137,6 +124,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	receiveBlock := &ledger.AccountBlock{}
 	now := time.Now()
 	receiveBlock.Timestamp = &now
+	receiveBlock.SnapshotHash = types.DataHash([]byte{10, 1})
 
 	var appendedBlocks []*contracts.SendBlock
 	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
@@ -154,7 +142,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	order1 := &dexproto.Order{}
 	proto.Unmarshal(param1.Data, order1)
 	assert.True(t, CheckBigEqualToInt(60, order1.Amount))
-	assert.Equal(t, order1.Status, uint32(dex.Pending))
+	assert.Equal(t, order1.Status, int32(dex.Pending))
 }
 
 func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Address) {
@@ -167,6 +155,7 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	viteAction.Address = userAddress.Bytes()
 	viteAction.Token = VITE.Bytes()
 	viteAction.DeduceLocked = big.NewInt(1000).Bytes()
+	viteAction.ReleaseLocked = big.NewInt(100).Bytes()
 
 	ethAction := dexproto.SettleAction{}
 	ethAction.Address = userAddress.Bytes()
@@ -199,12 +188,15 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 		viteAcc = dexFund.Accounts[0]
 	}
 	assert.True(t, CheckBigEqualToInt(30, ethAcc.Available))
-	assert.True(t, CheckBigEqualToInt(1000, viteAcc.Locked))
+	assert.True(t, CheckBigEqualToInt(900, viteAcc.Locked))
 }
 
 func initDexFundDatabase() *testDatabase {
 	db := NewNoDatabase()
 	db.addr = types.AddressDexFund
+	t1 := time.Unix(1536214502, 0)
+	snapshot1 := &ledger.SnapshotBlock{Height: 1, Timestamp: &t1, Hash: types.DataHash([]byte{10, 1})}
+	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
 	return db
 }
 
@@ -229,4 +221,10 @@ func registerToken(db *testDatabase, token types.TokenTypeId) {
 
 func CheckBigEqualToInt(expected int, value []byte) bool {
 	return new(big.Int).SetUint64(uint64(expected)).Cmp(new(big.Int).SetBytes(value)) == 0
+}
+
+func orderIdBytesFromInt(v int) []byte {
+	bs := make([]byte, 4)
+	binary.LittleEndian.PutUint32(bs, uint32(v))
+	return append([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, bs...)
 }

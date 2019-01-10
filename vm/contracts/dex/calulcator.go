@@ -20,10 +20,7 @@ func MinBigInt(a []byte, b []byte) []byte {
 }
 
 func CmpToBigZero(a []byte) int {
-	if len(a) == 0 {
-		return 0
-	}
-	return new(big.Int).SetBytes(a).Cmp(big.NewInt(0))
+	return new(big.Int).SetBytes(a).Sign()
 }
 
 func CmpForBigInt(a []byte, b []byte) int {

@@ -80,7 +80,7 @@ func (md *MethodDexFundUserDeposit) DoSend(db vmctxt_interface.VmDatabase, block
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Cmp(big.NewInt(0)) <= 0 {
+	if block.Amount.Sign() <= 0 {
 		return quotaLeft, fmt.Errorf("deposit amount is zero")
 	}
 	if err = checkToken(db, block.TokenId); err != nil {
@@ -130,7 +130,7 @@ func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, bloc
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserWithdraw, block.Data); err != nil {
 		return quotaLeft, err
 	}
-	if param.Amount.Cmp(big.NewInt(0)) <= 0 {
+	if param.Amount.Sign() <= 0 {
 		return quotaLeft, fmt.Errorf("withdraw amount is zero")
 	}
 	if tokenInfo := cabi.GetTokenById(db, param.Token); tokenInfo == nil {
@@ -141,11 +141,13 @@ func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, bloc
 
 func (md *MethodDexFundUserWithdraw) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	param := new(ParamDexFundDepositAndWithDraw)
-	ABIDexFund.UnpackMethod(param, MethodNameDexFundUserWithdraw, sendBlock.Data)
 	var (
 		dexFund = &DexFund{}
 		err     error
 	)
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserWithdraw, sendBlock.Data); err != nil {
+		return []*SendBlock{}, err
+	}
 	if dexFund, err = GetFundFromStorage(db, sendBlock.AccountAddress); err != nil {
 		return []*SendBlock{}, err
 	}
@@ -206,6 +208,7 @@ func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *l
 func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	var (
 		dexFund = &DexFund{}
+		tradeBlockData []byte
 		err error
 	)
 	param := new(ParamDexSerializedData)
@@ -222,7 +225,6 @@ func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block
 		return []*SendBlock{}, err
 	}
 	if _, err = tryLockFundForNewOrder(db, dexFund, order); err != nil {
-		fmt.Printf("tryLockFundForNewOrder err %s\n", err.Error())
 		return []*SendBlock{}, err
 	}
 	if err = saveFundToStorage(db, sendBlock.AccountAddress, dexFund); err != nil {
@@ -230,8 +232,12 @@ func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block
 	}
 	address := &types.Address{}
 	address.SetBytes(order.Address)
-	param.Data, _ = proto.Marshal(order)
-	tradeBlockData, _ := ABIDexTrade.PackMethod(MethodNameDexTradeNewOrder, param.Data)
+	if param.Data, err = proto.Marshal(order); err != nil {
+		return []*SendBlock{}, err
+	}
+	if tradeBlockData, err = ABIDexTrade.PackMethod(MethodNameDexTradeNewOrder, param.Data); err != nil {
+		return []*SendBlock{}, err
+	}
 	return []*SendBlock{
 		{
 			block,
@@ -343,7 +349,7 @@ func checkAndLockFundForNewOrder(db vmctxt_interface.VmDatabase, dexFund *DexFun
 		return false, nil
 	}
 	if !order.Side && order.Type == dex.Market {// buy or market order
-		if available.Cmp(big.NewInt(0)) == 0 {
+		if available.Sign() <= 0 {
 			return false, fmt.Errorf("no quote amount available for market sell order")
 		} else {
 			lockAmount = available.Bytes()
@@ -423,8 +429,14 @@ func checkToken(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) error
 }
 
 func checkOrderParam(db vmctxt_interface.VmDatabase, order *dexproto.Order) error {
-	var err error
-	if order.Id <= 0 {
+	var (
+		orderId dex.OrderId
+		err error
+	)
+	if orderId, err = dex.NewOrderId(order.Id); err != nil {
+		return err
+	}
+	if !orderId.IsNormal() {
 		return fmt.Errorf("invalid order id")
 	}
 	if err = checkTokenByProto(db, order.TradeToken); err != nil {

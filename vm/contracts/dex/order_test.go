@@ -1,6 +1,7 @@
 package dex
 
 import (
+	"encoding/binary"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
@@ -8,6 +9,7 @@ import (
 
 func TestSerialize(t *testing.T) {
 	order := Order{}
+	order.Id = orderIdBytesFromInt(100)
 	order.Address = []byte("123")
 	order.Price = "10.0"
 	order.Timestamp = 10000
@@ -17,8 +19,8 @@ func TestSerialize(t *testing.T) {
 	node.payload = &pl
 
 	protocol := &OrderNodeProtocol{}
-	data := protocol.serialize(node)
-	res := protocol.deSerialize(data)
+	data, _ := protocol.serialize(node)
+	res, _ := protocol.deSerialize(data)
 	od := (*res.payload).(Order)
 	assert.Equal(t, od.Address, order.Address)
 	assert.Equal(t, od.Price, order.Price)
@@ -43,7 +45,7 @@ func TestCompare(t *testing.T) {
 }
 
 func newNodeInfo(value int) (nodeKeyType, *nodePayload) {
-	return newNodeInfoWithPriceAndTs(value, strconv.Itoa(value), uint64(value))
+	return newNodeInfoWithPriceAndTs(value, strconv.Itoa(int(value)), uint64(value))
 }
 
 func newNodeInfoWithPrice(value int, price string) (nodeKeyType, *nodePayload) {
@@ -51,15 +53,24 @@ func newNodeInfoWithPrice(value int, price string) (nodeKeyType, *nodePayload) {
 }
 
 func newNodeInfoWithTs(value int, ts uint64) (nodeKeyType, *nodePayload) {
-	return newNodeInfoWithPriceAndTs(value, strconv.Itoa(value), ts)
+	return newNodeInfoWithPriceAndTs(value, strconv.Itoa(int(value)), ts)
 }
 
 func newNodeInfoWithPriceAndTs(value int, price string, ts uint64) (nodeKeyType, *nodePayload) {
 	order := Order{}
-	order.Id = uint64(value)
+	order.Id = orderIdBytesFromInt(value)
 	order.Price = price
 	order.Timestamp = int64(ts)
 	order.Side = false // buy
 	pl := nodePayload(order)
-	return newOrderKey(order.Id), &pl
+	orderId, _ := NewOrderId(order.Id)
+	return orderId, &pl
 }
+
+func orderIdBytesFromInt(v int) []byte {
+	bs := make([]byte, 4)
+	binary.LittleEndian.PutUint32(bs, uint32(v))
+	res := append([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, bs...)
+	return res
+}
+

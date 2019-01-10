@@ -2,7 +2,6 @@ package dex
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
@@ -15,13 +14,14 @@ import (
 
 const maxTxsCountPerTaker = 1000
 const timeoutSecond = 7 * 24 * 3600
+const txIdLength = 20
 
 type matcher struct {
 	contractAddress *types.Address
 	storage         *BaseStorage
 	protocol        *nodePayloadProtocol
-	books           map[string]*skiplist
-	settleActions   map[string]map[string]*proto.SettleAction // address->(token->settleAction)
+	books           map[SkipListId]*skiplist
+	settleActions   map[types.Address]map[types.TokenTypeId]*proto.SettleAction
 }
 
 type OrderTx struct {
@@ -38,27 +38,45 @@ func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *matcher {
 	mc.storage = storage
 	var po nodePayloadProtocol = &OrderNodeProtocol{}
 	mc.protocol = &po
-	mc.books = make(map[string]*skiplist)
-	mc.settleActions = make(map[string]map[string]*proto.SettleAction)
+	mc.books = make(map[SkipListId]*skiplist)
+	mc.settleActions = make(map[types.Address]map[types.TokenTypeId]*proto.SettleAction)
 	return mc
 }
 
-func (mc *matcher) MatchOrder(taker Order) {
+func (mc *matcher) MatchOrder(taker Order) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("matchOrder failed with exception %v", r)
+		}
+	}()
 	var bookToTake *skiplist
-	bookToTake = mc.getBookByName(getBookNameToTake(taker))
-	if err := mc.doMatchTaker(taker, bookToTake); err != nil {
-		fmt.Printf("Failed to match taker for %s", err.Error())
+	if bookToTake, err = mc.getBookById(getBookIdToTake(taker)); err != nil {
+		return err
 	}
+	if err := mc.doMatchTaker(taker, bookToTake); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (mc *matcher) GetSettleActions() map[string]map[string]*proto.SettleAction {
+func (mc *matcher) GetSettleActions() map[types.Address]map[types.TokenTypeId]*proto.SettleAction {
 	return mc.settleActions
 }
 
-func (mc *matcher) GetOrderByIdAndBookName(orderId uint64, makerBookName string) (*Order, error) {
-	book := mc.getBookByName(makerBookName)
-	//fmt.Printf("makerBookName %s, orderId %d\n", makerBookName, orderId)
-	if pl, _, _, err := book.getByKey(orderKey{orderId}); err != nil {
+func (mc *matcher) GetOrderByIdAndBookId(orderIdBytes []byte, makerBookId SkipListId) (*Order, error) {
+	var (
+		book *skiplist
+		err error
+	)
+	if book, err = mc.getBookById(makerBookId); err != nil {
+		return nil, err
+	}
+	//fmt.Printf("makerBookId %s, orderId %d\n", makerBookId, orderId)
+	orderId := OrderId{}
+	if err := orderId.setBytes(orderIdBytes); err != nil {
+		return nil, err
+	}
+	if pl, _, _, err := book.getByKey(orderId); err != nil {
 		return nil, fmt.Errorf("failed get order by orderId")
 	} else {
 		od, _ := (*pl).(Order)
@@ -66,8 +84,11 @@ func (mc *matcher) GetOrderByIdAndBookName(orderId uint64, makerBookName string)
 	}
 }
 
-func (mc *matcher) CancelOrderByIdAndBookName(order *Order, makerBookName string) (err error) {
-	book := mc.getBookByName(makerBookName)
+func (mc *matcher) CancelOrderByIdAndBookId(order *Order, makerBookId SkipListId) (err error) {
+	var book *skiplist
+	if book, err = mc.getBookById(makerBookId); err != nil {
+		return err
+	}
 	switch order.Status {
 	case Pending:
 		order.CancelReason = cancelledByUser
@@ -78,24 +99,34 @@ func (mc *matcher) CancelOrderByIdAndBookName(order *Order, makerBookName string
 	mc.handleRefund(order)
 	mc.emitOrderRes(*order)
 	pl := nodePayload(*order)
-	if err = book.updatePayload(newOrderKey(order.Id), &pl); err != nil {
+	var orderId OrderId
+	if orderId, err = NewOrderId(order.Id); err != nil {
 		return err
 	}
-	return book.delete(newOrderKey(order.Id))
-}
-
-func (mc *matcher) getBookByName(bookName string) *skiplist {
-	if book, ok := mc.books[bookName]; !ok {
-		book = newSkiplist(bookName, mc.contractAddress, mc.storage, mc.protocol)
-		mc.books[bookName] = book
+	if err = book.updatePayload(orderId, &pl); err != nil {
+		return err
 	}
-	return mc.books[bookName]
+	return book.delete(orderId)
 }
 
-func (mc *matcher) doMatchTaker(taker Order, makerBook *skiplist) error {
+func (mc *matcher) getBookById(bookId SkipListId) (*skiplist, error) {
+	var (
+		book *skiplist
+		err error
+		ok bool
+	)
+	if book, ok = mc.books[bookId]; !ok {
+		if book, err = newSkiplist(bookId, mc.contractAddress, mc.storage, mc.protocol); err != nil {
+			return nil, err
+		}
+		mc.books[bookId] = book
+	}
+	return mc.books[bookId], nil
+}
+
+func (mc *matcher) doMatchTaker(taker Order, makerBook *skiplist) (err error) {
 	if makerBook.length == 0 {
-		mc.handleTakerRes(taker)
-		return nil
+		return mc.handleTakerRes(taker)
 	}
 	modifiedMakers := make([]Order, 0, 20)
 	txs := make([]OrderTx, 0, 20)
@@ -105,8 +136,12 @@ func (mc *matcher) doMatchTaker(taker Order, makerBook *skiplist) error {
 		if err := mc.recursiveTakeOrder(&taker, maker, makerBook, &modifiedMakers, &txs, nextOrderId); err != nil {
 			return err
 		} else {
-			mc.handleTakerRes(taker)
-			mc.handleModifiedMakers(modifiedMakers, makerBook)
+			if err = mc.handleTakerRes(taker); err != nil {
+				return err
+			}
+			if err = mc.handleModifiedMakers(modifiedMakers, makerBook); err != nil {
+				return err
+			}
 			mc.emitTxs(txs)
 			return nil
 		}
@@ -137,7 +172,8 @@ func (mc *matcher) recursiveTakeOrder(taker *Order, maker Order, makerBook *skip
 		return nil
 	}
 	// current maker is the last item in the book
-	if makerBook.tail.(orderKey).value == maker.Id {
+	makerId, _ := NewOrderId(maker.Id)
+	if makerBook.tail.equals(makerId) {
 		return nil
 	}
 	var err error
@@ -148,10 +184,12 @@ func (mc *matcher) recursiveTakeOrder(taker *Order, maker Order, makerBook *skip
 	}
 }
 
-func (mc *matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) {
+func (mc *matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) (err error) {
 	for _, maker := range makers {
 		pl := nodePayload(maker)
-		if err := makerBook.updatePayload(newOrderKey(maker.Id), &pl); err != nil {
+		makerId, _ := NewOrderId(maker.Id)
+		if err = makerBook.updatePayload(makerId, &pl); err != nil {
+			return err
 			//fmt.Printf("failed update maker storage for err : %s\n", err.Error())
 		}
 		mc.emitOrderRes(maker)
@@ -159,30 +197,46 @@ func (mc *matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) {
 	size := len(makers)
 	if size > 0 {
 		if makers[size-1].Status == FullyExecuted || makers[size-1].Status == Cancelled {
-			makerBook.truncateHeadTo(newOrderKey(makers[size-1].Id), size)
+			toTruncateId, _ := NewOrderId(makers[size-1].Id)
+			if err = makerBook.truncateHeadTo(toTruncateId, int32(size)); err != nil {
+				return err
+			}
 		} else if size >= 2 {
-			makerBook.truncateHeadTo(newOrderKey(makers[size-2].Id), size-1)
+			toTruncateId, _ := NewOrderId(makers[size-2].Id)
+			if err = makerBook.truncateHeadTo(toTruncateId, int32(size-1)); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
-func (mc *matcher) handleTakerRes(order Order) {
+func (mc *matcher) handleTakerRes(order Order) (err error) {
 	if order.Status == PartialExecuted || order.Status == Pending {
-		mc.saveTakerAsMaker(order)
+		if err = mc.saveTakerAsMaker(order); err != nil {
+			return err
+		}
 	}
 	mc.emitOrderRes(order)
+	return nil
 }
 
-func (mc *matcher) saveTakerAsMaker(maker Order) {
-	bookToMake := mc.getBookByName(getBookNameToMakeForOrder(maker))
+func (mc *matcher) saveTakerAsMaker(maker Order) error {
+	var (
+		bookToMake *skiplist
+		err error
+		)
+	if bookToMake, err = mc.getBookById(getBookIdToMakeForOrder(maker)); err != nil {
+		return err
+	}
 	pl := nodePayload(maker)
-	bookToMake.insert(newOrderKey(maker.Id), &pl)
+	makerId, _ := NewOrderId(maker.Id)
+	return bookToMake.insert(makerId, &pl)
 }
 
 func (mc *matcher) emitOrderRes(orderRes Order) {
 	event := OrderUpdateEvent{orderRes.Order}
 	(*mc.storage).AddLog(newLog(event))
-	//fmt.Printf("order matched res %s : \n", orderRes.String())
 }
 
 func (mc *matcher) emitTxs(txs []OrderTx) {
@@ -244,22 +298,24 @@ func (mc *matcher) handleTxSettleAction(tx OrderTx) {
 
 func (mc *matcher) updateSettleAction(action proto.SettleAction) {
 	var (
-		actionMap map[string]*proto.SettleAction // token -> action
+		actionMap map[types.TokenTypeId]*proto.SettleAction // token -> action
 		ok bool
 		ac *proto.SettleAction
-		address = string(action.Address)
+		address = types.Address{}
 	)
+	address.SetBytes(action.Address)
 	if actionMap, ok = mc.settleActions[address]; !ok {
-		actionMap = make(map[string]*proto.SettleAction)
+		actionMap = make(map[types.TokenTypeId]*proto.SettleAction)
 	}
-	token := string(action.Token)
-	if ac, ok = actionMap[string(token)]; !ok {
-		ac = &proto.SettleAction{Address:[]byte(address), Token:action.Token}
+	token := types.TokenTypeId{}
+	token.SetBytes(action.Token)
+	if ac, ok = actionMap[token]; !ok {
+		ac = &proto.SettleAction{Address:address.Bytes(), Token:action.Token}
 	}
 	ac.IncAvailable = AddBigInt(ac.IncAvailable, action.IncAvailable)
 	ac.ReleaseLocked = AddBigInt(ac.ReleaseLocked, action.ReleaseLocked)
 	ac.DeduceLocked = AddBigInt(ac.DeduceLocked, action.DeduceLocked)
-	actionMap[string(token)] = ac
+	actionMap[token] = ac
 	mc.settleActions[address] = actionMap
 }
 
@@ -307,7 +363,7 @@ func filterTimeout(takerTimestamp int64, maker *Order) bool {
 
 func calculateOrderAndTx(taker *Order, maker *Order) (tx OrderTx) {
 	tx = OrderTx{}
-	tx.Id = getTxId(taker.Id, maker.Id)
+	tx.Id = generateTxId(taker.Id, maker.Id)
 	tx.TakerSide = taker.Side
 	tx.TakerId = taker.Id
 	tx.MakerId = maker.Id
@@ -356,12 +412,12 @@ func isDust(order *Order, quantity []byte) bool {
 	return new(big.Int).SetBytes(CalculateAmount(SubBigInt(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity), order.Price)).Cmp(big.NewInt(1)) < 0
 }
 
-func getMakerById(makerBook *skiplist, orderId nodeKeyType) (od Order, nextId orderKey, err error) {
+func getMakerById(makerBook *skiplist, orderId nodeKeyType) (od Order, nextId OrderId, err error) {
 	if pl, fwk, _, err := makerBook.getByKey(orderId); err != nil {
-		return Order{}, (*makerBook.protocol).getNilKey().(orderKey), err
+		return Order{}, (*makerBook.protocol).getNilKey().(OrderId), err
 	} else {
 		maker := (*pl).(Order)
-		return maker, fwk.(orderKey), nil
+		return maker, fwk.(OrderId), nil
 	}
 }
 
@@ -395,29 +451,34 @@ func calculateQuantity(amount []byte, price string) []byte {
 	return qty.Bytes()
 }
 
-func getBookNameToTake(order Order) string {
-	return fmt.Sprintf("%s|%s|%d", string(order.TradeToken), string(order.QuoteToken), 1-toSideInt(order.Side))
+func getBookIdToTake(order Order) SkipListId {
+	bytes := append(order.TradeToken, order.QuoteToken...)
+	bytes = append(bytes, byte(1 - sideToInt(order.Side)))
+	id := SkipListId{}
+	id.SetBytes(bytes)
+	return id
 }
 
-func getBookNameToMakeForOrder(order Order) string {
-	return GetBookNameToMake(order.TradeToken, order.QuoteToken, order.Side)
+func getBookIdToMakeForOrder(order Order) SkipListId {
+	return GetBookIdToMake(order.TradeToken, order.QuoteToken, order.Side)
 }
 
-func GetBookNameToMake(tradeToken []byte, quoteToken []byte, side bool) string {
-	return fmt.Sprintf("%s|%s|%d", string(tradeToken), string(quoteToken), toSideInt(side))
+func GetBookIdToMake(tradeToken []byte, quoteToken []byte, side bool) SkipListId {
+	bytes := append(tradeToken, quoteToken...)
+	bytes = append(bytes, byte(sideToInt(side)))
+	bookId := SkipListId{}
+	bookId.SetBytes(bytes)
+	return bookId
 }
 
-func toSideInt(side bool) int {
-	sideInt := 0 // buy
+func sideToInt(side bool) int8 {
+	var sideInt int8 = 0 // buy
 	if side {
 		sideInt = 1 // sell
 	}
 	return sideInt
 }
 
-func getTxId(takerId uint64, makerId uint64) uint64 {
-	data := crypto.Hash(8, []byte(fmt.Sprintf("%d-%d", takerId, makerId)))
-	var num uint64
-	binary.Read(bytes.NewBuffer(data[:]), binary.LittleEndian, &num)
-	return num
+func generateTxId(takerId []byte, makerId []byte) []byte {
+	return crypto.Hash(txIdLength, takerId, makerId)
 }
