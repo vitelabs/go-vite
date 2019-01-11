@@ -179,11 +179,11 @@ func (c *Config) makeForkPointsConfig(genesisConfig *config.Genesis) *config.For
 		forkPoints = genesisConfig.ForkPoints
 	}
 
-	if forkPoints.Vite1 == nil {
-		forkPoints.Vite1 = &config.ForkPoint{}
+	if forkPoints.Smart == nil {
+		forkPoints.Smart = &config.ForkPoint{}
 	}
-	if forkPoints.Vite1.Height == 0 {
-		forkPoints.Vite1.Height = 5788912
+	if forkPoints.Smart.Height == 0 {
+		forkPoints.Smart.Height = 5788912
 	}
 
 	return forkPoints
