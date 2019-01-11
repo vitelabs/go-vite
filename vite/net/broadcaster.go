@@ -93,7 +93,7 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 		peer.SendNewSnapshotBlock(block)
 	}
 
-	if block.Timestamp != nil {
+	if block.Timestamp != nil && block.Height > currentHeight {
 		delta := now.Sub(*block.Timestamp)
 		b.mu.Lock()
 		b.statis.Put(delta.Nanoseconds() / 1e6)

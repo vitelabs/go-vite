@@ -276,6 +276,7 @@ func (n *net) heartbeat() {
 			}
 
 			height = current.Height
+			currentHeight = height
 
 			for _, p := range l {
 				p.Send(StatusCode, 0, &ledger.HashHeight{

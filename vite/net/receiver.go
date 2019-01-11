@@ -3,8 +3,11 @@ package net
 import (
 	"encoding/hex"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/seiflotfy/cuckoofilter"
 
 	"github.com/vitelabs/go-vite/p2p/discovery"
 
@@ -19,6 +22,8 @@ import (
 const cacheSBlockTotal = 1000
 const cacheABlockTotal = 10000
 
+var currentHeight uint64
+
 // receive blocks and record them, construct skeleton to filter subsequent fetch
 type receiver struct {
 	ready       int32 // atomic, can report newBlock to pool
@@ -32,6 +37,9 @@ type receiver struct {
 	log         log15.Logger
 	batchSource types.BlockSource // report to pool
 	p2p         p2p.Server
+
+	mu          sync.RWMutex
+	KnownBlocks *cuckoofilter.CuckooFilter
 }
 
 func newReceiver(verifier Verifier, broadcaster Broadcaster, filter Filter, p2p p2p.Server) *receiver {
@@ -46,6 +54,7 @@ func newReceiver(verifier Verifier, broadcaster Broadcaster, filter Filter, p2p 
 		log:         log15.New("module", "net/receiver"),
 		batchSource: types.RemoteSync,
 		p2p:         p2p,
+		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
 	}
 }
 
@@ -129,7 +138,11 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender P
 	defer monitor.LogTime("net/receive", "NewSnapshotBlock_Time", time.Now())
 	monitor.LogEvent("net/receive", "NewSnapshotBlock_Event")
 
-	if s.filter.has(block.Hash) {
+	s.mu.RLock()
+	seen := s.KnownBlocks.Lookup(block.Hash[:])
+	s.mu.RUnlock()
+
+	if seen {
 		s.log.Debug(fmt.Sprintf("has NewSnapshotBlock %s/%d", block.Hash, block.Height))
 		return
 	}
@@ -150,17 +163,16 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender P
 			return
 		}
 
-		// record
-		s.mark(block.Hash)
-
 		s.newSBlocks = append(s.newSBlocks, block)
 		s.log.Debug(fmt.Sprintf("not ready, store NewSnapshotBlock %s/%d, total %d", block.Hash, block.Height, len(s.newSBlocks)))
 	} else {
 		// record
-		s.mark(block.Hash)
-
 		s.sFeed.Notify(block, types.RemoteBroadcast)
 	}
+
+	s.mu.Lock()
+	s.KnownBlocks.InsertUnique(block.Hash[:])
+	s.mu.Unlock()
 
 	return nil
 }
@@ -173,7 +185,11 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Pee
 	defer monitor.LogTime("net/receive", "NewAccountBlock_Time", time.Now())
 	monitor.LogEvent("net/receive", "NewAccountBlock_Event")
 
-	if s.filter.has(block.Hash) {
+	s.mu.RLock()
+	seen := s.KnownBlocks.Lookup(block.Hash[:])
+	s.mu.RUnlock()
+
+	if seen {
 		s.log.Debug(fmt.Sprintf("has NewAccountBlock %s", block.Hash))
 		return
 	}
@@ -192,17 +208,16 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Pee
 		if len(s.newABlocks) >= cacheABlockTotal {
 			return
 		}
-		// record
-		s.mark(block.Hash)
 
 		s.newABlocks = append(s.newABlocks, block)
 		s.log.Warn(fmt.Sprintf("not ready, store NewAccountBlock %s, total %d", block.Hash, len(s.newABlocks)))
 	} else {
-		// record
-		s.mark(block.Hash)
-
 		s.aFeed.Notify(block, types.RemoteBroadcast)
 	}
+
+	s.mu.Lock()
+	s.KnownBlocks.InsertUnique(block.Hash[:])
+	s.mu.Unlock()
 
 	return nil
 }
