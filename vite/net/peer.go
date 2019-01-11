@@ -43,18 +43,21 @@ const peerMsgConcurrency = 10
 
 type peer struct {
 	*p2p.Peer
-	mrw         *p2p.ProtoFrame
-	id          string
-	head        types.Hash // hash of the top snapshotblock in snapshotchain
-	height      uint64     // height of the snapshotchain
-	filePort    uint16     // fileServer port, for request file
-	CmdSet      p2p.CmdSet // which cmdSet it belongs
+	mrw      *p2p.ProtoFrame
+	id       string
+	head     types.Hash // hash of the top snapshotblock in snapshotchain
+	height   uint64     // height of the snapshotchain
+	filePort uint16     // fileServer port, for request file
+	CmdSet   p2p.CmdSet // which cmdSet it belongs
+
+	mu          sync.RWMutex
 	KnownBlocks *cuckoofilter.CuckooFilter
-	log         log15.Logger
-	errChan     chan error
-	term        chan struct{}
-	msgHandled  map[ViteCmd]uint64 // message statistic
-	wg          sync.WaitGroup
+
+	log        log15.Logger
+	errChan    chan error
+	term       chan struct{}
+	msgHandled map[ViteCmd]uint64 // message statistic
+	wg         sync.WaitGroup
 }
 
 func (p *peer) Height() uint64 {
@@ -149,7 +152,9 @@ func (p *peer) SetHead(head types.Hash, height uint64) {
 }
 
 func (p *peer) SeeBlock(hash types.Hash) {
+	p.mu.Lock()
 	p.KnownBlocks.InsertUnique(hash[:])
+	p.mu.Unlock()
 }
 
 // send
@@ -426,12 +431,14 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*peer) {
 	peers = make([]*peer, len(m.peers))
 
 	i := 0
-	for _, peer := range m.peers {
-		if !peer.KnownBlocks.Lookup(hash[:]) {
-			peers[i] = peer
+	for _, p := range m.peers {
+		p.mu.RLock()
+		seen := p.KnownBlocks.Lookup(hash[:])
+		p.mu.RUnlock()
+
+		if !seen {
+			peers[i] = p
 			i++
-		} else {
-			peer.log.Debug(fmt.Sprintf("peer %s has seen block %s", peer.RemoteAddr(), hash))
 		}
 	}
 
