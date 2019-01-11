@@ -19,8 +19,9 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-var fReadTimeout = 20 * time.Second
-var fWriteTimeout = 20 * time.Second
+const fReadTimeout = 20 * time.Second
+const fWriteTimeout = 20 * time.Second
+const fileTimeout = 5 * time.Minute
 
 type fileServer struct {
 	port   uint16
@@ -105,7 +106,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 		case <-s.term:
 			return
 		default:
-			//conn.SetReadDeadline(time.Now().Add(fReadTimeout))
+			conn.SetReadDeadline(time.Now().Add(fReadTimeout))
 			msg, err := p2p.ReadMsg(conn)
 			if err != nil {
 				s.log.Warn(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
@@ -129,6 +130,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 			// send files
 			var n int64
 			for _, filename := range req.Names {
+				conn.SetWriteDeadline(time.Now().Add(fileTimeout))
 				n, err = io.Copy(conn, s.chain.Compressor().FileReader(filename))
 
 				if err != nil {
@@ -170,9 +172,9 @@ type fileClient struct {
 
 	rec blockReceiver
 
-	dialer *net2.Dialer
+	peers *peerSet
 
-	pool cPool
+	dialer *net2.Dialer
 
 	running int32
 	term    chan struct{}
@@ -182,20 +184,15 @@ type fileClient struct {
 	to uint64
 }
 
-type cPool interface {
-	add(from, to uint64)
-	start()
-}
-
-func newFileClient(chain Chain, pool cPool, rec blockReceiver) *fileClient {
+func newFileClient(chain Chain, rec blockReceiver, peers *peerSet) *fileClient {
 	return &fileClient{
 		idleChan:  make(chan *conn, 1),
 		delChan:   make(chan *conn, 1),
 		filesChan: make(chan *filesEvent, 10),
 		chain:     chain,
+		peers:     peers,
 		log:       log15.New("module", "net/fileClient"),
 		dialer:    &net2.Dialer{Timeout: 3 * time.Second},
-		pool:      pool,
 		rec:       rec,
 	}
 }
@@ -307,23 +304,31 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 					r.state = reqError
 					fc.removePeer(conns, record, pFiles, p)
 				} else {
+					// download
 					return
 				}
 			}
 		}
 
-		// todo fix
 		// no peers
 		//r.state = reqDone
 		//fc.pool.add(file.StartHeight, file.EndHeight)
-		return
+		//return
 	}
 }
+
+var errDisconnectedPeer = errors.New("peer has disconnected, can`t download file")
 
 func (fc *fileClient) doRequest(conns map[string]*conn, file *ledger.CompressedFileMeta, sender Peer) error {
 	id := sender.ID()
 
-	if _, ok := conns[id]; !ok {
+	if !fc.peers.Has(id) {
+		return errDisconnectedPeer
+	}
+
+	var c *conn
+	var ok bool
+	if c, ok = conns[id]; !ok {
 		tcp, err := fc.dialer.Dial("tcp", sender.FileAddress().String())
 		if err != nil {
 			return err
@@ -335,20 +340,22 @@ func (fc *fileClient) doRequest(conns map[string]*conn, file *ledger.CompressedF
 			idle:  true,
 			idleT: time.Now(),
 		}
+
+		c = conns[id]
 	}
 
-	conns[id].file = file
+	c.file = file
 
 	// exec
 	common.Go(func() {
-		fc.exec(conns[id])
+		fc.exec(c)
 	})
 
 	return nil
 }
 
 func (fc *fileClient) nextFile(fileList files, record map[string]*fileState) (file *ledger.CompressedFileMeta) {
-	for _, file := range fileList {
+	for _, file = range fileList {
 		if r, ok := record[file.Filename]; ok {
 			if r.state == reqWaiting || r.state == reqError {
 				return file
@@ -414,7 +421,7 @@ loop:
 			sort.Sort(fileList)
 
 			if jobTicker == nil {
-				t := time.NewTicker(5 * time.Second)
+				t := time.NewTicker(time.Second)
 				jobTicker = t.C
 				defer t.Stop()
 				fc.usePeer(conns, record, pFiles, e.sender)
@@ -533,7 +540,7 @@ func (fc *fileClient) exec(ctx *conn) {
 	fc.log.Info(fmt.Sprintf("send %s to %s done", getFiles, ctx.RemoteAddr()))
 
 	if err = fc.receiveFile(ctx); err != nil {
-		fc.log.Error(fmt.Sprintf("receive file from %s error: %v", ctx.RemoteAddr(), err))
+		fc.log.Error(fmt.Sprintf("receive file %s from %s error: %v", ctx.file.Filename, ctx.RemoteAddr(), err))
 		fc.delete(ctx)
 	} else {
 		ctx.done = true
@@ -544,7 +551,9 @@ func (fc *fileClient) exec(ctx *conn) {
 var errFlieClientStopped = errors.New("fileClient stopped")
 
 func (fc *fileClient) receiveFile(ctx *conn) error {
-	t1 := time.Now()
+	ctx.SetReadDeadline(time.Now().Add(fileTimeout))
+	defer ctx.SetReadDeadline(time.Time{})
+
 	select {
 	case <-fc.term:
 		return errFlieClientStopped
@@ -554,16 +563,13 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 
 		file := ctx.file
 
-		var t2 time.Time
-		once := sync.Once{}
+		var fileError error
 
 		fc.chain.Compressor().BlockParser(ctx, file.BlockNumbers, func(block ledger.Block, err error) {
-			if err != nil {
+			if err != nil || fileError != nil {
+				ctx.Close()
 				return
 			}
-			once.Do(func() {
-				t2 = time.Now()
-			})
 
 			switch block.(type) {
 			case *ledger.SnapshotBlock:
@@ -573,7 +579,7 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 				}
 
 				sCount++
-				fc.rec.receiveSnapshotBlock(block)
+				fileError = fc.rec.receiveSnapshotBlock(block, ctx.peer)
 				ctx.height = block.Height
 
 			case *ledger.AccountBlock:
@@ -583,17 +589,20 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 				}
 
 				aCount++
-				fc.rec.receiveAccountBlock(block)
+				fileError = fc.rec.receiveAccountBlock(block, ctx.peer)
 			}
 		})
+
+		if fileError != nil {
+			return fileError
+		}
 
 		sTotal := file.EndHeight - file.StartHeight + 1
 		if sCount < sTotal {
 			return fmt.Errorf("incomplete file %s %d/%d", file.Filename, sCount, sTotal)
 		}
 
-		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s, diff1:%s, diff2:%s, diff3:%s",
-			sCount, aCount, file.Filename, ctx.RemoteAddr(), time.Now().Sub(t1), t2.Sub(t1), time.Now().Sub(t2)))
+		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s", sCount, aCount, file.Filename, ctx.RemoteAddr()))
 		return nil
 	}
 }

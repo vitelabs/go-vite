@@ -44,7 +44,9 @@ func (c *chain) GetAccount(address *types.Address) (*ledger.Account, error) {
 }
 
 func (c *chain) newAccountId() (uint64, error) {
+
 	lastAccountId, err := c.chainDb.Account.GetLastAccountId()
+
 	if err != nil {
 		return 0, err
 	}

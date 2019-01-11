@@ -3,11 +3,9 @@
 
 package vitepb
 
-import (
-	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	math "math"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -34,17 +32,16 @@ func (m *AccountBlockMeta) Reset()         { *m = AccountBlockMeta{} }
 func (m *AccountBlockMeta) String() string { return proto.CompactTextString(m) }
 func (*AccountBlockMeta) ProtoMessage()    {}
 func (*AccountBlockMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_d1ba65aec86c1ab8, []int{0}
+	return fileDescriptor_account_blockmeta_be847fad351f21f0, []int{0}
 }
-
 func (m *AccountBlockMeta) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccountBlockMeta.Unmarshal(m, b)
 }
 func (m *AccountBlockMeta) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AccountBlockMeta.Marshal(b, m, deterministic)
 }
-func (m *AccountBlockMeta) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AccountBlockMeta.Merge(m, src)
+func (dst *AccountBlockMeta) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccountBlockMeta.Merge(dst, src)
 }
 func (m *AccountBlockMeta) XXX_Size() int {
 	return xxx_messageInfo_AccountBlockMeta.Size(m)
@@ -87,9 +84,11 @@ func init() {
 	proto.RegisterType((*AccountBlockMeta)(nil), "vitepb.AccountBlockMeta")
 }
 
-func init() { proto.RegisterFile("vitepb/account_blockmeta.proto", fileDescriptor_d1ba65aec86c1ab8) }
+func init() {
+	proto.RegisterFile("vitepb/account_blockmeta.proto", fileDescriptor_account_blockmeta_be847fad351f21f0)
+}
 
-var fileDescriptor_d1ba65aec86c1ab8 = []byte{
+var fileDescriptor_account_blockmeta_be847fad351f21f0 = []byte{
 	// 162 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x2b, 0xcb, 0x2c, 0x49,
 	0x2d, 0x48, 0xd2, 0x4f, 0x4c, 0x4e, 0xce, 0x2f, 0xcd, 0x2b, 0x89, 0x4f, 0xca, 0xc9, 0x4f, 0xce,

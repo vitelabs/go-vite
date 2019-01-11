@@ -11,8 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-var keySize = 1 + types.AddressSize + types.HashSize
-
 type OnroadSet struct {
 	chain chain.Chain
 }
@@ -160,82 +158,4 @@ func (ucf *OnroadSet) GetContractAddrList(gid *types.Gid) ([]types.Address, erro
 		return nil, nil
 	}
 	return AddrListDbDeserialize(data)
-}
-
-func (ucf *OnroadSet) IncreaseReceiveErrCount(batch *leveldb.Batch, hash *types.Hash, addr *types.Address) error {
-	key, err := database.EncodeKey(database.DBKP_ONROADRECEIVEERR, hash.Bytes(), addr.Bytes())
-	if err != nil {
-		return err
-	}
-	count, err := ucf.GetReceiveErrCount(hash, addr)
-	if err != nil {
-		return err
-	}
-	count++
-	if batch != nil {
-		batch.Put(key, []byte{count})
-		return nil
-	} else {
-		return ucf.db().Put(key, []byte{count}, nil)
-	}
-}
-
-func (ucf *OnroadSet) DecreaseReceiveErrCount(batch *leveldb.Batch, hash *types.Hash, addr *types.Address) error {
-	key, err := database.EncodeKey(database.DBKP_ONROADRECEIVEERR, hash.Bytes(), addr.Bytes())
-	if err != nil {
-		return err
-	}
-	count, err := ucf.GetReceiveErrCount(hash, addr)
-	if err != nil {
-		return err
-	}
-	count--
-	if batch != nil {
-		if count > 0 {
-			batch.Put(key, []byte{count})
-		} else {
-			batch.Delete(key)
-		}
-		return nil
-	} else {
-		if count > 0 {
-			return ucf.db().Put(key, []byte{count}, nil)
-		} else {
-			return ucf.db().Delete(key, nil)
-		}
-	}
-}
-func (ucf *OnroadSet) DeleteReceiveErrCount(batch *leveldb.Batch, hash *types.Hash, addr *types.Address) error {
-	key, err := database.EncodeKey(database.DBKP_ONROADRECEIVEERR, hash.Bytes(), addr.Bytes())
-	if err != nil {
-		return err
-	}
-	if _, err := ucf.db().Get(key, nil); err != nil {
-		if err != leveldb.ErrNotFound {
-			return err
-		}
-		return nil
-	}
-	if batch != nil {
-		batch.Delete(key)
-	} else {
-		return ucf.db().Delete(key, nil)
-	}
-	return nil
-}
-
-func (ucf *OnroadSet) GetReceiveErrCount(hash *types.Hash, addr *types.Address) (uint8, error) {
-	key, err := database.EncodeKey(database.DBKP_ONROADRECEIVEERR, hash.Bytes(), addr.Bytes())
-	if err != nil {
-		return 0, err
-	}
-
-	data, err := ucf.db().Get(key, nil)
-	if err != nil {
-		if err != leveldb.ErrNotFound {
-			return 0, err
-		}
-		return 0, nil
-	}
-	return uint8(data[0]), nil
 }

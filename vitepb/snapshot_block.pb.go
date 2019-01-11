@@ -3,11 +3,9 @@
 
 package vitepb
 
-import (
-	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	math "math"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -38,17 +36,16 @@ func (m *SnapshotBlock) Reset()         { *m = SnapshotBlock{} }
 func (m *SnapshotBlock) String() string { return proto.CompactTextString(m) }
 func (*SnapshotBlock) ProtoMessage()    {}
 func (*SnapshotBlock) Descriptor() ([]byte, []int) {
-	return fileDescriptor_14ed8e66c18c4fa1, []int{0}
+	return fileDescriptor_snapshot_block_024588220786d108, []int{0}
 }
-
 func (m *SnapshotBlock) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SnapshotBlock.Unmarshal(m, b)
 }
 func (m *SnapshotBlock) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SnapshotBlock.Marshal(b, m, deterministic)
 }
-func (m *SnapshotBlock) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SnapshotBlock.Merge(m, src)
+func (dst *SnapshotBlock) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SnapshotBlock.Merge(dst, src)
 }
 func (m *SnapshotBlock) XXX_Size() int {
 	return xxx_messageInfo_SnapshotBlock.Size(m)
@@ -119,9 +116,11 @@ func init() {
 	proto.RegisterType((*SnapshotBlock)(nil), "vitepb.SnapshotBlock")
 }
 
-func init() { proto.RegisterFile("vitepb/snapshot_block.proto", fileDescriptor_14ed8e66c18c4fa1) }
+func init() {
+	proto.RegisterFile("vitepb/snapshot_block.proto", fileDescriptor_snapshot_block_024588220786d108)
+}
 
-var fileDescriptor_14ed8e66c18c4fa1 = []byte{
+var fileDescriptor_snapshot_block_024588220786d108 = []byte{
 	// 231 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x90, 0xc1, 0x4a, 0x03, 0x31,
 	0x10, 0x86, 0x49, 0xbb, 0xae, 0x35, 0x2a, 0x42, 0x0e, 0x1a, 0xaa, 0x42, 0xf0, 0x94, 0xd3, 0x0a,

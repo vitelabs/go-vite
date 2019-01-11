@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/helper"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
+	"math/big"
 	"strings"
 )
 
@@ -17,6 +19,8 @@ const (
 )
 
 type TokenTypeId [TokenTypeIdSize]byte
+
+var ZERO_TOKENID = TokenTypeId{}
 
 func (tid *TokenTypeId) SetBytes(b []byte) error {
 	if length := len(b); length != TokenTypeIdSize {
@@ -39,6 +43,10 @@ func BytesToTokenTypeId(b []byte) (TokenTypeId, error) {
 	var tid TokenTypeId
 	err := tid.SetBytes(b)
 	return tid, err
+}
+
+func BigToTokenTypeId(b *big.Int) (TokenTypeId, error) {
+	return BytesToTokenTypeId(helper.LeftPadBytes(b.Bytes(), TokenTypeIdSize))
 }
 
 func HexToTokenTypeId(hexStr string) (TokenTypeId, error) {

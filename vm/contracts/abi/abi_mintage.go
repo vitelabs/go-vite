@@ -35,6 +35,7 @@ type ParamMintage struct {
 	Decimals    uint8
 }
 
+// TODO no left pad
 func GetMintageKey(tokenId types.TokenTypeId) []byte {
 	return helper.LeftPadBytes(tokenId.Bytes(), types.HashSize)
 }

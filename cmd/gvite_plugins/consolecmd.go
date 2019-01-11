@@ -65,14 +65,19 @@ This command allows to open a console on a running gvite node.`,
 func localConsoleAction(ctx *cli.Context) error {
 
 	// Create and start the node based on the CLI flags
-	nodeManager := nodemanager.NewConsoleNodeManager(ctx, nodemanager.FullNodeMaker{})
+	nodeManager, err := nodemanager.NewConsoleNodeManager(ctx, nodemanager.FullNodeMaker{})
+	if err != nil {
+		log.Error(fmt.Sprintf("new Node error, %+v", err))
+		return err
+	}
 	nodeManager.Start()
 	defer nodeManager.Stop()
 
 	// Attach to the newly started node and start the JavaScript console
 	client, err := nodeManager.Node().Attach()
 	if client == nil || err != nil {
-		log.Error(fmt.Sprintf("Failed to attach to the inproc geth: %v", err))
+		log.Error(fmt.Sprintf("Failed to attach to the inproc gvite: %v", err))
+		return err
 	}
 
 	config := console.Config{
@@ -85,6 +90,7 @@ func localConsoleAction(ctx *cli.Context) error {
 	console, err := console.New(config)
 	if err != nil {
 		log.Error(fmt.Sprintf("Failed to start the JavaScript console: %v", err))
+		return err
 	}
 	defer console.Stop(false)
 
@@ -101,20 +107,23 @@ func localConsoleAction(ctx *cli.Context) error {
 	return nil
 }
 
-// ephemeralConsole starts a new geth node, attaches an ephemeral JavaScript
+// ephemeralConsole starts a new gvite node, attaches an ephemeral JavaScript
 // console to it, executes each of the files specified as arguments and tears
 // everything down.
 func ephemeralConsoleAction(ctx *cli.Context) error {
 
 	// Create and start the node based on the CLI flags
-	nodeManager := nodemanager.NewConsoleNodeManager(ctx, nodemanager.FullNodeMaker{})
+	nodeManager, err := nodemanager.NewConsoleNodeManager(ctx, nodemanager.FullNodeMaker{})
+	if err != nil {
+		return err
+	}
 	nodeManager.Start()
 	defer nodeManager.Stop()
 
 	// Attach to the newly started node and start the JavaScript console
 	client, err := nodeManager.Node().Attach()
 	if err != nil {
-		log.Error(fmt.Sprintf("Failed to attach to the inproc geth: %v", err))
+		log.Error(fmt.Sprintf("Failed to attach to the inproc gvite: %v", err))
 	}
 
 	config := console.Config{
@@ -149,10 +158,10 @@ func ephemeralConsoleAction(ctx *cli.Context) error {
 	return nil
 }
 
-// remoteConsole will connect to a remote geth instance, attaching a JavaScript console to it.
+// remoteConsole will connect to a remote gvite instance, attaching a JavaScript console to it.
 func remoteConsoleAction(ctx *cli.Context) error {
 
-	// Attach to a remotely running geth instance and start the JavaScript console
+	// Attach to a remotely running gvite instance and start the JavaScript console
 	//gvite attach ipc:/some/custom/path
 	//gvite attach http://191.168.1.1:8545
 	//gvite attach ws://191.168.1.1:8546
@@ -163,7 +172,8 @@ func remoteConsoleAction(ctx *cli.Context) error {
 	}
 	client, err := dialRPC(dataDir, attachEndpoint)
 	if err != nil {
-		log.Error(fmt.Sprintf("Unable to attach to remote geth: %v", err))
+		log.Error(fmt.Sprintf("Unable to attach to remote gvite: %v", err))
+		return err
 	}
 	config := console.Config{
 		DataDir: dataDir,

@@ -10,7 +10,7 @@ var (
 )
 
 const (
-	quotaForCreateContract uint64 = 800000 // Quota limit for create contract.
+	quotaForCreateContract uint64 = 1000000 // Quota limit for create contract.
 	quotaForSection        uint64 = 21000
 
 	maxQuotaHeightGap uint64 = 3600 * 24 // Maximum Snapshot block height gap to gain quota by pledge.

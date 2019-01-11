@@ -2,6 +2,7 @@ package net
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -101,10 +102,16 @@ type syncer struct {
 	receiver   Receiver
 	fc         *fileClient
 	pool       *chunkPool
-	chunked    int32
-	running    int32
-	term       chan struct{}
-	log        log15.Logger
+
+	cmu       sync.Mutex
+	fileEnd   uint64
+	chunkFrom uint64
+	chunkTo   uint64
+	chunked   int32
+
+	running int32
+	term    chan struct{}
+	log     log15.Logger
 }
 
 func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syncer {
@@ -124,7 +131,7 @@ func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syn
 	peers.Sub(s.pEvent)
 
 	pool := newChunkPool(peers, gid, s)
-	fc := newFileClient(chain, pool, s)
+	fc := newFileClient(chain, s, peers)
 	fc.subAllFileDownloaded(s.createChunkTasks)
 
 	s.pool = pool
@@ -218,9 +225,6 @@ wait:
 	checkChainTicker := time.NewTicker(chainGrowInterval)
 	defer checkChainTicker.Stop()
 
-	var speed uint64 = 100
-	prevHeight := current.Height
-
 	for {
 		select {
 		case e := <-s.pEvent:
@@ -267,16 +271,8 @@ wait:
 				return
 			}
 
-			speed = speed/2 + (current.Height-prevHeight)/2
-			if speed == 0 {
-				speed = 100
-			} else if speed > 200 {
-				speed = 200
-			}
-
-			// todo fix
-			s.fc.threshold(current.Height + 80*speed)
-			s.pool.threshold(current.Height + 80*speed)
+			s.fc.threshold(current.Height + 3600)
+			s.pool.threshold(current.Height + 3600)
 			s.log.Debug(fmt.Sprintf("current height: %d", current.Height))
 
 		case <-s.term:
@@ -365,9 +361,25 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 
 		if len(res.Files) > 0 {
 			s.fc.gotFiles(res.Files, sender)
-		} else if sender.Height() >= s.to && atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
-			for _, c := range res.Chunks {
-				s.pool.add(c[0], c[1])
+		} else if sender.Height() >= s.to {
+			if atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
+				for _, c := range res.Chunks {
+					s.pool.add(c[0], c[1], false)
+					s.cmu.Lock()
+					s.chunkFrom = c[0]
+					s.chunkTo = c[1]
+					s.cmu.Unlock()
+				}
+			} else {
+				for _, c := range res.Chunks {
+					var from, to uint64
+					s.cmu.Lock()
+					if c[1] > s.chunkTo {
+						from, to = s.chunkTo+1, c[1]
+						s.pool.add(from, to, false)
+					}
+					s.cmu.Unlock()
+				}
 			}
 		}
 	} else {
@@ -386,7 +398,7 @@ func (s *syncer) createChunkTasks(fileEnd uint64) {
 		return
 	}
 
-	s.pool.add(fileEnd+1, s.to)
+	s.pool.add(fileEnd+1, s.to, false)
 }
 
 func (s *syncer) catch(c piece) {
@@ -417,7 +429,7 @@ func (s *syncer) catch(c piece) {
 		return
 	}
 
-	s.pool.add(from, s.to)
+	s.pool.add(from, s.to, true)
 	s.log.Warn(fmt.Sprintf("retry sync from %d to %d", from, s.to))
 }
 
@@ -434,19 +446,18 @@ func (s *syncer) UnsubscribeSyncStatus(subId int) {
 	s.feed.Unsub(subId)
 }
 
-//func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
-//	return block.Height - s.from
-//}
-
-func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) {
-	s.log.Debug(fmt.Sprintf("syncer: receive SnapshotBlock %s/%d", block.Hash, block.Height))
-	s.receiver.ReceiveSnapshotBlock(block)
+func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error) {
+	err = s.receiver.ReceiveSnapshotBlock(block, sender)
+	if err != nil {
+		return
+	}
 	s.inc()
+
+	return nil
 }
 
-func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) {
-	s.log.Debug(fmt.Sprintf("syncer: receive AccountBlock %s/%d", block.Hash, block.Height))
-	s.receiver.ReceiveAccountBlock(block)
+func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock, sender Peer) (err error) {
+	return s.receiver.ReceiveAccountBlock(block, sender)
 }
 
 type SyncStatus struct {

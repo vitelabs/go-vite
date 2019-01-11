@@ -5,22 +5,25 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
+	"time"
+
+	"github.com/vitelabs/go-vite/p2p/network"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/discovery/protos"
-	"net"
-	"strconv"
-	"time"
 )
 
 const version byte = 2
 
-var expiration = 6 * time.Second
+var expiration = 10 * time.Second
 
 func getExpiration() time.Time {
-	return time.Now().Add(expiration)
+	return time.Now().Add(2 * expiration)
 }
 
 func isExpired(t time.Time) bool {
@@ -58,18 +61,9 @@ func (c packetCode) String() string {
 // consider varint encoding of protobuf, 1 byte origin data maybe take up 2 bytes space after encode.
 // so the payload should small than 1200 bytes.
 const maxPacketLength = 1200 // should small than MTU
-const maxNeighborsNodes = 10
 
 var errUnmatchedHash = errors.New("validate discovery packet error: invalid hash")
 var errInvalidSig = errors.New("validate discovery packet error: invalid signature")
-
-type packet struct {
-	fromID NodeID
-	from   *net.UDPAddr
-	code   packetCode
-	hash   types.Hash
-	msg    Message
-}
 
 type Message interface {
 	serialize() ([]byte, error)
@@ -80,13 +74,12 @@ type Message interface {
 	String() string
 }
 
-// message Ping
 type Ping struct {
 	ID         NodeID
-	IP         net.IP
-	UDP        uint16
 	TCP        uint16
 	Expiration time.Time
+	Net        network.ID
+	Ext        []byte
 }
 
 func (p *Ping) sender() NodeID {
@@ -98,6 +91,8 @@ func (p *Ping) serialize() ([]byte, error) {
 		ID:         p.ID[:],
 		TCP:        uint32(p.TCP),
 		Expiration: p.Expiration.Unix(),
+		Net:        uint32(p.Net),
+		Ext:        p.Ext,
 	}
 	return proto.Marshal(pb)
 }
@@ -117,6 +112,8 @@ func (p *Ping) deserialize(buf []byte) error {
 	p.ID = id
 	p.TCP = uint16(pb.TCP)
 	p.Expiration = time.Unix(pb.Expiration, 0)
+	p.Net = network.ID(pb.Net)
+	p.Ext = pb.Ext
 
 	return nil
 }
@@ -139,7 +136,6 @@ func (p *Ping) String() string {
 	return "ping"
 }
 
-// message Pong
 type Pong struct {
 	ID         NodeID
 	Ping       types.Hash
@@ -200,11 +196,11 @@ func (p *Pong) String() string {
 	return "pong<" + p.Ping.String() + ">"
 }
 
-// @message findnode
 type FindNode struct {
 	ID         NodeID
 	Target     NodeID
 	Expiration time.Time
+	N          uint32
 }
 
 func (f *FindNode) sender() NodeID {
@@ -216,6 +212,7 @@ func (f *FindNode) serialize() ([]byte, error) {
 		ID:         f.ID[:],
 		Target:     f.Target[:],
 		Expiration: f.Expiration.Unix(),
+		N:          f.N,
 	}
 	return proto.Marshal(pb)
 }
@@ -240,6 +237,7 @@ func (f *FindNode) deserialize(buf []byte) error {
 	f.ID = id
 	f.Target = target
 	f.Expiration = time.Unix(pb.Expiration, 0)
+	f.N = pb.N
 
 	return nil
 }
@@ -263,7 +261,6 @@ func (f *FindNode) String() string {
 	return "findnode<" + f.Target.String() + ">"
 }
 
-// @message neighbors
 type Neighbors struct {
 	ID         NodeID
 	Nodes      []*Node

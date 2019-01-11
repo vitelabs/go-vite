@@ -2,17 +2,17 @@ package net
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/p2p/list"
 	"github.com/vitelabs/go-vite/vite/net/message"
 	"github.com/vitelabs/go-vite/vite/net/topo"
-	"sync"
-	"time"
 )
 
 var netLog = log15.New("module", "vite/net")
@@ -25,10 +25,10 @@ type Config struct {
 	Verifier Verifier
 
 	// for topo
-	Topology     []string
-	Topic        string
-	Interval     int64 // second
-	TopoDisabled bool
+	Topology   []string
+	Topic      string
+	Interval   int64 // second
+	TopoEnable bool
 }
 
 const DefaultPort uint16 = 8484
@@ -43,12 +43,13 @@ type net struct {
 	*filter
 	term      chan struct{}
 	log       log15.Logger
-	protocols []*p2p.Protocol // mount to p2p.Server
+	protocols []*p2p.Protocol // mount to p2p.server
 	wg        sync.WaitGroup
 	fs        *fileServer
 	handlers  map[ViteCmd]MsgHandler
 	topo      *topo.Topology
 	query     *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
+	plugins   []p2p.Plugin
 }
 
 // auto from
@@ -67,7 +68,7 @@ func New(cfg *Config) Net {
 
 	broadcaster := newBroadcaster(peers)
 	filter := newFilter()
-	receiver := newReceiver(cfg.Verifier, broadcaster, filter)
+	receiver := newReceiver(cfg.Verifier, broadcaster, filter, nil)
 	syncer := newSyncer(cfg.Chain, peers, g, receiver)
 	fetcher := newFetcher(filter, peers, g)
 
@@ -104,7 +105,7 @@ func New(cfg *Config) Net {
 	})
 
 	// topo
-	if !cfg.TopoDisabled {
+	if cfg.TopoEnable {
 		n.topo = topo.New(&topo.Config{
 			Addrs:    cfg.Topology,
 			Interval: cfg.Interval,
@@ -120,14 +121,29 @@ func (n *net) Protocols() []*p2p.Protocol {
 	return n.protocols
 }
 
+func (n *net) AddPlugin(plugin p2p.Plugin) {
+	n.plugins = append(n.plugins, plugin)
+}
+
+func (n *net) startPlugins(svr p2p.Server) (err error) {
+	for _, plugin := range n.plugins {
+		if err = plugin.Start(svr); err != nil {
+			return
+		}
+	}
+	return nil
+}
+
 func (n *net) addHandler(handler MsgHandler) {
 	for _, cmd := range handler.Cmds() {
 		n.handlers[cmd] = handler
 	}
 }
 
-func (n *net) Start(svr *p2p.Server) (err error) {
+func (n *net) Start(svr p2p.Server) (err error) {
 	n.term = make(chan struct{})
+
+	n.receiver.p2p = svr
 
 	if err = n.fs.start(); err != nil {
 		return
@@ -137,6 +153,10 @@ func (n *net) Start(svr *p2p.Server) (err error) {
 		if err = n.topo.Start(svr); err != nil {
 			return
 		}
+	}
+
+	if err = n.startPlugins(svr); err != nil {
+		return
 	}
 
 	n.wg.Add(1)
@@ -175,7 +195,7 @@ func (n *net) Stop() {
 	}
 }
 
-// will be called by p2p.Server, run as goroutine
+// will be called by p2p.server, run as goroutine
 func (n *net) handlePeer(p *peer) error {
 	current := n.Chain.GetLatestSnapshotBlock()
 	genesis := n.Chain.GetGenesisSnapshotBlock()
@@ -256,6 +276,7 @@ func (n *net) heartbeat() {
 			}
 
 			height = current.Height
+			currentHeight = height
 
 			for _, p := range l {
 				p.Send(StatusCode, 0, &ledger.HashHeight{
@@ -319,7 +340,9 @@ func (n *net) Info() *NodeInfo {
 	// }
 
 	return &NodeInfo{
-		Peers: peersInfo,
+		PeerCount: len(peersInfo),
+		Peers:     peersInfo,
+		Latency:   n.broadcaster.Statistic(),
 		// MsgSend:      send,
 		// MsgReceived:  received,
 		// MsgHandled:   handled,
@@ -328,14 +351,15 @@ func (n *net) Info() *NodeInfo {
 }
 
 type NodeInfo struct {
-	Peers []*PeerInfo `json:"peers"`
+	PeerCount int         `json:"peerCount"`
+	Peers     []*PeerInfo `json:"peers"`
+	Latency   []int64     `json:"latency"` // [0,1,12,24]
 	// MsgSend      uint64      `json:"msgSend"`
 	// MsgReceived  uint64      `json:"msgReceived"`
 	// MsgHandled   uint64      `json:"msgHandled"`
 	// MsgDiscarded uint64      `json:"msgDiscarded"`
 }
 
-// for debug
 type Task struct {
 	Msg    string `json:"Msg"`
 	Sender string `json:"Sender"`
@@ -348,13 +372,14 @@ func (n *net) Tasks() (ts []*Task) {
 	ts = make([]*Task, n.query.queue.Size())
 	i := 0
 
-	n.query.queue.Traverse(func(prev, current *list.Element) {
-		t := current.Value.(*queryTask)
+	n.query.queue.Traverse(func(value interface{}) bool {
+		t := value.(*queryTask)
 		ts[i] = &Task{
 			Msg:    ViteCmd(t.Msg.Cmd).String(),
 			Sender: t.Sender.RemoteAddr().String(),
 		}
 		i++
+		return true
 	})
 
 	return

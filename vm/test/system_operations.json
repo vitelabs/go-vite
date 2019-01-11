@@ -1,0 +1,69 @@
+{
+  "return0": {
+    "amount": "17",
+    "code": "603760005360005160005560016000f3",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "aa",
+    "quotaLeft": 79973,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "returnData": "37",
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "17",
+      "0000000000000000000000000000000000000000000000000000000000000000": "3700000000000000000000000000000000000000000000000000000000000000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "return1": {
+    "amount": "17",
+    "code": "603760005360005160005560026000f3",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "aa",
+    "quotaLeft": 79973,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "returnData": "3700",
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "17",
+      "0000000000000000000000000000000000000000000000000000000000000000": "3700000000000000000000000000000000000000000000000000000000000000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "TestNameRegistrator": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6000355415600957005b60203560003555",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa",
+    "quotaLeft": 79765,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "return2": {
+    "amount": "17",
+    "code": "603760005360005160005560216000f3",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "aa",
+    "quotaLeft": 79970,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "returnData": "370000000000000000000000000000000000000000000000000000000000000000",
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "17",
+      "0000000000000000000000000000000000000000000000000000000000000000": "3700000000000000000000000000000000000000000000000000000000000000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  }
+}

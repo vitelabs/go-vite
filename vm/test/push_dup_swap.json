@@ -1,0 +1,1165 @@
+{
+  "dup3": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60036002600182600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79985,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "03"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push13": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6c33445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "33445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push6": {
+    "amount": "0de0b6b3a7640000",
+    "code": "65aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap4": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600460036002600160039355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79982,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000004": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup13": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600d600c600b600a6009600860076006600560046003600260018c600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79955,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "0d"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push29": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7c33445566778899aabbccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "33445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap2error": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7f10112233445566778899aabbccddeeff00112233445566778899aabbccddeeff60039155",
+    "err": "stack underflow (2 <=> 3)",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap8": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6008600760066005600460036002600160039755",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79970,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "0000000000000000000000000000000000000000000000000000000000000008": "01",
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push33": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60656107d26204a0c763026921f4640bc5588eb165372d0f1dca6e661ba1d901961c71670c55f7bc23038e3868056bc75e2d630fffff69021e19e0c9bab24000016a085d1c6e8050f0ea1c71bd6b0688be36543f3c36e638e37a6c03d41f73d55d0d482ae55555376dc76810d0fe03c91964d31c71c6f46e615dd0360c07d931663b14e38e38b16f2da3f99955a3adcf27ebb1caaaaaaa6e7014ccba6a8bb1ed35bd86bf065c71c71c2b7109491c5d4781b79c9009de6bfb8e38e38de8720414a0f6fdec81304d4c563e740bffffffffa573118427b3b4a05bc8a8a4de8459868000000000017406eb15e7331e727940d4ac54b7cdca1c71c71c71bd750567a91c9fefc96ebaa626a22f98c5e638e38e38e37a76032abd16c5b68006e15d5aa307e383f4e55555555555377701a6427bdc4f0d58eab5f48a3ec67f64e21c71c71c71c6f478080dd0a0c9b9ff2c2a0c740b06853a0a980ee38e38e38e38b17903c679cb5e8f2f9cb3b5d6652b0e7334f746faaaaaaaaaaaaa6e7a01b873815917ebb2bf3b890a1af495d6235bae3c71c71c71c71c2b7b07ae4cca96e1a55dfa49c85ad3c3e60e426b92fb8e38e38e38e38de87c036018bf074e292bcc7d6c8bea0f9699443046178bffffffffffffffa57d0e7d34c64a9c85d4460dbbca87196b61618a4bd2168000000000000000017e05b901f48a5b994d6572502bc4ea43140486666416aa1c71c71c71c71c71bd7f047889870c178fc477414ea231d70467a388fffe31b4e638e38e38e38e38e37a",
+    "err": "out of quota",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 32,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push25": {
+    "amount": "0de0b6b3a7640000",
+    "code": "78778899aabbccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "778899aabbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap10": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600a60096008600760066005600460036002600160039955",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79964,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "000000000000000000000000000000000000000000000000000000000000000a": "01",
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap11": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600b600a60096008600760066005600460036002600160039a55",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79961,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "000000000000000000000000000000000000000000000000000000000000000b": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push24": {
+    "amount": "0de0b6b3a7640000",
+    "code": "778899aabbccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "8899aabbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push32": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7f10112233445566778899aabbccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "10112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap9": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60096008600760066005600460036002600160039855",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79967,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "0000000000000000000000000000000000000000000000000000000000000009": "01",
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push28": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7b445566778899aabbccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap5": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6005600460036002600160039455",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79979,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000005": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup12": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600c600b600a6009600860076006600560046003600260018b600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79958,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "0c"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push7": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6699aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "99aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push12": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6b445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup2": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6002600181600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79988,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "02"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup9": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60096008600760066005600460036002600188600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79967,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "09"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push19": {
+    "amount": "0de0b6b3a7640000",
+    "code": "72ddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "ddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push23": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7699aabbccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "99aabbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap16": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6010600f600e600d600c600b600a60096008600760066005600460036002600160039f55",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79946,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "0000000000000000000000000000000000000000000000000000000000000010": "01",
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup5": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6005600460036002600184600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79979,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "05"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push15": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6e112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push32Undefined3": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7f",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99997,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup15": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600f600e600d600c600b600a6009600860076006600560046003600260018e600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79949,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "0f"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap2": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6002600160039155",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79988,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000002": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push32Undefined2": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7f0102030000000000000000000000000000000000000000000000000000000000600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "0102030000000000000000000000000000000000000000000000000000000000",
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup14": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600e600d600c600b600a6009600860076006600560046003600260018d600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79952,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "0e"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap3": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60036002600160039255",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79985,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swapjump1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600560026001600c575050005b9060016116575050005b035b0360005260016003611ff3",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99964,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60ff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "ff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push14": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6d2233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "2233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup4": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600460036002600183600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79982,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "04"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push22": {
+    "amount": "0de0b6b3a7640000",
+    "code": "75aabbccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "aabbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push18": {
+    "amount": "0de0b6b3a7640000",
+    "code": "71eeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "eeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup8": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6008600760066005600460036002600187600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79970,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "08"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap14": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600e600d600c600b600a60096008600760066005600460036002600160039d55",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79952,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "000000000000000000000000000000000000000000000000000000000000000e": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push21": {
+    "amount": "0de0b6b3a7640000",
+    "code": "74bbccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "bbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push2": {
+    "amount": "0de0b6b3a7640000",
+    "code": "61eeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "eeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push17": {
+    "amount": "0de0b6b3a7640000",
+    "code": "70ff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "ff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup7": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600760066005600460036002600186600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79973,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "07"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push32FillUpInputWithZerosAtTheEnd": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7fff10112233445566778899aabbccddeeff00112233445566778899aabbccdd",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99997,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup6": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60066005600460036002600185600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79976,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "06"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push16": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6f10112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "10112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push3": {
+    "amount": "0de0b6b3a7640000",
+    "code": "62ddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "ddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup16": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6010600f600e600d600c600b600a6009600860076006600560046003600260018f600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79946,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "10"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7f10112233445566778899aabbccddeeff00112233445566778899aabbccddeeff60039055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79991,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "10112233445566778899aabbccddeeff00112233445566778899aabbccddeeff": "03",
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push32Undefined": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7f010203600055",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99997,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push20": {
+    "amount": "0de0b6b3a7640000",
+    "code": "73ccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "ccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap15": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600f600e600d600c600b600a60096008600760066005600460036002600160039e55",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79949,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "000000000000000000000000000000000000000000000000000000000000000f": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap6": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60066005600460036002600160039555",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79976,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000006": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup11": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600b600a6009600860076006600560046003600260018a600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79961,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "0b"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push4": {
+    "amount": "0de0b6b3a7640000",
+    "code": "63ccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "ccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push11": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6a5566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "5566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup2error": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7f10112233445566778899aabbccddeeff00112233445566778899aabbccddeeff81600355",
+    "err": "stack underflow (1 <=> 2)",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 0,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup1": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7f10112233445566778899aabbccddeeff00112233445566778899aabbccddeeff80600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79991,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "10112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap12": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600c600b600a60096008600760066005600460036002600160039b55",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79958,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "000000000000000000000000000000000000000000000000000000000000000c": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push27": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7a5566778899aabbccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "5566778899aabbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push31": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7e112233445566778899aabbccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push8": {
+    "amount": "0de0b6b3a7640000",
+    "code": "678899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "8899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push9": {
+    "amount": "0de0b6b3a7640000",
+    "code": "68778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push30": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7d2233445566778899aabbccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "2233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push26": {
+    "amount": "0de0b6b3a7640000",
+    "code": "7966778899aabbccddeeff00112233445566778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "66778899aabbccddeeff00112233445566778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap13": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600d600c600b600a60096008600760066005600460036002600160039c55",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79955,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "000000000000000000000000000000000000000000000000000000000000000d": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push10": {
+    "amount": "0de0b6b3a7640000",
+    "code": "6966778899aabbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "66778899aabbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push5": {
+    "amount": "0de0b6b3a7640000",
+    "code": "64bbccddeeff600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79994,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "bbccddeeff"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "swap7": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600760066005600460036002600160039655",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79973,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000007": "01"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "dup10": {
+    "amount": "0de0b6b3a7640000",
+    "code": "600a60096008600760066005600460036002600189600355",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 79964,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
+      "0000000000000000000000000000000000000000000000000000000000000003": "0a"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  },
+  "push1_missingStack": {
+    "amount": "0de0b6b3a7640000",
+    "code": "60",
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "inputData": "",
+    "quotaLeft": 99997,
+    "quotaRefund": 0,
+    "quotaTotal": 100000,
+    "sBHeight": 1,
+    "storage": {
+      "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
+    },
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "tokenId": "tti_2445f6e5cde8c2c70e446c83"
+  }
+}

@@ -15,11 +15,13 @@ import (
 // !!! Block = Transaction = TX
 
 func NewLedgerApi(vite *vite.Vite) *LedgerApi {
-	return &LedgerApi{
+	api := &LedgerApi{
 		chain: vite.Chain(),
 		//signer:        vite.Signer(),
 		log: log15.New("module", "rpc_api/ledger_api"),
 	}
+
+	return api
 }
 
 type GcStatus struct {
@@ -87,6 +89,39 @@ func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.H
 
 }
 
+func (l *LedgerApi) GetBlocksByHashInToken(addr types.Address, originBlockHash *types.Hash, tokenTypeId types.TokenTypeId, count uint64) ([]*AccountBlock, error) {
+	l.log.Info("GetBlocksByHashInToken")
+	fti := l.chain.Fti()
+	if fti == nil {
+		err := errors.New("config.OpenFilterTokenIndex is false, api can't work")
+		return nil, err
+	}
+
+	account, err := l.chain.GetAccount(&addr)
+	if err != nil {
+		return nil, err
+	}
+	if account == nil {
+		return nil, nil
+	}
+
+	hashList, err := fti.GetBlockHashList(account, originBlockHash, tokenTypeId, count)
+	if err != nil {
+		return nil, err
+	}
+
+	blockList := make([]*ledger.AccountBlock, len(hashList))
+	for index, blockHash := range hashList {
+		block, err := l.chain.GetAccountBlockByHash(&blockHash)
+		if err != nil {
+			return nil, err
+		}
+
+		blockList[index] = block
+	}
+	return l.ledgerBlocksToRpcBlocks(blockList)
+}
+
 type Statistics struct {
 	SnapshotBlockCount uint64 `json:"snapshotBlockCount"`
 	AccountBlockCount  uint64 `json:"accountBlockCount"`
@@ -108,6 +143,40 @@ func (l *LedgerApi) GetStatistics() (*Statistics, error) {
 		SnapshotBlockCount: latestSnapshotBlock.Height,
 		AccountBlockCount:  accountBlockCount,
 	}, nil
+}
+
+func (l *LedgerApi) GetVmLogListByHash(logHash types.Hash) (ledger.VmLogList, error) {
+	logList, err := l.chain.GetVmLogList(&logHash)
+	if err != nil {
+		l.log.Error("GetVmLogList failed, error is "+err.Error(), "method", "GetVmLogListByHash")
+		return nil, err
+	}
+	return logList, err
+}
+
+func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height uint64, count uint64, forward bool) ([]*AccountBlock, error) {
+	accountBlocks, err := l.chain.GetAccountBlocksByHeight(addr, height, count, forward)
+	if err != nil {
+		l.log.Error("GetAccountBlocksByHeight failed, error is "+err.Error(), "method", "GetBlocksByHeight")
+		return nil, err
+	}
+	if len(accountBlocks) <= 0 {
+		return nil, nil
+	}
+	return l.ledgerBlocksToRpcBlocks(accountBlocks)
+}
+
+func (l *LedgerApi) GetBlockByHeight(addr types.Address, height uint64) (*AccountBlock, error) {
+	accountBlock, err := l.chain.GetAccountBlockByHeight(&addr, height)
+	if err != nil {
+		l.log.Error("GetAccountBlockByHeight failed, error is "+err.Error(), "method", "GetBlockByHeight")
+		return nil, err
+	}
+
+	if accountBlock == nil {
+		return nil, nil
+	}
+	return l.ledgerBlockToRpcBlock(accountBlock)
 }
 
 func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {

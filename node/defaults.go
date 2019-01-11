@@ -1,11 +1,12 @@
 package node
 
 import (
-	"github.com/vitelabs/go-vite/common"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
+
+	"github.com/vitelabs/go-vite/common"
 )
 
 var DefaultNodeConfig = Config{
@@ -27,7 +28,7 @@ var DefaultNodeConfig = Config{
 	WSOrigins:            []string{"*"},
 	WSExposeAll:          true,
 	HttpExposeAll:        true,
-	TopoDisabled:         false,
+	TopoEnable:           false,
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.

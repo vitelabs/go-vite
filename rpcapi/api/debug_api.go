@@ -1,6 +1,8 @@
 package api
 
 import (
+	"github.com/vitelabs/go-vite/common/fork"
+	"github.com/vitelabs/go-vite/config"
 	"math/big"
 	"time"
 
@@ -301,4 +303,8 @@ func (api DebugApi) SetGetTestTokenLimitSize(size int) error {
 }
 func (api DebugApi) peersDetails() map[string]interface{} {
 	return nil
+}
+
+func (api DebugApi) GetForkInfo() config.ForkPoints {
+	return fork.GetForkPoints()
 }
