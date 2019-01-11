@@ -394,6 +394,11 @@ func (c *chain) calculateNeedSnapshot(deleteSubLedger map[types.Address][]*ledge
 
 		if deletedAccountBlocks, ok := deleteSubLedger[addr]; ok {
 			tailDeletedBlockHeight := deletedAccountBlocks[0].Height
+			// all delete
+			if tailDeletedBlockHeight <= 1 {
+				continue
+			}
+
 			if headHeight >= tailDeletedBlockHeight {
 				headHeight = tailDeletedBlockHeight - 1
 			}
@@ -413,48 +418,51 @@ func (c *chain) calculateNeedSnapshot(deleteSubLedger map[types.Address][]*ledge
 			// append
 			needSnapshotBlocks[account.AccountAddress] = append(needSnapshotBlocks[account.AccountAddress], block)
 		}
-		for h := tailHeight - 1; h > 0; h-- {
-			blockHash, blockHashErr := c.chainDb.Ac.GetHashByHeight(account.AccountId, h)
-			if blockHashErr != nil {
-				c.log.Error("GetHashByHeight failed, error is "+blockHashErr.Error(), "method", "calculateNeedSnapshot")
-				return nil, err
+		if tailHeight > 1 {
+			for h := tailHeight - 1; h > 0; h-- {
+				blockHash, blockHashErr := c.chainDb.Ac.GetHashByHeight(account.AccountId, h)
+				if blockHashErr != nil {
+					c.log.Error("GetHashByHeight failed, error is "+blockHashErr.Error(), "method", "calculateNeedSnapshot")
+					return nil, err
+				}
+
+				if blockHash == nil {
+					err := errors.New("blockHash is nil")
+					c.log.Error(err.Error(), "method", "calculateNeedSnapshot")
+					return nil, err
+				}
+
+				blockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(blockHash)
+				if blockMetaErr != nil {
+					c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "calculateNeedSnapshot")
+					return nil, err
+				}
+
+				if blockMeta == nil {
+					err := errors.New("blockMeta is nil")
+					c.log.Error(err.Error(), "method", "calculateNeedSnapshot")
+					return nil, err
+				}
+
+				if blockMeta.SnapshotHeight > 0 {
+					break
+				}
+
+				block, blockErr := c.chainDb.Ac.GetBlockByHeight(account.AccountId, h)
+				if blockErr != nil {
+					c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "calculateNeedSnapshot")
+					return nil, blockErr
+				}
+
+				c.completeBlock(block, account)
+
+				// prepend, less garbage
+				needSnapshotBlocks[account.AccountAddress] = append(needSnapshotBlocks[account.AccountAddress], nil)
+				copy(needSnapshotBlocks[account.AccountAddress][1:], needSnapshotBlocks[account.AccountAddress])
+				needSnapshotBlocks[account.AccountAddress][0] = block
 			}
-
-			if blockHash == nil {
-				err := errors.New("blockHash is nil")
-				c.log.Error(err.Error(), "method", "calculateNeedSnapshot")
-				return nil, err
-			}
-
-			blockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(blockHash)
-			if blockMetaErr != nil {
-				c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "calculateNeedSnapshot")
-				return nil, err
-			}
-
-			if blockMeta == nil {
-				err := errors.New("blockMeta is nil")
-				c.log.Error(err.Error(), "method", "calculateNeedSnapshot")
-				return nil, err
-			}
-
-			if blockMeta.SnapshotHeight > 0 {
-				break
-			}
-
-			block, blockErr := c.chainDb.Ac.GetBlockByHeight(account.AccountId, h)
-			if blockErr != nil {
-				c.log.Error("GetBlockByHeight failed, error is "+blockErr.Error(), "method", "calculateNeedSnapshot")
-				return nil, blockErr
-			}
-
-			c.completeBlock(block, account)
-
-			// prepend, less garbage
-			needSnapshotBlocks[account.AccountAddress] = append(needSnapshotBlocks[account.AccountAddress], nil)
-			copy(needSnapshotBlocks[account.AccountAddress][1:], needSnapshotBlocks[account.AccountAddress])
-			needSnapshotBlocks[account.AccountAddress][0] = block
 		}
+
 	}
 	return needSnapshotBlocks, nil
 }
