@@ -7,24 +7,26 @@ message Order {
     bytes Address = 2;
     bytes TradeToken = 3;
     bytes QuoteToken = 4;
-    bool   Side = 5; // false buy, true sell
+    bool  Side = 5; // false buy, true sell
     int32 Type = 6; // 0 limit order, 1 market order
     string Price = 7;
     bytes Quantity = 8;
     bytes Amount = 9; // QuoteAmount
-    int32 Status = 10;
-    int32 cancelReason = 11;
-    int64 Timestamp = 12;
-    bytes ExecutedQuantity = 13;
-    bytes ExecutedAmount = 14;
-    bytes refundToken = 15;
-    bytes refundQuantity = 16; //refund trade/quote token
+    bytes LockedBuyFee = 10; // fee locked ahead for buy
+    int32 Status = 11;
+    int32 CancelReason = 12;
+    int64 Timestamp = 13;
+    bytes ExecutedQuantity = 14;
+    bytes ExecutedAmount = 15;
+    bytes ExecutedFee = 16; // fee actually executed
+    bytes RefundToken = 17;
+    bytes RefundQuantity = 18; //refund trade/quote token
 }
 
 message OrderNode {
     Order Order = 1;
     repeated bytes ForwardOnLevel = 2;
-    repeated bytes backwardOnLevel = 3;
+    repeated bytes BackwardOnLevel = 3;
 }
 
 message OrderListMeta {
@@ -47,6 +49,8 @@ message Transaction {
     string Price = 5;
     bytes Quantity = 6;
     bytes Amount = 7;
-    int64 Timestamp = 8;
+    bytes TakerFee = 8;
+    bytes MakerFee = 9;
+    int64 Timestamp = 10;
 }
 

@@ -77,8 +77,6 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, bloc
 	if err = matcher.MatchOrder(dex.Order{*order}); err != nil {
 		return []*SendBlock{}, err
 	}
-	address := &types.Address{}
-	address.SetBytes(order.Address)
 	return handleSettleActions(block, matcher.GetSettleActions())
 }
 
