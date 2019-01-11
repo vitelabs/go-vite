@@ -39,7 +39,7 @@ func SetForkPoints(points *config.ForkPoints) {
 }
 
 func IsSmartFork(blockHeight uint64) bool {
-	return forkPoints.Smart.Height > 0 && blockHeight >= forkPoints.Smart.Height
+	return forkPoints.Vite1.Height > 0 && blockHeight >= forkPoints.Vite1.Height
 }
 
 func GetForkPoints() config.ForkPoints {

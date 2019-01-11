@@ -38,7 +38,7 @@ type ForkPoint struct {
 }
 
 type ForkPoints struct {
-	Smart *ForkPoint
+	Vite1 *ForkPoint
 }
 
 type Genesis struct {
