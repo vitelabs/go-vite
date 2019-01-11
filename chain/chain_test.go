@@ -23,8 +23,8 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 		forkPoints = genesisConfig.ForkPoints
 	}
 
-	if forkPoints.Vite1 == nil {
-		forkPoints.Vite1 = &config.ForkPoint{}
+	if forkPoints.Smart == nil {
+		forkPoints.Smart = &config.ForkPoint{}
 	}
 
 	return forkPoints
