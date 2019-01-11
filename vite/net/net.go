@@ -3,6 +3,7 @@ package net
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -276,6 +277,7 @@ func (n *net) heartbeat() {
 			}
 
 			height = current.Height
+			atomic.StoreUint64(&currentHeight, height)
 
 			for _, p := range l {
 				p.Send(StatusCode, 0, &ledger.HashHeight{
