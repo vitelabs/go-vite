@@ -565,7 +565,15 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 
 		var fileError error
 
+		t1 := time.Now()
+		t2 := time.Now()
+		oc := sync.Once{}
+
 		fc.chain.Compressor().BlockParser(ctx, file.BlockNumbers, func(block ledger.Block, err error) {
+			oc.Do(func() {
+				t2 = time.Now()
+			})
+
 			if err != nil || fileError != nil {
 				ctx.Close()
 				return
@@ -593,6 +601,7 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 			}
 		})
 
+		t3 := time.Now()
 		if fileError != nil {
 			return fileError
 		}
@@ -602,7 +611,7 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 			return fmt.Errorf("incomplete file %s %d/%d", file.Filename, sCount, sTotal)
 		}
 
-		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s", sCount, aCount, file.Filename, ctx.RemoteAddr()))
+		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s, diff1:%s, diff2:%s", sCount, aCount, file.Filename, ctx.RemoteAddr(), t3.Sub(t1).String(), t2.Sub(t1)))
 		return nil
 	}
 }
