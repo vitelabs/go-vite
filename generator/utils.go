@@ -104,7 +104,7 @@ func minGapToLatest(us ...uint64) uint64 {
 	return min
 }
 
-func RecoverVmContext(chain vm_context.Chain, block *ledger.AccountBlock) (vmContext vmctxt_interface.VmDatabase, resultErr error) {
+func RecoverVmContext(chain vm_context.Chain, block *ledger.AccountBlock) (vmContextList []vmctxt_interface.VmDatabase, resultErr error) {
 	var tLog = log15.New("method", "RecoverVmContext")
 	vmContext, err := vm_context.NewVmContext(chain, &block.SnapshotHash, &block.PrevHash, &block.AccountAddress)
 	if err != nil {
@@ -128,9 +128,12 @@ func RecoverVmContext(chain vm_context.Chain, block *ledger.AccountBlock) (vmCon
 	}()
 	newVm := *vm.NewVM()
 	blockList, isRetry, err := newVm.Run(vmContext, block, sendBlock)
+
 	tLog.Debug("vm result", fmt.Sprintf("len %v, isRetry %v, err %v", len(blockList), isRetry, err))
-	if len(blockList) <= 0 {
-		return nil, errors.New("recover failed, blockList nil")
+
+	for _, v := range blockList {
+		vmContextList = append(vmContextList, v.VmContext)
 	}
-	return blockList[0].VmContext, err
+
+	return vmContextList, err
 }
