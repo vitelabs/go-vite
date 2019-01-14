@@ -7,19 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-// Recover data when delete too much data
-// TODO account block
-func (gc *collector) Recover() (returnErr error) {
-	// first, stop gc
-	gc.Stop()
-	defer func() {
-		// finally, start gc
-		if returnErr != nil {
-			gc.log.Error("Recover failed, error is " + returnErr.Error())
-		}
-		gc.Start()
-	}()
-
+func (gc *collector) recoverGenesis() error {
 	// recover genesis trie
 	batch := new(leveldb.Batch)
 	genesisSnapshotBlock := gc.chain.GetGenesisSnapshotBlock()
@@ -68,6 +56,24 @@ func (gc *collector) Recover() (returnErr error) {
 	trieSaveCallback4()
 	trieSaveCallback5()
 	trieSaveCallback6()
+}
+
+// Recover data when delete too much data
+// TODO account block
+func (gc *collector) Recover() (returnErr error) {
+	// first, stop gc
+	gc.Stop()
+	defer func() {
+		// finally, start gc
+		if returnErr != nil {
+			gc.log.Error("Recover failed, error is " + returnErr.Error())
+		}
+		gc.Start()
+	}()
+
+	if err := gc.recoverGenesis(); err != nil {
+		return errors.New("recoverGenesis failed, error is " + err.Error())
+	}
 
 	latestBlockEventId, err := gc.chain.GetLatestBlockEventId()
 	if err != nil {

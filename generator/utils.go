@@ -1,10 +1,14 @@
 package generator
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/rand"
 	"time"
 )
@@ -98,4 +102,35 @@ func minGapToLatest(us ...uint64) uint64 {
 		}
 	}
 	return min
+}
+
+func RecoverVmContext(chain vm_context.Chain, block *ledger.AccountBlock) (vmContext vmctxt_interface.VmDatabase, resultErr error) {
+	var tLog = log15.New("method", "RecoverVmContext")
+	vmContext, err := vm_context.NewVmContext(chain, &block.SnapshotHash, &block.PrevHash, &block.AccountAddress)
+	if err != nil {
+		return nil, err
+	}
+	var sendBlock *ledger.AccountBlock = nil
+	if block.IsReceiveBlock() {
+		if sendBlock = vmContext.GetAccountBlockByHash(&block.FromBlockHash); sendBlock == nil {
+			return nil, ErrGetVmContextValueFailed
+		}
+	}
+	defer func() {
+		if err := recover(); err != nil {
+			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v sbHash:%v )", block.AccountAddress, block.PrevHash, block.SnapshotHash)
+			if sendBlock != nil {
+				errDetail += fmt.Sprintf("sendBlock(addr:%v hash:%v)", block.AccountAddress, block.Hash)
+			}
+			tLog.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
+			resultErr = errors.New("generator_vm panic error")
+		}
+	}()
+	newVm := *vm.NewVM()
+	blockList, isRetry, err := newVm.Run(vmContext, block, sendBlock)
+	tLog.Debug("vm result", fmt.Sprintf("len %v, isRetry %v, err %v", len(blockList), isRetry, err))
+	if len(blockList) <= 0 {
+		return nil, errors.New("recover failed, blockList nil")
+	}
+	return blockList[0].VmContext, err
 }
