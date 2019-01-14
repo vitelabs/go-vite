@@ -31,7 +31,7 @@
    * [Youtube](https://www.youtube.com/channel/UC8qft2rEzBnP9yJOGdsJBVg)
 
 ## RELEASE VERSION
-the stable version is the v1.2.1 tag. https://github.com/vitelabs/go-vite/releases/tag/v1.2.1
+the stable version is the v1.2.2 tag. https://github.com/vitelabs/go-vite/releases/tag/v1.2.2
 
 ## BUILD 
 
