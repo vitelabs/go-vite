@@ -229,7 +229,7 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 }
 
 func (f *fetcher) listen(st SyncState) {
-	if st == Syncdone || st == SyncDownloaded {
+	if st == Syncdone || st == SyncDownloaded || st == Syncerr {
 		f.log.Info(fmt.Sprintf("ready: %s", st))
 		atomic.StoreInt32(&f.ready, 1)
 	} else if st == Syncing {

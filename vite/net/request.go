@@ -72,10 +72,23 @@ type piece interface {
 	setBand(from, to uint64)
 }
 
+type filePiece struct {
+	from, to uint64
+}
+
+func (f *filePiece) band() (from, to uint64) {
+	return f.from, f.to
+}
+
+func (f *filePiece) setBand(from, to uint64) {
+	f.from, f.to = from, to
+}
+
 type blockReceiver interface {
 	receiveSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error)
 	receiveAccountBlock(block *ledger.AccountBlock, sender Peer) (err error)
 	catch(piece)
+	done(p piece)
 }
 
 const file2Chunk = 600
@@ -358,8 +371,9 @@ func (p *chunkPool) add(from, to uint64, front bool) {
 }
 
 func (p *chunkPool) done(id uint64) {
-	if _, ok := p.chunks.Load(id); ok {
+	if c, ok := p.chunks.Load(id); ok {
 		p.chunks.Delete(id)
+		p.handler.done(c.(*chunkRequest))
 	}
 }
 

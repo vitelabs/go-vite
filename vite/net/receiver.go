@@ -138,21 +138,21 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender P
 	defer monitor.LogTime("net/receive", "NewSnapshotBlock_Time", time.Now())
 	monitor.LogEvent("net/receive", "NewSnapshotBlock_Event")
 
-	s.mu.RLock()
-	seen := s.KnownBlocks.Lookup(block.Hash[:])
-	s.mu.RUnlock()
-
-	if seen {
-		s.log.Debug(fmt.Sprintf("has NewSnapshotBlock %s/%d", block.Hash, block.Height))
-		return
-	}
-
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetSb(block); err != nil {
 			s.log.Error(fmt.Sprintf("verify NewSnapshotBlock %s/%d from %s fail: %v", block.Hash, block.Height, sender.RemoteAddr(), err))
 			s.block(sender, p2p.DiscProtocolError)
 			return err
 		}
+	}
+
+	s.mu.Lock()
+	firstSeen := s.KnownBlocks.InsertUnique(block.Hash[:])
+	s.mu.Unlock()
+
+	if !firstSeen {
+		s.log.Debug(fmt.Sprintf("has NewSnapshotBlock %s/%d", block.Hash, block.Height))
+		return
 	}
 
 	// broadcast
@@ -170,10 +170,6 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender P
 		s.sFeed.Notify(block, types.RemoteBroadcast)
 	}
 
-	s.mu.Lock()
-	s.KnownBlocks.InsertUnique(block.Hash[:])
-	s.mu.Unlock()
-
 	return nil
 }
 
@@ -185,21 +181,21 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Pee
 	defer monitor.LogTime("net/receive", "NewAccountBlock_Time", time.Now())
 	monitor.LogEvent("net/receive", "NewAccountBlock_Event")
 
-	s.mu.RLock()
-	seen := s.KnownBlocks.Lookup(block.Hash[:])
-	s.mu.RUnlock()
-
-	if seen {
-		s.log.Debug(fmt.Sprintf("has NewAccountBlock %s", block.Hash))
-		return
-	}
-
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetAb(block); err != nil {
 			s.log.Error(fmt.Sprintf("verify NewAccountBlock %s/%d from %s fail: %v", block.Hash, block.Height, sender.RemoteAddr(), err))
 			s.block(sender, p2p.DiscProtocolError)
 			return
 		}
+	}
+
+	s.mu.Lock()
+	firstSeen := s.KnownBlocks.InsertUnique(block.Hash[:])
+	s.mu.Unlock()
+
+	if !firstSeen {
+		s.log.Debug(fmt.Sprintf("has NewAccountBlock %s/%d", block.Hash, block.Height))
+		return
 	}
 
 	s.broadcaster.BroadcastAccountBlock(block)
@@ -309,7 +305,7 @@ func (s *receiver) listen(st SyncState) {
 		return
 	}
 
-	if st == Syncdone || st == SyncDownloaded {
+	if st == Syncdone || st == SyncDownloaded || st == Syncerr {
 		s.log.Info(fmt.Sprintf("ready: %s", st))
 		atomic.StoreInt32(&s.ready, 1)
 
