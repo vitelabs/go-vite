@@ -311,6 +311,10 @@ func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBloc
 		return err
 	}
 
+	if verifier.chain.IsGenesisAccountBlock(block) {
+		return nil
+	}
+
 	if block.IsReceiveBlock() || (block.IsSendBlock() && (len(block.Signature) > 0 || len(block.PublicKey) > 0)) {
 		if err := verifier.VerifySigature(block); err != nil {
 			return err

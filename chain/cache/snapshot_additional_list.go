@@ -378,6 +378,7 @@ func (al *AdditionList) loadFromDb() error {
 	var frags []*Fragment
 	var list []*AdditionItem
 
+	var lastHeight uint64
 	for iter.Next() {
 		value := iter.Value()
 		frag := &Fragment{}
@@ -387,9 +388,15 @@ func (al *AdditionList) loadFromDb() error {
 
 		frag.TailHeight = GetFragTailHeightFromDbKey(iter.Key())
 		frag.HeadHeight = GetFragHeadHeightFromDbKey(iter.Key())
+		if lastHeight > 0 && frag.TailHeight != lastHeight + 1 {
+			// log error, and need rebuild
+			al.log.Error(fmt.Sprintf("current lastHeight is %d, miss %d - %d", lastHeight, frag.TailHeight, frag.HeadHeight))
+			break
+		}
 
 		frags = append(frags, frag)
 		list = append(list, frag.List...)
+		lastHeight = frag.HeadHeight
 	}
 	if err := iter.Error(); err != nil &&
 		err != leveldb.ErrNotFound {
