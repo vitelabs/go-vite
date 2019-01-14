@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/generator"
+	"github.com/vitelabs/go-vite/trie"
 )
 
 func (gc *collector) recoverGenesis() error {
@@ -56,6 +58,26 @@ func (gc *collector) recoverGenesis() error {
 	trieSaveCallback4()
 	trieSaveCallback5()
 	trieSaveCallback6()
+	return nil
+}
+
+func (gc *collector) saveTrie(t *trie.Trie) error {
+	batch := new(leveldb.Batch)
+
+	trieSaveCallback, saveTrieErr := t.Save(batch)
+	if saveTrieErr != nil {
+		return errors.New("newStateTrie.Save failed, error is " + saveTrieErr.Error())
+	}
+
+	if err := gc.chain.ChainDb().Commit(batch); err != nil {
+		return errors.New("Commit failed, error is " + err.Error())
+	}
+
+	// after write db
+	if trieSaveCallback != nil {
+		trieSaveCallback()
+	}
+	return nil
 }
 
 // Recover data when delete too much data
@@ -81,6 +103,9 @@ func (gc *collector) Recover() (returnErr error) {
 	}
 
 	fmt.Println("Recovering data, dont't shut down...")
+
+	accountTypeCache := make(map[types.Address]byte)
+
 	for i := uint64(1); i <= latestBlockEventId; i++ {
 		eventType, hashList, err := gc.chain.GetEvent(i)
 		if err != nil {
@@ -102,6 +127,37 @@ func (gc *collector) Recover() (returnErr error) {
 
 				if gc.chain.IsGenesisAccountBlock(block) {
 					continue
+				}
+
+				var accountType byte
+
+				if cacheAccountType, ok := accountTypeCache[block.AccountAddress]; ok {
+					accountType = cacheAccountType
+				} else {
+
+					dbAccountType, err := gc.chain.AccountType(&block.AccountAddress)
+					if err != nil {
+						return errors.New("gc.chain.AccountType failed, error is " + err.Error())
+					}
+					accountType = byte(dbAccountType)
+					accountTypeCache[block.AccountAddress] = accountType
+				}
+
+				if accountType == 3 && block.IsSendBlock() {
+					// the send block of contract address need be ignored.
+					continue
+				}
+
+				vmCtxtList, _ := generator.RecoverVmContext(gc.chain, block)
+				if len(vmCtxtList) <= 0 {
+					err := errors.New(fmt.Sprintf("RecoverVmContext failed, error is len(vmCtxtList) <= 0, block.Hash is %s, block.Height is %d", block.Hash, block.Height))
+					return err
+				}
+
+				for _, vmCtxt := range vmCtxtList {
+					if err := gc.saveTrie(vmCtxt.UnsavedCache().Trie()); err != nil {
+						return errors.New("saveTrie failed, error is " + err.Error())
+					}
 				}
 
 			}
@@ -141,22 +197,9 @@ func (gc *collector) Recover() (returnErr error) {
 					return errors.New("GenStateTrieFromDb failed, error is " + err.Error())
 				}
 
-				batch := new(leveldb.Batch)
-
-				trieSaveCallback, saveTrieErr := newStateTrie.Save(batch)
-				if saveTrieErr != nil {
-					return errors.New("newStateTrie.Save failed, error is " + saveTrieErr.Error())
+				if err := gc.saveTrie(newStateTrie); err != nil {
+					return errors.New("saveTrie failed, error is " + err.Error())
 				}
-
-				if err := gc.chain.ChainDb().Commit(batch); err != nil {
-					return errors.New("Commit failed, error is " + err.Error())
-				}
-
-				// after write db
-				if trieSaveCallback != nil {
-					trieSaveCallback()
-				}
-
 			}
 		}
 

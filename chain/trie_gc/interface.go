@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
+	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 )
 
@@ -16,19 +17,17 @@ type Collector interface {
 }
 
 type Chain interface {
-	GetLatestSnapshotBlock() *ledger.SnapshotBlock
-	GetSnapshotBlocksByHeight(height uint64, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
+	vm_context.Chain
+
+	AccountType(address *types.Address) (uint64, error)
 	GetLatestBlockEventId() (uint64, error)
-	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
-	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetEvent(eventId uint64) (byte, []types.Hash, error)
 	ChainDb() *chain_db.ChainDb
-	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+
 	TrieDb() *leveldb.DB
 	CleanTrieNodePool()
 	GenStateTrieFromDb(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
 
-	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 	GetSecondSnapshotBlock() *ledger.SnapshotBlock
 
 	GetGenesisMintageBlockVC() vmctxt_interface.VmDatabase
