@@ -172,7 +172,7 @@ func newOrderInfo(id int, tradeToken types.TokenTypeId, quoteToken types.TokenTy
 	order.Quantity = new(big.Int).SetUint64(quantity).Bytes()
 	order.Timestamp = int64(ts)
 	order.Status = Pending
-	order.Amount = CalculateAmount(order.Quantity, order.Price)
+	order.Amount = CalculateRawAmount(order.Quantity, order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals)
 	order.ExecutedQuantity = big.NewInt(0).Bytes()
 	order.ExecutedAmount = big.NewInt(0).Bytes()
 	order.RefundToken = []byte{}

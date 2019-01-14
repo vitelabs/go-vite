@@ -7,20 +7,22 @@ message Order {
     bytes Address = 2;
     bytes TradeToken = 3;
     bytes QuoteToken = 4;
-    bool  Side = 5; // false buy, true sell
-    int32 Type = 6; // 0 limit order, 1 market order
-    string Price = 7;
-    bytes Quantity = 8;
-    bytes Amount = 9; // QuoteAmount
-    bytes LockedBuyFee = 10; // fee locked ahead for buy
-    int32 Status = 11;
-    int32 CancelReason = 12;
-    int64 Timestamp = 13;
-    bytes ExecutedQuantity = 14;
-    bytes ExecutedAmount = 15;
-    bytes ExecutedFee = 16; // fee actually executed
-    bytes RefundToken = 17;
-    bytes RefundQuantity = 18; //refund trade/quote token
+    int32 TradeTokenDecimals = 5;
+    int32 QuoteTokenDecimals = 6;
+    bool  Side = 7; // false buy, true sell
+    int32 Type = 8; // 0 limit order, 1 market order
+    string Price = 9;
+    bytes Quantity = 10;
+    bytes Amount = 11; // QuoteAmount
+    bytes LockedBuyFee = 12; // fee locked ahead for buy
+    int32 Status = 13;
+    int32 CancelReason = 14;
+    int64 Timestamp = 15;
+    bytes ExecutedQuantity = 16;
+    bytes ExecutedAmount = 17;
+    bytes ExecutedFee = 18; // fee actually executed
+    bytes RefundToken = 19;
+    bytes RefundQuantity = 20; //refund trade/quote token
 }
 
 message OrderNode {

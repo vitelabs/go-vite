@@ -93,7 +93,7 @@ func (md *MethodDexFundUserDeposit) DoSend(db vmctxt_interface.VmDatabase, block
 	if block.Amount.Sign() <= 0 {
 		return quotaLeft, fmt.Errorf("deposit amount is zero")
 	}
-	if err = checkToken(db, block.TokenId); err != nil {
+	if err = getTokenInfo(db, block.TokenId); err != nil {
 		return quotaLeft, err
 	}
 	return util.UseQuotaForData(block.Data, quotaLeft)
@@ -221,7 +221,7 @@ func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block
 		return []*SendBlock{}, err
 	}
 	order := &dexproto.Order{}
-	renderOrder(order, param, sendBlock.AccountAddress, db.GetSnapshotBlockByHash(&block.SnapshotHash).Timestamp)
+	renderOrder(order, param, db, sendBlock.AccountAddress, db.GetSnapshotBlockByHash(&block.SnapshotHash).Timestamp)
 	if dexFund, err = GetFundFromStorage(db, sendBlock.AccountAddress); err != nil {
 		return []*SendBlock{}, err
 	}
@@ -321,7 +321,7 @@ func checkAndLockFundForNewOrder(db vmctxt_interface.VmDatabase, dexFund *DexFun
 	case false: //buy
 		lockToken = order.QuoteToken
 		if order.Type == dex.Limited {
-			lockAmount = order.Amount
+			lockAmount = dex.AddBigInt(order.Amount, order.LockedBuyFee)
 		}
 	case true: // sell
 		lockToken = order.TradeToken
@@ -411,11 +411,11 @@ func fromBytesToTokenTypeId(bytes []byte) (tokenId *types.TokenTypeId, err error
 	}
 }
 
-func checkToken(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) error {
+func getTokenInfo(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) (error, *types.TokenInfo) {
 	if tokenInfo := cabi.GetTokenById(db, tokenId); tokenInfo == nil {
-		return fmt.Errorf("token is invalid")
+		return fmt.Errorf("token is invalid"), nil
 	} else {
-		return nil
+		return nil, tokenInfo
 	}
 }
 
@@ -430,10 +430,10 @@ func checkOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNew
 	if !orderId.IsNormal() {
 		return fmt.Errorf("invalid order id")
 	}
-	if err = checkToken(db, orderParam.TradeToken); err != nil {
+	if err, _ = getTokenInfo(db, orderParam.TradeToken); err != nil {
 		return err
 	}
-	if err = checkToken(db, orderParam.QuoteToken); err != nil {
+	if err, _ = getTokenInfo(db, orderParam.QuoteToken); err != nil {
 		return err
 	}
 	if orderParam.OrderType != dex.Market && orderParam.OrderType != dex.Limited {
@@ -453,17 +453,24 @@ func checkOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNew
 	return nil
 }
 
-func renderOrder(order *dexproto.Order, param *ParamDexFundNewOrder, address types.Address, snapshotTM *time.Time) {
+func renderOrder(order *dexproto.Order, param *ParamDexFundNewOrder, db vmctxt_interface.VmDatabase, address types.Address, snapshotTM *time.Time) {
 	order.Id = param.OrderId
 	order.Address = address.Bytes()
 	order.TradeToken = param.TradeToken.Bytes()
 	order.QuoteToken = param.QuoteToken.Bytes()
+	_, tradeTokenInfo := getTokenInfo(db, param.TradeToken)
+	order.TradeTokenDecimals = int32(tradeTokenInfo.Decimals)
+	_, quoteTokenInfo := getTokenInfo(db, param.QuoteToken)
+	order.QuoteTokenDecimals = int32(quoteTokenInfo.Decimals)
 	order.Side = param.Side
 	order.Type = int32(param.OrderType)
 	order.Price = param.Price
 	order.Quantity = param.Quantity.Bytes()
 	if order.Type == dex.Limited {
-		order.Amount = dex.CalculateAmount(order.Quantity, order.Price)
+		order.Amount = dex.CalculateRawAmount(order.Quantity, order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals)
+		if !order.Side { //buy
+			order.LockedBuyFee = dex.CalculateRawFee(order.Amount, maxFeeRate())
+		}
 	}
 	order.Status = dex.Pending
 	order.Timestamp = snapshotTM.Unix()
@@ -506,7 +513,7 @@ func doSettleAction(db vmctxt_interface.VmDatabase, action *dexproto.SettleActio
 		if tokenId, err := fromBytesToTokenTypeId(action.Token); err != nil {
 			return err
 		} else {
-			if err = checkToken(db, *tokenId); err != nil {
+			if err, _ = getTokenInfo(db, *tokenId); err != nil {
 				return err
 			}
 			account, exists := getAccountByTokeIdFromFund(dexFund, *tokenId)

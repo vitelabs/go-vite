@@ -158,7 +158,7 @@ func getNewOrderData(id int, address types.Address, tradeToken types.TokenTypeId
 	order.Type = dex.Limited
 	order.Price = price
 	order.Quantity = big.NewInt(quantity).Bytes()
-	order.Amount = dex.CalculateAmount(order.Quantity, order.Price)
+	order.Amount = dex.CalculateRawAmount(order.Quantity, order.Price)
 	order.Status =  dex.Pending
 	order.Timestamp = time.Now().Unix()
 	order.ExecutedQuantity = big.NewInt(0).Bytes()

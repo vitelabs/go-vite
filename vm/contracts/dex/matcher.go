@@ -32,6 +32,11 @@ type OrderTx struct {
 	takerQuoteToken []byte
 }
 
+var (
+	TakerFeeRate = 0.001
+	MakerFeeRate = 0.001
+)
+
 func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *matcher {
 	mc := &matcher{}
 	mc.contractAddress = contractAddress
@@ -142,7 +147,7 @@ func (mc *matcher) doMatchTaker(taker Order, makerBook *skiplist) (err error) {
 			if err = mc.handleModifiedMakers(modifiedMakers, makerBook); err != nil {
 				return err
 			}
-			mc.emitTxs(txs)
+			mc.handleTxs(txs)
 			return nil
 		}
 	}
@@ -158,15 +163,15 @@ func (mc *matcher) recursiveTakeOrder(taker *Order, maker Order, makerBook *skip
 		//fmt.Printf("recursiveTakeOrder matched for taker.id %d is %t\n", taker.Id, matched)
 		if matched {
 			tx := calculateOrderAndTx(taker, &maker)
+			*txs = append(*txs, tx)
+			if taker.Status == PartialExecuted && len(*txs) >= maxTxsCountPerTaker {
+				taker.Status = Cancelled
+				taker.CancelReason = partialExecutedCancelledByMarket
+			}
 			mc.handleRefund(taker)
 			mc.handleRefund(&maker)
 			*modifiedMakers = append(*modifiedMakers, maker)
-			*txs = append(*txs, tx)
 		}
-	}
-	if taker.Status == PartialExecuted && len(*txs) >= maxTxsCountPerTaker {
-		taker.Status = Cancelled
-		taker.CancelReason = partialExecutedCancelledByMarket
 	}
 	if taker.Status == FullyExecuted || taker.Status == Cancelled {
 		return nil
@@ -239,7 +244,7 @@ func (mc *matcher) emitOrderRes(orderRes Order) {
 	(*mc.storage).AddLog(newLog(event))
 }
 
-func (mc *matcher) emitTxs(txs []OrderTx) {
+func (mc *matcher) handleTxs(txs []OrderTx) {
 	//fmt.Printf("matched txs >>>>>>>>> %d\n", len(txs))
 	for _, tx := range txs {
 		mc.handleTxSettleAction(tx)
@@ -254,7 +259,9 @@ func (mc *matcher) handleRefund(order *Order) {
 		switch order.Side {
 		case false: //buy
 			order.RefundToken = order.QuoteToken
-			order.RefundQuantity = SubBigInt(order.Amount, order.ExecutedAmount)
+			refundAmount := SubBigInt(order.Amount, order.ExecutedAmount)
+			refundFee := SubBigInt(order.LockedBuyFee, order.ExecutedFee)
+			order.RefundQuantity = AddBigInt(refundAmount, refundFee)
 		case true:
 			order.RefundToken = order.TradeToken
 			order.RefundQuantity = SubBigInt(order.Quantity, order.ExecutedQuantity)
@@ -276,15 +283,15 @@ func (mc *matcher) handleTxSettleAction(tx OrderTx) {
 			makerOutSettle.DeduceLocked = tx.Quantity
 
 			takerOutSettle.Token = tx.takerQuoteToken
-			takerOutSettle.DeduceLocked = tx.Amount
+			takerOutSettle.DeduceLocked = AddBigInt(tx.Amount, tx.TakerFee)
 			makerInSettle.Token = tx.takerQuoteToken
-			makerInSettle.IncAvailable = tx.Amount
+			makerInSettle.IncAvailable = SubBigInt(tx.Amount, tx.MakerFee)
 
 		case true: //sell
 			takerInSettle.Token = tx.takerQuoteToken
-			takerInSettle.IncAvailable = tx.Amount
+			takerInSettle.IncAvailable = SubBigInt(tx.Amount, tx.TakerFee)
 			makerOutSettle.Token = tx.takerQuoteToken
-			makerOutSettle.DeduceLocked = tx.Amount
+			makerOutSettle.DeduceLocked = AddBigInt(tx.Amount, tx.MakerFee)
 
 			takerOutSettle.Token = tx.takerTradeToken
 			takerOutSettle.DeduceLocked = tx.Quantity
@@ -372,29 +379,33 @@ func calculateOrderAndTx(taker *Order, maker *Order) (tx OrderTx) {
 	takerAmount := calculateOrderAmount(taker, executeQuantity, maker.Price)
 	makerAmount := calculateOrderAmount(maker, executeQuantity, maker.Price)
 	executeAmount := MinBigInt(takerAmount, makerAmount)
-	executeQuantity = MinBigInt(executeQuantity, calculateQuantity(executeAmount, maker.Price))
-	updateOrder(taker, executeQuantity, executeAmount)
-	updateOrder(maker, executeQuantity, executeAmount)
+	executeQuantity = MinBigInt(executeQuantity, calculateQuantity(executeAmount, maker.Price, taker.TradeTokenDecimals, taker.QuoteTokenDecimals))
+	takerFee, takerExecutedFee := calculateFeeAndExecutedFee(taker, executeAmount, TakerFeeRate)
+	makerFee, makerExecutedFee := calculateFeeAndExecutedFee(maker, executeAmount, MakerFeeRate)
+	updateOrder(taker, executeQuantity, executeAmount, takerExecutedFee)
+	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee)
 	tx.Quantity = executeQuantity
 	tx.Amount = executeAmount
-	tx.Timestamp = taker.Timestamp
 	tx.takerAddress = taker.Address
 	tx.makerAddress = maker.Address
 	tx.takerTradeToken = taker.TradeToken
 	tx.takerQuoteToken = taker.QuoteToken
 	tx.makerAddress = maker.Address
+	tx.TakerFee = takerFee
+	tx.MakerFee = makerFee
+	tx.Timestamp = taker.Timestamp
 	return tx
 }
 
 func calculateOrderAmount(order *Order, quantity []byte, price string) []byte {
-	amount := CalculateAmount(quantity, price)
+	amount := CalculateRawAmount(quantity, price, order.TradeTokenDecimals, order.QuoteTokenDecimals)
 	if !order.Side && new(big.Int).SetBytes(order.Amount).Cmp(new(big.Int).SetBytes(AddBigInt(order.ExecutedAmount, amount))) < 0 {// side is buy
 		amount = SubBigInt(order.Amount, order.ExecutedAmount)
 	}
 	return amount
 }
 
-func updateOrder(order *Order, quantity []byte, amount []byte) []byte {
+func updateOrder(order *Order, quantity []byte, amount []byte, executedFee []byte) []byte {
 	order.ExecutedAmount = AddBigInt(order.ExecutedAmount, amount)
 	if bytes.Equal(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity) ||
 		order.Type == Market && !order.Side && bytes.Equal(SubBigInt(order.Amount, order.ExecutedAmount), amount) || // market buy order
@@ -403,13 +414,14 @@ func updateOrder(order *Order, quantity []byte, amount []byte) []byte {
 	} else {
 		order.Status = PartialExecuted
 	}
+	order.ExecutedFee = executedFee
 	order.ExecutedQuantity = AddBigInt(order.ExecutedQuantity, quantity)
 	return amount
 }
 
 // leave quantity is too small for calculate precision
 func isDust(order *Order, quantity []byte) bool {
-	return new(big.Int).SetBytes(CalculateAmount(SubBigInt(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity), order.Price)).Cmp(big.NewInt(1)) < 0
+	return new(big.Int).SetBytes(CalculateRawAmount(SubBigInt(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity), order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals)).Cmp(big.NewInt(1)) < 0
 }
 
 func getMakerById(makerBook *skiplist, orderId nodeKeyType) (od Order, nextId OrderId, err error) {
@@ -435,20 +447,55 @@ func ValidPrice(price string) bool {
 	return true
 }
 
-func CalculateAmount(quantity []byte, price string) []byte {
+func CalculateRawAmount(quantity []byte, price string, tradeDecimals int32, quoteDecimals int32) []byte {
 	qtF := big.NewFloat(0).SetInt(new(big.Int).SetBytes(quantity))
 	prF, _ := big.NewFloat(0).SetString(price)
 	amountF := prF.Mul(prF, qtF)
-	amount, _ := amountF.Add(amountF, big.NewFloat(0.5)).Int(nil)
-	return amount.Bytes()
+	amountF = AdjustPrecision(amountF, tradeDecimals, quoteDecimals)
+	return roundAmount(amountF).Bytes()
 }
 
-func calculateQuantity(amount []byte, price string) []byte {
+func CalculateRawFee(amount []byte, feeRate float64) []byte {
+	amtF := new(big.Float).SetInt(new(big.Int).SetBytes(amount))
+	rateF := big.NewFloat(feeRate)
+	amtFee := amtF.Mul(amtF, rateF)
+	return roundAmount(amtFee).Bytes()
+}
+
+func calculateQuantity(amount []byte, price string, tradeDecimals int32, quoteDecimals int32) []byte {
 	amtF := big.NewFloat(0).SetInt(new(big.Int).SetBytes(amount))
 	prF, _ := big.NewFloat(0).SetString(price)
 	qtyF := amtF.Quo(amtF, prF)
-	qty, _ := qtyF.Add(qtyF, big.NewFloat(0.5)).Int(nil)
-	return qty.Bytes()
+	qtyF = AdjustPrecision(qtyF, quoteDecimals, tradeDecimals)
+	return roundAmount(qtyF).Bytes()
+}
+
+func calculateFeeAndExecutedFee(order *Order, amount []byte, feeRate float64) (feeBytes, executedFee []byte) {
+	feeBytes = CalculateRawFee(amount, feeRate)
+	switch order.Side {
+	case false://buy
+		if CmpForBigInt(order.LockedBuyFee, order.ExecutedFee) <= 0 {
+			feeBytes = big.NewInt(0).Bytes()
+			executedFee = order.ExecutedFee
+		} else {
+			executedFee = AddBigInt(order.ExecutedFee, feeBytes)
+			//check if executeFee exceed lockedBuyFee
+			if CmpForBigInt(order.LockedBuyFee, executedFee) <= 0 {
+				feeBytes = SubBigInt(order.LockedBuyFee, order.ExecutedFee)
+				executedFee = order.LockedBuyFee
+			}
+		}
+
+	case true://sell
+		executedFee = AddBigInt(order.ExecutedFee, feeBytes)
+	}
+
+	return feeBytes, executedFee
+}
+
+func roundAmount(amountF *big.Float) *big.Int {
+	amount, _ := amountF.Add(amountF, big.NewFloat(0.5)).Int(nil)
+	return amount
 }
 
 func getBookIdToTake(order Order) SkipListId {
@@ -481,4 +528,19 @@ func sideToInt(side bool) int8 {
 
 func generateTxId(takerId []byte, makerId []byte) []byte {
 	return crypto.Hash(txIdLength, takerId, makerId)
+}
+
+
+func maxFeeRate() float64 {
+	if TakerFeeRate > MakerFeeRate {
+		return TakerFeeRate
+	} else {
+		return MakerFeeRate
+	}
+}
+
+// only for unit test
+func setFeeRate(takerFR float64, makerFR float64) {
+	TakerFeeRate = takerFR
+	MakerFeeRate = makerFR
 }

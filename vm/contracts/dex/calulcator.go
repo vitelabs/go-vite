@@ -1,6 +1,9 @@
 package dex
 
-import "math/big"
+import (
+	"github.com/vitelabs/go-vite/common/helper"
+	"math/big"
+)
 
 func AddBigInt(a []byte, b []byte) []byte {
 	return new(big.Int).Add(new(big.Int).SetBytes(a), new(big.Int).SetBytes(b)).Bytes()
@@ -32,4 +35,27 @@ func CmpForBigInt(a []byte, b []byte) int {
 		return 1
 	}
 	return new(big.Int).SetBytes(a).Cmp(new(big.Int).SetBytes(b))
+}
+
+func SubForAbsAndSign(a, b int32) (int32, int32) {
+	r := a - b
+	if r < 0 {
+		return -r, -1
+	} else {
+		return r, 1
+	}
+}
+
+func AdjustPrecision(targetAmountF *big.Float, sourceDecimals, targetDecimals int32) *big.Float {
+	if sourceDecimals == targetDecimals {
+		return targetAmountF
+	}
+	dcDiffAbs, dcDiffSign := SubForAbsAndSign(sourceDecimals, targetDecimals)
+	decimalDiffInt := new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(dcDiffAbs)), nil)
+	decimalDiffFloat := new(big.Float).SetInt(decimalDiffInt)
+	if dcDiffSign > 0 {
+		return targetAmountF.Quo(targetAmountF, decimalDiffFloat)
+	} else {
+		return targetAmountF.Mul(targetAmountF, decimalDiffFloat)
+	}
 }
