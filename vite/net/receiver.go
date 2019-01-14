@@ -305,7 +305,7 @@ func (s *receiver) listen(st SyncState) {
 		return
 	}
 
-	if st == Syncdone || st == SyncDownloaded {
+	if st == Syncdone || st == SyncDownloaded || st == Syncerr {
 		s.log.Info(fmt.Sprintf("ready: %s", st))
 		atomic.StoreInt32(&s.ready, 1)
 
