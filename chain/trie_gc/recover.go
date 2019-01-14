@@ -81,16 +81,12 @@ func (gc *collector) saveTrie(t *trie.Trie) error {
 }
 
 // Recover data when delete too much data
-// TODO account block
 func (gc *collector) Recover() (returnErr error) {
-	// first, stop gc
-	gc.Stop()
 	defer func() {
 		// finally, start gc
 		if returnErr != nil {
-			gc.log.Error("Recover failed, error is " + returnErr.Error())
+			fmt.Println("Recover failed, error is " + returnErr.Error())
 		}
-		gc.Start()
 	}()
 
 	if err := gc.recoverGenesis(); err != nil {

@@ -157,17 +157,13 @@ func (c *chain) checkData() bool {
 		return false
 	}
 
-	result, err := c.checkForkPoints()
-	if err != nil {
-		c.log.Crit("checkForkPoints failed, error is "+err.Error(), "method", "CheckAndInitDb")
-	}
-	return result
+	return true
 }
 
-func (c *chain) checkForkPoints() (bool, error) {
+func (c *chain) checkForkPoints() (bool, *config.ForkPoint, error) {
 	// check Vite1 upgrade
 	if c.globalCfg.ForkPoints == nil {
-		return true, nil
+		return true, nil, nil
 	}
 
 	t := reflect.TypeOf(c.globalCfg.Genesis.ForkPoints).Elem()
@@ -178,15 +174,15 @@ func (c *chain) checkForkPoints() (bool, error) {
 		if forkPoint.Hash != nil {
 			blockPoint, err := c.GetSnapshotBlockByHash(forkPoint.Hash)
 			if err != nil {
-				return false, err
+				return false, nil, err
 			}
 			if blockPoint == nil {
-				return false, nil
+				return false, forkPoint, nil
 			}
 		}
 	}
 
-	return true, nil
+	return true, nil, nil
 }
 
 func (c *chain) checkAndInitData() {
@@ -197,8 +193,27 @@ func (c *chain) checkAndInitData() {
 		c.initData()
 		// init cache
 		c.initCache()
-		return
 	}
+
+	noFork, forkPoint, err := c.checkForkPoints()
+
+	if err != nil {
+		c.log.Crit("checkForkPoints failed, error is "+err.Error(), "method", "checkAndInitData")
+	}
+
+	if !noFork {
+		// delete to forkPoint.Height - 1
+		_, _, err := c.DeleteSnapshotBlocksToHeight(forkPoint.Height)
+		if err != nil {
+			c.log.Crit("DeleteSnapshotBlocksToHeight failed, error is "+err.Error(), "method", "checkAndInitData")
+		}
+
+		if c.cfg.LedgerGc {
+			// recover trie
+			c.TrieGc().Recover()
+		}
+	}
+
 }
 
 func (c *chain) clearData() {

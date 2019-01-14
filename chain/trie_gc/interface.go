@@ -14,6 +14,7 @@ type Collector interface {
 	Start()
 	Stop()
 	Status() uint8
+	Recover() (returnErr error)
 }
 
 type Chain interface {
