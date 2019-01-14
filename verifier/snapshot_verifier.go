@@ -141,7 +141,7 @@ func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, snapshotH
 	if first == nil {
 		return nil, errors.New("account block is nil.")
 	}
-	refer, e := self.reader.GetSnapshotBlockByHash(&first.SnapshotHash)
+	refer, e := self.reader.GetSnapshotBlockHeadByHash(&first.SnapshotHash)
 
 	if e != nil {
 		return nil, e
