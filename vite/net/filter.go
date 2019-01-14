@@ -1,10 +1,11 @@
 package net
 
 import (
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/monitor"
 	"sync"
 	"time"
+
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/monitor"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
@@ -47,7 +48,6 @@ func (r *record) done() {
 }
 
 type filter struct {
-	chain   *skeleton
 	records map[types.Hash]*record
 	lock    sync.RWMutex
 	log     log15.Logger
