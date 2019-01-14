@@ -345,11 +345,7 @@ func (fc *fileClient) doRequest(conns map[string]*conn, file *ledger.CompressedF
 	}
 
 	c.file = file
-
-	// exec
-	common.Go(func() {
-		fc.exec(c)
-	})
+	fc.exec(c)
 
 	return nil
 }
@@ -518,6 +514,12 @@ func (fc *fileClient) exec(ctx *conn) {
 
 	ctx.idle = false
 
+	common.Go(func() {
+		fc.download(ctx)
+	})
+}
+
+func (fc *fileClient) download(ctx *conn) {
 	getFiles := &message.GetFiles{
 		Names: []string{ctx.file.Filename},
 	}
@@ -545,6 +547,10 @@ func (fc *fileClient) exec(ctx *conn) {
 	} else {
 		ctx.done = true
 		fc.idle(ctx)
+		fc.rec.done(&filePiece{
+			from: ctx.file.StartHeight,
+			to:   ctx.file.EndHeight,
+		})
 	}
 }
 
