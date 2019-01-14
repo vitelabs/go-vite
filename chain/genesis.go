@@ -32,6 +32,40 @@ var GenesisConsensusGroupBlockVC vmctxt_interface.VmDatabase
 var GenesisRegisterBlock ledger.AccountBlock
 var GenesisRegisterBlockVC vmctxt_interface.VmDatabase
 
+func (c *chain) GetSecondSnapshotBlock() *ledger.SnapshotBlock {
+	return &SecondSnapshotBlock
+}
+
+func (c *chain) GetGenesisMintageBlock() *ledger.AccountBlock {
+	return &GenesisMintageBlock
+}
+
+func (c *chain) GetGenesisMintageSendBlock() *ledger.AccountBlock {
+	return &GenesisMintageSendBlock
+}
+func (c *chain) GetGenesisConsensusGroupBlock() *ledger.AccountBlock {
+	return &GenesisConsensusGroupBlock
+}
+
+func (c *chain) GetGenesisRegisterBlock() *ledger.AccountBlock {
+	return &GenesisRegisterBlock
+}
+
+func (c *chain) GetGenesisMintageBlockVC() vmctxt_interface.VmDatabase {
+	return GenesisMintageBlockVC
+}
+
+func (c *chain) GetGenesisMintageSendBlockVC() vmctxt_interface.VmDatabase {
+	return GenesisMintageSendBlockVC
+}
+func (c *chain) GetGenesisConsensusGroupBlockVC() vmctxt_interface.VmDatabase {
+	return GenesisConsensusGroupBlockVC
+}
+
+func (c *chain) GetGenesisRegisterBlockVC() vmctxt_interface.VmDatabase {
+	return GenesisRegisterBlockVC
+}
+
 func initGenesis(config *config.Genesis) {
 	GenesisSnapshotBlock = genesisSnapshotBlock()
 
