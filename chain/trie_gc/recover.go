@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/generator"
 )
 
 // Recover data when delete too much data
@@ -103,4 +102,5 @@ func (gc *collector) Recover() (returnErr error) {
 	}
 
 	fmt.Println("Data recovery complete")
+	return nil
 }

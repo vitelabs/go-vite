@@ -159,32 +159,6 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 	}, nil
 }
 
-func (gen *Generator) RecoverVmContext(block *ledger.AccountBlock) (vmContext vmctxt_interface.VmDatabase, resultErr error) {
-	var rtLog = gen.log.New("method", "RecoverVmContext")
-	var sendBlock *ledger.AccountBlock = nil
-	if block.IsReceiveBlock() {
-		if sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash); sendBlock == nil {
-			return nil, ErrGetVmContextValueFailed
-		}
-	}
-	defer func() {
-		if err := recover(); err != nil {
-			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v sbHash:%v )", block.AccountAddress, block.PrevHash, block.SnapshotHash)
-			if sendBlock != nil {
-				errDetail += fmt.Sprintf("sendBlock(addr:%v hash:%v)", block.AccountAddress, block.Hash)
-			}
-			gen.log.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
-			resultErr = errors.New("generator_vm panic error")
-		}
-	}()
-
-	blockList, isRetry, err := gen.vm.Run(gen.vmContext, block, sendBlock)
-	rtLog.Debug("vm result", fmt.Sprintf("len %v, isRetry %v, err %v", len(blockList), isRetry, err))
-	if len(blockList) <= 0 {
-		return nil, errors.New("recover failed, blockList nil")
-	}
-	return blockList[0].VmContext, err
-}
 
 func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockPacked *ledger.AccountBlock, err error) {
 	latestBlock := gen.vmContext.PrevAccountBlock()
