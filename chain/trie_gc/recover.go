@@ -7,6 +7,57 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
+func (gc *collector) recoverGenesis() error {
+	// recover genesis trie
+	batch := new(leveldb.Batch)
+	genesisSnapshotBlock := gc.chain.GetGenesisSnapshotBlock()
+	trieSaveCallback1, err := genesisSnapshotBlock.StateTrie.Save(batch)
+	if err != nil {
+		return err
+	}
+
+	genesisConsensusGroupBlockVC := gc.chain.GetGenesisConsensusGroupBlockVC()
+	trieSaveCallback2, err := genesisConsensusGroupBlockVC.UnsavedCache().Trie().Save(batch)
+	if err != nil {
+		return err
+	}
+
+	genesisMintageBlockVC := gc.chain.GetGenesisMintageBlockVC()
+	trieSaveCallback3, err := genesisMintageBlockVC.UnsavedCache().Trie().Save(batch)
+	if err != nil {
+		return err
+	}
+
+	genesisMintageSendBlockVC := gc.chain.GetGenesisMintageSendBlockVC()
+	trieSaveCallback4, err := genesisMintageSendBlockVC.UnsavedCache().Trie().Save(batch)
+	if err != nil {
+		return err
+	}
+
+	genesisRegisterBlockVC := gc.chain.GetGenesisRegisterBlockVC()
+	trieSaveCallback5, err := genesisRegisterBlockVC.UnsavedCache().Trie().Save(batch)
+	if err != nil {
+		return err
+	}
+
+	secondSnapshotBlock := gc.chain.GetSecondSnapshotBlock()
+	trieSaveCallback6, err := secondSnapshotBlock.StateTrie.Save(batch)
+	if err != nil {
+		return err
+	}
+
+	if err := gc.chain.ChainDb().Commit(batch); err != nil {
+		return errors.New("Commit failed, error is " + err.Error())
+	}
+
+	trieSaveCallback1()
+	trieSaveCallback2()
+	trieSaveCallback3()
+	trieSaveCallback4()
+	trieSaveCallback5()
+	trieSaveCallback6()
+}
+
 // Recover data when delete too much data
 // TODO account block
 func (gc *collector) Recover() (returnErr error) {
@@ -20,7 +71,9 @@ func (gc *collector) Recover() (returnErr error) {
 		gc.Start()
 	}()
 
-	// recover genesis trie
+	if err := gc.recoverGenesis(); err != nil {
+		return errors.New("recoverGenesis failed, error is " + err.Error())
+	}
 
 	latestBlockEventId, err := gc.chain.GetLatestBlockEventId()
 	if err != nil {
@@ -47,6 +100,10 @@ func (gc *collector) Recover() (returnErr error) {
 					continue
 				}
 
+				if gc.chain.IsGenesisAccountBlock(block) {
+					continue
+				}
+
 			}
 
 		// AddSnapshotBlocksEvent = byte(3)
@@ -59,6 +116,10 @@ func (gc *collector) Recover() (returnErr error) {
 
 				if snapshotBlock == nil {
 					// been rolled back
+					continue
+				}
+
+				if gc.chain.IsGenesisSnapshotBlock(snapshotBlock) {
 					continue
 				}
 

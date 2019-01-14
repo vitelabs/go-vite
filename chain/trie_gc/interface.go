@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 )
 
 type Collector interface {
@@ -26,6 +27,17 @@ type Chain interface {
 	TrieDb() *leveldb.DB
 	CleanTrieNodePool()
 	GenStateTrieFromDb(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
+
+	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
+	GetSecondSnapshotBlock() *ledger.SnapshotBlock
+
+	GetGenesisMintageBlockVC() vmctxt_interface.VmDatabase
+	GetGenesisMintageSendBlockVC() vmctxt_interface.VmDatabase
+	GetGenesisConsensusGroupBlockVC() vmctxt_interface.VmDatabase
+	GetGenesisRegisterBlockVC() vmctxt_interface.VmDatabase
+
+	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
+	IsGenesisAccountBlock(block *ledger.AccountBlock) bool
 
 	StopSaveTrie()
 	StartSaveTrie()
