@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/chain_db"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/trie"
 )
 
 type Collector interface {
@@ -24,6 +25,7 @@ type Chain interface {
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	TrieDb() *leveldb.DB
 	CleanTrieNodePool()
+	GenStateTrieFromDb(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
 
 	StopSaveTrie()
 	StartSaveTrie()

@@ -115,6 +115,7 @@ type Chain interface {
 	GetConfirmSubLedgerBySnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error)
 
 	GetStateTrie(stateHash *types.Hash) *trie.Trie
+	GenStateTrieFromDb(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
 	NewStateTrie() *trie.Trie
 
 	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool

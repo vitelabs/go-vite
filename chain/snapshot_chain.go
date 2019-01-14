@@ -44,6 +44,31 @@ func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.Sn
 	return currentTrie, nil
 }
 
+func (c *chain) GenStateTrieFromDb(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error) {
+	prevTrie := c.GetStateTrie(&prevStateHash)
+	if prevTrie == nil {
+		prevTrie = c.NewStateTrie()
+	}
+	currentTrie := prevTrie.Copy()
+	for addr, item := range snapshotContent {
+		block, err := c.chainDb.Ac.GetBlock(&item.Hash)
+		if err != nil {
+			c.log.Error("GetBlock failed, error is "+err.Error(), "method", "GenStateTrieFromDb")
+			return nil, err
+		}
+
+		if block == nil {
+			err := errors.New(fmt.Sprintf("Block is not existed in need snapshot cache, blockHash is %s, blockHeight is %d, address is %s",
+				item.Hash, item.Height, addr))
+			return nil, err
+		}
+
+		currentTrie.SetValue(addr.Bytes(), block.StateHash.Bytes())
+	}
+
+	return currentTrie, nil
+}
+
 func (c *chain) GetNeedSnapshotContent() ledger.SnapshotContent {
 	return c.needSnapshotCache.GetSnapshotContent()
 }
