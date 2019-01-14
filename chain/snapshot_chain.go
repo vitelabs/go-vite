@@ -403,7 +403,8 @@ func (c *chain) calculateNeedSnapshot(deleteSubLedger map[types.Address][]*ledge
 				headHeight = tailDeletedBlockHeight - 1
 			}
 			if tailHeight >= tailDeletedBlockHeight {
-				tailHeight = tailDeletedBlockHeight - 1
+				// now, tailHeight need be greater than headHeight
+				tailHeight = tailDeletedBlockHeight
 			}
 		}
 
