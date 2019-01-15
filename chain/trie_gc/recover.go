@@ -150,7 +150,19 @@ func (gc *collector) Recover() (returnErr error) {
 					return err
 				}
 
-				for _, vmCtxt := range vmCtxtList {
+				for index, vmCtxt := range vmCtxtList {
+					if index == 0 {
+						firstTrieHash := vmCtxt.UnsavedCache().Trie().Hash()
+
+						if firstTrieHash == nil {
+							firstTrieHash = &types.Hash{}
+						}
+						if block.StateHash != *firstTrieHash {
+							err := errors.New(fmt.Sprintf("recover failed, trie hash is not correct, block.Hash is %s, block.StateHash is %s, firstTrieHash is %s",
+								block.Hash, block.StateHash, firstTrieHash))
+							return err
+						}
+					}
 					if err := gc.saveTrie(vmCtxt.UnsavedCache().Trie()); err != nil {
 						return errors.New("saveTrie failed, error is " + err.Error())
 					}
