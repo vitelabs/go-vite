@@ -348,11 +348,21 @@ func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 		return false
 	}
 
-	account, _ := context.chain.GetAccount(addr)
-	if account == nil {
-		return false
+	if context.isSelf(addr) {
+		if context.prevAccountBlock != nil {
+			return true
+		}
+	} else {
+		latestAccountBlock, err := context.chain.GetConfirmAccountBlock(context.currentSnapshotBlock.Height, addr)
+		if err != nil {
+			panic(err)
+		}
+		if latestAccountBlock != nil {
+			return true
+		}
 	}
-	return true
+
+	return false
 }
 
 func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
