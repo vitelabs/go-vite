@@ -379,7 +379,7 @@ func calculateOrderAndTx(taker *Order, maker *Order) (tx OrderTx) {
 	takerAmount := calculateOrderAmount(taker, executeQuantity, maker.Price)
 	makerAmount := calculateOrderAmount(maker, executeQuantity, maker.Price)
 	executeAmount := MinBigInt(takerAmount, makerAmount)
-	executeQuantity = MinBigInt(executeQuantity, calculateQuantity(executeAmount, maker.Price, taker.TradeTokenDecimals, taker.QuoteTokenDecimals))
+	//fmt.Printf("calculateOrderAndTx executeQuantity %v, takerAmount %v, makerAmount %v, executeAmount %v\n", new(big.Int).SetBytes(executeQuantity).String(), new(big.Int).SetBytes(takerAmount).String(), new(big.Int).SetBytes(makerAmount).String(), new(big.Int).SetBytes(executeAmount).String())
 	takerFee, takerExecutedFee := calculateFeeAndExecutedFee(taker, executeAmount, TakerFeeRate)
 	makerFee, makerExecutedFee := calculateFeeAndExecutedFee(maker, executeAmount, MakerFeeRate)
 	updateOrder(taker, executeQuantity, executeAmount, takerExecutedFee)
@@ -450,9 +450,10 @@ func ValidPrice(price string) bool {
 func CalculateRawAmount(quantity []byte, price string, tradeDecimals int32, quoteDecimals int32) []byte {
 	qtF := big.NewFloat(0).SetInt(new(big.Int).SetBytes(quantity))
 	prF, _ := big.NewFloat(0).SetString(price)
-	amountF := prF.Mul(prF, qtF)
-	amountF = AdjustPrecision(amountF, tradeDecimals, quoteDecimals)
-	return roundAmount(amountF).Bytes()
+	amountF := new(big.Float).Mul(prF, qtF)
+	amountF = AdjustForDecimalsDiff(amountF, tradeDecimals, quoteDecimals)
+	res := roundAmount(amountF).Bytes()
+	return res
 }
 
 func CalculateRawFee(amount []byte, feeRate float64) []byte {
@@ -460,14 +461,6 @@ func CalculateRawFee(amount []byte, feeRate float64) []byte {
 	rateF := big.NewFloat(feeRate)
 	amtFee := amtF.Mul(amtF, rateF)
 	return roundAmount(amtFee).Bytes()
-}
-
-func calculateQuantity(amount []byte, price string, tradeDecimals int32, quoteDecimals int32) []byte {
-	amtF := big.NewFloat(0).SetInt(new(big.Int).SetBytes(amount))
-	prF, _ := big.NewFloat(0).SetString(price)
-	qtyF := amtF.Quo(amtF, prF)
-	qtyF = AdjustPrecision(qtyF, quoteDecimals, tradeDecimals)
-	return roundAmount(qtyF).Bytes()
 }
 
 func calculateFeeAndExecutedFee(order *Order, amount []byte, feeRate float64) (feeBytes, executedFee []byte) {
@@ -489,12 +482,11 @@ func calculateFeeAndExecutedFee(order *Order, amount []byte, feeRate float64) (f
 	case true://sell
 		executedFee = AddBigInt(order.ExecutedFee, feeBytes)
 	}
-
 	return feeBytes, executedFee
 }
 
 func roundAmount(amountF *big.Float) *big.Int {
-	amount, _ := amountF.Add(amountF, big.NewFloat(0.5)).Int(nil)
+	amount, _ := new(big.Float).Add(amountF, big.NewFloat(0.5)).Int(nil)
 	return amount
 }
 
@@ -531,7 +523,7 @@ func generateTxId(takerId []byte, makerId []byte) []byte {
 }
 
 
-func maxFeeRate() float64 {
+func MaxFeeRate() float64 {
 	if TakerFeeRate > MakerFeeRate {
 		return TakerFeeRate
 	} else {

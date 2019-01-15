@@ -46,16 +46,16 @@ func SubForAbsAndSign(a, b int32) (int32, int32) {
 	}
 }
 
-func AdjustPrecision(targetAmountF *big.Float, sourceDecimals, targetDecimals int32) *big.Float {
+func AdjustForDecimalsDiff(sourceAmountF *big.Float, sourceDecimals, targetDecimals int32) *big.Float {
 	if sourceDecimals == targetDecimals {
-		return targetAmountF
+		return sourceAmountF
 	}
 	dcDiffAbs, dcDiffSign := SubForAbsAndSign(sourceDecimals, targetDecimals)
 	decimalDiffInt := new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(dcDiffAbs)), nil)
 	decimalDiffFloat := new(big.Float).SetInt(decimalDiffInt)
 	if dcDiffSign > 0 {
-		return targetAmountF.Quo(targetAmountF, decimalDiffFloat)
+		return sourceAmountF.Quo(sourceAmountF, decimalDiffFloat)
 	} else {
-		return targetAmountF.Mul(targetAmountF, decimalDiffFloat)
+		return sourceAmountF.Mul(sourceAmountF, decimalDiffFloat)
 	}
 }

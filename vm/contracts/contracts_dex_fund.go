@@ -469,7 +469,7 @@ func renderOrder(order *dexproto.Order, param *ParamDexFundNewOrder, db vmctxt_i
 	if order.Type == dex.Limited {
 		order.Amount = dex.CalculateRawAmount(order.Quantity, order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals)
 		if !order.Side { //buy
-			order.LockedBuyFee = dex.CalculateRawFee(order.Amount, maxFeeRate())
+			order.LockedBuyFee = dex.CalculateRawFee(order.Amount, dex.MaxFeeRate())
 		}
 	}
 	order.Status = dex.Pending
