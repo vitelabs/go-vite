@@ -346,13 +346,15 @@ func chooseIdleConn(list connList) *conn {
 func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fileState, pFiles map[string]files, file *ledger.CompressedFileMeta) (err error) {
 	if r, ok := record[file.Filename]; ok {
 		if len(r.peers) > 0 {
-
 			var cList connList
 			var id string
+			var newPeers peers
 			for _, p := range r.peers {
 				id = p.ID()
 				if c, ok := conns[id]; ok {
 					cList = append(cList, c)
+				} else {
+					newPeers = append(newPeers, p)
 				}
 			}
 
@@ -363,21 +365,15 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 				return nil
 			}
 
-			ids := rand.Perm(len(r.peers))
+			if len(newPeers) == 0 {
+				return
+			}
+
+			ids := rand.Perm(len(newPeers))
 			// random a idle peer
 			for _, idx := range ids {
-				// may be remove peers from r.peers
-				if idx >= len(r.peers) {
-					continue
-				}
-
-				p := r.peers[idx]
+				p := newPeers[idx]
 				id = p.ID()
-
-				// connection is busy
-				if c, ok := conns[id]; ok && !c.idle {
-					continue
-				}
 
 				r.state = reqPending
 				if err = fc.doRequest(conns, file, p); err != nil {
@@ -452,6 +448,19 @@ type fileState struct {
 	file *ledger.CompressedFileMeta
 	peers
 	state reqState
+}
+
+type fileTask struct {
+	file     *ledger.CompressedFileMeta
+	from, to uint64
+}
+
+func (f *fileTask) band() (from, to uint64) {
+	return f.file.StartHeight, f.file.EndHeight
+}
+
+func (f *fileTask) setBand(from, to uint64) {
+	f.from, f.to = from, to
 }
 
 func (fc *fileClient) loop() {
@@ -529,7 +538,11 @@ loop:
 			// clean
 			fc.removePeer(conns, record, pFiles, conn.peer)
 
-			fc.requestFile(conns, record, pFiles, file)
+			if err := fc.requestFile(conns, record, pFiles, file); err != nil {
+				fc.rec.catch(&fileTask{
+					file: file,
+				})
+			}
 
 		case <-jobTicker:
 			if file := fc.nextFile(fileList, record); file == nil {
@@ -548,7 +561,11 @@ loop:
 					break loop
 				}
 			} else if file.StartHeight <= fc.to {
-				fc.requestFile(conns, record, pFiles, file)
+				if err := fc.requestFile(conns, record, pFiles, file); err != nil {
+					fc.rec.catch(&fileTask{
+						file: file,
+					})
+				}
 			}
 		}
 	}
@@ -573,13 +590,6 @@ func (fc *fileClient) delete(ctx *conn) {
 }
 
 func (fc *fileClient) exec(ctx *conn) {
-	select {
-	case <-fc.term:
-		return
-	default:
-		// next
-	}
-
 	ctx.idle = false
 
 	common.Go(func() {
