@@ -93,7 +93,7 @@ func (md *MethodDexFundUserDeposit) DoSend(db vmctxt_interface.VmDatabase, block
 	if block.Amount.Sign() <= 0 {
 		return quotaLeft, fmt.Errorf("deposit amount is zero")
 	}
-	if err = getTokenInfo(db, block.TokenId); err != nil {
+	if err, _ = getTokenInfo(db, block.TokenId); err != nil {
 		return quotaLeft, err
 	}
 	return util.UseQuotaForData(block.Data, quotaLeft)
@@ -359,7 +359,7 @@ func checkAndLockFundForNewOrder(db vmctxt_interface.VmDatabase, dexFund *DexFun
 		}
 	}
 	available = available.Sub(available, lockAmountToInc)
-	lockedInBig := big.NewInt(0).SetBytes(account.Locked)
+	lockedInBig := new(big.Int).SetBytes(account.Locked)
 	lockedInBig = lockedInBig.Add(lockedInBig, lockAmountToInc)
 	account.Available = available.Bytes()
 	account.Locked = lockedInBig.Bytes()
@@ -529,7 +529,7 @@ func doSettleAction(db vmctxt_interface.VmDatabase, action *dexproto.SettleActio
 					return fmt.Errorf("try release locked amount execeed locked")
 				}
 				account.Locked = dex.SubBigInt(account.Locked, action.ReleaseLocked)
-				account.Available = dex.AddBigInt(account.Locked, action.ReleaseLocked)
+				account.Available = dex.AddBigInt(account.Available, action.ReleaseLocked)
 			}
 			if dex.CmpToBigZero(action.IncAvailable) > 0 {
 				account.Available = dex.AddBigInt(account.Available, action.IncAvailable)

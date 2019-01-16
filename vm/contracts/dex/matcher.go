@@ -421,7 +421,7 @@ func updateOrder(order *Order, quantity []byte, amount []byte, executedFee []byt
 
 // leave quantity is too small for calculate precision
 func isDust(order *Order, quantity []byte) bool {
-	return new(big.Int).SetBytes(CalculateRawAmount(SubBigInt(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity), order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals)).Cmp(big.NewInt(1)) < 0
+	return CalculateRawAmountF(SubBigInt(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity), order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals).Cmp(new(big.Float).SetInt64(int64(1))) < 0
 }
 
 func getMakerById(makerBook *skiplist, orderId nodeKeyType) (od Order, nextId OrderId, err error) {
@@ -448,12 +448,14 @@ func ValidPrice(price string) bool {
 }
 
 func CalculateRawAmount(quantity []byte, price string, tradeDecimals int32, quoteDecimals int32) []byte {
+	return roundAmount(CalculateRawAmountF(quantity, price, tradeDecimals, quoteDecimals)).Bytes()
+}
+
+func CalculateRawAmountF(quantity []byte, price string, tradeDecimals int32, quoteDecimals int32) *big.Float {
 	qtF := big.NewFloat(0).SetInt(new(big.Int).SetBytes(quantity))
 	prF, _ := big.NewFloat(0).SetString(price)
 	amountF := new(big.Float).Mul(prF, qtF)
-	amountF = AdjustForDecimalsDiff(amountF, tradeDecimals, quoteDecimals)
-	res := roundAmount(amountF).Bytes()
-	return res
+	return AdjustForDecimalsDiff(amountF, tradeDecimals, quoteDecimals)
 }
 
 func CalculateRawFee(amount []byte, feeRate float64) []byte {
@@ -532,7 +534,7 @@ func MaxFeeRate() float64 {
 }
 
 // only for unit test
-func setFeeRate(takerFR float64, makerFR float64) {
+func SetFeeRate(takerFR float64, makerFR float64) {
 	TakerFeeRate = takerFR
 	MakerFeeRate = makerFR
 }

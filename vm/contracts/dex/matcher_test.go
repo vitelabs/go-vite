@@ -23,7 +23,7 @@ func TestMatcher(t *testing.T) {
 	localStorage := NewMapStorage()
 	st := BaseStorage(&localStorage)
 	mc := NewMatcher(getAddress(), &st)
-	setFeeRate(0.06, 0.05) // takerFee, makerFee
+	SetFeeRate(0.06, 0.05) // takerFee, makerFee
 	// buy
 	buy1 := newOrderInfo(101, ETH, VITE, false, Limited, "100.02", 1000, time.Now().UnixNano()/1000)
 	buy2 := newOrderInfo(102, ETH, VITE, false, Limited, "100.03", 3000, time.Now().UnixNano()/1000)
@@ -170,7 +170,7 @@ func TestMatcher(t *testing.T) {
 }
 
 func TestFeeCalculation(t *testing.T) {
-	setFeeRate(0.07, 0.05) // takerFee, makerFee
+	SetFeeRate(0.07, 0.05) // takerFee, makerFee
 	buyTakerOrder := newOrderInfo(601, ETH, VITE, false, Limited, "0.001234211", 1000000, time.Now().UnixNano()/1000)
 	assert.True(t, CheckBigEqualToInt(8639, buyTakerOrder.LockedBuyFee)) // 123421 * 0.07
 
@@ -182,11 +182,31 @@ func TestFeeCalculation(t *testing.T) {
 	assert.True(t, CheckBigEqualToInt(8640, executedFee))
 }
 
-func TestDust(t *testing.T) {
+func TestDustCheck(t *testing.T) {
+	order := &Order{}
+	order.Quantity = big.NewInt(2000).Bytes()
+	order.ExecutedQuantity = big.NewInt(0).Bytes()
+	order.Price = "0.1"
+	order.TradeTokenDecimals = 10
+	order.QuoteTokenDecimals = 8
+	assert.False(t, isDust(order, big.NewInt(1000).Bytes()))
+	assert.True(t, isDust(order, big.NewInt(1001).Bytes()))
+
+	order1 := &Order{}
+	order1.Quantity = big.NewInt(1000).Bytes()
+	order1.ExecutedQuantity = big.NewInt(0).Bytes()
+	order1.Price = "0.001"
+	order1.TradeTokenDecimals = 8
+	order1.QuoteTokenDecimals = 10
+	assert.False(t, isDust(order1, big.NewInt(990).Bytes()))
+	assert.True(t, isDust(order1, big.NewInt(991).Bytes()))
+}
+
+func TestDustWithOrder(t *testing.T) {
 	localStorage := NewMapStorage()
 	st := BaseStorage(&localStorage)
 	mc := NewMatcher(getAddress(), &st)
-	setFeeRate(0.06, 0.05) // takerFee, makerFee
+	SetFeeRate(0.06, 0.05) // takerFee, makerFee
 	// buy quantity = origin * 100,000,000
 	buy1 := newOrderInfo(301, ETH, VITE,false, Limited, "0.00012345", 10000, time.Now().UnixNano()/1000) //amount 123.45
 	mc.MatchOrder(buy1)

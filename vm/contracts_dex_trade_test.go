@@ -16,6 +16,7 @@ import (
 
 func TestDexTrade(t *testing.T) {
 	db := initDexTradeDatabase()
+	dex.SetFeeRate(0.001, 0.001)
 	innerTestTradeNewOrder(t, db)
 	innerTestTradeCancelOrder(t, db)
 }
@@ -58,6 +59,7 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	assert.Equal(t, 0, len(appendedBlocks))
 
 	clearContext(db)
+	// locked = 400 * 32 * 1.001 * 100 = 1281280
 	buyOrder1 := getNewOrderData(102, buyAddress1, ETH, VITE, false, "32", 400)
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, buyOrder1)
 	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
@@ -75,16 +77,16 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	for _, ac := range actions.Actions {
 		// sellOrder0
 		if bytes.Equal([]byte(ac.Address), sellAddress0.Bytes()) {
-			if bytes.Equal(ac.Token, ETH.Bytes()) {
+			if bytes.Equal(ac.Token, ETH.tokenId.Bytes()) {
 				assert.True(t, CheckBigEqualToInt(300, ac.DeduceLocked))
-			} else if bytes.Equal(ac.Token, VITE.Bytes()) {
-				assert.True(t, CheckBigEqualToInt(9300, ac.IncAvailable))
+			} else if bytes.Equal(ac.Token, VITE.tokenId.Bytes()) {
+				assert.True(t, CheckBigEqualToInt(929070, ac.IncAvailable)) // amount - feeExecuted
 			}
-		} else {
-			if bytes.Equal(ac.Token, ETH.Bytes()) {
+		} else { // buyOrder1
+			if bytes.Equal(ac.Token, ETH.tokenId.Bytes()) {
 				assert.True(t, CheckBigEqualToInt(300, ac.IncAvailable))
-			} else if bytes.Equal(ac.Token, VITE.Bytes()) {
-				assert.True(t, CheckBigEqualToInt(9300, ac.DeduceLocked))
+			} else if bytes.Equal(ac.Token, VITE.tokenId.Bytes()) {
+				assert.True(t, CheckBigEqualToInt(930930, ac.DeduceLocked)) // amount + feeExecuted
 			}
 		}
 	}
@@ -100,17 +102,18 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = userAddress1
 
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH, VITE, false)
+	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
 	_, err := method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, "cancel order not own to initiator", err.Error())
 
 	senderAccBlock.AccountAddress = userAddress2
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(202), ETH, VITE, true)
+	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(202), ETH.tokenId, VITE.tokenId, true)
 	_, err = method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, "order status is invalid to cancel", err.Error())
 
+	// executedQuantity = 100,
 	senderAccBlock.AccountAddress = userAddress
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH, VITE, false)
+	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
 	_, err = method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, nil, err)
 
@@ -134,10 +137,9 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	err = proto.Unmarshal(param.Data, actions)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 1, len(actions.Actions))
-	assert.True(t, bytes.Equal(actions.Actions[0].Token, VITE.Bytes()))
-	assert.True(t, CheckBigEqualToInt(3500, actions.Actions[0].ReleaseLocked))
-
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH, VITE, false)
+	assert.True(t, bytes.Equal(actions.Actions[0].Token, VITE.tokenId.Bytes()))
+	assert.True(t, CheckBigEqualToInt(350350, actions.Actions[0].ReleaseLocked)) // 1281280 - 930930
+	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
 	_, err = method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, "order status is invalid to cancel", err.Error())
 }
@@ -148,18 +150,24 @@ func initDexTradeDatabase()  *testDatabase {
 	return db
 }
 
-func getNewOrderData(id int, address types.Address, tradeToken types.TokenTypeId, quoteToken types.TokenTypeId, side bool, price string, quantity int64) []byte {
+func getNewOrderData(id int, address types.Address, tradeToken tokenInfo, quoteToken tokenInfo, side bool, price string, quantity int64) []byte {
 	order := &dexproto.Order{}
 	order.Id = orderIdBytesFromInt(id)
 	order.Address = address.Bytes()
-	order.TradeToken = tradeToken.Bytes()
-	order.QuoteToken = quoteToken.Bytes()
+	order.TradeToken = tradeToken.tokenId.Bytes()
+	order.QuoteToken = quoteToken.tokenId.Bytes()
+	order.TradeTokenDecimals = tradeToken.decimals
+	order.QuoteTokenDecimals = quoteToken.decimals
 	order.Side = side //sell
 	order.Type = dex.Limited
 	order.Price = price
 	order.Quantity = big.NewInt(quantity).Bytes()
-	order.Amount = dex.CalculateRawAmount(order.Quantity, order.Price)
 	order.Status =  dex.Pending
+	order.Amount = dex.CalculateRawAmount(order.Quantity, order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals)
+	if order.Type == dex.Limited && !order.Side {//buy
+		//fmt.Printf("newOrderInfo set LockedBuyFee id %v, order.Type %v, order.Side %v, order.Amount %v\n", id, order.Type, order.Side, order.Amount)
+		order.LockedBuyFee = dex.CalculateRawFee(order.Amount, dex.MaxFeeRate())
+	}
 	order.Timestamp = time.Now().Unix()
 	order.ExecutedQuantity = big.NewInt(0).Bytes()
 	order.ExecutedAmount = big.NewInt(0).Bytes()
