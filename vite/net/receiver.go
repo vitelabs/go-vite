@@ -153,6 +153,8 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender P
 		return
 	}
 
+	s.log.Info(fmt.Sprintf("record NewSnapshotBlock %s/%d", block.Hash, block.Height))
+
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetSb(block); err != nil {
 			s.log.Error(fmt.Sprintf("verify NewSnapshotBlock %s/%d from %s fail: %v", block.Hash, block.Height, sender.RemoteAddr(), err))
@@ -201,6 +203,8 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Pee
 	if exist {
 		return
 	}
+
+	s.log.Info(fmt.Sprintf("record NewAccountBlock %s/%d", block.Hash, block.Height))
 
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetAb(block); err != nil {
